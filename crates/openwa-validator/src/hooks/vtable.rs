@@ -76,23 +76,26 @@ impl VtableHook {
 static ORIG_CTASK_PROCESS_FRAME: AtomicU32 = AtomicU32::new(0);
 
 /// Hook for CTask::ProcessFrame (vtable slot 7).
-/// thiscall convention: ECX = this. We use fastcall (ECX = arg1, EDX = arg2).
-unsafe extern "fastcall" fn hook_ctask_process_frame(this: u32, _edx: u32) -> u32 {
-    // Call original
-    let orig: unsafe extern "fastcall" fn(u32, u32) -> u32 =
+/// thiscall(this, flags) — RET 0x4 confirms 1 stack param.
+/// flags bit 0: if set, frees `this` (scalar deleting destructor pattern).
+unsafe extern "fastcall" fn hook_ctask_process_frame(this: u32, _edx: u32, flags: u32) -> u32 {
+    let orig: unsafe extern "fastcall" fn(u32, u32, u32) -> u32 =
         core::mem::transmute(ORIG_CTASK_PROCESS_FRAME.load(Ordering::Relaxed));
-    orig(this, 0)
+    orig(this, 0, flags)
 }
 
 /// Original CTask::HandleMessage function pointer
 static ORIG_CTASK_HANDLE_MESSAGE: AtomicU32 = AtomicU32::new(0);
 
 /// Hook for CTask::HandleMessage (vtable slot 2).
-/// thiscall(this, msg_id, param) — ECX = this, two stack params
-unsafe extern "fastcall" fn hook_ctask_handle_message(this: u32, _edx: u32, msg_id: u32, param: u32) -> u32 {
-    let orig: unsafe extern "fastcall" fn(u32, u32, u32, u32) -> u32 =
+/// thiscall(this, sender, msg_type, size, data) — RET 0x10 confirms 4 stack params.
+/// Iterates children list and forwards message to each child's HandleMessage.
+unsafe extern "fastcall" fn hook_ctask_handle_message(
+    this: u32, _edx: u32, sender: u32, msg_type: u32, size: u32, data: u32,
+) -> u32 {
+    let orig: unsafe extern "fastcall" fn(u32, u32, u32, u32, u32, u32) -> u32 =
         core::mem::transmute(ORIG_CTASK_HANDLE_MESSAGE.load(Ordering::Relaxed));
-    orig(this, 0, msg_id, param)
+    orig(this, 0, sender, msg_type, size, data)
 }
 
 // ---------------------------------------------------------------------------
