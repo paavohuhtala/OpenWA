@@ -26,6 +26,24 @@ pub mod va {
     pub const CGAMETASK_VTABLE: u32 = 0x0066_41F8;
     /// CGameTask secondary vtable (at object offset 0xE8)
     pub const CGAMETASK_VTABLE2: u32 = 0x0066_9CF8;
+    /// DDGameWrapper vtable
+    pub const DDGAME_WRAPPER_VTABLE: u32 = 0x0066_A30C;
+    /// GfxHandler vtable (0x19C-byte objects)
+    pub const GFX_HANDLER_VTABLE: u32 = 0x0066_B280;
+    /// DisplayGfx vtable
+    pub const DISPLAY_GFX_VTABLE: u32 = 0x0066_4144;
+    /// PCLandscape vtable
+    pub const PC_LANDSCAPE_VTABLE: u32 = 0x0066_B208;
+    /// LandscapeShader vtable
+    pub const LANDSCAPE_SHADER_VTABLE: u32 = 0x0066_B1DC;
+    /// DSSound vtable
+    pub const DS_SOUND_VTABLE: u32 = 0x0066_AF20;
+    /// TaskStateMachine vtable
+    pub const TASK_STATE_MACHINE_VTABLE: u32 = 0x0066_4118;
+    /// OpenGLCPU vtable (0x48-byte object)
+    pub const OPENGL_CPU_VTABLE: u32 = 0x0067_74C0;
+    /// WaterEffect vtable (0xBC-byte object)
+    pub const WATER_EFFECT_VTABLE: u32 = 0x0066_B268;
 
     // === CTask vtable methods (at CTask__vtable) ===
 

@@ -21,13 +21,47 @@
 
 ## DDGame structure access
 
-The main game state is accessed through the DDGame pointer:
-- DDGame obtained via `ConstructDDGameWrapper` (0x56DEF0) parameter
+The main game state is a 0x98B8-byte (39KB) monolithic object allocated by
+`DDGame__Constructor` (0x56E220). It is wrapped by DDGameWrapper (0x56DEF0).
+
+### DDGameWrapper offsets (from wrapper base)
+- +0x488 → DDGame pointer (the allocated 0x98B8-byte object)
+- +0x4C0 → GfxHandler 0 (vtable 0x66B280)
+- +0x4CC → PCLandscape pointer
+
+### DDGame offsets (from DDGame base)
+- +0x0024 → Game state pointer
+- +0x0028 → Constructor param
+- +0x11B0 → Task state machine pointers (5 entries)
+- +0x3548 → Display mode
+- +0x354C → Display width
+- +0x3560 → Display center X
+- +0x3564 → Display center Y
+- +0x3578 → HWND
+- +0x358D → Palette (0x400 bytes)
+- +0x3D98 → Gfx object pointers (4 entries)
+
+### WormKit-convention offsets (DWORD-indexed)
+These offsets are from the DDGameWrapper base, as used by WormKit mods:
 - DDGame+0x08  → TurnGame object
 - DDGame+0x488 → Game global state
 - DDGame+0x4CC → PC_Landscape
 - DDGame+0x510 → Weapon table
 - DDGame+0x548 → Weapon panel
+
+## Subsystem vtables
+
+| Address    | Object          | Size   | Notes                     |
+|------------|-----------------|--------|---------------------------|
+| 0x66A30C   | DDGameWrapper   | ~0x500 | Top-level wrapper         |
+| 0x66B280   | GfxHandler      | 0x19C  | 2 instances               |
+| 0x664144   | DisplayGfx      | —      |                           |
+| 0x66B208   | PCLandscape     | 0xB40  | Terrain, water, level     |
+| 0x66B1DC   | LandscapeShader | —      | Used by PCLandscape       |
+| 0x66B268   | WaterEffect     | 0xBC   | Created by PCLandscape    |
+| 0x66AF20   | DSSound         | ~0xBD0 | DirectSound, 500 channels |
+| 0x664118   | TaskStateMachine| —      | 5 instances in DDGame     |
+| 0x6774C0   | OpenGLCPU       | 0x48   | Optional, conditional     |
 
 ## Fixed-point convention
 
