@@ -11,4 +11,5 @@ pub mod landscape;
 pub mod dssound;
 pub mod opengl;
 pub mod frontend;
+pub mod scheme;
 pub mod address;

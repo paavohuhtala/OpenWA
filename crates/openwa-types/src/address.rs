@@ -218,6 +218,22 @@ pub mod va {
     pub const FRONTEND_LOBBY_HOST_CTOR: u32 = 0x004B_0160;
     pub const FRONTEND_LOBBY_GAME_START_CTOR: u32 = 0x004B_DBE0;
 
+    // === Scheme file operations ===
+
+    /// Reads .wsc file into scheme struct: stdcall(dest, path, flag, out_ptr), RET 0x10
+    /// Opens modeRead|typeBinary, reads header + version-dependent payload to dest+0x14
+    pub const SCHEME_READ_FILE: u32 = 0x004D_3890;
+    /// Checks if scheme file exists: stdcall(name) → 0=not found, 1=found, RET 0x4
+    pub const SCHEME_FILE_EXISTS: u32 = 0x004D_4CD0;
+    /// Saves scheme struct to .wsc file: thiscall(this, name, flag), RET 0x8
+    pub const SCHEME_SAVE_FILE: u32 = 0x004D_44F0;
+    /// Variant file-exists check for numbered schemes ({%02d} Name.wsc)
+    pub const SCHEME_FILE_EXISTS_NUMBERED: u32 = 0x004D_4E00;
+    /// Version detection: compares patterns to determine v1/v2/v3
+    pub const SCHEME_DETECT_VERSION: u32 = 0x004D_4480;
+    /// Extracts built-in schemes from PE resources to User\Schemes\ directory
+    pub const SCHEME_EXTRACT_BUILTINS: u32 = 0x004D_5720;
+
     // === Lobby / network ===
 
     pub const LOBBY_HOST_COMMANDS: u32 = 0x004B_9B00;
