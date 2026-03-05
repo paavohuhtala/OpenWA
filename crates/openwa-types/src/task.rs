@@ -9,9 +9,7 @@ pub type Ptr32 = u32;
 /// All game objects inherit from CTask. Tasks form a tree via parent/children
 /// pointers and communicate through the TaskMessage system.
 ///
-/// PARTIAL: Many fields between known offsets are unknown.
-///
-/// Source: wkJellyWorm CTask.h
+/// Source: wkJellyWorm CTask.h, Ghidra decompilation of 0x5625A0 + 0x562520
 ///
 /// Vtable at 0x669F8C (8 methods):
 ///   0x00: 0x562710 vtable0 (init?)
@@ -28,15 +26,28 @@ pub struct CTask {
     pub vtable: Ptr32,
     /// 0x04: Parent task in the hierarchy
     pub parent: Ptr32,
-    /// 0x08: Unknown (set to 0x10 in constructor — possibly capacity/flags)
-    pub _unknown_08: u32,
-    /// 0x0C-0x1F: Children task list (CList<CTask*>)
-    /// Internal structure: max_size(4), unk4(4), size(4), data_ptr(4), hash_list(4)
-    pub _children_raw: [u8; 20],
-    /// 0x20: Task classification type
+    /// 0x08: Children list max capacity (set to 0x10 in constructor)
+    pub children_max_size: u32,
+    /// 0x0C: Children list unknown field (set to 0 in constructor)
+    pub children_unk: u32,
+    /// 0x10: Children list current size
+    pub children_size: u32,
+    /// 0x14: Pointer to children data array (allocated 0x60 bytes in constructor)
+    pub children_data: Ptr32,
+    /// 0x18: Children hash list pointer (set to 0 in constructor)
+    pub children_hash: Ptr32,
+    /// 0x1C: Unknown (set to 0 by parent-linking helper FUN_00562520)
+    pub _unknown_1c: u32,
+    /// 0x20: Task classification type (set to ClassType::Task by FUN_00562520,
+    /// overridden by derived constructors)
     pub class_type: ClassType,
-    /// 0x24-0x2F: Unknown padding to 0x30
-    pub _unknown_24: [u8; 12],
+    /// 0x24: Shared data buffer pointer (inherited from parent, or allocated
+    /// 0x420 bytes for root tasks)
+    pub shared_data: Ptr32,
+    /// 0x28: 1 if this task owns shared_data (root), 0 if inherited from parent
+    pub owns_shared_data: u32,
+    /// 0x2C: DDGame pointer (3rd param to CTask::Constructor, stored at this+0x2C)
+    pub ddgame: Ptr32,
 }
 
 const _: () = assert!(core::mem::size_of::<CTask>() == 0x30);

@@ -324,8 +324,12 @@ fn validate_struct_offsets(result: &mut ValidationResult) {
     let _ = log_line("  CTask:");
     check_offset!(result, CTask, vtable, 0x00);
     check_offset!(result, CTask, parent, 0x04);
-    check_offset!(result, CTask, _unknown_08, 0x08);
+    check_offset!(result, CTask, children_max_size, 0x08);
+    check_offset!(result, CTask, children_data, 0x14);
     check_offset!(result, CTask, class_type, 0x20);
+    check_offset!(result, CTask, shared_data, 0x24);
+    check_offset!(result, CTask, owns_shared_data, 0x28);
+    check_offset!(result, CTask, ddgame, 0x2C);
 
     // CGameTask offsets
     let _ = log_line("");

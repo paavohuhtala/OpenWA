@@ -57,14 +57,15 @@ unsafe extern "stdcall" fn hook_frontend_change_screen(screen_id: u32) {
 static ORIG_CTASK_CONSTRUCTOR: AtomicU32 = AtomicU32::new(0);
 
 /// Hook for CTask::Constructor (0x5625A0).
-/// stdcall(this, parent, class_type) -> this
-unsafe extern "stdcall" fn hook_ctask_constructor(this: u32, parent: u32, class_type: u32) -> u32 {
+/// stdcall(this, parent, ddgame) -> this
+/// 3rd param is the DDGame pointer, stored at this+0x2C.
+unsafe extern "stdcall" fn hook_ctask_constructor(this: u32, parent: u32, ddgame: u32) -> u32 {
     let orig: unsafe extern "stdcall" fn(u32, u32, u32) -> u32 =
         core::mem::transmute(ORIG_CTASK_CONSTRUCTOR.load(Ordering::Relaxed));
-    let result = orig(this, parent, class_type);
+    let result = orig(this, parent, ddgame);
     // Log after calling original (so vtable is set)
     let _ = log_line(&format!(
-        "[HOOK] CTask::ctor(this=0x{this:08X}, parent=0x{parent:08X}, type={class_type}) -> 0x{result:08X}"
+        "[HOOK] CTask::ctor(this=0x{this:08X}, parent=0x{parent:08X}, ddgame=0x{ddgame:08X}) -> 0x{result:08X}"
     ));
     result
 }

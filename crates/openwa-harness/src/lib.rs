@@ -551,8 +551,8 @@ mod tests {
             eprintln!("  Security cookie initialized");
         }
 
-        // CTask::Constructor is __stdcall: (this, parent, class_type) -> this
-        type CTaskCtorFn = unsafe extern "stdcall" fn(this: *mut u8, parent: u32, class_type: u32) -> *mut u8;
+        // CTask::Constructor is __stdcall: (this, parent, ddgame) -> this
+        type CTaskCtorFn = unsafe extern "stdcall" fn(this: *mut u8, parent: u32, ddgame: u32) -> *mut u8;
 
         unsafe {
             let ctor: CTaskCtorFn = img.func_ptr(va::CTASK_CONSTRUCTOR);
@@ -576,9 +576,9 @@ mod tests {
                 va::CTASK_VTABLE
             );
 
-            // Verify class_type at offset 0x2C
-            let stored_class = *((task_ptr as usize + 0x2C) as *const u32);
-            assert_eq!(stored_class, 0, "class_type should be 0");
+            // Verify ddgame pointer at offset 0x2C (3rd ctor param, we passed 0)
+            let stored_ddgame = *((task_ptr as usize + 0x2C) as *const u32);
+            assert_eq!(stored_ddgame, 0, "ddgame should be 0 (we passed 0)");
 
             // Verify field at 0x08 is 0x10
             let field_08 = *((task_ptr as usize + 0x08) as *const u32);
@@ -591,7 +591,7 @@ mod tests {
             eprintln!("CTask::Constructor succeeded!");
             eprintln!("  vtable = 0x{vtable_ghidra:08X}");
             eprintln!("  children = 0x{children:08X}");
-            eprintln!("  class_type = {stored_class}");
+            eprintln!("  ddgame = {stored_ddgame}");
         }
     }
 }
