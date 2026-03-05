@@ -187,6 +187,36 @@ pub mod va {
     pub const CDIALOG_DO_MODAL_CUSTOM: u32 = 0x0040_FD60;
     /// Custom message pump (replaces MFC's RunModalLoop)
     pub const CDIALOG_CUSTOM_MSG_PUMP: u32 = 0x0040_FBE0;
+    /// Per-frame idle handler: cursor, mouse, paint dispatch
+    pub const FRONTEND_DIALOG_ON_IDLE: u32 = 0x0040_FF90;
+    /// Traverses control tree, paints dirty controls
+    pub const FRONTEND_DIALOG_PAINT_CONTROL_TREE: u32 = 0x0040_BF60;
+    /// Renders background image for frontend dialog
+    pub const FRONTEND_DIALOG_RENDER_BACKGROUND: u32 = 0x0040_4250;
+    /// Surface blit operation (calls surface->vtable[11])
+    pub const SURFACE_BLIT: u32 = 0x0040_3BF0;
+
+    // === Frontend dialog constructors (from main navigation loop) ===
+
+    pub const FRONTEND_DEATHMATCH_CTOR: u32 = 0x0044_0F40;
+    pub const FRONTEND_LOCAL_MP_CTOR: u32 = 0x0049_C420;
+    pub const FRONTEND_TRAINING_CTOR: u32 = 0x004E_0880;
+    pub const FRONTEND_MISSIONS_CTOR: u32 = 0x0049_9190;
+    pub const FRONTEND_POST_INIT_CTOR: u32 = 0x004C_91B0;
+    pub const FRONTEND_MAIN_MENU_CTOR: u32 = 0x0048_66C0;
+    pub const FRONTEND_SINGLE_PLAYER_CTOR: u32 = 0x004D_69F0;
+    pub const FRONTEND_CAMPAIGN_A_CTOR: u32 = 0x004A_2B70;
+    pub const FRONTEND_CAMPAIGN_B_CTOR: u32 = 0x004A_24D0;
+    pub const FRONTEND_ADV_SETTINGS_CTOR: u32 = 0x0042_79E0;
+    pub const FRONTEND_INTRO_MOVIE_CTOR: u32 = 0x0047_0870;
+    pub const FRONTEND_NETWORK_HOST_CTOR: u32 = 0x004A_DCA0;
+    pub const FRONTEND_NETWORK_ONLINE_CTOR: u32 = 0x004A_CBC0;
+    pub const FRONTEND_NETWORK_PROVIDER_CTOR: u32 = 0x004A_7990;
+    pub const FRONTEND_NETWORK_SETTINGS_CTOR: u32 = 0x004C_23C0;
+    pub const FRONTEND_LAN_CTOR: u32 = 0x0048_0A80;
+    pub const FRONTEND_WORMNET_CTOR: u32 = 0x0047_2400;
+    pub const FRONTEND_LOBBY_HOST_CTOR: u32 = 0x004B_0160;
+    pub const FRONTEND_LOBBY_GAME_START_CTOR: u32 = 0x004B_DBE0;
 
     // === Lobby / network ===
 
@@ -207,10 +237,29 @@ pub mod va {
     pub const WA_MALLOC_MEMSET: u32 = 0x0053_E910;
     pub const WA_FREE: u32 = 0x005D_0D2B;
 
+    // === Bitmap font system ===
+
+    /// Loads all four font sizes from BMP files
+    pub const FONT_LOAD_FONTS: u32 = 0x0041_4680;
+    /// Core glyph renderer: iterates chars, blits from sprite sheet
+    pub const FONT_RENDER_GLYPHS: u32 = 0x0041_43D0;
+    /// Higher-level text draw: measures string, creates surface, renders
+    pub const FONT_DRAW_TEXT: u32 = 0x0042_7830;
+    /// DDDisplay::DrawTextOnBitmap — thiscall(font_id, bitmap, hAlign, vAlign, msg, a7, a8)
+    pub const DDDISPLAY_DRAW_TEXT_ON_BITMAP: u32 = 0x0052_36B0;
+    /// DDDisplay::ConstructTextbox — thiscall(dst, length, fontid)
+    pub const DDDISPLAY_CONSTRUCT_TEXTBOX: u32 = 0x004F_AF00;
+    /// SetTextboxText — stdcall(textbox, msg, textcolor, color1, color2, a6, a7, opacity)
+    pub const SET_TEXTBOX_TEXT: u32 = 0x004F_B070;
+    /// DrawTextboxLocal — draws textbox at screen position
+    pub const DRAW_TEXTBOX_LOCAL: u32 = 0x0054_2200;
+
     // === Global variables (in .data) ===
 
     /// Current screen ID driving the main navigation loop dispatch
     pub const G_CURRENT_SCREEN: u32 = 0x006B_3504;
+    /// Character width table (256 bytes)
+    pub const G_CHAR_WIDTH_TABLE: u32 = 0x006B_2DD9;
     /// Main frontend frame window (CWnd*)
     pub const G_FRONTEND_FRAME: u32 = 0x006B_3908;
     /// Main frontend HWND
@@ -219,8 +268,14 @@ pub mod va {
     pub const G_SKIP_TO_MAIN_MENU: u32 = 0x007A_083D;
     /// Auto-network mode flag
     pub const G_AUTO_NETWORK_FLAG: u32 = 0x007A_083F;
+    /// DDDisplayWrapper pointer (valid during entire frontend lifetime)
+    pub const G_DD_DISPLAY_WRAPPER: u32 = 0x0079_D6D4;
+    /// Font array — 4 fonts, each 0x241C bytes
+    pub const G_FONT_ARRAY: u32 = 0x007A_0F58;
     /// Main menu active flag (0xFF during screen 18)
     pub const G_MAIN_MENU_ACTIVE: u32 = 0x007C_0A20;
+    /// MFC CWinApp singleton
+    pub const G_CWINAPP: u32 = 0x007C_03D0;
     /// Network mode (0=LAN, nonzero=WormNET)
     pub const G_NETWORK_MODE: u32 = 0x007C_0D40;
     /// Network sub-type selector
