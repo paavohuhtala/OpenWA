@@ -140,10 +140,15 @@ pub mod va {
     pub const LOAD_SPRITE: u32 = 0x0052_3400;
     pub const CONSTRUCT_OPENGL_CPU: u32 = 0x005A_0850;
     pub const OPENGL_INIT: u32 = 0x0059_F000;
+    pub const DDGAME_INIT_FIELDS: u32 = 0x0052_6120;
+    pub const GFX_HANDLER_LOAD_DIR: u32 = 0x0056_63E0;
+    pub const GFX_DIR_FIND_ENTRY: u32 = 0x0056_6520;
+    pub const GFX_DIR_LOAD_IMAGE: u32 = 0x0056_66D0;
 
     // === Landscape ===
 
     pub const CONSTRUCT_PC_LANDSCAPE: u32 = 0x0057_ACB0;
+    pub const CONSTRUCT_SPRITE_REGION: u32 = 0x0057_DB20;
     pub const REDRAW_LAND_REGION: u32 = 0x0057_CC10;
     pub const WRITE_LAND_RAW: u32 = 0x0057_C300;
 

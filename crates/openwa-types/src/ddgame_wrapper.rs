@@ -1,23 +1,27 @@
 use crate::task::Ptr32;
 
-/// DDGameWrapper — thin wrapper around DDGame.
+/// DDGameWrapper — large wrapper around DDGame.
 ///
-/// This is the top-level object created by DDGameWrapper__Constructor (0x56DEF0).
-/// It holds a pointer to the DDGame allocation and graphics handler references.
+/// Created by DDGameWrapper__Constructor (0x56DEF0).
+/// Holds the DDGame pointer, graphics handlers, landscape, and display state.
 ///
 /// Vtable: 0x66A30C
 ///
-/// Note: Ghidra shows DWORD-indexed offsets (param_1[0x122] etc.).
+/// Note: Ghidra shows DWORD-indexed offsets (param_2[0x122] etc.).
 /// Byte offset = dword_index * 4.
 ///
-/// PARTIAL: Only confirmed fields from the constructor are defined.
+/// The constructor accesses at least up to DWORD index 0x1BBA (byte offset 0x6EE8),
+/// making this object at least ~28KB. Total size is not yet determined.
+///
+/// PARTIAL: Only confirmed fields are defined. The repr(C) struct uses
+/// a conservative size that covers known fields. The actual object is larger.
 #[repr(C)]
 pub struct DDGameWrapper {
     /// 0x000: Vtable pointer (0x66A30C)
     pub vtable: Ptr32,
     /// 0x004-0x487: Unknown fields
     pub _unknown_004: [u8; 0x484],
-    /// 0x488: Pointer to DDGame allocation
+    /// 0x488: Pointer to DDGame allocation (DWORD index 0x122)
     pub ddgame: Ptr32,
     /// 0x48C: Secondary DDGame struct pointer (0x2C bytes, conditional)
     pub ddgame_secondary: Ptr32,
@@ -27,19 +31,28 @@ pub struct DDGameWrapper {
     pub gfx_handler_0: Ptr32,
     /// 0x4C4: Graphics handler 1 pointer (optional)
     pub gfx_handler_1: Ptr32,
-    /// 0x4C8: Graphics mode flag
+    /// 0x4C8: Graphics mode flag (DWORD index 0x132)
     pub gfx_mode: u32,
-    /// 0x4CC: PCLandscape object pointer
+    /// 0x4CC: PCLandscape object pointer (DWORD index 0x133)
     pub landscape: Ptr32,
-    /// 0x4D0: Constructor param_2
-    pub _param_4d0: u32,
-    /// 0x4D4: Constructor param_3
-    pub _param_4d4: u32,
-    /// 0x4D8-end: Unknown trailing fields
-    /// Size uncertain — DDGameWrapper total size not yet determined
-    pub _unknown_4d8: [u8; 0x28],
+    /// 0x4D0: DDDisplay/display object pointer (DWORD index 0x134)
+    /// Has vtable methods at +0x10, +0x5C, +0x7C, +0x94
+    pub display: Ptr32,
+    /// 0x4D4: Unknown
+    pub _field_4d4: u32,
+    /// 0x4D8: Init 0 (DWORD index 0x136)
+    pub _field_4d8: u32,
+    /// 0x4DC: Calculated value (DWORD index 0x137)
+    pub _field_4dc: u32,
+    /// 0x4E0: Init -100 / 0xFFFFFF9C (DWORD index 0x138)
+    pub _field_4e0: u32,
+    /// 0x4E4-0x6EEB: Unknown fields (extends to at least DWORD 0x1BBA)
+    pub _unknown_4e4: [u8; 0x6A08],
+    /// 0x6EEC: Init 0 (DWORD index 0x1BBA)
+    pub _field_6eec: u32,
+    /// 0x6EF0-end: Unknown trailing fields
+    pub _unknown_6ef0: [u8; 0x10],
 }
 
-// DDGameWrapper total size is uncertain. This is a minimum based on known fields.
-// Remove or update this assertion when the true size is determined.
-const _: () = assert!(core::mem::size_of::<DDGameWrapper>() == 0x500);
+// This is a minimum estimate. The actual object is likely larger.
+const _: () = assert!(core::mem::size_of::<DDGameWrapper>() == 0x6F00);
