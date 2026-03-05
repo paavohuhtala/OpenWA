@@ -209,6 +209,9 @@ pub mod va {
     pub const G_NETWORK_MODE: u32 = 0x007C_0D40;
     /// Network sub-type selector
     pub const G_NETWORK_SUBTYPE: u32 = 0x007C_0D68;
+    /// Game session context pointer (contains subsystem pointers at known offsets)
+    /// +0xA0 = DDGameWrapper*, +0xAC = DDDisplay*, +0xA8 = DSSound*, etc.
+    pub const G_GAME_SESSION: u32 = 0x007A_0884;
 
     // === Game context (DDGame struct offsets) ===
     // These are offsets from the DDGame base pointer, not absolute addresses.

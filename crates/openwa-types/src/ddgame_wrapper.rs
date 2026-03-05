@@ -27,19 +27,18 @@ pub struct DDGameWrapper {
     pub ddgame_secondary: Ptr32,
     /// 0x490-0x4BF: Unknown
     pub _unknown_490: [u8; 0x30],
-    /// 0x4C0: Graphics handler 0 pointer (0x19C bytes, vtable 0x66B280)
-    pub gfx_handler_0: Ptr32,
-    /// 0x4C4: Graphics handler 1 pointer (optional)
-    pub gfx_handler_1: Ptr32,
+    /// 0x4C0: Unknown object pointer (not GfxHandler — vtable reads as 0)
+    pub _field_4c0: Ptr32,
+    /// 0x4C4: Unknown pointer
+    pub _field_4c4: Ptr32,
     /// 0x4C8: Graphics mode flag (DWORD index 0x132)
     pub gfx_mode: u32,
     /// 0x4CC: PCLandscape object pointer (DWORD index 0x133)
     pub landscape: Ptr32,
-    /// 0x4D0: DDDisplay/display object pointer (DWORD index 0x134)
-    /// Has vtable methods at +0x10, +0x5C, +0x7C, +0x94
+    /// 0x4D0: DDDisplay/display object pointer (param2 of constructor)
     pub display: Ptr32,
-    /// 0x4D4: Unknown
-    pub _field_4d4: u32,
+    /// 0x4D4: DSSound/sound object pointer (param3 of constructor)
+    pub sound: Ptr32,
     /// 0x4D8: Init 0 (DWORD index 0x136)
     pub _field_4d8: u32,
     /// 0x4DC: Calculated value (DWORD index 0x137)

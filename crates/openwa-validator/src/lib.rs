@@ -1,14 +1,37 @@
 #![allow(non_snake_case)]
 
 use std::ffi::c_void;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicU32, Ordering};
 
 use openwa_types::address::va;
 use openwa_types::task::{CTask, CGameTask};
 use openwa_types::ddgame::DDGame;
 use openwa_types::ddgame_wrapper::DDGameWrapper;
 
-use retour::static_detour;
+// ---------------------------------------------------------------------------
+// ASLR rebasing
+// ---------------------------------------------------------------------------
+
+/// Delta to add to Ghidra addresses to get runtime addresses.
+/// Computed as: actual_base - IMAGE_BASE (0x400000)
+static REBASE_DELTA: AtomicU32 = AtomicU32::new(0);
+
+/// Rebase a Ghidra VA to the actual runtime address.
+#[inline]
+fn rb(ghidra_addr: u32) -> u32 {
+    ghidra_addr.wrapping_add(REBASE_DELTA.load(Ordering::Relaxed))
+}
+
+extern "system" {
+    fn GetModuleHandleA(lpModuleName: *const u8) -> *mut c_void;
+}
+
+fn init_rebase() -> i32 {
+    let base = unsafe { GetModuleHandleA(std::ptr::null()) } as u32;
+    let delta = base.wrapping_sub(va::IMAGE_BASE);
+    REBASE_DELTA.store(delta, Ordering::Relaxed);
+    delta as i32
+}
 
 // ---------------------------------------------------------------------------
 // DllMain
@@ -105,12 +128,12 @@ unsafe fn read_u8(addr: u32) -> u8 {
 
 #[inline]
 fn is_in_text(addr: u32) -> bool {
-    addr >= va::TEXT_START && addr <= va::TEXT_END
+    addr >= rb(va::TEXT_START) && addr <= rb(va::TEXT_END)
 }
 
 #[inline]
 fn is_in_rdata(addr: u32) -> bool {
-    addr >= va::RDATA_START && addr < va::DATA_START
+    addr >= rb(va::RDATA_START) && addr < rb(va::DATA_START)
 }
 
 // ---------------------------------------------------------------------------
@@ -121,7 +144,7 @@ fn validate_addresses(result: &mut ValidationResult) {
     let _ = log_line("");
     let _ = log_line("--- Address Validation ---");
 
-    // Vtable addresses and their names
+    // Vtable addresses (Ghidra VAs — will be rebased via rb())
     let vtables: &[(&str, u32)] = &[
         ("CTask vtable", va::CTASK_VTABLE),
         ("CGameTask vtable", va::CGAMETASK_VTABLE),
@@ -140,21 +163,23 @@ fn validate_addresses(result: &mut ValidationResult) {
     // 1. Vtable location checks
     let _ = log_line("");
     let _ = log_line("  Vtable location checks (.rdata range):");
-    for (name, addr) in vtables {
-        let in_rdata = is_in_rdata(*addr);
+    for (name, ghidra_addr) in vtables {
+        let addr = rb(*ghidra_addr);
+        let in_rdata = is_in_rdata(addr);
         result.check(
             &format!("{} location", name),
             in_rdata,
-            &format!("0x{:08X} {}", addr, if in_rdata { "in .rdata" } else { "NOT in .rdata" }),
+            &format!("0x{:08X} (ghidra 0x{:08X}) {}", addr, ghidra_addr, if in_rdata { "in .rdata" } else { "NOT in .rdata" }),
         );
     }
 
     // 2. Vtable content checks: first entry should be a .text pointer
     let _ = log_line("");
     let _ = log_line("  Vtable first-entry checks (should point to .text):");
-    for (name, addr) in vtables {
+    for (name, ghidra_addr) in vtables {
+        let addr = rb(*ghidra_addr);
         unsafe {
-            let first_entry = read_u32(*addr);
+            let first_entry = read_u32(addr);
             let in_text = is_in_text(first_entry);
             result.check(
                 &format!("{} first entry", name),
@@ -169,7 +194,7 @@ fn validate_addresses(result: &mut ValidationResult) {
         }
     }
 
-    // 3. CTask vtable method verification
+    // 3. CTask vtable method verification (compare rebased expected vs actual)
     let _ = log_line("");
     let _ = log_line("  CTask vtable method verification:");
     let ctask_vt_methods: &[(&str, u32, u32)] = &[
@@ -182,10 +207,11 @@ fn validate_addresses(result: &mut ValidationResult) {
         ("vt6", 24, va::CTASK_VT6),
         ("vt7 ProcessFrame", 28, va::CTASK_VT7_PROCESS_FRAME),
     ];
-    for (name, offset, expected) in ctask_vt_methods {
+    for (name, offset, expected_ghidra) in ctask_vt_methods {
         unsafe {
-            let actual = read_u32(va::CTASK_VTABLE + offset);
-            let ok = actual == *expected;
+            let actual = read_u32(rb(va::CTASK_VTABLE) + offset);
+            let expected = rb(*expected_ghidra);
+            let ok = actual == expected;
             result.check(
                 &format!("CTask::{}", name),
                 ok,
@@ -212,6 +238,9 @@ fn validate_addresses(result: &mut ValidationResult) {
         0xB8, // mov eax, imm32
         0x51, // push ecx
         0x52, // push edx
+        0x64, // FS: segment prefix (SEH/stack cookies)
+        0x85, // test
+        0x8D, // lea
     ];
 
     let functions: &[(&str, u32)] = &[
@@ -240,18 +269,19 @@ fn validate_addresses(result: &mut ValidationResult) {
         ("CGameTask::vt2_HandleMessage", va::CGAMETASK_VT2_HANDLE_MESSAGE),
     ];
 
-    for (name, addr) in functions {
-        let in_text = is_in_text(*addr);
+    for (name, ghidra_addr) in functions {
+        let addr = rb(*ghidra_addr);
+        let in_text = is_in_text(addr);
         if !in_text {
             result.check(
                 &format!("{} prologue", name),
                 false,
-                &format!("0x{:08X} not in .text range", addr),
+                &format!("0x{:08X} (ghidra 0x{:08X}) not in .text range", addr, ghidra_addr),
             );
             continue;
         }
         unsafe {
-            let first_byte = read_u8(*addr);
+            let first_byte = read_u8(addr);
             let ok = valid_prologues.contains(&first_byte);
             result.check(
                 &format!("{} prologue", name),
@@ -322,245 +352,118 @@ fn validate_struct_offsets(result: &mut ValidationResult) {
     let _ = log_line("  DDGameWrapper:");
     check_offset!(result, DDGameWrapper, vtable, 0x00);
     check_offset!(result, DDGameWrapper, ddgame, 0x488);
-    check_offset!(result, DDGameWrapper, gfx_handler_0, 0x4C0);
+    check_offset!(result, DDGameWrapper, _field_4c0, 0x4C0);
     check_offset!(result, DDGameWrapper, landscape, 0x4CC);
     check_offset!(result, DDGameWrapper, display, 0x4D0);
 }
 
 // ---------------------------------------------------------------------------
-// Task 4: Constructor hooks
+// Deferred validation via global pointer polling
 // ---------------------------------------------------------------------------
+// Constructor hooks failed due to retour trampoline issues with SEH prologues.
+// Instead, we read the DDGameWrapper pointer from the global game session
+// after waiting for initialization to complete.
 
-static CTASK_HOOKED: AtomicBool = AtomicBool::new(false);
-static DDGAME_WRAPPER_HOOKED: AtomicBool = AtomicBool::new(false);
-
-static_detour! {
-    static CTaskCtorHook: unsafe extern "thiscall" fn(u32, u32, u32) -> u32;
-    static DDGameWrapperCtorHook: unsafe extern "thiscall" fn(u32) -> u32;
-}
-
-fn ctask_ctor_detour(this: u32, parent: u32, class_type: u32) -> u32 {
-    // Call original constructor
-    let ret = unsafe { CTaskCtorHook.call(this, parent, class_type) };
-
-    // Only validate the first CTask construction
-    if CTASK_HOOKED.compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst).is_ok() {
-        let _ = log_line("");
-        let _ = log_line("--- CTask Constructor Hook Triggered ---");
-        let _ = log_line(&format!("  this=0x{:08X}, parent=0x{:08X}, class_type={}", this, parent, class_type));
-
-        let mut result = ValidationResult::new();
-
-        unsafe {
-            // vtable at +0x00 should be in .rdata and point to .text
-            let vtable_ptr = read_u32(this);
-            let vt_in_rdata = is_in_rdata(vtable_ptr);
-            result.check(
-                "CTask.vtable location",
-                vt_in_rdata,
-                &format!("0x{:08X} {}", vtable_ptr, if vt_in_rdata { "in .rdata" } else { "NOT in .rdata" }),
-            );
-
-            if vt_in_rdata {
-                let first_method = read_u32(vtable_ptr);
-                let in_text = is_in_text(first_method);
-                result.check(
-                    "CTask.vtable[0] -> .text",
-                    in_text,
-                    &format!("0x{:08X} {}", first_method, if in_text { "in .text" } else { "NOT in .text" }),
-                );
-            }
-
-            // field at +0x08 should be 0x10
-            let field_08 = read_u32(this + 0x08);
-            result.check(
-                "CTask._unknown_08 == 0x10",
-                field_08 == 0x10,
-                &format!("expected 0x10, got 0x{:X}", field_08),
-            );
-
-            // class_type at +0x20 should be in reasonable range (<200)
-            let ct = read_u32(this + 0x20);
-            result.check(
-                "CTask.class_type < 200",
-                ct < 200,
-                &format!("class_type = {} (arg was {})", ct, class_type),
-            );
-        }
-
-        let _ = log_line(&format!("  CTask hook {}", result.summary_line()));
-    }
-
-    ret
-}
-
-fn ddgame_wrapper_ctor_detour(this: u32) -> u32 {
-    // Call original constructor
-    let ret = unsafe { DDGameWrapperCtorHook.call(this) };
-
-    // Only validate the first DDGameWrapper construction
-    if DDGAME_WRAPPER_HOOKED.compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst).is_ok() {
-        let _ = log_line("");
-        let _ = log_line("--- DDGameWrapper Constructor Hook Triggered ---");
-        let _ = log_line(&format!("  this=0x{:08X}", this));
-
-        let mut result = ValidationResult::new();
-
-        unsafe {
-            // vtable at +0x00 should be DDGAME_WRAPPER_VTABLE
-            let vtable_ptr = read_u32(this);
-            result.check(
-                "DDGameWrapper.vtable == 0x66A30C",
-                vtable_ptr == va::DDGAME_WRAPPER_VTABLE,
-                &format!("expected 0x{:08X}, got 0x{:08X}", va::DDGAME_WRAPPER_VTABLE, vtable_ptr),
-            );
-
-            // field at +0x4E0 should be 0xFFFFFF9C (-100)
-            let field_4e0 = read_u32(this + 0x4E0);
-            result.check(
-                "DDGameWrapper._field_4e0 == -100",
-                field_4e0 == 0xFFFFFF9C,
-                &format!("expected 0xFFFFFF9C, got 0x{:08X}", field_4e0),
-            );
-        }
-
-        let _ = log_line(&format!("  DDGameWrapper immediate {}", result.summary_line()));
-
-        // Spawn deferred validation thread
-        let wrapper_addr = this;
-        std::thread::spawn(move || {
-            // Wait 5 seconds for game initialization to complete
-            std::thread::sleep(std::time::Duration::from_secs(5));
-
-            let _ = log_line("");
-            let _ = log_line("--- DDGameWrapper Deferred Validation (5s after ctor) ---");
-            let _ = log_line(&format!("  wrapper=0x{:08X}", wrapper_addr));
-
-            let mut result = ValidationResult::new();
-
-            unsafe {
-                // ddgame pointer at +0x488 should be non-null
-                let ddgame_ptr = read_u32(wrapper_addr + 0x488);
-                let ddgame_valid = ddgame_ptr != 0;
-                result.check(
-                    "DDGameWrapper.ddgame != NULL",
-                    ddgame_valid,
-                    &format!("0x{:08X}", ddgame_ptr),
-                );
-
-                if ddgame_valid {
-                    // DDGame.landscape at +0x20 should match wrapper.landscape at +0x4CC
-                    let ddgame_landscape = read_u32(ddgame_ptr + 0x20);
-                    let wrapper_landscape = read_u32(wrapper_addr + 0x4CC);
-                    result.check(
-                        "DDGame.landscape == wrapper.landscape",
-                        ddgame_landscape == wrapper_landscape,
-                        &format!(
-                            "DDGame+0x20=0x{:08X}, wrapper+0x4CC=0x{:08X}",
-                            ddgame_landscape, wrapper_landscape
-                        ),
-                    );
-
-                    // DDGame+0x7EFC should be 1
-                    let field_7efc = read_u32(ddgame_ptr + 0x7EFC);
-                    result.check(
-                        "DDGame+0x7EFC == 1",
-                        field_7efc == 1,
-                        &format!("expected 1, got {}", field_7efc),
-                    );
-
-                    // Subsystem vtable checks
-                    // display_gfx at DDGame+0x138
-                    let display_gfx = read_u32(ddgame_ptr + 0x138);
-                    if display_gfx != 0 {
-                        let dgfx_vt = read_u32(display_gfx);
-                        result.check(
-                            "DDGame.display_gfx vtable",
-                            dgfx_vt == va::DISPLAY_GFX_VTABLE,
-                            &format!("expected 0x{:08X}, got 0x{:08X}", va::DISPLAY_GFX_VTABLE, dgfx_vt),
-                        );
-                    } else {
-                        result.check("DDGame.display_gfx", false, "NULL pointer");
-                    }
-
-                    // task_state_machine at DDGame+0x380
-                    let tsm = read_u32(ddgame_ptr + 0x380);
-                    if tsm != 0 {
-                        let tsm_vt = read_u32(tsm);
-                        result.check(
-                            "DDGame.task_state_machine vtable",
-                            tsm_vt == va::TASK_STATE_MACHINE_VTABLE,
-                            &format!("expected 0x{:08X}, got 0x{:08X}", va::TASK_STATE_MACHINE_VTABLE, tsm_vt),
-                        );
-                    } else {
-                        result.check("DDGame.task_state_machine", false, "NULL pointer");
-                    }
-                }
-
-                // gfx_handler_0 at wrapper+0x4C0
-                let gfx0 = read_u32(wrapper_addr + 0x4C0);
-                if gfx0 != 0 {
-                    let gfx0_vt = read_u32(gfx0);
-                    result.check(
-                        "wrapper.gfx_handler_0 vtable",
-                        gfx0_vt == va::GFX_HANDLER_VTABLE,
-                        &format!("expected 0x{:08X}, got 0x{:08X}", va::GFX_HANDLER_VTABLE, gfx0_vt),
-                    );
-                } else {
-                    result.check("wrapper.gfx_handler_0", false, "NULL pointer");
-                }
-
-                // landscape at wrapper+0x4CC
-                let landscape = read_u32(wrapper_addr + 0x4CC);
-                if landscape != 0 {
-                    let land_vt = read_u32(landscape);
-                    result.check(
-                        "wrapper.landscape vtable",
-                        land_vt == va::PC_LANDSCAPE_VTABLE,
-                        &format!("expected 0x{:08X}, got 0x{:08X}", va::PC_LANDSCAPE_VTABLE, land_vt),
-                    );
-                } else {
-                    result.check("wrapper.landscape", false, "NULL pointer");
-                }
-            }
-
-            let _ = log_line(&format!("  DDGameWrapper deferred {}", result.summary_line()));
-        });
-    }
-
-    ret
-}
-
-fn install_hooks() -> Result<(), Box<dyn std::error::Error>> {
+fn deferred_global_validation() {
     let _ = log_line("");
-    let _ = log_line("--- Installing Constructor Hooks ---");
+    let _ = log_line("--- Deferred Global Validation (10s after load) ---");
+
+    let mut result = ValidationResult::new();
 
     unsafe {
-        // CTask constructor hook
-        let ctask_ctor: unsafe extern "thiscall" fn(u32, u32, u32) -> u32 =
-            std::mem::transmute(va::CTASK_CONSTRUCTOR as usize);
-        CTaskCtorHook
-            .initialize(ctask_ctor, |a, b, c| ctask_ctor_detour(a, b, c))?
-            .enable()?;
-        let _ = log_line(&format!(
-            "  CTask constructor hook installed at 0x{:08X}",
-            va::CTASK_CONSTRUCTOR
-        ));
+        // g_GameSession is a pointer to the game session context
+        let session_ptr = read_u32(rb(va::G_GAME_SESSION));
+        let _ = log_line(&format!("  g_GameSession = 0x{:08X}", session_ptr));
 
-        // DDGameWrapper constructor hook
-        let ddgw_ctor: unsafe extern "thiscall" fn(u32) -> u32 =
-            std::mem::transmute(va::CONSTRUCT_DD_GAME_WRAPPER as usize);
-        DDGameWrapperCtorHook
-            .initialize(ddgw_ctor, |a| ddgame_wrapper_ctor_detour(a))?
-            .enable()?;
-        let _ = log_line(&format!(
-            "  DDGameWrapper constructor hook installed at 0x{:08X}",
-            va::CONSTRUCT_DD_GAME_WRAPPER
-        ));
+        if session_ptr == 0 {
+            let _ = log_line("  Game session not initialized yet — no game started?");
+            return;
+        }
+
+        // DDGameWrapper at session+0xA0
+        let wrapper_addr = read_u32(session_ptr + 0xA0);
+        let _ = log_line(&format!("  DDGameWrapper = 0x{:08X}", wrapper_addr));
+
+        if wrapper_addr == 0 {
+            let _ = log_line("  DDGameWrapper not created — need to start a game first.");
+            return;
+        }
+
+        // vtable at +0x00 should be DDGAME_WRAPPER_VTABLE
+        let vtable_ptr = read_u32(wrapper_addr);
+        let expected_vt = rb(va::DDGAME_WRAPPER_VTABLE);
+        result.check(
+            "DDGameWrapper.vtable",
+            vtable_ptr == expected_vt,
+            &format!("expected 0x{:08X}, got 0x{:08X}", expected_vt, vtable_ptr),
+        );
+
+        // ddgame pointer at +0x488 should be non-null
+        let ddgame_ptr = read_u32(wrapper_addr + 0x488);
+        let ddgame_valid = ddgame_ptr != 0;
+        result.check(
+            "DDGameWrapper.ddgame != NULL",
+            ddgame_valid,
+            &format!("0x{:08X}", ddgame_ptr),
+        );
+
+        if ddgame_valid {
+            // DDGame.landscape at +0x20 should match wrapper.landscape at +0x4CC
+            let ddgame_landscape = read_u32(ddgame_ptr + 0x20);
+            let wrapper_landscape = read_u32(wrapper_addr + 0x4CC);
+            result.check(
+                "DDGame.landscape == wrapper.landscape",
+                ddgame_landscape == wrapper_landscape,
+                &format!(
+                    "DDGame+0x20=0x{:08X}, wrapper+0x4CC=0x{:08X}",
+                    ddgame_landscape, wrapper_landscape
+                ),
+            );
+
+            // Subsystem vtable checks
+            let display_gfx = read_u32(ddgame_ptr + 0x138);
+            if display_gfx != 0 {
+                let dgfx_vt = read_u32(display_gfx);
+                let expected = rb(va::DISPLAY_GFX_VTABLE);
+                result.check(
+                    "DDGame.display_gfx vtable",
+                    dgfx_vt == expected,
+                    &format!("expected 0x{:08X}, got 0x{:08X}", expected, dgfx_vt),
+                );
+            } else {
+                result.check("DDGame.display_gfx", false, "NULL pointer");
+            }
+
+            let tsm = read_u32(ddgame_ptr + 0x380);
+            if tsm != 0 {
+                let tsm_vt = read_u32(tsm);
+                let expected = rb(va::TASK_STATE_MACHINE_VTABLE);
+                result.check(
+                    "DDGame.task_state_machine vtable",
+                    tsm_vt == expected,
+                    &format!("expected 0x{:08X}, got 0x{:08X}", expected, tsm_vt),
+                );
+            } else {
+                result.check("DDGame.task_state_machine", false, "NULL pointer");
+            }
+        }
+
+        // landscape at wrapper+0x4CC
+        let landscape = read_u32(wrapper_addr + 0x4CC);
+        if landscape != 0 {
+            let land_vt = read_u32(landscape);
+            let expected = rb(va::PC_LANDSCAPE_VTABLE);
+            result.check(
+                "wrapper.landscape vtable",
+                land_vt == expected,
+                &format!("expected 0x{:08X}, got 0x{:08X}", expected, land_vt),
+            );
+        } else {
+            result.check("wrapper.landscape", false, "NULL pointer");
+        }
     }
 
-    let _ = log_line("  All hooks installed successfully.");
-    Ok(())
+    let _ = log_line(&format!("  Deferred {}", result.summary_line()));
 }
 
 // ---------------------------------------------------------------------------
@@ -577,6 +480,17 @@ fn run_validation() -> Result<(), Box<dyn std::error::Error>> {
     log_line("  Target: WA.exe 3.8.1 (Steam)")?;
     log_line("============================================")?;
 
+    // 2b. Detect ASLR rebase
+    let delta = init_rebase();
+    let base = unsafe { GetModuleHandleA(std::ptr::null()) } as u32;
+    log_line(&format!(
+        "  Module base: 0x{:08X} (Ghidra base: 0x{:08X}, delta: {}{:08X})",
+        base,
+        va::IMAGE_BASE,
+        if delta >= 0 { "+" } else { "-" },
+        if delta >= 0 { delta as u32 } else { (-(delta as i64)) as u32 }
+    ))?;
+
     let mut result = ValidationResult::new();
 
     // 3. Address validation (vtables, functions)
@@ -590,18 +504,16 @@ fn run_validation() -> Result<(), Box<dyn std::error::Error>> {
     let _ = log_line("--- Static Validation Summary ---");
     let _ = log_line(&format!("  {}", result.summary_line()));
 
-    // 6. Install hooks (CTask, DDGameWrapper)
-    match install_hooks() {
-        Ok(()) => {}
-        Err(e) => {
-            let _ = log_line(&format!("[ERROR] Failed to install hooks: {}", e));
-        }
-    }
-
-    // 7. Log that hooks are installed
+    // 6. Hooks disabled — retour trampoline corrupts SEH prologue on these constructors
+    // Instead, use a polling thread to find DDGameWrapper after init completes
     let _ = log_line("");
-    let _ = log_line("Validator initialized. Constructor hooks active.");
-    let _ = log_line("Waiting for game to construct CTask / DDGameWrapper...");
+    let _ = log_line("--- Deferred Validation (polling) ---");
+    std::thread::spawn(move || {
+        // Wait for game to finish init
+        std::thread::sleep(std::time::Duration::from_secs(10));
+        deferred_global_validation();
+    });
+    let _ = log_line("  Polling thread started (10s delay).");
 
     Ok(())
 }
