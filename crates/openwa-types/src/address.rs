@@ -163,17 +163,52 @@ pub mod va {
     pub const SHOW_CHAT_MESSAGE: u32 = 0x0052_ACB0;
     pub const ON_CHAT_INPUT: u32 = 0x0052_B730;
 
+    // === Frontend / menu screens ===
+
+    pub const FRONTEND_CHANGE_SCREEN: u32 = 0x0044_7A20;
+    pub const FRONTEND_FRAME_CONSTRUCTOR: u32 = 0x004E_CCA0;
+    pub const FRONTEND_DIALOG_CONSTRUCTOR: u32 = 0x0044_6BA0;
+    pub const FRONTEND_PALETTE_ANIMATION: u32 = 0x0042_2180;
+    pub const FRONTEND_LOAD_TRANSITION_PAL: u32 = 0x0044_7AA0;
+    pub const FRONTEND_PRE_TRANSITION_CLEANUP: u32 = 0x004E_4AE0;
+    pub const FRONTEND_ON_INITIAL_LOAD: u32 = 0x0042_9830;
+    pub const FRONTEND_LAUNCH_SINGLE_PLAYER: u32 = 0x0044_1D80;
+    pub const FRONTEND_ON_MULTIPLAYER: u32 = 0x0044_E850;
+    pub const FRONTEND_ON_NETWORK: u32 = 0x0044_EC10;
+    pub const FRONTEND_ON_MINIMIZE: u32 = 0x0048_6A10;
+    pub const FRONTEND_ON_OPTIONS_ACCEPT: u32 = 0x0048_DAB0;
+    pub const FRONTEND_ON_START_GAME: u32 = 0x004F_14A0;
+    pub const CDIALOG_DO_MODAL_CUSTOM: u32 = 0x0040_FD60;
+
     // === Lobby / network ===
 
     pub const LOBBY_HOST_COMMANDS: u32 = 0x004B_9B00;
     pub const LOBBY_CLIENT_COMMANDS: u32 = 0x004A_ABB0;
     pub const SEND_GAME_PACKET_WRAPPED: u32 = 0x0054_1130;
-    pub const FRONTEND_CHANGE_SCREEN: u32 = 0x0044_7A20;
+    pub const LOBBY_DISPLAY_MESSAGE: u32 = 0x0049_3CB0;
+    pub const LOBBY_SEND_GREENTEXT: u32 = 0x004A_A990;
+    pub const LOBBY_PRINT_USED_VERSION: u32 = 0x004B_7E20;
+    pub const LOBBY_ON_DISCONNECT: u32 = 0x004B_AE40;
+    pub const LOBBY_ON_GAME_END: u32 = 0x004B_AEC0;
+    pub const LOBBY_ON_MESSAGE: u32 = 0x004B_D400;
+    pub const LOBBY_DIALOG_CONSTRUCTOR: u32 = 0x004C_D9A0;
+    pub const NETWORK_IS_AVAILABLE: u32 = 0x004D_4920;
 
     // === Memory ===
 
     pub const WA_MALLOC_MEMSET: u32 = 0x0053_E910;
     pub const WA_FREE: u32 = 0x005D_0D2B;
+
+    // === Global variables (in .data) ===
+
+    /// Main frontend frame window (CWnd*)
+    pub const G_FRONTEND_FRAME: u32 = 0x006B_3908;
+    /// Main frontend HWND
+    pub const G_FRONTEND_HWND: u32 = 0x006B_390C;
+    /// Network mode (0=LAN, nonzero=WormNET)
+    pub const G_NETWORK_MODE: u32 = 0x007C_0D40;
+    /// Network sub-type selector
+    pub const G_NETWORK_SUBTYPE: u32 = 0x007C_0D68;
 
     // === Game context (DDGame struct offsets) ===
     // These are offsets from the DDGame base pointer, not absolute addresses.
