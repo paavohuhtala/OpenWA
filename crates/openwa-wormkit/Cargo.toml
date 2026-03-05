@@ -1,0 +1,15 @@
+[package]
+name = "openwa-wormkit"
+version = "0.1.0"
+edition = "2021"
+description = "WormKit DLL that replaces WA.exe functions with Rust reimplementations"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+openwa-types = { path = "../openwa-types" }
+minhook = "0.9"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-sys = { version = "0.59", features = ["Win32_System_Memory"] }

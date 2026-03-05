@@ -165,12 +165,18 @@ pub mod va {
 
     // === Frontend / menu screens ===
 
+    /// Main navigation loop (CWinApp::Run override) — dispatches on g_CurrentScreen
+    pub const FRONTEND_MAIN_NAVIGATION_LOOP: u32 = 0x004E_6440;
     pub const FRONTEND_CHANGE_SCREEN: u32 = 0x0044_7A20;
+    /// Wraps DoModal: palette transition + custom DoModal
+    pub const FRONTEND_DO_MODAL_WRAPPER: u32 = 0x0044_7960;
     pub const FRONTEND_FRAME_CONSTRUCTOR: u32 = 0x004E_CCA0;
     pub const FRONTEND_DIALOG_CONSTRUCTOR: u32 = 0x0044_6BA0;
     pub const FRONTEND_PALETTE_ANIMATION: u32 = 0x0042_2180;
     pub const FRONTEND_LOAD_TRANSITION_PAL: u32 = 0x0044_7AA0;
     pub const FRONTEND_PRE_TRANSITION_CLEANUP: u32 = 0x004E_4AE0;
+    /// Post-screen cleanup: destroys previous dialog
+    pub const FRONTEND_POST_SCREEN_CLEANUP: u32 = 0x004E_B450;
     pub const FRONTEND_ON_INITIAL_LOAD: u32 = 0x0042_9830;
     pub const FRONTEND_LAUNCH_SINGLE_PLAYER: u32 = 0x0044_1D80;
     pub const FRONTEND_ON_MULTIPLAYER: u32 = 0x0044_E850;
@@ -179,6 +185,8 @@ pub mod va {
     pub const FRONTEND_ON_OPTIONS_ACCEPT: u32 = 0x0048_DAB0;
     pub const FRONTEND_ON_START_GAME: u32 = 0x004F_14A0;
     pub const CDIALOG_DO_MODAL_CUSTOM: u32 = 0x0040_FD60;
+    /// Custom message pump (replaces MFC's RunModalLoop)
+    pub const CDIALOG_CUSTOM_MSG_PUMP: u32 = 0x0040_FBE0;
 
     // === Lobby / network ===
 
@@ -201,10 +209,18 @@ pub mod va {
 
     // === Global variables (in .data) ===
 
+    /// Current screen ID driving the main navigation loop dispatch
+    pub const G_CURRENT_SCREEN: u32 = 0x006B_3504;
     /// Main frontend frame window (CWnd*)
     pub const G_FRONTEND_FRAME: u32 = 0x006B_3908;
     /// Main frontend HWND
     pub const G_FRONTEND_HWND: u32 = 0x006B_390C;
+    /// Skip-to-main-menu flag (set after intro movie)
+    pub const G_SKIP_TO_MAIN_MENU: u32 = 0x007A_083D;
+    /// Auto-network mode flag
+    pub const G_AUTO_NETWORK_FLAG: u32 = 0x007A_083F;
+    /// Main menu active flag (0xFF during screen 18)
+    pub const G_MAIN_MENU_ACTIVE: u32 = 0x007C_0A20;
     /// Network mode (0=LAN, nonzero=WormNET)
     pub const G_NETWORK_MODE: u32 = 0x007C_0D40;
     /// Network sub-type selector

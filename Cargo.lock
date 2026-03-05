@@ -69,6 +69,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "openwa-wormkit"
+version = "0.1.0"
+dependencies = [
+ "minhook",
+ "openwa-types",
+ "windows-sys",
+]
+
+[[package]]
 name = "pin-project-lite"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
