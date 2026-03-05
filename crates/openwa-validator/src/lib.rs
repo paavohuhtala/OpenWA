@@ -3,6 +3,8 @@
 use std::ffi::c_void;
 use std::sync::atomic::{AtomicU32, Ordering};
 
+mod hooks;
+
 use openwa_types::address::va;
 use openwa_types::task::{CTask, CGameTask};
 use openwa_types::ddgame::DDGame;
@@ -18,7 +20,7 @@ static REBASE_DELTA: AtomicU32 = AtomicU32::new(0);
 
 /// Rebase a Ghidra VA to the actual runtime address.
 #[inline]
-fn rb(ghidra_addr: u32) -> u32 {
+pub(crate) fn rb(ghidra_addr: u32) -> u32 {
     ghidra_addr.wrapping_add(REBASE_DELTA.load(Ordering::Relaxed))
 }
 
@@ -59,7 +61,7 @@ unsafe extern "system" fn DllMain(
 // Logging
 // ---------------------------------------------------------------------------
 
-fn log_line(msg: &str) -> std::io::Result<()> {
+pub(crate) fn log_line(msg: &str) -> std::io::Result<()> {
     use std::io::Write;
     let mut f = std::fs::OpenOptions::new()
         .create(true)
@@ -504,8 +506,13 @@ fn run_validation() -> Result<(), Box<dyn std::error::Error>> {
     let _ = log_line("--- Static Validation Summary ---");
     let _ = log_line(&format!("  {}", result.summary_line()));
 
-    // 6. Hooks disabled — retour trampoline corrupts SEH prologue on these constructors
-    // Instead, use a polling thread to find DDGameWrapper after init completes
+    // 6. Install hooks (vtable + inline)
+    match hooks::install_all() {
+        Ok(()) => {}
+        Err(e) => { let _ = log_line(&format!("[ERROR] Hook installation failed: {}", e)); }
+    }
+
+    // 7. Deferred validation via polling (for DDGameWrapper — hooks don't cover this yet)
     let _ = log_line("");
     let _ = log_line("--- Deferred Validation (polling) ---");
     std::thread::spawn(move || {

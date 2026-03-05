@@ -9,3 +9,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 openwa-types = { path = "../openwa-types" }
+minhook = "0.9"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-sys = { version = "0.59", features = ["Win32_System_Memory"] }
