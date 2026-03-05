@@ -1,0 +1,4 @@
+/target
+.claude/
+.mcp.json
+start-mcp.ps1

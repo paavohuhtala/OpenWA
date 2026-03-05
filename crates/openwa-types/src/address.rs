@@ -1,0 +1,171 @@
+/// Known addresses in WA.exe 3.8.1 (image base 0x00400000).
+///
+/// These addresses are discovered through Ghidra analysis and
+/// cross-referenced with wkJellyWorm/WormKit sources.
+///
+/// All addresses are virtual addresses (VA) as loaded in memory.
+pub mod va {
+    // Segment layout:
+    //   .text:  0x00401000 - 0x00619FFF (code)
+    //   .rdata: 0x0061A000 - 0x00693FFF (read-only data)
+    //   .data:  0x00694000 - 0x008C4157 (read-write data)
+    //   .rsrc:  0x008C5000 - 0x00954FFF (resources)
+    //   .reloc: 0x00955000 - 0x00983FFF (relocations)
+
+    pub const IMAGE_BASE: u32 = 0x0040_0000;
+    pub const TEXT_START: u32 = 0x0040_1000;
+    pub const TEXT_END: u32 = 0x0061_9FFF;
+    pub const RDATA_START: u32 = 0x0061_A000;
+    pub const DATA_START: u32 = 0x0069_4000;
+
+    // === Vtables (in .rdata) ===
+
+    /// CTask vtable - 7 virtual method pointers
+    pub const CTASK_VTABLE: u32 = 0x0066_9F8C;
+    /// CGameTask vtable - extends CTask vtable with 12 more methods
+    pub const CGAMETASK_VTABLE: u32 = 0x0066_41F8;
+    /// CGameTask secondary vtable (at object offset 0xE8)
+    pub const CGAMETASK_VTABLE2: u32 = 0x0066_9CF8;
+
+    // === CTask vtable methods (at CTask__vtable) ===
+
+    /// CTask::vtable0 - initialization/unknown
+    pub const CTASK_VT0_INIT: u32 = 0x0056_2710;
+    /// CTask::Free - destructor/deallocation
+    pub const CTASK_VT1_FREE: u32 = 0x0056_2620;
+    /// CTask::HandleMessage - message dispatch
+    pub const CTASK_VT2_HANDLE_MESSAGE: u32 = 0x0056_2F30;
+    /// CTask::vtable3 - unknown
+    pub const CTASK_VT3: u32 = 0x0056_13D0;
+    /// CTask::vtable4 - unknown (same as vt3 in base)
+    pub const CTASK_VT4: u32 = 0x0056_13D0;
+    /// CTask::vtable5 - unknown
+    pub const CTASK_VT5: u32 = 0x0056_2FA0;
+    /// CTask::vtable6 - unknown
+    pub const CTASK_VT6: u32 = 0x0056_3000;
+    /// CTask::vtable7 - ProcessFrame
+    pub const CTASK_VT7_PROCESS_FRAME: u32 = 0x0056_3210;
+
+    // === CGameTask vtable methods (first 8 override CTask, then 12 new) ===
+
+    /// CGameTask::vtable0 override
+    pub const CGAMETASK_VT0: u32 = 0x004F_F1C0;
+    /// CGameTask::Free override
+    pub const CGAMETASK_VT1_FREE: u32 = 0x004F_EF10;
+    /// CGameTask::HandleMessage override
+    pub const CGAMETASK_VT2_HANDLE_MESSAGE: u32 = 0x004F_F280;
+
+    // === Constructors ===
+
+    /// CTask constructor - initializes base task fields and children list
+    pub const CTASK_CONSTRUCTOR: u32 = 0x0056_25A0;
+    /// CGameTask constructor - calls CTask ctor, sets physics defaults
+    pub const CGAMETASK_CONSTRUCTOR: u32 = 0x004F_ED50;
+    /// CTaskWorm constructor
+    pub const CTASK_WORM_CONSTRUCTOR: u32 = 0x0050_BFB0;
+
+    // === Game entity constructors (from wkJellyWorm) ===
+
+    pub const CTASK_AIRSTRIKE_CTOR: u32 = 0x0055_53C0;
+    pub const CTASK_ARROW_CTOR: u32 = 0x004F_E130;
+    pub const CTASK_CANISTER_CTOR: u32 = 0x0050_1A80;
+    pub const CTASK_CLOUD_CTOR: u32 = 0x0054_82E0;
+    pub const CTASK_CPU_CTOR: u32 = 0x0054_85D0;
+    pub const CTASK_CRATE_CTOR: u32 = 0x0050_2490;
+    pub const CTASK_CROSS_CTOR: u32 = 0x0050_45C0;
+    pub const CTASK_DIRT_CTOR: u32 = 0x0054_EDC0;
+    pub const CTASK_FILTER_CTOR: u32 = 0x0054_F3D0;
+    pub const CTASK_FIRE_CTOR: u32 = 0x0054_F4C0;
+    pub const CTASK_FIREBALL_CTOR: u32 = 0x0055_0890;
+    pub const CTASK_FLAME_CTOR: u32 = 0x0054_F0F0;
+    pub const CTASK_GAS_CTOR: u32 = 0x0055_4750;
+    pub const CTASK_LAND_CTOR: u32 = 0x0050_5440;
+    pub const CTASK_MINE_CTOR: u32 = 0x0050_6660;
+    pub const CTASK_MISSILE_CTOR: u32 = 0x0050_7D10;
+    pub const CTASK_OILDRUM_CTOR: u32 = 0x0050_4AF0;
+    pub const CTASK_OLDWORM_CTOR: u32 = 0x0051_FEB0;
+    pub const CTASK_SCOREBUBBLE_CTOR: u32 = 0x0055_4CA0;
+    pub const CTASK_SEABUBBLE_CTOR: u32 = 0x0055_4FE0;
+    pub const CTASK_SMOKE_CTOR: u32 = 0x0055_51D0;
+    pub const CTASK_SPRITE_ANIM_CTOR: u32 = 0x0054_66C0;
+    pub const CTASK_TEAM_CTOR: u32 = 0x0055_5BB0;
+    pub const CTASK_TURNGAME_CTOR: u32 = 0x0055_B280;
+
+    // === Gameplay functions ===
+
+    pub const CREATE_EXPLOSION: u32 = 0x0054_8080;
+    pub const SPECIAL_IMPACT: u32 = 0x0051_93D0;
+    pub const SPAWN_OBJECT: u32 = 0x0056_1CF0;
+    pub const WEAPON_RELEASE: u32 = 0x0051_C3D0;
+    pub const WORM_START_FIRING: u32 = 0x0051_B7F0;
+    pub const FIRE_WEAPON: u32 = 0x0051_EE60;
+    pub const CREATE_WEAPON_PROJECTILE: u32 = 0x0051_E0F0;
+
+    // === Weapon system ===
+
+    pub const INIT_WEAPON_TABLE: u32 = 0x0053_CAB0;
+    pub const GET_AMMO: u32 = 0x0052_25E0;
+    pub const ADD_AMMO: u32 = 0x0052_2640;
+    pub const SUBTRACT_AMMO: u32 = 0x0052_2680;
+
+    // === Graphics / rendering ===
+
+    pub const CONSTRUCT_DD_GAME: u32 = 0x0056_E220;
+    pub const CONSTRUCT_DD_GAME_WRAPPER: u32 = 0x0056_DEF0;
+    pub const CONSTRUCT_DD_DISPLAY: u32 = 0x0056_9D00;
+    pub const CONSTRUCT_FRAME_BUFFER: u32 = 0x005A_2430;
+    pub const BLIT_SCREEN: u32 = 0x005A_2020;
+    pub const RENDER_DRAWING_QUEUE: u32 = 0x0054_2350;
+    pub const DRAW_LANDSCAPE: u32 = 0x005A_2790;
+    pub const DRAW_SPRITE_GLOBAL: u32 = 0x0054_1FE0;
+    pub const DRAW_BITMAP_GLOBAL: u32 = 0x0054_2170;
+    pub const LOAD_SPRITE: u32 = 0x0052_3400;
+    pub const CONSTRUCT_OPENGL_CPU: u32 = 0x005A_0850;
+    pub const OPENGL_INIT: u32 = 0x0059_F000;
+
+    // === Landscape ===
+
+    pub const CONSTRUCT_PC_LANDSCAPE: u32 = 0x0057_ACB0;
+    pub const REDRAW_LAND_REGION: u32 = 0x0057_CC10;
+    pub const WRITE_LAND_RAW: u32 = 0x0057_C300;
+
+    // === Sound ===
+
+    pub const CONSTRUCT_DS_SOUND: u32 = 0x0057_3D50;
+    pub const PLAY_SOUND_LOCAL: u32 = 0x004F_DFE0;
+    pub const PLAY_SOUND_GLOBAL: u32 = 0x0054_6E20;
+
+    // === Chat / UI ===
+
+    pub const SHOW_CHAT_MESSAGE: u32 = 0x0052_ACB0;
+    pub const ON_CHAT_INPUT: u32 = 0x0052_B730;
+
+    // === Lobby / network ===
+
+    pub const LOBBY_HOST_COMMANDS: u32 = 0x004B_9B00;
+    pub const LOBBY_CLIENT_COMMANDS: u32 = 0x004A_ABB0;
+    pub const SEND_GAME_PACKET_WRAPPED: u32 = 0x0054_1130;
+    pub const FRONTEND_CHANGE_SCREEN: u32 = 0x0044_7A20;
+
+    // === Memory ===
+
+    pub const WA_MALLOC_MEMSET: u32 = 0x0053_E910;
+    pub const WA_FREE: u32 = 0x005D_0D2B;
+
+    // === Game context (DDGame struct offsets) ===
+    // These are offsets from the DDGame base pointer, not absolute addresses.
+    // DDGame pointer is obtained from hookConstructDDGameWrapper param.
+
+    pub mod ddgame_offsets {
+        /// Offset to TurnGame object pointer
+        pub const TURN_GAME: u32 = 0x08;
+        /// Offset to game global state pointer
+        pub const GAME_GLOBAL: u32 = 0x488;
+        /// Offset to PC_Landscape pointer
+        pub const PC_LANDSCAPE: u32 = 0x4CC;
+        /// Offset to weapon table pointer
+        pub const WEAPON_TABLE: u32 = 0x510;
+        /// Offset to weapon panel pointer
+        pub const WEAPON_PANEL: u32 = 0x548;
+    }
+}
