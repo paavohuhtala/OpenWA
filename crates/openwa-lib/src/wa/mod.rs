@@ -2,4 +2,5 @@
 
 pub mod frontend;
 pub mod mfc;
+pub mod registry;
 pub mod resource;
