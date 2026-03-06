@@ -256,6 +256,18 @@ pub mod va {
     /// Guard global for gameplay modifier application in ReadFile (nonzero = apply modifiers)
     pub const SCHEME_MODIFIER_GUARD: u32 = 0x0088_E460;
 
+    // === MFC / ATL library functions ===
+
+    /// ATL::CSimpleStringT<char,0>::operator= — thiscall(this, &src)
+    /// Assigns one CString to another with refcount management.
+    pub const CSTRING_OPERATOR_ASSIGN: u32 = 0x0040_1D20;
+    /// String resource lookup + assign — stdcall(dest_cstring_ptr) with EDX=resource_id
+    /// Looks up localized string by resource ID, assigns to dest CString.
+    pub const CSTRING_ASSIGN_RESOURCE: u32 = 0x004A_39F0;
+    /// CSimpleStringT::SetString — thiscall(this, str_ptr, str_len)
+    /// Low-level string buffer assignment (called by operator= and assign_resource).
+    pub const CSTRING_SET_STRING: u32 = 0x0040_1EA0;
+
     // === Lobby / network ===
 
     pub const LOBBY_HOST_COMMANDS: u32 = 0x004B_9B00;

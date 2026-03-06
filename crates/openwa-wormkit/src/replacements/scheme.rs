@@ -333,21 +333,19 @@ unsafe fn call_original_save_file(this: u32, name: u32, flag: u32) -> u32 {
 // Scheme__InitFromData replacement (0x4D5020)
 // ============================================================
 
-/// Trampoline to original Scheme__InitFromData (for CString name assignment).
-static ORIG_SCHEME_INIT_FROM_DATA: AtomicU32 = AtomicU32::new(0);
-
 /// Rust replacement for Scheme__InitFromData (0x4D5020).
 /// fastcall(ECX=unused, EDX=src_data, dest, name_cstring), RET 0x8
 ///
 /// Copies V1 payload data into scheme struct, zeroes super weapons,
-/// applies V3 defaults from ROM, sets flag/index fields.
-/// Delegates to original for CString name assignment (MFC refcounting).
+/// applies V3 defaults from ROM, sets flag/index fields, assigns name.
 unsafe extern "fastcall" fn hook_init_from_data(
-    ecx: u32,
+    _ecx: u32,
     src_data: u32,
     dest: u32,
     name_cstring: u32,
 ) {
+    use openwa_lib::wa::mfc::{cstring_release, CStringRef};
+
     // Step 1: Copy 0xD8 bytes (V1 payload) from src_data to dest+0x14
     core::ptr::copy_nonoverlapping(
         src_data as *const u8,
@@ -374,12 +372,25 @@ unsafe extern "fastcall" fn hook_init_from_data(
     *((dest + 0x04) as *mut u8) = 0;
     *((dest + 0x08) as *mut u32) = 0xFFFF_FFFF;
 
-    // Step 5: CString name assignment — delegate to original function.
-    // The original will redo steps 1-4 (harmless) and correctly handle
-    // MFC CString refcounting + string resource lookup for empty names.
-    let orig: unsafe extern "fastcall" fn(u32, u32, u32, u32) =
-        core::mem::transmute(ORIG_SCHEME_INIT_FROM_DATA.load(Ordering::Relaxed));
-    orig(ecx, src_data, dest, name_cstring);
+    // Step 5: CString name assignment.
+    // name_cstring is the char* data pointer of the source CString.
+    // dest+0x0C is the CString field in the dest scheme struct.
+    let src_len = *((name_cstring - 0x0C) as *const i32);
+    let mut dest_name = CStringRef::new(dest + 0x0C);
+    if src_len == 0 {
+        // Empty source: assign default name from string resource #14 (0x0E)
+        dest_name.assign_resource(0x0E);
+    } else {
+        // Non-empty: copy via CString operator=.
+        // operator= expects &CSimpleStringT (pointer to the char* pointer).
+        // name_cstring is the char* itself, passed on the stack — its stack
+        // address IS the CSimpleStringT object pointer.
+        let src_name = CStringRef::new(&name_cstring as *const u32 as u32);
+        dest_name.assign_from(&src_name);
+    }
+
+    // Step 6: Release the source CString (original decrements refcount at end).
+    cstring_release(name_cstring);
 }
 
 // ============================================================
@@ -406,25 +417,20 @@ unsafe extern "stdcall" fn hook_check_weapon_limits() -> u32 {
 // Scheme__ScanDirectory replacement (0x4D54E0)
 // ============================================================
 
-/// Trampoline to original Scheme__ScanDirectory (for CString param cleanup).
-static ORIG_SCHEME_SCAN_DIRECTORY: AtomicU32 = AtomicU32::new(0);
-
 /// Rust replacement for Scheme__ScanDirectory (0x4D54E0).
 /// stdcall(cstring_param), RET 0x4
 ///
 /// Recursively scans for {{DD}} name.wsc files and marks slot flags.
-/// Delegates to original afterward for CString refcount cleanup.
+/// The cstring_param is a char* data pointer from a CString passed by the caller
+/// (ExtractBuiltins). We must release its refcount when done.
 unsafe extern "stdcall" fn hook_scan_directory(cstring_param: u32) {
-    // Do the Rust scan first — populate slot flags
+    // Perform the Rust directory scan
     scan_directory_recursive("User\\Schemes");
 
     let _ = log_line("[Scheme] ScanDirectory completed (Rust)");
 
-    // Call original for CString param cleanup (refcount release).
-    // The original will redo the scan harmlessly (sets same flags).
-    let orig: unsafe extern "stdcall" fn(u32) =
-        core::mem::transmute(ORIG_SCHEME_SCAN_DIRECTORY.load(Ordering::Relaxed));
-    orig(cstring_param);
+    // Release the CString parameter's refcount (caller transferred ownership)
+    openwa_lib::wa::mfc::cstring_release(cstring_param);
 }
 
 /// Parse a scheme filename matching the pattern `{{DD}} name.wsc`.
@@ -527,19 +533,17 @@ pub fn install() -> Result<(), String> {
         )?;
         ORIG_SCHEME_SAVE_FILE.store(trampoline_save as u32, Ordering::Relaxed);
 
-        let trampoline_init = crate::hook::install(
+        let _ = crate::hook::install(
             "Scheme__InitFromData",
             va::SCHEME_INIT_FROM_DATA,
             hook_init_from_data as *const (),
         )?;
-        ORIG_SCHEME_INIT_FROM_DATA.store(trampoline_init as u32, Ordering::Relaxed);
 
-        let trampoline_scan = crate::hook::install(
+        let _ = crate::hook::install(
             "Scheme__ScanDirectory",
             va::SCHEME_SCAN_DIRECTORY,
             hook_scan_directory as *const (),
         )?;
-        ORIG_SCHEME_SCAN_DIRECTORY.store(trampoline_scan as u32, Ordering::Relaxed);
     }
 
     Ok(())
