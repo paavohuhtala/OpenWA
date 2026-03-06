@@ -6,10 +6,10 @@
 //! - Theme__Save (0x44BBC0): theme file write
 //! - Registry__DeleteKeyRecursive (0x4E4D10): recursive registry deletion
 //! - Registry__CleanAll (0x4C90D0): full registry cleanup
+//! - GameInfo__LoadOptions (0x460AC0): game options from registry
 
 use openwa_types::address::va;
 use crate::log_line;
-#[allow(unused_imports)]
 use openwa_lib::rebase::rb;
 
 const THEME_PATH: &str = "data\\current.thm";
@@ -125,6 +125,168 @@ unsafe extern "stdcall" fn hook_registry_clean_all(struct_ptr: u32) {
 }
 
 // ============================================================
+// GameInfo__LoadOptions replacement (0x460AC0)
+// ============================================================
+
+/// Rust replacement for GameInfo__LoadOptions.
+/// stdcall(game_info: u32)
+///
+/// Reads game options from the Windows registry and copies various globals
+/// into the GameInfo struct at known offsets.
+unsafe extern "stdcall" fn hook_load_options(gi: u32) {
+    use openwa_lib::wa::registry::read_profile_int;
+
+    let _ = log_line("[Config] LoadOptions: loading game options from registry");
+
+    // Format speech path: "%s\\user\\speech"
+    let base_dir = rb(va::G_BASE_DIR) as *const u8;
+    let speech_dest = (gi + 0xF404) as *mut u8;
+    let base_str = std::ffi::CStr::from_ptr(base_dir as *const i8);
+    let speech_path = format!("{}\\user\\speech\0", base_str.to_string_lossy());
+    core::ptr::copy_nonoverlapping(
+        speech_path.as_ptr(),
+        speech_dest,
+        speech_path.len(),
+    );
+
+    // Copy 64 bytes from global 0x88DFF3 → GameInfo+0xF485
+    core::ptr::copy_nonoverlapping(
+        rb(va::G_GAMEINFO_BLOCK_F485) as *const u8,
+        (gi + 0xF485) as *mut u8,
+        64,
+    );
+
+    // Format streams directory and randomize stream indices
+    let streams_dest = rb(va::G_STREAMS_DIR) as *mut u8;
+    let streams_path = format!("{}\\streams\0", base_str.to_string_lossy());
+    core::ptr::copy_nonoverlapping(
+        streams_path.as_ptr(),
+        streams_dest,
+        streams_path.len(),
+    );
+
+    // Randomize stream indices (16 entries, each rand() % 11 + 1)
+    let indices = rb(va::G_STREAM_INDICES) as *mut u32;
+    let indices_end = rb(va::G_STREAM_INDICES_END) as usize;
+    let mut ptr = indices;
+    while (ptr as usize) < indices_end {
+        extern "cdecl" { fn rand() -> i32; }
+        *ptr = (rand() % 11 + 1) as u32;
+        ptr = ptr.add(1);
+    }
+
+    // Stream volume: 0x10 if flag set, else 0
+    let stream_vol_addr = rb(va::G_STREAM_INDICES_END) as *mut u8;
+    *stream_vol_addr = if *(rb(va::G_STREAM_FLAG) as *const u32) != 0 { 0x10 } else { 0 };
+    // Secondary volume byte
+    *(rb(va::G_STREAM_VOLUME) as *mut u8) = 0x4B;
+
+    // Copy "data\land.dat" string (14 bytes) → GameInfo+0xDAEC
+    core::ptr::copy_nonoverlapping(
+        rb(va::G_LAND_DAT_STRING) as *const u8,
+        (gi + 0xDAEC) as *mut u8,
+        14,
+    );
+
+    // Copy byte from global → GameInfo+0xF3A0
+    *((gi + 0xF3A0) as *mut u8) = *(rb(va::G_CONFIG_BYTE_F3A0) as *const u8);
+
+    // Read registry values from "Options" section
+    let detail = read_profile_int("Options", "DetailLevel", 5);
+    *((gi + 0xF3A1) as *mut u8) = detail as u8;
+
+    // Zero 2 bytes at +0xF3F0
+    *((gi + 0xF3F0) as *mut u16) = 0;
+
+    // Copy 5 DWORDs from globals → GameInfo+0xF3B4..+0xF3D0
+    let src = rb(va::G_CONFIG_DWORDS_F3B4) as *const u32;
+    for i in 0u32..5 {
+        let offset = 0xF3B4 + i * 4;
+        *((gi + offset) as *mut u32) = *src.add(i as usize);
+    }
+
+    // Conditional copy: 4 DWORDs if guard == 0
+    if *(rb(va::G_CONFIG_GUARD) as *const u32) == 0 {
+        let src = rb(va::G_CONFIG_DWORDS_F3F4) as *const u32;
+        for i in 0u32..4 {
+            let offset = 0xF3F4 + i * 4;
+            *((gi + offset) as *mut u32) = *src.add(i as usize);
+        }
+    }
+
+    // Single DWORDs from globals
+    *((gi + 0xDAE8) as *mut u32) = *(rb(va::G_CONFIG_DWORD_DAE8) as *const u32);
+
+    let src_d4 = rb(va::G_CONFIG_DWORDS_F3D4) as *const u32;
+    *((gi + 0xF3D4) as *mut u32) = *src_d4;
+    *((gi + 0xF3D8) as *mut u32) = *src_d4.add(1);
+
+    // EnergyBar
+    let energy = read_profile_int("Options", "EnergyBar", 1);
+    *((gi + 0xF3A2) as *mut u8) = energy as u8;
+
+    // 3 DWORDs from globals → +0xF3C4..+0xF3CC
+    let src_c4 = rb(va::G_CONFIG_DWORDS_F3C4) as *const u32;
+    for i in 0u32..3 {
+        let offset = 0xF3C4 + i * 4;
+        *((gi + offset) as *mut u32) = *src_c4.add(i as usize);
+    }
+
+    // Remaining registry values
+    let info_trans = read_profile_int("Options", "InfoTransparency", 0);
+    *((gi + 0xF3A3) as *mut u8) = info_trans as u8;
+
+    let info_spy = read_profile_int("Options", "InfoSpy", 1);
+    *((gi + 0xF3A4) as *mut u8) = if info_spy != 0 { 1 } else { 0 };
+
+    let chat_pinned = read_profile_int("Options", "ChatPinned", 0);
+    *((gi + 0xF3A5) as *mut u8) = chat_pinned as u8;
+
+    let chat_lines = read_profile_int("Options", "ChatLines", 0);
+    *((gi + 0xF3A8) as *mut u32) = chat_lines;
+
+    let pinned_lines = read_profile_int("Options", "PinnedChatLines", 0xFFFFFFFF);
+    *((gi + 0xF3AC) as *mut u32) = pinned_lines;
+
+    let home_lock = read_profile_int("Options", "HomeLock", 0);
+    *((gi + 0xF3B0) as *mut u8) = home_lock as u8;
+
+    // BackgroundDebrisParallax: clamp to i16 range, then << 16
+    let mut parallax = read_profile_int("Options", "BackgroundDebrisParallax", 0x50);
+    let parallax_i32 = parallax as i32;
+    if parallax_i32 < -0x8000 || parallax_i32 > 0x7FFF {
+        if parallax_i32 < 0 {
+            parallax = (-0x8000i32) as u32;
+        } else {
+            parallax = 0x7FFF;
+        }
+    }
+    *((gi + 0xF3E8) as *mut u32) = parallax << 16;
+
+    let onomatopoeia = read_profile_int("Options", "TopmostExplosionOnomatopoeia", 0);
+    *((gi + 0xF3EC) as *mut u32) = onomatopoeia;
+
+    let capture_png = read_profile_int("Options", "CaptureTransparentPNGs", 0);
+    *((gi + 0xF3DC) as *mut u32) = capture_png;
+
+    // CameraUnlockMouseSpeed: clamp to max 0xB504, then square
+    let mut mouse_speed = read_profile_int("Options", "CameraUnlockMouseSpeed", 0x10);
+    if mouse_speed > 0xB504 {
+        if (mouse_speed as i32) < 0 {
+            mouse_speed = 0;
+        } else {
+            mouse_speed = 0xB504;
+        }
+    }
+    *((gi + 0xF3E0) as *mut u32) = mouse_speed * mouse_speed;
+
+    // Final global DWORD
+    *((gi + 0xF3E4) as *mut u32) = *(rb(va::G_CONFIG_DWORD_F3E4) as *const u32);
+
+    let _ = log_line("[Config] LoadOptions completed (Rust)");
+}
+
+// ============================================================
 // Hook installation
 // ============================================================
 
@@ -158,6 +320,12 @@ pub fn install() -> Result<(), String> {
             "Registry__CleanAll",
             va::REGISTRY_CLEAN_ALL,
             hook_registry_clean_all as *const (),
+        )?;
+
+        let _ = crate::hook::install(
+            "GameInfo__LoadOptions",
+            va::GAMEINFO_LOAD_OPTIONS,
+            hook_load_options as *const (),
         )?;
     }
 

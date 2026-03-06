@@ -353,6 +353,41 @@ pub mod va {
     /// +0xA0 = DDGameWrapper*, +0xAC = DDDisplay*, +0xA8 = DSSound*, etc.
     pub const G_GAME_SESSION: u32 = 0x007A_0884;
 
+    // === Configuration globals (for GameInfo__LoadOptions) ===
+
+    /// Base directory string (null-terminated)
+    pub const G_BASE_DIR: u32 = 0x0088_E282;
+    /// 64-byte data block copied into GameInfo+0xF485
+    pub const G_GAMEINFO_BLOCK_F485: u32 = 0x0088_DFF3;
+    /// "data\land.dat" string constant (14 bytes)
+    pub const G_LAND_DAT_STRING: u32 = 0x0064_DA58;
+    /// Unknown byte read into GameInfo+0xF3A0
+    pub const G_CONFIG_BYTE_F3A0: u32 = 0x007C_0D38;
+    /// 5 DWORDs: GameInfo offsets +0xF3B4..+0xF3D0
+    pub const G_CONFIG_DWORDS_F3B4: u32 = 0x0088_E39C;
+    /// Guard flag for conditional config copies
+    pub const G_CONFIG_GUARD: u32 = 0x0088_C374;
+    /// 4 DWORDs (conditional): GameInfo offsets +0xF3F4..+0xF400
+    pub const G_CONFIG_DWORDS_F3F4: u32 = 0x0088_E3B8;
+    /// DWORD → GameInfo+0xDAE8
+    pub const G_CONFIG_DWORD_DAE8: u32 = 0x0088_E390;
+    /// 2 DWORDs → GameInfo+0xF3D4, +0xF3D8
+    pub const G_CONFIG_DWORDS_F3D4: u32 = 0x0088_E3B0;
+    /// 3 DWORDs → GameInfo+0xF3C4..+0xF3CC
+    pub const G_CONFIG_DWORDS_F3C4: u32 = 0x0088_E400;
+    /// DWORD → GameInfo+0xF3E4
+    pub const G_CONFIG_DWORD_F3E4: u32 = 0x0088_E44C;
+    /// Streams directory path buffer
+    pub const G_STREAMS_DIR: u32 = 0x0088_AE18;
+    /// Random stream indices (16 entries)
+    pub const G_STREAM_INDICES: u32 = 0x0088_AE9C;
+    /// Stream index end sentinel
+    pub const G_STREAM_INDICES_END: u32 = 0x0088_AEDC;
+    /// DAT_0088E394 flag for stream volume
+    pub const G_STREAM_FLAG: u32 = 0x0088_E394;
+    /// Stream volume byte
+    pub const G_STREAM_VOLUME: u32 = 0x0088_AEDD;
+
     // === Game context (DDGame struct offsets) ===
     // These are offsets from the DDGame base pointer, not absolute addresses.
     // DDGame pointer is obtained from hookConstructDDGameWrapper param.
