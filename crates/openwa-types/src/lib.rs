@@ -11,5 +11,6 @@ pub mod landscape;
 pub mod dssound;
 pub mod opengl;
 pub mod frontend;
+pub mod game_info;
 pub mod scheme;
 pub mod address;
