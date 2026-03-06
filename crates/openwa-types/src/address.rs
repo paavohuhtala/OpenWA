@@ -233,6 +233,21 @@ pub mod va {
     pub const SCHEME_DETECT_VERSION: u32 = 0x004D_4480;
     /// Extracts built-in schemes from PE resources to User\Schemes\ directory
     pub const SCHEME_EXTRACT_BUILTINS: u32 = 0x004D_5720;
+    /// Copies payload data + V3 defaults into scheme struct: fastcall(?, data, dest, name)
+    pub const SCHEME_INIT_FROM_DATA: u32 = 0x004D_5020;
+    /// Validates weapon ammo counts against max table (39 weapons): returns 0=ok, 1=over limit
+    pub const SCHEME_CHECK_WEAPON_LIMITS: u32 = 0x004D_50E0;
+    /// Validates V3 extended options field ranges: returns 0=valid, 1=invalid
+    pub const SCHEME_VALIDATE_EXTENDED_OPTIONS: u32 = 0x004D_5110;
+    /// Scans User\Schemes\ for {NN} name.wsc files, marks found indices in global array
+    pub const SCHEME_SCAN_DIRECTORY: u32 = 0x004D_54E0;
+
+    // === Scheme data (in .rdata/.data) ===
+
+    /// V3 extended options defaults (110 bytes), applied to V1/V2 schemes
+    pub const SCHEME_V3_DEFAULTS: u32 = 0x0064_9AB8;
+    /// Per-weapon max ammo table (39 bytes), used by CheckWeaponLimits
+    pub const SCHEME_WEAPON_AMMO_LIMITS: u32 = 0x006A_D130;
 
     // === Lobby / network ===
 
