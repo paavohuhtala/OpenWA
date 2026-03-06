@@ -2,6 +2,7 @@
 
 use std::ffi::c_void;
 
+pub mod hook;
 pub mod rebase;
 pub mod wa_call;
 mod replacements;

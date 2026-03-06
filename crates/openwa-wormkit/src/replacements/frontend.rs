@@ -3,10 +3,7 @@
 //! Original: 0x447A20, stdcall(screen_id), ESI = dialog this (__usercall).
 //! Navigates between frontend menu screens via MFC CDialog::EndDialog.
 
-use std::ffi::c_void;
 use std::sync::atomic::{AtomicU32, Ordering};
-
-use minhook::MinHook;
 
 use crate::log_line;
 use crate::rebase::rb;
@@ -97,21 +94,12 @@ unsafe extern "cdecl" fn frontend_change_screen_impl(dialog: u32, screen_id: u32
 
 pub fn install() -> Result<(), String> {
     unsafe {
-        let target = rb(va::FRONTEND_CHANGE_SCREEN) as *mut c_void;
-        let detour = trampoline as *const () as *mut c_void;
-
-        let trampoline_ptr = MinHook::create_hook(target, detour)
-            .map_err(|e| format!("MinHook create_hook failed for FrontendChangeScreen: {e}"))?;
-
-        MinHook::enable_hook(target)
-            .map_err(|e| format!("MinHook enable_hook failed for FrontendChangeScreen: {e}"))?;
-
+        let trampoline_ptr = crate::hook::install(
+            "FrontendChangeScreen",
+            va::FRONTEND_CHANGE_SCREEN,
+            trampoline as *const (),
+        )?;
         ORIG_FRONTEND_CHANGE_SCREEN.store(trampoline_ptr as u32, Ordering::Relaxed);
-
-        let _ = log_line(&format!(
-            "  [REPLACE] FrontendChangeScreen: target 0x{:08X}, trampoline 0x{:08X}",
-            target as u32, trampoline_ptr as u32
-        ));
     }
 
     Ok(())

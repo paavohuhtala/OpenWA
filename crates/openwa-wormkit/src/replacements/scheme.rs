@@ -5,14 +5,11 @@
 //! - Scheme__ValidateExtendedOptions (0x4D5110): pure Rust validation
 //! - Scheme__FileExists (0x4D4CD0): Rust path check
 
-use std::ffi::{c_void, CStr};
+use std::ffi::CStr;
 use std::path::Path;
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use minhook::MinHook;
-
 use crate::log_line;
-use crate::rebase::rb;
 use openwa_types::address::va;
 use openwa_types::scheme::{
     ExtendedOptions, SchemeFile, SchemeVersion, EXTENDED_OPTIONS_DEFAULTS, EXTENDED_OPTIONS_SIZE,
@@ -225,62 +222,24 @@ unsafe extern "stdcall" fn hook_scheme_file_exists(name: u32) -> u32 {
 
 pub fn install() -> Result<(), String> {
     unsafe {
-        // Hook Scheme__ReadFile (0x4D3890) — full Rust replacement
-        {
-            let target = rb(va::SCHEME_READ_FILE) as *mut c_void;
-            let detour = hook_scheme_read_file as *const () as *mut c_void;
+        let trampoline = crate::hook::install(
+            "Scheme__ReadFile",
+            va::SCHEME_READ_FILE,
+            hook_scheme_read_file as *const (),
+        )?;
+        ORIG_SCHEME_READ_FILE.store(trampoline as u32, Ordering::Relaxed);
 
-            let trampoline = MinHook::create_hook(target, detour)
-                .map_err(|e| format!("MinHook create_hook failed for Scheme__ReadFile: {e}"))?;
+        let _ = crate::hook::install(
+            "Scheme__ValidateExtendedOptions",
+            va::SCHEME_VALIDATE_EXTENDED_OPTIONS,
+            trampoline_validate_ext_opts as *const (),
+        )?;
 
-            MinHook::enable_hook(target)
-                .map_err(|e| format!("MinHook enable_hook failed for Scheme__ReadFile: {e}"))?;
-
-            ORIG_SCHEME_READ_FILE.store(trampoline as u32, Ordering::Relaxed);
-
-            let _ = log_line(&format!(
-                "  [REPLACE] Scheme__ReadFile: target 0x{:08X}, trampoline 0x{:08X}",
-                target as u32, trampoline as u32
-            ));
-        }
-
-        // Hook Scheme__ValidateExtendedOptions (0x4D5110) — full Rust replacement
-        {
-            let target = rb(va::SCHEME_VALIDATE_EXTENDED_OPTIONS) as *mut c_void;
-            let detour = trampoline_validate_ext_opts as *const () as *mut c_void;
-
-            MinHook::create_hook(target, detour).map_err(|e| {
-                format!("MinHook create_hook failed for ValidateExtendedOptions: {e}")
-            })?;
-
-            MinHook::enable_hook(target).map_err(|e| {
-                format!("MinHook enable_hook failed for ValidateExtendedOptions: {e}")
-            })?;
-
-            let _ = log_line(&format!(
-                "  [REPLACE] Scheme__ValidateExtendedOptions: target 0x{:08X}",
-                target as u32
-            ));
-        }
-
-        // Hook Scheme__FileExists (0x4D4CD0) — full Rust replacement
-        {
-            let target = rb(va::SCHEME_FILE_EXISTS) as *mut c_void;
-            let detour = hook_scheme_file_exists as *const () as *mut c_void;
-
-            MinHook::create_hook(target, detour).map_err(|e| {
-                format!("MinHook create_hook failed for Scheme__FileExists: {e}")
-            })?;
-
-            MinHook::enable_hook(target).map_err(|e| {
-                format!("MinHook enable_hook failed for Scheme__FileExists: {e}")
-            })?;
-
-            let _ = log_line(&format!(
-                "  [REPLACE] Scheme__FileExists: target 0x{:08X}",
-                target as u32
-            ));
-        }
+        let _ = crate::hook::install(
+            "Scheme__FileExists",
+            va::SCHEME_FILE_EXISTS,
+            hook_scheme_file_exists as *const (),
+        )?;
     }
 
     Ok(())
