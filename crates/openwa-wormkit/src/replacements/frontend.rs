@@ -14,24 +14,10 @@ use openwa_types::frontend::ScreenId;
 /// Trampoline to the original FrontendChangeScreen (for fallback if needed).
 static ORIG_FRONTEND_CHANGE_SCREEN: AtomicU32 = AtomicU32::new(0);
 
-/// Naked trampoline that captures ESI (the implicit dialog this pointer)
-/// and routes it to our cdecl Rust implementation.
-///
-/// Stack on entry (from MinHook redirect):
-///   [ESP+0] = return address
-///   [ESP+4] = screen_id
-///   ESI     = dialog this (MSVC __usercall convention)
-#[unsafe(naked)]
-unsafe extern "stdcall" fn trampoline(_screen_id: u32) {
-    core::arch::naked_asm!(
-        "push [esp+4]",       // push screen_id
-        "push esi",           // push dialog this
-        "call {impl_fn}",    // cdecl call: impl(dialog, screen_id)
-        "add esp, 8",        // clean our two pushes
-        "ret 0x4",           // clean original screen_id from caller's stack
-        impl_fn = sym frontend_change_screen_impl,
-    );
-}
+// Naked trampoline: captures ESI (dialog this, __usercall) + 1 stack arg (screen_id).
+crate::hook::usercall_trampoline!(fn trampoline;
+    impl_fn = frontend_change_screen_impl; reg = esi;
+    stack_params = 1; ret_bytes = "0x4");
 
 /// Rust reimplementation of FrontendChangeScreen.
 ///

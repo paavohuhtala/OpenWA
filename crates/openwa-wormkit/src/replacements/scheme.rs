@@ -168,20 +168,9 @@ unsafe fn call_original_read_file(dest: u32, path: u32, flag: u32, out_ptr: u32)
 // Scheme__ValidateExtendedOptions replacement (0x4D5110)
 // ============================================================
 
-/// Naked trampoline for Scheme__ValidateExtendedOptions.
-///
-/// WA calls this with EAX = pointer to 110-byte extended options data.
-/// Plain RET (no stack cleanup). Returns EAX: 0 = valid, 1 = invalid.
-#[unsafe(naked)]
-unsafe extern "C" fn trampoline_validate_ext_opts() {
-    core::arch::naked_asm!(
-        "push eax",         // push options pointer as arg
-        "call {impl_fn}",  // cdecl call
-        "add esp, 4",      // clean up our push
-        "ret",              // plain ret (no stack params to clean)
-        impl_fn = sym validate_extended_options_impl,
-    );
-}
+// Naked trampoline: captures EAX (110-byte extended options pointer). Returns 0=valid, 1=invalid.
+crate::hook::usercall_trampoline!(fn trampoline_validate_ext_opts;
+    impl_fn = validate_extended_options_impl; reg = eax);
 
 /// Rust implementation called by the naked trampoline.
 unsafe extern "cdecl" fn validate_extended_options_impl(options_ptr: u32) -> u32 {
