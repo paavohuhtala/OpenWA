@@ -490,6 +490,107 @@ unsafe fn scan_directory_recursive(dir: &str) {
 }
 
 // ============================================================
+// Scheme__ExtractBuiltins replacement (0x4D5720)
+// ============================================================
+
+/// Built-in scheme names, indexed by slot (1-13).
+/// Original loads these from MFC string resources (IDs 0x3CA-0x3D6) via
+/// AfxFindStringResourceHandle, which is not accessible via plain LoadStringA.
+/// The names are fixed across all WA 3.8.1 installations.
+const BUILTIN_SCHEME_NAMES: [&str; 14] = [
+    "",                // slot 0 unused
+    "Beginner",        // slot 1, resource 0x3CA
+    "Intermediate",    // slot 2, resource 0x3CB
+    "Pro",             // slot 3, resource 0x3CC
+    "Tournament",      // slot 4, resource 0x3D1
+    "Classic",         // slot 5, resource 0x3CD
+    "Retro",           // slot 6, resource 0x3D2
+    "Artillery",       // slot 7, resource 0x3D5
+    "Sudden Sinking",  // slot 8, resource 0x3D0
+    "Strategic",       // slot 9, resource 0x3D3
+    "The Darkside",    // slot 10, resource 0x3D4
+    "Armageddon",      // slot 11, resource 0x3CE
+    "Blast Zone",      // slot 12, resource 0x3CF
+    "Full Wormage",    // slot 13, resource 0x3D6
+];
+
+/// Rust replacement for Scheme__ExtractBuiltins (0x4D5720).
+/// No params, no return value. Called from Frontend__MainNavigationLoop at startup.
+///
+/// Zeros slot flags, scans for existing scheme files, then extracts missing
+/// built-in schemes from PE resources (type "SCHEMES") to User\Schemes\.
+unsafe extern "stdcall" fn hook_extract_builtins() {
+    use openwa_lib::wa::resource;
+
+    // Step 1: Zero 16 bytes of slot flags (4 DWORDs covering slots 0-15)
+    let slot_flags = rb(va::SCHEME_SLOT_FLAGS) as *mut u8;
+    core::ptr::write_bytes(slot_flags, 0, 16);
+
+    // Step 2: Ensure directory exists
+    let _ = std::fs::create_dir_all("User\\Schemes");
+
+    // Step 3: Scan for existing scheme files (reuse our Rust implementation)
+    scan_directory_recursive("User\\Schemes");
+
+    // Step 4: Extract missing built-in schemes
+    for slot in 1u32..=13 {
+        if *slot_flags.add(slot as usize) != 0 {
+            continue; // file already exists
+        }
+
+        // Slot 13: original has an obfuscated feature check (FUN_004DA4C0) that
+        // uses __usercall (implicit EAX/ECX). On Steam copies all slots are available,
+        // so we skip the check. If needed, this could be replicated later.
+
+        let name = BUILTIN_SCHEME_NAMES[slot as usize];
+
+        // Format output path: User\Schemes\{{DD}} name.wsc
+        let path = format!("User\\Schemes\\{{{{{slot:02}}}}} {name}.wsc");
+
+        // Load PE resource: type "SCHEMES", ID = slot + 0x2742
+        let resource_id = slot + 0x2742;
+        match resource::load_pe_resource("SCHEMES", resource_id) {
+            Some(data) => {
+                if let Err(e) = std::fs::write(&path, data) {
+                    let _ = log_line(&format!(
+                        "[Scheme] ExtractBuiltins: failed to write {path}: {e}"
+                    ));
+                }
+            }
+            None => {
+                let _ = log_line(&format!(
+                    "[Scheme] ExtractBuiltins: PE resource 0x{resource_id:X} not found for slot {slot}"
+                ));
+            }
+        }
+    }
+
+    let _ = log_line("[Scheme] ExtractBuiltins completed (Rust)");
+}
+
+// ============================================================
+// Scheme__LoadNumbered logging sentinel (0x4D4E00)
+// ============================================================
+
+/// Trampoline to original Scheme__LoadNumbered.
+static ORIG_LOAD_NUMBERED: AtomicU32 = AtomicU32::new(0);
+
+/// Logging sentinel for Scheme__LoadNumbered (0x4D4E00).
+/// This function has zero xrefs in WA.exe (believed dead code).
+/// We hook it to detect if it's actually called at runtime.
+unsafe extern "stdcall" fn hook_load_numbered(name: u32) -> u32 {
+    let c_name = CStr::from_ptr(name as *const i8)
+        .to_str()
+        .unwrap_or("???");
+    let _ = log_line(&format!(
+        "[Scheme] WARNING: LoadNumbered called (believed dead code): {c_name}"
+    ));
+    let orig: unsafe extern "stdcall" fn(u32) -> u32 =
+        core::mem::transmute(ORIG_LOAD_NUMBERED.load(Ordering::Relaxed));
+    orig(name)
+}
+
+// ============================================================
 // Hook installation
 // ============================================================
 
@@ -544,6 +645,19 @@ pub fn install() -> Result<(), String> {
             va::SCHEME_SCAN_DIRECTORY,
             hook_scan_directory as *const (),
         )?;
+
+        let _ = crate::hook::install(
+            "Scheme__ExtractBuiltins",
+            va::SCHEME_EXTRACT_BUILTINS,
+            hook_extract_builtins as *const (),
+        )?;
+
+        let trampoline_load = crate::hook::install(
+            "Scheme__LoadNumbered",
+            va::SCHEME_FILE_EXISTS_NUMBERED,
+            hook_load_numbered as *const (),
+        )?;
+        ORIG_LOAD_NUMBERED.store(trampoline_load as u32, Ordering::Relaxed);
     }
 
     Ok(())

@@ -1,6 +1,5 @@
 //! ASLR rebasing — convert Ghidra VAs to runtime addresses.
 
-use std::ffi::c_void;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use openwa_types::address::va;
@@ -15,11 +14,11 @@ pub fn rb(ghidra_addr: u32) -> u32 {
 }
 
 extern "system" {
-    fn GetModuleHandleA(lpModuleName: *const u8) -> *mut c_void;
+    fn GetModuleHandleA(lpModuleName: *const u8) -> u32;
 }
 
 pub fn init() -> i32 {
-    let base = unsafe { GetModuleHandleA(std::ptr::null()) } as u32;
+    let base = unsafe { GetModuleHandleA(std::ptr::null()) };
     let delta = base.wrapping_sub(va::IMAGE_BASE);
     REBASE_DELTA.store(delta, Ordering::Relaxed);
     delta as i32

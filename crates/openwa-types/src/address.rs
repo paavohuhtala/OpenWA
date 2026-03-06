@@ -241,6 +241,8 @@ pub mod va {
     pub const SCHEME_VALIDATE_EXTENDED_OPTIONS: u32 = 0x004D_5110;
     /// Scans User\Schemes\ for {NN} name.wsc files, marks found indices in global array
     pub const SCHEME_SCAN_DIRECTORY: u32 = 0x004D_54E0;
+    /// Slot 13 feature/availability check — returns bool (obfuscated hash check)
+    pub const SCHEME_SLOT13_CHECK: u32 = 0x004D_A4C0;
 
     // === Scheme data (in .rdata/.data) ===
 

@@ -2,3 +2,4 @@
 
 pub mod frontend;
 pub mod mfc;
+pub mod resource;
