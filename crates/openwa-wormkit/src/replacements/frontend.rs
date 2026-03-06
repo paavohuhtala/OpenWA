@@ -6,8 +6,8 @@
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use crate::log_line;
-use crate::rebase::rb;
-use crate::wa_call;
+use openwa_lib::wa::mfc::{CDialogHandle, CWndHandle};
+use openwa_lib::wa_call;
 use openwa_types::address::va;
 use openwa_types::frontend::ScreenId;
 
@@ -36,27 +36,15 @@ unsafe extern "cdecl" fn frontend_change_screen_impl(dialog: u32, screen_id: u32
         }
     } else {
         // Normal path: full screen transition
+        let wnd = CWndHandle(dialog);
+        let dlg = CDialogHandle(dialog);
 
-        // CWnd::EnableWindow(dialog, FALSE)
-        wa_call::thiscall_1(0x5C647A, dialog, 0);
+        wnd.enable_window(false);
 
-        // Frontend__PaletteAnimation(&DAT_007be560, [dialog+0x134])
-        // Note: original also loads [ESI+0x12c] into EAX before the call.
-        // We replicate this with inline asm to set EAX as the implicit param.
+        // Frontend__PaletteAnimation: EAX = [dialog+0x12c], param = [dialog+0x134]
         let palette_param = *((dialog + 0x134) as *const u32);
         let eax_value = *((dialog + 0x12c) as *const u32);
-        let palette_anim_addr = rb(va::FRONTEND_PALETTE_ANIMATION);
-        let palette_data_addr = rb(0x7be560);
-        core::arch::asm!(
-            "push {param}",
-            "push {palette}",
-            "call {func}",
-            param = in(reg) palette_param,
-            palette = in(reg) palette_data_addr,
-            func = in(reg) palette_anim_addr,
-            in("eax") eax_value,
-            clobber_abi("C"),
-        );
+        openwa_lib::wa::frontend::palette_animation(eax_value, palette_param);
 
         // Virtual calls: vtable[0x15C](1) then vtable[0x15C](2)
         for i in 1u32..=2 {
@@ -64,11 +52,8 @@ unsafe extern "cdecl" fn frontend_change_screen_impl(dialog: u32, screen_id: u32
             wa_call::thiscall_indirect_1(vtable + 0x15C, dialog, i);
         }
 
-        // CWnd::EnableWindow(dialog, TRUE)
-        wa_call::thiscall_1(0x5C647A, dialog, 1);
-
-        // CDialog::EndDialog(dialog, screen_id)
-        wa_call::thiscall_1(0x5CAB72, dialog, screen_id);
+        wnd.enable_window(true);
+        dlg.end_dialog(screen_id);
     }
 
     // Log the transition

@@ -3,8 +3,6 @@
 use std::ffi::c_void;
 
 pub mod hook;
-pub mod rebase;
-pub mod wa_call;
 mod replacements;
 
 // ---------------------------------------------------------------------------
@@ -55,7 +53,7 @@ fn clear_log() -> std::io::Result<()> {
 fn run() -> Result<(), String> {
     let _ = clear_log();
 
-    let delta = rebase::init();
+    let delta = openwa_lib::rebase::init();
     let _ = log_line(&format!(
         "=== OpenWA WormKit DLL loaded ===\n  ASLR delta: 0x{delta:08X}"
     ));

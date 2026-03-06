@@ -56,6 +56,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "openwa-lib"
+version = "0.1.0"
+dependencies = [
+ "openwa-types",
+]
+
+[[package]]
 name = "openwa-types"
 version = "0.1.0"
 
@@ -73,6 +80,7 @@ name = "openwa-wormkit"
 version = "0.1.0"
 dependencies = [
  "minhook",
+ "openwa-lib",
  "openwa-types",
  "windows-sys",
 ]
