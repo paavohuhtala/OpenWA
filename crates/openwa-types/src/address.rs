@@ -388,6 +388,9 @@ pub mod va {
     /// Stream volume byte
     pub const G_STREAM_VOLUME: u32 = 0x0088_AEDD;
 
+    /// CrashReportURL static buffer (0x400 bytes)
+    pub const G_CRASH_REPORT_URL: u32 = 0x0079_FFD8;
+
     // === Game context (DDGame struct offsets) ===
     // These are offsets from the DDGame base pointer, not absolute addresses.
     // DDGame pointer is obtained from hookConstructDDGameWrapper param.

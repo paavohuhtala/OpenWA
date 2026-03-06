@@ -7,6 +7,7 @@
 //! - Registry__DeleteKeyRecursive (0x4E4D10): recursive registry deletion
 //! - Registry__CleanAll (0x4C90D0): full registry cleanup
 //! - GameInfo__LoadOptions (0x460AC0): game options from registry
+//! - Options__GetCrashReportURL (0x5A63F0): crash report URL from registry
 
 use openwa_types::address::va;
 use crate::log_line;
@@ -287,6 +288,31 @@ unsafe extern "stdcall" fn hook_load_options(gi: u32) {
 }
 
 // ============================================================
+// Options__GetCrashReportURL replacement (0x5A63F0)
+// ============================================================
+
+/// Rust replacement for Options__GetCrashReportURL.
+/// cdecl() -> *const u8 (pointer to static buffer, or null)
+unsafe extern "cdecl" fn hook_get_crash_report_url() -> u32 {
+    let buf = rb(va::G_CRASH_REPORT_URL) as *mut u8;
+    let buf_slice = core::slice::from_raw_parts_mut(buf, 0x400);
+
+    let len = openwa_lib::wa::registry::read_profile_string(
+        "Options",
+        "CrashReportURL",
+        buf_slice,
+    );
+
+    if len > 0 {
+        // Null-terminate
+        *buf.add(len) = 0;
+        buf as u32
+    } else {
+        0 // null pointer = not found
+    }
+}
+
+// ============================================================
 // Hook installation
 // ============================================================
 
@@ -326,6 +352,12 @@ pub fn install() -> Result<(), String> {
             "GameInfo__LoadOptions",
             va::GAMEINFO_LOAD_OPTIONS,
             hook_load_options as *const (),
+        )?;
+
+        let _ = crate::hook::install(
+            "Options__GetCrashReportURL",
+            va::OPTIONS_GET_CRASH_REPORT_URL,
+            hook_get_crash_report_url as *const (),
         )?;
     }
 
