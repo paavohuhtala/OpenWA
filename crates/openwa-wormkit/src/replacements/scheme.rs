@@ -4,12 +4,18 @@
 //! - Scheme__ReadFile (0x4D3890): full Rust file I/O using SchemeFile parser
 //! - Scheme__ValidateExtendedOptions (0x4D5110): pure Rust validation
 //! - Scheme__FileExists (0x4D4CD0): Rust path check
+//! - Scheme__CheckWeaponLimits (0x4D50E0): weapon limit validation
+//! - Scheme__DetectVersion (0x4D4480): version detection from in-memory scheme
+//! - Scheme__SaveFile (0x4D44F0): file write with Rust I/O
+//! - Scheme__InitFromData (0x4D5020): scheme struct initialization
+//! - Scheme__ScanDirectory (0x4D54E0): directory scan for numbered schemes
 
 use std::ffi::CStr;
 use std::path::Path;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use crate::log_line;
+use openwa_lib::rebase::rb;
 use openwa_types::address::va;
 use openwa_types::scheme::{
     ExtendedOptions, SchemeFile, SchemeVersion, EXTENDED_OPTIONS_DEFAULTS, EXTENDED_OPTIONS_SIZE,
@@ -206,6 +212,278 @@ unsafe extern "stdcall" fn hook_scheme_file_exists(name: u32) -> u32 {
 }
 
 // ============================================================
+// Scheme__DetectVersion replacement (0x4D4480)
+// ============================================================
+
+// Naked trampoline: captures ESI (dest struct pointer) + 1 stack arg (output pointer).
+// Returns 1=V1, 2=V2, 3=V3. RET 0x4.
+crate::hook::usercall_trampoline!(fn trampoline_detect_version;
+    impl_fn = detect_version_impl; reg = esi;
+    stack_params = 1; ret_bytes = "0x4");
+
+/// Rust implementation of Scheme__DetectVersion.
+///
+/// Determines scheme version from in-memory data by comparing extended options
+/// against ROM defaults (V3 check) and checking super weapon slots (V1 vs V2).
+unsafe extern "cdecl" fn detect_version_impl(dest: u32, output_ptr: u32) -> u32 {
+    let defaults_base = rb(va::SCHEME_V3_DEFAULTS) as *const u8;
+
+    // Scan extended options backwards (110 bytes at dest+0x138, compared to ROM at 0x649AB8)
+    // Original loops i from 0x6E down to 1 (not 0), comparing dest[0x137+i] vs ROM_base[i]
+    // where ROM_base = 0x649AB7 (so ROM_base[1] = 0x649AB8 = SCHEME_V3_DEFAULTS)
+    for i in (1u32..=0x6E).rev() {
+        let scheme_byte = *((dest + 0x137 + i) as *const u8);
+        // defaults_base points to 0x649AB8 = ROM_base+1, so defaults_base[i-1] = ROM_base[i]
+        let default_byte = *defaults_base.add(i as usize - 1);
+        if scheme_byte != default_byte {
+            *(output_ptr as *mut u32) = i;
+            return 3; // V3
+        }
+    }
+
+    // Check 19 super weapon slots at dest+0xEC, checking bytes 0, 2, 3 of each 4-byte entry
+    // Original: pcVar2 starts at dest+0xEE, checks pcVar2[-2], pcVar2[0], pcVar2[1]
+    for i in 0u32..19 {
+        let base = dest + 0xEE + i * 4;
+        if *((base - 2) as *const u8) != 0
+            || *(base as *const u8) != 0
+            || *((base + 1) as *const u8) != 0
+        {
+            return 2; // V2
+        }
+    }
+
+    1 // V1
+}
+
+/// Helper for SaveFile: detect version from in-memory scheme struct.
+/// Returns (version_byte, payload_size).
+unsafe fn detect_version_for_save(dest: u32) -> (u8, usize) {
+    let mut mismatch_offset: u32 = 0;
+    let version = detect_version_impl(dest, &mut mismatch_offset as *mut u32 as u32);
+    match version {
+        1 => (1, SCHEME_PAYLOAD_V1),
+        2 => (2, SCHEME_PAYLOAD_V2),
+        _ => (version as u8, mismatch_offset as usize + SCHEME_PAYLOAD_V2),
+    }
+}
+
+// ============================================================
+// Scheme__SaveFile replacement (0x4D44F0)
+// ============================================================
+
+/// Trampoline to original Scheme__SaveFile (for error path delegation).
+static ORIG_SCHEME_SAVE_FILE: AtomicU32 = AtomicU32::new(0);
+
+/// Rust replacement for Scheme__SaveFile (0x4D44F0).
+/// thiscall(this, name, flag) -> u32, RET 0x8
+///
+/// Detects scheme version from in-memory data, writes SCHM header + payload.
+/// For V3, writes variable-length payload (only bytes differing from defaults).
+unsafe extern "fastcall" fn hook_save_file(
+    this: u32,
+    _edx: u32,
+    name: u32,
+    flag: u32,
+) -> u32 {
+    let c_name = match CStr::from_ptr(name as *const i8).to_str() {
+        Ok(s) => s,
+        Err(_) => {
+            let _ = log_line("[Scheme] SaveFile: invalid UTF-8 name, delegating to original");
+            return call_original_save_file(this, name, flag);
+        }
+    };
+
+    let path = format!("User\\Schemes\\{c_name}.wsc");
+
+    // Detect version from in-memory scheme data
+    let (version_byte, payload_size) = detect_version_for_save(this);
+
+    // Build file contents
+    let mut buf = Vec::with_capacity(5 + payload_size);
+    buf.extend_from_slice(b"SCHM");
+    buf.push(version_byte);
+    let payload = core::slice::from_raw_parts((this + 0x14) as *const u8, payload_size);
+    buf.extend_from_slice(payload);
+
+    match std::fs::write(&path, &buf) {
+        Ok(()) => {
+            let _ = log_line(&format!(
+                "[Scheme] SaveFile OK (Rust): {c_name} -> V{version_byte}, {payload_size} bytes"
+            ));
+            0
+        }
+        Err(e) => {
+            let _ = log_line(&format!("[Scheme] SaveFile FAILED (Rust): {path}: {e}"));
+            // Delegate to original for error handling (flag==0 shows error dialog)
+            call_original_save_file(this, name, flag)
+        }
+    }
+}
+
+/// Call the original Scheme__SaveFile via trampoline.
+#[inline]
+unsafe fn call_original_save_file(this: u32, name: u32, flag: u32) -> u32 {
+    let orig: unsafe extern "fastcall" fn(u32, u32, u32, u32) -> u32 =
+        core::mem::transmute(ORIG_SCHEME_SAVE_FILE.load(Ordering::Relaxed));
+    orig(this, 0, name, flag)
+}
+
+// ============================================================
+// Scheme__InitFromData replacement (0x4D5020)
+// ============================================================
+
+/// Trampoline to original Scheme__InitFromData (for CString name assignment).
+static ORIG_SCHEME_INIT_FROM_DATA: AtomicU32 = AtomicU32::new(0);
+
+/// Rust replacement for Scheme__InitFromData (0x4D5020).
+/// fastcall(ECX=unused, EDX=src_data, dest, name_cstring), RET 0x8
+///
+/// Copies V1 payload data into scheme struct, zeroes super weapons,
+/// applies V3 defaults from ROM, sets flag/index fields.
+/// Delegates to original for CString name assignment (MFC refcounting).
+unsafe extern "fastcall" fn hook_init_from_data(
+    ecx: u32,
+    src_data: u32,
+    dest: u32,
+    name_cstring: u32,
+) {
+    // Step 1: Copy 0xD8 bytes (V1 payload) from src_data to dest+0x14
+    core::ptr::copy_nonoverlapping(
+        src_data as *const u8,
+        (dest + 0x14) as *mut u8,
+        SCHEME_PAYLOAD_V1,
+    );
+
+    // Step 2: Zero 0x4C bytes at dest+0xEC (super weapons area)
+    core::ptr::write_bytes(
+        (dest + 0xEC) as *mut u8,
+        0,
+        SCHEME_PAYLOAD_V2 - SCHEME_PAYLOAD_V1, // 0x4C = 76
+    );
+
+    // Step 3: Copy 110 bytes of V3 defaults from ROM to dest+0x138
+    let defaults = rb(va::SCHEME_V3_DEFAULTS) as *const u8;
+    core::ptr::copy_nonoverlapping(
+        defaults,
+        (dest + 0x138) as *mut u8,
+        EXTENDED_OPTIONS_SIZE,
+    );
+
+    // Step 4: Set flag byte and index
+    *((dest + 0x04) as *mut u8) = 0;
+    *((dest + 0x08) as *mut u32) = 0xFFFF_FFFF;
+
+    // Step 5: CString name assignment — delegate to original function.
+    // The original will redo steps 1-4 (harmless) and correctly handle
+    // MFC CString refcounting + string resource lookup for empty names.
+    let orig: unsafe extern "fastcall" fn(u32, u32, u32, u32) =
+        core::mem::transmute(ORIG_SCHEME_INIT_FROM_DATA.load(Ordering::Relaxed));
+    orig(ecx, src_data, dest, name_cstring);
+}
+
+// ============================================================
+// Scheme__CheckWeaponLimits replacement (0x4D50E0)
+// ============================================================
+
+/// Rust replacement for Scheme__CheckWeaponLimits (0x4D50E0).
+/// No params, plain ret. Compares 39 weapon bytes against ammo limit table.
+/// Returns 0 = all within limits, 1 = at least one exceeds limit.
+unsafe extern "stdcall" fn hook_check_weapon_limits() -> u32 {
+    let limits = rb(va::SCHEME_WEAPON_AMMO_LIMITS) as *const u8;
+    let weapons = rb(va::SCHEME_ACTIVE_WEAPON_DATA) as *const u8;
+    for i in 0..39usize {
+        let limit = *limits.add(i);
+        let current = *weapons.add(i * 4);
+        if limit <= current {
+            return 1;
+        }
+    }
+    0
+}
+
+// ============================================================
+// Scheme__ScanDirectory replacement (0x4D54E0)
+// ============================================================
+
+/// Trampoline to original Scheme__ScanDirectory (for CString param cleanup).
+static ORIG_SCHEME_SCAN_DIRECTORY: AtomicU32 = AtomicU32::new(0);
+
+/// Rust replacement for Scheme__ScanDirectory (0x4D54E0).
+/// stdcall(cstring_param), RET 0x4
+///
+/// Recursively scans for {{DD}} name.wsc files and marks slot flags.
+/// Delegates to original afterward for CString refcount cleanup.
+unsafe extern "stdcall" fn hook_scan_directory(cstring_param: u32) {
+    // Do the Rust scan first — populate slot flags
+    scan_directory_recursive("User\\Schemes");
+
+    let _ = log_line("[Scheme] ScanDirectory completed (Rust)");
+
+    // Call original for CString param cleanup (refcount release).
+    // The original will redo the scan harmlessly (sets same flags).
+    let orig: unsafe extern "stdcall" fn(u32) =
+        core::mem::transmute(ORIG_SCHEME_SCAN_DIRECTORY.load(Ordering::Relaxed));
+    orig(cstring_param);
+}
+
+/// Parse a scheme filename matching the pattern `{{DD}} name.wsc`.
+/// Returns the slot index (1-13) if valid, None otherwise.
+fn parse_scheme_slot(filename: &str) -> Option<u32> {
+    let bytes = filename.as_bytes();
+    if bytes.len() < 10 {
+        return None;
+    }
+    // Must start with {{ and have digits at positions 2-3
+    if bytes[0] != b'{' || bytes[1] != b'{' {
+        return None;
+    }
+    let d0 = bytes[2].wrapping_sub(b'0');
+    let d1 = bytes[3].wrapping_sub(b'0');
+    if d0 > 9 || d1 > 9 {
+        return None;
+    }
+    // Must have }} after digits
+    if bytes[4] != b'}' || bytes[5] != b'}' {
+        return None;
+    }
+    // Must end with .wsc (case-sensitive, matching original)
+    if !filename.ends_with(".wsc") {
+        return None;
+    }
+    let slot = d0 as u32 * 10 + d1 as u32;
+    // Valid range: 1-13 (original checks `slot - 1 < 0xD`)
+    if slot >= 1 && slot <= 13 {
+        Some(slot)
+    } else {
+        None
+    }
+}
+
+/// Recursively scan a directory for numbered scheme files.
+unsafe fn scan_directory_recursive(dir: &str) {
+    let slot_flags = rb(va::SCHEME_SLOT_FLAGS) as *mut u8;
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let Ok(file_type) = entry.file_type() else {
+            continue;
+        };
+        let name = entry.file_name();
+        let name_str = name.to_string_lossy();
+        if file_type.is_file() {
+            if let Some(slot) = parse_scheme_slot(&name_str) {
+                *slot_flags.add(slot as usize) = 1;
+            }
+        } else if file_type.is_dir() && name_str != "." && name_str != ".." {
+            let subdir = format!("{dir}\\{name_str}");
+            scan_directory_recursive(&subdir);
+        }
+    }
+}
+
+// ============================================================
 // Hook installation
 // ============================================================
 
@@ -229,6 +507,39 @@ pub fn install() -> Result<(), String> {
             va::SCHEME_FILE_EXISTS,
             hook_scheme_file_exists as *const (),
         )?;
+
+        let _ = crate::hook::install(
+            "Scheme__CheckWeaponLimits",
+            va::SCHEME_CHECK_WEAPON_LIMITS,
+            hook_check_weapon_limits as *const (),
+        )?;
+
+        let _ = crate::hook::install(
+            "Scheme__DetectVersion",
+            va::SCHEME_DETECT_VERSION,
+            trampoline_detect_version as *const (),
+        )?;
+
+        let trampoline_save = crate::hook::install(
+            "Scheme__SaveFile",
+            va::SCHEME_SAVE_FILE,
+            hook_save_file as *const (),
+        )?;
+        ORIG_SCHEME_SAVE_FILE.store(trampoline_save as u32, Ordering::Relaxed);
+
+        let trampoline_init = crate::hook::install(
+            "Scheme__InitFromData",
+            va::SCHEME_INIT_FROM_DATA,
+            hook_init_from_data as *const (),
+        )?;
+        ORIG_SCHEME_INIT_FROM_DATA.store(trampoline_init as u32, Ordering::Relaxed);
+
+        let trampoline_scan = crate::hook::install(
+            "Scheme__ScanDirectory",
+            va::SCHEME_SCAN_DIRECTORY,
+            hook_scan_directory as *const (),
+        )?;
+        ORIG_SCHEME_SCAN_DIRECTORY.store(trampoline_scan as u32, Ordering::Relaxed);
     }
 
     Ok(())

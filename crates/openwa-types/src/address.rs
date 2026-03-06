@@ -248,6 +248,11 @@ pub mod va {
     pub const SCHEME_V3_DEFAULTS: u32 = 0x0064_9AB8;
     /// Per-weapon max ammo table (39 bytes), used by CheckWeaponLimits
     pub const SCHEME_WEAPON_AMMO_LIMITS: u32 = 0x006A_D130;
+    /// Weapon power byte in active scheme struct, stride 4 per weapon (39 weapons)
+    /// Used by CheckWeaponLimits: compares each byte against SCHEME_WEAPON_AMMO_LIMITS
+    pub const SCHEME_ACTIVE_WEAPON_DATA: u32 = 0x0088_DB05;
+    /// Scheme slot presence flags (14 bytes: index 0 unused, 1-13 = slots), set by ScanDirectory
+    pub const SCHEME_SLOT_FLAGS: u32 = 0x006B_329C;
     /// Guard global for gameplay modifier application in ReadFile (nonzero = apply modifiers)
     pub const SCHEME_MODIFIER_GUARD: u32 = 0x0088_E460;
 
