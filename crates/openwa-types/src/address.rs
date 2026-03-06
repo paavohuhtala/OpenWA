@@ -248,6 +248,8 @@ pub mod va {
     pub const SCHEME_V3_DEFAULTS: u32 = 0x0064_9AB8;
     /// Per-weapon max ammo table (39 bytes), used by CheckWeaponLimits
     pub const SCHEME_WEAPON_AMMO_LIMITS: u32 = 0x006A_D130;
+    /// Guard global for gameplay modifier application in ReadFile (nonzero = apply modifiers)
+    pub const SCHEME_MODIFIER_GUARD: u32 = 0x0088_E460;
 
     // === Lobby / network ===
 

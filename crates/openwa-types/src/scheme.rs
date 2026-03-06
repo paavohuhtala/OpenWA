@@ -28,6 +28,9 @@ pub const SCHEME_PAYLOAD_V1: usize = 0xD8;
 /// Payload size for version 2 schemes.
 pub const SCHEME_PAYLOAD_V2: usize = 0x124;
 
+/// Payload size for version 3 schemes.
+pub const SCHEME_PAYLOAD_V3: usize = 0x192;
+
 /// Scheme file version.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SchemeVersion {
@@ -35,8 +38,9 @@ pub enum SchemeVersion {
     V1,
     /// Version 2: 0x124 byte payload (total file: 297 bytes)
     V2,
-    /// Extended: payload = version_byte + 0x124 bytes
-    Extended(u8),
+    /// Version 3: 0x192 byte payload (total file: 407 bytes)
+    /// V2 + 110 bytes extended options.
+    V3,
 }
 
 impl SchemeVersion {
@@ -45,16 +49,17 @@ impl SchemeVersion {
         match self {
             SchemeVersion::V1 => 1,
             SchemeVersion::V2 => 2,
-            SchemeVersion::Extended(v) => v,
+            SchemeVersion::V3 => 3,
         }
     }
 
-    /// Parse version from the raw byte.
-    pub fn from_byte(b: u8) -> Self {
+    /// Parse version from the raw byte. Returns `None` for unknown versions.
+    pub fn from_byte(b: u8) -> Option<Self> {
         match b {
-            1 => SchemeVersion::V1,
-            2 => SchemeVersion::V2,
-            v => SchemeVersion::Extended(v),
+            1 => Some(SchemeVersion::V1),
+            2 => Some(SchemeVersion::V2),
+            3 => Some(SchemeVersion::V3),
+            _ => None,
         }
     }
 
@@ -63,7 +68,7 @@ impl SchemeVersion {
         match self {
             SchemeVersion::V1 => SCHEME_PAYLOAD_V1,
             SchemeVersion::V2 => SCHEME_PAYLOAD_V2,
-            SchemeVersion::Extended(v) => v as usize + SCHEME_PAYLOAD_V2,
+            SchemeVersion::V3 => SCHEME_PAYLOAD_V3,
         }
     }
 }
@@ -75,6 +80,8 @@ pub enum SchemeError {
     TooShort { len: usize },
     /// Magic bytes don't match "SCHM".
     BadMagic([u8; 4]),
+    /// Unknown version byte (not 1, 2, or 3).
+    UnknownVersion(u8),
     /// Payload size doesn't match what the version byte expects.
     PayloadMismatch { expected: usize, got: usize },
 }
@@ -87,6 +94,9 @@ impl core::fmt::Display for SchemeError {
             }
             SchemeError::BadMagic(m) => {
                 write!(f, "bad magic: {:02X} {:02X} {:02X} {:02X} (expected SCHM)", m[0], m[1], m[2], m[3])
+            }
+            SchemeError::UnknownVersion(v) => {
+                write!(f, "unknown version byte: 0x{v:02X}")
             }
             SchemeError::PayloadMismatch { expected, got } => {
                 write!(f, "payload size mismatch: expected {expected}, got {got}")
@@ -119,7 +129,8 @@ impl SchemeFile {
             return Err(SchemeError::BadMagic(magic));
         }
 
-        let version = SchemeVersion::from_byte(data[4]);
+        let version = SchemeVersion::from_byte(data[4])
+            .ok_or(SchemeError::UnknownVersion(data[4]))?;
         let expected_payload = version.payload_size();
         let actual_payload = data.len() - SCHEME_HEADER_SIZE;
 
@@ -793,6 +804,85 @@ impl ExtendedOptions {
         b[0x6D] = self.double_time_stack_limit;
         b
     }
+
+    /// Validate raw extended options bytes (110 bytes) against WA's field constraints.
+    ///
+    /// Returns `true` if all fields are within valid ranges, exactly matching
+    /// the logic of `Scheme__ValidateExtendedOptions` (0x4D5110).
+    ///
+    /// Note: operates on raw bytes, not parsed struct fields, because WA validates
+    /// at the byte level (e.g., bool fields must be exactly 0x00 or 0x01).
+    pub fn validate_bytes(b: &[u8]) -> bool {
+        fn is_bool(v: u8) -> bool {
+            v == 0 || v == 1
+        }
+        fn is_tristate(v: u8) -> bool {
+            v == 0 || v == 1 || v == 0x80
+        }
+
+        read_u32_le(b, 0x00) == 0                                        // data_version
+        && (read_i32_le(b, 0x08) as u32).wrapping_sub(1) < 0xC8_0000     // gravity [1, 0xC80000]
+        && (read_i32_le(b, 0x0C) as u32) < 0x2_8CCD                     // terrain_friction
+        && is_bool(b[0x12])                                              // unrestrict_rope
+        && is_bool(b[0x13])                                              // auto_place_worms_by_ally
+        && is_bool(b[0x17])                                              // sd_disables_worm_select
+        && b[0x19] < 4                                                   // phased_worms_allied
+        && b[0x1A] < 4                                                   // phased_worms_enemy
+        && is_bool(b[0x1B])                                              // circular_aim
+        && is_bool(b[0x1C])                                              // anti_lock_aim
+        && is_bool(b[0x1D])                                              // anti_lock_power
+        && is_bool(b[0x1E])                                              // worm_select_no_end_hot_seat
+        && is_bool(b[0x1F])                                              // worm_select_never_cancelled
+        && is_bool(b[0x20])                                              // batty_rope
+        && b[0x21] < 3                                                   // rope_roll_drops
+        && (b[0x22] == 0 || b[0x22] == 0xFF)                             // x_impact_loss_of_control
+        && is_bool(b[0x23])                                              // keep_control_bump_head
+        && b[0x24] < 3                                                   // keep_control_skimming
+        && is_bool(b[0x25])                                              // explosion_fall_damage
+        && is_tristate(b[0x26])                                          // explosions_push_all
+        && is_tristate(b[0x27])                                          // undetermined_crates
+        && is_tristate(b[0x28])                                          // undetermined_fuses
+        && is_bool(b[0x29])                                              // pause_timer_while_firing
+        && is_bool(b[0x2A])                                              // loss_of_control_no_end_turn
+        && is_bool(b[0x2B])                                              // weapon_use_no_end_turn
+        && is_bool(b[0x2C])                                              // weapon_use_no_block
+        && is_tristate(b[0x2D])                                          // drill_imparts_velocity
+        && is_bool(b[0x2E])                                              // girder_radius_assist
+        && b[0x31] != 0                                                  // petrol_touch_decay nonzero
+        && read_u16_le(b, 0x32) != 0                                    // max_flamelet_count nonzero
+        && (read_i32_le(b, 0x34) as u32) < 0x8000_0000                  // max_projectile_speed > 0
+        && (read_i32_le(b, 0x38) as u32) < 0x8000_0000                  // max_rope_speed > 0
+        && (read_i32_le(b, 0x3C) as u32) < 0x8000_0000                  // max_jet_pack_speed > 0
+        && (read_i32_le(b, 0x40) as u32).wrapping_sub(0x1000) < 0x7F_F001 // game_engine_speed
+        && is_tristate(b[0x44])                                          // indian_rope_glitch
+        && is_tristate(b[0x45])                                          // herd_doubling_glitch
+        && is_bool(b[0x46])                                              // jet_pack_bungee_glitch
+        && is_bool(b[0x47])                                              // angle_cheat_glitch
+        && is_bool(b[0x48])                                              // glide_glitch
+        && (b[0x49] as i8 as i32 + 1) as u32 <= 2                       // skipwalking {-1,0,1}
+        && b[0x4A] < 3                                                   // block_roofing
+        && is_bool(b[0x4B])                                              // floating_weapon_glitch
+        && (read_i32_le(b, 0x4C) as u32) < 0x1_0001                     // rw_bounciness
+        && (read_i32_le(b, 0x50) as u32) < 0x4001                       // rw_air_viscosity
+        && is_bool(b[0x54])                                              // rw_air_viscosity_worms
+        && read_u32_le(b, 0x55) < 0x1_0001                              // rw_wind_influence
+        && is_bool(b[0x59])                                              // rw_wind_influence_worms
+        && b[0x5A] < 4                                                   // rw_gravity_type
+        && (read_i32_le(b, 0x5B) as u32).wrapping_add(0x4000_0000) < 0x8000_0001 // rw_gravity_strength
+        && is_bool(b[0x60])                                              // rw_crate_shower
+        && is_bool(b[0x61])                                              // rw_anti_sink
+        && is_bool(b[0x62])                                              // rw_remember_weapons
+        && is_bool(b[0x63])                                              // rw_extended_fuses
+        && is_bool(b[0x64])                                              // rw_anti_lock_aim
+        && is_tristate(b[0x65])                                          // terrain_overlap_glitch
+        && is_bool(b[0x66])                                              // fractional_round_timer
+        && is_bool(b[0x67])                                              // auto_retreat
+        && (b[0x68] as i8 as i32 + 1) as u32 <= 3                       // health_crates_cure_poison
+        && b[0x69] < 6                                                   // rw_kaos_mod
+        && b[0x6A].wrapping_sub(1) < 7                                   // sheep_heavens_gate [1,7]
+        && is_bool(b[0x6B])                                              // conserve_instant_utilities
+        && is_bool(b[0x6C])                                              // expedite_instant_utilities
+    }
 }
 
 /// V3 extended options defaults from WA.exe ROM at 0x649AB8 (110 bytes).
@@ -895,16 +985,19 @@ mod tests {
 
     #[test]
     fn version_roundtrip() {
-        for v in [SchemeVersion::V1, SchemeVersion::V2, SchemeVersion::Extended(5)] {
-            assert_eq!(SchemeVersion::from_byte(v.to_byte()), v);
+        for v in [SchemeVersion::V1, SchemeVersion::V2, SchemeVersion::V3] {
+            assert_eq!(SchemeVersion::from_byte(v.to_byte()), Some(v));
         }
+        // Unknown versions return None
+        assert_eq!(SchemeVersion::from_byte(0), None);
+        assert_eq!(SchemeVersion::from_byte(4), None);
     }
 
     #[test]
     fn payload_sizes() {
         assert_eq!(SchemeVersion::V1.payload_size(), 0xD8);
         assert_eq!(SchemeVersion::V2.payload_size(), 0x124);
-        assert_eq!(SchemeVersion::Extended(3).payload_size(), 3 + 0x124);
+        assert_eq!(SchemeVersion::V3.payload_size(), 0x192);
     }
 
     #[test]

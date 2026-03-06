@@ -1,7 +1,8 @@
 use std::path::Path;
 
 use openwa_types::scheme::{
-    SchemeFile, SchemeVersion, SCHEME_PAYLOAD_V1, SCHEME_PAYLOAD_V2, WEAPONS_V1_COUNT,
+    ExtendedOptions, SchemeFile, SchemeVersion, EXTENDED_OPTIONS_DEFAULTS,
+    EXTENDED_OPTIONS_SIZE, SCHEME_PAYLOAD_V1, SCHEME_PAYLOAD_V2, WEAPONS_V1_COUNT,
 };
 
 const FIXTURES: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures");
@@ -206,4 +207,143 @@ fn parse_all_game_schemes() {
         }
     }
     eprintln!("Successfully parsed and round-tripped {count} scheme files");
+}
+
+// === ExtendedOptions validation tests ===
+
+/// Build a valid 110-byte extended options buffer from scratch.
+/// ROM defaults contain intentionally invalid V3 values (0x80 in bool fields),
+/// so we construct a minimal valid buffer instead.
+fn make_valid_extended_options() -> [u8; EXTENDED_OPTIONS_SIZE] {
+    let mut b = [0u8; EXTENDED_OPTIONS_SIZE];
+    // data_version = 0 (already zero)
+    // gravity must be >= 1
+    b[0x08..0x0C].copy_from_slice(&1i32.to_le_bytes());
+    // terrain_friction < 0x28CCD (leave at 0 — valid)
+    // petrol_touch_decay must be nonzero
+    b[0x31] = 1;
+    // max_flamelet_count must be nonzero
+    b[0x32..0x34].copy_from_slice(&1u16.to_le_bytes());
+    // speeds must be positive (> 0)
+    b[0x34..0x38].copy_from_slice(&1i32.to_le_bytes()); // max_projectile_speed
+    b[0x38..0x3C].copy_from_slice(&1i32.to_le_bytes()); // max_rope_speed
+    b[0x3C..0x40].copy_from_slice(&1i32.to_le_bytes()); // max_jet_pack_speed
+    // game_engine_speed in [0x1000, 0x800000]
+    b[0x40..0x44].copy_from_slice(&0x10000i32.to_le_bytes());
+    // sheep_heavens_gate in [1, 7]
+    b[0x6A] = 1;
+    b
+}
+
+#[test]
+fn validate_valid_extended_options() {
+    let b = make_valid_extended_options();
+    assert!(ExtendedOptions::validate_bytes(&b));
+}
+
+#[test]
+fn validate_rejects_bad_data_version() {
+    let mut b = make_valid_extended_options();
+    b[0x00] = 1; // data_version must be 0
+    assert!(!ExtendedOptions::validate_bytes(&b));
+}
+
+#[test]
+fn validate_rejects_bad_gravity() {
+    let mut b = make_valid_extended_options();
+    // gravity = 0 (below minimum of 1)
+    b[0x08..0x0C].copy_from_slice(&0i32.to_le_bytes());
+    assert!(!ExtendedOptions::validate_bytes(&b));
+
+    // gravity = negative
+    b[0x08..0x0C].copy_from_slice(&(-1i32).to_le_bytes());
+    assert!(!ExtendedOptions::validate_bytes(&b));
+}
+
+#[test]
+fn validate_rejects_bad_bool() {
+    let mut b = make_valid_extended_options();
+    // unrestrict_rope at offset 0x12: value 2 is not a valid bool
+    b[0x12] = 2;
+    assert!(!ExtendedOptions::validate_bytes(&b));
+}
+
+#[test]
+fn validate_rejects_bad_tristate() {
+    let mut b = make_valid_extended_options();
+    // explosions_push_all at offset 0x26: must be 0, 1, or 0x80
+    b[0x26] = 2;
+    assert!(!ExtendedOptions::validate_bytes(&b));
+
+    // 0x80 should be valid
+    b[0x26] = 0x80;
+    assert!(ExtendedOptions::validate_bytes(&b));
+}
+
+#[test]
+fn validate_rejects_bad_skipwalking() {
+    let mut b = make_valid_extended_options();
+    // skipwalking at 0x49: must be -1, 0, or 1
+    b[0x49] = 2u8; // 2 as i8 is invalid
+    assert!(!ExtendedOptions::validate_bytes(&b));
+
+    // -1 (0xFF) should be valid
+    b[0x49] = 0xFF;
+    assert!(ExtendedOptions::validate_bytes(&b));
+}
+
+#[test]
+fn validate_rejects_zero_petrol_touch_decay() {
+    let mut b = make_valid_extended_options();
+    b[0x31] = 0; // must be nonzero
+    assert!(!ExtendedOptions::validate_bytes(&b));
+}
+
+#[test]
+fn validate_rejects_bad_sheep_heavens_gate() {
+    let mut b = make_valid_extended_options();
+    b[0x6A] = 0; // must be in [1, 7]
+    assert!(!ExtendedOptions::validate_bytes(&b));
+
+    b[0x6A] = 8; // too high
+    assert!(!ExtendedOptions::validate_bytes(&b));
+
+    b[0x6A] = 7; // max valid
+    assert!(ExtendedOptions::validate_bytes(&b));
+}
+
+#[test]
+fn validate_rejects_negative_speeds() {
+    let mut b = make_valid_extended_options();
+    // max_projectile_speed at 0x34: must be positive
+    b[0x34..0x38].copy_from_slice(&(-1i32).to_le_bytes());
+    assert!(!ExtendedOptions::validate_bytes(&b));
+}
+
+#[test]
+fn validate_game_engine_speed_range() {
+    let mut b = make_valid_extended_options();
+
+    // Too low (below 0x1000)
+    b[0x40..0x44].copy_from_slice(&0xFFFi32.to_le_bytes());
+    assert!(!ExtendedOptions::validate_bytes(&b));
+
+    // Minimum valid (0x1000)
+    b[0x40..0x44].copy_from_slice(&0x1000i32.to_le_bytes());
+    assert!(ExtendedOptions::validate_bytes(&b));
+
+    // Maximum valid (0x800000)
+    b[0x40..0x44].copy_from_slice(&0x80_0000i32.to_le_bytes());
+    assert!(ExtendedOptions::validate_bytes(&b));
+
+    // Too high (0x800001)
+    b[0x40..0x44].copy_from_slice(&0x80_0001i32.to_le_bytes());
+    assert!(!ExtendedOptions::validate_bytes(&b));
+}
+
+#[test]
+fn validate_rom_defaults_fail_sheep_gate() {
+    // ROM defaults have sheep_heavens_gate=0, which is intentionally invalid.
+    // WA uses defaults as a fallback when V3 validation fails, but never validates them.
+    assert!(!ExtendedOptions::validate_bytes(&EXTENDED_OPTIONS_DEFAULTS));
 }
