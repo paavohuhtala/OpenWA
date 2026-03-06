@@ -258,6 +258,23 @@ pub mod va {
     /// Guard global for gameplay modifier application in ReadFile (nonzero = apply modifiers)
     pub const SCHEME_MODIFIER_GUARD: u32 = 0x0088_E460;
 
+    // === Configuration / registry ===
+
+    /// Theme file size check: cdecl() -> u32 (file length or 0)
+    pub const THEME_GET_FILE_SIZE: u32 = 0x0044_BA80;
+    /// Theme file load: stdcall(dest_buffer)
+    pub const THEME_LOAD: u32 = 0x0044_BB20;
+    /// Theme file save: stdcall(buffer, size)
+    pub const THEME_SAVE: u32 = 0x0044_BBC0;
+    /// Recursive registry key deletion: stdcall(hkey, subkey) -> i32
+    pub const REGISTRY_DELETE_KEY_RECURSIVE: u32 = 0x004E_4D10;
+    /// Registry cleanup — deletes all 4 subsections + clears INI: stdcall(struct_ptr)
+    pub const REGISTRY_CLEAN_ALL: u32 = 0x004C_90D0;
+    /// Loads game options from registry into GameInfo struct: stdcall(game_info_ptr)
+    pub const GAMEINFO_LOAD_OPTIONS: u32 = 0x0046_0AC0;
+    /// Reads CrashReportURL from Options registry key: cdecl() -> *const u8
+    pub const OPTIONS_GET_CRASH_REPORT_URL: u32 = 0x005A_63F0;
+
     // === MFC / ATL library functions ===
 
     /// ATL::CSimpleStringT<char,0>::operator= — thiscall(this, &src)
