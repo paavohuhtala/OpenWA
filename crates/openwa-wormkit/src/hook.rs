@@ -23,13 +23,16 @@
 /// ```
 macro_rules! usercall_trampoline {
     // 1 register arg, 0 stack params, plain ret
+    // EDX saved/restored: cdecl may clobber it, but original __usercall may not
     (fn $name:ident; impl_fn = $impl:path; reg = $reg:ident) => {
         #[unsafe(naked)]
         unsafe extern "C" fn $name() {
             core::arch::naked_asm!(
+                "push edx",
                 concat!("push ", stringify!($reg)),
                 "call {impl_fn}",
                 "add esp, 4",
+                "pop edx",
                 "ret",
                 impl_fn = sym $impl,
             );
@@ -42,10 +45,12 @@ macro_rules! usercall_trampoline {
         #[unsafe(naked)]
         unsafe extern "C" fn $name() {
             core::arch::naked_asm!(
-                "push [esp+4]",
+                "push edx",
+                "push [esp+8]",
                 concat!("push ", stringify!($reg)),
                 "call {impl_fn}",
                 "add esp, 8",
+                "pop edx",
                 concat!("ret ", $ret),
                 impl_fn = sym $impl,
             );
@@ -53,18 +58,18 @@ macro_rules! usercall_trampoline {
     };
 
     // 2 register args, 1 stack param, ret N
-    // Stack layout at entry: [ESP+0]=retaddr, [ESP+4]=arg
-    // Push: stack_arg, reg2, reg1 → impl_fn(reg1, reg2, stack_arg)
     (fn $name:ident; impl_fn = $impl:path; regs = [$r1:ident, $r2:ident];
      stack_params = 1; ret_bytes = $ret:literal) => {
         #[unsafe(naked)]
         unsafe extern "C" fn $name() {
             core::arch::naked_asm!(
-                "push [esp+4]",
+                "push edx",
+                "push [esp+8]",
                 concat!("push ", stringify!($r2)),
                 concat!("push ", stringify!($r1)),
                 "call {impl_fn}",
                 "add esp, 12",
+                "pop edx",
                 concat!("ret ", $ret),
                 impl_fn = sym $impl,
             );
@@ -72,19 +77,19 @@ macro_rules! usercall_trampoline {
     };
 
     // 2 register args, 2 stack params, ret N
-    // Stack layout at entry: [ESP+0]=retaddr, [ESP+4]=arg1, [ESP+8]=arg2
-    // Push: stack_arg2, stack_arg1, reg2, reg1 → impl_fn(reg1, reg2, stack_arg1, stack_arg2)
     (fn $name:ident; impl_fn = $impl:path; regs = [$r1:ident, $r2:ident];
      stack_params = 2; ret_bytes = $ret:literal) => {
         #[unsafe(naked)]
         unsafe extern "C" fn $name() {
             core::arch::naked_asm!(
-                "push [esp+8]",
-                "push [esp+8]",
+                "push edx",
+                "push [esp+12]",
+                "push [esp+12]",
                 concat!("push ", stringify!($r2)),
                 concat!("push ", stringify!($r1)),
                 "call {impl_fn}",
                 "add esp, 16",
+                "pop edx",
                 concat!("ret ", $ret),
                 impl_fn = sym $impl,
             );
@@ -92,15 +97,16 @@ macro_rules! usercall_trampoline {
     };
 
     // 2 register args, 0 stack params, plain ret
-    // Push: reg2, reg1 → impl_fn(reg1, reg2)
     (fn $name:ident; impl_fn = $impl:path; regs = [$r1:ident, $r2:ident]) => {
         #[unsafe(naked)]
         unsafe extern "C" fn $name() {
             core::arch::naked_asm!(
+                "push edx",
                 concat!("push ", stringify!($r2)),
                 concat!("push ", stringify!($r1)),
                 "call {impl_fn}",
                 "add esp, 8",
+                "pop edx",
                 "ret",
                 impl_fn = sym $impl,
             );
@@ -108,20 +114,20 @@ macro_rules! usercall_trampoline {
     };
 
     // 2 register args, 3 stack params, ret N
-    // Stack layout at entry: [ESP+0]=retaddr, [ESP+4]=arg1, [ESP+8]=arg2, [ESP+C]=arg3
-    // Push: stack_arg3, stack_arg2, stack_arg1, reg2, reg1 → impl_fn(reg1, reg2, stack_arg1, stack_arg2, stack_arg3)
     (fn $name:ident; impl_fn = $impl:path; regs = [$r1:ident, $r2:ident];
      stack_params = 3; ret_bytes = $ret:literal) => {
         #[unsafe(naked)]
         unsafe extern "C" fn $name() {
             core::arch::naked_asm!(
-                "push [esp+12]",
-                "push [esp+12]",
-                "push [esp+12]",
+                "push edx",
+                "push [esp+16]",
+                "push [esp+16]",
+                "push [esp+16]",
                 concat!("push ", stringify!($r2)),
                 concat!("push ", stringify!($r1)),
                 "call {impl_fn}",
                 "add esp, 20",
+                "pop edx",
                 concat!("ret ", $ret),
                 impl_fn = sym $impl,
             );
@@ -129,16 +135,17 @@ macro_rules! usercall_trampoline {
     };
 
     // 3 register args, 0 stack params, plain ret
-    // Push: reg3, reg2, reg1 → impl_fn(reg1, reg2, reg3)
     (fn $name:ident; impl_fn = $impl:path; regs = [$r1:ident, $r2:ident, $r3:ident]) => {
         #[unsafe(naked)]
         unsafe extern "C" fn $name() {
             core::arch::naked_asm!(
+                "push edx",
                 concat!("push ", stringify!($r3)),
                 concat!("push ", stringify!($r2)),
                 concat!("push ", stringify!($r1)),
                 "call {impl_fn}",
                 "add esp, 12",
+                "pop edx",
                 "ret",
                 impl_fn = sym $impl,
             );
