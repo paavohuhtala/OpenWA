@@ -160,7 +160,13 @@ pub mod va {
     pub const BLIT_SCREEN: u32 = 0x005A_2020;
     pub const RENDER_DRAWING_QUEUE: u32 = 0x0054_2350;
     pub const DRAW_LANDSCAPE: u32 = 0x005A_2790;
+    pub const DRAW_PIXEL: u32 = 0x0054_1D60;
+    pub const DRAW_LINE_STRIP: u32 = 0x0054_1DD0;
+    pub const DRAW_POLYGON: u32 = 0x0054_1E50;
+    pub const DRAW_SCALED: u32 = 0x0054_1ED0;
+    pub const DRAW_RECT: u32 = 0x0054_1F40;
     pub const DRAW_SPRITE_GLOBAL: u32 = 0x0054_1FE0;
+    pub const DRAW_SPRITE_OFFSET: u32 = 0x0054_20E0;
     pub const DRAW_BITMAP_GLOBAL: u32 = 0x0054_2170;
     pub const LOAD_SPRITE: u32 = 0x0052_3400;
     pub const CONSTRUCT_OPENGL_CPU: u32 = 0x005A_0850;

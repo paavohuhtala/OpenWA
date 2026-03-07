@@ -57,6 +57,48 @@ macro_rules! usercall_trampoline {
         }
     };
 
+    // 1 register arg, 3 stack params, ret N
+    (fn $name:ident; impl_fn = $impl:path; reg = $reg:ident;
+     stack_params = 3; ret_bytes = $ret:literal) => {
+        #[unsafe(naked)]
+        unsafe extern "C" fn $name() {
+            core::arch::naked_asm!(
+                "push edx",
+                "push [esp+16]",
+                "push [esp+16]",
+                "push [esp+16]",
+                concat!("push ", stringify!($reg)),
+                "call {impl_fn}",
+                "add esp, 16",
+                "pop edx",
+                concat!("ret ", $ret),
+                impl_fn = sym $impl,
+            );
+        }
+    };
+
+    // 1 register arg, 5 stack params, ret N
+    (fn $name:ident; impl_fn = $impl:path; reg = $reg:ident;
+     stack_params = 5; ret_bytes = $ret:literal) => {
+        #[unsafe(naked)]
+        unsafe extern "C" fn $name() {
+            core::arch::naked_asm!(
+                "push edx",
+                "push [esp+24]",
+                "push [esp+24]",
+                "push [esp+24]",
+                "push [esp+24]",
+                "push [esp+24]",
+                concat!("push ", stringify!($reg)),
+                "call {impl_fn}",
+                "add esp, 24",
+                "pop edx",
+                concat!("ret ", $ret),
+                impl_fn = sym $impl,
+            );
+        }
+    };
+
     // 2 register args, 1 stack param, ret N
     (fn $name:ident; impl_fn = $impl:path; regs = [$r1:ident, $r2:ident];
      stack_params = 1; ret_bytes = $ret:literal) => {
@@ -128,6 +170,78 @@ macro_rules! usercall_trampoline {
                 concat!("push ", stringify!($r1)),
                 "call {impl_fn}",
                 "add esp, 24",
+                "pop edx",
+                concat!("ret ", $ret),
+                impl_fn = sym $impl,
+            );
+        }
+    };
+
+    // 2 register args, 5 stack params, ret N
+    (fn $name:ident; impl_fn = $impl:path; regs = [$r1:ident, $r2:ident];
+     stack_params = 5; ret_bytes = $ret:literal) => {
+        #[unsafe(naked)]
+        unsafe extern "C" fn $name() {
+            core::arch::naked_asm!(
+                "push edx",
+                "push [esp+24]",
+                "push [esp+24]",
+                "push [esp+24]",
+                "push [esp+24]",
+                "push [esp+24]",
+                concat!("push ", stringify!($r2)),
+                concat!("push ", stringify!($r1)),
+                "call {impl_fn}",
+                "add esp, 28",
+                "pop edx",
+                concat!("ret ", $ret),
+                impl_fn = sym $impl,
+            );
+        }
+    };
+
+    // 2 register args, 6 stack params, ret N
+    (fn $name:ident; impl_fn = $impl:path; regs = [$r1:ident, $r2:ident];
+     stack_params = 6; ret_bytes = $ret:literal) => {
+        #[unsafe(naked)]
+        unsafe extern "C" fn $name() {
+            core::arch::naked_asm!(
+                "push edx",
+                "push [esp+28]",
+                "push [esp+28]",
+                "push [esp+28]",
+                "push [esp+28]",
+                "push [esp+28]",
+                "push [esp+28]",
+                concat!("push ", stringify!($r2)),
+                concat!("push ", stringify!($r1)),
+                "call {impl_fn}",
+                "add esp, 32",
+                "pop edx",
+                concat!("ret ", $ret),
+                impl_fn = sym $impl,
+            );
+        }
+    };
+
+    // 2 register args, 7 stack params, ret N
+    (fn $name:ident; impl_fn = $impl:path; regs = [$r1:ident, $r2:ident];
+     stack_params = 7; ret_bytes = $ret:literal) => {
+        #[unsafe(naked)]
+        unsafe extern "C" fn $name() {
+            core::arch::naked_asm!(
+                "push edx",
+                "push [esp+32]",
+                "push [esp+32]",
+                "push [esp+32]",
+                "push [esp+32]",
+                "push [esp+32]",
+                "push [esp+32]",
+                "push [esp+32]",
+                concat!("push ", stringify!($r2)),
+                concat!("push ", stringify!($r1)),
+                "call {impl_fn}",
+                "add esp, 36",
                 "pop edx",
                 concat!("ret ", $ret),
                 impl_fn = sym $impl,
