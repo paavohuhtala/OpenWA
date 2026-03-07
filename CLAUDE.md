@@ -44,6 +44,28 @@ cp target/i686-pc-windows-msvc/release/openwa_validator.dll "I:/games/SteamLibra
 
 WormKit auto-loads any `wk*.dll` from the game directory. Logs appear in the game directory as `OpenWA.log` and `OpenWA_validation.log`.
 
+## Replay Testing
+
+Use the `/replay-test` skill to automatically build, deploy, launch WA.exe with a replay file, capture validation logs, and present results. This is the fastest way to validate struct layouts, hooks, and game state against live WA.exe.
+
+```bash
+# Manual invocation (skill runs this automatically):
+powershell -ExecutionPolicy Bypass -File replay-test.ps1
+```
+
+How it works:
+1. `replay-test.ps1` builds both DLLs, deploys to game dir, sets `OPENWA_REPLAY_TEST=1`, launches `WA.exe` minimized with a replay file
+2. The validator DLL detects the env var and enters **auto-capture mode**: waits 5s, runs all validation + dumps, then calls `ExitProcess(0)`
+3. Script copies logs to `testdata/logs/` and prints a PASS/FAIL summary
+
+Key paths:
+- Replay files: `testdata/replays/*.WAgame`
+- Captured logs: `testdata/logs/` (gitignored, `validation_latest.log` / `openwa_latest.log`)
+- Script: `replay-test.ps1`
+- Skill: `.claude/skills/replay-test/SKILL.md`
+
+Without `OPENWA_REPLAY_TEST`, the validator runs in interactive mode with hotkeys (F9=team blocks, F10=landscape) and timed dumps.
+
 ## Crate Architecture
 
 - **`openwa-types`** — Enums, structs, addresses, parsers (no_std compatible). The source of truth for all reverse-engineered type layouts and known addresses (`address.rs`). No game dependency.
