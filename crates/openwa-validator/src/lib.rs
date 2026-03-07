@@ -813,47 +813,71 @@ fn run_validation() -> Result<(), Box<dyn std::error::Error>> {
         Err(e) => { let _ = log_line(&format!("[ERROR] Hook installation failed: {}", e)); }
     }
 
-    // 7. Deferred validation via polling (for DDGameWrapper — hooks don't cover this yet)
-    let _ = log_line("");
-    let _ = log_line("--- Deferred Validation (polling) ---");
-    std::thread::spawn(move || {
-        // Wait for game to finish init
-        std::thread::sleep(std::time::Duration::from_secs(10));
-        deferred_global_validation();
-    });
-    let _ = log_line("  Polling thread started (10s delay).");
+    // 7. Mode-dependent: auto-capture vs interactive
+    let auto_mode = std::env::var("OPENWA_REPLAY_TEST").is_ok();
 
-    // 8. Team block dump — wait 30s for user to start a game
-    std::thread::spawn(move || {
-        std::thread::sleep(std::time::Duration::from_secs(30));
-        dump_team_blocks();
-    });
-    let _ = log_line("  Team block dump thread started (30s delay).");
+    if auto_mode {
+        let _ = log_line("");
+        let _ = log_line("--- Auto-Capture Mode (OPENWA_REPLAY_TEST) ---");
+        std::thread::spawn(move || {
+            let _ = log_line("  Waiting 30s for replay to reach gameplay...");
+            std::thread::sleep(std::time::Duration::from_secs(30));
 
-    // 8b. Landscape dump — wait 15s (landscape exists at menu too)
-    std::thread::spawn(move || {
-        std::thread::sleep(std::time::Duration::from_secs(15));
-        dump_landscape();
-    });
-    let _ = log_line("  Landscape dump thread started (15s delay).");
+            let _ = log_line("  Running deferred global validation...");
+            deferred_global_validation();
 
-    // 9. Hotkey listener — F9 = team blocks, F10 = landscape
-    std::thread::spawn(|| {
-        const VK_F9: i32 = 0x78;
-        const VK_F10: i32 = 0x79;
-        let _ = log_line("  Hotkey listener started (F9=team blocks, F10=landscape).");
-        loop {
-            std::thread::sleep(std::time::Duration::from_millis(100));
+            let _ = log_line("  Running team block dump...");
+            dump_team_blocks();
+
+            let _ = log_line("  Running landscape dump...");
+            dump_landscape();
+
+            let _ = log_line("");
+            let _ = log_line("--- Auto-capture complete, exiting ---");
+
             unsafe {
-                if GetAsyncKeyState(VK_F9) & 1 != 0 {
-                    dump_team_blocks();
-                }
-                if GetAsyncKeyState(VK_F10) & 1 != 0 {
-                    dump_landscape();
+                windows_sys::Win32::System::Threading::ExitProcess(0);
+            }
+        });
+    } else {
+        // Existing interactive mode: deferred timers + hotkey listener
+        let _ = log_line("");
+        let _ = log_line("--- Interactive Mode (deferred polling + hotkeys) ---");
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_secs(10));
+            deferred_global_validation();
+        });
+        let _ = log_line("  Polling thread started (10s delay).");
+
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_secs(30));
+            dump_team_blocks();
+        });
+        let _ = log_line("  Team block dump thread started (30s delay).");
+
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_secs(15));
+            dump_landscape();
+        });
+        let _ = log_line("  Landscape dump thread started (15s delay).");
+
+        std::thread::spawn(|| {
+            const VK_F9: i32 = 0x78;
+            const VK_F10: i32 = 0x79;
+            let _ = log_line("  Hotkey listener started (F9=team blocks, F10=landscape).");
+            loop {
+                std::thread::sleep(std::time::Duration::from_millis(100));
+                unsafe {
+                    if GetAsyncKeyState(VK_F9) & 1 != 0 {
+                        dump_team_blocks();
+                    }
+                    if GetAsyncKeyState(VK_F10) & 1 != 0 {
+                        dump_landscape();
+                    }
                 }
             }
-        }
-    });
+        });
+    }
 
     Ok(())
 }
