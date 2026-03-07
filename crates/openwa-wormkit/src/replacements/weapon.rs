@@ -5,7 +5,8 @@
 //! - AddAmmo (0x522640): add ammo to a weapon slot
 
 use openwa_types::address::va;
-use openwa_types::ddgame::TeamWeaponState;
+use openwa_types::ddgame::{self, TeamWeaponState};
+use openwa_types::weapon::Weapon;
 
 use crate::hook::{self, usercall_trampoline};
 
@@ -48,13 +49,13 @@ unsafe extern "cdecl" fn get_ammo_impl(team_index: u32, base: u32, weapon_id: u3
         }
         // In sudden death (phase >= 484), delayed weapons return 0
         // unless it's Teleport (weapon 0x28)
-        if state.game_phase >= 0x1E4 && weapon_id != 0x28 {
+        if state.game_phase >= ddgame::GAME_PHASE_SUDDEN_DEATH && weapon_id != Weapon::Teleport as u32 {
             return 0;
         }
     }
 
     // SelectWorm (0x3B) requires >1 alive worm on the team
-    if state.game_phase >= -2 && weapon_id == 0x3B {
+    if state.game_phase >= ddgame::GAME_PHASE_NORMAL_MIN && weapon_id == Weapon::SelectWorm as u32 {
         if !count_alive_worms(state, team_index as usize) {
             return 0;
         }
@@ -71,15 +72,15 @@ unsafe extern "cdecl" fn get_ammo_impl(team_index: u32, base: u32, weapon_id: u3
 unsafe fn count_alive_worms(state: &TeamWeaponState, team_index: usize) -> bool {
     let base = state as *const TeamWeaponState as *const u8;
     let team_entry = base.add(team_index * 0x51C) as usize;
-    let worm_count = *((team_entry - 4) as *const i32);
+    let worm_count = *((team_entry - ddgame::worm::COUNT_OFFSET) as *const i32);
     let mut alive = 0i32;
     if worm_count > 0 {
-        let mut ptr = (team_entry - 0x4A0) as *const u8;
+        let mut ptr = (team_entry - ddgame::worm::ARRAY_OFFSET) as *const u8;
         for _ in 0..worm_count {
             if *(ptr as *const i32) > 0 {
                 alive += 1;
             }
-            ptr = ptr.add(0x9C);
+            ptr = ptr.add(ddgame::worm::STRIDE);
         }
     }
     alive > 1

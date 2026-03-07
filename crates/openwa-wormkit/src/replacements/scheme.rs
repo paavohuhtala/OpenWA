@@ -32,6 +32,7 @@ static ORIG_SCHEME_READ_FILE: AtomicU32 = AtomicU32::new(0);
 /// Dest struct offsets (WA runtime layout).
 const DEST_FLAG: usize = 0x04;
 const DEST_INDEX: usize = 0x08;
+const DEST_NAME: usize = 0x0C;
 const DEST_PAYLOAD: usize = 0x14;
 /// Offset within payload where super weapons start (V1 payload ends here).
 const PAYLOAD_SUPER_WEAPONS: usize = SCHEME_PAYLOAD_V1; // 0xD8
@@ -39,6 +40,17 @@ const PAYLOAD_SUPER_WEAPONS: usize = SCHEME_PAYLOAD_V1; // 0xD8
 const SUPER_WEAPONS_SIZE: usize = SCHEME_PAYLOAD_V2 - SCHEME_PAYLOAD_V1; // 0x4C = 76
 /// Offset within payload where extended options start.
 const PAYLOAD_EXTENDED: usize = SCHEME_PAYLOAD_V2; // 0x124
+
+/// Unassigned scheme index sentinel value.
+const SCHEME_INDEX_UNASSIGNED: u32 = 0xFFFF_FFFF;
+/// Number of numbered scheme slots (1-13).
+const SCHEME_SLOT_COUNT: u32 = 13;
+/// PE resource ID base for built-in scheme data.
+const SCHEME_PE_RESOURCE_BASE: u32 = 0x2742;
+/// Number of weapons checked by CheckWeaponLimits.
+const SCHEME_WEAPON_CHECK_COUNT: usize = 39;
+/// MFC string resource ID for default scheme name.
+const STRING_RES_DEFAULT_NAME: u32 = 0x0E;
 
 /// Write a parsed SchemeFile into the WA dest struct at the correct offsets.
 ///
@@ -103,8 +115,7 @@ unsafe fn write_scheme_to_dest(scheme: &SchemeFile, dest: u32) {
         }
     }
 
-    // Set scheme index to 0xFFFFFFFF (unassigned)
-    *((dest as usize + DEST_INDEX) as *mut u32) = 0xFFFF_FFFF;
+    *((dest as usize + DEST_INDEX) as *mut u32) = SCHEME_INDEX_UNASSIGNED;
 }
 
 /// Rust replacement for Scheme__ReadFile (0x4D3890).
@@ -137,7 +148,7 @@ unsafe extern "stdcall" fn hook_scheme_read_file(
         }
     } else {
         let _ = log_line("[Scheme] ReadFile: null path");
-        return 0xFFFF_FFFF;
+        return SCHEME_INDEX_UNASSIGNED;
     };
 
     // Use Rust parser for file I/O
@@ -157,7 +168,7 @@ unsafe extern "stdcall" fn hook_scheme_read_file(
         }
         Err(e) => {
             let _ = log_line(&format!("[Scheme] ReadFile FAILED (Rust): {name}: {e}"));
-            0xFFFF_FFFF
+            SCHEME_INDEX_UNASSIGNED
         }
     }
 }
@@ -370,16 +381,15 @@ unsafe extern "fastcall" fn hook_init_from_data(
 
     // Step 4: Set flag byte and index
     *((dest + 0x04) as *mut u8) = 0;
-    *((dest + 0x08) as *mut u32) = 0xFFFF_FFFF;
+    *((dest + 0x08) as *mut u32) = SCHEME_INDEX_UNASSIGNED;
 
     // Step 5: CString name assignment.
     // name_cstring is the char* data pointer of the source CString.
-    // dest+0x0C is the CString field in the dest scheme struct.
+    // dest+DEST_NAME is the CString field in the dest scheme struct.
     let src_len = *((name_cstring - 0x0C) as *const i32);
-    let mut dest_name = CStringRef::new(dest + 0x0C);
+    let mut dest_name = CStringRef::new(dest + DEST_NAME as u32);
     if src_len == 0 {
-        // Empty source: assign default name from string resource #14 (0x0E)
-        dest_name.assign_resource(0x0E);
+        dest_name.assign_resource(STRING_RES_DEFAULT_NAME);
     } else {
         // Non-empty: copy via CString operator=.
         // operator= expects &CSimpleStringT (pointer to the char* pointer).
@@ -403,7 +413,7 @@ unsafe extern "fastcall" fn hook_init_from_data(
 unsafe extern "stdcall" fn hook_check_weapon_limits() -> u32 {
     let limits = rb(va::SCHEME_WEAPON_AMMO_LIMITS) as *const u8;
     let weapons = rb(va::SCHEME_ACTIVE_WEAPON_DATA) as *const u8;
-    for i in 0..39usize {
+    for i in 0..SCHEME_WEAPON_CHECK_COUNT {
         let limit = *limits.add(i);
         let current = *weapons.add(i * 4);
         if limit <= current {
@@ -459,7 +469,7 @@ fn parse_scheme_slot(filename: &str) -> Option<u32> {
     }
     let slot = d0 as u32 * 10 + d1 as u32;
     // Valid range: 1-13 (original checks `slot - 1 < 0xD`)
-    if slot >= 1 && slot <= 13 {
+    if slot >= 1 && slot <= SCHEME_SLOT_COUNT {
         Some(slot)
     } else {
         None
@@ -533,7 +543,7 @@ unsafe extern "stdcall" fn hook_extract_builtins() {
     scan_directory_recursive("User\\Schemes");
 
     // Step 4: Extract missing built-in schemes
-    for slot in 1u32..=13 {
+    for slot in 1..=SCHEME_SLOT_COUNT {
         if *slot_flags.add(slot as usize) != 0 {
             continue; // file already exists
         }
@@ -547,8 +557,7 @@ unsafe extern "stdcall" fn hook_extract_builtins() {
         // Format output path: User\Schemes\{{DD}} name.wsc
         let path = format!("User\\Schemes\\{{{{{slot:02}}}}} {name}.wsc");
 
-        // Load PE resource: type "SCHEMES", ID = slot + 0x2742
-        let resource_id = slot + 0x2742;
+        let resource_id = slot + SCHEME_PE_RESOURCE_BASE;
         match resource::load_pe_resource("SCHEMES", resource_id) {
             Some(data) => {
                 if let Err(e) = std::fs::write(&path, data) {

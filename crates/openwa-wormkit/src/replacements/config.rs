@@ -14,6 +14,10 @@ use crate::log_line;
 use openwa_lib::rebase::rb;
 
 const THEME_PATH: &str = "data\\current.thm";
+const CLEAN_ALL_FLAG_OFFSET: usize = 0xE0;
+const CRASH_REPORT_URL_BUF_SIZE: usize = 0x400;
+/// Max CameraUnlockMouseSpeed before squaring — sqrt(2^31) ≈ 46340, prevents overflow.
+const CAMERA_UNLOCK_SPEED_MAX: u32 = 0xB504;
 
 // ============================================================
 // Theme__GetFileSize replacement (0x44BA80)
@@ -119,8 +123,7 @@ unsafe extern "stdcall" fn hook_registry_clean_all(struct_ptr: u32) {
     }
     WriteProfileSectionA(b"NetSettings\0".as_ptr(), b"\0".as_ptr());
 
-    // Set struct_ptr + 0xE0 = 0
-    *((struct_ptr + 0xE0) as *mut u8) = 0;
+    *((struct_ptr as usize + CLEAN_ALL_FLAG_OFFSET) as *mut u8) = 0;
 
     let _ = log_line("[Config] CleanAll completed");
 }
@@ -246,11 +249,11 @@ unsafe extern "stdcall" fn hook_load_options(gi_ptr: u32) {
 
     // CameraUnlockMouseSpeed: clamp to max 0xB504, then square
     let mut mouse_speed = read_profile_int("Options", "CameraUnlockMouseSpeed", 0x10);
-    if mouse_speed > 0xB504 {
+    if mouse_speed > CAMERA_UNLOCK_SPEED_MAX {
         if (mouse_speed as i32) < 0 {
             mouse_speed = 0;
         } else {
-            mouse_speed = 0xB504;
+            mouse_speed = CAMERA_UNLOCK_SPEED_MAX;
         }
     }
     gi.camera_unlock_mouse_speed = mouse_speed * mouse_speed;
@@ -268,7 +271,7 @@ unsafe extern "stdcall" fn hook_load_options(gi_ptr: u32) {
 /// cdecl() -> *const u8 (pointer to static buffer, or null)
 unsafe extern "cdecl" fn hook_get_crash_report_url() -> u32 {
     let buf = rb(va::G_CRASH_REPORT_URL) as *mut u8;
-    let buf_slice = core::slice::from_raw_parts_mut(buf, 0x400);
+    let buf_slice = core::slice::from_raw_parts_mut(buf, CRASH_REPORT_URL_BUF_SIZE);
 
     let len = openwa_lib::wa::registry::read_profile_string(
         "Options",

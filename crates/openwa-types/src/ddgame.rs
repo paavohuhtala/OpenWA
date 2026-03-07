@@ -211,6 +211,55 @@ pub struct TeamWeaponState {
 
 const _: () = assert!(core::mem::size_of::<TeamWeaponState>() == 0x2C40);
 
+/// Worm data layout relative to TeamEntry.
+/// Worm data lives at NEGATIVE offsets from the TeamEntry base pointer.
+pub mod worm {
+    /// Stride between consecutive worm entries
+    pub const STRIDE: usize = 0x9C;
+    /// Worm count at team_entry - COUNT_OFFSET
+    pub const COUNT_OFFSET: usize = 0x4;
+    /// Worm array start at team_entry - ARRAY_OFFSET (stride STRIDE, health at [0])
+    pub const ARRAY_OFFSET: usize = 0x4A0;
+    /// Worm position X at team+worm addr - POS_X_OFFSET
+    pub const POS_X_OFFSET: usize = 0x508;
+    /// Worm position Y at team+worm addr - POS_Y_OFFSET
+    pub const POS_Y_OFFSET: usize = 0x504;
+    /// Worm state flag at team+worm addr - STATE_OFFSET
+    pub const STATE_OFFSET: usize = 0x598;
+    /// Full health value (used in HasFullHealthWorm)
+    pub const FULL_HEALTH: i32 = 100;
+
+    /// Special worm states — worm is dying/drowning/in special animation.
+    /// Checked by IsWormInSpecialState (0x5226B0).
+    /// No documented names exist in third-party sources for individual states.
+    pub const SPECIAL_STATES: [u32; 6] = [0x80, 0x81, 0x82, 0x83, 0x85, 0x89];
+
+    /// Check if a worm state value is a "special" state.
+    pub fn is_special_state(state: u32) -> bool {
+        SPECIAL_STATES.contains(&state)
+    }
+}
+
+/// Game phase thresholds (stored in TeamWeaponState::game_phase).
+pub const GAME_PHASE_SUDDEN_DEATH: i32 = 0x1E4; // 484
+pub const GAME_PHASE_NORMAL_MIN: i32 = -2;
+
+/// Team data offsets within TeamWeaponState (relative to base pointer).
+pub mod team_data {
+    /// Offset to first team's per-team data block
+    pub const BASE_OFFSET: usize = 0x510;
+    /// Alive flag within per-team data block (at +4 from team data start)
+    pub const ALIVE_FLAG: usize = 4;
+    /// Eliminated flag — at team_entry - 0x10
+    pub const ELIMINATED_OFFSET: usize = 0x10;
+    /// Alternative team pointer base used in HasFullHealthWorm
+    pub const ALT_BASE_OFFSET: usize = 0x518;
+    /// Worm data offset from alt base (negative: team_ptr - 0x4F8)
+    pub const ALT_WORM_ARRAY_OFFSET: usize = 0x4F8;
+    /// Eliminated flag from alt base (negative: team_ptr - 0xC)
+    pub const ALT_ELIMINATED_OFFSET: usize = 0x0C;
+}
+
 impl TeamWeaponState {
     /// Compute the flat index for ammo/delay table access.
     ///

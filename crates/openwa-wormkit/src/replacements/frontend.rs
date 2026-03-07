@@ -11,6 +11,15 @@ use openwa_lib::wa_call;
 use openwa_types::address::va;
 use openwa_types::frontend::ScreenId;
 
+// Frontend dialog struct offsets (MFC CDialog-derived)
+const DIALOG_FLAGS: usize = 0x3C;
+const DIALOG_SCREEN_ID: usize = 0x44;
+const DIALOG_PALETTE_OBJ: usize = 0x12C;
+const DIALOG_PALETTE_PARAM: usize = 0x134;
+const VTABLE_TRANSITION_METHOD: usize = 0x15C;
+const FLAG_INIT_BITS: u32 = 0x18;
+const FLAG_CLEAR_BIT: u32 = 0x10;
+
 /// Trampoline to the original FrontendChangeScreen (for fallback if needed).
 static ORIG_FRONTEND_CHANGE_SCREEN: AtomicU32 = AtomicU32::new(0);
 
@@ -28,11 +37,11 @@ unsafe extern "cdecl" fn frontend_change_screen_impl(dialog: u32, screen_id: u32
     let g_frontend_frame = wa_call::read_global(va::G_FRONTEND_FRAME);
 
     if g_frontend_frame == 0 {
-        // Init path: store screen_id, clear flag bit 0x10
-        let flags = *((dialog + 0x3c) as *const u32);
-        if (flags & 0x18) != 0 {
-            *((dialog + 0x44) as *mut u32) = screen_id;
-            *((dialog + 0x3c) as *mut u32) = flags & 0xFFFF_FFEF;
+        // Init path: store screen_id, clear flag bit
+        let flags = *((dialog as usize + DIALOG_FLAGS) as *const u32);
+        if (flags & FLAG_INIT_BITS) != 0 {
+            *((dialog as usize + DIALOG_SCREEN_ID) as *mut u32) = screen_id;
+            *((dialog as usize + DIALOG_FLAGS) as *mut u32) = flags & !FLAG_CLEAR_BIT;
         }
     } else {
         // Normal path: full screen transition
@@ -41,15 +50,13 @@ unsafe extern "cdecl" fn frontend_change_screen_impl(dialog: u32, screen_id: u32
 
         wnd.enable_window(false);
 
-        // Frontend__PaletteAnimation: EAX = [dialog+0x12c], param = [dialog+0x134]
-        let palette_param = *((dialog + 0x134) as *const u32);
-        let eax_value = *((dialog + 0x12c) as *const u32);
+        let palette_param = *((dialog as usize + DIALOG_PALETTE_PARAM) as *const u32);
+        let eax_value = *((dialog as usize + DIALOG_PALETTE_OBJ) as *const u32);
         openwa_lib::wa::frontend::palette_animation(eax_value, palette_param);
 
-        // Virtual calls: vtable[0x15C](1) then vtable[0x15C](2)
         for i in 1u32..=2 {
             let vtable = *(dialog as *const u32);
-            wa_call::thiscall_indirect_1(vtable + 0x15C, dialog, i);
+            wa_call::thiscall_indirect_1(vtable + VTABLE_TRANSITION_METHOD as u32, dialog, i);
         }
 
         wnd.enable_window(true);
