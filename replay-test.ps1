@@ -38,7 +38,7 @@ Remove-Item "$gameDir\OpenWA_validation.log" -ErrorAction SilentlyContinue
 
 # 4. Launch WA.exe with replay, env var set
 Write-Host "Launching WA.exe with replay: $ReplayFile" -ForegroundColor Cyan
-Write-Host "  (Auto-capture mode: will exit after 30s)" -ForegroundColor Yellow
+Write-Host "  (Auto-capture mode: will exit after 5s)" -ForegroundColor Yellow
 
 $env:OPENWA_REPLAY_TEST = "1"
 $proc = Start-Process -FilePath $waExe -ArgumentList "`"$ReplayFile`"" -PassThru

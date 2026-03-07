@@ -820,8 +820,8 @@ fn run_validation() -> Result<(), Box<dyn std::error::Error>> {
         let _ = log_line("");
         let _ = log_line("--- Auto-Capture Mode (OPENWA_REPLAY_TEST) ---");
         std::thread::spawn(move || {
-            let _ = log_line("  Waiting 30s for replay to reach gameplay...");
-            std::thread::sleep(std::time::Duration::from_secs(30));
+            let _ = log_line("  Waiting 5s for replay to reach gameplay...");
+            std::thread::sleep(std::time::Duration::from_secs(5));
 
             let _ = log_line("  Running deferred global validation...");
             deferred_global_validation();
