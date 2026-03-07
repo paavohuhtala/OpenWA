@@ -1,5 +1,3 @@
-use crate::task::Ptr32;
-
 /// Render command entry (0x18 bytes).
 ///
 /// Enqueued by DrawSpriteGlobal (type 4), DrawSpriteLocal (type 5),
@@ -34,8 +32,8 @@ pub struct RenderQueue {
     pub _buffer: [u8; 0x10000],
     /// 0x10004: Number of enqueued entries (max 0x800)
     pub entry_count: u32,
-    /// 0x10008: Pointer array — entry_ptrs[N] points to the N-th DrawSpriteCmd
-    pub entry_ptrs: [Ptr32; 0x800],
+    /// 0x10008: Pointer array — entry_ptrs[N] points to the N-th command
+    pub entry_ptrs: [*mut u8; 0x800],
 }
 
 impl RenderQueue {
@@ -54,9 +52,29 @@ impl RenderQueue {
         self.buffer_offset = new_offset;
 
         let entry = &mut *(self._buffer.as_mut_ptr().add(new_offset as usize) as *mut T);
-        self.entry_ptrs[self.entry_count as usize] = entry as *mut T as u32;
+        self.entry_ptrs[self.entry_count as usize] = entry as *mut T as *mut u8;
         self.entry_count += 1;
         Some(entry)
+    }
+
+    /// Allocate `size` bytes from the downward-growing buffer.
+    ///
+    /// Like `alloc<T>()` but for variable-size entries (e.g. DrawLineStrip, DrawPolygon).
+    /// Returns `None` if the queue is full or buffer exhausted.
+    pub unsafe fn alloc_raw(&mut self, size: usize) -> Option<*mut u8> {
+        if self.entry_count >= 0x800 {
+            return None;
+        }
+        let new_offset = self.buffer_offset - size as i32;
+        if new_offset < 0 {
+            return None;
+        }
+        self.buffer_offset = new_offset;
+
+        let ptr = self._buffer.as_mut_ptr().add(new_offset as usize);
+        self.entry_ptrs[self.entry_count as usize] = ptr;
+        self.entry_count += 1;
+        Some(ptr)
     }
 }
 
@@ -156,6 +174,33 @@ pub struct DrawTextboxLocalCmd {
 
 const _: () = assert!(core::mem::size_of::<DrawTextboxLocalCmd>() == 0x34);
 
+/// Type 8 — line strip header (0x10 bytes, followed by count × 0xC vertex data).
+///
+/// Total allocation: count × 0xC + 0x1C.
+#[repr(C)]
+pub struct DrawLineStripHeader {
+    pub command_type: u32, // 8
+    pub layer: u32,        // hardcoded 0xE_0000
+    pub count: u32,        // vertex count (from EDI)
+    pub param_1: u32,      // stack param
+}
+
+const _: () = assert!(core::mem::size_of::<DrawLineStripHeader>() == 0x10);
+
+/// Type 9 — polygon header (0x14 bytes, followed by count × 0xC vertex data).
+///
+/// Total allocation: count × 0xC + 0x20.
+#[repr(C)]
+pub struct DrawPolygonHeader {
+    pub command_type: u32, // 9
+    pub layer: u32,        // hardcoded 0xE_0000
+    pub count: u32,        // vertex count (from ESI)
+    pub param_1: u32,      // stack param 1
+    pub param_2: u32,      // stack param 2
+}
+
+const _: () = assert!(core::mem::size_of::<DrawPolygonHeader>() == 0x14);
+
 /// Render command type constants.
 pub mod command_type {
     pub const DRAW_RECT: u32 = 0;
@@ -164,6 +209,8 @@ pub mod command_type {
     pub const DRAW_SPRITE_GLOBAL: u32 = 4;
     pub const DRAW_SPRITE_LOCAL: u32 = 5;
     pub const DRAW_SPRITE_OFFSET: u32 = 6;
+    pub const DRAW_LINE_STRIP: u32 = 8;
+    pub const DRAW_POLYGON: u32 = 9;
     pub const DRAW_SCALED: u32 = 0xB;
     pub const DRAW_PIXEL: u32 = 0xD;
 }

@@ -1,4 +1,4 @@
-use crate::task::Ptr32;
+use crate::render::RenderQueue;
 
 /// DDGame — the main game engine object.
 ///
@@ -8,7 +8,7 @@ use crate::task::Ptr32;
 /// Allocated in DDGame__Constructor (0x56E220).
 /// The DDGame pointer is stored at DDGameWrapper+0x488 (DWORD index 0x122).
 ///
-/// PARTIAL: Fields up to 0x510 are densely mapped from the constructor.
+/// PARTIAL: Fields up to 0x54C are densely mapped from the constructor.
 /// Beyond that, only scattered fields are known — use the `offsets` module.
 ///
 /// Note on offsets: The constructor accesses DDGame fields via
@@ -17,56 +17,66 @@ use crate::task::Ptr32;
 #[repr(C)]
 pub struct DDGame {
     /// 0x000: Base value (param_5 from constructor)
-    pub _base_000: Ptr32,
+    pub _base_000: *mut u8,
     /// 0x004: Context pointer (param_3)
-    pub _context: Ptr32,
+    pub _context: *mut u8,
     /// 0x008: param_4
-    pub _param_008: Ptr32,
+    pub _param_008: *mut u8,
     /// 0x00C: Allocated object (0x608 bytes, conditional)
-    pub _object_00c: Ptr32,
+    pub _object_00c: *mut u8,
     /// 0x010: param_6
-    pub _param_010: Ptr32,
+    pub _param_010: *mut u8,
     /// 0x014: param_7
-    pub _param_014: Ptr32,
+    pub _param_014: *mut u8,
     /// 0x018: param_8
-    pub _param_018: Ptr32,
+    pub _param_018: *mut u8,
     /// 0x01C: Caller/parent pointer (param_1)
-    pub _caller: Ptr32,
+    pub _caller: *mut u8,
     /// 0x020: PCLandscape pointer (copied from DDGameWrapper[0x133])
-    pub landscape: Ptr32,
+    pub landscape: *mut u8,
     /// 0x024: Game state pointer (param_10)
-    pub game_state: Ptr32,
+    pub game_state: *mut u8,
     /// 0x028: param_9
-    pub _param_028: Ptr32,
+    pub _param_028: *mut u8,
     /// 0x02C: Secondary GfxDir object (0x70C bytes, conditional on GfxHandler 1)
-    pub secondary_gfxdir: Ptr32,
+    pub secondary_gfxdir: *mut u8,
     /// 0x030: Gradient image pointer
-    pub gradient_image: Ptr32,
+    pub gradient_image: *mut u8,
     /// 0x034: Gradient image 2 pointer
-    pub gradient_image_2: Ptr32,
+    pub gradient_image_2: *mut u8,
     /// 0x038-0x0B4: Arrow sprite object pointers (32 entries)
-    pub arrow_sprites: [Ptr32; 32],
+    pub arrow_sprites: [*mut u8; 32],
     /// 0x0B8-0x134: Arrow GfxDir pointers (32 entries, conditional)
-    pub arrow_gfxdirs: [Ptr32; 32],
+    pub arrow_gfxdirs: [*mut u8; 32],
     /// 0x138: DisplayGfx object pointer (vtable 0x664144)
-    pub display_gfx: Ptr32,
+    pub display_gfx: *mut u8,
     /// 0x13C-0x37F: Unknown
     pub _unknown_13c: [u8; 0x244],
     /// 0x380: TaskStateMachine pointer (vtable 0x664118, 0x2C bytes)
-    pub task_state_machine: Ptr32,
+    pub task_state_machine: *mut u8,
     /// 0x384-0x467: Unknown
     pub _unknown_384: [u8; 0xE4],
     /// 0x468: Landscape-derived value
-    pub _landscape_val: Ptr32,
+    pub _landscape_val: *mut u8,
     /// 0x46C-0x488: 8 SpriteRegion pointers (0x9C bytes each, vtable 0x66B268)
     /// Created by SpriteRegion__Constructor (0x57DB20).
     /// Each contains 32 TaskStateMachine sub-objects.
-    pub sprite_regions: [Ptr32; 8],
+    pub sprite_regions: [*mut u8; 8],
     /// 0x48C-0x508: Arrow collision region pointers (32 entries)
-    pub arrow_collision_regions: [Ptr32; 32],
+    pub arrow_collision_regions: [*mut u8; 32],
     /// 0x50C: Coordinate list object (capacity 600, 0x12C0 data buffer)
-    pub coord_list: Ptr32,
-    /// 0x510-0x98B7: Remaining fields (sparse — see offsets module)
+    pub coord_list: *mut u8,
+    /// 0x510: Weapon table pointer
+    pub weapon_table: *mut u8,
+    /// 0x514-0x523: Unknown
+    pub _unknown_514: [u8; 0x10],
+    /// 0x524: RenderQueue pointer (passed as `this` to all Draw* functions)
+    pub render_queue: *mut RenderQueue,
+    /// 0x528-0x547: Unknown
+    pub _unknown_528: [u8; 0x20],
+    /// 0x548: Weapon panel pointer
+    pub weapon_panel: *mut u8,
+    /// 0x54C-0x98B7: Remaining fields (sparse — see offsets module)
     ///
     /// Known landmarks in this region:
     /// - 0x64D8: cleared by init
@@ -81,7 +91,7 @@ pub struct DDGame {
     ///
     /// Also includes FUN_00526120 zeroed offsets at stride 0x194:
     /// 0x379C, 0x3930, 0x3AC4, 0x3C58, 0x3DEC, 0x3F80, 0x4114, 0x42A8, 0x443C, 0x45D0
-    pub _remaining: [u8; 0x93A8],
+    pub _remaining: [u8; 0x936C],
 }
 
 const _: () = assert!(core::mem::size_of::<DDGame>() == 0x98B8);

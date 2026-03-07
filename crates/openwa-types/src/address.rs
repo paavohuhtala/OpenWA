@@ -478,6 +478,8 @@ pub mod va {
         pub const PC_LANDSCAPE: u32 = 0x4CC;
         /// Offset to weapon table pointer
         pub const WEAPON_TABLE: u32 = 0x510;
+        /// Offset to RenderQueue pointer
+        pub const RENDER_QUEUE: u32 = 0x524;
         /// Offset to weapon panel pointer
         pub const WEAPON_PANEL: u32 = 0x548;
     }

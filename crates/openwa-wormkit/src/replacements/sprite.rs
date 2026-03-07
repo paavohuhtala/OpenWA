@@ -37,6 +37,74 @@ unsafe extern "cdecl" fn draw_pixel_impl(
 }
 
 // ---------------------------------------------------------------------------
+// DrawLineStrip (0x541DD0) — type 8, EAX=this, EDI=count, 2 stack, RET 0x8
+// Allocation: count * 0xC + 0x1C (variable size)
+// ---------------------------------------------------------------------------
+
+usercall_trampoline!(fn trampoline_draw_line_strip; impl_fn = draw_line_strip_impl;
+    regs = [eax, edi]; stack_params = 2; ret_bytes = "0x8");
+
+unsafe extern "cdecl" fn draw_line_strip_impl(
+    this: u32,
+    count: u32,
+    vertex_ptr: u32,
+    param_1: u32,
+) {
+    let q = &mut *(this as *mut RenderQueue);
+    let total_size = count as usize * 0xC + 0x1C;
+
+    if let Some(ptr) = q.alloc_raw(total_size) {
+        let header = &mut *(ptr as *mut DrawLineStripHeader);
+        *header = DrawLineStripHeader {
+            command_type: command_type::DRAW_LINE_STRIP,
+            layer: 0xE_0000,
+            count,
+            param_1,
+        };
+        core::ptr::copy_nonoverlapping(
+            vertex_ptr as *const u8,
+            ptr.add(core::mem::size_of::<DrawLineStripHeader>()),
+            count as usize * 0xC,
+        );
+    }
+}
+
+// ---------------------------------------------------------------------------
+// DrawPolygon (0x541E50) — type 9, ECX=this, ESI=count, 3 stack, RET 0xC
+// Allocation: count * 0xC + 0x20 (variable size)
+// ---------------------------------------------------------------------------
+
+usercall_trampoline!(fn trampoline_draw_polygon; impl_fn = draw_polygon_impl;
+    regs = [ecx, esi]; stack_params = 3; ret_bytes = "0xC");
+
+unsafe extern "cdecl" fn draw_polygon_impl(
+    this: u32,
+    count: u32,
+    vertex_ptr: u32,
+    param_1: u32,
+    param_2: u32,
+) {
+    let q = &mut *(this as *mut RenderQueue);
+    let total_size = count as usize * 0xC + 0x20;
+
+    if let Some(ptr) = q.alloc_raw(total_size) {
+        let header = &mut *(ptr as *mut DrawPolygonHeader);
+        *header = DrawPolygonHeader {
+            command_type: command_type::DRAW_POLYGON,
+            layer: 0xE_0000,
+            count,
+            param_1,
+            param_2,
+        };
+        core::ptr::copy_nonoverlapping(
+            vertex_ptr as *const u8,
+            ptr.add(core::mem::size_of::<DrawPolygonHeader>()),
+            count as usize * 0xC,
+        );
+    }
+}
+
+// ---------------------------------------------------------------------------
 // DrawScaled (0x541ED0) — type 0xB, ECX=this, 5 stack, RET 0x14
 // ---------------------------------------------------------------------------
 
@@ -274,6 +342,18 @@ pub unsafe fn install() -> Result<(), String> {
         "DrawPixel",
         va::DRAW_PIXEL,
         trampoline_draw_pixel as *const (),
+    )?;
+
+    let _ = hook::install(
+        "DrawLineStrip",
+        va::DRAW_LINE_STRIP,
+        trampoline_draw_line_strip as *const (),
+    )?;
+
+    let _ = hook::install(
+        "DrawPolygon",
+        va::DRAW_POLYGON,
+        trampoline_draw_polygon as *const (),
     )?;
 
     let _ = hook::install(
