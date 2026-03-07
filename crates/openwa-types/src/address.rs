@@ -130,6 +130,24 @@ pub mod va {
     /// likely inlined at weapon-firing call sites. Unhooked until verified.
     pub const SUBTRACT_AMMO: u32 = 0x0052_2680;
 
+    // === Team/worm accessor functions (DDGame + 0x4628 area) ===
+
+    /// Counts teams by alliance membership, sets current_alliance + counters.
+    /// usercall(EAX=base, EDI=alliance_id) → void, plain RET.
+    pub const COUNT_TEAMS_BY_ALLIANCE: u32 = 0x0052_2030;
+    /// Sums health of all worms on a team. Returns 0 if team eliminated.
+    /// fastcall(ECX=team_index, EDX=base) → EAX=total_health, plain RET.
+    pub const GET_TEAM_TOTAL_HEALTH: u32 = 0x0052_24D0;
+    /// Checks if a worm is in a "special" state (dying, drowning, etc.).
+    /// usercall(EAX=team_index, ECX=worm_index, [ESP+4]=base) → EAX=bool, RET 0x4.
+    pub const IS_WORM_IN_SPECIAL_STATE: u32 = 0x0052_26B0;
+    /// Reads worm X,Y position into output pointers.
+    /// usercall(EAX=team_index, ECX=worm_index, [ESP+4]=base, [ESP+8]=&x, [ESP+C]=&y), RET 0xC.
+    pub const GET_WORM_POSITION: u32 = 0x0052_2700;
+    /// Checks if any team has a worm at full health (100). 11 xrefs.
+    /// usercall(EAX=base) → EAX=bool, plain RET.
+    pub const HAS_FULL_HEALTH_WORM: u32 = 0x0052_28D0;
+
     // === Graphics / rendering ===
 
     pub const CONSTRUCT_DD_GAME: u32 = 0x0056_E220;

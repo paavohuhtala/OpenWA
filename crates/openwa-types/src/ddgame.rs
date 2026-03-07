@@ -176,7 +176,9 @@ pub struct TeamWeaponState {
     /// 0x0000: Per-team entries (6 teams, stride 0x51C = 1308 bytes each)
     pub teams: [TeamEntry; 6],
     /// 0x1EA8: Padding
-    pub _pad_1ea8: [u8; 0xC],
+    pub _pad_1ea8: [u8; 0x8],
+    /// 0x1EB0: Number of teams in the game (used by team iteration loops)
+    pub team_count: i32,
     /// 0x1EB4: Interleaved ammo/delay slots.
     /// Per alliance: [ammo_0..ammo_70, delay_0..delay_70] = 142 i32 entries.
     /// 6 alliances * 142 = 852 total entries.
@@ -192,9 +194,22 @@ pub struct TeamWeaponState {
     pub _pad_2c10: [u8; 0x18],
     /// 0x2C28: Game phase counter (>=484 = sudden death, >=-2 = normal game)
     pub game_phase: i32,
+
+    // === Alliance tracking (set by CountTeamsByAlliance, 0x522030) ===
+
+    /// 0x2C2C: Current alliance being evaluated
+    pub current_alliance: i32,
+    /// 0x2C30: Unknown padding
+    pub _pad_2c30: [u8; 4],
+    /// 0x2C34: Count of teams alive with valid alliance (>=0)
+    pub active_team_count: i32,
+    /// 0x2C38: Count of teams matching current_alliance
+    pub same_alliance_count: i32,
+    /// 0x2C3C: Count of teams not matching current_alliance
+    pub enemy_team_count: i32,
 }
 
-const _: () = assert!(core::mem::size_of::<TeamWeaponState>() == 0x2C2C);
+const _: () = assert!(core::mem::size_of::<TeamWeaponState>() == 0x2C40);
 
 impl TeamWeaponState {
     /// Compute the flat index for ammo/delay table access.

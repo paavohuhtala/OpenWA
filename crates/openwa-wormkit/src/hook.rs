@@ -91,6 +91,43 @@ macro_rules! usercall_trampoline {
         }
     };
 
+    // 2 register args, 0 stack params, plain ret
+    // Push: reg2, reg1 → impl_fn(reg1, reg2)
+    (fn $name:ident; impl_fn = $impl:path; regs = [$r1:ident, $r2:ident]) => {
+        #[unsafe(naked)]
+        unsafe extern "C" fn $name() {
+            core::arch::naked_asm!(
+                concat!("push ", stringify!($r2)),
+                concat!("push ", stringify!($r1)),
+                "call {impl_fn}",
+                "add esp, 8",
+                "ret",
+                impl_fn = sym $impl,
+            );
+        }
+    };
+
+    // 2 register args, 3 stack params, ret N
+    // Stack layout at entry: [ESP+0]=retaddr, [ESP+4]=arg1, [ESP+8]=arg2, [ESP+C]=arg3
+    // Push: stack_arg3, stack_arg2, stack_arg1, reg2, reg1 → impl_fn(reg1, reg2, stack_arg1, stack_arg2, stack_arg3)
+    (fn $name:ident; impl_fn = $impl:path; regs = [$r1:ident, $r2:ident];
+     stack_params = 3; ret_bytes = $ret:literal) => {
+        #[unsafe(naked)]
+        unsafe extern "C" fn $name() {
+            core::arch::naked_asm!(
+                "push [esp+12]",
+                "push [esp+12]",
+                "push [esp+12]",
+                concat!("push ", stringify!($r2)),
+                concat!("push ", stringify!($r1)),
+                "call {impl_fn}",
+                "add esp, 20",
+                concat!("ret ", $ret),
+                impl_fn = sym $impl,
+            );
+        }
+    };
+
     // 3 register args, 0 stack params, plain ret
     // Push: reg3, reg2, reg1 → impl_fn(reg1, reg2, reg3)
     (fn $name:ident; impl_fn = $impl:path; regs = [$r1:ident, $r2:ident, $r3:ident]) => {
