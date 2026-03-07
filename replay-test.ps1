@@ -41,7 +41,7 @@ Write-Host "Launching WA.exe with replay: $ReplayFile" -ForegroundColor Cyan
 Write-Host "  (Auto-capture mode: will exit after 5s)" -ForegroundColor Yellow
 
 $env:OPENWA_REPLAY_TEST = "1"
-$proc = Start-Process -FilePath $waExe -ArgumentList "`"$ReplayFile`"" -PassThru
+$proc = Start-Process -FilePath $waExe -ArgumentList "`"$ReplayFile`"" -WindowStyle Minimized -PassThru
 $proc.WaitForExit()
 $env:OPENWA_REPLAY_TEST = $null
 
