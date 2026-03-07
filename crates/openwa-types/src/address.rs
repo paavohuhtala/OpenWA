@@ -391,6 +391,15 @@ pub mod va {
     /// CrashReportURL static buffer (0x400 bytes)
     pub const G_CRASH_REPORT_URL: u32 = 0x0079_FFD8;
 
+    // === Frame buffer globals ===
+
+    /// Frame buffer pixel data pointer (malloc'd width*height bytes)
+    pub const G_FRAME_BUFFER_PTR: u32 = 0x007A_0EEC;
+    /// Frame buffer width
+    pub const G_FRAME_BUFFER_WIDTH: u32 = 0x007A_0EF0;
+    /// Frame buffer height
+    pub const G_FRAME_BUFFER_HEIGHT: u32 = 0x007A_0EF4;
+
     // === Game context (DDGame struct offsets) ===
     // These are offsets from the DDGame base pointer, not absolute addresses.
     // DDGame pointer is obtained from hookConstructDDGameWrapper param.
