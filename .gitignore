@@ -3,3 +3,4 @@
 .mcp.json
 start-mcp.ps1
 docs/re-notes/decompiled/
+testdata/logs/
