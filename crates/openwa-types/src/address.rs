@@ -171,9 +171,18 @@ pub mod va {
     // === Landscape ===
 
     pub const CONSTRUCT_PC_LANDSCAPE: u32 = 0x0057_ACB0;
+    pub const DESTRUCT_PC_LANDSCAPE: u32 = 0x0057_B540;
     pub const CONSTRUCT_SPRITE_REGION: u32 = 0x0057_DB20;
     pub const REDRAW_LAND_REGION: u32 = 0x0057_CC10;
     pub const WRITE_LAND_RAW: u32 = 0x0057_C300;
+    /// Applies explosion crater to terrain — destroys pixels + collision (vtable slot 2).
+    pub const PC_LANDSCAPE_APPLY_EXPLOSION: u32 = 0x0057_C820;
+    /// Draws 8px checkered borders at landscape edges (vtable slot 6).
+    pub const PC_LANDSCAPE_DRAW_BORDERS: u32 = 0x0057_D7F0;
+    /// Redraws a single terrain row (vtable slot 8).
+    pub const PC_LANDSCAPE_REDRAW_ROW: u32 = 0x0057_CF60;
+    /// Clips and merges dirty rectangles for terrain redraw.
+    pub const PC_LANDSCAPE_CLIP_AND_MERGE: u32 = 0x0057_D2B0;
 
     // === Sound ===
 

@@ -618,6 +618,158 @@ fn dump_team_blocks() {
 }
 
 // ---------------------------------------------------------------------------
+// PCLandscape dump (for landscape struct verification)
+// ---------------------------------------------------------------------------
+
+fn dump_landscape() {
+    use openwa_types::landscape::PCLandscape;
+
+    let dump_num = DUMP_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let _ = log_line("");
+    let _ = log_line(&format!("--- PCLandscape Dump #{} ---", dump_num));
+
+    unsafe {
+        let session_ptr = read_u32(rb(va::G_GAME_SESSION));
+        if session_ptr == 0 {
+            let _ = log_line("  No game session — skipping.");
+            return;
+        }
+
+        let wrapper_addr = read_u32(session_ptr + 0xA0);
+        if wrapper_addr == 0 {
+            let _ = log_line("  No DDGameWrapper — need to start a game first.");
+            return;
+        }
+
+        let landscape_ptr = read_u32(wrapper_addr + 0x4CC);
+        if landscape_ptr == 0 {
+            let _ = log_line("  PCLandscape is NULL — no level loaded.");
+            return;
+        }
+
+        let land = &*(landscape_ptr as *const PCLandscape);
+        let _ = log_line(&format!("  PCLandscape @ 0x{:08X}", landscape_ptr));
+
+        // Vtable validation
+        let expected_vt = rb(va::PC_LANDSCAPE_VTABLE);
+        let vt_ok = land.vtable == expected_vt;
+        let _ = log_line(&format!("  vtable: 0x{:08X} (expected 0x{:08X}) {}",
+            land.vtable, expected_vt, if vt_ok { "OK" } else { "MISMATCH" }));
+
+        // DDGame pointer
+        let _ = log_line(&format!("  ddgame: 0x{:08X}", land.ddgame));
+        let _ = log_line(&format!("  _unknown_900: 0x{:08X}", land._unknown_900));
+
+        // Collision bitmap
+        let _ = log_line(&format!("  collision_bitmap: 0x{:08X}", land.collision_bitmap));
+
+        // Initialized flag
+        let _ = log_line(&format!("  initialized: {}", land.initialized));
+
+        // Crater sprites — count non-null
+        let primary_count = land.crater_sprites.iter().filter(|&&p| p != 0).count();
+        let secondary_count = land.crater_sprites_secondary.iter().filter(|&&p| p != 0).count();
+        let _ = log_line(&format!("  crater_sprites: {}/16 non-null, secondary: {}/16 non-null",
+            primary_count, secondary_count));
+
+        // Terrain layers
+        let _ = log_line(&format!("  layer_0: 0x{:08X}", land.layer_0));
+        let _ = log_line(&format!("  layer_1: 0x{:08X}", land.layer_1));
+        let _ = log_line(&format!("  layer_terrain: 0x{:08X}", land.layer_terrain));
+        let _ = log_line(&format!("  layer_edges: 0x{:08X}", land.layer_edges));
+        let _ = log_line(&format!("  layer_shadow: 0x{:08X}", land.layer_shadow));
+        let _ = log_line(&format!("  layer_5: 0x{:08X}", land.layer_5));
+
+        // If layer_terrain is valid, read DisplayGfx fields
+        if land.layer_terrain != 0 {
+            let dgfx = land.layer_terrain;
+            let pixel_data = read_u32(dgfx + 0x08);
+            let stride = read_u32(dgfx + 0x10);
+            let width = read_u32(dgfx + 0x14);
+            let height = read_u32(dgfx + 0x18);
+            let _ = log_line(&format!("  layer_terrain DisplayGfx: pixels=0x{:08X} stride={} width={} height={}",
+                pixel_data, stride, width, height));
+        }
+
+        // Dirty rects
+        let _ = log_line(&format!("  dirty_rect_count: {}", land.dirty_rect_count));
+        let _ = log_line(&format!("  dirty_flag: {}", land.dirty_flag));
+        if land.dirty_rect_count > 0 && land.dirty_rect_count <= 256 {
+            for i in 0..land.dirty_rect_count.min(5) as usize {
+                let r = &land.dirty_rects[i];
+                let _ = log_line(&format!("    rect[{}]: ({},{})..({},{})",
+                    i, r.x1, r.y1, r.x2, r.y2));
+            }
+            if land.dirty_rect_count > 5 {
+                let _ = log_line(&format!("    ... and {} more", land.dirty_rect_count - 5));
+            }
+        }
+
+        // Unknown fields around palette area
+        let _ = log_line(&format!("  _unknown_8ec: 0x{:08X}", land._unknown_8ec));
+        let _ = log_line(&format!("  _unknown_8f0: 0x{:08X}", land._unknown_8f0));
+        let _ = log_line(&format!("  _unknown_8f4: 0x{:08X}", land._unknown_8f4));
+
+        // Resource handle
+        let _ = log_line(&format!("  resource_handle: 0x{:08X}", land.resource_handle));
+
+        // GfxHandlers
+        let _ = log_line(&format!("  level_gfx_handler: 0x{:08X}", land.level_gfx_handler));
+        let _ = log_line(&format!("  water_gfx_handler: 0x{:08X}", land.water_gfx_handler));
+
+        // Visible bounds
+        let _ = log_line(&format!("  visible_bounds: left={} top={} right={} bottom={}",
+            land.visible_left, land.visible_top, land.visible_right, land.visible_bottom));
+
+        // Path buffers — read as C strings
+        let level_path = std::ffi::CStr::from_ptr(land.level_dir_path.as_ptr() as *const i8);
+        let theme_path = std::ffi::CStr::from_ptr(land.theme_dir_path.as_ptr() as *const i8);
+        let _ = log_line(&format!("  level_dir_path: {:?}", level_path));
+        let _ = log_line(&format!("  theme_dir_path: {:?}", theme_path));
+
+        // DDGame level dimensions (from DDGame, not PCLandscape)
+        let ddgame_ptr = land.ddgame;
+        if ddgame_ptr != 0 {
+            let level_w = read_u32(ddgame_ptr + 0x77C0);
+            let level_h = read_u32(ddgame_ptr + 0x77C4);
+            let level_total = read_u32(ddgame_ptr + 0x77C8);
+            let _ = log_line(&format!("  DDGame level dims: {}x{} (total={})",
+                level_w, level_h, level_total));
+        }
+
+        // Vtable slot dump (first 10 entries)
+        let _ = log_line("  Vtable slots:");
+        let vt_addr = land.vtable;
+        for slot in 0..10u32 {
+            let entry = read_u32(vt_addr + slot * 4);
+            let in_text = is_in_text(entry);
+            let _ = log_line(&format!("    [{}]: 0x{:08X} {}",
+                slot, entry, if in_text { "" } else { "(NOT .text)" }));
+        }
+
+        let _ = log_line(&format!("  _unknown_b3c: 0x{:08X}", land._unknown_b3c));
+
+        // Hex dump of unknown regions for discovery
+        let _ = log_line("  _unknown_088 (0x44 bytes):");
+        let _ = log_hex_dump(&land._unknown_088);
+        let _ = log_line("  _unknown_8d9 (0x13 bytes):");
+        let _ = log_hex_dump(&land._unknown_8d9);
+        let _ = log_line("  _unknown_8f8 (8 bytes):");
+        let _ = log_hex_dump(&land._unknown_8f8);
+        let _ = log_line("  _unknown_918 (4 bytes):");
+        let _ = log_hex_dump(&land._unknown_918);
+    }
+}
+
+fn log_hex_dump(data: &[u8]) {
+    for chunk in data.chunks(16) {
+        let hex: String = chunk.iter().map(|b| format!("{:02X}", b)).collect::<Vec<_>>().join(" ");
+        let ascii: String = chunk.iter().map(|&b| if (0x20..0x7F).contains(&b) { b as char } else { '.' }).collect();
+        let _ = log_line(&format!("    {} | {}", hex, ascii));
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Main validation entry point
 // ---------------------------------------------------------------------------
 
@@ -678,16 +830,27 @@ fn run_validation() -> Result<(), Box<dyn std::error::Error>> {
     });
     let _ = log_line("  Team block dump thread started (30s delay).");
 
-    // 9. Hotkey listener — F9 triggers a team block dump on demand
+    // 8b. Landscape dump — wait 15s (landscape exists at menu too)
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_secs(15));
+        dump_landscape();
+    });
+    let _ = log_line("  Landscape dump thread started (15s delay).");
+
+    // 9. Hotkey listener — F9 = team blocks, F10 = landscape
     std::thread::spawn(|| {
         const VK_F9: i32 = 0x78;
-        let _ = log_line("  Hotkey listener started (press F9 to dump team blocks).");
+        const VK_F10: i32 = 0x79;
+        let _ = log_line("  Hotkey listener started (F9=team blocks, F10=landscape).");
         loop {
             std::thread::sleep(std::time::Duration::from_millis(100));
-            let state = unsafe { GetAsyncKeyState(VK_F9) };
-            // Bit 0 = key was pressed since last call
-            if state & 1 != 0 {
-                dump_team_blocks();
+            unsafe {
+                if GetAsyncKeyState(VK_F9) & 1 != 0 {
+                    dump_team_blocks();
+                }
+                if GetAsyncKeyState(VK_F10) & 1 != 0 {
+                    dump_landscape();
+                }
             }
         }
     });
