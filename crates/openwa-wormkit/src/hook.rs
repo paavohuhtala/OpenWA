@@ -113,6 +113,28 @@ macro_rules! usercall_trampoline {
         }
     };
 
+    // 2 register args, 4 stack params, ret N
+    (fn $name:ident; impl_fn = $impl:path; regs = [$r1:ident, $r2:ident];
+     stack_params = 4; ret_bytes = $ret:literal) => {
+        #[unsafe(naked)]
+        unsafe extern "C" fn $name() {
+            core::arch::naked_asm!(
+                "push edx",
+                "push [esp+20]",
+                "push [esp+20]",
+                "push [esp+20]",
+                "push [esp+20]",
+                concat!("push ", stringify!($r2)),
+                concat!("push ", stringify!($r1)),
+                "call {impl_fn}",
+                "add esp, 24",
+                "pop edx",
+                concat!("ret ", $ret),
+                impl_fn = sym $impl,
+            );
+        }
+    };
+
     // 2 register args, 3 stack params, ret N
     (fn $name:ident; impl_fn = $impl:path; regs = [$r1:ident, $r2:ident];
      stack_params = 3; ret_bytes = $ret:literal) => {

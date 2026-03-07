@@ -8,6 +8,7 @@ pub mod task;
 pub mod ddgame;
 pub mod ddgame_wrapper;
 pub mod landscape;
+pub mod render;
 pub mod dssound;
 pub mod opengl;
 pub mod frontend;
