@@ -51,6 +51,62 @@ macro_rules! usercall_trampoline {
             );
         }
     };
+
+    // 2 register args, 1 stack param, ret N
+    // Stack layout at entry: [ESP+0]=retaddr, [ESP+4]=arg
+    // Push: stack_arg, reg2, reg1 → impl_fn(reg1, reg2, stack_arg)
+    (fn $name:ident; impl_fn = $impl:path; regs = [$r1:ident, $r2:ident];
+     stack_params = 1; ret_bytes = $ret:literal) => {
+        #[unsafe(naked)]
+        unsafe extern "C" fn $name() {
+            core::arch::naked_asm!(
+                "push [esp+4]",
+                concat!("push ", stringify!($r2)),
+                concat!("push ", stringify!($r1)),
+                "call {impl_fn}",
+                "add esp, 12",
+                concat!("ret ", $ret),
+                impl_fn = sym $impl,
+            );
+        }
+    };
+
+    // 2 register args, 2 stack params, ret N
+    // Stack layout at entry: [ESP+0]=retaddr, [ESP+4]=arg1, [ESP+8]=arg2
+    // Push: stack_arg2, stack_arg1, reg2, reg1 → impl_fn(reg1, reg2, stack_arg1, stack_arg2)
+    (fn $name:ident; impl_fn = $impl:path; regs = [$r1:ident, $r2:ident];
+     stack_params = 2; ret_bytes = $ret:literal) => {
+        #[unsafe(naked)]
+        unsafe extern "C" fn $name() {
+            core::arch::naked_asm!(
+                "push [esp+8]",
+                "push [esp+8]",
+                concat!("push ", stringify!($r2)),
+                concat!("push ", stringify!($r1)),
+                "call {impl_fn}",
+                "add esp, 16",
+                concat!("ret ", $ret),
+                impl_fn = sym $impl,
+            );
+        }
+    };
+
+    // 3 register args, 0 stack params, plain ret
+    // Push: reg3, reg2, reg1 → impl_fn(reg1, reg2, reg3)
+    (fn $name:ident; impl_fn = $impl:path; regs = [$r1:ident, $r2:ident, $r3:ident]) => {
+        #[unsafe(naked)]
+        unsafe extern "C" fn $name() {
+            core::arch::naked_asm!(
+                concat!("push ", stringify!($r3)),
+                concat!("push ", stringify!($r2)),
+                concat!("push ", stringify!($r1)),
+                "call {impl_fn}",
+                "add esp, 12",
+                "ret",
+                impl_fn = sym $impl,
+            );
+        }
+    };
 }
 
 pub(crate) use usercall_trampoline;

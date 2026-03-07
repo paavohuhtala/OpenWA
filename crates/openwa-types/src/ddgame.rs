@@ -113,6 +113,12 @@ pub mod offsets {
     pub const WEAPON_TABLE: usize = 0x510;
     pub const WEAPON_PANEL: usize = 0x548;
 
+    // === Team weapon state (DDGame + 0x4628) ===
+    /// Base of TeamWeaponState sub-struct within DDGame.
+    /// Callers pass DDGame + TEAM_WEAPON_STATE as base pointer to
+    /// GetAmmo/AddAmmo/SubtractAmmo.
+    pub const TEAM_WEAPON_STATE: usize = 0x4628;
+
     // === FUN_00526120 init offsets (stride 0x194, 10 entries) ===
     pub const INIT_TABLE_BASE: usize = 0x379C;
     pub const INIT_TABLE_STRIDE: usize = 0x194;
@@ -125,4 +131,96 @@ pub mod offsets {
     pub const DISPLAY_77C4: usize = 0x77C4;
     pub const FLAG_7EF8: usize = 0x7EF8;
     pub const FIELD_7EFC: usize = 0x7EFC;
+}
+
+// ============================================================
+// Team weapon state — sub-struct at DDGame + 0x4628
+// ============================================================
+
+/// Per-team entry within the TeamWeaponState area.
+///
+/// Located at TeamWeaponState base + team_index * 0x51C.
+/// Each team has an alliance_id that maps into shared ammo/delay tables.
+///
+/// Worm data lives BEFORE this entry:
+/// - worm_count at offset -0x4
+/// - worm array at offset -0x4A0 (stride 0x9C, health at [0])
+#[repr(C)]
+pub struct TeamEntry {
+    pub _unknown_000: [u8; 4],
+    /// Alliance ID — teams with the same alliance share ammo pools.
+    /// Index into ammo/delay tables: alliance_id * 142 + weapon_id
+    pub alliance_id: i32,
+    pub _unknown_008: [u8; 0x514],
+}
+
+const _: () = assert!(core::mem::size_of::<TeamEntry>() == 0x51C);
+
+/// Team weapon state area within DDGame (at DDGame + 0x4628).
+///
+/// Contains per-team entries and an interleaved ammo/delay table.
+/// Used by GetAmmo (0x5225E0), AddAmmo (0x522640), SubtractAmmo (0x522680).
+///
+/// The ammo/delay table uses stride 142 (= 71 weapons * 2) per alliance.
+/// Within each alliance block of 142 entries:
+/// - Entries 0..70 are ammo counts (accessed at base + 0x1EB4 + index * 4)
+/// - Entries 71..141 are delay flags (accessed at base + 0x1FD0 + index * 4)
+///
+/// The original code accesses these as two arrays at different base offsets
+/// (0x1EB4 and 0x1FD0) using the same index `alliance_id * 142 + weapon_id`.
+/// Since 0x1FD0 - 0x1EB4 = 71 * 4, this is equivalent to accessing
+/// `weapon_slots[alliance * 142 + weapon]` for ammo and
+/// `weapon_slots[alliance * 142 + 71 + weapon]` for delay.
+#[repr(C)]
+pub struct TeamWeaponState {
+    /// 0x0000: Per-team entries (6 teams, stride 0x51C = 1308 bytes each)
+    pub teams: [TeamEntry; 6],
+    /// 0x1EA8: Padding
+    pub _pad_1ea8: [u8; 0xC],
+    /// 0x1EB4: Interleaved ammo/delay slots.
+    /// Per alliance: [ammo_0..ammo_70, delay_0..delay_70] = 142 i32 entries.
+    /// 6 alliances * 142 = 852 total entries.
+    /// Ammo: -1 = unlimited, 0 = none, >0 = count.
+    /// Delay: nonzero = weapon on delay.
+    pub weapon_slots: [i32; 852],
+    /// 0x2C04: Padding between weapon_slots end and game_mode_flag.
+    /// weapon_slots: 852 * 4 = 3408 = 0xD50. 0x1EB4 + 0xD50 = 0x2C04.
+    pub _pad_2c04: [u8; 8],
+    /// 0x2C0C: Game mode flag (nonzero = override weapon delays in certain conditions)
+    pub game_mode_flag: i32,
+    /// 0x2C10: Unknown padding
+    pub _pad_2c10: [u8; 0x18],
+    /// 0x2C28: Game phase counter (>=484 = sudden death, >=-2 = normal game)
+    pub game_phase: i32,
+}
+
+const _: () = assert!(core::mem::size_of::<TeamWeaponState>() == 0x2C2C);
+
+impl TeamWeaponState {
+    /// Compute the flat index for ammo/delay table access.
+    ///
+    /// The weapon_slots array is interleaved: per alliance, 71 ammo slots
+    /// then 71 delay slots (stride 142 per alliance).
+    /// Ammo: `weapon_slots[alliance_id * 142 + weapon_id]`
+    /// Delay: `weapon_slots[alliance_id * 142 + 71 + weapon_id]`
+    pub unsafe fn ammo_index(&self, team_index: usize, weapon_id: u32) -> usize {
+        let alliance_id = self.teams[team_index].alliance_id as usize;
+        alliance_id * 142 + weapon_id as usize
+    }
+
+    /// Get ammo count for a weapon slot (by flat index).
+    pub fn get_ammo(&self, index: usize) -> i32 {
+        self.weapon_slots[index]
+    }
+
+    /// Get mutable reference to ammo count for a weapon slot.
+    pub fn ammo_mut(&mut self, index: usize) -> &mut i32 {
+        &mut self.weapon_slots[index]
+    }
+
+    /// Get delay flag for a weapon slot (by flat index).
+    /// Delay is at +71 offset from the ammo index within the same alliance block.
+    pub fn get_delay(&self, index: usize) -> i32 {
+        self.weapon_slots[index + 71]
+    }
 }

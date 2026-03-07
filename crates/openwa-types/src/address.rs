@@ -122,8 +122,12 @@ pub mod va {
     // === Weapon system ===
 
     pub const INIT_WEAPON_TABLE: u32 = 0x0053_CAB0;
+    pub const COUNT_ALIVE_WORMS: u32 = 0x0052_25A0;
     pub const GET_AMMO: u32 = 0x0052_25E0;
     pub const ADD_AMMO: u32 = 0x0052_2640;
+    /// Not the main ammo decrement path — only 5 xrefs across 3 functions,
+    /// never observed firing during normal gameplay. The real decrement is
+    /// likely inlined at weapon-firing call sites. Unhooked until verified.
     pub const SUBTRACT_AMMO: u32 = 0x0052_2680;
 
     // === Graphics / rendering ===
