@@ -718,3 +718,132 @@ impl TryFrom<u32> for SpriteId {
         }
     }
 }
+
+// ---------------------------------------------------------------------------
+// Sprite struct layout (from Ghidra + wkJellyWorm Sprites.h)
+// ---------------------------------------------------------------------------
+
+use crate::task::Ptr32;
+
+/// Per-frame metadata within a Sprite (0x0C bytes).
+///
+/// Describes the bounding box and bitmap data offset for one animation frame.
+/// Array pointed to by `Sprite::frame_meta_ptr`.
+///
+/// Source: wkJellyWorm `Sprites.h::SpriteFrame`.
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct SpriteFrame {
+    /// 0x00: Offset into bitmap data for this frame's pixels
+    pub bitmap_offset: u32,
+    /// 0x04: Left edge X coordinate
+    pub start_x: u16,
+    /// 0x06: Top edge Y coordinate
+    pub start_y: u16,
+    /// 0x08: Right edge X coordinate
+    pub end_x: u16,
+    /// 0x0A: Bottom edge Y coordinate
+    pub end_y: u16,
+}
+
+const _: () = assert!(core::mem::size_of::<SpriteFrame>() == 0x0C);
+
+/// Sprite object (0x70 bytes, vtable 0x66418C).
+///
+/// Represents a loaded sprite with animation frames. Created by ConstructSprite
+/// (0x4FAA30), populated by ProcessSprite (0x4FAB80) from `.spr` file data.
+///
+/// Contains frame metadata, palette data, and bitmap pixel data for all frames.
+/// Managed by DD_Display's 1024-slot sprite table.
+///
+/// Source: wkJellyWorm `Sprites.h`, Ghidra decompilation of ConstructSprite + ProcessSprite.
+#[repr(C)]
+pub struct Sprite {
+    /// 0x00: Vtable pointer (0x66418C, 8 entries)
+    pub vtable: Ptr32,
+    /// 0x04: Context/parent pointer (ECX from ConstructSprite)
+    pub context_ptr: Ptr32,
+    /// 0x08: Unknown
+    pub _unknown_08: u16,
+    /// 0x0A: Animation frames per second
+    pub fps: u16,
+    /// 0x0C: Sprite width in pixels
+    pub width: u16,
+    /// 0x0E: Sprite height in pixels
+    pub height: u16,
+    /// 0x10: Sprite flags
+    pub flags: u16,
+    /// 0x12: Frame count (may be overwritten by ProcessSprite)
+    pub frame_count: u16,
+    /// 0x14: Header flags from .spr file (raw+8)
+    pub header_flags: u16,
+    /// 0x16: Maximum frame count
+    pub max_frames: u16,
+    /// 0x18: Unknown
+    pub _unknown_18: u16,
+    /// 0x1A: Unknown
+    pub _unknown_1a: u16,
+    /// 0x1C: Scale X (set when negative frame count in .spr)
+    pub scale_x: u32,
+    /// 0x20: Scale Y (set when negative frame count in .spr)
+    pub scale_y: u32,
+    /// 0x24: Is-scaled flag (1 if scaling active, 0 otherwise)
+    pub is_scaled: u32,
+    /// 0x28: Pointer to SpriteFrame array (frame_count entries)
+    pub frame_meta_ptr: Ptr32,
+    /// 0x2C: Secondary frame table pointer (present when header_flags & 0x4000)
+    pub secondary_frame_ptr: Ptr32,
+    /// 0x30: Secondary frame count
+    pub secondary_frame_count: u16,
+    /// 0x32: Padding
+    pub _pad_32: u16,
+    /// 0x34: DisplayGfx bitmap handle (vtable 0x664144 set by ConstructSprite)
+    pub display_gfx: Ptr32,
+    /// 0x38-0x5F: Unknown fields
+    pub _unknown_38: [u8; 0x28],
+    /// 0x60: Pointer to raw frame header data
+    pub raw_frame_header_ptr: Ptr32,
+    /// 0x64: Pointer to bitmap pixel data
+    pub bitmap_data_ptr: Ptr32,
+    /// 0x68: Pointer to palette data
+    pub palette_data_ptr: Ptr32,
+    /// 0x6C: Unknown
+    pub _unknown_6c: u32,
+}
+
+const _: () = assert!(core::mem::size_of::<Sprite>() == 0x70);
+
+/// DD_Display sprite storage byte offsets (from DD_Display base pointer).
+///
+/// DD_Display manages a 1024-slot sprite table. Each slot stores a palette ID
+/// and a Sprite pointer. Sprites are organized into 3 palettes.
+pub mod dd_display_sprite_offsets {
+    /// `sprite_palette[1024]` — u32 per slot, palette ID (1-3)
+    pub const SPRITE_PALETTE_ARRAY: usize = 0x0008;
+    /// `sprite_ptrs[1024]` — Sprite* per slot
+    pub const SPRITE_PTR_ARRAY: usize = 0x1008;
+    /// `gfx_dirs[3]` — GfxDir* per palette
+    pub const GFX_DIRS: usize = 0x311C;
+    /// `sprite_counts[3]` — loaded count per palette
+    pub const SPRITE_COUNTS: usize = 0x3530;
+}
+
+/// Sprite vtable method addresses (vtable at 0x66418C, 8 entries).
+pub mod sprite_vtable {
+    /// Slot 0: Destructor (0x4FAA80) — thiscall
+    pub const DESTRUCTOR: u32 = 0x004F_AA80;
+    /// Slot 1: Unknown (0x4FAAD0)
+    pub const SLOT_1: u32 = 0x004F_AAD0;
+    /// Slot 2: Unknown (0x4FB5C0)
+    pub const SLOT_2: u32 = 0x004F_B5C0;
+    /// Slot 3: Unknown (0x4FE550)
+    pub const SLOT_3: u32 = 0x004F_E550;
+    /// Slot 4: Unknown (0x4FE2F0)
+    pub const SLOT_4: u32 = 0x004F_E2F0;
+    /// Slot 5: Unknown (0x4FE9C0)
+    pub const SLOT_5: u32 = 0x004F_E9C0;
+    /// Slot 6: CTask common stub (0x5613D0)
+    pub const STUB_6: u32 = 0x0056_13D0;
+    /// Slot 7: CTask common stub (0x5613D0)
+    pub const STUB_7: u32 = 0x0056_13D0;
+}

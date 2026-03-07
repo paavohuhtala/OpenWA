@@ -19,7 +19,7 @@ This will:
 - Build openwa-wormkit and openwa-validator
 - Deploy DLLs to the WA game directory
 - Launch WA.exe with the default replay file (testdata/replays/bots.WAgame)
-- Wait for auto-capture (30s) and process exit
+- Wait for auto-capture (5s) and process exit
 - Copy logs to testdata/logs/
 
 2. Read the validation log and present results:
@@ -34,6 +34,6 @@ Read `testdata/logs/validation_latest.log` and summarize:
 
 ## Notes
 
-- The script takes ~40 seconds total (build + 30s auto-capture wait)
+- The script takes ~10 seconds total (build + 5s auto-capture wait)
 - If WA.exe doesn't exit, the validator DLL may not have loaded. Check that wkOpenWAValidator.dll exists in the game directory.
 - Replay file can be changed by editing the script invocation: `powershell -File replay-test.ps1 path\to\other.WAgame`

@@ -44,6 +44,8 @@ pub mod va {
     pub const OPENGL_CPU_VTABLE: u32 = 0x0067_74C0;
     /// WaterEffect vtable (0xBC-byte object)
     pub const WATER_EFFECT_VTABLE: u32 = 0x0066_B268;
+    /// Sprite vtable (0x70-byte objects, 8 entries)
+    pub const SPRITE_VTABLE: u32 = 0x0066_418C;
 
     // === CTask vtable methods (at CTask__vtable) ===
 
@@ -167,6 +169,23 @@ pub mod va {
     pub const GFX_HANDLER_LOAD_DIR: u32 = 0x0056_63E0;
     pub const GFX_DIR_FIND_ENTRY: u32 = 0x0056_6520;
     pub const GFX_DIR_LOAD_IMAGE: u32 = 0x0056_66D0;
+
+    // === Sprite system ===
+
+    /// ConstructSprite — usercall EAX=sprite_ptr, ECX=context_ptr.
+    /// Initializes 0x70-byte sprite struct, sets vtable to 0x66418C.
+    pub const CONSTRUCT_SPRITE: u32 = 0x004F_AA30;
+    /// Sprite destructor — thiscall, vtable slot 0.
+    pub const DESTROY_SPRITE: u32 = 0x004F_AA80;
+    /// LoadSpriteFromVfs — usercall EAX=filename, ECX=file_archive, 2 stack params
+    /// (sprite_ptr, gfx_dir). Reads .spr data from archive via GfxDir.
+    pub const LOAD_SPRITE_FROM_VFS: u32 = 0x004F_AAF0;
+    /// ProcessSprite — usercall EAX=sprite_ptr, 1 stack param (raw_data_ptr).
+    /// Parses .spr binary format: palette, frames, bitmap data.
+    pub const PROCESS_SPRITE: u32 = 0x004F_AB80;
+    /// DrawSpriteLocal — thiscall + EAX=y_pos (usercall), 4 stack params.
+    /// Enqueues draw command type 5 (screen-space). See DrawSpriteGlobal (type 4).
+    pub const DRAW_SPRITE_LOCAL: u32 = 0x0054_2060;
 
     // === Landscape ===
 
@@ -384,6 +403,14 @@ pub mod va {
     /// Game session context pointer (contains subsystem pointers at known offsets)
     /// +0xA0 = DDGameWrapper*, +0xAC = DDDisplay*, +0xA8 = DSSound*, etc.
     pub const G_GAME_SESSION: u32 = 0x007A_0884;
+    /// Total sprite data bytes loaded (accumulated by ProcessSprite)
+    pub const G_SPRITE_DATA_BYTES: u32 = 0x007A_0864;
+    /// Total sprite frame count loaded
+    pub const G_SPRITE_FRAME_COUNT: u32 = 0x007A_0868;
+    /// Total sprite pixel area loaded (sum of frame w×h)
+    pub const G_SPRITE_PIXEL_AREA: u32 = 0x007A_086C;
+    /// Total palette entry bytes loaded (entry_count × 3)
+    pub const G_SPRITE_PALETTE_BYTES: u32 = 0x007A_0870;
 
     // === Configuration globals (for GameInfo__LoadOptions) ===
 
