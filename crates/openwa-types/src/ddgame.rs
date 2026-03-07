@@ -119,6 +119,19 @@ pub mod offsets {
     /// GetAmmo/AddAmmo/SubtractAmmo.
     pub const TEAM_WEAPON_STATE: usize = 0x4628;
 
+    // === Team block array (7 × FullTeamBlock, stride 0x51C) ===
+    /// Start of team block array within DDGame (7 blocks, stride 0x51C).
+    /// Derived: entry_ptr(team=0) - 0x598 = 0x4628 - 0x598 = 0x4090.
+    /// Runtime-confirmed: block[0] is zeroed preamble, blocks[1-6] hold team data.
+    pub const TEAM_BLOCKS: usize = 0x4090;
+
+    /// Byte offset from TeamWeaponState base back to FullTeamBlock array start.
+    /// `blocks_ptr = (tws_base as *const u8).sub(TWS_TO_BLOCKS) as *const FullTeamBlock`
+    ///
+    /// entry_ptr(0) = DDGame+0x4628 = TEAM_BLOCKS + 0x598.
+    /// 0x598 = sizeof(FullTeamBlock) + 0x7C = one block + offset into sentinel worm[0].
+    pub const TWS_TO_BLOCKS: usize = 0x598;
+
     // === FUN_00526120 init offsets (stride 0x194, 10 entries) ===
     pub const INIT_TABLE_BASE: usize = 0x379C;
     pub const INIT_TABLE_STRIDE: usize = 0x194;
@@ -155,6 +168,106 @@ pub struct TeamEntry {
 }
 
 const _: () = assert!(core::mem::size_of::<TeamEntry>() == 0x51C);
+
+// ============================================================
+// Per-worm and per-team block structs
+// ============================================================
+
+/// Per-worm data entry (0x9C bytes, stride between consecutive worms).
+///
+/// 8 slots per team. Slot 0 is a sentinel/header (team metadata), slots 1-7
+/// hold playable worm data. GetTeamTotalHealth iterates starting from slot 1.
+///
+/// Field offsets confirmed by runtime memory dump (validator DLL):
+/// - state at 0x00: 0x67 = active/selected, 0x65 = idle, 0x80+ = special
+/// - active_flag at 0x0C: 1 for alive worms
+/// - max_health at 0x58: initial health value (100)
+/// - health at 0x5C: current health (100 = full)
+/// - name at 0x78: null-terminated worm name string (~20 bytes)
+///
+/// Sentinel (slot 0) has different layout — see `sentinel_*` methods:
+/// - +0x6C (_unknown_60\[0x0C\]): eliminated flag
+/// - +0x78 (name\[0..4\]): worm_count
+/// - +0x80 (name\[8..12\]): alliance_id
+/// - +0x84 (name\[12..\]): team name string
+/// - +0x98 (_unknown_90\[8..12\]): value 0x190 (400), unknown purpose
+#[repr(C)]
+pub struct WormEntry {
+    /// 0x00: Worm state machine state.
+    /// Values: 0x65=idle, 0x67=active/selected, 0x68=active variant.
+    /// Special states {0x80..0x85, 0x89} = dying/drowning/special animation.
+    pub state: u32,
+    /// 0x04-0x0B: Unknown
+    pub _unknown_04: [u8; 8],
+    /// 0x0C: Active/alive flag (1 for alive worms in game, 0 otherwise).
+    pub active_flag: i32,
+    /// 0x10-0x57: Unknown
+    pub _unknown_10: [u8; 0x48],
+    /// 0x58: Max health (initial health value, typically 100).
+    pub max_health: i32,
+    /// 0x5C: Current health. Used by GetTeamTotalHealth.
+    pub health: i32,
+    /// 0x60-0x77: Unknown.
+    /// In sentinel: +0x6C = eliminated flag for the team.
+    pub _unknown_60: [u8; 0x18],
+    /// 0x78: Worm name, null-terminated ASCII string (~20 bytes).
+    /// In sentinel: +0x78 = worm_count (i32), +0x80 = alliance_id (i32),
+    /// +0x84 = team name string.
+    pub name: [u8; 0x18],
+    /// 0x90-0x9B: Unknown (zeroed in runtime dump for playable worms).
+    /// GetWormPosition reads pos_x/pos_y from +0x90/+0x94 via negative entry_ptr
+    /// arithmetic, but values appear transient — not populated at rest.
+    /// Actual worm positions live in CGameTask objects (+0x84/+0x88).
+    pub _unknown_90: [u8; 0x0C],
+}
+
+const _: () = assert!(core::mem::size_of::<WormEntry>() == 0x9C);
+
+impl WormEntry {
+    /// Read worm_count from this entry when it's a sentinel (slot 0).
+    /// Stored at self.name[0..4] (= WormEntry offset 0x78) as little-endian i32.
+    ///
+    /// # Safety
+    /// Only valid when called on a sentinel worm (slot 0 of a FullTeamBlock).
+    pub unsafe fn sentinel_worm_count(&self) -> i32 {
+        *(self.name.as_ptr() as *const i32)
+    }
+
+    /// Read eliminated flag from this entry when it's a sentinel (slot 0).
+    /// Stored at self._unknown_60[0x0C] (= WormEntry offset 0x6C) as i32.
+    /// Nonzero = team is eliminated.
+    ///
+    /// # Safety
+    /// Only valid when called on a sentinel worm (slot 0 of a FullTeamBlock).
+    pub unsafe fn sentinel_eliminated(&self) -> i32 {
+        *(self._unknown_60.as_ptr().add(0x0C) as *const i32)
+    }
+}
+
+/// Full per-team data block (0x51C bytes, 6 teams in DDGame).
+///
+/// Contains 8 WormEntry slots (0x4E0 bytes) followed by 0x3C bytes of
+/// team metadata. Slot 0 is a sentinel/header; slots 1-7 are playable worms.
+///
+/// **Block indexing**: Block 0 is unused (preamble, all zeros). Actual team
+/// data starts at block 1. entry_ptr(team=N) = DDGame+0x4628+N*0x51C, which
+/// lands at block\[N+1\].worm\[0\]+0x7C. Negative offsets reach back into
+/// block\[N\]'s worm data. So entry_ptr(1) accesses block\[1\]'s worms.
+///
+/// **Sentinel worm\[0\]** stores metadata for the team accessed by the
+/// PREVIOUS entry_ptr index:
+/// - +0x78: worm_count (accessed as entry_ptr-4)
+/// - +0x80: alliance_id (accessed as entry_ptr+4)
+/// - +0x84: team name string
+#[repr(C)]
+pub struct FullTeamBlock {
+    /// 0x000-0x4DF: 8 worm entries (stride 0x9C)
+    pub worms: [WormEntry; 8],
+    /// 0x4E0-0x51B: Team metadata (0x3C bytes)
+    pub _metadata: [u8; 0x3C],
+}
+
+const _: () = assert!(core::mem::size_of::<FullTeamBlock>() == 0x51C);
 
 /// Team weapon state area within DDGame (at DDGame + 0x4628).
 ///
@@ -211,27 +324,23 @@ pub struct TeamWeaponState {
 
 const _: () = assert!(core::mem::size_of::<TeamWeaponState>() == 0x2C40);
 
-/// Worm data layout relative to TeamEntry.
-/// Worm data lives at NEGATIVE offsets from the TeamEntry base pointer.
+/// Worm state constants and helpers.
 pub mod worm {
-    /// Stride between consecutive worm entries
-    pub const STRIDE: usize = 0x9C;
-    /// Worm count at team_entry - COUNT_OFFSET
-    pub const COUNT_OFFSET: usize = 0x4;
-    /// Worm array start at team_entry - ARRAY_OFFSET (stride STRIDE, health at [0])
-    pub const ARRAY_OFFSET: usize = 0x4A0;
-    /// Worm position X at team+worm addr - POS_X_OFFSET
-    pub const POS_X_OFFSET: usize = 0x508;
-    /// Worm position Y at team+worm addr - POS_Y_OFFSET
-    pub const POS_Y_OFFSET: usize = 0x504;
-    /// Worm state flag at team+worm addr - STATE_OFFSET
-    pub const STATE_OFFSET: usize = 0x598;
-    /// Full health value (used in HasFullHealthWorm)
-    pub const FULL_HEALTH: i32 = 100;
+    // --- Known state values (runtime-validated via validator dumps) ---
+
+    /// Transitional state checked by CheckWormState0x64 (0x5228D0). 11 xrefs.
+    /// Appears briefly during turn transitions.
+    pub const STATE_TRANSITIONAL: u32 = 0x64;
+    /// Idle — worm is waiting, not currently active.
+    pub const STATE_IDLE: u32 = 0x65;
+    /// Active — worm is currently selected and taking its turn.
+    pub const STATE_ACTIVE: u32 = 0x67;
+    /// Dead — worm has been killed (hp=0). Persists across turns.
+    pub const STATE_DEAD: u32 = 0x87;
 
     /// Special worm states — worm is dying/drowning/in special animation.
     /// Checked by IsWormInSpecialState (0x5226B0).
-    /// No documented names exist in third-party sources for individual states.
+    /// All values in the 0x80+ range. 0x87 (dead) is also in this set.
     pub const SPECIAL_STATES: [u32; 6] = [0x80, 0x81, 0x82, 0x83, 0x85, 0x89];
 
     /// Check if a worm state value is a "special" state.
@@ -245,19 +354,15 @@ pub const GAME_PHASE_SUDDEN_DEATH: i32 = 0x1E4; // 484
 pub const GAME_PHASE_NORMAL_MIN: i32 = -2;
 
 /// Team data offsets within TeamWeaponState (relative to base pointer).
+/// Used by CountTeamsByAlliance which accesses a different sentinel layout
+/// than the entry_ptr-based functions (offset +0x70/+0x74 vs +0x78/+0x80).
 pub mod team_data {
-    /// Offset to first team's per-team data block
+    /// Offset to first team's per-team data block (from TWS base).
+    /// Maps to block[2].worms[0]+0x70 — a separate alliance/alive pair
+    /// distinct from the entry_ptr-based alliance_id at worms[0]+0x80.
     pub const BASE_OFFSET: usize = 0x510;
     /// Alive flag within per-team data block (at +4 from team data start)
     pub const ALIVE_FLAG: usize = 4;
-    /// Eliminated flag — at team_entry - 0x10
-    pub const ELIMINATED_OFFSET: usize = 0x10;
-    /// Alternative team pointer base used in HasFullHealthWorm
-    pub const ALT_BASE_OFFSET: usize = 0x518;
-    /// Worm data offset from alt base (negative: team_ptr - 0x4F8)
-    pub const ALT_WORM_ARRAY_OFFSET: usize = 0x4F8;
-    /// Eliminated flag from alt base (negative: team_ptr - 0xC)
-    pub const ALT_ELIMINATED_OFFSET: usize = 0x0C;
 }
 
 impl TeamWeaponState {

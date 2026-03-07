@@ -10,6 +10,9 @@ use openwa_types::task::{CTask, CGameTask};
 use openwa_types::ddgame::DDGame;
 use openwa_types::ddgame_wrapper::DDGameWrapper;
 
+use windows_sys::Win32::System::LibraryLoader::GetModuleHandleA;
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::GetAsyncKeyState;
+
 // ---------------------------------------------------------------------------
 // ASLR rebasing
 // ---------------------------------------------------------------------------
@@ -17,15 +20,12 @@ use openwa_types::ddgame_wrapper::DDGameWrapper;
 /// Delta to add to Ghidra addresses to get runtime addresses.
 /// Computed as: actual_base - IMAGE_BASE (0x400000)
 static REBASE_DELTA: AtomicU32 = AtomicU32::new(0);
+static DUMP_COUNTER: AtomicU32 = AtomicU32::new(0);
 
 /// Rebase a Ghidra VA to the actual runtime address.
 #[inline]
 pub(crate) fn rb(ghidra_addr: u32) -> u32 {
     ghidra_addr.wrapping_add(REBASE_DELTA.load(Ordering::Relaxed))
-}
-
-extern "system" {
-    fn GetModuleHandleA(lpModuleName: *const u8) -> *mut c_void;
 }
 
 fn init_rebase() -> i32 {
@@ -473,6 +473,151 @@ fn deferred_global_validation() {
 }
 
 // ---------------------------------------------------------------------------
+// Team block memory dump (for WormEntry/FullTeamBlock verification)
+// ---------------------------------------------------------------------------
+
+fn dump_team_blocks() {
+    use openwa_types::ddgame::{offsets, FullTeamBlock, TeamWeaponState};
+
+    let dump_num = DUMP_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let _ = log_line("");
+    let _ = log_line(&format!("--- Team Block Dump #{} ---", dump_num));
+
+    unsafe {
+        let session_ptr = read_u32(rb(va::G_GAME_SESSION));
+        if session_ptr == 0 {
+            let _ = log_line("  No game session — skipping.");
+            return;
+        }
+
+        let wrapper_addr = read_u32(session_ptr + 0xA0);
+        if wrapper_addr == 0 {
+            let _ = log_line("  No DDGameWrapper — need to start a game first.");
+            return;
+        }
+
+        let ddgame_ptr = read_u32(wrapper_addr + 0x488);
+        if ddgame_ptr == 0 {
+            let _ = log_line("  No DDGame — need to be in gameplay.");
+            return;
+        }
+
+        let _ = log_line(&format!("  DDGame = 0x{:08X}", ddgame_ptr));
+
+        // Get TeamWeaponState via struct
+        let tws_base = (ddgame_ptr + offsets::TEAM_WEAPON_STATE as u32) as *const u8;
+        let tws = &*(tws_base as *const TeamWeaponState);
+        let _ = log_line(&format!("  team_count = {} (TeamWeaponState.team_count)", tws.team_count));
+
+        // Get FullTeamBlock array via TWS_TO_BLOCKS offset
+        let blocks = tws_base.sub(offsets::TWS_TO_BLOCKS) as *const FullTeamBlock;
+        let blocks_addr = blocks as u32;
+        let _ = log_line(&format!("  blocks_base = 0x{:08X} (DDGame+0x{:X})",
+            blocks_addr, blocks_addr - ddgame_ptr));
+
+        let mut result = ValidationResult::new();
+
+        // Validate TWS_TO_BLOCKS: blocks_base should == DDGame + TEAM_BLOCKS
+        let expected_blocks = ddgame_ptr + offsets::TEAM_BLOCKS as u32;
+        result.check("TWS_TO_BLOCKS derivation",
+            blocks_addr == expected_blocks,
+            &format!("got 0x{:08X}, expected 0x{:08X}", blocks_addr, expected_blocks));
+
+        // Validate each real team (1-indexed: blocks[1..=team_count])
+        let num_blocks = (tws.team_count as u32 + 1).max(3).min(7);
+        for b in 0..num_blocks {
+            let block = &*blocks.add(b as usize);
+            let _ = log_line(&format!("\n  === Block {} (0x{:08X}) ===",
+                b, blocks_addr + b * 0x51C));
+
+            // Sentinel: block[b+1].worms[0] holds metadata for entry_ptr(b)
+            if (b + 1) < 7 {
+                let sentinel = &(*blocks.add(b as usize + 1)).worms[0];
+                let worm_count = sentinel.sentinel_worm_count();
+                let eliminated = sentinel.sentinel_eliminated();
+
+                // Cross-check sentinel vs raw entry_ptr reads
+                let entry_ptr = tws_base.add(b as usize * 0x51C);
+                let raw_worm_count = *(entry_ptr.sub(4) as *const i32);
+                let raw_alliance = *(entry_ptr.add(4) as *const i32);
+
+                result.check(
+                    &format!("block[{}] sentinel_worm_count vs raw", b),
+                    worm_count == raw_worm_count,
+                    &format!("struct={}, raw={}", worm_count, raw_worm_count),
+                );
+
+                let _ = log_line(&format!("  sentinel: worm_count={}, eliminated={}, alliance(entry_ptr+4)={}",
+                    worm_count, eliminated, raw_alliance));
+
+                // Dump playable worms using struct field access
+                for w in 0..8usize {
+                    let worm = &block.worms[w];
+                    let active = worm.active_flag;
+                    let name_bytes = &worm.name;
+                    let name_len = name_bytes.iter().position(|&c| c == 0).unwrap_or(name_bytes.len());
+                    let name_str = core::str::from_utf8(&name_bytes[..name_len]).unwrap_or("?");
+
+                    if worm.state != 0 || worm.health != 0 || active != 0 || w == 0 {
+                        let _ = log_line(&format!(
+                            "  worm[{}]: state=0x{:04X} active={} max_hp={} hp={} name=\"{}\"",
+                            w, worm.state, active, worm.max_health, worm.health, name_str
+                        ));
+                    }
+                }
+
+                // Validate GetTeamTotalHealth pattern: sum block.worms[1..=count].health
+                if worm_count > 0 && worm_count <= 7 {
+                    let struct_total: i32 = (1..=worm_count as usize)
+                        .map(|w| block.worms[w].health)
+                        .sum();
+
+                    // Cross-check vs raw pointer method (old ARRAY_OFFSET=0x4A0 pattern)
+                    let raw_health_ptr = entry_ptr.sub(0x4A0) as *const i32;
+                    let mut raw_total = 0i32;
+                    for i in 0..worm_count {
+                        raw_total += *raw_health_ptr.add(i as usize * (0x9C / 4));
+                    }
+
+                    result.check(
+                        &format!("block[{}] health sum (struct vs raw)", b),
+                        struct_total == raw_total,
+                        &format!("struct={}, raw={}", struct_total, raw_total),
+                    );
+                }
+
+                // Validate IsWormInSpecialState pattern: block.worms[w].state
+                // Cross-check worm[1].state via struct vs raw (STATE_OFFSET=0x598)
+                if worm_count > 0 {
+                    let struct_state = block.worms[1].state;
+                    let raw_state = *(entry_ptr.sub(0x598).add(0x9C) as *const u32);
+                    result.check(
+                        &format!("block[{}] worm[1].state (struct vs raw)", b),
+                        struct_state == raw_state,
+                        &format!("struct=0x{:X}, raw=0x{:X}", struct_state, raw_state),
+                    );
+                }
+
+                // Validate CheckWormState0x64 pattern: reads worms[].state, NOT .health
+                // Show both values for each worm so we can verify
+                if worm_count > 0 {
+                    let _ = log_line(&format!("  CheckWormState0x64 field check (state vs health):"));
+                    for w in 1..=worm_count as usize {
+                        let worm = &block.worms[w];
+                        let _ = log_line(&format!(
+                            "    worm[{}]: state=0x{:04X}({}) health=0x{:04X}({})",
+                            w, worm.state, worm.state, worm.health, worm.health
+                        ));
+                    }
+                }
+            }
+        }
+
+        let _ = log_line(&format!("\n  Struct Validation {}", result.summary_line()));
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Main validation entry point
 // ---------------------------------------------------------------------------
 
@@ -525,6 +670,27 @@ fn run_validation() -> Result<(), Box<dyn std::error::Error>> {
         deferred_global_validation();
     });
     let _ = log_line("  Polling thread started (10s delay).");
+
+    // 8. Team block dump — wait 30s for user to start a game
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_secs(30));
+        dump_team_blocks();
+    });
+    let _ = log_line("  Team block dump thread started (30s delay).");
+
+    // 9. Hotkey listener — F9 triggers a team block dump on demand
+    std::thread::spawn(|| {
+        const VK_F9: i32 = 0x78;
+        let _ = log_line("  Hotkey listener started (press F9 to dump team blocks).");
+        loop {
+            std::thread::sleep(std::time::Duration::from_millis(100));
+            let state = unsafe { GetAsyncKeyState(VK_F9) };
+            // Bit 0 = key was pressed since last call
+            if state & 1 != 0 {
+                dump_team_blocks();
+            }
+        }
+    });
 
     Ok(())
 }

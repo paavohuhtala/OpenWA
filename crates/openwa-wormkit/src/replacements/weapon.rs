@@ -5,7 +5,7 @@
 //! - AddAmmo (0x522640): add ammo to a weapon slot
 
 use openwa_types::address::va;
-use openwa_types::ddgame::{self, TeamWeaponState};
+use openwa_types::ddgame::{self, offsets, FullTeamBlock, TeamWeaponState};
 use openwa_types::weapon::Weapon;
 
 use crate::hook::{self, usercall_trampoline};
@@ -64,23 +64,17 @@ unsafe extern "cdecl" fn get_ammo_impl(team_index: u32, base: u32, weapon_id: u3
     state.get_ammo(idx) as u32
 }
 
-/// Returns true if more than 1 worm is alive on the team.
-///
-/// Worm data lives at negative offsets from the TeamEntry:
-/// - worm_count at team_entry_addr - 0x4
-/// - worm array at team_entry_addr - 0x4A0 (stride 0x9C, health at [0])
+/// Returns true if more than 1 worm is alive on the team (health > 0).
 unsafe fn count_alive_worms(state: &TeamWeaponState, team_index: usize) -> bool {
     let base = state as *const TeamWeaponState as *const u8;
-    let team_entry = base.add(team_index * 0x51C) as usize;
-    let worm_count = *((team_entry - ddgame::worm::COUNT_OFFSET) as *const i32);
+    let blocks = base.sub(offsets::TWS_TO_BLOCKS) as *const FullTeamBlock;
+    let block = &*blocks.add(team_index);
+    let sentinel = &(*blocks.add(team_index + 1)).worms[0];
+    let worm_count = sentinel.sentinel_worm_count();
     let mut alive = 0i32;
-    if worm_count > 0 {
-        let mut ptr = (team_entry - ddgame::worm::ARRAY_OFFSET) as *const u8;
-        for _ in 0..worm_count {
-            if *(ptr as *const i32) > 0 {
-                alive += 1;
-            }
-            ptr = ptr.add(ddgame::worm::STRIDE);
+    for w in 1..=worm_count as usize {
+        if block.worms[w].health > 0 {
+            alive += 1;
         }
     }
     alive > 1

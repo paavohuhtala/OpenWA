@@ -5,10 +5,10 @@
 //! - GetTeamTotalHealth (0x5224D0): sum worm health for a team
 //! - IsWormInSpecialState (0x5226B0): check worm state flag
 //! - GetWormPosition (0x522700): read worm X,Y coordinates
-//! - HasFullHealthWorm (0x5228D0): check if any worm has full health
+//! - CheckWormState0x64 (0x5228D0): check if any worm has state 0x64
 
 use openwa_types::address::va;
-use openwa_types::ddgame::{self, TeamWeaponState};
+use openwa_types::ddgame::{self, offsets, FullTeamBlock, TeamWeaponState};
 
 use crate::hook::{self, usercall_trampoline};
 
@@ -17,6 +17,11 @@ use crate::hook::{self, usercall_trampoline};
 // ============================================================
 // __usercall: EAX = base, EDI = alliance_id
 // plain RET
+//
+// NOTE: This function uses a DIFFERENT sentinel layout than entry_ptr-based
+// functions. It reads alliance/alive at TWS+0x510+i*0x51C (= sentinel+0x70/0x74),
+// not the entry_ptr-based sentinel+0x78/0x80. Left as raw pointer math until
+// the +0x70/+0x74 sentinel fields are better understood.
 
 unsafe extern "cdecl" fn count_teams_by_alliance_impl(base: u32, alliance_id: i32) {
     let state = &mut *(base as *mut TeamWeaponState);
@@ -25,9 +30,6 @@ unsafe extern "cdecl" fn count_teams_by_alliance_impl(base: u32, alliance_id: i3
     state.same_alliance_count = 0;
     state.enemy_team_count = 0;
 
-    // Teams are 1-indexed; iterate 1..=team_count
-    // Per-team data: base + 0x510 + (team_1based - 1) * 0x51C
-    // At [+0]: alliance field, [+4]: alive flag
     let base_ptr = base as *const u8;
     for i in 0..state.team_count {
         let team_data = base_ptr.add(ddgame::team_data::BASE_OFFSET + i as usize * 0x51C);
@@ -54,22 +56,18 @@ usercall_trampoline!(fn trampoline_count_teams_by_alliance; impl_fn = count_team
 // plain RET, returns EAX = total health
 
 unsafe extern "cdecl" fn get_team_total_health_impl(team_index: u32, base: u32) -> i32 {
-    let base_ptr = base as *const u8;
-    let team_entry = base_ptr.add(team_index as usize * 0x51C) as usize;
+    let blocks = (base as *const u8).sub(offsets::TWS_TO_BLOCKS) as *const FullTeamBlock;
+    let block = &*blocks.add(team_index as usize);
+    let sentinel = &(*blocks.add(team_index as usize + 1)).worms[0];
 
-    // Check eliminated flag at team_entry - ELIMINATED_OFFSET
-    if *((team_entry - ddgame::team_data::ELIMINATED_OFFSET) as *const i32) != 0 {
+    if sentinel.sentinel_eliminated() != 0 {
         return 0;
     }
 
-    let worm_count = *((team_entry - ddgame::worm::COUNT_OFFSET) as *const i32);
+    let worm_count = sentinel.sentinel_worm_count();
     let mut total = 0i32;
-    if worm_count > 0 {
-        let mut ptr = (team_entry - ddgame::worm::ARRAY_OFFSET) as *const u8;
-        for _ in 0..worm_count {
-            total += *(ptr as *const i32);
-            ptr = ptr.add(ddgame::worm::STRIDE);
-        }
+    for w in 1..=worm_count as usize {
+        total += block.worms[w].health;
     }
     total
 }
@@ -86,11 +84,9 @@ usercall_trampoline!(fn trampoline_get_team_total_health; impl_fn = get_team_tot
 unsafe extern "cdecl" fn is_worm_in_special_state_impl(
     team_index: u32, worm_index: u32, base: u32,
 ) -> u32 {
-    let addr = base as usize
-        + team_index as usize * 0x51C
-        + worm_index as usize * ddgame::worm::STRIDE;
-    let state_val = *((addr.wrapping_sub(ddgame::worm::STATE_OFFSET)) as *const u32);
-    if ddgame::worm::is_special_state(state_val) { 1 } else { 0 }
+    let blocks = (base as *const u8).sub(offsets::TWS_TO_BLOCKS) as *const FullTeamBlock;
+    let block = &*blocks.add(team_index as usize);
+    if ddgame::worm::is_special_state(block.worms[worm_index as usize].state) { 1 } else { 0 }
 }
 
 usercall_trampoline!(fn trampoline_is_worm_in_special_state; impl_fn = is_worm_in_special_state_impl;
@@ -102,50 +98,56 @@ usercall_trampoline!(fn trampoline_is_worm_in_special_state; impl_fn = is_worm_i
 // __usercall: EAX = team_index, ECX = worm_index,
 //   [ESP+4] = base, [ESP+8] = out_x, [ESP+C] = out_y
 // RET 0xC
+//
+// Reads pos_x/pos_y from WormEntry._unknown_90[0..4] / [4..8].
+// These values appear transient — actual worm positions live in CGameTask objects.
 
 unsafe extern "cdecl" fn get_worm_position_impl(
     team_index: u32, worm_index: u32, base: u32, out_x: *mut i32, out_y: *mut i32,
 ) {
-    let addr = base as usize
-        + team_index as usize * 0x51C
-        + worm_index as usize * ddgame::worm::STRIDE;
-    *out_x = *((addr.wrapping_sub(ddgame::worm::POS_X_OFFSET)) as *const i32);
-    *out_y = *((addr.wrapping_sub(ddgame::worm::POS_Y_OFFSET)) as *const i32);
+    let blocks = (base as *const u8).sub(offsets::TWS_TO_BLOCKS) as *const FullTeamBlock;
+    let block = &*blocks.add(team_index as usize);
+    let worm = &block.worms[worm_index as usize];
+    *out_x = *(worm._unknown_90.as_ptr() as *const i32);
+    *out_y = *(worm._unknown_90.as_ptr().add(4) as *const i32);
 }
 
 usercall_trampoline!(fn trampoline_get_worm_position; impl_fn = get_worm_position_impl;
     regs = [eax, ecx]; stack_params = 3; ret_bytes = "0xC");
 
 // ============================================================
-// HasFullHealthWorm replacement (0x5228D0)
+// CheckWormState0x64 replacement (0x5228D0)
 // ============================================================
 // __usercall: EAX = base
-// plain RET, returns EAX = bool (1 if any team has a worm at full health)
+// plain RET, returns EAX = bool (1 if any worm has state 0x64)
+//
+// Previously named "HasFullHealthWorm" but Ghidra disassembly confirms it
+// reads worms[].state (offset +0x00), NOT worms[].health (offset +0x5C).
+// It compares to 0x64 (100 decimal). State 0x64 is likely a transitional
+// state distinct from 0x65 (idle). 11 xrefs in gameplay code.
 
-unsafe extern "cdecl" fn has_full_health_worm_impl(base: u32) -> u32 {
+unsafe extern "cdecl" fn check_worm_state_0x64_impl(base: u32) -> u32 {
     let state = &*(base as *const TeamWeaponState);
-    let base_ptr = base as *const u8;
+    let blocks = (base as *const u8).sub(offsets::TWS_TO_BLOCKS) as *const FullTeamBlock;
 
-    for i in 0..state.team_count {
-        let team_ptr = base_ptr.add(ddgame::team_data::ALT_BASE_OFFSET + i as usize * 0x51C);
-        if *(team_ptr.sub(ddgame::team_data::ALT_ELIMINATED_OFFSET) as *const i32) != 0 {
+    // Iterate real teams (1-indexed: team 1..=team_count)
+    for i in 1..=state.team_count as usize {
+        let sentinel = &(*blocks.add(i + 1)).worms[0];
+        if sentinel.sentinel_eliminated() != 0 {
             continue;
         }
-        let worm_count = *(team_ptr as *const i32);
-        if worm_count > 0 {
-            let mut worm_ptr = team_ptr.sub(ddgame::team_data::ALT_WORM_ARRAY_OFFSET);
-            for _ in 0..worm_count {
-                if *(worm_ptr as *const i32) == ddgame::worm::FULL_HEALTH {
-                    return 1;
-                }
-                worm_ptr = worm_ptr.add(ddgame::worm::STRIDE);
+        let worm_count = sentinel.sentinel_worm_count();
+        let worm_block = &*blocks.add(i);
+        for w in 1..=worm_count as usize {
+            if worm_block.worms[w].state == 0x64 {
+                return 1;
             }
         }
     }
     0
 }
 
-usercall_trampoline!(fn trampoline_has_full_health_worm; impl_fn = has_full_health_worm_impl;
+usercall_trampoline!(fn trampoline_check_worm_state_0x64; impl_fn = check_worm_state_0x64_impl;
     reg = eax);
 
 // ============================================================
@@ -179,9 +181,9 @@ pub fn install() -> Result<(), String> {
         )?;
 
         let _ = hook::install(
-            "HasFullHealthWorm",
-            va::HAS_FULL_HEALTH_WORM,
-            trampoline_has_full_health_worm as *const (),
+            "CheckWormState0x64",
+            va::CHECK_WORM_STATE_0X64,
+            trampoline_check_worm_state_0x64 as *const (),
         )?;
     }
 

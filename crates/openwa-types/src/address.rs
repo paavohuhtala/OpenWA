@@ -144,9 +144,10 @@ pub mod va {
     /// Reads worm X,Y position into output pointers.
     /// usercall(EAX=team_index, ECX=worm_index, [ESP+4]=base, [ESP+8]=&x, [ESP+C]=&y), RET 0xC.
     pub const GET_WORM_POSITION: u32 = 0x0052_2700;
-    /// Checks if any team has a worm at full health (100). 11 xrefs.
+    /// Checks if any worm has state 0x64 (100). 11 xrefs in gameplay code.
+    /// Despite the comparison to 100, reads worms[].state NOT .health.
     /// usercall(EAX=base) → EAX=bool, plain RET.
-    pub const HAS_FULL_HEALTH_WORM: u32 = 0x0052_28D0;
+    pub const CHECK_WORM_STATE_0X64: u32 = 0x0052_28D0;
 
     // === Graphics / rendering ===
 
