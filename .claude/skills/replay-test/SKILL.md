@@ -16,8 +16,9 @@ powershell -ExecutionPolicy Bypass -File replay-test.ps1
 ```
 
 This will:
-- Build openwa-wormkit and openwa-validator
-- Deploy DLLs to the WA game directory
+- Build the unified openwa-wormkit DLL (includes validation)
+- Deploy wkOpenWA.dll to the WA game directory
+- Set `OPENWA_VALIDATE=1` and `OPENWA_REPLAY_TEST=1` env vars
 - Launch WA.exe with the default replay file (testdata/replays/bots.WAgame)
 - Wait for auto-capture (5s) and process exit
 - Copy logs to testdata/logs/
@@ -32,8 +33,16 @@ Read `testdata/logs/validation_latest.log` and summarize:
 
 3. If the user also has `testdata/logs/openwa_latest.log`, read it and note any errors or interesting hook activity.
 
+## Environment Variables
+
+- `OPENWA_VALIDATE=1` — Enables the validation module (struct checks, vtable validation, memory dumps). Without this, only the replacement hooks run.
+- `OPENWA_REPLAY_TEST=1` — Enables auto-capture mode: waits 5s, runs all validation + dumps, then calls ExitProcess(0). Without this, validation runs in interactive mode with hotkeys (F9=team blocks, F10=landscape).
+
+Both are set automatically by `replay-test.ps1`.
+
 ## Notes
 
 - The script takes ~10 seconds total (build + 5s auto-capture wait)
-- If WA.exe doesn't exit, the validator DLL may not have loaded. Check that wkOpenWAValidator.dll exists in the game directory.
+- There is only one DLL now: `wkOpenWA.dll` (unified wormkit + validator)
+- The old `wkOpenWAValidator.dll` is automatically removed by the script
 - Replay file can be changed by editing the script invocation: `powershell -File replay-test.ps1 path\to\other.WAgame`

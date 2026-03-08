@@ -22,27 +22,33 @@ if (-not (Test-Path $ReplayFile)) {
     exit 1
 }
 
-# 1. Build
+# 1. Build (single unified DLL)
 Write-Host "Building..." -ForegroundColor Cyan
-cargo build --release -p openwa-wormkit -p openwa-validator
+cargo build --release -p openwa-wormkit
 if ($LASTEXITCODE -ne 0) { exit 1 }
 
 # 2. Deploy
 Write-Host "Deploying to $gameDir..." -ForegroundColor Cyan
 Copy-Item "$src\openwa_wormkit.dll" "$gameDir\wkOpenWA.dll"
-Copy-Item "$src\openwa_validator.dll" "$gameDir\wkOpenWAValidator.dll"
+
+# Remove old validator DLL if present (now unified)
+if (Test-Path "$gameDir\wkOpenWAValidator.dll") {
+    Remove-Item "$gameDir\wkOpenWAValidator.dll"
+}
 
 # 3. Clear old logs
 Remove-Item "$gameDir\OpenWA.log" -ErrorAction SilentlyContinue
 Remove-Item "$gameDir\OpenWA_validation.log" -ErrorAction SilentlyContinue
 
-# 4. Launch WA.exe with replay, env var set
+# 4. Launch WA.exe with replay, env vars set
 Write-Host "Launching WA.exe with replay: $ReplayFile" -ForegroundColor Cyan
 Write-Host "  (Auto-capture mode: will exit after 5s)" -ForegroundColor Yellow
 
+$env:OPENWA_VALIDATE = "1"
 $env:OPENWA_REPLAY_TEST = "1"
 $proc = Start-Process -FilePath $waExe -ArgumentList "`"$ReplayFile`"" -WindowStyle Minimized -PassThru
 $proc.WaitForExit()
+$env:OPENWA_VALIDATE = $null
 $env:OPENWA_REPLAY_TEST = $null
 
 Write-Host "WA.exe exited with code $($proc.ExitCode)" -ForegroundColor Cyan

@@ -32,17 +32,15 @@ cargo test -p openwa-types -- scheme_parse::parse_beginner_v2
 
 Game directory: `I:\games\SteamLibrary\steamapps\common\Worms Armageddon`
 
-Copy release DLLs from `target/i686-pc-windows-msvc/release/` to the game directory:
+Copy the unified DLL from `target/i686-pc-windows-msvc/release/` to the game directory:
 - `openwa_wormkit.dll` → rename to `wkOpenWA.dll`
-- `openwa_validator.dll` → rename to `wkOpenWAValidator.dll`
 
 Quick deploy:
 ```bash
 cp target/i686-pc-windows-msvc/release/openwa_wormkit.dll "I:/games/SteamLibrary/steamapps/common/Worms Armageddon/wkOpenWA.dll"
-cp target/i686-pc-windows-msvc/release/openwa_validator.dll "I:/games/SteamLibrary/steamapps/common/Worms Armageddon/wkOpenWAValidator.dll"
 ```
 
-WormKit auto-loads any `wk*.dll` from the game directory. Logs appear in the game directory as `OpenWA.log` and `OpenWA_validation.log`.
+WormKit auto-loads any `wk*.dll` from the game directory. Logs appear in the game directory as `OpenWA.log` and `OpenWA_validation.log` (when validation is enabled).
 
 ## Replay Testing
 
@@ -54,8 +52,8 @@ powershell -ExecutionPolicy Bypass -File replay-test.ps1
 ```
 
 How it works:
-1. `replay-test.ps1` builds both DLLs, deploys to game dir, sets `OPENWA_REPLAY_TEST=1`, launches `WA.exe` minimized with a replay file
-2. The validator DLL detects the env var and enters **auto-capture mode**: waits 5s, runs all validation + dumps, then calls `ExitProcess(0)`
+1. `replay-test.ps1` builds the unified DLL, deploys to game dir, sets `OPENWA_VALIDATE=1` and `OPENWA_REPLAY_TEST=1`, launches `WA.exe` minimized with a replay file
+2. The DLL detects the env vars and enters **auto-capture mode**: waits 5s, runs all validation + dumps, then calls `ExitProcess(0)`
 3. Script copies logs to `testdata/logs/` and prints a PASS/FAIL summary
 
 Key paths:
@@ -64,13 +62,14 @@ Key paths:
 - Script: `replay-test.ps1`
 - Skill: `.claude/skills/replay-test/SKILL.md`
 
-Without `OPENWA_REPLAY_TEST`, the validator runs in interactive mode with hotkeys (F9=team blocks, F10=landscape) and timed dumps.
+Environment variables:
+- `OPENWA_VALIDATE=1` — Enable validation module (struct checks, vtable validation, memory dumps)
+- `OPENWA_REPLAY_TEST=1` — Auto-capture mode (5s wait, validate, exit). Without this, validation runs interactively with hotkeys (F9=team blocks, F10=landscape)
 
 ## Crate Architecture
 
 - **`openwa-types`** — Enums, structs, addresses, parsers (no_std compatible). The source of truth for all reverse-engineered type layouts and known addresses (`address.rs`). No game dependency.
-- **`openwa-validator`** — WormKit cdylib that validates openwa-types against live WA.exe memory. Logs to `OpenWA_validation.log`. Read-only — never modifies game state.
-- **`openwa-wormkit`** — WormKit cdylib that replaces WA functions with Rust. Logs to `OpenWA.log`. Uses MinHook for inline hooking. This is where reimplemented game logic lives.
+- **`openwa-wormkit`** — Unified WormKit cdylib that replaces WA functions with Rust and optionally validates types against live memory. Logs to `OpenWA.log` (hooks) and `OpenWA_validation.log` (validation). Uses MinHook for inline hooking. Validation is enabled via `OPENWA_VALIDATE=1` env var.
 - **`openwa-harness`** — Offline test harness that loads WA.exe into process memory via `LoadLibraryExA(DONT_RESOLVE_DLL_REFERENCES)` for testing without running the game.
 
 ## ASLR Rebasing

@@ -4,6 +4,7 @@ use std::ffi::c_void;
 
 pub mod hook;
 mod replacements;
+mod validation;
 
 // ---------------------------------------------------------------------------
 // DllMain
@@ -61,5 +62,14 @@ fn run() -> Result<(), String> {
     replacements::install_all()?;
 
     let _ = log_line("=== All replacements installed ===");
+
+    // Run validation if OPENWA_VALIDATE=1
+    if std::env::var("OPENWA_VALIDATE").is_ok() {
+        let _ = log_line("=== Validation enabled (OPENWA_VALIDATE) ===");
+        if let Err(e) = validation::run() {
+            let _ = log_line(&format!("[ERROR] Validation failed: {e}"));
+        }
+    }
+
     Ok(())
 }
