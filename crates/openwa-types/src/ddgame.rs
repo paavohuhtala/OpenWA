@@ -324,21 +324,25 @@ pub struct TeamWeaponState {
     /// 0x2C28: Game phase counter (>=484 = sudden death, >=-2 = normal game)
     pub game_phase: i32,
 
-    // === Alliance tracking (set by CountTeamsByAlliance, 0x522030) ===
+    // === Alliance tracking (set by CountTeamsByAlliance + SetActiveWorm_Maybe) ===
 
     /// 0x2C2C: Current alliance being evaluated
     pub current_alliance: i32,
-    /// 0x2C30: Unknown padding
-    pub _pad_2c30: [u8; 4],
-    /// 0x2C34: Count of teams alive with valid alliance (>=0)
+    /// 0x2C30: Count of teams with an active worm (set by SetActiveWorm_Maybe)
+    pub active_worm_count: i32,
+    /// 0x2C34: Count of active teams with valid alliance (>=0)
     pub active_team_count: i32,
     /// 0x2C38: Count of teams matching current_alliance
     pub same_alliance_count: i32,
     /// 0x2C3C: Count of teams not matching current_alliance
     pub enemy_team_count: i32,
+    /// 0x2C40: Last team index set active (written by SetActiveWorm_Maybe)
+    pub last_active_team: i32,
+    /// 0x2C44: Alliance of last activated team (written by SetActiveWorm_Maybe)
+    pub last_active_alliance: i32,
 }
 
-const _: () = assert!(core::mem::size_of::<TeamWeaponState>() == 0x2C40);
+const _: () = assert!(core::mem::size_of::<TeamWeaponState>() == 0x2C48);
 
 /// Worm state constants and helpers.
 pub mod worm {

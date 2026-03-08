@@ -46,6 +46,8 @@ WormKit auto-loads any `wk*.dll` from the game directory. Logs appear in the gam
 
 Use the `/replay-test` skill to automatically build, deploy, launch WA.exe with a replay file, capture validation logs, and present results. This is the fastest way to validate struct layouts, hooks, and game state against live WA.exe.
 
+**Use replay testing to validate assumptions and test theories!** You don't have to figure out everything from disassembly and static analysis. Make a hypothesis, implement it in the DLL, then use replay testing to see if it holds up against the real game. This iterative approach is much faster than trying to get everything right on the first try.
+
 ```bash
 # Manual invocation (skill runs this automatically):
 powershell -ExecutionPolicy Bypass -File replay-test.ps1
@@ -116,6 +118,9 @@ For `__usercall` functions, use a naked trampoline to capture register params be
 A Ghidra MCP bridge is configured in `.mcp.json`. When using Ghidra tools:
 - **Prefer batch tools** (`batch_create_labels`, `batch_rename_function_components`) — single-item tools have address parsing bugs.
 - WA.exe is loaded at image base 0x400000 in Ghidra.
+- When you encounter unnamed functions, globals or structs, name them in Ghidra if you know their purpose. Even a guess is helpful for future reference, but add `_Maybe` suffix if uncertain.
+- Remove `_Maybe` suffix when you confirm the purpose.
+- When you learn more about a function or address, update both the Ghidra database (rename function / label and update signature) and the corresponding Rust code.
 
 ## Third-Party RE Sources
 
@@ -124,8 +129,6 @@ A Ghidra MCP bridge is configured in `.mcp.json`. When using Ghidra tools:
 
 ## Design Conventions
 
-- `Ptr32 = u32` for pointer fields (compiles on 64-bit host, correct sizes on 32-bit target)
-- `#[repr(u32)]` enums with `TryFrom<u32>` for safe conversion from game memory
 - Unknown struct fields as `_unknown_XX` padding arrays
 - Fixed-point: `Fixed(i32)` newtype, 16.16 format (0x10000 = 1.0)
 - Naked asm uses `naked_asm!` (Rust 1.79+ syntax), not `asm!`

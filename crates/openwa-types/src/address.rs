@@ -150,6 +150,17 @@ pub mod va {
     /// Despite the comparison to 100, reads worms[].state NOT .health.
     /// usercall(EAX=base) → EAX=bool, plain RET.
     pub const CHECK_WORM_STATE_0X64: u32 = 0x0052_28D0;
+    /// Per-team version of CheckWormState0x64. Returns 1 if any worm on the
+    /// specified team has state==0x64. 1 xref.
+    /// usercall(EAX=team_idx, ECX=base) → EAX=bool, plain RET.
+    pub const CHECK_TEAM_WORM_STATE_0X64: u32 = 0x0052_2930;
+    /// Scans all teams for any worm with state 0x8b. 1 xref.
+    /// usercall(EAX=base) → EAX=bool, plain RET.
+    pub const CHECK_ANY_WORM_STATE_0X8B: u32 = 0x0052_2970;
+    /// Sets the active worm for a team. flag=0 deactivates, flag=N sets worm N active.
+    /// Called on turn transitions and worm selection (Tab key).
+    /// usercall(EAX=base, EDX=team_idx, ESI=worm_index) → void, plain RET. 3 xrefs.
+    pub const SET_ACTIVE_WORM_MAYBE: u32 = 0x0052_2500;
 
     // === Graphics / rendering ===
 

@@ -6,6 +6,9 @@
 //! - IsWormInSpecialState (0x5226B0): check worm state flag
 //! - GetWormPosition (0x522700): read worm X,Y coordinates
 //! - CheckWormState0x64 (0x5228D0): check if any worm has state 0x64
+//! - CheckTeamWormState0x64 (0x522930): per-team version of above
+//! - CheckAnyWormState0x8b (0x522970): scan all teams for state 0x8b
+//! - SetActiveWorm_Maybe (0x522500): update team active state and counters
 
 use openwa_types::address::va;
 use openwa_types::ddgame::{self, offsets, FullTeamBlock, TeamWeaponState};
@@ -151,6 +154,125 @@ usercall_trampoline!(fn trampoline_check_worm_state_0x64; impl_fn = check_worm_s
     reg = eax);
 
 // ============================================================
+// CheckTeamWormState0x64 replacement (0x522930)
+// ============================================================
+// __usercall: EAX = base, EDX = team_idx
+// plain RET, returns EAX = bool (1 if any worm on team has state 0x64)
+//
+// Per-team version of CheckWormState0x64. 1 xref (FUN_00556ad0).
+
+unsafe extern "cdecl" fn check_team_worm_state_0x64_impl(base: u32, team_idx: u32) -> u32 {
+    let blocks = (base as *const u8).sub(offsets::TWS_TO_BLOCKS) as *const FullTeamBlock;
+    let block = &*blocks.add(team_idx as usize);
+    let sentinel = &(*blocks.add(team_idx as usize + 1)).worms[0];
+
+    if sentinel.sentinel_eliminated() != 0 {
+        return 0;
+    }
+
+    let worm_count = sentinel.sentinel_worm_count();
+    for w in 1..=worm_count as usize {
+        if block.worms[w].state == 0x64 {
+            return 1;
+        }
+    }
+    0
+}
+
+usercall_trampoline!(fn trampoline_check_team_worm_state_0x64; impl_fn = check_team_worm_state_0x64_impl;
+    regs = [eax, edx]);
+
+// ============================================================
+// CheckAnyWormState0x8b replacement (0x522970)
+// ============================================================
+// __usercall: EAX = base
+// plain RET, returns EAX = bool (1 if any worm on any team has state 0x8b)
+//
+// Scans all teams. 1 xref (FUN_00557310).
+
+unsafe extern "cdecl" fn check_any_worm_state_0x8b_impl(base: u32) -> u32 {
+    let state = &*(base as *const TeamWeaponState);
+    let blocks = (base as *const u8).sub(offsets::TWS_TO_BLOCKS) as *const FullTeamBlock;
+
+    for i in 1..=state.team_count as usize {
+        let sentinel = &(*blocks.add(i + 1)).worms[0];
+        if sentinel.sentinel_eliminated() != 0 {
+            continue;
+        }
+        let worm_count = sentinel.sentinel_worm_count();
+        let worm_block = &*blocks.add(i);
+        for w in 1..=worm_count as usize {
+            if worm_block.worms[w].state == 0x8b {
+                return 1;
+            }
+        }
+    }
+    0
+}
+
+usercall_trampoline!(fn trampoline_check_any_worm_state_0x8b; impl_fn = check_any_worm_state_0x8b_impl;
+    reg = eax);
+
+// ============================================================
+// SetActiveWorm_Maybe replacement (0x522500)
+// ============================================================
+// __usercall: EAX = base, EDX = team_idx (1-indexed), ESI = worm_index
+// plain RET (4 RET sites in original)
+//
+// Sets the active worm for a team. worm_index=0 deactivates, worm_index=N
+// sets worm N as active. Called on turn transitions and worm selection (Tab).
+// Updates active counters and records last_active_team/alliance. 3 xrefs.
+
+unsafe extern "cdecl" fn set_active_worm_impl(base: u32, team_idx: u32, worm_index: i32) {
+    let state = &mut *(base as *mut TeamWeaponState);
+    let base_ptr = base as *mut u8;
+
+    // Access team_data fields: alliance at (team_idx * 0x51C - 0xC),
+    // alive_flag at (team_idx * 0x51C - 0x8) — matches team_data::BASE_OFFSET pattern
+    let team_offset = team_idx as usize * 0x51C;
+    let alliance_ptr = base_ptr.add(team_offset).sub(0xC) as *const i32;
+    let alive_ptr = base_ptr.add(team_offset).sub(0x8) as *mut i32;
+
+    if worm_index == 0 {
+        // Deactivate team
+        if *alive_ptr != 0 {
+            state.active_worm_count -= 1;
+            let alliance = *alliance_ptr;
+            if alliance >= 0 {
+                state.active_team_count -= 1;
+                if alliance == state.current_alliance {
+                    state.same_alliance_count -= 1;
+                } else {
+                    state.enemy_team_count -= 1;
+                }
+            }
+            *alive_ptr = 0;
+        }
+    } else {
+        // Activate team — only update counters if not already active
+        if *alive_ptr == 0 {
+            state.active_worm_count += 1;
+            state.last_active_team = team_idx as i32;
+            let alliance = *alliance_ptr;
+            state.last_active_alliance = alliance;
+            if alliance >= 0 {
+                state.active_team_count += 1;
+                if alliance == state.current_alliance {
+                    state.same_alliance_count += 1;
+                } else {
+                    state.enemy_team_count += 1;
+                }
+            }
+        }
+        // Always write worm_index (original writes ESI unconditionally)
+        *alive_ptr = worm_index;
+    }
+}
+
+usercall_trampoline!(fn trampoline_set_active_worm; impl_fn = set_active_worm_impl;
+    regs = [eax, edx, esi]);
+
+// ============================================================
 // Hook installation
 // ============================================================
 
@@ -184,6 +306,24 @@ pub fn install() -> Result<(), String> {
             "CheckWormState0x64",
             va::CHECK_WORM_STATE_0X64,
             trampoline_check_worm_state_0x64 as *const (),
+        )?;
+
+        let _ = hook::install(
+            "CheckTeamWormState0x64",
+            va::CHECK_TEAM_WORM_STATE_0X64,
+            trampoline_check_team_worm_state_0x64 as *const (),
+        )?;
+
+        let _ = hook::install(
+            "CheckAnyWormState0x8b",
+            va::CHECK_ANY_WORM_STATE_0X8B,
+            trampoline_check_any_worm_state_0x8b as *const (),
+        )?;
+
+        let _ = hook::install(
+            "SetActiveWorm_Maybe",
+            va::SET_ACTIVE_WORM_MAYBE,
+            trampoline_set_active_worm as *const (),
         )?;
     }
 
