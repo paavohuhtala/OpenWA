@@ -19,10 +19,10 @@ This will:
 - Build the unified openwa-wormkit DLL (includes validation)
 - Deploy wkOpenWA.dll to the WA game directory
 - Set `OPENWA_VALIDATE=1` and `OPENWA_REPLAY_TEST=1` env vars
-- Launch WA.exe with the default replay file (testdata/replays/bots.WAgame)
-- Fast-forward through the entire replay via PostMessage (spacebar down/up with 50ms gaps)
-- The DLL calls SetForegroundWindow to ensure WA processes keyboard messages
-- Game exits naturally when replay finishes (150s safety timeout)
+- Launch WA.exe minimized with the default replay file (testdata/replays/bots.WAgame)
+- The DLL restores the window after 2s via FindWindowA + ShowWindow(SW_RESTORE)
+- Fast-forward through the entire replay by setting DDGame+0x98B0 (50 frames per render cycle)
+- Validation runs at the 5s mark, game exits when replay finishes (120s safety timeout)
 - Copy logs to testdata/logs/
 
 2. Read the validation log and present results:
@@ -38,14 +38,15 @@ Read `testdata/logs/validation_latest.log` and summarize:
 ## Environment Variables
 
 - `OPENWA_VALIDATE=1` — Enables the validation module (struct checks, vtable validation, memory dumps). Without this, only the replacement hooks run.
-- `OPENWA_REPLAY_TEST=1` — Enables fast-forward mode: posts WM_KEYDOWN/WM_KEYUP messages to advance the replay one turn per press. Runs validation dumps at 8s. Safety timeout at 120s forces ExitProcess(1). Without this, validation runs in interactive mode with hotkeys (F9=team blocks, F10=landscape).
+- `OPENWA_REPLAY_TEST=1` — Enables fast-forward mode: hooks TurnManager_ProcessFrame and sets DDGame+0x98B0=1 each frame, causing the game engine to process up to 50 frames per render cycle. The DLL auto-restores the window at 2s, runs validation at 5s, and has a 120s safety timeout. Without this, validation runs in interactive mode with hotkeys (F9=team blocks, F10=landscape).
 
 Both are set automatically by `replay-test.ps1`.
 
 ## Notes
 
-- The fast-forwarded replay typically completes in ~10-15s
-- The DLL restores and focuses the game window (steals focus briefly) so PostMessage input works
+- The fast-forwarded replay typically completes in ~15-30s
+- The DLL restores the minimized window automatically (steals focus briefly)
 - There is only one DLL now: `wkOpenWA.dll` (unified wormkit + validator)
 - The old `wkOpenWAValidator.dll` is automatically removed by the script
-- Replay file can be changed by editing the script invocation: `powershell -File replay-test.ps1 path\to\other.WAgame`
+- Replay file can be changed: `powershell -File replay-test.ps1 path\to\other.WAgame`
+- Occasional crashes may occur during fast-forward (null vtable calls from 50x speed processing); retry if this happens

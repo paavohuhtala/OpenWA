@@ -428,6 +428,9 @@ pub mod va {
 
     pub const LOBBY_HOST_COMMANDS: u32 = 0x004B_9B00;
     pub const LOBBY_CLIENT_COMMANDS: u32 = 0x004A_ABB0;
+    /// Allocates space in a packet queue and writes the packet type + data.
+    /// __usercall: EAX = queue pointer, ECX = data size. Stack: packet_type, data_ptr.
+    /// Returns 1 on success, 0 if queue full. RET 0x8.
     pub const SEND_GAME_PACKET_WRAPPED: u32 = 0x0054_1130;
     pub const LOBBY_DISPLAY_MESSAGE: u32 = 0x0049_3CB0;
     pub const LOBBY_SEND_GREENTEXT: u32 = 0x004A_A990;
@@ -575,12 +578,17 @@ pub mod va {
         /// Offset to weapon panel pointer
         pub const WEAPON_PANEL: u32 = 0x548;
 
-        // --- Replay state ---
-
         /// Deferred hurry flag. Set to 1 during replay instead of sending network
         /// packet. GameFrameEndProcessor (0x531960) reads this and converts it to
         /// a local Hurry message (TaskMessage 0x17 = 23).
         pub const DEFERRED_HURRY_FLAG: u32 = 0x7E41;
+    }
+
+    // === GameInfo struct offsets ===
+    // These are offsets from the GameInfo pointer at DDGame+0x24 (also called
+    // "game_state" in some code). Access pattern: *(DDGame+0x24) + offset.
+
+    pub mod game_info_offsets {
         /// Replay state flag A — checked by TurnGame_HurryHandler and FrameFinish.
         /// Both DB08 and DB0A must be non-zero for replay-mode hurry path.
         pub const REPLAY_STATE_FLAG_A: u32 = 0xDB08;

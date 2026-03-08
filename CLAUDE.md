@@ -55,7 +55,7 @@ powershell -ExecutionPolicy Bypass -File replay-test.ps1
 
 How it works:
 1. `replay-test.ps1` builds the unified DLL, deploys to game dir, sets `OPENWA_VALIDATE=1` and `OPENWA_REPLAY_TEST=1`, launches `WA.exe` minimized with a replay file
-2. The DLL posts WM_KEYDOWN/WM_KEYUP spacebar messages (50ms gaps) to fast-forward the replay, calls SetForegroundWindow so input works even when launched minimized. Validation dumps run at 8s. The replay typically finishes in ~10-15s
+2. The DLL restores the window after 2s via FindWindowA + ShowWindow(SW_RESTORE), then hooks TurnManager_ProcessFrame and sets DDGame+0x98B0=1 each frame to enable 50x fast-forward (same mechanism as spacebar during replay). Validation runs at 5s. The replay typically finishes in ~15-30s
 3. Script copies logs to `testdata/logs/` and prints a PASS/FAIL summary
 
 Key paths:
@@ -66,7 +66,7 @@ Key paths:
 
 Environment variables:
 - `OPENWA_VALIDATE=1` — Enable validation module (struct checks, vtable validation, memory dumps)
-- `OPENWA_REPLAY_TEST=1` — Fast-forward mode: posts spacebar messages to advance replay, runs validation dumps at 8s, 120s safety timeout. Without this, validation runs interactively with hotkeys (F9=team blocks, F10=landscape)
+- `OPENWA_REPLAY_TEST=1` — Fast-forward mode: hooks TurnManager_ProcessFrame and sets DDGame+0x98B0=1 each frame (50x speed). Restores window at 2s, runs validation at 5s, 120s safety timeout. Without this, validation runs interactively with hotkeys (F9=team blocks, F10=landscape)
 
 ## Crate Architecture
 

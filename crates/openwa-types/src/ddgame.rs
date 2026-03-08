@@ -102,12 +102,24 @@ pub struct DDGame {
     /// 0x8150: Scale factor used by DrawCrosshairLine (multiplied by 0x140000).
     pub crosshair_scale: i32,
 
-    /// 0x8154-0x98B7: Remaining fields
+    /// 0x8154-0x98AF: Remaining fields
     ///
     /// Known landmarks:
     /// - 0x8CBC-0x8CF0: 4x 0x10-byte entries (zeroed at +0, +4)
     /// - 0x9850-0x9884: 4x 0x10-byte entries (zeroed at +0, +4)
-    pub _unknown_8154: [u8; 0x98B8 - 0x8154],
+    /// - 0x98A4: checkpoint active flag
+    /// - 0x98AC: fast-forward request flag
+    pub _unknown_8154: [u8; 0x98B0 - 0x8154],
+
+    /// 0x98B0: Fast-forward active flag.
+    /// When set to 1, FUN_005307A0 processes up to 50 game frames per render
+    /// cycle. Sound is suppressed and rendering is skipped. Cleared at turn
+    /// boundaries (FUN_00534540, FUN_0055BDD0), so must be re-set continuously.
+    /// This is the same flag toggled by spacebar (key 0x35) during replay.
+    pub fast_forward_active: u32,
+
+    /// 0x98B4-0x98B7: Unknown
+    pub _unknown_98b4: [u8; 0x98B8 - 0x98B4],
 }
 
 const _: () = assert!(core::mem::size_of::<DDGame>() == 0x98B8);
@@ -176,6 +188,10 @@ pub mod offsets {
     pub const FIELD_7EFC: usize = 0x7EFC;
     /// Scale factor used by DrawCrosshairLine (multiplied by 0x140000).
     pub const CROSSHAIR_SCALE: usize = 0x8150;
+
+    // === Fast-forward (DDGame + 0x98B0) ===
+    /// Fast-forward active flag (u32, 1 = active).
+    pub const FAST_FORWARD_ACTIVE: usize = 0x98B0;
 
     // === Sound queue (DDGame + 0x7F00) ===
     /// Sound enabled flag (i32, nonzero = enabled).

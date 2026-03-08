@@ -752,8 +752,24 @@ pub fn run() -> Result<(), String> {
         let _ = log_validation("  Replay fast-forward active — game will exit when replay finishes.");
         let _ = log_validation("  Safety timeout: 120s (will force exit if replay hangs).");
         std::thread::spawn(move || {
+            // Restore minimized window so the replay can start.
+            // WA.exe won't begin replay playback until the window is visible.
+            std::thread::sleep(std::time::Duration::from_secs(2));
+            unsafe {
+                let hwnd = windows_sys::Win32::UI::WindowsAndMessaging::FindWindowA(
+                    core::ptr::null::<u8>(),
+                    b"Worms Armageddon\0".as_ptr(),
+                );
+                if !hwnd.is_null() {
+                    windows_sys::Win32::UI::WindowsAndMessaging::ShowWindow(hwnd, 9); // SW_RESTORE
+                    let _ = log_validation("  Window restored (SW_RESTORE).");
+                } else {
+                    let _ = log_validation("  WARNING: Could not find WA window to restore.");
+                }
+            }
+
             // Wait for gameplay to start, then run initial validation
-            std::thread::sleep(std::time::Duration::from_secs(5));
+            std::thread::sleep(std::time::Duration::from_secs(3));
             let _ = log_validation("  Running deferred global validation...");
             deferred_global_validation();
 
