@@ -114,6 +114,36 @@ pub mod va {
     pub const CTASK_TEAM_CTOR: u32 = 0x0055_5BB0;
     pub const CTASK_TURNGAME_CTOR: u32 = 0x0055_B280;
 
+    // === Replay / turn management ===
+
+    /// Loads .WAgame replay file, validates magic 0x4157, stores payload at DDGame+0xDB1C.
+    /// stdcall(this, mode) where mode: 1=play, 2=getmap, 3=getscheme, 4=repair. ~12KB function.
+    pub const REPLAY_LOADER: u32 = 0x0046_2DF0;
+    /// Parses "MM:SS.FF" time string → frame number. Returns -1 on failure.
+    pub const PARSE_REPLAY_POSITION: u32 = 0x004E_3490;
+    /// Routes game messages through the task handler tree.
+    pub const GAME_MESSAGE_ROUTER: u32 = 0x0055_3BD0;
+    /// TurnGame message dispatcher. Case 2=FrameFinish, Case 4=ProcessInput, Case 0x28=SkipGo.
+    /// thiscall + 4 stack params.
+    pub const TURNGAME_HANDLE_MESSAGE: u32 = 0x0055_DC00;
+    /// Checks TurnGame+0x1F4 (hurry requested). Normal game: sends packet 0x17.
+    /// Replay mode (DB08 && DB0A): sets DDGame+0x7E41 instead. Uses ESI (__usercall).
+    pub const TURNGAME_HURRY_HANDLER: u32 = 0x0055_E5F0;
+    /// Per-frame turn timer: decrements turn timer by 0x14 (20ms) each frame.
+    pub const TURN_MANAGER_PROCESS_FRAME: u32 = 0x0055_FDA0;
+    /// Iterates teams during ProcessInput, sends packet 0x2B for valid teams.
+    pub const TURNGAME_AUTO_SELECT_TEAMS: u32 = 0x0056_11E0;
+    /// Control task HandleMessage (vtable 0x669C28). Translates keyboard input (msg 0xC)
+    /// into game messages. Case 9 toggles pause flag.
+    pub const CONTROL_TASK_HANDLE_MESSAGE: u32 = 0x0054_51F0;
+    /// End-of-frame processing. Reads DDGame+0x7E41 (deferred hurry flag),
+    /// converts it to local Hurry message (0x17). Also handles frame counters.
+    pub const GAME_FRAME_END_PROCESSOR: u32 = 0x0053_1960;
+    /// Main frame loop. Processes message queue, calls GameFrameEndProcessor.
+    pub const GAME_FRAME_DISPATCHER: u32 = 0x0053_1D00;
+    /// Sends game packet if network buffer capacity allows. Checks DDGame+0x98A4.
+    pub const SEND_GAME_PACKET_CONDITIONAL: u32 = 0x0053_1880;
+
     // === Gameplay functions ===
 
     pub const CREATE_EXPLOSION: u32 = 0x0054_8080;
@@ -544,5 +574,23 @@ pub mod va {
         pub const RENDER_QUEUE: u32 = 0x524;
         /// Offset to weapon panel pointer
         pub const WEAPON_PANEL: u32 = 0x548;
+
+        // --- Replay state ---
+
+        /// Deferred hurry flag. Set to 1 during replay instead of sending network
+        /// packet. GameFrameEndProcessor (0x531960) reads this and converts it to
+        /// a local Hurry message (TaskMessage 0x17 = 23).
+        pub const DEFERRED_HURRY_FLAG: u32 = 0x7E41;
+        /// Replay state flag A — checked by TurnGame_HurryHandler and FrameFinish.
+        /// Both DB08 and DB0A must be non-zero for replay-mode hurry path.
+        pub const REPLAY_STATE_FLAG_A: u32 = 0xDB08;
+        /// Replay state flag B — checked together with flag A for replay mode.
+        pub const REPLAY_STATE_FLAG_B: u32 = 0xDB0A;
+        /// Replay active flag — set to 1 by ReplayLoader when loading a .WAgame file.
+        pub const REPLAY_ACTIVE: u32 = 0xDB48;
+        /// Input replay file path (string buffer, 0x400 bytes).
+        pub const REPLAY_INPUT_PATH: u32 = 0xDB60;
+        /// Output replay file path (for recording, 0x400 bytes).
+        pub const REPLAY_OUTPUT_PATH: u32 = 0xDF60;
     }
 }
