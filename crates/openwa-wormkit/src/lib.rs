@@ -71,5 +71,8 @@ fn run() -> Result<(), String> {
         }
     }
 
+    // Debug hotkeys (F9/F10) are always available, even without OPENWA_VALIDATE
+    validation::start_hotkeys();
+
     Ok(())
 }

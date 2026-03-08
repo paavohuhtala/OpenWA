@@ -476,9 +476,9 @@ fn dump_team_blocks() {
                     }
                 }
 
-                if worm_count > 0 && worm_count <= 7 {
+                if worm_count > 0 && worm_count <= 8 {
                     let struct_total: i32 = (1..=worm_count as usize)
-                        .map(|w| block.worms[w].health)
+                        .map(|w| arena.team_worm(b as usize, w).health)
                         .sum();
 
                     let raw_health_ptr = entry_ptr.sub(0x4A0) as *const i32;
@@ -505,7 +505,7 @@ fn dump_team_blocks() {
 
                     let _ = log_validation("  CheckWormState0x64 field check (state vs health):");
                     for w in 1..=worm_count as usize {
-                        let worm = &block.worms[w];
+                        let worm = arena.team_worm(b as usize, w);
                         let _ = log_validation(&format!(
                             "    worm[{}]: state=0x{:04X}({}) health=0x{:04X}({})",
                             w, worm.state, worm.state, worm.health, worm.health
@@ -516,6 +516,74 @@ fn dump_team_blocks() {
         }
 
         let _ = log_validation(&format!("\n  Struct Validation {}", result.summary_line()));
+
+        // === TeamArenaState memory layout dump ===
+        // Dump the region around team entries to understand the actual layout.
+        // Each "team entry" has stride 0x51C. We dump the first 16 bytes of each
+        // slot (including slot 6 which goes "out of bounds"), plus the area
+        // around weapon_slots start (0x1EB4) and team_count (0x1EB0).
+        let _ = log_validation("\n  === TeamArenaState Layout Dump ===");
+        let _ = log_validation(&format!("  arena_base = 0x{:08X} (DDGame + 0x{:X})",
+            arena_base, offsets::TEAM_ARENA_STATE));
+
+        // Dump first 16 bytes at each team_index * 0x51C stride (slots -2 to 7)
+        for slot in -2i32..8 {
+            let offset = slot as isize * 0x51C as isize;
+            let ptr = tws_base.offset(offset);
+            let mut hex = String::new();
+            for i in 0..16usize {
+                if i > 0 && i % 4 == 0 { hex.push(' '); }
+                hex.push_str(&format!("{:02X}", *ptr.add(i)));
+            }
+            let abs_addr = (arena_base as isize + offset) as u32;
+            let label = match slot {
+                -2 => "team[-2]".to_string(),
+                -1 => "team[-1]".to_string(),
+                0..=5 => format!("team[{}]", slot),
+                6 => "team[6]".to_string(),
+                _ => "team[7]".to_string(),
+            };
+            let _ = log_validation(&format!(
+                "  {:+06X} (0x{:08X}) {}: {}  val_at+4={}",
+                offset, abs_addr, label, hex,
+                *(ptr.add(4) as *const i32)
+            ));
+        }
+
+        // Dump the region around 0x1EA0-0x1EC0 (team entries end / weapon_slots start)
+        let _ = log_validation("\n  --- Region 0x1EA0..0x1EC0 (boundary area) ---");
+        for row in (0x1EA0..0x1EC0).step_by(16) {
+            let ptr = tws_base.add(row);
+            let mut hex = String::new();
+            for i in 0..16usize {
+                if i > 0 && i % 4 == 0 { hex.push(' '); }
+                hex.push_str(&format!("{:02X}", *ptr.add(i)));
+            }
+            // Label known offsets
+            let label = match row {
+                0x1EA0 => " (end of teams[5])",
+                0x1EB0 => " (team_count + weapon_slots[0..3])",
+                _ => "",
+            };
+            let _ = log_validation(&format!(
+                "  +0x{:04X}: {}{}", row, hex, label
+            ));
+        }
+
+        // Dump team_count and first few weapon_slots
+        let _ = log_validation(&format!("\n  team_count (+0x1EB0) = {}",
+            *(tws_base.add(0x1EB0) as *const i32)));
+        let _ = log_validation(&format!("  weapon_slots[0..4] (+0x1EB4) = [{}, {}, {}, {}]",
+            *(tws_base.add(0x1EB4) as *const i32),
+            *(tws_base.add(0x1EB8) as *const i32),
+            *(tws_base.add(0x1EBC) as *const i32),
+            *(tws_base.add(0x1EC0) as *const i32)));
+
+        // Dump game_mode_flag and game_phase for context
+        let _ = log_validation(&format!("  game_mode_flag (+0x2C0C) = {}",
+            *(tws_base.add(0x2C0C) as *const i32)));
+        let _ = log_validation(&format!("  game_phase (+0x2C28) = {}",
+            *(tws_base.add(0x2C28) as *const i32)));
     }
 }
 
@@ -702,7 +770,7 @@ pub fn run() -> Result<(), String> {
         });
     } else {
         let _ = log_validation("");
-        let _ = log_validation("--- Interactive Mode (deferred polling + hotkeys) ---");
+        let _ = log_validation("--- Interactive Mode (deferred polling) ---");
         std::thread::spawn(move || {
             std::thread::sleep(std::time::Duration::from_secs(10));
             deferred_global_validation();
@@ -720,25 +788,35 @@ pub fn run() -> Result<(), String> {
             dump_landscape();
         });
         let _ = log_validation("  Landscape dump thread started (15s delay).");
-
-        std::thread::spawn(|| {
-            use windows_sys::Win32::UI::Input::KeyboardAndMouse::GetAsyncKeyState;
-            const VK_F9: i32 = 0x78;
-            const VK_F10: i32 = 0x79;
-            let _ = log_validation("  Hotkey listener started (F9=team blocks, F10=landscape).");
-            loop {
-                std::thread::sleep(std::time::Duration::from_millis(100));
-                unsafe {
-                    if GetAsyncKeyState(VK_F9) & 1 != 0 {
-                        dump_team_blocks();
-                    }
-                    if GetAsyncKeyState(VK_F10) & 1 != 0 {
-                        dump_landscape();
-                    }
-                }
-            }
-        });
     }
 
     Ok(())
+}
+
+/// Start the debug hotkey listener thread (F9=team blocks, F10=landscape).
+///
+/// Always available regardless of `OPENWA_VALIDATE`. Skipped in replay-test
+/// mode since auto-capture handles dumps automatically.
+pub fn start_hotkeys() {
+    if std::env::var("OPENWA_REPLAY_TEST").is_ok() {
+        return;
+    }
+
+    std::thread::spawn(|| {
+        use windows_sys::Win32::UI::Input::KeyboardAndMouse::GetAsyncKeyState;
+        const VK_F9: i32 = 0x78;
+        const VK_F10: i32 = 0x79;
+        let _ = log_validation("  Hotkey listener started (F9=team blocks, F10=landscape).");
+        loop {
+            std::thread::sleep(std::time::Duration::from_millis(100));
+            unsafe {
+                if GetAsyncKeyState(VK_F9) & 1 != 0 {
+                    dump_team_blocks();
+                }
+                if GetAsyncKeyState(VK_F10) & 1 != 0 {
+                    dump_landscape();
+                }
+            }
+        }
+    });
 }

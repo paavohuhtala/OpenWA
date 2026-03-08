@@ -166,24 +166,6 @@ pub mod offsets {
 // Team arena state — sub-struct at DDGame + 0x4628
 // ============================================================
 
-/// Per-team entry within the TeamArenaState area.
-///
-/// Located at team arena state base + team_index * 0x51C.
-/// Each team has an alliance_id that maps into shared ammo/delay tables.
-///
-/// Worm data lives BEFORE this entry:
-/// - worm_count at offset -0x4
-/// - worm array at offset -0x4A0 (stride 0x9C, health at [0])
-#[repr(C)]
-pub struct TeamEntry {
-    pub _unknown_000: [u8; 4],
-    /// Alliance ID — teams with the same alliance share ammo pools.
-    /// Index into ammo/delay tables: alliance_id * 142 + weapon_id
-    pub alliance_id: i32,
-    pub _unknown_008: [u8; 0x514],
-}
-
-const _: () = assert!(core::mem::size_of::<TeamEntry>() == 0x51C);
 
 // ============================================================
 // Per-worm and per-team block structs
@@ -191,8 +173,14 @@ const _: () = assert!(core::mem::size_of::<TeamEntry>() == 0x51C);
 
 /// Per-worm data entry (0x9C bytes, stride between consecutive worms).
 ///
-/// 8 slots per team. Slot 0 is a sentinel/header (team metadata), slots 1-7
-/// hold playable worm data. GetTeamTotalHealth iterates starting from slot 1.
+/// WA supports up to 8 playable worms per team. The original code accesses
+/// worms via raw pointer arithmetic from the team entry pointer, using
+/// stride 0x9C. This means the 8th worm crosses the FullTeamBlock boundary
+/// into the next block's worms\[0\] — see `TeamArenaRef::team_worm()`.
+///
+/// Slot 0 of each block is dual-purpose: its high-offset fields (+0x6C, +0x70,
+/// +0x74, +0x78) store sentinel/metadata for the team, while its low-offset
+/// fields may hold data for the 8th worm of the previous team (when present).
 ///
 /// Field offsets confirmed by runtime memory dump (validator DLL):
 /// - state at 0x00: 0x67 = active/selected, 0x65 = idle, 0x80+ = special
@@ -287,22 +275,44 @@ impl WormEntry {
     pub unsafe fn set_sentinel_active_worm(&mut self, val: i32) {
         *(self._unknown_60.as_mut_ptr().add(0x14) as *mut i32) = val;
     }
+
+    /// Read weapon alliance ID from sentinel (slot 0).
+    /// Stored at self.name[8..12] (= WormEntry offset 0x80) as little-endian i32.
+    ///
+    /// This is the alliance_id used by GetAmmo/AddAmmo/SubtractAmmo to index
+    /// into the shared ammo/delay tables. Teams with the same weapon alliance
+    /// share ammo pools. Distinct from `sentinel_alliance()` at +0x70 which
+    /// is used by CountTeamsByAlliance/SetActiveWorm_Maybe.
+    ///
+    /// # Safety
+    /// Only valid when called on a sentinel worm (slot 0 of a FullTeamBlock).
+    pub unsafe fn sentinel_weapon_alliance(&self) -> i32 {
+        *(self.name.as_ptr().add(8) as *const i32)
+    }
 }
 
 /// Full per-team data block (0x51C bytes, 6 teams in DDGame).
 ///
 /// Contains 8 WormEntry slots (0x4E0 bytes) followed by 0x3C bytes of
-/// team metadata. Slot 0 is a sentinel/header; slots 1-7 are playable worms.
+/// team metadata.
 ///
 /// **Block indexing**: Block 0 is unused (preamble, all zeros). Actual team
 /// data starts at block 1. entry_ptr(team=N) = DDGame+0x4628+N*0x51C, which
 /// lands at block\[N+1\].worm\[0\]+0x7C. Negative offsets reach back into
 /// block\[N\]'s worm data. So entry_ptr(1) accesses block\[1\]'s worms.
 ///
-/// **Sentinel worm\[0\]** stores metadata for the team accessed by the
-/// PREVIOUS entry_ptr index:
-/// - +0x78: worm_count (accessed as entry_ptr-4)
-/// - +0x80: alliance_id (accessed as entry_ptr+4)
+/// **Worm access**: Playable worms are accessed via raw pointer arithmetic
+/// from the team entry pointer (stride 0x9C). For teams with 8 worms, the
+/// 8th worm crosses the block boundary — its early fields (state, health)
+/// spill into block\[N+1\].worms\[0\], which is also the sentinel. Use
+/// `TeamArenaRef::team_worm()` instead of direct array indexing.
+///
+/// **Sentinel worm\[0\]** stores metadata at high offsets that don't
+/// conflict with the 8th worm's early fields:
+/// - +0x6C: eliminated flag
+/// - +0x70: alliance_id (Pattern B)
+/// - +0x74: active_worm (Pattern B)
+/// - +0x78: worm_count
 /// - +0x84: team name string
 #[repr(C)]
 pub struct FullTeamBlock {
@@ -331,10 +341,17 @@ const _: () = assert!(core::mem::size_of::<FullTeamBlock>() == 0x51C);
 /// `weapon_slots[alliance * 142 + 71 + weapon]` for delay.
 #[repr(C)]
 pub struct TeamArenaState {
-    /// 0x0000: Per-team entries (6 teams, stride 0x51C = 1308 bytes each)
-    pub teams: [TeamEntry; 6],
-    /// 0x1EA8: Padding
-    pub _pad_1ea8: [u8; 0x8],
+    /// 0x0000-0x1EAF: Per-team data region (opaque).
+    ///
+    /// This region contains 7 team entries at stride 0x51C (1-indexed, index 0
+    /// is preamble). The original WA.exe accesses team data via raw pointer
+    /// arithmetic relative to the arena base. In our Rust code, team data is
+    /// accessed through `TeamArenaRef` and `FullTeamBlock` using sentinel
+    /// accessors, so this region is treated as opaque padding.
+    ///
+    /// The 7th entry (team 6, 1-indexed) only has 8 bytes before team_count;
+    /// the rest overlaps with weapon_slots.
+    pub _teams_region: [u8; 0x1EB0],
     /// 0x1EB0: Number of teams in the game (used by team iteration loops)
     pub team_count: i32,
     /// 0x1EB4: Interleaved ammo/delay slots.
@@ -404,17 +421,6 @@ pub const GAME_PHASE_NORMAL_MIN: i32 = -2;
 
 
 impl TeamArenaState {
-    /// Compute the flat index for ammo/delay table access.
-    ///
-    /// The weapon_slots array is interleaved: per alliance, 71 ammo slots
-    /// then 71 delay slots (stride 142 per alliance).
-    /// Ammo: `weapon_slots[alliance_id * 142 + weapon_id]`
-    /// Delay: `weapon_slots[alliance_id * 142 + 71 + weapon_id]`
-    pub unsafe fn ammo_index(&self, team_index: usize, weapon_id: u32) -> usize {
-        let alliance_id = self.teams[team_index].alliance_id as usize;
-        alliance_id * 142 + weapon_id as usize
-    }
-
     /// Get ammo count for a weapon slot (by flat index).
     pub fn get_ammo(&self, index: usize) -> i32 {
         self.weapon_slots[index]
@@ -477,11 +483,40 @@ impl TeamArenaRef {
         self.base.sub(offsets::ARENA_TO_BLOCKS) as *const FullTeamBlock
     }
 
+    /// Get the sentinel (metadata) entry for a team.
+    ///
+    /// Returns `block[team_idx+1].worms[0]`, which holds team metadata:
+    /// worm_count (+0x78), eliminated flag (+0x6C).
+    #[inline]
+    pub unsafe fn team_sentinel(&self, team_idx: usize) -> &WormEntry {
+        &(*self.blocks().add(team_idx + 1)).worms[0]
+    }
+
+    /// Get a playable worm entry by 1-indexed worm number (1..=8).
+    ///
+    /// Uses raw pointer arithmetic matching the original WA code:
+    /// `base + team_idx * 0x51C + worm_num * 0x9C - 0x598`.
+    /// This naturally crosses FullTeamBlock boundaries when worm_num = 8,
+    /// since the 8th worm's early fields (state, health) spill into the
+    /// next block's worms[0] — which is also the sentinel. The sentinel
+    /// metadata lives at high offsets (0x6C, 0x78) that don't conflict.
+    #[inline]
+    pub unsafe fn team_worm(&self, team_idx: usize, worm_num: usize) -> &WormEntry {
+        let ptr = self.base
+            .add(team_idx * 0x51C)
+            .add(worm_num * 0x9C)
+            .sub(0x598);
+        &*(ptr as *const WormEntry)
+    }
+
     /// Get a team's worm block and its sentinel in one call.
     ///
     /// Returns `(block[team_idx], block[team_idx+1].worms[0])`.
     /// The block contains worm data (slots 1-7), and the sentinel (slot 0
     /// of the next block) holds team metadata (worm_count, eliminated flag).
+    ///
+    /// **Note**: For accessing worms, prefer `team_worm()` which handles
+    /// 8-worm teams correctly via cross-boundary pointer arithmetic.
     #[inline]
     pub unsafe fn team_and_sentinel(&self, team_idx: usize) -> (&FullTeamBlock, &WormEntry) {
         let blocks = self.blocks();
@@ -503,5 +538,20 @@ impl TeamArenaRef {
     #[inline]
     pub unsafe fn team_sentinel_b_mut(&self, team_idx: usize) -> &mut WormEntry {
         &mut (*(self.blocks() as *mut FullTeamBlock).add(team_idx + 2)).worms[0]
+    }
+
+    /// Compute the flat index for ammo/delay table access.
+    ///
+    /// Reads the weapon alliance ID from the sentinel worm for the given
+    /// 1-indexed team, then computes `alliance_id * 142 + weapon_id`.
+    ///
+    /// The weapon_slots array is interleaved: per alliance, 71 ammo slots
+    /// then 71 delay slots (stride 142 per alliance).
+    /// Ammo: `weapon_slots[alliance_id * 142 + weapon_id]`
+    /// Delay: `weapon_slots[alliance_id * 142 + 71 + weapon_id]`
+    #[inline]
+    pub unsafe fn ammo_index(&self, team_index: usize, weapon_id: u32) -> usize {
+        let alliance_id = self.team_sentinel(team_index).sentinel_weapon_alliance() as usize;
+        alliance_id * 142 + weapon_id as usize
     }
 }

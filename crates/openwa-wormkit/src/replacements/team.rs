@@ -56,7 +56,7 @@ usercall_trampoline!(fn trampoline_count_teams_by_alliance; impl_fn = count_team
 // plain RET, returns EAX = total health
 
 unsafe extern "cdecl" fn get_team_total_health_impl(team_index: u32, arena: TeamArenaRef) -> i32 {
-    let (block, sentinel) = arena.team_and_sentinel(team_index as usize);
+    let sentinel = arena.team_sentinel(team_index as usize);
 
     if sentinel.sentinel_eliminated() != 0 {
         return 0;
@@ -65,7 +65,7 @@ unsafe extern "cdecl" fn get_team_total_health_impl(team_index: u32, arena: Team
     let worm_count = sentinel.sentinel_worm_count();
     let mut total = 0i32;
     for w in 1..=worm_count as usize {
-        total += block.worms[w].health;
+        total += arena.team_worm(team_index as usize, w).health;
     }
     total
 }
@@ -82,8 +82,7 @@ usercall_trampoline!(fn trampoline_get_team_total_health; impl_fn = get_team_tot
 unsafe extern "cdecl" fn is_worm_in_special_state_impl(
     team_index: u32, worm_index: u32, arena: TeamArenaRef,
 ) -> u32 {
-    let (block, _) = arena.team_and_sentinel(team_index as usize);
-    if ddgame::worm::is_special_state(block.worms[worm_index as usize].state) { 1 } else { 0 }
+    if ddgame::worm::is_special_state(arena.team_worm(team_index as usize, worm_index as usize).state) { 1 } else { 0 }
 }
 
 usercall_trampoline!(fn trampoline_is_worm_in_special_state; impl_fn = is_worm_in_special_state_impl;
@@ -102,8 +101,7 @@ usercall_trampoline!(fn trampoline_is_worm_in_special_state; impl_fn = is_worm_i
 unsafe extern "cdecl" fn get_worm_position_impl(
     team_index: u32, worm_index: u32, arena: TeamArenaRef, out_x: *mut i32, out_y: *mut i32,
 ) {
-    let (block, _) = arena.team_and_sentinel(team_index as usize);
-    let worm = &block.worms[worm_index as usize];
+    let worm = arena.team_worm(team_index as usize, worm_index as usize);
     *out_x = *(worm._unknown_90.as_ptr() as *const i32);
     *out_y = *(worm._unknown_90.as_ptr().add(4) as *const i32);
 }
@@ -127,13 +125,13 @@ unsafe extern "cdecl" fn check_worm_state_0x64_impl(arena: TeamArenaRef) -> u32 
 
     // Iterate real teams (1-indexed: team 1..=team_count)
     for i in 1..=state.team_count as usize {
-        let (block, sentinel) = arena.team_and_sentinel(i);
+        let sentinel = arena.team_sentinel(i);
         if sentinel.sentinel_eliminated() != 0 {
             continue;
         }
         let worm_count = sentinel.sentinel_worm_count();
         for w in 1..=worm_count as usize {
-            if block.worms[w].state == 0x64 {
+            if arena.team_worm(i, w).state == 0x64 {
                 return 1;
             }
         }
@@ -147,13 +145,13 @@ usercall_trampoline!(fn trampoline_check_worm_state_0x64; impl_fn = check_worm_s
 // ============================================================
 // CheckTeamWormState0x64 replacement (0x522930)
 // ============================================================
-// __usercall: EAX = base, EDX = team_idx
+// __usercall: ECX = base, EAX = team_idx
 // plain RET, returns EAX = bool (1 if any worm on team has state 0x64)
 //
 // Per-team version of CheckWormState0x64. 1 xref (FUN_00556ad0).
 
 unsafe extern "cdecl" fn check_team_worm_state_0x64_impl(arena: TeamArenaRef, team_idx: u32) -> u32 {
-    let (block, sentinel) = arena.team_and_sentinel(team_idx as usize);
+    let sentinel = arena.team_sentinel(team_idx as usize);
 
     if sentinel.sentinel_eliminated() != 0 {
         return 0;
@@ -161,7 +159,7 @@ unsafe extern "cdecl" fn check_team_worm_state_0x64_impl(arena: TeamArenaRef, te
 
     let worm_count = sentinel.sentinel_worm_count();
     for w in 1..=worm_count as usize {
-        if block.worms[w].state == 0x64 {
+        if arena.team_worm(team_idx as usize, w).state == 0x64 {
             return 1;
         }
     }
@@ -169,7 +167,7 @@ unsafe extern "cdecl" fn check_team_worm_state_0x64_impl(arena: TeamArenaRef, te
 }
 
 usercall_trampoline!(fn trampoline_check_team_worm_state_0x64; impl_fn = check_team_worm_state_0x64_impl;
-    regs = [eax, edx]);
+    regs = [ecx, eax]);
 
 // ============================================================
 // CheckAnyWormState0x8b replacement (0x522970)
@@ -183,13 +181,13 @@ unsafe extern "cdecl" fn check_any_worm_state_0x8b_impl(arena: TeamArenaRef) -> 
     let state = arena.state();
 
     for i in 1..=state.team_count as usize {
-        let (block, sentinel) = arena.team_and_sentinel(i);
+        let sentinel = arena.team_sentinel(i);
         if sentinel.sentinel_eliminated() != 0 {
             continue;
         }
         let worm_count = sentinel.sentinel_worm_count();
         for w in 1..=worm_count as usize {
-            if block.worms[w].state == 0x8b {
+            if arena.team_worm(i, w).state == 0x8b {
                 return 1;
             }
         }
