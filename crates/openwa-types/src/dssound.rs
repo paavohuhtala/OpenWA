@@ -1,6 +1,4 @@
 use crate::fixed::Fixed;
-use crate::task::Ptr32;
-
 /// DSSound — DirectSound audio subsystem.
 ///
 /// Created by DSSound__Constructor (0x573D50).
@@ -14,7 +12,7 @@ use crate::task::Ptr32;
 #[repr(C)]
 pub struct DSSound {
     /// 0x000: Vtable pointer (0x66AF20)
-    pub vtable: Ptr32,
+    pub vtable: *mut u8,
     /// 0x004: Unknown
     pub _unknown_004: [u8; 4],
     /// 0x008: Init field (set to 0)

@@ -652,37 +652,37 @@ fn dump_landscape() {
 
         // Vtable validation
         let expected_vt = rb(va::PC_LANDSCAPE_VTABLE);
-        let vt_ok = land.vtable == expected_vt;
+        let vt_ok = land.vtable as u32 == expected_vt;
         let _ = log_line(&format!("  vtable: 0x{:08X} (expected 0x{:08X}) {}",
-            land.vtable, expected_vt, if vt_ok { "OK" } else { "MISMATCH" }));
+            land.vtable as u32, expected_vt, if vt_ok { "OK" } else { "MISMATCH" }));
 
         // DDGame pointer
-        let _ = log_line(&format!("  ddgame: 0x{:08X}", land.ddgame));
-        let _ = log_line(&format!("  _unknown_900: 0x{:08X}", land._unknown_900));
+        let _ = log_line(&format!("  ddgame: 0x{:08X}", land.ddgame as u32));
+        let _ = log_line(&format!("  _unknown_900: 0x{:08X}", land._unknown_900 as u32));
 
         // Collision bitmap
-        let _ = log_line(&format!("  collision_bitmap: 0x{:08X}", land.collision_bitmap));
+        let _ = log_line(&format!("  collision_bitmap: 0x{:08X}", land.collision_bitmap as u32));
 
         // Initialized flag
         let _ = log_line(&format!("  initialized: {}", land.initialized));
 
         // Crater sprites — count non-null
-        let primary_count = land.crater_sprites.iter().filter(|&&p| p != 0).count();
-        let secondary_count = land.crater_sprites_secondary.iter().filter(|&&p| p != 0).count();
+        let primary_count = land.crater_sprites.iter().filter(|&&p| !p.is_null()).count();
+        let secondary_count = land.crater_sprites_secondary.iter().filter(|&&p| !p.is_null()).count();
         let _ = log_line(&format!("  crater_sprites: {}/16 non-null, secondary: {}/16 non-null",
             primary_count, secondary_count));
 
         // Terrain layers
-        let _ = log_line(&format!("  layer_0: 0x{:08X}", land.layer_0));
-        let _ = log_line(&format!("  layer_1: 0x{:08X}", land.layer_1));
-        let _ = log_line(&format!("  layer_terrain: 0x{:08X}", land.layer_terrain));
-        let _ = log_line(&format!("  layer_edges: 0x{:08X}", land.layer_edges));
-        let _ = log_line(&format!("  layer_shadow: 0x{:08X}", land.layer_shadow));
-        let _ = log_line(&format!("  layer_5: 0x{:08X}", land.layer_5));
+        let _ = log_line(&format!("  layer_0: 0x{:08X}", land.layer_0 as u32));
+        let _ = log_line(&format!("  layer_1: 0x{:08X}", land.layer_1 as u32));
+        let _ = log_line(&format!("  layer_terrain: 0x{:08X}", land.layer_terrain as u32));
+        let _ = log_line(&format!("  layer_edges: 0x{:08X}", land.layer_edges as u32));
+        let _ = log_line(&format!("  layer_shadow: 0x{:08X}", land.layer_shadow as u32));
+        let _ = log_line(&format!("  layer_5: 0x{:08X}", land.layer_5 as u32));
 
         // If layer_terrain is valid, read DisplayGfx fields
-        if land.layer_terrain != 0 {
-            let dgfx = land.layer_terrain;
+        if !land.layer_terrain.is_null() {
+            let dgfx = land.layer_terrain as u32;
             let pixel_data = read_u32(dgfx + 0x08);
             let stride = read_u32(dgfx + 0x10);
             let width = read_u32(dgfx + 0x14);
@@ -711,11 +711,11 @@ fn dump_landscape() {
         let _ = log_line(&format!("  _unknown_8f4: 0x{:08X}", land._unknown_8f4));
 
         // Resource handle
-        let _ = log_line(&format!("  resource_handle: 0x{:08X}", land.resource_handle));
+        let _ = log_line(&format!("  resource_handle: 0x{:08X}", land.resource_handle as u32));
 
         // GfxHandlers
-        let _ = log_line(&format!("  level_gfx_handler: 0x{:08X}", land.level_gfx_handler));
-        let _ = log_line(&format!("  water_gfx_handler: 0x{:08X}", land.water_gfx_handler));
+        let _ = log_line(&format!("  level_gfx_handler: 0x{:08X}", land.level_gfx_handler as u32));
+        let _ = log_line(&format!("  water_gfx_handler: 0x{:08X}", land.water_gfx_handler as u32));
 
         // Visible bounds
         let _ = log_line(&format!("  visible_bounds: left={} top={} right={} bottom={}",
@@ -728,7 +728,7 @@ fn dump_landscape() {
         let _ = log_line(&format!("  theme_dir_path: {:?}", theme_path));
 
         // DDGame level dimensions (from DDGame, not PCLandscape)
-        let ddgame_ptr = land.ddgame;
+        let ddgame_ptr = land.ddgame as u32;
         if ddgame_ptr != 0 {
             let level_w = read_u32(ddgame_ptr + 0x77C0);
             let level_h = read_u32(ddgame_ptr + 0x77C4);
@@ -739,7 +739,7 @@ fn dump_landscape() {
 
         // Vtable slot dump (first 10 entries)
         let _ = log_line("  Vtable slots:");
-        let vt_addr = land.vtable;
+        let vt_addr = land.vtable as u32;
         for slot in 0..10u32 {
             let entry = read_u32(vt_addr + slot * 4);
             let in_text = is_in_text(entry);

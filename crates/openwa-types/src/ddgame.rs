@@ -150,10 +150,16 @@ pub mod offsets {
     pub const FIELD_64D8: usize = 0x64D8;
     pub const FIELD_72A4: usize = 0x72A4;
     pub const GFX_COLOR_ENTRIES: usize = 0x730C;
+    /// Crosshair line color param (DrawPolygon param_2). Part of GfxDir color entries.
+    pub const CROSSHAIR_LINE_PARAM_2: usize = 0x7324;
+    /// Crosshair line style param (DrawPolygon param_1). Part of GfxDir color entries.
+    pub const CROSSHAIR_LINE_PARAM_1: usize = 0x732C;
     pub const FILL_PIXEL: usize = 0x7338;
     pub const DISPLAY_77C4: usize = 0x77C4;
     pub const FLAG_7EF8: usize = 0x7EF8;
     pub const FIELD_7EFC: usize = 0x7EFC;
+    /// Scale factor used by DrawCrosshairLine (multiplied by 0x140000).
+    pub const CROSSHAIR_SCALE: usize = 0x8150;
 }
 
 // ============================================================

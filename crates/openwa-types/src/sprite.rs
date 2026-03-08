@@ -723,7 +723,6 @@ impl TryFrom<u32> for SpriteId {
 // Sprite struct layout (from Ghidra + wkJellyWorm Sprites.h)
 // ---------------------------------------------------------------------------
 
-use crate::task::Ptr32;
 
 /// Per-frame metadata within a Sprite (0x0C bytes).
 ///
@@ -760,9 +759,9 @@ const _: () = assert!(core::mem::size_of::<SpriteFrame>() == 0x0C);
 #[repr(C)]
 pub struct Sprite {
     /// 0x00: Vtable pointer (0x66418C, 8 entries)
-    pub vtable: Ptr32,
+    pub vtable: *mut u8,
     /// 0x04: Context/parent pointer (ECX from ConstructSprite)
-    pub context_ptr: Ptr32,
+    pub context_ptr: *mut u8,
     /// 0x08: Unknown
     pub _unknown_08: u16,
     /// 0x0A: Animation frames per second
@@ -790,23 +789,23 @@ pub struct Sprite {
     /// 0x24: Is-scaled flag (1 if scaling active, 0 otherwise)
     pub is_scaled: u32,
     /// 0x28: Pointer to SpriteFrame array (frame_count entries)
-    pub frame_meta_ptr: Ptr32,
+    pub frame_meta_ptr: *mut u8,
     /// 0x2C: Secondary frame table pointer (present when header_flags & 0x4000)
-    pub secondary_frame_ptr: Ptr32,
+    pub secondary_frame_ptr: *mut u8,
     /// 0x30: Secondary frame count
     pub secondary_frame_count: u16,
     /// 0x32: Padding
     pub _pad_32: u16,
     /// 0x34: DisplayGfx bitmap handle (vtable 0x664144 set by ConstructSprite)
-    pub display_gfx: Ptr32,
+    pub display_gfx: *mut u8,
     /// 0x38-0x5F: Unknown fields
     pub _unknown_38: [u8; 0x28],
     /// 0x60: Pointer to raw frame header data
-    pub raw_frame_header_ptr: Ptr32,
+    pub raw_frame_header_ptr: *mut u8,
     /// 0x64: Pointer to bitmap pixel data
-    pub bitmap_data_ptr: Ptr32,
+    pub bitmap_data_ptr: *mut u8,
     /// 0x68: Pointer to palette data
-    pub palette_data_ptr: Ptr32,
+    pub palette_data_ptr: *mut u8,
     /// 0x6C: Unknown
     pub _unknown_6c: u32,
 }

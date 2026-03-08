@@ -3,8 +3,11 @@
 //! All functions enqueue commands to the RenderQueue's downward-growing buffer.
 //! Calling conventions are __usercall variants with register + stack params.
 
+use openwa_lib::rebase::rb;
 use openwa_types::address::va;
+use openwa_types::ddgame::{offsets as dg, DDGame};
 use openwa_types::render::*;
+use openwa_types::task::CGameTask;
 
 use crate::hook::{self, usercall_trampoline};
 
@@ -334,6 +337,267 @@ unsafe extern "cdecl" fn draw_textbox_local_impl(
 }
 
 // ---------------------------------------------------------------------------
+// Fixed-point trig helpers
+// ---------------------------------------------------------------------------
+
+/// Fixed-point 16.16 multiply: ((a * b) >> 16)
+#[inline]
+fn fixed_mul(a: i32, b: i32) -> i32 {
+    ((a as i64 * b as i64) >> 16) as i32
+}
+
+/// Interpolated lookup from a 1024-entry fixed-point trig table.
+/// Index = (angle >> 6) & 0x3FF, fraction = (angle & 0x3F) << 10.
+#[inline]
+unsafe fn trig_lookup(table: *const i32, angle: u32) -> i32 {
+    let index = ((angle as i32) >> 6) as usize & 0x3FF;
+    let frac = ((angle & 0x3F) << 10) as i32;
+    let base = *table.add(index);
+    let next = *table.add(index + 1);
+    fixed_mul(next - base, frac) + base
+}
+
+// ---------------------------------------------------------------------------
+// DrawBungeeTrail (0x500720) — stdcall(task, style, fill), RET 0xC
+//
+// Draws bungee drop trajectory path:
+//   1. Sprite at trail start position
+//   2. Series of vertices computed by accumulating angle + trig interpolation
+//   3. Final vertex at task position (0x84/0x88)
+//   4. DrawPolygon (if fill != 0) or DrawLineStrip
+// Triggered by Bungee weapon (field_0x30==4, field_0x34==7) check in FUN_00519F60.
+// Gated by task+0xBC flag set by InitWormTrail (0x5008D0).
+// ---------------------------------------------------------------------------
+
+unsafe extern "stdcall" fn draw_bungee_trail_impl(
+    task_ptr: u32,
+    style: u32,
+    fill: u32,
+) {
+    let task = task_ptr as *mut u8;
+    let game_task = task_ptr as *const CGameTask;
+
+    // Early exit if trail not visible (set by InitWormTrail when Bungee is used)
+    if *(task.add(0xBC) as *const i32) == 0 {
+        return;
+    }
+
+    let ddgame = &*((*game_task).base.ddgame as *const DDGame);
+    let rq = &mut *ddgame.render_queue;
+
+    let seg_data = *(task.add(0xE4) as *const *const u8);
+    if seg_data.is_null() {
+        return;
+    }
+
+    let segment_count = *(task.add(0xD0) as *const i32);
+    if segment_count <= 0 {
+        return;
+    }
+
+    let mut x = *(task.add(0xC0) as *const i32);
+    let mut y = *(task.add(0xC4) as *const i32);
+
+    let first_angle = *(seg_data.add(4) as *const i32);
+
+    // Enqueue start sprite (command type 5 = local)
+    if let Some(entry) = rq.alloc::<DrawSpriteCmd>() {
+        *entry = DrawSpriteCmd {
+            command_type: command_type::DRAW_SPRITE_LOCAL,
+            layer: 0xDFFFF,
+            x_pos: x as u32 & 0xFFFF0000,
+            y_pos: y as u32 & 0xFFFF0000,
+            sprite_id: 0x45,
+            frame: (first_angle + 0x8100) as u32,
+        };
+    }
+
+    // Build vertex array from trail segments
+    const MAX_VERTICES: usize = 256;
+    let mut verts = [[0i32; 3]; MAX_VERTICES];
+    let mut vert_count: usize = 0;
+    let mut accumulated_angle: u32 = 0;
+
+    let sin_table = rb(va::G_SIN_TABLE) as *const i32;
+    let cos_table = rb(va::G_COS_TABLE) as *const i32;
+
+    for i in 0..segment_count {
+        let seg_angle = *(seg_data.add(4 + i as usize * 8) as *const i32);
+
+        // Include vertex if: first segment, or segment has nonzero angle, or fill mode
+        if i == 0 || seg_angle != 0 || fill != 0 {
+            if vert_count < MAX_VERTICES {
+                verts[vert_count] = [x, y, 0];
+                vert_count += 1;
+            }
+        }
+
+        accumulated_angle = accumulated_angle.wrapping_add(seg_angle as u32);
+
+        let sin_interp = trig_lookup(sin_table, accumulated_angle);
+        let cos_interp = trig_lookup(cos_table, accumulated_angle);
+
+        x = x.wrapping_add(sin_interp.wrapping_mul(8));
+        y = y.wrapping_sub(cos_interp.wrapping_mul(8));
+    }
+
+    // Final vertex = task position (target)
+    if vert_count < MAX_VERTICES {
+        verts[vert_count] = [(*game_task).pos_x.0, (*game_task).pos_y.0, 0];
+        vert_count += 1;
+    }
+
+    // Enqueue as polygon or line strip
+    if fill != 0 {
+        let total_size = vert_count * 0xC + 0x20;
+        if let Some(ptr) = rq.alloc_raw(total_size) {
+            let header = &mut *(ptr as *mut DrawPolygonHeader);
+            *header = DrawPolygonHeader {
+                command_type: command_type::DRAW_POLYGON,
+                layer: 0xE_0000,
+                count: vert_count as u32,
+                param_1: style,
+                param_2: fill,
+            };
+            core::ptr::copy_nonoverlapping(
+                verts.as_ptr() as *const u8,
+                ptr.add(core::mem::size_of::<DrawPolygonHeader>()),
+                vert_count * 0xC,
+            );
+        }
+    } else {
+        let total_size = vert_count * 0xC + 0x1C;
+        if let Some(ptr) = rq.alloc_raw(total_size) {
+            let header = &mut *(ptr as *mut DrawLineStripHeader);
+            *header = DrawLineStripHeader {
+                command_type: command_type::DRAW_LINE_STRIP,
+                layer: 0xE_0000,
+                count: vert_count as u32,
+                param_1: style,
+            };
+            core::ptr::copy_nonoverlapping(
+                verts.as_ptr() as *const u8,
+                ptr.add(core::mem::size_of::<DrawLineStripHeader>()),
+                vert_count * 0xC,
+            );
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// DrawCrosshairLine (0x5197D0) — usercall(EDI=task_ptr), plain RET
+//
+// Draws the weapon aiming crosshair line:
+//   1. Compute direction from angle at task+0x264
+//   2. Compute line length from DDGame scale + task offset
+//   3. Endpoint = start + direction * length (with overflow clamping)
+//   4. DrawPolygon (2 vertices) for the line
+//   5. Conditionally DrawSpriteLocal at endpoint (crosshair sprite)
+// ---------------------------------------------------------------------------
+
+usercall_trampoline!(fn trampoline_draw_crosshair_line; impl_fn = draw_crosshair_line_impl;
+    reg = edi);
+
+unsafe extern "cdecl" fn draw_crosshair_line_impl(task_ptr: u32) {
+    let task = task_ptr as *const u8;
+    let game_task = task_ptr as *const CGameTask;
+
+    // Early exit if aiming not active (derived class field)
+    if *(task.add(0x258) as *const i32) == 0 {
+        return;
+    }
+
+    let ddgame_ptr = (*game_task).base.ddgame as *const u8;
+    let ddgame = &*(ddgame_ptr as *const DDGame);
+    let rq = &mut *ddgame.render_queue;
+
+    let start_x = (*game_task).pos_x.0;
+    let start_y = (*game_task).pos_y.0;
+
+    let angle = *(task.add(0x264) as *const u32);
+
+    // Trig interpolation
+    let sin_table = rb(va::G_SIN_TABLE) as *const i32;
+    let cos_table = rb(va::G_COS_TABLE) as *const i32;
+    let sin_interp = trig_lookup(sin_table, angle);
+    let cos_interp = trig_lookup(cos_table, angle);
+
+    // Scale = fixed_mul(DDGame[CROSSHAIR_SCALE], 0x140000) + task[0x324]
+    let ddgame_scale = *(ddgame_ptr.add(dg::CROSSHAIR_SCALE) as *const i32);
+    let scale = fixed_mul(ddgame_scale, 0x14_0000)
+        + *(task.add(0x324) as *const i32);
+
+    // Endpoint = start + direction * scale
+    let mut endpoint_x = fixed_mul(sin_interp, scale).wrapping_add(start_x);
+    let mut endpoint_y = fixed_mul(cos_interp, scale).wrapping_add(start_y);
+
+    // Overflow clamping — when endpoint overflows i32 due to large scale
+    let mut overflowed = false;
+    let mut clamp_factor = 0i32;
+
+    let game_state = ddgame.game_state as *const u8;
+    let threshold = *(game_state.add(0xD778) as *const i32);
+
+    if threshold > 0x11E {
+        // Check X overflow: sin > 0 but endpoint wrapped below start
+        if sin_interp > 0 && endpoint_x < start_x {
+            overflowed = true;
+            clamp_factor = (0x7FFFFFFFi32 - start_x) / sin_interp;
+        }
+        // Check Y overflow: cos > 0 but endpoint wrapped below start
+        if cos_interp > 0 && endpoint_y < start_y {
+            let y_clamp = (0x7FFFFFFFi32 - start_y) / cos_interp;
+            if !overflowed || y_clamp < clamp_factor {
+                clamp_factor = y_clamp;
+            }
+            overflowed = true;
+        }
+        if overflowed {
+            endpoint_x = start_x + clamp_factor * sin_interp;
+            endpoint_y = start_y + clamp_factor * cos_interp;
+        }
+    }
+
+    // Enqueue polygon line (2 vertices)
+    let poly_param_1 = *(ddgame_ptr.add(dg::CROSSHAIR_LINE_PARAM_1) as *const u32);
+    let poly_param_2 = *(ddgame_ptr.add(dg::CROSSHAIR_LINE_PARAM_2) as *const u32);
+    let verts: [[i32; 3]; 2] = [
+        [start_x, start_y, 0],
+        [endpoint_x, endpoint_y, 0],
+    ];
+    let total_size = 2 * 0xC + 0x20;
+    if let Some(ptr) = rq.alloc_raw(total_size) {
+        let header = &mut *(ptr as *mut DrawPolygonHeader);
+        *header = DrawPolygonHeader {
+            command_type: command_type::DRAW_POLYGON,
+            layer: 0xE_0000,
+            count: 2,
+            param_1: poly_param_1,
+            param_2: poly_param_2,
+        };
+        core::ptr::copy_nonoverlapping(
+            verts.as_ptr() as *const u8,
+            ptr.add(core::mem::size_of::<DrawPolygonHeader>()),
+            2 * 0xC,
+        );
+    }
+
+    // Draw crosshair sprite at endpoint (only if no overflow clamping)
+    if !overflowed {
+        if let Some(entry) = rq.alloc::<DrawSpriteCmd>() {
+            *entry = DrawSpriteCmd {
+                command_type: command_type::DRAW_SPRITE_LOCAL,
+                layer: 0x4_0000,
+                x_pos: endpoint_x as u32 & 0xFFFF0000,
+                y_pos: endpoint_y as u32 & 0xFFFF0000,
+                sprite_id: 0x44,
+                frame: (0x8000u32).wrapping_sub(angle),
+            };
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Installation
 // ---------------------------------------------------------------------------
 
@@ -396,6 +660,18 @@ pub unsafe fn install() -> Result<(), String> {
         "DrawTextboxLocal",
         va::DRAW_TEXTBOX_LOCAL,
         trampoline_draw_textbox_local as *const (),
+    )?;
+
+    let _ = hook::install(
+        "DrawBungeeTrail",
+        va::DRAW_BUNGEE_TRAIL,
+        draw_bungee_trail_impl as *const (),
+    )?;
+
+    let _ = hook::install(
+        "DrawCrosshairLine",
+        va::DRAW_CROSSHAIR_LINE,
+        trampoline_draw_crosshair_line as *const (),
     )?;
 
     Ok(())

@@ -1,9 +1,6 @@
 use crate::class_type::ClassType;
 use crate::fixed::Fixed;
 
-/// A 32-bit pointer as it appears in WA's memory (the game is 32-bit x86).
-pub type Ptr32 = u32;
-
 /// Base task class in WA's entity hierarchy.
 ///
 /// All game objects inherit from CTask. Tasks form a tree via parent/children
@@ -23,9 +20,9 @@ pub type Ptr32 = u32;
 #[repr(C)]
 pub struct CTask {
     /// 0x00: Pointer to virtual method table
-    pub vtable: Ptr32,
+    pub vtable: *mut u8,
     /// 0x04: Parent task in the hierarchy
-    pub parent: Ptr32,
+    pub parent: *mut u8,
     /// 0x08: Children list max capacity (set to 0x10 in constructor)
     pub children_max_size: u32,
     /// 0x0C: Children list unknown field (set to 0 in constructor)
@@ -33,9 +30,9 @@ pub struct CTask {
     /// 0x10: Children list current size
     pub children_size: u32,
     /// 0x14: Pointer to children data array (allocated 0x60 bytes in constructor)
-    pub children_data: Ptr32,
+    pub children_data: *mut u8,
     /// 0x18: Children hash list pointer (set to 0 in constructor)
-    pub children_hash: Ptr32,
+    pub children_hash: *mut u8,
     /// 0x1C: Unknown (set to 0 by parent-linking helper FUN_00562520)
     pub _unknown_1c: u32,
     /// 0x20: Task classification type (set to ClassType::Task by FUN_00562520,
@@ -43,11 +40,11 @@ pub struct CTask {
     pub class_type: ClassType,
     /// 0x24: Shared data buffer pointer (inherited from parent, or allocated
     /// 0x420 bytes for root tasks)
-    pub shared_data: Ptr32,
+    pub shared_data: *mut u8,
     /// 0x28: 1 if this task owns shared_data (root), 0 if inherited from parent
     pub owns_shared_data: u32,
     /// 0x2C: DDGame pointer (3rd param to CTask::Constructor, stored at this+0x2C)
-    pub ddgame: Ptr32,
+    pub ddgame: *mut u8,
 }
 
 const _: () = assert!(core::mem::size_of::<CTask>() == 0x30);
@@ -79,7 +76,7 @@ pub struct CGameTask {
     /// 0x98-0xE7: Unknown gameplay fields
     pub _unknown_98: [u8; 0x50],
     /// 0xE8: Secondary vtable pointer (-> 0x669CF8 for CGameTask)
-    pub vtable2: Ptr32,
+    pub vtable2: *mut u8,
 }
 
 const _: () = assert!(core::mem::size_of::<CGameTask>() == 0xEC);

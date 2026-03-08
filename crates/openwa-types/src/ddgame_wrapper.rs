@@ -1,5 +1,3 @@
-use crate::task::Ptr32;
-
 /// DDGameWrapper — large wrapper around DDGame.
 ///
 /// Created by DDGameWrapper__Constructor (0x56DEF0).
@@ -18,27 +16,27 @@ use crate::task::Ptr32;
 #[repr(C)]
 pub struct DDGameWrapper {
     /// 0x000: Vtable pointer (0x66A30C)
-    pub vtable: Ptr32,
+    pub vtable: *mut u8,
     /// 0x004-0x487: Unknown fields
     pub _unknown_004: [u8; 0x484],
     /// 0x488: Pointer to DDGame allocation (DWORD index 0x122)
-    pub ddgame: Ptr32,
+    pub ddgame: *mut u8,
     /// 0x48C: Secondary DDGame struct pointer (0x2C bytes, conditional)
-    pub ddgame_secondary: Ptr32,
+    pub ddgame_secondary: *mut u8,
     /// 0x490-0x4BF: Unknown
     pub _unknown_490: [u8; 0x30],
     /// 0x4C0: Unknown object pointer (not GfxHandler — vtable reads as 0)
-    pub _field_4c0: Ptr32,
+    pub _field_4c0: *mut u8,
     /// 0x4C4: Unknown pointer
-    pub _field_4c4: Ptr32,
+    pub _field_4c4: *mut u8,
     /// 0x4C8: Graphics mode flag (DWORD index 0x132)
     pub gfx_mode: u32,
     /// 0x4CC: PCLandscape object pointer (DWORD index 0x133)
-    pub landscape: Ptr32,
+    pub landscape: *mut u8,
     /// 0x4D0: DDDisplay/display object pointer (param2 of constructor)
-    pub display: Ptr32,
+    pub display: *mut u8,
     /// 0x4D4: DSSound/sound object pointer (param3 of constructor)
-    pub sound: Ptr32,
+    pub sound: *mut u8,
     /// 0x4D8: Init 0 (DWORD index 0x136)
     pub _field_4d8: u32,
     /// 0x4DC: Calculated value (DWORD index 0x137)

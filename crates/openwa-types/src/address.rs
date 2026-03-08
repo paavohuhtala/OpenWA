@@ -176,6 +176,17 @@ pub mod va {
     pub const GFX_DIR_FIND_ENTRY: u32 = 0x0056_6520;
     pub const GFX_DIR_LOAD_IMAGE: u32 = 0x0056_66D0;
 
+    // === Higher-level drawing functions ===
+
+    /// DrawBungeeTrail — stdcall(task_ptr, style, fill), RET 0xC.
+    /// Draws bungee drop trajectory using DrawSpriteLocal + DrawPolygon/DrawLineStrip.
+    /// Triggered by weapon check (field_0x30==4, field_0x34==7 → Bungee) in FUN_00519F60.
+    /// Gated by task+0xBC flag set by InitWormTrail (0x5008D0).
+    pub const DRAW_BUNGEE_TRAIL: u32 = 0x0050_0720;
+    /// DrawCrosshairLine — usercall(EDI=task_ptr), plain RET.
+    /// Draws the crosshair aiming line using DrawPolygon + DrawSpriteLocal.
+    pub const DRAW_CROSSHAIR_LINE: u32 = 0x0051_97D0;
+
     // === Sprite system ===
 
     /// ConstructSprite — usercall EAX=sprite_ptr, ECX=context_ptr.
@@ -464,6 +475,20 @@ pub mod va {
     pub const G_FRAME_BUFFER_WIDTH: u32 = 0x007A_0EF0;
     /// Frame buffer height
     pub const G_FRAME_BUFFER_HEIGHT: u32 = 0x007A_0EF4;
+
+    // === Trig lookup tables ===
+
+    /// Sine lookup table — 1024 entries of i32 (fixed-point 16.16).
+    /// Indexed by `(angle >> 6) & 0x3FF`. Adjacent entries used for interpolation.
+    pub const G_SIN_TABLE: u32 = 0x006A_1860;
+    /// Cosine lookup table — 1024 entries of i32 (fixed-point 16.16).
+    pub const G_COS_TABLE: u32 = 0x006A_1C60;
+
+    // === Vertex scratch buffer ===
+
+    /// Global vertex scratch buffer used by DrawBungeeTrail/DrawCrosshairLine.
+    /// 12 bytes per vertex (x, y, third field). At least ~200 vertices capacity.
+    pub const G_VERTEX_SCRATCH_BUFFER: u32 = 0x008B_1470;
 
     // === Game context (DDGame struct offsets) ===
     // These are offsets from the DDGame base pointer, not absolute addresses.
