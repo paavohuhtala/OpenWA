@@ -1,7 +1,7 @@
 mod config;
 mod frontend;
 mod scheme;
-mod sprite;
+mod render;
 mod team;
 mod weapon;
 
@@ -11,6 +11,6 @@ pub fn install_all() -> Result<(), String> {
     config::install()?;
     weapon::install()?;
     team::install()?;
-    unsafe { sprite::install()? };
+    render::install()?;
     Ok(())
 }

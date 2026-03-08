@@ -601,7 +601,8 @@ unsafe extern "cdecl" fn draw_crosshair_line_impl(task_ptr: u32) {
 // Installation
 // ---------------------------------------------------------------------------
 
-pub unsafe fn install() -> Result<(), String> {
+pub fn install() -> Result<(), String> {
+    unsafe {
     let _ = hook::install(
         "DrawPixel",
         va::DRAW_PIXEL,
@@ -674,5 +675,6 @@ pub unsafe fn install() -> Result<(), String> {
         trampoline_draw_crosshair_line as *const (),
     )?;
 
+    }
     Ok(())
 }

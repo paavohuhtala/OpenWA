@@ -68,15 +68,6 @@ name = "openwa-types"
 version = "0.1.0"
 
 [[package]]
-name = "openwa-validator"
-version = "0.1.0"
-dependencies = [
- "minhook",
- "openwa-types",
- "windows-sys",
-]
-
-[[package]]
 name = "openwa-wormkit"
 version = "0.1.0"
 dependencies = [
