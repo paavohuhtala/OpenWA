@@ -7,7 +7,7 @@ use openwa_lib::rebase::rb;
 use openwa_types::address::va;
 use openwa_types::ddgame::{offsets as dg, DDGame};
 use openwa_types::render::*;
-use openwa_types::task::CGameTask;
+use openwa_types::task::{BungeeTrailTask, WeaponAimTask};
 
 use crate::hook::{self, usercall_trampoline};
 
@@ -374,29 +374,27 @@ unsafe extern "stdcall" fn draw_bungee_trail_impl(
     style: u32,
     fill: u32,
 ) {
-    let task = task_ptr as *mut u8;
-    let game_task = task_ptr as *const CGameTask;
+    let task = &*(task_ptr as *const BungeeTrailTask);
 
-    // Early exit if trail not visible (set by InitWormTrail when Bungee is used)
-    if *(task.add(0xBC) as *const i32) == 0 {
+    if task.trail_visible == 0 {
         return;
     }
 
-    let ddgame = &*((*game_task).base.ddgame as *const DDGame);
+    let ddgame = &*(task.base.ddgame as *const DDGame);
     let rq = &mut *ddgame.render_queue;
 
-    let seg_data = *(task.add(0xE4) as *const *const u8);
+    let seg_data = task.segment_data;
     if seg_data.is_null() {
         return;
     }
 
-    let segment_count = *(task.add(0xD0) as *const i32);
+    let segment_count = task.segment_count;
     if segment_count <= 0 {
         return;
     }
 
-    let mut x = *(task.add(0xC0) as *const i32);
-    let mut y = *(task.add(0xC4) as *const i32);
+    let mut x = task.trail_start_x;
+    let mut y = task.trail_start_y;
 
     let first_angle = *(seg_data.add(4) as *const i32);
 
@@ -443,7 +441,7 @@ unsafe extern "stdcall" fn draw_bungee_trail_impl(
 
     // Final vertex = task position (target)
     if vert_count < MAX_VERTICES {
-        verts[vert_count] = [(*game_task).pos_x.0, (*game_task).pos_y.0, 0];
+        verts[vert_count] = [task.pos_x.0, task.pos_y.0, 0];
         vert_count += 1;
     }
 
@@ -499,22 +497,20 @@ usercall_trampoline!(fn trampoline_draw_crosshair_line; impl_fn = draw_crosshair
     reg = edi);
 
 unsafe extern "cdecl" fn draw_crosshair_line_impl(task_ptr: u32) {
-    let task = task_ptr as *const u8;
-    let game_task = task_ptr as *const CGameTask;
+    let task = &*(task_ptr as *const WeaponAimTask);
+    let gt = &task.game_task;
 
-    // Early exit if aiming not active (derived class field)
-    if *(task.add(0x258) as *const i32) == 0 {
+    if task.aim_active == 0 {
         return;
     }
 
-    let ddgame_ptr = (*game_task).base.ddgame as *const u8;
-    let ddgame = &*(ddgame_ptr as *const DDGame);
+    let ddgame = &*(gt.base.ddgame as *const DDGame);
     let rq = &mut *ddgame.render_queue;
 
-    let start_x = (*game_task).pos_x.0;
-    let start_y = (*game_task).pos_y.0;
+    let start_x = gt.pos_x.0;
+    let start_y = gt.pos_y.0;
 
-    let angle = *(task.add(0x264) as *const u32);
+    let angle = task.aim_angle;
 
     // Trig interpolation
     let sin_table = rb(va::G_SIN_TABLE) as *const i32;
@@ -522,10 +518,9 @@ unsafe extern "cdecl" fn draw_crosshair_line_impl(task_ptr: u32) {
     let sin_interp = trig_lookup(sin_table, angle);
     let cos_interp = trig_lookup(cos_table, angle);
 
-    // Scale = fixed_mul(DDGame[CROSSHAIR_SCALE], 0x140000) + task[0x324]
-    let ddgame_scale = *(ddgame_ptr.add(dg::CROSSHAIR_SCALE) as *const i32);
-    let scale = fixed_mul(ddgame_scale, 0x14_0000)
-        + *(task.add(0x324) as *const i32);
+    // Scale = fixed_mul(DDGame.crosshair_scale, 0x140000) + task.aim_range_offset
+    let scale = fixed_mul(ddgame.crosshair_scale, 0x14_0000)
+        + task.aim_range_offset;
 
     // Endpoint = start + direction * scale
     let mut endpoint_x = fixed_mul(sin_interp, scale).wrapping_add(start_x);
@@ -559,6 +554,7 @@ unsafe extern "cdecl" fn draw_crosshair_line_impl(task_ptr: u32) {
     }
 
     // Enqueue polygon line (2 vertices)
+    let ddgame_ptr = ddgame as *const DDGame as *const u8;
     let poly_param_1 = *(ddgame_ptr.add(dg::CROSSHAIR_LINE_PARAM_1) as *const u32);
     let poly_param_2 = *(ddgame_ptr.add(dg::CROSSHAIR_LINE_PARAM_2) as *const u32);
     let verts: [[i32; 3]; 2] = [

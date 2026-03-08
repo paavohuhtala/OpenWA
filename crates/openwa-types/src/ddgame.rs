@@ -20,8 +20,8 @@ pub struct DDGame {
     pub _base_000: *mut u8,
     /// 0x004: Context pointer (param_3)
     pub _context: *mut u8,
-    /// 0x008: param_4
-    pub _param_008: *mut u8,
+    /// 0x008: Sound enabled flag (nonzero = enabled). Checked by PlaySoundGlobal.
+    pub sound_enabled: i32,
     /// 0x00C: Allocated object (0x608 bytes, conditional)
     pub _object_00c: *mut u8,
     /// 0x010: param_6
@@ -97,12 +97,17 @@ pub struct DDGame {
     /// 0x8140: Number of entries currently in the sound queue (0–16).
     pub sound_queue_count: i32,
 
-    /// 0x8144-0x98B7: Remaining fields
+    /// 0x8144-0x814F: Unknown
+    pub _unknown_8144: [u8; 0x8150 - 0x8144],
+    /// 0x8150: Scale factor used by DrawCrosshairLine (multiplied by 0x140000).
+    pub crosshair_scale: i32,
+
+    /// 0x8154-0x98B7: Remaining fields
     ///
     /// Known landmarks:
     /// - 0x8CBC-0x8CF0: 4x 0x10-byte entries (zeroed at +0, +4)
     /// - 0x9850-0x9884: 4x 0x10-byte entries (zeroed at +0, +4)
-    pub _unknown_8144: [u8; 0x98B8 - 0x8144],
+    pub _unknown_8154: [u8; 0x98B8 - 0x8154],
 }
 
 const _: () = assert!(core::mem::size_of::<DDGame>() == 0x98B8);

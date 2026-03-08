@@ -10,7 +10,7 @@
 use std::sync::atomic::Ordering;
 
 use openwa_types::address::va;
-use openwa_types::ddgame::{DDGame, offsets, SoundQueueEntry};
+use openwa_types::ddgame::{DDGame, SoundQueueEntry};
 use openwa_types::sound::SoundId;
 use openwa_types::task::CGameTask;
 
@@ -37,9 +37,7 @@ unsafe fn queue_sound(
     pitch: u32,
 ) -> Option<*mut SoundQueueEntry> {
     let g = &mut *ddgame;
-    // sound_enabled is at DDGame+0x008, mapped as _param_008 (pointer-sized).
-    let sound_enabled = *((ddgame as *const u8).add(offsets::SOUND_ENABLED) as *const i32);
-    if g.sound_queue_count >= 16 || sound_enabled == 0 {
+    if g.sound_queue_count >= 16 || g.sound_enabled == 0 {
         return None;
     }
     let entry = &mut g.sound_queue[g.sound_queue_count as usize];
