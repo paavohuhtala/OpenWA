@@ -158,16 +158,37 @@ pub mod va {
     pub const CONSTRUCT_DD_DISPLAY: u32 = 0x0056_9D00;
     pub const CONSTRUCT_FRAME_BUFFER: u32 = 0x005A_2430;
     pub const BLIT_SCREEN: u32 = 0x005A_2020;
-    pub const RENDER_DRAWING_QUEUE: u32 = 0x0054_2350;
+    pub const RQ_RENDER_DRAWING_QUEUE: u32 = 0x0054_2350;
     pub const DRAW_LANDSCAPE: u32 = 0x005A_2790;
-    pub const DRAW_PIXEL: u32 = 0x0054_1D60;
-    pub const DRAW_LINE_STRIP: u32 = 0x0054_1DD0;
-    pub const DRAW_POLYGON: u32 = 0x0054_1E50;
-    pub const DRAW_SCALED: u32 = 0x0054_1ED0;
-    pub const DRAW_RECT: u32 = 0x0054_1F40;
-    pub const DRAW_SPRITE_GLOBAL: u32 = 0x0054_1FE0;
-    pub const DRAW_SPRITE_OFFSET: u32 = 0x0054_20E0;
-    pub const DRAW_BITMAP_GLOBAL: u32 = 0x0054_2170;
+    pub const RQ_DRAW_PIXEL: u32 = 0x0054_1D60;
+    pub const RQ_DRAW_LINE_STRIP: u32 = 0x0054_1DD0;
+    pub const RQ_DRAW_POLYGON: u32 = 0x0054_1E50;
+    pub const RQ_DRAW_SCALED: u32 = 0x0054_1ED0;
+    pub const RQ_DRAW_RECT: u32 = 0x0054_1F40;
+    pub const RQ_DRAW_SPRITE_GLOBAL: u32 = 0x0054_1FE0;
+    pub const RQ_DRAW_SPRITE_LOCAL: u32 = 0x0054_2060;
+    pub const RQ_DRAW_SPRITE_OFFSET: u32 = 0x0054_20E0;
+    pub const RQ_DRAW_BITMAP_GLOBAL: u32 = 0x0054_2170;
+    pub const RQ_DRAW_TEXTBOX_LOCAL: u32 = 0x0054_2200;
+    pub const RQ_DRAW_CLIPPED_SPRITE_MAYBE: u32 = 0x0054_22A0;
+
+    // RenderQueue helpers
+    pub const RQ_CLIP_COORDINATES: u32 = 0x0054_2BA0;
+    pub const RQ_GET_CAMERA_OFFSET_MAYBE: u32 = 0x0054_2B10;
+    pub const RQ_CLIP_WITH_REF_OFFSET_MAYBE: u32 = 0x0054_2C70;
+    pub const RQ_TRANSFORM_WITH_ZOOM_MAYBE: u32 = 0x0054_2D50;
+    pub const RQ_SMOOTH_INTERPOLATE_MAYBE: u32 = 0x0054_2E60;
+    pub const RQ_UPDATE_CLIP_BOUNDS_MAYBE: u32 = 0x0054_2F10;
+    pub const RQ_SATURATE_CLIP_BOUNDS_MAYBE: u32 = 0x0054_2F70;
+
+    // Render pipeline
+    pub const RENDER_FRAME_MAYBE: u32 = 0x0056_E040;
+    pub const GAME_RENDER_MAYBE: u32 = 0x0053_3DC0;
+    pub const RENDER_TERRAIN_MAYBE: u32 = 0x0053_5000;
+    pub const RENDER_HUD_MAYBE: u32 = 0x0053_4F20;
+    pub const RENDER_TURN_STATUS_MAYBE: u32 = 0x0053_4E00;
+    pub const PALETTE_MANAGE_MAYBE: u32 = 0x0053_3C80;
+    pub const PALETTE_ANIMATE_MAYBE: u32 = 0x0053_3A80;
     pub const LOAD_SPRITE: u32 = 0x0052_3400;
     pub const CONSTRUCT_OPENGL_CPU: u32 = 0x005A_0850;
     pub const OPENGL_INIT: u32 = 0x0059_F000;
@@ -200,9 +221,6 @@ pub mod va {
     /// ProcessSprite — usercall EAX=sprite_ptr, 1 stack param (raw_data_ptr).
     /// Parses .spr binary format: palette, frames, bitmap data.
     pub const PROCESS_SPRITE: u32 = 0x004F_AB80;
-    /// DrawSpriteLocal — thiscall + EAX=y_pos (usercall), 4 stack params.
-    /// Enqueues draw command type 5 (screen-space). See DrawSpriteGlobal (type 4).
-    pub const DRAW_SPRITE_LOCAL: u32 = 0x0054_2060;
 
     // === Landscape ===
 
@@ -388,8 +406,6 @@ pub mod va {
     pub const DDDISPLAY_CONSTRUCT_TEXTBOX: u32 = 0x004F_AF00;
     /// SetTextboxText — stdcall(textbox, msg, textcolor, color1, color2, a6, a7, opacity)
     pub const SET_TEXTBOX_TEXT: u32 = 0x004F_B070;
-    /// DrawTextboxLocal — draws textbox at screen position
-    pub const DRAW_TEXTBOX_LOCAL: u32 = 0x0054_2200;
 
     // === Global variables (in .data) ===
 

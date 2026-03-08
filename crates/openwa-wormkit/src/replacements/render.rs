@@ -605,61 +605,61 @@ pub fn install() -> Result<(), String> {
     unsafe {
     let _ = hook::install(
         "DrawPixel",
-        va::DRAW_PIXEL,
+        va::RQ_DRAW_PIXEL,
         trampoline_draw_pixel as *const (),
     )?;
 
     let _ = hook::install(
         "DrawLineStrip",
-        va::DRAW_LINE_STRIP,
+        va::RQ_DRAW_LINE_STRIP,
         trampoline_draw_line_strip as *const (),
     )?;
 
     let _ = hook::install(
         "DrawPolygon",
-        va::DRAW_POLYGON,
+        va::RQ_DRAW_POLYGON,
         trampoline_draw_polygon as *const (),
     )?;
 
     let _ = hook::install(
         "DrawScaled",
-        va::DRAW_SCALED,
+        va::RQ_DRAW_SCALED,
         trampoline_draw_scaled as *const (),
     )?;
 
     let _ = hook::install(
         "DrawRect",
-        va::DRAW_RECT,
+        va::RQ_DRAW_RECT,
         trampoline_draw_rect as *const (),
     )?;
 
     let _ = hook::install(
         "DrawSpriteGlobal",
-        va::DRAW_SPRITE_GLOBAL,
+        va::RQ_DRAW_SPRITE_GLOBAL,
         trampoline_draw_sprite_global as *const (),
     )?;
 
     let _ = hook::install(
         "DrawSpriteLocal",
-        va::DRAW_SPRITE_LOCAL,
+        va::RQ_DRAW_SPRITE_LOCAL,
         trampoline_draw_sprite_local as *const (),
     )?;
 
     let _ = hook::install(
         "DrawSpriteOffset",
-        va::DRAW_SPRITE_OFFSET,
+        va::RQ_DRAW_SPRITE_OFFSET,
         trampoline_draw_sprite_offset as *const (),
     )?;
 
     let _ = hook::install(
         "DrawBitmapGlobal",
-        va::DRAW_BITMAP_GLOBAL,
+        va::RQ_DRAW_BITMAP_GLOBAL,
         trampoline_draw_bitmap_global as *const (),
     )?;
 
     let _ = hook::install(
         "DrawTextboxLocal",
-        va::DRAW_TEXTBOX_LOCAL,
+        va::RQ_DRAW_TEXTBOX_LOCAL,
         trampoline_draw_textbox_local as *const (),
     )?;
 

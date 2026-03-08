@@ -196,7 +196,7 @@ fn validate_addresses(result: &mut ValidationResult) {
         ("FireWeapon", va::FIRE_WEAPON),
         ("InitWeaponTable", va::INIT_WEAPON_TABLE),
         ("BlitScreen", va::BLIT_SCREEN),
-        ("RenderDrawingQueue", va::RENDER_DRAWING_QUEUE),
+        ("RenderDrawingQueue", va::RQ_RENDER_DRAWING_QUEUE),
         ("DrawLandscape", va::DRAW_LANDSCAPE),
         ("ConstructPCLandscape", va::CONSTRUCT_PC_LANDSCAPE),
         ("ConstructDSSound", va::CONSTRUCT_DS_SOUND),
