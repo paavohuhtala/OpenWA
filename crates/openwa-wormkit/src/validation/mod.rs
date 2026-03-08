@@ -2,7 +2,8 @@
 //!
 //! Enabled by setting `OPENWA_VALIDATE=1` environment variable.
 //! When `OPENWA_REPLAY_TEST=1` is also set, enters auto-capture mode:
-//! waits 5s, runs all validation + dumps, then calls ExitProcess(0).
+//! waits for the replay to finish (up to 120s), runs validation dumps,
+//! then calls ExitProcess(0) as a safety net.
 
 mod hooks;
 
@@ -748,24 +749,29 @@ pub fn run() -> Result<(), String> {
     if auto_mode {
         let _ = log_validation("");
         let _ = log_validation("--- Auto-Capture Mode (OPENWA_REPLAY_TEST) ---");
+        let _ = log_validation("  Replay fast-forward active — game will exit when replay finishes.");
+        let _ = log_validation("  Safety timeout: 120s (will force exit if replay hangs).");
         std::thread::spawn(move || {
-            let _ = log_validation("  Waiting 5s for replay to reach gameplay...");
+            // Wait for gameplay to start, then run initial validation
             std::thread::sleep(std::time::Duration::from_secs(5));
-
             let _ = log_validation("  Running deferred global validation...");
             deferred_global_validation();
 
-            let _ = log_validation("  Running team block dump...");
+            // Wait briefly for replay to start, then dump game state
+            // (fast-forward finishes the replay in ~10-15s total, so dump early)
+            std::thread::sleep(std::time::Duration::from_secs(3));
+            let _ = log_validation("  Running team block dump (8s mark)...");
             dump_team_blocks();
-
             let _ = log_validation("  Running landscape dump...");
             dump_landscape();
 
+            // Safety timeout: if the game hasn't exited on its own by 120s, force exit.
+            // The replay fast-forward should finish well before this.
+            std::thread::sleep(std::time::Duration::from_secs(112));
             let _ = log_validation("");
-            let _ = log_validation("--- Auto-capture complete, exiting ---");
-
+            let _ = log_validation("--- Safety timeout reached (120s), forcing exit ---");
             unsafe {
-                windows_sys::Win32::System::Threading::ExitProcess(0);
+                windows_sys::Win32::System::Threading::ExitProcess(1);
             }
         });
     } else {

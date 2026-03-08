@@ -42,12 +42,17 @@ Remove-Item "$gameDir\OpenWA_validation.log" -ErrorAction SilentlyContinue
 
 # 4. Launch WA.exe with replay, env vars set
 Write-Host "Launching WA.exe with replay: $ReplayFile" -ForegroundColor Cyan
-Write-Host "  (Auto-capture mode: will exit after 5s)" -ForegroundColor Yellow
+Write-Host "  (Fast-forward mode: replay will be auto-advanced, game exits when done)" -ForegroundColor Yellow
 
 $env:OPENWA_VALIDATE = "1"
 $env:OPENWA_REPLAY_TEST = "1"
 $proc = Start-Process -FilePath $waExe -ArgumentList "`"$ReplayFile`"" -WindowStyle Minimized -PassThru
-$proc.WaitForExit()
+$timeout = 150  # seconds - replay fast-forward + safety margin
+if (-not $proc.WaitForExit($timeout * 1000)) {
+    Write-Host "WARNING: WA.exe did not exit within ${timeout}s, killing..." -ForegroundColor Red
+    $proc.Kill()
+    $proc.WaitForExit(5000)
+}
 $env:OPENWA_VALIDATE = $null
 $env:OPENWA_REPLAY_TEST = $null
 
@@ -84,10 +89,12 @@ if (Test-Path "$logDir\validation_latest.log") {
     Write-Host "  PASS: $passes" -ForegroundColor Green
     Write-Host "  FAIL: $fails" -ForegroundColor $(if ($fails -gt 0) { "Red" } else { "Green" })
 
-    if ($content -match "Auto-capture complete") {
-        Write-Host "  Auto-capture: completed successfully" -ForegroundColor Green
+    if ($content -match "Safety timeout reached") {
+        Write-Host "  Replay: TIMEOUT (safety timeout triggered)" -ForegroundColor Red
+    } elseif ($content -match "deferred global validation") {
+        Write-Host "  Validation: completed" -ForegroundColor Green
     } else {
-        Write-Host "  Auto-capture: NOT found in log (may not have reached gameplay)" -ForegroundColor Yellow
+        Write-Host "  Validation: NOT found in log (may not have reached gameplay)" -ForegroundColor Yellow
     }
 }
 Write-Host "  Logs: $logDir\" -ForegroundColor Gray

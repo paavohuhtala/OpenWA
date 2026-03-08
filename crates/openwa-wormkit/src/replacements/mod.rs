@@ -1,5 +1,6 @@
 mod config;
 mod frontend;
+mod input;
 mod scheme;
 mod render;
 mod sound;
@@ -14,5 +15,6 @@ pub fn install_all() -> Result<(), String> {
     team::install()?;
     render::install()?;
     sound::install()?;
+    input::install()?;
     Ok(())
 }

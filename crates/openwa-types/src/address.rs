@@ -258,6 +258,13 @@ pub mod va {
     pub const PLAY_SOUND_LOCAL: u32 = 0x004F_DFE0;
     pub const PLAY_SOUND_GLOBAL: u32 = 0x0054_6E20;
 
+    // === Input ===
+
+    /// DDKeyboard::PollKeyboardState — drains WM_KEY messages, calls
+    /// GetKeyboardState, normalizes to both key_state (+0x11C) and
+    /// prev_state (+0x21C) buffers. stdcall(this), RET 0x4.
+    pub const DDKEYBOARD_POLL_KEYBOARD_STATE: u32 = 0x0057_2290;
+
     // === Chat / UI ===
 
     pub const SHOW_CHAT_MESSAGE: u32 = 0x0052_ACB0;
