@@ -1,6 +1,6 @@
 //! Team and worm state accessor hooks.
 //!
-//! Replaces WA.exe functions that access the TeamWeaponState area (DDGame + 0x4628):
+//! Replaces WA.exe functions that access the TeamArenaState area (DDGame + 0x4628):
 //! - CountTeamsByAlliance (0x522030): count teams by alliance membership
 //! - GetTeamTotalHealth (0x5224D0): sum worm health for a team
 //! - IsWormInSpecialState (0x5226B0): check worm state flag
@@ -11,7 +11,7 @@
 //! - SetActiveWorm_Maybe (0x522500): update team active state and counters
 
 use openwa_types::address::va;
-use openwa_types::ddgame::{self, offsets, FullTeamBlock, TeamWeaponState};
+use openwa_types::ddgame::{self, TeamArenaRef};
 
 use crate::hook::{self, usercall_trampoline};
 
@@ -21,24 +21,21 @@ use crate::hook::{self, usercall_trampoline};
 // __usercall: EAX = base, EDI = alliance_id
 // plain RET
 //
-// NOTE: This function uses a DIFFERENT sentinel layout than entry_ptr-based
-// functions. It reads alliance/alive at TWS+0x510+i*0x51C (= sentinel+0x70/0x74),
-// not the entry_ptr-based sentinel+0x78/0x80. Left as raw pointer math until
-// the +0x70/+0x74 sentinel fields are better understood.
+// NOTE: This function uses Pattern B sentinel fields (+0x70/+0x74) for
+// alliance and active_worm, accessed via team_sentinel_b().
 
-unsafe extern "cdecl" fn count_teams_by_alliance_impl(base: u32, alliance_id: i32) {
-    let state = &mut *(base as *mut TeamWeaponState);
+unsafe extern "cdecl" fn count_teams_by_alliance_impl(arena: TeamArenaRef, alliance_id: i32) {
+    let state = arena.state_mut();
     state.current_alliance = alliance_id;
     state.active_team_count = 0;
     state.same_alliance_count = 0;
     state.enemy_team_count = 0;
 
-    let base_ptr = base as *const u8;
-    for i in 0..state.team_count {
-        let team_data = base_ptr.add(ddgame::team_data::BASE_OFFSET + i as usize * 0x51C);
-        let team_alliance = *(team_data as *const i32);
-        let alive_flag = *(team_data.add(ddgame::team_data::ALIVE_FLAG) as *const i32);
-        if alive_flag != 0 && team_alliance >= 0 {
+    for i in 0..state.team_count as usize {
+        let sentinel = arena.team_sentinel_b(i);
+        let team_alliance = sentinel.sentinel_alliance();
+        let active_worm = sentinel.sentinel_active_worm();
+        if active_worm != 0 && team_alliance >= 0 {
             state.active_team_count += 1;
             if team_alliance == alliance_id {
                 state.same_alliance_count += 1;
@@ -58,10 +55,8 @@ usercall_trampoline!(fn trampoline_count_teams_by_alliance; impl_fn = count_team
 // __fastcall: ECX = team_index, EDX = base
 // plain RET, returns EAX = total health
 
-unsafe extern "cdecl" fn get_team_total_health_impl(team_index: u32, base: u32) -> i32 {
-    let blocks = (base as *const u8).sub(offsets::TWS_TO_BLOCKS) as *const FullTeamBlock;
-    let block = &*blocks.add(team_index as usize);
-    let sentinel = &(*blocks.add(team_index as usize + 1)).worms[0];
+unsafe extern "cdecl" fn get_team_total_health_impl(team_index: u32, arena: TeamArenaRef) -> i32 {
+    let (block, sentinel) = arena.team_and_sentinel(team_index as usize);
 
     if sentinel.sentinel_eliminated() != 0 {
         return 0;
@@ -85,10 +80,9 @@ usercall_trampoline!(fn trampoline_get_team_total_health; impl_fn = get_team_tot
 // RET 0x4, returns EAX = bool (1 if special state)
 
 unsafe extern "cdecl" fn is_worm_in_special_state_impl(
-    team_index: u32, worm_index: u32, base: u32,
+    team_index: u32, worm_index: u32, arena: TeamArenaRef,
 ) -> u32 {
-    let blocks = (base as *const u8).sub(offsets::TWS_TO_BLOCKS) as *const FullTeamBlock;
-    let block = &*blocks.add(team_index as usize);
+    let (block, _) = arena.team_and_sentinel(team_index as usize);
     if ddgame::worm::is_special_state(block.worms[worm_index as usize].state) { 1 } else { 0 }
 }
 
@@ -106,10 +100,9 @@ usercall_trampoline!(fn trampoline_is_worm_in_special_state; impl_fn = is_worm_i
 // These values appear transient — actual worm positions live in CGameTask objects.
 
 unsafe extern "cdecl" fn get_worm_position_impl(
-    team_index: u32, worm_index: u32, base: u32, out_x: *mut i32, out_y: *mut i32,
+    team_index: u32, worm_index: u32, arena: TeamArenaRef, out_x: *mut i32, out_y: *mut i32,
 ) {
-    let blocks = (base as *const u8).sub(offsets::TWS_TO_BLOCKS) as *const FullTeamBlock;
-    let block = &*blocks.add(team_index as usize);
+    let (block, _) = arena.team_and_sentinel(team_index as usize);
     let worm = &block.worms[worm_index as usize];
     *out_x = *(worm._unknown_90.as_ptr() as *const i32);
     *out_y = *(worm._unknown_90.as_ptr().add(4) as *const i32);
@@ -129,20 +122,18 @@ usercall_trampoline!(fn trampoline_get_worm_position; impl_fn = get_worm_positio
 // It compares to 0x64 (100 decimal). State 0x64 is likely a transitional
 // state distinct from 0x65 (idle). 11 xrefs in gameplay code.
 
-unsafe extern "cdecl" fn check_worm_state_0x64_impl(base: u32) -> u32 {
-    let state = &*(base as *const TeamWeaponState);
-    let blocks = (base as *const u8).sub(offsets::TWS_TO_BLOCKS) as *const FullTeamBlock;
+unsafe extern "cdecl" fn check_worm_state_0x64_impl(arena: TeamArenaRef) -> u32 {
+    let state = arena.state();
 
     // Iterate real teams (1-indexed: team 1..=team_count)
     for i in 1..=state.team_count as usize {
-        let sentinel = &(*blocks.add(i + 1)).worms[0];
+        let (block, sentinel) = arena.team_and_sentinel(i);
         if sentinel.sentinel_eliminated() != 0 {
             continue;
         }
         let worm_count = sentinel.sentinel_worm_count();
-        let worm_block = &*blocks.add(i);
         for w in 1..=worm_count as usize {
-            if worm_block.worms[w].state == 0x64 {
+            if block.worms[w].state == 0x64 {
                 return 1;
             }
         }
@@ -161,10 +152,8 @@ usercall_trampoline!(fn trampoline_check_worm_state_0x64; impl_fn = check_worm_s
 //
 // Per-team version of CheckWormState0x64. 1 xref (FUN_00556ad0).
 
-unsafe extern "cdecl" fn check_team_worm_state_0x64_impl(base: u32, team_idx: u32) -> u32 {
-    let blocks = (base as *const u8).sub(offsets::TWS_TO_BLOCKS) as *const FullTeamBlock;
-    let block = &*blocks.add(team_idx as usize);
-    let sentinel = &(*blocks.add(team_idx as usize + 1)).worms[0];
+unsafe extern "cdecl" fn check_team_worm_state_0x64_impl(arena: TeamArenaRef, team_idx: u32) -> u32 {
+    let (block, sentinel) = arena.team_and_sentinel(team_idx as usize);
 
     if sentinel.sentinel_eliminated() != 0 {
         return 0;
@@ -190,19 +179,17 @@ usercall_trampoline!(fn trampoline_check_team_worm_state_0x64; impl_fn = check_t
 //
 // Scans all teams. 1 xref (FUN_00557310).
 
-unsafe extern "cdecl" fn check_any_worm_state_0x8b_impl(base: u32) -> u32 {
-    let state = &*(base as *const TeamWeaponState);
-    let blocks = (base as *const u8).sub(offsets::TWS_TO_BLOCKS) as *const FullTeamBlock;
+unsafe extern "cdecl" fn check_any_worm_state_0x8b_impl(arena: TeamArenaRef) -> u32 {
+    let state = arena.state();
 
     for i in 1..=state.team_count as usize {
-        let sentinel = &(*blocks.add(i + 1)).worms[0];
+        let (block, sentinel) = arena.team_and_sentinel(i);
         if sentinel.sentinel_eliminated() != 0 {
             continue;
         }
         let worm_count = sentinel.sentinel_worm_count();
-        let worm_block = &*blocks.add(i);
         for w in 1..=worm_count as usize {
-            if worm_block.worms[w].state == 0x8b {
+            if block.worms[w].state == 0x8b {
                 return 1;
             }
         }
@@ -223,21 +210,18 @@ usercall_trampoline!(fn trampoline_check_any_worm_state_0x8b; impl_fn = check_an
 // sets worm N as active. Called on turn transitions and worm selection (Tab).
 // Updates active counters and records last_active_team/alliance. 3 xrefs.
 
-unsafe extern "cdecl" fn set_active_worm_impl(base: u32, team_idx: u32, worm_index: i32) {
-    let state = &mut *(base as *mut TeamWeaponState);
-    let base_ptr = base as *mut u8;
+unsafe extern "cdecl" fn set_active_worm_impl(arena: TeamArenaRef, team_idx: u32, worm_index: i32) {
+    let state = arena.state_mut();
 
-    // Access team_data fields: alliance at (team_idx * 0x51C - 0xC),
-    // alive_flag at (team_idx * 0x51C - 0x8) — matches team_data::BASE_OFFSET pattern
-    let team_offset = team_idx as usize * 0x51C;
-    let alliance_ptr = base_ptr.add(team_offset).sub(0xC) as *const i32;
-    let alive_ptr = base_ptr.add(team_offset).sub(0x8) as *mut i32;
+    // Pattern B sentinel: team_idx is 1-indexed, team_sentinel_b is 0-indexed
+    // team_idx=1 → team_sentinel_b(0) → blocks[2].worms[0]
+    let sentinel = arena.team_sentinel_b(team_idx as usize - 1);
 
     if worm_index == 0 {
         // Deactivate team
-        if *alive_ptr != 0 {
+        if sentinel.sentinel_active_worm() != 0 {
             state.active_worm_count -= 1;
-            let alliance = *alliance_ptr;
+            let alliance = sentinel.sentinel_alliance();
             if alliance >= 0 {
                 state.active_team_count -= 1;
                 if alliance == state.current_alliance {
@@ -246,14 +230,14 @@ unsafe extern "cdecl" fn set_active_worm_impl(base: u32, team_idx: u32, worm_ind
                     state.enemy_team_count -= 1;
                 }
             }
-            *alive_ptr = 0;
+            arena.team_sentinel_b_mut(team_idx as usize - 1).set_sentinel_active_worm(0);
         }
     } else {
         // Activate team — only update counters if not already active
-        if *alive_ptr == 0 {
+        if sentinel.sentinel_active_worm() == 0 {
             state.active_worm_count += 1;
             state.last_active_team = team_idx as i32;
-            let alliance = *alliance_ptr;
+            let alliance = sentinel.sentinel_alliance();
             state.last_active_alliance = alliance;
             if alliance >= 0 {
                 state.active_team_count += 1;
@@ -265,7 +249,7 @@ unsafe extern "cdecl" fn set_active_worm_impl(base: u32, team_idx: u32, worm_ind
             }
         }
         // Always write worm_index (original writes ESI unconditionally)
-        *alive_ptr = worm_index;
+        arena.team_sentinel_b_mut(team_idx as usize - 1).set_sentinel_active_worm(worm_index);
     }
 }
 

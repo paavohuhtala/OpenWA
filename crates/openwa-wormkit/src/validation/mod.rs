@@ -401,7 +401,7 @@ fn deferred_global_validation() {
 // ---------------------------------------------------------------------------
 
 fn dump_team_blocks() {
-    use openwa_types::ddgame::{offsets, FullTeamBlock, TeamWeaponState};
+    use openwa_types::ddgame::{offsets, TeamArenaRef};
 
     let dump_num = DUMP_COUNTER.fetch_add(1, Ordering::Relaxed);
     let _ = log_validation("");
@@ -419,11 +419,13 @@ fn dump_team_blocks() {
 
         let _ = log_validation(&format!("  DDGame = 0x{:08X}", ddgame_ptr));
 
-        let tws_base = (ddgame_ptr + offsets::TEAM_WEAPON_STATE as u32) as *const u8;
-        let tws = &*(tws_base as *const TeamWeaponState);
-        let _ = log_validation(&format!("  team_count = {} (TeamWeaponState.team_count)", tws.team_count));
+        let arena_base = ddgame_ptr + offsets::TEAM_ARENA_STATE as u32;
+        let arena = TeamArenaRef::from_raw(arena_base);
+        let tws = arena.state();
+        let tws_base = arena_base as *const u8;
+        let _ = log_validation(&format!("  team_count = {} (TeamArenaState.team_count)", tws.team_count));
 
-        let blocks = tws_base.sub(offsets::TWS_TO_BLOCKS) as *const FullTeamBlock;
+        let blocks = arena.blocks();
         let blocks_addr = blocks as u32;
         let _ = log_validation(&format!("  blocks_base = 0x{:08X} (DDGame+0x{:X})",
             blocks_addr, blocks_addr - ddgame_ptr));
@@ -431,7 +433,7 @@ fn dump_team_blocks() {
         let mut result = ValidationResult::new();
 
         let expected_blocks = ddgame_ptr + offsets::TEAM_BLOCKS as u32;
-        result.check("TWS_TO_BLOCKS derivation",
+        result.check("ARENA_TO_BLOCKS derivation",
             blocks_addr == expected_blocks,
             &format!("got 0x{:08X}, expected 0x{:08X}", blocks_addr, expected_blocks));
 

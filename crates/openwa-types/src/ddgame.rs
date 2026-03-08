@@ -124,10 +124,10 @@ pub mod offsets {
     pub const WEAPON_PANEL: usize = 0x548;
 
     // === Team weapon state (DDGame + 0x4628) ===
-    /// Base of TeamWeaponState sub-struct within DDGame.
-    /// Callers pass DDGame + TEAM_WEAPON_STATE as base pointer to
+    /// Base of TeamArenaState sub-struct within DDGame.
+    /// Callers pass DDGame + TEAM_ARENA_STATE as base pointer to
     /// GetAmmo/AddAmmo/SubtractAmmo.
-    pub const TEAM_WEAPON_STATE: usize = 0x4628;
+    pub const TEAM_ARENA_STATE: usize = 0x4628;
 
     // === Team block array (7 × FullTeamBlock, stride 0x51C) ===
     /// Start of team block array within DDGame (7 blocks, stride 0x51C).
@@ -135,12 +135,12 @@ pub mod offsets {
     /// Runtime-confirmed: block[0] is zeroed preamble, blocks[1-6] hold team data.
     pub const TEAM_BLOCKS: usize = 0x4090;
 
-    /// Byte offset from TeamWeaponState base back to FullTeamBlock array start.
-    /// `blocks_ptr = (tws_base as *const u8).sub(TWS_TO_BLOCKS) as *const FullTeamBlock`
+    /// Byte offset from TeamArenaState base back to FullTeamBlock array start.
+    /// `blocks_ptr = (tws_base as *const u8).sub(ARENA_TO_BLOCKS) as *const FullTeamBlock`
     ///
     /// entry_ptr(0) = DDGame+0x4628 = TEAM_BLOCKS + 0x598.
     /// 0x598 = sizeof(FullTeamBlock) + 0x7C = one block + offset into sentinel worm[0].
-    pub const TWS_TO_BLOCKS: usize = 0x598;
+    pub const ARENA_TO_BLOCKS: usize = 0x598;
 
     // === FUN_00526120 init offsets (stride 0x194, 10 entries) ===
     pub const INIT_TABLE_BASE: usize = 0x379C;
@@ -163,12 +163,12 @@ pub mod offsets {
 }
 
 // ============================================================
-// Team weapon state — sub-struct at DDGame + 0x4628
+// Team arena state — sub-struct at DDGame + 0x4628
 // ============================================================
 
-/// Per-team entry within the TeamWeaponState area.
+/// Per-team entry within the TeamArenaState area.
 ///
-/// Located at TeamWeaponState base + team_index * 0x51C.
+/// Located at team arena state base + team_index * 0x51C.
 /// Each team has an alliance_id that maps into shared ammo/delay tables.
 ///
 /// Worm data lives BEFORE this entry:
@@ -258,6 +258,35 @@ impl WormEntry {
     pub unsafe fn sentinel_eliminated(&self) -> i32 {
         *(self._unknown_60.as_ptr().add(0x0C) as *const i32)
     }
+
+    /// Read alliance ID from sentinel (slot 0), Pattern B layout.
+    /// Stored at self._unknown_60[0x10] (= WormEntry offset 0x70) as i32.
+    /// Used by CountTeamsByAlliance and SetActiveWorm_Maybe.
+    ///
+    /// # Safety
+    /// Only valid when called on a sentinel worm (slot 0 of a FullTeamBlock).
+    pub unsafe fn sentinel_alliance(&self) -> i32 {
+        *(self._unknown_60.as_ptr().add(0x10) as *const i32)
+    }
+
+    /// Read active worm index from sentinel (slot 0), Pattern B layout.
+    /// Stored at self._unknown_60[0x14] (= WormEntry offset 0x74) as i32.
+    /// 0 = no active worm, N = worm N is active.
+    /// Used by CountTeamsByAlliance (as alive flag) and SetActiveWorm_Maybe.
+    ///
+    /// # Safety
+    /// Only valid when called on a sentinel worm (slot 0 of a FullTeamBlock).
+    pub unsafe fn sentinel_active_worm(&self) -> i32 {
+        *(self._unknown_60.as_ptr().add(0x14) as *const i32)
+    }
+
+    /// Write active worm index to sentinel (slot 0), Pattern B layout.
+    ///
+    /// # Safety
+    /// Only valid when called on a sentinel worm (slot 0 of a FullTeamBlock).
+    pub unsafe fn set_sentinel_active_worm(&mut self, val: i32) {
+        *(self._unknown_60.as_mut_ptr().add(0x14) as *mut i32) = val;
+    }
 }
 
 /// Full per-team data block (0x51C bytes, 6 teams in DDGame).
@@ -285,7 +314,7 @@ pub struct FullTeamBlock {
 
 const _: () = assert!(core::mem::size_of::<FullTeamBlock>() == 0x51C);
 
-/// Team weapon state area within DDGame (at DDGame + 0x4628).
+/// Team arena state area within DDGame (at DDGame + 0x4628).
 ///
 /// Contains per-team entries and an interleaved ammo/delay table.
 /// Used by GetAmmo (0x5225E0), AddAmmo (0x522640), SubtractAmmo (0x522680).
@@ -301,7 +330,7 @@ const _: () = assert!(core::mem::size_of::<FullTeamBlock>() == 0x51C);
 /// `weapon_slots[alliance * 142 + weapon]` for ammo and
 /// `weapon_slots[alliance * 142 + 71 + weapon]` for delay.
 #[repr(C)]
-pub struct TeamWeaponState {
+pub struct TeamArenaState {
     /// 0x0000: Per-team entries (6 teams, stride 0x51C = 1308 bytes each)
     pub teams: [TeamEntry; 6],
     /// 0x1EA8: Padding
@@ -342,7 +371,7 @@ pub struct TeamWeaponState {
     pub last_active_alliance: i32,
 }
 
-const _: () = assert!(core::mem::size_of::<TeamWeaponState>() == 0x2C48);
+const _: () = assert!(core::mem::size_of::<TeamArenaState>() == 0x2C48);
 
 /// Worm state constants and helpers.
 pub mod worm {
@@ -369,23 +398,12 @@ pub mod worm {
     }
 }
 
-/// Game phase thresholds (stored in TeamWeaponState::game_phase).
+/// Game phase thresholds (stored in TeamArenaState::game_phase).
 pub const GAME_PHASE_SUDDEN_DEATH: i32 = 0x1E4; // 484
 pub const GAME_PHASE_NORMAL_MIN: i32 = -2;
 
-/// Team data offsets within TeamWeaponState (relative to base pointer).
-/// Used by CountTeamsByAlliance which accesses a different sentinel layout
-/// than the entry_ptr-based functions (offset +0x70/+0x74 vs +0x78/+0x80).
-pub mod team_data {
-    /// Offset to first team's per-team data block (from TWS base).
-    /// Maps to block[2].worms[0]+0x70 — a separate alliance/alive pair
-    /// distinct from the entry_ptr-based alliance_id at worms[0]+0x80.
-    pub const BASE_OFFSET: usize = 0x510;
-    /// Alive flag within per-team data block (at +4 from team data start)
-    pub const ALIVE_FLAG: usize = 4;
-}
 
-impl TeamWeaponState {
+impl TeamArenaState {
     /// Compute the flat index for ammo/delay table access.
     ///
     /// The weapon_slots array is interleaved: per alliance, 71 ammo slots
@@ -411,5 +429,79 @@ impl TeamWeaponState {
     /// Delay is at +71 offset from the ammo index within the same alliance block.
     pub fn get_delay(&self, index: usize) -> i32 {
         self.weapon_slots[index + 71]
+    }
+}
+
+/// Typed handle to a TeamArenaState pointer received from WA.exe.
+///
+/// Wraps the raw `base: u32` from trampoline register captures and provides
+/// accessor methods that encapsulate the backward pointer arithmetic to reach
+/// FullTeamBlock worm data. The FullTeamBlock array lives 0x598 bytes before
+/// the TeamArenaState in DDGame memory.
+///
+/// # Safety
+/// Must only be constructed from a valid DDGame + TEAM_ARENA_STATE pointer.
+/// `repr(transparent)` ensures identical ABI to `*const u8` / `u32` on i686,
+/// so it can be received directly from usercall trampoline register captures.
+#[repr(transparent)]
+#[derive(Clone, Copy)]
+pub struct TeamArenaRef {
+    base: *const u8,
+}
+
+impl TeamArenaRef {
+    /// Wrap a raw base pointer (for non-trampoline contexts like validation).
+    ///
+    /// # Safety
+    /// `base` must point to DDGame + TEAM_ARENA_STATE (0x4628).
+    #[inline]
+    pub unsafe fn from_raw(base: u32) -> Self {
+        Self { base: base as *const u8 }
+    }
+
+    /// Access the TeamArenaState fields (read-only).
+    #[inline]
+    pub unsafe fn state(&self) -> &TeamArenaState {
+        &*(self.base as *const TeamArenaState)
+    }
+
+    /// Access the TeamArenaState fields (mutable).
+    #[inline]
+    pub unsafe fn state_mut(&self) -> &mut TeamArenaState {
+        &mut *(self.base as *mut TeamArenaState)
+    }
+
+    /// Get pointer to the FullTeamBlock array base.
+    #[inline]
+    pub unsafe fn blocks(&self) -> *const FullTeamBlock {
+        self.base.sub(offsets::ARENA_TO_BLOCKS) as *const FullTeamBlock
+    }
+
+    /// Get a team's worm block and its sentinel in one call.
+    ///
+    /// Returns `(block[team_idx], block[team_idx+1].worms[0])`.
+    /// The block contains worm data (slots 1-7), and the sentinel (slot 0
+    /// of the next block) holds team metadata (worm_count, eliminated flag).
+    #[inline]
+    pub unsafe fn team_and_sentinel(&self, team_idx: usize) -> (&FullTeamBlock, &WormEntry) {
+        let blocks = self.blocks();
+        let block = &*blocks.add(team_idx);
+        let sentinel = &(*blocks.add(team_idx + 1)).worms[0];
+        (block, sentinel)
+    }
+
+    /// Get mutable sentinel for Pattern B access (alliance/active_worm at +0x70/+0x74).
+    ///
+    /// Pattern B indexes from block[i+2] for 0-indexed team `i`:
+    /// `base + 0x510 + i*0x51C` = `blocks[i+2].worms[0] + 0x70`.
+    #[inline]
+    pub unsafe fn team_sentinel_b(&self, team_idx: usize) -> &WormEntry {
+        &(*self.blocks().add(team_idx + 2)).worms[0]
+    }
+
+    /// Get mutable sentinel for Pattern B access.
+    #[inline]
+    pub unsafe fn team_sentinel_b_mut(&self, team_idx: usize) -> &mut WormEntry {
+        &mut (*(self.blocks() as *mut FullTeamBlock).add(team_idx + 2)).worms[0]
     }
 }

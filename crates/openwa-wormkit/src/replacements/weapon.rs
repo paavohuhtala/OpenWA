@@ -1,13 +1,13 @@
 //! Weapon ammo hooks.
 //!
-//! Replaces WA.exe functions that manage weapon ammo in the TeamWeaponState area (DDGame + 0x4628):
+//! Replaces WA.exe functions that manage weapon ammo in the TeamArenaState area (DDGame + 0x4628):
 //! - GetAmmo (0x5225E0): query ammo count with delay/phase checks
 //! - AddAmmo (0x522640): add ammo to a weapon slot
 //! - SubtractAmmo (0x522680): decrement ammo count
 //! - CountAliveWorms (0x5225A0): check if >1 worm alive on team
 
 use openwa_types::address::va;
-use openwa_types::ddgame::{self, offsets, FullTeamBlock, TeamWeaponState};
+use openwa_types::ddgame::{self, TeamArenaRef};
 use openwa_types::weapon::Weapon;
 
 use crate::hook::{self, usercall_trampoline};
@@ -18,8 +18,8 @@ use crate::hook::{self, usercall_trampoline};
 // __usercall: EAX = team_index, EDX = amount, [ESP+4] = team_info_base, [ESP+8] = weapon_id
 // RET 0x8
 
-unsafe extern "cdecl" fn add_ammo_impl(team_index: u32, amount: i32, base: u32, weapon_id: u32) {
-    let state = &mut *(base as *mut TeamWeaponState);
+unsafe extern "cdecl" fn add_ammo_impl(team_index: u32, amount: i32, arena: TeamArenaRef, weapon_id: u32) {
+    let state = arena.state_mut();
     let idx = state.ammo_index(team_index as usize, weapon_id);
     let ammo = state.get_ammo(idx);
     if ammo >= 0 {
@@ -40,8 +40,8 @@ usercall_trampoline!(fn trampoline_add_ammo; impl_fn = add_ammo_impl;
 // __usercall: EAX = team_index, ECX = team_info_base, [ESP+4] = weapon_id
 // RET 0x4
 
-unsafe extern "cdecl" fn subtract_ammo_impl(team_index: u32, base: u32, weapon_id: u32) {
-    let state = &mut *(base as *mut TeamWeaponState);
+unsafe extern "cdecl" fn subtract_ammo_impl(team_index: u32, arena: TeamArenaRef, weapon_id: u32) {
+    let state = arena.state_mut();
     let idx = state.ammo_index(team_index as usize, weapon_id);
     let ammo = state.get_ammo(idx);
     if ammo > 0 {
@@ -58,8 +58,8 @@ usercall_trampoline!(fn trampoline_subtract_ammo; impl_fn = subtract_ammo_impl;
 // __usercall: EAX = team_index, ESI = team_info_base, EDX = weapon_id
 // plain RET, returns EAX = ammo count
 
-unsafe extern "cdecl" fn get_ammo_impl(team_index: u32, base: u32, weapon_id: u32) -> u32 {
-    let state = &*(base as *const TeamWeaponState);
+unsafe extern "cdecl" fn get_ammo_impl(team_index: u32, arena: TeamArenaRef, weapon_id: u32) -> u32 {
+    let state = arena.state();
     let idx = state.ammo_index(team_index as usize, weapon_id);
 
     // Check weapon delay
@@ -76,8 +76,7 @@ unsafe extern "cdecl" fn get_ammo_impl(team_index: u32, base: u32, weapon_id: u3
 
     // SelectWorm (0x3B) requires >1 alive worm on the team
     if state.game_phase >= ddgame::GAME_PHASE_NORMAL_MIN && weapon_id == Weapon::SelectWorm as u32 {
-        let base = state as *const TeamWeaponState as u32;
-        if count_alive_worms_impl(team_index, base) == 0 {
+        if count_alive_worms_impl(team_index, arena) == 0 {
             return 0;
         }
     }
@@ -94,10 +93,8 @@ usercall_trampoline!(fn trampoline_get_ammo; impl_fn = get_ammo_impl;
 // __usercall: EAX = team_index, ECX = base
 // plain RET, returns EAX = bool (1 if >1 worm alive on team)
 
-unsafe extern "cdecl" fn count_alive_worms_impl(team_index: u32, base: u32) -> u32 {
-    let blocks = (base as *const u8).sub(offsets::TWS_TO_BLOCKS) as *const FullTeamBlock;
-    let block = &*blocks.add(team_index as usize);
-    let sentinel = &(*blocks.add(team_index as usize + 1)).worms[0];
+unsafe extern "cdecl" fn count_alive_worms_impl(team_index: u32, arena: TeamArenaRef) -> u32 {
+    let (block, sentinel) = arena.team_and_sentinel(team_index as usize);
     let worm_count = sentinel.sentinel_worm_count();
     let mut alive = 0i32;
     for w in 1..=worm_count as usize {
