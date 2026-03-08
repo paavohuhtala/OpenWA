@@ -2,6 +2,7 @@ mod config;
 mod frontend;
 mod scheme;
 mod render;
+mod sound;
 mod team;
 mod weapon;
 
@@ -12,5 +13,6 @@ pub fn install_all() -> Result<(), String> {
     weapon::install()?;
     team::install()?;
     render::install()?;
+    sound::install()?;
     Ok(())
 }

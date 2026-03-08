@@ -24,8 +24,11 @@ pub mod va {
     pub const CTASK_VTABLE: u32 = 0x0066_9F8C;
     /// CGameTask vtable - extends CTask vtable with 12 more methods
     pub const CGAMETASK_VTABLE: u32 = 0x0066_41F8;
-    /// CGameTask secondary vtable (at object offset 0xE8)
-    pub const CGAMETASK_VTABLE2: u32 = 0x0066_9CF8;
+    /// CGameTask sound emitter vtable (embedded sub-object at offset 0xE8).
+    /// 12 slots: [0] GetPosition, [1] GetPosition2, [3] Destructor, [4] HandleMessage.
+    pub const CGAMETASK_SOUND_EMITTER_VT: u32 = 0x0066_9CF8;
+    /// Alias for backward compatibility with validation code.
+    pub const CGAMETASK_VTABLE2: u32 = CGAMETASK_SOUND_EMITTER_VT;
     /// DDGameWrapper vtable
     pub const DDGAME_WRAPPER_VTABLE: u32 = 0x0066_A30C;
     /// GfxHandler vtable (0x19C-byte objects)

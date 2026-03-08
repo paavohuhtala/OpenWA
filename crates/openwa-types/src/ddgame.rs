@@ -76,9 +76,9 @@ pub struct DDGame {
     pub _unknown_528: [u8; 0x20],
     /// 0x548: Weapon panel pointer
     pub weapon_panel: *mut u8,
-    /// 0x54C-0x98B7: Remaining fields (sparse — see offsets module)
+    /// 0x54C-0x7EFF: Sparse fields (see offsets module)
     ///
-    /// Known landmarks in this region:
+    /// Known landmarks:
     /// - 0x64D8: cleared by init
     /// - 0x72A4: cleared by init
     /// - 0x730C-0x732C: 9 GfxDir color entries
@@ -86,12 +86,23 @@ pub struct DDGame {
     /// - 0x77C4: display-related value
     /// - 0x7EF8: flag from game_state+0xF914
     /// - 0x7EFC: init 1
-    /// - 0x8CBC-0x8CF0: 4x 0x10-byte entries (zeroed at +0, +4)
-    /// - 0x9850-0x9884: 4x 0x10-byte entries (zeroed at +0, +4)
     ///
     /// Also includes FUN_00526120 zeroed offsets at stride 0x194:
     /// 0x379C, 0x3930, 0x3AC4, 0x3C58, 0x3DEC, 0x3F80, 0x4114, 0x42A8, 0x443C, 0x45D0
-    pub _remaining: [u8; 0x936C],
+    pub _unknown_54c: [u8; 0x7F00 - 0x54C],
+
+    // === Sound queue (0x7F00-0x8143) ===
+    /// 0x7F00: Sound queue (16 entries, stride 0x24). Appended by PlaySoundGlobal.
+    pub sound_queue: [SoundQueueEntry; 16],
+    /// 0x8140: Number of entries currently in the sound queue (0–16).
+    pub sound_queue_count: i32,
+
+    /// 0x8144-0x98B7: Remaining fields
+    ///
+    /// Known landmarks:
+    /// - 0x8CBC-0x8CF0: 4x 0x10-byte entries (zeroed at +0, +4)
+    /// - 0x9850-0x9884: 4x 0x10-byte entries (zeroed at +0, +4)
+    pub _unknown_8144: [u8; 0x98B8 - 0x8144],
 }
 
 const _: () = assert!(core::mem::size_of::<DDGame>() == 0x98B8);
@@ -160,7 +171,49 @@ pub mod offsets {
     pub const FIELD_7EFC: usize = 0x7EFC;
     /// Scale factor used by DrawCrosshairLine (multiplied by 0x140000).
     pub const CROSSHAIR_SCALE: usize = 0x8150;
+
+    // === Sound queue (DDGame + 0x7F00) ===
+    /// Sound enabled flag (i32, nonzero = enabled).
+    pub const SOUND_ENABLED: usize = 0x0008;
+    /// Sound queue base (16 × SoundQueueEntry, stride 0x24).
+    pub const SOUND_QUEUE: usize = 0x7F00;
+    /// Sound queue count (i32, 0–16).
+    pub const SOUND_QUEUE_COUNT: usize = 0x8140;
 }
+
+// ============================================================
+// Sound queue entry — 16 entries at DDGame + 0x7F00
+// ============================================================
+
+/// Sound queue entry (0x24 = 36 bytes, stride between consecutive entries).
+///
+/// DDGame maintains a 16-slot sound queue at offset 0x7F00. PlaySoundGlobal
+/// appends entries; PlaySoundLocal additionally marks entries as local and
+/// stores position via the task's secondary vtable.
+#[repr(C)]
+pub struct SoundQueueEntry {
+    /// Sound effect ID (SoundId enum value).
+    pub sound_id: u32,
+    /// Flags / priority (e.g. 3=weapon, 7=explosion).
+    pub flags: u32,
+    /// Volume (Fixed-point, 0x10000 = 1.0).
+    pub volume: u32,
+    /// Pitch (Fixed-point, 0x10000 = 1.0).
+    pub pitch: u32,
+    /// Reserved, always 0.
+    pub reserved: u32,
+    /// 0 = global, 1 = local (has position tracking).
+    pub is_local: u8,
+    pub _pad: [u8; 3],
+    /// Position X (filled by secondary vtable GetPosition for local sounds).
+    pub pos_x: u32,
+    /// Position Y (filled by secondary vtable GetPosition for local sounds).
+    pub pos_y: u32,
+    /// Pointer to task's secondary vtable (at task+0xE8) for position updates.
+    pub secondary_vtable: u32,
+}
+
+const _: () = assert!(core::mem::size_of::<SoundQueueEntry>() == 0x24);
 
 // ============================================================
 // Team arena state — sub-struct at DDGame + 0x4628

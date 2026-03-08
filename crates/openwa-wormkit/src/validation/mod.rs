@@ -106,7 +106,7 @@ fn validate_addresses(result: &mut ValidationResult) {
     let vtables: &[(&str, u32)] = &[
         ("CTask vtable", va::CTASK_VTABLE),
         ("CGameTask vtable", va::CGAMETASK_VTABLE),
-        ("CGameTask vtable2", va::CGAMETASK_VTABLE2),
+        ("CGameTask SoundEmitter vtable", va::CGAMETASK_SOUND_EMITTER_VT),
         ("DDGameWrapper vtable", va::DDGAME_WRAPPER_VTABLE),
         ("GfxHandler vtable", va::GFX_HANDLER_VTABLE),
         ("DisplayGfx vtable", va::DISPLAY_GFX_VTABLE),
@@ -275,7 +275,7 @@ fn validate_struct_offsets(result: &mut ValidationResult) {
     check_offset!(result, CGameTask, pos_y, 0x88);
     check_offset!(result, CGameTask, speed_x, 0x90);
     check_offset!(result, CGameTask, speed_y, 0x94);
-    check_offset!(result, CGameTask, vtable2, 0xE8);
+    check_offset!(result, CGameTask, sound_emitter, 0xE8);
 
     let _ = log_validation("");
     let _ = log_validation("  DDGame:");
