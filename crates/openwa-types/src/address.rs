@@ -288,6 +288,60 @@ pub mod va {
     pub const PLAY_SOUND_LOCAL: u32 = 0x004F_DFE0;
     pub const PLAY_SOUND_GLOBAL: u32 = 0x0054_6E20;
 
+    // === Speech / Voice Lines ===
+
+    /// Speech line table in .rdata: array of {u32 id, *const u8 name},
+    /// 61 entries + null terminator. Maps speech line IDs to WAV filenames.
+    pub const SPEECH_LINE_TABLE: u32 = 0x006A_F770;
+
+    /// Iterates teams, calls LoadSpeechBank for each. Clears DDGame+0x77E4
+    /// speech slot table. usercall(ESI=DDGame), plain RET.
+    pub const DSSOUND_LOAD_ALL_SPEECH_BANKS: u32 = 0x0057_1A70;
+
+    /// Iterates speech line table, calls LoadSpeechWAV per entry.
+    /// usercall(EAX=DDGame) + 3 stack params, RET 0xC.
+    pub const DSSOUND_LOAD_SPEECH_BANK: u32 = 0x0057_1660;
+
+    /// Loads a single speech WAV into DSSound buffer pool.
+    /// usercall(ESI=DDGame, EBX=DDGame) + 4 stack params, RET 0x10.
+    pub const DSSOUND_LOAD_SPEECH_WAV: u32 = 0x0057_1530;
+
+    /// Loads all 126 SFX WAVs from data\wav\Effects\.
+    /// stdcall(DDGame), RET 0x4.
+    pub const DSSOUND_LOAD_EFFECT_WAVS: u32 = 0x0057_14B0;
+
+    // === WAV Player ===
+
+    /// Opens WAV via mmioOpenA, parses RIFF chunks, creates IDirectSoundBuffer.
+    /// usercall(ESI=result_out) + 3 stack params, RET 0xC.
+    pub const WAV_PLAYER_LOAD_AND_PLAY: u32 = 0x0059_9B40;
+
+    /// Calls IDirectSoundBuffer::Play on loaded buffer.
+    /// usercall(EDI=result_out) + 2 stack params, RET 0x8.
+    pub const WAV_PLAYER_PLAY: u32 = 0x0059_96E0;
+
+    /// Stops and releases current DirectSound buffer.
+    /// usercall(ESI=ctx, EDI=result_out), plain RET.
+    pub const WAV_PLAYER_STOP: u32 = 0x0059_9670;
+
+    // === Fanfare / FE SFX ===
+
+    /// Builds `\user\Fanfare\<name>.wav`, plays via WavPlayer.
+    /// stdcall(team_config_index), RET 0x4.
+    pub const PLAY_FANFARE_DEFAULT: u32 = 0x004D_7500;
+
+    /// Loads fanfare WAV with fallback to PlayFanfare_Default.
+    /// thiscall(ECX=name) + 2 stack params, RET 0x8.
+    pub const PLAY_FANFARE: u32 = 0x004D_7630;
+
+    /// Gets current team, calls PlayFanfare.
+    /// usercall(EAX=index), plain RET.
+    pub const PLAY_FANFARE_CURRENT_TEAM: u32 = 0x004D_78E0;
+
+    /// Builds `fesfx\<name>.wav`, plays via WavPlayer.
+    /// stdcall(sfx_name), RET 0x4.
+    pub const PLAY_FE_SFX: u32 = 0x004D_7960;
+
     // === Input ===
 
     /// DDKeyboard::PollKeyboardState — drains WM_KEY messages, calls

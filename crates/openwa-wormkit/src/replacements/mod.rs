@@ -4,6 +4,7 @@ mod input;
 mod scheme;
 mod render;
 mod sound;
+mod speech;
 mod team;
 mod weapon;
 
@@ -15,6 +16,7 @@ pub fn install_all() -> Result<(), String> {
     team::install()?;
     render::install()?;
     sound::install()?;
+    speech::install()?;
     input::install()?;
     Ok(())
 }

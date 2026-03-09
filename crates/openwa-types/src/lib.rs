@@ -14,4 +14,5 @@ pub mod opengl;
 pub mod frontend;
 pub mod game_info;
 pub mod scheme;
+pub mod speech;
 pub mod address;

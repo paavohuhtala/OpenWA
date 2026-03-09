@@ -1,4 +1,5 @@
 use crate::render::RenderQueue;
+use crate::speech::SpeechSlotTable;
 
 /// DDGame — the main game engine object.
 ///
@@ -108,12 +109,19 @@ pub struct DDGame {
     /// 0x77C8: Total pixels (width × height).
     pub level_total_pixels: u32,
 
-    /// 0x77CC-0x7EFF: Unknown
+    /// 0x77CC-0x77E3: Unknown
+    pub _unknown_77cc: [u8; 0x77E4 - 0x77CC],
+
+    /// 0x77E4: Speech slot table. Maps (team, speech_line_id) → DSSound buffer index.
+    /// Cleared by DSSound_LoadAllSpeechBanks (0x571A70), filled by DSSound_LoadSpeechWAV (0x571530).
+    pub speech_slot_table: SpeechSlotTable,
+
+    /// 0x7D84-0x7EFF: Unknown
     ///
     /// Known landmarks:
     /// - 0x7EF8: flag from game_state+0xF914
     /// - 0x7EFC: init 1
-    pub _unknown_77cc: [u8; 0x7F00 - 0x77CC],
+    pub _unknown_7d84: [u8; 0x7F00 - 0x7D84],
 
     // === Sound queue (0x7F00-0x8143) ===
     /// 0x7F00: Sound queue (16 entries, stride 0x24). Appended by PlaySoundGlobal.
@@ -206,6 +214,10 @@ pub mod offsets {
     pub const FIELD_7EFC: usize = 0x7EFC;
     /// Scale factor used by DrawCrosshairLine (multiplied by 0x140000).
     pub const CROSSHAIR_SCALE: usize = 0x8150;
+
+    // === Speech slot table (DDGame + 0x77E4) ===
+    /// Speech slot table: maps (team, speech_line_id) → DSSound buffer index.
+    pub const SPEECH_SLOT_TABLE: usize = 0x77E4;
 
     // === Fast-forward (DDGame + 0x98B0) ===
     /// Fast-forward active flag (u32, 1 = active).
