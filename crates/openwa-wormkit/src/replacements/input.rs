@@ -41,8 +41,6 @@ unsafe fn get_ddgame() -> *mut DDGame {
 /// Called every frame from TurnGame_HandleMessage case 2 (FrameFinish).
 /// Sets DDGame.fast_forward_active = 1 to enable multi-frame processing.
 unsafe extern "stdcall" fn hook_turn_manager(turngame: u32) {
-    static DIAG_COUNT: AtomicU32 = AtomicU32::new(0);
-
     // Call original first
     let orig: unsafe extern "stdcall" fn(u32) =
         core::mem::transmute(ORIG_TURN_MANAGER.load(Ordering::Relaxed));
@@ -55,14 +53,6 @@ unsafe extern "stdcall" fn hook_turn_manager(turngame: u32) {
 
     // Set fast-forward active flag
     (*ddgame).fast_forward_active = 1;
-
-    let diag = DIAG_COUNT.fetch_add(1, Ordering::Relaxed);
-    if diag == 0 {
-        let _ = log_line(&format!(
-            "[Input] Fast-forward active (DDGame=0x{:08X})",
-            ddgame as u32
-        ));
-    }
 }
 
 pub fn install() -> Result<(), String> {

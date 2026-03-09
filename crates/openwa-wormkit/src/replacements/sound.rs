@@ -37,7 +37,7 @@ unsafe fn queue_sound(
     pitch: u32,
 ) -> Option<*mut SoundQueueEntry> {
     let g = &mut *ddgame;
-    if g.sound_queue_count >= 16 || g.sound_enabled == 0 {
+    if g.sound_queue_count >= 16 || g.sound.is_null() {
         return None;
     }
     let entry = &mut g.sound_queue[g.sound_queue_count as usize];

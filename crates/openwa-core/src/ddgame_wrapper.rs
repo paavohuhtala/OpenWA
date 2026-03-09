@@ -1,4 +1,6 @@
+use crate::dddisplay::DDDisplay;
 use crate::ddgame::DDGame;
+use crate::dssound::DSSound;
 use crate::landscape::PCLandscape;
 
 /// DDGameWrapper — large wrapper around DDGame.
@@ -36,10 +38,10 @@ pub struct DDGameWrapper {
     pub gfx_mode: u32,
     /// 0x4CC: PCLandscape object pointer (DWORD index 0x133)
     pub landscape: *mut PCLandscape,
-    /// 0x4D0: DDDisplay/display object pointer (param2 of constructor)
-    pub display: *mut u8,
-    /// 0x4D4: DSSound/sound object pointer (param3 of constructor)
-    pub sound: *mut u8,
+    /// 0x4D0: DDDisplay pointer (param2 of constructor)
+    pub display: *mut DDDisplay,
+    /// 0x4D4: DSSound pointer (param3 of constructor)
+    pub sound: *mut DSSound,
     /// 0x4D8: Init 0 (DWORD index 0x136)
     pub _field_4d8: u32,
     /// 0x4DC: Calculated value (DWORD index 0x137)

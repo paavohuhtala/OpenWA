@@ -1,5 +1,11 @@
+use crate::active_sound::ActiveSoundTable;
+use crate::dddisplay::DDDisplay;
+use crate::ddkeyboard::DDKeyboard;
+use crate::dssound::DSSound;
 use crate::game_info::GameInfo;
 use crate::landscape::PCLandscape;
+use crate::music::Music;
+use crate::palette::Palette;
 use crate::render::RenderQueue;
 use crate::speech::SpeechSlotTable;
 
@@ -19,21 +25,24 @@ use crate::speech::SpeechSlotTable;
 /// DWORD indexing only applies to param_2 (DDGameWrapper) itself.
 #[repr(C)]
 pub struct DDGame {
-    /// 0x000: Base value (param_5 from constructor)
-    pub _base_000: *mut u8,
-    /// 0x004: Context pointer (param_3)
-    pub _context: *mut u8,
-    /// 0x008: Sound enabled flag (nonzero = enabled). Checked by PlaySoundGlobal.
-    pub sound_enabled: i32,
-    /// 0x00C: Allocated object (0x608 bytes, conditional)
-    pub _object_00c: *mut u8,
-    /// 0x010: param_6
-    pub _param_010: *mut u8,
-    /// 0x014: param_7
-    pub _param_014: *mut u8,
-    /// 0x018: param_8
+    /// 0x000: DDKeyboard pointer (vtable 0x66AEC8). Constructor param "keyboard".
+    pub keyboard: *mut DDKeyboard,
+    /// 0x004: DDDisplay pointer (vtable 0x66A218). Constructor param "display".
+    pub display: *mut DDDisplay,
+    /// 0x008: DSSound pointer (vtable 0x66AF20). Constructor param "sound".
+    /// Null means sound is disabled (checked by PlaySoundGlobal).
+    pub sound: *mut DSSound,
+    /// 0x00C: Active sound position table (0x608 bytes, conditional on sound available).
+    /// Tracks up to 64 positional sounds with world coordinates for 3D audio mixing.
+    /// NULL when `game_info+0xF914 != 0` (headless/server) or `sound == NULL`.
+    pub active_sounds: *mut ActiveSoundTable,
+    /// 0x010: Palette object pointer (vtable 0x66A2E4). Constructor param "palette".
+    pub palette: *mut Palette,
+    /// 0x014: Music object pointer (vtable 0x66B3E0). Constructor param "music".
+    pub music: *mut Music,
+    /// 0x018: Constructor param7 (unknown purpose, contains 0x1F4 at runtime).
     pub _param_018: *mut u8,
-    /// 0x01C: Caller/parent pointer (param_1)
+    /// 0x01C: Caller/parent pointer (ECX from constructor, often NULL).
     pub _caller: *mut u8,
     /// 0x020: PCLandscape pointer (copied from DDGameWrapper[0x133])
     pub landscape: *mut PCLandscape,
@@ -226,8 +235,8 @@ pub mod offsets {
     pub const FAST_FORWARD_ACTIVE: usize = 0x98B0;
 
     // === Sound queue (DDGame + 0x7F00) ===
-    /// Sound enabled flag (i32, nonzero = enabled).
-    pub const SOUND_ENABLED: usize = 0x0008;
+    /// DSSound pointer (null = sound disabled).
+    pub const SOUND: usize = 0x0008;
     /// Sound queue base (16 × SoundQueueEntry, stride 0x24).
     pub const SOUND_QUEUE: usize = 0x7F00;
     /// Sound queue count (i32, 0–16).

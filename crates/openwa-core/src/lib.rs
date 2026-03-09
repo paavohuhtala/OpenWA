@@ -1,5 +1,6 @@
 #![allow(non_snake_case)]
 
+pub mod active_sound;
 pub mod class_type;
 pub mod message;
 pub mod weapon;
@@ -11,8 +12,12 @@ pub mod ddgame;
 pub mod ddgame_wrapper;
 pub mod landscape;
 pub mod render;
+pub mod dddisplay;
+pub mod ddkeyboard;
 pub mod dssound;
+pub mod music;
 pub mod opengl;
+pub mod palette;
 pub mod frontend;
 pub mod game_info;
 pub mod scheme;
