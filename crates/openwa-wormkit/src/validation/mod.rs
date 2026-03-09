@@ -445,25 +445,29 @@ fn dump_team_blocks() {
                 b, blocks_addr + b * 0x51C));
 
             if (b + 1) < 7 {
-                let sentinel = &(*blocks.add(b as usize + 1)).worms[0];
-                let worm_count = sentinel.sentinel_worm_count();
-                let eliminated = sentinel.sentinel_eliminated();
+                let header = &(*blocks.add(b as usize + 1)).header.team;
+                let worm_count = header.worm_count;
+                let eliminated = header.eliminated;
 
                 let entry_ptr = tws_base.add(b as usize * 0x51C);
                 let raw_worm_count = *(entry_ptr.sub(4) as *const i32);
                 let raw_alliance = *(entry_ptr.add(4) as *const i32);
 
                 result.check(
-                    &format!("block[{}] sentinel_worm_count vs raw", b),
+                    &format!("block[{}] header.worm_count vs raw", b),
                     worm_count == raw_worm_count,
                     &format!("struct={}, raw={}", worm_count, raw_worm_count),
                 );
 
-                let _ = log_validation(&format!("  sentinel: worm_count={}, eliminated={}, alliance(entry_ptr+4)={}",
+                let _ = log_validation(&format!("  header: worm_count={}, eliminated={}, alliance(entry_ptr+4)={}",
                     worm_count, eliminated, raw_alliance));
 
                 for w in 0..8usize {
-                    let worm = &block.worms[w];
+                    let worm = if w == 0 {
+                        &*block.header.worm
+                    } else {
+                        &block.worms[w - 1]
+                    };
                     let active = worm.active_flag;
                     let name_bytes = &worm.name;
                     let name_len = name_bytes.iter().position(|&c| c == 0).unwrap_or(name_bytes.len());
@@ -496,7 +500,7 @@ fn dump_team_blocks() {
                 }
 
                 if worm_count > 0 {
-                    let struct_state = block.worms[1].state;
+                    let struct_state = block.worms[0].state;
                     let raw_state = *(entry_ptr.sub(0x598).add(0x9C) as *const u32);
                     result.check(
                         &format!("block[{}] worm[1].state (struct vs raw)", b),

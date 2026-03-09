@@ -94,8 +94,8 @@ usercall_trampoline!(fn trampoline_get_ammo; impl_fn = get_ammo_impl;
 // plain RET, returns EAX = bool (1 if >1 worm alive on team)
 
 unsafe extern "cdecl" fn count_alive_worms_impl(team_index: u32, arena: TeamArenaRef) -> u32 {
-    let sentinel = arena.team_sentinel(team_index as usize);
-    let worm_count = sentinel.sentinel_worm_count();
+    let header = arena.team_header(team_index as usize);
+    let worm_count = header.worm_count;
     let mut alive = 0i32;
     for w in 1..=worm_count as usize {
         if arena.team_worm(team_index as usize, w).health > 0 {
