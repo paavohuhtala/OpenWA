@@ -655,8 +655,8 @@ pub mod va {
     }
 
     // === GameInfo struct offsets ===
-    // These are offsets from the GameInfo pointer at DDGame+0x24 (also called
-    // "game_state" in some code). Access pattern: *(DDGame+0x24) + offset.
+    // These are offsets from the GameInfo pointer at DDGame+0x24
+    // (DDGame.game_info). Access pattern: *(DDGame+0x24) + offset.
 
     pub mod game_info_offsets {
         // === Speech configuration ===

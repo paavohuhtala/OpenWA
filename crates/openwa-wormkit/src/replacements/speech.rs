@@ -13,7 +13,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use heapless::CString;
 
 use openwa_core::rebase::rb;
-use openwa_core::wa::ddgame::DDGameWrapperHandle;
+use openwa_core::ddgame_wrapper::DDGameWrapper;
 use openwa_core::address::va::{self, game_info_offsets};
 use openwa_core::speech::SpeechLineTableEntry;
 
@@ -314,7 +314,7 @@ usercall_trampoline!(fn trampoline_load_speech_bank; impl_fn = load_speech_bank_
     reg = eax; stack_params = 3; ret_bytes = "0xC");
 
 unsafe extern "cdecl" fn load_speech_bank_impl(
-    ddgw: DDGameWrapperHandle,
+    ddgw: *const DDGameWrapper,
     team_index: u32,
     speech_base_path: *const u8,
     speech_dir: *const u8,
@@ -327,7 +327,7 @@ unsafe extern "cdecl" fn load_speech_bank_impl(
         .unwrap_or("?");
     let _ = log_line(&format!(
         "[Speech] LoadSpeechBank: team={} path=\"{}\" dir=\"{}\" ddgw=0x{:08X}",
-        team_index, path_str, dir_str, ddgw.0
+        team_index, path_str, dir_str, ddgw as u32
     ));
 
     let table_base = rb(va::SPEECH_LINE_TABLE) as *const SpeechLineTableEntry;
@@ -357,7 +357,7 @@ unsafe extern "cdecl" fn load_speech_bank_impl(
         let _ = full_path.extend_from_bytes(wav_path.as_bytes());
 
         let result = call_load_speech_wav(
-            ddgw.0,
+            ddgw as u32,
             team_index,
             entry.id,
             wav_path.as_ptr(),
@@ -368,7 +368,7 @@ unsafe extern "cdecl" fn load_speech_bank_impl(
             // Failed — try fallback with default speech dir if no more alternates
             let next_entry = &*table_base.add(i + 1);
             if next_entry.name_ptr.is_null() || next_entry.id != entry.id {
-                let game_info = ddgw.game_info() as *const u8;
+                let game_info = (*(*ddgw).ddgame).game_info as *const u8;
                 let default_dir =
                     game_info.add(game_info_offsets::DEFAULT_SPEECH_DIR as usize);
                 let default_base =
@@ -386,7 +386,7 @@ unsafe extern "cdecl" fn load_speech_bank_impl(
                 let _ = full_path2.extend_from_bytes(wav_path2.as_bytes());
 
                 call_load_speech_wav(
-                    ddgw.0,
+                    ddgw as u32,
                     team_index,
                     entry.id,
                     wav_path2.as_ptr(),
@@ -417,21 +417,23 @@ unsafe extern "cdecl" fn load_speech_bank_impl(
 usercall_trampoline!(fn trampoline_load_all_speech_banks;
     impl_fn = load_all_speech_banks_impl; reg = esi);
 
-unsafe extern "cdecl" fn load_all_speech_banks_impl(ddgw: DDGameWrapperHandle) {
-    // Clear speech slot table: DDGame+0x77E4, 0x5A0 bytes
-    core::ptr::write_bytes(ddgw.speech_slot_table(), 0, 0x5A0);
+unsafe extern "cdecl" fn load_all_speech_banks_impl(ddgw: *const DDGameWrapper) {
+    let ddgame = &mut *(*ddgw).ddgame;
+
+    // Clear speech slot table
+    ddgame.speech_slot_table.clear();
 
     // Read team count from GameInfo
-    let game_info = ddgw.game_info();
-    let team_count = (*game_info).speech_team_count as u32;
+    let game_info = &*ddgame.game_info;
+    let team_count = game_info.speech_team_count as u32;
 
     let _ = log_line(&format!(
         "[Speech] LoadAllSpeechBanks: ddgw=0x{:08X} teams={}",
-        ddgw.0, team_count
+        ddgw as u32, team_count
     ));
 
     // Load speech bank for each team
-    let gi = game_info as *const u8;
+    let gi = ddgame.game_info as *const u8;
     for i in 0..team_count {
         let team_offset = (i * game_info_offsets::SPEECH_TEAM_STRIDE) as usize;
         let base_path =

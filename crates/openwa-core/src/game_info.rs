@@ -17,8 +17,14 @@ pub struct GameInfo {
     /// Used by DSSound_LoadAllSpeechBanks to iterate teams.
     pub speech_team_count: u8,
 
-    /// 0x044D-0xDAE7: Unknown
-    pub _unknown_044d: [u8; 0xDAE8 - 0x44D],
+    /// 0x044D-0xD777: Unknown
+    pub _unknown_044d: [u8; 0xD778 - 0x44D],
+
+    /// 0xD778: Crosshair overflow clamp threshold (compared to 0x11E in render).
+    pub crosshair_overflow_threshold: i32,
+
+    /// 0xD77C-0xDAE7: Unknown
+    pub _unknown_d77c: [u8; 0xDAE8 - 0xD77C],
 
     // --- Cluster 1: data paths ---
 

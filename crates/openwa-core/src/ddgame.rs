@@ -1,3 +1,4 @@
+use crate::game_info::GameInfo;
 use crate::render::RenderQueue;
 use crate::speech::SpeechSlotTable;
 
@@ -35,8 +36,8 @@ pub struct DDGame {
     pub _caller: *mut u8,
     /// 0x020: PCLandscape pointer (copied from DDGameWrapper[0x133])
     pub landscape: *mut u8,
-    /// 0x024: Game state pointer (param_10)
-    pub game_state: *mut u8,
+    /// 0x024: GameInfo pointer (passed as param_10 to constructor).
+    pub game_info: *mut GameInfo,
     /// 0x028: param_9
     pub _param_028: *mut u8,
     /// 0x02C: Secondary GfxDir object (0x70C bytes, conditional on GfxHandler 1)
@@ -119,7 +120,7 @@ pub struct DDGame {
     /// 0x7D84-0x7EFF: Unknown
     ///
     /// Known landmarks:
-    /// - 0x7EF8: flag from game_state+0xF914
+    /// - 0x7EF8: flag from game_info+0xF914
     /// - 0x7EFC: init 1
     pub _unknown_7d84: [u8; 0x7F00 - 0x7D84],
 
@@ -162,7 +163,7 @@ const _: () = assert!(core::mem::size_of::<DDGame>() == 0x98B8);
 pub mod offsets {
     // === Header / init params (0x000-0x02C) ===
     pub const LANDSCAPE: usize = 0x020;
-    pub const GAME_STATE: usize = 0x024;
+    pub const GAME_INFO: usize = 0x024;
     pub const SECONDARY_GFXDIR: usize = 0x02C;
     pub const GRADIENT_IMAGE: usize = 0x030;
 

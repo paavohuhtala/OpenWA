@@ -281,7 +281,7 @@ fn validate_struct_offsets(result: &mut ValidationResult) {
     let _ = log_validation("");
     let _ = log_validation("  DDGame:");
     check_offset!(result, DDGame, landscape, 0x20);
-    check_offset!(result, DDGame, game_state, 0x24);
+    check_offset!(result, DDGame, game_info, 0x24);
     check_offset!(result, DDGame, arrow_sprites, 0x38);
     check_offset!(result, DDGame, arrow_gfxdirs, 0xB8);
     check_offset!(result, DDGame, display_gfx, 0x138);
