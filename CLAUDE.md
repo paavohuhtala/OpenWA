@@ -19,13 +19,13 @@ cargo build -p openwa-wormkit --release
 cargo build -p openwa-validator --release
 
 # Run tests (openwa-types is pure Rust, works on any host)
-cargo test -p openwa-types
+cargo test -p openwa-core
 
 # Run harness tests (must be 32-bit, needs WA.exe on disk)
 cargo test --target i686-pc-windows-msvc -p openwa-harness
 
 # Single test
-cargo test -p openwa-types -- scheme_parse::parse_beginner_v2
+cargo test -p openwa-core -- scheme_parse::parse_beginner_v2
 ```
 
 ## Deploy to Game
@@ -70,7 +70,7 @@ Environment variables:
 
 ## Crate Architecture
 
-- **`openwa-types`** — Enums, structs, addresses, parsers (no_std compatible). The source of truth for all reverse-engineered type layouts and known addresses (`address.rs`). No game dependency.
+- **`openwa-core`** — Types, addresses, parsers, ASLR rebasing, and typed WA function wrappers. The source of truth for all reverse-engineered type layouts and known addresses (`address.rs`). Contains `rebase` (ASLR delta), `wa_call` (calling convention helpers), and `wa/` (typed handle wrappers like `DDGameWrapperHandle`, `CWndHandle`).
 - **`openwa-wormkit`** — Unified WormKit cdylib that replaces WA functions with Rust and optionally validates types against live memory. Logs to `OpenWA.log` (hooks) and `OpenWA_validation.log` (validation). Uses MinHook for inline hooking. Validation is enabled via `OPENWA_VALIDATE=1` env var.
 - **`openwa-harness`** — Offline test harness that loads WA.exe into process memory via `LoadLibraryExA(DONT_RESOLVE_DLL_REFERENCES)` for testing without running the game.
 
@@ -106,10 +106,11 @@ For `__usercall` functions, use a naked trampoline to capture register params be
 
 ## Key Files
 
-- `crates/openwa-types/src/address.rs` — All known WA.exe addresses with comments
+- `crates/openwa-core/src/address.rs` — All known WA.exe addresses with comments
+- `crates/openwa-core/src/wa_call.rs` — Helpers for calling WA functions (thiscall, stdcall wrappers)
+- `crates/openwa-core/src/rebase.rs` — ASLR delta computation
+- `crates/openwa-core/src/wa/` — Typed WA function wrappers (MFC, frontend, registry, DDGame)
 - `crates/openwa-wormkit/src/replacements/` — Function replacements (one file per subsystem)
-- `crates/openwa-wormkit/src/wa_call.rs` — Helpers for calling WA functions (thiscall, stdcall wrappers)
-- `crates/openwa-wormkit/src/rebase.rs` — ASLR delta computation
 - `docs/re-notes/` — Reverse engineering documentation (task hierarchy, memory map, frontend screens)
 - `docs/plans/` — Design docs and implementation plans
 

@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
 
-use openwa_types::address::va;
+use openwa_core::address::va;
 
 #[cfg(target_os = "windows")]
 use windows_sys::Win32::System::LibraryLoader::{LoadLibraryExA, DONT_RESOLVE_DLL_REFERENCES};

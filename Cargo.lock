@@ -72,25 +72,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42f5e15c9953c5e4ccceeb2e7382a716482c34515315f7b03532b8b4e8393d2d"
 
 [[package]]
+name = "openwa-core"
+version = "0.1.0"
+dependencies = [
+ "windows-sys",
+]
+
+[[package]]
 name = "openwa-harness"
 version = "0.1.0"
 dependencies = [
  "libc",
- "openwa-types",
+ "openwa-core",
  "windows-sys",
 ]
-
-[[package]]
-name = "openwa-lib"
-version = "0.1.0"
-dependencies = [
- "openwa-types",
- "windows-sys",
-]
-
-[[package]]
-name = "openwa-types"
-version = "0.1.0"
 
 [[package]]
 name = "openwa-wormkit"
@@ -98,8 +93,7 @@ version = "0.1.0"
 dependencies = [
  "heapless",
  "minhook",
- "openwa-lib",
- "openwa-types",
+ "openwa-core",
  "windows-sys",
 ]
 

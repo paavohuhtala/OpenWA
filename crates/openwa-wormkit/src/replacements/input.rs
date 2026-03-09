@@ -14,10 +14,10 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 use crate::hook;
 use crate::log_line;
-use openwa_lib::rebase::rb;
-use openwa_types::address::va;
-use openwa_types::ddgame::DDGame;
-use openwa_types::ddgame_wrapper::DDGameWrapper;
+use openwa_core::rebase::rb;
+use openwa_core::address::va;
+use openwa_core::ddgame::DDGame;
+use openwa_core::ddgame_wrapper::DDGameWrapper;
 
 /// Trampoline to the original TurnManager_ProcessFrame.
 static ORIG_TURN_MANAGER: AtomicU32 = AtomicU32::new(0);

@@ -1,5 +1,0 @@
-[package]
-name = "openwa-types"
-version = "0.1.0"
-edition = "2021"
-description = "Type definitions for Worms Armageddon reverse engineering"

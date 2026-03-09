@@ -9,10 +9,10 @@
 
 use std::sync::atomic::Ordering;
 
-use openwa_types::address::va;
-use openwa_types::ddgame::{DDGame, SoundQueueEntry};
-use openwa_types::sound::SoundId;
-use openwa_types::task::CGameTask;
+use openwa_core::address::va;
+use openwa_core::ddgame::{DDGame, SoundQueueEntry};
+use openwa_core::sound::SoundId;
+use openwa_core::task::CGameTask;
 
 use crate::hook;
 use crate::log_line;

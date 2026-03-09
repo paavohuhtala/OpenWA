@@ -6,9 +6,9 @@
 //! - SubtractAmmo (0x522680): decrement ammo count
 //! - CountAliveWorms (0x5225A0): check if >1 worm alive on team
 
-use openwa_types::address::va;
-use openwa_types::ddgame::{self, TeamArenaRef};
-use openwa_types::weapon::Weapon;
+use openwa_core::address::va;
+use openwa_core::ddgame::{self, TeamArenaRef};
+use openwa_core::weapon::Weapon;
 
 use crate::hook::{self, usercall_trampoline};
 

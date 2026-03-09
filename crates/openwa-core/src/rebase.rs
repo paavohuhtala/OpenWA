@@ -2,7 +2,7 @@
 
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use openwa_types::address::va;
+use crate::address::va;
 
 /// Delta to add to Ghidra addresses to get runtime addresses.
 static REBASE_DELTA: AtomicU32 = AtomicU32::new(0);

@@ -2,7 +2,7 @@
 
 use crate::rebase::rb;
 use crate::wa_call;
-use openwa_types::address::va;
+use crate::address::va;
 
 /// Zero-cost handle to a CWnd-derived MFC window (raw pointer as u32).
 #[derive(Clone, Copy)]

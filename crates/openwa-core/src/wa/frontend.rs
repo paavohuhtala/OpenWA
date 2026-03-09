@@ -1,7 +1,7 @@
 //! WA-internal frontend function wrappers.
 
 use crate::rebase::rb;
-use openwa_types::address::va;
+use crate::address::va;
 
 /// Frontend__PaletteAnimation (0x422180)
 ///

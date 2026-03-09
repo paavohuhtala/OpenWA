@@ -1,7 +1,7 @@
 //! Typed handle for DDGameWrapper — the main game engine wrapper object.
 
-use openwa_types::ddgame::DDGame;
-use openwa_types::game_info::GameInfo;
+use crate::ddgame::DDGame;
+use crate::game_info::GameInfo;
 
 /// Zero-cost handle to a DDGameWrapper instance (raw pointer as u32).
 ///

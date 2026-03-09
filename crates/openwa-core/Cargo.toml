@@ -1,11 +1,8 @@
 [package]
-name = "openwa-lib"
+name = "openwa-core"
 version = "0.1.0"
 edition = "2021"
-description = "Shared library for calling WA.exe functions with typed wrappers"
-
-[dependencies]
-openwa-types = { path = "../openwa-types" }
+description = "Core library for Worms Armageddon reverse engineering — types, addresses, and runtime utilities"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows-sys = { version = "0.59", features = [

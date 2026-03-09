@@ -12,10 +12,10 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 use heapless::CString;
 
-use openwa_lib::rebase::rb;
-use openwa_lib::wa::ddgame::DDGameWrapperHandle;
-use openwa_types::address::va::{self, game_info_offsets};
-use openwa_types::speech::SpeechLineTableEntry;
+use openwa_core::rebase::rb;
+use openwa_core::wa::ddgame::DDGameWrapperHandle;
+use openwa_core::address::va::{self, game_info_offsets};
+use openwa_core::speech::SpeechLineTableEntry;
 
 use crate::hook::{self, usercall_trampoline};
 use crate::log_line;

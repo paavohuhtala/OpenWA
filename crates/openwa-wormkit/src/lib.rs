@@ -54,7 +54,7 @@ fn clear_log() -> std::io::Result<()> {
 fn run() -> Result<(), String> {
     let _ = clear_log();
 
-    let delta = openwa_lib::rebase::init();
+    let delta = openwa_core::rebase::init();
     let _ = log_line(&format!(
         "=== OpenWA WormKit DLL loaded ===\n  ASLR delta: 0x{delta:08X}"
     ));

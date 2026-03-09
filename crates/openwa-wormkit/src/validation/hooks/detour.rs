@@ -5,8 +5,8 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 use minhook::MinHook;
 
-use openwa_lib::rebase::rb;
-use openwa_types::address::va;
+use openwa_core::rebase::rb;
+use openwa_core::address::va;
 
 use super::log_validation;
 

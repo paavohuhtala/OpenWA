@@ -15,9 +15,9 @@ use std::path::Path;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use crate::log_line;
-use openwa_lib::rebase::rb;
-use openwa_types::address::va;
-use openwa_types::scheme::{
+use openwa_core::rebase::rb;
+use openwa_core::address::va;
+use openwa_core::scheme::{
     ExtendedOptions, SchemeFile, SchemeVersion, EXTENDED_OPTIONS_DEFAULTS, EXTENDED_OPTIONS_SIZE,
     SCHEME_PAYLOAD_V1, SCHEME_PAYLOAD_V2, SCHEME_PAYLOAD_V3,
 };
@@ -355,7 +355,7 @@ unsafe extern "fastcall" fn hook_init_from_data(
     dest: u32,
     name_cstring: u32,
 ) {
-    use openwa_lib::wa::mfc::{cstring_release, CStringRef};
+    use openwa_core::wa::mfc::{cstring_release, CStringRef};
 
     // Step 1: Copy 0xD8 bytes (V1 payload) from src_data to dest+0x14
     core::ptr::copy_nonoverlapping(
@@ -440,7 +440,7 @@ unsafe extern "stdcall" fn hook_scan_directory(cstring_param: u32) {
     let _ = log_line("[Scheme] ScanDirectory completed (Rust)");
 
     // Release the CString parameter's refcount (caller transferred ownership)
-    openwa_lib::wa::mfc::cstring_release(cstring_param);
+    openwa_core::wa::mfc::cstring_release(cstring_param);
 }
 
 /// Parse a scheme filename matching the pattern `{{DD}} name.wsc`.
@@ -530,7 +530,7 @@ const BUILTIN_SCHEME_NAMES: [&str; 14] = [
 /// Zeros slot flags, scans for existing scheme files, then extracts missing
 /// built-in schemes from PE resources (type "SCHEMES") to User\Schemes\.
 unsafe extern "stdcall" fn hook_extract_builtins() {
-    use openwa_lib::wa::resource;
+    use openwa_core::wa::resource;
 
     // Step 1: Zero 16 bytes of slot flags (4 DWORDs covering slots 0-15)
     let slot_flags = rb(va::SCHEME_SLOT_FLAGS) as *mut u8;

@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+
 pub mod class_type;
 pub mod message;
 pub mod weapon;
@@ -16,3 +18,6 @@ pub mod game_info;
 pub mod scheme;
 pub mod speech;
 pub mod address;
+pub mod rebase;
+pub mod wa;
+pub mod wa_call;

@@ -317,7 +317,7 @@ use std::ffi::c_void;
 use minhook::MinHook;
 
 use crate::log_line;
-use openwa_lib::rebase::rb;
+use openwa_core::rebase::rb;
 
 /// Install a MinHook inline hook on a WA.exe function.
 ///

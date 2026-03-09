@@ -3,10 +3,10 @@
 //! All functions enqueue commands to the RenderQueue's downward-growing buffer.
 //! Calling conventions are __usercall variants with register + stack params.
 
-use openwa_lib::rebase::rb;
-use openwa_types::address::va;
-use openwa_types::render::*;
-use openwa_types::task::{BungeeTrailTask, WeaponAimTask};
+use openwa_core::rebase::rb;
+use openwa_core::address::va;
+use openwa_core::render::*;
+use openwa_core::task::{BungeeTrailTask, WeaponAimTask};
 
 use crate::hook::{self, usercall_trampoline};
 

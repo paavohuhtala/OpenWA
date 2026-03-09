@@ -1,4 +1,4 @@
-//! Runtime validation of openwa-types against live WA.exe memory.
+//! Runtime validation of openwa-core against live WA.exe memory.
 //!
 //! Enabled by setting `OPENWA_VALIDATE=1` environment variable.
 //! When `OPENWA_REPLAY_TEST=1` is also set, enters auto-capture mode:
@@ -9,11 +9,11 @@ mod hooks;
 
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use openwa_lib::rebase::rb;
-use openwa_types::address::va;
-use openwa_types::task::{CTask, CGameTask};
-use openwa_types::ddgame::DDGame;
-use openwa_types::ddgame_wrapper::DDGameWrapper;
+use openwa_core::rebase::rb;
+use openwa_core::address::va;
+use openwa_core::task::{CTask, CGameTask};
+use openwa_core::ddgame::DDGame;
+use openwa_core::ddgame_wrapper::DDGameWrapper;
 
 static DUMP_COUNTER: AtomicU32 = AtomicU32::new(0);
 
@@ -402,7 +402,7 @@ fn deferred_global_validation() {
 // ---------------------------------------------------------------------------
 
 fn dump_team_blocks() {
-    use openwa_types::ddgame::{offsets, TeamArenaRef};
+    use openwa_core::ddgame::{offsets, TeamArenaRef};
 
     let dump_num = DUMP_COUNTER.fetch_add(1, Ordering::Relaxed);
     let _ = log_validation("");
@@ -597,7 +597,7 @@ fn dump_team_blocks() {
 // ---------------------------------------------------------------------------
 
 fn dump_landscape() {
-    use openwa_types::landscape::PCLandscape;
+    use openwa_core::landscape::PCLandscape;
 
     let dump_num = DUMP_COUNTER.fetch_add(1, Ordering::Relaxed);
     let _ = log_validation("");
