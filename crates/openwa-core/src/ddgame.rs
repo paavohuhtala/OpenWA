@@ -1,4 +1,5 @@
 use crate::game_info::GameInfo;
+use crate::landscape::PCLandscape;
 use crate::render::RenderQueue;
 use crate::speech::SpeechSlotTable;
 
@@ -35,7 +36,7 @@ pub struct DDGame {
     /// 0x01C: Caller/parent pointer (param_1)
     pub _caller: *mut u8,
     /// 0x020: PCLandscape pointer (copied from DDGameWrapper[0x133])
-    pub landscape: *mut u8,
+    pub landscape: *mut PCLandscape,
     /// 0x024: GameInfo pointer (passed as param_10 to constructor).
     pub game_info: *mut GameInfo,
     /// 0x028: param_9

@@ -1,4 +1,5 @@
 use crate::ddgame::DDGame;
+use crate::landscape::PCLandscape;
 
 /// DDGameWrapper — large wrapper around DDGame.
 ///
@@ -34,7 +35,7 @@ pub struct DDGameWrapper {
     /// 0x4C8: Graphics mode flag (DWORD index 0x132)
     pub gfx_mode: u32,
     /// 0x4CC: PCLandscape object pointer (DWORD index 0x133)
-    pub landscape: *mut u8,
+    pub landscape: *mut PCLandscape,
     /// 0x4D0: DDDisplay/display object pointer (param2 of constructor)
     pub display: *mut u8,
     /// 0x4D4: DSSound/sound object pointer (param3 of constructor)
