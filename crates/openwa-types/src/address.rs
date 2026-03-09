@@ -313,18 +313,32 @@ pub mod va {
     // === WAV Player ===
 
     /// Opens WAV via mmioOpenA, parses RIFF chunks, creates IDirectSoundBuffer.
-    /// usercall(ESI=result_out) + 3 stack params, RET 0xC.
+    /// usercall(ESI=result_out) + stack(player, path, 0), RET 0xC.
     pub const WAV_PLAYER_LOAD_AND_PLAY: u32 = 0x0059_9B40;
 
     /// Calls IDirectSoundBuffer::Play on loaded buffer.
-    /// usercall(EDI=result_out) + 2 stack params, RET 0x8.
+    /// usercall(EDI=result_out) + stack(player, volume), RET 0x8.
     pub const WAV_PLAYER_PLAY: u32 = 0x0059_96E0;
 
     /// Stops and releases current DirectSound buffer.
-    /// usercall(ESI=ctx, EDI=result_out), plain RET.
+    /// usercall(ESI=player, EDI=result_out), plain RET.
     pub const WAV_PLAYER_STOP: u32 = 0x0059_9670;
 
     // === Fanfare / FE SFX ===
+
+    /// FeSfx WavPlayer global instance (used by PlayFeSfx).
+    pub const FESFX_WAV_PLAYER: u32 = 0x006A_C888;
+
+    /// Fanfare WavPlayer global instance (used by PlayFanfare_Default).
+    pub const FANFARE_WAV_PLAYER: u32 = 0x006A_C890;
+
+    /// WA data path string buffer (char[0x81]).
+    pub const WA_DATA_PATH: u32 = 0x0088_E282;
+
+    /// Team config fanfare name lookup — jump table with 49 cases (0-48).
+    /// usercall(ECX=index_0based, EAX=output_buf), plain RET.
+    /// Writes null-terminated country/config name into buffer at EAX.
+    pub const GET_TEAM_CONFIG_NAME: u32 = 0x004A_62A0;
 
     /// Builds `\user\Fanfare\<name>.wav`, plays via WavPlayer.
     /// stdcall(team_config_index), RET 0x4.

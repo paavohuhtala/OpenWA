@@ -10,6 +10,7 @@ crate-type = ["cdylib"]
 [dependencies]
 openwa-types = { path = "../openwa-types" }
 openwa-lib = { path = "../openwa-lib" }
+heapless = "0.9"
 minhook = "0.9"
 
 [target.'cfg(target_os = "windows")'.dependencies]
