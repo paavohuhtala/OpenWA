@@ -5,7 +5,6 @@
 
 use openwa_lib::rebase::rb;
 use openwa_types::address::va;
-use openwa_types::ddgame::{offsets as dg, DDGame};
 use openwa_types::render::*;
 use openwa_types::task::{BungeeTrailTask, WeaponAimTask};
 
@@ -380,7 +379,7 @@ unsafe extern "stdcall" fn draw_bungee_trail_impl(
         return;
     }
 
-    let ddgame = &*(task.base.ddgame as *const DDGame);
+    let ddgame = &*task.base.ddgame;
     let rq = &mut *ddgame.render_queue;
 
     let seg_data = task.segment_data;
@@ -504,7 +503,7 @@ unsafe extern "cdecl" fn draw_crosshair_line_impl(task_ptr: u32) {
         return;
     }
 
-    let ddgame = &*(gt.base.ddgame as *const DDGame);
+    let ddgame = &*gt.base.ddgame;
     let rq = &mut *ddgame.render_queue;
 
     let start_x = gt.pos_x.0;
@@ -554,9 +553,8 @@ unsafe extern "cdecl" fn draw_crosshair_line_impl(task_ptr: u32) {
     }
 
     // Enqueue polygon line (2 vertices)
-    let ddgame_ptr = ddgame as *const DDGame as *const u8;
-    let poly_param_1 = *(ddgame_ptr.add(dg::CROSSHAIR_LINE_PARAM_1) as *const u32);
-    let poly_param_2 = *(ddgame_ptr.add(dg::CROSSHAIR_LINE_PARAM_2) as *const u32);
+    let poly_param_1 = ddgame.crosshair_line_style;
+    let poly_param_2 = ddgame.crosshair_line_color;
     let verts: [[i32; 3]; 2] = [
         [start_x, start_y, 0],
         [endpoint_x, endpoint_y, 0],

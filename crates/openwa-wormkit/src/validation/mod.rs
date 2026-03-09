@@ -617,7 +617,7 @@ fn dump_landscape() {
         let _ = log_validation(&format!("  vtable: 0x{:08X} (expected 0x{:08X}) {}",
             land.vtable as u32, expected_vt, if vt_ok { "OK" } else { "MISMATCH" }));
 
-        let _ = log_validation(&format!("  ddgame: 0x{:08X}", land.ddgame as u32));
+        let _ = log_validation(&format!("  ddgame: 0x{:08X}", land.ddgame as usize));
         let _ = log_validation(&format!("  _unknown_900: 0x{:08X}", land._unknown_900 as u32));
         let _ = log_validation(&format!("  collision_bitmap: 0x{:08X}", land.collision_bitmap as u32));
         let _ = log_validation(&format!("  initialized: {}", land.initialized));
@@ -671,13 +671,10 @@ fn dump_landscape() {
         let _ = log_validation(&format!("  level_dir_path: {:?}", level_path));
         let _ = log_validation(&format!("  theme_dir_path: {:?}", theme_path));
 
-        let ddgame_ptr = land.ddgame as u32;
-        if ddgame_ptr != 0 {
-            let level_w = read_u32(ddgame_ptr + 0x77C0);
-            let level_h = read_u32(ddgame_ptr + 0x77C4);
-            let level_total = read_u32(ddgame_ptr + 0x77C8);
+        if !land.ddgame.is_null() {
+            let dg = &*land.ddgame;
             let _ = log_validation(&format!("  DDGame level dims: {}x{} (total={})",
-                level_w, level_h, level_total));
+                dg.level_width, dg.level_height, dg.level_total_pixels));
         }
 
         let _ = log_validation("  Vtable slots:");

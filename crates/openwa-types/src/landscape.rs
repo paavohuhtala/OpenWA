@@ -1,3 +1,5 @@
+use crate::ddgame::DDGame;
+
 /// PCLandscape — terrain/landscape subsystem (0xB40 bytes).
 ///
 /// Created by `PCLandscape__Constructor` (0x57ACB0). Vtable: 0x66B208 (32 slots).
@@ -24,7 +26,7 @@ pub struct PCLandscape {
     /// 0x000: Vtable pointer (0x66B208)
     pub vtable: *mut u8,
     /// 0x004: Parent DDGame pointer (param_1[1])
-    pub ddgame: *mut u8,
+    pub ddgame: *mut DDGame,
     /// 0x008-0x0CB: Pre-rendered crater sprites for 15 explosion sizes.
     /// param_1[2..17]: crater image ptrs, param_1[18..33]: secondary ptrs.
     /// Indexed by `explosion_size * 15 / 100`.

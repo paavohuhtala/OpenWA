@@ -1,4 +1,5 @@
 use crate::class_type::ClassType;
+use crate::ddgame::DDGame;
 use crate::fixed::Fixed;
 
 /// Base task class in WA's entity hierarchy.
@@ -44,7 +45,7 @@ pub struct CTask {
     /// 0x28: 1 if this task owns shared_data (root), 0 if inherited from parent
     pub owns_shared_data: u32,
     /// 0x2C: DDGame pointer (3rd param to CTask::Constructor, stored at this+0x2C)
-    pub ddgame: *mut u8,
+    pub ddgame: *mut DDGame,
 }
 
 const _: () = assert!(core::mem::size_of::<CTask>() == 0x30);

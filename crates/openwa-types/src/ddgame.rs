@@ -76,20 +76,44 @@ pub struct DDGame {
     pub _unknown_528: [u8; 0x20],
     /// 0x548: Weapon panel pointer
     pub weapon_panel: *mut u8,
-    /// 0x54C-0x7EFF: Sparse fields (see offsets module)
+    /// 0x54C-0x7323: Sparse fields (see offsets module)
     ///
     /// Known landmarks:
     /// - 0x64D8: cleared by init
     /// - 0x72A4: cleared by init
-    /// - 0x730C-0x732C: 9 GfxDir color entries
-    /// - 0x7338: fill pixel value
-    /// - 0x77C4: display-related value
-    /// - 0x7EF8: flag from game_state+0xF914
-    /// - 0x7EFC: init 1
+    /// - 0x730C-0x731C: 5 GfxDir color entries
     ///
     /// Also includes FUN_00526120 zeroed offsets at stride 0x194:
     /// 0x379C, 0x3930, 0x3AC4, 0x3C58, 0x3DEC, 0x3F80, 0x4114, 0x42A8, 0x443C, 0x45D0
-    pub _unknown_54c: [u8; 0x7F00 - 0x54C],
+    pub _unknown_54c: [u8; 0x7324 - 0x54C],
+
+    /// 0x7324: Crosshair line color param (DrawPolygon param_2).
+    /// Part of GfxDir color entries at 0x730C.
+    pub crosshair_line_color: u32,
+    /// 0x7328: Unknown (between crosshair params)
+    pub _unknown_7328: [u8; 4],
+    /// 0x732C: Crosshair line style param (DrawPolygon param_1).
+    pub crosshair_line_style: u32,
+    /// 0x7330-0x7337: Unknown
+    pub _unknown_7330: [u8; 8],
+    /// 0x7338: Fill pixel value
+    pub fill_pixel: u32,
+    /// 0x733C-0x77BF: Unknown
+    pub _unknown_733c: [u8; 0x77C0 - 0x733C],
+
+    /// 0x77C0: Level width in pixels (set by PCLandscape constructor).
+    pub level_width: u32,
+    /// 0x77C4: Level height in pixels (set by PCLandscape constructor).
+    pub level_height: u32,
+    /// 0x77C8: Total pixels (width × height).
+    pub level_total_pixels: u32,
+
+    /// 0x77CC-0x7EFF: Unknown
+    ///
+    /// Known landmarks:
+    /// - 0x7EF8: flag from game_state+0xF914
+    /// - 0x7EFC: init 1
+    pub _unknown_77cc: [u8; 0x7F00 - 0x77CC],
 
     // === Sound queue (0x7F00-0x8143) ===
     /// 0x7F00: Sound queue (16 entries, stride 0x24). Appended by PlaySoundGlobal.
@@ -178,12 +202,6 @@ pub mod offsets {
     pub const FIELD_64D8: usize = 0x64D8;
     pub const FIELD_72A4: usize = 0x72A4;
     pub const GFX_COLOR_ENTRIES: usize = 0x730C;
-    /// Crosshair line color param (DrawPolygon param_2). Part of GfxDir color entries.
-    pub const CROSSHAIR_LINE_PARAM_2: usize = 0x7324;
-    /// Crosshair line style param (DrawPolygon param_1). Part of GfxDir color entries.
-    pub const CROSSHAIR_LINE_PARAM_1: usize = 0x732C;
-    pub const FILL_PIXEL: usize = 0x7338;
-    pub const DISPLAY_77C4: usize = 0x77C4;
     pub const FLAG_7EF8: usize = 0x7EF8;
     pub const FIELD_7EFC: usize = 0x7EFC;
     /// Scale factor used by DrawCrosshairLine (multiplied by 0x140000).

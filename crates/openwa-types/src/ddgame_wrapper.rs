@@ -1,3 +1,5 @@
+use crate::ddgame::DDGame;
+
 /// DDGameWrapper — large wrapper around DDGame.
 ///
 /// Created by DDGameWrapper__Constructor (0x56DEF0).
@@ -20,7 +22,7 @@ pub struct DDGameWrapper {
     /// 0x004-0x487: Unknown fields
     pub _unknown_004: [u8; 0x484],
     /// 0x488: Pointer to DDGame allocation (DWORD index 0x122)
-    pub ddgame: *mut u8,
+    pub ddgame: *mut DDGame,
     /// 0x48C: Secondary DDGame struct pointer (0x2C bytes, conditional)
     pub ddgame_secondary: *mut u8,
     /// 0x490-0x4BF: Unknown

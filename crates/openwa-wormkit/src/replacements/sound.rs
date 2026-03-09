@@ -80,7 +80,7 @@ unsafe extern "thiscall" fn hook_play_sound_global(
     }
 
     let task = &*(this as *const CGameTask);
-    queue_sound(task.base.ddgame as *mut DDGame, sound_id, flags, volume, pitch).is_some() as u32
+    queue_sound(task.base.ddgame, sound_id, flags, volume, pitch).is_some() as u32
 }
 
 // ============================================================
@@ -110,7 +110,7 @@ unsafe extern "cdecl" fn play_sound_local_impl(
     }
 
     let gt = &*(task as *const CGameTask);
-    let ddgame = gt.base.ddgame as *mut DDGame;
+    let ddgame = gt.base.ddgame;
     let entry = match queue_sound(ddgame, sound_id, flags, volume, pitch) {
         Some(e) => e,
         None => return 0,

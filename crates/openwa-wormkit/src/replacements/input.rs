@@ -17,22 +17,23 @@ use crate::log_line;
 use openwa_lib::rebase::rb;
 use openwa_types::address::va;
 use openwa_types::ddgame::DDGame;
+use openwa_types::ddgame_wrapper::DDGameWrapper;
 
 /// Trampoline to the original TurnManager_ProcessFrame.
 static ORIG_TURN_MANAGER: AtomicU32 = AtomicU32::new(0);
 
-/// Get the DDGame pointer (session+0xA0 → DDGameWrapper+0x488).
+/// Get the DDGame pointer (session+0xA0 → DDGameWrapper.ddgame).
 #[inline]
 unsafe fn get_ddgame() -> *mut DDGame {
     let session = *(rb(va::G_GAME_SESSION) as *const u32);
     if session == 0 {
         return core::ptr::null_mut();
     }
-    let wrapper = *((session + 0xA0) as *const u32);
-    if wrapper == 0 {
+    let wrapper_ptr = *((session + 0xA0) as *const *const DDGameWrapper);
+    if wrapper_ptr.is_null() {
         return core::ptr::null_mut();
     }
-    *((wrapper + 0x488) as *const *mut DDGame)
+    (*wrapper_ptr).ddgame
 }
 
 /// Hook for TurnManager_ProcessFrame (stdcall, 1 param = TurnGame*).
