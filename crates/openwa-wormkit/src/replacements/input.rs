@@ -10,7 +10,9 @@
 //!
 //! This is the same mechanism triggered by key 0x35 (spacebar) during replay.
 
-use std::sync::atomic::{AtomicU32, Ordering};
+#![allow(dead_code)]
+
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
 use crate::hook;
 use crate::log_line;
@@ -19,8 +21,15 @@ use openwa_core::address::va;
 use openwa_core::ddgame::DDGame;
 use openwa_core::ddgame_wrapper::DDGameWrapper;
 
+extern "system" {
+    fn IsBadReadPtr(lp: *const u8, ucb: u32) -> i32;
+}
+
 /// Trampoline to the original TurnManager_ProcessFrame.
 static ORIG_TURN_MANAGER: AtomicU32 = AtomicU32::new(0);
+
+/// Whether to set fast-forward flag (only in replay test mode).
+static FAST_FORWARD: AtomicBool = AtomicBool::new(false);
 
 /// Get the DDGame pointer (session+0xA0 → DDGameWrapper.ddgame).
 #[inline]
@@ -36,10 +45,94 @@ unsafe fn get_ddgame() -> *mut DDGame {
     (*wrapper_ptr).ddgame
 }
 
-/// Hook for TurnManager_ProcessFrame (stdcall, 1 param = TurnGame*).
+/// Check if a pointer is safe to read.
+#[inline]
+pub unsafe fn can_read(ptr: u32, size: u32) -> bool {
+    ptr >= 0x10000 && IsBadReadPtr(ptr as *const u8, size) == 0
+}
+
+/// Dump a region of DDGame as DWORDs with classification.
 ///
-/// Called every frame from TurnGame_HandleMessage case 2 (FrameFinish).
-/// Sets DDGame.fast_forward_active = 1 to enable multi-frame processing.
+/// Classifies each non-zero DWORD as vtable (.rdata), code (.text), data,
+/// heap object (dereferences to check for vtable), small integer, or raw value.
+pub unsafe fn dump_region(ddgame: *mut DDGame, offset: usize, size: usize, label: &str) {
+    let base_ptr = ddgame as *const u8;
+    let wa_base = rb(va::IMAGE_BASE);
+    let delta = wa_base.wrapping_sub(va::IMAGE_BASE);
+
+    let _ = log_line(&format!("\n=== DDGame+0x{:04X}..0x{:04X}: {} ===", offset, offset + size, label));
+
+    let dword_count = size / 4;
+    for i in 0..dword_count {
+        let field_offset = offset + i * 4;
+        let val = *(base_ptr.add(field_offset) as *const u32);
+        if val == 0 {
+            continue; // Skip zeros to reduce noise
+        }
+
+        let ghidra_val = val.wrapping_sub(delta);
+
+        // Check if value itself is in .rdata (direct vtable pointer)
+        if ghidra_val >= va::RDATA_START && ghidra_val < va::DATA_START {
+            if can_read(val, 4) {
+                let vt0 = *(val as *const u32);
+                let _ = log_line(&format!(
+                    "  +0x{:04X}: 0x{:08X} [VTABLE] g:0x{:08X} vt[0]=g:0x{:08X}",
+                    field_offset, val, ghidra_val, vt0.wrapping_sub(delta)
+                ));
+            } else {
+                let _ = log_line(&format!(
+                    "  +0x{:04X}: 0x{:08X} [VTABLE] g:0x{:08X} (unreadable)",
+                    field_offset, val, ghidra_val
+                ));
+            }
+        } else if ghidra_val >= va::TEXT_START && ghidra_val <= va::TEXT_END {
+            let _ = log_line(&format!(
+                "  +0x{:04X}: 0x{:08X} [CODE] g:0x{:08X}",
+                field_offset, val, ghidra_val
+            ));
+        } else if ghidra_val >= va::DATA_START && ghidra_val < 0x008C5000 {
+            let _ = log_line(&format!(
+                "  +0x{:04X}: 0x{:08X} [DATA] g:0x{:08X}",
+                field_offset, val, ghidra_val
+            ));
+        } else if val < 0x10000 {
+            let _ = log_line(&format!(
+                "  +0x{:04X}: 0x{:08X} [small={}]",
+                field_offset, val, val
+            ));
+        } else if can_read(val, 4) {
+            // Heap pointer — safely read first DWORD to check for vtable
+            let first = *(val as *const u32);
+            let ghidra_first = first.wrapping_sub(delta);
+            if ghidra_first >= va::RDATA_START && ghidra_first < va::DATA_START {
+                // It's an object with a vtable!
+                let vt0_str = if can_read(first, 4) {
+                    let vt0 = *(first as *const u32);
+                    format!("vt[0]=g:0x{:08X}", vt0.wrapping_sub(delta))
+                } else {
+                    "vt[0]=?".to_string()
+                };
+                let _ = log_line(&format!(
+                    "  +0x{:04X}: 0x{:08X} [OBJECT] vtable=g:0x{:08X} {}",
+                    field_offset, val, ghidra_first, vt0_str
+                ));
+            } else {
+                let _ = log_line(&format!(
+                    "  +0x{:04X}: 0x{:08X} [ptr] *=0x{:08X}",
+                    field_offset, val, first
+                ));
+            }
+        } else {
+            let _ = log_line(&format!(
+                "  +0x{:04X}: 0x{:08X} [value]",
+                field_offset, val
+            ));
+        }
+    }
+}
+
+/// Hook for TurnManager_ProcessFrame (stdcall, 1 param = TurnGame*).
 unsafe extern "stdcall" fn hook_turn_manager(turngame: u32) {
     // Call original first
     let orig: unsafe extern "stdcall" fn(u32) =
@@ -51,16 +144,19 @@ unsafe extern "stdcall" fn hook_turn_manager(turngame: u32) {
         return;
     }
 
-    // Set fast-forward active flag
-    (*ddgame).fast_forward_active = 1;
+    // Fast-forward for replay test
+    if FAST_FORWARD.load(Ordering::Relaxed) {
+        (*ddgame).fast_forward_active = 1;
+    }
 }
 
 pub fn install() -> Result<(), String> {
-    if std::env::var("OPENWA_REPLAY_TEST").is_err() {
-        return Ok(());
+    if std::env::var("OPENWA_REPLAY_TEST").is_ok() {
+        FAST_FORWARD.store(true, Ordering::Relaxed);
+        let _ = log_line("[Input] Replay test mode — fast-forward enabled");
     }
 
-    let _ = log_line("[Input] Replay test mode — hooking TurnManager_ProcessFrame for fast-forward");
+    let _ = log_line("[Input] Hooking TurnManager_ProcessFrame");
 
     unsafe {
         let trampoline = hook::install(

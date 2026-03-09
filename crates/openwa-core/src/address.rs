@@ -47,6 +47,8 @@ pub mod va {
     pub const OPENGL_CPU_VTABLE: u32 = 0x0067_74C0;
     /// WaterEffect vtable (0xBC-byte object)
     pub const WATER_EFFECT_VTABLE: u32 = 0x0066_B268;
+    /// CTaskLand vtable - 12 entries, landscape/terrain task (DDGame+0x054C)
+    pub const CTASK_LAND_VTABLE: u32 = 0x0066_4388;
     /// Sprite vtable (0x70-byte objects, 8 entries)
     pub const SPRITE_VTABLE: u32 = 0x0066_418C;
 

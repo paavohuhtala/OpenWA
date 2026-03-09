@@ -8,6 +8,7 @@ use crate::music::Music;
 use crate::palette::Palette;
 use crate::render::RenderQueue;
 use crate::speech::SpeechSlotTable;
+use crate::turn_order::TurnOrderWidget;
 
 /// DDGame — the main game engine object.
 ///
@@ -62,12 +63,16 @@ pub struct DDGame {
     pub arrow_gfxdirs: [*mut u8; 32],
     /// 0x138: DisplayGfx object pointer (vtable 0x664144)
     pub display_gfx: *mut u8,
-    /// 0x13C-0x37F: Unknown
-    pub _unknown_13c: [u8; 0x244],
+    /// 0x13C-0x37F: Sprite/image object cache (145 pointer slots).
+    /// All populated entries have vtable 0x664144 (same class as `display_gfx`).
+    /// Not initialized in DDGame__Constructor — filled during gameplay with
+    /// weapon sprites, effect images, cursor graphics, etc.
+    pub sprite_cache: [*mut u8; 145],
     /// 0x380: TaskStateMachine pointer (vtable 0x664118, 0x2C bytes)
     pub task_state_machine: *mut u8,
-    /// 0x384-0x467: Unknown
-    pub _unknown_384: [u8; 0xE4],
+    /// 0x384-0x467: Additional sprite/image object slots.
+    /// Same vtable 0x664144 as sprite_cache. ~20 entries populated at runtime.
+    pub sprite_cache_2: [*mut u8; 57],
     /// 0x468: Landscape-derived value
     pub _landscape_val: *mut u8,
     /// 0x46C-0x488: 8 SpriteRegion pointers (0x9C bytes each, vtable 0x66B268)
@@ -80,24 +85,98 @@ pub struct DDGame {
     pub coord_list: *mut u8,
     /// 0x510: Weapon table pointer
     pub weapon_table: *mut u8,
-    /// 0x514-0x523: Unknown
-    pub _unknown_514: [u8; 0x10],
+    /// 0x514: Unknown pointer (populated at runtime)
+    pub _unknown_514: *mut u8,
+    /// 0x518: Unknown pointer (populated at runtime)
+    pub _unknown_518: *mut u8,
+    /// 0x51C: Unknown pointer (populated at runtime)
+    pub _unknown_51c: *mut u8,
+    /// 0x520: Unknown (zero in runtime dump)
+    pub _unknown_520: u32,
     /// 0x524: RenderQueue pointer (passed as `this` to all Draw* functions)
     pub render_queue: *mut RenderQueue,
-    /// 0x528-0x547: Unknown
-    pub _unknown_528: [u8; 0x20],
+    /// 0x528: Game state stream object (vtable 0x664194, vt[0]=0x4FB5C0).
+    /// Created in DDGame_InitGameState_Maybe (0x526690), constructor 0x4FB5F0.
+    /// Reads from replay/packet data stream.
+    pub game_state_stream: *mut u8,
+    /// 0x52C: Unknown pointer
+    pub _unknown_52c: *mut u8,
+    /// 0x530: Turn order widget (vtable 0x66A088, vt[0]=0x563E90).
+    /// Constructor 0x563D40. UI component that renders team banners with
+    /// animated sliding transitions (sin-table interpolation). Groups teams
+    /// by alliance, creates per-team entries with textbox + DisplayGfx.
+    pub turn_order_widget: *mut TurnOrderWidget,
+    /// 0x534: HUD panel object (vtable 0x664698, vt[0]=0x5241F0).
+    /// Constructor 0x524070. 104×28 px, 3 DisplayGfx layers, 2296-byte LUT.
+    pub hud_panel: *mut u8,
+    /// 0x538-0x53F: Unknown (zero in runtime dump)
+    pub _unknown_538: [u8; 8],
+    /// 0x540: Unknown pointer
+    pub _unknown_540: *mut u8,
+    /// 0x544: Unknown pointer (*=0x1BC at runtime)
+    pub _unknown_544: *mut u8,
     /// 0x548: Weapon panel pointer
     pub weapon_panel: *mut u8,
-    /// 0x54C-0x7323: Sparse fields (see offsets module)
+    /// 0x54C: CTaskLand pointer (set by CTaskLand__InitLandscape at 0x5056F0).
+    /// The landscape/terrain task. Vtable at 0x664388.
+    pub task_land: *mut u8,
+    /// 0x550-0x25FF: Large unverified region.
+    ///
+    /// Runtime observations (not yet linked to code):
+    /// - 0x5C4: value matches code address 0x5755D0 (fixed-point normalize fn)
+    /// - 0x5C8-0x5FF: small config-like values (2048, 150, 3000, 696, 896, 100, 300)
+    /// - 0x600-0x25FF: identity permutation [0,1,2,...,~2048] — purpose unknown
+    pub _unknown_550: [u8; 0x2600 - 0x550],
+
+    /// 0x2600-0x2DFF: Block of 0xFFFFFFFF values at runtime (512 i32 entries).
+    /// May be unused slots in a parallel table to the 0x600 permutation.
+    pub _unknown_2600: [u8; 0x2E00 - 0x2600],
+
+    /// 0x2E00-0x45EB: Unknown (mostly zero at runtime)
+    ///
+    /// Contains FUN_00526120 zeroed offsets at stride 0x194:
+    /// 0x379C, 0x3930, 0x3AC4, 0x3C58, 0x3DEC, 0x3F80, 0x4114, 0x42A8, 0x443C, 0x45D0
+    pub _unknown_2e00: [u8; 0x45EC - 0x2E00],
+
+    /// 0x45EC: Unknown (0xA307A169 at runtime — not part of team scale arrays).
+    pub _unknown_45ec: u32,
+    /// 0x45F0-0x4607: Per-team health ratio (Fixed-point, 6 entries, 1-indexed).
+    /// 0x10000 = 100% health. Rendered as bar width: `value * 100 >> 16 + 4` pixels.
+    /// Read by TurnOrderTeamEntry render method (0x563620).
+    /// Initialized to 0x10000 (1.0) by TurnOrderTeamEntry constructor (0x5630B0).
+    pub team_health_ratio: [i32; 6],
+    /// 0x4608-0x461F: Per-team health ratio 2 (Fixed-point, 6 entries, 1-indexed).
+    /// Initialized to 0x10000 (1.0). Not read by the render method — may be
+    /// target/previous value for interpolation, or used by update logic.
+    pub team_health_ratio_2: [i32; 6],
+    /// 0x4620-0x64D7: Unknown
     ///
     /// Known landmarks:
     /// - 0x64D8: cleared by init
-    /// - 0x72A4: cleared by init
-    /// - 0x730C-0x731C: 5 GfxDir color entries
-    ///
-    /// Also includes FUN_00526120 zeroed offsets at stride 0x194:
-    /// 0x379C, 0x3930, 0x3AC4, 0x3C58, 0x3DEC, 0x3F80, 0x4114, 0x42A8, 0x443C, 0x45D0
-    pub _unknown_54c: [u8; 0x7324 - 0x54C],
+    pub _unknown_4620: [u8; 0x64D8 - 0x4620],
+    /// 0x64D8: Cleared by init.
+    pub _field_64d8: u32,
+    /// 0x64DC-0x72A3: Unknown
+    pub _unknown_64dc: [u8; 0x72A4 - 0x64DC],
+    /// 0x72A4: Cleared by init.
+    pub _field_72a4: u32,
+    /// 0x72A8-0x72D7: Unknown
+    pub _unknown_72a8: [u8; 0x72D8 - 0x72A8],
+
+    /// 0x72D8: Game speed multiplier (Fixed-point, 0x10000 = 1.0x).
+    pub game_speed: i32,
+    /// 0x72DC: Game speed target (Fixed-point, 0x10000 = 1.0x).
+    pub game_speed_target: i32,
+    /// 0x72E0-0x72EB: Unknown
+    pub _unknown_72e0: [u8; 0x72EC - 0x72E0],
+    /// 0x72EC: RNG state word 1 (changes every frame).
+    pub rng_state_1: u32,
+    /// 0x72F0: RNG state word 2 (changes every frame).
+    pub rng_state_2: u32,
+    /// 0x72F4-0x730B: Unknown
+    pub _unknown_72f4: [u8; 0x730C - 0x72F4],
+    /// 0x730C-0x731C: 5 GfxDir color entries
+    pub _gfx_color_entries: [u8; 0x7324 - 0x730C],
 
     /// 0x7324: Crosshair line color param (DrawPolygon param_2).
     /// Part of GfxDir color entries at 0x730C.
@@ -110,8 +189,56 @@ pub struct DDGame {
     pub _unknown_7330: [u8; 8],
     /// 0x7338: Fill pixel value
     pub fill_pixel: u32,
-    /// 0x733C-0x77BF: Unknown
-    pub _unknown_733c: [u8; 0x77C0 - 0x733C],
+    /// 0x733C-0x737F: Unknown
+    pub _unknown_733c: [u8; 0x7380 - 0x733C],
+
+    /// 0x7380: Viewport width (Fixed-point, e.g. 960.0 = 0x03C00000).
+    pub viewport_width: i32,
+    /// 0x7384: Viewport height (Fixed-point, e.g. 348.0 = 0x015C0000).
+    pub viewport_height: i32,
+    /// 0x7388: Viewport width max/duplicate (Fixed-point).
+    pub viewport_width_2: i32,
+    /// 0x738C: Viewport height max/duplicate (Fixed-point).
+    pub viewport_height_2: i32,
+    /// 0x7390-0x739F: Unknown
+    pub _unknown_7390: [u8; 0x73A0 - 0x7390],
+
+    /// 0x73A0: Camera X position (Fixed-point, e.g. 393.0).
+    pub camera_x: i32,
+    /// 0x73A4: Camera Y position (Fixed-point, e.g. 532.0).
+    pub camera_y: i32,
+    /// 0x73A8: Camera target X (Fixed-point, duplicate/interpolation target).
+    pub camera_target_x: i32,
+    /// 0x73AC: Camera target Y (Fixed-point).
+    pub camera_target_y: i32,
+
+    /// 0x73B0-0x764F: Unknown
+    pub _unknown_73b0: [u8; 0x7650 - 0x73B0],
+
+    /// 0x7650-0x768F: Team index mapping table 1.
+    /// Packed u16 pairs: [0,1], [2,3], ..., [14,15]. Team-to-slot or turn order.
+    pub team_index_map_1: [u8; 0x7690 - 0x7650],
+    /// 0x7690-0x76AF: Unknown
+    pub _unknown_7690: [u8; 0x76B0 - 0x7690],
+    /// 0x76B0-0x76EF: Team index mapping table 2 (same pattern).
+    pub team_index_map_2: [u8; 0x76F0 - 0x76B0],
+    /// 0x76F0-0x7717: Unknown
+    pub _unknown_76f0: [u8; 0x7718 - 0x76F0],
+    /// 0x7718-0x7757: Team index mapping table 3 (similar pattern, slightly different end).
+    pub team_index_map_3: [u8; 0x7758 - 0x7718],
+    /// 0x7758-0x779B: Unknown
+    pub _unknown_7758: [u8; 0x779C - 0x7758],
+
+    /// 0x779C: Level bound min X (Fixed-point, negative = off-screen left).
+    pub level_bound_min_x: i32,
+    /// 0x77A0: Level bound max X (Fixed-point).
+    pub level_bound_max_x: i32,
+    /// 0x77A4: Level bound min Y (Fixed-point, same as min_x typically).
+    pub level_bound_min_y: i32,
+    /// 0x77A8: Level bound max Y (Fixed-point).
+    pub level_bound_max_y: i32,
+    /// 0x77AC-0x77BF: Unknown
+    pub _unknown_77ac: [u8; 0x77C0 - 0x77AC],
 
     /// 0x77C0: Level width in pixels (set by PCLandscape constructor).
     pub level_width: u32,
@@ -127,12 +254,27 @@ pub struct DDGame {
     /// Cleared by DSSound_LoadAllSpeechBanks (0x571A70), filled by DSSound_LoadSpeechWAV (0x571530).
     pub speech_slot_table: SpeechSlotTable,
 
-    /// 0x7D84-0x7EFF: Unknown
-    ///
-    /// Known landmarks:
-    /// - 0x7EF8: flag from game_info+0xF914
-    /// - 0x7EFC: init 1
-    pub _unknown_7d84: [u8; 0x7F00 - 0x7D84],
+    /// 0x7D84-0x7E9F: Unknown
+    pub _unknown_7d84: [u8; 0x7EA0 - 0x7D84],
+
+    /// 0x7EA0: Unknown flag/counter (value 4 at runtime — team count?)
+    pub _field_7ea0: u32,
+    /// 0x7EA4: Unknown
+    pub _unknown_7ea4: u32,
+    /// 0x7EA8: Turn time limit in seconds (150 = 2:30 default).
+    pub turn_time_limit: u32,
+    /// 0x7EAC-0x7ECF: Unknown
+    pub _unknown_7eac: [u8; 0x7ED0 - 0x7EAC],
+    /// 0x7ED0-0x7EEF: Unknown
+    pub _unknown_7ed0: [u8; 0x7EF0 - 0x7ED0],
+    /// 0x7EF0: Unknown flag (-1 = 0xFFFFFFFF at runtime)
+    pub _field_7ef0: i32,
+    /// 0x7EF4: Unknown
+    pub _unknown_7ef4: u32,
+    /// 0x7EF8: Sound available flag (1 when game_info+0xF914 == 0, i.e. not headless).
+    pub sound_available: u32,
+    /// 0x7EFC: Always initialized to 1 in constructor.
+    pub _field_7efc: u32,
 
     // === Sound queue (0x7F00-0x8143) ===
     /// 0x7F00: Sound queue (16 entries, stride 0x24). Appended by PlaySoundGlobal.
@@ -145,14 +287,39 @@ pub struct DDGame {
     /// 0x8150: Scale factor used by DrawCrosshairLine (multiplied by 0x140000).
     pub crosshair_scale: i32,
 
-    /// 0x8154-0x98AF: Remaining fields
+    /// 0x8154-0x818B: Unknown
+    pub _unknown_8154: [u8; 0x818C - 0x8154],
+
+    /// 0x818C: Turn status text buffer (null-terminated ASCII).
+    /// Shows on screen during gameplay, e.g. "Cheesy harkitseee siirtoaan"
+    /// ("Cheesy is considering their move" in Finnish).
+    pub turn_status_text: [u8; 64],
+
+    /// 0x81CC-0x8CBB: Unknown
     ///
     /// Known landmarks:
-    /// - 0x8CBC-0x8CF0: 4x 0x10-byte entries (zeroed at +0, +4)
-    /// - 0x9850-0x9884: 4x 0x10-byte entries (zeroed at +0, +4)
-    /// - 0x98A4: checkpoint active flag
-    /// - 0x98AC: fast-forward request flag
-    pub _unknown_8154: [u8; 0x98B0 - 0x8154],
+    /// - 0x8174: value 0x3FC (1020) at runtime
+    pub _unknown_81cc: [u8; 0x8CBC - 0x81CC],
+
+    /// 0x8CBC-0x8CF8: 4× coordinate entries (0x10-byte stride).
+    /// InitFields zeroes +0 and +4 of each. At runtime contains fixed-point
+    /// screen coordinates (e.g. 393.0, 532.0, 960.0, 348.0).
+    pub coord_entries_8cbc: [u8; 0x8CFC - 0x8CBC],
+
+    /// 0x8CFC-0x984F: Unknown
+    pub _unknown_8cfc: [u8; 0x9850 - 0x8CFC],
+
+    /// 0x9850-0x988F: 4× coordinate entries (0x10-byte stride, zeroed by InitFields).
+    pub coord_entries_9850: [u8; 0x9890 - 0x9850],
+
+    /// 0x9890-0x98A3: Flags
+    pub _unknown_9890: [u8; 0x98A4 - 0x9890],
+    /// 0x98A4: Checkpoint active flag.
+    pub checkpoint_active: u32,
+    /// 0x98A8: Unknown
+    pub _unknown_98a8: u32,
+    /// 0x98AC: Fast-forward request flag.
+    pub fast_forward_request: u32,
 
     /// 0x98B0: Fast-forward active flag.
     /// When set to 1, FUN_005307A0 processes up to 50 game frames per render
@@ -217,14 +384,54 @@ pub mod offsets {
     pub const INIT_TABLE_BASE: usize = 0x379C;
     pub const INIT_TABLE_STRIDE: usize = 0x194;
 
+    // === Game objects (0x528-0x54C) ===
+    pub const GAME_STATE_STREAM: usize = 0x528;
+    pub const TURN_ORDER_WIDGET: usize = 0x530;
+    pub const HUD_PANEL: usize = 0x534;
+    /// CTaskLand pointer (landscape/terrain task, vtable 0x664388).
+    pub const TASK_LAND: usize = 0x54C;
+
+    // === Per-team health ratio (turn order health bar) ===
+    /// Per-team health ratio array (6 × i32, 1-indexed by team).
+    /// 0x10000 = 100%. Rendered as `value * 100 >> 16` pixel width.
+    pub const TEAM_HEALTH_RATIO: usize = 0x45F0;
+    /// Per-team health ratio 2 (6 × i32, 1-indexed by team).
+    pub const TEAM_HEALTH_RATIO_2: usize = 0x4608;
+
+    // === RNG (0x72EC) ===
+    pub const RNG_STATE_1: usize = 0x72EC;
+    pub const RNG_STATE_2: usize = 0x72F0;
+
     // === Sparse fields in upper region ===
-    pub const FIELD_64D8: usize = 0x64D8;
-    pub const FIELD_72A4: usize = 0x72A4;
     pub const GFX_COLOR_ENTRIES: usize = 0x730C;
-    pub const FLAG_7EF8: usize = 0x7EF8;
-    pub const FIELD_7EFC: usize = 0x7EFC;
+
+    // === Camera/viewport (0x7380-0x73AC) ===
+    pub const VIEWPORT_WIDTH: usize = 0x7380;
+    pub const VIEWPORT_HEIGHT: usize = 0x7384;
+    pub const CAMERA_X: usize = 0x73A0;
+    pub const CAMERA_Y: usize = 0x73A4;
+    pub const CAMERA_TARGET_X: usize = 0x73A8;
+    pub const CAMERA_TARGET_Y: usize = 0x73AC;
+
+    // === Game speed (0x72D8) ===
+    pub const GAME_SPEED: usize = 0x72D8;
+    pub const GAME_SPEED_TARGET: usize = 0x72DC;
+
+    // === Level bounds (0x779C-0x77A8) ===
+    pub const LEVEL_BOUND_MIN_X: usize = 0x779C;
+    pub const LEVEL_BOUND_MAX_X: usize = 0x77A0;
+    pub const LEVEL_BOUND_MIN_Y: usize = 0x77A4;
+    pub const LEVEL_BOUND_MAX_Y: usize = 0x77A8;
+    pub const TURN_TIME_LIMIT: usize = 0x7EA8;
+    pub const SOUND_AVAILABLE: usize = 0x7EF8;
     /// Scale factor used by DrawCrosshairLine (multiplied by 0x140000).
     pub const CROSSHAIR_SCALE: usize = 0x8150;
+    /// Turn status text (null-terminated ASCII, shown during gameplay).
+    pub const TURN_STATUS_TEXT: usize = 0x818C;
+    /// Checkpoint active flag.
+    pub const CHECKPOINT_ACTIVE: usize = 0x98A4;
+    /// Fast-forward request flag.
+    pub const FAST_FORWARD_REQUEST: usize = 0x98AC;
 
     // === Speech slot table (DDGame + 0x77E4) ===
     /// Speech slot table: maps (team, speech_line_id) → DSSound buffer index.
