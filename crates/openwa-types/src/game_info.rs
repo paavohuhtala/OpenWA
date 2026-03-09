@@ -8,8 +8,17 @@
 /// The actual struct is likely larger. Conservative size 0xF500.
 #[repr(C)]
 pub struct GameInfo {
-    /// 0x0000-0xDAE7: Unknown
-    pub _unknown_0000: [u8; 0xDAE8],
+    /// 0x0000-0x044B: Unknown
+    pub _unknown_0000: [u8; 0x44C],
+
+    // --- Speech configuration ---
+
+    /// 0x044C: Number of teams with speech banks loaded (byte).
+    /// Used by DSSound_LoadAllSpeechBanks to iterate teams.
+    pub speech_team_count: u8,
+
+    /// 0x044D-0xDAE7: Unknown
+    pub _unknown_044d: [u8; 0xDAE8 - 0x44D],
 
     // --- Cluster 1: data paths ---
 

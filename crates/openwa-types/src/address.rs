@@ -294,16 +294,18 @@ pub mod va {
     /// 61 entries + null terminator. Maps speech line IDs to WAV filenames.
     pub const SPEECH_LINE_TABLE: u32 = 0x006A_F770;
 
-    /// Iterates teams, calls LoadSpeechBank for each. Clears DDGame+0x77E4
-    /// speech slot table. usercall(ESI=DDGame), plain RET.
+    /// Iterates teams, calls LoadSpeechBank for each. Clears DDGameWrapper+0x488→DDGame+0x77E4
+    /// speech slot table. usercall(ESI=DDGameWrapper), plain RET.
     pub const DSSOUND_LOAD_ALL_SPEECH_BANKS: u32 = 0x0057_1A70;
 
     /// Iterates speech line table, calls LoadSpeechWAV per entry.
-    /// usercall(EAX=DDGame) + 3 stack params, RET 0xC.
+    /// usercall(EAX=DDGameWrapper) + 3 stack(team_index, speech_base_path, speech_dir), RET 0xC.
     pub const DSSOUND_LOAD_SPEECH_BANK: u32 = 0x0057_1660;
 
     /// Loads a single speech WAV into DSSound buffer pool.
-    /// usercall(ESI=DDGame, EBX=DDGame) + 4 stack params, RET 0x10.
+    /// Searches/allocates buffer slot, calls DSSound vtable to load WAV file.
+    /// usercall(ESI=DDGameWrapper) + 4 stack(team_index, line_id, wav_path, full_path), RET 0x10.
+    /// Returns 1 on success, 0 on failure.
     pub const DSSOUND_LOAD_SPEECH_WAV: u32 = 0x0057_1530;
 
     /// Loads all 126 SFX WAVs from data\wav\Effects\.
@@ -657,6 +659,25 @@ pub mod va {
     // "game_state" in some code). Access pattern: *(DDGame+0x24) + offset.
 
     pub mod game_info_offsets {
+        // === Speech configuration ===
+
+        /// Number of teams with speech enabled (byte). Used by LoadAllSpeechBanks.
+        pub const SPEECH_TEAM_COUNT: u32 = 0x44C;
+        /// Per-team speech config stride (0xC2 = 0x81 base path + 0x41 dir name).
+        pub const SPEECH_TEAM_STRIDE: u32 = 0xC2;
+        /// Offset to per-team speech base path (char[0x81]).
+        /// Access: GameInfo + SPEECH_BASE_PATH + team_index * SPEECH_TEAM_STRIDE.
+        pub const SPEECH_BASE_PATH: u32 = 0xF486;
+        /// Offset to per-team speech directory name (char[0x41]).
+        /// Access: GameInfo + SPEECH_DIR + team_index * SPEECH_TEAM_STRIDE.
+        pub const SPEECH_DIR: u32 = 0xF507;
+        /// Default speech base path (for fallback when team-specific WAV not found).
+        pub const DEFAULT_SPEECH_BASE_PATH: u32 = 0xF3C4;
+        /// Default speech directory name (for fallback).
+        pub const DEFAULT_SPEECH_DIR: u32 = 0xF445;
+
+        // === Replay configuration ===
+
         /// Replay state flag A — checked by TurnGame_HurryHandler and FrameFinish.
         /// Both DB08 and DB0A must be non-zero for replay-mode hurry path.
         pub const REPLAY_STATE_FLAG_A: u32 = 0xDB08;
