@@ -47,8 +47,22 @@ pub mod va {
     pub const OPENGL_CPU_VTABLE: u32 = 0x0067_74C0;
     /// WaterEffect vtable (0xBC-byte object)
     pub const WATER_EFFECT_VTABLE: u32 = 0x0066_B268;
-    /// CTaskLand vtable - 12 entries, landscape/terrain task (DDGame+0x054C)
+    /// CTaskLand vtable - landscape/terrain task (DDGame+0x054C)
     pub const CTASK_LAND_VTABLE: u32 = 0x0066_4388;
+    /// CTaskWorm vtable - worm entity task (constructor 0x50BFB0)
+    pub const CTASK_WORM_VTABLE: u32 = 0x0066_44C8;
+    /// CTaskTurnGame vtable - global turn flow manager (1 per game)
+    pub const CTASK_TURN_GAME_VTABLE: u32 = 0x0066_9F70;
+    /// CTaskTeam vtable - per-team task (1 per team, constructor 0x555BF0)
+    pub const CTASK_TEAM_VTABLE: u32 = 0x0066_9EE4;
+    /// CTaskFilter vtable - role unclear; 4 instances in a 2-team 3-worm game
+    pub const CTASK_FILTER_VTABLE: u32 = 0x0066_9DAC;
+    /// CTaskDirt vtable - dirt/particle system (1 per game, constructor 0x54EDF0)
+    pub const CTASK_DIRT_VTABLE: u32 = 0x0066_9D74;
+    /// CTaskSpriteAnim vtable - sprite animation manager (1 per game, constructor 0x5466F0)
+    pub const CTASK_SPRITE_ANIM_VTABLE: u32 = 0x0066_9D00;
+    /// CTaskCPU vtable - AI/CPU bot controller (1 per game, constructor 0x548620)
+    pub const CTASK_CPU_VTABLE: u32 = 0x0066_9D54;
     /// Sprite vtable (0x70-byte objects, 8 entries)
     pub const SPRITE_VTABLE: u32 = 0x0066_418C;
 

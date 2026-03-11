@@ -11,7 +11,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 use openwa_core::rebase::rb;
 use openwa_core::address::va;
-use openwa_core::task::{CTask, CGameTask};
+use openwa_core::task::{CTask, CGameTask, SharedDataTable};
 use openwa_core::ddgame::DDGame;
 use openwa_core::ddgame_wrapper::DDGameWrapper;
 
@@ -712,6 +712,215 @@ fn log_hex_dump(data: &[u8]) {
 }
 
 // ---------------------------------------------------------------------------
+// Entity census — enumerate all registered task types via shared_data table
+// ---------------------------------------------------------------------------
+
+fn dump_entity_census() {
+    let _ = log_validation("");
+    let _ = log_validation("--- Entity Census (SharedData hash table) ---");
+
+    unsafe {
+        let session_ptr = read_u32(rb(va::G_GAME_SESSION));
+        if session_ptr == 0 { let _ = log_validation("  No game session — skipping."); return; }
+        let wrapper_addr = read_u32(session_ptr + 0xA0);
+        if wrapper_addr == 0 { let _ = log_validation("  No DDGameWrapper."); return; }
+        let ddgame_ptr = read_u32(wrapper_addr + 0x488);
+        if ddgame_ptr == 0 { let _ = log_validation("  No DDGame."); return; }
+
+        let task_land_ptr = read_u32(ddgame_ptr + 0x54C);
+        if task_land_ptr == 0 {
+            let _ = log_validation("  CTaskLand NULL — game not loaded yet.");
+            return;
+        }
+
+        let task_land = task_land_ptr as *const CTask;
+        let shared_data_ptr = (*task_land).shared_data;
+        if shared_data_ptr.is_null() {
+            let _ = log_validation("  shared_data is NULL.");
+            return;
+        }
+
+        let table = SharedDataTable::from_ptr(shared_data_ptr);
+
+        // Name table: Ghidra VA → display name
+        let known: &[(u32, &str)] = &[
+            (va::CTASK_WORM_VTABLE,        "CTaskWorm"),
+            (va::CTASK_LAND_VTABLE,        "CTaskLand"),
+            (va::CTASK_TURN_GAME_VTABLE,   "CTaskTurnGame"),
+            (va::CTASK_TEAM_VTABLE,        "CTaskTeam"),
+            (va::CTASK_FILTER_VTABLE,      "CTaskFilter"),
+            (va::CTASK_DIRT_VTABLE,        "CTaskDirt"),
+            (va::CTASK_SPRITE_ANIM_VTABLE, "CTaskSpriteAnim"),
+            (va::CTASK_CPU_VTABLE,         "CTaskCPU"),
+            (va::CTASK_VTABLE,             "CTask"),
+            (va::CGAMETASK_VTABLE,         "CGameTask"),
+        ];
+
+        // Collect (ghidra_va, entity_ptr) for every node.
+        let delta = rb(va::IMAGE_BASE).wrapping_sub(va::IMAGE_BASE);
+        let mut entries: Vec<(u32, u32)> = Vec::new();
+        let mut total = 0u32;
+
+        for node in table.iter() {
+            let entity = (*node).entity;
+            if entity.is_null() { continue; }
+            let vtable_runtime = read_u32(entity as u32);
+            if !is_in_rdata(vtable_runtime) { continue; }
+            let vtable_ghidra = vtable_runtime.wrapping_sub(delta);
+            entries.push((vtable_ghidra, entity as u32));
+            total += 1;
+        }
+
+        let _ = log_validation(&format!("  Total entities: {}", total));
+
+        // Group by vtable, sort by count descending.
+        let mut groups: Vec<(u32, Vec<u32>)> = Vec::new();
+        for (vt, ptr) in &entries {
+            if let Some(g) = groups.iter_mut().find(|(v, _)| *v == *vt) {
+                g.1.push(*ptr);
+            } else {
+                groups.push((*vt, vec![*ptr]));
+            }
+        }
+        groups.sort_by(|a, b| b.1.len().cmp(&a.1.len()));
+
+        for (vt_ghidra, ptrs) in &groups {
+            let name = known.iter().find(|(v, _)| *v == *vt_ghidra)
+                .map(|(_, n)| *n)
+                .unwrap_or("UNKNOWN");
+            let _ = log_validation(&format!(
+                "  {:>3}x  {:<20}  (vtable 0x{:08X})",
+                ptrs.len(), name, vt_ghidra
+            ));
+            for &ptr in ptrs.iter().take(8) {
+                use openwa_core::task::CTaskWorm;
+                if *vt_ghidra == va::CTASK_WORM_VTABLE {
+                    let w = &*(ptr as *const CTaskWorm);
+                    let nlen = w.worm_name.iter().position(|&c| c == 0).unwrap_or(w.worm_name.len());
+                    let wname = core::str::from_utf8(&w.worm_name[..nlen]).unwrap_or("?");
+                    let _ = log_validation(&format!(
+                        "       @ 0x{:08X}  team={} idx={} state=0x{:02X} name=\"{}\"",
+                        ptr, w.team_index, w.worm_index, w.state(), wname
+                    ));
+                } else {
+                    let a = read_u32(ptr + 4);
+                    let b = read_u32(ptr + 8);
+                    let c = read_u32(ptr + 12);
+                    let d = read_u32(ptr + 16);
+                    let _ = log_validation(&format!(
+                        "       @ 0x{:08X}  [+4:{:08X} +8:{:08X} +c:{:08X} +10:{:08X}]",
+                        ptr, a, b, c, d
+                    ));
+                }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// CTaskWorm entity dump
+// ---------------------------------------------------------------------------
+
+fn dump_worm_tasks() {
+    use openwa_core::task::CTaskWorm;
+
+    let _ = log_validation("");
+    let _ = log_validation("--- CTaskWorm Entity Dump ---");
+
+    unsafe {
+        let session_ptr = read_u32(rb(va::G_GAME_SESSION));
+        if session_ptr == 0 { let _ = log_validation("  No game session — skipping."); return; }
+
+        let wrapper_addr = read_u32(session_ptr + 0xA0);
+        if wrapper_addr == 0 { let _ = log_validation("  No DDGameWrapper."); return; }
+
+        let ddgame_ptr = read_u32(wrapper_addr + 0x488);
+        if ddgame_ptr == 0 { let _ = log_validation("  No DDGame."); return; }
+
+        // DDGame+0x54C = CTaskLand* — always present once map is loaded.
+        let task_land_ptr = read_u32(ddgame_ptr + 0x54C);
+        if task_land_ptr == 0 {
+            let _ = log_validation("  CTaskLand is NULL — game not fully loaded yet.");
+            return;
+        }
+        let _ = log_validation(&format!("  DDGame @ 0x{:08X}", ddgame_ptr));
+        let _ = log_validation(&format!("  CTaskLand @ 0x{:08X}", task_land_ptr));
+
+        // CTask.shared_data at +0x24 — root tasks own 0x420 bytes with a
+        // 256-bucket hash table (FUN_005406a0). All tasks in the same game
+        // tree share this block via the inherited shared_data pointer.
+        let task_land = task_land_ptr as *const CTask;
+        let shared_data_ptr = (*task_land).shared_data;
+        if shared_data_ptr.is_null() {
+            let _ = log_validation("  shared_data is NULL.");
+            return;
+        }
+        let _ = log_validation(&format!("  shared_data @ 0x{:08X}", shared_data_ptr as u32));
+
+        let table = SharedDataTable::from_ptr(shared_data_ptr);
+
+        let expected_vtable = rb(va::CTASK_WORM_VTABLE) as *const u8;
+        let _ = log_validation(&format!("  Expected CTaskWorm vtable: 0x{:08X}", expected_vtable as u32));
+
+        let mut worm_count = 0u32;
+
+        for node in table.iter() {
+            let candidate = (*node).entity;
+            if candidate.is_null() { continue; }
+            // Vtable is the first pointer in the object; must be in .rdata.
+            let vtable = read_u32(candidate as u32) as *const u8;
+            if !is_in_rdata(vtable as u32) || vtable != expected_vtable { continue; }
+
+            worm_count += 1;
+            let worm = &*(candidate as *const CTaskWorm);
+
+            let state = worm.state();
+            let pos_x_f = worm.base.pos_x.0 as f32 / 65536.0;
+            let pos_y_f = worm.base.pos_y.0 as f32 / 65536.0;
+            let team_idx = worm.team_index;
+            let worm_idx = worm.worm_index;
+            let slot_id = worm.slot_id;
+
+            let name_len = worm.worm_name.iter().position(|&c| c == 0).unwrap_or(worm.worm_name.len());
+            let name = core::str::from_utf8(&worm.worm_name[..name_len]).unwrap_or("?");
+
+            let _ = log_validation(&format!(
+                "  worm#{} @ 0x{:08X}: team={} worm_idx={} slot={} state=0x{:04X} pos=({:.1},{:.1}) name=\"{}\"",
+                worm_count, candidate as u32,
+                team_idx, worm_idx, slot_id,
+                state, pos_x_f, pos_y_f, name
+            ));
+
+            // Cross-validate against WormEntry in TeamArena.
+            // WormEntry = DDGame+0x4090 + team*0x51C + worm_idx*0x9C
+            //   +0x00: state, +0x78: name (17 bytes)
+            if team_idx < 6 && worm_idx < 8 {
+                let entry_addr = ddgame_ptr + 0x4090 + team_idx * 0x51C + worm_idx * 0x9C;
+                let entry_state = read_u32(entry_addr);
+                let mut entry_name = [0u8; 17];
+                for i in 0..17usize {
+                    entry_name[i] = read_u8(entry_addr + 0x78 + i as u32);
+                    if entry_name[i] == 0 { break; }
+                }
+                let entry_name_len = entry_name.iter().position(|&c| c == 0).unwrap_or(17);
+                let entry_name_str = core::str::from_utf8(&entry_name[..entry_name_len]).unwrap_or("?");
+
+                let state_msg = if state == entry_state { "state:OK".to_string() }
+                    else { format!("state:MISMATCH(entry=0x{:04X})", entry_state) };
+                let name_msg = if name == entry_name_str { "name:OK".to_string() }
+                    else { format!("name:MISMATCH(entry=\"{}\")", entry_name_str) };
+                let _ = log_validation(&format!(
+                    "    xcheck WormEntry[{},{}] @ 0x{:08X}: {} {}",
+                    team_idx, worm_idx, entry_addr, state_msg, name_msg
+                ));
+            }
+        }
+
+        let _ = log_validation(&format!("  Total CTaskWorm entities found: {}", worm_count));
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Public entry point — called from wormkit's run()
 // ---------------------------------------------------------------------------
 
@@ -773,6 +982,10 @@ pub fn run() -> Result<(), String> {
             std::thread::sleep(std::time::Duration::from_secs(3));
             let _ = log_validation("  Running deferred global validation...");
             deferred_global_validation();
+            let _ = log_validation("  Running entity census (5s mark)...");
+            dump_entity_census();
+            let _ = log_validation("  Running worm entity dump (5s mark)...");
+            dump_worm_tasks();
 
             // Wait briefly for replay to start, then dump game state
             // (fast-forward finishes the replay in ~10-15s total, so dump early)
@@ -827,18 +1040,18 @@ pub fn start_hotkeys() {
 
     std::thread::spawn(|| {
         use windows_sys::Win32::UI::Input::KeyboardAndMouse::GetAsyncKeyState;
-        const VK_F9: i32 = 0x78;
+        const VK_F9: i32  = 0x78;
         const VK_F10: i32 = 0x79;
-        let _ = log_validation("  Hotkey listener started (F9=team blocks, F10=landscape).");
+        const VK_F11: i32 = 0x7A;
+        const VK_F12: i32 = 0x7B;
+        let _ = log_validation("  Hotkeys: F9=team blocks, F10=landscape, F11=worm tasks, F12=entity census");
         loop {
             std::thread::sleep(std::time::Duration::from_millis(100));
             unsafe {
-                if GetAsyncKeyState(VK_F9) & 1 != 0 {
-                    dump_team_blocks();
-                }
-                if GetAsyncKeyState(VK_F10) & 1 != 0 {
-                    dump_landscape();
-                }
+                if GetAsyncKeyState(VK_F9) & 1 != 0 { dump_team_blocks(); }
+                if GetAsyncKeyState(VK_F10) & 1 != 0 { dump_landscape(); }
+                if GetAsyncKeyState(VK_F11) & 1 != 0 { dump_worm_tasks(); }
+                if GetAsyncKeyState(VK_F12) & 1 != 0 { dump_entity_census(); }
             }
         }
     });
