@@ -3,7 +3,7 @@ use openwa_core::address::va;
 use openwa_core::ddgame::DDGame;
 use openwa_core::ddgame_wrapper::DDGameWrapper;
 use openwa_core::rebase::rb;
-use openwa_core::task::{CTask, CTaskWorm};
+use openwa_core::task::{CTask, CTaskCloud, CTaskMine, CTaskOilDrum, CTaskWorm};
 
 use crate::log;
 
@@ -398,6 +398,64 @@ impl DebugApp {
                                 }
                             }
                         }
+                    });
+            }
+
+            // --- CTaskMine-specific fields ---
+            if name == "CTaskMine" {
+                let mine = addr as *const CTaskMine;
+                egui::CollapsingHeader::new("CTaskMine")
+                    .default_open(true)
+                    .show(ui, |ui| {
+                        egui::Grid::new("mine_grid").striped(true).show(ui, |ui| {
+                            ui.label("pos_x");      ui.label(format!("{:.1}", (*mine).base.pos_x.to_f32()));    ui.end_row();
+                            ui.label("pos_y");      ui.label(format!("{:.1}", (*mine).base.pos_y.to_f32()));    ui.end_row();
+                            ui.label("speed_x");    ui.label(format!("{:.4}", (*mine).base.speed_x.to_f32())); ui.end_row();
+                            ui.label("speed_y");    ui.label(format!("{:.4}", (*mine).base.speed_y.to_f32())); ui.end_row();
+                            let ft = (*mine).fuse_timer;
+                            let ft_label = if ft < 0 { "disarmed".to_owned() } else if ft == 0 { "ARMED".to_owned() } else { format!("{} ticks", ft) };
+                            ui.label("fuse_timer"); ui.label(ft_label);                                         ui.end_row();
+                            ui.label("owner_team"); ui.label(format!("{}", (*mine).owner_team));                ui.end_row();
+                            ui.label("slot_id");    ui.label(format!("{}", (*mine).slot_id));                   ui.end_row();
+                        });
+                    });
+            }
+
+            // --- CTaskOilDrum-specific fields ---
+            if name == "CTaskOilDrum" {
+                let drum = addr as *const CTaskOilDrum;
+                egui::CollapsingHeader::new("CTaskOilDrum")
+                    .default_open(true)
+                    .show(ui, |ui| {
+                        egui::Grid::new("drum_grid").striped(true).show(ui, |ui| {
+                            ui.label("pos_x");      ui.label(format!("{:.1}", (*drum).base.pos_x.to_f32()));    ui.end_row();
+                            ui.label("pos_y");      ui.label(format!("{:.1}", (*drum).base.pos_y.to_f32()));    ui.end_row();
+                            ui.label("speed_x");    ui.label(format!("{:.4}", (*drum).base.speed_x.to_f32())); ui.end_row();
+                            ui.label("speed_y");    ui.label(format!("{:.4}", (*drum).base.speed_y.to_f32())); ui.end_row();
+                            ui.label("health");     ui.label(format!("{}", (*drum).health));                    ui.end_row();
+                            ui.label("on_fire");    ui.label(format!("{}", (*drum).on_fire()));                 ui.end_row();
+                            ui.label("triggered");  ui.label(format!("{}", (*drum).triggered != 0));            ui.end_row();
+                            ui.label("slot_id");    ui.label(format!("{}", (*drum).slot_id));                   ui.end_row();
+                        });
+                    });
+            }
+
+            // --- CTaskCloud-specific fields ---
+            if name == "CTaskCloud" {
+                let cloud = addr as *const CTaskCloud;
+                egui::CollapsingHeader::new("CTaskCloud")
+                    .default_open(true)
+                    .show(ui, |ui| {
+                        egui::Grid::new("cloud_grid").striped(true).show(ui, |ui| {
+                            ui.label("pos_x");       ui.label(format!("{:.1}", (*cloud).pos_x.to_f32()));        ui.end_row();
+                            ui.label("pos_y");       ui.label(format!("{:.1}", (*cloud).pos_y.to_f32()));        ui.end_row();
+                            ui.label("vel_x");       ui.label(format!("{:.4}", (*cloud).vel_x.to_f32()));        ui.end_row();
+                            ui.label("vel_y");       ui.label(format!("{:.4}", (*cloud).vel_y.to_f32()));        ui.end_row();
+                            ui.label("wind_accel");  ui.label(format!("{:.4}", (*cloud).wind_accel.to_f32()));   ui.end_row();
+                            ui.label("wind_target"); ui.label(format!("{:.4}", (*cloud).wind_target.to_f32()));  ui.end_row();
+                            ui.label("layer_depth"); ui.label(format!("{:.1}", (*cloud).layer_depth.to_f32())); ui.end_row();
+                            ui.label("sprite_id");   ui.label(format!("{:#06X}", (*cloud).sprite_id));          ui.end_row();
+                        });
                     });
             }
 

@@ -427,6 +427,51 @@ pub struct CTaskFilter {
 
 const _: () = assert!(core::mem::size_of::<CTaskFilter>() == 0xB4);
 
+/// Airstrike / weather cloud task.
+///
+/// Extends CTask directly (not CGameTask). Clouds drift horizontally with wind,
+/// scroll on a parallax layer, and render as a single sprite.
+///
+/// Allocation: 0x74 bytes (operator new in CTaskTeam__CreateWeatherFilter).
+/// Constructor: 0x5482E0 (usercall ESI=this, EAX=parent).
+/// Vtable: 0x669D38. Class type byte: 0x17.
+///
+/// Three cloud sizes chosen by `cloud_type` param (0/1/2):
+/// - type 0: sprite 0x268 (large),  vel_y 0x200
+/// - type 1: sprite 0x269 (medium), vel_y 0x166
+/// - type 2: sprite 0x26A (small),  vel_y 0xCC
+///
+/// Source: Ghidra decompilation of 0x5482E0 (constructor) and
+///         0x5484C0 (HandleMessage update + render branches).
+#[repr(C)]
+pub struct CTaskCloud {
+    /// 0x00–0x2F: CTask base
+    pub base: CTask,
+    /// 0x30: Parallax scroll layer depth (Fixed; 0x190000 = 25.0 at spawn,
+    /// decrements by 1 each cloud spawned in a batch)
+    pub layer_depth: Fixed,
+    /// 0x34: Y position (Fixed 16.16); updated each frame: pos_y += vel_y
+    pub pos_y: Fixed,
+    /// 0x38: Y velocity (Fixed 16.16; set by cloud type: large=0x200, medium=0x166, small=0xCC)
+    pub vel_y: Fixed,
+    /// 0x3C: Sprite ID passed to DrawSpriteLocal (0x268=large, 0x269=medium, 0x26A=small)
+    pub sprite_id: u32,
+    /// 0x40: X position (Fixed 16.16); wraps at landscape bounds each frame
+    pub pos_x: Fixed,
+    /// 0x44: Unknown (set from EDI at call site)
+    pub _unknown_44: u32,
+    /// 0x48: X velocity base (Fixed 16.16)
+    pub vel_x: Fixed,
+    /// 0x4C: Current wind acceleration (Fixed); converges toward wind_target each frame
+    pub wind_accel: Fixed,
+    /// 0x50: Target wind speed (Fixed); set by message 0x54 (wind-change event)
+    pub wind_target: Fixed,
+    /// 0x54–0x73: Unknown
+    pub _unknown_54: [u8; 0x20],
+}
+
+const _: () = assert!(core::mem::size_of::<CTaskCloud>() == 0x74);
+
 impl CTaskWorm {
     /// Returns the worm's current state code (lives at offset +0x44, inside the
     /// CGameTask base's `_unknown_30` padding region).
@@ -446,6 +491,78 @@ impl CTaskWorm {
     /// (0x6644C8 in Ghidra, rebased at runtime).
     pub unsafe fn vtable(&self) -> &'static CTaskWormVTable {
         &*(self.base.base.vtable as *const CTaskWormVTable)
+    }
+}
+
+/// Land mine entity task.
+///
+/// Extends CGameTask (0xFC bytes). Mines sit on the terrain and arm after
+/// placement; they detonate on contact once armed.
+///
+/// Constructor: 0x506660 (stdcall).
+/// Vtable: 0x6643E8. Class type byte: 0x08.
+///
+/// Source: Ghidra decompilation of 0x506660 (constructor) and
+///         0x5072E0 (HandleMessage, msg 2/0x15/0x1C/0x4B branches).
+#[repr(C)]
+pub struct CTaskMine {
+    /// 0x00–0xFB: CGameTask base (pos at 0x84/0x88, speed at 0x90/0x94)
+    pub base: CGameTask,
+    /// 0xFC–0x10F: Unknown mine flags
+    pub _unknown_fc: [u8; 0x14],
+    /// 0x110: Object pool slot index (assigned from DDGame+0x3600 pool)
+    pub slot_id: u32,
+    /// 0x114–0x11B: Unknown
+    pub _unknown_114: [u8; 8],
+    /// 0x11C: Fuse timer (signed i32).
+    /// Negative = just placed / disarmed.
+    /// 0 = armed (will trigger on contact).
+    /// Positive = countdown ticks remaining.
+    pub fuse_timer: i32,
+    /// 0x120–0x123: Unknown (init data param_3[0])
+    pub _unknown_120: u32,
+    /// 0x124: Owner team index (param_3[6]; -1 = no owner)
+    pub owner_team: i32,
+}
+
+const _: () = assert!(core::mem::size_of::<CTaskMine>() == 0x128);
+
+/// Exploding oil drum entity task.
+///
+/// Extends CGameTask (0xFC bytes). Oil drums roll on terrain and explode
+/// when hit enough times (health decrements per impact).
+///
+/// Constructor: 0x504AF0 (thiscall).
+/// Vtable: 0x664338. Class type byte: 0x1E.
+///
+/// Source: Ghidra decompilation of 0x504AF0 (constructor) and
+///         0x5050B0 (HandleMessage, msg 2/0x1C branches).
+#[repr(C)]
+pub struct CTaskOilDrum {
+    /// 0x00–0xFB: CGameTask base (pos at 0x84/0x88, speed at 0x90/0x94)
+    pub base: CGameTask,
+    /// 0xFC: Triggered flag — set to 1 on first impact, starts smoke/fire
+    pub triggered: u32,
+    /// 0x100: Object pool slot index
+    pub slot_id: u32,
+    /// 0x104: Unknown
+    pub _unknown_104: u32,
+    /// 0x108: Health (starts at 0x32 = 50; decremented on damage)
+    pub health: u32,
+    /// 0x10C: Rolling animation counter (increments by 0x4000 per frame while moving)
+    pub roll_counter: u32,
+}
+
+const _: () = assert!(core::mem::size_of::<CTaskOilDrum>() == 0x110);
+
+impl CTaskOilDrum {
+    /// Returns true if the drum is on fire (flag at CGameTask+0xB0, inside _unknown_98).
+    ///
+    /// # Safety
+    /// `self` must be a valid, fully-constructed CTaskOilDrum.
+    pub unsafe fn on_fire(&self) -> bool {
+        let ptr = (self as *const CTaskOilDrum as *const u8).add(0xB0);
+        *(ptr as *const u32) != 0
     }
 }
 
