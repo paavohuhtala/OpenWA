@@ -1436,9 +1436,6 @@ dependencies = [
 [[package]]
 name = "openwa-launcher"
 version = "0.1.0"
-dependencies = [
- "windows-sys 0.59.0",
-]
 
 [[package]]
 name = "openwa-wormkit"

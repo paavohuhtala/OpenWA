@@ -7,11 +7,9 @@ use std::ptr;
 
 // Declare Win32 types and functions directly to avoid windows-sys feature-flag issues.
 #[allow(non_camel_case_types)] type HANDLE  = *mut core::ffi::c_void;
-#[allow(non_camel_case_types)] type HKEY    = *mut core::ffi::c_void;
 #[allow(non_camel_case_types)] type HMODULE = *mut core::ffi::c_void;
 #[allow(non_camel_case_types)] type DWORD   = u32;
 #[allow(non_camel_case_types)] type BOOL    = i32;
-#[allow(non_camel_case_types)] type LONG    = i32;
 #[allow(non_camel_case_types)] type LPVOID  = *mut core::ffi::c_void;
 #[allow(non_camel_case_types)] type LPDWORD = *mut u32;
 
@@ -35,10 +33,6 @@ const CREATE_SUSPENDED: DWORD          = 0x0000_0004;
 const STARTF_USESHOWWINDOW: DWORD      = 0x0000_0001;
 const SW_SHOWMINIMIZED: u16            = 2;
 const INFINITE: DWORD                  = 0xFFFF_FFFF;
-const HKEY_LOCAL_MACHINE: HKEY         = -2isize as HKEY;
-const HKEY_CURRENT_USER: HKEY          = -1isize as HKEY;
-const KEY_READ: DWORD                  = 0x2_0019;
-const REG_SZ: DWORD                    = 1;
 
 #[link(name = "kernel32")]
 extern "system" {
@@ -56,19 +50,6 @@ extern "system" {
     fn TerminateProcess(hProcess: HANDLE, uExitCode: u32) -> BOOL;
     fn CloseHandle(hObject: HANDLE) -> BOOL;
     fn GetModuleFileNameA(hModule: HMODULE, lpFilename: *mut u8, nSize: DWORD) -> DWORD;
-}
-
-#[link(name = "advapi32")]
-extern "system" {
-    fn RegOpenKeyExA(
-        hKey: HKEY, lpSubKey: *const u8, ulOptions: DWORD,
-        samDesired: DWORD, phkResult: *mut HKEY,
-    ) -> LONG;
-    fn RegQueryValueExA(
-        hKey: HKEY, lpValueName: *const u8, lpReserved: *const DWORD,
-        lpType: *mut DWORD, lpData: *mut u8, lpcbData: *mut DWORD,
-    ) -> LONG;
-    fn RegCloseKey(hKey: HKEY) -> LONG;
 }
 
 fn main() {
@@ -96,13 +77,13 @@ fn run() -> Result<(), String> {
         }
     }
 
-    // Locate WA.exe: explicit arg > env var > Steam registry.
+    // Locate WA.exe: explicit arg > env var > hardcoded fallback paths.
     let wa_exe = if let Some(p) = wa_path_arg {
         PathBuf::from(p)
     } else if let Ok(p) = std::env::var("OPENWA_WA_PATH") {
         PathBuf::from(p)
     } else {
-        find_wa_via_steam()
+        find_wa_hardcoded()
             .ok_or("WA.exe not found. Set OPENWA_WA_PATH or pass the path as an argument.")?
     };
 
@@ -239,64 +220,16 @@ fn path_to_cstring(p: &Path) -> Result<CString, String> {
     .map_err(|e| format!("path contains nul byte: {e}"))
 }
 
-/// Try to find WA.exe via the Steam app registry entry (App ID 217200).
-fn find_wa_via_steam() -> Option<PathBuf> {
-    let candidates: &[(HKEY, &[u8])] = &[
-        (
-            HKEY_LOCAL_MACHINE,
-            b"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Steam App 217200\0",
-        ),
-        (
-            HKEY_LOCAL_MACHINE,
-            b"SOFTWARE\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Steam App 217200\0",
-        ),
-        (
-            HKEY_CURRENT_USER,
-            b"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Steam App 217200\0",
-        ),
+/// Try a few well-known default Steam install locations for WA.exe.
+/// Users with non-standard library locations should set OPENWA_WA_PATH instead.
+fn find_wa_hardcoded() -> Option<PathBuf> {
+    const CANDIDATES: &[&str] = &[
+        r"I:\games\SteamLibrary\steamapps\common\Worms Armageddon\WA.exe",
+        r"C:\Program Files (x86)\Steam\steamapps\common\Worms Armageddon\WA.exe",
+        r"C:\Program Files\Steam\steamapps\common\Worms Armageddon\WA.exe",
     ];
 
-    for &(hive, subkey) in candidates {
-        if let Some(install_dir) = read_reg_sz(hive, subkey, b"InstallLocation\0") {
-            let wa = PathBuf::from(&install_dir).join("WA.exe");
-            if wa.exists() {
-                return Some(wa);
-            }
-        }
-    }
-    None
-}
-
-fn read_reg_sz(hive: HKEY, subkey: &[u8], value: &[u8]) -> Option<String> {
-    unsafe {
-        let mut hkey: HKEY = ptr::null_mut();
-        let ret = RegOpenKeyExA(hive, subkey.as_ptr(), 0, KEY_READ, &mut hkey);
-        if ret != 0 {
-            return None;
-        }
-
-        let mut buf = vec![0u8; 4096];
-        let mut buf_len = buf.len() as DWORD;
-        let mut reg_type: DWORD = 0;
-
-        let ret = RegQueryValueExA(
-            hkey,
-            value.as_ptr(),
-            ptr::null(),
-            &mut reg_type,
-            buf.as_mut_ptr(),
-            &mut buf_len,
-        );
-        RegCloseKey(hkey);
-
-        if ret != 0 || reg_type != REG_SZ {
-            return None;
-        }
-
-        let s = std::str::from_utf8(&buf[..buf_len as usize])
-            .ok()?
-            .trim_end_matches('\0')
-            .to_string();
-        Some(s)
-    }
+    CANDIDATES.iter()
+        .map(PathBuf::from)
+        .find(|p| p.exists())
 }
