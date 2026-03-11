@@ -63,6 +63,12 @@ pub mod va {
     pub const CTASK_SPRITE_ANIM_VTABLE: u32 = 0x0066_9D00;
     /// CTaskCPU vtable - AI/CPU bot controller (1 per game, constructor 0x548620)
     pub const CTASK_CPU_VTABLE: u32 = 0x0066_9D54;
+    /// CTaskMine vtable - mine entity (constructor 0x506660)
+    pub const CTASK_MINE_VTABLE: u32 = 0x0066_43E8;
+    /// CTaskOilDrum vtable - oil drum entity (constructor 0x504AF0)
+    pub const CTASK_OILDRUM_VTABLE: u32 = 0x0066_4338;
+    /// CTaskCloud vtable - cloud/airstrike entity (constructor 0x5482E0)
+    pub const CTASK_CLOUD_VTABLE: u32 = 0x0066_9D38;
     /// Sprite vtable (0x70-byte objects, 8 entries)
     pub const SPRITE_VTABLE: u32 = 0x0066_418C;
 

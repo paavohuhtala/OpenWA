@@ -7,8 +7,12 @@ description = "WormKit DLL that replaces WA.exe functions with Rust reimplementa
 [lib]
 crate-type = ["cdylib"]
 
+[features]
+debug-ui = ["dep:openwa-debugui"]
+
 [dependencies]
 openwa-core = { path = "../openwa-core" }
+openwa-debugui = { path = "../openwa-debugui", optional = true }
 heapless = "0.9"
 minhook = "0.9"
 

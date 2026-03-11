@@ -3,6 +3,7 @@
 use std::ffi::c_void;
 
 pub mod hook;
+mod debug_ui;
 mod replacements;
 mod validation;
 
@@ -73,6 +74,9 @@ fn run() -> Result<(), String> {
 
     // Debug hotkeys (F9/F10) are always available, even without OPENWA_VALIDATE
     validation::start_hotkeys();
+
+    // Debug UI window (requires "debug-ui" feature + OPENWA_DEBUG_UI=1)
+    debug_ui::maybe_spawn();
 
     Ok(())
 }

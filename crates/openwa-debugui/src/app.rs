@@ -1,0 +1,403 @@
+use eframe::egui;
+use openwa_core::address::va;
+use openwa_core::ddgame::DDGame;
+use openwa_core::ddgame_wrapper::DDGameWrapper;
+use openwa_core::rebase::rb;
+use openwa_core::task::{CTask, CTaskWorm, SharedDataTable};
+
+use crate::log;
+
+// ---------------------------------------------------------------------------
+// Known task types for census display
+// ---------------------------------------------------------------------------
+
+const KNOWN_VTABLES: &[(u32, &str)] = &[
+    (va::CTASK_WORM_VTABLE,        "CTaskWorm"),
+    (va::CTASK_LAND_VTABLE,        "CTaskLand"),
+    (va::CTASK_TURN_GAME_VTABLE,   "CTaskTurnGame"),
+    (va::CTASK_TEAM_VTABLE,        "CTaskTeam"),
+    (va::CTASK_FILTER_VTABLE,      "CTaskFilter"),
+    (va::CTASK_DIRT_VTABLE,        "CTaskDirt"),
+    (va::CTASK_SPRITE_ANIM_VTABLE, "CTaskSpriteAnim"),
+    (va::CTASK_CPU_VTABLE,         "CTaskCPU"),
+    (va::CTASK_MINE_VTABLE,        "CTaskMine"),
+    (va::CTASK_OILDRUM_VTABLE,     "CTaskOilDrum"),
+    (va::CTASK_CLOUD_VTABLE,       "CTaskCloud"),
+];
+
+fn vtable_name(runtime_vtable: u32) -> Option<&'static str> {
+    KNOWN_VTABLES.iter()
+        .find(|&&(ghidra_va, _)| rb(ghidra_va) == runtime_vtable)
+        .map(|&(_, name)| name)
+}
+
+/// Returns a display name for the entity at `addr`.
+/// Tries the known-vtable map first; falls back to CTask.class_type.
+unsafe fn entity_type_name(addr: u32) -> String {
+    if addr == 0 { return "(null)".to_owned(); }
+    let vtable = *(addr as *const u32);
+    if let Some(name) = vtable_name(vtable) {
+        return name.to_owned();
+    }
+    let task = addr as *const CTask;
+    format!("{:?}", (*task).class_type)
+}
+
+/// One-line label for a task: "TypeName @ 0xADDR"
+unsafe fn entity_label(addr: u32) -> String {
+    if addr == 0 { return "(null)".to_owned(); }
+    format!("{} @ {:#010X}", entity_type_name(addr), addr)
+}
+
+// ---------------------------------------------------------------------------
+// Game-memory helpers (all unsafe — call from the UI update function only)
+// ---------------------------------------------------------------------------
+
+/// Returns a pointer to DDGame, or None if not in-game.
+unsafe fn get_ddgame() -> Option<*const DDGame> {
+    let session_ptr = *(rb(va::G_GAME_SESSION) as *const u32);
+    if session_ptr == 0 { return None; }
+    let wrapper_addr = *((session_ptr + 0xA0) as *const u32);
+    if wrapper_addr == 0 { return None; }
+    let ddgame_ptr = (*(wrapper_addr as *const DDGameWrapper)).ddgame;
+    if ddgame_ptr.is_null() { return None; }
+    Some(ddgame_ptr)
+}
+
+/// Returns a SharedDataTable via CTaskLand, or None if map not loaded.
+unsafe fn get_shared_table(ddgame: *const DDGame) -> Option<SharedDataTable> {
+    let task_land = (*ddgame).task_land;
+    if task_land.is_null() { return None; }
+    let shared_data = (*(task_land as *const CTask)).shared_data;
+    if shared_data.is_null() { return None; }
+    Some(SharedDataTable::from_ptr(shared_data))
+}
+
+/// Read child task pointers from a CTask's children array.
+///
+/// The array is **sparse**: slots are nulled when a child is removed rather than
+/// compacted. `children_size` is the slot high-watermark (loop upper bound used
+/// by CTask::HandleMessage), not the live-child count. We return all slots up to
+/// that bound so the caller can filter nulls and display the live set.
+unsafe fn read_children(task: *const CTask) -> Vec<u32> {
+    let slots = (*task).children_size as usize;
+    let data  = (*task).children_data as *const u32;
+    if data.is_null() || slots == 0 { return Vec::new(); }
+    // Hard safety cap: 4096 slots × 4 bytes = 16 KB max read
+    let slots = slots.min(4096);
+    (0..slots).map(|i| *data.add(i)).collect()
+}
+
+// ---------------------------------------------------------------------------
+// DebugApp
+// ---------------------------------------------------------------------------
+
+pub struct DebugApp {
+    /// Currently selected entity address for the struct inspector.
+    selected_entity: Option<u32>,
+    /// Navigation history — addresses we came from (supports ← Back).
+    nav_history: Vec<u32>,
+    /// Whether the log panel should auto-scroll to the bottom.
+    log_auto_scroll: bool,
+}
+
+impl Default for DebugApp {
+    fn default() -> Self {
+        Self { selected_entity: None, nav_history: Vec::new(), log_auto_scroll: true }
+    }
+}
+
+impl DebugApp {
+    /// Navigate to `addr`, pushing the current selection onto the history stack.
+    fn navigate_to(&mut self, addr: u32) {
+        if let Some(cur) = self.selected_entity {
+            if cur != addr {
+                self.nav_history.push(cur);
+            }
+        }
+        self.selected_entity = Some(addr);
+    }
+
+    /// Navigate back to the previous address, if any.
+    fn navigate_back(&mut self) {
+        if let Some(prev) = self.nav_history.pop() {
+            self.selected_entity = Some(prev);
+        }
+    }
+}
+
+impl eframe::App for DebugApp {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Repaint at ~30 fps so the display stays live.
+        ctx.request_repaint_after(std::time::Duration::from_millis(33));
+
+        egui::SidePanel::right("inspector_panel")
+            .min_width(260.0)
+            .default_width(300.0)
+            .show(ctx, |ui| {
+                // Collect navigation actions from the inspector into local vars
+                // to avoid borrowing `self` twice inside the closure.
+                let mut navigate_to: Option<u32> = None;
+                let mut go_back = false;
+                self.show_inspector(ui, &mut navigate_to, &mut go_back);
+                if go_back { self.navigate_back(); }
+                if let Some(addr) = navigate_to { self.navigate_to(addr); }
+            });
+
+        egui::TopBottomPanel::bottom("log_panel")
+            .min_height(140.0)
+            .default_height(160.0)
+            .show(ctx, |ui| {
+                self.show_log(ui);
+            });
+
+        egui::CentralPanel::default().show(ctx, |ui| {
+            let mut navigate_to: Option<u32> = None;
+            self.show_census(ui, &mut navigate_to);
+            if let Some(addr) = navigate_to { self.navigate_to(addr); }
+        });
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Panel: Entity Census
+// ---------------------------------------------------------------------------
+
+impl DebugApp {
+    fn show_census(&mut self, ui: &mut egui::Ui, navigate_to: &mut Option<u32>) {
+        ui.heading("Entity Census");
+
+        let ddgame = unsafe { get_ddgame() };
+        let Some(ddgame) = ddgame else {
+            ui.colored_label(egui::Color32::YELLOW, "No game session — waiting...");
+            return;
+        };
+
+        let table = unsafe { get_shared_table(ddgame) };
+        let Some(table) = table else {
+            ui.colored_label(egui::Color32::YELLOW, "Map not loaded yet.");
+            return;
+        };
+
+        let mut rows: Vec<(u32, u32)> = Vec::new();
+        unsafe {
+            for node in table.iter() {
+                let entity = (*node).entity as u32;
+                if entity == 0 { continue; }
+                let vtable = *(entity as *const u32);
+                rows.push((vtable, entity));
+            }
+        }
+
+        ui.label(format!("{} entities total", rows.len()));
+        ui.separator();
+
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            egui::Grid::new("census_grid")
+                .striped(true)
+                .min_col_width(60.0)
+                .show(ui, |ui| {
+                    ui.strong("Type");
+                    ui.strong("Address");
+                    ui.strong("Vtable");
+                    ui.end_row();
+
+                    for &(vtable, entity) in &rows {
+                        let name = unsafe { entity_type_name(entity) };
+                        let is_selected = self.selected_entity == Some(entity);
+                        if ui.selectable_label(is_selected, name).clicked() {
+                            *navigate_to = Some(entity);
+                        }
+                        ui.label(format!("{:#010X}", entity));
+                        ui.label(format!("{:#010X}", vtable));
+                        ui.end_row();
+                    }
+                });
+        });
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Panel: Struct Inspector
+// ---------------------------------------------------------------------------
+
+impl DebugApp {
+    fn show_inspector(
+        &mut self,
+        ui: &mut egui::Ui,
+        navigate_to: &mut Option<u32>,
+        go_back: &mut bool,
+    ) {
+        // Navigation bar
+        ui.horizontal(|ui| {
+            ui.heading("Inspector");
+            ui.add_space(8.0);
+            if ui.add_enabled(!self.nav_history.is_empty(), egui::Button::new("← Back")).clicked() {
+                *go_back = true;
+            }
+            if !self.nav_history.is_empty() {
+                ui.weak(format!("({} deep)", self.nav_history.len()));
+            }
+        });
+
+        let Some(addr) = self.selected_entity else {
+            ui.colored_label(egui::Color32::GRAY, "Select an entity in the census.");
+            return;
+        };
+
+        if addr == 0 {
+            ui.label("(null entity)");
+            return;
+        }
+
+        unsafe {
+            let vtable = *(addr as *const u32);
+            let name = entity_type_name(addr);
+
+            ui.label(format!("Entity: {:#010X}", addr));
+            ui.label(format!("Type:   {}", name));
+            ui.label(format!("Vtable: {:#010X}", vtable));
+            ui.separator();
+
+            let task = addr as *const CTask;
+
+            // --- CTask base ---
+            egui::CollapsingHeader::new("CTask base")
+                .default_open(true)
+                .show(ui, |ui| {
+                    egui::Grid::new("ctask_grid").striped(true).show(ui, |ui| {
+                        // Parent — clickable link
+                        let parent = (*task).parent as u32;
+                        ui.label("parent");
+                        if parent != 0 {
+                            if ui.link(entity_label(parent)).clicked() {
+                                *navigate_to = Some(parent);
+                            }
+                        } else {
+                            ui.label("(none)");
+                        }
+                        ui.end_row();
+
+                        // children_size = slot high-watermark (sparse array); live = non-null slots
+                        ui.label("child slots"); ui.label(format!("{} used / {} cap", (*task).children_size, (*task).children_max_size)); ui.end_row();
+                        ui.label("class_type");  ui.label(format!("{:?}", (*task).class_type));                                  ui.end_row();
+                        ui.label("shared_data"); ui.label(format!("{:#010X}", (*task).shared_data as u32));                      ui.end_row();
+                        ui.label("owns_data");   ui.label(format!("{}", (*task).owns_shared_data));                              ui.end_row();
+                        ui.label("ddgame");      ui.label(format!("{:#010X}", (*task).ddgame as u32));                           ui.end_row();
+                    });
+                });
+
+            // --- Children tree ---
+            // read_children returns all slots (sparse); filter nulls for live count.
+            let children = read_children(task);
+            let live_count = children.iter().filter(|&&a| a != 0).count();
+            let slot_count = (*task).children_size as usize;
+            if live_count > 0 || slot_count > 0 {
+                egui::CollapsingHeader::new(format!("Children ({} live / {} slots)", live_count, slot_count))
+                    .default_open(true)
+                    .show(ui, |ui| {
+                        for child_addr in &children {
+                            let child_addr = *child_addr;
+                            if child_addr == 0 { continue; }
+                            let child_name = entity_type_name(child_addr);
+
+                            // Expand inline if the child itself has children
+                            let child_task = child_addr as *const CTask;
+                            let grandchild_count = (*child_task).children_size;
+
+                            if grandchild_count > 0 {
+                                // Show as a sub-collapsing header with its own children
+                                let header_label = format!(
+                                    "{} @ {:#010X}  ({} children)",
+                                    child_name, child_addr, grandchild_count
+                                );
+                                egui::CollapsingHeader::new(&header_label)
+                                    .id_source(child_addr)
+                                    .default_open(false)
+                                    .show(ui, |ui| {
+                                        // Link to inspect this child in detail
+                                        if ui.link("→ Inspect").clicked() {
+                                            *navigate_to = Some(child_addr);
+                                        }
+                                        // Show grandchildren
+                                        let grandchildren = read_children(child_task);
+                                        for gc_addr in &grandchildren {
+                                            let gc_addr = *gc_addr;
+                                            if gc_addr == 0 { continue; }
+                                            if ui.link(entity_label(gc_addr)).clicked() {
+                                                *navigate_to = Some(gc_addr);
+                                            }
+                                        }
+                                    });
+                            } else {
+                                // Leaf child — single clickable link
+                                let label = format!("  {}  @ {:#010X}", child_name, child_addr);
+                                if ui.link(label).clicked() {
+                                    *navigate_to = Some(child_addr);
+                                }
+                            }
+                        }
+                    });
+            }
+
+            // --- CTaskWorm-specific fields ---
+            if name == "CTaskWorm" || (*task).class_type == openwa_core::class_type::ClassType::Worm {
+                let worm = addr as *const CTaskWorm;
+                egui::CollapsingHeader::new("CTaskWorm")
+                    .default_open(true)
+                    .show(ui, |ui| {
+                        egui::Grid::new("worm_grid").striped(true).show(ui, |ui| {
+                            ui.label("state");      ui.label(format!("{:#04X}", (*worm).state()));              ui.end_row();
+                            ui.label("team_index"); ui.label(format!("{}", (*worm).team_index));                ui.end_row();
+                            ui.label("worm_index"); ui.label(format!("{}", (*worm).worm_index));                ui.end_row();
+                            ui.label("pos_x");      ui.label(format!("{:.2}", (*worm).base.pos_x.to_f32()));   ui.end_row();
+                            ui.label("pos_y");      ui.label(format!("{:.2}", (*worm).base.pos_y.to_f32()));   ui.end_row();
+                            ui.label("speed_x");    ui.label(format!("{:.4}", (*worm).base.speed_x.to_f32())); ui.end_row();
+                            ui.label("speed_y");    ui.label(format!("{:.4}", (*worm).base.speed_y.to_f32())); ui.end_row();
+                            let name_bytes = &(*worm).worm_name;
+                            let nul = name_bytes.iter().position(|&b| b == 0).unwrap_or(name_bytes.len());
+                            let worm_name = std::str::from_utf8(&name_bytes[..nul]).unwrap_or("?");
+                            ui.label("name");       ui.label(worm_name);                                        ui.end_row();
+                        });
+                    });
+            }
+
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Panel: Log Stream
+// ---------------------------------------------------------------------------
+
+impl DebugApp {
+    fn show_log(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
+            ui.heading("Log");
+            ui.checkbox(&mut self.log_auto_scroll, "auto-scroll");
+            if ui.button("Clear").clicked() {
+                log::clear();
+            }
+        });
+        ui.separator();
+
+        let entries = log::snapshot(200);
+
+        egui::ScrollArea::vertical()
+            .auto_shrink([false; 2])
+            .stick_to_bottom(self.log_auto_scroll)
+            .show(ui, |ui| {
+                for (ts, text) in &entries {
+                    let elapsed = ts.elapsed().as_secs_f32();
+                    let color = if elapsed < 1.0 {
+                        egui::Color32::WHITE
+                    } else if elapsed < 5.0 {
+                        egui::Color32::LIGHT_GRAY
+                    } else {
+                        egui::Color32::GRAY
+                    };
+                    ui.colored_label(color, text);
+                }
+            });
+    }
+}
