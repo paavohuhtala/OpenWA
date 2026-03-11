@@ -1,0 +1,19 @@
+[package]
+name = "openwa-launcher"
+version = "0.1.0"
+edition = "2021"
+description = "Launcher that injects openwa_wormkit.dll into WA.exe before its main thread runs"
+
+[[bin]]
+name = "openwa-launcher"
+path = "src/main.rs"
+
+[dependencies]
+windows-sys = { version = "0.59", features = [
+    "Win32_Foundation",
+    "Win32_System_Threading",
+    "Win32_System_Memory",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Registry",
+    "Win32_System_Diagnostics_Debug",
+] }
