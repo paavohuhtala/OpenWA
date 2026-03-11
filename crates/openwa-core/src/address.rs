@@ -69,6 +69,8 @@ pub mod va {
     pub const CTASK_OILDRUM_VTABLE: u32 = 0x0066_4338;
     /// CTaskCloud vtable - cloud/airstrike entity (constructor 0x5482E0)
     pub const CTASK_CLOUD_VTABLE: u32 = 0x0066_9D38;
+    /// CTaskSeaBubble vtable - water bubble particle (constructor 0x554FE0)
+    pub const CTASK_SEA_BUBBLE_VTABLE: u32 = 0x0066_9E88;
     /// Sprite vtable (0x70-byte objects, 8 entries)
     pub const SPRITE_VTABLE: u32 = 0x0066_418C;
 

@@ -3,7 +3,7 @@ use openwa_core::address::va;
 use openwa_core::ddgame::DDGame;
 use openwa_core::ddgame_wrapper::DDGameWrapper;
 use openwa_core::rebase::rb;
-use openwa_core::task::{CTask, CTaskWorm, SharedDataTable};
+use openwa_core::task::{CTask, CTaskWorm};
 
 use crate::log;
 
@@ -23,6 +23,13 @@ const KNOWN_VTABLES: &[(u32, &str)] = &[
     (va::CTASK_MINE_VTABLE,        "CTaskMine"),
     (va::CTASK_OILDRUM_VTABLE,     "CTaskOilDrum"),
     (va::CTASK_CLOUD_VTABLE,       "CTaskCloud"),
+    (va::CTASK_SEA_BUBBLE_VTABLE,  "CTaskSeaBubble"),
+];
+
+/// Vtables of entities that are created/destroyed every frame (particles,
+/// bubbles, etc.). Filtered from the census by default to reduce noise.
+const TRANSIENT_VTABLES: &[u32] = &[
+    va::CTASK_SEA_BUBBLE_VTABLE,
 ];
 
 fn vtable_name(runtime_vtable: u32) -> Option<&'static str> {
@@ -64,15 +71,6 @@ unsafe fn get_ddgame() -> Option<*const DDGame> {
     Some(ddgame_ptr)
 }
 
-/// Returns a SharedDataTable via CTaskLand, or None if map not loaded.
-unsafe fn get_shared_table(ddgame: *const DDGame) -> Option<SharedDataTable> {
-    let task_land = (*ddgame).task_land;
-    if task_land.is_null() { return None; }
-    let shared_data = (*(task_land as *const CTask)).shared_data;
-    if shared_data.is_null() { return None; }
-    Some(SharedDataTable::from_ptr(shared_data))
-}
-
 /// Read child task pointers from a CTask's children array.
 ///
 /// The array is **sparse**: slots are nulled when a child is removed rather than
@@ -89,20 +87,45 @@ unsafe fn read_children(task: *const CTask) -> Vec<u32> {
 }
 
 // ---------------------------------------------------------------------------
-// Live entity snapshot (built once per frame)
+// Live entity snapshot (built once per frame via full task-tree traversal)
 // ---------------------------------------------------------------------------
+
+/// Walk up parent pointers from `start` to find the root task (no parent).
+/// Returns None if task_land is null or the chain doesn't terminate within
+/// MAX_DEPTH steps (guard against corrupt/circular pointers).
+unsafe fn find_root_task(ddgame: *const DDGame) -> Option<u32> {
+    let task_land = (*ddgame).task_land as u32;
+    if task_land == 0 { return None; }
+    let mut current = task_land;
+    for _ in 0..64 {
+        let parent = (*(current as *const CTask)).parent as u32;
+        if parent == 0 { return Some(current); }
+        current = parent;
+    }
+    None // chain didn't terminate — corrupt data
+}
+
+/// DFS the task tree from `root`, returning (vtable, addr) for every node.
+/// A visited set prevents infinite loops from corrupt/circular pointers.
+unsafe fn collect_task_tree(root: u32) -> Vec<(u32, u32)> {
+    let mut out     = Vec::new();
+    let mut stack   = vec![root];
+    let mut visited = std::collections::HashSet::new();
+    while let Some(addr) = stack.pop() {
+        if addr == 0 || !visited.insert(addr) { continue; }
+        let vtable = *(addr as *const u32);
+        out.push((vtable, addr));
+        for child in read_children(addr as *const CTask) {
+            if child != 0 { stack.push(child); }
+        }
+    }
+    out
+}
 
 unsafe fn collect_live_entities() -> Vec<(u32, u32)> {
     let Some(ddgame) = get_ddgame() else { return Vec::new(); };
-    let Some(table)  = get_shared_table(ddgame) else { return Vec::new(); };
-    let mut out = Vec::new();
-    for node in table.iter() {
-        let entity = (*node).entity as u32;
-        if entity == 0 { continue; }
-        let vtable = *(entity as *const u32);
-        out.push((vtable, entity));
-    }
-    out
+    let Some(root)   = find_root_task(ddgame) else { return Vec::new(); };
+    collect_task_tree(root)
 }
 
 // ---------------------------------------------------------------------------
@@ -116,11 +139,13 @@ pub struct DebugApp {
     nav_history: Vec<u32>,
     /// Whether the log panel should auto-scroll to the bottom.
     log_auto_scroll: bool,
+    /// Show transient entities (sea bubbles, etc.) in the census.
+    show_transient: bool,
 }
 
 impl Default for DebugApp {
     fn default() -> Self {
-        Self { selected_entity: None, nav_history: Vec::new(), log_auto_scroll: true }
+        Self { selected_entity: None, nav_history: Vec::new(), log_auto_scroll: true, show_transient: false }
     }
 }
 
@@ -163,6 +188,12 @@ impl eframe::App for DebugApp {
         }
         self.nav_history.retain(|a| live_addrs.contains(a));
 
+        egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
+            ui.horizontal(|ui| {
+                ui.checkbox(&mut self.show_transient, "Show transient");
+            });
+        });
+
         egui::SidePanel::right("inspector_panel")
             .min_width(260.0)
             .default_width(300.0)
@@ -202,12 +233,29 @@ impl DebugApp {
             return;
         }
 
-        ui.label(format!("{} entities total", rows.len()));
+        let visible: Vec<&(u32, u32)> = if self.show_transient {
+            rows.iter().collect()
+        } else {
+            rows.iter()
+                .filter(|&&(vtable, _)| {
+                    !TRANSIENT_VTABLES.iter().any(|&t| rb(t) == vtable)
+                })
+                .collect()
+        };
+
+        if visible.len() == rows.len() {
+            ui.label(format!("{} entities", rows.len()));
+        } else {
+            ui.label(format!("{} entities ({} hidden transient)", visible.len(), rows.len() - visible.len()));
+        }
         ui.separator();
 
-        egui::ScrollArea::vertical().show(ui, |ui| {
+        egui::ScrollArea::vertical()
+            .auto_shrink([false, false])
+            .show(ui, |ui| {
             egui::Grid::new("census_grid")
                 .striped(true)
+                .num_columns(3)
                 .min_col_width(60.0)
                 .show(ui, |ui| {
                     ui.strong("Type");
@@ -215,7 +263,7 @@ impl DebugApp {
                     ui.strong("Vtable");
                     ui.end_row();
 
-                    for &(vtable, entity) in rows {
+                    for &&(vtable, entity) in &visible {
                         let name = unsafe { entity_type_name(entity) };
                         let is_selected = self.selected_entity == Some(entity);
                         if ui.selectable_label(is_selected, name).clicked() {
@@ -263,7 +311,9 @@ impl DebugApp {
             return;
         }
 
-        unsafe {
+        egui::ScrollArea::vertical()
+            .auto_shrink([false, false])
+            .show(ui, |ui| { unsafe {
             let vtable = *(addr as *const u32);
             let name = entity_type_name(addr);
 
@@ -375,7 +425,7 @@ impl DebugApp {
                     });
             }
 
-        }
+        }});
     }
 }
 
