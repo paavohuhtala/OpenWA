@@ -89,6 +89,23 @@ unsafe fn read_children(task: *const CTask) -> Vec<u32> {
 }
 
 // ---------------------------------------------------------------------------
+// Live entity snapshot (built once per frame)
+// ---------------------------------------------------------------------------
+
+unsafe fn collect_live_entities() -> Vec<(u32, u32)> {
+    let Some(ddgame) = get_ddgame() else { return Vec::new(); };
+    let Some(table)  = get_shared_table(ddgame) else { return Vec::new(); };
+    let mut out = Vec::new();
+    for node in table.iter() {
+        let entity = (*node).entity as u32;
+        if entity == 0 { continue; }
+        let vtable = *(entity as *const u32);
+        out.push((vtable, entity));
+    }
+    out
+}
+
+// ---------------------------------------------------------------------------
 // DebugApp
 // ---------------------------------------------------------------------------
 
@@ -131,12 +148,25 @@ impl eframe::App for DebugApp {
         // Repaint at ~30 fps so the display stays live.
         ctx.request_repaint_after(std::time::Duration::from_millis(33));
 
+        // Build the live entity snapshot for this frame and prune any stale
+        // selections before rendering — prevents UAF crashes when an entity is
+        // destroyed (match ended, worm died, etc.) while it is being inspected.
+        let live_entities = unsafe { collect_live_entities() };
+        let live_addrs: std::collections::HashSet<u32> =
+            live_entities.iter().map(|&(_, a)| a).collect();
+
+        if let Some(addr) = self.selected_entity {
+            if addr != 0 && !live_addrs.contains(&addr) {
+                self.selected_entity = None;
+                self.nav_history.clear();
+            }
+        }
+        self.nav_history.retain(|a| live_addrs.contains(a));
+
         egui::SidePanel::right("inspector_panel")
             .min_width(260.0)
             .default_width(300.0)
             .show(ctx, |ui| {
-                // Collect navigation actions from the inspector into local vars
-                // to avoid borrowing `self` twice inside the closure.
                 let mut navigate_to: Option<u32> = None;
                 let mut go_back = false;
                 self.show_inspector(ui, &mut navigate_to, &mut go_back);
@@ -153,7 +183,7 @@ impl eframe::App for DebugApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             let mut navigate_to: Option<u32> = None;
-            self.show_census(ui, &mut navigate_to);
+            self.show_census(ui, &live_entities, &mut navigate_to);
             if let Some(addr) = navigate_to { self.navigate_to(addr); }
         });
     }
@@ -164,29 +194,12 @@ impl eframe::App for DebugApp {
 // ---------------------------------------------------------------------------
 
 impl DebugApp {
-    fn show_census(&mut self, ui: &mut egui::Ui, navigate_to: &mut Option<u32>) {
+    fn show_census(&mut self, ui: &mut egui::Ui, rows: &[(u32, u32)], navigate_to: &mut Option<u32>) {
         ui.heading("Entity Census");
 
-        let ddgame = unsafe { get_ddgame() };
-        let Some(ddgame) = ddgame else {
+        if rows.is_empty() {
             ui.colored_label(egui::Color32::YELLOW, "No game session — waiting...");
             return;
-        };
-
-        let table = unsafe { get_shared_table(ddgame) };
-        let Some(table) = table else {
-            ui.colored_label(egui::Color32::YELLOW, "Map not loaded yet.");
-            return;
-        };
-
-        let mut rows: Vec<(u32, u32)> = Vec::new();
-        unsafe {
-            for node in table.iter() {
-                let entity = (*node).entity as u32;
-                if entity == 0 { continue; }
-                let vtable = *(entity as *const u32);
-                rows.push((vtable, entity));
-            }
         }
 
         ui.label(format!("{} entities total", rows.len()));
@@ -202,7 +215,7 @@ impl DebugApp {
                     ui.strong("Vtable");
                     ui.end_row();
 
-                    for &(vtable, entity) in &rows {
+                    for &(vtable, entity) in rows {
                         let name = unsafe { entity_type_name(entity) };
                         let is_selected = self.selected_entity == Some(entity);
                         if ui.selectable_label(is_selected, name).clicked() {
