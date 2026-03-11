@@ -20,6 +20,7 @@ const KNOWN_VTABLES: &[(u32, &str)] = &[
     (va::CTASK_DIRT_VTABLE,        "CTaskDirt"),
     (va::CTASK_SPRITE_ANIM_VTABLE, "CTaskSpriteAnim"),
     (va::CTASK_CPU_VTABLE,         "CTaskCPU"),
+    (va::CTASK_MISSILE_VTABLE,     "CTaskMissile"),
     (va::CTASK_MINE_VTABLE,        "CTaskMine"),
     (va::CTASK_OILDRUM_VTABLE,     "CTaskOilDrum"),
     (va::CTASK_CLOUD_VTABLE,       "CTaskCloud"),
@@ -344,9 +345,6 @@ impl DebugApp {
                         // children_size = slot high-watermark (sparse array); live = non-null slots
                         ui.label("child slots"); ui.label(format!("{} used / {} cap", (*task).children_size, (*task).children_max_size)); ui.end_row();
                         ui.label("class_type");  ui.label(format!("{:?}", (*task).class_type));                                  ui.end_row();
-                        ui.label("shared_data"); ui.label(format!("{:#010X}", (*task).shared_data as u32));                      ui.end_row();
-                        ui.label("owns_data");   ui.label(format!("{}", (*task).owns_shared_data));                              ui.end_row();
-                        ui.label("ddgame");      ui.label(format!("{:#010X}", (*task).ddgame as u32));                           ui.end_row();
                     });
                 });
 
