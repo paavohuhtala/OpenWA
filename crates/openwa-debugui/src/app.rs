@@ -3,7 +3,7 @@ use openwa_core::address::va;
 use openwa_core::ddgame::DDGame;
 use openwa_core::ddgame_wrapper::DDGameWrapper;
 use openwa_core::rebase::rb;
-use openwa_core::task::{CTask, CTaskCloud, CTaskMine, CTaskOilDrum, CTaskWorm};
+use openwa_core::task::{CTask, CTaskCloud, CTaskFire, CTaskMine, CTaskOilDrum, CTaskWorm};
 
 use crate::log;
 
@@ -25,6 +25,7 @@ const KNOWN_VTABLES: &[(u32, &str)] = &[
     (va::CTASK_OILDRUM_VTABLE,     "CTaskOilDrum"),
     (va::CTASK_CLOUD_VTABLE,       "CTaskCloud"),
     (va::CTASK_SEA_BUBBLE_VTABLE,  "CTaskSeaBubble"),
+    (va::CTASK_FIRE_VTABLE,        "CTaskFire"),
 ];
 
 /// Vtables of entities that are created/destroyed every frame (particles,
@@ -455,6 +456,24 @@ impl DebugApp {
                             ui.label("wind_target"); ui.label(format!("{:.4}", (*cloud).wind_target.to_f32()));  ui.end_row();
                             ui.label("layer_depth"); ui.label(format!("{:.1}", (*cloud).layer_depth.to_f32())); ui.end_row();
                             ui.label("sprite_id");   ui.label(format!("{:#06X}", (*cloud).sprite_id));          ui.end_row();
+                        });
+                    });
+            }
+
+            // --- CTaskFire-specific fields ---
+            if name == "CTaskFire" {
+                let fire = addr as *const CTaskFire;
+                egui::CollapsingHeader::new("CTaskFire")
+                    .default_open(true)
+                    .show(ui, |ui| {
+                        egui::Grid::new("fire_grid").striped(true).show(ui, |ui| {
+                            ui.label("spawn_x");       ui.label(format!("{:.1}", (*fire).spawn_x.to_f32()));    ui.end_row();
+                            ui.label("spawn_y");       ui.label(format!("{:.1}", (*fire).spawn_y.to_f32()));    ui.end_row();
+                            ui.label("timer");         ui.label(format!("{}", (*fire).timer));                  ui.end_row();
+                            ui.label("burn_rate");     ui.label(format!("{}", (*fire).burn_rate));              ui.end_row();
+                            ui.label("spread_ctr");    ui.label(format!("{}", (*fire).spread_counter));         ui.end_row();
+                            ui.label("lifetime");      ui.label(format!("{}", (*fire).lifetime));               ui.end_row();
+                            ui.label("slot_index");    ui.label(format!("{}", (*fire).slot_index));             ui.end_row();
                         });
                     });
             }
