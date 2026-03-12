@@ -3,7 +3,7 @@ use openwa_core::address::va;
 use openwa_core::ddgame::DDGame;
 use openwa_core::ddgame_wrapper::DDGameWrapper;
 use openwa_core::rebase::rb;
-use openwa_core::task::{CTask, CTaskCloud, CTaskFire, CTaskMine, CTaskOilDrum, CTaskWorm};
+use openwa_core::task::{CTask, CTaskCloud, CTaskFire, CTaskMine, CTaskOilDrum, CTaskTurnGame, CTaskWorm};
 
 use crate::log;
 
@@ -456,6 +456,30 @@ impl DebugApp {
                             ui.label("wind_target"); ui.label(format!("{:.4}", (*cloud).wind_target.to_f32()));  ui.end_row();
                             ui.label("layer_depth"); ui.label(format!("{:.1}", (*cloud).layer_depth.to_f32())); ui.end_row();
                             ui.label("sprite_id");   ui.label(format!("{:#06X}", (*cloud).sprite_id));          ui.end_row();
+                        });
+                    });
+            }
+
+            // --- CTaskTurnGame-specific fields ---
+            if name == "CTaskTurnGame" {
+                let tg = addr as *const CTaskTurnGame;
+                egui::CollapsingHeader::new("CTaskTurnGame")
+                    .default_open(true)
+                    .show(ui, |ui| {
+                        egui::Grid::new("tg_grid").striped(true).show(ui, |ui| {
+                            ui.label("current_team");  ui.label(format!("{}", (*tg).current_team));                           ui.end_row();
+                            ui.label("current_worm");  ui.label(format!("{}", (*tg).current_worm));                           ui.end_row();
+                            ui.label("arena_team");    ui.label(format!("{}", (*tg).arena_team));                             ui.end_row();
+                            ui.label("arena_worm");    ui.label(format!("{}", (*tg).arena_worm));                             ui.end_row();
+                            ui.label("worm_active");   ui.label(format!("{}", (*tg).worm_active != 0));                       ui.end_row();
+                            ui.label("turn_ended");    ui.label(format!("{}", (*tg).turn_ended != 0));                        ui.end_row();
+                            ui.label("no_time_lim");   ui.label(format!("{}", (*tg).no_time_limit != 0));                     ui.end_row();
+                            ui.label("turn_timer");    ui.label(format!("{:.1}s", (*tg).turn_timer as f32 / 1000.0));         ui.end_row();
+                            ui.label("retreat");       ui.label(format!("{:.1}s", (*tg).retreat_timer as f32 / 1000.0));      ui.end_row();
+                            ui.label("idle_timer");    ui.label(format!("{:.1}s", (*tg).idle_timer as f32 / 1000.0));         ui.end_row();
+                            ui.label("num_teams");     ui.label(format!("{}", (*tg).num_teams));                              ui.end_row();
+                            ui.label("active_frm");    ui.label(format!("{}", (*tg).active_worm_frames));                     ui.end_row();
+                            ui.label("retreat_frm");   ui.label(format!("{}", (*tg).retreat_frames));                         ui.end_row();
                         });
                     });
             }

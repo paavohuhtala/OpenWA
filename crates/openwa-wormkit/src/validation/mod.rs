@@ -11,7 +11,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 use openwa_core::rebase::rb;
 use openwa_core::address::va;
-use openwa_core::task::{CTask, CGameTask, SharedDataTable};
+use openwa_core::task::{CTask, CGameTask, CTaskTurnGame, SharedDataTable};
 use openwa_core::ddgame::DDGame;
 use openwa_core::ddgame_wrapper::DDGameWrapper;
 
@@ -296,6 +296,24 @@ fn validate_struct_offsets(result: &mut ValidationResult) {
     check_offset!(result, DDGameWrapper, _field_4c0, 0x4C0);
     check_offset!(result, DDGameWrapper, landscape, 0x4CC);
     check_offset!(result, DDGameWrapper, display, 0x4D0);
+
+    let _ = log_validation("");
+    let _ = log_validation("  CTaskTurnGame:");
+    check_offset!(result, CTaskTurnGame, worm_active,        0x108);
+    check_offset!(result, CTaskTurnGame, current_team,       0x12C);
+    check_offset!(result, CTaskTurnGame, current_worm,       0x130);
+    check_offset!(result, CTaskTurnGame, arena_team,         0x134);
+    check_offset!(result, CTaskTurnGame, arena_worm,         0x138);
+    check_offset!(result, CTaskTurnGame, turn_ended,         0x150);
+    check_offset!(result, CTaskTurnGame, no_time_limit,      0x154);
+    check_offset!(result, CTaskTurnGame, retreat_timer,      0x178);
+    check_offset!(result, CTaskTurnGame, retreat_time_max,   0x17C);
+    check_offset!(result, CTaskTurnGame, idle_timer,         0x184);
+    check_offset!(result, CTaskTurnGame, turn_timer_display, 0x188);
+    check_offset!(result, CTaskTurnGame, turn_timer,         0x18C);
+    check_offset!(result, CTaskTurnGame, active_worm_frames, 0x2D4);
+    check_offset!(result, CTaskTurnGame, retreat_frames,     0x2D8);
+    check_offset!(result, CTaskTurnGame, _timer_scale,       0x2DC);
 }
 
 // ---------------------------------------------------------------------------
@@ -921,6 +939,83 @@ fn dump_worm_tasks() {
 }
 
 // ---------------------------------------------------------------------------
+// CTaskTurnGame dump
+// ---------------------------------------------------------------------------
+
+fn dump_turngame() {
+    use openwa_core::task::CTaskTurnGame;
+    use crate::replacements::input::dump_region;
+
+    let _ = log_validation("");
+    let _ = log_validation("--- CTaskTurnGame Dump ---");
+
+    unsafe {
+        let session_ptr = read_u32(rb(va::G_GAME_SESSION));
+        if session_ptr == 0 { let _ = log_validation("  No game session — skipping."); return; }
+        let wrapper_addr = read_u32(session_ptr + 0xA0);
+        if wrapper_addr == 0 { let _ = log_validation("  No DDGameWrapper."); return; }
+        let ddgame_ptr = read_u32(wrapper_addr + 0x488);
+        if ddgame_ptr == 0 { let _ = log_validation("  No DDGame."); return; }
+
+        // Find CTaskTurnGame via the shared_data entity table.
+        let task_land_ptr = read_u32(ddgame_ptr + 0x54C);
+        if task_land_ptr == 0 { let _ = log_validation("  CTaskLand NULL — skipping."); return; }
+        let task_land = task_land_ptr as *const openwa_core::task::CTask;
+        let shared_data_ptr = (*task_land).shared_data;
+        if shared_data_ptr.is_null() { let _ = log_validation("  shared_data NULL."); return; }
+
+        let table = SharedDataTable::from_ptr(shared_data_ptr);
+        let expected_vt = rb(va::CTASK_TURN_GAME_VTABLE);
+        let mut tg_ptr: u32 = 0;
+        for node in table.iter() {
+            let entity = (*node).entity;
+            if entity.is_null() { continue; }
+            if !is_in_rdata(read_u32(entity as u32)) { continue; }
+            if read_u32(entity as u32) == expected_vt {
+                tg_ptr = entity as u32;
+                break;
+            }
+        }
+
+        if tg_ptr == 0 {
+            let _ = log_validation("  CTaskTurnGame not found in entity table.");
+            return;
+        }
+
+        let _ = log_validation(&format!("  CTaskTurnGame @ 0x{:08X}", tg_ptr));
+
+        // Print known named fields for cross-validation.
+        let tg = &*(tg_ptr as *const CTaskTurnGame);
+        let _ = log_validation("  Known fields:");
+        let _ = log_validation(&format!("    +0x108 worm_active        = {}", tg.worm_active));
+        let _ = log_validation(&format!("    +0x12C current_team       = {} (1-based, 0=none)", tg.current_team));
+        let _ = log_validation(&format!("    +0x130 current_worm       = {} (0-based)", tg.current_worm));
+        let _ = log_validation(&format!("    +0x134 arena_team         = {}", tg.arena_team));
+        let _ = log_validation(&format!("    +0x138 arena_worm         = {}", tg.arena_worm));
+        let _ = log_validation(&format!("    +0x150 turn_ended         = {}", tg.turn_ended));
+        let _ = log_validation(&format!("    +0x154 no_time_limit      = {}", tg.no_time_limit));
+        let _ = log_validation(&format!("    +0x178 retreat_timer      = {} ms", tg.retreat_timer));
+        let _ = log_validation(&format!("    +0x17C retreat_time_max   = {} ms", tg.retreat_time_max));
+        let _ = log_validation(&format!("    +0x184 idle_timer         = {} ms", tg.idle_timer));
+        let _ = log_validation(&format!("    +0x188 turn_timer_display = {} ms", tg.turn_timer_display));
+        let _ = log_validation(&format!("    +0x18C turn_timer         = {} ms", tg.turn_timer));
+        let _ = log_validation(&format!("    +0x2D4 active_worm_frames = {}", tg.active_worm_frames));
+        let _ = log_validation(&format!("    +0x2D8 retreat_frames     = {}", tg.retreat_frames));
+        let _ = log_validation(&format!("    +0x2DC _timer_scale       = {}", tg._timer_scale));
+
+        // Full memory dump — classify every DWORD to discover unknown fields.
+        // Dump in chunks to keep log lines manageable.
+        let base = tg_ptr as *const u8;
+        dump_region(base, 0x00, 0x30, "CTaskTurnGame"); // CTask base
+        dump_region(base, 0x30, 0xAC, "CTaskTurnGame"); // CTaskTeam region
+        dump_region(base, 0xDC, 0x80, "CTaskTurnGame"); // 0xDC..0x15B
+        dump_region(base, 0x15C, 0x80, "CTaskTurnGame"); // 0x15C..0x1DB
+        dump_region(base, 0x1DC, 0x80, "CTaskTurnGame"); // 0x1DC..0x25B
+        dump_region(base, 0x25C, 0x84, "CTaskTurnGame"); // 0x25C..0x2DF
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Public entry point — called from wormkit's run()
 // ---------------------------------------------------------------------------
 
@@ -986,6 +1081,8 @@ pub fn run() -> Result<(), String> {
             dump_entity_census();
             let _ = log_validation("  Running worm entity dump (5s mark)...");
             dump_worm_tasks();
+            let _ = log_validation("  Running TurnGame dump (5s mark)...");
+            dump_turngame();
 
             // Wait briefly for replay to start, then dump game state
             // (fast-forward finishes the replay in ~10-15s total, so dump early)

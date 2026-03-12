@@ -1,6 +1,6 @@
 mod config;
 mod frontend;
-mod input;
+pub(crate) mod input;
 mod scheme;
 mod render;
 mod sound;

@@ -611,6 +611,107 @@ pub struct CTaskFire {
 
 const _: () = assert!(core::mem::size_of::<CTaskFire>() == 0xD8);
 
+/// Root turn-controller task — one instance per game, parent of the entire entity tree.
+///
+/// Every worm, team, projectile, and environment task is a child (direct or indirect)
+/// of this node.  `CTaskTurnGame` drives the turn loop: it processes 50 game frames
+/// per second via `CTaskTurnGame__TurnManager_ProcessFrame` (0x55FDA0), which is
+/// called from HandleMessage case 2 (FrameFinish).
+///
+/// Inheritance: CTask → CTaskTeam → CTaskTurnGame.  Class type 6.
+/// Constructor: `CTaskTurnGame__Constructor` (0x55B2B1).
+/// vtable: `CTaskTurnGame__vtable` (0x00669F70), 20 slots.
+/// Total size: 0x2E0 bytes.
+///
+/// Key vtable slots:
+///   [0] 0x55B5E0 — task-tree state snapshot serialiser
+///   [1] 0x55B540 — destructor / Free
+///   [2] 0x55DC00 — HandleMessage (30+ message types)
+///   [3] 0x5612E0 — HUD data query (responds to msg 0x7D3)
+///
+/// All timers decrement by 20 ms per frame (= 1000 ms / 50 fps).
+#[repr(C)]
+pub struct CTaskTurnGame {
+    /// 0x00-0x2F: CTask base (vtable, parent, children, shared_data, ddgame, …)
+    pub base: CTask,
+    /// 0x30-0xDB: CTaskTeam base region (opaque — includes secondary interface pointer
+    /// at +0x30, team position/physics fields, and per-team bookkeeping).
+    pub _ctaskteam: [u8; 0xAC],
+
+    // ---- CTaskTurnGame-specific fields (0xDC onwards) ----
+
+    pub _unknown_dc: u32,
+    pub _unknown_e0: u32,
+    /// 0xE4: turn-seed: ~(DDGame+0x45EC % 9000), used for random initialisation.
+    pub _turn_seed: u32,
+    /// 0xE8: number of teams in this game (copy of DDGame+0x44C).
+    pub num_teams: u32,
+    pub _unknown_ec: [u8; 0x1C],
+    /// 0x108: "worm active" flag — non-zero while the current worm is shooting or
+    /// moving.  While non-zero, `turn_timer` is paused.
+    /// A copy is also written to DDGame+0x7234 at construction.
+    pub worm_active: u32,
+    pub _unknown_10c: [u8; 0x20],
+    /// 0x12C: active team index, **1-based** (0 = no active team).
+    /// Used to index per-team sound tables in DDGame (stride 0xF0 at DDGame+0x774C).
+    pub current_team: u32,
+    /// 0x130: active worm index within the current team, **0-based** (stride 0x9C).
+    pub current_worm: u32,
+    /// 0x134: arena team index used for TeamArenaState lookups.
+    pub arena_team: u32,
+    /// 0x138: arena worm index used for TeamArenaState lookups.
+    pub arena_worm: u32,
+    pub _unknown_13c: u32,
+    /// 0x140: set to 1 at construction; role unclear.
+    pub _init_140: u32,
+    pub _unknown_144: u32,
+    pub _unknown_148: u32,
+    /// 0x14C: set to 1 at construction and reset by turn-flow restart; role unclear.
+    pub _init_14c: u32,
+    /// 0x150: set to 1 when the active worm's firing phase ends and retreat begins.
+    pub turn_ended: u32,
+    /// 0x154: set to 1 when the scheme turn time is 0 (no time limit).
+    pub no_time_limit: u32,
+    pub _unknown_158: [u8; 0x14],
+    /// 0x16C: set to 1 once the "5 seconds left" warning sound has played.
+    pub warning_sound_played: u32,
+    pub _unknown_170: u32,
+    /// 0x174: set while a worm is transitioning out of a special state (e.g. landing
+    /// after a fly animation); cleared once settled.
+    pub _worm_state_transition: u32,
+    /// 0x178: retreat-phase countdown (ms).  Initialised from `retreat_time_max` when
+    /// firing ends; decrements 20 ms/frame.  Dispatches message 0x35 at zero.
+    pub retreat_timer: i32,
+    /// 0x17C: initial retreat duration (ms) loaded from the scheme at turn start.
+    pub retreat_time_max: i32,
+    /// 0x180: last tick when the displayed "seconds remaining" value was updated.
+    pub last_second_tick: u32,
+    /// 0x184: idle-phase timer (ms).  Initialised to `scheme_turn_time × 1000`.
+    /// Decrements 20 ms/frame **only while `worm_active == 0`** (timer pauses when
+    /// the worm is moving/shooting).  When it reaches zero, sudden-death is triggered.
+    /// This is NOT the per-turn HUD countdown — see `turn_timer` at +0x18C instead.
+    pub idle_timer: i32,
+    /// 0x188: smoothed display copy of `turn_timer`; tracks it at ≤ 0xCCC ms/frame
+    /// to avoid visual jumping on the HUD.
+    pub turn_timer_display: i32,
+    /// 0x18C: per-turn countdown timer (ms) — this is what the HUD shows.
+    /// Decrements 20 ms/frame every game frame.  When it reaches zero,
+    /// `FUN_0055f4f0` fires (turn ends / retreat begins).
+    pub turn_timer: i32,
+    pub _unknown_190: [u8; 0x8],
+    /// 0x198: turn-timer visual pulse intensity (Fixed 16.16); grows as time runs low.
+    pub timer_flash: u32,
+    pub _unknown_19c: [u8; 0x138],
+    /// 0x2D4: frame count accumulated while this team held the active worm.
+    pub active_worm_frames: u32,
+    /// 0x2D8: frame count accumulated during the retreat phase.
+    pub retreat_frames: u32,
+    /// 0x2DC: timer scale factor derived from scheme (2, 3, or 4; default 4).
+    pub _timer_scale: u32,
+}
+
+const _: () = assert!(core::mem::size_of::<CTaskTurnGame>() == 0x2E0);
+
 // ============================================================
 // Derived task overlays — for accessing task-specific fields
 // beyond or within CGameTask that differ per task type.

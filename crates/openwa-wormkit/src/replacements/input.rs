@@ -51,16 +51,28 @@ pub unsafe fn can_read(ptr: u32, size: u32) -> bool {
     ptr >= 0x10000 && IsBadReadPtr(ptr as *const u8, size) == 0
 }
 
-/// Dump a region of DDGame as DWORDs with classification.
+/// Dump a memory region as DWORDs with automatic classification.
 ///
-/// Classifies each non-zero DWORD as vtable (.rdata), code (.text), data,
-/// heap object (dereferences to check for vtable), small integer, or raw value.
-pub unsafe fn dump_region(ddgame: *mut DDGame, offset: usize, size: usize, label: &str) {
-    let base_ptr = ddgame as *const u8;
+/// Each non-zero DWORD is classified as:
+/// - `[VTABLE]`  — points into .rdata (likely a vtable or function pointer table);
+///   also dereferences `vt[0]` if readable
+/// - `[CODE]`    — points into .text
+/// - `[DATA]`    — points into .data/.bss
+/// - `[OBJECT]`  — heap pointer whose first DWORD is a vtable; prints vtable address
+/// - `[ptr]`     — any other readable heap pointer; prints the dereferenced DWORD
+/// - `[small=N]` — value < 0x10000 (integer / enum / flag)
+/// - `[value]`   — anything else
+///
+/// # Parameters
+/// - `base_ptr`: start of the object to dump (e.g. `turngame as *const u8`)
+/// - `offset`: byte offset within `base_ptr` to start the dump
+/// - `size`: number of bytes to dump (must be a multiple of 4)
+/// - `struct_name`: used as the prefix in log lines (e.g. `"CTaskTurnGame"`)
+pub unsafe fn dump_region(base_ptr: *const u8, offset: usize, size: usize, struct_name: &str) {
     let wa_base = rb(va::IMAGE_BASE);
     let delta = wa_base.wrapping_sub(va::IMAGE_BASE);
 
-    let _ = log_line(&format!("\n=== DDGame+0x{:04X}..0x{:04X}: {} ===", offset, offset + size, label));
+    let _ = log_line(&format!("\n=== {}+0x{:04X}..0x{:04X} ===", struct_name, offset, offset + size));
 
     let dword_count = size / 4;
     for i in 0..dword_count {

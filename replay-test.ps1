@@ -51,7 +51,7 @@ $env:OPENWA_REPLAY_TEST = "1"
 $env:OPENWA_WA_PATH     = $waExe
 
 # The launcher blocks until WA.exe exits, so run it as a background job for timeout support.
-$proc = Start-Process -FilePath $launcher -ArgumentList "--minimized `"$ReplayFile`"" -PassThru
+$proc = Start-Process -FilePath $launcher -ArgumentList "--minimized `"$waExe`" `"$ReplayFile`"" -PassThru
 $timeout = 150  # seconds
 if (-not $proc.WaitForExit($timeout * 1000)) {
     Write-Host "WARNING: launcher did not exit within ${timeout}s, killing..." -ForegroundColor Red
