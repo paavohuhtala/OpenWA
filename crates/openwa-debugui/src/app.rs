@@ -3,7 +3,7 @@ use openwa_core::address::va;
 use openwa_core::ddgame::DDGame;
 use openwa_core::ddgame_wrapper::DDGameWrapper;
 use openwa_core::rebase::rb;
-use openwa_core::task::{CTask, CTaskCloud, CTaskFire, CTaskMine, CTaskOilDrum, CTaskTeam, CTaskTurnGame, CTaskWorm};
+use openwa_core::task::{CTask, CTaskCloud, CTaskFire, CTaskMine, CTaskOilDrum, CTaskTeam, CTaskTurnGame, CTaskWorm, TurnGameCtx};
 
 use crate::log;
 
@@ -482,6 +482,25 @@ impl DebugApp {
                             ui.label("retreat_frm");   ui.label(format!("{}", (*tg).retreat_frames));                         ui.end_row();
                         });
                     });
+
+                let ctx = &(*tg).game_ctx as *const TurnGameCtx;
+                egui::CollapsingHeader::new("TurnGameCtx (+0x30)")
+                    .default_open(false)
+                    .show(ui, |ui| {
+                        egui::Grid::new("ctx_grid").striped(true).show(ui, |ui| {
+                            ui.label("land_height");   ui.label(format!("{:.1}", (*ctx).land_height.to_f32()));   ui.end_row();
+                            ui.label("land_height_2"); ui.label(format!("{:.1}", (*ctx).land_height_2.to_f32())); ui.end_row();
+                            ui.label("sentinel_18");   ui.label(format!("{}", (*ctx)._sentinel_18));              ui.end_row();
+                            ui.label("sentinel_28");   ui.label(format!("{}", (*ctx)._sentinel_28));              ui.end_row();
+                            ui.label("sentinel_38");   ui.label(format!("{}", (*ctx)._sentinel_38));              ui.end_row();
+                            ui.label("team_count");    ui.label(format!("{}", (*ctx).team_count));                ui.end_row();
+                            ui.label("_slot_d0");      ui.label(format!("{}", (*ctx)._slot_d0));                  ui.end_row();
+                            let ta = (*ctx)._hud_textbox_a;
+                            let tb = (*ctx)._hud_textbox_b;
+                            ui.label("hud_tb_a"); ui.label(if ta == 0 { "(null)".into() } else { format!("{:#010X}", ta) }); ui.end_row();
+                            ui.label("hud_tb_b"); ui.label(if tb == 0 { "(null)".into() } else { format!("{:#010X}", tb) }); ui.end_row();
+                        });
+                    });
             }
 
             // --- CTaskTeam-specific fields ---
@@ -491,8 +510,12 @@ impl DebugApp {
                     .default_open(true)
                     .show(ui, |ui| {
                         egui::Grid::new("team_grid").striped(true).show(ui, |ui| {
-                            ui.label("team_index");  ui.label(format!("{}", (*team).team_index));   ui.end_row();
-                            ui.label("worm_count");  ui.label(format!("{}", (*team).worm_count));   ui.end_row();
+                            ui.label("team_index");    ui.label(format!("{}", (*team).team_index));                           ui.end_row();
+                            ui.label("alive_worms");   ui.label(format!("{}", (*team).alive_worm_count));                    ui.end_row();
+                            ui.label("worm_count");    ui.label(format!("{}", (*team).worm_count));                           ui.end_row();
+                            ui.label("last_weapon");   ui.label(format!("{}", (*team).last_launched_weapon));                 ui.end_row();
+                            ui.label("pos_x");         ui.label(format!("{:.2}", (*team).pos_x.to_f32()));                   ui.end_row();
+                            ui.label("pos_y");         ui.label(format!("{:.2}", (*team).pos_y.to_f32()));                   ui.end_row();
                         });
                     });
             }
