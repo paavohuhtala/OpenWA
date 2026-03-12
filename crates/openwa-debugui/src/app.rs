@@ -3,7 +3,7 @@ use openwa_core::address::va;
 use openwa_core::ddgame::DDGame;
 use openwa_core::ddgame_wrapper::DDGameWrapper;
 use openwa_core::rebase::rb;
-use openwa_core::task::{CTask, CTaskCloud, CTaskFire, CTaskMine, CTaskOilDrum, CTaskTurnGame, CTaskWorm};
+use openwa_core::task::{CTask, CTaskCloud, CTaskFire, CTaskMine, CTaskOilDrum, CTaskTeam, CTaskTurnGame, CTaskWorm};
 
 use crate::log;
 
@@ -480,6 +480,19 @@ impl DebugApp {
                             ui.label("num_teams");     ui.label(format!("{}", (*tg).num_teams));                              ui.end_row();
                             ui.label("active_frm");    ui.label(format!("{}", (*tg).active_worm_frames));                     ui.end_row();
                             ui.label("retreat_frm");   ui.label(format!("{}", (*tg).retreat_frames));                         ui.end_row();
+                        });
+                    });
+            }
+
+            // --- CTaskTeam-specific fields ---
+            if name == "CTaskTeam" {
+                let team = addr as *const CTaskTeam;
+                egui::CollapsingHeader::new("CTaskTeam")
+                    .default_open(true)
+                    .show(ui, |ui| {
+                        egui::Grid::new("team_grid").striped(true).show(ui, |ui| {
+                            ui.label("team_index");  ui.label(format!("{}", (*team).team_index));   ui.end_row();
+                            ui.label("worm_count");  ui.label(format!("{}", (*team).worm_count));   ui.end_row();
                         });
                     });
             }

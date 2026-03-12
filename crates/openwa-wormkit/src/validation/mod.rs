@@ -11,7 +11,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 use openwa_core::rebase::rb;
 use openwa_core::address::va;
-use openwa_core::task::{CTask, CGameTask, CTaskTurnGame, SharedDataTable};
+use openwa_core::task::{CTask, CGameTask, CTaskTeam, CTaskTurnGame, SharedDataTable};
 use openwa_core::ddgame::DDGame;
 use openwa_core::ddgame_wrapper::DDGameWrapper;
 
@@ -296,6 +296,11 @@ fn validate_struct_offsets(result: &mut ValidationResult) {
     check_offset!(result, DDGameWrapper, _field_4c0, 0x4C0);
     check_offset!(result, DDGameWrapper, landscape, 0x4CC);
     check_offset!(result, DDGameWrapper, display, 0x4D0);
+
+    let _ = log_validation("");
+    let _ = log_validation("  CTaskTeam:");
+    check_offset!(result, CTaskTeam, team_index,  0x38);
+    check_offset!(result, CTaskTeam, worm_count,  0x218);
 
     let _ = log_validation("");
     let _ = log_validation("  CTaskTurnGame:");

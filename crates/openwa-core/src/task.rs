@@ -566,6 +566,43 @@ impl CTaskOilDrum {
     }
 }
 
+/// Per-team state-tracker task — one instance per team, child of CTaskTurnGame.
+///
+/// Tracks per-team data: which team number it represents, how many worms were
+/// spawned, and a weapon/item slot table.  Registered in the SharedData hash
+/// table with type code 0x15 (21).
+///
+/// Inheritance: extends CTask directly (CTask base at +0x00).
+/// class_type = 10.  Allocation: 0x460 bytes via `operator new` (0x5C0AB8).
+/// Constructor: `CTaskTeam__Constructor` (0x555BB0).
+/// Primary vtable: `CTaskTeam__vtable2` (0x00669EE4).
+/// Secondary interface vtable: 0x00669F00 (at object +0x30).
+///
+/// Key constructor logic (0x555BB0):
+///   - `team_index` at +0x38: 1-based team number (passed as param_3)
+///   - `_item_slots[0..99]` at +0x88: up to 100 weapon/item IDs loaded from scheme
+///   - `worm_count` at +0x218: number of CTaskWorm children constructed (1-indexed)
+///   - SharedData node (0x30 bytes) registered with key = (team_index, type=0x15)
+#[repr(C)]
+pub struct CTaskTeam {
+    /// 0x00–0x2F: CTask base (vtable, parent, children, shared_data, ddgame, …)
+    pub base: CTask,
+    /// 0x30: Secondary interface vtable pointer (Ghidra 0x00669F00)
+    pub _secondary_vtable: u32,
+    pub _unknown_34: u32,
+    /// 0x38: Team number, **1-based**.  Matches TeamArenaState slot index.
+    pub team_index: u32,
+    pub _unknown_3c: [u8; 0x4C],
+    /// 0x88–0x217: Up to 100 weapon/item slot entries written from scheme data when
+    /// specific scheme flags are set.  `worm_count` tracks how many entries are valid.
+    pub _item_slots: [u32; 100],
+    /// 0x218: Number of CTaskWorm children constructed for this team.
+    pub worm_count: u32,
+    pub _unknown_21c: [u8; 0x244],
+}
+
+const _: () = assert!(core::mem::size_of::<CTaskTeam>() == 0x460);
+
 /// Fire/flame entity task.
 ///
 /// Extends CTask (not CGameTask) — no physics body.
@@ -634,9 +671,22 @@ const _: () = assert!(core::mem::size_of::<CTaskFire>() == 0xD8);
 pub struct CTaskTurnGame {
     /// 0x00-0x2F: CTask base (vtable, parent, children, shared_data, ddgame, …)
     pub base: CTask,
-    /// 0x30-0xDB: CTaskTeam base region (opaque — includes secondary interface pointer
-    /// at +0x30, team position/physics fields, and per-team bookkeeping).
-    pub _ctaskteam: [u8; 0xAC],
+    /// 0x30-0xDB: Intermediate game-context base region (opaque).
+    ///
+    /// Initialised by `CTaskTeam__Constructor_Maybe` (0x550EB0) which creates a
+    /// class_type-5 object with primary vtable 0x669E34 and secondary interface vtable
+    /// 0x669C44 at +0x30.  CTaskTurnGame then overrides the primary vtable and
+    /// class_type.
+    ///
+    /// Known non-zero fields inside this region (all offsets relative to object base):
+    ///   +0x30: secondary interface vtable ptr (0x669C44 Ghidra)
+    ///   +0x40 / +0x44: landscape height as Fixed16.16 (e.g. Fixed(696.0) for 696px map)
+    ///   +0x48 / +0x58 / +0x68: Fixed(-1) — boundary sentinels
+    ///   +0x70 / +0x74: Fixed(1.0) — x/y scale factors
+    ///   +0x7C: team count (copy of DDGame+0x44C)
+    ///   +0xD0: small integer (≈ total worm count)
+    ///   +0xD4 / +0xD8: heap pointers (role unknown)
+    pub _game_ctx: [u8; 0xAC],
 
     // ---- CTaskTurnGame-specific fields (0xDC onwards) ----
 
