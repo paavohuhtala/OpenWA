@@ -299,8 +299,12 @@ fn validate_struct_offsets(result: &mut ValidationResult) {
 
     let _ = log_validation("");
     let _ = log_validation("  CTaskTeam:");
-    check_offset!(result, CTaskTeam, team_index,  0x38);
-    check_offset!(result, CTaskTeam, worm_count,  0x218);
+    check_offset!(result, CTaskTeam, team_index,              0x38);
+    check_offset!(result, CTaskTeam, alive_worm_count,        0x48);
+    check_offset!(result, CTaskTeam, last_launched_weapon,    0x60);
+    check_offset!(result, CTaskTeam, worm_count,              0x218);
+    check_offset!(result, CTaskTeam, pos_x,                   0x404);
+    check_offset!(result, CTaskTeam, pos_y,                   0x408);
 
     let _ = log_validation("");
     let _ = log_validation("  CTaskTurnGame:");
@@ -1021,6 +1025,69 @@ fn dump_turngame() {
 }
 
 // ---------------------------------------------------------------------------
+// CTaskTeam entity dump
+// ---------------------------------------------------------------------------
+
+fn dump_ctaskteam_entities() {
+    use openwa_core::task::CTaskTeam;
+    use crate::replacements::input::dump_region;
+
+    let _ = log_validation("");
+    let _ = log_validation("--- CTaskTeam Entity Dump ---");
+
+    unsafe {
+        let session_ptr = read_u32(rb(va::G_GAME_SESSION));
+        if session_ptr == 0 { let _ = log_validation("  No game session — skipping."); return; }
+        let wrapper_addr = read_u32(session_ptr + 0xA0);
+        if wrapper_addr == 0 { let _ = log_validation("  No DDGameWrapper."); return; }
+        let ddgame_ptr = read_u32(wrapper_addr + 0x488);
+        if ddgame_ptr == 0 { let _ = log_validation("  No DDGame."); return; }
+
+        let task_land_ptr = read_u32(ddgame_ptr + 0x54C);
+        if task_land_ptr == 0 { let _ = log_validation("  CTaskLand NULL — skipping."); return; }
+        let task_land = task_land_ptr as *const openwa_core::task::CTask;
+        let shared_data_ptr = (*task_land).shared_data;
+        if shared_data_ptr.is_null() { let _ = log_validation("  shared_data NULL."); return; }
+
+        let table = SharedDataTable::from_ptr(shared_data_ptr);
+        let expected_vt = rb(va::CTASK_TEAM_VTABLE);
+        let mut found = 0u32;
+
+        for node in table.iter() {
+            let entity = (*node).entity;
+            if entity.is_null() { continue; }
+            if !is_in_rdata(read_u32(entity as u32)) { continue; }
+            if read_u32(entity as u32) != expected_vt { continue; }
+
+            let addr = entity as u32;
+            let team = &*(addr as *const CTaskTeam);
+            let _ = log_validation(&format!(
+                "  CTaskTeam[{}] @ 0x{:08X}  team_index={}  worm_count={}  active={}  last_weapon={}  pos=({:.2},{:.2})",
+                found, addr, team.team_index, team.worm_count,
+                team.alive_worm_count, team.last_launched_weapon,
+                team.pos_x.to_f32(), team.pos_y.to_f32()
+            ));
+
+            // Full memory dump in chunks — classify every DWORD.
+            let base = addr as *const u8;
+            dump_region(base, 0x000, 0x30,  "CTaskTeam"); // CTask base
+            dump_region(base, 0x030, 0x58,  "CTaskTeam"); // 0x30..0x87 (secondary vtable, unknowns)
+            dump_region(base, 0x088, 0x90,  "CTaskTeam"); // 0x88..0x117 (item_slots start, worm_count region)
+            dump_region(base, 0x118, 0x100, "CTaskTeam"); // 0x118..0x217 (item_slots end)
+            dump_region(base, 0x218, 0x80,  "CTaskTeam"); // 0x218..0x297 (worm_count + unknowns)
+            dump_region(base, 0x298, 0x80,  "CTaskTeam"); // 0x298..0x317
+            dump_region(base, 0x318, 0x80,  "CTaskTeam"); // 0x318..0x397
+            dump_region(base, 0x398, 0x68,  "CTaskTeam"); // 0x398..0x3FF
+            dump_region(base, 0x400, 0x60,  "CTaskTeam"); // 0x400..0x45F
+
+            found += 1;
+        }
+
+        let _ = log_validation(&format!("  Total CTaskTeam entities: {}", found));
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Public entry point — called from wormkit's run()
 // ---------------------------------------------------------------------------
 
@@ -1088,6 +1155,8 @@ pub fn run() -> Result<(), String> {
             dump_worm_tasks();
             let _ = log_validation("  Running TurnGame dump (5s mark)...");
             dump_turngame();
+            let _ = log_validation("  Running CTaskTeam entity dump (5s mark)...");
+            dump_ctaskteam_entities();
 
             // Wait briefly for replay to start, then dump game state
             // (fast-forward finishes the replay in ~10-15s total, so dump early)
@@ -1142,15 +1211,17 @@ pub fn start_hotkeys() {
 
     std::thread::spawn(|| {
         use windows_sys::Win32::UI::Input::KeyboardAndMouse::GetAsyncKeyState;
+        const VK_F8: i32  = 0x77;
         const VK_F9: i32  = 0x78;
         const VK_F10: i32 = 0x79;
         const VK_F11: i32 = 0x7A;
         const VK_F12: i32 = 0x7B;
-        let _ = log_validation("  Hotkeys: F9=team blocks, F10=landscape, F11=worm tasks, F12=entity census");
+        let _ = log_validation("  Hotkeys: F8=team entities, F9=team blocks, F10=landscape, F11=worm tasks, F12=entity census");
         loop {
             std::thread::sleep(std::time::Duration::from_millis(100));
             unsafe {
-                if GetAsyncKeyState(VK_F9) & 1 != 0 { dump_team_blocks(); }
+                if GetAsyncKeyState(VK_F8)  & 1 != 0 { dump_ctaskteam_entities(); }
+                if GetAsyncKeyState(VK_F9)  & 1 != 0 { dump_team_blocks(); }
                 if GetAsyncKeyState(VK_F10) & 1 != 0 { dump_landscape(); }
                 if GetAsyncKeyState(VK_F11) & 1 != 0 { dump_worm_tasks(); }
                 if GetAsyncKeyState(VK_F12) & 1 != 0 { dump_entity_census(); }
