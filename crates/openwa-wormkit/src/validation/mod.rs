@@ -11,7 +11,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 use openwa_core::rebase::rb;
 use openwa_core::address::va;
-use openwa_core::task::{CTask, CGameTask, CTaskTeam, CTaskTurnGame, SharedDataTable};
+use openwa_core::task::{CTask, CGameTask, CTaskTeam, CTaskTurnGame, TurnGameCtx, SharedDataTable};
 use openwa_core::ddgame::DDGame;
 use openwa_core::ddgame_wrapper::DDGameWrapper;
 
@@ -307,7 +307,19 @@ fn validate_struct_offsets(result: &mut ValidationResult) {
     check_offset!(result, CTaskTeam, pos_y,                   0x408);
 
     let _ = log_validation("");
+    let _ = log_validation("  TurnGameCtx (embedded at CTaskTurnGame+0x30):");
+    check_offset!(result, TurnGameCtx, land_height,    0x10);
+    check_offset!(result, TurnGameCtx, land_height_2,  0x14);
+    check_offset!(result, TurnGameCtx, _sentinel_18,   0x18);
+    check_offset!(result, TurnGameCtx, _sentinel_28,   0x28);
+    check_offset!(result, TurnGameCtx, _sentinel_38,   0x38);
+    check_offset!(result, TurnGameCtx, team_count,     0x4C);
+    check_offset!(result, TurnGameCtx, _slot_d0,       0xA0);
+    check_offset!(result, TurnGameCtx, _hud_textbox_a, 0xA4);
+    check_offset!(result, TurnGameCtx, _hud_textbox_b, 0xA8);
+
     let _ = log_validation("  CTaskTurnGame:");
+    check_offset!(result, CTaskTurnGame, game_ctx,         0x30);
     check_offset!(result, CTaskTurnGame, worm_active,        0x108);
     check_offset!(result, CTaskTurnGame, current_team,       0x12C);
     check_offset!(result, CTaskTurnGame, current_worm,       0x130);
@@ -995,6 +1007,17 @@ fn dump_turngame() {
 
         // Print known named fields for cross-validation.
         let tg = &*(tg_ptr as *const CTaskTurnGame);
+        let ctx = &tg.game_ctx;
+        let _ = log_validation("  TurnGameCtx fields:");
+        let _ = log_validation(&format!("    +0x40 land_height   = {} ({:.4})", ctx.land_height.0, ctx.land_height.to_f32()));
+        let _ = log_validation(&format!("    +0x44 land_height_2 = {} ({:.4})", ctx.land_height_2.0, ctx.land_height_2.to_f32()));
+        let _ = log_validation(&format!("    +0x48 _sentinel_18  = {}", ctx._sentinel_18));
+        let _ = log_validation(&format!("    +0x58 _sentinel_28  = {}", ctx._sentinel_28));
+        let _ = log_validation(&format!("    +0x68 _sentinel_38  = {}", ctx._sentinel_38));
+        let _ = log_validation(&format!("    +0x7C team_count    = {}", ctx.team_count));
+        let _ = log_validation(&format!("    +0xD0 _slot_d0      = {}", ctx._slot_d0));
+        let _ = log_validation(&format!("    +0xD4 _hud_textbox_a = 0x{:08X}", ctx._hud_textbox_a));
+        let _ = log_validation(&format!("    +0xD8 _hud_textbox_b = 0x{:08X}", ctx._hud_textbox_b));
         let _ = log_validation("  Known fields:");
         let _ = log_validation(&format!("    +0x108 worm_active        = {}", tg.worm_active));
         let _ = log_validation(&format!("    +0x12C current_team       = {} (1-based, 0=none)", tg.current_team));
@@ -1016,7 +1039,8 @@ fn dump_turngame() {
         // Dump in chunks to keep log lines manageable.
         let base = tg_ptr as *const u8;
         dump_region(base, 0x00, 0x30, "CTaskTurnGame"); // CTask base
-        dump_region(base, 0x30, 0xAC, "CTaskTurnGame"); // CTaskTeam region
+        dump_region(base, 0x30, 0x38, "TurnGameCtx");  // 0x30..0x67 (vtable + sentinels)
+        dump_region(base, 0x68, 0x74, "TurnGameCtx");  // 0x68..0xDB (team_count + unknowns)
         dump_region(base, 0xDC, 0x80, "CTaskTurnGame"); // 0xDC..0x15B
         dump_region(base, 0x15C, 0x80, "CTaskTurnGame"); // 0x15C..0x1DB
         dump_region(base, 0x1DC, 0x80, "CTaskTurnGame"); // 0x1DC..0x25B

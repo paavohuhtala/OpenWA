@@ -683,6 +683,77 @@ pub struct CTaskFire {
 
 const _: () = assert!(core::mem::size_of::<CTaskFire>() == 0xD8);
 
+/// Embedded intermediate game-context sub-object within `CTaskTurnGame`.
+///
+/// This is the memory region at `CTaskTurnGame+0x30..+0xDB` (0xAC bytes).
+/// It is initialised by `CTaskTeam__Constructor_Maybe` (0x550EB0), which:
+///   1. Calls `CTask::Constructor(this, nullptr, ddgame)`
+///   2. Sets the primary vtable to 0x669E34 and class_type to 5
+///   3. Sets a **secondary interface vtable** pointer (Ghidra 0x669C44) at +0x30
+///      inside the object (i.e. `TurnGameCtx` base +0x00)
+///   4. Copies `landscape_height = DDGame+0x5E0` as Fixed16.16 to both
+///      `land_height` and `land_height_2`
+///   5. Writes -1 sentinels to `_sentinel_18`, `_sentinel_28`, `_sentinel_38`
+///   6. Writes `team_count = *(byte*)(GameInfo+0x44C)` to `team_count`
+///
+/// `CTaskTurnGame__Constructor` (0x55B2A0) then overrides the primary vtable
+/// to 0x669F70 and class_type to 6 but **leaves this sub-object intact**.
+///
+/// The three -1 sentinels at offsets 0x18 / 0x28 / 0x38 are evenly spaced
+/// 0x10 bytes apart. Their role is unknown — candidates are water-level
+/// Y-coordinates (initial -1 = "no water"), zone boundaries, or AI markers.
+///
+/// The final 0x44 bytes (0x68–0xAB, `_unknown_68`) are not initialised by
+/// either constructor; they appear to be set by `FUN_005514d0` or similar
+/// helpers called later. Observed runtime values: +0xA0 = 15, +0xA4/+0xA8
+/// are heap pointers.
+#[repr(C)]
+pub struct TurnGameCtx {
+    /// +0x00 (= CTaskTurnGame+0x30): Secondary interface vtable pointer.
+    /// Ghidra: 0x00669C44.  Set by both constructors; always 0x669C44 at runtime.
+    pub _secondary_vtable: u32,
+    /// +0x04: Unknown — not set by constructors (remains 0).
+    pub _unknown_04: u32,
+    /// +0x08–0x0F: Unknown — explicitly zeroed by constructor.
+    pub _unknown_08: [u32; 2],
+    /// +0x10: Landscape height as Fixed16.16.  `DDGame+0x5E0 << 16`.
+    pub land_height: Fixed,
+    /// +0x14: Landscape height duplicate — same value as `land_height`.
+    pub land_height_2: Fixed,
+    /// +0x18: Sentinel, always -1 at construction.  Role unknown.
+    pub _sentinel_18: i32,
+    /// +0x1C–0x27: Unknown — explicitly zeroed by constructor.
+    pub _unknown_1c: [u32; 3],
+    /// +0x28: Sentinel, always -1 at construction.  Role unknown.
+    pub _sentinel_28: i32,
+    /// +0x2C–0x37: Unknown — explicitly zeroed by constructor.
+    pub _unknown_2c: [u32; 3],
+    /// +0x38: Sentinel, always -1 at construction.  Role unknown.
+    pub _sentinel_38: i32,
+    /// +0x3C–0x4B: Unknown — explicitly zeroed by constructor.
+    pub _unknown_3c: [u32; 4],
+    /// +0x4C: Number of teams.  `*(byte*)(GameInfo+0x44C)` at construction time.
+    pub team_count: u32,
+    /// +0x50–0x64: Unknown — explicitly zeroed by constructor (param_1[0x20..0x25]).
+    pub _unknown_50: [u32; 6],
+    /// +0x68–0x9F: Unknown — all explicitly zeroed by `FUN_005514d0` during game
+    /// setup. Purpose unknown; may be per-team or per-worm state slots.
+    pub _unknown_68: [u32; 14],
+    /// +0xA0: Return value of `FUN_00525f50(0)` stored here during game setup.
+    /// Observed value: 15. `FUN_00525f50` is a slot-allocation helper; this may
+    /// be a pool slot index or a pre-computed game-state token.
+    pub _slot_d0: u32,
+    /// +0xA4: `DDDisplay` textbox handle — created by `DDDisplay__ConstructTextbox`
+    /// with params `(buf, -1280, 2)` if `DDGame+0x7EF8 != 0` (display active).
+    /// Likely the HUD timer textbox.  NULL when display is disabled.
+    pub _hud_textbox_a: u32,
+    /// +0xA8: `DDDisplay` textbox handle — created with params `(buf, 8, 4)`.
+    /// Likely a secondary HUD element.  NULL when display is disabled.
+    pub _hud_textbox_b: u32,
+}
+
+const _: () = assert!(core::mem::size_of::<TurnGameCtx>() == 0xAC);
+
 /// Root turn-controller task — one instance per game, parent of the entire entity tree.
 ///
 /// Every worm, team, projectile, and environment task is a child (direct or indirect)
@@ -706,22 +777,9 @@ const _: () = assert!(core::mem::size_of::<CTaskFire>() == 0xD8);
 pub struct CTaskTurnGame {
     /// 0x00-0x2F: CTask base (vtable, parent, children, shared_data, ddgame, …)
     pub base: CTask,
-    /// 0x30-0xDB: Intermediate game-context base region (opaque).
-    ///
-    /// Initialised by `CTaskTeam__Constructor_Maybe` (0x550EB0) which creates a
-    /// class_type-5 object with primary vtable 0x669E34 and secondary interface vtable
-    /// 0x669C44 at +0x30.  CTaskTurnGame then overrides the primary vtable and
-    /// class_type.
-    ///
-    /// Known non-zero fields inside this region (all offsets relative to object base):
-    ///   +0x30: secondary interface vtable ptr (0x669C44 Ghidra)
-    ///   +0x40 / +0x44: landscape height as Fixed16.16 (e.g. Fixed(696.0) for 696px map)
-    ///   +0x48 / +0x58 / +0x68: Fixed(-1) — boundary sentinels
-    ///   +0x70 / +0x74: Fixed(1.0) — x/y scale factors
-    ///   +0x7C: team count (copy of DDGame+0x44C)
-    ///   +0xD0: small integer (≈ total worm count)
-    ///   +0xD4 / +0xD8: heap pointers (role unknown)
-    pub _game_ctx: [u8; 0xAC],
+    /// 0x30–0xDB: Embedded `TurnGameCtx` sub-object (0xAC bytes).
+    /// See [`TurnGameCtx`] for field details.
+    pub game_ctx: TurnGameCtx,
 
     // ---- CTaskTurnGame-specific fields (0xDC onwards) ----
 
