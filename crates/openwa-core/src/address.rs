@@ -253,6 +253,12 @@ pub mod va {
 
     pub const CONSTRUCT_DD_GAME: u32 = 0x0056_E220;
     pub const CONSTRUCT_DD_GAME_WRAPPER: u32 = 0x0056_DEF0;
+    /// DDGameWrapper::InitReplay — usercall(EAX=game_info, ESI=this), plain RET.
+    /// Opens replay/recording files based on GameInfo+0xDB08/0xDB09 flags.
+    pub const DDGAMEWRAPPER_INIT_REPLAY: u32 = 0x0056_F860;
+    /// DDGame::InitGameState — stdcall(this=DDGameWrapper*), RET 0x4.
+    /// Initializes game state fields in DDGame after DDGame__Constructor.
+    pub const DDGAME_INIT_GAME_STATE: u32 = 0x0052_6500;
     pub const CONSTRUCT_DD_DISPLAY: u32 = 0x0056_9D00;
     pub const CONSTRUCT_FRAME_BUFFER: u32 = 0x005A_2430;
     pub const BLIT_SCREEN: u32 = 0x005A_2020;

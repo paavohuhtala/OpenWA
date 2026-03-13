@@ -1,105 +1,224 @@
-//! Game session lifecycle hook.
+//! Full Rust replacement for `DDGameWrapper__Constructor` (0x56DEF0).
 //!
-//! Passthrough hook on `DDGameWrapper__Constructor` (0x56DEF0) that fires once
-//! per game session start, logging the `DDGameWrapper` and `DDGame` addresses.
+//! ## Original calling convention
 //!
-//! ## Calling convention notes
+//! `DDGameWrapper__Constructor` is `__stdcall` with 7 explicit stack params, plus
+//! an **implicit EDI** register param (`game_info` / `unaff_EDI` in Ghidra).
+//! EDI is passed as the 9th argument to `DDGame__Constructor`.
 //!
-//! `DDGameWrapper__Constructor` is `__stdcall` with 7 stack params, BUT it also
-//! uses `EDI` as an **implicit register param** (Ghidra: `unaff_EDI`), which it
-//! passes as the 9th argument to `DDGame__Constructor`. A regular `extern "stdcall"`
-//! hook function would clobber EDI before calling the original (the Rust compiler
-//! uses it as a scratch register), causing a null-pointer crash deep in DDGame init.
+//! ## Implementation strategy
 //!
-//! The naked trampoline below avoids touching EDI entirely:
-//! 1. Swaps the caller's return address with our continuation label.
-//! 2. Tail-calls the original via `jmp` (not `call`) — EDI is unchanged.
-//! 3. After the original returns (via our continuation), calls a cdecl logger.
-//! 4. Jumps back to the real caller.
+//! A naked trampoline handles the unconventional calling convention:
+//! 1. Saves EDI (game_info) to a static before any Rust code can touch registers.
+//! 2. Pops the caller return address to another static (to simulate stdcall callee
+//!    cleanup from outside the cdecl implementation).
+//! 3. Calls the cdecl `ctor_impl` with the 7 stack args already in position.
+//! 4. After `ctor_impl` returns, skips 0x1C bytes (7 × 4) and jumps to the saved
+//!    return address — exactly what `stdcall RET 0x1C` would do.
+//!    EAX = `this` (ctor_impl's return value) is preserved for the caller.
+//!
+//! ## Sub-call conventions
+//!
+//! - `DDGameWrapper__InitReplay` (0x56F860): usercall(EAX=game_info, ESI=this),
+//!   plain RET (no stack args). Bridged via `call_init_replay`.
+//! - `DDGame__Constructor` (0x56E220): stdcall 9 params + implicit ECX=network.
+//!   Bridged via `ddgame_constructor_call` which sets ECX then **tail-jumps**,
+//!   preserving the exact stack so DDGame::ctor's `RET 0x24` returns to ctor_impl.
+//! - `DDGame__InitGameState` (0x526500): plain stdcall(this), called via transmute.
 
 use openwa_core::address::va;
+use openwa_core::rebase::rb;
+use openwa_core::ddgame_wrapper::DDGameWrapper;
+use openwa_core::dddisplay::DDDisplay;
+use openwa_core::dssound::DSSound;
+use openwa_core::game_session::GameSession;
+use openwa_core::palette::Palette;
 use crate::hook;
 use crate::log_line;
 
-/// Trampoline address of the original DDGameWrapper__Constructor.
-/// Set by `install()` via MinHook, read by the naked trampoline.
-static mut ORIG_VAL: u32 = 0;
-
-/// Caller's return address, saved by the naked trampoline before the tail-call
-/// to orig so we can return there after the logger runs.
-/// Non-reentrant (single-threaded game init; DDGameWrapper::Constructor is
-/// called at most once per game session).
+/// Caller's return address, saved by the naked trampoline so we can do the
+/// stdcall callee-cleanup (arg pop + return) after the cdecl impl returns.
 static mut SAVED_RET: u32 = 0;
 
-/// Called from the naked trampoline after the original constructor returns.
-/// `wrapper` = the DDGameWrapper pointer (orig's return value = `this`).
-unsafe extern "cdecl" fn on_ddgame_wrapper_created(wrapper: u32) {
-    // DDGame* lives at DDGameWrapper+0x488
-    let ddgame = *(wrapper as *const u32).add(0x488 / 4);
-    let _ = log_line(&format!(
-        "[GameSession] DDGameWrapper ctor: wrapper=0x{wrapper:08X}  ddgame=0x{ddgame:08X}"
-    ));
+/// Implicit EDI = game_info pointer, captured from EDI on entry.
+static mut GAME_INFO: u32 = 0;
+
+/// Implicit ECX = network pointer for `DDGame__Constructor`. Set in `ctor_impl`
+/// just before calling `ddgame_constructor_call`.
+static mut DDGAME_CTOR_ECX: u32 = 0;
+
+/// Runtime address of `DDGameWrapper__InitReplay` (set at install time).
+static mut INIT_REPLAY_ADDR: u32 = 0;
+
+/// Runtime address of `DDGame__Constructor` (set at install time).
+static mut DDGAME_CTOR_ADDR: u32 = 0;
+
+// ─── Bridge: DDGameWrapper__InitReplay ───────────────────────────────────────
+//
+// Convention: usercall(EAX=game_info, ESI=this), plain RET (no stack params).
+// Declared as stdcall(game_info, this) so the Rust caller pushes both; the
+// naked body loads EAX/ESI from the stack and calls via INIT_REPLAY_ADDR.
+//
+// Stack on entry (after stdcall push):
+//   [esp+0] = ret addr
+//   [esp+4] = game_info (arg 1, pushed last by stdcall)
+//   [esp+8] = this      (arg 2, pushed first by stdcall)
+//
+// After `pushl %esi`:
+//   [esp+0] = old_esi,  [esp+4] = ret addr,  [esp+8] = game_info,  [esp+0xC] = this
+#[unsafe(naked)]
+unsafe extern "stdcall" fn call_init_replay(_game_info: *mut u8, _this: *mut DDGameWrapper) {
+    core::arch::naked_asm!(
+        "pushl %esi",
+        "movl 8(%esp), %eax",    // EAX = game_info
+        "movl 0xC(%esp), %esi",  // ESI = this
+        "calll *({fn})",         // call DDGameWrapper__InitReplay; plain RET from callee
+        "popl %esi",             // restore ESI
+        "retl $8",               // stdcall callee-cleanup: 2 × u32 = 8 bytes
+        fn = sym INIT_REPLAY_ADDR,
+        options(att_syntax),
+    );
 }
 
-/// Naked trampoline for `DDGameWrapper__Constructor`.
-///
-/// Stack layout on entry (stdcall 7 params):
-/// ```text
-/// [esp+00] = caller_ret
-/// [esp+04] = this  (*mut DDGameWrapper)
-/// [esp+08] = display
-/// [esp+0C] = sound
-/// [esp+10] = gfx
-/// [esp+14] = palette
-/// [esp+18] = music
-/// [esp+1C] = network
-/// EDI      = implicit param (passed down to DDGame__Constructor as 9th arg)
-/// ```
+// ─── Bridge: DDGame__Constructor ─────────────────────────────────────────────
+//
+// Convention: stdcall 9 params + implicit ECX=network.
+//
+// Rust calls this as a normal stdcall(9 params). The naked body loads ECX from
+// DDGAME_CTOR_ECX and then **tail-jumps** (jmp, not call) to DDGame::ctor.
+//
+// Tail-jump rationale: the call instruction in ctor_impl already pushed the
+// return address at [esp+0]. After the tail-jump, DDGame::ctor sees exactly:
+//   [esp+0]  = return address back into ctor_impl
+//   [esp+4]  = this  … [esp+24] = game_info   (9 stdcall args)
+//   ECX      = network (implicit)
+// DDGame::ctor's `RET 0x24` pops 0x24 bytes and returns to ctor_impl. ✓
 #[unsafe(naked)]
-unsafe extern "C" fn hook_ddgame_wrapper_ctor() {
+unsafe extern "stdcall" fn ddgame_constructor_call(
+    _this: *mut DDGameWrapper,
+    _display: *mut DDDisplay,
+    _sound: *mut DSSound,
+    _gfx: *mut u8,
+    _palette: *mut Palette,
+    _music: *mut u8,
+    _timer_obj: *mut u8,
+    _net_game: *mut u8,
+    _game_info: *mut u8,
+) -> *mut u8 {
     core::arch::naked_asm!(
-        // --- Save EAX and swap return address ---
+        "movl {ecx_val}, %ecx",  // ECX = network (implicit param for DDGame::ctor)
+        "jmpl *({fn})",          // tail-jump; DDGame::ctor's RET 0x24 returns to caller
+        ecx_val = sym DDGAME_CTOR_ECX,
+        fn = sym DDGAME_CTOR_ADDR,
+        options(att_syntax),
+    );
+}
+
+// ─── Implementation ───────────────────────────────────────────────────────────
+
+/// Core Rust implementation of `DDGameWrapper__Constructor`.
+///
+/// Called by the naked trampoline via `calll`. The 7 stdcall args are already
+/// on the stack in cdecl position (the trampoline popped the original return
+/// address into `SAVED_RET`, leaving [this, display, …, network] at [esp+4..]).
+unsafe extern "cdecl" fn ctor_impl(
+    this: *mut DDGameWrapper,
+    display: *mut DDDisplay,
+    sound: *mut DSSound,
+    gfx: *mut u8,
+    palette: *mut Palette,
+    music: *mut u8,
+    network: *mut u8,
+) -> *mut DDGameWrapper {
+    let game_info = GAME_INFO as *mut u8;
+
+    // Initialize DDGameWrapper fields (order matches original decompile).
+    (*this).ddgame = core::ptr::null_mut();
+    (*this).landscape = core::ptr::null_mut();
+    (*this).vtable = rb(va::DDGAME_WRAPPER_VTABLE) as *mut u8;
+    (*this).sound = sound;
+    (*this).display = display;
+
+    // Initialize replay subsystem.  usercall(EAX=game_info, ESI=this), plain RET.
+    call_init_replay(game_info, this);
+
+    // Read timer_obj and net_game from the live game session struct.
+    let session = *(rb(va::G_GAME_SESSION) as *const *mut GameSession);
+    let timer_obj = (*session).timer_obj;
+    let net_game  = (*session).net_game;
+
+    // Store network as the implicit ECX for DDGame::ctor, then tail-jump-call.
+    DDGAME_CTOR_ECX = network as u32;
+    ddgame_constructor_call(
+        this, display, sound, gfx, palette, music,
+        timer_obj, net_game, game_info,
+    );
+
+    // Initialize DDGame's game-state fields.
+    let init_state: unsafe extern "stdcall" fn(*mut DDGameWrapper) =
+        core::mem::transmute(rb(va::DDGAME_INIT_GAME_STATE) as usize);
+    init_state(this);
+
+    let ddgame = (*this).ddgame;
+    let _ = log_line(&format!(
+        "[GameSession] DDGameWrapper::Constructor: wrapper=0x{:08X}  ddgame=0x{:08X}",
+        this as u32, ddgame as u32,
+    ));
+
+    this
+}
+
+// ─── Naked entry trampoline ───────────────────────────────────────────────────
+//
+// Stack on entry (stdcall 7 params + implicit EDI=game_info):
+//   [esp+0x00] = caller_ret
+//   [esp+0x04] = this
+//   [esp+0x08] = display
+//   [esp+0x0C] = sound
+//   [esp+0x10] = gfx
+//   [esp+0x14] = palette
+//   [esp+0x18] = music
+//   [esp+0x1C] = network
+//   EDI        = game_info (implicit, must not be modified)
+//
+// Steps:
+//   1. Capture EDI → GAME_INFO via EAX scratch (EDI itself is never written).
+//   2. Pop caller_ret → SAVED_RET.
+//   3. calll ctor_impl — args are in place; cdecl so callee doesn't clean stack.
+//   4. addl $0x1C, %esp — simulate stdcall callee cleanup of 7 args.
+//   5. jmpl *SAVED_RET — return to caller; EAX = this (ctor_impl's return value).
+#[unsafe(naked)]
+unsafe extern "C" fn ddgamewrapper_constructor() {
+    core::arch::naked_asm!(
+        // Use EAX as scratch to save EDI without touching EDI.
         "pushl %eax",
-        // Stack: [esp+0]=old_eax, [esp+4]=caller_ret, [esp+8]=this, ..., [esp+20]=network
-        "movl 4(%esp), %eax",          // eax = caller_ret
-        "movl %eax, {ret}",            // save caller_ret → SAVED_RET
-        "movl $1f, %eax",              // eax = address of our continuation (AT&T: $ = immediate)
-        "movl %eax, 4(%esp)",          // replace caller_ret with continuation address
-        "popl %eax",                   // restore eax; stack: [cont, this, ..., network]
-        // Stack is now exactly: [esp+0]=continuation, [esp+4]=this, ..., [esp+1C]=network
-        // EDI is unchanged — the original function will read it directly.
-
-        // --- Tail-call to original (jmp, not call, to avoid pushing a return address) ---
-        "movl {orig}, %eax",           // eax = trampoline address (value at ORIG_VAL)
-        "jmpl *%eax",
-
-        // --- Continuation: entered when orig does its `ret 0x1C` ---
-        // At this point:
-        //   EAX = wrapper pointer (orig's return value)
-        //   ESP = caller's stack (orig's ret 0x1C popped 7 params + return addr)
-        "1:",
-        "pushl %eax",                  // save wrapper (return value)
-        "pushl %eax",                  // arg: wrapper ptr → on_ddgame_wrapper_created
-        "calll {log_fn}",
-        "addl $4, %esp",               // clean cdecl arg
-        "popl %eax",                   // restore wrapper → EAX (caller's expected return value)
-        "jmpl *{ret}",                 // jump to saved caller_ret
-
-        orig = sym ORIG_VAL,
-        ret = sym SAVED_RET,
-        log_fn = sym on_ddgame_wrapper_created,
+        // [esp+0]=old_eax, [esp+4]=caller_ret, [esp+8]=this, ..., [esp+20]=network
+        "movl %edi, %eax",
+        "movl %eax, {game_info}",    // GAME_INFO = EDI
+        "popl %eax",                 // restore EAX; stack = [caller_ret, this, ..., network]
+        "popl %eax",                 // EAX = caller_ret; stack = [this, display, ..., network]
+        "movl %eax, {saved_ret}",    // SAVED_RET = caller_ret
+        "calll {impl_fn}",           // ctor_impl(this, display, sound, gfx, palette, music, network)
+        // cdecl: stack unchanged after call; EAX = this.
+        "addl $0x1c, %esp",          // stdcall callee-cleanup: discard 7 × u32 args
+        "jmpl *{saved_ret}",         // return to caller; EAX = this
+        game_info = sym GAME_INFO,
+        saved_ret = sym SAVED_RET,
+        impl_fn   = sym ctor_impl,
         options(att_syntax),
     );
 }
 
 pub fn install() -> Result<(), String> {
     unsafe {
-        let trampoline = hook::install(
+        INIT_REPLAY_ADDR = rb(va::DDGAMEWRAPPER_INIT_REPLAY);
+        DDGAME_CTOR_ADDR = rb(va::CONSTRUCT_DD_GAME);
+        // Full replacement — trampoline not needed.
+        let _ = hook::install(
             "DDGameWrapper__Constructor",
             va::CONSTRUCT_DD_GAME_WRAPPER,
-            hook_ddgame_wrapper_ctor as *const (),
+            ddgamewrapper_constructor as *const (),
         )?;
-        ORIG_VAL = trampoline as u32;
     }
     Ok(())
 }
