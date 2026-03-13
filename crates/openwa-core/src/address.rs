@@ -223,6 +223,32 @@ pub mod va {
     /// usercall(EAX=base, EDX=team_idx, ESI=worm_index) → void, plain RET. 3 xrefs.
     pub const SET_ACTIVE_WORM_MAYBE: u32 = 0x0052_2500;
 
+    // === Game session ===
+
+    /// `GameEngine__InitHardware` — initializes all hardware subsystems: display,
+    /// sound, keyboard, palette, DDGameWrapper, DDNetGameWrapper, and stores
+    /// the resulting pointers into `G_GAME_SESSION`.
+    ///
+    /// `__thiscall(this=GameInfo, hwnd, param3, param4)` → 1=ok 0=fail, `RET 0xC`.
+    ///
+    /// In headless/stats mode (`GameInfo+0xF914 != 0`) creates a `GameStats` object
+    /// with the DDInput vtable instead of a real display+audio stack.
+    pub const GAME_ENGINE_INIT_HARDWARE: u32 = 0x0056_D350;
+
+    /// `GameSession__Run` — allocates the `GameSession` struct (0x120 bytes),
+    /// calls `GameEngine__InitHardware`, runs the game main loop, then calls
+    /// `GameEngine__Shutdown`. Uses ESI implicitly for the `GameInfo` config.
+    pub const GAME_SESSION_RUN: u32 = 0x0057_2F50;
+
+    /// `GameSession__Constructor` — usercall(`EAX=this`), sets vtable and
+    /// zero-inits all fields. Called with a freshly `malloc`'d 0x120-byte buffer.
+    pub const GAME_SESSION_CONSTRUCTOR: u32 = 0x0058_BFA0;
+
+    /// `GameEngine__Shutdown` — destroys all subsystems in reverse creation order
+    /// (streaming audio, DDGameWrapper, DisplayGfx, DDKeyboard, Palette).
+    /// `stdcall(param_1)` → void.
+    pub const GAME_ENGINE_SHUTDOWN: u32 = 0x0056_DCD0;
+
     // === Graphics / rendering ===
 
     pub const CONSTRUCT_DD_GAME: u32 = 0x0056_E220;

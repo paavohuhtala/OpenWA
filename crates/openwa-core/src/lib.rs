@@ -23,6 +23,7 @@ pub mod game_info;
 pub mod scheme;
 pub mod speech;
 pub mod turn_order;
+pub mod game_session;
 pub mod address;
 pub mod rebase;
 pub mod wa;
