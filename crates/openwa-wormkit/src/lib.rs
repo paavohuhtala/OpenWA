@@ -54,6 +54,7 @@ fn clear_log() -> std::io::Result<()> {
 
 fn run() -> Result<(), String> {
     let _ = clear_log();
+    let _ = std::fs::write("OpenWA_validation.log", "");
 
     let delta = openwa_core::rebase::init();
     let _ = log_line(&format!(

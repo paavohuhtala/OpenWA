@@ -11,7 +11,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 use openwa_core::rebase::rb;
 use openwa_core::address::va;
-use openwa_core::task::{CTask, CGameTask, CTaskTeam, CTaskTurnGame, TurnGameCtx, SharedDataTable};
+use openwa_core::task::{CTask, CTaskBfsIter, CGameTask, CTaskMissile, MissileType, CTaskTeam, CTaskTurnGame, TurnGameCtx, SharedDataTable};
 use openwa_core::ddgame::DDGame;
 use openwa_core::ddgame_wrapper::DDGameWrapper;
 
@@ -317,6 +317,17 @@ fn validate_struct_offsets(result: &mut ValidationResult) {
     check_offset!(result, TurnGameCtx, _slot_d0,       0xA0);
     check_offset!(result, TurnGameCtx, _hud_textbox_a, 0xA4);
     check_offset!(result, TurnGameCtx, _hud_textbox_b, 0xA8);
+
+    let _ = log_validation("");
+    let _ = log_validation("  CTaskMissile:");
+    check_offset!(result, CTaskMissile, base,            0x00);
+    check_offset!(result, CTaskMissile, slot_id,         0x12C);
+    check_offset!(result, CTaskMissile, spawn_params,    0x130);
+    check_offset!(result, CTaskMissile, weapon_data,     0x15C);
+    check_offset!(result, CTaskMissile, render_data,     0x2D4);
+    check_offset!(result, CTaskMissile, launch_speed_raw, 0x3A0);
+    check_offset!(result, CTaskMissile, homing_enabled,  0x3A8);
+    check_offset!(result, CTaskMissile, direction,       0x3C8);
 
     let _ = log_validation("  CTaskTurnGame:");
     check_offset!(result, CTaskTurnGame, game_ctx,         0x30);
@@ -1191,6 +1202,127 @@ fn dump_ctaskteam_entities() {
 }
 
 // ---------------------------------------------------------------------------
+// CTaskMissile live dump
+// ---------------------------------------------------------------------------
+//
+// CTaskMissile is NOT registered in the SharedData entity table — it is a
+// transient child of a CTaskFilter node. We walk the full task tree from the
+// root (CTaskTurnGame) up to 4 levels deep, checking every child's vtable.
+// Fire a weapon, then press F8.
+
+/// Hex dump of one CTaskMissile to the validation log.
+/// Each non-zero DWORD is printed as: +0xOFFSET: 0xVALUE
+/// Sections are labelled so the output can be cross-referenced with the struct.
+unsafe fn dump_missile_raw(ptr: u32) {
+    let base = ptr as *const u32;
+    let sections: &[(usize, usize, &str)] = &[
+        (0x000, 0x030, "CTask base"),
+        (0x030, 0x084, "CGameTask _unknown_30"),
+        (0x084, 0x098, "CGameTask pos/speed (0x84–0x97)"),
+        (0x098, 0x0FC, "CGameTask _unknown_98"),
+        (0x0FC, 0x130, "CTaskMissile 0xFC–0x12F"),
+        (0x130, 0x15C, "spawn_params"),
+        (0x15C, 0x2D4, "weapon_data"),
+        (0x2D4, 0x37C, "render_data"),
+        (0x37C, 0x41C, "_unknown_37c / launch_speed / homing / direction"),
+    ];
+    for &(start, end, label) in sections {
+        let _ = log_validation(&format!("  -- {} (0x{:03X}..0x{:03X}) --", label, start, end));
+        let dwords = (end - start) / 4;
+        for i in 0..dwords {
+            let off = start + i * 4;
+            let val = *base.add(off / 4);
+            if val != 0 {
+                let _ = log_validation(&format!("    +0x{:03X}: 0x{:08X}  ({})", off, val, val));
+            }
+        }
+    }
+}
+
+fn dump_missile_tasks() {
+    let _ = log_validation("");
+    let _ = log_validation("--- CTaskMissile Entity Dump ---");
+
+    unsafe {
+        let session_ptr = read_u32(rb(va::G_GAME_SESSION));
+        if session_ptr == 0 { let _ = log_validation("  No game session — skipping."); return; }
+        let wrapper_addr = read_u32(session_ptr + 0xA0);
+        if wrapper_addr == 0 { let _ = log_validation("  No DDGameWrapper."); return; }
+        let ddgame_ptr = read_u32(wrapper_addr + 0x488);
+        if ddgame_ptr == 0 { let _ = log_validation("  No DDGame."); return; }
+
+        // Walk up from CTaskLand to root (CTaskTurnGame) via parent links.
+        let task_land_ptr = read_u32(ddgame_ptr + 0x54C);
+        if task_land_ptr == 0 { let _ = log_validation("  CTaskLand NULL — game not loaded."); return; }
+        let mut root = task_land_ptr;
+        for _ in 0..10 {
+            let parent = read_u32(root + 0x04);
+            if parent == 0 { break; }
+            root = parent;
+        }
+
+        let expected_vt = rb(va::CTASK_MISSILE_VTABLE);
+        let _ = log_validation(&format!("  Root (CTaskTurnGame) @ 0x{:08X}", root));
+        let _ = log_validation(&format!("  Expected CTaskMissile vtable: 0x{:08X}", expected_vt));
+
+        let mut found = 0u32;
+        let mut first_ptr: u32 = 0;
+        let mut scanned = 0usize;
+
+        for task_ptr in CTaskBfsIter::new(root as *const CTask) {
+            let node = task_ptr as u32;
+            scanned += 1;
+
+            let vt = read_u32(node);
+            if vt == expected_vt {
+                found += 1;
+                if first_ptr == 0 { first_ptr = node; }
+
+                let m = &*(node as *const CTaskMissile);
+                let pos_x = m.base.pos_x.to_f32();
+                let pos_y = m.base.pos_y.to_f32();
+                let spd_x = m.base.speed_x.to_f32();
+                let spd_y = m.base.speed_y.to_f32();
+                let _ = log_validation(&format!(
+                    "  missile#{} @ 0x{:08X}  slot={}  type={:?}  homing={}  dir={}",
+                    found, node, m.slot_id, m.missile_type(), m.homing_enabled, m.direction
+                ));
+                let _ = log_validation(&format!(
+                    "    pos=({:.2},{:.2})  speed=({:.3},{:.3})  cursor=({:.1},{:.1})",
+                    pos_x, pos_y, spd_x, spd_y,
+                    m.cursor_x().to_f32(), m.cursor_y().to_f32()
+                ));
+                let _ = log_validation(&format!(
+                    "    spawn_params: owner={} pellet={}  spawn=({:.1},{:.1})",
+                    m.spawn_params[0], m.spawn_params[8],
+                    m.spawn_x().to_f32(), m.spawn_y().to_f32()
+                ));
+                let _ = log_validation(&format!(
+                    "    weapon_data[0..10]: {:?}",
+                    &m.weapon_data[..10]
+                ));
+                let _ = log_validation(&format!(
+                    "    render_data[0x15..0x1A]: {:?}  (timer={})",
+                    &m.render_data[0x15..0x1A],
+                    m.render_data[0x19]
+                ));
+            }
+        }
+
+        let _ = log_validation(&format!("  Total CTaskMissile found: {} (scanned {} nodes)", found, scanned));
+
+        if found == 0 {
+            let _ = log_validation("  No missiles in flight — fire a weapon first, then press F8.");
+            return;
+        }
+
+        // Full raw dump of the first missile to cross-validate struct layout.
+        let _ = log_validation(&format!("\n  === Raw dump: CTaskMissile @ 0x{:08X} ===", first_ptr));
+        dump_missile_raw(first_ptr);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Public entry point — called from wormkit's run()
 // ---------------------------------------------------------------------------
 
@@ -1262,6 +1394,8 @@ pub fn run() -> Result<(), String> {
             dump_ctaskteam_entities();
             let _ = log_validation("  Running CTask children sub-struct dump (5s mark)...");
             dump_ctask_children();
+            let _ = log_validation("  Running CTaskMissile dump (5s mark)...");
+            dump_missile_tasks();
 
             // Wait briefly for replay to start, then dump game state
             // (fast-forward finishes the replay in ~10-15s total, so dump early)
@@ -1305,7 +1439,9 @@ pub fn run() -> Result<(), String> {
     Ok(())
 }
 
-/// Start the debug hotkey listener thread (F9=team blocks, F10=landscape).
+/// Start the debug hotkey listener thread.
+///
+/// F8 = CTaskMissile dump (fire a weapon first, then press F8 while missile is in flight).
 ///
 /// Always available regardless of `OPENWA_VALIDATE`. Skipped in replay-test
 /// mode since auto-capture handles dumps automatically.
@@ -1316,20 +1452,12 @@ pub fn start_hotkeys() {
 
     std::thread::spawn(|| {
         use windows_sys::Win32::UI::Input::KeyboardAndMouse::GetAsyncKeyState;
-        const VK_F8: i32  = 0x77;
-        const VK_F9: i32  = 0x78;
-        const VK_F10: i32 = 0x79;
-        const VK_F11: i32 = 0x7A;
-        const VK_F12: i32 = 0x7B;
-        let _ = log_validation("  Hotkeys: F8=ctask children, F9=team blocks, F10=landscape, F11=worm tasks, F12=entity census");
+        const VK_F8: i32 = 0x77;
+        let _ = log_validation("  Hotkeys: F8=missile dump (fire weapon, then press F8 while missile is in flight)");
         loop {
             std::thread::sleep(std::time::Duration::from_millis(100));
             unsafe {
-                if GetAsyncKeyState(VK_F8)  & 1 != 0 { dump_ctask_children(); }
-                if GetAsyncKeyState(VK_F9)  & 1 != 0 { dump_team_blocks(); }
-                if GetAsyncKeyState(VK_F10) & 1 != 0 { dump_landscape(); }
-                if GetAsyncKeyState(VK_F11) & 1 != 0 { dump_worm_tasks(); }
-                if GetAsyncKeyState(VK_F12) & 1 != 0 { dump_entity_census(); }
+                if GetAsyncKeyState(VK_F8) & 1 != 0 { dump_missile_tasks(); }
             }
         }
     });

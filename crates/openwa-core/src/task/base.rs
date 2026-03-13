@@ -150,6 +150,63 @@ impl SharedDataTable {
     }
 }
 
+/// Breadth-first iterator over the CTask tree.
+///
+/// Visits every node reachable from `root` by following `children_data`
+/// arrays. Null slots in the sparse children array are skipped automatically.
+///
+/// Yields raw `*const CTask` pointers. The caller is responsible for casting
+/// to the correct derived type (e.g., by checking the vtable pointer at `[0]`).
+///
+/// # Example
+/// ```ignore
+/// let iter = unsafe { CTaskBfsIter::new(root_ptr) };
+/// for task in iter {
+///     if unsafe { *(task as *const u32) } == rb(va::CTASK_MISSILE_VTABLE) {
+///         let m = unsafe { &*(task as *const CTaskMissile) };
+///         // ...
+///     }
+/// }
+/// ```
+pub struct CTaskBfsIter {
+    queue: std::collections::VecDeque<*const CTask>,
+}
+
+impl CTaskBfsIter {
+    /// Create a new BFS iterator rooted at `root`.
+    ///
+    /// # Safety
+    /// `root` must be a valid, aligned `*const CTask`. All reachable
+    /// `children_data` entries must be either null or valid `*const CTask`.
+    pub unsafe fn new(root: *const CTask) -> Self {
+        let mut queue = std::collections::VecDeque::new();
+        queue.push_back(root);
+        Self { queue }
+    }
+}
+
+impl Iterator for CTaskBfsIter {
+    type Item = *const CTask;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // SAFETY: caller of CTaskBfsIter::new() guarantees node validity.
+        unsafe {
+            let node = self.queue.pop_front()?;
+            let watermark = (*node).children_watermark as usize;
+            let data = (*node).children_data as *const u32;
+            if !data.is_null() {
+                for i in 0..watermark {
+                    let child_ptr = *data.add(i);
+                    if child_ptr != 0 {
+                        self.queue.push_back(child_ptr as *const CTask);
+                    }
+                }
+            }
+            Some(node)
+        }
+    }
+}
+
 /// Iterator over all [`SharedDataNode`]s in a [`SharedDataTable`].
 ///
 /// Created by [`SharedDataTable::iter`]. Walks all 256 buckets in order,
