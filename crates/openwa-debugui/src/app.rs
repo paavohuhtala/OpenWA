@@ -76,11 +76,11 @@ unsafe fn get_ddgame() -> Option<*const DDGame> {
 /// Read child task pointers from a CTask's children array.
 ///
 /// The array is **sparse**: slots are nulled when a child is removed rather than
-/// compacted. `children_size` is the slot high-watermark (loop upper bound used
+/// compacted. `children_watermark` is the insertion counter (loop upper bound used
 /// by CTask::HandleMessage), not the live-child count. We return all slots up to
 /// that bound so the caller can filter nulls and display the live set.
 unsafe fn read_children(task: *const CTask) -> Vec<u32> {
-    let slots = (*task).children_size as usize;
+    let slots = (*task).children_watermark as usize;
     let data  = (*task).children_data as *const u32;
     if data.is_null() || slots == 0 { return Vec::new(); }
     // Hard safety cap: 4096 slots × 4 bytes = 16 KB max read
@@ -343,8 +343,8 @@ impl DebugApp {
                         }
                         ui.end_row();
 
-                        // children_size = slot high-watermark (sparse array); live = non-null slots
-                        ui.label("child slots"); ui.label(format!("{} used / {} cap", (*task).children_size, (*task).children_max_size)); ui.end_row();
+                        // children_watermark = total insertions (sparse array); live = non-null slots
+                        ui.label("child slots"); ui.label(format!("{} watermark / {} cap", (*task).children_watermark, (*task).children_capacity)); ui.end_row();
                         ui.label("class_type");  ui.label(format!("{:?}", (*task).class_type));                                  ui.end_row();
                     });
                 });
@@ -353,7 +353,7 @@ impl DebugApp {
             // read_children returns all slots (sparse); filter nulls for live count.
             let children = read_children(task);
             let live_count = children.iter().filter(|&&a| a != 0).count();
-            let slot_count = (*task).children_size as usize;
+            let slot_count = (*task).children_watermark as usize;
             if live_count > 0 || slot_count > 0 {
                 egui::CollapsingHeader::new(format!("Children ({} live / {} slots)", live_count, slot_count))
                     .default_open(true)
@@ -365,7 +365,8 @@ impl DebugApp {
 
                             // Expand inline if the child itself has children
                             let child_task = child_addr as *const CTask;
-                            let grandchild_count = (*child_task).children_size;
+                            let grandchildren = read_children(child_task);
+                            let grandchild_count = grandchildren.iter().filter(|&&a| a != 0).count();
 
                             if grandchild_count > 0 {
                                 // Show as a sub-collapsing header with its own children
@@ -382,7 +383,6 @@ impl DebugApp {
                                             *navigate_to = Some(child_addr);
                                         }
                                         // Show grandchildren
-                                        let grandchildren = read_children(child_task);
                                         for gc_addr in &grandchildren {
                                             let gc_addr = *gc_addr;
                                             if gc_addr == 0 { continue; }

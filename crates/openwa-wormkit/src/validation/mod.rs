@@ -262,7 +262,7 @@ fn validate_struct_offsets(result: &mut ValidationResult) {
     let _ = log_validation("  CTask:");
     check_offset!(result, CTask, vtable, 0x00);
     check_offset!(result, CTask, parent, 0x04);
-    check_offset!(result, CTask, children_max_size, 0x08);
+    check_offset!(result, CTask, children_capacity, 0x08);
     check_offset!(result, CTask, children_data, 0x14);
     check_offset!(result, CTask, class_type, 0x20);
     check_offset!(result, CTask, shared_data, 0x24);
@@ -1049,6 +1049,85 @@ fn dump_turngame() {
 }
 
 // ---------------------------------------------------------------------------
+// CTask children sub-struct live dump
+// ---------------------------------------------------------------------------
+//
+// We need to confirm the layout of the four fields at CTask+0x08..+0x17:
+//   +0x08  children_capacity  (u32, starts 0x10)
+//   +0x0C  children_dirty     (u32, flag)
+//   +0x10  children_watermark (u32, insertion counter)
+//   +0x14  children_data      (*mut u8, array pointer)
+//
+// We dump the raw DWORDs at these offsets for a few representative tasks so
+// we can verify against what WA actually stores at runtime.
+
+fn dump_ctask_children() {
+    use crate::replacements::input::dump_region;
+
+    let _ = log_validation("");
+    let _ = log_validation("--- CTask children sub-struct dump ---");
+
+    unsafe {
+        let session_ptr = read_u32(rb(va::G_GAME_SESSION));
+        if session_ptr == 0 { let _ = log_validation("  No game session."); return; }
+        let wrapper_addr = read_u32(session_ptr + 0xA0);
+        if wrapper_addr == 0 { let _ = log_validation("  No DDGameWrapper."); return; }
+        let ddgame_ptr = read_u32(wrapper_addr + 0x488);
+        if ddgame_ptr == 0 { let _ = log_validation("  No DDGame."); return; }
+
+        let task_land_ptr = read_u32(ddgame_ptr + 0x54C);
+        if task_land_ptr == 0 { let _ = log_validation("  CTaskLand NULL."); return; }
+
+        // Walk up to root (CTaskTurnGame)
+        let mut cursor = task_land_ptr;
+        for _ in 0..10 {
+            let parent = read_u32(cursor + 0x04);
+            if parent == 0 { break; }
+            cursor = parent;
+        }
+        let root = cursor;
+
+        // Print the children sub-struct fields for root, then walk its first
+        // child (CTaskTeam level) and each of its children (CTaskFilter level).
+        let print_task_children = |label: &str, addr: u32| {
+            if addr == 0 { return; }
+            let cap   = read_u32(addr + 0x08);
+            let dirty = read_u32(addr + 0x0C);
+            let wmark = read_u32(addr + 0x10);
+            let data  = read_u32(addr + 0x14);
+            let _ = log_validation(&format!(
+                "  {}  @ 0x{:08X}  cap={}  dirty={}  watermark={}  data=0x{:08X}",
+                label, addr, cap, dirty, wmark, data
+            ));
+            // Raw dump of the 0x30-byte CTask base so we can cross-check all fields
+            dump_region(addr as *const u8, 0x00, 0x30, "CTask");
+        };
+
+        print_task_children("root (CTaskTurnGame)", root);
+
+        // First two children of root (CTaskTeam instances)
+        let root_watermark = read_u32(root + 0x10) as usize;
+        let root_data      = read_u32(root + 0x14);
+        let mut teams_found = 0;
+        for i in 0..root_watermark.min(64) {
+            let child = read_u32(root_data + i as u32 * 4);
+            if child == 0 { continue; }
+            print_task_children(&format!("  child[{}] (CTaskTeam?)", i), child);
+            // And print the first few children of this child (CTaskFilter level)
+            let child_wmark = read_u32(child + 0x10) as usize;
+            let child_data  = read_u32(child + 0x14);
+            for j in 0..child_wmark.min(16) {
+                let gc = read_u32(child_data + j as u32 * 4);
+                if gc == 0 { continue; }
+                print_task_children(&format!("    grandchild[{}] (CTaskFilter?)", j), gc);
+            }
+            teams_found += 1;
+            if teams_found >= 2 { break; }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // CTaskTeam entity dump
 // ---------------------------------------------------------------------------
 
@@ -1181,6 +1260,8 @@ pub fn run() -> Result<(), String> {
             dump_turngame();
             let _ = log_validation("  Running CTaskTeam entity dump (5s mark)...");
             dump_ctaskteam_entities();
+            let _ = log_validation("  Running CTask children sub-struct dump (5s mark)...");
+            dump_ctask_children();
 
             // Wait briefly for replay to start, then dump game state
             // (fast-forward finishes the replay in ~10-15s total, so dump early)
@@ -1240,11 +1321,11 @@ pub fn start_hotkeys() {
         const VK_F10: i32 = 0x79;
         const VK_F11: i32 = 0x7A;
         const VK_F12: i32 = 0x7B;
-        let _ = log_validation("  Hotkeys: F8=team entities, F9=team blocks, F10=landscape, F11=worm tasks, F12=entity census");
+        let _ = log_validation("  Hotkeys: F8=ctask children, F9=team blocks, F10=landscape, F11=worm tasks, F12=entity census");
         loop {
             std::thread::sleep(std::time::Duration::from_millis(100));
             unsafe {
-                if GetAsyncKeyState(VK_F8)  & 1 != 0 { dump_ctaskteam_entities(); }
+                if GetAsyncKeyState(VK_F8)  & 1 != 0 { dump_ctask_children(); }
                 if GetAsyncKeyState(VK_F9)  & 1 != 0 { dump_team_blocks(); }
                 if GetAsyncKeyState(VK_F10) & 1 != 0 { dump_landscape(); }
                 if GetAsyncKeyState(VK_F11) & 1 != 0 { dump_worm_tasks(); }

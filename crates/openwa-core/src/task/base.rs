@@ -23,13 +23,18 @@ pub struct CTask {
     pub vtable: *mut u8,
     /// 0x04: Parent task in the hierarchy
     pub parent: *mut u8,
-    /// 0x08: Children list max capacity (set to 0x10 in constructor)
-    pub children_max_size: u32,
-    /// 0x0C: Children list unknown field (set to 0 in constructor)
-    pub children_unk: u32,
-    /// 0x10: Children list current size
-    pub children_size: u32,
-    /// 0x14: Pointer to children data array (allocated 0x60 bytes in constructor)
+    /// 0x08: Children array capacity — starts at 0x10, doubles via realloc when full.
+    pub children_capacity: u32,
+    /// 0x0C: Set to 1 by `FUN_004fdce0` when a child slot is nulled (dirty flag).
+    /// Zero at construction. Not decremented; purely a "child was removed" marker.
+    pub children_dirty: u32,
+    /// 0x10: Insert watermark — incremented on every child insertion, never decremented
+    /// on removal. Dead children leave null slots; `children_data[0..children_watermark]`
+    /// is a sparse array. This grows without bound within a session (e.g., sea bubbles
+    /// continuously spawn/die, each consuming a new slot and doubling capacity as needed).
+    pub children_watermark: u32,
+    /// 0x14: Pointer to children data array (sparse, allocated 0x60 bytes initially,
+    /// reallocated to `children_capacity * 8 + 0x20` bytes on overflow).
     pub children_data: *mut u8,
     /// 0x18: Children hash list pointer (set to 0 in constructor)
     pub children_hash: *mut u8,
