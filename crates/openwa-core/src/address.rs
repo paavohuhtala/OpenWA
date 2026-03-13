@@ -41,6 +41,14 @@ pub mod va {
     pub const LANDSCAPE_SHADER_VTABLE: u32 = 0x0066_B1DC;
     /// DSSound vtable
     pub const DS_SOUND_VTABLE: u32 = 0x0066_AF20;
+    /// DDKeyboard vtable (0x33C-byte keyboard object)
+    pub const DDKEYBOARD_VTABLE: u32 = 0x0066_AEC8;
+    /// Palette vtable (0x28-byte palette object)
+    pub const PALETTE_VTABLE_MAYBE: u32 = 0x0066_A2E4;
+    /// GameStats vtable — overlaid after GameStats__Constructor in headless mode
+    pub const GAMESTATS_VTABLE: u32 = 0x0066_A0F8;
+    /// Input controller vtable (0x1800-byte object, set inline before FUN_0058C0D0)
+    pub const INPUT_CTRL_VTABLE: u32 = 0x0066_B3FC;
     /// TaskStateMachine vtable
     pub const TASK_STATE_MACHINE_VTABLE: u32 = 0x0066_4118;
     /// OpenGLCPU vtable (0x48-byte object)
@@ -259,7 +267,30 @@ pub mod va {
     /// DDGame::InitGameState — stdcall(this=DDGameWrapper*), RET 0x4.
     /// Initializes game state fields in DDGame after DDGame__Constructor.
     pub const DDGAME_INIT_GAME_STATE: u32 = 0x0052_6500;
-    pub const CONSTRUCT_DD_DISPLAY: u32 = 0x0056_9D00;
+    /// DisplayGfx__Constructor_Maybe — stdcall(this) → DisplayGfx*.
+    /// Constructs the 0x24E28-byte DisplayGfx object.
+    pub const DISPLAYGFX_CTOR: u32 = 0x0056_9C10;
+    /// DDDisplay::Init — usercall(ECX=height) + stdcall(display_gfx, hwnd, width, flags), RET 0x10 → 0 on failure.
+    /// ECX must be set to game_info+0xF3B8 (height) before calling.
+    /// Resolution retry loop in GameEngine__InitHardware updates GameInfo+0xF3B4/0xF3B8.
+    pub const DDISPLAY_INIT: u32 = 0x0056_9D00;
+    /// Alias kept for callers that use the old name.
+    pub const CONSTRUCT_DD_DISPLAY: u32 = DDISPLAY_INIT;
+    /// GameStats__Constructor_Maybe — stdcall(this) → GameStats*.
+    /// Constructs the 0x3560-byte GameStats stub used in headless mode.
+    pub const GAMESTATS_CTOR: u32 = 0x0052_2DB0;
+    /// Streaming audio constructor — stdcall(IDirectSound*, path_config_ptr) → *mut u8.
+    /// Constructs 0x354-byte streaming audio object (only if GameInfo+0xDAA4 != 0).
+    pub const STREAMING_AUDIO_CTOR: u32 = 0x0058_BC10;
+    /// Input controller initializer — usercall(ESI=this) + stdcall(game_info_p4, hwnd, param3, joycount).
+    /// Initializes 0x1800-byte input ctrl. Returns 0 on failure. RET 0x10.
+    pub const INPUT_CTRL_INIT: u32 = 0x0058_C0D0;
+    /// DDNetGameWrapper__Constructor_Maybe — stdcall(this) → *mut u8.
+    /// Constructs 0x2C-byte DDNetGameWrapper. Returns param_1.
+    pub const DDNETGAME_WRAPPER_CTOR: u32 = 0x0056_D1F0;
+    /// Timer object constructor — usercall(ESI=this, EAX=init_val), plain RET.
+    /// Constructs 0x30-byte timer shell and allocates 2×0x20E0 internal buffers.
+    pub const GAME_ENGINE_TIMER_CTOR: u32 = 0x0053_E950;
     pub const CONSTRUCT_FRAME_BUFFER: u32 = 0x005A_2430;
     pub const BLIT_SCREEN: u32 = 0x005A_2020;
     pub const RQ_RENDER_DRAWING_QUEUE: u32 = 0x0054_2350;
@@ -344,7 +375,13 @@ pub mod va {
 
     // === Sound ===
 
+    /// DSSound__Constructor — usercall(EAX=this), plain RET. Inits vtable + zero fields.
     pub const CONSTRUCT_DS_SOUND: u32 = 0x0057_3D50;
+    /// FUN_00573E50 — usercall(EAX=dssound) + cdecl(out_at_0x10, out_at_0x0C), plain RET.
+    /// Sets up primary DirectSound buffer after DirectSoundCreate.
+    pub const DSSOUND_INIT_BUFFERS: u32 = 0x0057_3E50;
+    /// DirectSoundCreate IAT thunk → dsound.dll. stdcall(pGuid, ppDS, pUnkOuter).
+    pub const DIRECTSOUND_CREATE: u32 = 0x005B_493E;
     pub const PLAY_SOUND_LOCAL: u32 = 0x004F_DFE0;
     pub const PLAY_SOUND_GLOBAL: u32 = 0x0054_6E20;
 
@@ -573,6 +610,8 @@ pub mod va {
 
     // === Memory ===
 
+    /// WA internal malloc — cdecl(size: u32) → *mut u8. Statically-linked MSVC 2005 CRT.
+    pub const WA_MALLOC: u32 = 0x005C_0AE3;
     pub const WA_MALLOC_MEMSET: u32 = 0x0053_E910;
     pub const WA_FREE: u32 = 0x005D_0D2B;
 
@@ -620,6 +659,11 @@ pub mod va {
     /// Game session context pointer (contains subsystem pointers at known offsets)
     /// +0xA0 = DDGameWrapper*, +0xAC = DDDisplay*, +0xA8 = DSSound*, etc.
     pub const G_GAME_SESSION: u32 = 0x007A_0884;
+    /// Fullscreen mode flag — non-zero when game is running fullscreen.
+    /// Read by GameEngine__InitHardware for cursor/screen-center computation.
+    pub const G_FULLSCREEN_FLAG: u32 = 0x007A_084C;
+    /// Suppress-cursor flag — if non-zero, skip SetCursorPos/ClipCursor in hardware init.
+    pub const G_SUPPRESS_CURSOR: u32 = 0x0088_E485;
     /// Total sprite data bytes loaded (accumulated by ProcessSprite)
     pub const G_SPRITE_DATA_BYTES: u32 = 0x007A_0864;
     /// Total sprite frame count loaded

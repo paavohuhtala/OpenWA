@@ -28,3 +28,4 @@ pub mod address;
 pub mod rebase;
 pub mod wa;
 pub mod wa_call;
+pub mod wa_alloc;

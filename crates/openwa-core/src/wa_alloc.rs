@@ -1,0 +1,68 @@
+//! WA heap allocation utilities.
+
+use crate::address::va;
+use crate::rebase::rb;
+
+/// Allocate `size` bytes from WA's statically-linked CRT heap.
+///
+/// # Safety
+/// Must only be called from within the WA.exe process (game or injected DLL).
+pub unsafe fn wa_malloc(size: u32) -> *mut u8 {
+    let f: unsafe extern "cdecl" fn(u32) -> *mut u8 =
+        core::mem::transmute(rb(va::WA_MALLOC) as usize);
+    f(size)
+}
+
+/// An allocation from WA's heap.
+///
+/// Owns a pointer obtained from [`wa_malloc`]. Call [`.leak()`](WABox::leak) to transfer
+/// ownership to WA code; call [`.as_ptr()`](WABox::as_ptr) to borrow.
+///
+/// There is **no automatic free on drop** — the WA heap is not under Rust's control.
+/// If a `WABox` is dropped without being leaked, the allocation silently leaks.
+/// This is intentional: all allocation sites either `.leak()` into a WA struct field or
+/// reach an early-return via the C++ destructor path.
+#[must_use]
+pub struct WABox<T> {
+    ptr: core::ptr::NonNull<T>,
+}
+
+impl<T> WABox<T> {
+    /// Allocate `alloc_size` bytes from WA's heap, zeroing the first `zero_size` bytes.
+    ///
+    /// Panics if `wa_malloc` returns null.
+    ///
+    /// `zero_size` may be less than `alloc_size` when the tail of the allocation is
+    /// populated by a constructor — e.g. `alloc(0x24E28, 0x24E08)` zeroes all but the
+    /// last 0x20 bytes, matching the original `_memset(pvVar8, 0, 0x24e08)`.
+    ///
+    /// # Safety
+    /// Must only be called from within the WA.exe process.
+    pub unsafe fn alloc(alloc_size: u32, zero_size: u32) -> Self {
+        let raw = wa_malloc(alloc_size);
+        if raw.is_null() {
+            panic!("wa_malloc({alloc_size}) returned null");
+        }
+        if zero_size > 0 {
+            core::ptr::write_bytes(raw, 0, zero_size as usize);
+        }
+        Self {
+            ptr: core::ptr::NonNull::new_unchecked(raw as *mut T),
+        }
+    }
+
+    /// Return a raw pointer to the allocation without consuming `self`.
+    pub fn as_ptr(&self) -> *mut T {
+        self.ptr.as_ptr()
+    }
+
+    /// Consume the box and return the raw pointer, relinquishing Rust ownership.
+    ///
+    /// The caller is now responsible for the memory — typically by storing the pointer
+    /// in a WA struct field that will eventually be freed by a C++ destructor.
+    pub fn leak(self) -> *mut T {
+        let ptr = self.ptr.as_ptr();
+        core::mem::forget(self);
+        ptr
+    }
+}

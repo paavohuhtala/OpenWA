@@ -209,6 +209,25 @@ unsafe extern "C" fn ddgamewrapper_constructor() {
     );
 }
 
+/// Called by `impl_init_hardware` to construct the DDGameWrapper in-place.
+///
+/// Sets `GAME_INFO` (read by `ctor_impl`) and delegates directly to `ctor_impl`,
+/// bypassing the naked entry trampoline which is designed as a hook target, not a
+/// callable subroutine.
+pub(crate) unsafe fn construct_ddgame_wrapper(
+    game_info: *mut u8,
+    this: *mut DDGameWrapper,
+    display: *mut DDDisplay,
+    sound: *mut DSSound,
+    gfx: *mut u8,
+    palette: *mut Palette,
+    music: *mut u8,
+    network: *mut u8,
+) -> *mut DDGameWrapper {
+    GAME_INFO = game_info as u32;
+    ctor_impl(this, display, sound, gfx, palette, music, network)
+}
+
 pub fn install() -> Result<(), String> {
     unsafe {
         INIT_REPLAY_ADDR = rb(va::DDGAMEWRAPPER_INIT_REPLAY);
