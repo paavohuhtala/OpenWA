@@ -1,52 +1,57 @@
 ---
 name: replay-test
-description: Run automated replay-based testing - builds, deploys, launches WA.exe with a replay file, captures validation logs, and presents results. Use when you need to validate struct layouts, hooks, or game state against live WA.exe.
+description: Run automated replay-based testing - builds, launches WA.exe with a replay file, captures validation logs, and presents results. Supports headful (graphics + validation) and headless (pure simulation + log diff) modes.
 ---
 
 # Replay Test
 
 Run the replay-based automated testing pipeline.
 
-## Steps
+## Modes
 
-1. Run the replay test script:
+### Headful (default) — graphics, sound, validation
+Tests hooks, struct layouts, and game state with the full rendering pipeline active.
 
 ```bash
 powershell -ExecutionPolicy Bypass -File replay-test.ps1
 ```
 
-This will:
-- Build the unified openwa-wormkit DLL (includes validation)
-- Deploy wkOpenWA.dll to the WA game directory
-- Set `OPENWA_VALIDATE=1` and `OPENWA_REPLAY_TEST=1` env vars
-- Launch WA.exe minimized with the default replay file (testdata/replays/bots.WAgame)
-- The DLL restores the window after 2s via FindWindowA + ShowWindow(SW_RESTORE)
-- Fast-forward through the entire replay by setting DDGame+0x98B0 (50 frames per render cycle)
-- Validation runs at the 5s mark, game exits when replay finishes (120s safety timeout)
-- Copy logs to testdata/logs/
+### Headless — pure simulation, log comparison
+Uses WA's built-in `/getlog` mode: no window, no rendering, pure CPU simulation. Compares the output log byte-for-byte against an expected log to verify replay determinism. An order of magnitude faster than headful mode.
 
-2. Read the validation log and present results:
+```bash
+powershell -ExecutionPolicy Bypass -File replay-test.ps1 -Headless
+```
 
-Read `testdata/logs/validation_latest.log` and summarize:
-- Total PASS/FAIL counts
-- Any [FAIL] lines (quote them exactly)
-- Whether validation completed or safety timeout triggered
-- Key data from dumps (team blocks, landscape) if present
+## Steps
 
-3. If the user also has `testdata/logs/openwa_latest.log`, read it and note any errors or interesting hook activity.
+1. Run the replay test script (headful or headless as appropriate).
+
+2. Read the output and present results:
+
+**Headful mode:**
+- Read `testdata/logs/validation_latest.log` and summarize total PASS/FAIL counts
+- Quote any [FAIL] lines exactly
+- Note whether validation completed or safety timeout triggered
+- If `testdata/logs/openwa_latest.log` exists, check for errors or interesting hook activity
+
+**Headless mode:**
+- The script compares the output log to `testdata/replays/bots_expected.log`
+- PASS means byte-identical output — replay is deterministic
+- FAIL shows the diff lines between expected and actual
 
 ## Environment Variables
 
-- `OPENWA_VALIDATE=1` — Enables the validation module (struct checks, vtable validation, memory dumps). Without this, only the replacement hooks run.
-- `OPENWA_REPLAY_TEST=1` — Enables fast-forward mode: hooks TurnManager_ProcessFrame and sets DDGame+0x98B0=1 each frame, causing the game engine to process up to 50 frames per render cycle. The DLL auto-restores the window at 2s, runs validation at 5s, and has a 120s safety timeout. Without this, validation runs in interactive mode with hotkeys (F9=team blocks, F10=landscape).
+- `OPENWA_VALIDATE=1` — (headful) Enables validation module
+- `OPENWA_REPLAY_TEST=1` — (headful) Enables fast-forward mode (50x speed)
+- `OPENWA_HEADLESS=1` — (headless) Hooks MessageBoxA to auto-dismiss, enabling unattended /getlog
 
-Both are set automatically by `replay-test.ps1`.
+All are set automatically by `replay-test.ps1`.
 
 ## Notes
 
-- The fast-forwarded replay typically completes in ~15-30s
-- The DLL restores the minimized window automatically (steals focus briefly)
-- There is only one DLL now: `wkOpenWA.dll` (unified wormkit + validator)
-- The old `wkOpenWAValidator.dll` is automatically removed by the script
-- Replay file can be changed: `powershell -File replay-test.ps1 path\to\other.WAgame`
-- Occasional crashes may occur during fast-forward (null vtable calls from 50x speed processing); retry if this happens
+- Headful replay typically completes in ~15-30s; headless in ~5s
+- Custom replay: `powershell -File replay-test.ps1 [-Headless] path\to\other.WAgame`
+- Expected log convention: `<replay>_expected.log` next to `<replay>.WAgame`
+- If no expected log exists, headless mode saves the first output as the expected log
+- The launcher uses named event synchronization to ensure all hooks are installed before WA.exe's main thread runs

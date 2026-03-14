@@ -1,7 +1,13 @@
 # replay-test.ps1 - Automated replay-based testing
-# Usage: powershell -File replay-test.ps1 [replay-file]
+# Usage: powershell -File replay-test.ps1 [-Headless] [replay-file]
+#
+# Modes:
+#   Default (headful): Fast-forward replay with validation, graphics & sound active.
+#   -Headless:         Uses WA's /getlog mode -- no window, pure simulation.
+#                      Compares output log to expected log for determinism checking.
 
 param(
+    [switch]$Headless,
     [string]$ReplayFile = "testdata\replays\bots.WAgame"
 )
 
@@ -43,16 +49,29 @@ if (Test-Path "$gameDir\wkOpenWAValidator.dll") {
 }
 
 # 3. Launch via launcher with replay, env vars set
-Write-Host "Launching WA.exe with replay: $ReplayFile" -ForegroundColor Cyan
-Write-Host "  (Fast-forward mode: replay will be auto-advanced, game exits when done)" -ForegroundColor Yellow
+$env:OPENWA_WA_PATH = $waExe
 
-$env:OPENWA_VALIDATE    = "1"
-$env:OPENWA_REPLAY_TEST = "1"
-$env:OPENWA_WA_PATH     = $waExe
+if ($Headless) {
+    Write-Host "Launching WA.exe in HEADLESS mode: $ReplayFile" -ForegroundColor Cyan
+    Write-Host "  (No window -- pure simulation via /getlog)" -ForegroundColor Yellow
 
-# The launcher blocks until WA.exe exits, so run it as a background job for timeout support.
-$proc = Start-Process -FilePath $launcher -ArgumentList "--minimized `"$waExe`" `"$ReplayFile`"" -PassThru
-$timeout = 150  # seconds
+    # Remove any previous output log next to the replay file
+    $replayBase = [System.IO.Path]::ChangeExtension($ReplayFile, ".log")
+    Remove-Item $replayBase -ErrorAction SilentlyContinue
+
+    $env:OPENWA_HEADLESS = "1"
+    $proc = Start-Process -FilePath $launcher -ArgumentList "`"$waExe`" /getlog `"$ReplayFile`"" -PassThru
+    $timeout = 120
+} else {
+    Write-Host "Launching WA.exe with replay: $ReplayFile" -ForegroundColor Cyan
+    Write-Host "  (Fast-forward mode: replay will be auto-advanced, game exits when done)" -ForegroundColor Yellow
+
+    $env:OPENWA_VALIDATE    = "1"
+    $env:OPENWA_REPLAY_TEST = "1"
+    $proc = Start-Process -FilePath $launcher -ArgumentList "--minimized `"$waExe`" `"$ReplayFile`"" -PassThru
+    $timeout = 150
+}
+
 if (-not $proc.WaitForExit($timeout * 1000)) {
     Write-Host "WARNING: launcher did not exit within ${timeout}s, killing..." -ForegroundColor Red
     $proc.Kill()
@@ -60,6 +79,7 @@ if (-not $proc.WaitForExit($timeout * 1000)) {
 }
 $env:OPENWA_VALIDATE    = $null
 $env:OPENWA_REPLAY_TEST = $null
+$env:OPENWA_HEADLESS    = $null
 $env:OPENWA_WA_PATH     = $null
 
 Write-Host "Launcher exited with code $($proc.ExitCode)" -ForegroundColor Cyan
@@ -87,20 +107,54 @@ if (Test-Path "$gameDir\OpenWA.log") {
 
 # 5. Print summary
 Write-Host ""
-Write-Host "=== Validation Summary ===" -ForegroundColor Cyan
-if (Test-Path "$logDir\validation_latest.log") {
-    $content = Get-Content "$logDir\validation_latest.log" -Raw
-    $passes = ([regex]::Matches($content, "\[PASS\]")).Count
-    $fails  = ([regex]::Matches($content, "\[FAIL\]")).Count
-    Write-Host "  PASS: $passes" -ForegroundColor Green
-    Write-Host "  FAIL: $fails" -ForegroundColor $(if ($fails -gt 0) { "Red" } else { "Green" })
+if ($Headless) {
+    Write-Host "=== Headless Log Comparison ===" -ForegroundColor Cyan
+    $replayBase = [System.IO.Path]::ChangeExtension($ReplayFile, ".log")
+    $expectedLog = [System.IO.Path]::Combine(
+        [System.IO.Path]::GetDirectoryName($ReplayFile),
+        [System.IO.Path]::GetFileNameWithoutExtension($ReplayFile) + "_expected.log"
+    )
 
-    if ($content -match "Safety timeout reached") {
-        Write-Host "  Replay: TIMEOUT (safety timeout triggered)" -ForegroundColor Red
-    } elseif ($content -match "deferred global validation") {
-        Write-Host "  Validation: completed" -ForegroundColor Green
-    } else {
-        Write-Host "  Validation: NOT found in log (may not have reached gameplay)" -ForegroundColor Yellow
+    if (-not (Test-Path $replayBase)) {
+        Write-Host "  FAIL: No output log generated at $replayBase" -ForegroundColor Red
+        exit 1
     }
+    if (-not (Test-Path $expectedLog)) {
+        Write-Host "  No expected log found -- saving output as expected: $expectedLog" -ForegroundColor Yellow
+        Copy-Item $replayBase $expectedLog
+        Write-Host "  PASS (first run -- expected log created)" -ForegroundColor Green
+    } else {
+        $diff = Compare-Object (Get-Content $expectedLog) (Get-Content $replayBase)
+        if ($diff) {
+            Write-Host "  FAIL: Output differs from expected log" -ForegroundColor Red
+            Write-Host ""
+            $diff | ForEach-Object {
+                $indicator = if ($_.SideIndicator -eq "<=") { "expected" } else { "actual  " }
+                Write-Host "  $indicator | $($_.InputObject)" -ForegroundColor $(if ($_.SideIndicator -eq "<=") { "Red" } else { "Yellow" })
+            }
+            exit 1
+        } else {
+            Write-Host "  PASS: Output matches expected log" -ForegroundColor Green
+        }
+    }
+    # Clean up the generated log
+    Remove-Item $replayBase -ErrorAction SilentlyContinue
+} else {
+    Write-Host "=== Validation Summary ===" -ForegroundColor Cyan
+    if (Test-Path "$logDir\validation_latest.log") {
+        $content = Get-Content "$logDir\validation_latest.log" -Raw
+        $passes = ([regex]::Matches($content, "\[PASS\]")).Count
+        $fails  = ([regex]::Matches($content, "\[FAIL\]")).Count
+        Write-Host "  PASS: $passes" -ForegroundColor Green
+        Write-Host "  FAIL: $fails" -ForegroundColor $(if ($fails -gt 0) { "Red" } else { "Green" })
+
+        if ($content -match "Safety timeout reached") {
+            Write-Host "  Replay: TIMEOUT (safety timeout triggered)" -ForegroundColor Red
+        } elseif ($content -match "deferred global validation") {
+            Write-Host "  Validation: completed" -ForegroundColor Green
+        } else {
+            Write-Host "  Validation: NOT found in log (may not have reached gameplay)" -ForegroundColor Yellow
+        }
+    }
+    Write-Host "  Logs: $logDir\" -ForegroundColor Gray
 }
-Write-Host "  Logs: $logDir\" -ForegroundColor Gray
