@@ -4,8 +4,9 @@
 /// `GameInfo__LoadOptions` (0x460AC0) which reads registry values and
 /// copies global data into known offsets.
 ///
-/// PARTIAL: Only fields discovered through GameInfo__LoadOptions are mapped.
-/// The actual struct is likely larger. Conservative size 0xF500.
+/// PARTIAL: Only fields discovered through GameInfo__LoadOptions and
+/// GameEngine__InitHardware are mapped. Size extended to 0xF91C to
+/// cover all known accesses.
 #[repr(C)]
 pub struct GameInfo {
     /// 0x0000-0x044B: Unknown
@@ -21,10 +22,22 @@ pub struct GameInfo {
     pub _unknown_044d: [u8; 0xD778 - 0x44D],
 
     /// 0xD778: Crosshair overflow clamp threshold (compared to 0x11E in render).
+    /// Also passed to timer constructor and input controller init.
     pub crosshair_overflow_threshold: i32,
 
-    /// 0xD77C-0xDAE7: Unknown
-    pub _unknown_d77c: [u8; 0xDAE8 - 0xD77C],
+    /// 0xD77C-0xD9DF: Unknown
+    pub _unknown_d77c: [u8; 0xD9E0 - 0xD77C],
+
+    /// 0xD9E0: Streaming audio config data (path config passed to streaming audio ctor).
+    /// Address of this field is passed as a pointer parameter.
+    pub streaming_audio_config: [u8; 0xDAA4 - 0xD9E0],
+
+    /// 0xDAA4: Speech/streaming audio enabled flag.
+    /// If nonzero, streaming audio subsystem is created in InitHardware.
+    pub speech_enabled: u8,
+
+    /// 0xDAA5-0xDAE7: Unknown
+    pub _unknown_daa5: [u8; 0xDAE8 - 0xDAA5],
 
     // --- Cluster 1: data paths ---
 
@@ -33,8 +46,14 @@ pub struct GameInfo {
     /// 0xDAEC: Land data path ("data\land.dat", 14 bytes incl. null)
     pub land_dat_path: [u8; 14],
 
-    /// 0xDAFA-0xF39F: Unknown
-    pub _unknown_dafa: [u8; 0x18A6],
+    /// 0xDAFA-0xF373: Unknown
+    pub _unknown_dafa: [u8; 0xF374 - 0xDAFA],
+
+    /// 0xF374: Display flags passed to DDDisplay::Init.
+    pub display_flags: u32,
+
+    /// 0xF378-0xF39F: Unknown
+    pub _unknown_f378: [u8; 0xF3A0 - 0xF378],
 
     // --- Cluster 2: game options (populated by LoadOptions) ---
 
@@ -60,10 +79,16 @@ pub struct GameInfo {
     pub home_lock: u8,
     /// 0xF3B1: Unknown
     pub _unknown_f3b1: [u8; 3],
-    /// 0xF3B4: Config DWORDs from globals (7 consecutive u32s).
-    /// LoadOptions writes 5 DWORDs from G_CONFIG_DWORDS_F3B4 at indices 0..5,
-    /// then 3 DWORDs from G_CONFIG_DWORDS_F3C4 at indices 4..7 (overlapping).
-    pub _config_block_f3b4: [u32; 7],
+    /// 0xF3B4: Display width — first DWORD of the config block.
+    /// Written from G_CONFIG_DWORDS_F3B4, updated by DDDisplay::Init retry loop.
+    pub display_width: u32,
+    /// 0xF3B8: Display height — second DWORD of the config block.
+    /// Written from G_CONFIG_DWORDS_F3B4, updated by DDDisplay::Init retry loop.
+    pub display_height: u32,
+    /// 0xF3BC: Remaining config DWORDs (indices 2..7 of the original block).
+    /// LoadOptions writes indices 0..5 from G_CONFIG_DWORDS_F3B4,
+    /// then indices 4..7 from G_CONFIG_DWORDS_F3C4 (overlapping at [2]).
+    pub _config_dwords_f3bc: [u32; 5],
     /// 0xF3D0: Unknown (not written by LoadOptions)
     pub _unknown_f3d0: [u8; 4],
     /// 0xF3D4: Config DWORD (from global 0x88E3B0[0])
@@ -91,11 +116,24 @@ pub struct GameInfo {
     /// 0xF485: Config data block (64 bytes copied from global 0x88DFF3)
     pub _config_block_f485: [u8; 64],
 
-    /// 0xF4C5-0xF4FF: Unknown remainder
-    pub _unknown_f4c5: [u8; 0x3B],
+    /// 0xF4C5-0xF4FF: Unknown
+    pub _unknown_f4c5: [u8; 0xF500 - 0xF4C5],
+
+    // --- Extended region (beyond original 0xF500 conservative estimate) ---
+
+    /// 0xF500-0xF913: Unknown
+    pub _unknown_f500: [u8; 0xF914 - 0xF500],
+
+    /// 0xF914: Headless/stats mode flag.
+    /// If nonzero, InitHardware creates a GameStats stub instead of display hardware.
+    pub headless_mode: u32,
+
+    /// 0xF918: Input state field — DDKeyboard+0x4 stores a pointer TO this address.
+    /// The game reads/writes through DDKeyboard's pointer, so this must stay in place.
+    pub input_state_f918: u32,
 }
 
-const _: () = assert!(core::mem::size_of::<GameInfo>() == 0xF500);
+const _: () = assert!(core::mem::size_of::<GameInfo>() == 0xF91C);
 
 struct HexU32s<'a>(&'a [u32]);
 
@@ -138,7 +176,10 @@ impl core::fmt::Debug for GameInfo {
             .field("chat_lines", &self.chat_lines)
             .field("pinned_chat_lines", &format_args!("0x{:08X}", self.pinned_chat_lines))
             .field("home_lock", &self.home_lock)
-            .field("_config_block_f3b4", &HexU32s(&self._config_block_f3b4))
+            .field("display_flags", &format_args!("0x{:08X}", self.display_flags))
+            .field("display_width", &self.display_width)
+            .field("display_height", &self.display_height)
+            .field("_config_dwords_f3bc", &HexU32s(&self._config_dwords_f3bc))
             .field("_config_dword_f3d4", &format_args!("0x{:08X}", self._config_dword_f3d4))
             .field("_config_dword_f3d8", &format_args!("0x{:08X}", self._config_dword_f3d8))
             .field("capture_transparent_pngs", &self.capture_transparent_pngs)
@@ -149,6 +190,9 @@ impl core::fmt::Debug for GameInfo {
             .field("_zeroed_f3f0", &self._zeroed_f3f0)
             .field("_conditional_config_f3f4", &HexU32s(&self._conditional_config_f3f4))
             .field("speech_path", &speech_str)
+            .field("speech_enabled", &self.speech_enabled)
+            .field("headless_mode", &self.headless_mode)
+            .field("input_state_f918", &format_args!("0x{:08X}", self.input_state_f918))
             .finish()
     }
 }

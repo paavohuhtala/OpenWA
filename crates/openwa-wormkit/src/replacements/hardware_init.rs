@@ -5,7 +5,7 @@
 //!
 //! ## Calling convention
 //!
-//! `__thiscall`: ECX = `*mut GameInfo` (≥0xF914 bytes), 3 stack params
+//! `__thiscall`: ECX = `*mut GameInfo` (≥0xF91C bytes), 3 stack params
 //! (hwnd, param3, param4), `RET 0xC`. Returns 1 on success, 0 on failure.
 //!
 //! The naked entry trampoline captures ECX, pops the return address → `SAVED_RET`,
@@ -21,21 +21,21 @@
 //! IF param4 != 0:
 //!   input ctrl (0x1800 bytes, inline vtable, FUN_0058C0D0 usercall ESI=this) → session+0xB8
 //!
-//! IF GameInfo+0xF914 == 0 (normal mode):
+//! IF GameInfo.headless_mode == 0 (normal mode):
 //!   DisplayGfx (0x24E28, stdcall ctor) → session+0xAC
 //!   DDDisplay::Init retry loop (configured → 1024×768 → 800×600 → 640×480)
 //!   screen center / cursor setup
 //!   DDKeyboard (0x33C, inline) → session+0xA4
 //!   Palette (0x28, inline) → session+0xB0
 //!   DSSound (0xBE0, usercall ctor + DirectSoundCreate + coop level) → session+0xA8
-//!   IF GameInfo+0xDAA4 != 0 AND DSSound OK: streaming audio → session+0xB4
+//!   IF GameInfo.speech_enabled != 0 AND DSSound OK: streaming audio → session+0xB4
 //!
 //! ELSE (headless):
 //!   GameStats (0x3560, stdcall ctor + vtable override) → session+0xAC
 //!   session+0xA4/0xA8/0xB0/0xB4 = null
 //!
 //! ALWAYS:
-//!   session+0x28 = (GameInfo+0xF3B0 != 0) ? 1 : 0
+//!   session+0x28 = (GameInfo.home_lock != 0) ? 1 : 0
 //!   DDGameWrapper (0x6F10) → session+0xA0  [via game_session::construct_ddgame_wrapper]
 //!   Palette vtable[4/3/2] calls + DDKeyboard poll (normal mode only)
 //!   DDNetGameWrapper (0x2C, stdcall ctor) → session+0xC0
@@ -43,11 +43,16 @@
 
 use openwa_core::address::va;
 use openwa_core::rebase::rb;
+use openwa_core::game_info::GameInfo;
 use openwa_core::game_session::GameSession;
 use openwa_core::ddgame_wrapper::DDGameWrapper;
+use openwa_core::ddkeyboard::DDKeyboard;
 use openwa_core::dddisplay::DDDisplay;
 use openwa_core::dssound::DSSound;
 use openwa_core::palette::Palette;
+use openwa_core::input_ctrl::InputCtrl;
+use openwa_core::game_timer::GameTimer;
+use openwa_core::game_stats::GameStats;
 use openwa_core::wa_alloc::WABox;
 use crate::hook;
 use crate::log_line;
@@ -88,7 +93,7 @@ static mut DSSOUND_INIT_EAX: u32 = 0;
 /// Timer constructor: `usercall(ESI=timer_ptr, EAX=d778_val)`, plain RET.
 /// Returns whatever EAX holds after the call.
 #[unsafe(naked)]
-unsafe extern "cdecl" fn call_timer_ctor(_timer_ptr: *mut u8, _d778_val: u32) -> u32 {
+unsafe extern "cdecl" fn call_timer_ctor(_timer_ptr: *mut GameTimer, _d778_val: u32) -> u32 {
     core::arch::naked_asm!(
         // [esp+0]=bridge_ret, [esp+4]=timer_ptr, [esp+8]=d778_val
         "pushl %esi",
@@ -108,7 +113,7 @@ unsafe extern "cdecl" fn call_timer_ctor(_timer_ptr: *mut u8, _d778_val: u32) ->
 /// IMPORTANT: FUN_00573D50 clobbers ECX (MOV ECX, 0x1F4 for REP STOSD).
 /// Do NOT use ECX to save bridge_ret — read it from the stack instead.
 #[unsafe(naked)]
-unsafe extern "cdecl" fn call_dssound_ctor(_dssound: *mut u8) {
+unsafe extern "cdecl" fn call_dssound_ctor(_dssound: *mut DSSound) {
     core::arch::naked_asm!(
         // [esp+0]=bridge_ret, [esp+4]=dssound
         "movl 4(%esp), %eax",    // EAX = dssound (bridge_ret stays on stack untouched)
@@ -129,19 +134,19 @@ static mut DSSOUND_INIT_SAVED_RET: u32 = 0;
 /// Caller sets `DSSOUND_INIT_EAX = dssound` before calling.
 #[unsafe(naked)]
 unsafe extern "stdcall" fn call_dssound_init_buffers(
-    _out_0x10: *mut u32,
-    _out_0x0c: *mut u32,
+    _out_primary_buffer: *mut *mut u8,
+    _out_primary_caps: *mut u32,
 ) -> u32 {
     core::arch::naked_asm!(
-        // Entry: ESP=E, [E+0]=bridge_ret, [E+4]=out_0x10, [E+8]=out_0x0c
+        // Entry: ESP=E, [E+0]=bridge_ret, [E+4]=out_primary_buffer, [E+8]=out_primary_caps
         "movl {eax_val}, %eax",      // EAX = dssound
         "movl (%esp), %ecx",         // ECX = bridge_ret (temp)
         "movl %ecx, {saved_ret}",    // save to static (ECX clobbered by FUN_00573E50)
-        "movl 4(%esp), %ecx",        // ECX = out_0x10
-        "movl 8(%esp), %edx",        // EDX = out_0x0c
+        "movl 4(%esp), %ecx",        // ECX = out_primary_buffer
+        "movl 8(%esp), %edx",        // EDX = out_primary_caps
         "addl $0xC, %esp",           // ESP = E+12 (discard bridge_ret + 2 args)
-        "pushl %edx",                // ESP = E+8,  [E+8]  = out_0x0c
-        "pushl %ecx",                // ESP = E+4,  [E+4]  = out_0x10
+        "pushl %edx",                // ESP = E+8,  [E+8]  = out_primary_caps
+        "pushl %ecx",                // ESP = E+4,  [E+4]  = out_primary_buffer
         "calll *({fn})",             // ESP = E,    [E]    = cont
                                      // FUN_00573E50 RET 0x8: pops cont → E+4, +8 → E+12
         // At cont: ESP = E+12; EAX = return value
@@ -242,43 +247,48 @@ unsafe extern "stdcall" fn call_ddisplay_init(
 // ─── Implementation ───────────────────────────────────────────────────────────
 
 unsafe extern "cdecl" fn impl_init_hardware(
-    game_info: *mut u8,
+    game_info: *mut GameInfo,
     hwnd: u32,
     param3: u32,
     param4: u32,
 ) -> u32 {
     let _ = log_line("[hardware_init] GameEngine::InitHardware");
     let session = *(rb(va::G_GAME_SESSION) as *const *mut GameSession);
-    let game_info_d778 = *(game_info.add(0xD778) as *const u32);
+    let gi = &mut *game_info;
+    let d778_val = gi.crosshair_overflow_threshold as u32;
 
     // ── Input controller (if param4 != 0) ────────────────────────────────────
     if param4 == 0 {
         (*session).input_ctrl = core::ptr::null_mut();
     } else {
-        let ctrl_ptr = WABox::<u8>::alloc(0x1800, 0x17E0).leak();
-        // puVar3[0x35d] = 0x3f9 (original sets this; offset 0xD74)
-        *(ctrl_ptr.add(0xD74) as *mut u32) = 0x3F9;
-        *(ctrl_ptr as *mut u32) = rb(va::INPUT_CTRL_VTABLE);
-        (*session).input_ctrl = ctrl_ptr;
+        let ctrl = WABox::<InputCtrl>::alloc(0x1800, 0x17E0).leak();
+        (*ctrl)._field_d74 = 0x3F9;
+        (*ctrl).vtable = rb(va::INPUT_CTRL_VTABLE) as *mut u8;
+        (*session).input_ctrl = ctrl as *mut u8;
 
-        INPUT_CTRL_ESI = ctrl_ptr as u32;
-        let ok = call_input_ctrl_init(game_info.add(4), param3, param4, game_info_d778);
+        INPUT_CTRL_ESI = ctrl as u32;
+        let ok = call_input_ctrl_init(
+            (game_info as *mut u8).add(4),
+            param3,
+            param4,
+            d778_val,
+        );
         if ok == 0 {
-            let vtbl = *(ctrl_ptr as *const *const usize);
+            let vtbl = *(ctrl as *const *const usize);
             let dtor: unsafe extern "thiscall" fn(*mut u8, u32) =
                 core::mem::transmute(*vtbl);
-            dtor(ctrl_ptr, 1);
+            dtor(ctrl as *mut u8, 1);
             (*session).input_ctrl = core::ptr::null_mut();
             return 0;
         }
     }
 
     // ── Timer object (ALWAYS) ─────────────────────────────────────────────────
-    let timer_ptr = WABox::<u8>::alloc(0x30, 0x30).leak();
-    call_timer_ctor(timer_ptr, game_info_d778);
-    (*session).timer_obj = timer_ptr;
+    let timer = WABox::<GameTimer>::alloc(0x30, 0x30).leak();
+    call_timer_ctor(timer, d778_val);
+    (*session).timer_obj = timer as *mut u8;
 
-    let headless = *(game_info.add(0xF914) as *const u32) != 0;
+    let headless = gi.headless_mode != 0;
 
     if !headless {
         // ── DisplayGfx ───────────────────────────────────────────────────────
@@ -288,11 +298,9 @@ unsafe extern "cdecl" fn impl_init_hardware(
         (*session).display_gfx = display_gfx;
 
         // ── DDDisplay::Init retry loop ────────────────────────────────────────
-        // DDDisplay::Init is usercall(ECX=height) + stdcall(display_gfx, hwnd, width, flags).
-        // Use call_ddisplay_init which sets ECX from DDISPLAY_INIT_ECX before the tail-jump.
-        let flags = *(game_info.add(0xF374) as *const u32);
-        let w0 = *(game_info.add(0xF3B4) as *const u32);
-        let h0 = *(game_info.add(0xF3B8) as *const u32);
+        let flags = gi.display_flags;
+        let w0 = gi.display_width;
+        let h0 = gi.display_height;
 
         DDISPLAY_INIT_ECX = h0;
         let mut init_ok = call_ddisplay_init(display_gfx, hwnd, w0, flags) != 0;
@@ -304,8 +312,8 @@ unsafe extern "cdecl" fn impl_init_hardware(
                 (0x280, 0x1E0), // 640×480
             ];
             for &(w, h) in &fallbacks {
-                *(game_info.add(0xF3B4) as *mut u32) = w;
-                *(game_info.add(0xF3B8) as *mut u32) = h;
+                gi.display_width = w;
+                gi.display_height = h;
                 DDISPLAY_INIT_ECX = h;
                 if call_ddisplay_init(display_gfx, hwnd, w, flags) != 0 {
                     init_ok = true;
@@ -329,9 +337,7 @@ unsafe extern "cdecl" fn impl_init_hardware(
             let h = GetSystemMetrics(SM_CYSCREEN);
             (w / 2, h / 2)
         } else {
-            let w = *(game_info.add(0xF3B4) as *const i32);
-            let h = *(game_info.add(0xF3B8) as *const i32);
-            (w / 2, h / 2)
+            (gi.display_width as i32 / 2, gi.display_height as i32 / 2)
         };
 
         (*session).screen_center_x = cx;
@@ -348,8 +354,7 @@ unsafe extern "cdecl" fn impl_init_hardware(
                 let hwnd_val: HWND = *(rb(va::G_FRONTEND_HWND) as *const HWND);
                 let mut rect = RECT { left: 0, top: 0, right: 0, bottom: 0 };
                 GetClientRect(hwnd_val, &mut rect);
-                // MapWindowPoints via IAT thunk (avoids adding a new windows-sys feature).
-                let map_fn_ptr = *(rb(0x0061_A588) as *const usize);
+                let map_fn_ptr = *(rb(va::IAT_MAP_WINDOW_POINTS) as *const usize);
                 let map_fn: unsafe extern "stdcall" fn(HWND, HWND, *mut RECT, u32) -> i32 =
                     core::mem::transmute(map_fn_ptr);
                 map_fn(hwnd_val, core::ptr::null_mut(), &mut rect, 2);
@@ -358,53 +363,54 @@ unsafe extern "cdecl" fn impl_init_hardware(
         }
 
         // ── DDKeyboard (inline construction) ──────────────────────────────────
-        let kb_ptr = WABox::<u8>::alloc(0x33C, 0x31C).leak();
-        *(kb_ptr as *mut u32) = rb(va::DDKEYBOARD_VTABLE);
-        *(kb_ptr.add(4) as *mut u32) = game_info.add(0xF918) as u32;
-        *(kb_ptr.add(8) as *mut u32) = 1;
-        core::ptr::write_bytes(kb_ptr.add(0x11C), 0, 0x100);
-        core::ptr::write_bytes(kb_ptr.add(0x21C), 0, 0x100);
-        *(kb_ptr.add(0x14) as *mut u32) = 0;
-        *(kb_ptr.add(0x18) as *mut u32) = 0;
-        (*session).keyboard = kb_ptr;
+        let kb = WABox::<DDKeyboard>::alloc(0x33C, 0x31C).leak();
+        (*kb).vtable = rb(va::DDKEYBOARD_VTABLE) as *mut u8;
+        (*kb).game_info_input_ptr = &raw mut gi.input_state_f918 as u32;
+        (*kb)._field_008 = 1;
+        core::ptr::write_bytes((*kb).key_state.as_mut_ptr(), 0, 0x100);
+        core::ptr::write_bytes((*kb).prev_state.as_mut_ptr(), 0, 0x100);
+        (*kb)._field_014 = 0;
+        (*kb)._field_018 = 0;
+        (*session).keyboard = kb;
 
         // ── Palette (inline construction) ─────────────────────────────────────
-        let pal_ptr = WABox::<u8>::alloc(0x28, 0).leak();
-        *(pal_ptr as *mut u32) = rb(va::PALETTE_VTABLE_MAYBE);
-        *(pal_ptr.add(4) as *mut u32) = 0xFFFF_FFFF;
-        (*session).palette = pal_ptr;
+        let pal = WABox::<Palette>::alloc(0x28, 0).leak();
+        (*pal).vtable = rb(va::PALETTE_VTABLE_MAYBE) as *mut u8;
+        *((pal as *mut u8).add(4) as *mut u32) = 0xFFFF_FFFF;
+        (*session).palette = pal;
 
         // ── DSSound ───────────────────────────────────────────────────────────
         (*session).sound = core::ptr::null_mut();
         {
-            let snd_mem = WABox::<u8>::alloc(0xBE0, 0xBC0).leak();
-            call_dssound_ctor(snd_mem);
-            *(snd_mem.add(4) as *mut u32) = hwnd;
-            // Store DSSound pointer unconditionally — original does this before init checks.
-            // snd_mem+0xBBC = 1 only if all 3 COM init steps succeed; WA code checks this flag.
-            (*session).sound = snd_mem;
+            let snd = WABox::<DSSound>::alloc(0xBE0, 0xBC0).leak();
+            call_dssound_ctor(snd);
+            (*snd).hwnd = hwnd;
+            (*session).sound = snd;
 
             let ds_create: unsafe extern "stdcall" fn(*const u8, *mut *mut u8, *const u8) -> i32 =
                 core::mem::transmute(rb(va::DIRECTSOUND_CREATE) as usize);
-            let hr = ds_create(core::ptr::null(), snd_mem.add(8) as *mut *mut u8, core::ptr::null());
+            let hr = ds_create(
+                core::ptr::null(),
+                &mut (*snd).direct_sound,
+                core::ptr::null(),
+            );
 
             if hr == 0 {
-                DSSOUND_INIT_EAX = snd_mem as u32;
+                DSSOUND_INIT_EAX = snd as u32;
                 let hr2 = call_dssound_init_buffers(
-                    snd_mem.add(0x10) as *mut u32,
-                    snd_mem.add(0x0C) as *mut u32,
+                    &mut (*snd).primary_buffer,
+                    &mut (*snd).primary_buffer_caps,
                 );
                 if hr2 == 0 {
-                    // vtable[12] (offset 0x30) of the IDirectSoundBuffer* stored at snd_mem+0x10
-                    // by DSSOUND_INIT_BUFFERS. IDirectSoundBuffer::Play(this, 0, 0, DSBPLAY_LOOPING=1)
-                    let pds = *(snd_mem.add(0x10) as *const *const *const usize);
+                    // IDirectSoundBuffer::Play(this, 0, 0, DSBPLAY_LOOPING=1)
+                    let pds = (*snd).primary_buffer as *const *const usize;
                     let vtbl = *pds;
                     let play: unsafe extern "stdcall" fn(
                         *const *const usize, u32, u32, u32,
                     ) -> i32 = core::mem::transmute(*vtbl.add(0x30 / 4));
                     let hr3 = play(pds, 0, 0, 1);
                     if hr3 == 0 {
-                        *(snd_mem.add(0xBBC) as *mut u32) = 1;
+                        (*snd).init_success = 1;
                     }
                 }
             }
@@ -413,24 +419,26 @@ unsafe extern "cdecl" fn impl_init_hardware(
         // ── Streaming audio ───────────────────────────────────────────────────
         (*session).streaming_audio = core::ptr::null_mut();
         if !(*session).sound.is_null() {
-            let speech_flag = *(game_info.add(0xDAA4) as *const u8);
-            if speech_flag != 0 {
+            if gi.speech_enabled != 0 {
                 let stream_mem = WABox::<u8>::alloc(0x354, 0x334).leak();
-                let dssound = (*session).sound;
-                let ids = *(dssound.add(8) as *const *mut u8);
-                call_streaming_audio_ctor(stream_mem, ids, game_info.add(0xD9E0));
+                let snd = (*session).sound;
+                let ids = (*snd).direct_sound;
+                call_streaming_audio_ctor(
+                    stream_mem,
+                    ids,
+                    gi.streaming_audio_config.as_mut_ptr(),
+                );
                 (*session).streaming_audio = stream_mem;
             }
         }
     } else {
         // ── Headless / stats mode ─────────────────────────────────────────────
-        let stats_mem = WABox::<u8>::alloc(0x3560, 0x3560).leak();
+        let stats = WABox::<GameStats>::alloc(0x3560, 0x3560).leak();
         let gamestats_ctor: unsafe extern "stdcall" fn(*mut u8) -> *mut u8 =
             core::mem::transmute(rb(va::GAMESTATS_CTOR) as usize);
-        gamestats_ctor(stats_mem);
-        *(stats_mem as *mut u32) = rb(va::GAMESTATS_VTABLE);
-        let stats_ptr = stats_mem;
-        (*session).display_gfx      = stats_ptr;
+        gamestats_ctor(stats as *mut u8);
+        (*stats).vtable = rb(va::GAMESTATS_VTABLE) as *mut u8;
+        (*session).display_gfx      = stats as *mut u8;
         (*session).keyboard         = core::ptr::null_mut();
         (*session).sound            = core::ptr::null_mut();
         (*session).palette          = core::ptr::null_mut();
@@ -438,37 +446,33 @@ unsafe extern "cdecl" fn impl_init_hardware(
     }
 
     // ── Windowed/fullscreen flag → session+0x28, and session+0x24 = 1 ──────────
-    let fullscreen_word = *(game_info.add(0xF3B0) as *const u16);
+    let fullscreen_word = gi.home_lock;
     *((session as *mut u8).add(0x28) as *mut u32) = (fullscreen_word != 0) as u32;
-    // Original always sets session+0x24 = 1 unconditionally (both normal + headless).
     *((session as *mut u8).add(0x24) as *mut u32) = 1;
 
     // ── DDGameWrapper (ALWAYS) ────────────────────────────────────────────────
-    // The 7 explicit args mirror the session fields:
-    //   display_gfx (DisplayGfx*), sound (DSSound*), keyboard (DDKeyboard* — called "gfx"),
-    //   palette, streaming_audio ("music"), input_ctrl ("network").
     let wrapper = game_session::construct_ddgame_wrapper(
-        game_info,
+        game_info as *mut u8,
         WABox::<DDGameWrapper>::alloc(0x6F10, 0x6EF0).leak(),
         (*session).display_gfx as *mut DDDisplay,
-        (*session).sound as *mut DSSound,
-        (*session).keyboard,
-        (*session).palette as *mut Palette,
+        (*session).sound,
+        (*session).keyboard as *mut u8,
+        (*session).palette,
         (*session).streaming_audio,
         (*session).input_ctrl,
     );
-    (*session).ddgame_wrapper = wrapper as *mut u8;
+    (*session).ddgame_wrapper = wrapper;
 
     // ── Palette vtable[4/3/2] + keyboard poll (normal mode only) ─────────────
     if !headless {
         let pal = (*session).palette;
         if !pal.is_null() {
             let vtbl = *(pal as *const *const usize);
-            let vt4: unsafe extern "thiscall" fn(*mut u8) =
+            let vt4: unsafe extern "thiscall" fn(*mut Palette) =
                 core::mem::transmute(*vtbl.add(4));
-            let vt3: unsafe extern "thiscall" fn(*mut u8) =
+            let vt3: unsafe extern "thiscall" fn(*mut Palette) =
                 core::mem::transmute(*vtbl.add(3));
-            let vt2: unsafe extern "thiscall" fn(*mut u8, u32) =
+            let vt2: unsafe extern "thiscall" fn(*mut Palette, u32) =
                 core::mem::transmute(*vtbl.add(2));
             vt4(pal);
             vt3(pal);
@@ -477,7 +481,7 @@ unsafe extern "cdecl" fn impl_init_hardware(
 
         let kb = (*session).keyboard;
         if !kb.is_null() {
-            let kb_poll: unsafe extern "stdcall" fn(*mut u8) =
+            let kb_poll: unsafe extern "stdcall" fn(*mut DDKeyboard) =
                 core::mem::transmute(rb(va::DDKEYBOARD_POLL_KEYBOARD_STATE) as usize);
             kb_poll(kb);
         }

@@ -1,3 +1,8 @@
+use crate::ddgame_wrapper::DDGameWrapper;
+use crate::ddkeyboard::DDKeyboard;
+use crate::dssound::DSSound;
+use crate::palette::Palette;
+
 /// Top-level game session context, allocated once per game run.
 ///
 /// `G_GAME_SESSION` (0x7A0884) stores a pointer to this struct. Created by
@@ -60,15 +65,16 @@ pub struct GameSession {
     /// 0x09C: high DWORD
     pub timer_counter_hi: u32,
     /// 0x0A0: `DDGameWrapper*` — the main game object wrapper (→ `DDGame` at `+0x488`)
-    pub ddgame_wrapper: *mut u8,
+    pub ddgame_wrapper: *mut DDGameWrapper,
     /// 0x0A4: `DDKeyboard*` — 0x33C bytes, vtable `DDKeyboard_vtable` (0x66AEC8)
-    pub keyboard: *mut u8,
+    pub keyboard: *mut DDKeyboard,
     /// 0x0A8: `DSSound*` — 0xBE0 bytes, vtable `DSSound_vtable` (0x66AF20)
-    pub sound: *mut u8,
-    /// 0x0AC: `DisplayGfx*` — 0x24E28 bytes (normal), or `GameStats*` in headless mode
+    pub sound: *mut DSSound,
+    /// 0x0AC: `DisplayGfx*` — 0x24E28 bytes (normal), or `GameStats*` in headless mode.
+    /// Stays `*mut u8` because it's dual-purpose (DisplayGfx vs GameStats).
     pub display_gfx: *mut u8,
     /// 0x0B0: `Palette*` — 0x28 bytes, vtable `Palette_vtable_Maybe`
-    pub palette: *mut u8,
+    pub palette: *mut Palette,
     /// 0x0B4: streaming audio object — 0x354 bytes (`FUN_0058bc10`)
     pub streaming_audio: *mut u8,
     /// 0x0B8: input controller — 0x1800 bytes; null if `param_4 == 0` at init

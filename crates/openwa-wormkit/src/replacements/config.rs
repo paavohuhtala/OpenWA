@@ -196,10 +196,12 @@ unsafe extern "stdcall" fn hook_load_options(gi_ptr: u32) {
     gi.detail_level = read_profile_int("Options", "DetailLevel", 5) as u8;
     gi._zeroed_f3f0 = 0;
 
-    // Copy 5 DWORDs from globals (indices 0..5 of config block)
+    // Copy 5 DWORDs from globals (display_width, display_height, + 3 more)
     let src = rb(va::G_CONFIG_DWORDS_F3B4) as *const u32;
-    for i in 0..5 {
-        gi._config_block_f3b4[i] = *src.add(i);
+    gi.display_width = *src;
+    gi.display_height = *src.add(1);
+    for i in 0..3 {
+        gi._config_dwords_f3bc[i] = *src.add(i + 2);
     }
 
     // Conditional copy: 4 DWORDs if guard == 0
@@ -219,10 +221,10 @@ unsafe extern "stdcall" fn hook_load_options(gi_ptr: u32) {
 
     gi.energy_bar = read_profile_int("Options", "EnergyBar", 1) as u8;
 
-    // 3 DWORDs from globals (overwrite indices 4..7 of config block)
+    // 3 DWORDs from globals (overwrite indices 2..5 of _config_dwords_f3bc)
     let src_c4 = rb(va::G_CONFIG_DWORDS_F3C4) as *const u32;
     for i in 0..3 {
-        gi._config_block_f3b4[4 + i] = *src_c4.add(i);
+        gi._config_dwords_f3bc[i + 2] = *src_c4.add(i);
     }
 
     gi.info_transparency = read_profile_int("Options", "InfoTransparency", 0) as u8;

@@ -664,6 +664,8 @@ pub mod va {
     pub const G_FULLSCREEN_FLAG: u32 = 0x007A_084C;
     /// Suppress-cursor flag — if non-zero, skip SetCursorPos/ClipCursor in hardware init.
     pub const G_SUPPRESS_CURSOR: u32 = 0x0088_E485;
+    /// IAT thunk for MapWindowPoints (USER32.dll import).
+    pub const IAT_MAP_WINDOW_POINTS: u32 = 0x0061_A588;
     /// Total sprite data bytes loaded (accumulated by ProcessSprite)
     pub const G_SPRITE_DATA_BYTES: u32 = 0x007A_0864;
     /// Total sprite frame count loaded

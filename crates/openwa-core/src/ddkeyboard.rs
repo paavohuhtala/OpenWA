@@ -5,17 +5,39 @@
 /// PollKeyboardState (0x572290): drains WM_KEY messages, calls GetKeyboardState,
 /// normalizes to both `key_state` (+0x11C) and `prev_state` (+0x21C) buffers.
 ///
-/// PARTIAL: Only confirmed fields. Minimum size estimated from known offsets.
+/// Size: 0x33C bytes.
+/// Inline construction in GameEngine__InitHardware:
+///   - vtable = 0x66AEC8
+///   - dinput_device = GameInfo+0xF918
+///   - _field_008 = 1
+///   - key_state zeroed (0x100 bytes)
+///   - prev_state zeroed (0x100 bytes)
+///   - _field_014 = 0, _field_018 = 0
 #[repr(C)]
 pub struct DDKeyboard {
     /// 0x000: Vtable pointer (0x66AEC8)
     pub vtable: *mut u8,
-    /// 0x004-0x11B: Unknown
-    pub _unknown_004: [u8; 0x118],
+    /// 0x004: Pointer into GameInfo+0xF918 (shared input state location).
+    /// Stores the ADDRESS of GameInfo+0xF918, not its value.
+    pub game_info_input_ptr: u32,
+    /// 0x008: Init flag (set to 1)
+    pub _field_008: u32,
+    /// 0x00C-0x013: Unknown
+    pub _unknown_00c: [u8; 8],
+    /// 0x014: Cleared to 0 during construction
+    pub _field_014: u32,
+    /// 0x018: Cleared to 0 during construction
+    pub _field_018: u32,
+    /// 0x01C-0x11B: Unknown
+    pub _unknown_01c: [u8; 0x100],
     /// 0x11C: Current key state buffer (256 bytes).
     /// Populated by PollKeyboardState via GetKeyboardState.
     pub key_state: [u8; 256],
     /// 0x21C: Previous key state buffer (256 bytes).
     /// Copied from key_state at start of each poll cycle.
     pub prev_state: [u8; 256],
+    /// 0x31C: Unknown trailing fields
+    pub _unknown_31c: [u8; 0x20],
 }
+
+const _: () = assert!(core::mem::size_of::<DDKeyboard>() == 0x33C);
