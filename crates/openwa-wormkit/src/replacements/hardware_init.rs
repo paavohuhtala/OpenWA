@@ -49,8 +49,8 @@ use openwa_core::ddgame_wrapper::DDGameWrapper;
 use openwa_core::ddkeyboard::DDKeyboard;
 use openwa_core::dddisplay::DDDisplay;
 use openwa_core::dssound::DSSound;
-use openwa_core::palette::Palette;
-use openwa_core::input_ctrl::InputCtrl;
+use openwa_core::palette::{Palette, PaletteVtable};
+use openwa_core::input_ctrl::{InputCtrl, InputCtrlVtable};
 use openwa_core::game_timer::GameTimer;
 use openwa_core::game_stats::GameStats;
 use openwa_core::display_gfx::DisplayGfx;
@@ -266,7 +266,7 @@ unsafe extern "cdecl" fn impl_init_hardware(
     } else {
         let ctrl = WABox::<InputCtrl>::alloc(0x1800, 0x17E0).leak();
         (*ctrl)._field_d74 = 0x3F9;
-        (*ctrl).vtable = rb(va::INPUT_CTRL_VTABLE) as *mut u8;
+        (*ctrl).vtable = rb(va::INPUT_CTRL_VTABLE) as *const InputCtrlVtable;
         (*session).input_ctrl = ctrl as *mut u8;
 
         // Original passes GameInfo+4 (skips first DWORD of unknown padding).
@@ -274,10 +274,7 @@ unsafe extern "cdecl" fn impl_init_hardware(
         INPUT_CTRL_ESI = ctrl as u32;
         let ok = call_input_ctrl_init(game_info_plus_4, param3, param4, crosshair_threshold);
         if ok == 0 {
-            let vtbl = *(ctrl as *const *const usize);
-            let dtor: unsafe extern "thiscall" fn(*mut u8, u32) =
-                core::mem::transmute(*vtbl);
-            dtor(ctrl as *mut u8, 1);
+            (*ctrl).destroy(1);
             (*session).input_ctrl = core::ptr::null_mut();
             return 0;
         }
@@ -375,7 +372,7 @@ unsafe extern "cdecl" fn impl_init_hardware(
 
         // ── Palette (inline construction) ─────────────────────────────────────
         let pal = WABox::<Palette>::alloc(0x28, 0).leak();
-        (*pal).vtable = rb(va::PALETTE_VTABLE_MAYBE) as *mut u8;
+        (*pal).vtable = rb(va::PALETTE_VTABLE_MAYBE) as *const PaletteVtable;
         (*pal)._field_004 = 0xFFFF_FFFF;
         (*session).palette = pal;
 
@@ -464,16 +461,9 @@ unsafe extern "cdecl" fn impl_init_hardware(
     if !headless {
         let pal = (*session).palette;
         if !pal.is_null() {
-            let vtbl = *(pal as *const *const usize);
-            let vt4: unsafe extern "thiscall" fn(*mut Palette) =
-                core::mem::transmute(*vtbl.add(4));
-            let vt3: unsafe extern "thiscall" fn(*mut Palette) =
-                core::mem::transmute(*vtbl.add(3));
-            let vt2: unsafe extern "thiscall" fn(*mut Palette, u32) =
-                core::mem::transmute(*vtbl.add(2));
-            vt4(pal);
-            vt3(pal);
-            vt2(pal, 7);
+            (*pal).reset();
+            (*pal).init();
+            (*pal).set_mode(7);
         }
 
         let kb = (*session).keyboard;

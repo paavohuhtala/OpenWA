@@ -28,19 +28,9 @@ cargo test --target i686-pc-windows-msvc -p openwa-harness
 cargo test -p openwa-core -- scheme_parse::parse_beginner_v2
 ```
 
-## Deploy to Game
+## How to run the game with the DLL
 
-Game directory: `I:\games\SteamLibrary\steamapps\common\Worms Armageddon`
-
-Copy the unified DLL from `target/i686-pc-windows-msvc/release/` to the game directory:
-- `openwa_wormkit.dll` → rename to `wkOpenWA.dll`
-
-Quick deploy:
-```bash
-cp target/i686-pc-windows-msvc/release/openwa_wormkit.dll "I:/games/SteamLibrary/steamapps/common/Worms Armageddon/wkOpenWA.dll"
-```
-
-WormKit auto-loads any `wk*.dll` from the game directory. Logs appear in the game directory as `OpenWA.log` and `OpenWA_validation.log` (when validation is enabled).
+It used to be necessary to copy the built DLLs to the game directory and launch WA.exe. **HOWEVER**, we now have the launcher crate (`openwa-launcher`) that automatically starts the game with the correct DLL injected.
 
 ## Replay Testing
 
@@ -133,6 +123,9 @@ A Ghidra MCP bridge is configured in `.mcp.json`. When using Ghidra tools:
 - Unknown struct fields as `_unknown_XX` padding arrays
 - Fixed-point: `Fixed(i32)` newtype, 16.16 format (0x10000 = 1.0)
 - Naked asm uses `naked_asm!` (Rust 1.79+ syntax), not `asm!`
+- **Typed vtable structs**: Define `#[repr(C)]` vtable structs with typed function pointers for known slots and `usize` for unknown slots (see `PaletteVtable`, `SoundEmitterVTable`). Set the class struct's vtable field to `*const FooVtable` instead of `*mut u8`.
+- **`vcall!` macro**: Use `vcall!(obj, method, args...)` for one-liner vtable dispatch. Expands to `((*(*obj).vtable).method)(obj, args...)`.
+- **Virtual method wrappers**: Add `impl` methods on the class struct that wrap `vcall!`. Callers write `(*obj).method(args)` — idiomatic, type-safe, and hides the vtable indirection.
 
 ## FFI Style
 

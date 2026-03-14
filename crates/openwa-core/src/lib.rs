@@ -1,5 +1,8 @@
 #![allow(non_snake_case)]
 
+#[macro_use]
+pub mod macros;
+
 pub mod active_sound;
 pub mod class_type;
 pub mod message;
