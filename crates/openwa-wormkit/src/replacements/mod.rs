@@ -2,6 +2,7 @@ mod config;
 mod frontend;
 mod game_session;
 mod hardware_init;
+mod headless;
 pub(crate) mod input;
 mod scheme;
 mod render;
@@ -11,6 +12,7 @@ mod team;
 mod weapon;
 
 pub fn install_all() -> Result<(), String> {
+    headless::install()?;
     game_session::install()?;
     hardware_init::install()?;
     frontend::install()?;

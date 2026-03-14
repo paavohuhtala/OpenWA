@@ -1,0 +1,214 @@
+Game Started at 2026-03-07 19:08:38 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Red:  "CPU 2" [CPU 2.00]
+Blue: "CPU 1" [CPU 1.00]
+
+[00:00:00.00] ••• CPU 2 starts turn
+[00:00:04.22] ••• CPU 2 fires Bazooka
+[00:00:08.06] ••• CPU 2 ends turn; time used: 4.20 sec turn, 3.00 sec retreat
+[00:00:12.08] ••• CPU 1 starts turn
+[00:00:25.84] ••• CPU 1 fires Bazooka
+[00:00:27.48] ••• CPU 1 loses turn due to loss of control; time used: 13.74 sec turn, 1.06 sec retreat
+[00:00:31.08] ••• Damage dealt: 1 to CPU 1
+[00:00:31.08] ••• CPU 2 starts turn
+[00:00:36.26] ••• CPU 2 fires Grenade (4 sec, min bounce)
+[00:00:41.78] ••• CPU 2 ends turn; time used: 5.16 sec turn, 3.00 sec retreat
+[00:00:45.62] ••• Damage dealt: 14 to CPU 1
+[00:00:45.62] ••• CPU 1 starts turn
+[00:00:49.34] ••• CPU 1 fires Bazooka
+[00:00:53.34] ••• CPU 1 ends turn; time used: 3.70 sec turn, 3.00 sec retreat
+[00:00:57.36] ••• CPU 2 starts turn
+[00:01:02.70] ••• CPU 2 fires Grenade (3 sec, min bounce)
+[00:01:06.98] ••• CPU 2 ends turn; time used: 5.32 sec turn, 3.00 sec retreat
+[00:01:11.00] ••• CPU 1 starts turn
+[00:01:15.16] ••• CPU 1 fires Grenade (3 sec, min bounce)
+[00:01:19.58] ••• CPU 1 ends turn; time used: 4.14 sec turn, 3.00 sec retreat
+[00:01:22.00] ••• CPU 2 starts turn
+[00:01:25.06] ••• CPU 2 fires Uzi
+[00:01:29.28] ••• CPU 2 ends turn; time used: 3.04 sec turn, 3.00 sec retreat
+[00:01:33.30] ••• CPU 1 starts turn
+[00:01:43.14] ••• CPU 1 fires Bazooka
+[00:01:45.66] ••• CPU 1 ends turn; time used: 9.82 sec turn, 1.86 sec retreat
+[00:01:48.86] ••• Damage dealt: 44 to CPU 2
+[00:01:48.86] ••• CPU 2 starts turn
+[00:01:51.70] ••• CPU 2 fires Bazooka
+[00:01:54.52] ••• CPU 2 ends turn; time used: 2.82 sec turn, 1.86 sec retreat
+[00:01:59.64] ••• Damage dealt: 32 to CPU 1
+[00:01:59.64] ••• CPU 1 starts turn
+[00:02:02.96] ••• CPU 1 fires Bazooka
+[00:02:03.98] ••• CPU 1 loses turn due to loss of control; time used: 3.30 sec turn, 0.00 sec retreat
+[00:02:08.94] ••• Damage dealt: 41 to CPU 1
+[00:02:08.94] ••• CPU 2 starts turn
+[00:02:11.60] ••• CPU 2 fires Air Strike
+[00:02:15.28] ••• CPU 2 ends turn; time used: 2.64 sec turn, 3.00 sec retreat
+[00:02:19.30] ••• CPU 1 starts turn
+[00:02:22.16] ••• CPU 1 fires Air Strike
+[00:02:25.84] ••• CPU 1 ends turn; time used: 2.84 sec turn, 3.00 sec retreat
+[00:02:30.26] ••• Damage dealt: 6 to CPU 2
+[00:02:30.26] ••• CPU 2 starts turn
+[00:02:33.38] ••• CPU 2 fires Bazooka
+[00:02:37.86] ••• CPU 2 ends turn; time used: 3.10 sec turn, 3.00 sec retreat
+[00:02:41.88] ••• CPU 1 starts turn
+[00:02:48.48] ••• CPU 1 fires Shotgun
+[00:02:55.86] ••• CPU 1 fires Shotgun
+[00:02:58.78] ••• CPU 1 ends turn; time used: 9.04 sec turn, 1.74 sec retreat
+[00:03:03.54] ••• Damage dealt: 46 to CPU 2
+[00:03:03.54] ••• CPU 2 starts turn
+[00:03:06.48] ••• CPU 2 fires Bazooka
+[00:03:07.42] ••• CPU 2 loses turn due to loss of control; time used: 2.92 sec turn, 0.12 sec retreat
+[00:03:12.64] ••• Damage dealt: 1 to CPU 2, 38 to CPU 1
+[00:03:12.64] ••• CPU 1 starts turn
+[00:03:20.64] ••• CPU 1 fires Bazooka
+[00:03:24.58] ••• CPU 1 ends turn; time used: 7.98 sec turn, 3.00 sec retreat
+[00:03:28.60] ••• CPU 2 starts turn
+[00:03:33.12] ••• CPU 2 ends turn; time used: 4.50 sec turn, 0.00 sec retreat
+[00:03:35.14] ••• CPU 1 starts turn
+[00:03:38.56] ••• CPU 1 fires Bazooka
+[00:03:42.88] ••• CPU 1 ends turn; time used: 3.40 sec turn, 3.00 sec retreat
+[00:03:46.90] ••• CPU 2 starts turn
+[00:03:51.68] ••• CPU 2 fires Teleport
+[00:03:54.18] ••• CPU 2 ends turn; time used: 4.76 sec turn, 0.02 sec retreat
+[00:03:56.20] ••• CPU 1 starts turn
+[00:04:00.40] ••• CPU 1 fires Grenade (2 sec, min bounce)
+[00:04:04.44] ••• CPU 1 ends turn; time used: 4.18 sec turn, 3.00 sec retreat
+[00:04:06.82] ••• CPU 2 starts turn
+[00:04:09.18] ••• CPU 2 fires Fire Punch
+[00:04:12.72] ••• CPU 2 ends turn; time used: 2.34 sec turn, 1.72 sec retreat
+[00:04:26.42] ••• Damage dealt: 9 (1 kill) to CPU 2, 15 (1 kill) to CPU 1
+[00:04:26.42] ••• CPU 1 starts turn
+[00:04:29.14] ••• CPU 1 fires Bazooka
+[00:04:33.70] ••• CPU 1 ends turn; time used: 2.70 sec turn, 3.00 sec retreat
+[00:04:37.72] ••• CPU 2 starts turn
+[00:04:42.32] ••• CPU 2 fires Teleport
+[00:04:44.82] ••• CPU 2 ends turn; time used: 4.58 sec turn, 0.02 sec retreat
+[00:04:46.84] ••• CPU 1 starts turn
+[00:04:51.42] ••• CPU 1 fires Teleport
+[00:04:53.92] ••• CPU 1 ends turn; time used: 4.56 sec turn, 0.02 sec retreat
+[00:04:55.94] ••• CPU 2 starts turn
+[00:04:59.18] ••• CPU 2 fires Grenade (1 sec, min bounce)
+[00:05:00.54] ••• CPU 2 loses turn due to loss of control; time used: 3.22 sec turn, 0.88 sec retreat
+[00:05:10.08] ••• Damage dealt: 26 to CPU 2, 34 to CPU 1
+[00:05:10.08] ••• CPU 1 starts turn
+[00:05:14.44] ••• CPU 1 ends turn; time used: 4.34 sec turn, 0.00 sec retreat
+[00:05:18.48] ••• CPU 2 starts turn
+[00:05:25.08] ••• CPU 2 fires Grenade (4 sec, min bounce)
+[00:05:30.58] ••• CPU 2 ends turn; time used: 6.58 sec turn, 3.00 sec retreat
+[00:05:33.12] ••• CPU 1 starts turn
+[00:05:37.94] ••• CPU 1 fires Teleport
+[00:05:40.44] ••• CPU 1 ends turn; time used: 4.80 sec turn, 0.02 sec retreat
+[00:05:42.46] ••• CPU 2 starts turn
+[00:05:45.74] ••• CPU 2 fires Grenade (3 sec, min bounce)
+[00:05:50.18] ••• CPU 2 ends turn; time used: 3.26 sec turn, 3.00 sec retreat
+[00:05:54.20] ••• CPU 1 starts turn
+[00:05:57.58] ••• CPU 1 ends turn; time used: 3.36 sec turn, 0.00 sec retreat
+[00:06:01.54] ••• CPU 2 starts turn
+[00:06:05.00] ••• CPU 2 fires Bazooka
+[00:06:08.86] ••• CPU 2 ends turn; time used: 3.44 sec turn, 3.00 sec retreat
+[00:06:12.88] ••• CPU 1 starts turn
+[00:06:15.70] ••• CPU 1 fires Bazooka
+[00:06:19.96] ••• CPU 1 ends turn; time used: 2.80 sec turn, 3.00 sec retreat
+[00:06:27.08] ••• Damage dealt: 40 to CPU 2
+[00:06:27.08] ••• CPU 2 starts turn
+[00:06:34.20] ••• CPU 2 fires Bazooka
+[00:06:38.06] ••• CPU 2 ends turn; time used: 7.10 sec turn, 3.00 sec retreat
+[00:06:43.46] ••• Damage dealt: 25 to CPU 1
+[00:06:43.46] ••• CPU 1 starts turn
+[00:06:46.88] ••• CPU 1 ends turn; time used: 3.40 sec turn, 0.00 sec retreat
+[00:06:48.90] ••• CPU 2 starts turn
+[00:06:51.70] ••• CPU 2 fires Bazooka
+[00:06:55.88] ••• CPU 2 ends turn; time used: 2.78 sec turn, 3.00 sec retreat
+[00:06:59.90] ••• CPU 1 starts turn
+[00:07:03.58] ••• CPU 1 fires Bazooka
+[00:07:07.70] ••• CPU 1 ends turn; time used: 3.66 sec turn, 3.00 sec retreat
+[00:07:10.28] ••• CPU 2 starts turn
+[00:07:12.92] ••• CPU 2 fires Grenade (4 sec, min bounce)
+[00:07:18.42] ••• CPU 2 ends turn; time used: 2.62 sec turn, 3.00 sec retreat
+[00:07:22.44] ••• CPU 1 starts turn
+[00:07:25.84] ••• CPU 1 ends turn; time used: 3.38 sec turn, 0.00 sec retreat
+[00:07:29.94] ••• CPU 2 starts turn
+[00:07:33.36] ••• CPU 2 ends turn; time used: 3.40 sec turn, 0.00 sec retreat
+[00:07:35.38] ••• CPU 1 starts turn
+[00:07:38.42] ••• CPU 1 fires Bazooka
+[00:07:39.32] ••• CPU 1 loses turn due to loss of control; time used: 3.02 sec turn, 0.08 sec retreat
+[00:07:42.88] ••• Damage dealt: 8 to CPU 1
+[00:07:42.88] ••• CPU 2 starts turn
+[00:07:45.34] ••• CPU 2 fires Grenade (3 sec, min bounce)
+[00:07:49.72] ••• CPU 2 ends turn; time used: 2.44 sec turn, 3.00 sec retreat
+[00:08:00.08] ••• Damage dealt: 18 (1 kill) to CPU 1
+[00:08:00.08] ••• CPU 1 starts turn
+[00:08:03.50] ••• CPU 1 ends turn; time used: 3.40 sec turn, 0.00 sec retreat
+[00:08:05.52] ••• CPU 2 starts turn
+[00:08:08.50] ••• CPU 2 fires Bazooka
+[00:08:12.34] ••• CPU 2 ends turn; time used: 2.96 sec turn, 3.00 sec retreat
+[00:08:16.36] ••• CPU 1 starts turn
+[00:08:19.78] ••• CPU 1 ends turn; time used: 3.40 sec turn, 0.00 sec retreat
+[00:08:21.80] ••• CPU 2 starts turn
+[00:08:24.68] ••• CPU 2 fires Bazooka
+[00:08:27.80] ••• CPU 2 ends turn; time used: 2.86 sec turn, 2.32 sec retreat
+[00:08:31.82] ••• CPU 1 starts turn
+[00:08:34.66] ••• CPU 1 fires Handgun
+[00:08:34.70] ••• CPU 1 loses turn due to loss of control; time used: 2.82 sec turn, 0.00 sec retreat
+[00:08:40.54] ••• Damage dealt: 4 to CPU 1
+[00:08:40.54] ••• CPU 2 starts turn
+[00:08:43.48] ••• CPU 2 fires Bazooka
+[00:08:47.66] ••• CPU 2 ends turn; time used: 2.92 sec turn, 3.00 sec retreat
+[00:08:56.02] ••• CPU 1 starts turn
+[00:08:59.40] ••• CPU 1 ends turn; time used: 3.36 sec turn, 0.00 sec retreat
+[00:09:01.42] ••• CPU 2 starts turn
+[00:09:03.90] ••• CPU 2 fires Bazooka
+[00:09:08.18] ••• CPU 2 ends turn; time used: 2.46 sec turn, 3.00 sec retreat
+[00:09:13.40] ••• CPU 1 starts turn
+[00:09:15.84] ••• CPU 1 fires Handgun
+[00:09:15.88] ••• CPU 1 loses turn due to loss of control; time used: 2.42 sec turn, 0.00 sec retreat
+[00:09:19.32] ••• Damage dealt: 3 to CPU 1
+[00:09:19.32] ••• CPU 2 starts turn
+[00:09:22.20] ••• CPU 2 fires Bazooka
+[00:09:26.06] ••• CPU 2 ends turn; time used: 2.86 sec turn, 3.00 sec retreat
+[00:09:30.08] ••• CPU 1 starts turn
+[00:09:33.48] ••• CPU 1 ends turn; time used: 3.38 sec turn, 0.00 sec retreat
+[00:09:35.50] ••• CPU 2 starts turn
+[00:09:38.16] ••• CPU 2 fires Bazooka
+[00:09:40.98] ••• CPU 2 ends turn; time used: 2.64 sec turn, 2.32 sec retreat
+[00:09:46.68] ••• CPU 1 starts turn
+[00:09:50.08] ••• CPU 1 ends turn; time used: 3.38 sec turn, 0.00 sec retreat
+[00:09:52.10] ••• CPU 2 starts turn
+[00:09:54.68] ••• CPU 2 fires Bazooka
+[00:09:58.82] ••• CPU 2 ends turn; time used: 2.56 sec turn, 3.00 sec retreat
+[00:10:04.78] ••• CPU 1 starts turn
+[00:10:08.16] ••• CPU 1 ends turn; time used: 3.36 sec turn, 0.00 sec retreat
+[00:10:10.18] ••• CPU 2 starts turn
+[00:10:12.70] ••• CPU 2 fires Bazooka
+[00:10:16.18] ••• CPU 2 ends turn; time used: 2.50 sec turn, 3.00 sec retreat
+[00:10:20.20] ••• CPU 1 starts turn
+[00:10:23.58] ••• CPU 1 ends turn; time used: 3.36 sec turn, 0.00 sec retreat
+[00:10:25.60] ••• CPU 2 starts turn
+[00:10:28.94] ••• CPU 2 ends turn; time used: 3.32 sec turn, 0.00 sec retreat
+[00:10:30.96] ••• CPU 1 starts turn
+[00:10:33.06] ••• Sudden Death
+[00:10:34.36] ••• CPU 1 ends turn; time used: 3.38 sec turn, 0.00 sec retreat
+[00:10:36.38] ••• Sudden Death
+[00:10:40.34] ••• CPU 2 starts turn
+[00:10:42.88] ••• CPU 2 fires Bazooka
+[00:10:46.40] ••• CPU 2 ends turn; time used: 2.52 sec turn, 3.00 sec retreat
+[00:10:51.68] ••• CPU 1 starts turn
+[00:10:55.10] ••• CPU 1 fires Bazooka
+[00:10:56.34] ••• CPU 1 loses turn due to loss of control; time used: 3.40 sec turn, 0.00 sec retreat
+[00:11:10.28] ••• Damage dealt: 1 (1 kill) to CPU 1
+[00:11:10.30] ••• Game Ends - Round Finished
+
+Team time totals:
+CPU 2: Turn: 00:01:47.82, Retreat: 00:01:09.26, Total: 00:02:57.08, Turn count: 31
+CPU 1: Turn: 00:02:13.82, Retreat: 00:00:31.78, Total: 00:02:45.60, Turn count: 31
+
+End of round 1
+
+Round time: 0:11:10
+Total game time elapsed: 0:11:10
+
+CPU 2 wins the round.
+
+Worm of the round: Cheesy (CPU 2)
+Most damage with one shot: 60 - Cheesy (CPU 2)

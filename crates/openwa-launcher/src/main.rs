@@ -50,6 +50,10 @@ extern "system" {
     fn TerminateProcess(hProcess: HANDLE, uExitCode: u32) -> BOOL;
     fn CloseHandle(hObject: HANDLE) -> BOOL;
     fn GetModuleFileNameA(hModule: HMODULE, lpFilename: *mut u8, nSize: DWORD) -> DWORD;
+    fn CreateEventA(
+        lpEventAttributes: LPVOID, bManualReset: BOOL, bInitialState: BOOL,
+        lpName: *const u8,
+    ) -> HANDLE;
 }
 
 fn main() {
@@ -156,11 +160,29 @@ unsafe fn launch(
         .to_str()
         .ok_or("DLL path is not valid UTF-8")?;
 
+    // Create a named event that the DLL will signal after all hooks are
+    // installed. This ensures the main thread doesn't run any WA code
+    // before our hooks are in place.
+    let event_name = b"OpenWA_HooksReady\0";
+    let event = CreateEventA(ptr::null_mut(), 1, 0, event_name.as_ptr());
+    // event may be null if CreateEventA fails — we'll fall through gracefully.
+
     if let Err(e) = inject::inject_dll(pi.hProcess, dll_str) {
+        if !event.is_null() { CloseHandle(event); }
         TerminateProcess(pi.hProcess, 1);
         CloseHandle(pi.hProcess);
         CloseHandle(pi.hThread);
         return Err(format!("DLL injection failed: {e}"));
+    }
+
+    // Wait for the DLL to signal that all hooks are installed.
+    // Timeout after 10s to avoid hanging if the DLL crashes during init.
+    if !event.is_null() {
+        let wait_result = WaitForSingleObject(event, 10_000);
+        if wait_result != 0 {
+            eprintln!("openwa-launcher: warning: hooks-ready event timed out ({wait_result})");
+        }
+        CloseHandle(event);
     }
 
     // All hooks installed — let WA.exe run.

@@ -463,6 +463,15 @@ pub mod va {
     /// prev_state (+0x21C) buffers. stdcall(this), RET 0x4.
     pub const DDKEYBOARD_POLL_KEYBOARD_STATE: u32 = 0x0057_2290;
 
+    // === MFC wrappers ===
+
+    /// AfxCtxMessageBoxA — cdecl(hwnd, text, caption, flags) → int.
+    /// MFC activation-context wrapper around user32!MessageBoxA.
+    pub const AFXCTX_MESSAGEBOX_A: u32 = 0x005C_2055;
+    /// CWormsApp::DoMessageBox — thiscall(this, text, type, help_context) → int.
+    /// MFC virtual override that shows either a frontend dialog or a raw MessageBoxA.
+    pub const CWORMSAPP_DO_MESSAGEBOX: u32 = 0x004E_B730;
+
     // === Chat / UI ===
 
     pub const SHOW_CHAT_MESSAGE: u32 = 0x0052_ACB0;
