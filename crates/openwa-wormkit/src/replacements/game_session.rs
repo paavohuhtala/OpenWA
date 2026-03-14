@@ -1,21 +1,9 @@
 //! Full Rust replacement for `DDGameWrapper__Constructor` (0x56DEF0).
 //!
-//! ## Original calling convention
+//! ## Status: FULLY CONVERTED
 //!
-//! `DDGameWrapper__Constructor` is `__stdcall` with 7 explicit stack params, plus
-//! an **implicit EDI** register param (`game_info` / `unaff_EDI` in Ghidra).
-//! EDI is passed as the 9th argument to `DDGame__Constructor`.
-//!
-//! ## Implementation strategy
-//!
-//! A naked trampoline handles the unconventional calling convention:
-//! 1. Saves EDI (game_info) to a static before any Rust code can touch registers.
-//! 2. Pops the caller return address to another static (to simulate stdcall callee
-//!    cleanup from outside the cdecl implementation).
-//! 3. Calls the cdecl `ctor_impl` with the 7 stack args already in position.
-//! 4. After `ctor_impl` returns, skips 0x1C bytes (7 × 4) and jumps to the saved
-//!    return address — exactly what `stdcall RET 0x1C` would do.
-//!    EAX = `this` (ctor_impl's return value) is preserved for the caller.
+//! All callers are Rust (`construct_ddgame_wrapper` from `impl_init_hardware`).
+//! The original WA function is trapped — panics if called.
 //!
 //! ## Sub-call conventions
 //!
@@ -35,10 +23,6 @@ use openwa_core::game_session::GameSession;
 use openwa_core::palette::Palette;
 use crate::hook;
 use crate::log_line;
-
-/// Caller's return address, saved by the naked trampoline so we can do the
-/// stdcall callee-cleanup (arg pop + return) after the cdecl impl returns.
-static mut SAVED_RET: u32 = 0;
 
 /// Implicit EDI = game_info pointer, captured from EDI on entry.
 static mut GAME_INFO: u32 = 0;
@@ -168,47 +152,6 @@ unsafe extern "cdecl" fn ctor_impl(
     this
 }
 
-// ─── Naked entry trampoline ───────────────────────────────────────────────────
-//
-// Stack on entry (stdcall 7 params + implicit EDI=game_info):
-//   [esp+0x00] = caller_ret
-//   [esp+0x04] = this
-//   [esp+0x08] = display
-//   [esp+0x0C] = sound
-//   [esp+0x10] = gfx
-//   [esp+0x14] = palette
-//   [esp+0x18] = music
-//   [esp+0x1C] = network
-//   EDI        = game_info (implicit, must not be modified)
-//
-// Steps:
-//   1. Capture EDI → GAME_INFO via EAX scratch (EDI itself is never written).
-//   2. Pop caller_ret → SAVED_RET.
-//   3. calll ctor_impl — args are in place; cdecl so callee doesn't clean stack.
-//   4. addl $0x1C, %esp — simulate stdcall callee cleanup of 7 args.
-//   5. jmpl *SAVED_RET — return to caller; EAX = this (ctor_impl's return value).
-#[unsafe(naked)]
-unsafe extern "C" fn ddgamewrapper_constructor() {
-    core::arch::naked_asm!(
-        // Use EAX as scratch to save EDI without touching EDI.
-        "pushl %eax",
-        // [esp+0]=old_eax, [esp+4]=caller_ret, [esp+8]=this, ..., [esp+20]=network
-        "movl %edi, %eax",
-        "movl %eax, {game_info}",    // GAME_INFO = EDI
-        "popl %eax",                 // restore EAX; stack = [caller_ret, this, ..., network]
-        "popl %eax",                 // EAX = caller_ret; stack = [this, display, ..., network]
-        "movl %eax, {saved_ret}",    // SAVED_RET = caller_ret
-        "calll {impl_fn}",           // ctor_impl(this, display, sound, gfx, palette, music, network)
-        // cdecl: stack unchanged after call; EAX = this.
-        "addl $0x1c, %esp",          // stdcall callee-cleanup: discard 7 × u32 args
-        "jmpl *{saved_ret}",         // return to caller; EAX = this
-        game_info = sym GAME_INFO,
-        saved_ret = sym SAVED_RET,
-        impl_fn   = sym ctor_impl,
-        options(att_syntax),
-    );
-}
-
 /// Called by `impl_init_hardware` to construct the DDGameWrapper in-place.
 ///
 /// Sets `GAME_INFO` (read by `ctor_impl`) and delegates directly to `ctor_impl`,
@@ -232,12 +175,9 @@ pub fn install() -> Result<(), String> {
     unsafe {
         INIT_REPLAY_ADDR = rb(va::DDGAMEWRAPPER_INIT_REPLAY);
         DDGAME_CTOR_ADDR = rb(va::CONSTRUCT_DD_GAME);
-        // Full replacement — trampoline not needed.
-        let _ = hook::install(
-            "DDGameWrapper__Constructor",
-            va::CONSTRUCT_DD_GAME_WRAPPER,
-            ddgamewrapper_constructor as *const (),
-        )?;
+        // Fully converted — only called from impl_init_hardware (Rust).
+        // Trap panics if WA.exe unexpectedly calls the original.
+        hook::install_trap!("DDGameWrapper__Constructor", va::CONSTRUCT_DD_GAME_WRAPPER);
     }
     Ok(())
 }

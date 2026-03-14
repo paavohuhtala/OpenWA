@@ -312,6 +312,34 @@ macro_rules! usercall_trampoline {
 
 pub(crate) use usercall_trampoline;
 
+/// Install a panic trap on a fully-converted WA function.
+///
+/// Use this when ALL callers of a WA function have been replaced with Rust code.
+/// The trap verifies our caller analysis by panicking if WA.exe unexpectedly
+/// calls the function. Each invocation generates a unique trap function with
+/// the function name baked into the panic message.
+///
+/// ```ignore
+/// install_trap!("DDGameWrapper__Constructor", va::CONSTRUCT_DD_GAME_WRAPPER);
+/// ```
+macro_rules! install_trap {
+    ($name:literal, $addr:expr) => {{
+        unsafe extern "C" fn trap() {
+            panic!(concat!(
+                "TRAP: ", $name,
+                " called by WA.exe — all callers should be Rust"
+            ));
+        }
+        let _ = hook::install(
+            concat!($name, " [TRAP]"),
+            $addr,
+            trap as *const (),
+        )?;
+    }};
+}
+
+pub(crate) use install_trap;
+
 use std::ffi::c_void;
 
 use minhook::MinHook;
