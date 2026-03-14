@@ -98,15 +98,15 @@ unsafe extern "stdcall" fn ddgame_constructor_call(
     _this: *mut DDGameWrapper,
     _display: *mut DDDisplay,
     _sound: *mut DSSound,
-    _gfx: *mut u8,
+    _keyboard: *mut u8,
     _palette: *mut Palette,
-    _music: *mut u8,
+    _streaming_audio: *mut u8,
     _timer_obj: *mut u8,
     _net_game: *mut u8,
     _game_info: *mut u8,
 ) -> *mut u8 {
     core::arch::naked_asm!(
-        "movl {ecx_val}, %ecx",  // ECX = network (implicit param for DDGame::ctor)
+        "movl {ecx_val}, %ecx",  // ECX = input_ctrl (implicit param for DDGame::ctor)
         "jmpl *({fn})",          // tail-jump; DDGame::ctor's RET 0x24 returns to caller
         ecx_val = sym DDGAME_CTOR_ECX,
         fn = sym DDGAME_CTOR_ADDR,
@@ -125,10 +125,10 @@ unsafe extern "cdecl" fn ctor_impl(
     this: *mut DDGameWrapper,
     display: *mut DDDisplay,
     sound: *mut DSSound,
-    gfx: *mut u8,
+    keyboard: *mut u8,
     palette: *mut Palette,
-    music: *mut u8,
-    network: *mut u8,
+    streaming_audio: *mut u8,
+    input_ctrl: *mut u8,
 ) -> *mut DDGameWrapper {
     let game_info = GAME_INFO as *mut u8;
 
@@ -147,10 +147,10 @@ unsafe extern "cdecl" fn ctor_impl(
     let timer_obj = (*session).timer_obj;
     let net_game  = (*session).net_game;
 
-    // Store network as the implicit ECX for DDGame::ctor, then tail-jump-call.
-    DDGAME_CTOR_ECX = network as u32;
+    // Store input_ctrl as the implicit ECX for DDGame::ctor, then tail-jump-call.
+    DDGAME_CTOR_ECX = input_ctrl as u32;
     ddgame_constructor_call(
-        this, display, sound, gfx, palette, music,
+        this, display, sound, keyboard, palette, streaming_audio,
         timer_obj, net_game, game_info,
     );
 
@@ -219,13 +219,13 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
     this: *mut DDGameWrapper,
     display: *mut DDDisplay,
     sound: *mut DSSound,
-    gfx: *mut u8,
+    keyboard: *mut u8,
     palette: *mut Palette,
-    music: *mut u8,
-    network: *mut u8,
+    streaming_audio: *mut u8,
+    input_ctrl: *mut u8,
 ) -> *mut DDGameWrapper {
     GAME_INFO = game_info as u32;
-    ctor_impl(this, display, sound, gfx, palette, music, network)
+    ctor_impl(this, display, sound, keyboard, palette, streaming_audio, input_ctrl)
 }
 
 pub fn install() -> Result<(), String> {

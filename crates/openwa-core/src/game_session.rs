@@ -29,7 +29,11 @@ pub struct GameSession {
     pub _unknown_004: [u8; 4],
     /// 0x008: main window HWND, stored from `hWnd` in `GameSession__Run`
     pub hwnd: u32,
-    pub _unknown_00c: [u8; 0x20],
+    pub _unknown_00c: [u8; 0x18],
+    /// 0x024: Always set to 1 by GameEngine__InitHardware.
+    pub init_flag: u32,
+    /// 0x028: Fullscreen flag — `(GameInfo.home_lock != 0) as u32`.
+    pub fullscreen_flag: u32,
     /// 0x02C: set to 1 on init (role TBD)
     pub flag_2c: u32,
     pub _unknown_030: [u8; 8],

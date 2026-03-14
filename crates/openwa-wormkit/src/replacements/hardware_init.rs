@@ -53,6 +53,9 @@ use openwa_core::palette::Palette;
 use openwa_core::input_ctrl::InputCtrl;
 use openwa_core::game_timer::GameTimer;
 use openwa_core::game_stats::GameStats;
+use openwa_core::display_gfx::DisplayGfx;
+use openwa_core::streaming_audio::StreamingAudio;
+use openwa_core::ddnetgame_wrapper::DDNetGameWrapper;
 use openwa_core::wa_alloc::WABox;
 use crate::hook;
 use crate::log_line;
@@ -90,16 +93,16 @@ static mut DSSOUND_INIT_EAX: u32 = 0;
 // so the callee sees its actual stack args at [esp+4] / [esp+8] etc. (not
 // displaced by an extra return address).
 
-/// Timer constructor: `usercall(ESI=timer_ptr, EAX=d778_val)`, plain RET.
+/// Timer constructor: `usercall(ESI=timer_ptr, EAX=crosshair_threshold)`, plain RET.
 /// Returns whatever EAX holds after the call.
 #[unsafe(naked)]
-unsafe extern "cdecl" fn call_timer_ctor(_timer_ptr: *mut GameTimer, _d778_val: u32) -> u32 {
+unsafe extern "cdecl" fn call_timer_ctor(_timer_ptr: *mut GameTimer, _crosshair_threshold: u32) -> u32 {
     core::arch::naked_asm!(
-        // [esp+0]=bridge_ret, [esp+4]=timer_ptr, [esp+8]=d778_val
+        // [esp+0]=bridge_ret, [esp+4]=timer_ptr, [esp+8]=crosshair_threshold
         "pushl %esi",
         // [esp+0]=old_esi, [esp+4]=bridge_ret, [esp+8]=timer_ptr, [esp+c]=d778_val
         "movl 8(%esp), %esi",    // ESI = timer_ptr
-        "movl 0xc(%esp), %eax",  // EAX = d778_val
+        "movl 0xc(%esp), %eax",  // EAX = crosshair_threshold
         "calll *({fn})",          // FUN_0053E950: plain RET (no stack args)
         "popl %esi",
         "retl",                   // cdecl; caller cleans 2 × u32
@@ -166,9 +169,9 @@ unsafe extern "stdcall" fn call_dssound_init_buffers(
 #[unsafe(naked)]
 unsafe extern "stdcall" fn call_input_ctrl_init(
     _game_info_p4: *mut u8,
-    _hwnd: u32,
     _param3: u32,
-    _d778_val: u32,
+    _param4: u32,
+    _crosshair_threshold: u32,
 ) -> u32 {
     core::arch::naked_asm!(
         // [esp+0]=bridge_ret, [esp+4]=gip4, [esp+8]=hwnd, [esp+c]=p3, [esp+10]=d778
@@ -255,7 +258,7 @@ unsafe extern "cdecl" fn impl_init_hardware(
     let _ = log_line("[hardware_init] GameEngine::InitHardware");
     let session = *(rb(va::G_GAME_SESSION) as *const *mut GameSession);
     let gi = &mut *game_info;
-    let d778_val = gi.crosshair_overflow_threshold as u32;
+    let crosshair_threshold = gi.crosshair_overflow_threshold as u32;
 
     // ── Input controller (if param4 != 0) ────────────────────────────────────
     if param4 == 0 {
@@ -266,13 +269,10 @@ unsafe extern "cdecl" fn impl_init_hardware(
         (*ctrl).vtable = rb(va::INPUT_CTRL_VTABLE) as *mut u8;
         (*session).input_ctrl = ctrl as *mut u8;
 
+        // Original passes GameInfo+4 (skips first DWORD of unknown padding).
+        let game_info_plus_4 = (game_info as *mut u8).add(4);
         INPUT_CTRL_ESI = ctrl as u32;
-        let ok = call_input_ctrl_init(
-            (game_info as *mut u8).add(4),
-            param3,
-            param4,
-            d778_val,
-        );
+        let ok = call_input_ctrl_init(game_info_plus_4, param3, param4, crosshair_threshold);
         if ok == 0 {
             let vtbl = *(ctrl as *const *const usize);
             let dtor: unsafe extern "thiscall" fn(*mut u8, u32) =
@@ -285,17 +285,17 @@ unsafe extern "cdecl" fn impl_init_hardware(
 
     // ── Timer object (ALWAYS) ─────────────────────────────────────────────────
     let timer = WABox::<GameTimer>::alloc(0x30, 0x30).leak();
-    call_timer_ctor(timer, d778_val);
+    call_timer_ctor(timer, crosshair_threshold);
     (*session).timer_obj = timer as *mut u8;
 
     let headless = gi.headless_mode != 0;
 
     if !headless {
         // ── DisplayGfx ───────────────────────────────────────────────────────
-        let displaygfx_ctor: unsafe extern "stdcall" fn(*mut u8) -> *mut u8 =
+        let displaygfx_ctor: unsafe extern "stdcall" fn(*mut DisplayGfx) -> *mut DisplayGfx =
             core::mem::transmute(rb(va::DISPLAYGFX_CTOR) as usize);
-        let display_gfx = displaygfx_ctor(WABox::<u8>::alloc(0x24E28, 0x24E08).leak());
-        (*session).display_gfx = display_gfx;
+        let display_gfx = displaygfx_ctor(WABox::<DisplayGfx>::alloc(0x24E28, 0x24E08).leak());
+        (*session).display_gfx = display_gfx as *mut u8;
 
         // ── DDDisplay::Init retry loop ────────────────────────────────────────
         let flags = gi.display_flags;
@@ -303,7 +303,7 @@ unsafe extern "cdecl" fn impl_init_hardware(
         let h0 = gi.display_height;
 
         DDISPLAY_INIT_ECX = h0;
-        let mut init_ok = call_ddisplay_init(display_gfx, hwnd, w0, flags) != 0;
+        let mut init_ok = call_ddisplay_init(display_gfx as *mut u8, hwnd, w0, flags) != 0;
 
         if !init_ok {
             let fallbacks: [(u32, u32); 3] = [
@@ -315,7 +315,7 @@ unsafe extern "cdecl" fn impl_init_hardware(
                 gi.display_width = w;
                 gi.display_height = h;
                 DDISPLAY_INIT_ECX = h;
-                if call_ddisplay_init(display_gfx, hwnd, w, flags) != 0 {
+                if call_ddisplay_init(display_gfx as *mut u8, hwnd, w, flags) != 0 {
                     init_ok = true;
                     break;
                 }
@@ -363,12 +363,12 @@ unsafe extern "cdecl" fn impl_init_hardware(
         }
 
         // ── DDKeyboard (inline construction) ──────────────────────────────────
+        // WABox zeroes the first 0x31C bytes, covering key_state (+0x11C) and
+        // prev_state (+0x21C) — no separate zeroing needed.
         let kb = WABox::<DDKeyboard>::alloc(0x33C, 0x31C).leak();
         (*kb).vtable = rb(va::DDKEYBOARD_VTABLE) as *mut u8;
         (*kb).game_info_input_ptr = &raw mut gi.input_state_f918 as u32;
         (*kb)._field_008 = 1;
-        core::ptr::write_bytes((*kb).key_state.as_mut_ptr(), 0, 0x100);
-        core::ptr::write_bytes((*kb).prev_state.as_mut_ptr(), 0, 0x100);
         (*kb)._field_014 = 0;
         (*kb)._field_018 = 0;
         (*session).keyboard = kb;
@@ -376,7 +376,7 @@ unsafe extern "cdecl" fn impl_init_hardware(
         // ── Palette (inline construction) ─────────────────────────────────────
         let pal = WABox::<Palette>::alloc(0x28, 0).leak();
         (*pal).vtable = rb(va::PALETTE_VTABLE_MAYBE) as *mut u8;
-        *((pal as *mut u8).add(4) as *mut u32) = 0xFFFF_FFFF;
+        (*pal)._field_004 = 0xFFFF_FFFF;
         (*session).palette = pal;
 
         // ── DSSound ───────────────────────────────────────────────────────────
@@ -403,11 +403,12 @@ unsafe extern "cdecl" fn impl_init_hardware(
                 );
                 if hr2 == 0 {
                     // IDirectSoundBuffer::Play(this, 0, 0, DSBPLAY_LOOPING=1)
+                    const PLAY_VSLOT: usize = 0x30 / 4; // IDirectSoundBuffer vtable slot 12
                     let pds = (*snd).primary_buffer as *const *const usize;
                     let vtbl = *pds;
                     let play: unsafe extern "stdcall" fn(
                         *const *const usize, u32, u32, u32,
-                    ) -> i32 = core::mem::transmute(*vtbl.add(0x30 / 4));
+                    ) -> i32 = core::mem::transmute(*vtbl.add(PLAY_VSLOT));
                     let hr3 = play(pds, 0, 0, 1);
                     if hr3 == 0 {
                         (*snd).init_success = 1;
@@ -418,25 +419,22 @@ unsafe extern "cdecl" fn impl_init_hardware(
 
         // ── Streaming audio ───────────────────────────────────────────────────
         (*session).streaming_audio = core::ptr::null_mut();
-        if !(*session).sound.is_null() {
-            if gi.speech_enabled != 0 {
-                let stream_mem = WABox::<u8>::alloc(0x354, 0x334).leak();
-                let snd = (*session).sound;
-                let ids = (*snd).direct_sound;
-                call_streaming_audio_ctor(
-                    stream_mem,
-                    ids,
-                    gi.streaming_audio_config.as_mut_ptr(),
-                );
-                (*session).streaming_audio = stream_mem;
-            }
+        if !(*session).sound.is_null() && gi.speech_enabled != 0 {
+            let stream = WABox::<StreamingAudio>::alloc(0x354, 0x334).leak();
+            let ids = (*(*session).sound).direct_sound;
+            call_streaming_audio_ctor(
+                stream as *mut u8,
+                ids,
+                gi.streaming_audio_config.as_mut_ptr(),
+            );
+            (*session).streaming_audio = stream as *mut u8;
         }
     } else {
         // ── Headless / stats mode ─────────────────────────────────────────────
         let stats = WABox::<GameStats>::alloc(0x3560, 0x3560).leak();
-        let gamestats_ctor: unsafe extern "stdcall" fn(*mut u8) -> *mut u8 =
+        let gamestats_ctor: unsafe extern "stdcall" fn(*mut GameStats) -> *mut GameStats =
             core::mem::transmute(rb(va::GAMESTATS_CTOR) as usize);
-        gamestats_ctor(stats as *mut u8);
+        gamestats_ctor(stats);
         (*stats).vtable = rb(va::GAMESTATS_VTABLE) as *mut u8;
         (*session).display_gfx      = stats as *mut u8;
         (*session).keyboard         = core::ptr::null_mut();
@@ -445,10 +443,9 @@ unsafe extern "cdecl" fn impl_init_hardware(
         (*session).streaming_audio  = core::ptr::null_mut();
     }
 
-    // ── Windowed/fullscreen flag → session+0x28, and session+0x24 = 1 ──────────
-    let fullscreen_word = gi.home_lock;
-    *((session as *mut u8).add(0x28) as *mut u32) = (fullscreen_word != 0) as u32;
-    *((session as *mut u8).add(0x24) as *mut u32) = 1;
+    // ── Session flags ─────────────────────────────────────────────────────────
+    (*session).init_flag = 1;
+    (*session).fullscreen_flag = (gi.home_lock != 0) as u32;
 
     // ── DDGameWrapper (ALWAYS) ────────────────────────────────────────────────
     let wrapper = game_session::construct_ddgame_wrapper(
@@ -488,9 +485,9 @@ unsafe extern "cdecl" fn impl_init_hardware(
     }
 
     // ── DDNetGameWrapper (ALWAYS) ─────────────────────────────────────────────
-    let net_ctor: unsafe extern "stdcall" fn(*mut u8) -> *mut u8 =
+    let net_ctor: unsafe extern "stdcall" fn(*mut DDNetGameWrapper) -> *mut DDNetGameWrapper =
         core::mem::transmute(rb(va::DDNETGAME_WRAPPER_CTOR) as usize);
-    (*session).net_game = net_ctor(WABox::<u8>::alloc(0x2C, 0).leak());
+    (*session).net_game = net_ctor(WABox::<DDNetGameWrapper>::alloc(0x2C, 0).leak()) as *mut u8;
 
     let _ = log_line("[hardware_init] GameEngine::InitHardware done");
     1
