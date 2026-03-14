@@ -74,9 +74,9 @@ pub struct GameSession {
     pub keyboard: *mut DDKeyboard,
     /// 0x0A8: `DSSound*` — 0xBE0 bytes, vtable `DSSound_vtable` (0x66AF20)
     pub sound: *mut DSSound,
-    /// 0x0AC: `DisplayGfx*` — 0x24E28 bytes (normal), or `GameStats*` in headless mode.
-    /// Stays `*mut u8` because it's dual-purpose (DisplayGfx vs GameStats).
-    pub display_gfx: *mut u8,
+    /// 0x0AC: Polymorphic display — `DisplayGfx*` (normal) or `DDDisplayBase*` (headless).
+    /// Stays `*mut u8` because the concrete type depends on mode.
+    pub display: *mut u8,
     /// 0x0B0: `Palette*` — 0x28 bytes, vtable `Palette_vtable_Maybe`
     pub palette: *mut Palette,
     /// 0x0B4: streaming audio object — 0x354 bytes (`FUN_0058bc10`)

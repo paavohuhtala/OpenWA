@@ -52,7 +52,7 @@ use openwa_core::dssound::DSSound;
 use openwa_core::palette::Palette;
 use openwa_core::input_ctrl::{InputCtrl, InputCtrlVtable};
 use openwa_core::game_timer::GameTimer;
-use openwa_core::game_stats::GameStats;
+use openwa_core::dd_display_base::DDDisplayBase;
 use openwa_core::display_gfx::DisplayGfx;
 use openwa_core::streaming_audio::StreamingAudio;
 use openwa_core::ddnetgame_wrapper::DDNetGameWrapper;
@@ -335,7 +335,7 @@ unsafe extern "cdecl" fn impl_init_hardware(
     if !headless {
         // ── DisplayGfx ───────────────────────────────────────────────────────
         let display_gfx = DisplayGfx::construct();
-        (*session).display_gfx = display_gfx as *mut u8;
+        (*session).display = display_gfx as *mut u8;
 
         // ── DDDisplay::Init retry loop ────────────────────────────────────────
         let flags = gi.display_flags;
@@ -430,7 +430,7 @@ unsafe extern "cdecl" fn impl_init_hardware(
         }
     } else {
         // ── Headless / stats mode ─────────────────────────────────────────────
-        (*session).display_gfx      = GameStats::construct() as *mut u8;
+        (*session).display      = DDDisplayBase::construct() as *mut u8;
         (*session).keyboard         = core::ptr::null_mut();
         (*session).sound            = core::ptr::null_mut();
         (*session).palette          = core::ptr::null_mut();
@@ -445,7 +445,7 @@ unsafe extern "cdecl" fn impl_init_hardware(
     let wrapper = game_session::construct_ddgame_wrapper(
         game_info,
         WABox::<DDGameWrapper>::alloc(0x6F10, 0x6EF0).leak(),
-        (*session).display_gfx as *mut DDDisplay,
+        (*session).display as *mut DDDisplay,
         (*session).sound,
         (*session).keyboard as *mut u8,
         (*session).palette,

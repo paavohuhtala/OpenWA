@@ -37,4 +37,4 @@ pub mod input_ctrl;
 pub mod game_timer;
 pub mod streaming_audio;
 pub mod ddnetgame_wrapper;
-pub mod game_stats;
+pub mod dd_display_base;
