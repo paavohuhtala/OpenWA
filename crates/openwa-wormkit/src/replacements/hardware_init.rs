@@ -49,7 +49,7 @@ use openwa_core::ddgame_wrapper::DDGameWrapper;
 use openwa_core::ddkeyboard::DDKeyboard;
 use openwa_core::dddisplay::DDDisplay;
 use openwa_core::dssound::DSSound;
-use openwa_core::palette::{Palette, PaletteVtable};
+use openwa_core::palette::Palette;
 use openwa_core::input_ctrl::{InputCtrl, InputCtrlVtable};
 use openwa_core::game_timer::GameTimer;
 use openwa_core::game_stats::GameStats;
@@ -360,20 +360,14 @@ unsafe extern "cdecl" fn impl_init_hardware(
         }
 
         // ── DDKeyboard (inline construction) ──────────────────────────────────
-        // WABox zeroes the first 0x31C bytes, covering key_state (+0x11C) and
-        // prev_state (+0x21C) — no separate zeroing needed.
-        let kb = WABox::<DDKeyboard>::alloc(0x33C, 0x31C).leak();
-        (*kb).vtable = rb(va::DDKEYBOARD_VTABLE) as *mut u8;
-        (*kb).game_info_input_ptr = &raw mut gi.input_state_f918 as u32;
-        (*kb)._field_008 = 1;
-        (*kb)._field_014 = 0;
-        (*kb)._field_018 = 0;
+        let kb = WABox::from_value(DDKeyboard::new(
+            rb(va::DDKEYBOARD_VTABLE),
+            &raw mut gi.input_state_f918 as u32,
+        )).leak();
         (*session).keyboard = kb;
 
         // ── Palette (inline construction) ─────────────────────────────────────
-        let pal = WABox::<Palette>::alloc(0x28, 0).leak();
-        (*pal).vtable = rb(va::PALETTE_VTABLE_MAYBE) as *const PaletteVtable;
-        (*pal)._field_004 = 0xFFFF_FFFF;
+        let pal = WABox::from_value(Palette::new(rb(va::PALETTE_VTABLE_MAYBE))).leak();
         (*session).palette = pal;
 
         // ── DSSound ───────────────────────────────────────────────────────────

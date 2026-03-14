@@ -56,6 +56,26 @@ impl<T> WABox<T> {
         self.ptr.as_ptr()
     }
 
+    /// Allocate space for `T` on WA's heap and write `val` into it.
+    ///
+    /// Equivalent to `alloc(size_of::<T>(), 0)` followed by `ptr::write(ptr, val)`.
+    /// The value is fully initialized on the stack first, then moved to the heap.
+    ///
+    /// # Safety
+    /// Must only be called from within the WA.exe process.
+    pub unsafe fn from_value(val: T) -> Self {
+        let size = core::mem::size_of::<T>() as u32;
+        let raw = wa_malloc(size);
+        if raw.is_null() {
+            panic!("wa_malloc({size}) returned null");
+        }
+        let ptr = raw as *mut T;
+        core::ptr::write(ptr, val);
+        Self {
+            ptr: core::ptr::NonNull::new_unchecked(ptr),
+        }
+    }
+
     /// Consume the box and return the raw pointer, relinquishing Rust ownership.
     ///
     /// The caller is now responsible for the memory — typically by storing the pointer

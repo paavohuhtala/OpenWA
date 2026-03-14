@@ -41,3 +41,27 @@ pub struct DDKeyboard {
 }
 
 const _: () = assert!(core::mem::size_of::<DDKeyboard>() == 0x33C);
+
+impl DDKeyboard {
+    /// Create a new DDKeyboard with inline construction (no native C++ ctor).
+    ///
+    /// All fields are zero-initialized, then known fields are set.
+    ///
+    /// # Safety
+    /// `vtable_addr` must be a valid rebased vtable pointer.
+    /// `input_ptr` must be the address of `GameInfo.input_state_f918`.
+    pub unsafe fn new(vtable_addr: u32, input_ptr: u32) -> Self {
+        Self {
+            vtable: vtable_addr as *mut u8,
+            game_info_input_ptr: input_ptr,
+            _field_008: 1,
+            _unknown_00c: [0; 8],
+            _field_014: 0,
+            _field_018: 0,
+            _unknown_01c: [0; 0x100],
+            key_state: [0; 256],
+            prev_state: [0; 256],
+            _unknown_31c: [0; 0x20],
+        }
+    }
+}

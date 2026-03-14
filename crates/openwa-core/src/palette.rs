@@ -36,6 +36,18 @@ pub struct PaletteVtable {
 }
 
 impl Palette {
+    /// Create a new Palette with inline construction (no native C++ ctor).
+    ///
+    /// # Safety
+    /// `vtable_addr` must be a valid rebased vtable pointer.
+    pub unsafe fn new(vtable_addr: u32) -> Self {
+        Self {
+            vtable: vtable_addr as *const PaletteVtable,
+            _field_004: 0xFFFF_FFFF,
+            _unknown_008: [0; 0x20],
+        }
+    }
+
     /// Vtable[4]: Reset palette state.
     pub unsafe fn reset(&mut self) { vcall!(self, reset) }
     /// Vtable[3]: Initialize palette.
