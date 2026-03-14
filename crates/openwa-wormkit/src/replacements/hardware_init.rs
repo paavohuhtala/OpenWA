@@ -440,7 +440,7 @@ unsafe extern "cdecl" fn impl_init_hardware(
 
     // ── DDGameWrapper (ALWAYS) ────────────────────────────────────────────────
     let wrapper = game_session::construct_ddgame_wrapper(
-        game_info as *mut u8,
+        game_info,
         WABox::<DDGameWrapper>::alloc(0x6F10, 0x6EF0).leak(),
         (*session).display_gfx as *mut DDDisplay,
         (*session).sound,

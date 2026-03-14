@@ -15,6 +15,7 @@
 //! - `DDGame__InitGameState` (0x526500): plain stdcall(this), called via transmute.
 
 use openwa_core::address::va;
+use openwa_core::game_info::GameInfo;
 use openwa_core::rebase::rb;
 use openwa_core::ddgame_wrapper::DDGameWrapper;
 use openwa_core::dddisplay::DDDisplay;
@@ -25,7 +26,7 @@ use crate::hook;
 use crate::log_line;
 
 /// Implicit EDI = game_info pointer, captured from EDI on entry.
-static mut GAME_INFO: u32 = 0;
+static mut GAME_INFO: *mut GameInfo = core::ptr::null_mut();
 
 /// Implicit ECX = network pointer for `DDGame__Constructor`. Set in `ctor_impl`
 /// just before calling `ddgame_constructor_call`.
@@ -51,7 +52,7 @@ static mut DDGAME_CTOR_ADDR: u32 = 0;
 // After `pushl %esi`:
 //   [esp+0] = old_esi,  [esp+4] = ret addr,  [esp+8] = game_info,  [esp+0xC] = this
 #[unsafe(naked)]
-unsafe extern "stdcall" fn call_init_replay(_game_info: *mut u8, _this: *mut DDGameWrapper) {
+unsafe extern "stdcall" fn call_init_replay(_game_info: *mut GameInfo, _this: *mut DDGameWrapper) {
     core::arch::naked_asm!(
         "pushl %esi",
         "movl 8(%esp), %eax",    // EAX = game_info
@@ -87,7 +88,7 @@ unsafe extern "stdcall" fn ddgame_constructor_call(
     _streaming_audio: *mut u8,
     _timer_obj: *mut u8,
     _net_game: *mut u8,
-    _game_info: *mut u8,
+    _game_info: *mut GameInfo,
 ) -> *mut u8 {
     core::arch::naked_asm!(
         "movl {ecx_val}, %ecx",  // ECX = input_ctrl (implicit param for DDGame::ctor)
@@ -98,14 +99,13 @@ unsafe extern "stdcall" fn ddgame_constructor_call(
     );
 }
 
-// ─── Implementation ───────────────────────────────────────────────────────────
-
-/// Core Rust implementation of `DDGameWrapper__Constructor`.
+/// Called by `impl_init_hardware` to construct the DDGameWrapper in-place.
 ///
-/// Called by the naked trampoline via `calll`. The 7 stdcall args are already
-/// on the stack in cdecl position (the trampoline popped the original return
-/// address into `SAVED_RET`, leaving [this, display, …, network] at [esp+4..]).
-unsafe extern "cdecl" fn ctor_impl(
+/// Sets `GAME_INFO` (read by `ctor_impl`) and delegates directly to `ctor_impl`,
+/// bypassing the naked entry trampoline which is designed as a hook target, not a
+/// callable subroutine.
+pub(crate) unsafe fn construct_ddgame_wrapper(
+    game_info: *mut GameInfo,
     this: *mut DDGameWrapper,
     display: *mut DDDisplay,
     sound: *mut DSSound,
@@ -114,7 +114,9 @@ unsafe extern "cdecl" fn ctor_impl(
     streaming_audio: *mut u8,
     input_ctrl: *mut u8,
 ) -> *mut DDGameWrapper {
-    let game_info = GAME_INFO as *mut u8;
+    GAME_INFO = game_info;
+
+    let this = this;
 
     // Initialize DDGameWrapper fields (order matches original decompile).
     (*this).ddgame = core::ptr::null_mut();
@@ -150,25 +152,6 @@ unsafe extern "cdecl" fn ctor_impl(
     ));
 
     this
-}
-
-/// Called by `impl_init_hardware` to construct the DDGameWrapper in-place.
-///
-/// Sets `GAME_INFO` (read by `ctor_impl`) and delegates directly to `ctor_impl`,
-/// bypassing the naked entry trampoline which is designed as a hook target, not a
-/// callable subroutine.
-pub(crate) unsafe fn construct_ddgame_wrapper(
-    game_info: *mut u8,
-    this: *mut DDGameWrapper,
-    display: *mut DDDisplay,
-    sound: *mut DSSound,
-    keyboard: *mut u8,
-    palette: *mut Palette,
-    streaming_audio: *mut u8,
-    input_ctrl: *mut u8,
-) -> *mut DDGameWrapper {
-    GAME_INFO = game_info as u32;
-    ctor_impl(this, display, sound, keyboard, palette, streaming_audio, input_ctrl)
 }
 
 pub fn install() -> Result<(), String> {

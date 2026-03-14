@@ -9,7 +9,7 @@
 //! - GameInfo__LoadOptions (0x460AC0): game options from registry
 //! - Options__GetCrashReportURL (0x5A63F0): crash report URL from registry
 
-use openwa_core::address::va;
+use openwa_core::{address::va, game_info::GameInfo};
 use crate::log_line;
 use openwa_core::rebase::rb;
 
@@ -137,13 +137,11 @@ unsafe extern "stdcall" fn hook_registry_clean_all(struct_ptr: u32) {
 ///
 /// Reads game options from the Windows registry and copies various globals
 /// into the GameInfo struct at known offsets.
-unsafe extern "stdcall" fn hook_load_options(gi_ptr: u32) {
+unsafe extern "stdcall" fn hook_load_options(game_info: *mut GameInfo) {
     use openwa_core::wa::registry::read_profile_int;
-    use openwa_core::game_info::GameInfo;
-
-    let gi = &mut *(gi_ptr as *mut GameInfo);
 
     let _ = log_line("[Config] LoadOptions: loading game options from registry");
+    let gi = &mut *game_info;
 
     // Format speech path: "%s\\user\\speech"
     let base_dir = rb(va::G_BASE_DIR) as *const u8;
