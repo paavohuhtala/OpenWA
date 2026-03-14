@@ -247,6 +247,51 @@ unsafe extern "stdcall" fn call_ddisplay_init(
     );
 }
 
+// ─── Subsystem creation ───────────────────────────────────────────────────────
+
+/// Allocate and initialize a DSSound object with DirectSound COM setup.
+///
+/// Creates the DSSound, calls DirectSoundCreate, initializes primary buffer,
+/// and starts looping playback. Sets `init_success` if all COM steps succeed.
+/// The returned pointer is always valid (sound may be partially initialized
+/// if COM steps fail, matching original WA behavior).
+unsafe fn create_dssound(hwnd: u32) -> *mut DSSound {
+    let snd = WABox::<DSSound>::alloc(0xBE0, 0xBC0).leak();
+    call_dssound_ctor(snd);
+    (*snd).hwnd = hwnd;
+
+    let ds_create: unsafe extern "stdcall" fn(*const u8, *mut *mut u8, *const u8) -> i32 =
+        core::mem::transmute(rb(va::DIRECTSOUND_CREATE) as usize);
+    let hr = ds_create(
+        core::ptr::null(),
+        &mut (*snd).direct_sound,
+        core::ptr::null(),
+    );
+
+    if hr == 0 {
+        DSSOUND_INIT_EAX = snd as u32;
+        let hr2 = call_dssound_init_buffers(
+            &mut (*snd).primary_buffer,
+            &mut (*snd).primary_buffer_caps,
+        );
+        if hr2 == 0 {
+            // IDirectSoundBuffer::Play(this, 0, 0, DSBPLAY_LOOPING=1)
+            const PLAY_VSLOT: usize = 0x30 / 4; // IDirectSoundBuffer vtable slot 12
+            let pds = (*snd).primary_buffer as *const *const usize;
+            let vtbl = *pds;
+            let play: unsafe extern "stdcall" fn(
+                *const *const usize, u32, u32, u32,
+            ) -> i32 = core::mem::transmute(*vtbl.add(PLAY_VSLOT));
+            let hr3 = play(pds, 0, 0, 1);
+            if hr3 == 0 {
+                (*snd).init_success = 1;
+            }
+        }
+    }
+
+    snd
+}
+
 // ─── Implementation ───────────────────────────────────────────────────────────
 
 unsafe extern "cdecl" fn impl_init_hardware(
@@ -289,9 +334,7 @@ unsafe extern "cdecl" fn impl_init_hardware(
 
     if !headless {
         // ── DisplayGfx ───────────────────────────────────────────────────────
-        let displaygfx_ctor: unsafe extern "stdcall" fn(*mut DisplayGfx) -> *mut DisplayGfx =
-            core::mem::transmute(rb(va::DISPLAYGFX_CTOR) as usize);
-        let display_gfx = displaygfx_ctor(WABox::<DisplayGfx>::alloc(0x24E28, 0x24E08).leak());
+        let display_gfx = DisplayGfx::construct();
         (*session).display_gfx = display_gfx as *mut u8;
 
         // ── DDDisplay::Init retry loop ────────────────────────────────────────
@@ -371,42 +414,7 @@ unsafe extern "cdecl" fn impl_init_hardware(
         (*session).palette = pal;
 
         // ── DSSound ───────────────────────────────────────────────────────────
-        (*session).sound = core::ptr::null_mut();
-        {
-            let snd = WABox::<DSSound>::alloc(0xBE0, 0xBC0).leak();
-            call_dssound_ctor(snd);
-            (*snd).hwnd = hwnd;
-            (*session).sound = snd;
-
-            let ds_create: unsafe extern "stdcall" fn(*const u8, *mut *mut u8, *const u8) -> i32 =
-                core::mem::transmute(rb(va::DIRECTSOUND_CREATE) as usize);
-            let hr = ds_create(
-                core::ptr::null(),
-                &mut (*snd).direct_sound,
-                core::ptr::null(),
-            );
-
-            if hr == 0 {
-                DSSOUND_INIT_EAX = snd as u32;
-                let hr2 = call_dssound_init_buffers(
-                    &mut (*snd).primary_buffer,
-                    &mut (*snd).primary_buffer_caps,
-                );
-                if hr2 == 0 {
-                    // IDirectSoundBuffer::Play(this, 0, 0, DSBPLAY_LOOPING=1)
-                    const PLAY_VSLOT: usize = 0x30 / 4; // IDirectSoundBuffer vtable slot 12
-                    let pds = (*snd).primary_buffer as *const *const usize;
-                    let vtbl = *pds;
-                    let play: unsafe extern "stdcall" fn(
-                        *const *const usize, u32, u32, u32,
-                    ) -> i32 = core::mem::transmute(*vtbl.add(PLAY_VSLOT));
-                    let hr3 = play(pds, 0, 0, 1);
-                    if hr3 == 0 {
-                        (*snd).init_success = 1;
-                    }
-                }
-            }
-        }
+        (*session).sound = create_dssound(hwnd);
 
         // ── Streaming audio ───────────────────────────────────────────────────
         (*session).streaming_audio = core::ptr::null_mut();
@@ -422,12 +430,7 @@ unsafe extern "cdecl" fn impl_init_hardware(
         }
     } else {
         // ── Headless / stats mode ─────────────────────────────────────────────
-        let stats = WABox::<GameStats>::alloc(0x3560, 0x3560).leak();
-        let gamestats_ctor: unsafe extern "stdcall" fn(*mut GameStats) -> *mut GameStats =
-            core::mem::transmute(rb(va::GAMESTATS_CTOR) as usize);
-        gamestats_ctor(stats);
-        (*stats).vtable = rb(va::GAMESTATS_VTABLE) as *mut u8;
-        (*session).display_gfx      = stats as *mut u8;
+        (*session).display_gfx      = GameStats::construct() as *mut u8;
         (*session).keyboard         = core::ptr::null_mut();
         (*session).sound            = core::ptr::null_mut();
         (*session).palette          = core::ptr::null_mut();
@@ -462,16 +465,12 @@ unsafe extern "cdecl" fn impl_init_hardware(
 
         let kb = (*session).keyboard;
         if !kb.is_null() {
-            let kb_poll: unsafe extern "stdcall" fn(*mut DDKeyboard) =
-                core::mem::transmute(rb(va::DDKEYBOARD_POLL_KEYBOARD_STATE) as usize);
-            kb_poll(kb);
+            (*kb).poll();
         }
     }
 
     // ── DDNetGameWrapper (ALWAYS) ─────────────────────────────────────────────
-    let net_ctor: unsafe extern "stdcall" fn(*mut DDNetGameWrapper) -> *mut DDNetGameWrapper =
-        core::mem::transmute(rb(va::DDNETGAME_WRAPPER_CTOR) as usize);
-    (*session).net_game = net_ctor(WABox::<DDNetGameWrapper>::alloc(0x2C, 0).leak()) as *mut u8;
+    (*session).net_game = DDNetGameWrapper::construct() as *mut u8;
 
     let _ = log_line("[hardware_init] GameEngine::InitHardware done");
     1

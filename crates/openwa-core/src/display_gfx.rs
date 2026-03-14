@@ -14,3 +14,18 @@ pub struct DisplayGfx {
 }
 
 const _: () = assert!(core::mem::size_of::<DisplayGfx>() == 0x24E28);
+
+impl DisplayGfx {
+    /// Allocate and construct a DisplayGfx via WA's native constructor.
+    ///
+    /// # Safety
+    /// Must be called from within the WA.exe process.
+    pub unsafe fn construct() -> *mut Self {
+        use crate::address::va;
+        use crate::rebase::rb;
+        use crate::wa_alloc::WABox;
+        let ctor: unsafe extern "stdcall" fn(*mut Self) -> *mut Self =
+            core::mem::transmute(rb(va::DISPLAYGFX_CTOR) as usize);
+        ctor(WABox::<Self>::alloc(0x24E28, 0x24E08).leak())
+    }
+}

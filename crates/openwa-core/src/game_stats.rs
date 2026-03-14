@@ -15,3 +15,22 @@ pub struct GameStats {
 }
 
 const _: () = assert!(core::mem::size_of::<GameStats>() == 0x3560);
+
+impl GameStats {
+    /// Allocate and construct a GameStats via WA's native constructor,
+    /// then overlay the GameStats vtable (used in headless mode).
+    ///
+    /// # Safety
+    /// Must be called from within the WA.exe process.
+    pub unsafe fn construct() -> *mut Self {
+        use crate::address::va;
+        use crate::rebase::rb;
+        use crate::wa_alloc::WABox;
+        let stats = WABox::<Self>::alloc(0x3560, 0x3560).leak();
+        let ctor: unsafe extern "stdcall" fn(*mut Self) -> *mut Self =
+            core::mem::transmute(rb(va::GAMESTATS_CTOR) as usize);
+        ctor(stats);
+        (*stats).vtable = rb(va::GAMESTATS_VTABLE) as *mut u8;
+        stats
+    }
+}

@@ -13,3 +13,18 @@ pub struct DDNetGameWrapper {
 }
 
 const _: () = assert!(core::mem::size_of::<DDNetGameWrapper>() == 0x2C);
+
+impl DDNetGameWrapper {
+    /// Allocate and construct a DDNetGameWrapper via WA's native constructor.
+    ///
+    /// # Safety
+    /// Must be called from within the WA.exe process.
+    pub unsafe fn construct() -> *mut Self {
+        use crate::address::va;
+        use crate::rebase::rb;
+        use crate::wa_alloc::WABox;
+        let ctor: unsafe extern "stdcall" fn(*mut Self) -> *mut Self =
+            core::mem::transmute(rb(va::DDNETGAME_WRAPPER_CTOR) as usize);
+        ctor(WABox::<Self>::alloc(0x2C, 0).leak())
+    }
+}
