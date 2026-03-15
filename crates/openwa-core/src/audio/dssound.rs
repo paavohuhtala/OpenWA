@@ -21,19 +21,19 @@ type Ptr32 = u32;
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ChannelDescriptor {
-    /// Flags A (init -1, -1 = unused/free)
+    /// +0x00: Flags/state field (not set by constructor init helper)
+    pub _field_00: u32,
+    /// +0x04: Flags A (init -1, -1 = unused/free, checked for < 0)
     pub flags_a: i32,
-    /// Flags B (init -1, checked for < 0 in update_channels)
+    /// +0x08: Flags B (init -1, set to -1 on release)
     pub flags_b: i32,
-    /// Volume numerator (used in volume calculations, 0 = default)
-    pub volume_num: i32,
-    /// Volume value (scaled, used by set_channel_volume)
-    pub volume_val: i32,
-    /// IDirectSoundBuffer* for the active buffer on this channel (0 = empty).
-    /// Use `ds_buffer()` to get a typed reference.
+    /// +0x0C: Volume/state field (cleared to 0 on release)
+    pub _field_0c: i32,
+    /// +0x10: Volume/state field (cleared to 0 on release)
+    pub _field_10: i32,
+    /// +0x14: IDirectSoundBuffer* for the active buffer (0 = empty).
+    /// At absolute offset this+0x28 for desc[0]. Use `buffer()` to get a typed ref.
     pub ds_buffer: Ptr32,
-    /// Pool index tracking which buffer pool entry this channel uses
-    pub pool_index: u32,
 }
 
 const _: () = assert!(core::mem::size_of::<ChannelDescriptor>() == 0x18);
@@ -193,11 +193,11 @@ pub unsafe extern "thiscall" fn update_channels(this: *mut DSSound) {
         if let Some(buf) = desc.buffer() {
             if let Ok(status) = buf.GetStatus() {
                 // If not playing (bit 0 clear) and flags_b < 0, release.
-                if (status & 1) == 0 && desc.flags_b < 0 {
+                if (status & 1) == 0 && desc.flags_a < 0 {
                     // Take and drop to release COM ref.
                     desc.take_buffer();
-                    desc.volume_num = 0;
-                    desc.volume_val = 0;
+                    desc._field_0c = 0;
+                    desc._field_10 = 0;
                     desc.flags_b = -1;
                     desc.flags_a = -1;
                 }
@@ -213,10 +213,10 @@ pub unsafe extern "thiscall" fn release_finished(this: *mut DSSound) -> i32 {
     for desc in &mut snd.channel_descs {
         if let Some(buf) = desc.buffer() {
             if let Ok(status) = buf.GetStatus() {
-                if (status & 1) == 0 && desc.flags_b < 0 {
+                if (status & 1) == 0 && desc.flags_a < 0 {
                     desc.take_buffer();
-                    desc.volume_num = 0;
-                    desc.volume_val = 0;
+                    desc._field_0c = 0;
+                    desc._field_10 = 0;
                     desc.flags_b = -1;
                     desc.flags_a = -1;
                     count += 1;
@@ -291,8 +291,8 @@ pub unsafe extern "thiscall" fn stop_channel(
     }
 
     // Reset descriptor to free state.
-    desc.volume_num = 0;
-    desc.volume_val = 0;
+    desc._field_0c = 0;
+    desc._field_10 = 0;
     desc.flags_b = -1;
     desc.flags_a = -1;
 

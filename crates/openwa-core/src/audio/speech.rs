@@ -295,12 +295,10 @@ impl SpeechSlotTable {
     /// Get the DSSound buffer index for a team's speech line.
     ///
     /// `team` is 0-indexed (0..6), `line_id` is the raw speech line ID (1-56).
+    /// Index is used directly (1-based, slot 0 per team unused).
     /// Returns 0 if the slot is empty (no WAV loaded for this line).
     pub fn get(&self, team: usize, line_id: u32) -> u32 {
-        if line_id == 0 || line_id > Self::LINES_PER_TEAM as u32 {
-            return 0;
-        }
-        let idx = team * Self::LINES_PER_TEAM + (line_id as usize - 1);
+        let idx = team * Self::LINES_PER_TEAM + line_id as usize;
         if idx < self.0.len() {
             self.0[idx]
         } else {
@@ -309,11 +307,9 @@ impl SpeechSlotTable {
     }
 
     /// Set the DSSound buffer index for a team's speech line.
+    /// Index is used directly (1-based, slot 0 per team unused).
     pub fn set(&mut self, team: usize, line_id: u32, slot: u32) {
-        if line_id == 0 || line_id > Self::LINES_PER_TEAM as u32 {
-            return;
-        }
-        let idx = team * Self::LINES_PER_TEAM + (line_id as usize - 1);
+        let idx = team * Self::LINES_PER_TEAM + line_id as usize;
         if idx < self.0.len() {
             self.0[idx] = slot;
         }

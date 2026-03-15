@@ -179,16 +179,11 @@ unsafe fn patch_dssound_vtable() -> Result<(), String> {
         // Slot 12: load_wav — WAV file → DirectSound secondary buffer (hound + windows crate)
         *vt.add(12) = load_wav as *const () as u32;
 
-        // Slot 1: update_channels — TODO: crashes, needs investigation
+        // Slots 1, 9, 10, 11 disabled — need descriptor field layout
+        // verified with runtime memory dumps before enabling.
         // *vt.add(1) = update_channels as *const () as u32;
-
-        // Slot 9: is_channel_playing — GetStatus check
-        *vt.add(9) = is_channel_playing as *const () as u32;
-
-        // Slot 10: stop_channel — Stop, Release, return to pool
-        *vt.add(10) = stop_channel as *const () as u32;
-
-        // Slot 11: release_finished — TODO: same issue as slot 1
+        // *vt.add(9) = is_channel_playing as *const () as u32;
+        // *vt.add(10) = stop_channel as *const () as u32;
         // *vt.add(11) = release_finished as *const () as u32;
 
         // Slot 13: is_slot_loaded — channel_slots check
@@ -209,6 +204,6 @@ unsafe fn patch_dssound_vtable() -> Result<(), String> {
         // Trivial returns-1 (slot 23)
         *vt.add(23) = dssound_returns_1 as *const () as u32;
 
-        let _ = log_line("[Sound]   DSSound vtable: patched 16/24 slots with Rust");
+        let _ = log_line("[Sound]   DSSound vtable: patched 13/24 slots with Rust");
     }).map_err(|e| e.to_string())
 }
