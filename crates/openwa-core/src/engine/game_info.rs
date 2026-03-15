@@ -46,8 +46,20 @@ pub struct GameInfo {
     /// 0xDAEC: Land data path ("data\land.dat", 14 bytes incl. null)
     pub land_dat_path: [u8; 14],
 
-    /// 0xDAFA-0xF373: Unknown
-    pub _unknown_dafa: [u8; 0xF374 - 0xDAFA],
+    /// 0xDAFA-0xF343: Unknown
+    pub _unknown_dafa: [u8; 0xF344 - 0xDAFA],
+
+    /// 0xF344: Sound start frame threshold (i32). Sound is suppressed when
+    /// DDGame.frame_counter < this value. Checked by IsSoundSuppressed and
+    /// DispatchGlobalSound.
+    pub sound_start_frame: i32,
+
+    /// 0xF348: Sound mute flag (byte). Nonzero = all sound suppressed.
+    /// Checked by IsSoundSuppressed, DispatchGlobalSound, PlaySoundPooled_Direct.
+    pub sound_mute: u8,
+
+    /// 0xF349-0xF373: Unknown
+    pub _unknown_f349: [u8; 0xF374 - 0xF349],
 
     /// 0xF374: Display flags passed to DDDisplay::Init.
     pub display_flags: u32,

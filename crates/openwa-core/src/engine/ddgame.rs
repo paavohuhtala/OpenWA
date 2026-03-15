@@ -120,13 +120,25 @@ pub struct DDGame {
     /// 0x54C: CTaskLand pointer (set by CTaskLand__InitLandscape at 0x5056F0).
     /// The landscape/terrain task. Vtable at 0x664388.
     pub task_land: *mut u8,
-    /// 0x550-0x25FF: Large unverified region.
+    /// 0x550-0x5CB: Unknown.
     ///
     /// Runtime observations (not yet linked to code):
     /// - 0x5C4: value matches code address 0x5755D0 (fixed-point normalize fn)
-    /// - 0x5C8-0x5FF: small config-like values (2048, 150, 3000, 696, 896, 100, 300)
+    /// - 0x5C8-0x5CB: config-like values
+    pub _unknown_550: [u8; 0x5CC - 0x550],
+
+    /// 0x5CC: Game frame counter. Incremented at end of each frame in
+    /// GameFrameDispatcher. Compared against GameInfo+0xF344 (sound start
+    /// threshold) by IsSoundSuppressed and DispatchGlobalSound.
+    pub frame_counter: i32,
+
+    /// 0x5D0-0x25FF: Large unverified region.
+    ///
+    /// Runtime observations:
+    /// - 0x5D0: frame processing flag (set 0/1 by GameFrameEndProcessor)
+    /// - 0x5D8-0x5FF: small config-like values (2048, 150, 3000, 696, 896, 100, 300)
     /// - 0x600-0x25FF: identity permutation [0,1,2,...,~2048] — purpose unknown
-    pub _unknown_550: [u8; 0x2600 - 0x550],
+    pub _unknown_5d0: [u8; 0x2600 - 0x5D0],
 
     /// 0x2600-0x2DFF: Block of 0xFFFFFFFF values at runtime (512 i32 entries).
     /// May be unused slots in a parallel table to the 0x600 permutation.

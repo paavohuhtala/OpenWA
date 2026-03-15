@@ -10,9 +10,9 @@
 use std::sync::atomic::Ordering;
 
 use openwa_core::address::va;
-use openwa_core::engine::{DDGame, SoundQueueEntry};
+use openwa_core::engine::{DDGame, DDGameWrapper, SoundQueueEntry};
 use openwa_core::audio::SoundId;
-use openwa_core::task::CGameTask;
+use openwa_core::task::{CGameTask, CTask};
 
 use crate::hook;
 use crate::log_line;
@@ -63,7 +63,7 @@ unsafe fn queue_sound(
 // __thiscall: ECX = CTask* this, 4 stack params, RET 0x10
 
 unsafe extern "thiscall" fn hook_play_sound_global(
-    this: u32,
+    this: *const CGameTask,
     sound_id: u32,
     flags: u32,
     volume: u32,
@@ -74,13 +74,12 @@ unsafe extern "thiscall" fn hook_play_sound_global(
             .map(|s| format!("{s:?}"))
             .unwrap_or_else(|v| format!("#{v}"));
         let _ = log_line(&format!(
-            "[Sound] Global: task=0x{this:08X} id={sound_id}({sound_name}) \
+            "[Sound] Global: task=0x{this:08X?} id={sound_id}({sound_name}) \
              p3={flags} p4={volume} p5={pitch}"
         ));
     }
 
-    let task = &*(this as *const CGameTask);
-    queue_sound(task.base.ddgame, sound_id, flags, volume, pitch).is_some() as u32
+    queue_sound((*this).base.ddgame, sound_id, flags, volume, pitch).is_some() as u32
 }
 
 // ============================================================
@@ -95,7 +94,7 @@ hook::usercall_trampoline!(fn trampoline_play_sound_local; impl_fn = play_sound_
 unsafe extern "cdecl" fn play_sound_local_impl(
     pitch: u32,
     volume: u32,
-    task: u32,
+    task: *mut CGameTask,
     sound_id: u32,
     flags: u32,
 ) -> u32 {
@@ -104,12 +103,12 @@ unsafe extern "cdecl" fn play_sound_local_impl(
             .map(|s| format!("{s:?}"))
             .unwrap_or_else(|v| format!("#{v}"));
         let _ = log_line(&format!(
-            "[Sound] Local: eax={pitch} ecx=0x{volume:08X} task=0x{task:08X} \
+            "[Sound] Local: eax={pitch} ecx=0x{volume:08X} task=0x{task:08X?} \
              id={sound_id}({sound_name}) flags={flags}"
         ));
     }
 
-    let gt = &*(task as *const CGameTask);
+    let gt = &*task;
     let ddgame = gt.base.ddgame;
     let entry = match queue_sound(ddgame, sound_id, flags, volume, pitch) {
         Some(e) => e,
@@ -127,8 +126,7 @@ unsafe extern "cdecl" fn play_sound_local_impl(
     ((*emitter.vtable).get_position)(emitter, &mut (*entry).pos_x, &mut (*entry).pos_y);
 
     // Increment local sound count
-    let gt_mut = &mut *(task as *mut CGameTask);
-    gt_mut.sound_emitter.local_sound_count += 1;
+    (*task).sound_emitter.local_sound_count += 1;
 
     1
 }
@@ -139,50 +137,37 @@ unsafe extern "cdecl" fn play_sound_local_impl(
 
 /// IsSoundSuppressed (0x5261E0) — thiscall(ECX=DDGame*), plain RET.
 /// Returns 0 if sound playback is allowed, 1 if suppressed.
-///
-/// Checks:
-/// - GameInfo+0xF348 (byte): sound mute flag
-/// - DDGame+0x5CC (i32) vs GameInfo+0xF344 (i32): frame counter ≥ threshold
 unsafe extern "thiscall" fn hook_is_sound_suppressed(ddgame: *mut DDGame) -> u32 {
-    let gi = (*ddgame).game_info as *const u8;
-    // Mute flag
-    if *gi.add(0xF348) != 0 {
+    let g = &*ddgame;
+    let gi = &*g.game_info;
+    if gi.sound_mute != 0 {
         return 1;
     }
-    // Frame counter must be ≥ sound start threshold
-    let frame_counter = *(ddgame as *const u8).add(0x5CC).cast::<i32>();
-    let threshold = *gi.add(0xF344).cast::<i32>();
-    if frame_counter < threshold {
+    if g.frame_counter < gi.sound_start_frame {
         return 1;
     }
     0
 }
 
-/// DispatchGlobalSound (0x526270) — fastcall(ECX=unused, EDX=task_turn_game) + 4 stack, RET 0x10.
+/// DispatchGlobalSound (0x526270) — fastcall(ECX=unused, EDX=ddgame_wrapper) + 4 stack, RET 0x10.
 /// Checks sound suppression, then calls DSSound vtable slot 3 (play_sound).
 unsafe extern "fastcall" fn hook_dispatch_global_sound(
     _ecx: u32,
-    task_turn_game: u32,
+    ddgame_wrapper: *const DDGameWrapper,
     sound_id: u32,
     flags: u32,
     volume: u32,
     pitch: u32,
 ) -> u32 {
-    let ddgame = *((task_turn_game as *const u8).add(0x488) as *const *mut DDGame);
-    let gi = (*ddgame).game_info as *const u8;
+    let g = &*(*ddgame_wrapper).ddgame;
+    let gi = &*g.game_info;
 
-    // Suppression check (same logic as IsSoundSuppressed but also different return for suppressed)
-    if *gi.add(0xF348) != 0 {
-        return 0xFFFF_FFFF; // -1
-    }
-    let frame_counter = *(ddgame as *const u8).add(0x5CC).cast::<i32>();
-    let threshold = *gi.add(0xF344).cast::<i32>();
-    if frame_counter < threshold {
-        return 0xFFFF_FFFF; // -1
+    // Suppression check — returns -1 if muted or before sound start frame
+    if gi.sound_mute != 0 || g.frame_counter < gi.sound_start_frame {
+        return 0xFFFF_FFFF;
     }
 
-    // Get DSSound
-    let dssound = (*ddgame).sound;
+    let dssound = g.sound;
     if dssound.is_null() {
         return 0;
     }
@@ -198,32 +183,25 @@ unsafe extern "fastcall" fn hook_dispatch_global_sound(
 /// Bypasses queue, checks suppression + fast-forward, calls DSSound vtable slot 4 directly.
 unsafe extern "fastcall" fn hook_play_sound_pooled_direct(
     _ecx: u32,
-    task: u32,
+    task: *const CTask,
     param1: u32,
     param2: u32,
     param3: u32,
 ) -> u32 {
-    let ddgame = *((task as *const u8).add(0x2C) as *const *mut DDGame);
-    let gi = (*ddgame).game_info as *const u8;
+    let g = &*(*task).ddgame;
+    let gi = &*g.game_info;
 
     // Suppression check
-    if *gi.add(0xF348) != 0 {
-        return 0xFFFF_FFFF;
-    }
-    let frame_counter = *(ddgame as *const u8).add(0x5CC).cast::<i32>();
-    let threshold = *gi.add(0xF344).cast::<i32>();
-    if frame_counter < threshold {
+    if gi.sound_mute != 0 || g.frame_counter < gi.sound_start_frame {
         return 0xFFFF_FFFF;
     }
 
     // Fast-forward check (unique to this function)
-    let ff_active = *(ddgame as *const u8).add(0x98B0).cast::<i32>();
-    if ff_active != 0 {
+    if g.fast_forward_active != 0 {
         return 0xFFFF_FFFF;
     }
 
-    // Get DSSound
-    let dssound = (*ddgame).sound;
+    let dssound = g.sound;
     if dssound.is_null() {
         return 0;
     }
