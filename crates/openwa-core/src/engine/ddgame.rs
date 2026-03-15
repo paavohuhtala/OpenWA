@@ -251,7 +251,7 @@ pub struct DDGame {
     pub _unknown_77cc: [u8; 0x77E4 - 0x77CC],
 
     /// 0x77E4: Speech slot table. Maps (team, speech_line_id) → DSSound buffer index.
-    /// Cleared by DSSound_LoadAllSpeechBanks (0x571A70), filled by DSSound_LoadSpeechWAV (0x571530).
+    /// Cleared by DSSound_LoadAllSpeechBanks (0x571A70), filled by DDGameWrapper__LoadSpeechWAV (0x571530).
     pub speech_slot_table: SpeechSlotTable,
 
     /// 0x7D84-0x7E9F: Unknown

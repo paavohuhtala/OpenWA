@@ -238,39 +238,17 @@ unsafe extern "cdecl" fn play_fanfare_current_team_impl(index: u32) -> u32 {
 }
 
 // ============================================================
-// DSSound_LoadSpeechWAV wrapper (0x571530)
+// DDGameWrapper__LoadSpeechWAV — pure Rust (replaces 0x571530)
 // ============================================================
-// usercall(ESI=DDGameWrapper) + 4 stack(team_index, line_id, wav_path, full_path), RET 0x10.
-// Returns 1 on success, 0 on failure.
+// Searches DDGameWrapper's speech name table for existing WAV, reuses slot if found.
+// Otherwise calls DSSound vtable load_wav to load new WAV into a buffer.
+// Stores the buffer slot index in the SpeechSlotTable.
 
-/// cdecl(ddgw, team_index, line_id, wav_path, full_path, func_addr) -> u32
-/// Sets ESI=ddgw, pushes 4 stack params in order, calls func (RET 0x10 cleans them).
-#[unsafe(naked)]
-unsafe extern "cdecl" fn load_speech_wav_raw(
-    _ddgw: u32,
-    _team_index: u32,
-    _line_id: u32,
-    _wav_path: *const u8,
-    _full_path: *const u8,
-    _func: u32,
-) -> u32 {
-    // After push esi: ESP+0=saved_esi, +4=retaddr, +8=ddgw, +12=team,
-    //   +16=line_id, +20=wav_path, +24=full_path, +28=func
-    core::arch::naked_asm!(
-        "push esi",
-        "mov esi, [esp + 8]",          // ESI = ddgw
-        "push dword ptr [esp + 24]",   // full_path  (+4 shift each push)
-        "push dword ptr [esp + 24]",   // wav_path
-        "push dword ptr [esp + 24]",   // line_id
-        "push dword ptr [esp + 24]",   // team_index
-        "call dword ptr [esp + 44]",   // func (offset = 28 + 16 from 4 pushes)
-        // RET 0x10 cleans the 4 params; ESP back to after push esi
-        "pop esi",
-        "ret",
-    );
-}
-
-/// Call DSSound_LoadSpeechWAV with the given parameters.
+/// Pure Rust replacement for DDGameWrapper__LoadSpeechWAV (0x571530).
+///
+/// Searches the name table for `wav_path`. If found, reuses the existing
+/// buffer slot. Otherwise calls DSSound::load_wav to create a new buffer.
+/// Returns 1 on success, 0 on failure.
 unsafe fn call_load_speech_wav(
     ddgw: u32,
     team_index: u32,
@@ -278,14 +256,55 @@ unsafe fn call_load_speech_wav(
     wav_path: *const c_char,
     full_path: *const c_char,
 ) -> u32 {
-    load_speech_wav_raw(
-        ddgw,
-        team_index,
-        line_id,
-        wav_path as *const u8,
-        full_path as *const u8,
-        rb(va::DSSOUND_LOAD_SPEECH_WAV),
-    )
+    use openwa_core::audio::SpeechSlotTable;
+    use openwa_core::engine::DDGameWrapper;
+    use openwa_core::engine::ddgame_wrapper::SPEECH_NAME_ENTRY_SIZE;
+
+    let wrapper = &mut *(ddgw as *mut DDGameWrapper);
+    let count = wrapper.speech_name_count as usize;
+    let search_name = core::ffi::CStr::from_ptr(wav_path).to_bytes();
+
+    // Search name table for existing entry matching wav_path.
+    let mut found_idx: Option<usize> = None;
+    for i in 0..count {
+        let entry = &wrapper.speech_name_table[i];
+        // Compare up to the null terminator.
+        let entry_len = entry.iter().position(|&b| b == 0).unwrap_or(entry.len());
+        if entry[..entry_len] == *search_name {
+            found_idx = Some(i);
+            break;
+        }
+    }
+
+    let ddgame = &mut *wrapper.ddgame;
+    let slot_table = &mut ddgame.speech_slot_table;
+
+    if let Some(idx) = found_idx {
+        // Found existing — reuse the buffer slot.
+        slot_table.set(team_index as usize, line_id, idx as u32 + SpeechSlotTable::BUFFER_OFFSET);
+        return 1;
+    }
+
+    // Not found — load new WAV via DSSound vtable slot 12 (load_wav).
+    let slot_idx = count as u32 + SpeechSlotTable::BUFFER_OFFSET;
+    let vtable = (*wrapper.sound).vtable;
+    let result = ((*vtable).load_wav)(wrapper.sound, slot_idx as i32, full_path as *const u8);
+
+    if result != 0 {
+        // Success — store slot, copy name into table, increment count.
+        slot_table.set(team_index as usize, line_id, slot_idx);
+
+        // Copy wav_path into name table entry.
+        let dest = &mut wrapper.speech_name_table[count];
+        let copy_len = search_name.len().min(SPEECH_NAME_ENTRY_SIZE - 1);
+        dest[..copy_len].copy_from_slice(&search_name[..copy_len]);
+        dest[copy_len] = 0;
+
+        wrapper.speech_name_count = (count + 1) as u32;
+        return 1;
+    }
+
+    0 // failure
 }
 
 // ============================================================

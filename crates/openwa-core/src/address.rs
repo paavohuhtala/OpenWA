@@ -402,11 +402,12 @@ pub mod va {
     /// usercall(EAX=DDGameWrapper) + 3 stack(team_index, speech_base_path, speech_dir), RET 0xC.
     pub const DSSOUND_LOAD_SPEECH_BANK: u32 = 0x0057_1660;
 
-    /// Loads a single speech WAV into DSSound buffer pool.
-    /// Searches/allocates buffer slot, calls DSSound vtable to load WAV file.
+    /// DDGameWrapper__LoadSpeechWAV — loads a single speech WAV.
+    /// Searches DDGameWrapper's name table for existing buffer, reuses if found.
+    /// Otherwise calls DSSound vtable slot 12 (load_wav) to create new buffer.
     /// usercall(ESI=DDGameWrapper) + 4 stack(team_index, line_id, wav_path, full_path), RET 0x10.
     /// Returns 1 on success, 0 on failure.
-    pub const DSSOUND_LOAD_SPEECH_WAV: u32 = 0x0057_1530;
+    pub const DDGAMEWRAPPER_LOAD_SPEECH_WAV: u32 = 0x0057_1530;
 
     /// Loads all 126 SFX WAVs from data\wav\Effects\.
     /// stdcall(DDGame), RET 0x4.

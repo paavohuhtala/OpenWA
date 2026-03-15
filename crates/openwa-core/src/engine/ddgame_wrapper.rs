@@ -3,6 +3,11 @@ use crate::engine::ddgame::DDGame;
 use crate::audio::dssound::DSSound;
 use crate::render::landscape::PCLandscape;
 
+/// Speech name table entry size (0x40 = 64 bytes, null-terminated C string).
+pub const SPEECH_NAME_ENTRY_SIZE: usize = 0x40;
+/// Maximum number of speech name entries.
+pub const SPEECH_NAME_TABLE_LEN: usize = 360;
+
 /// DDGameWrapper — large wrapper around DDGame.
 ///
 /// Created by DDGameWrapper__Constructor (0x56DEF0).
@@ -13,11 +18,7 @@ use crate::render::landscape::PCLandscape;
 /// Note: Ghidra shows DWORD-indexed offsets (param_2[0x122] etc.).
 /// Byte offset = dword_index * 4.
 ///
-/// The constructor accesses at least up to DWORD index 0x1BBA (byte offset 0x6EE8),
-/// making this object at least ~28KB. Total size is not yet determined.
-///
-/// PARTIAL: Only confirmed fields are defined. The repr(C) struct uses
-/// a conservative size that covers known fields. The actual object is larger.
+/// PARTIAL: Only confirmed fields are defined.
 #[repr(C)]
 pub struct DDGameWrapper {
     /// 0x000: Vtable pointer (0x66A30C)
@@ -48,13 +49,17 @@ pub struct DDGameWrapper {
     pub _field_4dc: u32,
     /// 0x4E0: Init -100 / 0xFFFFFF9C (DWORD index 0x138)
     pub _field_4e0: u32,
-    /// 0x4E4-0x6EEB: Unknown fields (extends to at least DWORD 0x1BBA)
-    pub _unknown_4e4: [u8; 0x6A08],
+    /// 0x4E4-0x14E7: Unknown fields
+    pub _unknown_4e4: [u8; 0x14E8 - 0x4E4],
+    /// 0x14E8: Speech name table — 360 entries of 0x40-byte C strings.
+    /// Used by DDGameWrapper__LoadSpeechWAV to deduplicate loaded WAVs.
+    pub speech_name_table: [[u8; SPEECH_NAME_ENTRY_SIZE]; SPEECH_NAME_TABLE_LEN],
+    /// 0x6EE8: Number of entries used in speech_name_table.
+    pub speech_name_count: u32,
     /// 0x6EEC: Init 0 (DWORD index 0x1BBA)
     pub _field_6eec: u32,
     /// 0x6EF0-end: Unknown trailing fields
     pub _unknown_6ef0: [u8; 0x10],
 }
 
-// This is a minimum estimate. The actual object is likely larger.
 const _: () = assert!(core::mem::size_of::<DDGameWrapper>() == 0x6F00);
