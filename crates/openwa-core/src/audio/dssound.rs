@@ -146,8 +146,9 @@ const _: () = assert!(core::mem::size_of::<DSSound>() == 0xBE0);
 // ── Rust vtable method implementations ────────────────────────────────────
 
 /// Slot 13: is_slot_loaded — returns whether sound at `slot_idx` has a buffer loaded.
+/// Slot index is used directly as array index (1-based, slot 0 unused).
 pub unsafe extern "thiscall" fn is_slot_loaded(this: *mut DSSound, slot_idx: i32) -> bool {
-    (*this).channel_slots.get((slot_idx - 1) as usize).copied().unwrap_or(0) != 0
+    (*this).channel_slots.get(slot_idx as usize).copied().unwrap_or(0) != 0
 }
 
 /// Trivial noop — returns void. Used for slots 15, 16.
@@ -181,13 +182,16 @@ pub unsafe extern "thiscall" fn load_wav(
     };
     use windows::Win32::Media::Audio::{WAVEFORMATEX, WAVE_FORMAT_PCM};
 
+    use crate::log::log_line;
+
     // Validate: need DirectSound, valid slot, not already loaded.
+    // Slot index is used directly as array index (1-based, slot 0 unused).
     let snd = &mut *this;
     if snd.direct_sound == 0 {
         return 1;
     }
-    let slot = (slot_idx - 1) as usize;
-    if slot >= 499 || snd.channel_slots.get(slot).copied().unwrap_or(1) != 0 {
+    let slot = slot_idx as usize;
+    if slot == 0 || slot > 499 || snd.channel_slots.get(slot).copied().unwrap_or(1) != 0 {
         return 1;
     }
 
@@ -207,6 +211,11 @@ pub unsafe extern "thiscall" fn load_wav(
     let block_align = spec.channels as u16 * sample_bytes as u16;
     let avg_bytes_per_sec = spec.sample_rate * block_align as u32;
     let data_len = reader.duration() * block_align as u32;
+
+    let _ = log_line(&format!(
+        "[Sound] Loading WAV: '{}', {} Hz, {} channels, {} bits, {} bytes",
+        c_path, spec.sample_rate, spec.channels, spec.bits_per_sample, data_len
+    ));
 
     // Build WAVEFORMATEX for the secondary buffer.
     let wfx = WAVEFORMATEX {
