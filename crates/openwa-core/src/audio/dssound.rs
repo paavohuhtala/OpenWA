@@ -84,8 +84,8 @@ pub struct DSSoundVtable {
     pub set_master_volume: unsafe extern "thiscall" fn(*mut DSSound, i32) -> u32,
     /// Slot 8 (0x574980): set_channel_volume — volume on specific channel
     pub set_channel_volume: unsafe extern "thiscall" fn(*mut DSSound, i32, i32) -> u32,
-    /// Slot 9 (0x5747F0): is_channel_playing — checks buffer status
-    pub is_channel_playing: unsafe extern "thiscall" fn(*mut DSSound, i32) -> u8,
+    /// Slot 9 (0x5747F0): is_channel_finished — returns 1 if stopped, 0 if playing
+    pub is_channel_finished: unsafe extern "thiscall" fn(*mut DSSound, i32) -> u8,
     /// Slot 10 (0x574840): stop_channel — stops + releases buffer, returns to pool
     pub stop_channel: unsafe extern "thiscall" fn(*mut DSSound, i32) -> u32,
     /// Slot 11 (0x574AB0): release_finished — releases finished buffers, returns count
@@ -241,19 +241,35 @@ pub unsafe extern "thiscall" fn sub_destructor(
     this
 }
 
-/// Slot 9: is_channel_playing — checks if a buffer pool entry's GetStatus succeeds.
-/// `pool_id` is 1-based (1..64). Returns 0 only for out-of-range pool_id.
-/// Original always returns 1 unless pool_id is invalid — it checks whether
-/// GetStatus succeeds (S_OK), not the actual playing status bits.
-pub unsafe extern "thiscall" fn is_channel_playing(
+/// Slot 9: is_channel_finished — checks if a buffer pool entry has stopped playing.
+/// `pool_id` is 1-based (1..64).
+///
+/// Returns:
+/// - **0** if the buffer IS playing (channel busy, don't reuse)
+/// - **1** if the buffer is NOT playing, or error, or no desc (channel free)
+/// - **0** if pool_id is out of range
+///
+/// The original inverts DSBSTATUS_PLAYING (bit 0): `NOT status; AND 1`.
+pub unsafe extern "thiscall" fn is_channel_finished(
     this: *mut DSSound, pool_id: i32,
 ) -> u8 {
     let idx = (pool_id - 1) as usize;
     if idx >= 64 {
         return 0;
     }
-    // Original returns 1 in all other cases (found or not, playing or not).
-    1
+    let snd = &*this;
+    let desc_idx = snd.buffer_pool_shadow[idx];
+    if desc_idx < 0 || desc_idx as usize >= 8 {
+        return 1; // no desc → finished/free
+    }
+    let desc = &snd.channel_descs[desc_idx as usize];
+    let Some(buf) = desc.buffer() else { return 1 };
+    match buf.GetStatus() {
+        Ok(status) => {
+            if status & 1 != 0 { 0 } else { 1 } // playing → 0, stopped → 1
+        }
+        Err(_) => 1, // error → treat as finished
+    }
 }
 
 /// Slot 10: stop_channel — stops a buffer, releases it, and returns the pool entry.

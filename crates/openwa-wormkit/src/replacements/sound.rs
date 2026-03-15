@@ -169,7 +169,7 @@ unsafe fn patch_dssound_vtable() -> Result<(), String> {
     use openwa_core::vtable::patch_vtable;
     use openwa_core::audio::{
         update_channels, release_finished,
-        is_slot_loaded, is_channel_playing, stop_channel, dssound_sub_destructor,
+        is_slot_loaded, is_channel_finished, stop_channel, dssound_sub_destructor,
         load_wav, dssound_noop, dssound_returns_0, dssound_returns_1,
     };
 
@@ -179,18 +179,17 @@ unsafe fn patch_dssound_vtable() -> Result<(), String> {
         // Slot 12: load_wav — WAV file → DirectSound secondary buffer (hound + windows crate)
         *vt.add(12) = load_wav as *const () as u32;
 
-        // Slots 1, 11 disabled — update_channels/release_finished crash
-        // when iterating descriptors. Layout is confirmed correct via
-        // runtime dumps; issue is likely COM refcount handling in buffer().
-        // *vt.add(1) = update_channels as *const () as u32;
-        // *vt.add(11) = release_finished as *const () as u32;
+        // Slot 1: update_channels — release finished buffers each frame
+        *vt.add(1) = update_channels as *const () as u32;
 
-        // Slots 9, 10 disabled — slot 9's return value semantics are unclear
-        // from decompile; wrong values break sound scheduling entirely.
-        // *vt.add(9) = is_channel_playing as *const () as u32;
+        // Slot 11: release_finished — like update_channels, returns count
+        *vt.add(11) = release_finished as *const () as u32;
 
-        // Slot 10: disabled pending slot 9 fix
-        // *vt.add(10) = stop_channel as *const () as u32;
+        // Slot 9: is_channel_finished — returns 0 if playing, 1 if stopped/free
+        *vt.add(9) = is_channel_finished as *const () as u32;
+
+        // Slot 10: stop_channel — stops buffer, releases, returns to pool
+        *vt.add(10) = stop_channel as *const () as u32;
 
         // Slot 13: is_slot_loaded — channel_slots check
         *vt.add(13) = is_slot_loaded as *const () as u32;
@@ -210,6 +209,6 @@ unsafe fn patch_dssound_vtable() -> Result<(), String> {
         // Trivial returns-1 (slot 23)
         *vt.add(23) = dssound_returns_1 as *const () as u32;
 
-        let _ = log_line("[Sound]   DSSound vtable: patched 13/24 slots with Rust");
+        let _ = log_line("[Sound]   DSSound vtable: patched 17/24 slots with Rust");
     }).map_err(|e| e.to_string())
 }
