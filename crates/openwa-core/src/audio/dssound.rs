@@ -1,5 +1,7 @@
 use crate::fixed::Fixed;
 
+use windows::Win32::Media::Audio::DirectSound::IDirectSoundBuffer;
+
 /// DSSound — DirectSound audio subsystem.
 ///
 /// Created by DSSound__Constructor (0x573D50).
@@ -27,13 +29,36 @@ pub struct ChannelDescriptor {
     pub volume_num: i32,
     /// Volume value (scaled, used by set_channel_volume)
     pub volume_val: i32,
-    /// IDirectSoundBuffer* for the active buffer on this channel (0 = empty)
+    /// IDirectSoundBuffer* for the active buffer on this channel (0 = empty).
+    /// Use `ds_buffer()` to get a typed reference.
     pub ds_buffer: Ptr32,
     /// Pool index tracking which buffer pool entry this channel uses
     pub pool_index: u32,
 }
 
 const _: () = assert!(core::mem::size_of::<ChannelDescriptor>() == 0x18);
+
+impl ChannelDescriptor {
+    /// Get the DirectSound buffer as a typed reference, if present.
+    pub unsafe fn buffer(&self) -> Option<&IDirectSoundBuffer> {
+        if self.ds_buffer != 0 {
+            Some(&*(&self.ds_buffer as *const Ptr32 as *const IDirectSoundBuffer))
+        } else {
+            None
+        }
+    }
+
+    /// Take ownership of the buffer (for releasing). Zeroes the field.
+    pub unsafe fn take_buffer(&mut self) -> Option<IDirectSoundBuffer> {
+        if self.ds_buffer != 0 {
+            let buf: IDirectSoundBuffer = core::mem::transmute_copy(&self.ds_buffer);
+            self.ds_buffer = 0;
+            Some(buf)
+        } else {
+            None
+        }
+    }
+}
 
 /// DSSound vtable layout (24 slots at 0x66AF20).
 ///
@@ -160,6 +185,85 @@ pub unsafe extern "thiscall" fn returns_0(_this: *mut DSSound) -> u32 { 0 }
 /// Trivial stub — returns 1. Used for slot 23.
 pub unsafe extern "thiscall" fn returns_1(_this: *mut DSSound) -> u32 { 1 }
 
+/// Slot 9: is_channel_playing — checks if a buffer pool entry is still playing.
+/// `pool_id` is 1-based (1..64). Returns 1 if playing or invalid, 0 if stopped.
+pub unsafe extern "thiscall" fn is_channel_playing(
+    this: *mut DSSound, pool_id: i32,
+) -> u8 {
+    let idx = (pool_id - 1) as usize;
+    if idx >= 64 {
+        return 0;
+    }
+    let snd = &*this;
+    let desc_idx = snd.buffer_pool_shadow[idx];
+    if desc_idx < 0 {
+        return 0;
+    }
+    let desc = &snd.channel_descs[desc_idx as usize];
+    let Some(buf) = desc.buffer() else { return 0 };
+    let status = buf.GetStatus();
+    if let Ok(s) = status {
+        if (s & 1) != 0 {
+            // DSBSTATUS_PLAYING = 1
+            return 1;
+        }
+    }
+    1 // original returns 1 even on error
+}
+
+/// Slot 10: stop_channel — stops a buffer, releases it, and returns the pool entry.
+/// `pool_id` is 1-based (1..64). Returns 1 on success, 0 on invalid.
+pub unsafe extern "thiscall" fn stop_channel(
+    this: *mut DSSound, pool_id: i32,
+) -> u32 {
+    let idx = (pool_id - 1) as usize;
+    if idx >= 64 {
+        return 0;
+    }
+    let snd = &mut *this;
+    let desc_idx = snd.buffer_pool_shadow[idx];
+    if desc_idx < 0 {
+        return 0;
+    }
+    let di = desc_idx as usize;
+    let desc = &mut snd.channel_descs[di];
+
+    // Stop and release the buffer.
+    if let Some(buf) = desc.take_buffer() {
+        let _ = buf.Stop();
+        // Release happens when buf drops
+    }
+
+    // Reset descriptor to free state.
+    desc.volume_num = 0;
+    desc.volume_val = 0;
+    desc.flags_b = -1;
+    desc.flags_a = -1;
+
+    // Mark pool shadow as free.
+    snd.buffer_pool_shadow[idx] = -1;
+
+    // Return pool index to free list.
+    let free_slot = snd.buffer_pool_free_count as usize;
+    snd.buffer_pool_free[free_slot] = idx as u32;
+    snd.buffer_pool_free_count += 1;
+
+    // Remove from used list.
+    let used_count = snd.buffer_pool_used_count as usize;
+    for i in 0..used_count {
+        if snd.buffer_pool_used[i] == idx as u32 {
+            // Shift remaining entries down.
+            for j in i..used_count - 1 {
+                snd.buffer_pool_used[j] = snd.buffer_pool_used[j + 1];
+            }
+            snd.buffer_pool_used_count -= 1;
+            break;
+        }
+    }
+
+    1
+}
+
 /// Slot 12: load_wav — load a WAV file into a DirectSound secondary buffer
 /// and store the buffer pointer at `channel_slots[slot_idx]`.
 ///
@@ -170,7 +274,6 @@ pub unsafe extern "thiscall" fn returns_1(_this: *mut DSSound) -> u32 { 1 }
 /// for DirectSound COM calls.
 ///
 /// Returns 1 on success, 0 on failure (matching original).
-#[cfg(target_os = "windows")]
 pub unsafe extern "thiscall" fn load_wav(
     this: *mut DSSound,
     slot_idx: i32,
