@@ -2,6 +2,21 @@ use crate::fixed::Fixed;
 
 use windows::Win32::Media::Audio::DirectSound::IDirectSoundBuffer;
 
+/// Volume-to-dB attenuation table (64 entries of i16).
+/// Copied from WA.exe .rdata at 0x6A6A60.
+/// Index 0 = silence (-10000 dB), index 63 = near-unity (-22 dB).
+/// Used by set_master_volume, set_channel_volume, and play_sound.
+const VOLUME_DB_TABLE: [i16; 64] = [
+    -10000, -6000, -5000, -4415, -4000, -3678, -3415, -3000,
+     -2744, -2522, -2326, -2150, -1991, -1845, -1712, -1589,
+     -1475, -1368, -1268, -1176, -1088, -1006,  -928,  -855,
+      -786,  -720,  -658,  -599,  -543,  -490,  -439,  -390,
+      -344,  -299,  -256,  -216,  -177,  -139,  -104,   -70,
+       -38,    -7,    24,    54,    83,   111,   138,   163,
+       188,   211,   234,   256,   277,   296,   315,   333,
+       350,   367,   383,   398,   413,   427,   441,   454,
+]; // NOT: these might be negative centibels, not actual dB. Exact interpretation TBD.
+
 /// DSSound — DirectSound audio subsystem.
 ///
 /// Created by DSSound__Constructor (0x573D50).
@@ -29,8 +44,8 @@ pub struct ChannelDescriptor {
     pub flags_b: i32,
     /// +0x0C: Volume/state field (cleared to 0 on release)
     pub _field_0c: i32,
-    /// +0x10: Volume/state field (cleared to 0 on release)
-    pub _field_10: i32,
+    /// +0x10: Per-channel volume (Fixed 16.16, 0..0x10000). Set by set_channel_volume.
+    pub channel_volume: i32,
     /// +0x14: IDirectSoundBuffer* for the active buffer (0 = empty).
     /// At absolute offset this+0x28 for desc[0]. Use `buffer()` to get a typed ref.
     pub ds_buffer: Ptr32,
@@ -197,7 +212,7 @@ pub unsafe extern "thiscall" fn update_channels(this: *mut DSSound) {
                     // Take and drop to release COM ref.
                     desc.take_buffer();
                     desc._field_0c = 0;
-                    desc._field_10 = 0;
+                    desc.channel_volume = 0;
                     desc.flags_b = -1;
                     desc.flags_a = -1;
                 }
@@ -216,7 +231,7 @@ pub unsafe extern "thiscall" fn release_finished(this: *mut DSSound) -> i32 {
                 if (status & 1) == 0 && desc.flags_a < 0 {
                     desc.take_buffer();
                     desc._field_0c = 0;
-                    desc._field_10 = 0;
+                    desc.channel_volume = 0;
                     desc.flags_b = -1;
                     desc.flags_a = -1;
                     count += 1;
@@ -225,6 +240,88 @@ pub unsafe extern "thiscall" fn release_finished(this: *mut DSSound) -> i32 {
         }
     }
     count
+}
+
+/// Convert a fixed-point volume (0..0x10000) to a dB attenuation value
+/// using the volume lookup table. Matches the original's arithmetic:
+/// `(volume >> 16) << 6 >> 16` → index into VOLUME_DB_TABLE.
+fn volume_to_db(volume: i32) -> i32 {
+    let idx = ((volume as u32) >> 10) as usize; // (vol >> 16) << 6 = vol >> 10
+    let clamped = idx.min(63);
+    VOLUME_DB_TABLE[clamped] as i32
+}
+
+/// Slot 7: set_master_volume — sets the master volume and adjusts all active channels.
+/// `new_volume` is Fixed 16.16 (0 = silent, 0x10000 = max).
+pub unsafe extern "thiscall" fn set_master_volume(
+    this: *mut DSSound, new_volume: i32,
+) -> u32 {
+    let snd = &mut *this;
+
+    // Clamp to [0, 0x10000].
+    let vol = new_volume.max(0).min(0x10000);
+
+    // No change → early return.
+    if snd.volume.0 == vol {
+        return 1;
+    }
+    snd.volume = Fixed(vol);
+
+    // Update all active channels.
+    for desc in &snd.channel_descs {
+        if desc.ds_buffer == 0 {
+            continue;
+        }
+        // Skip if flag 0x20000 is set in _field_00.
+        if desc._field_00 & 0x20000 != 0 {
+            continue;
+        }
+        // Compute combined volume: master * per-channel, fixed-point multiply.
+        let combined = ((vol as i64 * desc.channel_volume as i64) >> 16) as i32;
+        let db = volume_to_db(combined);
+        if let Some(buf) = desc.buffer() {
+            let _ = buf.SetVolume(db);
+        }
+    }
+
+    1
+}
+
+/// Slot 8: set_channel_volume — sets volume on a specific channel.
+/// `pool_id` is 1-based (1..64). `volume` is Fixed 16.16 (0..0x10000).
+pub unsafe extern "thiscall" fn set_channel_volume(
+    this: *mut DSSound, pool_id: i32, volume: i32,
+) -> u32 {
+    let idx = (pool_id - 1) as usize;
+    if idx >= 64 {
+        return 0;
+    }
+    let snd = &mut *this;
+    let desc_idx = snd.buffer_pool_shadow[idx];
+    if desc_idx < 0 || desc_idx as usize >= 8 {
+        return 0;
+    }
+    let di = desc_idx as usize;
+
+    // Clamp volume to [0, 0x10000].
+    let vol = volume.max(0).min(0x10000);
+
+    // Compute dB: if flag 0x20000 set, use volume directly (no master scaling).
+    let db = if snd.channel_descs[di]._field_00 & 0x20000 != 0 {
+        volume_to_db(vol)
+    } else {
+        let combined = ((snd.volume.0 as i64 * vol as i64) >> 16) as i32;
+        volume_to_db(combined)
+    };
+
+    if let Some(buf) = snd.channel_descs[di].buffer() {
+        let _ = buf.SetVolume(db);
+    }
+
+    // Store per-channel volume.
+    snd.channel_descs[di].channel_volume = vol;
+
+    1
 }
 
 /// Slot 14: sub_destructor — sets secondary vtable (0x66AF58), optionally frees.
@@ -297,7 +394,7 @@ pub unsafe extern "thiscall" fn stop_channel(
 
     // Reset descriptor to free state.
     desc._field_0c = 0;
-    desc._field_10 = 0;
+    desc.channel_volume = 0;
     desc.flags_b = -1;
     desc.flags_a = -1;
 
