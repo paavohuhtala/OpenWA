@@ -185,6 +185,62 @@ pub unsafe extern "thiscall" fn returns_0(_this: *mut DSSound) -> u32 { 0 }
 /// Trivial stub — returns 1. Used for slot 23.
 pub unsafe extern "thiscall" fn returns_1(_this: *mut DSSound) -> u32 { 1 }
 
+/// Slot 1: update_channels — iterates 8 channel descriptors, releases finished buffers.
+/// Called each frame to clean up buffers that have finished playing.
+pub unsafe extern "thiscall" fn update_channels(this: *mut DSSound) {
+    let snd = &mut *this;
+    for desc in &mut snd.channel_descs {
+        if let Some(buf) = desc.buffer() {
+            if let Ok(status) = buf.GetStatus() {
+                // If not playing (bit 0 clear) and flags_b < 0, release.
+                if (status & 1) == 0 && desc.flags_b < 0 {
+                    // Take and drop to release COM ref.
+                    desc.take_buffer();
+                    desc.volume_num = 0;
+                    desc.volume_val = 0;
+                    desc.flags_b = -1;
+                    desc.flags_a = -1;
+                }
+            }
+        }
+    }
+}
+
+/// Slot 11: release_finished — like update_channels but returns count of released buffers.
+pub unsafe extern "thiscall" fn release_finished(this: *mut DSSound) -> i32 {
+    let snd = &mut *this;
+    let mut count = 0i32;
+    for desc in &mut snd.channel_descs {
+        if let Some(buf) = desc.buffer() {
+            if let Ok(status) = buf.GetStatus() {
+                if (status & 1) == 0 && desc.flags_b < 0 {
+                    desc.take_buffer();
+                    desc.volume_num = 0;
+                    desc.volume_val = 0;
+                    desc.flags_b = -1;
+                    desc.flags_a = -1;
+                    count += 1;
+                }
+            }
+        }
+    }
+    count
+}
+
+/// Slot 14: sub_destructor — sets secondary vtable (0x66AF58), optionally frees.
+/// This is a base-class destructor called by the primary destructor (slot 0).
+pub unsafe extern "thiscall" fn sub_destructor(
+    this: *mut DSSound, flags: u8,
+) -> *mut DSSound {
+    use crate::rebase::rb;
+    // Set secondary vtable (base class vtable for destructor chain).
+    (*this).vtable = rb(0x0066_AF58) as *const DSSoundVtable;
+    if flags & 1 != 0 {
+        crate::wa_alloc::wa_free(this as *mut u8);
+    }
+    this
+}
+
 /// Slot 9: is_channel_playing — checks if a buffer pool entry is still playing.
 /// `pool_id` is 1-based (1..64). Returns 1 if playing or invalid, 0 if stopped.
 pub unsafe extern "thiscall" fn is_channel_playing(
