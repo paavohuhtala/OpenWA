@@ -11,6 +11,7 @@ pub mod input;
 pub mod render;
 
 pub mod fixed;
+pub mod log;
 pub mod task;
 pub mod address;
 pub mod rebase;

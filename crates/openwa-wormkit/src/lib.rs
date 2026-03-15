@@ -38,15 +38,7 @@ unsafe extern "system" fn DllMain(
 // Logging
 // ---------------------------------------------------------------------------
 
-pub fn log_line(msg: &str) -> std::io::Result<()> {
-    use std::io::Write;
-    let mut f = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open("OpenWA.log")?;
-    writeln!(f, "{msg}")?;
-    Ok(())
-}
+pub use openwa_core::log::log_line;
 
 fn clear_log() -> std::io::Result<()> {
     std::fs::write("OpenWA.log", "")?;
