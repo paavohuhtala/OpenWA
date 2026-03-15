@@ -1,4 +1,4 @@
-use crate::ddgame::DDGame;
+use crate::engine::ddgame::DDGame;
 
 /// PCLandscape — terrain/landscape subsystem (0xB40 bytes).
 ///

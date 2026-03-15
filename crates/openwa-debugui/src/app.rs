@@ -1,7 +1,6 @@
 use eframe::egui;
 use openwa_core::address::va;
-use openwa_core::ddgame::DDGame;
-use openwa_core::ddgame_wrapper::DDGameWrapper;
+use openwa_core::engine::{DDGame, DDGameWrapper};
 use openwa_core::rebase::rb;
 use openwa_core::task::{CTask, CTaskCloud, CTaskFire, CTaskMine, CTaskOilDrum, CTaskTeam, CTaskTurnGame, CTaskWorm, TurnGameCtx};
 
@@ -539,7 +538,7 @@ impl DebugApp {
             }
 
             // --- CTaskWorm-specific fields ---
-            if name == "CTaskWorm" || (*task).class_type == openwa_core::class_type::ClassType::Worm {
+            if name == "CTaskWorm" || (*task).class_type == openwa_core::game::ClassType::Worm {
                 let worm = addr as *const CTaskWorm;
                 egui::CollapsingHeader::new("CTaskWorm")
                     .default_open(true)

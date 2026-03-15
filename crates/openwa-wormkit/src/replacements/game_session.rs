@@ -15,13 +15,13 @@
 //! - `DDGame__InitGameState` (0x526500): plain stdcall(this), called via transmute.
 
 use openwa_core::address::va;
-use openwa_core::game_info::GameInfo;
+use openwa_core::engine::GameInfo;
 use openwa_core::rebase::rb;
-use openwa_core::ddgame_wrapper::DDGameWrapper;
-use openwa_core::dddisplay::DDDisplay;
-use openwa_core::dssound::DSSound;
-use openwa_core::game_session::GameSession;
-use openwa_core::palette::Palette;
+use openwa_core::engine::DDGameWrapper;
+use openwa_core::display::DDDisplay;
+use openwa_core::audio::DSSound;
+use openwa_core::engine::GameSession;
+use openwa_core::display::Palette;
 use crate::hook;
 use crate::log_line;
 

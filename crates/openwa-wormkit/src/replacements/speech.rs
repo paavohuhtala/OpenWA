@@ -13,9 +13,9 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use heapless::CString;
 
 use openwa_core::rebase::rb;
-use openwa_core::ddgame_wrapper::DDGameWrapper;
+use openwa_core::engine::DDGameWrapper;
 use openwa_core::address::va::{self, game_info_offsets};
-use openwa_core::speech::SpeechLineTableEntry;
+use openwa_core::audio::SpeechLineTableEntry;
 
 use crate::hook::{self, usercall_trampoline};
 use crate::log_line;

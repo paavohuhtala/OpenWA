@@ -1,7 +1,7 @@
-use crate::dddisplay::DDDisplay;
-use crate::ddgame::DDGame;
-use crate::dssound::DSSound;
-use crate::landscape::PCLandscape;
+use crate::display::dd_display::DDDisplay;
+use crate::engine::ddgame::DDGame;
+use crate::audio::dssound::DSSound;
+use crate::render::landscape::PCLandscape;
 
 /// DDGameWrapper — large wrapper around DDGame.
 ///

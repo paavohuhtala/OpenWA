@@ -1,4 +1,4 @@
-use crate::ddgame::DDGame;
+use crate::engine::ddgame::DDGame;
 use crate::fixed::Fixed;
 
 /// Active sound tracking table — manages positional (local) sound playback.

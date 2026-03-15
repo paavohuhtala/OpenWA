@@ -5,7 +5,7 @@
 
 use openwa_core::rebase::rb;
 use openwa_core::address::va;
-use openwa_core::render::*;
+use openwa_core::render::queue::*;
 use openwa_core::task::{BungeeTrailTask, WeaponAimTask};
 
 use crate::hook::{self, usercall_trampoline};

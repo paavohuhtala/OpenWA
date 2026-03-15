@@ -8,7 +8,7 @@
 //! All inherit from an animated item list base class (vtable 0x669C90) that
 //! provides sin-table interpolated sliding transitions between items.
 
-use crate::ddgame::DDGame;
+use crate::engine::ddgame::DDGame;
 
 /// Animated item list — base class for the turn order hierarchy.
 ///

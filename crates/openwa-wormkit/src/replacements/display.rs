@@ -6,7 +6,7 @@
 //!   correctly frees our Rust-allocated sprite cache sub-objects
 
 use openwa_core::address::va;
-use openwa_core::display_base::{DisplayBase, SpriteCacheWrapper, SpriteBufferCtrl};
+use openwa_core::display::{DisplayBase, SpriteCacheWrapper, SpriteBufferCtrl};
 use openwa_core::rebase::rb;
 use openwa_core::vtable::patch_vtable;
 use openwa_core::wa_alloc::wa_free;

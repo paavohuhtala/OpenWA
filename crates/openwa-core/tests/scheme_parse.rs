@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use openwa_core::scheme::{
+use openwa_core::game::scheme::{
     ExtendedOptions, SchemeFile, SchemeVersion, EXTENDED_OPTIONS_DEFAULTS,
     EXTENDED_OPTIONS_SIZE, SCHEME_PAYLOAD_V1, SCHEME_PAYLOAD_V2, WEAPONS_V1_COUNT,
 };

@@ -12,8 +12,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use openwa_core::rebase::rb;
 use openwa_core::address::va;
 use openwa_core::task::{CTask, CTaskBfsIter, CGameTask, CTaskMissile, CTaskTeam, CTaskTurnGame, TurnGameCtx, SharedDataTable};
-use openwa_core::ddgame::DDGame;
-use openwa_core::ddgame_wrapper::DDGameWrapper;
+use openwa_core::engine::{DDGame, DDGameWrapper};
 
 static DUMP_COUNTER: AtomicU32 = AtomicU32::new(0);
 
@@ -452,7 +451,7 @@ fn deferred_global_validation() {
 // ---------------------------------------------------------------------------
 
 fn dump_team_blocks() {
-    use openwa_core::ddgame::{offsets, TeamArenaRef};
+    use openwa_core::engine::ddgame::{offsets, TeamArenaRef};
 
     let dump_num = DUMP_COUNTER.fetch_add(1, Ordering::Relaxed);
     let _ = log_validation("");
@@ -647,7 +646,7 @@ fn dump_team_blocks() {
 // ---------------------------------------------------------------------------
 
 fn dump_landscape() {
-    use openwa_core::landscape::PCLandscape;
+    use openwa_core::render::PCLandscape;
 
     let dump_num = DUMP_COUNTER.fetch_add(1, Ordering::Relaxed);
     let _ = log_validation("");

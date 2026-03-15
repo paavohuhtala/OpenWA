@@ -11,7 +11,7 @@
 //! - SetActiveWorm_Maybe (0x522500): update team active state and counters
 
 use openwa_core::address::va;
-use openwa_core::ddgame::{self, TeamArenaRef};
+use openwa_core::engine::ddgame::{self, TeamArenaRef};
 
 use crate::hook::{self, usercall_trampoline};
 

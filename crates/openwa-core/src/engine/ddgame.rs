@@ -1,14 +1,14 @@
-use crate::active_sound::ActiveSoundTable;
-use crate::dddisplay::DDDisplay;
-use crate::ddkeyboard::DDKeyboard;
-use crate::dssound::DSSound;
-use crate::game_info::GameInfo;
-use crate::landscape::PCLandscape;
-use crate::music::Music;
-use crate::palette::Palette;
-use crate::render::RenderQueue;
-use crate::speech::SpeechSlotTable;
-use crate::turn_order::TurnOrderWidget;
+use crate::audio::active_sound::ActiveSoundTable;
+use crate::display::dd_display::DDDisplay;
+use crate::input::keyboard::DDKeyboard;
+use crate::audio::dssound::DSSound;
+use crate::engine::game_info::GameInfo;
+use crate::render::landscape::PCLandscape;
+use crate::audio::music::Music;
+use crate::display::palette::Palette;
+use crate::render::queue::RenderQueue;
+use crate::audio::speech::SpeechSlotTable;
+use crate::render::turn_order::TurnOrderWidget;
 
 /// DDGame — the main game engine object.
 ///

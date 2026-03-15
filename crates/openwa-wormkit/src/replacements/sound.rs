@@ -10,8 +10,8 @@
 use std::sync::atomic::Ordering;
 
 use openwa_core::address::va;
-use openwa_core::ddgame::{DDGame, SoundQueueEntry};
-use openwa_core::sound::SoundId;
+use openwa_core::engine::{DDGame, SoundQueueEntry};
+use openwa_core::audio::SoundId;
 use openwa_core::task::CGameTask;
 
 use crate::hook;

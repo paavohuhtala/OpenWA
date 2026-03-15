@@ -1,5 +1,5 @@
-use crate::class_type::ClassType;
-use crate::ddgame::DDGame;
+use crate::game::class_type::ClassType;
+use crate::engine::ddgame::DDGame;
 
 /// Base task class in WA's entity hierarchy.
 ///

@@ -7,8 +7,8 @@
 //! - CountAliveWorms (0x5225A0): check if >1 worm alive on team
 
 use openwa_core::address::va;
-use openwa_core::ddgame::{self, TeamArenaRef};
-use openwa_core::weapon::Weapon;
+use openwa_core::engine::ddgame::{self, TeamArenaRef};
+use openwa_core::game::Weapon;
 
 use crate::hook::{self, usercall_trampoline};
 

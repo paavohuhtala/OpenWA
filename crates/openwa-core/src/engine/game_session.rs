@@ -1,7 +1,7 @@
-use crate::ddgame_wrapper::DDGameWrapper;
-use crate::ddkeyboard::DDKeyboard;
-use crate::dssound::DSSound;
-use crate::palette::Palette;
+use crate::engine::ddgame_wrapper::DDGameWrapper;
+use crate::input::keyboard::DDKeyboard;
+use crate::audio::dssound::DSSound;
+use crate::display::palette::Palette;
 
 /// Top-level game session context, allocated once per game run.
 ///

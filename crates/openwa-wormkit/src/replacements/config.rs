@@ -9,7 +9,7 @@
 //! - GameInfo__LoadOptions (0x460AC0): game options from registry
 //! - Options__GetCrashReportURL (0x5A63F0): crash report URL from registry
 
-use openwa_core::{address::va, game_info::GameInfo};
+use openwa_core::{address::va, engine::GameInfo};
 use crate::log_line;
 use openwa_core::rebase::rb;
 

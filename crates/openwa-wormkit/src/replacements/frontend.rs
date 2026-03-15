@@ -9,7 +9,7 @@ use crate::log_line;
 use openwa_core::wa::mfc::{CDialogHandle, CWndHandle};
 use openwa_core::wa_call;
 use openwa_core::address::va;
-use openwa_core::frontend::ScreenId;
+use openwa_core::game::ScreenId;
 
 // Frontend dialog struct offsets (MFC CDialog-derived)
 const DIALOG_FLAGS: usize = 0x3C;
