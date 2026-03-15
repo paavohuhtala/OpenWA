@@ -88,9 +88,9 @@ pub struct DSSoundVtable {
     pub update_channels: unsafe extern "thiscall" fn(*mut DSSound),
     /// Slot 2 (0x574460): set_volume_params — sets status_1/2, adjusts channel volumes
     pub set_volume_params: unsafe extern "thiscall" fn(*mut DSSound, u32, i32),
-    /// Slot 3 (0x574730): play_sound — wrapper around core play, returns bool
-    pub play_sound: unsafe extern "thiscall" fn(*mut DSSound, u32, u32, u32, u32) -> bool,
-    /// Slot 4 (0x574770): play_sound_pooled — allocates from buffer pool, plays
+    /// Slot 3 (0x574730): play_sound — wrapper around core play, returns bool. RET 0x14 = 5 stack params.
+    pub play_sound: unsafe extern "thiscall" fn(*mut DSSound, u32, u32, u32, u32, u32) -> bool,
+    /// Slot 4 (0x574770): play_sound_pooled — allocates from buffer pool, plays. RET 0x14 = 5 stack params.
     pub play_sound_pooled: unsafe extern "thiscall" fn(*mut DSSound, u32, u32, u32, u32, u32) -> i32,
     /// Slot 5 (0x574900): set_pan — sets pan on channel (dB lookup)
     pub set_pan: unsafe extern "thiscall" fn(*mut DSSound, u32, u32) -> u32,
@@ -448,6 +448,215 @@ pub unsafe extern "thiscall" fn destructor(
         crate::wa_alloc::wa_free(this as *mut u8);
     }
     this
+}
+
+/// Core play sound logic (replaces FUN_00574500).
+/// Returns channel descriptor index on success, -1 on failure.
+unsafe fn core_play_sound(
+    snd: &mut DSSound,
+    flags_and_slot: u32,
+    priority: i32,
+    pitch: i32,
+    pan: i32,
+) -> i32 {
+    use crate::log::log_line;
+    use windows::Win32::Media::Audio::DirectSound::IDirectSound;
+
+    // Check master volume and DirectSound initialized.
+    if snd.volume.0 == 0 || snd.direct_sound == 0 {
+        return -1;
+    }
+
+    // Extract loop flag and slot index.
+    let loop_flag = flags_and_slot & 0x10000 != 0;
+    let slot_idx = (flags_and_slot & 0xFFFF) as usize;
+
+    // Validate slot index and check buffer loaded.
+    if slot_idx == 0 || slot_idx > 499 || snd.channel_slots[slot_idx] == 0 {
+        let _ = log_line(&format!("[DSSound] core_play: invalid slot {slot_idx}"));
+        return -1;
+    }
+
+    // Allocate a channel descriptor (find free or evict lowest priority).
+    let desc_idx = allocate_channel(snd, priority);
+    if desc_idx < 0 {
+        let _ = log_line("[DSSound] core_play: no channel available");
+        return -1;
+    }
+    let di = desc_idx as usize;
+    let _ = log_line(&format!(
+        "[DSSound] core_play: slot={slot_idx} desc={di} flags=0x{flags_and_slot:X} pitch={pitch} pan={pan} pri={priority}"
+    ));
+
+    // Get the template buffer from channel_slots.
+    let template_buf: &IDirectSoundBuffer =
+        &*(&snd.channel_slots[slot_idx] as *const Ptr32 as *const IDirectSoundBuffer);
+
+    // Duplicate the buffer via IDirectSound::DuplicateSoundBuffer.
+    let ds: &IDirectSound =
+        &*(&snd.direct_sound as *const Ptr32 as *const windows::Win32::Media::Audio::DirectSound::IDirectSound);
+    let new_buf = match ds.DuplicateSoundBuffer(template_buf) {
+        Ok(buf) => buf,
+        Err(e) => {
+            let _ = log_line(&format!("[DSSound] core_play: DuplicateSoundBuffer failed: {e}"));
+            snd.channel_descs[di].ds_buffer = 0;
+            return -1;
+        }
+    };
+
+    // Clamp pan only — pitch can exceed 0x10000 (higher pitch).
+    let pan = pan.max(-0x10000).min(0x10000);
+
+    // Compute per-channel volume: pitch * 3/4, clamped to [0, 0x10000].
+    // The original uses the same param for both volume and frequency.
+    let vol_clamped = pitch.max(0).min(0x10000);
+    let vol_scaled = (vol_clamped * 3 + (((vol_clamped * 3) >> 31) & 3)) >> 2;
+
+    // Compute dB for volume.
+    let vol_db = if flags_and_slot & 0x20000 != 0 {
+        volume_to_db(vol_scaled)
+    } else {
+        let combined = ((snd.volume.0 as i64 * vol_scaled as i64) >> 16) as i32;
+        volume_to_db(combined)
+    };
+
+    // Compute channel_freq: pitch * base_freq >> 16 (fixed-point multiply).
+    // Pitch > 0x10000 means higher than normal pitch.
+    let base_freq = template_buf.GetFrequency().unwrap_or(22050) as i32;
+    let channel_freq = ((pitch.max(0) as i64 * base_freq as i64) >> 16) as i32;
+
+    // Store descriptor state.
+    let desc = &mut snd.channel_descs[di];
+    desc._field_00 = flags_and_slot;
+    desc.flags_a = -1;
+    desc.channel_freq = channel_freq;
+    desc.channel_volume = vol_scaled;
+    desc.ds_buffer = core::mem::transmute_copy(&new_buf);
+    core::mem::forget(new_buf);
+
+    // Compute actual playback frequency: channel_freq * status_2 / status_1.
+    let freq = if snd.status_1 != 0 {
+        let f = (channel_freq as i64 * snd.status_2 as i64 / snd.status_1 as i64) as i32;
+        f.min(200_000)
+    } else {
+        channel_freq
+    };
+
+    let _ = log_line(&format!(
+        "[DSSound] core_play: vol_db={vol_db} freq={freq} (ch_freq={channel_freq}) loop={loop_flag}"
+    ));
+
+    // Apply volume, frequency, pan to the new buffer.
+    if let Some(buf) = desc.buffer() {
+        let _ = log_line("[DSSound] core_play: SetCurrentPosition");
+        let _ = buf.SetCurrentPosition(0);
+        let _ = log_line("[DSSound] core_play: SetFrequency");
+        let _ = buf.SetFrequency(freq as u32);
+        let _ = log_line("[DSSound] core_play: SetVolume");
+        let _ = buf.SetVolume(vol_db);
+
+        // Pan calculation (same as set_pan).
+        let pan_idx = ((pan.unsigned_abs() >> 10) as usize).min(63);
+        let mut pan_db = VOLUME_DB_TABLE[63 - pan_idx] as i32;
+        if pan > 0 { pan_db = -pan_db; }
+        let _ = log_line(&format!("[DSSound] core_play: SetPan({pan_db})"));
+        let _ = buf.SetPan(pan_db);
+
+        // Start playback.
+        let loop_val = if loop_flag { 1u32 } else { 0u32 };
+        let _ = log_line("[DSSound] core_play: Play");
+        let _ = buf.Play(0, 0, loop_val);
+        let _ = log_line("[DSSound] core_play: done");
+    }
+
+    desc_idx
+}
+
+/// Channel allocator (replaces FUN_00574380).
+/// Finds a free channel descriptor or evicts the lowest-priority one.
+/// Returns descriptor index (0..7) or -1 if none available.
+unsafe fn allocate_channel(snd: &mut DSSound, priority: i32) -> i32 {
+    // First pass: find an empty descriptor.
+    for i in 0..8 {
+        if snd.channel_descs[i].ds_buffer == 0 {
+            return i as i32;
+        }
+    }
+
+    // All busy — find lowest priority (flags_b is priority value).
+    let mut min_priority = i32::MAX;
+    let mut min_idx: i32 = -1;
+    for i in 0..8 {
+        let p = snd.channel_descs[i].flags_b;
+        if min_idx < 0 || p <= min_priority {
+            min_priority = p;
+            min_idx = i as i32;
+        }
+    }
+
+    // Only evict if new sound has higher or equal priority.
+    if min_idx >= 0 && min_priority <= priority {
+        let di = min_idx as usize;
+        let desc = &mut snd.channel_descs[di];
+
+        // Clear pool shadow if this desc was in the pool.
+        if desc.flags_a >= 0 && (desc.flags_a as usize) < 64 {
+            snd.buffer_pool_shadow[desc.flags_a as usize] = -1;
+        }
+
+        // Stop and release the evicted buffer.
+        if let Some(buf) = desc.take_buffer() {
+            let _ = buf.Stop();
+        }
+
+        return min_idx;
+    }
+
+    -1 // no channel available
+}
+
+/// Slot 3: play_sound — pure thiscall with 5 stack params, RET 0x14.
+/// Params: flags_and_slot, priority, pitch, pan, unused.
+pub unsafe extern "thiscall" fn play_sound(
+    this: *mut DSSound, flags_and_slot: u32, priority: i32, pitch: i32, pan: i32, _p5: u32,
+) -> bool {
+    let snd = &mut *this;
+    // Clear bit 0x10000 (loop flag is stripped by slot 3).
+    let result = core_play_sound(snd, flags_and_slot & 0xFFFEFFFF, priority, pitch, pan);
+    result >= 0
+}
+
+/// Slot 4: play_sound_pooled — pure thiscall with 5 stack params, RET 0x14.
+/// Returns pool_id (1-based) on success, 0 on failure.
+pub unsafe extern "thiscall" fn play_sound_pooled(
+    this: *mut DSSound, flags_and_slot: u32, priority: i32, pitch: i32, pan: i32, _p5: u32,
+) -> i32 {
+    let snd = &mut *this;
+
+    // Check pool has free entries.
+    if snd.buffer_pool_free_count == 0 {
+        return 0;
+    }
+
+    let desc_idx = core_play_sound(snd, flags_and_slot, priority, pitch, pan);
+    if desc_idx < 0 {
+        return 0;
+    }
+
+    // Pop a free pool index.
+    snd.buffer_pool_free_count -= 1;
+    let pool_idx = snd.buffer_pool_free[snd.buffer_pool_free_count as usize];
+
+    // Add to used list.
+    let used_slot = snd.buffer_pool_used_count as usize;
+    snd.buffer_pool_used[used_slot] = pool_idx;
+    snd.buffer_pool_used_count += 1;
+
+    // Link pool ↔ descriptor.
+    snd.buffer_pool_shadow[pool_idx as usize] = desc_idx;
+    snd.channel_descs[desc_idx as usize].flags_a = pool_idx as i32;
+
+    (pool_idx + 1) as i32 // 1-based
 }
 
 /// Slot 14: sub_destructor — sets secondary vtable (0x66AF58), optionally frees.
