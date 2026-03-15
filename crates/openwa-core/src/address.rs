@@ -388,6 +388,45 @@ pub mod va {
     pub const PLAY_SOUND_LOCAL: u32 = 0x004F_DFE0;
     pub const PLAY_SOUND_GLOBAL: u32 = 0x0054_6E20;
 
+    // --- Sound queue dispatch (bridge: queue → DSSound) ---
+
+    /// IsSoundSuppressed — checks mute flag + frame counter.
+    /// fastcall(ECX=ddgame). Returns 0 if sound OK, 1 if suppressed.
+    pub const IS_SOUND_SUPPRESSED: u32 = 0x0052_61E0;
+
+    /// DispatchGlobalSound — suppression check + DSSound vtable slot 3 (play_sound).
+    /// fastcall(ECX=?, EDX=task_turn_game) + 4 stack params (sound_id, flags, volume, pitch).
+    pub const DISPATCH_GLOBAL_SOUND: u32 = 0x0052_6270;
+
+    /// RecordActiveSound — inserts into 64-entry ring buffer (ActiveSoundTable).
+    /// usercall(EAX=table, ESI=emitter) + 4 stack(pos_x, pos_y, volume, channel_handle).
+    pub const RECORD_ACTIVE_SOUND: u32 = 0x0054_6260;
+
+    /// ComputeDistanceParams — computes volume/pan from world position.
+    /// fastcall(ECX=out_pan, EDX=out_volume) + 3 stack(ddgame_offset, pos_x, pos_y).
+    /// If GameInfo+0xF38C == 0, returns volume=0x10000, pan=0.
+    pub const COMPUTE_DISTANCE_PARAMS: u32 = 0x0054_6300;
+
+    /// DispatchLocalSound — core: distance attenuation + DSSound slot 4 + RecordActiveSound.
+    /// usercall(EAX=base_volume, EDI=ddgame_offset) + 4 stack(sound_id, flags, pos_x, pos_y).
+    pub const DISPATCH_LOCAL_SOUND: u32 = 0x0054_6360;
+
+    /// PlayLocalNoEmitter — thin wrapper → DispatchLocalSound.
+    /// thiscall(ECX=?) + 3 stack(sound_id, flags, pitch).
+    pub const PLAY_LOCAL_NO_EMITTER: u32 = 0x0054_6430;
+
+    /// PlayLocalWithEmitter — gets pos from emitter vtable, then DispatchLocalSound.
+    /// usercall(ESI=emitter) + stack params.
+    pub const PLAY_LOCAL_WITH_EMITTER: u32 = 0x0054_63F0;
+
+    /// PlaySoundPooled_Direct — bypasses queue, same suppression + DSSound slot 4.
+    /// fastcall(ECX=?, EDX=task) + 3 stack params.
+    pub const PLAY_SOUND_POOLED_DIRECT: u32 = 0x0054_6B50;
+
+    /// Distance3D_Attenuation — elliptical distance model for positional audio.
+    /// usercall(EAX=camera_pos_ptr) + 6 stack params. Returns volume + pan via out ptrs.
+    pub const DISTANCE_3D_ATTENUATION: u32 = 0x0054_30F0;
+
     // === Speech / Voice Lines ===
 
     /// Speech line table in .rdata: array of {u32 id, *const u8 name},

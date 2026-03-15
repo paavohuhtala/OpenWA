@@ -15,8 +15,8 @@ use crate::fixed::Fixed;
 pub struct ActiveSoundTable {
     /// 0x000-0x5FF: 64 sound entries (entry 0 is unused/reserved).
     pub entries: [ActiveSoundEntry; 64],
-    /// 0x600: Number of active entries (max 64).
-    pub count: u32,
+    /// 0x600: Running counter — incremented on each insert, masked to index (& 0x3F).
+    pub counter: u32,
     /// 0x604: Back-pointer to owning DDGame.
     pub ddgame: *mut DDGame,
 }
@@ -39,10 +39,10 @@ pub struct ActiveSoundEntry {
     pub pos_y: Fixed,
     /// 0x0C: Volume (fixed-point 16.16, 0x10000 = 1.0).
     pub volume: Fixed,
-    /// 0x10: DSSound channel/slot index (1-based).
-    pub channel_index: u32,
-    /// 0x14: Flags (0x40 observed on actively emitting entry).
-    pub flags: u32,
+    /// 0x10: Running counter value at time of insertion (unique ID).
+    pub sequence: u32,
+    /// 0x14: DSSound channel handle (return from play_sound_pooled). 0 = free slot.
+    pub channel_handle: u32,
 }
 
 const _: () = assert!(core::mem::size_of::<ActiveSoundEntry>() == 0x18);

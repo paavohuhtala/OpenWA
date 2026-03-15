@@ -112,7 +112,7 @@ fn validate_addresses(result: &mut ValidationResult) {
         ("DisplayGfx vtable", va::DISPLAY_GFX_VTABLE),
         ("PCLandscape vtable", va::PC_LANDSCAPE_VTABLE),
         ("LandscapeShader vtable", va::LANDSCAPE_SHADER_VTABLE),
-        ("DSSound vtable", va::DS_SOUND_VTABLE),
+        // DSSound vtable excluded: all 24 slots patched to Rust function pointers
         ("TaskStateMachine vtable", va::TASK_STATE_MACHINE_VTABLE),
         ("OpenGLCPU vtable", va::OPENGL_CPU_VTABLE),
         ("WaterEffect vtable", va::WATER_EFFECT_VTABLE),

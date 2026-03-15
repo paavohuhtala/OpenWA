@@ -134,6 +134,108 @@ unsafe extern "cdecl" fn play_sound_local_impl(
 }
 
 // ============================================================
+// Sound dispatch helpers (bridge: queue → DSSound)
+// ============================================================
+
+/// IsSoundSuppressed (0x5261E0) — thiscall(ECX=DDGame*), plain RET.
+/// Returns 0 if sound playback is allowed, 1 if suppressed.
+///
+/// Checks:
+/// - GameInfo+0xF348 (byte): sound mute flag
+/// - DDGame+0x5CC (i32) vs GameInfo+0xF344 (i32): frame counter ≥ threshold
+unsafe extern "thiscall" fn hook_is_sound_suppressed(ddgame: *mut DDGame) -> u32 {
+    let gi = (*ddgame).game_info as *const u8;
+    // Mute flag
+    if *gi.add(0xF348) != 0 {
+        return 1;
+    }
+    // Frame counter must be ≥ sound start threshold
+    let frame_counter = *(ddgame as *const u8).add(0x5CC).cast::<i32>();
+    let threshold = *gi.add(0xF344).cast::<i32>();
+    if frame_counter < threshold {
+        return 1;
+    }
+    0
+}
+
+/// DispatchGlobalSound (0x526270) — fastcall(ECX=unused, EDX=task_turn_game) + 4 stack, RET 0x10.
+/// Checks sound suppression, then calls DSSound vtable slot 3 (play_sound).
+unsafe extern "fastcall" fn hook_dispatch_global_sound(
+    _ecx: u32,
+    task_turn_game: u32,
+    sound_id: u32,
+    flags: u32,
+    volume: u32,
+    pitch: u32,
+) -> u32 {
+    let ddgame = *((task_turn_game as *const u8).add(0x488) as *const *mut DDGame);
+    let gi = (*ddgame).game_info as *const u8;
+
+    // Suppression check (same logic as IsSoundSuppressed but also different return for suppressed)
+    if *gi.add(0xF348) != 0 {
+        return 0xFFFF_FFFF; // -1
+    }
+    let frame_counter = *(ddgame as *const u8).add(0x5CC).cast::<i32>();
+    let threshold = *gi.add(0xF344).cast::<i32>();
+    if frame_counter < threshold {
+        return 0xFFFF_FFFF; // -1
+    }
+
+    // Get DSSound
+    let dssound = (*ddgame).sound;
+    if dssound.is_null() {
+        return 0;
+    }
+
+    // Call DSSound vtable slot 3: play_sound(sound_id, flags, volume, pitch, 0)
+    let vtable = *(dssound as *const *const u32);
+    let play_fn: unsafe extern "thiscall" fn(*mut u8, u32, u32, u32, u32, u32) -> u32 =
+        core::mem::transmute(*vtable.add(3));
+    play_fn(dssound as *mut u8, sound_id, flags, volume, pitch, 0)
+}
+
+/// PlaySoundPooled_Direct (0x546B50) — fastcall(ECX=unused, EDX=task) + 3 stack, RET 0xC.
+/// Bypasses queue, checks suppression + fast-forward, calls DSSound vtable slot 4 directly.
+unsafe extern "fastcall" fn hook_play_sound_pooled_direct(
+    _ecx: u32,
+    task: u32,
+    param1: u32,
+    param2: u32,
+    param3: u32,
+) -> u32 {
+    let ddgame = *((task as *const u8).add(0x2C) as *const *mut DDGame);
+    let gi = (*ddgame).game_info as *const u8;
+
+    // Suppression check
+    if *gi.add(0xF348) != 0 {
+        return 0xFFFF_FFFF;
+    }
+    let frame_counter = *(ddgame as *const u8).add(0x5CC).cast::<i32>();
+    let threshold = *gi.add(0xF344).cast::<i32>();
+    if frame_counter < threshold {
+        return 0xFFFF_FFFF;
+    }
+
+    // Fast-forward check (unique to this function)
+    let ff_active = *(ddgame as *const u8).add(0x98B0).cast::<i32>();
+    if ff_active != 0 {
+        return 0xFFFF_FFFF;
+    }
+
+    // Get DSSound
+    let dssound = (*ddgame).sound;
+    if dssound.is_null() {
+        return 0;
+    }
+
+    // Call DSSound vtable slot 4: play_sound_pooled(param1, param2, 0x10000, param3, 0)
+    let vtable = *(dssound as *const *const u32);
+    let play_fn: unsafe extern "thiscall" fn(*mut u8, u32, u32, u32, u32, u32) -> u32 =
+        core::mem::transmute(*vtable.add(4));
+    play_fn(dssound as *mut u8, param1, param2, 0x10000, param3, 0)
+}
+
+// ============================================================
 // Hook installation
 // ============================================================
 
@@ -154,6 +256,25 @@ pub fn install() -> Result<(), String> {
             "PlaySoundLocal",
             va::PLAY_SOUND_LOCAL,
             trampoline_play_sound_local as *const (),
+        )?;
+
+        // Sound dispatch helpers (bridge: queue → DSSound)
+        let _ = hook::install(
+            "IsSoundSuppressed",
+            va::IS_SOUND_SUPPRESSED,
+            hook_is_sound_suppressed as *const (),
+        )?;
+
+        let _ = hook::install(
+            "DispatchGlobalSound",
+            va::DISPATCH_GLOBAL_SOUND,
+            hook_dispatch_global_sound as *const (),
+        )?;
+
+        let _ = hook::install(
+            "PlaySoundPooled_Direct",
+            va::PLAY_SOUND_POOLED_DIRECT,
+            hook_play_sound_pooled_direct as *const (),
         )?;
 
         // Patch DSSound vtable: replace trivial slots with Rust implementations.
