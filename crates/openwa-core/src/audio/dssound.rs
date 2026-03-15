@@ -42,8 +42,9 @@ pub struct ChannelDescriptor {
     pub flags_a: i32,
     /// +0x08: Flags B (init -1, set to -1 on release)
     pub flags_b: i32,
-    /// +0x0C: Volume/state field (cleared to 0 on release)
-    pub _field_0c: i32,
+    /// +0x0C: Per-channel frequency/pitch value. Multiplied by status_2/status_1
+    /// to compute actual playback frequency. Cleared to 0 on release.
+    pub channel_freq: i32,
     /// +0x10: Per-channel volume (Fixed 16.16, 0..0x10000). Set by set_channel_volume.
     pub channel_volume: i32,
     /// +0x14: IDirectSoundBuffer* for the active buffer (0 = empty).
@@ -211,7 +212,7 @@ pub unsafe extern "thiscall" fn update_channels(this: *mut DSSound) {
                 if (status & 1) == 0 && desc.flags_a < 0 {
                     // Take and drop to release COM ref.
                     desc.take_buffer();
-                    desc._field_0c = 0;
+                    desc.channel_freq = 0;
                     desc.channel_volume = 0;
                     desc.flags_b = -1;
                     desc.flags_a = -1;
@@ -230,7 +231,7 @@ pub unsafe extern "thiscall" fn release_finished(this: *mut DSSound) -> i32 {
             if let Ok(status) = buf.GetStatus() {
                 if (status & 1) == 0 && desc.flags_a < 0 {
                     desc.take_buffer();
-                    desc._field_0c = 0;
+                    desc.channel_freq = 0;
                     desc.channel_volume = 0;
                     desc.flags_b = -1;
                     desc.flags_a = -1;
@@ -285,6 +286,41 @@ pub unsafe extern "thiscall" fn set_master_volume(
     }
 
     1
+}
+
+/// Slot 2: set_volume_params — sets frequency scaling params and adjusts active channels.
+/// `param1` is the divisor (status_1), `param2` is the multiplier (status_2).
+/// For each playing channel: new_freq = channel_freq * param2 / param1, clamped to 200000.
+pub unsafe extern "thiscall" fn set_volume_params(
+    this: *mut DSSound, param1: u32, param2: i32,
+) {
+    let snd = &mut *this;
+
+    // No change → early return.
+    if snd.status_1 == param1 && snd.status_2 == param2 as u32 {
+        return;
+    }
+    snd.status_1 = param1;
+    snd.status_2 = param2 as u32;
+
+    for desc in &snd.channel_descs {
+        let Some(buf) = desc.buffer() else { continue };
+
+        // Check if buffer is playing.
+        let Ok(status) = buf.GetStatus() else { continue };
+        if status & 1 == 0 {
+            continue;
+        }
+
+        // Compute adjusted frequency: channel_freq * param2 / param1.
+        if param1 == 0 {
+            continue;
+        }
+        let freq = (desc.channel_freq as i64 * param2 as i64 / param1 as i64) as i32;
+        let freq = freq.min(200_000);
+
+        let _ = buf.SetFrequency(freq as u32);
+    }
 }
 
 /// Slot 5: set_pan — sets stereo panning on a specific channel.
@@ -429,7 +465,7 @@ pub unsafe extern "thiscall" fn stop_channel(
     }
 
     // Reset descriptor to free state.
-    desc._field_0c = 0;
+    desc.channel_freq = 0;
     desc.channel_volume = 0;
     desc.flags_b = -1;
     desc.flags_a = -1;
