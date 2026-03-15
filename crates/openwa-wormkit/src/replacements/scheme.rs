@@ -18,7 +18,7 @@ use crate::log_line;
 use openwa_core::rebase::rb;
 use openwa_core::address::va;
 use openwa_core::game::scheme::{
-    ExtendedOptions, SchemeFile, SchemeVersion, EXTENDED_OPTIONS_SIZE,
+    ExtendedOptions, SchemeFile, SchemeVersion, EXTENDED_OPTIONS_DEFAULTS, EXTENDED_OPTIONS_SIZE,
     SCHEME_PAYLOAD_V1, SCHEME_PAYLOAD_V2, SCHEME_PAYLOAD_V3,
 };
 
@@ -52,68 +52,55 @@ const SCHEME_WEAPON_CHECK_COUNT: usize = 39;
 /// MFC string resource ID for default scheme name.
 const STRING_RES_DEFAULT_NAME: u32 = 0x0E;
 
-/// Read the V3 extended options defaults from WA.exe ROM (110 bytes at 0x649AB8).
-unsafe fn rom_ext_defaults() -> *const u8 {
-    rb(va::SCHEME_V3_DEFAULTS) as *const u8
-}
-
 /// Write a parsed SchemeFile into the WA dest struct at the correct offsets.
 ///
 /// Replicates the memory writes from Scheme__ReadFile:
-/// - V1: payload(0xD8) + zero super weapons(0x4C) + ROM defaults(0x6E)
-/// - V2: payload(0x124) + ROM defaults(0x6E)
-/// - V3: payload(0x192), with validation fallback to ROM defaults
+/// - V1: payload(0xD8) + zero super weapons(0x4C) + defaults(0x6E)
+/// - V2: payload(0x124) + defaults(0x6E)
+/// - V3: payload(0x192), with validation fallback to defaults
 unsafe fn write_scheme_to_dest(scheme: &SchemeFile, dest: u32) {
     let payload_ptr = (dest as usize + DEST_PAYLOAD) as *mut u8;
-    let rom_defaults = rom_ext_defaults();
 
     match scheme.version {
         SchemeVersion::V1 => {
-            // Copy V1 payload (216 bytes)
             core::ptr::copy_nonoverlapping(
                 scheme.payload.as_ptr(),
                 payload_ptr,
                 SCHEME_PAYLOAD_V1,
             );
-            // Zero the super weapons region (76 bytes)
             core::ptr::write_bytes(
                 payload_ptr.add(PAYLOAD_SUPER_WEAPONS),
                 0,
                 SUPER_WEAPONS_SIZE,
             );
-            // Copy V3 defaults from ROM for extended options (110 bytes)
             core::ptr::copy_nonoverlapping(
-                rom_defaults,
+                EXTENDED_OPTIONS_DEFAULTS.as_ptr(),
                 payload_ptr.add(PAYLOAD_EXTENDED),
                 EXTENDED_OPTIONS_SIZE,
             );
         }
         SchemeVersion::V2 => {
-            // Copy V2 payload (292 bytes)
             core::ptr::copy_nonoverlapping(
                 scheme.payload.as_ptr(),
                 payload_ptr,
                 SCHEME_PAYLOAD_V2,
             );
-            // Copy V3 defaults from ROM for extended options (110 bytes)
             core::ptr::copy_nonoverlapping(
-                rom_defaults,
+                EXTENDED_OPTIONS_DEFAULTS.as_ptr(),
                 payload_ptr.add(PAYLOAD_EXTENDED),
                 EXTENDED_OPTIONS_SIZE,
             );
         }
         SchemeVersion::V3 => {
-            // Copy full V3 payload (402 bytes)
             core::ptr::copy_nonoverlapping(
                 scheme.payload.as_ptr(),
                 payload_ptr,
                 SCHEME_PAYLOAD_V3,
             );
-            // Validate extended options; if invalid, replace with ROM defaults
             let ext_bytes = &scheme.payload[PAYLOAD_EXTENDED..];
             if !ExtendedOptions::validate_bytes(ext_bytes) {
                 core::ptr::copy_nonoverlapping(
-                    rom_defaults,
+                    EXTENDED_OPTIONS_DEFAULTS.as_ptr(),
                     payload_ptr.add(PAYLOAD_EXTENDED),
                     EXTENDED_OPTIONS_SIZE,
                 );
