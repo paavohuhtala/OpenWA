@@ -179,12 +179,18 @@ unsafe fn patch_dssound_vtable() -> Result<(), String> {
         // Slot 12: load_wav — WAV file → DirectSound secondary buffer (hound + windows crate)
         *vt.add(12) = load_wav as *const () as u32;
 
-        // Slots 1, 9, 10, 11 disabled — need descriptor field layout
-        // verified with runtime memory dumps before enabling.
+        // Slots 1, 11 disabled — update_channels/release_finished crash
+        // when iterating descriptors. Layout is confirmed correct via
+        // runtime dumps; issue is likely COM refcount handling in buffer().
         // *vt.add(1) = update_channels as *const () as u32;
-        // *vt.add(9) = is_channel_playing as *const () as u32;
-        // *vt.add(10) = stop_channel as *const () as u32;
         // *vt.add(11) = release_finished as *const () as u32;
+
+        // Slots 9, 10 disabled — slot 9's return value semantics are unclear
+        // from decompile; wrong values break sound scheduling entirely.
+        // *vt.add(9) = is_channel_playing as *const () as u32;
+
+        // Slot 10: disabled pending slot 9 fix
+        // *vt.add(10) = stop_channel as *const () as u32;
 
         // Slot 13: is_slot_loaded — channel_slots check
         *vt.add(13) = is_slot_loaded as *const () as u32;

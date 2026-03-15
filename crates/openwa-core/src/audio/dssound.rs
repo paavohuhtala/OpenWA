@@ -241,8 +241,10 @@ pub unsafe extern "thiscall" fn sub_destructor(
     this
 }
 
-/// Slot 9: is_channel_playing — checks if a buffer pool entry is still playing.
-/// `pool_id` is 1-based (1..64). Returns 1 if playing or invalid, 0 if stopped.
+/// Slot 9: is_channel_playing — checks if a buffer pool entry's GetStatus succeeds.
+/// `pool_id` is 1-based (1..64). Returns 0 only for out-of-range pool_id.
+/// Original always returns 1 unless pool_id is invalid — it checks whether
+/// GetStatus succeeds (S_OK), not the actual playing status bits.
 pub unsafe extern "thiscall" fn is_channel_playing(
     this: *mut DSSound, pool_id: i32,
 ) -> u8 {
@@ -250,21 +252,8 @@ pub unsafe extern "thiscall" fn is_channel_playing(
     if idx >= 64 {
         return 0;
     }
-    let snd = &*this;
-    let desc_idx = snd.buffer_pool_shadow[idx];
-    if desc_idx < 0 {
-        return 0;
-    }
-    let desc = &snd.channel_descs[desc_idx as usize];
-    let Some(buf) = desc.buffer() else { return 0 };
-    let status = buf.GetStatus();
-    if let Ok(s) = status {
-        if (s & 1) != 0 {
-            // DSBSTATUS_PLAYING = 1
-            return 1;
-        }
-    }
-    1 // original returns 1 even on error
+    // Original returns 1 in all other cases (found or not, playing or not).
+    1
 }
 
 /// Slot 10: stop_channel — stops a buffer, releases it, and returns the pool entry.
@@ -278,7 +267,7 @@ pub unsafe extern "thiscall" fn stop_channel(
     }
     let snd = &mut *this;
     let desc_idx = snd.buffer_pool_shadow[idx];
-    if desc_idx < 0 {
+    if desc_idx < 0 || desc_idx as usize >= 8 {
         return 0;
     }
     let di = desc_idx as usize;

@@ -1438,6 +1438,57 @@ pub fn run() -> Result<(), String> {
     Ok(())
 }
 
+/// Dump DSSound channel descriptor raw bytes for field layout verification.
+unsafe fn dump_dssound_channels() {
+    use openwa_core::address::va;
+    use openwa_core::rebase::rb;
+    use openwa_core::engine::game_session::GameSession;
+    use openwa_core::audio::DSSound;
+
+    let session_ptr = rb(va::G_GAME_SESSION) as *const *const GameSession;
+    let session = *session_ptr;
+    if session.is_null() {
+        let _ = log_validation("[DSSound] No session");
+        return;
+    }
+    let sound = (*session).sound;
+    if sound.is_null() {
+        let _ = log_validation("[DSSound] No sound");
+        return;
+    }
+    let snd = &*sound;
+
+    let _ = log_validation("=== DSSound Channel Descriptor Dump ===");
+    let _ = log_validation(&format!(
+        "  DSSound at 0x{:08X}, vtable=0x{:08X}, volume={:?}",
+        sound as u32, snd.vtable as u32, snd.volume
+    ));
+
+    // Dump each descriptor as raw u32s
+    let base = sound as *const u8;
+    for i in 0..8 {
+        let desc_offset = 0x14 + i * 0x18;
+        let desc_ptr = base.add(desc_offset) as *const u32;
+        let words: [u32; 6] = [
+            *desc_ptr, *desc_ptr.add(1), *desc_ptr.add(2),
+            *desc_ptr.add(3), *desc_ptr.add(4), *desc_ptr.add(5),
+        ];
+        let has_buffer = words[5] != 0; // ds_buffer at +0x14 = word[5]
+        let _ = log_validation(&format!(
+            "  desc[{}] @+0x{:03X}: [{:08X} {:08X} {:08X} {:08X} {:08X} {:08X}]{}",
+            i, desc_offset,
+            words[0], words[1], words[2], words[3], words[4], words[5],
+            if has_buffer { " <-- has buffer" } else { "" }
+        ));
+    }
+
+    // Also dump buffer pool state
+    let _ = log_validation(&format!(
+        "  pool: free={}, used={}",
+        snd.buffer_pool_free_count, snd.buffer_pool_used_count
+    ));
+}
+
 /// Start the debug hotkey listener thread.
 ///
 /// F8 = CTaskMissile dump (fire a weapon first, then press F8 while missile is in flight).
@@ -1451,11 +1502,13 @@ pub fn start_hotkeys() {
 
     std::thread::spawn(|| {
         use windows_sys::Win32::UI::Input::KeyboardAndMouse::GetAsyncKeyState;
+        const VK_F7: i32 = 0x76;
         const VK_F8: i32 = 0x77;
-        let _ = log_validation("  Hotkeys: F8=missile dump (fire weapon, then press F8 while missile is in flight)");
+        let _ = log_validation("  Hotkeys: F7=DSSound channel dump, F8=missile dump");
         loop {
             std::thread::sleep(std::time::Duration::from_millis(100));
             unsafe {
+                if GetAsyncKeyState(VK_F7) & 1 != 0 { dump_dssound_channels(); }
                 if GetAsyncKeyState(VK_F8) & 1 != 0 { dump_missile_tasks(); }
             }
         }
