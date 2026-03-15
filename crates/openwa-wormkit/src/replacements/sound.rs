@@ -170,6 +170,7 @@ unsafe fn patch_dssound_vtable() -> Result<(), String> {
     use openwa_core::audio::{
         update_channels, release_finished,
         is_slot_loaded, is_channel_finished, stop_channel,
+        dssound_destructor,
         set_volume_params, set_master_volume, set_channel_volume, set_pan,
         dssound_sub_destructor,
         load_wav, dssound_noop, dssound_returns_0, dssound_returns_1,
@@ -180,6 +181,9 @@ unsafe fn patch_dssound_vtable() -> Result<(), String> {
     patch_vtable(vtable, 24, |vt| {
         // Slot 12: load_wav — WAV file → DirectSound secondary buffer (hound + windows crate)
         *vt.add(12) = load_wav as *const () as u32;
+
+        // Slot 0: destructor — releases all COM objects
+        *vt.add(0) = dssound_destructor as *const () as u32;
 
         // Slot 1: update_channels — release finished buffers each frame
         *vt.add(1) = update_channels as *const () as u32;
@@ -223,6 +227,6 @@ unsafe fn patch_dssound_vtable() -> Result<(), String> {
         // Trivial returns-1 (slot 23)
         *vt.add(23) = dssound_returns_1 as *const () as u32;
 
-        let _ = log_line("[Sound]   DSSound vtable: patched 21/24 slots with Rust");
+        let _ = log_line("[Sound]   DSSound vtable: patched 22/24 slots with Rust");
     }).map_err(|e| e.to_string())
 }

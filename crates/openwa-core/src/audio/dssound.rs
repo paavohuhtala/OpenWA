@@ -396,6 +396,60 @@ pub unsafe extern "thiscall" fn set_channel_volume(
     1
 }
 
+/// Slot 0: destructor — releases all COM objects and frees memory.
+pub unsafe extern "thiscall" fn destructor(
+    this: *mut DSSound, flags: u8,
+) -> *mut DSSound {
+    let snd = &mut *this;
+
+    // Reset vtable to primary (destructor chain pattern).
+    use crate::address::va;
+    use crate::rebase::rb;
+    snd.vtable = rb(va::DS_SOUND_VTABLE) as *const DSSoundVtable;
+
+    // Release all 8 channel descriptor buffers (Stop + Release).
+    for desc in &mut snd.channel_descs {
+        if let Some(buf) = desc.take_buffer() {
+            let _ = buf.Stop();
+            // Release on drop
+        }
+    }
+
+    // Release all 500 channel slot buffers.
+    for slot in &mut snd.channel_slots {
+        if *slot != 0 {
+            let buf: IDirectSoundBuffer = core::mem::transmute_copy(slot);
+            // Release on drop (no Stop needed — these are template buffers)
+            drop(buf);
+            *slot = 0;
+        }
+    }
+
+    // Release primary buffer (Stop + Release).
+    if snd.primary_buffer != 0 {
+        let buf: IDirectSoundBuffer = core::mem::transmute_copy(&snd.primary_buffer);
+        let _ = buf.Stop();
+        drop(buf);
+        snd.primary_buffer = 0;
+    }
+
+    // Release IDirectSound.
+    if snd.direct_sound != 0 {
+        use windows::Win32::Media::Audio::DirectSound::IDirectSound;
+        let ds: IDirectSound = core::mem::transmute_copy(&snd.direct_sound);
+        drop(ds);
+        snd.direct_sound = 0;
+    }
+
+    // Set secondary vtable (base class destructor pattern).
+    snd.vtable = rb(0x0066_AF58) as *const DSSoundVtable;
+
+    if flags & 1 != 0 {
+        crate::wa_alloc::wa_free(this as *mut u8);
+    }
+    this
+}
+
 /// Slot 14: sub_destructor — sets secondary vtable (0x66AF58), optionally frees.
 /// This is a base-class destructor called by the primary destructor (slot 0).
 pub unsafe extern "thiscall" fn sub_destructor(

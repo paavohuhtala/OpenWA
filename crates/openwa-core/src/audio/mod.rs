@@ -8,6 +8,7 @@ pub mod streaming;
 pub use active_sound::{ActiveSoundEntry, ActiveSoundTable};
 pub use dssound::{DSSound, DSSoundVtable, ChannelDescriptor};
 pub use dssound::{
+    destructor as dssound_destructor,
     update_channels, release_finished,
     is_slot_loaded, is_channel_finished, stop_channel,
     set_volume_params, set_master_volume, set_channel_volume, set_pan,
