@@ -247,34 +247,32 @@ unsafe extern "stdcall" fn call_ddisplay_init(
 /// The returned pointer is always valid (sound may be partially initialized
 /// if COM steps fail, matching original WA behavior).
 unsafe fn create_dssound(hwnd: u32) -> *mut DSSound {
+    use windows::Win32::Media::Audio::DirectSound::{
+        DirectSoundCreate, IDirectSound, IDirectSoundBuffer, DSBPLAY_LOOPING,
+    };
+
     let snd = WABox::<DSSound>::alloc(0xBE0, 0xBC0).leak();
     call_dssound_ctor(snd);
     (*snd).hwnd = hwnd;
 
-    let ds_create: unsafe extern "stdcall" fn(*const u8, *mut *mut u8, *const u8) -> i32 =
-        core::mem::transmute(rb(va::DIRECTSOUND_CREATE) as usize);
-    let hr = ds_create(
-        core::ptr::null(),
-        &mut (*snd).direct_sound,
-        core::ptr::null(),
-    );
+    // Create DirectSound COM object.
+    let mut ds: Option<IDirectSound> = None;
+    if DirectSoundCreate(None, &mut ds, None).is_ok() {
+        let ds = ds.unwrap();
+        (*snd).direct_sound = core::mem::transmute_copy(&ds);
+        core::mem::forget(ds); // WA owns the COM reference
 
-    if hr == 0 {
+        // Initialize primary buffer (WA's usercall function).
         DSSOUND_INIT_EAX = snd as u32;
         let hr2 = call_dssound_init_buffers(
             &mut (*snd).primary_buffer,
             &mut (*snd).primary_buffer_caps,
         );
         if hr2 == 0 {
-            // IDirectSoundBuffer::Play(this, 0, 0, DSBPLAY_LOOPING=1)
-            const PLAY_VSLOT: usize = 0x30 / 4; // IDirectSoundBuffer vtable slot 12
-            let pds = (*snd).primary_buffer as *const *const usize;
-            let vtbl = *pds;
-            let play: unsafe extern "stdcall" fn(
-                *const *const usize, u32, u32, u32,
-            ) -> i32 = core::mem::transmute(*vtbl.add(PLAY_VSLOT));
-            let hr3 = play(pds, 0, 0, 1);
-            if hr3 == 0 {
+            // Start the primary buffer looping.
+            let primary: &IDirectSoundBuffer =
+                &*(&(*snd).primary_buffer as *const *mut u8 as *const IDirectSoundBuffer);
+            if primary.Play(0, 0, DSBPLAY_LOOPING).is_ok() {
                 (*snd).init_success = 1;
             }
         }

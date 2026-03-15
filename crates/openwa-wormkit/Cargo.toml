@@ -17,6 +17,9 @@ heapless = "0.9"
 minhook = "0.9"
 
 [target.'cfg(target_os = "windows")'.dependencies]
+windows = { version = "0.62", features = [
+    "Win32_Media_Audio_DirectSound",
+] }
 windows-sys = { version = "0.59", features = [
     "Win32_Foundation",
     "Win32_System_LibraryLoader",
