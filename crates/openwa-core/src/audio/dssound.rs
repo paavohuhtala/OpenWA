@@ -143,10 +143,172 @@ const _: () = assert!(core::mem::size_of::<DSSound>() == 0xBE0);
 
 // ── Trivial vtable method implementations ─────────────────────────────────
 
+// ── Rust vtable method implementations ────────────────────────────────────
+
 /// Slot 13: is_slot_loaded — returns whether sound at `slot_idx` has a buffer loaded.
-/// One-liner: `channel_slots[slot_idx] != 0`.
 pub unsafe extern "thiscall" fn is_slot_loaded(this: *mut DSSound, slot_idx: i32) -> bool {
     (*this).channel_slots.get((slot_idx - 1) as usize).copied().unwrap_or(0) != 0
+}
+
+/// Trivial noop — returns void. Used for slots 15, 16.
+pub unsafe extern "thiscall" fn noop(_this: *mut DSSound) {}
+
+/// Trivial stub — returns 0. Used for slots 6, 17, 18, 19, 20, 21, 22.
+pub unsafe extern "thiscall" fn returns_0(_this: *mut DSSound) -> u32 { 0 }
+
+/// Trivial stub — returns 1. Used for slot 23.
+pub unsafe extern "thiscall" fn returns_1(_this: *mut DSSound) -> u32 { 1 }
+
+/// Slot 12: load_wav — load a WAV file into a DirectSound secondary buffer
+/// and store the buffer pointer at `channel_slots[slot_idx]`.
+///
+/// Original at 0x573FF0: opens file, parses RIFF/WAVE, creates secondary
+/// buffer via IDirectSound::CreateSoundBuffer, locks + fills + unlocks.
+///
+/// This Rust version uses `hound` for WAV parsing and the `windows` crate
+/// for DirectSound COM calls.
+///
+/// Returns 0 on success, 1 on failure (matching original).
+#[cfg(target_os = "windows")]
+pub unsafe extern "thiscall" fn load_wav(
+    this: *mut DSSound,
+    slot_idx: i32,
+    path: *const u8,
+) -> u32 {
+    use windows::Win32::Media::Audio::DirectSound::{
+        IDirectSound, IDirectSoundBuffer,
+        DSBUFFERDESC, DSBLOCK_ENTIREBUFFER,
+    };
+    use windows::Win32::Media::Audio::{WAVEFORMATEX, WAVE_FORMAT_PCM};
+
+    // Validate: need DirectSound, valid slot, not already loaded.
+    let snd = &mut *this;
+    if snd.direct_sound == 0 {
+        return 1;
+    }
+    let slot = (slot_idx - 1) as usize;
+    if slot >= 499 || snd.channel_slots.get(slot).copied().unwrap_or(1) != 0 {
+        return 1;
+    }
+
+    // Read path as C string.
+    let c_path = match core::ffi::CStr::from_ptr(path as *const i8).to_str() {
+        Ok(s) => s,
+        Err(_) => return 1,
+    };
+
+    // Parse WAV with hound.
+    let reader = match hound::WavReader::open(c_path) {
+        Ok(r) => r,
+        Err(_) => return 1,
+    };
+    let spec = reader.spec();
+    let sample_bytes = (spec.bits_per_sample / 8) as u32;
+    let block_align = spec.channels as u16 * sample_bytes as u16;
+    let avg_bytes_per_sec = spec.sample_rate * block_align as u32;
+    let data_len = reader.duration() * block_align as u32;
+
+    // Build WAVEFORMATEX for the secondary buffer.
+    let wfx = WAVEFORMATEX {
+        wFormatTag: WAVE_FORMAT_PCM as u16,
+        nChannels: spec.channels,
+        nSamplesPerSec: spec.sample_rate,
+        nAvgBytesPerSec: avg_bytes_per_sec,
+        nBlockAlign: block_align,
+        wBitsPerSample: spec.bits_per_sample,
+        cbSize: 0,
+    };
+
+    // DSBUFFERDESC flags: 0xE8 = DSBCAPS_CTRLVOLUME | DSBCAPS_CTRLPAN |
+    //                            DSBCAPS_CTRLFREQUENCY | DSBCAPS_STATIC
+    let desc = DSBUFFERDESC {
+        dwSize: core::mem::size_of::<DSBUFFERDESC>() as u32,
+        dwFlags: 0xE8,
+        dwBufferBytes: data_len,
+        dwReserved: 0,
+        lpwfxFormat: &wfx as *const _ as *mut _,
+        ..core::mem::zeroed()
+    };
+
+    // Create secondary buffer.
+    let ds: &IDirectSound = &*(&snd.direct_sound as *const Ptr32 as *const IDirectSound);
+    let mut buf: Option<IDirectSoundBuffer> = None;
+    if ds.CreateSoundBuffer(&desc, &mut buf, None).is_err() {
+        return 1;
+    }
+    let buf = match buf {
+        Some(b) => b,
+        None => return 1,
+    };
+
+    // Lock the buffer and fill with PCM data.
+    let mut audio_ptr1: *mut core::ffi::c_void = core::ptr::null_mut();
+    let mut audio_len1: u32 = 0;
+    if buf.Lock(
+        0, data_len,
+        &mut audio_ptr1, &mut audio_len1,
+        None, None,
+        DSBLOCK_ENTIREBUFFER,
+    ).is_err() {
+        return 1;
+    }
+
+    // Read raw PCM bytes from the WAV file (hound gives us the data region).
+    // We re-open to get raw bytes since hound's reader decodes samples.
+    // Instead, use std::fs to read the raw data portion.
+    // Actually, hound's into_inner() gives the underlying reader after headers.
+    // But the simplest approach: just read the raw bytes from the data chunk.
+    {
+        let dest = core::slice::from_raw_parts_mut(audio_ptr1 as *mut u8, audio_len1 as usize);
+        // hound exposes samples; for raw PCM we can collect them.
+        // For 16-bit: each sample is i16. For 8-bit: u8.
+        match spec.bits_per_sample {
+            16 => {
+                let mut reader = match hound::WavReader::open(c_path) {
+                    Ok(r) => r,
+                    Err(_) => { let _ = buf.Unlock(audio_ptr1, audio_len1, None, 0); return 1; }
+                };
+                let mut offset = 0usize;
+                for sample in reader.samples::<i16>() {
+                    if let Ok(s) = sample {
+                        if offset + 2 <= dest.len() {
+                            dest[offset..offset + 2].copy_from_slice(&s.to_le_bytes());
+                            offset += 2;
+                        }
+                    }
+                }
+            }
+            8 => {
+                let mut reader = match hound::WavReader::open(c_path) {
+                    Ok(r) => r,
+                    Err(_) => { let _ = buf.Unlock(audio_ptr1, audio_len1, None, 0); return 1; }
+                };
+                let mut offset = 0usize;
+                for sample in reader.samples::<i16>() {
+                    if let Ok(s) = sample {
+                        if offset < dest.len() {
+                            // 8-bit WAV is unsigned (0-255, center at 128)
+                            dest[offset] = (s + 128) as u8;
+                            offset += 1;
+                        }
+                    }
+                }
+            }
+            _ => {
+                // Unsupported format — zero-fill
+                dest.fill(0);
+            }
+        }
+    }
+
+    let _ = buf.Unlock(audio_ptr1, audio_len1, None, 0);
+
+    // Store buffer pointer in channel_slots and track bytes loaded.
+    snd.channel_slots[slot] = core::mem::transmute_copy(&buf);
+    core::mem::forget(buf); // WA owns the COM reference
+    snd.total_bytes_loaded += data_len;
+
+    0 // success
 }
 
 // ── Construction ──────────────────────────────────────────────────────────
