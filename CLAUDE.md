@@ -50,7 +50,8 @@ How it works:
 
 Key paths:
 - Replay files: `testdata/replays/*.WAgame`
-- Captured logs: `testdata/logs/` (gitignored, `validation_latest.log` / `openwa_latest.log`)
+- Captured logs: `testdata/logs/` (gitignored, `validation_latest.log` / `openwa_latest.log` / `errorlog_latest.txt`)
+- Crash log: WA writes `ERRORLOG.TXT` to game dir on crash -- script clears it before each run and copies to `testdata/logs/` if present
 - Script: `replay-test.ps1`
 - Skill: `.claude/skills/replay-test/SKILL.md`
 

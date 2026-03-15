@@ -29,6 +29,9 @@ powershell -ExecutionPolicy Bypass -File replay-test.ps1 -Headless
 
 2. Read the output and present results:
 
+**Both modes:**
+- If `testdata/logs/errorlog_latest.txt` exists, WA.exe crashed. Read it and report the crash (exception type, address, registers)
+
 **Headful mode:**
 - Read `testdata/logs/validation_latest.log` and summarize total PASS/FAIL counts
 - Quote any [FAIL] lines exactly
@@ -37,7 +40,7 @@ powershell -ExecutionPolicy Bypass -File replay-test.ps1 -Headless
 
 **Headless mode:**
 - The script compares the output log to `testdata/replays/bots_expected.log`
-- PASS means byte-identical output — replay is deterministic
+- PASS means byte-identical output -- replay is deterministic
 - FAIL shows the diff lines between expected and actual
 
 ## Environment Variables

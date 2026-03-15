@@ -38,6 +38,7 @@ $launcher = "$src\openwa-launcher.exe"
 # 2. Clear old logs
 Remove-Item "$gameDir\OpenWA.log"            -ErrorAction SilentlyContinue
 Remove-Item "$gameDir\OpenWA_validation.log" -ErrorAction SilentlyContinue
+Remove-Item "$gameDir\ERRORLOG.TXT"          -ErrorAction SilentlyContinue
 
 # Remove old WormKit DLL if present from a previous deployment
 if (Test-Path "$gameDir\wkOpenWA.dll") {
@@ -105,7 +106,29 @@ if (Test-Path "$gameDir\OpenWA.log") {
     Write-Host "OpenWA log copied." -ForegroundColor Green
 }
 
-# 5. Print summary
+$crashed = $false
+if (Test-Path "$gameDir\ERRORLOG.TXT") {
+    Copy-Item "$gameDir\ERRORLOG.TXT" "$logDir\errorlog_$timestamp.txt"
+    Copy-Item "$gameDir\ERRORLOG.TXT" "$logDir\errorlog_latest.txt"
+    Write-Host "ERRORLOG.TXT copied (crash detected)." -ForegroundColor Red
+    $crashed = $true
+} else {
+    Remove-Item "$logDir\errorlog_latest.txt" -ErrorAction SilentlyContinue
+}
+
+# 5. Crash check (before summary, so it always runs)
+if ($crashed) {
+    Write-Host ""
+    Write-Host "=== CRASH DETECTED ===" -ForegroundColor Red
+    Get-Content "$logDir\errorlog_latest.txt" -TotalCount 5 | ForEach-Object {
+        Write-Host "  $_" -ForegroundColor Red
+    }
+    Write-Host "  ..." -ForegroundColor Red
+    Write-Host "  Full log: $logDir\errorlog_latest.txt" -ForegroundColor Gray
+    exit 1
+}
+
+# 6. Print summary
 Write-Host ""
 if ($Headless) {
     Write-Host "=== Headless Log Comparison ===" -ForegroundColor Cyan
