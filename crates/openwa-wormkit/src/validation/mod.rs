@@ -1443,7 +1443,6 @@ unsafe fn dump_dssound_channels() {
     use openwa_core::address::va;
     use openwa_core::rebase::rb;
     use openwa_core::engine::game_session::GameSession;
-    use openwa_core::audio::DSSound;
 
     let session_ptr = rb(va::G_GAME_SESSION) as *const *const GameSession;
     let session = *session_ptr;

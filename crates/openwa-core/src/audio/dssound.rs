@@ -460,7 +460,6 @@ unsafe fn core_play_sound(
     volume: i32,
     pan: i32,
 ) -> i32 {
-    use crate::log::log_line;
     use windows::Win32::Media::Audio::DirectSound::IDirectSound;
 
     // Check master volume and DirectSound initialized.
@@ -474,20 +473,15 @@ unsafe fn core_play_sound(
 
     // Validate slot index and check buffer loaded.
     if slot_idx == 0 || slot_idx > 499 || snd.channel_slots[slot_idx] == 0 {
-        let _ = log_line(&format!("[DSSound] core_play: invalid slot {slot_idx}"));
         return -1;
     }
 
     // Allocate a channel descriptor (find free or evict lowest priority).
     let desc_idx = allocate_channel(snd, priority);
     if desc_idx < 0 {
-        let _ = log_line("[DSSound] core_play: no channel available");
         return -1;
     }
     let di = desc_idx as usize;
-    let _ = log_line(&format!(
-        "[DSSound] core_play: slot={slot_idx} desc={di} flags=0x{flags_and_slot:X} freq={frequency} vol={volume} pan={pan} pri={priority}"
-    ));
 
     // Get the template buffer from channel_slots.
     let template_buf: &IDirectSoundBuffer =
@@ -495,11 +489,10 @@ unsafe fn core_play_sound(
 
     // Duplicate the buffer via IDirectSound::DuplicateSoundBuffer.
     let ds: &IDirectSound =
-        &*(&snd.direct_sound as *const Ptr32 as *const windows::Win32::Media::Audio::DirectSound::IDirectSound);
+        &*(&snd.direct_sound as *const Ptr32 as *const IDirectSound);
     let new_buf = match ds.DuplicateSoundBuffer(template_buf) {
         Ok(buf) => buf,
-        Err(e) => {
-            let _ = log_line(&format!("[DSSound] core_play: DuplicateSoundBuffer failed: {e}"));
+        Err(_) => {
             snd.channel_descs[di].ds_buffer = 0;
             return -1;
         }
@@ -508,7 +501,7 @@ unsafe fn core_play_sound(
     // Clamp volume to [0, 0x10000].
     let vol = volume.max(0).min(0x10000);
 
-    // Compute per-channel volume: vol * 3/4.
+    // Compute per-channel volume: vol * 3/4 (with rounding).
     let vol_scaled = (vol * 3 + (((vol * 3) >> 31) & 3)) >> 2;
 
     // Compute dB for volume.
@@ -540,32 +533,20 @@ unsafe fn core_play_sound(
         channel_freq
     };
 
-    let _ = log_line(&format!(
-        "[DSSound] core_play: vol_db={vol_db} vol_scaled={vol_scaled} freq={freq} ch_freq={channel_freq} base={base_freq} loop={loop_flag}"
-    ));
-
-    // Apply volume, frequency, pan to the new buffer.
+    // Apply volume, frequency, pan to the duplicated buffer and start playback.
     if let Some(buf) = desc.buffer() {
-        let _ = log_line("[DSSound] core_play: SetCurrentPosition");
         let _ = buf.SetCurrentPosition(0);
-        let _ = log_line("[DSSound] core_play: SetFrequency");
         let _ = buf.SetFrequency(freq as u32);
-        let _ = log_line("[DSSound] core_play: SetVolume");
         let _ = buf.SetVolume(vol_db);
 
-        // Pan from the 4th stack param.
+        // Pan: convert fixed-point to dB via reversed lookup table.
         let pan_clamped = pan.max(-0x10000).min(0x10000);
         let pan_idx = ((pan_clamped.unsigned_abs() >> 10) as usize).min(63);
         let mut pan_db = VOLUME_DB_TABLE[63 - pan_idx] as i32;
         if pan_clamped > 0 { pan_db = -pan_db; }
-        let _ = log_line(&format!("[DSSound] core_play: SetPan({pan_db}) from pan={pan}"));
         let _ = buf.SetPan(pan_db);
 
-        // Start playback.
-        let loop_val = if loop_flag { 1u32 } else { 0u32 };
-        let _ = log_line("[DSSound] core_play: Play");
-        let _ = buf.Play(0, 0, loop_val);
-        let _ = log_line("[DSSound] core_play: done");
+        let _ = buf.Play(0, 0, if loop_flag { 1 } else { 0 });
     }
 
     desc_idx
@@ -776,8 +757,6 @@ pub unsafe extern "thiscall" fn load_wav(
     };
     use windows::Win32::Media::Audio::{WAVEFORMATEX, WAVE_FORMAT_PCM};
 
-    use crate::log::log_line;
-
     // Validate: need DirectSound, valid slot, not already loaded.
     // Slot index is used directly as array index (1-based, slot 0 unused).
     let snd = &mut *this;
@@ -805,11 +784,6 @@ pub unsafe extern "thiscall" fn load_wav(
     let block_align = spec.channels as u16 * sample_bytes as u16;
     let avg_bytes_per_sec = spec.sample_rate * block_align as u32;
     let data_len = reader.duration() * block_align as u32;
-
-    let _ = log_line(&format!(
-        "[Sound] Loading WAV: '{}', {} Hz, {} channels, {} bits, {} bytes",
-        c_path, spec.sample_rate, spec.channels, spec.bits_per_sample, data_len
-    ));
 
     // Build WAVEFORMATEX for the secondary buffer.
     let wfx = WAVEFORMATEX {
