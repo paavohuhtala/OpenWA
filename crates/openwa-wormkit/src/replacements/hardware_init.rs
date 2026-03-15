@@ -61,8 +61,6 @@ static mut SAVED_RET: u32 = 0;
 
 /// Function addresses, set in `install()`.
 static mut TIMER_CTOR_ADDR: u32 = 0;
-static mut DSSOUND_CTOR_ADDR: u32 = 0;
-static mut DSSOUND_INIT_BUF_ADDR: u32 = 0;
 static mut INPUT_CTRL_INIT_ADDR: u32 = 0;
 static mut STREAM_CTOR_ADDR: u32 = 0;
 static mut DDISPLAY_INIT_ADDR: u32 = 0;
@@ -75,8 +73,6 @@ static mut INPUT_CTRL_ESI: u32 = 0;
 /// Saved ESI across the `call_input_ctrl_init` call.
 static mut INPUT_CTRL_SAVED_ESI: u32 = 0;
 
-/// Implicit EAX for `call_dssound_init_buffers` (set by `impl_init_hardware`).
-static mut DSSOUND_INIT_EAX: u32 = 0;
 
 // ─── Bridges ─────────────────────────────────────────────────────────────────
 //
@@ -98,58 +94,6 @@ unsafe extern "cdecl" fn call_timer_ctor(_timer_ptr: *mut GameTimer, _crosshair_
         "popl %esi",
         "retl",                   // cdecl; caller cleans 2 × u32
         fn = sym TIMER_CTOR_ADDR,
-        options(att_syntax),
-    );
-}
-
-/// DSSound constructor: `usercall(EAX=this)`, plain RET. Void.
-///
-/// IMPORTANT: FUN_00573D50 clobbers ECX (MOV ECX, 0x1F4 for REP STOSD).
-/// Do NOT use ECX to save bridge_ret — read it from the stack instead.
-#[unsafe(naked)]
-unsafe extern "cdecl" fn call_dssound_ctor(_dssound: *mut DSSound) {
-    core::arch::naked_asm!(
-        // [esp+0]=bridge_ret, [esp+4]=dssound
-        "movl 4(%esp), %eax",    // EAX = dssound (bridge_ret stays on stack untouched)
-        "calll *({fn})",          // FUN_00573D50: plain RET; calll pushes continuation here
-        // After FUN_00573D50 RET: stack = [bridge_ret, dssound]
-        "retl",                  // pop bridge_ret, return; caller cleans dssound
-        fn = sym DSSOUND_CTOR_ADDR,
-        options(att_syntax),
-    );
-}
-
-/// Saved bridge_ret for `call_dssound_init_buffers` (can't use ECX — callee clobbers it).
-static mut DSSOUND_INIT_SAVED_RET: u32 = 0;
-
-/// FUN_00573E50: `usercall(EAX=dssound)` + `__stdcall(out_0x10, out_0x0C)`, `RET 0x8`.
-/// Declared as `extern "stdcall"` so Rust caller does NOT emit `add esp, 8` after the call
-/// (callee already cleans via RET 0x8).
-/// Caller sets `DSSOUND_INIT_EAX = dssound` before calling.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn call_dssound_init_buffers(
-    _out_primary_buffer: *mut *mut u8,
-    _out_primary_caps: *mut u32,
-) -> u32 {
-    core::arch::naked_asm!(
-        // Entry: ESP=E, [E+0]=bridge_ret, [E+4]=out_primary_buffer, [E+8]=out_primary_caps
-        "movl {eax_val}, %eax",      // EAX = dssound
-        "movl (%esp), %ecx",         // ECX = bridge_ret (temp)
-        "movl %ecx, {saved_ret}",    // save to static (ECX clobbered by FUN_00573E50)
-        "movl 4(%esp), %ecx",        // ECX = out_primary_buffer
-        "movl 8(%esp), %edx",        // EDX = out_primary_caps
-        "addl $0xC, %esp",           // ESP = E+12 (discard bridge_ret + 2 args)
-        "pushl %edx",                // ESP = E+8,  [E+8]  = out_primary_caps
-        "pushl %ecx",                // ESP = E+4,  [E+4]  = out_primary_buffer
-        "calll *({fn})",             // ESP = E,    [E]    = cont
-                                     // FUN_00573E50 RET 0x8: pops cont → E+4, +8 → E+12
-        // At cont: ESP = E+12; EAX = return value
-        "pushl {saved_ret}",         // ESP = E+8, [E+8] = bridge_ret
-        "retl",                      // pops bridge_ret → ESP = E+12
-                                     // stdcall: caller skips cleanup. ESP = E+12 = E+4+8 ✓
-        eax_val = sym DSSOUND_INIT_EAX,
-        fn = sym DSSOUND_INIT_BUF_ADDR,
-        saved_ret = sym DSSOUND_INIT_SAVED_RET,
         options(att_syntax),
     );
 }
@@ -248,34 +192,50 @@ unsafe extern "stdcall" fn call_ddisplay_init(
 /// if COM steps fail, matching original WA behavior).
 unsafe fn create_dssound(hwnd: u32) -> *mut DSSound {
     use windows::Win32::Media::Audio::DirectSound::{
-        DirectSoundCreate, IDirectSound, IDirectSoundBuffer, DSBPLAY_LOOPING,
+        DirectSoundCreate, IDirectSound, IDirectSoundBuffer,
+        DSBUFFERDESC, DSBCAPS_PRIMARYBUFFER, DSBPLAY_LOOPING, DSSCL_PRIORITY,
     };
+    use windows::Win32::Foundation::HWND;
 
-    let snd = WABox::<DSSound>::alloc(0xBE0, 0xBC0).leak();
-    call_dssound_ctor(snd);
-    (*snd).hwnd = hwnd;
+    // Pure Rust construction — replaces call_dssound_ctor bridge.
+    let snd = WABox::<DSSound>::from_value(DSSound::new(hwnd)).leak();
 
-    // Create DirectSound COM object.
+    // DirectSound COM initialization — replaces call_dssound_init_buffers bridge.
     let mut ds: Option<IDirectSound> = None;
     if DirectSoundCreate(None, &mut ds, None).is_ok() {
         let ds = ds.unwrap();
-        (*snd).direct_sound = core::mem::transmute_copy(&ds);
-        core::mem::forget(ds); // WA owns the COM reference
 
-        // Initialize primary buffer (WA's usercall function).
-        DSSOUND_INIT_EAX = snd as u32;
-        let hr2 = call_dssound_init_buffers(
-            &mut (*snd).primary_buffer,
-            &mut (*snd).primary_buffer_caps,
-        );
-        if hr2 == 0 {
-            // Start the primary buffer looping.
-            let primary: &IDirectSoundBuffer =
-                &*(&(*snd).primary_buffer as *const *mut u8 as *const IDirectSoundBuffer);
+        // SetCooperativeLevel(hwnd, DSSCL_PRIORITY)
+        let _ = ds.SetCooperativeLevel(HWND(hwnd as _), DSSCL_PRIORITY);
+
+        // CreateSoundBuffer with DSBCAPS_PRIMARYBUFFER (no format — primary buffer)
+        let desc = DSBUFFERDESC {
+            dwSize: core::mem::size_of::<DSBUFFERDESC>() as u32,
+            dwFlags: DSBCAPS_PRIMARYBUFFER,
+            ..core::mem::zeroed()
+        };
+        let mut primary: Option<IDirectSoundBuffer> = None;
+        if ds.CreateSoundBuffer(&desc, &mut primary, None).is_ok() {
+            let primary = primary.unwrap();
+
+            // GetCaps to populate primary_buffer_caps
+            let mut caps = core::mem::zeroed::<windows::Win32::Media::Audio::DirectSound::DSBCAPS>();
+            caps.dwSize = core::mem::size_of_val(&caps) as u32;
+            let _ = primary.GetCaps(&mut caps);
+            (*snd).primary_buffer_caps = caps.dwBufferBytes;
+
+            // Start primary buffer looping
             if primary.Play(0, 0, DSBPLAY_LOOPING).is_ok() {
                 (*snd).init_success = 1;
             }
+
+            // Store COM pointers as raw u32 (WA owns the references)
+            (*snd).primary_buffer = core::mem::transmute_copy(&primary);
+            core::mem::forget(primary);
         }
+
+        (*snd).direct_sound = core::mem::transmute_copy(&ds);
+        core::mem::forget(ds);
     }
 
     snd
@@ -409,7 +369,7 @@ unsafe extern "cdecl" fn impl_init_hardware(
         (*session).streaming_audio = core::ptr::null_mut();
         if !(*session).sound.is_null() && gi.speech_enabled != 0 {
             let stream = WABox::<StreamingAudio>::alloc(0x354, 0x334).leak();
-            let ids = (*(*session).sound).direct_sound;
+            let ids = (*(*session).sound).direct_sound as *mut u8;
             call_streaming_audio_ctor(
                 stream as *mut u8,
                 ids,
@@ -500,8 +460,6 @@ unsafe extern "C" fn hook_init_hardware() {
 pub fn install() -> Result<(), String> {
     unsafe {
         TIMER_CTOR_ADDR       = rb(va::GAME_ENGINE_TIMER_CTOR);
-        DSSOUND_CTOR_ADDR     = rb(va::CONSTRUCT_DS_SOUND);
-        DSSOUND_INIT_BUF_ADDR = rb(va::DSSOUND_INIT_BUFFERS);
         INPUT_CTRL_INIT_ADDR  = rb(va::INPUT_CTRL_INIT);
         STREAM_CTOR_ADDR      = rb(va::STREAMING_AUDIO_CTOR);
         DDISPLAY_INIT_ADDR    = rb(va::DDISPLAY_INIT);
@@ -512,6 +470,10 @@ pub fn install() -> Result<(), String> {
             va::GAME_ENGINE_INIT_HARDWARE,
             hook_init_hardware as *const (),
         )?;
+
+        // Trap functions whose only caller was GameEngine__InitHardware (now Rust).
+        hook::install_trap!("DSSound__Constructor", va::CONSTRUCT_DS_SOUND);
+        hook::install_trap!("DSSOUND_INIT_BUFFERS", va::DSSOUND_INIT_BUFFERS);
     }
     Ok(())
 }
