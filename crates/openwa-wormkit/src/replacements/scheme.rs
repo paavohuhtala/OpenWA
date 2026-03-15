@@ -18,7 +18,7 @@ use crate::log_line;
 use openwa_core::rebase::rb;
 use openwa_core::address::va;
 use openwa_core::game::scheme::{
-    ExtendedOptions, SchemeFile, SchemeVersion, EXTENDED_OPTIONS_DEFAULTS, EXTENDED_OPTIONS_SIZE,
+    ExtendedOptions, SchemeFile, SchemeVersion, EXTENDED_OPTIONS_SIZE,
     SCHEME_PAYLOAD_V1, SCHEME_PAYLOAD_V2, SCHEME_PAYLOAD_V3,
 };
 
