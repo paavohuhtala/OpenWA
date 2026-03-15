@@ -11,7 +11,7 @@ use std::sync::atomic::Ordering;
 
 use openwa_core::address::va;
 use openwa_core::engine::{DDGame, DDGameWrapper, SoundQueueEntry};
-use openwa_core::audio::SoundId;
+use openwa_core::audio::{SoundId, play_sound, play_sound_pooled};
 use openwa_core::task::{CGameTask, CTask};
 
 use crate::hook;
@@ -172,11 +172,7 @@ unsafe extern "fastcall" fn hook_dispatch_global_sound(
         return 0;
     }
 
-    // Call DSSound vtable slot 3: play_sound(sound_id, flags, volume, pitch, 0)
-    let vtable = *(dssound as *const *const u32);
-    let play_fn: unsafe extern "thiscall" fn(*mut u8, u32, u32, u32, u32, u32) -> u32 =
-        core::mem::transmute(*vtable.add(3));
-    play_fn(dssound as *mut u8, sound_id, flags, volume, pitch, 0)
+    play_sound(dssound, sound_id, flags as i32, volume as i32, pitch as i32, 0) as u32
 }
 
 /// PlaySoundPooled_Direct (0x546B50) — fastcall(ECX=unused, EDX=task) + 3 stack, RET 0xC.
@@ -206,11 +202,7 @@ unsafe extern "fastcall" fn hook_play_sound_pooled_direct(
         return 0;
     }
 
-    // Call DSSound vtable slot 4: play_sound_pooled(param1, param2, 0x10000, param3, 0)
-    let vtable = *(dssound as *const *const u32);
-    let play_fn: unsafe extern "thiscall" fn(*mut u8, u32, u32, u32, u32, u32) -> u32 =
-        core::mem::transmute(*vtable.add(4));
-    play_fn(dssound as *mut u8, param1, param2, 0x10000, param3, 0)
+    play_sound_pooled(dssound, param1, param2 as i32, 0x10000, param3 as i32, 0) as u32
 }
 
 // ============================================================
