@@ -456,7 +456,8 @@ unsafe fn core_play_sound(
     snd: &mut DSSound,
     flags_and_slot: u32,
     priority: i32,
-    pitch: i32,
+    frequency: i32,
+    volume: i32,
     pan: i32,
 ) -> i32 {
     use crate::log::log_line;
@@ -485,7 +486,7 @@ unsafe fn core_play_sound(
     }
     let di = desc_idx as usize;
     let _ = log_line(&format!(
-        "[DSSound] core_play: slot={slot_idx} desc={di} flags=0x{flags_and_slot:X} pitch={pitch} pan={pan} pri={priority}"
+        "[DSSound] core_play: slot={slot_idx} desc={di} flags=0x{flags_and_slot:X} freq={frequency} vol={volume} pan={pan} pri={priority}"
     ));
 
     // Get the template buffer from channel_slots.
@@ -504,13 +505,11 @@ unsafe fn core_play_sound(
         }
     };
 
-    // Clamp pan only — pitch can exceed 0x10000 (higher pitch).
-    let pan = pan.max(-0x10000).min(0x10000);
+    // Clamp volume to [0, 0x10000].
+    let vol = volume.max(0).min(0x10000);
 
-    // Compute per-channel volume: pitch * 3/4, clamped to [0, 0x10000].
-    // The original uses the same param for both volume and frequency.
-    let vol_clamped = pitch.max(0).min(0x10000);
-    let vol_scaled = (vol_clamped * 3 + (((vol_clamped * 3) >> 31) & 3)) >> 2;
+    // Compute per-channel volume: vol * 3/4.
+    let vol_scaled = (vol * 3 + (((vol * 3) >> 31) & 3)) >> 2;
 
     // Compute dB for volume.
     let vol_db = if flags_and_slot & 0x20000 != 0 {
@@ -520,15 +519,14 @@ unsafe fn core_play_sound(
         volume_to_db(combined)
     };
 
-    // Compute channel_freq: pitch * base_freq >> 16 (fixed-point multiply).
-    // Pitch > 0x10000 means higher than normal pitch.
+    // Compute channel_freq: frequency * base_freq >> 16 (fixed-point multiply).
     let base_freq = template_buf.GetFrequency().unwrap_or(22050) as i32;
-    let channel_freq = ((pitch.max(0) as i64 * base_freq as i64) >> 16) as i32;
+    let channel_freq = ((frequency.max(0) as i64 * base_freq as i64) >> 16) as i32;
 
     // Store descriptor state.
     let desc = &mut snd.channel_descs[di];
-    desc._field_00 = flags_and_slot;
     desc.flags_a = -1;
+    desc.flags_b = flags_and_slot as i32;
     desc.channel_freq = channel_freq;
     desc.channel_volume = vol_scaled;
     desc.ds_buffer = core::mem::transmute_copy(&new_buf);
@@ -543,7 +541,7 @@ unsafe fn core_play_sound(
     };
 
     let _ = log_line(&format!(
-        "[DSSound] core_play: vol_db={vol_db} freq={freq} (ch_freq={channel_freq}) loop={loop_flag}"
+        "[DSSound] core_play: vol_db={vol_db} vol_scaled={vol_scaled} freq={freq} ch_freq={channel_freq} base={base_freq} loop={loop_flag}"
     ));
 
     // Apply volume, frequency, pan to the new buffer.
@@ -555,11 +553,12 @@ unsafe fn core_play_sound(
         let _ = log_line("[DSSound] core_play: SetVolume");
         let _ = buf.SetVolume(vol_db);
 
-        // Pan calculation (same as set_pan).
-        let pan_idx = ((pan.unsigned_abs() >> 10) as usize).min(63);
+        // Pan from the 4th stack param.
+        let pan_clamped = pan.max(-0x10000).min(0x10000);
+        let pan_idx = ((pan_clamped.unsigned_abs() >> 10) as usize).min(63);
         let mut pan_db = VOLUME_DB_TABLE[63 - pan_idx] as i32;
-        if pan > 0 { pan_db = -pan_db; }
-        let _ = log_line(&format!("[DSSound] core_play: SetPan({pan_db})"));
+        if pan_clamped > 0 { pan_db = -pan_db; }
+        let _ = log_line(&format!("[DSSound] core_play: SetPan({pan_db}) from pan={pan}"));
         let _ = buf.SetPan(pan_db);
 
         // Start playback.
@@ -616,20 +615,19 @@ unsafe fn allocate_channel(snd: &mut DSSound, priority: i32) -> i32 {
 }
 
 /// Slot 3: play_sound — pure thiscall with 5 stack params, RET 0x14.
-/// Params: flags_and_slot, priority, pitch, pan, unused.
+/// Params: flags_and_slot, priority, frequency, volume, pan.
 pub unsafe extern "thiscall" fn play_sound(
-    this: *mut DSSound, flags_and_slot: u32, priority: i32, pitch: i32, pan: i32, _p5: u32,
+    this: *mut DSSound, flags_and_slot: u32, priority: i32, frequency: i32, volume: i32, pan: i32,
 ) -> bool {
     let snd = &mut *this;
-    // Clear bit 0x10000 (loop flag is stripped by slot 3).
-    let result = core_play_sound(snd, flags_and_slot & 0xFFFEFFFF, priority, pitch, pan);
+    let result = core_play_sound(snd, flags_and_slot & 0xFFFEFFFF, priority, frequency, volume, pan);
     result >= 0
 }
 
 /// Slot 4: play_sound_pooled — pure thiscall with 5 stack params, RET 0x14.
 /// Returns pool_id (1-based) on success, 0 on failure.
 pub unsafe extern "thiscall" fn play_sound_pooled(
-    this: *mut DSSound, flags_and_slot: u32, priority: i32, pitch: i32, pan: i32, _p5: u32,
+    this: *mut DSSound, flags_and_slot: u32, priority: i32, frequency: i32, volume: i32, pan: i32,
 ) -> i32 {
     let snd = &mut *this;
 
@@ -638,7 +636,7 @@ pub unsafe extern "thiscall" fn play_sound_pooled(
         return 0;
     }
 
-    let desc_idx = core_play_sound(snd, flags_and_slot, priority, pitch, pan);
+    let desc_idx = core_play_sound(snd, flags_and_slot, priority, frequency, volume, pan);
     if desc_idx < 0 {
         return 0;
     }
