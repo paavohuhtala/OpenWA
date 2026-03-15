@@ -430,10 +430,7 @@ unsafe extern "cdecl" fn impl_init_hardware(
         }
     } else {
         // ── Headless / stats mode ─────────────────────────────────────────────
-        // TODO: Replace with DisplayBase::new_headless() once sprite collection
-        // sub-object construction is fully understood (FUN_004fa860 sets a secondary
-        // vtable via implicit EDI that we haven't replicated yet).
-        (*session).display      = DisplayBase::construct() as *mut u8;
+        (*session).display      = DisplayBase::new_headless() as *mut u8;
         (*session).keyboard         = core::ptr::null_mut();
         (*session).sound            = core::ptr::null_mut();
         (*session).palette          = core::ptr::null_mut();
@@ -445,6 +442,7 @@ unsafe extern "cdecl" fn impl_init_hardware(
     (*session).fullscreen_flag = (gi.home_lock != 0) as u32;
 
     // ── DDGameWrapper (ALWAYS) ────────────────────────────────────────────────
+    let _ = crate::log_line("[hardware_init] Creating DDGameWrapper");
     let wrapper = game_session::construct_ddgame_wrapper(
         game_info,
         WABox::<DDGameWrapper>::alloc(0x6F10, 0x6EF0).leak(),
@@ -456,6 +454,7 @@ unsafe extern "cdecl" fn impl_init_hardware(
         (*session).input_ctrl,
     );
     (*session).ddgame_wrapper = wrapper;
+    let _ = crate::log_line("[hardware_init] DDGameWrapper created OK");
 
     // ── Palette vtable[4/3/2] + keyboard poll (normal mode only) ─────────────
     if !headless {

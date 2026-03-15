@@ -15,6 +15,13 @@
 /// with the headless vtable overlay. In normal mode, `DisplayGfx` (derived) is
 /// constructed instead. The session's `display` field holds a polymorphic pointer
 /// to whichever variant.
+///
+/// ## Vtable identity constraint
+///
+/// WA code checks vtable pointer addresses (likely RTTI/dynamic_cast). A custom
+/// vtable at a different address crashes even with identical content. We must
+/// point to WA's vtable in .rdata and patch individual slots there in-place
+/// (via VirtualProtect in `display.rs`).
 
 /// Ptr32 alias for raw pointer fields (compiles on 64-bit host).
 type Ptr32 = u32;
@@ -23,8 +30,8 @@ type Ptr32 = u32;
 pub struct DisplayBase {
     // +0x000: vtable pointer
     pub vtable: *const DisplayBaseVtable,
-    // +0x004: sprite collection sub-object (0x3C control block + 0x80000 buffer)
-    pub sprite_collection: Ptr32,
+    // +0x004: sprite cache wrapper (0x28-byte SpriteCacheWrapper)
+    pub sprite_cache: Ptr32,
     // +0x008..0x3008: three contiguous 0x400-entry u32 arrays, all zeroed by ctor
     pub _buf_008: [u32; 0xC00],
     // +0x3008..0x3018: gap (0x10 bytes, 4 u32s: indices 0xC02..0xC05)
@@ -96,144 +103,93 @@ pub struct DisplayBaseVtable {
 
 const _: () = assert!(core::mem::size_of::<DisplayBaseVtable>() == 32 * 4);
 
-// ── No-op stub functions for headless vtable ──────────────────────────────
+// ── Sprite cache sub-objects ──────────────────────────────────────────────
 
-unsafe extern "thiscall" fn noop_thiscall(_this: *mut DisplayBase) {}
-
-unsafe extern "thiscall" fn headless_destructor(
-    this: *mut DisplayBase,
-    flags: u8,
-) -> *mut DisplayBase {
-    // Free sprite collection sub-object if present.
-    let sc = (*this).sprite_collection;
-    if sc != 0 {
-        let sc_ptr = sc as *mut SpriteCollection;
-        // Free the buffer, then the control block.
-        let buf = (*sc_ptr).buffer;
-        if buf != 0 {
-            wa_free(buf as *mut u8);
-        }
-        wa_free(sc_ptr as *mut u8);
-    }
-    // If bit 0 of flags is set, free `this` too (scalar delete).
-    if flags & 1 != 0 {
-        wa_free(this as *mut u8);
-    }
-    this
-}
-
-/// Static headless vtable — all slots are no-ops except the destructor.
-///
-/// In headless mode there's no rendering, so every drawing method is a no-op.
-/// The "shared real implementation" slots (4-10, 27, 29-31) that exist in the
-/// original vtable are also no-ops here since they're never called in headless.
-static HEADLESS_VTABLE: DisplayBaseVtable = DisplayBaseVtable {
-    destructor: headless_destructor,
-    slot_01: noop_thiscall,
-    slot_02: noop_thiscall,
-    slot_03: noop_thiscall,
-    slot_04: noop_thiscall,
-    slot_05: noop_thiscall,
-    slot_06: noop_thiscall,
-    slot_07: noop_thiscall,
-    slot_08: noop_thiscall,
-    slot_09: noop_thiscall,
-    slot_10: noop_thiscall,
-    slot_11: noop_thiscall,
-    slot_12: noop_thiscall,
-    slot_13: noop_thiscall,
-    slot_14: noop_thiscall,
-    slot_15: noop_thiscall,
-    slot_16: noop_thiscall,
-    slot_17: noop_thiscall,
-    slot_18: noop_thiscall,
-    slot_19: noop_thiscall,
-    slot_20: noop_thiscall,
-    slot_21: noop_thiscall,
-    slot_22: noop_thiscall,
-    slot_23: noop_thiscall,
-    slot_24: noop_thiscall,
-    slot_25: noop_thiscall,
-    slot_26: noop_thiscall,
-    slot_27: noop_thiscall,
-    slot_28: noop_thiscall,
-    slot_29: noop_thiscall,
-    slot_30: noop_thiscall,
-    slot_31: noop_thiscall,
-};
-
-// ── Sprite collection sub-object ──────────────────────────────────────────
-
-/// Sprite collection control block (0x3C bytes).
-/// Created by FUN_004fa860 in the original constructor.
+/// Sprite buffer control block (0x3C bytes, inner).
+/// Allocated by FUN_004fa860. Holds a raw pixel buffer and capacity.
 #[repr(C)]
-pub struct SpriteCollection {
-    /// Pointer to 0x80000-byte buffer
+pub struct SpriteBufferCtrl {
+    /// Pointer to pixel buffer (0x80020 allocated, 0x80000 used)
     pub buffer: Ptr32,
-    /// Buffer capacity
+    /// Buffer capacity (0x80000)
     pub capacity: u32,
     pub _fields_08: [u32; 5],
     pub _pad_1c: [u8; 0x3C - 0x1C],
 }
 
-const _: () = assert!(core::mem::size_of::<SpriteCollection>() == 0x3C);
+const _: () = assert!(core::mem::size_of::<SpriteBufferCtrl>() == 0x3C);
 
-use crate::wa_alloc::wa_free;
+/// Sprite cache wrapper (0x28 bytes, outer).
+/// Constructed by FUN_004fa860 (receives `this` in EDI).
+/// Has its own vtable (0x664188) and holds a pointer to [`SpriteBufferCtrl`].
+#[repr(C)]
+pub struct SpriteCacheWrapper {
+    /// Vtable pointer (0x664188 in WA, rebased at runtime)
+    pub vtable: Ptr32,
+    /// Pointer to the 0x3C-byte buffer control block
+    pub buffer_ctrl: Ptr32,
+    pub _pad_08: [u8; 0x28 - 0x08],
+}
+
+const _: () = assert!(core::mem::size_of::<SpriteCacheWrapper>() == 0x28);
+
+/// Ghidra address of the SpriteCacheWrapper vtable.
+const SPRITE_CACHE_VTABLE: u32 = 0x0066_4188;
 
 // ── Construction ──────────────────────────────────────────────────────────
 
 impl DisplayBase {
     /// Construct a DisplayBase for headless mode, entirely in Rust.
     ///
-    /// Replaces the WA native constructor (0x522DB0) + headless vtable overlay.
-    /// Allocates the struct and sprite collection sub-object on WA's heap.
+    /// Allocates the struct and sprite cache sub-objects on WA's heap,
+    /// initializes all fields to match the original constructor (0x522DB0),
+    /// and points to WA's headless vtable in .rdata.
+    ///
+    /// The vtable must point to WA's .rdata copy (not our own) because WA
+    /// checks vtable pointer identity. Individual slots in WA's vtable can
+    /// be patched in-place via `display.rs`.
     ///
     /// # Safety
     /// Must be called from within the WA.exe process (uses wa_malloc).
     pub unsafe fn new_headless() -> *mut Self {
-        use crate::wa_alloc::WABox;
+        use crate::address::va;
+        use crate::rebase::rb;
+        use crate::wa_alloc::{wa_malloc, WABox};
 
+        // Allocate and zero the entire struct.
         let this = WABox::<Self>::alloc(0x3560, 0x3560).leak();
 
-        // Set vtable to our Rust headless vtable.
-        (*this).vtable = &HEADLESS_VTABLE;
+        // Point to WA's headless vtable in .rdata (identity-checked by WA code).
+        (*this).vtable = rb(va::DISPLAY_BASE_HEADLESS_VTABLE) as *const DisplayBaseVtable;
 
         // Initialize slot_table: 0xFF entries = 1
         for slot in &mut (*this).slot_table {
             *slot = 1;
         }
 
-        // _field_352c = 0xFFFFFFFF (sentinel)
+        // Sentinel value
         (*this)._field_352c = 0xFFFF_FFFF;
 
-        // Create sprite collection sub-object.
-        let sc = WABox::<SpriteCollection>::alloc(0x3C, 0x3C).leak();
-        let buf = crate::wa_alloc::wa_malloc(0x80020);
+        // Create sprite cache: 0x28 wrapper → 0x3C buffer ctrl → 0x80020 buffer.
+        //
+        // Original flow (FUN_004fa860):
+        //   1. Constructor allocates 0x28 wrapper, passes as EDI to FUN_004fa860
+        //   2. FUN_004fa860 sets wrapper[0] = vtable 0x664188
+        //   3. Allocates 0x3C buffer ctrl, sets ctrl[0] = buffer, ctrl[4] = capacity
+        //   4. Sets wrapper[4] = ctrl pointer
+        //   5. Returns wrapper in EAX → stored at this+4
+        let wrapper = WABox::<SpriteCacheWrapper>::alloc(0x28, 0x28).leak();
+        (*wrapper).vtable = rb(SPRITE_CACHE_VTABLE);
+
+        let ctrl = WABox::<SpriteBufferCtrl>::alloc(0x3C, 0x3C).leak();
+        let buf = wa_malloc(0x80020);
         core::ptr::write_bytes(buf, 0, 0x80000);
-        (*sc).buffer = buf as u32;
-        (*sc).capacity = 0x80000;
+        (*ctrl).buffer = buf as u32;
+        (*ctrl).capacity = 0x80000;
 
-        (*this).sprite_collection = sc as u32;
-        // NOTE: The original FUN_004fa860 also sets a secondary vtable (0x664188)
-        // on the parent object via implicit EDI. This is not yet replicated here,
-        // which is why new_headless() doesn't work yet — see TODO in hardware_init.rs.
+        (*wrapper).buffer_ctrl = ctrl as u32;
+        (*this).sprite_cache = wrapper as u32;
 
-        this
-    }
-
-    /// Allocate and construct a DisplayBase using WA's native constructor (FFI).
-    ///
-    /// # Safety
-    /// Must be called from within the WA.exe process.
-    pub unsafe fn construct() -> *mut Self {
-        use crate::address::va;
-        use crate::rebase::rb;
-        use crate::wa_alloc::WABox;
-        let this = WABox::<Self>::alloc(0x3560, 0x3560).leak();
-        let ctor: unsafe extern "stdcall" fn(*mut Self) -> *mut Self =
-            core::mem::transmute(rb(va::DISPLAY_BASE_CTOR) as usize);
-        ctor(this);
-        (*this).vtable = rb(va::DISPLAY_BASE_HEADLESS_VTABLE) as *const DisplayBaseVtable;
         this
     }
 }

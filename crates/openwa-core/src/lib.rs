@@ -38,3 +38,4 @@ pub mod game_timer;
 pub mod streaming_audio;
 pub mod ddnetgame_wrapper;
 pub mod display_base;
+pub mod vtable;
