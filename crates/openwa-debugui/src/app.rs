@@ -2,7 +2,7 @@ use eframe::egui;
 use openwa_core::address::va;
 use openwa_core::engine::{DDGame, DDGameWrapper};
 use openwa_core::rebase::rb;
-use openwa_core::task::{CTask, CTaskCloud, CTaskFire, CTaskMine, CTaskOilDrum, CTaskTeam, CTaskTurnGame, CTaskWorm, TurnGameCtx};
+use openwa_core::task::{CTask, CTaskCloud, CTaskFire, CTaskTeam, CTaskTurnGame, CTaskWorm, TurnGameCtx};
 
 use crate::log;
 
@@ -22,6 +22,7 @@ const KNOWN_VTABLES: &[(u32, &str)] = &[
     (va::CTASK_MISSILE_VTABLE,     "CTaskMissile"),
     (va::CTASK_MINE_VTABLE,        "CTaskMine"),
     (va::CTASK_OILDRUM_VTABLE,     "CTaskOilDrum"),
+    (va::CTASK_CRATE_VTABLE,       "CTaskCrate"),
     (va::CTASK_CLOUD_VTABLE,       "CTaskCloud"),
     (va::CTASK_SEA_BUBBLE_VTABLE,  "CTaskSeaBubble"),
     (va::CTASK_FIRE_VTABLE,        "CTaskFire"),
@@ -280,6 +281,113 @@ impl DebugApp {
 }
 
 // ---------------------------------------------------------------------------
+// Raw field viewer for CGameTask-derived types
+// ---------------------------------------------------------------------------
+
+/// CGameTask field labels for the base class region (0x00..0xFC).
+const CGAMETASK_FIELD_LABELS: &[(usize, &str)] = &[
+    // CTask base (0x00..0x30)
+    (0x00, "vtable"),
+    (0x04, "parent"),
+    (0x08, "children_data"),
+    (0x0C, "children_watermark"),
+    (0x10, "children_capacity"),
+    (0x14, "class_type"),
+    (0x18, "state_machine"),
+    (0x1C, "shared_data"),
+    (0x20, "owns_shared_data"),
+    (0x24, "msg_handler"),
+    (0x28, "creation_flags"),
+    (0x2C, "ddgame"),
+    // CGameTask fields (0x30..0xFC)
+    (0x84, "pos_x"),
+    (0x88, "pos_y"),
+    (0x8C, "angle"),
+    (0x90, "speed_x"),
+    (0x94, "speed_y"),
+    // SoundEmitter (0xE8..0xFC)
+    (0xE8, "emitter_vtable"),
+    (0xEC, "emitter_unk04"),
+    (0xF0, "emitter_unk08"),
+    (0xF4, "local_snd_count"),
+    (0xF8, "emitter_owner"),
+];
+
+/// Display all DWORDs of a CGameTask-derived entity with labelled fields.
+/// `extra_labels` provides field names for offsets beyond the CGameTask base (0xFC+).
+unsafe fn show_game_task_raw_fields(
+    ui: &mut egui::Ui,
+    addr: u32,
+    type_name: &str,
+    total_size: usize,
+    extra_labels: &[(usize, &str)],
+) {
+    let base = addr as *const u32;
+
+    let label_for = |off: usize| -> Option<&str> {
+        CGAMETASK_FIELD_LABELS.iter()
+            .find(|&&(o, _)| o == off)
+            .map(|&(_, n)| n)
+            .or_else(|| extra_labels.iter()
+                .find(|&&(o, _)| o == off)
+                .map(|&(_, n)| n))
+    };
+
+    // Sections: CTask base, CGameTask unknowns, pos/speed, more unknowns, emitter,
+    // then type-specific in 0x80-byte chunks to keep each section manageable.
+    let mut sections: Vec<(usize, usize, String)> = vec![
+        (0x000, 0x030, "CTask base".into()),
+        (0x030, 0x084, "CGameTask +0x30".into()),
+        (0x084, 0x098, "pos / speed / angle".into()),
+        (0x098, 0x0E8, "CGameTask +0x98".into()),
+        (0x0E8, 0x0FC, "SoundEmitter".into()),
+    ];
+    // Split type-specific region into chunks of 0x80 bytes
+    let mut chunk_start = 0x0FC;
+    while chunk_start < total_size {
+        let chunk_end = (chunk_start + 0x80).min(total_size);
+        sections.push((chunk_start, chunk_end,
+            format!("{} +0x{:03X}..0x{:03X}", type_name, chunk_start, chunk_end)));
+        chunk_start = chunk_end;
+    }
+
+    for (start, end, section_name) in &sections {
+        let (start, end) = (*start, *end);
+        if start >= total_size { break; }
+        let end = end.min(total_size);
+        let header = format!("{} (0x{:03X}..0x{:03X})", section_name, start, end);
+        let default_open = false;
+        egui::CollapsingHeader::new(header)
+            .id_source(format!("{}_{}_{:03X}", type_name, addr, start))
+            .default_open(default_open)
+            .show(ui, |ui| {
+                egui::Grid::new(format!("raw_{}_{}_{:03X}", type_name, addr, start))
+                    .striped(true)
+                    .num_columns(3)
+                    .show(ui, |ui| {
+                        ui.strong("Offset");
+                        ui.strong("Value");
+                        ui.strong("Field");
+                        ui.end_row();
+
+                        let dwords = (end - start) / 4;
+                        for i in 0..dwords {
+                            let off = start + i * 4;
+                            let val = *base.add(off / 4);
+                            let field_name = label_for(off).unwrap_or("");
+
+                            ui.label(format!("+0x{:03X}", off));
+                            // Show as hex + signed decimal
+                            ui.label(format!("{:#010X} ({})", val, val as i32));
+                            ui.label(field_name);
+                            ui.end_row();
+                        }
+                    });
+            });
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Panel: Struct Inspector
 // ---------------------------------------------------------------------------
 
@@ -403,41 +511,48 @@ impl DebugApp {
 
             // --- CTaskMine-specific fields ---
             if name == "CTaskMine" {
-                let mine = addr as *const CTaskMine;
-                egui::CollapsingHeader::new("CTaskMine")
-                    .default_open(true)
-                    .show(ui, |ui| {
-                        egui::Grid::new("mine_grid").striped(true).show(ui, |ui| {
-                            ui.label("pos_x");      ui.label(format!("{:.1}", (*mine).base.pos_x.to_f32()));    ui.end_row();
-                            ui.label("pos_y");      ui.label(format!("{:.1}", (*mine).base.pos_y.to_f32()));    ui.end_row();
-                            ui.label("speed_x");    ui.label(format!("{:.4}", (*mine).base.speed_x.to_f32())); ui.end_row();
-                            ui.label("speed_y");    ui.label(format!("{:.4}", (*mine).base.speed_y.to_f32())); ui.end_row();
-                            let ft = (*mine).fuse_timer;
-                            let ft_label = if ft < 0 { "disarmed".to_owned() } else if ft == 0 { "ARMED".to_owned() } else { format!("{} ticks", ft) };
-                            ui.label("fuse_timer"); ui.label(ft_label);                                         ui.end_row();
-                            ui.label("owner_team"); ui.label(format!("{}", (*mine).owner_team));                ui.end_row();
-                            ui.label("slot_id");    ui.label(format!("{}", (*mine).slot_id));                   ui.end_row();
-                        });
-                    });
+                show_game_task_raw_fields(ui, addr, "CTaskMine", 0x128, &[
+                    (0x0FC, "unknown_fc[0]"),
+                    (0x100, "unknown_fc[4]"),
+                    (0x104, "unknown_fc[8]"),
+                    (0x108, "unknown_fc[C]"),
+                    (0x10C, "unknown_fc[10]"),
+                    (0x110, "slot_id"),
+                    (0x114, "unknown_114"),
+                    (0x118, "fuse_timer"),
+                    (0x11C, "unknown_11c"),
+                    (0x120, "unknown_120"),
+                    (0x124, "owner_team"),
+                ]);
             }
 
             // --- CTaskOilDrum-specific fields ---
             if name == "CTaskOilDrum" {
-                let drum = addr as *const CTaskOilDrum;
-                egui::CollapsingHeader::new("CTaskOilDrum")
-                    .default_open(true)
-                    .show(ui, |ui| {
-                        egui::Grid::new("drum_grid").striped(true).show(ui, |ui| {
-                            ui.label("pos_x");      ui.label(format!("{:.1}", (*drum).base.pos_x.to_f32()));    ui.end_row();
-                            ui.label("pos_y");      ui.label(format!("{:.1}", (*drum).base.pos_y.to_f32()));    ui.end_row();
-                            ui.label("speed_x");    ui.label(format!("{:.4}", (*drum).base.speed_x.to_f32())); ui.end_row();
-                            ui.label("speed_y");    ui.label(format!("{:.4}", (*drum).base.speed_y.to_f32())); ui.end_row();
-                            ui.label("health");     ui.label(format!("{}", (*drum).health));                    ui.end_row();
-                            ui.label("on_fire");    ui.label(format!("{}", (*drum).on_fire()));                 ui.end_row();
-                            ui.label("triggered");  ui.label(format!("{}", (*drum).triggered != 0));            ui.end_row();
-                            ui.label("slot_id");    ui.label(format!("{}", (*drum).slot_id));                   ui.end_row();
-                        });
-                    });
+                show_game_task_raw_fields(ui, addr, "CTaskOilDrum", 0x110, &[
+                    (0x0FC, "triggered"),
+                    (0x100, "slot_id"),
+                    (0x104, "unknown_104"),
+                    (0x108, "health"),
+                    (0x10C, "roll_counter"),
+                ]);
+            }
+
+            // --- CTaskCrate-specific fields ---
+            if name == "CTaskCrate" {
+                show_game_task_raw_fields(ui, addr, "CTaskCrate", 0x4B0, &[
+                    (0x0FC, "unknown_fc"),
+                    (0x100, "slot_id"),
+                    (0x104, "unknown_104"),
+                    (0x108, "unknown_108"),
+                    (0x10C, "timer"),
+                    // scheme_data starts at 0x110 (0xE5 DWORDs)
+                    (0x124, "crate_type"),
+                    (0x24C, "heal_amount"),
+                    (0x264, "extra_init_flag"),
+                    (0x4A4, "unknown_4a4"),
+                    (0x4A8, "sequence_ref"),
+                    (0x4AC, "unknown_4ac"),
+                ]);
             }
 
             // --- CTaskCloud-specific fields ---
@@ -539,24 +654,77 @@ impl DebugApp {
 
             // --- CTaskWorm-specific fields ---
             if name == "CTaskWorm" || (*task).class_type == openwa_core::game::ClassType::Worm {
+                // Summary header with key info
                 let worm = addr as *const CTaskWorm;
-                egui::CollapsingHeader::new("CTaskWorm")
-                    .default_open(true)
-                    .show(ui, |ui| {
-                        egui::Grid::new("worm_grid").striped(true).show(ui, |ui| {
-                            ui.label("state");      ui.label(format!("{:#04X}", (*worm).state()));              ui.end_row();
-                            ui.label("team_index"); ui.label(format!("{}", (*worm).team_index));                ui.end_row();
-                            ui.label("worm_index"); ui.label(format!("{}", (*worm).worm_index));                ui.end_row();
-                            ui.label("pos_x");      ui.label(format!("{:.2}", (*worm).base.pos_x.to_f32()));   ui.end_row();
-                            ui.label("pos_y");      ui.label(format!("{:.2}", (*worm).base.pos_y.to_f32()));   ui.end_row();
-                            ui.label("speed_x");    ui.label(format!("{:.4}", (*worm).base.speed_x.to_f32())); ui.end_row();
-                            ui.label("speed_y");    ui.label(format!("{:.4}", (*worm).base.speed_y.to_f32())); ui.end_row();
-                            let name_bytes = &(*worm).worm_name;
-                            let nul = name_bytes.iter().position(|&b| b == 0).unwrap_or(name_bytes.len());
-                            let worm_name = std::str::from_utf8(&name_bytes[..nul]).unwrap_or("?");
-                            ui.label("name");       ui.label(worm_name);                                        ui.end_row();
-                        });
-                    });
+                let name_bytes = &(*worm).worm_name;
+                let nul = name_bytes.iter().position(|&b| b == 0).unwrap_or(name_bytes.len());
+                let worm_name = std::str::from_utf8(&name_bytes[..nul]).unwrap_or("?");
+                ui.label(format!("Worm: \"{}\"  state={:#04X}  team={}  idx={}",
+                    worm_name, (*worm).state(), (*worm).team_index, (*worm).worm_index));
+                ui.separator();
+
+                show_game_task_raw_fields(ui, addr, "CTaskWorm", 0x3FC, &[
+                    (0x0FC, "team_index"),
+                    (0x100, "worm_index"),
+                    (0x104, "unknown_104"),
+                    (0x110, "spawn_params[0]"),
+                    (0x114, "spawn_params[1]"),
+                    (0x118, "spawn_params[2]"),
+                    (0x11C, "spawn_params[3]"),
+                    (0x120, "spawn_params[4]"),
+                    (0x124, "spawn_params[5]"),
+                    (0x128, "spawn_params[6]"),
+                    (0x12C, "spawn_params[7]"),
+                    (0x130, "spawn_params[8]"),
+                    (0x134, "spawn_params[9]"),
+                    (0x158, "slot_id"),
+                    (0x164, "stationary_frames"),
+                    (0x170, "selected_weapon"),
+                    (0x1A8, "facing_dir_2"),
+                    (0x1AC, "facing_dir_inv"),
+                    (0x1EC, "movement_streak"),
+                    (0x24C, "aim_angle"),
+                    (0x268, "show_cursor"),
+                    (0x2F0, "worm_name[0..4]"),
+                    (0x2F4, "worm_name[4..8]"),
+                    (0x2F8, "worm_name[8..12]"),
+                    (0x2FC, "worm_name[12..16]"),
+                    (0x334, "facing_dir_3"),
+                    (0x368, "animator"),
+                    (0x3DC, "facing_direction"),
+                    (0x3E4, "input_aim_up"),
+                    (0x3E8, "input_aim_down"),
+                    (0x3EC, "input_move_left"),
+                    (0x3F0, "input_move_right"),
+                ]);
+            }
+
+            // --- CTaskMissile-specific fields ---
+            if name == "CTaskMissile" {
+                use openwa_core::task::CTaskMissile;
+                let m = &*(addr as *const CTaskMissile);
+                ui.label(format!("Missile: type={:?}  slot={}  homing={}  dir={}",
+                    m.missile_type(), m.slot_id, m.homing_enabled, m.direction));
+                ui.separator();
+
+                show_game_task_raw_fields(ui, addr, "CTaskMissile", 0x41C, &[
+                    (0x128, "launch_seed"),
+                    (0x12C, "slot_id"),
+                    (0x130, "spawn: owner_id"),
+                    (0x134, "spawn: [1]"),
+                    (0x138, "spawn: spawn_x"),
+                    (0x13C, "spawn: spawn_y"),
+                    (0x140, "spawn: speed_x"),
+                    (0x144, "spawn: speed_y"),
+                    (0x148, "spawn: cursor_x"),
+                    (0x14C, "spawn: cursor_y"),
+                    (0x150, "spawn: pellet_idx"),
+                    (0x154, "spawn: fb_timer"),
+                    (0x158, "spawn: fb_param"),
+                    (0x3A0, "launch_speed"),
+                    (0x3A8, "homing_enabled"),
+                    (0x3C8, "direction"),
+                ]);
             }
 
         }});

@@ -1,5 +1,6 @@
 mod base;
 mod cloud;
+mod supply_crate;
 mod filter;
 mod fire;
 mod game_task;
@@ -12,6 +13,7 @@ mod worm;
 
 pub use base::{CTask, CTaskBfsIter, SharedDataIter, SharedDataNode, SharedDataTable};
 pub use cloud::CTaskCloud;
+pub use supply_crate::CTaskCrate;
 pub use filter::CTaskFilter;
 pub use fire::CTaskFire;
 pub use game_task::{CGameTask, SoundEmitter, SoundEmitterVTable};

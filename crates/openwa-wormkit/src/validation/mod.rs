@@ -801,6 +801,7 @@ fn dump_entity_census() {
             (va::CTASK_DIRT_VTABLE,        "CTaskDirt"),
             (va::CTASK_SPRITE_ANIM_VTABLE, "CTaskSpriteAnim"),
             (va::CTASK_CPU_VTABLE,         "CTaskCPU"),
+            (va::CTASK_CRATE_VTABLE,       "CTaskCrate"),
             (va::CTASK_VTABLE,             "CTask"),
             (va::CGAMETASK_VTABLE,         "CGameTask"),
         ];

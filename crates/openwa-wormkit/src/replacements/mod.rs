@@ -18,7 +18,8 @@ pub fn install_all() -> Result<(), String> {
     game_session::install()?;
     hardware_init::install()?;
     frontend::install()?;
-    scheme::install()?;
+    // Temporarily disabled: loading custom scheme causes game to play super fast
+    // scheme::install()?;
     config::install()?;
     weapon::install()?;
     team::install()?;

@@ -18,13 +18,15 @@ pub struct CTaskMine {
     pub _unknown_fc: [u8; 0x14],
     /// 0x110: Object pool slot index (assigned from DDGame+0x3600 pool)
     pub slot_id: u32,
-    /// 0x114–0x11B: Unknown
-    pub _unknown_114: [u8; 8],
-    /// 0x11C: Fuse timer (signed i32).
+    /// 0x114: Unknown
+    pub _unknown_114: u32,
+    /// 0x118: Fuse timer (signed i32).
     /// Negative = just placed / disarmed.
     /// 0 = armed (will trigger on contact).
     /// Positive = countdown ticks remaining.
     pub fuse_timer: i32,
+    /// 0x11C: Unknown
+    pub _unknown_11c: u32,
     /// 0x120–0x123: Unknown (init data param_3[0])
     pub _unknown_120: u32,
     /// 0x124: Owner team index (param_3[6]; -1 = no owner)

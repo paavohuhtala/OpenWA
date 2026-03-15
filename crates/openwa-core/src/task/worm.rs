@@ -104,12 +104,38 @@ pub struct CTaskWorm {
     pub _unknown_154: u32,
     /// 0x158: Worm pool slot index in DDGame (assigned from pool at construction)
     pub slot_id: u32,
-    /// 0x15C–0x247: Unknown
-    pub _unknown_15c: [u8; 0xEC],
-    /// 0x248–0x25B: Aiming / weapon data (slots 4–8 in GetEntityData query 0x7D4)
-    pub _unknown_248: [u32; 5],
-    /// 0x25C–0x283: Unknown
-    pub _unknown_25c: [u8; 0x28],
+    /// 0x15C–0x163: Unknown
+    pub _unknown_15c: [u8; 0x164 - 0x15C],
+    /// 0x164: Frames the worm has stayed stationary (no movement). Resets on movement.
+    pub stationary_frames: u32,
+    /// 0x168–0x16F: Unknown
+    pub _unknown_168: [u8; 0x170 - 0x168],
+    /// 0x170: Currently selected weapon ID.
+    pub selected_weapon: u32,
+    /// 0x174–0x1A7: Unknown
+    pub _unknown_174: [u8; 0x1A8 - 0x174],
+    /// 0x1A8: Facing direction copy. -1 = left, +1 = right (same as +0x3DC).
+    pub facing_direction_2: i32,
+    /// 0x1AC: Inverted facing direction. +1 = left, -1 = right.
+    pub facing_direction_inv: i32,
+    /// 0x1B0–0x1EB: Unknown
+    pub _unknown_1b0: [u8; 0x1EC - 0x1B0],
+    /// 0x1EC: Movement streak counter. Increases ~once per second while moving
+    /// in one direction. Resets to 0 when movement resumes after a stop.
+    /// Set to -1 when the worm is blocked (e.g. hits a wall).
+    pub movement_streak: i32,
+    /// 0x1F0–0x247: Unknown
+    pub _unknown_1f0: [u8; 0x248 - 0x1F0],
+    /// 0x248: Unknown
+    pub _unknown_248: u32,
+    /// 0x24C: Aim angle (fixed-point 16.16, range 0..0x10000 = 0..360 degrees).
+    pub aim_angle: u32,
+    /// 0x250–0x267: Unknown
+    pub _unknown_250: [u8; 0x268 - 0x250],
+    /// 0x268: Show aiming cursor flag (nonzero = cursor visible).
+    pub show_cursor: u32,
+    /// 0x26C–0x283: Unknown
+    pub _unknown_26c: [u8; 0x284 - 0x26C],
     /// 0x284–0x28B: Aiming data (slots 5–6 in GetEntityData query 0x7D4)
     pub _unknown_284: [u32; 2],
     /// 0x28C–0x2EF: Unknown
@@ -118,12 +144,30 @@ pub struct CTaskWorm {
     pub worm_name: [u8; 0x11],
     /// 0x301: Country / team name from scheme, null-terminated (max 17 chars)
     pub country_name: [u8; 0x11],
-    /// 0x312–0x367: Unknown (rope string, state history, etc.)
-    pub _unknown_312: [u8; 0x56],
+    /// 0x312–0x333: Unknown (rope string, state history, etc.)
+    pub _unknown_312: [u8; 0x334 - 0x312],
+    /// 0x334: Facing direction copy. -1 = left, +1 = right (same as +0x3DC).
+    pub facing_direction_3: i32,
+    /// 0x338–0x367: Unknown
+    pub _unknown_338: [u8; 0x368 - 0x338],
     /// 0x368: Animator / controller object (dispatched via vtable for state animations)
     pub animator: *mut u8,
-    /// 0x36C–0x3FB: Unknown (rope anchor, weapon-specific data, etc.)
-    pub _unknown_36c: [u8; 0x90],
+    /// 0x36C–0x3DB: Unknown (rope anchor, weapon-specific data, etc.)
+    pub _unknown_36c: [u8; 0x3DC - 0x36C],
+    /// 0x3DC: Facing direction. -1 = facing left, +1 = facing right.
+    pub facing_direction: i32,
+    /// 0x3E0–0x3E3: Unknown
+    pub _unknown_3e0: u32,
+    /// 0x3E4: Input: aim up key held (nonzero = adjusting aim upward).
+    pub input_aim_up: u32,
+    /// 0x3E8: Input: aim down key held (nonzero = adjusting aim downward).
+    pub input_aim_down: u32,
+    /// 0x3EC: Input: move left key held (nonzero = worm walking left).
+    pub input_move_left: u32,
+    /// 0x3F0: Input: move right key held (nonzero = worm walking right).
+    pub input_move_right: u32,
+    /// 0x3F4–0x3FB: Unknown
+    pub _unknown_3f4: [u8; 0x3FC - 0x3F4],
 }
 
 const _: () = assert!(core::mem::size_of::<CTaskWorm>() == 0x3FC);

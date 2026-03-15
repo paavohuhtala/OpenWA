@@ -19,8 +19,8 @@ pub struct CGameTask {
     pub pos_x: Fixed,
     /// 0x88: Y position in fixed-point
     pub pos_y: Fixed,
-    /// 0x8C-0x8F: Unknown (4 bytes between pos and speed)
-    pub _unknown_8c: [u8; 4],
+    /// 0x8C: Rotation angle (fixed-point 16.16).
+    pub angle: Fixed,
     /// 0x90: X velocity in fixed-point
     pub speed_x: Fixed,
     /// 0x94: Y velocity in fixed-point

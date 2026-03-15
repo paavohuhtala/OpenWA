@@ -80,6 +80,8 @@ pub mod va {
     pub const CTASK_MINE_VTABLE: u32 = 0x0066_43E8;
     /// CTaskOilDrum vtable - oil drum entity (constructor 0x504AF0)
     pub const CTASK_OILDRUM_VTABLE: u32 = 0x0066_4338;
+    /// CTaskCrate vtable - weapon/health/utility crate (constructor 0x502490)
+    pub const CTASK_CRATE_VTABLE: u32 = 0x0066_4298;
     /// CTaskCloud vtable - cloud/airstrike entity (constructor 0x5482E0)
     pub const CTASK_CLOUD_VTABLE: u32 = 0x0066_9D38;
     /// CTaskSeaBubble vtable - water bubble particle (constructor 0x554FE0)
