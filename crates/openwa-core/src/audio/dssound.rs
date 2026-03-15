@@ -169,7 +169,7 @@ pub unsafe extern "thiscall" fn returns_1(_this: *mut DSSound) -> u32 { 1 }
 /// This Rust version uses `hound` for WAV parsing and the `windows` crate
 /// for DirectSound COM calls.
 ///
-/// Returns 0 on success, 1 on failure (matching original).
+/// Returns 1 on success, 0 on failure (matching original).
 #[cfg(target_os = "windows")]
 pub unsafe extern "thiscall" fn load_wav(
     this: *mut DSSound,
@@ -188,23 +188,23 @@ pub unsafe extern "thiscall" fn load_wav(
     // Slot index is used directly as array index (1-based, slot 0 unused).
     let snd = &mut *this;
     if snd.direct_sound == 0 {
-        return 1;
+        return 0;
     }
     let slot = slot_idx as usize;
     if slot == 0 || slot > 499 || snd.channel_slots.get(slot).copied().unwrap_or(1) != 0 {
-        return 1;
+        return 0;
     }
 
     // Read path as C string.
     let c_path = match core::ffi::CStr::from_ptr(path as *const i8).to_str() {
         Ok(s) => s,
-        Err(_) => return 1,
+        Err(_) => return 0,
     };
 
     // Parse WAV with hound.
     let reader = match hound::WavReader::open(c_path) {
         Ok(r) => r,
-        Err(_) => return 1,
+        Err(_) => return 0,
     };
     let spec = reader.spec();
     let sample_bytes = (spec.bits_per_sample / 8) as u32;
@@ -243,11 +243,11 @@ pub unsafe extern "thiscall" fn load_wav(
     let ds: &IDirectSound = &*(&snd.direct_sound as *const Ptr32 as *const IDirectSound);
     let mut buf: Option<IDirectSoundBuffer> = None;
     if ds.CreateSoundBuffer(&desc, &mut buf, None).is_err() {
-        return 1;
+        return 0;
     }
     let buf = match buf {
         Some(b) => b,
-        None => return 1,
+        None => return 0,
     };
 
     // Lock the buffer and fill with PCM data.
@@ -259,7 +259,7 @@ pub unsafe extern "thiscall" fn load_wav(
         None, None,
         DSBLOCK_ENTIREBUFFER,
     ).is_err() {
-        return 1;
+        return 0;
     }
 
     // Read raw PCM bytes from the WAV file (hound gives us the data region).
@@ -275,7 +275,7 @@ pub unsafe extern "thiscall" fn load_wav(
             16 => {
                 let mut reader = match hound::WavReader::open(c_path) {
                     Ok(r) => r,
-                    Err(_) => { let _ = buf.Unlock(audio_ptr1, audio_len1, None, 0); return 1; }
+                    Err(_) => { let _ = buf.Unlock(audio_ptr1, audio_len1, None, 0); return 0; }
                 };
                 let mut offset = 0usize;
                 for sample in reader.samples::<i16>() {
@@ -290,7 +290,7 @@ pub unsafe extern "thiscall" fn load_wav(
             8 => {
                 let mut reader = match hound::WavReader::open(c_path) {
                     Ok(r) => r,
-                    Err(_) => { let _ = buf.Unlock(audio_ptr1, audio_len1, None, 0); return 1; }
+                    Err(_) => { let _ = buf.Unlock(audio_ptr1, audio_len1, None, 0); return 0; }
                 };
                 let mut offset = 0usize;
                 for sample in reader.samples::<i16>() {
@@ -317,7 +317,7 @@ pub unsafe extern "thiscall" fn load_wav(
     core::mem::forget(buf); // WA owns the COM reference
     snd.total_bytes_loaded += data_len;
 
-    0 // success
+    1 // success (original returns 1 on success, 0 on failure)
 }
 
 // ── Construction ──────────────────────────────────────────────────────────
