@@ -134,6 +134,32 @@ impl SchemeFile {
         let expected_payload = version.payload_size();
         let actual_payload = data.len() - SCHEME_HEADER_SIZE;
 
+        // V3 schemes are saved with variable length: only extended options bytes
+        // that differ from defaults are included. The original game pre-fills the
+        // extended region with SCHEME_V3_DEFAULTS then reads the file on top, so
+        // short V3 files get defaults for the missing tail. We replicate this by
+        // accepting any size between V2 (0x124) and V3 (0x192) and padding.
+        if version == SchemeVersion::V3 {
+            if actual_payload < SCHEME_PAYLOAD_V2 || actual_payload > SCHEME_PAYLOAD_V3 {
+                return Err(SchemeError::PayloadMismatch {
+                    expected: expected_payload,
+                    got: actual_payload,
+                });
+            }
+            let file_payload = &data[SCHEME_HEADER_SIZE..];
+            let mut payload = vec![0u8; SCHEME_PAYLOAD_V3];
+            // Copy file data (V2 portion + whatever extended bytes are present)
+            payload[..actual_payload].copy_from_slice(file_payload);
+            // Fill remaining extended options with defaults
+            if actual_payload < SCHEME_PAYLOAD_V3 {
+                let defaults_start = actual_payload.saturating_sub(SCHEME_PAYLOAD_V2);
+                payload[actual_payload..SCHEME_PAYLOAD_V3].copy_from_slice(
+                    &EXTENDED_OPTIONS_DEFAULTS[defaults_start..],
+                );
+            }
+            return Ok(SchemeFile { version, payload });
+        }
+
         if actual_payload != expected_payload {
             return Err(SchemeError::PayloadMismatch {
                 expected: expected_payload,
@@ -890,27 +916,22 @@ impl ExtendedOptions {
 /// Applied to V1/V2 schemes at struct+0x138 (payload+0x124).
 /// Dumped directly from the binary — tri-state fields use 0x80 = "engine default".
 pub const EXTENDED_OPTIONS_DEFAULTS: [u8; EXTENDED_OPTIONS_SIZE] = [
-    // +0x00                                        +0x04
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x64, 0x00, 0x0F, // data_version, const_wind, wind=100, bias=15
-    0x70, 0x3D, 0x00, 0x00, 0xC2, 0xF5, 0x00, 0x00, // gravity=0x3D70, friction=0xF5C2
-    // +0x10                                        +0x14
-    0xFF, 0xFF, 0x00, 0x01, 0x05, 0x00, 0x00, 0x00, // rope_knock=FF, blood=FF, unrestrict=0, ally=1, nocrate=5
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // sd, phased, circular, anti_lock...
-    // +0x20                                        +0x24
-    0x00, 0x00, 0x80, 0x80, 0x80, 0x01, 0x00, 0x00, // batty=0, rope_roll=0, x_impact=80, bump=80, skim=80, expl_fall=1
-    0x00, 0x80, 0x00, 0x32, 0x33, 0x1E, 0xC8, 0x00, // push_all=0, timer=80, loc=0, skim2=50... petrol_decay, touch=200
-    // +0x30                                        +0x34
-    0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0x10, 0x00, // flamelet=0, proj_speed=0x200000
-    0x00, 0x00, 0x05, 0x00, 0x00, 0x00, 0x01, 0x00, // rope_speed=0x100000, jet_speed=0x50000, engine (low)
-    // +0x40                                        +0x44
-    0x80, 0x80, 0x01, 0x01, 0x01, 0x00, 0x00, 0x01, // engine (high), rope_glitch, herd, jetbungee, angle, glide, skip
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // block, float, rw_bounce...
-    // +0x50                                        +0x54
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // rw_air_visc, rw_air_worms, rw_wind...
-    0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // rw_wind_worms, rw_grav_type=1, rw_grav_str=0
-    // +0x60                                        +0x64
-    0x00, 0x80, 0x00, 0x00, 0x01, 0x00, 0x07, 0x00, // rw_crate_rate=0, shower=0x80, sink=0, remember=0, fuses=1, lock=0, overlap=7
-    0x00, 0x01, 0x00, 0x00, 0x00, 0x00,             // frac_timer=0, retreat=1, cure_poison=0, kaos=0, sheep_gate=0, conserve=0
+    // Byte-exact copy of WA.exe ROM at 0x649AB8 (110 bytes).
+    // Dumped at runtime to avoid transcription errors.
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x64, 0x00, 0x0F, // +0x00
+    0x70, 0x3D, 0x00, 0x00, 0xC2, 0xF5, 0x00, 0x00, // +0x08
+    0xFF, 0xFF, 0x00, 0x00, 0xFF, 0x05, 0x00, 0x01, // +0x10
+    0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // +0x18
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0x80, // +0x20
+    0x80, 0x01, 0x00, 0x00, 0x00, 0x80, 0x00, 0x32, // +0x28
+    0x33, 0x1E, 0xC8, 0x00, 0x00, 0x00, 0x20, 0x00, // +0x30
+    0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x05, 0x00, // +0x38
+    0x00, 0x00, 0x01, 0x00, 0x80, 0x80, 0x01, 0x01, // +0x40
+    0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, // +0x48
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // +0x50
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, // +0x58
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0x00, 0x00, // +0x60
+    0x01, 0x00, 0x07, 0x00, 0x00, 0x01,             // +0x68
 ];
 
 // === Typed accessors on SchemeFile ===
@@ -1068,5 +1089,51 @@ mod tests {
             SchemeFile::from_bytes(&data),
             Err(SchemeError::PayloadMismatch { expected: 0xD8, got: 10 })
         ));
+    }
+
+    #[test]
+    fn v3_variable_length_padded_with_defaults() {
+        // V3 scheme with only V2-length payload (no extended options in file)
+        let mut data = Vec::new();
+        data.extend_from_slice(b"SCHM");
+        data.push(0x03);
+        data.extend_from_slice(&[0xAA; SCHEME_PAYLOAD_V2]); // V2 portion filled with 0xAA
+        // No extended options bytes — should be padded with defaults
+
+        let scheme = SchemeFile::from_bytes(&data).expect("should accept short V3");
+        assert_eq!(scheme.version, SchemeVersion::V3);
+        assert_eq!(scheme.payload.len(), SCHEME_PAYLOAD_V3);
+        // V2 portion should be file data
+        assert_eq!(scheme.payload[0], 0xAA);
+        assert_eq!(scheme.payload[SCHEME_PAYLOAD_V2 - 1], 0xAA);
+        // Extended portion should be defaults
+        assert_eq!(
+            &scheme.payload[SCHEME_PAYLOAD_V2..],
+            &EXTENDED_OPTIONS_DEFAULTS[..]
+        );
+    }
+
+    #[test]
+    fn v3_full_length_accepted() {
+        // V3 scheme with full 0x192 payload
+        let mut data = Vec::new();
+        data.extend_from_slice(b"SCHM");
+        data.push(0x03);
+        data.extend_from_slice(&[0; SCHEME_PAYLOAD_V3]);
+
+        let scheme = SchemeFile::from_bytes(&data).expect("should accept full V3");
+        assert_eq!(scheme.version, SchemeVersion::V3);
+        assert_eq!(scheme.payload.len(), SCHEME_PAYLOAD_V3);
+    }
+
+    #[test]
+    fn v3_too_short_rejected() {
+        // V3 with less than V2-length payload should be rejected
+        let mut data = Vec::new();
+        data.extend_from_slice(b"SCHM");
+        data.push(0x03);
+        data.extend_from_slice(&[0; 0x100]); // less than V2 (0x124)
+
+        assert!(SchemeFile::from_bytes(&data).is_err());
     }
 }

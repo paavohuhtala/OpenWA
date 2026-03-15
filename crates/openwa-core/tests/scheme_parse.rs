@@ -342,8 +342,7 @@ fn validate_game_engine_speed_range() {
 }
 
 #[test]
-fn validate_rom_defaults_fail_sheep_gate() {
-    // ROM defaults have sheep_heavens_gate=0, which is intentionally invalid.
-    // WA uses defaults as a fallback when V3 validation fails, but never validates them.
-    assert!(!ExtendedOptions::validate_bytes(&EXTENDED_OPTIONS_DEFAULTS));
+fn validate_rom_defaults_pass() {
+    // ROM defaults (byte-exact from WA.exe at 0x649AB8) must pass validation.
+    assert!(ExtendedOptions::validate_bytes(&EXTENDED_OPTIONS_DEFAULTS));
 }
