@@ -155,7 +155,31 @@ pub fn install() -> Result<(), String> {
             va::PLAY_SOUND_LOCAL,
             trampoline_play_sound_local as *const (),
         )?;
+
+        // Patch DSSound vtable: replace trivial slots with Rust implementations.
+        patch_dssound_vtable()?;
     }
 
     Ok(())
+}
+
+/// Patch DSSound vtable (0x66AF20) to replace trivial methods with Rust.
+unsafe fn patch_dssound_vtable() -> Result<(), String> {
+    use openwa_core::rebase::rb;
+    use openwa_core::vtable::patch_vtable;
+    use openwa_core::audio::is_slot_loaded;
+
+    let vtable = rb(va::DS_SOUND_VTABLE) as *mut u32;
+
+    patch_vtable(vtable, 24, |vt| {
+        let mut patched = 0u32;
+
+        // Slot 13: is_slot_loaded — one-liner channel_slots check
+        *vt.add(13) = is_slot_loaded as *const () as u32;
+        patched += 1;
+
+        let _ = log_line(&format!(
+            "[Sound]   DSSound vtable: patched {patched}/24 slots with Rust"
+        ));
+    }).map_err(|e| e.to_string())
 }

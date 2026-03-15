@@ -6,7 +6,7 @@ pub mod speech;
 pub mod streaming;
 
 pub use active_sound::{ActiveSoundEntry, ActiveSoundTable};
-pub use dssound::DSSound;
+pub use dssound::{DSSound, DSSoundVtable, ChannelDescriptor, is_slot_loaded};
 pub use music::Music;
 pub use sound::SoundId;
 pub use speech::{SpeechLineId, SpeechLineTableEntry, SpeechSlotTable, SPEECH_LINE_TABLE_COUNT};
