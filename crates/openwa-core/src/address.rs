@@ -45,9 +45,11 @@ pub mod va {
     pub const DDKEYBOARD_VTABLE: u32 = 0x0066_AEC8;
     /// Palette vtable (0x28-byte palette object)
     pub const PALETTE_VTABLE_MAYBE: u32 = 0x0066_A2E4;
-    /// DDDisplayBase headless vtable — overlaid after DDDisplayBase__Constructor
-    /// in headless mode, filling in stub slots for headless operation.
-    pub const DD_DISPLAY_BASE_HEADLESS_VTABLE: u32 = 0x0066_A0F8;
+    /// DisplayBase primary vtable (set by constructor, has _purecall slots)
+    pub const DISPLAY_BASE_VTABLE: u32 = 0x0066_45F8;
+    /// DisplayBase headless vtable — overlaid after constructor in headless mode,
+    /// filling in stub slots for headless operation.
+    pub const DISPLAY_BASE_HEADLESS_VTABLE: u32 = 0x0066_A0F8;
     /// Input controller vtable (0x1800-byte object, set inline before FUN_0058C0D0)
     pub const INPUT_CTRL_VTABLE: u32 = 0x0066_B3FC;
     /// TaskStateMachine vtable
@@ -277,9 +279,9 @@ pub mod va {
     pub const DDISPLAY_INIT: u32 = 0x0056_9D00;
     /// Alias kept for callers that use the old name.
     pub const CONSTRUCT_DD_DISPLAY: u32 = DDISPLAY_INIT;
-    /// DDDisplayBase__Constructor — stdcall(this) → DDDisplayBase*.
+    /// DisplayBase__Constructor — stdcall(this) → DisplayBase*.
     /// Constructs the 0x3560-byte base display object (used standalone in headless mode).
-    pub const DD_DISPLAY_BASE_CTOR: u32 = 0x0052_2DB0;
+    pub const DISPLAY_BASE_CTOR: u32 = 0x0052_2DB0;
     /// Streaming audio constructor — stdcall(IDirectSound*, path_config_ptr) → *mut u8.
     /// Constructs 0x354-byte streaming audio object (only if GameInfo+0xDAA4 != 0).
     pub const STREAMING_AUDIO_CTOR: u32 = 0x0058_BC10;

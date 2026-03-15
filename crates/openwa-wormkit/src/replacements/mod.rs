@@ -1,4 +1,5 @@
 mod config;
+mod display;
 mod frontend;
 mod game_session;
 mod hardware_init;
@@ -13,6 +14,7 @@ mod weapon;
 
 pub fn install_all() -> Result<(), String> {
     headless::install()?;
+    display::install()?;
     game_session::install()?;
     hardware_init::install()?;
     frontend::install()?;

@@ -31,7 +31,7 @@
 //!   IF GameInfo.speech_enabled != 0 AND DSSound OK: streaming audio → session+0xB4
 //!
 //! ELSE (headless):
-//!   GameStats (0x3560, stdcall ctor + vtable override) → session+0xAC
+//!   DisplayBase (0x3560, stdcall ctor + vtable override) → session+0xAC
 //!   session+0xA4/0xA8/0xB0/0xB4 = null
 //!
 //! ALWAYS:
@@ -52,7 +52,7 @@ use openwa_core::dssound::DSSound;
 use openwa_core::palette::Palette;
 use openwa_core::input_ctrl::{InputCtrl, InputCtrlVtable};
 use openwa_core::game_timer::GameTimer;
-use openwa_core::dd_display_base::DDDisplayBase;
+use openwa_core::display_base::DisplayBase;
 use openwa_core::display_gfx::DisplayGfx;
 use openwa_core::streaming_audio::StreamingAudio;
 use openwa_core::ddnetgame_wrapper::DDNetGameWrapper;
@@ -430,7 +430,10 @@ unsafe extern "cdecl" fn impl_init_hardware(
         }
     } else {
         // ── Headless / stats mode ─────────────────────────────────────────────
-        (*session).display      = DDDisplayBase::construct() as *mut u8;
+        // TODO: Replace with DisplayBase::new_headless() once sprite collection
+        // sub-object construction is fully understood (FUN_004fa860 sets a secondary
+        // vtable via implicit EDI that we haven't replicated yet).
+        (*session).display      = DisplayBase::construct() as *mut u8;
         (*session).keyboard         = core::ptr::null_mut();
         (*session).sound            = core::ptr::null_mut();
         (*session).palette          = core::ptr::null_mut();

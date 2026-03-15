@@ -13,6 +13,16 @@ pub unsafe fn wa_malloc(size: u32) -> *mut u8 {
     f(size)
 }
 
+/// Free a pointer allocated by [`wa_malloc`] (WA's statically-linked CRT `free`).
+///
+/// # Safety
+/// `ptr` must have been returned by `wa_malloc` (or null, which is a no-op).
+pub unsafe fn wa_free(ptr: *mut u8) {
+    let f: unsafe extern "cdecl" fn(*mut u8) =
+        core::mem::transmute(rb(va::WA_FREE) as usize);
+    f(ptr);
+}
+
 /// An allocation from WA's heap.
 ///
 /// Owns a pointer obtained from [`wa_malloc`]. Call [`.leak()`](WABox::leak) to transfer

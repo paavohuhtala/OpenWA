@@ -1,14 +1,14 @@
-/// DisplayGfx — full display/graphics subsystem (derived from DDDisplayBase).
+/// DisplayGfx — full display/graphics subsystem (derived from DisplayBase).
 ///
 /// Constructor: DisplayGfx__Constructor (0x569C10), stdcall(this) → DisplayGfx*.
 /// Size: 0x24E28 bytes.
 ///
-/// Inheritance: DDDisplayBase (0x3560) → DisplayGfx (0x24E28).
-/// The constructor calls DDDisplayBase__Constructor first, then sets the
+/// Inheritance: DisplayBase (0x3560) → DisplayGfx (0x24E28).
+/// The constructor calls DisplayBase__Constructor first, then sets the
 /// DisplayGfx vtable (0x66A218) and initializes display-specific fields.
 ///
 /// Created by GameEngine__InitHardware in normal (non-headless) mode.
-/// Stored in the session's `display` field (shared with DDDisplayBase in headless).
+/// Stored in the session's `display` field (shared with DisplayBase in headless).
 ///
 /// OPAQUE: Internal layout not yet mapped.
 #[repr(C)]
