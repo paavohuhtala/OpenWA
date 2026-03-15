@@ -170,7 +170,7 @@ unsafe fn patch_dssound_vtable() -> Result<(), String> {
     use openwa_core::audio::{
         update_channels, release_finished,
         is_slot_loaded, is_channel_finished, stop_channel,
-        set_master_volume, set_channel_volume, dssound_sub_destructor,
+        set_master_volume, set_channel_volume, set_pan, dssound_sub_destructor,
         load_wav, dssound_noop, dssound_returns_0, dssound_returns_1,
     };
 
@@ -191,6 +191,9 @@ unsafe fn patch_dssound_vtable() -> Result<(), String> {
 
         // Slot 11: release_finished — like update_channels, returns count
         *vt.add(11) = release_finished as *const () as u32;
+
+        // Slot 5: set_pan — stereo panning with dB lookup
+        *vt.add(5) = set_pan as *const () as u32;
 
         // Slot 9: is_channel_finished — returns 0 if playing, 1 if stopped/free
         *vt.add(9) = is_channel_finished as *const () as u32;
@@ -216,6 +219,6 @@ unsafe fn patch_dssound_vtable() -> Result<(), String> {
         // Trivial returns-1 (slot 23)
         *vt.add(23) = dssound_returns_1 as *const () as u32;
 
-        let _ = log_line("[Sound]   DSSound vtable: patched 19/24 slots with Rust");
+        let _ = log_line("[Sound]   DSSound vtable: patched 20/24 slots with Rust");
     }).map_err(|e| e.to_string())
 }

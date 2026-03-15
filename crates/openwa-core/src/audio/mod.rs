@@ -10,7 +10,7 @@ pub use dssound::{DSSound, DSSoundVtable, ChannelDescriptor};
 pub use dssound::{
     update_channels, release_finished,
     is_slot_loaded, is_channel_finished, stop_channel,
-    set_master_volume, set_channel_volume,
+    set_master_volume, set_channel_volume, set_pan,
     sub_destructor as dssound_sub_destructor, load_wav,
     noop as dssound_noop, returns_0 as dssound_returns_0, returns_1 as dssound_returns_1,
 };

@@ -287,6 +287,42 @@ pub unsafe extern "thiscall" fn set_master_volume(
     1
 }
 
+/// Slot 5: set_pan — sets stereo panning on a specific channel.
+/// `pool_id` is 1-based (1..64). `pan` is Fixed 16.16 (-0x10000..0x10000).
+/// Negative = left, positive = right.
+pub unsafe extern "thiscall" fn set_pan(
+    this: *mut DSSound, pool_id: i32, pan: i32,
+) -> u32 {
+    let idx = (pool_id - 1) as usize;
+    if idx >= 64 {
+        return 0;
+    }
+    let snd = &*this;
+    let desc_idx = snd.buffer_pool_shadow[idx];
+    if desc_idx < 0 || desc_idx as usize >= 8 {
+        return 0;
+    }
+
+    // Clamp pan to [-0x10000, 0x10000].
+    let pan = pan.max(-0x10000).min(0x10000);
+
+    // Index into table backwards: abs(pan) >> 10 gives 0..63.
+    // Table is read from the END (index 63 = near silence, index 0 = full).
+    let table_idx = ((pan.unsigned_abs() >> 10) as usize).min(63);
+    let mut db = VOLUME_DB_TABLE[63 - table_idx] as i32;
+
+    // Positive pan → negate (right channel louder = negative pan dB for left).
+    if pan > 0 {
+        db = -db;
+    }
+
+    if let Some(buf) = snd.channel_descs[desc_idx as usize].buffer() {
+        let _ = buf.SetPan(db);
+    }
+
+    1
+}
+
 /// Slot 8: set_channel_volume — sets volume on a specific channel.
 /// `pool_id` is 1-based (1..64). `volume` is Fixed 16.16 (0..0x10000).
 pub unsafe extern "thiscall" fn set_channel_volume(
