@@ -503,8 +503,7 @@ unsafe fn init_graphics_and_resources(
     let ddgame = (*wrapper).ddgame;
     let fopen: unsafe extern "cdecl" fn(*const u8, *const u8) -> *mut u8 =
         core::mem::transmute(rb(va::WA_FOPEN) as usize);
-    let gfx_load_dir: unsafe extern "thiscall" fn(*mut u8) -> i32 =
-        core::mem::transmute(rb(va::GFX_HANDLER_LOAD_DIR) as usize);
+    let gfx_load_dir_addr = rb(va::GFX_HANDLER_LOAD_DIR);
     let gfx_handler_vtable = rb(0x664308) as u32;
 
     // ── GfxHandler #1 (primary) ──
@@ -533,7 +532,7 @@ unsafe fn init_graphics_and_resources(
     for (i, path) in paths.iter().enumerate() {
         let fp = fopen(path.as_ptr(), b"rb\0".as_ptr());
         *(gfx1.add(0x198) as *mut *mut u8) = fp;
-        if !fp.is_null() && gfx_load_dir(gfx1) != 0 {
+        if !fp.is_null() && call_gfx_load_dir(gfx1, gfx_load_dir_addr) != 0 {
             gfx_loaded_idx = i as u32;
             break;
         }
@@ -545,8 +544,8 @@ unsafe fn init_graphics_and_resources(
     let headless_offset = if f914 != 0 { 1u32 } else { 0u32 };
     (*wrapper).gfx_mode = if gfx_loaded_idx.wrapping_sub(headless_offset) < 2 { 1 } else { 0 };
     let _ = log_line(&format!(
-        "[DDGame] GfxHandler #1 loaded (idx={}), gfx_mode={}",
-        gfx_loaded_idx, (*wrapper).gfx_mode,
+        "[DDGame] GfxHandler #1 loaded (idx={}, gfx_mode={}, gfx1=0x{:08X})",
+        gfx_loaded_idx, (*wrapper).gfx_mode, gfx1 as u32,
     ));
 
     // ── GfxHandler #2 (conditional) ──
@@ -568,10 +567,10 @@ unsafe fn init_graphics_and_resources(
 
         let fp = fopen(gfx_c_path.as_ptr(), b"rb\0".as_ptr());
         *(gfx2.add(0x198) as *mut *mut u8) = fp;
-        if fp.is_null() || gfx_load_dir(gfx2) == 0 {
+        if fp.is_null() || call_gfx_load_dir(gfx2, gfx_load_dir_addr) == 0 {
             let fp2 = fopen(b"data\\Gfx\\Gfx.dir\0".as_ptr(), b"rb\0".as_ptr());
             *(gfx2.add(0x198) as *mut *mut u8) = fp2;
-            if fp2.is_null() || gfx_load_dir(gfx2) == 0 {
+            if fp2.is_null() || call_gfx_load_dir(gfx2, gfx_load_dir_addr) == 0 {
                 panic!("DDGame: couldn't open secondary Gfx.dir");
             }
         }
@@ -962,6 +961,22 @@ unsafe fn init_graphics_and_resources(
     // TODO: HUD_LoadWeaponSprites_Maybe
     // TODO: Close GfxHandlers
     // TODO: Display finalization (layer visibility)
+}
+
+/// Bridge to GfxHandler__LoadDir (0x5663E0).
+/// Convention: usercall(EAX=handler), plain RET. Returns nonzero on success.
+#[cfg(target_arch = "x86")]
+unsafe fn call_gfx_load_dir(handler: *mut u8, addr: u32) -> i32 {
+    let result: i32;
+    core::arch::asm!(
+        "call {addr}",
+        addr = in(reg) addr,
+        inlateout("eax") handler => result,
+        out("ecx") _,
+        out("edx") _,
+        clobber_abi("C"),
+    );
+    result
 }
 
 /// Helper: load image via GfxDir__LoadImage + wrap with FUN_004F5F80.

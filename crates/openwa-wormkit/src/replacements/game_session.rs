@@ -107,18 +107,14 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
     let timer_obj = (*session).timer_obj;
     let net_game  = (*session).net_game;
 
-    // Call our Rust DDGame constructor (incremental port).
-    create_ddgame(
-        this,
-        keyboard as *mut DDKeyboard,
-        display,
-        sound,
-        palette,
-        streaming_audio as *mut openwa_core::audio::Music,
-        timer_obj,
-        net_game,
-        game_info,
-        input_ctrl as u32,
+    // Call original DDGame__Constructor via bridge.
+    // create_ddgame() is ~80% complete but missing gradient images,
+    // sprite loading, HUD, and display finalization. Use original
+    // until fully ported.
+    DDGAME_CTOR_ECX = input_ctrl as u32;
+    ddgame_constructor_call(
+        this, display, sound, keyboard, palette, streaming_audio,
+        timer_obj, net_game, game_info,
     );
 
     // Initialize DDGame's game-state fields.
@@ -143,8 +139,7 @@ pub fn install() -> Result<(), String> {
         init_constructor_addrs();
         // DDGameWrapper__Constructor is fully converted — trap the original.
         hook::install_trap!("DDGameWrapper__Constructor", va::CONSTRUCT_DD_GAME_WRAPPER);
-        // DDGame__Constructor replaced by create_ddgame() — trap original.
-        hook::install_trap!("DDGame__Constructor", va::CONSTRUCT_DD_GAME);
+        // DDGame__Constructor still uses original bridge (create_ddgame not yet complete).
     }
     Ok(())
 }
