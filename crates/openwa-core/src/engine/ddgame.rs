@@ -488,6 +488,11 @@ pub unsafe fn create_ddgame(
     // ── 10. GfxHandler, landscape, sprites, audio, resources ──
     init_graphics_and_resources(wrapper, game_info, net_game, display, is_headless);
 
+    let _ = log_line(&format!(
+        "[DDGame] create_ddgame done: landscape=0x{:08X}, display_gfx=0x{:08X}, coord_list=0x{:08X}",
+        (*ddgame).landscape as u32, (*ddgame).display_gfx as u32, (*ddgame).coord_list as u32,
+    ));
+
     ddgame
 }
 
@@ -575,6 +580,7 @@ unsafe fn init_graphics_and_resources(
         }
     }
 
+    let _ = log_line("[DDGame] past gfxhandlers");
     // ── Display palette setup (non-headless) ──
     if !is_headless {
         if *(rb(0x88E485) as *const u8) == 0 {
@@ -610,6 +616,7 @@ unsafe fn init_graphics_and_resources(
         }
     }
 
+    let _ = log_line("[DDGame] past palette");
     // ── FUN_00570E20: usercall(ESI=wrapper), plain RET ──
     call_usercall_esi(wrapper, FUN_570E20_ADDR);
 
@@ -673,6 +680,7 @@ unsafe fn init_graphics_and_resources(
     (*wrapper)._field_4e0 = 0xFFFFFF9C; // -100
     (*wrapper).speech_name_count = 0;
 
+    let _ = log_line("[DDGame] past 570e20+display+colors+gfxdir+fields");
     // ── Audio init (non-headless + sound available) ──
     if !is_headless {
         // FUN_570F30: usercall(ESI=wrapper)
@@ -924,6 +932,7 @@ unsafe fn init_graphics_and_resources(
     // ── Weapon sprites (FUN_005717A0 ×2): usercall(ECX=wrapper) ──
     call_usercall_ecx(wrapper, LOAD_WEAPON_SPRITES_ADDR);
     call_usercall_ecx(wrapper, LOAD_WEAPON_SPRITES_ADDR);
+    let _ = log_line("[DDGame] past audio init");
 
     // ── Sprite resource loading via DDGameWrapper vtable[0] ──
     // DDNetGameWrapper__LoadResourceList: thiscall(ECX=wrapper) +
@@ -940,12 +949,14 @@ unsafe fn init_graphics_and_resources(
         ) = core::mem::transmute(*wrapper_vt);
 
         // Load resources for layer 1 (main sprites)
+        let _ = log_line("[DDGame] M2: load_resource_list #1");
         load_resource_list(
             wrapper, 1, gfx_handler,
             rb(0x643F2B) as *const u8,  // base path
             rb(0x6AD2C0) as *const u8,  // resource table
             0x1D88,                      // table size
         );
+        let _ = log_line("[DDGame] M3: load_resource_list #1 done");
 
         // Set global flag based on game version
         let d778 = *((*ddgame).game_info as *const u8).add(0xD778).cast::<i32>();
