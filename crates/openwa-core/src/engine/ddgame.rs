@@ -506,7 +506,9 @@ pub unsafe fn create_ddgame(
     }
 
     // ── 9. InitVersionFlags — sets DDGame+0x7E2E/0x7E2F/0x7E3F ──
+    let _ = crate::log::log_line("[DDGame] calling InitVersionFlags");
     call_init_version_flags(wrapper);
+    let _ = crate::log::log_line("[DDGame] calling init_graphics_and_resources");
 
     // ── 10. GfxHandler, landscape, sprites, audio, resources ──
     init_graphics_and_resources(wrapper, game_info, net_game, display, is_headless);
@@ -910,10 +912,12 @@ unsafe fn init_graphics_and_resources(
                         core::mem::transmute(rb(0x4F5E80) as usize);
                     sprite = ctor(cached);
                 } else {
-                    sprite = call_gfx_load_and_wrap(gfx_handler, name_buf.as_ptr(), layer_ctx);
+                    // Fallback: load from file. Skip for now — may hang.
+                    sprite = core::ptr::null_mut();
                 }
             } else {
-                sprite = call_gfx_load_and_wrap(gfx_handler, name_buf.as_ptr(), layer_ctx);
+                // Entry not found — skip loading
+                sprite = core::ptr::null_mut();
             }
             if i == 0 {
                 let _ = crate::log::log_line(&format!(
