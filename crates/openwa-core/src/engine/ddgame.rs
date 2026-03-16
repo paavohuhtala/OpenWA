@@ -1076,18 +1076,61 @@ unsafe fn init_graphics_and_resources(
             }
         }
 
-        // HUD + sprite init: temporarily disabled to test stability
-        // {
-        //     let hud_load: unsafe extern "stdcall" fn(*mut DDGame, *mut u8) =
-        //         core::mem::transmute(rb(0x53D0E0) as usize);
-        //     hud_load(ddgame, (*wrapper)._field_4c4);
-        //     let f1: unsafe extern "stdcall" fn(*mut DDGameWrapper) =
-        //         core::mem::transmute(rb(0x5706D0) as usize);
-        //     f1(wrapper);
-        //     let f2: unsafe extern "stdcall" fn(*mut DDGameWrapper) =
-        //         core::mem::transmute(rb(0x5703E0) as usize);
-        //     f2(wrapper);
-        // }
+        // ── HUD_LoadWeaponSprites (0x53D0E0) ──
+        // thiscall(ECX=ddgame, stack=wrapper_4c4), RET 0x8 (cleans 2: this implicit + 1 stack)
+        // Wait — RET 0x8 means 2 stack params cleaned. For thiscall with ECX, that's 2 stack params.
+        // The asm: PUSH ECX(=wrapper_4c4), PUSH EDX(=ddgame), CALL.
+        // So it's stdcall(ddgame, wrapper_4c4) actually — ECX is NOT the this pointer!
+        // The decompiler labeled it thiscall but the push sequence shows two stack params.
+        // Let me pass wrapper as thiscall ECX and wrapper_4c4 as stack:
+        // Actually: PUSH ECX([EBP+0x4C4]), PUSH EDX([EBP+0x488]=ddgame).
+        // CALL 0x53D0E0. So ECX = gfx_handler_4c4, pushed FIRST. EDX = ddgame, pushed SECOND.
+        // For stdcall: param_1=EDX(ddgame, pushed last), param_2=ECX(wrapper_4c4, pushed first).
+        // But decompiler says thiscall → ECX is implicit this.
+        // RET 0x8 = 2 × 4 bytes cleaned. For thiscall: ECX + 1 stack = RET 0x4.
+        // RET 0x8 means 2 stack params, NO ECX implicit → it's really stdcall(2 params).
+        {
+            let hud_load: unsafe extern "stdcall" fn(*mut DDGame, *mut u8) =
+                core::mem::transmute(rb(0x53D0E0) as usize);
+            hud_load(ddgame, (*wrapper)._field_4c4);
+        }
+
+        // ── Two sprite init calls (0x5706D0, 0x5703E0) ──
+        // PUSH EBP(wrapper); CALL — stdcall(wrapper), RET 0x4
+        {
+            let f1: unsafe extern "stdcall" fn(*mut DDGameWrapper) =
+                core::mem::transmute(rb(0x5706D0) as usize);
+            f1(wrapper);
+            let f2: unsafe extern "stdcall" fn(*mut DDGameWrapper) =
+                core::mem::transmute(rb(0x5703E0) as usize);
+            f2(wrapper);
+        }
+
+        // ── Close primary GfxHandler ──
+        if !(*wrapper)._field_4c0.is_null() {
+            let gfx_vt = *((*wrapper)._field_4c0 as *const *const u32);
+            let close: unsafe extern "thiscall" fn(*mut u8, u32) =
+                core::mem::transmute(*gfx_vt.add(3));
+            close((*wrapper)._field_4c0, 1);
+        }
+
+        // ── Display finalization (non-headless) ──
+        if !is_headless {
+            let init_display_final: unsafe extern "stdcall" fn(*mut u8) =
+                core::mem::transmute(rb(va::DDGAME_INIT_DISPLAY_FINAL) as usize);
+            init_display_final(disp_obj);
+        }
+        if *(rb(0x88E485) as *const u8) == 0 {
+            call_usercall_eax(wrapper, FUN_570A90_ADDR);
+        }
+
+        // Display layer visibility: display->vtable[0x17](layer, visible)
+        let disp_obj_vt = *(disp_obj as *const *const u32);
+        let set_vis: unsafe extern "thiscall" fn(*mut u8, i32, i32) -> *mut u8 =
+            core::mem::transmute(*disp_obj_vt.add(0x17));
+        set_vis(disp_obj, 1, 0);
+        set_vis(disp_obj, 2, 0);
+        set_vis(disp_obj, 3, 1);
 
         // GfxHandler close, display finalization, layer visibility:
         // Temporarily disabled to test stability.
