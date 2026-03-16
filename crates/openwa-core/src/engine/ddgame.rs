@@ -374,6 +374,8 @@ pub fn init_constructor_addrs() {
         FUN_570E20_ADDR = rb(va::FUN_570E20);
         FUN_570A90_ADDR = rb(va::FUN_570A90);
         GFX_RESOURCE_CREATE_ADDR = rb(va::GFX_RESOURCE_CREATE);
+        GFX_FIND_ENTRY_ADDR = rb(va::GFX_DIR_FIND_ENTRY);
+        GFX_LOAD_IMAGE_ADDR = rb(va::GFX_DIR_LOAD_IMAGE);
         FUN_570F30_ADDR = rb(va::DDGAME_INIT_SOUND_PATHS);
         LOAD_SPEECH_BANKS_ADDR = rb(va::DSSOUND_LOAD_ALL_SPEECH_BANKS);
         LOAD_WEAPON_SPRITES_ADDR = rb(va::DDGAME_LOAD_WEAPON_SPRITES);
@@ -861,10 +863,8 @@ unsafe fn init_graphics_and_resources(
         release(gfx_resource);
     }
 
-    // Resolved addresses for GfxDir operations (used by arrows, gradients, fill)
-    let gfx_find_entry = rb(va::GFX_DIR_FIND_ENTRY) as u32;
-    let gfx_load_image = rb(va::GFX_DIR_LOAD_IMAGE) as u32;
-    let fun_4f5f80 = rb(0x4F5F80) as u32;
+    // GfxDir addresses are resolved via statics (GFX_FIND_ENTRY_ADDR, GFX_LOAD_IMAGE_ADDR)
+    // and called through naked bridges (call_gfx_find_entry, call_gfx_load_image).
 
     // ── Arrow sprites + collision regions (32 iterations) ──
     {
@@ -884,18 +884,8 @@ unsafe fn init_graphics_and_resources(
                 set_layer((*ddgame).display, 1);
             }
 
-            // GfxDir__FindEntry: usercall(EAX=name) + stdcall(gfx_handler), RET 0x4
-            let entry: *mut u8;
-            core::arch::asm!(
-                "push {handler}",
-                "call {find}",
-                handler = in(reg) gfx_handler,
-                find = in(reg) gfx_find_entry,
-                inlateout("eax") name_buf.as_ptr() => entry,
-                out("ecx") _,
-                out("edx") _,
-                clobber_abi("C"),
-            );
+            // GfxDir__FindEntry: usercall(EAX=name) + 1 stack(gfx_handler), RET 0x4
+            let entry = call_gfx_find_entry(name_buf.as_ptr(), gfx_handler);
 
             let sprite: *mut u8;
             if !entry.is_null() {
@@ -907,14 +897,13 @@ unsafe fn init_graphics_and_resources(
                 if !cached.is_null() {
                     sprite = cached;
                 } else {
-                    // Fallback to GfxDir__LoadImage
                     sprite = call_gfx_load_and_wrap(
-                        name_buf.as_ptr(), gfx_load_image, fun_4f5f80,
+                        gfx_handler, name_buf.as_ptr(), core::ptr::null_mut(),
                     );
                 }
             } else {
                 sprite = call_gfx_load_and_wrap(
-                    name_buf.as_ptr(), gfx_load_image, fun_4f5f80,
+                    gfx_handler, name_buf.as_ptr(), core::ptr::null_mut(),
                 );
             }
 
@@ -1062,9 +1051,7 @@ unsafe fn init_graphics_and_resources(
         if s_var1 < 0x61 && level_height == 0x2B8 {
             // Simple gradient: load gradient.img directly
             let gradient = call_gfx_find_and_load(
-                land_layer, b"gradient.img\0".as_ptr(),
-                gfx_find_entry, gfx_load_image, fun_4f5f80,
-                layer3_ctx,
+                land_layer, b"gradient.img\0".as_ptr(), layer3_ctx,
             );
             (*ddgame).gradient_image = gradient;
         } else {
@@ -1078,9 +1065,7 @@ unsafe fn init_graphics_and_resources(
         {
             let layer2_ctx = set_layer((*ddgame).display, 2);
             let fill_sprite = call_gfx_find_and_load(
-                land_layer, b"fill.img\0".as_ptr(),
-                gfx_find_entry, gfx_load_image, fun_4f5f80,
-                layer2_ctx,
+                land_layer, b"fill.img\0".as_ptr(), layer2_ctx,
             );
             if !fill_sprite.is_null() {
                 // Get pixel value: fill_sprite->vtable[4](0, 0)
@@ -1144,23 +1129,9 @@ unsafe fn init_graphics_and_resources(
 unsafe fn call_gfx_find_and_load(
     gfx_dir: *mut u8,
     name: *const u8,
-    find_entry_addr: u32,
-    load_image_addr: u32,
-    wrap_addr: u32,
     display_ctx: *mut u8,
 ) -> *mut u8 {
-    // GfxDir__FindEntry: usercall(EAX=name) + stdcall(gfx_dir), RET 0x4
-    let entry: *mut u8;
-    core::arch::asm!(
-        "push {dir}",
-        "call {find}",
-        dir = in(reg) gfx_dir,
-        find = in(reg) find_entry_addr,
-        inlateout("eax") name => entry,
-        out("ecx") _,
-        out("edx") _,
-        clobber_abi("C"),
-    );
+    let entry = call_gfx_find_entry(name, gfx_dir);
 
     if !entry.is_null() {
         // Try cached load: gfx_dir->vtable[2](entry->field_4)
@@ -1169,24 +1140,16 @@ unsafe fn call_gfx_find_and_load(
             core::mem::transmute(*dir_vt.add(2));
         let cached = load_cached(gfx_dir, *(entry.add(4) as *const u32));
         if !cached.is_null() {
-            // Wrap with DisplayGfx constructor
-            let result: *mut u8;
-            core::arch::asm!(
-                "push {cached}",
-                "call {ctor}",
-                cached = in(reg) cached,
-                ctor = in(reg) rb(0x4F5E80) as u32, // DisplayGfx__Constructor_Maybe
-                out("eax") result,
-                out("ecx") _,
-                out("edx") _,
-                clobber_abi("C"),
-            );
-            return result;
+            // Wrap with DisplayGfx__Constructor_Maybe (0x4F5E80)
+            // This is stdcall(1 param), RET 0x4
+            let ctor: unsafe extern "stdcall" fn(*mut u8) -> *mut u8 =
+                core::mem::transmute(rb(0x4F5E80) as usize);
+            return ctor(cached);
         }
     }
 
     // Fallback: load image directly
-    call_gfx_load_and_wrap(name, load_image_addr, wrap_addr)
+    call_gfx_load_and_wrap(gfx_dir, name, display_ctx)
 }
 
 // Statics for usercall bridge addresses
@@ -1253,6 +1216,25 @@ unsafe extern "C" fn call_gfx_resource_create(
     );
 }
 
+/// Runtime address of GfxDir__FindEntry (set by init_constructor_addrs()).
+static mut GFX_FIND_ENTRY_ADDR: u32 = 0;
+
+/// Bridge to GfxDir__FindEntry (0x566520).
+/// Convention: usercall(EAX=name) + 1 stack(gfx_handler), RET 0x4.
+/// Returns entry pointer or null.
+#[cfg(target_arch = "x86")]
+#[unsafe(naked)]
+unsafe extern "C" fn call_gfx_find_entry(_name: *const u8, _gfx_handler: *mut u8) -> *mut u8 {
+    core::arch::naked_asm!(
+        "movl 4(%esp), %eax",     // EAX = name
+        "pushl 8(%esp)",          // push gfx_handler (callee cleans via RET 0x4)
+        "calll *({addr})",
+        "retl",                   // caller cleans our 2 cdecl params
+        addr = sym GFX_FIND_ENTRY_ADDR,
+        options(att_syntax),
+    );
+}
+
 /// Bridge to GfxHandler__LoadDir (0x5663E0).
 /// Convention: usercall(EAX=handler), plain RET. Returns nonzero on success.
 #[cfg(target_arch = "x86")]
@@ -1269,45 +1251,41 @@ unsafe fn call_gfx_load_dir(handler: *mut u8, addr: u32) -> i32 {
     result
 }
 
-/// Helper: load image via GfxDir__LoadImage + wrap with FUN_004F5F80.
-/// Used by arrow sprite loop when GfxDir__FindEntry fails.
+// GfxDir__LoadImage is usercall(ESI=gfx_handler) + 1 stack(name), RET 0x4.
+// Returns raw image pointer or null.
+static mut GFX_LOAD_IMAGE_ADDR: u32 = 0;
+
+#[cfg(target_arch = "x86")]
+#[unsafe(naked)]
+unsafe extern "C" fn call_gfx_load_image(_gfx_handler: *mut u8, _name: *const u8) -> *mut u8 {
+    core::arch::naked_asm!(
+        "pushl %esi",
+        "movl 8(%esp), %esi",     // ESI = gfx_handler
+        "pushl 12(%esp)",         // push name (callee cleans via RET 0x4)
+        "calll *({addr})",
+        "popl %esi",
+        "retl",
+        addr = sym GFX_LOAD_IMAGE_ADDR,
+        options(att_syntax),
+    );
+}
+
+/// Helper: load image via GfxDir__LoadImage + wrap as DisplayGfx.
+/// Used by arrow sprite loop when GfxDir__FindEntry returns null.
 #[cfg(target_arch = "x86")]
 unsafe fn call_gfx_load_and_wrap(
+    gfx_handler: *mut u8,
     name: *const u8,
-    gfx_load_image_addr: u32,
-    fun_4f5f80: u32,
+    display_ctx: *mut u8,
 ) -> *mut u8 {
-    // GfxDir__LoadImage: usercall(EAX=name?), stdcall(1 stack param), RET 0x4
-    let image: *mut u8;
-    core::arch::asm!(
-        "push {name}",
-        "call {load}",
-        name = in(reg) name,
-        load = in(reg) gfx_load_image_addr,
-        out("eax") image,
-        out("ecx") _,
-        out("edx") _,
-        clobber_abi("C"),
-    );
+    let image = call_gfx_load_image(gfx_handler, name);
     if image.is_null() {
         return core::ptr::null_mut();
     }
-    // FUN_004F5F80(display_gfx_context, image, 1)
-    let result: *mut u8;
-    core::arch::asm!(
-        "push 1",
-        "push {img}",
-        "push {ctx}",
-        "call {wrap}",
-        "add esp, 12",
-        img = in(reg) image,
-        ctx = in(reg) 0u32,  // display_gfx context, often 0
-        wrap = in(reg) fun_4f5f80,
-        out("eax") result,
-        out("ecx") _,
-        out("edx") _,
-        clobber_abi("C"),
-    );
+    // FUN_004F5F80(display_ctx, image, 1) — cdecl, 3 params
+    let f: unsafe extern "cdecl" fn(*mut u8, *mut u8, u32) -> *mut u8 =
+        core::mem::transmute(rb(0x4F5F80) as usize);
+    let result = f(display_ctx, image, 1);
     // Release the raw image
     let image_vt = *(image as *const *const u32);
     let destroy: unsafe extern "thiscall" fn(*mut u8, u32) =
