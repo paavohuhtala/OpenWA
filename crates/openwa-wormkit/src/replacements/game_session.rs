@@ -135,6 +135,10 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
         );
     }
 
+    let _ = log_line(&format!(
+        "[GameSession] create_ddgame returned, ddgame=0x{:08X}",
+        (*this).ddgame as u32));
+
     // Dump DDGame state BEFORE InitGameState (constructor output only)
     if std::env::var("OPENWA_VALIDATE").is_ok() {
         let ddgame_pre = (*this).ddgame;
