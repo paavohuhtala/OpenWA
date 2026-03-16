@@ -1076,51 +1076,22 @@ unsafe fn init_graphics_and_resources(
             }
         }
 
-        // ── HUD_LoadWeaponSprites (0x53D0E0) ──
-        // stdcall(ddgame, wrapper_4c4), verified from asm: PUSH ECX([EBP+0x4C4]), PUSH EDX(ddgame)
-        {
-            let hud_load: unsafe extern "stdcall" fn(*mut DDGame, *mut u8) =
-                core::mem::transmute(rb(0x53D0E0) as usize);
-            hud_load(ddgame, (*wrapper)._field_4c4);
-        }
+        // HUD + sprite init: temporarily disabled to test stability
+        // {
+        //     let hud_load: unsafe extern "stdcall" fn(*mut DDGame, *mut u8) =
+        //         core::mem::transmute(rb(0x53D0E0) as usize);
+        //     hud_load(ddgame, (*wrapper)._field_4c4);
+        //     let f1: unsafe extern "stdcall" fn(*mut DDGameWrapper) =
+        //         core::mem::transmute(rb(0x5706D0) as usize);
+        //     f1(wrapper);
+        //     let f2: unsafe extern "stdcall" fn(*mut DDGameWrapper) =
+        //         core::mem::transmute(rb(0x5703E0) as usize);
+        //     f2(wrapper);
+        // }
 
-        // ── Two sprite init calls ──
-        // PUSH EBP(wrapper); CALL 0x5706D0 — stdcall(wrapper)
-        // PUSH EBP(wrapper); CALL 0x5703E0 — stdcall(wrapper)
-        {
-            let f1: unsafe extern "stdcall" fn(*mut DDGameWrapper) =
-                core::mem::transmute(rb(0x5706D0) as usize);
-            f1(wrapper);
-            let f2: unsafe extern "stdcall" fn(*mut DDGameWrapper) =
-                core::mem::transmute(rb(0x5703E0) as usize);
-            f2(wrapper);
-        }
-
-        // ── Close primary GfxHandler ──
-        if !(*wrapper)._field_4c0.is_null() {
-            let gfx_vt = *((*wrapper)._field_4c0 as *const *const u32);
-            let close: unsafe extern "thiscall" fn(*mut u8, u32) =
-                core::mem::transmute(*gfx_vt.add(3));
-            close((*wrapper)._field_4c0, 1);
-        }
-
-        // ── Display finalization (non-headless) ──
-        if !is_headless {
-            let init_display_final: unsafe extern "stdcall" fn(u32) =
-                core::mem::transmute(rb(va::DDGAME_INIT_DISPLAY_FINAL) as usize);
-            init_display_final(disp_obj as u32);
-        }
-        if *(rb(0x88E485) as *const u8) == 0 {
-            call_usercall_eax(wrapper, FUN_570A90_ADDR);
-        }
-
-        // Display layer visibility: vt[0x5C](1,0), vt[0x5C](2,0), vt[0x5C](3,1)
-        let disp_obj_vt = *(disp_obj as *const *const u32);
-        let set_vis: unsafe extern "thiscall" fn(*mut u8, i32, i32) -> *mut u8 =
-            core::mem::transmute(*disp_obj_vt.add(0x17));
-        set_vis(disp_obj, 1, 0);
-        set_vis(disp_obj, 2, 0);
-        set_vis(disp_obj, 3, 1);
+        // GfxHandler close, display finalization, layer visibility:
+        // Temporarily disabled to test stability.
+        // TODO: re-enable after verifying calling conventions
     }
 }
 
