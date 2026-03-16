@@ -647,10 +647,13 @@ unsafe fn init_graphics_and_resources(
     }
 
     // ── FUN_00570E20: usercall(ESI=wrapper), plain RET ──
-    call_usercall_esi(wrapper, FUN_570E20_ADDR);
+    // Calls display->vtable[4] which may not exist in headless mode.
+    if !is_headless {
+        call_usercall_esi(wrapper, FUN_570E20_ADDR);
+    }
 
     // ── Display vtable slot 5 (offset 0x14) ──
-    {
+    if !is_headless {
         let vt = *((*ddgame).display as *const *const u32);
         let f: unsafe extern "thiscall" fn(*mut DDDisplay) -> *mut u8 =
             core::mem::transmute(*vt.add(5));
@@ -746,7 +749,9 @@ unsafe fn init_graphics_and_resources(
         let gfx_handler = (*wrapper)._field_4c0;
         let out_buf = wa_malloc(0x900);
         core::ptr::write_bytes(out_buf, 0, 0x900);
+        let _ = crate::log::log_line("[DDGame] calling GfxResource_Create");
         gfx_resource = call_gfx_resource_create(gfx_handler, rb(0x66A3C0) as *const u8, out_buf);
+        let _ = crate::log::log_line(&format!("[DDGame] GfxResource=0x{:08X}", gfx_resource as u32));
     }
 
     // ── PCLandscape (alloc 0xB44, stdcall 11 params) ──
