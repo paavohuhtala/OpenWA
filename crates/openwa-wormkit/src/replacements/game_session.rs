@@ -17,8 +17,9 @@
 use openwa_core::address::va;
 use openwa_core::audio::DSSound;
 use openwa_core::display::{DDDisplay, Palette};
-use openwa_core::engine::ddgame::init_constructor_addrs;
+use openwa_core::engine::ddgame::{create_ddgame, init_constructor_addrs};
 use openwa_core::engine::{DDGameWrapper, GameInfo, GameSession};
+use openwa_core::input::DDKeyboard;
 use openwa_core::rebase::rb;
 use crate::hook;
 use crate::log_line;
@@ -106,12 +107,18 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
     let timer_obj = (*session).timer_obj;
     let net_game  = (*session).net_game;
 
-    // Call original DDGame__Constructor via bridge.
-    // TODO: Replace with create_ddgame() once fully ported.
-    DDGAME_CTOR_ECX = input_ctrl as u32;
-    ddgame_constructor_call(
-        this, display, sound, keyboard, palette, streaming_audio,
-        timer_obj, net_game, game_info,
+    // Call our Rust DDGame constructor (incremental port).
+    create_ddgame(
+        this,
+        keyboard as *mut DDKeyboard,
+        display,
+        sound,
+        palette,
+        streaming_audio as *mut openwa_core::audio::Music,
+        timer_obj,
+        net_game,
+        game_info,
+        input_ctrl as u32,
     );
 
     // Initialize DDGame's game-state fields.
@@ -136,8 +143,8 @@ pub fn install() -> Result<(), String> {
         init_constructor_addrs();
         // DDGameWrapper__Constructor is fully converted — trap the original.
         hook::install_trap!("DDGameWrapper__Constructor", va::CONSTRUCT_DD_GAME_WRAPPER);
-        // DDGame__Constructor still uses the original via bridge.
-        // Will be trapped once create_ddgame() is complete.
+        // DDGame__Constructor replaced by create_ddgame() — trap original.
+        hook::install_trap!("DDGame__Constructor", va::CONSTRUCT_DD_GAME);
     }
     Ok(())
 }
