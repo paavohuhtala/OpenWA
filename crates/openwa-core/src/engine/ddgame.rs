@@ -1,14 +1,18 @@
+use crate::address::va;
 use crate::audio::active_sound::ActiveSoundTable;
 use crate::display::dd_display::DDDisplay;
+use crate::engine::ddgame_wrapper::DDGameWrapper;
+use crate::engine::game_info::GameInfo;
 use crate::input::keyboard::DDKeyboard;
 use crate::audio::dssound::DSSound;
-use crate::engine::game_info::GameInfo;
 use crate::render::landscape::PCLandscape;
 use crate::audio::music::Music;
 use crate::display::palette::Palette;
+use crate::rebase::rb;
 use crate::render::queue::RenderQueue;
 use crate::audio::speech::SpeechSlotTable;
 use crate::render::turn_order::TurnOrderWidget;
+use crate::wa_alloc::wa_malloc;
 
 /// DDGame — the main game engine object.
 ///
@@ -345,6 +349,357 @@ pub struct DDGame {
 }
 
 const _: () = assert!(core::mem::size_of::<DDGame>() == 0x98B8);
+
+// ============================================================
+// DDGame constructor — replaces DDGame__Constructor (0x56E220)
+// ============================================================
+//
+// Despite being named DDGame__Constructor, the original function
+// receives DDGameWrapper* as `this` and creates DDGame internally.
+// It populates fields on BOTH the wrapper and the inner DDGame.
+// The Rust entry point is DDGameWrapper::create_game() in
+// ddgame_wrapper.rs; the bulk of the logic lives here because
+// it primarily initializes DDGame fields.
+
+/// Runtime address of DDGame__InitFields (set by init_constructor_addrs()).
+static mut INIT_FIELDS_ADDR: u32 = 0;
+
+/// Initialize runtime addresses for the constructor bridges.
+/// Must be called once at DLL startup (from lib.rs or similar).
+pub fn init_constructor_addrs() {
+    unsafe {
+        INIT_FIELDS_ADDR = rb(va::DDGAME_INIT_FIELDS);
+    }
+}
+
+/// Bridge to DDGame__InitFields (0x526120).
+/// Convention: usercall(EDI=ddgame), plain RET.
+#[cfg(target_arch = "x86")]
+#[unsafe(naked)]
+unsafe extern "C" fn call_init_fields(_ddgame: *mut DDGame) {
+    core::arch::naked_asm!(
+        "pushl %edi",
+        "movl 8(%esp), %edi",
+        "calll *({addr})",
+        "popl %edi",
+        "retl",
+        addr = sym INIT_FIELDS_ADDR,
+        options(att_syntax),
+    );
+}
+
+/// Bridge to DDGame__InitVersionFlags (0x525BE0).
+/// Convention: stdcall(ddgame_wrapper).
+#[cfg(target_arch = "x86")]
+unsafe fn call_init_version_flags(wrapper: *mut DDGameWrapper) {
+    let f: unsafe extern "stdcall" fn(*mut DDGameWrapper) =
+        core::mem::transmute(rb(va::DDGAME_INIT_VERSION_FLAGS) as usize);
+    f(wrapper);
+}
+
+/// Create and initialize DDGame, matching DDGame__Constructor (0x56E220).
+///
+/// Allocates 0x98B8 bytes from WA's heap, initializes all fields, and creates
+/// sub-objects. Populates fields on both `wrapper` (DDGameWrapper) and the
+/// returned DDGame.
+///
+/// # Safety
+/// All pointer params must be valid WA objects. `wrapper` must be a
+/// partially-initialized DDGameWrapper (vtable, display, sound set).
+#[cfg(target_arch = "x86")]
+pub unsafe fn create_ddgame(
+    wrapper: *mut DDGameWrapper,
+    keyboard: *mut DDKeyboard,
+    display: *mut DDDisplay,
+    sound: *mut DSSound,
+    palette: *mut Palette,
+    music: *mut Music,
+    param7: *mut u8,       // timer object (0x1F4 observed)
+    net_game: *mut u8,     // from GameSession
+    game_info: *mut GameInfo,
+    network_ecx: u32,      // implicit ECX from caller
+) -> *mut DDGame {
+    // ── 1. Allocate and zero-fill (matches: memset(piVar3, 0, 0x98B8)) ──
+    let ddgame = wa_malloc(0x98B8) as *mut DDGame;
+    if ddgame.is_null() {
+        return core::ptr::null_mut();
+    }
+    core::ptr::write_bytes(ddgame as *mut u8, 0, 0x98B8);
+
+    // ── 2. InitFields — usercall(EDI=ddgame) ──
+    // Zeroes stride-0x194 table, coordinate entries, calls InitRenderIndices.
+    call_init_fields(ddgame);
+
+    // ── 3. Store DDGame* at DDGameWrapper+0x488 ──
+    (*wrapper).ddgame = ddgame;
+
+    // ── 4. Store constructor parameters into DDGame ──
+    (*ddgame).display = display;
+    (*ddgame).sound = sound;
+    (*ddgame).keyboard = keyboard;
+    (*ddgame).palette = palette;
+    (*ddgame).music = music;
+    (*ddgame)._param_018 = param7;
+    (*ddgame)._caller = network_ecx as *mut u8;
+    (*ddgame).game_info = game_info;
+    (*ddgame)._param_028 = net_game;
+
+    // ── 5. Set g_GameInfo global ──
+    *(rb(va::G_GAME_INFO) as *mut *mut GameInfo) = game_info;
+
+    // ── 6. Sound available + always-1 flags ──
+    let is_headless = *(game_info as *const u8).add(0xF914).cast::<i32>() != 0;
+    (*ddgame).sound_available = if is_headless { 0 } else { 1 };
+    (*ddgame)._field_7efc = 1;
+
+    // ── 7. DDGameWrapper+0x48C init ──
+    (*wrapper).ddgame_secondary = core::ptr::null_mut();
+
+    // ── 8. Conditional network object (game_info+0xD778 == -2) ──
+    let d778 = *(game_info as *const u8).add(0xD778).cast::<i32>();
+    if d778 == -2 {
+        let net_obj = wa_malloc(0x2C);
+        core::ptr::write_bytes(net_obj, 0, 0x2C);
+        *(net_obj as *mut *mut DDGame) = ddgame;
+        let gi = (*ddgame).game_info as *const u8;
+        *net_obj.add(0x28) = *gi.add(0xD944);
+        *net_obj.add(0x29) = *gi.add(0xD946);
+        (*wrapper).ddgame_secondary = net_obj;
+        if network_ecx != 0 {
+            *((network_ecx as *mut u8).add(0x18) as *mut *mut u8) = net_obj;
+        }
+    }
+
+    // ── 9. InitVersionFlags — sets DDGame+0x7E2E/0x7E2F/0x7E3F ──
+    call_init_version_flags(wrapper);
+
+    // ── 10. GfxHandler, landscape, sprites, audio, resources ──
+    init_graphics_and_resources(wrapper, game_info, net_game, display, is_headless);
+
+    ddgame
+}
+
+/// Second half of the constructor: GfxHandler, landscape, sprites, audio, resources.
+///
+/// Separated for readability. Will be broken into smaller functions as
+/// individual sections are converted to pure Rust.
+#[cfg(target_arch = "x86")]
+unsafe fn init_graphics_and_resources(
+    wrapper: *mut DDGameWrapper,
+    game_info: *mut GameInfo,
+    net_game: *mut u8,
+    display: *mut DDDisplay,
+    is_headless: bool,
+) {
+    let ddgame = (*wrapper).ddgame;
+    let fopen: unsafe extern "cdecl" fn(*const u8, *const u8) -> *mut u8 =
+        core::mem::transmute(rb(va::WA_FOPEN) as usize);
+    let gfx_load_dir: unsafe extern "thiscall" fn(*mut u8) -> i32 =
+        core::mem::transmute(rb(va::GFX_HANDLER_LOAD_DIR) as usize);
+    let gfx_handler_vtable = rb(0x664308) as u32;
+
+    // ── GfxHandler #1 (primary) ──
+    let gfx1 = wa_malloc(0x19C);
+    core::ptr::write_bytes(gfx1, 0, 0x19C);
+    *(gfx1 as *mut u32) = gfx_handler_vtable;
+    (*wrapper)._field_4c0 = gfx1;
+    (*wrapper)._field_4c4 = core::ptr::null_mut();
+
+    // Build path list (order depends on headless + GameInfo+0xF374)
+    let f914 = *(game_info as *const u8).add(0xF914).cast::<i32>();
+    let f374 = *(game_info as *const u8).add(0xF374).cast::<i32>();
+    let paths: [&[u8]; 3] = if f914 != 0 {
+        if f374 == 0 {
+            [b"data\\Gfx\\Gfx.dir\0", b"data\\Gfx\\Gfx0.dir\0", b"data\\Gfx\\Gfx1.dir\0"]
+        } else {
+            [b"data\\Gfx\\Gfx.dir\0", b"data\\Gfx\\Gfx1.dir\0", b"data\\Gfx\\Gfx0.dir\0"]
+        }
+    } else if f374 == 0 {
+        [b"data\\Gfx\\Gfx0.dir\0", b"data\\Gfx\\Gfx1.dir\0", b"data\\Gfx\\Gfx.dir\0"]
+    } else {
+        [b"data\\Gfx\\Gfx1.dir\0", b"data\\Gfx\\Gfx0.dir\0", b"data\\Gfx\\Gfx.dir\0"]
+    };
+
+    let mut gfx_loaded_idx = 0u32;
+    for (i, path) in paths.iter().enumerate() {
+        let fp = fopen(path.as_ptr(), b"rb\0".as_ptr());
+        *(gfx1.add(0x198) as *mut *mut u8) = fp;
+        if !fp.is_null() && gfx_load_dir(gfx1) != 0 {
+            gfx_loaded_idx = i as u32;
+            break;
+        }
+        if i == 2 {
+            panic!("DDGame: couldn't open any Gfx.dir");
+        }
+    }
+
+    let headless_offset = if f914 != 0 { 1u32 } else { 0u32 };
+    (*wrapper).gfx_mode = if gfx_loaded_idx.wrapping_sub(headless_offset) < 2 { 1 } else { 0 };
+
+    // ── GfxHandler #2 (conditional) ──
+    let d778 = *(game_info as *const u8).add(0xD778).cast::<i32>();
+    let threshold = if (*wrapper).gfx_mode != 0 {
+        (0x23u32.wrapping_sub(2)) as i32
+    } else {
+        -2i32
+    };
+    if d778 < threshold {
+        let c_digit = if d778 > -3 { b'2' } else { b'1' };
+        let mut gfx_c_path = *b"data\\Gfx\\GfxC_3_0.dir\0";
+        gfx_c_path[14] = c_digit;
+
+        let gfx2 = wa_malloc(0x19C);
+        core::ptr::write_bytes(gfx2, 0, 0x19C);
+        *(gfx2 as *mut u32) = gfx_handler_vtable;
+        (*wrapper)._field_4c4 = gfx2;
+
+        let fp = fopen(gfx_c_path.as_ptr(), b"rb\0".as_ptr());
+        *(gfx2.add(0x198) as *mut *mut u8) = fp;
+        if fp.is_null() || gfx_load_dir(gfx2) == 0 {
+            let fp2 = fopen(b"data\\Gfx\\Gfx.dir\0".as_ptr(), b"rb\0".as_ptr());
+            *(gfx2.add(0x198) as *mut *mut u8) = fp2;
+            if fp2.is_null() || gfx_load_dir(gfx2) == 0 {
+                panic!("DDGame: couldn't open secondary Gfx.dir");
+            }
+        }
+    }
+
+    // ── Display palette setup (non-headless) ──
+    if !is_headless {
+        if *(rb(0x88E485) as *const u8) == 0 {
+            let fun_570a90: unsafe extern "C" fn() =
+                core::mem::transmute(rb(va::FUN_570A90) as usize);
+            fun_570a90();
+        }
+        // DDGameWrapper+0x4D0 points to the display object used for palette calls
+        let disp = *(wrapper as *const u8).add(0x4D0) as *mut u8;
+        let vt = *(disp as *const *const u32);
+        let vt_10: unsafe extern "thiscall" fn(*mut u8) =
+            core::mem::transmute(*vt.add(4));
+        vt_10(disp);
+        let vt_7c: unsafe extern "thiscall" fn(*mut u8, i32, i32, i32) =
+            core::mem::transmute(*vt.add(0x1F));
+        vt_7c(disp, 1, 1, 0);
+        let vt_5c: unsafe extern "thiscall" fn(*mut u8, i32, i32) =
+            core::mem::transmute(*vt.add(0x17));
+        vt_5c(disp, -100, 1);
+
+        // Palette slot range init
+        let palette_range_ptr = *(disp.add(0x3120) as *const *mut i16);
+        if !palette_range_ptr.is_null() && *(disp.add(0x3534) as *const i32) == 0 {
+            let start = *palette_range_ptr as u32;
+            let end = (*palette_range_ptr.add(1) as u32) + 1;
+            if start < end {
+                for i in start..end {
+                    *(disp.add(0x312C + i as usize * 4) as *mut u32) = 1;
+                }
+            }
+            crate::wa_alloc::wa_free(*(disp.add(0x3120) as *const *mut u8));
+            *(disp.add(0x3120) as *mut u32) = 0;
+        }
+    }
+
+    // ── FUN_00570E20 ──
+    {
+        let f: unsafe extern "C" fn() = core::mem::transmute(rb(va::FUN_570E20) as usize);
+        f();
+    }
+
+    // ── Display vtable slot 5 (offset 0x14) ──
+    {
+        let vt = *((*ddgame).display as *const *const u32);
+        let f: unsafe extern "thiscall" fn(*mut DDDisplay) =
+            core::mem::transmute(*vt.add(5));
+        f((*ddgame).display);
+    }
+
+    // ── GfxDir color entries DDGame+0x730C..0x732C ──
+    if (*wrapper).gfx_mode != 0 {
+        let create: unsafe extern "C" fn() -> *mut u8 =
+            core::mem::transmute(rb(va::GFX_RESOURCE_CREATE) as usize);
+        let res = create();
+        if !res.is_null() {
+            let rvt = *(res as *const *const u32);
+            let get_color: unsafe extern "thiscall" fn(*mut u8) -> u32 =
+                core::mem::transmute(*rvt.add(4));
+            let mut off = 0x730Cu32;
+            while off < 0x732Du32 {
+                *((ddgame as *mut u8).add(off as usize) as *mut u32) = get_color(res);
+                off += 4;
+            }
+            let release: unsafe extern "thiscall" fn(*mut u8) =
+                core::mem::transmute(*rvt.add(3));
+            release(res);
+        }
+    } else {
+        let f: unsafe extern "thiscall" fn(*mut u8) =
+            core::mem::transmute(rb(va::GFX_HANDLER_LOAD_SPRITES) as usize);
+        f(wrapper as *mut u8);
+    }
+
+    // ── Secondary GfxDir object (DDGame+0x2C, conditional) ──
+    if !(*wrapper)._field_4c4.is_null() {
+        let gfxdir2 = wa_malloc(0x70C);
+        core::ptr::write_bytes(gfxdir2, 0, 0x70C);
+        *(gfxdir2 as *mut u16) = 1;
+        *(gfxdir2.add(2) as *mut u16) = 0x5A;
+        {
+            let f: unsafe extern "C" fn() = core::mem::transmute(rb(0x5411A0) as usize);
+            f();
+        }
+        *(gfxdir2.add(0x708) as *mut u16) = 0;
+        (*ddgame).secondary_gfxdir = gfxdir2;
+        let f: unsafe extern "thiscall" fn(*mut u8) =
+            core::mem::transmute(rb(va::GFX_HANDLER_LOAD_SPRITES) as usize);
+        f(wrapper as *mut u8);
+    }
+
+    // ── DDGameWrapper field inits ──
+    (*wrapper)._field_4d8 = 0;
+    if display.is_null() {
+        (*wrapper)._field_4dc = 0x2AD;
+    } else {
+        let byte_val = *net_game.add(0x44C) as u32;
+        (*wrapper)._field_4dc = byte_val * 0x38 + 0x7E + 0x2AD;
+    }
+    (*wrapper)._field_4e0 = 0xFFFFFF9C; // -100
+    (*wrapper).speech_name_count = 0;
+
+    // ── Audio init (non-headless + sound available) ──
+    if !is_headless {
+        {
+            let f: unsafe extern "C" fn() =
+                core::mem::transmute(rb(va::DDGAME_INIT_SOUND_PATHS) as usize);
+            f();
+        }
+        if !(*ddgame).sound.is_null() {
+            {
+                let f: unsafe extern "C" fn() =
+                    core::mem::transmute(rb(va::DSSOUND_LOAD_EFFECT_WAVS) as usize);
+                f();
+            }
+            {
+                let f: unsafe extern "C" fn() =
+                    core::mem::transmute(rb(va::DSSOUND_LOAD_ALL_SPEECH_BANKS) as usize);
+                f();
+            }
+            // Allocate ActiveSoundTable (0x608 bytes)
+            let ast = wa_malloc(0x608) as *mut ActiveSoundTable;
+            (*ast).ddgame = ddgame;
+            (*ast).counter = 0;
+            core::ptr::write_bytes(ast as *mut u8, 0, 0x600);
+            (*ddgame).active_sounds = ast;
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // TODO: Remaining sub-object construction (PCLandscape,
+    // TaskStateMachine, SpriteRegions, arrow sprites, CoordList,
+    // weapon sprites, gradient images, fill image, HUD, display
+    // finalization). These are ~400 lines of the original 887-line
+    // constructor. Each will be added incrementally.
+    // ════════════════════════════════════════════════════════════
+}
 
 /// Well-known byte offsets into DDGame, for use with raw pointer access.
 ///
