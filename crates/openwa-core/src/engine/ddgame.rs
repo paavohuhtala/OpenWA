@@ -371,6 +371,11 @@ pub fn init_constructor_addrs() {
     unsafe {
         INIT_FIELDS_ADDR = rb(va::DDGAME_INIT_FIELDS);
         SPRITE_REGION_CTOR_ADDR = rb(va::SPRITE_REGION_CONSTRUCTOR);
+        FUN_570E20_ADDR = rb(va::FUN_570E20);
+        FUN_570A90_ADDR = rb(va::FUN_570A90);
+        FUN_570F30_ADDR = rb(va::DDGAME_INIT_SOUND_PATHS);
+        LOAD_SPEECH_BANKS_ADDR = rb(va::DSSOUND_LOAD_ALL_SPEECH_BANKS);
+        LOAD_WEAPON_SPRITES_ADDR = rb(va::DDGAME_LOAD_WEAPON_SPRITES);
     }
 }
 
@@ -477,18 +482,8 @@ pub unsafe fn create_ddgame(
         }
     }
 
-    let _ = log_line(&format!(
-        "[DDGame] create_ddgame: alloc=0x{:08X}, headless={}, sound=0x{:08X}",
-        ddgame as u32, is_headless, sound as u32,
-    ));
-
     // ── 9. InitVersionFlags — sets DDGame+0x7E2E/0x7E2F/0x7E3F ──
-    let _ = log_line("[DDGame] calling InitVersionFlags");
     call_init_version_flags(wrapper);
-    let _ = log_line(&format!(
-        "[DDGame] InitVersionFlags done, wrapper+0x4D0=0x{:08X}",
-        *(wrapper as *const u8).add(0x4D0).cast::<u32>(),
-    ));
 
     // ── 10. GfxHandler, landscape, sprites, audio, resources ──
     init_graphics_and_resources(wrapper, game_info, net_game, display, is_headless);
@@ -509,7 +504,6 @@ unsafe fn init_graphics_and_resources(
     is_headless: bool,
 ) {
     let ddgame = (*wrapper).ddgame;
-    let _ = log_line("[DDGame] init_graphics_and_resources: start");
     let fopen: unsafe extern "cdecl" fn(*const u8, *const u8) -> *mut u8 =
         core::mem::transmute(rb(va::WA_FOPEN) as usize);
     let gfx_load_dir_addr = rb(va::GFX_HANDLER_LOAD_DIR);
@@ -521,7 +515,6 @@ unsafe fn init_graphics_and_resources(
     *(gfx1 as *mut u32) = gfx_handler_vtable;
     (*wrapper)._field_4c0 = gfx1;
     (*wrapper)._field_4c4 = core::ptr::null_mut();
-    let _ = log_line(&format!("[DDGame] GfxHandler #1 alloc=0x{:08X}, vtable=0x{:08X}", gfx1 as u32, gfx_handler_vtable));
 
     // Build path list (order depends on headless + GameInfo+0xF374)
     let f914 = *(game_info as *const u8).add(0xF914).cast::<i32>();
@@ -540,9 +533,7 @@ unsafe fn init_graphics_and_resources(
 
     let mut gfx_loaded_idx = 0u32;
     for (i, path) in paths.iter().enumerate() {
-        let _ = log_line(&format!("[DDGame] Trying Gfx path {}", i));
         let fp = fopen(path.as_ptr(), b"rb\0".as_ptr());
-        let _ = log_line(&format!("[DDGame] fopen returned 0x{:08X}", fp as u32));
         *(gfx1.add(0x198) as *mut *mut u8) = fp;
         if !fp.is_null() && call_gfx_load_dir(gfx1, gfx_load_dir_addr) != 0 {
             gfx_loaded_idx = i as u32;
@@ -555,11 +546,6 @@ unsafe fn init_graphics_and_resources(
 
     let headless_offset = if f914 != 0 { 1u32 } else { 0u32 };
     (*wrapper).gfx_mode = if gfx_loaded_idx.wrapping_sub(headless_offset) < 2 { 1 } else { 0 };
-    let _ = log_line(&format!(
-        "[DDGame] GfxHandler #1 loaded (idx={}, gfx_mode={}, gfx1=0x{:08X}, wrapper+0x4D0=0x{:08X})",
-        gfx_loaded_idx, (*wrapper).gfx_mode, gfx1 as u32,
-        *(wrapper as *const u8).add(0x4D0).cast::<u32>(),
-    ));
 
     // ── GfxHandler #2 (conditional) ──
     let d778 = *(game_info as *const u8).add(0xD778).cast::<i32>();
@@ -589,28 +575,15 @@ unsafe fn init_graphics_and_resources(
         }
     }
 
-    let _ = log_line(&format!(
-        "[DDGame] GfxHandler #2 done, _field_4c4=0x{:08X}, wrapper+0x4D0=0x{:08X}",
-        (*wrapper)._field_4c4 as u32,
-        *(wrapper as *const u8).add(0x4D0).cast::<u32>(),
-    ));
-
     // ── Display palette setup (non-headless) ──
     if !is_headless {
         if *(rb(0x88E485) as *const u8) == 0 {
-            let fun_570a90: unsafe extern "C" fn() =
-                core::mem::transmute(rb(va::FUN_570A90) as usize);
-            fun_570a90();
+            call_usercall_eax(wrapper, FUN_570A90_ADDR);
         }
-        let _ = log_line(&format!(
-            "[DDGame] palette: past 570a90, wrapper+0x4D0=0x{:08X}",
-            *(wrapper as *const u8).add(0x4D0).cast::<u32>(),
-        ));
         // DDGameWrapper+0x4D0 points to the display object used for palette calls.
         // BUT: FUN_00570A90 or something else may write to wrapper in ways we
         // don't expect. Read via struct field instead of raw offset.
         let disp = (*wrapper).display as *mut u8;
-        let _ = log_line(&format!("[DDGame] palette: disp=0x{:08X}", disp as u32));
         let vt = *(disp as *const *const u32);
         let vt_10: unsafe extern "thiscall" fn(*mut u8) =
             core::mem::transmute(*vt.add(4));
@@ -637,18 +610,13 @@ unsafe fn init_graphics_and_resources(
         }
     }
 
-    let _ = log_line("[DDGame] display palette done");
-
-    // ── FUN_00570E20 ──
-    {
-        let f: unsafe extern "C" fn() = core::mem::transmute(rb(va::FUN_570E20) as usize);
-        f();
-    }
+    // ── FUN_00570E20: usercall(ESI=wrapper), plain RET ──
+    call_usercall_esi(wrapper, FUN_570E20_ADDR);
 
     // ── Display vtable slot 5 (offset 0x14) ──
     {
         let vt = *((*ddgame).display as *const *const u32);
-        let f: unsafe extern "thiscall" fn(*mut DDDisplay) =
+        let f: unsafe extern "thiscall" fn(*mut DDDisplay) -> *mut u8 =
             core::mem::transmute(*vt.add(5));
         f((*ddgame).display);
     }
@@ -696,7 +664,7 @@ unsafe fn init_graphics_and_resources(
 
     // ── DDGameWrapper field inits ──
     (*wrapper)._field_4d8 = 0;
-    if display.is_null() {
+    if display.is_null() || net_game.is_null() {
         (*wrapper)._field_4dc = 0x2AD;
     } else {
         let byte_val = *net_game.add(0x44C) as u32;
@@ -707,22 +675,18 @@ unsafe fn init_graphics_and_resources(
 
     // ── Audio init (non-headless + sound available) ──
     if !is_headless {
-        {
-            let f: unsafe extern "C" fn() =
-                core::mem::transmute(rb(va::DDGAME_INIT_SOUND_PATHS) as usize);
-            f();
-        }
+        // FUN_570F30: usercall(ESI=wrapper)
+        call_usercall_esi(wrapper, FUN_570F30_ADDR);
+
         if !(*ddgame).sound.is_null() {
             {
-                let f: unsafe extern "C" fn() =
+                // DSSound_LoadEffectWAVs: stdcall(wrapper)
+                let f: unsafe extern "stdcall" fn(*mut DDGameWrapper) =
                     core::mem::transmute(rb(va::DSSOUND_LOAD_EFFECT_WAVS) as usize);
-                f();
+                f(wrapper);
             }
-            {
-                let f: unsafe extern "C" fn() =
-                    core::mem::transmute(rb(va::DSSOUND_LOAD_ALL_SPEECH_BANKS) as usize);
-                f();
-            }
+            // DSSound_LoadAllSpeechBanks: usercall(ESI=wrapper)
+            call_usercall_esi(wrapper, LOAD_SPEECH_BANKS_ADDR);
             // Allocate ActiveSoundTable (0x608 bytes)
             let ast = wa_malloc(0x608) as *mut ActiveSoundTable;
             (*ast).ddgame = ddgame;
@@ -731,8 +695,6 @@ unsafe fn init_graphics_and_resources(
             (*ddgame).active_sounds = ast;
         }
     }
-
-    let _ = log_line("[DDGame] audio init done");
 
     // ── GfxResource (used by PCLandscape and later by gradients) ──
     let gfx_resource_create: unsafe extern "thiscall" fn(*mut u8, *mut u8) -> *mut u8 =
@@ -783,10 +745,6 @@ unsafe fn init_graphics_and_resources(
             core::ptr::null_mut()
         }
     };
-
-    let _ = log_line(&format!(
-        "[DDGame] PCLandscape=0x{:08X}", landscape as u32,
-    ));
 
     // ── TaskStateMachine at DDGame+0x380 (alloc 0x2C) ──
     {
@@ -848,8 +806,6 @@ unsafe fn init_graphics_and_resources(
             core::mem::transmute(*rvt.add(3));
         release(gfx_resource);
     }
-
-    let _ = log_line("[DDGame] SpriteRegions + TSM done");
 
     // Resolved addresses for GfxDir operations (used by arrows, gradients, fill)
     let gfx_find_entry = rb(va::GFX_DIR_FIND_ENTRY) as u32;
@@ -939,8 +895,6 @@ unsafe fn init_graphics_and_resources(
         }
     }
 
-    let _ = log_line("[DDGame] arrow sprites done");
-
     // ── DisplayGfx at DDGame+0x138 ──
     {
         let tsm = wa_malloc(0x2C);
@@ -967,15 +921,9 @@ unsafe fn init_graphics_and_resources(
         // TODO: populate coord_list from landscape data (complex loop)
     }
 
-    // ── Weapon sprites (FUN_005717A0 ×2) ──
-    {
-        let load_weapon_sprites: unsafe extern "C" fn() =
-            core::mem::transmute(rb(va::DDGAME_LOAD_WEAPON_SPRITES) as usize);
-        load_weapon_sprites();
-        load_weapon_sprites();
-    }
-
-    let _ = log_line("[DDGame] weapon sprites done");
+    // ── Weapon sprites (FUN_005717A0 ×2): usercall(ECX=wrapper) ──
+    call_usercall_ecx(wrapper, LOAD_WEAPON_SPRITES_ADDR);
+    call_usercall_ecx(wrapper, LOAD_WEAPON_SPRITES_ADDR);
 
     // ── Sprite resource loading via DDGameWrapper vtable[0] ──
     // DDNetGameWrapper__LoadResourceList: thiscall(ECX=wrapper) +
@@ -1048,8 +996,6 @@ unsafe fn init_graphics_and_resources(
         // gradient_image_2 = 0
         (*ddgame).gradient_image_2 = core::ptr::null_mut();
 
-        let _ = log_line("[DDGame] sprite resources loaded");
-
         // ── Gradient image (0x030) ──
         // The gradient is loaded from "gradient.img" via GfxDir.
         // Simple path: height <= 0x60 AND level_height == 0x2B8
@@ -1070,7 +1016,6 @@ unsafe fn init_graphics_and_resources(
             // Complex gradient computation — ~200 lines of color interpolation.
             // For now, skip this path (gradient_image remains null/0).
             // This affects the sky background appearance but not gameplay.
-            let _ = log_line("[DDGame] WARNING: complex gradient path not ported, skipping");
             // Set gradient_image to null (already zero from memset)
         }
 
@@ -1094,8 +1039,6 @@ unsafe fn init_graphics_and_resources(
                 release(fill_sprite, 1);
             }
         }
-
-        let _ = log_line(&format!("[DDGame] fill_pixel=0x{:08X}", (*ddgame).fill_pixel));
 
         // ── HUD weapon sprites ──
         {
@@ -1127,9 +1070,7 @@ unsafe fn init_graphics_and_resources(
             init_display_final(disp_obj as u32);
         }
         if *(rb(0x88E485) as *const u8) == 0 {
-            let fun_570a90: unsafe extern "C" fn() =
-                core::mem::transmute(rb(va::FUN_570A90) as usize);
-            fun_570a90();
+            call_usercall_eax(wrapper, FUN_570A90_ADDR);
         }
 
         // Display layer visibility: vt[0x5C](1,0), vt[0x5C](2,0), vt[0x5C](3,1)
@@ -1193,6 +1134,49 @@ unsafe fn call_gfx_find_and_load(
 
     // Fallback: load image directly
     call_gfx_load_and_wrap(name, load_image_addr, wrap_addr)
+}
+
+// Statics for usercall bridge addresses
+static mut FUN_570E20_ADDR: u32 = 0;
+static mut FUN_570A90_ADDR: u32 = 0;
+static mut FUN_570F30_ADDR: u32 = 0;
+static mut LOAD_SPEECH_BANKS_ADDR: u32 = 0;
+static mut LOAD_WEAPON_SPRITES_ADDR: u32 = 0;
+
+/// Bridge: usercall(ESI=wrapper), plain RET. Used by FUN_570E20, FUN_570F30, LoadSpeechBanks.
+#[cfg(target_arch = "x86")]
+#[unsafe(naked)]
+unsafe extern "C" fn call_usercall_esi(_wrapper: *mut DDGameWrapper, _addr: u32) {
+    core::arch::naked_asm!(
+        "pushl %esi",
+        "movl 8(%esp), %esi",     // ESI = wrapper
+        "movl 12(%esp), %eax",    // EAX = target address
+        "calll *%eax",
+        "popl %esi",
+        "retl",
+        options(att_syntax),
+    );
+}
+
+/// Bridge: usercall(EAX=wrapper), plain RET. Used by FUN_570A90.
+#[cfg(target_arch = "x86")]
+#[unsafe(naked)]
+unsafe extern "C" fn call_usercall_eax(_wrapper: *mut DDGameWrapper, _addr: u32) {
+    core::arch::naked_asm!(
+        "movl 4(%esp), %eax",     // EAX = wrapper
+        "movl 8(%esp), %ecx",     // ECX = target address (temp)
+        "calll *%ecx",
+        "retl",
+        options(att_syntax),
+    );
+}
+
+/// Bridge: usercall(ECX=wrapper), plain RET. Used by FUN_5717A0.
+#[cfg(target_arch = "x86")]
+unsafe fn call_usercall_ecx(wrapper: *mut DDGameWrapper, addr: u32) {
+    let f: unsafe extern "thiscall" fn(*mut DDGameWrapper) =
+        core::mem::transmute(addr as usize);
+    f(wrapper);
 }
 
 /// Bridge to GfxHandler__LoadDir (0x5663E0).
