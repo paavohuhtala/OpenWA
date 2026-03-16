@@ -760,7 +760,7 @@ unsafe fn init_graphics_and_resources(
 
             let pc_ctor: unsafe extern "stdcall" fn(
                 *mut u8, *mut DDGame, *mut u8,   // 1=this, 2=ddgame, 3=gfx_resource
-                *mut DDGameWrapper, *const u8,    // 4=wrapper, 5=game_info+0xDAAC
+                *mut DDDisplay, *const u8,        // 4=display, 5=game_info+0xDAAC
                 *mut u8, u32,                     // 6=&landscape_byte, 7=gfx_mode
                 *mut u8, *mut u8,                  // 8=stack local, 9=coord output
                 *mut u8, *mut u8,                 // 10=&ddgame+0x777C, 11=&ddgame+0x7780
@@ -775,7 +775,7 @@ unsafe fn init_graphics_and_resources(
                 alloc,
                 ddgame,
                 gfx_resource,
-                wrapper,                           // param 4
+                (*wrapper).display,                // param 4: display (NOT wrapper!)
                 gi.add(0xDAAC),                    // param 5
                 landscape_byte_buf,                // param 6
                 (*wrapper).gfx_mode,               // param 7

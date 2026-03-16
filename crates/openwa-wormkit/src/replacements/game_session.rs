@@ -302,6 +302,26 @@ unsafe fn shadow_compare_ddgame(
     wa_free(shadow_wrapper);
 }
 
+// ── PCLandscape__Constructor param logger ──────────────────────────
+static mut PC_LANDSCAPE_TRAMPOLINE: *const () = core::ptr::null();
+
+/// Passthrough hook: logs all 11 params, then calls original.
+unsafe extern "stdcall" fn hook_pc_landscape_ctor(
+    p1: u32, p2: u32, p3: u32, p4: u32, p5: u32, p6: u32,
+    p7: u32, p8: u32, p9: u32, p10: u32, p11: u32,
+) -> u32 {
+    let _ = log_line(&format!(
+        "[PCLandscape] p1=0x{:08X} p2=0x{:08X} p3=0x{:08X} p4=0x{:08X} p5=0x{:08X} p6=0x{:08X}",
+        p1, p2, p3, p4, p5, p6));
+    let _ = log_line(&format!(
+        "[PCLandscape] p7=0x{:08X} p8=0x{:08X} p9=0x{:08X} p10=0x{:08X} p11=0x{:08X}",
+        p7, p8, p9, p10, p11));
+    // Call original
+    let orig: unsafe extern "stdcall" fn(u32,u32,u32,u32,u32,u32,u32,u32,u32,u32,u32) -> u32 =
+        core::mem::transmute(PC_LANDSCAPE_TRAMPOLINE);
+    orig(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11)
+}
+
 pub fn install() -> Result<(), String> {
     unsafe {
         INIT_REPLAY_ADDR = rb(va::DDGAMEWRAPPER_INIT_REPLAY);
@@ -310,7 +330,14 @@ pub fn install() -> Result<(), String> {
         init_constructor_addrs();
         // DDGameWrapper__Constructor is fully converted — trap the original.
         hook::install_trap!("DDGameWrapper__Constructor", va::CONSTRUCT_DD_GAME_WRAPPER);
-        // DDGame__Constructor still uses original bridge (create_ddgame not yet complete).
+
+        // Hook PCLandscape__Constructor to log params
+        let tramp = hook::install(
+            "PCLandscape__Constructor",
+            va::PC_LANDSCAPE_CONSTRUCTOR,
+            hook_pc_landscape_ctor as *const (),
+        )?;
+        PC_LANDSCAPE_TRAMPOLINE = tramp as *const ();
     }
     Ok(())
 }
