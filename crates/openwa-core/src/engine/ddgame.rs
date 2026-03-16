@@ -541,6 +541,7 @@ unsafe fn init_graphics_and_resources(
     let gfx_load_dir_addr = rb(va::GFX_HANDLER_LOAD_DIR);
     let gfx_handler_vtable = rb(0x66B280) as u32; // GfxHandler__vtable (from asm: MOV [ESI], 0x66B280)
 
+    let _ = crate::log::log_line("[DDGame] gfx_and_res: entry");
     // ── GfxHandler #1 (primary) ──
     let gfx1 = wa_malloc(0x19C);
     core::ptr::write_bytes(gfx1, 0, 0x19C);
@@ -647,24 +648,25 @@ unsafe fn init_graphics_and_resources(
     }
 
     // ── FUN_00570E20: usercall(ESI=wrapper), plain RET ──
-    // Calls display->vtable[4] which may not exist in headless mode.
-    if !is_headless {
-        call_usercall_esi(wrapper, FUN_570E20_ADDR);
-    }
+    // Runs for all modes (including headless) — the original doesn't guard this.
+    call_usercall_esi(wrapper, FUN_570E20_ADDR);
 
     // ── Display vtable slot 5 (offset 0x14) ──
-    if !is_headless {
+    {
         let vt = *((*ddgame).display as *const *const u32);
-        let f: unsafe extern "thiscall" fn(*mut DDDisplay) -> *mut u8 =
+        let f: unsafe extern "thiscall" fn(*mut DDDisplay, i32) -> *mut u8 =
             core::mem::transmute(*vt.add(5));
-        f((*ddgame).display);
+        f((*ddgame).display, 1);
     }
 
+    let _ = crate::log::log_line("[DDGame] past gfxhandler+palette");
     // ── GfxDir color entries DDGame+0x730C..0x732C ──
     if (*wrapper).gfx_mode != 0 {
-        let create: unsafe extern "C" fn() -> *mut u8 =
-            core::mem::transmute(rb(va::GFX_RESOURCE_CREATE) as usize);
-        let res = create();
+        // GfxResource__Create: usercall(ECX=gfx_handler, EAX=0x66A3B4) + 1 stack, RET 0x4
+        // In original: PUSH ESI(display_layer?), MOV EAX=0x66A3B4, CALL 0x4F6300
+        let res = call_gfx_resource_create(
+            (*wrapper)._field_4c0, rb(0x66A3B4) as *const u8, core::ptr::null_mut(),
+        );
         if !res.is_null() {
             let rvt = *(res as *const *const u32);
             let get_color: unsafe extern "thiscall" fn(*mut u8) -> u32 =
@@ -679,26 +681,29 @@ unsafe fn init_graphics_and_resources(
             release(res);
         }
     } else {
-        let f: unsafe extern "thiscall" fn(*mut u8) =
+        // GFX_HANDLER_LOAD_SPRITES: stdcall(wrapper, ddgame+0x7308, game_info+0xF374, 0), RET 0x10
+        let gi = (*ddgame).game_info as *const u8;
+        let f: unsafe extern "stdcall" fn(*mut DDGameWrapper, *mut u8, u32, u32) =
             core::mem::transmute(rb(va::GFX_HANDLER_LOAD_SPRITES) as usize);
-        f(wrapper as *mut u8);
+        f(wrapper, (ddgame as *mut u8).add(0x7308), *(gi.add(0xF374) as *const u32), 0);
     }
 
+    let _ = crate::log::log_line("[DDGame] past color entries");
     // ── Secondary GfxDir object (DDGame+0x2C, conditional) ──
     if !(*wrapper)._field_4c4.is_null() {
         let gfxdir2 = wa_malloc(0x70C);
         core::ptr::write_bytes(gfxdir2, 0, 0x70C);
         *(gfxdir2 as *mut u16) = 1;
         *(gfxdir2.add(2) as *mut u16) = 0x5A;
-        {
-            let f: unsafe extern "C" fn() = core::mem::transmute(rb(0x5411A0) as usize);
-            f();
-        }
+        // FUN_5411A0: usercall(EAX=gfxdir2), plain RET
+        call_usercall_eax(gfxdir2 as *mut DDGameWrapper, rb(0x5411A0));
         *(gfxdir2.add(0x708) as *mut u16) = 0;
         (*ddgame).secondary_gfxdir = gfxdir2;
-        let f: unsafe extern "thiscall" fn(*mut u8) =
+        // GFX_HANDLER_LOAD_SPRITES: stdcall(wrapper, ddgame+0x7308, game_info+0xF374, 0), RET 0x10
+        let gi = (*ddgame).game_info as *const u8;
+        let f: unsafe extern "stdcall" fn(*mut DDGameWrapper, *mut u8, u32, u32) =
             core::mem::transmute(rb(va::GFX_HANDLER_LOAD_SPRITES) as usize);
-        f(wrapper as *mut u8);
+        f(wrapper, (ddgame as *mut u8).add(0x7308), *(gi.add(0xF374) as *const u32), 0);
     }
 
     // ── DDGameWrapper field inits ──
@@ -1305,8 +1310,8 @@ unsafe fn call_gfx_load_and_wrap(
     if image.is_null() {
         return core::ptr::null_mut();
     }
-    // FUN_004F5F80(display_ctx, image, 1) — cdecl, 3 params
-    let f: unsafe extern "cdecl" fn(*mut u8, *mut u8, u32) -> *mut u8 =
+    // FUN_004F5F80(display_ctx, image, 1) — stdcall, RET 0xC (3 params)
+    let f: unsafe extern "stdcall" fn(*mut u8, *mut u8, u32) -> *mut u8 =
         core::mem::transmute(rb(0x4F5F80) as usize);
     let result = f(display_ctx, image, 1);
     // Release the raw image
