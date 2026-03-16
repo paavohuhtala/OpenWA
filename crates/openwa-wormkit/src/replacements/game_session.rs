@@ -112,19 +112,28 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
         *(this as *const u8).add(0x4D0).cast::<u32>(), display as u32,
     ));
 
-    // Call our Rust DDGame constructor.
-    create_ddgame(
-        this,
-        keyboard as *mut openwa_core::input::DDKeyboard,
-        display,
-        sound,
-        palette,
-        streaming_audio as *mut openwa_core::audio::Music,
-        timer_obj,
-        net_game,
-        game_info,
-        input_ctrl as u32,
-    );
+    // Toggle: use Rust constructor (true) or original (false)
+    const USE_RUST_CTOR: bool = true;
+    if USE_RUST_CTOR {
+        create_ddgame(
+            this,
+            keyboard as *mut openwa_core::input::DDKeyboard,
+            display,
+            sound,
+            palette,
+            streaming_audio as *mut openwa_core::audio::Music,
+            timer_obj,
+            net_game,
+            game_info,
+            input_ctrl as u32,
+        );
+    } else {
+        DDGAME_CTOR_ECX = input_ctrl as u32;
+        ddgame_constructor_call(
+            this, display, sound, keyboard, palette, streaming_audio,
+            timer_obj, net_game, game_info,
+        );
+    }
 
     // Dump DDGame state BEFORE InitGameState (constructor output only)
     if std::env::var("OPENWA_VALIDATE").is_ok() {

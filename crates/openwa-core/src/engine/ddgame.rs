@@ -745,30 +745,39 @@ unsafe fn init_graphics_and_resources(
         core::ptr::write_bytes(alloc, 0, 0xB44);
         if !alloc.is_null() {
             // Output locals for landscape data (used later for coord_list)
-            let mut landscape_coords: [i32; 2] = [0; 2]; // aiStack_11d4
-            let mut landscape_byte: u8 = 0;               // iStack_11f9
+            // Param 9 output: in original this is aiStack_978 (571 ints = 2284 bytes).
+            // Param 6 output: iStack_11f9 (single byte, but adjacent to other locals).
+            // Heap-allocate both to avoid stack overflow.
+            let landscape_coords_buf = wa_malloc(0x1000); // 4KB for coord output
+            core::ptr::write_bytes(landscape_coords_buf, 0, 0x1000);
+            let landscape_byte_buf = wa_malloc(0x100); // generous for byte output
+            core::ptr::write_bytes(landscape_byte_buf, 0, 0x100);
 
             let pc_ctor: unsafe extern "stdcall" fn(
-                *mut u8, *mut DDGame, *mut u8,  // this, ddgame, gfx_resource
-                *const u8, *mut DDGameWrapper,   // game_info+0xDAAC, wrapper
-                *mut u8, u32,                    // &landscape_byte, gfx_mode
-                *mut u8, *mut [i32; 2],          // stack local, coord output
-                *mut u8, *mut u8,                // &ddgame+0x777C, &ddgame+0x7780
+                *mut u8, *mut DDGame, *mut u8,   // 1=this, 2=ddgame, 3=gfx_resource
+                *mut DDGameWrapper, *const u8,    // 4=wrapper, 5=game_info+0xDAAC
+                *mut u8, u32,                     // 6=&landscape_byte, 7=gfx_mode
+                *mut u8, *mut u8,                  // 8=stack local, 9=coord output
+                *mut u8, *mut u8,                 // 10=&ddgame+0x777C, 11=&ddgame+0x7780
             ) -> *mut u8 = core::mem::transmute(rb(va::PC_LANDSCAPE_CONSTRUCTOR) as usize);
 
             let gi = (*ddgame).game_info as *const u8;
+            // Param 8 is a stack local in the original's 4KB frame.
+            // Heap-allocate a generous buffer since we don't know the exact size.
+            let stack_local_8 = wa_malloc(0x1000);
+            core::ptr::write_bytes(stack_local_8, 0, 0x1000);
             let result = pc_ctor(
                 alloc,
                 ddgame,
                 gfx_resource,
-                gi.add(0xDAAC),              // param 4
-                wrapper,                      // param 5
-                &mut landscape_byte as *mut u8,
-                (*wrapper).gfx_mode,
-                &mut landscape_byte as *mut u8, // param 8 (stack local)
-                &mut landscape_coords as *mut [i32; 2],
-                (ddgame as *mut u8).add(0x777C),
-                (ddgame as *mut u8).add(0x7780),
+                wrapper,                           // param 4
+                gi.add(0xDAAC),                    // param 5
+                landscape_byte_buf,                // param 6
+                (*wrapper).gfx_mode,               // param 7
+                stack_local_8,                     // param 8
+                landscape_coords_buf,              // param 9
+                (ddgame as *mut u8).add(0x777C),   // param 10
+                (ddgame as *mut u8).add(0x7780),   // param 11
             );
             let _ = crate::log::log_line(&format!(
                 "[DDGame] PCLandscape returned: 0x{:08X}", result as u32));
