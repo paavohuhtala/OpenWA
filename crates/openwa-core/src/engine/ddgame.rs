@@ -568,11 +568,8 @@ unsafe fn init_graphics_and_resources(
 
     // ── GfxHandler #2 (conditional) ──
     let d778 = (*game_info).game_version;
-    let threshold = if (*wrapper).gfx_mode != 0 {
-        (0x23u32.wrapping_sub(2)) as i32
-    } else {
-        -2i32
-    };
+    // Original: (-(gfx_mode != 0) & 0x23) - 2 → gfx_mode ? 33 : -2
+    let threshold = if (*wrapper).gfx_mode != 0 { 33 } else { -2i32 };
     if d778 < threshold {
         let c_digit = if d778 > -3 { b'2' } else { b'1' };
         let mut gfx_c_path = *b"data\\Gfx\\GfxC_3_0.dir\0";
