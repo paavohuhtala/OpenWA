@@ -393,29 +393,10 @@ pub fn install() -> Result<(), String> {
         // DDGameWrapper__Constructor is fully converted — trap the original.
         hook::install_trap!("DDGameWrapper__Constructor", va::CONSTRUCT_DD_GAME_WRAPPER);
 
-        // Hook PCLandscape__Constructor to log params
-        let tramp = hook::install(
-            "PCLandscape__Constructor",
-            va::PC_LANDSCAPE_CONSTRUCTOR,
-            hook_pc_landscape_ctor as *const (),
-        )?;
-        PC_LANDSCAPE_TRAMPOLINE = tramp as *const ();
+        // PCLandscape hook disabled — params verified, may interfere with Rust ctor
 
-        // Hook HUD_LoadWeaponSprites to log params
-        let tramp_hud = hook::install(
-            "HUD_LoadWeaponSprites",
-            0x53D0E0,
-            hook_hud_load as *const (),
-        )?;
-        HUD_LOAD_TRAMPOLINE = tramp_hud as *const ();
-
-        // Hook SpriteRegion__Constructor to log fastcall params
-        let tramp2 = hook::install(
-            "SpriteRegion__Constructor",
-            va::SPRITE_REGION_CONSTRUCTOR,
-            hook_sprite_region_ctor as *const (),
-        )?;
-        SPRITE_REGION_TRAMPOLINE = tramp2 as *const ();
+        // Param hooks disabled — they served their purpose and may interfere
+        // with the Rust constructor's own calls to these functions.
     }
     Ok(())
 }

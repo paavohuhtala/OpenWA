@@ -866,6 +866,7 @@ unsafe fn init_graphics_and_resources(
     // GfxDir addresses are resolved via statics (GFX_FIND_ENTRY_ADDR, GFX_LOAD_IMAGE_ADDR)
     // and called through naked bridges (call_gfx_find_entry, call_gfx_load_image).
 
+    let _ = crate::log::log_line("[DDGame] starting arrow loop");
     // ── Arrow sprites + collision regions (32 iterations) ──
     {
         let gfx_handler = (*wrapper)._field_4c0;
@@ -935,6 +936,7 @@ unsafe fn init_graphics_and_resources(
         }
     }
 
+    let _ = crate::log::log_line("[DDGame] arrow loop done");
     // ── DisplayGfx at DDGame+0x138 ──
     // Original: alloc 0x4C, memset 0x2C, PUSH 0x100, MOV ECX=8, MOV EDI=0x1E0,
     // CALL 0x4F6370, MOV [alloc]=0x664144
