@@ -733,11 +733,9 @@ unsafe fn init_graphics_and_resources(
     // call_usercall_ecx(wrapper, LOAD_WEAPON_SPRITES_ADDR);
 
     // ── GfxResource: thiscall(ECX=gfx_handler) + EAX=name + 1 stack(output), RET 0x4 ──
-    // GfxResource: skip for now (stack corruption from bridge). PCLandscape handles null.
-    let gfx_resource: *mut u8 = core::ptr::null_mut();
-    #[allow(unused_assignments)]
-    if false {
-    let mut gfx_resource = gfx_resource;
+    // Test: call GfxResource with real params
+    let gfx_resource: *mut u8;
+    {
     {
         let gfx_handler = (*wrapper)._field_4c0;
         let out_buf = wa_malloc(0x900);
@@ -1227,23 +1225,23 @@ static mut GFX_RESOURCE_CREATE_ADDR: u32 = 0;
 /// Bridge to GfxResource__Create_Maybe (0x4F6300).
 /// Convention: usercall(ECX=gfx_handler, EAX=data_ptr) + 1 stack(output), RET 0x4.
 #[cfg(target_arch = "x86")]
-unsafe fn call_gfx_resource_create(
-    gfx_handler: *mut u8, data_ptr: *const u8, output: *mut u8,
+#[unsafe(naked)]
+unsafe extern "C" fn call_gfx_resource_create(
+    _gfx_handler: *mut u8, _data_ptr: *const u8, _output: *mut u8,
 ) -> *mut u8 {
-    let result: *mut u8;
-    // Manual stack: sub 4 to make room, write output, call. Callee RET 0x4 cleans it.
-    // Use sub/mov instead of push to avoid compiler stack tracking mismatch.
-    core::arch::asm!(
-        "sub esp, 4",
-        "mov [esp], {output}",
-        "call {addr}",
-        output = in(reg) output,
-        addr = in(reg) GFX_RESOURCE_CREATE_ADDR,
-        inlateout("eax") data_ptr => result,
-        in("ecx") gfx_handler,
-        out("edx") _,
+    core::arch::naked_asm!(
+        "pushl %ebp",
+        "pushl %ebx",
+        "movl 12(%esp), %ecx",   // ECX = gfx_handler (0=ebx,4=ebp,8=ret,12=handler)
+        "movl 16(%esp), %eax",   // EAX = data_ptr (16=data)
+        "pushl 20(%esp)",        // push output (20=output, but shifts after push!)
+        "calll *({addr})",       // RET 0x4 cleans output
+        "popl %ebx",
+        "popl %ebp",
+        "retl",
+        addr = sym GFX_RESOURCE_CREATE_ADDR,
+        options(att_syntax),
     );
-    result
 }
 
 /// Runtime address of GfxDir__FindEntry (set by init_constructor_addrs()).
