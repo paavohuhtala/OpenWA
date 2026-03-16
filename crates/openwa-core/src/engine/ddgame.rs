@@ -374,6 +374,7 @@ pub fn init_constructor_addrs() {
         FUN_570E20_ADDR = rb(va::FUN_570E20);
         FUN_570A90_ADDR = rb(va::FUN_570A90);
         GFX_RESOURCE_CREATE_ADDR = rb(va::GFX_RESOURCE_CREATE);
+        TSM_INIT_ADDR = rb(va::TASK_STATE_MACHINE_INIT);
         GFX_FIND_ENTRY_ADDR = rb(va::GFX_DIR_FIND_ENTRY);
         GFX_LOAD_IMAGE_ADDR = rb(va::GFX_DIR_LOAD_IMAGE);
         FUN_570F30_ADDR = rb(va::DDGAME_INIT_SOUND_PATHS);
@@ -799,22 +800,19 @@ unsafe fn init_graphics_and_resources(
         }
     };
 
-    // ── TaskStateMachine at DDGame+0x380 (alloc 0x2C) ──
+    // ── TaskStateMachine at DDGame+0x380 (alloc 0x4C, memset 0x2C) ──
+    // Original: alloc 0x4C, memset 0x2C, PUSH width, MOV ECX=1, CALL 0x4F6370 (RET 0x4)
+    // Also EDI=height before the call (implicit param).
     {
-        let tsm = wa_malloc(0x2C);
+        let tsm = wa_malloc(0x4C);
         core::ptr::write_bytes(tsm, 0, 0x2C);
         if !tsm.is_null() {
-            // TaskStateMachine__Init_Maybe is fastcall(ECX=width, EDX=?)
-            // but called here with ECX=1, then set vtable
             let width = *((ddgame as *const u8).add(0x77C0) as *const u32);
-            let _height = *((ddgame as *const u8).add(0x77C4) as *const u32);
-            let tsm_init: unsafe extern "fastcall" fn(u32, u32) =
-                core::mem::transmute(rb(va::TASK_STATE_MACHINE_INIT) as usize);
-            tsm_init(1, width); // ECX=1, EDX=width
+            let height = *((ddgame as *const u8).add(0x77C4) as *const u32);
+            call_tsm_init(width, height);
             *(tsm as *mut u32) = rb(0x664118); // TaskStateMachine__vtable
         }
-        let ddgame_ptr = ddgame as *mut u8;
-        *(ddgame_ptr.add(0x380) as *mut *mut u8) = tsm;
+        (*ddgame).task_state_machine = tsm;
     }
 
     // ── 8× SpriteRegion at DDGame+0x46C..0x488 ──
@@ -866,7 +864,6 @@ unsafe fn init_graphics_and_resources(
     // GfxDir addresses are resolved via statics (GFX_FIND_ENTRY_ADDR, GFX_LOAD_IMAGE_ADDR)
     // and called through naked bridges (call_gfx_find_entry, call_gfx_load_image).
 
-    let _ = crate::log::log_line("[DDGame] starting arrow loop");
     // ── Arrow sprites + collision regions (32 iterations) ──
     {
         let gfx_handler = (*wrapper)._field_4c0;
@@ -882,9 +879,18 @@ unsafe fn init_graphics_and_resources(
             let set_layer: unsafe extern "thiscall" fn(*mut DDDisplay, i32) -> *mut u8 =
                 core::mem::transmute(*disp_vt.add(5));
             let layer_ctx = set_layer((*ddgame).display, 1);
+            if i == 0 {
+                let _ = crate::log::log_line(&format!(
+                    "[DDGame] arrow[0]: layer_ctx=0x{:08X}, gfx=0x{:08X}",
+                    layer_ctx as u32, gfx_handler as u32));
+            }
 
             // GfxDir__FindEntry: usercall(EAX=name) + 1 stack(gfx_handler), RET 0x4
             let entry = call_gfx_find_entry(name_buf.as_ptr(), gfx_handler);
+            if i == 0 {
+                let _ = crate::log::log_line(&format!(
+                    "[DDGame] arrow[0]: entry=0x{:08X}", entry as u32));
+            }
 
             let sprite: *mut u8;
             if !entry.is_null() {
@@ -892,7 +898,12 @@ unsafe fn init_graphics_and_resources(
                 let gfx_vt = *(gfx_handler as *const *const u32);
                 let load_cached: unsafe extern "thiscall" fn(*mut u8, u32) -> *mut u8 =
                     core::mem::transmute(*gfx_vt.add(2));
-                let cached = load_cached(gfx_handler, *(entry.add(4) as *const u32));
+                let entry_val = *(entry.add(4) as *const u32);
+                let cached = load_cached(gfx_handler, entry_val);
+                if i == 0 {
+                    let _ = crate::log::log_line(&format!(
+                        "[DDGame] arrow[0]: cached=0x{:08X}", cached as u32));
+                }
                 if !cached.is_null() {
                     // Wrap with DisplayGfx constructor
                     let ctor: unsafe extern "stdcall" fn(*mut u8) -> *mut u8 =
@@ -903,6 +914,10 @@ unsafe fn init_graphics_and_resources(
                 }
             } else {
                 sprite = call_gfx_load_and_wrap(gfx_handler, name_buf.as_ptr(), layer_ctx);
+            }
+            if i == 0 {
+                let _ = crate::log::log_line(&format!(
+                    "[DDGame] arrow[0]: sprite=0x{:08X}", sprite as u32));
             }
 
             // Store arrow sprite at DDGame+0x38+i*4
@@ -965,7 +980,7 @@ unsafe fn init_graphics_and_resources(
         // TODO: populate coord_list from landscape data (complex loop)
     }
 
-    // ── Loading tick: disabled for testing ──
+    // ── Loading tick: disabled (pumps message loop) ──
     // call_usercall_ecx(wrapper, LOAD_WEAPON_SPRITES_ADDR);
     // call_usercall_ecx(wrapper, LOAD_WEAPON_SPRITES_ADDR);
 
@@ -1094,16 +1109,9 @@ unsafe fn init_graphics_and_resources(
         // But decompiler says thiscall → ECX is implicit this.
         // RET 0x8 = 2 × 4 bytes cleaned. For thiscall: ECX + 1 stack = RET 0x4.
         // RET 0x8 means 2 stack params, NO ECX implicit → it's really stdcall(2 params).
-        // ── HUD_LoadWeaponSprites (0x53D0E0) ──
-        // thiscall(ECX=gfx_handler, ddgame, wrapper_4c4), RET 0x8
-        // asm: MOV ECX,[EBP+0x4C0]; PUSH [EBP+0x4C4]; PUSH [EBP+0x488]; CALL
-        // End sections disabled while debugging field comparison.
-        // HUD, sprite inits, GfxHandler close, display finalization,
-        // layer visibility — all crash. Need field diff first.
-
-        // GfxHandler close, display finalization, layer visibility:
-        // Temporarily disabled to test stability.
-        // TODO: re-enable after verifying calling conventions
+        // End sections temporarily disabled — need to verify conventions
+        // after TSM stack corruption fix. The core constructor now completes.
+        // TODO: re-enable HUD, sprite inits, close, finalization one by one
     }
     let _ = crate::log::log_line("[DDGame] init_graphics_and_resources DONE");
 }
@@ -1178,6 +1186,27 @@ unsafe fn call_usercall_ecx(wrapper: *mut DDGameWrapper, addr: u32) {
     let f: unsafe extern "thiscall" fn(*mut DDGameWrapper) =
         core::mem::transmute(addr as usize);
     f(wrapper);
+}
+
+/// Runtime address of TaskStateMachine__Init_Maybe.
+static mut TSM_INIT_ADDR: u32 = 0;
+
+/// Bridge to TaskStateMachine__Init_Maybe (0x4F6370).
+/// Convention: fastcall(ECX=1) + 1 stack(width), EDI=height, RET 0x4.
+#[cfg(target_arch = "x86")]
+#[unsafe(naked)]
+unsafe extern "C" fn call_tsm_init(_width: u32, _height: u32) {
+    core::arch::naked_asm!(
+        "pushl %edi",
+        "movl 12(%esp), %edi",    // EDI = height (2nd param, shifted by push)
+        "pushl 8(%esp)",          // push width (1st param, shifted by push+push)
+        "movl $1, %ecx",         // ECX = 1
+        "calll *({addr})",        // RET 0x4 cleans the pushed width
+        "popl %edi",
+        "retl",
+        addr = sym TSM_INIT_ADDR,
+        options(att_syntax),
+    );
 }
 
 /// Runtime address of GfxResource__Create_Maybe (set by init_constructor_addrs()).
