@@ -117,6 +117,29 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
         timer_obj, net_game, game_info,
     );
 
+    // Dump DDGame state BEFORE InitGameState (constructor output only)
+    if std::env::var("OPENWA_VALIDATE").is_ok() {
+        let ddgame_pre = (*this).ddgame;
+        let real_dwords = ddgame_pre as *const u32;
+        let dword_count = 0x98B8 / 4;
+        let mut nonzero = 0u32;
+        let _ = log_line("[Shadow] === DDGame after constructor (before InitGameState) ===");
+        for i in 0..dword_count {
+            let val = *real_dwords.add(i);
+            if val != 0 {
+                nonzero += 1;
+                if nonzero <= 300 {
+                    let _ = log_line(&format!(
+                        "[Shadow:Pre] +0x{:04X} = 0x{:08X}", i * 4, val,
+                    ));
+                }
+            }
+        }
+        let _ = log_line(&format!(
+            "[Shadow:Pre] Total non-zero: {} / {}", nonzero, dword_count,
+        ));
+    }
+
     // Initialize DDGame's game-state fields.
     let init_state: unsafe extern "stdcall" fn(*mut DDGameWrapper) =
         core::mem::transmute(rb(va::DDGAME_INIT_GAME_STATE) as usize);
@@ -216,27 +239,47 @@ unsafe fn shadow_compare_ddgame(
         "[Shadow] Param check: {} OK, {} FAIL", ok, fail,
     ));
 
-    // Dump some key pointer fields from the real DDGame for reference
-    let ptrs: &[(&str, usize)] = &[
-        ("landscape",      0x020),
-        ("secondary_gfx",  0x02C),
-        ("gradient_img",   0x030),
-        ("gradient_img_2", 0x034),
-        ("display_gfx",    0x138),
-        ("task_sm",        0x380),
-        ("sprite_rgn[0]",  0x46C),
-        ("coord_list",     0x50C),
-        ("weapon_table",   0x510),
-        ("render_queue",   0x524),
-        ("fill_pixel",     0x7338),
-    ];
-    for &(name, offset) in ptrs {
-        let val = *(r.add(offset) as *const u32);
-        let _ = log_line(&format!(
-            "[Shadow] DDGame+0x{:04X} ({:14}): 0x{:08X}",
-            offset, name, val,
-        ));
+    // Dump ALL non-zero DWORDs from the real DDGame.
+    // This gives us the exact map of what the constructor initializes.
+    let real_dwords = real_ddgame as *const u32;
+    let dword_count = 0x98B8 / 4;
+    let mut nonzero = 0u32;
+    for i in 0..dword_count {
+        let val = *real_dwords.add(i);
+        if val != 0 {
+            nonzero += 1;
+            // Log up to 200 non-zero fields
+            if nonzero <= 200 {
+                let _ = log_line(&format!(
+                    "[Shadow] DDGame+0x{:04X} = 0x{:08X}",
+                    i * 4, val,
+                ));
+            }
+        }
     }
+    let _ = log_line(&format!(
+        "[Shadow] Total non-zero DWORDs: {} / {}", nonzero, dword_count,
+    ));
+
+    // Also dump non-zero wrapper fields
+    let wrapper_dwords = core::mem::size_of::<DDGameWrapper>() / 4;
+    let real_w = wrapper as *const u32;
+    let mut w_nonzero = 0u32;
+    for i in 0..wrapper_dwords {
+        let val = *real_w.add(i);
+        if val != 0 {
+            w_nonzero += 1;
+            if w_nonzero <= 50 {
+                let _ = log_line(&format!(
+                    "[Shadow] Wrapper+0x{:04X} = 0x{:08X}",
+                    i * 4, val,
+                ));
+            }
+        }
+    }
+    let _ = log_line(&format!(
+        "[Shadow] Wrapper non-zero DWORDs: {} / {}", w_nonzero, wrapper_dwords,
+    ));
 
     wa_free(shadow_wrapper);
 }

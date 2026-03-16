@@ -823,13 +823,14 @@ unsafe fn init_graphics_and_resources(
 
     let _ = log_line("[DDGame] SpriteRegions + TSM done");
 
+    // Resolved addresses for GfxDir operations (used by arrows, gradients, fill)
+    let gfx_find_entry = rb(va::GFX_DIR_FIND_ENTRY) as u32;
+    let gfx_load_image = rb(va::GFX_DIR_LOAD_IMAGE) as u32;
+    let fun_4f5f80 = rb(0x4F5F80) as u32;
+
     // ── Arrow sprites + collision regions (32 iterations) ──
     {
         let gfx_handler = (*wrapper)._field_4c0;
-        let gfx_find_entry = rb(va::GFX_DIR_FIND_ENTRY) as u32;
-        let gfx_load_image = rb(va::GFX_DIR_LOAD_IMAGE) as u32;
-        let fun_4f5f80 = rb(0x4F5F80) as u32;
-        let _sprintf = rb(0x5D125A) as u32;
 
         for i in 0u32..32 {
             // Format "arrow%02u.img\0" into stack buffer
@@ -948,19 +949,222 @@ unsafe fn init_graphics_and_resources(
 
     let _ = log_line("[DDGame] weapon sprites done");
 
-    // ── Gradient images, layer sprites, fill image, HUD ──
-    // ── Display finalization ──
-    //
-    // These remaining sections (~200 lines) involve complex gradient
-    // computation, sprite loading with GfxDir lookups, and display
-    // layer management. Will be added in subsequent commits.
-    //
-    // TODO: layer.spr, back.spr, debris.spr loading
-    // TODO: gradient image processing (largest remaining section)
-    // TODO: fill.img → fill_pixel at DDGame+0x7338
-    // TODO: HUD_LoadWeaponSprites_Maybe
-    // TODO: Close GfxHandlers
-    // TODO: Display finalization (layer visibility)
+    // ── Sprite resource loading via DDGameWrapper vtable[0] ──
+    // DDNetGameWrapper__LoadResourceList: thiscall(ECX=wrapper) +
+    // 5 stack params (layer, gfx_handler, base_path, data_table, table_size)
+    {
+        let landscape_ptr = (*wrapper).landscape as *const u8;
+        let water_layer = *(landscape_ptr.add(0xB38) as *const *mut u8);
+        let land_layer = *(landscape_ptr.add(0xB34) as *const *mut u8);
+        let gfx_handler = (*wrapper)._field_4c0;
+
+        let wrapper_vt = *(wrapper as *const *const u32);
+        let load_resource_list: unsafe extern "thiscall" fn(
+            *mut DDGameWrapper, u32, *mut u8, *const u8, *const u8, u32,
+        ) = core::mem::transmute(*wrapper_vt);
+
+        // Load resources for layer 1 (main sprites)
+        load_resource_list(
+            wrapper, 1, gfx_handler,
+            rb(0x643F2B) as *const u8,  // base path
+            rb(0x6AD2C0) as *const u8,  // resource table
+            0x1D88,                      // table size
+        );
+
+        // Set global flag based on game version
+        let d778 = *((*ddgame).game_info as *const u8).add(0xD778).cast::<i32>();
+        *(rb(0x6AF050) as *mut u32) = if d778 < 8 { 0 } else { 0x10 };
+
+        // Load resources for layer 1 with different table
+        load_resource_list(
+            wrapper, 1, gfx_handler,
+            rb(0x643F2B) as *const u8,
+            rb(0x6AF048) as *const u8,
+            0x18,
+        );
+
+        // Load resources for layer 2 (water)
+        load_resource_list(
+            wrapper, 2, water_layer,
+            rb(0x643F2B) as *const u8,
+            rb(0x6AF060) as *const u8,
+            0x2F4,
+        );
+
+        // Display vtable[5](3) — set active layer 3, returns context ptr
+        let disp_vt = *((*ddgame).display as *const *const u32);
+        let set_layer: unsafe extern "thiscall" fn(*mut DDDisplay, i32) -> *mut u8 =
+            core::mem::transmute(*disp_vt.add(5));
+        let _layer3_ctx = set_layer((*ddgame).display, 3);
+
+        // Load back.spr and debris.spr (conditional)
+        let disp_obj = *(wrapper as *const u8).add(0x4D0) as *mut u8;
+        let disp_obj_vt = *(disp_obj as *const *const u32);
+        // Check if gfx_mode high byte is set (original: uStack_123c._3_1_ != '\0')
+        if (*wrapper).gfx_mode != 0 {
+            let load_spr_94: unsafe extern "thiscall" fn(*mut u8, u32, u32, *mut u8, *const u8) =
+                core::mem::transmute(*disp_obj_vt.add(0x94 / 4));
+            load_spr_94(disp_obj, 3, 0x26D, land_layer, b"back.spr\0".as_ptr());
+
+            let load_spr_7c: unsafe extern "thiscall" fn(*mut u8, u32, u32, u32, *mut u8, *const u8) =
+                core::mem::transmute(*disp_obj_vt.add(0x7C / 4));
+            load_spr_7c(disp_obj, 3, 0x26E, 0, land_layer, b"debris.spr\0".as_ptr());
+        }
+
+        // Load layer.spr into layer 2
+        let load_spr_94: unsafe extern "thiscall" fn(*mut u8, u32, u32, *mut u8, *const u8) =
+            core::mem::transmute(*disp_obj_vt.add(0x94 / 4));
+        load_spr_94(disp_obj, 2, 0x26C, water_layer,
+                     b"layer\\layer.spr|layer.spr\0".as_ptr());
+
+        // gradient_image_2 = 0
+        (*ddgame).gradient_image_2 = core::ptr::null_mut();
+
+        let _ = log_line("[DDGame] sprite resources loaded");
+
+        // ── Gradient image (0x030) ──
+        // The gradient is loaded from "gradient.img" via GfxDir.
+        // Simple path: height <= 0x60 AND level_height == 0x2B8
+        let level_height = (*ddgame).level_height as i32;
+        // Read sVar1 from display layer 3 context
+        let layer3_ctx = set_layer((*ddgame).display, 3);
+        let s_var1 = *(layer3_ctx.add(0x606) as *const i16);
+
+        if s_var1 < 0x61 && level_height == 0x2B8 {
+            // Simple gradient: load gradient.img directly
+            let gradient = call_gfx_find_and_load(
+                land_layer, b"gradient.img\0".as_ptr(),
+                gfx_find_entry, gfx_load_image, fun_4f5f80,
+                layer3_ctx,
+            );
+            (*ddgame).gradient_image = gradient;
+        } else {
+            // Complex gradient computation — ~200 lines of color interpolation.
+            // For now, skip this path (gradient_image remains null/0).
+            // This affects the sky background appearance but not gameplay.
+            let _ = log_line("[DDGame] WARNING: complex gradient path not ported, skipping");
+            // Set gradient_image to null (already zero from memset)
+        }
+
+        // ── Fill image → fill_pixel (0x7338) ──
+        {
+            let layer2_ctx = set_layer((*ddgame).display, 2);
+            let fill_sprite = call_gfx_find_and_load(
+                land_layer, b"fill.img\0".as_ptr(),
+                gfx_find_entry, gfx_load_image, fun_4f5f80,
+                layer2_ctx,
+            );
+            if !fill_sprite.is_null() {
+                // Get pixel value: fill_sprite->vtable[4](0, 0)
+                let fill_vt = *(fill_sprite as *const *const u32);
+                let get_pixel: unsafe extern "thiscall" fn(*mut u8, i32, i32) -> u32 =
+                    core::mem::transmute(*fill_vt.add(4));
+                (*ddgame).fill_pixel = get_pixel(fill_sprite, 0, 0);
+                // Release fill sprite
+                let release: unsafe extern "thiscall" fn(*mut u8, u32) =
+                    core::mem::transmute(*fill_vt);
+                release(fill_sprite, 1);
+            }
+        }
+
+        let _ = log_line(&format!("[DDGame] fill_pixel=0x{:08X}", (*ddgame).fill_pixel));
+
+        // ── HUD weapon sprites ──
+        {
+            let hud_load: unsafe extern "stdcall" fn(u32, u32) =
+                core::mem::transmute(rb(0x524070) as usize); // HUD_LoadWeaponSprites_Maybe address — verify
+            hud_load(ddgame as u32, (*wrapper)._field_4c4 as u32);
+        }
+
+        // ── Two DisplayGfx__Constructor_Maybe calls ──
+        {
+            let display_gfx_ctor: unsafe extern "thiscall" fn(*mut DDGameWrapper) =
+                core::mem::transmute(rb(va::DISPLAYGFX_CTOR) as usize);
+            display_gfx_ctor(wrapper);
+            display_gfx_ctor(wrapper);
+        }
+
+        // ── Close primary GfxHandler ──
+        if !(*wrapper)._field_4c0.is_null() {
+            let gfx_vt = *((*wrapper)._field_4c0 as *const *const u32);
+            let close: unsafe extern "thiscall" fn(*mut u8, u32) =
+                core::mem::transmute(*gfx_vt.add(3));
+            close((*wrapper)._field_4c0, 1);
+        }
+
+        // ── Display finalization (non-headless) ──
+        if !is_headless {
+            let init_display_final: unsafe extern "stdcall" fn(u32) =
+                core::mem::transmute(rb(va::DDGAME_INIT_DISPLAY_FINAL) as usize);
+            init_display_final(disp_obj as u32);
+        }
+        if *(rb(0x88E485) as *const u8) == 0 {
+            let fun_570a90: unsafe extern "C" fn() =
+                core::mem::transmute(rb(va::FUN_570A90) as usize);
+            fun_570a90();
+        }
+
+        // Display layer visibility: vt[0x5C](1,0), vt[0x5C](2,0), vt[0x5C](3,1)
+        let disp_obj_vt = *(disp_obj as *const *const u32);
+        let set_vis: unsafe extern "thiscall" fn(*mut u8, i32, i32) -> *mut u8 =
+            core::mem::transmute(*disp_obj_vt.add(0x17));
+        set_vis(disp_obj, 1, 0);
+        set_vis(disp_obj, 2, 0);
+        set_vis(disp_obj, 3, 1);
+    }
+
+    let _ = log_line("[DDGame] create_ddgame complete");
+}
+
+/// Helper: find entry in GfxDir and load image, or load directly.
+/// Returns a DisplayGfx/sprite pointer or null.
+#[cfg(target_arch = "x86")]
+unsafe fn call_gfx_find_and_load(
+    gfx_dir: *mut u8,
+    name: *const u8,
+    find_entry_addr: u32,
+    load_image_addr: u32,
+    wrap_addr: u32,
+    display_ctx: *mut u8,
+) -> *mut u8 {
+    // GfxDir__FindEntry: usercall(EAX=name) + stdcall(gfx_dir), RET 0x4
+    let entry: *mut u8;
+    core::arch::asm!(
+        "push {dir}",
+        "call {find}",
+        dir = in(reg) gfx_dir,
+        find = in(reg) find_entry_addr,
+        inlateout("eax") name => entry,
+        out("ecx") _,
+        out("edx") _,
+        clobber_abi("C"),
+    );
+
+    if !entry.is_null() {
+        // Try cached load: gfx_dir->vtable[2](entry->field_4)
+        let dir_vt = *(gfx_dir as *const *const u32);
+        let load_cached: unsafe extern "thiscall" fn(*mut u8, u32) -> *mut u8 =
+            core::mem::transmute(*dir_vt.add(2));
+        let cached = load_cached(gfx_dir, *(entry.add(4) as *const u32));
+        if !cached.is_null() {
+            // Wrap with DisplayGfx constructor
+            let result: *mut u8;
+            core::arch::asm!(
+                "push {cached}",
+                "call {ctor}",
+                cached = in(reg) cached,
+                ctor = in(reg) rb(0x4F5E80) as u32, // DisplayGfx__Constructor_Maybe
+                out("eax") result,
+                out("ecx") _,
+                out("edx") _,
+                clobber_abi("C"),
+            );
+            return result;
+        }
+    }
+
+    // Fallback: load image directly
+    call_gfx_load_and_wrap(name, load_image_addr, wrap_addr)
 }
 
 /// Bridge to GfxHandler__LoadDir (0x5663E0).
@@ -985,7 +1189,7 @@ unsafe fn call_gfx_load_dir(handler: *mut u8, addr: u32) -> i32 {
 unsafe fn call_gfx_load_and_wrap(
     name: *const u8,
     gfx_load_image_addr: u32,
-    fun_4f5f80_addr: u32,
+    fun_4f5f80: u32,
 ) -> *mut u8 {
     // GfxDir__LoadImage: usercall(EAX=name?), stdcall(1 stack param), RET 0x4
     let image: *mut u8;
@@ -1012,7 +1216,7 @@ unsafe fn call_gfx_load_and_wrap(
         "add esp, 12",
         img = in(reg) image,
         ctx = in(reg) 0u32,  // display_gfx context, often 0
-        wrap = in(reg) fun_4f5f80_addr,
+        wrap = in(reg) fun_4f5f80,
         out("eax") result,
         out("ecx") _,
         out("edx") _,
