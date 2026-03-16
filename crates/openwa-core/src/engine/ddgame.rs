@@ -470,7 +470,7 @@ pub unsafe fn create_ddgame(
     *(rb(va::G_GAME_INFO) as *mut *mut GameInfo) = game_info;
 
     // ── 6. Sound available + always-1 flags ──
-    let is_headless = *(game_info as *const u8).add(0xF914).cast::<i32>() != 0;
+    let is_headless = (*game_info).headless_mode != 0;
     // Defer sound_available — keep at 0 during construction.
     // DDGame__LoadWeaponSprites checks this flag; when set, it calls
     // FUN_572E30 which pumps PeekMessage/DispatchMessage. That can
@@ -482,15 +482,13 @@ pub unsafe fn create_ddgame(
     // ── 7. DDGameWrapper+0x48C init ──
     (*wrapper).ddgame_secondary = core::ptr::null_mut();
 
-    // ── 8. Conditional network object (game_info+0xD778 == -2) ──
-    let d778 = *(game_info as *const u8).add(0xD778).cast::<i32>();
-    if d778 == -2 {
+    // ── 8. Conditional network object (game_version == -2) ──
+    if (*game_info).game_version == -2 {
         let net_obj = wa_malloc(0x2C);
         core::ptr::write_bytes(net_obj, 0, 0x2C);
         *(net_obj as *mut *mut DDGame) = ddgame;
-        let gi = (*ddgame).game_info as *const u8;
-        *net_obj.add(0x28) = *gi.add(0xD944);
-        *net_obj.add(0x29) = *gi.add(0xD946);
+        *net_obj.add(0x28) = (*game_info).net_config_1;
+        *net_obj.add(0x29) = (*game_info).net_config_2;
         (*wrapper).ddgame_secondary = net_obj;
         if network_ecx != 0 {
             *((network_ecx as *mut u8).add(0x18) as *mut *mut u8) = net_obj;
@@ -538,8 +536,8 @@ unsafe fn init_graphics_and_resources(
     (*wrapper)._field_4c4 = core::ptr::null_mut();
 
     // Build path list (order depends on headless + GameInfo+0xF374)
-    let f914 = *(game_info as *const u8).add(0xF914).cast::<i32>();
-    let f374 = *(game_info as *const u8).add(0xF374).cast::<i32>();
+    let f914 = (*game_info).headless_mode as i32;
+    let f374 = (*game_info).display_flags as i32;
     let paths: [&[u8]; 3] = if f914 != 0 {
         if f374 == 0 {
             [b"data\\Gfx\\Gfx.dir\0", b"data\\Gfx\\Gfx0.dir\0", b"data\\Gfx\\Gfx1.dir\0"]
@@ -569,7 +567,7 @@ unsafe fn init_graphics_and_resources(
     (*wrapper).gfx_mode = if gfx_loaded_idx.wrapping_sub(headless_offset) < 2 { 1 } else { 0 };
 
     // ── GfxHandler #2 (conditional) ──
-    let d778 = *(game_info as *const u8).add(0xD778).cast::<i32>();
+    let d778 = (*game_info).game_version;
     let threshold = if (*wrapper).gfx_mode != 0 {
         (0x23u32.wrapping_sub(2)) as i32
     } else {
@@ -684,10 +682,10 @@ unsafe fn init_graphics_and_resources(
         *(gfxdir2.add(0x708) as *mut u16) = 0;
         (*ddgame).secondary_gfxdir = gfxdir2;
         // GFX_HANDLER_LOAD_SPRITES: stdcall(wrapper, ddgame+0x7308, game_info+0xF374, 0), RET 0x10
-        let gi = (*ddgame).game_info as *const u8;
+
         let f: unsafe extern "stdcall" fn(*mut DDGameWrapper, *mut u8, u32, u32) =
             core::mem::transmute(rb(va::GFX_HANDLER_LOAD_SPRITES) as usize);
-        f(wrapper, (ddgame as *mut u8).add(0x7308), *(gi.add(0xF374) as *const u32), 0);
+        f(wrapper, (ddgame as *mut u8).add(0x7308), (*game_info).display_flags, 0);
     }
 
     // ── DDGameWrapper field inits ──
@@ -769,7 +767,7 @@ unsafe fn init_graphics_and_resources(
                 *mut u8, *mut u8,                 // 10=&ddgame+0x777C, 11=&ddgame+0x7780
             ) -> *mut u8 = core::mem::transmute(rb(va::PC_LANDSCAPE_CONSTRUCTOR) as usize);
 
-            let gi = (*ddgame).game_info as *const u8;
+    
             // Param 8 is a stack local in the original's 4KB frame.
             // Heap-allocate a generous buffer since we don't know the exact size.
             let stack_local_8 = wa_malloc(0x1000);
@@ -779,7 +777,7 @@ unsafe fn init_graphics_and_resources(
                 ddgame,
                 gfx_resource,
                 (*wrapper).display,                // param 4: display (NOT wrapper!)
-                gi.add(0xDAAC),                    // param 5
+                (*game_info).landscape_data_path.as_ptr(), // param 5
                 landscape_byte_buf,                // param 6
                 (*wrapper).gfx_mode,               // param 7
                 stack_local_8,                     // param 8
@@ -1015,8 +1013,8 @@ unsafe fn init_graphics_and_resources(
         );
 
         // Set global flag based on game version
-        let d778 = *((*ddgame).game_info as *const u8).add(0xD778).cast::<i32>();
-        *(rb(0x6AF050) as *mut u32) = if d778 < 8 { 0 } else { 0x10 };
+        let gv = (*(*ddgame).game_info).game_version;
+        *(rb(0x6AF050) as *mut u32) = if gv < 8 { 0 } else { 0x10 };
 
         // Load resources for layer 1 with different table
         load_resource_list(

@@ -21,12 +21,23 @@ pub struct GameInfo {
     /// 0x044D-0xD777: Unknown
     pub _unknown_044d: [u8; 0xD778 - 0x44D],
 
-    /// 0xD778: Crosshair overflow clamp threshold (compared to 0x11E in render).
-    /// Also passed to timer constructor and input controller init.
-    pub crosshair_overflow_threshold: i32,
+    /// 0xD778: Game version/mode. Compared against various thresholds:
+    /// -2 = network game, -3..0 = different game modes, 8+ = new versions.
+    /// Used by DDGame constructor for conditional initialization.
+    pub game_version: i32,
 
-    /// 0xD77C-0xD9DF: Unknown
-    pub _unknown_d77c: [u8; 0xD9E0 - 0xD77C],
+    /// 0xD77C-0xD943: Unknown
+    pub _unknown_d77c: [u8; 0xD944 - 0xD77C],
+
+    /// 0xD944: Network config byte 1 (copied to network object+0x28).
+    pub net_config_1: u8,
+    /// 0xD945: Unknown
+    pub _unknown_d945: u8,
+    /// 0xD946: Network config byte 2 (copied to network object+0x29).
+    pub net_config_2: u8,
+
+    /// 0xD947-0xD9DF: Unknown
+    pub _unknown_d947: [u8; 0xD9E0 - 0xD947],
 
     /// 0xD9E0: Streaming audio config data (path config passed to streaming audio ctor).
     /// Address of this field is passed as a pointer parameter.
@@ -36,8 +47,12 @@ pub struct GameInfo {
     /// If nonzero, streaming audio subsystem is created in InitHardware.
     pub speech_enabled: u8,
 
-    /// 0xDAA5-0xDAE7: Unknown
-    pub _unknown_daa5: [u8; 0xDAE8 - 0xDAA5],
+    /// 0xDAA5-0xDAAB: Unknown
+    pub _unknown_daa5: [u8; 0xDAAC - 0xDAA5],
+
+    /// 0xDAAC: Landscape data path (passed to PCLandscape constructor).
+    /// Points to a path string used for loading level terrain data.
+    pub landscape_data_path: [u8; 0xDAE8 - 0xDAAC],
 
     // --- Cluster 1: data paths ---
 

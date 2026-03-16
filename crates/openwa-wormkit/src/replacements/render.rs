@@ -529,7 +529,7 @@ unsafe extern "cdecl" fn draw_crosshair_line_impl(task_ptr: u32) {
     let mut overflowed = false;
     let mut clamp_factor = 0i32;
 
-    let threshold = (*ddgame.game_info).crosshair_overflow_threshold;
+    let threshold = (*ddgame.game_info).game_version;
 
     if threshold > 0x11E {
         // Check X overflow: sin > 0 but endpoint wrapped below start
