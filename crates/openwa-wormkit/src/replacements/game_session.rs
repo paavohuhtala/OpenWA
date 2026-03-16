@@ -322,6 +322,51 @@ unsafe extern "stdcall" fn hook_pc_landscape_ctor(
     orig(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11)
 }
 
+// ── SpriteRegion__Constructor param logger ──────────────────────────
+static mut SPRITE_REGION_TRAMPOLINE: *const () = core::ptr::null();
+
+/// Log fastcall params. Called from naked trampoline with all params on stack.
+unsafe extern "cdecl" fn log_sprite_region(
+    ecx: u32, edx: u32, p1: u32, p2: u32, p3: u32, p4: u32, p5: u32, p6: u32,
+) {
+    let _ = log_line(&format!(
+        "[SpriteRgn] ECX=0x{:X} EDX=0x{:X} p1=0x{:X} p2=0x{:X} p3=0x{:X} p4=0x{:X} p5=0x{:X} p6=0x{:X}",
+        ecx, edx, p1, p2, p3, p4, p5, p6));
+}
+
+/// Naked trampoline: captures ECX/EDX, logs, then calls original fastcall.
+#[unsafe(naked)]
+unsafe extern "C" fn hook_sprite_region_ctor() {
+    core::arch::naked_asm!(
+        // Save all regs
+        "pushl %eax",
+        "pushl %ecx",
+        "pushl %edx",
+        // Push all 8 params for logger: ECX, EDX, then 6 stack params
+        // Stack after 3 pushes: [edx][ecx][eax][ret][p1][p2][p3][p4][p5][p6]
+        // p1 at ESP+16, p2 at ESP+20, ...
+        "pushl 36(%esp)",  // p6
+        "pushl 36(%esp)",  // p5
+        "pushl 36(%esp)",  // p4
+        "pushl 36(%esp)",  // p3
+        "pushl 36(%esp)",  // p2
+        "pushl 36(%esp)",  // p1
+        "pushl %edx",       // EDX
+        "pushl %ecx",       // ECX
+        "calll {logger}",
+        "addl $32, %esp",   // clean 8 cdecl params
+        // Restore regs
+        "popl %edx",
+        "popl %ecx",
+        "popl %eax",
+        // Jump to original (fastcall, same params on stack)
+        "jmpl *({tramp})",
+        logger = sym log_sprite_region,
+        tramp = sym SPRITE_REGION_TRAMPOLINE,
+        options(att_syntax),
+    );
+}
+
 pub fn install() -> Result<(), String> {
     unsafe {
         INIT_REPLAY_ADDR = rb(va::DDGAMEWRAPPER_INIT_REPLAY);
@@ -338,6 +383,14 @@ pub fn install() -> Result<(), String> {
             hook_pc_landscape_ctor as *const (),
         )?;
         PC_LANDSCAPE_TRAMPOLINE = tramp as *const ();
+
+        // Hook SpriteRegion__Constructor to log fastcall params
+        let tramp2 = hook::install(
+            "SpriteRegion__Constructor",
+            va::SPRITE_REGION_CONSTRUCTOR,
+            hook_sprite_region_ctor as *const (),
+        )?;
+        SPRITE_REGION_TRAMPOLINE = tramp2 as *const ();
     }
     Ok(())
 }
