@@ -435,6 +435,9 @@ pub unsafe fn create_ddgame(
     call_init_fields(ddgame);
 
     // ── 3. Store DDGame* at DDGameWrapper+0x488 ──
+    // NOTE: The original constructor stores this immediately, but sub-calls
+    // (like GfxHandler__LoadDir) read wrapper+0x488 to access DDGame.
+    // We must set it early like the original does.
     (*wrapper).ddgame = ddgame;
 
     // ── 4. Store constructor parameters into DDGame ──
@@ -480,7 +483,12 @@ pub unsafe fn create_ddgame(
     ));
 
     // ── 9. InitVersionFlags — sets DDGame+0x7E2E/0x7E2F/0x7E3F ──
+    let _ = log_line("[DDGame] calling InitVersionFlags");
     call_init_version_flags(wrapper);
+    let _ = log_line(&format!(
+        "[DDGame] InitVersionFlags done, wrapper+0x4D0=0x{:08X}",
+        *(wrapper as *const u8).add(0x4D0).cast::<u32>(),
+    ));
 
     // ── 10. GfxHandler, landscape, sprites, audio, resources ──
     init_graphics_and_resources(wrapper, game_info, net_game, display, is_headless);
@@ -501,10 +509,11 @@ unsafe fn init_graphics_and_resources(
     is_headless: bool,
 ) {
     let ddgame = (*wrapper).ddgame;
+    let _ = log_line("[DDGame] init_graphics_and_resources: start");
     let fopen: unsafe extern "cdecl" fn(*const u8, *const u8) -> *mut u8 =
         core::mem::transmute(rb(va::WA_FOPEN) as usize);
     let gfx_load_dir_addr = rb(va::GFX_HANDLER_LOAD_DIR);
-    let gfx_handler_vtable = rb(0x664308) as u32;
+    let gfx_handler_vtable = rb(0x66B280) as u32; // GfxHandler__vtable (from asm: MOV [ESI], 0x66B280)
 
     // ── GfxHandler #1 (primary) ──
     let gfx1 = wa_malloc(0x19C);
@@ -512,6 +521,7 @@ unsafe fn init_graphics_and_resources(
     *(gfx1 as *mut u32) = gfx_handler_vtable;
     (*wrapper)._field_4c0 = gfx1;
     (*wrapper)._field_4c4 = core::ptr::null_mut();
+    let _ = log_line(&format!("[DDGame] GfxHandler #1 alloc=0x{:08X}, vtable=0x{:08X}", gfx1 as u32, gfx_handler_vtable));
 
     // Build path list (order depends on headless + GameInfo+0xF374)
     let f914 = *(game_info as *const u8).add(0xF914).cast::<i32>();
@@ -530,7 +540,9 @@ unsafe fn init_graphics_and_resources(
 
     let mut gfx_loaded_idx = 0u32;
     for (i, path) in paths.iter().enumerate() {
+        let _ = log_line(&format!("[DDGame] Trying Gfx path {}", i));
         let fp = fopen(path.as_ptr(), b"rb\0".as_ptr());
+        let _ = log_line(&format!("[DDGame] fopen returned 0x{:08X}", fp as u32));
         *(gfx1.add(0x198) as *mut *mut u8) = fp;
         if !fp.is_null() && call_gfx_load_dir(gfx1, gfx_load_dir_addr) != 0 {
             gfx_loaded_idx = i as u32;
@@ -544,8 +556,9 @@ unsafe fn init_graphics_and_resources(
     let headless_offset = if f914 != 0 { 1u32 } else { 0u32 };
     (*wrapper).gfx_mode = if gfx_loaded_idx.wrapping_sub(headless_offset) < 2 { 1 } else { 0 };
     let _ = log_line(&format!(
-        "[DDGame] GfxHandler #1 loaded (idx={}, gfx_mode={}, gfx1=0x{:08X})",
+        "[DDGame] GfxHandler #1 loaded (idx={}, gfx_mode={}, gfx1=0x{:08X}, wrapper+0x4D0=0x{:08X})",
         gfx_loaded_idx, (*wrapper).gfx_mode, gfx1 as u32,
+        *(wrapper as *const u8).add(0x4D0).cast::<u32>(),
     ));
 
     // ── GfxHandler #2 (conditional) ──
@@ -576,6 +589,12 @@ unsafe fn init_graphics_and_resources(
         }
     }
 
+    let _ = log_line(&format!(
+        "[DDGame] GfxHandler #2 done, _field_4c4=0x{:08X}, wrapper+0x4D0=0x{:08X}",
+        (*wrapper)._field_4c4 as u32,
+        *(wrapper as *const u8).add(0x4D0).cast::<u32>(),
+    ));
+
     // ── Display palette setup (non-headless) ──
     if !is_headless {
         if *(rb(0x88E485) as *const u8) == 0 {
@@ -583,8 +602,15 @@ unsafe fn init_graphics_and_resources(
                 core::mem::transmute(rb(va::FUN_570A90) as usize);
             fun_570a90();
         }
-        // DDGameWrapper+0x4D0 points to the display object used for palette calls
-        let disp = *(wrapper as *const u8).add(0x4D0) as *mut u8;
+        let _ = log_line(&format!(
+            "[DDGame] palette: past 570a90, wrapper+0x4D0=0x{:08X}",
+            *(wrapper as *const u8).add(0x4D0).cast::<u32>(),
+        ));
+        // DDGameWrapper+0x4D0 points to the display object used for palette calls.
+        // BUT: FUN_00570A90 or something else may write to wrapper in ways we
+        // don't expect. Read via struct field instead of raw offset.
+        let disp = (*wrapper).display as *mut u8;
+        let _ = log_line(&format!("[DDGame] palette: disp=0x{:08X}", disp as u32));
         let vt = *(disp as *const *const u32);
         let vt_10: unsafe extern "thiscall" fn(*mut u8) =
             core::mem::transmute(*vt.add(4));
@@ -610,6 +636,8 @@ unsafe fn init_graphics_and_resources(
             *(disp.add(0x3120) as *mut u32) = 0;
         }
     }
+
+    let _ = log_line("[DDGame] display palette done");
 
     // ── FUN_00570E20 ──
     {

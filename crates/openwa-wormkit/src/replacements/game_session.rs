@@ -17,7 +17,7 @@
 use openwa_core::address::va;
 use openwa_core::audio::DSSound;
 use openwa_core::display::{DDDisplay, Palette};
-use openwa_core::engine::ddgame::{DDGame, init_constructor_addrs};
+use openwa_core::engine::ddgame::{DDGame, create_ddgame, init_constructor_addrs};
 use openwa_core::engine::{DDGameWrapper, GameInfo, GameSession};
 use openwa_core::rebase::rb;
 use openwa_core::wa_alloc::{wa_malloc, wa_free};
@@ -107,14 +107,23 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
     let timer_obj = (*session).timer_obj;
     let net_game  = (*session).net_game;
 
-    // Call original DDGame__Constructor via bridge.
-    // create_ddgame() is ~80% complete but missing gradient images,
-    // sprite loading, HUD, and display finalization. Use original
-    // until fully ported.
-    DDGAME_CTOR_ECX = input_ctrl as u32;
-    ddgame_constructor_call(
-        this, display, sound, keyboard, palette, streaming_audio,
-        timer_obj, net_game, game_info,
+    let _ = log_line(&format!(
+        "[GameSession] Before create_ddgame: wrapper+0x4D0=0x{:08X}, display=0x{:08X}",
+        *(this as *const u8).add(0x4D0).cast::<u32>(), display as u32,
+    ));
+
+    // Call our Rust DDGame constructor.
+    create_ddgame(
+        this,
+        keyboard as *mut openwa_core::input::DDKeyboard,
+        display,
+        sound,
+        palette,
+        streaming_audio as *mut openwa_core::audio::Music,
+        timer_obj,
+        net_game,
+        game_info,
+        input_ctrl as u32,
     );
 
     // Dump DDGame state BEFORE InitGameState (constructor output only)
