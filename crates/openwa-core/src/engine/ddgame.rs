@@ -373,6 +373,7 @@ pub fn init_constructor_addrs() {
         SPRITE_REGION_CTOR_ADDR = rb(va::SPRITE_REGION_CONSTRUCTOR);
         FUN_570E20_ADDR = rb(va::FUN_570E20);
         FUN_570A90_ADDR = rb(va::FUN_570A90);
+        GFX_RESOURCE_CREATE_ADDR = rb(va::GFX_RESOURCE_CREATE);
         FUN_570F30_ADDR = rb(va::DDGAME_INIT_SOUND_PATHS);
         LOAD_SPEECH_BANKS_ADDR = rb(va::DSSOUND_LOAD_ALL_SPEECH_BANKS);
         LOAD_WEAPON_SPRITES_ADDR = rb(va::DDGAME_LOAD_WEAPON_SPRITES);
@@ -687,12 +688,10 @@ unsafe fn init_graphics_and_resources(
         call_usercall_esi(wrapper, FUN_570F30_ADDR);
 
         if !(*ddgame).sound.is_null() {
-            {
-                // DSSound_LoadEffectWAVs: stdcall(wrapper)
-                let f: unsafe extern "stdcall" fn(*mut DDGameWrapper) =
-                    core::mem::transmute(rb(va::DSSOUND_LOAD_EFFECT_WAVS) as usize);
-                f(wrapper);
-            }
+            // DSSound_LoadEffectWAVs: stdcall(wrapper)
+            let f: unsafe extern "stdcall" fn(*mut DDGameWrapper) =
+                core::mem::transmute(rb(va::DSSOUND_LOAD_EFFECT_WAVS) as usize);
+            f(wrapper);
             // DSSound_LoadAllSpeechBanks: usercall(ESI=wrapper)
             call_usercall_esi(wrapper, LOAD_SPEECH_BANKS_ADDR);
             // Allocate ActiveSoundTable (0x608 bytes)
@@ -704,13 +703,21 @@ unsafe fn init_graphics_and_resources(
         }
     }
 
-    // ── GfxResource (used by PCLandscape and later by gradients) ──
-    let gfx_resource_create: unsafe extern "thiscall" fn(*mut u8, *mut u8) -> *mut u8 =
-        core::mem::transmute(rb(va::GFX_RESOURCE_CREATE) as usize);
-    let gfx_resource = gfx_resource_create(
-        (*wrapper)._field_4c0,
-        (ddgame as *mut u8).add(0x77A4), // output: pass ddgame+0x77A4 area
-    );
+    let _ = log_line("[DDGame] past audio");
+    // ── GfxResource: usercall(ECX=gfx_handler, EAX=0x66A3C0) + 1 stack(output), RET 0x4 ──
+    // RET 0x4 means callee cleans the stack — must use a naked bridge to avoid
+    // the compiler's stack tracking being thrown off.
+    // GfxResource + PCLandscape: skip for now, call via original code path.
+    // The crash in GfxResource__Create is likely due to missing callee-saved
+    // register context (EBP, EBX, ESI) that the original DDGame constructor
+    // maintains throughout. These functions read "unaffected" registers.
+    //
+    // TODO: Investigate EBP/EBX/ESI requirements for these sub-calls.
+    let _ = log_line("[DDGame] returning early");
+    return;
+    #[allow(unreachable_code)]
+    let gfx_resource: *mut u8 = core::ptr::null_mut();
+    let _ = gfx_resource;
 
     // ── PCLandscape (alloc 0xB44, stdcall 11 params) ──
     let landscape = {
@@ -929,9 +936,10 @@ unsafe fn init_graphics_and_resources(
         // TODO: populate coord_list from landscape data (complex loop)
     }
 
-    // ── Weapon sprites (FUN_005717A0 ×2): usercall(ECX=wrapper) ──
-    call_usercall_ecx(wrapper, LOAD_WEAPON_SPRITES_ADDR);
-    call_usercall_ecx(wrapper, LOAD_WEAPON_SPRITES_ADDR);
+    // ── Loading tick (FUN_005717A0 ×2): usercall(ECX=wrapper) ──
+    // This pumps the message loop — commented out to test if it causes crashes.
+    // call_usercall_ecx(wrapper, LOAD_WEAPON_SPRITES_ADDR);
+    // call_usercall_ecx(wrapper, LOAD_WEAPON_SPRITES_ADDR);
     let _ = log_line("[DDGame] past audio init");
 
     // ── Sprite resource loading via DDGameWrapper vtable[0] ──
@@ -1188,6 +1196,27 @@ unsafe fn call_usercall_ecx(wrapper: *mut DDGameWrapper, addr: u32) {
     let f: unsafe extern "thiscall" fn(*mut DDGameWrapper) =
         core::mem::transmute(addr as usize);
     f(wrapper);
+}
+
+/// Runtime address of GfxResource__Create_Maybe (set by init_constructor_addrs()).
+static mut GFX_RESOURCE_CREATE_ADDR: u32 = 0;
+
+/// Bridge to GfxResource__Create_Maybe (0x4F6300).
+/// Convention: usercall(ECX=gfx_handler, EAX=data_ptr) + 1 stack(output), RET 0x4.
+#[cfg(target_arch = "x86")]
+#[unsafe(naked)]
+unsafe extern "C" fn call_gfx_resource_create(
+    _gfx_handler: *mut u8, _data_ptr: *const u8, _output: *mut u8,
+) -> *mut u8 {
+    core::arch::naked_asm!(
+        "movl 4(%esp), %ecx",     // ECX = gfx_handler
+        "movl 8(%esp), %eax",     // EAX = data_ptr
+        "pushl 12(%esp)",         // push output (stdcall param for callee)
+        "calll *({addr})",        // callee does RET 0x4, cleans our push
+        "retl",                   // return to caller (cdecl, caller cleans 3 params)
+        addr = sym GFX_RESOURCE_CREATE_ADDR,
+        options(att_syntax),
+    );
 }
 
 /// Bridge to GfxHandler__LoadDir (0x5663E0).
