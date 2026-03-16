@@ -159,9 +159,11 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
     }
 
     // Initialize DDGame's game-state fields.
+    let _ = log_line("[GameSession] calling InitGameState");
     let init_state: unsafe extern "stdcall" fn(*mut DDGameWrapper) =
         core::mem::transmute(rb(va::DDGAME_INIT_GAME_STATE) as usize);
     init_state(this);
+    let _ = log_line("[GameSession] InitGameState done");
 
     let ddgame = (*this).ddgame;
     let _ = log_line(&format!(

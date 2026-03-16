@@ -962,9 +962,8 @@ unsafe fn init_graphics_and_resources(
     }
 
     // ── Loading tick (FUN_005717A0 ×2): usercall(ECX=wrapper) ──
-    // This pumps the message loop — commented out to test if it causes crashes.
-    // call_usercall_ecx(wrapper, LOAD_WEAPON_SPRITES_ADDR);
-    // call_usercall_ecx(wrapper, LOAD_WEAPON_SPRITES_ADDR);
+    call_usercall_ecx(wrapper, LOAD_WEAPON_SPRITES_ADDR);
+    call_usercall_ecx(wrapper, LOAD_WEAPON_SPRITES_ADDR);
 
     // ── Sprite resource loading via DDGameWrapper vtable[0] ──
     // DDNetGameWrapper__LoadResourceList: thiscall(ECX=wrapper) +
@@ -1015,7 +1014,7 @@ unsafe fn init_graphics_and_resources(
         let _layer3_ctx = set_layer((*ddgame).display, 3);
 
         // Load back.spr and debris.spr (conditional)
-        let disp_obj = *(wrapper as *const u8).add(0x4D0) as *mut u8;
+        let disp_obj = (*wrapper).display as *mut u8;
         let disp_obj_vt = *(disp_obj as *const *const u32);
         // Check if gfx_mode high byte is set (original: uStack_123c._3_1_ != '\0')
         if (*wrapper).gfx_mode != 0 {
@@ -1077,19 +1076,24 @@ unsafe fn init_graphics_and_resources(
             }
         }
 
-        // ── HUD weapon sprites ──
+        // ── HUD_LoadWeaponSprites (0x53D0E0) ──
+        // stdcall(ddgame, wrapper_4c4), verified from asm: PUSH ECX([EBP+0x4C4]), PUSH EDX(ddgame)
         {
-            let hud_load: unsafe extern "stdcall" fn(u32, u32) =
-                core::mem::transmute(rb(0x524070) as usize); // HUD_LoadWeaponSprites_Maybe address — verify
-            hud_load(ddgame as u32, (*wrapper)._field_4c4 as u32);
+            let hud_load: unsafe extern "stdcall" fn(*mut DDGame, *mut u8) =
+                core::mem::transmute(rb(0x53D0E0) as usize);
+            hud_load(ddgame, (*wrapper)._field_4c4);
         }
 
-        // ── Two DisplayGfx__Constructor_Maybe calls ──
+        // ── Two sprite init calls ──
+        // PUSH EBP(wrapper); CALL 0x5706D0 — stdcall(wrapper)
+        // PUSH EBP(wrapper); CALL 0x5703E0 — stdcall(wrapper)
         {
-            let display_gfx_ctor: unsafe extern "thiscall" fn(*mut DDGameWrapper) =
-                core::mem::transmute(rb(va::DISPLAYGFX_CTOR) as usize);
-            display_gfx_ctor(wrapper);
-            display_gfx_ctor(wrapper);
+            let f1: unsafe extern "stdcall" fn(*mut DDGameWrapper) =
+                core::mem::transmute(rb(0x5706D0) as usize);
+            f1(wrapper);
+            let f2: unsafe extern "stdcall" fn(*mut DDGameWrapper) =
+                core::mem::transmute(rb(0x5703E0) as usize);
+            f2(wrapper);
         }
 
         // ── Close primary GfxHandler ──
