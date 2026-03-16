@@ -440,13 +440,10 @@ pub unsafe fn create_ddgame(
     // Zeroes stride-0x194 table, coordinate entries, calls InitRenderIndices.
     call_init_fields(ddgame);
 
-    // ── 3. Store DDGame* at DDGameWrapper+0x488 ──
-    // NOTE: The original constructor stores this immediately, but sub-calls
-    // (like GfxHandler__LoadDir) read wrapper+0x488 to access DDGame.
-    // We must set it early like the original does.
-    (*wrapper).ddgame = ddgame;
-
-    // ── 4. Store constructor parameters into DDGame ──
+    // ── 3-4. Store params BEFORE exposing DDGame via wrapper ──
+    // Critical: game_info must be set before wrapper->ddgame, because the
+    // message pump (triggered by audio loading) can cause game tasks to
+    // read ddgame->game_info. If game_info is null, they crash.
     (*ddgame).display = display;
     (*ddgame).sound = sound;
     (*ddgame).keyboard = keyboard;
@@ -456,6 +453,9 @@ pub unsafe fn create_ddgame(
     (*ddgame)._caller = network_ecx as *mut u8;
     (*ddgame).game_info = game_info;
     (*ddgame)._param_028 = net_game;
+
+    // Now safe to expose — all fields that concurrent readers check are set.
+    (*wrapper).ddgame = ddgame;
 
     // ── 5. Set g_GameInfo global ──
     *(rb(va::G_GAME_INFO) as *mut *mut GameInfo) = game_info;
@@ -703,21 +703,14 @@ unsafe fn init_graphics_and_resources(
         }
     }
 
-    let _ = log_line("[DDGame] past audio");
-    // ── GfxResource: usercall(ECX=gfx_handler, EAX=0x66A3C0) + 1 stack(output), RET 0x4 ──
-    // RET 0x4 means callee cleans the stack — must use a naked bridge to avoid
-    // the compiler's stack tracking being thrown off.
-    // GfxResource + PCLandscape: skip for now, call via original code path.
-    // The crash in GfxResource__Create is likely due to missing callee-saved
-    // register context (EBP, EBX, ESI) that the original DDGame constructor
-    // maintains throughout. These functions read "unaffected" registers.
-    //
-    // TODO: Investigate EBP/EBX/ESI requirements for these sub-calls.
-    let _ = log_line("[DDGame] returning early");
-    return;
-    #[allow(unreachable_code)]
-    let gfx_resource: *mut u8 = core::ptr::null_mut();
-    let _ = gfx_resource;
+    // ── GfxResource: thiscall(ECX=gfx_handler) + EAX=name + 1 stack(output), RET 0x4 ──
+    let gfx_resource: *mut u8;
+    {
+        let gfx_handler = (*wrapper)._field_4c0;
+        let out_buf = wa_malloc(0x900);
+        core::ptr::write_bytes(out_buf, 0, 0x900);
+        gfx_resource = call_gfx_resource_create(gfx_handler, rb(0x66A3C0) as *const u8, out_buf);
+    }
 
     // ── PCLandscape (alloc 0xB44, stdcall 11 params) ──
     let landscape = {
