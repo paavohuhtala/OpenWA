@@ -647,6 +647,7 @@ unsafe fn init_graphics_and_resources(
         f((*ddgame).display, 1);
     }
 
+    let _ = crate::log::log_line(&format!("[DDGame] gfx_mode={}", (*wrapper).gfx_mode));
     // ── GfxDir color entries DDGame+0x730C..0x732C ──
     if (*wrapper).gfx_mode != 0 {
         // GfxResource__Create: usercall(ECX=gfx_handler, EAX=0x66A3B4) + 1 stack, RET 0x4
@@ -668,11 +669,7 @@ unsafe fn init_graphics_and_resources(
             release(res);
         }
     } else {
-        // GFX_HANDLER_LOAD_SPRITES: stdcall(wrapper, ddgame+0x7308, game_info+0xF374, 0), RET 0x10
-        let gi = (*ddgame).game_info as *const u8;
-        let f: unsafe extern "stdcall" fn(*mut DDGameWrapper, *mut u8, u32, u32) =
-            core::mem::transmute(rb(va::GFX_HANDLER_LOAD_SPRITES) as usize);
-        f(wrapper, (ddgame as *mut u8).add(0x7308), *(gi.add(0xF374) as *const u32), 0);
+        // GFX_HANDLER_LOAD_SPRITES: SKIP for testing (gfx_mode==0 path)
     }
 
     let _ = crate::log::log_line("[DDGame] past color entries");
@@ -736,7 +733,11 @@ unsafe fn init_graphics_and_resources(
     // call_usercall_ecx(wrapper, LOAD_WEAPON_SPRITES_ADDR);
 
     // ── GfxResource: thiscall(ECX=gfx_handler) + EAX=name + 1 stack(output), RET 0x4 ──
-    let gfx_resource: *mut u8;
+    // GfxResource: skip for now (stack corruption from bridge). PCLandscape handles null.
+    let gfx_resource: *mut u8 = core::ptr::null_mut();
+    #[allow(unused_assignments)]
+    if false {
+    let mut gfx_resource = gfx_resource;
     {
         let gfx_handler = (*wrapper)._field_4c0;
         let out_buf = wa_malloc(0x900);
@@ -745,6 +746,7 @@ unsafe fn init_graphics_and_resources(
     let _ = crate::log::log_line("[DDGame] calling GfxResource_Create");
         gfx_resource = call_gfx_resource_create(gfx_handler, rb(0x66A3C0) as *const u8, out_buf);
         let _ = crate::log::log_line(&format!("[DDGame] GfxResource=0x{:08X}", gfx_resource as u32));
+    }
     }
 
     // ── PCLandscape (alloc 0xB44, stdcall 11 params) ──
@@ -833,6 +835,8 @@ unsafe fn init_graphics_and_resources(
             (0x480, 0x2D, 0x08, 0x2D, 0x07, 0x2E, 0x07, gr),
         ];
 
+        // SKIP: testing if SpriteRegion bridge corrupts stack
+        if false {
         for &(offset, ecx, edx, p2, p3, p4, p5, p6) in &regions {
             let alloc = wa_malloc(0x9C);
             core::ptr::write_bytes(alloc, 0, 0x9C);
@@ -843,6 +847,7 @@ unsafe fn init_graphics_and_resources(
             };
             *((ddgame as *mut u8).add(offset as usize) as *mut *mut u8) = result;
         }
+    } // if false
     }
 
     // ── Landscape-derived value at DDGame+0x468 ──
@@ -1222,19 +1227,23 @@ static mut GFX_RESOURCE_CREATE_ADDR: u32 = 0;
 /// Bridge to GfxResource__Create_Maybe (0x4F6300).
 /// Convention: usercall(ECX=gfx_handler, EAX=data_ptr) + 1 stack(output), RET 0x4.
 #[cfg(target_arch = "x86")]
-#[unsafe(naked)]
-unsafe extern "C" fn call_gfx_resource_create(
-    _gfx_handler: *mut u8, _data_ptr: *const u8, _output: *mut u8,
+unsafe fn call_gfx_resource_create(
+    gfx_handler: *mut u8, data_ptr: *const u8, output: *mut u8,
 ) -> *mut u8 {
-    core::arch::naked_asm!(
-        "movl 4(%esp), %ecx",     // ECX = gfx_handler
-        "movl 8(%esp), %eax",     // EAX = data_ptr
-        "pushl 12(%esp)",         // push output (stdcall param for callee)
-        "calll *({addr})",        // callee does RET 0x4, cleans our push
-        "retl",                   // return to caller (cdecl, caller cleans 3 params)
-        addr = sym GFX_RESOURCE_CREATE_ADDR,
-        options(att_syntax),
+    let result: *mut u8;
+    // Manual stack: sub 4 to make room, write output, call. Callee RET 0x4 cleans it.
+    // Use sub/mov instead of push to avoid compiler stack tracking mismatch.
+    core::arch::asm!(
+        "sub esp, 4",
+        "mov [esp], {output}",
+        "call {addr}",
+        output = in(reg) output,
+        addr = in(reg) GFX_RESOURCE_CREATE_ADDR,
+        inlateout("eax") data_ptr => result,
+        in("ecx") gfx_handler,
+        out("edx") _,
     );
+    result
 }
 
 /// Runtime address of GfxDir__FindEntry (set by init_constructor_addrs()).
@@ -1328,26 +1337,24 @@ unsafe extern "C" fn call_sprite_region_ctor(
 ) -> *mut u8 {
     // Stack on entry: [ret] [this] [ecx] [edx] [p2] [p3] [p4] [p5] [p6]
     // Need: ECX=ecx, EDX=edx, push p6 p5 p4 p3 p2 this, call
+    // SpriteRegion__Constructor: fastcall(ECX, EDX) + 6 stack, RET 0x18
+    // Params: (this, ecx, edx, p2, p3, p4, p5, p6)
     core::arch::naked_asm!(
+        "pushl %ebp",
         "pushl %ebx",
-        // Load ECX and EDX from our params
-        "movl 12(%esp), %ecx",    // ecx param
-        "movl 16(%esp), %edx",    // edx param
-        // Push stack params in reverse: p6, p5, p4, p3, p2, this
-        "movl 36(%esp), %eax",    // p6
-        "pushl %eax",
-        "movl 36(%esp), %eax",    // p5 (shifted by 4)
-        "pushl %eax",
-        "movl 36(%esp), %eax",    // p4 (shifted by 8)
-        "pushl %eax",
-        "movl 36(%esp), %eax",    // p3 (shifted by 12)
-        "pushl %eax",
-        "movl 36(%esp), %eax",    // p2 (shifted by 16)
-        "pushl %eax",
-        "movl 28(%esp), %eax",    // this (shifted by 20)
-        "pushl %eax",
+        // Load ECX and EDX (shifted by 2 pushes = 8 bytes)
+        "movl 16(%esp), %ecx",   // ecx param (offset 4+8=12? No: 0=ebx,4=ebp,8=ret,12=this,16=ecx)
+        "movl 20(%esp), %edx",   // edx param
+        // Push 6 stack params in reverse: p6, p5, p4, p3, p2, this
+        "pushl 40(%esp)",         // p6 (0=ebx,4=ebp,8=ret,...,40=p6)
+        "pushl 40(%esp)",         // p5 (shifted by 4)
+        "pushl 40(%esp)",         // p4 (shifted by 8)
+        "pushl 40(%esp)",         // p3 (shifted by 12)
+        "pushl 40(%esp)",         // p2 (shifted by 16)
+        "pushl 32(%esp)",         // this (shifted by 20)
         "calll *({addr})",        // fastcall, callee cleans 6×4=24 bytes
         "popl %ebx",
+        "popl %ebp",
         "retl",
         addr = sym SPRITE_REGION_CTOR_ADDR,
         options(att_syntax),
