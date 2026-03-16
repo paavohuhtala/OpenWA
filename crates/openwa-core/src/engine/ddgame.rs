@@ -452,6 +452,14 @@ pub unsafe fn create_ddgame(
     (*ddgame).game_info = game_info;
     (*ddgame)._param_028 = net_game;
 
+    // Set g_GameSession+0x34 "loading" flag to suppress message pump callbacks
+    // during construction. Without this, WM_TIMER can trigger ShowChatMessage
+    // on a stale DDGameWrapper, causing crashes.
+    let session = *(rb(va::G_GAME_SESSION) as *const *mut u8);
+    let loading_flag = session.add(0x34) as *mut u32;
+    let old_loading_flag = *loading_flag;
+    *loading_flag = 1;
+
     // Now safe to expose — all fields that concurrent readers check are set.
     (*wrapper).ddgame = ddgame;
 
@@ -500,9 +508,11 @@ pub unsafe fn create_ddgame(
     // ── 10. GfxHandler, landscape, sprites, audio, resources ──
     init_graphics_and_resources(wrapper, game_info, net_game, display, is_headless);
 
-    // Now set sound_available to its real value — construction is complete,
-    // so the message pump in DDGame__LoadWeaponSprites is safe.
+    // Construction complete — restore flags.
     (*ddgame).sound_available = if is_headless { 0 } else { 1 };
+    // Restore loading flag to allow message pump callbacks.
+    let session = *(rb(va::G_GAME_SESSION) as *const *mut u8);
+    *(session.add(0x34) as *mut u32) = old_loading_flag;
 
     let _ = crate::log::log_line("[DDGame] create_ddgame complete");
     ddgame
@@ -731,14 +741,9 @@ unsafe fn init_graphics_and_resources(
         let gfx_handler = (*wrapper)._field_4c0;
         let out_buf = wa_malloc(0x900);
         core::ptr::write_bytes(out_buf, 0, 0x900);
-        let _ = crate::log::log_line(&format!(
-            "[DDGame] calling GfxResource: handler=0x{:08X}", gfx_handler as u32));
         gfx_resource = call_gfx_resource_create(gfx_handler, rb(0x66A3C0) as *const u8, out_buf);
-        let _ = crate::log::log_line(&format!(
-            "[DDGame] GfxResource returned: 0x{:08X}", gfx_resource as u32));
     }
 
-    let _ = crate::log::log_line("[DDGame] calling PCLandscape ctor");
     // ── PCLandscape (alloc 0xB44, stdcall 11 params) ──
     let landscape = {
         let alloc = wa_malloc(0xB44);
