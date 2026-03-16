@@ -9,16 +9,16 @@
 //!
 //! - `DDGameWrapper__InitReplay` (0x56F860): usercall(EAX=game_info, ESI=this),
 //!   plain RET (no stack args). Bridged via `call_init_replay`.
-//! - `DDGame__Constructor` (0x56E220): **REPLACED** by `create_ddgame()` in
-//!   openwa-core. Original function is trapped.
+//! - `DDGame__Constructor` (0x56E220): stdcall 9 params + implicit ECX=network.
+//!   Bridged via `ddgame_constructor_call`. Being incrementally replaced by
+//!   `create_ddgame()` in openwa-core (not yet complete).
 //! - `DDGame__InitGameState` (0x526500): plain stdcall(this), called via transmute.
 
 use openwa_core::address::va;
 use openwa_core::audio::DSSound;
 use openwa_core::display::{DDDisplay, Palette};
-use openwa_core::engine::ddgame::{create_ddgame, init_constructor_addrs};
+use openwa_core::engine::ddgame::init_constructor_addrs;
 use openwa_core::engine::{DDGameWrapper, GameInfo, GameSession};
-use openwa_core::input::DDKeyboard;
 use openwa_core::rebase::rb;
 use crate::hook;
 use crate::log_line;
@@ -26,8 +26,15 @@ use crate::log_line;
 /// Implicit EDI = game_info pointer, captured from EDI on entry.
 static mut GAME_INFO: *mut GameInfo = core::ptr::null_mut();
 
+/// Implicit ECX = network pointer for `DDGame__Constructor`. Set in `ctor_impl`
+/// just before calling `ddgame_constructor_call`.
+static mut DDGAME_CTOR_ECX: u32 = 0;
+
 /// Runtime address of `DDGameWrapper__InitReplay` (set at install time).
 static mut INIT_REPLAY_ADDR: u32 = 0;
+
+/// Runtime address of `DDGame__Constructor` (set at install time).
+static mut DDGAME_CTOR_ADDR: u32 = 0;
 
 // ─── Bridge: DDGameWrapper__InitReplay ───────────────────────────────────────
 //
@@ -42,6 +49,31 @@ unsafe extern "stdcall" fn call_init_replay(_game_info: *mut GameInfo, _this: *m
         "popl %esi",
         "retl $8",               // stdcall cleanup: 2 × u32 = 8
         fn = sym INIT_REPLAY_ADDR,
+        options(att_syntax),
+    );
+}
+
+// ─── Bridge: DDGame__Constructor ─────────────────────────────────────────────
+//
+// Convention: stdcall 9 params + implicit ECX=network.
+// Tail-jumps to original; DDGame::ctor's RET 0x24 returns to caller.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn ddgame_constructor_call(
+    _this: *mut DDGameWrapper,
+    _display: *mut DDDisplay,
+    _sound: *mut DSSound,
+    _keyboard: *mut u8,
+    _palette: *mut Palette,
+    _streaming_audio: *mut u8,
+    _timer_obj: *mut u8,
+    _net_game: *mut u8,
+    _game_info: *mut GameInfo,
+) -> *mut u8 {
+    core::arch::naked_asm!(
+        "movl {ecx_val}, %ecx",  // ECX = network (implicit param)
+        "jmpl *({fn})",          // tail-jump; RET 0x24 returns to caller
+        ecx_val = sym DDGAME_CTOR_ECX,
+        fn = sym DDGAME_CTOR_ADDR,
         options(att_syntax),
     );
 }
@@ -74,18 +106,12 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
     let timer_obj = (*session).timer_obj;
     let net_game  = (*session).net_game;
 
-    // Create DDGame — replaces the original DDGame__Constructor (0x56E220).
-    create_ddgame(
-        this,
-        keyboard as *mut DDKeyboard,
-        display,
-        sound,
-        palette,
-        streaming_audio as *mut openwa_core::audio::Music,
-        timer_obj,
-        net_game,
-        game_info,
-        input_ctrl as u32,  // network ECX
+    // Call original DDGame__Constructor via bridge.
+    // TODO: Replace with create_ddgame() once fully ported.
+    DDGAME_CTOR_ECX = input_ctrl as u32;
+    ddgame_constructor_call(
+        this, display, sound, keyboard, palette, streaming_audio,
+        timer_obj, net_game, game_info,
     );
 
     // Initialize DDGame's game-state fields.
@@ -105,11 +131,13 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
 pub fn install() -> Result<(), String> {
     unsafe {
         INIT_REPLAY_ADDR = rb(va::DDGAMEWRAPPER_INIT_REPLAY);
-        // Initialize runtime addresses for create_ddgame bridges.
+        DDGAME_CTOR_ADDR = rb(va::CONSTRUCT_DD_GAME);
+        // Initialize runtime addresses for create_ddgame bridges (future use).
         init_constructor_addrs();
-        // Both constructors are fully converted — trap the originals.
+        // DDGameWrapper__Constructor is fully converted — trap the original.
         hook::install_trap!("DDGameWrapper__Constructor", va::CONSTRUCT_DD_GAME_WRAPPER);
-        hook::install_trap!("DDGame__Constructor", va::CONSTRUCT_DD_GAME);
+        // DDGame__Constructor still uses the original via bridge.
+        // Will be trapped once create_ddgame() is complete.
     }
     Ok(())
 }

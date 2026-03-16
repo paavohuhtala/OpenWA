@@ -369,6 +369,7 @@ static mut INIT_FIELDS_ADDR: u32 = 0;
 pub fn init_constructor_addrs() {
     unsafe {
         INIT_FIELDS_ADDR = rb(va::DDGAME_INIT_FIELDS);
+        SPRITE_REGION_CTOR_ADDR = rb(va::SPRITE_REGION_CONSTRUCTOR);
     }
 }
 
@@ -692,13 +693,166 @@ unsafe fn init_graphics_and_resources(
         }
     }
 
-    // ════════════════════════════════════════════════════════════
-    // TODO: Remaining sub-object construction (PCLandscape,
-    // TaskStateMachine, SpriteRegions, arrow sprites, CoordList,
-    // weapon sprites, gradient images, fill image, HUD, display
-    // finalization). These are ~400 lines of the original 887-line
-    // constructor. Each will be added incrementally.
-    // ════════════════════════════════════════════════════════════
+    // ── GfxResource (used by PCLandscape and later by gradients) ──
+    let gfx_resource_create: unsafe extern "thiscall" fn(*mut u8, *mut u8) -> *mut u8 =
+        core::mem::transmute(rb(va::GFX_RESOURCE_CREATE) as usize);
+    let gfx_resource = gfx_resource_create(
+        (*wrapper)._field_4c0,
+        (ddgame as *mut u8).add(0x77A4), // output: pass ddgame+0x77A4 area
+    );
+
+    // ── PCLandscape (alloc 0xB44, stdcall 11 params) ──
+    let landscape = {
+        let alloc = wa_malloc(0xB44);
+        core::ptr::write_bytes(alloc, 0, 0xB44);
+        if !alloc.is_null() {
+            // Output locals for landscape data (used later for coord_list)
+            let mut landscape_coords: [i32; 2] = [0; 2]; // aiStack_11d4
+            let mut landscape_byte: u8 = 0;               // iStack_11f9
+
+            let pc_ctor: unsafe extern "stdcall" fn(
+                *mut u8, *mut DDGame, *mut u8,  // this, ddgame, gfx_resource
+                *mut DDGameWrapper, *const u8,   // wrapper, game_info+0xDAAC
+                *mut u8, u32,                    // &landscape_byte, gfx_mode
+                *mut [i32; 2], *mut i32,         // outputs: coords, more coords
+                *mut u8, *mut u8,                // &ddgame+0x777C, &ddgame+0x7780
+            ) -> *mut u8 = core::mem::transmute(rb(va::PC_LANDSCAPE_CONSTRUCTOR) as usize);
+
+            let gi = (*ddgame).game_info as *const u8;
+            let result = pc_ctor(
+                alloc,
+                ddgame,
+                gfx_resource,
+                wrapper,
+                gi.add(0xDAAC),
+                &mut landscape_byte as *mut u8,
+                (*wrapper).gfx_mode,
+                &mut landscape_coords as *mut [i32; 2],
+                landscape_coords.as_mut_ptr(), // placeholder for extra output
+                (ddgame as *mut u8).add(0x777C),
+                (ddgame as *mut u8).add(0x7780),
+            );
+            // Store landscape pointer
+            (*wrapper).landscape = result as *mut PCLandscape;
+            (*ddgame).landscape = result as *mut PCLandscape;
+            result
+        } else {
+            (*wrapper).landscape = core::ptr::null_mut();
+            (*ddgame).landscape = core::ptr::null_mut();
+            core::ptr::null_mut()
+        }
+    };
+
+    // ── TaskStateMachine at DDGame+0x380 (alloc 0x2C) ──
+    {
+        let tsm = wa_malloc(0x2C);
+        core::ptr::write_bytes(tsm, 0, 0x2C);
+        if !tsm.is_null() {
+            // TaskStateMachine__Init_Maybe is fastcall(ECX=width, EDX=?)
+            // but called here with ECX=1, then set vtable
+            let width = *((ddgame as *const u8).add(0x77C0) as *const u32);
+            let _height = *((ddgame as *const u8).add(0x77C4) as *const u32);
+            let tsm_init: unsafe extern "fastcall" fn(u32, u32) =
+                core::mem::transmute(rb(va::TASK_STATE_MACHINE_INIT) as usize);
+            tsm_init(1, width); // ECX=1, EDX=width
+            *(tsm as *mut u32) = rb(0x664118); // TaskStateMachine__vtable
+        }
+        let ddgame_ptr = ddgame as *mut u8;
+        *(ddgame_ptr.add(0x380) as *mut *mut u8) = tsm;
+    }
+
+    // ── 8× SpriteRegion at DDGame+0x46C..0x488 ──
+    // SpriteRegion__Constructor: fastcall(ECX, EDX) + 6 stack(this, p2, p3, p4, p5, p6), RET 0x18
+    {
+        // (ddgame_offset, ECX, EDX, stack2, stack3, stack4, stack5, stack6)
+        let regions: [(u32, u32, u32, u32, u32, u32, u32, u32); 8] = [
+            (0x474, 0x37, 0x36, 0x2E, 0x24, 0x41, 0x2D, 0),
+            (0x46C, 0x30, 0x0C, 0x2D, 0x07, 0x34, 0x09, 0),
+            (0x470, 0x11, 0x1A, 0x0D, 0x0A, 0x16, 0x13, 0),
+            (0x478, 0x21, 0x01, 0x00, 0x20, 0x22, 0x01, 0),
+            (0x47C, 0x01, 0x01, 0x00, 0x00, 0x02, 0x01, 0),
+            (0x484, 0x0A, 0x01, 0x173, 0x09, 0x17C, 0x02, 0),
+            (0x488, 0x08, 0x01, 0x1E5, 0x07, 0x1EC, 0x02, 0),
+            (0x480, 0x08, 0x01, 0x2D, 0x07, 0x34, 0x02, 0),
+        ];
+
+        for &(offset, ecx, edx, p2, p3, p4, p5, p6) in &regions {
+            let alloc = wa_malloc(0x9C);
+            core::ptr::write_bytes(alloc, 0, 0x9C);
+            let result = if !alloc.is_null() {
+                call_sprite_region_ctor(alloc, ecx, edx, p2, p3, p4, p5, p6)
+            } else {
+                core::ptr::null_mut()
+            };
+            *((ddgame as *mut u8).add(offset as usize) as *mut *mut u8) = result;
+        }
+    }
+
+    // ── Landscape-derived value at DDGame+0x468 ──
+    if !landscape.is_null() {
+        let land_vt = *(landscape as *const *const u32);
+        let get_val: unsafe extern "thiscall" fn(*mut u8) -> u32 =
+            core::mem::transmute(*land_vt.add(0xB));
+        *((ddgame as *mut u8).add(0x468) as *mut u32) = get_val(landscape);
+    }
+
+    // Release gfx_resource if non-null
+    if !gfx_resource.is_null() {
+        let rvt = *(gfx_resource as *const *const u32);
+        let release: unsafe extern "thiscall" fn(*mut u8) =
+            core::mem::transmute(*rvt.add(3));
+        release(gfx_resource);
+    }
+
+    // ── Arrow sprites + collision regions (32 iterations) ──
+    // ── DisplayGfx at +0x138 ──
+    // ── CoordList at +0x50C ──
+    // ── Weapon sprites, gradient images, fill image, HUD ──
+    // ── Display finalization ──
+    //
+    // These remaining sections (~300 lines of decompile) involve complex
+    // GfxDir lookups, sprite loading, gradient computation, and display
+    // layer management. They will be added in subsequent commits.
+    // For now, the constructor returns after audio + landscape + sprite regions.
+}
+
+/// Bridge to SpriteRegion__Constructor (0x57DB20).
+/// Convention: fastcall(ECX, EDX) + 6 stack params, RET 0x18.
+#[cfg(target_arch = "x86")]
+static mut SPRITE_REGION_CTOR_ADDR: u32 = 0;
+
+#[cfg(target_arch = "x86")]
+#[unsafe(naked)]
+unsafe extern "C" fn call_sprite_region_ctor(
+    _this: *mut u8, _ecx: u32, _edx: u32,
+    _p2: u32, _p3: u32, _p4: u32, _p5: u32, _p6: u32,
+) -> *mut u8 {
+    // Stack on entry: [ret] [this] [ecx] [edx] [p2] [p3] [p4] [p5] [p6]
+    // Need: ECX=ecx, EDX=edx, push p6 p5 p4 p3 p2 this, call
+    core::arch::naked_asm!(
+        "pushl %ebx",
+        // Load ECX and EDX from our params
+        "movl 12(%esp), %ecx",    // ecx param
+        "movl 16(%esp), %edx",    // edx param
+        // Push stack params in reverse: p6, p5, p4, p3, p2, this
+        "movl 36(%esp), %eax",    // p6
+        "pushl %eax",
+        "movl 36(%esp), %eax",    // p5 (shifted by 4)
+        "pushl %eax",
+        "movl 36(%esp), %eax",    // p4 (shifted by 8)
+        "pushl %eax",
+        "movl 36(%esp), %eax",    // p3 (shifted by 12)
+        "pushl %eax",
+        "movl 36(%esp), %eax",    // p2 (shifted by 16)
+        "pushl %eax",
+        "movl 28(%esp), %eax",    // this (shifted by 20)
+        "pushl %eax",
+        "calll *({addr})",        // fastcall, callee cleans 6×4=24 bytes
+        "popl %ebx",
+        "retl",
+        addr = sym SPRITE_REGION_CTOR_ADDR,
+        options(att_syntax),
+    );
 }
 
 /// Well-known byte offsets into DDGame, for use with raw pointer access.
