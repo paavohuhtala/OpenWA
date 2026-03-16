@@ -876,13 +876,11 @@ unsafe fn init_graphics_and_resources(
             name_buf[5] = b'0' + (i / 10) as u8;
             name_buf[6] = b'0' + (i % 10) as u8;
 
-            // Display vtable[5](1) — set active layer
-            {
-                let disp_vt = *((*ddgame).display as *const *const u32);
-                let set_layer: unsafe extern "thiscall" fn(*mut DDDisplay, i32) =
-                    core::mem::transmute(*disp_vt.add(5));
-                set_layer((*ddgame).display, 1);
-            }
+            // Display vtable[5](1) — set active layer, returns context ptr
+            let disp_vt = *((*ddgame).display as *const *const u32);
+            let set_layer: unsafe extern "thiscall" fn(*mut DDDisplay, i32) -> *mut u8 =
+                core::mem::transmute(*disp_vt.add(5));
+            let layer_ctx = set_layer((*ddgame).display, 1);
 
             // GfxDir__FindEntry: usercall(EAX=name) + 1 stack(gfx_handler), RET 0x4
             let entry = call_gfx_find_entry(name_buf.as_ptr(), gfx_handler);
@@ -895,16 +893,15 @@ unsafe fn init_graphics_and_resources(
                     core::mem::transmute(*gfx_vt.add(2));
                 let cached = load_cached(gfx_handler, *(entry.add(4) as *const u32));
                 if !cached.is_null() {
-                    sprite = cached;
+                    // Wrap with DisplayGfx constructor
+                    let ctor: unsafe extern "stdcall" fn(*mut u8) -> *mut u8 =
+                        core::mem::transmute(rb(0x4F5E80) as usize);
+                    sprite = ctor(cached);
                 } else {
-                    sprite = call_gfx_load_and_wrap(
-                        gfx_handler, name_buf.as_ptr(), core::ptr::null_mut(),
-                    );
+                    sprite = call_gfx_load_and_wrap(gfx_handler, name_buf.as_ptr(), layer_ctx);
                 }
             } else {
-                sprite = call_gfx_load_and_wrap(
-                    gfx_handler, name_buf.as_ptr(), core::ptr::null_mut(),
-                );
+                sprite = call_gfx_load_and_wrap(gfx_handler, name_buf.as_ptr(), layer_ctx);
             }
 
             // Store arrow sprite at DDGame+0x38+i*4
