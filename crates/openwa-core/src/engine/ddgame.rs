@@ -455,14 +455,6 @@ pub unsafe fn create_ddgame(
     (*ddgame).game_info = game_info;
     (*ddgame)._param_028 = net_game;
 
-    // Set g_GameSession+0x34 "loading" flag to suppress message pump callbacks
-    // during construction. Without this, WM_TIMER can trigger ShowChatMessage
-    // on a stale DDGameWrapper, causing crashes.
-    let session = *(rb(va::G_GAME_SESSION) as *const *mut u8);
-    let loading_flag = session.add(0x34) as *mut u32;
-    let old_loading_flag = *loading_flag;
-    *loading_flag = 1;
-
     // Now safe to expose — all fields that concurrent readers check are set.
     (*wrapper).ddgame = ddgame;
 
@@ -513,11 +505,8 @@ pub unsafe fn create_ddgame(
     // ── 10. GfxHandler, landscape, sprites, audio, resources ──
     init_graphics_and_resources(wrapper, game_info, net_game, display, is_headless);
 
-    // Construction complete — restore flags.
+    // Construction complete — set final flag values.
     (*ddgame).sound_available = if is_headless { 0 } else { 1 };
-    // Restore loading flag to allow message pump callbacks.
-    let session = *(rb(va::G_GAME_SESSION) as *const *mut u8);
-    *(session.add(0x34) as *mut u32) = old_loading_flag;
 
     let _ = crate::log::log_line("[DDGame] create_ddgame complete");
     ddgame
@@ -541,7 +530,6 @@ unsafe fn init_graphics_and_resources(
     let gfx_load_dir_addr = rb(va::GFX_HANDLER_LOAD_DIR);
     let gfx_handler_vtable = rb(0x66B280) as u32; // GfxHandler__vtable (from asm: MOV [ESI], 0x66B280)
 
-    let _ = crate::log::log_line("[DDGame] gfx_and_res: entry");
     // ── GfxHandler #1 (primary) ──
     let gfx1 = wa_malloc(0x19C);
     core::ptr::write_bytes(gfx1, 0, 0x19C);
@@ -648,18 +636,20 @@ unsafe fn init_graphics_and_resources(
     }
 
     // ── FUN_00570E20: usercall(ESI=wrapper), plain RET ──
-    // Runs for all modes (including headless) — the original doesn't guard this.
-    call_usercall_esi(wrapper, FUN_570E20_ADDR);
+    // The original runs this for all modes, but the headless display stub
+    // may not support vtable[4]. Guard for now — investigate separately.
+    if !is_headless {
+        call_usercall_esi(wrapper, FUN_570E20_ADDR);
+    }
 
     // ── Display vtable slot 5 (offset 0x14) ──
-    {
+    if !is_headless {
         let vt = *((*ddgame).display as *const *const u32);
         let f: unsafe extern "thiscall" fn(*mut DDDisplay, i32) -> *mut u8 =
             core::mem::transmute(*vt.add(5));
         f((*ddgame).display, 1);
     }
 
-    let _ = crate::log::log_line("[DDGame] past gfxhandler+palette");
     // ── GfxDir color entries DDGame+0x730C..0x732C ──
     if (*wrapper).gfx_mode != 0 {
         // GfxResource__Create: usercall(ECX=gfx_handler, EAX=0x66A3B4) + 1 stack, RET 0x4
@@ -754,7 +744,8 @@ unsafe fn init_graphics_and_resources(
         let gfx_handler = (*wrapper)._field_4c0;
         let out_buf = wa_malloc(0x900);
         core::ptr::write_bytes(out_buf, 0, 0x900);
-        let _ = crate::log::log_line("[DDGame] calling GfxResource_Create");
+        // return moved to before color entries
+    let _ = crate::log::log_line("[DDGame] calling GfxResource_Create");
         gfx_resource = call_gfx_resource_create(gfx_handler, rb(0x66A3C0) as *const u8, out_buf);
         let _ = crate::log::log_line(&format!("[DDGame] GfxResource=0x{:08X}", gfx_resource as u32));
     }
@@ -876,6 +867,7 @@ unsafe fn init_graphics_and_resources(
     // GfxDir addresses are resolved via statics (GFX_FIND_ENTRY_ADDR, GFX_LOAD_IMAGE_ADDR)
     // and called through naked bridges (call_gfx_find_entry, call_gfx_load_image).
 
+    // return moved further up
     // ── Arrow sprites + collision regions (32 iterations) ──
     {
         let gfx_handler = (*wrapper)._field_4c0;
@@ -1012,7 +1004,8 @@ unsafe fn init_graphics_and_resources(
             *mut DDGameWrapper, u32, *mut u8, *const u8, *const u8, u32,
         ) = core::mem::transmute(*wrapper_vt);
 
-        let _ = crate::log::log_line("[DDGame] calling load_resource_list #1");
+        // return point moved up to isolate
+    let _ = crate::log::log_line("[DDGame] calling load_resource_list #1");
         // Load resources for layer 1 (main sprites)
         load_resource_list(
             wrapper, 1, gfx_handler,
@@ -1123,9 +1116,50 @@ unsafe fn init_graphics_and_resources(
         // But decompiler says thiscall → ECX is implicit this.
         // RET 0x8 = 2 × 4 bytes cleaned. For thiscall: ECX + 1 stack = RET 0x4.
         // RET 0x8 means 2 stack params, NO ECX implicit → it's really stdcall(2 params).
-        // End sections temporarily disabled — need to verify conventions
-        // after TSM stack corruption fix. The core constructor now completes.
-        // TODO: re-enable HUD, sprite inits, close, finalization one by one
+        // ── HUD_LoadWeaponSprites (0x53D0E0) ──
+        // thiscall(ECX=gfx_handler, ddgame, wrapper_4c4), RET 0x8
+        {
+            let hud_load: unsafe extern "thiscall" fn(*mut u8, *mut DDGame, *mut u8) =
+                core::mem::transmute(rb(0x53D0E0) as usize);
+            hud_load((*wrapper)._field_4c0, ddgame, (*wrapper)._field_4c4);
+        }
+
+        // ── Two sprite init calls — stdcall(wrapper), RET 0x4 ──
+        {
+            let f1: unsafe extern "stdcall" fn(*mut DDGameWrapper) =
+                core::mem::transmute(rb(0x5706D0) as usize);
+            f1(wrapper);
+            let f2: unsafe extern "stdcall" fn(*mut DDGameWrapper) =
+                core::mem::transmute(rb(0x5703E0) as usize);
+            f2(wrapper);
+        }
+
+        // ── Close primary GfxHandler ──
+        if !(*wrapper)._field_4c0.is_null() {
+            let gfx_vt = *((*wrapper)._field_4c0 as *const *const u32);
+            let close: unsafe extern "thiscall" fn(*mut u8, u32) =
+                core::mem::transmute(*gfx_vt.add(3));
+            close((*wrapper)._field_4c0, 1);
+        }
+
+        // ── Display finalization (non-headless) ──
+        if !is_headless {
+            let init_display_final: unsafe extern "stdcall" fn(*mut u8) =
+                core::mem::transmute(rb(va::DDGAME_INIT_DISPLAY_FINAL) as usize);
+            init_display_final((*wrapper).display as *mut u8);
+        }
+        if *(rb(0x88E485) as *const u8) == 0 {
+            call_usercall_eax(wrapper, FUN_570A90_ADDR);
+        }
+
+        // Display layer visibility
+        let disp_vis = (*wrapper).display as *mut u8;
+        let disp_vis_vt = *(disp_vis as *const *const u32);
+        let set_vis: unsafe extern "thiscall" fn(*mut u8, i32, i32) -> *mut u8 =
+            core::mem::transmute(*disp_vis_vt.add(0x17));
+        set_vis(disp_vis, 1, 0);
+        set_vis(disp_vis, 2, 0);
+        set_vis(disp_vis, 3, 1);
     }
     let _ = crate::log::log_line("[DDGame] init_graphics_and_resources DONE");
 }
