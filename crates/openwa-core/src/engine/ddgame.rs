@@ -5,6 +5,7 @@ use crate::engine::ddgame_wrapper::DDGameWrapper;
 use crate::engine::game_info::GameInfo;
 use crate::input::keyboard::DDKeyboard;
 use crate::audio::dssound::DSSound;
+use crate::log::log_line;
 use crate::render::landscape::PCLandscape;
 use crate::audio::music::Music;
 use crate::display::palette::Palette;
@@ -420,6 +421,8 @@ pub unsafe fn create_ddgame(
     game_info: *mut GameInfo,
     network_ecx: u32,      // implicit ECX from caller
 ) -> *mut DDGame {
+    let _ = log_line("[DDGame] create_ddgame: begin");
+
     // ── 1. Allocate and zero-fill (matches: memset(piVar3, 0, 0x98B8)) ──
     let ddgame = wa_malloc(0x98B8) as *mut DDGame;
     if ddgame.is_null() {
@@ -470,6 +473,11 @@ pub unsafe fn create_ddgame(
             *((network_ecx as *mut u8).add(0x18) as *mut *mut u8) = net_obj;
         }
     }
+
+    let _ = log_line(&format!(
+        "[DDGame] create_ddgame: alloc=0x{:08X}, headless={}, sound=0x{:08X}",
+        ddgame as u32, is_headless, sound as u32,
+    ));
 
     // ── 9. InitVersionFlags — sets DDGame+0x7E2E/0x7E2F/0x7E3F ──
     call_init_version_flags(wrapper);
@@ -536,6 +544,10 @@ unsafe fn init_graphics_and_resources(
 
     let headless_offset = if f914 != 0 { 1u32 } else { 0u32 };
     (*wrapper).gfx_mode = if gfx_loaded_idx.wrapping_sub(headless_offset) < 2 { 1 } else { 0 };
+    let _ = log_line(&format!(
+        "[DDGame] GfxHandler #1 loaded (idx={}), gfx_mode={}",
+        gfx_loaded_idx, (*wrapper).gfx_mode,
+    ));
 
     // ── GfxHandler #2 (conditional) ──
     let d778 = *(game_info as *const u8).add(0xD778).cast::<i32>();
@@ -693,6 +705,8 @@ unsafe fn init_graphics_and_resources(
         }
     }
 
+    let _ = log_line("[DDGame] audio init done");
+
     // ── GfxResource (used by PCLandscape and later by gradients) ──
     let gfx_resource_create: unsafe extern "thiscall" fn(*mut u8, *mut u8) -> *mut u8 =
         core::mem::transmute(rb(va::GFX_RESOURCE_CREATE) as usize);
@@ -742,6 +756,10 @@ unsafe fn init_graphics_and_resources(
             core::ptr::null_mut()
         }
     };
+
+    let _ = log_line(&format!(
+        "[DDGame] PCLandscape=0x{:08X}", landscape as u32,
+    ));
 
     // ── TaskStateMachine at DDGame+0x380 (alloc 0x2C) ──
     {
@@ -804,16 +822,193 @@ unsafe fn init_graphics_and_resources(
         release(gfx_resource);
     }
 
+    let _ = log_line("[DDGame] SpriteRegions + TSM done");
+
     // ── Arrow sprites + collision regions (32 iterations) ──
-    // ── DisplayGfx at +0x138 ──
-    // ── CoordList at +0x50C ──
-    // ── Weapon sprites, gradient images, fill image, HUD ──
+    {
+        let gfx_handler = (*wrapper)._field_4c0;
+        let gfx_find_entry = rb(va::GFX_DIR_FIND_ENTRY) as u32;
+        let gfx_load_image = rb(va::GFX_DIR_LOAD_IMAGE) as u32;
+        let fun_4f5f80 = rb(0x4F5F80) as u32;
+        let _sprintf = rb(0x5D125A) as u32;
+
+        for i in 0u32..32 {
+            // Format "arrow%02u.img\0" into stack buffer
+            let mut name_buf = *b"arrow00.img\0\0\0\0\0";
+            name_buf[5] = b'0' + (i / 10) as u8;
+            name_buf[6] = b'0' + (i % 10) as u8;
+
+            // Display vtable[5](1) — set active layer
+            {
+                let disp_vt = *((*ddgame).display as *const *const u32);
+                let set_layer: unsafe extern "thiscall" fn(*mut DDDisplay, i32) =
+                    core::mem::transmute(*disp_vt.add(5));
+                set_layer((*ddgame).display, 1);
+            }
+
+            // GfxDir__FindEntry: usercall(EAX=name) + stdcall(gfx_handler), RET 0x4
+            let entry: *mut u8;
+            core::arch::asm!(
+                "push {handler}",
+                "call {find}",
+                handler = in(reg) gfx_handler,
+                find = in(reg) gfx_find_entry,
+                inlateout("eax") name_buf.as_ptr() => entry,
+                out("ecx") _,
+                out("edx") _,
+                clobber_abi("C"),
+            );
+
+            let sprite: *mut u8;
+            if !entry.is_null() {
+                // Try gfx_handler->vtable[2](entry->field_4)
+                let gfx_vt = *(gfx_handler as *const *const u32);
+                let load_cached: unsafe extern "thiscall" fn(*mut u8, u32) -> *mut u8 =
+                    core::mem::transmute(*gfx_vt.add(2));
+                let cached = load_cached(gfx_handler, *(entry.add(4) as *const u32));
+                if !cached.is_null() {
+                    sprite = cached;
+                } else {
+                    // Fallback to GfxDir__LoadImage
+                    sprite = call_gfx_load_and_wrap(
+                        name_buf.as_ptr(), gfx_load_image, fun_4f5f80,
+                    );
+                }
+            } else {
+                sprite = call_gfx_load_and_wrap(
+                    name_buf.as_ptr(), gfx_load_image, fun_4f5f80,
+                );
+            }
+
+            // Store arrow sprite at DDGame+0x38+i*4
+            (*ddgame).arrow_sprites[i as usize] = sprite;
+
+            // Calculate collision region dimensions from sprite
+            if !sprite.is_null() {
+                let sprite_w = *(sprite.add(0x14) as *const i32);
+                let sprite_h = *(sprite.add(0x18) as *const i32);
+                let half_w = (sprite_w / 2 - 10).max(0);
+                let half_h = (sprite_h / 2 - 10).max(0);
+
+                // Create SpriteRegion for collision
+                let alloc = wa_malloc(0x9C);
+                core::ptr::write_bytes(alloc, 0, 0x9C);
+                let region = if !alloc.is_null() {
+                    call_sprite_region_ctor(alloc, 0, 0, 0, half_w as u32, 0, half_h as u32, 0)
+                } else {
+                    core::ptr::null_mut()
+                };
+                (*ddgame).arrow_collision_regions[i as usize] = region;
+            }
+
+            // Arrow GfxDir (conditional on secondary gfxdir)
+            if !(*ddgame).secondary_gfxdir.is_null() {
+                let gfx_resource_create: unsafe extern "thiscall" fn(*mut u8, *mut u8) -> *mut u8 =
+                    core::mem::transmute(rb(va::GFX_RESOURCE_CREATE) as usize);
+                (*ddgame).arrow_gfxdirs[i as usize] =
+                    gfx_resource_create(gfx_handler, core::ptr::null_mut());
+            }
+        }
+    }
+
+    let _ = log_line("[DDGame] arrow sprites done");
+
+    // ── DisplayGfx at DDGame+0x138 ──
+    {
+        let tsm = wa_malloc(0x2C);
+        core::ptr::write_bytes(tsm, 0, 0x2C);
+        if !tsm.is_null() {
+            let tsm_init: unsafe extern "fastcall" fn(u32, u32) =
+                core::mem::transmute(rb(va::TASK_STATE_MACHINE_INIT) as usize);
+            tsm_init(0, 0);
+            *(tsm as *mut u32) = rb(0x6641F8); // DisplayGfx__vtable
+        }
+        (*ddgame).display_gfx = tsm;
+    }
+
+    // ── CoordList at DDGame+0x50C (capacity 600, 0x12C0 buffer) ──
+    {
+        let cl = wa_malloc(12) as *mut u32;
+        *cl = 0;            // count
+        *cl.add(1) = 600;   // capacity
+        let data = wa_malloc(0x12C0);
+        core::ptr::write_bytes(data, 0, 0x12C0);
+        *cl.add(2) = data as u32;
+        (*ddgame).coord_list = cl as *mut u8;
+
+        // TODO: populate coord_list from landscape data (complex loop)
+    }
+
+    // ── Weapon sprites (FUN_005717A0 ×2) ──
+    {
+        let load_weapon_sprites: unsafe extern "C" fn() =
+            core::mem::transmute(rb(va::DDGAME_LOAD_WEAPON_SPRITES) as usize);
+        load_weapon_sprites();
+        load_weapon_sprites();
+    }
+
+    let _ = log_line("[DDGame] weapon sprites done");
+
+    // ── Gradient images, layer sprites, fill image, HUD ──
     // ── Display finalization ──
     //
-    // These remaining sections (~300 lines of decompile) involve complex
-    // GfxDir lookups, sprite loading, gradient computation, and display
-    // layer management. They will be added in subsequent commits.
-    // For now, the constructor returns after audio + landscape + sprite regions.
+    // These remaining sections (~200 lines) involve complex gradient
+    // computation, sprite loading with GfxDir lookups, and display
+    // layer management. Will be added in subsequent commits.
+    //
+    // TODO: layer.spr, back.spr, debris.spr loading
+    // TODO: gradient image processing (largest remaining section)
+    // TODO: fill.img → fill_pixel at DDGame+0x7338
+    // TODO: HUD_LoadWeaponSprites_Maybe
+    // TODO: Close GfxHandlers
+    // TODO: Display finalization (layer visibility)
+}
+
+/// Helper: load image via GfxDir__LoadImage + wrap with FUN_004F5F80.
+/// Used by arrow sprite loop when GfxDir__FindEntry fails.
+#[cfg(target_arch = "x86")]
+unsafe fn call_gfx_load_and_wrap(
+    name: *const u8,
+    gfx_load_image_addr: u32,
+    fun_4f5f80_addr: u32,
+) -> *mut u8 {
+    // GfxDir__LoadImage: usercall(EAX=name?), stdcall(1 stack param), RET 0x4
+    let image: *mut u8;
+    core::arch::asm!(
+        "push {name}",
+        "call {load}",
+        name = in(reg) name,
+        load = in(reg) gfx_load_image_addr,
+        out("eax") image,
+        out("ecx") _,
+        out("edx") _,
+        clobber_abi("C"),
+    );
+    if image.is_null() {
+        return core::ptr::null_mut();
+    }
+    // FUN_004F5F80(display_gfx_context, image, 1)
+    let result: *mut u8;
+    core::arch::asm!(
+        "push 1",
+        "push {img}",
+        "push {ctx}",
+        "call {wrap}",
+        "add esp, 12",
+        img = in(reg) image,
+        ctx = in(reg) 0u32,  // display_gfx context, often 0
+        wrap = in(reg) fun_4f5f80_addr,
+        out("eax") result,
+        out("ecx") _,
+        out("edx") _,
+        clobber_abi("C"),
+    );
+    // Release the raw image
+    let image_vt = *(image as *const *const u32);
+    let destroy: unsafe extern "thiscall" fn(*mut u8, u32) =
+        core::mem::transmute(*image_vt);
+    destroy(image, 1);
+    result
 }
 
 /// Bridge to SpriteRegion__Constructor (0x57DB20).
