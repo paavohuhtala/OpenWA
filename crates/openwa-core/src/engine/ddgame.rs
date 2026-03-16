@@ -636,14 +636,11 @@ unsafe fn init_graphics_and_resources(
     }
 
     // ── FUN_00570E20: usercall(ESI=wrapper), plain RET ──
-    // The original runs this for all modes, but the headless display stub
-    // may not support vtable[4]. Guard for now — investigate separately.
-    if !is_headless {
-        call_usercall_esi(wrapper, FUN_570E20_ADDR);
-    }
+    // Runs for all modes — headless vtable[4] is 0x5231E0 (same as headful).
+    call_usercall_esi(wrapper, FUN_570E20_ADDR);
 
     // ── Display vtable slot 5 (offset 0x14) ──
-    if !is_headless {
+    {
         let vt = *((*ddgame).display as *const *const u32);
         let f: unsafe extern "thiscall" fn(*mut DDDisplay, i32) -> *mut u8 =
             core::mem::transmute(*vt.add(5));
@@ -812,7 +809,7 @@ unsafe fn init_graphics_and_resources(
         if !tsm.is_null() {
             let width = *((ddgame as *const u8).add(0x77C0) as *const u32);
             let height = *((ddgame as *const u8).add(0x77C4) as *const u32);
-            call_tsm_init(width, height);
+            call_tsm_init(tsm, width, height);
             *(tsm as *mut u32) = rb(0x664118); // TaskStateMachine__vtable
         }
         (*ddgame).task_state_machine = tsm;
@@ -999,13 +996,13 @@ unsafe fn init_graphics_and_resources(
         let land_layer = *(landscape_ptr.add(0xB34) as *const *mut u8);
         let gfx_handler = (*wrapper)._field_4c0;
 
+        // Sprite resource loading + remaining: disabled to isolate DEP crash
+        let _ = crate::log::log_line("[DDGame] skipping sprite resources+");
+    if false {
         let wrapper_vt = *(wrapper as *const *const u32);
         let load_resource_list: unsafe extern "thiscall" fn(
             *mut DDGameWrapper, u32, *mut u8, *const u8, *const u8, u32,
         ) = core::mem::transmute(*wrapper_vt);
-
-        // return point moved up to isolate
-    let _ = crate::log::log_line("[DDGame] calling load_resource_list #1");
         // Load resources for layer 1 (main sprites)
         load_resource_list(
             wrapper, 1, gfx_handler,
@@ -1116,50 +1113,9 @@ unsafe fn init_graphics_and_resources(
         // But decompiler says thiscall → ECX is implicit this.
         // RET 0x8 = 2 × 4 bytes cleaned. For thiscall: ECX + 1 stack = RET 0x4.
         // RET 0x8 means 2 stack params, NO ECX implicit → it's really stdcall(2 params).
-        // ── HUD_LoadWeaponSprites (0x53D0E0) ──
-        // thiscall(ECX=gfx_handler, ddgame, wrapper_4c4), RET 0x8
-        {
-            let hud_load: unsafe extern "thiscall" fn(*mut u8, *mut DDGame, *mut u8) =
-                core::mem::transmute(rb(0x53D0E0) as usize);
-            hud_load((*wrapper)._field_4c0, ddgame, (*wrapper)._field_4c4);
-        }
-
-        // ── Two sprite init calls — stdcall(wrapper), RET 0x4 ──
-        {
-            let f1: unsafe extern "stdcall" fn(*mut DDGameWrapper) =
-                core::mem::transmute(rb(0x5706D0) as usize);
-            f1(wrapper);
-            let f2: unsafe extern "stdcall" fn(*mut DDGameWrapper) =
-                core::mem::transmute(rb(0x5703E0) as usize);
-            f2(wrapper);
-        }
-
-        // ── Close primary GfxHandler ──
-        if !(*wrapper)._field_4c0.is_null() {
-            let gfx_vt = *((*wrapper)._field_4c0 as *const *const u32);
-            let close: unsafe extern "thiscall" fn(*mut u8, u32) =
-                core::mem::transmute(*gfx_vt.add(3));
-            close((*wrapper)._field_4c0, 1);
-        }
-
-        // ── Display finalization (non-headless) ──
-        if !is_headless {
-            let init_display_final: unsafe extern "stdcall" fn(*mut u8) =
-                core::mem::transmute(rb(va::DDGAME_INIT_DISPLAY_FINAL) as usize);
-            init_display_final((*wrapper).display as *mut u8);
-        }
-        if *(rb(0x88E485) as *const u8) == 0 {
-            call_usercall_eax(wrapper, FUN_570A90_ADDR);
-        }
-
-        // Display layer visibility
-        let disp_vis = (*wrapper).display as *mut u8;
-        let disp_vis_vt = *(disp_vis as *const *const u32);
-        let set_vis: unsafe extern "thiscall" fn(*mut u8, i32, i32) -> *mut u8 =
-            core::mem::transmute(*disp_vis_vt.add(0x17));
-        set_vis(disp_vis, 1, 0);
-        set_vis(disp_vis, 2, 0);
-        set_vis(disp_vis, 3, 1);
+        // End sections: disabled for headless testing
+        // TODO: enable one by one to find which causes DEP crash
+    } // if false
     }
     let _ = crate::log::log_line("[DDGame] init_graphics_and_resources DONE");
 }
@@ -1240,17 +1196,20 @@ unsafe fn call_usercall_ecx(wrapper: *mut DDGameWrapper, addr: u32) {
 static mut TSM_INIT_ADDR: u32 = 0;
 
 /// Bridge to TaskStateMachine__Init_Maybe (0x4F6370).
-/// Convention: fastcall(ECX=1) + 1 stack(width), EDI=height, RET 0x4.
+/// Convention: usercall(ESI=object, ECX=1, EDI=height) + 1 stack(width), RET 0x4.
 #[cfg(target_arch = "x86")]
 #[unsafe(naked)]
-unsafe extern "C" fn call_tsm_init(_width: u32, _height: u32) {
+unsafe extern "C" fn call_tsm_init(_object: *mut u8, _width: u32, _height: u32) {
     core::arch::naked_asm!(
+        "pushl %esi",
         "pushl %edi",
-        "movl 12(%esp), %edi",    // EDI = height (2nd param, shifted by push)
-        "pushl 8(%esp)",          // push width (1st param, shifted by push+push)
+        "movl 12(%esp), %esi",    // ESI = object (1st param, shifted by 2 pushes)
+        "movl 20(%esp), %edi",    // EDI = height (3rd param, shifted by 2 pushes)
+        "pushl 16(%esp)",         // push width (2nd param, shifted by 2 pushes + 1 push)
         "movl $1, %ecx",         // ECX = 1
         "calll *({addr})",        // RET 0x4 cleans the pushed width
         "popl %edi",
+        "popl %esi",
         "retl",
         addr = sym TSM_INIT_ADDR,
         options(att_syntax),
