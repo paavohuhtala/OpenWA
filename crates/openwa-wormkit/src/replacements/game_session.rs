@@ -324,6 +324,17 @@ unsafe extern "stdcall" fn hook_pc_landscape_ctor(
     orig(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11)
 }
 
+// ── HUD_LoadWeaponSprites param logger ──────────────────────────────
+static mut HUD_LOAD_TRAMPOLINE: *const () = core::ptr::null();
+
+unsafe extern "thiscall" fn hook_hud_load(this_ecx: u32, p1: u32, p2: u32) -> u32 {
+    let _ = log_line(&format!(
+        "[HUD] ECX=0x{:08X} p1=0x{:08X} p2=0x{:08X}", this_ecx, p1, p2));
+    let orig: unsafe extern "thiscall" fn(u32, u32, u32) -> u32 =
+        core::mem::transmute(HUD_LOAD_TRAMPOLINE);
+    orig(this_ecx, p1, p2)
+}
+
 // ── SpriteRegion__Constructor param logger ──────────────────────────
 static mut SPRITE_REGION_TRAMPOLINE: *const () = core::ptr::null();
 
@@ -385,6 +396,14 @@ pub fn install() -> Result<(), String> {
             hook_pc_landscape_ctor as *const (),
         )?;
         PC_LANDSCAPE_TRAMPOLINE = tramp as *const ();
+
+        // Hook HUD_LoadWeaponSprites to log params
+        let tramp_hud = hook::install(
+            "HUD_LoadWeaponSprites",
+            0x53D0E0,
+            hook_hud_load as *const (),
+        )?;
+        HUD_LOAD_TRAMPOLINE = tramp_hud as *const ();
 
         // Hook SpriteRegion__Constructor to log fastcall params
         let tramp2 = hook::install(

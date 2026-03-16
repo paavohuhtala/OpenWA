@@ -936,14 +936,16 @@ unsafe fn init_graphics_and_resources(
     }
 
     // ── DisplayGfx at DDGame+0x138 ──
+    // Original: alloc 0x4C, memset 0x2C, PUSH 0x100, MOV ECX=8, MOV EDI=0x1E0,
+    // CALL 0x4F6370, MOV [alloc]=0x664144
     {
-        let tsm = wa_malloc(0x2C);
+        let tsm = wa_malloc(0x4C); // original allocs 0x4C, not 0x2C!
         core::ptr::write_bytes(tsm, 0, 0x2C);
         if !tsm.is_null() {
-            let tsm_init: unsafe extern "fastcall" fn(u32, u32) =
-                core::mem::transmute(rb(va::TASK_STATE_MACHINE_INIT) as usize);
-            tsm_init(0, 0);
-            *(tsm as *mut u32) = rb(0x6641F8); // DisplayGfx__vtable
+            // TaskStateMachine__Init_Maybe: fastcall(ECX=8) + 1 stack(0x100), RET 0x4?
+            // Also EDI=0x1E0 (implicit). Need naked bridge for EDI.
+            // For now, just set vtable directly.
+            *(tsm as *mut u32) = rb(0x664144); // DisplayGfx__vtable
         }
         (*ddgame).display_gfx = tsm;
     }
@@ -961,9 +963,9 @@ unsafe fn init_graphics_and_resources(
         // TODO: populate coord_list from landscape data (complex loop)
     }
 
-    // ── Loading tick (FUN_005717A0 ×2): usercall(ECX=wrapper) ──
-    call_usercall_ecx(wrapper, LOAD_WEAPON_SPRITES_ADDR);
-    call_usercall_ecx(wrapper, LOAD_WEAPON_SPRITES_ADDR);
+    // ── Loading tick: disabled for testing ──
+    // call_usercall_ecx(wrapper, LOAD_WEAPON_SPRITES_ADDR);
+    // call_usercall_ecx(wrapper, LOAD_WEAPON_SPRITES_ADDR);
 
     // ── Sprite resource loading via DDGameWrapper vtable[0] ──
     // DDNetGameWrapper__LoadResourceList: thiscall(ECX=wrapper) +
@@ -979,6 +981,7 @@ unsafe fn init_graphics_and_resources(
             *mut DDGameWrapper, u32, *mut u8, *const u8, *const u8, u32,
         ) = core::mem::transmute(*wrapper_vt);
 
+        let _ = crate::log::log_line("[DDGame] calling load_resource_list #1");
         // Load resources for layer 1 (main sprites)
         load_resource_list(
             wrapper, 1, gfx_handler,
@@ -1089,11 +1092,17 @@ unsafe fn init_graphics_and_resources(
         // But decompiler says thiscall → ECX is implicit this.
         // RET 0x8 = 2 × 4 bytes cleaned. For thiscall: ECX + 1 stack = RET 0x4.
         // RET 0x8 means 2 stack params, NO ECX implicit → it's really stdcall(2 params).
+        // ── HUD_LoadWeaponSprites (0x53D0E0) ──
+        // thiscall(ECX=gfx_handler, ddgame, wrapper_4c4), RET 0x8
+        // asm: MOV ECX,[EBP+0x4C0]; PUSH [EBP+0x4C4]; PUSH [EBP+0x488]; CALL
+        let _ = crate::log::log_line("[DDGame] before HUD");
+        // ── HUD_LoadWeaponSprites (0x53D0E0) ──
         {
-            let hud_load: unsafe extern "stdcall" fn(*mut DDGame, *mut u8) =
+            let hud_load: unsafe extern "thiscall" fn(*mut u8, *mut DDGame, *mut u8) =
                 core::mem::transmute(rb(0x53D0E0) as usize);
-            hud_load(ddgame, (*wrapper)._field_4c4);
+            hud_load((*wrapper)._field_4c0, ddgame, (*wrapper)._field_4c4);
         }
+        let _ = crate::log::log_line("[DDGame] after HUD");
 
         // ── Two sprite init calls (0x5706D0, 0x5703E0) ──
         // PUSH EBP(wrapper); CALL — stdcall(wrapper), RET 0x4
