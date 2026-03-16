@@ -468,7 +468,12 @@ pub unsafe fn create_ddgame(
 
     // ── 6. Sound available + always-1 flags ──
     let is_headless = *(game_info as *const u8).add(0xF914).cast::<i32>() != 0;
-    (*ddgame).sound_available = if is_headless { 0 } else { 1 };
+    // Defer sound_available — keep at 0 during construction.
+    // DDGame__LoadWeaponSprites checks this flag; when set, it calls
+    // FUN_572E30 which pumps PeekMessage/DispatchMessage. That can
+    // trigger game task code that reads uninitialized DDGame fields.
+    // Set to final value at the end of init_graphics_and_resources.
+    (*ddgame).sound_available = 0;
     (*ddgame)._field_7efc = 1;
 
     // ── 7. DDGameWrapper+0x48C init ──
@@ -494,6 +499,10 @@ pub unsafe fn create_ddgame(
 
     // ── 10. GfxHandler, landscape, sprites, audio, resources ──
     init_graphics_and_resources(wrapper, game_info, net_game, display, is_headless);
+
+    // Now set sound_available to its real value — construction is complete,
+    // so the message pump in DDGame__LoadWeaponSprites is safe.
+    (*ddgame).sound_available = if is_headless { 0 } else { 1 };
 
     let _ = crate::log::log_line("[DDGame] create_ddgame complete");
     ddgame
@@ -697,7 +706,8 @@ unsafe fn init_graphics_and_resources(
             let f: unsafe extern "stdcall" fn(*mut DDGameWrapper) =
                 core::mem::transmute(rb(va::DSSOUND_LOAD_EFFECT_WAVS) as usize);
             f(wrapper);
-            // DSSound_LoadAllSpeechBanks: usercall(ESI=wrapper)
+            // DSSound_LoadAllSpeechBanks: the original is hooked to our Rust
+            // replacement (speech.rs), so the usercall bridge calls our code.
             call_usercall_esi(wrapper, LOAD_SPEECH_BANKS_ADDR);
             let _ = crate::log::log_line("[DDGame] audio: done");
             // Allocate ActiveSoundTable (0x608 bytes)
@@ -728,6 +738,7 @@ unsafe fn init_graphics_and_resources(
             "[DDGame] GfxResource returned: 0x{:08X}", gfx_resource as u32));
     }
 
+    let _ = crate::log::log_line("[DDGame] calling PCLandscape ctor");
     // ── PCLandscape (alloc 0xB44, stdcall 11 params) ──
     let landscape = {
         let alloc = wa_malloc(0xB44);
@@ -739,9 +750,9 @@ unsafe fn init_graphics_and_resources(
 
             let pc_ctor: unsafe extern "stdcall" fn(
                 *mut u8, *mut DDGame, *mut u8,  // this, ddgame, gfx_resource
-                *mut DDGameWrapper, *const u8,   // wrapper, game_info+0xDAAC
+                *const u8, *mut DDGameWrapper,   // game_info+0xDAAC, wrapper
                 *mut u8, u32,                    // &landscape_byte, gfx_mode
-                *mut [i32; 2], *mut i32,         // outputs: coords, more coords
+                *mut u8, *mut [i32; 2],          // stack local, coord output
                 *mut u8, *mut u8,                // &ddgame+0x777C, &ddgame+0x7780
             ) -> *mut u8 = core::mem::transmute(rb(va::PC_LANDSCAPE_CONSTRUCTOR) as usize);
 
@@ -750,15 +761,17 @@ unsafe fn init_graphics_and_resources(
                 alloc,
                 ddgame,
                 gfx_resource,
-                wrapper,
-                gi.add(0xDAAC),
+                gi.add(0xDAAC),              // param 4
+                wrapper,                      // param 5
                 &mut landscape_byte as *mut u8,
                 (*wrapper).gfx_mode,
+                &mut landscape_byte as *mut u8, // param 8 (stack local)
                 &mut landscape_coords as *mut [i32; 2],
-                landscape_coords.as_mut_ptr(), // placeholder for extra output
                 (ddgame as *mut u8).add(0x777C),
                 (ddgame as *mut u8).add(0x7780),
             );
+            let _ = crate::log::log_line(&format!(
+                "[DDGame] PCLandscape returned: 0x{:08X}", result as u32));
             // Store landscape pointer
             (*wrapper).landscape = result as *mut PCLandscape;
             (*ddgame).landscape = result as *mut PCLandscape;
