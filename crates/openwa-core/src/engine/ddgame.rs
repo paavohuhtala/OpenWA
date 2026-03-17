@@ -812,7 +812,7 @@ pub unsafe fn gfx_resource_create(
     output: *mut u8,
 ) -> *mut u8 {
     // 1. Try FindEntry → cached load → DisplayGfx wrap
-    let entry = call_gfx_find_entry(name, gfx_handler);
+    let entry = gfx_dir_find_entry(name, gfx_handler);
     if !entry.is_null() {
         // gfx_handler->vtable[2](entry->field_4) — cached load
         let vt = *(gfx_handler as *const *const u32);
@@ -1010,7 +1010,7 @@ unsafe fn init_graphics_and_resources(
     let ddgame = (*wrapper).ddgame;
     let fopen: unsafe extern "cdecl" fn(*const u8, *const u8) -> *mut u8 =
         core::mem::transmute(rb(va::WA_FOPEN) as usize);
-    let gfx_load_dir_addr = rb(va::GFX_HANDLER_LOAD_DIR);
+    // gfx_load_dir_addr removed — using direct Rust gfx_handler_load_dir() now
     let gfx_handler_vtable = rb(0x66B280) as u32; // GfxHandler__vtable (from asm: MOV [ESI], 0x66B280)
 
     // ── GfxHandler #1 (primary) ──
@@ -1039,7 +1039,7 @@ unsafe fn init_graphics_and_resources(
     for (i, path) in paths.iter().enumerate() {
         let fp = fopen(path.as_ptr(), b"rb\0".as_ptr());
         *(gfx1.add(0x198) as *mut *mut u8) = fp;
-        if !fp.is_null() && call_gfx_load_dir(gfx1, gfx_load_dir_addr) != 0 {
+        if !fp.is_null() && gfx_handler_load_dir(gfx1) != 0 {
             gfx_loaded_idx = i as u32;
             break;
         }
@@ -1067,10 +1067,10 @@ unsafe fn init_graphics_and_resources(
 
         let fp = fopen(gfx_c_path.as_ptr(), b"rb\0".as_ptr());
         *(gfx2.add(0x198) as *mut *mut u8) = fp;
-        if fp.is_null() || call_gfx_load_dir(gfx2, gfx_load_dir_addr) == 0 {
+        if fp.is_null() || gfx_handler_load_dir(gfx2) == 0 {
             let fp2 = fopen(b"data\\Gfx\\Gfx.dir\0".as_ptr(), b"rb\0".as_ptr());
             *(gfx2.add(0x198) as *mut *mut u8) = fp2;
-            if fp2.is_null() || call_gfx_load_dir(gfx2, gfx_load_dir_addr) == 0 {
+            if fp2.is_null() || gfx_handler_load_dir(gfx2) == 0 {
                 panic!("DDGame: couldn't open secondary Gfx.dir");
             }
         }
@@ -1117,7 +1117,7 @@ unsafe fn init_graphics_and_resources(
 
     // ── FUN_00570E20: usercall(ESI=wrapper), plain RET ──
     // Runs for all modes — headless vtable[4] is 0x5231E0 (same as headful).
-    call_usercall_esi(wrapper, FUN_570E20_ADDR);
+    display_layer_color_init(wrapper);
 
     // ── Display vtable slot 5 (offset 0x14) ──
     {
@@ -1132,7 +1132,7 @@ unsafe fn init_graphics_and_resources(
     if (*wrapper).gfx_mode != 0 {
         // GfxResource__Create: usercall(ECX=gfx_handler, EAX=0x66A3B4) + 1 stack, RET 0x4
         // In original: PUSH ESI(display_layer?), MOV EAX=0x66A3B4, CALL 0x4F6300
-        let res = call_gfx_resource_create(
+        let res = gfx_resource_create(
             (*wrapper)._field_4c0, rb(0x66A3B4) as *const u8, core::ptr::null_mut(),
         );
         if !res.is_null() {
@@ -1222,7 +1222,7 @@ unsafe fn init_graphics_and_resources(
         core::ptr::write_bytes(out_buf, 0, 0x900);
         // return moved to before color entries
     let _ = crate::log::log_line("[DDGame] calling GfxResource_Create");
-        gfx_resource = call_gfx_resource_create(gfx_handler, rb(0x66A3C0) as *const u8, out_buf);
+        gfx_resource = gfx_resource_create(gfx_handler, rb(0x66A3C0) as *const u8, out_buf);
         let _ = crate::log::log_line(&format!("[DDGame] GfxResource=0x{:08X}", gfx_resource as u32));
     }
     }
@@ -1368,8 +1368,7 @@ unsafe fn init_graphics_and_resources(
                     layer_ctx as u32, gfx_handler as u32));
             }
 
-            // GfxDir__FindEntry: usercall(EAX=name) + 1 stack(gfx_handler), RET 0x4
-            let entry = call_gfx_find_entry(name_buf.as_ptr(), gfx_handler);
+            let entry = gfx_dir_find_entry(name_buf.as_ptr(), gfx_handler);
             if i == 0 {
                 let _ = crate::log::log_line(&format!(
                     "[DDGame] arrow[0]: entry=0x{:08X}", entry as u32));
@@ -1610,7 +1609,7 @@ unsafe fn call_gfx_find_and_load(
     name: *const u8,
     display_ctx: *mut u8,
 ) -> *mut u8 {
-    let entry = call_gfx_find_entry(name, gfx_dir);
+    let entry = gfx_dir_find_entry(name, gfx_dir);
 
     if !entry.is_null() {
         // Try cached load: gfx_dir->vtable[2](entry->field_4)
