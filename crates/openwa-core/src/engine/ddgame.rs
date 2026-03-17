@@ -484,6 +484,24 @@ pub unsafe fn task_state_machine_init(
     let alloc_size = ((total_size + 3) & !3) + 0x20;
     let buffer = wa_malloc(alloc_size);
 
+    let _ = crate::log::log_line(&format!(
+        "[TSM] init: obj=0x{:08X} p1={} w={} h={} stride={} total={} alloc={} buf=0x{:08X}",
+        object as u32, param1, width, height, row_stride, total_size, alloc_size, buffer as u32,
+    ));
+
+    if buffer.is_null() {
+        let _ = crate::log::log_line("[TSM] WARN: wa_malloc returned null, skipping memset");
+        return;
+    }
+    // Guard against integer overflow producing tiny alloc_size with huge total_size
+    if total_size as usize > alloc_size as usize {
+        let _ = crate::log::log_line(&format!(
+            "[TSM] OVERFLOW: total_size {} > alloc_size {}, skipping memset",
+            total_size, alloc_size,
+        ));
+        return;
+    }
+
     // Memset twice (matches original — likely redundant but exact match)
     core::ptr::write_bytes(buffer, 0, total_size as usize);
     core::ptr::write_bytes(buffer, 0, total_size as usize);
@@ -811,15 +829,22 @@ pub unsafe fn gfx_resource_create(
     name: *const u8,
     output: *mut u8,
 ) -> *mut u8 {
+    let _ = crate::log::log_line(&format!(
+        "[GfxRes] create: handler=0x{:08X} name=0x{:08X} out=0x{:08X}",
+        gfx_handler as u32, name as u32, output as u32,
+    ));
     // 1. Try FindEntry → cached load → DisplayGfx wrap
     let entry = gfx_dir_find_entry(name, gfx_handler);
+    let _ = crate::log::log_line(&format!("[GfxRes] entry=0x{:08X}", entry as u32));
     if !entry.is_null() {
         // gfx_handler->vtable[2](entry->field_4) — cached load
         let vt = *(gfx_handler as *const *const u32);
+        let _ = crate::log::log_line(&format!("[GfxRes] vt=0x{:08X}", vt as u32));
         let load_cached: unsafe extern "thiscall" fn(*mut u8, u32) -> *mut u8 =
             core::mem::transmute(*vt.add(2));
         let entry_val = *(entry.add(4) as *const u32);
         let cached = load_cached(gfx_handler, entry_val);
+        let _ = crate::log::log_line(&format!("[GfxRes] cached=0x{:08X}", cached as u32));
         if !cached.is_null() {
             // DisplayGfx__Constructor_Maybe: stdcall(raw_image), RET 0x4
             let ctor: unsafe extern "stdcall" fn(*mut u8) -> *mut u8 =
@@ -829,27 +854,48 @@ pub unsafe fn gfx_resource_create(
     }
 
     // 2. Fallback: LoadImage → IMG_Decode
+    let _ = crate::log::log_line("[GfxRes] fallback: LoadImage");
     let raw_image = call_gfx_load_image(gfx_handler, name);
+    let _ = crate::log::log_line(&format!("[GfxRes] raw_image=0x{:08X}", raw_image as u32));
     if raw_image.is_null() {
         return core::ptr::null_mut();
     }
 
     // IMG_Decode: stdcall(output, raw_image, 1), RET 0xC
+    let _ = crate::log::log_line("[GfxRes] calling IMG_Decode");
     let decode: unsafe extern "stdcall" fn(*mut u8, *mut u8, i32) -> *mut u8 =
         core::mem::transmute(rb(va::IMG_DECODE) as usize);
     let result = decode(output, raw_image, 1);
+    let _ = crate::log::log_line(&format!("[GfxRes] IMG_Decode result=0x{:08X}", result as u32));
 
     // Release raw image: raw_image->vtable[0](1)
     let img_vt = *(raw_image as *const *const u32);
+    let fn_ptr = *img_vt;
+    let slot_idx = *(raw_image.add(4) as *const u32);
+    let stored_handler = *(raw_image.add(8) as *const u32);
+    let _ = crate::log::log_line(&format!(
+        "[GfxRes] release: raw=0x{:08X} vt=0x{:08X} fn=0x{:08X} slot={} handler=0x{:08X}",
+        raw_image as u32, img_vt as u32, fn_ptr as u32, slot_idx, stored_handler,
+    ));
+    let _ = crate::log::log_line(&format!(
+        "[GfxRes] handler_usedcnt={} handler_freecnt={}",
+        *(gfx_handler.add(0x190) as *const u32),
+        *(gfx_handler.add(0x18C) as *const u32),
+    ));
     let release: unsafe extern "thiscall" fn(*mut u8, i32) =
-        core::mem::transmute(*img_vt);
+        core::mem::transmute(fn_ptr);
+    let _ = crate::log::log_line("[GfxRes] calling release...");
     release(raw_image, 1);
+    let _ = crate::log::log_line("[GfxRes] release done");
+    let _ = crate::log::log_line(&format!("[GfxRes] heap-ok raw=0x{:08X} result=0x{:08X}", raw_image as u32, result as u32));
+    let _ = crate::log::log_line("[GfxRes] before return");
 
     result
 }
 
 /// Runtime address of DDGame__InitFields (set by init_constructor_addrs()).
 static mut INIT_FIELDS_ADDR: u32 = 0;
+static mut GFX_LOAD_DIR_ADDR: u32 = 0;
 
 /// Initialize runtime addresses for the constructor bridges.
 /// Must be called once at DLL startup (from lib.rs or similar).
@@ -863,6 +909,7 @@ pub fn init_constructor_addrs() {
         TSM_INIT_ADDR = rb(va::TASK_STATE_MACHINE_INIT);
         GFX_FIND_ENTRY_ADDR = rb(va::GFX_DIR_FIND_ENTRY);
         GFX_LOAD_IMAGE_ADDR = rb(va::GFX_DIR_LOAD_IMAGE);
+        GFX_LOAD_DIR_ADDR = rb(va::GFX_HANDLER_LOAD_DIR);
         FUN_570F30_ADDR = rb(va::DDGAME_INIT_SOUND_PATHS);
         LOAD_SPEECH_BANKS_ADDR = rb(va::DSSOUND_LOAD_ALL_SPEECH_BANKS);
         LOAD_WEAPON_SPRITES_ADDR = rb(va::DDGAME_LOAD_WEAPON_SPRITES);
@@ -1039,7 +1086,7 @@ unsafe fn init_graphics_and_resources(
     for (i, path) in paths.iter().enumerate() {
         let fp = fopen(path.as_ptr(), b"rb\0".as_ptr());
         *(gfx1.add(0x198) as *mut *mut u8) = fp;
-        if !fp.is_null() && gfx_handler_load_dir(gfx1) != 0 {
+        if !fp.is_null() && call_gfx_load_dir(gfx1, GFX_LOAD_DIR_ADDR) != 0 {
             gfx_loaded_idx = i as u32;
             break;
         }
@@ -1067,10 +1114,10 @@ unsafe fn init_graphics_and_resources(
 
         let fp = fopen(gfx_c_path.as_ptr(), b"rb\0".as_ptr());
         *(gfx2.add(0x198) as *mut *mut u8) = fp;
-        if fp.is_null() || gfx_handler_load_dir(gfx2) == 0 {
+        if fp.is_null() || call_gfx_load_dir(gfx2, GFX_LOAD_DIR_ADDR) == 0 {
             let fp2 = fopen(b"data\\Gfx\\Gfx.dir\0".as_ptr(), b"rb\0".as_ptr());
             *(gfx2.add(0x198) as *mut *mut u8) = fp2;
-            if fp2.is_null() || gfx_handler_load_dir(gfx2) == 0 {
+            if fp2.is_null() || call_gfx_load_dir(gfx2, GFX_LOAD_DIR_ADDR) == 0 {
                 panic!("DDGame: couldn't open secondary Gfx.dir");
             }
         }
@@ -1120,39 +1167,47 @@ unsafe fn init_graphics_and_resources(
     display_layer_color_init(wrapper);
 
     // ── Display vtable slot 5 (offset 0x14) ──
-    {
+    // Original: CALL EAX (vtable[5]), saves return value in ESI for use as
+    // the `output` parameter in the color-entries GfxResource__Create call below.
+    let layer_ctx = {
         let vt = *((*ddgame).display as *const *const u32);
         let f: unsafe extern "thiscall" fn(*mut DDDisplay, i32) -> *mut u8 =
             core::mem::transmute(*vt.add(5));
-        f((*ddgame).display, 1);
-    }
+        f((*ddgame).display, 1)
+    };
 
     let _ = crate::log::log_line(&format!("[DDGame] gfx_mode={}", (*wrapper).gfx_mode));
     // ── GfxDir color entries DDGame+0x730C..0x732C ──
     if (*wrapper).gfx_mode != 0 {
-        // GfxResource__Create: usercall(ECX=gfx_handler, EAX=0x66A3B4) + 1 stack, RET 0x4
-        // In original: PUSH ESI(display_layer?), MOV EAX=0x66A3B4, CALL 0x4F6300
+        // Original: PUSH ESI (=layer_ctx from vtable[5] call), MOV EAX=0x66A3B4, CALL 0x4F6300
+        // The layer_ctx is used as the output buffer, not a plain stack alloc.
         let res = gfx_resource_create(
-            (*wrapper)._field_4c0, rb(0x66A3B4) as *const u8, core::ptr::null_mut(),
+            (*wrapper)._field_4c0, rb(0x66A3B4) as *const u8, layer_ctx,
         );
         if !res.is_null() {
             let rvt = *(res as *const *const u32);
-            let get_color: unsafe extern "thiscall" fn(*mut u8) -> u32 =
+            // vtable[4] = CTaskOilDrum__ProcessFrame_stub: XOR EAX,EAX; RET 0x8
+            // RET 0x8 = 2 stack params consumed. Always returns 0 (stub).
+            // Must pass 2 dummy u32s so the callee's RET 0x8 balances the stack.
+            let get_color: unsafe extern "thiscall" fn(*mut u8, u32, u32) -> u32 =
                 core::mem::transmute(*rvt.add(4));
             let mut off = 0x730Cu32;
             while off < 0x732Du32 {
-                *((ddgame as *mut u8).add(off as usize) as *mut u32) = get_color(res);
+                *((ddgame as *mut u8).add(off as usize) as *mut u32) = get_color(res, 0, 0);
                 off += 4;
             }
-            let release: unsafe extern "thiscall" fn(*mut u8) =
+            // DisplayGfx__vmethod_3: thiscall(this, byte param_2), RET 4.
+            // param_2 & 1 = free the object itself.
+            let release: unsafe extern "thiscall" fn(*mut u8, u8) =
                 core::mem::transmute(*rvt.add(3));
-            release(res);
+            release(res, 1);
         }
     } else {
         // GFX_HANDLER_LOAD_SPRITES: SKIP for testing (gfx_mode==0 path)
     }
 
     let _ = crate::log::log_line("[DDGame] past color entries");
+    let _ = crate::log::log_line(&format!("[DDGame] 4c0=0x{:08X} 4c4=0x{:08X}", (*wrapper)._field_4c0 as u32, (*wrapper)._field_4c4 as u32));
     // ── Secondary GfxDir object (DDGame+0x2C, conditional) ──
     if !(*wrapper)._field_4c4.is_null() {
         let gfxdir2 = wa_malloc(0x70C);
@@ -1223,7 +1278,8 @@ unsafe fn init_graphics_and_resources(
         // return moved to before color entries
     let _ = crate::log::log_line("[DDGame] calling GfxResource_Create");
         gfx_resource = gfx_resource_create(gfx_handler, rb(0x66A3C0) as *const u8, out_buf);
-        let _ = crate::log::log_line(&format!("[DDGame] GfxResource=0x{:08X}", gfx_resource as u32));
+        let _ = crate::log::log_line("[DDGame] after gfx_resource_create");
+        let _ = crate::log::log_line("[DDGame] GfxResource created (value elided)");
     }
     }
 
@@ -1336,11 +1392,12 @@ unsafe fn init_graphics_and_resources(
     }
 
     // Release gfx_resource if non-null
+    // vtable[3] = DisplayGfx__vmethod_3: thiscall(this, byte param_2), RET 4.
     if !gfx_resource.is_null() {
         let rvt = *(gfx_resource as *const *const u32);
-        let release: unsafe extern "thiscall" fn(*mut u8) =
+        let release: unsafe extern "thiscall" fn(*mut u8, u8) =
             core::mem::transmute(*rvt.add(3));
-        release(gfx_resource);
+        release(gfx_resource, 1);
     }
 
     // GfxDir addresses are resolved via statics (GFX_FIND_ENTRY_ADDR, GFX_LOAD_IMAGE_ADDR)
@@ -1598,6 +1655,21 @@ unsafe fn init_graphics_and_resources(
         // TODO: enable one by one to find which causes DEP crash
     } // if false
     }
+    // ── Gradient image stub (DDGame+0x30) ──
+    // The original constructor loads "gradient.img" here and stores the result at DDGame+0x30.
+    // CTaskLand__InitLandscape reads DDGame+0x30/+0x34 and calls vtable[4](0, i) for each
+    // pixel column. vtable[4] = CTaskOilDrum__ProcessFrame_stub (XOR EAX,EAX; RET 0x8) returns 0.
+    // A minimal stub with [6]=0 (zero-width) causes the loop to not execute at all.
+    if (*ddgame).gradient_image.is_null() {
+        let obj = wa_malloc(0x2C);
+        core::ptr::write_bytes(obj, 0, 0x2C);
+        if !obj.is_null() {
+            *(obj as *mut u32) = rb(0x6640EC); // vtable (DisplayGfx vtable, vtable[4]=ProcessFrame_stub)
+            // [6] = height/width = 0 → CTaskLand loop: `if (0 < 0)` → skip
+            (*ddgame).gradient_image = obj;
+        }
+    }
+
     let _ = crate::log::log_line("[DDGame] init_graphics_and_resources DONE");
 }
 
