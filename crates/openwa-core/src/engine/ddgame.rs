@@ -738,16 +738,19 @@ pub unsafe fn gfx_handler_load_dir(handler: *mut u8) -> i32 {
     *(handler.add(4) as *mut *mut u8) = data;
 
     if data.is_null() {
-        // Fallback: seek past header, malloc, read entire data block
+        // Fallback: seek past header, then malloc + read entire data block.
+        // Original calls vt_seek(alloc_size) then WA_MallocMemset(EDI=read_size).
+        // WA_MallocMemset allocates (size+3)&~3 + 0x20 and memsets size bytes.
         vt_seek(handler, alloc_size);
 
         let read_size = total_file_size - data_size - 4;
-        let buf = wa_malloc(read_size); // WA's malloc, not system
-        *(handler.add(4) as *mut *mut u8) = buf;
-
+        let malloc_size = ((read_size + 3) & !3) + 0x20;
+        let buf = wa_malloc(malloc_size);
         if buf.is_null() {
             return 0;
         }
+        core::ptr::write_bytes(buf, 0, read_size as usize);
+        *(handler.add(4) as *mut *mut u8) = buf;
 
         let bytes_read = vt_read(handler, buf, read_size);
         if bytes_read != read_size {

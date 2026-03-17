@@ -15,7 +15,7 @@ use openwa_core::address::va;
 use openwa_core::engine::ddgame::{
     DDGame, ddgame_init_fields, ddgame_init_render_indices,
     task_state_machine_init, gfx_resource_create, display_layer_color_init,
-    gfx_dir_find_entry,
+    gfx_dir_find_entry, gfx_handler_load_dir,
 };
 use openwa_core::engine::DDGameWrapper;
 use crate::hook;
@@ -141,6 +141,20 @@ extern "cdecl" fn impl_find_entry(name: u32, gfx_handler: u32) -> u32 {
     result as u32
 }
 
+// ─── GfxHandler__LoadDir (0x5663E0) ──────────────────────────────────────────
+//
+// Convention: usercall(EAX=handler), plain RET. Returns 1/0.
+
+hook::usercall_trampoline!(
+    fn load_dir_trampoline;
+    impl_fn = impl_load_dir;
+    reg = eax
+);
+
+extern "cdecl" fn impl_load_dir(handler: u32) -> u32 {
+    unsafe { gfx_handler_load_dir(handler as *mut u8) as u32 }
+}
+
 // ─── Hook installation ──────────────────────────────────────────────────────
 
 pub fn install() -> Result<(), String> {
@@ -179,6 +193,12 @@ pub fn install() -> Result<(), String> {
             "GfxDir__FindEntry",
             va::GFX_DIR_FIND_ENTRY,
             find_entry_trampoline as *const (),
+        )?;
+
+        hook::install(
+            "GfxHandler__LoadDir",
+            va::GFX_HANDLER_LOAD_DIR,
+            load_dir_trampoline as *const (),
         )?;
     }
 
