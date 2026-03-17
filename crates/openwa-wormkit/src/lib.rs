@@ -53,6 +53,11 @@ fn run() -> Result<(), String> {
     let _ = clear_log();
     let _ = std::fs::write("OpenWA_validation.log", "");
 
+    // Install panic hook that writes to our log file
+    std::panic::set_hook(Box::new(|info| {
+        let _ = log_line(&format!("[PANIC] {info}"));
+    }));
+
     let delta = openwa_core::rebase::init();
     let _ = log_line(&format!(
         "=== OpenWA WormKit DLL loaded ===\n  ASLR delta: 0x{delta:08X}"

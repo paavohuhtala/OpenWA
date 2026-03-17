@@ -364,6 +364,12 @@ pub mod va {
     pub const GFX_HANDLER_LOAD_DIR: u32 = 0x0056_63E0;
     pub const GFX_DIR_FIND_ENTRY: u32 = 0x0056_6520;
     pub const GFX_DIR_LOAD_IMAGE: u32 = 0x0056_66D0;
+    /// DisplayGfx__Constructor_Maybe (0x4F5E80): stdcall(raw_image) -> DisplayGfx*, RET 0x4.
+    pub const DISPLAYGFX_CONSTRUCTOR: u32 = 0x004F_5E80;
+    /// IMG_Decode (0x4F5F80): stdcall(output, raw_image, 1) -> DisplayGfx*, RET 0xC.
+    /// Reads IMG\x1A header, decodes image data into output buffer.
+    /// Ghidra mislabels this as "TaskStateMachine__Destructor_Maybe".
+    pub const IMG_DECODE: u32 = 0x004F_5F80;
 
     // === Higher-level drawing functions ===
 

@@ -113,7 +113,7 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
     ));
 
     // Toggle: use Rust constructor (true) or original (false)
-    const USE_RUST_CTOR: bool = true;
+    const USE_RUST_CTOR: bool = false;
     if USE_RUST_CTOR {
         create_ddgame(
             this,

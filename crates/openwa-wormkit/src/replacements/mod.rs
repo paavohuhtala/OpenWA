@@ -1,4 +1,5 @@
 mod config;
+mod ddgame_init;
 mod display;
 mod frontend;
 mod game_session;
@@ -26,5 +27,6 @@ pub fn install_all() -> Result<(), String> {
     sound::install()?;
     speech::install()?;
     input::install()?;
+    ddgame_init::install()?;
     Ok(())
 }

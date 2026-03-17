@@ -362,6 +362,235 @@ const _: () = assert!(core::mem::size_of::<DDGame>() == 0x98B8);
 // ddgame_wrapper.rs; the bulk of the logic lives here because
 // it primarily initializes DDGame fields.
 
+// ============================================================
+// Pure Rust implementations of DDGame sub-functions
+// ============================================================
+// These are called both by create_ddgame() and by MinHook
+// trampolines in openwa-wormkit/replacements/ddgame_init.rs.
+
+/// Pure Rust implementation of DDGame__InitFields (0x526120).
+///
+/// Zeroes stride-0x194 table entries, calls init_render_indices,
+/// then zeroes coordination/sound entries at 0x8Cxx and 0x98xx.
+///
+/// # Safety
+/// `ddgame` must point to a valid, zero-filled DDGame allocation (0x98B8 bytes).
+pub unsafe fn ddgame_init_fields(ddgame: *mut DDGame) {
+    let base = ddgame as *mut u8;
+
+    // Zero the stride-0x194 table (10 entries)
+    for &off in &[
+        0x379Cusize, 0x3930, 0x3AC4, 0x3C58, 0x3DEC,
+        0x3F80, 0x4114, 0x42A8, 0x443C, 0x45D0,
+    ] {
+        *(base.add(off as usize) as *mut u32) = 0;
+    }
+
+    *(base.add(0x64D8) as *mut u32) = 0;
+    *(base.add(0x72A4) as *mut u32) = 0;
+
+    // InitRenderIndices — original sets ESI = ddgame + 0x72D8 before calling
+    ddgame_init_render_indices(base.add(0x72D8));
+
+    // Zero 8 fields at 0x8Cxx
+    for &off in &[
+        0x8CBCusize, 0x8CC0, 0x8CCC, 0x8CD0,
+        0x8CDC, 0x8CE0, 0x8CEC, 0x8CF0,
+    ] {
+        *(base.add(off as usize) as *mut u32) = 0;
+    }
+
+    // Zero 8 fields at 0x98xx
+    for &off in &[
+        0x9850usize, 0x9854, 0x9860, 0x9864,
+        0x9870, 0x9874, 0x9880, 0x9884,
+    ] {
+        *(base.add(off as usize) as *mut u32) = 0;
+    }
+}
+
+/// Pure Rust implementation of DDGame__InitRenderIndices (0x526080).
+///
+/// Convention: usercall(ESI=base_ptr), plain RET.
+///
+/// **Important:** The base pointer is NOT the DDGame pointer!
+/// InitFields calls this with ESI = ddgame + 0x72D8.
+/// All offsets are relative to whatever ESI points to.
+///
+/// Absolute DDGame offsets (base = ddgame+0x72D8):
+/// - base+0xC4 = ddgame+0x739C
+/// - base+0xD8 = ddgame+0x73B0  (eh_vector_constructor_iterator region)
+/// - base+0x378 = ddgame+0x7650 (team_index_map_1)
+/// - base+0x3DC = ddgame+0x76B4 (team_index_map_2)
+/// - base+0x440 = ddgame+0x7718 (team_index_map_3)
+///
+/// # Safety
+/// `base` must point to a valid memory region with at least 0x4A4 bytes.
+pub unsafe fn ddgame_init_render_indices(base: *mut u8) {
+    // Zero base+0xC4
+    *(base.add(0xC4) as *mut u32) = 0;
+
+    // eh_vector_constructor_iterator equivalent:
+    // FUN_525F40 is fastcall { *param_1 = 0; }
+    // 14 entries at stride 0x14 starting from +0xD8
+    for i in 0..14usize {
+        *(base.add(0xD8 + i * 0x14) as *mut u32) = 0;
+    }
+
+    // Identity permutation 1: base+0x378 (= ddgame+0x7650), 16 entries (i16)
+    for i in 0..16i16 {
+        *(base.add(0x378 + i as usize * 2) as *mut i16) = i;
+    }
+    *(base.add(0x398) as *mut u16) = 0x10;
+    *(base.add(0x3DA) as *mut u16) = 0;
+
+    // Identity permutation 2: base+0x3DC (= ddgame+0x76B4), 16 entries (i16)
+    for i in 0..16i16 {
+        *(base.add(0x3DC + i as usize * 2) as *mut i16) = i;
+    }
+    *(base.add(0x3FC) as *mut u16) = 0x10;
+    *(base.add(0x43E) as *mut u16) = 0;
+
+    // Identity permutation 3: base+0x440 (= ddgame+0x7718), 16 entries (i16)
+    for i in 0..16i16 {
+        *(base.add(0x440 + i as usize * 2) as *mut i16) = i;
+    }
+    *(base.add(0x4A2) as *mut u16) = 0;
+    *(base.add(0x460) as *mut u16) = 0x10;
+}
+
+/// Pure Rust implementation of TaskStateMachine__Init (0x4F6370).
+///
+/// Convention: usercall(ESI=object, ECX=param1, EDI=height) + 1 stack(width), RET 0x4.
+///
+/// Allocates a bit-per-cell grid buffer. `param1` is typically 1 (cells per unit).
+/// `width` and `height` are pixel dimensions. The buffer is a row-major bitfield
+/// with rows aligned to 4 bytes.
+///
+/// # Safety
+/// `object` must point to a zero-filled allocation of at least 0x2C bytes.
+pub unsafe fn task_state_machine_init(
+    object: *mut u8,
+    param1: u32,
+    width: u32,
+    height: u32,
+) {
+    // Row stride: bits-to-bytes rounded up, then aligned to 4
+    let bits = param1.wrapping_mul(width).wrapping_add(7) as i32;
+    let row_stride = ((bits >> 3) + 3) & !3;
+    let total_size = row_stride as u32 * height;
+
+    // Allocate data buffer with 0x20-byte header
+    let alloc_size = ((total_size + 3) & !3) + 0x20;
+    let buffer = wa_malloc(alloc_size);
+
+    // Memset twice (matches original — likely redundant but exact match)
+    core::ptr::write_bytes(buffer, 0, total_size as usize);
+    core::ptr::write_bytes(buffer, 0, total_size as usize);
+
+    // Set object fields (DWORD array layout)
+    let obj = object as *mut u32;
+    *obj.add(0) = rb(0x6640EC);    // vtable
+    *obj.add(1) = 0;               // unused
+    *obj.add(2) = buffer as u32;   // data pointer
+    *obj.add(3) = param1;          // param1
+    *obj.add(4) = row_stride as u32; // row stride
+    *obj.add(5) = width;           // width
+    *obj.add(6) = height;          // height
+    *obj.add(7) = 0;               // unused
+    *obj.add(8) = 0;               // unused
+    *obj.add(9) = width;           // width (duplicate)
+    *obj.add(10) = height;         // height (duplicate)
+}
+
+/// Pure Rust implementation of FUN_570E20 (display layer color init).
+///
+/// Convention: usercall(ESI=wrapper), plain RET.
+///
+/// Sets display layer color parameters via display->vtable[4](layer, color).
+/// Layer 1 color depends on gfx_mode and game_version.
+/// Layer 2 = 0x20, Layer 3 = 0x70.
+///
+/// # Safety
+/// `wrapper` must be a valid DDGameWrapper with initialized display and ddgame.
+#[cfg(target_arch = "x86")]
+pub unsafe fn display_layer_color_init(wrapper: *mut DDGameWrapper) {
+    let ddgame = (*wrapper).ddgame;
+    let game_info = (*ddgame).game_info;
+    let game_version = (*game_info).game_version;
+
+    // wrapper+0x4C8 is gfx_mode (at DDGameWrapper.gfx_mode)
+    let layer1_color = if (*wrapper).gfx_mode == 0 {
+        // (game_version > -2) - 1: yields 0 if true, -1 if false
+        // Then + 0x69: yields 0x69 or 0x68
+        if game_version > -2 { 0x69i32 } else { 0x68i32 }
+    } else {
+        5 + 0x69 // = 0x6E
+    };
+
+    let display = (*wrapper).display as *mut u8;
+    let vt = *(display as *const *const u32);
+    // vtable[4] (offset 0x10): thiscall(display, layer, color), RET 0x8
+    let set_color: unsafe extern "thiscall" fn(*mut u8, i32, i32) =
+        core::mem::transmute(*vt.add(4));
+
+    set_color(display, 1, layer1_color);
+    set_color(display, 2, 0x20);
+    set_color(display, 3, 0x70);
+}
+
+/// Pure Rust implementation of GfxResource__Create_Maybe (0x4F6300).
+///
+/// Convention: usercall(ECX=gfx_handler, EAX=name) + 1 stack(output), RET 0x4.
+///
+/// Looks up `name` in the GfxHandler's directory, tries cached load, wraps
+/// as DisplayGfx. Falls back to loading the raw image and decoding it.
+///
+/// # Safety
+/// All pointers must be valid WA objects.
+#[cfg(target_arch = "x86")]
+pub unsafe fn gfx_resource_create(
+    gfx_handler: *mut u8,
+    name: *const u8,
+    output: *mut u8,
+) -> *mut u8 {
+    // 1. Try FindEntry → cached load → DisplayGfx wrap
+    let entry = call_gfx_find_entry(name, gfx_handler);
+    if !entry.is_null() {
+        // gfx_handler->vtable[2](entry->field_4) — cached load
+        let vt = *(gfx_handler as *const *const u32);
+        let load_cached: unsafe extern "thiscall" fn(*mut u8, u32) -> *mut u8 =
+            core::mem::transmute(*vt.add(2));
+        let entry_val = *(entry.add(4) as *const u32);
+        let cached = load_cached(gfx_handler, entry_val);
+        if !cached.is_null() {
+            // DisplayGfx__Constructor_Maybe: stdcall(raw_image), RET 0x4
+            let ctor: unsafe extern "stdcall" fn(*mut u8) -> *mut u8 =
+                core::mem::transmute(rb(va::DISPLAYGFX_CONSTRUCTOR) as usize);
+            return ctor(cached);
+        }
+    }
+
+    // 2. Fallback: LoadImage → IMG_Decode
+    let raw_image = call_gfx_load_image(gfx_handler, name);
+    if raw_image.is_null() {
+        return core::ptr::null_mut();
+    }
+
+    // IMG_Decode: stdcall(output, raw_image, 1), RET 0xC
+    let decode: unsafe extern "stdcall" fn(*mut u8, *mut u8, i32) -> *mut u8 =
+        core::mem::transmute(rb(va::IMG_DECODE) as usize);
+    let result = decode(output, raw_image, 1);
+
+    // Release raw image: raw_image->vtable[0](1)
+    let img_vt = *(raw_image as *const *const u32);
+    let release: unsafe extern "thiscall" fn(*mut u8, i32) =
+        core::mem::transmute(*img_vt);
+    release(raw_image, 1);
+
+    result
+}
+
 /// Runtime address of DDGame__InitFields (set by init_constructor_addrs()).
 static mut INIT_FIELDS_ADDR: u32 = 0;
 
@@ -437,9 +666,8 @@ pub unsafe fn create_ddgame(
     }
     core::ptr::write_bytes(ddgame as *mut u8, 0, 0x98B8);
 
-    // ── 2. InitFields — usercall(EDI=ddgame) ──
-    // Zeroes stride-0x194 table, coordinate entries, calls InitRenderIndices.
-    call_init_fields(ddgame);
+    // ── 2. InitFields — pure Rust (replaces usercall bridge) ──
+    ddgame_init_fields(ddgame);
 
     // ── 3-4. Store params BEFORE exposing DDGame via wrapper ──
     // Critical: game_info must be set before wrapper->ddgame, because the
@@ -796,16 +1024,15 @@ unsafe fn init_graphics_and_resources(
     };
 
     // ── TaskStateMachine at DDGame+0x380 (alloc 0x4C, memset 0x2C) ──
-    // Original: alloc 0x4C, memset 0x2C, PUSH width, MOV ECX=1, CALL 0x4F6370 (RET 0x4)
-    // Also EDI=height before the call (implicit param).
+    // Pure Rust: allocate object, call task_state_machine_init, override vtable.
     {
         let tsm = wa_malloc(0x4C);
         core::ptr::write_bytes(tsm, 0, 0x2C);
         if !tsm.is_null() {
-            let width = *((ddgame as *const u8).add(0x77C0) as *const u32);
-            let height = *((ddgame as *const u8).add(0x77C4) as *const u32);
-            call_tsm_init(tsm, width, height);
-            *(tsm as *mut u32) = rb(0x664118); // TaskStateMachine__vtable
+            let width = (*ddgame).level_width;
+            let height = (*ddgame).level_height;
+            task_state_machine_init(tsm, 1, width, height);
+            *(tsm as *mut u32) = rb(0x664118); // Override vtable to TaskStateMachine
         }
         (*ddgame).task_state_machine = tsm;
     }
