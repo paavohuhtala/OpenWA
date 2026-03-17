@@ -539,6 +539,260 @@ pub unsafe fn display_layer_color_init(wrapper: *mut DDGameWrapper) {
     set_color(display, 3, 0x70);
 }
 
+/// Hash function for GfxDir entry lookup (FUN_566390).
+///
+/// 10-bit CRC-like hash over the global name buffer at 0x8ACF58.
+/// Operates on the already-lowercased name.
+///
+/// # Safety
+/// `name` must be a valid null-terminated C string pointer.
+unsafe fn gfx_dir_hash(name: *const u8) -> u32 {
+    let mut hash: u32 = 0;
+    let mut p = name;
+    while *p != 0 {
+        let bit9 = (hash >> 9) & 1;
+        hash = ((hash << 1) | bit9) & 0x3FF;
+        hash = hash.wrapping_add(*p as u32) & 0x3FF;
+        p = p.add(1);
+    }
+    hash
+}
+
+/// Pure Rust implementation of GfxDir__FindEntry (0x566520).
+///
+/// Convention: usercall(EAX=name) + 1 stack(gfx_handler), RET 0x4.
+///
+/// Looks up a name in the GfxHandler's hash table. Names are case-insensitive.
+/// Supports `|`-separated fallback names (e.g. "path\\file.img|fallback.img").
+///
+/// Returns entry pointer or null. Entry layout:
+/// - entry+0x00: next pointer (linked list)
+/// - entry+0x04: value (passed to vtable[2] for cached load)
+/// - entry+0x08: unknown
+/// - entry+0x0C: name string (null-terminated, lowercase)
+///
+/// # Safety
+/// `gfx_handler` must be a valid GfxHandler with initialized hash table at +0x04.
+/// `name` must be a valid null-terminated C string.
+#[cfg(target_arch = "x86")]
+pub unsafe fn gfx_dir_find_entry(
+    name: *const u8,
+    gfx_handler: *mut u8,
+) -> *mut u8 {
+    let mut current_name = name;
+
+    loop {
+        // Copy name to stack buffer (max 0xFF chars + null)
+        let mut buf = [0u8; 0x100];
+        let mut i = 0usize;
+        let mut src = current_name;
+        while *src != 0 && i < 0xFF {
+            buf[i] = *src;
+            src = src.add(1);
+            i += 1;
+        }
+        buf[i] = 0;
+
+        // Find '|' separator in buffer
+        let mut pipe_pos: Option<usize> = None;
+        for j in 0..i {
+            if buf[j] == b'|' {
+                buf[j] = 0; // truncate at pipe
+                pipe_pos = Some(j);
+                break;
+            }
+        }
+
+        // Compute next_name: pointer into original string after '|'
+        let next_name: *const u8 = if let Some(pos) = pipe_pos {
+            // Offset of '|' in buffer = pos
+            // Same offset in original string → current_name + pos + 1
+            current_name.add(pos + 1)
+        } else {
+            core::ptr::null()
+        };
+
+        // Lowercase A-Z in buffer
+        for j in 0..buf.len() {
+            if buf[j] == 0 { break; }
+            if buf[j] >= b'A' && buf[j] <= b'Z' {
+                buf[j] += 0x20;
+            }
+        }
+
+        // Hash the lowercased name
+        let bucket = gfx_dir_hash(buf.as_ptr());
+
+        // Walk linked list in hash bucket
+        // gfx_handler+4 = pointer to bucket array (1024 entries)
+        let bucket_array = *(gfx_handler.add(4) as *const *const u32);
+        let mut entry = *bucket_array.add(bucket as usize) as *mut u8;
+
+        while !entry.is_null() {
+            // Compare entry name at entry+0x0C with our buffer
+            let entry_name = entry.add(0x0C);
+            let mut match_found = true;
+            let mut k = 0usize;
+            loop {
+                let a = *entry_name.add(k);
+                let b = buf[k];
+                if a != b {
+                    match_found = false;
+                    break;
+                }
+                if a == 0 { break; }
+                k += 1;
+            }
+
+            if match_found {
+                return entry;
+            }
+
+            // Next in linked list: entry+0x00
+            entry = *(entry as *const *mut u8);
+        }
+
+        // Not found — try fallback name after '|'
+        if next_name.is_null() {
+            return core::ptr::null_mut();
+        }
+        current_name = next_name;
+    }
+}
+
+/// Pure Rust implementation of FUN_5665F0 (GfxHandler reset).
+///
+/// Convention: usercall(ESI=handler), plain RET. Called at start of LoadDir.
+unsafe fn gfx_handler_reset(handler: *mut u8) {
+    *(handler.add(0x04) as *mut u32) = 0;
+    *(handler.add(0x08) as *mut u32) = 0;
+    *(handler.add(0x194) as *mut u32) = 0;
+
+    for i in 0..16u32 {
+        // handler+0x0C + i*0x10 = 0 (16 entries at stride 0x10)
+        *(handler.add(0x0C + i as usize * 0x10) as *mut u32) = 0;
+        // handler+0x10C + i*4 = i (index array)
+        *(handler.add(0x10C + i as usize * 4) as *mut u32) = i;
+    }
+
+    *(handler.add(400) as *mut u32) = 0; // 0x190
+    *(handler.add(0x18C) as *mut u32) = 0x10;
+}
+
+/// Pure Rust implementation of GfxHandler__LoadDir (0x5663E0).
+///
+/// Convention: usercall(EAX=handler), plain RET. Returns 1 on success, 0 on failure.
+///
+/// Reads a .dir file through the handler's vtable I/O methods:
+/// - vtable[0]: read(buf, size) → thiscall, returns bytes read
+/// - vtable[1]: seek/reposition(size) → thiscall
+/// - vtable[2]: allocate(size) → thiscall, returns buffer or null
+///
+/// .dir file format:
+/// - 4 bytes: magic "DIR\x1A" (0x1A524944)
+/// - 4 bytes: total_file_size
+/// - 4 bytes: data_size (hash table + entries)
+/// - data: 1024-bucket hash table followed by linked list nodes
+///   All pointers are relative offsets from (data_start + 4)
+///
+/// # Safety
+/// `handler` must be a valid GfxHandler with file handle at +0x198.
+#[cfg(target_arch = "x86")]
+pub unsafe fn gfx_handler_load_dir(handler: *mut u8) -> i32 {
+    gfx_handler_reset(handler);
+
+    let vt = *(handler as *const *const u32);
+    // vtable[0] = read: thiscall(handler, buf, size) -> bytes_read
+    let vt_read: unsafe extern "thiscall" fn(*mut u8, *mut u8, u32) -> u32 =
+        core::mem::transmute(*vt);
+    // vtable[1] = seek: thiscall(handler, size)
+    let vt_seek: unsafe extern "thiscall" fn(*mut u8, u32) =
+        core::mem::transmute(*vt.add(1));
+    // vtable[2] = allocate: thiscall(handler, size) -> *mut u8
+    let vt_alloc: unsafe extern "thiscall" fn(*mut u8, u32) -> *mut u8 =
+        core::mem::transmute(*vt.add(2));
+
+    // Read and validate magic
+    let mut magic: u32 = 0;
+    if vt_read(handler, &mut magic as *mut u32 as *mut u8, 4) != 4 {
+        return 0;
+    }
+    if magic != 0x1A524944 { // "DIR\x1A"
+        return 0;
+    }
+
+    // Read total_file_size and data_size
+    let mut total_file_size: u32 = 0;
+    if vt_read(handler, &mut total_file_size as *mut u32 as *mut u8, 4) != 4 {
+        return 0;
+    }
+    let mut data_size: u32 = 0;
+    if vt_read(handler, &mut data_size as *mut u32 as *mut u8, 4) != 4 {
+        return 0;
+    }
+
+    let alloc_size = data_size + 4;
+
+    // Try fast path: vtable[2] allocate (memory-maps the data)
+    let data = vt_alloc(handler, alloc_size);
+    *(handler.add(4) as *mut *mut u8) = data;
+
+    if data.is_null() {
+        // Fallback: seek past header, malloc, read entire data block
+        vt_seek(handler, alloc_size);
+
+        let read_size = total_file_size - data_size - 4;
+        let buf = wa_malloc(read_size); // WA's malloc, not system
+        *(handler.add(4) as *mut *mut u8) = buf;
+
+        if buf.is_null() {
+            return 0;
+        }
+
+        let bytes_read = vt_read(handler, buf, read_size);
+        if bytes_read != read_size {
+            crate::wa_alloc::wa_free(buf);
+            return 0;
+        }
+
+        // Mark as "loaded from fallback" at handler+8
+        *(handler.add(8) as *mut u32) = 1;
+    }
+
+    // Fix up relative pointers in the hash table
+    // 1024 buckets at data[0..0x1000], each is a pointer to a linked list node
+    let data = *(handler.add(4) as *const *mut u8);
+    let base = data as u32;
+
+    for bucket in 0..1024u32 {
+        let bucket_ptr = data.add(bucket as usize * 4) as *mut u32;
+        let entry_offset = *bucket_ptr;
+        if entry_offset == 0 {
+            continue;
+        }
+
+        // Convert relative offset to absolute: offset + base - 4
+        let entry_addr = entry_offset.wrapping_add(base).wrapping_sub(4);
+        *bucket_ptr = entry_addr;
+
+        // Walk linked list, fix up each next pointer
+        let mut node = entry_addr as *mut u32;
+        loop {
+            if node.is_null() { break; }
+            let next_offset = *node;
+            if next_offset == 0 { break; }
+            let next_addr = next_offset.wrapping_add(base).wrapping_sub(4);
+            *node = next_addr;
+            node = next_addr as *mut u32;
+        }
+    }
+
+    // Mark as loaded
+    *(handler.add(0x194) as *mut u32) = 1;
+
+    1 // success
+}
+
 /// Pure Rust implementation of GfxResource__Create_Maybe (0x4F6300).
 ///
 /// Convention: usercall(ECX=gfx_handler, EAX=name) + 1 stack(output), RET 0x4.

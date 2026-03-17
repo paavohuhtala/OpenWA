@@ -15,6 +15,7 @@ use openwa_core::address::va;
 use openwa_core::engine::ddgame::{
     DDGame, ddgame_init_fields, ddgame_init_render_indices,
     task_state_machine_init, gfx_resource_create, display_layer_color_init,
+    gfx_dir_find_entry,
 };
 use openwa_core::engine::DDGameWrapper;
 use crate::hook;
@@ -107,6 +108,39 @@ unsafe extern "C" fn gfx_resource_create_trampoline() {
     );
 }
 
+// ─── GfxDir__FindEntry (0x566520) ────────────────────────────────────────────
+//
+// Convention: usercall(EAX=name) + 1 stack(gfx_handler), RET 0x4.
+
+hook::usercall_trampoline!(
+    fn find_entry_trampoline;
+    impl_fn = impl_find_entry;
+    reg = eax;
+    stack_params = 1; ret_bytes = "0x4"
+);
+
+static FIND_ENTRY_LOG_COUNT: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(0);
+
+extern "cdecl" fn impl_find_entry(name: u32, gfx_handler: u32) -> u32 {
+    let result = unsafe {
+        gfx_dir_find_entry(name as *const u8, gfx_handler as *mut u8)
+    };
+    // Log first 20 lookups for debugging
+    let count = FIND_ENTRY_LOG_COUNT.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
+    if count < 20 {
+        let name_str = unsafe {
+            let p = name as *const u8;
+            let mut len = 0;
+            while *p.add(len) != 0 && len < 64 { len += 1; }
+            core::str::from_utf8_unchecked(core::slice::from_raw_parts(p, len))
+        };
+        let _ = crate::log_line(&format!(
+            "[FindEntry] #{count}: \"{name_str}\" -> 0x{:08X}", result as u32
+        ));
+    }
+    result as u32
+}
+
 // ─── Hook installation ──────────────────────────────────────────────────────
 
 pub fn install() -> Result<(), String> {
@@ -139,6 +173,12 @@ pub fn install() -> Result<(), String> {
             "FUN_570E20_DisplayLayerInit",
             va::FUN_570E20,
             display_layer_init_trampoline as *const (),
+        )?;
+
+        hook::install(
+            "GfxDir__FindEntry",
+            va::GFX_DIR_FIND_ENTRY,
+            find_entry_trampoline as *const (),
         )?;
     }
 
