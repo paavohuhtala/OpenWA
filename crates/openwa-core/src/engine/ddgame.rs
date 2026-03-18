@@ -912,7 +912,7 @@ pub fn init_constructor_addrs() {
         GFX_LOAD_DIR_ADDR = rb(va::GFX_HANDLER_LOAD_DIR);
         FUN_570F30_ADDR = rb(va::DDGAME_INIT_SOUND_PATHS);
         LOAD_SPEECH_BANKS_ADDR = rb(va::DSSOUND_LOAD_ALL_SPEECH_BANKS);
-        LOAD_WEAPON_SPRITES_ADDR = rb(va::DDGAME_LOAD_WEAPON_SPRITES);
+        LOADING_PROGRESS_TICK_ADDR = rb(va::DDGAME_WRAPPER_LOADING_PROGRESS_TICK);
     }
 }
 
@@ -1264,8 +1264,8 @@ unsafe fn init_graphics_and_resources(
     let _ = crate::log::log_line("[DDGame] past ActiveSoundTable");
 
     // ── Loading tick: disabled (pumps message loop, causes crashes) ──
-    // call_usercall_ecx(wrapper, LOAD_WEAPON_SPRITES_ADDR);
-    // call_usercall_ecx(wrapper, LOAD_WEAPON_SPRITES_ADDR);
+    // call_usercall_ecx(wrapper, LOADING_PROGRESS_TICK_ADDR);
+    // call_usercall_ecx(wrapper, LOADING_PROGRESS_TICK_ADDR);
 
     // ── GfxResource: thiscall(ECX=gfx_handler) + EAX=name + 1 stack(output), RET 0x4 ──
     // Test: call GfxResource with real params
@@ -1368,8 +1368,6 @@ unsafe fn init_graphics_and_resources(
             (0x480, 0x2D, 0x08, 0x2D, 0x07, 0x2E, 0x07, gr),
         ];
 
-        // SKIP: testing if SpriteRegion bridge corrupts stack
-        if false {
         for &(offset, ecx, edx, p2, p3, p4, p5, p6) in &regions {
             let alloc = wa_malloc(0x9C);
             core::ptr::write_bytes(alloc, 0, 0x9C);
@@ -1380,7 +1378,6 @@ unsafe fn init_graphics_and_resources(
             };
             *((ddgame as *mut u8).add(offset as usize) as *mut *mut u8) = result;
         }
-    } // if false
     }
 
     // ── Landscape-derived value at DDGame+0x468 ──
@@ -1522,8 +1519,8 @@ unsafe fn init_graphics_and_resources(
     }
 
     // ── Loading tick: disabled (pumps message loop) ──
-    // call_usercall_ecx(wrapper, LOAD_WEAPON_SPRITES_ADDR);
-    // call_usercall_ecx(wrapper, LOAD_WEAPON_SPRITES_ADDR);
+    // call_usercall_ecx(wrapper, LOADING_PROGRESS_TICK_ADDR);
+    // call_usercall_ecx(wrapper, LOADING_PROGRESS_TICK_ADDR);
 
     // ── Sprite resource loading via DDGameWrapper vtable[0] ──
     // DDNetGameWrapper__LoadResourceList: thiscall(ECX=wrapper) +
@@ -1534,26 +1531,33 @@ unsafe fn init_graphics_and_resources(
         let land_layer = *(landscape_ptr.add(0xB34) as *const *mut u8);
         let gfx_handler = (*wrapper)._field_4c0;
 
-        // Sprite resource loading + remaining: disabled to isolate DEP crash
-        let _ = crate::log::log_line("[DDGame] skipping sprite resources+");
-    if false {
         let wrapper_vt = *(wrapper as *const *const u32);
+        let _ = crate::log::log_line(&format!(
+            "[DDGame] sprite resource loading: wrapper_vt=0x{:08X}, vt[0]=0x{:08X}, landscape=0x{:08X}, water=0x{:08X}, land=0x{:08X}",
+            wrapper_vt as u32, *wrapper_vt, landscape_ptr as u32, water_layer as u32, land_layer as u32,
+        ));
         let load_resource_list: unsafe extern "thiscall" fn(
             *mut DDGameWrapper, u32, *mut u8, *const u8, *const u8, u32,
         ) = core::mem::transmute(*wrapper_vt);
         // Load resources for layer 1 (main sprites)
+        let _ = crate::log::log_line("[DDGame] load_resource_list #1 (main sprites)");
         load_resource_list(
             wrapper, 1, gfx_handler,
             rb(0x643F2B) as *const u8,  // base path
             rb(0x6AD2C0) as *const u8,  // resource table
             0x1D88,                      // table size
         );
+        let _ = crate::log::log_line(&format!(
+            "[DDGame] after #1: sprite_cache[144]=0x{:08X}",
+            (*ddgame).sprite_cache[144] as u32,
+        ));
 
         // Set global flag based on game version
         let gv = (*(*ddgame).game_info).game_version;
         *(rb(0x6AF050) as *mut u32) = if gv < 8 { 0 } else { 0x10 };
 
         // Load resources for layer 1 with different table
+        let _ = crate::log::log_line("[DDGame] load_resource_list #2");
         load_resource_list(
             wrapper, 1, gfx_handler,
             rb(0x643F2B) as *const u8,
@@ -1562,6 +1566,7 @@ unsafe fn init_graphics_and_resources(
         );
 
         // Load resources for layer 2 (water)
+        let _ = crate::log::log_line("[DDGame] load_resource_list #3 (water)");
         load_resource_list(
             wrapper, 2, water_layer,
             rb(0x643F2B) as *const u8,
@@ -1638,22 +1643,20 @@ unsafe fn init_graphics_and_resources(
             }
         }
 
-        // ── HUD_LoadWeaponSprites (0x53D0E0) ──
-        // thiscall(ECX=ddgame, stack=wrapper_4c4), RET 0x8 (cleans 2: this implicit + 1 stack)
-        // Wait — RET 0x8 means 2 stack params cleaned. For thiscall with ECX, that's 2 stack params.
-        // The asm: PUSH ECX(=wrapper_4c4), PUSH EDX(=ddgame), CALL.
-        // So it's stdcall(ddgame, wrapper_4c4) actually — ECX is NOT the this pointer!
-        // The decompiler labeled it thiscall but the push sequence shows two stack params.
-        // Let me pass wrapper as thiscall ECX and wrapper_4c4 as stack:
-        // Actually: PUSH ECX([EBP+0x4C4]), PUSH EDX([EBP+0x488]=ddgame).
-        // CALL 0x53D0E0. So ECX = gfx_handler_4c4, pushed FIRST. EDX = ddgame, pushed SECOND.
-        // For stdcall: param_1=EDX(ddgame, pushed last), param_2=ECX(wrapper_4c4, pushed first).
-        // But decompiler says thiscall → ECX is implicit this.
-        // RET 0x8 = 2 × 4 bytes cleaned. For thiscall: ECX + 1 stack = RET 0x4.
-        // RET 0x8 means 2 stack params, NO ECX implicit → it's really stdcall(2 params).
-        // End sections: disabled for headless testing
-        // TODO: enable one by one to find which causes DEP crash
-    } // if false
+        // ── DDGame__LoadHudAndWeaponSprites (0x53D0E0) ──
+        // Loads weapon icons (cow.img, pigeon.img, etc.), wind indicators, stop sign,
+        // girder sprites, and creates the DDGame+0x37C DisplayGfx object needed by
+        // CTaskLand__InitLandscape.
+        // Convention: thiscall(ECX=gfx_handler_4c0) + 2 stack(ddgame, wrapper_4c4), RET 0x8.
+        {
+            let hud_load: unsafe extern "thiscall" fn(*mut u8, *mut DDGame, *mut u8) =
+                core::mem::transmute(rb(va::DDGAME_LOAD_HUD_AND_WEAPON_SPRITES) as usize);
+            hud_load(gfx_handler, ddgame, (*wrapper)._field_4c4);
+            let _ = crate::log::log_line(&format!(
+                "[DDGame] after LoadHudAndWeaponSprites: +0x37C=0x{:08X}",
+                (*ddgame).sprite_cache[144] as u32,
+            ));
+        }
     }
     // ── Gradient image stub (DDGame+0x30) ──
     // The original constructor loads "gradient.img" here and stores the result at DDGame+0x30.
@@ -1668,6 +1671,38 @@ unsafe fn init_graphics_and_resources(
             // [6] = height/width = 0 → CTaskLand loop: `if (0 < 0)` → skip
             (*ddgame).gradient_image = obj;
         }
+    }
+
+    // ── Release primary GfxHandler (vtable[3] = release, param 1 = free) ──
+    let gfx_handler_4c0 = (*wrapper)._field_4c0;
+    if !gfx_handler_4c0.is_null() {
+        let gfx_vt = *(gfx_handler_4c0 as *const *const u32);
+        let release: unsafe extern "thiscall" fn(*mut u8, u32) =
+            core::mem::transmute(*gfx_vt.add(3));
+        release(gfx_handler_4c0, 1);
+    }
+
+    // ── DDGame__InitDisplayFinal_Maybe (0x56A830): non-headless display finalization ──
+    if !is_headless {
+        let f: unsafe extern "stdcall" fn(*mut DDDisplay) =
+            core::mem::transmute(rb(va::DDGAME_INIT_DISPLAY_FINAL) as usize);
+        f((*wrapper).display);
+    }
+
+    // ── FUN_00570A90 (second call, conditional) ──
+    if *(rb(0x88E485) as *const u8) == 0 {
+        call_usercall_eax(wrapper, FUN_570A90_ADDR);
+    }
+
+    // ── Final display layer visibility (vtable[0x17], offset 0x5C) ──
+    {
+        let disp = (*wrapper).display as *mut u8;
+        let vt = *(disp as *const *const u32);
+        let set_vis: unsafe extern "thiscall" fn(*mut u8, i32, i32) =
+            core::mem::transmute(*vt.add(0x17));
+        set_vis(disp, 1, 0);
+        set_vis(disp, 2, 0);
+        set_vis(disp, 3, 1);
     }
 
     let _ = crate::log::log_line("[DDGame] init_graphics_and_resources DONE");
@@ -1707,7 +1742,7 @@ static mut FUN_570E20_ADDR: u32 = 0;
 static mut FUN_570A90_ADDR: u32 = 0;
 static mut FUN_570F30_ADDR: u32 = 0;
 static mut LOAD_SPEECH_BANKS_ADDR: u32 = 0;
-static mut LOAD_WEAPON_SPRITES_ADDR: u32 = 0;
+static mut LOADING_PROGRESS_TICK_ADDR: u32 = 0;
 
 /// Bridge: usercall(ESI=wrapper), plain RET. Used by FUN_570E20, FUN_570F30, LoadSpeechBanks.
 #[cfg(target_arch = "x86")]

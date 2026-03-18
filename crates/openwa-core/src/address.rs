@@ -345,8 +345,12 @@ pub mod va {
     pub const TASK_STATE_MACHINE_INIT: u32 = 0x004F_6370;
     /// DDGame__InitSoundPaths_Maybe (0x570F30): called before DSSound_LoadEffectWAVs.
     pub const DDGAME_INIT_SOUND_PATHS: u32 = 0x0057_0F30;
-    /// DDGame__LoadWeaponSprites_Maybe (0x5717A0): loads weapon sprite data.
-    pub const DDGAME_LOAD_WEAPON_SPRITES: u32 = 0x0057_17A0;
+    /// DDGameWrapper__LoadingProgressTick (0x5717A0): loading progress bar + message pump.
+    pub const DDGAME_WRAPPER_LOADING_PROGRESS_TICK: u32 = 0x0057_17A0;
+    /// DDGame__LoadHudAndWeaponSprites (0x53D0E0): loads weapon icons, wind indicators,
+    /// girder sprites, and creates DDGame+0x37C DisplayGfx object.
+    /// thiscall(ECX=gfx_handler_4c0) + 2 stack(ddgame, wrapper_4c4), RET 0x8.
+    pub const DDGAME_LOAD_HUD_AND_WEAPON_SPRITES: u32 = 0x0053_D0E0;
     /// DDGame__InitDisplayFinal_Maybe (0x56A830): display finalization for non-headless.
     pub const DDGAME_INIT_DISPLAY_FINAL: u32 = 0x0056_A830;
     /// PCLandscape__Constructor (0x57ACB0): constructs 0xB44-byte landscape object.

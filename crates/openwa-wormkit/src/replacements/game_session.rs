@@ -114,7 +114,7 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
 
     // Toggle: use Rust constructor (true) or original (false)
     // TODO: set back to true once sprite/gradient loading is ported.
-    const USE_RUST_CTOR: bool = false;
+    const USE_RUST_CTOR: bool = true;
     if USE_RUST_CTOR {
         create_ddgame(
             this,
