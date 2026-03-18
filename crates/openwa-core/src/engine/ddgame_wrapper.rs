@@ -31,10 +31,10 @@ pub struct DDGameWrapper {
     pub ddgame_secondary: *mut u8,
     /// 0x490-0x4BF: Unknown
     pub _unknown_490: [u8; 0x30],
-    /// 0x4C0: Unknown object pointer (not GfxHandler — vtable reads as 0)
-    pub _field_4c0: *mut u8,
-    /// 0x4C4: Unknown pointer
-    pub _field_4c4: *mut u8,
+    /// 0x4C0: Primary GfxDir — main sprite archive (Gfx.dir / Gfx0.dir / Gfx1.dir).
+    pub primary_gfx_dir: *mut u8,
+    /// 0x4C4: Secondary GfxDir — supplemental sprites (GfxC_3_0.dir), conditional on game version.
+    pub secondary_gfx_dir: *mut u8,
     /// 0x4C8: Graphics mode flag (DWORD index 0x132)
     pub gfx_mode: u32,
     /// 0x4CC: PCLandscape object pointer (DWORD index 0x133)

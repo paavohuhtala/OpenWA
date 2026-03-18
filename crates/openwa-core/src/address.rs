@@ -345,7 +345,7 @@ pub mod va {
     pub const DDGAME_WRAPPER_LOADING_PROGRESS_TICK: u32 = 0x0057_17A0;
     /// DDGame__LoadHudAndWeaponSprites (0x53D0E0): loads weapon icons, wind indicators,
     /// girder sprites, and creates DDGame+0x37C DisplayGfx object.
-    /// thiscall(ECX=gfx_handler_4c0) + 2 stack(ddgame, wrapper_4c4), RET 0x8.
+    /// thiscall(ECX=gfx_dir_4c0) + 2 stack(ddgame, wrapper_4c4), RET 0x8.
     pub const DDGAME_LOAD_HUD_AND_WEAPON_SPRITES: u32 = 0x0053_D0E0;
     /// PaletteContext__Init (0x5411A0): initialize palette context free-list.
     /// usercall(EAX=context), plain RET.
@@ -359,12 +359,12 @@ pub mod va {
     /// g_GameInfo global — set to current GameInfo* during DDGame construction.
     pub const G_GAME_INFO: u32 = 0x0077_49A0;
     /// GfxHandler__LoadSprites_Maybe (0x570B50): loads sprites from GfxHandler.
-    pub const GFX_HANDLER_LOAD_SPRITES: u32 = 0x0057_0B50;
+    pub const GFX_DIR_LOAD_SPRITES: u32 = 0x0057_0B50;
     /// FUN_00570A90: called before display palette setup (non-headless only).
     pub const FUN_570A90: u32 = 0x0057_0A90;
     /// FUN_00570E20: called after GfxHandler initialization.
     pub const FUN_570E20: u32 = 0x0057_0E20;
-    pub const GFX_HANDLER_LOAD_DIR: u32 = 0x0056_63E0;
+    pub const GFX_DIR_LOAD_DIR: u32 = 0x0056_63E0;
     pub const GFX_DIR_FIND_ENTRY: u32 = 0x0056_6520;
     pub const GFX_DIR_LOAD_IMAGE: u32 = 0x0056_66D0;
     /// DisplayGfx__Constructor_Maybe (0x4F5E80): stdcall(raw_image) -> DisplayGfx*, RET 0x4.
@@ -377,7 +377,7 @@ pub mod va {
     // === Vtables ===
 
     /// GfxHandler vtable (0x66B280).
-    pub const GFX_HANDLER_VTABLE: u32 = 0x0066_B280;
+    pub const GFX_DIR_VTABLE: u32 = 0x0066_B280;
     /// BitGrid base vtable (0x6640EC): shared by BitGrid, DisplayGfx base, gradient stubs.
     pub const BIT_GRID_VTABLE: u32 = 0x0066_40EC;
     /// BitGrid variant vtable (0x664118): used by TaskStateMachine-class objects.

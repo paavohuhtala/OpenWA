@@ -8,7 +8,7 @@
 use crate::address::va;
 use crate::engine::ddgame::DDGame;
 use crate::rebase::rb;
-use crate::render::gfx_handler::call_gfx_find_and_load;
+use crate::render::gfx_dir::call_gfx_find_and_load;
 use crate::task::bit_grid::BitGrid;
 use crate::wa_alloc::{wa_free, wa_malloc};
 

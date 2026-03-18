@@ -1,15 +1,61 @@
-//! GfxHandler/GfxDir resource loading subsystem.
+//! GfxDir — .dir sprite archive reader.
+//!
+//! A GfxDir manages a hash table loaded from `.dir` files (e.g. `Gfx.dir`,
+//! `Gfx0.dir`). It provides name→resource lookup via a 1024-bucket hash table
+//! and delegates file I/O and caching to vtable methods.
 
 use crate::address::va;
 use crate::rebase::rb;
 use crate::wa_alloc::wa_malloc;
+
+/// .dir archive reader (0x19C bytes, vtable 0x66B280).
+///
+/// Loaded from `.dir` files via `gfx_dir_load`. Contains a 1024-bucket
+/// hash table for name→resource lookups, plus a 16-slot cache.
+#[repr(C)]
+pub struct GfxDir {
+    /// 0x000: Vtable pointer (0x66B280).
+    pub vtable: u32,
+    /// 0x004: Bucket array — 1024 pointers to GfxDirEntry linked lists.
+    pub bucket_array: *mut u8,
+    /// 0x008: 1 if bucket_array was allocated via malloc fallback (needs free).
+    pub fallback_alloc: u32,
+    /// 0x00C-0x10B: 16 cache slots (0x10 bytes each, first u32 zeroed on reset).
+    pub cache_slots: [u8; 0x100],
+    /// 0x10C-0x14B: Index table (16 u32 entries, identity permutation on reset).
+    pub index_table: [u32; 16],
+    /// 0x14C-0x18B: Unknown padding.
+    pub _unknown_14c: [u8; 0x40],
+    /// 0x18C: Number of cache slots (always 0x10).
+    pub slot_count: u32,
+    /// 0x190: Unknown (zeroed on reset).
+    pub _unknown_190: u32,
+    /// 0x194: Loaded flag (1 after successful gfx_dir_load).
+    pub loaded: u32,
+    /// 0x198: FILE* handle to the open .dir file.
+    pub file_handle: *mut u8,
+}
+
+const _: () = assert!(core::mem::size_of::<GfxDir>() == 0x19C);
+
+impl GfxDir {
+    /// Allocate and initialize a new GfxDir with the given vtable.
+    pub unsafe fn alloc(vtable: u32) -> *mut Self {
+        let ptr = wa_malloc(core::mem::size_of::<Self>() as u32) as *mut Self;
+        if !ptr.is_null() {
+            core::ptr::write_bytes(ptr as *mut u8, 0, core::mem::size_of::<Self>());
+            (*ptr).vtable = vtable;
+        }
+        ptr
+    }
+}
 
 /// Entry in a GfxDir hash bucket linked list.
 /// Each entry maps a name string to a cached resource value.
 #[repr(C)]
 pub struct GfxDirEntry {
     pub next: *mut GfxDirEntry,
-    /// Passed to GfxHandler vtable[2] for cached resource lookup.
+    /// Passed to GfxDir vtable[2] for cached resource lookup.
     pub value: u32,
     pub _unknown_08: u32,
     // +0x0C: null-terminated name (variable-length, not in struct)
@@ -43,7 +89,7 @@ unsafe fn gfx_dir_hash(name: *const u8) -> u32 {
 
 /// Pure Rust implementation of GfxDir__FindEntry (0x566520).
 ///
-/// Convention: usercall(EAX=name) + 1 stack(gfx_handler), RET 0x4.
+/// Convention: usercall(EAX=name) + 1 stack(gfx_dir), RET 0x4.
 ///
 /// Looks up a name in the GfxHandler's hash table. Names are case-insensitive.
 /// Supports `|`-separated fallback names (e.g. "path\\file.img|fallback.img").
@@ -55,10 +101,10 @@ unsafe fn gfx_dir_hash(name: *const u8) -> u32 {
 /// - entry+0x0C: name string (null-terminated, lowercase)
 ///
 /// # Safety
-/// `gfx_handler` must be a valid GfxHandler with initialized hash table at +0x04.
+/// `gfx_dir` must be a valid GfxHandler with initialized hash table at +0x04.
 /// `name` must be a valid null-terminated C string.
 #[cfg(target_arch = "x86")]
-pub unsafe fn gfx_dir_find_entry(name: *const u8, gfx_handler: *mut u8) -> *mut u8 {
+pub unsafe fn gfx_dir_find_entry(name: *const u8, gfx_dir: *mut u8) -> *mut u8 {
     let mut current_name = name;
 
     loop {
@@ -106,8 +152,8 @@ pub unsafe fn gfx_dir_find_entry(name: *const u8, gfx_handler: *mut u8) -> *mut 
         let bucket = gfx_dir_hash(buf.as_ptr());
 
         // Walk linked list in hash bucket
-        // gfx_handler+4 = pointer to bucket array (1024 entries)
-        let bucket_array = *(gfx_handler.add(4) as *const *const u32);
+        let gfx = &*(gfx_dir as *const GfxDir);
+        let bucket_array = gfx.bucket_array as *const u32;
         let mut entry = *bucket_array.add(bucket as usize) as *mut GfxDirEntry;
 
         while !entry.is_null() {
@@ -145,20 +191,20 @@ pub unsafe fn gfx_dir_find_entry(name: *const u8, gfx_handler: *mut u8) -> *mut 
 /// Pure Rust implementation of FUN_5665F0 (GfxHandler reset).
 ///
 /// Convention: usercall(ESI=handler), plain RET. Called at start of LoadDir.
-unsafe fn gfx_handler_reset(handler: *mut u8) {
-    *(handler.add(0x04) as *mut u32) = 0;
-    *(handler.add(0x08) as *mut u32) = 0;
-    *(handler.add(0x194) as *mut u32) = 0;
+unsafe fn gfx_dir_reset(handler: *mut u8) {
+    let gfx = &mut *(handler as *mut GfxDir);
+    gfx.bucket_array = core::ptr::null_mut();
+    gfx.fallback_alloc = 0;
+    gfx.loaded = 0;
 
     for i in 0..16u32 {
-        // handler+0x0C + i*0x10 = 0 (16 entries at stride 0x10)
-        *(handler.add(0x0C + i as usize * 0x10) as *mut u32) = 0;
-        // handler+0x10C + i*4 = i (index array)
-        *(handler.add(0x10C + i as usize * 4) as *mut u32) = i;
+        // Zero first u32 of each cache slot (stride 0x10)
+        *(gfx.cache_slots.as_mut_ptr().add(i as usize * 0x10) as *mut u32) = 0;
+        gfx.index_table[i as usize] = i;
     }
 
-    *(handler.add(400) as *mut u32) = 0; // 0x190
-    *(handler.add(0x18C) as *mut u32) = 0x10;
+    gfx._unknown_190 = 0;
+    gfx.slot_count = 0x10;
 }
 
 /// Pure Rust implementation of GfxHandler__LoadDir (0x5663E0).
@@ -180,8 +226,9 @@ unsafe fn gfx_handler_reset(handler: *mut u8) {
 /// # Safety
 /// `handler` must be a valid GfxHandler with file handle at +0x198.
 #[cfg(target_arch = "x86")]
-pub unsafe fn gfx_handler_load_dir(handler: *mut u8) -> i32 {
-    gfx_handler_reset(handler);
+pub unsafe fn gfx_dir_load_dir(handler: *mut u8) -> i32 {
+    gfx_dir_reset(handler);
+    let gfx = &mut *(handler as *mut GfxDir);
 
     let vt = *(handler as *const *const u32);
     // vtable[0] = read: thiscall(handler, buf, size) -> bytes_read
@@ -217,12 +264,10 @@ pub unsafe fn gfx_handler_load_dir(handler: *mut u8) -> i32 {
 
     // Try fast path: vtable[2] allocate (memory-maps the data)
     let data = vt_alloc(handler, alloc_size);
-    *(handler.add(4) as *mut *mut u8) = data;
+    gfx.bucket_array = data;
 
     if data.is_null() {
-        // Fallback: seek past header, then malloc + read entire data block.
-        // Original calls vt_seek(alloc_size) then WA_MallocMemset(EDI=read_size).
-        // WA_MallocMemset allocates (size+3)&~3 + 0x20 and memsets size bytes.
+        // Fallback: seek past header, then malloc + read entire data block
         vt_seek(handler, alloc_size);
 
         let read_size = total_file_size - data_size - 4;
@@ -232,7 +277,7 @@ pub unsafe fn gfx_handler_load_dir(handler: *mut u8) -> i32 {
             return 0;
         }
         core::ptr::write_bytes(buf, 0, read_size as usize);
-        *(handler.add(4) as *mut *mut u8) = buf;
+        gfx.bucket_array = buf;
 
         let bytes_read = vt_read(handler, buf, read_size);
         if bytes_read != read_size {
@@ -240,13 +285,12 @@ pub unsafe fn gfx_handler_load_dir(handler: *mut u8) -> i32 {
             return 0;
         }
 
-        // Mark as "loaded from fallback" at handler+8
-        *(handler.add(8) as *mut u32) = 1;
+        gfx.fallback_alloc = 1;
     }
 
     // Fix up relative pointers in the hash table
     // 1024 buckets at data[0..0x1000], each is a pointer to a linked list node
-    let data = *(handler.add(4) as *const *mut u8);
+    let data = gfx.bucket_array;
     let base = data as u32;
 
     for bucket in 0..1024u32 {
@@ -276,14 +320,14 @@ pub unsafe fn gfx_handler_load_dir(handler: *mut u8) -> i32 {
         }
     }
 
-    *(handler.add(0x194) as *mut u32) = 1;
+    gfx.loaded = 1;
 
     1 // success
 }
 
 /// Pure Rust implementation of GfxResource__Create_Maybe (0x4F6300).
 ///
-/// Convention: usercall(ECX=gfx_handler, EAX=name) + 1 stack(output), RET 0x4.
+/// Convention: usercall(ECX=gfx_dir, EAX=name) + 1 stack(output), RET 0x4.
 ///
 /// Looks up `name` in the GfxHandler's directory, tries cached load, wraps
 /// as DisplayGfx. Falls back to loading the raw image and decoding it.
@@ -291,20 +335,16 @@ pub unsafe fn gfx_handler_load_dir(handler: *mut u8) -> i32 {
 /// # Safety
 /// All pointers must be valid WA objects.
 #[cfg(target_arch = "x86")]
-pub unsafe fn gfx_resource_create(
-    gfx_handler: *mut u8,
-    name: *const u8,
-    output: *mut u8,
-) -> *mut u8 {
+pub unsafe fn gfx_resource_create(gfx_dir: *mut u8, name: *const u8, output: *mut u8) -> *mut u8 {
     // 1. Try FindEntry → cached load → DisplayGfx wrap
-    let entry = gfx_dir_find_entry(name, gfx_handler);
+    let entry = gfx_dir_find_entry(name, gfx_dir);
     if !entry.is_null() {
-        // gfx_handler->vtable[2](entry->field_4) — cached load
-        let vt = *(gfx_handler as *const *const u32);
+        // gfx_dir->vtable[2](entry->field_4) — cached load
+        let vt = *(gfx_dir as *const *const u32);
         let load_cached: unsafe extern "thiscall" fn(*mut u8, u32) -> *mut u8 =
             core::mem::transmute(*vt.add(2));
         let entry_val = (*(entry as *const GfxDirEntry)).value;
-        let cached = load_cached(gfx_handler, entry_val);
+        let cached = load_cached(gfx_dir, entry_val);
         if !cached.is_null() {
             // DisplayGfx__Constructor_Maybe: stdcall(raw_image), RET 0x4
             let ctor: unsafe extern "stdcall" fn(*mut u8) -> *mut u8 =
@@ -314,7 +354,7 @@ pub unsafe fn gfx_resource_create(
     }
 
     // 2. Fallback: LoadImage → IMG_Decode
-    let raw_image = call_gfx_load_image(gfx_handler, name);
+    let raw_image = call_gfx_load_image(gfx_dir, name);
     if raw_image.is_null() {
         return core::ptr::null_mut();
     }
@@ -366,11 +406,11 @@ pub(crate) unsafe fn call_gfx_find_and_load(
 /// Used by arrow sprite loop when GfxDir__FindEntry returns null.
 #[cfg(target_arch = "x86")]
 pub(crate) unsafe fn call_gfx_load_and_wrap(
-    gfx_handler: *mut u8,
+    gfx_dir: *mut u8,
     name: *const u8,
     display_ctx: *mut u8,
 ) -> *mut u8 {
-    let image = call_gfx_load_image(gfx_handler, name);
+    let image = call_gfx_load_image(gfx_dir, name);
     if image.is_null() {
         return core::ptr::null_mut();
     }
@@ -387,7 +427,7 @@ pub(crate) unsafe fn call_gfx_load_and_wrap(
 
 static mut GFX_LOAD_DIR_ADDR: u32 = 0;
 
-// GfxDir__LoadImage is usercall(ESI=gfx_handler) + 1 stack(name), RET 0x4.
+// GfxDir__LoadImage is usercall(ESI=gfx_dir) + 1 stack(name), RET 0x4.
 // Returns raw image pointer or null.
 static mut GFX_LOAD_IMAGE_ADDR: u32 = 0;
 
@@ -409,10 +449,10 @@ pub(crate) unsafe fn call_gfx_load_dir(handler: *mut u8, addr: u32) -> i32 {
 
 #[cfg(target_arch = "x86")]
 #[unsafe(naked)]
-unsafe extern "C" fn call_gfx_load_image(_gfx_handler: *mut u8, _name: *const u8) -> *mut u8 {
+unsafe extern "C" fn call_gfx_load_image(_gfx_dir: *mut u8, _name: *const u8) -> *mut u8 {
     core::arch::naked_asm!(
         "pushl %esi",
-        "movl 8(%esp), %esi",     // ESI = gfx_handler
+        "movl 8(%esp), %esi",     // ESI = gfx_dir
         "pushl 12(%esp)",         // push name (callee cleans via RET 0x4)
         "calll *({addr})",
         "popl %esi",
@@ -427,7 +467,7 @@ unsafe extern "C" fn call_gfx_load_image(_gfx_handler: *mut u8, _name: *const u8
 pub fn init_addrs() {
     unsafe {
         GFX_LOAD_IMAGE_ADDR = rb(va::GFX_DIR_LOAD_IMAGE);
-        GFX_LOAD_DIR_ADDR = rb(va::GFX_HANDLER_LOAD_DIR);
+        GFX_LOAD_DIR_ADDR = rb(va::GFX_DIR_LOAD_DIR);
     }
 }
 

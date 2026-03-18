@@ -86,9 +86,9 @@ pub struct PCLandscape {
     pub visible_right: u32,
     pub visible_bottom: u32,
     /// 0xB34: GfxHandler for Level.dir (param_1[0x2CD])
-    pub level_gfx_handler: *mut u8,
+    pub level_gfx_dir: *mut u8,
     /// 0xB38: GfxHandler for Water.dir (param_1[0x2CE])
-    pub water_gfx_handler: *mut u8,
+    pub water_gfx_dir: *mut u8,
     /// 0xB3C: Remaining control flag
     pub _unknown_b3c: u32,
 }

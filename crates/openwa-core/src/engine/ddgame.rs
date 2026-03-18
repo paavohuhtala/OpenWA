@@ -11,12 +11,10 @@ use crate::engine::game_info::GameInfo;
 use crate::input::keyboard::DDKeyboard;
 use crate::rebase::rb;
 // Re-export public GfxHandler functions so existing `engine::ddgame::*` imports keep working.
-use crate::render::gfx_handler::{
-    call_gfx_find_and_load, call_gfx_load_and_wrap, call_gfx_load_dir,
+use crate::render::gfx_dir::{
+    call_gfx_find_and_load, call_gfx_load_and_wrap, call_gfx_load_dir, GfxDir,
 };
-pub use crate::render::gfx_handler::{
-    gfx_dir_find_entry, gfx_handler_load_dir, gfx_resource_create,
-};
+pub use crate::render::gfx_dir::{gfx_dir_find_entry, gfx_dir_load_dir, gfx_resource_create};
 use crate::render::landscape::PCLandscape;
 use crate::render::queue::RenderQueue;
 use crate::render::turn_order::TurnOrderWidget;
@@ -200,7 +198,7 @@ pub struct DDGame {
     pub rng_state_2: u32,
     /// 0x72F4-0x7307: Unknown
     pub _unknown_72f4: [u8; 0x7308 - 0x72F4],
-    /// 0x7308: Sprite/gfx dimension data (passed to GFX_HANDLER_LOAD_SPRITES).
+    /// 0x7308: Sprite/gfx dimension data (passed to GFX_DIR_LOAD_SPRITES).
     pub gfx_sprite_data: [u8; 0x730C - 0x7308],
     /// 0x730C-0x731C: 5 GfxDir color entries
     pub _gfx_color_entries: [u8; 0x7324 - 0x730C],
@@ -542,7 +540,7 @@ pub fn init_constructor_addrs() {
         LOAD_SPEECH_BANKS_ADDR = rb(va::DSSOUND_LOAD_ALL_SPEECH_BANKS);
         LOADING_PROGRESS_TICK_ADDR = rb(va::DDGAME_WRAPPER_LOADING_PROGRESS_TICK);
     }
-    crate::render::gfx_handler::init_addrs();
+    crate::render::gfx_dir::init_addrs();
 }
 
 // ── Typed wrappers for WA stdcall functions ────────────────────────────────
@@ -566,7 +564,7 @@ unsafe fn wa_load_sprites(
     param4: u32,
 ) {
     let f: unsafe extern "stdcall" fn(*mut DDGameWrapper, *mut u8, u32, u32) =
-        core::mem::transmute(rb(va::GFX_HANDLER_LOAD_SPRITES) as usize);
+        core::mem::transmute(rb(va::GFX_DIR_LOAD_SPRITES) as usize);
     f(wrapper, sprite_data, display_flags, param4);
 }
 
@@ -638,12 +636,12 @@ unsafe fn wa_init_display_final(display: *mut DDDisplay) {
 }
 
 /// DDGame__LoadHudAndWeaponSprites (0x53D0E0): load weapon icons and HUD sprites.
-/// thiscall(ECX=gfx_handler) + 2 stack(ddgame, secondary_gfx_handler), RET 0x8.
+/// thiscall(ECX=gfx_dir) + 2 stack(ddgame, secondary_gfx_dir), RET 0x8.
 #[cfg(target_arch = "x86")]
-unsafe fn wa_load_hud_sprites(gfx_handler: *mut u8, ddgame: *mut DDGame, secondary: *mut u8) {
+unsafe fn wa_load_hud_sprites(gfx_dir: *mut u8, ddgame: *mut DDGame, secondary: *mut u8) {
     let f: unsafe extern "thiscall" fn(*mut u8, *mut DDGame, *mut u8) =
         core::mem::transmute(rb(va::DDGAME_LOAD_HUD_AND_WEAPON_SPRITES) as usize);
-    f(gfx_handler, ddgame, secondary);
+    f(gfx_dir, ddgame, secondary);
 }
 
 /// Create and initialize DDGame, matching DDGame__Constructor (0x56E220).
@@ -744,14 +742,12 @@ unsafe fn init_graphics_and_resources(
     let ddgame = (*wrapper).ddgame;
     let fopen: unsafe extern "cdecl" fn(*const u8, *const u8) -> *mut u8 =
         core::mem::transmute(rb(va::WA_FOPEN) as usize);
-    let gfx_handler_vtable = rb(va::GFX_HANDLER_VTABLE) as u32;
+    let gfx_dir_vtable = rb(va::GFX_DIR_VTABLE) as u32;
 
-    // ── GfxHandler #1 (primary) ──
-    let gfx1 = wa_malloc(0x19C);
-    core::ptr::write_bytes(gfx1, 0, 0x19C);
-    *(gfx1 as *mut u32) = gfx_handler_vtable;
-    (*wrapper)._field_4c0 = gfx1;
-    (*wrapper)._field_4c4 = core::ptr::null_mut();
+    // ── GfxDir #1 (primary) ──
+    let gfx1 = GfxDir::alloc(gfx_dir_vtable);
+    (*wrapper).primary_gfx_dir = gfx1 as *mut u8;
+    (*wrapper).secondary_gfx_dir = core::ptr::null_mut();
 
     // Build path list (order depends on headless + display_flags)
     let headless = (*game_info).headless_mode as i32;
@@ -787,9 +783,9 @@ unsafe fn init_graphics_and_resources(
     let mut gfx_loaded_idx = 0u32;
     for (i, path) in paths.iter().enumerate() {
         let fp = fopen(path.as_ptr(), b"rb\0".as_ptr());
-        *(gfx1.add(0x198) as *mut *mut u8) = fp;
+        (*gfx1).file_handle = fp;
         if !fp.is_null()
-            && call_gfx_load_dir(gfx1, crate::render::gfx_handler::gfx_load_dir_addr()) != 0
+            && call_gfx_load_dir(gfx1 as *mut u8, crate::render::gfx_dir::gfx_load_dir_addr()) != 0
         {
             gfx_loaded_idx = i as u32;
             break;
@@ -806,7 +802,7 @@ unsafe fn init_graphics_and_resources(
         0
     };
 
-    // ── GfxHandler #2 (conditional) ──
+    // ── GfxDir #2 (conditional — supplemental sprites for certain game versions) ──
     let game_version = (*game_info).game_version;
     let threshold = if (*wrapper).gfx_mode != 0 { 33 } else { -2i32 };
     if game_version < threshold {
@@ -814,21 +810,16 @@ unsafe fn init_graphics_and_resources(
         let mut gfx_c_path = *b"data\\Gfx\\GfxC_3_0.dir\0";
         gfx_c_path[14] = c_digit;
 
-        let gfx2 = wa_malloc(0x19C);
-        core::ptr::write_bytes(gfx2, 0, 0x19C);
-        *(gfx2 as *mut u32) = gfx_handler_vtable;
-        (*wrapper)._field_4c4 = gfx2;
+        let gfx2 = GfxDir::alloc(gfx_dir_vtable);
+        (*wrapper).secondary_gfx_dir = gfx2 as *mut u8;
 
         let fp = fopen(gfx_c_path.as_ptr(), b"rb\0".as_ptr());
-        *(gfx2.add(0x198) as *mut *mut u8) = fp;
-        if fp.is_null()
-            || call_gfx_load_dir(gfx2, crate::render::gfx_handler::gfx_load_dir_addr()) == 0
-        {
+        (*gfx2).file_handle = fp;
+        let load_addr = crate::render::gfx_dir::gfx_load_dir_addr();
+        if fp.is_null() || call_gfx_load_dir(gfx2 as *mut u8, load_addr) == 0 {
             let fp2 = fopen(b"data\\Gfx\\Gfx.dir\0".as_ptr(), b"rb\0".as_ptr());
-            *(gfx2.add(0x198) as *mut *mut u8) = fp2;
-            if fp2.is_null()
-                || call_gfx_load_dir(gfx2, crate::render::gfx_handler::gfx_load_dir_addr()) == 0
-            {
+            (*gfx2).file_handle = fp2;
+            if fp2.is_null() || call_gfx_load_dir(gfx2 as *mut u8, load_addr) == 0 {
                 panic!("DDGame: couldn't open secondary Gfx.dir");
             }
         }
@@ -840,16 +831,9 @@ unsafe fn init_graphics_and_resources(
             call_usercall_eax(wrapper, FUN_570A90_ADDR);
         }
         let disp = (*wrapper).display;
-        let gfx_handler = (*wrapper)._field_4c0;
+        let gfx_dir = (*wrapper).primary_gfx_dir;
         DDDisplay::set_layer_color(disp, 1, 0xFE);
-        DDDisplay::load_sprite(
-            disp,
-            1,
-            1,
-            0,
-            gfx_handler,
-            rb(va::STR_CDROM_SPR) as *const u8,
-        );
+        DDDisplay::load_sprite(disp, 1, 1, 0, gfx_dir, rb(va::STR_CDROM_SPR) as *const u8);
         DDDisplay::set_layer_visibility(disp, 1, -100);
 
         // Palette slot range init
@@ -880,7 +864,7 @@ unsafe fn init_graphics_and_resources(
     if (*wrapper).gfx_mode != 0 {
         // The layer_ctx is used as the output buffer, not a plain stack alloc.
         let res = gfx_resource_create(
-            (*wrapper)._field_4c0,
+            (*wrapper).primary_gfx_dir,
             rb(va::STR_COLOURS_IMG) as *const u8,
             layer_ctx,
         );
@@ -906,7 +890,7 @@ unsafe fn init_graphics_and_resources(
     }
 
     // ── Secondary GfxDir object (DDGame+0x2C, conditional) ──
-    if !(*wrapper)._field_4c4.is_null() {
+    if !(*wrapper).secondary_gfx_dir.is_null() {
         let gfxdir2 = wa_malloc(0x70C);
         core::ptr::write_bytes(gfxdir2, 0, 0x70C);
         *(gfxdir2 as *mut u16) = 1;
@@ -952,14 +936,13 @@ unsafe fn init_graphics_and_resources(
         }
     }
 
-    // ── GfxResource: thiscall(ECX=gfx_handler) + EAX=name + 1 stack(output), RET 0x4 ──
+    // ── GfxResource: thiscall(ECX=gfx_dir) + EAX=name + 1 stack(output), RET 0x4 ──
     let gfx_resource: *mut u8;
     {
-        let gfx_handler = (*wrapper)._field_4c0;
+        let gfx_dir = (*wrapper).primary_gfx_dir;
         let out_buf = wa_malloc(0x900);
         core::ptr::write_bytes(out_buf, 0, 0x900);
-        gfx_resource =
-            gfx_resource_create(gfx_handler, rb(va::STR_MASKS_IMG) as *const u8, out_buf);
+        gfx_resource = gfx_resource_create(gfx_dir, rb(va::STR_MASKS_IMG) as *const u8, out_buf);
     }
 
     // ── PCLandscape (alloc 0xB44, stdcall 11 params) ──
@@ -1054,7 +1037,7 @@ unsafe fn init_graphics_and_resources(
 
     // ── Arrow sprites + collision regions (32 iterations) ──
     {
-        let gfx_handler = (*wrapper)._field_4c0;
+        let gfx_dir = (*wrapper).primary_gfx_dir;
 
         for i in 0u32..32 {
             // Format "arrow%02u.img\0" into stack buffer
@@ -1064,25 +1047,25 @@ unsafe fn init_graphics_and_resources(
 
             let layer_ctx = DDDisplay::set_active_layer((*ddgame).display, 1);
 
-            let entry = gfx_dir_find_entry(name_buf.as_ptr(), gfx_handler);
+            let entry = gfx_dir_find_entry(name_buf.as_ptr(), gfx_dir);
 
             let sprite: *mut u8;
             if !entry.is_null() {
-                // Try gfx_handler->vtable[2](entry->field_4)
-                let gfx_vt = *(gfx_handler as *const *const u32);
+                // Try gfx_dir->vtable[2](entry->field_4)
+                let gfx_vt = *(gfx_dir as *const *const u32);
                 let load_cached: unsafe extern "thiscall" fn(*mut u8, u32) -> *mut u8 =
                     core::mem::transmute(*gfx_vt.add(2));
                 let entry_val = *(entry.add(4) as *const u32);
-                let cached = load_cached(gfx_handler, entry_val);
+                let cached = load_cached(gfx_dir, entry_val);
                 if !cached.is_null() {
                     sprite = wa_displaygfx_ctor(cached);
                 } else {
                     // Fallback: load from file via GfxDir__LoadImage + IMG_Decode
-                    sprite = call_gfx_load_and_wrap(gfx_handler, name_buf.as_ptr(), layer_ctx);
+                    sprite = call_gfx_load_and_wrap(gfx_dir, name_buf.as_ptr(), layer_ctx);
                 }
             } else {
                 // Entry not found — try direct file load
-                sprite = call_gfx_load_and_wrap(gfx_handler, name_buf.as_ptr(), layer_ctx);
+                sprite = call_gfx_load_and_wrap(gfx_dir, name_buf.as_ptr(), layer_ctx);
             }
 
             // Store arrow sprite at DDGame+0x38+i*4
@@ -1124,7 +1107,7 @@ unsafe fn init_graphics_and_resources(
                 let gfx_resource_create: unsafe extern "thiscall" fn(*mut u8, *mut u8) -> *mut u8 =
                     core::mem::transmute(rb(va::GFX_RESOURCE_CREATE) as usize);
                 (*ddgame).arrow_gfxdirs[i as usize] =
-                    gfx_resource_create(gfx_handler, core::ptr::null_mut());
+                    gfx_resource_create(gfx_dir, core::ptr::null_mut());
             }
         }
     }
@@ -1200,12 +1183,12 @@ unsafe fn init_graphics_and_resources(
 
     // ── Sprite resource loading via DDGameWrapper vtable[0] ──
     // DDNetGameWrapper__LoadResourceList: thiscall(ECX=wrapper) +
-    // 5 stack params (layer, gfx_handler, base_path, data_table, table_size)
+    // 5 stack params (layer, gfx_dir, base_path, data_table, table_size)
     {
         let landscape_ptr = (*wrapper).landscape;
-        let water_layer = (*landscape_ptr).water_gfx_handler;
-        let land_layer = (*landscape_ptr).level_gfx_handler;
-        let gfx_handler = (*wrapper)._field_4c0;
+        let water_layer = (*landscape_ptr).water_gfx_dir;
+        let land_layer = (*landscape_ptr).level_gfx_dir;
+        let gfx_dir = (*wrapper).primary_gfx_dir;
 
         let wrapper_vt = *(wrapper as *const *const u32);
         let load_resource_list: unsafe extern "thiscall" fn(
@@ -1220,7 +1203,7 @@ unsafe fn init_graphics_and_resources(
         load_resource_list(
             wrapper,
             1,
-            gfx_handler,
+            gfx_dir,
             rb(va::SPRITE_RESOURCE_BASE_PATH) as *const u8, // base path
             rb(va::SPRITE_RESOURCE_TABLE_1) as *const u8,
             0x1D88, // table size
@@ -1233,7 +1216,7 @@ unsafe fn init_graphics_and_resources(
         load_resource_list(
             wrapper,
             1,
-            gfx_handler,
+            gfx_dir,
             rb(va::SPRITE_RESOURCE_BASE_PATH) as *const u8,
             rb(va::SPRITE_RESOURCE_TABLE_2) as *const u8,
             0x18,
@@ -1302,7 +1285,7 @@ unsafe fn init_graphics_and_resources(
         }
 
         // ── DDGame__LoadHudAndWeaponSprites (0x53D0E0) ──
-        wa_load_hud_sprites(gfx_handler, ddgame, (*wrapper)._field_4c4);
+        wa_load_hud_sprites(gfx_dir, ddgame, (*wrapper).secondary_gfx_dir);
 
         // ── Loading progress ticks (2 of 4 — after LoadHudAndWeaponSprites) ──
         call_usercall_ecx(wrapper, LOADING_PROGRESS_TICK_ADDR);
@@ -1321,12 +1304,12 @@ unsafe fn init_graphics_and_resources(
     }
 
     // ── Release primary GfxHandler (vtable[3] = release, param 1 = free) ──
-    let gfx_handler_4c0 = (*wrapper)._field_4c0;
-    if !gfx_handler_4c0.is_null() {
-        let gfx_vt = *(gfx_handler_4c0 as *const *const u32);
+    let gfx_dir_4c0 = (*wrapper).primary_gfx_dir;
+    if !gfx_dir_4c0.is_null() {
+        let gfx_vt = *(gfx_dir_4c0 as *const *const u32);
         let release: unsafe extern "thiscall" fn(*mut u8, u32) =
             core::mem::transmute(*gfx_vt.add(3));
-        release(gfx_handler_4c0, 1);
+        release(gfx_dir_4c0, 1);
     }
 
     if !is_headless {

@@ -15,7 +15,7 @@ use crate::hook;
 use openwa_core::address::va;
 use openwa_core::engine::ddgame::{
     bit_grid_init, ddgame_init_fields, ddgame_init_render_indices, display_layer_color_init,
-    gfx_dir_find_entry, gfx_handler_load_dir, gfx_resource_create, DDGame,
+    gfx_dir_find_entry, gfx_dir_load_dir, gfx_resource_create, DDGame,
 };
 use openwa_core::engine::DDGameWrapper;
 
@@ -83,10 +83,9 @@ extern "cdecl" fn impl_display_layer_init(wrapper: u32) -> u32 {
 
 // ─── GfxResource__Create_Maybe (0x4F6300) ───────────────────────────────────
 
-extern "cdecl" fn impl_gfx_resource_create(gfx_handler: u32, name: u32, output: u32) -> u32 {
-    let result = unsafe {
-        gfx_resource_create(gfx_handler as *mut u8, name as *const u8, output as *mut u8)
-    };
+extern "cdecl" fn impl_gfx_resource_create(gfx_dir: u32, name: u32, output: u32) -> u32 {
+    let result =
+        unsafe { gfx_resource_create(gfx_dir as *mut u8, name as *const u8, output as *mut u8) };
     result as u32
 }
 
@@ -96,7 +95,7 @@ unsafe extern "C" fn gfx_resource_create_trampoline() {
         "push edx",
         "push [esp+8]",       // output (stack param)
         "push eax",           // name
-        "push ecx",           // gfx_handler
+        "push ecx",           // gfx_dir
         "call {impl_fn}",
         "add esp, 12",
         "pop edx",
@@ -107,7 +106,7 @@ unsafe extern "C" fn gfx_resource_create_trampoline() {
 
 // ─── GfxDir__FindEntry (0x566520) ────────────────────────────────────────────
 //
-// Convention: usercall(EAX=name) + 1 stack(gfx_handler), RET 0x4.
+// Convention: usercall(EAX=name) + 1 stack(gfx_dir), RET 0x4.
 
 hook::usercall_trampoline!(
     fn find_entry_trampoline;
@@ -118,8 +117,8 @@ hook::usercall_trampoline!(
 
 static FIND_ENTRY_LOG_COUNT: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(0);
 
-extern "cdecl" fn impl_find_entry(name: u32, gfx_handler: u32) -> u32 {
-    let result = unsafe { gfx_dir_find_entry(name as *const u8, gfx_handler as *mut u8) };
+extern "cdecl" fn impl_find_entry(name: u32, gfx_dir: u32) -> u32 {
+    let result = unsafe { gfx_dir_find_entry(name as *const u8, gfx_dir as *mut u8) };
 
     // Log first 20 lookups for debugging
     let count = FIND_ENTRY_LOG_COUNT.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
@@ -151,7 +150,7 @@ hook::usercall_trampoline!(
 );
 
 extern "cdecl" fn impl_load_dir(handler: u32) -> u32 {
-    unsafe { gfx_handler_load_dir(handler as *mut u8) as u32 }
+    unsafe { gfx_dir_load_dir(handler as *mut u8) as u32 }
 }
 
 // ─── Hook installation ──────────────────────────────────────────────────────
@@ -196,7 +195,7 @@ pub fn install() -> Result<(), String> {
 
         hook::install(
             "GfxHandler__LoadDir",
-            va::GFX_HANDLER_LOAD_DIR,
+            va::GFX_DIR_LOAD_DIR,
             load_dir_trampoline as *const (),
         )?;
     }

@@ -116,7 +116,7 @@ fn validate_addresses(result: &mut ValidationResult) {
             va::CGAMETASK_SOUND_EMITTER_VT,
         ),
         ("DDGameWrapper vtable", va::DDGAME_WRAPPER_VTABLE),
-        ("GfxHandler vtable", va::GFX_HANDLER_VTABLE),
+        ("GfxHandler vtable", va::GFX_DIR_VTABLE),
         ("DisplayGfx vtable", va::DISPLAY_GFX_VTABLE),
         ("PCLandscape vtable", va::PC_LANDSCAPE_VTABLE),
         ("LandscapeShader vtable", va::LANDSCAPE_SHADER_VTABLE),
@@ -316,7 +316,7 @@ fn validate_struct_offsets(result: &mut ValidationResult) {
     let _ = log_validation("  DDGameWrapper:");
     check_offset!(result, DDGameWrapper, vtable, 0x00);
     check_offset!(result, DDGameWrapper, ddgame, 0x488);
-    check_offset!(result, DDGameWrapper, _field_4c0, 0x4C0);
+    check_offset!(result, DDGameWrapper, primary_gfx_dir, 0x4C0);
     check_offset!(result, DDGameWrapper, landscape, 0x4CC);
     check_offset!(result, DDGameWrapper, display, 0x4D0);
 
@@ -825,12 +825,12 @@ fn dump_landscape() {
             land.resource_handle as u32
         ));
         let _ = log_validation(&format!(
-            "  level_gfx_handler: 0x{:08X}",
-            land.level_gfx_handler as u32
+            "  level_gfx_dir: 0x{:08X}",
+            land.level_gfx_dir as u32
         ));
         let _ = log_validation(&format!(
-            "  water_gfx_handler: 0x{:08X}",
-            land.water_gfx_handler as u32
+            "  water_gfx_dir: 0x{:08X}",
+            land.water_gfx_dir as u32
         ));
         let _ = log_validation(&format!(
             "  visible_bounds: left={} top={} right={} bottom={}",
