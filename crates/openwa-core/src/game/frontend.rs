@@ -21,7 +21,6 @@
 #[repr(i32)]
 pub enum ScreenId {
     // --- Dialog result codes (not main-loop dispatch targets) ---
-
     /// Cancel / return to previous screen (EndDialog result only)
     Cancel = 0,
     /// Splash / intro trigger (result code)
@@ -34,7 +33,6 @@ pub enum ScreenId {
     SinglePlayerConfirm = 5,
 
     // --- Valid main-loop screen IDs ---
-
     /// Deathmatch setup dialog (constructor 0x440F40)
     Deathmatch = 10,
     /// Local multiplayer setup dialog (constructor 0x49C420)
@@ -80,7 +78,6 @@ pub enum ScreenId {
     // 35/36 and 37/38 form offline/online pairs:
     //   Start Game path: this+0x244 flag → 35 (no network) / 36 (network)
     //   Multiplayer path: this+0x140 flag → 37 (no network) / 38 (network)
-
     /// Scheme/weapon editor done — return from editor
     SchemeEditorDone = 32,
     /// Start game, network unavailable (offline/local path)
@@ -101,7 +98,6 @@ pub enum ScreenId {
     InGameC = 58,
 
     // --- Network/lobby screen IDs (high range, 0x6A4-0x6AB) ---
-
     /// Network provider selection dialog (constructor 0x4A7990)
     NetworkProviderSelect = 1700,
     /// Network settings dialog (constructor 0x4C23C0)

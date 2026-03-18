@@ -5,8 +5,8 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 use minhook::MinHook;
 
-use openwa_core::rebase::rb;
 use openwa_core::address::va;
+use openwa_core::rebase::rb;
 
 use super::log_validation;
 
@@ -39,7 +39,12 @@ unsafe extern "stdcall" fn hook_ctask_constructor(this: u32, parent: u32, ddgame
 
 static ORIG_CGAMETASK_CONSTRUCTOR: AtomicU32 = AtomicU32::new(0);
 
-unsafe extern "stdcall" fn hook_cgametask_constructor(this: u32, parent: u32, param3: u32, param4: u32) -> u32 {
+unsafe extern "stdcall" fn hook_cgametask_constructor(
+    this: u32,
+    parent: u32,
+    param3: u32,
+    param4: u32,
+) -> u32 {
     let orig: unsafe extern "stdcall" fn(u32, u32, u32, u32) -> u32 =
         core::mem::transmute(ORIG_CGAMETASK_CONSTRUCTOR.load(Ordering::Relaxed));
     orig(this, parent, param3, param4)

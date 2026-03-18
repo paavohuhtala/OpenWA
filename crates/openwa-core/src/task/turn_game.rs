@@ -1,5 +1,5 @@
-use crate::fixed::Fixed;
 use super::base::CTask;
+use crate::fixed::Fixed;
 
 /// Embedded intermediate game-context sub-object within `CTaskTurnGame`.
 ///
@@ -100,7 +100,6 @@ pub struct CTaskTurnGame {
     pub game_ctx: TurnGameCtx,
 
     // ---- CTaskTurnGame-specific fields (0xDC onwards) ----
-
     pub _unknown_dc: u32,
     pub _unknown_e0: u32,
     /// 0xE4: turn-seed: ~(DDGame+0x45EC % 9000), used for random initialisation.

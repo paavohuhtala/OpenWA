@@ -723,7 +723,6 @@ impl TryFrom<u32> for SpriteId {
 // Sprite struct layout (from Ghidra + wkJellyWorm Sprites.h)
 // ---------------------------------------------------------------------------
 
-
 /// Per-frame metadata within a Sprite (0x0C bytes).
 ///
 /// Describes the bounding box and bitmap data offset for one animation frame.

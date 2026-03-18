@@ -1,5 +1,5 @@
-use crate::fixed::Fixed;
 use super::base::CTask;
+use crate::fixed::Fixed;
 
 /// Per-team state-tracker task — one instance per team, child of CTaskTurnGame.
 ///

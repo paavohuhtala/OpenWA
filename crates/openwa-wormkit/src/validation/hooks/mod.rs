@@ -1,5 +1,5 @@
-pub mod vtable;
 pub mod detour;
+pub mod vtable;
 
 use super::log_validation;
 

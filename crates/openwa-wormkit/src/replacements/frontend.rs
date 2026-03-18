@@ -6,10 +6,10 @@
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use crate::log_line;
-use openwa_core::wa::mfc::{CDialogHandle, CWndHandle};
-use openwa_core::wa_call;
 use openwa_core::address::va;
 use openwa_core::game::ScreenId;
+use openwa_core::wa::mfc::{CDialogHandle, CWndHandle};
+use openwa_core::wa_call;
 
 // Frontend dialog struct offsets (MFC CDialog-derived)
 const DIALOG_FLAGS: usize = 0x3C;
@@ -67,7 +67,9 @@ unsafe extern "cdecl" fn frontend_change_screen_impl(dialog: u32, screen_id: u32
     let name = ScreenId::try_from(screen_id as i32)
         .map(|s| format!("{s:?}"))
         .unwrap_or_else(|v| format!("Unknown({v})"));
-    let _ = log_line(&format!("[FrontendChangeScreen] screen_id={screen_id} ({name})"));
+    let _ = log_line(&format!(
+        "[FrontendChangeScreen] screen_id={screen_id} ({name})"
+    ));
 }
 
 pub fn install() -> Result<(), String> {

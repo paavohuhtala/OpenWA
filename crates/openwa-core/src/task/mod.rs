@@ -1,25 +1,25 @@
 mod base;
 mod cloud;
-mod supply_crate;
 mod filter;
 mod fire;
 mod game_task;
 mod mine_oil_drum;
 mod missile;
 mod overlays;
+mod supply_crate;
 mod team;
 mod turn_game;
 mod worm;
 
 pub use base::{CTask, CTaskBfsIter, SharedDataIter, SharedDataNode, SharedDataTable};
 pub use cloud::CTaskCloud;
-pub use supply_crate::CTaskCrate;
 pub use filter::CTaskFilter;
 pub use fire::CTaskFire;
 pub use game_task::{CGameTask, SoundEmitter, SoundEmitterVTable};
 pub use mine_oil_drum::{CTaskMine, CTaskOilDrum};
 pub use missile::{CTaskMissile, MissileType};
 pub use overlays::{BungeeTrailTask, WeaponAimTask};
+pub use supply_crate::CTaskCrate;
 pub use team::CTaskTeam;
 pub use turn_game::{CTaskTurnGame, TurnGameCtx};
 pub use worm::{CTaskWorm, CTaskWormVTable};

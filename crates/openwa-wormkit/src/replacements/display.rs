@@ -5,12 +5,12 @@
 //! - Headless vtable (0x66A0F8): replaces destructor with Rust version that
 //!   correctly frees our Rust-allocated sprite cache sub-objects
 
+use crate::log_line;
 use openwa_core::address::va;
-use openwa_core::display::{DisplayBase, SpriteCacheWrapper, SpriteBufferCtrl};
+use openwa_core::display::{DisplayBase, SpriteBufferCtrl, SpriteCacheWrapper};
 use openwa_core::rebase::rb;
 use openwa_core::vtable::patch_vtable;
 use openwa_core::wa_alloc::wa_free;
-use crate::log_line;
 
 /// The _purecall function address (calls abort).
 const PURECALL: u32 = 0x005D_4E16;

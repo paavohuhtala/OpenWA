@@ -326,15 +326,12 @@ macro_rules! install_trap {
     ($name:literal, $addr:expr) => {{
         unsafe extern "C" fn trap() {
             panic!(concat!(
-                "TRAP: ", $name,
+                "TRAP: ",
+                $name,
                 " called by WA.exe — all callers should be Rust"
             ));
         }
-        let _ = hook::install(
-            concat!($name, " [TRAP]"),
-            $addr,
-            trap as *const (),
-        )?;
+        let _ = hook::install(concat!($name, " [TRAP]"), $addr, trap as *const ())?;
     }};
 }
 

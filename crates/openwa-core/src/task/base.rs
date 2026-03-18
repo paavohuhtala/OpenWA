@@ -1,5 +1,5 @@
-use crate::game::class_type::ClassType;
 use crate::engine::ddgame::DDGame;
+use crate::game::class_type::ClassType;
 
 /// Base task class in WA's entity hierarchy.
 ///
@@ -114,7 +114,9 @@ impl SharedDataTable {
     /// # Safety
     /// `ptr` must point to a valid shared-data region of at least 256 × 4 = 1024 bytes.
     pub unsafe fn from_ptr(ptr: *mut u8) -> Self {
-        Self { buckets: ptr as *const *mut SharedDataNode }
+        Self {
+            buckets: ptr as *const *mut SharedDataNode,
+        }
     }
 
     /// Construct from a `CTask` pointer (reads `task.shared_data`).

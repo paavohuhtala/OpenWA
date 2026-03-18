@@ -49,9 +49,15 @@ impl Palette {
     }
 
     /// Vtable[4]: Reset palette state.
-    pub unsafe fn reset(&mut self) { vcall!(self, reset) }
+    pub unsafe fn reset(&mut self) {
+        vcall!(self, reset)
+    }
     /// Vtable[3]: Initialize palette.
-    pub unsafe fn init(&mut self) { vcall!(self, init) }
+    pub unsafe fn init(&mut self) {
+        vcall!(self, init)
+    }
     /// Vtable[2]: Set palette mode.
-    pub unsafe fn set_mode(&mut self, mode: u32) { vcall!(self, set_mode, mode) }
+    pub unsafe fn set_mode(&mut self, mode: u32) {
+        vcall!(self, set_mode, mode)
+    }
 }

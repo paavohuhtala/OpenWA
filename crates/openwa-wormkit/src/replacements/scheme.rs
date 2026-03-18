@@ -15,12 +15,12 @@ use std::path::Path;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use crate::log_line;
-use openwa_core::rebase::rb;
 use openwa_core::address::va;
 use openwa_core::game::scheme::{
     ExtendedOptions, SchemeFile, SchemeVersion, EXTENDED_OPTIONS_DEFAULTS, EXTENDED_OPTIONS_SIZE,
     SCHEME_PAYLOAD_V1, SCHEME_PAYLOAD_V2, SCHEME_PAYLOAD_V3,
 };
+use openwa_core::rebase::rb;
 
 // ============================================================
 // Scheme__ReadFile replacement (0x4D3890)
@@ -63,11 +63,7 @@ unsafe fn write_scheme_to_dest(scheme: &SchemeFile, dest: u32) {
 
     match scheme.version {
         SchemeVersion::V1 => {
-            core::ptr::copy_nonoverlapping(
-                scheme.payload.as_ptr(),
-                payload_ptr,
-                SCHEME_PAYLOAD_V1,
-            );
+            core::ptr::copy_nonoverlapping(scheme.payload.as_ptr(), payload_ptr, SCHEME_PAYLOAD_V1);
             core::ptr::write_bytes(
                 payload_ptr.add(PAYLOAD_SUPER_WEAPONS),
                 0,
@@ -80,11 +76,7 @@ unsafe fn write_scheme_to_dest(scheme: &SchemeFile, dest: u32) {
             );
         }
         SchemeVersion::V2 => {
-            core::ptr::copy_nonoverlapping(
-                scheme.payload.as_ptr(),
-                payload_ptr,
-                SCHEME_PAYLOAD_V2,
-            );
+            core::ptr::copy_nonoverlapping(scheme.payload.as_ptr(), payload_ptr, SCHEME_PAYLOAD_V2);
             core::ptr::copy_nonoverlapping(
                 EXTENDED_OPTIONS_DEFAULTS.as_ptr(),
                 payload_ptr.add(PAYLOAD_EXTENDED),
@@ -92,11 +84,7 @@ unsafe fn write_scheme_to_dest(scheme: &SchemeFile, dest: u32) {
             );
         }
         SchemeVersion::V3 => {
-            core::ptr::copy_nonoverlapping(
-                scheme.payload.as_ptr(),
-                payload_ptr,
-                SCHEME_PAYLOAD_V3,
-            );
+            core::ptr::copy_nonoverlapping(scheme.payload.as_ptr(), payload_ptr, SCHEME_PAYLOAD_V3);
             let ext_bytes = &scheme.payload[PAYLOAD_EXTENDED..];
             if !ExtendedOptions::validate_bytes(ext_bytes) {
                 core::ptr::copy_nonoverlapping(
@@ -284,12 +272,7 @@ static ORIG_SCHEME_SAVE_FILE: AtomicU32 = AtomicU32::new(0);
 ///
 /// Detects scheme version from in-memory data, writes SCHM header + payload.
 /// For V3, writes variable-length payload (only bytes differing from defaults).
-unsafe extern "fastcall" fn hook_save_file(
-    this: u32,
-    _edx: u32,
-    name: u32,
-    flag: u32,
-) -> u32 {
+unsafe extern "fastcall" fn hook_save_file(this: u32, _edx: u32, name: u32, flag: u32) -> u32 {
     let c_name = match CStr::from_ptr(name as *const i8).to_str() {
         Ok(s) => s,
         Err(_) => {
@@ -366,11 +349,7 @@ unsafe extern "fastcall" fn hook_init_from_data(
 
     // Step 3: Copy 110 bytes of V3 defaults from ROM to dest+0x138
     let defaults = rb(va::SCHEME_V3_DEFAULTS) as *const u8;
-    core::ptr::copy_nonoverlapping(
-        defaults,
-        (dest + 0x138) as *mut u8,
-        EXTENDED_OPTIONS_SIZE,
-    );
+    core::ptr::copy_nonoverlapping(defaults, (dest + 0x138) as *mut u8, EXTENDED_OPTIONS_SIZE);
 
     // Step 4: Set flag byte and index
     *((dest + 0x04) as *mut u8) = 0;
@@ -501,20 +480,20 @@ unsafe fn scan_directory_recursive(dir: &str) {
 /// AfxFindStringResourceHandle, which is not accessible via plain LoadStringA.
 /// The names are fixed across all WA 3.8.1 installations.
 const BUILTIN_SCHEME_NAMES: [&str; 14] = [
-    "",                // slot 0 unused
-    "Beginner",        // slot 1, resource 0x3CA
-    "Intermediate",    // slot 2, resource 0x3CB
-    "Pro",             // slot 3, resource 0x3CC
-    "Tournament",      // slot 4, resource 0x3D1
-    "Classic",         // slot 5, resource 0x3CD
-    "Retro",           // slot 6, resource 0x3D2
-    "Artillery",       // slot 7, resource 0x3D5
-    "Sudden Sinking",  // slot 8, resource 0x3D0
-    "Strategic",       // slot 9, resource 0x3D3
-    "The Darkside",    // slot 10, resource 0x3D4
-    "Armageddon",      // slot 11, resource 0x3CE
-    "Blast Zone",      // slot 12, resource 0x3CF
-    "Full Wormage",    // slot 13, resource 0x3D6
+    "",               // slot 0 unused
+    "Beginner",       // slot 1, resource 0x3CA
+    "Intermediate",   // slot 2, resource 0x3CB
+    "Pro",            // slot 3, resource 0x3CC
+    "Tournament",     // slot 4, resource 0x3D1
+    "Classic",        // slot 5, resource 0x3CD
+    "Retro",          // slot 6, resource 0x3D2
+    "Artillery",      // slot 7, resource 0x3D5
+    "Sudden Sinking", // slot 8, resource 0x3D0
+    "Strategic",      // slot 9, resource 0x3D3
+    "The Darkside",   // slot 10, resource 0x3D4
+    "Armageddon",     // slot 11, resource 0x3CE
+    "Blast Zone",     // slot 12, resource 0x3CF
+    "Full Wormage",   // slot 13, resource 0x3D6
 ];
 
 /// Rust replacement for Scheme__ExtractBuiltins (0x4D5720).
@@ -581,9 +560,7 @@ static ORIG_LOAD_NUMBERED: AtomicU32 = AtomicU32::new(0);
 /// This function has zero xrefs in WA.exe (believed dead code).
 /// We hook it to detect if it's actually called at runtime.
 unsafe extern "stdcall" fn hook_load_numbered(name: u32) -> u32 {
-    let c_name = CStr::from_ptr(name as *const i8)
-        .to_str()
-        .unwrap_or("???");
+    let c_name = CStr::from_ptr(name as *const i8).to_str().unwrap_or("???");
     let _ = log_line(&format!(
         "[Scheme] WARNING: LoadNumbered called (believed dead code): {c_name}"
     ));

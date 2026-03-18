@@ -149,8 +149,8 @@ mod iat {
         original_first_thunk: u32, // RVA to INT (Import Name Table)
         time_date_stamp: u32,
         forwarder_chain: u32,
-        name: u32,            // RVA to DLL name string
-        first_thunk: u32,     // RVA to IAT (Import Address Table) — this is what we patch
+        name: u32,        // RVA to DLL name string
+        first_thunk: u32, // RVA to IAT (Import Address Table) — this is what we patch
     }
 
     /// PE import-by-name entry
@@ -434,8 +434,8 @@ mod tests {
         let img = wa();
 
         let valid_prologues: &[u8] = &[
-            0x55, 0x56, 0x57, 0x83, 0x8B, 0x6A, 0x81, 0xB8,
-            0x51, 0x52, 0x64, 0x85, 0x8D, 0x53, 0xC2, 0xC3, 0x33,
+            0x55, 0x56, 0x57, 0x83, 0x8B, 0x6A, 0x81, 0xB8, 0x51, 0x52, 0x64, 0x85, 0x8D, 0x53,
+            0xC2, 0xC3, 0x33,
         ];
 
         // Read all CTask vtable entries and check their prologues
@@ -501,7 +501,10 @@ mod tests {
 
         *heap_handle_ptr = heap as u32;
         *heap_type_ptr = 1; // Simple HeapAlloc mode — no SBH
-        eprintln!("  CRT heap initialized: handle=0x{:08X}, type=1", heap as u32);
+        eprintln!(
+            "  CRT heap initialized: handle=0x{:08X}, type=1",
+            heap as u32
+        );
     }
 
     #[test]
@@ -509,7 +512,9 @@ mod tests {
         let _lock = mutation_lock().lock().unwrap();
         let img = wa();
         img.patch_imports().expect("IAT patching failed");
-        unsafe { init_wa_crt_heap(img); }
+        unsafe {
+            init_wa_crt_heap(img);
+        }
 
         // thunk_FUN_005c0ab8 is __cdecl: (size) -> ptr
         // This is WA's malloc wrapper — calls _malloc, checks for null
@@ -540,7 +545,9 @@ mod tests {
         let _lock = mutation_lock().lock().unwrap();
         let img = wa();
         img.patch_imports().expect("IAT patching failed");
-        unsafe { init_wa_crt_heap(img); }
+        unsafe {
+            init_wa_crt_heap(img);
+        }
 
         // Initialize security cookie (needed for stack protection in SEH functions)
         const SECURITY_INIT_COOKIE: u32 = 0x005E_7EAB;
@@ -552,7 +559,8 @@ mod tests {
         }
 
         // CTask::Constructor is __stdcall: (this, parent, ddgame) -> this
-        type CTaskCtorFn = unsafe extern "stdcall" fn(this: *mut u8, parent: u32, ddgame: u32) -> *mut u8;
+        type CTaskCtorFn =
+            unsafe extern "stdcall" fn(this: *mut u8, parent: u32, ddgame: u32) -> *mut u8;
 
         unsafe {
             let ctor: CTaskCtorFn = img.func_ptr(va::CTASK_CONSTRUCTOR);
@@ -571,7 +579,8 @@ mod tests {
             let vtable = *(task_ptr as *const u32);
             let vtable_ghidra = img.to_ghidra(vtable);
             assert_eq!(
-                vtable_ghidra, va::CTASK_VTABLE,
+                vtable_ghidra,
+                va::CTASK_VTABLE,
                 "CTask vtable: expected 0x{:08X}, got 0x{vtable_ghidra:08X}",
                 va::CTASK_VTABLE
             );

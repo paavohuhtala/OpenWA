@@ -2,8 +2,8 @@
 
 use std::ffi::c_void;
 
-pub mod hook;
 mod debug_ui;
+pub mod hook;
 mod replacements;
 mod validation;
 
@@ -53,6 +53,11 @@ fn run() -> Result<(), String> {
     let _ = clear_log();
     let _ = std::fs::write("OpenWA_validation.log", "");
 
+    // Install panic hook that writes to our log file
+    std::panic::set_hook(Box::new(|info| {
+        let _ = log_line(&format!("[PANIC] {info}"));
+    }));
+
     let delta = openwa_core::rebase::init();
     let _ = log_line(&format!(
         "=== OpenWA WormKit DLL loaded ===\n  ASLR delta: 0x{delta:08X}"
@@ -88,8 +93,8 @@ fn run() -> Result<(), String> {
 /// Signal the `OpenWA_HooksReady` named event so the launcher knows it's
 /// safe to resume WA.exe's main thread.
 fn signal_hooks_ready() {
-    use windows_sys::Win32::System::Threading::{OpenEventA, SetEvent};
     use windows_sys::Win32::Foundation::CloseHandle;
+    use windows_sys::Win32::System::Threading::{OpenEventA, SetEvent};
 
     const EVENT_MODIFY_STATE: u32 = 0x0002;
 

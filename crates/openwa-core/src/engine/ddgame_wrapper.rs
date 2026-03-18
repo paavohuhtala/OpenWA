@@ -1,6 +1,6 @@
+use crate::audio::dssound::DSSound;
 use crate::display::dd_display::DDDisplay;
 use crate::engine::ddgame::DDGame;
-use crate::audio::dssound::DSSound;
 use crate::render::landscape::PCLandscape;
 
 /// Speech name table entry size (0x40 = 64 bytes, null-terminated C string).

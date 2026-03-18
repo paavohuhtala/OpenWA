@@ -18,7 +18,12 @@ use crate::hook::{self, usercall_trampoline};
 // __usercall: EAX = team_index, EDX = amount, [ESP+4] = team_info_base, [ESP+8] = weapon_id
 // RET 0x8
 
-unsafe extern "cdecl" fn add_ammo_impl(team_index: u32, amount: i32, arena: TeamArenaRef, weapon_id: u32) {
+unsafe extern "cdecl" fn add_ammo_impl(
+    team_index: u32,
+    amount: i32,
+    arena: TeamArenaRef,
+    weapon_id: u32,
+) {
     let idx = arena.ammo_index(team_index as usize, weapon_id);
     let state = arena.state_mut();
     let ammo = state.get_ammo(idx);
@@ -58,7 +63,11 @@ usercall_trampoline!(fn trampoline_subtract_ammo; impl_fn = subtract_ammo_impl;
 // __usercall: EAX = team_index, ESI = team_info_base, EDX = weapon_id
 // plain RET, returns EAX = ammo count
 
-unsafe extern "cdecl" fn get_ammo_impl(team_index: u32, arena: TeamArenaRef, weapon_id: u32) -> u32 {
+unsafe extern "cdecl" fn get_ammo_impl(
+    team_index: u32,
+    arena: TeamArenaRef,
+    weapon_id: u32,
+) -> u32 {
     let idx = arena.ammo_index(team_index as usize, weapon_id);
     let state = arena.state();
 
@@ -69,7 +78,9 @@ unsafe extern "cdecl" fn get_ammo_impl(team_index: u32, arena: TeamArenaRef, wea
         }
         // In sudden death (phase >= 484), delayed weapons return 0
         // unless it's Teleport (weapon 0x28)
-        if state.game_phase >= ddgame::GAME_PHASE_SUDDEN_DEATH && weapon_id != Weapon::Teleport as u32 {
+        if state.game_phase >= ddgame::GAME_PHASE_SUDDEN_DEATH
+            && weapon_id != Weapon::Teleport as u32
+        {
             return 0;
         }
     }
@@ -102,7 +113,11 @@ unsafe extern "cdecl" fn count_alive_worms_impl(team_index: u32, arena: TeamAren
             alive += 1;
         }
     }
-    if alive > 1 { 1 } else { 0 }
+    if alive > 1 {
+        1
+    } else {
+        0
+    }
 }
 
 usercall_trampoline!(fn trampoline_count_alive_worms; impl_fn = count_alive_worms_impl;
@@ -114,17 +129,9 @@ usercall_trampoline!(fn trampoline_count_alive_worms; impl_fn = count_alive_worm
 
 pub fn install() -> Result<(), String> {
     unsafe {
-        let _ = hook::install(
-            "AddAmmo",
-            va::ADD_AMMO,
-            trampoline_add_ammo as *const (),
-        )?;
+        let _ = hook::install("AddAmmo", va::ADD_AMMO, trampoline_add_ammo as *const ())?;
 
-        let _ = hook::install(
-            "GetAmmo",
-            va::GET_AMMO,
-            trampoline_get_ammo as *const (),
-        )?;
+        let _ = hook::install("GetAmmo", va::GET_AMMO, trampoline_get_ammo as *const ())?;
 
         let _ = hook::install(
             "SubtractAmmo",

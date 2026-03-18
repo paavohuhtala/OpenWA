@@ -10,16 +10,15 @@
 use std::sync::atomic::Ordering;
 
 use openwa_core::address::va;
+use openwa_core::audio::{play_sound, play_sound_pooled, SoundId};
 use openwa_core::engine::{DDGame, DDGameWrapper, SoundQueueEntry};
-use openwa_core::audio::{SoundId, play_sound, play_sound_pooled};
 use openwa_core::task::{CGameTask, CTask};
 
 use crate::hook;
 use crate::log_line;
 
 /// Whether sound logging is enabled (checked once at init).
-static SOUND_LOG_ENABLED: std::sync::atomic::AtomicBool =
-    std::sync::atomic::AtomicBool::new(false);
+static SOUND_LOG_ENABLED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 // ============================================================
 // Core: sound queue insertion
@@ -172,7 +171,14 @@ unsafe extern "fastcall" fn hook_dispatch_global_sound(
         return 0;
     }
 
-    play_sound(dssound, sound_id, flags as i32, volume as i32, pitch as i32, 0) as u32
+    play_sound(
+        dssound,
+        sound_id,
+        flags as i32,
+        volume as i32,
+        pitch as i32,
+        0,
+    ) as u32
 }
 
 /// PlaySoundPooled_Direct (0x546B50) — fastcall(ECX=unused, EDX=task) + 3 stack, RET 0xC.
@@ -256,16 +262,14 @@ pub fn install() -> Result<(), String> {
 
 /// Patch DSSound vtable (0x66AF20) to replace trivial methods with Rust.
 unsafe fn patch_dssound_vtable() -> Result<(), String> {
+    use openwa_core::audio::{
+        dssound_destructor, dssound_noop, dssound_returns_0, dssound_returns_1,
+        dssound_sub_destructor, is_channel_finished, is_slot_loaded, load_wav, play_sound,
+        play_sound_pooled, release_finished, set_channel_volume, set_master_volume, set_pan,
+        set_volume_params, stop_channel, update_channels,
+    };
     use openwa_core::rebase::rb;
     use openwa_core::vtable::patch_vtable;
-    use openwa_core::audio::{
-        update_channels, release_finished,
-        is_slot_loaded, is_channel_finished, stop_channel,
-        dssound_destructor, play_sound, play_sound_pooled,
-        set_volume_params, set_master_volume, set_channel_volume, set_pan,
-        dssound_sub_destructor,
-        load_wav, dssound_noop, dssound_returns_0, dssound_returns_1,
-    };
 
     let vtable = rb(va::DS_SOUND_VTABLE) as *mut u32;
 
@@ -325,5 +329,6 @@ unsafe fn patch_dssound_vtable() -> Result<(), String> {
         *vt.add(23) = dssound_returns_1 as *const () as u32;
 
         let _ = log_line("[Sound]   DSSound vtable: patched 24/24 slots with Rust");
-    }).map_err(|e| e.to_string())
+    })
+    .map_err(|e| e.to_string())
 }

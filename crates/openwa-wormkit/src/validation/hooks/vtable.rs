@@ -2,8 +2,8 @@
 
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use openwa_core::rebase::rb;
 use openwa_core::address::va;
+use openwa_core::rebase::rb;
 
 use super::log_validation;
 
@@ -34,7 +34,10 @@ impl VtableHook {
         let mut old_protect: u32 = 0;
         let ok = VirtualProtect(slot_addr as *mut _, 4, PAGE_READWRITE, &mut old_protect);
         if ok == 0 {
-            return Err(format!("VirtualProtect failed for {name} at 0x{:08X}", slot_addr as u32));
+            return Err(format!(
+                "VirtualProtect failed for {name} at 0x{:08X}",
+                slot_addr as u32
+            ));
         }
 
         let original_fn = *slot_addr;
@@ -47,7 +50,11 @@ impl VtableHook {
             slot_addr as u32
         ));
 
-        Ok(VtableHook { slot_addr, original_fn, name })
+        Ok(VtableHook {
+            slot_addr,
+            original_fn,
+            name,
+        })
     }
 
     pub fn original(&self) -> u32 {
@@ -66,7 +73,12 @@ unsafe extern "fastcall" fn hook_ctask_process_frame(this: u32, _edx: u32, flags
 static ORIG_CTASK_HANDLE_MESSAGE: AtomicU32 = AtomicU32::new(0);
 
 unsafe extern "fastcall" fn hook_ctask_handle_message(
-    this: u32, _edx: u32, sender: u32, msg_type: u32, size: u32, data: u32,
+    this: u32,
+    _edx: u32,
+    sender: u32,
+    msg_type: u32,
+    size: u32,
+    data: u32,
 ) -> u32 {
     let orig: unsafe extern "fastcall" fn(u32, u32, u32, u32, u32, u32) -> u32 =
         core::mem::transmute(ORIG_CTASK_HANDLE_MESSAGE.load(Ordering::Relaxed));
@@ -76,14 +88,16 @@ unsafe extern "fastcall" fn hook_ctask_handle_message(
 pub fn install() -> Result<(), String> {
     unsafe {
         let hook = VtableHook::install(
-            va::CTASK_VTABLE, 7,
+            va::CTASK_VTABLE,
+            7,
             hook_ctask_process_frame as *const () as u32,
             "CTask::ProcessFrame",
         )?;
         ORIG_CTASK_PROCESS_FRAME.store(hook.original(), Ordering::Relaxed);
 
         let hook = VtableHook::install(
-            va::CTASK_VTABLE, 2,
+            va::CTASK_VTABLE,
+            2,
             hook_ctask_handle_message as *const () as u32,
             "CTask::HandleMessage",
         )?;

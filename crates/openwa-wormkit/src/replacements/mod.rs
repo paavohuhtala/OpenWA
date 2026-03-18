@@ -1,12 +1,13 @@
 mod config;
+mod ddgame_init;
 mod display;
 mod frontend;
 mod game_session;
 mod hardware_init;
 mod headless;
 pub(crate) mod input;
-mod scheme;
 mod render;
+mod scheme;
 mod sound;
 mod speech;
 mod team;
@@ -26,5 +27,6 @@ pub fn install_all() -> Result<(), String> {
     sound::install()?;
     speech::install()?;
     input::install()?;
+    ddgame_init::install()?;
     Ok(())
 }

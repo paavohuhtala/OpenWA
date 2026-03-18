@@ -7,14 +7,11 @@ use windows::Win32::Media::Audio::DirectSound::IDirectSoundBuffer;
 /// Index 0 = silence (-10000 dB), index 63 = near-unity (-22 dB).
 /// Used by set_master_volume, set_channel_volume, and play_sound.
 const VOLUME_DB_TABLE: [i16; 64] = [
-    -10000, -6000, -5000, -4415, -4000, -3678, -3415, -3000,
-     -2744, -2522, -2326, -2150, -1991, -1845, -1712, -1589,
-     -1475, -1368, -1268, -1176, -1088, -1006,  -928,  -855,
-      -786,  -720,  -658,  -599,  -543,  -490,  -439,  -390,
-      -344,  -299,  -256,  -216,  -177,  -139,  -104,   -70,
-       -38,    -7,    24,    54,    83,   111,   138,   163,
-       188,   211,   234,   256,   277,   296,   315,   333,
-       350,   367,   383,   398,   413,   427,   441,   454,
+    -10000, -6000, -5000, -4415, -4000, -3678, -3415, -3000, -2744, -2522, -2326, -2150, -1991,
+    -1845, -1712, -1589, -1475, -1368, -1268, -1176, -1088, -1006, -928, -855, -786, -720, -658,
+    -599, -543, -490, -439, -390, -344, -299, -256, -216, -177, -139, -104, -70, -38, -7, 24, 54,
+    83, 111, 138, 163, 188, 211, 234, 256, 277, 296, 315, 333, 350, 367, 383, 398, 413, 427, 441,
+    454,
 ]; // NOT: these might be negative centibels, not actual dB. Exact interpretation TBD.
 
 /// DSSound — DirectSound audio subsystem.
@@ -91,7 +88,8 @@ pub struct DSSoundVtable {
     /// Slot 3 (0x574730): play_sound — wrapper around core play, returns bool. RET 0x14 = 5 stack params.
     pub play_sound: unsafe extern "thiscall" fn(*mut DSSound, u32, u32, u32, u32, u32) -> bool,
     /// Slot 4 (0x574770): play_sound_pooled — allocates from buffer pool, plays. RET 0x14 = 5 stack params.
-    pub play_sound_pooled: unsafe extern "thiscall" fn(*mut DSSound, u32, u32, u32, u32, u32) -> i32,
+    pub play_sound_pooled:
+        unsafe extern "thiscall" fn(*mut DSSound, u32, u32, u32, u32, u32) -> i32,
     /// Slot 5 (0x574900): set_pan — sets pan on channel (dB lookup)
     pub set_pan: unsafe extern "thiscall" fn(*mut DSSound, u32, u32) -> u32,
     /// Slot 6 (0x505430): **stub** — returns 0
@@ -189,17 +187,26 @@ const _: () = assert!(core::mem::size_of::<DSSound>() == 0xBE0);
 /// Slot 13: is_slot_loaded — returns whether sound at `slot_idx` has a buffer loaded.
 /// Slot index is used directly as array index (1-based, slot 0 unused).
 pub unsafe extern "thiscall" fn is_slot_loaded(this: *mut DSSound, slot_idx: i32) -> bool {
-    (*this).channel_slots.get(slot_idx as usize).copied().unwrap_or(0) != 0
+    (*this)
+        .channel_slots
+        .get(slot_idx as usize)
+        .copied()
+        .unwrap_or(0)
+        != 0
 }
 
 /// Trivial noop — returns void. Used for slots 15, 16.
 pub unsafe extern "thiscall" fn noop(_this: *mut DSSound) {}
 
 /// Trivial stub — returns 0. Used for slots 6, 17, 18, 19, 20, 21, 22.
-pub unsafe extern "thiscall" fn returns_0(_this: *mut DSSound) -> u32 { 0 }
+pub unsafe extern "thiscall" fn returns_0(_this: *mut DSSound) -> u32 {
+    0
+}
 
 /// Trivial stub — returns 1. Used for slot 23.
-pub unsafe extern "thiscall" fn returns_1(_this: *mut DSSound) -> u32 { 1 }
+pub unsafe extern "thiscall" fn returns_1(_this: *mut DSSound) -> u32 {
+    1
+}
 
 /// Slot 1: update_channels — iterates 8 channel descriptors, releases finished buffers.
 /// Called each frame to clean up buffers that have finished playing.
@@ -254,9 +261,7 @@ fn volume_to_db(volume: i32) -> i32 {
 
 /// Slot 7: set_master_volume — sets the master volume and adjusts all active channels.
 /// `new_volume` is Fixed 16.16 (0 = silent, 0x10000 = max).
-pub unsafe extern "thiscall" fn set_master_volume(
-    this: *mut DSSound, new_volume: i32,
-) -> u32 {
+pub unsafe extern "thiscall" fn set_master_volume(this: *mut DSSound, new_volume: i32) -> u32 {
     let snd = &mut *this;
 
     // Clamp to [0, 0x10000].
@@ -291,9 +296,7 @@ pub unsafe extern "thiscall" fn set_master_volume(
 /// Slot 2: set_volume_params — sets frequency scaling params and adjusts active channels.
 /// `param1` is the divisor (status_1), `param2` is the multiplier (status_2).
 /// For each playing channel: new_freq = channel_freq * param2 / param1, clamped to 200000.
-pub unsafe extern "thiscall" fn set_volume_params(
-    this: *mut DSSound, param1: u32, param2: i32,
-) {
+pub unsafe extern "thiscall" fn set_volume_params(this: *mut DSSound, param1: u32, param2: i32) {
     let snd = &mut *this;
 
     // No change → early return.
@@ -307,7 +310,9 @@ pub unsafe extern "thiscall" fn set_volume_params(
         let Some(buf) = desc.buffer() else { continue };
 
         // Check if buffer is playing.
-        let Ok(status) = buf.GetStatus() else { continue };
+        let Ok(status) = buf.GetStatus() else {
+            continue;
+        };
         if status & 1 == 0 {
             continue;
         }
@@ -326,9 +331,7 @@ pub unsafe extern "thiscall" fn set_volume_params(
 /// Slot 5: set_pan — sets stereo panning on a specific channel.
 /// `pool_id` is 1-based (1..64). `pan` is Fixed 16.16 (-0x10000..0x10000).
 /// Negative = left, positive = right.
-pub unsafe extern "thiscall" fn set_pan(
-    this: *mut DSSound, pool_id: i32, pan: i32,
-) -> u32 {
+pub unsafe extern "thiscall" fn set_pan(this: *mut DSSound, pool_id: i32, pan: i32) -> u32 {
     let idx = (pool_id - 1) as usize;
     if idx >= 64 {
         return 0;
@@ -362,7 +365,9 @@ pub unsafe extern "thiscall" fn set_pan(
 /// Slot 8: set_channel_volume — sets volume on a specific channel.
 /// `pool_id` is 1-based (1..64). `volume` is Fixed 16.16 (0..0x10000).
 pub unsafe extern "thiscall" fn set_channel_volume(
-    this: *mut DSSound, pool_id: i32, volume: i32,
+    this: *mut DSSound,
+    pool_id: i32,
+    volume: i32,
 ) -> u32 {
     let idx = (pool_id - 1) as usize;
     if idx >= 64 {
@@ -397,9 +402,7 @@ pub unsafe extern "thiscall" fn set_channel_volume(
 }
 
 /// Slot 0: destructor — releases all COM objects and frees memory.
-pub unsafe extern "thiscall" fn destructor(
-    this: *mut DSSound, flags: u8,
-) -> *mut DSSound {
+pub unsafe extern "thiscall" fn destructor(this: *mut DSSound, flags: u8) -> *mut DSSound {
     let snd = &mut *this;
 
     // Reset vtable to primary (destructor chain pattern).
@@ -488,8 +491,7 @@ unsafe fn core_play_sound(
         &*(&snd.channel_slots[slot_idx] as *const Ptr32 as *const IDirectSoundBuffer);
 
     // Duplicate the buffer via IDirectSound::DuplicateSoundBuffer.
-    let ds: &IDirectSound =
-        &*(&snd.direct_sound as *const Ptr32 as *const IDirectSound);
+    let ds: &IDirectSound = &*(&snd.direct_sound as *const Ptr32 as *const IDirectSound);
     let new_buf = match ds.DuplicateSoundBuffer(template_buf) {
         Ok(buf) => buf,
         Err(_) => {
@@ -543,7 +545,9 @@ unsafe fn core_play_sound(
         let pan_clamped = pan.max(-0x10000).min(0x10000);
         let pan_idx = ((pan_clamped.unsigned_abs() >> 10) as usize).min(63);
         let mut pan_db = VOLUME_DB_TABLE[63 - pan_idx] as i32;
-        if pan_clamped > 0 { pan_db = -pan_db; }
+        if pan_clamped > 0 {
+            pan_db = -pan_db;
+        }
         let _ = buf.SetPan(pan_db);
 
         let _ = buf.Play(0, 0, if loop_flag { 1 } else { 0 });
@@ -598,17 +602,34 @@ unsafe fn allocate_channel(snd: &mut DSSound, priority: i32) -> i32 {
 /// Slot 3: play_sound — pure thiscall with 5 stack params, RET 0x14.
 /// Params: flags_and_slot, priority, frequency, volume, pan.
 pub unsafe extern "thiscall" fn play_sound(
-    this: *mut DSSound, flags_and_slot: u32, priority: i32, frequency: i32, volume: i32, pan: i32,
+    this: *mut DSSound,
+    flags_and_slot: u32,
+    priority: i32,
+    frequency: i32,
+    volume: i32,
+    pan: i32,
 ) -> bool {
     let snd = &mut *this;
-    let result = core_play_sound(snd, flags_and_slot & 0xFFFEFFFF, priority, frequency, volume, pan);
+    let result = core_play_sound(
+        snd,
+        flags_and_slot & 0xFFFEFFFF,
+        priority,
+        frequency,
+        volume,
+        pan,
+    );
     result >= 0
 }
 
 /// Slot 4: play_sound_pooled — pure thiscall with 5 stack params, RET 0x14.
 /// Returns pool_id (1-based) on success, 0 on failure.
 pub unsafe extern "thiscall" fn play_sound_pooled(
-    this: *mut DSSound, flags_and_slot: u32, priority: i32, frequency: i32, volume: i32, pan: i32,
+    this: *mut DSSound,
+    flags_and_slot: u32,
+    priority: i32,
+    frequency: i32,
+    volume: i32,
+    pan: i32,
 ) -> i32 {
     let snd = &mut *this;
 
@@ -640,9 +661,7 @@ pub unsafe extern "thiscall" fn play_sound_pooled(
 
 /// Slot 14: sub_destructor — sets secondary vtable (0x66AF58), optionally frees.
 /// This is a base-class destructor called by the primary destructor (slot 0).
-pub unsafe extern "thiscall" fn sub_destructor(
-    this: *mut DSSound, flags: u8,
-) -> *mut DSSound {
+pub unsafe extern "thiscall" fn sub_destructor(this: *mut DSSound, flags: u8) -> *mut DSSound {
     use crate::rebase::rb;
     // Set secondary vtable (base class vtable for destructor chain).
     (*this).vtable = rb(0x0066_AF58) as *const DSSoundVtable;
@@ -661,9 +680,7 @@ pub unsafe extern "thiscall" fn sub_destructor(
 /// - **0** if pool_id is out of range
 ///
 /// The original inverts DSBSTATUS_PLAYING (bit 0): `NOT status; AND 1`.
-pub unsafe extern "thiscall" fn is_channel_finished(
-    this: *mut DSSound, pool_id: i32,
-) -> u8 {
+pub unsafe extern "thiscall" fn is_channel_finished(this: *mut DSSound, pool_id: i32) -> u8 {
     let idx = (pool_id - 1) as usize;
     if idx >= 64 {
         return 0;
@@ -677,7 +694,11 @@ pub unsafe extern "thiscall" fn is_channel_finished(
     let Some(buf) = desc.buffer() else { return 1 };
     match buf.GetStatus() {
         Ok(status) => {
-            if status & 1 != 0 { 0 } else { 1 } // playing → 0, stopped → 1
+            if status & 1 != 0 {
+                0
+            } else {
+                1
+            } // playing → 0, stopped → 1
         }
         Err(_) => 1, // error → treat as finished
     }
@@ -685,9 +706,7 @@ pub unsafe extern "thiscall" fn is_channel_finished(
 
 /// Slot 10: stop_channel — stops a buffer, releases it, and returns the pool entry.
 /// `pool_id` is 1-based (1..64). Returns 1 on success, 0 on invalid.
-pub unsafe extern "thiscall" fn stop_channel(
-    this: *mut DSSound, pool_id: i32,
-) -> u32 {
+pub unsafe extern "thiscall" fn stop_channel(this: *mut DSSound, pool_id: i32) -> u32 {
     let idx = (pool_id - 1) as usize;
     if idx >= 64 {
         return 0;
@@ -752,8 +771,7 @@ pub unsafe extern "thiscall" fn load_wav(
     path: *const u8,
 ) -> u32 {
     use windows::Win32::Media::Audio::DirectSound::{
-        IDirectSound, IDirectSoundBuffer,
-        DSBUFFERDESC, DSBLOCK_ENTIREBUFFER,
+        IDirectSound, IDirectSoundBuffer, DSBLOCK_ENTIREBUFFER, DSBUFFERDESC,
     };
     use windows::Win32::Media::Audio::{WAVEFORMATEX, WAVE_FORMAT_PCM};
 
@@ -821,12 +839,18 @@ pub unsafe extern "thiscall" fn load_wav(
     // Lock the buffer and fill with PCM data.
     let mut audio_ptr1: *mut core::ffi::c_void = core::ptr::null_mut();
     let mut audio_len1: u32 = 0;
-    if buf.Lock(
-        0, data_len,
-        &mut audio_ptr1, &mut audio_len1,
-        None, None,
-        DSBLOCK_ENTIREBUFFER,
-    ).is_err() {
+    if buf
+        .Lock(
+            0,
+            data_len,
+            &mut audio_ptr1,
+            &mut audio_len1,
+            None,
+            None,
+            DSBLOCK_ENTIREBUFFER,
+        )
+        .is_err()
+    {
         return 0;
     }
 
@@ -843,7 +867,10 @@ pub unsafe extern "thiscall" fn load_wav(
             16 => {
                 let mut reader = match hound::WavReader::open(c_path) {
                     Ok(r) => r,
-                    Err(_) => { let _ = buf.Unlock(audio_ptr1, audio_len1, None, 0); return 0; }
+                    Err(_) => {
+                        let _ = buf.Unlock(audio_ptr1, audio_len1, None, 0);
+                        return 0;
+                    }
                 };
                 let mut offset = 0usize;
                 for sample in reader.samples::<i16>() {
@@ -858,7 +885,10 @@ pub unsafe extern "thiscall" fn load_wav(
             8 => {
                 let mut reader = match hound::WavReader::open(c_path) {
                     Ok(r) => r,
-                    Err(_) => { let _ = buf.Unlock(audio_ptr1, audio_len1, None, 0); return 0; }
+                    Err(_) => {
+                        let _ = buf.Unlock(audio_ptr1, audio_len1, None, 0);
+                        return 0;
+                    }
                 };
                 let mut offset = 0usize;
                 for sample in reader.samples::<i16>() {

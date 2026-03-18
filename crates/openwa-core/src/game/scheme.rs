@@ -90,10 +90,17 @@ impl core::fmt::Display for SchemeError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             SchemeError::TooShort { len } => {
-                write!(f, "file too short ({len} bytes, need at least {SCHEME_HEADER_SIZE})")
+                write!(
+                    f,
+                    "file too short ({len} bytes, need at least {SCHEME_HEADER_SIZE})"
+                )
             }
             SchemeError::BadMagic(m) => {
-                write!(f, "bad magic: {:02X} {:02X} {:02X} {:02X} (expected SCHM)", m[0], m[1], m[2], m[3])
+                write!(
+                    f,
+                    "bad magic: {:02X} {:02X} {:02X} {:02X} (expected SCHM)",
+                    m[0], m[1], m[2], m[3]
+                )
             }
             SchemeError::UnknownVersion(v) => {
                 write!(f, "unknown version byte: 0x{v:02X}")
@@ -129,8 +136,8 @@ impl SchemeFile {
             return Err(SchemeError::BadMagic(magic));
         }
 
-        let version = SchemeVersion::from_byte(data[4])
-            .ok_or(SchemeError::UnknownVersion(data[4]))?;
+        let version =
+            SchemeVersion::from_byte(data[4]).ok_or(SchemeError::UnknownVersion(data[4]))?;
         let expected_payload = version.payload_size();
         let actual_payload = data.len() - SCHEME_HEADER_SIZE;
 
@@ -153,9 +160,8 @@ impl SchemeFile {
             // Fill remaining extended options with defaults
             if actual_payload < SCHEME_PAYLOAD_V3 {
                 let defaults_start = actual_payload.saturating_sub(SCHEME_PAYLOAD_V2);
-                payload[actual_payload..SCHEME_PAYLOAD_V3].copy_from_slice(
-                    &EXTENDED_OPTIONS_DEFAULTS[defaults_start..],
-                );
+                payload[actual_payload..SCHEME_PAYLOAD_V3]
+                    .copy_from_slice(&EXTENDED_OPTIONS_DEFAULTS[defaults_start..]);
             }
             return Ok(SchemeFile { version, payload });
         }
@@ -477,25 +483,25 @@ pub const SCHEME_WEAPON_ORDER: [&str; 64] = [
     "Invisibility",      // 43
     "Damage x2",         // 44
     // V2 super weapons (45-63)
-    "Freeze",            // 45
-    "Super Banana Bomb", // 46
-    "Mine Strike",       // 47
-    "Girder Starter Pack", // 48
-    "Earthquake",        // 49
-    "Scales of Justice", // 50
-    "Ming Vase",         // 51
-    "Mike's Carpet Bomb", // 52
+    "Freeze",               // 45
+    "Super Banana Bomb",    // 46
+    "Mine Strike",          // 47
+    "Girder Starter Pack",  // 48
+    "Earthquake",           // 49
+    "Scales of Justice",    // 50
+    "Ming Vase",            // 51
+    "Mike's Carpet Bomb",   // 52
     "Patsy's Magic Bullet", // 53
-    "Indian Nuclear Test", // 54
-    "Select Worm",       // 55
-    "Salvation Army",    // 56
-    "Mole Squadron",     // 57
-    "MB Bomb",           // 58
-    "Concrete Donkey",   // 59
-    "Suicide Bomber",    // 60
-    "Sheep Strike",      // 61
-    "Mail Strike",       // 62
-    "Armageddon",        // 63
+    "Indian Nuclear Test",  // 54
+    "Select Worm",          // 55
+    "Salvation Army",       // 56
+    "Mole Squadron",        // 57
+    "MB Bomb",              // 58
+    "Concrete Donkey",      // 59
+    "Suicide Bomber",       // 60
+    "Sheep Strike",         // 61
+    "Mail Strike",          // 62
+    "Armageddon",           // 63
 ];
 
 /// V3 extended options (110 bytes, payload offset 0x124).
@@ -907,7 +913,7 @@ impl ExtendedOptions {
         && b[0x69] < 6                                                   // rw_kaos_mod
         && b[0x6A].wrapping_sub(1) < 7                                   // sheep_heavens_gate [1,7]
         && is_bool(b[0x6B])                                              // conserve_instant_utilities
-        && is_bool(b[0x6C])                                              // expedite_instant_utilities
+        && is_bool(b[0x6C]) // expedite_instant_utilities
     }
 }
 
@@ -931,7 +937,7 @@ pub const EXTENDED_OPTIONS_DEFAULTS: [u8; EXTENDED_OPTIONS_SIZE] = [
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // +0x50
     0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, // +0x58
     0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0x00, 0x00, // +0x60
-    0x01, 0x00, 0x07, 0x00, 0x00, 0x01,             // +0x68
+    0x01, 0x00, 0x07, 0x00, 0x00, 0x01, // +0x68
 ];
 
 // === Typed accessors on SchemeFile ===
@@ -1087,7 +1093,10 @@ mod tests {
 
         assert!(matches!(
             SchemeFile::from_bytes(&data),
-            Err(SchemeError::PayloadMismatch { expected: 0xD8, got: 10 })
+            Err(SchemeError::PayloadMismatch {
+                expected: 0xD8,
+                got: 10
+            })
         ));
     }
 
@@ -1098,7 +1107,7 @@ mod tests {
         data.extend_from_slice(b"SCHM");
         data.push(0x03);
         data.extend_from_slice(&[0xAA; SCHEME_PAYLOAD_V2]); // V2 portion filled with 0xAA
-        // No extended options bytes — should be padded with defaults
+                                                            // No extended options bytes — should be padded with defaults
 
         let scheme = SchemeFile::from_bytes(&data).expect("should accept short V3");
         assert_eq!(scheme.version, SchemeVersion::V3);

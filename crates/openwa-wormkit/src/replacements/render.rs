@@ -3,8 +3,8 @@
 //! All functions enqueue commands to the RenderQueue's downward-growing buffer.
 //! Calling conventions are __usercall variants with register + stack params.
 
-use openwa_core::rebase::rb;
 use openwa_core::address::va;
+use openwa_core::rebase::rb;
 use openwa_core::render::queue::*;
 use openwa_core::task::{BungeeTrailTask, WeaponAimTask};
 
@@ -17,12 +17,7 @@ use crate::hook::{self, usercall_trampoline};
 usercall_trampoline!(fn trampoline_draw_pixel; impl_fn = draw_pixel_impl;
     reg = eax; stack_params = 3; ret_bytes = "0xC");
 
-unsafe extern "cdecl" fn draw_pixel_impl(
-    this: u32,
-    x_pos: u32,
-    y_pos: u32,
-    flags: u32,
-) {
+unsafe extern "cdecl" fn draw_pixel_impl(this: u32, x_pos: u32, y_pos: u32, flags: u32) {
     let q = &mut *(this as *mut RenderQueue);
 
     if let Some(entry) = q.alloc::<DrawPixelCmd>() {
@@ -368,11 +363,7 @@ unsafe fn trig_lookup(table: *const i32, angle: u32) -> i32 {
 // Gated by task+0xBC flag set by InitWormTrail (0x5008D0).
 // ---------------------------------------------------------------------------
 
-unsafe extern "stdcall" fn draw_bungee_trail_impl(
-    task_ptr: u32,
-    style: u32,
-    fill: u32,
-) {
+unsafe extern "stdcall" fn draw_bungee_trail_impl(task_ptr: u32, style: u32, fill: u32) {
     let task = &*(task_ptr as *const BungeeTrailTask);
 
     if task.trail_visible == 0 {
@@ -518,8 +509,7 @@ unsafe extern "cdecl" fn draw_crosshair_line_impl(task_ptr: u32) {
     let cos_interp = trig_lookup(cos_table, angle);
 
     // Scale = fixed_mul(DDGame.crosshair_scale, 0x140000) + task.aim_range_offset
-    let scale = fixed_mul(ddgame.crosshair_scale, 0x14_0000)
-        + task.aim_range_offset;
+    let scale = fixed_mul(ddgame.crosshair_scale, 0x14_0000) + task.aim_range_offset;
 
     // Endpoint = start + direction * scale
     let mut endpoint_x = fixed_mul(sin_interp, scale).wrapping_add(start_x);
@@ -529,7 +519,7 @@ unsafe extern "cdecl" fn draw_crosshair_line_impl(task_ptr: u32) {
     let mut overflowed = false;
     let mut clamp_factor = 0i32;
 
-    let threshold = (*ddgame.game_info).crosshair_overflow_threshold;
+    let threshold = (*ddgame.game_info).game_version;
 
     if threshold > 0x11E {
         // Check X overflow: sin > 0 but endpoint wrapped below start
@@ -554,10 +544,7 @@ unsafe extern "cdecl" fn draw_crosshair_line_impl(task_ptr: u32) {
     // Enqueue polygon line (2 vertices)
     let poly_param_1 = ddgame.crosshair_line_style;
     let poly_param_2 = ddgame.crosshair_line_color;
-    let verts: [[i32; 3]; 2] = [
-        [start_x, start_y, 0],
-        [endpoint_x, endpoint_y, 0],
-    ];
+    let verts: [[i32; 3]; 2] = [[start_x, start_y, 0], [endpoint_x, endpoint_y, 0]];
     let total_size = 2 * 0xC + 0x20;
     if let Some(ptr) = rq.alloc_raw(total_size) {
         let header = &mut *(ptr as *mut DrawPolygonHeader);
@@ -596,78 +583,77 @@ unsafe extern "cdecl" fn draw_crosshair_line_impl(task_ptr: u32) {
 
 pub fn install() -> Result<(), String> {
     unsafe {
-    let _ = hook::install(
-        "DrawPixel",
-        va::RQ_DRAW_PIXEL,
-        trampoline_draw_pixel as *const (),
-    )?;
+        let _ = hook::install(
+            "DrawPixel",
+            va::RQ_DRAW_PIXEL,
+            trampoline_draw_pixel as *const (),
+        )?;
 
-    let _ = hook::install(
-        "DrawLineStrip",
-        va::RQ_DRAW_LINE_STRIP,
-        trampoline_draw_line_strip as *const (),
-    )?;
+        let _ = hook::install(
+            "DrawLineStrip",
+            va::RQ_DRAW_LINE_STRIP,
+            trampoline_draw_line_strip as *const (),
+        )?;
 
-    let _ = hook::install(
-        "DrawPolygon",
-        va::RQ_DRAW_POLYGON,
-        trampoline_draw_polygon as *const (),
-    )?;
+        let _ = hook::install(
+            "DrawPolygon",
+            va::RQ_DRAW_POLYGON,
+            trampoline_draw_polygon as *const (),
+        )?;
 
-    let _ = hook::install(
-        "DrawScaled",
-        va::RQ_DRAW_SCALED,
-        trampoline_draw_scaled as *const (),
-    )?;
+        let _ = hook::install(
+            "DrawScaled",
+            va::RQ_DRAW_SCALED,
+            trampoline_draw_scaled as *const (),
+        )?;
 
-    let _ = hook::install(
-        "DrawRect",
-        va::RQ_DRAW_RECT,
-        trampoline_draw_rect as *const (),
-    )?;
+        let _ = hook::install(
+            "DrawRect",
+            va::RQ_DRAW_RECT,
+            trampoline_draw_rect as *const (),
+        )?;
 
-    let _ = hook::install(
-        "DrawSpriteGlobal",
-        va::RQ_DRAW_SPRITE_GLOBAL,
-        trampoline_draw_sprite_global as *const (),
-    )?;
+        let _ = hook::install(
+            "DrawSpriteGlobal",
+            va::RQ_DRAW_SPRITE_GLOBAL,
+            trampoline_draw_sprite_global as *const (),
+        )?;
 
-    let _ = hook::install(
-        "DrawSpriteLocal",
-        va::RQ_DRAW_SPRITE_LOCAL,
-        trampoline_draw_sprite_local as *const (),
-    )?;
+        let _ = hook::install(
+            "DrawSpriteLocal",
+            va::RQ_DRAW_SPRITE_LOCAL,
+            trampoline_draw_sprite_local as *const (),
+        )?;
 
-    let _ = hook::install(
-        "DrawSpriteOffset",
-        va::RQ_DRAW_SPRITE_OFFSET,
-        trampoline_draw_sprite_offset as *const (),
-    )?;
+        let _ = hook::install(
+            "DrawSpriteOffset",
+            va::RQ_DRAW_SPRITE_OFFSET,
+            trampoline_draw_sprite_offset as *const (),
+        )?;
 
-    let _ = hook::install(
-        "DrawBitmapGlobal",
-        va::RQ_DRAW_BITMAP_GLOBAL,
-        trampoline_draw_bitmap_global as *const (),
-    )?;
+        let _ = hook::install(
+            "DrawBitmapGlobal",
+            va::RQ_DRAW_BITMAP_GLOBAL,
+            trampoline_draw_bitmap_global as *const (),
+        )?;
 
-    let _ = hook::install(
-        "DrawTextboxLocal",
-        va::RQ_DRAW_TEXTBOX_LOCAL,
-        trampoline_draw_textbox_local as *const (),
-    )?;
+        let _ = hook::install(
+            "DrawTextboxLocal",
+            va::RQ_DRAW_TEXTBOX_LOCAL,
+            trampoline_draw_textbox_local as *const (),
+        )?;
 
-    let _ = hook::install(
-        "DrawBungeeTrail",
-        va::DRAW_BUNGEE_TRAIL,
-        draw_bungee_trail_impl as *const (),
-    )?;
+        let _ = hook::install(
+            "DrawBungeeTrail",
+            va::DRAW_BUNGEE_TRAIL,
+            draw_bungee_trail_impl as *const (),
+        )?;
 
-    let _ = hook::install(
-        "DrawCrosshairLine",
-        va::DRAW_CROSSHAIR_LINE,
-        trampoline_draw_crosshair_line as *const (),
-    )?;
-
+        let _ = hook::install(
+            "DrawCrosshairLine",
+            va::DRAW_CROSSHAIR_LINE,
+            trampoline_draw_crosshair_line as *const (),
+        )?;
     }
     Ok(())
 }

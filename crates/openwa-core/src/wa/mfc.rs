@@ -1,8 +1,8 @@
 //! MFC library function wrappers.
 
+use crate::address::va;
 use crate::rebase::rb;
 use crate::wa_call;
-use crate::address::va;
 
 /// Zero-cost handle to a CWnd-derived MFC window (raw pointer as u32).
 #[derive(Clone, Copy)]
@@ -84,8 +84,7 @@ impl CStringRef {
     /// FUN_004A39F0: EDX=resource_id, stack param=dest CString object pointer.
     pub unsafe fn assign_resource(&mut self, resource_id: u32) {
         let addr = rb(va::CSTRING_ASSIGN_RESOURCE);
-        let f: unsafe extern "fastcall" fn(u32, u32, u32) =
-            core::mem::transmute(addr);
+        let f: unsafe extern "fastcall" fn(u32, u32, u32) = core::mem::transmute(addr);
         // ECX is overwritten by the function (loads from global), so any value works.
         // EDX = resource_id, stack = self.ptr
         f(0, resource_id, self.ptr);

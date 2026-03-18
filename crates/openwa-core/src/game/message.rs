@@ -126,8 +126,7 @@ impl TryFrom<u32> for TaskMessage {
 
     fn try_from(value: u32) -> Result<Self, Self::Error> {
         match value {
-            0..=9 | 11..=23 | 26..=41 | 43..=64 | 67..=81 | 84..=86
-            | 88..=94 | 96..=114 => {
+            0..=9 | 11..=23 | 26..=41 | 43..=64 | 67..=81 | 84..=86 | 88..=94 | 96..=114 => {
                 // SAFETY: all matched values correspond to valid variants
                 Ok(unsafe { core::mem::transmute(value) })
             }

@@ -333,9 +333,47 @@ pub mod va {
     pub const CONSTRUCT_OPENGL_CPU: u32 = 0x005A_0850;
     pub const OPENGL_INIT: u32 = 0x0059_F000;
     pub const DDGAME_INIT_FIELDS: u32 = 0x0052_6120;
+    /// DDGame__InitRenderIndices (0x526080): usercall(ESI=ddgame), plain RET.
+    /// Initializes render queue index arrays at DDGame+0xC4..+0x4A2.
+    pub const DDGAME_INIT_RENDER_INDICES: u32 = 0x0052_6080;
+    /// DDGame__InitVersionFlags (0x525BE0): stdcall(ddgame_wrapper).
+    /// Sets DDGame+0x7E2E/0x7E2F/0x7E3F flags based on game version/mode.
+    pub const DDGAME_INIT_VERSION_FLAGS: u32 = 0x0052_5BE0;
+    /// GfxResource__Create_Maybe (0x4F6300): returns GfxResource ptr or null.
+    pub const GFX_RESOURCE_CREATE: u32 = 0x004F_6300;
+    /// TaskStateMachine__Init_Maybe (0x4F6370): initializes TSM-like object.
+    pub const TASK_STATE_MACHINE_INIT: u32 = 0x004F_6370;
+    /// DDGame__InitSoundPaths_Maybe (0x570F30): called before DSSound_LoadEffectWAVs.
+    pub const DDGAME_INIT_SOUND_PATHS: u32 = 0x0057_0F30;
+    /// DDGameWrapper__LoadingProgressTick (0x5717A0): loading progress bar + message pump.
+    pub const DDGAME_WRAPPER_LOADING_PROGRESS_TICK: u32 = 0x0057_17A0;
+    /// DDGame__LoadHudAndWeaponSprites (0x53D0E0): loads weapon icons, wind indicators,
+    /// girder sprites, and creates DDGame+0x37C DisplayGfx object.
+    /// thiscall(ECX=gfx_handler_4c0) + 2 stack(ddgame, wrapper_4c4), RET 0x8.
+    pub const DDGAME_LOAD_HUD_AND_WEAPON_SPRITES: u32 = 0x0053_D0E0;
+    /// DDGame__InitDisplayFinal_Maybe (0x56A830): display finalization for non-headless.
+    pub const DDGAME_INIT_DISPLAY_FINAL: u32 = 0x0056_A830;
+    /// PCLandscape__Constructor (0x57ACB0): constructs 0xB44-byte landscape object.
+    pub const PC_LANDSCAPE_CONSTRUCTOR: u32 = 0x0057_ACB0;
+    /// SpriteRegion__Constructor (0x57DB20): constructs 0x9C-byte sprite region.
+    pub const SPRITE_REGION_CONSTRUCTOR: u32 = 0x0057_DB20;
+    /// g_GameInfo global — set to current GameInfo* during DDGame construction.
+    pub const G_GAME_INFO: u32 = 0x0077_49A0;
+    /// GfxHandler__LoadSprites_Maybe (0x570B50): loads sprites from GfxHandler.
+    pub const GFX_HANDLER_LOAD_SPRITES: u32 = 0x0057_0B50;
+    /// FUN_00570A90: called before display palette setup (non-headless only).
+    pub const FUN_570A90: u32 = 0x0057_0A90;
+    /// FUN_00570E20: called after GfxHandler initialization.
+    pub const FUN_570E20: u32 = 0x0057_0E20;
     pub const GFX_HANDLER_LOAD_DIR: u32 = 0x0056_63E0;
     pub const GFX_DIR_FIND_ENTRY: u32 = 0x0056_6520;
     pub const GFX_DIR_LOAD_IMAGE: u32 = 0x0056_66D0;
+    /// DisplayGfx__Constructor_Maybe (0x4F5E80): stdcall(raw_image) -> DisplayGfx*, RET 0x4.
+    pub const DISPLAYGFX_CONSTRUCTOR: u32 = 0x004F_5E80;
+    /// IMG_Decode (0x4F5F80): stdcall(output, raw_image, 1) -> DisplayGfx*, RET 0xC.
+    /// Reads IMG\x1A header, decodes image data into output buffer.
+    /// Ghidra mislabels this as "TaskStateMachine__Destructor_Maybe".
+    pub const IMG_DECODE: u32 = 0x004F_5F80;
 
     // === Higher-level drawing functions ===
 
@@ -668,6 +706,8 @@ pub mod va {
     pub const WA_MALLOC: u32 = 0x005C_0AE3;
     pub const WA_MALLOC_MEMSET: u32 = 0x0053_E910;
     pub const WA_FREE: u32 = 0x005D_0D2B;
+    /// WA's CRT _fopen — cdecl(path, mode) → FILE*.
+    pub const WA_FOPEN: u32 = 0x005D_3271;
 
     // === Bitmap font system ===
 

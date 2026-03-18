@@ -179,5 +179,15 @@ if ($Headless) {
             Write-Host "  Validation: NOT found in log (may not have reached gameplay)" -ForegroundColor Yellow
         }
     }
+    # Check for Rust panics in OpenWA log
+    if (Test-Path "$logDir\openwa_latest.log") {
+        $panics = Select-String -Path "$logDir\openwa_latest.log" -Pattern "\[PANIC\]"
+        if ($panics) {
+            Write-Host ""
+            Write-Host "=== RUST PANIC DETECTED ===" -ForegroundColor Red
+            $panics | ForEach-Object { Write-Host "  $($_.Line)" -ForegroundColor Red }
+        }
+    }
+
     Write-Host "  Logs: $logDir\" -ForegroundColor Gray
 }
