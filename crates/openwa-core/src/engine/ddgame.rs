@@ -526,15 +526,10 @@ pub unsafe fn display_layer_color_init(wrapper: *mut DDGameWrapper) {
         5 + 0x69 // = 0x6E
     };
 
-    let display = (*wrapper).display as *mut u8;
-    let vt = *(display as *const *const u32);
-    // vtable[4]: set layer color
-    let set_color: unsafe extern "thiscall" fn(*mut u8, i32, i32) =
-        core::mem::transmute(*vt.add(4));
-
-    set_color(display, 1, layer1_color);
-    set_color(display, 2, 0x20);
-    set_color(display, 3, 0x70);
+    let display = (*wrapper).display;
+    DDDisplay::set_layer_color(display, 1, layer1_color);
+    DDDisplay::set_layer_color(display, 2, 0x20);
+    DDDisplay::set_layer_color(display, 3, 0x70);
 }
 
 /// Initialize runtime addresses for the constructor bridges.
@@ -844,22 +839,18 @@ unsafe fn init_graphics_and_resources(
         if *(rb(va::G_DISPLAY_MODE_FLAG) as *const u8) == 0 {
             call_usercall_eax(wrapper, FUN_570A90_ADDR);
         }
-        // Read display (may be modified by FUN_00570A90).
-        let disp = (*wrapper).display as *mut u8;
+        let disp = (*wrapper).display;
         let gfx_handler = (*wrapper)._field_4c0;
-        let vt = *(disp as *const *const u32);
-        // vtable[4]: set palette range
-        let vt_10: unsafe extern "thiscall" fn(*mut u8, i32, i32) =
-            core::mem::transmute(*vt.add(4));
-        vt_10(disp, 1, 0xFE);
-        // vtable[0x1F]: init palette layer
-        let vt_7c: unsafe extern "thiscall" fn(*mut u8, i32, i32, i32, *mut u8, u32) =
-            core::mem::transmute(*vt.add(0x1F));
-        vt_7c(disp, 1, 1, 0, gfx_handler, rb(va::STR_CDROM_SPR));
-        // vtable[0x17]: set layer visibility
-        let vt_5c: unsafe extern "thiscall" fn(*mut u8, i32, i32) =
-            core::mem::transmute(*vt.add(0x17));
-        vt_5c(disp, 1, -100);
+        DDDisplay::set_layer_color(disp, 1, 0xFE);
+        DDDisplay::load_sprite(
+            disp,
+            1,
+            1,
+            0,
+            gfx_handler,
+            rb(va::STR_CDROM_SPR) as *const u8,
+        );
+        DDDisplay::set_layer_visibility(disp, 1, -100);
 
         // Palette slot range init
         let palette_range_ptr = *(disp.add(0x3120) as *const *mut i16);
@@ -883,12 +874,7 @@ unsafe fn init_graphics_and_resources(
     // ── Display vtable slot 5 (offset 0x14) ──
     // Original: CALL EAX (vtable[5]), saves return value in ESI for use as
     // the `output` parameter in the color-entries GfxResource__Create call below.
-    let layer_ctx = {
-        let vt = *((*ddgame).display as *const *const u32);
-        let f: unsafe extern "thiscall" fn(*mut DDDisplay, i32) -> *mut u8 =
-            core::mem::transmute(*vt.add(5));
-        f((*ddgame).display, 1)
-    };
+    let layer_ctx = DDDisplay::set_active_layer((*ddgame).display, 1);
 
     // ── GfxDir color entries DDGame+0x730C..0x732C ──
     if (*wrapper).gfx_mode != 0 {
@@ -1076,11 +1062,7 @@ unsafe fn init_graphics_and_resources(
             name_buf[5] = b'0' + (i / 10) as u8;
             name_buf[6] = b'0' + (i % 10) as u8;
 
-            // Display vtable[5](1) — set active layer, returns context ptr
-            let disp_vt = *((*ddgame).display as *const *const u32);
-            let set_layer: unsafe extern "thiscall" fn(*mut DDDisplay, i32) -> *mut u8 =
-                core::mem::transmute(*disp_vt.add(5));
-            let layer_ctx = set_layer((*ddgame).display, 1);
+            let layer_ctx = DDDisplay::set_active_layer((*ddgame).display, 1);
 
             let entry = gfx_dir_find_entry(name_buf.as_ptr(), gfx_handler);
 
@@ -1267,37 +1249,16 @@ unsafe fn init_graphics_and_resources(
             0x2F4,
         );
 
-        // Display vtable[5](3) — set active layer 3, returns context ptr
-        let disp_vt = *((*ddgame).display as *const *const u32);
-        let set_layer: unsafe extern "thiscall" fn(*mut DDDisplay, i32) -> *mut u8 =
-            core::mem::transmute(*disp_vt.add(5));
-        let _layer3_ctx = set_layer((*ddgame).display, 3);
+        let disp = (*wrapper).display;
+        DDDisplay::set_active_layer(disp, 3);
 
-        // Load back.spr and debris.spr (conditional)
-        let disp_obj = (*wrapper).display as *mut u8;
-        let disp_obj_vt = *(disp_obj as *const *const u32);
-        // Check if gfx_mode high byte is set (original: uStack_123c._3_1_ != '\0')
         if (*wrapper).gfx_mode != 0 {
-            let load_spr_94: unsafe extern "thiscall" fn(*mut u8, u32, u32, *mut u8, *const u8) =
-                core::mem::transmute(*disp_obj_vt.add(0x94 / 4));
-            load_spr_94(disp_obj, 3, 0x26D, land_layer, b"back.spr\0".as_ptr());
-
-            let load_spr_7c: unsafe extern "thiscall" fn(
-                *mut u8,
-                u32,
-                u32,
-                u32,
-                *mut u8,
-                *const u8,
-            ) = core::mem::transmute(*disp_obj_vt.add(0x7C / 4));
-            load_spr_7c(disp_obj, 3, 0x26E, 0, land_layer, b"debris.spr\0".as_ptr());
+            DDDisplay::load_sprite_by_layer(disp, 3, 0x26D, land_layer, b"back.spr\0".as_ptr());
+            DDDisplay::load_sprite(disp, 3, 0x26E, 0, land_layer, b"debris.spr\0".as_ptr());
         }
 
-        // Load layer.spr into layer 2
-        let load_spr_94: unsafe extern "thiscall" fn(*mut u8, u32, u32, *mut u8, *const u8) =
-            core::mem::transmute(*disp_obj_vt.add(0x94 / 4));
-        load_spr_94(
-            disp_obj,
+        DDDisplay::load_sprite_by_layer(
+            disp,
             2,
             0x26C,
             water_layer,
@@ -1307,11 +1268,8 @@ unsafe fn init_graphics_and_resources(
         (*ddgame).gradient_image_2 = core::ptr::null_mut();
 
         // ── Gradient image (0x030) ──
-        // The gradient is loaded from "gradient.img" via GfxDir.
-        // Simple path: height <= 0x60 AND level_height == 0x2B8
         let level_height = (*ddgame).level_height as i32;
-        // Read sVar1 from display layer 3 context
-        let layer3_ctx = set_layer((*ddgame).display, 3);
+        let layer3_ctx = DDDisplay::set_active_layer(disp, 3);
         let s_var1 = *(layer3_ctx.add(0x606) as *const i16);
 
         if s_var1 < 0x61 && level_height == 0x2B8 {
@@ -1325,7 +1283,7 @@ unsafe fn init_graphics_and_resources(
 
         // ── Fill image → fill_pixel (0x7338) ──
         {
-            let layer2_ctx = set_layer((*ddgame).display, 2);
+            let layer2_ctx = DDDisplay::set_active_layer((*ddgame).display, 2);
             // In the original, fill.img uses piStack_126c which the decompiler
             // shows was set from piVar3 (water_layer from landscape+0xB38).
             let fill_sprite =
@@ -1380,15 +1338,12 @@ unsafe fn init_graphics_and_resources(
         call_usercall_eax(wrapper, FUN_570A90_ADDR);
     }
 
-    // ── Final display layer visibility (vtable[0x17], offset 0x5C) ──
+    // ── Final display layer visibility ──
     {
-        let disp = (*wrapper).display as *mut u8;
-        let vt = *(disp as *const *const u32);
-        let set_vis: unsafe extern "thiscall" fn(*mut u8, i32, i32) =
-            core::mem::transmute(*vt.add(0x17));
-        set_vis(disp, 1, 0);
-        set_vis(disp, 2, 0);
-        set_vis(disp, 3, 1);
+        let disp = (*wrapper).display;
+        DDDisplay::set_layer_visibility(disp, 1, 0);
+        DDDisplay::set_layer_visibility(disp, 2, 0);
+        DDDisplay::set_layer_visibility(disp, 3, 1);
     }
 
     let _ = crate::log::log_line("[DDGame] init_graphics_and_resources DONE");
