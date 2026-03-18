@@ -378,10 +378,11 @@ pub unsafe fn gfx_resource_create(gfx_dir: *mut u8, name: *const u8, output: *mu
 #[cfg(target_arch = "x86")]
 pub(crate) unsafe fn call_gfx_find_and_load(
     gfx_dir: *mut u8,
-    name: *const u8,
+    name: &core::ffi::CStr,
     display_ctx: *mut u8,
 ) -> *mut u8 {
-    let entry = gfx_dir_find_entry(name, gfx_dir);
+    let name_ptr = name.as_ptr() as *const u8;
+    let entry = gfx_dir_find_entry(name_ptr, gfx_dir);
 
     if !entry.is_null() {
         // Try cached load: gfx_dir->vtable[2](entry->field_4)
@@ -399,7 +400,7 @@ pub(crate) unsafe fn call_gfx_find_and_load(
     }
 
     // Fallback: load image directly
-    call_gfx_load_and_wrap(gfx_dir, name, display_ctx)
+    call_gfx_load_and_wrap(gfx_dir, name_ptr, display_ctx)
 }
 
 /// Helper: load image via GfxDir__LoadImage + wrap as DisplayGfx.

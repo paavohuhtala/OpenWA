@@ -113,8 +113,7 @@ pub(crate) unsafe fn compute_complex_gradient(
     let mut palette = PaletteContext::new();
 
     // Step 1: Load gradient.img
-    let gradient_sprite =
-        call_gfx_find_and_load(land_layer, c"gradient.img".as_ptr().cast(), layer3_ctx);
+    let gradient_sprite = call_gfx_find_and_load(land_layer, c"gradient.img", layer3_ctx);
     if gradient_sprite.is_null() {
         return;
     }
@@ -143,8 +142,7 @@ pub(crate) unsafe fn compute_complex_gradient(
 
     // Step 3: If heights match, also set gradient_image_2
     if target_rows == gradient_height {
-        let gradient2 =
-            call_gfx_find_and_load(land_layer, c"gradient.img".as_ptr().cast(), layer3_ctx);
+        let gradient2 = call_gfx_find_and_load(land_layer, c"gradient.img", layer3_ctx);
         (*ddgame).gradient_image_2 = gradient2;
     }
 

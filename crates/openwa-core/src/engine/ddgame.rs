@@ -1264,8 +1264,7 @@ unsafe fn init_graphics_and_resources(
 
         if s_var1 < 0x61 && level_height == 0x2B8 {
             // Simple gradient: load gradient.img directly
-            let gradient =
-                call_gfx_find_and_load(land_layer, c"gradient.img".as_ptr().cast(), layer3_ctx);
+            let gradient = call_gfx_find_and_load(land_layer, c"gradient.img", layer3_ctx);
             (*ddgame).gradient_image = gradient;
         } else {
             compute_complex_gradient(ddgame, land_layer, layer3_ctx, s_var1);
@@ -1276,8 +1275,7 @@ unsafe fn init_graphics_and_resources(
             let layer2_ctx = DDDisplay::set_active_layer((*ddgame).display, 2);
             // In the original, fill.img uses piStack_126c which the decompiler
             // shows was set from piVar3 (water_layer from landscape+0xB38).
-            let fill_sprite =
-                call_gfx_find_and_load(water_layer, c"fill.img".as_ptr().cast(), layer2_ctx);
+            let fill_sprite = call_gfx_find_and_load(water_layer, c"fill.img", layer2_ctx);
             if !fill_sprite.is_null() {
                 // Get pixel value: fill_sprite->vtable[4](0, 0)
                 let fill_vt = *(fill_sprite as *const *const u32);
