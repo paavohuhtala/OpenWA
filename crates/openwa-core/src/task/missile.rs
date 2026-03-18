@@ -1,5 +1,5 @@
-use crate::fixed::Fixed;
 use super::game_task::CGameTask;
+use crate::fixed::Fixed;
 
 /// Projectile / missile entity task.
 ///
@@ -24,7 +24,6 @@ pub struct CTaskMissile {
     pub base: CGameTask,
 
     // ---- 0xFC–0x12F: missile init fields ----
-
     /// 0xFC–0x10F: Unknown missile flags and state
     pub _unknown_fc: [u8; 0x14],
     /// 0x110: Unknown
@@ -47,7 +46,6 @@ pub struct CTaskMissile {
     pub slot_id: u32,
 
     // ---- 0x130–0x15B: spawn data (11 DWORDs, from param_4) ----
-
     /// 0x130–0x15B: Spawn parameters (11 DWORDs copied from param_4).
     ///
     /// Runtime-confirmed indices:
@@ -65,7 +63,6 @@ pub struct CTaskMissile {
     pub spawn_params: [u32; 0x0B],
 
     // ---- 0x15C–0x2D3: weapon/scheme data (94 DWORDs, from param_3) ----
-
     /// 0x15C–0x2D3: Weapon/scheme properties (94 DWORDs copied verbatim from param_3).
     ///
     /// The WGT scheme blob is split into two logical halves:
@@ -85,7 +82,6 @@ pub struct CTaskMissile {
     pub weapon_data: [u32; 0x5E],
 
     // ---- 0x2D4–0x37B: render/physics parameters (42 DWORDs) ----
-
     /// 0x2D4–0x37B: Per-projectile render and physics parameters (42 DWORDs).
     ///
     /// This is NOT a separate data block — it is a shifted copy of weapon_data:
@@ -107,7 +103,6 @@ pub struct CTaskMissile {
     pub render_data: [u32; 0x2A],
 
     // ---- 0x37C–0x41B: post-render physics and state ----
-
     /// 0x37C–0x39F: Post-render dynamic state. render_data[0x11] is copied to
     /// [0x37C] by the constructor; physics updates the values each frame.
     pub _unknown_37c: [u8; 0x24],

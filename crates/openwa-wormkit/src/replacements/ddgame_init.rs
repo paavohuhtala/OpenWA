@@ -11,14 +11,13 @@
 //! - `GfxResource__Create_Maybe` (0x4F6300): usercall(ECX,EAX) + 1 stack, RET 0x4
 //! - `FUN_570E20` (display layer init): usercall(ESI=wrapper), plain RET
 
+use crate::hook;
 use openwa_core::address::va;
 use openwa_core::engine::ddgame::{
-    DDGame, ddgame_init_fields, ddgame_init_render_indices,
-    task_state_machine_init, gfx_resource_create, display_layer_color_init,
-    gfx_dir_find_entry, gfx_handler_load_dir,
+    ddgame_init_fields, ddgame_init_render_indices, display_layer_color_init, gfx_dir_find_entry,
+    gfx_handler_load_dir, gfx_resource_create, task_state_machine_init, DDGame,
 };
 use openwa_core::engine::DDGameWrapper;
-use crate::hook;
 
 // ─── DDGame__InitFields (0x526120) ──────────────────────────────────────────
 
@@ -84,9 +83,7 @@ extern "cdecl" fn impl_display_layer_init(wrapper: u32) -> u32 {
 
 // ─── GfxResource__Create_Maybe (0x4F6300) ───────────────────────────────────
 
-extern "cdecl" fn impl_gfx_resource_create(
-    gfx_handler: u32, name: u32, output: u32,
-) -> u32 {
+extern "cdecl" fn impl_gfx_resource_create(gfx_handler: u32, name: u32, output: u32) -> u32 {
     let result = unsafe {
         gfx_resource_create(gfx_handler as *mut u8, name as *const u8, output as *mut u8)
     };
@@ -122,20 +119,21 @@ hook::usercall_trampoline!(
 static FIND_ENTRY_LOG_COUNT: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(0);
 
 extern "cdecl" fn impl_find_entry(name: u32, gfx_handler: u32) -> u32 {
-    let result = unsafe {
-        gfx_dir_find_entry(name as *const u8, gfx_handler as *mut u8)
-    };
+    let result = unsafe { gfx_dir_find_entry(name as *const u8, gfx_handler as *mut u8) };
     // Log first 20 lookups for debugging
     let count = FIND_ENTRY_LOG_COUNT.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
     if count < 20 {
         let name_str = unsafe {
             let p = name as *const u8;
             let mut len = 0;
-            while *p.add(len) != 0 && len < 64 { len += 1; }
+            while *p.add(len) != 0 && len < 64 {
+                len += 1;
+            }
             core::str::from_utf8_unchecked(core::slice::from_raw_parts(p, len))
         };
         let _ = crate::log_line(&format!(
-            "[FindEntry] #{count}: \"{name_str}\" -> 0x{:08X}", result as u32
+            "[FindEntry] #{count}: \"{name_str}\" -> 0x{:08X}",
+            result as u32
         ));
     }
     result as u32

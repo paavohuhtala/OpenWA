@@ -31,5 +31,7 @@ pub struct InputCtrlVtable {
 
 impl InputCtrl {
     /// Vtable[0]: Destroy and optionally free (flags & 1 = free).
-    pub unsafe fn destroy(&mut self, flags: u32) { vcall!(self, destructor, flags) }
+    pub unsafe fn destroy(&mut self, flags: u32) {
+        vcall!(self, destructor, flags)
+    }
 }

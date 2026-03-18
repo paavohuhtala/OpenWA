@@ -19,13 +19,18 @@ pub fn push(msg: impl Into<String>) {
         if b.len() >= 500 {
             b.pop_front();
         }
-        b.push_back(LogEntry { ts: Instant::now(), text: msg.into() });
+        b.push_back(LogEntry {
+            ts: Instant::now(),
+            text: msg.into(),
+        });
     }
 }
 
 /// Snapshot up to `max` of the most recent entries (cloned).
 pub fn snapshot(max: usize) -> Vec<(Instant, String)> {
-    let Ok(b) = buf().lock() else { return Vec::new() };
+    let Ok(b) = buf().lock() else {
+        return Vec::new();
+    };
     let start = b.len().saturating_sub(max);
     b.range(start..).map(|e| (e.ts, e.text.clone())).collect()
 }

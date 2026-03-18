@@ -1,8 +1,8 @@
 use std::path::Path;
 
 use openwa_core::game::scheme::{
-    ExtendedOptions, SchemeFile, SchemeVersion, EXTENDED_OPTIONS_DEFAULTS,
-    EXTENDED_OPTIONS_SIZE, SCHEME_PAYLOAD_V1, SCHEME_PAYLOAD_V2, WEAPONS_V1_COUNT,
+    ExtendedOptions, SchemeFile, SchemeVersion, EXTENDED_OPTIONS_DEFAULTS, EXTENDED_OPTIONS_SIZE,
+    SCHEME_PAYLOAD_V1, SCHEME_PAYLOAD_V2, WEAPONS_V1_COUNT,
 };
 
 const FIXTURES: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures");
@@ -66,7 +66,7 @@ fn beginner_options() {
     let opts = scheme.options();
 
     // Verified against hex dump of beginner.wsc payload bytes
-    assert_eq!(opts.hot_seat_delay, 10);   // 0x0A
+    assert_eq!(opts.hot_seat_delay, 10); // 0x0A
     assert_eq!(opts.retreat_time, 5);
     assert_eq!(opts.rope_retreat_time, 5);
     assert_eq!(opts.display_total_round_time, true);
@@ -74,10 +74,10 @@ fn beginner_options() {
     assert_eq!(opts.fall_damage, 0);
     assert_eq!(opts.artillery_mode, false);
     assert_eq!(opts.bounty_mode, 0);
-    assert_eq!(opts.stockpiling, 1);    // On
-    assert_eq!(opts.worm_select, 1);    // Manual
+    assert_eq!(opts.stockpiling, 1); // On
+    assert_eq!(opts.worm_select, 1); // Manual
     assert_eq!(opts.sudden_death_event, 3); // Nothing
-    assert_eq!(opts.worm_energy, 150);  // 0x96
+    assert_eq!(opts.worm_energy, 150); // 0x96
 }
 
 #[test]
@@ -94,9 +94,9 @@ fn classic_options() {
     assert_eq!(opts.automatic_replays, true);
     assert_eq!(opts.fall_damage, 1);
     assert_eq!(opts.artillery_mode, false);
-    assert_eq!(opts.stockpiling, 0);    // Off
-    assert_eq!(opts.worm_select, 1);    // Manual
-    assert_eq!(opts.worm_energy, 100);  // hex: 0x64
+    assert_eq!(opts.stockpiling, 0); // Off
+    assert_eq!(opts.worm_select, 1); // Manual
+    assert_eq!(opts.worm_energy, 100); // hex: 0x64
 }
 
 #[test]
@@ -181,7 +181,8 @@ fn v2_super_weapons_zeroed_region() {
 /// Parse all .wsc files from the game directory if available.
 #[test]
 fn parse_all_game_schemes() {
-    let schemes_dir = Path::new("I:/games/SteamLibrary/steamapps/common/Worms Armageddon/User/Schemes");
+    let schemes_dir =
+        Path::new("I:/games/SteamLibrary/steamapps/common/Worms Armageddon/User/Schemes");
     if !schemes_dir.exists() {
         eprintln!("Skipping: game schemes directory not found");
         return;
@@ -228,7 +229,7 @@ fn make_valid_extended_options() -> [u8; EXTENDED_OPTIONS_SIZE] {
     b[0x34..0x38].copy_from_slice(&1i32.to_le_bytes()); // max_projectile_speed
     b[0x38..0x3C].copy_from_slice(&1i32.to_le_bytes()); // max_rope_speed
     b[0x3C..0x40].copy_from_slice(&1i32.to_le_bytes()); // max_jet_pack_speed
-    // game_engine_speed in [0x1000, 0x800000]
+                                                        // game_engine_speed in [0x1000, 0x800000]
     b[0x40..0x44].copy_from_slice(&0x10000i32.to_le_bytes());
     // sheep_heavens_gate in [1, 7]
     b[0x6A] = 1;

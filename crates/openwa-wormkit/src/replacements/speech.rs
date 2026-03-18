@@ -12,10 +12,10 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 use heapless::CString;
 
-use openwa_core::rebase::rb;
-use openwa_core::engine::DDGameWrapper;
 use openwa_core::address::va::{self, game_info_offsets};
 use openwa_core::audio::SpeechLineTableEntry;
+use openwa_core::engine::DDGameWrapper;
+use openwa_core::rebase::rb;
 
 use crate::hook::{self, usercall_trampoline};
 use crate::log_line;
@@ -69,11 +69,11 @@ unsafe extern "cdecl" fn wav_player_stop_raw(_player: u32, _func: u32) {
     core::arch::naked_asm!(
         "push esi",
         "push edi",
-        "sub esp, 4",           // result on stack
-        "mov esi, [esp + 16]",  // player (arg1, past saved esi+edi+result)
-        "lea edi, [esp]",       // &result
-        "call [esp + 20]",      // func (arg2)
-        "add esp, 4",           // drop result
+        "sub esp, 4",          // result on stack
+        "mov esi, [esp + 16]", // player (arg1, past saved esi+edi+result)
+        "lea edi, [esp]",      // &result
+        "call [esp + 20]",     // func (arg2)
+        "add esp, 4",          // drop result
         "pop edi",
         "pop esi",
         "ret",
@@ -88,8 +88,8 @@ unsafe extern "cdecl" fn wav_player_stop_raw(_player: u32, _func: u32) {
 unsafe extern "cdecl" fn wav_player_load_raw(_player: u32, _path: *const u8, _func: u32) {
     core::arch::naked_asm!(
         "push esi",
-        "sub esp, 4",              // result on stack
-        "lea esi, [esp]",          // ESI = &result
+        "sub esp, 4",     // result on stack
+        "lea esi, [esp]", // ESI = &result
         // Push in reverse order: 0, path, player
         "push 0",                  // third param=0 (ESP: +16=player, +20=path, +24=func)
         "push dword ptr [esp+20]", // second param=path (ESP: +20=player, +24=path, +28=func)
@@ -109,8 +109,8 @@ unsafe extern "cdecl" fn wav_player_load_raw(_player: u32, _path: *const u8, _fu
 unsafe extern "cdecl" fn wav_player_play_raw(_player: u32, _volume: u32, _func: u32) {
     core::arch::naked_asm!(
         "push edi",
-        "sub esp, 4",              // result on stack
-        "lea edi, [esp]",          // EDI = &result
+        "sub esp, 4",     // result on stack
+        "lea edi, [esp]", // EDI = &result
         // Push in reverse order: volume, player
         "push dword ptr [esp+16]", // second param=volume (ESP: +16=player, +24=func)
         "push dword ptr [esp+16]", // first param=player (ESP: +28=func)
@@ -120,7 +120,6 @@ unsafe extern "cdecl" fn wav_player_play_raw(_player: u32, _volume: u32, _func: 
         "ret",
     );
 }
-
 
 // ============================================================
 // WA function wrappers
@@ -257,8 +256,8 @@ unsafe fn call_load_speech_wav(
     full_path: *const c_char,
 ) -> u32 {
     use openwa_core::audio::SpeechSlotTable;
-    use openwa_core::engine::DDGameWrapper;
     use openwa_core::engine::ddgame_wrapper::SPEECH_NAME_ENTRY_SIZE;
+    use openwa_core::engine::DDGameWrapper;
 
     let wrapper = &mut *(ddgw as *mut DDGameWrapper);
     let count = wrapper.speech_name_count as usize;
@@ -281,7 +280,11 @@ unsafe fn call_load_speech_wav(
 
     if let Some(idx) = found_idx {
         // Found existing — reuse the buffer slot.
-        slot_table.set(team_index as usize, line_id, idx as u32 + SpeechSlotTable::BUFFER_OFFSET);
+        slot_table.set(
+            team_index as usize,
+            line_id,
+            idx as u32 + SpeechSlotTable::BUFFER_OFFSET,
+        );
         return 1;
     }
 
@@ -388,8 +391,7 @@ unsafe extern "cdecl" fn load_speech_bank_impl(
             let next_entry = &*table_base.add(i + 1);
             if next_entry.name_ptr.is_null() || next_entry.id != entry.id {
                 let game_info = (*(*ddgw).ddgame).game_info as *const u8;
-                let default_dir =
-                    game_info.add(game_info_offsets::DEFAULT_SPEECH_DIR as usize);
+                let default_dir = game_info.add(game_info_offsets::DEFAULT_SPEECH_DIR as usize);
                 let default_base =
                     game_info.add(game_info_offsets::DEFAULT_SPEECH_BASE_PATH as usize);
 
@@ -455,10 +457,8 @@ unsafe extern "cdecl" fn load_all_speech_banks_impl(ddgw: *const DDGameWrapper) 
     let gi = ddgame.game_info as *const u8;
     for i in 0..team_count {
         let team_offset = (i * game_info_offsets::SPEECH_TEAM_STRIDE) as usize;
-        let base_path =
-            gi.add(game_info_offsets::SPEECH_BASE_PATH as usize + team_offset);
-        let dir =
-            gi.add(game_info_offsets::SPEECH_DIR as usize + team_offset);
+        let base_path = gi.add(game_info_offsets::SPEECH_BASE_PATH as usize + team_offset);
+        let dir = gi.add(game_info_offsets::SPEECH_DIR as usize + team_offset);
 
         // Call our Rust impl directly (bypasses the hook trampoline)
         load_speech_bank_impl(ddgw, i, base_path, dir);
@@ -471,11 +471,7 @@ unsafe extern "cdecl" fn load_all_speech_banks_impl(ddgw: *const DDGameWrapper) 
 
 pub fn install() -> Result<(), String> {
     unsafe {
-        hook::install(
-            "PlayFeSfx",
-            va::PLAY_FE_SFX,
-            hook_play_fe_sfx as *const (),
-        )?;
+        hook::install("PlayFeSfx", va::PLAY_FE_SFX, hook_play_fe_sfx as *const ())?;
 
         hook::install(
             "PlayFanfare_Default",

@@ -80,9 +80,19 @@ usercall_trampoline!(fn trampoline_get_team_total_health; impl_fn = get_team_tot
 // RET 0x4, returns EAX = bool (1 if special state)
 
 unsafe extern "cdecl" fn is_worm_in_special_state_impl(
-    team_index: u32, worm_index: u32, arena: TeamArenaRef,
+    team_index: u32,
+    worm_index: u32,
+    arena: TeamArenaRef,
 ) -> u32 {
-    if ddgame::worm::is_special_state(arena.team_worm(team_index as usize, worm_index as usize).state) { 1 } else { 0 }
+    if ddgame::worm::is_special_state(
+        arena
+            .team_worm(team_index as usize, worm_index as usize)
+            .state,
+    ) {
+        1
+    } else {
+        0
+    }
 }
 
 usercall_trampoline!(fn trampoline_is_worm_in_special_state; impl_fn = is_worm_in_special_state_impl;
@@ -99,7 +109,11 @@ usercall_trampoline!(fn trampoline_is_worm_in_special_state; impl_fn = is_worm_i
 // These values appear transient — actual worm positions live in CGameTask objects.
 
 unsafe extern "cdecl" fn get_worm_position_impl(
-    team_index: u32, worm_index: u32, arena: TeamArenaRef, out_x: *mut i32, out_y: *mut i32,
+    team_index: u32,
+    worm_index: u32,
+    arena: TeamArenaRef,
+    out_x: *mut i32,
+    out_y: *mut i32,
 ) {
     let worm = arena.team_worm(team_index as usize, worm_index as usize);
     *out_x = *(worm._unknown_90.as_ptr() as *const i32);
@@ -150,7 +164,10 @@ usercall_trampoline!(fn trampoline_check_worm_state_0x64; impl_fn = check_worm_s
 //
 // Per-team version of CheckWormState0x64. 1 xref (FUN_00556ad0).
 
-unsafe extern "cdecl" fn check_team_worm_state_0x64_impl(arena: TeamArenaRef, team_idx: u32) -> u32 {
+unsafe extern "cdecl" fn check_team_worm_state_0x64_impl(
+    arena: TeamArenaRef,
+    team_idx: u32,
+) -> u32 {
     let header = arena.team_header(team_idx as usize);
 
     if header.eliminated != 0 {

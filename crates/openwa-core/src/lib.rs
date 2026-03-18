@@ -10,12 +10,12 @@ pub mod game;
 pub mod input;
 pub mod render;
 
+pub mod address;
 pub mod fixed;
 pub mod log;
-pub mod task;
-pub mod address;
 pub mod rebase;
-pub mod wa;
-pub mod wa_call;
-pub mod wa_alloc;
+pub mod task;
 pub mod vtable;
+pub mod wa;
+pub mod wa_alloc;
+pub mod wa_call;

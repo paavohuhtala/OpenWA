@@ -19,26 +19,41 @@ type FARPROC = unsafe extern "system" fn() -> isize;
 
 extern "system" {
     fn VirtualAllocEx(
-        hProcess: HANDLE, lpAddress: LPVOID, dwSize: SIZE_T,
-        flAllocationType: DWORD, flProtect: DWORD,
+        hProcess: HANDLE,
+        lpAddress: LPVOID,
+        dwSize: SIZE_T,
+        flAllocationType: DWORD,
+        flProtect: DWORD,
     ) -> LPVOID;
-    fn VirtualFreeEx(hProcess: HANDLE, lpAddress: LPVOID, dwSize: SIZE_T, dwFreeType: DWORD) -> BOOL;
+    fn VirtualFreeEx(
+        hProcess: HANDLE,
+        lpAddress: LPVOID,
+        dwSize: SIZE_T,
+        dwFreeType: DWORD,
+    ) -> BOOL;
     fn WriteProcessMemory(
-        hProcess: HANDLE, lpBaseAddress: LPVOID, lpBuffer: LPCVOID,
-        nSize: SIZE_T, lpNumberOfBytesWritten: *mut SIZE_T,
+        hProcess: HANDLE,
+        lpBaseAddress: LPVOID,
+        lpBuffer: LPCVOID,
+        nSize: SIZE_T,
+        lpNumberOfBytesWritten: *mut SIZE_T,
     ) -> BOOL;
     fn GetModuleHandleA(lpModuleName: *const u8) -> HANDLE;
     fn GetProcAddress(hModule: HANDLE, lpProcName: *const u8) -> Option<FARPROC>;
     fn CreateRemoteThread(
-        hProcess: HANDLE, lpThreadAttributes: LPVOID, dwStackSize: SIZE_T,
+        hProcess: HANDLE,
+        lpThreadAttributes: LPVOID,
+        dwStackSize: SIZE_T,
         lpStartAddress: unsafe extern "system" fn(LPVOID) -> DWORD,
-        lpParameter: LPVOID, dwCreationFlags: DWORD, lpThreadId: *mut DWORD,
+        lpParameter: LPVOID,
+        dwCreationFlags: DWORD,
+        lpThreadId: *mut DWORD,
     ) -> HANDLE;
     fn WaitForSingleObject(hHandle: HANDLE, dwMilliseconds: DWORD) -> DWORD;
     fn CloseHandle(hObject: HANDLE) -> BOOL;
 }
 
-const MEM_COMMIT: DWORD  = 0x1000;
+const MEM_COMMIT: DWORD = 0x1000;
 const MEM_RESERVE: DWORD = 0x2000;
 const MEM_RELEASE: DWORD = 0x8000;
 const PAGE_READWRITE: DWORD = 0x04;
@@ -49,14 +64,16 @@ const INFINITE: DWORD = 0xFFFF_FFFF;
 /// Blocks until `DllMain` returns (i.e. all hooks are installed) before returning,
 /// so the caller can safely resume the main thread.
 pub unsafe fn inject_dll(process: HANDLE, dll_path: &str) -> Result<(), String> {
-    let path_cstr = CString::new(dll_path)
-        .map_err(|e| format!("bad DLL path: {e}"))?;
+    let path_cstr = CString::new(dll_path).map_err(|e| format!("bad DLL path: {e}"))?;
     let path_bytes = path_cstr.as_bytes_with_nul();
 
     // Allocate memory in the target process for the DLL path string.
     let remote_buf = VirtualAllocEx(
-        process, ptr::null_mut(), path_bytes.len(),
-        MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE,
+        process,
+        ptr::null_mut(),
+        path_bytes.len(),
+        MEM_COMMIT | MEM_RESERVE,
+        PAGE_READWRITE,
     );
     if remote_buf.is_null() {
         return Err("VirtualAllocEx failed".to_string());
@@ -64,8 +81,10 @@ pub unsafe fn inject_dll(process: HANDLE, dll_path: &str) -> Result<(), String> 
 
     // Write the path into the target process.
     let ok = WriteProcessMemory(
-        process, remote_buf,
-        path_bytes.as_ptr().cast(), path_bytes.len(),
+        process,
+        remote_buf,
+        path_bytes.as_ptr().cast(),
+        path_bytes.len(),
         ptr::null_mut(),
     );
     if ok == 0 {
@@ -89,9 +108,13 @@ pub unsafe fn inject_dll(process: HANDLE, dll_path: &str) -> Result<(), String> 
     // Spin up a remote thread that calls LoadLibraryA(dll_path).
     // This triggers DllMain(DLL_PROCESS_ATTACH) which installs all our hooks.
     let thread = CreateRemoteThread(
-        process, ptr::null_mut(), 0,
+        process,
+        ptr::null_mut(),
+        0,
         mem::transmute(load_library),
-        remote_buf, 0, ptr::null_mut(),
+        remote_buf,
+        0,
+        ptr::null_mut(),
     );
     if thread.is_null() {
         VirtualFreeEx(process, remote_buf, 0, MEM_RELEASE);

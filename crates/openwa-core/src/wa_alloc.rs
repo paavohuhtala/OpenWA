@@ -18,8 +18,7 @@ pub unsafe fn wa_malloc(size: u32) -> *mut u8 {
 /// # Safety
 /// `ptr` must have been returned by `wa_malloc` (or null, which is a no-op).
 pub unsafe fn wa_free(ptr: *mut u8) {
-    let f: unsafe extern "cdecl" fn(*mut u8) =
-        core::mem::transmute(rb(va::WA_FREE) as usize);
+    let f: unsafe extern "cdecl" fn(*mut u8) = core::mem::transmute(rb(va::WA_FREE) as usize);
     f(ptr);
 }
 

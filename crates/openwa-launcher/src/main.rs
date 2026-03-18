@@ -6,41 +6,67 @@ use std::path::{Path, PathBuf};
 use std::ptr;
 
 // Declare Win32 types and functions directly to avoid windows-sys feature-flag issues.
-#[allow(non_camel_case_types)] type HANDLE  = *mut core::ffi::c_void;
-#[allow(non_camel_case_types)] type HMODULE = *mut core::ffi::c_void;
-#[allow(non_camel_case_types)] type DWORD   = u32;
-#[allow(non_camel_case_types)] type BOOL    = i32;
-#[allow(non_camel_case_types)] type LPVOID  = *mut core::ffi::c_void;
-#[allow(non_camel_case_types)] type LPDWORD = *mut u32;
+#[allow(non_camel_case_types)]
+type HANDLE = *mut core::ffi::c_void;
+#[allow(non_camel_case_types)]
+type HMODULE = *mut core::ffi::c_void;
+#[allow(non_camel_case_types)]
+type DWORD = u32;
+#[allow(non_camel_case_types)]
+type BOOL = i32;
+#[allow(non_camel_case_types)]
+type LPVOID = *mut core::ffi::c_void;
+#[allow(non_camel_case_types)]
+type LPDWORD = *mut u32;
 
 #[repr(C)]
 #[allow(non_snake_case)]
 struct STARTUPINFOA {
-    cb: DWORD, lpReserved: *mut u8, lpDesktop: *mut u8, lpTitle: *mut u8,
-    dwX: DWORD, dwY: DWORD, dwXSize: DWORD, dwYSize: DWORD,
-    dwXCountChars: DWORD, dwYCountChars: DWORD, dwFillAttribute: DWORD,
-    dwFlags: DWORD, wShowWindow: u16, cbReserved2: u16,
-    lpReserved2: *mut u8, hStdInput: HANDLE, hStdOutput: HANDLE, hStdError: HANDLE,
+    cb: DWORD,
+    lpReserved: *mut u8,
+    lpDesktop: *mut u8,
+    lpTitle: *mut u8,
+    dwX: DWORD,
+    dwY: DWORD,
+    dwXSize: DWORD,
+    dwYSize: DWORD,
+    dwXCountChars: DWORD,
+    dwYCountChars: DWORD,
+    dwFillAttribute: DWORD,
+    dwFlags: DWORD,
+    wShowWindow: u16,
+    cbReserved2: u16,
+    lpReserved2: *mut u8,
+    hStdInput: HANDLE,
+    hStdOutput: HANDLE,
+    hStdError: HANDLE,
 }
 
 #[repr(C)]
 #[allow(non_snake_case)]
 struct PROCESS_INFORMATION {
-    hProcess: HANDLE, hThread: HANDLE, dwProcessId: DWORD, dwThreadId: DWORD,
+    hProcess: HANDLE,
+    hThread: HANDLE,
+    dwProcessId: DWORD,
+    dwThreadId: DWORD,
 }
 
-const CREATE_SUSPENDED: DWORD          = 0x0000_0004;
-const STARTF_USESHOWWINDOW: DWORD      = 0x0000_0001;
-const SW_SHOWMINIMIZED: u16            = 2;
-const INFINITE: DWORD                  = 0xFFFF_FFFF;
+const CREATE_SUSPENDED: DWORD = 0x0000_0004;
+const STARTF_USESHOWWINDOW: DWORD = 0x0000_0001;
+const SW_SHOWMINIMIZED: u16 = 2;
+const INFINITE: DWORD = 0xFFFF_FFFF;
 
 #[link(name = "kernel32")]
 extern "system" {
     fn CreateProcessA(
-        lpApplicationName: *const u8, lpCommandLine: *mut u8,
-        lpProcessAttributes: LPVOID, lpThreadAttributes: LPVOID,
-        bInheritHandles: BOOL, dwCreationFlags: DWORD,
-        lpEnvironment: LPVOID, lpCurrentDirectory: *const u8,
+        lpApplicationName: *const u8,
+        lpCommandLine: *mut u8,
+        lpProcessAttributes: LPVOID,
+        lpThreadAttributes: LPVOID,
+        bInheritHandles: BOOL,
+        dwCreationFlags: DWORD,
+        lpEnvironment: LPVOID,
+        lpCurrentDirectory: *const u8,
         lpStartupInfo: *const STARTUPINFOA,
         lpProcessInformation: *mut PROCESS_INFORMATION,
     ) -> BOOL;
@@ -51,7 +77,9 @@ extern "system" {
     fn CloseHandle(hObject: HANDLE) -> BOOL;
     fn GetModuleFileNameA(hModule: HMODULE, lpFilename: *mut u8, nSize: DWORD) -> DWORD;
     fn CreateEventA(
-        lpEventAttributes: LPVOID, bManualReset: BOOL, bInitialState: BOOL,
+        lpEventAttributes: LPVOID,
+        bManualReset: BOOL,
+        bInitialState: BOOL,
         lpName: *const u8,
     ) -> HANDLE;
 }
@@ -143,7 +171,8 @@ unsafe fn launch(
     let ok = CreateProcessA(
         exe_cstr.as_ptr().cast(),
         cmdline_buf.as_mut_ptr(),
-        ptr::null_mut(), ptr::null_mut(),
+        ptr::null_mut(),
+        ptr::null_mut(),
         0, // bInheritHandles = FALSE
         CREATE_SUSPENDED,
         ptr::null_mut(), // inherit environment
@@ -156,9 +185,7 @@ unsafe fn launch(
         return Err("CreateProcessA failed — is WA.exe path correct?".to_string());
     }
 
-    let dll_str = dll_path
-        .to_str()
-        .ok_or("DLL path is not valid UTF-8")?;
+    let dll_str = dll_path.to_str().ok_or("DLL path is not valid UTF-8")?;
 
     // Create a named event that the DLL will signal after all hooks are
     // installed. This ensures the main thread doesn't run any WA code
@@ -168,7 +195,9 @@ unsafe fn launch(
     // event may be null if CreateEventA fails — we'll fall through gracefully.
 
     if let Err(e) = inject::inject_dll(pi.hProcess, dll_str) {
-        if !event.is_null() { CloseHandle(event); }
+        if !event.is_null() {
+            CloseHandle(event);
+        }
         TerminateProcess(pi.hProcess, 1);
         CloseHandle(pi.hProcess);
         CloseHandle(pi.hThread);
@@ -204,9 +233,7 @@ unsafe fn launch(
 
 fn launcher_dir() -> Result<PathBuf, String> {
     let mut buf = vec![0u8; 32768];
-    let len = unsafe {
-        GetModuleFileNameA(ptr::null_mut(), buf.as_mut_ptr(), buf.len() as DWORD)
-    };
+    let len = unsafe { GetModuleFileNameA(ptr::null_mut(), buf.as_mut_ptr(), buf.len() as DWORD) };
     if len == 0 {
         return Err("GetModuleFileNameA failed".to_string());
     }
@@ -251,7 +278,5 @@ fn find_wa_hardcoded() -> Option<PathBuf> {
         r"C:\Program Files\Steam\steamapps\common\Worms Armageddon\WA.exe",
     ];
 
-    CANDIDATES.iter()
-        .map(PathBuf::from)
-        .find(|p| p.exists())
+    CANDIDATES.iter().map(PathBuf::from).find(|p| p.exists())
 }

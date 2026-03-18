@@ -16,9 +16,9 @@ use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
 use crate::hook;
 use crate::log_line;
-use openwa_core::rebase::rb;
 use openwa_core::address::va;
 use openwa_core::engine::{DDGame, DDGameWrapper};
+use openwa_core::rebase::rb;
 
 extern "system" {
     fn IsBadReadPtr(lp: *const u8, ucb: u32) -> i32;
@@ -71,7 +71,12 @@ pub unsafe fn dump_region(base_ptr: *const u8, offset: usize, size: usize, struc
     let wa_base = rb(va::IMAGE_BASE);
     let delta = wa_base.wrapping_sub(va::IMAGE_BASE);
 
-    let _ = log_line(&format!("\n=== {}+0x{:04X}..0x{:04X} ===", struct_name, offset, offset + size));
+    let _ = log_line(&format!(
+        "\n=== {}+0x{:04X}..0x{:04X} ===",
+        struct_name,
+        offset,
+        offset + size
+    ));
 
     let dword_count = size / 4;
     for i in 0..dword_count {
@@ -89,7 +94,10 @@ pub unsafe fn dump_region(base_ptr: *const u8, offset: usize, size: usize, struc
                 let vt0 = *(val as *const u32);
                 let _ = log_line(&format!(
                     "  +0x{:04X}: 0x{:08X} [VTABLE] g:0x{:08X} vt[0]=g:0x{:08X}",
-                    field_offset, val, ghidra_val, vt0.wrapping_sub(delta)
+                    field_offset,
+                    val,
+                    ghidra_val,
+                    vt0.wrapping_sub(delta)
                 ));
             } else {
                 let _ = log_line(&format!(
@@ -135,10 +143,7 @@ pub unsafe fn dump_region(base_ptr: *const u8, offset: usize, size: usize, struc
                 ));
             }
         } else {
-            let _ = log_line(&format!(
-                "  +0x{:04X}: 0x{:08X} [value]",
-                field_offset, val
-            ));
+            let _ = log_line(&format!("  +0x{:04X}: 0x{:08X} [value]", field_offset, val));
         }
     }
 }

@@ -41,16 +41,16 @@
 //!   DDNetGameWrapper (0x2C, stdcall ctor) → session+0xC0
 //! ```
 
-use openwa_core::address::va;
-use openwa_core::rebase::rb;
-use openwa_core::engine::{GameInfo, GameSession, DDGameWrapper, GameTimer, DDNetGameWrapper};
-use openwa_core::input::{DDKeyboard, InputCtrl, InputCtrlVtable};
-use openwa_core::display::{DDDisplay, DisplayBase, DisplayGfx, Palette};
-use openwa_core::audio::{DSSound, StreamingAudio};
-use openwa_core::wa_alloc::WABox;
+use super::game_session;
 use crate::hook;
 use crate::log_line;
-use super::game_session;
+use openwa_core::address::va;
+use openwa_core::audio::{DSSound, StreamingAudio};
+use openwa_core::display::{DDDisplay, DisplayBase, DisplayGfx, Palette};
+use openwa_core::engine::{DDGameWrapper, DDNetGameWrapper, GameInfo, GameSession, GameTimer};
+use openwa_core::input::{DDKeyboard, InputCtrl, InputCtrlVtable};
+use openwa_core::rebase::rb;
+use openwa_core::wa_alloc::WABox;
 
 // ─── Entry trampoline state ───────────────────────────────────────────────────
 
@@ -73,7 +73,6 @@ static mut INPUT_CTRL_ESI: u32 = 0;
 /// Saved ESI across the `call_input_ctrl_init` call.
 static mut INPUT_CTRL_SAVED_ESI: u32 = 0;
 
-
 // ─── Bridges ─────────────────────────────────────────────────────────────────
 //
 // All bridges use the "pop ECX (save bridge_ret) / call callee / push ECX" idiom
@@ -83,7 +82,10 @@ static mut INPUT_CTRL_SAVED_ESI: u32 = 0;
 /// Timer constructor: `usercall(ESI=timer_ptr, EAX=crosshair_threshold)`, plain RET.
 /// Returns whatever EAX holds after the call.
 #[unsafe(naked)]
-unsafe extern "cdecl" fn call_timer_ctor(_timer_ptr: *mut GameTimer, _crosshair_threshold: u32) -> u32 {
+unsafe extern "cdecl" fn call_timer_ctor(
+    _timer_ptr: *mut GameTimer,
+    _crosshair_threshold: u32,
+) -> u32 {
     core::arch::naked_asm!(
         // [esp+0]=bridge_ret, [esp+4]=timer_ptr, [esp+8]=crosshair_threshold
         "pushl %esi",
@@ -191,11 +193,11 @@ unsafe extern "stdcall" fn call_ddisplay_init(
 /// The returned pointer is always valid (sound may be partially initialized
 /// if COM steps fail, matching original WA behavior).
 unsafe fn create_dssound(hwnd: u32) -> *mut DSSound {
-    use windows::Win32::Media::Audio::DirectSound::{
-        DirectSoundCreate, IDirectSound, IDirectSoundBuffer,
-        DSBUFFERDESC, DSBCAPS_PRIMARYBUFFER, DSBPLAY_LOOPING, DSSCL_PRIORITY,
-    };
     use windows::Win32::Foundation::HWND;
+    use windows::Win32::Media::Audio::DirectSound::{
+        DirectSoundCreate, IDirectSound, IDirectSoundBuffer, DSBCAPS_PRIMARYBUFFER,
+        DSBPLAY_LOOPING, DSBUFFERDESC, DSSCL_PRIORITY,
+    };
 
     // Pure Rust construction — replaces call_dssound_ctor bridge.
     let snd = WABox::<DSSound>::from_value(DSSound::new(hwnd)).leak();
@@ -219,7 +221,8 @@ unsafe fn create_dssound(hwnd: u32) -> *mut DSSound {
             let primary = primary.unwrap();
 
             // GetCaps to populate primary_buffer_caps
-            let mut caps = core::mem::zeroed::<windows::Win32::Media::Audio::DirectSound::DSBCAPS>();
+            let mut caps =
+                core::mem::zeroed::<windows::Win32::Media::Audio::DirectSound::DSBCAPS>();
             caps.dwSize = core::mem::size_of_val(&caps) as u32;
             let _ = primary.GetCaps(&mut caps);
             (*snd).primary_buffer_caps = caps.dwBufferBytes;
@@ -338,10 +341,15 @@ unsafe extern "cdecl" fn impl_init_hardware(
         if suppress == 0 {
             SetCursorPos(cx, cy);
             if fullscreen {
-                use windows_sys::Win32::UI::WindowsAndMessaging::{ClipCursor, GetClientRect};
                 use windows_sys::Win32::Foundation::{HWND, RECT};
+                use windows_sys::Win32::UI::WindowsAndMessaging::{ClipCursor, GetClientRect};
                 let hwnd_val: HWND = *(rb(va::G_FRONTEND_HWND) as *const HWND);
-                let mut rect = RECT { left: 0, top: 0, right: 0, bottom: 0 };
+                let mut rect = RECT {
+                    left: 0,
+                    top: 0,
+                    right: 0,
+                    bottom: 0,
+                };
                 GetClientRect(hwnd_val, &mut rect);
                 let map_fn_ptr = *(rb(va::IAT_MAP_WINDOW_POINTS) as *const usize);
                 let map_fn: unsafe extern "stdcall" fn(HWND, HWND, *mut RECT, u32) -> i32 =
@@ -355,7 +363,8 @@ unsafe extern "cdecl" fn impl_init_hardware(
         let kb = WABox::from_value(DDKeyboard::new(
             rb(va::DDKEYBOARD_VTABLE),
             &raw mut gi.input_state_f918 as u32,
-        )).leak();
+        ))
+        .leak();
         (*session).keyboard = kb;
 
         // ── Palette (inline construction) ─────────────────────────────────────
@@ -379,11 +388,11 @@ unsafe extern "cdecl" fn impl_init_hardware(
         }
     } else {
         // ── Headless / stats mode ─────────────────────────────────────────────
-        (*session).display      = DisplayBase::new_headless() as *mut u8;
-        (*session).keyboard         = core::ptr::null_mut();
-        (*session).sound            = core::ptr::null_mut();
-        (*session).palette          = core::ptr::null_mut();
-        (*session).streaming_audio  = core::ptr::null_mut();
+        (*session).display = DisplayBase::new_headless() as *mut u8;
+        (*session).keyboard = core::ptr::null_mut();
+        (*session).sound = core::ptr::null_mut();
+        (*session).palette = core::ptr::null_mut();
+        (*session).streaming_audio = core::ptr::null_mut();
     }
 
     // ── Session flags ─────────────────────────────────────────────────────────
@@ -459,10 +468,10 @@ unsafe extern "C" fn hook_init_hardware() {
 
 pub fn install() -> Result<(), String> {
     unsafe {
-        TIMER_CTOR_ADDR       = rb(va::GAME_ENGINE_TIMER_CTOR);
-        INPUT_CTRL_INIT_ADDR  = rb(va::INPUT_CTRL_INIT);
-        STREAM_CTOR_ADDR      = rb(va::STREAMING_AUDIO_CTOR);
-        DDISPLAY_INIT_ADDR    = rb(va::DDISPLAY_INIT);
+        TIMER_CTOR_ADDR = rb(va::GAME_ENGINE_TIMER_CTOR);
+        INPUT_CTRL_INIT_ADDR = rb(va::INPUT_CTRL_INIT);
+        STREAM_CTOR_ADDR = rb(va::STREAMING_AUDIO_CTOR);
+        DDISPLAY_INIT_ADDR = rb(va::DDISPLAY_INIT);
 
         // Full replacement — trampoline not needed.
         let _ = hook::install(

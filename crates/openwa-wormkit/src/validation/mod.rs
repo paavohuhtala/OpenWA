@@ -9,10 +9,13 @@ mod hooks;
 
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use openwa_core::rebase::rb;
 use openwa_core::address::va;
-use openwa_core::task::{CTask, CTaskBfsIter, CGameTask, CTaskMissile, CTaskTeam, CTaskTurnGame, TurnGameCtx, SharedDataTable};
 use openwa_core::engine::{DDGame, DDGameWrapper};
+use openwa_core::rebase::rb;
+use openwa_core::task::{
+    CGameTask, CTask, CTaskBfsIter, CTaskMissile, CTaskTeam, CTaskTurnGame, SharedDataTable,
+    TurnGameCtx,
+};
 
 static DUMP_COUNTER: AtomicU32 = AtomicU32::new(0);
 
@@ -66,7 +69,9 @@ impl ValidationResult {
     fn summary_line(&self) -> String {
         format!(
             "Results: {}/{} passed, {} failed",
-            self.pass, self.total(), self.fail
+            self.pass,
+            self.total(),
+            self.fail
         )
     }
 }
@@ -106,7 +111,10 @@ fn validate_addresses(result: &mut ValidationResult) {
     let vtables: &[(&str, u32)] = &[
         ("CTask vtable", va::CTASK_VTABLE),
         ("CGameTask vtable", va::CGAMETASK_VTABLE),
-        ("CGameTask SoundEmitter vtable", va::CGAMETASK_SOUND_EMITTER_VT),
+        (
+            "CGameTask SoundEmitter vtable",
+            va::CGAMETASK_SOUND_EMITTER_VT,
+        ),
         ("DDGameWrapper vtable", va::DDGAME_WRAPPER_VTABLE),
         ("GfxHandler vtable", va::GFX_HANDLER_VTABLE),
         ("DisplayGfx vtable", va::DISPLAY_GFX_VTABLE),
@@ -126,7 +134,16 @@ fn validate_addresses(result: &mut ValidationResult) {
         result.check(
             &format!("{} location", name),
             in_rdata,
-            &format!("0x{:08X} (ghidra 0x{:08X}) {}", addr, ghidra_addr, if in_rdata { "in .rdata" } else { "NOT in .rdata" }),
+            &format!(
+                "0x{:08X} (ghidra 0x{:08X}) {}",
+                addr,
+                ghidra_addr,
+                if in_rdata {
+                    "in .rdata"
+                } else {
+                    "NOT in .rdata"
+                }
+            ),
         );
     }
 
@@ -142,7 +159,8 @@ fn validate_addresses(result: &mut ValidationResult) {
                 in_text,
                 &format!(
                     "[0x{:08X}] = 0x{:08X} {}",
-                    addr, first_entry,
+                    addr,
+                    first_entry,
                     if in_text { "in .text" } else { "NOT in .text" }
                 ),
             );
@@ -180,8 +198,7 @@ fn validate_addresses(result: &mut ValidationResult) {
     let _ = log_validation("");
     let _ = log_validation("  Function prologue checks:");
     let valid_prologues: &[u8] = &[
-        0x55, 0x53, 0x56, 0x57, 0x83, 0x8B, 0x6A, 0x81,
-        0xB8, 0x51, 0x52, 0x64, 0x85, 0x8D,
+        0x55, 0x53, 0x56, 0x57, 0x83, 0x8B, 0x6A, 0x81, 0xB8, 0x51, 0x52, 0x64, 0x85, 0x8D,
         0xE9, // JMP — MinHook trampoline (function has been hooked)
     ];
 
@@ -208,7 +225,10 @@ fn validate_addresses(result: &mut ValidationResult) {
         ("CTask::vt2_HandleMessage", va::CTASK_VT2_HANDLE_MESSAGE),
         ("CGameTask::vt0", va::CGAMETASK_VT0),
         ("CGameTask::vt1_Free", va::CGAMETASK_VT1_FREE),
-        ("CGameTask::vt2_HandleMessage", va::CGAMETASK_VT2_HANDLE_MESSAGE),
+        (
+            "CGameTask::vt2_HandleMessage",
+            va::CGAMETASK_VT2_HANDLE_MESSAGE,
+        ),
     ];
 
     for (name, ghidra_addr) in functions {
@@ -218,7 +238,10 @@ fn validate_addresses(result: &mut ValidationResult) {
             result.check(
                 &format!("{} prologue", name),
                 false,
-                &format!("0x{:08X} (ghidra 0x{:08X}) not in .text range", addr, ghidra_addr),
+                &format!(
+                    "0x{:08X} (ghidra 0x{:08X}) not in .text range",
+                    addr, ghidra_addr
+                ),
             );
             continue;
         }
@@ -230,7 +253,8 @@ fn validate_addresses(result: &mut ValidationResult) {
                 ok,
                 &format!(
                     "0x{:08X}: first byte 0x{:02X} {}",
-                    addr, first_byte,
+                    addr,
+                    first_byte,
                     if ok { "valid" } else { "UNEXPECTED" }
                 ),
             );
@@ -298,53 +322,53 @@ fn validate_struct_offsets(result: &mut ValidationResult) {
 
     let _ = log_validation("");
     let _ = log_validation("  CTaskTeam:");
-    check_offset!(result, CTaskTeam, team_index,              0x38);
-    check_offset!(result, CTaskTeam, alive_worm_count,        0x48);
-    check_offset!(result, CTaskTeam, last_launched_weapon,    0x60);
-    check_offset!(result, CTaskTeam, worm_count,              0x218);
-    check_offset!(result, CTaskTeam, pos_x,                   0x404);
-    check_offset!(result, CTaskTeam, pos_y,                   0x408);
+    check_offset!(result, CTaskTeam, team_index, 0x38);
+    check_offset!(result, CTaskTeam, alive_worm_count, 0x48);
+    check_offset!(result, CTaskTeam, last_launched_weapon, 0x60);
+    check_offset!(result, CTaskTeam, worm_count, 0x218);
+    check_offset!(result, CTaskTeam, pos_x, 0x404);
+    check_offset!(result, CTaskTeam, pos_y, 0x408);
 
     let _ = log_validation("");
     let _ = log_validation("  TurnGameCtx (embedded at CTaskTurnGame+0x30):");
-    check_offset!(result, TurnGameCtx, land_height,    0x10);
-    check_offset!(result, TurnGameCtx, land_height_2,  0x14);
-    check_offset!(result, TurnGameCtx, _sentinel_18,   0x18);
-    check_offset!(result, TurnGameCtx, _sentinel_28,   0x28);
-    check_offset!(result, TurnGameCtx, _sentinel_38,   0x38);
-    check_offset!(result, TurnGameCtx, team_count,     0x4C);
-    check_offset!(result, TurnGameCtx, _slot_d0,       0xA0);
+    check_offset!(result, TurnGameCtx, land_height, 0x10);
+    check_offset!(result, TurnGameCtx, land_height_2, 0x14);
+    check_offset!(result, TurnGameCtx, _sentinel_18, 0x18);
+    check_offset!(result, TurnGameCtx, _sentinel_28, 0x28);
+    check_offset!(result, TurnGameCtx, _sentinel_38, 0x38);
+    check_offset!(result, TurnGameCtx, team_count, 0x4C);
+    check_offset!(result, TurnGameCtx, _slot_d0, 0xA0);
     check_offset!(result, TurnGameCtx, _hud_textbox_a, 0xA4);
     check_offset!(result, TurnGameCtx, _hud_textbox_b, 0xA8);
 
     let _ = log_validation("");
     let _ = log_validation("  CTaskMissile:");
-    check_offset!(result, CTaskMissile, base,            0x00);
-    check_offset!(result, CTaskMissile, slot_id,         0x12C);
-    check_offset!(result, CTaskMissile, spawn_params,    0x130);
-    check_offset!(result, CTaskMissile, weapon_data,     0x15C);
-    check_offset!(result, CTaskMissile, render_data,     0x2D4);
+    check_offset!(result, CTaskMissile, base, 0x00);
+    check_offset!(result, CTaskMissile, slot_id, 0x12C);
+    check_offset!(result, CTaskMissile, spawn_params, 0x130);
+    check_offset!(result, CTaskMissile, weapon_data, 0x15C);
+    check_offset!(result, CTaskMissile, render_data, 0x2D4);
     check_offset!(result, CTaskMissile, launch_speed_raw, 0x3A0);
-    check_offset!(result, CTaskMissile, homing_enabled,  0x3A8);
-    check_offset!(result, CTaskMissile, direction,       0x3C8);
+    check_offset!(result, CTaskMissile, homing_enabled, 0x3A8);
+    check_offset!(result, CTaskMissile, direction, 0x3C8);
 
     let _ = log_validation("  CTaskTurnGame:");
-    check_offset!(result, CTaskTurnGame, game_ctx,         0x30);
-    check_offset!(result, CTaskTurnGame, worm_active,        0x108);
-    check_offset!(result, CTaskTurnGame, current_team,       0x12C);
-    check_offset!(result, CTaskTurnGame, current_worm,       0x130);
-    check_offset!(result, CTaskTurnGame, arena_team,         0x134);
-    check_offset!(result, CTaskTurnGame, arena_worm,         0x138);
-    check_offset!(result, CTaskTurnGame, turn_ended,         0x150);
-    check_offset!(result, CTaskTurnGame, no_time_limit,      0x154);
-    check_offset!(result, CTaskTurnGame, retreat_timer,      0x178);
-    check_offset!(result, CTaskTurnGame, retreat_time_max,   0x17C);
-    check_offset!(result, CTaskTurnGame, idle_timer,         0x184);
+    check_offset!(result, CTaskTurnGame, game_ctx, 0x30);
+    check_offset!(result, CTaskTurnGame, worm_active, 0x108);
+    check_offset!(result, CTaskTurnGame, current_team, 0x12C);
+    check_offset!(result, CTaskTurnGame, current_worm, 0x130);
+    check_offset!(result, CTaskTurnGame, arena_team, 0x134);
+    check_offset!(result, CTaskTurnGame, arena_worm, 0x138);
+    check_offset!(result, CTaskTurnGame, turn_ended, 0x150);
+    check_offset!(result, CTaskTurnGame, no_time_limit, 0x154);
+    check_offset!(result, CTaskTurnGame, retreat_timer, 0x178);
+    check_offset!(result, CTaskTurnGame, retreat_time_max, 0x17C);
+    check_offset!(result, CTaskTurnGame, idle_timer, 0x184);
     check_offset!(result, CTaskTurnGame, turn_timer_display, 0x188);
-    check_offset!(result, CTaskTurnGame, turn_timer,         0x18C);
+    check_offset!(result, CTaskTurnGame, turn_timer, 0x18C);
     check_offset!(result, CTaskTurnGame, active_worm_frames, 0x2D4);
-    check_offset!(result, CTaskTurnGame, retreat_frames,     0x2D8);
-    check_offset!(result, CTaskTurnGame, _timer_scale,       0x2DC);
+    check_offset!(result, CTaskTurnGame, retreat_frames, 0x2D8);
+    check_offset!(result, CTaskTurnGame, _timer_scale, 0x2DC);
 }
 
 // ---------------------------------------------------------------------------
@@ -459,13 +483,22 @@ fn dump_team_blocks() {
 
     unsafe {
         let session_ptr = read_u32(rb(va::G_GAME_SESSION));
-        if session_ptr == 0 { let _ = log_validation("  No game session — skipping."); return; }
+        if session_ptr == 0 {
+            let _ = log_validation("  No game session — skipping.");
+            return;
+        }
 
         let wrapper_addr = read_u32(session_ptr + 0xA0);
-        if wrapper_addr == 0 { let _ = log_validation("  No DDGameWrapper."); return; }
+        if wrapper_addr == 0 {
+            let _ = log_validation("  No DDGameWrapper.");
+            return;
+        }
 
         let ddgame_ptr = read_u32(wrapper_addr + 0x488);
-        if ddgame_ptr == 0 { let _ = log_validation("  No DDGame."); return; }
+        if ddgame_ptr == 0 {
+            let _ = log_validation("  No DDGame.");
+            return;
+        }
 
         let _ = log_validation(&format!("  DDGame = 0x{:08X}", ddgame_ptr));
 
@@ -473,25 +506,39 @@ fn dump_team_blocks() {
         let arena = TeamArenaRef::from_raw(arena_base);
         let tws = arena.state();
         let tws_base = arena_base as *const u8;
-        let _ = log_validation(&format!("  team_count = {} (TeamArenaState.team_count)", tws.team_count));
+        let _ = log_validation(&format!(
+            "  team_count = {} (TeamArenaState.team_count)",
+            tws.team_count
+        ));
 
         let blocks = arena.blocks();
         let blocks_addr = blocks as u32;
-        let _ = log_validation(&format!("  blocks_base = 0x{:08X} (DDGame+0x{:X})",
-            blocks_addr, blocks_addr - ddgame_ptr));
+        let _ = log_validation(&format!(
+            "  blocks_base = 0x{:08X} (DDGame+0x{:X})",
+            blocks_addr,
+            blocks_addr - ddgame_ptr
+        ));
 
         let mut result = ValidationResult::new();
 
         let expected_blocks = ddgame_ptr + offsets::TEAM_BLOCKS as u32;
-        result.check("ARENA_TO_BLOCKS derivation",
+        result.check(
+            "ARENA_TO_BLOCKS derivation",
             blocks_addr == expected_blocks,
-            &format!("got 0x{:08X}, expected 0x{:08X}", blocks_addr, expected_blocks));
+            &format!(
+                "got 0x{:08X}, expected 0x{:08X}",
+                blocks_addr, expected_blocks
+            ),
+        );
 
         let num_blocks = (tws.team_count as u32 + 1).max(3).min(7);
         for b in 0..num_blocks {
             let block = &*blocks.add(b as usize);
-            let _ = log_validation(&format!("\n  === Block {} (0x{:08X}) ===",
-                b, blocks_addr + b * 0x51C));
+            let _ = log_validation(&format!(
+                "\n  === Block {} (0x{:08X}) ===",
+                b,
+                blocks_addr + b * 0x51C
+            ));
 
             if (b + 1) < 7 {
                 let header = &(*blocks.add(b as usize + 1)).header.team;
@@ -508,8 +555,10 @@ fn dump_team_blocks() {
                     &format!("struct={}, raw={}", worm_count, raw_worm_count),
                 );
 
-                let _ = log_validation(&format!("  header: worm_count={}, eliminated={}, alliance(entry_ptr+4)={}",
-                    worm_count, eliminated, raw_alliance));
+                let _ = log_validation(&format!(
+                    "  header: worm_count={}, eliminated={}, alliance(entry_ptr+4)={}",
+                    worm_count, eliminated, raw_alliance
+                ));
 
                 for w in 0..8usize {
                     let worm = if w == 0 {
@@ -519,7 +568,10 @@ fn dump_team_blocks() {
                     };
                     let active = worm.active_flag;
                     let name_bytes = &worm.name;
-                    let name_len = name_bytes.iter().position(|&c| c == 0).unwrap_or(name_bytes.len());
+                    let name_len = name_bytes
+                        .iter()
+                        .position(|&c| c == 0)
+                        .unwrap_or(name_bytes.len());
                     let name_str = core::str::from_utf8(&name_bytes[..name_len]).unwrap_or("?");
 
                     if worm.state != 0 || worm.health != 0 || active != 0 || w == 0 {
@@ -577,8 +629,11 @@ fn dump_team_blocks() {
         // slot (including slot 6 which goes "out of bounds"), plus the area
         // around weapon_slots start (0x1EB4) and team_count (0x1EB0).
         let _ = log_validation("\n  === TeamArenaState Layout Dump ===");
-        let _ = log_validation(&format!("  arena_base = 0x{:08X} (DDGame + 0x{:X})",
-            arena_base, offsets::TEAM_ARENA_STATE));
+        let _ = log_validation(&format!(
+            "  arena_base = 0x{:08X} (DDGame + 0x{:X})",
+            arena_base,
+            offsets::TEAM_ARENA_STATE
+        ));
 
         // Dump first 16 bytes at each team_index * 0x51C stride (slots -2 to 7)
         for slot in -2i32..8 {
@@ -586,7 +641,9 @@ fn dump_team_blocks() {
             let ptr = tws_base.offset(offset);
             let mut hex = String::new();
             for i in 0..16usize {
-                if i > 0 && i % 4 == 0 { hex.push(' '); }
+                if i > 0 && i % 4 == 0 {
+                    hex.push(' ');
+                }
                 hex.push_str(&format!("{:02X}", *ptr.add(i)));
             }
             let abs_addr = (arena_base as isize + offset) as u32;
@@ -599,7 +656,10 @@ fn dump_team_blocks() {
             };
             let _ = log_validation(&format!(
                 "  {:+06X} (0x{:08X}) {}: {}  val_at+4={}",
-                offset, abs_addr, label, hex,
+                offset,
+                abs_addr,
+                label,
+                hex,
                 *(ptr.add(4) as *const i32)
             ));
         }
@@ -610,7 +670,9 @@ fn dump_team_blocks() {
             let ptr = tws_base.add(row);
             let mut hex = String::new();
             for i in 0..16usize {
-                if i > 0 && i % 4 == 0 { hex.push(' '); }
+                if i > 0 && i % 4 == 0 {
+                    hex.push(' ');
+                }
                 hex.push_str(&format!("{:02X}", *ptr.add(i)));
             }
             // Label known offsets
@@ -619,25 +681,31 @@ fn dump_team_blocks() {
                 0x1EB0 => " (team_count + weapon_slots[0..3])",
                 _ => "",
             };
-            let _ = log_validation(&format!(
-                "  +0x{:04X}: {}{}", row, hex, label
-            ));
+            let _ = log_validation(&format!("  +0x{:04X}: {}{}", row, hex, label));
         }
 
         // Dump team_count and first few weapon_slots
-        let _ = log_validation(&format!("\n  team_count (+0x1EB0) = {}",
-            *(tws_base.add(0x1EB0) as *const i32)));
-        let _ = log_validation(&format!("  weapon_slots[0..4] (+0x1EB4) = [{}, {}, {}, {}]",
+        let _ = log_validation(&format!(
+            "\n  team_count (+0x1EB0) = {}",
+            *(tws_base.add(0x1EB0) as *const i32)
+        ));
+        let _ = log_validation(&format!(
+            "  weapon_slots[0..4] (+0x1EB4) = [{}, {}, {}, {}]",
             *(tws_base.add(0x1EB4) as *const i32),
             *(tws_base.add(0x1EB8) as *const i32),
             *(tws_base.add(0x1EBC) as *const i32),
-            *(tws_base.add(0x1EC0) as *const i32)));
+            *(tws_base.add(0x1EC0) as *const i32)
+        ));
 
         // Dump game_mode_flag and game_phase for context
-        let _ = log_validation(&format!("  game_mode_flag (+0x2C0C) = {}",
-            *(tws_base.add(0x2C0C) as *const i32)));
-        let _ = log_validation(&format!("  game_phase (+0x2C28) = {}",
-            *(tws_base.add(0x2C28) as *const i32)));
+        let _ = log_validation(&format!(
+            "  game_mode_flag (+0x2C0C) = {}",
+            *(tws_base.add(0x2C0C) as *const i32)
+        ));
+        let _ = log_validation(&format!(
+            "  game_phase (+0x2C28) = {}",
+            *(tws_base.add(0x2C28) as *const i32)
+        ));
     }
 }
 
@@ -654,37 +722,72 @@ fn dump_landscape() {
 
     unsafe {
         let session_ptr = read_u32(rb(va::G_GAME_SESSION));
-        if session_ptr == 0 { let _ = log_validation("  No game session — skipping."); return; }
+        if session_ptr == 0 {
+            let _ = log_validation("  No game session — skipping.");
+            return;
+        }
 
         let wrapper_addr = read_u32(session_ptr + 0xA0);
-        if wrapper_addr == 0 { let _ = log_validation("  No DDGameWrapper."); return; }
+        if wrapper_addr == 0 {
+            let _ = log_validation("  No DDGameWrapper.");
+            return;
+        }
 
         let landscape_ptr = read_u32(wrapper_addr + 0x4CC);
-        if landscape_ptr == 0 { let _ = log_validation("  PCLandscape is NULL."); return; }
+        if landscape_ptr == 0 {
+            let _ = log_validation("  PCLandscape is NULL.");
+            return;
+        }
 
         let land = &*(landscape_ptr as *const PCLandscape);
         let _ = log_validation(&format!("  PCLandscape @ 0x{:08X}", landscape_ptr));
 
         let expected_vt = rb(va::PC_LANDSCAPE_VTABLE);
         let vt_ok = land.vtable as u32 == expected_vt;
-        let _ = log_validation(&format!("  vtable: 0x{:08X} (expected 0x{:08X}) {}",
-            land.vtable as u32, expected_vt, if vt_ok { "OK" } else { "MISMATCH" }));
+        let _ = log_validation(&format!(
+            "  vtable: 0x{:08X} (expected 0x{:08X}) {}",
+            land.vtable as u32,
+            expected_vt,
+            if vt_ok { "OK" } else { "MISMATCH" }
+        ));
 
         let _ = log_validation(&format!("  ddgame: 0x{:08X}", land.ddgame as usize));
-        let _ = log_validation(&format!("  _unknown_900: 0x{:08X}", land._unknown_900 as u32));
-        let _ = log_validation(&format!("  collision_bitmap: 0x{:08X}", land.collision_bitmap as u32));
+        let _ = log_validation(&format!(
+            "  _unknown_900: 0x{:08X}",
+            land._unknown_900 as u32
+        ));
+        let _ = log_validation(&format!(
+            "  collision_bitmap: 0x{:08X}",
+            land.collision_bitmap as u32
+        ));
         let _ = log_validation(&format!("  initialized: {}", land.initialized));
 
-        let primary_count = land.crater_sprites.iter().filter(|&&p| !p.is_null()).count();
-        let secondary_count = land.crater_sprites_secondary.iter().filter(|&&p| !p.is_null()).count();
-        let _ = log_validation(&format!("  crater_sprites: {}/16 non-null, secondary: {}/16 non-null",
-            primary_count, secondary_count));
+        let primary_count = land
+            .crater_sprites
+            .iter()
+            .filter(|&&p| !p.is_null())
+            .count();
+        let secondary_count = land
+            .crater_sprites_secondary
+            .iter()
+            .filter(|&&p| !p.is_null())
+            .count();
+        let _ = log_validation(&format!(
+            "  crater_sprites: {}/16 non-null, secondary: {}/16 non-null",
+            primary_count, secondary_count
+        ));
 
         let _ = log_validation(&format!("  layer_0: 0x{:08X}", land.layer_0 as u32));
         let _ = log_validation(&format!("  layer_1: 0x{:08X}", land.layer_1 as u32));
-        let _ = log_validation(&format!("  layer_terrain: 0x{:08X}", land.layer_terrain as u32));
+        let _ = log_validation(&format!(
+            "  layer_terrain: 0x{:08X}",
+            land.layer_terrain as u32
+        ));
         let _ = log_validation(&format!("  layer_edges: 0x{:08X}", land.layer_edges as u32));
-        let _ = log_validation(&format!("  layer_shadow: 0x{:08X}", land.layer_shadow as u32));
+        let _ = log_validation(&format!(
+            "  layer_shadow: 0x{:08X}",
+            land.layer_shadow as u32
+        ));
         let _ = log_validation(&format!("  layer_5: 0x{:08X}", land.layer_5 as u32));
 
         if !land.layer_terrain.is_null() {
@@ -693,8 +796,10 @@ fn dump_landscape() {
             let stride = read_u32(dgfx + 0x10);
             let width = read_u32(dgfx + 0x14);
             let height = read_u32(dgfx + 0x18);
-            let _ = log_validation(&format!("  layer_terrain DisplayGfx: pixels=0x{:08X} stride={} width={} height={}",
-                pixel_data, stride, width, height));
+            let _ = log_validation(&format!(
+                "  layer_terrain DisplayGfx: pixels=0x{:08X} stride={} width={} height={}",
+                pixel_data, stride, width, height
+            ));
         }
 
         let _ = log_validation(&format!("  dirty_rect_count: {}", land.dirty_rect_count));
@@ -702,8 +807,10 @@ fn dump_landscape() {
         if land.dirty_rect_count > 0 && land.dirty_rect_count <= 256 {
             for i in 0..land.dirty_rect_count.min(5) as usize {
                 let r = &land.dirty_rects[i];
-                let _ = log_validation(&format!("    rect[{}]: ({},{})..({},{})",
-                    i, r.x1, r.y1, r.x2, r.y2));
+                let _ = log_validation(&format!(
+                    "    rect[{}]: ({},{})..({},{})",
+                    i, r.x1, r.y1, r.x2, r.y2
+                ));
             }
             if land.dirty_rect_count > 5 {
                 let _ = log_validation(&format!("    ... and {} more", land.dirty_rect_count - 5));
@@ -713,11 +820,22 @@ fn dump_landscape() {
         let _ = log_validation(&format!("  _unknown_8ec: 0x{:08X}", land._unknown_8ec));
         let _ = log_validation(&format!("  _unknown_8f0: 0x{:08X}", land._unknown_8f0));
         let _ = log_validation(&format!("  _unknown_8f4: 0x{:08X}", land._unknown_8f4));
-        let _ = log_validation(&format!("  resource_handle: 0x{:08X}", land.resource_handle as u32));
-        let _ = log_validation(&format!("  level_gfx_handler: 0x{:08X}", land.level_gfx_handler as u32));
-        let _ = log_validation(&format!("  water_gfx_handler: 0x{:08X}", land.water_gfx_handler as u32));
-        let _ = log_validation(&format!("  visible_bounds: left={} top={} right={} bottom={}",
-            land.visible_left, land.visible_top, land.visible_right, land.visible_bottom));
+        let _ = log_validation(&format!(
+            "  resource_handle: 0x{:08X}",
+            land.resource_handle as u32
+        ));
+        let _ = log_validation(&format!(
+            "  level_gfx_handler: 0x{:08X}",
+            land.level_gfx_handler as u32
+        ));
+        let _ = log_validation(&format!(
+            "  water_gfx_handler: 0x{:08X}",
+            land.water_gfx_handler as u32
+        ));
+        let _ = log_validation(&format!(
+            "  visible_bounds: left={} top={} right={} bottom={}",
+            land.visible_left, land.visible_top, land.visible_right, land.visible_bottom
+        ));
 
         let level_path = std::ffi::CStr::from_ptr(land.level_dir_path.as_ptr() as *const i8);
         let theme_path = std::ffi::CStr::from_ptr(land.theme_dir_path.as_ptr() as *const i8);
@@ -726,8 +844,10 @@ fn dump_landscape() {
 
         if !land.ddgame.is_null() {
             let dg = &*land.ddgame;
-            let _ = log_validation(&format!("  DDGame level dims: {}x{} (total={})",
-                dg.level_width, dg.level_height, dg.level_total_pixels));
+            let _ = log_validation(&format!(
+                "  DDGame level dims: {}x{} (total={})",
+                dg.level_width, dg.level_height, dg.level_total_pixels
+            ));
         }
 
         let _ = log_validation("  Vtable slots:");
@@ -735,8 +855,12 @@ fn dump_landscape() {
         for slot in 0..10u32 {
             let entry = read_u32(vt_addr + slot * 4);
             let in_text = is_in_text(entry);
-            let _ = log_validation(&format!("    [{}]: 0x{:08X} {}",
-                slot, entry, if in_text { "" } else { "(NOT .text)" }));
+            let _ = log_validation(&format!(
+                "    [{}]: 0x{:08X} {}",
+                slot,
+                entry,
+                if in_text { "" } else { "(NOT .text)" }
+            ));
         }
 
         let _ = log_validation(&format!("  _unknown_b3c: 0x{:08X}", land._unknown_b3c));
@@ -754,8 +878,21 @@ fn dump_landscape() {
 
 fn log_hex_dump(data: &[u8]) {
     for chunk in data.chunks(16) {
-        let hex: String = chunk.iter().map(|b| format!("{:02X}", b)).collect::<Vec<_>>().join(" ");
-        let ascii: String = chunk.iter().map(|&b| if (0x20..0x7F).contains(&b) { b as char } else { '.' }).collect();
+        let hex: String = chunk
+            .iter()
+            .map(|b| format!("{:02X}", b))
+            .collect::<Vec<_>>()
+            .join(" ");
+        let ascii: String = chunk
+            .iter()
+            .map(|&b| {
+                if (0x20..0x7F).contains(&b) {
+                    b as char
+                } else {
+                    '.'
+                }
+            })
+            .collect();
         let _ = log_validation(&format!("    {} | {}", hex, ascii));
     }
 }
@@ -770,11 +907,20 @@ fn dump_entity_census() {
 
     unsafe {
         let session_ptr = read_u32(rb(va::G_GAME_SESSION));
-        if session_ptr == 0 { let _ = log_validation("  No game session — skipping."); return; }
+        if session_ptr == 0 {
+            let _ = log_validation("  No game session — skipping.");
+            return;
+        }
         let wrapper_addr = read_u32(session_ptr + 0xA0);
-        if wrapper_addr == 0 { let _ = log_validation("  No DDGameWrapper."); return; }
+        if wrapper_addr == 0 {
+            let _ = log_validation("  No DDGameWrapper.");
+            return;
+        }
         let ddgame_ptr = read_u32(wrapper_addr + 0x488);
-        if ddgame_ptr == 0 { let _ = log_validation("  No DDGame."); return; }
+        if ddgame_ptr == 0 {
+            let _ = log_validation("  No DDGame.");
+            return;
+        }
 
         let task_land_ptr = read_u32(ddgame_ptr + 0x54C);
         if task_land_ptr == 0 {
@@ -793,17 +939,17 @@ fn dump_entity_census() {
 
         // Name table: Ghidra VA → display name
         let known: &[(u32, &str)] = &[
-            (va::CTASK_WORM_VTABLE,        "CTaskWorm"),
-            (va::CTASK_LAND_VTABLE,        "CTaskLand"),
-            (va::CTASK_TURN_GAME_VTABLE,   "CTaskTurnGame"),
-            (va::CTASK_TEAM_VTABLE,        "CTaskTeam"),
-            (va::CTASK_FILTER_VTABLE,      "CTaskFilter"),
-            (va::CTASK_DIRT_VTABLE,        "CTaskDirt"),
+            (va::CTASK_WORM_VTABLE, "CTaskWorm"),
+            (va::CTASK_LAND_VTABLE, "CTaskLand"),
+            (va::CTASK_TURN_GAME_VTABLE, "CTaskTurnGame"),
+            (va::CTASK_TEAM_VTABLE, "CTaskTeam"),
+            (va::CTASK_FILTER_VTABLE, "CTaskFilter"),
+            (va::CTASK_DIRT_VTABLE, "CTaskDirt"),
             (va::CTASK_SPRITE_ANIM_VTABLE, "CTaskSpriteAnim"),
-            (va::CTASK_CPU_VTABLE,         "CTaskCPU"),
-            (va::CTASK_CRATE_VTABLE,       "CTaskCrate"),
-            (va::CTASK_VTABLE,             "CTask"),
-            (va::CGAMETASK_VTABLE,         "CGameTask"),
+            (va::CTASK_CPU_VTABLE, "CTaskCPU"),
+            (va::CTASK_CRATE_VTABLE, "CTaskCrate"),
+            (va::CTASK_VTABLE, "CTask"),
+            (va::CGAMETASK_VTABLE, "CGameTask"),
         ];
 
         // Collect (ghidra_va, entity_ptr) for every node.
@@ -813,9 +959,13 @@ fn dump_entity_census() {
 
         for node in table.iter() {
             let entity = (*node).entity;
-            if entity.is_null() { continue; }
+            if entity.is_null() {
+                continue;
+            }
             let vtable_runtime = read_u32(entity as u32);
-            if !is_in_rdata(vtable_runtime) { continue; }
+            if !is_in_rdata(vtable_runtime) {
+                continue;
+            }
             let vtable_ghidra = vtable_runtime.wrapping_sub(delta);
             entries.push((vtable_ghidra, entity as u32));
             total += 1;
@@ -835,22 +985,34 @@ fn dump_entity_census() {
         groups.sort_by(|a, b| b.1.len().cmp(&a.1.len()));
 
         for (vt_ghidra, ptrs) in &groups {
-            let name = known.iter().find(|(v, _)| *v == *vt_ghidra)
+            let name = known
+                .iter()
+                .find(|(v, _)| *v == *vt_ghidra)
                 .map(|(_, n)| *n)
                 .unwrap_or("UNKNOWN");
             let _ = log_validation(&format!(
                 "  {:>3}x  {:<20}  (vtable 0x{:08X})",
-                ptrs.len(), name, vt_ghidra
+                ptrs.len(),
+                name,
+                vt_ghidra
             ));
             for &ptr in ptrs.iter().take(8) {
                 use openwa_core::task::CTaskWorm;
                 if *vt_ghidra == va::CTASK_WORM_VTABLE {
                     let w = &*(ptr as *const CTaskWorm);
-                    let nlen = w.worm_name.iter().position(|&c| c == 0).unwrap_or(w.worm_name.len());
+                    let nlen = w
+                        .worm_name
+                        .iter()
+                        .position(|&c| c == 0)
+                        .unwrap_or(w.worm_name.len());
                     let wname = core::str::from_utf8(&w.worm_name[..nlen]).unwrap_or("?");
                     let _ = log_validation(&format!(
                         "       @ 0x{:08X}  team={} idx={} state=0x{:02X} name=\"{}\"",
-                        ptr, w.team_index, w.worm_index, w.state(), wname
+                        ptr,
+                        w.team_index,
+                        w.worm_index,
+                        w.state(),
+                        wname
                     ));
                 } else {
                     let a = read_u32(ptr + 4);
@@ -879,13 +1041,22 @@ fn dump_worm_tasks() {
 
     unsafe {
         let session_ptr = read_u32(rb(va::G_GAME_SESSION));
-        if session_ptr == 0 { let _ = log_validation("  No game session — skipping."); return; }
+        if session_ptr == 0 {
+            let _ = log_validation("  No game session — skipping.");
+            return;
+        }
 
         let wrapper_addr = read_u32(session_ptr + 0xA0);
-        if wrapper_addr == 0 { let _ = log_validation("  No DDGameWrapper."); return; }
+        if wrapper_addr == 0 {
+            let _ = log_validation("  No DDGameWrapper.");
+            return;
+        }
 
         let ddgame_ptr = read_u32(wrapper_addr + 0x488);
-        if ddgame_ptr == 0 { let _ = log_validation("  No DDGame."); return; }
+        if ddgame_ptr == 0 {
+            let _ = log_validation("  No DDGame.");
+            return;
+        }
 
         // DDGame+0x54C = CTaskLand* — always present once map is loaded.
         let task_land_ptr = read_u32(ddgame_ptr + 0x54C);
@@ -910,16 +1081,23 @@ fn dump_worm_tasks() {
         let table = SharedDataTable::from_ptr(shared_data_ptr);
 
         let expected_vtable = rb(va::CTASK_WORM_VTABLE) as *const u8;
-        let _ = log_validation(&format!("  Expected CTaskWorm vtable: 0x{:08X}", expected_vtable as u32));
+        let _ = log_validation(&format!(
+            "  Expected CTaskWorm vtable: 0x{:08X}",
+            expected_vtable as u32
+        ));
 
         let mut worm_count = 0u32;
 
         for node in table.iter() {
             let candidate = (*node).entity;
-            if candidate.is_null() { continue; }
+            if candidate.is_null() {
+                continue;
+            }
             // Vtable is the first pointer in the object; must be in .rdata.
             let vtable = read_u32(candidate as u32) as *const u8;
-            if !is_in_rdata(vtable as u32) || vtable != expected_vtable { continue; }
+            if !is_in_rdata(vtable as u32) || vtable != expected_vtable {
+                continue;
+            }
 
             worm_count += 1;
             let worm = &*(candidate as *const CTaskWorm);
@@ -931,7 +1109,11 @@ fn dump_worm_tasks() {
             let worm_idx = worm.worm_index;
             let slot_id = worm.slot_id;
 
-            let name_len = worm.worm_name.iter().position(|&c| c == 0).unwrap_or(worm.worm_name.len());
+            let name_len = worm
+                .worm_name
+                .iter()
+                .position(|&c| c == 0)
+                .unwrap_or(worm.worm_name.len());
             let name = core::str::from_utf8(&worm.worm_name[..name_len]).unwrap_or("?");
 
             let _ = log_validation(&format!(
@@ -950,15 +1132,24 @@ fn dump_worm_tasks() {
                 let mut entry_name = [0u8; 17];
                 for i in 0..17usize {
                     entry_name[i] = read_u8(entry_addr + 0x78 + i as u32);
-                    if entry_name[i] == 0 { break; }
+                    if entry_name[i] == 0 {
+                        break;
+                    }
                 }
                 let entry_name_len = entry_name.iter().position(|&c| c == 0).unwrap_or(17);
-                let entry_name_str = core::str::from_utf8(&entry_name[..entry_name_len]).unwrap_or("?");
+                let entry_name_str =
+                    core::str::from_utf8(&entry_name[..entry_name_len]).unwrap_or("?");
 
-                let state_msg = if state == entry_state { "state:OK".to_string() }
-                    else { format!("state:MISMATCH(entry=0x{:04X})", entry_state) };
-                let name_msg = if name == entry_name_str { "name:OK".to_string() }
-                    else { format!("name:MISMATCH(entry=\"{}\")", entry_name_str) };
+                let state_msg = if state == entry_state {
+                    "state:OK".to_string()
+                } else {
+                    format!("state:MISMATCH(entry=0x{:04X})", entry_state)
+                };
+                let name_msg = if name == entry_name_str {
+                    "name:OK".to_string()
+                } else {
+                    format!("name:MISMATCH(entry=\"{}\")", entry_name_str)
+                };
                 let _ = log_validation(&format!(
                     "    xcheck WormEntry[{},{}] @ 0x{:08X}: {} {}",
                     team_idx, worm_idx, entry_addr, state_msg, name_msg
@@ -975,34 +1166,53 @@ fn dump_worm_tasks() {
 // ---------------------------------------------------------------------------
 
 fn dump_turngame() {
-    use openwa_core::task::CTaskTurnGame;
     use crate::replacements::input::dump_region;
+    use openwa_core::task::CTaskTurnGame;
 
     let _ = log_validation("");
     let _ = log_validation("--- CTaskTurnGame Dump ---");
 
     unsafe {
         let session_ptr = read_u32(rb(va::G_GAME_SESSION));
-        if session_ptr == 0 { let _ = log_validation("  No game session — skipping."); return; }
+        if session_ptr == 0 {
+            let _ = log_validation("  No game session — skipping.");
+            return;
+        }
         let wrapper_addr = read_u32(session_ptr + 0xA0);
-        if wrapper_addr == 0 { let _ = log_validation("  No DDGameWrapper."); return; }
+        if wrapper_addr == 0 {
+            let _ = log_validation("  No DDGameWrapper.");
+            return;
+        }
         let ddgame_ptr = read_u32(wrapper_addr + 0x488);
-        if ddgame_ptr == 0 { let _ = log_validation("  No DDGame."); return; }
+        if ddgame_ptr == 0 {
+            let _ = log_validation("  No DDGame.");
+            return;
+        }
 
         // Find CTaskTurnGame via the shared_data entity table.
         let task_land_ptr = read_u32(ddgame_ptr + 0x54C);
-        if task_land_ptr == 0 { let _ = log_validation("  CTaskLand NULL — skipping."); return; }
+        if task_land_ptr == 0 {
+            let _ = log_validation("  CTaskLand NULL — skipping.");
+            return;
+        }
         let task_land = task_land_ptr as *const openwa_core::task::CTask;
         let shared_data_ptr = (*task_land).shared_data;
-        if shared_data_ptr.is_null() { let _ = log_validation("  shared_data NULL."); return; }
+        if shared_data_ptr.is_null() {
+            let _ = log_validation("  shared_data NULL.");
+            return;
+        }
 
         let table = SharedDataTable::from_ptr(shared_data_ptr);
         let expected_vt = rb(va::CTASK_TURN_GAME_VTABLE);
         let mut tg_ptr: u32 = 0;
         for node in table.iter() {
             let entity = (*node).entity;
-            if entity.is_null() { continue; }
-            if !is_in_rdata(read_u32(entity as u32)) { continue; }
+            if entity.is_null() {
+                continue;
+            }
+            if !is_in_rdata(read_u32(entity as u32)) {
+                continue;
+            }
             if read_u32(entity as u32) == expected_vt {
                 tg_ptr = entity as u32;
                 break;
@@ -1020,38 +1230,97 @@ fn dump_turngame() {
         let tg = &*(tg_ptr as *const CTaskTurnGame);
         let ctx = &tg.game_ctx;
         let _ = log_validation("  TurnGameCtx fields:");
-        let _ = log_validation(&format!("    +0x40 land_height   = {} ({:.4})", ctx.land_height.0, ctx.land_height.to_f32()));
-        let _ = log_validation(&format!("    +0x44 land_height_2 = {} ({:.4})", ctx.land_height_2.0, ctx.land_height_2.to_f32()));
+        let _ = log_validation(&format!(
+            "    +0x40 land_height   = {} ({:.4})",
+            ctx.land_height.0,
+            ctx.land_height.to_f32()
+        ));
+        let _ = log_validation(&format!(
+            "    +0x44 land_height_2 = {} ({:.4})",
+            ctx.land_height_2.0,
+            ctx.land_height_2.to_f32()
+        ));
         let _ = log_validation(&format!("    +0x48 _sentinel_18  = {}", ctx._sentinel_18));
         let _ = log_validation(&format!("    +0x58 _sentinel_28  = {}", ctx._sentinel_28));
         let _ = log_validation(&format!("    +0x68 _sentinel_38  = {}", ctx._sentinel_38));
         let _ = log_validation(&format!("    +0x7C team_count    = {}", ctx.team_count));
         let _ = log_validation(&format!("    +0xD0 _slot_d0      = {}", ctx._slot_d0));
-        let _ = log_validation(&format!("    +0xD4 _hud_textbox_a = 0x{:08X}", ctx._hud_textbox_a));
-        let _ = log_validation(&format!("    +0xD8 _hud_textbox_b = 0x{:08X}", ctx._hud_textbox_b));
+        let _ = log_validation(&format!(
+            "    +0xD4 _hud_textbox_a = 0x{:08X}",
+            ctx._hud_textbox_a
+        ));
+        let _ = log_validation(&format!(
+            "    +0xD8 _hud_textbox_b = 0x{:08X}",
+            ctx._hud_textbox_b
+        ));
         let _ = log_validation("  Known fields:");
-        let _ = log_validation(&format!("    +0x108 worm_active        = {}", tg.worm_active));
-        let _ = log_validation(&format!("    +0x12C current_team       = {} (1-based, 0=none)", tg.current_team));
-        let _ = log_validation(&format!("    +0x130 current_worm       = {} (0-based)", tg.current_worm));
-        let _ = log_validation(&format!("    +0x134 arena_team         = {}", tg.arena_team));
-        let _ = log_validation(&format!("    +0x138 arena_worm         = {}", tg.arena_worm));
-        let _ = log_validation(&format!("    +0x150 turn_ended         = {}", tg.turn_ended));
-        let _ = log_validation(&format!("    +0x154 no_time_limit      = {}", tg.no_time_limit));
-        let _ = log_validation(&format!("    +0x178 retreat_timer      = {} ms", tg.retreat_timer));
-        let _ = log_validation(&format!("    +0x17C retreat_time_max   = {} ms", tg.retreat_time_max));
-        let _ = log_validation(&format!("    +0x184 idle_timer         = {} ms", tg.idle_timer));
-        let _ = log_validation(&format!("    +0x188 turn_timer_display = {} ms", tg.turn_timer_display));
-        let _ = log_validation(&format!("    +0x18C turn_timer         = {} ms", tg.turn_timer));
-        let _ = log_validation(&format!("    +0x2D4 active_worm_frames = {}", tg.active_worm_frames));
-        let _ = log_validation(&format!("    +0x2D8 retreat_frames     = {}", tg.retreat_frames));
-        let _ = log_validation(&format!("    +0x2DC _timer_scale       = {}", tg._timer_scale));
+        let _ = log_validation(&format!(
+            "    +0x108 worm_active        = {}",
+            tg.worm_active
+        ));
+        let _ = log_validation(&format!(
+            "    +0x12C current_team       = {} (1-based, 0=none)",
+            tg.current_team
+        ));
+        let _ = log_validation(&format!(
+            "    +0x130 current_worm       = {} (0-based)",
+            tg.current_worm
+        ));
+        let _ = log_validation(&format!(
+            "    +0x134 arena_team         = {}",
+            tg.arena_team
+        ));
+        let _ = log_validation(&format!(
+            "    +0x138 arena_worm         = {}",
+            tg.arena_worm
+        ));
+        let _ = log_validation(&format!(
+            "    +0x150 turn_ended         = {}",
+            tg.turn_ended
+        ));
+        let _ = log_validation(&format!(
+            "    +0x154 no_time_limit      = {}",
+            tg.no_time_limit
+        ));
+        let _ = log_validation(&format!(
+            "    +0x178 retreat_timer      = {} ms",
+            tg.retreat_timer
+        ));
+        let _ = log_validation(&format!(
+            "    +0x17C retreat_time_max   = {} ms",
+            tg.retreat_time_max
+        ));
+        let _ = log_validation(&format!(
+            "    +0x184 idle_timer         = {} ms",
+            tg.idle_timer
+        ));
+        let _ = log_validation(&format!(
+            "    +0x188 turn_timer_display = {} ms",
+            tg.turn_timer_display
+        ));
+        let _ = log_validation(&format!(
+            "    +0x18C turn_timer         = {} ms",
+            tg.turn_timer
+        ));
+        let _ = log_validation(&format!(
+            "    +0x2D4 active_worm_frames = {}",
+            tg.active_worm_frames
+        ));
+        let _ = log_validation(&format!(
+            "    +0x2D8 retreat_frames     = {}",
+            tg.retreat_frames
+        ));
+        let _ = log_validation(&format!(
+            "    +0x2DC _timer_scale       = {}",
+            tg._timer_scale
+        ));
 
         // Full memory dump — classify every DWORD to discover unknown fields.
         // Dump in chunks to keep log lines manageable.
         let base = tg_ptr as *const u8;
         dump_region(base, 0x00, 0x30, "CTaskTurnGame"); // CTask base
-        dump_region(base, 0x30, 0x38, "TurnGameCtx");  // 0x30..0x67 (vtable + sentinels)
-        dump_region(base, 0x68, 0x74, "TurnGameCtx");  // 0x68..0xDB (team_count + unknowns)
+        dump_region(base, 0x30, 0x38, "TurnGameCtx"); // 0x30..0x67 (vtable + sentinels)
+        dump_region(base, 0x68, 0x74, "TurnGameCtx"); // 0x68..0xDB (team_count + unknowns)
         dump_region(base, 0xDC, 0x80, "CTaskTurnGame"); // 0xDC..0x15B
         dump_region(base, 0x15C, 0x80, "CTaskTurnGame"); // 0x15C..0x1DB
         dump_region(base, 0x1DC, 0x80, "CTaskTurnGame"); // 0x1DC..0x25B
@@ -1080,20 +1349,34 @@ fn dump_ctask_children() {
 
     unsafe {
         let session_ptr = read_u32(rb(va::G_GAME_SESSION));
-        if session_ptr == 0 { let _ = log_validation("  No game session."); return; }
+        if session_ptr == 0 {
+            let _ = log_validation("  No game session.");
+            return;
+        }
         let wrapper_addr = read_u32(session_ptr + 0xA0);
-        if wrapper_addr == 0 { let _ = log_validation("  No DDGameWrapper."); return; }
+        if wrapper_addr == 0 {
+            let _ = log_validation("  No DDGameWrapper.");
+            return;
+        }
         let ddgame_ptr = read_u32(wrapper_addr + 0x488);
-        if ddgame_ptr == 0 { let _ = log_validation("  No DDGame."); return; }
+        if ddgame_ptr == 0 {
+            let _ = log_validation("  No DDGame.");
+            return;
+        }
 
         let task_land_ptr = read_u32(ddgame_ptr + 0x54C);
-        if task_land_ptr == 0 { let _ = log_validation("  CTaskLand NULL."); return; }
+        if task_land_ptr == 0 {
+            let _ = log_validation("  CTaskLand NULL.");
+            return;
+        }
 
         // Walk up to root (CTaskTurnGame)
         let mut cursor = task_land_ptr;
         for _ in 0..10 {
             let parent = read_u32(cursor + 0x04);
-            if parent == 0 { break; }
+            if parent == 0 {
+                break;
+            }
             cursor = parent;
         }
         let root = cursor;
@@ -1101,11 +1384,13 @@ fn dump_ctask_children() {
         // Print the children sub-struct fields for root, then walk its first
         // child (CTaskTeam level) and each of its children (CTaskFilter level).
         let print_task_children = |label: &str, addr: u32| {
-            if addr == 0 { return; }
-            let cap   = read_u32(addr + 0x08);
+            if addr == 0 {
+                return;
+            }
+            let cap = read_u32(addr + 0x08);
             let dirty = read_u32(addr + 0x0C);
             let wmark = read_u32(addr + 0x10);
-            let data  = read_u32(addr + 0x14);
+            let data = read_u32(addr + 0x14);
             let _ = log_validation(&format!(
                 "  {}  @ 0x{:08X}  cap={}  dirty={}  watermark={}  data=0x{:08X}",
                 label, addr, cap, dirty, wmark, data
@@ -1118,22 +1403,28 @@ fn dump_ctask_children() {
 
         // First two children of root (CTaskTeam instances)
         let root_watermark = read_u32(root + 0x10) as usize;
-        let root_data      = read_u32(root + 0x14);
+        let root_data = read_u32(root + 0x14);
         let mut teams_found = 0;
         for i in 0..root_watermark.min(64) {
             let child = read_u32(root_data + i as u32 * 4);
-            if child == 0 { continue; }
+            if child == 0 {
+                continue;
+            }
             print_task_children(&format!("  child[{}] (CTaskTeam?)", i), child);
             // And print the first few children of this child (CTaskFilter level)
             let child_wmark = read_u32(child + 0x10) as usize;
-            let child_data  = read_u32(child + 0x14);
+            let child_data = read_u32(child + 0x14);
             for j in 0..child_wmark.min(16) {
                 let gc = read_u32(child_data + j as u32 * 4);
-                if gc == 0 { continue; }
+                if gc == 0 {
+                    continue;
+                }
                 print_task_children(&format!("    grandchild[{}] (CTaskFilter?)", j), gc);
             }
             teams_found += 1;
-            if teams_found >= 2 { break; }
+            if teams_found >= 2 {
+                break;
+            }
         }
     }
 }
@@ -1143,25 +1434,40 @@ fn dump_ctask_children() {
 // ---------------------------------------------------------------------------
 
 fn dump_ctaskteam_entities() {
-    use openwa_core::task::CTaskTeam;
     use crate::replacements::input::dump_region;
+    use openwa_core::task::CTaskTeam;
 
     let _ = log_validation("");
     let _ = log_validation("--- CTaskTeam Entity Dump ---");
 
     unsafe {
         let session_ptr = read_u32(rb(va::G_GAME_SESSION));
-        if session_ptr == 0 { let _ = log_validation("  No game session — skipping."); return; }
+        if session_ptr == 0 {
+            let _ = log_validation("  No game session — skipping.");
+            return;
+        }
         let wrapper_addr = read_u32(session_ptr + 0xA0);
-        if wrapper_addr == 0 { let _ = log_validation("  No DDGameWrapper."); return; }
+        if wrapper_addr == 0 {
+            let _ = log_validation("  No DDGameWrapper.");
+            return;
+        }
         let ddgame_ptr = read_u32(wrapper_addr + 0x488);
-        if ddgame_ptr == 0 { let _ = log_validation("  No DDGame."); return; }
+        if ddgame_ptr == 0 {
+            let _ = log_validation("  No DDGame.");
+            return;
+        }
 
         let task_land_ptr = read_u32(ddgame_ptr + 0x54C);
-        if task_land_ptr == 0 { let _ = log_validation("  CTaskLand NULL — skipping."); return; }
+        if task_land_ptr == 0 {
+            let _ = log_validation("  CTaskLand NULL — skipping.");
+            return;
+        }
         let task_land = task_land_ptr as *const openwa_core::task::CTask;
         let shared_data_ptr = (*task_land).shared_data;
-        if shared_data_ptr.is_null() { let _ = log_validation("  shared_data NULL."); return; }
+        if shared_data_ptr.is_null() {
+            let _ = log_validation("  shared_data NULL.");
+            return;
+        }
 
         let table = SharedDataTable::from_ptr(shared_data_ptr);
         let expected_vt = rb(va::CTASK_TEAM_VTABLE);
@@ -1169,9 +1475,15 @@ fn dump_ctaskteam_entities() {
 
         for node in table.iter() {
             let entity = (*node).entity;
-            if entity.is_null() { continue; }
-            if !is_in_rdata(read_u32(entity as u32)) { continue; }
-            if read_u32(entity as u32) != expected_vt { continue; }
+            if entity.is_null() {
+                continue;
+            }
+            if !is_in_rdata(read_u32(entity as u32)) {
+                continue;
+            }
+            if read_u32(entity as u32) != expected_vt {
+                continue;
+            }
 
             let addr = entity as u32;
             let team = &*(addr as *const CTaskTeam);
@@ -1184,15 +1496,15 @@ fn dump_ctaskteam_entities() {
 
             // Full memory dump in chunks — classify every DWORD.
             let base = addr as *const u8;
-            dump_region(base, 0x000, 0x30,  "CTaskTeam"); // CTask base
-            dump_region(base, 0x030, 0x58,  "CTaskTeam"); // 0x30..0x87 (secondary vtable, unknowns)
-            dump_region(base, 0x088, 0x90,  "CTaskTeam"); // 0x88..0x117 (item_slots start, worm_count region)
+            dump_region(base, 0x000, 0x30, "CTaskTeam"); // CTask base
+            dump_region(base, 0x030, 0x58, "CTaskTeam"); // 0x30..0x87 (secondary vtable, unknowns)
+            dump_region(base, 0x088, 0x90, "CTaskTeam"); // 0x88..0x117 (item_slots start, worm_count region)
             dump_region(base, 0x118, 0x100, "CTaskTeam"); // 0x118..0x217 (item_slots end)
-            dump_region(base, 0x218, 0x80,  "CTaskTeam"); // 0x218..0x297 (worm_count + unknowns)
-            dump_region(base, 0x298, 0x80,  "CTaskTeam"); // 0x298..0x317
-            dump_region(base, 0x318, 0x80,  "CTaskTeam"); // 0x318..0x397
-            dump_region(base, 0x398, 0x68,  "CTaskTeam"); // 0x398..0x3FF
-            dump_region(base, 0x400, 0x60,  "CTaskTeam"); // 0x400..0x45F
+            dump_region(base, 0x218, 0x80, "CTaskTeam"); // 0x218..0x297 (worm_count + unknowns)
+            dump_region(base, 0x298, 0x80, "CTaskTeam"); // 0x298..0x317
+            dump_region(base, 0x318, 0x80, "CTaskTeam"); // 0x318..0x397
+            dump_region(base, 0x398, 0x68, "CTaskTeam"); // 0x398..0x3FF
+            dump_region(base, 0x400, 0x60, "CTaskTeam"); // 0x400..0x45F
 
             found += 1;
         }
@@ -1224,10 +1536,17 @@ unsafe fn dump_missile_raw(ptr: u32) {
         (0x130, 0x15C, "spawn_params"),
         (0x15C, 0x2D4, "weapon_data"),
         (0x2D4, 0x37C, "render_data"),
-        (0x37C, 0x41C, "_unknown_37c / launch_speed / homing / direction"),
+        (
+            0x37C,
+            0x41C,
+            "_unknown_37c / launch_speed / homing / direction",
+        ),
     ];
     for &(start, end, label) in sections {
-        let _ = log_validation(&format!("  -- {} (0x{:03X}..0x{:03X}) --", label, start, end));
+        let _ = log_validation(&format!(
+            "  -- {} (0x{:03X}..0x{:03X}) --",
+            label, start, end
+        ));
         let dwords = (end - start) / 4;
         for i in 0..dwords {
             let off = start + i * 4;
@@ -1245,25 +1564,42 @@ fn dump_missile_tasks() {
 
     unsafe {
         let session_ptr = read_u32(rb(va::G_GAME_SESSION));
-        if session_ptr == 0 { let _ = log_validation("  No game session — skipping."); return; }
+        if session_ptr == 0 {
+            let _ = log_validation("  No game session — skipping.");
+            return;
+        }
         let wrapper_addr = read_u32(session_ptr + 0xA0);
-        if wrapper_addr == 0 { let _ = log_validation("  No DDGameWrapper."); return; }
+        if wrapper_addr == 0 {
+            let _ = log_validation("  No DDGameWrapper.");
+            return;
+        }
         let ddgame_ptr = read_u32(wrapper_addr + 0x488);
-        if ddgame_ptr == 0 { let _ = log_validation("  No DDGame."); return; }
+        if ddgame_ptr == 0 {
+            let _ = log_validation("  No DDGame.");
+            return;
+        }
 
         // Walk up from CTaskLand to root (CTaskTurnGame) via parent links.
         let task_land_ptr = read_u32(ddgame_ptr + 0x54C);
-        if task_land_ptr == 0 { let _ = log_validation("  CTaskLand NULL — game not loaded."); return; }
+        if task_land_ptr == 0 {
+            let _ = log_validation("  CTaskLand NULL — game not loaded.");
+            return;
+        }
         let mut root = task_land_ptr;
         for _ in 0..10 {
             let parent = read_u32(root + 0x04);
-            if parent == 0 { break; }
+            if parent == 0 {
+                break;
+            }
             root = parent;
         }
 
         let expected_vt = rb(va::CTASK_MISSILE_VTABLE);
         let _ = log_validation(&format!("  Root (CTaskTurnGame) @ 0x{:08X}", root));
-        let _ = log_validation(&format!("  Expected CTaskMissile vtable: 0x{:08X}", expected_vt));
+        let _ = log_validation(&format!(
+            "  Expected CTaskMissile vtable: 0x{:08X}",
+            expected_vt
+        ));
 
         let mut found = 0u32;
         let mut first_ptr: u32 = 0;
@@ -1276,7 +1612,9 @@ fn dump_missile_tasks() {
             let vt = read_u32(node);
             if vt == expected_vt {
                 found += 1;
-                if first_ptr == 0 { first_ptr = node; }
+                if first_ptr == 0 {
+                    first_ptr = node;
+                }
 
                 let m = &*(node as *const CTaskMissile);
                 let pos_x = m.base.pos_x.to_f32();
@@ -1285,17 +1623,28 @@ fn dump_missile_tasks() {
                 let spd_y = m.base.speed_y.to_f32();
                 let _ = log_validation(&format!(
                     "  missile#{} @ 0x{:08X}  slot={}  type={:?}  homing={}  dir={}",
-                    found, node, m.slot_id, m.missile_type(), m.homing_enabled, m.direction
+                    found,
+                    node,
+                    m.slot_id,
+                    m.missile_type(),
+                    m.homing_enabled,
+                    m.direction
                 ));
                 let _ = log_validation(&format!(
                     "    pos=({:.2},{:.2})  speed=({:.3},{:.3})  cursor=({:.1},{:.1})",
-                    pos_x, pos_y, spd_x, spd_y,
-                    m.cursor_x().to_f32(), m.cursor_y().to_f32()
+                    pos_x,
+                    pos_y,
+                    spd_x,
+                    spd_y,
+                    m.cursor_x().to_f32(),
+                    m.cursor_y().to_f32()
                 ));
                 let _ = log_validation(&format!(
                     "    spawn_params: owner={} pellet={}  spawn=({:.1},{:.1})",
-                    m.spawn_params[0], m.spawn_params[8],
-                    m.spawn_x().to_f32(), m.spawn_y().to_f32()
+                    m.spawn_params[0],
+                    m.spawn_params[8],
+                    m.spawn_x().to_f32(),
+                    m.spawn_y().to_f32()
                 ));
                 let _ = log_validation(&format!(
                     "    weapon_data[0..10]: {:?}",
@@ -1309,7 +1658,10 @@ fn dump_missile_tasks() {
             }
         }
 
-        let _ = log_validation(&format!("  Total CTaskMissile found: {} (scanned {} nodes)", found, scanned));
+        let _ = log_validation(&format!(
+            "  Total CTaskMissile found: {} (scanned {} nodes)",
+            found, scanned
+        ));
 
         if found == 0 {
             let _ = log_validation("  No missiles in flight — fire a weapon first, then press F8.");
@@ -1317,7 +1669,10 @@ fn dump_missile_tasks() {
         }
 
         // Full raw dump of the first missile to cross-validate struct layout.
-        let _ = log_validation(&format!("\n  === Raw dump: CTaskMissile @ 0x{:08X} ===", first_ptr));
+        let _ = log_validation(&format!(
+            "\n  === Raw dump: CTaskMissile @ 0x{:08X} ===",
+            first_ptr
+        ));
         dump_missile_raw(first_ptr);
     }
 }
@@ -1339,7 +1694,9 @@ pub fn run() -> Result<(), String> {
     let delta = base.wrapping_sub(va::IMAGE_BASE);
     let _ = log_validation(&format!(
         "  Module base: 0x{:08X} (Ghidra base: 0x{:08X}, delta: 0x{:08X})",
-        base, va::IMAGE_BASE, delta
+        base,
+        va::IMAGE_BASE,
+        delta
     ));
 
     let mut result = ValidationResult::new();
@@ -1353,7 +1710,9 @@ pub fn run() -> Result<(), String> {
 
     match hooks::install_all() {
         Ok(()) => {}
-        Err(e) => { let _ = log_validation(&format!("[ERROR] Hook installation failed: {}", e)); }
+        Err(e) => {
+            let _ = log_validation(&format!("[ERROR] Hook installation failed: {}", e));
+        }
     }
 
     let auto_mode = std::env::var("OPENWA_REPLAY_TEST").is_ok();
@@ -1361,7 +1720,8 @@ pub fn run() -> Result<(), String> {
     if auto_mode {
         let _ = log_validation("");
         let _ = log_validation("--- Auto-Capture Mode (OPENWA_REPLAY_TEST) ---");
-        let _ = log_validation("  Replay fast-forward active — game will exit when replay finishes.");
+        let _ =
+            log_validation("  Replay fast-forward active — game will exit when replay finishes.");
         let _ = log_validation("  Safety timeout: 120s (will force exit if replay hangs).");
         std::thread::spawn(move || {
             // Restore minimized window so the replay can start.
@@ -1442,8 +1802,8 @@ pub fn run() -> Result<(), String> {
 /// Dump DSSound channel descriptor raw bytes for field layout verification.
 unsafe fn dump_dssound_channels() {
     use openwa_core::address::va;
-    use openwa_core::rebase::rb;
     use openwa_core::engine::game_session::GameSession;
+    use openwa_core::rebase::rb;
 
     let session_ptr = rb(va::G_GAME_SESSION) as *const *const GameSession;
     let session = *session_ptr;
@@ -1470,14 +1830,24 @@ unsafe fn dump_dssound_channels() {
         let desc_offset = 0x14 + i * 0x18;
         let desc_ptr = base.add(desc_offset) as *const u32;
         let words: [u32; 6] = [
-            *desc_ptr, *desc_ptr.add(1), *desc_ptr.add(2),
-            *desc_ptr.add(3), *desc_ptr.add(4), *desc_ptr.add(5),
+            *desc_ptr,
+            *desc_ptr.add(1),
+            *desc_ptr.add(2),
+            *desc_ptr.add(3),
+            *desc_ptr.add(4),
+            *desc_ptr.add(5),
         ];
         let has_buffer = words[5] != 0; // ds_buffer at +0x14 = word[5]
         let _ = log_validation(&format!(
             "  desc[{}] @+0x{:03X}: [{:08X} {:08X} {:08X} {:08X} {:08X} {:08X}]{}",
-            i, desc_offset,
-            words[0], words[1], words[2], words[3], words[4], words[5],
+            i,
+            desc_offset,
+            words[0],
+            words[1],
+            words[2],
+            words[3],
+            words[4],
+            words[5],
             if has_buffer { " <-- has buffer" } else { "" }
         ));
     }
@@ -1508,8 +1878,12 @@ pub fn start_hotkeys() {
         loop {
             std::thread::sleep(std::time::Duration::from_millis(100));
             unsafe {
-                if GetAsyncKeyState(VK_F7) & 1 != 0 { dump_dssound_channels(); }
-                if GetAsyncKeyState(VK_F8) & 1 != 0 { dump_missile_tasks(); }
+                if GetAsyncKeyState(VK_F7) & 1 != 0 {
+                    dump_dssound_channels();
+                }
+                if GetAsyncKeyState(VK_F8) & 1 != 0 {
+                    dump_missile_tasks();
+                }
             }
         }
     });

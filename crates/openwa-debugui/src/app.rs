@@ -2,7 +2,9 @@ use eframe::egui;
 use openwa_core::address::va;
 use openwa_core::engine::{DDGame, DDGameWrapper};
 use openwa_core::rebase::rb;
-use openwa_core::task::{CTask, CTaskCloud, CTaskFire, CTaskTeam, CTaskTurnGame, CTaskWorm, TurnGameCtx};
+use openwa_core::task::{
+    CTask, CTaskCloud, CTaskFire, CTaskTeam, CTaskTurnGame, CTaskWorm, TurnGameCtx,
+};
 
 use crate::log;
 
@@ -11,31 +13,30 @@ use crate::log;
 // ---------------------------------------------------------------------------
 
 const KNOWN_VTABLES: &[(u32, &str)] = &[
-    (va::CTASK_WORM_VTABLE,        "CTaskWorm"),
-    (va::CTASK_LAND_VTABLE,        "CTaskLand"),
-    (va::CTASK_TURN_GAME_VTABLE,   "CTaskTurnGame"),
-    (va::CTASK_TEAM_VTABLE,        "CTaskTeam"),
-    (va::CTASK_FILTER_VTABLE,      "CTaskFilter"),
-    (va::CTASK_DIRT_VTABLE,        "CTaskDirt"),
+    (va::CTASK_WORM_VTABLE, "CTaskWorm"),
+    (va::CTASK_LAND_VTABLE, "CTaskLand"),
+    (va::CTASK_TURN_GAME_VTABLE, "CTaskTurnGame"),
+    (va::CTASK_TEAM_VTABLE, "CTaskTeam"),
+    (va::CTASK_FILTER_VTABLE, "CTaskFilter"),
+    (va::CTASK_DIRT_VTABLE, "CTaskDirt"),
     (va::CTASK_SPRITE_ANIM_VTABLE, "CTaskSpriteAnim"),
-    (va::CTASK_CPU_VTABLE,         "CTaskCPU"),
-    (va::CTASK_MISSILE_VTABLE,     "CTaskMissile"),
-    (va::CTASK_MINE_VTABLE,        "CTaskMine"),
-    (va::CTASK_OILDRUM_VTABLE,     "CTaskOilDrum"),
-    (va::CTASK_CRATE_VTABLE,       "CTaskCrate"),
-    (va::CTASK_CLOUD_VTABLE,       "CTaskCloud"),
-    (va::CTASK_SEA_BUBBLE_VTABLE,  "CTaskSeaBubble"),
-    (va::CTASK_FIRE_VTABLE,        "CTaskFire"),
+    (va::CTASK_CPU_VTABLE, "CTaskCPU"),
+    (va::CTASK_MISSILE_VTABLE, "CTaskMissile"),
+    (va::CTASK_MINE_VTABLE, "CTaskMine"),
+    (va::CTASK_OILDRUM_VTABLE, "CTaskOilDrum"),
+    (va::CTASK_CRATE_VTABLE, "CTaskCrate"),
+    (va::CTASK_CLOUD_VTABLE, "CTaskCloud"),
+    (va::CTASK_SEA_BUBBLE_VTABLE, "CTaskSeaBubble"),
+    (va::CTASK_FIRE_VTABLE, "CTaskFire"),
 ];
 
 /// Vtables of entities that are created/destroyed every frame (particles,
 /// bubbles, etc.). Filtered from the census by default to reduce noise.
-const TRANSIENT_VTABLES: &[u32] = &[
-    va::CTASK_SEA_BUBBLE_VTABLE,
-];
+const TRANSIENT_VTABLES: &[u32] = &[va::CTASK_SEA_BUBBLE_VTABLE];
 
 fn vtable_name(runtime_vtable: u32) -> Option<&'static str> {
-    KNOWN_VTABLES.iter()
+    KNOWN_VTABLES
+        .iter()
         .find(|&&(ghidra_va, _)| rb(ghidra_va) == runtime_vtable)
         .map(|&(_, name)| name)
 }
@@ -43,7 +44,9 @@ fn vtable_name(runtime_vtable: u32) -> Option<&'static str> {
 /// Returns a display name for the entity at `addr`.
 /// Tries the known-vtable map first; falls back to CTask.class_type.
 unsafe fn entity_type_name(addr: u32) -> String {
-    if addr == 0 { return "(null)".to_owned(); }
+    if addr == 0 {
+        return "(null)".to_owned();
+    }
     let vtable = *(addr as *const u32);
     if let Some(name) = vtable_name(vtable) {
         return name.to_owned();
@@ -54,7 +57,9 @@ unsafe fn entity_type_name(addr: u32) -> String {
 
 /// One-line label for a task: "TypeName @ 0xADDR"
 unsafe fn entity_label(addr: u32) -> String {
-    if addr == 0 { return "(null)".to_owned(); }
+    if addr == 0 {
+        return "(null)".to_owned();
+    }
     format!("{} @ {:#010X}", entity_type_name(addr), addr)
 }
 
@@ -65,11 +70,17 @@ unsafe fn entity_label(addr: u32) -> String {
 /// Returns a pointer to DDGame, or None if not in-game.
 unsafe fn get_ddgame() -> Option<*const DDGame> {
     let session_ptr = *(rb(va::G_GAME_SESSION) as *const u32);
-    if session_ptr == 0 { return None; }
+    if session_ptr == 0 {
+        return None;
+    }
     let wrapper_addr = *((session_ptr + 0xA0) as *const u32);
-    if wrapper_addr == 0 { return None; }
+    if wrapper_addr == 0 {
+        return None;
+    }
     let ddgame_ptr = (*(wrapper_addr as *const DDGameWrapper)).ddgame;
-    if ddgame_ptr.is_null() { return None; }
+    if ddgame_ptr.is_null() {
+        return None;
+    }
     Some(ddgame_ptr)
 }
 
@@ -81,8 +92,10 @@ unsafe fn get_ddgame() -> Option<*const DDGame> {
 /// that bound so the caller can filter nulls and display the live set.
 unsafe fn read_children(task: *const CTask) -> Vec<u32> {
     let slots = (*task).children_watermark as usize;
-    let data  = (*task).children_data as *const u32;
-    if data.is_null() || slots == 0 { return Vec::new(); }
+    let data = (*task).children_data as *const u32;
+    if data.is_null() || slots == 0 {
+        return Vec::new();
+    }
     // Hard safety cap: 4096 slots × 4 bytes = 16 KB max read
     let slots = slots.min(4096);
     (0..slots).map(|i| *data.add(i)).collect()
@@ -97,11 +110,15 @@ unsafe fn read_children(task: *const CTask) -> Vec<u32> {
 /// MAX_DEPTH steps (guard against corrupt/circular pointers).
 unsafe fn find_root_task(ddgame: *const DDGame) -> Option<u32> {
     let task_land = (*ddgame).task_land as u32;
-    if task_land == 0 { return None; }
+    if task_land == 0 {
+        return None;
+    }
     let mut current = task_land;
     for _ in 0..64 {
         let parent = (*(current as *const CTask)).parent as u32;
-        if parent == 0 { return Some(current); }
+        if parent == 0 {
+            return Some(current);
+        }
         current = parent;
     }
     None // chain didn't terminate — corrupt data
@@ -110,23 +127,31 @@ unsafe fn find_root_task(ddgame: *const DDGame) -> Option<u32> {
 /// DFS the task tree from `root`, returning (vtable, addr) for every node.
 /// A visited set prevents infinite loops from corrupt/circular pointers.
 unsafe fn collect_task_tree(root: u32) -> Vec<(u32, u32)> {
-    let mut out     = Vec::new();
-    let mut stack   = vec![root];
+    let mut out = Vec::new();
+    let mut stack = vec![root];
     let mut visited = std::collections::HashSet::new();
     while let Some(addr) = stack.pop() {
-        if addr == 0 || !visited.insert(addr) { continue; }
+        if addr == 0 || !visited.insert(addr) {
+            continue;
+        }
         let vtable = *(addr as *const u32);
         out.push((vtable, addr));
         for child in read_children(addr as *const CTask) {
-            if child != 0 { stack.push(child); }
+            if child != 0 {
+                stack.push(child);
+            }
         }
     }
     out
 }
 
 unsafe fn collect_live_entities() -> Vec<(u32, u32)> {
-    let Some(ddgame) = get_ddgame() else { return Vec::new(); };
-    let Some(root)   = find_root_task(ddgame) else { return Vec::new(); };
+    let Some(ddgame) = get_ddgame() else {
+        return Vec::new();
+    };
+    let Some(root) = find_root_task(ddgame) else {
+        return Vec::new();
+    };
     collect_task_tree(root)
 }
 
@@ -147,7 +172,12 @@ pub struct DebugApp {
 
 impl Default for DebugApp {
     fn default() -> Self {
-        Self { selected_entity: None, nav_history: Vec::new(), log_auto_scroll: true, show_transient: false }
+        Self {
+            selected_entity: None,
+            nav_history: Vec::new(),
+            log_auto_scroll: true,
+            show_transient: false,
+        }
     }
 }
 
@@ -203,8 +233,12 @@ impl eframe::App for DebugApp {
                 let mut navigate_to: Option<u32> = None;
                 let mut go_back = false;
                 self.show_inspector(ui, &mut navigate_to, &mut go_back);
-                if go_back { self.navigate_back(); }
-                if let Some(addr) = navigate_to { self.navigate_to(addr); }
+                if go_back {
+                    self.navigate_back();
+                }
+                if let Some(addr) = navigate_to {
+                    self.navigate_to(addr);
+                }
             });
 
         egui::TopBottomPanel::bottom("log_panel")
@@ -217,7 +251,9 @@ impl eframe::App for DebugApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             let mut navigate_to: Option<u32> = None;
             self.show_census(ui, &live_entities, &mut navigate_to);
-            if let Some(addr) = navigate_to { self.navigate_to(addr); }
+            if let Some(addr) = navigate_to {
+                self.navigate_to(addr);
+            }
         });
     }
 }
@@ -227,7 +263,12 @@ impl eframe::App for DebugApp {
 // ---------------------------------------------------------------------------
 
 impl DebugApp {
-    fn show_census(&mut self, ui: &mut egui::Ui, rows: &[(u32, u32)], navigate_to: &mut Option<u32>) {
+    fn show_census(
+        &mut self,
+        ui: &mut egui::Ui,
+        rows: &[(u32, u32)],
+        navigate_to: &mut Option<u32>,
+    ) {
         ui.heading("Entity Census");
 
         if rows.is_empty() {
@@ -239,44 +280,46 @@ impl DebugApp {
             rows.iter().collect()
         } else {
             rows.iter()
-                .filter(|&&(vtable, _)| {
-                    !TRANSIENT_VTABLES.iter().any(|&t| rb(t) == vtable)
-                })
+                .filter(|&&(vtable, _)| !TRANSIENT_VTABLES.iter().any(|&t| rb(t) == vtable))
                 .collect()
         };
 
         if visible.len() == rows.len() {
             ui.label(format!("{} entities", rows.len()));
         } else {
-            ui.label(format!("{} entities ({} hidden transient)", visible.len(), rows.len() - visible.len()));
+            ui.label(format!(
+                "{} entities ({} hidden transient)",
+                visible.len(),
+                rows.len() - visible.len()
+            ));
         }
         ui.separator();
 
         egui::ScrollArea::vertical()
             .auto_shrink([false, false])
             .show(ui, |ui| {
-            egui::Grid::new("census_grid")
-                .striped(true)
-                .num_columns(3)
-                .min_col_width(60.0)
-                .show(ui, |ui| {
-                    ui.strong("Type");
-                    ui.strong("Address");
-                    ui.strong("Vtable");
-                    ui.end_row();
-
-                    for &&(vtable, entity) in &visible {
-                        let name = unsafe { entity_type_name(entity) };
-                        let is_selected = self.selected_entity == Some(entity);
-                        if ui.selectable_label(is_selected, name).clicked() {
-                            *navigate_to = Some(entity);
-                        }
-                        ui.label(format!("{:#010X}", entity));
-                        ui.label(format!("{:#010X}", vtable));
+                egui::Grid::new("census_grid")
+                    .striped(true)
+                    .num_columns(3)
+                    .min_col_width(60.0)
+                    .show(ui, |ui| {
+                        ui.strong("Type");
+                        ui.strong("Address");
+                        ui.strong("Vtable");
                         ui.end_row();
-                    }
-                });
-        });
+
+                        for &&(vtable, entity) in &visible {
+                            let name = unsafe { entity_type_name(entity) };
+                            let is_selected = self.selected_entity == Some(entity);
+                            if ui.selectable_label(is_selected, name).clicked() {
+                                *navigate_to = Some(entity);
+                            }
+                            ui.label(format!("{:#010X}", entity));
+                            ui.label(format!("{:#010X}", vtable));
+                            ui.end_row();
+                        }
+                    });
+            });
     }
 }
 
@@ -325,12 +368,16 @@ unsafe fn show_game_task_raw_fields(
     let base = addr as *const u32;
 
     let label_for = |off: usize| -> Option<&str> {
-        CGAMETASK_FIELD_LABELS.iter()
+        CGAMETASK_FIELD_LABELS
+            .iter()
             .find(|&&(o, _)| o == off)
             .map(|&(_, n)| n)
-            .or_else(|| extra_labels.iter()
-                .find(|&&(o, _)| o == off)
-                .map(|&(_, n)| n))
+            .or_else(|| {
+                extra_labels
+                    .iter()
+                    .find(|&&(o, _)| o == off)
+                    .map(|&(_, n)| n)
+            })
     };
 
     // Sections: CTask base, CGameTask unknowns, pos/speed, more unknowns, emitter,
@@ -346,14 +393,19 @@ unsafe fn show_game_task_raw_fields(
     let mut chunk_start = 0x0FC;
     while chunk_start < total_size {
         let chunk_end = (chunk_start + 0x80).min(total_size);
-        sections.push((chunk_start, chunk_end,
-            format!("{} +0x{:03X}..0x{:03X}", type_name, chunk_start, chunk_end)));
+        sections.push((
+            chunk_start,
+            chunk_end,
+            format!("{} +0x{:03X}..0x{:03X}", type_name, chunk_start, chunk_end),
+        ));
         chunk_start = chunk_end;
     }
 
     for (start, end, section_name) in &sections {
         let (start, end) = (*start, *end);
-        if start >= total_size { break; }
+        if start >= total_size {
+            break;
+        }
         let end = end.min(total_size);
         let header = format!("{} (0x{:03X}..0x{:03X})", section_name, start, end);
         let default_open = false;
@@ -402,7 +454,10 @@ impl DebugApp {
         ui.horizontal(|ui| {
             ui.heading("Inspector");
             ui.add_space(8.0);
-            if ui.add_enabled(!self.nav_history.is_empty(), egui::Button::new("← Back")).clicked() {
+            if ui
+                .add_enabled(!self.nav_history.is_empty(), egui::Button::new("← Back"))
+                .clicked()
+            {
                 *go_back = true;
             }
             if !self.nav_history.is_empty() {
@@ -422,312 +477,471 @@ impl DebugApp {
 
         egui::ScrollArea::vertical()
             .auto_shrink([false, false])
-            .show(ui, |ui| { unsafe {
-            let vtable = *(addr as *const u32);
-            let name = entity_type_name(addr);
+            .show(ui, |ui| {
+                unsafe {
+                    let vtable = *(addr as *const u32);
+                    let name = entity_type_name(addr);
 
-            ui.label(format!("Entity: {:#010X}", addr));
-            ui.label(format!("Type:   {}", name));
-            ui.label(format!("Vtable: {:#010X}", vtable));
-            ui.separator();
+                    ui.label(format!("Entity: {:#010X}", addr));
+                    ui.label(format!("Type:   {}", name));
+                    ui.label(format!("Vtable: {:#010X}", vtable));
+                    ui.separator();
 
-            let task = addr as *const CTask;
+                    let task = addr as *const CTask;
 
-            // --- CTask base ---
-            egui::CollapsingHeader::new("CTask base")
-                .default_open(true)
-                .show(ui, |ui| {
-                    egui::Grid::new("ctask_grid").striped(true).show(ui, |ui| {
-                        // Parent — clickable link
-                        let parent = (*task).parent as u32;
-                        ui.label("parent");
-                        if parent != 0 {
-                            if ui.link(entity_label(parent)).clicked() {
-                                *navigate_to = Some(parent);
-                            }
-                        } else {
-                            ui.label("(none)");
-                        }
-                        ui.end_row();
+                    // --- CTask base ---
+                    egui::CollapsingHeader::new("CTask base")
+                        .default_open(true)
+                        .show(ui, |ui| {
+                            egui::Grid::new("ctask_grid").striped(true).show(ui, |ui| {
+                                // Parent — clickable link
+                                let parent = (*task).parent as u32;
+                                ui.label("parent");
+                                if parent != 0 {
+                                    if ui.link(entity_label(parent)).clicked() {
+                                        *navigate_to = Some(parent);
+                                    }
+                                } else {
+                                    ui.label("(none)");
+                                }
+                                ui.end_row();
 
-                        // children_watermark = total insertions (sparse array); live = non-null slots
-                        ui.label("child slots"); ui.label(format!("{} watermark / {} cap", (*task).children_watermark, (*task).children_capacity)); ui.end_row();
-                        ui.label("class_type");  ui.label(format!("{:?}", (*task).class_type));                                  ui.end_row();
-                    });
-                });
+                                // children_watermark = total insertions (sparse array); live = non-null slots
+                                ui.label("child slots");
+                                ui.label(format!(
+                                    "{} watermark / {} cap",
+                                    (*task).children_watermark,
+                                    (*task).children_capacity
+                                ));
+                                ui.end_row();
+                                ui.label("class_type");
+                                ui.label(format!("{:?}", (*task).class_type));
+                                ui.end_row();
+                            });
+                        });
 
-            // --- Children tree ---
-            // read_children returns all slots (sparse); filter nulls for live count.
-            let children = read_children(task);
-            let live_count = children.iter().filter(|&&a| a != 0).count();
-            let slot_count = (*task).children_watermark as usize;
-            if live_count > 0 || slot_count > 0 {
-                egui::CollapsingHeader::new(format!("Children ({} live / {} slots)", live_count, slot_count))
-                    .default_open(true)
-                    .show(ui, |ui| {
-                        for child_addr in &children {
-                            let child_addr = *child_addr;
-                            if child_addr == 0 { continue; }
-                            let child_name = entity_type_name(child_addr);
+                    // --- Children tree ---
+                    // read_children returns all slots (sparse); filter nulls for live count.
+                    let children = read_children(task);
+                    let live_count = children.iter().filter(|&&a| a != 0).count();
+                    let slot_count = (*task).children_watermark as usize;
+                    if live_count > 0 || slot_count > 0 {
+                        egui::CollapsingHeader::new(format!(
+                            "Children ({} live / {} slots)",
+                            live_count, slot_count
+                        ))
+                        .default_open(true)
+                        .show(ui, |ui| {
+                            for child_addr in &children {
+                                let child_addr = *child_addr;
+                                if child_addr == 0 {
+                                    continue;
+                                }
+                                let child_name = entity_type_name(child_addr);
 
-                            // Expand inline if the child itself has children
-                            let child_task = child_addr as *const CTask;
-                            let grandchildren = read_children(child_task);
-                            let grandchild_count = grandchildren.iter().filter(|&&a| a != 0).count();
+                                // Expand inline if the child itself has children
+                                let child_task = child_addr as *const CTask;
+                                let grandchildren = read_children(child_task);
+                                let grandchild_count =
+                                    grandchildren.iter().filter(|&&a| a != 0).count();
 
-                            if grandchild_count > 0 {
-                                // Show as a sub-collapsing header with its own children
-                                let header_label = format!(
-                                    "{} @ {:#010X}  ({} children)",
-                                    child_name, child_addr, grandchild_count
-                                );
-                                egui::CollapsingHeader::new(&header_label)
-                                    .id_source(child_addr)
-                                    .default_open(false)
-                                    .show(ui, |ui| {
-                                        // Link to inspect this child in detail
-                                        if ui.link("→ Inspect").clicked() {
-                                            *navigate_to = Some(child_addr);
-                                        }
-                                        // Show grandchildren
-                                        for gc_addr in &grandchildren {
-                                            let gc_addr = *gc_addr;
-                                            if gc_addr == 0 { continue; }
-                                            if ui.link(entity_label(gc_addr)).clicked() {
-                                                *navigate_to = Some(gc_addr);
+                                if grandchild_count > 0 {
+                                    // Show as a sub-collapsing header with its own children
+                                    let header_label = format!(
+                                        "{} @ {:#010X}  ({} children)",
+                                        child_name, child_addr, grandchild_count
+                                    );
+                                    egui::CollapsingHeader::new(&header_label)
+                                        .id_source(child_addr)
+                                        .default_open(false)
+                                        .show(ui, |ui| {
+                                            // Link to inspect this child in detail
+                                            if ui.link("→ Inspect").clicked() {
+                                                *navigate_to = Some(child_addr);
                                             }
-                                        }
-                                    });
-                            } else {
-                                // Leaf child — single clickable link
-                                let label = format!("  {}  @ {:#010X}", child_name, child_addr);
-                                if ui.link(label).clicked() {
-                                    *navigate_to = Some(child_addr);
+                                            // Show grandchildren
+                                            for gc_addr in &grandchildren {
+                                                let gc_addr = *gc_addr;
+                                                if gc_addr == 0 {
+                                                    continue;
+                                                }
+                                                if ui.link(entity_label(gc_addr)).clicked() {
+                                                    *navigate_to = Some(gc_addr);
+                                                }
+                                            }
+                                        });
+                                } else {
+                                    // Leaf child — single clickable link
+                                    let label = format!("  {}  @ {:#010X}", child_name, child_addr);
+                                    if ui.link(label).clicked() {
+                                        *navigate_to = Some(child_addr);
+                                    }
                                 }
                             }
-                        }
-                    });
-            }
-
-            // --- CTaskMine-specific fields ---
-            if name == "CTaskMine" {
-                show_game_task_raw_fields(ui, addr, "CTaskMine", 0x128, &[
-                    (0x0FC, "unknown_fc[0]"),
-                    (0x100, "unknown_fc[4]"),
-                    (0x104, "unknown_fc[8]"),
-                    (0x108, "unknown_fc[C]"),
-                    (0x10C, "unknown_fc[10]"),
-                    (0x110, "slot_id"),
-                    (0x114, "unknown_114"),
-                    (0x118, "fuse_timer"),
-                    (0x11C, "unknown_11c"),
-                    (0x120, "unknown_120"),
-                    (0x124, "owner_team"),
-                ]);
-            }
-
-            // --- CTaskOilDrum-specific fields ---
-            if name == "CTaskOilDrum" {
-                show_game_task_raw_fields(ui, addr, "CTaskOilDrum", 0x110, &[
-                    (0x0FC, "triggered"),
-                    (0x100, "slot_id"),
-                    (0x104, "unknown_104"),
-                    (0x108, "health"),
-                    (0x10C, "roll_counter"),
-                ]);
-            }
-
-            // --- CTaskCrate-specific fields ---
-            if name == "CTaskCrate" {
-                show_game_task_raw_fields(ui, addr, "CTaskCrate", 0x4B0, &[
-                    (0x0FC, "unknown_fc"),
-                    (0x100, "slot_id"),
-                    (0x104, "unknown_104"),
-                    (0x108, "unknown_108"),
-                    (0x10C, "timer"),
-                    // scheme_data starts at 0x110 (0xE5 DWORDs)
-                    (0x124, "crate_type"),
-                    (0x24C, "heal_amount"),
-                    (0x264, "extra_init_flag"),
-                    (0x4A4, "unknown_4a4"),
-                    (0x4A8, "sequence_ref"),
-                    (0x4AC, "unknown_4ac"),
-                ]);
-            }
-
-            // --- CTaskCloud-specific fields ---
-            if name == "CTaskCloud" {
-                let cloud = addr as *const CTaskCloud;
-                egui::CollapsingHeader::new("CTaskCloud")
-                    .default_open(true)
-                    .show(ui, |ui| {
-                        egui::Grid::new("cloud_grid").striped(true).show(ui, |ui| {
-                            ui.label("pos_x");       ui.label(format!("{:.1}", (*cloud).pos_x.to_f32()));        ui.end_row();
-                            ui.label("pos_y");       ui.label(format!("{:.1}", (*cloud).pos_y.to_f32()));        ui.end_row();
-                            ui.label("vel_x");       ui.label(format!("{:.4}", (*cloud).vel_x.to_f32()));        ui.end_row();
-                            ui.label("vel_y");       ui.label(format!("{:.4}", (*cloud).vel_y.to_f32()));        ui.end_row();
-                            ui.label("wind_accel");  ui.label(format!("{:.4}", (*cloud).wind_accel.to_f32()));   ui.end_row();
-                            ui.label("wind_target"); ui.label(format!("{:.4}", (*cloud).wind_target.to_f32()));  ui.end_row();
-                            ui.label("layer_depth"); ui.label(format!("{:.1}", (*cloud).layer_depth.to_f32())); ui.end_row();
-                            ui.label("sprite_id");   ui.label(format!("{:#06X}", (*cloud).sprite_id));          ui.end_row();
                         });
-                    });
-            }
+                    }
 
-            // --- CTaskTurnGame-specific fields ---
-            if name == "CTaskTurnGame" {
-                let tg = addr as *const CTaskTurnGame;
-                egui::CollapsingHeader::new("CTaskTurnGame")
-                    .default_open(true)
-                    .show(ui, |ui| {
-                        egui::Grid::new("tg_grid").striped(true).show(ui, |ui| {
-                            ui.label("current_team");  ui.label(format!("{}", (*tg).current_team));                           ui.end_row();
-                            ui.label("current_worm");  ui.label(format!("{}", (*tg).current_worm));                           ui.end_row();
-                            ui.label("arena_team");    ui.label(format!("{}", (*tg).arena_team));                             ui.end_row();
-                            ui.label("arena_worm");    ui.label(format!("{}", (*tg).arena_worm));                             ui.end_row();
-                            ui.label("worm_active");   ui.label(format!("{}", (*tg).worm_active != 0));                       ui.end_row();
-                            ui.label("turn_ended");    ui.label(format!("{}", (*tg).turn_ended != 0));                        ui.end_row();
-                            ui.label("no_time_lim");   ui.label(format!("{}", (*tg).no_time_limit != 0));                     ui.end_row();
-                            ui.label("turn_timer");    ui.label(format!("{:.1}s", (*tg).turn_timer as f32 / 1000.0));         ui.end_row();
-                            ui.label("retreat");       ui.label(format!("{:.1}s", (*tg).retreat_timer as f32 / 1000.0));      ui.end_row();
-                            ui.label("idle_timer");    ui.label(format!("{:.1}s", (*tg).idle_timer as f32 / 1000.0));         ui.end_row();
-                            ui.label("num_teams");     ui.label(format!("{}", (*tg).num_teams));                              ui.end_row();
-                            ui.label("active_frm");    ui.label(format!("{}", (*tg).active_worm_frames));                     ui.end_row();
-                            ui.label("retreat_frm");   ui.label(format!("{}", (*tg).retreat_frames));                         ui.end_row();
-                        });
-                    });
+                    // --- CTaskMine-specific fields ---
+                    if name == "CTaskMine" {
+                        show_game_task_raw_fields(
+                            ui,
+                            addr,
+                            "CTaskMine",
+                            0x128,
+                            &[
+                                (0x0FC, "unknown_fc[0]"),
+                                (0x100, "unknown_fc[4]"),
+                                (0x104, "unknown_fc[8]"),
+                                (0x108, "unknown_fc[C]"),
+                                (0x10C, "unknown_fc[10]"),
+                                (0x110, "slot_id"),
+                                (0x114, "unknown_114"),
+                                (0x118, "fuse_timer"),
+                                (0x11C, "unknown_11c"),
+                                (0x120, "unknown_120"),
+                                (0x124, "owner_team"),
+                            ],
+                        );
+                    }
 
-                let ctx = &(*tg).game_ctx as *const TurnGameCtx;
-                egui::CollapsingHeader::new("TurnGameCtx (+0x30)")
-                    .default_open(false)
-                    .show(ui, |ui| {
-                        egui::Grid::new("ctx_grid").striped(true).show(ui, |ui| {
-                            ui.label("land_height");   ui.label(format!("{:.1}", (*ctx).land_height.to_f32()));   ui.end_row();
-                            ui.label("land_height_2"); ui.label(format!("{:.1}", (*ctx).land_height_2.to_f32())); ui.end_row();
-                            ui.label("sentinel_18");   ui.label(format!("{}", (*ctx)._sentinel_18));              ui.end_row();
-                            ui.label("sentinel_28");   ui.label(format!("{}", (*ctx)._sentinel_28));              ui.end_row();
-                            ui.label("sentinel_38");   ui.label(format!("{}", (*ctx)._sentinel_38));              ui.end_row();
-                            ui.label("team_count");    ui.label(format!("{}", (*ctx).team_count));                ui.end_row();
-                            ui.label("_slot_d0");      ui.label(format!("{}", (*ctx)._slot_d0));                  ui.end_row();
-                            let ta = (*ctx)._hud_textbox_a;
-                            let tb = (*ctx)._hud_textbox_b;
-                            ui.label("hud_tb_a"); ui.label(if ta == 0 { "(null)".into() } else { format!("{:#010X}", ta) }); ui.end_row();
-                            ui.label("hud_tb_b"); ui.label(if tb == 0 { "(null)".into() } else { format!("{:#010X}", tb) }); ui.end_row();
-                        });
-                    });
-            }
+                    // --- CTaskOilDrum-specific fields ---
+                    if name == "CTaskOilDrum" {
+                        show_game_task_raw_fields(
+                            ui,
+                            addr,
+                            "CTaskOilDrum",
+                            0x110,
+                            &[
+                                (0x0FC, "triggered"),
+                                (0x100, "slot_id"),
+                                (0x104, "unknown_104"),
+                                (0x108, "health"),
+                                (0x10C, "roll_counter"),
+                            ],
+                        );
+                    }
 
-            // --- CTaskTeam-specific fields ---
-            if name == "CTaskTeam" {
-                let team = addr as *const CTaskTeam;
-                egui::CollapsingHeader::new("CTaskTeam")
-                    .default_open(true)
-                    .show(ui, |ui| {
-                        egui::Grid::new("team_grid").striped(true).show(ui, |ui| {
-                            ui.label("team_index");    ui.label(format!("{}", (*team).team_index));                           ui.end_row();
-                            ui.label("alive_worms");   ui.label(format!("{}", (*team).alive_worm_count));                    ui.end_row();
-                            ui.label("worm_count");    ui.label(format!("{}", (*team).worm_count));                           ui.end_row();
-                            ui.label("last_weapon");   ui.label(format!("{}", (*team).last_launched_weapon));                 ui.end_row();
-                            ui.label("pos_x");         ui.label(format!("{:.2}", (*team).pos_x.to_f32()));                   ui.end_row();
-                            ui.label("pos_y");         ui.label(format!("{:.2}", (*team).pos_y.to_f32()));                   ui.end_row();
-                        });
-                    });
-            }
+                    // --- CTaskCrate-specific fields ---
+                    if name == "CTaskCrate" {
+                        show_game_task_raw_fields(
+                            ui,
+                            addr,
+                            "CTaskCrate",
+                            0x4B0,
+                            &[
+                                (0x0FC, "unknown_fc"),
+                                (0x100, "slot_id"),
+                                (0x104, "unknown_104"),
+                                (0x108, "unknown_108"),
+                                (0x10C, "timer"),
+                                // scheme_data starts at 0x110 (0xE5 DWORDs)
+                                (0x124, "crate_type"),
+                                (0x24C, "heal_amount"),
+                                (0x264, "extra_init_flag"),
+                                (0x4A4, "unknown_4a4"),
+                                (0x4A8, "sequence_ref"),
+                                (0x4AC, "unknown_4ac"),
+                            ],
+                        );
+                    }
 
-            // --- CTaskFire-specific fields ---
-            if name == "CTaskFire" {
-                let fire = addr as *const CTaskFire;
-                egui::CollapsingHeader::new("CTaskFire")
-                    .default_open(true)
-                    .show(ui, |ui| {
-                        egui::Grid::new("fire_grid").striped(true).show(ui, |ui| {
-                            ui.label("spawn_x");       ui.label(format!("{:.1}", (*fire).spawn_x.to_f32()));    ui.end_row();
-                            ui.label("spawn_y");       ui.label(format!("{:.1}", (*fire).spawn_y.to_f32()));    ui.end_row();
-                            ui.label("timer");         ui.label(format!("{}", (*fire).timer));                  ui.end_row();
-                            ui.label("burn_rate");     ui.label(format!("{}", (*fire).burn_rate));              ui.end_row();
-                            ui.label("spread_ctr");    ui.label(format!("{}", (*fire).spread_counter));         ui.end_row();
-                            ui.label("lifetime");      ui.label(format!("{}", (*fire).lifetime));               ui.end_row();
-                            ui.label("slot_index");    ui.label(format!("{}", (*fire).slot_index));             ui.end_row();
-                        });
-                    });
-            }
+                    // --- CTaskCloud-specific fields ---
+                    if name == "CTaskCloud" {
+                        let cloud = addr as *const CTaskCloud;
+                        egui::CollapsingHeader::new("CTaskCloud")
+                            .default_open(true)
+                            .show(ui, |ui| {
+                                egui::Grid::new("cloud_grid").striped(true).show(ui, |ui| {
+                                    ui.label("pos_x");
+                                    ui.label(format!("{:.1}", (*cloud).pos_x.to_f32()));
+                                    ui.end_row();
+                                    ui.label("pos_y");
+                                    ui.label(format!("{:.1}", (*cloud).pos_y.to_f32()));
+                                    ui.end_row();
+                                    ui.label("vel_x");
+                                    ui.label(format!("{:.4}", (*cloud).vel_x.to_f32()));
+                                    ui.end_row();
+                                    ui.label("vel_y");
+                                    ui.label(format!("{:.4}", (*cloud).vel_y.to_f32()));
+                                    ui.end_row();
+                                    ui.label("wind_accel");
+                                    ui.label(format!("{:.4}", (*cloud).wind_accel.to_f32()));
+                                    ui.end_row();
+                                    ui.label("wind_target");
+                                    ui.label(format!("{:.4}", (*cloud).wind_target.to_f32()));
+                                    ui.end_row();
+                                    ui.label("layer_depth");
+                                    ui.label(format!("{:.1}", (*cloud).layer_depth.to_f32()));
+                                    ui.end_row();
+                                    ui.label("sprite_id");
+                                    ui.label(format!("{:#06X}", (*cloud).sprite_id));
+                                    ui.end_row();
+                                });
+                            });
+                    }
 
-            // --- CTaskWorm-specific fields ---
-            if name == "CTaskWorm" || (*task).class_type == openwa_core::game::ClassType::Worm {
-                // Summary header with key info
-                let worm = addr as *const CTaskWorm;
-                let name_bytes = &(*worm).worm_name;
-                let nul = name_bytes.iter().position(|&b| b == 0).unwrap_or(name_bytes.len());
-                let worm_name = std::str::from_utf8(&name_bytes[..nul]).unwrap_or("?");
-                ui.label(format!("Worm: \"{}\"  state={:#04X}  team={}  idx={}",
-                    worm_name, (*worm).state(), (*worm).team_index, (*worm).worm_index));
-                ui.separator();
+                    // --- CTaskTurnGame-specific fields ---
+                    if name == "CTaskTurnGame" {
+                        let tg = addr as *const CTaskTurnGame;
+                        egui::CollapsingHeader::new("CTaskTurnGame")
+                            .default_open(true)
+                            .show(ui, |ui| {
+                                egui::Grid::new("tg_grid").striped(true).show(ui, |ui| {
+                                    ui.label("current_team");
+                                    ui.label(format!("{}", (*tg).current_team));
+                                    ui.end_row();
+                                    ui.label("current_worm");
+                                    ui.label(format!("{}", (*tg).current_worm));
+                                    ui.end_row();
+                                    ui.label("arena_team");
+                                    ui.label(format!("{}", (*tg).arena_team));
+                                    ui.end_row();
+                                    ui.label("arena_worm");
+                                    ui.label(format!("{}", (*tg).arena_worm));
+                                    ui.end_row();
+                                    ui.label("worm_active");
+                                    ui.label(format!("{}", (*tg).worm_active != 0));
+                                    ui.end_row();
+                                    ui.label("turn_ended");
+                                    ui.label(format!("{}", (*tg).turn_ended != 0));
+                                    ui.end_row();
+                                    ui.label("no_time_lim");
+                                    ui.label(format!("{}", (*tg).no_time_limit != 0));
+                                    ui.end_row();
+                                    ui.label("turn_timer");
+                                    ui.label(format!("{:.1}s", (*tg).turn_timer as f32 / 1000.0));
+                                    ui.end_row();
+                                    ui.label("retreat");
+                                    ui.label(format!(
+                                        "{:.1}s",
+                                        (*tg).retreat_timer as f32 / 1000.0
+                                    ));
+                                    ui.end_row();
+                                    ui.label("idle_timer");
+                                    ui.label(format!("{:.1}s", (*tg).idle_timer as f32 / 1000.0));
+                                    ui.end_row();
+                                    ui.label("num_teams");
+                                    ui.label(format!("{}", (*tg).num_teams));
+                                    ui.end_row();
+                                    ui.label("active_frm");
+                                    ui.label(format!("{}", (*tg).active_worm_frames));
+                                    ui.end_row();
+                                    ui.label("retreat_frm");
+                                    ui.label(format!("{}", (*tg).retreat_frames));
+                                    ui.end_row();
+                                });
+                            });
 
-                show_game_task_raw_fields(ui, addr, "CTaskWorm", 0x3FC, &[
-                    (0x0FC, "team_index"),
-                    (0x100, "worm_index"),
-                    (0x104, "unknown_104"),
-                    (0x110, "spawn_params[0]"),
-                    (0x114, "spawn_params[1]"),
-                    (0x118, "spawn_params[2]"),
-                    (0x11C, "spawn_params[3]"),
-                    (0x120, "spawn_params[4]"),
-                    (0x124, "spawn_params[5]"),
-                    (0x128, "spawn_params[6]"),
-                    (0x12C, "spawn_params[7]"),
-                    (0x130, "spawn_params[8]"),
-                    (0x134, "spawn_params[9]"),
-                    (0x158, "slot_id"),
-                    (0x164, "stationary_frames"),
-                    (0x170, "selected_weapon"),
-                    (0x1A8, "facing_dir_2"),
-                    (0x1AC, "facing_dir_inv"),
-                    (0x1EC, "movement_streak"),
-                    (0x24C, "aim_angle"),
-                    (0x268, "show_cursor"),
-                    (0x2F0, "worm_name[0..4]"),
-                    (0x2F4, "worm_name[4..8]"),
-                    (0x2F8, "worm_name[8..12]"),
-                    (0x2FC, "worm_name[12..16]"),
-                    (0x334, "facing_dir_3"),
-                    (0x368, "animator"),
-                    (0x3DC, "facing_direction"),
-                    (0x3E4, "input_aim_up"),
-                    (0x3E8, "input_aim_down"),
-                    (0x3EC, "input_move_left"),
-                    (0x3F0, "input_move_right"),
-                ]);
-            }
+                        let ctx = &(*tg).game_ctx as *const TurnGameCtx;
+                        egui::CollapsingHeader::new("TurnGameCtx (+0x30)")
+                            .default_open(false)
+                            .show(ui, |ui| {
+                                egui::Grid::new("ctx_grid").striped(true).show(ui, |ui| {
+                                    ui.label("land_height");
+                                    ui.label(format!("{:.1}", (*ctx).land_height.to_f32()));
+                                    ui.end_row();
+                                    ui.label("land_height_2");
+                                    ui.label(format!("{:.1}", (*ctx).land_height_2.to_f32()));
+                                    ui.end_row();
+                                    ui.label("sentinel_18");
+                                    ui.label(format!("{}", (*ctx)._sentinel_18));
+                                    ui.end_row();
+                                    ui.label("sentinel_28");
+                                    ui.label(format!("{}", (*ctx)._sentinel_28));
+                                    ui.end_row();
+                                    ui.label("sentinel_38");
+                                    ui.label(format!("{}", (*ctx)._sentinel_38));
+                                    ui.end_row();
+                                    ui.label("team_count");
+                                    ui.label(format!("{}", (*ctx).team_count));
+                                    ui.end_row();
+                                    ui.label("_slot_d0");
+                                    ui.label(format!("{}", (*ctx)._slot_d0));
+                                    ui.end_row();
+                                    let ta = (*ctx)._hud_textbox_a;
+                                    let tb = (*ctx)._hud_textbox_b;
+                                    ui.label("hud_tb_a");
+                                    ui.label(if ta == 0 {
+                                        "(null)".into()
+                                    } else {
+                                        format!("{:#010X}", ta)
+                                    });
+                                    ui.end_row();
+                                    ui.label("hud_tb_b");
+                                    ui.label(if tb == 0 {
+                                        "(null)".into()
+                                    } else {
+                                        format!("{:#010X}", tb)
+                                    });
+                                    ui.end_row();
+                                });
+                            });
+                    }
 
-            // --- CTaskMissile-specific fields ---
-            if name == "CTaskMissile" {
-                use openwa_core::task::CTaskMissile;
-                let m = &*(addr as *const CTaskMissile);
-                ui.label(format!("Missile: type={:?}  slot={}  homing={}  dir={}",
-                    m.missile_type(), m.slot_id, m.homing_enabled, m.direction));
-                ui.separator();
+                    // --- CTaskTeam-specific fields ---
+                    if name == "CTaskTeam" {
+                        let team = addr as *const CTaskTeam;
+                        egui::CollapsingHeader::new("CTaskTeam")
+                            .default_open(true)
+                            .show(ui, |ui| {
+                                egui::Grid::new("team_grid").striped(true).show(ui, |ui| {
+                                    ui.label("team_index");
+                                    ui.label(format!("{}", (*team).team_index));
+                                    ui.end_row();
+                                    ui.label("alive_worms");
+                                    ui.label(format!("{}", (*team).alive_worm_count));
+                                    ui.end_row();
+                                    ui.label("worm_count");
+                                    ui.label(format!("{}", (*team).worm_count));
+                                    ui.end_row();
+                                    ui.label("last_weapon");
+                                    ui.label(format!("{}", (*team).last_launched_weapon));
+                                    ui.end_row();
+                                    ui.label("pos_x");
+                                    ui.label(format!("{:.2}", (*team).pos_x.to_f32()));
+                                    ui.end_row();
+                                    ui.label("pos_y");
+                                    ui.label(format!("{:.2}", (*team).pos_y.to_f32()));
+                                    ui.end_row();
+                                });
+                            });
+                    }
 
-                show_game_task_raw_fields(ui, addr, "CTaskMissile", 0x41C, &[
-                    (0x128, "launch_seed"),
-                    (0x12C, "slot_id"),
-                    (0x130, "spawn: owner_id"),
-                    (0x134, "spawn: [1]"),
-                    (0x138, "spawn: spawn_x"),
-                    (0x13C, "spawn: spawn_y"),
-                    (0x140, "spawn: speed_x"),
-                    (0x144, "spawn: speed_y"),
-                    (0x148, "spawn: cursor_x"),
-                    (0x14C, "spawn: cursor_y"),
-                    (0x150, "spawn: pellet_idx"),
-                    (0x154, "spawn: fb_timer"),
-                    (0x158, "spawn: fb_param"),
-                    (0x3A0, "launch_speed"),
-                    (0x3A8, "homing_enabled"),
-                    (0x3C8, "direction"),
-                ]);
-            }
+                    // --- CTaskFire-specific fields ---
+                    if name == "CTaskFire" {
+                        let fire = addr as *const CTaskFire;
+                        egui::CollapsingHeader::new("CTaskFire")
+                            .default_open(true)
+                            .show(ui, |ui| {
+                                egui::Grid::new("fire_grid").striped(true).show(ui, |ui| {
+                                    ui.label("spawn_x");
+                                    ui.label(format!("{:.1}", (*fire).spawn_x.to_f32()));
+                                    ui.end_row();
+                                    ui.label("spawn_y");
+                                    ui.label(format!("{:.1}", (*fire).spawn_y.to_f32()));
+                                    ui.end_row();
+                                    ui.label("timer");
+                                    ui.label(format!("{}", (*fire).timer));
+                                    ui.end_row();
+                                    ui.label("burn_rate");
+                                    ui.label(format!("{}", (*fire).burn_rate));
+                                    ui.end_row();
+                                    ui.label("spread_ctr");
+                                    ui.label(format!("{}", (*fire).spread_counter));
+                                    ui.end_row();
+                                    ui.label("lifetime");
+                                    ui.label(format!("{}", (*fire).lifetime));
+                                    ui.end_row();
+                                    ui.label("slot_index");
+                                    ui.label(format!("{}", (*fire).slot_index));
+                                    ui.end_row();
+                                });
+                            });
+                    }
 
-        }});
+                    // --- CTaskWorm-specific fields ---
+                    if name == "CTaskWorm"
+                        || (*task).class_type == openwa_core::game::ClassType::Worm
+                    {
+                        // Summary header with key info
+                        let worm = addr as *const CTaskWorm;
+                        let name_bytes = &(*worm).worm_name;
+                        let nul = name_bytes
+                            .iter()
+                            .position(|&b| b == 0)
+                            .unwrap_or(name_bytes.len());
+                        let worm_name = std::str::from_utf8(&name_bytes[..nul]).unwrap_or("?");
+                        ui.label(format!(
+                            "Worm: \"{}\"  state={:#04X}  team={}  idx={}",
+                            worm_name,
+                            (*worm).state(),
+                            (*worm).team_index,
+                            (*worm).worm_index
+                        ));
+                        ui.separator();
+
+                        show_game_task_raw_fields(
+                            ui,
+                            addr,
+                            "CTaskWorm",
+                            0x3FC,
+                            &[
+                                (0x0FC, "team_index"),
+                                (0x100, "worm_index"),
+                                (0x104, "unknown_104"),
+                                (0x110, "spawn_params[0]"),
+                                (0x114, "spawn_params[1]"),
+                                (0x118, "spawn_params[2]"),
+                                (0x11C, "spawn_params[3]"),
+                                (0x120, "spawn_params[4]"),
+                                (0x124, "spawn_params[5]"),
+                                (0x128, "spawn_params[6]"),
+                                (0x12C, "spawn_params[7]"),
+                                (0x130, "spawn_params[8]"),
+                                (0x134, "spawn_params[9]"),
+                                (0x158, "slot_id"),
+                                (0x164, "stationary_frames"),
+                                (0x170, "selected_weapon"),
+                                (0x1A8, "facing_dir_2"),
+                                (0x1AC, "facing_dir_inv"),
+                                (0x1EC, "movement_streak"),
+                                (0x24C, "aim_angle"),
+                                (0x268, "show_cursor"),
+                                (0x2F0, "worm_name[0..4]"),
+                                (0x2F4, "worm_name[4..8]"),
+                                (0x2F8, "worm_name[8..12]"),
+                                (0x2FC, "worm_name[12..16]"),
+                                (0x334, "facing_dir_3"),
+                                (0x368, "animator"),
+                                (0x3DC, "facing_direction"),
+                                (0x3E4, "input_aim_up"),
+                                (0x3E8, "input_aim_down"),
+                                (0x3EC, "input_move_left"),
+                                (0x3F0, "input_move_right"),
+                            ],
+                        );
+                    }
+
+                    // --- CTaskMissile-specific fields ---
+                    if name == "CTaskMissile" {
+                        use openwa_core::task::CTaskMissile;
+                        let m = &*(addr as *const CTaskMissile);
+                        ui.label(format!(
+                            "Missile: type={:?}  slot={}  homing={}  dir={}",
+                            m.missile_type(),
+                            m.slot_id,
+                            m.homing_enabled,
+                            m.direction
+                        ));
+                        ui.separator();
+
+                        show_game_task_raw_fields(
+                            ui,
+                            addr,
+                            "CTaskMissile",
+                            0x41C,
+                            &[
+                                (0x128, "launch_seed"),
+                                (0x12C, "slot_id"),
+                                (0x130, "spawn: owner_id"),
+                                (0x134, "spawn: [1]"),
+                                (0x138, "spawn: spawn_x"),
+                                (0x13C, "spawn: spawn_y"),
+                                (0x140, "spawn: speed_x"),
+                                (0x144, "spawn: speed_y"),
+                                (0x148, "spawn: cursor_x"),
+                                (0x14C, "spawn: cursor_y"),
+                                (0x150, "spawn: pellet_idx"),
+                                (0x154, "spawn: fb_timer"),
+                                (0x158, "spawn: fb_param"),
+                                (0x3A0, "launch_speed"),
+                                (0x3A8, "homing_enabled"),
+                                (0x3C8, "direction"),
+                            ],
+                        );
+                    }
+                }
+            });
     }
 }
 

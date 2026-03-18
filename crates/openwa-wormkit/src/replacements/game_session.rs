@@ -14,15 +14,15 @@
 //!   `create_ddgame()` in openwa-core (not yet complete).
 //! - `DDGame__InitGameState` (0x526500): plain stdcall(this), called via transmute.
 
+use crate::hook;
+use crate::log_line;
 use openwa_core::address::va;
 use openwa_core::audio::DSSound;
 use openwa_core::display::{DDDisplay, Palette};
-use openwa_core::engine::ddgame::{DDGame, create_ddgame, init_constructor_addrs};
+use openwa_core::engine::ddgame::{create_ddgame, init_constructor_addrs, DDGame};
 use openwa_core::engine::{DDGameWrapper, GameInfo, GameSession};
 use openwa_core::rebase::rb;
-use openwa_core::wa_alloc::{wa_malloc, wa_free};
-use crate::hook;
-use crate::log_line;
+use openwa_core::wa_alloc::{wa_free, wa_malloc};
 
 /// Implicit EDI = game_info pointer, captured from EDI on entry.
 static mut GAME_INFO: *mut GameInfo = core::ptr::null_mut();
@@ -105,7 +105,7 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
     // Read timer_obj and net_game from the live game session struct.
     let session = *(rb(va::G_GAME_SESSION) as *const *mut GameSession);
     let timer_obj = (*session).timer_obj;
-    let net_game  = (*session).net_game;
+    let net_game = (*session).net_game;
 
     // Debug: dump session fields around net_game (0xBC-0xC8)
     let session_base = session as *const u8;
@@ -140,14 +140,22 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
     } else {
         DDGAME_CTOR_ECX = input_ctrl as u32;
         ddgame_constructor_call(
-            this, display, sound, keyboard, palette, streaming_audio,
-            timer_obj, net_game, game_info,
+            this,
+            display,
+            sound,
+            keyboard,
+            palette,
+            streaming_audio,
+            timer_obj,
+            net_game,
+            game_info,
         );
     }
 
     let _ = log_line(&format!(
         "[GameSession] create_ddgame returned, ddgame=0x{:08X}",
-        (*this).ddgame as u32));
+        (*this).ddgame as u32
+    ));
 
     // Dump DDGame state BEFORE InitGameState (constructor output only)
     if std::env::var("OPENWA_VALIDATE").is_ok() {
@@ -161,14 +169,13 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
             if val != 0 {
                 nonzero += 1;
                 if nonzero <= 300 {
-                    let _ = log_line(&format!(
-                        "[Shadow:Pre] +0x{:04X} = 0x{:08X}", i * 4, val,
-                    ));
+                    let _ = log_line(&format!("[Shadow:Pre] +0x{:04X} = 0x{:08X}", i * 4, val,));
                 }
             }
         }
         let _ = log_line(&format!(
-            "[Shadow:Pre] Total non-zero: {} / {}", nonzero, dword_count,
+            "[Shadow:Pre] Total non-zero: {} / {}",
+            nonzero, dword_count,
         ));
     }
 
@@ -185,13 +192,16 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
                 w_nonzero += 1;
                 if w_nonzero <= 200 {
                     let _ = log_line(&format!(
-                        "[Shadow:Wrapper] +0x{:04X} = 0x{:08X}", i * 4, val,
+                        "[Shadow:Wrapper] +0x{:04X} = 0x{:08X}",
+                        i * 4,
+                        val,
                     ));
                 }
             }
         }
         let _ = log_line(&format!(
-            "[Shadow:Wrapper] Total non-zero: {} / {}", w_nonzero, w_count,
+            "[Shadow:Wrapper] Total non-zero: {} / {}",
+            w_nonzero, w_count,
         ));
     }
 
@@ -212,8 +222,17 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
     // Compare byte-by-byte with the original to find porting bugs.
     if std::env::var("OPENWA_VALIDATE").is_ok() {
         shadow_compare_ddgame(
-            this, keyboard, display, sound, palette, streaming_audio, input_ctrl,
-            timer_obj, net_game, game_info, ddgame,
+            this,
+            keyboard,
+            display,
+            sound,
+            palette,
+            streaming_audio,
+            input_ctrl,
+            timer_obj,
+            net_game,
+            game_info,
+            ddgame,
         );
     }
 
@@ -262,17 +281,25 @@ unsafe fn shadow_compare_ddgame(
 
     // Check param storage (offsets 0x00-0x28)
     let checks: &[(&str, usize, u32)] = &[
-        ("keyboard",       0x00, keyboard as u32),
-        ("display",        0x04, display as u32),
-        ("sound",          0x08, sound as u32),
-        ("palette",        0x10, palette as u32),
-        ("music",          0x14, streaming_audio as u32),
-        ("param7",         0x18, timer_obj as u32),
-        ("caller/ECX",     0x1C, input_ctrl as u32),
-        ("game_info",      0x24, game_info as u32),
-        ("net_game",       0x28, net_game as u32),
-        ("sound_available",0x7EF8, if *(game_info as *const u8).add(0xF914).cast::<i32>() == 0 { 1 } else { 0 }),
-        ("field_7EFC",     0x7EFC, 1),
+        ("keyboard", 0x00, keyboard as u32),
+        ("display", 0x04, display as u32),
+        ("sound", 0x08, sound as u32),
+        ("palette", 0x10, palette as u32),
+        ("music", 0x14, streaming_audio as u32),
+        ("param7", 0x18, timer_obj as u32),
+        ("caller/ECX", 0x1C, input_ctrl as u32),
+        ("game_info", 0x24, game_info as u32),
+        ("net_game", 0x28, net_game as u32),
+        (
+            "sound_available",
+            0x7EF8,
+            if *(game_info as *const u8).add(0xF914).cast::<i32>() == 0 {
+                1
+            } else {
+                0
+            },
+        ),
+        ("field_7EFC", 0x7EFC, 1),
     ];
 
     let mut ok = 0u32;
@@ -292,9 +319,7 @@ unsafe fn shadow_compare_ddgame(
 
     // Dump a summary of selected DDGame regions for future comparison
     // (pointer fields that would differ between original and shadow)
-    let _ = log_line(&format!(
-        "[Shadow] Param check: {} OK, {} FAIL", ok, fail,
-    ));
+    let _ = log_line(&format!("[Shadow] Param check: {} OK, {} FAIL", ok, fail,));
 
     // Dump ALL non-zero DWORDs from the real DDGame.
     // This gives us the exact map of what the constructor initializes.
@@ -307,15 +332,13 @@ unsafe fn shadow_compare_ddgame(
             nonzero += 1;
             // Log up to 200 non-zero fields
             if nonzero <= 200 {
-                let _ = log_line(&format!(
-                    "[Shadow] DDGame+0x{:04X} = 0x{:08X}",
-                    i * 4, val,
-                ));
+                let _ = log_line(&format!("[Shadow] DDGame+0x{:04X} = 0x{:08X}", i * 4, val,));
             }
         }
     }
     let _ = log_line(&format!(
-        "[Shadow] Total non-zero DWORDs: {} / {}", nonzero, dword_count,
+        "[Shadow] Total non-zero DWORDs: {} / {}",
+        nonzero, dword_count,
     ));
 
     // Also dump non-zero wrapper fields
@@ -327,15 +350,13 @@ unsafe fn shadow_compare_ddgame(
         if val != 0 {
             w_nonzero += 1;
             if w_nonzero <= 50 {
-                let _ = log_line(&format!(
-                    "[Shadow] Wrapper+0x{:04X} = 0x{:08X}",
-                    i * 4, val,
-                ));
+                let _ = log_line(&format!("[Shadow] Wrapper+0x{:04X} = 0x{:08X}", i * 4, val,));
             }
         }
     }
     let _ = log_line(&format!(
-        "[Shadow] Wrapper non-zero DWORDs: {} / {}", w_nonzero, wrapper_dwords,
+        "[Shadow] Wrapper non-zero DWORDs: {} / {}",
+        w_nonzero, wrapper_dwords,
     ));
 
     wa_free(shadow_wrapper);
@@ -346,18 +367,40 @@ static mut PC_LANDSCAPE_TRAMPOLINE: *const () = core::ptr::null();
 
 /// Passthrough hook: logs all 11 params, then calls original.
 unsafe extern "stdcall" fn hook_pc_landscape_ctor(
-    p1: u32, p2: u32, p3: u32, p4: u32, p5: u32, p6: u32,
-    p7: u32, p8: u32, p9: u32, p10: u32, p11: u32,
+    p1: u32,
+    p2: u32,
+    p3: u32,
+    p4: u32,
+    p5: u32,
+    p6: u32,
+    p7: u32,
+    p8: u32,
+    p9: u32,
+    p10: u32,
+    p11: u32,
 ) -> u32 {
     let _ = log_line(&format!(
         "[PCLandscape] p1=0x{:08X} p2=0x{:08X} p3=0x{:08X} p4=0x{:08X} p5=0x{:08X} p6=0x{:08X}",
-        p1, p2, p3, p4, p5, p6));
+        p1, p2, p3, p4, p5, p6
+    ));
     let _ = log_line(&format!(
         "[PCLandscape] p7=0x{:08X} p8=0x{:08X} p9=0x{:08X} p10=0x{:08X} p11=0x{:08X}",
-        p7, p8, p9, p10, p11));
+        p7, p8, p9, p10, p11
+    ));
     // Call original
-    let orig: unsafe extern "stdcall" fn(u32,u32,u32,u32,u32,u32,u32,u32,u32,u32,u32) -> u32 =
-        core::mem::transmute(PC_LANDSCAPE_TRAMPOLINE);
+    let orig: unsafe extern "stdcall" fn(
+        u32,
+        u32,
+        u32,
+        u32,
+        u32,
+        u32,
+        u32,
+        u32,
+        u32,
+        u32,
+        u32,
+    ) -> u32 = core::mem::transmute(PC_LANDSCAPE_TRAMPOLINE);
     orig(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11)
 }
 
@@ -366,7 +409,9 @@ static mut HUD_LOAD_TRAMPOLINE: *const () = core::ptr::null();
 
 unsafe extern "thiscall" fn hook_hud_load(this_ecx: u32, p1: u32, p2: u32) -> u32 {
     let _ = log_line(&format!(
-        "[HUD] ECX=0x{:08X} p1=0x{:08X} p2=0x{:08X}", this_ecx, p1, p2));
+        "[HUD] ECX=0x{:08X} p1=0x{:08X} p2=0x{:08X}",
+        this_ecx, p1, p2
+    ));
     let orig: unsafe extern "thiscall" fn(u32, u32, u32) -> u32 =
         core::mem::transmute(HUD_LOAD_TRAMPOLINE);
     orig(this_ecx, p1, p2)
@@ -377,7 +422,14 @@ static mut SPRITE_REGION_TRAMPOLINE: *const () = core::ptr::null();
 
 /// Log fastcall params. Called from naked trampoline with all params on stack.
 unsafe extern "cdecl" fn log_sprite_region(
-    ecx: u32, edx: u32, p1: u32, p2: u32, p3: u32, p4: u32, p5: u32, p6: u32,
+    ecx: u32,
+    edx: u32,
+    p1: u32,
+    p2: u32,
+    p3: u32,
+    p4: u32,
+    p5: u32,
+    p6: u32,
 ) {
     let _ = log_line(&format!(
         "[SpriteRgn] ECX=0x{:X} EDX=0x{:X} p1=0x{:X} p2=0x{:X} p3=0x{:X} p4=0x{:X} p5=0x{:X} p6=0x{:X}",

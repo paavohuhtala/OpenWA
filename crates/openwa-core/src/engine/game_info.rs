@@ -13,7 +13,6 @@ pub struct GameInfo {
     pub _unknown_0000: [u8; 0x44C],
 
     // --- Speech configuration ---
-
     /// 0x044C: Number of teams with speech banks loaded (byte).
     /// Used by DSSound_LoadAllSpeechBanks to iterate teams.
     pub speech_team_count: u8,
@@ -55,7 +54,6 @@ pub struct GameInfo {
     pub landscape_data_path: [u8; 0xDAE8 - 0xDAAC],
 
     // --- Cluster 1: data paths ---
-
     /// 0xDAE8: Config DWORD (copied from global 0x88E390)
     pub _config_dword_dae8: u32,
     /// 0xDAEC: Land data path ("data\land.dat", 14 bytes incl. null)
@@ -83,7 +81,6 @@ pub struct GameInfo {
     pub _unknown_f378: [u8; 0xF3A0 - 0xF378],
 
     // --- Cluster 2: game options (populated by LoadOptions) ---
-
     /// 0xF3A0: Unknown config byte (from global 0x7C0D38)
     pub _config_byte_f3a0: u8,
     /// 0xF3A1: Detail level (registry: DetailLevel, default 5)
@@ -147,7 +144,6 @@ pub struct GameInfo {
     pub _unknown_f4c5: [u8; 0xF500 - 0xF4C5],
 
     // --- Extended region (beyond original 0xF500 conservative estimate) ---
-
     /// 0xF500-0xF913: Unknown
     pub _unknown_f500: [u8; 0xF914 - 0xF500],
 
@@ -168,7 +164,9 @@ impl core::fmt::Debug for HexU32s<'_> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "[")?;
         for (i, v) in self.0.iter().enumerate() {
-            if i > 0 { write!(f, ", ")?; }
+            if i > 0 {
+                write!(f, ", ")?;
+            }
             write!(f, "0x{v:08X}")?;
         }
         write!(f, "]")
@@ -178,20 +176,27 @@ impl core::fmt::Debug for HexU32s<'_> {
 impl core::fmt::Debug for GameInfo {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         // Extract land_dat_path as a string (null-terminated)
-        let land_str = self.land_dat_path.iter()
+        let land_str = self
+            .land_dat_path
+            .iter()
             .position(|&b| b == 0)
             .map(|end| core::str::from_utf8(&self.land_dat_path[..end]).unwrap_or("<invalid utf8>"))
             .unwrap_or(core::str::from_utf8(&self.land_dat_path).unwrap_or("<invalid utf8>"));
 
         // Extract speech_path as a string (null-terminated)
-        let speech_str = self.speech_path.iter()
+        let speech_str = self
+            .speech_path
+            .iter()
             .position(|&b| b == 0)
             .map(|end| core::str::from_utf8(&self.speech_path[..end]).unwrap_or("<invalid utf8>"))
             .unwrap_or(core::str::from_utf8(&self.speech_path).unwrap_or("<invalid utf8>"));
 
         f.debug_struct("GameInfo")
             // Cluster 1: data paths
-            .field("_config_dword_dae8", &format_args!("0x{:08X}", self._config_dword_dae8))
+            .field(
+                "_config_dword_dae8",
+                &format_args!("0x{:08X}", self._config_dword_dae8),
+            )
             .field("land_dat_path", &land_str)
             // Cluster 2: game options
             .field("_config_byte_f3a0", &self._config_byte_f3a0)
@@ -201,25 +206,52 @@ impl core::fmt::Debug for GameInfo {
             .field("info_spy", &self.info_spy)
             .field("chat_pinned", &self.chat_pinned)
             .field("chat_lines", &self.chat_lines)
-            .field("pinned_chat_lines", &format_args!("0x{:08X}", self.pinned_chat_lines))
+            .field(
+                "pinned_chat_lines",
+                &format_args!("0x{:08X}", self.pinned_chat_lines),
+            )
             .field("home_lock", &self.home_lock)
-            .field("display_flags", &format_args!("0x{:08X}", self.display_flags))
+            .field(
+                "display_flags",
+                &format_args!("0x{:08X}", self.display_flags),
+            )
             .field("display_width", &self.display_width)
             .field("display_height", &self.display_height)
             .field("_config_dwords_f3bc", &HexU32s(&self._config_dwords_f3bc))
-            .field("_config_dword_f3d4", &format_args!("0x{:08X}", self._config_dword_f3d4))
-            .field("_config_dword_f3d8", &format_args!("0x{:08X}", self._config_dword_f3d8))
+            .field(
+                "_config_dword_f3d4",
+                &format_args!("0x{:08X}", self._config_dword_f3d4),
+            )
+            .field(
+                "_config_dword_f3d8",
+                &format_args!("0x{:08X}", self._config_dword_f3d8),
+            )
             .field("capture_transparent_pngs", &self.capture_transparent_pngs)
             .field("camera_unlock_mouse_speed", &self.camera_unlock_mouse_speed)
-            .field("_config_dword_f3e4", &format_args!("0x{:08X}", self._config_dword_f3e4))
-            .field("background_debris_parallax", &format_args!("0x{:08X}", self.background_debris_parallax))
-            .field("topmost_explosion_onomatopoeia", &self.topmost_explosion_onomatopoeia)
+            .field(
+                "_config_dword_f3e4",
+                &format_args!("0x{:08X}", self._config_dword_f3e4),
+            )
+            .field(
+                "background_debris_parallax",
+                &format_args!("0x{:08X}", self.background_debris_parallax),
+            )
+            .field(
+                "topmost_explosion_onomatopoeia",
+                &self.topmost_explosion_onomatopoeia,
+            )
             .field("_zeroed_f3f0", &self._zeroed_f3f0)
-            .field("_conditional_config_f3f4", &HexU32s(&self._conditional_config_f3f4))
+            .field(
+                "_conditional_config_f3f4",
+                &HexU32s(&self._conditional_config_f3f4),
+            )
             .field("speech_path", &speech_str)
             .field("speech_enabled", &self.speech_enabled)
             .field("headless_mode", &self.headless_mode)
-            .field("input_state_f918", &format_args!("0x{:08X}", self.input_state_f918))
+            .field(
+                "input_state_f918",
+                &format_args!("0x{:08X}", self.input_state_f918),
+            )
             .finish()
     }
 }

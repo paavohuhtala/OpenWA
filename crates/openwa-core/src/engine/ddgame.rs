@@ -1,17 +1,17 @@
 use crate::address::va;
 use crate::audio::active_sound::ActiveSoundTable;
+use crate::audio::dssound::DSSound;
+use crate::audio::music::Music;
+use crate::audio::speech::SpeechSlotTable;
 use crate::display::dd_display::DDDisplay;
+use crate::display::palette::Palette;
 use crate::engine::ddgame_wrapper::DDGameWrapper;
 use crate::engine::game_info::GameInfo;
 use crate::input::keyboard::DDKeyboard;
-use crate::audio::dssound::DSSound;
 use crate::log::log_line;
-use crate::render::landscape::PCLandscape;
-use crate::audio::music::Music;
-use crate::display::palette::Palette;
 use crate::rebase::rb;
+use crate::render::landscape::PCLandscape;
 use crate::render::queue::RenderQueue;
-use crate::audio::speech::SpeechSlotTable;
 use crate::render::turn_order::TurnOrderWidget;
 use crate::wa_alloc::wa_malloc;
 
@@ -380,8 +380,16 @@ pub unsafe fn ddgame_init_fields(ddgame: *mut DDGame) {
 
     // Zero the stride-0x194 table (10 entries)
     for &off in &[
-        0x379Cusize, 0x3930, 0x3AC4, 0x3C58, 0x3DEC,
-        0x3F80, 0x4114, 0x42A8, 0x443C, 0x45D0,
+        0x379Cusize,
+        0x3930,
+        0x3AC4,
+        0x3C58,
+        0x3DEC,
+        0x3F80,
+        0x4114,
+        0x42A8,
+        0x443C,
+        0x45D0,
     ] {
         *(base.add(off as usize) as *mut u32) = 0;
     }
@@ -394,16 +402,28 @@ pub unsafe fn ddgame_init_fields(ddgame: *mut DDGame) {
 
     // Zero 8 fields at 0x8Cxx
     for &off in &[
-        0x8CBCusize, 0x8CC0, 0x8CCC, 0x8CD0,
-        0x8CDC, 0x8CE0, 0x8CEC, 0x8CF0,
+        0x8CBCusize,
+        0x8CC0,
+        0x8CCC,
+        0x8CD0,
+        0x8CDC,
+        0x8CE0,
+        0x8CEC,
+        0x8CF0,
     ] {
         *(base.add(off as usize) as *mut u32) = 0;
     }
 
     // Zero 8 fields at 0x98xx
     for &off in &[
-        0x9850usize, 0x9854, 0x9860, 0x9864,
-        0x9870, 0x9874, 0x9880, 0x9884,
+        0x9850usize,
+        0x9854,
+        0x9860,
+        0x9864,
+        0x9870,
+        0x9874,
+        0x9880,
+        0x9884,
     ] {
         *(base.add(off as usize) as *mut u32) = 0;
     }
@@ -469,12 +489,7 @@ pub unsafe fn ddgame_init_render_indices(base: *mut u8) {
 ///
 /// # Safety
 /// `object` must point to a zero-filled allocation of at least 0x2C bytes.
-pub unsafe fn task_state_machine_init(
-    object: *mut u8,
-    param1: u32,
-    width: u32,
-    height: u32,
-) {
+pub unsafe fn task_state_machine_init(object: *mut u8, param1: u32, width: u32, height: u32) {
     // Row stride: bits-to-bytes rounded up, then aligned to 4
     let bits = param1.wrapping_mul(width).wrapping_add(7) as i32;
     let row_stride = ((bits >> 3) + 3) & !3;
@@ -508,17 +523,17 @@ pub unsafe fn task_state_machine_init(
 
     // Set object fields (DWORD array layout)
     let obj = object as *mut u32;
-    *obj.add(0) = rb(0x6640EC);    // vtable
-    *obj.add(1) = 0;               // unused
-    *obj.add(2) = buffer as u32;   // data pointer
-    *obj.add(3) = param1;          // param1
+    *obj.add(0) = rb(0x6640EC); // vtable
+    *obj.add(1) = 0; // unused
+    *obj.add(2) = buffer as u32; // data pointer
+    *obj.add(3) = param1; // param1
     *obj.add(4) = row_stride as u32; // row stride
-    *obj.add(5) = width;           // width
-    *obj.add(6) = height;          // height
-    *obj.add(7) = 0;               // unused
-    *obj.add(8) = 0;               // unused
-    *obj.add(9) = width;           // width (duplicate)
-    *obj.add(10) = height;         // height (duplicate)
+    *obj.add(5) = width; // width
+    *obj.add(6) = height; // height
+    *obj.add(7) = 0; // unused
+    *obj.add(8) = 0; // unused
+    *obj.add(9) = width; // width (duplicate)
+    *obj.add(10) = height; // height (duplicate)
 }
 
 /// Pure Rust implementation of FUN_570E20 (display layer color init).
@@ -541,7 +556,11 @@ pub unsafe fn display_layer_color_init(wrapper: *mut DDGameWrapper) {
     let layer1_color = if (*wrapper).gfx_mode == 0 {
         // (game_version > -2) - 1: yields 0 if true, -1 if false
         // Then + 0x69: yields 0x69 or 0x68
-        if game_version > -2 { 0x69i32 } else { 0x68i32 }
+        if game_version > -2 {
+            0x69i32
+        } else {
+            0x68i32
+        }
     } else {
         5 + 0x69 // = 0x6E
     };
@@ -593,10 +612,7 @@ unsafe fn gfx_dir_hash(name: *const u8) -> u32 {
 /// `gfx_handler` must be a valid GfxHandler with initialized hash table at +0x04.
 /// `name` must be a valid null-terminated C string.
 #[cfg(target_arch = "x86")]
-pub unsafe fn gfx_dir_find_entry(
-    name: *const u8,
-    gfx_handler: *mut u8,
-) -> *mut u8 {
+pub unsafe fn gfx_dir_find_entry(name: *const u8, gfx_handler: *mut u8) -> *mut u8 {
     let mut current_name = name;
 
     loop {
@@ -632,7 +648,9 @@ pub unsafe fn gfx_dir_find_entry(
 
         // Lowercase A-Z in buffer
         for j in 0..buf.len() {
-            if buf[j] == 0 { break; }
+            if buf[j] == 0 {
+                break;
+            }
             if buf[j] >= b'A' && buf[j] <= b'Z' {
                 buf[j] += 0x20;
             }
@@ -658,7 +676,9 @@ pub unsafe fn gfx_dir_find_entry(
                     match_found = false;
                     break;
                 }
-                if a == 0 { break; }
+                if a == 0 {
+                    break;
+                }
                 k += 1;
             }
 
@@ -724,8 +744,7 @@ pub unsafe fn gfx_handler_load_dir(handler: *mut u8) -> i32 {
     let vt_read: unsafe extern "thiscall" fn(*mut u8, *mut u8, u32) -> u32 =
         core::mem::transmute(*vt);
     // vtable[1] = seek: thiscall(handler, size)
-    let vt_seek: unsafe extern "thiscall" fn(*mut u8, u32) =
-        core::mem::transmute(*vt.add(1));
+    let vt_seek: unsafe extern "thiscall" fn(*mut u8, u32) = core::mem::transmute(*vt.add(1));
     // vtable[2] = allocate: thiscall(handler, size) -> *mut u8
     let vt_alloc: unsafe extern "thiscall" fn(*mut u8, u32) -> *mut u8 =
         core::mem::transmute(*vt.add(2));
@@ -735,7 +754,8 @@ pub unsafe fn gfx_handler_load_dir(handler: *mut u8) -> i32 {
     if vt_read(handler, &mut magic as *mut u32 as *mut u8, 4) != 4 {
         return 0;
     }
-    if magic != 0x1A524944 { // "DIR\x1A"
+    if magic != 0x1A524944 {
+        // "DIR\x1A"
         return 0;
     }
 
@@ -799,9 +819,13 @@ pub unsafe fn gfx_handler_load_dir(handler: *mut u8) -> i32 {
         // Walk linked list, fix up each next pointer
         let mut node = entry_addr as *mut u32;
         loop {
-            if node.is_null() { break; }
+            if node.is_null() {
+                break;
+            }
             let next_offset = *node;
-            if next_offset == 0 { break; }
+            if next_offset == 0 {
+                break;
+            }
             let next_addr = next_offset.wrapping_add(base).wrapping_sub(4);
             *node = next_addr;
             node = next_addr as *mut u32;
@@ -866,7 +890,10 @@ pub unsafe fn gfx_resource_create(
     let decode: unsafe extern "stdcall" fn(*mut u8, *mut u8, i32) -> *mut u8 =
         core::mem::transmute(rb(va::IMG_DECODE) as usize);
     let result = decode(output, raw_image, 1);
-    let _ = crate::log::log_line(&format!("[GfxRes] IMG_Decode result=0x{:08X}", result as u32));
+    let _ = crate::log::log_line(&format!(
+        "[GfxRes] IMG_Decode result=0x{:08X}",
+        result as u32
+    ));
 
     // Release raw image: raw_image->vtable[0](1)
     let img_vt = *(raw_image as *const *const u32);
@@ -882,12 +909,14 @@ pub unsafe fn gfx_resource_create(
         *(gfx_handler.add(0x190) as *const u32),
         *(gfx_handler.add(0x18C) as *const u32),
     ));
-    let release: unsafe extern "thiscall" fn(*mut u8, i32) =
-        core::mem::transmute(fn_ptr);
+    let release: unsafe extern "thiscall" fn(*mut u8, i32) = core::mem::transmute(fn_ptr);
     let _ = crate::log::log_line("[GfxRes] calling release...");
     release(raw_image, 1);
     let _ = crate::log::log_line("[GfxRes] release done");
-    let _ = crate::log::log_line(&format!("[GfxRes] heap-ok raw=0x{:08X} result=0x{:08X}", raw_image as u32, result as u32));
+    let _ = crate::log::log_line(&format!(
+        "[GfxRes] heap-ok raw=0x{:08X} result=0x{:08X}",
+        raw_image as u32, result as u32
+    ));
     let _ = crate::log::log_line("[GfxRes] before return");
 
     result
@@ -958,10 +987,10 @@ pub unsafe fn create_ddgame(
     sound: *mut DSSound,
     palette: *mut Palette,
     music: *mut Music,
-    param7: *mut u8,       // timer object (0x1F4 observed)
-    net_game: *mut u8,     // from GameSession
+    param7: *mut u8,   // timer object (0x1F4 observed)
+    net_game: *mut u8, // from GameSession
     game_info: *mut GameInfo,
-    network_ecx: u32,      // implicit ECX from caller
+    network_ecx: u32, // implicit ECX from caller
 ) -> *mut DDGame {
     // ── 1. Allocate and zero-fill (matches: memset(piVar3, 0, 0x98B8)) ──
     let ddgame = wa_malloc(0x98B8) as *mut DDGame;
@@ -1070,14 +1099,30 @@ unsafe fn init_graphics_and_resources(
     let f374 = (*game_info).display_flags as i32;
     let paths: [&[u8]; 3] = if f914 != 0 {
         if f374 == 0 {
-            [b"data\\Gfx\\Gfx.dir\0", b"data\\Gfx\\Gfx0.dir\0", b"data\\Gfx\\Gfx1.dir\0"]
+            [
+                b"data\\Gfx\\Gfx.dir\0",
+                b"data\\Gfx\\Gfx0.dir\0",
+                b"data\\Gfx\\Gfx1.dir\0",
+            ]
         } else {
-            [b"data\\Gfx\\Gfx.dir\0", b"data\\Gfx\\Gfx1.dir\0", b"data\\Gfx\\Gfx0.dir\0"]
+            [
+                b"data\\Gfx\\Gfx.dir\0",
+                b"data\\Gfx\\Gfx1.dir\0",
+                b"data\\Gfx\\Gfx0.dir\0",
+            ]
         }
     } else if f374 == 0 {
-        [b"data\\Gfx\\Gfx0.dir\0", b"data\\Gfx\\Gfx1.dir\0", b"data\\Gfx\\Gfx.dir\0"]
+        [
+            b"data\\Gfx\\Gfx0.dir\0",
+            b"data\\Gfx\\Gfx1.dir\0",
+            b"data\\Gfx\\Gfx.dir\0",
+        ]
     } else {
-        [b"data\\Gfx\\Gfx1.dir\0", b"data\\Gfx\\Gfx0.dir\0", b"data\\Gfx\\Gfx.dir\0"]
+        [
+            b"data\\Gfx\\Gfx1.dir\0",
+            b"data\\Gfx\\Gfx0.dir\0",
+            b"data\\Gfx\\Gfx.dir\0",
+        ]
     };
 
     let mut gfx_loaded_idx = 0u32;
@@ -1094,7 +1139,11 @@ unsafe fn init_graphics_and_resources(
     }
 
     let headless_offset = if f914 != 0 { 1u32 } else { 0u32 };
-    (*wrapper).gfx_mode = if gfx_loaded_idx.wrapping_sub(headless_offset) < 2 { 1 } else { 0 };
+    (*wrapper).gfx_mode = if gfx_loaded_idx.wrapping_sub(headless_offset) < 2 {
+        1
+    } else {
+        0
+    };
 
     // ── GfxHandler #2 (conditional) ──
     let d778 = (*game_info).game_version;
@@ -1179,14 +1228,14 @@ unsafe fn init_graphics_and_resources(
     if (*wrapper).gfx_mode != 0 {
         // Original: PUSH ESI (=layer_ctx from vtable[5] call), MOV EAX=0x66A3B4, CALL 0x4F6300
         // The layer_ctx is used as the output buffer, not a plain stack alloc.
-        let res = gfx_resource_create(
-            (*wrapper)._field_4c0, rb(0x66A3B4) as *const u8, layer_ctx,
-        );
+        let res = gfx_resource_create((*wrapper)._field_4c0, rb(0x66A3B4) as *const u8, layer_ctx);
         if !res.is_null() {
             let rvt = *(res as *const *const u32);
             let _ = crate::log::log_line(&format!(
                 "[DDGame] color entries: res=0x{:08X} vt=0x{:08X} vt[4]=0x{:08X}",
-                res as u32, rvt as u32, *rvt.add(4),
+                res as u32,
+                rvt as u32,
+                *rvt.add(4),
             ));
             // vtable[4] = get_pixel: thiscall(this, x, y) -> color, RET 0x8.
             let get_color: unsafe extern "thiscall" fn(*mut u8, u32, u32) -> u32 =
@@ -1197,9 +1246,7 @@ unsafe fn init_graphics_and_resources(
                 let c = get_color(res, idx, 0);
                 *((ddgame as *mut u8).add(off as usize) as *mut u32) = c;
                 if idx == 0 {
-                    let _ = crate::log::log_line(&format!(
-                        "[DDGame] color[0] = 0x{:08X}", c,
-                    ));
+                    let _ = crate::log::log_line(&format!("[DDGame] color[0] = 0x{:08X}", c,));
                 }
                 off += 4;
                 idx += 1;
@@ -1215,7 +1262,11 @@ unsafe fn init_graphics_and_resources(
     }
 
     let _ = crate::log::log_line("[DDGame] past color entries");
-    let _ = crate::log::log_line(&format!("[DDGame] 4c0=0x{:08X} 4c4=0x{:08X}", (*wrapper)._field_4c0 as u32, (*wrapper)._field_4c4 as u32));
+    let _ = crate::log::log_line(&format!(
+        "[DDGame] 4c0=0x{:08X} 4c4=0x{:08X}",
+        (*wrapper)._field_4c0 as u32,
+        (*wrapper)._field_4c4 as u32
+    ));
     // ── Secondary GfxDir object (DDGame+0x2C, conditional) ──
     if !(*wrapper)._field_4c4.is_null() {
         let gfxdir2 = wa_malloc(0x70C);
@@ -1230,7 +1281,12 @@ unsafe fn init_graphics_and_resources(
 
         let f: unsafe extern "stdcall" fn(*mut DDGameWrapper, *mut u8, u32, u32) =
             core::mem::transmute(rb(va::GFX_HANDLER_LOAD_SPRITES) as usize);
-        f(wrapper, (ddgame as *mut u8).add(0x7308), (*game_info).display_flags, 0);
+        f(
+            wrapper,
+            (ddgame as *mut u8).add(0x7308),
+            (*game_info).display_flags,
+            0,
+        );
     }
 
     // ── DDGameWrapper field inits ──
@@ -1282,16 +1338,16 @@ unsafe fn init_graphics_and_resources(
     // Test: call GfxResource with real params
     let gfx_resource: *mut u8;
     {
-    {
-        let gfx_handler = (*wrapper)._field_4c0;
-        let out_buf = wa_malloc(0x900);
-        core::ptr::write_bytes(out_buf, 0, 0x900);
-        // return moved to before color entries
-    let _ = crate::log::log_line("[DDGame] calling GfxResource_Create");
-        gfx_resource = gfx_resource_create(gfx_handler, rb(0x66A3C0) as *const u8, out_buf);
-        let _ = crate::log::log_line("[DDGame] after gfx_resource_create");
-        let _ = crate::log::log_line("[DDGame] GfxResource created (value elided)");
-    }
+        {
+            let gfx_handler = (*wrapper)._field_4c0;
+            let out_buf = wa_malloc(0x900);
+            core::ptr::write_bytes(out_buf, 0, 0x900);
+            // return moved to before color entries
+            let _ = crate::log::log_line("[DDGame] calling GfxResource_Create");
+            gfx_resource = gfx_resource_create(gfx_handler, rb(0x66A3C0) as *const u8, out_buf);
+            let _ = crate::log::log_line("[DDGame] after gfx_resource_create");
+            let _ = crate::log::log_line("[DDGame] GfxResource created (value elided)");
+        }
     }
 
     // ── PCLandscape (alloc 0xB44, stdcall 11 params) ──
@@ -1309,14 +1365,19 @@ unsafe fn init_graphics_and_resources(
             core::ptr::write_bytes(landscape_byte_buf, 0, 0x100);
 
             let pc_ctor: unsafe extern "stdcall" fn(
-                *mut u8, *mut DDGame, *mut u8,   // 1=this, 2=ddgame, 3=gfx_resource
-                *mut DDDisplay, *const u8,        // 4=display, 5=game_info+0xDAAC
-                *mut u8, u32,                     // 6=&landscape_byte, 7=gfx_mode
-                *mut u8, *mut u8,                  // 8=stack local, 9=coord output
-                *mut u8, *mut u8,                 // 10=&ddgame+0x777C, 11=&ddgame+0x7780
+                *mut u8,
+                *mut DDGame,
+                *mut u8, // 1=this, 2=ddgame, 3=gfx_resource
+                *mut DDDisplay,
+                *const u8, // 4=display, 5=game_info+0xDAAC
+                *mut u8,
+                u32, // 6=&landscape_byte, 7=gfx_mode
+                *mut u8,
+                *mut u8, // 8=stack local, 9=coord output
+                *mut u8,
+                *mut u8, // 10=&ddgame+0x777C, 11=&ddgame+0x7780
             ) -> *mut u8 = core::mem::transmute(rb(va::PC_LANDSCAPE_CONSTRUCTOR) as usize);
 
-    
             // Param 8 is a stack local in the original's 4KB frame.
             // Heap-allocate a generous buffer since we don't know the exact size.
             let stack_local_8 = wa_malloc(0x1000);
@@ -1325,17 +1386,19 @@ unsafe fn init_graphics_and_resources(
                 alloc,
                 ddgame,
                 gfx_resource,
-                (*wrapper).display,                // param 4: display (NOT wrapper!)
+                (*wrapper).display, // param 4: display (NOT wrapper!)
                 (*game_info).landscape_data_path.as_ptr(), // param 5
-                landscape_byte_buf,                // param 6
-                (*wrapper).gfx_mode,               // param 7
-                stack_local_8,                     // param 8
-                landscape_coords_buf,              // param 9
-                (ddgame as *mut u8).add(0x777C),   // param 10
-                (ddgame as *mut u8).add(0x7780),   // param 11
+                landscape_byte_buf, // param 6
+                (*wrapper).gfx_mode, // param 7
+                stack_local_8,      // param 8
+                landscape_coords_buf, // param 9
+                (ddgame as *mut u8).add(0x777C), // param 10
+                (ddgame as *mut u8).add(0x7780), // param 11
             );
             let _ = crate::log::log_line(&format!(
-                "[DDGame] PCLandscape returned: 0x{:08X}", result as u32));
+                "[DDGame] PCLandscape returned: 0x{:08X}",
+                result as u32
+            ));
             // Store landscape pointer
             (*wrapper).landscape = result as *mut PCLandscape;
             (*ddgame).landscape = result as *mut PCLandscape;
@@ -1374,8 +1437,8 @@ unsafe fn init_graphics_and_resources(
             (0x470, 0x11, 0x1A, 0x0D, 0x0A, 0x16, 0x13, gr),
             (0x478, 0x0C, 0x3D, 0x00, 0x20, 0x18, 0x33, gr),
             (0x47C, 0x00, 0x01, 0x00, 0x00, 0x01, 0x00, gr),
-            (0x484, 0x1A2,0x1B, 0x173,0x09, 0x1D8,0x03, gr),
-            (0x488, 0x1EF,0x26, 0x1E5,0x07, 0x1F9,0x16, gr),
+            (0x484, 0x1A2, 0x1B, 0x173, 0x09, 0x1D8, 0x03, gr),
+            (0x488, 0x1EF, 0x26, 0x1E5, 0x07, 0x1F9, 0x16, gr),
             (0x480, 0x2D, 0x08, 0x2D, 0x07, 0x2E, 0x07, gr),
         ];
 
@@ -1420,13 +1483,16 @@ unsafe fn init_graphics_and_resources(
             if i == 0 {
                 let _ = crate::log::log_line(&format!(
                     "[DDGame] arrow[0]: layer_ctx=0x{:08X}, gfx=0x{:08X}",
-                    layer_ctx as u32, gfx_handler as u32));
+                    layer_ctx as u32, gfx_handler as u32
+                ));
             }
 
             let entry = gfx_dir_find_entry(name_buf.as_ptr(), gfx_handler);
             if i == 0 {
                 let _ = crate::log::log_line(&format!(
-                    "[DDGame] arrow[0]: entry=0x{:08X}", entry as u32));
+                    "[DDGame] arrow[0]: entry=0x{:08X}",
+                    entry as u32
+                ));
             }
 
             let sprite: *mut u8;
@@ -1439,7 +1505,9 @@ unsafe fn init_graphics_and_resources(
                 let cached = load_cached(gfx_handler, entry_val);
                 if i == 0 {
                     let _ = crate::log::log_line(&format!(
-                        "[DDGame] arrow[0]: cached=0x{:08X}", cached as u32));
+                        "[DDGame] arrow[0]: cached=0x{:08X}",
+                        cached as u32
+                    ));
                 }
                 if !cached.is_null() {
                     // Wrap with DisplayGfx constructor
@@ -1456,7 +1524,9 @@ unsafe fn init_graphics_and_resources(
             }
             if i == 0 {
                 let _ = crate::log::log_line(&format!(
-                    "[DDGame] arrow[0]: sprite=0x{:08X}", sprite as u32));
+                    "[DDGame] arrow[0]: sprite=0x{:08X}",
+                    sprite as u32
+                ));
             }
 
             // Store arrow sprite at DDGame+0x38+i*4
@@ -1478,12 +1548,12 @@ unsafe fn init_graphics_and_resources(
                     // For arrows: region from (0,0) to (half_w, half_h)
                     call_sprite_region_ctor(
                         alloc,
-                        0,                  // ECX (x_max for this[5])
-                        half_h as u32,      // EDX (y_max → this[4] = EDX - p3)
-                        0,                  // p2 (x_offset)
-                        0,                  // p3 (y_offset)
-                        half_w as u32,      // p4 (x_limit → this[3] = p4 - p2)
-                        half_h as u32,      // p5 (y_limit for this[6])
+                        0,                   // ECX (x_max for this[5])
+                        half_h as u32,       // EDX (y_max → this[4] = EDX - p3)
+                        0,                   // p2 (x_offset)
+                        0,                   // p3 (y_offset)
+                        half_w as u32,       // p4 (x_limit → this[3] = p4 - p2)
+                        half_h as u32,       // p5 (y_limit for this[6])
                         gfx_resource as u32, // p6 (gfx_resource)
                     )
                 } else {
@@ -1508,8 +1578,7 @@ unsafe fn init_graphics_and_resources(
     // vtable[3] = DisplayGfx__vmethod_3: thiscall(this, byte param_2), RET 4.
     if !gfx_resource.is_null() {
         let rvt = *(gfx_resource as *const *const u32);
-        let release: unsafe extern "thiscall" fn(*mut u8, u8) =
-            core::mem::transmute(*rvt.add(3));
+        let release: unsafe extern "thiscall" fn(*mut u8, u8) = core::mem::transmute(*rvt.add(3));
         release(gfx_resource, 1);
     }
 
@@ -1531,8 +1600,8 @@ unsafe fn init_graphics_and_resources(
     // ── CoordList at DDGame+0x50C (capacity 600, 0x12C0 buffer) ──
     {
         let cl = wa_malloc(12) as *mut u32;
-        *cl = 0;            // count
-        *cl.add(1) = 600;   // capacity
+        *cl = 0; // count
+        *cl.add(1) = 600; // capacity
         let data = wa_malloc(0x12C0);
         core::ptr::write_bytes(data, 0, 0x12C0);
         *cl.add(2) = data as u32;
@@ -1540,10 +1609,6 @@ unsafe fn init_graphics_and_resources(
 
         // TODO: populate coord_list from landscape data (complex loop)
     }
-
-    // ── Loading progress ticks (second pair, before sprite resource loading) ──
-    call_usercall_ecx(wrapper, LOADING_PROGRESS_TICK_ADDR);
-    call_usercall_ecx(wrapper, LOADING_PROGRESS_TICK_ADDR);
 
     // ── Sprite resource loading via DDGameWrapper vtable[0] ──
     // DDNetGameWrapper__LoadResourceList: thiscall(ECX=wrapper) +
@@ -1560,15 +1625,22 @@ unsafe fn init_graphics_and_resources(
             wrapper_vt as u32, *wrapper_vt, landscape_ptr as u32, water_layer as u32, land_layer as u32,
         ));
         let load_resource_list: unsafe extern "thiscall" fn(
-            *mut DDGameWrapper, u32, *mut u8, *const u8, *const u8, u32,
+            *mut DDGameWrapper,
+            u32,
+            *mut u8,
+            *const u8,
+            *const u8,
+            u32,
         ) = core::mem::transmute(*wrapper_vt);
         // Load resources for layer 1 (main sprites)
         let _ = crate::log::log_line("[DDGame] load_resource_list #1 (main sprites)");
         load_resource_list(
-            wrapper, 1, gfx_handler,
-            rb(0x643F2B) as *const u8,  // base path
-            rb(0x6AD2C0) as *const u8,  // resource table
-            0x1D88,                      // table size
+            wrapper,
+            1,
+            gfx_handler,
+            rb(0x643F2B) as *const u8, // base path
+            rb(0x6AD2C0) as *const u8, // resource table
+            0x1D88,                    // table size
         );
         let _ = crate::log::log_line(&format!(
             "[DDGame] after #1: sprite_cache[144]=0x{:08X}",
@@ -1582,7 +1654,9 @@ unsafe fn init_graphics_and_resources(
         // Load resources for layer 1 with different table
         let _ = crate::log::log_line("[DDGame] load_resource_list #2");
         load_resource_list(
-            wrapper, 1, gfx_handler,
+            wrapper,
+            1,
+            gfx_handler,
             rb(0x643F2B) as *const u8,
             rb(0x6AF048) as *const u8,
             0x18,
@@ -1591,7 +1665,9 @@ unsafe fn init_graphics_and_resources(
         // Load resources for layer 2 (water)
         let _ = crate::log::log_line("[DDGame] load_resource_list #3 (water)");
         load_resource_list(
-            wrapper, 2, water_layer,
+            wrapper,
+            2,
+            water_layer,
             rb(0x643F2B) as *const u8,
             rb(0x6AF060) as *const u8,
             0x2F4,
@@ -1612,16 +1688,27 @@ unsafe fn init_graphics_and_resources(
                 core::mem::transmute(*disp_obj_vt.add(0x94 / 4));
             load_spr_94(disp_obj, 3, 0x26D, land_layer, b"back.spr\0".as_ptr());
 
-            let load_spr_7c: unsafe extern "thiscall" fn(*mut u8, u32, u32, u32, *mut u8, *const u8) =
-                core::mem::transmute(*disp_obj_vt.add(0x7C / 4));
+            let load_spr_7c: unsafe extern "thiscall" fn(
+                *mut u8,
+                u32,
+                u32,
+                u32,
+                *mut u8,
+                *const u8,
+            ) = core::mem::transmute(*disp_obj_vt.add(0x7C / 4));
             load_spr_7c(disp_obj, 3, 0x26E, 0, land_layer, b"debris.spr\0".as_ptr());
         }
 
         // Load layer.spr into layer 2
         let load_spr_94: unsafe extern "thiscall" fn(*mut u8, u32, u32, *mut u8, *const u8) =
             core::mem::transmute(*disp_obj_vt.add(0x94 / 4));
-        load_spr_94(disp_obj, 2, 0x26C, water_layer,
-                     b"layer\\layer.spr|layer.spr\0".as_ptr());
+        load_spr_94(
+            disp_obj,
+            2,
+            0x26C,
+            water_layer,
+            b"layer\\layer.spr|layer.spr\0".as_ptr(),
+        );
 
         // gradient_image_2 = 0
         (*ddgame).gradient_image_2 = core::ptr::null_mut();
@@ -1636,9 +1723,8 @@ unsafe fn init_graphics_and_resources(
 
         if s_var1 < 0x61 && level_height == 0x2B8 {
             // Simple gradient: load gradient.img directly
-            let gradient = call_gfx_find_and_load(
-                land_layer, b"gradient.img\0".as_ptr(), layer3_ctx,
-            );
+            let gradient =
+                call_gfx_find_and_load(land_layer, b"gradient.img\0".as_ptr(), layer3_ctx);
             (*ddgame).gradient_image = gradient;
         } else {
             // Complex gradient computation — ~200 lines of color interpolation.
@@ -1652,9 +1738,8 @@ unsafe fn init_graphics_and_resources(
             let layer2_ctx = set_layer((*ddgame).display, 2);
             // In the original, fill.img uses piStack_126c which the decompiler
             // shows was set from piVar3 (water_layer from landscape+0xB38).
-            let fill_sprite = call_gfx_find_and_load(
-                water_layer, b"fill.img\0".as_ptr(), layer2_ctx,
-            );
+            let fill_sprite =
+                call_gfx_find_and_load(water_layer, b"fill.img\0".as_ptr(), layer2_ctx);
             let _ = crate::log::log_line(&format!(
                 "[DDGame] fill.img: water=0x{:08X} sprite=0x{:08X}",
                 water_layer as u32, fill_sprite as u32,
@@ -1697,7 +1782,7 @@ unsafe fn init_graphics_and_resources(
         core::ptr::write_bytes(obj, 0, 0x2C);
         if !obj.is_null() {
             *(obj as *mut u32) = rb(0x6640EC); // vtable (DisplayGfx vtable, vtable[4]=ProcessFrame_stub)
-            // [6] = height/width = 0 → CTaskLand loop: `if (0 < 0)` → skip
+                                               // [6] = height/width = 0 → CTaskLand loop: `if (0 < 0)` → skip
             (*ddgame).gradient_image = obj;
         }
     }
@@ -1779,8 +1864,8 @@ static mut LOADING_PROGRESS_TICK_ADDR: u32 = 0;
 unsafe extern "C" fn call_usercall_esi(_wrapper: *mut DDGameWrapper, _addr: u32) {
     core::arch::naked_asm!(
         "pushl %esi",
-        "movl 8(%esp), %esi",     // ESI = wrapper
-        "movl 12(%esp), %eax",    // EAX = target address
+        "movl 8(%esp), %esi",  // ESI = wrapper
+        "movl 12(%esp), %eax", // EAX = target address
         "calll *%eax",
         "popl %esi",
         "retl",
@@ -1793,8 +1878,8 @@ unsafe extern "C" fn call_usercall_esi(_wrapper: *mut DDGameWrapper, _addr: u32)
 #[unsafe(naked)]
 unsafe extern "C" fn call_usercall_eax(_wrapper: *mut DDGameWrapper, _addr: u32) {
     core::arch::naked_asm!(
-        "movl 4(%esp), %eax",     // EAX = wrapper
-        "movl 8(%esp), %ecx",     // ECX = target address (temp)
+        "movl 4(%esp), %eax", // EAX = wrapper
+        "movl 8(%esp), %ecx", // ECX = target address (temp)
         "calll *%ecx",
         "retl",
         options(att_syntax),
@@ -1804,8 +1889,7 @@ unsafe extern "C" fn call_usercall_eax(_wrapper: *mut DDGameWrapper, _addr: u32)
 /// Bridge: usercall(ECX=wrapper), plain RET. Used by FUN_5717A0.
 #[cfg(target_arch = "x86")]
 unsafe fn call_usercall_ecx(wrapper: *mut DDGameWrapper, addr: u32) {
-    let f: unsafe extern "thiscall" fn(*mut DDGameWrapper) =
-        core::mem::transmute(addr as usize);
+    let f: unsafe extern "thiscall" fn(*mut DDGameWrapper) = core::mem::transmute(addr as usize);
     f(wrapper);
 }
 
@@ -1841,7 +1925,9 @@ static mut GFX_RESOURCE_CREATE_ADDR: u32 = 0;
 #[cfg(target_arch = "x86")]
 #[unsafe(naked)]
 unsafe extern "C" fn call_gfx_resource_create(
-    _gfx_handler: *mut u8, _data_ptr: *const u8, _output: *mut u8,
+    _gfx_handler: *mut u8,
+    _data_ptr: *const u8,
+    _output: *mut u8,
 ) -> *mut u8 {
     core::arch::naked_asm!(
         "pushl %ebp",
@@ -1930,8 +2016,7 @@ unsafe fn call_gfx_load_and_wrap(
     let result = f(display_ctx, image, 1);
     // Release the raw image
     let image_vt = *(image as *const *const u32);
-    let destroy: unsafe extern "thiscall" fn(*mut u8, u32) =
-        core::mem::transmute(*image_vt);
+    let destroy: unsafe extern "thiscall" fn(*mut u8, u32) = core::mem::transmute(*image_vt);
     destroy(image, 1);
     result
 }
@@ -1944,8 +2029,14 @@ static mut SPRITE_REGION_CTOR_ADDR: u32 = 0;
 #[cfg(target_arch = "x86")]
 #[unsafe(naked)]
 unsafe extern "C" fn call_sprite_region_ctor(
-    _this: *mut u8, _ecx: u32, _edx: u32,
-    _p2: u32, _p3: u32, _p4: u32, _p5: u32, _p6: u32,
+    _this: *mut u8,
+    _ecx: u32,
+    _edx: u32,
+    _p2: u32,
+    _p3: u32,
+    _p4: u32,
+    _p5: u32,
+    _p6: u32,
 ) -> *mut u8 {
     // Stack on entry: [ret] [this] [ecx] [edx] [p2] [p3] [p4] [p5] [p6]
     // Need: ECX=ecx, EDX=edx, push p6 p5 p4 p3 p2 this, call
@@ -2127,7 +2218,6 @@ const _: () = assert!(core::mem::size_of::<SoundQueueEntry>() == 0x24);
 // Team arena state — sub-struct at DDGame + 0x4628
 // ============================================================
 
-
 // ============================================================
 // Per-worm and per-team block structs
 // ============================================================
@@ -2300,7 +2390,6 @@ pub struct TeamArenaState {
     pub game_phase: i32,
 
     // === Alliance tracking (set by CountTeamsByAlliance + SetActiveWorm_Maybe) ===
-
     /// 0x2C2C: Current alliance being evaluated
     pub current_alliance: i32,
     /// 0x2C30: Count of teams with an active worm (set by SetActiveWorm_Maybe)
@@ -2348,7 +2437,6 @@ pub mod worm {
 pub const GAME_PHASE_SUDDEN_DEATH: i32 = 0x1E4; // 484
 pub const GAME_PHASE_NORMAL_MIN: i32 = -2;
 
-
 impl TeamArenaState {
     /// Get ammo count for a weapon slot (by flat index).
     pub fn get_ammo(&self, index: usize) -> i32 {
@@ -2391,7 +2479,9 @@ impl TeamArenaRef {
     /// `base` must point to DDGame + TEAM_ARENA_STATE (0x4628).
     #[inline]
     pub unsafe fn from_raw(base: u32) -> Self {
-        Self { base: base as *const u8 }
+        Self {
+            base: base as *const u8,
+        }
     }
 
     /// Access the TeamArenaState fields (read-only).
@@ -2431,7 +2521,8 @@ impl TeamArenaRef {
     /// (0x6C+) that don't conflict with worm data (0x00-0x5F).
     #[inline]
     pub unsafe fn team_worm(&self, team_idx: usize, worm_num: usize) -> &WormEntry {
-        let ptr = self.base
+        let ptr = self
+            .base
             .add(team_idx * 0x51C)
             .add(worm_num * 0x9C)
             .sub(0x598);
@@ -2466,7 +2557,9 @@ impl TeamArenaRef {
     /// Get mutable team header for Pattern B access.
     #[inline]
     pub unsafe fn team_header_b_mut(&self, team_idx: usize) -> &mut TeamBlockHeader {
-        &mut (*(self.blocks() as *mut FullTeamBlock).add(team_idx + 2)).header.team
+        &mut (*(self.blocks() as *mut FullTeamBlock).add(team_idx + 2))
+            .header
+            .team
     }
 
     /// Compute the flat index for ammo/delay table access.

@@ -1,5 +1,5 @@
-use crate::fixed::Fixed;
 use super::base::CTask;
+use crate::fixed::Fixed;
 
 /// Airstrike / weather cloud task.
 ///

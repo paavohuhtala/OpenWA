@@ -112,10 +112,10 @@ pub struct DrawRectCmd {
     pub command_type: u32, // 0
     pub layer: u32,
     pub color: u32,
-    pub x1: u32,    // & 0xFFFF0000
-    pub y1: u32,    // & 0xFFFF0000
-    pub x2: u32,    // & 0xFFFF0000
-    pub y2: u32,    // & 0xFFFF0000
+    pub x1: u32,     // & 0xFFFF0000
+    pub y1: u32,     // & 0xFFFF0000
+    pub x2: u32,     // & 0xFFFF0000
+    pub y2: u32,     // & 0xFFFF0000
     pub y_clip: u32, // EDX & 0xFFFF0000
 }
 
@@ -127,8 +127,8 @@ pub struct DrawSpriteOffsetCmd {
     pub command_type: u32, // 6
     pub layer: u32,
     pub sprite_id: u32,
-    pub x_pos: u32,    // & 0xFFFF0000
-    pub y_pos: u32,    // & 0xFFFF0000
+    pub x_pos: u32,     // & 0xFFFF0000
+    pub y_pos: u32,     // & 0xFFFF0000
     pub _reserved: u32, // hardcoded 0
     pub y_clip: u32,    // EDX & 0xFFFF0000
     pub param_7: u32,
@@ -142,8 +142,8 @@ const _: () = assert!(core::mem::size_of::<DrawSpriteOffsetCmd>() == 0x24);
 pub struct DrawBitmapGlobalCmd {
     pub command_type: u32, // 1
     pub layer: u32,
-    pub x_pos: u32,     // & 0xFFFF0000
-    pub y_pos: u32,     // EDX & 0xFFFF0000
+    pub x_pos: u32, // & 0xFFFF0000
+    pub y_pos: u32, // EDX & 0xFFFF0000
     pub bitmap_ptr: u32,
     pub _reserved: u32, // hardcoded 0
     pub param_6: u32,

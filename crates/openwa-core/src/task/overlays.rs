@@ -1,6 +1,6 @@
-use crate::fixed::Fixed;
 use super::base::CTask;
 use super::game_task::{CGameTask, SoundEmitter};
+use crate::fixed::Fixed;
 
 /// Bungee trail rendering task fields.
 ///

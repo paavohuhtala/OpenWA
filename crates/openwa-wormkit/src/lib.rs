@@ -2,8 +2,8 @@
 
 use std::ffi::c_void;
 
-pub mod hook;
 mod debug_ui;
+pub mod hook;
 mod replacements;
 mod validation;
 
@@ -93,8 +93,8 @@ fn run() -> Result<(), String> {
 /// Signal the `OpenWA_HooksReady` named event so the launcher knows it's
 /// safe to resume WA.exe's main thread.
 fn signal_hooks_ready() {
-    use windows_sys::Win32::System::Threading::{OpenEventA, SetEvent};
     use windows_sys::Win32::Foundation::CloseHandle;
+    use windows_sys::Win32::System::Threading::{OpenEventA, SetEvent};
 
     const EVENT_MODIFY_STATE: u32 = 0x0002;
 

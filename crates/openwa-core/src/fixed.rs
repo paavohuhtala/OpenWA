@@ -1,4 +1,4 @@
-use core::ops::{Add, Sub, Mul, Neg};
+use core::ops::{Add, Mul, Neg, Sub};
 
 /// 16.16 fixed-point number used throughout WA for coordinates and velocities.
 ///

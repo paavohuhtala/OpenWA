@@ -9,9 +9,9 @@
 //! - GameInfo__LoadOptions (0x460AC0): game options from registry
 //! - Options__GetCrashReportURL (0x5A63F0): crash report URL from registry
 
-use openwa_core::{address::va, engine::GameInfo};
 use crate::log_line;
 use openwa_core::rebase::rb;
+use openwa_core::{address::va, engine::GameInfo};
 
 const THEME_PATH: &str = "data\\current.thm";
 const CLEAN_ALL_FLAG_OFFSET: usize = 0xE0;
@@ -68,7 +68,12 @@ fn show_error_message(msg: &str) {
     let mut msg_buf: Vec<u8> = msg.bytes().collect();
     msg_buf.push(0);
     unsafe {
-        MessageBoxA(core::ptr::null_mut(), msg_buf.as_ptr(), core::ptr::null(), MB_OK);
+        MessageBoxA(
+            core::ptr::null_mut(),
+            msg_buf.as_ptr(),
+            core::ptr::null(),
+            MB_OK,
+        );
     }
 }
 
@@ -86,10 +91,8 @@ unsafe extern "stdcall" fn hook_delete_key_recursive(hkey: u32, subkey: u32) -> 
 
     let _ = log_line(&format!("[Config] DeleteKeyRecursive: {subkey_str}"));
 
-    let result = openwa_core::wa::registry::delete_key_recursive(
-        hkey as usize as HKEY,
-        &subkey_str,
-    );
+    let result =
+        openwa_core::wa::registry::delete_key_recursive(hkey as usize as HKEY, &subkey_str);
 
     let _ = log_line(&format!("[Config] DeleteKeyRecursive result: {result}"));
     result as i32
@@ -159,25 +162,27 @@ unsafe extern "stdcall" fn hook_load_options(game_info: *mut GameInfo) {
     // Format streams directory and randomize stream indices (global, not GameInfo)
     let streams_dest = rb(va::G_STREAMS_DIR) as *mut u8;
     let streams_path = format!("{}\\streams\0", base_str.to_string_lossy());
-    core::ptr::copy_nonoverlapping(
-        streams_path.as_ptr(),
-        streams_dest,
-        streams_path.len(),
-    );
+    core::ptr::copy_nonoverlapping(streams_path.as_ptr(), streams_dest, streams_path.len());
 
     // Randomize stream indices (16 entries, each rand() % 11 + 1)
     let indices = rb(va::G_STREAM_INDICES) as *mut u32;
     let indices_end = rb(va::G_STREAM_INDICES_END) as usize;
     let mut ptr = indices;
     while (ptr as usize) < indices_end {
-        extern "cdecl" { fn rand() -> i32; }
+        extern "cdecl" {
+            fn rand() -> i32;
+        }
         *ptr = (rand() % 11 + 1) as u32;
         ptr = ptr.add(1);
     }
 
     // Stream volume: 0x10 if flag set, else 0
     let stream_vol_addr = rb(va::G_STREAM_INDICES_END) as *mut u8;
-    *stream_vol_addr = if *(rb(va::G_STREAM_FLAG) as *const u32) != 0 { 0x10 } else { 0 };
+    *stream_vol_addr = if *(rb(va::G_STREAM_FLAG) as *const u32) != 0 {
+        0x10
+    } else {
+        0
+    };
     *(rb(va::G_STREAM_VOLUME) as *mut u8) = 0x4B;
 
     // Copy "data\land.dat" string (14 bytes)
@@ -226,7 +231,11 @@ unsafe extern "stdcall" fn hook_load_options(game_info: *mut GameInfo) {
     }
 
     gi.info_transparency = read_profile_int("Options", "InfoTransparency", 0) as u8;
-    gi.info_spy = if read_profile_int("Options", "InfoSpy", 1) != 0 { 1 } else { 0 };
+    gi.info_spy = if read_profile_int("Options", "InfoSpy", 1) != 0 {
+        1
+    } else {
+        0
+    };
     gi.chat_pinned = read_profile_int("Options", "ChatPinned", 0) as u8;
     gi.chat_lines = read_profile_int("Options", "ChatLines", 0);
     gi.pinned_chat_lines = read_profile_int("Options", "PinnedChatLines", 0xFFFFFFFF);
@@ -244,7 +253,8 @@ unsafe extern "stdcall" fn hook_load_options(game_info: *mut GameInfo) {
     }
     gi.background_debris_parallax = parallax << 16;
 
-    gi.topmost_explosion_onomatopoeia = read_profile_int("Options", "TopmostExplosionOnomatopoeia", 0);
+    gi.topmost_explosion_onomatopoeia =
+        read_profile_int("Options", "TopmostExplosionOnomatopoeia", 0);
     gi.capture_transparent_pngs = read_profile_int("Options", "CaptureTransparentPNGs", 0);
 
     // CameraUnlockMouseSpeed: clamp to max 0xB504, then square
@@ -273,11 +283,8 @@ unsafe extern "cdecl" fn hook_get_crash_report_url() -> u32 {
     let buf = rb(va::G_CRASH_REPORT_URL) as *mut u8;
     let buf_slice = core::slice::from_raw_parts_mut(buf, CRASH_REPORT_URL_BUF_SIZE);
 
-    let len = openwa_core::wa::registry::read_profile_string(
-        "Options",
-        "CrashReportURL",
-        buf_slice,
-    );
+    let len =
+        openwa_core::wa::registry::read_profile_string("Options", "CrashReportURL", buf_slice);
 
     if len > 0 {
         // Null-terminate
@@ -300,17 +307,9 @@ pub fn install() -> Result<(), String> {
             hook_theme_get_file_size as *const (),
         )?;
 
-        let _ = crate::hook::install(
-            "Theme__Load",
-            va::THEME_LOAD,
-            hook_theme_load as *const (),
-        )?;
+        let _ = crate::hook::install("Theme__Load", va::THEME_LOAD, hook_theme_load as *const ())?;
 
-        let _ = crate::hook::install(
-            "Theme__Save",
-            va::THEME_SAVE,
-            hook_theme_save as *const (),
-        )?;
+        let _ = crate::hook::install("Theme__Save", va::THEME_SAVE, hook_theme_save as *const ())?;
 
         let _ = crate::hook::install(
             "Registry__DeleteKeyRecursive",

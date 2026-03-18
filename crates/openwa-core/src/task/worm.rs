@@ -31,8 +31,7 @@ pub struct CTaskWormVTable {
     pub _inherited_4_to_6: [*const (); 3],
     /// [7] 0x0050D5D0: OnContactEntity — handles physical contact with another entity;
     ///   worm-on-dying-worm → apply crush damage; projectile close-pass → SetState(0x80)
-    pub on_contact_entity:
-        unsafe extern "thiscall" fn(*mut CTaskWorm, *mut CGameTask, u32) -> u32,
+    pub on_contact_entity: unsafe extern "thiscall" fn(*mut CTaskWorm, *mut CGameTask, u32) -> u32,
     /// [8] 0x0050D9A0: OnWormPush — post-contact worm-worm push impulse;
     ///   deduplicates via a recent-collision table, then adjusts pos_x or pos_y
     pub on_worm_push: unsafe extern "thiscall" fn(*mut CTaskWorm, *mut CGameTask, u32) -> u32,
