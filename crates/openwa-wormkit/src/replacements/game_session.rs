@@ -163,6 +163,29 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
         ));
     }
 
+    // Dump DDGameWrapper state
+    if std::env::var("OPENWA_VALIDATE").is_ok() {
+        let wrapper_dwords = this as *const u32;
+        // DDGameWrapper is ~0x6EF0 bytes (from DDGameWrapper__Constructor at 0x56DEF0)
+        let w_count = 0x6EF0 / 4;
+        let mut w_nonzero = 0u32;
+        let _ = log_line("[Shadow:Wrapper] === DDGameWrapper ===");
+        for i in 0..w_count {
+            let val = *wrapper_dwords.add(i);
+            if val != 0 {
+                w_nonzero += 1;
+                if w_nonzero <= 200 {
+                    let _ = log_line(&format!(
+                        "[Shadow:Wrapper] +0x{:04X} = 0x{:08X}", i * 4, val,
+                    ));
+                }
+            }
+        }
+        let _ = log_line(&format!(
+            "[Shadow:Wrapper] Total non-zero: {} / {}", w_nonzero, w_count,
+        ));
+    }
+
     // Initialize DDGame's game-state fields.
     let _ = log_line("[GameSession] calling InitGameState");
     let init_state: unsafe extern "stdcall" fn(*mut DDGameWrapper) =

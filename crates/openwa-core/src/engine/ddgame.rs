@@ -1237,7 +1237,9 @@ unsafe fn init_graphics_and_resources(
 
     // ── DDGameWrapper field inits ──
     (*wrapper)._field_4d8 = 0;
-    if display.is_null() || net_game.is_null() {
+    // Original checks `display == NULL`, but our headless display is non-null.
+    // Use net_game null check as equivalent (net_game is null in headless/offline modes).
+    if net_game.is_null() {
         (*wrapper)._field_4dc = 0x2AD;
     } else {
         let byte_val = *net_game.add(0x44C) as u32;
@@ -1273,9 +1275,9 @@ unsafe fn init_graphics_and_resources(
 
     let _ = crate::log::log_line("[DDGame] past ActiveSoundTable");
 
-    // ── Loading tick: disabled (pumps message loop, causes crashes) ──
-    // call_usercall_ecx(wrapper, LOADING_PROGRESS_TICK_ADDR);
-    // call_usercall_ecx(wrapper, LOADING_PROGRESS_TICK_ADDR);
+    // ── Loading progress ticks (original calls DDGameWrapper__LoadingProgressTick twice here) ──
+    call_usercall_ecx(wrapper, LOADING_PROGRESS_TICK_ADDR);
+    call_usercall_ecx(wrapper, LOADING_PROGRESS_TICK_ADDR);
 
     // ── GfxResource: thiscall(ECX=gfx_handler) + EAX=name + 1 stack(output), RET 0x4 ──
     // Test: call GfxResource with real params
@@ -1540,9 +1542,9 @@ unsafe fn init_graphics_and_resources(
         // TODO: populate coord_list from landscape data (complex loop)
     }
 
-    // ── Loading tick: disabled (pumps message loop) ──
-    // call_usercall_ecx(wrapper, LOADING_PROGRESS_TICK_ADDR);
-    // call_usercall_ecx(wrapper, LOADING_PROGRESS_TICK_ADDR);
+    // ── Loading progress ticks (second pair, before sprite resource loading) ──
+    call_usercall_ecx(wrapper, LOADING_PROGRESS_TICK_ADDR);
+    call_usercall_ecx(wrapper, LOADING_PROGRESS_TICK_ADDR);
 
     // ── Sprite resource loading via DDGameWrapper vtable[0] ──
     // DDNetGameWrapper__LoadResourceList: thiscall(ECX=wrapper) +
