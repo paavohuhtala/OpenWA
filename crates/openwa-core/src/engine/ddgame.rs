@@ -755,34 +755,34 @@ unsafe fn init_graphics_and_resources(
     let paths: [&[u8]; 3] = if headless != 0 {
         if display_flags == 0 {
             [
-                b"data\\Gfx\\Gfx.dir\0",
-                b"data\\Gfx\\Gfx0.dir\0",
-                b"data\\Gfx\\Gfx1.dir\0",
+                c"data\\Gfx\\Gfx.dir".to_bytes_with_nul(),
+                c"data\\Gfx\\Gfx0.dir".to_bytes_with_nul(),
+                c"data\\Gfx\\Gfx1.dir".to_bytes_with_nul(),
             ]
         } else {
             [
-                b"data\\Gfx\\Gfx.dir\0",
-                b"data\\Gfx\\Gfx1.dir\0",
-                b"data\\Gfx\\Gfx0.dir\0",
+                c"data\\Gfx\\Gfx.dir".to_bytes_with_nul(),
+                c"data\\Gfx\\Gfx1.dir".to_bytes_with_nul(),
+                c"data\\Gfx\\Gfx0.dir".to_bytes_with_nul(),
             ]
         }
     } else if display_flags == 0 {
         [
-            b"data\\Gfx\\Gfx0.dir\0",
-            b"data\\Gfx\\Gfx1.dir\0",
-            b"data\\Gfx\\Gfx.dir\0",
+            c"data\\Gfx\\Gfx0.dir".to_bytes_with_nul(),
+            c"data\\Gfx\\Gfx1.dir".to_bytes_with_nul(),
+            c"data\\Gfx\\Gfx.dir".to_bytes_with_nul(),
         ]
     } else {
         [
-            b"data\\Gfx\\Gfx1.dir\0",
-            b"data\\Gfx\\Gfx0.dir\0",
-            b"data\\Gfx\\Gfx.dir\0",
+            c"data\\Gfx\\Gfx1.dir".to_bytes_with_nul(),
+            c"data\\Gfx\\Gfx0.dir".to_bytes_with_nul(),
+            c"data\\Gfx\\Gfx.dir".to_bytes_with_nul(),
         ]
     };
 
     let mut gfx_loaded_idx = 0u32;
     for (i, path) in paths.iter().enumerate() {
-        let fp = fopen(path.as_ptr(), b"rb\0".as_ptr());
+        let fp = fopen(path.as_ptr(), c"rb".as_ptr().cast());
         (*gfx1).file_handle = fp;
         if !fp.is_null()
             && call_gfx_load_dir(gfx1 as *mut u8, crate::render::gfx_dir::gfx_load_dir_addr()) != 0
@@ -813,11 +813,11 @@ unsafe fn init_graphics_and_resources(
         let gfx2 = GfxDir::alloc(gfx_dir_vtable);
         (*wrapper).secondary_gfx_dir = gfx2 as *mut u8;
 
-        let fp = fopen(gfx_c_path.as_ptr(), b"rb\0".as_ptr());
+        let fp = fopen(gfx_c_path.as_ptr(), c"rb".as_ptr().cast());
         (*gfx2).file_handle = fp;
         let load_addr = crate::render::gfx_dir::gfx_load_dir_addr();
         if fp.is_null() || call_gfx_load_dir(gfx2 as *mut u8, load_addr) == 0 {
-            let fp2 = fopen(b"data\\Gfx\\Gfx.dir\0".as_ptr(), b"rb\0".as_ptr());
+            let fp2 = fopen(c"data\\Gfx\\Gfx.dir".as_ptr().cast(), c"rb".as_ptr().cast());
             (*gfx2).file_handle = fp2;
             if fp2.is_null() || call_gfx_load_dir(gfx2 as *mut u8, load_addr) == 0 {
                 panic!("DDGame: couldn't open secondary Gfx.dir");
@@ -1237,8 +1237,14 @@ unsafe fn init_graphics_and_resources(
         DDDisplay::set_active_layer(disp, 3);
 
         if (*wrapper).gfx_mode != 0 {
-            DDDisplay::load_sprite_by_layer(disp, 3, 0x26D, land_layer, b"back.spr\0".as_ptr());
-            DDDisplay::load_sprite(disp, 3, 0x26E, 0, land_layer, b"debris.spr\0".as_ptr());
+            DDDisplay::load_sprite_by_layer(
+                disp,
+                3,
+                0x26D,
+                land_layer,
+                c"back.spr".as_ptr().cast(),
+            );
+            DDDisplay::load_sprite(disp, 3, 0x26E, 0, land_layer, c"debris.spr".as_ptr().cast());
         }
 
         DDDisplay::load_sprite_by_layer(
@@ -1246,7 +1252,7 @@ unsafe fn init_graphics_and_resources(
             2,
             0x26C,
             water_layer,
-            b"layer\\layer.spr|layer.spr\0".as_ptr(),
+            c"layer\\layer.spr|layer.spr".as_ptr().cast(),
         );
 
         (*ddgame).gradient_image_2 = core::ptr::null_mut();
@@ -1259,7 +1265,7 @@ unsafe fn init_graphics_and_resources(
         if s_var1 < 0x61 && level_height == 0x2B8 {
             // Simple gradient: load gradient.img directly
             let gradient =
-                call_gfx_find_and_load(land_layer, b"gradient.img\0".as_ptr(), layer3_ctx);
+                call_gfx_find_and_load(land_layer, c"gradient.img".as_ptr().cast(), layer3_ctx);
             (*ddgame).gradient_image = gradient;
         } else {
             compute_complex_gradient(ddgame, land_layer, layer3_ctx, s_var1);
@@ -1271,7 +1277,7 @@ unsafe fn init_graphics_and_resources(
             // In the original, fill.img uses piStack_126c which the decompiler
             // shows was set from piVar3 (water_layer from landscape+0xB38).
             let fill_sprite =
-                call_gfx_find_and_load(water_layer, b"fill.img\0".as_ptr(), layer2_ctx);
+                call_gfx_find_and_load(water_layer, c"fill.img".as_ptr().cast(), layer2_ctx);
             if !fill_sprite.is_null() {
                 // Get pixel value: fill_sprite->vtable[4](0, 0)
                 let fill_vt = *(fill_sprite as *const *const u32);
