@@ -6,6 +6,7 @@ mod game_task;
 mod mine_oil_drum;
 mod missile;
 mod overlays;
+pub mod state_machine;
 mod supply_crate;
 mod team;
 mod turn_game;
