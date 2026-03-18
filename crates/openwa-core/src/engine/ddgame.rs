@@ -1030,12 +1030,11 @@ pub unsafe fn create_ddgame(
 
     // ── 6. Sound available + always-1 flags ──
     let is_headless = (*game_info).headless_mode != 0;
-    // Defer sound_available — keep at 0 during construction.
-    // DDGame__LoadWeaponSprites checks this flag; when set, it calls
-    // FUN_572E30 which pumps PeekMessage/DispatchMessage. That can
-    // trigger game task code that reads uninitialized DDGame fields.
-    // Set to final value at the end of init_graphics_and_resources.
-    (*ddgame).sound_available = 0;
+    // Original: sound_available = (headless_mode == 0) — set EARLY.
+    // This enables the loading progress bar, message pump, and sound during
+    // construction. Previously deferred to avoid message pump crashes, but all
+    // critical DDGame fields (game_info, display, sound, etc.) are now set.
+    (*ddgame).sound_available = if is_headless { 0 } else { 1 };
     (*ddgame)._field_7efc = 1;
 
     // ── 7. DDGameWrapper+0x48C init ──
@@ -1061,9 +1060,6 @@ pub unsafe fn create_ddgame(
 
     // ── 10. GfxHandler, landscape, sprites, audio, resources ──
     init_graphics_and_resources(wrapper, game_info, net_game, display, is_headless);
-
-    // Construction complete — set final flag values.
-    (*ddgame).sound_available = if is_headless { 0 } else { 1 };
 
     let _ = crate::log::log_line("[DDGame] create_ddgame complete");
     ddgame
