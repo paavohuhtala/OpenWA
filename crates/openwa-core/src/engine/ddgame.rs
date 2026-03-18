@@ -198,8 +198,10 @@ pub struct DDGame {
     pub rng_state_1: u32,
     /// 0x72F0: RNG state word 2 (changes every frame).
     pub rng_state_2: u32,
-    /// 0x72F4-0x730B: Unknown
-    pub _unknown_72f4: [u8; 0x730C - 0x72F4],
+    /// 0x72F4-0x7307: Unknown
+    pub _unknown_72f4: [u8; 0x7308 - 0x72F4],
+    /// 0x7308: Sprite/gfx dimension data (passed to GFX_HANDLER_LOAD_SPRITES).
+    pub gfx_sprite_data: [u8; 0x730C - 0x7308],
     /// 0x730C-0x731C: 5 GfxDir color entries
     pub _gfx_color_entries: [u8; 0x7324 - 0x730C],
 
@@ -251,8 +253,14 @@ pub struct DDGame {
     pub _unknown_76f0: [u8; 0x7718 - 0x76F0],
     /// 0x7718-0x7757: Team index mapping table 3 (similar pattern, slightly different end).
     pub team_index_map_3: [u8; 0x7758 - 0x7718],
-    /// 0x7758-0x779B: Unknown
-    pub _unknown_7758: [u8; 0x779C - 0x7758],
+    /// 0x7758-0x777B: Unknown
+    pub _unknown_7758: [u8; 0x777C - 0x7758],
+    /// 0x777C: Level width output (written by PCLandscape constructor param 10).
+    pub level_width_raw: u32,
+    /// 0x7780: Level height output (written by PCLandscape constructor param 11).
+    pub level_height_raw: u32,
+    /// 0x7784-0x779B: Unknown
+    pub _unknown_7784: [u8; 0x779C - 0x7784],
 
     /// 0x779C: Level bound min X (Fixed-point, negative = off-screen left).
     pub level_bound_min_x: i32,
@@ -831,7 +839,7 @@ unsafe fn init_graphics_and_resources(
             core::mem::transmute(rb(va::GFX_HANDLER_LOAD_SPRITES) as usize);
         f(
             wrapper,
-            (ddgame as *mut u8).add(0x7308),
+            (*ddgame).gfx_sprite_data.as_mut_ptr(),
             (*game_info).display_flags,
             0,
         );
@@ -839,12 +847,12 @@ unsafe fn init_graphics_and_resources(
 
     // ── DDGameWrapper field inits ──
     (*wrapper)._field_4d8 = 0;
-    // Loading progress total: game_info+0x44C controls team count scaling.
+    // Loading progress total: speech_team_count controls team count scaling.
     if is_headless {
         (*wrapper)._field_4dc = 0x2AD;
     } else {
-        let byte_val = *(game_info as *const u8).add(0x44C) as u32;
-        (*wrapper)._field_4dc = byte_val * 0x38 + 0x7E + 0x2AD;
+        let team_count = (*game_info).speech_team_count as u32;
+        (*wrapper)._field_4dc = team_count * 0x38 + 0x7E + 0x2AD;
     }
     (*wrapper)._field_4e0 = 0xFFFFFF9C; // -100
     (*wrapper).speech_name_count = 0;
@@ -903,7 +911,7 @@ unsafe fn init_graphics_and_resources(
                 *mut u8,
                 *mut u8, // 8=stack local, 9=coord output
                 *mut u8,
-                *mut u8, // 10=&ddgame+0x777C, 11=&ddgame+0x7780
+                *mut u8, // 10=&ddgame.level_width_raw, 11=&ddgame.level_height_raw
             ) -> *mut u8 = core::mem::transmute(rb(va::PC_LANDSCAPE_CONSTRUCTOR) as usize);
 
             let result = pc_ctor(
@@ -916,8 +924,8 @@ unsafe fn init_graphics_and_resources(
                 (*wrapper).gfx_mode, // param 7
                 stack_local_8,      // param 8
                 landscape_coords_buf, // param 9
-                (ddgame as *mut u8).add(0x777C), // param 10
-                (ddgame as *mut u8).add(0x7780), // param 11
+                &mut (*ddgame).level_width_raw as *mut u32 as *mut u8,
+                &mut (*ddgame).level_height_raw as *mut u32 as *mut u8,
             );
             (*wrapper).landscape = result as *mut PCLandscape;
             (*ddgame).landscape = result as *mut PCLandscape;
@@ -1140,9 +1148,9 @@ unsafe fn init_graphics_and_resources(
     // DDNetGameWrapper__LoadResourceList: thiscall(ECX=wrapper) +
     // 5 stack params (layer, gfx_handler, base_path, data_table, table_size)
     {
-        let landscape_ptr = (*wrapper).landscape as *const u8;
-        let water_layer = *(landscape_ptr.add(0xB38) as *const *mut u8);
-        let land_layer = *(landscape_ptr.add(0xB34) as *const *mut u8);
+        let landscape_ptr = (*wrapper).landscape;
+        let water_layer = (*landscape_ptr).water_gfx_handler;
+        let land_layer = (*landscape_ptr).level_gfx_handler;
         let gfx_handler = (*wrapper)._field_4c0;
 
         let wrapper_vt = *(wrapper as *const *const u32);
