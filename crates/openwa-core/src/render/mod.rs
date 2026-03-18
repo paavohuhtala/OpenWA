@@ -1,3 +1,4 @@
+pub mod gfx_handler;
 pub mod landscape;
 pub mod queue;
 pub mod sprite;
