@@ -740,7 +740,8 @@ unsafe fn init_graphics_and_resources(
     is_headless: bool,
 ) {
     let ddgame = (*wrapper).ddgame;
-    let fopen: unsafe extern "cdecl" fn(*const u8, *const u8) -> *mut u8 =
+    use core::ffi::c_char;
+    let fopen: unsafe extern "cdecl" fn(*const c_char, *const c_char) -> *mut u8 =
         core::mem::transmute(rb(va::WA_FOPEN) as usize);
     let gfx_dir_vtable = rb(va::GFX_DIR_VTABLE) as u32;
 
@@ -752,37 +753,37 @@ unsafe fn init_graphics_and_resources(
     // Build path list (order depends on headless + display_flags)
     let headless = (*game_info).headless_mode as i32;
     let display_flags = (*game_info).display_flags as i32;
-    let paths: [&[u8]; 3] = if headless != 0 {
+    let paths: [&core::ffi::CStr; 3] = if headless != 0 {
         if display_flags == 0 {
             [
-                c"data\\Gfx\\Gfx.dir".to_bytes_with_nul(),
-                c"data\\Gfx\\Gfx0.dir".to_bytes_with_nul(),
-                c"data\\Gfx\\Gfx1.dir".to_bytes_with_nul(),
+                c"data\\Gfx\\Gfx.dir",
+                c"data\\Gfx\\Gfx0.dir",
+                c"data\\Gfx\\Gfx1.dir",
             ]
         } else {
             [
-                c"data\\Gfx\\Gfx.dir".to_bytes_with_nul(),
-                c"data\\Gfx\\Gfx1.dir".to_bytes_with_nul(),
-                c"data\\Gfx\\Gfx0.dir".to_bytes_with_nul(),
+                c"data\\Gfx\\Gfx.dir",
+                c"data\\Gfx\\Gfx1.dir",
+                c"data\\Gfx\\Gfx0.dir",
             ]
         }
     } else if display_flags == 0 {
         [
-            c"data\\Gfx\\Gfx0.dir".to_bytes_with_nul(),
-            c"data\\Gfx\\Gfx1.dir".to_bytes_with_nul(),
-            c"data\\Gfx\\Gfx.dir".to_bytes_with_nul(),
+            c"data\\Gfx\\Gfx0.dir",
+            c"data\\Gfx\\Gfx1.dir",
+            c"data\\Gfx\\Gfx.dir",
         ]
     } else {
         [
-            c"data\\Gfx\\Gfx1.dir".to_bytes_with_nul(),
-            c"data\\Gfx\\Gfx0.dir".to_bytes_with_nul(),
-            c"data\\Gfx\\Gfx.dir".to_bytes_with_nul(),
+            c"data\\Gfx\\Gfx1.dir",
+            c"data\\Gfx\\Gfx0.dir",
+            c"data\\Gfx\\Gfx.dir",
         ]
     };
 
     let mut gfx_loaded_idx = 0u32;
     for (i, path) in paths.iter().enumerate() {
-        let fp = fopen(path.as_ptr(), c"rb".as_ptr().cast());
+        let fp = fopen(path.as_ptr(), c"rb".as_ptr());
         (*gfx1).file_handle = fp;
         if !fp.is_null()
             && call_gfx_load_dir(gfx1 as *mut u8, crate::render::gfx_dir::gfx_load_dir_addr()) != 0
@@ -813,11 +814,11 @@ unsafe fn init_graphics_and_resources(
         let gfx2 = GfxDir::alloc(gfx_dir_vtable);
         (*wrapper).secondary_gfx_dir = gfx2 as *mut u8;
 
-        let fp = fopen(gfx_c_path.as_ptr(), c"rb".as_ptr().cast());
+        let fp = fopen(gfx_c_path.as_ptr().cast(), c"rb".as_ptr());
         (*gfx2).file_handle = fp;
         let load_addr = crate::render::gfx_dir::gfx_load_dir_addr();
         if fp.is_null() || call_gfx_load_dir(gfx2 as *mut u8, load_addr) == 0 {
-            let fp2 = fopen(c"data\\Gfx\\Gfx.dir".as_ptr().cast(), c"rb".as_ptr().cast());
+            let fp2 = fopen(c"data\\Gfx\\Gfx.dir".as_ptr(), c"rb".as_ptr());
             (*gfx2).file_handle = fp2;
             if fp2.is_null() || call_gfx_load_dir(gfx2 as *mut u8, load_addr) == 0 {
                 panic!("DDGame: couldn't open secondary Gfx.dir");
@@ -827,13 +828,20 @@ unsafe fn init_graphics_and_resources(
 
     // ── Display palette setup (non-headless) ──
     if !is_headless {
-        if *(rb(va::G_DISPLAY_MODE_FLAG) as *const u8) == 0 {
+        if *(rb(va::G_DISPLAY_MODE_FLAG) as *const c_char) == 0 {
             call_usercall_eax(wrapper, FUN_570A90_ADDR);
         }
         let disp = (*wrapper).display;
         let gfx_dir = (*wrapper).primary_gfx_dir;
         DDDisplay::set_layer_color(disp, 1, 0xFE);
-        DDDisplay::load_sprite(disp, 1, 1, 0, gfx_dir, rb(va::STR_CDROM_SPR) as *const u8);
+        DDDisplay::load_sprite(
+            disp,
+            1,
+            1,
+            0,
+            gfx_dir,
+            rb(va::STR_CDROM_SPR) as *const c_char,
+        );
         DDDisplay::set_layer_visibility(disp, 1, -100);
 
         // Palette slot range init (raw byte offsets into DisplayBase)
@@ -866,7 +874,7 @@ unsafe fn init_graphics_and_resources(
         // The layer_ctx is used as the output buffer, not a plain stack alloc.
         let res = gfx_resource_create(
             (*wrapper).primary_gfx_dir,
-            rb(va::STR_COLOURS_IMG) as *const u8,
+            rb(va::STR_COLOURS_IMG) as *const c_char,
             layer_ctx,
         );
         if !res.is_null() {
@@ -943,7 +951,8 @@ unsafe fn init_graphics_and_resources(
         let gfx_dir = (*wrapper).primary_gfx_dir;
         let out_buf = wa_malloc(0x900);
         core::ptr::write_bytes(out_buf, 0, 0x900);
-        gfx_resource = gfx_resource_create(gfx_dir, rb(va::STR_MASKS_IMG) as *const u8, out_buf);
+        gfx_resource =
+            gfx_resource_create(gfx_dir, rb(va::STR_MASKS_IMG) as *const c_char, out_buf);
     }
 
     // ── PCLandscape (alloc 0xB44, stdcall 11 params) ──
@@ -1048,7 +1057,7 @@ unsafe fn init_graphics_and_resources(
 
             let layer_ctx = DDDisplay::set_active_layer((*ddgame).display, 1);
 
-            let entry = gfx_dir_find_entry(name_buf.as_ptr(), gfx_dir);
+            let entry = gfx_dir_find_entry(name_buf.as_ptr().cast(), gfx_dir);
 
             let sprite: *mut u8;
             if !entry.is_null() {
@@ -1062,11 +1071,11 @@ unsafe fn init_graphics_and_resources(
                     sprite = wa_displaygfx_ctor(cached);
                 } else {
                     // Fallback: load from file via GfxDir__LoadImage + IMG_Decode
-                    sprite = call_gfx_load_and_wrap(gfx_dir, name_buf.as_ptr(), layer_ctx);
+                    sprite = call_gfx_load_and_wrap(gfx_dir, name_buf.as_ptr().cast(), layer_ctx);
                 }
             } else {
                 // Entry not found — try direct file load
-                sprite = call_gfx_load_and_wrap(gfx_dir, name_buf.as_ptr(), layer_ctx);
+                sprite = call_gfx_load_and_wrap(gfx_dir, name_buf.as_ptr().cast(), layer_ctx);
             }
 
             // Store arrow sprite at DDGame+0x38+i*4
@@ -1244,7 +1253,7 @@ unsafe fn init_graphics_and_resources(
                 land_layer,
                 c"back.spr".as_ptr().cast(),
             );
-            DDDisplay::load_sprite(disp, 3, 0x26E, 0, land_layer, c"debris.spr".as_ptr().cast());
+            DDDisplay::load_sprite(disp, 3, 0x26E, 0, land_layer, c"debris.spr".as_ptr());
         }
 
         DDDisplay::load_sprite_by_layer(
@@ -1322,7 +1331,7 @@ unsafe fn init_graphics_and_resources(
     }
 
     // ── FUN_00570A90 (second call, conditional) ──
-    if *(rb(va::G_DISPLAY_MODE_FLAG) as *const u8) == 0 {
+    if *(rb(va::G_DISPLAY_MODE_FLAG) as *const c_char) == 0 {
         call_usercall_eax(wrapper, FUN_570A90_ADDR);
     }
 
@@ -1461,7 +1470,7 @@ pub mod offsets {
     pub const TEAM_BLOCKS: usize = 0x4090;
 
     /// Byte offset from TeamArenaState base back to FullTeamBlock array start.
-    /// `blocks_ptr = (tws_base as *const u8).sub(ARENA_TO_BLOCKS) as *const FullTeamBlock`
+    /// `blocks_ptr = (tws_base as *const c_char).sub(ARENA_TO_BLOCKS) as *const FullTeamBlock`
     ///
     /// entry_ptr(0) = DDGame+0x4628 = TEAM_BLOCKS + 0x598.
     /// 0x598 = sizeof(FullTeamBlock) + 0x7C = one block + offset into TeamBlockHeader.

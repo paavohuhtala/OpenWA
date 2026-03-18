@@ -84,8 +84,14 @@ pub struct DDDisplayVtable {
     /// Slot 30
     pub _slot_30: usize,
     /// Slot 31 (0x7C): load sprite with flag — thiscall(this, layer, id, flag, gfx, name), RET 0x14
-    pub load_sprite:
-        unsafe extern "thiscall" fn(*mut DDDisplay, u32, u32, u32, *mut u8, *const u8) -> i32,
+    pub load_sprite: unsafe extern "thiscall" fn(
+        *mut DDDisplay,
+        u32,
+        u32,
+        u32,
+        *mut u8,
+        *const core::ffi::c_char,
+    ) -> i32,
     /// Slot 32
     pub _slot_32: usize,
     /// Slot 33
@@ -97,8 +103,13 @@ pub struct DDDisplayVtable {
     /// Slot 36
     pub _slot_36: usize,
     /// Slot 37 (0x94): load sprite by layer — thiscall(this, layer, id, gfx, name), RET 0x10
-    pub load_sprite_by_layer:
-        unsafe extern "thiscall" fn(*mut DDDisplay, u32, u32, *mut u8, *const u8) -> i32,
+    pub load_sprite_by_layer: unsafe extern "thiscall" fn(
+        *mut DDDisplay,
+        u32,
+        u32,
+        *mut u8,
+        *const core::ffi::c_char,
+    ) -> i32,
 }
 
 const _: () = assert!(core::mem::size_of::<DDDisplayVtable>() == 38 * 4);
@@ -131,7 +142,7 @@ impl DDDisplay {
         layer: u32,
         id: u32,
         gfx: *mut u8,
-        name: *const u8,
+        name: *const core::ffi::c_char,
     ) -> i32 {
         ((*(*this).vtable).load_sprite_by_layer)(this, layer, id, gfx, name)
     }
@@ -144,7 +155,7 @@ impl DDDisplay {
         id: u32,
         flag: u32,
         gfx: *mut u8,
-        name: *const u8,
+        name: *const core::ffi::c_char,
     ) -> i32 {
         ((*(*this).vtable).load_sprite)(this, layer, id, flag, gfx, name)
     }

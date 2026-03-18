@@ -12,6 +12,7 @@
 //! - `FUN_570E20` (display layer init): usercall(ESI=wrapper), plain RET
 
 use crate::hook;
+use core::ffi::c_char;
 use openwa_core::address::va;
 use openwa_core::engine::ddgame::{
     bit_grid_init, ddgame_init_fields, ddgame_init_render_indices, display_layer_color_init,
@@ -84,8 +85,9 @@ extern "cdecl" fn impl_display_layer_init(wrapper: u32) -> u32 {
 // ─── GfxResource__Create_Maybe (0x4F6300) ───────────────────────────────────
 
 extern "cdecl" fn impl_gfx_resource_create(gfx_dir: u32, name: u32, output: u32) -> u32 {
-    let result =
-        unsafe { gfx_resource_create(gfx_dir as *mut u8, name as *const u8, output as *mut u8) };
+    let result = unsafe {
+        gfx_resource_create(gfx_dir as *mut u8, name as *const c_char, output as *mut u8)
+    };
     result as u32
 }
 
@@ -118,7 +120,7 @@ hook::usercall_trampoline!(
 static FIND_ENTRY_LOG_COUNT: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(0);
 
 extern "cdecl" fn impl_find_entry(name: u32, gfx_dir: u32) -> u32 {
-    let result = unsafe { gfx_dir_find_entry(name as *const u8, gfx_dir as *mut u8) };
+    let result = unsafe { gfx_dir_find_entry(name as *const c_char, gfx_dir as *mut u8) };
 
     // Log first 20 lookups for debugging
     let count = FIND_ENTRY_LOG_COUNT.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
