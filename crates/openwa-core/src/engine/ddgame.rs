@@ -1649,18 +1649,24 @@ unsafe fn init_graphics_and_resources(
         // ── Fill image → fill_pixel (0x7338) ──
         {
             let layer2_ctx = set_layer((*ddgame).display, 2);
+            // In the original, fill.img uses piStack_126c which the decompiler
+            // shows was set from piVar3 (water_layer from landscape+0xB38).
             let fill_sprite = call_gfx_find_and_load(
-                land_layer, b"fill.img\0".as_ptr(), layer2_ctx,
+                water_layer, b"fill.img\0".as_ptr(), layer2_ctx,
             );
+            let _ = crate::log::log_line(&format!(
+                "[DDGame] fill.img: water=0x{:08X} sprite=0x{:08X}",
+                water_layer as u32, fill_sprite as u32,
+            ));
             if !fill_sprite.is_null() {
                 // Get pixel value: fill_sprite->vtable[4](0, 0)
                 let fill_vt = *(fill_sprite as *const *const u32);
                 let get_pixel: unsafe extern "thiscall" fn(*mut u8, i32, i32) -> u32 =
                     core::mem::transmute(*fill_vt.add(4));
                 (*ddgame).fill_pixel = get_pixel(fill_sprite, 0, 0);
-                // Release fill sprite
-                let release: unsafe extern "thiscall" fn(*mut u8, u32) =
-                    core::mem::transmute(*fill_vt);
+                // Release fill sprite: vtable[3] = DisplayGfx__vmethod_3(this, param_2=1)
+                let release: unsafe extern "thiscall" fn(*mut u8, u8) =
+                    core::mem::transmute(*fill_vt.add(3));
                 release(fill_sprite, 1);
             }
         }
