@@ -1,4 +1,9 @@
 //! Sky gradient computation for non-standard level heights.
+//!
+//! NOTE: This code path is UNTESTED — it only triggers on maps with
+//! non-standard dimensions (sky_height >= 0x61 or level_height != 0x2B8).
+//! The algorithm is ported from the DDGame constructor decompilation but
+//! may have subtle color differences due to the tangled decompiler output.
 
 use crate::engine::ddgame::DDGame;
 use crate::rebase::rb;
@@ -6,21 +11,20 @@ use crate::render::gfx_handler::call_gfx_find_and_load;
 use crate::wa_alloc::{wa_free, wa_malloc};
 
 /// Palette context for gradient color mapping.
-/// Matches the WA stack-allocated structure used by PaletteContext__Init (0x5411A0).
+/// Reimplements the WA palette management functions:
+/// - PaletteContext__Init (0x5411A0)
+/// - PaletteContext__MapColor (0x5412B0)
+/// - PaletteContext__FindClosest (0x541420)
 struct PaletteContext {
-    min_index: u8,
-    max_index: u8,
     colors: [u32; 256], // RGB packed, indexed by palette index
-    valid: [bool; 256], // whether index has a color assigned
+    valid: [bool; 256],
     used_count: usize,
-    used_list: [u8; 256], // palette indices currently in use
+    used_list: [u8; 256],
 }
 
 impl PaletteContext {
     fn new() -> Self {
         Self {
-            min_index: 0,
-            max_index: 0xFF,
             colors: [0; 256],
             valid: [false; 256],
             used_count: 0,
@@ -28,20 +32,17 @@ impl PaletteContext {
         }
     }
 
-    /// Map an RGB color to a palette index. Returns existing index if color
-    /// already mapped, otherwise allocates a new one. Returns None if full.
+    /// Map an RGB color to a palette index (PaletteContext__MapColor, 0x5412B0).
+    /// Returns existing index if already mapped, otherwise allocates a new one.
     fn map_color(&mut self, rgb: u32) -> Option<u8> {
         let masked = rgb & 0x00FF_FFFF;
-        // Search existing entries
         for i in 0..self.used_count {
             let idx = self.used_list[i] as usize;
             if idx != 0 && (self.colors[idx] & 0x00FF_FFFF) == masked {
                 return Some(idx as u8);
             }
         }
-        // Allocate new: use indices from max_index downward
-        // Find first unused index
-        for idx in (self.min_index as usize..=self.max_index as usize).rev() {
+        for idx in (1..=255usize).rev() {
             if !self.valid[idx] {
                 self.colors[idx] = masked;
                 self.valid[idx] = true;
@@ -52,6 +53,43 @@ impl PaletteContext {
         }
         None
     }
+
+    /// Find closest palette match (PaletteContext__FindClosest, 0x541420).
+    /// Uses weighted perceptual distance: R*3 + G*5 + B*2.
+    /// Input channels are 8.8 fixed-point (0..0xFF00).
+    fn find_closest(&self, r: i32, g: i32, b: i32) -> u8 {
+        let mut best_idx = 0u8;
+        let mut best_dist = i32::MAX;
+        for i in 0..self.used_count {
+            let idx = self.used_list[i] as usize;
+            if idx == 0 {
+                continue;
+            }
+            let c = self.colors[idx];
+            let cr = ((c & 0xFF) as i32) << 8;
+            let cg = (((c >> 8) & 0xFF) as i32) << 8;
+            let cb = (((c >> 16) & 0xFF) as i32) << 8;
+            let dist = (r - cr).abs() * 3 + (g - cg).abs() * 5 + (b - cb).abs() * 2;
+            if dist == 0 {
+                return idx as u8;
+            }
+            if dist < best_dist {
+                best_dist = dist;
+                best_idx = idx as u8;
+            }
+        }
+        best_idx
+    }
+
+    /// Read RGB color for a palette index as 8.8 fixed-point (0..0xFF00).
+    fn color_fp(&self, idx: u8) -> [i32; 3] {
+        let c = self.colors[idx as usize];
+        [
+            ((c & 0xFF) as i32) << 8,
+            (((c >> 8) & 0xFF) as i32) << 8,
+            (((c >> 16) & 0xFF) as i32) << 8,
+        ]
+    }
 }
 
 /// Compute the complex sky gradient for non-standard level heights.
@@ -60,8 +98,9 @@ impl PaletteContext {
 /// Loads gradient.img, samples 7 anchor colors, then creates an interpolated
 /// gradient image (64 columns × (level_height + 0xDC) rows).
 ///
-/// The result is stored at `DDGame+0x30` (gradient_image) and optionally
-/// `DDGame+0x34` (gradient_image_2).
+/// NOTE: This code path is untested — no replay or map available that
+/// triggers it. The algorithm follows the DDGame constructor decompilation
+/// but may have subtle differences in color output.
 #[cfg(target_arch = "x86")]
 pub(crate) unsafe fn compute_complex_gradient(
     ddgame: *mut DDGame,
@@ -71,15 +110,14 @@ pub(crate) unsafe fn compute_complex_gradient(
 ) {
     let mut palette = PaletteContext::new();
 
-    // Load gradient.img
+    // Step 1: Load gradient.img
     let gradient_sprite =
         call_gfx_find_and_load(land_layer, b"gradient.img\0".as_ptr(), layer3_ctx);
     if gradient_sprite.is_null() {
-        return; // No gradient available — stub fallback handles this
+        return;
     }
 
-    // Read gradient sprite dimensions via vtable[4] (get_pixel)
-    // Sprite height is at sprite+0x18 (field [6] in u32 layout)
+    // Sprite height at offset +0x18
     let gradient_height = *(gradient_sprite.add(0x18) as *const i32);
     if gradient_height <= 0 {
         return;
@@ -88,17 +126,9 @@ pub(crate) unsafe fn compute_complex_gradient(
     let get_pixel: unsafe extern "thiscall" fn(*mut u8, i32, i32) -> u32 =
         core::mem::transmute(*(*(gradient_sprite as *const *const u32)).add(4));
 
-    // Compute target rows for stretching
-    let target_rows = {
-        let max_rows = 0x70i32 - sky_height as i32;
-        if gradient_height < max_rows {
-            gradient_height
-        } else {
-            max_rows
-        }
-    };
+    // Step 2: Compute target rows and stretch gradient through palette
+    let target_rows = (0x70i32 - sky_height as i32).min(gradient_height);
 
-    // Stretch gradient through palette: map each source row's pixel color
     if target_rows > 0 {
         let mut src_pos = 0i32;
         for _ in 0..target_rows {
@@ -109,14 +139,15 @@ pub(crate) unsafe fn compute_complex_gradient(
         }
     }
 
-    // If target_rows == gradient_height, also set gradient_image_2
+    // Step 3: If heights match, also set gradient_image_2
     if target_rows == gradient_height {
         let gradient2 = call_gfx_find_and_load(land_layer, b"gradient.img\0".as_ptr(), layer3_ctx);
         (*ddgame).gradient_image_2 = gradient2;
     }
 
-    // Sample 7 anchor colors by averaging 8×2 pixel blocks
-    let mut anchors = [[0i32; 3]; 7]; // [band][r, g, b] in shifted format
+    // Step 4: Sample 7 anchor colors by averaging 8×2 pixel blocks.
+    // get_pixel returns palette indices; we look up RGB from our palette context.
+    let mut anchors = [[0i32; 3]; 7]; // [band][r, g, b] in 8.8 fixed-point
     let grad_height_minus2 = (gradient_height - 2).max(0);
 
     for band in 0..7u32 {
@@ -132,8 +163,7 @@ pub(crate) unsafe fn compute_complex_gradient(
         for dy in 0..2i32 {
             let row = start_row + dy;
             for col in 0..8i32 {
-                let pixel = get_pixel(gradient_sprite, col, row);
-                let pidx = pixel as usize;
+                let pidx = get_pixel(gradient_sprite, col, row) as usize;
                 if pidx < 256 && palette.valid[pidx] {
                     let c = palette.colors[pidx];
                     r_sum += (c & 0xFF) as i32;
@@ -143,7 +173,7 @@ pub(crate) unsafe fn compute_complex_gradient(
             }
         }
 
-        // Shift left 4 (multiply by 16) — converts 8-bit×16 samples to 8.8 fixed-point
+        // Shift left 4: 16 samples × 8-bit → 8.8 fixed-point
         anchors[band as usize] = [r_sum << 4, g_sum << 4, b_sum << 4];
     }
 
@@ -152,13 +182,19 @@ pub(crate) unsafe fn compute_complex_gradient(
     let release: unsafe extern "thiscall" fn(*mut u8, u8) = core::mem::transmute(*gvt.add(3));
     release(gradient_sprite, 1);
 
-    // Create the gradient image
+    // Step 5: Establish initial/fallback color via palette closest-match.
+    // The original uses PaletteContext__FindClosest + PaletteContext__ReadColor
+    // to get the canonical palette color for the first anchor point.
+    let initial_idx = palette.find_closest(anchors[0][0], anchors[0][1], anchors[0][2]);
+    let mut fallback = palette.color_fp(initial_idx);
+
+    // Step 6: Create the gradient image buffer
     let total_height = (*ddgame).level_height as i32 + 0xDC;
     if total_height <= 0 {
         return;
     }
 
-    let stride = 0x200u32; // 64 columns × 8 bytes per pixel
+    let stride = 0x200u32; // 64 columns × 8 bytes per entry
     let data_size = total_height as u32 * stride;
     let data = wa_malloc(data_size + 0x20);
     if data.is_null() {
@@ -166,59 +202,35 @@ pub(crate) unsafe fn compute_complex_gradient(
     }
     core::ptr::write_bytes(data, 0, data_size as usize);
 
-    // Build raw image header (0x44 bytes, same layout GradientImage__WriteRow expects)
-    let header = wa_malloc(0x44);
-    if header.is_null() {
-        wa_free(data);
-        return;
-    }
-    core::ptr::write_bytes(header, 0, 0x44);
-    let h = header as *mut u32;
-    *h.add(0) = data as u32; // data pointer
-    *h.add(1) = stride; // row stride
-    *h.add(2) = 0x40; // max columns (64)
-    *h.add(3) = total_height as u32; // height
-    *h.add(4) = 0; // bounds left
-    *h.add(5) = 0; // bounds top
-    *h.add(6) = 0x40; // bounds right
-    *h.add(7) = total_height as u32; // bounds bottom
+    // Step 7: Interpolate between anchor colors and write each row.
+    // For each row, determine which two anchors to interpolate between.
+    // Rows beyond band 5 use the last interpolated color as fallback.
+    let band_size = if total_height > 6 {
+        total_height / 6
+    } else {
+        1
+    };
 
-    // Interpolate between anchor colors and write each row
-    let band_size = total_height / 6;
     for row in 0..total_height {
-        let band_idx = ((row * 6) / total_height).min(5) as usize;
-        let pos = row - band_idx as i32 * band_size;
+        let band_idx = (row * 6) / total_height;
 
-        // Interpolate RGB between anchor[band_idx] and anchor[band_idx+1]
-        let a0 = &anchors[band_idx];
-        let a1 = &anchors[(band_idx + 1).min(6)];
+        if band_idx < 6 {
+            let pos = row - band_idx * band_size;
+            let bi = band_idx as usize;
+            let a0 = &anchors[bi];
+            let a1 = &anchors[(bi + 1).min(6)];
 
-        let r = if band_size > 0 {
-            a0[0] + ((a1[0] - a0[0]) * pos) / band_size
-        } else {
-            a0[0]
-        };
-        let g = if band_size > 0 {
-            a0[1] + ((a1[1] - a0[1]) * pos) / band_size
-        } else {
-            a0[1]
-        };
-        let b = if band_size > 0 {
-            a0[2] + ((a1[2] - a0[2]) * pos) / band_size
-        } else {
-            a0[2]
-        };
+            for ch in 0..3 {
+                fallback[ch] = a0[ch] + ((a1[ch] - a0[ch]) * pos) / band_size;
+                fallback[ch] = fallback[ch].clamp(0, 0xFF00);
+            }
+        }
+        // else: rows beyond band 5 keep the last fallback color
 
-        // Clamp to [0, 0xFF00]
-        let r = r.clamp(0, 0xFF00) as u32;
-        let g = g.clamp(0, 0xFF00) as u32;
-        let b = b.clamp(0, 0xFF00) as u32;
+        let color_low = (fallback[0] as u32 & 0xFFFF) | ((fallback[1] as u32 & 0xFFFF) << 16);
+        let color_high = fallback[2] as u32 & 0xFFFF;
 
-        // Pack: color_low = R | (G << 16), color_high = B
-        let color_low = (r & 0xFFFF) | ((g & 0xFFFF) << 16);
-        let color_high = b & 0xFFFF;
-
-        // Write to all 64 columns
+        // Write to all 64 columns (matches GradientImage__WriteRow at 0x4F91C0)
         let row_base = data.add(row as usize * stride as usize);
         for col in 0..64u32 {
             let pixel = row_base.add(col as usize * 8) as *mut u32;
@@ -227,11 +239,10 @@ pub(crate) unsafe fn compute_complex_gradient(
         }
     }
 
-    // Wrap in DisplayGfx: use the same vtable as the gradient stub
+    // Step 8: Wrap pixel data in a DisplayGfx-compatible object
     let gfx_obj = wa_malloc(0x2C);
     if gfx_obj.is_null() {
         wa_free(data);
-        wa_free(header);
         return;
     }
     core::ptr::write_bytes(gfx_obj, 0, 0x2C);
@@ -240,9 +251,6 @@ pub(crate) unsafe fn compute_complex_gradient(
     *g.add(2) = data as u32; // pixel data
     *g.add(4) = stride; // bytes per row
     *g.add(5) = 0; // x offset
-    *g.add(6) = total_height as u32; // height (checked by CTaskLand: `if (0 < [6])`)
+    *g.add(6) = total_height as u32; // height (CTaskLand checks `if (0 < [6])`)
     (*ddgame).gradient_image = gfx_obj;
-
-    // Free the raw header (DisplayGfx wrapper now owns the pixel data)
-    wa_free(header);
 }
