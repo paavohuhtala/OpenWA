@@ -1186,15 +1186,25 @@ unsafe fn init_graphics_and_resources(
         );
         if !res.is_null() {
             let rvt = *(res as *const *const u32);
-            // vtable[4] = CTaskOilDrum__ProcessFrame_stub: XOR EAX,EAX; RET 0x8
-            // RET 0x8 = 2 stack params consumed. Always returns 0 (stub).
-            // Must pass 2 dummy u32s so the callee's RET 0x8 balances the stack.
+            let _ = crate::log::log_line(&format!(
+                "[DDGame] color entries: res=0x{:08X} vt=0x{:08X} vt[4]=0x{:08X}",
+                res as u32, rvt as u32, *rvt.add(4),
+            ));
+            // vtable[4] = get_pixel: thiscall(this, x, y) -> color, RET 0x8.
             let get_color: unsafe extern "thiscall" fn(*mut u8, u32, u32) -> u32 =
                 core::mem::transmute(*rvt.add(4));
             let mut off = 0x730Cu32;
+            let mut idx = 0u32;
             while off < 0x732Du32 {
-                *((ddgame as *mut u8).add(off as usize) as *mut u32) = get_color(res, 0, 0);
+                let c = get_color(res, idx, 0);
+                *((ddgame as *mut u8).add(off as usize) as *mut u32) = c;
+                if idx == 0 {
+                    let _ = crate::log::log_line(&format!(
+                        "[DDGame] color[0] = 0x{:08X}", c,
+                    ));
+                }
                 off += 4;
+                idx += 1;
             }
             // DisplayGfx__vmethod_3: thiscall(this, byte param_2), RET 4.
             // param_2 & 1 = free the object itself.
