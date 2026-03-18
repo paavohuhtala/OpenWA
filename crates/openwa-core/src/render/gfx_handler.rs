@@ -4,6 +4,24 @@ use crate::address::va;
 use crate::rebase::rb;
 use crate::wa_alloc::wa_malloc;
 
+/// Entry in a GfxDir hash bucket linked list.
+/// Each entry maps a name string to a cached resource value.
+#[repr(C)]
+pub struct GfxDirEntry {
+    pub next: *mut GfxDirEntry,
+    /// Passed to GfxHandler vtable[2] for cached resource lookup.
+    pub value: u32,
+    pub _unknown_08: u32,
+    // +0x0C: null-terminated name (variable-length, not in struct)
+}
+
+impl GfxDirEntry {
+    /// Name string at +0x0C (immediately after the fixed fields).
+    pub unsafe fn name_ptr(&self) -> *const u8 {
+        (self as *const Self as *const u8).add(0x0C)
+    }
+}
+
 /// Hash function for GfxDir entry lookup (FUN_566390).
 ///
 /// 10-bit CRC-like hash over the global name buffer at 0x8ACF58.
@@ -90,11 +108,10 @@ pub unsafe fn gfx_dir_find_entry(name: *const u8, gfx_handler: *mut u8) -> *mut 
         // Walk linked list in hash bucket
         // gfx_handler+4 = pointer to bucket array (1024 entries)
         let bucket_array = *(gfx_handler.add(4) as *const *const u32);
-        let mut entry = *bucket_array.add(bucket as usize) as *mut u8;
+        let mut entry = *bucket_array.add(bucket as usize) as *mut GfxDirEntry;
 
         while !entry.is_null() {
-            // Compare entry name at entry+0x0C with our buffer
-            let entry_name = entry.add(0x0C);
+            let entry_name = (*entry).name_ptr();
             let mut match_found = true;
             let mut k = 0usize;
             loop {
@@ -111,11 +128,10 @@ pub unsafe fn gfx_dir_find_entry(name: *const u8, gfx_handler: *mut u8) -> *mut 
             }
 
             if match_found {
-                return entry;
+                return entry as *mut u8;
             }
 
-            // Next in linked list: entry+0x00
-            entry = *(entry as *const *mut u8);
+            entry = (*entry).next;
         }
 
         // Not found — try fallback name after '|'
@@ -287,7 +303,7 @@ pub unsafe fn gfx_resource_create(
         let vt = *(gfx_handler as *const *const u32);
         let load_cached: unsafe extern "thiscall" fn(*mut u8, u32) -> *mut u8 =
             core::mem::transmute(*vt.add(2));
-        let entry_val = *(entry.add(4) as *const u32);
+        let entry_val = (*(entry as *const GfxDirEntry)).value;
         let cached = load_cached(gfx_handler, entry_val);
         if !cached.is_null() {
             // DisplayGfx__Constructor_Maybe: stdcall(raw_image), RET 0x4
@@ -332,7 +348,7 @@ pub(crate) unsafe fn call_gfx_find_and_load(
         let dir_vt = *(gfx_dir as *const *const u32);
         let load_cached: unsafe extern "thiscall" fn(*mut u8, u32) -> *mut u8 =
             core::mem::transmute(*dir_vt.add(2));
-        let cached = load_cached(gfx_dir, *(entry.add(4) as *const u32));
+        let cached = load_cached(gfx_dir, (*(entry as *const GfxDirEntry)).value);
         if !cached.is_null() {
             // Wrap with DisplayGfx__Constructor_Maybe (0x4F5E80)
             // This is stdcall(1 param), RET 0x4

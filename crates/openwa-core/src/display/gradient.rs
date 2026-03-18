@@ -8,6 +8,7 @@
 use crate::engine::ddgame::DDGame;
 use crate::rebase::rb;
 use crate::render::gfx_handler::call_gfx_find_and_load;
+use crate::task::state_machine::TaskStateMachine;
 use crate::wa_alloc::{wa_free, wa_malloc};
 
 /// Palette context for gradient color mapping.
@@ -117,8 +118,8 @@ pub(crate) unsafe fn compute_complex_gradient(
         return;
     }
 
-    // Sprite height at offset +0x18
-    let gradient_height = *(gradient_sprite.add(0x18) as *const i32);
+    // Sprite height from TaskStateMachine layout (shared vtable 0x6640EC)
+    let gradient_height = (*(gradient_sprite as *const TaskStateMachine)).height as i32;
     if gradient_height <= 0 {
         return;
     }
@@ -239,18 +240,23 @@ pub(crate) unsafe fn compute_complex_gradient(
         }
     }
 
-    // Step 8: Wrap pixel data in a DisplayGfx-compatible object
-    let gfx_obj = wa_malloc(0x2C);
+    // Step 8: Wrap pixel data in a TaskStateMachine-compatible object
+    // (shares vtable 0x6640EC; CTaskLand reads .height to decide whether to render)
+    let gfx_obj =
+        wa_malloc(core::mem::size_of::<TaskStateMachine>() as u32) as *mut TaskStateMachine;
     if gfx_obj.is_null() {
         wa_free(data);
         return;
     }
-    core::ptr::write_bytes(gfx_obj, 0, 0x2C);
-    let g = gfx_obj as *mut u32;
-    *g = rb(0x6640EC); // vtable
-    *g.add(2) = data as u32; // pixel data
-    *g.add(4) = stride; // bytes per row
-    *g.add(5) = 0; // x offset
-    *g.add(6) = total_height as u32; // height (CTaskLand checks `if (0 < [6])`)
-    (*ddgame).gradient_image = gfx_obj;
+    core::ptr::write_bytes(
+        gfx_obj as *mut u8,
+        0,
+        core::mem::size_of::<TaskStateMachine>(),
+    );
+    (*gfx_obj).vtable = rb(0x6640EC);
+    (*gfx_obj).data = data;
+    (*gfx_obj).row_stride = stride;
+    (*gfx_obj).width = 0;
+    (*gfx_obj).height = total_height as u32;
+    (*ddgame).gradient_image = gfx_obj as *mut u8;
 }

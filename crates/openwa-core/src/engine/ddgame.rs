@@ -20,6 +20,7 @@ pub use crate::render::gfx_handler::{
 use crate::render::landscape::PCLandscape;
 use crate::render::queue::RenderQueue;
 use crate::render::turn_order::TurnOrderWidget;
+use crate::task::state_machine::TaskStateMachine;
 use crate::wa_alloc::wa_malloc;
 
 /// DDGame — the main game engine object.
@@ -1279,12 +1280,13 @@ unsafe fn init_graphics_and_resources(
     // ── Gradient image stub (DDGame+0x30) ──
     // Minimal stub: [6]=0 (zero-width) so CTaskLand skips the gradient column loop.
     if (*ddgame).gradient_image.is_null() {
-        let obj = wa_malloc(0x2C);
-        core::ptr::write_bytes(obj, 0, 0x2C);
+        let obj =
+            wa_malloc(core::mem::size_of::<TaskStateMachine>() as u32) as *mut TaskStateMachine;
         if !obj.is_null() {
-            *(obj as *mut u32) = rb(0x6640EC); // vtable (DisplayGfx vtable, vtable[4]=ProcessFrame_stub)
-                                               // [6] = height/width = 0 → CTaskLand loop: `if (0 < 0)` → skip
-            (*ddgame).gradient_image = obj;
+            core::ptr::write_bytes(obj as *mut u8, 0, core::mem::size_of::<TaskStateMachine>());
+            (*obj).vtable = rb(0x6640EC);
+            // height = 0 → CTaskLand skips the gradient column loop
+            (*ddgame).gradient_image = obj as *mut u8;
         }
     }
 
