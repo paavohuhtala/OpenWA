@@ -550,13 +550,105 @@ pub fn init_constructor_addrs() {
     crate::render::gfx_handler::init_addrs();
 }
 
-/// Bridge to DDGame__InitVersionFlags (0x525BE0).
-/// Convention: stdcall(ddgame_wrapper).
+// ── Typed wrappers for WA stdcall functions ────────────────────────────────
+// Each wraps a single WA function with a typed Rust signature.
+// Replace with pure Rust implementations as functions are ported.
+
+/// DDGame__InitVersionFlags (0x525BE0): sets DDGame+0x7E2E/0x7E2F/0x7E3F.
 #[cfg(target_arch = "x86")]
-unsafe fn call_init_version_flags(wrapper: *mut DDGameWrapper) {
+unsafe fn wa_init_version_flags(wrapper: *mut DDGameWrapper) {
     let f: unsafe extern "stdcall" fn(*mut DDGameWrapper) =
         core::mem::transmute(rb(va::DDGAME_INIT_VERSION_FLAGS) as usize);
     f(wrapper);
+}
+
+/// GfxHandler__LoadSprites (0x570B50): load sprites for secondary GfxHandler.
+#[cfg(target_arch = "x86")]
+unsafe fn wa_load_sprites(
+    wrapper: *mut DDGameWrapper,
+    sprite_data: *mut u8,
+    display_flags: u32,
+    param4: u32,
+) {
+    let f: unsafe extern "stdcall" fn(*mut DDGameWrapper, *mut u8, u32, u32) =
+        core::mem::transmute(rb(va::GFX_HANDLER_LOAD_SPRITES) as usize);
+    f(wrapper, sprite_data, display_flags, param4);
+}
+
+/// DSSound_LoadEffectWAVs (0x571660): load sound effect WAVs.
+#[cfg(target_arch = "x86")]
+unsafe fn wa_load_effect_wavs(wrapper: *mut DDGameWrapper) {
+    let f: unsafe extern "stdcall" fn(*mut DDGameWrapper) =
+        core::mem::transmute(rb(va::DSSOUND_LOAD_EFFECT_WAVS) as usize);
+    f(wrapper);
+}
+
+/// PCLandscape__Constructor (0x57ACB0): construct landscape object (0xB44 bytes, 11 params).
+#[cfg(target_arch = "x86")]
+unsafe fn wa_pc_landscape_ctor(
+    this: *mut u8,
+    ddgame: *mut DDGame,
+    gfx_resource: *mut u8,
+    display: *mut DDDisplay,
+    landscape_path: *const u8,
+    byte_output: *mut u8,
+    gfx_mode: u32,
+    temp_buf: *mut u8,
+    coord_output: *mut u8,
+    width_output: *mut u8,
+    height_output: *mut u8,
+) -> *mut u8 {
+    let f: unsafe extern "stdcall" fn(
+        *mut u8,
+        *mut DDGame,
+        *mut u8,
+        *mut DDDisplay,
+        *const u8,
+        *mut u8,
+        u32,
+        *mut u8,
+        *mut u8,
+        *mut u8,
+        *mut u8,
+    ) -> *mut u8 = core::mem::transmute(rb(va::PC_LANDSCAPE_CONSTRUCTOR) as usize);
+    f(
+        this,
+        ddgame,
+        gfx_resource,
+        display,
+        landscape_path,
+        byte_output,
+        gfx_mode,
+        temp_buf,
+        coord_output,
+        width_output,
+        height_output,
+    )
+}
+
+/// DisplayGfx__Constructor (0x4F5E80): wrap raw image data in DisplayGfx object.
+#[cfg(target_arch = "x86")]
+unsafe fn wa_displaygfx_ctor(raw_image: *mut u8) -> *mut u8 {
+    let f: unsafe extern "stdcall" fn(*mut u8) -> *mut u8 =
+        core::mem::transmute(rb(va::DISPLAYGFX_CONSTRUCTOR) as usize);
+    f(raw_image)
+}
+
+/// DDGame__InitDisplayFinal (0x56A830): finalize display for non-headless mode.
+#[cfg(target_arch = "x86")]
+unsafe fn wa_init_display_final(display: *mut DDDisplay) {
+    let f: unsafe extern "stdcall" fn(*mut DDDisplay) =
+        core::mem::transmute(rb(va::DDGAME_INIT_DISPLAY_FINAL) as usize);
+    f(display);
+}
+
+/// DDGame__LoadHudAndWeaponSprites (0x53D0E0): load weapon icons and HUD sprites.
+/// thiscall(ECX=gfx_handler) + 2 stack(ddgame, secondary_gfx_handler), RET 0x8.
+#[cfg(target_arch = "x86")]
+unsafe fn wa_load_hud_sprites(gfx_handler: *mut u8, ddgame: *mut DDGame, secondary: *mut u8) {
+    let f: unsafe extern "thiscall" fn(*mut u8, *mut DDGame, *mut u8) =
+        core::mem::transmute(rb(va::DDGAME_LOAD_HUD_AND_WEAPON_SPRITES) as usize);
+    f(gfx_handler, ddgame, secondary);
 }
 
 /// Create and initialize DDGame, matching DDGame__Constructor (0x56E220).
@@ -634,7 +726,7 @@ pub unsafe fn create_ddgame(
     }
 
     // ── 9. InitVersionFlags — sets DDGame+0x7E2E/0x7E2F/0x7E3F ──
-    call_init_version_flags(wrapper);
+    wa_init_version_flags(wrapper);
 
     // ── 10. GfxHandler, landscape, sprites, audio, resources ──
     init_graphics_and_resources(wrapper, game_info, net_game, display, is_headless);
@@ -837,11 +929,7 @@ unsafe fn init_graphics_and_resources(
         call_usercall_eax(gfxdir2 as *mut DDGameWrapper, rb(va::PALETTE_CONTEXT_INIT));
         *(gfxdir2.add(0x708) as *mut u16) = 0;
         (*ddgame).secondary_gfxdir = gfxdir2;
-        // GFX_HANDLER_LOAD_SPRITES: stdcall(wrapper, ddgame+0x7308, game_info+0xF374, 0), RET 0x10
-
-        let f: unsafe extern "stdcall" fn(*mut DDGameWrapper, *mut u8, u32, u32) =
-            core::mem::transmute(rb(va::GFX_HANDLER_LOAD_SPRITES) as usize);
-        f(
+        wa_load_sprites(
             wrapper,
             (*ddgame).gfx_sprite_data.as_mut_ptr(),
             (*game_info).display_flags,
@@ -865,10 +953,7 @@ unsafe fn init_graphics_and_resources(
         // FUN_570F30: usercall(ESI=wrapper)
         call_usercall_esi(wrapper, FUN_570F30_ADDR);
         if !(*ddgame).sound.is_null() {
-            // DSSound_LoadEffectWAVs: stdcall(wrapper)
-            let f: unsafe extern "stdcall" fn(*mut DDGameWrapper) =
-                core::mem::transmute(rb(va::DSSOUND_LOAD_EFFECT_WAVS) as usize);
-            f(wrapper);
+            wa_load_effect_wavs(wrapper);
             // DSSound_LoadAllSpeechBanks: the original is hooked to our Rust
             // replacement (speech.rs), so the usercall bridge calls our code.
             call_usercall_esi(wrapper, LOAD_SPEECH_BANKS_ADDR);
@@ -904,30 +989,16 @@ unsafe fn init_graphics_and_resources(
         let alloc = wa_malloc(0xB44);
         core::ptr::write_bytes(alloc, 0, 0xB44);
         if !alloc.is_null() {
-            let pc_ctor: unsafe extern "stdcall" fn(
-                *mut u8,
-                *mut DDGame,
-                *mut u8, // 1=this, 2=ddgame, 3=gfx_resource
-                *mut DDDisplay,
-                *const u8, // 4=display, 5=game_info+0xDAAC
-                *mut u8,
-                u32, // 6=&landscape_byte, 7=gfx_mode
-                *mut u8,
-                *mut u8, // 8=stack local, 9=coord output
-                *mut u8,
-                *mut u8, // 10=&ddgame.level_width_raw, 11=&ddgame.level_height_raw
-            ) -> *mut u8 = core::mem::transmute(rb(va::PC_LANDSCAPE_CONSTRUCTOR) as usize);
-
-            let result = pc_ctor(
+            let result = wa_pc_landscape_ctor(
                 alloc,
                 ddgame,
                 gfx_resource,
-                (*wrapper).display, // param 4: display (NOT wrapper!)
-                (*game_info).landscape_data_path.as_ptr(), // param 5
-                landscape_byte_buf, // param 6
-                (*wrapper).gfx_mode, // param 7
-                stack_local_8,      // param 8
-                landscape_coords_buf, // param 9
+                (*wrapper).display,
+                (*game_info).landscape_data_path.as_ptr(),
+                landscape_byte_buf,
+                (*wrapper).gfx_mode,
+                stack_local_8,
+                landscape_coords_buf,
                 &mut (*ddgame).level_width_raw as *mut u32 as *mut u8,
                 &mut (*ddgame).level_height_raw as *mut u32 as *mut u8,
             );
@@ -1022,10 +1093,7 @@ unsafe fn init_graphics_and_resources(
                 let entry_val = *(entry.add(4) as *const u32);
                 let cached = load_cached(gfx_handler, entry_val);
                 if !cached.is_null() {
-                    // Wrap with DisplayGfx constructor
-                    let ctor: unsafe extern "stdcall" fn(*mut u8) -> *mut u8 =
-                        core::mem::transmute(rb(va::DISPLAYGFX_CONSTRUCTOR) as usize);
-                    sprite = ctor(cached);
+                    sprite = wa_displaygfx_ctor(cached);
                 } else {
                     // Fallback: load from file via GfxDir__LoadImage + IMG_Decode
                     sprite = call_gfx_load_and_wrap(gfx_handler, name_buf.as_ptr(), layer_ctx);
@@ -1276,15 +1344,7 @@ unsafe fn init_graphics_and_resources(
         }
 
         // ── DDGame__LoadHudAndWeaponSprites (0x53D0E0) ──
-        // Loads weapon icons (cow.img, pigeon.img, etc.), wind indicators, stop sign,
-        // girder sprites, and creates the DDGame+0x37C DisplayGfx object needed by
-        // CTaskLand__InitLandscape.
-        // Convention: thiscall(ECX=gfx_handler_4c0) + 2 stack(ddgame, wrapper_4c4), RET 0x8.
-        {
-            let hud_load: unsafe extern "thiscall" fn(*mut u8, *mut DDGame, *mut u8) =
-                core::mem::transmute(rb(va::DDGAME_LOAD_HUD_AND_WEAPON_SPRITES) as usize);
-            hud_load(gfx_handler, ddgame, (*wrapper)._field_4c4);
-        }
+        wa_load_hud_sprites(gfx_handler, ddgame, (*wrapper)._field_4c4);
 
         // ── Loading progress ticks (2 of 4 — after LoadHudAndWeaponSprites) ──
         call_usercall_ecx(wrapper, LOADING_PROGRESS_TICK_ADDR);
@@ -1311,11 +1371,8 @@ unsafe fn init_graphics_and_resources(
         release(gfx_handler_4c0, 1);
     }
 
-    // ── DDGame__InitDisplayFinal_Maybe (0x56A830): non-headless display finalization ──
     if !is_headless {
-        let f: unsafe extern "stdcall" fn(*mut DDDisplay) =
-            core::mem::transmute(rb(va::DDGAME_INIT_DISPLAY_FINAL) as usize);
-        f((*wrapper).display);
+        wa_init_display_final((*wrapper).display);
     }
 
     // ── FUN_00570A90 (second call, conditional) ──
