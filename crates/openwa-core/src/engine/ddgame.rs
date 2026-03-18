@@ -53,10 +53,10 @@ pub struct DDGame {
     pub palette: *mut Palette,
     /// 0x014: Music object pointer (vtable 0x66B3E0). Constructor param "music".
     pub music: *mut Music,
-    /// 0x018: Constructor param7 (unknown purpose, contains 0x1F4 at runtime).
-    pub _param_018: *mut u8,
-    /// 0x01C: Caller/parent pointer (ECX from constructor, often NULL).
-    pub _caller: *mut u8,
+    /// 0x018: Timer object pointer (0x30 bytes, from GameSession+0xBC).
+    pub timer_obj: *mut u8,
+    /// 0x01C: Network/caller ECX value from constructor (often NULL for offline).
+    pub network_ecx: u32,
     /// 0x020: PCLandscape pointer (copied from DDGameWrapper[0x133])
     pub landscape: *mut PCLandscape,
     /// 0x024: GameInfo pointer (passed as param_10 to constructor).
@@ -591,8 +591,8 @@ pub unsafe fn create_ddgame(
     (*ddgame).keyboard = keyboard;
     (*ddgame).palette = palette;
     (*ddgame).music = music;
-    (*ddgame)._param_018 = param7;
-    (*ddgame)._caller = network_ecx as *mut u8;
+    (*ddgame).timer_obj = param7;
+    (*ddgame).network_ecx = network_ecx;
     (*ddgame).game_info = game_info;
     (*ddgame)._param_028 = net_game;
 
