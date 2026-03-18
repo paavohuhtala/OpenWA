@@ -1326,10 +1326,6 @@ unsafe fn init_graphics_and_resources(
 
     let _ = crate::log::log_line("[DDGame] past ActiveSoundTable");
 
-    // ── Loading progress ticks (original calls DDGameWrapper__LoadingProgressTick twice here) ──
-    call_usercall_ecx(wrapper, LOADING_PROGRESS_TICK_ADDR);
-    call_usercall_ecx(wrapper, LOADING_PROGRESS_TICK_ADDR);
-
     // ── GfxResource: thiscall(ECX=gfx_handler) + EAX=name + 1 stack(output), RET 0x4 ──
     // Test: call GfxResource with real params
     let gfx_resource: *mut u8;
@@ -1660,6 +1656,10 @@ unsafe fn init_graphics_and_resources(
         ));
     }
 
+    // ── Loading progress ticks (2 of 4 — before load_resource_list) ──
+    call_usercall_ecx(wrapper, LOADING_PROGRESS_TICK_ADDR);
+    call_usercall_ecx(wrapper, LOADING_PROGRESS_TICK_ADDR);
+
     // ── Sprite resource loading via DDGameWrapper vtable[0] ──
     // DDNetGameWrapper__LoadResourceList: thiscall(ECX=wrapper) +
     // 5 stack params (layer, gfx_handler, base_path, data_table, table_size)
@@ -1821,6 +1821,10 @@ unsafe fn init_graphics_and_resources(
                 (*ddgame).sprite_cache[144] as u32,
             ));
         }
+
+        // ── Loading progress ticks (2 of 4 — after LoadHudAndWeaponSprites) ──
+        call_usercall_ecx(wrapper, LOADING_PROGRESS_TICK_ADDR);
+        call_usercall_ecx(wrapper, LOADING_PROGRESS_TICK_ADDR);
     }
     // ── Gradient image stub (DDGame+0x30) ──
     // The original constructor loads "gradient.img" here and stores the result at DDGame+0x30.
