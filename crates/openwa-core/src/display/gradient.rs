@@ -52,48 +52,6 @@ impl PaletteContext {
         }
         None
     }
-
-    /// Find the closest palette match for an RGB color (components in 8.8 fixed-point).
-    /// Returns (palette_index, error_percentage).
-    fn find_closest(&self, r: i32, g: i32, b: i32) -> (u8, i32) {
-        let mut best_idx = 0u8;
-        let mut best_dist = i32::MAX;
-        for i in 0..self.used_count {
-            let idx = self.used_list[i] as usize;
-            if idx == 0 {
-                continue;
-            }
-            let c = self.colors[idx];
-            let cr = ((c & 0xFF) as i32) * 0x100;
-            let cg = (((c >> 8) & 0xFF) as i32) * 0x100;
-            let cb = (((c >> 16) & 0xFF) as i32) * 0x100;
-            // Weighted perceptual distance: R*3 + G*5 + B*2
-            let dist = (r - cr).abs() * 3 + (g - cg).abs() * 5 + (b - cb).abs() * 2;
-            if dist == 0 {
-                return (idx as u8, 0);
-            }
-            if dist < best_dist {
-                best_dist = dist;
-                best_idx = idx as u8;
-            }
-        }
-        let error = if best_dist < i32::MAX {
-            (best_dist * 100) / 0x2FD00
-        } else {
-            100
-        };
-        (best_idx, error)
-    }
-
-    /// Read RGB color for a palette index, in 8.8 fixed-point format.
-    /// Returns (r, g, b) each in range 0..0xFF00.
-    fn read_color_fp(&self, idx: u8) -> (i32, i32, i32) {
-        let c = self.colors[idx as usize];
-        let r = ((c & 0xFF) as i32) << 8;
-        let g = (((c >> 8) & 0xFF) as i32) << 8;
-        let b = (((c >> 16) & 0xFF) as i32) << 8;
-        (r, g, b)
-    }
 }
 
 /// Compute the complex sky gradient for non-standard level heights.
