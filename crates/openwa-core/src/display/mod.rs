@@ -1,6 +1,7 @@
 pub mod base;
 pub mod dd_display;
 pub mod gfx;
+pub mod gradient;
 pub mod opengl;
 pub mod palette;
 
