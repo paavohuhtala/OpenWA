@@ -1600,13 +1600,13 @@ unsafe fn init_graphics_and_resources(
     // Original: alloc 0x4C, memset 0x2C, PUSH 0x100, MOV ECX=8, MOV EDI=0x1E0,
     // CALL 0x4F6370, MOV [alloc]=0x664144
     {
-        let tsm = wa_malloc(0x4C); // original allocs 0x4C, not 0x2C!
+        let tsm = wa_malloc(0x4C);
         core::ptr::write_bytes(tsm, 0, 0x2C);
         if !tsm.is_null() {
-            // TaskStateMachine__Init_Maybe: fastcall(ECX=8) + 1 stack(0x100), RET 0x4?
-            // Also EDI=0x1E0 (implicit). Need naked bridge for EDI.
-            // For now, just set vtable directly.
-            *(tsm as *mut u32) = rb(0x664144); // DisplayGfx__vtable
+            // Original: TaskStateMachine__Init(ECX=8, EDI=0x1E0, stack=0x100)
+            // → task_state_machine_init(object, param1=8, width=0x100, height=0x1E0)
+            task_state_machine_init(tsm, 8, 0x100, 0x1E0);
+            *(tsm as *mut u32) = rb(0x664144); // Override vtable to DisplayGfx
         }
         (*ddgame).display_gfx = tsm;
     }
