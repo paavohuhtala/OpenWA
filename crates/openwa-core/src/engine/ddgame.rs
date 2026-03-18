@@ -1388,19 +1388,9 @@ unsafe fn init_graphics_and_resources(
         *((ddgame as *mut u8).add(0x468) as *mut u32) = get_val(landscape);
     }
 
-    // Release gfx_resource if non-null
-    // vtable[3] = DisplayGfx__vmethod_3: thiscall(this, byte param_2), RET 4.
-    if !gfx_resource.is_null() {
-        let rvt = *(gfx_resource as *const *const u32);
-        let release: unsafe extern "thiscall" fn(*mut u8, u8) =
-            core::mem::transmute(*rvt.add(3));
-        release(gfx_resource, 1);
-    }
+    // NOTE: gfx_resource is NOT released here — arrow SpriteRegions need it.
+    // It's released after the arrow loop below.
 
-    // GfxDir addresses are resolved via statics (GFX_FIND_ENTRY_ADDR, GFX_LOAD_IMAGE_ADDR)
-    // and called through naked bridges (call_gfx_find_entry, call_gfx_load_image).
-
-    // return moved further up
     // ── Arrow sprites + collision regions (32 iterations) ──
     {
         let gfx_handler = (*wrapper)._field_4c0;
@@ -1446,12 +1436,12 @@ unsafe fn init_graphics_and_resources(
                         core::mem::transmute(rb(0x4F5E80) as usize);
                     sprite = ctor(cached);
                 } else {
-                    // Fallback: load from file. Skip for now — may hang.
-                    sprite = core::ptr::null_mut();
+                    // Fallback: load from file via GfxDir__LoadImage + IMG_Decode
+                    sprite = call_gfx_load_and_wrap(gfx_handler, name_buf.as_ptr(), layer_ctx);
                 }
             } else {
-                // Entry not found — skip loading
-                sprite = core::ptr::null_mut();
+                // Entry not found — try direct file load
+                sprite = call_gfx_load_and_wrap(gfx_handler, name_buf.as_ptr(), layer_ctx);
             }
             if i == 0 {
                 let _ = crate::log::log_line(&format!(
@@ -1472,7 +1462,19 @@ unsafe fn init_graphics_and_resources(
                 let alloc = wa_malloc(0x9C);
                 core::ptr::write_bytes(alloc, 0, 0x9C);
                 let region = if !alloc.is_null() {
-                    call_sprite_region_ctor(alloc, 0, 0, 0, half_w as u32, 0, half_h as u32, 0)
+                    // SpriteRegion params: ECX, EDX, this, p2, p3, p4, p5, p6
+                    // this[3] = p4 - p2 (width), this[4] = EDX - p3 (height)
+                    // For arrows: region from (0,0) to (half_w, half_h)
+                    call_sprite_region_ctor(
+                        alloc,
+                        0,                  // ECX (x_max for this[5])
+                        half_h as u32,      // EDX (y_max → this[4] = EDX - p3)
+                        0,                  // p2 (x_offset)
+                        0,                  // p3 (y_offset)
+                        half_w as u32,      // p4 (x_limit → this[3] = p4 - p2)
+                        half_h as u32,      // p5 (y_limit for this[6])
+                        gfx_resource as u32, // p6 (gfx_resource)
+                    )
                 } else {
                     core::ptr::null_mut()
                 };
@@ -1490,6 +1492,16 @@ unsafe fn init_graphics_and_resources(
     }
 
     let _ = crate::log::log_line("[DDGame] arrow loop done");
+
+    // Release gfx_resource AFTER arrow loop (arrows need it for SpriteRegions)
+    // vtable[3] = DisplayGfx__vmethod_3: thiscall(this, byte param_2), RET 4.
+    if !gfx_resource.is_null() {
+        let rvt = *(gfx_resource as *const *const u32);
+        let release: unsafe extern "thiscall" fn(*mut u8, u8) =
+            core::mem::transmute(*rvt.add(3));
+        release(gfx_resource, 1);
+    }
+
     // ── DisplayGfx at DDGame+0x138 ──
     // Original: alloc 0x4C, memset 0x2C, PUSH 0x100, MOV ECX=8, MOV EDI=0x1E0,
     // CALL 0x4F6370, MOV [alloc]=0x664144
