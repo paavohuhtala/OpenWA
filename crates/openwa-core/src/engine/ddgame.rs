@@ -992,10 +992,8 @@ pub unsafe fn create_ddgame(
 
     // Verify game_info is set
     let _ = crate::log::log_line(&format!(
-        "[DDGame] exposed: ddgame=0x{:08X}, game_info=0x{:08X}, ddgame+0x24=0x{:08X}",
-        ddgame as u32,
-        game_info as u32,
-        (*ddgame).game_info as u32,
+        "[DDGame] exposed: ddgame=0x{:08X}, game_info=0x{:08X}, net_game=0x{:08X}",
+        ddgame as u32, game_info as u32, net_game as u32,
     ));
 
     // ── 5. Set g_GameInfo global ──
@@ -1237,12 +1235,13 @@ unsafe fn init_graphics_and_resources(
 
     // ── DDGameWrapper field inits ──
     (*wrapper)._field_4d8 = 0;
-    // Original checks `display == NULL`, but our headless display is non-null.
-    // Use net_game null check as equivalent (net_game is null in headless/offline modes).
-    if net_game.is_null() {
+    // Original: if (display == NULL) iVar4=0 else iVar4=*(byte*)(game_info+0x44C)*0x38+0x7E
+    // Ghidra mislabeled game_info as param8 — the original reads game_info, not net_game.
+    // Our headless display is non-null, so use is_headless as the condition.
+    if is_headless {
         (*wrapper)._field_4dc = 0x2AD;
     } else {
-        let byte_val = *net_game.add(0x44C) as u32;
+        let byte_val = *(game_info as *const u8).add(0x44C) as u32;
         (*wrapper)._field_4dc = byte_val * 0x38 + 0x7E + 0x2AD;
     }
     (*wrapper)._field_4e0 = 0xFFFFFF9C; // -100

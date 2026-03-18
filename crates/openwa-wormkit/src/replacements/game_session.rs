@@ -107,9 +107,18 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
     let timer_obj = (*session).timer_obj;
     let net_game  = (*session).net_game;
 
+    // Debug: dump session fields around net_game (0xBC-0xC8)
+    let session_base = session as *const u8;
     let _ = log_line(&format!(
-        "[GameSession] Before create_ddgame: wrapper+0x4D0=0x{:08X}, display=0x{:08X}",
-        *(this as *const u8).add(0x4D0).cast::<u32>(), display as u32,
+        "[GameSession] session=0x{:08X} +0xBC=0x{:08X} +0xC0=0x{:08X} +0xC4=0x{:08X}",
+        session as u32,
+        *(session_base.add(0xBC) as *const u32),
+        *(session_base.add(0xC0) as *const u32),
+        *(session_base.add(0xC4) as *const u32),
+    ));
+    let _ = log_line(&format!(
+        "[GameSession] display=0x{:08X}, net_game=0x{:08X}, timer=0x{:08X}, game_info(EDI)=0x{:08X}",
+        display as u32, net_game as u32, timer_obj as u32, game_info as u32,
     ));
 
     // Toggle: use Rust constructor (true) or original (false)
