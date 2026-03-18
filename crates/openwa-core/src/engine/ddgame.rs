@@ -836,18 +836,19 @@ unsafe fn init_graphics_and_resources(
         DDDisplay::load_sprite(disp, 1, 1, 0, gfx_dir, rb(va::STR_CDROM_SPR) as *const u8);
         DDDisplay::set_layer_visibility(disp, 1, -100);
 
-        // Palette slot range init
-        let palette_range_ptr = *(disp.add(0x3120) as *const *mut i16);
-        if !palette_range_ptr.is_null() && *(disp.add(0x3534) as *const i32) == 0 {
+        // Palette slot range init (raw byte offsets into DisplayBase)
+        let disp_raw = disp as *mut u8;
+        let palette_range_ptr = *(disp_raw.add(0x3120) as *const *mut i16);
+        if !palette_range_ptr.is_null() && *(disp_raw.add(0x3534) as *const i32) == 0 {
             let start = *palette_range_ptr as u32;
             let end = (*palette_range_ptr.add(1) as u32) + 1;
             if start < end {
                 for i in start..end {
-                    *(disp.add(0x312C + i as usize * 4) as *mut u32) = 1;
+                    *(disp_raw.add(0x312C + i as usize * 4) as *mut u32) = 1;
                 }
             }
-            crate::wa_alloc::wa_free(*(disp.add(0x3120) as *const *mut u8));
-            *(disp.add(0x3120) as *mut u32) = 0;
+            crate::wa_alloc::wa_free(*(disp_raw.add(0x3120) as *const *mut u8));
+            *(disp_raw.add(0x3120) as *mut u32) = 0;
         }
     }
 
