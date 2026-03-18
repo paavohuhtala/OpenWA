@@ -446,7 +446,6 @@ pub unsafe fn ddgame_init_fields(ddgame: *mut DDGame) {
 /// # Safety
 /// `base` must point to a valid memory region with at least 0x4A4 bytes.
 pub unsafe fn ddgame_init_render_indices(base: *mut u8) {
-    // Zero base+0xC4
     *(base.add(0xC4) as *mut u32) = 0;
 
     // eh_vector_constructor_iterator equivalent:
@@ -510,7 +509,6 @@ pub unsafe fn task_state_machine_init(object: *mut u8, param1: u32, width: u32, 
     core::ptr::write_bytes(buffer, 0, total_size as usize);
     core::ptr::write_bytes(buffer, 0, total_size as usize);
 
-    // Set object fields (DWORD array layout)
     let obj = object as *mut u32;
     *obj.add(0) = rb(0x6640EC); // vtable
     *obj.add(1) = 0; // unused
@@ -556,7 +554,7 @@ pub unsafe fn display_layer_color_init(wrapper: *mut DDGameWrapper) {
 
     let display = (*wrapper).display as *mut u8;
     let vt = *(display as *const *const u32);
-    // vtable[4] (offset 0x10): thiscall(display, layer, color), RET 0x8
+    // vtable[4]: set layer color
     let set_color: unsafe extern "thiscall" fn(*mut u8, i32, i32) =
         core::mem::transmute(*vt.add(4));
 
@@ -821,7 +819,6 @@ pub unsafe fn gfx_handler_load_dir(handler: *mut u8) -> i32 {
         }
     }
 
-    // Mark as loaded
     *(handler.add(0x194) as *mut u32) = 1;
 
     1 // success
@@ -958,10 +955,7 @@ pub unsafe fn create_ddgame(
 
     // ── 6. Sound available + always-1 flags ──
     let is_headless = (*game_info).headless_mode != 0;
-    // Original: sound_available = (headless_mode == 0) — set EARLY.
-    // This enables the loading progress bar, message pump, and sound during
-    // construction. Previously deferred to avoid message pump crashes, but all
-    // critical DDGame fields (game_info, display, sound, etc.) are now set.
+    // sound_available enables loading progress bar, message pump, and sound during construction.
     (*ddgame).sound_available = if is_headless { 0 } else { 1 };
     (*ddgame)._field_7efc = 1;
 
@@ -993,8 +987,7 @@ pub unsafe fn create_ddgame(
 
 /// Second half of the constructor: GfxHandler, landscape, sprites, audio, resources.
 ///
-/// Separated for readability. Will be broken into smaller functions as
-/// individual sections are converted to pure Rust.
+/// Second half of the constructor — initializes graphics, audio, landscape, and sprites.
 #[cfg(target_arch = "x86")]
 unsafe fn init_graphics_and_resources(
     wrapper: *mut DDGameWrapper,
@@ -1006,7 +999,7 @@ unsafe fn init_graphics_and_resources(
     let ddgame = (*wrapper).ddgame;
     let fopen: unsafe extern "cdecl" fn(*const u8, *const u8) -> *mut u8 =
         core::mem::transmute(rb(va::WA_FOPEN) as usize);
-    let gfx_handler_vtable = rb(0x66B280) as u32; // GfxHandler__vtable (from asm: MOV [ESI], 0x66B280)
+    let gfx_handler_vtable = rb(0x66B280) as u32; // GfxHandler vtable
 
     // ── GfxHandler #1 (primary) ──
     let gfx1 = wa_malloc(0x19C);
@@ -1068,7 +1061,6 @@ unsafe fn init_graphics_and_resources(
 
     // ── GfxHandler #2 (conditional) ──
     let game_version = (*game_info).game_version;
-    // Original: (-(gfx_mode != 0) & 0x23) - 2 → gfx_mode ? 33 : -2
     let threshold = if (*wrapper).gfx_mode != 0 { 33 } else { -2i32 };
     if game_version < threshold {
         let c_digit = if game_version > -3 { b'2' } else { b'1' };
@@ -1096,21 +1088,19 @@ unsafe fn init_graphics_and_resources(
         if *(rb(0x88E485) as *const u8) == 0 {
             call_usercall_eax(wrapper, FUN_570A90_ADDR);
         }
-        // DDGameWrapper+0x4D0 points to the display object used for palette calls.
-        // BUT: FUN_00570A90 or something else may write to wrapper in ways we
-        // don't expect. Read via struct field instead of raw offset.
+        // Read display (may be modified by FUN_00570A90).
         let disp = (*wrapper).display as *mut u8;
         let gfx_handler = (*wrapper)._field_4c0;
         let vt = *(disp as *const *const u32);
-        // vtable[4] (offset 0x10): thiscall + 2 stack params (1, 0xFE), RET 0x8
+        // vtable[4]: set palette range
         let vt_10: unsafe extern "thiscall" fn(*mut u8, i32, i32) =
             core::mem::transmute(*vt.add(4));
         vt_10(disp, 1, 0xFE);
-        // vtable[0x1F] (offset 0x7C): thiscall + 5 stack params, RET 0x14
+        // vtable[0x1F]: init palette layer
         let vt_7c: unsafe extern "thiscall" fn(*mut u8, i32, i32, i32, *mut u8, u32) =
             core::mem::transmute(*vt.add(0x1F));
         vt_7c(disp, 1, 1, 0, gfx_handler, rb(0x66A3A8));
-        // vtable[0x17] (offset 0x5C): thiscall + 2 stack params, RET 0x8
+        // vtable[0x17]: set layer visibility
         let vt_5c: unsafe extern "thiscall" fn(*mut u8, i32, i32) =
             core::mem::transmute(*vt.add(0x17));
         vt_5c(disp, 1, -100);
@@ -1146,7 +1136,6 @@ unsafe fn init_graphics_and_resources(
 
     // ── GfxDir color entries DDGame+0x730C..0x732C ──
     if (*wrapper).gfx_mode != 0 {
-        // Original: PUSH ESI (=layer_ctx from vtable[5] call), MOV EAX=0x66A3B4, CALL 0x4F6300
         // The layer_ctx is used as the output buffer, not a plain stack alloc.
         let res = gfx_resource_create((*wrapper)._field_4c0, rb(0x66A3B4) as *const u8, layer_ctx);
         if !res.is_null() {
@@ -1168,8 +1157,6 @@ unsafe fn init_graphics_and_resources(
                 core::mem::transmute(*rvt.add(3));
             release(res, 1);
         }
-    } else {
-        // gfx_mode == 0: no color entries to load
     }
 
     // ── Secondary GfxDir object (DDGame+0x2C, conditional) ──
@@ -1196,9 +1183,7 @@ unsafe fn init_graphics_and_resources(
 
     // ── DDGameWrapper field inits ──
     (*wrapper)._field_4d8 = 0;
-    // Original: if (display == NULL) iVar4=0 else iVar4=*(byte*)(game_info+0x44C)*0x38+0x7E
-    // Ghidra mislabeled game_info as param8 — the original reads game_info, not net_game.
-    // Our headless display is non-null, so use is_headless as the condition.
+    // Loading progress total: game_info+0x44C controls team count scaling.
     if is_headless {
         (*wrapper)._field_4dc = 0x2AD;
     } else {
@@ -1278,7 +1263,6 @@ unsafe fn init_graphics_and_resources(
                 (ddgame as *mut u8).add(0x777C), // param 10
                 (ddgame as *mut u8).add(0x7780), // param 11
             );
-            // Store landscape pointer
             (*wrapper).landscape = result as *mut PCLandscape;
             (*ddgame).landscape = result as *mut PCLandscape;
             result
@@ -1306,7 +1290,6 @@ unsafe fn init_graphics_and_resources(
     // ── 8× SpriteRegion at DDGame+0x46C..0x488 ──
     // SpriteRegion__Constructor: fastcall(ECX, EDX) + 6 stack(this, p2, p3, p4, p5, p6), RET 0x18
     {
-        // Params verified by hooking original (see SpriteRegion param logger).
         // (ddgame_offset, ECX, EDX, p2, p3, p4, p5, p6=gfx_resource)
         // p6 is the GfxResource pointer returned by GfxResource__Create_Maybe.
         let gr = gfx_resource as u32;
@@ -1436,14 +1419,10 @@ unsafe fn init_graphics_and_resources(
     }
 
     // ── DisplayGfx at DDGame+0x138 ──
-    // Original: alloc 0x4C, memset 0x2C, PUSH 0x100, MOV ECX=8, MOV EDI=0x1E0,
-    // CALL 0x4F6370, MOV [alloc]=0x664144
     {
         let tsm = wa_malloc(0x4C);
         core::ptr::write_bytes(tsm, 0, 0x2C);
         if !tsm.is_null() {
-            // Original: TaskStateMachine__Init(ECX=8, EDI=0x1E0, stack=0x100)
-            // → task_state_machine_init(object, param1=8, width=0x100, height=0x1E0)
             task_state_machine_init(tsm, 8, 0x100, 0x1E0);
             *(tsm as *mut u32) = rb(0x664144); // Override vtable to DisplayGfx
         }
@@ -1588,7 +1567,6 @@ unsafe fn init_graphics_and_resources(
             b"layer\\layer.spr|layer.spr\0".as_ptr(),
         );
 
-        // gradient_image_2 = 0
         (*ddgame).gradient_image_2 = core::ptr::null_mut();
 
         // ── Gradient image (0x030) ──
@@ -1605,10 +1583,8 @@ unsafe fn init_graphics_and_resources(
                 call_gfx_find_and_load(land_layer, b"gradient.img\0".as_ptr(), layer3_ctx);
             (*ddgame).gradient_image = gradient;
         } else {
-            // Complex gradient computation — ~200 lines of color interpolation.
-            // For now, skip this path (gradient_image remains null/0).
-            // This affects the sky background appearance but not gameplay.
-            // Set gradient_image to null (already zero from memset)
+            // TODO: port complex gradient computation (~200 lines of color interpolation).
+            // Affects sky background appearance. Not yet implemented.
         }
 
         // ── Fill image → fill_pixel (0x7338) ──
@@ -1647,10 +1623,7 @@ unsafe fn init_graphics_and_resources(
         call_usercall_ecx(wrapper, LOADING_PROGRESS_TICK_ADDR);
     }
     // ── Gradient image stub (DDGame+0x30) ──
-    // The original constructor loads "gradient.img" here and stores the result at DDGame+0x30.
-    // CTaskLand__InitLandscape reads DDGame+0x30/+0x34 and calls vtable[4](0, i) for each
-    // pixel column. vtable[4] = CTaskOilDrum__ProcessFrame_stub (XOR EAX,EAX; RET 0x8) returns 0.
-    // A minimal stub with [6]=0 (zero-width) causes the loop to not execute at all.
+    // Minimal stub: [6]=0 (zero-width) so CTaskLand skips the gradient column loop.
     if (*ddgame).gradient_image.is_null() {
         let obj = wa_malloc(0x2C);
         core::ptr::write_bytes(obj, 0, 0x2C);
