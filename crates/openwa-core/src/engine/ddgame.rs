@@ -1347,19 +1347,18 @@ unsafe fn init_graphics_and_resources(
     }
 
     // ── PCLandscape (alloc 0xB44, stdcall 11 params) ──
+    // Allocate output buffers for landscape coordinate data (used later for coord_list)
+    let landscape_coords_buf = wa_malloc(0x1000); // 4KB for coord output (aiStack_978)
+    core::ptr::write_bytes(landscape_coords_buf, 0, 0x1000);
+    let landscape_byte_buf = wa_malloc(0x100); // generous for byte output (iStack_11f9)
+    core::ptr::write_bytes(landscape_byte_buf, 0, 0x100);
+    let stack_local_8 = wa_malloc(0x1000); // stack local for coord count + temp data
+    core::ptr::write_bytes(stack_local_8, 0, 0x1000);
+
     let landscape = {
         let alloc = wa_malloc(0xB44);
         core::ptr::write_bytes(alloc, 0, 0xB44);
         if !alloc.is_null() {
-            // Output locals for landscape data (used later for coord_list)
-            // Param 9 output: in original this is aiStack_978 (571 ints = 2284 bytes).
-            // Param 6 output: iStack_11f9 (single byte, but adjacent to other locals).
-            // Heap-allocate both to avoid stack overflow.
-            let landscape_coords_buf = wa_malloc(0x1000); // 4KB for coord output
-            core::ptr::write_bytes(landscape_coords_buf, 0, 0x1000);
-            let landscape_byte_buf = wa_malloc(0x100); // generous for byte output
-            core::ptr::write_bytes(landscape_byte_buf, 0, 0x100);
-
             let pc_ctor: unsafe extern "stdcall" fn(
                 *mut u8,
                 *mut DDGame,
@@ -1374,10 +1373,6 @@ unsafe fn init_graphics_and_resources(
                 *mut u8, // 10=&ddgame+0x777C, 11=&ddgame+0x7780
             ) -> *mut u8 = core::mem::transmute(rb(va::PC_LANDSCAPE_CONSTRUCTOR) as usize);
 
-            // Param 8 is a stack local in the original's 4KB frame.
-            // Heap-allocate a generous buffer since we don't know the exact size.
-            let stack_local_8 = wa_malloc(0x1000);
-            core::ptr::write_bytes(stack_local_8, 0, 0x1000);
             let result = pc_ctor(
                 alloc,
                 ddgame,
@@ -1392,8 +1387,35 @@ unsafe fn init_graphics_and_resources(
                 (ddgame as *mut u8).add(0x7780), // param 11
             );
             let _ = crate::log::log_line(&format!(
-                "[DDGame] PCLandscape returned: 0x{:08X}",
-                result as u32
+                "[DDGame] PCLandscape returned: 0x{:08X}, 777C=0x{:08X} 7780=0x{:08X}",
+                result as u32,
+                *((ddgame as *mut u8).add(0x777C) as *const u32),
+                *((ddgame as *mut u8).add(0x7780) as *const u32),
+            ));
+            // Dump landscape_coords_buf to find coordinate count and data format
+            let coords = landscape_coords_buf as *const u32;
+            let mut coord_count = 0u32;
+            // Count non-zero pairs (each coord is 2 u32s)
+            for j in 0..285 {
+                if *coords.add(j * 2) != 0 || *coords.add(j * 2 + 1) != 0 {
+                    coord_count = j as u32 + 1;
+                }
+            }
+            let _ = crate::log::log_line(&format!(
+                "[DDGame] coords: first=[0x{:08X},0x{:08X}] count_est={} byte_buf[0]=0x{:02X}",
+                *coords,
+                *coords.add(1),
+                coord_count,
+                *landscape_byte_buf,
+            ));
+            // Also check stack_local_8 for count
+            let sl8 = stack_local_8 as *const u32;
+            let _ = crate::log::log_line(&format!(
+                "[DDGame] stack8: [0]=0x{:08X} [1]=0x{:08X} [2]=0x{:08X} [3]=0x{:08X}",
+                *sl8,
+                *sl8.add(1),
+                *sl8.add(2),
+                *sl8.add(3),
             ));
             // Store landscape pointer
             (*wrapper).landscape = result as *mut PCLandscape;
@@ -1603,7 +1625,39 @@ unsafe fn init_graphics_and_resources(
         *cl.add(2) = data as u32;
         (*ddgame).coord_list = cl as *mut u8;
 
-        // TODO: populate coord_list from landscape data (complex loop)
+        // Populate coord_list from PCLandscape's coordinate output.
+        // stack_local_8[0] = coordinate count, landscape_coords_buf = pairs of (x, y).
+        // Original packs as: coord = x * 0x10000 + y (Fixed-point).
+        // Each coord_list entry is 8 bytes: [coord_value, 1]. Duplicates are skipped.
+        let coord_count = *(stack_local_8 as *const u32);
+        let coords_src = landscape_coords_buf as *const u32;
+        let data_ptr = data as *mut u32;
+        for j in 0..coord_count as usize {
+            let x = *coords_src.add(j * 2);
+            let y = *coords_src.add(j * 2 + 1);
+            let coord_val = x.wrapping_mul(0x10000).wrapping_add(y);
+            let cur_count = *cl as usize;
+            if cur_count >= 600 {
+                break;
+            }
+            // Check for duplicates
+            let mut dup = false;
+            for k in 0..cur_count {
+                if *data_ptr.add(k * 2) == coord_val {
+                    dup = true;
+                    break;
+                }
+            }
+            if !dup {
+                *data_ptr.add(cur_count * 2) = coord_val;
+                *data_ptr.add(cur_count * 2 + 1) = 1;
+                *cl = (cur_count + 1) as u32;
+            }
+        }
+        let _ = crate::log::log_line(&format!(
+            "[DDGame] coord_list populated: {} entries from {} landscape coords",
+            *cl, coord_count,
+        ));
     }
 
     // ── Sprite resource loading via DDGameWrapper vtable[0] ──
