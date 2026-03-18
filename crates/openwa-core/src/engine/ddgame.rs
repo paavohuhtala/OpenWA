@@ -657,7 +657,7 @@ unsafe fn init_graphics_and_resources(
     let ddgame = (*wrapper).ddgame;
     let fopen: unsafe extern "cdecl" fn(*const u8, *const u8) -> *mut u8 =
         core::mem::transmute(rb(va::WA_FOPEN) as usize);
-    let gfx_handler_vtable = rb(0x66B280) as u32; // GfxHandler vtable
+    let gfx_handler_vtable = rb(va::GFX_HANDLER_VTABLE) as u32;
 
     // ── GfxHandler #1 (primary) ──
     let gfx1 = wa_malloc(0x19C);
@@ -749,7 +749,7 @@ unsafe fn init_graphics_and_resources(
 
     // ── Display palette setup (non-headless) ──
     if !is_headless {
-        if *(rb(0x88E485) as *const u8) == 0 {
+        if *(rb(va::G_DISPLAY_MODE_FLAG) as *const u8) == 0 {
             call_usercall_eax(wrapper, FUN_570A90_ADDR);
         }
         // Read display (may be modified by FUN_00570A90).
@@ -763,7 +763,7 @@ unsafe fn init_graphics_and_resources(
         // vtable[0x1F]: init palette layer
         let vt_7c: unsafe extern "thiscall" fn(*mut u8, i32, i32, i32, *mut u8, u32) =
             core::mem::transmute(*vt.add(0x1F));
-        vt_7c(disp, 1, 1, 0, gfx_handler, rb(0x66A3A8));
+        vt_7c(disp, 1, 1, 0, gfx_handler, rb(va::STR_CDROM_SPR));
         // vtable[0x17]: set layer visibility
         let vt_5c: unsafe extern "thiscall" fn(*mut u8, i32, i32) =
             core::mem::transmute(*vt.add(0x17));
@@ -801,7 +801,11 @@ unsafe fn init_graphics_and_resources(
     // ── GfxDir color entries DDGame+0x730C..0x732C ──
     if (*wrapper).gfx_mode != 0 {
         // The layer_ctx is used as the output buffer, not a plain stack alloc.
-        let res = gfx_resource_create((*wrapper)._field_4c0, rb(0x66A3B4) as *const u8, layer_ctx);
+        let res = gfx_resource_create(
+            (*wrapper)._field_4c0,
+            rb(va::STR_COLOURS_IMG) as *const u8,
+            layer_ctx,
+        );
         if !res.is_null() {
             let rvt = *(res as *const *const u32);
             // vtable[4] = get_pixel: thiscall(this, x, y) -> color, RET 0x8.
@@ -830,7 +834,7 @@ unsafe fn init_graphics_and_resources(
         *(gfxdir2 as *mut u16) = 1;
         *(gfxdir2.add(2) as *mut u16) = 0x5A;
         // FUN_5411A0: usercall(EAX=gfxdir2), plain RET
-        call_usercall_eax(gfxdir2 as *mut DDGameWrapper, rb(0x5411A0));
+        call_usercall_eax(gfxdir2 as *mut DDGameWrapper, rb(va::PALETTE_CONTEXT_INIT));
         *(gfxdir2.add(0x708) as *mut u16) = 0;
         (*ddgame).secondary_gfxdir = gfxdir2;
         // GFX_HANDLER_LOAD_SPRITES: stdcall(wrapper, ddgame+0x7308, game_info+0xF374, 0), RET 0x10
@@ -884,7 +888,8 @@ unsafe fn init_graphics_and_resources(
         let gfx_handler = (*wrapper)._field_4c0;
         let out_buf = wa_malloc(0x900);
         core::ptr::write_bytes(out_buf, 0, 0x900);
-        gfx_resource = gfx_resource_create(gfx_handler, rb(0x66A3C0) as *const u8, out_buf);
+        gfx_resource =
+            gfx_resource_create(gfx_handler, rb(va::STR_MASKS_IMG) as *const u8, out_buf);
     }
 
     // ── PCLandscape (alloc 0xB44, stdcall 11 params) ──
@@ -946,7 +951,7 @@ unsafe fn init_graphics_and_resources(
             let width = (*ddgame).level_width;
             let height = (*ddgame).level_height;
             bit_grid_init(tsm, 1, width, height);
-            *(tsm as *mut u32) = rb(0x664118); // Override vtable to BitGrid
+            *(tsm as *mut u32) = rb(va::BIT_GRID_VARIANT_VTABLE);
         }
         (*ddgame).bit_grid = tsm;
     }
@@ -1020,7 +1025,7 @@ unsafe fn init_graphics_and_resources(
                 if !cached.is_null() {
                     // Wrap with DisplayGfx constructor
                     let ctor: unsafe extern "stdcall" fn(*mut u8) -> *mut u8 =
-                        core::mem::transmute(rb(0x4F5E80) as usize);
+                        core::mem::transmute(rb(va::DISPLAYGFX_CONSTRUCTOR) as usize);
                     sprite = ctor(cached);
                 } else {
                     // Fallback: load from file via GfxDir__LoadImage + IMG_Decode
@@ -1089,7 +1094,7 @@ unsafe fn init_graphics_and_resources(
         core::ptr::write_bytes(tsm, 0, 0x2C);
         if !tsm.is_null() {
             bit_grid_init(tsm, 8, 0x100, 0x1E0);
-            *(tsm as *mut u32) = rb(0x664144); // Override vtable to DisplayGfx
+            *(tsm as *mut u32) = rb(va::DISPLAY_GFX_VTABLE);
         }
         (*ddgame).display_gfx = tsm;
     }
@@ -1167,21 +1172,21 @@ unsafe fn init_graphics_and_resources(
             wrapper,
             1,
             gfx_handler,
-            rb(0x643F2B) as *const u8, // base path
-            rb(0x6AD2C0) as *const u8, // resource table
-            0x1D88,                    // table size
+            rb(va::SPRITE_RESOURCE_BASE_PATH) as *const u8, // base path
+            rb(va::SPRITE_RESOURCE_TABLE_1) as *const u8,
+            0x1D88, // table size
         );
         // Set global flag based on game version
         let gv = (*(*ddgame).game_info).game_version;
-        *(rb(0x6AF050) as *mut u32) = if gv < 8 { 0 } else { 0x10 };
+        *(rb(va::G_SPRITE_VERSION_FLAG) as *mut u32) = if gv < 8 { 0 } else { 0x10 };
 
         // Load resources for layer 1 with different table
         load_resource_list(
             wrapper,
             1,
             gfx_handler,
-            rb(0x643F2B) as *const u8,
-            rb(0x6AF048) as *const u8,
+            rb(va::SPRITE_RESOURCE_BASE_PATH) as *const u8,
+            rb(va::SPRITE_RESOURCE_TABLE_2) as *const u8,
             0x18,
         );
 
@@ -1190,8 +1195,8 @@ unsafe fn init_graphics_and_resources(
             wrapper,
             2,
             water_layer,
-            rb(0x643F2B) as *const u8,
-            rb(0x6AF060) as *const u8,
+            rb(va::SPRITE_RESOURCE_BASE_PATH) as *const u8,
+            rb(va::WATER_RESOURCE_TABLE) as *const u8,
             0x2F4,
         );
 
@@ -1292,7 +1297,7 @@ unsafe fn init_graphics_and_resources(
         let obj = wa_malloc(core::mem::size_of::<BitGrid>() as u32) as *mut BitGrid;
         if !obj.is_null() {
             core::ptr::write_bytes(obj as *mut u8, 0, core::mem::size_of::<BitGrid>());
-            (*obj).vtable = rb(0x6640EC);
+            (*obj).vtable = rb(va::BIT_GRID_VTABLE);
             // height = 0 → CTaskLand skips the gradient column loop
             (*ddgame).gradient_image = obj as *mut u8;
         }
@@ -1315,7 +1320,7 @@ unsafe fn init_graphics_and_resources(
     }
 
     // ── FUN_00570A90 (second call, conditional) ──
-    if *(rb(0x88E485) as *const u8) == 0 {
+    if *(rb(va::G_DISPLAY_MODE_FLAG) as *const u8) == 0 {
         call_usercall_eax(wrapper, FUN_570A90_ADDR);
     }
 

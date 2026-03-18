@@ -353,7 +353,7 @@ pub(crate) unsafe fn call_gfx_find_and_load(
             // Wrap with DisplayGfx__Constructor_Maybe (0x4F5E80)
             // This is stdcall(1 param), RET 0x4
             let ctor: unsafe extern "stdcall" fn(*mut u8) -> *mut u8 =
-                core::mem::transmute(rb(0x4F5E80) as usize);
+                core::mem::transmute(rb(va::DISPLAYGFX_CONSTRUCTOR) as usize);
             return ctor(cached);
         }
     }
@@ -376,7 +376,7 @@ pub(crate) unsafe fn call_gfx_load_and_wrap(
     }
     // FUN_004F5F80(display_ctx, image, 1) — stdcall, RET 0xC (3 params)
     let f: unsafe extern "stdcall" fn(*mut u8, *mut u8, u32) -> *mut u8 =
-        core::mem::transmute(rb(0x4F5F80) as usize);
+        core::mem::transmute(rb(va::IMG_DECODE) as usize);
     let result = f(display_ctx, image, 1);
     // Release the raw image
     let image_vt = *(image as *const *const u32);

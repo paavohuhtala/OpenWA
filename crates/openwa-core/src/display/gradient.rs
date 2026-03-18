@@ -5,6 +5,7 @@
 //! The algorithm is ported from the DDGame constructor decompilation but
 //! may have subtle color differences due to the tangled decompiler output.
 
+use crate::address::va;
 use crate::engine::ddgame::DDGame;
 use crate::rebase::rb;
 use crate::render::gfx_handler::call_gfx_find_and_load;
@@ -248,7 +249,7 @@ pub(crate) unsafe fn compute_complex_gradient(
         return;
     }
     core::ptr::write_bytes(gfx_obj as *mut u8, 0, core::mem::size_of::<BitGrid>());
-    (*gfx_obj).vtable = rb(0x6640EC);
+    (*gfx_obj).vtable = rb(va::BIT_GRID_VTABLE);
     (*gfx_obj).data = data;
     (*gfx_obj).row_stride = stride;
     (*gfx_obj).width = 0;

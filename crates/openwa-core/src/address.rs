@@ -31,10 +31,6 @@ pub mod va {
     pub const CGAMETASK_VTABLE2: u32 = CGAMETASK_SOUND_EMITTER_VT;
     /// DDGameWrapper vtable
     pub const DDGAME_WRAPPER_VTABLE: u32 = 0x0066_A30C;
-    /// GfxHandler vtable (0x19C-byte objects)
-    pub const GFX_HANDLER_VTABLE: u32 = 0x0066_B280;
-    /// DisplayGfx vtable
-    pub const DISPLAY_GFX_VTABLE: u32 = 0x0066_4144;
     /// PCLandscape vtable
     pub const PC_LANDSCAPE_VTABLE: u32 = 0x0066_B208;
     /// LandscapeShader vtable
@@ -351,6 +347,9 @@ pub mod va {
     /// girder sprites, and creates DDGame+0x37C DisplayGfx object.
     /// thiscall(ECX=gfx_handler_4c0) + 2 stack(ddgame, wrapper_4c4), RET 0x8.
     pub const DDGAME_LOAD_HUD_AND_WEAPON_SPRITES: u32 = 0x0053_D0E0;
+    /// PaletteContext__Init (0x5411A0): initialize palette context free-list.
+    /// usercall(EAX=context), plain RET.
+    pub const PALETTE_CONTEXT_INIT: u32 = 0x0054_11A0;
     /// DDGame__InitDisplayFinal_Maybe (0x56A830): display finalization for non-headless.
     pub const DDGAME_INIT_DISPLAY_FINAL: u32 = 0x0056_A830;
     /// PCLandscape__Constructor (0x57ACB0): constructs 0xB44-byte landscape object.
@@ -374,6 +373,44 @@ pub mod va {
     /// Reads IMG\x1A header, decodes image data into output buffer.
     /// Ghidra mislabels this as "BitGrid__Destructor_Maybe".
     pub const IMG_DECODE: u32 = 0x004F_5F80;
+
+    // === Vtables ===
+
+    /// GfxHandler vtable (0x66B280).
+    pub const GFX_HANDLER_VTABLE: u32 = 0x0066_B280;
+    /// BitGrid base vtable (0x6640EC): shared by BitGrid, DisplayGfx base, gradient stubs.
+    pub const BIT_GRID_VTABLE: u32 = 0x0066_40EC;
+    /// BitGrid variant vtable (0x664118): used by TaskStateMachine-class objects.
+    pub const BIT_GRID_VARIANT_VTABLE: u32 = 0x0066_4118;
+    /// DisplayGfx vtable (0x664144): used by sprite/image display objects.
+    pub const DISPLAY_GFX_VTABLE: u32 = 0x0066_4144;
+
+    // === String constants in .rdata ===
+
+    /// "cdrom.spr" string (0x66A3A8).
+    pub const STR_CDROM_SPR: u32 = 0x0066_A3A8;
+    /// "colours.img" string (0x66A3B4).
+    pub const STR_COLOURS_IMG: u32 = 0x0066_A3B4;
+    /// "masks.img" string (0x66A3C0).
+    pub const STR_MASKS_IMG: u32 = 0x0066_A3C0;
+    /// Empty base path for sprite resource loading (0x643F2B): null byte prefix.
+    pub const SPRITE_RESOURCE_BASE_PATH: u32 = 0x0064_3F2B;
+
+    // === Resource tables in .data ===
+
+    /// Main sprite resource table (0x6AD2C0, 0x1D88 bytes).
+    pub const SPRITE_RESOURCE_TABLE_1: u32 = 0x006A_D2C0;
+    /// Secondary sprite resource table (0x6AF048, 0x18 bytes).
+    pub const SPRITE_RESOURCE_TABLE_2: u32 = 0x006A_F048;
+    /// Water sprite resource table (0x6AF060, 0x2F4 bytes).
+    pub const WATER_RESOURCE_TABLE: u32 = 0x006A_F060;
+    /// Version-dependent sprite flag global (0x6AF050).
+    pub const G_SPRITE_VERSION_FLAG: u32 = 0x006A_F050;
+
+    // === Globals ===
+
+    /// DAT_0088E485: display mode flag (0 = normal, checked before palette init).
+    pub const G_DISPLAY_MODE_FLAG: u32 = 0x0088_E485;
 
     // === Higher-level drawing functions ===
 
