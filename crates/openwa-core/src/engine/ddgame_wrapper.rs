@@ -43,12 +43,12 @@ pub struct DDGameWrapper {
     pub display: *mut DDDisplay,
     /// 0x4D4: DSSound pointer (param3 of constructor)
     pub sound: *mut DSSound,
-    /// 0x4D8: Init 0 (DWORD index 0x136)
-    pub _field_4d8: u32,
-    /// 0x4DC: Calculated value (DWORD index 0x137)
-    pub _field_4dc: u32,
-    /// 0x4E0: Init -100 / 0xFFFFFF9C (DWORD index 0x138)
-    pub _field_4e0: u32,
+    /// 0x4D8: Loading progress counter (incremented per loading tick).
+    pub loading_progress: u32,
+    /// 0x4DC: Loading progress total (base 0x2AD + 0x38 per team + 0x7E overhead).
+    pub loading_total: u32,
+    /// 0x4E0: Last displayed loading percentage (init -100 to force first update).
+    pub loading_last_pct: u32,
     /// 0x4E4-0x14E7: Unknown fields
     pub _unknown_4e4: [u8; 0x14E8 - 0x4E4],
     /// 0x14E8: Speech name table — 360 entries of 0x40-byte C strings.

@@ -850,15 +850,14 @@ unsafe fn init_graphics_and_resources(
     }
 
     // ── DDGameWrapper field inits ──
-    (*wrapper)._field_4d8 = 0;
-    // Loading progress total: speech_team_count controls team count scaling.
+    (*wrapper).loading_progress = 0;
     if is_headless {
-        (*wrapper)._field_4dc = 0x2AD;
+        (*wrapper).loading_total = 0x2AD;
     } else {
         let team_count = (*game_info).speech_team_count as u32;
-        (*wrapper)._field_4dc = team_count * 0x38 + 0x7E + 0x2AD;
+        (*wrapper).loading_total = team_count * 0x38 + 0x7E + 0x2AD;
     }
-    (*wrapper)._field_4e0 = 0xFFFFFF9C; // -100
+    (*wrapper).loading_last_pct = 0xFFFFFF9C; // -100: forces first progress bar update
     (*wrapper).speech_name_count = 0;
 
     // ── Audio init (non-headless + sound available) ──
