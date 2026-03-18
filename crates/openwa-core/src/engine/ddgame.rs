@@ -1816,10 +1816,6 @@ unsafe fn init_graphics_and_resources(
             let hud_load: unsafe extern "thiscall" fn(*mut u8, *mut DDGame, *mut u8) =
                 core::mem::transmute(rb(va::DDGAME_LOAD_HUD_AND_WEAPON_SPRITES) as usize);
             hud_load(gfx_handler, ddgame, (*wrapper)._field_4c4);
-            let _ = crate::log::log_line(&format!(
-                "[DDGame] after LoadHudAndWeaponSprites: +0x37C=0x{:08X}",
-                (*ddgame).sprite_cache[144] as u32,
-            ));
         }
 
         // ── Loading progress ticks (2 of 4 — after LoadHudAndWeaponSprites) ──

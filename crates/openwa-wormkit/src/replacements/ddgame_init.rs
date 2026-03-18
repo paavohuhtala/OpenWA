@@ -120,6 +120,7 @@ static FIND_ENTRY_LOG_COUNT: core::sync::atomic::AtomicU32 = core::sync::atomic:
 
 extern "cdecl" fn impl_find_entry(name: u32, gfx_handler: u32) -> u32 {
     let result = unsafe { gfx_dir_find_entry(name as *const u8, gfx_handler as *mut u8) };
+
     // Log first 20 lookups for debugging
     let count = FIND_ENTRY_LOG_COUNT.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
     if count < 20 {
