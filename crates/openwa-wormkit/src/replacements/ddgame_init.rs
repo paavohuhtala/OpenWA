@@ -7,15 +7,15 @@
 //!
 //! - `DDGame__InitFields` (0x526120): usercall(EDI=ddgame), plain RET → EAX=ddgame
 //! - `DDGame__InitRenderIndices` (0x526080): usercall(ESI=base), plain RET → EAX=base
-//! - `TaskStateMachine__Init` (0x4F6370): usercall(ESI,ECX,EDI) + 1 stack, RET 0x4
+//! - `BitGrid__Init` (0x4F6370): usercall(ESI,ECX,EDI) + 1 stack, RET 0x4
 //! - `GfxResource__Create_Maybe` (0x4F6300): usercall(ECX,EAX) + 1 stack, RET 0x4
 //! - `FUN_570E20` (display layer init): usercall(ESI=wrapper), plain RET
 
 use crate::hook;
 use openwa_core::address::va;
 use openwa_core::engine::ddgame::{
-    ddgame_init_fields, ddgame_init_render_indices, display_layer_color_init, gfx_dir_find_entry,
-    gfx_handler_load_dir, gfx_resource_create, task_state_machine_init, DDGame,
+    bit_grid_init, ddgame_init_fields, ddgame_init_render_indices, display_layer_color_init,
+    gfx_dir_find_entry, gfx_handler_load_dir, gfx_resource_create, DDGame,
 };
 use openwa_core::engine::DDGameWrapper;
 
@@ -45,10 +45,10 @@ extern "cdecl" fn impl_init_render_indices(base: u32) -> u32 {
     base // Original: MOV EAX, ESI; RET
 }
 
-// ─── TaskStateMachine__Init (0x4F6370) ──────────────────────────────────────
+// ─── BitGrid__Init (0x4F6370) ──────────────────────────────────────
 
 extern "cdecl" fn impl_tsm_init(object: u32, param1: u32, height: u32, width: u32) -> u32 {
-    unsafe { task_state_machine_init(object as *mut u8, param1, width, height) }
+    unsafe { bit_grid_init(object as *mut u8, param1, width, height) }
     object // Original: MOV EAX, ESI; RET 0x4
 }
 
@@ -171,8 +171,8 @@ pub fn install() -> Result<(), String> {
         )?;
 
         hook::install(
-            "TaskStateMachine__Init",
-            va::TASK_STATE_MACHINE_INIT,
+            "BitGrid__Init",
+            va::BIT_GRID_INIT,
             tsm_init_trampoline as *const (),
         )?;
 

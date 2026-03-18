@@ -20,7 +20,7 @@ pub use crate::render::gfx_handler::{
 use crate::render::landscape::PCLandscape;
 use crate::render::queue::RenderQueue;
 use crate::render::turn_order::TurnOrderWidget;
-use crate::task::state_machine::TaskStateMachine;
+use crate::task::bit_grid::BitGrid;
 use crate::wa_alloc::wa_malloc;
 
 /// DDGame — the main game engine object.
@@ -81,8 +81,8 @@ pub struct DDGame {
     /// Not initialized in DDGame__Constructor — filled during gameplay with
     /// weapon sprites, effect images, cursor graphics, etc.
     pub sprite_cache: [*mut u8; 145],
-    /// 0x380: TaskStateMachine pointer (vtable 0x664118, 0x2C bytes)
-    pub task_state_machine: *mut u8,
+    /// 0x380: BitGrid pointer (vtable 0x664118, 0x2C bytes)
+    pub bit_grid: *mut u8,
     /// 0x384-0x467: Additional sprite/image object slots.
     /// Same vtable 0x664144 as sprite_cache. ~20 entries populated at runtime.
     pub sprite_cache_2: [*mut u8; 57],
@@ -90,7 +90,7 @@ pub struct DDGame {
     pub _landscape_val: *mut u8,
     /// 0x46C-0x488: 8 SpriteRegion pointers (0x9C bytes each, vtable 0x66B268)
     /// Created by SpriteRegion__Constructor (0x57DB20).
-    /// Each contains 32 TaskStateMachine sub-objects.
+    /// Each contains 32 BitGrid sub-objects.
     pub sprite_regions: [*mut u8; 8],
     /// 0x48C-0x508: Arrow collision region pointers (32 entries)
     pub arrow_collision_regions: [*mut u8; 32],
@@ -486,8 +486,8 @@ pub unsafe fn ddgame_init_render_indices(base: *mut u8) {
     *(base.add(0x460) as *mut u16) = 0x10;
 }
 
-// TaskStateMachine__Init moved to crate::task::state_machine
-pub use crate::task::state_machine::task_state_machine_init;
+// BitGrid__Init moved to crate::task::bit_grid
+pub use crate::task::bit_grid::bit_grid_init;
 
 /// Pure Rust implementation of FUN_570E20 (display layer color init).
 ///
@@ -929,18 +929,18 @@ unsafe fn init_graphics_and_resources(
         }
     };
 
-    // ── TaskStateMachine at DDGame+0x380 (alloc 0x4C, memset 0x2C) ──
-    // Pure Rust: allocate object, call task_state_machine_init, override vtable.
+    // ── BitGrid at DDGame+0x380 (alloc 0x4C, memset 0x2C) ──
+    // Pure Rust: allocate object, call bit_grid_init, override vtable.
     {
         let tsm = wa_malloc(0x4C);
         core::ptr::write_bytes(tsm, 0, 0x2C);
         if !tsm.is_null() {
             let width = (*ddgame).level_width;
             let height = (*ddgame).level_height;
-            task_state_machine_init(tsm, 1, width, height);
-            *(tsm as *mut u32) = rb(0x664118); // Override vtable to TaskStateMachine
+            bit_grid_init(tsm, 1, width, height);
+            *(tsm as *mut u32) = rb(0x664118); // Override vtable to BitGrid
         }
-        (*ddgame).task_state_machine = tsm;
+        (*ddgame).bit_grid = tsm;
     }
 
     // ── 8× SpriteRegion at DDGame+0x46C..0x488 ──
@@ -1028,7 +1028,7 @@ unsafe fn init_graphics_and_resources(
 
             // Calculate collision region dimensions from sprite
             if !sprite.is_null() {
-                let tsm = &*(sprite as *const TaskStateMachine);
+                let tsm = &*(sprite as *const BitGrid);
                 let sprite_w = tsm.width as i32;
                 let sprite_h = tsm.height as i32;
                 let half_w = (sprite_w / 2 - 10).max(0);
@@ -1080,7 +1080,7 @@ unsafe fn init_graphics_and_resources(
         let tsm = wa_malloc(0x4C);
         core::ptr::write_bytes(tsm, 0, 0x2C);
         if !tsm.is_null() {
-            task_state_machine_init(tsm, 8, 0x100, 0x1E0);
+            bit_grid_init(tsm, 8, 0x100, 0x1E0);
             *(tsm as *mut u32) = rb(0x664144); // Override vtable to DisplayGfx
         }
         (*ddgame).display_gfx = tsm;
@@ -1281,10 +1281,9 @@ unsafe fn init_graphics_and_resources(
     // ── Gradient image stub (DDGame+0x30) ──
     // Minimal stub: [6]=0 (zero-width) so CTaskLand skips the gradient column loop.
     if (*ddgame).gradient_image.is_null() {
-        let obj =
-            wa_malloc(core::mem::size_of::<TaskStateMachine>() as u32) as *mut TaskStateMachine;
+        let obj = wa_malloc(core::mem::size_of::<BitGrid>() as u32) as *mut BitGrid;
         if !obj.is_null() {
-            core::ptr::write_bytes(obj as *mut u8, 0, core::mem::size_of::<TaskStateMachine>());
+            core::ptr::write_bytes(obj as *mut u8, 0, core::mem::size_of::<BitGrid>());
             (*obj).vtable = rb(0x6640EC);
             // height = 0 → CTaskLand skips the gradient column loop
             (*ddgame).gradient_image = obj as *mut u8;

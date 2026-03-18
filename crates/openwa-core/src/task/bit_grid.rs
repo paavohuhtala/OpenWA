@@ -1,4 +1,4 @@
-//! TaskStateMachine initialization — bitfield grid buffer for spatial queries.
+//! BitGrid initialization — bitfield grid buffer for spatial queries.
 
 use crate::rebase::rb;
 use crate::wa_alloc::wa_malloc;
@@ -7,7 +7,7 @@ use crate::wa_alloc::wa_malloc;
 /// Vtable at 0x6640EC (shared with DisplayGfx base).
 /// Size: 0x2C bytes (11 u32 fields).
 #[repr(C)]
-pub struct TaskStateMachine {
+pub struct BitGrid {
     pub vtable: u32,
     pub _unused_04: u32,
     pub data: *mut u8,
@@ -21,9 +21,9 @@ pub struct TaskStateMachine {
     pub height_dup: u32,
 }
 
-const _: () = assert!(core::mem::size_of::<TaskStateMachine>() == 0x2C);
+const _: () = assert!(core::mem::size_of::<BitGrid>() == 0x2C);
 
-/// Pure Rust implementation of TaskStateMachine__Init (0x4F6370).
+/// Pure Rust implementation of BitGrid__Init (0x4F6370).
 ///
 /// Allocates a bit-per-cell grid buffer. `cells_per_unit` is typically 1.
 /// `width` and `height` are pixel dimensions. The buffer is a row-major
@@ -31,12 +31,7 @@ const _: () = assert!(core::mem::size_of::<TaskStateMachine>() == 0x2C);
 ///
 /// # Safety
 /// `object` must point to a zero-filled allocation of at least 0x2C bytes.
-pub unsafe fn task_state_machine_init(
-    object: *mut u8,
-    cells_per_unit: u32,
-    width: u32,
-    height: u32,
-) {
+pub unsafe fn bit_grid_init(object: *mut u8, cells_per_unit: u32, width: u32, height: u32) {
     let bits = cells_per_unit.wrapping_mul(width).wrapping_add(7) as i32;
     let row_stride = ((bits >> 3) + 3) & !3;
     let total_size = row_stride as u32 * height;
@@ -55,7 +50,7 @@ pub unsafe fn task_state_machine_init(
     core::ptr::write_bytes(buffer, 0, total_size as usize);
     core::ptr::write_bytes(buffer, 0, total_size as usize);
 
-    let tsm = &mut *(object as *mut TaskStateMachine);
+    let tsm = &mut *(object as *mut BitGrid);
     tsm.vtable = rb(0x6640EC);
     tsm._unused_04 = 0;
     tsm.data = buffer;

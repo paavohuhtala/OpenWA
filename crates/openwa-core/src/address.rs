@@ -52,7 +52,7 @@ pub mod va {
     pub const DISPLAY_BASE_HEADLESS_VTABLE: u32 = 0x0066_A0F8;
     /// Input controller vtable (0x1800-byte object, set inline before FUN_0058C0D0)
     pub const INPUT_CTRL_VTABLE: u32 = 0x0066_B3FC;
-    /// TaskStateMachine vtable
+    /// BitGrid vtable
     pub const TASK_STATE_MACHINE_VTABLE: u32 = 0x0066_4118;
     /// OpenGLCPU vtable (0x48-byte object)
     pub const OPENGL_CPU_VTABLE: u32 = 0x0067_74C0;
@@ -341,8 +341,8 @@ pub mod va {
     pub const DDGAME_INIT_VERSION_FLAGS: u32 = 0x0052_5BE0;
     /// GfxResource__Create_Maybe (0x4F6300): returns GfxResource ptr or null.
     pub const GFX_RESOURCE_CREATE: u32 = 0x004F_6300;
-    /// TaskStateMachine__Init_Maybe (0x4F6370): initializes TSM-like object.
-    pub const TASK_STATE_MACHINE_INIT: u32 = 0x004F_6370;
+    /// BitGrid__Init_Maybe (0x4F6370): initializes TSM-like object.
+    pub const BIT_GRID_INIT: u32 = 0x004F_6370;
     /// DDGame__InitSoundPaths_Maybe (0x570F30): called before DSSound_LoadEffectWAVs.
     pub const DDGAME_INIT_SOUND_PATHS: u32 = 0x0057_0F30;
     /// DDGameWrapper__LoadingProgressTick (0x5717A0): loading progress bar + message pump.
@@ -372,7 +372,7 @@ pub mod va {
     pub const DISPLAYGFX_CONSTRUCTOR: u32 = 0x004F_5E80;
     /// IMG_Decode (0x4F5F80): stdcall(output, raw_image, 1) -> DisplayGfx*, RET 0xC.
     /// Reads IMG\x1A header, decodes image data into output buffer.
-    /// Ghidra mislabels this as "TaskStateMachine__Destructor_Maybe".
+    /// Ghidra mislabels this as "BitGrid__Destructor_Maybe".
     pub const IMG_DECODE: u32 = 0x004F_5F80;
 
     // === Higher-level drawing functions ===

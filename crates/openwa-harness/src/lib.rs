@@ -306,7 +306,7 @@ mod tests {
             ("PCLandscape", va::PC_LANDSCAPE_VTABLE),
             ("LandscapeShader", va::LANDSCAPE_SHADER_VTABLE),
             ("DSSound", va::DS_SOUND_VTABLE),
-            ("TaskStateMachine", va::TASK_STATE_MACHINE_VTABLE),
+            ("BitGrid", va::TASK_STATE_MACHINE_VTABLE),
             ("OpenGLCPU", va::OPENGL_CPU_VTABLE),
             ("WaterEffect", va::WATER_EFFECT_VTABLE),
         ];
@@ -331,7 +331,7 @@ mod tests {
             ("PCLandscape", va::PC_LANDSCAPE_VTABLE),
             ("LandscapeShader", va::LANDSCAPE_SHADER_VTABLE),
             ("DSSound", va::DS_SOUND_VTABLE),
-            ("TaskStateMachine", va::TASK_STATE_MACHINE_VTABLE),
+            ("BitGrid", va::TASK_STATE_MACHINE_VTABLE),
             ("OpenGLCPU", va::OPENGL_CPU_VTABLE),
             ("WaterEffect", va::WATER_EFFECT_VTABLE),
         ];

@@ -121,7 +121,7 @@ fn validate_addresses(result: &mut ValidationResult) {
         ("PCLandscape vtable", va::PC_LANDSCAPE_VTABLE),
         ("LandscapeShader vtable", va::LANDSCAPE_SHADER_VTABLE),
         // DSSound vtable excluded: all 24 slots patched to Rust function pointers
-        ("TaskStateMachine vtable", va::TASK_STATE_MACHINE_VTABLE),
+        ("BitGrid vtable", va::TASK_STATE_MACHINE_VTABLE),
         ("OpenGLCPU vtable", va::OPENGL_CPU_VTABLE),
         ("WaterEffect vtable", va::WATER_EFFECT_VTABLE),
     ];
@@ -308,7 +308,7 @@ fn validate_struct_offsets(result: &mut ValidationResult) {
     check_offset!(result, DDGame, arrow_sprites, 0x38);
     check_offset!(result, DDGame, arrow_gfxdirs, 0xB8);
     check_offset!(result, DDGame, display_gfx, 0x138);
-    check_offset!(result, DDGame, task_state_machine, 0x380);
+    check_offset!(result, DDGame, bit_grid, 0x380);
     check_offset!(result, DDGame, sprite_regions, 0x46C);
     check_offset!(result, DDGame, coord_list, 0x50C);
 
@@ -444,12 +444,12 @@ fn deferred_global_validation() {
                 let tsm_vt = read_u32(tsm);
                 let expected = rb(va::TASK_STATE_MACHINE_VTABLE);
                 result.check(
-                    "DDGame.task_state_machine vtable",
+                    "DDGame.bit_grid vtable",
                     tsm_vt == expected,
                     &format!("expected 0x{:08X}, got 0x{:08X}", expected, tsm_vt),
                 );
             } else {
-                result.check("DDGame.task_state_machine", false, "NULL pointer");
+                result.check("DDGame.bit_grid", false, "NULL pointer");
             }
         }
 

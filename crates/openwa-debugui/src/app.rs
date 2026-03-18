@@ -336,7 +336,7 @@ const CGAMETASK_FIELD_LABELS: &[(usize, &str)] = &[
     (0x0C, "children_watermark"),
     (0x10, "children_capacity"),
     (0x14, "class_type"),
-    (0x18, "state_machine"),
+    (0x18, "bit_grid"),
     (0x1C, "shared_data"),
     (0x20, "owns_shared_data"),
     (0x24, "msg_handler"),
