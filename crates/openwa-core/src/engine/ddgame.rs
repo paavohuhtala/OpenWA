@@ -1028,8 +1028,9 @@ unsafe fn init_graphics_and_resources(
 
             // Calculate collision region dimensions from sprite
             if !sprite.is_null() {
-                let sprite_w = *(sprite.add(0x14) as *const i32);
-                let sprite_h = *(sprite.add(0x18) as *const i32);
+                let tsm = &*(sprite as *const TaskStateMachine);
+                let sprite_w = tsm.width as i32;
+                let sprite_h = tsm.height as i32;
                 let half_w = (sprite_w / 2 - 10).max(0);
                 let half_h = (sprite_h / 2 - 10).max(0);
 
