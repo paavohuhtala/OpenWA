@@ -1,4 +1,5 @@
 pub mod ddgame;
+pub mod replay;
 pub mod ddgame_wrapper;
 pub mod game_info;
 pub mod game_session;
