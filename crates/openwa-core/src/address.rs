@@ -350,6 +350,46 @@ pub mod va {
     /// PaletteContext__Init (0x5411A0): initialize palette context free-list.
     /// usercall(EAX=context), plain RET.
     pub const PALETTE_CONTEXT_INIT: u32 = 0x0054_11A0;
+    /// SpriteGfxTable__Init (0x541620): fastcall(ECX=base, EDX=count), plain RET.
+    pub const SPRITE_GFX_TABLE_INIT: u32 = 0x0054_1620;
+    /// RingBuffer__Init (0x541060): usercall(EAX=capacity, ESI=struct), plain RET.
+    pub const RING_BUFFER_INIT: u32 = 0x0054_1060;
+    /// CGameTask__InitTeamScoring (0x528510): fastcall(ECX=wrapper), plain RET.
+    pub const INIT_TEAM_SCORING: u32 = 0x0052_8510;
+    /// CGameTask__InitAllianceData (0x5262D0): usercall(EAX=wrapper), plain RET.
+    pub const INIT_ALLIANCE_DATA: u32 = 0x0052_62D0;
+    /// DDGame__IsSuperWeapon (0x565960): usercall(EAX=weapon_index) + 1 stack param, plain RET.
+    pub const IS_SUPER_WEAPON: u32 = 0x0056_5960;
+    /// DDGame__CheckWeaponAvail (0x53FFC0): fastcall(ECX=ddgame) + unaff_ESI, plain RET.
+    pub const CHECK_WEAPON_AVAIL: u32 = 0x0053_FFC0;
+    /// CGameTask__InitTurnState (0x528690): usercall(EAX=wrapper), plain RET.
+    pub const INIT_TURN_STATE: u32 = 0x0052_8690;
+    /// CGameTask__InitLandscapeFlags (0x528480): usercall(EAX=wrapper), plain RET.
+    pub const INIT_LANDSCAPE_FLAGS: u32 = 0x0052_8480;
+    /// HudPanel__Constructor (0x524070): stdcall(this), RET 0x4.
+    pub const HUD_PANEL_CONSTRUCTOR: u32 = 0x0052_4070;
+    /// DDGame__InitTeamsFromSetup (0x5220B0): stdcall(team_arena, setup_data), RET 0x8.
+    pub const INIT_TEAMS_FROM_SETUP: u32 = 0x0052_20B0;
+    /// TeamManager__Constructor (0x563D40): stdcall(this, wrapper), RET 0x8.
+    pub const TEAM_MANAGER_CONSTRUCTOR: u32 = 0x0056_3D40;
+    /// CTaskTurnGame__Constructor (0x55B280): stdcall(this, setup_data), RET 0x8.
+    pub const TURN_GAME_CONSTRUCTOR: u32 = 0x0055_B280;
+    /// CTaskGameState__Constructor (0x532330): stdcall(this, param), RET 0x8.
+    pub const GAME_STATE_CONSTRUCTOR: u32 = 0x0053_2330;
+    /// DisplayGfx__ConstructFull (0x563FC0): stdcall(5 params), RET 0x14.
+    pub const DISPLAYGFX_CONSTRUCT_FULL: u32 = 0x0056_3FC0;
+    /// DDDisplay__ConstructTextbox (0x4FAF00): stdcall(3 params), RET 0xC.
+    pub const CONSTRUCT_TEXTBOX: u32 = 0x004F_AF00;
+    /// FUN_567770 (0x567770): stdcall(1 param = wrapper), RET 0x4.
+    pub const FUN_567770: u32 = 0x0056_7770;
+    /// FUN_545FD0 (0x545FD0): stdcall(3 params), RET 0xC. Buffer object constructor.
+    pub const BUFFER_OBJECT_CONSTRUCTOR: u32 = 0x0054_5FD0;
+    /// FUN_4FB490 (0x4FB490): stdcall(1 param), RET 0x4. GameStateStream sub-init.
+    pub const GAME_STATE_STREAM_INIT: u32 = 0x004F_B490;
+    /// FUN_540440 (0x540440): stdcall(2 params), RET 0x8. Display object constructor.
+    pub const DISPLAY_OBJECT_CONSTRUCTOR: u32 = 0x0054_0440;
+    /// DDGame__InitFeatureFlags (0x524700): stdcall(wrapper), RET 0x4.
+    pub const DDGAME_INIT_FEATURE_FLAGS: u32 = 0x0052_4700;
     /// DDGame__InitDisplayFinal_Maybe (0x56A830): display finalization for non-headless.
     pub const DDGAME_INIT_DISPLAY_FINAL: u32 = 0x0056_A830;
     /// PCLandscape__Constructor (0x57ACB0): constructs 0xB44-byte landscape object.
