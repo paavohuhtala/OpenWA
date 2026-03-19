@@ -376,6 +376,18 @@ pub mod va {
     pub const TURN_GAME_CONSTRUCTOR: u32 = 0x0055_B280;
     /// CTaskGameState__Constructor (0x532330): stdcall(this, param), RET 0x8.
     pub const GAME_STATE_CONSTRUCTOR: u32 = 0x0053_2330;
+    /// DisplayGfx__ConstructFull (0x563FC0): stdcall(5 params), RET 0x14.
+    pub const DISPLAYGFX_CONSTRUCT_FULL: u32 = 0x0056_3FC0;
+    /// DDDisplay__ConstructTextbox (0x4FAF00): stdcall(3 params), RET 0xC.
+    pub const CONSTRUCT_TEXTBOX: u32 = 0x004F_AF00;
+    /// FUN_567770 (0x567770): stdcall(1 param = wrapper), RET 0x4.
+    pub const FUN_567770: u32 = 0x0056_7770;
+    /// FUN_545FD0 (0x545FD0): stdcall(3 params), RET 0xC. Buffer object constructor.
+    pub const BUFFER_OBJECT_CONSTRUCTOR: u32 = 0x0054_5FD0;
+    /// FUN_4FB490 (0x4FB490): stdcall(1 param), RET 0x4. GameStateStream sub-init.
+    pub const GAME_STATE_STREAM_INIT: u32 = 0x004F_B490;
+    /// FUN_540440 (0x540440): stdcall(2 params), RET 0x8. Display object constructor.
+    pub const DISPLAY_OBJECT_CONSTRUCTOR: u32 = 0x0054_0440;
     /// DDGame__InitFeatureFlags (0x524700): stdcall(wrapper), RET 0x4.
     pub const DDGAME_INIT_FEATURE_FLAGS: u32 = 0x0052_4700;
     /// DDGame__InitDisplayFinal_Maybe (0x56A830): display finalization for non-headless.

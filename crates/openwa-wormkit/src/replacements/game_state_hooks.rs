@@ -16,6 +16,12 @@ static mut INIT_TEAMS_ORIG: *const () = core::ptr::null();
 static mut TEAM_MANAGER_ORIG: *const () = core::ptr::null();
 static mut TURN_GAME_ORIG: *const () = core::ptr::null();
 static mut GAME_STATE_ORIG: *const () = core::ptr::null();
+static mut DISPLAYGFX_FULL_ORIG: *const () = core::ptr::null();
+static mut TEXTBOX_ORIG: *const () = core::ptr::null();
+static mut WEAPON_PANEL_ORIG: *const () = core::ptr::null();
+static mut BUFFER_OBJ_ORIG: *const () = core::ptr::null();
+static mut STREAM_INIT_ORIG: *const () = core::ptr::null();
+static mut DISPLAY_OBJ_ORIG: *const () = core::ptr::null();
 
 // ─── Passthrough hooks ──────────────────────────────────────────────────────
 
@@ -69,6 +75,54 @@ unsafe extern "stdcall" fn hook_game_state(this: u32, param: u32) -> u32 {
     orig(this, param)
 }
 
+// ─── Group F: Display objects ────────────────────────────────────────────────
+
+// DisplayGfx__ConstructFull (0x563FC0): stdcall(5 params), RET 0x14
+unsafe extern "stdcall" fn hook_displaygfx_full(
+    p1: u32,
+    p2: u32,
+    p3: u32,
+    p4: u32,
+    p5: u32,
+) -> u32 {
+    let orig: unsafe extern "stdcall" fn(u32, u32, u32, u32, u32) -> u32 =
+        core::mem::transmute(DISPLAYGFX_FULL_ORIG);
+    orig(p1, p2, p3, p4, p5)
+}
+
+// DDDisplay__ConstructTextbox (0x4FAF00): stdcall(3 params), RET 0xC
+unsafe extern "stdcall" fn hook_textbox(p1: u32, p2: u32, p3: u32) -> u32 {
+    let orig: unsafe extern "stdcall" fn(u32, u32, u32) -> u32 = core::mem::transmute(TEXTBOX_ORIG);
+    orig(p1, p2, p3)
+}
+
+// DDGame__InitWeaponPanel (0x567770): stdcall(1 param = wrapper), RET 0x4
+unsafe extern "stdcall" fn hook_weapon_panel(wrapper: u32) -> u32 {
+    let orig: unsafe extern "stdcall" fn(u32) -> u32 = core::mem::transmute(WEAPON_PANEL_ORIG);
+    orig(wrapper)
+}
+
+// ─── Group G: Buffer/stream objects ─────────────────────────────────────────
+
+// BufferObject__Constructor (0x545FD0): stdcall(3 params), RET 0xC
+unsafe extern "stdcall" fn hook_buffer_obj(p1: u32, p2: u32, p3: u32) -> u32 {
+    let orig: unsafe extern "stdcall" fn(u32, u32, u32) -> u32 =
+        core::mem::transmute(BUFFER_OBJ_ORIG);
+    orig(p1, p2, p3)
+}
+
+// GameStateStream__Init (0x4FB490): stdcall(1 param), RET 0x4
+unsafe extern "stdcall" fn hook_stream_init(p1: u32) -> u32 {
+    let orig: unsafe extern "stdcall" fn(u32) -> u32 = core::mem::transmute(STREAM_INIT_ORIG);
+    orig(p1)
+}
+
+// DisplayObject__Constructor (0x540440): stdcall(2 params), RET 0x8
+unsafe extern "stdcall" fn hook_display_obj(p1: u32, p2: u32) -> u32 {
+    let orig: unsafe extern "stdcall" fn(u32, u32) -> u32 = core::mem::transmute(DISPLAY_OBJ_ORIG);
+    orig(p1, p2)
+}
+
 // ─── Hook installation ──────────────────────────────────────────────────────
 
 pub fn install() -> Result<(), String> {
@@ -106,6 +160,44 @@ pub fn install() -> Result<(), String> {
             "CTaskGameState__Constructor",
             va::GAME_STATE_CONSTRUCTOR,
             hook_game_state as *const (),
+        )? as *const ();
+
+        // Group F: Display objects
+        DISPLAYGFX_FULL_ORIG = hook::install(
+            "DisplayGfx__ConstructFull",
+            va::DISPLAYGFX_CONSTRUCT_FULL,
+            hook_displaygfx_full as *const (),
+        )? as *const ();
+
+        TEXTBOX_ORIG = hook::install(
+            "DDDisplay__ConstructTextbox",
+            va::CONSTRUCT_TEXTBOX,
+            hook_textbox as *const (),
+        )? as *const ();
+
+        WEAPON_PANEL_ORIG = hook::install(
+            "DDGame__InitWeaponPanel",
+            va::FUN_567770,
+            hook_weapon_panel as *const (),
+        )? as *const ();
+
+        // Group G: Buffer/stream objects
+        BUFFER_OBJ_ORIG = hook::install(
+            "BufferObject__Constructor",
+            va::BUFFER_OBJECT_CONSTRUCTOR,
+            hook_buffer_obj as *const (),
+        )? as *const ();
+
+        STREAM_INIT_ORIG = hook::install(
+            "GameStateStream__Init",
+            va::GAME_STATE_STREAM_INIT,
+            hook_stream_init as *const (),
+        )? as *const ();
+
+        DISPLAY_OBJ_ORIG = hook::install(
+            "DisplayObject__Constructor",
+            va::DISPLAY_OBJECT_CONSTRUCTOR,
+            hook_display_obj as *const (),
         )? as *const ();
     }
 
