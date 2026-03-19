@@ -350,6 +350,10 @@ pub mod va {
     /// PaletteContext__Init (0x5411A0): initialize palette context free-list.
     /// usercall(EAX=context), plain RET.
     pub const PALETTE_CONTEXT_INIT: u32 = 0x0054_11A0;
+    /// SpriteGfxTable__Init (0x541620): fastcall(ECX=base, EDX=count), plain RET.
+    pub const SPRITE_GFX_TABLE_INIT: u32 = 0x0054_1620;
+    /// RingBuffer__Init (0x541060): usercall(EAX=capacity, ESI=struct), plain RET.
+    pub const RING_BUFFER_INIT: u32 = 0x0054_1060;
     /// DDGame__InitDisplayFinal_Maybe (0x56A830): display finalization for non-headless.
     pub const DDGAME_INIT_DISPLAY_FINAL: u32 = 0x0056_A830;
     /// PCLandscape__Constructor (0x57ACB0): constructs 0xB44-byte landscape object.

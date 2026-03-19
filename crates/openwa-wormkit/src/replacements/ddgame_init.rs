@@ -18,6 +18,7 @@ use openwa_core::engine::ddgame::{
     bit_grid_init, ddgame_init_fields, ddgame_init_render_indices, display_layer_color_init,
     gfx_dir_find_entry, gfx_dir_load_dir, gfx_resource_create, DDGame,
 };
+use openwa_core::engine::game_state_init::{ring_buffer_init, sprite_gfx_table_init};
 use openwa_core::engine::DDGameWrapper;
 
 // ─── DDGame__InitFields (0x526120) ──────────────────────────────────────────
@@ -200,7 +201,47 @@ pub fn install() -> Result<(), String> {
             va::GFX_DIR_LOAD_DIR,
             load_dir_trampoline as *const (),
         )?;
+
+        hook::install(
+            "SpriteGfxTable__Init",
+            va::SPRITE_GFX_TABLE_INIT,
+            sprite_gfx_table_init_trampoline as *const (),
+        )?;
+
+        hook::install(
+            "RingBuffer__Init",
+            va::RING_BUFFER_INIT,
+            ring_buffer_init_trampoline as *const (),
+        )?;
     }
 
     Ok(())
+}
+
+// ─── SpriteGfxTable__Init (0x541620) ────────────────────────────────────────
+// Convention: fastcall(ECX=base, EDX=count), plain RET.
+
+unsafe extern "fastcall" fn sprite_gfx_table_init_trampoline(base: u32, count: u32) {
+    sprite_gfx_table_init(base as *mut u8, count);
+}
+
+// ─── RingBuffer__Init (0x541060) ────────────────────────────────────────────
+// Convention: usercall(EAX=capacity, ESI=struct_ptr), plain RET.
+
+extern "cdecl" fn impl_ring_buffer_init(struct_ptr: u32, capacity: u32) {
+    unsafe { ring_buffer_init(struct_ptr as *mut u8, capacity) }
+}
+
+#[unsafe(naked)]
+unsafe extern "C" fn ring_buffer_init_trampoline() {
+    core::arch::naked_asm!(
+        "push edx",
+        "push eax",        // capacity (EAX)
+        "push esi",        // struct_ptr (ESI)
+        "call {impl_fn}",
+        "add esp, 8",
+        "pop edx",
+        "ret",
+        impl_fn = sym impl_ring_buffer_init,
+    );
 }

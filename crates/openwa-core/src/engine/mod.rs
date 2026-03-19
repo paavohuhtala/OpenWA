@@ -2,6 +2,7 @@ pub mod ddgame;
 pub mod ddgame_wrapper;
 pub mod game_info;
 pub mod game_session;
+pub mod game_state_init;
 pub mod game_timer;
 pub mod net_wrapper;
 
