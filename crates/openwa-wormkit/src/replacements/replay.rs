@@ -505,6 +505,27 @@ unsafe fn parse_v2plus_payload(
         return Err(ReplayError::InvalidFormat);
     }
 
+    // ─── Post-team processing data ───────────────────────────────────────
+
+    if scheme_present == 1 {
+        // Map seed u16
+        let _map_seed = s.read_u16()?;
+
+        // Additional reads depend on map_seed value and various globals.
+        // These involve conditional per-team weapon config reads that use
+        // globals set by ProcessTeamColors (which we haven't called).
+        // Skip remaining bytes — the original handles all of this.
+    } else {
+        // No scheme: read random seed + alliance data
+        let _random_seed = s.read_u32()?;
+        let _alliance_count = s.read_u8()?;
+        // Per-alliance prefixed strings follow...
+    }
+
+    let _ = log_line(&format!(
+        "[Replay] Post-team: cursor={} remaining={}", s.cursor(), s.remaining()
+    ));
+
     Ok(ReplayInfo {
         game_version_id,
         scheme_version,
