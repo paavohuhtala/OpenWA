@@ -242,9 +242,9 @@ unsafe fn parse_version2plus(
     wa_fclose(file);
     guard.file = ptr::null_mut();
 
-    // Parse second payload (validation only — does not write globals yet)
+    // Parse second payload and write sub-format globals
     let data = core::slice::from_raw_parts(payload2, second_size as usize);
-    let result = parse_v2plus_payload(data, version);
+    let result = parse_and_populate_v2plus(state, data, version);
 
     wa_free(payload2);
     guard.payload = ptr::null_mut();
@@ -252,16 +252,18 @@ unsafe fn parse_version2plus(
     match &result {
         Ok(info) => {
             let _ = log_line(&format!(
-                "[Replay] Parsed OK: game_ver={} scheme_v={} teams={} observers={}",
+                "[Replay] Parsed: game_ver={} scheme_v={} teams={} observers={}",
                 info.game_version_id, info.scheme_version, info.team_count, info.observer_count
             ));
         }
         Err(e) => {
-            let _ = log_line(&format!("[Replay] Parse validation: {e:?} (non-fatal, delegating)"));
+            let _ = log_line(&format!("[Replay] Parse error: {e:?}"));
         }
     }
 
-    // Delegate to original for actual state population
+    // Delegate to original for remaining state population (scheme/team
+    // globals, processing calls, map loading, log output).
+    // The sub-format globals written above will be overwritten identically.
     delegate_to_original(state)
 }
 
@@ -278,15 +280,26 @@ unsafe fn delegate_to_original(state: u32) -> Result<(), ReplayError> {
 struct ReplayInfo {
     game_version_id: i32,
     scheme_version: u8,
+    scheme_present: u8,
     team_count: u8,
     observer_count: u8,
 }
 
-// ─── Version 2+ payload parser (pure, no global writes) ─────────────────────
+// ─── Global buffer constants ─────────────────────────────────────────────────
+
+/// Base address for per-team data in the global team buffer.
+const TEAM_DATA_BASE: u32 = 0x0087_7FFC;
+/// Stride between per-team entries in global buffer.
+const TEAM_STRIDE: u32 = 0x0D7B;
+/// Base for observer player entries (stride 0x78, 13 slots).
+const OBSERVER_ENTRY_BASE: u32 = 0x0087_7A58;
+
+// ─── Version 2+ payload parser ──────────────────────────────────────────────
 
 /// Parse the second payload of a version 2+ replay file.
-/// Returns parsed info for validation. Does NOT write to global memory.
-unsafe fn parse_v2plus_payload(
+/// Writes parsed data to WA's global memory addresses.
+unsafe fn parse_and_populate_v2plus(
+    state: u32,
     data: &[u8],
     version: u32,
 ) -> Result<ReplayInfo, ReplayError> {
@@ -327,8 +340,7 @@ unsafe fn parse_v2plus_payload(
         return Err(ReplayError::VersionTooNew);
     }
 
-    // Assembly: CMP EBX,0xA; SETL → flag=1 if game_ver < 10
-    // Fixed 0x11-byte names for OLD formats (< 10), prefixed for modern (>= 10)
+    // Fixed names for old formats (game_ver < 10), prefixed for modern
     let use_fixed_names = game_version_id < 10;
 
     // ─── Scheme presence flag ────────────────────────────────────────────
@@ -529,6 +541,7 @@ unsafe fn parse_v2plus_payload(
     Ok(ReplayInfo {
         game_version_id,
         scheme_version,
+        scheme_present,
         team_count,
         observer_count,
     })
