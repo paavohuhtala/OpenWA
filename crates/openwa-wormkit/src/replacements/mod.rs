@@ -3,6 +3,7 @@ mod ddgame_init;
 mod display;
 mod frontend;
 mod game_session;
+mod game_state_hooks;
 mod hardware_init;
 mod headless;
 pub(crate) mod input;
@@ -28,5 +29,6 @@ pub fn install_all() -> Result<(), String> {
     speech::install()?;
     input::install()?;
     ddgame_init::install()?;
+    game_state_hooks::install()?;
     Ok(())
 }

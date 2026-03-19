@@ -366,6 +366,16 @@ pub mod va {
     pub const INIT_TURN_STATE: u32 = 0x0052_8690;
     /// CGameTask__InitLandscapeFlags (0x528480): usercall(EAX=wrapper), plain RET.
     pub const INIT_LANDSCAPE_FLAGS: u32 = 0x0052_8480;
+    /// HudPanel__Constructor (0x524070): stdcall(this), RET 0x4.
+    pub const HUD_PANEL_CONSTRUCTOR: u32 = 0x0052_4070;
+    /// DDGame__InitTeamsFromSetup (0x5220B0): stdcall(team_arena, setup_data), RET 0x8.
+    pub const INIT_TEAMS_FROM_SETUP: u32 = 0x0052_20B0;
+    /// TeamManager__Constructor (0x563D40): stdcall(this, wrapper), RET 0x8.
+    pub const TEAM_MANAGER_CONSTRUCTOR: u32 = 0x0056_3D40;
+    /// CTaskTurnGame__Constructor (0x55B280): stdcall(this, setup_data), RET 0x8.
+    pub const TURN_GAME_CONSTRUCTOR: u32 = 0x0055_B280;
+    /// CTaskGameState__Constructor (0x532330): stdcall(this, param), RET 0x8.
+    pub const GAME_STATE_CONSTRUCTOR: u32 = 0x0053_2330;
     /// DDGame__InitFeatureFlags (0x524700): stdcall(wrapper), RET 0x4.
     pub const DDGAME_INIT_FEATURE_FLAGS: u32 = 0x0052_4700;
     /// DDGame__InitDisplayFinal_Maybe (0x56A830): display finalization for non-headless.
