@@ -8,6 +8,7 @@ mod hardware_init;
 mod headless;
 pub(crate) mod input;
 mod render;
+mod replay;
 mod scheme;
 mod sound;
 mod speech;
@@ -30,5 +31,6 @@ pub fn install_all() -> Result<(), String> {
     input::install()?;
     ddgame_init::install()?;
     game_state_hooks::install()?;
+    replay::install()?;
     Ok(())
 }
