@@ -48,6 +48,11 @@ impl<'a> ReplayStream<'a> {
         self.cursor
     }
 
+    /// Advance cursor by `n` bytes, returning the raw slice. Public for memcpy to globals.
+    pub fn advance_raw(&mut self, n: usize) -> Result<&'a [u8], ReplayError> {
+        self.advance(n)
+    }
+
     /// Advance cursor by `n` bytes, returning the slice. Fails if not enough data.
     fn advance(&mut self, n: usize) -> Result<&'a [u8], ReplayError> {
         let end = self.cursor + n;
