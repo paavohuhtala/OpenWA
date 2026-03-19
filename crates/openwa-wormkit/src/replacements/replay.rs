@@ -327,7 +327,9 @@ unsafe fn parse_v2plus_payload(
         return Err(ReplayError::VersionTooNew);
     }
 
-    let _use_fixed_names = game_version_id >= 10;
+    // Assembly: CMP EBX,0xA; SETL → flag=1 if game_ver < 10
+    // Fixed 0x11-byte names for OLD formats (< 10), prefixed for modern (>= 10)
+    let use_fixed_names = game_version_id < 10;
 
     // ─── Scheme presence flag ────────────────────────────────────────────
 
@@ -418,16 +420,95 @@ unsafe fn parse_v2plus_payload(
         let _byte2 = s.read_u8()?;
     }
 
-    // ─── XOR game ID + team entries ──────────────────────────────────────
-    // TODO: Team parsing needs more decompilation work.
-    // The per-team structure (flag, type, alliance, worm names, weapon blocks)
-    // has version-dependent fields that need careful tracing from assembly.
-    // For now, return what we've successfully parsed.
+    // ─── XOR game ID (obs_count >= 16) ──────────────────────────────────
+
+    if obs_count >= 16 {
+        let xor_a = s.read_u32()?;
+        let _xor_b = s.read_u32()?;
+        let _game_id = xor_a ^ replay::REPLAY_XOR_KEY;
+    }
+
+    // ─── Team entries (up to 6, stride 0xD7B in global buffer) ───────────
+
+    let mut team_count: u8 = 0;
+
+    for _team_idx in 0..6u32 {
+        // Team flag: 0 = empty slot, non-zero = active team
+        let team_flag = s.read_u8()?;
+        if team_flag == 0 {
+            continue;
+        }
+        team_count += 1;
+
+        // Per-team structure (traced from hex dump + decompilation):
+        // type, alliance(0-5), unk_byte, pre-name(prefixed), 8×worm_name,
+        // worm_count, team_name(prefixed), [extra if obs>13], config_name,
+        // worm_count2, color, flag, grave, soundbank_flag, soundbank
+
+        let team_type = s.read_u8()? as i8;
+        if !replay::validate_team_type(team_type) {
+            return Err(ReplayError::InvalidFormat);
+        }
+
+        let _alliance = s.read_u8_validated(0, 5)?;
+        let _unk_byte = s.read_u8()?;
+
+        // Pre-loop name field (ReadWormName in decompilation)
+        // For bots.WAgame this reads "CPU 2" / "CPU 1" — NOT the team name
+        let mut _pre_name = [0u8; 0x11];
+        s.read_worm_name(&mut _pre_name, use_fixed_names)?;
+
+        // 8 worm names
+        for _worm_idx in 0..8u32 {
+            let mut _worm_name = [0u8; 0x11];
+            s.read_worm_name(&mut _worm_name, use_fixed_names)?;
+        }
+
+        // Worm count byte 1 (DAT_00878092) — stored WITHOUT validation
+        let _worm_count_raw = s.read_u8()?;
+
+        // Team name (prefixed string, max 0x40)
+        let mut _team_name = [0u8; 0x41];
+        s.read_prefixed_string(&mut _team_name)?;
+
+        // Extra byte if obs_count > 13
+        if obs_count > 13 {
+            let _extra = s.read_u8()?;
+        }
+
+        // Config/country name (prefixed string, max 0x40)
+        let mut _config_name = [0u8; 0x41];
+        s.read_prefixed_string(&mut _config_name)?;
+
+        // Worm count byte 2 (DAT_00878094) — validated 1-8
+        // Assembly: if (7 < (value - 1) unsigned) throw
+        let _worm_count = s.read_u8()?;
+        if _worm_count == 0 || _worm_count > 8 {
+            return Err(ReplayError::InvalidFormat);
+        }
+
+        // Color, flag, grave, soundbank_flag, soundbank
+        let _color = s.read_u8()?;
+        let _flag_byte = s.read_u8()?;
+        let _grave = s.read_u8()?;
+        let _soundbank_flag = s.read_u8()?;
+        let _soundbank = s.read_u8()?;
+
+        // Weapon data blocks
+        s.skip(0x400)?; // weapon ammo (1024 bytes)
+        s.skip(0x154)?; // weapon delay (340 bytes)
+        s.skip(0x400)?; // weapon ammo 2 (1024 bytes)
+        s.skip(0x300)?; // weapon data 3 (768 bytes)
+    }
+
+    if team_count == 0 {
+        return Err(ReplayError::InvalidFormat);
+    }
 
     Ok(ReplayInfo {
         game_version_id,
         scheme_version,
-        team_count: 0, // TODO: parse teams
+        team_count,
         observer_count,
     })
 }
