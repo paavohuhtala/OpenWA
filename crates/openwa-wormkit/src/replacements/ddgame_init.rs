@@ -19,7 +19,8 @@ use openwa_core::engine::ddgame::{
     gfx_dir_find_entry, gfx_dir_load_dir, gfx_resource_create, DDGame,
 };
 use openwa_core::engine::game_state_init::{
-    init_alliance_data, init_team_scoring, ring_buffer_init, sprite_gfx_table_init,
+    check_weapon_avail, init_alliance_data, init_landscape_flags, init_team_scoring,
+    init_turn_state, is_super_weapon, ring_buffer_init, sprite_gfx_table_init,
 };
 use openwa_core::engine::DDGameWrapper;
 
@@ -227,6 +228,27 @@ pub fn install() -> Result<(), String> {
             va::INIT_ALLIANCE_DATA,
             init_alliance_data_trampoline as *const (),
         )?;
+
+        hook::install(
+            "CGameTask__InitTurnState",
+            va::INIT_TURN_STATE,
+            init_turn_state_trampoline as *const (),
+        )?;
+
+        // TODO: CheckWeaponAvail has a porting bug — disabled until fixed
+        // hook::install("DDGame__CheckWeaponAvail", va::CHECK_WEAPON_AVAIL, check_weapon_avail_trampoline as *const ())?;
+
+        hook::install(
+            "CGameTask__InitLandscapeFlags",
+            va::INIT_LANDSCAPE_FLAGS,
+            init_landscape_flags_trampoline as *const (),
+        )?;
+
+        hook::install(
+            "DDGame__IsSuperWeapon",
+            va::IS_SUPER_WEAPON,
+            is_super_weapon_trampoline as *const (),
+        )?;
     }
 
     Ok(())
@@ -284,5 +306,91 @@ unsafe extern "C" fn init_alliance_data_trampoline() {
         "pop edx",
         "ret",
         impl_fn = sym impl_init_alliance_data,
+    );
+}
+
+// ─── CGameTask__InitTurnState (0x528690) ────────────────────────────────────
+// Convention: usercall(EAX=wrapper), plain RET.
+
+extern "cdecl" fn impl_init_turn_state(wrapper: u32) {
+    unsafe { init_turn_state(wrapper as *mut u8) }
+}
+
+#[unsafe(naked)]
+unsafe extern "C" fn init_turn_state_trampoline() {
+    core::arch::naked_asm!(
+        "push edx",
+        "push eax",        // wrapper (EAX)
+        "call {impl_fn}",
+        "add esp, 4",
+        "pop edx",
+        "ret",
+        impl_fn = sym impl_init_turn_state,
+    );
+}
+
+// ─── DDGame__CheckWeaponAvail (0x53FFC0) ────────────────────────────────────
+// Convention: fastcall(ECX=ddgame) + unaff_ESI=weapon_index, plain RET.
+// Returns i32 in EAX.
+
+extern "cdecl" fn impl_check_weapon_avail(ddgame: u32, weapon_index: u32) -> i32 {
+    unsafe { check_weapon_avail(ddgame as *mut u8, weapon_index) }
+}
+
+#[unsafe(naked)]
+unsafe extern "C" fn check_weapon_avail_trampoline() {
+    core::arch::naked_asm!(
+        "push edx",
+        "push esi",        // weapon_index (ESI)
+        "push ecx",        // ddgame (ECX)
+        "call {impl_fn}",
+        "add esp, 8",
+        "pop edx",
+        "ret",
+        impl_fn = sym impl_check_weapon_avail,
+    );
+}
+
+// ─── CGameTask__InitLandscapeFlags (0x528480) ───────────────────────────────
+// Convention: usercall(EAX=wrapper), plain RET.
+
+extern "cdecl" fn impl_init_landscape_flags(wrapper: u32) {
+    unsafe { init_landscape_flags(wrapper as *mut u8) }
+}
+
+#[unsafe(naked)]
+unsafe extern "C" fn init_landscape_flags_trampoline() {
+    core::arch::naked_asm!(
+        "push edx",
+        "push eax",        // wrapper (EAX)
+        "call {impl_fn}",
+        "add esp, 4",
+        "pop edx",
+        "ret",
+        impl_fn = sym impl_init_landscape_flags,
+    );
+}
+
+// ─── DDGame__IsSuperWeapon (0x565960) ───────────────────────────────────────
+// Convention: usercall(EAX=weapon_index) + 1 stack param (param_1: u8), plain RET.
+// Returns u8 in AL.
+
+extern "cdecl" fn impl_is_super_weapon(weapon_index: u32, param_1: u32) -> u32 {
+    unsafe { is_super_weapon(weapon_index, param_1 as u8) as u32 }
+}
+
+#[unsafe(naked)]
+unsafe extern "C" fn is_super_weapon_trampoline() {
+    core::arch::naked_asm!(
+        "push ecx",
+        "push edx",
+        "push [esp+12]",  // stack param_1 (shifted by push ecx + push edx)
+        "push eax",        // weapon_index (EAX)
+        "call {impl_fn}",
+        "add esp, 8",
+        "pop edx",
+        "pop ecx",
+        "ret 0x4",         // callee cleans 1 stack param
+        impl_fn = sym impl_is_super_weapon,
     );
 }

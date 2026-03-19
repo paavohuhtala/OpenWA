@@ -358,6 +358,16 @@ pub mod va {
     pub const INIT_TEAM_SCORING: u32 = 0x0052_8510;
     /// CGameTask__InitAllianceData (0x5262D0): usercall(EAX=wrapper), plain RET.
     pub const INIT_ALLIANCE_DATA: u32 = 0x0052_62D0;
+    /// DDGame__IsSuperWeapon (0x565960): usercall(EAX=weapon_index) + 1 stack param, plain RET.
+    pub const IS_SUPER_WEAPON: u32 = 0x0056_5960;
+    /// DDGame__CheckWeaponAvail (0x53FFC0): fastcall(ECX=ddgame) + unaff_ESI, plain RET.
+    pub const CHECK_WEAPON_AVAIL: u32 = 0x0053_FFC0;
+    /// CGameTask__InitTurnState (0x528690): usercall(EAX=wrapper), plain RET.
+    pub const INIT_TURN_STATE: u32 = 0x0052_8690;
+    /// CGameTask__InitLandscapeFlags (0x528480): usercall(EAX=wrapper), plain RET.
+    pub const INIT_LANDSCAPE_FLAGS: u32 = 0x0052_8480;
+    /// DDGame__InitFeatureFlags (0x524700): stdcall(wrapper), RET 0x4.
+    pub const DDGAME_INIT_FEATURE_FLAGS: u32 = 0x0052_4700;
     /// DDGame__InitDisplayFinal_Maybe (0x56A830): display finalization for non-headless.
     pub const DDGAME_INIT_DISPLAY_FINAL: u32 = 0x0056_A830;
     /// PCLandscape__Constructor (0x57ACB0): constructs 0xB44-byte landscape object.

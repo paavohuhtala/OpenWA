@@ -323,3 +323,275 @@ pub unsafe fn init_alliance_data(wrapper: *mut u8) {
         }
     }
 }
+
+/// Pure Rust implementation of DDGame__IsSuperWeapon (0x565960).
+///
+/// Convention: usercall(EAX=weapon_index) + 1 stack param (param_1: u8), plain RET.
+/// Returns 1 for super weapons, param_1 for 0x3B, 0 otherwise.
+pub unsafe fn is_super_weapon(weapon_index: u32, param_1: u8) -> u8 {
+    match weapon_index {
+        10 | 0x13 | 0x1D | 0x1E | 0x1F | 0x24 | 0x29 | 0x2A | 0x2D | 0x2E | 0x31 | 0x32 | 0x33
+        | 0x36 | 0x37 | 0x38 | 0x3C | 0x3D => 1,
+        0x3B => param_1,
+        _ => 0,
+    }
+}
+
+/// Pure Rust implementation of DDGame__CheckWeaponAvail (0x53FFC0).
+///
+/// Convention: fastcall(ECX=ddgame) + unaff_ESI=weapon_index, plain RET. Returns i32.
+///
+/// Checks whether a weapon (1..0x46) is available given current game state.
+/// `ddgame` is the DDGame pointer directly (not wrapper).
+pub unsafe fn check_weapon_avail(ddgame: *mut u8, weapon_index: u32) -> i32 {
+    let game_info = *(ddgame.add(0x24) as *const *mut u8);
+    let game_version = *(game_info.add(0xD778) as *const i32);
+    let num_teams = *game_info as u8;
+
+    // Step 1: Special per-weapon disabling rules
+    match weapon_index {
+        10 | 0x37 | 0x38 => {
+            if *(game_info.add(0xD946) as *const u8) != 0
+                && *(game_info.add(0xD9A2) as *const u8) == 0
+            {
+                return 0;
+            }
+        }
+        0x36 => {
+            if *(game_info.add(0xD94C) as *const u8) != 0 {
+                return 0;
+            }
+        }
+        0x42 => {
+            let db08 = *(game_info.add(0xDB08) as *const u32);
+            if db08 == 0 {
+                if *(ddgame.add(0x1C) as *const u32) == 0 {
+                    return 0;
+                }
+            } else if (num_teams as u32) < 2 {
+                return 0;
+            }
+        }
+        0x45 => {
+            if game_version > 0xD1 {
+                let val = *(game_info.add(0xD932) as *const u16);
+                if val > 0x7FFF {
+                    return 0;
+                }
+            }
+        }
+        _ => {}
+    }
+
+    // Step 2: Check weapon table entry
+    // weapon_table_entry is at ddgame+0x510 + 0x10 + weapon_index*0x1D0
+    let weapon_table_entry =
+        *(ddgame.add(0x510 + 0x10 + (weapon_index as usize) * 0x1D0) as *const u8);
+
+    if *(ddgame.add(0x777C) as *const u32) == 0 && weapon_table_entry == 0 {
+        if game_version > 0x29 && *(game_info.add(0xD959) as *const u8) != 0 {
+            return -2;
+        }
+        return 0;
+    }
+
+    // Step 3: Super weapon check
+    let super_result = is_super_weapon(weapon_index, *(ddgame.add(0x7E3F) as *const u8));
+    if super_result != 0 && *(game_info.add(0xD93C) as *const u8) == 0 {
+        // (game_version < 0x2A) - 1: if version < 0x2A → 0, else → -1
+        return if game_version < 0x2A { 0 } else { -1 };
+    }
+
+    // Step 4: Check DDGame+0x7E25 and weapon_index condition
+    if *(ddgame.add(0x7E25) as *const u8) == 0 {
+        return 1;
+    }
+
+    // weapon_index != (0x19 - (game_info+0xD956 != 0))
+    let d956_nonzero = *(game_info.add(0xD956) as *const u8) != 0;
+    let threshold = 0x19u32 - d956_nonzero as u32;
+    if weapon_index != threshold {
+        return 1;
+    }
+
+    0
+}
+
+/// Bridge to DDGame__InitFeatureFlags (0x524700): stdcall(wrapper), RET 0x4.
+unsafe fn wa_init_feature_flags(wrapper: *mut u8) {
+    let f: unsafe extern "stdcall" fn(*mut u8) = core::mem::transmute(crate::rebase::rb(
+        crate::address::va::DDGAME_INIT_FEATURE_FLAGS,
+    ) as usize);
+    f(wrapper);
+}
+
+/// Pure Rust implementation of CGameTask__InitTurnState (0x528690).
+///
+/// Convention: usercall(EAX=wrapper), plain RET.
+///
+/// Initializes turn-related state fields in both the DDGameWrapper and DDGame
+/// structs. Zeroes camera state, timing fields, per-team flags, and calls
+/// DDGame__InitFeatureFlags. Also dispatches a vtable call on the landscape
+/// object.
+pub unsafe fn init_turn_state(wrapper: *mut u8) {
+    let ddgame = ddgame_from_wrapper(wrapper);
+    let game_info = *(ddgame.add(0x24) as *const *mut u8);
+
+    // wrapper+0x458 = -1, wrapper+0x450 = 0, wrapper+0x454 = 0
+    *(wrapper.add(0x458) as *mut u32) = 0xFFFF_FFFF;
+    *(wrapper.add(0x450) as *mut u32) = 0;
+    *(wrapper.add(0x454) as *mut u32) = 0;
+
+    // DDGame+0x72E0/E4 = -1, DDGame+0x72E8 = 0
+    *(ddgame.add(0x72E0) as *mut u32) = 0xFFFF_FFFF;
+    *(ddgame.add(0x72E4) as *mut u32) = 0xFFFF_FFFF;
+    *(ddgame.add(0x72E8) as *mut u32) = 0;
+
+    // Zero array at DDGame+0x73B0, stride 0x14, while offset < 0x118
+    {
+        let mut off = 0u32;
+        while off < 0x118 {
+            *(ddgame.add(0x73B0 + off as usize) as *mut u32) = 0;
+            off += 0x14;
+        }
+    }
+
+    // More DDGame field zeroing
+    *(ddgame.add(0x739C) as *mut u32) = 0;
+    *(ddgame.add(0x72F4) as *mut u32) = 0;
+    *(ddgame.add(0x72F8) as *mut u32) = 0;
+    *(ddgame.add(0x72FC) as *mut u32) = 0;
+    *(ddgame.add(0x7300) as *mut u32) = 0;
+    *(ddgame.add(0x7304) as *mut u32) = 0;
+
+    // DDGame+0x72EC = game_info+0xD774 (RNG seed from scheme)
+    let rng_seed = *(game_info.add(0xD774) as *const u32);
+    *(ddgame.add(0x72EC) as *mut u32) = rng_seed;
+    *(ddgame.add(0x72F0) as *mut u32) = rng_seed; // duplicate
+
+    *(ddgame.add(0x7378) as *mut u32) = 0;
+    *(ddgame.add(0x7374) as *mut u32) = 0;
+    *(ddgame.add(0x737C) as *mut u32) = 0;
+    *(ddgame.add(0x77DC) as *mut u32) = 0;
+    *(ddgame.add(0x77E0) as *mut u32) = 0;
+    *(ddgame.add(0x7784) as *mut u32) = 0;
+
+    // DDGame+0x7788 = game_info+0xF362 (byte → u32)
+    *(ddgame.add(0x7788) as *mut u32) = *(game_info.add(0xF362) as *const u8) as u32;
+    *(ddgame.add(0x778C) as *mut u32) = 0x10000; // Fixed-point 1.0
+    *(ddgame.add(0x7790) as *mut u32) = 0;
+
+    // Camera center: (level_width << 16) / 2, (level_height << 16) / 2
+    let level_width = *(ddgame.add(0x77C0) as *const i32);
+    let level_height = *(ddgame.add(0x77C4) as *const i32);
+    let cx = (level_width << 16) / 2;
+    let cy = (level_height << 16) / 2;
+    *(ddgame.add(0x7380) as *mut i32) = cx;
+    *(ddgame.add(0x7388) as *mut i32) = cx; // duplicate
+    *(ddgame.add(0x7384) as *mut i32) = cy;
+    *(ddgame.add(0x738C) as *mut i32) = cy; // duplicate
+
+    *(ddgame.add(0x7D84) as *mut u32) = 0;
+    *(ddgame.add(0x7E4C) as *mut u32) = 0;
+    *(ddgame.add(0x77D4) as *mut u32) = 0;
+    *(ddgame.add(0x77D8) as *mut u32) = 0;
+
+    // Per-team loop
+    let num_teams = *game_info as u8 as i32;
+    if num_teams > 0 {
+        let mut off = 0x7D88u32;
+        for i in 0..num_teams {
+            *(ddgame.add(off as usize) as *mut u32) = 0;
+            *(ddgame.add(0x7DBC + i as usize) as *mut u8) = 1;
+            *(ddgame.add(0x7DC9 + i as usize) as *mut u8) = 1;
+            *(ddgame.add(0x7DD6 + i as usize) as *mut u8) = 0;
+            *(ddgame.add(0x7DE3 + i as usize) as *mut u8) = 0;
+            *(ddgame.add(0x7DF0 + i as usize) as *mut u8) = 0;
+            off += 4;
+        }
+    }
+
+    *(ddgame.add(0x7E03) as *mut u8) = 0;
+    *(ddgame.add(0x7E04) as *mut u8) = 0;
+
+    // Call DDGame__InitFeatureFlags (600-line feature flag init, bridged)
+    wa_init_feature_flags(wrapper);
+
+    // Post-feature-flag field writes
+    *(ddgame.add(0x7E41) as *mut u8) = 0;
+    *(ddgame.add(0x7E50) as *mut u32) = 0;
+    *(ddgame.add(0x7E54) as *mut u32) = 0;
+    *(ddgame.add(0x7E58) as *mut u32) = 0;
+    *(ddgame.add(0x7E5C) as *mut u32) = 0;
+    *(ddgame.add(0x7E60) as *mut u32) = 0;
+    *(ddgame.add(0x7E64) as *mut u32) = 0;
+    *(ddgame.add(0x7E68) as *mut u32) = 0;
+    *(ddgame.add(0x7E6C) as *mut u32) = 0;
+    *(ddgame.add(0x7E88) as *mut u32) = 0;
+    *(ddgame.add(0x7E8C) as *mut u32) = 0;
+    *(ddgame.add(0x7E90) as *mut u32) = 0;
+    *(ddgame.add(0x7E94) as *mut u32) = 0;
+    *(ddgame.add(0x7E98) as *mut u32) = 0;
+    *(ddgame.add(0x7EA0) as *mut u32) = 0;
+    *(ddgame.add(0x7EA4) as *mut u32) = 0;
+
+    *(ddgame.add(0x8148) as *mut u32) = 1;
+
+    let ddgame2 = ddgame_from_wrapper(wrapper);
+    *(ddgame2.add(0x8158) as *mut u32) = 0;
+    *(ddgame2.add(0x815C) as *mut u32) = 0;
+    let ddgame3 = ddgame_from_wrapper(wrapper);
+    *(ddgame3.add(0x8160) as *mut u32) = 0;
+    *(ddgame3.add(0x8164) as *mut u32) = 0;
+
+    // Vtable dispatch: DDGame+0x20 → landscape object, vtable slot 1,
+    // param = game_info+0xD94C (byte)
+    let ddgame4 = ddgame_from_wrapper(wrapper);
+    let landscape = *(ddgame4.add(0x20) as *const *mut u8);
+    if !landscape.is_null() {
+        let vtable = *(landscape as *const *const usize);
+        let slot1: unsafe extern "thiscall" fn(*mut u8, u32) = core::mem::transmute(*vtable.add(1));
+        let game_info2 = *(ddgame4.add(0x24) as *const *const u8);
+        let param = *game_info2.add(0xD94C) as u32;
+        slot1(landscape, param);
+    }
+}
+
+/// Pure Rust implementation of CGameTask__InitLandscapeFlags (0x528480).
+///
+/// Convention: usercall(EAX=wrapper), plain RET.
+///
+/// Checks game_info+0xD94B and dispatches landscape vtable slot 6 with
+/// appropriate parameters, then updates DDGame+0x777C.
+pub unsafe fn init_landscape_flags(wrapper: *mut u8) {
+    let ddgame = ddgame_from_wrapper(wrapper);
+    let game_info = *(ddgame.add(0x24) as *const *mut u8);
+
+    let scheme_flag = *(game_info.add(0xD94B) as *const u8);
+
+    // Read the 4 DDGame fields used as params
+    let field_7318 = *(ddgame.add(0x7318) as *const u32);
+    let field_730c = *(ddgame.add(0x730C) as *const u32);
+    let field_734c = *(ddgame.add(0x734C) as *const u32);
+    let field_7340 = *(ddgame.add(0x7340) as *const u32);
+
+    // DDGame+0x20 = landscape object
+    let landscape = *(ddgame.add(0x20) as *const *mut u8);
+    let vtable = *(landscape as *const *const usize);
+    // Vtable slot 6 = offset +0x18
+    let slot6: unsafe extern "thiscall" fn(*mut u8, u32, u32, u32, u32, u32, u32, u32, u32) =
+        core::mem::transmute(*vtable.add(6));
+
+    if scheme_flag != 0 {
+        // Call with (1, 1, 1, 1, field_7318, field_730c, field_734c, field_7340)
+        slot6(
+            landscape, 1, 1, 1, 1, field_7318, field_730c, field_734c, field_7340,
+        );
+        *(ddgame.add(0x777C) as *mut u32) = 1;
+    } else if *(ddgame.add(0x777C) as *const u32) != 0 {
+        // Call with (0, 0, 1, 0, field_7318, field_730c, field_734c, field_7340)
+        slot6(
+            landscape, 0, 0, 1, 0, field_7318, field_730c, field_734c, field_7340,
+        );
+    }
+}
