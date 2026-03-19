@@ -160,9 +160,7 @@ unsafe fn replay_loader_play(state: u32) -> Result<(), ReplayError> {
     // Parse and write to globals
     let data = core::slice::from_raw_parts(p2, second_size as usize);
     let result = parse_and_write_v2plus(state, data, version);
-    let _ = log_line("[Replay] CP: parse returned, freeing payload");
     wa_free(p2); guard.payload = ptr::null_mut();
-    let _ = log_line("[Replay] CP: payload freed");
 
     match result {
         Ok(()) => {
@@ -200,7 +198,6 @@ unsafe fn parse_and_write_v2plus(
     state: u32, data: &[u8], version: u32,
 ) -> Result<(), ReplayError> {
     let mut s = ReplayStream::new(data);
-    let _ = log_line(&format!("[Replay] v2+ parse start, {} bytes", data.len()));
 
     // ── Sub-format flags ─────────────────────────────────────────────────
     let ver_gt7 = (version > 7) as u8;
@@ -253,7 +250,6 @@ unsafe fn parse_and_write_v2plus(
         }
     }
 
-    let _ = log_line("[Replay] CP: sub-format done"); // ── Game version ID ──────────────────────────────────────────────────
     let game_version_id = s.read_i32()?;
     wd(va::G_REPLAY_VERSION_ID, game_version_id as u32);
     if (game_version_id.wrapping_add(4) as u32) > 0x1F8 { return Err(ReplayError::VersionTooNew); }
@@ -268,7 +264,6 @@ unsafe fn parse_and_write_v2plus(
         let _extra = s.read_u32()?;
     }
 
-    let _ = log_line("[Replay] CP: scheme presence done"); // ── Scheme data ──────────────────────────────────────────────────────
     let mut scheme_version: u8 = 0;
 
     if scheme_present == 1 {
@@ -347,7 +342,6 @@ unsafe fn parse_and_write_v2plus(
         return Err(ReplayError::InvalidFormat); // triggers fallback
     }
 
-    let _ = log_line("[Replay] CP: scheme data done"); // ── Map bytes + replay name + host ───────────────────────────────────
     let map_byte1 = s.read_u8()?;
     let map_byte2 = s.read_u8()?;
     wb(0x87250C, map_byte1);
@@ -366,7 +360,6 @@ unsafe fn parse_and_write_v2plus(
         wd(0x8779E0, 0xFFFFFFFF);
     }
 
-    let _ = log_line("[Replay] CP: map/name done"); // ── Observer player entries (13 slots, stride 0x78) ──────────────────
     let mut player_count: u8 = 0;
     for i in 0..13u32 {
         let base = 0x877A58 + i * 0x78;
@@ -405,14 +398,12 @@ unsafe fn parse_and_write_v2plus(
     }
     wb(0x87D0DE, player_count);
 
-    let _ = log_line("[Replay] CP: observers done"); // ── XOR game ID ──────────────────────────────────────────────────────
     if obs_count >= 16 {
         let xor_a = s.read_u32()?;
         let _xor_b = s.read_u32()?;
         wd(va::G_REPLAY_GAME_ID, xor_a ^ replay::REPLAY_XOR_KEY);
     }
 
-    let _ = log_line("[Replay] CP: XOR done"); // ── Team entries (6 slots, stride 0xD7B) ─────────────────────────────
     let mut team_count: u8 = 0;
     for team_idx in 0..6u32 {
         let tb = 0x877FFC + team_idx * 0xD7B; // per-team base
@@ -499,11 +490,6 @@ unsafe fn parse_and_write_v2plus(
 
     if team_count == 0 { return Err(ReplayError::InvalidFormat); }
 
-    {
-        let seed = *(rb(va::G_RANDOM_SEED) as *const u32);
-        let _ = log_line(&format!("[Replay] SEED pre-process: 0x{seed:08X}"));
-    }
-    let _ = log_line("[Replay] CP: teams done"); // ── Team count + ProcessTeamColors ────────────────────────────────────
     wb(0x87D0E0, team_count);
 
     // ProcessTeamColors: stdcall(1 param = state). RET 0x4.
@@ -511,35 +497,23 @@ unsafe fn parse_and_write_v2plus(
         core::mem::transmute(rb(va::REPLAY_PROCESS_TEAM_COLORS));
     process_colors(rb(va::G_REPLAY_STATE));
 
-    {
-        let seed = *(rb(va::G_RANDOM_SEED) as *const u32);
-        let _ = log_line(&format!("[Replay] SEED post-ProcessTeamColors: 0x{seed:08X}"));
-    }
     let map_seed = s.read_u16()?;
     wd(0x87D430, map_seed as u32);
-    let _ = log_line(&format!("[Replay] CP: map_seed={map_seed}"));
 
     // FUN_0045d640: stdcall(1 param = state). 1032-line function.
     let fun_45d640: unsafe extern "stdcall" fn(u32) =
         core::mem::transmute(rb(0x45D640));
     fun_45d640(rb(va::G_REPLAY_STATE));
-    {
-        let seed = *(rb(va::G_RANDOM_SEED) as *const u32);
-        let _ = log_line(&format!("[Replay] SEED post-FUN_45d640: 0x{seed:08X}"));
-    }
 
     if map_seed == 0 || map_seed == 0xFFFF {
         call_process_scheme_defaults(rb(va::G_REPLAY_STATE), rb(va::REPLAY_PROCESS_SCHEME_DEFAULTS));
-        let _ = log_line("[Replay] CP: ProcessSchemeDefaults done");
-    } else {
-        let _ = log_line(&format!("[Replay] CP: map_seed={map_seed}, skipping scheme defaults (TODO: weapon config)"));
     }
+    // TODO: else branch — per-team weapon config reads from stream
 
     // ValidateTeamSetup: reads [ESP+0xBC] in prologue = stdcall(1 param = state)
     let validate_setup: unsafe extern "stdcall" fn(u32) =
         core::mem::transmute(rb(va::REPLAY_VALIDATE_TEAM_SETUP));
     validate_setup(rb(va::G_REPLAY_STATE));
-    let _ = log_line("[Replay] CP: ValidateTeamSetup done");
 
     // Assembly: MOV ESI,[seed]; PUSH ESI; CALL srand; rand(); SHL<<16; rand(); ADD
     let current_seed = *(rb(va::G_RANDOM_SEED) as *const u32);
@@ -550,7 +524,6 @@ unsafe fn parse_and_write_v2plus(
     let r2 = rand_fn() as u32;
     wd(va::G_RANDOM_SEED, r2 + (r1 << 16));       // new seed
     wd(va::G_SAVED_RANDOM_SEED, current_seed);     // save old seed
-    let _ = log_line("[Replay] CP: random seed done");
 
     let ver = *(rb(va::G_REPLAY_VERSION_ID) as *const i32);
     if ver != 0x22 && !(ver >= 0x29 && ver <= 0x2A) && ver < 0x2D {
@@ -558,18 +531,15 @@ unsafe fn parse_and_write_v2plus(
             core::mem::transmute(rb(0x4D50E0));
         check();
     }
-    let _ = log_line("[Replay] CP: weapon limits done"); // ── Map loading ──────────────────────────────────────────────────────
     // The map was already written to playback.thm in the header section.
     // The original loads it here via FUN_00447e80 + FUN_0044a9a0.
     // For positive sub-version (our test case), we need to:
     // Map loading: construct map object, load playback.thm, copy info, release.
     if *(state as *const i32).byte_add(0xDB1C) >= 1 {
-        let _ = log_line("[Replay] CP: map load start");
         // Alloc: PUSH 0x29628; CALL 005C0AB8; ADD ESP,4 — cdecl(size)
         let alloc: unsafe extern "cdecl" fn(u32) -> u32 =
             core::mem::transmute(rb(0x5C0AB8));
         let buf = alloc(0x29628);
-        let _ = log_line(&format!("[Replay] CP: alloc buf=0x{buf:08X}"));
         let map_obj = if buf != 0 {
             // Construct: PUSH 1; PUSH buf; CALL 00447E80 — stdcall(buf, 1)
             let construct: unsafe extern "stdcall" fn(u32, i32) -> *mut u32 =
@@ -578,13 +548,11 @@ unsafe fn parse_and_write_v2plus(
         } else {
             ptr::null_mut()
         };
-        let _ = log_line(&format!("[Replay] CP: map_obj=0x{:08X}", map_obj as u32));
 
         // Load: PUSH 0; PUSH path; PUSH map_obj; CALL 0044A9A0 — stdcall(3)
         let load: unsafe extern "stdcall" fn(*mut u32, *const u8, i32) -> i32 =
             core::mem::transmute(rb(0x44A9A0));
         let ok = load(map_obj, b"data\\playback.thm\0".as_ptr(), 0);
-        let _ = log_line(&format!("[Replay] CP: load={ok}"));
 
         if ok == 0 {
             // Load failed — release map_obj and return error
@@ -599,7 +567,6 @@ unsafe fn parse_and_write_v2plus(
 
         // FUN_00449B60: usercall(ESI=map_obj). Copies map info to game state.
         call_usercall_esi(map_obj as u32, rb(0x449B60));
-        let _ = log_line("[Replay] CP: map info copied");
 
         // Terrain flag: CMP [ESI+0x29618],0; SETZ
         *(state as *mut u8).add(0xD98B) =
@@ -610,7 +577,6 @@ unsafe fn parse_and_write_v2plus(
         let release: unsafe extern "thiscall" fn(*mut u32, i32) =
             core::mem::transmute(*(vtable as *const u32).add(1));
         release(map_obj, 1);
-        let _ = log_line("[Replay] CP: map released");
     }
 
     // ── Log output ───────────────────────────────────────────────────────
@@ -618,127 +584,7 @@ unsafe fn parse_and_write_v2plus(
     // For now, the log output is missing — headless tests will fail.
     // Headful tests should work since log output is only for /getlog.
 
-    let _ = log_line("[Replay] CP: returning Ok");
     Ok(())
-}
-
-/// Dump key replay globals for comparison.
-unsafe fn dump_replay_globals(label: &str) {
-    let state = rb(va::G_REPLAY_STATE);
-    let team_base = rb(0x877FFC);
-
-    // Key scalars
-    let ver_id = *(rb(va::G_REPLAY_VERSION_ID) as *const i32);
-    let scheme = *(rb(va::G_REPLAY_SCHEME_PRESENT) as *const u32);
-    let team_count = *(rb(0x87D0E0) as *const u8);
-    let seed = *(rb(va::G_RANDOM_SEED) as *const u32);
-    let saved_seed = *(rb(va::G_SAVED_RANDOM_SEED) as *const u32);
-    let map_seed = *(rb(0x87D430) as *const u32);
-    let host = *(rb(0x8779E0) as *const u32);
-
-    let _ = log_line(&format!(
-        "[{label}] ver_id={ver_id} scheme={scheme} teams={team_count} seed=0x{seed:08X} saved=0x{saved_seed:08X} map_seed={map_seed} host=0x{host:08X}"
-    ));
-
-    // Per-team: dump first 32 bytes of per-team region for comparison
-    for i in 0..2u32 {
-        let off = (i * 0xD7B) as usize;
-        let base = team_base as *const u8;
-        // Dump bytes at key offsets: +0 (type), +1 (alliance), +2, then +0x14 (team name area)
-        let typ = *base.add(off);
-        let flag = *base.add(off + 0x124);
-        let wc = *base.add(off + 0x98);
-        // Team name: offset +0x14 in per-team block, prefixed string
-        let n_base = base.add(off + 0x14);
-        let n_hex: String = core::slice::from_raw_parts(n_base, 16).iter()
-            .map(|b| format!("{b:02X}")).collect::<Vec<_>>().join(" ");
-        let _ = log_line(&format!(
-            "[{label}] team[{i}]: flag={flag} type=0x{typ:02X} wc={wc} name_area={n_hex}"
-        ));
-    }
-
-    // Checksums of major global regions
-    let team_hdr = core::slice::from_raw_parts(rb(va::G_TEAM_HEADER_DATA) as *const u8, 0x5728);
-    let team_sec = core::slice::from_raw_parts(rb(va::G_TEAM_SECONDARY_DATA) as *const u8, 0xD9DC);
-    let scheme_area = core::slice::from_raw_parts(rb(0x88DACC) as *const u8, 0x200);
-    let hdr_sum: u32 = team_hdr.iter().fold(0u32, |a, &b| a.wrapping_add(b as u32));
-    let sec_sum: u32 = team_sec.iter().fold(0u32, |a, &b| a.wrapping_add(b as u32));
-    let sch_sum: u32 = scheme_area.iter().fold(0u32, |a, &b| a.wrapping_add(b as u32));
-    let _ = log_line(&format!(
-        "[{label}] checksums: team_hdr=0x{hdr_sum:08X} team_sec=0x{sec_sum:08X} scheme=0x{sch_sum:08X}"
-    ));
-
-    // Save RUST snapshot, then on ORIG pass find first 5 differences
-    // Check critical scalar globals
-    let sub_fmt = *(rb(va::G_REPLAY_SUB_FORMAT) as *const u32);
-    let af42 = *(rb(0x88AF42) as *const u8);
-    let af44 = *(rb(0x88AF44) as *const u8);
-    let af4c = *(rb(0x88AF4C) as *const u32);
-    let xor_id = *(rb(va::G_REPLAY_GAME_ID) as *const u32);
-    let map_b1 = *(rb(0x87250C) as *const u8);
-    let map_b2 = *(rb(0x872508) as *const u8);
-    let d0de = *(rb(0x87D0DE) as *const u8);
-    let d0e0 = *(rb(0x87D0E0) as *const u8);
-    let state_40 = *(rb(va::G_REPLAY_STATE + 0x40) as *const u8);
-    let state_48c = *(rb(va::G_REPLAY_STATE + 0x48C) as *const u8);
-    let state_fcc = *(rb(va::G_REPLAY_STATE + 0xFCBC) as *const u32);
-    let _ = log_line(&format!(
-        "[{label}] sub_fmt={sub_fmt} af42={af42} af44={af44} af4c={af4c} xor=0x{xor_id:08X}"
-    ));
-    let _ = log_line(&format!(
-        "[{label}] map=({map_b1},{map_b2}) d0de={d0de} d0e0={d0e0} st40={state_40} st48c={state_48c} fcc=0x{state_fcc:08X}"
-    ));
-
-    // Also compare team_sec
-    static mut RUST_SEC: Option<*mut u8> = None;
-    if label == "RUST" {
-        let buf = wa_malloc(0xD9DC);
-        ptr::copy_nonoverlapping(team_sec.as_ptr(), buf, 0xD9DC);
-        RUST_SEC = Some(buf);
-    } else if let Some(rust_buf) = RUST_SEC {
-        let rust_data = core::slice::from_raw_parts(rust_buf, 0xD9DC);
-        let mut diffs = 0;
-        for i in 0..0xD9DCusize {
-            if rust_data[i] != team_sec[i] {
-                if diffs < 10 {
-                    let ghidra_addr = 0x87D438u32 + i as u32;
-                    let _ = log_line(&format!(
-                        "[DIFF2] sec[0x{i:04X}] @0x{ghidra_addr:08X}: RUST=0x{:02X} ORIG=0x{:02X}",
-                        rust_data[i], team_sec[i]
-                    ));
-                }
-                diffs += 1;
-            }
-        }
-        let _ = log_line(&format!("[DIFF2] Total team_sec diffs: {diffs}"));
-        wa_free(rust_buf);
-        RUST_SEC = None;
-    }
-
-    static mut RUST_HDR: Option<*mut u8> = None;
-    if label == "RUST" {
-        let buf = wa_malloc(0x5728);
-        ptr::copy_nonoverlapping(team_hdr.as_ptr(), buf, 0x5728);
-        RUST_HDR = Some(buf);
-    } else if let Some(rust_buf) = RUST_HDR {
-        let rust_data = core::slice::from_raw_parts(rust_buf, 0x5728);
-        let mut diffs = 0;
-        for i in 0..0x5728usize {
-            if rust_data[i] != team_hdr[i] {
-                if diffs < 10 {
-                    let ghidra_addr = 0x8779E4u32 + i as u32;
-                    let _ = log_line(&format!(
-                        "[DIFF] hdr[0x{i:04X}] @0x{ghidra_addr:08X}: RUST=0x{:02X} ORIG=0x{:02X}",
-                        rust_data[i], team_hdr[i]
-                    ));
-                }
-                diffs += 1;
-            }
-        }
-        let _ = log_line(&format!("[DIFF] Total team_hdr diffs: {diffs}"));
-        wa_free(rust_buf);
-        RUST_HDR = None;
-    }
 }
 
 // ─── Naked asm bridge for ProcessSchemeDefaults (usercall ESI=state) ─────────
