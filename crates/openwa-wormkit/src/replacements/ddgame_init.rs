@@ -18,7 +18,9 @@ use openwa_core::engine::ddgame::{
     bit_grid_init, ddgame_init_fields, ddgame_init_render_indices, display_layer_color_init,
     gfx_dir_find_entry, gfx_dir_load_dir, gfx_resource_create, DDGame,
 };
-use openwa_core::engine::game_state_init::{ring_buffer_init, sprite_gfx_table_init};
+use openwa_core::engine::game_state_init::{
+    init_alliance_data, init_team_scoring, ring_buffer_init, sprite_gfx_table_init,
+};
 use openwa_core::engine::DDGameWrapper;
 
 // ─── DDGame__InitFields (0x526120) ──────────────────────────────────────────
@@ -213,6 +215,18 @@ pub fn install() -> Result<(), String> {
             va::RING_BUFFER_INIT,
             ring_buffer_init_trampoline as *const (),
         )?;
+
+        hook::install(
+            "CGameTask__InitTeamScoring",
+            va::INIT_TEAM_SCORING,
+            init_team_scoring_trampoline as *const (),
+        )?;
+
+        hook::install(
+            "CGameTask__InitAllianceData",
+            va::INIT_ALLIANCE_DATA,
+            init_alliance_data_trampoline as *const (),
+        )?;
     }
 
     Ok(())
@@ -243,5 +257,32 @@ unsafe extern "C" fn ring_buffer_init_trampoline() {
         "pop edx",
         "ret",
         impl_fn = sym impl_ring_buffer_init,
+    );
+}
+
+// ─── CGameTask__InitTeamScoring (0x528510) ──────────────────────────────────
+// Convention: fastcall(ECX=wrapper), plain RET.
+
+unsafe extern "fastcall" fn init_team_scoring_trampoline(wrapper: u32, _edx: u32) {
+    init_team_scoring(wrapper as *mut u8);
+}
+
+// ─── CGameTask__InitAllianceData (0x5262D0) ─────────────────────────────────
+// Convention: usercall(EAX=wrapper), plain RET.
+
+extern "cdecl" fn impl_init_alliance_data(wrapper: u32) {
+    unsafe { init_alliance_data(wrapper as *mut u8) }
+}
+
+#[unsafe(naked)]
+unsafe extern "C" fn init_alliance_data_trampoline() {
+    core::arch::naked_asm!(
+        "push edx",
+        "push eax",        // wrapper (EAX)
+        "call {impl_fn}",
+        "add esp, 4",
+        "pop edx",
+        "ret",
+        impl_fn = sym impl_init_alliance_data,
     );
 }

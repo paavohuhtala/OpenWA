@@ -354,6 +354,10 @@ pub mod va {
     pub const SPRITE_GFX_TABLE_INIT: u32 = 0x0054_1620;
     /// RingBuffer__Init (0x541060): usercall(EAX=capacity, ESI=struct), plain RET.
     pub const RING_BUFFER_INIT: u32 = 0x0054_1060;
+    /// CGameTask__InitTeamScoring (0x528510): fastcall(ECX=wrapper), plain RET.
+    pub const INIT_TEAM_SCORING: u32 = 0x0052_8510;
+    /// CGameTask__InitAllianceData (0x5262D0): usercall(EAX=wrapper), plain RET.
+    pub const INIT_ALLIANCE_DATA: u32 = 0x0052_62D0;
     /// DDGame__InitDisplayFinal_Maybe (0x56A830): display finalization for non-headless.
     pub const DDGAME_INIT_DISPLAY_FINAL: u32 = 0x0056_A830;
     /// PCLandscape__Constructor (0x57ACB0): constructs 0xB44-byte landscape object.
