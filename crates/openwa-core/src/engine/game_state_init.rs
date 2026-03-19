@@ -383,35 +383,36 @@ pub unsafe fn check_weapon_avail(ddgame: *mut u8, weapon_index: u32) -> i32 {
         _ => {}
     }
 
-    // Step 2: Check weapon table entry
-    // weapon_table_entry is at ddgame+0x510 + 0x10 + weapon_index*0x1D0
-    let weapon_table_entry =
-        *(ddgame.add(0x510 + 0x10 + (weapon_index as usize) * 0x1D0) as *const u8);
+    // Step 2: Branch on weapon table entry + DDGame+0x777C
+    // DDGame+0x510 is a POINTER to the weapon table (double deref)
+    let weapon_table = *(ddgame.add(0x510) as *const *const u8);
+    let weapon_entry = *(weapon_table.add(0x10 + (weapon_index as usize) * 0x1D0) as *const i32);
 
-    if *(ddgame.add(0x777C) as *const u32) == 0 && weapon_table_entry == 0 {
-        if game_version > 0x29 && *(game_info.add(0xD959) as *const u8) != 0 {
-            return -2;
+    if *(ddgame.add(0x777C) as *const i32) == 0 || weapon_entry != 0 {
+        // Main path: check super weapon, 7E25, etc.
+        let super_result = is_super_weapon(weapon_index, *(ddgame.add(0x7E3F) as *const u8));
+        // After is_super_weapon, re-read ddgame (ECX may change in original — doesn't matter in Rust)
+        if super_result != 0 && *(game_info.add(0xD93C) as *const u8) == 0 {
+            // (game_version < 0x2A) - 1: if < 0x2A → 1-1=0, else → 0-1=-1
+            return (game_version < 0x2A) as i32 - 1;
         }
+
+        if *(ddgame.add(0x7E25) as *const u8) == 0 {
+            return 1;
+        }
+
+        // Check if weapon_index == (0x19 - (game_info+0xD956 != 0))
+        let d956_nonzero = (*(game_info.add(0xD956) as *const u8) != 0) as u32;
+        if weapon_index != 0x19 - d956_nonzero {
+            return 1;
+        }
+
         return 0;
     }
 
-    // Step 3: Super weapon check
-    let super_result = is_super_weapon(weapon_index, *(ddgame.add(0x7E3F) as *const u8));
-    if super_result != 0 && *(game_info.add(0xD93C) as *const u8) == 0 {
-        // (game_version < 0x2A) - 1: if version < 0x2A → 0, else → -1
-        return if game_version < 0x2A { 0 } else { -1 };
-    }
-
-    // Step 4: Check DDGame+0x7E25 and weapon_index condition
-    if *(ddgame.add(0x7E25) as *const u8) == 0 {
-        return 1;
-    }
-
-    // weapon_index != (0x19 - (game_info+0xD956 != 0))
-    let d956_nonzero = *(game_info.add(0xD956) as *const u8) != 0;
-    let threshold = 0x19u32 - d956_nonzero as u32;
-    if weapon_index != threshold {
-        return 1;
+    // Else branch: 777C != 0 AND weapon_entry == 0
+    if game_version > 0x29 && *(game_info.add(0xD959) as *const u8) != 0 {
+        return -2;
     }
 
     0

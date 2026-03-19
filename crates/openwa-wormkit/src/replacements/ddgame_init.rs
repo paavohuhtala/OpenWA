@@ -235,8 +235,11 @@ pub fn install() -> Result<(), String> {
             init_turn_state_trampoline as *const (),
         )?;
 
-        // TODO: CheckWeaponAvail has a porting bug — disabled until fixed
-        // hook::install("DDGame__CheckWeaponAvail", va::CHECK_WEAPON_AVAIL, check_weapon_avail_trampoline as *const ())?;
+        hook::install(
+            "DDGame__CheckWeaponAvail",
+            va::CHECK_WEAPON_AVAIL,
+            check_weapon_avail_trampoline as *const (),
+        )?;
 
         hook::install(
             "CGameTask__InitLandscapeFlags",
