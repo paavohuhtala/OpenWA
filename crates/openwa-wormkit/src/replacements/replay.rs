@@ -10,6 +10,7 @@ use openwa_core::engine::replay::{self, ReplayError, ReplayStream};
 use openwa_core::rebase::rb;
 
 use core::ffi::c_void;
+use core::fmt::Write;
 use core::ptr;
 
 // ─── WA CRT wrappers (rebased addresses, NOT Rust's UCRT) ───────────────────
@@ -637,13 +638,12 @@ unsafe fn write_replay_log(state: u32, log_file: *mut FILE) -> Result<(), Replay
         let tm = gmtime(&ts);
         if !tm.is_null() {
             let tm = &*tm;
-            let mut buf = [0u8; 128];
-            let mut w = SliceFmtWriter(&mut buf, 0);
-            let _ = core::fmt::write(&mut w, format_args!(
+            let mut s = heapless::String::<128>::new();
+            let _ = write!(s,
                 "Game Started at {:04}-{:02}-{:02} {:02}:{:02}:{:02} GMT\n",
                 tm[5] + 1900, tm[4] + 1, tm[3], tm[2], tm[1], tm[0]
-            ));
-            wa_fputs(buf.as_ptr(), log_file);
+            );
+            wa_fputs(as_cstr(&mut s), log_file);
         }
     }
 
@@ -673,20 +673,16 @@ unsafe fn write_replay_log(state: u32, log_file: *mut FILE) -> Result<(), Replay
     let format_ver_str = *(rb(0x6AC624 + replay_ver * 4) as *const u32) as *const u8;
 
     {
-        let mut buf = [0u8; 512];
-        let mut w = SliceFmtWriter(&mut buf, 0);
-        // Game Engine Version line
-        write_cstr(&mut w, label_game_engine);
-        let _ = core::fmt::write(&mut w, format_args!(": "));
-        write_cstr(&mut w, version_str);
-        // Append mod/compat suffixes (empty for standard replays)
-        let _ = core::fmt::write(&mut w, format_args!("\n"));
-        // File Format Version line
-        write_cstr(&mut w, label_file_format);
-        let _ = core::fmt::write(&mut w, format_args!(": "));
-        write_cstr(&mut w, format_ver_str);
-        let _ = core::fmt::write(&mut w, format_args!("\n"));
-        wa_fputs(buf.as_ptr(), log_file);
+        let mut s = heapless::String::<512>::new();
+        push_cstr(&mut s, label_game_engine);
+        let _ = write!(s, ": ");
+        push_cstr(&mut s, version_str);
+        let _ = write!(s, "\n");
+        push_cstr(&mut s, label_file_format);
+        let _ = write!(s, ": ");
+        push_cstr(&mut s, format_ver_str);
+        let _ = write!(s, "\n");
+        wa_fputs(as_cstr(&mut s), log_file);
     }
 
     // ── "Exported with Version" line ─────────────────────────────────────
@@ -698,14 +694,13 @@ unsafe fn write_replay_log(state: u32, log_file: *mut FILE) -> Result<(), Replay
         let ver_literal = rb(0x641C60) as *const u8; // "3.8.1"
         let ver_suffix = *(rb(0x699814 + ver_byte * 4) as *const u32) as *const u8; // " (Steam)"
 
-        let mut buf = [0u8; 256];
-        let mut w = SliceFmtWriter(&mut buf, 0);
-        write_cstr(&mut w, label_exported);
-        let _ = core::fmt::write(&mut w, format_args!(": "));
-        write_cstr(&mut w, ver_literal);
-        write_cstr(&mut w, ver_suffix);
-        let _ = core::fmt::write(&mut w, format_args!("\n\n"));
-        wa_fputs(buf.as_ptr(), log_file);
+        let mut s = heapless::String::<256>::new();
+        push_cstr(&mut s, label_exported);
+        let _ = write!(s, ": ");
+        push_cstr(&mut s, ver_literal);
+        push_cstr(&mut s, ver_suffix);
+        let _ = write!(s, "\n\n");
+        wa_fputs(as_cstr(&mut s), log_file);
     }
 
 
@@ -756,40 +751,36 @@ unsafe fn write_replay_log(state: u32, log_file: *mut FILE) -> Result<(), Replay
 
         let color_len = clen;
 
-        let mut buf = [0u8; 256];
-        let mut w = SliceFmtWriter(&mut buf, 0);
+        let mut s = heapless::String::<256>::new();
 
         // Color name: capitalize first letter (original uses CharUpperA)
         if clen > 0 {
-            let first = (*color as char).to_ascii_uppercase();
-            let _ = core::fmt::write(&mut w, format_args!("{first}"));
-            let rest = color.add(1);
-            write_cstr(&mut w, rest);
+            let _ = s.push((*color as char).to_ascii_uppercase());
+            push_cstr(&mut s, color.add(1));
         }
-        let _ = core::fmt::write(&mut w, format_args!(":"));
+        let _ = write!(s, ":");
         for _ in 0..(max_color_len - color_len + 1) {
-            let _ = core::fmt::write(&mut w, format_args!(" "));
+            let _ = s.push(' ');
         }
 
         // Quoted team name
-        let _ = core::fmt::write(&mut w, format_args!("\""));
-        write_cstr(&mut w, team_name);
-        let _ = core::fmt::write(&mut w, format_args!("\""));
+        let _ = s.push('"');
+        push_cstr(&mut s, team_name);
+        let _ = s.push('"');
 
         // Team type info
         if (team_type as i32) < 0 {
-            // CPU team: difficulty = abs(team_type) / 20
             let abs_type = -(team_type as i32) as u32;
             let whole = abs_type / 20;
-            let frac = (abs_type % 20) * 5; // * 100 / 20 = * 5
-            let cpu_label = wa_load_string(0x6ED); // "CPU" (was 0x6F0 = wrong)
-            let _ = core::fmt::write(&mut w, format_args!(" ["));
-            write_cstr(&mut w, cpu_label);
-            let _ = core::fmt::write(&mut w, format_args!(" {whole}.{frac:02}]"));
+            let frac = (abs_type % 20) * 5;
+            let cpu_label = wa_load_string(0x6ED);
+            let _ = write!(s, " [");
+            push_cstr(&mut s, cpu_label);
+            let _ = write!(s, " {whole}.{frac:02}]");
         }
 
-        let _ = core::fmt::write(&mut w, format_args!("\n"));
-        wa_fputs(buf.as_ptr(), log_file);
+        let _ = write!(s, "\n");
+        wa_fputs(as_cstr(&mut s), log_file);
     }
 
     wa_fputs(b"\n\0".as_ptr(), log_file);
@@ -802,35 +793,33 @@ unsafe fn write_replay_log(state: u32, log_file: *mut FILE) -> Result<(), Replay
     Ok(())
 }
 
-/// Helper: write a C string (null-terminated) into a SliceFmtWriter.
-unsafe fn write_cstr(w: &mut SliceFmtWriter, s: *const u8) {
-    let mut p = s;
+/// Append a null-terminated C string to a heapless::String.
+unsafe fn push_cstr<const N: usize>(s: &mut heapless::String<N>, cstr: *const u8) {
+    let mut p = cstr;
     while *p != 0 {
-        let _ = core::fmt::write(w, format_args!("{}", *p as char));
+        let _ = s.push(*p as char);
         p = p.add(1);
     }
 }
 
-/// Helper: length of a null-terminated C string.
+/// Get a null-terminated pointer from a heapless::String for C interop.
+/// Writes a null byte at position len() in the underlying buffer.
+unsafe fn as_cstr<const N: usize>(s: &mut heapless::String<N>) -> *const u8 {
+    let len = s.len();
+    let buf = s.as_mut_ptr();
+    // heapless::String<N> has capacity N, string uses len bytes.
+    // Write null at position len (safe if len < N).
+    if len < N {
+        *buf.add(len) = 0;
+    }
+    buf as *const u8
+}
+
+/// Length of a null-terminated C string.
 unsafe fn c_strlen(s: *const u8) -> usize {
     let mut len = 0;
     while *s.add(len) != 0 { len += 1; }
     len
-}
-
-/// A fmt::Write adapter for writing into a fixed-size byte slice with null termination.
-struct SliceFmtWriter<'a>(&'a mut [u8], usize);
-
-impl<'a> core::fmt::Write for SliceFmtWriter<'a> {
-    fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        let bytes = s.as_bytes();
-        let remaining = self.0.len().saturating_sub(self.1 + 1); // leave room for null
-        let n = bytes.len().min(remaining);
-        self.0[self.1..self.1 + n].copy_from_slice(&bytes[..n]);
-        self.1 += n;
-        self.0[self.1] = 0; // null terminate
-        Ok(())
-    }
 }
 
 // ─── Naked asm bridges ──────────────────────────────────────────────────────

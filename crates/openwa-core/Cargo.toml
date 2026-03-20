@@ -5,6 +5,7 @@ edition = "2021"
 description = "Core library for Worms Armageddon reverse engineering — types, addresses, and runtime utilities"
 
 [dependencies]
+heapless = "0.9"
 hound = "3"
 
 [target.'cfg(target_os = "windows")'.dependencies]
