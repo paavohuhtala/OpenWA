@@ -542,8 +542,8 @@ unsafe extern "cdecl" fn draw_crosshair_line_impl(task_ptr: u32) {
     }
 
     // Enqueue polygon line (2 vertices)
-    let poly_param_1 = ddgame.crosshair_line_style;
-    let poly_param_2 = ddgame.crosshair_line_color;
+    let poly_param_1 = ddgame.gfx_color_table[8]; // crosshair line style
+    let poly_param_2 = ddgame.gfx_color_table[6]; // crosshair line color
     let verts: [[i32; 3]; 2] = [[start_x, start_y, 0], [endpoint_x, endpoint_y, 0]];
     let total_size = 2 * 0xC + 0x20;
     if let Some(ptr) = rq.alloc_raw(total_size) {

@@ -60,8 +60,8 @@ pub struct DDGame {
     pub landscape: *mut PCLandscape,
     /// 0x024: GameInfo pointer (passed as param_10 to constructor).
     pub game_info: *mut GameInfo,
-    /// 0x028: param_9
-    pub _param_028: *mut u8,
+    /// 0x028: Network game object (param_9 to DDGameWrapper constructor).
+    pub net_game: *mut u8,
     /// 0x02C: Secondary GfxDir object (0x70C bytes, conditional on GfxHandler 1)
     pub secondary_gfxdir: *mut u8,
     /// 0x030: Gradient image pointer
@@ -84,8 +84,9 @@ pub struct DDGame {
     /// 0x384-0x467: Additional sprite/image object slots.
     /// Same vtable 0x664144 as sprite_cache. ~20 entries populated at runtime.
     pub sprite_cache_2: [*mut u8; 57],
-    /// 0x468: Landscape-derived value
-    pub _landscape_val: *mut u8,
+    /// 0x468: Landscape property from PCLandscape vtable[0xB] (thiscall getter).
+    /// Set during DDGame construction if landscape is non-null.
+    pub landscape_property: u32,
     /// 0x46C-0x488: 8 SpriteRegion pointers (0x9C bytes each, vtable 0x66B268)
     /// Created by SpriteRegion__Constructor (0x57DB20).
     /// Each contains 32 BitGrid sub-objects.
@@ -177,12 +178,12 @@ pub struct DDGame {
     /// Known landmarks:
     /// - 0x64D8: cleared by init
     pub _unknown_4620: [u8; 0x64D8 - 0x4620],
-    /// 0x64D8: Cleared by init.
-    pub _field_64d8: u32,
+    /// 0x64D8: Cleared by InitFields. Purpose unknown.
+    pub init_field_64d8: u32,
     /// 0x64DC-0x72A3: Unknown
     pub _unknown_64dc: [u8; 0x72A4 - 0x64DC],
-    /// 0x72A4: Cleared by init.
-    pub _field_72a4: u32,
+    /// 0x72A4: Cleared by InitFields. Purpose unknown.
+    pub init_field_72a4: u32,
     /// 0x72A8-0x72D7: Unknown
     pub _unknown_72a8: [u8; 0x72D8 - 0x72A8],
 
@@ -200,16 +201,12 @@ pub struct DDGame {
     pub _unknown_72f4: [u8; 0x7308 - 0x72F4],
     /// 0x7308: Sprite/gfx dimension data (passed to GFX_DIR_LOAD_SPRITES).
     pub gfx_sprite_data: [u8; 0x730C - 0x7308],
-    /// 0x730C-0x731C: 5 GfxDir color entries
-    pub _gfx_color_entries: [u8; 0x7324 - 0x730C],
-
-    /// 0x7324: Crosshair line color param (DrawPolygon param_2).
-    /// Part of GfxDir color entries at 0x730C.
-    pub crosshair_line_color: u32,
-    /// 0x7328: Unknown (between crosshair params)
-    pub _unknown_7328: [u8; 4],
-    /// 0x732C: Crosshair line style param (DrawPolygon param_1).
-    pub crosshair_line_style: u32,
+    /// 0x730C-0x732F: GfxDir color table (9 entries).
+    /// Populated from colours.img pixel row: `color_table[i] = get_pixel(sprite, i, 0)`.
+    /// Known entries:
+    /// - [6] (0x7324): Crosshair line color (DrawPolygon param_2)
+    /// - [8] (0x732C): Crosshair line style (DrawPolygon param_1)
+    pub gfx_color_table: [u32; 9],
     /// 0x7330-0x7337: Unknown
     pub _unknown_7330: [u8; 8],
     /// 0x7338: Fill pixel value
@@ -288,24 +285,24 @@ pub struct DDGame {
     /// 0x7D84-0x7E9F: Unknown
     pub _unknown_7d84: [u8; 0x7EA0 - 0x7D84],
 
-    /// 0x7EA0: Unknown flag/counter (value 4 at runtime — team count?)
-    pub _field_7ea0: u32,
-    /// 0x7EA4: Unknown
-    pub _unknown_7ea4: u32,
+    /// 0x7EA0: Flag/counter (value 4 at runtime — likely team count).
+    pub field_7ea0: u32,
+    /// 0x7EA4: Unknown.
+    pub field_7ea4: u32,
     /// 0x7EA8: Turn time limit in seconds (150 = 2:30 default).
     pub turn_time_limit: u32,
     /// 0x7EAC-0x7ECF: Unknown
     pub _unknown_7eac: [u8; 0x7ED0 - 0x7EAC],
     /// 0x7ED0-0x7EEF: Unknown
     pub _unknown_7ed0: [u8; 0x7EF0 - 0x7ED0],
-    /// 0x7EF0: Unknown flag (-1 = 0xFFFFFFFF at runtime)
-    pub _field_7ef0: i32,
-    /// 0x7EF4: Unknown
-    pub _unknown_7ef4: u32,
+    /// 0x7EF0: Flag (-1 = 0xFFFFFFFF at runtime).
+    pub field_7ef0: i32,
+    /// 0x7EF4: Unknown.
+    pub field_7ef4: u32,
     /// 0x7EF8: Sound available flag (1 when game_info+0xF914 == 0, i.e. not headless).
     pub sound_available: u32,
     /// 0x7EFC: Always initialized to 1 in constructor.
-    pub _field_7efc: u32,
+    pub field_7efc: u32,
 
     // === Sound queue (0x7F00-0x8143) ===
     /// 0x7F00: Sound queue (16 entries, stride 0x24). Appended by PlaySoundGlobal.
@@ -332,16 +329,16 @@ pub struct DDGame {
     /// - 0x8174: value 0x3FC (1020) at runtime
     pub _unknown_81cc: [u8; 0x8CBC - 0x81CC],
 
-    /// 0x8CBC-0x8CF8: 4× coordinate entries (0x10-byte stride).
-    /// InitFields zeroes +0 and +4 of each. At runtime contains fixed-point
+    /// 0x8CBC-0x8CFB: 4 coordinate entries (0x10-byte stride).
+    /// InitFields zeroes x and y of each. At runtime contains fixed-point
     /// screen coordinates (e.g. 393.0, 532.0, 960.0, 348.0).
-    pub coord_entries_8cbc: [u8; 0x8CFC - 0x8CBC],
+    pub screen_coords: [CoordEntry; 4],
 
     /// 0x8CFC-0x984F: Unknown
     pub _unknown_8cfc: [u8; 0x9850 - 0x8CFC],
 
-    /// 0x9850-0x988F: 4× coordinate entries (0x10-byte stride, zeroed by InitFields).
-    pub coord_entries_9850: [u8; 0x9890 - 0x9850],
+    /// 0x9850-0x988F: 4 coordinate entries (0x10-byte stride, zeroed by InitFields).
+    pub screen_coords_2: [CoordEntry; 4],
 
     /// 0x9890-0x98A3: Flags
     pub _unknown_9890: [u8; 0x98A4 - 0x9890],
@@ -392,54 +389,30 @@ const _: () = assert!(core::mem::size_of::<DDGame>() == 0x98B8);
 pub unsafe fn ddgame_init_fields(ddgame: *mut DDGame) {
     let base = ddgame as *mut u8;
 
-    // Zero the stride-0x194 table (10 entries)
+    // Zero the stride-0x194 table (10 entries starting at 0x379C).
+    // These offsets are deep in the unknown 0x2E00-0x45EB region and don't
+    // have named fields yet — keep as raw offsets for now.
     for &off in &[
-        0x379Cusize,
-        0x3930,
-        0x3AC4,
-        0x3C58,
-        0x3DEC,
-        0x3F80,
-        0x4114,
-        0x42A8,
-        0x443C,
-        0x45D0,
+        0x379Cusize, 0x3930, 0x3AC4, 0x3C58, 0x3DEC,
+        0x3F80, 0x4114, 0x42A8, 0x443C, 0x45D0,
     ] {
-        *(base.add(off as usize) as *mut u32) = 0;
+        *(base.add(off) as *mut u32) = 0;
     }
 
-    *(base.add(0x64D8) as *mut u32) = 0;
-    *(base.add(0x72A4) as *mut u32) = 0;
+    (*ddgame).init_field_64d8 = 0;
+    (*ddgame).init_field_72a4 = 0;
 
     // InitRenderIndices — original sets ESI = ddgame + 0x72D8 before calling
     ddgame_init_render_indices(base.add(0x72D8));
 
-    // Zero 8 fields at 0x8Cxx
-    for &off in &[
-        0x8CBCusize,
-        0x8CC0,
-        0x8CCC,
-        0x8CD0,
-        0x8CDC,
-        0x8CE0,
-        0x8CEC,
-        0x8CF0,
-    ] {
-        *(base.add(off as usize) as *mut u32) = 0;
+    // Zero x and y of each screen coordinate entry (4 entries each)
+    for entry in &mut (*ddgame).screen_coords {
+        entry.x = 0;
+        entry.y = 0;
     }
-
-    // Zero 8 fields at 0x98xx
-    for &off in &[
-        0x9850usize,
-        0x9854,
-        0x9860,
-        0x9864,
-        0x9870,
-        0x9874,
-        0x9880,
-        0x9884,
-    ] {
-        *(base.add(off as usize) as *mut u32) = 0;
+    for entry in &mut (*ddgame).screen_coords_2 {
+        entry.x = 0;
+        entry.y = 0;
     }
 }
 
@@ -705,7 +678,7 @@ pub unsafe fn create_ddgame(
     (*ddgame).timer_obj = param7;
     (*ddgame).network_ecx = network_ecx;
     (*ddgame).game_info = game_info;
-    (*ddgame)._param_028 = net_game;
+    (*ddgame).net_game = net_game;
 
     // Now safe to expose — all fields that concurrent readers check are set.
     (*wrapper).ddgame = ddgame;
@@ -717,7 +690,7 @@ pub unsafe fn create_ddgame(
     let is_headless = (*game_info).headless_mode != 0;
     // sound_available enables loading progress bar, message pump, and sound during construction.
     (*ddgame).sound_available = if is_headless { 0 } else { 1 };
-    (*ddgame)._field_7efc = 1;
+    (*ddgame).field_7efc = 1;
 
     // ── 7. DDGameWrapper+0x48C init ──
     (*wrapper).ddgame_secondary = core::ptr::null_mut();
@@ -898,13 +871,8 @@ unsafe fn init_graphics_and_resources(
             // vtable[4] = get_pixel: thiscall(this, x, y) -> color, RET 0x8.
             let get_color: unsafe extern "thiscall" fn(*mut u8, u32, u32) -> u32 =
                 core::mem::transmute(*rvt.add(4));
-            let mut off = 0x730Cu32;
-            let mut idx = 0u32;
-            while off < 0x732Du32 {
-                let c = get_color(res, idx, 0);
-                *((ddgame as *mut u8).add(off as usize) as *mut u32) = c;
-                off += 4;
-                idx += 1;
+            for i in 0..9u32 {
+                (*ddgame).gfx_color_table[i as usize] = get_color(res, i, 0);
             }
             // DisplayGfx__vmethod_3: thiscall(this, byte param_2), RET 4.
             // param_2 & 1 = free the object itself.
@@ -1019,37 +987,37 @@ unsafe fn init_graphics_and_resources(
     // ── 8× SpriteRegion at DDGame+0x46C..0x488 ──
     // SpriteRegion__Constructor: fastcall(ECX, EDX) + 6 stack(this, p2, p3, p4, p5, p6), RET 0x18
     {
-        // (ddgame_offset, ECX, EDX, p2, p3, p4, p5, p6=gfx_resource)
+        // (array_index, ECX, EDX, p2, p3, p4, p5, p6=gfx_resource)
         // p6 is the GfxResource pointer returned by GfxResource__Create_Maybe.
         let gr = gfx_resource as u32;
-        let regions: [(u32, u32, u32, u32, u32, u32, u32, u32); 8] = [
-            (0x474, 0x37, 0x36, 0x2E, 0x24, 0x41, 0x2D, gr),
-            (0x46C, 0x30, 0x0C, 0x2D, 0x07, 0x34, 0x09, gr),
-            (0x470, 0x11, 0x1A, 0x0D, 0x0A, 0x16, 0x13, gr),
-            (0x478, 0x0C, 0x3D, 0x00, 0x20, 0x18, 0x33, gr),
-            (0x47C, 0x00, 0x01, 0x00, 0x00, 0x01, 0x00, gr),
-            (0x484, 0x1A2, 0x1B, 0x173, 0x09, 0x1D8, 0x03, gr),
-            (0x488, 0x1EF, 0x26, 0x1E5, 0x07, 0x1F9, 0x16, gr),
-            (0x480, 0x2D, 0x08, 0x2D, 0x07, 0x2E, 0x07, gr),
+        let regions: [(usize, u32, u32, u32, u32, u32, u32, u32); 8] = [
+            (2, 0x37, 0x36, 0x2E, 0x24, 0x41, 0x2D, gr),
+            (0, 0x30, 0x0C, 0x2D, 0x07, 0x34, 0x09, gr),
+            (1, 0x11, 0x1A, 0x0D, 0x0A, 0x16, 0x13, gr),
+            (3, 0x0C, 0x3D, 0x00, 0x20, 0x18, 0x33, gr),
+            (4, 0x00, 0x01, 0x00, 0x00, 0x01, 0x00, gr),
+            (6, 0x1A2, 0x1B, 0x173, 0x09, 0x1D8, 0x03, gr),
+            (7, 0x1EF, 0x26, 0x1E5, 0x07, 0x1F9, 0x16, gr),
+            (5, 0x2D, 0x08, 0x2D, 0x07, 0x2E, 0x07, gr),
         ];
 
-        for &(offset, ecx, edx, p2, p3, p4, p5, p6) in &regions {
+        for &(idx, ecx, edx, p2, p3, p4, p5, p6) in &regions {
             let alloc = wa_malloc_zeroed(0x9C);
             let result = if !alloc.is_null() {
                 call_sprite_region_ctor(alloc, ecx, edx, p2, p3, p4, p5, p6)
             } else {
                 core::ptr::null_mut()
             };
-            *((ddgame as *mut u8).add(offset as usize) as *mut *mut u8) = result;
+            (*ddgame).sprite_regions[idx] = result;
         }
     }
 
-    // ── Landscape-derived value at DDGame+0x468 ──
+    // ── Landscape property at DDGame+0x468 (PCLandscape vtable[0xB]) ──
     if !landscape.is_null() {
         let land_vt = *(landscape as *const *const u32);
         let get_val: unsafe extern "thiscall" fn(*mut u8) -> u32 =
             core::mem::transmute(*land_vt.add(0xB));
-        *((ddgame as *mut u8).add(0x468) as *mut u32) = get_val(landscape);
+        (*ddgame).landscape_property = get_val(landscape);
     }
 
     // NOTE: gfx_resource is NOT released here — arrow SpriteRegions need it.
@@ -1552,6 +1520,20 @@ pub mod offsets {
     /// Sound queue count (i32, 0–16).
     pub const SOUND_QUEUE_COUNT: usize = 0x8140;
 }
+
+/// Coordinate entry used in DDGame screen coordinate tables (stride 0x10).
+///
+/// InitFields zeroes x and y; at runtime they contain fixed-point screen
+/// coordinates used for camera tracking and rendering regions.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct CoordEntry {
+    pub x: i32,
+    pub y: i32,
+    pub _unknown: [u8; 8],
+}
+
+const _: () = assert!(core::mem::size_of::<CoordEntry>() == 0x10);
 
 // ============================================================
 // Sound queue entry — 16 entries at DDGame + 0x7F00
