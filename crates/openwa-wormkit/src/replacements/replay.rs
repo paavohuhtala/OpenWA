@@ -8,37 +8,44 @@ use crate::log_line;
 use openwa_core::address::va;
 use openwa_core::engine::replay::{self, ReplayError, ReplayStream};
 use openwa_core::rebase::rb;
-use openwa_core::wa_alloc::{wa_malloc, wa_free};
+use openwa_core::wa_alloc::{wa_free, wa_malloc};
 
 use core::ffi::c_void;
 use core::fmt::Write;
 use core::ptr;
+use std::io::Read;
+use std::mem::ManuallyDrop;
+use std::os::windows::io::FromRawHandle;
+use std::path::Path;
 
-// ─── WA CRT wrappers (rebased addresses, NOT Rust's UCRT) ───────────────────
+// ─── WA CRT FILE* conversion ────────────────────────────────────────────────
+//
+// WA's CRT FILE* can't be used with Rust's std::fs::File directly, but we can
+// extract the Win32 HANDLE via _fileno + _get_osfhandle and wrap it.
 
 #[allow(non_camel_case_types)]
 type FILE = c_void;
 
-unsafe fn wa_fopen(f: *const u8, m: *const u8) -> *mut FILE {
-    core::mem::transmute::<_, unsafe extern "cdecl" fn(*const u8, *const u8) -> *mut FILE>(rb(0x5D3271))(f, m)
-}
-unsafe fn wa_fclose(s: *mut FILE) {
-    core::mem::transmute::<_, unsafe extern "cdecl" fn(*mut FILE)>(rb(0x5D399B))(s);
-}
-unsafe fn wa_fread(b: *mut c_void, sz: u32, c: u32, f: *mut FILE) -> u32 {
-    core::mem::transmute::<_, unsafe extern "cdecl" fn(*mut c_void, u32, u32, *mut FILE) -> u32>(rb(0x5D4531))(b, sz, c, f)
-}
-unsafe fn wa_fwrite(b: *const c_void, sz: u32, c: u32, f: *mut FILE) -> u32 {
-    core::mem::transmute::<_, unsafe extern "cdecl" fn(*const c_void, u32, u32, *mut FILE) -> u32>(rb(0x5D3B76))(b, sz, c, f)
-}
-unsafe fn wa_fileno(s: *mut FILE) -> i32 {
-    core::mem::transmute::<_, unsafe extern "cdecl" fn(*mut FILE) -> i32>(rb(0x5D5155))(s)
-}
-unsafe fn wa_filelengthi64(fd: i32) -> i64 {
-    core::mem::transmute::<_, unsafe extern "cdecl" fn(i32) -> i64>(rb(0x5D4FE1))(fd)
+/// Convert a WA CRT FILE* to a borrowed Rust File (ManuallyDrop — we don't own it).
+unsafe fn wa_file_to_rust(file: *mut FILE) -> Option<ManuallyDrop<std::fs::File>> {
+    let fileno: unsafe extern "cdecl" fn(*mut FILE) -> i32 =
+        core::mem::transmute(rb(0x5D5155));
+    let get_osfhandle: unsafe extern "cdecl" fn(i32) -> isize =
+        core::mem::transmute(rb(0x5D7273));
+
+    let fd = fileno(file);
+    if fd < 0 { return None; }
+    let handle = get_osfhandle(fd);
+    if handle == -1 || handle == -2 { return None; }
+    Some(ManuallyDrop::new(std::fs::File::from_raw_handle(handle as *mut core::ffi::c_void)))
 }
 
-extern "stdcall" { fn SetCurrentDirectoryA(path: *const u8) -> i32; }
+/// Load a WA string resource by ID (stdcall). Returns null-terminated C string.
+unsafe fn wa_load_string(id: u32) -> *const u8 {
+    let f: unsafe extern "stdcall" fn(u32) -> *const u8 =
+        core::mem::transmute(rb(0x593180));
+    f(id)
+}
 
 // ─── Trampoline storage ─────────────────────────────────────────────────────
 
@@ -48,16 +55,12 @@ static mut PARSE_POSITION_ORIG: *const () = core::ptr::null();
 /// Replay timestamp extracted during parsing (time_t as u32).
 static mut REPLAY_TIMESTAMP: u32 = 0;
 
-// ─── RAII cleanup guard ─────────────────────────────────────────────────────
+// ─── RAII cleanup guard (for wa_malloc'd payload) ───────────────────────────
 
-struct ReplayGuard { file: *mut FILE, payload: *mut u8 }
-impl ReplayGuard { fn new() -> Self { Self { file: ptr::null_mut(), payload: ptr::null_mut() } } }
-impl Drop for ReplayGuard {
+struct PayloadGuard { payload: *mut u8 }
+impl Drop for PayloadGuard {
     fn drop(&mut self) {
-        unsafe {
-            if !self.payload.is_null() { wa_free(self.payload); }
-            if !self.file.is_null() { wa_fclose(self.file); }
-        }
+        unsafe { if !self.payload.is_null() { wa_free(self.payload); } }
     }
 }
 
@@ -85,20 +88,33 @@ unsafe fn replay_loader_play(state: u32) -> Result<(), ReplayError> {
     *s.add(0xDB48) = 1;
     *(s.add(0xEF60) as *mut u32) = 0;
 
-    // Open replay file
-    SetCurrentDirectoryA(rb(0x88E078) as *const u8);
-    let file = wa_fopen(s.add(0xDB60), b"rb\0".as_ptr());
-    SetCurrentDirectoryA(rb(0x88E17D) as *const u8);
-    if file.is_null() { return Err(ReplayError::FileNotFound); }
+    // Open replay file using Rust's std::fs::File
+    let replay_path = {
+        // Build path: game data dir + replay filename from state+0xDB60
+        let data_dir = std::ffi::CStr::from_ptr(rb(0x88E078) as *const i8);
+        let file_name = std::ffi::CStr::from_ptr(s.add(0xDB60) as *const i8);
+        let dir = data_dir.to_str().unwrap_or(".");
+        let name = file_name.to_str().unwrap_or("");
+        if Path::new(name).is_absolute() {
+            std::path::PathBuf::from(name)
+        } else {
+            Path::new(dir).join(name)
+        }
+    };
 
-    let mut guard = ReplayGuard::new();
-    guard.file = file;
-    let fd = wa_fileno(file);
-    let file_size = wa_filelengthi64(fd) as u64;
+    let mut file = std::fs::File::open(&replay_path)
+        .map_err(|_| ReplayError::FileNotFound)?;
+    let file_size = file.metadata().map_err(|_| ReplayError::FileNotFound)?.len();
+
+    // Helper: read exact bytes from file into a typed value
+    fn read_u32(f: &mut std::fs::File) -> Result<u32, ReplayError> {
+        let mut buf = [0u8; 4];
+        f.read_exact(&mut buf).map_err(|_| ReplayError::InvalidFormat)?;
+        Ok(u32::from_le_bytes(buf))
+    }
 
     // Header
-    let mut header: u32 = 0;
-    if wa_fread(&mut header as *mut u32 as *mut c_void, 4, 1, file) == 0 { return Err(ReplayError::InvalidFormat); }
+    let header = read_u32(&mut file)?;
     if (header & 0xFFFF) != replay::REPLAY_MAGIC as u32 { return Err(ReplayError::InvalidFormat); }
     let version = header >> 16;
     if version == 0 || version > 20 { return Err(ReplayError::VersionTooNew); }
@@ -108,19 +124,19 @@ unsafe fn replay_loader_play(state: u32) -> Result<(), ReplayError> {
     *(s.add(0xDB58) as *mut u32) = 0xFFFFFFFF;
 
     // First payload
-    let mut payload_size: u32 = 0;
-    if wa_fread(&mut payload_size as *mut u32 as *mut c_void, 4, 1, file) == 0 { return Err(ReplayError::InvalidFormat); }
+    let payload_size = read_u32(&mut file)?;
     if (payload_size as u64 + 8) > file_size { return Err(ReplayError::InvalidFormat); }
     let payload = wa_malloc(payload_size);
     if payload.is_null() { return Err(ReplayError::MallocFailure); }
-    guard.payload = payload;
-    if wa_fread(payload as *mut c_void, payload_size, 1, file) == 0 { return Err(ReplayError::FileNotFound); }
+    let mut guard = PayloadGuard { payload };
+    let payload_slice = core::slice::from_raw_parts_mut(payload, payload_size as usize);
+    file.read_exact(payload_slice).map_err(|_| ReplayError::FileNotFound)?;
 
     let first_dword = *(payload as *const i32);
     *(s.add(0xDB1C) as *mut i32) = first_dword;
     if first_dword >= 1 {
-        let thm = wa_fopen(b"data\\playback.thm\0".as_ptr(), b"wb\0".as_ptr());
-        if !thm.is_null() { wa_fwrite(payload as *const c_void, 1, payload_size, thm); wa_fclose(thm); }
+        // Write payload to playback.thm using Rust File
+        let _ = std::fs::write("data\\playback.thm", payload_slice);
     } else {
         *(s.add(0xDB20) as *mut i32) = *(payload.add(4) as *const i32);
         if first_dword >= -4 && first_dword < -2 {
@@ -141,19 +157,20 @@ unsafe fn replay_loader_play(state: u32) -> Result<(), ReplayError> {
     let _ = log_line(&format!("[Replay] Header: ver={version} payload={payload_size} sub={first_dword}"));
 
     if version == 1 {
-        return parse_version1(state, file, &mut guard);
+        drop(file);
+        return parse_version1(state);
     }
 
     // ─── Version 2+: read second payload ─────────────────────────────────
 
-    let mut second_size: u32 = 0;
-    if wa_fread(&mut second_size as *mut u32 as *mut c_void, 4, 1, file) == 0 { return Err(ReplayError::InvalidFormat); }
+    let second_size = read_u32(&mut file)?;
     if (4u64 + 4 + payload_size as u64 + 4 + second_size as u64) > file_size { return Err(ReplayError::InvalidFormat); }
     let p2 = wa_malloc(second_size);
     if p2.is_null() { return Err(ReplayError::MallocFailure); }
     guard.payload = p2;
-    if wa_fread(p2 as *mut c_void, second_size, 1, file) == 0 { return Err(ReplayError::InvalidFormat); }
-    wa_fclose(file); guard.file = ptr::null_mut();
+    let p2_slice = core::slice::from_raw_parts_mut(p2, second_size as usize);
+    file.read_exact(p2_slice).map_err(|_| ReplayError::InvalidFormat)?;
+    drop(file); // Done reading — close replay file
 
     // Parse and write to globals
     let data = core::slice::from_raw_parts(p2, second_size as usize);
@@ -162,14 +179,12 @@ unsafe fn replay_loader_play(state: u32) -> Result<(), ReplayError> {
 
     match result {
         Ok(()) => {
-            let _ = log_line("[Replay] about to call ProcessReplayFlags");
             call_usercall_eax(state, rb(va::REPLAY_PROCESS_FLAGS));
-            let _ = log_line("[Replay] ProcessReplayFlags done");
-            let log_file = *(rb(0x88C370) as *const *mut FILE);
-            if !log_file.is_null() {
-                let _ = log_line("[Replay] writing log output");
-                write_replay_log(state, log_file)?;
-                let _ = log_line("[Replay] log output done");
+            let wa_log_file = *(rb(0x88C370) as *const *mut FILE);
+            if !wa_log_file.is_null() {
+                if let Some(mut log_file) = wa_file_to_rust(wa_log_file) {
+                    write_replay_log(state, &mut *log_file)?;
+                }
             }
             let _ = log_line("[Replay] Rust replay loading complete");
             Ok(())
@@ -181,8 +196,7 @@ unsafe fn replay_loader_play(state: u32) -> Result<(), ReplayError> {
     }
 }
 
-unsafe fn parse_version1(state: u32, _file: *mut FILE, guard: &mut ReplayGuard) -> Result<(), ReplayError> {
-    wa_fclose(guard.file); guard.file = ptr::null_mut();
+unsafe fn parse_version1(state: u32) -> Result<(), ReplayError> {
     delegate_to_original(state)
 }
 
@@ -596,22 +610,11 @@ unsafe fn parse_and_write_v2plus(
 
 // ─── Log output formatting ──────────────────────────────────────────────────
 
-/// Load a string resource by ID using WA's string table.
-unsafe fn wa_load_string(id: u32) -> *const u8 {
-    let f: unsafe extern "stdcall" fn(u32) -> *const u8 =
-        core::mem::transmute(rb(0x593180));
-    f(id)
-}
 
-/// Write a C string to the log file via WA's CRT fputs.
-unsafe fn wa_fputs(s: *const u8, file: *mut FILE) {
-    let fputs: unsafe extern "cdecl" fn(*const u8, *mut FILE) -> i32 =
-        core::mem::transmute(*(rb(0x649468) as *const u32));
-    fputs(s, file);
-}
 
 /// Write the /getlog replay header to the log file.
-unsafe fn write_replay_log(state: u32, log_file: *mut FILE) -> Result<(), ReplayError> {
+unsafe fn write_replay_log(state: u32, log_file: &mut std::fs::File) -> Result<(), ReplayError> {
+    use std::io::Write as IoWrite;
     let s = state as *const u8;
 
     // ── Date/time line ───────────────────────────────────────────────────
@@ -636,7 +639,7 @@ unsafe fn write_replay_log(state: u32, log_file: *mut FILE) -> Result<(), Replay
                 "Game Started at {:04}-{:02}-{:02} {:02}:{:02}:{:02} GMT\n",
                 tm[5] + 1900, tm[4] + 1, tm[3], tm[2], tm[1], tm[0]
             );
-            wa_fputs(as_cstr(&mut s), log_file);
+            let _ = log_file.write_all(s.as_bytes());
         }
     }
 
@@ -675,7 +678,7 @@ unsafe fn write_replay_log(state: u32, log_file: *mut FILE) -> Result<(), Replay
         let _ = write!(s, ": ");
         push_cstr(&mut s, format_ver_str);
         let _ = write!(s, "\n");
-        wa_fputs(as_cstr(&mut s), log_file);
+        let _ = log_file.write_all(s.as_bytes());
     }
 
     // ── "Exported with Version" line ─────────────────────────────────────
@@ -693,7 +696,7 @@ unsafe fn write_replay_log(state: u32, log_file: *mut FILE) -> Result<(), Replay
         push_cstr(&mut s, ver_literal);
         push_cstr(&mut s, ver_suffix);
         let _ = write!(s, "\n\n");
-        wa_fputs(as_cstr(&mut s), log_file);
+        let _ = log_file.write_all(s.as_bytes());
     }
 
 
@@ -771,16 +774,12 @@ unsafe fn write_replay_log(state: u32, log_file: *mut FILE) -> Result<(), Replay
         }
 
         let _ = write!(s, "\n");
-        wa_fputs(as_cstr(&mut s), log_file);
+        let _ = log_file.write_all(s.as_bytes());
     }
 
-    wa_fputs(b"\n\0".as_ptr(), log_file);
+    let _ = log_file.write_all(b"\n");
 
-    // Flush — use WA's CRT fflush
-    let fflush: unsafe extern "cdecl" fn(*mut FILE) -> i32 =
-        core::mem::transmute(rb(0x5D3792));
-    fflush(log_file);
-
+    let _ = log_file.flush();
     Ok(())
 }
 
@@ -791,19 +790,6 @@ unsafe fn push_cstr<const N: usize>(s: &mut heapless::String<N>, cstr: *const u8
         let _ = s.push(*p as char);
         p = p.add(1);
     }
-}
-
-/// Get a null-terminated pointer from a heapless::String for C interop.
-/// Writes a null byte at position len() in the underlying buffer.
-unsafe fn as_cstr<const N: usize>(s: &mut heapless::String<N>) -> *const u8 {
-    let len = s.len();
-    let buf = s.as_mut_ptr();
-    // heapless::String<N> has capacity N, string uses len bytes.
-    // Write null at position len (safe if len < N).
-    if len < N {
-        *buf.add(len) = 0;
-    }
-    buf as *const u8
 }
 
 /// Length of a null-terminated C string.
