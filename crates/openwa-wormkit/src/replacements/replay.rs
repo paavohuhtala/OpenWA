@@ -13,10 +13,13 @@ use openwa_core::wa_alloc::{wa_free, wa_malloc};
 use core::ffi::c_void;
 use core::fmt::Write;
 use core::ptr;
+use std::ffi::CStr;
+use std::fs::File;
 use std::io::Read;
 use std::mem::ManuallyDrop;
 use std::os::windows::io::FromRawHandle;
 use std::path::Path;
+use std::path::PathBuf;
 
 // ─── WA CRT FILE* conversion ────────────────────────────────────────────────
 //
@@ -27,7 +30,7 @@ use std::path::Path;
 type FILE = c_void;
 
 /// Convert a WA CRT FILE* to a borrowed Rust File (ManuallyDrop — we don't own it).
-unsafe fn wa_file_to_rust(file: *mut FILE) -> Option<ManuallyDrop<std::fs::File>> {
+unsafe fn wa_file_to_rust(file: *mut FILE) -> Option<ManuallyDrop<File>> {
     let fileno: unsafe extern "cdecl" fn(*mut FILE) -> i32 =
         core::mem::transmute(rb(0x5D5155));
     let get_osfhandle: unsafe extern "cdecl" fn(i32) -> isize =
@@ -37,7 +40,7 @@ unsafe fn wa_file_to_rust(file: *mut FILE) -> Option<ManuallyDrop<std::fs::File>
     if fd < 0 { return None; }
     let handle = get_osfhandle(fd);
     if handle == -1 || handle == -2 { return None; }
-    Some(ManuallyDrop::new(std::fs::File::from_raw_handle(handle as *mut core::ffi::c_void)))
+    Some(ManuallyDrop::new(File::from_raw_handle(handle as *mut core::ffi::c_void)))
 }
 
 /// Load a WA string resource by ID (stdcall). Returns null-terminated C string.
@@ -91,23 +94,23 @@ unsafe fn replay_loader_play(state: u32) -> Result<(), ReplayError> {
     // Open replay file using Rust's std::fs::File
     let replay_path = {
         // Build path: game data dir + replay filename from state+0xDB60
-        let data_dir = std::ffi::CStr::from_ptr(rb(0x88E078) as *const i8);
-        let file_name = std::ffi::CStr::from_ptr(s.add(0xDB60) as *const i8);
+        let data_dir = CStr::from_ptr(rb(0x88E078) as *const i8);
+        let file_name = CStr::from_ptr(s.add(0xDB60) as *const i8);
         let dir = data_dir.to_str().unwrap_or(".");
         let name = file_name.to_str().unwrap_or("");
         if Path::new(name).is_absolute() {
-            std::path::PathBuf::from(name)
+            PathBuf::from(name)
         } else {
             Path::new(dir).join(name)
         }
     };
 
-    let mut file = std::fs::File::open(&replay_path)
+    let mut file = File::open(&replay_path)
         .map_err(|_| ReplayError::FileNotFound)?;
     let file_size = file.metadata().map_err(|_| ReplayError::FileNotFound)?.len();
 
     // Helper: read exact bytes from file into a typed value
-    fn read_u32(f: &mut std::fs::File) -> Result<u32, ReplayError> {
+    fn read_u32(f: &mut File) -> Result<u32, ReplayError> {
         let mut buf = [0u8; 4];
         f.read_exact(&mut buf).map_err(|_| ReplayError::InvalidFormat)?;
         Ok(u32::from_le_bytes(buf))
@@ -613,7 +616,7 @@ unsafe fn parse_and_write_v2plus(
 
 
 /// Write the /getlog replay header to the log file.
-unsafe fn write_replay_log(state: u32, log_file: &mut std::fs::File) -> Result<(), ReplayError> {
+unsafe fn write_replay_log(state: u32, log_file: &mut File) -> Result<(), ReplayError> {
     use std::io::Write as IoWrite;
     let s = state as *const u8;
 
