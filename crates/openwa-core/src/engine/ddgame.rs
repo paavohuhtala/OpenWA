@@ -19,7 +19,7 @@ use crate::render::landscape::PCLandscape;
 use crate::render::queue::RenderQueue;
 use crate::render::turn_order::TurnOrderWidget;
 use crate::task::bit_grid::BitGrid;
-use crate::wa_alloc::wa_malloc;
+use crate::wa_alloc::{wa_malloc, wa_malloc_zeroed};
 
 /// DDGame — the main game engine object.
 ///
@@ -586,10 +586,10 @@ unsafe fn wa_pc_landscape_ctor(
     landscape_path: *const u8,
     byte_output: *mut u8,
     gfx_mode: u32,
-    temp_buf: *mut u8,
-    coord_output: *mut u8,
-    width_output: *mut u8,
-    height_output: *mut u8,
+    temp_buf: *mut u32,
+    coord_output: *mut u32,
+    width_output: *mut u32,
+    height_output: *mut u32,
 ) -> *mut u8 {
     let f: unsafe extern "stdcall" fn(
         *mut u8,
@@ -599,10 +599,10 @@ unsafe fn wa_pc_landscape_ctor(
         *const u8,
         *mut u8,
         u32,
-        *mut u8,
-        *mut u8,
-        *mut u8,
-        *mut u8,
+        *mut u32,
+        *mut u32,
+        *mut u32,
+        *mut u32,
     ) -> *mut u8 = core::mem::transmute(rb(va::PC_LANDSCAPE_CONSTRUCTOR) as usize);
     f(
         this,
@@ -680,11 +680,10 @@ pub unsafe fn create_ddgame(
     network_ecx: u32, // implicit ECX from caller
 ) -> *mut DDGame {
     // ── 1. Allocate and zero-fill (matches: memset(piVar3, 0, 0x98B8)) ──
-    let ddgame = wa_malloc(0x98B8) as *mut DDGame;
+    let ddgame = wa_malloc_zeroed(0x98B8) as *mut DDGame;
     if ddgame.is_null() {
         return core::ptr::null_mut();
     }
-    core::ptr::write_bytes(ddgame as *mut u8, 0, 0x98B8);
 
     // Notify watchpoint debugger (if active) so it can arm DR0–DR3.
     if let Some(cb) = ON_DDGAME_ALLOC {
@@ -725,8 +724,7 @@ pub unsafe fn create_ddgame(
 
     // ── 8. Conditional network object (game_version == -2) ──
     if (*game_info).game_version == -2 {
-        let net_obj = wa_malloc(0x2C);
-        core::ptr::write_bytes(net_obj, 0, 0x2C);
+        let net_obj = wa_malloc_zeroed(0x2C);
         *(net_obj as *mut *mut DDGame) = ddgame;
         *net_obj.add(0x28) = (*game_info).net_config_1;
         *net_obj.add(0x29) = (*game_info).net_config_2;
@@ -918,8 +916,7 @@ unsafe fn init_graphics_and_resources(
 
     // ── Secondary GfxDir object (DDGame+0x2C, conditional) ──
     if !(*wrapper).secondary_gfx_dir.is_null() {
-        let gfxdir2 = wa_malloc(0x70C);
-        core::ptr::write_bytes(gfxdir2, 0, 0x70C);
+        let gfxdir2 = wa_malloc_zeroed(0x70C);
         *(gfxdir2 as *mut u16) = 1;
         *(gfxdir2.add(2) as *mut u16) = 0x5A;
         // FUN_5411A0: usercall(EAX=gfxdir2), plain RET
@@ -967,8 +964,7 @@ unsafe fn init_graphics_and_resources(
     let gfx_resource: *mut u8;
     {
         let gfx_dir = (*wrapper).primary_gfx_dir;
-        let out_buf = wa_malloc(0x900);
-        core::ptr::write_bytes(out_buf, 0, 0x900);
+        let out_buf = wa_malloc_zeroed(0x900);
         gfx_resource =
             gfx_resource_create(gfx_dir, rb(va::STR_MASKS_IMG) as *const c_char, out_buf);
     }
@@ -976,13 +972,12 @@ unsafe fn init_graphics_and_resources(
     // ── PCLandscape (alloc 0xB44, stdcall 11 params) ──
     // Temporary output buffers for landscape coordinate data (used later for coord_list).
     // These were stack locals in the original code (aiStack_978, iStack_11f9).
-    let mut landscape_coords_buf = [0u8; 0x1000]; // 4KB for coord output
+    let mut landscape_coords_buf = [0u32; 0x400]; // coord output: pairs of (x, y)
     let mut landscape_byte_buf = [0u8; 0x100]; // byte output
-    let mut landscape_temp = [0u8; 0x1000]; // coord count + temp data
+    let mut landscape_temp = [0u32; 0x400]; // [0] = coord count, rest = temp data
 
     let landscape = {
-        let alloc = wa_malloc(0xB44);
-        core::ptr::write_bytes(alloc, 0, 0xB44);
+        let alloc = wa_malloc_zeroed(0xB44);
         if !alloc.is_null() {
             let result = wa_pc_landscape_ctor(
                 alloc,
@@ -994,8 +989,8 @@ unsafe fn init_graphics_and_resources(
                 (*wrapper).gfx_mode,
                 landscape_temp.as_mut_ptr(),
                 landscape_coords_buf.as_mut_ptr(),
-                &mut (*ddgame).level_width_raw as *mut u32 as *mut u8,
-                &mut (*ddgame).level_height_raw as *mut u32 as *mut u8,
+                &raw mut (*ddgame).level_width_raw,
+                &raw mut (*ddgame).level_height_raw,
             );
             (*wrapper).landscape = result as *mut PCLandscape;
             (*ddgame).landscape = result as *mut PCLandscape;
@@ -1039,8 +1034,7 @@ unsafe fn init_graphics_and_resources(
         ];
 
         for &(offset, ecx, edx, p2, p3, p4, p5, p6) in &regions {
-            let alloc = wa_malloc(0x9C);
-            core::ptr::write_bytes(alloc, 0, 0x9C);
+            let alloc = wa_malloc_zeroed(0x9C);
             let result = if !alloc.is_null() {
                 call_sprite_region_ctor(alloc, ecx, edx, p2, p3, p4, p5, p6)
             } else {
@@ -1106,8 +1100,7 @@ unsafe fn init_graphics_and_resources(
                 let half_h = (sprite_h / 2 - 10).max(0);
 
                 // Create SpriteRegion for collision
-                let alloc = wa_malloc(0x9C);
-                core::ptr::write_bytes(alloc, 0, 0x9C);
+                let alloc = wa_malloc_zeroed(0x9C);
                 let region = if !alloc.is_null() {
                     // SpriteRegion params: ECX, EDX, this, p2, p3, p4, p5, p6
                     // this[3] = p4 - p2 (width), this[4] = EDX - p3 (height)
@@ -1162,8 +1155,7 @@ unsafe fn init_graphics_and_resources(
         let cl = wa_malloc(12) as *mut u32;
         *cl = 0; // count
         *cl.add(1) = 600; // capacity
-        let data = wa_malloc(0x12C0);
-        core::ptr::write_bytes(data, 0, 0x12C0);
+        let data = wa_malloc_zeroed(0x12C0);
         *cl.add(2) = data as u32;
         (*ddgame).coord_list = cl as *mut u8;
 
@@ -1171,12 +1163,11 @@ unsafe fn init_graphics_and_resources(
         // landscape_temp[0] = coordinate count, landscape_coords_buf = pairs of (x, y).
         // Original packs as: coord = x * 0x10000 + y (Fixed-point).
         // Each coord_list entry is 8 bytes: [coord_value, 1]. Duplicates are skipped.
-        let coord_count = *(landscape_temp.as_ptr() as *const u32);
-        let coords_src = landscape_coords_buf.as_ptr() as *const u32;
+        let coord_count = landscape_temp[0];
         let data_ptr = data as *mut u32;
         for j in 0..coord_count as usize {
-            let x = *coords_src.add(j * 2);
-            let y = *coords_src.add(j * 2 + 1);
+            let x = landscape_coords_buf[j * 2];
+            let y = landscape_coords_buf[j * 2 + 1];
             let coord_val = x.wrapping_mul(0x10000).wrapping_add(y);
             let cur_count = *cl as usize;
             if cur_count >= 600 {
@@ -1325,9 +1316,8 @@ unsafe fn init_graphics_and_resources(
     // ── Gradient image stub (DDGame+0x30) ──
     // Minimal stub: [6]=0 (zero-width) so CTaskLand skips the gradient column loop.
     if (*ddgame).gradient_image.is_null() {
-        let obj = wa_malloc(core::mem::size_of::<BitGrid>() as u32) as *mut BitGrid;
+        let obj = wa_malloc_zeroed(core::mem::size_of::<BitGrid>() as u32) as *mut BitGrid;
         if !obj.is_null() {
-            core::ptr::write_bytes(obj as *mut u8, 0, core::mem::size_of::<BitGrid>());
             (*obj).vtable = rb(va::BIT_GRID_VTABLE);
             // height = 0 → CTaskLand skips the gradient column loop
             (*ddgame).gradient_image = obj as *mut u8;

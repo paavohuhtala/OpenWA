@@ -13,6 +13,20 @@ pub unsafe fn wa_malloc(size: u32) -> *mut u8 {
     f(size)
 }
 
+/// Allocate `size` bytes from WA's CRT heap and zero-initialize them.
+///
+/// Equivalent to `wa_malloc(size)` followed by `write_bytes(ptr, 0, size)`.
+///
+/// # Safety
+/// Must only be called from within the WA.exe process.
+pub unsafe fn wa_malloc_zeroed(size: u32) -> *mut u8 {
+    let ptr = wa_malloc(size);
+    if !ptr.is_null() {
+        core::ptr::write_bytes(ptr, 0, size as usize);
+    }
+    ptr
+}
+
 /// Free a pointer allocated by [`wa_malloc`] (WA's statically-linked CRT `free`).
 ///
 /// # Safety
