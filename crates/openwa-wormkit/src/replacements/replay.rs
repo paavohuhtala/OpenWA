@@ -275,6 +275,7 @@ unsafe fn parse_and_write_v2plus(
         let _extra = s.read_u32()?;
     }
 
+    #[allow(unused_assignments)]
     let mut scheme_version: u8 = 0;
 
     if scheme_present == 1 {
@@ -725,9 +726,8 @@ unsafe fn write_replay_log(state: u32, log_file: *mut FILE) -> Result<(), Replay
 
     // Team data is in the team header buffer at 0x877FFC + i*0xD7B.
     // Per-team: +0x00=type, +0x01=alliance(color), +0x14=team_name(prefixed)
-    let team_count = *(rb(0x87D0E0) as *const u8) as u32;
+    let _team_count = *(rb(0x87D0E0) as *const u8) as u32;
 
-    let mut team_idx = 0u32;
     for slot in 0..6u32 {
         let tb = rb(0x877FFC + slot * 0xD7B) as *const u8;
         let flag = *(rb(0x878120 + slot * 0xD7B) as *const u8);
@@ -742,7 +742,6 @@ unsafe fn write_replay_log(state: u32, log_file: *mut FILE) -> Result<(), Replay
         // The displayed team name comes from the pre-loop name field at +0x03
         // (e.g., "CPU 2"), not the custom team name at +0x14 ("thrombosis1").
         let team_name = tb.add(0x03);
-        let tn_len = c_strlen(team_name);
 
         let color_len = clen;
 
@@ -819,26 +818,6 @@ unsafe fn c_strlen(s: *const u8) -> usize {
 
 // ─── Naked asm bridges ──────────────────────────────────────────────────────
 
-/// Bridge for usercall(ESI=val) + stdcall(1 param). cdecl(esi_val, param, func_addr).
-#[unsafe(naked)]
-unsafe extern "cdecl" fn call_usercall_esi_stdcall1(
-    _esi_val: u32, _param: u32, _func: u32,
-) {
-    // Stack on entry: [ESP+0]=ret [ESP+4]=esi_val [ESP+8]=param [ESP+12]=func
-    core::arch::naked_asm!(
-        "push esi",
-        "push edi",
-        // Now: [ESP+0]=edi [ESP+4]=esi [ESP+8]=ret [ESP+12]=esi_val [ESP+16]=param [ESP+20]=func
-        "mov esi, [esp+12]",     // esi_val
-        "push [esp+16]",         // push param for stdcall
-        // Now: [ESP+0]=param [ESP+4]=edi [ESP+8]=esi [ESP+12]=ret [ESP+16]=esi_val [ESP+20]=param_orig [ESP+24]=func
-        "mov eax, [esp+24]",     // func_addr
-        "call eax",              // stdcall cleans 1 param (4 bytes)
-        "pop edi",
-        "pop esi",
-        "ret",
-    );
-}
 
 /// Bridge for usercall(EAX=value) + plain call. cdecl(eax_val, func_addr).
 #[unsafe(naked)]
