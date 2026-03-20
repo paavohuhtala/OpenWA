@@ -8,6 +8,7 @@ use crate::log_line;
 use openwa_core::address::va;
 use openwa_core::engine::replay::{self, ReplayError, ReplayStream};
 use openwa_core::rebase::rb;
+use openwa_core::wa_alloc::{wa_malloc, wa_free};
 
 use core::ffi::c_void;
 use core::fmt::Write;
@@ -29,12 +30,6 @@ unsafe fn wa_fread(b: *mut c_void, sz: u32, c: u32, f: *mut FILE) -> u32 {
 }
 unsafe fn wa_fwrite(b: *const c_void, sz: u32, c: u32, f: *mut FILE) -> u32 {
     core::mem::transmute::<_, unsafe extern "cdecl" fn(*const c_void, u32, u32, *mut FILE) -> u32>(rb(0x5D3B76))(b, sz, c, f)
-}
-unsafe fn wa_malloc(sz: u32) -> *mut u8 {
-    core::mem::transmute::<_, unsafe extern "cdecl" fn(u32) -> *mut u8>(rb(0x5D0F65))(sz)
-}
-unsafe fn wa_free(p: *mut u8) {
-    core::mem::transmute::<_, unsafe extern "cdecl" fn(*mut u8)>(rb(0x5D0D2B))(p);
 }
 unsafe fn wa_fileno(s: *mut FILE) -> i32 {
     core::mem::transmute::<_, unsafe extern "cdecl" fn(*mut FILE) -> i32>(rb(0x5D5155))(s)
