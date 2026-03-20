@@ -49,6 +49,8 @@ extern "stdcall" { fn SetCurrentDirectoryA(path: *const u8) -> i32; }
 static mut REPLAY_LOADER_ORIG: *const () = core::ptr::null();
 #[allow(dead_code)]
 static mut PARSE_POSITION_ORIG: *const () = core::ptr::null();
+/// Replay timestamp extracted during parsing (time_t as u32).
+static mut REPLAY_TIMESTAMP: u32 = 0;
 
 // ─── RAII cleanup guard ─────────────────────────────────────────────────────
 
@@ -255,7 +257,11 @@ unsafe fn parse_and_write_v2plus(
             call_register_observer(
                 rb(0x88C35C), obs_data.as_ptr() as u32, rb(va::REPLAY_REGISTER_OBSERVER),
             );
-            if obs_type == 0 { break; }
+            if obs_type == 0 {
+                // The terminating entry's team_id is the replay timestamp (time_t)
+                REPLAY_TIMESTAMP = team_id;
+                break;
+            }
         }
     }
 
@@ -623,50 +629,33 @@ unsafe fn write_replay_log(state: u32, log_file: *mut FILE) -> Result<(), Replay
     // Date/time line: timestamp from observer array, formatted as GMT.
     // The observer array at 0x88C35C contains the replay date as a time_t
     // in its first registered entry. Use WA's gmtime64 for conversion.
-    if *(rb(0x88C36C) as *const u32) != 0 {
-        // The observer array stores entries as 4-DWORD structs.
-        // The timestamp is accessible via the array's internal structure.
-        // Read it via WA's CRT _time64 global or from the array directly.
-        // Actually, the simplest: call gmtime64 on a stored time_t value.
-        // The original calls FUN_467780 + FUN_4677B0 which are usercall(ESI/EDI).
-        // Instead, read the time_t from the observer data stored at 0x88AF4C area.
-        // For now, get the timestamp from the replay file itself.
-        // The replay time is stored as the first dword of the first observer entry.
-        // 0x88C35C is the observer array base; the time is in its internal data.
-
-        // Use gmtime64 via WA's CRT with a time_t stored in the observer system.
-        // The time was registered via RegisterObserver with the first entry's team_id.
-        // Let's read from the observer array's internal storage.
-        // FUN_467780 writes to ESI[0]=0, ESI[2]=count. Then FUN_4677B0 reads from
-        // EDI which is the output of FUN_467780. Too complex to bridge.
-        // Instead: the expected format is "Game Started at YYYY-MM-DD HH:MM:SS GMT".
-        // The time_t must be somewhere. Let me try reading from 0x88AF4C-adjacent data.
-
-        // Actually the simplest: the first RegisterObserver call stored
-        // [team_id, 0, type] at index 0 of the array. team_id IS the timestamp.
-        // But we need to find it in the array's storage.
-        // Skip the complex usercall bridge — just write the date if we can find the time_t.
-        // TODO: properly extract timestamp. For now skip date line.
+    if *(rb(0x88C36C) as *const u32) != 0 && REPLAY_TIMESTAMP != 0 {
+        // Format the replay date using the timestamp saved during observer parsing.
+        let ts = REPLAY_TIMESTAMP as i64;
+        let gmtime: unsafe extern "cdecl" fn(*const i64) -> *const [i32; 9] =
+            core::mem::transmute(rb(0x5D34C0));
+        let tm = gmtime(&ts);
+        if !tm.is_null() {
+            let tm = &*tm;
+            let mut buf = [0u8; 128];
+            let mut w = SliceFmtWriter(&mut buf, 0);
+            let _ = core::fmt::write(&mut w, format_args!(
+                "Game Started at {:04}-{:02}-{:02} {:02}:{:02}:{:02} GMT\n",
+                tm[5] + 1900, tm[4] + 1, tm[3], tm[2], tm[1], tm[0]
+            ));
+            wa_fputs(buf.as_ptr(), log_file);
+        }
     }
 
     // ── Version lines ────────────────────────────────────────────────────
     // Line 1: "Game Engine Version: <version_string>"
     // Line 2: "File Format Version: <format_version>"
 
-    let _ = log_line("[Replay] log: date done, loading version labels");
-    // Test: load a small string ID first
-    let test_str = wa_load_string(0x20); // "Red"
-    let _ = log_line(&format!("[Replay] log: test string 0x20 at 0x{:08X}", test_str as u32));
-    let _ = log_line("[Replay] log: about to load 0x6E7");
     let label_game_engine = wa_load_string(0x6E7);
-    let _ = log_line(&format!("[Replay] log: 0x6E7 at 0x{:08X}", label_game_engine as u32)); // "Game Engine Version"
     let label_file_format = wa_load_string(0x6E8); // "File Format Version"
-    let _ = log_line("[Replay] log: labels loaded");
 
     // File format version from version table
     let game_ver_id = *(rb(va::G_REPLAY_VERSION_ID) as *const i32);
-    let _ = log_line(&format!("[Replay] log: game_ver_id={game_ver_id}"));
-    let _ = log_line("[Replay] log: looking up version string");
     let version_str = if game_ver_id < 0 {
         match game_ver_id {
             -4 => rb(0x650EAC) as *const u8, // "1.0"
@@ -676,18 +665,13 @@ unsafe fn write_replay_log(state: u32, log_file: *mut FILE) -> Result<(), Replay
         }
     } else {
         let table = rb(0x6AB480) as *const u32;
-        let _ = log_line(&format!("[Replay] log: ver table at 0x{:08X}, idx={game_ver_id}", table as u32));
         let ptr = *table.add(game_ver_id as usize);
-        let _ = log_line(&format!("[Replay] log: ver string ptr=0x{ptr:08X}"));
         ptr as *const u8
     };
 
     let replay_ver = *(s.add(0xDB50) as *const u32);
-    let _ = log_line(&format!("[Replay] log: replay_ver={replay_ver}"));
     let format_ver_str = *(rb(0x6AC624 + replay_ver * 4) as *const u32) as *const u8;
-    let _ = log_line(&format!("[Replay] log: format_ver at 0x{:08X}", format_ver_str as u32));
 
-    let _ = log_line("[Replay] log: formatting version lines");
     {
         let mut buf = [0u8; 512];
         let mut w = SliceFmtWriter(&mut buf, 0);
@@ -702,33 +686,32 @@ unsafe fn write_replay_log(state: u32, log_file: *mut FILE) -> Result<(), Replay
         let _ = core::fmt::write(&mut w, format_args!(": "));
         write_cstr(&mut w, format_ver_str);
         let _ = core::fmt::write(&mut w, format_args!("\n"));
-        let _ = log_line("[Replay] log: about to fputs version lines");
         wa_fputs(buf.as_ptr(), log_file);
-        let _ = log_line("[Replay] log: version lines written");
     }
 
     // ── "Exported with Version" line ─────────────────────────────────────
     {
         let label_exported = wa_load_string(0x6E9); // "Exported with Version"
-        // Current version string from table: 0x699814[DAT_00697702]
-        let ver_byte = *(rb(0x697702) as *const u8);
-        let cur_ver_str = *(rb(0x699814 + ver_byte as u32 * 4) as *const u32) as *const u8;
+        // Current WA version from version table: 0x699814[DAT_00697702]
+        let ver_byte = *(rb(0x697702) as *const u8) as u32;
+        // "3.8.1" literal at 0x641C60 + suffix from version table
+        let ver_literal = rb(0x641C60) as *const u8; // "3.8.1"
+        let ver_suffix = *(rb(0x699814 + ver_byte * 4) as *const u32) as *const u8; // " (Steam)"
 
         let mut buf = [0u8; 256];
         let mut w = SliceFmtWriter(&mut buf, 0);
         write_cstr(&mut w, label_exported);
         let _ = core::fmt::write(&mut w, format_args!(": "));
-        write_cstr(&mut w, cur_ver_str);
+        write_cstr(&mut w, ver_literal);
+        write_cstr(&mut w, ver_suffix);
         let _ = core::fmt::write(&mut w, format_args!("\n\n"));
         wa_fputs(buf.as_ptr(), log_file);
     }
 
-    let _ = log_line("[Replay] log: exported line done");
 
     // ── Team listing ─────────────────────────────────────────────────────
     // For each team: "Color: "TeamName" [CPU X.XX]\n" or similar
 
-    let _ = log_line("[Replay] log: loading color names");
     let color_names: [*const u8; 6] = [
         wa_load_string(0x20),
         wa_load_string(0x21),
@@ -737,19 +720,22 @@ unsafe fn write_replay_log(state: u32, log_file: *mut FILE) -> Result<(), Replay
         wa_load_string(0x24),
         wa_load_string(0x25),
     ];
-    let _ = log_line("[Replay] log: colors loaded");
 
-    // Find max color name length for alignment
+    // Find max color name length for alignment — only active teams
     let mut max_color_len = 0usize;
-    for &name in &color_names {
-        let len = c_strlen(name);
-        if len > max_color_len { max_color_len = len; }
+    for slot in 0..6u32 {
+        let flag = *(rb(0x878120 + slot * 0xD7B) as *const u8);
+        if flag == 0 { continue; }
+        let ci = *(rb(0x877FFC + slot * 0xD7B + 1) as *const u8) as usize;
+        if ci < 6 {
+            let len = c_strlen(color_names[ci]);
+            if len > max_color_len { max_color_len = len; }
+        }
     }
 
     // Team data is in the team header buffer at 0x877FFC + i*0xD7B.
     // Per-team: +0x00=type, +0x01=alliance(color), +0x14=team_name(prefixed)
     let team_count = *(rb(0x87D0E0) as *const u8) as u32;
-    let _ = log_line(&format!("[Replay] log: team listing, count={team_count}"));
 
     let mut team_idx = 0u32;
     for slot in 0..6u32 {
@@ -757,26 +743,29 @@ unsafe fn write_replay_log(state: u32, log_file: *mut FILE) -> Result<(), Replay
         let flag = *(rb(0x878120 + slot * 0xD7B) as *const u8);
         if flag == 0 { continue; }
 
-        let _ = log_line(&format!("[Replay] log: team slot={slot} tb=0x{:08X}", tb as u32));
         let team_type = *tb as i8;
         let color_idx = *tb.add(1) as usize;
-        let _ = log_line(&format!("[Replay] log: type={} color={color_idx}", team_type as i32));
 
         let color = if color_idx < 6 { color_names[color_idx] } else { color_names[0] };
         let clen = c_strlen(color);
-        let _ = log_line(&format!("[Replay] log: color_len={clen} max={max_color_len}"));
 
-        let team_name = tb.add(0x14 + 1); // skip length prefix byte
+        // The displayed team name comes from the pre-loop name field at +0x03
+        // (e.g., "CPU 2"), not the custom team name at +0x14 ("thrombosis1").
+        let team_name = tb.add(0x03);
         let tn_len = c_strlen(team_name);
-        let _ = log_line(&format!("[Replay] log: team_name_len={tn_len}"));
 
         let color_len = clen;
 
         let mut buf = [0u8; 256];
         let mut w = SliceFmtWriter(&mut buf, 0);
 
-        // Color name + colon + padding
-        write_cstr(&mut w, color);
+        // Color name: capitalize first letter (original uses CharUpperA)
+        if clen > 0 {
+            let first = (*color as char).to_ascii_uppercase();
+            let _ = core::fmt::write(&mut w, format_args!("{first}"));
+            let rest = color.add(1);
+            write_cstr(&mut w, rest);
+        }
         let _ = core::fmt::write(&mut w, format_args!(":"));
         for _ in 0..(max_color_len - color_len + 1) {
             let _ = core::fmt::write(&mut w, format_args!(" "));
@@ -793,27 +782,22 @@ unsafe fn write_replay_log(state: u32, log_file: *mut FILE) -> Result<(), Replay
             let abs_type = -(team_type as i32) as u32;
             let whole = abs_type / 20;
             let frac = (abs_type % 20) * 5; // * 100 / 20 = * 5
-            let cpu_label = wa_load_string(0x6F0);
+            let cpu_label = wa_load_string(0x6ED); // "CPU" (was 0x6F0 = wrong)
             let _ = core::fmt::write(&mut w, format_args!(" ["));
             write_cstr(&mut w, cpu_label);
             let _ = core::fmt::write(&mut w, format_args!(" {whole}.{frac:02}]"));
         }
 
         let _ = core::fmt::write(&mut w, format_args!("\n"));
-        let _ = log_line(&format!("[Replay] log: writing team line for slot {slot}"));
         wa_fputs(buf.as_ptr(), log_file);
-        let _ = log_line(&format!("[Replay] log: team {slot} written"));
     }
 
-    let _ = log_line("[Replay] log: team loop done");
     wa_fputs(b"\n\0".as_ptr(), log_file);
-    let _ = log_line("[Replay] log: final newline done");
 
     // Flush — use WA's CRT fflush
     let fflush: unsafe extern "cdecl" fn(*mut FILE) -> i32 =
         core::mem::transmute(rb(0x5D3792));
     fflush(log_file);
-    let _ = log_line("[Replay] log: fflush done");
 
     Ok(())
 }
