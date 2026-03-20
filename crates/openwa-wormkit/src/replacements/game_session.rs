@@ -9,9 +9,7 @@
 //!
 //! - `DDGameWrapper__InitReplay` (0x56F860): usercall(EAX=game_info, ESI=this),
 //!   plain RET (no stack args). Bridged via `call_init_replay`.
-//! - `DDGame__Constructor` (0x56E220): stdcall 9 params + implicit ECX=network.
-//!   Bridged via `ddgame_constructor_call`. Being incrementally replaced by
-//!   `create_ddgame()` in openwa-core (not yet complete).
+//! - `DDGame__Constructor` (0x56E220): fully replaced by `create_ddgame()` in openwa-core.
 //! - `DDGame__InitGameState` (0x526500): plain stdcall(this), called via transmute.
 
 use crate::hook;
@@ -19,23 +17,15 @@ use crate::log_line;
 use openwa_core::address::va;
 use openwa_core::audio::DSSound;
 use openwa_core::display::{DDDisplay, Palette};
-use openwa_core::engine::ddgame::{create_ddgame, init_constructor_addrs, DDGame};
+use openwa_core::engine::ddgame::{create_ddgame, init_constructor_addrs};
 use openwa_core::engine::{DDGameWrapper, GameInfo, GameSession};
 use openwa_core::rebase::rb;
-use openwa_core::wa_alloc::{wa_free, wa_malloc};
 
 /// Implicit EDI = game_info pointer, captured from EDI on entry.
 static mut GAME_INFO: *mut GameInfo = core::ptr::null_mut();
 
-/// Implicit ECX = network pointer for `DDGame__Constructor`. Set in `ctor_impl`
-/// just before calling `ddgame_constructor_call`.
-static mut DDGAME_CTOR_ECX: u32 = 0;
-
 /// Runtime address of `DDGameWrapper__InitReplay` (set at install time).
 static mut INIT_REPLAY_ADDR: u32 = 0;
-
-/// Runtime address of `DDGame__Constructor` (set at install time).
-static mut DDGAME_CTOR_ADDR: u32 = 0;
 
 // ─── Bridge: DDGameWrapper__InitReplay ───────────────────────────────────────
 //
@@ -50,31 +40,6 @@ unsafe extern "stdcall" fn call_init_replay(_game_info: *mut GameInfo, _this: *m
         "popl %esi",
         "retl $8",               // stdcall cleanup: 2 × u32 = 8
         fn = sym INIT_REPLAY_ADDR,
-        options(att_syntax),
-    );
-}
-
-// ─── Bridge: DDGame__Constructor ─────────────────────────────────────────────
-//
-// Convention: stdcall 9 params + implicit ECX=network.
-// Tail-jumps to original; DDGame::ctor's RET 0x24 returns to caller.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn ddgame_constructor_call(
-    _this: *mut DDGameWrapper,
-    _display: *mut DDDisplay,
-    _sound: *mut DSSound,
-    _keyboard: *mut u8,
-    _palette: *mut Palette,
-    _streaming_audio: *mut u8,
-    _timer_obj: *mut u8,
-    _net_game: *mut u8,
-    _game_info: *mut GameInfo,
-) -> *mut u8 {
-    core::arch::naked_asm!(
-        "movl {ecx_val}, %ecx",  // ECX = network (implicit param)
-        "jmpl *({fn})",          // tail-jump; RET 0x24 returns to caller
-        ecx_val = sym DDGAME_CTOR_ECX,
-        fn = sym DDGAME_CTOR_ADDR,
         options(att_syntax),
     );
 }
@@ -107,277 +72,44 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
     let timer_obj = (*session).timer_obj;
     let net_game = (*session).net_game;
 
-    // Debug: dump session fields around net_game (0xBC-0xC8)
-    let session_base = session as *const u8;
-    let _ = log_line(&format!(
-        "[GameSession] session=0x{:08X} +0xBC=0x{:08X} +0xC0=0x{:08X} +0xC4=0x{:08X}",
-        session as u32,
-        *(session_base.add(0xBC) as *const u32),
-        *(session_base.add(0xC0) as *const u32),
-        *(session_base.add(0xC4) as *const u32),
-    ));
     let _ = log_line(&format!(
         "[GameSession] display=0x{:08X}, net_game=0x{:08X}, timer=0x{:08X}, game_info(EDI)=0x{:08X}",
         display as u32, net_game as u32, timer_obj as u32, game_info as u32,
     ));
 
-    // Toggle: use Rust constructor (true) or original (false)
-    // TODO: set back to true once sprite/gradient loading is ported.
-    const USE_RUST_CTOR: bool = true;
-    if USE_RUST_CTOR {
-        create_ddgame(
-            this,
-            keyboard as *mut openwa_core::input::DDKeyboard,
-            display,
-            sound,
-            palette,
-            streaming_audio as *mut openwa_core::audio::Music,
-            timer_obj,
-            net_game,
-            game_info,
-            input_ctrl as u32,
-        );
-    } else {
-        DDGAME_CTOR_ECX = input_ctrl as u32;
-        ddgame_constructor_call(
-            this,
-            display,
-            sound,
-            keyboard,
-            palette,
-            streaming_audio,
-            timer_obj,
-            net_game,
-            game_info,
-        );
-    }
-
-    let _ = log_line(&format!(
-        "[GameSession] create_ddgame returned, ddgame=0x{:08X}",
-        (*this).ddgame as u32
-    ));
-
-    // Dump DDGame state BEFORE InitGameState (constructor output only)
-    if std::env::var("OPENWA_VALIDATE").is_ok() {
-        let ddgame_pre = (*this).ddgame;
-        let real_dwords = ddgame_pre as *const u32;
-        let dword_count = 0x98B8 / 4;
-        let mut nonzero = 0u32;
-        let _ = log_line("[Shadow] === DDGame after constructor (before InitGameState) ===");
-        for i in 0..dword_count {
-            let val = *real_dwords.add(i);
-            if val != 0 {
-                nonzero += 1;
-                if nonzero <= 300 {
-                    let _ = log_line(&format!("[Shadow:Pre] +0x{:04X} = 0x{:08X}", i * 4, val,));
-                }
-            }
-        }
-        let _ = log_line(&format!(
-            "[Shadow:Pre] Total non-zero: {} / {}",
-            nonzero, dword_count,
-        ));
-    }
-
-    // Dump DDGameWrapper state
-    if std::env::var("OPENWA_VALIDATE").is_ok() {
-        let wrapper_dwords = this as *const u32;
-        // DDGameWrapper is ~0x6EF0 bytes (from DDGameWrapper__Constructor at 0x56DEF0)
-        let w_count = 0x6EF0 / 4;
-        let mut w_nonzero = 0u32;
-        let _ = log_line("[Shadow:Wrapper] === DDGameWrapper ===");
-        for i in 0..w_count {
-            let val = *wrapper_dwords.add(i);
-            if val != 0 {
-                w_nonzero += 1;
-                if w_nonzero <= 200 {
-                    let _ = log_line(&format!(
-                        "[Shadow:Wrapper] +0x{:04X} = 0x{:08X}",
-                        i * 4,
-                        val,
-                    ));
-                }
-            }
-        }
-        let _ = log_line(&format!(
-            "[Shadow:Wrapper] Total non-zero: {} / {}",
-            w_nonzero, w_count,
-        ));
-    }
+    create_ddgame(
+        this,
+        keyboard as *mut openwa_core::input::DDKeyboard,
+        display,
+        sound,
+        palette,
+        streaming_audio as *mut openwa_core::audio::Music,
+        timer_obj,
+        net_game,
+        game_info,
+        input_ctrl as u32,
+    );
 
     // Initialize DDGame's game-state fields.
-    let _ = log_line("[GameSession] calling InitGameState");
     let init_state: unsafe extern "stdcall" fn(*mut DDGameWrapper) =
         core::mem::transmute(rb(va::DDGAME_INIT_GAME_STATE) as usize);
     init_state(this);
-    let _ = log_line("[GameSession] InitGameState done");
 
-    let ddgame = (*this).ddgame;
     let _ = log_line(&format!(
-        "[GameSession] DDGameWrapper::Constructor: wrapper=0x{:08X}  ddgame=0x{:08X}",
-        this as u32, ddgame as u32,
+        "[GameSession] DDGameWrapper::Constructor done: wrapper=0x{:08X}  ddgame=0x{:08X}",
+        this as u32, (*this).ddgame as u32,
     ));
-
-    // ── Shadow comparison: run create_ddgame() into a temp allocation ──
-    // Compare byte-by-byte with the original to find porting bugs.
-    if std::env::var("OPENWA_VALIDATE").is_ok() {
-        shadow_compare_ddgame(
-            this,
-            keyboard,
-            display,
-            sound,
-            palette,
-            streaming_audio,
-            input_ctrl,
-            timer_obj,
-            net_game,
-            game_info,
-            ddgame,
-        );
-    }
 
     this
 }
 
-/// Shadow-construct a DDGame via create_ddgame() and compare byte-by-byte
-/// with the real DDGame produced by the original constructor.
-///
-/// Logs the first N differing DWORD offsets. This lets us verify each section
-/// of create_ddgame() against the original without breaking the game.
-#[allow(clippy::too_many_arguments)]
-unsafe fn shadow_compare_ddgame(
-    wrapper: *mut DDGameWrapper,
-    keyboard: *mut u8,
-    display: *mut DDDisplay,
-    sound: *mut DSSound,
-    palette: *mut Palette,
-    streaming_audio: *mut u8,
-    input_ctrl: *mut u8,
-    timer_obj: *mut u8,
-    net_game: *mut u8,
-    game_info: *mut GameInfo,
-    real_ddgame: *mut DDGame,
-) {
-    let _ = log_line("[Shadow] Running create_ddgame() for comparison...");
-
-    // Create a temporary wrapper clone so create_ddgame can write to it
-    // without corrupting the real wrapper.
-    let shadow_wrapper = wa_malloc(core::mem::size_of::<DDGameWrapper>() as u32);
-    core::ptr::copy_nonoverlapping(
-        wrapper as *const u8,
-        shadow_wrapper,
-        core::mem::size_of::<DDGameWrapper>(),
-    );
-    let _sw = shadow_wrapper as *mut DDGameWrapper;
-
-    // Instead of running create_ddgame (which has side effects from resource
-    // loading), compare the fields that we KNOW create_ddgame sets correctly:
-    // the parameter storage and simple flag fields in the first 0x30 bytes
-    // and scattered known offsets.
-    //
-    // We compare the real DDGame against what create_ddgame WOULD write,
-    // computed without side effects.
-    let r = real_ddgame as *const u8;
-
-    // Check param storage (offsets 0x00-0x28)
-    let checks: &[(&str, usize, u32)] = &[
-        ("keyboard", 0x00, keyboard as u32),
-        ("display", 0x04, display as u32),
-        ("sound", 0x08, sound as u32),
-        ("palette", 0x10, palette as u32),
-        ("music", 0x14, streaming_audio as u32),
-        ("param7", 0x18, timer_obj as u32),
-        ("caller/ECX", 0x1C, input_ctrl as u32),
-        ("game_info", 0x24, game_info as u32),
-        ("net_game", 0x28, net_game as u32),
-        (
-            "sound_available",
-            0x7EF8,
-            if *(game_info as *const u8).add(0xF914).cast::<i32>() == 0 {
-                1
-            } else {
-                0
-            },
-        ),
-        ("field_7EFC", 0x7EFC, 1),
-    ];
-
-    let mut ok = 0u32;
-    let mut fail = 0u32;
-    for &(name, offset, expected) in checks {
-        let actual = *(r.add(offset) as *const u32);
-        if actual == expected {
-            ok += 1;
-        } else {
-            let _ = log_line(&format!(
-                "[Shadow] FAIL +0x{:04X} ({}): expected=0x{:08X}  actual=0x{:08X}",
-                offset, name, expected, actual,
-            ));
-            fail += 1;
-        }
-    }
-
-    // Dump a summary of selected DDGame regions for future comparison
-    // (pointer fields that would differ between original and shadow)
-    let _ = log_line(&format!("[Shadow] Param check: {} OK, {} FAIL", ok, fail,));
-
-    // Dump ALL non-zero DWORDs from the real DDGame.
-    // This gives us the exact map of what the constructor initializes.
-    let real_dwords = real_ddgame as *const u32;
-    let dword_count = 0x98B8 / 4;
-    let mut nonzero = 0u32;
-    for i in 0..dword_count {
-        let val = *real_dwords.add(i);
-        if val != 0 {
-            nonzero += 1;
-            // Log up to 200 non-zero fields
-            if nonzero <= 200 {
-                let _ = log_line(&format!("[Shadow] DDGame+0x{:04X} = 0x{:08X}", i * 4, val,));
-            }
-        }
-    }
-    let _ = log_line(&format!(
-        "[Shadow] Total non-zero DWORDs: {} / {}",
-        nonzero, dword_count,
-    ));
-
-    // Also dump non-zero wrapper fields
-    let wrapper_dwords = core::mem::size_of::<DDGameWrapper>() / 4;
-    let real_w = wrapper as *const u32;
-    let mut w_nonzero = 0u32;
-    for i in 0..wrapper_dwords {
-        let val = *real_w.add(i);
-        if val != 0 {
-            w_nonzero += 1;
-            if w_nonzero <= 50 {
-                let _ = log_line(&format!("[Shadow] Wrapper+0x{:04X} = 0x{:08X}", i * 4, val,));
-            }
-        }
-    }
-    let _ = log_line(&format!(
-        "[Shadow] Wrapper non-zero DWORDs: {} / {}",
-        w_nonzero, wrapper_dwords,
-    ));
-
-    wa_free(shadow_wrapper);
-}
-
-// Debug param loggers for PCLandscape, HUD, SpriteRegion constructors
-// removed — were used during DDGame constructor development, now complete.
-
 pub fn install() -> Result<(), String> {
     unsafe {
         INIT_REPLAY_ADDR = rb(va::DDGAMEWRAPPER_INIT_REPLAY);
-        DDGAME_CTOR_ADDR = rb(va::CONSTRUCT_DD_GAME);
-        // Initialize runtime addresses for create_ddgame bridges (future use).
+        // Initialize runtime addresses for create_ddgame bridges.
         init_constructor_addrs();
         // DDGameWrapper__Constructor is fully converted — trap the original.
         hook::install_trap!("DDGameWrapper__Constructor", va::CONSTRUCT_DD_GAME_WRAPPER);
-
-        // PCLandscape hook disabled — params verified, may interfere with Rust ctor
-
-        // Param hooks disabled — they served their purpose and may interfere
-        // with the Rust constructor's own calls to these functions.
     }
     Ok(())
 }

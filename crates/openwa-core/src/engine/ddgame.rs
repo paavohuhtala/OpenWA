@@ -644,6 +644,19 @@ unsafe fn wa_load_hud_sprites(gfx_dir: *mut u8, ddgame: *mut DDGame, secondary: 
     f(gfx_dir, ddgame, secondary);
 }
 
+/// DDGame__InitPaletteGradientSprites (0x5706D0): creates DisplayGfx palette
+/// gradient objects for each team. stdcall(wrapper), RET 0x4.
+#[cfg(target_arch = "x86")]
+unsafe fn wa_init_palette_gradient_sprites(wrapper: *mut DDGameWrapper) {
+    let f: unsafe extern "stdcall" fn(*mut DDGameWrapper) =
+        core::mem::transmute(rb(va::DDGAME_INIT_PALETTE_GRADIENT_SPRITES) as usize);
+    f(wrapper);
+}
+
+/// Optional callback invoked right after DDGame allocation (before any field
+/// initialization). Used by the hardware watchpoint debugger to arm DR0–DR3.
+pub static mut ON_DDGAME_ALLOC: Option<unsafe fn(*mut u8)> = None;
+
 /// Create and initialize DDGame, matching DDGame__Constructor (0x56E220).
 ///
 /// Allocates 0x98B8 bytes from WA's heap, initializes all fields, and creates
@@ -672,6 +685,11 @@ pub unsafe fn create_ddgame(
         return core::ptr::null_mut();
     }
     core::ptr::write_bytes(ddgame as *mut u8, 0, 0x98B8);
+
+    // Notify watchpoint debugger (if active) so it can arm DR0–DR3.
+    if let Some(cb) = ON_DDGAME_ALLOC {
+        cb(ddgame as *mut u8);
+    }
 
     // ── 2. InitFields — pure Rust (replaces usercall bridge) ──
     ddgame_init_fields(ddgame);
@@ -1301,8 +1319,12 @@ unsafe fn init_graphics_and_resources(
         // ── DDGame__LoadHudAndWeaponSprites (0x53D0E0) ──
         wa_load_hud_sprites(gfx_dir, ddgame, (*wrapper).secondary_gfx_dir);
 
-        // ── Loading progress ticks (2 of 4 — after LoadHudAndWeaponSprites) ──
-        call_usercall_ecx(wrapper, LOADING_PROGRESS_TICK_ADDR);
+        // ── DDGame__InitPaletteGradientSprites (0x5706D0) ──
+        // Creates DisplayGfx objects at DDGame+0x41C.. for each team's palette
+        // gradient data from GameInfo. stdcall(wrapper), RET 0x4.
+        wa_init_palette_gradient_sprites(wrapper);
+
+        // ── Loading progress tick (1 of 2 — after InitPaletteGradientSprites) ──
         call_usercall_ecx(wrapper, LOADING_PROGRESS_TICK_ADDR);
     }
     // ── Gradient image stub (DDGame+0x30) ──

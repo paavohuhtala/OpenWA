@@ -378,6 +378,10 @@ pub mod va {
     /// girder sprites, and creates DDGame+0x37C DisplayGfx object.
     /// thiscall(ECX=gfx_dir_4c0) + 2 stack(ddgame, wrapper_4c4), RET 0x8.
     pub const DDGAME_LOAD_HUD_AND_WEAPON_SPRITES: u32 = 0x0053_D0E0;
+    /// DDGame__InitPaletteGradientSprites (0x5706D0): creates DisplayGfx objects
+    /// at DDGame+0x41C.. for each team's palette gradient data from GameInfo.
+    /// stdcall(wrapper), RET 0x4.
+    pub const DDGAME_INIT_PALETTE_GRADIENT_SPRITES: u32 = 0x0057_06D0;
     /// PaletteContext__Init (0x5411A0): initialize palette context free-list.
     /// usercall(EAX=context), plain RET.
     pub const PALETTE_CONTEXT_INIT: u32 = 0x0054_11A0;

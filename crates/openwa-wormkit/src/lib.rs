@@ -3,6 +3,8 @@
 use std::ffi::c_void;
 
 mod debug_ui;
+#[allow(dead_code)]
+mod debug_watchpoint;
 pub mod hook;
 mod replacements;
 mod validation;

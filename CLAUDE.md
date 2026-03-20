@@ -95,6 +95,14 @@ Hooks use the `minhook` crate. Two patterns:
 
 For `__usercall` functions, use a naked trampoline to capture register params before calling the Rust impl.
 
+## Hardware Watchpoint Debugger
+
+`crates/openwa-wormkit/src/debug_watchpoint.rs` — self-contained x86 debug register instrumentation. Sets DR0–DR3 write watchpoints on DDGame offsets via an INT3→VEH trick (no external debugger needed). Logs the exact Ghidra VA of every write.
+
+**Usage:** Call `prepare()` + `on_ddgame_alloc(ptr)` around the constructor, `teardown()` after. For the original WA constructor, use `prepare_with_malloc_hook()` which intercepts `wa_malloc(0x98D8)` to arm watchpoints from inside the constructor. Configure offsets in `WATCH_OFFSETS` (max 4 per run, hardware limit).
+
+Currently dormant — no hooks wired up. Activate by adding calls in `game_session.rs`.
+
 ## Key Files
 
 - `crates/openwa-core/src/address.rs` — All known WA.exe addresses with comments
