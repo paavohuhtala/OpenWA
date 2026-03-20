@@ -275,9 +275,6 @@ unsafe fn parse_and_write_v2plus(
         let _extra = s.read_u32()?;
     }
 
-    #[allow(unused_assignments)]
-    let mut scheme_version: u8 = 0;
-
     if scheme_present == 1 {
         // Scheme header byte
         if obs_count >= 3 {
@@ -300,7 +297,7 @@ unsafe fn parse_and_write_v2plus(
 
         // SCHM magic + version
         let magic = s.read_u32()?;
-        scheme_version = s.read_u8()?;
+        let scheme_version = s.read_u8()?;
         if magic != 0x4D484353 { return Err(ReplayError::InvalidFormat); }
 
         let scheme_data_size = match scheme_version {
@@ -817,7 +814,6 @@ unsafe fn c_strlen(s: *const u8) -> usize {
 }
 
 // ─── Naked asm bridges ──────────────────────────────────────────────────────
-
 
 /// Bridge for usercall(EAX=value) + plain call. cdecl(eax_val, func_addr).
 #[unsafe(naked)]
