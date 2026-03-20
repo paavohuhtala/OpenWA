@@ -165,7 +165,21 @@ unsafe fn replay_loader_play(state: u32) -> Result<(), ReplayError> {
     match result {
         Ok(()) => {
             let _ = log_line("[Replay] Rust replay loading complete");
-            Ok(())
+
+            // The /getlog log header (date, version strings, team listing) is
+            // produced by the original ReplayLoader's log output section (~600
+            // lines of string resource formatting + codepage conversion).
+            // Rather than porting all of that, we delegate to the original which
+            // re-parses the replay and writes the log header. The globals are
+            // overwritten with identical values since the replay data is the same.
+            // This is double work but produces byte-identical log output.
+            let log_file = *(rb(0x88C370) as *const *mut FILE);
+            if !log_file.is_null() {
+                let _ = log_line("[Replay] Delegating for /getlog header output");
+                delegate_to_original(state)
+            } else {
+                Ok(())
+            }
         }
         Err(e) => {
             let _ = log_line(&format!("[Replay] Parse failed ({e:?}), falling back to original"));
