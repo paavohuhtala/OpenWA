@@ -158,6 +158,37 @@ pub mod va {
     pub const REPLAY_LOADER: u32 = 0x0046_2DF0;
     /// Parses "MM:SS.FF" time string → frame number. Returns -1 on failure.
     pub const PARSE_REPLAY_POSITION: u32 = 0x004E_3490;
+
+    // --- Replay stream helpers (ported to Rust, addresses for reference) ---
+
+    /// Read length-prefixed string. usercall(EDI=ctx) + stdcall(dest, max_len). RET 0x8.
+    pub const REPLAY_READ_PREFIXED_STRING: u32 = 0x0046_1340;
+    /// Read byte with range validation. usercall(EAX=ctx) + stdcall(dest, min, max). RET 0xC.
+    pub const REPLAY_READ_BYTE_VALIDATED: u32 = 0x0046_14D0;
+    /// Read byte with signed range validation. usercall(EAX=ctx) + stdcall(dest, min, max). RET 0xC.
+    pub const REPLAY_READ_BYTE_RANGE: u32 = 0x0046_1540;
+    /// Read u16 with range validation. usercall(EAX=ctx) + stdcall(dest, min, max). RET 0xC.
+    pub const REPLAY_READ_U16_VALIDATED: u32 = 0x0046_15B0;
+    /// Read worm name (0x11 fixed or length-prefixed). usercall(EAX=ctx) + thiscall(this, flag). RET 0x4.
+    pub const REPLAY_READ_WORM_NAME: u32 = 0x0046_1620;
+    /// Validate team type byte range. fastcall(ECX=type). Plain RET.
+    pub const REPLAY_VALIDATE_TEAM_TYPE: u32 = 0x0046_1690;
+
+    // --- Replay processing functions (bridged via FFI) ---
+
+    /// Post-process team color assignments. stdcall(1 param). RET 0x4.
+    pub const REPLAY_PROCESS_TEAM_COLORS: u32 = 0x0046_6460;
+    /// Apply scheme default values. No params (uses globals). Plain RET.
+    pub const REPLAY_PROCESS_SCHEME_DEFAULTS: u32 = 0x0046_70F0;
+    /// Process replay feature flags. No params (uses globals). Plain RET.
+    pub const REPLAY_PROCESS_FLAGS: u32 = 0x0046_7280;
+    /// Register observer team entry. stdcall(1 param). RET 0x4.
+    pub const REPLAY_REGISTER_OBSERVER: u32 = 0x0046_7BC0;
+    /// Process alliance/team setup. No params (uses globals). Plain RET.
+    pub const REPLAY_PROCESS_ALLIANCE: u32 = 0x0046_8890;
+    /// Validate team configuration. stdcall(1 param).
+    pub const REPLAY_VALIDATE_TEAM_SETUP: u32 = 0x0046_5E10;
+
     /// Routes game messages through the task handler tree.
     pub const GAME_MESSAGE_ROUTER: u32 = 0x0055_3BD0;
     /// TurnGame message dispatcher. Case 2=FrameFinish, Case 4=ProcessInput, Case 0x28=SkipGo.
@@ -845,6 +876,31 @@ pub mod va {
     pub const G_SPRITE_PIXEL_AREA: u32 = 0x007A_086C;
     /// Total palette entry bytes loaded (entry_count × 3)
     pub const G_SPRITE_PALETTE_BYTES: u32 = 0x007A_0870;
+
+    // === Replay globals ===
+
+    /// Global game state struct passed to ReplayLoader. Always 0x87D3F8.
+    pub const G_REPLAY_STATE: u32 = 0x0087_D3F8;
+    /// Team header data buffer (0x5728 bytes), cleared by ReplayLoader.
+    pub const G_TEAM_HEADER_DATA: u32 = 0x0087_79E4;
+    /// Secondary team/game data buffer (0xD9DC bytes).
+    pub const G_TEAM_SECONDARY_DATA: u32 = 0x0087_D438;
+    /// XOR'd game ID (payload ^ 0xEF5B5C49).
+    pub const G_REPLAY_GAME_ID: u32 = 0x0088_AF50;
+    /// Replay sub-format flag.
+    pub const G_REPLAY_SUB_FORMAT: u32 = 0x0088_AF54;
+    /// Game version ID from replay.
+    pub const G_REPLAY_VERSION_ID: u32 = 0x0088_ABB0;
+    /// Scheme present flag (1 = has scheme data).
+    pub const G_REPLAY_SCHEME_PRESENT: u32 = 0x0088_AE0C;
+    /// Version/ArtClass counter. ReplayLoader fails if > 0x33.
+    pub const G_ARTCLASS_COUNTER: u32 = 0x0088_C790;
+    /// Random seed global.
+    pub const G_RANDOM_SEED: u32 = 0x0088_D0B4;
+    /// Saved random seed.
+    pub const G_SAVED_RANDOM_SEED: u32 = 0x0088_ABAC;
+    /// Replay filename buffer.
+    pub const G_REPLAY_FILENAME: u32 = 0x0088_AF58;
 
     // === Configuration globals (for GameInfo__LoadOptions) ===
 
