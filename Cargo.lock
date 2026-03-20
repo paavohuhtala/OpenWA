@@ -1418,6 +1418,7 @@ checksum = "42f5e15c9953c5e4ccceeb2e7382a716482c34515315f7b03532b8b4e8393d2d"
 name = "openwa-core"
 version = "0.1.0"
 dependencies = [
+ "heapless",
  "hound",
  "windows",
  "windows-sys 0.59.0",
