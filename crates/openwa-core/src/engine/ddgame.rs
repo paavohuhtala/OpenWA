@@ -974,13 +974,11 @@ unsafe fn init_graphics_and_resources(
     }
 
     // ── PCLandscape (alloc 0xB44, stdcall 11 params) ──
-    // Allocate output buffers for landscape coordinate data (used later for coord_list)
-    let landscape_coords_buf = wa_malloc(0x1000); // 4KB for coord output (aiStack_978)
-    core::ptr::write_bytes(landscape_coords_buf, 0, 0x1000);
-    let landscape_byte_buf = wa_malloc(0x100); // generous for byte output (iStack_11f9)
-    core::ptr::write_bytes(landscape_byte_buf, 0, 0x100);
-    let stack_local_8 = wa_malloc(0x1000); // stack local for coord count + temp data
-    core::ptr::write_bytes(stack_local_8, 0, 0x1000);
+    // Temporary output buffers for landscape coordinate data (used later for coord_list).
+    // These were stack locals in the original code (aiStack_978, iStack_11f9).
+    let mut landscape_coords_buf = [0u8; 0x1000]; // 4KB for coord output
+    let mut landscape_byte_buf = [0u8; 0x100]; // byte output
+    let mut landscape_temp = [0u8; 0x1000]; // coord count + temp data
 
     let landscape = {
         let alloc = wa_malloc(0xB44);
@@ -992,10 +990,10 @@ unsafe fn init_graphics_and_resources(
                 gfx_resource,
                 (*wrapper).display,
                 (*game_info).landscape_data_path.as_ptr(),
-                landscape_byte_buf,
+                landscape_byte_buf.as_mut_ptr(),
                 (*wrapper).gfx_mode,
-                stack_local_8,
-                landscape_coords_buf,
+                landscape_temp.as_mut_ptr(),
+                landscape_coords_buf.as_mut_ptr(),
                 &mut (*ddgame).level_width_raw as *mut u32 as *mut u8,
                 &mut (*ddgame).level_height_raw as *mut u32 as *mut u8,
             );
@@ -1012,15 +1010,15 @@ unsafe fn init_graphics_and_resources(
     // ── BitGrid at DDGame+0x380 (alloc 0x4C, memset 0x2C) ──
     // Pure Rust: allocate object, call bit_grid_init, override vtable.
     {
-        let tsm = wa_malloc(0x4C);
-        core::ptr::write_bytes(tsm, 0, 0x2C);
-        if !tsm.is_null() {
+        let bit_grid = wa_malloc(0x4C);
+        core::ptr::write_bytes(bit_grid, 0, 0x2C);
+        if !bit_grid.is_null() {
             let width = (*ddgame).level_width;
             let height = (*ddgame).level_height;
-            bit_grid_init(tsm, 1, width, height);
-            *(tsm as *mut u32) = rb(va::BIT_GRID_VARIANT_VTABLE);
+            bit_grid_init(bit_grid, 1, width, height);
+            *(bit_grid as *mut u32) = rb(va::BIT_GRID_VARIANT_VTABLE);
         }
-        (*ddgame).bit_grid = tsm;
+        (*ddgame).bit_grid = bit_grid;
     }
 
     // ── 8× SpriteRegion at DDGame+0x46C..0x488 ──
@@ -1170,11 +1168,11 @@ unsafe fn init_graphics_and_resources(
         (*ddgame).coord_list = cl as *mut u8;
 
         // Populate coord_list from PCLandscape's coordinate output.
-        // stack_local_8[0] = coordinate count, landscape_coords_buf = pairs of (x, y).
+        // landscape_temp[0] = coordinate count, landscape_coords_buf = pairs of (x, y).
         // Original packs as: coord = x * 0x10000 + y (Fixed-point).
         // Each coord_list entry is 8 bytes: [coord_value, 1]. Duplicates are skipped.
-        let coord_count = *(stack_local_8 as *const u32);
-        let coords_src = landscape_coords_buf as *const u32;
+        let coord_count = *(landscape_temp.as_ptr() as *const u32);
+        let coords_src = landscape_coords_buf.as_ptr() as *const u32;
         let data_ptr = data as *mut u32;
         for j in 0..coord_count as usize {
             let x = *coords_src.add(j * 2);
@@ -1200,10 +1198,7 @@ unsafe fn init_graphics_and_resources(
         }
     }
 
-    // Free temporary landscape buffers (no longer needed after coord_list population)
-    crate::wa_alloc::wa_free(landscape_coords_buf);
-    crate::wa_alloc::wa_free(landscape_byte_buf);
-    crate::wa_alloc::wa_free(stack_local_8);
+    // Temporary landscape buffers (stack arrays) are dropped automatically here.
 
     // ── Loading progress ticks (2 of 4 — before load_resource_list) ──
     call_usercall_ecx(wrapper, LOADING_PROGRESS_TICK_ADDR);
