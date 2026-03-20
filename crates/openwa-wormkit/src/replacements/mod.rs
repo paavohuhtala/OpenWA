@@ -15,6 +15,11 @@ mod speech;
 mod team;
 mod weapon;
 
+/// Write gameplay milestone report. Called from DLL_PROCESS_DETACH.
+pub fn write_gameplay_report() {
+    input::write_gameplay_report();
+}
+
 pub fn install_all() -> Result<(), String> {
     headless::install()?;
     display::install()?;

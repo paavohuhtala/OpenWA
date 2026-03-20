@@ -166,17 +166,25 @@ if ($Headless) {
     Write-Host "=== Validation Summary ===" -ForegroundColor Cyan
     if (Test-Path "$logDir\validation_latest.log") {
         $content = Get-Content "$logDir\validation_latest.log" -Raw
-        $passes = ([regex]::Matches($content, "\[PASS\]")).Count
-        $fails  = ([regex]::Matches($content, "\[FAIL\]")).Count
-        Write-Host "  PASS: $passes" -ForegroundColor Green
-        Write-Host "  FAIL: $fails" -ForegroundColor $(if ($fails -gt 0) { "Red" } else { "Green" })
+
+        # Static checks (vtables, struct offsets, prologues)
+        $staticPasses = ([regex]::Matches($content, "\[STATIC PASS\]")).Count
+        $staticFails  = ([regex]::Matches($content, "\[STATIC FAIL\]")).Count
+        $staticColor = if ($staticFails -gt 0) { "Red" } else { "Green" }
+        Write-Host "  Static checks:   $staticPasses pass, $staticFails fail  (vtables, struct offsets, prologues)" -ForegroundColor $staticColor
+
+        # Gameplay checks (milestones from frame hook)
+        $gameplayPasses = ([regex]::Matches($content, "\[GAMEPLAY PASS\]")).Count
+        $gameplayFails  = ([regex]::Matches($content, "\[GAMEPLAY FAIL\]")).Count
+        if ($gameplayPasses + $gameplayFails -gt 0) {
+            $gameplayColor = if ($gameplayFails -gt 0) { "Red" } else { "Green" }
+            Write-Host "  Gameplay checks: $gameplayPasses pass, $gameplayFails fail  (init, match start, match end)" -ForegroundColor $gameplayColor
+        } else {
+            Write-Host "  Gameplay checks: not found (DLL may not have detached cleanly)" -ForegroundColor Yellow
+        }
 
         if ($content -match "Safety timeout reached") {
             Write-Host "  Replay: TIMEOUT (safety timeout triggered)" -ForegroundColor Red
-        } elseif ($content -match "deferred global validation") {
-            Write-Host "  Validation: completed" -ForegroundColor Green
-        } else {
-            Write-Host "  Validation: NOT found in log (may not have reached gameplay)" -ForegroundColor Yellow
         }
     }
     # Check for Rust panics in OpenWA log

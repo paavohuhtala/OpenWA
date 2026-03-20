@@ -33,9 +33,11 @@ powershell -ExecutionPolicy Bypass -File replay-test.ps1 -Headless
 - If `testdata/logs/errorlog_latest.txt` exists, WA.exe crashed. Read it and report the crash (exception type, address, registers)
 
 **Headful mode:**
-- Read `testdata/logs/validation_latest.log` and summarize total PASS/FAIL counts
-- Quote any [FAIL] lines exactly
-- Note whether validation completed or safety timeout triggered
+- Read `testdata/logs/validation_latest.log` and check two categories:
+  - **Static checks** (`[STATIC PASS]`/`[STATIC FAIL]`): vtable addresses, struct offsets, function prologues. These verify memory layout correctness but NOT that the game actually ran.
+  - **Gameplay checks** (`[GAMEPLAY PASS]`/`[GAMEPLAY FAIL]`): milestone-based detection of game initialization, match start (multiple alive teams), and match completion (winner decided). These confirm the replay actually played through.
+- Quote any FAIL lines exactly
+- Note whether safety timeout triggered
 - If `testdata/logs/openwa_latest.log` exists, check for errors or interesting hook activity
 
 **Headless mode:**

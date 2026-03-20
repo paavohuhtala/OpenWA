@@ -55,10 +55,10 @@ impl ValidationResult {
     fn check(&mut self, name: &str, ok: bool, detail: &str) {
         if ok {
             self.pass += 1;
-            let _ = log_validation(&format!("[PASS] {} - {}", name, detail));
+            let _ = log_validation(&format!("[STATIC PASS] {} - {}", name, detail));
         } else {
             self.fail += 1;
-            let _ = log_validation(&format!("[FAIL] {} - {}", name, detail));
+            let _ = log_validation(&format!("[STATIC FAIL] {} - {}", name, detail));
         }
     }
 
@@ -1705,7 +1705,7 @@ pub fn run() -> Result<(), String> {
     validate_struct_offsets(&mut result);
 
     let _ = log_validation("");
-    let _ = log_validation("--- Static Validation Summary ---");
+    let _ = log_validation("--- Static Checks (vtables, struct offsets, prologues) ---");
     let _ = log_validation(&format!("  {}", result.summary_line()));
 
     match hooks::install_all() {

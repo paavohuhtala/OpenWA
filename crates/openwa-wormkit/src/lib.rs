@@ -14,6 +14,7 @@ mod validation;
 // ---------------------------------------------------------------------------
 
 const DLL_PROCESS_ATTACH: u32 = 1;
+const DLL_PROCESS_DETACH: u32 = 0;
 
 /// Named event shared with the launcher. The launcher waits on this event
 /// after DLL injection before resuming WA.exe's main thread, guaranteeing
@@ -32,6 +33,10 @@ unsafe extern "system" fn DllMain(
                 let _ = log_line(&format!("[FATAL] {e}"));
             }
         });
+    } else if reason == DLL_PROCESS_DETACH {
+        // Write gameplay milestone report before the process exits.
+        // This fires on natural exit, safety timeout, and headless mode.
+        replacements::write_gameplay_report();
     }
     1 // TRUE
 }
