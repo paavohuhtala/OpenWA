@@ -395,29 +395,30 @@ unsafe fn fire_weapon_special(
 
 /// Skip Go (subtype 19) — pure Rust replacement for 0x51E8C0.
 ///
-/// Toggles a bit in the team's arena state flags (first DWORD of each team's
-/// region in TeamArenaState). Bit position from weapon entry's fire_params.
-/// If game_version > 0x1C and bit already set: clears it. Otherwise: sets it.
+/// Toggles a bit in the team's `TeamHeader.turn_action_flags` (+0x7C).
+/// Bit position comes from weapon entry's fire_params.
+/// In game_version > 0x1C: toggles (set/clear). Otherwise: always sets.
 unsafe fn fire_skip_go(worm: *const CTaskWorm, entry: *const WeaponEntry) {
+    use openwa_core::engine::ddgame::TeamArenaRef;
+    use openwa_core::engine::ddgame::TeamHeader;
     use openwa_core::engine::DDGame;
 
-    let ddgame = &mut *((*worm).base.base.ddgame as *mut DDGame);
-    let game_version = (*ddgame.game_info).game_version;
+    let ddgame = (*worm).base.base.ddgame as *mut DDGame;
+    let game_version = (*(*ddgame).game_info).game_version;
     let team_index = (*worm).team_index as usize;
 
     let bit_index = (*entry).fire_params._data[0] & 0x1F;
     let bit = 1u32 << bit_index;
 
-    // First DWORD of each team's region in TeamArenaState (stride 0x51C)
-    let flags_ptr = ddgame.team_arena.team_blocks_region
-        [team_index * 0x51C..][..4]
-        .as_ptr() as *mut u32;
-    let flags = *flags_ptr;
+    let arena_ptr = &raw mut (*ddgame).team_arena as u32;
+    let arena = TeamArenaRef::from_raw(arena_ptr);
+    let header = arena.team_header(team_index) as *const TeamHeader as *mut TeamHeader;
+    let flags = (*header).turn_action_flags;
 
     if game_version > 0x1C && (flags & bit) != 0 {
-        *flags_ptr = flags & !bit;
+        (*header).turn_action_flags = flags & !bit;
     } else {
-        *flags_ptr = flags | bit;
+        (*header).turn_action_flags = flags | bit;
     }
 }
 

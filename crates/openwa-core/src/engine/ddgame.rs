@@ -1698,8 +1698,11 @@ pub struct TeamHeader {
     pub active_worm: i32,
     /// 0x78: Number of worms on this team.
     pub worm_count: i32,
-    /// 0x7C: Unknown.
-    pub _unknown_7c: [u8; 4],
+    /// 0x7C: Per-team turn action flags (bitfield).
+    /// Skip Go (weapon 57) toggles a bit here based on the weapon's fire_params.
+    /// Bit is set to mark the team should skip; in game_version > 0x1C, toggling
+    /// again clears it.
+    pub turn_action_flags: u32,
     /// 0x80: Alliance ID for ammo/delay table indexing (GetAmmo/AddAmmo/SubtractAmmo).
     /// Teams with the same weapon_alliance share ammo pools. Distinct from
     /// `alliance` at 0x70 which is used by CountTeamsByAlliance.
