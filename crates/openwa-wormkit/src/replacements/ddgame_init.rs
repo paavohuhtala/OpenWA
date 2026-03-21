@@ -46,7 +46,9 @@ hook::usercall_trampoline!(
 );
 
 extern "cdecl" fn impl_init_render_indices(base: u32) -> u32 {
-    unsafe { ddgame_init_render_indices(base as *mut u8) }
+    // ESI = ddgame + 0x72D8; recover the DDGame pointer
+    let ddgame = (base - 0x72D8) as *mut DDGame;
+    unsafe { ddgame_init_render_indices(ddgame) }
     base // Original: MOV EAX, ESI; RET
 }
 

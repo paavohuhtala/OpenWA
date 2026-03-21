@@ -1,6 +1,7 @@
 use crate::audio::dssound::DSSound;
 use crate::display::dd_display::DDDisplay;
 use crate::engine::ddgame::DDGame;
+use crate::engine::net_bridge::NetBridge;
 use crate::render::landscape::PCLandscape;
 
 /// Speech name table entry size (0x40 = 64 bytes, null-terminated C string).
@@ -27,8 +28,8 @@ pub struct DDGameWrapper {
     pub _unknown_004: [u8; 0x484],
     /// 0x488: Pointer to DDGame allocation (DWORD index 0x122)
     pub ddgame: *mut DDGame,
-    /// 0x48C: Secondary DDGame struct pointer (0x2C bytes, conditional)
-    pub ddgame_secondary: *mut u8,
+    /// 0x48C: Network bridge object (0x2C bytes). Only set for online games (game_version == -2).
+    pub net_bridge: *mut NetBridge,
     /// 0x490-0x4BF: Unknown
     pub _unknown_490: [u8; 0x30],
     /// 0x4C0: Primary GfxDir — main sprite archive (Gfx.dir / Gfx0.dir / Gfx1.dir).

@@ -8,6 +8,7 @@ use crate::display::gradient::compute_complex_gradient;
 use crate::display::palette::Palette;
 use crate::engine::ddgame_wrapper::DDGameWrapper;
 use crate::engine::game_info::GameInfo;
+use crate::engine::net_bridge::NetBridge;
 use crate::input::keyboard::DDKeyboard;
 use crate::rebase::rb;
 // Re-export public GfxHandler functions so existing `engine::ddgame::*` imports keep working.
@@ -222,8 +223,10 @@ pub struct DDGame {
     pub viewport_width_2: i32,
     /// 0x738C: Viewport height max/duplicate (Fixed-point).
     pub viewport_height_2: i32,
-    /// 0x7390-0x739F: Unknown
-    pub _unknown_7390: [u8; 0x73A0 - 0x7390],
+    /// 0x7390-0x739B: Unknown
+    pub _unknown_7390: [u8; 0x739C - 0x7390],
+    /// 0x739C: Render state flag (zeroed by InitRenderIndices).
+    pub render_state_flag: u32,
 
     /// 0x73A0: Camera X position (Fixed-point, e.g. 393.0).
     pub camera_x: i32,
@@ -234,22 +237,16 @@ pub struct DDGame {
     /// 0x73AC: Camera target Y (Fixed-point).
     pub camera_target_y: i32,
 
-    /// 0x73B0-0x764F: Unknown
-    pub _unknown_73b0: [u8; 0x7650 - 0x73B0],
+    /// 0x73B0: Render entry table (14 entries × 0x14 bytes).
+    /// First u32 of each entry zeroed by InitRenderIndices.
+    pub render_entries: [RenderEntry; 14],
+    /// 0x74C8-0x764F: Unknown
+    pub _unknown_74c8: [u8; 0x7650 - 0x74C8],
 
-    /// 0x7650-0x768F: Team index mapping table 1.
-    /// Packed u16 pairs: [0,1], [2,3], ..., [14,15]. Team-to-slot or turn order.
-    pub team_index_map_1: [u8; 0x7690 - 0x7650],
-    /// 0x7690-0x76AF: Unknown
-    pub _unknown_7690: [u8; 0x76B0 - 0x7690],
-    /// 0x76B0-0x76EF: Team index mapping table 2 (same pattern).
-    pub team_index_map_2: [u8; 0x76F0 - 0x76B0],
-    /// 0x76F0-0x7717: Unknown
-    pub _unknown_76f0: [u8; 0x7718 - 0x76F0],
-    /// 0x7718-0x7757: Team index mapping table 3 (similar pattern, slightly different end).
-    pub team_index_map_3: [u8; 0x7758 - 0x7718],
-    /// 0x7758-0x777B: Unknown
-    pub _unknown_7758: [u8; 0x777C - 0x7758],
+    /// 0x7650: Team index permutation maps (3 × 0x64 bytes).
+    /// Used for team-to-slot mapping (render order, turn order, display order).
+    /// Initialized as identity permutations [0..15] with count=16.
+    pub team_index_maps: [TeamIndexMap; 3],
     /// 0x777C: Level width output (written by PCLandscape constructor param 10).
     pub level_width_raw: u32,
     /// 0x7780: Level height output (written by PCLandscape constructor param 11).
@@ -402,8 +399,8 @@ pub unsafe fn ddgame_init_fields(ddgame: *mut DDGame) {
     (*ddgame).init_field_64d8 = 0;
     (*ddgame).init_field_72a4 = 0;
 
-    // InitRenderIndices — original sets ESI = ddgame + 0x72D8 before calling
-    ddgame_init_render_indices(base.add(0x72D8));
+    // InitRenderIndices — original sets ESI = ddgame + 0x72D8, now uses typed DDGame ptr
+    ddgame_init_render_indices(ddgame);
 
     // Zero x and y of each screen coordinate entry (4 entries each)
     for entry in &mut (*ddgame).screen_coords {
@@ -419,50 +416,28 @@ pub unsafe fn ddgame_init_fields(ddgame: *mut DDGame) {
 /// Pure Rust implementation of DDGame__InitRenderIndices (0x526080).
 ///
 /// Convention: usercall(ESI=base_ptr), plain RET.
+/// Initialize render state flag, render entry table, and team index maps.
 ///
-/// **Important:** The base pointer is NOT the DDGame pointer!
-/// InitFields calls this with ESI = ddgame + 0x72D8.
-/// All offsets are relative to whatever ESI points to.
-///
-/// Absolute DDGame offsets (base = ddgame+0x72D8):
-/// - base+0xC4 = ddgame+0x739C
-/// - base+0xD8 = ddgame+0x73B0  (eh_vector_constructor_iterator region)
-/// - base+0x378 = ddgame+0x7650 (team_index_map_1)
-/// - base+0x3DC = ddgame+0x76B4 (team_index_map_2)
-/// - base+0x440 = ddgame+0x7718 (team_index_map_3)
+/// Original: called with ESI = ddgame + 0x72D8, but now uses typed DDGame fields.
 ///
 /// # Safety
-/// `base` must point to a valid memory region with at least 0x4A4 bytes.
-pub unsafe fn ddgame_init_render_indices(base: *mut u8) {
-    *(base.add(0xC4) as *mut u32) = 0;
+/// `ddgame` must point to a valid DDGame allocation.
+pub unsafe fn ddgame_init_render_indices(ddgame: *mut DDGame) {
+    (*ddgame).render_state_flag = 0;
 
-    // eh_vector_constructor_iterator equivalent:
-    // FUN_525F40 is fastcall { *param_1 = 0; }
-    // 14 entries at stride 0x14 starting from +0xD8
-    for i in 0..14usize {
-        *(base.add(0xD8 + i * 0x14) as *mut u32) = 0;
+    // Zero the active flag of each render entry (eh_vector_constructor_iterator).
+    for entry in &mut (*ddgame).render_entries {
+        entry.active = 0;
     }
 
-    // Identity permutation 1: base+0x378 (= ddgame+0x7650), 16 entries (i16)
-    for i in 0..16i16 {
-        *(base.add(0x378 + i as usize * 2) as *mut i16) = i;
+    // Initialize all three team index maps as identity permutations.
+    for map in &mut (*ddgame).team_index_maps {
+        for i in 0..16i16 {
+            map.entries[i as usize] = i;
+        }
+        map.count = 0x10;
+        map.terminator = 0;
     }
-    *(base.add(0x398) as *mut u16) = 0x10;
-    *(base.add(0x3DA) as *mut u16) = 0;
-
-    // Identity permutation 2: base+0x3DC (= ddgame+0x76B4), 16 entries (i16)
-    for i in 0..16i16 {
-        *(base.add(0x3DC + i as usize * 2) as *mut i16) = i;
-    }
-    *(base.add(0x3FC) as *mut u16) = 0x10;
-    *(base.add(0x43E) as *mut u16) = 0;
-
-    // Identity permutation 3: base+0x440 (= ddgame+0x7718), 16 entries (i16)
-    for i in 0..16i16 {
-        *(base.add(0x440 + i as usize * 2) as *mut i16) = i;
-    }
-    *(base.add(0x4A2) as *mut u16) = 0;
-    *(base.add(0x460) as *mut u16) = 0x10;
 }
 
 // BitGrid__Init moved to crate::task::bit_grid
@@ -692,18 +667,17 @@ pub unsafe fn create_ddgame(
     (*ddgame).sound_available = if is_headless { 0 } else { 1 };
     (*ddgame).field_7efc = 1;
 
-    // ── 7. DDGameWrapper+0x48C init ──
-    (*wrapper).ddgame_secondary = core::ptr::null_mut();
+    // ── 7. Network bridge (online games only) ──
+    (*wrapper).net_bridge = core::ptr::null_mut();
 
-    // ── 8. Conditional network object (game_version == -2) ──
     if (*game_info).game_version == -2 {
-        let net_obj = wa_malloc_zeroed(0x2C);
-        *(net_obj as *mut *mut DDGame) = ddgame;
-        *net_obj.add(0x28) = (*game_info).net_config_1;
-        *net_obj.add(0x29) = (*game_info).net_config_2;
-        (*wrapper).ddgame_secondary = net_obj;
+        let bridge = wa_malloc_zeroed(core::mem::size_of::<NetBridge>() as u32) as *mut NetBridge;
+        (*bridge).ddgame = ddgame;
+        (*bridge).net_config_1 = (*game_info).net_config_1;
+        (*bridge).net_config_2 = (*game_info).net_config_2;
+        (*wrapper).net_bridge = bridge;
         if network_ecx != 0 {
-            *((network_ecx as *mut u8).add(0x18) as *mut *mut u8) = net_obj;
+            *((network_ecx as *mut u8).add(0x18) as *mut *mut NetBridge) = bridge;
         }
     }
 
@@ -1534,6 +1508,39 @@ pub struct CoordEntry {
 }
 
 const _: () = assert!(core::mem::size_of::<CoordEntry>() == 0x10);
+
+/// Team index permutation map (0x64 = 100 bytes).
+///
+/// Used for mapping team indices to rendering/turn slots. Three instances
+/// live in DDGame at offsets 0x7650, 0x76B4, 0x7718 (stride 0x64).
+/// Initialized as identity permutations [0,1,2,...,15] with count=16.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct TeamIndexMap {
+    /// 16 team index entries (identity permutation on init).
+    pub entries: [i16; 16],
+    /// Number of active entries (initialized to 16).
+    pub count: u16,
+    /// Gap — unknown purpose, not initialized by constructor.
+    pub _gap: [u8; 64],
+    /// Terminator (initialized to 0).
+    pub terminator: u16,
+}
+const _: () = assert!(core::mem::size_of::<TeamIndexMap>() == 0x64);
+
+/// Render table entry (0x14 = 20 bytes).
+///
+/// 14 entries live at DDGame+0x73B0 (stride 0x14). Only the first u32
+/// is zeroed during construction; the rest is uninitialized/unknown.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct RenderEntry {
+    /// Active/state flag (zeroed on init).
+    pub active: u32,
+    /// Unknown data.
+    pub _unknown: [u8; 16],
+}
+const _: () = assert!(core::mem::size_of::<RenderEntry>() == 0x14);
 
 // ============================================================
 // Sound queue entry — 16 entries at DDGame + 0x7F00
