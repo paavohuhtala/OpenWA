@@ -84,6 +84,25 @@ unsafe fn get_ddgame() -> Option<*const DDGame> {
     Some(ddgame_ptr)
 }
 
+/// Unlock all weapons: set ammo to unlimited (-1) and delays to 0 for all teams.
+unsafe fn cheat_unlock_all_weapons() {
+    let Some(ddgame) = get_ddgame() else {
+        log::push("[Cheats] Not in game");
+        return;
+    };
+    let ddgame = ddgame as *mut DDGame;
+    let arena = &mut (*ddgame).team_arena;
+    for team in &mut arena.weapon_slots.teams {
+        for ammo in &mut team.ammo {
+            *ammo = -1; // unlimited
+        }
+        for delay in &mut team.delay {
+            *delay = 0; // no delay
+        }
+    }
+    log::push("[Cheats] All weapons unlocked (infinite ammo, no delays)");
+}
+
 /// Read child task pointers from a CTask's children array.
 ///
 /// The array is **sparse**: slots are nulled when a child is removed rather than
@@ -221,6 +240,14 @@ impl eframe::App for DebugApp {
         self.nav_history.retain(|a| live_addrs.contains(a));
 
         egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
+            egui::menu::bar(ui, |ui| {
+                ui.menu_button("Cheats", |ui| {
+                    if ui.button("Unlock all weapons").clicked() {
+                        unsafe { cheat_unlock_all_weapons() };
+                        ui.close_menu();
+                    }
+                });
+            });
             ui.horizontal(|ui| {
                 ui.checkbox(&mut self.show_transient, "Show transient");
             });
