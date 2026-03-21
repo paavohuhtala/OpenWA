@@ -30,14 +30,14 @@ unsafe extern "cdecl" fn add_ammo_impl(
     arena: TeamArenaRef,
     weapon_id: u32,
 ) {
-    let idx = arena.ammo_index(team_index as usize, weapon_id);
+    let (alliance, wid) = arena.weapon_slot_key(team_index as usize, weapon_id);
     let state = arena.state_mut();
-    let ammo = state.get_ammo(idx);
+    let ammo = state.get_ammo(alliance, wid);
     if ammo >= 0 {
         if amount < 0 {
-            *state.ammo_mut(idx) = -1; // set unlimited
+            *state.ammo_mut(alliance, wid) = -1;
         } else {
-            *state.ammo_mut(idx) = ammo + amount;
+            *state.ammo_mut(alliance, wid) = ammo + amount;
         }
     }
 }
@@ -52,11 +52,11 @@ usercall_trampoline!(fn trampoline_add_ammo; impl_fn = add_ammo_impl;
 // RET 0x4
 
 unsafe extern "cdecl" fn subtract_ammo_impl(team_index: u32, arena: TeamArenaRef, weapon_id: u32) {
-    let idx = arena.ammo_index(team_index as usize, weapon_id);
+    let (alliance, wid) = arena.weapon_slot_key(team_index as usize, weapon_id);
     let state = arena.state_mut();
-    let ammo = state.get_ammo(idx);
+    let ammo = state.get_ammo(alliance, wid);
     if ammo > 0 {
-        *state.ammo_mut(idx) = ammo - 1;
+        *state.ammo_mut(alliance, wid) = ammo - 1;
     }
 }
 
@@ -74,11 +74,11 @@ unsafe extern "cdecl" fn get_ammo_impl(
     arena: TeamArenaRef,
     weapon_id: u32,
 ) -> u32 {
-    let idx = arena.ammo_index(team_index as usize, weapon_id);
+    let (alliance, wid) = arena.weapon_slot_key(team_index as usize, weapon_id);
     let state = arena.state();
 
     // Check weapon delay
-    if state.get_delay(idx) != 0 {
+    if state.get_delay(alliance, wid) != 0 {
         if state.game_mode_flag == 0 {
             return 0;
         }
@@ -98,7 +98,7 @@ unsafe extern "cdecl" fn get_ammo_impl(
         }
     }
 
-    state.get_ammo(idx) as u32
+    state.get_ammo(alliance, wid) as u32
 }
 
 usercall_trampoline!(fn trampoline_get_ammo; impl_fn = get_ammo_impl;

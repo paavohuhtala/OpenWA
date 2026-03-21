@@ -412,8 +412,8 @@ pub unsafe fn ddgame_init_fields(ddgame: *mut DDGame) {
 
     // init_field_64d8 = TeamArenaState.team_count (arena+0x1EB0)
     (*ddgame).team_arena.team_count = 0;
-    // init_field_72a4 = weapon_slots[754] (arena+0x2A7C)
-    (*ddgame).team_arena.weapon_slots[754] = 0;
+    // init_field_72a4 = weapon_slots flat[754] = alliance 5, ammo[44]
+    (*ddgame).team_arena.weapon_slots.teams[5].ammo[44] = 0;
 
     // InitRenderIndices — original sets ESI = ddgame + 0x72D8, now uses typed DDGame ptr
     ddgame_init_render_indices(ddgame);
@@ -1766,8 +1766,26 @@ const _: () = assert!(core::mem::size_of::<FullTeamBlock>() == 0x51C);
 /// The original code accesses these as two arrays at different base offsets
 /// (0x1EB4 and 0x1FD0) using the same index `alliance_id * 142 + weapon_id`.
 /// Since 0x1FD0 - 0x1EB4 = 71 * 4, this is equivalent to accessing
-/// `weapon_slots[alliance * 142 + weapon]` for ammo and
-/// `weapon_slots[alliance * 142 + 71 + weapon]` for delay.
+/// `weapon_slots.teams[alliance].ammo[weapon]` and
+/// `weapon_slots.teams[alliance].delay[weapon]`.
+
+/// Per-alliance weapon ammo and delay data (0x238 = 568 bytes per alliance).
+#[repr(C)]
+pub struct TeamWeaponSlots {
+    /// Ammo counts per weapon (71 entries). -1 = unlimited, 0 = none, >0 = count.
+    pub ammo: [i32; 71],
+    /// Delay flags per weapon (71 entries). Nonzero = weapon on cooldown.
+    pub delay: [i32; 71],
+}
+const _: () = assert!(core::mem::size_of::<TeamWeaponSlots>() == 0x238);
+
+/// Weapon slot data for all 6 alliances (0xD50 = 3408 bytes total).
+#[repr(C)]
+pub struct WeaponSlots {
+    pub teams: [TeamWeaponSlots; 6],
+}
+const _: () = assert!(core::mem::size_of::<WeaponSlots>() == 852 * 4);
+
 #[repr(C)]
 pub struct TeamArenaState {
     /// 0x0000-0x1EAF: Per-team data region (opaque).
@@ -1783,12 +1801,11 @@ pub struct TeamArenaState {
     pub _teams_region: [u8; 0x1EB0],
     /// 0x1EB0: Number of teams in the game (used by team iteration loops)
     pub team_count: i32,
-    /// 0x1EB4: Interleaved ammo/delay slots.
-    /// Per alliance: [ammo_0..ammo_70, delay_0..delay_70] = 142 i32 entries.
-    /// 6 alliances * 142 = 852 total entries.
+    /// 0x1EB4: Per-alliance weapon ammo and delay data.
+    /// 6 alliances, each with 71 ammo + 71 delay i32 entries.
     /// Ammo: -1 = unlimited, 0 = none, >0 = count.
     /// Delay: nonzero = weapon on delay.
-    pub weapon_slots: [i32; 852],
+    pub weapon_slots: WeaponSlots,
     /// 0x2C04: Padding between weapon_slots end and game_mode_flag.
     /// weapon_slots: 852 * 4 = 3408 = 0xD50. 0x1EB4 + 0xD50 = 0x2C04.
     pub _pad_2c04: [u8; 8],
@@ -1848,20 +1865,19 @@ pub const GAME_PHASE_SUDDEN_DEATH: i32 = 0x1E4; // 484
 pub const GAME_PHASE_NORMAL_MIN: i32 = -2;
 
 impl TeamArenaState {
-    /// Get ammo count for a weapon slot (by flat index).
-    pub fn get_ammo(&self, index: usize) -> i32 {
-        self.weapon_slots[index]
+    /// Get ammo count for a weapon by alliance and weapon ID.
+    pub fn get_ammo(&self, alliance: usize, weapon_id: usize) -> i32 {
+        self.weapon_slots.teams[alliance].ammo[weapon_id]
     }
 
-    /// Get mutable reference to ammo count for a weapon slot.
-    pub fn ammo_mut(&mut self, index: usize) -> &mut i32 {
-        &mut self.weapon_slots[index]
+    /// Get mutable reference to ammo count.
+    pub fn ammo_mut(&mut self, alliance: usize, weapon_id: usize) -> &mut i32 {
+        &mut self.weapon_slots.teams[alliance].ammo[weapon_id]
     }
 
-    /// Get delay flag for a weapon slot (by flat index).
-    /// Delay is at +71 offset from the ammo index within the same alliance block.
-    pub fn get_delay(&self, index: usize) -> i32 {
-        self.weapon_slots[index + 71]
+    /// Get delay flag for a weapon by alliance and weapon ID.
+    pub fn get_delay(&self, alliance: usize, weapon_id: usize) -> i32 {
+        self.weapon_slots.teams[alliance].delay[weapon_id]
     }
 }
 
@@ -1981,9 +1997,10 @@ impl TeamArenaRef {
     /// then 71 delay slots (stride 142 per alliance).
     /// Ammo: `weapon_slots[alliance_id * 142 + weapon_id]`
     /// Delay: `weapon_slots[alliance_id * 142 + 71 + weapon_id]`
+    /// Returns (alliance_id, weapon_id) for accessing weapon slots.
     #[inline]
-    pub unsafe fn ammo_index(&self, team_index: usize, weapon_id: u32) -> usize {
+    pub unsafe fn weapon_slot_key(&self, team_index: usize, weapon_id: u32) -> (usize, usize) {
         let alliance_id = self.team_header(team_index).weapon_alliance as usize;
-        alliance_id * 142 + weapon_id as usize
+        (alliance_id, weapon_id as usize)
     }
 }
