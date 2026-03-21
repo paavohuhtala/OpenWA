@@ -128,57 +128,327 @@ usercall_trampoline!(fn trampoline_count_alive_worms; impl_fn = count_alive_worm
     regs = [eax, ecx]);
 
 // ============================================================
-// FireWeapon passthrough (0x51EE60)
+// FireWeapon replacement (0x51EE60)
 // ============================================================
-// usercall(EAX=weapon_ctx) + 1 stack param (wrapper), RET 0x4.
-// weapon_ctx+0x30 = weapon type (1-4)
-// weapon_ctx+0x34 = subtype for types 3,4
-// weapon_ctx+0x38 = subtype for types 1,2
+// Convention: usercall(EAX=worm, ECX=local_struct) + 1 stack(worm), RET 0x4.
+// Note: EAX = *(CTaskWorm+0x36C) = worm self-pointer, so EAX == stack param.
+//
+// Weapon launch data offsets (relative to worm/EAX):
+//   +0x30 = weapon type (1-4)
+//   +0x34 = subtype for types 3,4
+//   +0x38 = subtype for types 1,2
+//   +0x3C = params base
+//
+// worm = CTaskWorm pointer (ESI in original).
+// local_struct = stack-local buffer from WeaponRelease (ECX at call site).
+//
+// Sub-functions are usercall: ESI=worm, ECX=local_struct (for some).
+// We capture all three in our naked trampoline.
 
 static ORIG_FIRE_WEAPON: AtomicU32 = AtomicU32::new(0);
 
-/// Logger called from the naked passthrough.
-/// `weapon_ctx` = EAX = pointer to weapon data (from CTaskWorm+0x36C).
-/// `worm_ptr` = stack param = CTaskWorm pointer (pushed by WeaponRelease).
-unsafe extern "cdecl" fn fire_weapon_log(weapon_ctx: u32, worm_ptr: u32) {
+/// Naked trampoline for FireWeapon.
+/// Must save ALL callee-saved registers (ESI, EDI, EBX, EBP) because the
+/// Rust cdecl impl may clobber them, and WeaponRelease (our caller) depends
+/// on them being preserved.
+#[unsafe(naked)]
+unsafe extern "C" fn trampoline_fire_weapon() {
+    core::arch::naked_asm!(
+        // Save all callee-saved + EDX
+        "push ebx",
+        "push esi",
+        "push edi",
+        "push ebp",
+        "push edx",
+        // Push cdecl args: (weapon_ctx=EAX, local_struct=ECX, worm)
+        // Stack: 5 pushes (20) + ret (4) = 24 to stack param
+        "push [esp+24]",      // worm
+        "push ecx",           // local_struct
+        "push eax",           // weapon_ctx
+        "call {impl_fn}",
+        "add esp, 12",
+        // Restore everything
+        "pop edx",
+        "pop ebp",
+        "pop edi",
+        "pop esi",
+        "pop ebx",
+        "ret 0x4",
+        impl_fn = sym fire_weapon_impl,
+    );
+}
+
+/// Rust implementation of FireWeapon dispatch.
+unsafe extern "cdecl" fn fire_weapon_impl(weapon_ctx: u32, local_struct: u32, worm: u32) {
     let ctx = weapon_ctx as *const u8;
     let weapon_type = *(ctx.add(0x30) as *const i32);
     let subtype_34 = *(ctx.add(0x34) as *const i32);
     let subtype_38 = *(ctx.add(0x38) as *const i32);
+    let params = weapon_ctx.wrapping_add(0x3C);
+    let worm_ptr = worm as *mut u8;
 
-    // Read selected weapon from CTaskWorm+0x170
-    let weapon_id = *((worm_ptr as *const u8).add(0x170) as *const u32);
+    // Log weapon fire
+    let weapon_id = *(worm_ptr.add(0x170) as *const u32);
     let weapon_name = Weapon::try_from(weapon_id)
         .map(|w| format!("{:?}", w))
         .unwrap_or_else(|id| format!("Unknown({})", id));
-
     let _ = log_line(&format!(
         "[Weapon] FireWeapon: {} (id={}) type={} sub34={} sub38={}",
         weapon_name, weapon_id, weapon_type, subtype_34, subtype_38
     ));
+
+    // worm+0x3C = completion flag
+    *(worm_ptr.add(0x3C) as *mut i32) = 0;
+
+    use openwa_core::rebase::rb;
+
+    match weapon_type {
+        1 => match subtype_38 {
+            1 => call_fire_stdcall1(worm, params, rb(0x51EC80)),                    // PlacedExplosive
+            2 => call_fire_stdcall3(worm, params, local_struct, rb(0x51DFB0)),      // Projectile
+            3 => call_fire_thiscall2(worm, params, local_struct, rb(0x51E0F0)),     // CreateWeaponProjectile
+            4 => call_fire_stdcall2(worm, params, local_struct, rb(0x51ED90)),      // Shotgun
+            _ => {}
+        },
+        2 => match subtype_38 {
+            1 => call_fire_stdcall3(worm, params, local_struct, rb(0x51E1C0)),      // RopeType1
+            2 => call_fire_thiscall2(worm, params, local_struct, rb(0x51E0F0)),     // CreateWeaponProjectile
+            3 => call_fire_stdcall3(worm, params, local_struct, rb(0x51E240)),      // RopeType3
+            _ => {}
+        },
+        3 => {
+            let params_34 = weapon_ctx.wrapping_add(0x34);
+            call_fire_stdcall3(worm, params_34, local_struct, rb(0x51E2C0));        // GrenadeMortar
+        }
+        4 => {
+            let params_38 = weapon_ctx.wrapping_add(0x38);
+            fire_weapon_special(subtype_34, params_38, worm, local_struct);
+        }
+        _ => {}
+    }
+
+    *(worm_ptr.add(0x3C) as *mut i32) = 1;
 }
 
-/// Naked passthrough: save regs → call logger → restore → jmp original.
-/// Stack layout at entry: [ret_addr] [wrapper_param]
-/// We read wrapper_param to pass to the logger as the worm pointer.
+// ── Sub-function bridges ────────────────────────────────────
+// All preserve ESI=worm for usercall sub-functions.
+
+// ── Sub-function bridges ────────────────────────────────────
+// All bridges set ESI=worm AND EDI=worm before calling, since
+// sub-functions are usercall and read both registers implicitly.
+// Stack offsets are carefully calculated for each bridge.
+
+// ── Sub-function bridges ────────────────────────────────────
+// All bridges save/restore ESI+EDI, set ESI=EDI=worm, then call.
+// This preserves LLVM's callee-saved registers while providing
+// the usercall context that sub-functions expect.
+
+/// Bridge: PlacedExplosive — stdcall(params), RET 0x4.
+/// Our args: (worm, params, addr)
 #[unsafe(naked)]
-unsafe extern "C" fn trampoline_fire_weapon() {
+unsafe extern "C" fn call_fire_stdcall1(_worm: u32, _params: u32, _addr: u32) {
     core::arch::naked_asm!(
-        "push eax",
-        "push ecx",
-        "push edx",
-        // call logger(weapon_ctx=EAX, worm_ptr=[ESP+16])
-        // ESP+16 because: 3 pushes (12 bytes) + ret_addr (4) = 16 to stack param
-        "push [esp+16]",
-        "push eax",
-        "call {log_fn}",
-        "add esp, 8",
-        "pop edx",
-        "pop ecx",
-        "pop eax",
-        "jmp [{orig}]",
-        log_fn = sym fire_weapon_log,
-        orig = sym ORIG_FIRE_WEAPON,
+        "push ebx",
+        "push esi",
+        "push edi",
+        "mov esi, [esp+16]",  // worm (3 saves=12 + ret=4 = 16)
+        "mov edi, [esp+16]",
+        "mov ebx, [esp+24]",  // addr
+        "push [esp+20]",      // params
+        "call ebx",
+        "pop edi",
+        "pop esi",
+        "pop ebx",
+        "ret",
+    );
+}
+
+/// Bridge: Projectile/Rope/Grenade — stdcall(worm, params, local_struct), RET 0xC.
+/// Our args: (worm, params, local_struct, addr)
+#[unsafe(naked)]
+unsafe extern "C" fn call_fire_stdcall3(_worm: u32, _params: u32, _local: u32, _addr: u32) {
+    core::arch::naked_asm!(
+        "push ebx",
+        "push esi",
+        "push edi",
+        "mov esi, [esp+16]",  // worm (3 saves=12 + ret=4 = 16)
+        "mov edi, [esp+16]",
+        "mov ebx, [esp+28]",  // addr (saves=12 + ret=4 + 3 args=12 = 28)
+        "push [esp+24]",      // local_struct
+        "push [esp+24]",      // params (shifted +4)
+        "push [esp+24]",      // worm (shifted +8)
+        "call ebx",
+        "pop edi",
+        "pop esi",
+        "pop ebx",
+        "ret",
+    );
+}
+
+/// Bridge: CreateWeaponProjectile — thiscall(ECX=worm, params, local_struct), RET 0x8.
+/// Our args: (worm, params, local_struct, addr)
+#[unsafe(naked)]
+unsafe extern "C" fn call_fire_thiscall2(_worm: u32, _params: u32, _local: u32, _addr: u32) {
+    core::arch::naked_asm!(
+        "push ebx",
+        "push esi",
+        "push edi",
+        "mov esi, [esp+16]",  // worm
+        "mov edi, [esp+16]",
+        "mov ecx, [esp+16]",  // ECX = worm (this)
+        "mov ebx, [esp+28]",  // addr
+        "push [esp+24]",      // local_struct
+        "push [esp+24]",      // params (shifted +4)
+        "call ebx",
+        "pop edi",
+        "pop esi",
+        "pop ebx",
+        "ret",
+    );
+}
+
+/// Bridge: Shotgun — stdcall(params, local_struct), RET 0x8.
+/// Our args: (worm, params, local_struct, addr)
+#[unsafe(naked)]
+unsafe extern "C" fn call_fire_stdcall2(_worm: u32, _params: u32, _local: u32, _addr: u32) {
+    core::arch::naked_asm!(
+        "push ebx",
+        "push esi",
+        "push edi",
+        "mov esi, [esp+16]",  // worm
+        "mov edi, [esp+16]",
+        "mov ebx, [esp+28]",  // addr
+        "push [esp+24]",      // local_struct
+        "push [esp+24]",      // params (shifted +4)
+        "call ebx",
+        "pop edi",
+        "pop esi",
+        "pop ebx",
+        "ret",
+    );
+}
+
+/// Type 4 (special) weapon dispatch.
+/// Type 4 (special) weapon dispatch. All sub-functions use EAX=ESI=EDI=worm.
+unsafe fn fire_weapon_special(subtype: i32, params_38: u32, worm: u32, local_struct: u32) {
+    use openwa_core::rebase::rb;
+
+    // All handlers use EAX=worm (self-pointer at CTaskWorm+0x36C).
+    match subtype {
+        1 => fire_worm_vtable_0xe(worm, 0x6C),                                     // Blowtorch
+        2 => call_fire_usercall(worm, worm, rb(0x51E3E0)),                    // Pneumatic Drill
+        3 => call_fire_stdcall3(worm, params_38, local_struct, rb(0x51E350)),       // Girder
+        4 => fire_worm_vtable_0xe(worm, 0x6D),                                     // Baseball Bat
+        5 => fire_worm_vtable_0xe(worm, 0x75),                                     // Fire Punch
+        6 => fire_worm_vtable_0xe(worm, 0x70),                                     // Dragon Ball
+        8 => fire_worm_vtable_0xe(worm, 0x6E),                                     // Kamikaze
+        9 => call_fire_usercall_stdcall1(worm, worm, local_struct, rb(0x51E480)), // Prod
+        10 => call_fire_usercall(worm, worm, rb(0x51E710)),                    // Air Strike (EAX=worm)
+        11 => fire_worm_vtable_0xe(worm, 0x71),                                    // Scales of Justice
+        13 => call_fire_usercall(worm, worm, rb(0x51E5C0)),                   // Napalm Strike
+        14 => call_fire_usercall(worm, worm, rb(0x51E670)),                         // Mail/Mine/Mole (EAX=worm!)
+        16 => {
+            // Teleport: check condition, then fire or vtable fallback
+            let result = call_fire_usercall_ret(worm, worm, rb(0x516930));
+            if result != 0 {
+                call_fire_usercall(worm, worm, rb(0x51EB00));
+            } else {
+                fire_worm_vtable_0xe(worm, 0x74);
+            }
+        }
+        17 => call_fire_usercall(worm, worm, rb(0x51E920)),                   // Freeze
+        18 => fire_worm_vtable_0xe(worm, 0x72),                                    // Suicide Bomber
+        19 => call_fire_usercall(worm, worm, rb(0x51E8C0)),                   // Skip Go
+        20 => call_fire_usercall(worm, worm, rb(0x51E600)),                   // Surrender
+        21 => call_fire_usercall(worm, worm, rb(0x51EBE0)),                   // Select Worm
+        22 => call_fire_usercall(worm, worm, rb(0x51EC30)),                   // Jet Pack
+        23 => fire_worm_vtable_0xe(worm, 0x78),                                    // Magic Bullet
+        24 => call_fire_usercall(worm, worm, rb(0x51EA60)),                   // Low Gravity / Fast Walk
+        _ => {}
+    }
+}
+
+/// Bridge: usercall(EAX=eax_val, ESI=worm, EDI=worm), plain RET.
+/// Args: (eax_val, worm, addr). Saves/restores ESI+EDI. Uses EBX to hold addr.
+#[unsafe(naked)]
+unsafe extern "C" fn call_fire_usercall(_eax: u32, _worm: u32, _addr: u32) {
+    core::arch::naked_asm!(
+        "push ebx",
+        "push esi",
+        "push edi",
+        "mov eax, [esp+16]",  // eax_val (3 saves=12 + ret=4 = 16)
+        "mov esi, [esp+20]",  // worm
+        "mov edi, [esp+20]",
+        "mov ebx, [esp+24]",  // addr
+        "call ebx",
+        "pop edi",
+        "pop esi",
+        "pop ebx",
+        "ret",
+    );
+}
+
+/// Bridge: usercall(EAX=eax_val, ESI=worm, EDI=worm), plain RET, returns EAX.
+#[unsafe(naked)]
+unsafe extern "C" fn call_fire_usercall_ret(_eax: u32, _worm: u32, _addr: u32) -> i32 {
+    core::arch::naked_asm!(
+        "push ebx",
+        "push esi",
+        "push edi",
+        "mov eax, [esp+16]",
+        "mov esi, [esp+20]",
+        "mov edi, [esp+20]",
+        "mov ebx, [esp+24]",
+        "call ebx",
+        "pop edi",
+        "pop esi",
+        "pop ebx",
+        "ret",
+    );
+}
+
+/// Bridge: usercall(EAX=eax_val, ESI=worm, EDI=worm) + stdcall(1 param), RET 0x4.
+#[unsafe(naked)]
+unsafe extern "C" fn call_fire_usercall_stdcall1(
+    _eax: u32, _worm: u32, _param: u32, _addr: u32,
+) {
+    core::arch::naked_asm!(
+        "push ebx",
+        "push esi",
+        "push edi",
+        "mov eax, [esp+16]",  // eax_val
+        "mov esi, [esp+20]",  // worm
+        "mov edi, [esp+20]",
+        "mov ebx, [esp+28]",  // addr (3 saves=12 + ret=4 + 3 args=12 = 28)
+        "push [esp+24]",      // param
+        "call ebx",
+        "pop edi",
+        "pop esi",
+        "pop ebx",
+        "ret",
+    );
+}
+
+/// Call worm->vtable[0xE](msg_id) — thiscall(ECX=worm, stack=msg_id), RET 0x4.
+/// Original: `(**(code **)(*worm + 0x38))(msg_id)`.
+/// Uses naked bridge to avoid LLVM stack tracking issues with push/RET mismatch.
+#[unsafe(naked)]
+unsafe extern "C" fn fire_worm_vtable_0xe(_worm: u32, _msg_id: u32) {
+    core::arch::naked_asm!(
+        "push ebx",
+        "push esi",
+        "push edi",
+        "mov ecx, [esp+16]",  // worm (3 saves=12 + ret=4 = 16)
+        "mov esi, [esp+16]",  // ESI = worm
+        "mov edi, [esp+16]",  // EDI = worm
+        "mov ebx, [ecx]",     // vtable
+        "mov ebx, [ebx+0x38]",// vtable[0xE]
+        "push [esp+20]",      // msg_id
+        "call ebx",           // thiscall: ECX=worm, RET 0x4 cleans msg_id
+        "pop edi",
+        "pop esi",
+        "pop ebx",
+        "ret",
     );
 }
 
