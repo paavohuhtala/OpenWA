@@ -232,7 +232,7 @@ unsafe extern "cdecl" fn fire_weapon_impl(
         }
         4 => {
             let subtype_38_ptr = &raw const (*entry).fire_subtype_38 as u32;
-            fire_weapon_special(subtype_34, subtype_38_ptr, w, local_struct);
+            fire_weapon_special(subtype_34, subtype_38_ptr, w, local_struct, entry);
         }
         _ => {}
     }
@@ -343,41 +343,49 @@ unsafe extern "C" fn call_fire_stdcall2(
 }
 
 /// Type 4 (special) weapon dispatch.
-/// Type 4 (special) weapon dispatch. All sub-functions use EAX=ESI=EDI=worm.
-unsafe fn fire_weapon_special(subtype: i32, params_38: u32, worm: u32, local_struct: u32) {
+/// Type 4 (special) weapon dispatch.
+///
+/// EAX at entry = weapon entry pointer (unchanged from type-4 switch).
+/// Some handlers explicitly set EAX=worm or EAX=*(worm+0x44).
+/// Handlers without explicit MOV EAX inherit the entry pointer.
+unsafe fn fire_weapon_special(
+    subtype: i32, params_38: u32, worm: u32, local_struct: u32,
+    entry: *const WeaponEntry,
+) {
     use openwa_core::rebase::rb;
+    let entry_u32 = entry as u32;
 
-    // All handlers use EAX=worm (self-pointer at CTaskWorm+0x36C).
     match subtype {
-        1 => fire_worm_vtable_0xe(worm, 0x6C),                                     // Blowtorch
-        2 => call_fire_usercall(worm, worm, rb(0x51E3E0)),                    // Pneumatic Drill
-        3 => call_fire_stdcall3(worm, params_38 as *const WeaponFireParams, local_struct, rb(0x51E350)),
-        4 => fire_worm_vtable_0xe(worm, 0x6D),                                     // Baseball Bat
-        5 => fire_worm_vtable_0xe(worm, 0x75),                                     // Fire Punch
-        6 => fire_worm_vtable_0xe(worm, 0x70),                                     // Dragon Ball
-        8 => fire_worm_vtable_0xe(worm, 0x6E),                                     // Kamikaze
-        9 => call_fire_usercall_stdcall1(worm, worm, local_struct, rb(0x51E480)), // Prod
-        10 => call_fire_usercall(worm, worm, rb(0x51E710)),                    // Air Strike (EAX=worm)
-        11 => fire_worm_vtable_0xe(worm, 0x71),                                    // Scales of Justice
-        13 => call_fire_usercall(worm, worm, rb(0x51E5C0)),                   // Napalm Strike
-        14 => call_fire_usercall(worm, worm, rb(0x51E670)),                         // Mail/Mine/Mole (EAX=worm!)
+        1 => fire_worm_vtable_0xe(worm, 0x6C),                                          // Blowtorch
+        2 => call_fire_usercall(entry_u32, worm, rb(0x51E3E0)),                          // Drill (EAX=entry)
+        3 => call_fire_stdcall3(worm, params_38 as *const WeaponFireParams, local_struct, rb(0x51E350)), // Girder
+        4 => fire_worm_vtable_0xe(worm, 0x6D),                                          // Baseball Bat
+        5 => fire_worm_vtable_0xe(worm, 0x75),                                          // Fire Punch
+        6 => fire_worm_vtable_0xe(worm, 0x70),                                          // Dragon Ball
+        8 => fire_worm_vtable_0xe(worm, 0x6E),                                          // Kamikaze
+        9 => call_fire_usercall_stdcall1(entry_u32, worm, local_struct, rb(0x51E480)),   // Prod (EAX=entry)
+        10 => call_fire_usercall(worm, worm, rb(0x51E710)),                              // Air Strike (EAX=worm)
+        11 => fire_worm_vtable_0xe(worm, 0x71),                                         // Scales of Justice
+        13 => call_fire_usercall(entry_u32, worm, rb(0x51E5C0)),                         // Napalm (EAX=entry)
+        14 => call_fire_usercall(worm, worm, rb(0x51E670)),                              // Mail/Mine/Mole (EAX=worm)
         16 => {
-            // Teleport: check condition, then fire or vtable fallback
-            let result = call_fire_usercall_ret(worm, worm, rb(0x516930));
+            // Teleport: MOV EAX,[ESI+0x44] (worm state byte) before check
+            let worm_state = *((worm as *const u8).add(0x44) as *const u32);
+            let result = call_fire_usercall_ret(worm_state, worm, rb(0x516930));
             if result != 0 {
-                call_fire_usercall(worm, worm, rb(0x51EB00));
+                call_fire_usercall(result as u32, worm, rb(0x51EB00));           // EAX=check result
             } else {
                 fire_worm_vtable_0xe(worm, 0x74);
             }
         }
-        17 => call_fire_usercall(worm, worm, rb(0x51E920)),                   // Freeze
-        18 => fire_worm_vtable_0xe(worm, 0x72),                                    // Suicide Bomber
-        19 => call_fire_usercall(worm, worm, rb(0x51E8C0)),                   // Skip Go
-        20 => call_fire_usercall(worm, worm, rb(0x51E600)),                   // Surrender
-        21 => call_fire_usercall(worm, worm, rb(0x51EBE0)),                   // Select Worm
-        22 => call_fire_usercall(worm, worm, rb(0x51EC30)),                   // Jet Pack
-        23 => fire_worm_vtable_0xe(worm, 0x78),                                    // Magic Bullet
-        24 => call_fire_usercall(worm, worm, rb(0x51EA60)),                   // Low Gravity / Fast Walk
+        17 => call_fire_usercall(worm, worm, rb(0x51E920)),                              // Freeze (EAX=worm)
+        18 => fire_worm_vtable_0xe(worm, 0x72),                                         // Suicide Bomber
+        19 => call_fire_usercall(entry_u32, worm, rb(0x51E8C0)),                         // Skip Go (EAX=entry)
+        20 => call_fire_usercall(worm, worm, rb(0x51E600)),                              // Surrender (EAX=worm)
+        21 => call_fire_usercall(entry_u32, worm, rb(0x51EBE0)),                         // Select Worm (EAX=entry)
+        22 => call_fire_usercall(entry_u32, worm, rb(0x51EC30)),                         // Jet Pack (EAX=entry)
+        23 => fire_worm_vtable_0xe(worm, 0x78),                                         // Magic Bullet
+        24 => call_fire_usercall(entry_u32, worm, rb(0x51EA60)),                         // Low Grav (EAX=entry)
         _ => {}
     }
 }
