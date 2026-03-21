@@ -232,7 +232,7 @@ unsafe extern "cdecl" fn fire_weapon_impl(
         }
         4 => {
             let subtype_38_ptr = &raw const (*entry).fire_subtype_38 as u32;
-            fire_weapon_special(subtype_34, subtype_38_ptr, w, local_struct, entry);
+            fire_weapon_special(subtype_34, subtype_38_ptr, worm, local_struct, entry);
         }
         _ => {}
     }
@@ -349,46 +349,79 @@ unsafe extern "C" fn call_fire_stdcall2(
 /// Some handlers explicitly set EAX=worm or EAX=*(worm+0x44).
 /// Handlers without explicit MOV EAX inherit the entry pointer.
 unsafe fn fire_weapon_special(
-    subtype: i32, params_38: u32, worm: u32, local_struct: u32,
+    subtype: i32, params_38: u32, worm: *mut CTaskWorm, local_struct: u32,
     entry: *const WeaponEntry,
 ) {
     use openwa_core::rebase::rb;
-    let entry_u32 = entry as u32;
+    let w = worm as u32;
+    let e = entry as u32;
 
     match subtype {
-        1 => fire_worm_vtable_0xe(worm, 0x6C),                                          // Blowtorch
-        2 => call_fire_usercall(entry_u32, worm, rb(0x51E3E0)),                          // Drill (EAX=entry)
-        3 => call_fire_stdcall3(worm, params_38 as *const WeaponFireParams, local_struct, rb(0x51E350)), // Girder
-        4 => fire_worm_vtable_0xe(worm, 0x6D),                                          // Baseball Bat
-        5 => fire_worm_vtable_0xe(worm, 0x75),                                          // Fire Punch
-        6 => fire_worm_vtable_0xe(worm, 0x70),                                          // Dragon Ball
-        8 => fire_worm_vtable_0xe(worm, 0x6E),                                          // Kamikaze
-        9 => call_fire_usercall_stdcall1(entry_u32, worm, local_struct, rb(0x51E480)),   // Prod (EAX=entry)
-        10 => call_fire_usercall(worm, worm, rb(0x51E710)),                              // Air Strike (EAX=worm)
-        11 => fire_worm_vtable_0xe(worm, 0x71),                                         // Scales of Justice
-        13 => call_fire_usercall(entry_u32, worm, rb(0x51E5C0)),                         // Napalm (EAX=entry)
-        14 => call_fire_usercall(worm, worm, rb(0x51E670)),                              // Mail/Mine/Mole (EAX=worm)
+        1 => fire_worm_vtable_0xe(w, 0x6C),                                             // Blowtorch
+        2 => call_fire_usercall(e, w, rb(0x51E3E0)),                                     // Drill (EAX=entry)
+        3 => call_fire_stdcall3(w, params_38 as *const WeaponFireParams, local_struct, rb(0x51E350)), // Girder
+        4 => fire_worm_vtable_0xe(w, 0x6D),                                             // Baseball Bat
+        5 => fire_worm_vtable_0xe(w, 0x75),                                             // Fire Punch
+        6 => fire_worm_vtable_0xe(w, 0x70),                                             // Dragon Ball
+        8 => fire_worm_vtable_0xe(w, 0x6E),                                             // Kamikaze
+        9 => call_fire_usercall_stdcall1(e, w, local_struct, rb(0x51E480)),              // Prod (EAX=entry)
+        10 => call_fire_usercall(w, w, rb(0x51E710)),                                    // Air Strike (EAX=worm)
+        11 => fire_worm_vtable_0xe(w, 0x71),                                            // Scales of Justice
+        13 => call_fire_usercall(e, w, rb(0x51E5C0)),                                    // Napalm (EAX=entry)
+        14 => call_fire_usercall(w, w, rb(0x51E670)),                                    // Mail/Mine/Mole (EAX=worm)
         16 => {
-            // Teleport: MOV EAX,[ESI+0x44] (worm state byte) before check
-            let worm_state = *((worm as *const u8).add(0x44) as *const u32);
-            let result = call_fire_usercall_ret(worm_state, worm, rb(0x516930));
+            // Teleport: MOV EAX,[ESI+0x44] (worm state) before check
+            let worm_state = (*worm).state();
+            let result = call_fire_usercall_ret(worm_state, w, rb(0x516930));
             if result != 0 {
-                call_fire_usercall(result as u32, worm, rb(0x51EB00));           // EAX=check result
+                call_fire_usercall(result as u32, w, rb(0x51EB00));
             } else {
-                fire_worm_vtable_0xe(worm, 0x74);
+                fire_worm_vtable_0xe(w, 0x74);
             }
         }
-        17 => call_fire_usercall(worm, worm, rb(0x51E920)),                              // Freeze (EAX=worm)
-        18 => fire_worm_vtable_0xe(worm, 0x72),                                         // Suicide Bomber
-        19 => call_fire_usercall(entry_u32, worm, rb(0x51E8C0)),                         // Skip Go (EAX=entry)
-        20 => call_fire_usercall(worm, worm, rb(0x51E600)),                              // Surrender (EAX=worm)
-        21 => call_fire_usercall(entry_u32, worm, rb(0x51EBE0)),                         // Select Worm (EAX=entry)
-        22 => call_fire_usercall(entry_u32, worm, rb(0x51EC30)),                         // Jet Pack (EAX=entry)
-        23 => fire_worm_vtable_0xe(worm, 0x78),                                         // Magic Bullet
-        24 => call_fire_usercall(entry_u32, worm, rb(0x51EA60)),                         // Low Grav (EAX=entry)
+        17 => call_fire_usercall(w, w, rb(0x51E920)),                                    // Freeze (EAX=worm)
+        18 => fire_worm_vtable_0xe(w, 0x72),                                            // Suicide Bomber
+        19 => fire_skip_go(worm, entry),                                                 // Skip Go (pure Rust)
+        20 => call_fire_usercall(w, w, rb(0x51E600)),                                    // Surrender (EAX=worm)
+        21 => call_fire_usercall(e, w, rb(0x51EBE0)),                                    // Select Worm (EAX=entry)
+        22 => call_fire_usercall(e, w, rb(0x51EC30)),                                    // Jet Pack (EAX=entry)
+        23 => fire_worm_vtable_0xe(w, 0x78),                                            // Magic Bullet
+        24 => call_fire_usercall(e, w, rb(0x51EA60)),                                    // Low Grav (EAX=entry)
         _ => {}
     }
 }
+
+// ── Pure Rust fire handlers (no bridge needed) ──────────────
+
+/// Skip Go (subtype 19) — pure Rust replacement for 0x51E8C0.
+///
+/// Toggles a bit in the team's arena state flags (DDGame+0x4628 + team*0x51C).
+/// Bit position from weapon entry's fire_params field.
+/// If game_version > 0x1C and bit already set: clears it. Otherwise: sets it.
+unsafe fn fire_skip_go(worm: *const CTaskWorm, entry: *const WeaponEntry) {
+    use openwa_core::engine::DDGame;
+    use openwa_core::engine::GameInfo;
+
+    let ddgame = (*worm).base.base.ddgame as *const DDGame;
+    let game_info = (*ddgame).game_info as *const GameInfo;
+    let game_version = (*game_info).game_version;
+    let team_index = (*worm).team_index as usize;
+
+    let bit_index = (*entry).fire_params._data[0] & 0x1F;
+    let bit = 1u32 << bit_index;
+
+    // Team arena flags at DDGame+0x4628 + team_index * 0x51C
+    let flags_ptr = (ddgame as *mut u8).add(0x4628 + team_index * 0x51C) as *mut u32;
+    let flags = *flags_ptr;
+
+    if game_version > 0x1C && (flags & bit) != 0 {
+        *flags_ptr = flags & !bit; // clear
+    } else {
+        *flags_ptr = flags | bit; // set
+    }
+}
+
+// ── Naked asm bridges ───────────────────────────────────────
 
 /// Bridge: usercall(EAX=eax_val, ESI=worm, EDI=worm), plain RET.
 /// Args: (eax_val, worm, addr). Saves/restores ESI+EDI. Uses EBX to hold addr.
