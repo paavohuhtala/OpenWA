@@ -196,7 +196,7 @@ unsafe extern "cdecl" fn fire_weapon_impl(
     let weapon_type = (*entry).fire_type;
     let subtype_34 = (*entry).fire_subtype_34;
     let subtype_38 = (*entry).fire_subtype_38;
-    let fire_params = &raw const (*entry).fire_params_start as u32;
+    let fire_params = &raw const (*entry).fire_params as u32;
     let w = worm as u32;
 
     // Log weapon fire

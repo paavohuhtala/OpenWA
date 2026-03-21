@@ -135,13 +135,22 @@ pub struct WeaponEntry {
     pub fire_subtype_34: i32,
     /// +0x38: Fire subtype for weapon types 1 (projectile) and 2 (rope).
     pub fire_subtype_38: i32,
-    /// +0x3C: Weapon fire params start. Address of this field is passed
-    /// to fire sub-functions as the params base pointer.
-    pub fire_params_start: u32,
-    /// +0x40-0x1CF: Unknown fields.
-    pub _unknown_40: [u8; 0x1D0 - 0x40],
+    /// +0x3C: Fire parameters sub-structure. Pointer to this field is passed
+    /// to fire sub-functions (PlacedExplosive, Projectile, CreateWeaponProjectile, etc.).
+    pub fire_params: WeaponFireParams,
 }
 const _: () = assert!(core::mem::size_of::<WeaponEntry>() == 0x1D0);
+
+/// Weapon fire parameters — embedded at WeaponEntry+0x3C.
+///
+/// Pointer to this struct is passed to all fire dispatch sub-functions.
+/// Internal layout is mostly unknown (0x194 bytes).
+#[repr(C)]
+pub struct WeaponFireParams {
+    /// +0x00 (WeaponEntry+0x3C): First param DWORD.
+    pub _data: [u8; 0x1D0 - 0x3C],
+}
+const _: () = assert!(core::mem::size_of::<WeaponFireParams>() == 0x1D0 - 0x3C);
 
 /// Weapon table — flat array of 71 entries, no header.
 ///
