@@ -75,7 +75,7 @@ const _: () = assert!(core::mem::size_of::<CTaskWormVTable>() == 20 * 4);
 /// Vtable at 0x6644C8. Class type byte: 0x12.
 ///
 /// # Important fields in the CGameTask base
-/// The worm state field lives at **offset +0x44** (inside `base._unknown_30`).
+/// The worm state field lives at **offset +0x44** (inside `base.subclass_data`).
 /// Use [`CTaskWorm::state`] to read it without pointer arithmetic.
 ///
 /// Source: Ghidra decompilation of 0x50BFB0, vtable analysis of 0x6644C8,
@@ -175,14 +175,57 @@ pub struct CTaskWorm {
 const _: () = assert!(core::mem::size_of::<CTaskWorm>() == 0x3FC);
 
 impl CTaskWorm {
-    /// Returns the worm's current state code (lives at offset +0x44, inside the
-    /// CGameTask base's `_unknown_40` padding region).
+    /// Returns the worm's current state code (lives at offset +0x44, inside
+    /// `base.subclass_data`).
     ///
     /// Known states: `0x65`=idle, `0x67`=active turn, `0x7F`=drowning,
     /// `0x80`=hurt, `0x81`/`0x86`=dead, `0x87`=dead variant, `0x8B`=unknown.
     pub fn state(&self) -> u32 {
-        // SAFETY: offset 0x44 is within CGameTask._unknown_40 (0x40..0x84).
         unsafe { *((self as *const CTaskWorm as *const u8).add(0x44) as *const u32) }
+    }
+
+    // ── Weapon fire state accessors (offsets +0x30..+0x3C in subclass_data) ──
+
+    /// Weapon fire type (1=projectile, 2=rope, 3=grenade, 4=special).
+    /// Offset +0x30 in CGameTask.subclass_data.
+    pub fn weapon_fire_type(&self) -> i32 {
+        unsafe { *(self.base.subclass_data.as_ptr().add(0) as *const i32) }
+    }
+
+    /// Weapon fire subtype for types 3 and 4. Offset +0x34.
+    pub fn weapon_fire_subtype_34(&self) -> i32 {
+        unsafe { *(self.base.subclass_data.as_ptr().add(4) as *const i32) }
+    }
+
+    /// Weapon fire subtype for types 1 and 2. Offset +0x38.
+    pub fn weapon_fire_subtype_38(&self) -> i32 {
+        unsafe { *(self.base.subclass_data.as_ptr().add(8) as *const i32) }
+    }
+
+    /// Weapon fire completion flag. Offset +0x3C.
+    /// Set to 0 before dispatch, 1 after.
+    pub fn weapon_fire_complete(&self) -> i32 {
+        unsafe { *(self.base.subclass_data.as_ptr().add(12) as *const i32) }
+    }
+
+    /// Mutable pointer to weapon_fire_complete for setting the flag.
+    pub fn weapon_fire_complete_mut(&mut self) -> &mut i32 {
+        unsafe { &mut *(self.base.subclass_data.as_mut_ptr().add(12) as *mut i32) }
+    }
+
+    /// Address of weapon_fire_complete field (passed as params base to fire handlers).
+    pub fn weapon_params_ptr(&self) -> u32 {
+        self as *const _ as u32 + 0x3C
+    }
+
+    /// Address of weapon_fire_subtype_34 field (params for GrenadeMortar).
+    pub fn weapon_params_34_ptr(&self) -> u32 {
+        self as *const _ as u32 + 0x34
+    }
+
+    /// Address of weapon_fire_subtype_38 field (params for type-4 specials).
+    pub fn weapon_params_38_ptr(&self) -> u32 {
+        self as *const _ as u32 + 0x38
     }
 
     /// Returns a reference to the vtable.

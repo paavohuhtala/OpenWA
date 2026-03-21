@@ -10,7 +10,7 @@ mod overlays;
 mod supply_crate;
 mod team;
 mod turn_game;
-mod worm;
+pub mod worm;
 
 pub use base::{CTask, CTaskBfsIter, SharedDataIter, SharedDataNode, SharedDataTable};
 pub use cloud::CTaskCloud;

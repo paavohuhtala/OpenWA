@@ -1529,7 +1529,7 @@ unsafe fn dump_missile_raw(ptr: u32) {
     let base = ptr as *const u32;
     let sections: &[(usize, usize, &str)] = &[
         (0x000, 0x030, "CTask base"),
-        (0x030, 0x084, "CGameTask _unknown_30"),
+        (0x030, 0x084, "CGameTask subclass_data"),
         (0x084, 0x098, "CGameTask pos/speed (0x84–0x97)"),
         (0x098, 0x0FC, "CGameTask _unknown_98"),
         (0x0FC, 0x130, "CTaskMissile 0xFC–0x12F"),
