@@ -175,19 +175,14 @@ pub struct DDGame {
     /// Initialized to 0x10000 (1.0). Not read by the render method — may be
     /// target/previous value for interpolation, or used by update logic.
     pub team_health_ratio_2: [i32; 6],
-    /// 0x4620-0x64D7: Unknown
-    ///
-    /// Known landmarks:
-    /// - 0x64D8: cleared by init
-    pub _unknown_4620: [u8; 0x64D8 - 0x4620],
-    /// 0x64D8: Cleared by InitFields. Purpose unknown.
-    pub init_field_64d8: u32,
-    /// 0x64DC-0x72A3: Unknown
-    pub _unknown_64dc: [u8; 0x72A4 - 0x64DC],
-    /// 0x72A4: Cleared by InitFields. Purpose unknown.
-    pub init_field_72a4: u32,
-    /// 0x72A8-0x72D7: Unknown
-    pub _unknown_72a8: [u8; 0x72D8 - 0x72A8],
+    /// 0x4620-0x4627: Unknown
+    pub _unknown_4620: [u8; 0x4628 - 0x4620],
+    /// 0x4628: Team arena state — per-team data, ammo, delays, alliance tracking.
+    /// Note: fields previously named init_field_64d8 (= team_count at arena+0x1EB0)
+    /// and init_field_72a4 (= weapon_slots entry at arena+0x2A7C) are inside this struct.
+    pub team_arena: TeamArenaState,
+    /// 0x7270-0x72D7: Unknown
+    pub _unknown_7270: [u8; 0x72D8 - 0x7270],
 
     /// 0x72D8: Game speed multiplier (Fixed-point, 0x10000 = 1.0x).
     pub game_speed: i32,
@@ -415,8 +410,10 @@ pub unsafe fn ddgame_init_fields(ddgame: *mut DDGame) {
         *(base.add(off) as *mut u32) = 0;
     }
 
-    (*ddgame).init_field_64d8 = 0;
-    (*ddgame).init_field_72a4 = 0;
+    // init_field_64d8 = TeamArenaState.team_count (arena+0x1EB0)
+    (*ddgame).team_arena.team_count = 0;
+    // init_field_72a4 = weapon_slots[754] (arena+0x2A7C)
+    (*ddgame).team_arena.weapon_slots[754] = 0;
 
     // InitRenderIndices — original sets ESI = ddgame + 0x72D8, now uses typed DDGame ptr
     ddgame_init_render_indices(ddgame);
