@@ -6,7 +6,7 @@
 use crate::hook;
 use crate::log_line;
 use openwa_core::address::va;
-use openwa_core::engine::replay::{self, ReplayError, ReplayStream};
+use openwa_core::engine::replay::{self, ReplayError, ReplayStream, ReplayTeamEntry};
 use openwa_core::rebase::rb;
 use openwa_core::wa_alloc::{wa_free, wa_malloc};
 
@@ -430,35 +430,27 @@ unsafe fn parse_and_write_v2plus(
         wd(va::G_REPLAY_GAME_ID, xor_a ^ replay::REPLAY_XOR_KEY);
     }
 
+    let teams = rb(va::G_TEAM_DATA) as *mut ReplayTeamEntry;
     let mut team_count: u8 = 0;
-    for team_idx in 0..6u32 {
-        let tb = va::G_TEAM_DATA + team_idx * 0xD7B; // per-team base
+    for team_idx in 0..6usize {
+        let team = &mut *teams.add(team_idx);
         let team_flag = s.read_u8()?;
-        wb(va::G_TEAM_FLAG_OFF + team_idx * 0xD7B, team_flag);
+        team.flag = team_flag;
         if team_flag == 0 { continue; }
         team_count += 1;
-
+    
         let team_type = s.read_u8()? as i8;
         if !replay::validate_team_type(team_type) { return Err(ReplayError::InvalidFormat); }
-        wb(tb, team_type as u8);
+        team.team_type = team_type as u8;
+        team.alliance = s.read_u8_validated(0, 5)?;
+        team.unknown_02 = s.read_u8()?;
 
-        let alliance = s.read_u8_validated(0, 5)?;
-        wb(tb + 1, alliance);
+        // Config abbreviation / pre-loop worm name
+        s.read_worm_name(&mut team.config_abbrev, use_fixed_names)?;
 
-        let unk = s.read_u8()?;
-        wb(tb + 2, unk);
-
-        // Pre-loop worm name (config abbreviation)
-        // Pre-loop worm name at +0x03 from per-team base
-        // DIFF showed: 0x877FFF = team_base + 0x03 for team 0
-        let pre_name_dest = rb(tb + 3) as *mut u8;
-        let mut pre_name = [0u8; 0x11];
-        s.read_worm_name(&mut pre_name, use_fixed_names)?;
-        ptr::copy_nonoverlapping(pre_name.as_ptr(), pre_name_dest, 0x11);
-
-        // 8 worm names
+        // 8 worm names (stored in separate global array, not in this struct)
         for worm_idx in 0..8u32 {
-            let name_off = ((team_idx as usize) * 0xCB + worm_idx as usize) * 0x11;
+            let name_off = ((team_idx) * 0xCB + worm_idx as usize) * 0x11;
             let dest = rb(va::G_WORM_NAMES) as *mut u8;
             if use_fixed_names {
                 let slice = s.advance_raw(0x11)?;
@@ -470,48 +462,33 @@ unsafe fn parse_and_write_v2plus(
             }
         }
 
-        // Worm count (unvalidated)
-        let worm_count_raw = s.read_u8()?;
-        wb(va::G_TEAM_WORM_COUNT_RAW_OFF + team_idx * 0xD7B, worm_count_raw);
+        team.worm_count_raw = s.read_u8()?;
+        s.read_prefixed_string(&mut team.team_name)?;
 
-        // Team name
-        let mut team_name = [0u8; 0x41];
-        s.read_prefixed_string(&mut team_name)?;
-        ptr::copy_nonoverlapping(team_name.as_ptr(), rb(va::G_TEAM_NAME_OFF + team_idx * 0xD7B) as *mut u8, 0x41);
-
-        // Extra byte if obs_count > 13
         if obs_count > 13 {
-            let extra = s.read_u8()?;
-            wb(va::G_TEAM_EXTRA_OFF + team_idx * 0xD7B, extra);
+            team.extra_byte = s.read_u8()?;
         }
 
-        // Config name
-        let mut config_name = [0u8; 0x41];
-        s.read_prefixed_string(&mut config_name)?;
-        ptr::copy_nonoverlapping(config_name.as_ptr(), rb(va::G_TEAM_CONFIG_NAME_OFF + team_idx * 0xD7B) as *mut u8, 0x41);
+        s.read_prefixed_string(&mut team.config_name)?;
 
-        // Worm count (validated 1-8)
         let worm_count = s.read_u8()?;
         if worm_count == 0 || worm_count > 8 { return Err(ReplayError::InvalidFormat); }
-        wb(va::G_TEAM_WORM_COUNT_OFF + team_idx * 0xD7B, worm_count);
+        team.worm_count = worm_count;
+        team.color = s.read_u8()?;
+        team.flag2 = s.read_u8()?;
+        team.grave = s.read_u8()?;
+        team.soundbank = s.read_u8()?;
+        team.soundbank_extra = s.read_u8()?;
 
-        // Color, flag, grave, soundbank
-        wb(va::G_TEAM_COLOR_OFF + team_idx * 0xD7B, s.read_u8()?);
-        wb(va::G_TEAM_FLAG2_OFF + team_idx * 0xD7B, s.read_u8()?);
-        wb(va::G_TEAM_GRAVE_OFF + team_idx * 0xD7B, s.read_u8()?);
-        wb(va::G_TEAM_SOUNDBANK_OFF + team_idx * 0xD7B, s.read_u8()?);
-        wb(va::G_TEAM_SOUNDBANK2_OFF + team_idx * 0xD7B, s.read_u8()?);
-
-        // Weapon data blocks
-        let weapons_dest = rb(va::G_TEAM_WEAPONS_OFF + team_idx * 0xD7B) as *mut u8;
+        // Weapon data: 4 contiguous blocks copied into weapons[0xC54]
         let w1 = s.advance_raw(0x400)?;
-        ptr::copy_nonoverlapping(w1.as_ptr(), weapons_dest, 0x400);
+        ptr::copy_nonoverlapping(w1.as_ptr(), team.weapons.as_mut_ptr(), 0x400);
         let w2 = s.advance_raw(0x154)?;
-        ptr::copy_nonoverlapping(w2.as_ptr(), weapons_dest.add(0x400), 0x154);
+        ptr::copy_nonoverlapping(w2.as_ptr(), team.weapons.as_mut_ptr().add(0x400), 0x154);
         let w3 = s.advance_raw(0x400)?;
-        ptr::copy_nonoverlapping(w3.as_ptr(), weapons_dest.add(0x554), 0x400);
+        ptr::copy_nonoverlapping(w3.as_ptr(), team.weapons.as_mut_ptr().add(0x554), 0x400);
         let w4 = s.advance_raw(0x300)?;
-        ptr::copy_nonoverlapping(w4.as_ptr(), weapons_dest.add(0x954), 0x300);
+        ptr::copy_nonoverlapping(w4.as_ptr(), team.weapons.as_mut_ptr().add(0x954), 0x300);
     }
 
     if team_count == 0 { return Err(ReplayError::InvalidFormat); }
@@ -716,35 +693,31 @@ unsafe fn write_replay_log(state: u32, log_file: &mut File) -> Result<(), Replay
     ];
 
     // Find max color name length for alignment — only active teams
+    let teams = rb(va::G_TEAM_DATA) as *const ReplayTeamEntry;
     let mut max_color_len = 0usize;
-    for slot in 0..6u32 {
-        let flag = *(rb(va::G_TEAM_FLAG_OFF + slot * 0xD7B) as *const u8);
-        if flag == 0 { continue; }
-        let ci = *(rb(va::G_TEAM_DATA + slot * 0xD7B + 1) as *const u8) as usize;
+    for slot in 0..6usize {
+        let team = &*teams.add(slot);
+        if team.flag == 0 { continue; }
+        let ci = team.alliance as usize;
         if ci < 6 {
             let len = c_strlen(color_names[ci]);
             if len > max_color_len { max_color_len = len; }
         }
     }
 
-    // Team data is in the team header buffer at 0x877FFC + i*0xD7B.
-    // Per-team: +0x00=type, +0x01=alliance(color), +0x14=team_name(prefixed)
-    let _team_count = *(rb(va::G_TEAM_COUNT) as *const u8) as u32;
+    for slot in 0..6usize {
+        let team = &*teams.add(slot);
+        if team.flag == 0 { continue; }
 
-    for slot in 0..6u32 {
-        let tb = rb(va::G_TEAM_DATA + slot * 0xD7B) as *const u8;
-        let flag = *(rb(va::G_TEAM_FLAG_OFF + slot * 0xD7B) as *const u8);
-        if flag == 0 { continue; }
-
-        let team_type = *tb as i8;
-        let color_idx = *tb.add(1) as usize;
+        let team_type = team.team_type as i8;
+        let color_idx = team.alliance as usize;
 
         let color = if color_idx < 6 { color_names[color_idx] } else { color_names[0] };
         let clen = c_strlen(color);
 
-        // The displayed team name comes from the pre-loop name field at +0x03
-        // (e.g., "CPU 2"), not the custom team name at +0x14 ("thrombosis1").
-        let team_name = tb.add(0x03);
+        // The displayed team name comes from the config_abbrev field
+        // (e.g., "CPU 2"), not the custom team_name ("thrombosis1").
+        let team_name = team.config_abbrev.as_ptr();
 
         let color_len = clen;
 

@@ -965,32 +965,6 @@ pub mod va {
     /// Worm names base (8 worms × teams, stride 0x11 per name).
     pub const G_WORM_NAMES: u32 = 0x0087_8097;
 
-    // --- Replay team data field offsets from G_TEAM_DATA + team_idx * 0xD7B ---
-    /// Team flag (nonzero = team present). Offset 0x124 from per-team base.
-    pub const G_TEAM_FLAG_OFF: u32 = 0x0087_8120;
-    /// Worm count (unvalidated). Offset 0x96 from per-team base.
-    pub const G_TEAM_WORM_COUNT_RAW_OFF: u32 = 0x0087_8092;
-    /// Team name (0x41 bytes). Offset 0x14 from per-team base.
-    pub const G_TEAM_NAME_OFF: u32 = 0x0087_8010;
-    /// Team extra byte (if obs_count > 13). Offset 0x97 from per-team base.
-    pub const G_TEAM_EXTRA_OFF: u32 = 0x0087_8093;
-    /// Config name (0x41 bytes). Offset 0x55 from per-team base.
-    pub const G_TEAM_CONFIG_NAME_OFF: u32 = 0x0087_8051;
-    /// Worm count (validated 1-8). Offset 0x98 from per-team base.
-    pub const G_TEAM_WORM_COUNT_OFF: u32 = 0x0087_8094;
-    /// Team color. Offset 0x99 from per-team base.
-    pub const G_TEAM_COLOR_OFF: u32 = 0x0087_8095;
-    /// Team flag2. Offset 0x9A from per-team base.
-    pub const G_TEAM_FLAG2_OFF: u32 = 0x0087_8096;
-    /// Team grave. Offset 0x123 from per-team base.
-    pub const G_TEAM_GRAVE_OFF: u32 = 0x0087_811F;
-    /// Team soundbank. Offset 0x125 from per-team base.
-    pub const G_TEAM_SOUNDBANK_OFF: u32 = 0x0087_8121;
-    /// Team soundbank extra. Offset 0x126 from per-team base.
-    pub const G_TEAM_SOUNDBANK2_OFF: u32 = 0x0087_8122;
-    /// Team weapon data (0xC54 bytes). Offset 0x127 from per-team base.
-    pub const G_TEAM_WEAPONS_OFF: u32 = 0x0087_8123;
-
     // --- Replay function addresses ---
     /// Load string resource by ID — stdcall(id) → *const u8. RET 0x4.
     pub const WA_LOAD_STRING: u32 = 0x0059_3180;

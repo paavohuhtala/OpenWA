@@ -26,6 +26,54 @@ pub const REPLAY_MAX_VERSION: u16 = 0x13;
 /// XOR key for game ID integrity check.
 pub const REPLAY_XOR_KEY: u32 = 0xEF5B_5C49;
 
+/// Per-team data in the replay global buffer (stride 0xD7B = 3,451 bytes).
+///
+/// 6 entries at `G_TEAM_DATA` (0x877FFC). Populated by ReplayLoader during
+/// replay file parsing. The `flag` field at offset 0x124 indicates whether
+/// the team slot is active.
+#[repr(C)]
+pub struct ReplayTeamEntry {
+    /// 0x000: Team type (i8 signed, validated by `validate_team_type`).
+    pub team_type: u8,
+    /// 0x001: Alliance ID (0-5).
+    pub alliance: u8,
+    /// 0x002: Unknown byte.
+    pub unknown_02: u8,
+    /// 0x003: Config abbreviation / pre-loop worm name (null-terminated, 0x11 bytes).
+    pub config_abbrev: [u8; 0x11],
+    /// 0x014: Team name (null-terminated, 0x41 bytes).
+    pub team_name: [u8; 0x41],
+    /// 0x055: Config name (null-terminated, 0x41 bytes).
+    pub config_name: [u8; 0x41],
+    /// 0x096: Worm count (unvalidated, stored as-is from stream).
+    pub worm_count_raw: u8,
+    /// 0x097: Extra byte (only written if observer count > 13).
+    pub extra_byte: u8,
+    /// 0x098: Worm count (validated 1-8).
+    pub worm_count: u8,
+    /// 0x099: Team color index.
+    pub color: u8,
+    /// 0x09A: Secondary flag.
+    pub flag2: u8,
+    /// 0x09B-0x122: Unknown gap.
+    pub _unknown_09b: [u8; 0x123 - 0x09B],
+    /// 0x123: Grave type.
+    pub grave: u8,
+    /// 0x124: Team present flag (nonzero = active).
+    pub flag: u8,
+    /// 0x125: Speech soundbank index.
+    pub soundbank: u8,
+    /// 0x126: Speech soundbank extra.
+    pub soundbank_extra: u8,
+    /// 0x127: Weapon data (4 blocks: 0x400 + 0x154 + 0x400 + 0x300 = 0xC54 bytes).
+    pub weapons: [u8; 0xC54],
+}
+
+const _: () = assert!(core::mem::size_of::<ReplayTeamEntry>() == 0xD7B);
+
+/// Maximum number of teams in a replay.
+pub const REPLAY_MAX_TEAMS: usize = 6;
+
 /// Cursor over a replay payload byte buffer.
 ///
 /// Mirrors the 3-DWORD stream context used by WA's stream helper functions:
