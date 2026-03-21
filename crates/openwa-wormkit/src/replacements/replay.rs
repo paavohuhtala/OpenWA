@@ -7,7 +7,7 @@ use crate::hook;
 use crate::log_line;
 use openwa_core::address::va;
 use openwa_core::engine::game_info::GameInfo;
-use openwa_core::engine::map_class::MapClass;
+use openwa_core::frontend::MapView;
 use openwa_core::engine::replay::{self, ReplayError, ReplayStream, ReplayTeamEntry};
 use openwa_core::rebase::rb;
 use openwa_core::wa_alloc::{wa_free, wa_malloc};
@@ -543,19 +543,19 @@ unsafe fn parse_and_write_v2plus(
     // For positive sub-version (our test case), we need to:
     // Map loading: construct map object, load playback.thm, copy info, release.
     if (*gi).replay_map_type >= 1 {
-        let alloc: unsafe extern "cdecl" fn(u32) -> *mut MapClass =
+        let alloc: unsafe extern "cdecl" fn(u32) -> *mut MapView =
             core::mem::transmute(rb(va::WA_CRT_MALLOC));
-        let buf = alloc(core::mem::size_of::<MapClass>() as u32);
+        let buf = alloc(core::mem::size_of::<MapView>() as u32);
         let map = if !buf.is_null() {
-            let construct: unsafe extern "stdcall" fn(*mut MapClass, i32) -> *mut MapClass =
-                core::mem::transmute(rb(va::MAP_CLASS_CONSTRUCTOR));
+            let construct: unsafe extern "stdcall" fn(*mut MapView, i32) -> *mut MapView =
+                core::mem::transmute(rb(va::MAP_VIEW_CONSTRUCTOR));
             construct(buf, 1)
         } else {
             ptr::null_mut()
         };
 
-        let load: unsafe extern "stdcall" fn(*mut MapClass, *const u8, i32) -> i32 =
-            core::mem::transmute(rb(va::MAP_CLASS_LOAD));
+        let load: unsafe extern "stdcall" fn(*mut MapView, *const u8, i32) -> i32 =
+            core::mem::transmute(rb(va::MAP_VIEW_LOAD));
         let ok = load(map, b"data\\playback.thm\0".as_ptr(), 0);
 
         if ok == 0 {
@@ -566,7 +566,7 @@ unsafe fn parse_and_write_v2plus(
         }
 
         // Copy map info to game state (usercall ESI=map)
-        call_usercall_esi(map as u32, rb(va::MAP_COPY_INFO));
+        call_usercall_esi(map as u32, rb(va::MAP_VIEW_COPY_INFO));
 
         // Terrain flag: zero = cavern terrain
         (*gi).terrain_flag = ((*map).terrain_flag == 0) as u8;

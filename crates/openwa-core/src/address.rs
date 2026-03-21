@@ -976,12 +976,12 @@ pub mod va {
     pub const REPLAY_PROCESS_STATE: u32 = 0x0045_D640;
     /// Cleanup observer array — usercall(ESI=observer_array). Plain RET.
     pub const REPLAY_CLEANUP_OBSERVERS: u32 = 0x0053_EE00;
-    /// Map class constructor — stdcall(alloc, flags) → *mut MapClass.
-    pub const MAP_CLASS_CONSTRUCTOR: u32 = 0x0044_7E80;
-    /// Map class load — stdcall(map_obj, path, flags) → i32.
-    pub const MAP_CLASS_LOAD: u32 = 0x0044_A9A0;
-    /// Copy map info to game state — usercall(ESI=map_obj). Plain RET.
-    pub const MAP_COPY_INFO: u32 = 0x0044_9B60;
+    /// MapView constructor — stdcall(alloc, flags) → *mut MapView. CWnd-derived.
+    pub const MAP_VIEW_CONSTRUCTOR: u32 = 0x0044_7E80;
+    /// MapView load terrain file — stdcall(this, path, flags) → i32.
+    pub const MAP_VIEW_LOAD: u32 = 0x0044_A9A0;
+    /// MapView copy info to game state — usercall(ESI=this). Plain RET.
+    pub const MAP_VIEW_COPY_INFO: u32 = 0x0044_9B60;
 
     // --- String literals ---
     /// Version string table (array of pointers to version strings).

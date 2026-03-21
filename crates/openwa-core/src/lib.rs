@@ -6,6 +6,7 @@ pub mod macros;
 pub mod audio;
 pub mod display;
 pub mod engine;
+pub mod frontend;
 pub mod game;
 pub mod input;
 pub mod render;
