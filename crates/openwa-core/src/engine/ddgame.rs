@@ -1898,7 +1898,7 @@ impl TeamArenaState {
 #[repr(transparent)]
 #[derive(Clone, Copy)]
 pub struct TeamArenaRef {
-    base: *const u8,
+    base: *mut u8,
 }
 
 impl TeamArenaRef {
@@ -1909,7 +1909,7 @@ impl TeamArenaRef {
     #[inline]
     pub unsafe fn from_raw(base: u32) -> Self {
         Self {
-            base: base as *const u8,
+            base: base as *mut u8,
         }
     }
 
@@ -1927,8 +1927,8 @@ impl TeamArenaRef {
 
     /// Get pointer to the TeamBlock array base.
     #[inline]
-    pub unsafe fn blocks(&self) -> *const TeamBlock {
-        self.base.sub(offsets::ARENA_TO_BLOCKS) as *const TeamBlock
+    pub unsafe fn blocks(&self) -> *mut TeamBlock {
+        self.base.sub(offsets::ARENA_TO_BLOCKS) as *mut TeamBlock
     }
 
     /// Get the team header (metadata) for a team.
@@ -1938,6 +1938,12 @@ impl TeamArenaRef {
     #[inline]
     pub unsafe fn team_header(&self, team_idx: usize) -> &TeamHeader {
         &(*self.blocks().add(team_idx + 1)).header.team
+    }
+
+    /// Get a mutable team header for a team.
+    #[inline]
+    pub unsafe fn team_header_mut(&self, team_idx: usize) -> &mut TeamHeader {
+        &mut (*self.blocks().add(team_idx + 1)).header.team
     }
 
     /// Get a playable worm entry by 1-indexed worm number (1..=8).

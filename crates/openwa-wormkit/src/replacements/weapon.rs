@@ -400,7 +400,6 @@ unsafe fn fire_weapon_special(
 /// In game_version > 0x1C: toggles (set/clear). Otherwise: always sets.
 unsafe fn fire_skip_go(worm: *const CTaskWorm, entry: *const WeaponEntry) {
     use openwa_core::engine::ddgame::TeamArenaRef;
-    use openwa_core::engine::ddgame::TeamHeader;
     use openwa_core::engine::DDGame;
 
     let ddgame = (*worm).base.base.ddgame as *mut DDGame;
@@ -412,13 +411,13 @@ unsafe fn fire_skip_go(worm: *const CTaskWorm, entry: *const WeaponEntry) {
 
     let arena_ptr = &raw mut (*ddgame).team_arena as u32;
     let arena = TeamArenaRef::from_raw(arena_ptr);
-    let header = arena.team_header(team_index) as *const TeamHeader as *mut TeamHeader;
-    let flags = (*header).turn_action_flags;
+    let header = arena.team_header_mut(team_index);
+    let flags = header.turn_action_flags;
 
     if game_version > 0x1C && (flags & bit) != 0 {
-        (*header).turn_action_flags = flags & !bit;
+        header.turn_action_flags = flags & !bit;
     } else {
-        (*header).turn_action_flags = flags | bit;
+        header.turn_action_flags = flags | bit;
     }
 }
 
