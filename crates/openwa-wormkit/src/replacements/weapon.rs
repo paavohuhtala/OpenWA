@@ -11,8 +11,10 @@ use core::sync::atomic::{AtomicU32, Ordering};
 
 use openwa_core::address::va;
 use openwa_core::engine::ddgame::{self, TeamArenaRef};
+use openwa_core::game::weapon::WeaponEntry;
 use openwa_core::game::Weapon;
 use openwa_core::log::log_line;
+use openwa_core::task::worm::CTaskWorm;
 
 use crate::hook::{self, usercall_trampoline};
 
@@ -179,19 +181,26 @@ unsafe extern "C" fn trampoline_fire_weapon() {
 }
 
 /// Rust implementation of FireWeapon dispatch.
-unsafe extern "cdecl" fn fire_weapon_impl(weapon_ctx: u32, local_struct: u32, worm: u32) {
-    let ctx = weapon_ctx as *const u8;
-    let weapon_type = *(ctx.add(0x30) as *const i32);
-    let subtype_34 = *(ctx.add(0x34) as *const i32);
-    let subtype_38 = *(ctx.add(0x38) as *const i32);
-    let params = weapon_ctx.wrapping_add(0x3C);
-    let worm_ptr = worm as *mut u8;
+///
+/// `entry`: EAX = active WeaponEntry pointer (from CTaskWorm+0x36C).
+/// `local_struct`: ECX = stack-local buffer from WeaponRelease.
+/// `worm`: stack param = CTaskWorm pointer (ESI in original).
+///
+/// Completion flag at worm+0x3C (CGameTask.subclass_data[12]).
+/// Params pointer at entry+0x3C (WeaponEntry.fire_complete) — different object, same offset.
+unsafe extern "cdecl" fn fire_weapon_impl(
+    entry: *const WeaponEntry, local_struct: u32, worm: *mut CTaskWorm,
+) {
+    use openwa_core::rebase::rb;
 
-    // weapon_ctx = pointer to WeaponEntry in WeaponTable (confirmed via runtime logging).
-    // CTaskWorm+0x36C stores &WeaponTable.entries[selected_weapon].
+    let weapon_type = (*entry).fire_type;
+    let subtype_34 = (*entry).fire_subtype_34;
+    let subtype_38 = (*entry).fire_subtype_38;
+    let params = &raw const (*entry).fire_complete as u32;
+    let worm_u32 = worm as u32;
 
     // Log weapon fire
-    let weapon_id = *(worm_ptr.add(0x170) as *const u32);
+    let weapon_id = (*worm).selected_weapon;
     let weapon_name = Weapon::try_from(weapon_id)
         .map(|w| format!("{:?}", w))
         .unwrap_or_else(|id| format!("Unknown({})", id));
@@ -200,37 +209,35 @@ unsafe extern "cdecl" fn fire_weapon_impl(weapon_ctx: u32, local_struct: u32, wo
         weapon_name, weapon_id, weapon_type, subtype_34, subtype_38
     ));
 
-    // worm+0x3C = completion flag
-    *(worm_ptr.add(0x3C) as *mut i32) = 0;
-
-    use openwa_core::rebase::rb;
+    // Completion flag at CGameTask.subclass_data[12] (worm+0x3C), NOT WeaponEntry
+    *(worm as *mut u8).add(0x3C).cast::<i32>() = 0;
 
     match weapon_type {
         1 => match subtype_38 {
-            1 => call_fire_stdcall1(worm, params, rb(0x51EC80)),                    // PlacedExplosive
-            2 => call_fire_stdcall3(worm, params, local_struct, rb(0x51DFB0)),      // Projectile
-            3 => call_fire_thiscall2(worm, params, local_struct, rb(0x51E0F0)),     // CreateWeaponProjectile
-            4 => call_fire_stdcall2(worm, params, local_struct, rb(0x51ED90)),      // Shotgun
+            1 => call_fire_stdcall1(worm_u32, params, rb(0x51EC80)),                    // PlacedExplosive
+            2 => call_fire_stdcall3(worm_u32, params, local_struct, rb(0x51DFB0)),      // Projectile
+            3 => call_fire_thiscall2(worm_u32, params, local_struct, rb(0x51E0F0)),     // CreateWeaponProjectile
+            4 => call_fire_stdcall2(worm_u32, params, local_struct, rb(0x51ED90)),      // Shotgun
             _ => {}
         },
         2 => match subtype_38 {
-            1 => call_fire_stdcall3(worm, params, local_struct, rb(0x51E1C0)),      // RopeType1
-            2 => call_fire_thiscall2(worm, params, local_struct, rb(0x51E0F0)),     // CreateWeaponProjectile
-            3 => call_fire_stdcall3(worm, params, local_struct, rb(0x51E240)),      // RopeType3
+            1 => call_fire_stdcall3(worm_u32, params, local_struct, rb(0x51E1C0)),      // RopeType1
+            2 => call_fire_thiscall2(worm_u32, params, local_struct, rb(0x51E0F0)),     // CreateWeaponProjectile
+            3 => call_fire_stdcall3(worm_u32, params, local_struct, rb(0x51E240)),      // RopeType3
             _ => {}
         },
         3 => {
-            let params_34 = weapon_ctx.wrapping_add(0x34);
-            call_fire_stdcall3(worm, params_34, local_struct, rb(0x51E2C0));        // GrenadeMortar
+            let params_34 = &raw const (*entry).fire_subtype_34 as u32;
+            call_fire_stdcall3(worm_u32, params_34, local_struct, rb(0x51E2C0));        // GrenadeMortar
         }
         4 => {
-            let params_38 = weapon_ctx.wrapping_add(0x38);
-            fire_weapon_special(subtype_34, params_38, worm, local_struct);
+            let params_38 = &raw const (*entry).fire_subtype_38 as u32;
+            fire_weapon_special(subtype_34, params_38, worm_u32, local_struct);
         }
         _ => {}
     }
 
-    *(worm_ptr.add(0x3C) as *mut i32) = 1;
+    *(worm as *mut u8).add(0x3C).cast::<i32>() = 1;
 }
 
 // ── Sub-function bridges ────────────────────────────────────
