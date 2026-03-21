@@ -2,6 +2,7 @@
 
 use std::ffi::c_void;
 
+mod debug_server;
 mod debug_ui;
 #[allow(dead_code)]
 mod debug_watchpoint;
@@ -93,6 +94,9 @@ fn run() -> Result<(), String> {
 
     // Debug UI window (requires "debug-ui" feature + OPENWA_DEBUG_UI=1)
     debug_ui::maybe_spawn();
+
+    // Debug server (requires OPENWA_DEBUG_SERVER=1)
+    debug_server::maybe_start();
 
     Ok(())
 }
