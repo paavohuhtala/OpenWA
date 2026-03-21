@@ -3,7 +3,7 @@ pub mod bit_grid;
 mod cloud;
 mod filter;
 mod fire;
-mod game_task;
+pub mod game_task;
 mod mine_oil_drum;
 mod missile;
 mod overlays;

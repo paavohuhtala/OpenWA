@@ -151,8 +151,11 @@ pub struct CTaskWorm {
     pub _unknown_338: [u8; 0x368 - 0x338],
     /// 0x368: Animator / controller object (dispatched via vtable for state animations)
     pub animator: *mut u8,
-    /// 0x36C–0x3DB: Unknown (rope anchor, weapon-specific data, etc.)
-    pub _unknown_36c: [u8; 0x3DC - 0x36C],
+    /// 0x36C: Self-pointer (points to this CTaskWorm). Used by WeaponRelease
+    /// to load EAX before calling FireWeapon: `MOV EAX, [EDI+0x36C]`.
+    pub weapon_self_ptr: *mut CTaskWorm,
+    /// 0x370–0x3DB: Unknown (rope anchor, weapon-specific data, etc.)
+    pub _unknown_370: [u8; 0x3DC - 0x370],
     /// 0x3DC: Facing direction. -1 = facing left, +1 = facing right.
     pub facing_direction: i32,
     /// 0x3E0–0x3E3: Unknown
@@ -173,13 +176,12 @@ const _: () = assert!(core::mem::size_of::<CTaskWorm>() == 0x3FC);
 
 impl CTaskWorm {
     /// Returns the worm's current state code (lives at offset +0x44, inside the
-    /// CGameTask base's `_unknown_30` padding region).
+    /// CGameTask base's `_unknown_40` padding region).
     ///
     /// Known states: `0x65`=idle, `0x67`=active turn, `0x7F`=drowning,
     /// `0x80`=hurt, `0x81`/`0x86`=dead, `0x87`=dead variant, `0x8B`=unknown.
     pub fn state(&self) -> u32 {
-        // SAFETY: offset 0x44 is within CGameTask._unknown_30 (0x30..0x84).
-        // Aligned to 4 bytes; repr(C) guarantees no reordering.
+        // SAFETY: offset 0x44 is within CGameTask._unknown_40 (0x40..0x84).
         unsafe { *((self as *const CTaskWorm as *const u8).add(0x44) as *const u32) }
     }
 
