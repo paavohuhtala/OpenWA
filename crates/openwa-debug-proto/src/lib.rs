@@ -1,0 +1,84 @@
+use serde::{Deserialize, Serialize};
+use std::io::{self, Read, Write};
+
+// --- Pointer classification ---
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PointerKind {
+    Vtable,
+    Code,
+    Data,
+    Object,
+    Heap,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PointerInfo {
+    pub offset: u32,
+    pub raw_value: u32,
+    pub ghidra_value: u32,
+    pub kind: PointerKind,
+    pub detail: Option<String>,
+}
+
+// --- Protocol messages ---
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum Request {
+    Ping,
+    Help,
+    Read { addr: u32, len: u32 },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommandHelp {
+    pub name: String,
+    pub usage: String,
+    pub description: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum Response {
+    Pong,
+    Help { commands: Vec<CommandHelp> },
+    ReadResult {
+        ghidra_addr: u32,
+        runtime_addr: u32,
+        data: Vec<u8>,
+        pointers: Vec<PointerInfo>,
+    },
+    Error { message: String },
+}
+
+// --- Length-prefixed framing ---
+
+pub const DEFAULT_PORT: u16 = 19840;
+pub const MAX_READ_SIZE: u32 = 1024 * 1024; // 1 MB
+pub const MAX_FRAME_SIZE: usize = 8 * 1024 * 1024; // 8 MB (read data + pointer metadata overhead)
+
+/// Write a length-prefixed MessagePack frame.
+pub fn write_frame<W: Write, T: Serialize>(writer: &mut W, msg: &T) -> io::Result<()> {
+    let payload =
+        rmp_serde::to_vec(msg).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+    let len = payload.len() as u32;
+    writer.write_all(&len.to_le_bytes())?;
+    writer.write_all(&payload)?;
+    writer.flush()
+}
+
+/// Read a length-prefixed MessagePack frame.
+pub fn read_frame<R: Read, T: for<'de> Deserialize<'de>>(reader: &mut R) -> io::Result<T> {
+    let mut len_buf = [0u8; 4];
+    reader.read_exact(&mut len_buf)?;
+    let len = u32::from_le_bytes(len_buf) as usize;
+    if len > MAX_FRAME_SIZE {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "frame too large",
+        ));
+    }
+    let mut payload = vec![0u8; len];
+    reader.read_exact(&mut payload)?;
+    rmp_serde::from_slice(&payload)
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+}
