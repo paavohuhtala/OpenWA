@@ -179,38 +179,28 @@ unsafe extern "C" fn trampoline_fire_weapon() {
 }
 
 /// Rust implementation of FireWeapon dispatch.
-/// EAX = worm self-pointer (== stack param), ECX = local_struct from WeaponRelease.
-unsafe extern "cdecl" fn fire_weapon_impl(worm_eax: u32, local_struct: u32, worm: u32) {
-    use openwa_core::rebase::rb;
-
-    // EAX (worm_eax) = *(CTaskWorm+0x36C), stack param (worm) = CTaskWorm*.
-    // Check if they're actually the same — they might not be!
-    if worm_eax != worm {
-        let _ = log_line(&format!(
-            "[Weapon] WARNING: EAX={:#x} != worm={:#x} (delta={})",
-            worm_eax, worm, worm_eax.wrapping_sub(worm) as i32
-        ));
-    }
-
-    // Use worm_eax (original EAX) for field reads — this is what the original code uses
-    let ctx = worm_eax as *const u8;
+unsafe extern "cdecl" fn fire_weapon_impl(weapon_ctx: u32, local_struct: u32, worm: u32) {
+    let ctx = weapon_ctx as *const u8;
     let weapon_type = *(ctx.add(0x30) as *const i32);
     let subtype_34 = *(ctx.add(0x34) as *const i32);
     let subtype_38 = *(ctx.add(0x38) as *const i32);
-    let params = worm_eax.wrapping_add(0x3C);
+    let params = weapon_ctx.wrapping_add(0x3C);
+    let worm_ptr = worm as *mut u8;
 
     // Log weapon fire
-    let weapon_id = *((worm as *const u8).add(0x170) as *const u32);
+    let weapon_id = *(worm_ptr.add(0x170) as *const u32);
     let weapon_name = Weapon::try_from(weapon_id)
-        .map(|wp| format!("{:?}", wp))
+        .map(|w| format!("{:?}", w))
         .unwrap_or_else(|id| format!("Unknown({})", id));
     let _ = log_line(&format!(
         "[Weapon] FireWeapon: {} (id={}) type={} sub34={} sub38={}",
         weapon_name, weapon_id, weapon_type, subtype_34, subtype_38
     ));
 
-    // Clear completion flag before dispatch
-    core::ptr::write_volatile((worm + 0x3C) as *mut i32, 0);
+    // worm+0x3C = completion flag
+    *(worm_ptr.add(0x3C) as *mut i32) = 0;
+
+    use openwa_core::rebase::rb;
 
     match weapon_type {
         1 => match subtype_38 {
@@ -226,13 +216,18 @@ unsafe extern "cdecl" fn fire_weapon_impl(worm_eax: u32, local_struct: u32, worm
             3 => call_fire_stdcall3(worm, params, local_struct, rb(0x51E240)),      // RopeType3
             _ => {}
         },
-        3 => call_fire_stdcall3(worm, worm_eax.wrapping_add(0x34), local_struct, rb(0x51E2C0)),
-        4 => fire_weapon_special(subtype_34, worm_eax.wrapping_add(0x38), worm, local_struct),
+        3 => {
+            let params_34 = weapon_ctx.wrapping_add(0x34);
+            call_fire_stdcall3(worm, params_34, local_struct, rb(0x51E2C0));        // GrenadeMortar
+        }
+        4 => {
+            let params_38 = weapon_ctx.wrapping_add(0x38);
+            fire_weapon_special(subtype_34, params_38, worm, local_struct);
+        }
         _ => {}
     }
 
-    // Set completion flag after dispatch
-    core::ptr::write_volatile((worm + 0x3C) as *mut i32, 1);
+    *(worm_ptr.add(0x3C) as *mut i32) = 1;
 }
 
 // ── Sub-function bridges ────────────────────────────────────

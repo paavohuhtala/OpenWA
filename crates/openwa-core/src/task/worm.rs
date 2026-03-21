@@ -151,9 +151,11 @@ pub struct CTaskWorm {
     pub _unknown_338: [u8; 0x368 - 0x338],
     /// 0x368: Animator / controller object (dispatched via vtable for state animations)
     pub animator: *mut u8,
-    /// 0x36C: Self-pointer (points to this CTaskWorm). Used by WeaponRelease
-    /// to load EAX before calling FireWeapon: `MOV EAX, [EDI+0x36C]`.
-    pub weapon_self_ptr: *mut CTaskWorm,
+    /// 0x36C: Weapon context pointer. Points to a separate object containing
+    /// weapon fire state (type at +0x30, subtypes at +0x34/+0x38, params at +0x3C).
+    /// NOT a self-pointer — weapon_ctx != worm (confirmed via runtime logging).
+    /// Used by WeaponRelease: `MOV EAX, [EDI+0x36C]` before calling FireWeapon.
+    pub weapon_ctx: *mut u8,
     /// 0x370–0x3DB: Unknown (rope anchor, weapon-specific data, etc.)
     pub _unknown_370: [u8; 0x3DC - 0x370],
     /// 0x3DC: Facing direction. -1 = facing left, +1 = facing right.
@@ -184,49 +186,13 @@ impl CTaskWorm {
         unsafe { *((self as *const CTaskWorm as *const u8).add(0x44) as *const u32) }
     }
 
-    // ── Weapon fire state accessors (offsets +0x30..+0x3C in subclass_data) ──
-
-    /// Weapon fire type (1=projectile, 2=rope, 3=grenade, 4=special).
-    /// Offset +0x30 in CGameTask.subclass_data.
-    pub fn weapon_fire_type(&self) -> i32 {
-        unsafe { *(self.base.subclass_data.as_ptr().add(0) as *const i32) }
-    }
-
-    /// Weapon fire subtype for types 3 and 4. Offset +0x34.
-    pub fn weapon_fire_subtype_34(&self) -> i32 {
-        unsafe { *(self.base.subclass_data.as_ptr().add(4) as *const i32) }
-    }
-
-    /// Weapon fire subtype for types 1 and 2. Offset +0x38.
-    pub fn weapon_fire_subtype_38(&self) -> i32 {
-        unsafe { *(self.base.subclass_data.as_ptr().add(8) as *const i32) }
-    }
-
-    /// Weapon fire completion flag. Offset +0x3C.
-    /// Set to 0 before dispatch, 1 after.
-    pub fn weapon_fire_complete(&self) -> i32 {
-        unsafe { *(self.base.subclass_data.as_ptr().add(12) as *const i32) }
-    }
-
-    /// Mutable pointer to weapon_fire_complete for setting the flag.
-    pub fn weapon_fire_complete_mut(&mut self) -> &mut i32 {
-        unsafe { &mut *(self.base.subclass_data.as_mut_ptr().add(12) as *mut i32) }
-    }
-
-    /// Address of weapon_fire_complete field (passed as params base to fire handlers).
-    pub fn weapon_params_ptr(&self) -> u32 {
-        self as *const _ as u32 + 0x3C
-    }
-
-    /// Address of weapon_fire_subtype_34 field (params for GrenadeMortar).
-    pub fn weapon_params_34_ptr(&self) -> u32 {
-        self as *const _ as u32 + 0x34
-    }
-
-    /// Address of weapon_fire_subtype_38 field (params for type-4 specials).
-    pub fn weapon_params_38_ptr(&self) -> u32 {
-        self as *const _ as u32 + 0x38
-    }
+    // Weapon fire state lives in the WEAPON CONTEXT object (at CTaskWorm+0x36C),
+    // NOT in CTaskWorm itself. The weapon_ctx is a separate allocation with:
+    //   +0x30: weapon_fire_type (1=projectile, 2=rope, 3=grenade, 4=special)
+    //   +0x34: weapon_fire_subtype_34 (for types 3/4)
+    //   +0x38: weapon_fire_subtype_38 (for types 1/2)
+    //   +0x3C: weapon_fire_complete (0 before, 1 after dispatch)
+    // Accessed via raw pointers in the FireWeapon hook (weapon.rs).
 
     /// Returns a reference to the vtable.
     ///
