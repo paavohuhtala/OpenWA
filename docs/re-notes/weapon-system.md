@@ -63,27 +63,31 @@ Allocated by `InitWeaponTable` (0x53CAB0, stdcall(wrapper), RET 0x4). Called onc
 during `CTaskGameState__vmethod_7` at game start.
 
 ```
-+0x00   [u8; 0x10]          _header     Purpose unknown
-+0x10   [WeaponEntry; 71]   entries     Standard weapons (0..70)
-Total:  0x10 + 71 × 0x1D0 = 0x133E0 bytes
++0x00   [WeaponEntry; 71]   entries     Standard weapons (0..70)
+Total:  71 × 0x1D0 = 0x80B0 bytes (no header)
 ```
 
 ### WeaponEntry (0x1D0 = 464 bytes per entry)
 
-Source: `wkJellyWorm/src/CustomWeapons.h` (WeaponStruct).
+Source: `wkJellyWorm/src/CustomWeapons.h` (WeaponStruct) + InitWeaponTable analysis.
 
 ```
-+0x00   *const c_char   name1       Primary weapon name (non-null = defined)
-+0x04   *const c_char   name2       Secondary weapon name
-+0x08   i32             panel_row   Weapon panel row index (0..12)
-+0x0C   i32             unknown_0c  Unknown
-+0x10   [u8; 0x1C0]     unknown     Remaining 113 × i32 fields (opaque)
++0x00   *const c_char   name1           Primary weapon name string
++0x04   *const c_char   name2           Secondary weapon name string
++0x08   i32             panel_state     Panel state (init: 0xFFFFFFFF). wkJellyWorm: panelRow
++0x0C   i32             unknown_0c      Unknown
++0x10   i32             defined         Nonzero = weapon exists. Checked by CheckWeaponAvail.
++0x14   [u8; 0x10]      unknown_14      Unknown
++0x24   i32             availability    Init: 0xFFFFFFFF, then 0 or 1. None/SkipGo/Surrender = 0.
++0x28   i32             enabled         Init: 1
++0x2C   [u8; 0x1A4]     unknown_2c      Remaining fields (opaque)
 ```
 
-**InitWeaponTable sets per-entry:**
-- +0x08 = 0xFFFFFFFF (initial state)
-- +0x24 = 0xFFFFFFFF (availability flag)
+**InitWeaponTable per-entry initialization:**
+- +0x08 = 0xFFFFFFFF (panel_state)
+- +0x24 = 0xFFFFFFFF (availability, then overwritten per-weapon)
 - +0x28 = 1 (enabled)
+- Weapon 0 (None), 57 (SkipGo), 58 (Surrender): availability forced to 0
 
 **Rust types:** `WeaponEntry`, `WeaponTable` in `openwa-core/src/game/weapon.rs`.
 
