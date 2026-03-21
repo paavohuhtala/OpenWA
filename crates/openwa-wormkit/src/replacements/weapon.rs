@@ -11,7 +11,7 @@ use core::sync::atomic::{AtomicU32, Ordering};
 
 use openwa_core::address::va;
 use openwa_core::engine::ddgame::{self, TeamArenaRef};
-use openwa_core::game::weapon::WeaponEntry;
+use openwa_core::game::weapon::{WeaponEntry, WeaponFireParams};
 use openwa_core::game::Weapon;
 use openwa_core::log::log_line;
 use openwa_core::task::worm::CTaskWorm;
@@ -196,7 +196,7 @@ unsafe extern "cdecl" fn fire_weapon_impl(
     let weapon_type = (*entry).fire_type;
     let subtype_34 = (*entry).fire_subtype_34;
     let subtype_38 = (*entry).fire_subtype_38;
-    let fire_params = &raw const (*entry).fire_params as u32;
+    let fire_params = &raw const (*entry).fire_params;
     let w = worm as u32;
 
     // Log weapon fire
@@ -226,8 +226,9 @@ unsafe extern "cdecl" fn fire_weapon_impl(
             _ => {}
         },
         3 => {
-            let subtype_34_ptr = &raw const (*entry).fire_subtype_34 as u32;
-            call_fire_stdcall3(w, subtype_34_ptr, local_struct, rb(0x51E2C0));        // GrenadeMortar
+            // GrenadeMortar receives &fire_subtype_34 as its params pointer
+            let subtype_34_ptr = &raw const (*entry).fire_subtype_34 as *const WeaponFireParams;
+            call_fire_stdcall3(w, subtype_34_ptr, local_struct, rb(0x51E2C0));
         }
         4 => {
             let subtype_38_ptr = &raw const (*entry).fire_subtype_38 as u32;
@@ -252,10 +253,11 @@ unsafe extern "cdecl" fn fire_weapon_impl(
 // This preserves LLVM's callee-saved registers while providing
 // the usercall context that sub-functions expect.
 
-/// Bridge: PlacedExplosive — stdcall(params), RET 0x4.
-/// Our args: (worm, params, addr)
+/// Bridge: PlacedExplosive — stdcall(fire_params), RET 0x4.
 #[unsafe(naked)]
-unsafe extern "C" fn call_fire_stdcall1(_worm: u32, _params: u32, _addr: u32) {
+unsafe extern "C" fn call_fire_stdcall1(
+    _worm: u32, _fire_params: *const WeaponFireParams, _addr: u32,
+) {
     core::arch::naked_asm!(
         "push ebx",
         "push esi",
@@ -272,10 +274,11 @@ unsafe extern "C" fn call_fire_stdcall1(_worm: u32, _params: u32, _addr: u32) {
     );
 }
 
-/// Bridge: Projectile/Rope/Grenade — stdcall(worm, params, local_struct), RET 0xC.
-/// Our args: (worm, params, local_struct, addr)
+/// Bridge: Projectile/Rope/Grenade — stdcall(worm, fire_params, local_struct), RET 0xC.
 #[unsafe(naked)]
-unsafe extern "C" fn call_fire_stdcall3(_worm: u32, _params: u32, _local: u32, _addr: u32) {
+unsafe extern "C" fn call_fire_stdcall3(
+    _worm: u32, _fire_params: *const WeaponFireParams, _local: u32, _addr: u32,
+) {
     core::arch::naked_asm!(
         "push ebx",
         "push esi",
@@ -294,10 +297,11 @@ unsafe extern "C" fn call_fire_stdcall3(_worm: u32, _params: u32, _local: u32, _
     );
 }
 
-/// Bridge: CreateWeaponProjectile — thiscall(ECX=worm, params, local_struct), RET 0x8.
-/// Our args: (worm, params, local_struct, addr)
+/// Bridge: CreateWeaponProjectile — thiscall(ECX=worm, fire_params, local_struct), RET 0x8.
 #[unsafe(naked)]
-unsafe extern "C" fn call_fire_thiscall2(_worm: u32, _params: u32, _local: u32, _addr: u32) {
+unsafe extern "C" fn call_fire_thiscall2(
+    _worm: u32, _fire_params: *const WeaponFireParams, _local: u32, _addr: u32,
+) {
     core::arch::naked_asm!(
         "push ebx",
         "push esi",
@@ -316,10 +320,11 @@ unsafe extern "C" fn call_fire_thiscall2(_worm: u32, _params: u32, _local: u32, 
     );
 }
 
-/// Bridge: Shotgun — stdcall(params, local_struct), RET 0x8.
-/// Our args: (worm, params, local_struct, addr)
+/// Bridge: Shotgun — stdcall(fire_params, local_struct), RET 0x8.
 #[unsafe(naked)]
-unsafe extern "C" fn call_fire_stdcall2(_worm: u32, _params: u32, _local: u32, _addr: u32) {
+unsafe extern "C" fn call_fire_stdcall2(
+    _worm: u32, _fire_params: *const WeaponFireParams, _local: u32, _addr: u32,
+) {
     core::arch::naked_asm!(
         "push ebx",
         "push esi",
@@ -346,7 +351,7 @@ unsafe fn fire_weapon_special(subtype: i32, params_38: u32, worm: u32, local_str
     match subtype {
         1 => fire_worm_vtable_0xe(worm, 0x6C),                                     // Blowtorch
         2 => call_fire_usercall(worm, worm, rb(0x51E3E0)),                    // Pneumatic Drill
-        3 => call_fire_stdcall3(worm, params_38, local_struct, rb(0x51E350)),       // Girder
+        3 => call_fire_stdcall3(worm, params_38 as *const WeaponFireParams, local_struct, rb(0x51E350)),
         4 => fire_worm_vtable_0xe(worm, 0x6D),                                     // Baseball Bat
         5 => fire_worm_vtable_0xe(worm, 0x75),                                     // Fire Punch
         6 => fire_worm_vtable_0xe(worm, 0x70),                                     // Dragon Ball
