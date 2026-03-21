@@ -9,8 +9,10 @@
 /// cover all known accesses.
 #[repr(C)]
 pub struct GameInfo {
-    /// 0x0000-0x044B: Unknown
-    pub _unknown_0000: [u8; 0x44C],
+    /// 0x0000: Number of teams (byte, read as first byte of struct).
+    pub num_teams: u8,
+    /// 0x0001-0x044B: Unknown
+    pub _unknown_0001: [u8; 0x44C - 1],
 
     // --- Speech configuration ---
     /// 0x044C: Number of teams with speech banks loaded (byte).
@@ -25,8 +27,18 @@ pub struct GameInfo {
     /// Used by DDGame constructor for conditional initialization.
     pub game_version: i32,
 
-    /// 0xD77C-0xD943: Unknown
-    pub _unknown_d77c: [u8; 0xD944 - 0xD77C],
+    /// 0xD77C-0xD931: Unknown
+    pub _unknown_d77c: [u8; 0xD932 - 0xD77C],
+    /// 0xD932: Weapon availability threshold (u16). For weapon 0x45:
+    /// if game_version > 0xD1 and this > 0x7FFF, weapon is disabled.
+    pub weapon_avail_threshold: u16,
+    /// 0xD934-0xD93B: Unknown
+    pub _unknown_d934: [u8; 0xD93C - 0xD934],
+    /// 0xD93C: Super weapon allowed flag. If 0, super weapons are
+    /// disabled (except when game_version < 0x2A).
+    pub super_weapon_allowed: u8,
+    /// 0xD93D-0xD943: Unknown
+    pub _unknown_d93d: [u8; 0xD944 - 0xD93D],
 
     /// 0xD944: Network config byte 1 (copied to network object+0x28).
     pub net_config_1: u8,
@@ -35,12 +47,30 @@ pub struct GameInfo {
     /// 0xD946: Network config byte 2 (copied to network object+0x29).
     pub net_config_2: u8,
 
-    /// 0xD947-0xD98A: Unknown
-    pub _unknown_d947: [u8; 0xD98B - 0xD947],
+    /// 0xD947-0xD94B: Unknown
+    pub _unknown_d947: [u8; 0xD94C - 0xD947],
+    /// 0xD94C: Weapon 0x36 (Indian Nuclear Test) disable flag.
+    pub weapon_36_disabled: u8,
+    /// 0xD94D-0xD955: Unknown
+    pub _unknown_d94d: [u8; 0xD956 - 0xD94D],
+    /// 0xD956: Weapon index offset flag. Affects weapon 0x19 availability check.
+    pub weapon_index_offset: u8,
+    /// 0xD957-0xD958: Unknown
+    pub _unknown_d957: [u8; 0xD959 - 0xD957],
+    /// 0xD959: Version-gated weapon restriction. If nonzero and game_version > 0x29,
+    /// returns -2 for unavailable weapons.
+    pub weapon_version_gate: u8,
+    /// 0xD95A-0xD98A: Unknown
+    pub _unknown_d95a: [u8; 0xD98B - 0xD95A],
     /// 0xD98B: Terrain flag (set from map object during replay loading).
     pub terrain_flag: u8,
-    /// 0xD98C-0xD9DF: Unknown
-    pub _unknown_d98c: [u8; 0xD9E0 - 0xD98C],
+    /// 0xD98C-0xD9A1: Unknown
+    pub _unknown_d98c: [u8; 0xD9A2 - 0xD98C],
+    /// 0xD9A2: Network weapon exception flag. When net_config_2 != 0,
+    /// weapons 10/0x37/0x38 are only disabled if this is also 0.
+    pub net_weapon_exception: u8,
+    /// 0xD9A3-0xD9DF: Unknown
+    pub _unknown_d9a3: [u8; 0xD9E0 - 0xD9A3],
 
     /// 0xD9E0: Streaming audio config data (path config passed to streaming audio ctor).
     /// Address of this field is passed as a pointer parameter.
@@ -65,8 +95,13 @@ pub struct GameInfo {
 
     // --- Replay configuration (populated by ReplayLoader) ---
 
-    /// 0xDAFA-0xDB1B: Unknown
-    pub _unknown_dafa: [u8; 0xDB1C - 0xDAFA],
+    /// 0xDAFA-0xDB07: Unknown
+    pub _unknown_dafa: [u8; 0xDB08 - 0xDAFA],
+    /// 0xDB08: Weapon 0x42 mode flag (u32). Controls team-count vs network_ecx
+    /// check for weapon availability.
+    pub weapon_42_mode: u32,
+    /// 0xDB0C-0xDB1B: Unknown
+    pub _unknown_db0c: [u8; 0xDB1C - 0xDB0C],
     /// 0xDB1C: Replay map sub-type (first DWORD of first payload).
     /// >= 1: map stored in playback.thm. Negative: inline map data.
     pub replay_map_type: i32,

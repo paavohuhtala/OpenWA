@@ -94,8 +94,8 @@ pub struct DDGame {
     pub sprite_regions: [*mut u8; 8],
     /// 0x48C-0x508: Arrow collision region pointers (32 entries)
     pub arrow_collision_regions: [*mut u8; 32],
-    /// 0x50C: Coordinate list object (capacity 600, 0x12C0 data buffer)
-    pub coord_list: *mut u8,
+    /// 0x50C: Coordinate list — dynamic array of packed (x,y) terrain coords.
+    pub coord_list: *mut CoordList,
     /// 0x510: Weapon table pointer
     pub weapon_table: *mut u8,
     /// 0x514: Unknown pointer (populated at runtime)
@@ -279,8 +279,26 @@ pub struct DDGame {
     /// Cleared by DSSound_LoadAllSpeechBanks (0x571A70), filled by DDGameWrapper__LoadSpeechWAV (0x571530).
     pub speech_slot_table: SpeechSlotTable,
 
-    /// 0x7D84-0x7E9F: Unknown
-    pub _unknown_7d84: [u8; 0x7EA0 - 0x7D84],
+    /// 0x7D84-0x7E24: Unknown
+    pub _unknown_7d84: [u8; 0x7E25 - 0x7D84],
+    /// 0x7E25: Weapon restriction active flag (byte).
+    /// When nonzero, specific weapons (0x19 area) are disabled.
+    pub weapon_restriction_active: u8,
+    /// 0x7E26-0x7E2D: Unknown
+    pub _unknown_7e26: [u8; 0x7E2E - 0x7E26],
+    /// 0x7E2E: Version flag byte 1 (set by InitVersionFlags).
+    pub version_flag_1: u8,
+    /// 0x7E2F: Version flag byte 2 (set by InitVersionFlags).
+    pub version_flag_2: u8,
+    /// 0x7E30-0x7E3E: Unknown
+    pub _unknown_7e30: [u8; 0x7E3F - 0x7E30],
+    /// 0x7E3F: Version flag byte 3 (set by InitVersionFlags).
+    /// Passed to is_super_weapon as the version/mode parameter.
+    pub version_flag_3: u8,
+    /// 0x7E40: Fast-forward hurry flag (byte).
+    pub hurry_flag: u8,
+    /// 0x7E41-0x7E9F: Unknown
+    pub _unknown_7e41: [u8; 0x7EA0 - 0x7E41],
 
     /// 0x7EA0: Flag/counter (value 4 at runtime — likely team count).
     pub field_7ea0: u32,
@@ -1094,39 +1112,39 @@ unsafe fn init_graphics_and_resources(
 
     // ── CoordList at DDGame+0x50C (capacity 600, 0x12C0 buffer) ──
     {
-        let cl = wa_malloc(12) as *mut u32;
-        *cl = 0; // count
-        *cl.add(1) = 600; // capacity
-        let data = wa_malloc_zeroed(0x12C0);
-        *cl.add(2) = data as u32;
-        (*ddgame).coord_list = cl as *mut u8;
+        let cl = wa_malloc(core::mem::size_of::<CoordList>() as u32) as *mut CoordList;
+        (*cl).count = 0;
+        (*cl).capacity = 600;
+        let data = wa_malloc_zeroed(600 * core::mem::size_of::<CoordListEntry>() as u32)
+            as *mut CoordListEntry;
+        (*cl).data = data;
+        (*ddgame).coord_list = cl;
 
         // Populate coord_list from PCLandscape's coordinate output.
         // landscape_temp[0] = coordinate count, landscape_coords_buf = pairs of (x, y).
         // Original packs as: coord = x * 0x10000 + y (Fixed-point).
-        // Each coord_list entry is 8 bytes: [coord_value, 1]. Duplicates are skipped.
+        // Duplicates are skipped.
         let coord_count = landscape_temp[0];
-        let data_ptr = data as *mut u32;
         for j in 0..coord_count as usize {
             let x = landscape_coords_buf[j * 2];
             let y = landscape_coords_buf[j * 2 + 1];
             let coord_val = x.wrapping_mul(0x10000).wrapping_add(y);
-            let cur_count = *cl as usize;
+            let cur_count = (*cl).count as usize;
             if cur_count >= 600 {
                 break;
             }
             // Check for duplicates
             let mut dup = false;
             for k in 0..cur_count {
-                if *data_ptr.add(k * 2) == coord_val {
+                if (*data.add(k)).coord == coord_val {
                     dup = true;
                     break;
                 }
             }
             if !dup {
-                *data_ptr.add(cur_count * 2) = coord_val;
-                *data_ptr.add(cur_count * 2 + 1) = 1;
-                *cl = (cur_count + 1) as u32;
+                (*data.add(cur_count)).coord = coord_val;
+                (*data.add(cur_count)).flag = 1;
+                (*cl).count = (cur_count + 1) as u32;
             }
         }
     }
@@ -1541,6 +1559,38 @@ pub struct RenderEntry {
     pub _unknown: [u8; 16],
 }
 const _: () = assert!(core::mem::size_of::<RenderEntry>() == 0x14);
+
+// ============================================================
+// CoordList — dynamic array of packed terrain coordinates
+// ============================================================
+
+/// Packed terrain coordinate entry (8 bytes).
+///
+/// `coord` packs x and y as `x * 0x10000 + y` (fixed-point).
+/// `flag` is always 1 for populated entries.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct CoordListEntry {
+    pub coord: u32,
+    pub flag: u32,
+}
+const _: () = assert!(core::mem::size_of::<CoordListEntry>() == 8);
+
+/// Dynamic coordinate array header (12 bytes).
+///
+/// Allocated at DDGame+0x50C during `init_graphics_and_resources`.
+/// Data buffer is a separate allocation of `capacity * 8` bytes.
+/// Used for terrain coordinate lookups (spawning, aiming, collision).
+#[repr(C)]
+pub struct CoordList {
+    /// Number of entries currently stored.
+    pub count: u32,
+    /// Maximum number of entries (600).
+    pub capacity: u32,
+    /// Pointer to the data buffer (`capacity * sizeof(CoordListEntry)` bytes).
+    pub data: *mut CoordListEntry,
+}
+const _: () = assert!(core::mem::size_of::<CoordList>() == 12);
 
 // ============================================================
 // Sound queue entry — 16 entries at DDGame + 0x7F00

@@ -339,7 +339,7 @@ unsafe extern "C" fn init_turn_state_trampoline() {
 // Returns i32 in EAX.
 
 extern "cdecl" fn impl_check_weapon_avail(ddgame: u32, weapon_index: u32) -> i32 {
-    unsafe { check_weapon_avail(ddgame as *mut u8, weapon_index) }
+    unsafe { check_weapon_avail(ddgame as *mut DDGame, weapon_index) }
 }
 
 #[unsafe(naked)]

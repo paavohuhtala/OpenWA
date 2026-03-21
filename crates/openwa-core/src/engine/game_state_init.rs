@@ -3,6 +3,8 @@
 //! Each function is hooked individually so it works regardless of whether
 //! InitGameState itself is Rust or the original WA code.
 
+use crate::engine::ddgame::DDGame;
+use crate::log::log_line;
 use crate::wa_alloc::wa_malloc;
 
 /// Pure Rust implementation of SpriteGfxTable__Init (0x541620).
@@ -343,29 +345,26 @@ pub unsafe fn is_super_weapon(weapon_index: u32, param_1: u8) -> u8 {
 ///
 /// Checks whether a weapon (1..0x46) is available given current game state.
 /// `ddgame` is the DDGame pointer directly (not wrapper).
-pub unsafe fn check_weapon_avail(ddgame: *mut u8, weapon_index: u32) -> i32 {
-    let game_info = *(ddgame.add(0x24) as *const *mut u8);
-    let game_version = *(game_info.add(0xD778) as *const i32);
-    let num_teams = *game_info as u8;
+pub unsafe fn check_weapon_avail(ddgame: *mut DDGame, weapon_index: u32) -> i32 {
+    let gi = (*ddgame).game_info;
+    let game_version = (*gi).game_version;
+    let num_teams = (*gi).num_teams;
 
     // Step 1: Special per-weapon disabling rules
     match weapon_index {
         10 | 0x37 | 0x38 => {
-            if *(game_info.add(0xD946) as *const u8) != 0
-                && *(game_info.add(0xD9A2) as *const u8) == 0
-            {
+            if (*gi).net_config_2 != 0 && (*gi).net_weapon_exception == 0 {
                 return 0;
             }
         }
         0x36 => {
-            if *(game_info.add(0xD94C) as *const u8) != 0 {
+            if (*gi).weapon_36_disabled != 0 {
                 return 0;
             }
         }
         0x42 => {
-            let db08 = *(game_info.add(0xDB08) as *const u32);
-            if db08 == 0 {
-                if *(ddgame.add(0x1C) as *const u32) == 0 {
+            if (*gi).weapon_42_mode == 0 {
+                if (*ddgame).network_ecx == 0 {
                     return 0;
                 }
             } else if (num_teams as u32) < 2 {
@@ -374,8 +373,7 @@ pub unsafe fn check_weapon_avail(ddgame: *mut u8, weapon_index: u32) -> i32 {
         }
         0x45 => {
             if game_version > 0xD1 {
-                let val = *(game_info.add(0xD932) as *const u16);
-                if val > 0x7FFF {
+                if (*gi).weapon_avail_threshold > 0x7FFF {
                     return 0;
                 }
             }
@@ -383,35 +381,33 @@ pub unsafe fn check_weapon_avail(ddgame: *mut u8, weapon_index: u32) -> i32 {
         _ => {}
     }
 
-    // Step 2: Branch on weapon table entry + DDGame+0x777C
-    // DDGame+0x510 is a POINTER to the weapon table (double deref)
-    let weapon_table = *(ddgame.add(0x510) as *const *const u8);
+    // Step 2: Branch on weapon table entry + level_width_raw
+    let weapon_table = (*ddgame).weapon_table as *const u8;
     let weapon_entry = *(weapon_table.add(0x10 + (weapon_index as usize) * 0x1D0) as *const i32);
 
-    if *(ddgame.add(0x777C) as *const i32) == 0 || weapon_entry != 0 {
-        // Main path: check super weapon, 7E25, etc.
-        let super_result = is_super_weapon(weapon_index, *(ddgame.add(0x7E3F) as *const u8));
-        // After is_super_weapon, re-read ddgame (ECX may change in original — doesn't matter in Rust)
-        if super_result != 0 && *(game_info.add(0xD93C) as *const u8) == 0 {
-            // (game_version < 0x2A) - 1: if < 0x2A → 1-1=0, else → 0-1=-1
+    if (*ddgame).level_width_raw == 0 || weapon_entry != 0 {
+        // Main path: check super weapon flag
+        let super_result = is_super_weapon(weapon_index, (*ddgame).version_flag_3);
+        if super_result != 0 && (*gi).super_weapon_allowed == 0 {
+            // (game_version < 0x2A) - 1: if < 0x2A → 0, else → -1
             return (game_version < 0x2A) as i32 - 1;
         }
 
-        if *(ddgame.add(0x7E25) as *const u8) == 0 {
+        if (*ddgame).weapon_restriction_active == 0 {
             return 1;
         }
 
-        // Check if weapon_index == (0x19 - (game_info+0xD956 != 0))
-        let d956_nonzero = (*(game_info.add(0xD956) as *const u8) != 0) as u32;
-        if weapon_index != 0x19 - d956_nonzero {
+        // Check if weapon_index == (0x19 - (weapon_index_offset != 0))
+        let offset = ((*gi).weapon_index_offset != 0) as u32;
+        if weapon_index != 0x19 - offset {
             return 1;
         }
 
         return 0;
     }
 
-    // Else branch: 777C != 0 AND weapon_entry == 0
-    if game_version > 0x29 && *(game_info.add(0xD959) as *const u8) != 0 {
+    // Else branch: level_width_raw != 0 AND weapon_entry == 0
+    if game_version > 0x29 && (*gi).weapon_version_gate != 0 {
         return -2;
     }
 
