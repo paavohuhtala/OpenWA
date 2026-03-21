@@ -393,9 +393,7 @@ unsafe fn parse_and_write_v2plus(
         wb(base, flag);
         if flag == 0 { continue; }
 
-        if i as u32 == *(rb(va::G_HOST_PLAYER) as *const u32) {
-            // This is the host player — set local_11 flag
-        }
+        // NOTE: original checks if i == host_player_index here (sets a local flag, unused)
         player_count += 1;
 
         let mut name = [0u8; 0x11];
