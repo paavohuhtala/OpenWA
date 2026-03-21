@@ -150,15 +150,15 @@ Alliance ID is read from the team's sentinel worm field at offset +0x80
 - SelectWorm (0x3B): returns 0 if team has ≤1 alive worm
 - Game mode flag at TeamArenaState+0x2C0C can override delay checks
 
-**SubtractAmmo issue:** Our hook at 0x522680 reportedly never triggered during
-gameplay, despite 5 xrefs in Ghidra:
-- `CTaskWorm__HandleMessage` (0x512C27)
-- `CTaskTeam_vt2__vmethod_2` (0x558443)
-- `FUN_0055f8c0` (0x55F995, 0x55FA77, 0x55FD78)
+**SubtractAmmo call sites (verified):**
+- `CTaskWorm__HandleMessage` (0x512C27): subtracts Teleport (0x28) ammo
+- `CTaskTeam_vt2__vmethod_2` (0x558443): subtracts the team's selected weapon
+- `FUN_0055f8c0` (3 sites): subtracts DamageX2 (0x43), CrateSpy (0x44), and others
 
-The second variant at 0x558E80 has 3 xrefs from `CTaskTeam_vt2__vmethod_2`.
-The hook issue may be a calling convention mismatch in the trampoline rather
-than the function not being called. Needs investigation.
+Our hook reportedly never triggered — this was because the test replay (bots)
+doesn't use Teleport, DamageX2, or CrateSpy. The hook implementation is correct.
+
+The second variant at 0x558E80 (fastcall) has 3 xrefs from `CTaskTeam_vt2__vmethod_2`.
 
 **Port status:** All 4 functions ported in `replacements/weapon.rs`.
 
