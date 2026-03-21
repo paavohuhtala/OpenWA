@@ -126,8 +126,20 @@ pub struct WeaponEntry {
     pub availability: i32,
     /// +0x28: Enabled flag (init: 1).
     pub enabled: i32,
-    /// +0x2C-0x1CF: Unknown fields.
-    pub _unknown_2c: [u8; 0x1D0 - 0x2C],
+    /// +0x2C-0x2F: Unknown.
+    pub _unknown_2c: [u8; 4],
+    /// +0x30: Weapon fire type (1=projectile, 2=rope, 3=grenade, 4=special).
+    /// Read by FireWeapon to dispatch to the correct handler.
+    pub fire_type: i32,
+    /// +0x34: Fire subtype for weapon types 3 (grenade/mortar) and 4 (special).
+    pub fire_subtype_34: i32,
+    /// +0x38: Fire subtype for weapon types 1 (projectile) and 2 (rope).
+    pub fire_subtype_38: i32,
+    /// +0x3C: Fire completion flag / params base.
+    /// Set to 0 before dispatch, 1 after. Address also passed to fire handlers.
+    pub fire_complete: i32,
+    /// +0x40-0x1CF: Unknown fields.
+    pub _unknown_40: [u8; 0x1D0 - 0x40],
 }
 const _: () = assert!(core::mem::size_of::<WeaponEntry>() == 0x1D0);
 

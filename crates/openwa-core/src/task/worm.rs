@@ -1,5 +1,6 @@
 use super::base::CTask;
 use super::game_task::CGameTask;
+use crate::game::weapon::WeaponEntry;
 
 /// Virtual method table for CTaskWorm (vtable at 0x6644C8, 20 slots).
 ///
@@ -151,11 +152,10 @@ pub struct CTaskWorm {
     pub _unknown_338: [u8; 0x368 - 0x338],
     /// 0x368: Animator / controller object (dispatched via vtable for state animations)
     pub animator: *mut u8,
-    /// 0x36C: Weapon context pointer. Points to a separate object containing
-    /// weapon fire state (type at +0x30, subtypes at +0x34/+0x38, params at +0x3C).
-    /// NOT a self-pointer — weapon_ctx != worm (confirmed via runtime logging).
+    /// 0x36C: Active weapon entry pointer. Points to `&WeaponTable.entries[selected_weapon]`.
+    /// Contains fire type (+0x30), subtypes (+0x34/+0x38), and completion flag (+0x3C).
     /// Used by WeaponRelease: `MOV EAX, [EDI+0x36C]` before calling FireWeapon.
-    pub weapon_ctx: *mut u8,
+    pub active_weapon_entry: *mut WeaponEntry,
     /// 0x370–0x3DB: Unknown (rope anchor, weapon-specific data, etc.)
     pub _unknown_370: [u8; 0x3DC - 0x370],
     /// 0x3DC: Facing direction. -1 = facing left, +1 = facing right.
@@ -186,13 +186,9 @@ impl CTaskWorm {
         unsafe { *((self as *const CTaskWorm as *const u8).add(0x44) as *const u32) }
     }
 
-    // Weapon fire state lives in the WEAPON CONTEXT object (at CTaskWorm+0x36C),
-    // NOT in CTaskWorm itself. The weapon_ctx is a separate allocation with:
-    //   +0x30: weapon_fire_type (1=projectile, 2=rope, 3=grenade, 4=special)
-    //   +0x34: weapon_fire_subtype_34 (for types 3/4)
-    //   +0x38: weapon_fire_subtype_38 (for types 1/2)
-    //   +0x3C: weapon_fire_complete (0 before, 1 after dispatch)
-    // Accessed via raw pointers in the FireWeapon hook (weapon.rs).
+    // Weapon fire state lives in the WeaponEntry pointed to by active_weapon_entry
+    // (+0x36C), NOT in CTaskWorm itself. See WeaponEntry fields: fire_type (+0x30),
+    // fire_subtype_34 (+0x34), fire_subtype_38 (+0x38), fire_complete (+0x3C).
 
     /// Returns a reference to the vtable.
     ///

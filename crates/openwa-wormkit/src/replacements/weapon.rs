@@ -187,6 +187,9 @@ unsafe extern "cdecl" fn fire_weapon_impl(weapon_ctx: u32, local_struct: u32, wo
     let params = weapon_ctx.wrapping_add(0x3C);
     let worm_ptr = worm as *mut u8;
 
+    // weapon_ctx = pointer to WeaponEntry in WeaponTable (confirmed via runtime logging).
+    // CTaskWorm+0x36C stores &WeaponTable.entries[selected_weapon].
+
     // Log weapon fire
     let weapon_id = *(worm_ptr.add(0x170) as *const u32);
     let weapon_name = Weapon::try_from(weapon_id)
