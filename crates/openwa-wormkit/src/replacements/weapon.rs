@@ -1,14 +1,18 @@
-//! Weapon ammo hooks.
+//! Weapon hooks.
 //!
 //! Replaces WA.exe functions that manage weapon ammo in the TeamArenaState area (DDGame + 0x4628):
 //! - GetAmmo (0x5225E0): query ammo count with delay/phase checks
 //! - AddAmmo (0x522640): add ammo to a weapon slot
 //! - SubtractAmmo (0x522680): decrement ammo count
 //! - CountAliveWorms (0x5225A0): check if >1 worm alive on team
+//! - FireWeapon (0x51EE60): passthrough with weapon type logging
+
+use core::sync::atomic::{AtomicU32, Ordering};
 
 use openwa_core::address::va;
 use openwa_core::engine::ddgame::{self, TeamArenaRef};
 use openwa_core::game::Weapon;
+use openwa_core::log::log_line;
 
 use crate::hook::{self, usercall_trampoline};
 
@@ -124,6 +128,51 @@ usercall_trampoline!(fn trampoline_count_alive_worms; impl_fn = count_alive_worm
     regs = [eax, ecx]);
 
 // ============================================================
+// FireWeapon passthrough (0x51EE60)
+// ============================================================
+// usercall(EAX=weapon_ctx) + 1 stack param (wrapper), RET 0x4.
+// weapon_ctx+0x30 = weapon type (1-4)
+// weapon_ctx+0x34 = subtype for types 3,4
+// weapon_ctx+0x38 = subtype for types 1,2
+
+static ORIG_FIRE_WEAPON: AtomicU32 = AtomicU32::new(0);
+
+/// Logger called from the naked passthrough. EAX = weapon launch context.
+/// Context+0x30 = weapon type (1-4), +0x34 = subtype for types 3/4,
+/// +0x38 = subtype for types 1/2, +0x3C = params base.
+unsafe extern "cdecl" fn fire_weapon_log(weapon_ctx: u32) {
+    let ctx = weapon_ctx as *const u8;
+    let weapon_type = *(ctx.add(0x30) as *const i32);
+    let subtype_34 = *(ctx.add(0x34) as *const i32);
+    let subtype_38 = *(ctx.add(0x38) as *const i32);
+
+    let _ = log_line(&format!(
+        "[Weapon] FireWeapon: type={} sub34={} sub38={}",
+        weapon_type, subtype_34, subtype_38
+    ));
+}
+
+/// Naked passthrough: save regs → call logger → restore → jmp original.
+#[unsafe(naked)]
+unsafe extern "C" fn trampoline_fire_weapon() {
+    core::arch::naked_asm!(
+        "push eax",
+        "push ecx",
+        "push edx",
+        // call logger with EAX (weapon_ctx) as cdecl arg
+        "push eax",
+        "call {log_fn}",
+        "add esp, 4",
+        "pop edx",
+        "pop ecx",
+        "pop eax",
+        "jmp [{orig}]",
+        log_fn = sym fire_weapon_log,
+        orig = sym ORIG_FIRE_WEAPON,
+    );
+}
+
+// ============================================================
 // Hook installation
 // ============================================================
 
@@ -144,6 +193,13 @@ pub fn install() -> Result<(), String> {
             va::COUNT_ALIVE_WORMS,
             trampoline_count_alive_worms as *const (),
         )?;
+
+        let trampoline = hook::install(
+            "FireWeapon",
+            va::FIRE_WEAPON,
+            trampoline_fire_weapon as *const (),
+        )?;
+        ORIG_FIRE_WEAPON.store(trampoline as u32, Ordering::Relaxed);
     }
 
     Ok(())
