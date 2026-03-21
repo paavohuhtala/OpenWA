@@ -32,9 +32,9 @@ type FILE = c_void;
 /// Convert a WA CRT FILE* to a borrowed Rust File (ManuallyDrop — we don't own it).
 unsafe fn wa_file_to_rust(file: *mut FILE) -> Option<ManuallyDrop<File>> {
     let fileno: unsafe extern "cdecl" fn(*mut FILE) -> i32 =
-        core::mem::transmute(rb(0x5D5155));
+        core::mem::transmute(rb(va::WA_FILENO));
     let get_osfhandle: unsafe extern "cdecl" fn(i32) -> isize =
-        core::mem::transmute(rb(0x5D7273));
+        core::mem::transmute(rb(va::WA_GET_OSFHANDLE));
 
     let fd = fileno(file);
     if fd < 0 { return None; }
@@ -46,7 +46,7 @@ unsafe fn wa_file_to_rust(file: *mut FILE) -> Option<ManuallyDrop<File>> {
 /// Load a WA string resource by ID (stdcall). Returns null-terminated C string.
 unsafe fn wa_load_string(id: u32) -> *const u8 {
     let f: unsafe extern "stdcall" fn(u32) -> *const u8 =
-        core::mem::transmute(rb(0x593180));
+        core::mem::transmute(rb(va::WA_LOAD_STRING));
     f(id)
 }
 
@@ -94,7 +94,7 @@ unsafe fn replay_loader_play(state: u32) -> Result<(), ReplayError> {
     // Open replay file using Rust's std::fs::File
     let replay_path = {
         // Build path: game data dir + replay filename from state+0xDB60
-        let data_dir = CStr::from_ptr(rb(0x88E078) as *const i8);
+        let data_dir = CStr::from_ptr(rb(va::G_DATA_DIR) as *const i8);
         let file_name = CStr::from_ptr(s.add(0xDB60) as *const i8);
         let dir = data_dir.to_str().unwrap_or(".");
         let name = file_name.to_str().unwrap_or("");
@@ -183,7 +183,7 @@ unsafe fn replay_loader_play(state: u32) -> Result<(), ReplayError> {
     match result {
         Ok(()) => {
             call_usercall_eax(state, rb(va::REPLAY_PROCESS_FLAGS));
-            let wa_log_file = *(rb(0x88C370) as *const *mut FILE);
+            let wa_log_file = *(rb(va::G_LOG_FILE_PTR) as *const *mut FILE);
             if !wa_log_file.is_null() {
                 if let Some(mut log_file) = wa_file_to_rust(wa_log_file) {
                     write_replay_log(state, &mut *log_file)?;
@@ -225,8 +225,8 @@ unsafe fn parse_and_write_v2plus(
 
     // ── Sub-format flags ─────────────────────────────────────────────────
     let ver_gt7 = (version > 7) as u8;
-    wb(0x88AF42, ver_gt7);
-    wb(0x88AF43, ver_gt7);
+    wb(va::G_REPLAY_VER_FLAG_A, ver_gt7);
+    wb(va::G_REPLAY_VER_FLAG_B, ver_gt7);
     wd(va::G_REPLAY_SUB_FORMAT, 0);
 
     let mut obs_count: u16 = 0;
@@ -239,25 +239,25 @@ unsafe fn parse_and_write_v2plus(
         if version >= 12 {
             if version < 18 {
                 let mode = s.read_u8_validated(0, 2)?;
-                wb(0x88AF44, mode);
+                wb(va::G_REPLAY_GAME_MODE, mode);
             } else {
                 let raw = s.read_u8_validated(0, 3)?;
                 if raw >= 2 && raw <= 3 {
-                    wb(0x88AF44, raw - 1);
-                    wb(0x88AF42, 1); wb(0x88AF43, 1);
+                    wb(va::G_REPLAY_GAME_MODE, raw - 1);
+                    wb(va::G_REPLAY_VER_FLAG_A, 1); wb(va::G_REPLAY_VER_FLAG_B, 1);
                 } else {
-                    wb(0x88AF42, (raw != 0) as u8);
-                    wb(0x88AF44, 0);
-                    wb(0x88AF43, (raw != 0) as u8);
+                    wb(va::G_REPLAY_VER_FLAG_A, (raw != 0) as u8);
+                    wb(va::G_REPLAY_GAME_MODE, 0);
+                    wb(va::G_REPLAY_VER_FLAG_B, (raw != 0) as u8);
                 }
             }
         }
 
         obs_count = s.read_u16_validated(1, version as u16)?;
-        wd(0x88AF4C, obs_count as u32);
+        wd(va::G_OBSERVER_COUNT, obs_count as u32);
 
         // FUN_0053ee00: cleanup observer array. usercall(ESI=0x88C35C). Plain RET.
-        call_usercall_esi(rb(0x88C35C), rb(0x53EE00));
+        call_usercall_esi(rb(va::G_OBSERVER_ARRAY), rb(va::REPLAY_CLEANUP_OBSERVERS));
 
         // Observer team loop: register each observer via naked bridge
         loop {
@@ -268,7 +268,7 @@ unsafe fn parse_and_write_v2plus(
             let obs_data: [u32; 4] = [team_id, 0, obs_type as u32, 0];
             // RegisterObserver: usercall(ESI=0x88C35C) + stdcall(1 param = &data). RET 0x4.
             call_register_observer(
-                rb(0x88C35C), obs_data.as_ptr() as u32, rb(va::REPLAY_REGISTER_OBSERVER),
+                rb(va::G_OBSERVER_ARRAY), obs_data.as_ptr() as u32, rb(va::REPLAY_REGISTER_OBSERVER),
             );
             if obs_type == 0 {
                 // The terminating entry's team_id is the replay timestamp (time_t)
@@ -296,13 +296,13 @@ unsafe fn parse_and_write_v2plus(
         // Scheme header byte
         if obs_count >= 3 {
             let header_byte = s.read_u8()?;
-            wb(0x88DAD4, header_byte);
+            wb(va::G_SCHEME_HEADER, header_byte);
             // If header >= 0 (signed): load built-in scheme from resources
             if (header_byte as i8) >= 0 {
                 // FUN_004D4840: stdcall(2 params). RET 0x8.
                 let f: unsafe extern "stdcall" fn(u32, i32) =
-                    core::mem::transmute(rb(0x4D4840));
-                f(rb(0x88DACC), header_byte as i32);
+                    core::mem::transmute(rb(va::SCHEME_LOAD_BUILTIN));
+                f(rb(va::G_SCHEME_DEST), header_byte as i32);
             }
         }
 
@@ -327,7 +327,7 @@ unsafe fn parse_and_write_v2plus(
                 // Copy defaults first for v3
                 ptr::copy_nonoverlapping(
                     rb(va::SCHEME_V3_DEFAULTS) as *const u8,
-                    rb(0x88DC04) as *mut u8, 0x6E,
+                    rb(va::G_SCHEME_V3_DATA) as *mut u8, 0x6E,
                 );
                 (scheme_size_indicator as usize) - 5
             }
@@ -336,21 +336,21 @@ unsafe fn parse_and_write_v2plus(
 
         // Copy scheme data from stream to global 0x88DAE0
         let scheme_slice = s.advance_raw(scheme_data_size)?;
-        ptr::copy_nonoverlapping(scheme_slice.as_ptr(), rb(0x88DAE0) as *mut u8, scheme_data_size);
+        ptr::copy_nonoverlapping(scheme_slice.as_ptr(), rb(va::G_SCHEME_DATA) as *mut u8, scheme_data_size);
 
         // If scheme_header < 0 (signed) and v1/v2: clear + defaults
-        if scheme_version <= 2 && (*(rb(0x88DAD4) as *const i8)) < 0 {
-            ptr::write_bytes(rb(0x88DBB8) as *mut u8, 0, 0x4C);
+        if scheme_version <= 2 && (*(rb(va::G_SCHEME_HEADER) as *const i8)) < 0 {
+            ptr::write_bytes(rb(va::G_SCHEME_OPTIONS) as *mut u8, 0, 0x4C);
             ptr::copy_nonoverlapping(
                 rb(va::SCHEME_V3_DEFAULTS) as *const u8,
-                rb(0x88DC04) as *mut u8, 0x6E,
+                rb(va::G_SCHEME_V3_DATA) as *mut u8, 0x6E,
             );
         }
 
         // Validate extended options for v3
         if scheme_version == 3 {
             let validate: unsafe extern "cdecl" fn() -> i32 =
-                core::mem::transmute(rb(0x4D5110));
+                core::mem::transmute(rb(va::SCHEME_VALIDATE_EXTENDED));
             let r = validate();
             if r != 0 { return Err(ReplayError::InvalidFormat); }
         }
@@ -370,59 +370,59 @@ unsafe fn parse_and_write_v2plus(
 
     let map_byte1 = s.read_u8()?;
     let map_byte2 = s.read_u8()?;
-    wb(0x87250C, map_byte1);
-    wb(0x872508, map_byte2);
+    wb(va::G_MAP_BYTE_1, map_byte1);
+    wb(va::G_MAP_BYTE_2, map_byte2);
 
     let mut replay_name = [0u8; 0x29];
     s.read_prefixed_string(&mut replay_name)?;
-    ptr::copy_nonoverlapping(replay_name.as_ptr(), rb(0x87D0E1) as *mut u8, 0x29);
+    ptr::copy_nonoverlapping(replay_name.as_ptr(), rb(va::G_REPLAY_NAME) as *mut u8, 0x29);
 
     if version >= 9 {
         let host = s.read_u8()?;
         // Store as low byte of DAT_008779E0 (CONCAT31 pattern)
-        let current = *(rb(0x8779E0) as *const u32);
-        wd(0x8779E0, (current & 0xFFFFFF00) | host as u32);
+        let current = *(rb(va::G_HOST_PLAYER) as *const u32);
+        wd(va::G_HOST_PLAYER, (current & 0xFFFFFF00) | host as u32);
     } else {
-        wd(0x8779E0, 0xFFFFFFFF);
+        wd(va::G_HOST_PLAYER, 0xFFFFFFFF);
     }
 
     let mut player_count: u8 = 0;
     for i in 0..13u32 {
-        let base = 0x877A58 + i * 0x78;
+        let base = va::G_PLAYER_ARRAY + 0x74 + i * 0x78; // player[i].flag
         let flag = s.read_u8()?;
         wb(base, flag);
         if flag == 0 { continue; }
 
-        if i as u32 == *(rb(0x8779E0) as *const u32) {
+        if i as u32 == *(rb(va::G_HOST_PLAYER) as *const u32) {
             // This is the host player — set local_11 flag
         }
         player_count += 1;
 
         let mut name = [0u8; 0x11];
         s.read_prefixed_string(&mut name)?;
-        ptr::copy_nonoverlapping(name.as_ptr(), rb(0x8779E4 + i * 0x78) as *mut u8, 0x11);
+        ptr::copy_nonoverlapping(name.as_ptr(), rb(va::G_PLAYER_ARRAY + i * 0x78) as *mut u8, 0x11);
 
         let mut display = [0u8; 0x31];
         s.read_prefixed_string(&mut display)?;
-        ptr::copy_nonoverlapping(display.as_ptr(), rb(0x8779F5 + i * 0x78) as *mut u8, 0x31);
+        ptr::copy_nonoverlapping(display.as_ptr(), rb(va::G_PLAYER_ARRAY + 0x11 + i * 0x78) as *mut u8, 0x31);
 
         let mut config = [0u8; 0x29];
         s.read_prefixed_string(&mut config)?;
-        ptr::copy_nonoverlapping(config.as_ptr(), rb(0x877A26 + i * 0x78) as *mut u8, 0x29);
+        ptr::copy_nonoverlapping(config.as_ptr(), rb(va::G_PLAYER_ARRAY + 0x42 + i * 0x78) as *mut u8, 0x29);
 
         let u16_val = s.read_u16()?;
-        *(rb(0x877A50 + i * 0x3C) as *mut u16) = u16_val;
+        *(rb(va::G_PLAYER_ARRAY + 0x6C + i * 0x3C) as *mut u16) = u16_val;
 
         let byte1 = s.read_u8()?;
-        wb(0x877A52 + i * 0x78, byte1);
+        wb(va::G_PLAYER_ARRAY + 0x6E + i * 0x78, byte1);
 
         let u32_val = s.read_u32()?;
-        wd(0x877A54 + i * 0x1E, u32_val);
+        wd(va::G_PLAYER_ARRAY + 0x70 + i * 0x1E, u32_val);
 
         let byte2 = s.read_u8()?;
-        wb(0x877A5B + i * 0x78, byte2);
+        wb(va::G_PLAYER_ARRAY + 0x77 + i * 0x78, byte2);
     }
-    wb(0x87D0DE, player_count);
+    wb(va::G_PLAYER_COUNT, player_count);
 
     if obs_count >= 16 {
         let xor_a = s.read_u32()?;
@@ -432,9 +432,9 @@ unsafe fn parse_and_write_v2plus(
 
     let mut team_count: u8 = 0;
     for team_idx in 0..6u32 {
-        let tb = 0x877FFC + team_idx * 0xD7B; // per-team base
+        let tb = va::G_TEAM_DATA + team_idx * 0xD7B; // per-team base
         let team_flag = s.read_u8()?;
-        wb(0x878120 + team_idx * 0xD7B, team_flag);
+        wb(va::G_TEAM_FLAG_OFF + team_idx * 0xD7B, team_flag);
         if team_flag == 0 { continue; }
         team_count += 1;
 
@@ -459,7 +459,7 @@ unsafe fn parse_and_write_v2plus(
         // 8 worm names
         for worm_idx in 0..8u32 {
             let name_off = ((team_idx as usize) * 0xCB + worm_idx as usize) * 0x11;
-            let dest = rb(0x878097) as *mut u8;
+            let dest = rb(va::G_WORM_NAMES) as *mut u8;
             if use_fixed_names {
                 let slice = s.advance_raw(0x11)?;
                 ptr::copy_nonoverlapping(slice.as_ptr(), dest.add(name_off), 0x11);
@@ -472,38 +472,38 @@ unsafe fn parse_and_write_v2plus(
 
         // Worm count (unvalidated)
         let worm_count_raw = s.read_u8()?;
-        wb(0x878092 + team_idx * 0xD7B, worm_count_raw);
+        wb(va::G_TEAM_WORM_COUNT_RAW_OFF + team_idx * 0xD7B, worm_count_raw);
 
         // Team name
         let mut team_name = [0u8; 0x41];
         s.read_prefixed_string(&mut team_name)?;
-        ptr::copy_nonoverlapping(team_name.as_ptr(), rb(0x878010 + team_idx * 0xD7B) as *mut u8, 0x41);
+        ptr::copy_nonoverlapping(team_name.as_ptr(), rb(va::G_TEAM_NAME_OFF + team_idx * 0xD7B) as *mut u8, 0x41);
 
         // Extra byte if obs_count > 13
         if obs_count > 13 {
             let extra = s.read_u8()?;
-            wb(0x878093 + team_idx * 0xD7B, extra);
+            wb(va::G_TEAM_EXTRA_OFF + team_idx * 0xD7B, extra);
         }
 
         // Config name
         let mut config_name = [0u8; 0x41];
         s.read_prefixed_string(&mut config_name)?;
-        ptr::copy_nonoverlapping(config_name.as_ptr(), rb(0x878051 + team_idx * 0xD7B) as *mut u8, 0x41);
+        ptr::copy_nonoverlapping(config_name.as_ptr(), rb(va::G_TEAM_CONFIG_NAME_OFF + team_idx * 0xD7B) as *mut u8, 0x41);
 
         // Worm count (validated 1-8)
         let worm_count = s.read_u8()?;
         if worm_count == 0 || worm_count > 8 { return Err(ReplayError::InvalidFormat); }
-        wb(0x878094 + team_idx * 0xD7B, worm_count);
+        wb(va::G_TEAM_WORM_COUNT_OFF + team_idx * 0xD7B, worm_count);
 
         // Color, flag, grave, soundbank
-        wb(0x878095 + team_idx * 0xD7B, s.read_u8()?);
-        wb(0x878096 + team_idx * 0xD7B, s.read_u8()?);
-        wb(0x87811F + team_idx * 0xD7B, s.read_u8()?);
-        wb(0x878121 + team_idx * 0xD7B, s.read_u8()?);
-        wb(0x878122 + team_idx * 0xD7B, s.read_u8()?);
+        wb(va::G_TEAM_COLOR_OFF + team_idx * 0xD7B, s.read_u8()?);
+        wb(va::G_TEAM_FLAG2_OFF + team_idx * 0xD7B, s.read_u8()?);
+        wb(va::G_TEAM_GRAVE_OFF + team_idx * 0xD7B, s.read_u8()?);
+        wb(va::G_TEAM_SOUNDBANK_OFF + team_idx * 0xD7B, s.read_u8()?);
+        wb(va::G_TEAM_SOUNDBANK2_OFF + team_idx * 0xD7B, s.read_u8()?);
 
         // Weapon data blocks
-        let weapons_dest = rb(0x878123 + team_idx * 0xD7B) as *mut u8;
+        let weapons_dest = rb(va::G_TEAM_WEAPONS_OFF + team_idx * 0xD7B) as *mut u8;
         let w1 = s.advance_raw(0x400)?;
         ptr::copy_nonoverlapping(w1.as_ptr(), weapons_dest, 0x400);
         let w2 = s.advance_raw(0x154)?;
@@ -516,7 +516,7 @@ unsafe fn parse_and_write_v2plus(
 
     if team_count == 0 { return Err(ReplayError::InvalidFormat); }
 
-    wb(0x87D0E0, team_count);
+    wb(va::G_TEAM_COUNT, team_count);
 
     // ProcessTeamColors: stdcall(1 param = state). RET 0x4.
     let process_colors: unsafe extern "stdcall" fn(u32) =
@@ -524,11 +524,11 @@ unsafe fn parse_and_write_v2plus(
     process_colors(rb(va::G_REPLAY_STATE));
 
     let map_seed = s.read_u16()?;
-    wd(0x87D430, map_seed as u32);
+    wd(va::G_MAP_SEED, map_seed as u32);
 
     // FUN_0045d640: stdcall(1 param = state). 1032-line function.
     let fun_45d640: unsafe extern "stdcall" fn(u32) =
-        core::mem::transmute(rb(0x45D640));
+        core::mem::transmute(rb(va::REPLAY_PROCESS_STATE));
     fun_45d640(rb(va::G_REPLAY_STATE));
 
     if map_seed == 0 || map_seed == 0xFFFF {
@@ -543,8 +543,8 @@ unsafe fn parse_and_write_v2plus(
 
     // Assembly: MOV ESI,[seed]; PUSH ESI; CALL srand; rand(); SHL<<16; rand(); ADD
     let current_seed = *(rb(va::G_RANDOM_SEED) as *const u32);
-    let srand: unsafe extern "cdecl" fn(u32) = core::mem::transmute(rb(0x5D293E));
-    let rand_fn: unsafe extern "cdecl" fn() -> i32 = core::mem::transmute(rb(0x5D294B));
+    let srand: unsafe extern "cdecl" fn(u32) = core::mem::transmute(rb(va::WA_SRAND));
+    let rand_fn: unsafe extern "cdecl" fn() -> i32 = core::mem::transmute(rb(va::WA_RAND));
     srand(current_seed);
     let r1 = rand_fn() as u32;
     let r2 = rand_fn() as u32;
@@ -554,7 +554,7 @@ unsafe fn parse_and_write_v2plus(
     let ver = *(rb(va::G_REPLAY_VERSION_ID) as *const i32);
     if ver != 0x22 && !(ver >= 0x29 && ver <= 0x2A) && ver < 0x2D {
         let check: unsafe extern "cdecl" fn() -> i32 =
-            core::mem::transmute(rb(0x4D50E0));
+            core::mem::transmute(rb(va::SCHEME_CHECK_WEAPON_LIMITS));
         check();
     }
     // The map was already written to playback.thm in the header section.
@@ -564,12 +564,12 @@ unsafe fn parse_and_write_v2plus(
     if *(state as *const i32).byte_add(0xDB1C) >= 1 {
         // Alloc: PUSH 0x29628; CALL 005C0AB8; ADD ESP,4 — cdecl(size)
         let alloc: unsafe extern "cdecl" fn(u32) -> u32 =
-            core::mem::transmute(rb(0x5C0AB8));
+            core::mem::transmute(rb(va::WA_CRT_MALLOC));
         let buf = alloc(0x29628);
         let map_obj = if buf != 0 {
             // Construct: PUSH 1; PUSH buf; CALL 00447E80 — stdcall(buf, 1)
             let construct: unsafe extern "stdcall" fn(u32, i32) -> *mut u32 =
-                core::mem::transmute(rb(0x447E80));
+                core::mem::transmute(rb(va::MAP_CLASS_CONSTRUCTOR));
             construct(buf, 1)
         } else {
             ptr::null_mut()
@@ -577,7 +577,7 @@ unsafe fn parse_and_write_v2plus(
 
         // Load: PUSH 0; PUSH path; PUSH map_obj; CALL 0044A9A0 — stdcall(3)
         let load: unsafe extern "stdcall" fn(*mut u32, *const u8, i32) -> i32 =
-            core::mem::transmute(rb(0x44A9A0));
+            core::mem::transmute(rb(va::MAP_CLASS_LOAD));
         let ok = load(map_obj, b"data\\playback.thm\0".as_ptr(), 0);
 
         if ok == 0 {
@@ -592,7 +592,7 @@ unsafe fn parse_and_write_v2plus(
         }
 
         // FUN_00449B60: usercall(ESI=map_obj). Copies map info to game state.
-        call_usercall_esi(map_obj as u32, rb(0x449B60));
+        call_usercall_esi(map_obj as u32, rb(va::MAP_COPY_INFO));
 
         // Terrain flag: CMP [ESI+0x29618],0; SETZ
         *(state as *mut u8).add(0xD98B) =
@@ -629,11 +629,11 @@ unsafe fn write_replay_log(state: u32, log_file: &mut File) -> Result<(), Replay
     // Date/time line: timestamp from observer array, formatted as GMT.
     // The observer array at 0x88C35C contains the replay date as a time_t
     // in its first registered entry. Use WA's gmtime64 for conversion.
-    if *(rb(0x88C36C) as *const u32) != 0 && REPLAY_TIMESTAMP != 0 {
+    if *(rb(va::G_RECORDING_TIMESTAMP_FLAG) as *const u32) != 0 && REPLAY_TIMESTAMP != 0 {
         // Format the replay date using the timestamp saved during observer parsing.
         let ts = REPLAY_TIMESTAMP as i64;
         let gmtime: unsafe extern "cdecl" fn(*const i64) -> *const [i32; 9] =
-            core::mem::transmute(rb(0x5D34C0));
+            core::mem::transmute(rb(va::WA_GMTIME64));
         let tm = gmtime(&ts);
         if !tm.is_null() {
             let tm = &*tm;
@@ -660,10 +660,10 @@ unsafe fn write_replay_log(state: u32, log_file: &mut File) -> Result<(), Replay
             -4 => rb(0x650EAC) as *const u8, // "1.0"
             -2 => rb(0x650EB0) as *const u8, // "3.0"
             -1 => rb(0x650EB4) as *const u8, // "3.5 Beta 1"
-            _  => wa_load_string(0x0F),       // generic "Unknown"
+            _  => wa_load_string(0x0F),       // "Unknown"
         }
     } else {
-        let table = rb(0x6AB480) as *const u32;
+        let table = rb(va::VERSION_STRING_TABLE) as *const u32;
         let ptr = *table.add(game_ver_id as usize);
         ptr as *const u8
     };
@@ -688,10 +688,10 @@ unsafe fn write_replay_log(state: u32, log_file: &mut File) -> Result<(), Replay
     {
         let label_exported = wa_load_string(0x6E9); // "Exported with Version"
         // Current WA version from version table: 0x699814[DAT_00697702]
-        let ver_byte = *(rb(0x697702) as *const u8) as u32;
+        let ver_byte = *(rb(va::G_VERSION_BYTE) as *const u8) as u32;
         // "3.8.1" literal at 0x641C60 + suffix from version table
-        let ver_literal = rb(0x641C60) as *const u8; // "3.8.1"
-        let ver_suffix = *(rb(0x699814 + ver_byte * 4) as *const u32) as *const u8; // " (Steam)"
+        let ver_literal = rb(va::STR_VERSION_381) as *const u8; // "3.8.1"
+        let ver_suffix = *(rb(va::VERSION_SUFFIX_TABLE + ver_byte * 4) as *const u32) as *const u8; // " (Steam)"
 
         let mut s = heapless::String::<256>::new();
         push_cstr(&mut s, label_exported);
@@ -718,9 +718,9 @@ unsafe fn write_replay_log(state: u32, log_file: &mut File) -> Result<(), Replay
     // Find max color name length for alignment — only active teams
     let mut max_color_len = 0usize;
     for slot in 0..6u32 {
-        let flag = *(rb(0x878120 + slot * 0xD7B) as *const u8);
+        let flag = *(rb(va::G_TEAM_FLAG_OFF + slot * 0xD7B) as *const u8);
         if flag == 0 { continue; }
-        let ci = *(rb(0x877FFC + slot * 0xD7B + 1) as *const u8) as usize;
+        let ci = *(rb(va::G_TEAM_DATA + slot * 0xD7B + 1) as *const u8) as usize;
         if ci < 6 {
             let len = c_strlen(color_names[ci]);
             if len > max_color_len { max_color_len = len; }
@@ -729,11 +729,11 @@ unsafe fn write_replay_log(state: u32, log_file: &mut File) -> Result<(), Replay
 
     // Team data is in the team header buffer at 0x877FFC + i*0xD7B.
     // Per-team: +0x00=type, +0x01=alliance(color), +0x14=team_name(prefixed)
-    let _team_count = *(rb(0x87D0E0) as *const u8) as u32;
+    let _team_count = *(rb(va::G_TEAM_COUNT) as *const u8) as u32;
 
     for slot in 0..6u32 {
-        let tb = rb(0x877FFC + slot * 0xD7B) as *const u8;
-        let flag = *(rb(0x878120 + slot * 0xD7B) as *const u8);
+        let tb = rb(va::G_TEAM_DATA + slot * 0xD7B) as *const u8;
+        let flag = *(rb(va::G_TEAM_FLAG_OFF + slot * 0xD7B) as *const u8);
         if flag == 0 { continue; }
 
         let team_type = *tb as i8;

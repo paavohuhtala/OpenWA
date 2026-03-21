@@ -820,6 +820,18 @@ pub mod va {
     pub const WA_FREE: u32 = 0x005D_0D2B;
     /// WA's CRT _fopen — cdecl(path, mode) → FILE*.
     pub const WA_FOPEN: u32 = 0x005D_3271;
+    /// WA's CRT _fileno — cdecl(FILE*) → fd.
+    pub const WA_FILENO: u32 = 0x005D_5155;
+    /// WA's CRT _get_osfhandle — cdecl(fd) → HANDLE.
+    pub const WA_GET_OSFHANDLE: u32 = 0x005D_7273;
+    /// WA's CRT srand — cdecl(seed).
+    pub const WA_SRAND: u32 = 0x005D_293E;
+    /// WA's CRT rand — cdecl() → i32.
+    pub const WA_RAND: u32 = 0x005D_294B;
+    /// WA's CRT _gmtime64 — cdecl(&time_t) → *const tm.
+    pub const WA_GMTIME64: u32 = 0x005D_34C0;
+    /// WA's CRT malloc (raw, not the wrapper at WA_MALLOC) — cdecl(size) → *mut u8.
+    pub const WA_CRT_MALLOC: u32 = 0x005C_0AB8;
 
     // === Bitmap font system ===
 
@@ -905,6 +917,107 @@ pub mod va {
     pub const G_SAVED_RANDOM_SEED: u32 = 0x0088_ABAC;
     /// Replay filename buffer.
     pub const G_REPLAY_FILENAME: u32 = 0x0088_AF58;
+    /// Game data directory path (null-terminated string).
+    pub const G_DATA_DIR: u32 = 0x0088_E078;
+    /// WA log file FILE* pointer (for /getlog output).
+    pub const G_LOG_FILE_PTR: u32 = 0x0088_C370;
+    /// Observer array base (used by RegisterObserver, replay parsing).
+    pub const G_OBSERVER_ARRAY: u32 = 0x0088_C35C;
+    /// Observer count (number of registered observers).
+    pub const G_OBSERVER_COUNT: u32 = 0x0088_AF4C;
+    /// Recording timestamp availability flag (nonzero = timestamp present).
+    pub const G_RECORDING_TIMESTAMP_FLAG: u32 = 0x0088_C36C;
+    /// Replay version flag A (version > 7).
+    pub const G_REPLAY_VER_FLAG_A: u32 = 0x0088_AF42;
+    /// Replay version flag B (version > 7).
+    pub const G_REPLAY_VER_FLAG_B: u32 = 0x0088_AF43;
+    /// Game mode flag (from replay version >= 12).
+    pub const G_REPLAY_GAME_MODE: u32 = 0x0088_AF44;
+    /// Scheme header byte (signed: >= 0 = built-in scheme).
+    pub const G_SCHEME_HEADER: u32 = 0x0088_DAD4;
+    /// Scheme loading destination (base address for scheme data).
+    pub const G_SCHEME_DEST: u32 = 0x0088_DACC;
+    /// Scheme data copy destination (raw scheme bytes from stream).
+    pub const G_SCHEME_DATA: u32 = 0x0088_DAE0;
+    /// Scheme extended options buffer (0x4C bytes, cleared for v1/v2 fallback).
+    pub const G_SCHEME_OPTIONS: u32 = 0x0088_DBB8;
+    /// Scheme v3 extended data destination (0x6E bytes).
+    pub const G_SCHEME_V3_DATA: u32 = 0x0088_DC04;
+    /// Host player index (low byte = host, rest masked).
+    pub const G_HOST_PLAYER: u32 = 0x0087_79E0;
+    /// Player data array base (13 entries, stride 0x78).
+    /// Player[0].name = G_PLAYER_ARRAY, Player[0].flag = G_PLAYER_ARRAY + 0x74.
+    pub const G_PLAYER_ARRAY: u32 = 0x0087_79E4;
+    /// Player count.
+    pub const G_PLAYER_COUNT: u32 = 0x0087_D0DE;
+    /// Team data array base (6 entries, stride 0xD7B).
+    pub const G_TEAM_DATA: u32 = 0x0087_7FFC;
+    /// Team count (number of active teams).
+    pub const G_TEAM_COUNT: u32 = 0x0087_D0E0;
+    /// Replay name buffer (0x29 bytes).
+    pub const G_REPLAY_NAME: u32 = 0x0087_D0E1;
+    /// Map byte 1 (written during replay parsing).
+    pub const G_MAP_BYTE_1: u32 = 0x0087_250C;
+    /// Map byte 2 (written during replay parsing).
+    pub const G_MAP_BYTE_2: u32 = 0x0087_2508;
+    /// Map seed (u16 stored as u32).
+    pub const G_MAP_SEED: u32 = 0x0087_D430;
+    /// Worm names base (8 worms × teams, stride 0x11 per name).
+    pub const G_WORM_NAMES: u32 = 0x0087_8097;
+
+    // --- Replay team data field offsets from G_TEAM_DATA + team_idx * 0xD7B ---
+    /// Team flag (nonzero = team present). Offset 0x124 from per-team base.
+    pub const G_TEAM_FLAG_OFF: u32 = 0x0087_8120;
+    /// Worm count (unvalidated). Offset 0x96 from per-team base.
+    pub const G_TEAM_WORM_COUNT_RAW_OFF: u32 = 0x0087_8092;
+    /// Team name (0x41 bytes). Offset 0x14 from per-team base.
+    pub const G_TEAM_NAME_OFF: u32 = 0x0087_8010;
+    /// Team extra byte (if obs_count > 13). Offset 0x97 from per-team base.
+    pub const G_TEAM_EXTRA_OFF: u32 = 0x0087_8093;
+    /// Config name (0x41 bytes). Offset 0x55 from per-team base.
+    pub const G_TEAM_CONFIG_NAME_OFF: u32 = 0x0087_8051;
+    /// Worm count (validated 1-8). Offset 0x98 from per-team base.
+    pub const G_TEAM_WORM_COUNT_OFF: u32 = 0x0087_8094;
+    /// Team color. Offset 0x99 from per-team base.
+    pub const G_TEAM_COLOR_OFF: u32 = 0x0087_8095;
+    /// Team flag2. Offset 0x9A from per-team base.
+    pub const G_TEAM_FLAG2_OFF: u32 = 0x0087_8096;
+    /// Team grave. Offset 0x123 from per-team base.
+    pub const G_TEAM_GRAVE_OFF: u32 = 0x0087_811F;
+    /// Team soundbank. Offset 0x125 from per-team base.
+    pub const G_TEAM_SOUNDBANK_OFF: u32 = 0x0087_8121;
+    /// Team soundbank extra. Offset 0x126 from per-team base.
+    pub const G_TEAM_SOUNDBANK2_OFF: u32 = 0x0087_8122;
+    /// Team weapon data (0xC54 bytes). Offset 0x127 from per-team base.
+    pub const G_TEAM_WEAPONS_OFF: u32 = 0x0087_8123;
+
+    // --- Replay function addresses ---
+    /// Load string resource by ID — stdcall(id) → *const u8. RET 0x4.
+    pub const WA_LOAD_STRING: u32 = 0x0059_3180;
+    /// Load built-in scheme by ID — stdcall(dest, scheme_id). RET 0x8.
+    pub const SCHEME_LOAD_BUILTIN: u32 = 0x004D_4840;
+    /// Validate extended scheme options — cdecl() → i32.
+    pub const SCHEME_VALIDATE_EXTENDED: u32 = 0x004D_5110;
+    /// Process replay state — stdcall(state). Large function (1032 lines).
+    pub const REPLAY_PROCESS_STATE: u32 = 0x0045_D640;
+    /// Cleanup observer array — usercall(ESI=observer_array). Plain RET.
+    pub const REPLAY_CLEANUP_OBSERVERS: u32 = 0x0053_EE00;
+    /// Map class constructor — stdcall(alloc, flags) → *mut MapClass.
+    pub const MAP_CLASS_CONSTRUCTOR: u32 = 0x0044_7E80;
+    /// Map class load — stdcall(map_obj, path, flags) → i32.
+    pub const MAP_CLASS_LOAD: u32 = 0x0044_A9A0;
+    /// Copy map info to game state — usercall(ESI=map_obj). Plain RET.
+    pub const MAP_COPY_INFO: u32 = 0x0044_9B60;
+
+    // --- String literals ---
+    /// Version string table (array of pointers to version strings).
+    pub const VERSION_STRING_TABLE: u32 = 0x006A_B480;
+    /// Current WA version byte index (indexes into version suffix table).
+    pub const G_VERSION_BYTE: u32 = 0x0069_7702;
+    /// "3.8.1" literal string.
+    pub const STR_VERSION_381: u32 = 0x0064_1C60;
+    /// Version suffix table (array of pointers, indexed by version byte).
+    pub const VERSION_SUFFIX_TABLE: u32 = 0x0069_9814;
 
     // === Configuration globals (for GameInfo__LoadOptions) ===
 
