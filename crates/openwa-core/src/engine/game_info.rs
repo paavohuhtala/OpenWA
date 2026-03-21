@@ -35,8 +35,12 @@ pub struct GameInfo {
     /// 0xD946: Network config byte 2 (copied to network object+0x29).
     pub net_config_2: u8,
 
-    /// 0xD947-0xD9DF: Unknown
-    pub _unknown_d947: [u8; 0xD9E0 - 0xD947],
+    /// 0xD947-0xD98A: Unknown
+    pub _unknown_d947: [u8; 0xD98B - 0xD947],
+    /// 0xD98B: Terrain flag (set from map object during replay loading).
+    pub terrain_flag: u8,
+    /// 0xD98C-0xD9DF: Unknown
+    pub _unknown_d98c: [u8; 0xD9E0 - 0xD98C],
 
     /// 0xD9E0: Streaming audio config data (path config passed to streaming audio ctor).
     /// Address of this field is passed as a pointer parameter.
@@ -59,8 +63,37 @@ pub struct GameInfo {
     /// 0xDAEC: Land data path ("data\land.dat", 14 bytes incl. null)
     pub land_dat_path: [u8; 14],
 
-    /// 0xDAFA-0xF343: Unknown
-    pub _unknown_dafa: [u8; 0xF344 - 0xDAFA],
+    // --- Replay configuration (populated by ReplayLoader) ---
+
+    /// 0xDAFA-0xDB1B: Unknown
+    pub _unknown_dafa: [u8; 0xDB1C - 0xDAFA],
+    /// 0xDB1C: Replay map sub-type (first DWORD of first payload).
+    /// >= 1: map stored in playback.thm. Negative: inline map data.
+    pub replay_map_type: i32,
+    /// 0xDB20: Replay payload field 2 (sub-type < 1 path).
+    pub replay_payload_2: i32,
+    /// 0xDB24: Replay payload extra data (variable-length, up to 0x24 bytes).
+    pub replay_payload_extra: [u8; 0x24],
+    /// 0xDB48: Replay active flag (set to 1 by ReplayLoader).
+    pub replay_active: u8,
+    /// 0xDB49-0xDB4F: Unknown
+    pub _unknown_db49: [u8; 0xDB50 - 0xDB49],
+    /// 0xDB50: Replay file format version.
+    pub replay_format_version: u32,
+    /// 0xDB54: Replay file format version (duplicate/backup).
+    pub replay_format_version_2: u32,
+    /// 0xDB58: Replay field (set to 0xFFFFFFFF during loading).
+    pub replay_field_db58: u32,
+    /// 0xDB5C-0xDB5F: Unknown
+    pub _unknown_db5c: [u8; 4],
+    /// 0xDB60: Replay filename buffer (C string, null-terminated).
+    pub replay_filename: [u8; 0x400],
+    /// 0xDF60-0xEF5F: Unknown
+    pub _unknown_df60: [u8; 0xEF60 - 0xDF60],
+    /// 0xEF60: Cleared to 0 during replay loading.
+    pub replay_field_ef60: u32,
+    /// 0xEF64-0xF343: Unknown
+    pub _unknown_ef64: [u8; 0xF344 - 0xEF64],
 
     /// 0xF344: Sound start frame threshold (i32). Sound is suppressed when
     /// DDGame.frame_counter < this value. Checked by IsSoundSuppressed and

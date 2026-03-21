@@ -6,6 +6,7 @@
 use crate::hook;
 use crate::log_line;
 use openwa_core::address::va;
+use openwa_core::engine::game_info::GameInfo;
 use openwa_core::engine::replay::{self, ReplayError, ReplayStream, ReplayTeamEntry};
 use openwa_core::rebase::rb;
 use openwa_core::wa_alloc::{wa_free, wa_malloc};
@@ -69,9 +70,9 @@ impl Drop for PayloadGuard {
 
 // ─── ReplayLoader hook ──────────────────────────────────────────────────────
 
-unsafe extern "stdcall" fn hook_replay_loader(state: u32, mode: i32) -> u32 {
+unsafe extern "stdcall" fn hook_replay_loader(state: *mut GameInfo, mode: i32) -> u32 {
     if mode != 1 {
-        let orig: unsafe extern "stdcall" fn(u32, i32) -> u32 =
+        let orig: unsafe extern "stdcall" fn(*mut GameInfo, i32) -> u32 =
             core::mem::transmute(REPLAY_LOADER_ORIG);
         return orig(state, mode);
     }
@@ -83,19 +84,16 @@ unsafe extern "stdcall" fn hook_replay_loader(state: u32, mode: i32) -> u32 {
 
 // ─── Main replay loader (mode 1) ────────────────────────────────────────────
 
-unsafe fn replay_loader_play(state: u32) -> Result<(), ReplayError> {
+unsafe fn replay_loader_play(gi: *mut GameInfo) -> Result<(), ReplayError> {
     let artclass_counter = *(rb(va::G_ARTCLASS_COUNTER) as *const i32);
     if artclass_counter >= 0x34 { return Err(ReplayError::ArtClassLimit); }
-
-    let s = state as *mut u8;
-    *s.add(0xDB48) = 1;
-    *(s.add(0xEF60) as *mut u32) = 0;
+    (*gi).replay_active = 1;
+    (*gi).replay_field_ef60 = 0;
 
     // Open replay file using Rust's std::fs::File
     let replay_path = {
-        // Build path: game data dir + replay filename from state+0xDB60
         let data_dir = CStr::from_ptr(rb(va::G_DATA_DIR) as *const i8);
-        let file_name = CStr::from_ptr(s.add(0xDB60) as *const i8);
+        let file_name = CStr::from_ptr((*gi).replay_filename.as_ptr() as *const i8);
         let dir = data_dir.to_str().unwrap_or(".");
         let name = file_name.to_str().unwrap_or("");
         if Path::new(name).is_absolute() {
@@ -122,9 +120,9 @@ unsafe fn replay_loader_play(state: u32) -> Result<(), ReplayError> {
     let version = header >> 16;
     if version == 0 || version > 20 { return Err(ReplayError::VersionTooNew); }
 
-    *(s.add(0xDB50) as *mut u32) = version;
-    *(s.add(0xDB54) as *mut u32) = version;
-    *(s.add(0xDB58) as *mut u32) = 0xFFFFFFFF;
+    (*gi).replay_format_version = version;
+    (*gi).replay_format_version_2 = version;
+    (*gi).replay_field_db58 = 0xFFFFFFFF;
 
     // First payload
     let payload_size = read_u32(&mut file)?;
@@ -136,19 +134,26 @@ unsafe fn replay_loader_play(state: u32) -> Result<(), ReplayError> {
     file.read_exact(payload_slice).map_err(|_| ReplayError::FileNotFound)?;
 
     let first_dword = *(payload as *const i32);
-    *(s.add(0xDB1C) as *mut i32) = first_dword;
+    (*gi).replay_map_type = first_dword;
     if first_dword >= 1 {
         // Write payload to playback.thm using Rust File
         let _ = std::fs::write("data\\playback.thm", payload_slice);
     } else {
-        *(s.add(0xDB20) as *mut i32) = *(payload.add(4) as *const i32);
+        (*gi).replay_payload_2 = *(payload.add(4) as *const i32);
         if first_dword >= -4 && first_dword < -2 {
-            *(s.add(0xDB24) as *mut i32) = *(payload.add(8) as *const i32);
+            *((*gi).replay_payload_extra.as_mut_ptr() as *mut i32) =
+                *(payload.add(8) as *const i32);
         } else if first_dword == -2 {
             let n = payload_size.saturating_sub(8) as usize;
             if n > 0x20 { return Err(ReplayError::InvalidFormat); }
-            ptr::copy_nonoverlapping(payload.add(8), s.add(0xDB24), n);
-            *s.add(0xDB1C + payload_size as usize) = 0;
+            ptr::copy_nonoverlapping(
+                payload.add(8),
+                (*gi).replay_payload_extra.as_mut_ptr(),
+                n,
+            );
+            // Null-terminate: write 0 at replay_map_type + payload_size offset
+            // (the original uses base+0xDB1C+payload_size which spans into replay_payload_extra)
+            *((gi as *mut u8).add(0xDB1C + payload_size as usize)) = 0;
         }
     }
     wa_free(payload); guard.payload = ptr::null_mut();
@@ -161,7 +166,7 @@ unsafe fn replay_loader_play(state: u32) -> Result<(), ReplayError> {
 
     if version == 1 {
         drop(file);
-        return parse_version1(state);
+        return parse_version1(gi);
     }
 
     // ─── Version 2+: read second payload ─────────────────────────────────
@@ -177,16 +182,16 @@ unsafe fn replay_loader_play(state: u32) -> Result<(), ReplayError> {
 
     // Parse and write to globals
     let data = core::slice::from_raw_parts(p2, second_size as usize);
-    let result = parse_and_write_v2plus(state, data, version);
+    let result = parse_and_write_v2plus(gi, data, version);
     wa_free(p2); guard.payload = ptr::null_mut();
 
     match result {
         Ok(()) => {
-            call_usercall_eax(state, rb(va::REPLAY_PROCESS_FLAGS));
+            call_usercall_eax(gi, rb(va::REPLAY_PROCESS_FLAGS));
             let wa_log_file = *(rb(va::G_LOG_FILE_PTR) as *const *mut FILE);
             if !wa_log_file.is_null() {
                 if let Some(mut log_file) = wa_file_to_rust(wa_log_file) {
-                    write_replay_log(state, &mut *log_file)?;
+                    write_replay_log(gi, &mut *log_file)?;
                 }
             }
             let _ = log_line("[Replay] Rust replay loading complete");
@@ -194,18 +199,18 @@ unsafe fn replay_loader_play(state: u32) -> Result<(), ReplayError> {
         }
         Err(e) => {
             let _ = log_line(&format!("[Replay] Parse failed ({e:?}), falling back to original"));
-            delegate_to_original(state)
+            delegate_to_original(gi)
         }
     }
 }
 
-unsafe fn parse_version1(state: u32) -> Result<(), ReplayError> {
-    delegate_to_original(state)
+unsafe fn parse_version1(gi: *mut GameInfo) -> Result<(), ReplayError> {
+    delegate_to_original(gi)
 }
 
-unsafe fn delegate_to_original(state: u32) -> Result<(), ReplayError> {
-    let orig: unsafe extern "stdcall" fn(u32, i32) -> u32 = core::mem::transmute(REPLAY_LOADER_ORIG);
-    let result = orig(state, 1);
+unsafe fn delegate_to_original(gi: *mut GameInfo) -> Result<(), ReplayError> {
+    let orig: unsafe extern "stdcall" fn(*mut GameInfo, i32) -> u32 = core::mem::transmute(REPLAY_LOADER_ORIG);
+    let result = orig(gi, 1);
     if result == 0 { Ok(()) } else { Err(ReplayError::FileNotFound) }
 }
 
@@ -219,7 +224,7 @@ unsafe fn wb(addr: u32, val: u8) { *(rb(addr) as *mut u8) = val; }
 unsafe fn wd(addr: u32, val: u32) { *(rb(addr) as *mut u32) = val; }
 
 unsafe fn parse_and_write_v2plus(
-    state: u32, data: &[u8], version: u32,
+    gi: *mut GameInfo, data: &[u8], version: u32,
 ) -> Result<(), ReplayError> {
     let mut s = ReplayStream::new(data);
 
@@ -493,28 +498,28 @@ unsafe fn parse_and_write_v2plus(
 
     wb(va::G_TEAM_COUNT, team_count);
 
-    // ProcessTeamColors: stdcall(1 param = state). RET 0x4.
-    let process_colors: unsafe extern "stdcall" fn(u32) =
+    // ProcessTeamColors: stdcall(1 param = game_info). RET 0x4.
+    let process_colors: unsafe extern "stdcall" fn(*mut GameInfo) =
         core::mem::transmute(rb(va::REPLAY_PROCESS_TEAM_COLORS));
-    process_colors(rb(va::G_REPLAY_STATE));
+    process_colors(gi);
 
     let map_seed = s.read_u16()?;
     wd(va::G_MAP_SEED, map_seed as u32);
 
-    // FUN_0045d640: stdcall(1 param = state). 1032-line function.
-    let fun_45d640: unsafe extern "stdcall" fn(u32) =
+    // FUN_0045d640: stdcall(1 param = game_info). 1032-line function.
+    let fun_45d640: unsafe extern "stdcall" fn(*mut GameInfo) =
         core::mem::transmute(rb(va::REPLAY_PROCESS_STATE));
-    fun_45d640(rb(va::G_REPLAY_STATE));
+    fun_45d640(gi);
 
     if map_seed == 0 || map_seed == 0xFFFF {
-        call_process_scheme_defaults(rb(va::G_REPLAY_STATE), rb(va::REPLAY_PROCESS_SCHEME_DEFAULTS));
+        call_process_scheme_defaults(gi, rb(va::REPLAY_PROCESS_SCHEME_DEFAULTS));
     }
     // TODO: else branch — per-team weapon config reads from stream
 
-    // ValidateTeamSetup: reads [ESP+0xBC] in prologue = stdcall(1 param = state)
-    let validate_setup: unsafe extern "stdcall" fn(u32) =
+    // ValidateTeamSetup: stdcall(1 param = game_info)
+    let validate_setup: unsafe extern "stdcall" fn(*mut GameInfo) =
         core::mem::transmute(rb(va::REPLAY_VALIDATE_TEAM_SETUP));
-    validate_setup(rb(va::G_REPLAY_STATE));
+    validate_setup(gi);
 
     // Assembly: MOV ESI,[seed]; PUSH ESI; CALL srand; rand(); SHL<<16; rand(); ADD
     let current_seed = *(rb(va::G_RANDOM_SEED) as *const u32);
@@ -536,7 +541,7 @@ unsafe fn parse_and_write_v2plus(
     // The original loads it here via FUN_00447e80 + FUN_0044a9a0.
     // For positive sub-version (our test case), we need to:
     // Map loading: construct map object, load playback.thm, copy info, release.
-    if *(state as *const i32).byte_add(0xDB1C) >= 1 {
+    if (*gi).replay_map_type >= 1 {
         // Alloc: PUSH 0x29628; CALL 005C0AB8; ADD ESP,4 — cdecl(size)
         let alloc: unsafe extern "cdecl" fn(u32) -> u32 =
             core::mem::transmute(rb(va::WA_CRT_MALLOC));
@@ -570,7 +575,7 @@ unsafe fn parse_and_write_v2plus(
         call_usercall_esi(map_obj as u32, rb(va::MAP_COPY_INFO));
 
         // Terrain flag: CMP [ESI+0x29618],0; SETZ
-        *(state as *mut u8).add(0xD98B) =
+        (*gi).terrain_flag =
             (*(map_obj as *const u8).add(0x29618) == 0) as u8;
 
         // Release: PUSH 1; MOV ECX,ESI; CALL [vtable+4] — thiscall(this, 1)
@@ -591,9 +596,9 @@ unsafe fn parse_and_write_v2plus(
 
 
 /// Write the /getlog replay header to the log file.
-unsafe fn write_replay_log(state: u32, log_file: &mut File) -> Result<(), ReplayError> {
+unsafe fn write_replay_log(gi: *const GameInfo, log_file: &mut File) -> Result<(), ReplayError> {
     use std::io::Write as IoWrite;
-    let s = state as *const u8;
+    let gi = &*gi;
 
     // ── Date/time line ───────────────────────────────────────────────────
     // "Game Started at YYYY-MM-DD HH:MM:SS GMT"
@@ -643,7 +648,7 @@ unsafe fn write_replay_log(state: u32, log_file: &mut File) -> Result<(), Replay
         ptr as *const u8
     };
 
-    let replay_ver = *(s.add(0xDB50) as *const u32);
+    let replay_ver = gi.replay_format_version;
     let format_ver_str = *(rb(0x6AC624 + replay_ver * 4) as *const u32) as *const u8;
 
     {
@@ -777,7 +782,7 @@ unsafe fn c_strlen(s: *const u8) -> usize {
 
 /// Bridge for usercall(EAX=value) + plain call. cdecl(eax_val, func_addr).
 #[unsafe(naked)]
-unsafe extern "cdecl" fn call_usercall_eax(_eax_val: u32, _func: u32) {
+unsafe extern "cdecl" fn call_usercall_eax(_eax_val: *mut GameInfo, _func: u32) {
     core::arch::naked_asm!(
         "mov eax, [esp+4]",      // eax_val
         "mov ecx, [esp+8]",      // func_addr
@@ -820,11 +825,11 @@ unsafe extern "cdecl" fn call_register_observer(
     );
 }
 
-/// Bridge for ProcessSchemeDefaults: usercall(ESI=state).
+/// Bridge for ProcessSchemeDefaults: usercall(ESI=game_info).
 /// Reuses call_usercall_esi.
 #[inline]
-unsafe fn call_process_scheme_defaults(state: u32, func: u32) {
-    call_usercall_esi(state, func);
+unsafe fn call_process_scheme_defaults(gi: *mut GameInfo, func: u32) {
+    call_usercall_esi(gi as u32, func);
 }
 
 // ─── ParseReplayPosition ─────────────────────────────────────────────────────
