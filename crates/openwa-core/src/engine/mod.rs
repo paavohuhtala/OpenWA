@@ -9,8 +9,8 @@ pub mod net_bridge;
 pub mod net_wrapper;
 
 pub use ddgame::{
-    DDGame, FullTeamBlock, RenderEntry, SoundQueueEntry, TeamArenaRef, TeamArenaState,
-    TeamBlockHeader, TeamBlockSlot0, TeamIndexMap, WormEntry, GAME_PHASE_NORMAL_MIN,
+    DDGame, RenderEntry, SoundQueueEntry, TeamArenaRef, TeamArenaState, TeamBlock,
+    TeamHeader, TeamIndexMap, TeamSlot0, WormEntry, GAME_PHASE_NORMAL_MIN,
     GAME_PHASE_SUDDEN_DEATH,
 };
 pub use ddgame_wrapper::DDGameWrapper;

@@ -1,5 +1,6 @@
 use super::base::CTask;
 use super::game_task::CGameTask;
+use crate::game::weapon::WeaponEntry;
 
 /// Virtual method table for CTaskWorm (vtable at 0x6644C8, 20 slots).
 ///
@@ -75,7 +76,7 @@ const _: () = assert!(core::mem::size_of::<CTaskWormVTable>() == 20 * 4);
 /// Vtable at 0x6644C8. Class type byte: 0x12.
 ///
 /// # Important fields in the CGameTask base
-/// The worm state field lives at **offset +0x44** (inside `base._unknown_30`).
+/// The worm state field lives at **offset +0x44** (inside `base.subclass_data`).
 /// Use [`CTaskWorm::state`] to read it without pointer arithmetic.
 ///
 /// Source: Ghidra decompilation of 0x50BFB0, vtable analysis of 0x6644C8,
@@ -151,8 +152,12 @@ pub struct CTaskWorm {
     pub _unknown_338: [u8; 0x368 - 0x338],
     /// 0x368: Animator / controller object (dispatched via vtable for state animations)
     pub animator: *mut u8,
-    /// 0x36C–0x3DB: Unknown (rope anchor, weapon-specific data, etc.)
-    pub _unknown_36c: [u8; 0x3DC - 0x36C],
+    /// 0x36C: Active weapon entry pointer. Points to `&WeaponTable.entries[selected_weapon]`.
+    /// Contains fire type (+0x30), subtypes (+0x34/+0x38), and completion flag (+0x3C).
+    /// Used by WeaponRelease: `MOV EAX, [EDI+0x36C]` before calling FireWeapon.
+    pub active_weapon_entry: *mut WeaponEntry,
+    /// 0x370–0x3DB: Unknown (rope anchor, weapon-specific data, etc.)
+    pub _unknown_370: [u8; 0x3DC - 0x370],
     /// 0x3DC: Facing direction. -1 = facing left, +1 = facing right.
     pub facing_direction: i32,
     /// 0x3E0–0x3E3: Unknown
@@ -172,15 +177,28 @@ pub struct CTaskWorm {
 const _: () = assert!(core::mem::size_of::<CTaskWorm>() == 0x3FC);
 
 impl CTaskWorm {
-    /// Returns the worm's current state code (lives at offset +0x44, inside the
-    /// CGameTask base's `_unknown_30` padding region).
+    /// Returns the worm's current state code (lives at offset +0x44, inside
+    /// `base.subclass_data`).
     ///
     /// Known states: `0x65`=idle, `0x67`=active turn, `0x7F`=drowning,
     /// `0x80`=hurt, `0x81`/`0x86`=dead, `0x87`=dead variant, `0x8B`=unknown.
     pub fn state(&self) -> u32 {
-        // SAFETY: offset 0x44 is within CGameTask._unknown_30 (0x30..0x84).
-        // Aligned to 4 bytes; repr(C) guarantees no reordering.
         unsafe { *((self as *const CTaskWorm as *const u8).add(0x44) as *const u32) }
+    }
+
+    // Weapon fire dispatch state:
+    // - Fire type/subtypes live in the WeaponEntry (via active_weapon_entry at +0x36C)
+    // - Completion flag lives in CGameTask.subclass_data[12] (this object, at +0x3C)
+
+    /// Weapon fire completion flag at CGameTask+0x3C (subclass_data[12]).
+    /// Set to 0 before FireWeapon dispatch, 1 after.
+    pub fn fire_complete(&self) -> i32 {
+        i32::from_ne_bytes(self.base.subclass_data[12..16].try_into().unwrap())
+    }
+
+    /// Set the weapon fire completion flag.
+    pub fn set_fire_complete(&mut self, value: i32) {
+        self.base.subclass_data[12..16].copy_from_slice(&value.to_ne_bytes());
     }
 
     /// Returns a reference to the vtable.

@@ -13,8 +13,15 @@ use crate::fixed::Fixed;
 pub struct CGameTask {
     /// 0x00-0x2F: Base CTask fields
     pub base: CTask,
-    /// 0x30-0x83: Unknown gameplay fields (84 bytes)
-    pub _unknown_30: [u8; 0x54],
+    /// 0x30-0x83: Subclass-specific data (84 bytes). Each CGameTask derivative
+    /// uses this region differently:
+    /// - CTaskWorm: weapon fire state (+0x30 type, +0x34/+0x38 subtypes, +0x3C flag)
+    /// - CTaskFilter: boolean message subscription table (+0x30..+0x93)
+    /// - CTaskMissile: spawn/physics parameters
+    /// - CTaskTeam: secondary vtable pointer (+0x30)
+    /// - CTaskCloud: parallax scroll depth (+0x30)
+    /// Access via subclass accessor methods, not directly.
+    pub subclass_data: [u8; 0x54],
     /// 0x84: X position in fixed-point
     pub pos_x: Fixed,
     /// 0x88: Y position in fixed-point

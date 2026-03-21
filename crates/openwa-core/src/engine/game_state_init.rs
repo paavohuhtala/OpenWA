@@ -385,11 +385,11 @@ pub unsafe fn check_weapon_avail(ddgame: *mut DDGame, weapon_index: u32) -> i32 
         _ => {}
     }
 
-    // Step 2: Branch on weapon name pointer (non-null = weapon defined).
+    // Step 2: Branch on weapon defined flag (nonzero = weapon exists in table).
     let weapon_table = (*ddgame).weapon_table;
-    let name_ptr = (*weapon_table).entries[weapon_index as usize].name1;
+    let defined = (*weapon_table).entries[weapon_index as usize].defined;
 
-    if (*ddgame).level_width_raw == 0 || !name_ptr.is_null() {
+    if (*ddgame).level_width_raw == 0 || defined != 0 {
         // Main path: check super weapon flag
         let super_result = is_super_weapon(weapon_index, (*ddgame).version_flag_3);
         if super_result != 0 && (*gi).super_weapon_allowed == 0 {

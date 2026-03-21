@@ -104,35 +104,61 @@ impl TryFrom<u32> for Weapon {
 /// 71 standard entries (indices 0..70), matching the `Weapon` enum.
 /// Source: wkJellyWorm/src/CustomWeapons.h (WeaponStruct).
 ///
-/// Only 3 fields are confirmed; the rest is opaque. wkJellyWorm copies
-/// entire entries via memcpy when creating custom weapons.
+/// Known fields from wkJellyWorm and InitWeaponTable (0x53CAB0) analysis.
+/// wkJellyWorm copies entire entries via memcpy when creating custom weapons.
 #[repr(C)]
 pub struct WeaponEntry {
     /// +0x00: Pointer to primary weapon name string.
-    /// Non-null means the weapon is defined/available.
     pub name1: *const c_char,
     /// +0x04: Pointer to secondary weapon name string.
     pub name2: *const c_char,
-    /// +0x08: Weapon panel row index (0..12).
-    pub panel_row: i32,
+    /// +0x08: Panel state (init: 0xFFFFFFFF). wkJellyWorm calls this `panelRow`.
+    pub panel_state: i32,
     /// +0x0C: Unknown.
     pub _unknown_0c: i32,
-    /// +0x10-0x1CF: Unknown fields (113 × i32).
-    pub _unknown_10: [u8; 0x1D0 - 0x10],
+    /// +0x10: Weapon defined flag. Nonzero = weapon exists in table.
+    /// Checked by DDGame__CheckWeaponAvail to determine if weapon is valid.
+    pub defined: i32,
+    /// +0x14-0x23: Unknown.
+    pub _unknown_14: [u8; 0x24 - 0x14],
+    /// +0x24: Availability flag. Init: 0xFFFFFFFF, then set to 0 (unavailable)
+    /// or 1 (available) per weapon. Weapon::None, SkipGo, Surrender default to 0.
+    pub availability: i32,
+    /// +0x28: Enabled flag (init: 1).
+    pub enabled: i32,
+    /// +0x2C-0x2F: Unknown.
+    pub _unknown_2c: [u8; 4],
+    /// +0x30: Weapon fire type (1=projectile, 2=rope, 3=grenade, 4=special).
+    /// Read by FireWeapon to dispatch to the correct handler.
+    pub fire_type: i32,
+    /// +0x34: Fire subtype for weapon types 3 (grenade/mortar) and 4 (special).
+    pub fire_subtype_34: i32,
+    /// +0x38: Fire subtype for weapon types 1 (projectile) and 2 (rope).
+    pub fire_subtype_38: i32,
+    /// +0x3C: Fire parameters sub-structure. Pointer to this field is passed
+    /// to fire sub-functions (PlacedExplosive, Projectile, CreateWeaponProjectile, etc.).
+    pub fire_params: WeaponFireParams,
 }
 const _: () = assert!(core::mem::size_of::<WeaponEntry>() == 0x1D0);
 
-/// Weapon table header (0x10 = 16 bytes before the first entry).
+/// Weapon fire parameters — embedded at WeaponEntry+0x3C.
 ///
-/// The table is allocated by `InitWeaponTable` (0x53CAB0) and stored
-/// at DDGame+0x510. Layout: 16-byte header + 71 × WeaponEntry.
+/// Pointer to this struct is passed to all fire dispatch sub-functions.
+/// Internal layout is mostly unknown (0x194 bytes).
+#[repr(C)]
+pub struct WeaponFireParams {
+    /// +0x00 (WeaponEntry+0x3C): First param DWORD.
+    pub _data: [u8; 0x1D0 - 0x3C],
+}
+const _: () = assert!(core::mem::size_of::<WeaponFireParams>() == 0x1D0 - 0x3C);
+
+/// Weapon table — flat array of 71 entries, no header.
+///
+/// Allocated by `InitWeaponTable` (0x53CAB0), stored at DDGame+0x510.
+/// Total size: 71 × 0x1D0 = 0x80B0 bytes.
 #[repr(C)]
 pub struct WeaponTable {
-    /// +0x00-0x0F: Header (purpose unknown).
-    pub _header: [u8; 0x10],
-    /// +0x10: Weapon entries array (71 standard weapons).
+    /// Weapon entries array (71 standard weapons, indices 0..70).
     pub entries: [WeaponEntry; 71],
 }
-const _: () = assert!(
-    core::mem::size_of::<WeaponTable>() == 0x10 + 71 * 0x1D0
-);
+const _: () = assert!(core::mem::size_of::<WeaponTable>() == 71 * 0x1D0);
