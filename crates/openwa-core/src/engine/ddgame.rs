@@ -1902,14 +1902,25 @@ pub struct TeamArenaRef {
 }
 
 impl TeamArenaRef {
-    /// Wrap a raw base pointer (for non-trampoline contexts like validation).
+    /// Wrap a raw integer pointer (for usercall trampoline register captures).
     ///
     /// # Safety
-    /// `base` must point to DDGame + TEAM_ARENA_STATE (0x4628).
+    /// `base` must point to a valid TeamArenaState (DDGame + 0x4628).
     #[inline]
     pub unsafe fn from_raw(base: u32) -> Self {
         Self {
             base: base as *mut u8,
+        }
+    }
+
+    /// Wrap a typed pointer to TeamArenaState.
+    ///
+    /// # Safety
+    /// `arena` must point to a valid TeamArenaState within a live DDGame.
+    #[inline]
+    pub unsafe fn from_ptr(arena: *mut TeamArenaState) -> Self {
+        Self {
+            base: arena as *mut u8,
         }
     }
 

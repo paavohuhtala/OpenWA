@@ -409,8 +409,7 @@ unsafe fn fire_skip_go(worm: *const CTaskWorm, entry: *const WeaponEntry) {
     let bit_index = (*entry).fire_params._data[0] & 0x1F;
     let bit = 1u32 << bit_index;
 
-    let arena_ptr = &raw mut (*ddgame).team_arena as u32;
-    let arena = TeamArenaRef::from_raw(arena_ptr);
+    let arena = TeamArenaRef::from_ptr(&raw mut (*ddgame).team_arena);
     let header = arena.team_header_mut(team_index);
     let flags = header.turn_action_flags;
 
