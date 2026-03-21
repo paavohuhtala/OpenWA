@@ -137,32 +137,42 @@ usercall_trampoline!(fn trampoline_count_alive_worms; impl_fn = count_alive_worm
 
 static ORIG_FIRE_WEAPON: AtomicU32 = AtomicU32::new(0);
 
-/// Logger called from the naked passthrough. EAX = weapon launch context.
-/// Context+0x30 = weapon type (1-4), +0x34 = subtype for types 3/4,
-/// +0x38 = subtype for types 1/2, +0x3C = params base.
-unsafe extern "cdecl" fn fire_weapon_log(weapon_ctx: u32) {
+/// Logger called from the naked passthrough.
+/// `weapon_ctx` = EAX = pointer to weapon data (from CTaskWorm+0x36C).
+/// `worm_ptr` = stack param = CTaskWorm pointer (pushed by WeaponRelease).
+unsafe extern "cdecl" fn fire_weapon_log(weapon_ctx: u32, worm_ptr: u32) {
     let ctx = weapon_ctx as *const u8;
     let weapon_type = *(ctx.add(0x30) as *const i32);
     let subtype_34 = *(ctx.add(0x34) as *const i32);
     let subtype_38 = *(ctx.add(0x38) as *const i32);
 
+    // Read selected weapon from CTaskWorm+0x170
+    let weapon_id = *((worm_ptr as *const u8).add(0x170) as *const u32);
+    let weapon_name = Weapon::try_from(weapon_id)
+        .map(|w| format!("{:?}", w))
+        .unwrap_or_else(|id| format!("Unknown({})", id));
+
     let _ = log_line(&format!(
-        "[Weapon] FireWeapon: type={} sub34={} sub38={}",
-        weapon_type, subtype_34, subtype_38
+        "[Weapon] FireWeapon: {} (id={}) type={} sub34={} sub38={}",
+        weapon_name, weapon_id, weapon_type, subtype_34, subtype_38
     ));
 }
 
 /// Naked passthrough: save regs → call logger → restore → jmp original.
+/// Stack layout at entry: [ret_addr] [wrapper_param]
+/// We read wrapper_param to pass to the logger as the worm pointer.
 #[unsafe(naked)]
 unsafe extern "C" fn trampoline_fire_weapon() {
     core::arch::naked_asm!(
         "push eax",
         "push ecx",
         "push edx",
-        // call logger with EAX (weapon_ctx) as cdecl arg
+        // call logger(weapon_ctx=EAX, worm_ptr=[ESP+16])
+        // ESP+16 because: 3 pushes (12 bytes) + ret_addr (4) = 16 to stack param
+        "push [esp+16]",
         "push eax",
         "call {log_fn}",
-        "add esp, 4",
+        "add esp, 8",
         "pop edx",
         "pop ecx",
         "pop eax",
