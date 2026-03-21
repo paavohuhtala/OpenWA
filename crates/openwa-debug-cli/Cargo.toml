@@ -1,0 +1,12 @@
+[package]
+name = "openwa-debug-cli"
+version = "0.1.0"
+edition = "2021"
+description = "CLI tool for querying the OpenWA debug server"
+
+[[bin]]
+name = "openwa-debug"
+path = "src/main.rs"
+
+[dependencies]
+openwa-debug-proto = { path = "../openwa-debug-proto" }
