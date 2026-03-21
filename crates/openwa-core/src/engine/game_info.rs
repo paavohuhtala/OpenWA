@@ -29,9 +29,9 @@ pub struct GameInfo {
 
     /// 0xD77C-0xD931: Unknown
     pub _unknown_d77c: [u8; 0xD932 - 0xD77C],
-    /// 0xD932: Weapon availability threshold (u16). For weapon 0x45:
-    /// if game_version > 0xD1 and this > 0x7FFF, weapon is disabled.
-    pub weapon_avail_threshold: u16,
+    /// 0xD932: DoubleTurnTime availability threshold (u16).
+    /// If game_version > 0xD1 and this > 0x7FFF, DoubleTurnTime is disabled.
+    pub double_turn_time_threshold: u16,
     /// 0xD934-0xD93B: Unknown
     pub _unknown_d934: [u8; 0xD93C - 0xD934],
     /// 0xD93C: Super weapon allowed flag. If 0, super weapons are
@@ -49,12 +49,12 @@ pub struct GameInfo {
 
     /// 0xD947-0xD94B: Unknown
     pub _unknown_d947: [u8; 0xD94C - 0xD947],
-    /// 0xD94C: Weapon 0x36 (Indian Nuclear Test) disable flag.
-    pub weapon_36_disabled: u8,
+    /// 0xD94C: Donkey (weapon 0x36) disable flag.
+    pub donkey_disabled: u8,
     /// 0xD94D-0xD955: Unknown
     pub _unknown_d94d: [u8; 0xD956 - 0xD94D],
-    /// 0xD956: Weapon index offset flag. Affects weapon 0x19 availability check.
-    pub weapon_index_offset: u8,
+    /// 0xD956: When set, the AquaSheep slot is treated as SuperSheep instead.
+    pub aquasheep_is_supersheep: u8,
     /// 0xD957-0xD958: Unknown
     pub _unknown_d957: [u8; 0xD959 - 0xD957],
     /// 0xD959: Version-gated weapon restriction. If nonzero and game_version > 0x29,
@@ -97,9 +97,9 @@ pub struct GameInfo {
 
     /// 0xDAFA-0xDB07: Unknown
     pub _unknown_dafa: [u8; 0xDB08 - 0xDAFA],
-    /// 0xDB08: Weapon 0x42 mode flag (u32). Controls team-count vs network_ecx
-    /// check for weapon availability.
-    pub weapon_42_mode: u32,
+    /// 0xDB08: Invisibility (weapon 0x42) mode flag (u32). Controls team-count
+    /// vs network_ecx check for availability.
+    pub invisibility_mode: u32,
     /// 0xDB0C-0xDB1B: Unknown
     pub _unknown_db0c: [u8; 0xDB1C - 0xDB0C],
     /// 0xDB1C: Replay map sub-type (first DWORD of first payload).

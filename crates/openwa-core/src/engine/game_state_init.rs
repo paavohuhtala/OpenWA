@@ -4,7 +4,6 @@
 //! InitGameState itself is Rust or the original WA code.
 
 use crate::engine::ddgame::DDGame;
-use crate::log::log_line;
 use crate::wa_alloc::wa_malloc;
 
 /// Pure Rust implementation of SpriteGfxTable__Init (0x541620).
@@ -350,20 +349,25 @@ pub unsafe fn check_weapon_avail(ddgame: *mut DDGame, weapon_index: u32) -> i32 
     let game_version = (*gi).game_version;
     let num_teams = (*gi).num_teams;
 
+    use crate::game::weapon::Weapon;
+
     // Step 1: Special per-weapon disabling rules
     match weapon_index {
-        10 | 0x37 | 0x38 => {
+        w if w == Weapon::Earthquake as u32
+            || w == Weapon::NuclearTest as u32
+            || w == Weapon::Armageddon as u32 =>
+        {
             if (*gi).net_config_2 != 0 && (*gi).net_weapon_exception == 0 {
                 return 0;
             }
         }
-        0x36 => {
-            if (*gi).weapon_36_disabled != 0 {
+        w if w == Weapon::Donkey as u32 => {
+            if (*gi).donkey_disabled != 0 {
                 return 0;
             }
         }
-        0x42 => {
-            if (*gi).weapon_42_mode == 0 {
+        w if w == Weapon::Invisibility as u32 => {
+            if (*gi).invisibility_mode == 0 {
                 if (*ddgame).network_ecx == 0 {
                     return 0;
                 }
@@ -371,9 +375,9 @@ pub unsafe fn check_weapon_avail(ddgame: *mut DDGame, weapon_index: u32) -> i32 
                 return 0;
             }
         }
-        0x45 => {
+        w if w == Weapon::DoubleTurnTime as u32 => {
             if game_version > 0xD1 {
-                if (*gi).weapon_avail_threshold > 0x7FFF {
+                if (*gi).double_turn_time_threshold > 0x7FFF {
                     return 0;
                 }
             }
@@ -381,11 +385,11 @@ pub unsafe fn check_weapon_avail(ddgame: *mut DDGame, weapon_index: u32) -> i32 
         _ => {}
     }
 
-    // Step 2: Branch on weapon table entry + level_width_raw
-    let weapon_table = (*ddgame).weapon_table as *const u8;
-    let weapon_entry = *(weapon_table.add(0x10 + (weapon_index as usize) * 0x1D0) as *const i32);
+    // Step 2: Branch on weapon name pointer (non-null = weapon defined).
+    let weapon_table = (*ddgame).weapon_table;
+    let name_ptr = (*weapon_table).entries[weapon_index as usize].name1;
 
-    if (*ddgame).level_width_raw == 0 || weapon_entry != 0 {
+    if (*ddgame).level_width_raw == 0 || !name_ptr.is_null() {
         // Main path: check super weapon flag
         let super_result = is_super_weapon(weapon_index, (*ddgame).version_flag_3);
         if super_result != 0 && (*gi).super_weapon_allowed == 0 {
@@ -393,13 +397,14 @@ pub unsafe fn check_weapon_avail(ddgame: *mut DDGame, weapon_index: u32) -> i32 
             return (game_version < 0x2A) as i32 - 1;
         }
 
-        if (*ddgame).weapon_restriction_active == 0 {
+        if (*ddgame).supersheep_restricted == 0 {
             return 1;
         }
 
-        // Check if weapon_index == (0x19 - (weapon_index_offset != 0))
-        let offset = ((*gi).weapon_index_offset != 0) as u32;
-        if weapon_index != 0x19 - offset {
+        // AquaSheep (25) or SuperSheep (24) depending on weapon_index_offset
+        let restricted_id = Weapon::AquaSheep as u32
+            - ((*gi).aquasheep_is_supersheep != 0) as u32;
+        if weapon_index != restricted_id {
             return 1;
         }
 

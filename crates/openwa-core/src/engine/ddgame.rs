@@ -9,6 +9,7 @@ use crate::display::palette::Palette;
 use crate::engine::ddgame_wrapper::DDGameWrapper;
 use crate::engine::game_info::GameInfo;
 use crate::engine::net_bridge::NetBridge;
+use crate::game::weapon::WeaponTable;
 use crate::input::keyboard::DDKeyboard;
 use crate::rebase::rb;
 // Re-export public GfxHandler functions so existing `engine::ddgame::*` imports keep working.
@@ -96,8 +97,8 @@ pub struct DDGame {
     pub arrow_collision_regions: [*mut u8; 32],
     /// 0x50C: Coordinate list — dynamic array of packed (x,y) terrain coords.
     pub coord_list: *mut CoordList,
-    /// 0x510: Weapon table pointer
-    pub weapon_table: *mut u8,
+    /// 0x510: Weapon table pointer (0x10 header + 71 × WeaponEntry).
+    pub weapon_table: *mut WeaponTable,
     /// 0x514: Unknown pointer (populated at runtime)
     pub _unknown_514: *mut u8,
     /// 0x518: Unknown pointer (populated at runtime)
@@ -281,9 +282,9 @@ pub struct DDGame {
 
     /// 0x7D84-0x7E24: Unknown
     pub _unknown_7d84: [u8; 0x7E25 - 0x7D84],
-    /// 0x7E25: Weapon restriction active flag (byte).
-    /// When nonzero, specific weapons (0x19 area) are disabled.
-    pub weapon_restriction_active: u8,
+    /// 0x7E25: SuperSheep/AquaSheep restriction active flag (byte).
+    /// When nonzero, the SuperSheep/AquaSheep weapon check is applied.
+    pub supersheep_restricted: u8,
     /// 0x7E26-0x7E2D: Unknown
     pub _unknown_7e26: [u8; 0x7E2E - 0x7E26],
     /// 0x7E2E: Version flag byte 1 (set by InitVersionFlags).

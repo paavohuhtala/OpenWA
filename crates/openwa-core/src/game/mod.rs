@@ -14,4 +14,4 @@ pub use scheme::{
     SCHEME_PAYLOAD_V2, SCHEME_PAYLOAD_V3, SCHEME_WEAPON_ORDER, WEAPONS_TOTAL_COUNT,
     WEAPONS_V1_COUNT, WEAPONS_V1_OFFSET, WEAPONS_V2_COUNT, WEAPONS_V2_OFFSET, WEAPON_ENTRY_SIZE,
 };
-pub use weapon::Weapon;
+pub use weapon::{Weapon, WeaponEntry, WeaponTable};
