@@ -1428,17 +1428,17 @@ pub mod offsets {
     /// GetAmmo/AddAmmo/SubtractAmmo.
     pub const TEAM_ARENA_STATE: usize = 0x4628;
 
-    // === Team block array (7 × FullTeamBlock, stride 0x51C) ===
+    // === Team block array (7 × TeamBlock, stride 0x51C) ===
     /// Start of team block array within DDGame (7 blocks, stride 0x51C).
     /// Derived: entry_ptr(team=0) - 0x598 = 0x4628 - 0x598 = 0x4090.
     /// Runtime-confirmed: block[0] is zeroed preamble, blocks[1-6] hold team data.
     pub const TEAM_BLOCKS: usize = 0x4090;
 
-    /// Byte offset from TeamArenaState base back to FullTeamBlock array start.
-    /// `blocks_ptr = (tws_base as *const c_char).sub(ARENA_TO_BLOCKS) as *const FullTeamBlock`
+    /// Byte offset from TeamArenaState base back to TeamBlock array start.
+    /// `blocks_ptr = (tws_base as *const c_char).sub(ARENA_TO_BLOCKS) as *const TeamBlock`
     ///
     /// entry_ptr(0) = DDGame+0x4628 = TEAM_BLOCKS + 0x598.
-    /// 0x598 = sizeof(FullTeamBlock) + 0x7C = one block + offset into TeamBlockHeader.
+    /// 0x598 = sizeof(TeamBlock) + 0x7C = one block + offset into TeamHeader.
     pub const ARENA_TO_BLOCKS: usize = 0x598;
 
     // === FUN_00526120 init offsets (stride 0x194, 10 entries) ===
@@ -1636,7 +1636,7 @@ const _: () = assert!(core::mem::size_of::<SoundQueueEntry>() == 0x24);
 ///
 /// WA supports up to 8 playable worms per team. The original code accesses
 /// worms via raw pointer arithmetic from the team entry pointer, using
-/// stride 0x9C. This means the 8th worm crosses the FullTeamBlock boundary
+/// stride 0x9C. This means the 8th worm crosses the TeamBlock boundary
 /// into the next block's header slot — see `TeamArenaRef::team_worm()`.
 ///
 /// Field offsets confirmed by runtime memory dump (validator DLL):
@@ -1675,7 +1675,7 @@ pub struct WormEntry {
 
 const _: () = assert!(core::mem::size_of::<WormEntry>() == 0x9C);
 
-/// Team-level metadata stored at slot 0 of each FullTeamBlock (0x9C bytes).
+/// Team-level metadata stored at slot 0 of each TeamBlock (0x9C bytes).
 ///
 /// This struct overlays the same memory as a WormEntry but interprets the
 /// high offsets (0x6C+) as team metadata rather than worm data. The low
@@ -1685,9 +1685,9 @@ const _: () = assert!(core::mem::size_of::<WormEntry>() == 0x9C);
 /// Accessed via `TeamArenaRef::team_header()` and `team_header_b()`.
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct TeamBlockHeader {
+pub struct TeamHeader {
     /// 0x00-0x5F: Opaque — may hold 8th worm data from previous team.
-    pub _worm_overlap: [u8; 0x60],
+    pub worm_overlap: [u8; 0x60],
     /// 0x60-0x6B: Unknown padding.
     pub _unknown_60: [u8; 0x0C],
     /// 0x6C: Team eliminated flag (nonzero = eliminated).
@@ -1710,27 +1710,27 @@ pub struct TeamBlockHeader {
     pub _unknown_98: [u8; 4],
 }
 
-const _: () = assert!(core::mem::size_of::<TeamBlockHeader>() == 0x9C);
+const _: () = assert!(core::mem::size_of::<TeamHeader>() == 0x9C);
 
-/// Union for slot 0 of a FullTeamBlock.
+/// Union for slot 0 of a TeamBlock.
 ///
 /// This slot is dual-purpose: its high offsets store team metadata
-/// (`TeamBlockHeader`), while its low offsets may contain the 8th worm
+/// (`TeamHeader`), while its low offsets may contain the 8th worm
 /// of the previous team (`WormEntry`). The two uses don't conflict
 /// because worm data occupies 0x00-0x5F and header data starts at 0x6C.
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub union TeamBlockSlot0 {
+pub union TeamSlot0 {
     /// View as worm data (used when the previous team has 8 worms).
     pub worm: core::mem::ManuallyDrop<WormEntry>,
     /// View as team metadata (eliminated, alliance, worm_count, etc.).
-    pub team: core::mem::ManuallyDrop<TeamBlockHeader>,
+    pub team: core::mem::ManuallyDrop<TeamHeader>,
 }
 
 /// Full per-team data block (0x51C bytes, 7 blocks in DDGame).
 ///
-/// Each block starts with a `TeamBlockSlot0` union (0x9C bytes) that serves
-/// dual purpose: its high offsets hold team metadata (`TeamBlockHeader`),
+/// Each block starts with a `TeamSlot0` union (0x9C bytes) that serves
+/// dual purpose: its high offsets hold team metadata (`TeamHeader`),
 /// while its low offsets may contain the 8th worm of the previous team.
 /// The remaining 7 worm slots follow, then 0x3C bytes of metadata.
 ///
@@ -1739,19 +1739,19 @@ pub union TeamBlockSlot0 {
 /// which uses raw pointer arithmetic and naturally crosses block boundaries.
 ///
 /// **Header access**: Use `TeamArenaRef::team_header(idx)` to get the
-/// `TeamBlockHeader` for a team (reads from `blocks[idx+1].header.team`).
+/// `TeamHeader` for a team (reads from `blocks[idx+1].header.team`).
 #[repr(C)]
-pub struct FullTeamBlock {
-    /// 0x000-0x09B: Header slot (union of TeamBlockHeader and WormEntry).
+pub struct TeamBlock {
+    /// 0x000-0x09B: Header slot (union of TeamHeader and WormEntry).
     /// Team metadata at high offsets; may hold 8th worm data at low offsets.
-    pub header: TeamBlockSlot0,
+    pub header: TeamSlot0,
     /// 0x09C-0x4DF: 7 worm entries (slots 1-7, stride 0x9C)
     pub worms: [WormEntry; 7],
     /// 0x4E0-0x51B: Team metadata (0x3C bytes)
-    pub _metadata: [u8; 0x3C],
+    pub trailer: [u8; 0x3C],
 }
 
-const _: () = assert!(core::mem::size_of::<FullTeamBlock>() == 0x51C);
+const _: () = assert!(core::mem::size_of::<TeamBlock>() == 0x51C);
 
 /// Team arena state area within DDGame (at DDGame + 0x4628).
 ///
@@ -1793,12 +1793,12 @@ pub struct TeamArenaState {
     /// This region contains 7 team entries at stride 0x51C (1-indexed, index 0
     /// is preamble). The original WA.exe accesses team data via raw pointer
     /// arithmetic relative to the arena base. In our Rust code, team data is
-    /// accessed through `TeamArenaRef`, `FullTeamBlock`, and `TeamBlockHeader`,
+    /// accessed through `TeamArenaRef`, `TeamBlock`, and `TeamHeader`,
     /// so this region is treated as opaque padding.
     ///
     /// The 7th entry (team 6, 1-indexed) only has 8 bytes before team_count;
     /// the rest overlaps with weapon_slots.
-    pub _teams_region: [u8; 0x1EB0],
+    pub team_blocks_region: [u8; 0x1EB0],
     /// 0x1EB0: Number of teams in the game (used by team iteration loops)
     pub team_count: i32,
     /// 0x1EB4: Per-alliance weapon ammo and delay data.
@@ -1885,7 +1885,7 @@ impl TeamArenaState {
 ///
 /// Wraps the raw `base: u32` from trampoline register captures and provides
 /// accessor methods that encapsulate the backward pointer arithmetic to reach
-/// FullTeamBlock worm data. The FullTeamBlock array lives 0x598 bytes before
+/// TeamBlock worm data. The TeamBlock array lives 0x598 bytes before
 /// the TeamArenaState in DDGame memory.
 ///
 /// # Safety
@@ -1922,10 +1922,10 @@ impl TeamArenaRef {
         &mut *(self.base as *mut TeamArenaState)
     }
 
-    /// Get pointer to the FullTeamBlock array base.
+    /// Get pointer to the TeamBlock array base.
     #[inline]
-    pub unsafe fn blocks(&self) -> *const FullTeamBlock {
-        self.base.sub(offsets::ARENA_TO_BLOCKS) as *const FullTeamBlock
+    pub unsafe fn blocks(&self) -> *const TeamBlock {
+        self.base.sub(offsets::ARENA_TO_BLOCKS) as *const TeamBlock
     }
 
     /// Get the team header (metadata) for a team.
@@ -1933,7 +1933,7 @@ impl TeamArenaRef {
     /// Returns `&block[team_idx+1].header.team`, which holds team metadata:
     /// worm_count, eliminated flag, weapon_alliance, team_name.
     #[inline]
-    pub unsafe fn team_header(&self, team_idx: usize) -> &TeamBlockHeader {
+    pub unsafe fn team_header(&self, team_idx: usize) -> &TeamHeader {
         &(*self.blocks().add(team_idx + 1)).header.team
     }
 
@@ -1941,7 +1941,7 @@ impl TeamArenaRef {
     ///
     /// Uses raw pointer arithmetic matching the original WA code:
     /// `base + team_idx * 0x51C + worm_num * 0x9C - 0x598`.
-    /// This naturally crosses FullTeamBlock boundaries when worm_num = 8,
+    /// This naturally crosses TeamBlock boundaries when worm_num = 8,
     /// since the 8th worm's early fields (state, health) spill into the
     /// next block's header slot. The header metadata lives at high offsets
     /// (0x6C+) that don't conflict with worm data (0x00-0x5F).
@@ -1964,7 +1964,7 @@ impl TeamArenaRef {
     /// **Note**: For accessing worms, prefer `team_worm()` which handles
     /// 8-worm teams correctly via cross-boundary pointer arithmetic.
     #[inline]
-    pub unsafe fn team_and_header(&self, team_idx: usize) -> (&FullTeamBlock, &TeamBlockHeader) {
+    pub unsafe fn team_and_header(&self, team_idx: usize) -> (&TeamBlock, &TeamHeader) {
         let blocks = self.blocks();
         let block = &*blocks.add(team_idx);
         let header = &(*blocks.add(team_idx + 1)).header.team;
@@ -1976,14 +1976,14 @@ impl TeamArenaRef {
     /// Pattern B indexes from block[i+2] for 0-indexed team `i`:
     /// `base + 0x510 + i*0x51C` = `blocks[i+2].header.team + 0x70`.
     #[inline]
-    pub unsafe fn team_header_b(&self, team_idx: usize) -> &TeamBlockHeader {
+    pub unsafe fn team_header_b(&self, team_idx: usize) -> &TeamHeader {
         &(*self.blocks().add(team_idx + 2)).header.team
     }
 
     /// Get mutable team header for Pattern B access.
     #[inline]
-    pub unsafe fn team_header_b_mut(&self, team_idx: usize) -> &mut TeamBlockHeader {
-        &mut (*(self.blocks() as *mut FullTeamBlock).add(team_idx + 2))
+    pub unsafe fn team_header_b_mut(&self, team_idx: usize) -> &mut TeamHeader {
+        &mut (*(self.blocks() as *mut TeamBlock).add(team_idx + 2))
             .header
             .team
     }

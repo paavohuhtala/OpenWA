@@ -409,7 +409,7 @@ unsafe fn fire_skip_go(worm: *const CTaskWorm, entry: *const WeaponEntry) {
     let bit = 1u32 << bit_index;
 
     // First DWORD of each team's region in TeamArenaState (stride 0x51C)
-    let flags_ptr = ddgame.team_arena._teams_region
+    let flags_ptr = ddgame.team_arena.team_blocks_region
         [team_index * 0x51C..][..4]
         .as_ptr() as *mut u32;
     let flags = *flags_ptr;
