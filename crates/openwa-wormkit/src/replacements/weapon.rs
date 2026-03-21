@@ -196,48 +196,47 @@ unsafe extern "cdecl" fn fire_weapon_impl(
     let weapon_type = (*entry).fire_type;
     let subtype_34 = (*entry).fire_subtype_34;
     let subtype_38 = (*entry).fire_subtype_38;
-    let params = &raw const (*entry).fire_complete as u32;
-    let worm_u32 = worm as u32;
+    let fire_params = &raw const (*entry).fire_params_start as u32;
+    let w = worm as u32;
 
     // Log weapon fire
     let weapon_id = (*worm).selected_weapon;
     let weapon_name = Weapon::try_from(weapon_id)
-        .map(|w| format!("{:?}", w))
+        .map(|wp| format!("{:?}", wp))
         .unwrap_or_else(|id| format!("Unknown({})", id));
     let _ = log_line(&format!(
         "[Weapon] FireWeapon: {} (id={}) type={} sub34={} sub38={}",
         weapon_name, weapon_id, weapon_type, subtype_34, subtype_38
     ));
 
-    // Completion flag at CGameTask.subclass_data[12] (worm+0x3C), NOT WeaponEntry
-    *(worm as *mut u8).add(0x3C).cast::<i32>() = 0;
+    (*worm).set_fire_complete(0);
 
     match weapon_type {
         1 => match subtype_38 {
-            1 => call_fire_stdcall1(worm_u32, params, rb(0x51EC80)),                    // PlacedExplosive
-            2 => call_fire_stdcall3(worm_u32, params, local_struct, rb(0x51DFB0)),      // Projectile
-            3 => call_fire_thiscall2(worm_u32, params, local_struct, rb(0x51E0F0)),     // CreateWeaponProjectile
-            4 => call_fire_stdcall2(worm_u32, params, local_struct, rb(0x51ED90)),      // Shotgun
+            1 => call_fire_stdcall1(w, fire_params, rb(0x51EC80)),                    // PlacedExplosive
+            2 => call_fire_stdcall3(w, fire_params, local_struct, rb(0x51DFB0)),      // Projectile
+            3 => call_fire_thiscall2(w, fire_params, local_struct, rb(0x51E0F0)),     // CreateWeaponProjectile
+            4 => call_fire_stdcall2(w, fire_params, local_struct, rb(0x51ED90)),      // Shotgun
             _ => {}
         },
         2 => match subtype_38 {
-            1 => call_fire_stdcall3(worm_u32, params, local_struct, rb(0x51E1C0)),      // RopeType1
-            2 => call_fire_thiscall2(worm_u32, params, local_struct, rb(0x51E0F0)),     // CreateWeaponProjectile
-            3 => call_fire_stdcall3(worm_u32, params, local_struct, rb(0x51E240)),      // RopeType3
+            1 => call_fire_stdcall3(w, fire_params, local_struct, rb(0x51E1C0)),      // RopeType1
+            2 => call_fire_thiscall2(w, fire_params, local_struct, rb(0x51E0F0)),     // CreateWeaponProjectile
+            3 => call_fire_stdcall3(w, fire_params, local_struct, rb(0x51E240)),      // RopeType3
             _ => {}
         },
         3 => {
-            let params_34 = &raw const (*entry).fire_subtype_34 as u32;
-            call_fire_stdcall3(worm_u32, params_34, local_struct, rb(0x51E2C0));        // GrenadeMortar
+            let subtype_34_ptr = &raw const (*entry).fire_subtype_34 as u32;
+            call_fire_stdcall3(w, subtype_34_ptr, local_struct, rb(0x51E2C0));        // GrenadeMortar
         }
         4 => {
-            let params_38 = &raw const (*entry).fire_subtype_38 as u32;
-            fire_weapon_special(subtype_34, params_38, worm_u32, local_struct);
+            let subtype_38_ptr = &raw const (*entry).fire_subtype_38 as u32;
+            fire_weapon_special(subtype_34, subtype_38_ptr, w, local_struct);
         }
         _ => {}
     }
 
-    *(worm as *mut u8).add(0x3C).cast::<i32>() = 1;
+    (*worm).set_fire_complete(1);
 }
 
 // ── Sub-function bridges ────────────────────────────────────

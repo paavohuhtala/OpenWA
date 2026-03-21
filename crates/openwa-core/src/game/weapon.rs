@@ -135,9 +135,9 @@ pub struct WeaponEntry {
     pub fire_subtype_34: i32,
     /// +0x38: Fire subtype for weapon types 1 (projectile) and 2 (rope).
     pub fire_subtype_38: i32,
-    /// +0x3C: Fire completion flag / params base.
-    /// Set to 0 before dispatch, 1 after. Address also passed to fire handlers.
-    pub fire_complete: i32,
+    /// +0x3C: Weapon fire params start. Address of this field is passed
+    /// to fire sub-functions as the params base pointer.
+    pub fire_params_start: u32,
     /// +0x40-0x1CF: Unknown fields.
     pub _unknown_40: [u8; 0x1D0 - 0x40],
 }

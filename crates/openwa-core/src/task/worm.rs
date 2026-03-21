@@ -186,9 +186,20 @@ impl CTaskWorm {
         unsafe { *((self as *const CTaskWorm as *const u8).add(0x44) as *const u32) }
     }
 
-    // Weapon fire state lives in the WeaponEntry pointed to by active_weapon_entry
-    // (+0x36C), NOT in CTaskWorm itself. See WeaponEntry fields: fire_type (+0x30),
-    // fire_subtype_34 (+0x34), fire_subtype_38 (+0x38), fire_complete (+0x3C).
+    // Weapon fire dispatch state:
+    // - Fire type/subtypes live in the WeaponEntry (via active_weapon_entry at +0x36C)
+    // - Completion flag lives in CGameTask.subclass_data[12] (this object, at +0x3C)
+
+    /// Weapon fire completion flag at CGameTask+0x3C (subclass_data[12]).
+    /// Set to 0 before FireWeapon dispatch, 1 after.
+    pub fn fire_complete(&self) -> i32 {
+        i32::from_ne_bytes(self.base.subclass_data[12..16].try_into().unwrap())
+    }
+
+    /// Set the weapon fire completion flag.
+    pub fn set_fire_complete(&mut self, value: i32) {
+        self.base.subclass_data[12..16].copy_from_slice(&value.to_ne_bytes());
+    }
 
     /// Returns a reference to the vtable.
     ///
