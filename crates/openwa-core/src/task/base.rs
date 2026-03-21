@@ -139,6 +139,25 @@ impl SharedDataTable {
         h
     }
 
+    /// Look up an entity by key pair. Returns the entity pointer, or null.
+    ///
+    /// Pure Rust equivalent of `FUN_004FDF90` (SharedData__Lookup).
+    /// fastcall(ECX=key_esi, EDX=key_edi, stack=task) in the original.
+    ///
+    /// # Safety
+    /// The table and all linked nodes must be valid.
+    pub unsafe fn lookup(&self, key_esi: u32, key_edi: u32) -> *mut u8 {
+        let bucket = Self::bucket_for(key_esi, key_edi) as usize;
+        let mut node = *self.buckets.add(bucket);
+        while !node.is_null() {
+            if (*node).key_edi == key_edi && (*node).key_esi == key_esi {
+                return (*node).entity;
+            }
+            node = (*node).next;
+        }
+        core::ptr::null_mut()
+    }
+
     /// Iterate all nodes across all 256 buckets.
     ///
     /// # Safety

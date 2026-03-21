@@ -367,7 +367,7 @@ unsafe fn fire_weapon_special(
         9 => call_fire_usercall_stdcall1(e, w, local_struct, rb(0x51E480)),              // Prod (EAX=entry)
         10 => call_fire_usercall(w, w, rb(0x51E710)),                                    // Air Strike (EAX=worm)
         11 => fire_worm_vtable_0xe(w, 0x71),                                            // Scales of Justice
-        13 => call_fire_usercall(e, w, rb(0x51E5C0)),                                    // Napalm (EAX=entry)
+        13 => fire_send_team_message(worm, 0x2B),                                          // Napalm Strike
         14 => call_fire_usercall(w, w, rb(0x51E670)),                                    // Mail/Mine/Mole (EAX=worm)
         16 => {
             // Teleport: MOV EAX,[ESI+0x44] (worm state) before check
@@ -383,7 +383,7 @@ unsafe fn fire_weapon_special(
         18 => fire_worm_vtable_0xe(w, 0x72),                                            // Suicide Bomber
         19 => fire_skip_go(worm, entry),                                                 // Skip Go (pure Rust)
         20 => call_fire_usercall(w, w, rb(0x51E600)),                                    // Surrender (EAX=worm)
-        21 => call_fire_usercall(e, w, rb(0x51EBE0)),                                    // Select Worm (EAX=entry)
+        21 => fire_select_worm(worm),                                                     // Select Worm (pure Rust)
         22 => call_fire_usercall(e, w, rb(0x51EC30)),                                    // Jet Pack (EAX=entry)
         23 => fire_worm_vtable_0xe(w, 0x78),                                            // Magic Bullet
         24 => call_fire_usercall(e, w, rb(0x51EA60)),                                    // Low Grav (EAX=entry)
@@ -392,6 +392,62 @@ unsafe fn fire_weapon_special(
 }
 
 // ── Pure Rust fire handlers (no bridge needed) ──────────────
+
+/// Send a message to the worm's CTaskTeam entity via SharedData lookup.
+///
+/// Pattern shared by Napalm Strike (msg 0x2B), Surrender (msg 0x29), etc.
+/// Looks up entity with key (0, 0x14=CTaskTeam) in worm's shared data table,
+/// then calls entity->vtable[2] (HandleMessage) with the given message type.
+///
+/// The 0x40C-byte local buffer is passed as data pointer; team_index is written
+/// at buf+0x08 to identify which team fired.
+unsafe fn fire_send_team_message(worm: *mut CTaskWorm, msg_type: u32) {
+    use openwa_core::task::SharedDataTable;
+
+    let task = &(*worm).base.base; // CTask base
+    let table = SharedDataTable::from_task(task);
+
+    // Lookup CTaskTeam (key_esi=0, key_edi=0x14)
+    let team_entity = table.lookup(0, 0x14);
+    if team_entity.is_null() {
+        return;
+    }
+
+    // Prepare local buffer (0x40C bytes, mostly zero)
+    let mut buf = [0u8; 0x40C];
+    let team_index = (*worm).team_index;
+    buf[8..12].copy_from_slice(&team_index.to_ne_bytes());
+
+    // Call entity->vtable[2] = HandleMessage(sender=worm, msg, size=4, data=&buf)
+    let vtable = *(team_entity as *const u32);
+    let handle_message: unsafe extern "thiscall" fn(*mut u8, *mut CTaskWorm, u32, u32, *const u8) =
+        core::mem::transmute(*(vtable as *const u32).add(2));
+    handle_message(team_entity, worm, msg_type, 4, buf.as_ptr());
+}
+
+/// Select Worm (subtype 21) — pure Rust replacement for 0x51EBE0.
+///
+/// Sends message 0x5D to CTaskTeam with buf = [8, team_index, ...].
+unsafe fn fire_select_worm(worm: *mut CTaskWorm) {
+    use openwa_core::task::SharedDataTable;
+
+    let task = &(*worm).base.base;
+    let table = SharedDataTable::from_task(task);
+    let team_entity = table.lookup(0, 0x14);
+    if team_entity.is_null() {
+        return;
+    }
+
+    let mut buf = [0u8; 0x40C];
+    // buf[0..4] = 8 (constant), buf[4..8] = team_index
+    buf[0..4].copy_from_slice(&8u32.to_ne_bytes());
+    buf[4..8].copy_from_slice(&(*worm).team_index.to_ne_bytes());
+
+    let vtable = *(team_entity as *const u32);
+    let handle_message: unsafe extern "thiscall" fn(*mut u8, *mut CTaskWorm, u32, u32, *const u8) =
+        core::mem::transmute(*(vtable as *const u32).add(2));
+    handle_message(team_entity, worm, 0x5D, 0x408, buf.as_ptr());
+}
 
 /// Skip Go (subtype 19) — pure Rust replacement for 0x51E8C0.
 ///
