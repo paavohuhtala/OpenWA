@@ -7,6 +7,7 @@ use crate::hook;
 use crate::log_line;
 use openwa_core::address::va;
 use openwa_core::engine::game_info::GameInfo;
+use openwa_core::engine::map_class::MapClass;
 use openwa_core::engine::replay::{self, ReplayError, ReplayStream, ReplayTeamEntry};
 use openwa_core::rebase::rb;
 use openwa_core::wa_alloc::{wa_free, wa_malloc};
@@ -542,47 +543,36 @@ unsafe fn parse_and_write_v2plus(
     // For positive sub-version (our test case), we need to:
     // Map loading: construct map object, load playback.thm, copy info, release.
     if (*gi).replay_map_type >= 1 {
-        // Alloc: PUSH 0x29628; CALL 005C0AB8; ADD ESP,4 — cdecl(size)
-        let alloc: unsafe extern "cdecl" fn(u32) -> u32 =
+        let alloc: unsafe extern "cdecl" fn(u32) -> *mut MapClass =
             core::mem::transmute(rb(va::WA_CRT_MALLOC));
-        let buf = alloc(0x29628);
-        let map_obj = if buf != 0 {
-            // Construct: PUSH 1; PUSH buf; CALL 00447E80 — stdcall(buf, 1)
-            let construct: unsafe extern "stdcall" fn(u32, i32) -> *mut u32 =
+        let buf = alloc(core::mem::size_of::<MapClass>() as u32);
+        let map = if !buf.is_null() {
+            let construct: unsafe extern "stdcall" fn(*mut MapClass, i32) -> *mut MapClass =
                 core::mem::transmute(rb(va::MAP_CLASS_CONSTRUCTOR));
             construct(buf, 1)
         } else {
             ptr::null_mut()
         };
 
-        // Load: PUSH 0; PUSH path; PUSH map_obj; CALL 0044A9A0 — stdcall(3)
-        let load: unsafe extern "stdcall" fn(*mut u32, *const u8, i32) -> i32 =
+        let load: unsafe extern "stdcall" fn(*mut MapClass, *const u8, i32) -> i32 =
             core::mem::transmute(rb(va::MAP_CLASS_LOAD));
-        let ok = load(map_obj, b"data\\playback.thm\0".as_ptr(), 0);
+        let ok = load(map, b"data\\playback.thm\0".as_ptr(), 0);
 
         if ok == 0 {
-            // Load failed — release map_obj and return error
-            if !map_obj.is_null() {
-                let vtable = *map_obj;
-                let release: unsafe extern "thiscall" fn(*mut u32, i32) =
-                    core::mem::transmute(*(vtable as *const u32).add(1));
-                release(map_obj, 1);
+            if !map.is_null() {
+                ((*(*map).vtable).destructor)(map, 1);
             }
             return Err(ReplayError::MapLoadFailure);
         }
 
-        // FUN_00449B60: usercall(ESI=map_obj). Copies map info to game state.
-        call_usercall_esi(map_obj as u32, rb(va::MAP_COPY_INFO));
+        // Copy map info to game state (usercall ESI=map)
+        call_usercall_esi(map as u32, rb(va::MAP_COPY_INFO));
 
-        // Terrain flag: CMP [ESI+0x29618],0; SETZ
-        (*gi).terrain_flag =
-            (*(map_obj as *const u8).add(0x29618) == 0) as u8;
+        // Terrain flag: zero = cavern terrain
+        (*gi).terrain_flag = ((*map).terrain_flag == 0) as u8;
 
-        // Release: PUSH 1; MOV ECX,ESI; CALL [vtable+4] — thiscall(this, 1)
-        let vtable = *map_obj;
-        let release: unsafe extern "thiscall" fn(*mut u32, i32) =
-            core::mem::transmute(*(vtable as *const u32).add(1));
-        release(map_obj, 1);
+        // Release map object
+        ((*(*map).vtable).destructor)(map, 1);
     }
 
     // Log output is written by the caller after map loading completes.
