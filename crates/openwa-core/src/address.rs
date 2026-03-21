@@ -17,6 +17,7 @@ pub mod va {
     pub const TEXT_END: u32 = 0x0061_9FFF;
     pub const RDATA_START: u32 = 0x0061_A000;
     pub const DATA_START: u32 = 0x0069_4000;
+    pub const DATA_END: u32 = 0x008C_5000; // .rsrc starts here; .data/.bss ends just before
 
     // === Vtables (in .rdata) ===
 

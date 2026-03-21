@@ -7,6 +7,7 @@ description = "Core library for Worms Armageddon reverse engineering — types, 
 [dependencies]
 heapless = "0.9"
 hound = "3"
+openwa-debug-proto = { path = "../openwa-debug-proto" }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = { version = "0.62", features = [

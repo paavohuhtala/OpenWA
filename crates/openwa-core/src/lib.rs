@@ -14,6 +14,7 @@ pub mod render;
 pub mod address;
 pub mod fixed;
 pub mod log;
+pub mod mem;
 pub mod rebase;
 pub mod task;
 pub mod vtable;
