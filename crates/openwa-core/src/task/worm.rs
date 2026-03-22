@@ -210,3 +210,38 @@ impl CTaskWorm {
         &*(self.base.base.vtable as *const CTaskWormVTable)
     }
 }
+
+// ── Snapshot impl ──────────────────────────────────────────
+
+#[cfg(target_arch = "x86")]
+impl crate::snapshot::Snapshot for CTaskWorm {
+    unsafe fn write_snapshot(&self, w: &mut dyn core::fmt::Write, indent: usize) -> core::fmt::Result {
+        use crate::snapshot::{write_indent, write_raw_region};
+        let i = indent;
+        let b = &self.base; // CGameTask
+
+        write_indent(w, i)?; writeln!(w, "pos = ({}, {})", b.pos_x, b.pos_y)?;
+        write_indent(w, i)?; writeln!(w, "speed = ({}, {})", b.speed_x, b.speed_y)?;
+        write_indent(w, i)?; writeln!(w, "angle = {}", b.angle)?;
+        write_indent(w, i)?; writeln!(w, "team_index = {}", self.team_index)?;
+        write_indent(w, i)?; writeln!(w, "worm_index = {}", self.worm_index)?;
+        write_indent(w, i)?; writeln!(w, "slot_id = {}", self.slot_id)?;
+        write_indent(w, i)?; writeln!(w, "selected_weapon = {}", self.selected_weapon)?;
+        write_indent(w, i)?; writeln!(w, "facing = {}", self.facing_direction)?;
+        write_indent(w, i)?; writeln!(w, "aim_angle = 0x{:08X}", self.aim_angle)?;
+
+        write_indent(w, i)?; write!(w, "spawn_params =")?;
+        for v in &self.spawn_params { write!(w, " {:08X}", v)?; }
+        writeln!(w)?;
+
+        // Raw dump of unknown regions
+        write_indent(w, i)?; writeln!(w, "_unknown_1f0 ({} bytes):", self._unknown_1f0.len())?;
+        write_raw_region(w, self._unknown_1f0.as_ptr(), self._unknown_1f0.len(), i + 1)?;
+        write_indent(w, i)?; writeln!(w, "_unknown_28c ({} bytes):", self._unknown_28c.len())?;
+        write_raw_region(w, self._unknown_28c.as_ptr(), self._unknown_28c.len(), i + 1)?;
+        write_indent(w, i)?; writeln!(w, "_unknown_370 ({} bytes):", self._unknown_370.len())?;
+        write_raw_region(w, self._unknown_370.as_ptr(), self._unknown_370.len(), i + 1)?;
+
+        Ok(())
+    }
+}

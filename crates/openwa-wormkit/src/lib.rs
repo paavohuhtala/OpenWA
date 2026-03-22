@@ -9,6 +9,7 @@ mod debug_ui;
 mod debug_watchpoint;
 pub mod hook;
 mod replacements;
+mod snapshot;
 mod validation;
 
 // ---------------------------------------------------------------------------

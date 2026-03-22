@@ -41,6 +41,8 @@ pub enum Request {
     Frame,
     /// Set a frame breakpoint (-1 to clear).
     Break { frame: i32 },
+    /// Capture a canonicalized game state snapshot.
+    Snapshot,
 }
 
 /// One step in a resolved pointer chain, for display.
@@ -93,6 +95,8 @@ pub enum Response {
     FrameInfo { frame: i32, paused: bool, breakpoint: i32 },
     /// Breakpoint set/cleared.
     BreakSet { frame: i32 },
+    /// Game state snapshot.
+    Snapshot { frame: i32, text: String },
     Error { message: String },
 }
 

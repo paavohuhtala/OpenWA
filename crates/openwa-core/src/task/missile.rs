@@ -182,3 +182,51 @@ pub enum MissileType {
     /// Unknown type code (value 1 never observed; any other unrecognised value).
     Unknown(u32),
 }
+
+// ── Snapshot impl ──────────────────────────────────────────
+
+#[cfg(target_arch = "x86")]
+impl crate::snapshot::Snapshot for CTaskMissile {
+    unsafe fn write_snapshot(&self, w: &mut dyn core::fmt::Write, indent: usize) -> core::fmt::Result {
+        use crate::snapshot::{write_indent, write_raw_region};
+        let i = indent;
+        let b = &self.base; // CGameTask
+
+        write_indent(w, i)?; writeln!(w, "pos = ({}, {})", b.pos_x, b.pos_y)?;
+        write_indent(w, i)?; writeln!(w, "speed = ({}, {})", b.speed_x, b.speed_y)?;
+        write_indent(w, i)?; writeln!(w, "launch_seed = 0x{:08X}", self.launch_seed)?;
+        write_indent(w, i)?; writeln!(w, "slot_id = {}", self.slot_id)?;
+
+        write_indent(w, i)?; write!(w, "spawn_params =")?;
+        for v in &self.spawn_params { write!(w, " {:08X}", v)?; }
+        writeln!(w)?;
+
+        write_indent(w, i)?; write!(w, "weapon_data =")?;
+        for (j, v) in self.weapon_data.iter().enumerate() {
+            if j % 16 == 0 { writeln!(w)?; write_indent(w, i + 1)?; }
+            write!(w, " {:08X}", v)?;
+        }
+        writeln!(w)?;
+
+        write_indent(w, i)?; write!(w, "render_data =")?;
+        for (j, v) in self.render_data.iter().enumerate() {
+            if j % 16 == 0 { writeln!(w)?; write_indent(w, i + 1)?; }
+            write!(w, " {:08X}", v)?;
+        }
+        writeln!(w)?;
+
+        write_indent(w, i)?; writeln!(w, "launch_speed_raw = {}", self.launch_speed_raw)?;
+        write_indent(w, i)?; writeln!(w, "homing_enabled = {}", self.homing_enabled)?;
+        write_indent(w, i)?; writeln!(w, "direction = {}", self.direction)?;
+
+        // Unknown regions
+        write_indent(w, i)?; writeln!(w, "_unknown_fc ({} bytes):", self._unknown_fc.len())?;
+        write_raw_region(w, self._unknown_fc.as_ptr(), self._unknown_fc.len(), i + 1)?;
+        write_indent(w, i)?; writeln!(w, "_unknown_37c ({} bytes):", self._unknown_37c.len())?;
+        write_raw_region(w, self._unknown_37c.as_ptr(), self._unknown_37c.len(), i + 1)?;
+        write_indent(w, i)?; writeln!(w, "_unknown_3cc ({} bytes):", self._unknown_3cc.len())?;
+        write_raw_region(w, self._unknown_3cc.as_ptr(), self._unknown_3cc.len(), i + 1)?;
+
+        Ok(())
+    }
+}

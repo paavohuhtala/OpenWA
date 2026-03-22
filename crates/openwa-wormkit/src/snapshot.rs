@@ -1,0 +1,149 @@
+//! Game state snapshot capture.
+//!
+//! Walks DDGame, the team arena, and the entity tree to produce a
+//! canonicalized text dump suitable for cross-run diffing.
+
+use core::fmt::Write;
+
+use openwa_core::address::va;
+use openwa_core::engine::GameSession;
+use openwa_core::rebase::rb;
+use openwa_core::snapshot::{write_raw_region, Snapshot};
+use openwa_core::task::{CTask, CTaskBfsIter, CTaskMissile, CTaskWorm};
+
+/// Capture a full game state snapshot as text.
+///
+/// # Safety
+/// Must be called from the DLL while the game is paused (frame breakpoint).
+#[cfg(target_arch = "x86")]
+pub unsafe fn capture() -> String {
+    let mut out = String::with_capacity(128 * 1024);
+
+    let session_ptr = rb(va::G_GAME_SESSION) as *const *mut GameSession;
+    let session = *session_ptr;
+    if session.is_null() {
+        let _ = writeln!(out, "ERROR: g_GameSession is null");
+        return out;
+    }
+    let wrapper = (*session).ddgame_wrapper;
+    if wrapper.is_null() {
+        let _ = writeln!(out, "ERROR: DDGameWrapper is null");
+        return out;
+    }
+    let ddgame = (*wrapper).ddgame;
+    if ddgame.is_null() {
+        let _ = writeln!(out, "ERROR: DDGame is null");
+        return out;
+    }
+
+    let _ = writeln!(out, "=== Frame {} ===\n", (*ddgame).frame_counter);
+
+    // ── DDGame ──
+    let _ = writeln!(out, "[DDGame]");
+    let _ = (*ddgame).write_snapshot(&mut out, 1);
+    let _ = writeln!(out);
+
+    // ── Team blocks + worm entries ──
+    let team_count = (*ddgame).team_arena.team_count as usize;
+    let _ = writeln!(out, "[Teams] count={}", team_count);
+    let arena = openwa_core::engine::ddgame::TeamArenaRef::from_ptr(
+        &raw mut (*ddgame).team_arena,
+    );
+    let blocks = arena.blocks();
+    for t in 0..team_count {
+        let header = arena.team_header(t);
+        let name = core::ffi::CStr::from_ptr(header.team_name.as_ptr() as *const _)
+            .to_string_lossy();
+        let _ = writeln!(out, "\n  [Team {}] \"{}\"", t, name);
+        let _ = writeln!(out, "    eliminated={} alliance={} worm_count={} active_worm={}",
+            header.eliminated, header.alliance, header.worm_count, header.active_worm);
+        let _ = writeln!(out, "    weapon_alliance={} turn_action_flags=0x{:08X}",
+            header.weapon_alliance, header.turn_action_flags);
+
+        // Worms are in block[t+1].worms[0..worm_count] (1-indexed blocks)
+        let worm_count = header.worm_count.max(0) as usize;
+        let block = &*blocks.add(t + 1);
+        for wi in 0..worm_count.min(7) {
+            let worm = &block.worms[wi];
+            let _ = write!(out, "    [Worm {}] ", wi);
+            let _ = worm.write_snapshot(&mut out, 0);
+        }
+    }
+    let _ = writeln!(out);
+
+    // ── Entity tree ──
+    let task_land = (*ddgame).task_land;
+    if task_land.is_null() {
+        let _ = writeln!(out, "[Entities] task_land=null");
+        return out;
+    }
+
+    let delta = rb(va::IMAGE_BASE).wrapping_sub(va::IMAGE_BASE);
+    let root = task_land as *const CTask;
+    let iter = CTaskBfsIter::new(root);
+
+    // Census + detailed dump
+    let entities: Vec<*const CTask> = iter.collect();
+    let _ = writeln!(out, "[Entities] {} total", entities.len());
+
+    // Census by type
+    let mut counts = std::collections::BTreeMap::<&str, usize>::new();
+    for &task in &entities {
+        let vt = (*(task as *const u32)).wrapping_sub(delta);
+        let name = vtable_name(vt);
+        *counts.entry(name).or_default() += 1;
+    }
+    let _ = write!(out, "  ");
+    for (name, count) in &counts {
+        let _ = write!(out, "{}x{} ", name, count);
+    }
+    let _ = writeln!(out, "\n");
+
+    // Detail per entity
+    for &task in &entities {
+        let vt = (*(task as *const u32)).wrapping_sub(delta);
+        let name = vtable_name(vt);
+        let class_type = (*task).class_type;
+        let _ = writeln!(out, "  [{}] class_type={:?}", name, class_type);
+
+        match vt {
+            x if x == va::CTASK_WORM_VTABLE => {
+                let worm = task as *const CTaskWorm;
+                let _ = (*worm).write_snapshot(&mut out, 2);
+            }
+            x if x == va::CTASK_MISSILE_VTABLE => {
+                let missile = task as *const CTaskMissile;
+                let _ = (*missile).write_snapshot(&mut out, 2);
+            }
+            _ => {
+                // Unknown entity — raw dump of first 0x100 bytes
+                let size = 0x100usize;
+                let _ = write_raw_region(&mut out, task as *const u8, size, 2);
+            }
+        }
+        let _ = writeln!(out);
+    }
+
+    out
+}
+
+fn vtable_name(ghidra_vt: u32) -> &'static str {
+    match ghidra_vt {
+        x if x == va::CTASK_WORM_VTABLE => "CTaskWorm",
+        x if x == va::CTASK_MISSILE_VTABLE => "CTaskMissile",
+        x if x == va::CTASK_TEAM_VTABLE => "CTaskTeam",
+        x if x == va::CTASK_LAND_VTABLE => "CTaskLand",
+        x if x == va::CTASK_TURN_GAME_VTABLE => "CTaskTurnGame",
+        x if x == va::CTASK_CLOUD_VTABLE => "CTaskCloud",
+        x if x == va::CTASK_DIRT_VTABLE => "CTaskDirt",
+        x if x == va::CTASK_FIRE_VTABLE => "CTaskFire",
+        x if x == va::CTASK_SEA_BUBBLE_VTABLE => "CTaskSeaBubble",
+        x if x == va::CTASK_MINE_VTABLE => "CTaskMine",
+        x if x == va::CTASK_OILDRUM_VTABLE => "CTaskOilDrum",
+        x if x == va::CTASK_CRATE_VTABLE => "CTaskCrate",
+        x if x == va::CTASK_CPU_VTABLE => "CTaskCPU",
+        x if x == va::CTASK_FILTER_VTABLE => "CTaskFilter",
+        x if x == va::CTASK_SPRITE_ANIM_VTABLE => "CTaskSpriteAnim",
+        _ => "Unknown",
+    }
+}

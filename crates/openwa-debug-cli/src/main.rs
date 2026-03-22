@@ -86,6 +86,7 @@ fn main() {
                 .unwrap_or_else(|| { eprintln!("Usage: break <frame> | break clear"); process::exit(1); });
             Request::Break { frame }
         }
+        Some("snapshot") => Request::Snapshot,
         Some(cmd) => {
             eprintln!("Unknown command: {cmd}");
             print_usage();
@@ -176,6 +177,10 @@ fn print_response(response: &Response, format: Format) {
             } else {
                 println!("Breakpoint cleared");
             }
+        }
+        Response::Snapshot { frame, text } => {
+            println!("=== Snapshot at frame {frame} ===\n");
+            print!("{text}");
         }
         Response::Error { message } => {
             eprintln!("Server error: {message}");
@@ -347,6 +352,7 @@ fn print_usage() {
     eprintln!("  step [N]                  Advance N frames (default 1), then pause");
     eprintln!("  frame                     Show current frame and pause state");
     eprintln!("  break <N>                 Set frame breakpoint (break clear to remove)");
+    eprintln!("  snapshot                  Dump canonicalized game state (for diffing)");
     eprintln!();
     eprintln!("Address syntax:");
     eprintln!("  0x669F8C                  Ghidra VA (rebased automatically)");

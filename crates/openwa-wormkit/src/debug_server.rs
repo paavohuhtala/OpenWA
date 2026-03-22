@@ -135,6 +135,11 @@ fn handle_request(request: Request) -> Response {
             crate::debug_sync::set_breakpoint(frame);
             Response::BreakSet { frame }
         }
+        Request::Snapshot => {
+            let text = unsafe { crate::snapshot::capture() };
+            let frame = crate::debug_sync::current_frame();
+            Response::Snapshot { frame, text }
+        }
     }
 }
 
