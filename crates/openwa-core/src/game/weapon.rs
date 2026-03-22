@@ -1,5 +1,7 @@
 use core::ffi::c_char;
 
+use crate::fixed::Fixed;
+
 /// Weapon types. Contiguous range 0-70.
 ///
 /// Source: wkJellyWorm Constants.h
@@ -114,13 +116,22 @@ pub struct WeaponEntry {
     pub name2: *const c_char,
     /// +0x08: Panel state (init: 0xFFFFFFFF). wkJellyWorm calls this `panelRow`.
     pub panel_state: i32,
-    /// +0x0C: Unknown.
-    pub _unknown_0c: i32,
+    /// +0x0C: Requires aiming (1 for aimed weapons like Bazooka, 0 for non-aimed like Earthquake).
+    /// Runtime-observed: 1 for Bazooka/Grenade/Shotgun, 0 for AirStrike/HomingMissile/Teleport.
+    pub requires_aiming: i32,
     /// +0x10: Weapon defined flag. Nonzero = weapon exists in table.
     /// Checked by DDGame__CheckWeaponAvail to determine if weapon is valid.
     pub defined: i32,
-    /// +0x14-0x23: Unknown.
-    pub _unknown_14: [u8; 0x24 - 0x14],
+    /// +0x14: Shot count per use (1 for most, 2 for Shotgun/Longbow, 5 for GirderPack).
+    pub shot_count: i32,
+    /// +0x18: Unknown flag (0 or 1). 0 for NinjaRope/Bungee/Parachute/SelectWorm/JetPack/powerups.
+    pub _unknown_18: i32,
+    /// +0x1C: Retreat timer in ms (0xBB8=3000 for most, 0x1388=5000 for Dynamite/Mine/MingVase,
+    /// -1 for non-retreating, -1000 for PneumaticDrill/Teleport, 0 for utility/powerups).
+    pub retreat_time: i32,
+    /// +0x20: Creates projectile flag (1 for weapons that fire a physical object, 0 for utility).
+    /// 0 for Prod/Girder/NinjaRope/Parachute/Teleport/utility weapons.
+    pub creates_projectile: i32,
     /// +0x24: Availability flag. Init: 0xFFFFFFFF, then set to 0 (unavailable)
     /// or 1 (available) per weapon. Weapon::None, SkipGo, Surrender default to 0.
     pub availability: i32,
@@ -141,14 +152,105 @@ pub struct WeaponEntry {
 }
 const _: () = assert!(core::mem::size_of::<WeaponEntry>() == 0x1D0);
 
-/// Weapon fire parameters — embedded at WeaponEntry+0x3C.
+/// Weapon fire parameters — embedded at WeaponEntry+0x3C (0x194 = 404 bytes, 101 DWORDs).
 ///
 /// Pointer to this struct is passed to all fire dispatch sub-functions.
-/// Internal layout is mostly unknown (0x194 bytes).
+/// The first 94 DWORDs (0x178 bytes) are copied verbatim into CTaskMissile.weapon_data
+/// by CTaskMissile__Constructor. The remaining 7 DWORDs are WeaponEntry-only metadata.
+///
+/// For single-shot projectiles, CTaskMissile.render_data[N] = weapon_data[N+3].
+/// For cluster sub-pellets, render_data[N] = weapon_data[N+52].
+///
+/// Field names confirmed by cross-referencing live memory dumps (debug CLI),
+/// CTaskMissile constructor decompilation, and render_data physics usage.
 #[repr(C)]
 pub struct WeaponFireParams {
-    /// +0x00 (WeaponEntry+0x3C): First param DWORD.
-    pub _data: [u8; 0x1D0 - 0x3C],
+    /// [0] +0x3C: Polymorphic.
+    /// Missile: pellet count (Bazooka=2, Mortar=2).
+    /// Hitscan: shots per trigger (Shotgun=1, Handgun=6, Uzi=10, Minigun=20).
+    /// Airstrike: number of projectiles (AirStrike=5).
+    pub shot_count: i32,
+    /// [1] +0x40: Polymorphic.
+    /// Missile: spread angle for multi-pellet (Mortar=100).
+    /// Hitscan: spread cone (Shotgun=500, Handgun=500).
+    /// Airstrike: spacing (NapalmStrike=48).
+    pub spread: i32,
+    /// [2] +0x44: Polymorphic.
+    /// Missile: cluster flag (Grenade=1, ClusterBomb=1, BananaBomb=1).
+    /// Hitscan: fire delay between shots (Handgun=10, Uzi=15, Minigun=25).
+    pub _fp_02: i32,
+    /// [3] +0x48: Polymorphic.
+    /// Missile: collision radius (Bazooka=2.10, HomingPigeon=66.1).
+    /// Hitscan: always Fixed(1) — flag.
+    pub collision_radius: Fixed,
+    /// [4] +0x4C: Missile only: unknown (HomingMissile=5, HomingPigeon=25, Grenade=10).
+    pub _fp_04: i32,
+    /// [5] +0x50: Polymorphic.
+    /// Missile: explosion damage (Bazooka=100, Grenade=100, Mortar=0).
+    /// Hitscan: max range (all=66.1 as Fixed16.16).
+    pub _fp_05: i32,
+    /// [6] +0x54: Polymorphic.
+    /// Missile: blast radius (Bazooka=50, Mortar=15, Grenade=50).
+    /// Hitscan: impact radius (Shotgun=5, Minigun=20).
+    pub _fp_06: i32,
+    /// [7] +0x58: Hitscan only: unknown (Shotgun=100, Handgun=50, Uzi/Minigun=100).
+    pub _fp_07: i32,
+    /// [8] +0x5C: Hitscan only: damage per hit (Shotgun=25, Handgun/Uzi/Minigun=5).
+    pub _fp_08: i32,
+    /// [9] +0x60: Missile only: sprite/animation ID (Bazooka=48, Grenade=50, HomingPigeon=175).
+    pub sprite_id: i32,
+    /// [10] +0x64: Shot type/impact type (Missile: Bazooka=2, Grenade=1. Hitscan: Shotgun=2, Uzi=5).
+    pub impact_type: i32,
+    /// [11] +0x68: Polymorphic.
+    /// Missile: unknown (Bazooka=131).
+    /// Hitscan: max range in pixels (all=32767).
+    pub _fp_11: i32,
+    /// [12] +0x6C: Trail effect (Bazooka=50, Mortar=50, most weapons=0).
+    pub trail_effect: i32,
+    /// [13] +0x70: Gravity percentage (100=normal, 0=no gravity).
+    /// → render_data[0x0C] → CGameTask.gravity_factor.
+    pub gravity_pct: i32,
+    /// [14] +0x74: Wind influence (Bazooka=50, AquaSheep=200).
+    pub wind_influence: i32,
+    /// [15] +0x78: Bounce percentage (100=normal elastic, 0=no bounce).
+    /// → render_data[0x0D] → CGameTask.bounce_factor.
+    pub bounce_pct: i32,
+    /// [16] +0x7C: Unknown (Bazooka=100, most=0).
+    pub _fp_16: i32,
+    /// [17] +0x80: Unknown (AirStrike=10, MoleSquadron=50).
+    pub _fp_17: i32,
+    /// [18] +0x84: Friction percentage (100=normal, 0=no friction).
+    /// → render_data[0x0F] → CGameTask.friction_factor.
+    pub friction_pct: i32,
+    /// [19] +0x88: Explosion delay/fuse timer (Grenade=5000, Dynamite=5000).
+    pub explosion_delay: i32,
+    /// [20] +0x8C: Fuse timer (Bazooka=9000, HomingMissile=10000, SheepLauncher=20000).
+    pub fuse_timer: i32,
+    /// [21-25] +0x90-0xA0: Various parameters. Remaining primary fields.
+    pub _fp_21_25: [i32; 5],
+    /// [26] +0xA4: Missile type discriminator.
+    /// 0=None, 1=Homing, 2=Standard, 3=Sheep, 5=SheepLauncher/Cluster.
+    /// → render_data[0x17] → CTaskMissile behavior dispatch.
+    pub missile_type: i32,
+    /// [27] +0xA8: Render size. Bazooka=64.0, Grenade≈66.1.
+    pub render_size: Fixed,
+    /// [28] +0xAC: Render timer/fuse (Bazooka=1, HomingMissile=58, HomingPigeon=175).
+    pub render_timer: i32,
+    /// [29-33] +0xB0-0xC0: Homing parameters (only nonzero for homing weapons).
+    /// [29]=homing_strength, [30]=homing_sprite, [31]=homing_turn_rate,
+    /// [32]=homing_accel, [33]=homing_speed.
+    pub homing_params: [i32; 5],
+    /// [34-36] +0xC4-0xCC: Additional parameters.
+    pub _fp_34_36: [i32; 3],
+    /// [37-51] +0xD0-0x10C: Reserved / weapon-specific extended params.
+    pub _fp_37_51: [i32; 15],
+    /// [52-93] +0x10C-0x1B0: Cluster sub-pellet parameters (mirrors primary [0-41]).
+    /// When pellet_index > 0, render_data copies from here instead.
+    pub cluster_params: [i32; 42],
+    /// [94-100] +0x1B0-0x1CC: WeaponEntry-only metadata (NOT copied to CTaskMissile).
+    /// [94]+0x1C8: Power percentage (Bazooka=100, Shotgun=10, NinjaRope=100).
+    /// [95]+0x1CC: Unknown (Bazooka=100, Grenade=70, Shotgun=20).
+    pub entry_metadata: [i32; 7],
 }
 const _: () = assert!(core::mem::size_of::<WeaponFireParams>() == 0x1D0 - 0x3C);
 
