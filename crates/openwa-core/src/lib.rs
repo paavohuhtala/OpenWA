@@ -16,6 +16,7 @@ pub mod fixed;
 pub mod log;
 pub mod mem;
 pub mod rebase;
+pub mod snapshot;
 pub mod task;
 pub mod vtable;
 pub mod wa;
