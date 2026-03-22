@@ -180,6 +180,22 @@ unsafe extern "C" fn trampoline_fire_weapon() {
     );
 }
 
+/// Call the original FireWeapon (trampoline) for debugging.
+/// Restores EAX=entry, ECX=local_struct, stack=worm.
+#[unsafe(naked)]
+unsafe extern "C" fn call_original_fire_weapon(
+    _entry: *const WeaponEntry, _local_struct: u32, _worm: *mut CTaskWorm,
+) {
+    core::arch::naked_asm!(
+        "mov eax, [esp+4]",   // entry
+        "mov ecx, [esp+8]",   // local_struct
+        "push [esp+12]",      // worm
+        "call [{orig}]",
+        "ret",
+        orig = sym ORIG_FIRE_WEAPON,
+    );
+}
+
 /// Rust implementation of FireWeapon dispatch.
 ///
 /// `entry`: EAX = active WeaponEntry pointer (from CTaskWorm+0x36C).
@@ -216,7 +232,7 @@ unsafe extern "cdecl" fn fire_weapon_impl(
             1 => call_fire_stdcall1(w, fire_params, rb(0x51EC80)),                    // PlacedExplosive
             2 => call_fire_stdcall3(w, fire_params, local_struct, rb(0x51DFB0)),      // Projectile
             3 => call_fire_thiscall2(w, fire_params, local_struct, rb(0x51E0F0)),     // CreateWeaponProjectile
-            4 => call_fire_stdcall2(w, fire_params, local_struct, rb(0x51ED90)),      // Shotgun
+            4 => call_fire_thiscall2(w, fire_params, local_struct, rb(0x51ED90)),     // Shotgun/Longbow (thiscall)
             _ => {}
         },
         2 => match subtype_38 {
@@ -320,8 +336,10 @@ unsafe extern "C" fn call_fire_thiscall2(
     );
 }
 
-/// Bridge: Shotgun — stdcall(fire_params, local_struct), RET 0x8.
+/// Bridge: stdcall(fire_params, local_struct), RET 0x8.
+/// Currently unused — was incorrectly used for Shotgun/Longbow (which are thiscall).
 #[unsafe(naked)]
+#[allow(dead_code)]
 unsafe extern "C" fn call_fire_stdcall2(
     _worm: u32, _fire_params: *const WeaponFireParams, _local: u32, _addr: u32,
 ) {
@@ -462,7 +480,7 @@ unsafe fn fire_skip_go(worm: *const CTaskWorm, entry: *const WeaponEntry) {
     let game_version = (*(*ddgame).game_info).game_version;
     let team_index = (*worm).team_index as usize;
 
-    let bit_index = (*entry).fire_params._data[0] & 0x1F;
+    let bit_index = ((*entry).fire_params.shot_count & 0x1F) as u32;
     let bit = 1u32 << bit_index;
 
     let arena = TeamArenaRef::from_ptr(&raw mut (*ddgame).team_arena);
