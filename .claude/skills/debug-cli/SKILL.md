@@ -53,6 +53,24 @@ target/i686-pc-windows-msvc/release/openwa-debug read <addr> [len] [--format hex
 - `--format raw`: Binary output, suitable for piping to a file.
 - `--port N`: Override default port 19840.
 
+### suspend / resume / step / frame / break
+
+Frame-level debugging commands. Pause the game at exact frame boundaries for memory inspection.
+
+```bash
+openwa-debug suspend           # Pause at next frame
+openwa-debug resume            # Unpause
+openwa-debug step              # Advance 1 frame, then pause
+openwa-debug step 10           # Advance 10 frames, then pause
+openwa-debug frame             # Show current frame + pause state
+openwa-debug break 1350        # Set breakpoint at frame 1350
+openwa-debug break clear       # Clear breakpoint
+```
+
+**Env var:** `OPENWA_BREAK_FRAME=1350` sets a breakpoint at DLL init time. Useful for headless replays — the game auto-pauses at the target frame so you can inspect state via `read`.
+
+**How it works:** The game thread cooperatively blocks on a Windows event at each frame boundary (in the TurnManager_ProcessFrame hook). The debug server controls the event from its TCP thread. No thread suspension APIs — just cooperative blocking.
+
 ## Address Syntax
 
 All address forms can be used with the `read` command. **Always quote the address argument** to prevent shell interpretation.
