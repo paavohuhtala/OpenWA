@@ -415,13 +415,15 @@ unsafe fn parse_and_write_v2plus(
         ptr::copy_nonoverlapping(config.as_ptr(), rb(va::G_PLAYER_ARRAY + 0x42 + i * 0x78) as *mut u8, 0x29);
 
         let u16_val = s.read_u16()?;
-        *(rb(va::G_PLAYER_ARRAY + 0x6C + i * 0x3C) as *mut u16) = u16_val;
+        // Ghidra shows (&DAT[i*0x3C]) with u16 elements → byte offset = i*0x3C*2 = i*0x78
+        *(rb(va::G_PLAYER_ARRAY + 0x6C + i * 0x78) as *mut u16) = u16_val;
 
         let byte1 = s.read_u8()?;
         wb(va::G_PLAYER_ARRAY + 0x6E + i * 0x78, byte1);
 
         let u32_val = s.read_u32()?;
-        wd(va::G_PLAYER_ARRAY + 0x70 + i * 0x1E, u32_val);
+        // Ghidra shows (&DAT[i*0x1E]) with u32 elements → byte offset = i*0x1E*4 = i*0x78
+        wd(va::G_PLAYER_ARRAY + 0x70 + i * 0x78, u32_val);
 
         let byte2 = s.read_u8()?;
         wb(va::G_PLAYER_ARRAY + 0x77 + i * 0x78, byte2);
@@ -515,7 +517,12 @@ unsafe fn parse_and_write_v2plus(
     if map_seed == 0 || map_seed == 0xFFFF {
         call_process_scheme_defaults(gi, rb(va::REPLAY_PROCESS_SCHEME_DEFAULTS));
     }
-    // TODO: else branch — per-team weapon config reads from stream
+    if map_seed != 0 {
+        // Per-team weapon config reads from stream — not yet implemented in Rust.
+        // Fall back to the original parser which handles this from scratch.
+        let _ = log_line(&format!("[Replay] Non-zero map_seed (0x{:04X}), delegating to original", map_seed));
+        return Err(ReplayError::InvalidFormat); // triggers delegate_to_original
+    }
 
     // ValidateTeamSetup: stdcall(1 param = game_info)
     let validate_setup: unsafe extern "stdcall" fn(*mut GameInfo) =
