@@ -72,6 +72,9 @@ pub unsafe fn capture() -> String {
     let _ = writeln!(out);
 
     // ── Entity tree ──
+    // CTaskTurnGame is the root of the entity tree. Find it by checking
+    // CTaskLand's parent chain or the shared data table.
+    // CTaskTurnGame vtable = 0x669F70.
     let task_land = (*ddgame).task_land;
     if task_land.is_null() {
         let _ = writeln!(out, "[Entities] task_land=null");
@@ -79,7 +82,20 @@ pub unsafe fn capture() -> String {
     }
 
     let delta = rb(va::IMAGE_BASE).wrapping_sub(va::IMAGE_BASE);
-    let root = task_land as *const CTask;
+
+    // Walk parent chain from CTaskLand to find CTaskTurnGame (root of entity tree).
+    // Safety limit to prevent infinite loops on corrupt parent chains.
+    let mut root = task_land as *const CTask;
+    for _ in 0..10 {
+        let parent = (*root).parent as *const CTask;
+        if parent.is_null() || parent == root {
+            break;
+        }
+        root = parent;
+    }
+    let _ = writeln!(out, "[Entities] root vt=0x{:08X}",
+        (*(root as *const u32)).wrapping_sub(delta));
+
     let iter = CTaskBfsIter::new(root);
 
     // Census + detailed dump

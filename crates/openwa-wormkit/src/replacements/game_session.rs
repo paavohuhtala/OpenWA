@@ -102,6 +102,12 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
         display as u32, net_game as u32, timer_obj as u32, game_info as u32,
     ));
 
+    // Arm display watchpoint during construction if requested
+    if std::env::var("OPENWA_WATCH_DISPLAY").is_ok() {
+        crate::debug_watchpoint::prepare();
+        crate::debug_watchpoint::on_ddgame_alloc(display as *mut u8);
+    }
+
     // Use env var to switch between original and Rust constructor
     let use_original = std::env::var("OPENWA_USE_ORIG_CTOR").is_ok();
     if use_original {
@@ -123,6 +129,11 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
             input_ctrl as u32,
         );
 
+    }
+
+    // Disarm display watchpoint
+    if std::env::var("OPENWA_WATCH_DISPLAY").is_ok() {
+        crate::debug_watchpoint::teardown();
     }
 
     // Initialize DDGame's game-state fields.

@@ -85,6 +85,8 @@ Key env vars:
 - `OPENWA_BREAK_FRAME=N` — auto-pause at frame N
 - `OPENWA_USE_ORIG_CTOR=1` — use original WA DDGame constructor (for A/B testing)
 - `OPENWA_WATCH_FRAME=N` — arm hardware watchpoint on DDGame at frame N
+- `OPENWA_WATCH_WRAPPER=1` — watchpoint base = DDGameWrapper instead of DDGame
+- `OPENWA_WATCH_DISPLAY=1` — watchpoint base = display object (DDGameWrapper+0x4D0), armed during constructor
 
 ## Crate Architecture
 
@@ -123,6 +125,18 @@ Hooks use the `minhook` crate. Two patterns:
 2. **Full replacement**: Reimplement the function in Rust, call WA functions via `wa_call` helpers. See `replacements/frontend.rs`.
 
 For `__usercall` functions, use a naked trampoline to capture register params before calling the Rust impl.
+
+## Desync Debugging
+
+Replay desyncs (checksum mismatches) can be caused by any code difference — constructor side effects, hooked function behaviour, missing state, wrong calling conventions, etc. Key methodology:
+
+1. **WA uses a single shared RNG** (DDGame+0x45EC, `AdvanceGameRNG` at 0x53F320) for both gameplay AND visual effects. There is no separate "visual RNG." Even purely decorative things like particle sprites affect the game RNG and will cause desyncs in headless mode if handled differently.
+2. **DDGame flat memory matching is NOT sufficient.** Constructors and hooks have side effects on sub-objects (display, GfxHandler, PCLandscape). Compare all objects pointed to by DDGame AND DDGameWrapper.
+3. **Use hardware watchpoints** (`debug_watchpoint.rs`) with stack traces to find what writes a specific field. DR0–DR3 + VEH handler gives "who wrote this byte?" answers without an external debugger.
+4. **Per-frame RNG logging** (DDGame+0x45EC) pinpoints the exact frame where simulation diverges. Binary search on frames, not code.
+5. **Always validate diff methodology** against a known-good frame first. The snapshot system's pointer canonicalization produces false positives.
+
+See `docs/re-notes/desync-investigation.md` for a detailed case study.
 
 ## Hardware Watchpoint Debugger
 

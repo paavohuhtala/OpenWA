@@ -30,10 +30,12 @@ use windows_sys::Win32::System::Diagnostics::Debug::{
     AddVectoredExceptionHandler, RemoveVectoredExceptionHandler, EXCEPTION_POINTERS,
 };
 
-/// DDGame offsets to watch. Hardware limit: 4 watchpoints (DR0–DR3).
+/// Offsets to watch. Hardware limit: 4 watchpoints (DR0–DR3).
 /// Change these to investigate different fields.
-const WATCH_OFFSETS: [(u32, &str); 1] = [
-    (0x0050, "ddgame+0x50"),
+/// NOTE: The base pointer is set by `on_ddgame_alloc()` — can be DDGame or DDGameWrapper.
+const WATCH_OFFSETS: [(u32, &str); 2] = [
+    (0x09C0, "display+0x09C0"),
+    (0x353C, "display+0x353C"),
 ];
 
 /// DDGame base address (set when allocation is reported).
@@ -115,28 +117,58 @@ unsafe extern "system" fn veh_handler(info: *mut EXCEPTION_POINTERS) -> i32 {
         (STATUS_SINGLE_STEP, Phase::Active) => {
             let dr6 = ctx.Dr6;
             let eip = ctx.Eip;
-            // Compute Ghidra VA (only meaningful if EIP is inside WA.exe)
             let delta = rb(va::IMAGE_BASE).wrapping_sub(va::IMAGE_BASE);
             let wa_base = rb(va::IMAGE_BASE);
-            let ghidra_eip = eip.wrapping_sub(delta);
-            // WA.exe is ~2MB; check if EIP is plausibly inside it
-            let in_wa = eip >= wa_base && eip < wa_base + 0x300000;
 
             let base = DDGAME_BASE.load(Ordering::Relaxed);
             for (i, &(offset, name)) in WATCH_OFFSETS.iter().enumerate() {
                 if dr6 & (1 << i) != 0 {
                     let val = *((base + offset) as *const u32);
-                    if in_wa {
-                        let _ = log_line(&format!(
-                            "[Watchpoint] {} (+0x{:04X}) = 0x{:08X}  writer before 0x{:08X} (WA.exe)",
-                            name, offset, val, ghidra_eip,
-                        ));
-                    } else {
-                        let _ = log_line(&format!(
-                            "[Watchpoint] {} (+0x{:04X}) = 0x{:08X}  writer before 0x{:08X} (runtime, outside WA.exe)",
-                            name, offset, val, eip,
-                        ));
+                    let ghidra_eip = eip.wrapping_sub(delta);
+
+                    // Walk EBP chain for stack trace
+                    let mut trace = heapless::String::<512>::new();
+                    let mut ebp = ctx.Ebp;
+                    let esp = ctx.Esp;
+                    for depth in 0..12 {
+                        // Validate EBP: must be in plausible stack range, aligned,
+                        // and above ESP (stack grows down)
+                        if ebp < 0x10000 || ebp > 0x7FFE0000 || (ebp & 3) != 0 {
+                            break;
+                        }
+                        // Safety: check both [ebp] and [ebp+4] are readable
+                        if !openwa_core::mem::can_read(ebp, 8) {
+                            break;
+                        }
+                        let ret_addr = *((ebp + 4) as *const u32);
+                        let next_ebp = *(ebp as *const u32);
+                        let ghidra_ret = ret_addr.wrapping_sub(delta);
+                        let in_wa = ret_addr >= wa_base && ret_addr < wa_base + 0x300000;
+                        if depth > 0 {
+                            let _ = core::fmt::Write::write_str(&mut trace, "<-");
+                        }
+                        if in_wa {
+                            let _ = core::fmt::Write::write_fmt(
+                                &mut trace,
+                                format_args!("{:08X}", ghidra_ret),
+                            );
+                        } else {
+                            let _ = core::fmt::Write::write_fmt(
+                                &mut trace,
+                                format_args!("r:{:08X}", ret_addr),
+                            );
+                        }
+                        // EBP must increase (frames go up the stack)
+                        if next_ebp <= ebp {
+                            break;
+                        }
+                        ebp = next_ebp;
                     }
+
+                    let _ = log_line(&format!(
+                        "[Watchpoint] {} = 0x{:08X}  eip=0x{:08X} stack=[{}]",
+                        name, val, ghidra_eip, trace,
+                    ));
                 }
             }
 

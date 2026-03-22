@@ -559,13 +559,17 @@ unsafe fn wa_load_effect_wavs(wrapper: *mut DDGameWrapper) {
 }
 
 /// PCLandscape__Constructor (0x57ACB0): construct landscape object (0xB44 bytes, 11 params).
+///
+/// param_5 is `game_info + 0xDAAC` (landscape data path region within GameInfo).
+/// The SoundEmitter sub-constructor reads paths, water settings, etc. from this
+/// pointer with negative offsets back into GameInfo.
 #[cfg(target_arch = "x86")]
 unsafe fn wa_pc_landscape_ctor(
     this: *mut u8,
     ddgame: *mut DDGame,
     gfx_resource: *mut u8,
     display: *mut DDDisplay,
-    landscape_path: *const u8,
+    landscape_data: *const u8,
     byte_output: *mut u8,
     gfx_mode: u32,
     temp_buf: *mut u32,
@@ -591,7 +595,7 @@ unsafe fn wa_pc_landscape_ctor(
         ddgame,
         gfx_resource,
         display,
-        landscape_path,
+        landscape_data,
         byte_output,
         gfx_mode,
         temp_buf,
@@ -955,13 +959,31 @@ unsafe fn init_graphics_and_resources(
         }
     }
 
-    // ── GfxResource: thiscall(ECX=gfx_dir) + EAX=name + 1 stack(output), RET 0x4 ──
+    // ── GfxResource for masks.img ──
+    // The original constructor uses a stack-local PaletteContext buffer (ESP+0x1A4)
+    // initialized at the start with (word=1, word=0xFE, PaletteContext__Init).
+    // This same buffer is reused as the output param for GfxResource__Create(masks.img).
+    // We replicate this initialization here. Size 0x900 matches the stack allocation.
     let gfx_resource: *mut u8;
     {
         let gfx_dir = (*wrapper).primary_gfx_dir;
-        let out_buf = wa_malloc_zeroed(0x900);
+        // Create PaletteContext the same way the original DDGame constructor does:
+        // word[0]=1, word[1]=0xFE, then PaletteContext__Init (0x5411A0)
+        let palette_ctx = wa_malloc_zeroed(0x900);
+        *(palette_ctx as *mut u16) = 1;
+        *(palette_ctx.add(2) as *mut u16) = 0xFE;
+        call_usercall_eax(palette_ctx as *mut DDGameWrapper, rb(va::PALETTE_CONTEXT_INIT));
         gfx_resource =
-            gfx_resource_create(gfx_dir, rb(va::STR_MASKS_IMG) as *const c_char, out_buf);
+            gfx_resource_create(gfx_dir, rb(va::STR_MASKS_IMG) as *const c_char, palette_ctx);
+    }
+
+    // ── Dump GfxResource for A/B comparison ──
+    if !gfx_resource.is_null() {
+        let use_orig = std::env::var("OPENWA_USE_ORIG_CTOR").is_ok();
+        let tag = if use_orig { "orig" } else { "rust" };
+        // Dump GfxResource object + first sub-object
+        let gr_data = core::slice::from_raw_parts(gfx_resource, 0x100);
+        let _ = std::fs::write(format!("gfx_resource_{}.bin", tag), gr_data);
     }
 
     // ── PCLandscape (alloc 0xB44, stdcall 11 params) ──
@@ -1244,16 +1266,22 @@ unsafe fn init_graphics_and_resources(
         let disp = (*wrapper).display;
         DDDisplay::set_active_layer(disp, 3);
 
-        if (*wrapper).gfx_mode != 0 {
-            DDDisplay::load_sprite_by_layer(
-                disp,
-                3,
-                0x26D,
-                land_layer,
-                c"back.spr".as_ptr().cast(),
-            );
-            DDDisplay::load_sprite(disp, 3, 0x26E, 0, land_layer, c"debris.spr".as_ptr());
-        }
+        // back.spr and debris.spr must be loaded unconditionally — they're used by
+        // GenerateDebrisParticles (0x546F70) for particle effects, which affects
+        // the game RNG (DDGame+0x45EC). The original constructor loads them even
+        // in headless mode. Skipping them causes replay desync.
+        DDDisplay::load_sprite_by_layer(
+            disp,
+            3,
+            0x26D,
+            land_layer,
+            c"back.spr".as_ptr().cast(),
+        );
+        // debris.spr must be loaded unconditionally — it's used by
+        // GenerateDebrisParticles (0x546F70) for particle effects, which
+        // affects the game RNG (DDGame+0x45EC). Skipping it in headless
+        // mode causes desync (longbow replay checksum mismatch at frame 1350).
+        DDDisplay::load_sprite(disp, 3, 0x26E, 0, land_layer, c"debris.spr".as_ptr());
 
         DDDisplay::load_sprite_by_layer(
             disp,

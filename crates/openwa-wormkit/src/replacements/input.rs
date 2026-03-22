@@ -195,7 +195,18 @@ unsafe extern "stdcall" fn hook_turn_manager(turngame: u32) {
                 if game_frame >= target {
                     WATCH_ARMED.store(true, Ordering::Relaxed);
                     crate::debug_watchpoint::prepare();
-                    crate::debug_watchpoint::on_ddgame_alloc(ddgame as *mut u8);
+                    // Select watchpoint base: DDGame, DDGameWrapper, or Display
+                    let watch_base = if std::env::var("OPENWA_WATCH_DISPLAY").is_ok() {
+                        let session = *(rb(va::G_GAME_SESSION) as *const u32);
+                        let wrapper = *((session + 0xA0) as *const *const u8);
+                        *(wrapper.add(0x4D0) as *const *mut u8)
+                    } else if std::env::var("OPENWA_WATCH_WRAPPER").is_ok() {
+                        let session = *(rb(va::G_GAME_SESSION) as *const u32);
+                        *((session + 0xA0) as *const *mut u8)
+                    } else {
+                        ddgame as *mut u8
+                    };
+                    crate::debug_watchpoint::on_ddgame_alloc(watch_base);
                 }
             }
         }
