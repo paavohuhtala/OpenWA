@@ -3,6 +3,12 @@
 //! Replaces WA.exe functions that manage weapon ammo in the TeamArenaState area (DDGame + 0x4628):
 //! - GetAmmo (0x5225E0): query ammo count with delay/phase checks
 //! - AddAmmo (0x522640): add ammo to a weapon slot
+//!
+//! NOTE: FireWeapon dispatch is currently a passthrough (jmp to original) due to
+//! an undiagnosed desync bug in the Rust dispatch logic. The dispatch functions
+//! are kept for future debugging. See project_ddgame_desync.md.
+
+#![allow(dead_code)]
 //! - SubtractAmmo (0x522680): decrement ammo count
 //! - CountAliveWorms (0x5225A0): check if >1 worm alive on team
 //! - FireWeapon (0x51EE60): passthrough with weapon type logging
@@ -149,34 +155,15 @@ usercall_trampoline!(fn trampoline_count_alive_worms; impl_fn = count_alive_worm
 
 static ORIG_FIRE_WEAPON: AtomicU32 = AtomicU32::new(0);
 
-/// Naked trampoline for FireWeapon.
-/// Must save ALL callee-saved registers (ESI, EDI, EBX, EBP) because the
-/// Rust cdecl impl may clobber them, and WeaponRelease (our caller) depends
-/// on them being preserved.
+/// Naked trampoline for FireWeapon — passthrough to original.
+///
+/// Convention: usercall(EAX=entry, ECX=local_struct) + stack(worm), RET 0x4.
+/// Just jumps to the original — no Rust dispatch.
 #[unsafe(naked)]
 unsafe extern "C" fn trampoline_fire_weapon() {
     core::arch::naked_asm!(
-        // Save all callee-saved + EDX
-        "push ebx",
-        "push esi",
-        "push edi",
-        "push ebp",
-        "push edx",
-        // Push cdecl args: (weapon_ctx=EAX, local_struct=ECX, worm)
-        // Stack: 5 pushes (20) + ret (4) = 24 to stack param
-        "push [esp+24]",      // worm
-        "push ecx",           // local_struct
-        "push eax",           // weapon_ctx
-        "call {impl_fn}",
-        "add esp, 12",
-        // Restore everything
-        "pop edx",
-        "pop ebp",
-        "pop edi",
-        "pop esi",
-        "pop ebx",
-        "ret 0x4",
-        impl_fn = sym fire_weapon_impl,
+        "jmp [{orig}]",
+        orig = sym ORIG_FIRE_WEAPON,
     );
 }
 
@@ -571,26 +558,10 @@ unsafe extern "C" fn fire_worm_vtable_0xe(_worm: u32, _msg_id: u32) {
 pub fn install() -> Result<(), String> {
     unsafe {
         let _ = hook::install("AddAmmo", va::ADD_AMMO, trampoline_add_ammo as *const ())?;
-
         let _ = hook::install("GetAmmo", va::GET_AMMO, trampoline_get_ammo as *const ())?;
-
-        let _ = hook::install(
-            "SubtractAmmo",
-            va::SUBTRACT_AMMO,
-            trampoline_subtract_ammo as *const (),
-        )?;
-
-        let _ = hook::install(
-            "CountAliveWorms",
-            va::COUNT_ALIVE_WORMS,
-            trampoline_count_alive_worms as *const (),
-        )?;
-
-        let trampoline = hook::install(
-            "FireWeapon",
-            va::FIRE_WEAPON,
-            trampoline_fire_weapon as *const (),
-        )?;
+        let _ = hook::install("SubtractAmmo", va::SUBTRACT_AMMO, trampoline_subtract_ammo as *const ())?;
+        let _ = hook::install("CountAliveWorms", va::COUNT_ALIVE_WORMS, trampoline_count_alive_worms as *const ())?;
+        let trampoline = hook::install("FireWeapon", va::FIRE_WEAPON, trampoline_fire_weapon as *const ())?;
         ORIG_FIRE_WEAPON.store(trampoline as u32, Ordering::Relaxed);
     }
 
