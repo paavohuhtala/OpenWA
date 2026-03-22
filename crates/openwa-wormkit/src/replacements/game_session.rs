@@ -95,6 +95,7 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
         core::mem::transmute(rb(va::DDGAME_INIT_GAME_STATE) as usize);
     init_state(this);
 
+
     let _ = log_line(&format!(
         "[GameSession] DDGameWrapper::Constructor done: wrapper=0x{:08X}  ddgame=0x{:08X}",
         this as u32, (*this).ddgame as u32,
@@ -106,9 +107,7 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
 pub fn install() -> Result<(), String> {
     unsafe {
         INIT_REPLAY_ADDR = rb(va::DDGAMEWRAPPER_INIT_REPLAY);
-        // Initialize runtime addresses for create_ddgame bridges.
         init_constructor_addrs();
-        // DDGameWrapper__Constructor is fully converted — trap the original.
         hook::install_trap!("DDGameWrapper__Constructor", va::CONSTRUCT_DD_GAME_WRAPPER);
     }
     Ok(())

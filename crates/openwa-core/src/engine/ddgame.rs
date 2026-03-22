@@ -849,8 +849,10 @@ unsafe fn init_graphics_and_resources(
     let layer_ctx = DDDisplay::set_active_layer((*ddgame).display, 1);
 
     // ── GfxDir color entries DDGame+0x730C..0x732C ──
+    // Original logic: if gfx_mode!=0, try GfxResource__Create for colours.img.
+    // If gfx_mode==0 OR resource creation fails, fall back to LoadSprites.
+    // The fallback's 4th param is primary_gfx_dir when gfx_mode==0, or 0 on resource fail.
     if (*wrapper).gfx_mode != 0 {
-        // The layer_ctx is used as the output buffer, not a plain stack alloc.
         let res = gfx_resource_create(
             (*wrapper).primary_gfx_dir,
             rb(va::STR_COLOURS_IMG) as *const c_char,
@@ -858,18 +860,31 @@ unsafe fn init_graphics_and_resources(
         );
         if !res.is_null() {
             let rvt = *(res as *const *const u32);
-            // vtable[4] = get_pixel: thiscall(this, x, y) -> color, RET 0x8.
             let get_color: unsafe extern "thiscall" fn(*mut u8, u32, u32) -> u32 =
                 core::mem::transmute(*rvt.add(4));
             for i in 0..9u32 {
                 (*ddgame).gfx_color_table[i as usize] = get_color(res, i, 0);
             }
-            // DisplayGfx__vmethod_3: thiscall(this, byte param_2), RET 4.
-            // param_2 & 1 = free the object itself.
             let release: unsafe extern "thiscall" fn(*mut u8, u8) =
                 core::mem::transmute(*rvt.add(3));
             release(res, 1);
+        } else {
+            // Resource creation failed — fallback with param4=0
+            wa_load_sprites(
+                wrapper,
+                (*ddgame).gfx_sprite_data.as_mut_ptr(),
+                (*game_info).display_flags,
+                0,
+            );
         }
+    } else {
+        // gfx_mode==0 (headless): fallback LoadSprites with param4=primary_gfx_dir
+        wa_load_sprites(
+            wrapper,
+            (*ddgame).gfx_sprite_data.as_mut_ptr(),
+            (*game_info).display_flags,
+            (*wrapper).primary_gfx_dir as u32,
+        );
     }
 
     // ── Secondary GfxDir object (DDGame+0x2C, conditional) ──

@@ -180,22 +180,6 @@ unsafe extern "C" fn trampoline_fire_weapon() {
     );
 }
 
-/// Call the original FireWeapon (trampoline) for debugging.
-/// Restores EAX=entry, ECX=local_struct, stack=worm.
-#[unsafe(naked)]
-unsafe extern "C" fn call_original_fire_weapon(
-    _entry: *const WeaponEntry, _local_struct: u32, _worm: *mut CTaskWorm,
-) {
-    core::arch::naked_asm!(
-        "mov eax, [esp+4]",   // entry
-        "mov ecx, [esp+8]",   // local_struct
-        "push [esp+12]",      // worm
-        "call [{orig}]",
-        "ret",
-        orig = sym ORIG_FIRE_WEAPON,
-    );
-}
-
 /// Rust implementation of FireWeapon dispatch.
 ///
 /// `entry`: EAX = active WeaponEntry pointer (from CTaskWorm+0x36C).
