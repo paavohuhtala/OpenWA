@@ -122,6 +122,7 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
             game_info,
             input_ctrl as u32,
         );
+
     }
 
     // Initialize DDGame's game-state fields.
