@@ -1,8 +1,8 @@
-# The debris.spr Desync: Debugging a Replay Mismatch in a Reimplemented Game Constructor
+# Desync Investigation Journal: Seven Bugs, One Checksum Mismatch
 
 ## Summary
 
-During the incremental Rust reimplementation of Worms Armageddon's DDGame constructor, a deterministic replay of a longbow match produced "Checksum Mismatch" errors starting at frame 1350. Other replays (bots 3v3, shotgun) passed. This documents the investigation that ultimately traced the root cause to a single missing sprite load (`debris.spr`) in headless mode, and the debugging methodology used to find it.
+During the incremental Rust reimplementation of Worms Armageddon's DDGame constructor and gameplay hooks, a deterministic replay of a longbow match produced "Checksum Mismatch" errors. What appeared to be a single constructor bug turned out to be seven independent issues across three subsystems (constructor, replay loader, weapon dispatch), found over multiple debugging sessions using hardware watchpoints, sub-object hashing, binary search on hooks, and targeted test replays.
 
 ## Background
 
@@ -89,26 +89,155 @@ DDDisplay::load_sprite(disp, 3, 0x26E, 0, land_layer, c"debris.spr".as_ptr());
 
 This change is correct — the original constructor loads `debris.spr` unconditionally, and our code should match. However, it did **not** resolve the desync. An initial test appeared to show 3 of 4 mismatches fixed, but this was a `tail -5` truncation error — only the last mismatch was visible, creating a false impression. All 4 mismatches persist.
 
-The display state differences (sprite layer counters) we found were real and worth fixing for correctness, but they turned out not to be the root cause of the checksum mismatch. The investigation continues.
+The display state differences (sprite layer counters) we found were real and worth fixing for correctness, but they turned out not to be the root cause of the checksum mismatch.
+
+---
+
+## Phase 2: RNG Tracing and the Debris Particle Divergence
+
+### Per-frame RNG tracking
+
+With the sprite fix applied but the desync persisting, the next step was tracking the game RNG (DDGame+0x45EC) at frame boundaries. A hook on `TurnManager_ProcessFrame` logged the RNG value before and after each frame:
+
+```
+game_f=817  rng=B714AF97  (identical in both runs)
+game_f=818  rng=BE0D887F  (Rust) vs ADB76793 (orig)
+```
+
+The RNG was **identical through frame 817** and diverged during frame 818. But `AdvanceGameRNG` (0x53F320) turned out to be **mostly inlined** — hooking the function only caught rare non-inlined calls. The real tool was a hardware watchpoint on DDGame+0x45EC itself.
+
+### Hardware watchpoint on the RNG field
+
+Arming DR0 on DDGame+0x45EC at frame 817 captured every RNG write with its EIP. Comparing the two runs:
+
+| Write # | Rust EIP | Orig EIP | Notes |
+|---------|----------|----------|-------|
+| 1–24 | 0x5470BB/DE | 0x5470BB/DE | Identical (GenerateDebrisParticles inlined) |
+| 25 | **0x6529960D** (hook) | **0x5470BB** (more debris!) | Divergence point |
+
+The original had **36 debris writes** (3 × GenerateDebrisParticles calls) while Rust had only **24** (2 calls). One terrain collision event was missing. Yet total debris writes across the game were identical (72 each) — just distributed differently across frames.
+
+### Caller frequency analysis
+
+Counting all 17K+ RNG write EIPs revealed the dominant divergence source: `AdvanceGameRNG_Low16` (0x507CE0) in `CTaskFire__HandleMessage` — 14,085 calls (Rust) vs 12,517 (orig). The 1,568 extra calls represented projectiles processing more frames due to the cascading RNG shift.
+
+## Phase 3: The Flat Memory Puzzle
+
+At this point, DDGame flat memory was verified **byte-for-byte identical** between constructors. Display, landscape, and wrapper non-pointer values all matched at frame 0. The desync was deterministic. What could differ?
+
+### Sub-object hashing: the breakthrough
+
+The key insight: DDGame contains **pointers** to heap-allocated sub-objects. Flat memory comparison only shows the pointer values (which differ between runs due to heap layout), not the *content* of what they point to.
+
+A new tool — `hash_pointer_targets()` — walks every DWORD in DDGame, follows each heap pointer, and hashes the first 256 bytes of the target with pointer canonicalization (replacing pointer-looking values with 0).
+
+The first run produced hundreds of hash differences due to an overly aggressive pointer filter. After tuning to use the existing `is_likely_pointer` heuristic, a targeted raw dump of specific sub-objects revealed the smoking gun:
+
+**Arrow collision region** (SpriteRegion at DDGame+0x48C):
+
+| Offset | Rust | Original |
+|--------|------|----------|
+| +0x14 (this[5]) | **0** | **10** |
+| +0x18 (this[6]) | **20** | **10** |
+
+Different collision box dimensions. The Rust constructor was creating origin-based collision boxes instead of centered boxes with 10px margins.
+
+### The root cause: wrong SpriteRegion parameters
+
+Tracing the SpriteRegion constructor (0x57DB20) parameters via disassembly:
+
+```
+this[3] = p4 - p2    (width)
+this[4] = EDX - p3   (height)
+this[5] = ECX - p2   (x inset)
+this[6] = p5 - p3    (y inset)
+```
+
+The original computes a **centered** collision box:
+- ECX = `sprite_w / 2`, EDX = `sprite_h - margin_h`
+- p2 = `margin_w`, p3 = `margin_h` (where margin = max(0, dim/2 − 10))
+- p4 = `sprite_w - margin_w`, p5 = `sprite_h / 2`
+- p6 = **arrow sprite pointer**
+
+Our code passed:
+- ECX = **0**, EDX = `margin_h`
+- p2 = **0**, p3 = **0**
+- p4 = `margin_w`, p5 = `margin_h`
+- p6 = **landscape gfx_resource** (wrong object entirely — from an outer scope)
+
+Six of eight parameters were wrong. The collision boxes were origin-based instead of centered, AND referenced the wrong sprite, causing different terrain collision detection for arrow projectiles.
+
+## Phase 4: It Wasn't Just the Constructor
+
+### New test replays change everything
+
+Recording two additional replays proved crucial:
+- **longbow_water** — longbow fired at water (no terrain collision)
+- **longbow_alt_theme** — longbow on a different WA theme
+
+Expected logs were generated from **unmodded WA.exe** (critical — our DLL's hooks can affect the game log).
+
+Results with the original constructor:
+
+| Replay | Status |
+|--------|--------|
+| longbow_water | **FAIL** |
+| longbow_alt_theme | **FAIL** (Frame 0!) |
+
+Both failed with the *original* constructor! The desync wasn't constructor-specific — it was caused by **gameplay hooks**.
+
+### Binary search on hooks
+
+Disabling hooks in groups narrowed the search:
+
+1. All hooks disabled except essentials → PASS
+2. Add weapon hooks → FAIL
+3. Only weapon hooks, disable FireWeapon → PASS for longbow_water
+4. Only replay hooks → FAIL for alt_theme
+
+Two independent hook bugs:
+
+**ReplayLoader (replay.rs):**
+- Player array strides: Ghidra showed element indices (`i*0x3C` for `u16*`, `i*0x1E` for `u32*`) but code used them as byte offsets. Correct byte stride: `i*0x78`.
+- Non-zero `map_seed` path: per-team weapon config reads from stream were unimplemented. Fallback to original parser for `map_seed ≠ 0`.
+
+**FireWeapon (weapon.rs):**
+- Binary search within the type-4 dispatch: type 4 → subtypes 10+13 → subtype 13 (Napalm Strike).
+- `fire_send_team_message` wrote `team_index` to `buf[8..12]` but the original writes it to `buf[0..4]`. The HandleMessage handler reads `data[0]`, receiving 0 instead of the correct team index.
+- Root cause confirmed by disassembly of the original Napalm handler at 0x51E5C0: `MOV [ESP+4], EAX` where EAX = `worm+0xFC` (team_index) and `ESP+4` = `buffer[0]`.
+
+### Also fixed along the way
+
+- **DDGame allocation size**: 0x98B8 → 0x98D8 (original mallocs 0x98D8 but memsets only 0x98B8)
+- **Wrong function after InitPaletteGradientSprites**: called `LoadingProgressTick` (0x5717A0) instead of `DisplayGfx__InitTeamPaletteDisplayObjects` (0x5703E0)
 
 ## Debugging Tools Built
 
 The investigation produced several reusable tools:
 
-- **Hardware watchpoint system** with EBP-based stack trace walking (VEH + DR0–DR3)
-- **Per-frame game state hashing** via forced `SerializeGameState` calls
+- **Hardware watchpoint system** (`debug_watchpoint.rs`) — x86 DR0–DR3 with VEH handler and EBP stack trace walking
+- **Sub-object hashing** (`snapshot.rs: hash_pointer_targets`) — follows heap pointers in a struct, hashes target content with pointer canonicalization. Integrated into the snapshot system.
+- **Per-frame RNG logging** via TurnManager hook
+- **`OPENWA_WATCH_DISPLAY=1`** / **`OPENWA_WATCH_FRAME=N`** — arm watchpoints on display or DDGame at specific frames
 - **Binary sub-object dumping** for display, GfxHandler, PCLandscape comparison
-- **`OPENWA_WATCH_DISPLAY=1`** env var to arm watchpoints on the display object during construction
-- Terrain collision bitmap dumping at arbitrary frames
+- **A/B constructor toggle** (`OPENWA_USE_ORIG_CTOR=1`) — instant switching between Rust and original constructors
 
 ## Key Lessons
 
-1. **Identical struct memory ≠ identical behaviour.** The constructor's side effects on *other* objects matter as much as the struct it fills. Compare sub-objects systematically.
+1. **Identical struct memory ≠ identical behaviour.** DDGame flat memory was byte-identical, but *sub-objects pointed to by DDGame* had different content. The `hash_pointer_targets` tool was purpose-built to catch this.
 
-2. **Validate your diff tools.** Our snapshot comparison showed ~490 "differences" at known-good frames — pure noise from pointer canonicalization heuristics. Always baseline.
+2. **Validate your diff tools.** Our snapshot comparison showed ~490 "differences" at known-good frames — pure noise from pointer canonicalization heuristics. And our dump code once read past a heap allocation into adjacent memory, producing false diffs. Always baseline.
 
-3. **There is no "visual-only" code in a deterministic game engine.** `debris.spr` seems purely decorative — it controls what debris particles look like when terrain is destroyed. But Worms uses a **single shared RNG** for everything: gameplay physics, AI decisions, particle effects, sound variation. There is no separate "visual RNG." Every RNG consumer must execute identically, or the streams diverge and every subsequent random outcome differs. Skipping a single sprite load changed how `GenerateDebrisParticles` consumed RNG ticks, shifting the entire RNG sequence for all downstream gameplay.
+3. **There is no "visual-only" code in a deterministic game engine.** `debris.spr` seems purely decorative, but Worms uses a **single shared RNG** for everything. Skipping one sprite load shifts the entire RNG sequence.
 
-4. **Hardware watchpoints are underrated.** x86 DR0–DR3 with a VEH handler gives "what wrote this byte?" answers in seconds, without an external debugger. Adding stack traces made them even more powerful.
+4. **Hardware watchpoints are underrated.** x86 DR0–DR3 with a VEH handler gives "what wrote this byte?" answers in seconds, without an external debugger.
 
-5. **Binary search on frames, not code.** Per-frame RNG logging narrowed 542 candidate frames to the exact frame (818) where divergence began, before any code analysis.
+5. **Binary search on frames, not code.** Per-frame RNG logging narrowed 542 candidate frames to the exact frame (818) where divergence began.
+
+6. **Binary search on hooks.** Disabling half the hooks at a time isolated two independent bugs in minutes. Then within a single hook (FireWeapon), binary search on dispatch paths (type → subtype → specific handler) pinpointed the exact buggy function.
+
+7. **Multiple test replays expose different bugs.** The original longbow replay only triggered the constructor bug. Adding longbow_water and longbow_alt_theme exposed hook bugs that were invisible with the original replay alone. Different weapons, themes, and targets exercise different code paths.
+
+8. **Ghidra element indexing is a trap.** The decompiler shows `(&DAT[i*0x3C])` for a `u16*` array — the `0x3C` is an *element* index, not a byte offset. The actual byte offset is `i * 0x3C * sizeof(u16) = i * 0x78`. This caused player data corruption for index 1+.
+
+9. **Check the buffer layout against disassembly.** The Napalm Strike bug was a single wrong offset in a message buffer: `buf[8]` vs `buf[0]`. The original's disassembly (`MOV [ESP+4], EAX` at 0x51E5D2) unambiguously shows the write destination. When in doubt, read the assembly.
