@@ -186,6 +186,19 @@ unsafe extern "stdcall" fn hook_turn_manager(turngame: u32) {
     if !ddgame.is_null() {
         let game_frame = (*ddgame).frame_counter;
         crate::debug_sync::on_frame_start(game_frame);
+
+        // Hardware watchpoint: arm once at the watch frame
+        static WATCH_ARMED: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+        if !WATCH_ARMED.load(Ordering::Relaxed) {
+            if let Ok(val) = std::env::var("OPENWA_WATCH_FRAME") {
+                let target: i32 = val.parse().unwrap_or(0);
+                if game_frame >= target {
+                    WATCH_ARMED.store(true, Ordering::Relaxed);
+                    crate::debug_watchpoint::prepare();
+                    crate::debug_watchpoint::on_ddgame_alloc(ddgame as *mut u8);
+                }
+            }
+        }
     }
 
     // Call original

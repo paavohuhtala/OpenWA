@@ -32,12 +32,8 @@ use windows_sys::Win32::System::Diagnostics::Debug::{
 
 /// DDGame offsets to watch. Hardware limit: 4 watchpoints (DR0–DR3).
 /// Change these to investigate different fields.
-const WATCH_OFFSETS: [(u32, &str); 4] = [
-    (0x041C, "sprite_cache[38]"),
-    (0x0420, "sprite_cache[39]"),
-    (0x7820, "render_idx[0]"),
-    (0x7824, "render_idx[1]"),
-    // Swap in (0x7828, "render_idx[2]") if needed — likely same writer as [0]/[1]
+const WATCH_OFFSETS: [(u32, &str); 1] = [
+    (0x0050, "ddgame+0x50"),
 ];
 
 /// DDGame base address (set when allocation is reported).
@@ -87,10 +83,12 @@ unsafe extern "system" fn veh_handler(info: *mut EXCEPTION_POINTERS) -> i32 {
             SAVED_DR = [ctx.Dr0, ctx.Dr1, ctx.Dr2, ctx.Dr3, ctx.Dr6, ctx.Dr7];
 
             let base = DDGAME_BASE.load(Ordering::Relaxed);
-            ctx.Dr0 = base + WATCH_OFFSETS[0].0;
-            ctx.Dr1 = base + WATCH_OFFSETS[1].0;
-            ctx.Dr2 = base + WATCH_OFFSETS[2].0;
-            ctx.Dr3 = base + WATCH_OFFSETS[3].0;
+            let dr_regs = [&mut ctx.Dr0, &mut ctx.Dr1, &mut ctx.Dr2, &mut ctx.Dr3];
+            for (i, dr) in dr_regs.into_iter().enumerate() {
+                if i < WATCH_OFFSETS.len() {
+                    *dr = base + WATCH_OFFSETS[i].0;
+                }
+            }
             ctx.Dr6 = 0;
             ctx.Dr7 = dr7_for_count(WATCH_OFFSETS.len());
 
