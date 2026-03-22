@@ -44,6 +44,31 @@ unsafe extern "stdcall" fn call_init_replay(_game_info: *mut GameInfo, _this: *m
     );
 }
 
+/// Temp: bridge to original DDGame__Constructor for comparison.
+#[unsafe(naked)]
+unsafe extern "C" fn call_original_ddgame_ctor(
+    _wrapper: *mut DDGameWrapper, _display: *mut DDDisplay, _sound: *mut DSSound,
+    _keyboard: *mut u8, _palette: *mut Palette, _music: *mut u8,
+    _timer: *mut u8, _net_game: *mut u8, _game_info: *mut GameInfo, _input_ctrl: *mut u8,
+) {
+    core::arch::naked_asm!(
+        "mov ecx, [esp+40]",
+        "push [esp+36]",
+        "push [esp+36]",
+        "push [esp+36]",
+        "push [esp+36]",
+        "push [esp+36]",
+        "push [esp+36]",
+        "push [esp+36]",
+        "push [esp+36]",
+        "push [esp+36]",
+        "call [{addr}]",
+        "ret",
+        addr = sym DDGAME_CTOR_ADDR,
+    );
+}
+static mut DDGAME_CTOR_ADDR: u32 = 0;
+
 /// Called by `impl_init_hardware` to construct the DDGameWrapper in-place.
 pub(crate) unsafe fn construct_ddgame_wrapper(
     game_info: *mut GameInfo,
@@ -77,18 +102,27 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
         display as u32, net_game as u32, timer_obj as u32, game_info as u32,
     ));
 
-    create_ddgame(
-        this,
-        keyboard as *mut openwa_core::input::DDKeyboard,
-        display,
-        sound,
-        palette,
-        streaming_audio as *mut openwa_core::audio::Music,
-        timer_obj,
-        net_game,
-        game_info,
-        input_ctrl as u32,
-    );
+    // Use env var to switch between original and Rust constructor
+    let use_original = std::env::var("OPENWA_USE_ORIG_CTOR").is_ok();
+    if use_original {
+        call_original_ddgame_ctor(
+            this, display, sound, keyboard, palette, streaming_audio,
+            timer_obj, net_game, game_info, input_ctrl,
+        );
+    } else {
+        create_ddgame(
+            this,
+            keyboard as *mut openwa_core::input::DDKeyboard,
+            display,
+            sound,
+            palette,
+            streaming_audio as *mut openwa_core::audio::Music,
+            timer_obj,
+            net_game,
+            game_info,
+            input_ctrl as u32,
+        );
+    }
 
     // Initialize DDGame's game-state fields.
     let init_state: unsafe extern "stdcall" fn(*mut DDGameWrapper) =
@@ -107,6 +141,7 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
 pub fn install() -> Result<(), String> {
     unsafe {
         INIT_REPLAY_ADDR = rb(va::DDGAMEWRAPPER_INIT_REPLAY);
+        DDGAME_CTOR_ADDR = rb(0x56E220);
         init_constructor_addrs();
         hook::install_trap!("DDGameWrapper__Constructor", va::CONSTRUCT_DD_GAME_WRAPPER);
     }
