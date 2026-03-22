@@ -2057,30 +2057,9 @@ impl crate::snapshot::Snapshot for DDGame {
         write_indent(w, i)?; writeln!(w, "camera_target = ({}, {})", Fixed(self.camera_target_x), Fixed(self.camera_target_y))?;
         write_indent(w, i)?; writeln!(w, "level_size = {}x{}", self.level_width, self.level_height)?;
         write_indent(w, i)?; writeln!(w, "level_size_raw = {}x{}", self.level_width_raw, self.level_height_raw)?;
-        write_indent(w, i)?; writeln!(w, "landscape_property = {}", self.landscape_property)?;
+        write_indent(w, i)?; writeln!(w, "landscape_property = {}", fmt_ptr(self.landscape_property as *const u8))?;
         write_indent(w, i)?; writeln!(w, "gfx_color_table = {:?}", self.gfx_color_table)?;
         write_indent(w, i)?; writeln!(w, "fast_forward = req={} active={}", self.fast_forward_request, self.fast_forward_active)?;
-
-        // Arrow sprite/gfxdir arrays (32 slots each) — show null/ptr pattern
-        write_indent(w, i)?; write!(w, "arrow_sprites =")?;
-        for (idx, &p) in self.arrow_sprites.iter().enumerate() {
-            if idx % 8 == 0 { write!(w, " ")?; }
-            write!(w, "{}", if p.is_null() { "." } else { "#" })?;
-        }
-        writeln!(w)?;
-        write_indent(w, i)?; write!(w, "arrow_gfxdirs =")?;
-        for (idx, &p) in self.arrow_gfxdirs.iter().enumerate() {
-            if idx % 8 == 0 { write!(w, " ")?; }
-            write!(w, "{}", if p.is_null() { "." } else { "#" })?;
-        }
-        writeln!(w)?;
-
-        // Also dump arrow_sprites as raw region to catch non-pointer values
-        write_indent(w, i)?; writeln!(w, "arrow_sprites_raw:")?;
-        crate::snapshot::write_raw_region(w,
-            self.arrow_sprites.as_ptr() as *const u8,
-            core::mem::size_of_val(&self.arrow_sprites), i + 1)?;
-
         write_indent(w, i)?; writeln!(w, "keyboard = {}", fmt_ptr(self.keyboard as *const u8))?;
         write_indent(w, i)?; writeln!(w, "display = {}", fmt_ptr(self.display as *const u8))?;
         write_indent(w, i)?; writeln!(w, "sound = {}", fmt_ptr(self.sound as *const u8))?;
