@@ -68,7 +68,7 @@ fn server_thread() -> io::Result<()> {
 }
 
 fn handle_client(stream: TcpStream) -> io::Result<()> {
-    stream.set_read_timeout(Some(Duration::from_secs(10)))?;
+    stream.set_read_timeout(Some(Duration::from_secs(300)))?;
     stream.set_nodelay(true)?;
 
     let mut reader = BufReader::new(stream.try_clone()?);
@@ -112,6 +112,29 @@ fn handle_request(request: Request) -> Response {
         },
         Request::Read { addr, len, absolute } => handle_read(addr, len, absolute),
         Request::ReadChain { addr, chain, len, absolute } => handle_read_chain(addr, &chain, len, absolute),
+        Request::Suspend => {
+            crate::debug_sync::suspend();
+            Response::Suspended { frame: crate::debug_sync::current_frame() }
+        }
+        Request::Resume => {
+            crate::debug_sync::resume();
+            Response::Resumed
+        }
+        Request::Step { count } => {
+            crate::debug_sync::step(count);
+            // Wait briefly for the step to complete, then report
+            std::thread::sleep(Duration::from_millis(100));
+            Response::Suspended { frame: crate::debug_sync::current_frame() }
+        }
+        Request::Frame => Response::FrameInfo {
+            frame: crate::debug_sync::current_frame(),
+            paused: crate::debug_sync::is_paused(),
+            breakpoint: crate::debug_sync::breakpoint(),
+        },
+        Request::Break { frame } => {
+            crate::debug_sync::set_breakpoint(frame);
+            Response::BreakSet { frame }
+        }
     }
 }
 

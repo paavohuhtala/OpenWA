@@ -181,14 +181,20 @@ unsafe fn count_alive_teams(ddgame: *const DDGame) -> (i32, i32) {
 
 /// Hook for TurnManager_ProcessFrame (stdcall, 1 param = TurnGame*).
 unsafe extern "stdcall" fn hook_turn_manager(turngame: u32) {
-    // Call original first
+    // Check debug sync BEFORE processing the frame — allows pausing at frame boundary
+    let ddgame = get_ddgame();
+    if !ddgame.is_null() {
+        let game_frame = (*ddgame).frame_counter;
+        crate::debug_sync::on_frame_start(game_frame);
+    }
+
+    // Call original
     let orig: unsafe extern "stdcall" fn(u32) =
         core::mem::transmute(ORIG_TURN_MANAGER.load(Ordering::Relaxed));
     orig(turngame);
 
     let frame = FRAMES_PROCESSED.fetch_add(1, Ordering::Relaxed) + 1;
 
-    let ddgame = get_ddgame();
     if ddgame.is_null() {
         return;
     }

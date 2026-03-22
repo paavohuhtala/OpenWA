@@ -73,6 +73,19 @@ fn main() {
                     Request::ReadChain { addr, chain, len, absolute },
             }
         }
+        Some("suspend") => Request::Suspend,
+        Some("resume") => Request::Resume,
+        Some("step") => {
+            let count = positional.get(1).map(|s| parse_u32(s) as i32).unwrap_or(1);
+            Request::Step { count }
+        }
+        Some("frame") => Request::Frame,
+        Some("break") => {
+            let frame = positional.get(1)
+                .map(|s| if s == "clear" || s == "off" { -1 } else { parse_u32(s) as i32 })
+                .unwrap_or_else(|| { eprintln!("Usage: break <frame> | break clear"); process::exit(1); });
+            Request::Break { frame }
+        }
         Some(cmd) => {
             eprintln!("Unknown command: {cmd}");
             print_usage();
@@ -145,6 +158,23 @@ fn print_response(response: &Response, format: Format) {
                     let mut out = stdout.lock();
                     let _ = out.write_all(data);
                 }
+            }
+        }
+        Response::Suspended { frame } => println!("Suspended at frame {frame}"),
+        Response::Resumed => println!("Resumed"),
+        Response::FrameInfo { frame, paused, breakpoint } => {
+            let state = if *paused { "PAUSED" } else { "running" };
+            print!("Frame {frame} [{state}]");
+            if *breakpoint >= 0 {
+                print!("  breakpoint={breakpoint}");
+            }
+            println!();
+        }
+        Response::BreakSet { frame } => {
+            if *frame >= 0 {
+                println!("Breakpoint set at frame {frame}");
+            } else {
+                println!("Breakpoint cleared");
             }
         }
         Response::Error { message } => {
@@ -312,6 +342,11 @@ fn print_usage() {
     eprintln!("  ping                      Check if server is running");
     eprintln!("  help                      List server commands");
     eprintln!("  read <addr> [len]         Read memory at address (default len=256)");
+    eprintln!("  suspend                   Pause game at next frame boundary");
+    eprintln!("  resume                    Resume game");
+    eprintln!("  step [N]                  Advance N frames (default 1), then pause");
+    eprintln!("  frame                     Show current frame and pause state");
+    eprintln!("  break <N>                 Set frame breakpoint (break clear to remove)");
     eprintln!();
     eprintln!("Address syntax:");
     eprintln!("  0x669F8C                  Ghidra VA (rebased automatically)");

@@ -31,6 +31,16 @@ pub enum Request {
     /// Walk a pointer chain: start at `addr`, then for each offset in `chain`,
     /// deref the current DWORD and add the offset. Read `len` bytes at the end.
     ReadChain { addr: u32, chain: Vec<u32>, len: u32, absolute: bool },
+    /// Pause the game at the next frame boundary.
+    Suspend,
+    /// Resume the game.
+    Resume,
+    /// Advance `count` frames, then pause.
+    Step { count: i32 },
+    /// Query current frame number and pause state.
+    Frame,
+    /// Set a frame breakpoint (-1 to clear).
+    Break { frame: i32 },
 }
 
 /// One step in a resolved pointer chain, for display.
@@ -75,6 +85,14 @@ pub enum Response {
         /// Pointer annotations in the final data
         pointers: Vec<PointerInfo>,
     },
+    /// Game is now suspended at this frame.
+    Suspended { frame: i32 },
+    /// Game resumed.
+    Resumed,
+    /// Current frame info.
+    FrameInfo { frame: i32, paused: bool, breakpoint: i32 },
+    /// Breakpoint set/cleared.
+    BreakSet { frame: i32 },
     Error { message: String },
 }
 
