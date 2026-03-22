@@ -33,9 +33,8 @@ use windows_sys::Win32::System::Diagnostics::Debug::{
 /// Offsets to watch. Hardware limit: 4 watchpoints (DR0–DR3).
 /// Change these to investigate different fields.
 /// NOTE: The base pointer is set by `on_ddgame_alloc()` — can be DDGame or DDGameWrapper.
-const WATCH_OFFSETS: [(u32, &str); 2] = [
-    (0x09C0, "display+0x09C0"),
-    (0x353C, "display+0x353C"),
+const WATCH_OFFSETS: [(u32, &str); 1] = [
+    (0x3A40, "display+0x3A40"),
 ];
 
 /// DDGame base address (set when allocation is reported).

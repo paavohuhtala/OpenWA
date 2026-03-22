@@ -215,6 +215,11 @@ pub mod va {
 
     // === Gameplay functions ===
 
+    /// Game PRNG: rng = (rng + frame_counter) * 0x19660D + 0x3C6EF35F.
+    /// Fastcall(ECX=DDGame). Updates DDGame+0x45EC in place.
+    pub const ADVANCE_GAME_RNG: u32 = 0x0053_F320;
+    /// Terrain hit → debris particles → RNG. 6 iterations, 2 RNG calls per hit.
+    pub const GENERATE_DEBRIS_PARTICLES: u32 = 0x0054_6F70;
     pub const CREATE_EXPLOSION: u32 = 0x0054_8080;
     pub const SPECIAL_IMPACT: u32 = 0x0051_93D0;
     pub const SPAWN_OBJECT: u32 = 0x0056_1CF0;
@@ -379,6 +384,11 @@ pub mod va {
     /// girder sprites, and creates DDGame+0x37C DisplayGfx object.
     /// thiscall(ECX=gfx_dir_4c0) + 2 stack(ddgame, wrapper_4c4), RET 0x8.
     pub const DDGAME_LOAD_HUD_AND_WEAPON_SPRITES: u32 = 0x0053_D0E0;
+    /// DisplayGfx__InitTeamPaletteDisplayObjects (0x5703E0): creates team palette
+    /// gradient DisplayGfx objects. Reads DDGame+0x7338 (fill_pixel), iterates teams,
+    /// creates BitGrid+DisplayGfx for each team's palette gradient.
+    /// stdcall(wrapper), RET 0x4.
+    pub const DISPLAY_GFX_INIT_TEAM_PALETTE_DISPLAY: u32 = 0x0057_03E0;
     /// DDGame__InitPaletteGradientSprites (0x5706D0): creates DisplayGfx objects
     /// at DDGame+0x41C.. for each team's palette gradient data from GameInfo.
     /// stdcall(wrapper), RET 0x4.

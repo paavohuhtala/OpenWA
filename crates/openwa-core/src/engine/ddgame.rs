@@ -25,7 +25,7 @@ use crate::wa_alloc::{wa_malloc, wa_malloc_zeroed};
 
 /// DDGame — the main game engine object.
 ///
-/// This is a massive ~39KB struct (0x98B8 bytes) that owns all major subsystems:
+/// This is a massive ~39KB struct (0x98D8 bytes) that owns all major subsystems:
 /// display, landscape, sound, graphics handlers, and task state machines.
 ///
 /// Allocated in DDGame__Constructor (0x56E220).
@@ -367,11 +367,14 @@ pub struct DDGame {
     /// This is the same flag toggled by spacebar (key 0x35) during replay.
     pub fast_forward_active: u32,
 
-    /// 0x98B4-0x98B7: Unknown
-    pub _unknown_98b4: [u8; 0x98B8 - 0x98B4],
+    /// 0x98B4-0x98D7: Unknown tail region.
+    /// The original constructor allocates 0x98D8 bytes but memsets only 0x98B8.
+    /// The remaining 0x20 bytes are not zeroed by the initial memset but may be
+    /// initialized by subsequent constructor steps or game code.
+    pub _unknown_98b4: [u8; 0x98D8 - 0x98B4],
 }
 
-const _: () = assert!(core::mem::size_of::<DDGame>() == 0x98B8);
+const _: () = assert!(core::mem::size_of::<DDGame>() == 0x98D8);
 
 // ============================================================
 // DDGame constructor — replaces DDGame__Constructor (0x56E220)
@@ -396,7 +399,7 @@ const _: () = assert!(core::mem::size_of::<DDGame>() == 0x98B8);
 /// then zeroes coordination/sound entries at 0x8Cxx and 0x98xx.
 ///
 /// # Safety
-/// `ddgame` must point to a valid, zero-filled DDGame allocation (0x98B8 bytes).
+/// `ddgame` must point to a valid, zero-filled DDGame allocation (0x98D8 bytes).
 pub unsafe fn ddgame_init_fields(ddgame: *mut DDGame) {
     let base = ddgame as *mut u8;
 
@@ -645,7 +648,7 @@ pub static mut ON_DDGAME_ALLOC: Option<unsafe fn(*mut u8)> = None;
 
 /// Create and initialize DDGame, matching DDGame__Constructor (0x56E220).
 ///
-/// Allocates 0x98B8 bytes from WA's heap, initializes all fields, and creates
+/// Allocates 0x98D8 bytes from WA's heap, initializes all fields, and creates
 /// sub-objects. Populates fields on both `wrapper` (DDGameWrapper) and the
 /// returned DDGame.
 ///
@@ -665,8 +668,10 @@ pub unsafe fn create_ddgame(
     game_info: *mut GameInfo,
     network_ecx: u32, // implicit ECX from caller
 ) -> *mut DDGame {
-    // ── 1. Allocate and zero-fill (matches: memset(piVar3, 0, 0x98B8)) ──
-    let ddgame = wa_malloc_zeroed(0x98B8) as *mut DDGame;
+    // ── 1. Allocate and zero-fill ──
+    // Original: malloc(0x98D8), memset(ptr, 0, 0x98B8) — last 0x20 bytes not zeroed.
+    // We zero the full 0x98D8 for safety (strictly more initialization than original).
+    let ddgame = wa_malloc_zeroed(0x98D8) as *mut DDGame;
     if ddgame.is_null() {
         return core::ptr::null_mut();
     }
@@ -1108,29 +1113,30 @@ unsafe fn init_graphics_and_resources(
             // Store arrow sprite at DDGame+0x38+i*4
             (*ddgame).arrow_sprites[i as usize] = sprite;
 
-            // Calculate collision region dimensions from sprite
+            // Calculate collision region dimensions from sprite.
+            // The original creates a CENTERED collision box with 10px margin:
+            //   left/top margin = max(0, dim/2 - 10)
+            //   right/bottom = dim - margin
+            // Result: this[5]=this[6]=10 for sprites >20px (the 10px inset).
             if !sprite.is_null() {
                 let tsm = &*(sprite as *const BitGrid);
                 let sprite_w = tsm.width as i32;
                 let sprite_h = tsm.height as i32;
-                let half_w = (sprite_w / 2 - 10).max(0);
-                let half_h = (sprite_h / 2 - 10).max(0);
+                let margin_w = (sprite_w / 2 - 10).max(0);
+                let margin_h = (sprite_h / 2 - 10).max(0);
 
                 // Create SpriteRegion for collision
                 let alloc = wa_malloc_zeroed(0x9C);
                 let region = if !alloc.is_null() {
-                    // SpriteRegion params: ECX, EDX, this, p2, p3, p4, p5, p6
-                    // this[3] = p4 - p2 (width), this[4] = EDX - p3 (height)
-                    // For arrows: region from (0,0) to (half_w, half_h)
                     call_sprite_region_ctor(
                         alloc,
-                        0,                   // ECX (x_max for this[5])
-                        half_h as u32,       // EDX (y_max → this[4] = EDX - p3)
-                        0,                   // p2 (x_offset)
-                        0,                   // p3 (y_offset)
-                        half_w as u32,       // p4 (x_limit → this[3] = p4 - p2)
-                        half_h as u32,       // p5 (y_limit for this[6])
-                        gfx_resource as u32, // p6 (gfx_resource)
+                        (sprite_w / 2) as u32,                   // ECX → this[5] = ECX - p2
+                        (sprite_h - margin_h) as u32,            // EDX → this[4] = EDX - p3
+                        margin_w as u32,                          // p2 (left margin)
+                        margin_h as u32,                          // p3 (top margin)
+                        (sprite_w - margin_w) as u32,             // p4 → this[3] = p4 - p2
+                        (sprite_h / 2) as u32,                    // p5 → this[6] = p5 - p3
+                        sprite as u32,                            // p6 = arrow sprite (NOT landscape gfx_resource)
                     )
                 } else {
                     core::ptr::null_mut()
@@ -1333,8 +1339,13 @@ unsafe fn init_graphics_and_resources(
         // gradient data from GameInfo. stdcall(wrapper), RET 0x4.
         wa_init_palette_gradient_sprites(wrapper);
 
-        // ── Loading progress tick (1 of 2 — after InitPaletteGradientSprites) ──
-        call_usercall_ecx(wrapper, LOADING_PROGRESS_TICK_ADDR);
+        // ── DisplayGfx__InitTeamPaletteDisplayObjects (0x5703E0) ──
+        // Creates team palette gradient display objects. Reads DDGame+0x7338
+        // (fill_pixel), creates BitGrid+DisplayGfx per team.
+        // stdcall(wrapper), RET 0x4.
+        let init_team_palette_display: unsafe extern "stdcall" fn(*mut DDGameWrapper) =
+            core::mem::transmute(rb(va::DISPLAY_GFX_INIT_TEAM_PALETTE_DISPLAY));
+        init_team_palette_display(wrapper);
     }
     // ── Gradient image stub (DDGame+0x30) ──
     // Minimal stub: [6]=0 (zero-width) so CTaskLand skips the gradient column loop.
