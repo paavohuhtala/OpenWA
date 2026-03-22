@@ -3,12 +3,6 @@
 //! Replaces WA.exe functions that manage weapon ammo in the TeamArenaState area (DDGame + 0x4628):
 //! - GetAmmo (0x5225E0): query ammo count with delay/phase checks
 //! - AddAmmo (0x522640): add ammo to a weapon slot
-//!
-//! NOTE: FireWeapon dispatch is currently a passthrough (jmp to original) due to
-//! an undiagnosed desync bug in the Rust dispatch logic. The dispatch functions
-//! are kept for future debugging. See project_ddgame_desync.md.
-
-#![allow(dead_code)]
 //! - SubtractAmmo (0x522680): decrement ammo count
 //! - CountAliveWorms (0x5225A0): check if >1 worm alive on team
 //! - FireWeapon (0x51EE60): passthrough with weapon type logging
@@ -155,15 +149,34 @@ usercall_trampoline!(fn trampoline_count_alive_worms; impl_fn = count_alive_worm
 
 static ORIG_FIRE_WEAPON: AtomicU32 = AtomicU32::new(0);
 
-/// Naked trampoline for FireWeapon — passthrough to original.
-///
-/// Convention: usercall(EAX=entry, ECX=local_struct) + stack(worm), RET 0x4.
-/// Just jumps to the original — no Rust dispatch.
+/// Naked trampoline for FireWeapon.
+/// Must save ALL callee-saved registers (ESI, EDI, EBX, EBP) because the
+/// Rust cdecl impl may clobber them, and WeaponRelease (our caller) depends
+/// on them being preserved.
 #[unsafe(naked)]
 unsafe extern "C" fn trampoline_fire_weapon() {
     core::arch::naked_asm!(
-        "jmp [{orig}]",
-        orig = sym ORIG_FIRE_WEAPON,
+        // Save all callee-saved + EDX
+        "push ebx",
+        "push esi",
+        "push edi",
+        "push ebp",
+        "push edx",
+        // Push cdecl args: (weapon_ctx=EAX, local_struct=ECX, worm)
+        // Stack: 5 pushes (20) + ret (4) = 24 to stack param
+        "push [esp+24]",      // worm
+        "push ecx",           // local_struct
+        "push eax",           // weapon_ctx
+        "call {impl_fn}",
+        "add esp, 12",
+        // Restore everything
+        "pop edx",
+        "pop ebp",
+        "pop edi",
+        "pop esi",
+        "pop ebx",
+        "ret 0x4",
+        impl_fn = sym fire_weapon_impl,
     );
 }
 
@@ -213,7 +226,6 @@ unsafe extern "cdecl" fn fire_weapon_impl(
             _ => {}
         },
         3 => {
-            // GrenadeMortar receives &fire_subtype_34 as its params pointer
             let subtype_34_ptr = &raw const (*entry).fire_subtype_34 as *const WeaponFireParams;
             call_fire_stdcall3(w, subtype_34_ptr, local_struct, rb(0x51E2C0));
         }
@@ -402,10 +414,12 @@ unsafe fn fire_send_team_message(worm: *mut CTaskWorm, msg_type: u32) {
         return;
     }
 
-    // Prepare local buffer (0x40C bytes, mostly zero)
+    // Prepare local buffer (0x40C bytes).
+    // Original: buffer[0] = worm->team_index (from worm+0xFC), rest is stack garbage.
+    // We zero-fill for safety, then set buffer[0] = team_index.
     let mut buf = [0u8; 0x40C];
     let team_index = (*worm).team_index;
-    buf[8..12].copy_from_slice(&team_index.to_ne_bytes());
+    buf[0..4].copy_from_slice(&team_index.to_ne_bytes());
 
     // Call entity->vtable[2] = HandleMessage(sender=worm, msg, size=4, data=&buf)
     let vtable = *(team_entity as *const u32);
