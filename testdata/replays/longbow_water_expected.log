@@ -1,0 +1,34 @@
+Game Started at 2026-03-22 20:10:01 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Red:  "2-UP"
+Blue: "3-UP"
+
+[00:00:00.00] ••• 2-UP starts turn
+[00:00:06.16] ••• 2-UP fires Teleport
+[00:00:08.64] ••• 2-UP ends turn; time used: 3.68 sec turn, 0.02 sec retreat
+[00:00:09.32] ••• 3-UP starts turn
+[00:00:12.94] ••• 3-UP fires Teleport
+[00:00:15.42] ••• 3-UP ends turn; time used: 1.22 sec turn, 0.02 sec retreat
+[00:00:18.40] ••• 2-UP starts turn
+[00:00:21.40] ••• 2-UP fires Longbow
+[00:00:32.62] ••• 2-UP fires Longbow
+[00:00:35.70] ••• 2-UP ends turn; time used: 9.24 sec turn, 3.00 sec retreat
+[00:00:39.72] ••• 3-UP starts turn
+[00:00:41.68] ••• 3-UP fires Surrender
+[00:00:41.70] ••• 3-UP ends turn; time used: 0.40 sec turn, 0.00 sec retreat
+[00:00:47.54] ••• Game Ends - Round Finished
+
+Team time totals:
+2-UP: Turn: 00:00:12.92, Retreat: 00:00:03.02, Total: 00:00:15.94, Turn count: 2
+3-UP: Turn: 00:00:01.62, Retreat: 00:00:00.02, Total: 00:00:01.64, Turn count: 2
+
+End of round 1
+
+Round time: 0:00:47
+Total game time elapsed: 0:00:47
+
+2-UP wins the round.
+
