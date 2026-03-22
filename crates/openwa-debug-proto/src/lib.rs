@@ -27,7 +27,23 @@ pub struct PointerInfo {
 pub enum Request {
     Ping,
     Help,
-    Read { addr: u32, len: u32 },
+    Read { addr: u32, len: u32, #[serde(default)] absolute: bool },
+    /// Walk a pointer chain: start at `addr`, then for each offset in `chain`,
+    /// deref the current DWORD and add the offset. Read `len` bytes at the end.
+    ReadChain { addr: u32, chain: Vec<u32>, len: u32, absolute: bool },
+}
+
+/// One step in a resolved pointer chain, for display.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChainStep {
+    /// Address we read from
+    pub deref_addr: u32,
+    /// Value (DWORD) we read
+    pub value: u32,
+    /// Offset added after deref
+    pub offset: u32,
+    /// Resulting address (value + offset)
+    pub result_addr: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -45,6 +61,18 @@ pub enum Response {
         ghidra_addr: u32,
         runtime_addr: u32,
         data: Vec<u8>,
+        pointers: Vec<PointerInfo>,
+    },
+    ReadChainResult {
+        /// Each deref step in the chain (for trace output)
+        steps: Vec<ChainStep>,
+        /// Final address (Ghidra VA)
+        ghidra_addr: u32,
+        /// Final address (runtime)
+        runtime_addr: u32,
+        /// Memory at the final address
+        data: Vec<u8>,
+        /// Pointer annotations in the final data
         pointers: Vec<PointerInfo>,
     },
     Error { message: String },

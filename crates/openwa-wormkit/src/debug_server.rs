@@ -110,11 +110,24 @@ fn handle_request(request: Request) -> Response {
                 },
             ],
         },
-        Request::Read { addr, len } => handle_read(addr, len),
+        Request::Read { addr, len, absolute } => handle_read(addr, len, absolute),
+        Request::ReadChain { addr, chain, len, absolute } => handle_read_chain(addr, &chain, len, absolute),
     }
 }
 
-fn handle_read(ghidra_addr: u32, len: u32) -> Response {
+/// Compute ASLR delta and resolve an address to (ghidra, runtime).
+fn resolve_addr(addr: u32, absolute: bool) -> (u32, u32, u32) {
+    let wa_base = rb(va::IMAGE_BASE);
+    let delta = wa_base.wrapping_sub(va::IMAGE_BASE);
+    let (ghidra_addr, runtime_addr) = if absolute {
+        (addr.wrapping_sub(delta), addr)
+    } else {
+        (addr, addr.wrapping_add(delta))
+    };
+    (ghidra_addr, runtime_addr, delta)
+}
+
+fn handle_read(addr: u32, len: u32, absolute: bool) -> Response {
     if len == 0 {
         return Response::Error {
             message: "len must be > 0".into(),
@@ -126,9 +139,7 @@ fn handle_read(ghidra_addr: u32, len: u32) -> Response {
         };
     }
 
-    let wa_base = rb(va::IMAGE_BASE);
-    let delta = wa_base.wrapping_sub(va::IMAGE_BASE);
-    let runtime_addr = ghidra_addr.wrapping_add(delta);
+    let (ghidra_addr, runtime_addr, delta) = resolve_addr(addr, absolute);
 
     unsafe {
         if !mem::can_read(runtime_addr, len) {
@@ -154,6 +165,84 @@ fn handle_read(ghidra_addr: u32, len: u32) -> Response {
         Response::ReadResult {
             ghidra_addr,
             runtime_addr,
+            data,
+            pointers,
+        }
+    }
+}
+
+fn handle_read_chain(addr: u32, chain: &[u32], len: u32, absolute: bool) -> Response {
+    if len == 0 || len > MAX_READ_SIZE {
+        return Response::Error {
+            message: format!("len must be 1..{}", MAX_READ_SIZE),
+        };
+    }
+    if chain.is_empty() {
+        return handle_read(addr, len, absolute);
+    }
+
+    let (_, mut current_runtime, delta) = resolve_addr(addr, absolute);
+    let mut steps = Vec::new();
+
+    // Walk the chain: for each offset, deref current address then add offset
+    for &offset in chain.iter() {
+        unsafe {
+            if !mem::can_read(current_runtime, 4) {
+                return Response::Error {
+                    message: format!(
+                        "Chain broke: cannot read DWORD at runtime:0x{:08X} (ghidra:0x{:08X})",
+                        current_runtime,
+                        current_runtime.wrapping_sub(delta)
+                    ),
+                };
+            }
+            let value = *(current_runtime as *const u32);
+            if value == 0 {
+                return Response::Error {
+                    message: format!(
+                        "Chain broke: NULL pointer at runtime:0x{:08X} (ghidra:0x{:08X})",
+                        current_runtime,
+                        current_runtime.wrapping_sub(delta)
+                    ),
+                };
+            }
+            let result_addr = value.wrapping_add(offset);
+            steps.push(ChainStep {
+                deref_addr: current_runtime.wrapping_sub(delta), // ghidra VA
+                value,
+                offset,
+                result_addr,
+            });
+            current_runtime = result_addr;
+        }
+    }
+
+    // Now read memory at the final address
+    let final_ghidra = current_runtime.wrapping_sub(delta);
+
+    unsafe {
+        if !mem::can_read(current_runtime, len) {
+            return Response::Error {
+                message: format!(
+                    "Cannot read {} bytes at final address runtime:0x{:08X} (ghidra:0x{:08X})",
+                    len, current_runtime, final_ghidra
+                ),
+            };
+        }
+
+        let mut data = vec![0u8; len as usize];
+        std::ptr::copy_nonoverlapping(
+            current_runtime as *const u8,
+            data.as_mut_ptr(),
+            len as usize,
+        );
+
+        let pointers = mem::classify_region(&data, 0, delta);
+
+        Response::ReadChainResult {
+            steps,
+            ghidra_addr: final_ghidra,
+            runtime_addr: current_runtime,
             data,
             pointers,
         }

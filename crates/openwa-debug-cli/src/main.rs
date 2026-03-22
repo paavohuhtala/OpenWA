@@ -56,11 +56,22 @@ fn main() {
                 eprintln!("Error: read requires an address");
                 process::exit(1);
             });
-            let addr = parse_addr(addr_str);
+            // Detect shell eating '->' as redirect: address ends with '-'
+            if addr_str.ends_with('-') {
+                eprintln!("Error: address '{}' looks truncated — did the shell eat '->'?", addr_str);
+                eprintln!("  Hint: quote the argument: read \"0x7A0884->0xA0->0x0\"");
+                process::exit(1);
+            }
+            let expr = parse_address_expr(addr_str);
             let len = positional.get(2)
                 .map(|s| parse_u32(s))
                 .unwrap_or(256);
-            Request::Read { addr, len }
+            match expr {
+                AddressExpr::Simple { addr, absolute } =>
+                    Request::Read { addr, len, absolute },
+                AddressExpr::Chain { addr, chain, absolute } =>
+                    Request::ReadChain { addr, chain, len, absolute },
+            }
         }
         Some(cmd) => {
             eprintln!("Unknown command: {cmd}");
@@ -109,6 +120,26 @@ fn print_response(response: &Response, format: Format) {
         Response::ReadResult { ghidra_addr, runtime_addr, data, pointers } => {
             match format {
                 Format::Hex => print_hex_read(*ghidra_addr, *runtime_addr, data, pointers),
+                Format::Raw => {
+                    let stdout = io::stdout();
+                    let mut out = stdout.lock();
+                    let _ = out.write_all(data);
+                }
+            }
+        }
+        Response::ReadChainResult { steps, ghidra_addr, runtime_addr, data, pointers } => {
+            match format {
+                Format::Hex => {
+                    println!("Pointer chain ({} steps):", steps.len());
+                    for (i, step) in steps.iter().enumerate() {
+                        println!(
+                            "  [{}] *(ghidra:0x{:08X}) = 0x{:08X}  + 0x{:X} = 0x{:08X}",
+                            i, step.deref_addr, step.value, step.offset, step.result_addr
+                        );
+                    }
+                    println!();
+                    print_hex_read(*ghidra_addr, *runtime_addr, data, pointers);
+                }
                 Format::Raw => {
                     let stdout = io::stdout();
                     let mut out = stdout.lock();
@@ -184,7 +215,73 @@ enum Format {
     Raw,
 }
 
-fn parse_addr(s: &str) -> u32 {
+/// Parsed address expression — either a simple address or a pointer chain.
+enum AddressExpr {
+    /// Simple address (with optional offset already applied)
+    Simple { addr: u32, absolute: bool },
+    /// Pointer chain: start address + list of deref offsets
+    Chain { addr: u32, chain: Vec<u32>, absolute: bool },
+}
+
+/// Parse an address expression.
+///
+/// Syntax:
+///   0x669F8C              — Ghidra VA
+///   abs:0x7FFF0000        — absolute runtime address
+///   0x669F8C+0x10         — Ghidra VA + hex offset
+///   0x669F8C[0x10]        — same as +0x10 (bracket notation)
+///   0x7A0884->0xA0->0x2C  — pointer chain (deref at each ->)
+///   abs:0x7FFF0000->4->0  — absolute + chain
+///
+/// Chain semantics: read DWORD at addr, add first offset, read DWORD, add
+/// second offset, ... display memory at final address.
+fn parse_address_expr(s: &str) -> AddressExpr {
+    let (s, absolute) = if let Some(rest) = s.strip_prefix("abs:") {
+        (rest, true)
+    } else {
+        (s.as_ref(), false)
+    };
+
+    // Check for chain syntax: contains "->"
+    if s.contains("->") {
+        let parts: Vec<&str> = s.split("->").collect();
+        let base = parse_addr_with_offset(parts[0]);
+        let chain: Vec<u32> = parts[1..].iter().map(|p| parse_compound_offset(p)).collect();
+        return AddressExpr::Chain { addr: base, chain, absolute };
+    }
+
+    // Simple address with optional offset
+    AddressExpr::Simple { addr: parse_addr_with_offset(s), absolute }
+}
+
+/// Parse a single address token, possibly with +offset or [offset].
+fn parse_addr_with_offset(s: &str) -> u32 {
+    let (base_str, offset) = split_compound(s);
+    parse_hex(base_str).wrapping_add(offset)
+}
+
+/// Parse a chain offset segment, possibly with +offset or [offset].
+/// E.g. "0x488+0x10" → 0x498, "0xA0[4]" → 0xA4, "0x510" → 0x510.
+fn parse_compound_offset(s: &str) -> u32 {
+    let (base_str, offset) = split_compound(s);
+    parse_u32(base_str).wrapping_add(offset)
+}
+
+/// Split a string on '+' or '[' into (base, offset). Returns (s, 0) if no compound.
+fn split_compound(s: &str) -> (&str, u32) {
+    if let Some(pos) = s.find('+') {
+        let (base, off) = s.split_at(pos);
+        (base, parse_u32(&off[1..]))
+    } else if let Some(pos) = s.find('[') {
+        let base = &s[..pos];
+        let off_str = s[pos + 1..].trim_end_matches(']');
+        (base, parse_u32(off_str))
+    } else {
+        (s, 0u32)
+    }
+}
+
+fn parse_hex(s: &str) -> u32 {
     let s = s.strip_prefix("0x").or_else(|| s.strip_prefix("0X")).unwrap_or(s);
     u32::from_str_radix(s, 16).unwrap_or_else(|_| {
         eprintln!("Error: invalid hex address '{s}'");
@@ -214,7 +311,14 @@ fn print_usage() {
     eprintln!("Commands:");
     eprintln!("  ping                      Check if server is running");
     eprintln!("  help                      List server commands");
-    eprintln!("  read <addr> [len]         Read memory (addr is Ghidra VA, len default 256)");
+    eprintln!("  read <addr> [len]         Read memory at address (default len=256)");
+    eprintln!();
+    eprintln!("Address syntax:");
+    eprintln!("  0x669F8C                  Ghidra VA (rebased automatically)");
+    eprintln!("  abs:0x7FFF0000            Absolute runtime address (no rebase)");
+    eprintln!("  0x669F8C+0x10             Address + hex offset");
+    eprintln!("  0x669F8C[16]              Address + decimal offset (bracket notation)");
+    eprintln!("  0x7A0884->0xA0->0x2C      Pointer chain (deref at each ->)");
     eprintln!();
     eprintln!("Options:");
     eprintln!("  --port <N>                Server port (default: 19840)");
