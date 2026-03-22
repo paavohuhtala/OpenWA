@@ -503,6 +503,7 @@ pub fn init_constructor_addrs() {
         FUN_570F30_ADDR = rb(va::DDGAME_INIT_SOUND_PATHS);
         LOAD_SPEECH_BANKS_ADDR = rb(va::DSSOUND_LOAD_ALL_SPEECH_BANKS);
         LOADING_PROGRESS_TICK_ADDR = rb(va::DDGAME_WRAPPER_LOADING_PROGRESS_TICK);
+        GFX_LOAD_SPRITES_ADDR = rb(va::GFX_DIR_LOAD_SPRITES);
     }
     crate::render::gfx_dir::init_addrs();
 }
@@ -519,18 +520,35 @@ unsafe fn wa_init_version_flags(wrapper: *mut DDGameWrapper) {
     f(wrapper);
 }
 
-/// GfxHandler__LoadSprites (0x570B50): load sprites for secondary GfxHandler.
+/// GfxHandler__LoadSprites (0x570B50): usercall(ESI=layer_ctx) + stdcall(4 params).
+///
+/// ESI must hold the display layer context (from DDDisplay::set_active_layer).
+/// The function uses ESI for LoadSpriteFromVfs and GfxResource__Create_Maybe
+/// when param4 (gfx_dir) is non-null.
 #[cfg(target_arch = "x86")]
-unsafe fn wa_load_sprites(
-    wrapper: *mut DDGameWrapper,
-    sprite_data: *mut u8,
-    display_flags: u32,
-    param4: u32,
+#[unsafe(naked)]
+unsafe extern "C" fn wa_load_sprites(
+    _wrapper: *mut DDGameWrapper,
+    _sprite_data: *mut u8,
+    _display_flags: u32,
+    _param4: u32,
+    _layer_ctx: *mut u8, // → ESI
 ) {
-    let f: unsafe extern "stdcall" fn(*mut DDGameWrapper, *mut u8, u32, u32) =
-        core::mem::transmute(rb(va::GFX_DIR_LOAD_SPRITES) as usize);
-    f(wrapper, sprite_data, display_flags, param4);
+    core::arch::naked_asm!(
+        "push esi",
+        "mov esi, [esp+24]",  // layer_ctx (5th param: 4 saved + 4 ret + 4*4 params + 4 = 24)
+        "push [esp+20]",      // param4
+        "push [esp+20]",      // display_flags
+        "push [esp+20]",      // sprite_data
+        "push [esp+20]",      // wrapper
+        "call [{addr}]",
+        "pop esi",
+        "ret",
+        addr = sym GFX_LOAD_SPRITES_ADDR,
+    );
 }
+
+static mut GFX_LOAD_SPRITES_ADDR: u32 = 0;
 
 /// DSSound_LoadEffectWAVs (0x571660): load sound effect WAVs.
 #[cfg(target_arch = "x86")]
@@ -875,6 +893,7 @@ unsafe fn init_graphics_and_resources(
                 (*ddgame).gfx_sprite_data.as_mut_ptr(),
                 (*game_info).display_flags,
                 0,
+                layer_ctx,
             );
         }
     } else {
@@ -884,6 +903,7 @@ unsafe fn init_graphics_and_resources(
             (*ddgame).gfx_sprite_data.as_mut_ptr(),
             (*game_info).display_flags,
             (*wrapper).primary_gfx_dir as u32,
+            layer_ctx,
         );
     }
 
@@ -896,11 +916,13 @@ unsafe fn init_graphics_and_resources(
         call_usercall_eax(gfxdir2 as *mut DDGameWrapper, rb(va::PALETTE_CONTEXT_INIT));
         *(gfxdir2.add(0x708) as *mut u16) = 0;
         (*ddgame).secondary_gfxdir = gfxdir2;
+        // param4=0 so the ESI-dependent block is skipped; layer_ctx doesn't matter
         wa_load_sprites(
             wrapper,
             (*ddgame).gfx_sprite_data.as_mut_ptr(),
             (*game_info).display_flags,
             0,
+            core::ptr::null_mut(),
         );
     }
 
