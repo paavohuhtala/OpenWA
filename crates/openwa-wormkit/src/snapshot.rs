@@ -8,7 +8,7 @@ use core::fmt::Write;
 use openwa_core::address::va;
 use openwa_core::engine::GameSession;
 use openwa_core::rebase::rb;
-use openwa_core::snapshot::{write_raw_region, Snapshot};
+use openwa_core::snapshot::{hash_pointer_targets, write_raw_region, Snapshot};
 use openwa_core::task::{CTask, CTaskBfsIter, CTaskMissile, CTaskWorm};
 
 /// Capture a full game state snapshot as text.
@@ -41,6 +41,18 @@ pub unsafe fn capture() -> String {
     // ── DDGame ──
     let _ = writeln!(out, "[DDGame]");
     let _ = (*ddgame).write_snapshot(&mut out, 1);
+    let _ = writeln!(out);
+
+    // ── Sub-object hashes (pointer-independent) ──
+    // Hashes the first 256 bytes of every heap object pointed to by DDGame
+    // and PCLandscape. Differences here indicate sub-object state mismatches
+    // that flat DDGame comparisons miss.
+    let _ = writeln!(out, "[SubObjectHashes]");
+    let _ = hash_pointer_targets(&mut out, ddgame as *const u8, 0x550, 256, "ddgame");
+    let landscape = (*ddgame).landscape as *const u8;
+    if !landscape.is_null() {
+        let _ = hash_pointer_targets(&mut out, landscape, 0xB44, 256, "landscape");
+    }
     let _ = writeln!(out);
 
     // ── Team blocks + worm entries ──
