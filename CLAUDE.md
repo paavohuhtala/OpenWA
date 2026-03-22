@@ -59,11 +59,40 @@ Environment variables:
 - `OPENWA_VALIDATE=1` — Enable validation module (struct checks, vtable validation, memory dumps)
 - `OPENWA_REPLAY_TEST=1` — Fast-forward mode: hooks TurnManager_ProcessFrame and sets DDGame+0x98B0=1 each frame (50x speed). Restores window at 2s, runs validation at 5s, 120s safety timeout. Without this, validation runs interactively with hotkeys (F9=team blocks, F10=landscape)
 
+## Debug CLI
+
+Use the `/debug-cli` skill to inspect live game memory, set frame breakpoints, and capture game state snapshots. The debug server runs inside the DLL; the CLI is a separate binary that connects over TCP.
+
+```bash
+# Start game in debug mode:
+powershell -ExecutionPolicy Bypass -File start-debug.ps1
+
+# Or with headless replay + frame breakpoint:
+OPENWA_BREAK_FRAME=1350 OPENWA_DEBUG_SERVER=1 \
+  powershell -File replay-test.ps1 -Headless testdata/replays/longbow.WAgame
+```
+
+Key commands:
+- `openwa-debug read "0x7A0884->0xA0->0x488" 0x100` — read memory via pointer chains
+- `openwa-debug suspend` / `resume` / `step N` — frame-level control
+- `openwa-debug snapshot` — canonicalized game state dump (for diffing)
+- `openwa-debug break 1350` — set frame breakpoint
+
+Address syntax: Ghidra VAs (auto-rebased), `abs:` prefix for absolute, `+offset` / `[offset]`, `->` for pointer chains. **Always quote chain addresses** (`"0x7A0884->0xA0->0x488"`).
+
+Key env vars:
+- `OPENWA_DEBUG_SERVER=1` — enable TCP debug server (port 19840)
+- `OPENWA_BREAK_FRAME=N` — auto-pause at frame N
+- `OPENWA_USE_ORIG_CTOR=1` — use original WA DDGame constructor (for A/B testing)
+- `OPENWA_WATCH_FRAME=N` — arm hardware watchpoint on DDGame at frame N
+
 ## Crate Architecture
 
 - **`openwa-core`** — Types, addresses, parsers, ASLR rebasing, and typed WA function wrappers. The source of truth for all reverse-engineered type layouts and known addresses (`address.rs`). Contains `rebase` (ASLR delta), `wa_call` (calling convention helpers), and `wa/` (typed handle wrappers like `DDGameWrapperHandle`, `CWndHandle`).
 - **`openwa-wormkit`** — Unified WormKit cdylib that replaces WA functions with Rust and optionally validates types against live memory. Logs to `OpenWA.log` (hooks) and `OpenWA_validation.log` (validation). Uses MinHook for inline hooking. Validation is enabled via `OPENWA_VALIDATE=1` env var.
 - **`openwa-harness`** — Offline test harness that loads WA.exe into process memory via `LoadLibraryExA(DONT_RESOLVE_DLL_REFERENCES)` for testing without running the game.
+- **`openwa-debug-cli`** — CLI tool for live memory inspection (`openwa-debug` binary). Connects to the debug server in the DLL.
+- **`openwa-debug-proto`** — Shared protocol types (Request/Response enums, MessagePack framing) between CLI and server.
 
 ## ASLR Rebasing
 

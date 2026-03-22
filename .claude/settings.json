@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(target/i686-pc-windows-msvc/release/openwa-debug resume:*)",
+      "Bash(taskkill /f /im WA.exe)"
+    ]
+  }
+}
