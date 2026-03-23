@@ -348,6 +348,7 @@ unsafe fn show_game_task_raw_fields(
     total_size: usize,
 ) {
     let base = addr as *const u32;
+    let delta = rb(va::IMAGE_BASE).wrapping_sub(va::IMAGE_BASE);
 
     // Sections: CTask base, CGameTask unknowns, pos/speed, more unknowns, emitter,
     // then type-specific in 0x80-byte chunks to keep each section manageable.
@@ -384,11 +385,12 @@ unsafe fn show_game_task_raw_fields(
             .show(ui, |ui| {
                 egui::Grid::new(format!("raw_{}_{}_{:03X}", type_name, addr, start))
                     .striped(true)
-                    .num_columns(3)
+                    .num_columns(4)
                     .show(ui, |ui| {
                         ui.strong("Offset");
                         ui.strong("Value");
                         ui.strong("Field");
+                        ui.strong("Points to");
                         ui.end_row();
 
                         let dwords = (end - start) / 4;
@@ -400,9 +402,22 @@ unsafe fn show_game_task_raw_fields(
                                 .unwrap_or("");
 
                             ui.label(format!("+0x{:03X}", off));
-                            // Show as hex + signed decimal
                             ui.label(format!("{:#010X} ({})", val, val as i32));
                             ui.label(field_name);
+
+                            // Pointer identification
+                            use openwa_core::mem;
+                            let ptr_label = if val > 0x10000 {
+                                mem::identify_pointer(val, delta)
+                                    .and_then(|id| id.name)
+                            } else {
+                                None
+                            };
+                            if let Some(label) = ptr_label {
+                                ui.colored_label(egui::Color32::LIGHT_BLUE, format!("→ {}", label));
+                            } else {
+                                ui.label("");
+                            }
                             ui.end_row();
                         }
                     });
