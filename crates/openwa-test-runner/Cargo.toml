@@ -1,0 +1,9 @@
+[package]
+name = "openwa-test-runner"
+version = "0.1.0"
+edition = "2021"
+description = "Headless replay test runner with concurrent execution"
+
+[[bin]]
+name = "openwa-test"
+path = "src/main.rs"

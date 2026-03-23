@@ -23,6 +23,15 @@ use std::os::windows::io::FromRawHandle;
 use std::path::Path;
 use std::path::PathBuf;
 
+// ─── Per-instance playback.thm path ─────────────────────────────────────────
+
+/// Returns a per-process playback.thm path to avoid races during concurrent tests.
+/// Uses PID suffix so multiple WA instances don't clobber each other's map data.
+fn playback_thm_path() -> String {
+    let pid = std::process::id();
+    format!("data\\playback_{pid}.thm")
+}
+
 // ─── WA CRT FILE* conversion ────────────────────────────────────────────────
 //
 // WA's CRT FILE* can't be used with Rust's std::fs::File directly, but we can
@@ -137,8 +146,9 @@ unsafe fn replay_loader_play(gi: *mut GameInfo) -> Result<(), ReplayError> {
     let first_dword = *(payload as *const i32);
     (*gi).replay_map_type = first_dword;
     if first_dword >= 1 {
-        // Write payload to playback.thm using Rust File
-        let _ = std::fs::write("data\\playback.thm", payload_slice);
+        // Write payload to a per-instance temp file to avoid races during concurrent testing.
+        let thm_path = playback_thm_path();
+        let _ = std::fs::write(&thm_path, payload_slice);
     } else {
         (*gi).replay_payload_2 = *(payload.add(4) as *const i32);
         if first_dword >= -4 && first_dword < -2 {
@@ -571,7 +581,9 @@ unsafe fn parse_and_write_v2plus(
 
         let load: unsafe extern "stdcall" fn(*mut MapView, *const u8, i32) -> i32 =
             core::mem::transmute(rb(va::MAP_VIEW_LOAD));
-        let ok = load(map, b"data\\playback.thm\0".as_ptr(), 0);
+        let thm_path = playback_thm_path();
+        let thm_cstr: Vec<u8> = thm_path.bytes().chain(std::iter::once(0)).collect();
+        let ok = load(map, thm_cstr.as_ptr(), 0);
 
         if ok == 0 {
             if !map.is_null() {

@@ -190,7 +190,18 @@ unsafe fn launch(
     // Create a named event that the DLL will signal after all hooks are
     // installed. This ensures the main thread doesn't run any WA code
     // before our hooks are in place.
-    let event_name = b"OpenWA_HooksReady\0";
+    //
+    // Use a per-instance event name based on the child PID to allow
+    // concurrent launcher instances (e.g., parallel test runner).
+    let event_name_str = format!("OpenWA_HooksReady_{}\0", pi.dwProcessId);
+    let event_name = event_name_str.as_bytes();
+    // Also set env var so the DLL (in the child process) knows the event name.
+    // The child inherits our env, but it was created before we set this var.
+    // Instead, we write the event name into a small shared memory region:
+    // we use SetEnvironmentVariableA in the child's context — but that's not
+    // possible for a suspended process. So we rely on the DLL reading the
+    // event name from a fixed pattern: OpenWA_HooksReady_{its_own_pid}.
+    // The DLL can call GetCurrentProcessId() to reconstruct the same name.
     let event = CreateEventA(ptr::null_mut(), 1, 0, event_name.as_ptr());
     // event may be null if CreateEventA fails — we'll fall through gracefully.
 

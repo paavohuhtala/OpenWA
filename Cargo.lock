@@ -1463,6 +1463,10 @@ name = "openwa-launcher"
 version = "0.1.0"
 
 [[package]]
+name = "openwa-test-runner"
+version = "0.1.0"
+
+[[package]]
 name = "openwa-wormkit"
 version = "0.1.0"
 dependencies = [
