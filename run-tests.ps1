@@ -5,4 +5,4 @@
 #   .\run-tests.ps1 longbow      # only tests matching "longbow"
 #   .\run-tests.ps1 -j 1         # serial mode
 
-& "$PSScriptRoot\target\i686-pc-windows-msvc\release\openwa-test.exe" @args
+cargo run -p openwa-test-runner --release -- @args

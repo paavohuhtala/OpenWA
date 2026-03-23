@@ -34,30 +34,54 @@ It used to be necessary to copy the built DLLs to the game directory and launch 
 
 ## Replay Testing
 
-Use the `/replay-test` skill to automatically build, deploy, launch WA.exe with a replay file, capture validation logs, and present results. This is the fastest way to validate struct layouts, hooks, and game state against live WA.exe.
+**Use replay testing to validate assumptions and test theories!** Make a hypothesis, implement it in the DLL, then run replay tests to see if it holds up against the real game. This iterative approach is much faster than trying to get everything right from static analysis alone.
 
-**Use replay testing to validate assumptions and test theories!** You don't have to figure out everything from disassembly and static analysis. Make a hypothesis, implement it in the DLL, then use replay testing to see if it holds up against the real game. This iterative approach is much faster than trying to get everything right on the first try.
+### Headless test runner (primary)
+
+The `openwa-test-runner` crate (`openwa-test` binary) runs all replay tests automatically with concurrent execution:
 
 ```bash
-# Manual invocation (skill runs this automatically):
-powershell -ExecutionPolicy Bypass -File replay-test.ps1
+# Run all tests (builds everything, default 4 concurrent):
+.\run-tests.ps1
+
+# Filter by name, control parallelism:
+.\run-tests.ps1 longbow         # only tests matching "longbow"
+.\run-tests.ps1 -j 1            # serial mode
+.\run-tests.ps1 --no-build      # skip internal DLL/launcher build
 ```
 
-How it works:
-1. `replay-test.ps1` builds the unified DLL, deploys to game dir, sets `OPENWA_VALIDATE=1` and `OPENWA_REPLAY_TEST=1`, launches `WA.exe` minimized with a replay file
-2. The DLL restores the window after 2s via FindWindowA + ShowWindow(SW_RESTORE), then hooks TurnManager_ProcessFrame and sets DDGame+0x98B0=1 each frame to enable 50x fast-forward (same mechanism as spacebar during replay). Validation runs at 5s. The replay typically finishes in ~15-30s
-3. Script copies logs to `testdata/logs/` and prints a PASS/FAIL summary
+Each test runs WA.exe in headless `/getlog` mode (pure CPU simulation, no rendering) and compares the output log byte-for-byte against an expected baseline. Tests are isolated for concurrent execution via per-PID event names, log paths, and landscape temp files (`CreateFileA` hook).
 
 Key paths:
-- Replay files: `testdata/replays/*.WAgame`
-- Captured logs: `testdata/logs/` (gitignored, `validation_latest.log` / `openwa_latest.log` / `errorlog_latest.txt`)
-- Crash log: WA writes `ERRORLOG.TXT` to game dir on crash -- script clears it before each run and copies to `testdata/logs/` if present
-- Script: `replay-test.ps1`
-- Skill: `.claude/skills/replay-test/SKILL.md`
+- Replay files + expected logs: `testdata/replays/*.WAgame` + `*_expected.log`
+- Per-run output: `testdata/runs/<timestamp>/` (gitignored)
+- Test runner: `crates/openwa-test-runner/`
+- Convenience script: `run-tests.ps1`
 
-Environment variables:
+### Headful replay testing (interactive)
+
+Use the `/replay-test` skill for interactive testing with graphics, sound, and validation module:
+
+```bash
+powershell -ExecutionPolicy Bypass -File replay-test.ps1
+powershell -ExecutionPolicy Bypass -File replay-test.ps1 -Headless testdata/replays/longbow.WAgame
+```
+
+Headful mode enables fast-forward (50x via DDGame+0x98B0) and runs struct validation at 5s. Use for debugging specific replays or testing visual/audio hooks.
+
+### Environment variables
+
+- `OPENWA_HEADLESS=1` — Headless mode: hooks MessageBoxA to auto-dismiss, launcher uses SW_HIDE, file isolation hook active
 - `OPENWA_VALIDATE=1` — Enable validation module (struct checks, vtable validation, memory dumps)
-- `OPENWA_REPLAY_TEST=1` — Fast-forward mode: hooks TurnManager_ProcessFrame and sets DDGame+0x98B0=1 each frame (50x speed). Restores window at 2s, runs validation at 5s, 120s safety timeout. Without this, validation runs interactively with hotkeys (F9=team blocks, F10=landscape)
+- `OPENWA_REPLAY_TEST=1` — Fast-forward mode for headful testing (50x speed, 120s safety timeout)
+- `OPENWA_LOG_PATH=<path>` — Override OpenWA.log location (used by test runner for per-instance isolation)
+
+### Adding new replay tests
+
+1. Record a game in WA.exe (the replay `.WAgame` file is saved automatically)
+2. Copy the replay to `testdata/replays/`
+3. Run once with the headless test runner — it auto-generates the `*_expected.log` baseline
+4. Subsequent runs compare against this baseline
 
 ## Debug CLI
 
@@ -93,6 +117,7 @@ Key env vars:
 - **`openwa-core`** — Types, addresses, parsers, ASLR rebasing, and typed WA function wrappers. The source of truth for all reverse-engineered type layouts and known addresses (`address.rs`). Contains `rebase` (ASLR delta), `wa_call` (calling convention helpers), and `wa/` (typed handle wrappers like `DDGameWrapperHandle`, `CWndHandle`).
 - **`openwa-wormkit`** — Unified WormKit cdylib that replaces WA functions with Rust and optionally validates types against live memory. Logs to `OpenWA.log` (hooks) and `OpenWA_validation.log` (validation). Uses MinHook for inline hooking. Validation is enabled via `OPENWA_VALIDATE=1` env var.
 - **`openwa-harness`** — Offline test harness that loads WA.exe into process memory via `LoadLibraryExA(DONT_RESOLVE_DLL_REFERENCES)` for testing without running the game.
+- **`openwa-test-runner`** — Headless replay test runner (`openwa-test` binary). Discovers replay tests, runs them concurrently via WA.exe's `/getlog` mode, compares output logs. See "Replay Testing" section.
 - **`openwa-debug-cli`** — CLI tool for live memory inspection (`openwa-debug` binary). Connects to the debug server in the DLL.
 - **`openwa-debug-proto`** — Shared protocol types (Request/Response enums, MessagePack framing) between CLI and server.
 
