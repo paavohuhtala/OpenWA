@@ -1,3 +1,154 @@
+/// Define known WA.exe addresses and register them in the global address registry.
+///
+/// Supports two forms:
+///
+/// **Class blocks** — group vtable, constructor, and vtable methods under a class name:
+/// ```ignore
+/// define_addresses! {
+///     class "CTask" {
+///         /// CTask vtable - 7 virtual method pointers
+///         vtable CTASK_VTABLE = 0x0066_9F8C;
+///         /// CTask constructor
+///         ctor/Stdcall CTASK_CONSTRUCTOR = 0x0056_25A0;
+///         vmethod CTASK_VT0_INIT = 0x0056_2710;
+///     }
+/// }
+/// ```
+///
+/// **Standalone entries** — functions and globals not belonging to a class:
+/// ```ignore
+/// define_addresses! {
+///     /// Game PRNG
+///     fn/Fastcall ADVANCE_GAME_RNG = 0x0053_F320;
+///     global G_GAME_SESSION = 0x007A_0884;
+/// }
+/// ```
+///
+/// Each entry generates:
+/// 1. A `pub const NAME: u32 = value;` in the current scope
+/// 2. An `inventory::submit!(AddrEntry { ... })` for global registry collection
+///
+/// Entry kinds: `vtable`, `ctor`, `vmethod`, `fn`, `global`, `string`, `data`
+///
+/// Optional calling convention suffix: `/Stdcall`, `/Thiscall`, `/Fastcall`, `/Cdecl`, `/Usercall`
+#[macro_export]
+macro_rules! define_addresses {
+    // Main entry point: parse a sequence of class blocks and standalone entries
+    (@items $($rest:tt)*) => {
+        $crate::define_addresses!(@parse $($rest)*);
+    };
+
+    // --- Class block ---
+    (@parse class $class_name:literal { $($body:tt)* } $($rest:tt)*) => {
+        $crate::define_addresses!(@class_items $class_name $($body)*);
+        $crate::define_addresses!(@parse $($rest)*);
+    };
+
+    // --- Standalone entries (with doc + calling conv) ---
+    (@parse $(#[doc = $doc:literal])* fn / $conv:ident $name:ident = $value:expr; $($rest:tt)*) => {
+        $(#[doc = $doc])*
+        pub const $name: u32 = $value;
+        $crate::define_addresses!(@submit $name, $value, Function, Some($crate::registry::CallingConv::$conv), None, concat!($($doc,)* ""));
+        $crate::define_addresses!(@parse $($rest)*);
+    };
+    // Standalone fn without calling conv
+    (@parse $(#[doc = $doc:literal])* fn $name:ident = $value:expr; $($rest:tt)*) => {
+        $(#[doc = $doc])*
+        pub const $name: u32 = $value;
+        $crate::define_addresses!(@submit $name, $value, Function, None, None, concat!($($doc,)* ""));
+        $crate::define_addresses!(@parse $($rest)*);
+    };
+    // Standalone global
+    (@parse $(#[doc = $doc:literal])* global $name:ident = $value:expr; $($rest:tt)*) => {
+        $(#[doc = $doc])*
+        pub const $name: u32 = $value;
+        $crate::define_addresses!(@submit $name, $value, Global, None, None, concat!($($doc,)* ""));
+        $crate::define_addresses!(@parse $($rest)*);
+    };
+    // Standalone string literal
+    (@parse $(#[doc = $doc:literal])* string $name:ident = $value:expr; $($rest:tt)*) => {
+        $(#[doc = $doc])*
+        pub const $name: u32 = $value;
+        $crate::define_addresses!(@submit $name, $value, StringLiteral, None, None, concat!($($doc,)* ""));
+        $crate::define_addresses!(@parse $($rest)*);
+    };
+    // Standalone data table
+    (@parse $(#[doc = $doc:literal])* data $name:ident = $value:expr; $($rest:tt)*) => {
+        $(#[doc = $doc])*
+        pub const $name: u32 = $value;
+        $crate::define_addresses!(@submit $name, $value, DataTable, None, None, concat!($($doc,)* ""));
+        $crate::define_addresses!(@parse $($rest)*);
+    };
+
+    // Base case: empty
+    (@parse) => {};
+
+    // --- Class body items ---
+    // vtable
+    (@class_items $class_name:literal $(#[doc = $doc:literal])* vtable $name:ident = $value:expr; $($rest:tt)*) => {
+        $(#[doc = $doc])*
+        pub const $name: u32 = $value;
+        $crate::define_addresses!(@submit $name, $value, Vtable, None, Some($class_name), concat!($($doc,)* ""));
+        $crate::define_addresses!(@class_items $class_name $($rest)*);
+    };
+    // ctor with calling conv
+    (@class_items $class_name:literal $(#[doc = $doc:literal])* ctor / $conv:ident $name:ident = $value:expr; $($rest:tt)*) => {
+        $(#[doc = $doc])*
+        pub const $name: u32 = $value;
+        $crate::define_addresses!(@submit $name, $value, Constructor, Some($crate::registry::CallingConv::$conv), Some($class_name), concat!($($doc,)* ""));
+        $crate::define_addresses!(@class_items $class_name $($rest)*);
+    };
+    // ctor without calling conv
+    (@class_items $class_name:literal $(#[doc = $doc:literal])* ctor $name:ident = $value:expr; $($rest:tt)*) => {
+        $(#[doc = $doc])*
+        pub const $name: u32 = $value;
+        $crate::define_addresses!(@submit $name, $value, Constructor, None, Some($class_name), concat!($($doc,)* ""));
+        $crate::define_addresses!(@class_items $class_name $($rest)*);
+    };
+    // vmethod
+    (@class_items $class_name:literal $(#[doc = $doc:literal])* vmethod $name:ident = $value:expr; $($rest:tt)*) => {
+        $(#[doc = $doc])*
+        pub const $name: u32 = $value;
+        $crate::define_addresses!(@submit $name, $value, VtableMethod, None, Some($class_name), concat!($($doc,)* ""));
+        $crate::define_addresses!(@class_items $class_name $($rest)*);
+    };
+    // fn inside class (with calling conv)
+    (@class_items $class_name:literal $(#[doc = $doc:literal])* fn / $conv:ident $name:ident = $value:expr; $($rest:tt)*) => {
+        $(#[doc = $doc])*
+        pub const $name: u32 = $value;
+        $crate::define_addresses!(@submit $name, $value, Function, Some($crate::registry::CallingConv::$conv), Some($class_name), concat!($($doc,)* ""));
+        $crate::define_addresses!(@class_items $class_name $($rest)*);
+    };
+    // fn inside class (without calling conv)
+    (@class_items $class_name:literal $(#[doc = $doc:literal])* fn $name:ident = $value:expr; $($rest:tt)*) => {
+        $(#[doc = $doc])*
+        pub const $name: u32 = $value;
+        $crate::define_addresses!(@submit $name, $value, Function, None, Some($class_name), concat!($($doc,)* ""));
+        $crate::define_addresses!(@class_items $class_name $($rest)*);
+    };
+    // Base case: empty class body
+    (@class_items $class_name:literal) => {};
+
+    // --- Submit helper ---
+    (@submit $name:ident, $value:expr, $kind:ident, $conv:expr, $class:expr, $doc:expr) => {
+        $crate::inventory::submit! {
+            $crate::registry::AddrEntry {
+                va: $value,
+                name: stringify!($name),
+                kind: $crate::registry::AddrKind::$kind,
+                calling_conv: $conv,
+                class_name: $class,
+                doc: $doc,
+            }
+        }
+    };
+
+    // Top-level entry point
+    ($($tokens:tt)*) => {
+        $crate::define_addresses!(@parse $($tokens)*);
+    };
+}
+
 /// Call a virtual method through a typed vtable pointer.
 ///
 /// Assumes `$obj` is a raw pointer to a struct whose first field `vtable`

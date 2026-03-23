@@ -156,22 +156,5 @@ pub unsafe fn capture() -> String {
 }
 
 fn vtable_name(ghidra_vt: u32) -> &'static str {
-    match ghidra_vt {
-        x if x == va::CTASK_WORM_VTABLE => "CTaskWorm",
-        x if x == va::CTASK_MISSILE_VTABLE => "CTaskMissile",
-        x if x == va::CTASK_TEAM_VTABLE => "CTaskTeam",
-        x if x == va::CTASK_LAND_VTABLE => "CTaskLand",
-        x if x == va::CTASK_TURN_GAME_VTABLE => "CTaskTurnGame",
-        x if x == va::CTASK_CLOUD_VTABLE => "CTaskCloud",
-        x if x == va::CTASK_DIRT_VTABLE => "CTaskDirt",
-        x if x == va::CTASK_FIRE_VTABLE => "CTaskFire",
-        x if x == va::CTASK_SEA_BUBBLE_VTABLE => "CTaskSeaBubble",
-        x if x == va::CTASK_MINE_VTABLE => "CTaskMine",
-        x if x == va::CTASK_OILDRUM_VTABLE => "CTaskOilDrum",
-        x if x == va::CTASK_CRATE_VTABLE => "CTaskCrate",
-        x if x == va::CTASK_CPU_VTABLE => "CTaskCPU",
-        x if x == va::CTASK_FILTER_VTABLE => "CTaskFilter",
-        x if x == va::CTASK_SPRITE_ANIM_VTABLE => "CTaskSpriteAnim",
-        _ => "Unknown",
-    }
+    openwa_core::registry::vtable_class_name(ghidra_vt).unwrap_or("Unknown")
 }

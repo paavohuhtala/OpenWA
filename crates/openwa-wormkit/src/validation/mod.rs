@@ -937,20 +937,7 @@ fn dump_entity_census() {
 
         let table = SharedDataTable::from_ptr(shared_data_ptr);
 
-        // Name table: Ghidra VA → display name
-        let known: &[(u32, &str)] = &[
-            (va::CTASK_WORM_VTABLE, "CTaskWorm"),
-            (va::CTASK_LAND_VTABLE, "CTaskLand"),
-            (va::CTASK_TURN_GAME_VTABLE, "CTaskTurnGame"),
-            (va::CTASK_TEAM_VTABLE, "CTaskTeam"),
-            (va::CTASK_FILTER_VTABLE, "CTaskFilter"),
-            (va::CTASK_DIRT_VTABLE, "CTaskDirt"),
-            (va::CTASK_SPRITE_ANIM_VTABLE, "CTaskSpriteAnim"),
-            (va::CTASK_CPU_VTABLE, "CTaskCPU"),
-            (va::CTASK_CRATE_VTABLE, "CTaskCrate"),
-            (va::CTASK_VTABLE, "CTask"),
-            (va::CGAMETASK_VTABLE, "CGameTask"),
-        ];
+        // Use the global address registry for vtable → class name lookup
 
         // Collect (ghidra_va, entity_ptr) for every node.
         let delta = rb(va::IMAGE_BASE).wrapping_sub(va::IMAGE_BASE);
@@ -985,10 +972,7 @@ fn dump_entity_census() {
         groups.sort_by(|a, b| b.1.len().cmp(&a.1.len()));
 
         for (vt_ghidra, ptrs) in &groups {
-            let name = known
-                .iter()
-                .find(|(v, _)| *v == *vt_ghidra)
-                .map(|(_, n)| *n)
+            let name = openwa_core::registry::vtable_class_name(*vt_ghidra)
                 .unwrap_or("UNKNOWN");
             let _ = log_validation(&format!(
                 "  {:>3}x  {:<20}  (vtable 0x{:08X})",

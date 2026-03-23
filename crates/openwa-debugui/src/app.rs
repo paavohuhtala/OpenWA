@@ -12,33 +12,14 @@ use crate::log;
 // Known task types for census display
 // ---------------------------------------------------------------------------
 
-const KNOWN_VTABLES: &[(u32, &str)] = &[
-    (va::CTASK_WORM_VTABLE, "CTaskWorm"),
-    (va::CTASK_LAND_VTABLE, "CTaskLand"),
-    (va::CTASK_TURN_GAME_VTABLE, "CTaskTurnGame"),
-    (va::CTASK_TEAM_VTABLE, "CTaskTeam"),
-    (va::CTASK_FILTER_VTABLE, "CTaskFilter"),
-    (va::CTASK_DIRT_VTABLE, "CTaskDirt"),
-    (va::CTASK_SPRITE_ANIM_VTABLE, "CTaskSpriteAnim"),
-    (va::CTASK_CPU_VTABLE, "CTaskCPU"),
-    (va::CTASK_MISSILE_VTABLE, "CTaskMissile"),
-    (va::CTASK_MINE_VTABLE, "CTaskMine"),
-    (va::CTASK_OILDRUM_VTABLE, "CTaskOilDrum"),
-    (va::CTASK_CRATE_VTABLE, "CTaskCrate"),
-    (va::CTASK_CLOUD_VTABLE, "CTaskCloud"),
-    (va::CTASK_SEA_BUBBLE_VTABLE, "CTaskSeaBubble"),
-    (va::CTASK_FIRE_VTABLE, "CTaskFire"),
-];
-
 /// Vtables of entities that are created/destroyed every frame (particles,
 /// bubbles, etc.). Filtered from the census by default to reduce noise.
 const TRANSIENT_VTABLES: &[u32] = &[va::CTASK_SEA_BUBBLE_VTABLE];
 
 fn vtable_name(runtime_vtable: u32) -> Option<&'static str> {
-    KNOWN_VTABLES
-        .iter()
-        .find(|&&(ghidra_va, _)| rb(ghidra_va) == runtime_vtable)
-        .map(|&(_, name)| name)
+    let delta = rb(va::IMAGE_BASE).wrapping_sub(va::IMAGE_BASE);
+    let ghidra_va = runtime_vtable.wrapping_sub(delta);
+    openwa_core::registry::vtable_class_name(ghidra_va)
 }
 
 /// Returns a display name for the entity at `addr`.

@@ -13,6 +13,10 @@
 #![allow(clippy::empty_line_after_doc_comments)]
 #![allow(clippy::doc_lazy_continuation)]
 
+// Re-export inventory so the define_addresses! macro can reference it
+// from any crate that depends on openwa-core.
+pub use inventory;
+
 #[macro_use]
 pub mod macros;
 
@@ -26,6 +30,7 @@ pub mod render;
 
 pub mod address;
 pub mod fixed;
+pub mod registry;
 pub mod log;
 pub mod mem;
 pub mod rebase;

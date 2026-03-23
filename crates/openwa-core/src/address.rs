@@ -4,6 +4,10 @@
 /// cross-referenced with wkJellyWorm/WormKit sources.
 ///
 /// All addresses are virtual addresses (VA) as loaded in memory.
+///
+/// Each entry is registered in the global address registry via
+/// `define_addresses!`, enabling runtime queries like
+/// `registry::vtable_class_name()` and `registry::format_va()`.
 pub mod va {
     // Segment layout:
     //   .text:  0x00401000 - 0x00619FFF (code)
@@ -19,1055 +23,998 @@ pub mod va {
     pub const DATA_START: u32 = 0x0069_4000;
     pub const DATA_END: u32 = 0x008C_5000; // .rsrc starts here; .data/.bss ends just before
 
-    // === Vtables (in .rdata) ===
+    // =========================================================================
+    // Class definitions (vtable + constructor + vtable methods)
+    // =========================================================================
 
-    /// CTask vtable - 7 virtual method pointers
-    pub const CTASK_VTABLE: u32 = 0x0066_9F8C;
-    /// CGameTask vtable - extends CTask vtable with 12 more methods
-    pub const CGAMETASK_VTABLE: u32 = 0x0066_41F8;
-    /// CGameTask sound emitter vtable (embedded sub-object at offset 0xE8).
-    /// 12 slots: [0] GetPosition, [1] GetPosition2, [3] Destructor, [4] HandleMessage.
-    pub const CGAMETASK_SOUND_EMITTER_VT: u32 = 0x0066_9CF8;
+    crate::define_addresses! {
+        class "CTask" {
+            /// CTask vtable - 7 virtual method pointers
+            vtable CTASK_VTABLE = 0x0066_9F8C;
+            /// CTask constructor - initializes base task fields and children list
+            ctor/Stdcall CTASK_CONSTRUCTOR = 0x0056_25A0;
+            /// CTask::vtable0 - initialization/unknown
+            vmethod CTASK_VT0_INIT = 0x0056_2710;
+            /// CTask::Free - destructor/deallocation
+            vmethod CTASK_VT1_FREE = 0x0056_2620;
+            /// CTask::HandleMessage - message dispatch
+            vmethod CTASK_VT2_HANDLE_MESSAGE = 0x0056_2F30;
+            /// CTask::vtable3 - unknown
+            vmethod CTASK_VT3 = 0x0056_13D0;
+            /// CTask::vtable5 - unknown
+            vmethod CTASK_VT5 = 0x0056_2FA0;
+            /// CTask::vtable6 - unknown
+            vmethod CTASK_VT6 = 0x0056_3000;
+            /// CTask::ProcessFrame
+            vmethod CTASK_VT7_PROCESS_FRAME = 0x0056_3210;
+        }
+
+        class "CGameTask" {
+            /// CGameTask vtable - extends CTask vtable with 12 more methods
+            vtable CGAMETASK_VTABLE = 0x0066_41F8;
+            /// CGameTask sound emitter vtable (embedded sub-object at offset 0xE8)
+            vtable CGAMETASK_SOUND_EMITTER_VT = 0x0066_9CF8;
+            /// CGameTask constructor - calls CTask ctor, sets physics defaults
+            ctor/Stdcall CGAMETASK_CONSTRUCTOR = 0x004F_ED50;
+            /// CGameTask::vtable0 override
+            vmethod CGAMETASK_VT0 = 0x004F_F1C0;
+            /// CGameTask::Free override
+            vmethod CGAMETASK_VT1_FREE = 0x004F_EF10;
+            /// CGameTask::HandleMessage override
+            vmethod CGAMETASK_VT2_HANDLE_MESSAGE = 0x004F_F280;
+        }
+
+        class "DDGameWrapper" {
+            /// DDGameWrapper vtable
+            vtable DDGAME_WRAPPER_VTABLE = 0x0066_A30C;
+            /// DDGameWrapper constructor
+            ctor/Stdcall CONSTRUCT_DD_GAME_WRAPPER = 0x0056_DEF0;
+            /// DDGameWrapper::InitReplay — usercall(EAX=game_info, ESI=this), plain RET
+            fn/Usercall DDGAMEWRAPPER_INIT_REPLAY = 0x0056_F860;
+            /// DDGameWrapper__LoadingProgressTick
+            fn/Stdcall DDGAME_WRAPPER_LOADING_PROGRESS_TICK = 0x0057_17A0;
+            /// DDGameWrapper__LoadSpeechWAV
+            fn/Usercall DDGAMEWRAPPER_LOAD_SPEECH_WAV = 0x0057_1530;
+        }
+
+        class "DDGame" {
+            /// DDGame constructor
+            ctor/Stdcall CONSTRUCT_DD_GAME = 0x0056_E220;
+            /// DDGame::InitGameState — stdcall(this=DDGameWrapper*), RET 0x4
+            fn/Stdcall DDGAME_INIT_GAME_STATE = 0x0052_6500;
+            /// DDGame__InitFields
+            fn DDGAME_INIT_FIELDS = 0x0052_6120;
+            /// DDGame__InitRenderIndices — usercall(ESI=ddgame), plain RET
+            fn/Usercall DDGAME_INIT_RENDER_INDICES = 0x0052_6080;
+            /// DDGame__InitVersionFlags — stdcall(ddgame_wrapper)
+            fn/Stdcall DDGAME_INIT_VERSION_FLAGS = 0x0052_5BE0;
+            /// DDGame__InitSoundPaths_Maybe
+            fn DDGAME_INIT_SOUND_PATHS = 0x0057_0F30;
+            /// DDGame__LoadHudAndWeaponSprites
+            fn/Thiscall DDGAME_LOAD_HUD_AND_WEAPON_SPRITES = 0x0053_D0E0;
+            /// DDGame__InitPaletteGradientSprites
+            fn/Stdcall DDGAME_INIT_PALETTE_GRADIENT_SPRITES = 0x0057_06D0;
+            /// DDGame__InitFeatureFlags
+            fn/Stdcall DDGAME_INIT_FEATURE_FLAGS = 0x0052_4700;
+            /// DDGame__InitDisplayFinal_Maybe
+            fn DDGAME_INIT_DISPLAY_FINAL = 0x0056_A830;
+            /// DDGame__IsSuperWeapon
+            fn/Usercall IS_SUPER_WEAPON = 0x0056_5960;
+            /// DDGame__CheckWeaponAvail
+            fn/Fastcall CHECK_WEAPON_AVAIL = 0x0053_FFC0;
+        }
+
+        class "PCLandscape" {
+            /// PCLandscape vtable
+            vtable PC_LANDSCAPE_VTABLE = 0x0066_B208;
+            /// PCLandscape constructor (0xB44-byte object)
+            ctor/Stdcall PC_LANDSCAPE_CONSTRUCTOR = 0x0057_ACB0;
+            /// Applies explosion crater to terrain (vtable slot 2)
+            fn PC_LANDSCAPE_APPLY_EXPLOSION = 0x0057_C820;
+            /// Draws 8px checkered borders at landscape edges (vtable slot 6)
+            fn PC_LANDSCAPE_DRAW_BORDERS = 0x0057_D7F0;
+            /// Redraws a single terrain row (vtable slot 8)
+            fn PC_LANDSCAPE_REDRAW_ROW = 0x0057_CF60;
+            /// Clips and merges dirty rectangles for terrain redraw
+            fn PC_LANDSCAPE_CLIP_AND_MERGE = 0x0057_D2B0;
+        }
+
+        class "LandscapeShader" {
+            /// LandscapeShader vtable
+            vtable LANDSCAPE_SHADER_VTABLE = 0x0066_B1DC;
+        }
+
+        class "DSSound" {
+            /// DSSound vtable
+            vtable DS_SOUND_VTABLE = 0x0066_AF20;
+            /// DSSound constructor — usercall(EAX=this), plain RET
+            ctor/Usercall CONSTRUCT_DS_SOUND = 0x0057_3D50;
+            /// DSSound init buffers — usercall(EAX=dssound), plain RET
+            fn/Usercall DSSOUND_INIT_BUFFERS = 0x0057_3E50;
+            /// Loads all SFX WAVs
+            fn/Stdcall DSSOUND_LOAD_EFFECT_WAVS = 0x0057_14B0;
+            /// Loads all speech banks
+            fn/Usercall DSSOUND_LOAD_ALL_SPEECH_BANKS = 0x0057_1A70;
+            /// Loads one speech bank
+            fn/Usercall DSSOUND_LOAD_SPEECH_BANK = 0x0057_1660;
+        }
+
+        class "DDKeyboard" {
+            /// DDKeyboard vtable (0x33C-byte keyboard object)
+            vtable DDKEYBOARD_VTABLE = 0x0066_AEC8;
+            /// DDKeyboard::PollKeyboardState
+            fn/Stdcall DDKEYBOARD_POLL_KEYBOARD_STATE = 0x0057_2290;
+        }
+
+        class "Palette" {
+            /// Palette vtable (0x28-byte palette object)
+            vtable PALETTE_VTABLE_MAYBE = 0x0066_A2E4;
+        }
+
+        class "DisplayBase" {
+            /// DisplayBase primary vtable (set by constructor, has _purecall slots)
+            vtable DISPLAY_BASE_VTABLE = 0x0066_45F8;
+            /// DisplayBase headless vtable
+            vtable DISPLAY_BASE_HEADLESS_VTABLE = 0x0066_A0F8;
+            /// DisplayBase constructor (0x3560-byte object)
+            ctor/Stdcall DISPLAY_BASE_CTOR = 0x0052_2DB0;
+        }
+
+        class "InputCtrl" {
+            /// Input controller vtable (0x1800-byte object)
+            vtable INPUT_CTRL_VTABLE = 0x0066_B3FC;
+            /// Input controller initializer
+            fn/Usercall INPUT_CTRL_INIT = 0x0058_C0D0;
+        }
+
+        class "TaskStateMachine" {
+            /// TaskStateMachine vtable
+            vtable TASK_STATE_MACHINE_VTABLE = 0x0066_4118;
+        }
+
+        class "OpenGLCPU" {
+            /// OpenGLCPU vtable (0x48-byte object)
+            vtable OPENGL_CPU_VTABLE = 0x0067_74C0;
+            /// OpenGLCPU constructor
+            ctor CONSTRUCT_OPENGL_CPU = 0x005A_0850;
+        }
+
+        class "WaterEffect" {
+            /// WaterEffect vtable (0xBC-byte object)
+            vtable WATER_EFFECT_VTABLE = 0x0066_B268;
+        }
+
+        class "Sprite" {
+            /// Sprite vtable (0x70-byte objects, 8 entries)
+            vtable SPRITE_VTABLE = 0x0066_418C;
+            /// ConstructSprite — usercall EAX=sprite_ptr, ECX=context_ptr
+            ctor/Usercall CONSTRUCT_SPRITE = 0x004F_AA30;
+            /// Sprite destructor — thiscall, vtable slot 0
+            fn/Thiscall DESTROY_SPRITE = 0x004F_AA80;
+            /// LoadSpriteFromVfs
+            fn/Usercall LOAD_SPRITE_FROM_VFS = 0x004F_AAF0;
+            /// ProcessSprite — parses .spr binary format
+            fn/Usercall PROCESS_SPRITE = 0x004F_AB80;
+        }
+
+        class "GfxHandler" {
+            /// GfxHandler vtable
+            vtable GFX_DIR_VTABLE = 0x0066_B280;
+            /// GfxHandler load sprites
+            fn GFX_DIR_LOAD_SPRITES = 0x0057_0B50;
+            /// GfxDir load directory
+            fn GFX_DIR_LOAD_DIR = 0x0056_63E0;
+            /// GfxDir find entry
+            fn GFX_DIR_FIND_ENTRY = 0x0056_6520;
+            /// GfxDir load image
+            fn GFX_DIR_LOAD_IMAGE = 0x0056_66D0;
+        }
+
+        class "BitGrid" {
+            /// BitGrid base vtable
+            vtable BIT_GRID_VTABLE = 0x0066_40EC;
+            /// BitGrid variant vtable (TaskStateMachine-class)
+            vtable BIT_GRID_VARIANT_VTABLE = 0x0066_4118;
+            /// BitGrid init
+            fn BIT_GRID_INIT = 0x004F_6370;
+        }
+
+        class "DisplayGfx" {
+            /// DisplayGfx vtable
+            vtable DISPLAY_GFX_VTABLE = 0x0066_4144;
+            /// DisplayGfx constructor
+            ctor/Stdcall DISPLAYGFX_CTOR = 0x0056_9C10;
+            /// DisplayGfx constructor (from raw image)
+            ctor/Stdcall DISPLAYGFX_CONSTRUCTOR = 0x004F_5E80;
+            /// DisplayGfx construct full (5 params)
+            fn/Stdcall DISPLAYGFX_CONSTRUCT_FULL = 0x0056_3FC0;
+            /// DisplayGfx init team palette display objects
+            fn/Stdcall DISPLAY_GFX_INIT_TEAM_PALETTE_DISPLAY = 0x0057_03E0;
+        }
+
+        // === CTask entity classes ===
+
+        class "CTaskWorm" {
+            /// CTaskWorm vtable
+            vtable CTASK_WORM_VTABLE = 0x0066_44C8;
+            /// CTaskWorm constructor
+            ctor CTASK_WORM_CONSTRUCTOR = 0x0050_BFB0;
+        }
+
+        class "CTaskTurnGame" {
+            /// CTaskTurnGame vtable - global turn flow manager (1 per game)
+            vtable CTASK_TURN_GAME_VTABLE = 0x0066_9F70;
+            /// CTaskTurnGame constructor
+            ctor/Stdcall CTASK_TURNGAME_CTOR = 0x0055_B280;
+            /// TurnGame message dispatcher
+            fn/Thiscall TURNGAME_HANDLE_MESSAGE = 0x0055_DC00;
+            /// TurnGame hurry handler
+            fn/Usercall TURNGAME_HURRY_HANDLER = 0x0055_E5F0;
+            /// TurnGame auto select teams
+            fn TURNGAME_AUTO_SELECT_TEAMS = 0x0056_11E0;
+        }
+
+        class "CTaskTeam" {
+            /// CTaskTeam vtable - per-team task
+            vtable CTASK_TEAM_VTABLE = 0x0066_9EE4;
+            ctor CTASK_TEAM_CTOR = 0x0055_5BB0;
+        }
+
+        class "CTaskLand" {
+            /// CTaskLand vtable - landscape/terrain task
+            vtable CTASK_LAND_VTABLE = 0x0066_4388;
+            ctor CTASK_LAND_CTOR = 0x0050_5440;
+        }
+
+        class "CTaskMissile" {
+            /// CTaskMissile vtable - projectile entity
+            vtable CTASK_MISSILE_VTABLE = 0x0066_4438;
+            ctor CTASK_MISSILE_CTOR = 0x0050_7D10;
+        }
+
+        class "CTaskMine" {
+            /// CTaskMine vtable - mine entity
+            vtable CTASK_MINE_VTABLE = 0x0066_43E8;
+            ctor CTASK_MINE_CTOR = 0x0050_6660;
+        }
+
+        class "CTaskOilDrum" {
+            /// CTaskOilDrum vtable - oil drum entity
+            vtable CTASK_OILDRUM_VTABLE = 0x0066_4338;
+            ctor CTASK_OILDRUM_CTOR = 0x0050_4AF0;
+        }
+
+        class "CTaskCrate" {
+            /// CTaskCrate vtable - weapon/health/utility crate
+            vtable CTASK_CRATE_VTABLE = 0x0066_4298;
+            ctor CTASK_CRATE_CTOR = 0x0050_2490;
+        }
+
+        class "CTaskCloud" {
+            /// CTaskCloud vtable - cloud/airstrike entity
+            vtable CTASK_CLOUD_VTABLE = 0x0066_9D38;
+            ctor CTASK_CLOUD_CTOR = 0x0054_82E0;
+        }
+
+        class "CTaskFilter" {
+            /// CTaskFilter vtable - role unclear; 4 instances in a 2-team 3-worm game
+            vtable CTASK_FILTER_VTABLE = 0x0066_9DAC;
+            ctor CTASK_FILTER_CTOR = 0x0054_F3D0;
+        }
+
+        class "CTaskDirt" {
+            /// CTaskDirt vtable - dirt/particle system (1 per game)
+            vtable CTASK_DIRT_VTABLE = 0x0066_9D74;
+            ctor CTASK_DIRT_CTOR = 0x0054_EDC0;
+        }
+
+        class "CTaskSpriteAnim" {
+            /// CTaskSpriteAnim vtable - sprite animation manager (1 per game)
+            vtable CTASK_SPRITE_ANIM_VTABLE = 0x0066_9D00;
+            ctor CTASK_SPRITE_ANIM_CTOR = 0x0054_66C0;
+        }
+
+        class "CTaskCPU" {
+            /// CTaskCPU vtable - AI/CPU bot controller
+            vtable CTASK_CPU_VTABLE = 0x0066_9D54;
+            ctor CTASK_CPU_CTOR = 0x0054_85D0;
+        }
+
+        class "CTaskSeaBubble" {
+            /// CTaskSeaBubble vtable - water bubble particle
+            vtable CTASK_SEA_BUBBLE_VTABLE = 0x0066_9E88;
+            ctor CTASK_SEABUBBLE_CTOR = 0x0055_4FE0;
+        }
+
+        class "CTaskFire" {
+            /// CTaskFire vtable - fire/flame entity (0xD8 bytes)
+            vtable CTASK_FIRE_VTABLE = 0x0066_9DD8;
+            ctor CTASK_FIRE_CTOR = 0x0054_F4C0;
+        }
+
+        // Entity constructors without known vtables
+        class "CTaskAirstrike" {
+            ctor CTASK_AIRSTRIKE_CTOR = 0x0055_53C0;
+        }
+        class "CTaskArrow" {
+            ctor CTASK_ARROW_CTOR = 0x004F_E130;
+        }
+        class "CTaskCanister" {
+            ctor CTASK_CANISTER_CTOR = 0x0050_1A80;
+        }
+        class "CTaskCross" {
+            ctor CTASK_CROSS_CTOR = 0x0050_45C0;
+        }
+        class "CTaskFireball" {
+            ctor CTASK_FIREBALL_CTOR = 0x0055_0890;
+        }
+        class "CTaskFlame" {
+            ctor CTASK_FLAME_CTOR = 0x0054_F0F0;
+        }
+        class "CTaskGas" {
+            ctor CTASK_GAS_CTOR = 0x0055_4750;
+        }
+        class "CTaskOldWorm" {
+            ctor CTASK_OLDWORM_CTOR = 0x0051_FEB0;
+        }
+        class "CTaskScoreBubble" {
+            ctor CTASK_SCOREBUBBLE_CTOR = 0x0055_4CA0;
+        }
+        class "CTaskSmoke" {
+            ctor CTASK_SMOKE_CTOR = 0x0055_51D0;
+        }
+    }
+
+    // Backward-compat aliases (not registered separately — same address)
+    /// CTask::vtable4 (same implementation as vt3 in base)
+    pub const CTASK_VT4: u32 = CTASK_VT3;
     /// Alias for backward compatibility with validation code.
     pub const CGAMETASK_VTABLE2: u32 = CGAMETASK_SOUND_EMITTER_VT;
-    /// DDGameWrapper vtable
-    pub const DDGAME_WRAPPER_VTABLE: u32 = 0x0066_A30C;
-    /// PCLandscape vtable
-    pub const PC_LANDSCAPE_VTABLE: u32 = 0x0066_B208;
-    /// LandscapeShader vtable
-    pub const LANDSCAPE_SHADER_VTABLE: u32 = 0x0066_B1DC;
-    /// DSSound vtable
-    pub const DS_SOUND_VTABLE: u32 = 0x0066_AF20;
-    /// DDKeyboard vtable (0x33C-byte keyboard object)
-    pub const DDKEYBOARD_VTABLE: u32 = 0x0066_AEC8;
-    /// Palette vtable (0x28-byte palette object)
-    pub const PALETTE_VTABLE_MAYBE: u32 = 0x0066_A2E4;
-    /// DisplayBase primary vtable (set by constructor, has _purecall slots)
-    pub const DISPLAY_BASE_VTABLE: u32 = 0x0066_45F8;
-    /// DisplayBase headless vtable — overlaid after constructor in headless mode,
-    /// filling in stub slots for headless operation.
-    pub const DISPLAY_BASE_HEADLESS_VTABLE: u32 = 0x0066_A0F8;
-    /// Input controller vtable (0x1800-byte object, set inline before FUN_0058C0D0)
-    pub const INPUT_CTRL_VTABLE: u32 = 0x0066_B3FC;
-    /// BitGrid vtable
-    pub const TASK_STATE_MACHINE_VTABLE: u32 = 0x0066_4118;
-    /// OpenGLCPU vtable (0x48-byte object)
-    pub const OPENGL_CPU_VTABLE: u32 = 0x0067_74C0;
-    /// WaterEffect vtable (0xBC-byte object)
-    pub const WATER_EFFECT_VTABLE: u32 = 0x0066_B268;
-    /// CTaskLand vtable - landscape/terrain task (DDGame+0x054C)
-    pub const CTASK_LAND_VTABLE: u32 = 0x0066_4388;
-    /// CTaskWorm vtable - worm entity task (constructor 0x50BFB0)
-    pub const CTASK_WORM_VTABLE: u32 = 0x0066_44C8;
-    /// CTaskTurnGame vtable - global turn flow manager (1 per game)
-    pub const CTASK_TURN_GAME_VTABLE: u32 = 0x0066_9F70;
-    /// CTaskTeam vtable - per-team task (1 per team, constructor 0x555BF0)
-    pub const CTASK_TEAM_VTABLE: u32 = 0x0066_9EE4;
-    /// CTaskFilter vtable - role unclear; 4 instances in a 2-team 3-worm game
-    pub const CTASK_FILTER_VTABLE: u32 = 0x0066_9DAC;
-    /// CTaskDirt vtable - dirt/particle system (1 per game, constructor 0x54EDF0)
-    pub const CTASK_DIRT_VTABLE: u32 = 0x0066_9D74;
-    /// CTaskSpriteAnim vtable - sprite animation manager (1 per game, constructor 0x5466F0)
-    pub const CTASK_SPRITE_ANIM_VTABLE: u32 = 0x0066_9D00;
-    /// CTaskCPU vtable - AI/CPU bot controller (1 per game, constructor 0x548620)
-    pub const CTASK_CPU_VTABLE: u32 = 0x0066_9D54;
-    /// CTaskMissile vtable - projectile/missile entity (constructor 0x507D10)
-    pub const CTASK_MISSILE_VTABLE: u32 = 0x0066_4438;
-    /// CTaskMine vtable - mine entity (constructor 0x506660)
-    pub const CTASK_MINE_VTABLE: u32 = 0x0066_43E8;
-    /// CTaskOilDrum vtable - oil drum entity (constructor 0x504AF0)
-    pub const CTASK_OILDRUM_VTABLE: u32 = 0x0066_4338;
-    /// CTaskCrate vtable - weapon/health/utility crate (constructor 0x502490)
-    pub const CTASK_CRATE_VTABLE: u32 = 0x0066_4298;
-    /// CTaskCloud vtable - cloud/airstrike entity (constructor 0x5482E0)
-    pub const CTASK_CLOUD_VTABLE: u32 = 0x0066_9D38;
-    /// CTaskSeaBubble vtable - water bubble particle (constructor 0x554FE0)
-    pub const CTASK_SEA_BUBBLE_VTABLE: u32 = 0x0066_9E88;
-    /// CTaskFire vtable - fire/flame entity (constructor 0x54F4C0, 0xD8 bytes)
-    pub const CTASK_FIRE_VTABLE: u32 = 0x0066_9DD8;
-    /// Sprite vtable (0x70-byte objects, 8 entries)
-    pub const SPRITE_VTABLE: u32 = 0x0066_418C;
-
-    // === CTask vtable methods (at CTask__vtable) ===
-
-    /// CTask::vtable0 - initialization/unknown
-    pub const CTASK_VT0_INIT: u32 = 0x0056_2710;
-    /// CTask::Free - destructor/deallocation
-    pub const CTASK_VT1_FREE: u32 = 0x0056_2620;
-    /// CTask::HandleMessage - message dispatch
-    pub const CTASK_VT2_HANDLE_MESSAGE: u32 = 0x0056_2F30;
-    /// CTask::vtable3 - unknown
-    pub const CTASK_VT3: u32 = 0x0056_13D0;
-    /// CTask::vtable4 - unknown (same as vt3 in base)
-    pub const CTASK_VT4: u32 = 0x0056_13D0;
-    /// CTask::vtable5 - unknown
-    pub const CTASK_VT5: u32 = 0x0056_2FA0;
-    /// CTask::vtable6 - unknown
-    pub const CTASK_VT6: u32 = 0x0056_3000;
-    /// CTask::vtable7 - ProcessFrame
-    pub const CTASK_VT7_PROCESS_FRAME: u32 = 0x0056_3210;
-
-    // === CGameTask vtable methods (first 8 override CTask, then 12 new) ===
-
-    /// CGameTask::vtable0 override
-    pub const CGAMETASK_VT0: u32 = 0x004F_F1C0;
-    /// CGameTask::Free override
-    pub const CGAMETASK_VT1_FREE: u32 = 0x004F_EF10;
-    /// CGameTask::HandleMessage override
-    pub const CGAMETASK_VT2_HANDLE_MESSAGE: u32 = 0x004F_F280;
-
-    // === Constructors ===
-
-    /// CTask constructor - initializes base task fields and children list
-    pub const CTASK_CONSTRUCTOR: u32 = 0x0056_25A0;
-    /// CGameTask constructor - calls CTask ctor, sets physics defaults
-    pub const CGAMETASK_CONSTRUCTOR: u32 = 0x004F_ED50;
-    /// CTaskWorm constructor
-    pub const CTASK_WORM_CONSTRUCTOR: u32 = 0x0050_BFB0;
-
-    // === Game entity constructors (from wkJellyWorm) ===
-
-    pub const CTASK_AIRSTRIKE_CTOR: u32 = 0x0055_53C0;
-    pub const CTASK_ARROW_CTOR: u32 = 0x004F_E130;
-    pub const CTASK_CANISTER_CTOR: u32 = 0x0050_1A80;
-    pub const CTASK_CLOUD_CTOR: u32 = 0x0054_82E0;
-    pub const CTASK_CPU_CTOR: u32 = 0x0054_85D0;
-    pub const CTASK_CRATE_CTOR: u32 = 0x0050_2490;
-    pub const CTASK_CROSS_CTOR: u32 = 0x0050_45C0;
-    pub const CTASK_DIRT_CTOR: u32 = 0x0054_EDC0;
-    pub const CTASK_FILTER_CTOR: u32 = 0x0054_F3D0;
-    pub const CTASK_FIRE_CTOR: u32 = 0x0054_F4C0;
-    pub const CTASK_FIREBALL_CTOR: u32 = 0x0055_0890;
-    pub const CTASK_FLAME_CTOR: u32 = 0x0054_F0F0;
-    pub const CTASK_GAS_CTOR: u32 = 0x0055_4750;
-    pub const CTASK_LAND_CTOR: u32 = 0x0050_5440;
-    pub const CTASK_MINE_CTOR: u32 = 0x0050_6660;
-    pub const CTASK_MISSILE_CTOR: u32 = 0x0050_7D10;
-    pub const CTASK_OILDRUM_CTOR: u32 = 0x0050_4AF0;
-    pub const CTASK_OLDWORM_CTOR: u32 = 0x0051_FEB0;
-    pub const CTASK_SCOREBUBBLE_CTOR: u32 = 0x0055_4CA0;
-    pub const CTASK_SEABUBBLE_CTOR: u32 = 0x0055_4FE0;
-    pub const CTASK_SMOKE_CTOR: u32 = 0x0055_51D0;
-    pub const CTASK_SPRITE_ANIM_CTOR: u32 = 0x0054_66C0;
-    pub const CTASK_TEAM_CTOR: u32 = 0x0055_5BB0;
-    pub const CTASK_TURNGAME_CTOR: u32 = 0x0055_B280;
-
-    // === Replay / turn management ===
-
-    /// Loads .WAgame replay file, validates magic 0x4157, stores payload at DDGame+0xDB1C.
-    /// stdcall(this, mode) where mode: 1=play, 2=getmap, 3=getscheme, 4=repair. ~12KB function.
-    pub const REPLAY_LOADER: u32 = 0x0046_2DF0;
-    /// Parses "MM:SS.FF" time string → frame number. Returns -1 on failure.
-    pub const PARSE_REPLAY_POSITION: u32 = 0x004E_3490;
-
-    // --- Replay stream helpers (ported to Rust, addresses for reference) ---
-
-    /// Read length-prefixed string. usercall(EDI=ctx) + stdcall(dest, max_len). RET 0x8.
-    pub const REPLAY_READ_PREFIXED_STRING: u32 = 0x0046_1340;
-    /// Read byte with range validation. usercall(EAX=ctx) + stdcall(dest, min, max). RET 0xC.
-    pub const REPLAY_READ_BYTE_VALIDATED: u32 = 0x0046_14D0;
-    /// Read byte with signed range validation. usercall(EAX=ctx) + stdcall(dest, min, max). RET 0xC.
-    pub const REPLAY_READ_BYTE_RANGE: u32 = 0x0046_1540;
-    /// Read u16 with range validation. usercall(EAX=ctx) + stdcall(dest, min, max). RET 0xC.
-    pub const REPLAY_READ_U16_VALIDATED: u32 = 0x0046_15B0;
-    /// Read worm name (0x11 fixed or length-prefixed). usercall(EAX=ctx) + thiscall(this, flag). RET 0x4.
-    pub const REPLAY_READ_WORM_NAME: u32 = 0x0046_1620;
-    /// Validate team type byte range. fastcall(ECX=type). Plain RET.
-    pub const REPLAY_VALIDATE_TEAM_TYPE: u32 = 0x0046_1690;
-
-    // --- Replay processing functions (bridged via FFI) ---
-
-    /// Post-process team color assignments. stdcall(1 param). RET 0x4.
-    pub const REPLAY_PROCESS_TEAM_COLORS: u32 = 0x0046_6460;
-    /// Apply scheme default values. No params (uses globals). Plain RET.
-    pub const REPLAY_PROCESS_SCHEME_DEFAULTS: u32 = 0x0046_70F0;
-    /// Process replay feature flags. No params (uses globals). Plain RET.
-    pub const REPLAY_PROCESS_FLAGS: u32 = 0x0046_7280;
-    /// Register observer team entry. stdcall(1 param). RET 0x4.
-    pub const REPLAY_REGISTER_OBSERVER: u32 = 0x0046_7BC0;
-    /// Process alliance/team setup. No params (uses globals). Plain RET.
-    pub const REPLAY_PROCESS_ALLIANCE: u32 = 0x0046_8890;
-    /// Validate team configuration. stdcall(1 param).
-    pub const REPLAY_VALIDATE_TEAM_SETUP: u32 = 0x0046_5E10;
-
-    /// Routes game messages through the task handler tree.
-    pub const GAME_MESSAGE_ROUTER: u32 = 0x0055_3BD0;
-    /// TurnGame message dispatcher. Case 2=FrameFinish, Case 4=ProcessInput, Case 0x28=SkipGo.
-    /// thiscall + 4 stack params.
-    pub const TURNGAME_HANDLE_MESSAGE: u32 = 0x0055_DC00;
-    /// Checks TurnGame+0x1F4 (hurry requested). Normal game: sends packet 0x17.
-    /// Replay mode (DB08 && DB0A): sets DDGame+0x7E41 instead. Uses ESI (__usercall).
-    pub const TURNGAME_HURRY_HANDLER: u32 = 0x0055_E5F0;
-    /// Per-frame turn timer: decrements turn timer by 0x14 (20ms) each frame.
-    pub const TURN_MANAGER_PROCESS_FRAME: u32 = 0x0055_FDA0;
-    /// Iterates teams during ProcessInput, sends packet 0x2B for valid teams.
-    pub const TURNGAME_AUTO_SELECT_TEAMS: u32 = 0x0056_11E0;
-    /// Control task HandleMessage (vtable 0x669C28). Translates keyboard input (msg 0xC)
-    /// into game messages. Case 9 toggles pause flag.
-    pub const CONTROL_TASK_HANDLE_MESSAGE: u32 = 0x0054_51F0;
-    /// End-of-frame processing. Reads DDGame+0x7E41 (deferred hurry flag),
-    /// converts it to local Hurry message (0x17). Also handles frame counters.
-    pub const GAME_FRAME_END_PROCESSOR: u32 = 0x0053_1960;
-    /// Main frame loop. Processes message queue, calls GameFrameEndProcessor.
-    pub const GAME_FRAME_DISPATCHER: u32 = 0x0053_1D00;
-    /// Sends game packet if network buffer capacity allows. Checks DDGame+0x98A4.
-    pub const SEND_GAME_PACKET_CONDITIONAL: u32 = 0x0053_1880;
-
-    // === Gameplay functions ===
-
-    /// Game PRNG: rng = (rng + frame_counter) * 0x19660D + 0x3C6EF35F.
-    /// Fastcall(ECX=DDGame). Updates DDGame+0x45EC in place.
-    pub const ADVANCE_GAME_RNG: u32 = 0x0053_F320;
-    /// Terrain hit → debris particles → RNG. 6 iterations, 2 RNG calls per hit.
-    pub const GENERATE_DEBRIS_PARTICLES: u32 = 0x0054_6F70;
-    pub const CREATE_EXPLOSION: u32 = 0x0054_8080;
-    pub const SPECIAL_IMPACT: u32 = 0x0051_93D0;
-    pub const SPAWN_OBJECT: u32 = 0x0056_1CF0;
-    pub const WEAPON_RELEASE: u32 = 0x0051_C3D0;
-    pub const WORM_START_FIRING: u32 = 0x0051_B7F0;
-    pub const FIRE_WEAPON: u32 = 0x0051_EE60;
-    pub const CREATE_WEAPON_PROJECTILE: u32 = 0x0051_E0F0;
-
-    // === Weapon system ===
-
-    pub const INIT_WEAPON_TABLE: u32 = 0x0053_CAB0;
-    pub const COUNT_ALIVE_WORMS: u32 = 0x0052_25A0;
-    pub const GET_AMMO: u32 = 0x0052_25E0;
-    pub const ADD_AMMO: u32 = 0x0052_2640;
-    /// Not the main ammo decrement path — only 5 xrefs across 3 functions,
-    /// never observed firing during normal gameplay. The real decrement is
-    /// likely inlined at weapon-firing call sites. Unhooked until verified.
-    pub const SUBTRACT_AMMO: u32 = 0x0052_2680;
-
-    // === Team/worm accessor functions (DDGame + 0x4628 area) ===
-
-    /// Counts teams by alliance membership, sets current_alliance + counters.
-    /// usercall(EAX=base, EDI=alliance_id) → void, plain RET.
-    pub const COUNT_TEAMS_BY_ALLIANCE: u32 = 0x0052_2030;
-    /// Sums health of all worms on a team. Returns 0 if team eliminated.
-    /// fastcall(ECX=team_index, EDX=base) → EAX=total_health, plain RET.
-    pub const GET_TEAM_TOTAL_HEALTH: u32 = 0x0052_24D0;
-    /// Checks if a worm is in a "special" state (dying, drowning, etc.).
-    /// usercall(EAX=team_index, ECX=worm_index, [ESP+4]=base) → EAX=bool, RET 0x4.
-    pub const IS_WORM_IN_SPECIAL_STATE: u32 = 0x0052_26B0;
-    /// Reads worm X,Y position into output pointers.
-    /// usercall(EAX=team_index, ECX=worm_index, [ESP+4]=base, [ESP+8]=&x, [ESP+C]=&y), RET 0xC.
-    pub const GET_WORM_POSITION: u32 = 0x0052_2700;
-    /// Checks if any worm has state 0x64 (100). 11 xrefs in gameplay code.
-    /// Despite the comparison to 100, reads worms[].state NOT .health.
-    /// usercall(EAX=base) → EAX=bool, plain RET.
-    pub const CHECK_WORM_STATE_0X64: u32 = 0x0052_28D0;
-    /// Per-team version of CheckWormState0x64. Returns 1 if any worm on the
-    /// specified team has state==0x64. 1 xref.
-    /// usercall(EAX=team_idx, ECX=base) → EAX=bool, plain RET.
-    pub const CHECK_TEAM_WORM_STATE_0X64: u32 = 0x0052_2930;
-    /// Scans all teams for any worm with state 0x8b. 1 xref.
-    /// usercall(EAX=base) → EAX=bool, plain RET.
-    pub const CHECK_ANY_WORM_STATE_0X8B: u32 = 0x0052_2970;
-    /// Sets the active worm for a team. flag=0 deactivates, flag=N sets worm N active.
-    /// Called on turn transitions and worm selection (Tab key).
-    /// usercall(EAX=base, EDX=team_idx, ESI=worm_index) → void, plain RET. 3 xrefs.
-    pub const SET_ACTIVE_WORM_MAYBE: u32 = 0x0052_2500;
-
-    // === Game session ===
-
-    /// `GameEngine__InitHardware` — initializes all hardware subsystems: display,
-    /// sound, keyboard, palette, DDGameWrapper, DDNetGameWrapper, and stores
-    /// the resulting pointers into `G_GAME_SESSION`.
-    ///
-    /// `__thiscall(this=GameInfo, hwnd, param3, param4)` → 1=ok 0=fail, `RET 0xC`.
-    ///
-    /// In headless/stats mode (`GameInfo+0xF914 != 0`) creates a `GameStats` object
-    /// with the DDInput vtable instead of a real display+audio stack.
-    pub const GAME_ENGINE_INIT_HARDWARE: u32 = 0x0056_D350;
-
-    /// `GameSession__Run` — allocates the `GameSession` struct (0x120 bytes),
-    /// calls `GameEngine__InitHardware`, runs the game main loop, then calls
-    /// `GameEngine__Shutdown`. Uses ESI implicitly for the `GameInfo` config.
-    pub const GAME_SESSION_RUN: u32 = 0x0057_2F50;
-
-    /// `GameSession__Constructor` — usercall(`EAX=this`), sets vtable and
-    /// zero-inits all fields. Called with a freshly `malloc`'d 0x120-byte buffer.
-    pub const GAME_SESSION_CONSTRUCTOR: u32 = 0x0058_BFA0;
-
-    /// `GameEngine__Shutdown` — destroys all subsystems in reverse creation order
-    /// (streaming audio, DDGameWrapper, DisplayGfx, DDKeyboard, Palette).
-    /// `stdcall(param_1)` → void.
-    pub const GAME_ENGINE_SHUTDOWN: u32 = 0x0056_DCD0;
-
-    // === Graphics / rendering ===
-
-    pub const CONSTRUCT_DD_GAME: u32 = 0x0056_E220;
-    pub const CONSTRUCT_DD_GAME_WRAPPER: u32 = 0x0056_DEF0;
-    /// DDGameWrapper::InitReplay — usercall(EAX=game_info, ESI=this), plain RET.
-    /// Opens replay/recording files based on GameInfo+0xDB08/0xDB09 flags.
-    pub const DDGAMEWRAPPER_INIT_REPLAY: u32 = 0x0056_F860;
-    /// DDGame::InitGameState — stdcall(this=DDGameWrapper*), RET 0x4.
-    /// Initializes game state fields in DDGame after DDGame__Constructor.
-    pub const DDGAME_INIT_GAME_STATE: u32 = 0x0052_6500;
-    /// DisplayGfx__Constructor_Maybe — stdcall(this) → DisplayGfx*.
-    /// Constructs the 0x24E28-byte DisplayGfx object.
-    pub const DISPLAYGFX_CTOR: u32 = 0x0056_9C10;
-    /// DDDisplay::Init — usercall(ECX=height) + stdcall(display_gfx, hwnd, width, flags), RET 0x10 → 0 on failure.
-    /// ECX must be set to game_info+0xF3B8 (height) before calling.
-    /// Resolution retry loop in GameEngine__InitHardware updates GameInfo+0xF3B4/0xF3B8.
-    pub const DDISPLAY_INIT: u32 = 0x0056_9D00;
-    /// Alias kept for callers that use the old name.
+    /// Alias for callers using the old name.
     pub const CONSTRUCT_DD_DISPLAY: u32 = DDISPLAY_INIT;
-    /// DisplayBase__Constructor — stdcall(this) → DisplayBase*.
-    /// Constructs the 0x3560-byte base display object (used standalone in headless mode).
-    pub const DISPLAY_BASE_CTOR: u32 = 0x0052_2DB0;
-    /// Streaming audio constructor — stdcall(IDirectSound*, path_config_ptr) → *mut u8.
-    /// Constructs 0x354-byte streaming audio object (only if GameInfo+0xDAA4 != 0).
-    pub const STREAMING_AUDIO_CTOR: u32 = 0x0058_BC10;
-    /// Input controller initializer — usercall(ESI=this) + stdcall(game_info_p4, hwnd, param3, joycount).
-    /// Initializes 0x1800-byte input ctrl. Returns 0 on failure. RET 0x10.
-    pub const INPUT_CTRL_INIT: u32 = 0x0058_C0D0;
-    /// DDNetGameWrapper__Constructor_Maybe — stdcall(this) → *mut u8.
-    /// Constructs 0x2C-byte DDNetGameWrapper. Returns param_1.
-    pub const DDNETGAME_WRAPPER_CTOR: u32 = 0x0056_D1F0;
-    /// Timer object constructor — usercall(ESI=this, EAX=init_val), plain RET.
-    /// Constructs 0x30-byte timer shell and allocates 2×0x20E0 internal buffers.
-    pub const GAME_ENGINE_TIMER_CTOR: u32 = 0x0053_E950;
-    pub const CONSTRUCT_FRAME_BUFFER: u32 = 0x005A_2430;
-    pub const BLIT_SCREEN: u32 = 0x005A_2020;
-    pub const RQ_RENDER_DRAWING_QUEUE: u32 = 0x0054_2350;
-    pub const DRAW_LANDSCAPE: u32 = 0x005A_2790;
-    pub const RQ_DRAW_PIXEL: u32 = 0x0054_1D60;
-    pub const RQ_DRAW_LINE_STRIP: u32 = 0x0054_1DD0;
-    pub const RQ_DRAW_POLYGON: u32 = 0x0054_1E50;
-    pub const RQ_DRAW_SCALED: u32 = 0x0054_1ED0;
-    pub const RQ_DRAW_RECT: u32 = 0x0054_1F40;
-    pub const RQ_DRAW_SPRITE_GLOBAL: u32 = 0x0054_1FE0;
-    pub const RQ_DRAW_SPRITE_LOCAL: u32 = 0x0054_2060;
-    pub const RQ_DRAW_SPRITE_OFFSET: u32 = 0x0054_20E0;
-    pub const RQ_DRAW_BITMAP_GLOBAL: u32 = 0x0054_2170;
-    pub const RQ_DRAW_TEXTBOX_LOCAL: u32 = 0x0054_2200;
-    pub const RQ_DRAW_CLIPPED_SPRITE_MAYBE: u32 = 0x0054_22A0;
-
-    // RenderQueue helpers
-    pub const RQ_CLIP_COORDINATES: u32 = 0x0054_2BA0;
-    pub const RQ_GET_CAMERA_OFFSET_MAYBE: u32 = 0x0054_2B10;
-    pub const RQ_CLIP_WITH_REF_OFFSET_MAYBE: u32 = 0x0054_2C70;
-    pub const RQ_TRANSFORM_WITH_ZOOM_MAYBE: u32 = 0x0054_2D50;
-    pub const RQ_SMOOTH_INTERPOLATE_MAYBE: u32 = 0x0054_2E60;
-    pub const RQ_UPDATE_CLIP_BOUNDS_MAYBE: u32 = 0x0054_2F10;
-    pub const RQ_SATURATE_CLIP_BOUNDS_MAYBE: u32 = 0x0054_2F70;
-
-    // Render pipeline
-    pub const RENDER_FRAME_MAYBE: u32 = 0x0056_E040;
-    pub const GAME_RENDER_MAYBE: u32 = 0x0053_3DC0;
-    pub const RENDER_TERRAIN_MAYBE: u32 = 0x0053_5000;
-    pub const RENDER_HUD_MAYBE: u32 = 0x0053_4F20;
-    pub const RENDER_TURN_STATUS_MAYBE: u32 = 0x0053_4E00;
-    pub const PALETTE_MANAGE_MAYBE: u32 = 0x0053_3C80;
-    pub const PALETTE_ANIMATE_MAYBE: u32 = 0x0053_3A80;
-    pub const LOAD_SPRITE: u32 = 0x0052_3400;
-    pub const CONSTRUCT_OPENGL_CPU: u32 = 0x005A_0850;
-    pub const OPENGL_INIT: u32 = 0x0059_F000;
-    pub const DDGAME_INIT_FIELDS: u32 = 0x0052_6120;
-    /// DDGame__InitRenderIndices (0x526080): usercall(ESI=ddgame), plain RET.
-    /// Initializes render queue index arrays at DDGame+0xC4..+0x4A2.
-    pub const DDGAME_INIT_RENDER_INDICES: u32 = 0x0052_6080;
-    /// DDGame__InitVersionFlags (0x525BE0): stdcall(ddgame_wrapper).
-    /// Sets DDGame+0x7E2E/0x7E2F/0x7E3F flags based on game version/mode.
-    pub const DDGAME_INIT_VERSION_FLAGS: u32 = 0x0052_5BE0;
-    /// GfxResource__Create_Maybe (0x4F6300): returns GfxResource ptr or null.
-    pub const GFX_RESOURCE_CREATE: u32 = 0x004F_6300;
-    /// BitGrid__Init_Maybe (0x4F6370): initializes TSM-like object.
-    pub const BIT_GRID_INIT: u32 = 0x004F_6370;
-    /// DDGame__InitSoundPaths_Maybe (0x570F30): called before DSSound_LoadEffectWAVs.
-    pub const DDGAME_INIT_SOUND_PATHS: u32 = 0x0057_0F30;
-    /// DDGameWrapper__LoadingProgressTick (0x5717A0): loading progress bar + message pump.
-    pub const DDGAME_WRAPPER_LOADING_PROGRESS_TICK: u32 = 0x0057_17A0;
-    /// DDGame__LoadHudAndWeaponSprites (0x53D0E0): loads weapon icons, wind indicators,
-    /// girder sprites, and creates DDGame+0x37C DisplayGfx object.
-    /// thiscall(ECX=gfx_dir_4c0) + 2 stack(ddgame, wrapper_4c4), RET 0x8.
-    pub const DDGAME_LOAD_HUD_AND_WEAPON_SPRITES: u32 = 0x0053_D0E0;
-    /// DisplayGfx__InitTeamPaletteDisplayObjects (0x5703E0): creates team palette
-    /// gradient DisplayGfx objects. Reads DDGame+0x7338 (fill_pixel), iterates teams,
-    /// creates BitGrid+DisplayGfx for each team's palette gradient.
-    /// stdcall(wrapper), RET 0x4.
-    pub const DISPLAY_GFX_INIT_TEAM_PALETTE_DISPLAY: u32 = 0x0057_03E0;
-    /// DDGame__InitPaletteGradientSprites (0x5706D0): creates DisplayGfx objects
-    /// at DDGame+0x41C.. for each team's palette gradient data from GameInfo.
-    /// stdcall(wrapper), RET 0x4.
-    pub const DDGAME_INIT_PALETTE_GRADIENT_SPRITES: u32 = 0x0057_06D0;
-    /// PaletteContext__Init (0x5411A0): initialize palette context free-list.
-    /// usercall(EAX=context), plain RET.
-    pub const PALETTE_CONTEXT_INIT: u32 = 0x0054_11A0;
-    /// SpriteGfxTable__Init (0x541620): fastcall(ECX=base, EDX=count), plain RET.
-    pub const SPRITE_GFX_TABLE_INIT: u32 = 0x0054_1620;
-    /// RingBuffer__Init (0x541060): usercall(EAX=capacity, ESI=struct), plain RET.
-    pub const RING_BUFFER_INIT: u32 = 0x0054_1060;
-    /// CGameTask__InitTeamScoring (0x528510): fastcall(ECX=wrapper), plain RET.
-    pub const INIT_TEAM_SCORING: u32 = 0x0052_8510;
-    /// CGameTask__InitAllianceData (0x5262D0): usercall(EAX=wrapper), plain RET.
-    pub const INIT_ALLIANCE_DATA: u32 = 0x0052_62D0;
-    /// DDGame__IsSuperWeapon (0x565960): usercall(EAX=weapon_index) + 1 stack param, plain RET.
-    pub const IS_SUPER_WEAPON: u32 = 0x0056_5960;
-    /// DDGame__CheckWeaponAvail (0x53FFC0): fastcall(ECX=ddgame) + unaff_ESI, plain RET.
-    pub const CHECK_WEAPON_AVAIL: u32 = 0x0053_FFC0;
-    /// CGameTask__InitTurnState (0x528690): usercall(EAX=wrapper), plain RET.
-    pub const INIT_TURN_STATE: u32 = 0x0052_8690;
-    /// CGameTask__InitLandscapeFlags (0x528480): usercall(EAX=wrapper), plain RET.
-    pub const INIT_LANDSCAPE_FLAGS: u32 = 0x0052_8480;
-    /// HudPanel__Constructor (0x524070): stdcall(this), RET 0x4.
-    pub const HUD_PANEL_CONSTRUCTOR: u32 = 0x0052_4070;
-    /// DDGame__InitTeamsFromSetup (0x5220B0): stdcall(team_arena, setup_data), RET 0x8.
-    pub const INIT_TEAMS_FROM_SETUP: u32 = 0x0052_20B0;
-    /// TeamManager__Constructor (0x563D40): stdcall(this, wrapper), RET 0x8.
-    pub const TEAM_MANAGER_CONSTRUCTOR: u32 = 0x0056_3D40;
-    /// CTaskTurnGame__Constructor (0x55B280): stdcall(this, setup_data), RET 0x8.
-    pub const TURN_GAME_CONSTRUCTOR: u32 = 0x0055_B280;
-    /// CTaskGameState__Constructor (0x532330): stdcall(this, param), RET 0x8.
-    pub const GAME_STATE_CONSTRUCTOR: u32 = 0x0053_2330;
-    /// DisplayGfx__ConstructFull (0x563FC0): stdcall(5 params), RET 0x14.
-    pub const DISPLAYGFX_CONSTRUCT_FULL: u32 = 0x0056_3FC0;
-    /// DDDisplay__ConstructTextbox (0x4FAF00): stdcall(3 params), RET 0xC.
-    pub const CONSTRUCT_TEXTBOX: u32 = 0x004F_AF00;
-    /// FUN_567770 (0x567770): stdcall(1 param = wrapper), RET 0x4.
-    pub const FUN_567770: u32 = 0x0056_7770;
-    /// FUN_545FD0 (0x545FD0): stdcall(3 params), RET 0xC. Buffer object constructor.
-    pub const BUFFER_OBJECT_CONSTRUCTOR: u32 = 0x0054_5FD0;
-    /// FUN_4FB490 (0x4FB490): stdcall(1 param), RET 0x4. GameStateStream sub-init.
-    pub const GAME_STATE_STREAM_INIT: u32 = 0x004F_B490;
-    /// FUN_540440 (0x540440): stdcall(2 params), RET 0x8. Display object constructor.
-    pub const DISPLAY_OBJECT_CONSTRUCTOR: u32 = 0x0054_0440;
-    /// DDGame__InitFeatureFlags (0x524700): stdcall(wrapper), RET 0x4.
-    pub const DDGAME_INIT_FEATURE_FLAGS: u32 = 0x0052_4700;
-    /// DDGame__InitDisplayFinal_Maybe (0x56A830): display finalization for non-headless.
-    pub const DDGAME_INIT_DISPLAY_FINAL: u32 = 0x0056_A830;
-    /// PCLandscape__Constructor (0x57ACB0): constructs 0xB44-byte landscape object.
-    pub const PC_LANDSCAPE_CONSTRUCTOR: u32 = 0x0057_ACB0;
-    /// SpriteRegion__Constructor (0x57DB20): constructs 0x9C-byte sprite region.
-    pub const SPRITE_REGION_CONSTRUCTOR: u32 = 0x0057_DB20;
-    /// g_GameInfo global — set to current GameInfo* during DDGame construction.
-    pub const G_GAME_INFO: u32 = 0x0077_49A0;
-    /// GfxHandler__LoadSprites_Maybe (0x570B50): loads sprites from GfxHandler.
-    pub const GFX_DIR_LOAD_SPRITES: u32 = 0x0057_0B50;
-    /// FUN_00570A90: called before display palette setup (non-headless only).
-    pub const FUN_570A90: u32 = 0x0057_0A90;
-    /// FUN_00570E20: called after GfxHandler initialization.
-    pub const FUN_570E20: u32 = 0x0057_0E20;
-    pub const GFX_DIR_LOAD_DIR: u32 = 0x0056_63E0;
-    pub const GFX_DIR_FIND_ENTRY: u32 = 0x0056_6520;
-    pub const GFX_DIR_LOAD_IMAGE: u32 = 0x0056_66D0;
-    /// DisplayGfx__Constructor_Maybe (0x4F5E80): stdcall(raw_image) -> DisplayGfx*, RET 0x4.
-    pub const DISPLAYGFX_CONSTRUCTOR: u32 = 0x004F_5E80;
-    /// IMG_Decode (0x4F5F80): stdcall(output, raw_image, 1) -> DisplayGfx*, RET 0xC.
-    /// Reads IMG\x1A header, decodes image data into output buffer.
-    /// Ghidra mislabels this as "BitGrid__Destructor_Maybe".
-    pub const IMG_DECODE: u32 = 0x004F_5F80;
-
-    // === Vtables ===
-
-    /// GfxHandler vtable (0x66B280).
-    pub const GFX_DIR_VTABLE: u32 = 0x0066_B280;
-    /// BitGrid base vtable (0x6640EC): shared by BitGrid, DisplayGfx base, gradient stubs.
-    pub const BIT_GRID_VTABLE: u32 = 0x0066_40EC;
-    /// BitGrid variant vtable (0x664118): used by TaskStateMachine-class objects.
-    pub const BIT_GRID_VARIANT_VTABLE: u32 = 0x0066_4118;
-    /// DisplayGfx vtable (0x664144): used by sprite/image display objects.
-    pub const DISPLAY_GFX_VTABLE: u32 = 0x0066_4144;
-
-    // === String constants in .rdata ===
-
-    /// "cdrom.spr" string (0x66A3A8).
-    pub const STR_CDROM_SPR: u32 = 0x0066_A3A8;
-    /// "colours.img" string (0x66A3B4).
-    pub const STR_COLOURS_IMG: u32 = 0x0066_A3B4;
-    /// "masks.img" string (0x66A3C0).
-    pub const STR_MASKS_IMG: u32 = 0x0066_A3C0;
-    /// Empty base path for sprite resource loading (0x643F2B): null byte prefix.
-    pub const SPRITE_RESOURCE_BASE_PATH: u32 = 0x0064_3F2B;
-
-    // === Resource tables in .data ===
-
-    /// Main sprite resource table (0x6AD2C0, 0x1D88 bytes).
-    pub const SPRITE_RESOURCE_TABLE_1: u32 = 0x006A_D2C0;
-    /// Secondary sprite resource table (0x6AF048, 0x18 bytes).
-    pub const SPRITE_RESOURCE_TABLE_2: u32 = 0x006A_F048;
-    /// Water sprite resource table (0x6AF060, 0x2F4 bytes).
-    pub const WATER_RESOURCE_TABLE: u32 = 0x006A_F060;
-    /// Version-dependent sprite flag global (0x6AF050).
-    pub const G_SPRITE_VERSION_FLAG: u32 = 0x006A_F050;
-
-    // === Globals ===
-
-    /// DAT_0088E485: display mode flag (0 = normal, checked before palette init).
-    pub const G_DISPLAY_MODE_FLAG: u32 = 0x0088_E485;
-
-    // === Higher-level drawing functions ===
-
-    /// DrawBungeeTrail — stdcall(task_ptr, style, fill), RET 0xC.
-    /// Draws bungee drop trajectory using DrawSpriteLocal + DrawPolygon/DrawLineStrip.
-    /// Triggered by weapon check (field_0x30==4, field_0x34==7 → Bungee) in FUN_00519F60.
-    /// Gated by task+0xBC flag set by InitWormTrail (0x5008D0).
-    pub const DRAW_BUNGEE_TRAIL: u32 = 0x0050_0720;
-    /// DrawCrosshairLine — usercall(EDI=task_ptr), plain RET.
-    /// Draws the crosshair aiming line using DrawPolygon + DrawSpriteLocal.
-    pub const DRAW_CROSSHAIR_LINE: u32 = 0x0051_97D0;
-
-    // === Sprite system ===
-
-    /// ConstructSprite — usercall EAX=sprite_ptr, ECX=context_ptr.
-    /// Initializes 0x70-byte sprite struct, sets vtable to 0x66418C.
-    pub const CONSTRUCT_SPRITE: u32 = 0x004F_AA30;
-    /// Sprite destructor — thiscall, vtable slot 0.
-    pub const DESTROY_SPRITE: u32 = 0x004F_AA80;
-    /// LoadSpriteFromVfs — usercall EAX=filename, ECX=file_archive, 2 stack params
-    /// (sprite_ptr, gfx_dir). Reads .spr data from archive via GfxDir.
-    pub const LOAD_SPRITE_FROM_VFS: u32 = 0x004F_AAF0;
-    /// ProcessSprite — usercall EAX=sprite_ptr, 1 stack param (raw_data_ptr).
-    /// Parses .spr binary format: palette, frames, bitmap data.
-    pub const PROCESS_SPRITE: u32 = 0x004F_AB80;
-
-    // === Landscape ===
-
-    pub const CONSTRUCT_PC_LANDSCAPE: u32 = 0x0057_ACB0;
-    pub const DESTRUCT_PC_LANDSCAPE: u32 = 0x0057_B540;
-    pub const CONSTRUCT_SPRITE_REGION: u32 = 0x0057_DB20;
-    pub const REDRAW_LAND_REGION: u32 = 0x0057_CC10;
-    pub const WRITE_LAND_RAW: u32 = 0x0057_C300;
-    /// Applies explosion crater to terrain — destroys pixels + collision (vtable slot 2).
-    pub const PC_LANDSCAPE_APPLY_EXPLOSION: u32 = 0x0057_C820;
-    /// Draws 8px checkered borders at landscape edges (vtable slot 6).
-    pub const PC_LANDSCAPE_DRAW_BORDERS: u32 = 0x0057_D7F0;
-    /// Redraws a single terrain row (vtable slot 8).
-    pub const PC_LANDSCAPE_REDRAW_ROW: u32 = 0x0057_CF60;
-    /// Clips and merges dirty rectangles for terrain redraw.
-    pub const PC_LANDSCAPE_CLIP_AND_MERGE: u32 = 0x0057_D2B0;
-
-    // === Sound ===
-
-    /// DSSound__Constructor — usercall(EAX=this), plain RET. Inits vtable + zero fields.
-    pub const CONSTRUCT_DS_SOUND: u32 = 0x0057_3D50;
-    /// FUN_00573E50 — usercall(EAX=dssound) + cdecl(out_at_0x10, out_at_0x0C), plain RET.
-    /// Sets up primary DirectSound buffer after DirectSoundCreate.
-    pub const DSSOUND_INIT_BUFFERS: u32 = 0x0057_3E50;
-    /// DirectSoundCreate IAT thunk → dsound.dll. stdcall(pGuid, ppDS, pUnkOuter).
-    pub const DIRECTSOUND_CREATE: u32 = 0x005B_493E;
-    pub const PLAY_SOUND_LOCAL: u32 = 0x004F_DFE0;
-    pub const PLAY_SOUND_GLOBAL: u32 = 0x0054_6E20;
-
-    // --- Sound queue dispatch (bridge: queue → DSSound) ---
-
-    /// IsSoundSuppressed — checks mute flag + frame counter.
-    /// fastcall(ECX=ddgame). Returns 0 if sound OK, 1 if suppressed.
-    pub const IS_SOUND_SUPPRESSED: u32 = 0x0052_61E0;
-
-    /// DispatchGlobalSound — suppression check + DSSound vtable slot 3 (play_sound).
-    /// fastcall(ECX=?, EDX=task_turn_game) + 4 stack params (sound_id, flags, volume, pitch).
-    pub const DISPATCH_GLOBAL_SOUND: u32 = 0x0052_6270;
-
-    /// RecordActiveSound — inserts into 64-entry ring buffer (ActiveSoundTable).
-    /// usercall(EAX=table, ESI=emitter) + 4 stack(pos_x, pos_y, volume, channel_handle).
-    pub const RECORD_ACTIVE_SOUND: u32 = 0x0054_6260;
-
-    /// ComputeDistanceParams — computes volume/pan from world position.
-    /// fastcall(ECX=out_pan, EDX=out_volume) + 3 stack(ddgame_offset, pos_x, pos_y).
-    /// If GameInfo+0xF38C == 0, returns volume=0x10000, pan=0.
-    pub const COMPUTE_DISTANCE_PARAMS: u32 = 0x0054_6300;
-
-    /// DispatchLocalSound — core: distance attenuation + DSSound slot 4 + RecordActiveSound.
-    /// usercall(EAX=base_volume, EDI=ddgame_offset) + 4 stack(sound_id, flags, pos_x, pos_y).
-    pub const DISPATCH_LOCAL_SOUND: u32 = 0x0054_6360;
-
-    /// PlayLocalNoEmitter — thin wrapper → DispatchLocalSound.
-    /// thiscall(ECX=?) + 3 stack(sound_id, flags, pitch).
-    pub const PLAY_LOCAL_NO_EMITTER: u32 = 0x0054_6430;
-
-    /// PlayLocalWithEmitter — gets pos from emitter vtable, then DispatchLocalSound.
-    /// usercall(ESI=emitter) + stack params.
-    pub const PLAY_LOCAL_WITH_EMITTER: u32 = 0x0054_63F0;
-
-    /// PlaySoundPooled_Direct — bypasses queue, same suppression + DSSound slot 4.
-    /// fastcall(ECX=?, EDX=task) + 3 stack params.
-    pub const PLAY_SOUND_POOLED_DIRECT: u32 = 0x0054_6B50;
-
-    /// Distance3D_Attenuation — elliptical distance model for positional audio.
-    /// usercall(EAX=camera_pos_ptr) + 6 stack params. Returns volume + pan via out ptrs.
-    pub const DISTANCE_3D_ATTENUATION: u32 = 0x0054_30F0;
-
-    // === Speech / Voice Lines ===
-
-    /// Speech line table in .rdata: array of {u32 id, *const u8 name},
-    /// 61 entries + null terminator. Maps speech line IDs to WAV filenames.
-    pub const SPEECH_LINE_TABLE: u32 = 0x006A_F770;
-
-    /// Iterates teams, calls LoadSpeechBank for each. Clears DDGameWrapper+0x488→DDGame+0x77E4
-    /// speech slot table. usercall(ESI=DDGameWrapper), plain RET.
-    pub const DSSOUND_LOAD_ALL_SPEECH_BANKS: u32 = 0x0057_1A70;
-
-    /// Iterates speech line table, calls LoadSpeechWAV per entry.
-    /// usercall(EAX=DDGameWrapper) + 3 stack(team_index, speech_base_path, speech_dir), RET 0xC.
-    pub const DSSOUND_LOAD_SPEECH_BANK: u32 = 0x0057_1660;
-
-    /// DDGameWrapper__LoadSpeechWAV — loads a single speech WAV.
-    /// Searches DDGameWrapper's name table for existing buffer, reuses if found.
-    /// Otherwise calls DSSound vtable slot 12 (load_wav) to create new buffer.
-    /// usercall(ESI=DDGameWrapper) + 4 stack(team_index, line_id, wav_path, full_path), RET 0x10.
-    /// Returns 1 on success, 0 on failure.
-    pub const DDGAMEWRAPPER_LOAD_SPEECH_WAV: u32 = 0x0057_1530;
-
-    /// Loads all 126 SFX WAVs from data\wav\Effects\.
-    /// stdcall(DDGame), RET 0x4.
-    pub const DSSOUND_LOAD_EFFECT_WAVS: u32 = 0x0057_14B0;
-
-    // === WAV Player ===
-
-    /// Opens WAV via mmioOpenA, parses RIFF chunks, creates IDirectSoundBuffer.
-    /// usercall(ESI=result_out) + stack(player, path, 0), RET 0xC.
-    pub const WAV_PLAYER_LOAD_AND_PLAY: u32 = 0x0059_9B40;
-
-    /// Calls IDirectSoundBuffer::Play on loaded buffer.
-    /// usercall(EDI=result_out) + stack(player, volume), RET 0x8.
-    pub const WAV_PLAYER_PLAY: u32 = 0x0059_96E0;
-
-    /// Stops and releases current DirectSound buffer.
-    /// usercall(ESI=player, EDI=result_out), plain RET.
-    pub const WAV_PLAYER_STOP: u32 = 0x0059_9670;
-
-    // === Fanfare / FE SFX ===
-
-    /// FeSfx WavPlayer global instance (used by PlayFeSfx).
-    pub const FESFX_WAV_PLAYER: u32 = 0x006A_C888;
-
-    /// Fanfare WavPlayer global instance (used by PlayFanfare_Default).
-    pub const FANFARE_WAV_PLAYER: u32 = 0x006A_C890;
-
-    /// WA data path string buffer (char[0x81]).
-    pub const WA_DATA_PATH: u32 = 0x0088_E282;
-
-    /// Team config fanfare name lookup — jump table with 49 cases (0-48).
-    /// usercall(ECX=index_0based, EAX=output_buf), plain RET.
-    /// Writes null-terminated country/config name into buffer at EAX.
-    pub const GET_TEAM_CONFIG_NAME: u32 = 0x004A_62A0;
-
-    /// Builds `\user\Fanfare\<name>.wav`, plays via WavPlayer.
-    /// stdcall(team_config_index), RET 0x4.
-    pub const PLAY_FANFARE_DEFAULT: u32 = 0x004D_7500;
-
-    /// Loads fanfare WAV with fallback to PlayFanfare_Default.
-    /// thiscall(ECX=name) + 2 stack params, RET 0x8.
-    pub const PLAY_FANFARE: u32 = 0x004D_7630;
-
-    /// Gets current team, calls PlayFanfare.
-    /// usercall(EAX=index), plain RET.
-    pub const PLAY_FANFARE_CURRENT_TEAM: u32 = 0x004D_78E0;
-
-    /// Builds `fesfx\<name>.wav`, plays via WavPlayer.
-    /// stdcall(sfx_name), RET 0x4.
-    pub const PLAY_FE_SFX: u32 = 0x004D_7960;
-
-    // === Input ===
-
-    /// DDKeyboard::PollKeyboardState — drains WM_KEY messages, calls
-    /// GetKeyboardState, normalizes to both key_state (+0x11C) and
-    /// prev_state (+0x21C) buffers. stdcall(this), RET 0x4.
-    pub const DDKEYBOARD_POLL_KEYBOARD_STATE: u32 = 0x0057_2290;
-
-    // === MFC wrappers ===
-
-    /// AfxCtxMessageBoxA — cdecl(hwnd, text, caption, flags) → int.
-    /// MFC activation-context wrapper around user32!MessageBoxA.
-    pub const AFXCTX_MESSAGEBOX_A: u32 = 0x005C_2055;
-    /// CWormsApp::DoMessageBox — thiscall(this, text, type, help_context) → int.
-    /// MFC virtual override that shows either a frontend dialog or a raw MessageBoxA.
-    pub const CWORMSAPP_DO_MESSAGEBOX: u32 = 0x004E_B730;
-
-    // === Chat / UI ===
-
-    pub const SHOW_CHAT_MESSAGE: u32 = 0x0052_ACB0;
-    pub const ON_CHAT_INPUT: u32 = 0x0052_B730;
-
-    // === Frontend / menu screens ===
-
-    /// Main navigation loop (CWinApp::Run override) — dispatches on g_CurrentScreen
-    pub const FRONTEND_MAIN_NAVIGATION_LOOP: u32 = 0x004E_6440;
-    pub const FRONTEND_CHANGE_SCREEN: u32 = 0x0044_7A20;
-    /// Wraps DoModal: palette transition + custom DoModal
-    pub const FRONTEND_DO_MODAL_WRAPPER: u32 = 0x0044_7960;
-    pub const FRONTEND_FRAME_CONSTRUCTOR: u32 = 0x004E_CCA0;
-    pub const FRONTEND_DIALOG_CONSTRUCTOR: u32 = 0x0044_6BA0;
-    pub const FRONTEND_PALETTE_ANIMATION: u32 = 0x0042_2180;
-    pub const FRONTEND_LOAD_TRANSITION_PAL: u32 = 0x0044_7AA0;
-    pub const FRONTEND_PRE_TRANSITION_CLEANUP: u32 = 0x004E_4AE0;
-    /// Post-screen cleanup: destroys previous dialog
-    pub const FRONTEND_POST_SCREEN_CLEANUP: u32 = 0x004E_B450;
-    pub const FRONTEND_ON_INITIAL_LOAD: u32 = 0x0042_9830;
-    pub const FRONTEND_LAUNCH_SINGLE_PLAYER: u32 = 0x0044_1D80;
-    pub const FRONTEND_ON_MULTIPLAYER: u32 = 0x0044_E850;
-    pub const FRONTEND_ON_NETWORK: u32 = 0x0044_EC10;
-    pub const FRONTEND_ON_MINIMIZE: u32 = 0x0048_6A10;
-    pub const FRONTEND_ON_OPTIONS_ACCEPT: u32 = 0x0048_DAB0;
-    pub const FRONTEND_ON_START_GAME: u32 = 0x004F_14A0;
-    pub const CDIALOG_DO_MODAL_CUSTOM: u32 = 0x0040_FD60;
-    /// Custom message pump (replaces MFC's RunModalLoop)
-    pub const CDIALOG_CUSTOM_MSG_PUMP: u32 = 0x0040_FBE0;
-    /// Per-frame idle handler: cursor, mouse, paint dispatch
-    pub const FRONTEND_DIALOG_ON_IDLE: u32 = 0x0040_FF90;
-    /// Traverses control tree, paints dirty controls
-    pub const FRONTEND_DIALOG_PAINT_CONTROL_TREE: u32 = 0x0040_BF60;
-    /// Renders background image for frontend dialog
-    pub const FRONTEND_DIALOG_RENDER_BACKGROUND: u32 = 0x0040_4250;
-    /// Surface blit operation (calls surface->vtable[11])
-    pub const SURFACE_BLIT: u32 = 0x0040_3BF0;
-
-    // === Frontend dialog constructors (from main navigation loop) ===
-
-    pub const FRONTEND_DEATHMATCH_CTOR: u32 = 0x0044_0F40;
-    pub const FRONTEND_LOCAL_MP_CTOR: u32 = 0x0049_C420;
-    pub const FRONTEND_TRAINING_CTOR: u32 = 0x004E_0880;
-    pub const FRONTEND_MISSIONS_CTOR: u32 = 0x0049_9190;
-    pub const FRONTEND_POST_INIT_CTOR: u32 = 0x004C_91B0;
-    pub const FRONTEND_MAIN_MENU_CTOR: u32 = 0x0048_66C0;
-    pub const FRONTEND_SINGLE_PLAYER_CTOR: u32 = 0x004D_69F0;
-    pub const FRONTEND_CAMPAIGN_A_CTOR: u32 = 0x004A_2B70;
-    pub const FRONTEND_CAMPAIGN_B_CTOR: u32 = 0x004A_24D0;
-    pub const FRONTEND_ADV_SETTINGS_CTOR: u32 = 0x0042_79E0;
-    pub const FRONTEND_INTRO_MOVIE_CTOR: u32 = 0x0047_0870;
-    pub const FRONTEND_NETWORK_HOST_CTOR: u32 = 0x004A_DCA0;
-    pub const FRONTEND_NETWORK_ONLINE_CTOR: u32 = 0x004A_CBC0;
-    pub const FRONTEND_NETWORK_PROVIDER_CTOR: u32 = 0x004A_7990;
-    pub const FRONTEND_NETWORK_SETTINGS_CTOR: u32 = 0x004C_23C0;
-    pub const FRONTEND_LAN_CTOR: u32 = 0x0048_0A80;
-    pub const FRONTEND_WORMNET_CTOR: u32 = 0x0047_2400;
-    pub const FRONTEND_LOBBY_HOST_CTOR: u32 = 0x004B_0160;
-    pub const FRONTEND_LOBBY_GAME_START_CTOR: u32 = 0x004B_DBE0;
-
-    // === Scheme file operations ===
-
-    /// Reads .wsc file into scheme struct: stdcall(dest, path, flag, out_ptr), RET 0x10
-    /// Opens modeRead|typeBinary, reads header + version-dependent payload to dest+0x14
-    pub const SCHEME_READ_FILE: u32 = 0x004D_3890;
-    /// Checks if scheme file exists: stdcall(name) → 0=not found, 1=found, RET 0x4
-    pub const SCHEME_FILE_EXISTS: u32 = 0x004D_4CD0;
-    /// Saves scheme struct to .wsc file: thiscall(this, name, flag), RET 0x8
-    pub const SCHEME_SAVE_FILE: u32 = 0x004D_44F0;
-    /// Variant file-exists check for numbered schemes ({%02d} Name.wsc)
-    pub const SCHEME_FILE_EXISTS_NUMBERED: u32 = 0x004D_4E00;
-    /// Version detection: compares patterns to determine v1/v2/v3
-    pub const SCHEME_DETECT_VERSION: u32 = 0x004D_4480;
-    /// Extracts built-in schemes from PE resources to User\Schemes\ directory
-    pub const SCHEME_EXTRACT_BUILTINS: u32 = 0x004D_5720;
-    /// Copies payload data + V3 defaults into scheme struct: fastcall(?, data, dest, name)
-    pub const SCHEME_INIT_FROM_DATA: u32 = 0x004D_5020;
-    /// Validates weapon ammo counts against max table (39 weapons): returns 0=ok, 1=over limit
-    pub const SCHEME_CHECK_WEAPON_LIMITS: u32 = 0x004D_50E0;
-    /// Validates V3 extended options field ranges: returns 0=valid, 1=invalid
-    pub const SCHEME_VALIDATE_EXTENDED_OPTIONS: u32 = 0x004D_5110;
-    /// Scans User\Schemes\ for {NN} name.wsc files, marks found indices in global array
-    pub const SCHEME_SCAN_DIRECTORY: u32 = 0x004D_54E0;
-    /// Slot 13 feature/availability check — returns bool (obfuscated hash check)
-    pub const SCHEME_SLOT13_CHECK: u32 = 0x004D_A4C0;
-
-    // === Scheme data (in .rdata/.data) ===
-
-    /// V3 extended options defaults (110 bytes), applied to V1/V2 schemes
-    pub const SCHEME_V3_DEFAULTS: u32 = 0x0064_9AB8;
-    /// Per-weapon max ammo table (39 bytes), used by CheckWeaponLimits
-    pub const SCHEME_WEAPON_AMMO_LIMITS: u32 = 0x006A_D130;
-    /// Weapon power byte in active scheme struct, stride 4 per weapon (39 weapons)
-    /// Used by CheckWeaponLimits: compares each byte against SCHEME_WEAPON_AMMO_LIMITS
-    pub const SCHEME_ACTIVE_WEAPON_DATA: u32 = 0x0088_DB05;
-    /// Scheme slot presence flags (14 bytes: index 0 unused, 1-13 = slots), set by ScanDirectory
-    pub const SCHEME_SLOT_FLAGS: u32 = 0x006B_329C;
-    /// Guard global for gameplay modifier application in ReadFile (nonzero = apply modifiers)
-    pub const SCHEME_MODIFIER_GUARD: u32 = 0x0088_E460;
-
-    // === Configuration / registry ===
-
-    /// Theme file size check: cdecl() -> u32 (file length or 0)
-    pub const THEME_GET_FILE_SIZE: u32 = 0x0044_BA80;
-    /// Theme file load: stdcall(dest_buffer)
-    pub const THEME_LOAD: u32 = 0x0044_BB20;
-    /// Theme file save: stdcall(buffer, size)
-    pub const THEME_SAVE: u32 = 0x0044_BBC0;
-    /// Recursive registry key deletion: stdcall(hkey, subkey) -> i32
-    pub const REGISTRY_DELETE_KEY_RECURSIVE: u32 = 0x004E_4D10;
-    /// Registry cleanup — deletes all 4 subsections + clears INI: stdcall(struct_ptr)
-    pub const REGISTRY_CLEAN_ALL: u32 = 0x004C_90D0;
-    /// Loads game options from registry into GameInfo struct: stdcall(game_info_ptr)
-    pub const GAMEINFO_LOAD_OPTIONS: u32 = 0x0046_0AC0;
-    /// Reads CrashReportURL from Options registry key: cdecl() -> *const u8
-    pub const OPTIONS_GET_CRASH_REPORT_URL: u32 = 0x005A_63F0;
-
-    // === MFC / ATL library functions ===
-
-    /// ATL::CSimpleStringT<char,0>::operator= — thiscall(this, &src)
-    /// Assigns one CString to another with refcount management.
-    pub const CSTRING_OPERATOR_ASSIGN: u32 = 0x0040_1D20;
-    /// String resource lookup + assign — stdcall(dest_cstring_ptr) with EDX=resource_id
-    /// Looks up localized string by resource ID, assigns to dest CString.
-    pub const CSTRING_ASSIGN_RESOURCE: u32 = 0x004A_39F0;
-    /// CSimpleStringT::SetString — thiscall(this, str_ptr, str_len)
-    /// Low-level string buffer assignment (called by operator= and assign_resource).
-    pub const CSTRING_SET_STRING: u32 = 0x0040_1EA0;
-
-    // === Lobby / network ===
-
-    pub const LOBBY_HOST_COMMANDS: u32 = 0x004B_9B00;
-    pub const LOBBY_CLIENT_COMMANDS: u32 = 0x004A_ABB0;
-    /// Allocates space in a packet queue and writes the packet type + data.
-    /// __usercall: EAX = queue pointer, ECX = data size. Stack: packet_type, data_ptr.
-    /// Returns 1 on success, 0 if queue full. RET 0x8.
-    pub const SEND_GAME_PACKET_WRAPPED: u32 = 0x0054_1130;
-    pub const LOBBY_DISPLAY_MESSAGE: u32 = 0x0049_3CB0;
-    pub const LOBBY_SEND_GREENTEXT: u32 = 0x004A_A990;
-    pub const LOBBY_PRINT_USED_VERSION: u32 = 0x004B_7E20;
-    pub const LOBBY_ON_DISCONNECT: u32 = 0x004B_AE40;
-    pub const LOBBY_ON_GAME_END: u32 = 0x004B_AEC0;
-    pub const LOBBY_ON_MESSAGE: u32 = 0x004B_D400;
-    pub const LOBBY_DIALOG_CONSTRUCTOR: u32 = 0x004C_D9A0;
-    pub const NETWORK_IS_AVAILABLE: u32 = 0x004D_4920;
-
-    // === Memory ===
-
-    /// WA internal malloc — cdecl(size: u32) → *mut u8. Statically-linked MSVC 2005 CRT.
-    pub const WA_MALLOC: u32 = 0x005C_0AE3;
-    pub const WA_MALLOC_MEMSET: u32 = 0x0053_E910;
-    pub const WA_FREE: u32 = 0x005D_0D2B;
-    /// WA's CRT _fopen — cdecl(path, mode) → FILE*.
-    pub const WA_FOPEN: u32 = 0x005D_3271;
-    /// WA's CRT _fileno — cdecl(FILE*) → fd.
-    pub const WA_FILENO: u32 = 0x005D_5155;
-    /// WA's CRT _get_osfhandle — cdecl(fd) → HANDLE.
-    pub const WA_GET_OSFHANDLE: u32 = 0x005D_7273;
-    /// WA's CRT srand — cdecl(seed).
-    pub const WA_SRAND: u32 = 0x005D_293E;
-    /// WA's CRT rand — cdecl() → i32.
-    pub const WA_RAND: u32 = 0x005D_294B;
-    /// WA's CRT _gmtime64 — cdecl(&time_t) → *const tm.
-    pub const WA_GMTIME64: u32 = 0x005D_34C0;
-    /// WA's CRT malloc (raw, not the wrapper at WA_MALLOC) — cdecl(size) → *mut u8.
-    pub const WA_CRT_MALLOC: u32 = 0x005C_0AB8;
-
-    // === Bitmap font system ===
-
-    /// Loads all four font sizes from BMP files
-    pub const FONT_LOAD_FONTS: u32 = 0x0041_4680;
-    /// Core glyph renderer: iterates chars, blits from sprite sheet
-    pub const FONT_RENDER_GLYPHS: u32 = 0x0041_43D0;
-    /// Higher-level text draw: measures string, creates surface, renders
-    pub const FONT_DRAW_TEXT: u32 = 0x0042_7830;
-    /// DDDisplay::DrawTextOnBitmap — thiscall(font_id, bitmap, hAlign, vAlign, msg, a7, a8)
-    pub const DDDISPLAY_DRAW_TEXT_ON_BITMAP: u32 = 0x0052_36B0;
-    /// DDDisplay::ConstructTextbox — thiscall(dst, length, fontid)
-    pub const DDDISPLAY_CONSTRUCT_TEXTBOX: u32 = 0x004F_AF00;
-    /// SetTextboxText — stdcall(textbox, msg, textcolor, color1, color2, a6, a7, opacity)
-    pub const SET_TEXTBOX_TEXT: u32 = 0x004F_B070;
-
-    // === Global variables (in .data) ===
-
-    /// Current screen ID driving the main navigation loop dispatch
-    pub const G_CURRENT_SCREEN: u32 = 0x006B_3504;
-    /// Character width table (256 bytes)
-    pub const G_CHAR_WIDTH_TABLE: u32 = 0x006B_2DD9;
-    /// Main frontend frame window (CWnd*)
-    pub const G_FRONTEND_FRAME: u32 = 0x006B_3908;
-    /// Main frontend HWND
-    pub const G_FRONTEND_HWND: u32 = 0x006B_390C;
-    /// Skip-to-main-menu flag (set after intro movie)
-    pub const G_SKIP_TO_MAIN_MENU: u32 = 0x007A_083D;
-    /// Auto-network mode flag
-    pub const G_AUTO_NETWORK_FLAG: u32 = 0x007A_083F;
-    /// DDDisplayWrapper pointer (valid during entire frontend lifetime)
-    pub const G_DD_DISPLAY_WRAPPER: u32 = 0x0079_D6D4;
-    /// Font array — 4 fonts, each 0x241C bytes
-    pub const G_FONT_ARRAY: u32 = 0x007A_0F58;
-    /// Main menu active flag (0xFF during screen 18)
-    pub const G_MAIN_MENU_ACTIVE: u32 = 0x007C_0A20;
-    /// MFC CWinApp singleton
-    pub const G_CWINAPP: u32 = 0x007C_03D0;
-    /// Network mode (0=LAN, nonzero=WormNET)
-    pub const G_NETWORK_MODE: u32 = 0x007C_0D40;
-    /// Network sub-type selector
-    pub const G_NETWORK_SUBTYPE: u32 = 0x007C_0D68;
-    /// Game session context pointer (contains subsystem pointers at known offsets)
-    /// +0xA0 = DDGameWrapper*, +0xAC = DDDisplay*, +0xA8 = DSSound*, etc.
-    pub const G_GAME_SESSION: u32 = 0x007A_0884;
-    /// Fullscreen mode flag — non-zero when game is running fullscreen.
-    /// Read by GameEngine__InitHardware for cursor/screen-center computation.
-    pub const G_FULLSCREEN_FLAG: u32 = 0x007A_084C;
-    /// Suppress-cursor flag — if non-zero, skip SetCursorPos/ClipCursor in hardware init.
-    pub const G_SUPPRESS_CURSOR: u32 = 0x0088_E485;
-    /// IAT thunk for MapWindowPoints (USER32.dll import).
-    pub const IAT_MAP_WINDOW_POINTS: u32 = 0x0061_A588;
-    /// Total sprite data bytes loaded (accumulated by ProcessSprite)
-    pub const G_SPRITE_DATA_BYTES: u32 = 0x007A_0864;
-    /// Total sprite frame count loaded
-    pub const G_SPRITE_FRAME_COUNT: u32 = 0x007A_0868;
-    /// Total sprite pixel area loaded (sum of frame w×h)
-    pub const G_SPRITE_PIXEL_AREA: u32 = 0x007A_086C;
-    /// Total palette entry bytes loaded (entry_count × 3)
-    pub const G_SPRITE_PALETTE_BYTES: u32 = 0x007A_0870;
-
-    // === Replay globals ===
-
-    /// Global game state struct passed to ReplayLoader. Always 0x87D3F8.
-    pub const G_REPLAY_STATE: u32 = 0x0087_D3F8;
-    /// Team header data buffer (0x5728 bytes), cleared by ReplayLoader.
-    pub const G_TEAM_HEADER_DATA: u32 = 0x0087_79E4;
-    /// Secondary team/game data buffer (0xD9DC bytes).
-    pub const G_TEAM_SECONDARY_DATA: u32 = 0x0087_D438;
-    /// XOR'd game ID (payload ^ 0xEF5B5C49).
-    pub const G_REPLAY_GAME_ID: u32 = 0x0088_AF50;
-    /// Replay sub-format flag.
-    pub const G_REPLAY_SUB_FORMAT: u32 = 0x0088_AF54;
-    /// Game version ID from replay.
-    pub const G_REPLAY_VERSION_ID: u32 = 0x0088_ABB0;
-    /// Scheme present flag (1 = has scheme data).
-    pub const G_REPLAY_SCHEME_PRESENT: u32 = 0x0088_AE0C;
-    /// Version/ArtClass counter. ReplayLoader fails if > 0x33.
-    pub const G_ARTCLASS_COUNTER: u32 = 0x0088_C790;
-    /// Random seed global.
-    pub const G_RANDOM_SEED: u32 = 0x0088_D0B4;
-    /// Saved random seed.
-    pub const G_SAVED_RANDOM_SEED: u32 = 0x0088_ABAC;
-    /// Replay filename buffer.
-    pub const G_REPLAY_FILENAME: u32 = 0x0088_AF58;
-    /// Game data directory path (null-terminated string).
-    pub const G_DATA_DIR: u32 = 0x0088_E078;
-    /// WA log file FILE* pointer (for /getlog output).
-    pub const G_LOG_FILE_PTR: u32 = 0x0088_C370;
-    /// Observer array base (used by RegisterObserver, replay parsing).
-    pub const G_OBSERVER_ARRAY: u32 = 0x0088_C35C;
-    /// Observer count (number of registered observers).
-    pub const G_OBSERVER_COUNT: u32 = 0x0088_AF4C;
-    /// Recording timestamp availability flag (nonzero = timestamp present).
-    pub const G_RECORDING_TIMESTAMP_FLAG: u32 = 0x0088_C36C;
-    /// Replay version flag A (version > 7).
-    pub const G_REPLAY_VER_FLAG_A: u32 = 0x0088_AF42;
-    /// Replay version flag B (version > 7).
-    pub const G_REPLAY_VER_FLAG_B: u32 = 0x0088_AF43;
-    /// Game mode flag (from replay version >= 12).
-    pub const G_REPLAY_GAME_MODE: u32 = 0x0088_AF44;
-    /// Scheme header byte (signed: >= 0 = built-in scheme).
-    pub const G_SCHEME_HEADER: u32 = 0x0088_DAD4;
-    /// Scheme loading destination (base address for scheme data).
-    pub const G_SCHEME_DEST: u32 = 0x0088_DACC;
-    /// Scheme data copy destination (raw scheme bytes from stream).
-    pub const G_SCHEME_DATA: u32 = 0x0088_DAE0;
-    /// Scheme extended options buffer (0x4C bytes, cleared for v1/v2 fallback).
-    pub const G_SCHEME_OPTIONS: u32 = 0x0088_DBB8;
-    /// Scheme v3 extended data destination (0x6E bytes).
-    pub const G_SCHEME_V3_DATA: u32 = 0x0088_DC04;
-    /// Host player index (low byte = host, rest masked).
-    pub const G_HOST_PLAYER: u32 = 0x0087_79E0;
-    /// Player data array base (13 entries, stride 0x78).
-    /// Player[0].name = G_PLAYER_ARRAY, Player[0].flag = G_PLAYER_ARRAY + 0x74.
-    pub const G_PLAYER_ARRAY: u32 = 0x0087_79E4;
-    /// Player count.
-    pub const G_PLAYER_COUNT: u32 = 0x0087_D0DE;
-    /// Team data array base (6 entries, stride 0xD7B).
-    pub const G_TEAM_DATA: u32 = 0x0087_7FFC;
-    /// Team count (number of active teams).
-    pub const G_TEAM_COUNT: u32 = 0x0087_D0E0;
-    /// Replay name buffer (0x29 bytes).
-    pub const G_REPLAY_NAME: u32 = 0x0087_D0E1;
-    /// Map byte 1 (written during replay parsing).
-    pub const G_MAP_BYTE_1: u32 = 0x0087_250C;
-    /// Map byte 2 (written during replay parsing).
-    pub const G_MAP_BYTE_2: u32 = 0x0087_2508;
-    /// Map seed (u16 stored as u32).
-    pub const G_MAP_SEED: u32 = 0x0087_D430;
-    /// Worm names base (8 worms × teams, stride 0x11 per name).
-    pub const G_WORM_NAMES: u32 = 0x0087_8097;
-
-    // --- Replay function addresses ---
-    /// Load string resource by ID — stdcall(id) → *const u8. RET 0x4.
-    pub const WA_LOAD_STRING: u32 = 0x0059_3180;
-    /// Load built-in scheme by ID — stdcall(dest, scheme_id). RET 0x8.
-    pub const SCHEME_LOAD_BUILTIN: u32 = 0x004D_4840;
-    /// Validate extended scheme options — cdecl() → i32.
-    pub const SCHEME_VALIDATE_EXTENDED: u32 = 0x004D_5110;
-    /// Process replay state — stdcall(state). Large function (1032 lines).
-    pub const REPLAY_PROCESS_STATE: u32 = 0x0045_D640;
-    /// Cleanup observer array — usercall(ESI=observer_array). Plain RET.
-    pub const REPLAY_CLEANUP_OBSERVERS: u32 = 0x0053_EE00;
-    /// MapView constructor — stdcall(alloc, flags) → *mut MapView. CWnd-derived.
-    pub const MAP_VIEW_CONSTRUCTOR: u32 = 0x0044_7E80;
-    /// MapView load terrain file — stdcall(this, path, flags) → i32.
-    pub const MAP_VIEW_LOAD: u32 = 0x0044_A9A0;
-    /// MapView copy info to game state — usercall(ESI=this). Plain RET.
-    pub const MAP_VIEW_COPY_INFO: u32 = 0x0044_9B60;
-
-    // --- String literals ---
-    /// Version string table (array of pointers to version strings).
-    pub const VERSION_STRING_TABLE: u32 = 0x006A_B480;
-    /// Current WA version byte index (indexes into version suffix table).
-    pub const G_VERSION_BYTE: u32 = 0x0069_7702;
-    /// "3.8.1" literal string.
-    pub const STR_VERSION_381: u32 = 0x0064_1C60;
-    /// Version suffix table (array of pointers, indexed by version byte).
-    pub const VERSION_SUFFIX_TABLE: u32 = 0x0069_9814;
-
-    // === Configuration globals (for GameInfo__LoadOptions) ===
-
-    /// Base directory string (null-terminated)
-    pub const G_BASE_DIR: u32 = 0x0088_E282;
-    /// 64-byte data block copied into GameInfo+0xF485
-    pub const G_GAMEINFO_BLOCK_F485: u32 = 0x0088_DFF3;
-    /// "data\land.dat" string constant (14 bytes)
-    pub const G_LAND_DAT_STRING: u32 = 0x0064_DA58;
-    /// Unknown byte read into GameInfo+0xF3A0
-    pub const G_CONFIG_BYTE_F3A0: u32 = 0x007C_0D38;
-    /// 5 DWORDs: GameInfo offsets +0xF3B4..+0xF3D0
-    pub const G_CONFIG_DWORDS_F3B4: u32 = 0x0088_E39C;
-    /// Guard flag for conditional config copies
-    pub const G_CONFIG_GUARD: u32 = 0x0088_C374;
-    /// 4 DWORDs (conditional): GameInfo offsets +0xF3F4..+0xF400
-    pub const G_CONFIG_DWORDS_F3F4: u32 = 0x0088_E3B8;
-    /// DWORD → GameInfo+0xDAE8
-    pub const G_CONFIG_DWORD_DAE8: u32 = 0x0088_E390;
-    /// 2 DWORDs → GameInfo+0xF3D4, +0xF3D8
-    pub const G_CONFIG_DWORDS_F3D4: u32 = 0x0088_E3B0;
-    /// 3 DWORDs → GameInfo+0xF3C4..+0xF3CC
-    pub const G_CONFIG_DWORDS_F3C4: u32 = 0x0088_E400;
-    /// DWORD → GameInfo+0xF3E4
-    pub const G_CONFIG_DWORD_F3E4: u32 = 0x0088_E44C;
-    /// Streams directory path buffer
-    pub const G_STREAMS_DIR: u32 = 0x0088_AE18;
-    /// Random stream indices (16 entries)
-    pub const G_STREAM_INDICES: u32 = 0x0088_AE9C;
-    /// Stream index end sentinel
-    pub const G_STREAM_INDICES_END: u32 = 0x0088_AEDC;
-    /// DAT_0088E394 flag for stream volume
-    pub const G_STREAM_FLAG: u32 = 0x0088_E394;
-    /// Stream volume byte
-    pub const G_STREAM_VOLUME: u32 = 0x0088_AEDD;
-
-    /// CrashReportURL static buffer (0x400 bytes)
-    pub const G_CRASH_REPORT_URL: u32 = 0x0079_FFD8;
-
-    // === Frame buffer globals ===
-
-    /// Frame buffer pixel data pointer (malloc'd width*height bytes)
-    pub const G_FRAME_BUFFER_PTR: u32 = 0x007A_0EEC;
-    /// Frame buffer width
-    pub const G_FRAME_BUFFER_WIDTH: u32 = 0x007A_0EF0;
-    /// Frame buffer height
-    pub const G_FRAME_BUFFER_HEIGHT: u32 = 0x007A_0EF4;
-
-    // === Trig lookup tables ===
-
-    /// Sine lookup table — 1024 entries of i32 (fixed-point 16.16).
-    /// Indexed by `(angle >> 6) & 0x3FF`. Adjacent entries used for interpolation.
-    pub const G_SIN_TABLE: u32 = 0x006A_1860;
-    /// Cosine lookup table — 1024 entries of i32 (fixed-point 16.16).
-    pub const G_COS_TABLE: u32 = 0x006A_1C60;
-
-    // === Vertex scratch buffer ===
-
-    /// Global vertex scratch buffer used by DrawBungeeTrail/DrawCrosshairLine.
-    /// 12 bytes per vertex (x, y, third field). At least ~200 vertices capacity.
-    pub const G_VERTEX_SCRATCH_BUFFER: u32 = 0x008B_1470;
-
-    // === Game context (DDGame struct offsets) ===
-    // These are offsets from the DDGame base pointer, not absolute addresses.
-    // DDGame pointer is obtained from hookConstructDDGameWrapper param.
+    /// Duplicate: same as PC_LANDSCAPE_CONSTRUCTOR.
+    pub const CONSTRUCT_PC_LANDSCAPE: u32 = PC_LANDSCAPE_CONSTRUCTOR;
+    /// Duplicate: same as SPRITE_REGION_CONSTRUCTOR.
+    pub const CONSTRUCT_SPRITE_REGION: u32 = SPRITE_REGION_CONSTRUCTOR;
+    /// Duplicate: same as CTASK_TURNGAME_CTOR.
+    pub const TURN_GAME_CONSTRUCTOR: u32 = CTASK_TURNGAME_CTOR;
+
+    // =========================================================================
+    // Replay / turn management
+    // =========================================================================
+
+    crate::define_addresses! {
+        /// Loads .WAgame replay file, validates magic 0x4157
+        fn/Stdcall REPLAY_LOADER = 0x0046_2DF0;
+        /// Parses "MM:SS.FF" time string → frame number
+        fn PARSE_REPLAY_POSITION = 0x004E_3490;
+        /// Read length-prefixed string
+        fn/Usercall REPLAY_READ_PREFIXED_STRING = 0x0046_1340;
+        /// Read byte with range validation
+        fn/Usercall REPLAY_READ_BYTE_VALIDATED = 0x0046_14D0;
+        /// Read byte with signed range validation
+        fn/Usercall REPLAY_READ_BYTE_RANGE = 0x0046_1540;
+        /// Read u16 with range validation
+        fn/Usercall REPLAY_READ_U16_VALIDATED = 0x0046_15B0;
+        /// Read worm name
+        fn/Usercall REPLAY_READ_WORM_NAME = 0x0046_1620;
+        /// Validate team type byte range
+        fn/Fastcall REPLAY_VALIDATE_TEAM_TYPE = 0x0046_1690;
+        /// Post-process team color assignments
+        fn/Stdcall REPLAY_PROCESS_TEAM_COLORS = 0x0046_6460;
+        /// Apply scheme default values
+        fn REPLAY_PROCESS_SCHEME_DEFAULTS = 0x0046_70F0;
+        /// Process replay feature flags
+        fn REPLAY_PROCESS_FLAGS = 0x0046_7280;
+        /// Register observer team entry
+        fn/Stdcall REPLAY_REGISTER_OBSERVER = 0x0046_7BC0;
+        /// Process alliance/team setup
+        fn REPLAY_PROCESS_ALLIANCE = 0x0046_8890;
+        /// Validate team configuration
+        fn/Stdcall REPLAY_VALIDATE_TEAM_SETUP = 0x0046_5E10;
+        /// Routes game messages through the task handler tree
+        fn GAME_MESSAGE_ROUTER = 0x0055_3BD0;
+        /// Per-frame turn timer
+        fn/Stdcall TURN_MANAGER_PROCESS_FRAME = 0x0055_FDA0;
+        /// Control task HandleMessage
+        fn CONTROL_TASK_HANDLE_MESSAGE = 0x0054_51F0;
+        /// End-of-frame processing
+        fn GAME_FRAME_END_PROCESSOR = 0x0053_1960;
+        /// Main frame loop
+        fn GAME_FRAME_DISPATCHER = 0x0053_1D00;
+        /// Sends game packet if network buffer allows
+        fn SEND_GAME_PACKET_CONDITIONAL = 0x0053_1880;
+        /// Process replay state — large function (1032 lines)
+        fn/Stdcall REPLAY_PROCESS_STATE = 0x0045_D640;
+        /// Cleanup observer array
+        fn/Usercall REPLAY_CLEANUP_OBSERVERS = 0x0053_EE00;
+    }
+
+    // =========================================================================
+    // Gameplay functions
+    // =========================================================================
+
+    crate::define_addresses! {
+        /// Game PRNG: rng = (rng + frame_counter) * 0x19660D + 0x3C6EF35F
+        fn/Fastcall ADVANCE_GAME_RNG = 0x0053_F320;
+        /// Terrain hit → debris particles → RNG
+        fn GENERATE_DEBRIS_PARTICLES = 0x0054_6F70;
+        fn CREATE_EXPLOSION = 0x0054_8080;
+        fn SPECIAL_IMPACT = 0x0051_93D0;
+        fn SPAWN_OBJECT = 0x0056_1CF0;
+        fn WEAPON_RELEASE = 0x0051_C3D0;
+        fn WORM_START_FIRING = 0x0051_B7F0;
+        fn FIRE_WEAPON = 0x0051_EE60;
+        fn CREATE_WEAPON_PROJECTILE = 0x0051_E0F0;
+    }
+
+    // =========================================================================
+    // Weapon system
+    // =========================================================================
+
+    crate::define_addresses! {
+        fn INIT_WEAPON_TABLE = 0x0053_CAB0;
+        fn COUNT_ALIVE_WORMS = 0x0052_25A0;
+        fn GET_AMMO = 0x0052_25E0;
+        fn ADD_AMMO = 0x0052_2640;
+        /// Not the main ammo decrement path
+        fn SUBTRACT_AMMO = 0x0052_2680;
+    }
+
+    // =========================================================================
+    // Team/worm accessor functions
+    // =========================================================================
+
+    crate::define_addresses! {
+        /// Counts teams by alliance membership
+        fn/Usercall COUNT_TEAMS_BY_ALLIANCE = 0x0052_2030;
+        /// Sums health of all worms on a team
+        fn/Fastcall GET_TEAM_TOTAL_HEALTH = 0x0052_24D0;
+        /// Checks if a worm is in a "special" state
+        fn/Usercall IS_WORM_IN_SPECIAL_STATE = 0x0052_26B0;
+        /// Reads worm X,Y position into output pointers
+        fn/Usercall GET_WORM_POSITION = 0x0052_2700;
+        /// Checks if any worm has state 0x64
+        fn/Usercall CHECK_WORM_STATE_0X64 = 0x0052_28D0;
+        /// Per-team version of CheckWormState0x64
+        fn/Usercall CHECK_TEAM_WORM_STATE_0X64 = 0x0052_2930;
+        /// Scans all teams for any worm with state 0x8b
+        fn/Usercall CHECK_ANY_WORM_STATE_0X8B = 0x0052_2970;
+        /// Sets the active worm for a team
+        fn/Usercall SET_ACTIVE_WORM_MAYBE = 0x0052_2500;
+    }
+
+    // =========================================================================
+    // Game session
+    // =========================================================================
+
+    crate::define_addresses! {
+        class "GameSession" {
+            /// GameSession constructor
+            ctor/Usercall GAME_SESSION_CONSTRUCTOR = 0x0058_BFA0;
+            /// GameSession__Run
+            fn/Usercall GAME_SESSION_RUN = 0x0057_2F50;
+        }
+
+        /// GameEngine__InitHardware
+        fn/Thiscall GAME_ENGINE_INIT_HARDWARE = 0x0056_D350;
+        /// GameEngine__Shutdown
+        fn/Stdcall GAME_ENGINE_SHUTDOWN = 0x0056_DCD0;
+    }
+
+    // =========================================================================
+    // Graphics / rendering
+    // =========================================================================
+
+    crate::define_addresses! {
+        /// DDDisplay::Init
+        fn/Usercall DDISPLAY_INIT = 0x0056_9D00;
+        /// Streaming audio constructor
+        fn/Stdcall STREAMING_AUDIO_CTOR = 0x0058_BC10;
+        /// DDNetGameWrapper constructor
+        fn/Stdcall DDNETGAME_WRAPPER_CTOR = 0x0056_D1F0;
+        /// Timer object constructor
+        fn/Usercall GAME_ENGINE_TIMER_CTOR = 0x0053_E950;
+        fn CONSTRUCT_FRAME_BUFFER = 0x005A_2430;
+        fn BLIT_SCREEN = 0x005A_2020;
+        fn RQ_RENDER_DRAWING_QUEUE = 0x0054_2350;
+        fn DRAW_LANDSCAPE = 0x005A_2790;
+        fn RQ_DRAW_PIXEL = 0x0054_1D60;
+        fn RQ_DRAW_LINE_STRIP = 0x0054_1DD0;
+        fn RQ_DRAW_POLYGON = 0x0054_1E50;
+        fn RQ_DRAW_SCALED = 0x0054_1ED0;
+        fn RQ_DRAW_RECT = 0x0054_1F40;
+        fn RQ_DRAW_SPRITE_GLOBAL = 0x0054_1FE0;
+        fn RQ_DRAW_SPRITE_LOCAL = 0x0054_2060;
+        fn RQ_DRAW_SPRITE_OFFSET = 0x0054_20E0;
+        fn RQ_DRAW_BITMAP_GLOBAL = 0x0054_2170;
+        fn RQ_DRAW_TEXTBOX_LOCAL = 0x0054_2200;
+        fn RQ_DRAW_CLIPPED_SPRITE_MAYBE = 0x0054_22A0;
+        fn RQ_CLIP_COORDINATES = 0x0054_2BA0;
+        fn RQ_GET_CAMERA_OFFSET_MAYBE = 0x0054_2B10;
+        fn RQ_CLIP_WITH_REF_OFFSET_MAYBE = 0x0054_2C70;
+        fn RQ_TRANSFORM_WITH_ZOOM_MAYBE = 0x0054_2D50;
+        fn RQ_SMOOTH_INTERPOLATE_MAYBE = 0x0054_2E60;
+        fn RQ_UPDATE_CLIP_BOUNDS_MAYBE = 0x0054_2F10;
+        fn RQ_SATURATE_CLIP_BOUNDS_MAYBE = 0x0054_2F70;
+        fn RENDER_FRAME_MAYBE = 0x0056_E040;
+        fn GAME_RENDER_MAYBE = 0x0053_3DC0;
+        fn RENDER_TERRAIN_MAYBE = 0x0053_5000;
+        fn RENDER_HUD_MAYBE = 0x0053_4F20;
+        fn RENDER_TURN_STATUS_MAYBE = 0x0053_4E00;
+        fn PALETTE_MANAGE_MAYBE = 0x0053_3C80;
+        fn PALETTE_ANIMATE_MAYBE = 0x0053_3A80;
+        fn LOAD_SPRITE = 0x0052_3400;
+        fn OPENGL_INIT = 0x0059_F000;
+        /// GfxResource__Create_Maybe
+        fn GFX_RESOURCE_CREATE = 0x004F_6300;
+        /// PaletteContext__Init
+        fn/Usercall PALETTE_CONTEXT_INIT = 0x0054_11A0;
+        /// SpriteGfxTable__Init
+        fn/Fastcall SPRITE_GFX_TABLE_INIT = 0x0054_1620;
+        /// RingBuffer__Init
+        fn/Usercall RING_BUFFER_INIT = 0x0054_1060;
+        /// CGameTask__InitTeamScoring
+        fn/Fastcall INIT_TEAM_SCORING = 0x0052_8510;
+        /// CGameTask__InitAllianceData
+        fn/Usercall INIT_ALLIANCE_DATA = 0x0052_62D0;
+        /// CGameTask__InitTurnState
+        fn/Usercall INIT_TURN_STATE = 0x0052_8690;
+        /// CGameTask__InitLandscapeFlags
+        fn/Usercall INIT_LANDSCAPE_FLAGS = 0x0052_8480;
+        /// HudPanel constructor
+        fn/Stdcall HUD_PANEL_CONSTRUCTOR = 0x0052_4070;
+        /// DDGame__InitTeamsFromSetup
+        fn/Stdcall INIT_TEAMS_FROM_SETUP = 0x0052_20B0;
+        /// TeamManager constructor
+        fn/Stdcall TEAM_MANAGER_CONSTRUCTOR = 0x0056_3D40;
+        /// CTaskGameState constructor
+        fn/Stdcall GAME_STATE_CONSTRUCTOR = 0x0053_2330;
+        /// DDDisplay::ConstructTextbox
+        fn/Stdcall CONSTRUCT_TEXTBOX = 0x004F_AF00;
+        fn/Stdcall FUN_567770 = 0x0056_7770;
+        /// Buffer object constructor
+        fn/Stdcall BUFFER_OBJECT_CONSTRUCTOR = 0x0054_5FD0;
+        /// GameStateStream sub-init
+        fn/Stdcall GAME_STATE_STREAM_INIT = 0x004F_B490;
+        /// Display object constructor
+        fn/Stdcall DISPLAY_OBJECT_CONSTRUCTOR = 0x0054_0440;
+        /// SpriteRegion constructor (0x9C-byte)
+        fn/Stdcall SPRITE_REGION_CONSTRUCTOR = 0x0057_DB20;
+        fn FUN_570A90 = 0x0057_0A90;
+        fn FUN_570E20 = 0x0057_0E20;
+        /// IMG_Decode
+        fn/Stdcall IMG_DECODE = 0x004F_5F80;
+        /// DrawBungeeTrail
+        fn/Stdcall DRAW_BUNGEE_TRAIL = 0x0050_0720;
+        /// DrawCrosshairLine
+        fn/Usercall DRAW_CROSSHAIR_LINE = 0x0051_97D0;
+        fn DESTRUCT_PC_LANDSCAPE = 0x0057_B540;
+        fn REDRAW_LAND_REGION = 0x0057_CC10;
+        fn WRITE_LAND_RAW = 0x0057_C300;
+    }
+
+    // =========================================================================
+    // Sound
+    // =========================================================================
+
+    crate::define_addresses! {
+        /// DirectSoundCreate IAT thunk
+        fn/Stdcall DIRECTSOUND_CREATE = 0x005B_493E;
+        fn PLAY_SOUND_LOCAL = 0x004F_DFE0;
+        fn PLAY_SOUND_GLOBAL = 0x0054_6E20;
+        /// IsSoundSuppressed
+        fn/Fastcall IS_SOUND_SUPPRESSED = 0x0052_61E0;
+        /// DispatchGlobalSound
+        fn/Fastcall DISPATCH_GLOBAL_SOUND = 0x0052_6270;
+        /// RecordActiveSound
+        fn/Usercall RECORD_ACTIVE_SOUND = 0x0054_6260;
+        /// ComputeDistanceParams
+        fn/Fastcall COMPUTE_DISTANCE_PARAMS = 0x0054_6300;
+        /// DispatchLocalSound
+        fn/Usercall DISPATCH_LOCAL_SOUND = 0x0054_6360;
+        /// PlayLocalNoEmitter
+        fn/Thiscall PLAY_LOCAL_NO_EMITTER = 0x0054_6430;
+        /// PlayLocalWithEmitter
+        fn/Usercall PLAY_LOCAL_WITH_EMITTER = 0x0054_63F0;
+        /// PlaySoundPooled_Direct
+        fn/Fastcall PLAY_SOUND_POOLED_DIRECT = 0x0054_6B50;
+        /// Distance3D_Attenuation
+        fn/Usercall DISTANCE_3D_ATTENUATION = 0x0054_30F0;
+    }
+
+    // =========================================================================
+    // Speech / Voice Lines / WAV Player / Fanfare
+    // =========================================================================
+
+    crate::define_addresses! {
+        /// Speech line table in .rdata
+        data SPEECH_LINE_TABLE = 0x006A_F770;
+        /// WAV Player: load and play
+        fn/Usercall WAV_PLAYER_LOAD_AND_PLAY = 0x0059_9B40;
+        /// WAV Player: play
+        fn/Usercall WAV_PLAYER_PLAY = 0x0059_96E0;
+        /// WAV Player: stop
+        fn/Usercall WAV_PLAYER_STOP = 0x0059_9670;
+        /// FeSfx WavPlayer global instance
+        global FESFX_WAV_PLAYER = 0x006A_C888;
+        /// Fanfare WavPlayer global instance
+        global FANFARE_WAV_PLAYER = 0x006A_C890;
+        /// WA data path string buffer
+        global WA_DATA_PATH = 0x0088_E282;
+        /// Team config fanfare name lookup
+        fn/Usercall GET_TEAM_CONFIG_NAME = 0x004A_62A0;
+        /// Builds fanfare path, plays via WavPlayer
+        fn/Stdcall PLAY_FANFARE_DEFAULT = 0x004D_7500;
+        /// Loads fanfare WAV with fallback
+        fn/Thiscall PLAY_FANFARE = 0x004D_7630;
+        /// Gets current team, calls PlayFanfare
+        fn/Usercall PLAY_FANFARE_CURRENT_TEAM = 0x004D_78E0;
+        /// Builds fesfx path, plays via WavPlayer
+        fn/Stdcall PLAY_FE_SFX = 0x004D_7960;
+    }
+
+    // =========================================================================
+    // MFC wrappers
+    // =========================================================================
+
+    crate::define_addresses! {
+        /// AfxCtxMessageBoxA
+        fn/Cdecl AFXCTX_MESSAGEBOX_A = 0x005C_2055;
+        /// CWormsApp::DoMessageBox
+        fn/Thiscall CWORMSAPP_DO_MESSAGEBOX = 0x004E_B730;
+        /// ATL::CSimpleStringT::operator=
+        fn/Thiscall CSTRING_OPERATOR_ASSIGN = 0x0040_1D20;
+        /// String resource lookup + assign
+        fn/Stdcall CSTRING_ASSIGN_RESOURCE = 0x004A_39F0;
+        /// CSimpleStringT::SetString
+        fn/Thiscall CSTRING_SET_STRING = 0x0040_1EA0;
+    }
+
+    // =========================================================================
+    // Chat / UI
+    // =========================================================================
+
+    crate::define_addresses! {
+        fn SHOW_CHAT_MESSAGE = 0x0052_ACB0;
+        fn ON_CHAT_INPUT = 0x0052_B730;
+    }
+
+    // =========================================================================
+    // Frontend / menu screens
+    // =========================================================================
+
+    crate::define_addresses! {
+        /// Main navigation loop (CWinApp::Run override)
+        fn FRONTEND_MAIN_NAVIGATION_LOOP = 0x004E_6440;
+        fn/Usercall FRONTEND_CHANGE_SCREEN = 0x0044_7A20;
+        /// Wraps DoModal: palette transition + custom DoModal
+        fn FRONTEND_DO_MODAL_WRAPPER = 0x0044_7960;
+        fn FRONTEND_FRAME_CONSTRUCTOR = 0x004E_CCA0;
+        fn FRONTEND_DIALOG_CONSTRUCTOR = 0x0044_6BA0;
+        fn FRONTEND_PALETTE_ANIMATION = 0x0042_2180;
+        fn FRONTEND_LOAD_TRANSITION_PAL = 0x0044_7AA0;
+        fn FRONTEND_PRE_TRANSITION_CLEANUP = 0x004E_4AE0;
+        fn FRONTEND_POST_SCREEN_CLEANUP = 0x004E_B450;
+        fn FRONTEND_ON_INITIAL_LOAD = 0x0042_9830;
+        fn FRONTEND_LAUNCH_SINGLE_PLAYER = 0x0044_1D80;
+        fn FRONTEND_ON_MULTIPLAYER = 0x0044_E850;
+        fn FRONTEND_ON_NETWORK = 0x0044_EC10;
+        fn FRONTEND_ON_MINIMIZE = 0x0048_6A10;
+        fn FRONTEND_ON_OPTIONS_ACCEPT = 0x0048_DAB0;
+        fn FRONTEND_ON_START_GAME = 0x004F_14A0;
+        fn CDIALOG_DO_MODAL_CUSTOM = 0x0040_FD60;
+        fn CDIALOG_CUSTOM_MSG_PUMP = 0x0040_FBE0;
+        fn FRONTEND_DIALOG_ON_IDLE = 0x0040_FF90;
+        fn FRONTEND_DIALOG_PAINT_CONTROL_TREE = 0x0040_BF60;
+        fn FRONTEND_DIALOG_RENDER_BACKGROUND = 0x0040_4250;
+        fn SURFACE_BLIT = 0x0040_3BF0;
+        fn FRONTEND_DEATHMATCH_CTOR = 0x0044_0F40;
+        fn FRONTEND_LOCAL_MP_CTOR = 0x0049_C420;
+        fn FRONTEND_TRAINING_CTOR = 0x004E_0880;
+        fn FRONTEND_MISSIONS_CTOR = 0x0049_9190;
+        fn FRONTEND_POST_INIT_CTOR = 0x004C_91B0;
+        fn FRONTEND_MAIN_MENU_CTOR = 0x0048_66C0;
+        fn FRONTEND_SINGLE_PLAYER_CTOR = 0x004D_69F0;
+        fn FRONTEND_CAMPAIGN_A_CTOR = 0x004A_2B70;
+        fn FRONTEND_CAMPAIGN_B_CTOR = 0x004A_24D0;
+        fn FRONTEND_ADV_SETTINGS_CTOR = 0x0042_79E0;
+        fn FRONTEND_INTRO_MOVIE_CTOR = 0x0047_0870;
+        fn FRONTEND_NETWORK_HOST_CTOR = 0x004A_DCA0;
+        fn FRONTEND_NETWORK_ONLINE_CTOR = 0x004A_CBC0;
+        fn FRONTEND_NETWORK_PROVIDER_CTOR = 0x004A_7990;
+        fn FRONTEND_NETWORK_SETTINGS_CTOR = 0x004C_23C0;
+        fn FRONTEND_LAN_CTOR = 0x0048_0A80;
+        fn FRONTEND_WORMNET_CTOR = 0x0047_2400;
+        fn FRONTEND_LOBBY_HOST_CTOR = 0x004B_0160;
+        fn FRONTEND_LOBBY_GAME_START_CTOR = 0x004B_DBE0;
+    }
+
+    // =========================================================================
+    // Scheme file operations
+    // =========================================================================
+
+    crate::define_addresses! {
+        /// Reads .wsc file into scheme struct
+        fn/Stdcall SCHEME_READ_FILE = 0x004D_3890;
+        /// Checks if scheme file exists
+        fn/Stdcall SCHEME_FILE_EXISTS = 0x004D_4CD0;
+        /// Saves scheme struct to .wsc file
+        fn/Thiscall SCHEME_SAVE_FILE = 0x004D_44F0;
+        /// Variant file-exists check for numbered schemes
+        fn SCHEME_FILE_EXISTS_NUMBERED = 0x004D_4E00;
+        /// Version detection
+        fn SCHEME_DETECT_VERSION = 0x004D_4480;
+        /// Extracts built-in schemes from PE resources
+        fn SCHEME_EXTRACT_BUILTINS = 0x004D_5720;
+        /// Copies payload data + V3 defaults into scheme struct
+        fn/Fastcall SCHEME_INIT_FROM_DATA = 0x004D_5020;
+        /// Validates weapon ammo counts
+        fn SCHEME_CHECK_WEAPON_LIMITS = 0x004D_50E0;
+        /// Validates V3 extended options
+        fn SCHEME_VALIDATE_EXTENDED_OPTIONS = 0x004D_5110;
+        /// Scans User\Schemes\ directory
+        fn SCHEME_SCAN_DIRECTORY = 0x004D_54E0;
+        /// Slot 13 feature check
+        fn SCHEME_SLOT13_CHECK = 0x004D_A4C0;
+        /// Load built-in scheme by ID
+        fn/Stdcall SCHEME_LOAD_BUILTIN = 0x004D_4840;
+        /// Validate extended scheme options
+        fn/Cdecl SCHEME_VALIDATE_EXTENDED = 0x004D_5110;
+    }
+
+    // =========================================================================
+    // Configuration / registry
+    // =========================================================================
+
+    crate::define_addresses! {
+        /// Theme file size check
+        fn/Cdecl THEME_GET_FILE_SIZE = 0x0044_BA80;
+        /// Theme file load
+        fn/Stdcall THEME_LOAD = 0x0044_BB20;
+        /// Theme file save
+        fn/Stdcall THEME_SAVE = 0x0044_BBC0;
+        /// Recursive registry key deletion
+        fn/Stdcall REGISTRY_DELETE_KEY_RECURSIVE = 0x004E_4D10;
+        /// Registry cleanup
+        fn/Stdcall REGISTRY_CLEAN_ALL = 0x004C_90D0;
+        /// Loads game options from registry
+        fn/Stdcall GAMEINFO_LOAD_OPTIONS = 0x0046_0AC0;
+        /// Reads CrashReportURL from Options
+        fn/Cdecl OPTIONS_GET_CRASH_REPORT_URL = 0x005A_63F0;
+    }
+
+    // =========================================================================
+    // Lobby / network
+    // =========================================================================
+
+    crate::define_addresses! {
+        fn LOBBY_HOST_COMMANDS = 0x004B_9B00;
+        fn LOBBY_CLIENT_COMMANDS = 0x004A_ABB0;
+        /// Allocates space in packet queue
+        fn/Usercall SEND_GAME_PACKET_WRAPPED = 0x0054_1130;
+        fn LOBBY_DISPLAY_MESSAGE = 0x0049_3CB0;
+        fn LOBBY_SEND_GREENTEXT = 0x004A_A990;
+        fn LOBBY_PRINT_USED_VERSION = 0x004B_7E20;
+        fn LOBBY_ON_DISCONNECT = 0x004B_AE40;
+        fn LOBBY_ON_GAME_END = 0x004B_AEC0;
+        fn LOBBY_ON_MESSAGE = 0x004B_D400;
+        fn LOBBY_DIALOG_CONSTRUCTOR = 0x004C_D9A0;
+        fn NETWORK_IS_AVAILABLE = 0x004D_4920;
+    }
+
+    // =========================================================================
+    // Memory / CRT
+    // =========================================================================
+
+    crate::define_addresses! {
+        /// WA internal malloc — cdecl(size) → *mut u8
+        fn/Cdecl WA_MALLOC = 0x005C_0AE3;
+        fn WA_MALLOC_MEMSET = 0x0053_E910;
+        fn/Cdecl WA_FREE = 0x005D_0D2B;
+        /// WA's CRT _fopen
+        fn/Cdecl WA_FOPEN = 0x005D_3271;
+        /// WA's CRT _fileno
+        fn/Cdecl WA_FILENO = 0x005D_5155;
+        /// WA's CRT _get_osfhandle
+        fn/Cdecl WA_GET_OSFHANDLE = 0x005D_7273;
+        /// WA's CRT srand
+        fn/Cdecl WA_SRAND = 0x005D_293E;
+        /// WA's CRT rand
+        fn/Cdecl WA_RAND = 0x005D_294B;
+        /// WA's CRT _gmtime64
+        fn/Cdecl WA_GMTIME64 = 0x005D_34C0;
+        /// WA's CRT malloc (raw)
+        fn/Cdecl WA_CRT_MALLOC = 0x005C_0AB8;
+    }
+
+    // =========================================================================
+    // Bitmap font system
+    // =========================================================================
+
+    crate::define_addresses! {
+        fn FONT_LOAD_FONTS = 0x0041_4680;
+        fn FONT_RENDER_GLYPHS = 0x0041_43D0;
+        fn FONT_DRAW_TEXT = 0x0042_7830;
+        fn/Thiscall DDDISPLAY_DRAW_TEXT_ON_BITMAP = 0x0052_36B0;
+        fn/Thiscall DDDISPLAY_CONSTRUCT_TEXTBOX = 0x004F_AF00;
+        fn/Stdcall SET_TEXTBOX_TEXT = 0x004F_B070;
+    }
+
+    // =========================================================================
+    // MapView
+    // =========================================================================
+
+    crate::define_addresses! {
+        /// MapView constructor
+        fn/Stdcall MAP_VIEW_CONSTRUCTOR = 0x0044_7E80;
+        /// MapView load terrain file
+        fn/Stdcall MAP_VIEW_LOAD = 0x0044_A9A0;
+        /// MapView copy info to game state
+        fn/Usercall MAP_VIEW_COPY_INFO = 0x0044_9B60;
+        /// Load string resource by ID
+        fn/Stdcall WA_LOAD_STRING = 0x0059_3180;
+    }
+
+    // =========================================================================
+    // String constants in .rdata
+    // =========================================================================
+
+    crate::define_addresses! {
+        string STR_CDROM_SPR = 0x0066_A3A8;
+        string STR_COLOURS_IMG = 0x0066_A3B4;
+        string STR_MASKS_IMG = 0x0066_A3C0;
+        /// Empty base path for sprite resource loading
+        string SPRITE_RESOURCE_BASE_PATH = 0x0064_3F2B;
+        /// "3.8.1" literal string
+        string STR_VERSION_381 = 0x0064_1C60;
+    }
+
+    // =========================================================================
+    // Data tables in .rdata/.data
+    // =========================================================================
+
+    crate::define_addresses! {
+        data SPRITE_RESOURCE_TABLE_1 = 0x006A_D2C0;
+        data SPRITE_RESOURCE_TABLE_2 = 0x006A_F048;
+        data WATER_RESOURCE_TABLE = 0x006A_F060;
+        /// V3 extended options defaults (110 bytes)
+        data SCHEME_V3_DEFAULTS = 0x0064_9AB8;
+        /// Per-weapon max ammo table (39 bytes)
+        data SCHEME_WEAPON_AMMO_LIMITS = 0x006A_D130;
+        /// Version string table
+        data VERSION_STRING_TABLE = 0x006A_B480;
+        /// Version suffix table
+        data VERSION_SUFFIX_TABLE = 0x0069_9814;
+        /// "data\land.dat" string constant
+        string G_LAND_DAT_STRING = 0x0064_DA58;
+    }
+
+    // =========================================================================
+    // Global variables (in .data)
+    // =========================================================================
+
+    crate::define_addresses! {
+        global G_SPRITE_VERSION_FLAG = 0x006A_F050;
+        global G_DISPLAY_MODE_FLAG = 0x0088_E485;
+        global G_CURRENT_SCREEN = 0x006B_3504;
+        global G_CHAR_WIDTH_TABLE = 0x006B_2DD9;
+        global G_FRONTEND_FRAME = 0x006B_3908;
+        global G_FRONTEND_HWND = 0x006B_390C;
+        global G_SKIP_TO_MAIN_MENU = 0x007A_083D;
+        global G_AUTO_NETWORK_FLAG = 0x007A_083F;
+        global G_DD_DISPLAY_WRAPPER = 0x0079_D6D4;
+        global G_FONT_ARRAY = 0x007A_0F58;
+        global G_MAIN_MENU_ACTIVE = 0x007C_0A20;
+        global G_CWINAPP = 0x007C_03D0;
+        global G_NETWORK_MODE = 0x007C_0D40;
+        global G_NETWORK_SUBTYPE = 0x007C_0D68;
+        /// Game session context pointer
+        global G_GAME_SESSION = 0x007A_0884;
+        global G_FULLSCREEN_FLAG = 0x007A_084C;
+        global G_SUPPRESS_CURSOR = 0x0088_E485;
+        global IAT_MAP_WINDOW_POINTS = 0x0061_A588;
+        global G_SPRITE_DATA_BYTES = 0x007A_0864;
+        global G_SPRITE_FRAME_COUNT = 0x007A_0868;
+        global G_SPRITE_PIXEL_AREA = 0x007A_086C;
+        global G_SPRITE_PALETTE_BYTES = 0x007A_0870;
+        global G_GAME_INFO = 0x0077_49A0;
+        global G_FRAME_BUFFER_PTR = 0x007A_0EEC;
+        global G_FRAME_BUFFER_WIDTH = 0x007A_0EF0;
+        global G_FRAME_BUFFER_HEIGHT = 0x007A_0EF4;
+        global G_CRASH_REPORT_URL = 0x0079_FFD8;
+        global G_VERSION_BYTE = 0x0069_7702;
+    }
+
+    // =========================================================================
+    // Trig lookup tables / scratch buffers
+    // =========================================================================
+
+    crate::define_addresses! {
+        /// Sine lookup table — 1024 entries of i32 (fixed-point 16.16)
+        data G_SIN_TABLE = 0x006A_1860;
+        /// Cosine lookup table — 1024 entries of i32 (fixed-point 16.16)
+        data G_COS_TABLE = 0x006A_1C60;
+        /// Global vertex scratch buffer
+        global G_VERTEX_SCRATCH_BUFFER = 0x008B_1470;
+    }
+
+    // =========================================================================
+    // Replay globals
+    // =========================================================================
+
+    crate::define_addresses! {
+        global G_REPLAY_STATE = 0x0087_D3F8;
+        global G_TEAM_HEADER_DATA = 0x0087_79E4;
+        global G_TEAM_SECONDARY_DATA = 0x0087_D438;
+        global G_REPLAY_GAME_ID = 0x0088_AF50;
+        global G_REPLAY_SUB_FORMAT = 0x0088_AF54;
+        global G_REPLAY_VERSION_ID = 0x0088_ABB0;
+        global G_REPLAY_SCHEME_PRESENT = 0x0088_AE0C;
+        global G_ARTCLASS_COUNTER = 0x0088_C790;
+        global G_RANDOM_SEED = 0x0088_D0B4;
+        global G_SAVED_RANDOM_SEED = 0x0088_ABAC;
+        global G_REPLAY_FILENAME = 0x0088_AF58;
+        global G_DATA_DIR = 0x0088_E078;
+        global G_LOG_FILE_PTR = 0x0088_C370;
+        global G_OBSERVER_ARRAY = 0x0088_C35C;
+        global G_OBSERVER_COUNT = 0x0088_AF4C;
+        global G_RECORDING_TIMESTAMP_FLAG = 0x0088_C36C;
+        global G_REPLAY_VER_FLAG_A = 0x0088_AF42;
+        global G_REPLAY_VER_FLAG_B = 0x0088_AF43;
+        global G_REPLAY_GAME_MODE = 0x0088_AF44;
+        global G_SCHEME_HEADER = 0x0088_DAD4;
+        global G_SCHEME_DEST = 0x0088_DACC;
+        global G_SCHEME_DATA = 0x0088_DAE0;
+        global G_SCHEME_OPTIONS = 0x0088_DBB8;
+        global G_SCHEME_V3_DATA = 0x0088_DC04;
+        global G_HOST_PLAYER = 0x0087_79E0;
+        global G_PLAYER_ARRAY = 0x0087_79E4;
+        global G_PLAYER_COUNT = 0x0087_D0DE;
+        global G_TEAM_DATA = 0x0087_7FFC;
+        global G_TEAM_COUNT = 0x0087_D0E0;
+        global G_REPLAY_NAME = 0x0087_D0E1;
+        global G_MAP_BYTE_1 = 0x0087_250C;
+        global G_MAP_BYTE_2 = 0x0087_2508;
+        global G_MAP_SEED = 0x0087_D430;
+        global G_WORM_NAMES = 0x0087_8097;
+    }
+
+    // =========================================================================
+    // Scheme data globals
+    // =========================================================================
+
+    crate::define_addresses! {
+        global SCHEME_ACTIVE_WEAPON_DATA = 0x0088_DB05;
+        global SCHEME_SLOT_FLAGS = 0x006B_329C;
+        global SCHEME_MODIFIER_GUARD = 0x0088_E460;
+    }
+
+    // =========================================================================
+    // Configuration globals
+    // =========================================================================
+
+    crate::define_addresses! {
+        global G_BASE_DIR = 0x0088_E282;
+        global G_GAMEINFO_BLOCK_F485 = 0x0088_DFF3;
+        global G_CONFIG_BYTE_F3A0 = 0x007C_0D38;
+        global G_CONFIG_DWORDS_F3B4 = 0x0088_E39C;
+        global G_CONFIG_GUARD = 0x0088_C374;
+        global G_CONFIG_DWORDS_F3F4 = 0x0088_E3B8;
+        global G_CONFIG_DWORD_DAE8 = 0x0088_E390;
+        global G_CONFIG_DWORDS_F3D4 = 0x0088_E3B0;
+        global G_CONFIG_DWORDS_F3C4 = 0x0088_E400;
+        global G_CONFIG_DWORD_F3E4 = 0x0088_E44C;
+        global G_STREAMS_DIR = 0x0088_AE18;
+        global G_STREAM_INDICES = 0x0088_AE9C;
+        global G_STREAM_INDICES_END = 0x0088_AEDC;
+        global G_STREAM_FLAG = 0x0088_E394;
+        global G_STREAM_VOLUME = 0x0088_AEDD;
+    }
+
+    // =========================================================================
+    // DDGame struct offsets (not VAs — kept as manual constants)
+    // =========================================================================
 
     pub mod ddgame_offsets {
         /// Offset to TurnGame object pointer
@@ -1089,9 +1036,9 @@ pub mod va {
         pub const DEFERRED_HURRY_FLAG: u32 = 0x7E41;
     }
 
-    // === GameInfo struct offsets ===
-    // These are offsets from the GameInfo pointer at DDGame+0x24
-    // (DDGame.game_info). Access pattern: *(DDGame+0x24) + offset.
+    // =========================================================================
+    // GameInfo struct offsets (not VAs — kept as manual constants)
+    // =========================================================================
 
     pub mod game_info_offsets {
         // === Speech configuration ===
@@ -1101,24 +1048,21 @@ pub mod va {
         /// Per-team speech config stride (0xC2 = 0x81 base path + 0x41 dir name).
         pub const SPEECH_TEAM_STRIDE: u32 = 0xC2;
         /// Offset to per-team speech base path (char[0x81]).
-        /// Access: GameInfo + SPEECH_BASE_PATH + team_index * SPEECH_TEAM_STRIDE.
         pub const SPEECH_BASE_PATH: u32 = 0xF486;
         /// Offset to per-team speech directory name (char[0x41]).
-        /// Access: GameInfo + SPEECH_DIR + team_index * SPEECH_TEAM_STRIDE.
         pub const SPEECH_DIR: u32 = 0xF507;
-        /// Default speech base path (for fallback when team-specific WAV not found).
+        /// Default speech base path (for fallback).
         pub const DEFAULT_SPEECH_BASE_PATH: u32 = 0xF3C4;
         /// Default speech directory name (for fallback).
         pub const DEFAULT_SPEECH_DIR: u32 = 0xF445;
 
         // === Replay configuration ===
 
-        /// Replay state flag A — checked by TurnGame_HurryHandler and FrameFinish.
-        /// Both DB08 and DB0A must be non-zero for replay-mode hurry path.
+        /// Replay state flag A.
         pub const REPLAY_STATE_FLAG_A: u32 = 0xDB08;
-        /// Replay state flag B — checked together with flag A for replay mode.
+        /// Replay state flag B.
         pub const REPLAY_STATE_FLAG_B: u32 = 0xDB0A;
-        /// Replay active flag — set to 1 by ReplayLoader when loading a .WAgame file.
+        /// Replay active flag.
         pub const REPLAY_ACTIVE: u32 = 0xDB48;
         /// Input replay file path (string buffer, 0x400 bytes).
         pub const REPLAY_INPUT_PATH: u32 = 0xDB60;
