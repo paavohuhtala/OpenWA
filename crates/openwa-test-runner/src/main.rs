@@ -15,6 +15,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+const DETACHED_PROCESS: u32 = 0x0000_0008;
 
 // ─── Configuration ──────────────────────────────────────────────────────────
 

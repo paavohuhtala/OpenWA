@@ -52,6 +52,7 @@ struct PROCESS_INFORMATION {
 }
 
 const CREATE_SUSPENDED: DWORD = 0x0000_0004;
+const CREATE_NO_WINDOW: DWORD = 0x0800_0000;
 const STARTF_USESHOWWINDOW: DWORD = 0x0000_0001;
 const SW_HIDE: u16 = 0;
 const SW_SHOWMINIMIZED: u16 = 2;
@@ -160,9 +161,14 @@ unsafe fn launch(
     let mut cmdline_buf: Vec<u8> = cmdline.bytes().chain(std::iter::once(0u8)).collect();
     let wd_cstr = path_to_cstring(working_dir)?;
 
+    let headless = std::env::var("OPENWA_HEADLESS").is_ok();
+
     let mut si: STARTUPINFOA = mem::zeroed();
     si.cb = mem::size_of::<STARTUPINFOA>() as DWORD;
-    if minimized {
+    if headless {
+        si.dwFlags |= STARTF_USESHOWWINDOW;
+        si.wShowWindow = SW_HIDE;
+    } else if minimized {
         si.dwFlags |= STARTF_USESHOWWINDOW;
         si.wShowWindow = SW_SHOWMINIMIZED;
     }
@@ -175,7 +181,7 @@ unsafe fn launch(
         ptr::null_mut(),
         ptr::null_mut(),
         0, // bInheritHandles = FALSE
-        CREATE_SUSPENDED,
+        CREATE_SUSPENDED | if headless { CREATE_NO_WINDOW } else { 0 },
         ptr::null_mut(), // inherit environment
         wd_cstr.as_ptr().cast(),
         &si,
