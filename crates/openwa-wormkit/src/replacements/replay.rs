@@ -700,9 +700,10 @@ unsafe fn write_replay_log(gi: *const GameInfo, log_file: &mut File) -> Result<(
         wa_load_string(0x25),
     ];
 
-    // Find max color name length for alignment — only active teams
+    // Find max color name length and max team name length for alignment
     let teams = rb(va::G_TEAM_DATA) as *const ReplayTeamEntry;
     let mut max_color_len = 0usize;
+    let mut max_name_len = 0usize;
     for slot in 0..6usize {
         let team = &*teams.add(slot);
         if team.flag == 0 { continue; }
@@ -711,6 +712,8 @@ unsafe fn write_replay_log(gi: *const GameInfo, log_file: &mut File) -> Result<(
             let len = c_strlen(color_names[ci]);
             if len > max_color_len { max_color_len = len; }
         }
+        let name_len = c_strlen(team.config_abbrev.as_ptr());
+        if name_len > max_name_len { max_name_len = name_len; }
     }
 
     for slot in 0..6usize {
@@ -741,10 +744,14 @@ unsafe fn write_replay_log(gi: *const GameInfo, log_file: &mut File) -> Result<(
             let _ = s.push(' ');
         }
 
-        // Quoted team name
+        // Quoted team name, padded to align [CPU ...] brackets
         let _ = s.push('"');
         push_cstr(&mut s, team_name);
         let _ = s.push('"');
+        let name_len = c_strlen(team_name);
+        for _ in 0..max_name_len.saturating_sub(name_len) {
+            let _ = s.push(' ');
+        }
 
         // Team type info
         if (team_type as i32) < 0 {

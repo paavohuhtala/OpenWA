@@ -1,0 +1,195 @@
+Game Started at 2026-03-23 15:30:01 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Red:     "Superintelligent" [CPU 5.00]
+Blue:    "CPU 5"            [CPU 5.00]
+Green:   "CPU 4"            [CPU 4.00]
+Yellow:  "CPU 3"            [CPU 3.00]
+Magenta: "CPU 2"            [CPU 2.00]
+Cyan:    "CPU 1"            [CPU 1.00]
+
+[00:00:00.00] ••• CPU 4 starts turn
+[00:00:07.90] ••• CPU 4 fires Bazooka
+[00:00:11.96] ••• CPU 4 ends turn; time used: 7.88 sec turn, 3.00 sec retreat
+[00:00:16.18] ••• Damage dealt: 44 to CPU 1
+[00:00:16.18] ••• CPU 3 starts turn
+[00:00:24.36] ••• CPU 3 fires Shotgun
+[00:00:30.50] ••• CPU 3 fires Shotgun
+[00:00:34.68] ••• CPU 3 ends turn; time used: 12.18 sec turn, 3.00 sec retreat
+[00:00:42.82] ••• Damage dealt: 11 to CPU 5, 56 to CPU 3, 2 to CPU 1
+[00:00:42.82] ••• CPU 2 starts turn
+[00:01:00.14] ••• CPU 2 fires Bazooka
+[00:01:03.22] ••• CPU 2 ends turn; time used: 17.30 sec turn, 1.90 sec retreat
+[00:01:08.36] ••• Damage dealt: 82 to CPU 1
+[00:01:08.36] ••• CPU 1 starts turn
+[00:01:17.76] ••• CPU 1 fires Grenade (1 sec, min bounce)
+[00:01:21.50] ••• CPU 1 ends turn; time used: 9.38 sec turn, 2.92 sec retreat
+[00:01:27.18] ••• Damage dealt: 100 (1 kill) to CPU 3
+[00:01:27.18] ••• Superintelligent starts turn
+[00:01:37.16] ••• Superintelligent fires Bazooka
+[00:01:41.32] ••• Superintelligent ends turn; time used: 9.96 sec turn, 3.00 sec retreat
+[00:02:00.80] ••• Damage dealt: 116 (2 kills) to CPU 1
+[00:02:00.80] ••• CPU 5 starts turn
+[00:02:11.48] ••• CPU 5 fires Grenade (2 sec, min bounce)
+[00:02:15.30] ••• CPU 5 ends turn; time used: 10.66 sec turn, 3.00 sec retreat
+[00:02:19.56] ••• Damage dealt: 33 to Superintelligent, 38 to CPU 3
+[00:02:19.56] ••• CPU 4 starts turn
+[00:02:24.86] ••• CPU 4 fires Bazooka
+[00:02:28.58] ••• CPU 4 ends turn; time used: 5.28 sec turn, 3.00 sec retreat
+[00:02:35.52] ••• Damage dealt: 2 to CPU 5, 15 to CPU 4, 45 to CPU 2
+[00:02:35.52] ••• CPU 3 starts turn
+[00:02:45.24] ••• CPU 3 fires Bazooka
+[00:02:47.28] ••• CPU 3 loses turn due to loss of control; time used: 9.70 sec turn, 1.38 sec retreat
+[00:02:57.70] ••• Damage dealt: 25 to Superintelligent, 6 (1 kill) to CPU 3
+[00:02:57.70] ••• CPU 2 starts turn
+[00:03:08.12] ••• CPU 2 fires Bazooka
+[00:03:11.46] ••• CPU 2 ends turn; time used: 10.40 sec turn, 3.00 sec retreat
+[00:03:15.48] ••• CPU 1 starts turn
+[00:03:19.14] ••• CPU 1 fires Bazooka
+[00:03:23.04] ••• CPU 1 ends turn; time used: 3.64 sec turn, 3.00 sec retreat
+[00:03:27.06] ••• Superintelligent starts turn
+[00:03:33.66] ••• Superintelligent fires Bazooka
+[00:03:36.64] ••• Superintelligent ends turn; time used: 6.58 sec turn, 2.56 sec retreat
+[00:03:41.48] ••• CPU 5 starts turn
+[00:03:50.42] ••• CPU 5 fires Bazooka
+[00:03:53.94] ••• CPU 5 ends turn; time used: 8.92 sec turn, 3.00 sec retreat
+[00:04:00.24] ••• Damage dealt: 46 to CPU 4
+[00:04:00.24] ••• CPU 4 starts turn
+[00:04:11.44] ••• CPU 4 fires Bazooka
+[00:04:14.88] ••• CPU 4 ends turn; time used: 11.18 sec turn, 3.00 sec retreat
+[00:04:19.64] ••• Damage dealt: 42 to Superintelligent
+[00:04:19.64] ••• CPU 3 starts turn
+[00:04:31.36] ••• CPU 3 fires Bazooka
+[00:04:34.82] ••• CPU 3 ends turn; time used: 11.70 sec turn, 2.78 sec retreat
+[00:04:40.32] ••• Damage dealt: 51 to CPU 2
+[00:04:40.32] ••• CPU 2 starts turn
+[00:04:50.62] ••• CPU 2 fires Dynamite
+[00:04:55.68] ••• CPU 2 loses turn due to loss of control; time used: 10.28 sec turn, 4.86 sec retreat
+[00:05:10.28] ••• Damage dealt: 14 to CPU 5, 80 (1 kill) to CPU 4, 55 (1 kill) to CPU 2
+[00:05:10.28] ••• CPU 1 starts turn
+[00:05:13.32] ••• CPU 1 fires Bazooka
+[00:05:17.68] ••• CPU 1 ends turn; time used: 3.02 sec turn, 3.00 sec retreat
+[00:05:21.70] ••• Superintelligent starts turn
+[00:05:28.52] ••• Superintelligent fires Grenade (2 sec, min bounce)
+[00:05:32.46] ••• Superintelligent ends turn; time used: 6.80 sec turn, 3.00 sec retreat
+[00:05:36.00] ••• Damage dealt: 44 to CPU 5
+[00:05:36.00] ••• CPU 5 starts turn
+[00:05:42.12] ••• CPU 5 fires Bazooka
+[00:05:46.08] ••• CPU 5 ends turn; time used: 6.10 sec turn, 3.00 sec retreat
+[00:05:54.42] ••• Damage dealt: 100 (1 kill) to Superintelligent
+[00:05:54.42] ••• CPU 4 starts turn
+[00:05:58.94] ••• CPU 4 fires Bazooka
+[00:06:02.98] ••• CPU 4 ends turn; time used: 4.50 sec turn, 3.00 sec retreat
+[00:06:08.20] ••• CPU 3 starts turn
+[00:06:13.24] ••• CPU 3 fires Bazooka
+[00:06:15.76] ••• CPU 3 ends turn; time used: 5.02 sec turn, 1.86 sec retreat
+[00:06:20.52] ••• Damage dealt: 2 to Superintelligent
+[00:06:20.52] ••• CPU 2 starts turn
+[00:06:25.76] ••• CPU 2 fires Bazooka
+[00:06:28.10] ••• CPU 2 ends turn; time used: 5.22 sec turn, 1.88 sec retreat
+[00:06:34.44] ••• Damage dealt: 38 to CPU 5, 48 to CPU 3
+[00:06:34.44] ••• CPU 1 starts turn
+[00:06:38.26] ••• CPU 1 fires Bazooka
+[00:06:42.14] ••• CPU 1 ends turn; time used: 3.80 sec turn, 3.00 sec retreat
+[00:06:47.88] ••• Superintelligent starts turn
+[00:06:52.66] ••• Superintelligent fires Bazooka
+[00:06:56.50] ••• Superintelligent ends turn; time used: 4.76 sec turn, 3.00 sec retreat
+[00:07:09.48] ••• Damage dealt: 56 (1 kill) to CPU 1
+[00:07:09.48] ••• CPU 5 starts turn
+[00:07:20.90] ••• CPU 5 fires Grenade (1 sec, min bounce)
+[00:07:23.90] ••• CPU 5 ends turn; time used: 11.40 sec turn, 2.42 sec retreat
+[00:07:27.00] ••• Damage dealt: 21 to Superintelligent, 43 to CPU 3, 41 to CPU 2
+[00:07:27.00] ••• CPU 4 starts turn
+[00:07:42.00] ••• CPU 4 fires Bazooka
+[00:07:45.72] ••• CPU 4 ends turn; time used: 14.98 sec turn, 3.00 sec retreat
+[00:07:48.58] ••• Damage dealt: 45 to Superintelligent
+[00:07:48.58] ••• CPU 3 starts turn
+[00:07:56.04] ••• CPU 3 fires Bazooka
+[00:07:58.48] ••• CPU 3 ends turn; time used: 7.44 sec turn, 1.84 sec retreat
+[00:08:27.78] ••• Damage dealt: 21 (1 kill) to Superintelligent, 51 (1 kill) to CPU 5, 9 (1 kill) to CPU 3, 8 (1 kill) to CPU 2
+[00:08:27.78] ••• CPU 2 starts turn
+[00:08:33.72] ••• CPU 2 fires Grenade (3 sec, min bounce)
+[00:08:37.98] ••• CPU 2 ends turn; time used: 5.92 sec turn, 3.00 sec retreat
+[00:08:44.96] ••• Superintelligent starts turn
+[00:08:49.56] ••• Superintelligent fires Bazooka
+[00:08:53.16] ••• Superintelligent ends turn; time used: 4.58 sec turn, 3.00 sec retreat
+[00:08:57.92] ••• Damage dealt: 44 to CPU 4
+[00:08:57.92] ••• CPU 5 starts turn
+[00:09:09.88] ••• CPU 5 fires Grenade (1 sec, min bounce)
+[00:09:12.82] ••• CPU 5 ends turn; time used: 11.94 sec turn, 2.34 sec retreat
+[00:09:22.22] ••• Damage dealt: 11 (1 kill) to Superintelligent
+[00:09:22.22] ••• CPU 4 starts turn
+[00:09:26.52] ••• CPU 4 fires Bazooka
+[00:09:30.58] ••• CPU 4 ends turn; time used: 4.28 sec turn, 3.00 sec retreat
+[00:09:37.42] ••• Damage dealt: 46 to CPU 2
+[00:09:37.42] ••• CPU 2 starts turn
+[00:09:40.84] ••• CPU 2 fires Air Strike
+[00:09:45.06] ••• CPU 2 ends turn; time used: 3.40 sec turn, 3.00 sec retreat
+[00:09:50.30] ••• Damage dealt: 100 (1 kill) to CPU 4
+[00:09:50.30] ••• CPU 5 starts turn
+[00:09:54.44] ••• CPU 5 fires Air Strike
+[00:09:58.12] ••• CPU 5 ends turn; time used: 4.12 sec turn, 3.00 sec retreat
+[00:10:06.44] ••• Damage dealt: 54 (1 kill) to CPU 2
+[00:10:06.44] ••• CPU 4 starts turn
+[00:10:14.52] ••• CPU 4 fires Bazooka
+[00:10:17.10] ••• CPU 4 ends turn; time used: 8.06 sec turn, 1.86 sec retreat
+[00:10:26.04] ••• Damage dealt: 40 (1 kill) to CPU 5
+[00:10:26.04] ••• CPU 5 starts turn
+[00:10:33.32] ••• CPU 5 fires Bazooka
+[00:10:36.94] ••• CPU 5 ends turn; time used: 7.26 sec turn, 2.62 sec retreat
+[00:10:40.10] ••• CPU 4 starts turn
+[00:10:43.82] ••• CPU 4 fires Air Strike
+[00:10:47.50] ••• CPU 4 ends turn; time used: 3.70 sec turn, 3.00 sec retreat
+[00:10:51.62] ••• CPU 5 starts turn
+[00:10:55.42] ••• CPU 5 fires Air Strike
+[00:10:59.10] ••• CPU 5 ends turn; time used: 3.78 sec turn, 3.00 sec retreat
+[00:11:04.20] ••• CPU 4 starts turn
+[00:11:07.92] ••• CPU 4 fires Air Strike
+[00:11:11.60] ••• CPU 4 ends turn; time used: 3.70 sec turn, 3.00 sec retreat
+[00:11:15.62] ••• CPU 5 starts turn
+[00:11:19.80] ••• CPU 5 fires Bazooka
+[00:11:23.90] ••• CPU 5 ends turn; time used: 4.16 sec turn, 3.00 sec retreat
+[00:11:27.92] ••• CPU 4 starts turn
+[00:11:31.64] ••• CPU 4 fires Air Strike
+[00:11:35.32] ••• CPU 4 ends turn; time used: 3.70 sec turn, 3.00 sec retreat
+[00:11:38.14] ••• Damage dealt: 4 to CPU 5
+[00:11:38.14] ••• CPU 5 starts turn
+[00:11:41.90] ••• CPU 5 fires Air Strike
+[00:11:45.58] ••• CPU 5 ends turn; time used: 3.74 sec turn, 3.00 sec retreat
+[00:11:54.26] ••• Damage dealt: 13 to CPU 4
+[00:11:54.26] ••• CPU 4 starts turn
+[00:11:58.16] ••• CPU 4 fires Air Strike
+[00:12:01.84] ••• CPU 4 ends turn; time used: 3.88 sec turn, 3.00 sec retreat
+[00:12:04.78] ••• Damage dealt: 5 to CPU 5
+[00:12:04.78] ••• CPU 5 starts turn
+[00:12:08.50] ••• CPU 5 fires Air Strike
+[00:12:12.18] ••• CPU 5 ends turn; time used: 3.70 sec turn, 3.00 sec retreat
+[00:12:18.80] ••• CPU 4 starts turn
+[00:12:22.58] ••• CPU 4 fires Air Strike
+[00:12:26.26] ••• CPU 4 ends turn; time used: 3.76 sec turn, 3.00 sec retreat
+[00:12:30.28] ••• CPU 5 starts turn
+[00:12:34.00] ••• CPU 5 fires Air Strike
+[00:12:37.68] ••• CPU 5 ends turn; time used: 3.70 sec turn, 3.00 sec retreat
+[00:12:50.30] ••• Damage dealt: 2 (1 kill) to CPU 4
+[00:12:50.32] ••• Game Ends - Round Finished
+
+Team time totals:
+Superintelligent: Turn: 00:00:32.68, Retreat: 00:00:14.56, Total: 00:00:47.24, Turn count: 5
+CPU 5:            Turn: 00:01:19.48, Retreat: 00:00:34.38, Total: 00:01:53.86, Turn count: 12
+CPU 4:            Turn: 00:01:14.90, Retreat: 00:00:34.86, Total: 00:01:49.76, Turn count: 12
+CPU 3:            Turn: 00:00:46.04, Retreat: 00:00:10.86, Total: 00:00:56.90, Turn count: 5
+CPU 2:            Turn: 00:00:52.52, Retreat: 00:00:17.64, Total: 00:01:10.16, Turn count: 6
+CPU 1:            Turn: 00:00:19.84, Retreat: 00:00:11.92, Total: 00:00:31.76, Turn count: 4
+
+End of round 1
+
+Round time: 0:12:50
+Total game time elapsed: 0:12:50
+
+CPU 5 wins the round.
+
+Worm of the round: Strepto (CPU 5)
+Most kills with one shot: 2 - Jarvis (CPU 2)
+Most damage with one shot: 149 - Jarvis (CPU 2)
