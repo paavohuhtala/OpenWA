@@ -234,6 +234,49 @@ pub trait HasFieldRegistry {
     fn field_registry() -> &'static StructFields;
 }
 
+/// A struct's field registry submitted to the global collection via `inventory`.
+///
+/// The `#[derive(FieldRegistry)]` macro emits an `inventory::submit!` for each
+/// annotated struct, making it discoverable at runtime via
+/// [`struct_fields_for`].
+pub struct StructRegistration {
+    pub fields: &'static StructFields,
+}
+
+inventory::collect!(StructRegistration);
+
+static STRUCT_MAP: OnceLock<std::collections::HashMap<&'static str, &'static StructFields>> =
+    OnceLock::new();
+
+fn struct_map() -> &'static std::collections::HashMap<&'static str, &'static StructFields> {
+    STRUCT_MAP.get_or_init(|| {
+        inventory::iter::<StructRegistration>
+            .into_iter()
+            .map(|r| (r.fields.struct_name, r.fields))
+            .collect()
+    })
+}
+
+/// Look up the field registry for a struct by name.
+///
+/// Returns `None` if the struct doesn't have `#[derive(FieldRegistry)]`.
+pub fn struct_fields_for(struct_name: &str) -> Option<&'static StructFields> {
+    struct_map().get(struct_name).copied()
+}
+
+/// Look up the field registry for a class identified by its vtable address.
+///
+/// Combines vtable → class name lookup with struct fields lookup.
+pub fn struct_fields_for_vtable(ghidra_vtable: u32) -> Option<&'static StructFields> {
+    let class = vtable_class_name(ghidra_vtable)?;
+    struct_fields_for(class)
+}
+
+/// Return all registered struct field registries.
+pub fn all_struct_fields() -> impl Iterator<Item = &'static StructFields> {
+    struct_map().values().copied()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -410,5 +453,37 @@ mod tests {
         let vtable = reg.field_at(0x00).unwrap();
         // Doc comment should be non-empty (we have "0x00: Pointer to virtual method table")
         assert!(!vtable.doc.is_empty(), "doc should be extracted: {:?}", vtable.doc);
+    }
+
+    #[test]
+    fn struct_fields_for_lookup() {
+        // Global registry should find structs by name
+        let ddgame = struct_fields_for("DDGame");
+        assert!(ddgame.is_some(), "DDGame not found in struct registry");
+        assert_eq!(ddgame.unwrap().struct_name, "DDGame");
+
+        let ctask = struct_fields_for("CTask");
+        assert!(ctask.is_some(), "CTask not found in struct registry");
+
+        let session = struct_fields_for("GameSession");
+        assert!(session.is_some(), "GameSession not found in struct registry");
+
+        // Unknown struct returns None
+        assert!(struct_fields_for("FooBarBaz").is_none());
+    }
+
+    #[test]
+    fn struct_fields_for_vtable_lookup() {
+        use crate::address::va;
+
+        // DDGameWrapper vtable → "DDGameWrapper" → DDGameWrapper fields
+        let fields = struct_fields_for_vtable(va::DDGAME_WRAPPER_VTABLE);
+        assert!(fields.is_some(), "DDGameWrapper fields not found via vtable");
+        assert_eq!(fields.unwrap().struct_name, "DDGameWrapper");
+
+        // CTask vtable → "CTask" → CTask fields
+        let fields = struct_fields_for_vtable(va::CTASK_VTABLE);
+        assert!(fields.is_some(), "CTask fields not found via vtable");
+        assert_eq!(fields.unwrap().struct_name, "CTask");
     }
 }

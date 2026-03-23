@@ -83,21 +83,36 @@ pub fn derive_field_registry(input: TokenStream) -> TokenStream {
 
     let entry_count = entries.len();
 
+    // Generate a unique static name to avoid collisions across structs.
+    let fields_static = quote::format_ident!("_FIELD_REGISTRY_{}", struct_name);
+
     let expanded = quote! {
-        impl openwa_core::registry::HasFieldRegistry for #struct_name {
-            fn field_registry() -> &'static openwa_core::registry::StructFields {
+        // The static StructFields table, accessible both from the trait impl
+        // and from the inventory registration (which needs a const context).
+        #[doc(hidden)]
+        #[allow(non_upper_case_globals)]
+        static #fields_static: openwa_core::registry::StructFields = openwa_core::registry::StructFields {
+            struct_name: #struct_name_str,
+            fields: {
                 // Fields are already sorted by offset because #[repr(C)]
                 // guarantees declaration order = memory order.
-                static FIELDS: openwa_core::registry::StructFields = openwa_core::registry::StructFields {
-                    struct_name: #struct_name_str,
-                    fields: {
-                        const ENTRIES: [openwa_core::registry::FieldEntry; #entry_count] = [
-                            #(#entries),*
-                        ];
-                        &ENTRIES
-                    },
-                };
-                &FIELDS
+                const ENTRIES: [openwa_core::registry::FieldEntry; #entry_count] = [
+                    #(#entries),*
+                ];
+                &ENTRIES
+            },
+        };
+
+        impl openwa_core::registry::HasFieldRegistry for #struct_name {
+            fn field_registry() -> &'static openwa_core::registry::StructFields {
+                &#fields_static
+            }
+        }
+
+        // Register in the global struct registry so struct_fields_for() works.
+        openwa_core::inventory::submit! {
+            openwa_core::registry::StructRegistration {
+                fields: &#fields_static,
             }
         }
     };
