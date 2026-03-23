@@ -2,6 +2,21 @@ use super::base::CTask;
 use crate::fixed::Fixed;
 use crate::FieldRegistry;
 
+crate::define_addresses! {
+    class "CTaskTurnGame" {
+        /// CTaskTurnGame vtable - global turn flow manager (1 per game)
+        vtable CTASK_TURN_GAME_VTABLE = 0x0066_9F70;
+        /// CTaskTurnGame constructor
+        ctor/Stdcall CTASK_TURNGAME_CTOR = 0x0055_B280;
+        /// TurnGame message dispatcher
+        fn/Thiscall TURNGAME_HANDLE_MESSAGE = 0x0055_DC00;
+        /// TurnGame hurry handler
+        fn/Usercall TURNGAME_HURRY_HANDLER = 0x0055_E5F0;
+        /// TurnGame auto select teams
+        fn TURNGAME_AUTO_SELECT_TEAMS = 0x0056_11E0;
+    }
+}
+
 /// Embedded intermediate game-context sub-object within `CTaskTurnGame`.
 ///
 /// This is the memory region at `CTaskTurnGame+0x30..+0xDB` (0xAC bytes).

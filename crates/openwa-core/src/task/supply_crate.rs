@@ -1,6 +1,14 @@
 use super::game_task::CGameTask;
 use crate::FieldRegistry;
 
+crate::define_addresses! {
+    class "CTaskCrate" {
+        /// CTaskCrate vtable - weapon/health/utility crate
+        vtable CTASK_CRATE_VTABLE = 0x0066_4298;
+        ctor CTASK_CRATE_CTOR = 0x0050_2490;
+    }
+}
+
 /// Weapon/health/utility crate entity task.
 ///
 /// Extends CGameTask (0xFC bytes). Crates fall from the sky with a parachute,

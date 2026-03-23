@@ -2,6 +2,23 @@ use super::base::CTask;
 use crate::fixed::Fixed;
 use crate::FieldRegistry;
 
+crate::define_addresses! {
+    class "CGameTask" {
+        /// CGameTask vtable - extends CTask vtable with 12 more methods
+        vtable CGAMETASK_VTABLE = 0x0066_41F8;
+        /// CGameTask sound emitter vtable (embedded sub-object at offset 0xE8)
+        vtable CGAMETASK_SOUND_EMITTER_VT = 0x0066_9CF8;
+        /// CGameTask constructor - calls CTask ctor, sets physics defaults
+        ctor/Stdcall CGAMETASK_CONSTRUCTOR = 0x004F_ED50;
+        /// CGameTask::vtable0 override
+        vmethod CGAMETASK_VT0 = 0x004F_F1C0;
+        /// CGameTask::Free override
+        vmethod CGAMETASK_VT1_FREE = 0x004F_EF10;
+        /// CGameTask::HandleMessage override
+        vmethod CGAMETASK_VT2_HANDLE_MESSAGE = 0x004F_F280;
+    }
+}
+
 /// Game task - extends CTask with physics and gameplay data.
 ///
 /// PARTIAL: Most fields between 0x30-0x83 and 0x98-0xE7 are unknown.

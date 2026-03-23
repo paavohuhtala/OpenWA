@@ -1,6 +1,14 @@
 use super::base::CTask;
 use crate::FieldRegistry;
 
+crate::define_addresses! {
+    class "CTaskFilter" {
+        /// CTaskFilter vtable - role unclear; 4 instances in a 2-team 3-worm game
+        vtable CTASK_FILTER_VTABLE = 0x0066_9DAC;
+        ctor CTASK_FILTER_CTOR = 0x0054_F3D0;
+    }
+}
+
 /// Message-subscription filter task — routes messages selectively to child tasks.
 ///
 /// CTaskFilter is a CTask subclass that overrides HandleMessage to only forward

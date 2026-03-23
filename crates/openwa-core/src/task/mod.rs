@@ -1,15 +1,15 @@
-mod base;
+pub mod base;
 pub mod bit_grid;
-mod cloud;
-mod filter;
-mod fire;
+pub mod cloud;
+pub mod filter;
+pub mod fire;
 pub mod game_task;
-mod mine_oil_drum;
-mod missile;
+pub mod mine_oil_drum;
+pub mod missile;
 mod overlays;
-mod supply_crate;
-mod team;
-mod turn_game;
+pub mod supply_crate;
+pub mod team;
+pub mod turn_game;
 pub mod worm;
 
 pub use base::{CTask, CTaskBfsIter, SharedDataIter, SharedDataNode, SharedDataTable};

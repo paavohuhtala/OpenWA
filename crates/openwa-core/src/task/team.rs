@@ -2,6 +2,14 @@ use super::base::CTask;
 use crate::fixed::Fixed;
 use crate::FieldRegistry;
 
+crate::define_addresses! {
+    class "CTaskTeam" {
+        /// CTaskTeam vtable - per-team task
+        vtable CTASK_TEAM_VTABLE = 0x0066_9EE4;
+        ctor CTASK_TEAM_CTOR = 0x0055_5BB0;
+    }
+}
+
 /// Per-team state-tracker task — one instance per team, child of CTaskTurnGame.
 ///
 /// Tracks per-team data: which team number it represents, how many worms were

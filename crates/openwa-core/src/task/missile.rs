@@ -2,6 +2,14 @@ use super::game_task::CGameTask;
 use crate::fixed::Fixed;
 use crate::FieldRegistry;
 
+crate::define_addresses! {
+    class "CTaskMissile" {
+        /// CTaskMissile vtable - projectile entity
+        vtable CTASK_MISSILE_VTABLE = 0x0066_4438;
+        ctor CTASK_MISSILE_CTOR = 0x0050_7D10;
+    }
+}
+
 /// Projectile / missile entity task.
 ///
 /// Extends CGameTask (0xFC bytes). One instance per airborne projectile

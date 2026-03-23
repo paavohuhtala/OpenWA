@@ -27,43 +27,41 @@ pub mod va {
     // Class definitions (vtable + constructor + vtable methods)
     // =========================================================================
 
+    // Re-exported from task modules
+    pub use crate::task::base::{
+        CTASK_VTABLE, CTASK_CONSTRUCTOR, CTASK_VT0_INIT, CTASK_VT1_FREE,
+        CTASK_VT2_HANDLE_MESSAGE, CTASK_VT3, CTASK_VT5, CTASK_VT6,
+        CTASK_VT7_PROCESS_FRAME,
+        CTASK_LAND_VTABLE, CTASK_LAND_CTOR,
+        CTASK_DIRT_VTABLE, CTASK_DIRT_CTOR,
+        CTASK_SPRITE_ANIM_VTABLE, CTASK_SPRITE_ANIM_CTOR,
+        CTASK_CPU_VTABLE, CTASK_CPU_CTOR,
+        CTASK_SEA_BUBBLE_VTABLE, CTASK_SEABUBBLE_CTOR,
+        CTASK_AIRSTRIKE_CTOR, CTASK_ARROW_CTOR, CTASK_CANISTER_CTOR,
+        CTASK_CROSS_CTOR, CTASK_FIREBALL_CTOR, CTASK_FLAME_CTOR,
+        CTASK_GAS_CTOR, CTASK_OLDWORM_CTOR, CTASK_SCOREBUBBLE_CTOR,
+        CTASK_SMOKE_CTOR,
+    };
+    pub use crate::task::game_task::{
+        CGAMETASK_VTABLE, CGAMETASK_SOUND_EMITTER_VT, CGAMETASK_CONSTRUCTOR,
+        CGAMETASK_VT0, CGAMETASK_VT1_FREE, CGAMETASK_VT2_HANDLE_MESSAGE,
+    };
+    pub use crate::task::worm::{CTASK_WORM_VTABLE, CTASK_WORM_CONSTRUCTOR};
+    pub use crate::task::turn_game::{
+        CTASK_TURN_GAME_VTABLE, CTASK_TURNGAME_CTOR,
+        TURNGAME_HANDLE_MESSAGE, TURNGAME_HURRY_HANDLER, TURNGAME_AUTO_SELECT_TEAMS,
+    };
+    pub use crate::task::team::{CTASK_TEAM_VTABLE, CTASK_TEAM_CTOR};
+    pub use crate::task::missile::{CTASK_MISSILE_VTABLE, CTASK_MISSILE_CTOR};
+    pub use crate::task::mine_oil_drum::{
+        CTASK_MINE_VTABLE, CTASK_MINE_CTOR, CTASK_OILDRUM_VTABLE, CTASK_OILDRUM_CTOR,
+    };
+    pub use crate::task::supply_crate::{CTASK_CRATE_VTABLE, CTASK_CRATE_CTOR};
+    pub use crate::task::cloud::{CTASK_CLOUD_VTABLE, CTASK_CLOUD_CTOR};
+    pub use crate::task::filter::{CTASK_FILTER_VTABLE, CTASK_FILTER_CTOR};
+    pub use crate::task::fire::{CTASK_FIRE_VTABLE, CTASK_FIRE_CTOR};
+
     crate::define_addresses! {
-        class "CTask" {
-            /// CTask vtable - 7 virtual method pointers
-            vtable CTASK_VTABLE = 0x0066_9F8C;
-            /// CTask constructor - initializes base task fields and children list
-            ctor/Stdcall CTASK_CONSTRUCTOR = 0x0056_25A0;
-            /// CTask::vtable0 - initialization/unknown
-            vmethod CTASK_VT0_INIT = 0x0056_2710;
-            /// CTask::Free - destructor/deallocation
-            vmethod CTASK_VT1_FREE = 0x0056_2620;
-            /// CTask::HandleMessage - message dispatch
-            vmethod CTASK_VT2_HANDLE_MESSAGE = 0x0056_2F30;
-            /// CTask::vtable3 - unknown
-            vmethod CTASK_VT3 = 0x0056_13D0;
-            /// CTask::vtable5 - unknown
-            vmethod CTASK_VT5 = 0x0056_2FA0;
-            /// CTask::vtable6 - unknown
-            vmethod CTASK_VT6 = 0x0056_3000;
-            /// CTask::ProcessFrame
-            vmethod CTASK_VT7_PROCESS_FRAME = 0x0056_3210;
-        }
-
-        class "CGameTask" {
-            /// CGameTask vtable - extends CTask vtable with 12 more methods
-            vtable CGAMETASK_VTABLE = 0x0066_41F8;
-            /// CGameTask sound emitter vtable (embedded sub-object at offset 0xE8)
-            vtable CGAMETASK_SOUND_EMITTER_VT = 0x0066_9CF8;
-            /// CGameTask constructor - calls CTask ctor, sets physics defaults
-            ctor/Stdcall CGAMETASK_CONSTRUCTOR = 0x004F_ED50;
-            /// CGameTask::vtable0 override
-            vmethod CGAMETASK_VT0 = 0x004F_F1C0;
-            /// CGameTask::Free override
-            vmethod CGAMETASK_VT1_FREE = 0x004F_EF10;
-            /// CGameTask::HandleMessage override
-            vmethod CGAMETASK_VT2_HANDLE_MESSAGE = 0x004F_F280;
-        }
-
         class "DDGameWrapper" {
             /// DDGameWrapper vtable
             vtable DDGAME_WRAPPER_VTABLE = 0x0066_A30C;
@@ -232,137 +230,6 @@ pub mod va {
             fn/Stdcall DISPLAY_GFX_INIT_TEAM_PALETTE_DISPLAY = 0x0057_03E0;
         }
 
-        // === CTask entity classes ===
-
-        class "CTaskWorm" {
-            /// CTaskWorm vtable
-            vtable CTASK_WORM_VTABLE = 0x0066_44C8;
-            /// CTaskWorm constructor
-            ctor CTASK_WORM_CONSTRUCTOR = 0x0050_BFB0;
-        }
-
-        class "CTaskTurnGame" {
-            /// CTaskTurnGame vtable - global turn flow manager (1 per game)
-            vtable CTASK_TURN_GAME_VTABLE = 0x0066_9F70;
-            /// CTaskTurnGame constructor
-            ctor/Stdcall CTASK_TURNGAME_CTOR = 0x0055_B280;
-            /// TurnGame message dispatcher
-            fn/Thiscall TURNGAME_HANDLE_MESSAGE = 0x0055_DC00;
-            /// TurnGame hurry handler
-            fn/Usercall TURNGAME_HURRY_HANDLER = 0x0055_E5F0;
-            /// TurnGame auto select teams
-            fn TURNGAME_AUTO_SELECT_TEAMS = 0x0056_11E0;
-        }
-
-        class "CTaskTeam" {
-            /// CTaskTeam vtable - per-team task
-            vtable CTASK_TEAM_VTABLE = 0x0066_9EE4;
-            ctor CTASK_TEAM_CTOR = 0x0055_5BB0;
-        }
-
-        class "CTaskLand" {
-            /// CTaskLand vtable - landscape/terrain task
-            vtable CTASK_LAND_VTABLE = 0x0066_4388;
-            ctor CTASK_LAND_CTOR = 0x0050_5440;
-        }
-
-        class "CTaskMissile" {
-            /// CTaskMissile vtable - projectile entity
-            vtable CTASK_MISSILE_VTABLE = 0x0066_4438;
-            ctor CTASK_MISSILE_CTOR = 0x0050_7D10;
-        }
-
-        class "CTaskMine" {
-            /// CTaskMine vtable - mine entity
-            vtable CTASK_MINE_VTABLE = 0x0066_43E8;
-            ctor CTASK_MINE_CTOR = 0x0050_6660;
-        }
-
-        class "CTaskOilDrum" {
-            /// CTaskOilDrum vtable - oil drum entity
-            vtable CTASK_OILDRUM_VTABLE = 0x0066_4338;
-            ctor CTASK_OILDRUM_CTOR = 0x0050_4AF0;
-        }
-
-        class "CTaskCrate" {
-            /// CTaskCrate vtable - weapon/health/utility crate
-            vtable CTASK_CRATE_VTABLE = 0x0066_4298;
-            ctor CTASK_CRATE_CTOR = 0x0050_2490;
-        }
-
-        class "CTaskCloud" {
-            /// CTaskCloud vtable - cloud/airstrike entity
-            vtable CTASK_CLOUD_VTABLE = 0x0066_9D38;
-            ctor CTASK_CLOUD_CTOR = 0x0054_82E0;
-        }
-
-        class "CTaskFilter" {
-            /// CTaskFilter vtable - role unclear; 4 instances in a 2-team 3-worm game
-            vtable CTASK_FILTER_VTABLE = 0x0066_9DAC;
-            ctor CTASK_FILTER_CTOR = 0x0054_F3D0;
-        }
-
-        class "CTaskDirt" {
-            /// CTaskDirt vtable - dirt/particle system (1 per game)
-            vtable CTASK_DIRT_VTABLE = 0x0066_9D74;
-            ctor CTASK_DIRT_CTOR = 0x0054_EDC0;
-        }
-
-        class "CTaskSpriteAnim" {
-            /// CTaskSpriteAnim vtable - sprite animation manager (1 per game)
-            vtable CTASK_SPRITE_ANIM_VTABLE = 0x0066_9D00;
-            ctor CTASK_SPRITE_ANIM_CTOR = 0x0054_66C0;
-        }
-
-        class "CTaskCPU" {
-            /// CTaskCPU vtable - AI/CPU bot controller
-            vtable CTASK_CPU_VTABLE = 0x0066_9D54;
-            ctor CTASK_CPU_CTOR = 0x0054_85D0;
-        }
-
-        class "CTaskSeaBubble" {
-            /// CTaskSeaBubble vtable - water bubble particle
-            vtable CTASK_SEA_BUBBLE_VTABLE = 0x0066_9E88;
-            ctor CTASK_SEABUBBLE_CTOR = 0x0055_4FE0;
-        }
-
-        class "CTaskFire" {
-            /// CTaskFire vtable - fire/flame entity (0xD8 bytes)
-            vtable CTASK_FIRE_VTABLE = 0x0066_9DD8;
-            ctor CTASK_FIRE_CTOR = 0x0054_F4C0;
-        }
-
-        // Entity constructors without known vtables
-        class "CTaskAirstrike" {
-            ctor CTASK_AIRSTRIKE_CTOR = 0x0055_53C0;
-        }
-        class "CTaskArrow" {
-            ctor CTASK_ARROW_CTOR = 0x004F_E130;
-        }
-        class "CTaskCanister" {
-            ctor CTASK_CANISTER_CTOR = 0x0050_1A80;
-        }
-        class "CTaskCross" {
-            ctor CTASK_CROSS_CTOR = 0x0050_45C0;
-        }
-        class "CTaskFireball" {
-            ctor CTASK_FIREBALL_CTOR = 0x0055_0890;
-        }
-        class "CTaskFlame" {
-            ctor CTASK_FLAME_CTOR = 0x0054_F0F0;
-        }
-        class "CTaskGas" {
-            ctor CTASK_GAS_CTOR = 0x0055_4750;
-        }
-        class "CTaskOldWorm" {
-            ctor CTASK_OLDWORM_CTOR = 0x0051_FEB0;
-        }
-        class "CTaskScoreBubble" {
-            ctor CTASK_SCOREBUBBLE_CTOR = 0x0055_4CA0;
-        }
-        class "CTaskSmoke" {
-            ctor CTASK_SMOKE_CTOR = 0x0055_51D0;
-        }
     }
 
     // Backward-compat aliases (not registered separately — same address)

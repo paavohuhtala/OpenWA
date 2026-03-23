@@ -1,6 +1,14 @@
 use super::base::CTask;
 use crate::FieldRegistry;
 
+crate::define_addresses! {
+    class "CTaskFire" {
+        /// CTaskFire vtable - fire/flame entity (0xD8 bytes)
+        vtable CTASK_FIRE_VTABLE = 0x0066_9DD8;
+        ctor CTASK_FIRE_CTOR = 0x0054_F4C0;
+    }
+}
+
 /// Fire/flame entity task.
 ///
 /// Extends CTask (not CGameTask) — no physics body.

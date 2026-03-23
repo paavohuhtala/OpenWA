@@ -2,6 +2,14 @@ use super::base::CTask;
 use crate::fixed::Fixed;
 use crate::FieldRegistry;
 
+crate::define_addresses! {
+    class "CTaskCloud" {
+        /// CTaskCloud vtable - cloud/airstrike entity
+        vtable CTASK_CLOUD_VTABLE = 0x0066_9D38;
+        ctor CTASK_CLOUD_CTOR = 0x0054_82E0;
+    }
+}
+
 /// Airstrike / weather cloud task.
 ///
 /// Extends CTask directly (not CGameTask). Clouds drift horizontally with wind,

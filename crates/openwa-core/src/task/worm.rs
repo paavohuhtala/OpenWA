@@ -3,6 +3,15 @@ use super::game_task::CGameTask;
 use crate::game::weapon::WeaponEntry;
 use crate::FieldRegistry;
 
+crate::define_addresses! {
+    class "CTaskWorm" {
+        /// CTaskWorm vtable
+        vtable CTASK_WORM_VTABLE = 0x0066_44C8;
+        /// CTaskWorm constructor
+        ctor CTASK_WORM_CONSTRUCTOR = 0x0050_BFB0;
+    }
+}
+
 /// Virtual method table for CTaskWorm (vtable at 0x6644C8, 20 slots).
 ///
 /// CTaskWorm overrides 14 of the 20 inherited CTask/CGameTask slots;

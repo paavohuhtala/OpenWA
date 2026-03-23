@@ -1,6 +1,20 @@
 use super::game_task::CGameTask;
 use crate::FieldRegistry;
 
+crate::define_addresses! {
+    class "CTaskMine" {
+        /// CTaskMine vtable - mine entity
+        vtable CTASK_MINE_VTABLE = 0x0066_43E8;
+        ctor CTASK_MINE_CTOR = 0x0050_6660;
+    }
+
+    class "CTaskOilDrum" {
+        /// CTaskOilDrum vtable - oil drum entity
+        vtable CTASK_OILDRUM_VTABLE = 0x0066_4338;
+        ctor CTASK_OILDRUM_CTOR = 0x0050_4AF0;
+    }
+}
+
 /// Land mine entity task.
 ///
 /// Extends CGameTask (0xFC bytes). Mines sit on the terrain and arm after
