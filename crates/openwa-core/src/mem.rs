@@ -185,7 +185,32 @@ pub unsafe fn detect_pointer(value: u32, delta: u32) -> Option<KnownPointer> {
         }
     }
 
-    // 2. If heap pointer, check if first DWORD is a known vtable
+    // 2. Check if pointer falls inside a tracked live object
+    if let Some(m) = registry::identify_live_pointer(value) {
+        let name = match m.field {
+            Some(field) if m.offset == field.offset => {
+                format!("{}.{}", m.object.class_name, field.name)
+            }
+            Some(field) => {
+                let inner_off = m.offset - field.offset;
+                format!("{}.{}+0x{:X}", m.object.class_name, field.name, inner_off)
+            }
+            None => format!("{}+0x{:X}", m.object.class_name, m.offset),
+        };
+        return Some(KnownPointer {
+            raw_value: value,
+            ghidra_value: ghidra_val,
+            segment: PointerKind::Object,
+            name: Some(name),
+            class_name: Some(m.object.class_name),
+            detail: Some(format!(
+                "base=0x{:08X} offset=0x{:X}",
+                m.object.ptr, m.offset
+            )),
+        });
+    }
+
+    // 3. If heap pointer, check if first DWORD is a known vtable
     if can_read(value, 4) {
         let first = *(value as *const u32);
         let ghidra_first = first.wrapping_sub(delta);
@@ -201,7 +226,7 @@ pub unsafe fn detect_pointer(value: u32, delta: u32) -> Option<KnownPointer> {
         }
     }
 
-    // 3. Fall back to segment-based classification
+    // 4. Fall back to segment-based classification
     classify_pointer(value, delta).map(|info| KnownPointer {
         raw_value: info.raw_value,
         ghidra_value: info.ghidra_value,

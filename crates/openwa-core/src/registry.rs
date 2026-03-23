@@ -277,6 +277,91 @@ pub fn all_struct_fields() -> impl Iterator<Item = &'static StructFields> {
     struct_map().values().copied()
 }
 
+// =========================================================================
+// Live object tracker
+// =========================================================================
+
+/// A tracked live heap object.
+#[derive(Debug, Clone)]
+pub struct LiveObject {
+    /// Runtime base address.
+    pub ptr: u32,
+    /// Object size in bytes (0 if unknown).
+    pub size: u32,
+    /// Class/struct name (e.g., "DDGame").
+    pub class_name: &'static str,
+    /// Field registry for this struct (if available).
+    pub fields: Option<&'static StructFields>,
+}
+
+use std::sync::Mutex;
+
+static LIVE_OBJECTS: Mutex<Vec<LiveObject>> = Mutex::new(Vec::new());
+
+/// Register a live heap object for pointer identification.
+///
+/// Call this from constructor hooks when a game object is allocated.
+pub fn register_live_object(obj: LiveObject) {
+    if let Ok(mut v) = LIVE_OBJECTS.lock() {
+        // Replace if same pointer already tracked (re-allocation)
+        if let Some(existing) = v.iter_mut().find(|o| o.ptr == obj.ptr) {
+            *existing = obj;
+        } else {
+            v.push(obj);
+        }
+    }
+}
+
+/// Unregister a live heap object (e.g., on destruction).
+pub fn unregister_live_object(ptr: u32) {
+    if let Ok(mut v) = LIVE_OBJECTS.lock() {
+        v.retain(|o| o.ptr != ptr);
+    }
+}
+
+/// Result of identifying a pointer as being inside a tracked live object.
+#[derive(Debug)]
+pub struct LiveObjectMatch {
+    pub object: LiveObject,
+    /// Byte offset of the pointer within the object.
+    pub offset: u32,
+    /// Field at this offset (if known).
+    pub field: Option<&'static FieldEntry>,
+}
+
+/// Check if a runtime pointer falls inside any tracked live object.
+///
+/// Returns the matching object and the field at the pointer's offset.
+pub fn identify_live_pointer(runtime_ptr: u32) -> Option<LiveObjectMatch> {
+    let v = LIVE_OBJECTS.lock().ok()?;
+    for obj in v.iter() {
+        let end = if obj.size > 0 {
+            obj.ptr + obj.size
+        } else {
+            // Unknown size — use a generous 256KB bound
+            obj.ptr + 0x40000
+        };
+        if runtime_ptr >= obj.ptr && runtime_ptr < end {
+            let offset = runtime_ptr - obj.ptr;
+            let field = obj.fields.and_then(|f| {
+                f.field_at(offset)
+                    .or_else(|| f.field_containing(offset).map(|(fe, _)| fe))
+            });
+            return Some(LiveObjectMatch {
+                object: obj.clone(),
+                offset,
+                field,
+            });
+        }
+    }
+    None
+}
+
+/// Return a snapshot of all currently tracked live objects.
+pub fn live_objects() -> Vec<LiveObject> {
+    LIVE_OBJECTS.lock().map(|v| v.clone()).unwrap_or_default()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

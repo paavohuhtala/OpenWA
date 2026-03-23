@@ -97,6 +97,17 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
     let timer_obj = (*session).timer_obj;
     let net_game = (*session).net_game;
 
+    // Register GameSession as a live object.
+    {
+        use openwa_core::registry::{self, LiveObject};
+        registry::register_live_object(LiveObject {
+            ptr: session as u32,
+            size: 0x120,
+            class_name: "GameSession",
+            fields: registry::struct_fields_for("GameSession"),
+        });
+    }
+
     let _ = log_line(&format!(
         "[GameSession] display=0x{:08X}, net_game=0x{:08X}, timer=0x{:08X}, game_info(EDI)=0x{:08X}",
         display as u32, net_game as u32, timer_obj as u32, game_info as u32,
@@ -146,6 +157,23 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
         "[GameSession] DDGameWrapper::Constructor done: wrapper=0x{:08X}  ddgame=0x{:08X}",
         this as u32, (*this).ddgame as u32,
     ));
+
+    // Register live objects for pointer identification in debug tools.
+    use openwa_core::registry::{self, LiveObject};
+    registry::register_live_object(LiveObject {
+        ptr: this as u32,
+        size: core::mem::size_of::<DDGameWrapper>() as u32,
+        class_name: "DDGameWrapper",
+        fields: registry::struct_fields_for("DDGameWrapper"),
+    });
+    if !(*this).ddgame.is_null() {
+        registry::register_live_object(LiveObject {
+            ptr: (*this).ddgame as u32,
+            size: 0x98D8, // DDGame size
+            class_name: "DDGame",
+            fields: registry::struct_fields_for("DDGame"),
+        });
+    }
 
     this
 }
