@@ -7,11 +7,14 @@
 use std::env;
 use std::fmt::Write as FmtWrite;
 use std::fs;
+use std::os::windows::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant};
+
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 // ─── Configuration ──────────────────────────────────────────────────────────
 
@@ -223,6 +226,7 @@ fn run_test(test: &TestCase, launcher: &Path, wa_exe: &Path, run_dir: &Path) -> 
         .env("OPENWA_LOG_PATH", &openwa_log)
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
+        .creation_flags(CREATE_NO_WINDOW)
         .status();
 
 
