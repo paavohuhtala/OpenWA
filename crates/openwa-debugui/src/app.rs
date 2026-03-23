@@ -405,9 +405,9 @@ unsafe fn show_game_task_raw_fields(
                             ui.label(format!("{:#010X} ({})", val, val as i32));
                             ui.label(field_name);
 
-                            // Pointer identification
+                            // Pointer identification via registry
                             use openwa_core::mem;
-                            let ptr_label = if val > 0x10000 {
+                            let ptr_label = if val >= 0x10000 {
                                 mem::identify_pointer(val, delta)
                                     .and_then(|id| id.name)
                             } else {
