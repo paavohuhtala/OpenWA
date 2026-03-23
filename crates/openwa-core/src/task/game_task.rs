@@ -1,5 +1,6 @@
 use super::base::CTask;
 use crate::fixed::Fixed;
+use crate::FieldRegistry;
 
 /// Game task - extends CTask with physics and gameplay data.
 ///
@@ -9,6 +10,7 @@ use crate::fixed::Fixed;
 /// Source: wkJellyWorm CGameTask.h
 ///
 /// Additional vtable (12 methods at offsets 0x1C-0x48 in vtable)
+#[derive(FieldRegistry)]
 #[repr(C)]
 pub struct CGameTask {
     /// 0x00-0x2F: Base CTask fields

@@ -1,5 +1,6 @@
 use super::game_task::CGameTask;
 use crate::fixed::Fixed;
+use crate::FieldRegistry;
 
 /// Projectile / missile entity task.
 ///
@@ -18,6 +19,7 @@ use crate::fixed::Fixed;
 ///
 /// Source: Ghidra decompilation of 0x507D10 (constructor) and
 ///         wkJellyWorm CTaskMissile.h (field layout reference).
+#[derive(FieldRegistry)]
 #[repr(C)]
 pub struct CTaskMissile {
     /// 0x00–0xFB: CGameTask base (pos at 0x84/0x88, speed at 0x90/0x94).

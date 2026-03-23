@@ -277,6 +277,37 @@ pub fn all_struct_fields() -> impl Iterator<Item = &'static StructFields> {
     struct_map().values().copied()
 }
 
+/// Look up a field at `offset` using inheritance-aware search.
+///
+/// For CTask-derived entities, the inheritance chain is:
+/// entity-specific fields → CGameTask → CTask.
+/// This function tries each registry in order, returning the first match.
+///
+/// `struct_name` is the leaf class name (e.g., "CTaskWorm").
+pub fn field_at_inherited(struct_name: &str, offset: u32) -> Option<&'static FieldEntry> {
+    // Inheritance chain for CTask hierarchy. Could be generalized later
+    // but this covers all current game entity types.
+    const CTASK_CHAIN: &[&str] = &["CGameTask", "CTask"];
+
+    // Try the leaf struct first
+    if let Some(fields) = struct_fields_for(struct_name) {
+        if let Some(entry) = fields.field_at(offset) {
+            return Some(entry);
+        }
+    }
+
+    // Walk the inheritance chain
+    for &parent in CTASK_CHAIN {
+        if let Some(fields) = struct_fields_for(parent) {
+            if let Some(entry) = fields.field_at(offset) {
+                return Some(entry);
+            }
+        }
+    }
+
+    None
+}
+
 // =========================================================================
 // Live object tracker
 // =========================================================================

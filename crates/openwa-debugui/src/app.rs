@@ -2,6 +2,7 @@ use eframe::egui;
 use openwa_core::address::va;
 use openwa_core::engine::{DDGame, DDGameWrapper};
 use openwa_core::rebase::rb;
+use openwa_core::registry;
 use openwa_core::task::{
     CTask, CTaskCloud, CTaskFire, CTaskTeam, CTaskTurnGame, CTaskWorm, TurnGameCtx,
 };
@@ -336,57 +337,17 @@ impl DebugApp {
 // ---------------------------------------------------------------------------
 
 /// CGameTask field labels for the base class region (0x00..0xFC).
-const CGAMETASK_FIELD_LABELS: &[(usize, &str)] = &[
-    // CTask base (0x00..0x30)
-    (0x00, "vtable"),
-    (0x04, "parent"),
-    (0x08, "children_data"),
-    (0x0C, "children_watermark"),
-    (0x10, "children_capacity"),
-    (0x14, "class_type"),
-    (0x18, "bit_grid"),
-    (0x1C, "shared_data"),
-    (0x20, "owns_shared_data"),
-    (0x24, "msg_handler"),
-    (0x28, "creation_flags"),
-    (0x2C, "ddgame"),
-    // CGameTask fields (0x30..0xFC)
-    (0x84, "pos_x"),
-    (0x88, "pos_y"),
-    (0x8C, "angle"),
-    (0x90, "speed_x"),
-    (0x94, "speed_y"),
-    // SoundEmitter (0xE8..0xFC)
-    (0xE8, "emitter_vtable"),
-    (0xEC, "emitter_unk04"),
-    (0xF0, "emitter_unk08"),
-    (0xF4, "local_snd_count"),
-    (0xF8, "emitter_owner"),
-];
-
 /// Display all DWORDs of a CGameTask-derived entity with labelled fields.
-/// `extra_labels` provides field names for offsets beyond the CGameTask base (0xFC+).
+///
+/// Field names are resolved from the global registry via inheritance-aware
+/// lookup (entity → CGameTask → CTask). No hardcoded label tables needed.
 unsafe fn show_game_task_raw_fields(
     ui: &mut egui::Ui,
     addr: u32,
     type_name: &str,
     total_size: usize,
-    extra_labels: &[(usize, &str)],
 ) {
     let base = addr as *const u32;
-
-    let label_for = |off: usize| -> Option<&str> {
-        CGAMETASK_FIELD_LABELS
-            .iter()
-            .find(|&&(o, _)| o == off)
-            .map(|&(_, n)| n)
-            .or_else(|| {
-                extra_labels
-                    .iter()
-                    .find(|&&(o, _)| o == off)
-                    .map(|&(_, n)| n)
-            })
-    };
 
     // Sections: CTask base, CGameTask unknowns, pos/speed, more unknowns, emitter,
     // then type-specific in 0x80-byte chunks to keep each section manageable.
@@ -434,7 +395,9 @@ unsafe fn show_game_task_raw_fields(
                         for i in 0..dwords {
                             let off = start + i * 4;
                             let val = *base.add(off / 4);
-                            let field_name = label_for(off).unwrap_or("");
+                            let field_name = registry::field_at_inherited(type_name, off as u32)
+                                .map(|f| f.name)
+                                .unwrap_or("");
 
                             ui.label(format!("+0x{:03X}", off));
                             // Show as hex + signed decimal
@@ -592,64 +555,21 @@ impl DebugApp {
                     // --- CTaskMine-specific fields ---
                     if name == "CTaskMine" {
                         show_game_task_raw_fields(
-                            ui,
-                            addr,
-                            "CTaskMine",
-                            0x128,
-                            &[
-                                (0x0FC, "unknown_fc[0]"),
-                                (0x100, "unknown_fc[4]"),
-                                (0x104, "unknown_fc[8]"),
-                                (0x108, "unknown_fc[C]"),
-                                (0x10C, "unknown_fc[10]"),
-                                (0x110, "slot_id"),
-                                (0x114, "unknown_114"),
-                                (0x118, "fuse_timer"),
-                                (0x11C, "unknown_11c"),
-                                (0x120, "unknown_120"),
-                                (0x124, "owner_team"),
-                            ],
+                            ui, addr, "CTaskMine", 0x128,
                         );
                     }
 
                     // --- CTaskOilDrum-specific fields ---
                     if name == "CTaskOilDrum" {
                         show_game_task_raw_fields(
-                            ui,
-                            addr,
-                            "CTaskOilDrum",
-                            0x110,
-                            &[
-                                (0x0FC, "triggered"),
-                                (0x100, "slot_id"),
-                                (0x104, "unknown_104"),
-                                (0x108, "health"),
-                                (0x10C, "roll_counter"),
-                            ],
+                            ui, addr, "CTaskOilDrum", 0x110,
                         );
                     }
 
                     // --- CTaskCrate-specific fields ---
                     if name == "CTaskCrate" {
                         show_game_task_raw_fields(
-                            ui,
-                            addr,
-                            "CTaskCrate",
-                            0x4B0,
-                            &[
-                                (0x0FC, "unknown_fc"),
-                                (0x100, "slot_id"),
-                                (0x104, "unknown_104"),
-                                (0x108, "unknown_108"),
-                                (0x10C, "timer"),
-                                // scheme_data starts at 0x110 (0xE5 DWORDs)
-                                (0x124, "crate_type"),
-                                (0x24C, "heal_amount"),
-                                (0x264, "extra_init_flag"),
-                                (0x4A4, "unknown_4a4"),
-                                (0x4A8, "sequence_ref"),
-                                (0x4AC, "unknown_4ac"),
-                            ],
+                            ui, addr, "CTaskCrate", 0x4B0,
                         );
                     }
 
@@ -869,44 +789,7 @@ impl DebugApp {
                         ui.separator();
 
                         show_game_task_raw_fields(
-                            ui,
-                            addr,
-                            "CTaskWorm",
-                            0x3FC,
-                            &[
-                                (0x0FC, "team_index"),
-                                (0x100, "worm_index"),
-                                (0x104, "unknown_104"),
-                                (0x110, "spawn_params[0]"),
-                                (0x114, "spawn_params[1]"),
-                                (0x118, "spawn_params[2]"),
-                                (0x11C, "spawn_params[3]"),
-                                (0x120, "spawn_params[4]"),
-                                (0x124, "spawn_params[5]"),
-                                (0x128, "spawn_params[6]"),
-                                (0x12C, "spawn_params[7]"),
-                                (0x130, "spawn_params[8]"),
-                                (0x134, "spawn_params[9]"),
-                                (0x158, "slot_id"),
-                                (0x164, "stationary_frames"),
-                                (0x170, "selected_weapon"),
-                                (0x1A8, "facing_dir_2"),
-                                (0x1AC, "facing_dir_inv"),
-                                (0x1EC, "movement_streak"),
-                                (0x24C, "aim_angle"),
-                                (0x268, "show_cursor"),
-                                (0x2F0, "worm_name[0..4]"),
-                                (0x2F4, "worm_name[4..8]"),
-                                (0x2F8, "worm_name[8..12]"),
-                                (0x2FC, "worm_name[12..16]"),
-                                (0x334, "facing_dir_3"),
-                                (0x368, "animator"),
-                                (0x3DC, "facing_direction"),
-                                (0x3E4, "input_aim_up"),
-                                (0x3E8, "input_aim_down"),
-                                (0x3EC, "input_move_left"),
-                                (0x3F0, "input_move_right"),
-                            ],
+                            ui, addr, "CTaskWorm", 0x3FC,
                         );
                     }
 
@@ -924,28 +807,7 @@ impl DebugApp {
                         ui.separator();
 
                         show_game_task_raw_fields(
-                            ui,
-                            addr,
-                            "CTaskMissile",
-                            0x41C,
-                            &[
-                                (0x128, "launch_seed"),
-                                (0x12C, "slot_id"),
-                                (0x130, "spawn: owner_id"),
-                                (0x134, "spawn: [1]"),
-                                (0x138, "spawn: spawn_x"),
-                                (0x13C, "spawn: spawn_y"),
-                                (0x140, "spawn: speed_x"),
-                                (0x144, "spawn: speed_y"),
-                                (0x148, "spawn: cursor_x"),
-                                (0x14C, "spawn: cursor_y"),
-                                (0x150, "spawn: pellet_idx"),
-                                (0x154, "spawn: fb_timer"),
-                                (0x158, "spawn: fb_param"),
-                                (0x3A0, "launch_speed"),
-                                (0x3A8, "homing_enabled"),
-                                (0x3C8, "direction"),
-                            ],
+                            ui, addr, "CTaskMissile", 0x41C,
                         );
                     }
                 }
