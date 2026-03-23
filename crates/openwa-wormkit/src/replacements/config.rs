@@ -244,7 +244,7 @@ unsafe extern "stdcall" fn hook_load_options(game_info: *mut GameInfo) {
     // BackgroundDebrisParallax: clamp to i16 range, then << 16
     let mut parallax = read_profile_int("Options", "BackgroundDebrisParallax", 0x50);
     let parallax_i32 = parallax as i32;
-    if parallax_i32 < -0x8000 || parallax_i32 > 0x7FFF {
+    if !(-0x8000..=0x7FFF).contains(&parallax_i32) {
         if parallax_i32 < 0 {
             parallax = (-0x8000i32) as u32;
         } else {

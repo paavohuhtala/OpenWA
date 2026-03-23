@@ -73,6 +73,11 @@ impl CStringRef {
         *((data - 0x0C) as *const i32)
     }
 
+    /// Check if the CString is empty.
+    pub unsafe fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Assign from another CString via `ATL::CSimpleStringT::operator=` (0x401D20).
     /// thiscall(ECX=this, stack=&src) where both are CSimpleStringT* pointers.
     pub unsafe fn assign_from(&mut self, src: &CStringRef) {

@@ -141,7 +141,7 @@ impl TryFrom<u32> for SoundId {
     type Error = u32;
 
     fn try_from(value: u32) -> Result<Self, Self::Error> {
-        if value >= Self::MIN && value <= Self::MAX {
+        if (Self::MIN..=Self::MAX).contains(&value) {
             Ok(unsafe { core::mem::transmute(value) })
         } else {
             Err(value)

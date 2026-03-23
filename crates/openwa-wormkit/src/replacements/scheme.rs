@@ -441,7 +441,7 @@ fn parse_scheme_slot(filename: &str) -> Option<u32> {
     }
     let slot = d0 as u32 * 10 + d1 as u32;
     // Valid range: 1-13 (original checks `slot - 1 < 0xD`)
-    if slot >= 1 && slot <= SCHEME_SLOT_COUNT {
+    if (1..=SCHEME_SLOT_COUNT).contains(&slot) {
         Some(slot)
     } else {
         None

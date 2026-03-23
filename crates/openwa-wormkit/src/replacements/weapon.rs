@@ -92,11 +92,10 @@ unsafe extern "cdecl" fn get_ammo_impl(
     }
 
     // SelectWorm (0x3B) requires >1 alive worm on the team
-    if state.game_phase >= ddgame::GAME_PHASE_NORMAL_MIN && weapon_id == Weapon::SelectWorm as u32 {
-        if count_alive_worms_impl(team_index, arena) == 0 {
+    if state.game_phase >= ddgame::GAME_PHASE_NORMAL_MIN && weapon_id == Weapon::SelectWorm as u32
+        && count_alive_worms_impl(team_index, arena) == 0 {
             return 0;
         }
-    }
 
     state.get_ammo(alliance, wid) as u32
 }

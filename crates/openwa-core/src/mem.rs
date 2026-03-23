@@ -36,7 +36,7 @@ pub unsafe fn classify_pointer(value: u32, delta: u32) -> Option<PointerInfo> {
     let ghidra_val = value.wrapping_sub(delta);
 
     // .rdata → Vtable (likely vtable or function pointer table)
-    if ghidra_val >= va::RDATA_START && ghidra_val < va::DATA_START {
+    if (va::RDATA_START..va::DATA_START).contains(&ghidra_val) {
         let detail = if can_read(value, 4) {
             let vt0 = *(value as *const u32);
             Some(format!("vt[0]=ghidra:0x{:08X}", vt0.wrapping_sub(delta)))
@@ -53,7 +53,7 @@ pub unsafe fn classify_pointer(value: u32, delta: u32) -> Option<PointerInfo> {
     }
 
     // .text → Code
-    if ghidra_val >= va::TEXT_START && ghidra_val <= va::TEXT_END {
+    if (va::TEXT_START..=va::TEXT_END).contains(&ghidra_val) {
         return Some(PointerInfo {
             offset: 0,
             raw_value: value,
@@ -64,7 +64,7 @@ pub unsafe fn classify_pointer(value: u32, delta: u32) -> Option<PointerInfo> {
     }
 
     // .data/.bss → Data
-    if ghidra_val >= va::DATA_START && ghidra_val < va::DATA_END {
+    if (va::DATA_START..va::DATA_END).contains(&ghidra_val) {
         return Some(PointerInfo {
             offset: 0,
             raw_value: value,
@@ -80,7 +80,7 @@ pub unsafe fn classify_pointer(value: u32, delta: u32) -> Option<PointerInfo> {
         let ghidra_first = first.wrapping_sub(delta);
 
         // Object — heap pointer whose first DWORD is a vtable
-        if ghidra_first >= va::RDATA_START && ghidra_first < va::DATA_START {
+        if (va::RDATA_START..va::DATA_START).contains(&ghidra_first) {
             let detail = if can_read(first, 4) {
                 let vt0 = *(first as *const u32);
                 Some(format!(

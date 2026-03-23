@@ -1,4 +1,7 @@
 #![allow(non_snake_case)]
+#![allow(clippy::missing_safety_doc)]
+#![allow(clippy::too_many_arguments)]
+#![allow(clippy::missing_transmute_annotations)]
 
 use std::ffi::c_void;
 

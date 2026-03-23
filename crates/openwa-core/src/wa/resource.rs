@@ -1,5 +1,6 @@
 //! Win32 PE resource extraction helpers.
 
+#[allow(clippy::upper_case_acronyms)]
 type LPCSTR = *const u8;
 
 extern "system" {

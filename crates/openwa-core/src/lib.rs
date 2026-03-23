@@ -1,4 +1,17 @@
 #![allow(non_snake_case)]
+#![allow(clippy::missing_safety_doc)]
+#![allow(clippy::too_many_arguments)]
+// FFI code frequently casts pointers for clarity even when redundant
+#![allow(clippy::unnecessary_cast)]
+// Transmute annotations are verbose for FFI function pointer casts
+#![allow(clippy::missing_transmute_annotations)]
+// Clamp-like patterns in FFI init code often have subtly different semantics
+#![allow(clippy::manual_clamp)]
+// Complex types are common in FFI function pointer signatures
+#![allow(clippy::type_complexity)]
+// Doc formatting lints — not worth the churn
+#![allow(clippy::empty_line_after_doc_comments)]
+#![allow(clippy::doc_lazy_continuation)]
 
 #[macro_use]
 pub mod macros;

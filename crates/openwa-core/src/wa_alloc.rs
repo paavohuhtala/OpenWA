@@ -105,7 +105,7 @@ impl<T> WABox<T> {
     /// in a WA struct field that will eventually be freed by a C++ destructor.
     pub fn leak(self) -> *mut T {
         let ptr = self.ptr.as_ptr();
-        core::mem::forget(self);
+        let _ = core::mem::ManuallyDrop::new(self);
         ptr
     }
 }

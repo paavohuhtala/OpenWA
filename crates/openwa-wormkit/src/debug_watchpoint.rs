@@ -132,7 +132,7 @@ unsafe extern "system" fn veh_handler(info: *mut EXCEPTION_POINTERS) -> i32 {
                     for depth in 0..12 {
                         // Validate EBP: must be in plausible stack range, aligned,
                         // and above ESP (stack grows down)
-                        if ebp < 0x10000 || ebp > 0x7FFE0000 || (ebp & 3) != 0 {
+                        if !(0x10000..=0x7FFE0000).contains(&ebp) || (ebp & 3) != 0 {
                             break;
                         }
                         // Safety: check both [ebp] and [ebp+4] are readable

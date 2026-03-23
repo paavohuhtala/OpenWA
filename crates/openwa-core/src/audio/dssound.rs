@@ -873,12 +873,10 @@ pub unsafe extern "thiscall" fn load_wav(
                     }
                 };
                 let mut offset = 0usize;
-                for sample in reader.samples::<i16>() {
-                    if let Ok(s) = sample {
-                        if offset + 2 <= dest.len() {
-                            dest[offset..offset + 2].copy_from_slice(&s.to_le_bytes());
-                            offset += 2;
-                        }
+                for s in reader.samples::<i16>().flatten() {
+                    if offset + 2 <= dest.len() {
+                        dest[offset..offset + 2].copy_from_slice(&s.to_le_bytes());
+                        offset += 2;
                     }
                 }
             }
@@ -891,13 +889,11 @@ pub unsafe extern "thiscall" fn load_wav(
                     }
                 };
                 let mut offset = 0usize;
-                for sample in reader.samples::<i16>() {
-                    if let Ok(s) = sample {
-                        if offset < dest.len() {
-                            // 8-bit WAV is unsigned (0-255, center at 128)
-                            dest[offset] = (s + 128) as u8;
-                            offset += 1;
-                        }
+                for s in reader.samples::<i16>().flatten() {
+                    if offset < dest.len() {
+                        // 8-bit WAV is unsigned (0-255, center at 128)
+                        dest[offset] = (s + 128) as u8;
+                        offset += 1;
                     }
                 }
             }

@@ -151,7 +151,7 @@ unsafe fn replay_loader_play(gi: *mut GameInfo) -> Result<(), ReplayError> {
         let _ = std::fs::write(&thm_path, payload_slice);
     } else {
         (*gi).replay_payload_2 = *(payload.add(4) as *const i32);
-        if first_dword >= -4 && first_dword < -2 {
+        if (-4..-2).contains(&first_dword) {
             *((*gi).replay_payload_extra.as_mut_ptr() as *mut i32) =
                 *(payload.add(8) as *const i32);
         } else if first_dword == -2 {
@@ -202,7 +202,7 @@ unsafe fn replay_loader_play(gi: *mut GameInfo) -> Result<(), ReplayError> {
             let wa_log_file = *(rb(va::G_LOG_FILE_PTR) as *const *mut FILE);
             if !wa_log_file.is_null() {
                 if let Some(mut log_file) = wa_file_to_rust(wa_log_file) {
-                    write_replay_log(gi, &mut *log_file)?;
+                    write_replay_log(gi, &mut log_file)?;
                 }
             }
             let _ = log_line("[Replay] Rust replay loading complete");
@@ -258,7 +258,7 @@ unsafe fn parse_and_write_v2plus(
                 wb(va::G_REPLAY_GAME_MODE, mode);
             } else {
                 let raw = s.read_u8_validated(0, 3)?;
-                if raw >= 2 && raw <= 3 {
+                if (2..=3).contains(&raw) {
                     wb(va::G_REPLAY_GAME_MODE, raw - 1);
                     wb(va::G_REPLAY_VER_FLAG_A, 1); wb(va::G_REPLAY_VER_FLAG_B, 1);
                 } else {
@@ -304,7 +304,7 @@ unsafe fn parse_and_write_v2plus(
     wd(va::G_REPLAY_SCHEME_PRESENT, scheme_present as u32);
 
     // Extra field for version 7-9 only
-    if version >= 7 && version <= 9 {
+    if (7..=9).contains(&version) {
         let _extra = s.read_u32()?;
     }
 
@@ -337,7 +337,7 @@ unsafe fn parse_and_write_v2plus(
             1 => 0xD8_usize,
             2 => 0x124,
             3 => {
-                if scheme_size_indicator < 0x12A || scheme_size_indicator > 0x197 {
+                if !(0x12A..=0x197).contains(&scheme_size_indicator) {
                     return Err(ReplayError::InvalidFormat);
                 }
                 // Copy defaults first for v3
@@ -558,7 +558,7 @@ unsafe fn parse_and_write_v2plus(
     wd(va::G_SAVED_RANDOM_SEED, current_seed);     // save old seed
 
     let ver = *(rb(va::G_REPLAY_VERSION_ID) as *const i32);
-    if ver != 0x22 && !(ver >= 0x29 && ver <= 0x2A) && ver < 0x2D {
+    if ver != 0x22 && !(0x29..=0x2A).contains(&ver) && ver < 0x2D {
         let check: unsafe extern "cdecl" fn() -> i32 =
             core::mem::transmute(rb(va::SCHEME_CHECK_WEAPON_LIMITS));
         check();
@@ -635,8 +635,8 @@ unsafe fn write_replay_log(gi: *const GameInfo, log_file: &mut File) -> Result<(
         if !tm.is_null() {
             let tm = &*tm;
             let mut s = heapless::String::<128>::new();
-            let _ = write!(s,
-                "Game Started at {:04}-{:02}-{:02} {:02}:{:02}:{:02} GMT\n",
+            let _ = writeln!(s,
+                "Game Started at {:04}-{:02}-{:02} {:02}:{:02}:{:02} GMT",
                 tm[5] + 1900, tm[4] + 1, tm[3], tm[2], tm[1], tm[0]
             );
             let _ = log_file.write_all(s.as_bytes());
@@ -673,11 +673,11 @@ unsafe fn write_replay_log(gi: *const GameInfo, log_file: &mut File) -> Result<(
         push_cstr(&mut s, label_game_engine);
         let _ = write!(s, ": ");
         push_cstr(&mut s, version_str);
-        let _ = write!(s, "\n");
+        let _ = writeln!(s);
         push_cstr(&mut s, label_file_format);
         let _ = write!(s, ": ");
         push_cstr(&mut s, format_ver_str);
-        let _ = write!(s, "\n");
+        let _ = writeln!(s);
         let _ = log_file.write_all(s.as_bytes());
     }
 
@@ -776,7 +776,7 @@ unsafe fn write_replay_log(gi: *const GameInfo, log_file: &mut File) -> Result<(
             let _ = write!(s, " {whole}.{frac:02}]");
         }
 
-        let _ = write!(s, "\n");
+        let _ = writeln!(s);
         let _ = log_file.write_all(s.as_bytes());
     }
 

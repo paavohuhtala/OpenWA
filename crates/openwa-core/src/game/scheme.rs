@@ -147,7 +147,7 @@ impl SchemeFile {
         // short V3 files get defaults for the missing tail. We replicate this by
         // accepting any size between V2 (0x124) and V3 (0x192) and padding.
         if version == SchemeVersion::V3 {
-            if actual_payload < SCHEME_PAYLOAD_V2 || actual_payload > SCHEME_PAYLOAD_V3 {
+            if !(SCHEME_PAYLOAD_V2..=SCHEME_PAYLOAD_V3).contains(&actual_payload) {
                 return Err(SchemeError::PayloadMismatch {
                     expected: expected_payload,
                     got: actual_payload,

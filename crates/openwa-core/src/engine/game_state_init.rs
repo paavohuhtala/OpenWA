@@ -32,9 +32,9 @@ pub unsafe fn sprite_gfx_table_init(base: *mut u8, count: u32) {
 ///
 /// Allocates a zero-filled buffer of `capacity` bytes (aligned + 0x20 header),
 /// then initializes the ring buffer struct (7 DWORDs):
-/// - [0]: data pointer
-/// - [1]: capacity
-/// - [2]-[6]: zeroed (head, tail, count, etc.)
+/// - `[0]`: data pointer
+/// - `[1]`: capacity
+/// - `[2]`-`[6]`: zeroed (head, tail, count, etc.)
 pub unsafe fn ring_buffer_init(struct_ptr: *mut u8, capacity: u32) {
     let alloc_size = ((capacity + 3) & !3) + 0x20;
     let data = wa_malloc(alloc_size);
@@ -376,11 +376,10 @@ pub unsafe fn check_weapon_avail(ddgame: *mut DDGame, weapon_index: u32) -> i32 
             }
         }
         w if w == Weapon::DoubleTurnTime as u32 => {
-            if game_version > 0xD1 {
-                if (*gi).double_turn_time_threshold > 0x7FFF {
+            if game_version > 0xD1
+                && (*gi).double_turn_time_threshold > 0x7FFF {
                     return 0;
                 }
-            }
         }
         _ => {}
     }

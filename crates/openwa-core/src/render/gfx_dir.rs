@@ -121,9 +121,9 @@ pub unsafe fn gfx_dir_find_entry(name: *const core::ffi::c_char, gfx_dir: *mut u
 
         // Find '|' separator in buffer
         let mut pipe_pos: Option<usize> = None;
-        for j in 0..i {
-            if buf[j] == b'|' {
-                buf[j] = 0; // truncate at pipe
+        for (j, b) in buf[..i].iter_mut().enumerate() {
+            if *b == b'|' {
+                *b = 0; // truncate at pipe
                 pipe_pos = Some(j);
                 break;
             }
@@ -139,12 +139,12 @@ pub unsafe fn gfx_dir_find_entry(name: *const core::ffi::c_char, gfx_dir: *mut u
         };
 
         // Lowercase A-Z in buffer
-        for j in 0..buf.len() {
-            if buf[j] == 0 {
+        for b in buf.iter_mut() {
+            if *b == 0 {
                 break;
             }
-            if buf[j] >= b'A' && buf[j] <= b'Z' {
-                buf[j] += 0x20;
+            if *b >= b'A' && *b <= b'Z' {
+                *b += 0x20;
             }
         }
 

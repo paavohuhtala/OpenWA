@@ -97,7 +97,7 @@ fn is_likely_pointer(val: u32, delta: u32) -> bool {
     }
     // Check if it's in a known WA section (.text through .data end)
     let ghidra = val.wrapping_sub(delta);
-    if ghidra >= va::TEXT_START && ghidra < va::DATA_END {
+    if (va::TEXT_START..va::DATA_END).contains(&ghidra) {
         return true;
     }
     // Heap pointer heuristic: > 1MB and readable
@@ -159,7 +159,7 @@ pub unsafe fn hash_pointer_targets(
         if !is_likely_pointer(val, delta) { continue; }
         // Skip WA code/data pointers — only follow heap pointers
         let ghidra = val.wrapping_sub(delta);
-        if ghidra >= va::TEXT_START && ghidra < va::DATA_END { continue; }
+        if (va::TEXT_START..va::DATA_END).contains(&ghidra) { continue; }
         // Verify target is readable
         if !mem::can_read(val, target_window as u32) { continue; }
 

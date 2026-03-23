@@ -637,7 +637,7 @@ fn dump_team_blocks() {
 
         // Dump first 16 bytes at each team_index * 0x51C stride (slots -2 to 7)
         for slot in -2i32..8 {
-            let offset = slot as isize * 0x51C as isize;
+            let offset = slot as isize * 0x51C_isize;
             let ptr = tws_base.offset(offset);
             let mut hex = String::new();
             for i in 0..16usize {

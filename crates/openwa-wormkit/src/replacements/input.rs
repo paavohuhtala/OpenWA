@@ -230,7 +230,7 @@ unsafe extern "stdcall" fn hook_turn_manager(turngame: u32) {
 
     // Milestone detection (check every 50 frames to reduce overhead).
     // Skip the first 100 frames to let game state fully initialize.
-    if frame >= 100 && frame % 50 == 0 {
+    if frame >= 100 && frame.is_multiple_of(50) {
         check_milestones(ddgame, frame);
     }
 }

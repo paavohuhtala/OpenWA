@@ -413,12 +413,11 @@ unsafe extern "stdcall" fn draw_bungee_trail_impl(task_ptr: u32, style: u32, fil
         let seg_angle = *(seg_data.add(4 + i as usize * 8) as *const i32);
 
         // Include vertex if: first segment, or segment has nonzero angle, or fill mode
-        if i == 0 || seg_angle != 0 || fill != 0 {
-            if vert_count < MAX_VERTICES {
+        if (i == 0 || seg_angle != 0 || fill != 0)
+            && vert_count < MAX_VERTICES {
                 verts[vert_count] = [x, y, 0];
                 vert_count += 1;
             }
-        }
 
         accumulated_angle = accumulated_angle.wrapping_add(seg_angle as u32);
 
