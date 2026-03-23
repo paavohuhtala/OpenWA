@@ -128,7 +128,7 @@ unsafe extern "system" fn veh_handler(info: *mut EXCEPTION_POINTERS) -> i32 {
                     // Walk EBP chain for stack trace
                     let mut trace = heapless::String::<512>::new();
                     let mut ebp = ctx.Ebp;
-                    let esp = ctx.Esp;
+                    let _esp = ctx.Esp;
                     for depth in 0..12 {
                         // Validate EBP: must be in plausible stack range, aligned,
                         // and above ESP (stack grows down)

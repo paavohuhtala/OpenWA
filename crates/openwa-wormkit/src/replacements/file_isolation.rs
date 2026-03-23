@@ -17,14 +17,13 @@ use std::ffi::CStr;
 
 type HANDLE = *mut c_void;
 type DWORD = u32;
-type BOOL = i32;
-type LPSECURITY_ATTRIBUTES = *mut c_void;
+type LpSecurityAttributes = *mut c_void;
 
 type CreateFileAFn = unsafe extern "system" fn(
     lpFileName: *const u8,
     dwDesiredAccess: DWORD,
     dwShareMode: DWORD,
-    lpSecurityAttributes: LPSECURITY_ATTRIBUTES,
+    lpSecurityAttributes: LpSecurityAttributes,
     dwCreationDisposition: DWORD,
     dwFlagsAndAttributes: DWORD,
     hTemplateFile: HANDLE,
@@ -56,7 +55,7 @@ unsafe extern "system" fn hook_create_file_a(
     lp_file_name: *const u8,
     desired_access: DWORD,
     share_mode: DWORD,
-    security_attributes: LPSECURITY_ATTRIBUTES,
+    security_attributes: LpSecurityAttributes,
     creation_disposition: DWORD,
     flags_and_attributes: DWORD,
     template_file: HANDLE,

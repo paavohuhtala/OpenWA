@@ -485,7 +485,6 @@ unsafe fn fire_skip_go(worm: *const CTaskWorm, entry: *const WeaponEntry) {
 /// WormEntry.turn_action_counter_Maybe by 14 (0x0E).
 unsafe fn fire_surrender(worm: *mut CTaskWorm) {
     use openwa_core::engine::ddgame::TeamArenaRef;
-    use openwa_core::engine::DDGame;
 
     fire_send_team_message(worm, 0x29);
 

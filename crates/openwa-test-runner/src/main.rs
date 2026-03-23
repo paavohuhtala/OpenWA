@@ -15,7 +15,6 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-const DETACHED_PROCESS: u32 = 0x0000_0008;
 
 // ─── Configuration ──────────────────────────────────────────────────────────
 
@@ -132,8 +131,6 @@ fn discover_tests(filter: Option<&str>) -> Vec<TestCase> {
         if !expected.exists() {
             continue; // Skip replays without expected logs
         }
-
-        let output = path.with_extension("log");
 
         // WA.exe runs in the game directory, so replay/log paths must be absolute.
         // Strip \\?\ UNC prefix that canonicalize adds on Windows — WA.exe can't handle it.
