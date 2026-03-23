@@ -128,7 +128,7 @@ pub unsafe fn classify_pointer(value: u32, delta: u32) -> Option<PointerInfo> {
 
 /// Rich pointer identification result.
 #[derive(Debug)]
-pub struct KnownPointer {
+pub struct PointerIdentity {
     /// Raw runtime value.
     pub raw_value: u32,
     /// Ghidra VA (raw_value - ASLR delta).
@@ -150,7 +150,7 @@ pub struct KnownPointer {
 ///
 /// `delta` is `runtime_base - 0x400000` (the ASLR offset).
 #[cfg(target_os = "windows")]
-pub unsafe fn detect_pointer(value: u32, delta: u32) -> Option<KnownPointer> {
+pub unsafe fn identify_pointer(value: u32, delta: u32) -> Option<PointerIdentity> {
     if value == 0 || value < 0x10000 {
         return None;
     }
@@ -174,7 +174,7 @@ pub unsafe fn detect_pointer(value: u32, delta: u32) -> Option<KnownPointer> {
             } else {
                 format!("{}+0x{:X}", resolved.entry.name, resolved.offset)
             };
-            return Some(KnownPointer {
+            return Some(PointerIdentity {
                 raw_value: value,
                 ghidra_value: ghidra_val,
                 segment,
@@ -197,7 +197,7 @@ pub unsafe fn detect_pointer(value: u32, delta: u32) -> Option<KnownPointer> {
             }
             None => format!("{}+0x{:X}", m.object.class_name, m.offset),
         };
-        return Some(KnownPointer {
+        return Some(PointerIdentity {
             raw_value: value,
             ghidra_value: ghidra_val,
             segment: PointerKind::Object,
@@ -215,7 +215,7 @@ pub unsafe fn detect_pointer(value: u32, delta: u32) -> Option<KnownPointer> {
         let first = *(value as *const u32);
         let ghidra_first = first.wrapping_sub(delta);
         if let Some(class) = registry::vtable_class_name(ghidra_first) {
-            return Some(KnownPointer {
+            return Some(PointerIdentity {
                 raw_value: value,
                 ghidra_value: ghidra_val,
                 segment: PointerKind::Object,
@@ -227,7 +227,7 @@ pub unsafe fn detect_pointer(value: u32, delta: u32) -> Option<KnownPointer> {
     }
 
     // 4. Fall back to segment-based classification
-    classify_pointer(value, delta).map(|info| KnownPointer {
+    classify_pointer(value, delta).map(|info| PointerIdentity {
         raw_value: info.raw_value,
         ghidra_value: info.ghidra_value,
         segment: info.kind,
