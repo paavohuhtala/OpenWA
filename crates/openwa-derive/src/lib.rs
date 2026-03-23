@@ -86,9 +86,8 @@ pub fn derive_field_registry(input: TokenStream) -> TokenStream {
     let expanded = quote! {
         impl openwa_core::registry::HasFieldRegistry for #struct_name {
             fn field_registry() -> &'static openwa_core::registry::StructFields {
-                // Sort entries by offset at runtime on first access.
-                // We can't sort a const array, but the fields are defined in
-                // declaration order which matches memory order for #[repr(C)].
+                // Fields are already sorted by offset because #[repr(C)]
+                // guarantees declaration order = memory order.
                 static FIELDS: openwa_core::registry::StructFields = openwa_core::registry::StructFields {
                     struct_name: #struct_name_str,
                     fields: {
