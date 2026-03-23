@@ -562,7 +562,7 @@ fn main() {
     });
 
     // Create run directory
-    let timestamp = chrono_lite();
+    let timestamp = timestamp();
     let run_dir = PathBuf::from(RUNS_DIR).join(&timestamp);
     let _ = fs::create_dir_all(&run_dir);
     let run_dir = strip_unc(fs::canonicalize(&run_dir).unwrap_or(run_dir));
@@ -593,38 +593,6 @@ fn main() {
     }
 }
 
-/// Simple timestamp without chrono dependency.
-fn chrono_lite() -> String {
-    use std::time::SystemTime;
-    let d = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap_or_default();
-    let secs = d.as_secs();
-    // Convert to roughly readable format (not perfect but unique)
-    let s = secs % 60;
-    let m = (secs / 60) % 60;
-    let h = (secs / 3600) % 24;
-    let days = secs / 86400;
-    // Days since epoch → approximate date
-    let (y, mo, day) = days_to_ymd(days);
-    format!("{y:04}-{mo:02}-{day:02}_{h:02}-{m:02}-{s:02}")
-}
-
-fn days_to_ymd(mut days: u64) -> (u64, u64, u64) {
-    // Rough Gregorian approximation
-    let mut y = 1970;
-    loop {
-        let ydays = if y % 4 == 0 && (y % 100 != 0 || y % 400 == 0) { 366 } else { 365 };
-        if days < ydays { break; }
-        days -= ydays;
-        y += 1;
-    }
-    let leap = y % 4 == 0 && (y % 100 != 0 || y % 400 == 0);
-    let mdays = [31, if leap { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-    let mut m = 0;
-    while m < 12 && days >= mdays[m] {
-        days -= mdays[m];
-        m += 1;
-    }
-    (y, m as u64 + 1, days + 1)
+fn timestamp() -> String {
+    chrono::Local::now().format("%Y-%m-%d_%H-%M-%S").to_string()
 }

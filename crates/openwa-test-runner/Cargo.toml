@@ -7,3 +7,6 @@ description = "Headless replay test runner with concurrent execution"
 [[bin]]
 name = "openwa-test"
 path = "src/main.rs"
+
+[dependencies]
+chrono = "0.4"
