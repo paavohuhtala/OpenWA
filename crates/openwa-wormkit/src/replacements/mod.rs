@@ -1,6 +1,7 @@
 mod config;
 mod ddgame_init;
 mod display;
+mod file_isolation;
 mod frontend;
 mod game_session;
 mod game_state_hooks;
@@ -22,6 +23,7 @@ pub fn write_gameplay_report() {
 
 pub fn install_all() -> Result<(), String> {
     headless::install()?;
+    file_isolation::install()?;
     display::install()?;
     game_session::install()?;
     hardware_init::install()?;

@@ -15,10 +15,7 @@ use std::time::{Duration, Instant};
 
 // ─── Configuration ──────────────────────────────────────────────────────────
 
-/// Default to serial — concurrent mode (-j N) has a known flaky race in WA.exe
-/// startup that causes occasional checksum mismatches. Use procmon to identify
-/// the shared resource. The 1s launch stagger helps but doesn't fully fix it.
-const DEFAULT_JOBS: usize = 1;
+const DEFAULT_JOBS: usize = 4;
 const TIMEOUT_SECS: u64 = 120;
 const REPLAYS_DIR: &str = "testdata/replays";
 const RUNS_DIR: &str = "testdata/runs";
@@ -228,6 +225,7 @@ fn run_test(test: &TestCase, launcher: &Path, wa_exe: &Path, run_dir: &Path) -> 
         .stderr(std::process::Stdio::null())
         .status();
 
+
     let duration = start.elapsed();
 
     match result {
@@ -374,12 +372,13 @@ fn run_tests_parallel(
     }
     drop(tx); // Drop our sender so rx closes when all workers finish
 
-    // Submit work with small stagger to avoid startup races
+    // Submit work with small stagger to reduce startup races from unidentified
+    // shared resources (writetest.txt, steam.dat, or unknown Win32 globals).
     for (idx, test) in tests.into_iter().enumerate() {
-        let _ = work_tx.send((idx, test));
         if idx > 0 {
-            thread::sleep(Duration::from_millis(1000));
+            thread::sleep(Duration::from_millis(200));
         }
+        let _ = work_tx.send((idx, test));
     }
     drop(work_tx); // Signal no more work
 
@@ -459,6 +458,45 @@ fn write_summary(results: &[TestResult], wall_time: Duration, path: &Path) {
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
+
+/// Clean up per-PID temp files left by the file isolation hook.
+/// Matches patterns: mono_*.tmp, land_*.dat, landgen_*.svg, playback_*.thm, cur_*.thm
+fn cleanup_temp_files(wa_exe: &Path) {
+    let game_dir = match wa_exe.parent() {
+        Some(d) => d,
+        None => return,
+    };
+
+    let patterns = [
+        (game_dir, "mono_", ".tmp"),
+        (game_dir, "cur_", ".thm"),
+    ];
+    let data_dir = game_dir.join("DATA");
+    let data_patterns = [
+        ("land_", ".dat"),
+        ("landgen_", ".svg"),
+        ("playback_", ".thm"),
+    ];
+
+    for (dir, prefix, suffix) in &patterns {
+        cleanup_matching(dir, prefix, suffix);
+    }
+    for (prefix, suffix) in &data_patterns {
+        cleanup_matching(&data_dir, prefix, suffix);
+    }
+}
+
+fn cleanup_matching(dir: &Path, prefix: &str, suffix: &str) {
+    if let Ok(entries) = fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let name = entry.file_name();
+            let name = name.to_string_lossy();
+            if name.starts_with(prefix) && name.ends_with(suffix) {
+                let _ = fs::remove_file(entry.path());
+            }
+        }
+    }
+}
 
 /// Normalize CRLF to LF for cross-platform comparison.
 fn normalize_crlf(data: &[u8]) -> Vec<u8> {
@@ -540,6 +578,9 @@ fn main() {
     // Summary
     print_summary(&results, wall_time);
     write_summary(&results, wall_time, &run_dir.join("summary.txt"));
+
+    // Clean up per-PID temp files from the game directory
+    cleanup_temp_files(&wa_exe);
 
     let failed = results.iter().any(|r| !r.passed);
     if failed {
