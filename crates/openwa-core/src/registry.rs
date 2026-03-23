@@ -338,4 +338,77 @@ mod tests {
 
         assert!(FIELDS.field_containing(0x30).is_none());
     }
+
+    #[test]
+    fn derive_field_registry_ctask() {
+        use crate::task::CTask;
+
+        let reg = CTask::field_registry();
+        assert_eq!(reg.struct_name, "CTask");
+
+        // CTask has known fields at known offsets
+        let vtable = reg.field_at(0x00).expect("vtable field at 0x00");
+        assert_eq!(vtable.name, "vtable");
+        assert_eq!(vtable.size, 4);
+
+        let ddgame = reg.field_at(0x2C).expect("ddgame field at 0x2C");
+        assert_eq!(ddgame.name, "ddgame");
+
+        // _unknown_1c should be skipped
+        assert!(
+            reg.fields.iter().all(|f| !f.name.starts_with("_unknown")),
+            "unknown fields should be excluded"
+        );
+    }
+
+    #[test]
+    fn derive_field_registry_ddgame() {
+        use crate::engine::DDGame;
+
+        let reg = DDGame::field_registry();
+        assert_eq!(reg.struct_name, "DDGame");
+
+        // DDGame has keyboard at 0x00
+        let keyboard = reg.field_at(0x00).expect("keyboard at 0x00");
+        assert_eq!(keyboard.name, "keyboard");
+
+        // game_info at 0x24
+        let gi = reg.field_at(0x24).expect("game_info at 0x24");
+        assert_eq!(gi.name, "game_info");
+
+        // Should have many fields (DDGame is huge)
+        assert!(
+            reg.fields.len() > 20,
+            "DDGame should have >20 named fields, got {}",
+            reg.fields.len()
+        );
+
+        // No unknown fields
+        assert!(
+            reg.fields.iter().all(|f| !f.name.starts_with("_unknown")),
+            "unknown fields should be excluded"
+        );
+    }
+
+    #[test]
+    fn derive_field_registry_game_session() {
+        use crate::engine::GameSession;
+
+        let reg = GameSession::field_registry();
+        assert_eq!(reg.struct_name, "GameSession");
+
+        // ddgame_wrapper at 0xA0
+        let wrapper = reg.field_at(0xA0).expect("ddgame_wrapper at 0xA0");
+        assert_eq!(wrapper.name, "ddgame_wrapper");
+    }
+
+    #[test]
+    fn derive_preserves_doc_comments() {
+        use crate::task::CTask;
+
+        let reg = CTask::field_registry();
+        let vtable = reg.field_at(0x00).unwrap();
+        // Doc comment should be non-empty (we have "0x00: Pointer to virtual method table")
+        assert!(!vtable.doc.is_empty(), "doc should be extracted: {:?}", vtable.doc);
+    }
 }

@@ -3,6 +3,7 @@ use crate::display::dd_display::DDDisplay;
 use crate::engine::ddgame::DDGame;
 use crate::engine::net_bridge::NetBridge;
 use crate::render::landscape::PCLandscape;
+use crate::FieldRegistry;
 
 /// Speech name table entry size (0x40 = 64 bytes, null-terminated C string).
 pub const SPEECH_NAME_ENTRY_SIZE: usize = 0x40;
@@ -20,6 +21,7 @@ pub const SPEECH_NAME_TABLE_LEN: usize = 360;
 /// Byte offset = dword_index * 4.
 ///
 /// PARTIAL: Only confirmed fields are defined.
+#[derive(FieldRegistry)]
 #[repr(C)]
 pub struct DDGameWrapper {
     /// 0x000: Vtable pointer (0x66A30C)

@@ -1,5 +1,6 @@
 use crate::address::va;
 use crate::audio::active_sound::ActiveSoundTable;
+use crate::FieldRegistry;
 use crate::audio::dssound::DSSound;
 use crate::audio::music::Music;
 use crate::audio::speech::SpeechSlotTable;
@@ -37,6 +38,7 @@ use crate::wa_alloc::{wa_malloc, wa_malloc_zeroed};
 /// Note on offsets: The constructor accesses DDGame fields via
 /// `*(param_2[0x122] + byte_offset)` — these are byte offsets, NOT DWORD-indexed.
 /// DWORD indexing only applies to param_2 (DDGameWrapper) itself.
+#[derive(FieldRegistry)]
 #[repr(C)]
 pub struct DDGame {
     /// 0x000: DDKeyboard pointer (vtable 0x66AEC8). Constructor param "keyboard".

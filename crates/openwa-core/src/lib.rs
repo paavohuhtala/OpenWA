@@ -13,9 +13,16 @@
 #![allow(clippy::empty_line_after_doc_comments)]
 #![allow(clippy::doc_lazy_continuation)]
 
+// Allow proc macros to reference `openwa_core::registry` even when
+// invoked from within openwa-core itself (where the crate name is `crate`).
+extern crate self as openwa_core;
+
 // Re-export inventory so the define_addresses! macro can reference it
 // from any crate that depends on openwa-core.
 pub use inventory;
+
+// Re-export derive macros so users write `use openwa_core::FieldRegistry;`
+pub use openwa_derive::FieldRegistry;
 
 #[macro_use]
 pub mod macros;

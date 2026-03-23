@@ -1477,6 +1477,7 @@ dependencies = [
  "hound",
  "inventory",
  "openwa-debug-proto",
+ "openwa-derive",
  "windows",
  "windows-sys 0.59.0",
 ]
@@ -1503,6 +1504,15 @@ dependencies = [
  "eframe",
  "openwa-core",
  "winit",
+]
+
+[[package]]
+name = "openwa-derive"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

@@ -1,5 +1,6 @@
 use crate::engine::ddgame::DDGame;
 use crate::game::class_type::ClassType;
+use crate::FieldRegistry;
 
 /// Base task class in WA's entity hierarchy.
 ///
@@ -17,6 +18,7 @@ use crate::game::class_type::ClassType;
 ///   0x14: 0x562FA0 unknown
 ///   0x18: 0x563000 unknown
 ///   0x1C: 0x563210 ProcessFrame
+#[derive(FieldRegistry)]
 #[repr(C)]
 pub struct CTask {
     /// 0x00: Pointer to virtual method table

@@ -2,6 +2,7 @@ use crate::audio::dssound::DSSound;
 use crate::display::palette::Palette;
 use crate::engine::ddgame_wrapper::DDGameWrapper;
 use crate::input::keyboard::DDKeyboard;
+use crate::FieldRegistry;
 
 /// Top-level game session context, allocated once per game run.
 ///
@@ -22,6 +23,7 @@ use crate::input::keyboard::DDKeyboard;
 ///
 /// In headless/stats mode (`GameInfo+0xF914 != 0`), `display_gfx` holds a
 /// `GameStats` object with a DDInput vtable instead of a real `DisplayGfx`.
+#[derive(FieldRegistry)]
 #[repr(C)]
 pub struct GameSession {
     /// 0x000: vtable pointer (class `GameSession`, `PTR_FUN_0066b3f8`)

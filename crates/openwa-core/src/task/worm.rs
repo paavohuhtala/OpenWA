@@ -1,6 +1,7 @@
 use super::base::CTask;
 use super::game_task::CGameTask;
 use crate::game::weapon::WeaponEntry;
+use crate::FieldRegistry;
 
 /// Virtual method table for CTaskWorm (vtable at 0x6644C8, 20 slots).
 ///
@@ -81,6 +82,7 @@ const _: () = assert!(core::mem::size_of::<CTaskWormVTable>() == 20 * 4);
 ///
 /// Source: Ghidra decompilation of 0x50BFB0, vtable analysis of 0x6644C8,
 ///         wkJellyWorm CTaskWorm.h
+#[derive(FieldRegistry)]
 #[repr(C)]
 pub struct CTaskWorm {
     /// 0x00–0xFB: CGameTask base (position, velocity, sound emitter, etc.)
