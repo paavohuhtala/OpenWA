@@ -369,7 +369,7 @@ unsafe fn fire_weapon_special(
         10 => call_fire_usercall(w, w, rb(0x51E710)),                                    // Air Strike (EAX=worm)
         11 => fire_worm_vtable_0xe(w, 0x71),                                            // Scales of Justice
         13 => fire_send_team_message(worm, 0x2B),                                          // Napalm Strike
-        14 => call_fire_usercall(w, w, rb(0x51E670)),                                    // Mail/Mine/Mole (EAX=worm)
+        14 => fire_mail_mine_mole(worm),                                                   // Mail/Mine/Mole (pure Rust)
         16 => {
             // Teleport: MOV EAX,[ESI+0x44] (worm state) before check
             let worm_state = (*worm).state();
@@ -383,7 +383,7 @@ unsafe fn fire_weapon_special(
         17 => call_fire_usercall(w, w, rb(0x51E920)),                                    // Freeze (EAX=worm)
         18 => fire_worm_vtable_0xe(w, 0x72),                                            // Suicide Bomber
         19 => fire_skip_go(worm, entry),                                                 // Skip Go (pure Rust)
-        20 => call_fire_usercall(w, w, rb(0x51E600)),                                    // Surrender (EAX=worm)
+        20 => fire_surrender(worm),                                                        // Surrender (pure Rust)
         21 => fire_select_worm(worm),                                                     // Select Worm (pure Rust)
         22 => call_fire_usercall(e, w, rb(0x51EC30)),                                    // Jet Pack (EAX=entry)
         23 => fire_worm_vtable_0xe(w, 0x78),                                            // Magic Bullet
@@ -477,6 +477,61 @@ unsafe fn fire_skip_go(worm: *const CTaskWorm, entry: *const WeaponEntry) {
     } else {
         header.turn_action_flags = flags | bit;
     }
+}
+
+/// Surrender (subtype 20) — pure Rust replacement for 0x51E600.
+///
+/// Sends message 0x29 to CTaskTeam with buf = [team_index], then increments
+/// WormEntry.turn_action_counter_Maybe by 14 (0x0E).
+unsafe fn fire_surrender(worm: *mut CTaskWorm) {
+    use openwa_core::engine::ddgame::TeamArenaRef;
+    use openwa_core::engine::DDGame;
+
+    fire_send_team_message(worm, 0x29);
+
+    let ddgame = (*worm).base.base.ddgame;
+    let arena = TeamArenaRef::from_ptr(&raw mut (*ddgame).team_arena);
+    let team_index = (*worm).team_index as usize;
+    let worm_index = (*worm).worm_index as usize;
+    let entry = arena.team_worm_mut(team_index, worm_index);
+    entry.turn_action_counter_Maybe += 14;
+}
+
+/// Mail/Mine/Mole (subtype 14) — pure Rust replacement for 0x51E670.
+///
+/// Conditionally calls worm->vtable[0xE](0x65) based on game version and worm state,
+/// then sends message 0x28 to CTaskTeam, then increments
+/// WormEntry.turn_action_counter_Maybe by 7.
+///
+/// Version check logic (from disassembly at 0x51E670):
+/// - version < 2: call vtable[0xE](0x65)
+/// - 2 <= version < 5: skip vtable call
+/// - version >= 5 && worm state == 0x7D: call vtable
+/// - version >= 5 && worm state == 0x78 && version < 8: call vtable
+/// - otherwise: skip
+unsafe fn fire_mail_mine_mole(worm: *mut CTaskWorm) {
+    use openwa_core::engine::ddgame::TeamArenaRef;
+    use openwa_core::engine::DDGame;
+
+    let ddgame = (*worm).base.base.ddgame as *mut DDGame;
+    let version = *((ddgame as *const u8).add(0x7E40));
+    let worm_state = (*worm).state();
+
+    let should_call_vtable = version < 2
+        || (version >= 5
+            && (worm_state == 0x7D || (worm_state == 0x78 && version < 8)));
+
+    if should_call_vtable {
+        fire_worm_vtable_0xe(worm as u32, 0x65);
+    }
+
+    fire_send_team_message(worm, 0x28);
+
+    let arena = TeamArenaRef::from_ptr(&raw mut (*ddgame).team_arena);
+    let team_index = (*worm).team_index as usize;
+    let worm_index = (*worm).worm_index as usize;
+    let entry = arena.team_worm_mut(team_index, worm_index);
+    entry.turn_action_counter_Maybe += 7;
 }
 
 // ── Naked asm bridges ───────────────────────────────────────

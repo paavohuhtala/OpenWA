@@ -1,0 +1,37 @@
+Game Started at 2026-03-23 16:22:42 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Red:  "2-UP"
+Blue: "3-UP"
+
+[00:00:00.00] ••• 3-UP starts turn
+[00:00:09.30] ••• 3-UP fires Mail Strike
+[00:00:14.68] ••• 3-UP ends turn; time used: 5.06 sec turn, 3.00 sec retreat
+[00:00:19.86] ••• Damage dealt: 79 to 2-UP
+[00:00:19.86] ••• 2-UP starts turn
+[00:00:23.66] ••• 2-UP fires Mine Strike
+[00:00:27.14] ••• 2-UP ends turn; time used: 1.40 sec turn, 3.00 sec retreat
+[00:00:39.64] ••• Damage dealt: 96 to 2-UP, 53 to 3-UP
+[00:00:39.64] ••• 3-UP starts turn
+[00:00:47.38] ••• 3-UP fires Mole Squadron
+[00:00:51.94] ••• 3-UP ends turn; time used: 6.22 sec turn, 3.00 sec retreat
+[00:00:55.20] ••• Damage dealt: 7 to 2-UP, 68 to 3-UP
+[00:00:55.20] ••• 2-UP starts turn
+[00:00:59.12] ••• 2-UP fires Surrender
+[00:00:59.14] ••• 2-UP ends turn; time used: 0.28 sec turn, 0.00 sec retreat
+[00:01:05.10] ••• Game Ends - Round Finished
+
+Team time totals:
+2-UP: Turn: 00:00:01.68, Retreat: 00:00:03.00, Total: 00:00:04.68, Turn count: 2
+3-UP: Turn: 00:00:11.28, Retreat: 00:00:06.00, Total: 00:00:17.28, Turn count: 2
+
+End of round 1
+
+Round time: 0:01:05
+Total game time elapsed: 0:01:05
+
+3-UP wins the round.
+
+Most damage with one shot: 149 - Boody (2-UP)

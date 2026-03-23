@@ -1728,8 +1728,11 @@ pub struct WormEntry {
     /// Values: 0x65=idle, 0x67=active/selected, 0x68=active variant.
     /// Special states {0x80..0x85, 0x89} = dying/drowning/special animation.
     pub state: u32,
-    /// 0x04-0x0B: Unknown
-    pub _unknown_04: [u8; 8],
+    /// 0x04: Unknown counter. Incremented by Freeze (+10).
+    pub effect_counter_04_Maybe: i32,
+    /// 0x08: Turn action counter. Incremented by weapon handlers:
+    /// Surrender (+14), Mail/Mine/Mole (+7), Freeze (+3).
+    pub turn_action_counter_Maybe: i32,
     /// 0x0C: Active/alive flag (1 for alive worms in game, 0 otherwise).
     pub active_flag: i32,
     /// 0x10-0x57: Unknown
@@ -2049,6 +2052,16 @@ impl TeamArenaRef {
             .add(worm_num * 0x9C)
             .sub(0x598);
         &*(ptr as *const WormEntry)
+    }
+
+    /// Get a mutable reference to a specific worm entry.
+    pub unsafe fn team_worm_mut(&self, team_idx: usize, worm_num: usize) -> &mut WormEntry {
+        let ptr = self
+            .base
+            .add(team_idx * 0x51C)
+            .add(worm_num * 0x9C)
+            .sub(0x598);
+        &mut *(ptr as *mut WormEntry)
     }
 
     /// Get a team's block and its header in one call.

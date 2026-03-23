@@ -344,13 +344,21 @@ unsafe fn parse_and_write_v2plus(
         let scheme_slice = s.advance_raw(scheme_data_size)?;
         ptr::copy_nonoverlapping(scheme_slice.as_ptr(), rb(va::G_SCHEME_DATA) as *mut u8, scheme_data_size);
 
-        // If scheme_header < 0 (signed) and v1/v2: clear + defaults
-        if scheme_version <= 2 && (*(rb(va::G_SCHEME_HEADER) as *const i8)) < 0 {
-            ptr::write_bytes(rb(va::G_SCHEME_OPTIONS) as *mut u8, 0, 0x4C);
-            ptr::copy_nonoverlapping(
-                rb(va::SCHEME_V3_DEFAULTS) as *const u8,
-                rb(va::G_SCHEME_V3_DATA) as *mut u8, 0x6E,
-            );
+        let header_val = *(rb(va::G_SCHEME_HEADER) as *const i8);
+
+        // If scheme_header < 0 (signed): apply defaults.
+        // V1: clear super weapons (0x4C bytes) + copy V3 defaults.
+        // V2: copy V3 defaults ONLY (super weapon data is already in the payload).
+        if header_val < 0 {
+            if scheme_version == 1 {
+                ptr::write_bytes(rb(va::G_SCHEME_OPTIONS) as *mut u8, 0, 0x4C);
+            }
+            if scheme_version <= 2 {
+                ptr::copy_nonoverlapping(
+                    rb(va::SCHEME_V3_DEFAULTS) as *const u8,
+                    rb(va::G_SCHEME_V3_DATA) as *mut u8, 0x6E,
+                );
+            }
         }
 
         // Validate extended options for v3
