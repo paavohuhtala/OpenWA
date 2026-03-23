@@ -1,5 +1,6 @@
 use super::base::CTask;
 use crate::fixed::Fixed;
+use crate::FieldRegistry;
 
 /// Per-team state-tracker task — one instance per team, child of CTaskTurnGame.
 ///
@@ -18,6 +19,7 @@ use crate::fixed::Fixed;
 ///   - `_item_slots[0..99]` at +0x88: up to 100 weapon/item IDs loaded from scheme
 ///   - `worm_count` at +0x218: number of CTaskWorm children constructed (1-indexed)
 ///   - SharedData node (0x30 bytes) registered with key = (team_index, type=0x15)
+#[derive(FieldRegistry)]
 #[repr(C)]
 pub struct CTaskTeam {
     /// 0x00–0x2F: CTask base (vtable, parent, children, shared_data, ddgame, …)

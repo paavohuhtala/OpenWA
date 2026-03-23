@@ -1,5 +1,6 @@
 use super::base::CTask;
 use crate::fixed::Fixed;
+use crate::FieldRegistry;
 
 /// Airstrike / weather cloud task.
 ///
@@ -17,6 +18,7 @@ use crate::fixed::Fixed;
 ///
 /// Source: Ghidra decompilation of 0x5482E0 (constructor) and
 ///         0x5484C0 (HandleMessage update + render branches).
+#[derive(FieldRegistry)]
 #[repr(C)]
 pub struct CTaskCloud {
     /// 0x00–0x2F: CTask base

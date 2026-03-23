@@ -2,10 +2,12 @@
 
 use crate::rebase::rb;
 use crate::wa_alloc::wa_malloc;
+use crate::FieldRegistry;
 
 /// Bitfield grid buffer used for spatial collision/visibility queries.
 /// Vtable at 0x6640EC (shared with DisplayGfx base).
 /// Size: 0x2C bytes (11 u32 fields).
+#[derive(FieldRegistry)]
 #[repr(C)]
 pub struct BitGrid {
     pub vtable: u32,

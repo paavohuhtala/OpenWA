@@ -1,4 +1,5 @@
 use super::base::CTask;
+use crate::FieldRegistry;
 
 /// Message-subscription filter task — routes messages selectively to child tasks.
 ///
@@ -31,6 +32,7 @@ use super::base::CTask;
 ///   and optionally 0x0E (if `GameInfo+0xD778 < -1`)
 /// - `CTaskTeam__CreateWeatherFilter` (0x552960): subscribes to 1, 2, 3, 0x54, then
 ///   spawns `CTaskCloud` children using randomised positions (only if `DDGame+0x777C == 0`)
+#[derive(FieldRegistry)]
 #[repr(C)]
 pub struct CTaskFilter {
     /// 0x00–0x2F: CTask base.

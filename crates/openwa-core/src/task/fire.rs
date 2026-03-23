@@ -1,4 +1,5 @@
 use super::base::CTask;
+use crate::FieldRegistry;
 
 /// Fire/flame entity task.
 ///
@@ -11,6 +12,7 @@ use super::base::CTask;
 /// at 0xFFFF and counts down each frame; when it reaches zero the fire
 /// dies.  `lifetime` at +0xB1 is a signed byte: 0xFF (= -1i8) means alive,
 /// 0 means the task is being destroyed.
+#[derive(FieldRegistry)]
 #[repr(C)]
 pub struct CTaskFire {
     /// 0x00-0x2F: CTask base

@@ -1,5 +1,6 @@
 use super::base::CTask;
 use crate::fixed::Fixed;
+use crate::FieldRegistry;
 
 /// Embedded intermediate game-context sub-object within `CTaskTurnGame`.
 ///
@@ -25,6 +26,7 @@ use crate::fixed::Fixed;
 /// either constructor; they appear to be set by `FUN_005514d0` or similar
 /// helpers called later. Observed runtime values: +0xA0 = 15, +0xA4/+0xA8
 /// are heap pointers.
+#[derive(FieldRegistry)]
 #[repr(C)]
 pub struct TurnGameCtx {
     /// +0x00 (= CTaskTurnGame+0x30): Secondary interface vtable pointer.
@@ -91,6 +93,7 @@ const _: () = assert!(core::mem::size_of::<TurnGameCtx>() == 0xAC);
 ///   [3] 0x5612E0 — HUD data query (responds to msg 0x7D3)
 ///
 /// All timers decrement by 20 ms per frame (= 1000 ms / 50 fps).
+#[derive(FieldRegistry)]
 #[repr(C)]
 pub struct CTaskTurnGame {
     /// 0x00-0x2F: CTask base (vtable, parent, children, shared_data, ddgame, …)

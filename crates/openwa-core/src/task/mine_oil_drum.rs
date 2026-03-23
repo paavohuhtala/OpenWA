@@ -1,4 +1,5 @@
 use super::game_task::CGameTask;
+use crate::FieldRegistry;
 
 /// Land mine entity task.
 ///
@@ -10,6 +11,7 @@ use super::game_task::CGameTask;
 ///
 /// Source: Ghidra decompilation of 0x506660 (constructor) and
 ///         0x5072E0 (HandleMessage, msg 2/0x15/0x1C/0x4B branches).
+#[derive(FieldRegistry)]
 #[repr(C)]
 pub struct CTaskMine {
     /// 0x00–0xFB: CGameTask base (pos at 0x84/0x88, speed at 0x90/0x94)
@@ -45,6 +47,7 @@ const _: () = assert!(core::mem::size_of::<CTaskMine>() == 0x128);
 ///
 /// Source: Ghidra decompilation of 0x504AF0 (constructor) and
 ///         0x5050B0 (HandleMessage, msg 2/0x1C branches).
+#[derive(FieldRegistry)]
 #[repr(C)]
 pub struct CTaskOilDrum {
     /// 0x00–0xFB: CGameTask base (pos at 0x84/0x88, speed at 0x90/0x94)

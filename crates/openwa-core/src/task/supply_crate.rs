@@ -1,4 +1,5 @@
 use super::game_task::CGameTask;
+use crate::FieldRegistry;
 
 /// Weapon/health/utility crate entity task.
 ///
@@ -13,6 +14,7 @@ use super::game_task::CGameTask;
 /// param_3 into offset 0x110, making the crate carry its full configuration.
 ///
 /// Source: Ghidra decompilation of 0x502490, wkJellyWorm CTaskCrate.h
+#[derive(FieldRegistry)]
 #[repr(C)]
 pub struct CTaskCrate {
     /// 0x00–0xFB: CGameTask base (pos at 0x84/0x88, speed at 0x90/0x94)

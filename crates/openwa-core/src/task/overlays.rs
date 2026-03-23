@@ -1,6 +1,7 @@
 use super::base::CTask;
 use super::game_task::{CGameTask, SoundEmitter};
 use crate::fixed::Fixed;
+use crate::FieldRegistry;
 
 /// Bungee trail rendering task fields.
 ///
@@ -9,6 +10,7 @@ use crate::fixed::Fixed;
 /// offsets for different purposes.
 ///
 /// Cast a task pointer to this type when you know it's a bungee trail task.
+#[derive(FieldRegistry)]
 #[repr(C)]
 pub struct BungeeTrailTask {
     /// 0x00-0x2F: CTask base
@@ -47,6 +49,7 @@ const _: () = assert!(core::mem::size_of::<BungeeTrailTask>() == 0xFC);
 /// class region beyond CGameTask (0xFC). The exact class name is unknown.
 ///
 /// Cast a task pointer to this type when you know it's a worm/weapon aiming task.
+#[derive(FieldRegistry)]
 #[repr(C)]
 pub struct WeaponAimTask {
     /// 0x00-0xFB: CGameTask base
