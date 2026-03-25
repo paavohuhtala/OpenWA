@@ -140,6 +140,14 @@ fn handle_request(request: Request) -> Response {
             let frame = crate::debug_sync::current_frame();
             Response::Snapshot { frame, text }
         }
+        Request::Inspect { class_name, addr, chain, absolute } => {
+            handle_inspect(&class_name, addr, &chain, absolute)
+        }
+        Request::ListObjects => handle_list_objects(),
+        Request::ResolveAlias { name } => handle_resolve_alias(&name),
+        Request::ResolveField { class_name, field_name } => {
+            handle_resolve_field(&class_name, &field_name)
+        }
     }
 }
 
@@ -196,6 +204,174 @@ fn handle_read(addr: u32, len: u32, absolute: bool) -> Response {
             data,
             pointers,
         }
+    }
+}
+
+fn handle_inspect(class_name: &str, addr: u32, chain: &[u32], absolute: bool) -> Response {
+    use openwa_core::field_format::{self, FormatContext};
+    use openwa_core::registry;
+
+    let fields = match registry::struct_fields_for(class_name) {
+        Some(f) => f,
+        None => {
+            return Response::Error {
+                message: format!("No FieldRegistry for '{}'", class_name),
+            };
+        }
+    };
+
+    // Resolve address (possibly through a chain)
+    let (_, runtime_addr, delta) = if chain.is_empty() {
+        resolve_addr(addr, absolute)
+    } else {
+        // Walk chain first
+        let (_, mut current, delta) = resolve_addr(addr, absolute);
+        for &offset in chain {
+            unsafe {
+                if !mem::can_read(current, 4) {
+                    return Response::Error {
+                        message: format!(
+                            "Chain broke: cannot read at runtime:0x{:08X}",
+                            current
+                        ),
+                    };
+                }
+                let value = *(current as *const u32);
+                if value == 0 {
+                    return Response::Error {
+                        message: format!("Chain broke: NULL at runtime:0x{:08X}", current),
+                    };
+                }
+                current = value.wrapping_add(offset);
+            }
+        }
+        (current.wrapping_sub(delta), current, delta)
+    };
+
+    let ghidra_addr = runtime_addr.wrapping_sub(delta);
+    let ctx = FormatContext { delta };
+
+    let mut result_fields = Vec::new();
+    for field in fields.fields {
+        unsafe {
+            let field_ptr = (runtime_addr + field.offset) as *const u8;
+            let size = field.size as usize;
+
+            if !mem::can_read(runtime_addr + field.offset, field.size) {
+                result_fields.push(FieldValue {
+                    offset: field.offset,
+                    name: field.name.to_string(),
+                    size: field.size,
+                    hex: "<unreadable>".into(),
+                    display: "<unreadable>".into(),
+                });
+                continue;
+            }
+
+            let data = core::slice::from_raw_parts(field_ptr, size);
+
+            // Hex representation
+            let hex = data
+                .iter()
+                .map(|b| format!("{:02X}", b))
+                .collect::<Vec<_>>()
+                .join(" ");
+
+            // Formatted display
+            let mut display = String::new();
+            let _ = field_format::format_field(&mut display, data, field, &ctx);
+
+            result_fields.push(FieldValue {
+                offset: field.offset,
+                name: field.name.to_string(),
+                size: field.size,
+                hex,
+                display,
+            });
+        }
+    }
+
+    Response::InspectResult {
+        class_name: class_name.to_string(),
+        ghidra_addr,
+        runtime_addr,
+        fields: result_fields,
+    }
+}
+
+fn handle_list_objects() -> Response {
+    use openwa_core::registry;
+
+    let wa_base = rb(va::IMAGE_BASE);
+    let wa_end = wa_base + 0x300000; // approximate WA image end
+    let delta = wa_base.wrapping_sub(va::IMAGE_BASE);
+    let objects = registry::live_objects()
+        .into_iter()
+        .map(|obj| {
+            // ghidra_addr is only meaningful for image-mapped objects, not heap
+            let ghidra = if obj.ptr >= wa_base && obj.ptr < wa_end {
+                obj.ptr.wrapping_sub(delta)
+            } else {
+                0
+            };
+            LiveObjectInfo {
+                runtime_addr: obj.ptr,
+                ghidra_addr: ghidra,
+                size: obj.size,
+                class_name: obj.class_name.to_string(),
+                field_count: obj.fields.map_or(0, |f| f.fields.len() as u32),
+            }
+        })
+        .collect();
+
+    Response::ObjectList { objects }
+}
+
+fn handle_resolve_alias(name: &str) -> Response {
+    use openwa_core::registry;
+
+    let name_lower = name.to_lowercase();
+    for obj in registry::live_objects() {
+        if obj.class_name.to_lowercase() == name_lower {
+            return Response::AliasResult(ResolvedAlias {
+                runtime_addr: obj.ptr,
+                class_name: obj.class_name.to_string(),
+            });
+        }
+    }
+
+    Response::Error {
+        message: format!("No tracked object matching '{}'", name),
+    }
+}
+
+fn handle_resolve_field(class_name: &str, field_name: &str) -> Response {
+    use openwa_core::registry;
+
+    // Search the class and its CTask inheritance chain for a field by name.
+    // Mirrors the inheritance chain in registry::field_at_inherited.
+    const CTASK_CHAIN: &[&str] = &["CGameTask", "CTask"];
+
+    let search_chain: Vec<&str> = std::iter::once(class_name)
+        .chain(CTASK_CHAIN.iter().copied())
+        .collect();
+
+    for &name in &search_chain {
+        if let Some(fields) = registry::struct_fields_for(name) {
+            for field in fields.fields {
+                if field.name == field_name {
+                    return Response::FieldResult(ResolvedField {
+                        offset: field.offset,
+                        size: field.size,
+                    });
+                }
+            }
+        }
+    }
+
+    Response::Error {
+        message: format!("No field '{}' in '{}' (searched: {})", field_name, class_name,
+            search_chain.join(" -> ")),
     }
 }
 

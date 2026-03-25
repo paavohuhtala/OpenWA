@@ -126,9 +126,8 @@ unsafe extern "system" fn veh_handler(info: *mut EXCEPTION_POINTERS) -> i32 {
                     let ghidra_eip = eip.wrapping_sub(delta);
 
                     // Walk EBP chain for stack trace
-                    let mut trace = heapless::String::<512>::new();
+                    let mut trace = String::new();
                     let mut ebp = ctx.Ebp;
-                    let _esp = ctx.Esp;
                     for depth in 0..12 {
                         // Validate EBP: must be in plausible stack range, aligned,
                         // and above ESP (stack grows down)
@@ -144,18 +143,13 @@ unsafe extern "system" fn veh_handler(info: *mut EXCEPTION_POINTERS) -> i32 {
                         let ghidra_ret = ret_addr.wrapping_sub(delta);
                         let in_wa = ret_addr >= wa_base && ret_addr < wa_base + 0x300000;
                         if depth > 0 {
-                            let _ = core::fmt::Write::write_str(&mut trace, "<-");
+                            trace.push_str("<-");
                         }
                         if in_wa {
-                            let _ = core::fmt::Write::write_fmt(
-                                &mut trace,
-                                format_args!("{:08X}", ghidra_ret),
-                            );
+                            trace.push_str(&openwa_core::registry::format_va(ghidra_ret));
                         } else {
-                            let _ = core::fmt::Write::write_fmt(
-                                &mut trace,
-                                format_args!("r:{:08X}", ret_addr),
-                            );
+                            use core::fmt::Write;
+                            let _ = write!(trace, "r:{:08X}", ret_addr);
                         }
                         // EBP must increase (frames go up the stack)
                         if next_ebp <= ebp {
@@ -165,8 +159,8 @@ unsafe extern "system" fn veh_handler(info: *mut EXCEPTION_POINTERS) -> i32 {
                     }
 
                     let _ = log_line(&format!(
-                        "[Watchpoint] {} = 0x{:08X}  eip=0x{:08X} stack=[{}]",
-                        name, val, ghidra_eip, trace,
+                        "[Watchpoint] {} = 0x{:08X}  eip={} stack=[{}]",
+                        name, val, openwa_core::registry::format_va(ghidra_eip), trace,
                     ));
                 }
             }

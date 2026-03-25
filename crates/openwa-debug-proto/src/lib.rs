@@ -21,6 +21,44 @@ pub struct PointerInfo {
     pub detail: Option<String>,
 }
 
+// --- Typed inspection types ---
+
+/// A formatted field value from a struct inspection.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FieldValue {
+    pub offset: u32,
+    pub name: String,
+    pub size: u32,
+    /// Raw hex representation.
+    pub hex: String,
+    /// Human-readable formatted value.
+    pub display: String,
+}
+
+/// A tracked live object in the DLL.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LiveObjectInfo {
+    pub runtime_addr: u32,
+    pub ghidra_addr: u32,
+    pub size: u32,
+    pub class_name: String,
+    pub field_count: u32,
+}
+
+/// Result of resolving a named alias (e.g., "ddgame") to an address.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResolvedAlias {
+    pub runtime_addr: u32,
+    pub class_name: String,
+}
+
+/// Result of resolving a field name to its offset.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResolvedField {
+    pub offset: u32,
+    pub size: u32,
+}
+
 // --- Protocol messages ---
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -43,6 +81,14 @@ pub enum Request {
     Break { frame: i32 },
     /// Capture a canonicalized game state snapshot.
     Snapshot,
+    /// Typed struct inspection: read all named fields at an address.
+    Inspect { class_name: String, addr: u32, chain: Vec<u32>, absolute: bool },
+    /// List all tracked live objects.
+    ListObjects,
+    /// Resolve a named alias (e.g., "ddgame") to a runtime address.
+    ResolveAlias { name: String },
+    /// Resolve a field name to its offset within a struct.
+    ResolveField { class_name: String, field_name: String },
 }
 
 /// One step in a resolved pointer chain, for display.
@@ -97,6 +143,19 @@ pub enum Response {
     BreakSet { frame: i32 },
     /// Game state snapshot.
     Snapshot { frame: i32, text: String },
+    /// Typed struct inspection result.
+    InspectResult {
+        class_name: String,
+        ghidra_addr: u32,
+        runtime_addr: u32,
+        fields: Vec<FieldValue>,
+    },
+    /// List of tracked live objects.
+    ObjectList { objects: Vec<LiveObjectInfo> },
+    /// Resolved named alias.
+    AliasResult(ResolvedAlias),
+    /// Resolved field offset.
+    FieldResult(ResolvedField),
     Error { message: String },
 }
 

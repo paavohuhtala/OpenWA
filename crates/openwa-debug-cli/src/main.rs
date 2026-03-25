@@ -62,7 +62,7 @@ fn main() {
                 eprintln!("  Hint: quote the argument: read \"0x7A0884->0xA0->0x0\"");
                 process::exit(1);
             }
-            let expr = parse_address_expr(addr_str);
+            let expr = resolve_address_expr(addr_str, port);
             let len = positional.get(2)
                 .map(|s| parse_u32(s))
                 .unwrap_or(256);
@@ -73,6 +73,24 @@ fn main() {
                     Request::ReadChain { addr, chain, len, absolute },
             }
         }
+        Some("inspect") => {
+            let class_name = positional.get(1).unwrap_or_else(|| {
+                eprintln!("Usage: inspect <class_name> <addr>");
+                process::exit(1);
+            }).clone();
+            let addr_str = positional.get(2).unwrap_or_else(|| {
+                eprintln!("Usage: inspect <class_name> <addr>");
+                process::exit(1);
+            });
+            let expr = resolve_address_expr(addr_str, port);
+            match expr {
+                AddressExpr::Simple { addr, absolute } =>
+                    Request::Inspect { class_name, addr, chain: vec![], absolute },
+                AddressExpr::Chain { addr, chain, absolute } =>
+                    Request::Inspect { class_name, addr, chain, absolute },
+            }
+        }
+        Some("objects") => Request::ListObjects,
         Some("suspend") => Request::Suspend,
         Some("resume") => Request::Resume,
         Some("step") => {
@@ -182,6 +200,37 @@ fn print_response(response: &Response, format: Format) {
             println!("=== Snapshot at frame {frame} ===\n");
             print!("{text}");
         }
+        Response::InspectResult { class_name, ghidra_addr, runtime_addr, fields } => {
+            println!(
+                "{} at ghidra:0x{:08X} (runtime:0x{:08X})\n",
+                class_name, ghidra_addr, runtime_addr
+            );
+            for f in fields {
+                println!(
+                    "  +0x{:04X}  {:<20} [{:>2}]  {}",
+                    f.offset, f.name, f.size, f.display
+                );
+            }
+        }
+        Response::ObjectList { objects } => {
+            if objects.is_empty() {
+                println!("No tracked objects");
+            } else {
+                println!("Tracked objects ({}):\n", objects.len());
+                for obj in objects {
+                    println!(
+                        "  {:<20} runtime:0x{:08X}  size:0x{:X}  fields:{}",
+                        obj.class_name, obj.runtime_addr, obj.size, obj.field_count
+                    );
+                }
+            }
+        }
+        Response::AliasResult(alias) => {
+            println!("{} at runtime:0x{:08X}", alias.class_name, alias.runtime_addr);
+        }
+        Response::FieldResult(field) => {
+            println!("offset:0x{:X} size:{}", field.offset, field.size);
+        }
         Response::Error { message } => {
             eprintln!("Server error: {message}");
             process::exit(1);
@@ -258,62 +307,40 @@ enum AddressExpr {
     Chain { addr: u32, chain: Vec<u32>, absolute: bool },
 }
 
-/// Parse an address expression.
-///
-/// Syntax:
-///   0x669F8C              — Ghidra VA
-///   abs:0x7FFF0000        — absolute runtime address
-///   0x669F8C+0x10         — Ghidra VA + hex offset
-///   0x669F8C[0x10]        — same as +0x10 (bracket notation)
-///   0x7A0884->0xA0->0x2C  — pointer chain (deref at each ->)
-///   abs:0x7FFF0000->4->0  — absolute + chain
-///
-/// Chain semantics: read DWORD at addr, add first offset, read DWORD, add
-/// second offset, ... display memory at final address.
-fn parse_address_expr(s: &str) -> AddressExpr {
-    let (s, absolute) = if let Some(rest) = s.strip_prefix("abs:") {
-        (rest, true)
-    } else {
-        (s.as_ref(), false)
-    };
-
-    // Check for chain syntax: contains "->"
-    if s.contains("->") {
-        let parts: Vec<&str> = s.split("->").collect();
-        let base = parse_addr_with_offset(parts[0]);
-        let chain: Vec<u32> = parts[1..].iter().map(|p| parse_compound_offset(p)).collect();
-        return AddressExpr::Chain { addr: base, chain, absolute };
-    }
-
-    // Simple address with optional offset
-    AddressExpr::Simple { addr: parse_addr_with_offset(s), absolute }
-}
-
-/// Parse a single address token, possibly with +offset or [offset].
-fn parse_addr_with_offset(s: &str) -> u32 {
-    let (base_str, offset) = split_compound(s);
-    parse_hex(base_str).wrapping_add(offset)
-}
-
-/// Parse a chain offset segment, possibly with +offset or [offset].
-/// E.g. "0x488+0x10" → 0x498, "0xA0[4]" → 0xA4, "0x510" → 0x510.
-fn parse_compound_offset(s: &str) -> u32 {
-    let (base_str, offset) = split_compound(s);
-    parse_u32(base_str).wrapping_add(offset)
-}
-
-/// Split a string on '+' or '[' into (base, offset). Returns (s, 0) if no compound.
-fn split_compound(s: &str) -> (&str, u32) {
+/// Split a string on '+' or '[' into (base, offset_str). Returns (s, None) if no compound.
+fn split_compound(s: &str) -> (&str, Option<&str>) {
     if let Some(pos) = s.find('+') {
-        let (base, off) = s.split_at(pos);
-        (base, parse_u32(&off[1..]))
+        let base = &s[..pos];
+        let off = &s[pos + 1..];
+        (base, Some(off))
     } else if let Some(pos) = s.find('[') {
         let base = &s[..pos];
         let off_str = s[pos + 1..].trim_end_matches(']');
-        (base, parse_u32(off_str))
+        (base, Some(off_str))
     } else {
-        (s, 0u32)
+        (s, None)
     }
+}
+
+/// Resolve an offset string — could be numeric or a field name.
+fn resolve_offset(s: &str, class: &Option<String>, port: u16) -> u32 {
+    if looks_like_hex(s) {
+        return parse_u32(s);
+    }
+
+    // Try as field name
+    if let Some(cls) = class {
+        match send_request(port, &Request::ResolveField {
+            class_name: cls.clone(),
+            field_name: s.to_string(),
+        }) {
+            Ok(Response::FieldResult(f)) => return f.offset,
+            _ => {}
+        }
+    }
+
+    // Fall back to numeric parse (will exit on error)
+    parse_u32(s)
 }
 
 fn parse_hex(s: &str) -> u32 {
@@ -340,6 +367,143 @@ fn parse_u32(s: &str) -> u32 {
     }
 }
 
+/// A resolved chain segment — either a normal "deref then offset" step,
+/// or a field-name step where the offset should be applied BEFORE the deref.
+enum ChainSegment {
+    /// Normal hex offset: protocol uses it directly (deref current, add offset).
+    HexOffset(u32),
+    /// Field offset: needs to be folded into the previous address/step
+    /// (add offset to current, THEN deref).
+    FieldOffset(u32),
+}
+
+/// Resolve a symbolic address expression via the debug server.
+///
+/// The underlying chain protocol semantics: each step is "deref current addr,
+/// then add offset." For hex chains like `0x7A0884->0xA0->0x2C`, this works
+/// directly — the offset is added after the deref.
+///
+/// For field-name chains like `ddgame->task_land`, the user intent is "go to
+/// the task_land field (offset 0x54C) and follow that pointer." We translate
+/// this by folding the field offset into the PREVIOUS address/step:
+///
+///   `ddgame->task_land`  → base=ddgame+0x54C, chain=[0]
+///   `wrapper->ddgame->rng_state` → base=wrapper+ddgame_off, chain=[rng_state_off]
+fn resolve_address_expr(s: &str, port: u16) -> AddressExpr {
+    let (s, absolute) = if let Some(rest) = s.strip_prefix("abs:") {
+        (rest, true)
+    } else {
+        (s.as_ref(), false)
+    };
+
+    // Split on "->" for chain syntax
+    let parts: Vec<&str> = if s.contains("->") {
+        s.split("->").collect()
+    } else {
+        vec![s]
+    };
+
+    // Resolve the base (first part)
+    let base_part = parts[0];
+    let (base_addr, base_absolute, mut current_class) = resolve_base(base_part, absolute, port);
+
+    if parts.len() == 1 {
+        return AddressExpr::Simple { addr: base_addr, absolute: base_absolute };
+    }
+
+    // Resolve each chain segment, tracking whether it's a field name or hex.
+    let mut segments: Vec<ChainSegment> = Vec::new();
+    for part in &parts[1..] {
+        segments.push(resolve_chain_segment_typed(part, &current_class, port));
+        current_class = None;
+    }
+
+    // Convert to protocol chain format.
+    // HexOffset segments pass through directly (deref then add offset).
+    // FieldOffset segments get folded into the previous position (add offset,
+    // then deref via a [0] chain entry).
+    let mut final_base = base_addr;
+    let mut chain: Vec<u32> = Vec::new();
+
+    for seg in &segments {
+        match seg {
+            ChainSegment::HexOffset(offset) => {
+                chain.push(*offset);
+            }
+            ChainSegment::FieldOffset(offset) => {
+                // Fold into previous: add to base or previous chain entry
+                if chain.is_empty() {
+                    final_base = final_base.wrapping_add(*offset);
+                } else {
+                    let last = chain.last_mut().unwrap();
+                    *last = last.wrapping_add(*offset);
+                }
+                chain.push(0); // deref with no extra offset
+            }
+        }
+    }
+
+    AddressExpr::Chain { addr: final_base, chain, absolute: base_absolute }
+}
+
+/// Resolve the base address part — could be a hex literal, a named alias, or alias+offset.
+fn resolve_base(s: &str, absolute: bool, port: u16) -> (u32, bool, Option<String>) {
+    let (base_str, offset_str) = split_compound(s);
+
+    // If it looks like hex (starts with digit or 0x), parse directly
+    if looks_like_hex(base_str) {
+        let extra = offset_str.map(|o| parse_u32(o)).unwrap_or(0);
+        return (parse_hex(base_str).wrapping_add(extra), absolute, None);
+    }
+
+    // Try resolving as a named alias
+    match send_request(port, &Request::ResolveAlias { name: base_str.to_string() }) {
+        Ok(Response::AliasResult(alias)) => {
+            // Resolved! Use runtime address (absolute)
+            let class = Some(alias.class_name);
+            let extra = offset_str.map(|o| resolve_offset(o, &class, port)).unwrap_or(0);
+            (alias.runtime_addr.wrapping_add(extra), true, class)
+        }
+        _ => {
+            // Fall back to hex parse (will error if not valid hex)
+            let extra = offset_str.map(|o| parse_u32(o)).unwrap_or(0);
+            (parse_hex(base_str).wrapping_add(extra), absolute, None)
+        }
+    }
+}
+
+/// Resolve a chain segment, returning whether it was a field name or hex offset.
+fn resolve_chain_segment_typed(s: &str, current_class: &Option<String>, port: u16) -> ChainSegment {
+    let (base_str, offset_str) = split_compound(s);
+    let extra = offset_str.map(|o| resolve_offset(o, current_class, port)).unwrap_or(0);
+
+    // If it looks like hex, parse directly — standard chain semantics
+    if looks_like_hex(base_str) {
+        return ChainSegment::HexOffset(parse_u32(base_str).wrapping_add(extra));
+    }
+
+    // Try resolving as a field name if we know the current class
+    if let Some(class) = current_class {
+        match send_request(port, &Request::ResolveField {
+            class_name: class.clone(),
+            field_name: base_str.to_string(),
+        }) {
+            Ok(Response::FieldResult(f)) => {
+                return ChainSegment::FieldOffset(f.offset.wrapping_add(extra));
+            }
+            _ => {}
+        }
+    }
+
+    // Fall back to numeric parse — treat as hex semantics
+    ChainSegment::HexOffset(parse_u32(base_str).wrapping_add(extra))
+}
+
+/// Check if a string looks like a hex number (starts with 0x or a digit).
+fn looks_like_hex(s: &str) -> bool {
+    s.starts_with("0x") || s.starts_with("0X") || s.chars().next().map_or(false, |c| c.is_ascii_digit())
+}
+
 fn print_usage() {
     eprintln!("Usage: openwa-debug <command> [args...] [--port N] [--format hex|raw]");
     eprintln!();
@@ -347,6 +511,8 @@ fn print_usage() {
     eprintln!("  ping                      Check if server is running");
     eprintln!("  help                      List server commands");
     eprintln!("  read <addr> [len]         Read memory at address (default len=256)");
+    eprintln!("  inspect <class> <addr>    Typed struct inspection (named fields)");
+    eprintln!("  objects                   List tracked live objects");
     eprintln!("  suspend                   Pause game at next frame boundary");
     eprintln!("  resume                    Resume game");
     eprintln!("  step [N]                  Advance N frames (default 1), then pause");
@@ -360,6 +526,9 @@ fn print_usage() {
     eprintln!("  0x669F8C+0x10             Address + hex offset");
     eprintln!("  0x669F8C[16]              Address + decimal offset (bracket notation)");
     eprintln!("  0x7A0884->0xA0->0x2C      Pointer chain (deref at each ->)");
+    eprintln!("  ddgame                    Named alias (resolved via server)");
+    eprintln!("  ddgame->rng_state         Field name chain (deref + field lookup)");
+    eprintln!("  ddgame+rng_state          Named offset (no deref, just offset)");
     eprintln!();
     eprintln!("Options:");
     eprintln!("  --port <N>                Server port (default: 19840)");

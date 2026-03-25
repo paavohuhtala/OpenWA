@@ -533,7 +533,7 @@ fn to_screaming_snake(name: &str) -> String {
 /// field (excluding `_unknown*` and `_pad*` prefixes). Offsets and sizes
 /// are computed at compile time via `core::mem::offset_of!()` and
 /// `core::mem::size_of::<Type>()`.
-#[proc_macro_derive(FieldRegistry)]
+#[proc_macro_derive(FieldRegistry, attributes(field))]
 pub fn derive_field_registry(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let struct_name = &input.ident;
@@ -573,11 +573,16 @@ pub fn derive_field_registry(input: TokenStream) -> TokenStream {
         let doc = extract_doc_comment(&field.attrs);
         let field_ty = &field.ty;
 
+        // Determine ValueKind: check for #[field(kind = "...")] override, else infer
+        let kind = parse_field_kind_attr(&field.attrs)
+            .unwrap_or_else(|| infer_value_kind(field_ty));
+
         entries.push(quote! {
             openwa_core::registry::FieldEntry {
                 offset: core::mem::offset_of!(#struct_name, #field_ident) as u32,
                 name: #field_name,
                 size: core::mem::size_of::<#field_ty>() as u32,
+                kind: #kind,
                 doc: #doc,
             }
         });
@@ -642,4 +647,58 @@ fn extract_doc_comment(attrs: &[syn::Attribute]) -> String {
         }
     }
     doc
+}
+
+/// Parse an explicit `#[field(kind = "Fixed")]` attribute override.
+fn parse_field_kind_attr(attrs: &[syn::Attribute]) -> Option<proc_macro2::TokenStream> {
+    for attr in attrs {
+        if !attr.path().is_ident("field") {
+            continue;
+        }
+        let mut kind_str = None;
+        let _ = attr.parse_nested_meta(|meta| {
+            if meta.path.is_ident("kind") {
+                let value = meta.value()?;
+                let lit: Lit = value.parse()?;
+                if let Lit::Str(s) = lit {
+                    kind_str = Some(s.value());
+                }
+            }
+            Ok(())
+        });
+        if let Some(k) = kind_str {
+            return Some(value_kind_token(&k));
+        }
+    }
+    None
+}
+
+/// Infer `ValueKind` from a field's Rust type.
+fn infer_value_kind(ty: &syn::Type) -> proc_macro2::TokenStream {
+    match ty {
+        syn::Type::Ptr(_) => value_kind_token("Pointer"),
+        syn::Type::Array(_) => value_kind_token("Raw"),
+        syn::Type::Path(tp) => {
+            let last = tp.path.segments.last().map(|s| s.ident.to_string());
+            match last.as_deref() {
+                Some("u8") => value_kind_token("U8"),
+                Some("u16") => value_kind_token("U16"),
+                Some("u32") => value_kind_token("U32"),
+                Some("i8") => value_kind_token("I8"),
+                Some("i16") => value_kind_token("I16"),
+                Some("i32") => value_kind_token("I32"),
+                Some("bool") => value_kind_token("Bool"),
+                Some("Fixed") => value_kind_token("Fixed"),
+                Some("ClassType") => value_kind_token("Enum"),
+                _ => value_kind_token("Raw"),
+            }
+        }
+        _ => value_kind_token("Raw"),
+    }
+}
+
+/// Produce a `openwa_core::registry::ValueKind::Variant` token stream.
+fn value_kind_token(variant: &str) -> proc_macro2::TokenStream {
+    let ident = quote::format_ident!("{}", variant);
+    quote! { openwa_core::registry::ValueKind::#ident }
 }

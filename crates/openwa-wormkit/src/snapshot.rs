@@ -7,7 +7,9 @@ use core::fmt::Write;
 
 use openwa_core::address::va;
 use openwa_core::engine::GameSession;
+use openwa_core::field_format::{self, FormatContext};
 use openwa_core::rebase::rb;
+use openwa_core::registry::StructFields;
 use openwa_core::snapshot::{hash_pointer_targets, write_raw_region, Snapshot};
 use openwa_core::task::{CTask, CTaskBfsIter, CTaskMissile, CTaskWorm};
 
@@ -144,9 +146,17 @@ pub unsafe fn capture() -> String {
                 let _ = (*missile).write_snapshot(&mut out, 2);
             }
             _ => {
-                // Unknown entity — raw dump of first 0x100 bytes
-                let size = 0x100usize;
-                let _ = write_raw_region(&mut out, task as *const u8, size, 2);
+                // Try FieldRegistry-based dump for known types
+                let class = vtable_name(vt);
+                if class != "Unknown" {
+                    if let Some(fields) = openwa_core::registry::struct_fields_for(class) {
+                        let _ = write_registry_fields(&mut out, task as *const u8, fields, delta, 2);
+                    } else {
+                        let _ = write_raw_region(&mut out, task as *const u8, 0x100, 2);
+                    }
+                } else {
+                    let _ = write_raw_region(&mut out, task as *const u8, 0x100, 2);
+                }
             }
         }
         let _ = writeln!(out);
@@ -157,4 +167,35 @@ pub unsafe fn capture() -> String {
 
 fn vtable_name(ghidra_vt: u32) -> &'static str {
     openwa_core::registry::vtable_class_name(ghidra_vt).unwrap_or("Unknown")
+}
+
+/// Write struct fields using FieldRegistry metadata and the format_field system.
+///
+/// Produces output like:
+/// ```text
+///     +0x0000  vtable           [4]  0x0066A30C (DDGameWrapper vtable)
+///     +0x0004  parent           [4]  null
+/// ```
+unsafe fn write_registry_fields(
+    w: &mut dyn Write,
+    base: *const u8,
+    fields: &StructFields,
+    delta: u32,
+    indent: usize,
+) -> core::fmt::Result {
+    let ctx = FormatContext { delta };
+    let pad = "  ".repeat(indent);
+    for field in fields.fields {
+        let addr = base as u32 + field.offset;
+        write!(w, "{}+0x{:04X}  {:<16} [{:>2}]  ", pad, field.offset, field.name, field.size)?;
+        if openwa_core::mem::can_read(addr, field.size) {
+            let ptr = base.add(field.offset as usize);
+            let data = core::slice::from_raw_parts(ptr, field.size as usize);
+            field_format::format_field(w, data, field, &ctx)?;
+        } else {
+            write!(w, "<unreadable>")?;
+        }
+        writeln!(w)?;
+    }
+    Ok(())
 }

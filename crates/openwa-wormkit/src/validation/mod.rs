@@ -108,28 +108,23 @@ fn validate_addresses(result: &mut ValidationResult) {
     let _ = log_validation("");
     let _ = log_validation("--- Address Validation ---");
 
-    let vtables: &[(&str, u32)] = &[
-        ("CTask vtable", va::CTASK_VTABLE),
-        ("CGameTask vtable", va::CGAMETASK_VTABLE),
-        (
-            "CGameTask SoundEmitter vtable",
-            va::CGAMETASK_SOUND_EMITTER_VT,
-        ),
-        ("DDGameWrapper vtable", va::DDGAME_WRAPPER_VTABLE),
-        ("GfxHandler vtable", va::GFX_DIR_VTABLE),
-        ("DisplayGfx vtable", va::DISPLAY_GFX_VTABLE),
-        ("PCLandscape vtable", va::PC_LANDSCAPE_VTABLE),
-        ("LandscapeShader vtable", va::LANDSCAPE_SHADER_VTABLE),
-        // DSSound vtable excluded: all 24 slots patched to Rust function pointers
-        ("BitGrid vtable", va::TASK_STATE_MACHINE_VTABLE),
-        ("OpenGLCPU vtable", va::OPENGL_CPU_VTABLE),
-        ("WaterEffect vtable", va::WATER_EFFECT_VTABLE),
-    ];
+    // Auto-discover all registered vtables from the address registry
+    let vtables: Vec<(&str, u32)> = openwa_core::registry::entries_by_kind(
+        openwa_core::registry::AddrKind::Vtable,
+    )
+    .map(|e| {
+        let name = e.class_name.map_or(e.name, |c| c);
+        (name, e.va)
+    })
+    .collect();
 
     let _ = log_validation("");
-    let _ = log_validation("  Vtable location checks (.rdata range):");
-    for (name, ghidra_addr) in vtables {
-        let addr = rb(*ghidra_addr);
+    let _ = log_validation(&format!(
+        "  Vtable location checks (.rdata range) — {} registered vtables:",
+        vtables.len()
+    ));
+    for &(name, ghidra_addr) in &vtables {
+        let addr = rb(ghidra_addr);
         let in_rdata = is_in_rdata(addr);
         result.check(
             &format!("{} location", name),
@@ -149,8 +144,8 @@ fn validate_addresses(result: &mut ValidationResult) {
 
     let _ = log_validation("");
     let _ = log_validation("  Vtable first-entry checks (should point to .text):");
-    for (name, ghidra_addr) in vtables {
-        let addr = rb(*ghidra_addr);
+    for &(name, ghidra_addr) in &vtables {
+        let addr = rb(ghidra_addr);
         unsafe {
             let first_entry = read_u32(addr);
             let in_text = is_in_text(first_entry);
@@ -260,6 +255,49 @@ fn validate_addresses(result: &mut ValidationResult) {
             );
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// Typed vtable slot validation (from #[vtable(...)] metadata)
+// ---------------------------------------------------------------------------
+
+fn validate_typed_vtable_slots(result: &mut ValidationResult) {
+    let _ = log_validation("");
+    let _ = log_validation("--- Typed Vtable Slot Validation (#[vtable(...)]) ---");
+
+    let mut vtable_count = 0;
+    let mut slot_count = 0;
+
+    for info in openwa_core::registry::all_vtable_info() {
+        if info.ghidra_va == 0 {
+            continue;
+        }
+        vtable_count += 1;
+        let vt_runtime = rb(info.ghidra_va);
+
+        for slot in info.slots {
+            slot_count += 1;
+            unsafe {
+                let slot_addr = vt_runtime + slot.index * 4;
+                let actual = read_u32(slot_addr);
+                let in_text = is_in_text(actual);
+                result.check(
+                    &format!("{}::{} [slot {}]", info.class_name, slot.name, slot.index),
+                    in_text,
+                    &format!(
+                        "0x{:08X} {}",
+                        actual,
+                        if in_text { "in .text" } else { "NOT in .text — hooked or corrupt?" }
+                    ),
+                );
+            }
+        }
+    }
+
+    let _ = log_validation(&format!(
+        "  Checked {} named slots across {} typed vtables",
+        slot_count, vtable_count
+    ));
 }
 
 // ---------------------------------------------------------------------------
@@ -1686,6 +1724,7 @@ pub fn run() -> Result<(), String> {
     let mut result = ValidationResult::new();
 
     validate_addresses(&mut result);
+    validate_typed_vtable_slots(&mut result);
     validate_struct_offsets(&mut result);
 
     let _ = log_validation("");

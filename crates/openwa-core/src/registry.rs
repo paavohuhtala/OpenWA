@@ -179,6 +179,34 @@ pub fn entry_count() -> usize {
 
 // --- Struct field registry types (for Phase 4 #[derive(FieldRegistry)]) ---
 
+/// Describes the semantic type of a struct field for display formatting.
+///
+/// Inferred automatically by `#[derive(FieldRegistry)]` from the Rust type.
+/// Use `#[field(kind = "Fixed")]` to override when auto-inference is wrong.
+/// Falls back to `Raw` for unrecognized types.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ValueKind {
+    U8,
+    U16,
+    U32,
+    I8,
+    I16,
+    I32,
+    Bool,
+    /// 16.16 fixed-point (`Fixed` newtype).
+    Fixed,
+    /// Any pointer (`*mut T`, `*const T`).
+    Pointer,
+    /// Enum type (e.g., `ClassType`).
+    Enum,
+    /// Embedded struct with its own FieldRegistry.
+    Struct,
+    /// Null-terminated C string in a fixed-size byte array.
+    CString,
+    /// Fallback for arrays, unknown types, etc.
+    Raw,
+}
+
 /// A known field within a struct.
 #[derive(Debug, Clone, Copy)]
 pub struct FieldEntry {
@@ -188,6 +216,8 @@ pub struct FieldEntry {
     pub name: &'static str,
     /// Field size in bytes.
     pub size: u32,
+    /// Semantic type for formatting.
+    pub kind: ValueKind,
     /// Brief description.
     pub doc: &'static str,
 }
@@ -558,9 +588,9 @@ mod tests {
         static FIELDS: StructFields = StructFields {
             struct_name: "TestStruct",
             fields: &[
-                FieldEntry { offset: 0x00, name: "vtable", size: 4, doc: "" },
-                FieldEntry { offset: 0x10, name: "health", size: 4, doc: "" },
-                FieldEntry { offset: 0x20, name: "name", size: 16, doc: "" },
+                FieldEntry { offset: 0x00, name: "vtable", size: 4, kind: ValueKind::Pointer, doc: "" },
+                FieldEntry { offset: 0x10, name: "health", size: 4, kind: ValueKind::U32, doc: "" },
+                FieldEntry { offset: 0x20, name: "name", size: 16, kind: ValueKind::Raw, doc: "" },
             ],
         };
 

@@ -43,6 +43,7 @@ pub mod log;
 pub mod mem;
 pub mod rebase;
 pub mod snapshot;
+pub mod field_format;
 pub mod task;
 pub mod vtable;
 pub mod wa;

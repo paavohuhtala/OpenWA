@@ -152,8 +152,10 @@ pub struct CTaskWorm {
     /// 0x28C–0x2EF: Unknown
     pub _unknown_28c: [u8; 0x64],
     /// 0x2F0: Worm name, null-terminated (max 17 chars, from spawn init_data+3)
+    #[field(kind = "CString")]
     pub worm_name: [u8; 0x11],
     /// 0x301: Country / team name from scheme, null-terminated (max 17 chars)
+    #[field(kind = "CString")]
     pub country_name: [u8; 0x11],
     /// 0x312–0x333: Unknown (rope string, state history, etc.)
     pub _unknown_312: [u8; 0x334 - 0x312],
