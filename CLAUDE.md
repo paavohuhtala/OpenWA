@@ -115,7 +115,7 @@ Key env vars:
 ## Crate Architecture
 
 - **`openwa-core`** — Types, addresses, parsers, ASLR rebasing, and typed WA function wrappers. The source of truth for all reverse-engineered type layouts and known addresses. Contains `registry` (structured address database + field registries), `rebase` (ASLR delta), `wa_call` (calling convention helpers), and `wa/` (typed handle wrappers like `DDGameWrapperHandle`, `CWndHandle`).
-- **`openwa-derive`** — Proc macro crate. Provides `#[derive(FieldRegistry)]` for auto-generating field maps from `#[repr(C)]` structs using `offset_of!()`.
+- **`openwa-derive`** — Proc macro crate. Provides `#[derive(FieldRegistry)]` for struct field maps and `#[vtable(...)]` for typed vtable definitions with introspection, calling wrappers, and replacement support.
 - **`openwa-wormkit`** — Unified WormKit cdylib that replaces WA functions with Rust and optionally validates types against live memory. Logs to `OpenWA.log` (hooks) and `OpenWA_validation.log` (validation). Uses MinHook for inline hooking. Validation is enabled via `OPENWA_VALIDATE=1` env var.
 - **`openwa-harness`** — Offline test harness that loads WA.exe into process memory via `LoadLibraryExA(DONT_RESOLVE_DLL_REFERENCES)` for testing without running the game.
 - **`openwa-test-runner`** — Headless replay test runner (`openwa-test` binary). Discovers replay tests, runs them concurrently via WA.exe's `/getlog` mode, compares output logs. See "Replay Testing" section.
@@ -176,7 +176,7 @@ Currently dormant — no hooks wired up. Activate by adding calls in `game_sessi
 
 - `crates/openwa-core/src/address.rs` — Known WA.exe addresses (segment boundaries + re-exports from home modules)
 - `crates/openwa-core/src/registry.rs` — Structured address registry, field registries, live object tracker, query API
-- `crates/openwa-core/src/macros.rs` — `define_addresses!` macro and `vcall!` macro
+- `crates/openwa-core/src/macros.rs` — `define_addresses!`, `vcall!`, and `vtable_replace!` macros
 - `crates/openwa-core/src/mem.rs` — Pointer classification and `identify_pointer()` for debug tools
 - `crates/openwa-core/src/wa_call.rs` — Helpers for calling WA functions (thiscall, stdcall wrappers)
 - `crates/openwa-core/src/rebase.rs` — ASLR delta computation
@@ -241,15 +241,49 @@ pub struct CTask { ... }
 - `field_at_inherited("CTaskWorm", offset)` — inheritance-aware field lookup (walks CTaskWorm → CGameTask → CTask)
 - `identify_pointer(value, delta)` → `PointerIdentity` — full pointer identification (static addresses, live objects, vtable-based object detection)
 - `register_live_object()` / `identify_live_pointer()` — track heap objects for field-level pointer resolution
+- `vtable_info_for("PaletteVtable")` — vtable slot metadata (name, index, doc)
+
+### `#[vtable(...)]` attribute macro
+
+Defines typed vtable structs from sparse slot definitions. The macro generates the full `#[repr(C)]` struct with `usize` gap-fillers, registry metadata, a companion `bind_!` macro, and optional address constants.
+
+```rust
+#[openwa_core::vtable(size = 38, va = 0x0066_A218, class = "DDDisplay")]
+pub struct DDDisplayVtable {
+    /// set layer color
+    #[slot(4)]
+    pub set_layer_color: fn(this: *mut DDDisplay, layer: i32, color: i32),
+    /// set active layer, returns layer context ptr
+    #[slot(5)]
+    pub set_active_layer: fn(this: *mut DDDisplay, layer: i32) -> *mut u8,
+}
+
+// Generate calling wrappers on the class struct
+bind_DDDisplayVtable!(DDDisplay, vtable);
+```
+
+Key features:
+- **`#[slot(N)]`** for sparse vtables — gaps auto-filled with `usize`. Optional when all slots are declared sequentially.
+- **`fn(...)` shorthand** — auto-normalized to `unsafe extern "thiscall" fn(...)`.
+- **Named parameters** — `fn(this: *mut T, mode: u32)` flows through to generated wrappers as `fn set_mode(&mut self, mode: u32)`. The `this` param becomes `&mut self` (or `&self` for `*const`).
+- **`bind_XxxVtable!`** — companion macro generates method wrappers on the class struct.
+- **`vtable_replace!`** — type-safe vtable slot patching for `install()` functions. Accepts method names (resolved via `offset_of!`) or slot indices:
+
+```rust
+vtable_replace!(DSSoundVtable, va::DS_SOUND_VTABLE, {
+    play_sound [originals::PLAY] => my_play_sound,  // save original + replace
+    load_wav                     => my_load_wav,     // pure replace
+})?;
+```
 
 ## Design Conventions
 
 - Unknown struct fields as `_unknown_XX` padding arrays
 - Fixed-point: `Fixed(i32)` newtype, 16.16 format (0x10000 = 1.0)
 - Naked asm uses `naked_asm!` (Rust 1.79+ syntax), not `asm!`
-- **Typed vtable structs**: Define `#[repr(C)]` vtable structs with typed function pointers for known slots and `usize` for unknown slots (see `PaletteVtable`, `SoundEmitterVTable`). Set the class struct's vtable field to `*const FooVtable` instead of `*mut u8`.
-- **`vcall!` macro**: Use `vcall!(obj, method, args...)` for one-liner vtable dispatch. Expands to `((*(*obj).vtable).method)(obj, args...)`.
-- **Virtual method wrappers**: Add `impl` methods on the class struct that wrap `vcall!`. Callers write `(*obj).method(args)` — idiomatic, type-safe, and hides the vtable indirection.
+- **Typed vtable structs via `#[vtable(...)]`**: Use the attribute macro to define vtable structs with `fn(this: *mut T, ...)` shorthand and `#[slot(N)]` for sparse layouts. The macro handles `unsafe extern "thiscall"`, gap-filling, registry metadata, and generates `bind_!` calling wrappers. See the `#[vtable(...)]` section above.
+- **`bind_XxxVtable!`**: Generated by `#[vtable(...)]`, creates `&mut self` method wrappers on the class struct. Callers write `(*obj).method(args)`.
+- **`vcall!` macro**: Still available for raw-pointer vtable dispatch without bind wrappers. Expands to `((*(*obj).vtable).method)(obj, args...)`.
 
 ## FFI Style
 
