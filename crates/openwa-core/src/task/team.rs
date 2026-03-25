@@ -10,6 +10,35 @@ crate::define_addresses! {
     }
 }
 
+/// CTaskTeam vtable — 12 slots. Extends CTask base (8 slots) with team-specific behavior.
+///
+/// Vtable at Ghidra 0x669EE4. Slot 2 (HandleMessage) is the main team message
+/// dispatcher (1701 instructions, handles weapon fire, surrender, worm selection, etc.)
+#[openwa_core::vtable(size = 12, va = 0x0066_9EE4, class = "CTaskTeam")]
+pub struct CTaskTeamVTable {
+    /// WriteReplayState — serializes team state to replay stream.
+    /// thiscall + 1 stack param (stream), RET 0x4.
+    #[slot(0)]
+    pub write_replay_state: fn(this: *mut CTaskTeam, stream: *mut u8),
+    /// Free — destructor. thiscall + 1 stack param (flags), RET 0x4.
+    #[slot(1)]
+    pub free: fn(this: *mut CTaskTeam, flags: u8) -> *mut CTaskTeam,
+    /// HandleMessage — processes messages sent to this team (weapon fire,
+    /// surrender, worm selection, napalm strike, etc.)
+    /// thiscall + 4 stack params, RET 0x10.
+    #[slot(2)]
+    pub handle_message: fn(this: *mut CTaskTeam, sender: *mut CTask, msg_type: u32, size: u32, data: *const u8),
+    /// GetEntityData — returns team data by query code.
+    /// thiscall + 3 stack params, RET 0xC.
+    #[slot(3)]
+    pub get_entity_data: fn(this: *mut CTaskTeam, query: u32, param: u32, out: *mut u32) -> u32,
+    // Slots 4-6: inherited CTask methods
+    /// ProcessFrame — per-frame team update.
+    /// thiscall + 1 stack param (flags), RET 0x4.
+    #[slot(7)]
+    pub process_frame: fn(this: *mut CTaskTeam, flags: u32),
+}
+
 /// Per-team state-tracker task — one instance per team, child of CTaskTurnGame.
 ///
 /// Tracks per-team data: which team number it represents, how many worms were
@@ -82,3 +111,28 @@ pub struct CTaskTeam {
 }
 
 const _: () = assert!(core::mem::size_of::<CTaskTeam>() == 0x460);
+
+impl CTaskTeam {
+    /// Get the typed vtable pointer.
+    pub fn vtable(&self) -> &CTaskTeamVTable {
+        unsafe { &*(self.base.vtable as *const CTaskTeamVTable) }
+    }
+
+    /// Call HandleMessage (vtable slot 2) on this team task.
+    ///
+    /// This is the main team message dispatcher — handles weapon fire results,
+    /// surrender, worm selection, napalm strike, and many other team-level events.
+    ///
+    /// # Safety
+    /// `sender` must be a valid CTask pointer. `data` must point to `size` bytes.
+    pub unsafe fn handle_message(
+        &mut self,
+        sender: *mut CTask,
+        msg_type: u32,
+        size: u32,
+        data: *const u8,
+    ) {
+        let vt = self.vtable();
+        (vt.handle_message)(self as *mut Self, sender, msg_type, size, data);
+    }
+}

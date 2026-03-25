@@ -23,6 +23,6 @@ pub use mine_oil_drum::{CTaskMine, CTaskOilDrum};
 pub use missile::{CTaskMissile, MissileType};
 pub use overlays::{BungeeTrailTask, WeaponAimTask};
 pub use supply_crate::CTaskCrate;
-pub use team::CTaskTeam;
+pub use team::{CTaskTeam, CTaskTeamVTable};
 pub use turn_game::{CTaskTurnGame, TurnGameCtx};
 pub use worm::{CTaskWorm, CTaskWormVTable};

@@ -402,62 +402,62 @@ unsafe fn fire_weapon_special(
 
 // ── Pure Rust fire handlers (no bridge needed) ──────────────
 
+/// Look up the CTaskTeam entity for a worm via SharedData.
+///
+/// Returns null if not found.
+unsafe fn lookup_team_task(worm: *const CTaskWorm) -> *mut openwa_core::task::CTaskTeam {
+    use openwa_core::task::SharedDataTable;
+
+    let task = &(*worm).base.base;
+    let table = SharedDataTable::from_task(task);
+    // CTaskTeam is registered with key (0, 0x14) in SharedData
+    table.lookup(0, 0x14) as *mut openwa_core::task::CTaskTeam
+}
+
 /// Send a message to the worm's CTaskTeam entity via SharedData lookup.
 ///
 /// Pattern shared by Napalm Strike (msg 0x2B), Surrender (msg 0x29), etc.
-/// Looks up entity with key (0, 0x14=CTaskTeam) in worm's shared data table,
-/// then calls entity->vtable[2] (HandleMessage) with the given message type.
+/// Looks up CTaskTeam, then calls HandleMessage (vtable slot 2).
 ///
 /// The 0x40C-byte local buffer is passed as data pointer; team_index is written
-/// at buf+0x08 to identify which team fired.
+/// at buf+0x00 to identify which team fired.
 unsafe fn fire_send_team_message(worm: *mut CTaskWorm, msg_type: u32) {
-    use openwa_core::task::SharedDataTable;
-
-    let task = &(*worm).base.base; // CTask base
-    let table = SharedDataTable::from_task(task);
-
-    // Lookup CTaskTeam (key_esi=0, key_edi=0x14)
-    let team_entity = table.lookup(0, 0x14);
-    if team_entity.is_null() {
+    let team = lookup_team_task(worm);
+    if team.is_null() {
         return;
     }
 
-    // Prepare local buffer (0x40C bytes).
-    // Original: buffer[0] = worm->team_index (from worm+0xFC), rest is stack garbage.
-    // We zero-fill for safety, then set buffer[0] = team_index.
     let mut buf = [0u8; 0x40C];
     let team_index = (*worm).team_index;
     buf[0..4].copy_from_slice(&team_index.to_ne_bytes());
 
-    // Call entity->vtable[2] = HandleMessage(sender=worm, msg, size=4, data=&buf)
-    let vtable = *(team_entity as *const u32);
-    let handle_message: unsafe extern "thiscall" fn(*mut u8, *mut CTaskWorm, u32, u32, *const u8) =
-        core::mem::transmute(*(vtable as *const u32).add(2));
-    handle_message(team_entity, worm, msg_type, 4, buf.as_ptr());
+    (*team).handle_message(
+        &raw mut (*worm).base.base,
+        msg_type,
+        4,
+        buf.as_ptr(),
+    );
 }
 
 /// Select Worm (subtype 21) — pure Rust replacement for 0x51EBE0.
 ///
 /// Sends message 0x5D to CTaskTeam with buf = [8, team_index, ...].
 unsafe fn fire_select_worm(worm: *mut CTaskWorm) {
-    use openwa_core::task::SharedDataTable;
-
-    let task = &(*worm).base.base;
-    let table = SharedDataTable::from_task(task);
-    let team_entity = table.lookup(0, 0x14);
-    if team_entity.is_null() {
+    let team = lookup_team_task(worm);
+    if team.is_null() {
         return;
     }
 
     let mut buf = [0u8; 0x40C];
-    // buf[0..4] = 8 (constant), buf[4..8] = team_index
     buf[0..4].copy_from_slice(&8u32.to_ne_bytes());
     buf[4..8].copy_from_slice(&(*worm).team_index.to_ne_bytes());
 
-    let vtable = *(team_entity as *const u32);
-    let handle_message: unsafe extern "thiscall" fn(*mut u8, *mut CTaskWorm, u32, u32, *const u8) =
-        core::mem::transmute(*(vtable as *const u32).add(2));
-    handle_message(team_entity, worm, 0x5D, 0x408, buf.as_ptr());
+    (*team).handle_message(
+        &raw mut (*worm).base.base,
+        0x5D,
+        0x408,
+        buf.as_ptr(),
+    );
 }
 
 /// Skip Go (subtype 19) — pure Rust replacement for 0x51E8C0.
