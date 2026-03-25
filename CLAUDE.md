@@ -114,7 +114,8 @@ Key env vars:
 
 ## Crate Architecture
 
-- **`openwa-core`** — Types, addresses, parsers, ASLR rebasing, and typed WA function wrappers. The source of truth for all reverse-engineered type layouts and known addresses (`address.rs`). Contains `rebase` (ASLR delta), `wa_call` (calling convention helpers), and `wa/` (typed handle wrappers like `DDGameWrapperHandle`, `CWndHandle`).
+- **`openwa-core`** — Types, addresses, parsers, ASLR rebasing, and typed WA function wrappers. The source of truth for all reverse-engineered type layouts and known addresses. Contains `registry` (structured address database + field registries), `rebase` (ASLR delta), `wa_call` (calling convention helpers), and `wa/` (typed handle wrappers like `DDGameWrapperHandle`, `CWndHandle`).
+- **`openwa-derive`** — Proc macro crate. Provides `#[derive(FieldRegistry)]` for auto-generating field maps from `#[repr(C)]` structs using `offset_of!()`.
 - **`openwa-wormkit`** — Unified WormKit cdylib that replaces WA functions with Rust and optionally validates types against live memory. Logs to `OpenWA.log` (hooks) and `OpenWA_validation.log` (validation). Uses MinHook for inline hooking. Validation is enabled via `OPENWA_VALIDATE=1` env var.
 - **`openwa-harness`** — Offline test harness that loads WA.exe into process memory via `LoadLibraryExA(DONT_RESOLVE_DLL_REFERENCES)` for testing without running the game.
 - **`openwa-test-runner`** — Headless replay test runner (`openwa-test` binary). Discovers replay tests, runs them concurrently via WA.exe's `/getlog` mode, compares output logs. See "Replay Testing" section.
@@ -173,7 +174,10 @@ Currently dormant — no hooks wired up. Activate by adding calls in `game_sessi
 
 ## Key Files
 
-- `crates/openwa-core/src/address.rs` — All known WA.exe addresses with comments
+- `crates/openwa-core/src/address.rs` — Known WA.exe addresses (segment boundaries + re-exports from home modules)
+- `crates/openwa-core/src/registry.rs` — Structured address registry, field registries, live object tracker, query API
+- `crates/openwa-core/src/macros.rs` — `define_addresses!` macro and `vcall!` macro
+- `crates/openwa-core/src/mem.rs` — Pointer classification and `identify_pointer()` for debug tools
 - `crates/openwa-core/src/wa_call.rs` — Helpers for calling WA functions (thiscall, stdcall wrappers)
 - `crates/openwa-core/src/rebase.rs` — ASLR delta computation
 - `crates/openwa-core/src/wa/` — Typed WA function wrappers (MFC, frontend, registry, DDGame)
@@ -194,6 +198,49 @@ A Ghidra MCP bridge is configured in `.mcp.json`. When using Ghidra tools:
 
 - `C:\koodia\worms-re\thirdparty\wkJellyWorm\` — Extensive RE data: task hierarchy, vtables, enums, weapon structs
 - `C:\koodia\worms-re\thirdparty\WormKit\` — Modding framework, game state structures
+
+## Address Registry & Pointer Identification
+
+The `registry` module in `openwa-core` provides a structured, queryable database of known addresses. Three systems work together:
+
+### `define_addresses!` macro
+
+Defines known WA.exe addresses with metadata (kind, calling convention, class name). Generates both `pub const` values and `inventory`-collected `AddrEntry` items for runtime queries. Supports class blocks and standalone entries:
+
+```rust
+crate::define_addresses! {
+    class "CTaskWorm" {
+        vtable CTASK_WORM_VTABLE = 0x0066_44C8;
+        ctor CTASK_WORM_CONSTRUCTOR = 0x0050_BFB0;
+    }
+    fn/Fastcall ADVANCE_GAME_RNG = 0x0053_F320;
+    global G_GAME_SESSION = 0x007A_0884;
+}
+```
+
+**Distributed definitions**: Each module defines its own addresses via `define_addresses!`. `address.rs` re-exports them into `mod va` for backward compatibility (`va::CTASK_WORM_VTABLE` still works). When adding new addresses, place the `define_addresses!` block in the home module, then add a `pub use` re-export in `address.rs`.
+
+### `#[derive(FieldRegistry)]`
+
+Auto-generates a field map for `#[repr(C)]` structs using `offset_of!()`. Fields prefixed `_unknown`/`_pad` are skipped. Applied to all key structs (DDGame, CTask, CTaskWorm, etc.). Enables runtime offset → field name lookups.
+
+```rust
+#[derive(FieldRegistry)]
+#[repr(C)]
+pub struct CTask { ... }
+// Generates: CTask::field_registry() -> &'static StructFields
+// Also registers in global inventory for struct_fields_for("CTask")
+```
+
+### Query API (`registry::*`)
+
+- `lookup_va(ghidra_va)` — find address entry by VA (exact or nearest-below)
+- `vtable_class_name(ghidra_vtable)` — vtable address → class name
+- `format_va(ghidra_va)` — human-readable name string
+- `struct_fields_for("DDGame")` / `struct_fields_for_vtable(va)` — get field map
+- `field_at_inherited("CTaskWorm", offset)` — inheritance-aware field lookup (walks CTaskWorm → CGameTask → CTask)
+- `identify_pointer(value, delta)` → `PointerIdentity` — full pointer identification (static addresses, live objects, vtable-based object detection)
+- `register_live_object()` / `identify_live_pointer()` — track heap objects for field-level pointer resolution
 
 ## Design Conventions
 
