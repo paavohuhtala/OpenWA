@@ -261,74 +261,42 @@ pub fn install() -> Result<(), String> {
 }
 
 /// Patch DSSound vtable (0x66AF20) to replace trivial methods with Rust.
-unsafe fn patch_dssound_vtable() -> Result<(), String> {
+unsafe fn patch_dssound_vtable() -> Result<(), &'static str> {
     use openwa_core::audio::{
         dssound_destructor, dssound_noop, dssound_returns_0, dssound_returns_1,
         dssound_sub_destructor, is_channel_finished, is_slot_loaded, load_wav, play_sound,
         play_sound_pooled, release_finished, set_channel_volume, set_master_volume, set_pan,
-        set_volume_params, stop_channel, update_channels,
+        set_volume_params, stop_channel, update_channels, DSSoundVtable,
     };
-    use openwa_core::rebase::rb;
-    use openwa_core::vtable::patch_vtable;
+    use openwa_core::vtable_replace;
 
-    let vtable = rb(va::DS_SOUND_VTABLE) as *mut u32;
+    vtable_replace!(DSSoundVtable, va::DS_SOUND_VTABLE, {
+        destructor          => dssound_destructor,
+        update_channels     => update_channels,
+        set_volume_params   => set_volume_params,
+        play_sound          => play_sound,
+        play_sound_pooled   => play_sound_pooled,
+        set_pan             => set_pan,
+        stub_6              => dssound_returns_0,
+        set_master_volume   => set_master_volume,
+        set_channel_volume  => set_channel_volume,
+        is_channel_finished => is_channel_finished,
+        stop_channel        => stop_channel,
+        release_finished    => release_finished,
+        load_wav            => load_wav,
+        is_slot_loaded      => is_slot_loaded,
+        sub_destructor      => dssound_sub_destructor,
+        noop_15             => dssound_noop,
+        noop_16             => dssound_noop,
+        returns_0_17        => dssound_returns_0,
+        returns_0_18        => dssound_returns_0,
+        stub_19             => dssound_returns_0,
+        stub_20             => dssound_returns_0,
+        returns_0_21        => dssound_returns_0,
+        stub_22             => dssound_returns_0,
+        returns_1_23        => dssound_returns_1,
+    })?;
 
-    patch_vtable(vtable, 24, |vt| {
-        // Slot 12: load_wav — WAV file → DirectSound secondary buffer (hound + windows crate)
-        *vt.add(12) = load_wav as *const () as u32;
-
-        // Slot 0: destructor — releases all COM objects
-        *vt.add(0) = dssound_destructor as *const () as u32;
-
-        // Slot 1: update_channels — release finished buffers each frame
-        *vt.add(1) = update_channels as *const () as u32;
-
-        // Slot 7: set_master_volume — adjusts all active channels
-        *vt.add(7) = set_master_volume as *const () as u32;
-
-        // Slot 8: set_channel_volume — sets volume on specific channel
-        *vt.add(8) = set_channel_volume as *const () as u32;
-
-        // Slot 11: release_finished — like update_channels, returns count
-        *vt.add(11) = release_finished as *const () as u32;
-
-        // Slot 3: play_sound — thiscall + 5 stack params
-        *vt.add(3) = play_sound as *const () as u32;
-
-        // Slot 4: play_sound_pooled — thiscall + 5 stack params
-        *vt.add(4) = play_sound_pooled as *const () as u32;
-
-        // Slot 2: set_volume_params — frequency scaling for all channels
-        *vt.add(2) = set_volume_params as *const () as u32;
-
-        // Slot 5: set_pan — stereo panning with dB lookup
-        *vt.add(5) = set_pan as *const () as u32;
-
-        // Slot 9: is_channel_finished — returns 0 if playing, 1 if stopped/free
-        *vt.add(9) = is_channel_finished as *const () as u32;
-
-        // Slot 10: stop_channel — stops buffer, releases, returns to pool
-        *vt.add(10) = stop_channel as *const () as u32;
-
-        // Slot 13: is_slot_loaded — channel_slots check
-        *vt.add(13) = is_slot_loaded as *const () as u32;
-
-        // Slot 14: sub_destructor — sets secondary vtable
-        *vt.add(14) = dssound_sub_destructor as *const () as u32;
-
-        // Trivial noops (slots 15, 16)
-        *vt.add(15) = dssound_noop as *const () as u32;
-        *vt.add(16) = dssound_noop as *const () as u32;
-
-        // Trivial returns-0 (slots 6, 17, 18, 19, 20, 21, 22)
-        for slot in [6, 17, 18, 19, 20, 21, 22] {
-            *vt.add(slot) = dssound_returns_0 as *const () as u32;
-        }
-
-        // Trivial returns-1 (slot 23)
-        *vt.add(23) = dssound_returns_1 as *const () as u32;
-
-        let _ = log_line("[Sound]   DSSound vtable: patched 24/24 slots with Rust");
-    })
-    .map_err(|e| e.to_string())
+    let _ = log_line("[Sound]   DSSound vtable: patched 24/24 slots with Rust");
+    Ok(())
 }

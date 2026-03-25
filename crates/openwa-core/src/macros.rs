@@ -156,10 +156,14 @@ macro_rules! define_addresses {
 ///
 /// # Syntax
 ///
+/// Slots can be identified by **method name** (resolved via `offset_of!`)
+/// or by **slot index** (literal number):
+///
 /// ```ignore
-/// vtable_replace!(PaletteVtable, va::PALETTE_VTABLE, {
-///     slot 2 => my_set_mode,                    // pure replace
-///     slot 3 [originals::INIT] => my_init,      // replace + save original
+/// vtable_replace!(DSSoundVtable, va::DS_SOUND_VTABLE, {
+///     play_sound => my_play_sound,                    // by name, pure replace
+///     load_wav [originals::LOAD_WAV] => my_load_wav,  // by name, save original
+///     slot 23 => my_returns_1,                        // by index (legacy)
 /// })?;
 /// ```
 ///
@@ -174,32 +178,59 @@ macro_rules! vtable_replace {
         let slot_count = core::mem::size_of::<$vtable_ty>() / 4;
         unsafe {
             $crate::vtable::patch_vtable(vtable_ptr, slot_count, |vt| {
-                $crate::vtable_replace!(@slots vt $($slot)*);
+                $crate::vtable_replace!(@slots vt, $vtable_ty, $($slot)*);
             })
         }
     }};
 
+    // --- Index-based (slot N) ---
+
     // Slot with original save: slot N [static_path] => replacement,
-    (@slots $vt:ident slot $idx:literal [$orig:expr] => $replacement:expr, $($rest:tt)*) => {
+    (@slots $vt:ident, $vtable_ty:ty, slot $idx:literal [$orig:expr] => $replacement:expr, $($rest:tt)*) => {
         {
             let slot = $vt.add($idx);
             $orig.store(unsafe { *slot }, core::sync::atomic::Ordering::Relaxed);
             unsafe { *slot = $replacement as *const () as u32; }
         }
-        $crate::vtable_replace!(@slots $vt $($rest)*);
+        $crate::vtable_replace!(@slots $vt, $vtable_ty, $($rest)*);
     };
 
     // Slot without original save: slot N => replacement,
-    (@slots $vt:ident slot $idx:literal => $replacement:expr, $($rest:tt)*) => {
+    (@slots $vt:ident, $vtable_ty:ty, slot $idx:literal => $replacement:expr, $($rest:tt)*) => {
         {
             let slot = $vt.add($idx);
             unsafe { *slot = $replacement as *const () as u32; }
         }
-        $crate::vtable_replace!(@slots $vt $($rest)*);
+        $crate::vtable_replace!(@slots $vt, $vtable_ty, $($rest)*);
+    };
+
+    // --- Name-based (method_name) ---
+
+    // Method with original save: method_name [static_path] => replacement,
+    (@slots $vt:ident, $vtable_ty:ty, $method:ident [$orig:expr] => $replacement:expr, $($rest:tt)*) => {
+        {
+            const _SLOT_IDX: usize =
+                core::mem::offset_of!($vtable_ty, $method) / core::mem::size_of::<usize>();
+            let slot = $vt.add(_SLOT_IDX);
+            $orig.store(unsafe { *slot }, core::sync::atomic::Ordering::Relaxed);
+            unsafe { *slot = $replacement as *const () as u32; }
+        }
+        $crate::vtable_replace!(@slots $vt, $vtable_ty, $($rest)*);
+    };
+
+    // Method without original save: method_name => replacement,
+    (@slots $vt:ident, $vtable_ty:ty, $method:ident => $replacement:expr, $($rest:tt)*) => {
+        {
+            const _SLOT_IDX: usize =
+                core::mem::offset_of!($vtable_ty, $method) / core::mem::size_of::<usize>();
+            let slot = $vt.add(_SLOT_IDX);
+            unsafe { *slot = $replacement as *const () as u32; }
+        }
+        $crate::vtable_replace!(@slots $vt, $vtable_ty, $($rest)*);
     };
 
     // Base case
-    (@slots $vt:ident) => {};
+    (@slots $vt:ident, $vtable_ty:ty,) => {};
 }
 
 /// Call a virtual method through a typed vtable pointer.
