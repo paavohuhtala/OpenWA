@@ -1,4 +1,5 @@
 pub mod ddgame;
+pub mod ddgame_constructor;
 pub mod replay;
 pub mod ddgame_wrapper;
 pub mod game_info;
@@ -7,11 +8,17 @@ pub mod game_state_init;
 pub mod game_timer;
 pub mod net_bridge;
 pub mod net_wrapper;
+pub mod team_arena;
 
-pub use ddgame::{
-    DDGame, RenderEntry, SoundQueueEntry, TeamArenaRef, TeamArenaState, TeamBlock,
-    TeamHeader, TeamIndexMap, TeamSlot0, WormEntry, GAME_PHASE_NORMAL_MIN,
-    GAME_PHASE_SUDDEN_DEATH,
+pub use ddgame::DDGame;
+pub use ddgame_constructor::{
+    create_ddgame, ddgame_init_fields, ddgame_init_render_indices,
+    display_layer_color_init, init_constructor_addrs, ON_DDGAME_ALLOC,
+};
+pub use team_arena::{
+    CoordEntry, CoordList, CoordListEntry, GAME_PHASE_NORMAL_MIN, GAME_PHASE_SUDDEN_DEATH,
+    RenderEntry, SoundQueueEntry, TeamArenaRef, TeamArenaState, TeamBlock, TeamHeader,
+    TeamIndexMap, TeamSlot0, TeamWeaponSlots, WeaponSlots, WormEntry,
 };
 pub use ddgame_wrapper::DDGameWrapper;
 pub use game_info::GameInfo;
