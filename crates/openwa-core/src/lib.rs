@@ -23,6 +23,7 @@ pub use inventory;
 
 // Re-export derive macros so users write `use openwa_core::FieldRegistry;`
 pub use openwa_derive::FieldRegistry;
+pub use openwa_derive::vtable;
 
 #[macro_use]
 pub mod macros;

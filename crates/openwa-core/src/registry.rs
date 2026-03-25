@@ -309,6 +309,82 @@ pub fn field_at_inherited(struct_name: &str, offset: u32) -> Option<&'static Fie
 }
 
 // =========================================================================
+// Vtable registry (for #[derive(Vtable)])
+// =========================================================================
+
+/// Metadata for a single vtable slot.
+#[derive(Debug, Clone, Copy)]
+pub struct VtableSlotEntry {
+    /// Slot index in the vtable (0-based).
+    pub index: u32,
+    /// Method name (e.g., "set_mode").
+    pub name: &'static str,
+    /// Brief description from doc comment.
+    pub doc: &'static str,
+}
+
+/// Metadata for a vtable struct.
+#[derive(Debug)]
+pub struct VtableInfo {
+    /// Vtable struct name (e.g., "PaletteVtable").
+    pub struct_name: &'static str,
+    /// Owning C++ class name (e.g., "Palette"), if specified.
+    pub class_name: &'static str,
+    /// Ghidra VA of the vtable in .rdata (0 if not specified).
+    pub ghidra_va: u32,
+    /// Total number of slots in the vtable.
+    pub slot_count: u32,
+    /// Known (named) slots only.
+    pub slots: &'static [VtableSlotEntry],
+}
+
+impl VtableInfo {
+    /// Look up a slot by method name.
+    pub fn slot_by_name(&self, name: &str) -> Option<&VtableSlotEntry> {
+        self.slots.iter().find(|s| s.name == name)
+    }
+
+    /// Look up a slot by index.
+    pub fn slot_by_index(&self, index: u32) -> Option<&VtableSlotEntry> {
+        self.slots.iter().find(|s| s.index == index)
+    }
+}
+
+/// Trait for vtable structs with auto-generated registry metadata.
+pub trait HasVtableRegistry {
+    fn vtable_info() -> &'static VtableInfo;
+}
+
+/// A vtable's registry submitted to the global collection via `inventory`.
+pub struct VtableRegistration {
+    pub info: &'static VtableInfo,
+}
+
+inventory::collect!(VtableRegistration);
+
+static VTABLE_MAP: OnceLock<std::collections::HashMap<&'static str, &'static VtableInfo>> =
+    OnceLock::new();
+
+fn vtable_map() -> &'static std::collections::HashMap<&'static str, &'static VtableInfo> {
+    VTABLE_MAP.get_or_init(|| {
+        inventory::iter::<VtableRegistration>
+            .into_iter()
+            .map(|r| (r.info.struct_name, r.info))
+            .collect()
+    })
+}
+
+/// Look up vtable metadata by struct name.
+pub fn vtable_info_for(struct_name: &str) -> Option<&'static VtableInfo> {
+    vtable_map().get(struct_name).copied()
+}
+
+/// Return all registered vtable info entries.
+pub fn all_vtable_info() -> impl Iterator<Item = &'static VtableInfo> {
+    vtable_map().values().copied()
+}
+
+// =========================================================================
 // Live object tracker
 // =========================================================================
 
@@ -601,5 +677,52 @@ mod tests {
         let fields = struct_fields_for_vtable(va::CTASK_VTABLE);
         assert!(fields.is_some(), "CTask fields not found via vtable");
         assert_eq!(fields.unwrap().struct_name, "CTask");
+    }
+
+    #[test]
+    fn vtable_registry_palette() {
+        // PaletteVtable should be registered via #[vtable(...)] attribute
+        let info = vtable_info_for("PaletteVtable");
+        assert!(info.is_some(), "PaletteVtable not found in vtable registry");
+        let info = info.unwrap();
+
+        assert_eq!(info.struct_name, "PaletteVtable");
+        assert_eq!(info.class_name, "Palette");
+        assert_eq!(info.ghidra_va, 0x0066_A2E4);
+        assert_eq!(info.slot_count, 5);
+        assert_eq!(info.slots.len(), 3); // set_mode, init, reset
+
+        // Check individual slots
+        let set_mode = info.slot_by_name("set_mode");
+        assert!(set_mode.is_some(), "set_mode not found");
+        assert_eq!(set_mode.unwrap().index, 2);
+
+        let init = info.slot_by_index(3);
+        assert!(init.is_some(), "slot 3 not found");
+        assert_eq!(init.unwrap().name, "init");
+    }
+
+    #[test]
+    fn vtable_generates_addr_entry() {
+        use crate::address::va;
+
+        // The vtable macro should have generated PALETTE_VTABLE const
+        assert_eq!(va::PALETTE_VTABLE, 0x0066_A2E4);
+
+        // And an AddrEntry in the registry
+        let entry = lookup_va_exact(0x0066_A2E4);
+        assert!(entry.is_some(), "PALETTE_VTABLE addr entry not found");
+        let entry = entry.unwrap();
+        assert_eq!(entry.kind, AddrKind::Vtable);
+        assert_eq!(entry.class_name, Some("Palette"));
+    }
+
+    #[test]
+    fn vtable_size_assertion() {
+        // PaletteVtable should be 5 * 4 = 20 bytes
+        assert_eq!(
+            core::mem::size_of::<crate::display::palette::PaletteVtable>(),
+            5 * core::mem::size_of::<usize>()
+        );
     }
 }

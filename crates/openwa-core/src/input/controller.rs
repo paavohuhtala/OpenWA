@@ -1,3 +1,13 @@
+/// Vtable for InputCtrl (0x66B3FC).
+///
+/// Only slot 0 (destructor) is known — called on init failure cleanup.
+#[openwa_core::vtable(size = 1, va = 0x0066_B3FC, class = "InputCtrl")]
+pub struct InputCtrlVtable {
+    /// Destructor(this, flags) — scalar deleting destructor
+    #[slot(0)]
+    pub destructor: fn(this: *mut InputCtrl, flags: u32),
+}
+
 /// InputCtrl — input controller subsystem.
 ///
 /// Initializer: FUN_0058C0D0, usercall(ESI=this) + stdcall(4 params), RET 0x10.
@@ -20,18 +30,12 @@ pub struct InputCtrl {
 
 const _: () = assert!(core::mem::size_of::<InputCtrl>() == 0x1800);
 
-/// Vtable for InputCtrl (0x66B3FC).
-///
-/// Only slot 0 (destructor) is known — called on init failure cleanup.
-#[repr(C)]
-pub struct InputCtrlVtable {
-    /// [0]: Destructor(this, flags) — scalar deleting destructor
-    pub destructor: unsafe extern "thiscall" fn(*mut InputCtrl, u32),
-}
+// Generate calling wrappers: InputCtrl::destructor()
+bind_InputCtrlVtable!(InputCtrl, vtable);
 
 impl InputCtrl {
     /// Vtable[0]: Destroy and optionally free (flags & 1 = free).
     pub unsafe fn destroy(&mut self, flags: u32) {
-        vcall!(self, destructor, flags)
+        self.destructor(flags);
     }
 }

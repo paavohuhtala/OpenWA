@@ -62,46 +62,42 @@ const _: () = assert!(core::mem::size_of::<DisplayBase>() == 0x3560);
 ///
 /// In headless mode, most slots are no-op stubs. The primary vtable (0x6645F8)
 /// has _purecall for the drawing slots; the headless overlay replaces them.
-#[repr(C)]
+#[openwa_core::vtable(size = 32, va = 0x0066_45F8, class = "DisplayBase")]
 pub struct DisplayBaseVtable {
-    /// Slot 0: destructor — thiscall(this, flags)
-    pub destructor: unsafe extern "thiscall" fn(*mut DisplayBase, u8) -> *mut DisplayBase,
-    /// Slot 1: thiscall(this)
-    pub slot_01: unsafe extern "thiscall" fn(*mut DisplayBase),
-    /// Slot 2-3: thiscall(this) — identical in headless (0x4AA060)
-    pub slot_02: unsafe extern "thiscall" fn(*mut DisplayBase),
-    pub slot_03: unsafe extern "thiscall" fn(*mut DisplayBase),
-    pub slot_04: unsafe extern "thiscall" fn(*mut DisplayBase),
-    pub slot_05: unsafe extern "thiscall" fn(*mut DisplayBase),
-    pub slot_06: unsafe extern "thiscall" fn(*mut DisplayBase),
-    pub slot_07: unsafe extern "thiscall" fn(*mut DisplayBase),
-    pub slot_08: unsafe extern "thiscall" fn(*mut DisplayBase),
-    pub slot_09: unsafe extern "thiscall" fn(*mut DisplayBase),
-    pub slot_10: unsafe extern "thiscall" fn(*mut DisplayBase),
-    pub slot_11: unsafe extern "thiscall" fn(*mut DisplayBase),
-    pub slot_12: unsafe extern "thiscall" fn(*mut DisplayBase),
-    pub slot_13: unsafe extern "thiscall" fn(*mut DisplayBase),
-    pub slot_14: unsafe extern "thiscall" fn(*mut DisplayBase),
-    pub slot_15: unsafe extern "thiscall" fn(*mut DisplayBase),
-    pub slot_16: unsafe extern "thiscall" fn(*mut DisplayBase),
-    pub slot_17: unsafe extern "thiscall" fn(*mut DisplayBase),
-    pub slot_18: unsafe extern "thiscall" fn(*mut DisplayBase),
-    pub slot_19: unsafe extern "thiscall" fn(*mut DisplayBase),
-    pub slot_20: unsafe extern "thiscall" fn(*mut DisplayBase),
-    pub slot_21: unsafe extern "thiscall" fn(*mut DisplayBase),
-    pub slot_22: unsafe extern "thiscall" fn(*mut DisplayBase),
-    pub slot_23: unsafe extern "thiscall" fn(*mut DisplayBase),
-    pub slot_24: unsafe extern "thiscall" fn(*mut DisplayBase),
-    pub slot_25: unsafe extern "thiscall" fn(*mut DisplayBase),
-    pub slot_26: unsafe extern "thiscall" fn(*mut DisplayBase),
-    pub slot_27: unsafe extern "thiscall" fn(*mut DisplayBase),
-    pub slot_28: unsafe extern "thiscall" fn(*mut DisplayBase),
-    pub slot_29: unsafe extern "thiscall" fn(*mut DisplayBase),
-    pub slot_30: unsafe extern "thiscall" fn(*mut DisplayBase),
-    pub slot_31: unsafe extern "thiscall" fn(*mut DisplayBase),
+    /// destructor
+    pub destructor: fn(this: *mut DisplayBase, flags: u8) -> *mut DisplayBase,
+    pub slot_01: fn(this: *mut DisplayBase),
+    pub slot_02: fn(this: *mut DisplayBase),
+    pub slot_03: fn(this: *mut DisplayBase),
+    pub slot_04: fn(this: *mut DisplayBase),
+    pub slot_05: fn(this: *mut DisplayBase),
+    pub slot_06: fn(this: *mut DisplayBase),
+    pub slot_07: fn(this: *mut DisplayBase),
+    pub slot_08: fn(this: *mut DisplayBase),
+    pub slot_09: fn(this: *mut DisplayBase),
+    pub slot_10: fn(this: *mut DisplayBase),
+    pub slot_11: fn(this: *mut DisplayBase),
+    pub slot_12: fn(this: *mut DisplayBase),
+    pub slot_13: fn(this: *mut DisplayBase),
+    pub slot_14: fn(this: *mut DisplayBase),
+    pub slot_15: fn(this: *mut DisplayBase),
+    pub slot_16: fn(this: *mut DisplayBase),
+    pub slot_17: fn(this: *mut DisplayBase),
+    pub slot_18: fn(this: *mut DisplayBase),
+    pub slot_19: fn(this: *mut DisplayBase),
+    pub slot_20: fn(this: *mut DisplayBase),
+    pub slot_21: fn(this: *mut DisplayBase),
+    pub slot_22: fn(this: *mut DisplayBase),
+    pub slot_23: fn(this: *mut DisplayBase),
+    pub slot_24: fn(this: *mut DisplayBase),
+    pub slot_25: fn(this: *mut DisplayBase),
+    pub slot_26: fn(this: *mut DisplayBase),
+    pub slot_27: fn(this: *mut DisplayBase),
+    pub slot_28: fn(this: *mut DisplayBase),
+    pub slot_29: fn(this: *mut DisplayBase),
+    pub slot_30: fn(this: *mut DisplayBase),
+    pub slot_31: fn(this: *mut DisplayBase),
 }
-
-const _: () = assert!(core::mem::size_of::<DisplayBaseVtable>() == 32 * 4);
 
 // ── Sprite cache sub-objects ──────────────────────────────────────────────
 

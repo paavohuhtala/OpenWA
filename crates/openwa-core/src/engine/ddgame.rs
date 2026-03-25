@@ -494,9 +494,9 @@ pub unsafe fn display_layer_color_init(wrapper: *mut DDGameWrapper) {
     };
 
     let display = (*wrapper).display;
-    DDDisplay::set_layer_color(display, 1, layer1_color);
-    DDDisplay::set_layer_color(display, 2, 0x20);
-    DDDisplay::set_layer_color(display, 3, 0x70);
+    (*display).set_layer_color(1, layer1_color);
+    (*display).set_layer_color(2, 0x20);
+    (*display).set_layer_color(3, 0x70);
 }
 
 /// Initialize runtime addresses for the constructor bridges.
@@ -841,16 +841,15 @@ unsafe fn init_graphics_and_resources(
         }
         let disp = (*wrapper).display;
         let gfx_dir = (*wrapper).primary_gfx_dir;
-        DDDisplay::set_layer_color(disp, 1, 0xFE);
-        DDDisplay::load_sprite(
-            disp,
+        (*disp).set_layer_color(1, 0xFE);
+        (*disp).load_sprite(
             1,
             1,
             0,
             gfx_dir,
             rb(va::STR_CDROM_SPR) as *const c_char,
         );
-        DDDisplay::set_layer_visibility(disp, 1, -100);
+        (*disp).set_layer_visibility(1, -100);
 
         // Palette slot range init (raw byte offsets into DisplayBase)
         let disp_raw = disp as *mut u8;
@@ -875,7 +874,7 @@ unsafe fn init_graphics_and_resources(
     // ── Display vtable slot 5 (offset 0x14) ──
     // Original: CALL EAX (vtable[5]), saves return value in ESI for use as
     // the `output` parameter in the color-entries GfxResource__Create call below.
-    let layer_ctx = DDDisplay::set_active_layer((*ddgame).display, 1);
+    let layer_ctx = (*(*ddgame).display).set_active_layer(1);
 
     // ── GfxDir color entries DDGame+0x730C..0x732C ──
     // Original logic: if gfx_mode!=0, try GfxResource__Create for colours.img.
@@ -1089,7 +1088,7 @@ unsafe fn init_graphics_and_resources(
             name_buf[5] = b'0' + (i / 10) as u8;
             name_buf[6] = b'0' + (i % 10) as u8;
 
-            let layer_ctx = DDDisplay::set_active_layer((*ddgame).display, 1);
+            let layer_ctx = (*(*ddgame).display).set_active_layer(1);
 
             let entry = gfx_dir_find_entry(name_buf.as_ptr().cast(), gfx_dir);
 
@@ -1272,14 +1271,13 @@ unsafe fn init_graphics_and_resources(
         );
 
         let disp = (*wrapper).display;
-        DDDisplay::set_active_layer(disp, 3);
+        (*disp).set_active_layer(3);
 
         // back.spr and debris.spr must be loaded unconditionally — they're used by
         // GenerateDebrisParticles (0x546F70) for particle effects, which affects
         // the game RNG (DDGame+0x45EC). The original constructor loads them even
         // in headless mode. Skipping them causes replay desync.
-        DDDisplay::load_sprite_by_layer(
-            disp,
+        (*disp).load_sprite_by_layer(
             3,
             0x26D,
             land_layer,
@@ -1289,10 +1287,9 @@ unsafe fn init_graphics_and_resources(
         // GenerateDebrisParticles (0x546F70) for particle effects, which
         // affects the game RNG (DDGame+0x45EC). Skipping it in headless
         // mode causes desync (longbow replay checksum mismatch at frame 1350).
-        DDDisplay::load_sprite(disp, 3, 0x26E, 0, land_layer, c"debris.spr".as_ptr());
+        (*disp).load_sprite(3, 0x26E, 0, land_layer, c"debris.spr".as_ptr());
 
-        DDDisplay::load_sprite_by_layer(
-            disp,
+        (*disp).load_sprite_by_layer(
             2,
             0x26C,
             water_layer,
@@ -1303,7 +1300,7 @@ unsafe fn init_graphics_and_resources(
 
         // ── Gradient image (0x030) ──
         let level_height = (*ddgame).level_height as i32;
-        let layer3_ctx = DDDisplay::set_active_layer(disp, 3);
+        let layer3_ctx = (*disp).set_active_layer(3);
         let s_var1 = *(layer3_ctx.add(0x606) as *const i16);
 
         if s_var1 < 0x61 && level_height == 0x2B8 {
@@ -1316,7 +1313,7 @@ unsafe fn init_graphics_and_resources(
 
         // ── Fill image → fill_pixel (0x7338) ──
         {
-            let layer2_ctx = DDDisplay::set_active_layer((*ddgame).display, 2);
+            let layer2_ctx = (*(*ddgame).display).set_active_layer(2);
             // In the original, fill.img uses piStack_126c which the decompiler
             // shows was set from piVar3 (water_layer from landscape+0xB38).
             let fill_sprite = call_gfx_find_and_load(water_layer, c"fill.img", layer2_ctx);
@@ -1381,9 +1378,9 @@ unsafe fn init_graphics_and_resources(
     // ── Final display layer visibility ──
     {
         let disp = (*wrapper).display;
-        DDDisplay::set_layer_visibility(disp, 1, 0);
-        DDDisplay::set_layer_visibility(disp, 2, 0);
-        DDDisplay::set_layer_visibility(disp, 3, 1);
+        (*disp).set_layer_visibility(1, 0);
+        (*disp).set_layer_visibility(2, 0);
+        (*disp).set_layer_visibility(3, 1);
     }
 
     let _ = crate::log::log_line("[DDGame] init_graphics_and_resources DONE");

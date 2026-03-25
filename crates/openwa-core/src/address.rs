@@ -61,6 +61,15 @@ pub mod va {
     pub use crate::task::filter::{CTASK_FILTER_VTABLE, CTASK_FILTER_CTOR};
     pub use crate::task::fire::{CTASK_FIRE_VTABLE, CTASK_FIRE_CTOR};
 
+    // Re-exported from modules using #[vtable(...)] attribute
+    pub use crate::display::palette::PALETTE_VTABLE;
+    pub use crate::display::dd_display::DD_DISPLAY_VTABLE;
+    pub use crate::input::controller::INPUT_CTRL_VTABLE;
+    pub use crate::frontend::map_view::MAP_VIEW_VTABLE;
+    pub use crate::task::game_task::SOUND_EMITTER_VTABLE;
+    pub use crate::display::base::DISPLAY_BASE_VTABLE;
+    pub use crate::audio::dssound::DS_SOUND_VTABLE;
+
     crate::define_addresses! {
         class "DDGameWrapper" {
             /// DDGameWrapper vtable
@@ -123,8 +132,7 @@ pub mod va {
         }
 
         class "DSSound" {
-            /// DSSound vtable
-            vtable DS_SOUND_VTABLE = 0x0066_AF20;
+            // Vtable now defined via #[vtable(...)] in audio/dssound.rs
             /// DSSound constructor — usercall(EAX=this), plain RET
             ctor/Usercall CONSTRUCT_DS_SOUND = 0x0057_3D50;
             /// DSSound init buffers — usercall(EAX=dssound), plain RET
@@ -144,14 +152,10 @@ pub mod va {
             fn/Stdcall DDKEYBOARD_POLL_KEYBOARD_STATE = 0x0057_2290;
         }
 
-        class "Palette" {
-            /// Palette vtable (0x28-byte palette object)
-            vtable PALETTE_VTABLE_MAYBE = 0x0066_A2E4;
-        }
+        // Palette vtable is now defined via #[derive(Vtable)] in display/palette.rs
 
         class "DisplayBase" {
-            /// DisplayBase primary vtable (set by constructor, has _purecall slots)
-            vtable DISPLAY_BASE_VTABLE = 0x0066_45F8;
+            // Primary vtable now defined via #[vtable(...)] in display/base.rs
             /// DisplayBase headless vtable
             vtable DISPLAY_BASE_HEADLESS_VTABLE = 0x0066_A0F8;
             /// DisplayBase constructor (0x3560-byte object)
@@ -159,8 +163,7 @@ pub mod va {
         }
 
         class "InputCtrl" {
-            /// Input controller vtable (0x1800-byte object)
-            vtable INPUT_CTRL_VTABLE = 0x0066_B3FC;
+            // Vtable now defined via #[vtable(...)] in input/controller.rs
             /// Input controller initializer
             fn/Usercall INPUT_CTRL_INIT = 0x0058_C0D0;
         }

@@ -77,60 +77,57 @@ impl ChannelDescriptor {
 ///
 /// Methods operate on the 8 channel descriptors and 64-entry buffer pool.
 /// Trivial slots (stubs, noops, return-constant) are marked.
-#[repr(C)]
+#[openwa_core::vtable(size = 24, va = 0x0066_AF20, class = "DSSound")]
 pub struct DSSoundVtable {
-    /// Slot 0 (0x573DB0): destructor — thiscall(this, flags)
-    pub destructor: unsafe extern "thiscall" fn(*mut DSSound, u8) -> *mut DSSound,
-    /// Slot 1 (0x574400): update_channels — iterates 8 descs, releases finished buffers
-    pub update_channels: unsafe extern "thiscall" fn(*mut DSSound),
-    /// Slot 2 (0x574460): set_volume_params — sets status_1/2, adjusts channel volumes
-    pub set_volume_params: unsafe extern "thiscall" fn(*mut DSSound, u32, i32),
-    /// Slot 3 (0x574730): play_sound — wrapper around core play, returns bool. RET 0x14 = 5 stack params.
-    pub play_sound: unsafe extern "thiscall" fn(*mut DSSound, u32, u32, u32, u32, u32) -> bool,
-    /// Slot 4 (0x574770): play_sound_pooled — allocates from buffer pool, plays. RET 0x14 = 5 stack params.
-    pub play_sound_pooled:
-        unsafe extern "thiscall" fn(*mut DSSound, u32, u32, u32, u32, u32) -> i32,
-    /// Slot 5 (0x574900): set_pan — sets pan on channel (dB lookup)
-    pub set_pan: unsafe extern "thiscall" fn(*mut DSSound, u32, u32) -> u32,
-    /// Slot 6 (0x505430): **stub** — returns 0
-    pub stub_6: unsafe extern "thiscall" fn(*mut DSSound) -> u32,
-    /// Slot 7 (0x574A10): set_master_volume — sets volume, adjusts all channels
-    pub set_master_volume: unsafe extern "thiscall" fn(*mut DSSound, i32) -> u32,
-    /// Slot 8 (0x574980): set_channel_volume — volume on specific channel
-    pub set_channel_volume: unsafe extern "thiscall" fn(*mut DSSound, i32, i32) -> u32,
-    /// Slot 9 (0x5747F0): is_channel_finished — returns 1 if stopped, 0 if playing
-    pub is_channel_finished: unsafe extern "thiscall" fn(*mut DSSound, i32) -> u8,
-    /// Slot 10 (0x574840): stop_channel — stops + releases buffer, returns to pool
-    pub stop_channel: unsafe extern "thiscall" fn(*mut DSSound, i32) -> u32,
-    /// Slot 11 (0x574AB0): release_finished — releases finished buffers, returns count
-    pub release_finished: unsafe extern "thiscall" fn(*mut DSSound) -> i32,
-    /// Slot 12 (0x573FF0): load_wav — opens WAV file, parses RIFF, creates buffer
-    pub load_wav: unsafe extern "thiscall" fn(*mut DSSound, i32, *const u8) -> u32,
-    /// Slot 13 (0x573FD0): is_slot_loaded — returns channel_slots[idx] != 0
-    pub is_slot_loaded: unsafe extern "thiscall" fn(*mut DSSound, i32) -> bool,
-    /// Slot 14 (0x573D30): sub_destructor — sets secondary vtable
-    pub sub_destructor: unsafe extern "thiscall" fn(*mut DSSound, u8) -> *mut DSSound,
-    /// Slot 15 (0x4AA060): **noop** — returns void
-    pub noop_15: unsafe extern "thiscall" fn(*mut DSSound),
-    /// Slot 16 (0x5931C0): **noop** — returns void
-    pub noop_16: unsafe extern "thiscall" fn(*mut DSSound),
-    /// Slot 17 (0x573D20): **returns_0**
-    pub returns_0_17: unsafe extern "thiscall" fn(*mut DSSound) -> u32,
-    /// Slot 18 (0x573D20): **returns_0** (same as 17)
-    pub returns_0_18: unsafe extern "thiscall" fn(*mut DSSound) -> u32,
-    /// Slot 19 (0x505430): **stub** — returns 0
-    pub stub_19: unsafe extern "thiscall" fn(*mut DSSound) -> u32,
-    /// Slot 20 (0x505430): **stub** — returns 0
-    pub stub_20: unsafe extern "thiscall" fn(*mut DSSound) -> u32,
-    /// Slot 21 (0x571AF0): **returns_0**
-    pub returns_0_21: unsafe extern "thiscall" fn(*mut DSSound) -> u32,
-    /// Slot 22 (0x505430): **stub** — returns 0
-    pub stub_22: unsafe extern "thiscall" fn(*mut DSSound) -> u32,
-    /// Slot 23 (0x4260E0): **returns_1**
-    pub returns_1_23: unsafe extern "thiscall" fn(*mut DSSound) -> u32,
+    /// destructor
+    pub destructor: fn(this: *mut DSSound, flags: u8) -> *mut DSSound,
+    /// update_channels — iterates 8 descs, releases finished buffers
+    pub update_channels: fn(this: *mut DSSound),
+    /// set_volume_params — sets status_1/2, adjusts channel volumes
+    pub set_volume_params: fn(this: *mut DSSound, status: u32, value: i32),
+    /// play_sound — wrapper around core play. RET 0x14 = 5 stack params.
+    pub play_sound: fn(this: *mut DSSound, slot: u32, flags: u32, volume: u32, pan: u32, freq: u32) -> bool,
+    /// play_sound_pooled — allocates from buffer pool, plays. RET 0x14.
+    pub play_sound_pooled: fn(this: *mut DSSound, slot: u32, flags: u32, volume: u32, pan: u32, freq: u32) -> i32,
+    /// set_pan — sets pan on channel (dB lookup)
+    pub set_pan: fn(this: *mut DSSound, channel: u32, pan: u32) -> u32,
+    /// **stub** — returns 0
+    pub stub_6: fn(this: *mut DSSound) -> u32,
+    /// set_master_volume — sets volume, adjusts all channels
+    pub set_master_volume: fn(this: *mut DSSound, volume: i32) -> u32,
+    /// set_channel_volume — volume on specific channel
+    pub set_channel_volume: fn(this: *mut DSSound, channel: i32, volume: i32) -> u32,
+    /// is_channel_finished — returns 1 if stopped, 0 if playing
+    pub is_channel_finished: fn(this: *mut DSSound, channel: i32) -> u8,
+    /// stop_channel — stops + releases buffer, returns to pool
+    pub stop_channel: fn(this: *mut DSSound, channel: i32) -> u32,
+    /// release_finished — releases finished buffers, returns count
+    pub release_finished: fn(this: *mut DSSound) -> i32,
+    /// load_wav — opens WAV file, parses RIFF, creates buffer
+    pub load_wav: fn(this: *mut DSSound, slot: i32, path: *const u8) -> u32,
+    /// is_slot_loaded — returns channel_slots[idx] != 0
+    pub is_slot_loaded: fn(this: *mut DSSound, slot: i32) -> bool,
+    /// sub_destructor — sets secondary vtable
+    pub sub_destructor: fn(this: *mut DSSound, flags: u8) -> *mut DSSound,
+    /// **noop**
+    pub noop_15: fn(this: *mut DSSound),
+    /// **noop**
+    pub noop_16: fn(this: *mut DSSound),
+    /// **returns_0**
+    pub returns_0_17: fn(this: *mut DSSound) -> u32,
+    /// **returns_0** (same as 17)
+    pub returns_0_18: fn(this: *mut DSSound) -> u32,
+    /// **stub** — returns 0
+    pub stub_19: fn(this: *mut DSSound) -> u32,
+    /// **stub** — returns 0
+    pub stub_20: fn(this: *mut DSSound) -> u32,
+    /// **returns_0**
+    pub returns_0_21: fn(this: *mut DSSound) -> u32,
+    /// **stub** — returns 0
+    pub stub_22: fn(this: *mut DSSound) -> u32,
+    /// **returns_1**
+    pub returns_1_23: fn(this: *mut DSSound) -> u32,
 }
-
-const _: () = assert!(core::mem::size_of::<DSSoundVtable>() == 24 * 4);
 
 #[repr(C)]
 pub struct DSSound {

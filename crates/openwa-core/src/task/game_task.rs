@@ -6,8 +6,7 @@ crate::define_addresses! {
     class "CGameTask" {
         /// CGameTask vtable - extends CTask vtable with 12 more methods
         vtable CGAMETASK_VTABLE = 0x0066_41F8;
-        /// CGameTask sound emitter vtable (embedded sub-object at offset 0xE8)
-        vtable CGAMETASK_SOUND_EMITTER_VT = 0x0066_9CF8;
+        // Sound emitter vtable now defined via #[vtable(...)] on SoundEmitterVTable
         /// CGameTask constructor - calls CTask ctor, sets physics defaults
         ctor/Stdcall CGAMETASK_CONSTRUCTOR = 0x004F_ED50;
         /// CGameTask::vtable0 override
@@ -18,6 +17,9 @@ crate::define_addresses! {
         vmethod CGAMETASK_VT2_HANDLE_MESSAGE = 0x004F_F280;
     }
 }
+
+/// Backward-compatible alias for the SoundEmitter vtable const.
+pub const CGAMETASK_SOUND_EMITTER_VT: u32 = SOUND_EMITTER_VTABLE;
 
 /// Game task - extends CTask with physics and gameplay data.
 ///
@@ -81,18 +83,18 @@ const _: () = assert!(core::mem::size_of::<SoundEmitter>() == 0x14);
 ///
 /// Slots [0]-[4] are the sound emitter's own interface.
 /// Slots [5]-[11] are inherited CTask base methods.
-#[repr(C)]
+#[openwa_core::vtable(size = 12, va = 0x0066_9CF8, class = "SoundEmitter")]
 pub struct SoundEmitterVTable {
-    /// [0] 0x546680: GetPosition(this, out_x, out_y) — reads pos_x/pos_y via owner
-    pub get_position: unsafe extern "thiscall" fn(*const SoundEmitter, *mut u32, *mut u32),
-    /// [1] 0x5466A0: GetPosition2(this, out_x, out_y) — reads CGameTask+0x38/0x3C
-    pub get_position2: unsafe extern "thiscall" fn(*const SoundEmitter, *mut u32, *mut u32),
-    /// [2] 0x4260E0: Unknown
-    pub _unknown_2: *const (),
-    /// [3] 0x546990: Destructor(this, flags)
-    pub destructor: unsafe extern "thiscall" fn(*mut SoundEmitter, u32) -> *mut SoundEmitter,
-    /// [4] 0x546760: HandleMessage — sound queue manager
-    pub handle_message: unsafe extern "thiscall" fn(*mut SoundEmitter, u32, u32, u32, u32),
-    /// [5]-[11]: Inherited CTask base methods
-    pub _base_methods: [*const (); 7],
+    /// GetPosition(this, out_x, out_y) — reads pos_x/pos_y via owner
+    #[slot(0)]
+    pub get_position: fn(this: *const SoundEmitter, out_x: *mut u32, out_y: *mut u32),
+    /// GetPosition2 — reads CGameTask+0x38/0x3C
+    #[slot(1)]
+    pub get_position2: fn(this: *const SoundEmitter, out_x: *mut u32, out_y: *mut u32),
+    /// Destructor
+    #[slot(3)]
+    pub destructor: fn(this: *mut SoundEmitter, flags: u32) -> *mut SoundEmitter,
+    /// HandleMessage — sound queue manager
+    #[slot(4)]
+    pub handle_message: fn(this: *mut SoundEmitter, sender: u32, msg_type: u32, size: u32, data: u32),
 }

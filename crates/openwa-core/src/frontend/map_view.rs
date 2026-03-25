@@ -36,10 +36,9 @@ pub struct MapView {
 const _: () = assert!(core::mem::size_of::<MapView>() == 0x29628);
 
 /// MapView vtable (partial — only known slots).
-#[repr(C)]
+#[openwa_core::vtable(size = 2, va = 0x0064_FC60, class = "MapView")]
 pub struct MapViewVtable {
-    /// Slot 0: Unknown virtual method.
-    pub slot_0: usize,
-    /// Slot 1: Destructor — thiscall(this, free_flag). Frees the object if flag & 1.
-    pub destructor: unsafe extern "thiscall" fn(*mut MapView, i32),
+    /// Destructor — thiscall(this, free_flag). Frees the object if flag & 1.
+    #[slot(1)]
+    pub destructor: fn(this: *mut MapView, free_flag: i32),
 }

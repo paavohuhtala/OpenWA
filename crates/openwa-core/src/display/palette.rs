@@ -1,3 +1,20 @@
+/// Vtable for Palette (0x66A2E4).
+///
+/// Slots 2-4 are called by GameEngine__InitHardware after DDGameWrapper construction.
+/// Slots 0-1 are unknown.
+#[openwa_core::vtable(size = 5, va = 0x0066_A2E4, class = "Palette")]
+pub struct PaletteVtable {
+    /// set_mode(this, mode) — called with mode=7 during hardware init
+    #[slot(2)]
+    pub set_mode: fn(this: *mut Palette, mode: u32),
+    /// init — called during hardware init
+    #[slot(3)]
+    pub init: fn(this: *mut Palette),
+    /// reset — called first during hardware init
+    #[slot(4)]
+    pub reset: fn(this: *mut Palette),
+}
+
 /// Palette — palette management object.
 ///
 /// Vtable: 0x66A2E4.
@@ -17,23 +34,8 @@ pub struct Palette {
 
 const _: () = assert!(core::mem::size_of::<Palette>() == 0x28);
 
-/// Vtable for Palette (0x66A2E4).
-///
-/// Slots 2-4 are called by GameEngine__InitHardware after DDGameWrapper construction.
-/// Slots 0-1 are unknown.
-#[repr(C)]
-pub struct PaletteVtable {
-    /// [0]: Unknown
-    pub _slot_0: usize,
-    /// [1]: Unknown
-    pub _slot_1: usize,
-    /// [2]: set_mode(this, mode) — called with mode=7 during hardware init
-    pub set_mode: unsafe extern "thiscall" fn(*mut Palette, u32),
-    /// [3]: init(this) — called during hardware init
-    pub init: unsafe extern "thiscall" fn(*mut Palette),
-    /// [4]: reset(this) — called first during hardware init
-    pub reset: unsafe extern "thiscall" fn(*mut Palette),
-}
+// Generate calling wrappers: Palette::set_mode(), Palette::init(), Palette::reset()
+bind_PaletteVtable!(Palette, vtable);
 
 impl Palette {
     /// Create a new Palette with inline construction (no native C++ ctor).
@@ -46,18 +48,5 @@ impl Palette {
             _field_004: 0xFFFF_FFFF,
             _unknown_008: [0; 0x20],
         }
-    }
-
-    /// Vtable[4]: Reset palette state.
-    pub unsafe fn reset(&mut self) {
-        vcall!(self, reset)
-    }
-    /// Vtable[3]: Initialize palette.
-    pub unsafe fn init(&mut self) {
-        vcall!(self, init)
-    }
-    /// Vtable[2]: Set palette mode.
-    pub unsafe fn set_mode(&mut self, mode: u32) {
-        vcall!(self, set_mode, mode)
     }
 }

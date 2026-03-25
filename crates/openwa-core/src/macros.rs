@@ -149,6 +149,59 @@ macro_rules! define_addresses {
     };
 }
 
+/// Replace specific slots in a WA.exe vtable with Rust function pointers.
+///
+/// Expands to executable code for use inside `install()` functions.
+/// Uses `patch_vtable` (VirtualProtect) to make .rdata writable.
+///
+/// # Syntax
+///
+/// ```ignore
+/// vtable_replace!(PaletteVtable, va::PALETTE_VTABLE, {
+///     slot 2 => my_set_mode,                    // pure replace
+///     slot 3 [originals::INIT] => my_init,      // replace + save original
+/// })?;
+/// ```
+///
+/// The `[static]` syntax saves the original fn pointer to the given `AtomicU32`
+/// before overwriting. Omit it for pure replacement (no call-through).
+///
+/// Size is derived from `size_of::<VtableType>() / 4`.
+#[macro_export]
+macro_rules! vtable_replace {
+    ($vtable_ty:ty, $va:expr, { $($slot:tt)* }) => {{
+        let vtable_ptr = $crate::rebase::rb($va) as *mut u32;
+        let slot_count = core::mem::size_of::<$vtable_ty>() / 4;
+        unsafe {
+            $crate::vtable::patch_vtable(vtable_ptr, slot_count, |vt| {
+                $crate::vtable_replace!(@slots vt $($slot)*);
+            })
+        }
+    }};
+
+    // Slot with original save: slot N [static_path] => replacement,
+    (@slots $vt:ident slot $idx:literal [$orig:expr] => $replacement:expr, $($rest:tt)*) => {
+        {
+            let slot = $vt.add($idx);
+            $orig.store(unsafe { *slot }, core::sync::atomic::Ordering::Relaxed);
+            unsafe { *slot = $replacement as *const () as u32; }
+        }
+        $crate::vtable_replace!(@slots $vt $($rest)*);
+    };
+
+    // Slot without original save: slot N => replacement,
+    (@slots $vt:ident slot $idx:literal => $replacement:expr, $($rest:tt)*) => {
+        {
+            let slot = $vt.add($idx);
+            unsafe { *slot = $replacement as *const () as u32; }
+        }
+        $crate::vtable_replace!(@slots $vt $($rest)*);
+    };
+
+    // Base case
+    (@slots $vt:ident) => {};
+}
+
 /// Call a virtual method through a typed vtable pointer.
 ///
 /// Assumes `$obj` is a raw pointer to a struct whose first field `vtable`

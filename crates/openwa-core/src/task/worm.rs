@@ -25,55 +25,55 @@ crate::define_addresses! {
 /// 0x38 SetState          0x3C CheckPendingAction 0x40 IsNotOnRope
 /// 0x44 inherited         0x48 GetTeamIndex     0x4C inherited
 /// ```
-#[repr(C)]
+#[openwa_core::vtable(size = 20)]
 pub struct CTaskWormVTable {
-    /// [0] 0x0050CAA0: WriteReplayState — serializes worm state to a replay stream;
-    ///   writes entity type byte 0x12, then packs field groups based on current state
-    pub write_replay_state: unsafe extern "thiscall" fn(*mut CTaskWorm, *mut u8),
-    /// [1] 0x0050C7E0: Free — calls inner destructor, then `_free(this)` if flags & 1
-    pub free: unsafe extern "thiscall" fn(*mut CTaskWorm, u8) -> *mut CTaskWorm,
-    /// [2] 0x00510B40: HandleMessage — processes all TaskMessages sent to this worm
-    pub handle_message:
-        unsafe extern "thiscall" fn(*mut CTaskWorm, *mut CTask, u32, u32, *const u8),
-    /// [3] 0x00516780: GetEntityData — returns worm data by query code:
-    ///   0x7D0=(pos_x, pos_y), 0x7D1/0x7D2=collision test, 0x7D4=full state dump
-    pub get_entity_data: unsafe extern "thiscall" fn(*mut CTaskWorm, u32, u32, *mut u32) -> u32,
-    /// [4]-[6]: Inherited CTask stubs (not overridden by CTaskWorm)
-    pub _inherited_4_to_6: [*const (); 3],
-    /// [7] 0x0050D5D0: OnContactEntity — handles physical contact with another entity;
-    ///   worm-on-dying-worm → apply crush damage; projectile close-pass → SetState(0x80)
-    pub on_contact_entity: unsafe extern "thiscall" fn(*mut CTaskWorm, *mut CGameTask, u32) -> u32,
-    /// [8] 0x0050D9A0: OnWormPush — post-contact worm-worm push impulse;
-    ///   deduplicates via a recent-collision table, then adjusts pos_x or pos_y
-    pub on_worm_push: unsafe extern "thiscall" fn(*mut CTaskWorm, *mut CGameTask, u32) -> u32,
-    /// [9] 0x0050D810: OnLandBounce — worm lands on terrain; plays thud sound, bounce physics
-    pub on_land_bounce: unsafe extern "thiscall" fn(*mut CTaskWorm),
-    /// [10] 0x0050D820: OnLandSlide — secondary landing callback; sliding/friction physics
-    pub on_land_slide: unsafe extern "thiscall" fn(*mut CTaskWorm),
-    /// [11] 0x0050D570: OnSink — worm sinks in water/acid; applies (dx, dy) displacement,
-    ///   transitions to drowning state (0x7F) unless already flying/rope/dead
-    pub on_sink: unsafe extern "thiscall" fn(*mut CTaskWorm, i32, i32) -> u32,
-    /// [12]: Inherited (vtable30 from CGameTask — not overridden)
-    pub _inherited_12: *const (),
-    /// [13] 0x0050D3B0: OnKilled — worm death; plays death sound (0x3A),
-    ///   transitions to dead state (0x81 or 0x89) based on game round count
-    pub on_killed: unsafe extern "thiscall" fn(*mut CTaskWorm),
-    /// [14] 0x0050E850: SetState — worm state machine; handles all state transitions
-    ///   (0x65=idle, 0x67=active turn, 0x7F=drowning, 0x80=hurt, 0x81/0x86=dead, …)
-    pub set_state: unsafe extern "thiscall" fn(*mut CTaskWorm, u32),
-    /// [15] 0x00516900: CheckPendingAction — if field +0xBC is set, calls SetState(0x73)
-    pub check_pending_action: unsafe extern "thiscall" fn(*mut CTaskWorm),
-    /// [16] 0x00516920: IsNotOnRope — returns true if worm state != 0x7C (rope-swinging)
-    pub is_not_on_rope: unsafe extern "thiscall" fn(*const CTaskWorm) -> bool,
-    /// [17]: Inherited (vtable44 from CGameTask — not overridden)
-    pub _inherited_17: *const (),
-    /// [18] 0x005168F0: GetTeamIndex — returns worm's team index (field +0xFC)
-    pub get_team_index: unsafe extern "thiscall" fn(*const CTaskWorm) -> u32,
-    /// [19]: Inherited (vtable4C from CGameTask — not overridden)
-    pub _inherited_19: *const (),
+    /// WriteReplayState — serializes worm state to a replay stream
+    #[slot(0)]
+    pub write_replay_state: fn(this: *mut CTaskWorm, stream: *mut u8),
+    /// Free — calls inner destructor, then `_free(this)` if flags & 1
+    #[slot(1)]
+    pub free: fn(this: *mut CTaskWorm, flags: u8) -> *mut CTaskWorm,
+    /// HandleMessage — processes all TaskMessages sent to this worm
+    #[slot(2)]
+    pub handle_message: fn(this: *mut CTaskWorm, sender: *mut CTask, msg_type: u32, size: u32, data: *const u8),
+    /// GetEntityData — returns worm data by query code
+    #[slot(3)]
+    pub get_entity_data: fn(this: *mut CTaskWorm, query: u32, param: u32, out: *mut u32) -> u32,
+    // Slots 4-6: Inherited CTask stubs (auto-filled as usize)
+    /// OnContactEntity — handles physical contact with another entity
+    #[slot(7)]
+    pub on_contact_entity: fn(this: *mut CTaskWorm, other: *mut CGameTask, flags: u32) -> u32,
+    /// OnWormPush — post-contact worm-worm push impulse
+    #[slot(8)]
+    pub on_worm_push: fn(this: *mut CTaskWorm, other: *mut CGameTask, flags: u32) -> u32,
+    /// OnLandBounce — worm lands on terrain; plays thud sound, bounce physics
+    #[slot(9)]
+    pub on_land_bounce: fn(this: *mut CTaskWorm),
+    /// OnLandSlide — secondary landing callback; sliding/friction physics
+    #[slot(10)]
+    pub on_land_slide: fn(this: *mut CTaskWorm),
+    /// OnSink — worm sinks in water/acid; transitions to drowning state
+    #[slot(11)]
+    pub on_sink: fn(this: *mut CTaskWorm, dx: i32, dy: i32) -> u32,
+    // Slot 12: Inherited (auto-filled)
+    /// OnKilled — worm death; plays death sound, transitions to dead state
+    #[slot(13)]
+    pub on_killed: fn(this: *mut CTaskWorm),
+    /// SetState — worm state machine; handles all state transitions
+    #[slot(14)]
+    pub set_state: fn(this: *mut CTaskWorm, state: u32),
+    /// CheckPendingAction — if field +0xBC is set, calls SetState(0x73)
+    #[slot(15)]
+    pub check_pending_action: fn(this: *mut CTaskWorm),
+    /// IsNotOnRope — returns true if worm state != 0x7C (rope-swinging)
+    #[slot(16)]
+    pub is_not_on_rope: fn(this: *const CTaskWorm) -> bool,
+    // Slot 17: Inherited (auto-filled)
+    /// GetTeamIndex — returns worm's team index (field +0xFC)
+    #[slot(18)]
+    pub get_team_index: fn(this: *const CTaskWorm) -> u32,
+    // Slot 19: Inherited (auto-filled)
 }
-
-const _: () = assert!(core::mem::size_of::<CTaskWormVTable>() == 20 * 4);
 
 /// Worm entity task — the primary playable character in WA.
 ///

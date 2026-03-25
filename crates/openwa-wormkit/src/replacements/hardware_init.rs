@@ -368,7 +368,7 @@ unsafe extern "cdecl" fn impl_init_hardware(
         (*session).keyboard = kb;
 
         // ── Palette (inline construction) ─────────────────────────────────────
-        let pal = WABox::from_value(Palette::new(rb(va::PALETTE_VTABLE_MAYBE))).leak();
+        let pal = WABox::from_value(Palette::new(rb(va::PALETTE_VTABLE))).leak();
         (*session).palette = pal;
 
         // ── DSSound ───────────────────────────────────────────────────────────
