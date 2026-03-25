@@ -180,11 +180,27 @@ impl SchemeFile {
     }
 
     /// Serialize back to .wsc format.
+    ///
+    /// For V3 schemes, trailing extended options bytes that match the defaults
+    /// are trimmed, matching WA's minimal file format.
     pub fn to_bytes(&self) -> Vec<u8> {
-        let mut buf = Vec::with_capacity(SCHEME_HEADER_SIZE + self.payload.len());
+        let payload = if self.version == SchemeVersion::V3
+            && self.payload.len() == SCHEME_PAYLOAD_V3
+        {
+            // Trim trailing extended options bytes that match defaults
+            let ext = &self.payload[EXTENDED_OPTIONS_OFFSET..];
+            let mut trim_len = EXTENDED_OPTIONS_SIZE;
+            while trim_len > 0 && ext[trim_len - 1] == EXTENDED_OPTIONS_DEFAULTS[trim_len - 1] {
+                trim_len -= 1;
+            }
+            &self.payload[..EXTENDED_OPTIONS_OFFSET + trim_len]
+        } else {
+            &self.payload
+        };
+        let mut buf = Vec::with_capacity(SCHEME_HEADER_SIZE + payload.len());
         buf.extend_from_slice(&SCHEME_MAGIC);
         buf.push(self.version.to_byte());
-        buf.extend_from_slice(&self.payload);
+        buf.extend_from_slice(payload);
         buf
     }
 
