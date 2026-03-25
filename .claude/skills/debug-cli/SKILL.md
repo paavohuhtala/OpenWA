@@ -47,11 +47,56 @@ target/i686-pc-windows-msvc/release/openwa-debug read <addr> [len] [--format hex
 ```
 
 **Arguments:**
-- `<addr>` (required): Address expression (see syntax below). Accepts hex (`0x56E220`) or decimal.
+- `<addr>` (required): Address expression (see syntax below). Accepts hex (`0x56E220`), decimal, or symbolic names.
 - `[len]` (optional): Bytes to read. Default: 256. Max: 1 MB.
 - `--format hex` (default): Hex dump with ASCII sidebar + pointer annotations.
 - `--format raw`: Binary output, suitable for piping to a file.
 - `--port N`: Override default port 19840.
+
+### inspect
+
+Typed struct inspection — reads all named fields from a FieldRegistry and formats them by ValueKind.
+
+```bash
+openwa-debug inspect <class_name> <addr>
+```
+
+**Examples:**
+```bash
+openwa-debug inspect DDGame ddgame                        # All 84 DDGame fields
+openwa-debug inspect CTaskWorm "abs:0x1DB439F0"           # Worm at known address
+openwa-debug inspect CGameTask "ddgame->task_land"        # Follow pointer, show base class
+openwa-debug inspect DDGameWrapper "gamesession->ddgame_wrapper"  # Multi-step chain
+```
+
+**Output format:**
+```
+DDGame at ghidra:0x00XXXXXX (runtime:0xYYYYYYYY)
+  +0x0000  keyboard             [ 4]  0x040ACA40 (DDKeyboard*)
+  +0x0084  pos_x                [ 4]  388.4320 (0x01846E96)
+  +0x02F0  worm_name            [17]  "Ainsley"
+  +0x054C  task_land            [ 4]  0x1DB27938 (CTaskLand*)
+```
+
+Fields are formatted by their `ValueKind`: pointers resolved to class names, Fixed as float + raw hex, CString as quoted strings, scalars as decimal.
+
+### objects
+
+List all tracked live objects (registered via `register_live_object` in the DLL).
+
+```bash
+openwa-debug objects
+```
+
+**Output:**
+```
+Tracked objects (3):
+  GameSession          runtime:0x155FDD38  size:0x120  fields:27
+  DDGameWrapper        runtime:0x15580048  size:0x6F00  fields:15
+  DDGame               runtime:0x1C3F8E40  size:0x98D8  fields:84
+```
+
+Object names work as symbolic addresses: `ddgame`, `gamesession`, `ddgamewrapper` (case-insensitive).
 
 ### suspend / resume / step / frame / break
 
@@ -73,7 +118,7 @@ openwa-debug break clear       # Clear breakpoint
 
 ## Address Syntax
 
-All address forms can be used with the `read` command. **Always quote the address argument** to prevent shell interpretation.
+All address forms can be used with `read`, `inspect`, and any command that takes an address. **Always quote chain addresses** to prevent shell interpretation.
 
 | Syntax | Meaning |
 |--------|---------|
@@ -84,6 +129,16 @@ All address forms can be used with the `read` command. **Always quote the addres
 | `0x669F8C[0x10]` | Bracket notation (same as +0x10) |
 | `"0x7A0884->0xA0->0x2C"` | Pointer chain (quote required!) |
 | `"0x7A0884->0xA0+0x10->0x0"` | Chain with compound offset in segment |
+| `ddgame` | Named alias (resolved via server, case-insensitive) |
+| `ddgame+frame_counter` | Named alias + field offset (no deref) |
+| `"ddgame->task_land"` | Field-name chain: offset to field, then deref |
+| `"gamesession->ddgame_wrapper->display"` | Multi-step field chain |
+
+### Symbolic Names
+
+Named live objects (`ddgame`, `gamesession`, `ddgamewrapper`) resolve to runtime addresses via the server. Field names in `+offset` or `->chain` segments resolve via FieldRegistry lookups, including CTask inheritance chains.
+
+Field-name chain semantics differ from hex chains: `ddgame->task_land` means "add task_land's offset (0x54C) to DDGame base, then deref" (offset-then-deref). Hex chains like `0x7A0884->0xA0` mean "deref 0x7A0884, then add 0xA0" (deref-then-offset). This matches the natural user intent in each case.
 
 ### Pointer Chains
 
@@ -114,23 +169,27 @@ The output shows each step of the chain walk before the hex dump, so you can ver
 
 ## Key Address Chains
 
-These chains are useful starting points for inspecting game state:
+With symbolic addresses, most chains are now human-readable:
 
 ```bash
-# DDGame (the main game object):
-#   g_GameSession(0x7A0884) -> DDGameWrapper at +0xA0 -> DDGame at +0x488
+# Typed DDGame inspection (all 84 named fields):
+openwa-debug inspect DDGame ddgame
+
+# Typed worm inspection at a known address:
+openwa-debug inspect CTaskWorm "abs:0x1DB439F0"
+
+# Follow a pointer field and inspect the target:
+openwa-debug inspect CGameTask "ddgame->task_land"
+
+# Read raw memory using symbolic names:
+openwa-debug read ddgame 0x100
+openwa-debug read "ddgame+frame_counter" 4
+
+# Old hex chains still work:
 openwa-debug read "0x7A0884->0xA0->0x488" 0x100
-
-# DDGame sub-field (e.g. weapon_table pointer at DDGame+0x510):
-openwa-debug read "0x7A0884->0xA0->0x488->0x510" 4
-
-# Weapon table contents (deref the pointer, read raw entries):
-#   Get pointer first, then use abs: with the result
-openwa-debug read "0x7A0884->0xA0->0x488->0x510" 4
-openwa-debug read "abs:<ptr_from_above>" 0x80B0 --format raw > /tmp/weapon_table.bin
 ```
 
-**Common mistake:** `0x7A0884->0xA0->0x0` does NOT reach DDGame. It reads DDGameWrapper+0x0 (the vtable). DDGame is at DDGameWrapper+0x488.
+**Common mistake:** `0x7A0884->0xA0->0x0` does NOT reach DDGame. It reads DDGameWrapper+0x0 (the vtable). DDGame is at DDGameWrapper+0x488. With symbolic names, just use `ddgame`.
 
 ## Output
 
@@ -150,24 +209,40 @@ openwa-debug read "abs:<ptr_from_above>" 0x80B0 --format raw > /tmp/weapon_table
 
 ## Common Patterns
 
-### Inspect a struct via pointer chain
+### Typed struct inspection (preferred)
 
 ```bash
-# Follow g_GameSession -> DDGameWrapper -> DDGame, read 0x100 bytes
-openwa-debug read "0x7A0884->0xA0->0x488" 0x100
+# Full DDGame with all named fields, typed formatting
+openwa-debug inspect DDGame ddgame
 
-# Read team arena state (DDGame+0x4628)
-openwa-debug read "0x7A0884->0xA0->0x488->0x4628" 0x200
+# Worm at a known address — shows name, team, position, inputs
+openwa-debug inspect CTaskWorm "abs:0x1DFB4B10"
+
+# Follow pointer and inspect base class for position/speed
+openwa-debug inspect CGameTask "ddgame->task_land"
+
+# DDGameWrapper from GameSession
+openwa-debug inspect DDGameWrapper "gamesession->ddgame_wrapper"
+```
+
+### Raw memory reads
+
+```bash
+# Read specific field by name
+openwa-debug read "ddgame+frame_counter" 4
+
+# Read team arena state
+openwa-debug read "ddgame+team_arena" 0x200
+
+# Old-style hex chain still works
+openwa-debug read "0x7A0884->0xA0->0x488" 0x100
 ```
 
 ### Dump a large region for offline analysis
 
 ```bash
-# Dump weapon table (71 x 0x1D0 = 0x80B0 bytes) to file
+# Dump weapon table to file
 openwa-debug read "abs:<weapon_table_ptr>" 0x80B0 --format raw > /tmp/weapon_table.bin
-
-# Analyze with Python script
-python tools/analyze_weapon_table.py /tmp/weapon_table.bin
 ```
 
 ### Read at an absolute heap address
@@ -186,7 +261,7 @@ openwa-debug read 0x669F8C 32
 
 ### Validate a struct field
 
-Read the struct base, check that the DWORD at the expected offset matches what you expect (vtable address, known constant, pointer kind).
+Use `inspect` to see all named fields with formatted values, or `read` with a field name for raw bytes.
 
 ## Limitations
 

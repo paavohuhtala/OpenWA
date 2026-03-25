@@ -98,11 +98,25 @@ OPENWA_BREAK_FRAME=1350 OPENWA_DEBUG_SERVER=1 \
 
 Key commands:
 - `openwa-debug read "0x7A0884->0xA0->0x488" 0x100` — read memory via pointer chains
+- `openwa-debug inspect DDGame ddgame` — typed struct inspection with named fields
+- `openwa-debug inspect CTaskWorm "ddgame->task_land"` — follow field-name pointer chains
+- `openwa-debug objects` — list tracked live objects (DDGame, DDGameWrapper, GameSession)
 - `openwa-debug suspend` / `resume` / `step N` — frame-level control
 - `openwa-debug snapshot` — canonicalized game state dump (for diffing)
 - `openwa-debug break 1350` — set frame breakpoint
 
 Address syntax: Ghidra VAs (auto-rebased), `abs:` prefix for absolute, `+offset` / `[offset]`, `->` for pointer chains. **Always quote chain addresses** (`"0x7A0884->0xA0->0x488"`).
+
+### Symbolic addresses
+
+Named aliases and field names can be used anywhere an address is accepted:
+- `ddgame` — resolves to DDGame's runtime address (any tracked live object name works, case-insensitive)
+- `ddgame+frame_counter` — DDGame base + field offset (no deref)
+- `ddgame->task_land` — follow the task_land pointer (offset + deref)
+- `gamesession->ddgame_wrapper->display` — multi-step field chains
+- Mixed: `ddgame->0x54C` still works (hex offsets alongside names)
+
+Field names are resolved via the server's FieldRegistry, including CTask inheritance chains.
 
 Key env vars:
 - `OPENWA_DEBUG_SERVER=1` — enable TCP debug server (port 19840)
@@ -166,7 +180,7 @@ See `docs/re-notes/desync-investigation.md` for a detailed case study.
 
 ## Hardware Watchpoint Debugger
 
-`crates/openwa-wormkit/src/debug_watchpoint.rs` — self-contained x86 debug register instrumentation. Sets DR0–DR3 write watchpoints on DDGame offsets via an INT3→VEH trick (no external debugger needed). Logs the exact Ghidra VA of every write.
+`crates/openwa-wormkit/src/debug_watchpoint.rs` — self-contained x86 debug register instrumentation. Sets DR0–DR3 write watchpoints on DDGame offsets via an INT3→VEH trick (no external debugger needed). Logs symbolicated stack traces via `registry::format_va()` (e.g., `CONSTRUCT_DD_GAME+0x220` instead of raw hex).
 
 **Usage:** Call `prepare()` + `on_ddgame_alloc(ptr)` around the constructor, `teardown()` after. For the original WA constructor, use `prepare_with_malloc_hook()` which intercepts `wa_malloc(0x98D8)` to arm watchpoints from inside the constructor. Configure offsets in `WATCH_OFFSETS` (max 4 per run, hardware limit).
 
@@ -175,7 +189,8 @@ Currently dormant — no hooks wired up. Activate by adding calls in `game_sessi
 ## Key Files
 
 - `crates/openwa-core/src/address.rs` — Known WA.exe addresses (segment boundaries + re-exports from home modules)
-- `crates/openwa-core/src/registry.rs` — Structured address registry, field registries, live object tracker, query API
+- `crates/openwa-core/src/registry.rs` — Structured address registry, field registries (`ValueKind`), live object tracker, query API
+- `crates/openwa-core/src/field_format.rs` — `FieldFormatter` trait, `format_field()`, default formatters for all `ValueKind` variants
 - `crates/openwa-core/src/macros.rs` — `define_addresses!`, `vcall!`, and `vtable_replace!` macros
 - `crates/openwa-core/src/mem.rs` — Pointer classification and `identify_pointer()` for debug tools
 - `crates/openwa-core/src/wa_call.rs` — Helpers for calling WA functions (thiscall, stdcall wrappers)
@@ -224,13 +239,29 @@ crate::define_addresses! {
 
 Auto-generates a field map for `#[repr(C)]` structs using `offset_of!()`. Fields prefixed `_unknown`/`_pad` are skipped. Applied to all key structs (DDGame, CTask, CTaskWorm, etc.). Enables runtime offset → field name lookups.
 
+Each field gets a `ValueKind` for typed formatting, auto-inferred from the Rust type:
+- `u8/u16/u32/i8/i16/i32` → scalar variants, `bool` → `Bool`, `Fixed` → `Fixed`
+- `*mut T` / `*const T` → `Pointer`, `ClassType` → `Enum`
+- Arrays and unknown types → `Raw`
+- Override with `#[field(kind = "CString")]` for null-terminated string fields, etc.
+
 ```rust
 #[derive(FieldRegistry)]
 #[repr(C)]
 pub struct CTask { ... }
 // Generates: CTask::field_registry() -> &'static StructFields
 // Also registers in global inventory for struct_fields_for("CTask")
+
+// String fields use #[field(kind = "...")] override:
+#[field(kind = "CString")]
+pub worm_name: [u8; 0x11],  // Displays as "Ainsley" instead of raw hex
 ```
+
+### Field formatting (`field_format.rs`)
+
+`format_field(&mut dyn fmt::Write, data, field, ctx)` writes human-readable values based on `ValueKind`: scalars as decimal, Fixed as float (e.g., `388.43`), pointers resolved via registry (e.g., `DDDisplay*`), CString as quoted strings. Zero allocations — writes to any `fmt::Write` target.
+
+Custom formatters can be registered via `inventory::submit!(Box::new(MyFormatter) as Box<dyn FieldFormatter>)` from any crate. The `FieldFormatter` trait has `handles() -> &[ValueKind]` and `format_field(&mut dyn Write, ...)`.
 
 ### Query API (`registry::*`)
 
