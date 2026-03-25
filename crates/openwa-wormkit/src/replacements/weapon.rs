@@ -712,31 +712,16 @@ unsafe extern "C" fn trampoline_create_weapon_projectile() {
 unsafe extern "cdecl" fn create_weapon_projectile_impl(
     worm: *mut CTaskWorm, fire_params: *const WeaponFireParams, local_struct: u32,
 ) {
-    use openwa_core::engine::DDGame;
     use openwa_core::rebase::rb;
     use openwa_core::task::SharedDataTable;
     use openwa_core::wa_alloc::wa_malloc;
 
-    let task = &(*worm).base.base; // CTask base
-    let ddgame = task.ddgame as *mut DDGame;
-    let ddgame_raw = ddgame as *mut u8;
+    let task = &(*worm).base.base;
+    let ddgame = &mut *task.ddgame;
 
-    // Pool capacity check: DDGame+0x72A4 + 7 must be <= 700
-    let pool_count_ptr = ddgame_raw.add(0x72A4) as *mut i32;
-    let pool_count = *pool_count_ptr;
-
-    if pool_count + 7 > 700 {
-        // Pool full — show warning message (replicate overflow path)
-        let game_info = *(ddgame_raw.add(0x24) as *const *const u8);
-        let counter = *(game_info.add(0xD778) as *const i32);
-        if counter < 0x3C {
-            *(ddgame_raw.add(0x4624) as *mut i32) = 6;
-            // Load string resource 0x70F
-            let load_string: unsafe extern "cdecl" fn(u32) -> u32 =
-                core::mem::transmute(rb(0x593180));
-            let s = load_string(0x70F);
-            *(ddgame_raw.add(0x7EF4) as *mut u32) = s;
-        }
+    // Pool capacity check: pool_count + 7 must be <= 700
+    if ddgame.object_pool_count + 7 > 700 {
+        ddgame.show_pool_overflow_warning();
         return;
     }
 
@@ -802,7 +787,6 @@ unsafe extern "C" fn trampoline_projectile_fire() {
 unsafe extern "cdecl" fn projectile_fire_impl(
     worm: *mut CTaskWorm, fire_params: *const WeaponFireParams, local_struct: *const u32,
 ) {
-    use openwa_core::engine::DDGame;
     use openwa_core::rebase::rb;
 
     let fire_params_raw = fire_params as *const i32;
@@ -823,17 +807,11 @@ unsafe extern "cdecl" fn projectile_fire_impl(
     let sin_table = rb(va::SIN_TABLE) as *const i32;
     let cos_table = sin_table.add(256); // cos = sin offset by 256 entries (quarter turn)
 
-    let ddgame = (*worm).base.base.ddgame as *mut DDGame;
-    let ddgame_raw = ddgame as *mut u8;
-    let rng_ptr = ddgame_raw.add(0x45EC) as *mut u32;
-    let frame_counter = *(ddgame_raw.add(0x5CC) as *const u32);
+    let ddgame = &mut *(*worm).base.base.ddgame;
 
     for _i in 0..shot_count {
-        // Advance game RNG: rng = (frame_counter + rng) * 0x19660D + 0x3C6EF35F
-        let rng = frame_counter.wrapping_add(*rng_ptr)
-            .wrapping_mul(0x19660D)
-            .wrapping_add(0x3C6EF35F);
-        *rng_ptr = rng;
+        // Advance game RNG (same LCG as ADVANCE_GAME_RNG at 0x53F320)
+        let rng = ddgame.advance_rng();
 
         // Compute spread angle: ((rng_low16 - 0x8000) * spread_param) / 360
         let rng_centered = (rng & 0xFFFF) as i32 - 0x8000;
@@ -908,27 +886,16 @@ unsafe extern "C" fn trampoline_create_arrow() {
 unsafe extern "cdecl" fn create_arrow_impl(
     worm: *mut CTaskWorm, fire_params: *const WeaponFireParams, local_struct: u32,
 ) {
-    use openwa_core::engine::DDGame;
     use openwa_core::rebase::rb;
     use openwa_core::task::SharedDataTable;
     use openwa_core::wa_alloc::wa_malloc;
 
     let task = &(*worm).base.base;
-    let ddgame = task.ddgame as *mut DDGame;
-    let ddgame_raw = ddgame as *mut u8;
+    let ddgame = &mut *task.ddgame;
 
-    // Pool capacity check: DDGame+0x72A4 + 2 must be <= 700
-    let pool_count = *(ddgame_raw.add(0x72A4) as *const i32);
-    if pool_count + 2 > 700 {
-        let game_info = *(ddgame_raw.add(0x24) as *const *const u8);
-        let counter = *(game_info.add(0xD778) as *const i32);
-        if counter < 0x3C {
-            *(ddgame_raw.add(0x4624) as *mut i32) = 6;
-            let load_string: unsafe extern "cdecl" fn(u32) -> u32 =
-                core::mem::transmute(rb(0x593180));
-            let s = load_string(0x70F);
-            *(ddgame_raw.add(0x7EF4) as *mut u32) = s;
-        }
+    // Pool capacity check: pool_count + 2 must be <= 700
+    if ddgame.object_pool_count + 2 > 700 {
+        ddgame.show_pool_overflow_warning();
         return;
     }
 

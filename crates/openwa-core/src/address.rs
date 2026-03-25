@@ -336,6 +336,8 @@ pub mod va {
         fn PROJECTILE_FIRE_SINGLE = 0x0051_DCF0;
         /// Sin lookup table (1024 entries of Fixed16.16). cos = sin + 256 entries.
         global SIN_TABLE = 0x006A_1860;
+        /// Load a string resource by ID. cdecl(resource_id) -> *const c_char.
+        fn/Cdecl LOAD_STRING_RESOURCE = 0x0059_3180;
     }
 
     // =========================================================================

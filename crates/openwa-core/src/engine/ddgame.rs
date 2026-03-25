@@ -166,8 +166,11 @@ pub struct DDGame {
     /// 0x379C, 0x3930, 0x3AC4, 0x3C58, 0x3DEC, 0x3F80, 0x4114, 0x42A8, 0x443C, 0x45D0
     pub _unknown_2e00: [u8; 0x45EC - 0x2E00],
 
-    /// 0x45EC: Unknown (0xA307A169 at runtime — not part of team scale arrays).
-    pub _unknown_45ec: u32,
+    /// 0x45EC: Game RNG state. Advanced each frame and by weapon spread:
+    /// `rng = (frame_counter + rng) * 0x19660D + 0x3C6EF35F`.
+    /// See also `ADVANCE_GAME_RNG` (0x53F320) which is the WA.exe function.
+    /// Single shared RNG — affects both gameplay AND visual effects.
+    pub game_rng: u32,
     /// 0x45F0-0x4607: Per-team health ratio (Fixed-point, 6 entries, 1-indexed).
     /// 0x10000 = 100% health. Rendered as bar width: `value * 100 >> 16 + 4` pixels.
     /// Read by TurnOrderTeamEntry render method (0x563620).
@@ -177,14 +180,23 @@ pub struct DDGame {
     /// Initialized to 0x10000 (1.0). Not read by the render method — may be
     /// target/previous value for interpolation, or used by update logic.
     pub team_health_ratio_2: [i32; 6],
-    /// 0x4620-0x4627: Unknown
-    pub _unknown_4620: [u8; 0x4628 - 0x4620],
+    /// 0x4620-0x4623: Unknown
+    pub _unknown_4620: u32,
+    /// 0x4624: HUD status message code. Set to 6 when object pool is full
+    /// (too many projectiles). Read by HUD rendering to display warning text.
+    pub hud_status_code: i32,
     /// 0x4628: Team arena state — per-team data, ammo, delays, alliance tracking.
     /// Note: fields previously named init_field_64d8 (= team_count at arena+0x1EB0)
     /// and init_field_72a4 (= weapon_slots entry at arena+0x2A7C) are inside this struct.
     pub team_arena: TeamArenaState,
-    /// 0x7270-0x72D7: Unknown
-    pub _unknown_7270: [u8; 0x72D8 - 0x7270],
+    /// 0x7270-0x72A3: Unknown
+    pub _unknown_7270: [u8; 0x72A4 - 0x7270],
+    /// 0x72A4: Object pool counter. Incremented by +7 per CTaskMissile, +2 per CTaskArrow.
+    /// Checked before spawning: `pool_count + N <= 700` or overflow warning shown.
+    /// Written by CTaskArrow ctor at DDGame+0x4628+0x2C7C.
+    pub object_pool_count: i32,
+    /// 0x72A8-0x72D7: Unknown
+    pub _unknown_72a8: [u8; 0x72D8 - 0x72A8],
 
     /// 0x72D8: Game speed multiplier (Fixed-point, 0x10000 = 1.0x).
     pub game_speed: i32,
@@ -310,8 +322,9 @@ pub struct DDGame {
     pub _unknown_7ed0: [u8; 0x7EF0 - 0x7ED0],
     /// 0x7EF0: Flag (-1 = 0xFFFFFFFF at runtime).
     pub field_7ef0: i32,
-    /// 0x7EF4: Unknown.
-    pub field_7ef4: u32,
+    /// 0x7EF4: HUD status message string pointer. Set when object pool overflows
+    /// (loaded via string resource 0x70F). Read by HUD rendering for warning display.
+    pub hud_status_text: *const core::ffi::c_char,
     /// 0x7EF8: Sound available flag (1 when game_info+0xF914 == 0, i.e. not headless).
     pub sound_available: u32,
     /// 0x7EFC: Always initialized to 1 in constructor.
@@ -388,6 +401,48 @@ const _: () = assert!(core::mem::size_of::<DDGame>() == 0x98D8);
 // The Rust entry point is DDGameWrapper::create_game() in
 // ddgame_wrapper.rs; the bulk of the logic lives here because
 // it primarily initializes DDGame fields.
+
+// ============================================================
+// DDGame methods
+// ============================================================
+
+impl DDGame {
+    /// Advance the game RNG and return the new state.
+    ///
+    /// Formula: `rng = (frame_counter + rng) * 0x19660D + 0x3C6EF35F`
+    ///
+    /// This is the same LCG used by `ADVANCE_GAME_RNG` (0x53F320). There is a single
+    /// shared RNG — both gameplay and visual effects advance it. Any difference in
+    /// RNG call count between Rust and original code causes replay desync.
+    pub fn advance_rng(&mut self) -> u32 {
+        let rng = (self.frame_counter as u32)
+            .wrapping_add(self.game_rng)
+            .wrapping_mul(0x19660D)
+            .wrapping_add(0x3C6EF35F);
+        self.game_rng = rng;
+        rng
+    }
+
+    /// Show the "too many objects" warning on the HUD.
+    ///
+    /// Sets `hud_status_code = 6` and loads string resource 0x70F into
+    /// `hud_status_text`. Only writes if `game_info.game_version < 60`.
+    ///
+    /// # Safety
+    /// `self.game_info` must be valid.
+    pub unsafe fn show_pool_overflow_warning(&mut self) {
+        use crate::rebase::rb;
+        use crate::address::va;
+
+        let game_version = (*self.game_info).game_version;
+        if game_version < 0x3C {
+            self.hud_status_code = 6;
+            let load_string: unsafe extern "cdecl" fn(u32) -> *const core::ffi::c_char =
+                core::mem::transmute(rb(va::LOAD_STRING_RESOURCE));
+            self.hud_status_text = load_string(0x70F);
+        }
+    }
+}
 
 // ============================================================
 // Pure Rust implementations of DDGame sub-functions
