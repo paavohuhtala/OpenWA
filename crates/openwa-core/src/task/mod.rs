@@ -1,3 +1,4 @@
+pub mod arrow;
 pub mod base;
 pub mod bit_grid;
 pub mod cloud;
@@ -12,6 +13,7 @@ pub mod team;
 pub mod turn_game;
 pub mod worm;
 
+pub use arrow::CTaskArrow;
 pub use base::{CTask, CTaskBfsIter, SharedDataIter, SharedDataNode, SharedDataTable};
 pub use cloud::CTaskCloud;
 pub use filter::CTaskFilter;

@@ -1663,8 +1663,8 @@ fn dump_missile_tasks() {
                 ));
                 let _ = log_validation(&format!(
                     "    spawn_params: owner={} pellet={}  spawn=({:.1},{:.1})",
-                    m.spawn_params[0],
-                    m.spawn_params[8],
+                    m.spawn_params.owner_id,
+                    m.spawn_params.pellet_index,
                     m.spawn_x().to_f32(),
                     m.spawn_y().to_f32()
                 ));

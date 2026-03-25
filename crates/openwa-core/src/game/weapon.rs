@@ -98,6 +98,46 @@ impl TryFrom<u32> for Weapon {
 }
 
 // ============================================================
+// WeaponSpawnData — launch parameters passed to CTaskMissile ctor
+// ============================================================
+
+/// Spawn parameters for a weapon projectile (0x2C = 44 bytes, 11 DWORDs).
+///
+/// Built on the stack by fire sub-functions (ProjectileFire, GrenadeFire, etc.)
+/// and passed as param_4 to CTaskMissile::Constructor. Copied verbatim into
+/// CTaskMissile at offset 0x130 (spawn_params field).
+///
+/// Source: runtime inspection via debug CLI + CTaskMissile constructor decompilation.
+#[derive(Clone, Copy)]
+#[repr(C)]
+pub struct WeaponSpawnData {
+    /// [0] Team index of the worm that fired this projectile.
+    pub owner_id: u32,
+    /// [1] Unknown — observed as 1.
+    pub _unknown_04: u32,
+    /// [2] Fixed16.16 X position at launch.
+    pub spawn_x: Fixed,
+    /// [3] Fixed16.16 Y position at launch.
+    pub spawn_y: Fixed,
+    /// [4] Fixed16.16 horizontal velocity. Copied to CGameTask.speed_x.
+    pub initial_speed_x: Fixed,
+    /// [5] Fixed16.16 vertical velocity. Copied to CGameTask.speed_y.
+    pub initial_speed_y: Fixed,
+    /// [6] Fixed16.16 aim cursor X at time of fire.
+    pub cursor_x: Fixed,
+    /// [7] Fixed16.16 aim cursor Y at time of fire.
+    pub cursor_y: Fixed,
+    /// [8] Index within a cluster volley (0 for single shot, N for Nth sub-pellet).
+    /// Determines which half of weapon_data is copied to render_data.
+    pub pellet_index: u32,
+    /// [9] Fallback timer — copied to render_data[0x19] if that field was zero.
+    pub fallback_timer: u32,
+    /// [10] Fallback param — copied to render_data[0x11] if that field was zero.
+    pub fallback_param: u32,
+}
+const _: () = assert!(core::mem::size_of::<WeaponSpawnData>() == 0x2C);
+
+// ============================================================
 // WeaponEntry — per-weapon data in the weapon table (0x1D0 bytes)
 // ============================================================
 

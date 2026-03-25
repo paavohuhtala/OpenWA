@@ -1,0 +1,47 @@
+Game Started at 2026-03-25 19:53:42 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Red:  "2-UP"
+Blue: "3-UP"
+
+[00:00:00.00] ••• 3-UP starts turn
+[00:00:05.70] ••• 3-UP fires Bazooka
+[00:00:10.30] ••• 3-UP ends turn; time used: 0.70 sec turn, 3.00 sec retreat
+[00:00:17.18] ••• Damage dealt: 24 to 3-UP
+[00:00:17.18] ••• 2-UP starts turn
+[00:00:20.54] ••• 2-UP fires Bazooka
+[00:00:25.14] ••• 2-UP ends turn; time used: 0.48 sec turn, 3.00 sec retreat
+[00:00:29.16] ••• 3-UP starts turn
+[00:00:32.06] ••• 3-UP fires Sheep Launcher
+[00:00:36.20] ••• 3-UP ends turn; time used: 1.30 sec turn, 3.00 sec retreat
+[00:00:40.22] ••• 2-UP starts turn
+[00:00:43.20] ••• 2-UP fires Sheep Launcher
+[00:00:47.98] ••• 2-UP ends turn; time used: 1.72 sec turn, 3.00 sec retreat
+[00:00:54.46] ••• Damage dealt: 2 to 2-UP, 59 to 3-UP
+[00:00:54.46] ••• 3-UP starts turn
+[00:00:57.40] ••• 3-UP fires Sheep Launcher
+[00:01:00.48] ••• 3-UP ends turn; time used: 1.64 sec turn, 3.00 sec retreat
+[00:01:04.34] ••• Damage dealt: 60 to 2-UP, 22 to 3-UP
+[00:01:04.34] ••• 2-UP starts turn
+[00:01:07.46] ••• 2-UP fires Sheep Launcher
+[00:01:13.00] ••• 2-UP ends turn; time used: 1.60 sec turn, 3.00 sec retreat
+[00:01:18.38] ••• Damage dealt: 22 to 3-UP
+[00:01:18.38] ••• 3-UP starts turn
+[00:01:20.92] ••• 3-UP fires Surrender
+[00:01:20.94] ••• 3-UP ends turn; time used: 0.60 sec turn, 0.00 sec retreat
+[00:01:26.58] ••• Game Ends - Round Finished
+
+Team time totals:
+2-UP: Turn: 00:00:03.80, Retreat: 00:00:09.00, Total: 00:00:12.80, Turn count: 3
+3-UP: Turn: 00:00:04.24, Retreat: 00:00:09.00, Total: 00:00:13.24, Turn count: 4
+
+End of round 1
+
+Round time: 0:01:26
+Total game time elapsed: 0:01:26
+
+2-UP wins the round.
+
+Most damage with one shot: 82 - Ainsley (3-UP)

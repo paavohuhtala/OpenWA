@@ -5,7 +5,13 @@
 //! - AddAmmo (0x522640): add ammo to a weapon slot
 //! - SubtractAmmo (0x522680): decrement ammo count
 //! - CountAliveWorms (0x5225A0): check if >1 worm alive on team
-//! - FireWeapon (0x51EE60): passthrough with weapon type logging
+//! - FireWeapon (0x51EE60): full Rust dispatch
+//!
+//! Passthrough hooks on fire sub-functions (log params, call original):
+//! - CreateWeaponProjectile (0x51E0F0): thiscall(ECX=worm, fire_params, local_struct)
+//! - ProjectileFire (0x51DFB0): stdcall(worm, fire_params, local_struct)
+//! - StrikeFire (0x51E2C0): stdcall(worm, &subtype_34, local_struct) — AirStrike/NapalmStrike etc.
+//! - PlacedExplosive (0x51EC80): usercall(ECX=local_struct, EDX=worm, fire_params)
 
 use core::sync::atomic::{AtomicU32, Ordering};
 
@@ -212,10 +218,10 @@ unsafe extern "cdecl" fn fire_weapon_impl(
 
     match weapon_type {
         1 => match subtype_38 {
-            1 => call_fire_stdcall1(w, fire_params, rb(0x51EC80)),                    // PlacedExplosive
+            1 => call_fire_placed_explosive(w, fire_params, local_struct, rb(0x51EC80)), // PlacedExplosive
             2 => call_fire_stdcall3(w, fire_params, local_struct, rb(0x51DFB0)),      // Projectile
             3 => call_fire_thiscall2(w, fire_params, local_struct, rb(0x51E0F0)),     // CreateWeaponProjectile
-            4 => call_fire_thiscall2(w, fire_params, local_struct, rb(0x51ED90)),     // Shotgun/Longbow (thiscall)
+            4 => call_fire_thiscall2(w, fire_params, local_struct, rb(0x51ED90)),     // CreateArrow (Shotgun/Longbow)
             _ => {}
         },
         2 => match subtype_38 {
@@ -251,19 +257,22 @@ unsafe extern "cdecl" fn fire_weapon_impl(
 // This preserves LLVM's callee-saved registers while providing
 // the usercall context that sub-functions expect.
 
-/// Bridge: PlacedExplosive — stdcall(fire_params), RET 0x4.
+/// Bridge: PlacedExplosive — usercall(ECX=local_struct, EDX=worm, [ESP+4]=fire_params), RET 0x4.
+/// Args: (worm, fire_params, local_struct, addr).
 #[unsafe(naked)]
-unsafe extern "C" fn call_fire_stdcall1(
-    _worm: u32, _fire_params: *const WeaponFireParams, _addr: u32,
+unsafe extern "C" fn call_fire_placed_explosive(
+    _worm: u32, _fire_params: *const WeaponFireParams, _local_struct: u32, _addr: u32,
 ) {
     core::arch::naked_asm!(
         "push ebx",
         "push esi",
         "push edi",
-        "mov esi, [esp+16]",  // worm (3 saves=12 + ret=4 = 16)
-        "mov edi, [esp+16]",
-        "mov ebx, [esp+24]",  // addr
-        "push [esp+20]",      // params
+        // Set up usercall registers
+        // Stack: 3 saves(12) + ret(4) = 16 to first arg
+        "mov edx, [esp+16]",  // EDX = worm
+        "mov ecx, [esp+24]",  // ECX = local_struct
+        "mov ebx, [esp+28]",  // addr
+        "push [esp+20]",      // fire_params (stack param)
         "call ebx",
         "pop edi",
         "pop esi",
@@ -534,6 +543,53 @@ unsafe fn fire_mail_mine_mole(worm: *mut CTaskWorm) {
 
 // ── Naked asm bridges ───────────────────────────────────────
 
+/// Bridge: ProjectileFire_Single — usercall(EDI=spawn_data, stack=[worm, fire_params]), RET 0x8.
+/// Args: (spawn_data, worm, fire_params, addr).
+#[unsafe(naked)]
+unsafe extern "C" fn call_projectile_fire_single(
+    _spawn_data: u32, _worm: u32, _fire_params: u32, _addr: u32,
+) {
+    core::arch::naked_asm!(
+        "push ebx",
+        "push esi",
+        "push edi",
+        // Stack: 3 saves(12) + ret(4) = 16 to first arg
+        "mov edi, [esp+16]",  // EDI = spawn_data
+        "mov ebx, [esp+28]",  // addr
+        "push [esp+24]",      // fire_params
+        "push [esp+24]",      // worm (shifted +4)
+        "call ebx",           // RET 0x8 cleans 2 params
+        "pop edi",
+        "pop esi",
+        "pop ebx",
+        "ret",
+    );
+}
+
+/// Bridge: CTaskMissile::Constructor — thiscall(ECX=this, parent, fire_params, spawn_data), RET 0xC.
+/// Args: (this, parent, fire_params, spawn_data, ctor_addr).
+#[unsafe(naked)]
+unsafe extern "C" fn call_missile_ctor(
+    _this: u32, _parent: u32, _fire_params: u32, _spawn_data: u32, _addr: u32,
+) {
+    core::arch::naked_asm!(
+        "push ebx",
+        "push esi",
+        "push edi",
+        // Stack: 3 saves(12) + ret(4) = 16 to first arg
+        "mov ecx, [esp+16]",  // ECX = this (buffer)
+        "mov ebx, [esp+32]",  // addr (16 + 4*4 args = 32)
+        "push [esp+28]",      // spawn_data
+        "push [esp+28]",      // fire_params (shifted +4)
+        "push [esp+28]",      // parent (shifted +8)
+        "call ebx",           // thiscall: RET 0xC cleans 3 params
+        "pop edi",
+        "pop esi",
+        "pop ebx",
+        "ret",
+    );
+}
+
 /// Bridge: usercall(EAX=eax_val, ESI=worm, EDI=worm), plain RET.
 /// Args: (eax_val, worm, addr). Saves/restores ESI+EDI. Uses EBX to hold addr.
 #[unsafe(naked)]
@@ -619,6 +675,356 @@ unsafe extern "C" fn fire_worm_vtable_0xe(_worm: u32, _msg_id: u32) {
 }
 
 // ============================================================
+// Passthrough hooks — fire sub-functions
+// ============================================================
+// These hooks log parameters, then call the original WA function.
+// They exist for RE discovery and validation — no behavior change.
+
+static ORIG_CREATE_WEAPON_PROJECTILE: AtomicU32 = AtomicU32::new(0);
+static ORIG_PROJECTILE_FIRE: AtomicU32 = AtomicU32::new(0);
+static ORIG_STRIKE_FIRE: AtomicU32 = AtomicU32::new(0);
+static ORIG_PLACED_EXPLOSIVE: AtomicU32 = AtomicU32::new(0);
+
+/// Full replacement for CreateWeaponProjectile (0x51E0F0).
+/// Convention: thiscall(ECX=worm, fire_params, local_struct), RET 0x8.
+///
+/// Allocates a CTaskMissile, calls the original constructor, and returns.
+/// The constructor handles SharedData registration and pool management.
+#[unsafe(naked)]
+unsafe extern "C" fn trampoline_create_weapon_projectile() {
+    core::arch::naked_asm!(
+        // thiscall: ECX=worm, stack=[ret, fire_params, local_struct]
+        // Push cdecl args for Rust impl
+        "push dword ptr [esp+8]",  // local_struct (ret=4 + param1=4 = 8)
+        "push dword ptr [esp+8]",  // fire_params (shifted +4)
+        "push ecx",                // worm (this)
+        "call {impl_fn}",
+        "add esp, 12",
+        "ret 0x8",                 // clean 2 stack params
+        impl_fn = sym create_weapon_projectile_impl,
+    );
+}
+
+/// Rust implementation of CreateWeaponProjectile.
+///
+/// Original: 0x51E0F0. Allocates CTaskMissile (0x40C bytes), looks up
+/// parent CTaskTurnGame via SharedData, calls the original constructor.
+unsafe extern "cdecl" fn create_weapon_projectile_impl(
+    worm: *mut CTaskWorm, fire_params: *const WeaponFireParams, local_struct: u32,
+) {
+    use openwa_core::engine::DDGame;
+    use openwa_core::rebase::rb;
+    use openwa_core::task::SharedDataTable;
+    use openwa_core::wa_alloc::wa_malloc;
+
+    let task = &(*worm).base.base; // CTask base
+    let ddgame = task.ddgame as *mut DDGame;
+    let ddgame_raw = ddgame as *mut u8;
+
+    // Pool capacity check: DDGame+0x72A4 + 7 must be <= 700
+    let pool_count_ptr = ddgame_raw.add(0x72A4) as *mut i32;
+    let pool_count = *pool_count_ptr;
+
+    if pool_count + 7 > 700 {
+        // Pool full — show warning message (replicate overflow path)
+        let game_info = *(ddgame_raw.add(0x24) as *const *const u8);
+        let counter = *(game_info.add(0xD778) as *const i32);
+        if counter < 0x3C {
+            *(ddgame_raw.add(0x4624) as *mut i32) = 6;
+            // Load string resource 0x70F
+            let load_string: unsafe extern "cdecl" fn(u32) -> u32 =
+                core::mem::transmute(rb(0x593180));
+            let s = load_string(0x70F);
+            *(ddgame_raw.add(0x7EF4) as *mut u32) = s;
+        }
+        return;
+    }
+
+    // Look up parent CTaskTurnGame via SharedData (key_esi=0, key_edi=0x19)
+    let table = SharedDataTable::from_task(task);
+    let parent = table.lookup(0, 0x19);
+
+    // Allocate CTaskMissile (0x40C bytes)
+    let buffer = wa_malloc(0x40C);
+    if buffer.is_null() {
+        return;
+    }
+
+    // Zero bytes 0x00..0x3EC (the original only zeros 0x3EC of 0x40C)
+    core::ptr::write_bytes(buffer, 0, 0x3EC);
+
+    // Call original CTaskMissile::Constructor
+    // thiscall(ECX=buffer, parent, fire_params, local_struct), RET 0xC
+    call_missile_ctor(
+        buffer as u32,
+        parent as u32,
+        fire_params as u32,
+        local_struct,
+        rb(va::CTASK_MISSILE_CTOR),
+    );
+
+    let _ = log_line(&format!(
+        "[Weapon] CreateWeaponProjectile: worm=0x{:08X} missile=0x{:08X}",
+        worm as u32, buffer as u32,
+    ));
+}
+
+/// Full replacement for ProjectileFire (0x51DFB0).
+/// Convention: stdcall(worm, fire_params, local_struct), RET 0xC.
+///
+/// Builds spawn data with RNG-randomized spread, then calls
+/// ProjectileFire_Single per projectile. Used by Uzi, Handgun, Minigun.
+#[unsafe(naked)]
+unsafe extern "C" fn trampoline_projectile_fire() {
+    core::arch::naked_asm!(
+        // stdcall: stack=[ret, worm, fire_params, local_struct]
+        "push dword ptr [esp+12]",  // local_struct
+        "push dword ptr [esp+12]",  // fire_params (shifted +4)
+        "push dword ptr [esp+12]",  // worm (shifted +8)
+        "call {impl_fn}",
+        "add esp, 12",
+        "ret 0xC",                  // clean 3 stack params
+        impl_fn = sym projectile_fire_impl,
+    );
+}
+
+/// Rust implementation of ProjectileFire.
+///
+/// Algorithm (from disasm at 0x51DFB0):
+/// 1. Copy 11 DWORDs from local_struct (spawn template) to local buffer
+/// 2. Loop fire_params+0xC times:
+///    a. Advance game RNG
+///    b. Random spread angle from RNG × fire_params+0x10 / 360
+///    c. Cos/sin table lookup with linear interpolation
+///    d. 2D rotation matrix on template velocity
+///    e. Write rotated velocity into local spawn data
+///    f. Call ProjectileFire_Single(loop_counter, fire_params) with EDI=spawn_data
+unsafe extern "cdecl" fn projectile_fire_impl(
+    worm: *mut CTaskWorm, fire_params: *const WeaponFireParams, local_struct: *const u32,
+) {
+    use openwa_core::engine::DDGame;
+    use openwa_core::rebase::rb;
+
+    let fire_params_raw = fire_params as *const i32;
+    let shot_count = *fire_params_raw.add(3); // fire_params+0xC = projectile count per trigger
+    if shot_count <= 0 {
+        return;
+    }
+
+    // Copy 11 DWORDs from local_struct to local spawn data
+    let mut spawn_data = [0u32; 11];
+    core::ptr::copy_nonoverlapping(local_struct, spawn_data.as_mut_ptr(), 11);
+
+    // Read template velocity from local_struct (fields [4] and [5])
+    let template_speed_x = *local_struct.add(4) as i32;
+    let template_speed_y = *local_struct.add(5) as i32;
+
+    // Trig table: sin at SIN_TABLE, cos at SIN_TABLE + 256*4
+    let sin_table = rb(va::SIN_TABLE) as *const i32;
+    let cos_table = sin_table.add(256); // cos = sin offset by 256 entries (quarter turn)
+
+    let ddgame = (*worm).base.base.ddgame as *mut DDGame;
+    let ddgame_raw = ddgame as *mut u8;
+    let rng_ptr = ddgame_raw.add(0x45EC) as *mut u32;
+    let frame_counter = *(ddgame_raw.add(0x5CC) as *const u32);
+
+    for _i in 0..shot_count {
+        // Advance game RNG: rng = (frame_counter + rng) * 0x19660D + 0x3C6EF35F
+        let rng = frame_counter.wrapping_add(*rng_ptr)
+            .wrapping_mul(0x19660D)
+            .wrapping_add(0x3C6EF35F);
+        *rng_ptr = rng;
+
+        // Compute spread angle: ((rng_low16 - 0x8000) * spread_param) / 360
+        let rng_centered = (rng & 0xFFFF) as i32 - 0x8000;
+        let spread_param = *fire_params_raw.add(4); // fire_params+0x10
+        let angle = (rng_centered * spread_param) / 360;
+
+        // Cos/sin table lookup with linear interpolation
+        // Table index = (angle >> 6) & 0x3FF (1024 entries)
+        // Fractional = (angle & 0x3F) << 10
+        let table_index = ((angle >> 6) & 0x3FF) as usize;
+        let frac = ((angle & 0x3F) << 10) as i32;
+
+        let cos_base = *cos_table.add(table_index);
+        let cos_next = *cos_table.add(table_index + 1);
+        let cos_val = cos_base + fixed_mul(cos_next - cos_base, frac);
+
+        let sin_base = *sin_table.add(table_index);
+        let sin_next = *sin_table.add(table_index + 1);
+        let sin_val = sin_base + fixed_mul(sin_next - sin_base, frac);
+
+        // 2D rotation matrix:
+        // speed_x = cos * template_x + sin * template_y
+        // speed_y = -sin * template_x + cos * template_y
+        let speed_x = fixed_mul(cos_val, template_speed_x)
+            + fixed_mul(sin_val, template_speed_y);
+        let speed_y = fixed_mul(-sin_val, template_speed_x)
+            + fixed_mul(cos_val, template_speed_y);
+
+        // Write rotated velocity into spawn data
+        spawn_data[4] = speed_x as u32;
+        spawn_data[5] = speed_y as u32;
+
+        // Call ProjectileFire_Single(worm, fire_params) with EDI=&spawn_data
+        call_projectile_fire_single(
+            spawn_data.as_ptr() as u32,
+            worm as u32,
+            fire_params as u32,
+            rb(va::PROJECTILE_FIRE_SINGLE),
+        );
+    }
+
+    let _ = log_line(&format!(
+        "[Weapon] ProjectileFire: worm=0x{:08X} shots={}",
+        worm as u32, shot_count,
+    ));
+}
+
+/// Fixed-point 16.16 multiply: (a * b) >> 16, using full 64-bit intermediate.
+#[inline(always)]
+fn fixed_mul(a: i32, b: i32) -> i32 {
+    ((a as i64 * b as i64) >> 16) as i32
+}
+
+/// Full replacement for CreateArrow (0x51ED90).
+/// Convention: thiscall(ECX=worm, fire_params, local_struct), RET 0x8.
+///
+/// Allocates a CTaskArrow (0x168 bytes), calls the original stdcall constructor.
+/// Used by Shotgun and Longbow.
+#[unsafe(naked)]
+unsafe extern "C" fn trampoline_create_arrow() {
+    core::arch::naked_asm!(
+        "push dword ptr [esp+8]",
+        "push dword ptr [esp+8]",
+        "push ecx",
+        "call {impl_fn}",
+        "add esp, 12",
+        "ret 0x8",
+        impl_fn = sym create_arrow_impl,
+    );
+}
+
+unsafe extern "cdecl" fn create_arrow_impl(
+    worm: *mut CTaskWorm, fire_params: *const WeaponFireParams, local_struct: u32,
+) {
+    use openwa_core::engine::DDGame;
+    use openwa_core::rebase::rb;
+    use openwa_core::task::SharedDataTable;
+    use openwa_core::wa_alloc::wa_malloc;
+
+    let task = &(*worm).base.base;
+    let ddgame = task.ddgame as *mut DDGame;
+    let ddgame_raw = ddgame as *mut u8;
+
+    // Pool capacity check: DDGame+0x72A4 + 2 must be <= 700
+    let pool_count = *(ddgame_raw.add(0x72A4) as *const i32);
+    if pool_count + 2 > 700 {
+        let game_info = *(ddgame_raw.add(0x24) as *const *const u8);
+        let counter = *(game_info.add(0xD778) as *const i32);
+        if counter < 0x3C {
+            *(ddgame_raw.add(0x4624) as *mut i32) = 6;
+            let load_string: unsafe extern "cdecl" fn(u32) -> u32 =
+                core::mem::transmute(rb(0x593180));
+            let s = load_string(0x70F);
+            *(ddgame_raw.add(0x7EF4) as *mut u32) = s;
+        }
+        return;
+    }
+
+    // Look up parent CTaskTurnGame via SharedData (key 0, 0x19)
+    let table = SharedDataTable::from_task(task);
+    let parent = table.lookup(0, 0x19);
+
+    // Allocate CTaskArrow (0x168 bytes)
+    let buffer = wa_malloc(0x168);
+    if buffer.is_null() {
+        return;
+    }
+    core::ptr::write_bytes(buffer, 0, 0x148);
+
+    // CTaskArrow::Constructor — stdcall(this, parent, fire_params, local_struct), RET 0x10
+    let ctor: unsafe extern "stdcall" fn(u32, u32, u32, u32) =
+        core::mem::transmute(rb(va::CTASK_ARROW_CTOR));
+    ctor(buffer as u32, parent as u32, fire_params as u32, local_struct);
+
+    let _ = log_line(&format!(
+        "[Weapon] CreateArrow: worm=0x{:08X} arrow=0x{:08X}",
+        worm as u32, buffer as u32,
+    ));
+}
+
+/// Passthrough hook for StrikeFire (0x51E2C0).
+/// Convention: stdcall(worm, &subtype_34, local_struct), RET 0xC.
+#[unsafe(naked)]
+unsafe extern "C" fn trampoline_strike_fire() {
+    core::arch::naked_asm!(
+        "push eax",
+        "push ecx",
+        "push edx",
+        "push dword ptr [esp+24]", // local_struct
+        "push dword ptr [esp+24]", // subtype_34_ptr
+        "push dword ptr [esp+24]", // worm
+        "call {log_fn}",
+        "add esp, 12",
+        "pop edx",
+        "pop ecx",
+        "pop eax",
+        "jmp [{orig}]",
+        log_fn = sym log_strike_fire,
+        orig = sym ORIG_STRIKE_FIRE,
+    );
+}
+
+unsafe extern "cdecl" fn log_strike_fire(worm: u32, subtype_34_ptr: u32, local_struct: u32) {
+    let _ = log_line(&format!(
+        "[Weapon] StrikeFire: worm=0x{:08X} subtype_34=0x{:08X} local=0x{:08X}",
+        worm, subtype_34_ptr, local_struct,
+    ));
+}
+
+/// Passthrough hook for PlacedExplosive (0x51EC80).
+/// Convention: usercall(ECX=local_struct, EDX=worm, [ESP+4]=fire_params), RET 0x4.
+#[unsafe(naked)]
+unsafe extern "C" fn trampoline_placed_explosive() {
+    core::arch::naked_asm!(
+        // Save ALL registers — ECX and EDX are usercall params!
+        "push eax",
+        "push ecx",
+        "push edx",
+        "push ebx",
+        "push esi",
+        "push edi",
+        "push ebp",
+        // Log: push cdecl args
+        "push dword ptr [esp+32]", // fire_params (7 saves=28 + ret=4 = 32)
+        "push edx",                // worm (still valid, saved above)
+        "push ecx",                // local_struct (still valid)
+        "call {log_fn}",
+        "add esp, 12",
+        // Restore ALL (ECX and EDX restored for usercall!)
+        "pop ebp",
+        "pop edi",
+        "pop esi",
+        "pop ebx",
+        "pop edx",
+        "pop ecx",
+        "pop eax",
+        // Call original (usercall — ECX, EDX, stack all intact)
+        "jmp [{orig}]",
+        log_fn = sym log_placed_explosive,
+        orig = sym ORIG_PLACED_EXPLOSIVE,
+    );
+}
+
+unsafe extern "cdecl" fn log_placed_explosive(local_struct: u32, worm: u32, fire_params: u32) {
+    let _ = log_line(&format!(
+        "[Weapon] PlacedExplosive: worm=0x{:08X} local=0x{:08X} params=0x{:08X}",
+        worm, local_struct, fire_params,
+    ));
+}
+
+// ============================================================
 // Hook installation
 // ============================================================
 
@@ -630,6 +1036,17 @@ pub fn install() -> Result<(), String> {
         let _ = hook::install("CountAliveWorms", va::COUNT_ALIVE_WORMS, trampoline_count_alive_worms as *const ())?;
         let trampoline = hook::install("FireWeapon", va::FIRE_WEAPON, trampoline_fire_weapon as *const ())?;
         ORIG_FIRE_WEAPON.store(trampoline as u32, Ordering::Relaxed);
+
+        // Passthrough hooks on fire sub-functions (log + call original)
+        let t = hook::install("CreateWeaponProjectile", va::CREATE_WEAPON_PROJECTILE, trampoline_create_weapon_projectile as *const ())?;
+        ORIG_CREATE_WEAPON_PROJECTILE.store(t as u32, Ordering::Relaxed);
+        let t = hook::install("ProjectileFire", va::PROJECTILE_FIRE, trampoline_projectile_fire as *const ())?;
+        ORIG_PROJECTILE_FIRE.store(t as u32, Ordering::Relaxed);
+        let t = hook::install("StrikeFire", va::STRIKE_FIRE, trampoline_strike_fire as *const ())?;
+        ORIG_STRIKE_FIRE.store(t as u32, Ordering::Relaxed);
+        let t = hook::install("PlacedExplosive", va::PLACED_EXPLOSIVE, trampoline_placed_explosive as *const ())?;
+        ORIG_PLACED_EXPLOSIVE.store(t as u32, Ordering::Relaxed);
+        let _ = hook::install("CreateArrow", va::CREATE_ARROW, trampoline_create_arrow as *const ())?;
     }
 
     Ok(())

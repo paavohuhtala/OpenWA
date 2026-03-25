@@ -1,5 +1,6 @@
 use super::game_task::CGameTask;
 use crate::fixed::Fixed;
+use crate::game::weapon::WeaponSpawnData;
 use crate::FieldRegistry;
 
 crate::define_addresses! {
@@ -56,21 +57,9 @@ pub struct CTaskMissile {
     pub slot_id: u32,
 
     // ---- 0x130–0x15B: spawn data (11 DWORDs, from param_4) ----
-    /// 0x130–0x15B: Spawn parameters (11 DWORDs copied from param_4).
-    ///
-    /// Runtime-confirmed indices:
-    ///   [0x00] owner_id         — team index that fired this missile
-    ///   [0x01] unknown (= 1 observed)
-    ///   [0x02] spawn_x          — Fixed16.16 X at launch
-    ///   [0x03] spawn_y          — Fixed16.16 Y at launch
-    ///   [0x04] initial_speed_x  — Fixed16.16 horizontal velocity (→ CGameTask.speed_x)
-    ///   [0x05] initial_speed_y  — Fixed16.16 vertical velocity (→ CGameTask.speed_y)
-    ///   [0x06] cursor_x         — Fixed16.16 aim cursor X (observed = level_width/2)
-    ///   [0x07] cursor_y         — Fixed16.16 aim cursor Y (observed = level_height/2)
-    ///   [0x08] pellet_index     — index within a cluster volley (0 for single shot)
-    ///   [0x09] fallback_timer   — copied to render_data[0x19] only if it was zero
-    ///   [0x0A] fallback_param   — copied to render_data[0x11] only if it was zero
-    pub spawn_params: [u32; 0x0B],
+    /// 0x130–0x15B: Spawn parameters copied from constructor param_4.
+    /// See `WeaponSpawnData` for field documentation.
+    pub spawn_params: WeaponSpawnData,
 
     // ---- 0x15C–0x2D3: weapon/scheme data (94 DWORDs, from param_3) ----
     /// 0x15C–0x2D3: Weapon/scheme properties (94 DWORDs copied verbatim from param_3).
@@ -132,11 +121,12 @@ pub struct CTaskMissile {
     /// 0x3C8: Horizontal direction sign (+1 or -1, determines facing/travel dir).
     /// param_1[0xF2] in constructor. Set to -1 for homing/sheep if initial_speed_x < 0.
     pub direction: i32,
-    /// 0x3CC–0x41B: Unknown trailing state
-    pub _unknown_3cc: [u8; 0x50],
+    /// 0x3CC–0x40B: Unknown trailing state.
+    /// Allocation size is 0x40C; constructor zeros bytes 0x00–0x3EB.
+    pub _unknown_3cc: [u8; 0x40],
 }
 
-const _: () = assert!(core::mem::size_of::<CTaskMissile>() == 0x41C);
+const _: () = assert!(core::mem::size_of::<CTaskMissile>() == 0x40C);
 
 impl CTaskMissile {
     /// Missile type from `render_data[0x17]` (= weapon_data[0x1A] for single shots).
@@ -153,24 +143,24 @@ impl CTaskMissile {
         }
     }
 
-    /// Spawn X as Fixed16.16 (from spawn_params[2]).
+    /// Spawn X as Fixed16.16.
     pub fn spawn_x(&self) -> Fixed {
-        Fixed(self.spawn_params[2] as i32)
+        self.spawn_params.spawn_x
     }
 
-    /// Spawn Y as Fixed16.16 (from spawn_params[3]).
+    /// Spawn Y as Fixed16.16.
     pub fn spawn_y(&self) -> Fixed {
-        Fixed(self.spawn_params[3] as i32)
+        self.spawn_params.spawn_y
     }
 
-    /// Aim cursor X at time of fire, Fixed16.16 (from spawn_params[6]).
+    /// Aim cursor X at time of fire, Fixed16.16.
     pub fn cursor_x(&self) -> Fixed {
-        Fixed(self.spawn_params[6] as i32)
+        self.spawn_params.cursor_x
     }
 
-    /// Aim cursor Y at time of fire, Fixed16.16 (from spawn_params[7]).
+    /// Aim cursor Y at time of fire, Fixed16.16.
     pub fn cursor_y(&self) -> Fixed {
-        Fixed(self.spawn_params[7] as i32)
+        self.spawn_params.cursor_y
     }
 }
 
@@ -207,9 +197,12 @@ impl crate::snapshot::Snapshot for CTaskMissile {
         write_indent(w, i)?; writeln!(w, "launch_seed = 0x{:08X}", self.launch_seed)?;
         write_indent(w, i)?; writeln!(w, "slot_id = {}", self.slot_id)?;
 
-        write_indent(w, i)?; write!(w, "spawn_params =")?;
-        for v in &self.spawn_params { write!(w, " {:08X}", v)?; }
-        writeln!(w)?;
+        let sp = &self.spawn_params;
+        write_indent(w, i)?; writeln!(w, "spawn_params:")?;
+        write_indent(w, i + 1)?; writeln!(w, "owner={} spawn=({}, {}) speed=({}, {})",
+            sp.owner_id, sp.spawn_x, sp.spawn_y, sp.initial_speed_x, sp.initial_speed_y)?;
+        write_indent(w, i + 1)?; writeln!(w, "cursor=({}, {}) pellet={} fallback=({}, {})",
+            sp.cursor_x, sp.cursor_y, sp.pellet_index, sp.fallback_timer, sp.fallback_param)?;
 
         write_indent(w, i)?; write!(w, "weapon_data =")?;
         for (j, v) in self.weapon_data.iter().enumerate() {

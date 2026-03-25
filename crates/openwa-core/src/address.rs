@@ -316,6 +316,26 @@ pub mod va {
         fn WORM_START_FIRING = 0x0051_B7F0;
         fn FIRE_WEAPON = 0x0051_EE60;
         fn CREATE_WEAPON_PROJECTILE = 0x0051_E0F0;
+        /// stdcall(worm, fire_params, local_struct), RET 0xC
+        fn PROJECTILE_FIRE = 0x0051_DFB0;
+        /// Strike weapons (AirStrike, NapalmStrike, MineStrike, MoleSquadron, MailStrike).
+        /// stdcall(worm, &subtype_34, local_struct), RET 0xC.
+        /// Spawns CTaskAirStrike or similar. NOT for grenades — grenades use CWP.
+        fn STRIKE_FIRE = 0x0051_E2C0;
+        /// usercall(ECX=local_struct, EDX=worm, [ESP+4]=fire_params), RET 0x4
+        fn PLACED_EXPLOSIVE = 0x0051_EC80;
+        /// Spawns CTaskArrow (Shotgun, Longbow). Allocates 0x168 bytes.
+        /// thiscall(ECX=worm, fire_params, local_struct), RET 0x8.
+        fn CREATE_ARROW = 0x0051_ED90;
+        /// stdcall(worm, fire_params, local_struct), RET 0xC
+        fn ROPE_TYPE1_FIRE = 0x0051_E1C0;
+        /// stdcall(worm, fire_params, local_struct), RET 0xC
+        fn ROPE_TYPE3_FIRE = 0x0051_E240;
+        /// Called by ProjectileFire per shot.
+        /// usercall(EDI=spawn_data, stack=[worm, fire_params]), RET 0x8.
+        fn PROJECTILE_FIRE_SINGLE = 0x0051_DCF0;
+        /// Sin lookup table (1024 entries of Fixed16.16). cos = sin + 256 entries.
+        global SIN_TABLE = 0x006A_1860;
     }
 
     // =========================================================================
