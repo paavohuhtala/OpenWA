@@ -9,6 +9,21 @@ crate::define_addresses! {
     }
 }
 
+/// CTaskFire vtable — 12 slots. Extends CTask base (8 slots) with fire behavior.
+///
+/// Vtable at Ghidra 0x669DD8.
+#[openwa_core::vtable(size = 12, va = 0x0066_9DD8, class = "CTaskFire")]
+pub struct CTaskFireVTable {
+    /// HandleMessage — processes fire messages.
+    /// thiscall + 4 stack params, RET 0x10.
+    #[slot(2)]
+    pub handle_message: fn(this: *mut CTaskFire, sender: *mut CTask, msg_type: u32, size: u32, data: *const u8),
+    /// ProcessFrame — per-frame fire update (countdown, spread, damage).
+    /// thiscall + 1 stack param (flags), RET 0x4.
+    #[slot(7)]
+    pub process_frame: fn(this: *mut CTaskFire, flags: u32),
+}
+
 /// Fire/flame entity task.
 ///
 /// Extends CTask (not CGameTask) — no physics body.
@@ -24,7 +39,7 @@ crate::define_addresses! {
 #[repr(C)]
 pub struct CTaskFire {
     /// 0x00-0x2F: CTask base
-    pub base: CTask,
+    pub base: CTask<*const CTaskFireVTable>,
     /// 0x30: spread counter (incremented while fire is spreading)
     pub spread_counter: i32,
     /// 0x34: frame countdown; starts at 0xFFFF, decrements each ProcessFrame
@@ -54,3 +69,6 @@ pub struct CTaskFire {
 }
 
 const _: () = assert!(core::mem::size_of::<CTaskFire>() == 0xD8);
+
+// Generate typed vtable method wrappers: handle_message(), process_frame().
+bind_CTaskFireVTable!(CTaskFire, base.vtable);

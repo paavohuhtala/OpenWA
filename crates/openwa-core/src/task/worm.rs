@@ -95,7 +95,7 @@ pub struct CTaskWormVTable {
 #[repr(C)]
 pub struct CTaskWorm {
     /// 0x00–0xFB: CGameTask base (position, velocity, sound emitter, etc.)
-    pub base: CGameTask,
+    pub base: CGameTask<*const CTaskWormVTable>,
 
     /// 0xFC: Team index (0-based); 3rd constructor param
     pub team_index: u32,
@@ -189,6 +189,9 @@ pub struct CTaskWorm {
 
 const _: () = assert!(core::mem::size_of::<CTaskWorm>() == 0x3FC);
 
+// Generate typed vtable method wrappers: handle_message(), on_contact_entity(), etc.
+bind_CTaskWormVTable!(CTaskWorm, base.base.vtable);
+
 impl CTaskWorm {
     /// Returns the worm's current state code (lives at offset +0x44, inside
     /// `base.subclass_data`).
@@ -214,14 +217,7 @@ impl CTaskWorm {
         self.base.subclass_data[12..16].copy_from_slice(&value.to_ne_bytes());
     }
 
-    /// Returns a reference to the vtable.
-    ///
-    /// # Safety
-    /// The vtable pointer at offset 0 must be the genuine CTaskWorm vtable
-    /// (0x6644C8 in Ghidra, rebased at runtime).
-    pub unsafe fn vtable(&self) -> &'static CTaskWormVTable {
-        &*(self.base.base.vtable as *const CTaskWormVTable)
-    }
+    // vtable() method is now provided by bind_CTaskWormVTable! macro above.
 }
 
 // ── Snapshot impl ──────────────────────────────────────────

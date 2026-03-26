@@ -9,6 +9,22 @@ crate::define_addresses! {
     }
 }
 
+/// CTaskFilter vtable — 12 slots. Extends CTask base (8 slots) with filter behavior.
+///
+/// Vtable at Ghidra 0x669DAC. Slot 2 (HandleMessage) checks the subscription
+/// table before forwarding messages to children.
+#[openwa_core::vtable(size = 12, va = 0x0066_9DAC, class = "CTaskFilter")]
+pub struct CTaskFilterVTable {
+    /// HandleMessage — checks subscription table, forwards matching messages.
+    /// thiscall + 4 stack params, RET 0x10.
+    #[slot(2)]
+    pub handle_message: fn(this: *mut CTaskFilter, sender: *mut CTask, msg_type: u32, size: u32, data: *const u8),
+    /// ProcessFrame — per-frame filter update.
+    /// thiscall + 1 stack param (flags), RET 0x4.
+    #[slot(7)]
+    pub process_frame: fn(this: *mut CTaskFilter, flags: u32),
+}
+
 /// Message-subscription filter task — routes messages selectively to child tasks.
 ///
 /// CTaskFilter is a CTask subclass that overrides HandleMessage to only forward
@@ -49,7 +65,7 @@ pub struct CTaskFilter {
     /// - CTask+0x18 (`_unknown_18`): set to 0
     /// - CTask+0x1C (`_unknown_1c`): set to `init_val_1c` constructor param
     /// - CTask+0x20 (`_unknown_20`): set to 7 (task type / mode constant)
-    pub base: CTask,
+    pub base: CTask<*const CTaskFilterVTable>,
     /// 0x30–0x93: Boolean subscription table, indexed by message type ID (0–99).
     ///
     /// `subscription_table[id] != 0` means this filter will forward messages of
@@ -61,3 +77,6 @@ pub struct CTaskFilter {
 }
 
 const _: () = assert!(core::mem::size_of::<CTaskFilter>() == 0xB4);
+
+// Generate typed vtable method wrappers: handle_message(), process_frame().
+bind_CTaskFilterVTable!(CTaskFilter, base.vtable);

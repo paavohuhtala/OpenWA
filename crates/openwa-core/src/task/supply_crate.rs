@@ -1,3 +1,4 @@
+use super::base::CTask;
 use super::game_task::CGameTask;
 use crate::FieldRegistry;
 
@@ -7,6 +8,21 @@ crate::define_addresses! {
         vtable CTASK_CRATE_VTABLE = 0x0066_4298;
         ctor CTASK_CRATE_CTOR = 0x0050_2490;
     }
+}
+
+/// CTaskCrate vtable — 12 slots. Extends CGameTask vtable with crate behavior.
+///
+/// Vtable at Ghidra 0x664298.
+#[openwa_core::vtable(size = 12, va = 0x0066_4298, class = "CTaskCrate")]
+pub struct CTaskCrateVTable {
+    /// HandleMessage — processes crate messages (collection, parachute, etc.).
+    /// thiscall + 4 stack params, RET 0x10.
+    #[slot(2)]
+    pub handle_message: fn(this: *mut CTaskCrate, sender: *mut CTask, msg_type: u32, size: u32, data: *const u8),
+    /// ProcessFrame — per-frame crate update.
+    /// thiscall + 1 stack param (flags), RET 0x4.
+    #[slot(7)]
+    pub process_frame: fn(this: *mut CTaskCrate, flags: u32),
 }
 
 /// Weapon/health/utility crate entity task.
@@ -26,7 +42,7 @@ crate::define_addresses! {
 #[repr(C)]
 pub struct CTaskCrate {
     /// 0x00–0xFB: CGameTask base (pos at 0x84/0x88, speed at 0x90/0x94)
-    pub base: CGameTask,
+    pub base: CGameTask<*const CTaskCrateVTable>,
     /// 0xFC: Unknown (zeroed by constructor)
     pub _unknown_fc: u32,
     /// 0x100: Object pool slot index (assigned from DDGame+0x3600 pool)
@@ -57,3 +73,6 @@ pub struct CTaskCrate {
 }
 
 const _: () = assert!(core::mem::size_of::<CTaskCrate>() == 0x4B0);
+
+// Generate typed vtable method wrappers: handle_message(), process_frame().
+bind_CTaskCrateVTable!(CTaskCrate, base.base.vtable);

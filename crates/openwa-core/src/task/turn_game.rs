@@ -89,6 +89,22 @@ pub struct TurnGameCtx {
 
 const _: () = assert!(core::mem::size_of::<TurnGameCtx>() == 0xAC);
 
+/// CTaskTurnGame vtable — 12 slots. Extends CTask base (8 slots) with turn-game behavior.
+///
+/// Vtable at Ghidra 0x669F70. Slot 2 (HandleMessage) is the main turn-flow
+/// dispatcher (30+ message types).
+#[openwa_core::vtable(size = 12, va = 0x0066_9F70, class = "CTaskTurnGame")]
+pub struct CTaskTurnGameVTable {
+    /// HandleMessage — processes messages for turn flow control
+    /// thiscall + 4 stack params, RET 0x10.
+    #[slot(2)]
+    pub handle_message: fn(this: *mut CTaskTurnGame, sender: *mut CTask, msg_type: u32, size: u32, data: *const u8),
+    /// ProcessFrame — per-frame turn update.
+    /// thiscall + 1 stack param (flags), RET 0x4.
+    #[slot(7)]
+    pub process_frame: fn(this: *mut CTaskTurnGame, flags: u32),
+}
+
 /// Root turn-controller task — one instance per game, parent of the entire entity tree.
 ///
 /// Every worm, team, projectile, and environment task is a child (direct or indirect)
@@ -112,7 +128,7 @@ const _: () = assert!(core::mem::size_of::<TurnGameCtx>() == 0xAC);
 #[repr(C)]
 pub struct CTaskTurnGame {
     /// 0x00-0x2F: CTask base (vtable, parent, children, shared_data, ddgame, …)
-    pub base: CTask,
+    pub base: CTask<*const CTaskTurnGameVTable>,
     /// 0x30–0xDB: Embedded `TurnGameCtx` sub-object (0xAC bytes).
     /// See [`TurnGameCtx`] for field details.
     pub game_ctx: TurnGameCtx,
@@ -189,3 +205,6 @@ pub struct CTaskTurnGame {
 }
 
 const _: () = assert!(core::mem::size_of::<CTaskTurnGame>() == 0x2E0);
+
+// Generate typed vtable method wrappers: handle_message(), process_frame(), etc.
+bind_CTaskTurnGameVTable!(CTaskTurnGame, base.vtable);

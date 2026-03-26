@@ -1,3 +1,4 @@
+use super::base::CTask;
 use super::game_task::CGameTask;
 use crate::fixed::Fixed;
 use crate::game::weapon::WeaponSpawnData;
@@ -9,6 +10,21 @@ crate::define_addresses! {
         vtable CTASK_MISSILE_VTABLE = 0x0066_4438;
         ctor CTASK_MISSILE_CTOR = 0x0050_7D10;
     }
+}
+
+/// CTaskMissile vtable — 12 slots. Extends CGameTask vtable with missile behavior.
+///
+/// Vtable at Ghidra 0x664438.
+#[openwa_core::vtable(size = 12, va = 0x0066_4438, class = "CTaskMissile")]
+pub struct CTaskMissileVTable {
+    /// HandleMessage — processes missile messages.
+    /// thiscall + 4 stack params, RET 0x10.
+    #[slot(2)]
+    pub handle_message: fn(this: *mut CTaskMissile, sender: *mut CTask, msg_type: u32, size: u32, data: *const u8),
+    /// ProcessFrame — per-frame missile update (physics, homing, detonation).
+    /// thiscall + 1 stack param (flags), RET 0x4.
+    #[slot(7)]
+    pub process_frame: fn(this: *mut CTaskMissile, flags: u32),
 }
 
 /// Projectile / missile entity task.
@@ -32,7 +48,7 @@ crate::define_addresses! {
 #[repr(C)]
 pub struct CTaskMissile {
     /// 0x00–0xFB: CGameTask base (pos at 0x84/0x88, speed at 0x90/0x94).
-    pub base: CGameTask,
+    pub base: CGameTask<*const CTaskMissileVTable>,
 
     // ---- 0xFC–0x12F: missile init fields ----
     /// 0xFC–0x10F: Unknown missile flags and state
@@ -127,6 +143,9 @@ pub struct CTaskMissile {
 }
 
 const _: () = assert!(core::mem::size_of::<CTaskMissile>() == 0x40C);
+
+// Generate typed vtable method wrappers: handle_message(), process_frame().
+bind_CTaskMissileVTable!(CTaskMissile, base.base.vtable);
 
 impl CTaskMissile {
     /// Missile type from `render_data[0x17]` (= weapon_data[0x1A] for single shots).

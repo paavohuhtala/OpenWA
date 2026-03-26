@@ -408,7 +408,7 @@ unsafe fn fire_weapon_special(
 unsafe fn lookup_team_task(worm: *const CTaskWorm) -> *mut openwa_core::task::CTaskTeam {
     use openwa_core::task::SharedDataTable;
 
-    let task = &(*worm).base.base;
+    let task = &(*worm).base.base as *const _ as *const openwa_core::task::CTask;
     let table = SharedDataTable::from_task(task);
     // CTaskTeam is registered with key (0, 0x14) in SharedData
     table.lookup(0, 0x14) as *mut openwa_core::task::CTaskTeam
@@ -432,7 +432,7 @@ unsafe fn fire_send_team_message(worm: *mut CTaskWorm, msg_type: u32) {
     buf[0..4].copy_from_slice(&team_index.to_ne_bytes());
 
     (*team).handle_message(
-        &raw mut (*worm).base.base,
+        &raw mut (*worm).base.base as *mut openwa_core::task::CTask,
         msg_type,
         4,
         buf.as_ptr(),
@@ -453,7 +453,7 @@ unsafe fn fire_select_worm(worm: *mut CTaskWorm) {
     buf[4..8].copy_from_slice(&(*worm).team_index.to_ne_bytes());
 
     (*team).handle_message(
-        &raw mut (*worm).base.base,
+        &raw mut (*worm).base.base as *mut openwa_core::task::CTask,
         0x5D,
         0x408,
         buf.as_ptr(),
@@ -726,7 +726,7 @@ unsafe extern "cdecl" fn create_weapon_projectile_impl(
     }
 
     // Look up parent CTaskTurnGame via SharedData (key_esi=0, key_edi=0x19)
-    let table = SharedDataTable::from_task(task);
+    let table = SharedDataTable::from_task(task as *const _ as *const openwa_core::task::CTask);
     let parent = table.lookup(0, 0x19);
 
     // Allocate CTaskMissile (0x40C bytes)
@@ -900,7 +900,7 @@ unsafe extern "cdecl" fn create_arrow_impl(
     }
 
     // Look up parent CTaskTurnGame via SharedData (key 0, 0x19)
-    let table = SharedDataTable::from_task(task);
+    let table = SharedDataTable::from_task(task as *const _ as *const openwa_core::task::CTask);
     let parent = table.lookup(0, 0x19);
 
     // Allocate CTaskArrow (0x168 bytes)

@@ -10,6 +10,21 @@ crate::define_addresses! {
     }
 }
 
+/// CTaskCloud vtable — 12 slots. Extends CTask base (8 slots) with cloud behavior.
+///
+/// Vtable at Ghidra 0x669D38.
+#[openwa_core::vtable(size = 12, va = 0x0066_9D38, class = "CTaskCloud")]
+pub struct CTaskCloudVTable {
+    /// HandleMessage — processes cloud messages (wind updates, render).
+    /// thiscall + 4 stack params, RET 0x10.
+    #[slot(2)]
+    pub handle_message: fn(this: *mut CTaskCloud, sender: *mut CTask, msg_type: u32, size: u32, data: *const u8),
+    /// ProcessFrame — per-frame cloud update.
+    /// thiscall + 1 stack param (flags), RET 0x4.
+    #[slot(7)]
+    pub process_frame: fn(this: *mut CTaskCloud, flags: u32),
+}
+
 /// Airstrike / weather cloud task.
 ///
 /// Extends CTask directly (not CGameTask). Clouds drift horizontally with wind,
@@ -30,7 +45,7 @@ crate::define_addresses! {
 #[repr(C)]
 pub struct CTaskCloud {
     /// 0x00–0x2F: CTask base
-    pub base: CTask,
+    pub base: CTask<*const CTaskCloudVTable>,
     /// 0x30: Parallax scroll layer depth (Fixed; 0x190000 = 25.0 at spawn,
     /// decrements by 1 each cloud spawned in a batch)
     pub layer_depth: Fixed,
@@ -55,3 +70,6 @@ pub struct CTaskCloud {
 }
 
 const _: () = assert!(core::mem::size_of::<CTaskCloud>() == 0x74);
+
+// Generate typed vtable method wrappers: handle_message(), process_frame().
+bind_CTaskCloudVTable!(CTaskCloud, base.vtable);

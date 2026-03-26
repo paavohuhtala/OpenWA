@@ -586,24 +586,10 @@ pub fn derive_field_registry(input: TokenStream) -> TokenStream {
         let doc = extract_doc_comment(&field.attrs);
         let field_ty = &field.ty;
 
-        // If the field type is a generic param (e.g., `V`), substitute with its
-        // default type for size_of. offset_of uses the bare struct name which
+        // Substitute generic type params (e.g., `V` or `CTask<V>`) with their
+        // defaults for size_of. offset_of uses the bare struct name which
         // Rust resolves with defaults applied.
-        let size_ty: Box<dyn quote::ToTokens> =
-            if let syn::Type::Path(tp) = field_ty {
-                if tp.path.segments.len() == 1 {
-                    let seg = &tp.path.segments[0];
-                    if let Some(default) = generic_defaults.get(&seg.ident.to_string()) {
-                        Box::new(default.clone())
-                    } else {
-                        Box::new(field_ty.clone())
-                    }
-                } else {
-                    Box::new(field_ty.clone())
-                }
-            } else {
-                Box::new(field_ty.clone())
-            };
+        let size_ty = substitute_generics(field_ty, &generic_defaults);
 
         // Determine ValueKind: check for #[field(kind = "...")] override, else infer
         let kind = parse_field_kind_attr(&field.attrs)
@@ -733,4 +719,60 @@ fn infer_value_kind(ty: &syn::Type) -> proc_macro2::TokenStream {
 fn value_kind_token(variant: &str) -> proc_macro2::TokenStream {
     let ident = quote::format_ident!("{}", variant);
     quote! { openwa_core::registry::ValueKind::#ident }
+}
+
+/// Recursively substitute generic type parameters with their defaults.
+///
+/// For example, given `CTask<V>` with defaults `{V → *const c_void}`,
+/// produces `CTask<*const c_void>`. Handles nested generics and all
+/// common type forms (paths, pointers, arrays, etc.).
+fn substitute_generics(
+    ty: &syn::Type,
+    defaults: &std::collections::HashMap<String, syn::Type>,
+) -> syn::Type {
+    if defaults.is_empty() {
+        return ty.clone();
+    }
+
+    match ty {
+        syn::Type::Path(tp) => {
+            // Check if the entire path is a generic param name (e.g., `V`)
+            if tp.qself.is_none() && tp.path.segments.len() == 1 {
+                let seg = &tp.path.segments[0];
+                if seg.arguments.is_empty() {
+                    if let Some(default) = defaults.get(&seg.ident.to_string()) {
+                        return default.clone();
+                    }
+                }
+            }
+            // Recursively substitute within generic arguments (e.g., CTask<V>)
+            let mut tp = tp.clone();
+            for seg in &mut tp.path.segments {
+                if let syn::PathArguments::AngleBracketed(ref mut args) = seg.arguments {
+                    for arg in &mut args.args {
+                        if let syn::GenericArgument::Type(ref mut inner_ty) = arg {
+                            *inner_ty = substitute_generics(inner_ty, defaults);
+                        }
+                    }
+                }
+            }
+            syn::Type::Path(tp)
+        }
+        syn::Type::Ptr(ptr) => {
+            let mut ptr = ptr.clone();
+            ptr.elem = Box::new(substitute_generics(&ptr.elem, defaults));
+            syn::Type::Ptr(ptr)
+        }
+        syn::Type::Array(arr) => {
+            let mut arr = arr.clone();
+            arr.elem = Box::new(substitute_generics(&arr.elem, defaults));
+            syn::Type::Array(arr)
+        }
+        syn::Type::Reference(r) => {
+            let mut r = r.clone();
+            r.elem = Box::new(substitute_generics(&r.elem, defaults));
+            syn::Type::Reference(r)
+        }
+        _ => ty.clone(),
+    }
 }
