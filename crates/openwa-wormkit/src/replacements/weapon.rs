@@ -361,8 +361,8 @@ unsafe fn fire_weapon_special(
         1 => (*worm).set_state(WormState::Blowtorch),
         // Pneumatic Drill (pure Rust)
         2 => fire_drill(worm, local_struct),
-        // Girder
-        3 => call_fire_stdcall3(worm, params_38_ptr, local_struct, rb(0x51E350)),
+        // Girder (pure Rust)
+        3 => fire_girder(worm, params_38_ptr, local_struct),
         // Baseball Bat
         4 => (*worm).set_state(WormState::BaseballBat),
         // Fire Punch
@@ -553,6 +553,74 @@ unsafe fn fire_mail_mine_mole(worm: *mut CTaskWorm) {
     let worm_index = (*worm).worm_index as usize;
     let entry = arena.team_worm_mut(team_index, worm_index);
     entry.turn_action_counter_Maybe += 7;
+}
+
+/// Girder (type 4 subtype 3) — pure Rust port of 0x51E350.
+///
+/// Allocates a CTaskFireBall (0xA4 bytes), copies 7 DWORDs from fire_params
+/// as constructor arguments, and calls the constructor. The constructor handles
+/// actually placing the girder on the landscape.
+///
+/// Convention: stdcall(worm, fire_params, local_struct), RET 0xC.
+unsafe fn fire_girder(
+    worm: *mut CTaskWorm, fire_params: *const WeaponFireParams, local_struct: *const u8,
+) {
+    use openwa_core::rebase::rb;
+    use openwa_core::task::{SharedDataTable, Task};
+    use openwa_core::wa_alloc::wa_malloc;
+
+    // Look up parent task via SharedData (same key as CreateWeaponProjectile)
+    let table = SharedDataTable::from_task((*worm).as_task_ptr());
+    let parent = table.lookup(0, 0x19);
+
+    // Allocate CTaskFireBall (0xA4 bytes), zero first 0x84
+    let buffer = wa_malloc(0xA4);
+    if buffer.is_null() {
+        return;
+    }
+    core::ptr::write_bytes(buffer, 0, 0x84);
+
+    // CTaskFireBall::Constructor — usercall(EAX=parent) +
+    // stdcall(this, 7×fire_param DWORDs, local_struct), RET 0x24.
+    // Copy 7 DWORDs from fire_params onto the stack via the naked bridge.
+    call_fireball_ctor(buffer, parent as *mut u8, fire_params, local_struct, rb(0x550890));
+}
+
+/// Bridge: CTaskFireBall::Constructor — usercall(EAX=parent) +
+/// stdcall(this, 7 DWORDs from fire_params, local_struct), RET 0x24.
+///
+/// The original copies 7 DWORDs from fire_params onto the stack via REP MOVSD.
+/// We replicate this by pushing them individually in reverse order.
+#[unsafe(naked)]
+unsafe extern "C" fn call_fireball_ctor(
+    _this: *mut u8, _parent: *mut u8, _fire_params: *const WeaponFireParams,
+    _local_struct: *const u8, _addr: u32,
+) {
+    core::arch::naked_asm!(
+        "push ebx",
+        "push esi",
+        "push edi",
+        // Stack: 3 saves(12) + ret(4) = 16 to first arg
+        // Args: this=+16, parent=+20, fire_params=+24, local_struct=+28, addr=+32
+        "mov esi, [esp+24]",  // ESI = fire_params
+        "mov eax, [esp+20]",  // EAX = parent (usercall)
+        "mov ebx, [esp+32]",  // EBX = ctor address
+        // Push constructor args in reverse: local_struct, 7 DWORDs, this
+        "push [esp+28]",      // local_struct (B+28 → stack pos 1)
+        "push [esi+24]",      // fire_params[6]
+        "push [esi+20]",      // fire_params[5]
+        "push [esi+16]",      // fire_params[4]
+        "push [esi+12]",      // fire_params[3]
+        "push [esi+8]",       // fire_params[2]
+        "push [esi+4]",       // fire_params[1]
+        "push [esi]",         // fire_params[0] (B-28 → stack pos 8)
+        "push [esp+48]",      // this: B-32+48 = B+16 ✓
+        "call ebx",           // RET 0x24 cleans 9 params
+        "pop edi",
+        "pop esi",
+        "pop ebx",
+        "ret",
+    );
 }
 
 /// Freeze (subtype 17) — pure Rust port of 0x51E920.
