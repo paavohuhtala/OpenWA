@@ -1,0 +1,51 @@
+Game Started at 2026-03-26 21:03:17 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Red:  "2-UP"
+Blue: "3-UP"
+
+[00:00:00.00] ••• 3-UP starts turn
+[00:00:04.04] ••• 3-UP fires Freeze
+[00:00:04.06] ••• 3-UP ends turn; time used: 0.40 sec turn, 0.00 sec retreat
+[00:00:06.08] ••• 2-UP starts turn
+[00:00:08.00] ••• 2-UP fires Bazooka
+[00:00:11.76] ••• 2-UP ends turn; time used: 0.50 sec turn, 3.00 sec retreat
+[00:00:15.78] ••• 3-UP starts turn
+[00:00:17.94] ••• 3-UP fires Bazooka
+[00:00:21.86] ••• 3-UP ends turn; time used: 0.26 sec turn, 3.00 sec retreat
+[00:00:32.88] ••• Damage dealt: 210 (2 kills) to 2-UP, 100 (1 kill) to 3-UP
+[00:00:32.88] ••• 2-UP starts turn
+[00:00:34.94] ••• 2-UP fires Freeze
+[00:00:34.96] ••• 2-UP ends turn; time used: 0.26 sec turn, 0.00 sec retreat
+[00:00:36.98] ••• 3-UP starts turn
+[00:00:42.84] ••• 3-UP fires Baseball Bat
+[00:00:46.42] ••• 3-UP ends turn; time used: 1.68 sec turn, 3.00 sec retreat
+[00:00:48.74] ••• 2-UP starts turn
+[00:00:52.84] ••• 2-UP fires Minigun
+[00:00:57.44] ••• 2-UP ends turn; time used: 0.20 sec turn, 3.00 sec retreat
+[00:01:02.62] ••• Damage dealt: 47 to 3-UP
+[00:01:02.62] ••• 3-UP starts turn
+[00:01:05.06] ••• 3-UP fires Indian Nuclear Test
+[00:01:13.40] ••• 3-UP ends turn; time used: 0.24 sec turn, 0.02 sec retreat
+[00:01:19.50] ••• Damage dealt: 2 to 2-UP, 4 to 3-UP
+[00:01:19.50] ••• 2-UP starts turn
+[00:01:21.26] ••• 2-UP fires Armageddon
+[00:01:24.02] ••• 2-UP loses turn due to loss of control; time used: 0.32 sec turn, 0.02 sec retreat
+[00:01:55.66] ••• Damage dealt: 88 (1 kill) to 2-UP, 149 (2 kills) to 3-UP
+[00:01:55.68] ••• Game Ends - Round Finished
+
+Team time totals:
+2-UP: Turn: 00:00:01.28, Retreat: 00:00:06.02, Total: 00:00:07.30, Turn count: 4
+3-UP: Turn: 00:00:02.58, Retreat: 00:00:06.02, Total: 00:00:08.60, Turn count: 4
+
+End of round 1
+
+Round time: 0:01:55
+Total game time elapsed: 0:01:55
+
+The round was drawn.
+
+Worm of the round: Sputnik (3-UP)
+Most damage with one shot: 310 - Sputnik (3-UP)

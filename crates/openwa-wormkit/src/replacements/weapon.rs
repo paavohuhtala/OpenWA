@@ -391,8 +391,8 @@ unsafe fn fire_weapon_special(
                 (*worm).set_state(WormState::TeleportCancelled_Maybe);
             }
         }
-        // Freeze (EAX=worm)
-        17 => call_fire_usercall(worm as *const (), worm, rb(0x51E920)),
+        // Freeze (pure Rust)
+        17 => fire_freeze(worm),
         // Suicide Bomber
         18 => (*worm).set_state(WormState::SuicideBomber),
         // Skip Go (pure Rust)
@@ -553,6 +553,72 @@ unsafe fn fire_mail_mine_mole(worm: *mut CTaskWorm) {
     let worm_index = (*worm).worm_index as usize;
     let entry = arena.team_worm_mut(team_index, worm_index);
     entry.turn_action_counter_Maybe += 7;
+}
+
+/// Freeze (subtype 17) — pure Rust port of 0x51E920.
+///
+/// Plays a freeze sound, optionally creates a freeze visual overlay on the
+/// landscape and increments worm counters. The visual/counter path only runs
+/// when CTaskWorm+0x2EC (freeze_target_team) is nonzero.
+///
+/// Convention: usercall(EAX=worm, ESI=worm, EDI=worm), plain RET.
+unsafe fn fire_freeze(worm: *mut CTaskWorm) {
+    use openwa_core::rebase::rb;
+
+    let ddgame = (*worm).ddgame();
+    let game_version = (*(*ddgame).game_info).game_version;
+
+    // Read freeze position and target from CTaskWorm fields
+    let worm_raw = worm as *const u8;
+    let freeze_x = *(worm_raw.add(0x2E0) as *const i32);
+    let freeze_y = *(worm_raw.add(0x2E4) as *const i32);
+    let freeze_target = *(worm_raw.add(0x2EC) as *const i32);
+
+    // Choose sound: 0x70 if freeze has target or old version, else 0x73
+    let sound_id: u32 = if freeze_target != 0 || game_version < 0x21 {
+        0x70
+    } else {
+        0x73
+    };
+
+    // Call PlaySoundGlobal — thiscall(ECX=worm, sound_id, 3, 0x10000, 0x10000)
+    type PlaySoundGlobalFn = unsafe extern "thiscall" fn(*mut CTaskWorm, u32, i32, i32, i32) -> i32;
+    let play_sound: PlaySoundGlobalFn = core::mem::transmute(rb(va::PLAY_SOUND_GLOBAL));
+    let result = play_sound(worm, sound_id, 3, 0x10000, 0x10000);
+
+    // If sound was queued, set its position to the freeze location
+    if result != 0 {
+        let queue_count = (*ddgame).sound_queue_count;
+        if queue_count > 0 {
+            let entry = &mut (*ddgame).sound_queue[(queue_count - 1) as usize];
+            entry.is_local = 1;
+            entry.secondary_vtable = 0;
+            entry.pos_x = freeze_x as u32;
+            entry.pos_y = freeze_y as u32;
+        }
+    }
+
+    // If freeze has a target, apply the visual effect and update counters
+    if freeze_target != 0 {
+        // Call PCLandscape vtable[5] to create freeze overlay
+        let landscape = (*ddgame).landscape as *mut u8;
+        let landscape_vt = *(landscape as *const *const usize);
+        let freeze_visual: unsafe extern "thiscall" fn(*mut u8, i32, i32, *mut u8, *mut u8) =
+            core::mem::transmute(*landscape_vt.add(5));
+        let sprite1 = (*ddgame).sprite_cache_2[freeze_target as usize];
+        let sprite2 = (*ddgame).sprite_cache_2[19 + freeze_target as usize];
+        freeze_visual(landscape, freeze_x >> 16, freeze_y >> 16, sprite1, sprite2);
+
+        // Increment WormEntry counters
+        let arena = openwa_core::engine::ddgame::TeamArenaRef::from_ptr(
+            &raw mut (*ddgame).team_arena,
+        );
+        let team_index = (*worm).team_index as usize;
+        let worm_index = (*worm).worm_index as usize;
+        let entry = arena.team_worm_mut(team_index, worm_index);
+        entry.turn_action_counter_Maybe += 3;
+        entry.effect_counter_04_Maybe += 10;
+    }
 }
 
 // ── SpecialImpact wrapper ─────────────────────────────────
