@@ -161,10 +161,9 @@ pub struct WormEntry {
     pub _unknown_60: [u8; 0x18],
     /// 0x78: Worm name, null-terminated ASCII string (~20 bytes).
     pub name: [u8; 0x18],
-    /// 0x90-0x9B: Unknown (zeroed in runtime dump for playable worms).
-    /// GetWormPosition reads pos_x/pos_y from +0x90/+0x94 via negative entry_ptr
-    /// arithmetic, but values appear transient — not populated at rest.
-    /// Actual worm positions live in CGameTask objects (+0x84/+0x88).
+    /// 0x90-0x9B: Unknown. Used transiently by GetWormPosition (+0x90=x, +0x94=y).
+    /// Also observed as nonzero (1) on one poisoned worm but not another —
+    /// not reliably correlated with poison state. Needs further investigation.
     pub _unknown_90: [u8; 0x0C],
 }
 

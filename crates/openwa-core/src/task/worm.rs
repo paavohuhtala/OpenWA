@@ -215,8 +215,18 @@ pub struct CTaskWorm {
     pub _unknown_108: [u8; 8],
     /// 0x110–0x137: Ten u32s copied from spawn init_data (5th constructor param)
     pub spawn_params: [u32; 10],
-    /// 0x138–0x14F: Unknown
-    pub _unknown_138: [u8; 0x18],
+    /// 0x138–0x143: Unknown
+    pub _unknown_138: [u8; 0x0C],
+    /// 0x144: Poison source bitmask — tracks which alliances have poisoned this worm.
+    /// PoisonWorm handler (msg 0x51): `poison_source_mask |= alliance_bit`.
+    /// Prevents double-poisoning from the same source.
+    pub poison_source_mask: u32,
+    /// 0x148: Poison damage per turn. 0 = not poisoned.
+    /// PoisonWorm handler: `poison_damage += msg_data[0]`.
+    /// ApplyPoison handler (msg 0x3E): subtracts this from health each turn.
+    pub poison_damage: i32,
+    /// 0x14C–0x14F: Unknown
+    pub _unknown_14c: [u8; 4],
     /// 0x150: Unknown (slot 9 in GetEntityData query 0x7D4 output)
     pub _unknown_150: u32,
     /// 0x154: Unknown (rope-related; cleared in some SetState transitions)
@@ -231,8 +241,15 @@ pub struct CTaskWorm {
     pub _unknown_168: [u8; 0x170 - 0x168],
     /// 0x170: Currently selected weapon ID.
     pub selected_weapon: u32,
-    /// 0x174–0x1A7: Unknown
-    pub _unknown_174: [u8; 0x1A8 - 0x174],
+    /// 0x174–0x177: Unknown
+    pub _unknown_174: [u8; 4],
+    /// 0x178: Display health (animated toward target). Used for health bar interpolation.
+    /// Stored as `00 00 XX 00` where XX is health — actual layout is u16 at +0x17A.
+    pub display_health_raw: u32,
+    /// 0x17C: Target health (matches WormEntry.health). Same byte layout as display_health.
+    pub target_health_raw: u32,
+    /// 0x180–0x1A7: Unknown
+    pub _unknown_180: [u8; 0x1A8 - 0x180],
     /// 0x1A8: Facing direction copy. -1 = left, +1 = right (same as +0x3DC).
     pub facing_direction_2: i32,
     /// 0x1AC: Inverted facing direction. +1 = left, -1 = right.
@@ -265,8 +282,16 @@ pub struct CTaskWorm {
     /// 0x301: Country / team name from scheme, null-terminated (max 17 chars)
     #[field(kind = "CString")]
     pub country_name: [u8; 0x11],
-    /// 0x312–0x333: Unknown (rope string, state history, etc.)
-    pub _unknown_312: [u8; 0x334 - 0x312],
+    /// 0x312: Health display string, null-terminated ASCII (e.g. "100", "88").
+    /// Updated when health changes for the floating health number display.
+    #[field(kind = "CString")]
+    pub health_text: [u8; 0x09],
+    /// 0x31B: Poison damage display string, null-terminated ASCII (e.g. "5", "").
+    /// Shown as the green poison damage number above the worm.
+    #[field(kind = "CString")]
+    pub poison_text: [u8; 0x09],
+    /// 0x324–0x333: Unknown
+    pub _unknown_324: [u8; 0x334 - 0x324],
     /// 0x334: Facing direction copy. -1 = left, +1 = right (same as +0x3DC).
     pub facing_direction_3: i32,
     /// 0x338–0x367: Unknown
