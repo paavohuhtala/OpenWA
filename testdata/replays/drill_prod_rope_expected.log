@@ -1,0 +1,57 @@
+Game Started at 2026-03-26 18:54:37 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Red:  "2-UP"
+Blue: "3-UP"
+
+[00:00:00.00] ••• 2-UP starts turn
+[00:00:06.82] ••• 2-UP fires Ninja Rope
+[00:00:07.44] ••• 2-UP fires Ninja Rope
+[00:00:21.46] ••• 2-UP fires Prod
+[00:00:24.98] ••• 2-UP ends turn; time used: 19.04 sec turn, 3.00 sec retreat
+[00:00:33.84] ••• Damage dealt: 100 (1 kill) to 3-UP
+[00:00:33.84] ••• 3-UP starts turn
+[00:00:37.02] ••• 3-UP fires Prod
+[00:00:40.30] ••• 3-UP ends turn; time used: 1.20 sec turn, 3.00 sec retreat
+[00:00:42.32] ••• 2-UP starts turn
+[00:00:44.78] ••• 2-UP fires Pneumatic Drill
+[00:00:46.04] ••• 2-UP ends turn; time used: 0.24 sec turn, 0.02 sec retreat
+[00:00:50.06] ••• 3-UP starts turn
+[00:00:52.58] ••• 3-UP fires Pneumatic Drill
+[00:00:55.30] ••• 3-UP loses turn due to loss of control; time used: 0.14 sec turn, 0.00 sec retreat
+[00:01:00.54] ••• Damage dealt: 100 (1 kill) to 3-UP
+[00:01:00.54] ••• 2-UP starts turn
+[00:01:05.76] ••• 2-UP fires Pneumatic Drill
+[00:01:10.82] ••• 2-UP ends turn; time used: 3.18 sec turn, 0.02 sec retreat
+[00:01:13.34] ••• 3-UP starts turn
+[00:01:20.88] ••• 3-UP fires Ninja Rope
+[00:01:25.42] ••• 3-UP fires Parachute
+[00:01:35.54] ••• 3-UP fires Ninja Rope
+[00:01:36.36] ••• 3-UP fires Ninja Rope
+[00:01:50.20] ••• 3-UP fires Prod
+[00:01:53.48] ••• 3-UP ends turn; time used: 34.18 sec turn, 3.00 sec retreat
+[00:01:59.16] ••• Damage dealt: 100 (1 kill) to 2-UP
+[00:01:59.16] ••• 2-UP starts turn
+[00:02:01.10] ••• 2-UP fires Pneumatic Drill
+[00:02:02.40] ••• 2-UP loses turn due to loss of control; time used: 0.00 sec turn, 0.00 sec retreat
+[00:02:07.70] ••• Damage dealt: 100 (1 kill) to 2-UP
+[00:02:07.70] ••• 3-UP starts turn
+[00:02:10.44] ••• 3-UP fires Suicide Bomber
+[00:02:11.80] ••• 3-UP loses turn due to loss of control; time used: 0.16 sec turn, 0.00 sec retreat
+[00:02:26.06] ••• Damage dealt: 100 (1 kill) to 3-UP
+[00:02:26.08] ••• Game Ends - Round Finished
+
+Team time totals:
+2-UP: Turn: 00:00:22.46, Retreat: 00:00:03.04, Total: 00:00:25.50, Turn count: 4
+3-UP: Turn: 00:00:35.68, Retreat: 00:00:06.00, Total: 00:00:41.68, Turn count: 4
+
+End of round 1
+
+Round time: 0:02:26
+Total game time elapsed: 0:02:26
+
+2-UP wins the round.
+
+Worm of the round: Boody (2-UP)

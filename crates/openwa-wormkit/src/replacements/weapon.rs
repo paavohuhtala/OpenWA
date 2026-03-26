@@ -357,38 +357,64 @@ unsafe fn fire_weapon_special(
     let params_38_ptr = &raw const (*entry).fire_subtype_38 as *const WeaponFireParams;
 
     match subtype {
-        1 => fire_worm_vtable_0xe(worm, 0x6C),                                                  // Blowtorch
-        2 => call_fire_usercall(entry as *const (), worm, rb(0x51E3E0)),                         // Drill (EAX=entry)
-        3 => call_fire_stdcall3(worm, params_38_ptr, local_struct, rb(0x51E350)),                // Girder
-        4 => fire_worm_vtable_0xe(worm, 0x6D),                                                  // Baseball Bat
-        5 => fire_worm_vtable_0xe(worm, 0x75),                                                  // Fire Punch
-        6 => fire_worm_vtable_0xe(worm, 0x70),                                                  // Dragon Ball
-        8 => fire_worm_vtable_0xe(worm, 0x6E),                                                  // Kamikaze
-        9 => call_fire_usercall_stdcall1(entry as *const (), worm, local_struct, rb(0x51E480)),  // Prod (EAX=entry)
-        10 => call_fire_usercall(worm as *const (), worm, rb(0x51E710)),                         // Air Strike (EAX=worm)
-        11 => fire_worm_vtable_0xe(worm, 0x71),                                                 // Scales of Justice
-        13 => fire_send_team_message(worm, 0x2B),                                                // Napalm Strike
-        14 => fire_mail_mine_mole(worm),                                                         // Mail/Mine/Mole (pure Rust)
+        // Blowtorch
+        1 => (*worm).set_state(0x6C),
+        // Pneumatic Drill (pure Rust)
+        2 => fire_drill(worm, local_struct),
+        // Girder
+        3 => call_fire_stdcall3(worm, params_38_ptr, local_struct, rb(0x51E350)),
+        // Baseball Bat
+        4 => (*worm).set_state(0x6D),
+        // Fire Punch
+        5 => (*worm).set_state(0x75),
+        // Dragon Ball
+        6 => (*worm).set_state(0x70),
+        // Kamikaze
+        8 => (*worm).set_state(0x6E),
+        // Prod (pure Rust)
+        9 => fire_prod(worm, local_struct),
+        // Air Strike (EAX=worm)
+        10 => call_fire_usercall(worm as *const (), worm, rb(0x51E710)),
+        // Scales of Justice
+        11 => (*worm).set_state(0x71),
+        // Napalm Strike
+        13 => fire_send_team_message(worm, 0x2B),
+        // Mail/Mine/Mole (pure Rust)
+        14 => fire_mail_mine_mole(worm),
+        // Teleport: check worm state, then execute or cancel
         16 => {
-            // Teleport: MOV EAX,[ESI+0x44] (worm state) before check
             let worm_state = (*worm).state();
-            let result = call_fire_usercall_ret(worm_state as *const (), worm, rb(0x516930));
-            if result != 0 {
-                call_fire_usercall(result as *const (), worm, rb(0x51EB00));
+            if can_teleport(worm_state) {
+                call_fire_usercall(worm_state as *const (), worm, rb(0x51EB00));
             } else {
-                fire_worm_vtable_0xe(worm, 0x74);
+                (*worm).set_state(0x74);
             }
         }
-        17 => call_fire_usercall(worm as *const (), worm, rb(0x51E920)),                         // Freeze (EAX=worm)
-        18 => fire_worm_vtable_0xe(worm, 0x72),                                                 // Suicide Bomber
-        19 => fire_skip_go(worm, entry),                                                         // Skip Go (pure Rust)
-        20 => fire_surrender(worm),                                                              // Surrender (pure Rust)
-        21 => fire_select_worm(worm),                                                            // Select Worm (pure Rust)
-        22 => call_fire_usercall(entry as *const (), worm, rb(0x51EC30)),                        // Jet Pack (EAX=entry)
-        23 => fire_worm_vtable_0xe(worm, 0x78),                                                 // Magic Bullet
-        24 => call_fire_usercall(entry as *const (), worm, rb(0x51EA60)),                        // Low Grav (EAX=entry)
+        // Freeze (EAX=worm)
+        17 => call_fire_usercall(worm as *const (), worm, rb(0x51E920)),
+        // Suicide Bomber
+        18 => (*worm).set_state(0x72),
+        // Skip Go (pure Rust)
+        19 => fire_skip_go(worm, entry),
+        // Surrender (pure Rust)
+        20 => fire_surrender(worm),
+        // Select Worm (pure Rust)
+        21 => fire_select_worm(worm),
+        // Jet Pack (EAX=entry)
+        22 => call_fire_usercall(entry as *const (), worm, rb(0x51EC30)),
+        // Magic Bullet
+        23 => (*worm).set_state(0x78),
+        // Low Gravity (EAX=entry)
+        24 => call_fire_usercall(entry as *const (), worm, rb(0x51EA60)),
         _ => {}
     }
+}
+
+/// Teleport validity check — pure Rust port of 0x516930.
+/// Returns true if the worm's current state allows teleportation.
+/// Valid states: 0x78 (idle-aim), 0x7B-0x7D (pre-fire range).
+fn can_teleport(state: u32) -> bool {
+    state == 0x78 || (0x7B..=0x7D).contains(&state)
 }
 
 // ── Pure Rust fire handlers (no bridge needed) ──────────────
@@ -515,7 +541,7 @@ unsafe fn fire_mail_mine_mole(worm: *mut CTaskWorm) {
             && (worm_state == 0x7D || (worm_state == 0x78 && version < 8)));
 
     if should_call_vtable {
-        fire_worm_vtable_0xe(worm, 0x65);
+        (*worm).set_state(0x65);
     }
 
     fire_send_team_message(worm, 0x28);
@@ -525,6 +551,130 @@ unsafe fn fire_mail_mine_mole(worm: *mut CTaskWorm) {
     let worm_index = (*worm).worm_index as usize;
     let entry = arena.team_worm_mut(team_index, worm_index);
     entry.turn_action_counter_Maybe += 7;
+}
+
+// ── SpecialImpact wrapper ─────────────────────────────────
+
+/// Typed wrapper for SpecialImpact (0x5193D0).
+/// Convention: stdcall with 13 params (RET 0x34 = 52 bytes).
+///
+/// Used by Drill, Prod, and other melee/impact weapons. Applies damage in
+/// a directional area from the worm's position.
+#[allow(clippy::too_many_arguments)]
+unsafe fn call_special_impact(
+    worm: *mut CTaskWorm,
+    x: i32, y: i32,
+    radius_x: i32, radius_y: i32,
+    weapon_type: i32,
+    dx: i32, dy: i32,
+    p8: i32, p9: i32, p10: i32,
+    flags: u32, p12: i32,
+) {
+    use openwa_core::rebase::rb;
+    type SpecialImpactFn = unsafe extern "stdcall" fn(
+        *mut CTaskWorm, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, u32, i32,
+    );
+    let func: SpecialImpactFn = core::mem::transmute(rb(va::SPECIAL_IMPACT));
+    func(worm, x, y, radius_x, radius_y, weapon_type, dx, dy, p8, p9, p10, flags, p12);
+}
+
+/// Compute version-dependent flags for SpecialImpact.
+///
+/// Pattern shared by Drill and Prod:
+/// - Base flags OR 0x20 if version >= 2
+/// - Base flags OR 0x10 if version >= 8
+fn special_impact_version_flags(base: u32, version: u8) -> u32 {
+    let mut flags = base;
+    if version >= 2 { flags |= 0x20; }
+    if version >= 8 { flags |= 0x10; }
+    flags
+}
+
+/// Pneumatic Drill (subtype 2) — pure Rust port of 0x51E3E0.
+///
+/// Calls SpecialImpact with facing-offset position and scaled direction.
+/// The original is usercall(ECX=local_struct, ESI=worm) — the old bridge
+/// did not set ECX, so this port also fixes a latent bug.
+unsafe fn fire_drill(worm: *mut CTaskWorm, local_struct: *const u8) {
+    let ddgame = (*worm).ddgame();
+    let version = (*ddgame).version_flag_4;
+    let entry = &*(*worm).active_weapon_entry;
+    let shot_count = entry.fire_params.shot_count;
+    let weapon_type = entry.fire_subtype_38;
+    let facing = (*worm).facing_direction_2;
+
+    // Cast local_struct to WeaponSpawnData for field access (offsets match)
+    let spawn = &*(local_struct as *const WeaponSpawnData);
+
+    let x = facing * 0x1A_0000 + spawn.spawn_x.0;
+    let y = spawn.spawn_y.0;
+    let dx = (spawn.initial_speed_x.0 * shot_count) / 10;
+    let dy = (spawn.initial_speed_y.0 * shot_count) / 10;
+    let flags = special_impact_version_flags(0x21C4C, version);
+
+    call_special_impact(
+        worm, x, y,
+        0x1A_0000, 0x1E_0000,
+        weapon_type, dx, dy,
+        6, 0x61, 0x51,
+        flags, 1,
+    );
+}
+
+/// Prod (subtype 9) — pure Rust port of 0x51E480.
+///
+/// Like Drill but with trig interpolation on the spread angle.
+/// Convention: usercall(EDI=worm) + 1 stack param (local_struct), RET 0x4.
+unsafe fn fire_prod(worm: *mut CTaskWorm, local_struct: *const u8) {
+    use openwa_core::rebase::rb;
+
+    let ddgame = (*worm).ddgame();
+    let version = (*ddgame).version_flag_4;
+    let entry = &*(*worm).active_weapon_entry;
+    let shot_count = entry.fire_params.shot_count;
+    let spread = entry.fire_params.spread;
+    let weapon_type = entry.fire_subtype_38;
+    let facing = (*worm).facing_direction_2;
+
+    let spawn = &*(local_struct as *const WeaponSpawnData);
+
+    // Convert spread (degrees) to engine angle units: (spread << 16) / 360
+    let angle = ((spread as u32) << 16) / 0x168;
+
+    // Interpolated sin/cos lookup (same pattern as projectile_fire_impl)
+    let sin_table = rb(va::SIN_TABLE) as *const i32;
+    let cos_table = sin_table.add(256);
+
+    let table_index = ((angle >> 6) & 0x3FF) as usize;
+    let frac = ((angle & 0x3F) << 10) as i32;
+
+    let cos_base = *cos_table.add(table_index);
+    let cos_next = *cos_table.add(table_index + 1);
+    let cos_val = cos_base + fixed_mul(cos_next - cos_base, frac);
+
+    let sin_base = *sin_table.add(table_index);
+    let sin_next = *sin_table.add(table_index + 1);
+    let sin_val = sin_base + fixed_mul(sin_next - sin_base, frac);
+
+    // Scale trig results by shot_count and divide by 10.
+    // In WA's coordinate system (Y increases downward), the vertical component is negated.
+    // Original asm uses IMUL 0x99999999 (= -0x66666667) for dy, which negates the result.
+    // dx = (sin_val * shot_count) / 10 * facing
+    // dy = -(cos_val * shot_count) / 10
+    let dx = ((sin_val * shot_count) / 10) * facing;
+    let dy = -((cos_val * shot_count) / 10);
+
+    let x = facing * 0x6_0000 + spawn.spawn_x.0;
+    let y = spawn.spawn_y.0;
+    let flags = special_impact_version_flags(0xC4C, version);
+
+    call_special_impact(
+        worm, x, y,
+        0xC_0000, 0xC_0000,
+        weapon_type, dx, dy,
+        0, 0, 0,
+        flags, 1,
+    );
 }
 
 // ── Naked asm bridges ───────────────────────────────────────
@@ -596,69 +746,6 @@ unsafe extern "C" fn call_fire_usercall(_eax: *const (), _worm: *mut CTaskWorm, 
     );
 }
 
-/// Bridge: usercall(EAX=eax_val, ESI=worm, EDI=worm), plain RET, returns EAX.
-#[unsafe(naked)]
-unsafe extern "C" fn call_fire_usercall_ret(_eax: *const (), _worm: *mut CTaskWorm, _addr: u32) -> i32 {
-    core::arch::naked_asm!(
-        "push ebx",
-        "push esi",
-        "push edi",
-        "mov eax, [esp+16]",
-        "mov esi, [esp+20]",
-        "mov edi, [esp+20]",
-        "mov ebx, [esp+24]",
-        "call ebx",
-        "pop edi",
-        "pop esi",
-        "pop ebx",
-        "ret",
-    );
-}
-
-/// Bridge: usercall(EAX=eax_val, ESI=worm, EDI=worm) + stdcall(1 param), RET 0x4.
-#[unsafe(naked)]
-unsafe extern "C" fn call_fire_usercall_stdcall1(
-    _eax: *const (), _worm: *mut CTaskWorm, _param: *const u8, _addr: u32,
-) {
-    core::arch::naked_asm!(
-        "push ebx",
-        "push esi",
-        "push edi",
-        "mov eax, [esp+16]",  // eax_val
-        "mov esi, [esp+20]",  // worm
-        "mov edi, [esp+20]",
-        "mov ebx, [esp+28]",  // addr (3 saves=12 + ret=4 + 3 args=12 = 28)
-        "push [esp+24]",      // param
-        "call ebx",
-        "pop edi",
-        "pop esi",
-        "pop ebx",
-        "ret",
-    );
-}
-
-/// Call worm->vtable[0xE](msg_id) — thiscall(ECX=worm, stack=msg_id), RET 0x4.
-/// Original: `(**(code **)(*worm + 0x38))(msg_id)`.
-/// Uses naked bridge to avoid LLVM stack tracking issues with push/RET mismatch.
-#[unsafe(naked)]
-unsafe extern "C" fn fire_worm_vtable_0xe(_worm: *mut CTaskWorm, _msg_id: u32) {
-    core::arch::naked_asm!(
-        "push ebx",
-        "push esi",
-        "push edi",
-        "mov ecx, [esp+16]",  // worm (3 saves=12 + ret=4 = 16)
-        "mov esi, [esp+16]",  // ESI = worm
-        "mov edi, [esp+16]",  // EDI = worm
-        "mov ebx, [ecx]",     // vtable
-        "mov ebx, [ebx+0x38]",// vtable[0xE]
-        "push [esp+20]",      // msg_id
-        "call ebx",           // thiscall: ECX=worm, RET 0x4 cleans msg_id
-        "pop edi",
-        "pop esi",
-        "pop ebx",
-        "ret",
-    );
-}
 
 // ============================================================
 // Passthrough hooks — fire sub-functions
