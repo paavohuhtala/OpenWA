@@ -507,8 +507,8 @@ unsafe extern "cdecl" fn draw_crosshair_line_impl(task_ptr: u32) {
     let sin_interp = trig_lookup(sin_table, angle);
     let cos_interp = trig_lookup(cos_table, angle);
 
-    // Scale = fixed_mul(DDGame.crosshair_scale, 0x140000) + task.aim_range_offset
-    let scale = fixed_mul(ddgame.crosshair_scale, 0x14_0000) + task.aim_range_offset;
+    // Scale = fixed_mul(DDGame.parallax_scale, 0x140000) + task.aim_range_offset
+    let scale = fixed_mul(ddgame.parallax_scale, 0x14_0000) + task.aim_range_offset;
 
     // Endpoint = start + direction * scale
     let mut endpoint_x = fixed_mul(sin_interp, scale).wrapping_add(start_x);

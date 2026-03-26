@@ -3,17 +3,13 @@
 //! Replaces CTaskCloud::HandleMessage (vtable slot 2).
 //! Handles cloud position updates (wind parallax), rendering, and wind changes.
 
-use core::sync::atomic::{AtomicU32, Ordering};
-
 use openwa_core::address::va;
 use openwa_core::fixed::Fixed;
 use openwa_core::game::TaskMessage;
 use openwa_core::log::log_line;
+use openwa_core::render::queue::{command_type, DrawSpriteCmd};
 use openwa_core::task::cloud::CTaskCloud;
 use openwa_core::task::{CTask, Task};
-
-/// Original CTaskCloud::HandleMessage, saved for render call-through.
-static ORIG_HANDLE_MESSAGE: AtomicU32 = AtomicU32::new(0);
 
 /// CTaskCloud::HandleMessage replacement.
 ///
@@ -42,16 +38,16 @@ unsafe extern "thiscall" fn cloud_handle_message(
             let wind = cloud.wind_accel.0;
             cloud.pos_x = Fixed(cloud.pos_x.0 + cloud.vel_x.0 + wind * 10);
 
-            // Wrap X at landscape bounds (with 0x800000 = 128.0 padding)
+            // Wrap X at landscape bounds (with 128.0 Fixed padding)
             let ddgame = &*cloud.ddgame();
-            let ddgame_raw = ddgame as *const _ as *const u8;
-            let level_left = *(ddgame_raw.add(0x779C) as *const i32) - 0x800000;
-            let level_right = *(ddgame_raw.add(0x77A0) as *const i32) + 0x800000;
+            let padding = Fixed::from_int(128);
+            let level_left = ddgame.level_bound_min_x - padding;
+            let level_right = ddgame.level_bound_max_x + padding;
 
-            if cloud.pos_x.0 < level_left {
-                cloud.pos_x = Fixed(level_right);
-            } else if cloud.pos_x.0 > level_right {
-                cloud.pos_x = Fixed(level_left);
+            if cloud.pos_x < level_left {
+                cloud.pos_x = level_right;
+            } else if cloud.pos_x > level_right {
+                cloud.pos_x = level_left;
             }
 
             // Converge wind_accel toward wind_target (clamp step to ±0x147)
@@ -68,13 +64,27 @@ unsafe extern "thiscall" fn cloud_handle_message(
         }
 
         Ok(TaskMessage::RenderScene) => {
-            // Delegate to original (uses usercall for RQ_DrawSpriteLocal)
-            let orig = ORIG_HANDLE_MESSAGE.load(Ordering::Relaxed);
-            let orig_fn: unsafe extern "thiscall" fn(
-                *mut CTaskCloud, *mut CTask, u32, u32, *const u8,
-            ) = core::mem::transmute(orig as usize);
-            orig_fn(this, sender, msg_type, size, data);
-            return; // original already calls base handler
+            let ddgame = &mut *cloud.ddgame();
+
+            // Only render when rendering phase == 5 (in-game rendering active)
+            if ddgame.render_phase == 5 {
+                // Compute parallax X offset: (vel_x + wind * 10) * parallax_scale
+                let scroll_speed = cloud.vel_x.0 + cloud.wind_accel.0 * 10;
+                let parallax_x = ((scroll_speed as i64 * ddgame.parallax_scale as i64) >> 16) as i32;
+                let x = parallax_x + cloud.pos_x.0;
+
+                let rq = &mut *ddgame.render_queue;
+                if let Some(entry) = rq.alloc::<DrawSpriteCmd>() {
+                    *entry = DrawSpriteCmd {
+                        command_type: command_type::DRAW_SPRITE_LOCAL,
+                        layer: cloud.layer_depth.0 as u32,
+                        x_pos: x as u32 & 0xFFFF0000,
+                        y_pos: cloud.pos_y.0 as u32 & 0xFFFF0000,
+                        sprite_id: cloud.sprite_id,
+                        frame: 0,
+                    };
+                }
+            }
         }
 
         Ok(TaskMessage::SetWind) => {
@@ -96,7 +106,7 @@ pub fn install() -> Result<(), String> {
     use openwa_core::vtable_replace;
 
     vtable_replace!(openwa_core::task::cloud::CTaskCloudVTable, va::CTASK_CLOUD_VTABLE, {
-        handle_message [ORIG_HANDLE_MESSAGE] => cloud_handle_message,
+        handle_message => cloud_handle_message,
     })?;
 
     let _ = log_line("[Cloud] HandleMessage hooked via vtable_replace");

@@ -1,5 +1,6 @@
 use crate::FieldRegistry;
 use crate::audio::active_sound::ActiveSoundTable;
+use crate::fixed::Fixed;
 use crate::audio::dssound::DSSound;
 use crate::audio::music::Music;
 use crate::audio::speech::SpeechSlotTable;
@@ -254,8 +255,11 @@ pub struct DDGame {
     /// 0x73B0: Render entry table (14 entries × 0x14 bytes).
     /// First u32 of each entry zeroed by InitRenderIndices.
     pub render_entries: [RenderEntry; 14],
-    /// 0x74C8-0x764F: Unknown
-    pub _unknown_74c8: [u8; 0x7650 - 0x74C8],
+    /// 0x74C8-0x764B: Unknown
+    pub _unknown_74c8: [u8; 0x764C - 0x74C8],
+    /// 0x764C: Rendering phase. Checked by CTaskCloud::HandleMessage:
+    /// clouds only render when this == 5 (in-game rendering active).
+    pub render_phase: i32,
 
     /// 0x7650: Team index permutation maps (3 × 0x64 bytes).
     /// Used for team-to-slot mapping (render order, turn order, display order).
@@ -268,10 +272,10 @@ pub struct DDGame {
     /// 0x7784-0x779B: Unknown
     pub _unknown_7784: [u8; 0x779C - 0x7784],
 
-    /// 0x779C: Level bound min X (Fixed-point, negative = off-screen left).
-    pub level_bound_min_x: i32,
-    /// 0x77A0: Level bound max X (Fixed-point).
-    pub level_bound_max_x: i32,
+    /// 0x779C: Level bound min X (Fixed16.16, negative = off-screen left).
+    pub level_bound_min_x: Fixed,
+    /// 0x77A0: Level bound max X (Fixed16.16).
+    pub level_bound_max_x: Fixed,
     /// 0x77A4: Level bound min Y (Fixed-point, same as min_x typically).
     pub level_bound_min_y: i32,
     /// 0x77A8: Level bound max Y (Fixed-point).
@@ -342,8 +346,10 @@ pub struct DDGame {
 
     /// 0x8144-0x814F: Unknown
     pub _unknown_8144: [u8; 0x8150 - 0x8144],
-    /// 0x8150: Scale factor used by DrawCrosshairLine (multiplied by 0x140000).
-    pub crosshair_scale: i32,
+    /// 0x8150: Parallax/camera scale factor (Fixed-point multiplier).
+    /// Used by DrawCrosshairLine (multiplied by 0x140000) and
+    /// CTaskCloud render (parallax X offset = wind_speed * this >> 16).
+    pub parallax_scale: i32,
 
     /// 0x8154-0x818B: Unknown
     pub _unknown_8154: [u8; 0x818C - 0x8154],
@@ -533,7 +539,7 @@ pub mod offsets {
     pub const TURN_TIME_LIMIT: usize = 0x7EA8;
     pub const SOUND_AVAILABLE: usize = 0x7EF8;
     /// Scale factor used by DrawCrosshairLine (multiplied by 0x140000).
-    pub const CROSSHAIR_SCALE: usize = 0x8150;
+    pub const PARALLAX_SCALE: usize = 0x8150;
     /// Turn status text (null-terminated ASCII, shown during gameplay).
     pub const TURN_STATUS_TEXT: usize = 0x818C;
     /// Checkpoint active flag.
