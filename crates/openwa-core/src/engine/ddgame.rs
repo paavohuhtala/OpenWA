@@ -313,8 +313,9 @@ pub struct DDGame {
     /// 0x7E3F: Version flag byte 3 (set by InitVersionFlags).
     /// Passed to is_super_weapon as the version/mode parameter.
     pub version_flag_3: u8,
-    /// 0x7E40: Fast-forward hurry flag (byte).
-    pub hurry_flag: u8,
+    /// 0x7E40: Game logic version byte 4 (set by InitVersionFlags).
+    /// Used in FireWeapon__MailMineMole to gate vtable call behavior by version.
+    pub version_flag_4: u8,
     /// 0x7E41-0x7E9F: Unknown
     pub _unknown_7e41: [u8; 0x7EA0 - 0x7E41],
 

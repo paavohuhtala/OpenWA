@@ -17,7 +17,8 @@ use core::sync::atomic::{AtomicU32, Ordering};
 
 use openwa_core::address::va;
 use openwa_core::engine::ddgame::{self, TeamArenaRef};
-use openwa_core::game::weapon::{WeaponEntry, WeaponFireParams};
+use openwa_core::fixed::Fixed;
+use openwa_core::game::weapon::{WeaponEntry, WeaponFireParams, WeaponSpawnData};
 use openwa_core::game::Weapon;
 use openwa_core::log::log_line;
 use openwa_core::task::Task;
@@ -195,7 +196,7 @@ unsafe extern "C" fn trampoline_fire_weapon() {
 /// Completion flag at worm+0x3C (CGameTask.subclass_data[12]).
 /// Params pointer at entry+0x3C (WeaponEntry.fire_complete) — different object, same offset.
 unsafe extern "cdecl" fn fire_weapon_impl(
-    entry: *const WeaponEntry, local_struct: u32, worm: *mut CTaskWorm,
+    entry: *const WeaponEntry, local_struct: *const u8, worm: *mut CTaskWorm,
 ) {
     use openwa_core::rebase::rb;
 
@@ -203,8 +204,6 @@ unsafe extern "cdecl" fn fire_weapon_impl(
     let subtype_34 = (*entry).fire_subtype_34;
     let subtype_38 = (*entry).fire_subtype_38;
     let fire_params = &raw const (*entry).fire_params;
-    let w = worm as u32;
-
     // Log weapon fire
     let weapon_id = (*worm).selected_weapon;
     let weapon_name = Weapon::try_from(weapon_id)
@@ -219,39 +218,31 @@ unsafe extern "cdecl" fn fire_weapon_impl(
 
     match weapon_type {
         1 => match subtype_38 {
-            1 => call_fire_placed_explosive(w, fire_params, local_struct, rb(0x51EC80)), // PlacedExplosive
-            2 => call_fire_stdcall3(w, fire_params, local_struct, rb(0x51DFB0)),      // Projectile
-            3 => call_fire_thiscall2(w, fire_params, local_struct, rb(0x51E0F0)),     // CreateWeaponProjectile
-            4 => call_fire_thiscall2(w, fire_params, local_struct, rb(0x51ED90)),     // CreateArrow (Shotgun/Longbow)
+            1 => call_fire_placed_explosive(worm, fire_params, local_struct, rb(0x51EC80)), // PlacedExplosive
+            2 => call_fire_stdcall3(worm, fire_params, local_struct, rb(0x51DFB0)),      // Projectile
+            3 => call_fire_thiscall2(worm, fire_params, local_struct, rb(0x51E0F0)),     // CreateWeaponProjectile
+            4 => call_fire_thiscall2(worm, fire_params, local_struct, rb(0x51ED90)),     // CreateArrow (Shotgun/Longbow)
             _ => {}
         },
         2 => match subtype_38 {
-            1 => call_fire_stdcall3(w, fire_params, local_struct, rb(0x51E1C0)),      // RopeType1
-            2 => call_fire_thiscall2(w, fire_params, local_struct, rb(0x51E0F0)),     // CreateWeaponProjectile
-            3 => call_fire_stdcall3(w, fire_params, local_struct, rb(0x51E240)),      // RopeType3
+            1 => call_fire_stdcall3(worm, fire_params, local_struct, rb(0x51E1C0)),      // RopeType1
+            2 => call_fire_thiscall2(worm, fire_params, local_struct, rb(0x51E0F0)),     // CreateWeaponProjectile
+            3 => call_fire_stdcall3(worm, fire_params, local_struct, rb(0x51E240)),      // RopeType3
             _ => {}
         },
         3 => {
+            // StrikeFire takes a pointer to the subtype_34 field (reinterpreted as fire params)
             let subtype_34_ptr = &raw const (*entry).fire_subtype_34 as *const WeaponFireParams;
-            call_fire_stdcall3(w, subtype_34_ptr, local_struct, rb(0x51E2C0));
+            call_fire_stdcall3(worm, subtype_34_ptr, local_struct, rb(0x51E2C0));
         }
         4 => {
-            let subtype_38_ptr = &raw const (*entry).fire_subtype_38 as u32;
-            fire_weapon_special(subtype_34, subtype_38_ptr, worm, local_struct, entry);
+            fire_weapon_special(subtype_34, entry, worm, local_struct);
         }
         _ => {}
     }
 
     (*worm).set_fire_complete(1);
 }
-
-// ── Sub-function bridges ────────────────────────────────────
-// All preserve ESI=worm for usercall sub-functions.
-
-// ── Sub-function bridges ────────────────────────────────────
-// All bridges set ESI=worm AND EDI=worm before calling, since
-// sub-functions are usercall and read both registers implicitly.
-// Stack offsets are carefully calculated for each bridge.
 
 // ── Sub-function bridges ────────────────────────────────────
 // All bridges save/restore ESI+EDI, set ESI=EDI=worm, then call.
@@ -262,7 +253,7 @@ unsafe extern "cdecl" fn fire_weapon_impl(
 /// Args: (worm, fire_params, local_struct, addr).
 #[unsafe(naked)]
 unsafe extern "C" fn call_fire_placed_explosive(
-    _worm: u32, _fire_params: *const WeaponFireParams, _local_struct: u32, _addr: u32,
+    _worm: *mut CTaskWorm, _fire_params: *const WeaponFireParams, _local_struct: *const u8, _addr: u32,
 ) {
     core::arch::naked_asm!(
         "push ebx",
@@ -285,7 +276,7 @@ unsafe extern "C" fn call_fire_placed_explosive(
 /// Bridge: Projectile/Rope/Grenade — stdcall(worm, fire_params, local_struct), RET 0xC.
 #[unsafe(naked)]
 unsafe extern "C" fn call_fire_stdcall3(
-    _worm: u32, _fire_params: *const WeaponFireParams, _local: u32, _addr: u32,
+    _worm: *mut CTaskWorm, _fire_params: *const WeaponFireParams, _local: *const u8, _addr: u32,
 ) {
     core::arch::naked_asm!(
         "push ebx",
@@ -308,7 +299,7 @@ unsafe extern "C" fn call_fire_stdcall3(
 /// Bridge: CreateWeaponProjectile — thiscall(ECX=worm, fire_params, local_struct), RET 0x8.
 #[unsafe(naked)]
 unsafe extern "C" fn call_fire_thiscall2(
-    _worm: u32, _fire_params: *const WeaponFireParams, _local: u32, _addr: u32,
+    _worm: *mut CTaskWorm, _fire_params: *const WeaponFireParams, _local: *const u8, _addr: u32,
 ) {
     core::arch::naked_asm!(
         "push ebx",
@@ -333,7 +324,7 @@ unsafe extern "C" fn call_fire_thiscall2(
 #[unsafe(naked)]
 #[allow(dead_code)]
 unsafe extern "C" fn call_fire_stdcall2(
-    _worm: u32, _fire_params: *const WeaponFireParams, _local: u32, _addr: u32,
+    _worm: *mut CTaskWorm, _fire_params: *const WeaponFireParams, _local: *const u8, _addr: u32,
 ) {
     core::arch::naked_asm!(
         "push ebx",
@@ -353,50 +344,49 @@ unsafe extern "C" fn call_fire_stdcall2(
 }
 
 /// Type 4 (special) weapon dispatch.
-/// Type 4 (special) weapon dispatch.
 ///
 /// EAX at entry = weapon entry pointer (unchanged from type-4 switch).
 /// Some handlers explicitly set EAX=worm or EAX=*(worm+0x44).
 /// Handlers without explicit MOV EAX inherit the entry pointer.
 unsafe fn fire_weapon_special(
-    subtype: i32, params_38: u32, worm: *mut CTaskWorm, local_struct: u32,
-    entry: *const WeaponEntry,
+    subtype: i32, entry: *const WeaponEntry, worm: *mut CTaskWorm, local_struct: *const u8,
 ) {
     use openwa_core::rebase::rb;
-    let w = worm as u32;
-    let e = entry as u32;
+
+    // Pointer to fire_subtype_38 field, reinterpreted as fire params pointer for Girder
+    let params_38_ptr = &raw const (*entry).fire_subtype_38 as *const WeaponFireParams;
 
     match subtype {
-        1 => fire_worm_vtable_0xe(w, 0x6C),                                             // Blowtorch
-        2 => call_fire_usercall(e, w, rb(0x51E3E0)),                                     // Drill (EAX=entry)
-        3 => call_fire_stdcall3(w, params_38 as *const WeaponFireParams, local_struct, rb(0x51E350)), // Girder
-        4 => fire_worm_vtable_0xe(w, 0x6D),                                             // Baseball Bat
-        5 => fire_worm_vtable_0xe(w, 0x75),                                             // Fire Punch
-        6 => fire_worm_vtable_0xe(w, 0x70),                                             // Dragon Ball
-        8 => fire_worm_vtable_0xe(w, 0x6E),                                             // Kamikaze
-        9 => call_fire_usercall_stdcall1(e, w, local_struct, rb(0x51E480)),              // Prod (EAX=entry)
-        10 => call_fire_usercall(w, w, rb(0x51E710)),                                    // Air Strike (EAX=worm)
-        11 => fire_worm_vtable_0xe(w, 0x71),                                            // Scales of Justice
-        13 => fire_send_team_message(worm, 0x2B),                                          // Napalm Strike
-        14 => fire_mail_mine_mole(worm),                                                   // Mail/Mine/Mole (pure Rust)
+        1 => fire_worm_vtable_0xe(worm, 0x6C),                                                  // Blowtorch
+        2 => call_fire_usercall(entry as *const (), worm, rb(0x51E3E0)),                         // Drill (EAX=entry)
+        3 => call_fire_stdcall3(worm, params_38_ptr, local_struct, rb(0x51E350)),                // Girder
+        4 => fire_worm_vtable_0xe(worm, 0x6D),                                                  // Baseball Bat
+        5 => fire_worm_vtable_0xe(worm, 0x75),                                                  // Fire Punch
+        6 => fire_worm_vtable_0xe(worm, 0x70),                                                  // Dragon Ball
+        8 => fire_worm_vtable_0xe(worm, 0x6E),                                                  // Kamikaze
+        9 => call_fire_usercall_stdcall1(entry as *const (), worm, local_struct, rb(0x51E480)),  // Prod (EAX=entry)
+        10 => call_fire_usercall(worm as *const (), worm, rb(0x51E710)),                         // Air Strike (EAX=worm)
+        11 => fire_worm_vtable_0xe(worm, 0x71),                                                 // Scales of Justice
+        13 => fire_send_team_message(worm, 0x2B),                                                // Napalm Strike
+        14 => fire_mail_mine_mole(worm),                                                         // Mail/Mine/Mole (pure Rust)
         16 => {
             // Teleport: MOV EAX,[ESI+0x44] (worm state) before check
             let worm_state = (*worm).state();
-            let result = call_fire_usercall_ret(worm_state, w, rb(0x516930));
+            let result = call_fire_usercall_ret(worm_state as *const (), worm, rb(0x516930));
             if result != 0 {
-                call_fire_usercall(result as u32, w, rb(0x51EB00));
+                call_fire_usercall(result as *const (), worm, rb(0x51EB00));
             } else {
-                fire_worm_vtable_0xe(w, 0x74);
+                fire_worm_vtable_0xe(worm, 0x74);
             }
         }
-        17 => call_fire_usercall(w, w, rb(0x51E920)),                                    // Freeze (EAX=worm)
-        18 => fire_worm_vtable_0xe(w, 0x72),                                            // Suicide Bomber
-        19 => fire_skip_go(worm, entry),                                                 // Skip Go (pure Rust)
-        20 => fire_surrender(worm),                                                        // Surrender (pure Rust)
-        21 => fire_select_worm(worm),                                                     // Select Worm (pure Rust)
-        22 => call_fire_usercall(e, w, rb(0x51EC30)),                                    // Jet Pack (EAX=entry)
-        23 => fire_worm_vtable_0xe(w, 0x78),                                            // Magic Bullet
-        24 => call_fire_usercall(e, w, rb(0x51EA60)),                                    // Low Grav (EAX=entry)
+        17 => call_fire_usercall(worm as *const (), worm, rb(0x51E920)),                         // Freeze (EAX=worm)
+        18 => fire_worm_vtable_0xe(worm, 0x72),                                                 // Suicide Bomber
+        19 => fire_skip_go(worm, entry),                                                         // Skip Go (pure Rust)
+        20 => fire_surrender(worm),                                                              // Surrender (pure Rust)
+        21 => fire_select_worm(worm),                                                            // Select Worm (pure Rust)
+        22 => call_fire_usercall(entry as *const (), worm, rb(0x51EC30)),                        // Jet Pack (EAX=entry)
+        23 => fire_worm_vtable_0xe(worm, 0x78),                                                 // Magic Bullet
+        24 => call_fire_usercall(entry as *const (), worm, rb(0x51EA60)),                        // Low Grav (EAX=entry)
         _ => {}
     }
 }
@@ -517,7 +507,7 @@ unsafe fn fire_surrender(worm: *mut CTaskWorm) {
 unsafe fn fire_mail_mine_mole(worm: *mut CTaskWorm) {
     use openwa_core::engine::ddgame::TeamArenaRef;
     let ddgame = (*worm).ddgame();
-    let version = *((ddgame as *const u8).add(0x7E40));
+    let version = (*ddgame).version_flag_4;
     let worm_state = (*worm).state();
 
     let should_call_vtable = version < 2
@@ -525,7 +515,7 @@ unsafe fn fire_mail_mine_mole(worm: *mut CTaskWorm) {
             && (worm_state == 0x7D || (worm_state == 0x78 && version < 8)));
 
     if should_call_vtable {
-        fire_worm_vtable_0xe(worm as u32, 0x65);
+        fire_worm_vtable_0xe(worm, 0x65);
     }
 
     fire_send_team_message(worm, 0x28);
@@ -543,7 +533,7 @@ unsafe fn fire_mail_mine_mole(worm: *mut CTaskWorm) {
 /// Args: (spawn_data, worm, fire_params, addr).
 #[unsafe(naked)]
 unsafe extern "C" fn call_projectile_fire_single(
-    _spawn_data: u32, _worm: u32, _fire_params: u32, _addr: u32,
+    _spawn_data: *const WeaponSpawnData, _worm: *mut CTaskWorm, _fire_params: *const WeaponFireParams, _addr: u32,
 ) {
     core::arch::naked_asm!(
         "push ebx",
@@ -566,7 +556,7 @@ unsafe extern "C" fn call_projectile_fire_single(
 /// Args: (this, parent, fire_params, spawn_data, ctor_addr).
 #[unsafe(naked)]
 unsafe extern "C" fn call_missile_ctor(
-    _this: u32, _parent: u32, _fire_params: u32, _spawn_data: u32, _addr: u32,
+    _this: *mut u8, _parent: *mut u8, _fire_params: *const WeaponFireParams, _spawn_data: *const u8, _addr: u32,
 ) {
     core::arch::naked_asm!(
         "push ebx",
@@ -589,7 +579,7 @@ unsafe extern "C" fn call_missile_ctor(
 /// Bridge: usercall(EAX=eax_val, ESI=worm, EDI=worm), plain RET.
 /// Args: (eax_val, worm, addr). Saves/restores ESI+EDI. Uses EBX to hold addr.
 #[unsafe(naked)]
-unsafe extern "C" fn call_fire_usercall(_eax: u32, _worm: u32, _addr: u32) {
+unsafe extern "C" fn call_fire_usercall(_eax: *const (), _worm: *mut CTaskWorm, _addr: u32) {
     core::arch::naked_asm!(
         "push ebx",
         "push esi",
@@ -608,7 +598,7 @@ unsafe extern "C" fn call_fire_usercall(_eax: u32, _worm: u32, _addr: u32) {
 
 /// Bridge: usercall(EAX=eax_val, ESI=worm, EDI=worm), plain RET, returns EAX.
 #[unsafe(naked)]
-unsafe extern "C" fn call_fire_usercall_ret(_eax: u32, _worm: u32, _addr: u32) -> i32 {
+unsafe extern "C" fn call_fire_usercall_ret(_eax: *const (), _worm: *mut CTaskWorm, _addr: u32) -> i32 {
     core::arch::naked_asm!(
         "push ebx",
         "push esi",
@@ -628,7 +618,7 @@ unsafe extern "C" fn call_fire_usercall_ret(_eax: u32, _worm: u32, _addr: u32) -
 /// Bridge: usercall(EAX=eax_val, ESI=worm, EDI=worm) + stdcall(1 param), RET 0x4.
 #[unsafe(naked)]
 unsafe extern "C" fn call_fire_usercall_stdcall1(
-    _eax: u32, _worm: u32, _param: u32, _addr: u32,
+    _eax: *const (), _worm: *mut CTaskWorm, _param: *const u8, _addr: u32,
 ) {
     core::arch::naked_asm!(
         "push ebx",
@@ -651,7 +641,7 @@ unsafe extern "C" fn call_fire_usercall_stdcall1(
 /// Original: `(**(code **)(*worm + 0x38))(msg_id)`.
 /// Uses naked bridge to avoid LLVM stack tracking issues with push/RET mismatch.
 #[unsafe(naked)]
-unsafe extern "C" fn fire_worm_vtable_0xe(_worm: u32, _msg_id: u32) {
+unsafe extern "C" fn fire_worm_vtable_0xe(_worm: *mut CTaskWorm, _msg_id: u32) {
     core::arch::naked_asm!(
         "push ebx",
         "push esi",
@@ -706,7 +696,7 @@ unsafe extern "C" fn trampoline_create_weapon_projectile() {
 /// Original: 0x51E0F0. Allocates CTaskMissile (0x40C bytes), looks up
 /// parent CTaskTurnGame via SharedData, calls the original constructor.
 unsafe extern "cdecl" fn create_weapon_projectile_impl(
-    worm: *mut CTaskWorm, fire_params: *const WeaponFireParams, local_struct: u32,
+    worm: *mut CTaskWorm, fire_params: *const WeaponFireParams, local_struct: *const u8,
 ) {
     use openwa_core::rebase::rb;
     use openwa_core::task::{SharedDataTable, Task};
@@ -736,9 +726,9 @@ unsafe extern "cdecl" fn create_weapon_projectile_impl(
     // Call original CTaskMissile::Constructor
     // thiscall(ECX=buffer, parent, fire_params, local_struct), RET 0xC
     call_missile_ctor(
-        buffer as u32,
-        parent as u32,
-        fire_params as u32,
+        buffer,
+        parent as *mut u8,
+        fire_params,
         local_struct,
         rb(va::CTASK_MISSILE_CTOR),
     );
@@ -780,23 +770,23 @@ unsafe extern "C" fn trampoline_projectile_fire() {
 ///    e. Write rotated velocity into local spawn data
 ///    f. Call ProjectileFire_Single(loop_counter, fire_params) with EDI=spawn_data
 unsafe extern "cdecl" fn projectile_fire_impl(
-    worm: *mut CTaskWorm, fire_params: *const WeaponFireParams, local_struct: *const u32,
+    worm: *mut CTaskWorm, fire_params: *const WeaponFireParams, local_struct: *const WeaponSpawnData,
 ) {
     use openwa_core::rebase::rb;
 
-    let fire_params_raw = fire_params as *const i32;
-    let shot_count = *fire_params_raw.add(3); // fire_params+0xC = projectile count per trigger
+    let params = &*fire_params;
+    // collision_radius field is polymorphic — for ProjectileFire it holds the shot count
+    let shot_count = params.collision_radius.0;
     if shot_count <= 0 {
         return;
     }
 
-    // Copy 11 DWORDs from local_struct to local spawn data
-    let mut spawn_data = [0u32; 11];
-    core::ptr::copy_nonoverlapping(local_struct, spawn_data.as_mut_ptr(), 11);
+    // Copy spawn template from caller's stack buffer
+    let mut spawn_data = *local_struct;
 
-    // Read template velocity from local_struct (fields [4] and [5])
-    let template_speed_x = *local_struct.add(4) as i32;
-    let template_speed_y = *local_struct.add(5) as i32;
+    // Read template velocity (will be rotated per-shot)
+    let template_speed_x = spawn_data.initial_speed_x.0;
+    let template_speed_y = spawn_data.initial_speed_y.0;
 
     // Trig table: sin at SIN_TABLE, cos at SIN_TABLE + 256*4
     let sin_table = rb(va::SIN_TABLE) as *const i32;
@@ -809,8 +799,9 @@ unsafe extern "cdecl" fn projectile_fire_impl(
         let rng = ddgame.advance_rng();
 
         // Compute spread angle: ((rng_low16 - 0x8000) * spread_param) / 360
+        // _fp_04 field is polymorphic — for ProjectileFire it holds spread angle
         let rng_centered = (rng & 0xFFFF) as i32 - 0x8000;
-        let spread_param = *fire_params_raw.add(4); // fire_params+0x10
+        let spread_param = params._fp_04;
         let angle = (rng_centered * spread_param) / 360;
 
         // Cos/sin table lookup with linear interpolation
@@ -836,14 +827,14 @@ unsafe extern "cdecl" fn projectile_fire_impl(
             + fixed_mul(cos_val, template_speed_y);
 
         // Write rotated velocity into spawn data
-        spawn_data[4] = speed_x as u32;
-        spawn_data[5] = speed_y as u32;
+        spawn_data.initial_speed_x = Fixed(speed_x);
+        spawn_data.initial_speed_y = Fixed(speed_y);
 
         // Call ProjectileFire_Single(worm, fire_params) with EDI=&spawn_data
         call_projectile_fire_single(
-            spawn_data.as_ptr() as u32,
-            worm as u32,
-            fire_params as u32,
+            &raw const spawn_data,
+            worm,
+            fire_params,
             rb(va::PROJECTILE_FIRE_SINGLE),
         );
     }
@@ -879,7 +870,7 @@ unsafe extern "C" fn trampoline_create_arrow() {
 }
 
 unsafe extern "cdecl" fn create_arrow_impl(
-    worm: *mut CTaskWorm, fire_params: *const WeaponFireParams, local_struct: u32,
+    worm: *mut CTaskWorm, fire_params: *const WeaponFireParams, local_struct: *const u8,
 ) {
     use openwa_core::rebase::rb;
     use openwa_core::task::{SharedDataTable, Task};
@@ -905,9 +896,9 @@ unsafe extern "cdecl" fn create_arrow_impl(
     core::ptr::write_bytes(buffer, 0, 0x148);
 
     // CTaskArrow::Constructor — stdcall(this, parent, fire_params, local_struct), RET 0x10
-    let ctor: unsafe extern "stdcall" fn(u32, u32, u32, u32) =
+    let ctor: unsafe extern "stdcall" fn(*mut u8, *mut u8, *const WeaponFireParams, *const u8) =
         core::mem::transmute(rb(va::CTASK_ARROW_CTOR));
-    ctor(buffer as u32, parent as u32, fire_params as u32, local_struct);
+    ctor(buffer, parent as *mut u8, fire_params, local_struct);
 
     let _ = log_line(&format!(
         "[Weapon] CreateArrow: worm=0x{:08X} arrow=0x{:08X}",
