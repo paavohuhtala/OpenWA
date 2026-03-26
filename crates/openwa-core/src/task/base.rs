@@ -141,6 +141,44 @@ pub struct CTask<V: 'static = *const core::ffi::c_void> {
 
 const _: () = assert!(core::mem::size_of::<CTask>() == 0x30);
 
+/// Trait for all task types in the CTask hierarchy.
+///
+/// Provides safe access to the underlying CTask fields regardless of
+/// inheritance depth. Avoids repetitive `.base.base` chains.
+///
+/// # Safety
+/// Implementors must be `#[repr(C)]` structs where a `CTask` (with any
+/// vtable type parameter) is at offset 0.
+pub unsafe trait Task {
+    /// Get a shared reference to the underlying CTask (default vtable type).
+    fn task(&self) -> &CTask {
+        unsafe { &*(self as *const Self as *const CTask) }
+    }
+
+    /// Get a mutable reference to the underlying CTask.
+    fn task_mut(&mut self) -> &mut CTask {
+        unsafe { &mut *(self as *mut Self as *mut CTask) }
+    }
+
+    /// Get a raw const pointer to the CTask base.
+    fn as_task_ptr(&self) -> *const CTask {
+        self as *const Self as *const CTask
+    }
+
+    /// Get a raw mutable pointer to the CTask base.
+    fn as_task_ptr_mut(&mut self) -> *mut CTask {
+        self as *mut Self as *mut CTask
+    }
+
+    /// Get the DDGame pointer from the CTask base.
+    fn ddgame(&self) -> *mut DDGame {
+        self.task().ddgame
+    }
+}
+
+// Blanket impl for any CTask<V>
+unsafe impl<V: 'static> Task for CTask<V> {}
+
 // ---------------------------------------------------------------------------
 // Shared-data entity registry
 // ---------------------------------------------------------------------------

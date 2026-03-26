@@ -20,6 +20,7 @@ use openwa_core::engine::ddgame::{self, TeamArenaRef};
 use openwa_core::game::weapon::{WeaponEntry, WeaponFireParams};
 use openwa_core::game::Weapon;
 use openwa_core::log::log_line;
+use openwa_core::task::Task;
 use openwa_core::task::worm::CTaskWorm;
 
 use crate::hook::{self, usercall_trampoline};
@@ -406,10 +407,9 @@ unsafe fn fire_weapon_special(
 ///
 /// Returns null if not found.
 unsafe fn lookup_team_task(worm: *const CTaskWorm) -> *mut openwa_core::task::CTaskTeam {
-    use openwa_core::task::SharedDataTable;
+    use openwa_core::task::{SharedDataTable, Task};
 
-    let task = &(*worm).base.base as *const _ as *const openwa_core::task::CTask;
-    let table = SharedDataTable::from_task(task);
+    let table = SharedDataTable::from_task((*worm).as_task_ptr());
     // CTaskTeam is registered with key (0, 0x14) in SharedData
     table.lookup(0, 0x14) as *mut openwa_core::task::CTaskTeam
 }
@@ -432,7 +432,7 @@ unsafe fn fire_send_team_message(worm: *mut CTaskWorm, msg_type: u32) {
     buf[0..4].copy_from_slice(&team_index.to_ne_bytes());
 
     (*team).handle_message(
-        &raw mut (*worm).base.base as *mut openwa_core::task::CTask,
+        (*worm).as_task_ptr_mut(),
         msg_type,
         4,
         buf.as_ptr(),
@@ -453,7 +453,7 @@ unsafe fn fire_select_worm(worm: *mut CTaskWorm) {
     buf[4..8].copy_from_slice(&(*worm).team_index.to_ne_bytes());
 
     (*team).handle_message(
-        &raw mut (*worm).base.base as *mut openwa_core::task::CTask,
+        (*worm).as_task_ptr_mut(),
         0x5D,
         0x408,
         buf.as_ptr(),
@@ -467,9 +467,7 @@ unsafe fn fire_select_worm(worm: *mut CTaskWorm) {
 /// In game_version > 0x1C: toggles (set/clear). Otherwise: always sets.
 unsafe fn fire_skip_go(worm: *const CTaskWorm, entry: *const WeaponEntry) {
     use openwa_core::engine::ddgame::TeamArenaRef;
-    use openwa_core::engine::DDGame;
-
-    let ddgame = (*worm).base.base.ddgame as *mut DDGame;
+    let ddgame = (*worm).ddgame();
     let game_version = (*(*ddgame).game_info).game_version;
     let team_index = (*worm).team_index as usize;
 
@@ -496,7 +494,7 @@ unsafe fn fire_surrender(worm: *mut CTaskWorm) {
 
     fire_send_team_message(worm, 0x29);
 
-    let ddgame = (*worm).base.base.ddgame;
+    let ddgame = (*worm).ddgame();
     let arena = TeamArenaRef::from_ptr(&raw mut (*ddgame).team_arena);
     let team_index = (*worm).team_index as usize;
     let worm_index = (*worm).worm_index as usize;
@@ -518,9 +516,7 @@ unsafe fn fire_surrender(worm: *mut CTaskWorm) {
 /// - otherwise: skip
 unsafe fn fire_mail_mine_mole(worm: *mut CTaskWorm) {
     use openwa_core::engine::ddgame::TeamArenaRef;
-    use openwa_core::engine::DDGame;
-
-    let ddgame = (*worm).base.base.ddgame as *mut DDGame;
+    let ddgame = (*worm).ddgame();
     let version = *((ddgame as *const u8).add(0x7E40));
     let worm_state = (*worm).state();
 
@@ -713,11 +709,10 @@ unsafe extern "cdecl" fn create_weapon_projectile_impl(
     worm: *mut CTaskWorm, fire_params: *const WeaponFireParams, local_struct: u32,
 ) {
     use openwa_core::rebase::rb;
-    use openwa_core::task::SharedDataTable;
+    use openwa_core::task::{SharedDataTable, Task};
     use openwa_core::wa_alloc::wa_malloc;
 
-    let task = &(*worm).base.base;
-    let ddgame = &mut *task.ddgame;
+    let ddgame = &mut *(*worm).ddgame();
 
     // Pool capacity check: pool_count + 7 must be <= 700
     if ddgame.object_pool_count + 7 > 700 {
@@ -726,7 +721,7 @@ unsafe extern "cdecl" fn create_weapon_projectile_impl(
     }
 
     // Look up parent CTaskTurnGame via SharedData (key_esi=0, key_edi=0x19)
-    let table = SharedDataTable::from_task(task as *const _ as *const openwa_core::task::CTask);
+    let table = SharedDataTable::from_task((*worm).as_task_ptr());
     let parent = table.lookup(0, 0x19);
 
     // Allocate CTaskMissile (0x40C bytes)
@@ -807,7 +802,7 @@ unsafe extern "cdecl" fn projectile_fire_impl(
     let sin_table = rb(va::SIN_TABLE) as *const i32;
     let cos_table = sin_table.add(256); // cos = sin offset by 256 entries (quarter turn)
 
-    let ddgame = &mut *(*worm).base.base.ddgame;
+    let ddgame = &mut *(*worm).ddgame();
 
     for _i in 0..shot_count {
         // Advance game RNG (same LCG as ADVANCE_GAME_RNG at 0x53F320)
@@ -887,11 +882,10 @@ unsafe extern "cdecl" fn create_arrow_impl(
     worm: *mut CTaskWorm, fire_params: *const WeaponFireParams, local_struct: u32,
 ) {
     use openwa_core::rebase::rb;
-    use openwa_core::task::SharedDataTable;
+    use openwa_core::task::{SharedDataTable, Task};
     use openwa_core::wa_alloc::wa_malloc;
 
-    let task = &(*worm).base.base;
-    let ddgame = &mut *task.ddgame;
+    let ddgame = &mut *(*worm).ddgame();
 
     // Pool capacity check: pool_count + 2 must be <= 700
     if ddgame.object_pool_count + 2 > 700 {
@@ -900,7 +894,7 @@ unsafe extern "cdecl" fn create_arrow_impl(
     }
 
     // Look up parent CTaskTurnGame via SharedData (key 0, 0x19)
-    let table = SharedDataTable::from_task(task as *const _ as *const openwa_core::task::CTask);
+    let table = SharedDataTable::from_task((*worm).as_task_ptr());
     let parent = table.lookup(0, 0x19);
 
     // Allocate CTaskArrow (0x168 bytes)
