@@ -316,7 +316,7 @@ fn vtable_impl(
         /// Usage: `bind_VtableName!(ClassName, vtable_field_name);`
         #[macro_export]
         macro_rules! #bind_macro_name {
-            ($class:ty, $vtable_field:ident) => {
+            ($class:ty, $($vtable_field:ident).+) => {
                 impl $class {
                     #bind_methods
                 }
@@ -406,7 +406,7 @@ fn generate_bind_methods(slots: &[SlotInfo]) -> syn::Result<proc_macro2::TokenSt
         methods.push(quote! {
             #[doc = #doc]
             pub unsafe fn #ident(#self_param #(, #param_decls)*) #ret_ty {
-                ((*self.$vtable_field).#ident)(#self_cast #(, #param_names)*)
+                ((*self.$($vtable_field).+).#ident)(#self_cast #(, #param_names)*)
             }
         });
     }
@@ -539,6 +539,19 @@ pub fn derive_field_registry(input: TokenStream) -> TokenStream {
     let struct_name = &input.ident;
     let struct_name_str = struct_name.to_string();
 
+    // Build a map of generic type params → their defaults (e.g., V → *const c_void).
+    // This allows the derive to work on generic structs like CTask<V = *const c_void>
+    // by substituting generic params with concrete defaults in size_of expressions.
+    let generic_defaults: std::collections::HashMap<String, syn::Type> = input
+        .generics
+        .type_params()
+        .filter_map(|tp| {
+            tp.default
+                .as_ref()
+                .map(|def| (tp.ident.to_string(), def.clone()))
+        })
+        .collect();
+
     let fields = match &input.data {
         Data::Struct(data) => match &data.fields {
             Fields::Named(named) => &named.named,
@@ -573,6 +586,25 @@ pub fn derive_field_registry(input: TokenStream) -> TokenStream {
         let doc = extract_doc_comment(&field.attrs);
         let field_ty = &field.ty;
 
+        // If the field type is a generic param (e.g., `V`), substitute with its
+        // default type for size_of. offset_of uses the bare struct name which
+        // Rust resolves with defaults applied.
+        let size_ty: Box<dyn quote::ToTokens> =
+            if let syn::Type::Path(tp) = field_ty {
+                if tp.path.segments.len() == 1 {
+                    let seg = &tp.path.segments[0];
+                    if let Some(default) = generic_defaults.get(&seg.ident.to_string()) {
+                        Box::new(default.clone())
+                    } else {
+                        Box::new(field_ty.clone())
+                    }
+                } else {
+                    Box::new(field_ty.clone())
+                }
+            } else {
+                Box::new(field_ty.clone())
+            };
+
         // Determine ValueKind: check for #[field(kind = "...")] override, else infer
         let kind = parse_field_kind_attr(&field.attrs)
             .unwrap_or_else(|| infer_value_kind(field_ty));
@@ -581,7 +613,7 @@ pub fn derive_field_registry(input: TokenStream) -> TokenStream {
             openwa_core::registry::FieldEntry {
                 offset: core::mem::offset_of!(#struct_name, #field_ident) as u32,
                 name: #field_name,
-                size: core::mem::size_of::<#field_ty>() as u32,
+                size: core::mem::size_of::<#size_ty>() as u32,
                 kind: #kind,
                 doc: #doc,
             }

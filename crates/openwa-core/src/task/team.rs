@@ -59,8 +59,8 @@ pub struct CTaskTeamVTable {
 #[derive(FieldRegistry)]
 #[repr(C)]
 pub struct CTaskTeam {
-    /// 0x00–0x2F: CTask base (vtable, parent, children, shared_data, ddgame, …)
-    pub base: CTask,
+    /// 0x00–0x2F: CTask base with typed CTaskTeamVTable vtable pointer.
+    pub base: CTask<*const CTaskTeamVTable>,
     /// 0x30: Secondary interface vtable pointer (Ghidra 0x00669F00)
     pub _secondary_vtable: u32,
     /// 0x34: Unknown — observed to hold the same value as `team_index` in all runs.
@@ -112,27 +112,5 @@ pub struct CTaskTeam {
 
 const _: () = assert!(core::mem::size_of::<CTaskTeam>() == 0x460);
 
-impl CTaskTeam {
-    /// Get the typed vtable pointer.
-    pub fn vtable(&self) -> &CTaskTeamVTable {
-        unsafe { &*(self.base.vtable as *const CTaskTeamVTable) }
-    }
-
-    /// Call HandleMessage (vtable slot 2) on this team task.
-    ///
-    /// This is the main team message dispatcher — handles weapon fire results,
-    /// surrender, worm selection, napalm strike, and many other team-level events.
-    ///
-    /// # Safety
-    /// `sender` must be a valid CTask pointer. `data` must point to `size` bytes.
-    pub unsafe fn handle_message(
-        &mut self,
-        sender: *mut CTask,
-        msg_type: u32,
-        size: u32,
-        data: *const u8,
-    ) {
-        let vt = self.vtable();
-        (vt.handle_message)(self as *mut Self, sender, msg_type, size, data);
-    }
-}
+// Generate typed vtable method wrappers: handle_message(), write_replay_state(), etc.
+bind_CTaskTeamVTable!(CTaskTeam, base.vtable);

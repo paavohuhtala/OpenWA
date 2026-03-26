@@ -105,9 +105,9 @@ crate::define_addresses! {
 ///   0x1C: 0x563210 ProcessFrame
 #[derive(FieldRegistry)]
 #[repr(C)]
-pub struct CTask {
+pub struct CTask<V: 'static = *const core::ffi::c_void> {
     /// 0x00: Pointer to virtual method table
-    pub vtable: *mut u8,
+    pub vtable: V,
     /// 0x04: Parent task in the hierarchy
     pub parent: *mut u8,
     /// 0x08: Children array capacity — starts at 0x10, doubles via realloc when full.
