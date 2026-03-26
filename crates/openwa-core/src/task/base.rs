@@ -87,24 +87,42 @@ crate::define_addresses! {
     }
 }
 
-/// CTask base vtable — 8 slots shared by all task types.
+/// CTask base vtable — 7 slots shared by all task types.
 ///
-/// Every CTask subclass vtable starts with these 8 slots. Subclasses override
+/// Every CTask subclass vtable starts with these 7 slots. Subclasses override
 /// individual slots and extend with additional class-specific methods.
-#[openwa_core::vtable(size = 8, va = 0x0066_9F8C, class = "CTask")]
+/// CGameTask adds slots 7+ beyond this base.
+///
+/// Source: wkJellyWorm/src/entities/CTask.h (vtNum = 7), confirmed via Ghidra.
+///
+/// ```text
+/// Slot  Offset  Name                 Params (thiscall, ECX=this)
+/// ----  ------  -------------------  ----------------------------
+///  0    0x00    WriteReplayState     stream: *mut u8
+///  1    0x04    Free                 flags: u8 → *mut CTask
+///  2    0x08    HandleMessage        sender, msg_type, size, data
+///  3    0x0C    (unknown, stub)      3 params, returns 0
+///  4    0x10    (unknown, stub)      3 params, returns 0 (same fn as slot 3)
+///  5    0x14    ProcessChildren      flags: u32
+///  6    0x18    ProcessFrame         (no params)
+/// ```
+#[openwa_core::vtable(size = 7, va = 0x0066_9F8C, class = "CTask")]
 pub struct CTaskVtable {
     /// WriteReplayState — serializes task state to replay stream.
     #[slot(0)]
     pub write_replay_state: fn(this: *mut CTask, stream: *mut u8),
-    /// Free — destructor. Frees the task and optionally its allocation.
+    /// Free — scalar deleting destructor. Calls destructor, then `_free` if flags & 1.
     #[slot(1)]
     pub free: fn(this: *mut CTask, flags: u8) -> *mut CTask,
     /// HandleMessage — broadcasts message to all children (base implementation).
     #[slot(2)]
     pub handle_message: fn(this: *mut CTask, sender: *mut CTask, msg_type: u32, size: u32, data: *const u8),
-    /// ProcessFrame — per-frame update. Base implementation is a no-op.
-    #[slot(7)]
-    pub process_frame: fn(this: *mut CTask, flags: u32),
+    /// ProcessChildren — iterates children with flags. Base at 0x562FA0.
+    #[slot(5)]
+    pub process_children: fn(this: *mut CTask, flags: u32),
+    /// ProcessFrame — per-frame update. Base iterates children. At 0x563000.
+    #[slot(6)]
+    pub process_frame: fn(this: *const CTask),
 }
 
 /// Base task class in WA's entity hierarchy.

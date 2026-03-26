@@ -110,12 +110,28 @@ crate::define_addresses! {
 /// 6 slots pass through unchanged. Slot layout by vtable byte offset:
 ///
 /// ```text
-/// 0x00 WriteReplayState  0x04 Free             0x08 HandleMessage
-/// 0x0C GetEntityData     0x10-0x18 inherited   0x1C OnContactEntity
-/// 0x20 OnWormPush        0x24 OnLandBounce     0x28 OnLandSlide
-/// 0x2C OnSink            0x30 inherited        0x34 OnKilled
-/// 0x38 SetState          0x3C CheckPendingAction 0x40 IsNotOnRope
-/// 0x44 inherited         0x48 GetTeamIndex     0x4C inherited
+/// Slot  Offset  Name                 Base class
+/// ----  ------  -------------------  ----------
+///  0    0x00    WriteReplayState     CTask (overridden)
+///  1    0x04    Free                 CTask (overridden)
+///  2    0x08    HandleMessage        CTask (overridden)
+///  3    0x0C    GetEntityData        CTask (overridden)
+///  4    0x10    (stub, returns 0)    CTask — inherited
+///  5    0x14    ProcessChildren      CTask — inherited
+///  6    0x18    ProcessFrame         CTask — inherited
+///  7    0x1C    OnContactEntity      CGameTask (overridden)
+///  8    0x20    OnWormPush           CGameTask (overridden)
+///  9    0x24    OnLandBounce         CGameTask (overridden)
+/// 10    0x28    OnLandSlide          CGameTask? (new)
+/// 11    0x2C    OnSink               CGameTask? (new)
+/// 12    0x30    (inherited)          CGameTask
+/// 13    0x34    OnKilled             CGameTask (overridden)
+/// 14    0x38    SetState             CTaskWorm (new)
+/// 15    0x3C    CheckPendingAction   CTaskWorm (new)
+/// 16    0x40    IsNotOnRope          CTaskWorm (new)
+/// 17    0x44    (inherited)          CGameTask
+/// 18    0x48    GetTeamIndex         CTaskWorm (new)
+/// 19    0x4C    (inherited)          CGameTask
 /// ```
 #[openwa_core::vtable(size = 20)]
 pub struct CTaskWormVTable {
