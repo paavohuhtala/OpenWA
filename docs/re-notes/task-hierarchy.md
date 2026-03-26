@@ -28,7 +28,7 @@ CTask (base)                    vtable: 0x669F8C    ctor: 0x5625A0
 ├── CTaskDirt                                        ctor: 0x54EDC0
 ├── CTaskFlame                                       ctor: 0x54F0F0
 ├── CTaskFire                                        ctor: 0x54F4C0
-├── CTaskFireBall                                    ctor: 0x550890
+├── CTaskGirder (was CTaskFireBall)                   ctor: 0x550890
 ├── CTaskGas                                         ctor: 0x554750
 ├── CTaskSmoke                                       ctor: 0x5551D0
 ├── CTaskCloud                                       ctor: 0x5482E0

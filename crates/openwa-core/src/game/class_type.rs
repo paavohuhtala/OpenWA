@@ -33,7 +33,9 @@ pub enum ClassType {
     Cloud = 23,
     Fire = 24,
     Gas = 25,
-    FireBall = 26,
+    /// Girder placement task. Previously "FireBall" in RE sources — renamed
+    /// after confirming the only creation site is FireWeapon__Girder (0x51E350).
+    Girder = 26,
     SeaBubble = 27,
     Land = 28,
     ScoreBubble = 29,

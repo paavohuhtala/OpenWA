@@ -557,7 +557,7 @@ unsafe fn fire_mail_mine_mole(worm: *mut CTaskWorm) {
 
 /// Girder (type 4 subtype 3) — pure Rust port of 0x51E350.
 ///
-/// Allocates a CTaskFireBall (0xA4 bytes), copies 7 DWORDs from fire_params
+/// Allocates a CTaskGirder (0xA4 bytes), copies 7 DWORDs from fire_params
 /// as constructor arguments, and calls the constructor. The constructor handles
 /// actually placing the girder on the landscape.
 ///
@@ -573,26 +573,26 @@ unsafe fn fire_girder(
     let table = SharedDataTable::from_task((*worm).as_task_ptr());
     let parent = table.lookup(0, 0x19);
 
-    // Allocate CTaskFireBall (0xA4 bytes), zero first 0x84
+    // Allocate CTaskGirder (0xA4 bytes), zero first 0x84
     let buffer = wa_malloc(0xA4);
     if buffer.is_null() {
         return;
     }
     core::ptr::write_bytes(buffer, 0, 0x84);
 
-    // CTaskFireBall::Constructor — usercall(EAX=parent) +
+    // CTaskGirder::Constructor — usercall(EAX=parent) +
     // stdcall(this, 7×fire_param DWORDs, local_struct), RET 0x24.
     // Copy 7 DWORDs from fire_params onto the stack via the naked bridge.
-    call_fireball_ctor(buffer, parent as *mut u8, fire_params, local_struct, rb(0x550890));
+    call_girder_ctor(buffer, parent as *mut u8, fire_params, local_struct, rb(0x550890));
 }
 
-/// Bridge: CTaskFireBall::Constructor — usercall(EAX=parent) +
+/// Bridge: CTaskGirder::Constructor — usercall(EAX=parent) +
 /// stdcall(this, 7 DWORDs from fire_params, local_struct), RET 0x24.
 ///
 /// The original copies 7 DWORDs from fire_params onto the stack via REP MOVSD.
 /// We replicate this by pushing them individually in reverse order.
 #[unsafe(naked)]
-unsafe extern "C" fn call_fireball_ctor(
+unsafe extern "C" fn call_girder_ctor(
     _this: *mut u8, _parent: *mut u8, _fire_params: *const WeaponFireParams,
     _local_struct: *const u8, _addr: u32,
 ) {
