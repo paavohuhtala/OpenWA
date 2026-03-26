@@ -13,6 +13,7 @@ mod replay;
 mod scheme;
 mod sound;
 mod speech;
+mod task;
 mod team;
 mod weapon;
 
@@ -39,5 +40,6 @@ pub fn install_all() -> Result<(), String> {
     ddgame_init::install()?;
     game_state_hooks::install()?;
     replay::install()?;
+    task::install()?;
     Ok(())
 }
