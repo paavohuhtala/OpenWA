@@ -105,7 +105,7 @@ crate::define_addresses! {
 ///   0x1C: 0x563210 ProcessFrame
 #[derive(FieldRegistry)]
 #[repr(C)]
-pub struct CTask<V: 'static = *const core::ffi::c_void> {
+pub struct CTask<V: Vtable = *const core::ffi::c_void> {
     /// 0x00: Pointer to virtual method table
     pub vtable: V,
     /// 0x04: Parent task in the hierarchy
@@ -140,6 +140,18 @@ pub struct CTask<V: 'static = *const core::ffi::c_void> {
 }
 
 const _: () = assert!(core::mem::size_of::<CTask>() == 0x30);
+
+/// Marker trait for types that can be used as vtable pointers in `CTask<V>`.
+///
+/// Implemented automatically by the `#[vtable]` proc macro for `*const MyVTable`.
+/// Also implemented for `*const c_void` (the default/untyped case).
+///
+/// # Safety
+/// Implementors must be pointer-sized types pointing to valid vtable data.
+pub unsafe trait Vtable: 'static {}
+
+// Default vtable type (untyped)
+unsafe impl Vtable for *const core::ffi::c_void {}
 
 /// Trait for all task types in the CTask hierarchy.
 ///
@@ -177,7 +189,7 @@ pub unsafe trait Task {
 }
 
 // Blanket impl for any CTask<V>
-unsafe impl<V: 'static> Task for CTask<V> {}
+unsafe impl<V: Vtable> Task for CTask<V> {}
 
 // ---------------------------------------------------------------------------
 // Shared-data entity registry

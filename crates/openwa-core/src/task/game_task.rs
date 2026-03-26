@@ -31,7 +31,7 @@ pub const CGAMETASK_SOUND_EMITTER_VT: u32 = SOUND_EMITTER_VTABLE;
 /// Additional vtable (12 methods at offsets 0x1C-0x48 in vtable)
 #[derive(FieldRegistry)]
 #[repr(C)]
-pub struct CGameTask<V: 'static = *const core::ffi::c_void> {
+pub struct CGameTask<V: super::base::Vtable = *const core::ffi::c_void> {
     /// 0x00-0x2F: Base CTask fields
     pub base: CTask<V>,
     /// 0x30-0x83: Subclass-specific data (84 bytes). Each CGameTask derivative

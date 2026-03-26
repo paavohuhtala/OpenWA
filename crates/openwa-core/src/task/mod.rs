@@ -14,7 +14,7 @@ pub mod turn_game;
 pub mod worm;
 
 pub use arrow::{CTaskArrow, CTaskArrowVTable};
-pub use base::{CTask, CTaskBfsIter, SharedDataIter, SharedDataNode, SharedDataTable, Task};
+pub use base::{CTask, CTaskBfsIter, SharedDataIter, SharedDataNode, SharedDataTable, Task, Vtable};
 pub use cloud::{CTaskCloud, CTaskCloudVTable};
 pub use filter::{CTaskFilter, CTaskFilterVTable};
 pub use fire::{CTaskFire, CTaskFireVTable};
@@ -29,7 +29,7 @@ pub use worm::{CTaskWorm, CTaskWormVTable};
 
 // Task trait impls — safe access to CTask base regardless of inheritance depth.
 // CTask<V> impl is in base.rs (blanket impl).
-unsafe impl<V: 'static> Task for CGameTask<V> {}
+unsafe impl<V: Vtable> Task for CGameTask<V> {}
 unsafe impl Task for CTaskTeam {}
 unsafe impl Task for CTaskTurnGame {}
 unsafe impl Task for CTaskFilter {}

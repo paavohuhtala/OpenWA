@@ -311,6 +311,9 @@ fn vtable_impl(
 
         #va_items
 
+        // Mark *const ThisVtable as a valid vtable pointer type for CTask<V>.
+        unsafe impl openwa_core::task::Vtable for *const #struct_name {}
+
         /// Bind this vtable's known methods as wrapper methods on a class struct.
         ///
         /// Usage: `bind_VtableName!(ClassName, vtable_field_name);`
