@@ -7,19 +7,20 @@ use core::sync::atomic::{AtomicU32, Ordering};
 
 use openwa_core::address::va;
 use openwa_core::fixed::Fixed;
+use openwa_core::game::TaskMessage;
 use openwa_core::log::log_line;
 use openwa_core::task::cloud::CTaskCloud;
 use openwa_core::task::{CTask, Task};
 
-/// Original CTaskCloud::HandleMessage, saved for base-class call-through.
+/// Original CTaskCloud::HandleMessage, saved for render call-through.
 static ORIG_HANDLE_MESSAGE: AtomicU32 = AtomicU32::new(0);
 
 /// CTaskCloud::HandleMessage replacement.
 ///
 /// Handles three message types:
-/// - msg 2: per-frame position update (parallax scroll with wind drift)
-/// - msg 3: render (draw sprite at computed position) — delegates to original
-/// - msg 0x54: set wind target from message data
+/// - FrameFinish: per-frame position update (parallax scroll with wind drift)
+/// - RenderScene: draw sprite at computed position — delegates to original
+/// - SetWind: set wind target from message data
 ///
 /// Always calls base CTask::HandleMessage at the end (0x562F30).
 unsafe extern "thiscall" fn cloud_handle_message(
@@ -30,10 +31,10 @@ unsafe extern "thiscall" fn cloud_handle_message(
     data: *const u8,
 ) {
     let cloud = &mut *this;
+    let msg = TaskMessage::try_from(msg_type);
 
-    match msg_type {
-        // Position update
-        2 => {
+    match msg {
+        Ok(TaskMessage::FrameFinish) => {
             // Advance Y position
             cloud.pos_y = Fixed(cloud.pos_y.0 + cloud.vel_y.0);
 
@@ -66,8 +67,8 @@ unsafe extern "thiscall" fn cloud_handle_message(
             }
         }
 
-        // Render — delegate to original (uses usercall for RQ_DrawSpriteLocal)
-        3 => {
+        Ok(TaskMessage::RenderScene) => {
+            // Delegate to original (uses usercall for RQ_DrawSpriteLocal)
             let orig = ORIG_HANDLE_MESSAGE.load(Ordering::Relaxed);
             let orig_fn: unsafe extern "thiscall" fn(
                 *mut CTaskCloud, *mut CTask, u32, u32, *const u8,
@@ -76,8 +77,7 @@ unsafe extern "thiscall" fn cloud_handle_message(
             return; // original already calls base handler
         }
 
-        // Wind change — set target from message data
-        0x54 => {
+        Ok(TaskMessage::SetWind) => {
             if !data.is_null() {
                 cloud.wind_target = Fixed(*(data as *const i32));
             }
