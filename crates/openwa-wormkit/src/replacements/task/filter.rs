@@ -29,10 +29,8 @@ unsafe extern "thiscall" fn filter_handle_message(
         return; // message not subscribed — drop silently
     }
 
-    // Broadcast to children via original WA CTask::HandleMessage
-    let base_handler: unsafe extern "thiscall" fn(*mut CTask, *mut CTask, u32, u32, *const u8) =
-        core::mem::transmute(openwa_core::rebase::rb(va::CTASK_VT2_HANDLE_MESSAGE) as usize);
-    base_handler(filter.as_task_ptr() as *mut CTask, sender, msg_type, size, data);
+    // Broadcast to children (pure Rust port of CTask::HandleMessage)
+    (*this).broadcast_message(sender, msg_type, size, data);
 }
 
 pub fn install() -> Result<(), String> {

@@ -208,49 +208,46 @@ pub unsafe trait Task {
     /// # Safety
     /// All non-null children must be valid CTask pointers with valid vtables.
     unsafe fn broadcast_message(
-        &self,
+        &mut self,
         sender: *mut CTask,
         msg_type: u32,
         size: u32,
         data: *const u8,
     ) {
-        let task_ptr = self.as_task_ptr();
+        let task_ptr = self.as_task_ptr_mut();
 
-        // Find the first non-null child
+        // Scan for non-null children and dispatch HandleMessage.
+        // Mirrors WA's CTask::HandleMessage at 0x562F30 exactly:
+        // scan → dispatch → re-read watermark → scan next → ...
+        //
+        // IMPORTANT: read_volatile is required for watermark and children_data
+        // because child handlers may modify this task's children array
+        // (add/remove children, realloc the array). LLVM would otherwise cache
+        // these reads across the virtual dispatch call.
         let mut i: usize = 0;
-        let mut child = core::ptr::null_mut::<CTask>();
         loop {
-            let watermark = (*task_ptr).children_watermark as usize;
-            if i >= watermark {
-                break;
-            }
-            child = *(*task_ptr).children_data.add(i);
-            i += 1;
-            if !child.is_null() {
-                break;
-            }
-        }
+            // Scan for next non-null child
+            let child = loop {
+                let watermark = core::ptr::read_volatile(
+                    core::ptr::addr_of!((*task_ptr).children_watermark),
+                ) as usize;
+                if i >= watermark {
+                    return;
+                }
+                let children = core::ptr::read_volatile(
+                    core::ptr::addr_of!((*task_ptr).children_data),
+                );
+                let c = *children.add(i);
+                i += 1;
+                if !c.is_null() {
+                    break c;
+                }
+            };
 
-        while !child.is_null() {
-            // Dispatch via typed CTaskVtable — every task's vtable starts
-            // with the same 8-slot layout, so this cast is always valid.
+            // Dispatch via CTaskVtable — every task's vtable starts with
+            // the same 8-slot base layout, so this cast is always valid.
             let vt = &*((*child).vtable as *const CTaskVtable);
             (vt.handle_message)(child, sender, msg_type, size, data);
-
-            // Find next non-null child — re-read watermark each time
-            // because the handler may have added or removed siblings
-            child = core::ptr::null_mut();
-            loop {
-                let watermark = (*task_ptr).children_watermark as usize;
-                if i >= watermark {
-                    break;
-                }
-                child = *(*task_ptr).children_data.add(i);
-                i += 1;
-                if !child.is_null() {
-                    break;
-                }
-            }
         }
     }
 }
