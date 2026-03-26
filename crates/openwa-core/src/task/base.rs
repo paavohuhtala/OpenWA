@@ -87,21 +87,32 @@ crate::define_addresses! {
     }
 }
 
+/// CTask base vtable — 8 slots shared by all task types.
+///
+/// Every CTask subclass vtable starts with these 8 slots. Subclasses override
+/// individual slots and extend with additional class-specific methods.
+#[openwa_core::vtable(size = 8, va = 0x0066_9F8C, class = "CTask")]
+pub struct CTaskVtable {
+    /// WriteReplayState — serializes task state to replay stream.
+    #[slot(0)]
+    pub write_replay_state: fn(this: *mut CTask, stream: *mut u8),
+    /// Free — destructor. Frees the task and optionally its allocation.
+    #[slot(1)]
+    pub free: fn(this: *mut CTask, flags: u8) -> *mut CTask,
+    /// HandleMessage — broadcasts message to all children (base implementation).
+    #[slot(2)]
+    pub handle_message: fn(this: *mut CTask, sender: *mut CTask, msg_type: u32, size: u32, data: *const u8),
+    /// ProcessFrame — per-frame update. Base implementation is a no-op.
+    #[slot(7)]
+    pub process_frame: fn(this: *mut CTask, flags: u32),
+}
+
 /// Base task class in WA's entity hierarchy.
 ///
 /// All game objects inherit from CTask. Tasks form a tree via parent/children
 /// pointers and communicate through the TaskMessage system.
 ///
 /// Source: wkJellyWorm CTask.h, Ghidra decompilation of 0x5625A0 + 0x562520
-///
-/// Vtable at 0x669F8C (8 methods):
-///   0x00: 0x562710 vtable0 (init?)
-///   0x04: 0x562620 Free
-///   0x08: 0x562F30 HandleMessage
-///   0x0C: 0x5613D0 unknown
-///   0x10: 0x5613D0 unknown (same as 0x0C)
-///   0x14: 0x562FA0 unknown
-///   0x18: 0x563000 unknown
 ///   0x1C: 0x563210 ProcessFrame
 #[derive(FieldRegistry)]
 #[repr(C)]
@@ -122,7 +133,8 @@ pub struct CTask<V: Vtable = *const core::ffi::c_void> {
     pub children_watermark: u32,
     /// 0x14: Pointer to children data array (sparse, allocated 0x60 bytes initially,
     /// reallocated to `children_capacity * 8 + 0x20` bytes on overflow).
-    pub children_data: *mut u8,
+    /// Non-null entries are valid CTask pointers (any subclass).
+    pub children_data: *mut *mut CTask,
     /// 0x18: Children hash list pointer (set to 0 in constructor)
     pub children_hash: *mut u8,
     /// 0x1C: Unknown (set to 0 by parent-linking helper FUN_00562520)
@@ -185,6 +197,61 @@ pub unsafe trait Task {
     /// Get the DDGame pointer from the CTask base.
     fn ddgame(&self) -> *mut DDGame {
         self.task().ddgame
+    }
+
+    /// Broadcast a message to all children — pure Rust port of CTask::HandleMessage (0x562F30).
+    ///
+    /// Iterates the sparse children array (`children_data[0..children_watermark]`),
+    /// skips null entries, and calls each child's `HandleMessage` (vtable slot 2).
+    /// This is how messages propagate down the task tree.
+    ///
+    /// # Safety
+    /// All non-null children must be valid CTask pointers with valid vtables.
+    unsafe fn broadcast_message(
+        &self,
+        sender: *mut CTask,
+        msg_type: u32,
+        size: u32,
+        data: *const u8,
+    ) {
+        let task_ptr = self.as_task_ptr();
+
+        // Find the first non-null child
+        let mut i: usize = 0;
+        let mut child = core::ptr::null_mut::<CTask>();
+        loop {
+            let watermark = (*task_ptr).children_watermark as usize;
+            if i >= watermark {
+                break;
+            }
+            child = *(*task_ptr).children_data.add(i);
+            i += 1;
+            if !child.is_null() {
+                break;
+            }
+        }
+
+        while !child.is_null() {
+            // Dispatch via typed CTaskVtable — every task's vtable starts
+            // with the same 8-slot layout, so this cast is always valid.
+            let vt = &*((*child).vtable as *const CTaskVtable);
+            (vt.handle_message)(child, sender, msg_type, size, data);
+
+            // Find next non-null child — re-read watermark each time
+            // because the handler may have added or removed siblings
+            child = core::ptr::null_mut();
+            loop {
+                let watermark = (*task_ptr).children_watermark as usize;
+                if i >= watermark {
+                    break;
+                }
+                child = *(*task_ptr).children_data.add(i);
+                i += 1;
+                if !child.is_null() {
+                    break;
+                }
+            }
+        }
     }
 }
 

@@ -1,4 +1,5 @@
 use core::ops::{Add, Mul, Neg, Sub};
+use std::ops::{AddAssign, SubAssign};
 
 /// 16.16 fixed-point number used throughout WA for coordinates and velocities.
 ///
@@ -88,5 +89,19 @@ impl core::fmt::Debug for Fixed {
 impl core::fmt::Display for Fixed {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "{:.4}", self.to_f32())
+    }
+}
+
+impl AddAssign for Fixed {
+    #[inline]
+    fn add_assign(&mut self, rhs: Self) {
+        self.0 += rhs.0;
+    }
+}
+
+impl SubAssign for Fixed {
+    #[inline]
+    fn sub_assign(&mut self, rhs: Self) {
+        self.0 -= rhs.0;
     }
 }

@@ -14,7 +14,7 @@ pub mod turn_game;
 pub mod worm;
 
 pub use arrow::{CTaskArrow, CTaskArrowVTable};
-pub use base::{CTask, CTaskBfsIter, SharedDataIter, SharedDataNode, SharedDataTable, Task, Vtable};
+pub use base::{CTask, CTaskBfsIter, CTaskVtable, SharedDataIter, SharedDataNode, SharedDataTable, Task, Vtable};
 pub use cloud::{CTaskCloud, CTaskCloudVTable};
 pub use filter::{CTaskFilter, CTaskFilterVTable};
 pub use fire::{CTaskFire, CTaskFireVTable};

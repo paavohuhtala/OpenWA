@@ -12,8 +12,7 @@ use openwa_core::task::{CTask, Task};
 ///
 /// Messages with `msg_type < 98` are only forwarded if
 /// `subscription_table[msg_type] != 0`. Messages >= 98 always pass through.
-/// Forwarding means tail-calling base CTask::HandleMessage, which propagates
-/// the message down to child tasks.
+/// Forwarding calls `broadcast_message` which propagates down to child tasks.
 unsafe extern "thiscall" fn filter_handle_message(
     this: *mut CTaskFilter,
     sender: *mut CTask,
@@ -30,7 +29,7 @@ unsafe extern "thiscall" fn filter_handle_message(
         return; // message not subscribed — drop silently
     }
 
-    // Forward to base CTask::HandleMessage (propagates to children)
+    // Broadcast to children via original WA CTask::HandleMessage
     let base_handler: unsafe extern "thiscall" fn(*mut CTask, *mut CTask, u32, u32, *const u8) =
         core::mem::transmute(openwa_core::rebase::rb(va::CTASK_VT2_HANDLE_MESSAGE) as usize);
     base_handler(filter.as_task_ptr() as *mut CTask, sender, msg_type, size, data);

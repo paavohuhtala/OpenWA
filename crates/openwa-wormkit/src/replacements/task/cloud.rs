@@ -96,7 +96,7 @@ unsafe extern "thiscall" fn cloud_handle_message(
         _ => {}
     }
 
-    // Call base CTask::HandleMessage for all non-render messages
+    // Broadcast to children via original WA CTask::HandleMessage
     let base_handler: unsafe extern "thiscall" fn(*mut CTask, *mut CTask, u32, u32, *const u8) =
         core::mem::transmute(openwa_core::rebase::rb(va::CTASK_VT2_HANDLE_MESSAGE) as usize);
     base_handler(cloud.as_task_ptr_mut(), sender, msg_type, size, data);
