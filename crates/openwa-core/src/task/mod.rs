@@ -25,7 +25,7 @@ pub use overlays::{BungeeTrailTask, WeaponAimTask};
 pub use supply_crate::{CTaskCrate, CTaskCrateVTable};
 pub use team::{CTaskTeam, CTaskTeamVTable};
 pub use turn_game::{CTaskTurnGame, CTaskTurnGameVTable, TurnGameCtx};
-pub use worm::{CTaskWorm, CTaskWormVTable};
+pub use worm::{CTaskWorm, CTaskWormVTable, WormState};
 
 // Task trait impls — safe access to CTask base regardless of inheritance depth.
 // CTask<V> impl is in base.rs (blanket impl).

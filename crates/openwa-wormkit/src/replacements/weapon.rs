@@ -22,7 +22,7 @@ use openwa_core::game::weapon::{WeaponEntry, WeaponFireParams, WeaponSpawnData};
 use openwa_core::game::Weapon;
 use openwa_core::log::log_line;
 use openwa_core::task::Task;
-use openwa_core::task::worm::CTaskWorm;
+use openwa_core::task::worm::{CTaskWorm, WormState};
 
 use crate::hook::{self, usercall_trampoline};
 
@@ -358,25 +358,25 @@ unsafe fn fire_weapon_special(
 
     match subtype {
         // Blowtorch
-        1 => (*worm).set_state(0x6C),
+        1 => (*worm).set_state(WormState::Blowtorch),
         // Pneumatic Drill (pure Rust)
         2 => fire_drill(worm, local_struct),
         // Girder
         3 => call_fire_stdcall3(worm, params_38_ptr, local_struct, rb(0x51E350)),
         // Baseball Bat
-        4 => (*worm).set_state(0x6D),
+        4 => (*worm).set_state(WormState::BaseballBat),
         // Fire Punch
-        5 => (*worm).set_state(0x75),
+        5 => (*worm).set_state(WormState::FirePunch),
         // Dragon Ball
-        6 => (*worm).set_state(0x70),
+        6 => (*worm).set_state(WormState::DragonBall),
         // Kamikaze
-        8 => (*worm).set_state(0x6E),
+        8 => (*worm).set_state(WormState::Kamikaze),
         // Prod (pure Rust)
         9 => fire_prod(worm, local_struct),
         // Air Strike (EAX=worm)
         10 => call_fire_usercall(worm as *const (), worm, rb(0x51E710)),
         // Scales of Justice
-        11 => (*worm).set_state(0x71),
+        11 => (*worm).set_state(WormState::ScalesOfJustice),
         // Napalm Strike
         13 => fire_send_team_message(worm, 0x2B),
         // Mail/Mine/Mole (pure Rust)
@@ -387,13 +387,14 @@ unsafe fn fire_weapon_special(
             if can_teleport(worm_state) {
                 call_fire_usercall(worm_state as *const (), worm, rb(0x51EB00));
             } else {
-                (*worm).set_state(0x74);
+                // Teleport denied — return to cancelled state
+                (*worm).set_state(WormState::TeleportCancelled_Maybe);
             }
         }
         // Freeze (EAX=worm)
         17 => call_fire_usercall(worm as *const (), worm, rb(0x51E920)),
         // Suicide Bomber
-        18 => (*worm).set_state(0x72),
+        18 => (*worm).set_state(WormState::SuicideBomber),
         // Skip Go (pure Rust)
         19 => fire_skip_go(worm, entry),
         // Surrender (pure Rust)
@@ -403,7 +404,7 @@ unsafe fn fire_weapon_special(
         // Jet Pack (EAX=entry)
         22 => call_fire_usercall(entry as *const (), worm, rb(0x51EC30)),
         // Magic Bullet
-        23 => (*worm).set_state(0x78),
+        23 => (*worm).set_state(WormState::WeaponAimed_Maybe),
         // Low Gravity (EAX=entry)
         24 => call_fire_usercall(entry as *const (), worm, rb(0x51EA60)),
         _ => {}
@@ -412,9 +413,9 @@ unsafe fn fire_weapon_special(
 
 /// Teleport validity check — pure Rust port of 0x516930.
 /// Returns true if the worm's current state allows teleportation.
-/// Valid states: 0x78 (idle-aim), 0x7B-0x7D (pre-fire range).
 fn can_teleport(state: u32) -> bool {
-    state == 0x78 || (0x7B..=0x7D).contains(&state)
+    state == WormState::WeaponAimed_Maybe as u32
+        || (WormState::AimingAngle_Maybe as u32..=WormState::PreFire_Maybe as u32).contains(&state)
 }
 
 // ── Pure Rust fire handlers (no bridge needed) ──────────────
@@ -538,10 +539,11 @@ unsafe fn fire_mail_mine_mole(worm: *mut CTaskWorm) {
 
     let should_call_vtable = version < 2
         || (version >= 5
-            && (worm_state == 0x7D || (worm_state == 0x78 && version < 8)));
+            && (worm_state == WormState::PreFire_Maybe as u32
+                || (worm_state == WormState::WeaponAimed_Maybe as u32 && version < 8)));
 
     if should_call_vtable {
-        (*worm).set_state(0x65);
+        (*worm).set_state(WormState::Idle);
     }
 
     fire_send_team_message(worm, 0x28);

@@ -3,6 +3,98 @@ use super::game_task::CGameTask;
 use crate::game::weapon::WeaponEntry;
 use crate::FieldRegistry;
 
+/// Worm state machine states.
+///
+/// CTaskWorm's `SetState` (vtable slot 14) transitions between these.
+/// The state byte lives at CTaskWorm+0x44 (inside `base.subclass_data`).
+/// Also stored in WormEntry.state in the TeamArenaState.
+///
+/// States 0x68..=0x8A are the "weapon/action active" range — checked by
+/// `(state - 0x68) < 0x23` in HandleMessage. States 0x80+ are dying/dead.
+/// Names are best guesses from behavioral observation and disassembly.
+///
+/// Source: CTaskWorm::HandleMessage (0x510B40) decompilation + weapon fire dispatch.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(u8)]
+#[allow(non_camel_case_types)]
+pub enum WormState {
+    /// Transitional state checked by CheckWormState0x64 (0x5228D0).
+    /// Appears briefly during turn transitions.
+    Transitional = 0x64,
+    /// Idle — not this worm's turn. Also used by MailMineMole to re-enter idle.
+    Idle = 0x65,
+    /// Idle variant — grouped with 0x65/0x67 in HandleMessage switch cases.
+    IdleVariant_Maybe = 0x66,
+    /// Active turn — this worm is currently being controlled.
+    Active = 0x67,
+    /// Active variant — observed in WormEntry. Start of weapon/action range.
+    ActiveVariant_Maybe = 0x68,
+    // 0x69–0x6B: unknown (within weapon/action range)
+    /// Blowtorch — using the blowtorch weapon.
+    Blowtorch = 0x6C,
+    /// Baseball Bat — swinging the baseball bat. Frequently checked in HandleMessage.
+    BaseballBat = 0x6D,
+    /// Kamikaze — performing kamikaze attack.
+    Kamikaze = 0x6E,
+    // 0x6F: unknown
+    /// Dragon Ball — performing dragon ball attack.
+    DragonBall = 0x70,
+    /// Scales of Justice — using scales of justice.
+    ScalesOfJustice = 0x71,
+    /// Suicide Bomber — performing suicide bomber attack.
+    SuicideBomber = 0x72,
+    /// Weapon charging — entered from aiming states (0x7B, 0x7C) before release.
+    /// Also set by CheckPendingAction when field +0xBC is nonzero.
+    WeaponCharging_Maybe = 0x73,
+    /// Teleport cancelled — teleport failed or was denied.
+    TeleportCancelled_Maybe = 0x74,
+    /// Fire Punch — performing fire punch attack.
+    FirePunch = 0x75,
+    // 0x76: unknown
+    /// Weapon selected — entered via SelectCursor (msg 0x24) from idle/active states.
+    /// HandleMessage sets param[0xa7]=-1 when already in this state.
+    WeaponSelected_Maybe = 0x77,
+    /// Weapon aimed — post-select state. Teleport check accepts this.
+    /// Also used for Magic Bullet weapon fire.
+    WeaponAimed_Maybe = 0x78,
+    // 0x79–0x7A: unknown
+    /// Aiming with angle — entered for aimed weapons. Sets angle params.
+    /// Teleport check accepts this. Transitions to 0x73 on fire.
+    AimingAngle_Maybe = 0x7B,
+    /// Rope swinging — IsNotOnRope checks `state != 0x7C`.
+    /// Transitions to 0x73 on fire.
+    RopeSwinging = 0x7C,
+    /// Pre-fire variant — MailMineMole version check uses this.
+    /// Transitions to 0x7E or 0x65 depending on FUN_004fb580.
+    PreFire_Maybe = 0x7D,
+    /// Post-fire / special movement — entered from 0x78 and 0x7D
+    /// when FUN_004fb580 returns nonzero.
+    PostFire_Maybe = 0x7E,
+    /// Drowning — worm fell in water.
+    Drowning = 0x7F,
+    /// Hurt — worm took damage.
+    Hurt = 0x80,
+    /// Dead variant 1.
+    Dead1 = 0x81,
+    /// Dying variant 1 — checked alongside 0x83 in HandleMessage.
+    Dying1_Maybe = 0x82,
+    /// Dying variant 2 — checked alongside 0x82 in HandleMessage.
+    Dying2_Maybe = 0x83,
+    // 0x84–0x85: unknown
+    /// Dead — set by Surrender (msg 0x29). Frequently checked in HandleMessage.
+    Dead = 0x86,
+    /// Dead variant 3.
+    Dead3 = 0x87,
+    /// Unknown — grouped with idle states (0x65/0x66/0x67/0x8B) in HandleMessage.
+    Unknown_0x88 = 0x88,
+    /// Dying/special animation (from WormEntry state documentation).
+    DyingAnimation_Maybe = 0x89,
+    // 0x8A: end of weapon/action range
+    /// Unknown state checked in CTaskTeam handlers.
+    /// Grouped with idle states in HandleMessage switch cases.
+    Unknown_0x8B = 0x8B,
+}
+
 crate::define_addresses! {
     class "CTaskWorm" {
         /// CTaskWorm vtable
@@ -61,7 +153,7 @@ pub struct CTaskWormVTable {
     pub on_killed: fn(this: *mut CTaskWorm),
     /// SetState — worm state machine; handles all state transitions
     #[slot(14)]
-    pub set_state: fn(this: *mut CTaskWorm, state: u32),
+    pub set_state: fn(this: *mut CTaskWorm, state: WormState),
     /// CheckPendingAction — if field +0xBC is set, calls SetState(0x73)
     #[slot(15)]
     pub check_pending_action: fn(this: *mut CTaskWorm),
@@ -194,10 +286,7 @@ bind_CTaskWormVTable!(CTaskWorm, base.base.vtable);
 
 impl CTaskWorm {
     /// Returns the worm's current state code (lives at offset +0x44, inside
-    /// `base.subclass_data`).
-    ///
-    /// Known states: `0x65`=idle, `0x67`=active turn, `0x7F`=drowning,
-    /// `0x80`=hurt, `0x81`/`0x86`=dead, `0x87`=dead variant, `0x8B`=unknown.
+    /// `base.subclass_data`). See [`WormState`] for known values.
     pub fn state(&self) -> u32 {
         unsafe { *((self as *const CTaskWorm as *const u8).add(0x44) as *const u32) }
     }
