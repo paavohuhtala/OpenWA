@@ -28,7 +28,7 @@ usercall_trampoline!(fn trampoline_weapon_release; impl_fn = weapon_release_impl
 /// FireWeapon as the `local_struct` (ECX) parameter.
 #[repr(C)]
 #[derive(Clone, Copy)]
-struct WeaponReleaseContext {
+pub(crate) struct WeaponReleaseContext {
     team_id: u32,
     worm_id: u32,
     spawn_x: u32,
@@ -399,8 +399,7 @@ unsafe extern "cdecl" fn weapon_release_impl(
 
     // ── 11. Call FireWeapon ──────────────────────────────────
     let entry = (*worm).active_weapon_entry;
-    let ctx_ptr = &ctx as *const WeaponReleaseContext as *const u8;
-    weapon::fire_weapon_impl(entry, ctx_ptr, worm);
+    weapon::fire_weapon(entry, &ctx, worm);
 
     let _ = log_line(&format!(
         "[WeaponRelease] worm=0x{:08X} weapon={:?} type={} sub34={} sub38={}",

@@ -26,6 +26,7 @@ use openwa_core::task::Task;
 use openwa_core::task::worm::{CTaskWorm, WormState};
 
 use crate::hook::{self, usercall_trampoline};
+use crate::replacements::weapon_release::WeaponReleaseContext;
 
 // ============================================================
 // AddAmmo replacement (0x522640)
@@ -138,66 +139,21 @@ usercall_trampoline!(fn trampoline_count_alive_worms; impl_fn = count_alive_worm
     regs = [eax, ecx]);
 
 // ============================================================
-// FireWeapon replacement (0x51EE60)
+// FireWeapon (0x51EE60) — trapped, called directly from weapon_release
 // ============================================================
-// Convention: usercall(EAX=worm, ECX=local_struct) + 1 stack(worm), RET 0x4.
-// Note: EAX = *(CTaskWorm+0x36C) = worm self-pointer, so EAX == stack param.
-//
-// Weapon launch data offsets (relative to worm/EAX):
-//   +0x30 = weapon type (1-4)
-//   +0x34 = subtype for types 3,4
-//   +0x38 = subtype for types 1,2
-//   +0x3C = params base
-//
-// worm = CTaskWorm pointer (ESI in original).
-// local_struct = stack-local buffer from WeaponRelease (ECX at call site).
-//
-// Sub-functions are usercall: ESI=worm, ECX=local_struct (for some).
-// We capture all three in our naked trampoline.
 
-static ORIG_FIRE_WEAPON: AtomicU32 = AtomicU32::new(0);
-
-/// Naked trampoline for FireWeapon.
-/// Must save ALL callee-saved registers (ESI, EDI, EBX, EBP) because the
-/// Rust cdecl impl may clobber them, and WeaponRelease (our caller) depends
-/// on them being preserved.
-#[unsafe(naked)]
-unsafe extern "C" fn trampoline_fire_weapon() {
-    core::arch::naked_asm!(
-        // Save all callee-saved + EDX
-        "push ebx",
-        "push esi",
-        "push edi",
-        "push ebp",
-        "push edx",
-        // Push cdecl args: (weapon_ctx=EAX, local_struct=ECX, worm)
-        // Stack: 5 pushes (20) + ret (4) = 24 to stack param
-        "push [esp+24]",      // worm
-        "push ecx",           // local_struct
-        "push eax",           // weapon_ctx
-        "call {impl_fn}",
-        "add esp, 12",
-        // Restore everything
-        "pop edx",
-        "pop ebp",
-        "pop edi",
-        "pop esi",
-        "pop ebx",
-        "ret 0x4",
-        impl_fn = sym fire_weapon_impl,
-    );
-}
-
-/// Rust implementation of FireWeapon dispatch.
+/// FireWeapon dispatch — called directly by `weapon_release_impl`.
 ///
-/// `entry`: EAX = active WeaponEntry pointer (from CTaskWorm+0x36C).
-/// `local_struct`: ECX = stack-local buffer from WeaponRelease.
-/// `worm`: stack param = CTaskWorm pointer (ESI in original).
+/// The WA function at 0x51EE60 is trapped via `install_trap!`; its only
+/// caller (WeaponRelease) is ported and invokes this Rust function instead.
 ///
-/// Completion flag at worm+0x3C (CGameTask.subclass_data[12]).
-/// Params pointer at entry+0x3C (WeaponEntry.fire_complete) — different object, same offset.
-pub(crate) unsafe extern "cdecl" fn fire_weapon_impl(
-    entry: *const WeaponEntry, local_struct: *const u8, worm: *mut CTaskWorm,
+/// Dispatches to type-specific fire sub-functions based on `entry.fire_type`
+/// and `entry.fire_method` / `entry.special_subtype`.
+/// Sets the completion flag at worm+0x3C before and after dispatch.
+pub(crate) unsafe fn fire_weapon(
+    entry: *const WeaponEntry,
+    ctx: *const WeaponReleaseContext,
+    worm: *mut CTaskWorm,
 ) {
     use openwa_core::rebase::rb;
 
@@ -216,25 +172,25 @@ pub(crate) unsafe extern "cdecl" fn fire_weapon_impl(
     use openwa_core::game::weapon::{FireType, FireMethod};
     match FireType::try_from(fire_type) {
         Ok(FireType::Projectile) => match FireMethod::try_from(fire_method) {
-            Ok(FireMethod::PlacedExplosive) => call_fire_placed_explosive(worm, fire_params, local_struct, rb(0x51EC80)),
-            Ok(FireMethod::ProjectileFire) => call_fire_stdcall3(worm, fire_params, local_struct, rb(0x51DFB0)),
-            Ok(FireMethod::CreateWeaponProjectile) => call_fire_thiscall2(worm, fire_params, local_struct, rb(0x51E0F0)),
-            Ok(FireMethod::CreateArrow) => call_fire_thiscall2(worm, fire_params, local_struct, rb(0x51ED90)),
+            Ok(FireMethod::PlacedExplosive) => call_fire_placed_explosive(worm, fire_params, ctx, rb(0x51EC80)),
+            Ok(FireMethod::ProjectileFire) => call_fire_stdcall3(worm, fire_params, ctx, rb(0x51DFB0)),
+            Ok(FireMethod::CreateWeaponProjectile) => call_fire_thiscall2(worm, fire_params, ctx, rb(0x51E0F0)),
+            Ok(FireMethod::CreateArrow) => call_fire_thiscall2(worm, fire_params, ctx, rb(0x51ED90)),
             _ => {}
         },
         Ok(FireType::Rope) => match FireMethod::try_from(fire_method) {
-            Ok(FireMethod::PlacedExplosive) => call_fire_stdcall3(worm, fire_params, local_struct, rb(0x51E1C0)), // RopeType1
-            Ok(FireMethod::ProjectileFire) => call_fire_thiscall2(worm, fire_params, local_struct, rb(0x51E0F0)),
-            Ok(FireMethod::CreateWeaponProjectile) => call_fire_stdcall3(worm, fire_params, local_struct, rb(0x51E240)), // RopeType3
+            Ok(FireMethod::PlacedExplosive) => call_fire_stdcall3(worm, fire_params, ctx, rb(0x51E1C0)), // RopeType1
+            Ok(FireMethod::ProjectileFire) => call_fire_thiscall2(worm, fire_params, ctx, rb(0x51E0F0)),
+            Ok(FireMethod::CreateWeaponProjectile) => call_fire_stdcall3(worm, fire_params, ctx, rb(0x51E240)), // RopeType3
             _ => {}
         },
         Ok(FireType::Strike) => {
             // StrikeFire takes a pointer to the subtype_34 field (reinterpreted as fire params)
             let subtype_34_ptr = &raw const (*entry).special_subtype as *const WeaponFireParams;
-            call_fire_stdcall3(worm, subtype_34_ptr, local_struct, rb(0x51E2C0));
+            call_fire_stdcall3(worm, subtype_34_ptr, ctx, rb(0x51E2C0));
         }
         Ok(FireType::Special) => {
-            fire_weapon_special((*entry).special_subtype, entry, worm, local_struct);
+            fire_weapon_special((*entry).special_subtype, entry, worm, ctx);
         }
         _ => {}
     }
@@ -248,10 +204,10 @@ pub(crate) unsafe extern "cdecl" fn fire_weapon_impl(
 // the usercall context that sub-functions expect.
 
 /// Bridge: PlacedExplosive — usercall(ECX=local_struct, EDX=worm, [ESP+4]=fire_params), RET 0x4.
-/// Args: (worm, fire_params, local_struct, addr).
+/// Args: (worm, fire_params, ctx, addr).
 #[unsafe(naked)]
 unsafe extern "C" fn call_fire_placed_explosive(
-    _worm: *mut CTaskWorm, _fire_params: *const WeaponFireParams, _local_struct: *const u8, _addr: u32,
+    _worm: *mut CTaskWorm, _fire_params: *const WeaponFireParams, _ctx: *const WeaponReleaseContext, _addr: u32,
 ) {
     core::arch::naked_asm!(
         "push ebx",
@@ -274,7 +230,7 @@ unsafe extern "C" fn call_fire_placed_explosive(
 /// Bridge: Projectile/Rope/Grenade — stdcall(worm, fire_params, local_struct), RET 0xC.
 #[unsafe(naked)]
 unsafe extern "C" fn call_fire_stdcall3(
-    _worm: *mut CTaskWorm, _fire_params: *const WeaponFireParams, _local: *const u8, _addr: u32,
+    _worm: *mut CTaskWorm, _fire_params: *const WeaponFireParams, _ctx: *const WeaponReleaseContext, _addr: u32,
 ) {
     core::arch::naked_asm!(
         "push ebx",
@@ -297,7 +253,7 @@ unsafe extern "C" fn call_fire_stdcall3(
 /// Bridge: CreateWeaponProjectile — thiscall(ECX=worm, fire_params, local_struct), RET 0x8.
 #[unsafe(naked)]
 unsafe extern "C" fn call_fire_thiscall2(
-    _worm: *mut CTaskWorm, _fire_params: *const WeaponFireParams, _local: *const u8, _addr: u32,
+    _worm: *mut CTaskWorm, _fire_params: *const WeaponFireParams, _ctx: *const WeaponReleaseContext, _addr: u32,
 ) {
     core::arch::naked_asm!(
         "push ebx",
@@ -322,7 +278,7 @@ unsafe extern "C" fn call_fire_thiscall2(
 #[unsafe(naked)]
 #[allow(dead_code)]
 unsafe extern "C" fn call_fire_stdcall2(
-    _worm: *mut CTaskWorm, _fire_params: *const WeaponFireParams, _local: *const u8, _addr: u32,
+    _worm: *mut CTaskWorm, _fire_params: *const WeaponFireParams, _ctx: *const WeaponReleaseContext, _addr: u32,
 ) {
     core::arch::naked_asm!(
         "push ebx",
@@ -347,7 +303,7 @@ unsafe extern "C" fn call_fire_stdcall2(
 /// Some handlers explicitly set EAX=worm or EAX=*(worm+0x44).
 /// Handlers without explicit MOV EAX inherit the entry pointer.
 unsafe fn fire_weapon_special(
-    subtype: i32, entry: *const WeaponEntry, worm: *mut CTaskWorm, local_struct: *const u8,
+    subtype: i32, entry: *const WeaponEntry, worm: *mut CTaskWorm, ctx: *const WeaponReleaseContext,
 ) {
     use openwa_core::game::weapon::SpecialFireSubtype as S;
     use openwa_core::rebase::rb;
@@ -357,13 +313,13 @@ unsafe fn fire_weapon_special(
 
     match S::try_from(subtype) {
         Ok(S::Blowtorch) => CTaskWorm::set_state_raw(worm, WormState::Blowtorch),
-        Ok(S::PneumaticDrill) => fire_drill(worm, local_struct),
-        Ok(S::Girder) => fire_girder(worm, params_38_ptr, local_struct),
+        Ok(S::PneumaticDrill) => fire_drill(worm, ctx as *const u8),
+        Ok(S::Girder) => fire_girder(worm, params_38_ptr, ctx as *const u8),
         Ok(S::BaseballBat) => CTaskWorm::set_state_raw(worm, WormState::BaseballBat),
         Ok(S::FirePunch) => CTaskWorm::set_state_raw(worm, WormState::FirePunch),
         Ok(S::DragonBall) => CTaskWorm::set_state_raw(worm, WormState::DragonBall),
         Ok(S::Kamikaze) => CTaskWorm::set_state_raw(worm, WormState::Kamikaze),
-        Ok(S::Prod) => fire_prod(worm, local_struct),
+        Ok(S::Prod) => fire_prod(worm, ctx as *const u8),
         Ok(S::AirStrike) => fire_air_strike(worm),
         Ok(S::ScalesOfJustice) => CTaskWorm::set_state_raw(worm, WormState::ScalesOfJustice),
         Ok(S::NapalmStrike) => fire_send_team_message(worm, 0x2B),
@@ -1488,8 +1444,7 @@ pub fn install() -> Result<(), String> {
         let _ = hook::install("GetAmmo", va::GET_AMMO, trampoline_get_ammo as *const ())?;
         let _ = hook::install("SubtractAmmo", va::SUBTRACT_AMMO, trampoline_subtract_ammo as *const ())?;
         let _ = hook::install("CountAliveWorms", va::COUNT_ALIVE_WORMS, trampoline_count_alive_worms as *const ())?;
-        let trampoline = hook::install("FireWeapon", va::FIRE_WEAPON, trampoline_fire_weapon as *const ())?;
-        ORIG_FIRE_WEAPON.store(trampoline as u32, Ordering::Relaxed);
+        hook::install_trap!("FireWeapon", va::FIRE_WEAPON);
 
         // Passthrough hooks on fire sub-functions (log + call original)
         let t = hook::install("CreateWeaponProjectile", va::CREATE_WEAPON_PROJECTILE, trampoline_create_weapon_projectile as *const ())?;
