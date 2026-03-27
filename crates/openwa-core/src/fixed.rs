@@ -72,6 +72,15 @@ impl Mul for Fixed {
     }
 }
 
+/// Scale a Fixed value by a plain integer (no shift — just `raw * n`).
+impl Mul<i32> for Fixed {
+    type Output = Self;
+    #[inline]
+    fn mul(self, rhs: i32) -> Self {
+        Self(self.0 * rhs)
+    }
+}
+
 impl Neg for Fixed {
     type Output = Self;
     #[inline]

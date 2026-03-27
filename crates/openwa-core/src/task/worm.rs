@@ -1,5 +1,6 @@
 use super::base::CTask;
 use super::game_task::CGameTask;
+use crate::fixed::Fixed;
 use crate::game::weapon::WeaponEntry;
 use crate::FieldRegistry;
 
@@ -314,9 +315,9 @@ pub struct CTaskWorm {
     pub _unknown_208: i32,
     /// 0x20C–0x247: Unknown
     pub _unknown_20c: [u8; 0x248 - 0x20C],
-    /// 0x248: Landscape scale factor for spawn offset calculation.
+    /// 0x248: Landscape scale factor for spawn offset calculation (Fixed 16.16).
     /// Used by WeaponRelease to convert aim params to world-space projectile offsets.
-    pub landscape_scale: i32,
+    pub landscape_scale: Fixed,
     /// 0x24C: Aim angle (fixed-point 16.16, range 0..0x10000 = 0..360 degrees).
     pub aim_angle: u32,
     /// 0x250–0x267: Unknown

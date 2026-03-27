@@ -10,7 +10,7 @@ use openwa_core::audio::SoundId;
 use openwa_core::fixed::Fixed;
 use openwa_core::log::log_line;
 use openwa_core::rebase::rb;
-use openwa_core::task::worm::CTaskWorm;
+use openwa_core::task::worm::{CTaskWorm, WormState};
 use openwa_core::task::{CGameTask, Task};
 
 use crate::hook::{self, usercall_trampoline};
@@ -30,8 +30,8 @@ usercall_trampoline!(fn trampoline_weapon_release; impl_fn = weapon_release_impl
 struct WeaponReleaseContext {
     team_id: u32,
     worm_id: u32,
-    param_1: u32,
-    param_2: u32,
+    spawn_x: u32,
+    spawn_y: u32,
     spawn_offset_x: i32,
     spawn_offset_y: i32,
     ammo_per_turn: u32,
@@ -70,25 +70,14 @@ fn is_weapon_category_b(weapon_id: u32) -> bool {
     matches!(weapon_id, 0x1C | 0x2C | 0x2F | 0x32)
 }
 
-// ── Fixed-point multiply ────────────────────────────────────
-
-/// Fixed-point 16.16 multiply: (a * b) >> 16, using SHRD like the original.
-/// Matches the `IMUL + SHRD EAX,EDX,0x10` pattern in the disassembly.
-#[inline(always)]
-fn fixed_mul_shrd(a: i32, b: i32) -> i32 {
-    let product = (a as i64) * (b as i64);
-    // SHRD EAX,EDX,0x10: shift the full 64-bit result right by 16
-    (product >> 16) as i32
-}
-
 // ── Main implementation ─────────────────────────────────────
 
 unsafe extern "cdecl" fn weapon_release_impl(
     worm: *mut CTaskWorm,
-    param_1: u32,
-    param_2: u32,
-    param_3: i32,
-    param_4: i32,
+    spawn_x: u32,
+    spawn_y: u32,
+    aim_dir_x: Fixed,
+    aim_dir_y: Fixed,
 ) {
     let w = &*worm;
 
@@ -96,8 +85,8 @@ unsafe extern "cdecl" fn weapon_release_impl(
     let mut ctx = WeaponReleaseContext {
         team_id: 0,
         worm_id: 0,
-        param_1: 0,
-        param_2: 0,
+        spawn_x: 0,
+        spawn_y: 0,
         spawn_offset_x: 0,
         spawn_offset_y: 0,
         ammo_per_turn: 0,
@@ -123,59 +112,64 @@ unsafe extern "cdecl" fn weapon_release_impl(
     ctx.team_id = w.team_index;
     ctx.worm_id = w.worm_index;
     ctx.ammo_per_turn = w.weapon_param_1 as u32;
-    ctx.param_2 = param_2;
-    ctx.param_1 = param_1;
+    ctx.spawn_x = spawn_x;
+    ctx.spawn_y = spawn_y;
     ctx.ammo_per_slot = w.weapon_param_2 as u32;
 
     let entry = w.active_weapon_entry;
     let fire_type = (*entry).fire_type;
-    let fire_subtype_34 = (*entry).fire_subtype_34;
-    let fire_subtype_38 = (*entry).fire_subtype_38;
+    let special_subtype = (*entry).special_subtype;
+    let fire_method = (*entry).fire_method;
+
+    use openwa_core::game::weapon::{FireType, FireMethod};
 
     // ── 3. Spawn offset calculation ─────────────────────────
-    let landscape_scale = w.landscape_scale;
+    let scale = w.landscape_scale;
 
-    match fire_type {
-        1 => match fire_subtype_38 {
-            1 => {
-                ctx.spawn_offset_x = param_3 * 0x18;
-                ctx.spawn_offset_y = param_4 * 0x18;
+    let (mut offset_x, mut offset_y) = (Fixed::ZERO, Fixed::ZERO);
+    match FireType::try_from(fire_type) {
+        Ok(FireType::Projectile) => match FireMethod::try_from(fire_method) {
+            Ok(FireMethod::PlacedExplosive) => {
+                offset_x = aim_dir_x * 0x18;
+                offset_y = aim_dir_y * 0x18;
             }
-            2 => {
-                // Falls through to type 3 (passthrough)
-                ctx.spawn_offset_x = param_3;
-                ctx.spawn_offset_y = param_4;
+            Ok(FireMethod::ProjectileFire) => {
+                // Falls through to Strike (passthrough)
+                offset_x = aim_dir_x;
+                offset_y = aim_dir_y;
             }
-            3 => {
-                ctx.spawn_offset_x = fixed_mul_shrd(param_3, landscape_scale) * 0x18;
-                ctx.spawn_offset_y = fixed_mul_shrd(param_4, landscape_scale) * 0x18;
+            Ok(FireMethod::CreateWeaponProjectile) => {
+                offset_x = aim_dir_x * scale * 0x18;
+                offset_y = aim_dir_y * scale * 0x18;
             }
-            4 => {
-                ctx.spawn_offset_x = param_3 * 0x14;
-                ctx.spawn_offset_y = param_4 * 0x14;
+            Ok(FireMethod::CreateArrow) => {
+                offset_x = aim_dir_x * 0x14;
+                offset_y = aim_dir_y * 0x14;
             }
             _ => {}
         },
-        2 => {
-            ctx.spawn_offset_x = fixed_mul_shrd(param_3, landscape_scale) * 0x18;
-            ctx.spawn_offset_y = fixed_mul_shrd(param_4, landscape_scale) * 0x18;
-            // Special Y adjustment for angle 0x79
-            if w.state() == 0x79 {
-                ctx.spawn_offset_y += w.base.speed_y.0;
+        Ok(FireType::Rope) => {
+            offset_x = aim_dir_x * scale * 0x18;
+            offset_y = aim_dir_y * scale * 0x18;
+            // Special Y adjustment for state 0x79
+            if w.state() == WormState::Unknown_0x79 as u32 {
+                offset_y += w.base.speed_y;
             }
         }
-        3 => {
-            ctx.spawn_offset_x = param_3;
-            ctx.spawn_offset_y = param_4;
+        Ok(FireType::Strike) => {
+            offset_x = aim_dir_x;
+            offset_y = aim_dir_y;
         }
-        4 => {
-            if (fire_subtype_34 as u32).wrapping_sub(1) < 0x18 {
-                ctx.spawn_offset_x = param_3;
-                ctx.spawn_offset_y = param_4;
+        Ok(FireType::Special) => {
+            if (special_subtype as u32).wrapping_sub(1) < 0x18 {
+                offset_x = aim_dir_x;
+                offset_y = aim_dir_y;
             }
         }
         _ => {}
     }
+    ctx.spawn_offset_x = offset_x.0;
+    ctx.spawn_offset_y = offset_y.0;
 
     // ── 4. Delay ────────────────────────────────────────────
     if w.difficulty_level == 0 {
@@ -264,14 +258,13 @@ unsafe extern "cdecl" fn weapon_release_impl(
 
     let w = &*worm; // re-borrow after mutation above
     let entry = w.active_weapon_entry;
-    let fire_type = (*entry).fire_type;
 
     let play_worm_sound_addr = rb(va::PLAY_WORM_SOUND);
     let stop_worm_sound_addr = rb(va::STOP_WORM_SOUND);
 
-    match fire_type {
-        1 => {
-            match (*entry).fire_subtype_34 {
+    match FireType::try_from((*entry).fire_type) {
+        Ok(FireType::Projectile) => {
+            match (*entry).special_subtype {
                 1 => {
                     if w.sound_handle == 0 {
                         call_play_worm_sound(worm, 0x1004E, 0x10000, play_worm_sound_addr);
@@ -311,7 +304,7 @@ unsafe extern "cdecl" fn weapon_release_impl(
                 _ => {}
             }
         }
-        2 => {
+        Ok(FireType::Rope) => {
             if w._unknown_2cc == 0 || w._unknown_2c8 == 1 {
                 let team_sound_raw = (*w.ddgame()).team_sound_id(team_id);
                 if let Ok(sid) = SoundId::try_from(team_sound_raw) {
@@ -319,16 +312,16 @@ unsafe extern "cdecl" fn weapon_release_impl(
                 }
             }
         }
-        // Type 3: no sound
-        4 => {
-            match (*entry).fire_subtype_34 {
+        // Type 3 (Strike): no sound
+        Ok(FireType::Special) => {
+            match (*entry).special_subtype {
                 2 => {
                     sound::play_sound_local(
                         task, SoundId::BaseballBatRelease, 3, Fixed::ONE, Fixed::ONE,
                     );
                 }
                 3 => {
-                    if let Ok(sid) = SoundId::try_from((*entry).fire_subtype_38 as u32) {
+                    if let Ok(sid) = SoundId::try_from((*entry).fire_method as u32) {
                         sound::play_sound_local(task, sid, 3, Fixed::ONE, Fixed::ONE);
                     }
                 }
@@ -385,7 +378,7 @@ unsafe extern "cdecl" fn weapon_release_impl(
 
     let _ = log_line(&format!(
         "[WeaponRelease] worm=0x{:08X} weapon={} type={} sub34={} sub38={}",
-        worm as u32, weapon_id, fire_type, fire_subtype_34, fire_subtype_38,
+        worm as u32, weapon_id, fire_type, special_subtype, fire_method,
     ));
 }
 

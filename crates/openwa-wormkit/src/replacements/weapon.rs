@@ -201,9 +201,8 @@ pub(crate) unsafe extern "cdecl" fn fire_weapon_impl(
 ) {
     use openwa_core::rebase::rb;
 
-    let weapon_type = (*entry).fire_type;
-    let subtype_34 = (*entry).fire_subtype_34;
-    let subtype_38 = (*entry).fire_subtype_38;
+    let fire_type = (*entry).fire_type;
+    let fire_method = (*entry).fire_method;
     let fire_params = &raw const (*entry).fire_params;
     // Log weapon fire
     let weapon_id = (*worm).selected_weapon;
@@ -212,32 +211,33 @@ pub(crate) unsafe extern "cdecl" fn fire_weapon_impl(
         .unwrap_or_else(|id| format!("Unknown({})", id));
     let _ = log_line(&format!(
         "[Weapon] FireWeapon: {} (id={}) type={} sub34={} sub38={}",
-        weapon_name, weapon_id, weapon_type, subtype_34, subtype_38
+        weapon_name, weapon_id, fire_type, (*entry).special_subtype, fire_method
     ));
 
     CTaskWorm::set_fire_complete_raw(worm, 0);
 
-    match weapon_type {
-        1 => match subtype_38 {
-            1 => call_fire_placed_explosive(worm, fire_params, local_struct, rb(0x51EC80)), // PlacedExplosive
-            2 => call_fire_stdcall3(worm, fire_params, local_struct, rb(0x51DFB0)),      // Projectile
-            3 => call_fire_thiscall2(worm, fire_params, local_struct, rb(0x51E0F0)),     // CreateWeaponProjectile
-            4 => call_fire_thiscall2(worm, fire_params, local_struct, rb(0x51ED90)),     // CreateArrow (Shotgun/Longbow)
+    use openwa_core::game::weapon::{FireType, FireMethod, SpecialFireSubtype};
+    match FireType::try_from(fire_type) {
+        Ok(FireType::Projectile) => match FireMethod::try_from(fire_method) {
+            Ok(FireMethod::PlacedExplosive) => call_fire_placed_explosive(worm, fire_params, local_struct, rb(0x51EC80)),
+            Ok(FireMethod::ProjectileFire) => call_fire_stdcall3(worm, fire_params, local_struct, rb(0x51DFB0)),
+            Ok(FireMethod::CreateWeaponProjectile) => call_fire_thiscall2(worm, fire_params, local_struct, rb(0x51E0F0)),
+            Ok(FireMethod::CreateArrow) => call_fire_thiscall2(worm, fire_params, local_struct, rb(0x51ED90)),
             _ => {}
         },
-        2 => match subtype_38 {
-            1 => call_fire_stdcall3(worm, fire_params, local_struct, rb(0x51E1C0)),      // RopeType1
-            2 => call_fire_thiscall2(worm, fire_params, local_struct, rb(0x51E0F0)),     // CreateWeaponProjectile
-            3 => call_fire_stdcall3(worm, fire_params, local_struct, rb(0x51E240)),      // RopeType3
+        Ok(FireType::Rope) => match FireMethod::try_from(fire_method) {
+            Ok(FireMethod::PlacedExplosive) => call_fire_stdcall3(worm, fire_params, local_struct, rb(0x51E1C0)), // RopeType1
+            Ok(FireMethod::ProjectileFire) => call_fire_thiscall2(worm, fire_params, local_struct, rb(0x51E0F0)),
+            Ok(FireMethod::CreateWeaponProjectile) => call_fire_stdcall3(worm, fire_params, local_struct, rb(0x51E240)), // RopeType3
             _ => {}
         },
-        3 => {
+        Ok(FireType::Strike) => {
             // StrikeFire takes a pointer to the subtype_34 field (reinterpreted as fire params)
-            let subtype_34_ptr = &raw const (*entry).fire_subtype_34 as *const WeaponFireParams;
+            let subtype_34_ptr = &raw const (*entry).special_subtype as *const WeaponFireParams;
             call_fire_stdcall3(worm, subtype_34_ptr, local_struct, rb(0x51E2C0));
         }
-        4 => {
-            fire_weapon_special(subtype_34, entry, worm, local_struct);
+        Ok(FireType::Special) => {
+            fire_weapon_special((*entry).special_subtype, entry, worm, local_struct);
         }
         _ => {}
     }
@@ -352,61 +352,40 @@ unsafe extern "C" fn call_fire_stdcall2(
 unsafe fn fire_weapon_special(
     subtype: i32, entry: *const WeaponEntry, worm: *mut CTaskWorm, local_struct: *const u8,
 ) {
+    use openwa_core::game::weapon::SpecialFireSubtype as S;
     use openwa_core::rebase::rb;
 
-    // Pointer to fire_subtype_38 field, reinterpreted as fire params pointer for Girder
-    let params_38_ptr = &raw const (*entry).fire_subtype_38 as *const WeaponFireParams;
+    // Pointer to fire_method field, reinterpreted as fire params pointer for Girder
+    let params_38_ptr = &raw const (*entry).fire_method as *const WeaponFireParams;
 
-    match subtype {
-        // Blowtorch
-        1 => CTaskWorm::set_state_raw(worm,WormState::Blowtorch),
-        // Pneumatic Drill (pure Rust)
-        2 => fire_drill(worm, local_struct),
-        // Girder (pure Rust)
-        3 => fire_girder(worm, params_38_ptr, local_struct),
-        // Baseball Bat
-        4 => CTaskWorm::set_state_raw(worm,WormState::BaseballBat),
-        // Fire Punch
-        5 => CTaskWorm::set_state_raw(worm,WormState::FirePunch),
-        // Dragon Ball
-        6 => CTaskWorm::set_state_raw(worm,WormState::DragonBall),
-        // Kamikaze
-        8 => CTaskWorm::set_state_raw(worm,WormState::Kamikaze),
-        // Prod (pure Rust)
-        9 => fire_prod(worm, local_struct),
-        // Air Strike (pure Rust)
-        10 => fire_air_strike(worm),
-        // Scales of Justice
-        11 => CTaskWorm::set_state_raw(worm,WormState::ScalesOfJustice),
-        // Napalm Strike
-        13 => fire_send_team_message(worm, 0x2B),
-        // Mail/Mine/Mole (pure Rust)
-        14 => fire_mail_mine_mole(worm),
-        // Indian Nuclear Test: check worm state, then detonate or cancel
-        16 => {
-            let worm_state = (*worm).state();
-            if can_fire_subtype16(worm_state) {
+    match S::try_from(subtype) {
+        Ok(S::Blowtorch) => CTaskWorm::set_state_raw(worm, WormState::Blowtorch),
+        Ok(S::PneumaticDrill) => fire_drill(worm, local_struct),
+        Ok(S::Girder) => fire_girder(worm, params_38_ptr, local_struct),
+        Ok(S::BaseballBat) => CTaskWorm::set_state_raw(worm, WormState::BaseballBat),
+        Ok(S::FirePunch) => CTaskWorm::set_state_raw(worm, WormState::FirePunch),
+        Ok(S::DragonBall) => CTaskWorm::set_state_raw(worm, WormState::DragonBall),
+        Ok(S::Kamikaze) => CTaskWorm::set_state_raw(worm, WormState::Kamikaze),
+        Ok(S::Prod) => fire_prod(worm, local_struct),
+        Ok(S::AirStrike) => fire_air_strike(worm),
+        Ok(S::ScalesOfJustice) => CTaskWorm::set_state_raw(worm, WormState::ScalesOfJustice),
+        Ok(S::NapalmStrike) => fire_send_team_message(worm, 0x2B),
+        Ok(S::MailMineMole) => fire_mail_mine_mole(worm),
+        Ok(S::IndianNuclearTest) => {
+            if can_fire_subtype16((*worm).state()) {
                 fire_indian_nuclear_test(worm);
             } else {
-                CTaskWorm::set_state_raw(worm,WormState::TeleportCancelled_Maybe);
+                CTaskWorm::set_state_raw(worm, WormState::TeleportCancelled_Maybe);
             }
         }
-        // Freeze (pure Rust)
-        17 => fire_freeze(worm),
-        // Suicide Bomber
-        18 => CTaskWorm::set_state_raw(worm,WormState::SuicideBomber),
-        // Skip Go (pure Rust)
-        19 => fire_skip_go(worm, entry),
-        // Surrender (pure Rust)
-        20 => fire_surrender(worm),
-        // Select Worm (pure Rust)
-        21 => fire_select_worm(worm),
-        // Jet Pack (pure Rust)
-        22 => fire_jet_pack(worm),
-        // Magic Bullet
-        23 => CTaskWorm::set_state_raw(worm,WormState::WeaponAimed_Maybe),
-        // Low Gravity — kept on bridge pending codegen UB investigation
-        24 => call_fire_usercall(entry as *const (), worm, rb(0x51EA60)),
+        Ok(S::Freeze) => fire_freeze(worm),
+        Ok(S::SuicideBomber) => CTaskWorm::set_state_raw(worm, WormState::SuicideBomber),
+        Ok(S::SkipGo) => fire_skip_go(worm, entry),
+        Ok(S::Surrender) => fire_surrender(worm),
+        Ok(S::SelectWorm) => fire_select_worm(worm),
+        Ok(S::JetPack) => fire_jet_pack(worm),
+        Ok(S::MagicBullet) => CTaskWorm::set_state_raw(worm, WormState::WeaponAimed_Maybe),
+        Ok(S::LowGravity) => call_fire_usercall(entry as *const (), worm, rb(0x51EA60)),
         _ => {}
     }
 }
@@ -621,10 +600,10 @@ unsafe fn fire_indian_nuclear_test(worm: *mut CTaskWorm) {
     let entry = &*(*worm).active_weapon_entry;
     let team = lookup_team_task(worm);
 
-    // Message 0x59 (RaiseWater): buf[0]=fire_subtype_38, buf[4]=8
+    // Message 0x59 (RaiseWater): buf[0]=fire_method, buf[4]=8
     if !team.is_null() {
         let mut buf = [0u8; 0x40C];
-        buf[0..4].copy_from_slice(&entry.fire_subtype_38.to_ne_bytes());
+        buf[0..4].copy_from_slice(&entry.fire_method.to_ne_bytes());
         buf[4..8].copy_from_slice(&8i32.to_ne_bytes());
         (*team).handle_message((*worm).as_task_ptr_mut(), 0x59, 0x408, buf.as_ptr());
     }
@@ -1059,7 +1038,7 @@ unsafe fn fire_drill(worm: *mut CTaskWorm, local_struct: *const u8) {
     let version = (*ddgame).version_flag_4;
     let entry = &*(*worm).active_weapon_entry;
     let shot_count = entry.fire_params.shot_count;
-    let weapon_type = entry.fire_subtype_38;
+    let weapon_type = entry.fire_method;
     let facing = (*worm).facing_direction_2;
 
     // Cast local_struct to WeaponSpawnData for field access (offsets match)
@@ -1092,7 +1071,7 @@ unsafe fn fire_prod(worm: *mut CTaskWorm, local_struct: *const u8) {
     let entry = &*(*worm).active_weapon_entry;
     let shot_count = entry.fire_params.shot_count;
     let spread = entry.fire_params.spread;
-    let weapon_type = entry.fire_subtype_38;
+    let weapon_type = entry.fire_method;
     let facing = (*worm).facing_direction_2;
 
     let spawn = &*(local_struct as *const WeaponSpawnData);

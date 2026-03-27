@@ -143,6 +143,130 @@ const _: () = assert!(core::mem::size_of::<WeaponSpawnData>() == 0x2C);
 
 /// Per-weapon data entry in the weapon table (0x1D0 = 464 bytes).
 ///
+/// Top-level weapon fire type (WeaponEntry+0x30).
+///
+/// Determines which sub-function handles the weapon fire in FireWeapon dispatch.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(i32)]
+pub enum FireType {
+    /// Projectile weapons (Bazooka, Grenade, Shotgun, etc.).
+    /// Sub-dispatched by `fire_method`.
+    Projectile = 1,
+    /// Rope-based weapons (Ninja Rope, Bungee).
+    /// Sub-dispatched by `fire_method`.
+    Rope = 2,
+    /// Strike weapons (Air Strike, Napalm Strike, Mail Strike, etc.).
+    /// Uses `special_subtype` as parameter data (not a subtype selector).
+    Strike = 3,
+    /// Special weapons (melee, utility, powerups).
+    /// Sub-dispatched by `special_subtype`.
+    Special = 4,
+}
+
+impl TryFrom<i32> for FireType {
+    type Error = i32;
+    fn try_from(v: i32) -> Result<Self, i32> {
+        match v {
+            1 => Ok(Self::Projectile),
+            2 => Ok(Self::Rope),
+            3 => Ok(Self::Strike),
+            4 => Ok(Self::Special),
+            _ => Err(v),
+        }
+    }
+}
+
+/// Fire method for projectile (type 1) and rope (type 2) weapons (WeaponEntry+0x38).
+///
+/// Selects which sub-function creates the projectile or rope entity.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(i32)]
+pub enum FireMethod {
+    /// PlacedExplosive: usercall, places mine/dynamite at worm position.
+    PlacedExplosive = 1,
+    /// ProjectileFire: stdcall, fires projectile with spread/rotation.
+    ProjectileFire = 2,
+    /// CreateWeaponProjectile: thiscall, allocates CTaskMissile.
+    CreateWeaponProjectile = 3,
+    /// CreateArrow: thiscall, allocates CTaskArrow (Shotgun, Longbow).
+    CreateArrow = 4,
+}
+
+impl TryFrom<i32> for FireMethod {
+    type Error = i32;
+    fn try_from(v: i32) -> Result<Self, i32> {
+        match v {
+            1 => Ok(Self::PlacedExplosive),
+            2 => Ok(Self::ProjectileFire),
+            3 => Ok(Self::CreateWeaponProjectile),
+            4 => Ok(Self::CreateArrow),
+            _ => Err(v),
+        }
+    }
+}
+
+/// Special weapon subtype (WeaponEntry+0x34, when fire_type == Special).
+///
+/// Each value corresponds to a specific weapon's fire handler.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(i32)]
+pub enum SpecialFireSubtype {
+    Blowtorch = 1,
+    PneumaticDrill = 2,
+    Girder = 3,
+    BaseballBat = 4,
+    FirePunch = 5,
+    DragonBall = 6,
+    // 7: unknown
+    Kamikaze = 8,
+    Prod = 9,
+    AirStrike = 10,
+    ScalesOfJustice = 11,
+    // 12: unknown
+    NapalmStrike = 13,
+    MailMineMole = 14,
+    // 15: unknown
+    IndianNuclearTest = 16,
+    Freeze = 17,
+    SuicideBomber = 18,
+    SkipGo = 19,
+    Surrender = 20,
+    SelectWorm = 21,
+    JetPack = 22,
+    MagicBullet = 23,
+    LowGravity = 24,
+}
+
+impl TryFrom<i32> for SpecialFireSubtype {
+    type Error = i32;
+    fn try_from(v: i32) -> Result<Self, i32> {
+        match v {
+            1 => Ok(Self::Blowtorch),
+            2 => Ok(Self::PneumaticDrill),
+            3 => Ok(Self::Girder),
+            4 => Ok(Self::BaseballBat),
+            5 => Ok(Self::FirePunch),
+            6 => Ok(Self::DragonBall),
+            8 => Ok(Self::Kamikaze),
+            9 => Ok(Self::Prod),
+            10 => Ok(Self::AirStrike),
+            11 => Ok(Self::ScalesOfJustice),
+            13 => Ok(Self::NapalmStrike),
+            14 => Ok(Self::MailMineMole),
+            16 => Ok(Self::IndianNuclearTest),
+            17 => Ok(Self::Freeze),
+            18 => Ok(Self::SuicideBomber),
+            19 => Ok(Self::SkipGo),
+            20 => Ok(Self::Surrender),
+            21 => Ok(Self::SelectWorm),
+            22 => Ok(Self::JetPack),
+            23 => Ok(Self::MagicBullet),
+            24 => Ok(Self::LowGravity),
+            _ => Err(v),
+        }
+    }
+}
+
 /// 71 standard entries (indices 0..70), matching the `Weapon` enum.
 /// Source: wkJellyWorm/src/CustomWeapons.h (WeaponStruct).
 ///
@@ -183,9 +307,9 @@ pub struct WeaponEntry {
     /// Read by FireWeapon to dispatch to the correct handler.
     pub fire_type: i32,
     /// +0x34: Fire subtype for weapon types 3 (grenade/mortar) and 4 (special).
-    pub fire_subtype_34: i32,
+    pub special_subtype: i32,
     /// +0x38: Fire subtype for weapon types 1 (projectile) and 2 (rope).
-    pub fire_subtype_38: i32,
+    pub fire_method: i32,
     /// +0x3C: Fire parameters sub-structure. Pointer to this field is passed
     /// to fire sub-functions (PlacedExplosive, Projectile, CreateWeaponProjectile, etc.).
     pub fire_params: WeaponFireParams,
