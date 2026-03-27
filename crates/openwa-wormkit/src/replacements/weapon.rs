@@ -214,7 +214,7 @@ unsafe extern "cdecl" fn fire_weapon_impl(
         weapon_name, weapon_id, weapon_type, subtype_34, subtype_38
     ));
 
-    (*worm).set_fire_complete(0);
+    CTaskWorm::set_fire_complete_raw(worm, 0);
 
     match weapon_type {
         1 => match subtype_38 {
@@ -241,7 +241,7 @@ unsafe extern "cdecl" fn fire_weapon_impl(
         _ => {}
     }
 
-    (*worm).set_fire_complete(1);
+    CTaskWorm::set_fire_complete_raw(worm, 1);
 }
 
 // ── Sub-function bridges ────────────────────────────────────
@@ -358,43 +358,42 @@ unsafe fn fire_weapon_special(
 
     match subtype {
         // Blowtorch
-        1 => (*worm).set_state(WormState::Blowtorch),
+        1 => CTaskWorm::set_state_raw(worm,WormState::Blowtorch),
         // Pneumatic Drill (pure Rust)
         2 => fire_drill(worm, local_struct),
         // Girder (pure Rust)
         3 => fire_girder(worm, params_38_ptr, local_struct),
         // Baseball Bat
-        4 => (*worm).set_state(WormState::BaseballBat),
+        4 => CTaskWorm::set_state_raw(worm,WormState::BaseballBat),
         // Fire Punch
-        5 => (*worm).set_state(WormState::FirePunch),
+        5 => CTaskWorm::set_state_raw(worm,WormState::FirePunch),
         // Dragon Ball
-        6 => (*worm).set_state(WormState::DragonBall),
+        6 => CTaskWorm::set_state_raw(worm,WormState::DragonBall),
         // Kamikaze
-        8 => (*worm).set_state(WormState::Kamikaze),
+        8 => CTaskWorm::set_state_raw(worm,WormState::Kamikaze),
         // Prod (pure Rust)
         9 => fire_prod(worm, local_struct),
-        // Air Strike (EAX=worm)
-        10 => call_fire_usercall(worm as *const (), worm, rb(0x51E710)),
+        // Air Strike (pure Rust)
+        10 => fire_air_strike(worm),
         // Scales of Justice
-        11 => (*worm).set_state(WormState::ScalesOfJustice),
+        11 => CTaskWorm::set_state_raw(worm,WormState::ScalesOfJustice),
         // Napalm Strike
         13 => fire_send_team_message(worm, 0x2B),
         // Mail/Mine/Mole (pure Rust)
         14 => fire_mail_mine_mole(worm),
-        // Teleport: check worm state, then execute or cancel
+        // Indian Nuclear Test: check worm state, then detonate or cancel
         16 => {
             let worm_state = (*worm).state();
-            if can_teleport(worm_state) {
-                call_fire_usercall(worm_state as *const (), worm, rb(0x51EB00));
+            if can_fire_subtype16(worm_state) {
+                fire_indian_nuclear_test(worm);
             } else {
-                // Teleport denied — return to cancelled state
-                (*worm).set_state(WormState::TeleportCancelled_Maybe);
+                CTaskWorm::set_state_raw(worm,WormState::TeleportCancelled_Maybe);
             }
         }
         // Freeze (pure Rust)
         17 => fire_freeze(worm),
         // Suicide Bomber
-        18 => (*worm).set_state(WormState::SuicideBomber),
+        18 => CTaskWorm::set_state_raw(worm,WormState::SuicideBomber),
         // Skip Go (pure Rust)
         19 => fire_skip_go(worm, entry),
         // Surrender (pure Rust)
@@ -404,18 +403,16 @@ unsafe fn fire_weapon_special(
         // Jet Pack (pure Rust)
         22 => fire_jet_pack(worm),
         // Magic Bullet
-        23 => (*worm).set_state(WormState::WeaponAimed_Maybe),
-        // Low Gravity — kept on bridge. Changing this arm to non-naked-fn code causes
-        // a codegen-dependent desync: LLVM's register allocation for the match changes,
-        // exposing latent UB somewhere in the reachable code paths. See investigation notes.
+        23 => CTaskWorm::set_state_raw(worm,WormState::WeaponAimed_Maybe),
+        // Low Gravity — kept on bridge pending codegen UB investigation
         24 => call_fire_usercall(entry as *const (), worm, rb(0x51EA60)),
         _ => {}
     }
 }
 
-/// Teleport validity check — pure Rust port of 0x516930.
-/// Returns true if the worm's current state allows teleportation.
-fn can_teleport(state: u32) -> bool {
+/// Worm state validity check for subtype 16 — pure Rust port of 0x516930.
+/// Used by Indian Nuclear Test (and possibly Teleport) to gate firing.
+fn can_fire_subtype16(state: u32) -> bool {
     state == WormState::WeaponAimed_Maybe as u32
         || (WormState::AimingAngle_Maybe as u32..=WormState::PreFire_Maybe as u32).contains(&state)
 }
@@ -545,7 +542,7 @@ unsafe fn fire_mail_mine_mole(worm: *mut CTaskWorm) {
                 || (worm_state == WormState::WeaponAimed_Maybe as u32 && version < 8)));
 
     if should_call_vtable {
-        (*worm).set_state(WormState::Idle);
+        CTaskWorm::set_state_raw(worm,WormState::Idle);
     }
 
     fire_send_team_message(worm, 0x28);
@@ -555,6 +552,185 @@ unsafe fn fire_mail_mine_mole(worm: *mut CTaskWorm) {
     let worm_index = (*worm).worm_index as usize;
     let entry = arena.team_worm_mut(team_index, worm_index);
     entry.turn_action_counter_Maybe += 7;
+}
+
+/// Air Strike (subtype 10) — pure Rust port of 0x51E710.
+///
+/// If CTaskWorm+0x208 == 0: set state to 0x6F (air strike pending).
+/// Otherwise: play sound, spawn visual effect, update position, compute
+/// new state based on game version, clear action fields.
+///
+/// Convention: usercall(EAX=worm, ESI=worm, EDI=worm), plain RET.
+unsafe fn fire_air_strike(worm: *mut CTaskWorm) {
+    use openwa_core::rebase::rb;
+
+    let worm_raw = worm as *mut u8;
+    let field_208 = *(worm_raw.add(0x208) as *const i32);
+
+    if field_208 == 0 {
+        CTaskWorm::set_state_raw(worm,WormState::from_raw_unchecked(0x6F));
+        return;
+    }
+
+    // Play air strike sound: usercall(EDI=worm) + stdcall(sound_id=0x36, volume=0x10000, flags=3)
+    call_worm_play_sound(worm, 0x36, 0x10000, 3, rb(0x515020));
+
+    // Spawn visual effect: usercall(EAX=0x80000, ECX=x) + stdcall(y, 0, 0, 0, 600, 0x10000, 0x1999)
+    let fire_x = *(worm_raw.add(0x2E0) as *const i32);
+    let fire_y = *(worm_raw.add(0x2E4) as *const i32);
+    call_spawn_effect(fire_x, fire_y, rb(0x547C30));
+
+    // Temporarily swap worm+0x34 with worm+0x190, call position update, restore
+    let saved_34 = *(worm_raw.add(0x34) as *const i32);
+    let field_190 = *(worm_raw.add(0x190) as *const i32);
+    *(worm_raw.add(0x34) as *mut i32) = field_190;
+    call_position_update(worm, fire_x, fire_y, rb(0x4FE070));
+    *(worm_raw.add(0x34) as *mut i32) = saved_34;
+
+    // Compute new state: version < 455 → Idle (0x65), else → 0x8B
+    let ddgame = (*worm).ddgame();
+    let game_version = (*(*ddgame).game_info).game_version;
+    let new_state = if game_version < 0x1C7 {
+        WormState::Idle
+    } else {
+        WormState::Unknown_0x8B
+    };
+    CTaskWorm::set_state_raw(worm,new_state);
+
+    // Clear action fields
+    *(worm_raw.add(0x48) as *mut i32) = 0;
+    *(worm_raw.add(0x208) as *mut i32) = 0;
+    *(worm_raw.add(0x198) as *mut i32) = 0;
+    *(worm_raw.add(0x19C) as *mut i32) = 0;
+    *(worm_raw.add(0x1AC) as *mut i32) = 0;
+
+    // FUN_0050D450: usercall(ESI=worm), cleanup/landing check
+    call_worm_landing_check(worm, rb(0x50D450));
+
+    // Debug log block (ddgame+0x8144) omitted — only writes to debug file
+}
+
+/// Indian Nuclear Test (subtype 16) — pure Rust port of 0x51EB00.
+///
+/// Sends three messages to CTaskTeam: RaiseWater (0x59), NukeBlast (0x5A),
+/// PoisonWorm (0x51), and plays two sounds. Gated by can_fire_subtype16.
+///
+/// Convention: usercall(EAX=worm_state, ESI=worm, EDI=worm), plain RET.
+unsafe fn fire_indian_nuclear_test(worm: *mut CTaskWorm) {
+    use crate::replacements::sound;
+
+    let ddgame = (*worm).ddgame();
+    let entry = &*(*worm).active_weapon_entry;
+    let team = lookup_team_task(worm);
+
+    // Message 0x59 (RaiseWater): buf[0]=fire_subtype_38, buf[4]=8
+    if !team.is_null() {
+        let mut buf = [0u8; 0x40C];
+        buf[0..4].copy_from_slice(&entry.fire_subtype_38.to_ne_bytes());
+        buf[4..8].copy_from_slice(&8i32.to_ne_bytes());
+        (*team).handle_message((*worm).as_task_ptr_mut(), 0x59, 0x408, buf.as_ptr());
+    }
+
+    // Message 0x5A (NukeBlast): buf[0]=8
+    let team = lookup_team_task(worm);
+    if !team.is_null() {
+        let mut buf = [0u8; 0x40C];
+        buf[0..4].copy_from_slice(&8i32.to_ne_bytes());
+        (*team).handle_message((*worm).as_task_ptr_mut(), 0x5A, 0x408, buf.as_ptr());
+    }
+
+    // PlaySoundGlobal(7, 8, 0x10000, 0x10000)
+    sound::queue_sound(ddgame, 7, 8, 0x10000, 0x10000);
+
+    // Message 0x51 (PoisonWorm): buf[0]=shot_count, buf[4]=2, buf[8]=team_index
+    let team = lookup_team_task(worm);
+    if !team.is_null() {
+        let mut buf = [0u8; 0x40C];
+        buf[0..4].copy_from_slice(&entry.fire_params.shot_count.to_ne_bytes());
+        buf[4..8].copy_from_slice(&2i32.to_ne_bytes());
+        buf[8..12].copy_from_slice(&(*worm).team_index.to_ne_bytes());
+        (*team).handle_message((*worm).as_task_ptr_mut(), 0x51, 0x408, buf.as_ptr());
+    }
+
+    // PlaySoundGlobal(0x1E, 5, 0x10000, 0x10000)
+    sound::queue_sound(ddgame, 0x1E, 5, 0x10000, 0x10000);
+}
+
+// ── Air Strike sub-function bridges ───────────────────────
+
+/// Bridge: FUN_00515020 — usercall(EDI=worm) + stdcall(sound_id, volume, flags). RET 0xC.
+#[unsafe(naked)]
+unsafe extern "C" fn call_worm_play_sound(
+    _worm: *mut CTaskWorm, _sound_id: u32, _volume: u32, _flags: u32, _addr: u32,
+) {
+    core::arch::naked_asm!(
+        "push edi",
+        // Stack: 1 save(4) + ret(4) = 8 to first arg
+        "mov edi, [esp+8]",    // worm
+        "mov eax, [esp+24]",   // addr
+        "push [esp+20]",       // flags
+        "push [esp+20]",       // volume (shifted +4)
+        "push [esp+20]",       // sound_id (shifted +8)
+        "call eax",
+        "pop edi",
+        "ret",
+    );
+}
+
+/// Bridge: FUN_00547C30 — usercall(EAX=0x80000, ECX=x) + stdcall(y, 0,0,0, 600, 0x10000, 0x1999).
+#[unsafe(naked)]
+unsafe extern "C" fn call_spawn_effect(_x: i32, _y: i32, _addr: u32) {
+    core::arch::naked_asm!(
+        "push ebx",
+        // Stack: 1 save(4) + ret(4) = 8 to first arg
+        "mov ecx, [esp+8]",    // x
+        "mov ebx, [esp+16]",   // addr
+        "push 0x1999",
+        "push 0x10000",
+        "push 0x258",          // 600
+        "push 0",
+        "push 0",
+        "push 0",
+        "push [esp+36]",       // y (8 + 4 + 6*4 = 36)
+        "mov eax, 0x80000",
+        "call ebx",
+        "pop ebx",
+        "ret",
+    );
+}
+
+/// Bridge: FUN_004FE070 — usercall(ESI=worm, EDI=y) + stdcall(x). Plain RET.
+#[unsafe(naked)]
+unsafe extern "C" fn call_position_update(
+    _worm: *mut CTaskWorm, _x: i32, _y: i32, _addr: u32,
+) {
+    core::arch::naked_asm!(
+        "push ebx",
+        "push esi",
+        "push edi",
+        // Stack: 3 saves(12) + ret(4) = 16 to first arg
+        "mov esi, [esp+16]",   // worm
+        "mov edi, [esp+24]",   // y
+        "mov ebx, [esp+28]",   // addr
+        "push [esp+20]",       // x
+        "call ebx",
+        "pop edi",
+        "pop esi",
+        "pop ebx",
+        "ret",
+    );
+}
+
+/// Bridge: FUN_0050D450 — usercall(ESI=worm). Plain RET.
+#[unsafe(naked)]
+unsafe extern "C" fn call_worm_landing_check(_worm: *mut CTaskWorm, _addr: u32) {
+    core::arch::naked_asm!(
+        "push esi",
+        "mov esi, [esp+8]",    // worm (1 save + ret = 8)
+        "call [esp+12]",       // addr (8 + 4 = 12)
+        "pop esi",
+        "ret",
+    );
 }
 
 /// Jet Pack (subtype 22) — pure Rust port of 0x51EC30.
@@ -746,6 +922,26 @@ unsafe extern "C" fn call_girder_ctor(
         "push [esi]",         // fire_params[0] (B-28 → stack pos 8)
         "push [esp+48]",      // this: B-32+48 = B+16 ✓
         "call ebx",           // RET 0x24 cleans 9 params
+        "pop edi",
+        "pop esi",
+        "pop ebx",
+        "ret",
+    );
+}
+
+/// Bridge: usercall(EAX=eax_val, ESI=worm, EDI=worm), plain RET.
+/// Kept for Low Gravity until the codegen UB is resolved.
+#[unsafe(naked)]
+unsafe extern "C" fn call_fire_usercall(_eax: *const (), _worm: *mut CTaskWorm, _addr: u32) {
+    core::arch::naked_asm!(
+        "push ebx",
+        "push esi",
+        "push edi",
+        "mov eax, [esp+16]",
+        "mov esi, [esp+20]",
+        "mov edi, [esp+20]",
+        "mov ebx, [esp+24]",
+        "call ebx",
         "pop edi",
         "pop esi",
         "pop ebx",
@@ -985,26 +1181,6 @@ unsafe extern "C" fn call_missile_ctor(
         "push [esp+28]",      // fire_params (shifted +4)
         "push [esp+28]",      // parent (shifted +8)
         "call ebx",           // thiscall: RET 0xC cleans 3 params
-        "pop edi",
-        "pop esi",
-        "pop ebx",
-        "ret",
-    );
-}
-
-/// Bridge: usercall(EAX=eax_val, ESI=worm, EDI=worm), plain RET.
-/// Args: (eax_val, worm, addr). Saves/restores ESI+EDI. Uses EBX to hold addr.
-#[unsafe(naked)]
-unsafe extern "C" fn call_fire_usercall(_eax: *const (), _worm: *mut CTaskWorm, _addr: u32) {
-    core::arch::naked_asm!(
-        "push ebx",
-        "push esi",
-        "push edi",
-        "mov eax, [esp+16]",  // eax_val (3 saves=12 + ret=4 = 16)
-        "mov esi, [esp+20]",  // worm
-        "mov edi, [esp+20]",
-        "mov ebx, [esp+24]",  // addr
-        "call ebx",
         "pop edi",
         "pop esi",
         "pop ebx",

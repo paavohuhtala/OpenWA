@@ -28,7 +28,7 @@ static SOUND_LOG_ENABLED: std::sync::atomic::AtomicBool = std::sync::atomic::Ato
 ///
 /// Returns a pointer to the new entry, or None if the queue is full
 /// or sound is disabled.
-unsafe fn queue_sound(
+pub unsafe fn queue_sound(
     ddgame: *mut DDGame,
     sound_id: u32,
     flags: u32,

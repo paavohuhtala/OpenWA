@@ -95,6 +95,35 @@ pub enum WormState {
     Unknown_0x8B = 0x8B,
 }
 
+impl WormState {
+    /// Create a WormState from a raw u8 value without validation.
+    /// Use for states not yet added to the enum.
+    pub const unsafe fn from_raw_unchecked(val: u8) -> Self {
+        core::mem::transmute(val)
+    }
+}
+
+/// Raw-pointer methods for CTaskWorm.
+///
+/// These avoid creating `&mut CTaskWorm` references, which give LLVM noalias
+/// guarantees that can cause miscompilation when WA code modifies the same
+/// memory through raw pointers during bridge calls. Use these in weapon
+/// dispatch and other hot paths that mix Rust and WA function calls.
+impl CTaskWorm {
+    /// Call set_state through the vtable without creating `&mut self`.
+    /// Avoids noalias issues when WA code may alias the worm memory.
+    pub unsafe fn set_state_raw(this: *mut CTaskWorm, state: WormState) {
+        let vtable = *(this as *const *const CTaskWormVTable);
+        ((*vtable).set_state)(this, state);
+    }
+
+    /// Set the weapon fire completion flag at +0x3C without creating `&mut self`.
+    pub unsafe fn set_fire_complete_raw(this: *mut CTaskWorm, value: i32) {
+        let base = this as *mut u8;
+        core::ptr::write(base.add(0x3C) as *mut i32, value);
+    }
+}
+
 crate::define_addresses! {
     class "CTaskWorm" {
         /// CTaskWorm vtable
