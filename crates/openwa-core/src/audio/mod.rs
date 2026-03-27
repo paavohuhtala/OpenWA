@@ -15,6 +15,6 @@ pub use dssound::{
 };
 pub use dssound::{ChannelDescriptor, DSSound, DSSoundVtable};
 pub use music::Music;
-pub use sound::SoundId;
+pub use sound::{KnownSoundId, SoundId};
 pub use speech::{SpeechLineId, SpeechLineTableEntry, SpeechSlotTable, SPEECH_LINE_TABLE_COUNT};
 pub use streaming::StreamingAudio;

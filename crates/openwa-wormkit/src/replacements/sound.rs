@@ -10,7 +10,7 @@
 use std::sync::atomic::Ordering;
 
 use openwa_core::address::va;
-use openwa_core::audio::{play_sound, play_sound_pooled, SoundId};
+use openwa_core::audio::{play_sound, play_sound_pooled, KnownSoundId, SoundId};
 use openwa_core::engine::{DDGame, DDGameWrapper, SoundQueueEntry};
 use openwa_core::fixed::Fixed;
 use openwa_core::task::{CGameTask, CTask};
@@ -42,7 +42,7 @@ pub unsafe fn queue_sound(
     }
     let entry = &mut g.sound_queue[g.sound_queue_count as usize];
     *entry = SoundQueueEntry {
-        sound_id: sound_id as u32,
+        sound_id: sound_id.0,
         flags,
         volume: volume.0 as u32,
         pitch: pitch.0 as u32,
@@ -70,7 +70,7 @@ unsafe extern "thiscall" fn hook_play_sound_global(
     pitch: Fixed,
 ) -> u32 {
     if SOUND_LOG_ENABLED.load(Ordering::Relaxed) {
-        let sound_name = SoundId::try_from(sound_id)
+        let sound_name = KnownSoundId::try_from(sound_id)
             .map(|s| format!("{s:?}"))
             .unwrap_or_else(|v| format!("#{v}"));
         let _ = log_line(&format!(
@@ -79,11 +79,7 @@ unsafe extern "thiscall" fn hook_play_sound_global(
         ));
     }
 
-    let sid = match SoundId::try_from(sound_id) {
-        Ok(s) => s,
-        Err(_) => return 0,
-    };
-    queue_sound((*this).base.ddgame, sid, flags, volume, pitch).is_some() as u32
+    queue_sound((*this).base.ddgame, SoundId(sound_id), flags, volume, pitch).is_some() as u32
 }
 
 // ============================================================
@@ -103,7 +99,7 @@ unsafe extern "cdecl" fn play_sound_local_impl(
     flags: u32,
 ) -> u32 {
     if SOUND_LOG_ENABLED.load(Ordering::Relaxed) {
-        let sound_name = SoundId::try_from(sound_id)
+        let sound_name = KnownSoundId::try_from(sound_id)
             .map(|s| format!("{s:?}"))
             .unwrap_or_else(|v| format!("#{v}"));
         let _ = log_line(&format!(
@@ -112,13 +108,9 @@ unsafe extern "cdecl" fn play_sound_local_impl(
         ));
     }
 
-    let sid = match SoundId::try_from(sound_id) {
-        Ok(s) => s,
-        Err(_) => return 0,
-    };
     let gt = &*task;
     let ddgame = gt.base.ddgame;
-    let entry = match queue_sound(ddgame, sid, flags, volume, pitch) {
+    let entry = match queue_sound(ddgame, SoundId(sound_id), flags, volume, pitch) {
         Some(e) => e,
         None => return 0,
     };
@@ -145,14 +137,14 @@ unsafe extern "cdecl" fn play_sound_local_impl(
 /// increments the task's local sound count. Returns true on success.
 pub(crate) unsafe fn play_sound_local(
     task: *mut CGameTask,
-    sound_id: SoundId,
+    sound_id: impl Into<SoundId>,
     flags: u32,
     volume: Fixed,
     pitch: Fixed,
 ) -> bool {
     let gt = &*task;
     let ddgame = gt.base.ddgame;
-    let entry = match queue_sound(ddgame, sound_id, flags, volume, pitch) {
+    let entry = match queue_sound(ddgame, sound_id.into(), flags, volume, pitch) {
         Some(e) => e,
         None => return false,
     };

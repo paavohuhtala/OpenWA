@@ -1,9 +1,23 @@
-/// Sound effect IDs. Range 1-126, contiguous.
+/// Opaque sound ID. WA uses a wider range than just the known SFX enum
+/// (e.g., speech/voice lines use IDs above 126). This newtype wraps the
+/// raw u32 value and can be constructed from [`KnownSoundId`] variants.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(transparent)]
+pub struct SoundId(pub u32);
+
+impl From<KnownSoundId> for SoundId {
+    #[inline]
+    fn from(known: KnownSoundId) -> Self {
+        Self(known as u32)
+    }
+}
+
+/// Known sound effect IDs. Range 1-126, contiguous.
 ///
 /// Source: wkJellyWorm Constants.h
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(u32)]
-pub enum SoundId {
+pub enum KnownSoundId {
     Morse = 1,
     CrowdPart1 = 2,
     CrowdPart2 = 3,
@@ -132,12 +146,12 @@ pub enum SoundId {
     RocketPowerdown = 126,
 }
 
-impl SoundId {
+impl KnownSoundId {
     pub const MIN: u32 = 1;
     pub const MAX: u32 = 126;
 }
 
-impl TryFrom<u32> for SoundId {
+impl TryFrom<u32> for KnownSoundId {
     type Error = u32;
 
     fn try_from(value: u32) -> Result<Self, Self::Error> {

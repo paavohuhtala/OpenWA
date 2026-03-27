@@ -16,7 +16,7 @@
 use core::sync::atomic::{AtomicU32, Ordering};
 
 use openwa_core::address::va;
-use openwa_core::audio::SoundId;
+use openwa_core::audio::KnownSoundId;
 use openwa_core::engine::ddgame::{self, TeamArenaRef};
 use openwa_core::fixed::Fixed;
 use openwa_core::game::weapon::{WeaponEntry, WeaponFireParams, WeaponSpawnData};
@@ -614,7 +614,7 @@ unsafe fn fire_indian_nuclear_test(worm: *mut CTaskWorm) {
     }
 
     // PlaySoundGlobal(IndianAnthem, 8, 0x10000, 0x10000)
-    sound::queue_sound(ddgame, SoundId::IndianAnthem, 8, Fixed::ONE, Fixed::ONE);
+    sound::queue_sound(ddgame, KnownSoundId::IndianAnthem.into(), 8, Fixed::ONE, Fixed::ONE);
 
     // Message 0x51 (PoisonWorm): buf[0]=shot_count, buf[4]=2, buf[8]=team_index
     let team = lookup_team_task(worm);
@@ -627,7 +627,7 @@ unsafe fn fire_indian_nuclear_test(worm: *mut CTaskWorm) {
     }
 
     // PlaySoundGlobal(NukeFlash, 5, 0x10000, 0x10000)
-    sound::queue_sound(ddgame, SoundId::NukeFlash, 5, Fixed::ONE, Fixed::ONE);
+    sound::queue_sound(ddgame, KnownSoundId::NukeFlash.into(), 5, Fixed::ONE, Fixed::ONE);
 }
 
 // ── Air Strike sub-function bridges ───────────────────────
