@@ -13,7 +13,8 @@ use openwa_core::address::va;
 use openwa_core::audio::{play_sound, play_sound_pooled, KnownSoundId, SoundId};
 use openwa_core::engine::{DDGame, DDGameWrapper, SoundQueueEntry};
 use openwa_core::fixed::Fixed;
-use openwa_core::task::{CGameTask, CTask};
+use openwa_core::task::worm::CTaskWorm;
+use openwa_core::task::{CGameTask, CTask, Task};
 
 use crate::hook;
 use crate::log_line;
@@ -160,6 +161,102 @@ pub(crate) unsafe fn play_sound_local(
 }
 
 // ============================================================
+// Worm sound functions (streaming sound handle at CTaskWorm+0x3B0)
+// ============================================================
+
+/// Stop the worm's active streaming sound. Port of FUN_00515180.
+///
+/// Reads the sound handle from `worm.sound_handle`, dispatches to either
+/// DSSound::stop_channel (regular) or ActiveSoundTable::stop_sound (streaming,
+/// handle has bit 30 set), then clears the handle.
+pub(crate) unsafe fn stop_worm_sound(worm: *mut CTaskWorm) {
+    let handle = (*worm).sound_handle;
+    if handle != 0 {
+        let ddgame = &*(*worm).ddgame();
+        let sound = ddgame.sound;
+        if !sound.is_null() && (handle as i32) >= 0 {
+            if handle & 0x40000000 != 0 {
+                // Streaming sound — stop via ActiveSoundTable
+                if !ddgame.active_sounds.is_null() {
+                    (*ddgame.active_sounds).stop_sound(handle & !0x40000000);
+                }
+            } else {
+                // Regular DSSound channel
+                ((*(*sound).vtable).stop_channel)(sound, handle as i32);
+            }
+        }
+    }
+    (*worm).sound_handle = 0;
+}
+
+/// Stop current worm sound, then start a new streaming sound.
+/// Port of FUN_005150D0.
+///
+/// Stops the current sound (same logic as [`stop_worm_sound`] but with
+/// reversed condition order matching the original), then calls the WA
+/// streaming load-and-play function (FUN_00546c20) and stores the new handle.
+pub(crate) unsafe fn play_worm_sound(worm: *mut CTaskWorm, sound_id: SoundId, volume: Fixed) {
+    let handle = (*worm).sound_handle;
+    if handle != 0 {
+        let ddgame = &*(*worm).ddgame();
+        let sound = ddgame.sound;
+        if !sound.is_null() && (handle as i32) >= 0 {
+            if handle & 0x40000000 == 0 {
+                // Regular DSSound channel — stop via vtable
+                ((*(*sound).vtable).stop_channel)(sound, handle as i32);
+            } else {
+                // Streaming sound — stop via ActiveSoundTable
+                if !ddgame.active_sounds.is_null() {
+                    (*ddgame.active_sounds).stop_sound(handle & !0x40000000);
+                }
+            }
+        }
+    }
+    // Start new streaming sound via WA function (FUN_00546c20)
+    let new_handle = call_load_and_play_streaming(worm, sound_id.0, volume.0 as u32);
+    (*worm).sound_handle = new_handle;
+}
+
+/// Bridge to FUN_00546c20 — load and play a streaming sound.
+/// usercall(EAX=worm, ESI=&worm.sound_emitter) + stack(sound_id, 3, volume), plain RET.
+/// Returns new sound handle (with bit 30 set for streaming, 0 on failure, -1 if suppressed).
+unsafe fn call_load_and_play_streaming(
+    worm: *mut CTaskWorm,
+    sound_id: u32,
+    volume: u32,
+) -> u32 {
+    let addr = LOAD_AND_PLAY_STREAMING_ADDR.load(core::sync::atomic::Ordering::Relaxed);
+    call_load_and_play_streaming_bridge(worm, sound_id, volume, addr)
+}
+
+static LOAD_AND_PLAY_STREAMING_ADDR: core::sync::atomic::AtomicU32 =
+    core::sync::atomic::AtomicU32::new(0);
+
+#[unsafe(naked)]
+unsafe extern "C" fn call_load_and_play_streaming_bridge(
+    _worm: *mut CTaskWorm,
+    _sound_id: u32,
+    _volume: u32,
+    _addr: u32,
+) -> u32 {
+    core::arch::naked_asm!(
+        "push esi",
+        "push ebx",
+        // Stack: 2 saves(8) + ret(4) = 12 to first arg
+        "mov eax, [esp+12]",   // worm → EAX (must be EAX when target is called)
+        "lea esi, [eax+0xE8]", // &worm.sound_emitter → ESI
+        "mov ebx, [esp+24]",   // addr (12 + 3*4 = 24) → EBX (temp)
+        "push [esp+20]",       // volume (12+8=20)
+        "push 3",              // flags = 3
+        "push [esp+24]",       // sound_id (12+4+8=24, shifted by 2 pushes)
+        "call ebx",            // call target; EAX = worm is preserved
+        "pop ebx",
+        "pop esi",
+        "ret",
+    );
+}
+
+// ============================================================
 // Sound dispatch helpers (bridge: queue → DSSound)
 // ============================================================
 
@@ -284,6 +381,12 @@ pub fn install() -> Result<(), String> {
 
         // Patch DSSound vtable: replace trivial slots with Rust implementations.
         patch_dssound_vtable()?;
+
+        // Initialize bridge addresses for worm sound functions
+        LOAD_AND_PLAY_STREAMING_ADDR.store(
+            openwa_core::rebase::rb(va::LOAD_AND_PLAY_STREAMING),
+            core::sync::atomic::Ordering::Relaxed,
+        );
     }
 
     Ok(())

@@ -46,3 +46,38 @@ pub struct ActiveSoundEntry {
 }
 
 const _: () = assert!(core::mem::size_of::<ActiveSoundEntry>() == 0x18);
+
+impl ActiveSoundTable {
+    /// Stop an active streaming sound by handle. Port of FUN_00546490.
+    ///
+    /// The `handle` should have the 0x40000000 bit already cleared (the caller
+    /// strips it before calling). The low 6 bits index into the entry table.
+    ///
+    /// Returns true if the sound was found and stopped.
+    pub unsafe fn stop_sound(&mut self, handle: u32) -> bool {
+        let slot = (handle & 0x3F) as usize;
+        let entry = &mut self.entries[slot];
+
+        if entry.sequence != handle || entry.channel_handle == 0 {
+            return false;
+        }
+
+        // Stop the DSSound channel via the DDGame's sound system
+        let ddgame = &*self.ddgame;
+        let sound = ddgame.sound;
+        if !sound.is_null() {
+            ((*(*sound).vtable).stop_channel)(sound, entry.channel_handle as i32);
+        }
+        entry.channel_handle = 0;
+
+        // Release the emitter reference
+        if !entry.emitter.is_null() {
+            // Decrement ref count at emitter+8
+            let ref_count = entry.emitter.add(8) as *mut i32;
+            *ref_count -= 1;
+            entry.emitter = core::ptr::null_mut();
+        }
+
+        true
+    }
+}

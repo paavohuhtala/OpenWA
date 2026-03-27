@@ -290,30 +290,27 @@ unsafe extern "cdecl" fn weapon_release_impl(
     let w = &*worm; // re-borrow after mutation above
     let entry = w.active_weapon_entry;
 
-    let play_worm_sound_addr = rb(va::PLAY_WORM_SOUND);
-    let stop_worm_sound_addr = rb(va::STOP_WORM_SOUND);
-
     match FireType::try_from((*entry).fire_type) {
         Ok(FireType::Projectile) => {
             match (*entry).special_subtype {
                 1 => {
                     if w.sound_handle == 0 {
-                        call_play_worm_sound(worm, 0x1004E, 0x10000, play_worm_sound_addr);
+                        sound::play_worm_sound(worm, SoundId(0x1004E), Fixed::ONE);
                     }
                     do_effect = true;
                     effect_state = 0x73;
                 }
                 2 => {
                     sound::play_sound_local(task, KnownSoundId::ThrowRelease, 3, Fixed::ONE, Fixed::ONE);
-                    call_stop_worm_sound(worm, stop_worm_sound_addr);
+                    sound::stop_worm_sound(worm);
                 }
                 3 | 7 | 0xB | 0xC => {
                     sound::play_sound_local(task, KnownSoundId::RocketRelease, 3, Fixed::ONE, Fixed::ONE);
-                    call_stop_worm_sound(worm, stop_worm_sound_addr);
+                    sound::stop_worm_sound(worm);
                 }
                 4 => {
                     if w.sound_handle == 0 {
-                        call_play_worm_sound(worm, 0x1004F, 0x10000, play_worm_sound_addr);
+                        sound::play_worm_sound(worm, SoundId(0x1004F), Fixed::ONE);
                     }
                     do_effect = true;
                     effect_state = 0x73;
@@ -330,7 +327,7 @@ unsafe extern "cdecl" fn weapon_release_impl(
                 }
                 10 => {
                     sound::play_sound_local(task, KnownSoundId::LongbowRelease, 3, Fixed::ONE, Fixed::ONE);
-                    call_stop_worm_sound(worm, stop_worm_sound_addr);
+                    sound::stop_worm_sound(worm);
                 }
                 _ => {}
             }
@@ -364,7 +361,7 @@ unsafe extern "cdecl" fn weapon_release_impl(
                 }
                 Ok(S::ScalesOfJustice) => {
                     if w.sound_handle == 0 {
-                        call_play_worm_sound(worm, 0x10035, 0x10000, play_worm_sound_addr);
+                        sound::play_worm_sound(worm, SoundId(0x10035), Fixed::ONE);
                     }
                 }
                 _ => {}
@@ -415,43 +412,6 @@ fn write_u32(buf: &mut [u8], offset: usize, value: u32) {
 }
 
 // ── Bridge functions ────────────────────────────────────────
-// All bridges pass the runtime target address as the last cdecl parameter,
-// matching the pattern used in weapon.rs (avoids sym + jmp indirection issues).
-
-/// PlayWormSound (0x5150D0): usercall(EDI=worm) + stack(sound_handle_id, volume), RET 0x8.
-#[unsafe(naked)]
-unsafe extern "C" fn call_play_worm_sound(
-    _worm: *mut CTaskWorm,
-    _sound_id: u32,
-    _volume: u32,
-    _addr: u32,
-) {
-    core::arch::naked_asm!(
-        "push edi",
-        // Stack: 1 save(4) + ret(4) = 8 to first arg
-        "mov edi, [esp+8]",    // worm
-        "mov eax, [esp+20]",   // addr
-        "push [esp+16]",       // volume
-        "push [esp+16]",       // sound_id (shifted +4)
-        "call eax",
-        "pop edi",
-        "ret",
-    );
-}
-
-/// StopWormSound (0x515180): usercall(ESI=worm), plain RET.
-#[unsafe(naked)]
-unsafe extern "C" fn call_stop_worm_sound(_worm: *mut CTaskWorm, _addr: u32) {
-    core::arch::naked_asm!(
-        "push esi",
-        // Stack: 1 save(4) + ret(4) = 8 to first arg
-        "mov esi, [esp+8]",    // worm
-        "mov eax, [esp+12]",   // addr
-        "call eax",
-        "pop esi",
-        "ret",
-    );
-}
 
 /// SpawnEffect (0x547C30): usercall(EAX=0x80000, ECX=speed_x, ESI=worm) + 7 stack, RET 0x1C.
 #[unsafe(naked)]

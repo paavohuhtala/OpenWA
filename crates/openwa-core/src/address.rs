@@ -510,6 +510,9 @@ pub mod va {
         fn/Fastcall DISPATCH_GLOBAL_SOUND = 0x0052_6270;
         /// RecordActiveSound
         fn/Usercall RECORD_ACTIVE_SOUND = 0x0054_6260;
+        /// LoadAndPlayStreaming: usercall(EAX=worm, ESI=&sound_emitter) + stack(sound_id, 3, volume).
+        /// Checks game conditions, then starts a streaming sound. Returns handle | 0x40000000.
+        fn/Usercall LOAD_AND_PLAY_STREAMING = 0x0054_6C20;
         /// ComputeDistanceParams
         fn/Fastcall COMPUTE_DISTANCE_PARAMS = 0x0054_6300;
         /// DispatchLocalSound
