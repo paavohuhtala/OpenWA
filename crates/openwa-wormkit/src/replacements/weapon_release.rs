@@ -10,9 +10,8 @@ use openwa_core::audio::{KnownSoundId, SoundId};
 use openwa_core::fixed::Fixed;
 use openwa_core::game::Weapon;
 use openwa_core::log::log_line;
-use openwa_core::rebase::rb;
 use openwa_core::task::worm::{CTaskWorm, WormState};
-use openwa_core::task::{CGameTask, Task};
+use openwa_core::task::{CGameTask, SharedDataTable, Task};
 
 use crate::hook::{self, usercall_trampoline};
 use crate::replacements::{sound, weapon};
@@ -138,8 +137,8 @@ unsafe extern "cdecl" fn weapon_release_impl(
     }
 
     // ── 2. Populate context fields ──────────────────────────
-    let speed_x = w.base.pos_x.0;
-    let speed_y = w.base.pos_y.0;
+    let speed_x = w.base.pos_x;
+    let speed_y = w.base.pos_y;
     ctx.team_id = w.team_index;
     ctx.worm_id = w.worm_index;
     ctx.ammo_per_turn = w.weapon_param_1 as u32;
@@ -388,9 +387,9 @@ unsafe extern "cdecl" fn weapon_release_impl(
         let facing_flag: u32 = if facing < 1 { 0x40000 } else { 0 };
         let state_flag = facing_flag + effect_state;
 
-        call_spawn_effect_full(
-            worm, speed_x, speed_y, rng_scaled, rng1_offset, palette, state_flag, 0xA0000,
-            0x1999, rb(va::SPAWN_EFFECT),
+        spawn_effect(
+            worm, 0x80000, speed_x, speed_y, rng_scaled, rng1_offset, palette, state_flag,
+            Fixed(0xA0000), Fixed(0x1999),
         );
     }
 
@@ -411,43 +410,94 @@ fn write_u32(buf: &mut [u8], offset: usize, value: u32) {
     buf[offset..offset + 4].copy_from_slice(&value.to_ne_bytes());
 }
 
-// ── Bridge functions ────────────────────────────────────────
+// ── SpawnEffect (0x547C30) — hooked, also called directly ───
 
-/// SpawnEffect (0x547C30): usercall(EAX=0x80000, ECX=speed_x, ESI=worm) + 7 stack, RET 0x1C.
-#[unsafe(naked)]
-unsafe extern "C" fn call_spawn_effect_full(
-    _worm: *mut CTaskWorm,
-    _speed_x: i32,
-    _speed_y: i32,
-    _rng_scaled: i32,
-    _rng_offset: i32,
-    _palette: u32,
-    _state_flag: u32,
-    _size: u32,
-    _scale: u32,
-    _addr: u32,
+/// Spawn a visual effect on the sprite anim entity. Pure Rust port of FUN_00547C30.
+///
+/// Builds a 0x408-byte message buffer from the params, looks up CTaskSpriteAnim
+/// via SharedData (entity type 0x1A), and sends HandleMessage(0x56).
+///
+/// Called directly from `weapon_release_impl` and via the hook trampoline
+/// for all other WA callers (17 call sites).
+pub(crate) unsafe fn spawn_effect(
+    worm: *mut CTaskWorm,
+    constant: u32,
+    speed_x: Fixed,
+    speed_y: Fixed,
+    rng_scaled: i32,
+    rng_offset: i32,
+    palette: u32,
+    state_flag: u32,
+    size: Fixed,
+    scale: Fixed,
 ) {
+    // Build the message buffer matching the original stack layout.
+    // The original pushes ESI (worm ptr) then uses LEA to include it at offset 0.
+    let mut buf = [0u8; 0x408];
+    write_u32(&mut buf, 0x00, worm as u32);
+    write_u32(&mut buf, 0x04, constant);
+    write_u32(&mut buf, 0x08, speed_x.0 as u32);
+    write_u32(&mut buf, 0x0C, speed_y.0 as u32);
+    write_u32(&mut buf, 0x10, rng_scaled as u32);
+    write_u32(&mut buf, 0x14, rng_offset as u32);
+    // [0x18] = 0 (already zeroed)
+    write_u32(&mut buf, 0x1C, palette);
+    write_u32(&mut buf, 0x20, state_flag);
+    // [0x24] = 0 (already zeroed)
+    write_u32(&mut buf, 0x28, size.0 as u32);
+    write_u32(&mut buf, 0x2C, scale.0 as u32);
+
+    // SharedData lookup for entity type 0x1A (CTaskSpriteAnim)
+    let table = SharedDataTable::from_task((*worm).as_task_ptr());
+    let entity = table.lookup(0, 0x1A);
+    if !entity.is_null() {
+        let vtable = *(entity as *const *const usize);
+        let handle_msg: unsafe extern "thiscall" fn(
+            *mut u8, *mut u8, u32, u32, *const u8,
+        ) = core::mem::transmute(*vtable.add(2));
+        handle_msg(
+            entity as *mut u8,
+            worm as *mut u8,
+            0x56,
+            0x408,
+            buf.as_ptr(),
+        );
+    }
+}
+
+/// Naked trampoline for SpawnEffect (0x547C30).
+///
+/// Original convention: usercall(EAX=constant, ECX=speed_x, ESI=worm)
+///   + 7 stack params (speed_y, rng_scaled, rng_offset, palette, state_flag, size, scale)
+///   RET 0x1C.
+#[unsafe(naked)]
+unsafe extern "C" fn trampoline_spawn_effect() {
     core::arch::naked_asm!(
-        "push esi",
+        // Save callee-saved registers
         "push ebx",
-        // Stack: 2 saves(8) + ret(4) = 12 to first arg
-        // Args: +12=worm, +16=speed_x, +20=speed_y, +24=rng_scaled, +28=rng_offset,
-        //       +32=palette, +36=state_flag, +40=size, +44=scale, +48=addr
-        "mov esi, [esp+12]",   // worm → ESI
-        "mov ecx, [esp+16]",   // speed_x → ECX
-        "mov ebx, [esp+48]",   // addr
-        "push [esp+44]",       // scale
-        "push [esp+44]",       // size
-        "push [esp+44]",       // state_flag
-        "push [esp+44]",       // palette
-        "push [esp+44]",       // rng_offset
-        "push [esp+44]",       // rng_scaled
-        "push [esp+44]",       // speed_y (first stack param)
-        "mov eax, 0x80000",
-        "call ebx",
+        "push ebp",
+        "push edi",
+        // ESI = worm, EAX = constant, ECX = speed_x
+        // Stack after 3 saves(12) + ret(4) = 16; original stack params start at +16
+        // Push cdecl args in reverse: scale, size, state_flag, palette, rng_offset,
+        //   rng_scaled, speed_y, 0(rng_offset placeholder), speed_x(ECX), constant(EAX), worm(ESI)
+        "push [esp+40]",      // scale (16+24=40)
+        "push [esp+40]",      // size
+        "push [esp+40]",      // state_flag
+        "push [esp+40]",      // palette
+        "push [esp+40]",      // rng_offset
+        "push [esp+40]",      // rng_scaled
+        "push [esp+40]",      // speed_y
+        "push ecx",           // speed_x (register param)
+        "push eax",           // constant (register param)
+        "push esi",           // worm (register param)
+        "call {impl_fn}",
+        "add esp, 40",        // clean 10 cdecl args
+        "pop edi",
+        "pop ebp",
         "pop ebx",
-        "pop esi",
-        "ret",
+        "ret 0x1C",           // clean 7 original stack params
+        impl_fn = sym spawn_effect,
     );
 }
 
@@ -455,6 +505,12 @@ unsafe extern "C" fn call_spawn_effect_full(
 
 pub fn install() -> Result<(), String> {
     unsafe {
+        hook::install(
+            "SpawnEffect",
+            va::SPAWN_EFFECT,
+            trampoline_spawn_effect as *const (),
+        )?;
+
         hook::install(
             "WeaponRelease",
             va::WEAPON_RELEASE,
