@@ -171,12 +171,19 @@ Hooks use the `minhook` crate. Two patterns:
 For `__usercall` functions, use a naked trampoline to capture register params before calling the Rust impl.
 
 3. **Vtable method replacement**: Use `vtable_replace!` to patch vtable slots at runtime. Write the replacement as `unsafe extern "thiscall" fn`. For base-class call-through, either save the original via `[ORIG_STATIC]` syntax, or call `broadcast_message()` for CTask::HandleMessage. See `replacements/task/cloud.rs`.
+4. **Trap hook** (`install_trap!`): For functions whose only caller is now ported Rust. Panics if called unexpectedly. Used for FireWeapon (0x51EE60) after WeaponRelease was ported.
+
+### Bridge function patterns
+
+When calling unported WA functions from Rust, use naked asm bridges. **Always pass the runtime target address as a cdecl parameter** (e.g., `rb(va::FUNC_ADDR)` as the last arg). Do NOT use `sym` + `jmp [ptr]` indirection through static pointers — this causes crashes due to relocation/PIC issues on x86 DLLs.
+
+When a register param (e.g., EAX) must be set for the target function, load the call target into a **different** register (EBX, etc.) before the `call`. Do not use EAX for the target if EAX is also a parameter.
 
 ## Desync Debugging
 
 Replay desyncs (checksum mismatches) can be caused by any code difference — constructor side effects, hooked function behaviour, missing state, wrong calling conventions, etc. Key methodology:
 
-1. **WA uses a single shared RNG** (DDGame+0x45EC, `AdvanceGameRNG` at 0x53F320) for both gameplay AND visual effects. There is no separate "visual RNG." Even purely decorative things like particle sprites affect the game RNG and will cause desyncs in headless mode if handled differently.
+1. **WA uses a single shared RNG** (DDGame+0x45EC, `AdvanceGameRNG` at 0x53F320) for both gameplay AND visual effects. There is no separate "visual RNG." Even purely decorative things like particle sprites affect the game RNG and will cause desyncs in headless mode if handled differently. A secondary effect RNG exists at DDGame+0x45F0 (`advance_effect_rng()`, simpler LCG without frame_counter) — used by WeaponRelease visual effects. Uses `team_health_ratio[0]` (unused index-0 slot).
 2. **DDGame flat memory matching is NOT sufficient.** Constructors and hooks have side effects on sub-objects (display, GfxHandler, PCLandscape). Compare all objects pointed to by DDGame AND DDGameWrapper.
 3. **Use hardware watchpoints** (`debug_watchpoint.rs`) with stack traces to find what writes a specific field. DR0–DR3 + VEH handler gives "who wrote this byte?" answers without an external debugger.
 4. **Per-frame RNG logging** (DDGame+0x45EC) pinpoints the exact frame where simulation diverges. Binary search on frames, not code.
@@ -203,10 +210,14 @@ Currently dormant — no hooks wired up. Activate by adding calls in `game_sessi
 - `crates/openwa-core/src/rebase.rs` — ASLR delta computation
 - `crates/openwa-core/src/wa/` — Typed WA function wrappers (MFC, frontend, registry, DDGame)
 - `crates/openwa-core/src/task/base.rs` — CTask<V>, CTaskVtable (7 slots), Task trait, SharedDataTable, broadcast_message
-- `crates/openwa-core/src/task/worm.rs` — CTaskWorm, CTaskWormVTable (20 slots), WormState enum
+- `crates/openwa-core/src/task/worm.rs` — CTaskWorm, CTaskWormVTable (20 slots), WormState enum (all gaps filled)
+- `crates/openwa-core/src/game/weapon.rs` — Weapon enum, WeaponEntry, FireType/FireMethod/SpecialFireSubtype enums, WeaponFireParams
+- `crates/openwa-core/src/audio/sound.rs` — SoundId newtype (any u32) + KnownSoundId enum (1-126 SFX)
 - `crates/openwa-core/src/engine/team_arena.rs` — TeamArenaState, WormEntry, TeamHeader, TeamArenaRef
 - `crates/openwa-core/src/engine/ddgame_constructor.rs` — DDGame constructor (create_ddgame, init_graphics_and_resources)
-- `crates/openwa-wormkit/src/replacements/weapon.rs` — Weapon fire dispatch (mostly pure Rust, 20+ subtypes ported)
+- `crates/openwa-wormkit/src/replacements/weapon.rs` — FireWeapon dispatch (trapped, called from weapon_release), 20+ subtypes pure Rust
+- `crates/openwa-wormkit/src/replacements/weapon_release.rs` — WeaponRelease (0x51C3D0), SpawnEffect (0x547C30) — fully ported
+- `crates/openwa-wormkit/src/replacements/sound.rs` — Sound queue, PlaySoundLocal/Global hooks, worm sound functions (stop/play)
 - `crates/openwa-wormkit/src/replacements/` — Function replacements (one file per subsystem)
 - `crates/openwa-wormkit/src/replacements/task/` — Vtable method replacements (cloud, filter, ...)
 - `docs/re-notes/` — Reverse engineering documentation (task hierarchy, memory map, frontend screens)
@@ -340,7 +351,8 @@ Add type safety incrementally where it's beneficial — this is a reverse engine
 - **Wrapper structs over raw values**: Create `#[repr(C)]` structs for known memory layouts. Access fields by name, not pointer arithmetic. Even partially-known structs (with `_unknown_XX` padding) are better than raw offsets.
 - **Handle newtypes for opaque pointers**: When a pointer's target layout is unknown, wrap it in a newtype (e.g., `WavPlayerHandle(u32)`, `CWndHandle(u32)`) with methods that encapsulate the unsafe calls. This keeps inline asm and raw pointer work out of hook logic.
 - **Typed pointers over integers**: Prefer `*mut DDGame` over `u32` for pointer parameters. Use `*const c_char` for C string pointers, not `*const u8`.
-- **Constants over magic numbers**: Name addresses (`va::FESFX_WAV_PLAYER`), sizes (`MAX_PATH`), and offsets. Magic numbers in code should be rare and commented.
+- **Constants over magic numbers**: Name addresses (`va::FESFX_WAV_PLAYER`), sizes (`MAX_PATH`), and offsets. Magic numbers in code should be rare and commented. Use typed enums (`Weapon`, `KnownSoundId`, `FireType`, `SpecialFireSubtype`) and `Fixed` for volume/pitch instead of raw `u32`/`i32`.
+- **SoundId pattern**: `SoundId(u32)` is a transparent newtype for any sound ID (WA uses IDs > 126 for speech). `KnownSoundId` is the typed enum for known SFX (1-126). Sound functions accept `impl Into<SoundId>` so both work. Never reject unknown IDs in hooks — speech/voice lines use high IDs.
 - **Wrap inline asm in safe-to-call functions**: Isolate `asm!` / `naked_asm!` blocks in small dedicated functions (e.g., `get_team_config_name()`, `wav_player_stop_raw()`). Hook functions should read like normal Rust, calling into asm wrappers only when needed.
 - **ESI/EDI are LLVM-reserved on x86**: Cannot use `in("esi")` or `in("edi")` in `core::arch::asm!`. Use `#[unsafe(naked)]` functions with `naked_asm!` when these registers are needed.
 - **`heapless::CString<N>`** for stack-allocated null-terminated path buffers (auto nul terminator, `as_ptr()` returns `*const c_char`).
