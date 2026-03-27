@@ -8,6 +8,7 @@
 use openwa_core::address::va;
 use openwa_core::audio::SoundId;
 use openwa_core::fixed::Fixed;
+use openwa_core::game::Weapon;
 use openwa_core::log::log_line;
 use openwa_core::rebase::rb;
 use openwa_core::task::worm::{CTaskWorm, WormState};
@@ -46,28 +47,58 @@ const _: () = assert!(core::mem::size_of::<WeaponReleaseContext>() == 0x2C);
 // ── Weapon category classifiers (pure Rust) ─────────────────
 
 /// IsSuperWeapon (0x565960): returns true for "super weapon" IDs.
-/// param_1 is the byte at DDGame+0x7E3F; for weapon 0x3B (SelectWorm) it returns param_1.
-fn is_super_weapon(weapon_id: u32, ddgame_7e3f: u8) -> bool {
-    match weapon_id {
-        10 | 0x13 | 0x1D | 0x1E | 0x1F | 0x24 | 0x29 | 0x2A | 0x2D | 0x2E | 0x31 | 0x32
-        | 0x33 | 0x36 | 0x37 | 0x38 | 0x3C | 0x3D => true,
-        0x3B => ddgame_7e3f != 0,
-        _ => false,
-    }
+/// For SelectWorm, returns the DDGame+0x7E3F version flag (mode-dependent).
+fn is_super_weapon(weapon: Weapon, ddgame_7e3f: u8) -> bool {
+    use Weapon::*;
+    matches!(
+        weapon,
+        Earthquake
+            | SuicideBomber
+            | MailStrike
+            | MineStrike
+            | MoleSquadron
+            | GirderPack
+            | ScalesOfJustice
+            | SuperBanana
+            | SalvationArmy
+            | MbBomb
+            | MingVase
+            | SheepStrike
+            | CarpetBomb
+            | Donkey
+            | NuclearTest
+            | Armageddon
+            | Freeze
+            | MagicBullet
+    ) || (weapon == Weapon::SelectWorm && ddgame_7e3f != 0)
 }
 
-/// FUN_005658C0: weapon category A — checks if weapon is in a specific set.
-fn is_weapon_category_a(weapon_id: u32) -> bool {
+/// FUN_005658C0: weapon category A — homing/animal/special projectile weapons.
+fn is_weapon_category_a(weapon: Weapon) -> bool {
+    use Weapon::*;
     matches!(
-        weapon_id,
-        4 | 5 | 0x17 | 0x18 | 0x19 | 0x1A | 0x1F | 0x2D | 0x2E | 0x30 | 0x32 | 0x34 | 0x35
-            | 0x36
+        weapon,
+        HomingPigeon
+            | SheepLauncher
+            | Sheep
+            | SuperSheep
+            | AquaSheep
+            | MoleBomb
+            | MoleSquadron
+            | SalvationArmy
+            | MbBomb
+            | Skunk
+            | SheepStrike
+            | MadCow
+            | OldWoman
+            | Donkey
     )
 }
 
-/// FUN_00565920: weapon category B — checks if weapon is in a specific set.
-fn is_weapon_category_b(weapon_id: u32) -> bool {
-    matches!(weapon_id, 0x1C | 0x2C | 0x2F | 0x32)
+/// FUN_00565920: weapon category B — fire/napalm weapons.
+fn is_weapon_category_b(weapon: Weapon) -> bool {
+    use Weapon::*;
+    matches!(weapon, NapalmStrike | FlameThrower | PetrolBomb | SheepStrike)
 }
 
 // ── Main implementation ─────────────────────────────────────
@@ -198,9 +229,9 @@ unsafe extern "cdecl" fn weapon_release_impl(
         ctx.network_delay = (client_idx + 1) * 1000;
     }
 
-    // ── 6. Weapon 0x22/0x24 special ─────────────────────────
-    let weapon_id = w.selected_weapon;
-    if (weapon_id == 0x22 || weapon_id == 0x24) && w.weapon_param_3 == 0 {
+    // ── 6. Girder/GirderPack special ────────────────────────
+    let weapon = w.selected_weapon;
+    if matches!(weapon, Weapon::Girder | Weapon::GirderPack) && w.weapon_param_3 == 0 {
         (*worm).shot_data_1 = w.shot_data_2;
     }
 
@@ -217,7 +248,7 @@ unsafe extern "cdecl" fn weapon_release_impl(
         0x18,
         if w._unknown_2cc != 0 { 1 } else { 0 },
     );
-    write_u32(&mut msg_buf, 0x1C, weapon_id);
+    write_u32(&mut msg_buf, 0x1C, weapon as u32);
 
     let team = weapon::lookup_team_task(worm);
     if !team.is_null() {
@@ -234,20 +265,20 @@ unsafe extern "cdecl" fn weapon_release_impl(
     let team_id = (*worm).team_index;
     let worm_id = (*worm).worm_index;
 
-    if is_super_weapon(weapon_id, g.version_flag_3) {
+    if is_super_weapon(weapon, g.version_flag_3) {
         *g.weapon_stat_counter(team_id, worm_id, 0x40D8) += 1;
     }
 
-    // Range 0x3E..=0x46
-    if weapon_id.wrapping_sub(0x3E) <= 8 {
+    // Powerup/utility weapons (JetPack..=CrateShower)
+    if (Weapon::JetPack..=Weapon::CrateShower).contains(&weapon) {
         *g.weapon_stat_counter(team_id, worm_id, 0x40D4) += 1;
     }
 
-    if is_weapon_category_a(weapon_id) {
+    if is_weapon_category_a(weapon) {
         *g.weapon_stat_counter(team_id, worm_id, 0x40D0) += 1;
     }
 
-    if is_weapon_category_b(weapon_id) {
+    if is_weapon_category_b(weapon) {
         *g.weapon_stat_counter(team_id, worm_id, 0x40CC) += 1;
     }
 
@@ -314,29 +345,30 @@ unsafe extern "cdecl" fn weapon_release_impl(
         }
         // Type 3 (Strike): no sound
         Ok(FireType::Special) => {
-            match (*entry).special_subtype {
-                2 => {
+            use openwa_core::game::weapon::SpecialFireSubtype as S;
+            match S::try_from((*entry).special_subtype) {
+                Ok(S::PneumaticDrill) => {
                     sound::play_sound_local(
                         task, SoundId::BaseballBatRelease, 3, Fixed::ONE, Fixed::ONE,
                     );
                 }
-                3 => {
+                Ok(S::Girder) => {
                     if let Ok(sid) = SoundId::try_from((*entry).fire_method as u32) {
                         sound::play_sound_local(task, sid, 3, Fixed::ONE, Fixed::ONE);
                     }
                 }
-                4 => {
-                    // Sound ID at entry+0x40 = fire_params.spread (polymorphic use)
+                Ok(S::BaseballBat) => {
+                    // Sound ID from fire_params.spread (polymorphic use of field)
                     if let Ok(sid) = SoundId::try_from((*entry).fire_params.spread as u32) {
                         sound::play_sound_local(task, sid, 3, Fixed::ONE, Fixed::ONE);
                     }
                 }
-                10 => {
+                Ok(S::AirStrike) => {
                     if w._unknown_208 == 0 {
                         sound::play_sound_local(task, SoundId::Teleport, 3, Fixed::ONE, Fixed::ONE);
                     }
                 }
-                0xB => {
+                Ok(S::ScalesOfJustice) => {
                     if w.sound_handle == 0 {
                         call_play_worm_sound(worm, 0x10035, 0x10000, play_worm_sound_addr);
                     }
@@ -377,8 +409,8 @@ unsafe extern "cdecl" fn weapon_release_impl(
     weapon::fire_weapon_impl(entry, ctx_ptr, worm);
 
     let _ = log_line(&format!(
-        "[WeaponRelease] worm=0x{:08X} weapon={} type={} sub34={} sub38={}",
-        worm as u32, weapon_id, fire_type, special_subtype, fire_method,
+        "[WeaponRelease] worm=0x{:08X} weapon={:?} type={} sub34={} sub38={}",
+        worm as u32, weapon, fire_type, special_subtype, fire_method,
     ));
 }
 

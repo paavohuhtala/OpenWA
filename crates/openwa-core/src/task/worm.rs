@@ -1,6 +1,7 @@
 use super::base::CTask;
 use super::game_task::CGameTask;
 use crate::fixed::Fixed;
+use crate::game::Weapon;
 use crate::game::weapon::WeaponEntry;
 use crate::FieldRegistry;
 
@@ -278,7 +279,7 @@ pub struct CTaskWorm {
     /// 0x168–0x16F: Unknown
     pub _unknown_168: [u8; 0x170 - 0x168],
     /// 0x170: Currently selected weapon ID.
-    pub selected_weapon: u32,
+    pub selected_weapon: Weapon,
     /// 0x174–0x177: Unknown
     pub _unknown_174: [u8; 4],
     /// 0x178: Display health (animated toward target). Used for health bar interpolation.
@@ -467,7 +468,7 @@ impl crate::snapshot::Snapshot for CTaskWorm {
         write_indent(w, i)?; writeln!(w, "team_index = {}", self.team_index)?;
         write_indent(w, i)?; writeln!(w, "worm_index = {}", self.worm_index)?;
         write_indent(w, i)?; writeln!(w, "slot_id = {}", self.slot_id)?;
-        write_indent(w, i)?; writeln!(w, "selected_weapon = {}", self.selected_weapon)?;
+        write_indent(w, i)?; writeln!(w, "selected_weapon = {:?}", self.selected_weapon)?;
         write_indent(w, i)?; writeln!(w, "facing = {}", self.facing_direction)?;
         write_indent(w, i)?; writeln!(w, "aim_angle = 0x{:08X}", self.aim_angle)?;
 

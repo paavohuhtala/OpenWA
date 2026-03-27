@@ -5,7 +5,7 @@ use crate::fixed::Fixed;
 /// Weapon types. Contiguous range 0-70.
 ///
 /// Source: wkJellyWorm Constants.h
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd)]
 #[repr(u32)]
 pub enum Weapon {
     None = 0,

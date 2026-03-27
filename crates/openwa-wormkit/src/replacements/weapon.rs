@@ -205,18 +205,15 @@ pub(crate) unsafe extern "cdecl" fn fire_weapon_impl(
     let fire_method = (*entry).fire_method;
     let fire_params = &raw const (*entry).fire_params;
     // Log weapon fire
-    let weapon_id = (*worm).selected_weapon;
-    let weapon_name = Weapon::try_from(weapon_id)
-        .map(|wp| format!("{:?}", wp))
-        .unwrap_or_else(|id| format!("Unknown({})", id));
+    let weapon = (*worm).selected_weapon;
     let _ = log_line(&format!(
-        "[Weapon] FireWeapon: {} (id={}) type={} sub34={} sub38={}",
-        weapon_name, weapon_id, fire_type, (*entry).special_subtype, fire_method
+        "[Weapon] FireWeapon: {:?} (id={}) type={} sub34={} sub38={}",
+        weapon, weapon as u32, fire_type, (*entry).special_subtype, fire_method
     ));
 
     CTaskWorm::set_fire_complete_raw(worm, 0);
 
-    use openwa_core::game::weapon::{FireType, FireMethod, SpecialFireSubtype};
+    use openwa_core::game::weapon::{FireType, FireMethod};
     match FireType::try_from(fire_type) {
         Ok(FireType::Projectile) => match FireMethod::try_from(fire_method) {
             Ok(FireMethod::PlacedExplosive) => call_fire_placed_explosive(worm, fire_params, local_struct, rb(0x51EC80)),
@@ -791,7 +788,7 @@ unsafe fn fire_low_gravity(worm: *mut CTaskWorm) {
         // buf[0x04] = 100 (0x64), buf[0x08] = 166 (0xA6), buf[0x0C] = weapon_id, buf[0x10] = team_index
         buf[0x04..0x08].copy_from_slice(&100i32.to_ne_bytes());
         buf[0x08..0x0C].copy_from_slice(&166i32.to_ne_bytes());
-        buf[0x0C..0x10].copy_from_slice(&(*worm).selected_weapon.to_ne_bytes());
+        buf[0x0C..0x10].copy_from_slice(&((*worm).selected_weapon as u32).to_ne_bytes());
         buf[0x10..0x14].copy_from_slice(&(*worm).team_index.to_ne_bytes());
 
         (*team).handle_message(
