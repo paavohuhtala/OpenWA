@@ -6,6 +6,8 @@
 //! Convention: usercall(EAX=CTaskWorm*) + 4 stack params, RET 0x10.
 
 use openwa_core::address::va;
+use openwa_core::audio::SoundId;
+use openwa_core::fixed::Fixed;
 use openwa_core::log::log_line;
 use openwa_core::rebase::rb;
 use openwa_core::task::worm::CTaskWorm;
@@ -278,11 +280,11 @@ unsafe extern "cdecl" fn weapon_release_impl(
                     effect_state = 0x73;
                 }
                 2 => {
-                    sound::play_sound_local(task, 0x49, 3, 0x10000, 0x10000);
+                    sound::play_sound_local(task, SoundId::ThrowRelease, 3, Fixed::ONE, Fixed::ONE);
                     call_stop_worm_sound(worm, stop_worm_sound_addr);
                 }
                 3 | 7 | 0xB | 0xC => {
-                    sound::play_sound_local(task, 0x4B, 3, 0x10000, 0x10000);
+                    sound::play_sound_local(task, SoundId::RocketRelease, 3, Fixed::ONE, Fixed::ONE);
                     call_stop_worm_sound(worm, stop_worm_sound_addr);
                 }
                 4 => {
@@ -293,17 +295,17 @@ unsafe extern "cdecl" fn weapon_release_impl(
                     effect_state = 0x73;
                 }
                 5 => {
-                    sound::play_sound_local(task, 0x50, 3, 0x10000, 0x10000);
+                    sound::play_sound_local(task, SoundId::ShotgunFire, 3, Fixed::ONE, Fixed::ONE);
                     do_effect = true;
                     effect_state = 0x75;
                 }
                 6 => {
-                    sound::play_sound_local(task, 0x52, 3, 0x10000, 0x10000);
+                    sound::play_sound_local(task, SoundId::HandgunFire, 3, Fixed::ONE, Fixed::ONE);
                     do_effect = true;
                     effect_state = 0x73;
                 }
                 10 => {
-                    sound::play_sound_local(task, 0x1D, 3, 0x10000, 0x10000);
+                    sound::play_sound_local(task, SoundId::LongbowRelease, 3, Fixed::ONE, Fixed::ONE);
                     call_stop_worm_sound(worm, stop_worm_sound_addr);
                 }
                 _ => {}
@@ -311,28 +313,34 @@ unsafe extern "cdecl" fn weapon_release_impl(
         }
         2 => {
             if w._unknown_2cc == 0 || w._unknown_2c8 == 1 {
-                let team_sound = (*w.ddgame()).team_sound_id(team_id);
-                sound::play_sound_local(task, team_sound, 3, 0x10000, 0x10000);
+                let team_sound_raw = (*w.ddgame()).team_sound_id(team_id);
+                if let Ok(sid) = SoundId::try_from(team_sound_raw) {
+                    sound::play_sound_local(task, sid, 3, Fixed::ONE, Fixed::ONE);
+                }
             }
         }
         // Type 3: no sound
         4 => {
             match (*entry).fire_subtype_34 {
                 2 => {
-                    sound::play_sound_local(task, 0x60, 3, 0x10000, 0x10000);
+                    sound::play_sound_local(
+                        task, SoundId::BaseballBatRelease, 3, Fixed::ONE, Fixed::ONE,
+                    );
                 }
                 3 => {
-                    let sound_id = (*entry).fire_subtype_38 as u32;
-                    sound::play_sound_local(task, sound_id, 3, 0x10000, 0x10000);
+                    if let Ok(sid) = SoundId::try_from((*entry).fire_subtype_38 as u32) {
+                        sound::play_sound_local(task, sid, 3, Fixed::ONE, Fixed::ONE);
+                    }
                 }
                 4 => {
                     // Sound ID at entry+0x40 = fire_params.spread (polymorphic use)
-                    let sound_id = (*entry).fire_params.spread as u32;
-                    sound::play_sound_local(task, sound_id, 3, 0x10000, 0x10000);
+                    if let Ok(sid) = SoundId::try_from((*entry).fire_params.spread as u32) {
+                        sound::play_sound_local(task, sid, 3, Fixed::ONE, Fixed::ONE);
+                    }
                 }
                 10 => {
                     if w._unknown_208 == 0 {
-                        sound::play_sound_local(task, 0x43, 3, 0x10000, 0x10000);
+                        sound::play_sound_local(task, SoundId::Teleport, 3, Fixed::ONE, Fixed::ONE);
                     }
                 }
                 0xB => {

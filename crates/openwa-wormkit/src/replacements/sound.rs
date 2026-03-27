@@ -12,6 +12,7 @@ use std::sync::atomic::Ordering;
 use openwa_core::address::va;
 use openwa_core::audio::{play_sound, play_sound_pooled, SoundId};
 use openwa_core::engine::{DDGame, DDGameWrapper, SoundQueueEntry};
+use openwa_core::fixed::Fixed;
 use openwa_core::task::{CGameTask, CTask};
 
 use crate::hook;
@@ -30,10 +31,10 @@ static SOUND_LOG_ENABLED: std::sync::atomic::AtomicBool = std::sync::atomic::Ato
 /// or sound is disabled.
 pub unsafe fn queue_sound(
     ddgame: *mut DDGame,
-    sound_id: u32,
+    sound_id: SoundId,
     flags: u32,
-    volume: u32,
-    pitch: u32,
+    volume: Fixed,
+    pitch: Fixed,
 ) -> Option<*mut SoundQueueEntry> {
     let g = &mut *ddgame;
     if g.sound_queue_count >= 16 || g.sound.is_null() {
@@ -41,10 +42,10 @@ pub unsafe fn queue_sound(
     }
     let entry = &mut g.sound_queue[g.sound_queue_count as usize];
     *entry = SoundQueueEntry {
-        sound_id,
+        sound_id: sound_id as u32,
         flags,
-        volume,
-        pitch,
+        volume: volume.0 as u32,
+        pitch: pitch.0 as u32,
         reserved: 0,
         is_local: 0,
         _pad: [0; 3],
@@ -65,8 +66,8 @@ unsafe extern "thiscall" fn hook_play_sound_global(
     this: *const CGameTask,
     sound_id: u32,
     flags: u32,
-    volume: u32,
-    pitch: u32,
+    volume: Fixed,
+    pitch: Fixed,
 ) -> u32 {
     if SOUND_LOG_ENABLED.load(Ordering::Relaxed) {
         let sound_name = SoundId::try_from(sound_id)
@@ -78,7 +79,11 @@ unsafe extern "thiscall" fn hook_play_sound_global(
         ));
     }
 
-    queue_sound((*this).base.ddgame, sound_id, flags, volume, pitch).is_some() as u32
+    let sid = match SoundId::try_from(sound_id) {
+        Ok(s) => s,
+        Err(_) => return 0,
+    };
+    queue_sound((*this).base.ddgame, sid, flags, volume, pitch).is_some() as u32
 }
 
 // ============================================================
@@ -91,8 +96,8 @@ hook::usercall_trampoline!(fn trampoline_play_sound_local; impl_fn = play_sound_
     regs = [eax, ecx, edi]; stack_params = 2; ret_bytes = "0x8");
 
 unsafe extern "cdecl" fn play_sound_local_impl(
-    pitch: u32,
-    volume: u32,
+    pitch: Fixed,
+    volume: Fixed,
     task: *mut CGameTask,
     sound_id: u32,
     flags: u32,
@@ -102,14 +107,18 @@ unsafe extern "cdecl" fn play_sound_local_impl(
             .map(|s| format!("{s:?}"))
             .unwrap_or_else(|v| format!("#{v}"));
         let _ = log_line(&format!(
-            "[Sound] Local: eax={pitch} ecx=0x{volume:08X} task=0x{task:08X?} \
+            "[Sound] Local: pitch={pitch} volume={volume} task=0x{task:08X?} \
              id={sound_id}({sound_name}) flags={flags}"
         ));
     }
 
+    let sid = match SoundId::try_from(sound_id) {
+        Ok(s) => s,
+        Err(_) => return 0,
+    };
     let gt = &*task;
     let ddgame = gt.base.ddgame;
-    let entry = match queue_sound(ddgame, sound_id, flags, volume, pitch) {
+    let entry = match queue_sound(ddgame, sid, flags, volume, pitch) {
         Some(e) => e,
         None => return 0,
     };
@@ -136,10 +145,10 @@ unsafe extern "cdecl" fn play_sound_local_impl(
 /// increments the task's local sound count. Returns true on success.
 pub(crate) unsafe fn play_sound_local(
     task: *mut CGameTask,
-    sound_id: u32,
+    sound_id: SoundId,
     flags: u32,
-    volume: u32,
-    pitch: u32,
+    volume: Fixed,
+    pitch: Fixed,
 ) -> bool {
     let gt = &*task;
     let ddgame = gt.base.ddgame;
