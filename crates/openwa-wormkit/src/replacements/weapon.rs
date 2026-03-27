@@ -401,11 +401,12 @@ unsafe fn fire_weapon_special(
         20 => fire_surrender(worm),
         // Select Worm (pure Rust)
         21 => fire_select_worm(worm),
-        // Jet Pack (EAX=entry)
-        22 => call_fire_usercall(entry as *const (), worm, rb(0x51EC30)),
+        // Jet Pack (pure Rust)
+        22 => fire_jet_pack(worm),
         // Magic Bullet
         23 => (*worm).set_state(WormState::WeaponAimed_Maybe),
-        // Low Gravity (EAX=entry)
+        // Low Gravity — kept on bridge; changing this arm causes codegen-dependent
+        // desync in freeze_nuke_armageddon (Armageddon behavior changes). Needs investigation.
         24 => call_fire_usercall(entry as *const (), worm, rb(0x51EA60)),
         _ => {}
     }
@@ -553,6 +554,134 @@ unsafe fn fire_mail_mine_mole(worm: *mut CTaskWorm) {
     let worm_index = (*worm).worm_index as usize;
     let entry = arena.team_worm_mut(team_index, worm_index);
     entry.turn_action_counter_Maybe += 7;
+}
+
+/// Jet Pack (subtype 22) — pure Rust port of 0x51EC30.
+///
+/// Sends message 0x5E to CTaskTeam, then plays a jet pack sound.
+/// Convention: usercall(EAX=entry, ESI=worm, EDI=worm), plain RET.
+unsafe fn fire_jet_pack(worm: *mut CTaskWorm) {
+    use openwa_core::rebase::rb;
+
+    // Send message 0x5E to CTaskTeam
+    let team = lookup_team_task(worm);
+    if !team.is_null() {
+        (*team).handle_message(
+            (*worm).as_task_ptr_mut(),
+            0x5E,
+            0,
+            core::ptr::null(),
+        );
+    }
+
+    // Play jet pack sound:
+    // FUN_0053EC70: usercall(EDI=0x6CB) + stdcall(timer_obj)
+    // FUN_005480F0: usercall(EAX=-21) + stdcall(worm, result, 0x17, &worm_name)
+    let ddgame = (*worm).ddgame();
+    let sound_val = call_get_sound_val((*ddgame).timer_obj, rb(0x53EC70));
+    call_play_sound_usercall(worm, sound_val, 0x17, (*worm).worm_name.as_ptr(), rb(0x5480F0));
+}
+
+/// Bridge: FUN_0053EC70 — usercall(EDI=0x6CB) + stdcall(timer_obj). Returns EAX.
+#[unsafe(naked)]
+unsafe extern "C" fn call_get_sound_val(_timer_obj: *mut u8, _addr: u32) -> u32 {
+    core::arch::naked_asm!(
+        "push ebx",
+        "push edi",
+        // Stack: 2 saves(8) + ret(4) = 12 to first arg
+        "mov edi, 0x6CB",
+        "mov ebx, [esp+16]",   // addr
+        "push [esp+12]",       // timer_obj
+        "call ebx",
+        "pop edi",
+        "pop ebx",
+        "ret",
+    );
+}
+
+/// Bridge: usercall(EAX=-21) + stdcall(4 params). Plain RET (callee doesn't clean).
+#[unsafe(naked)]
+unsafe extern "C" fn call_play_sound_usercall(
+    _worm: *mut CTaskWorm, _sound_val: u32, _param3: u32, _name: *const u8, _addr: u32,
+) {
+    core::arch::naked_asm!(
+        "push ebx",
+        // Stack: 1 save(4) + ret(4) = 8 to first arg
+        "mov ebx, [esp+24]",   // addr (8 + 4*4 = 24)
+        "push [esp+20]",       // name
+        "push [esp+20]",       // param3 (shifted +4)
+        "push [esp+20]",       // sound_val (shifted +8)
+        "push [esp+20]",       // worm (shifted +12)
+        "mov eax, 0xFFFFFFEB", // EAX = -21 (usercall param)
+        "call ebx",
+        "pop ebx",
+        "ret",
+    );
+}
+
+/// Low Gravity (subtype 24) — pure Rust port of 0x51EA60.
+///
+/// Sends message 0x5B to CTaskTeam with weapon/team info, then conditionally
+/// sets a gravity center point via FUN_00547E70.
+/// Convention: usercall(EAX=entry, ESI=worm, EDI=worm), plain RET.
+unsafe fn fire_low_gravity(worm: *mut CTaskWorm) {
+    use openwa_core::rebase::rb;
+
+    let ddgame = (*worm).ddgame();
+    let game_version = (*(*ddgame).game_info).game_version;
+
+    // Send message 0x5B to CTaskTeam with weapon info buffer
+    let team = lookup_team_task(worm);
+    if !team.is_null() {
+        let mut buf = [0u8; 0x40C];
+        // buf[0x04] = 100 (0x64), buf[0x08] = 166 (0xA6), buf[0x0C] = weapon_id, buf[0x10] = team_index
+        buf[0x04..0x08].copy_from_slice(&100i32.to_ne_bytes());
+        buf[0x08..0x0C].copy_from_slice(&166i32.to_ne_bytes());
+        buf[0x0C..0x10].copy_from_slice(&(*worm).selected_weapon.to_ne_bytes());
+        buf[0x10..0x14].copy_from_slice(&(*worm).team_index.to_ne_bytes());
+
+        (*team).handle_message(
+            (*worm).as_task_ptr_mut(),
+            0x5B,
+            0x408,
+            buf.as_ptr(),
+        );
+    }
+
+    // If old game version or worm state 0x69, set gravity center
+    if game_version < 0x50 || (*worm).state() == 0x69 {
+        // Compute half-level center from DDGame+0x77C0/0x77C4 (level dimensions)
+        let ddgame_raw = ddgame as *const u8;
+        let level_w = *(ddgame_raw.add(0x77C0) as *const i32);
+        let level_h = *(ddgame_raw.add(0x77C4) as *const i32);
+        // Convert to Fixed16.16 and halve: (value << 16) / 2
+        // Original uses SHL 16; CDQ; SUB EAX,EDX; SAR 1 (round-toward-zero divide)
+        let half_x = ((level_w << 16) + (if level_w < 0 { 1 } else { 0 })) >> 1;
+        let half_y = ((level_h << 16) + (if level_h < 0 { 1 } else { 0 })) >> 1;
+
+        // FUN_00547E70: usercall(ECX=half_x, EDX=half_y) + stdcall(worm), RET 0x4
+        type SetGravityCenterFn = unsafe extern "stdcall" fn(*mut CTaskWorm);
+        // Need naked bridge for ECX/EDX usercall params
+        call_set_gravity_center(worm, half_x, half_y, rb(0x547E70));
+    }
+}
+
+/// Bridge: usercall(ECX=half_x, EDX=half_y) + stdcall(worm), RET 0x4.
+#[unsafe(naked)]
+unsafe extern "C" fn call_set_gravity_center(
+    _worm: *mut CTaskWorm, _half_x: i32, _half_y: i32, _addr: u32,
+) {
+    core::arch::naked_asm!(
+        "push ebx",
+        // Stack: 1 save(4) + ret(4) = 8 to first arg
+        "mov ecx, [esp+12]",   // half_x
+        "mov edx, [esp+16]",   // half_y
+        "mov ebx, [esp+20]",   // addr
+        "push [esp+8]",        // worm (shifted by 0 extra pushes before this)
+        "call ebx",            // RET 0x4 cleans worm
+        "pop ebx",
+        "ret",
+    );
 }
 
 /// Girder (type 4 subtype 3) — pure Rust port of 0x51E350.
