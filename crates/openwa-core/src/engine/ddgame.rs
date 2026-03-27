@@ -207,8 +207,13 @@ pub struct DDGame {
     pub game_speed: i32,
     /// 0x72DC: Game speed target (Fixed-point, 0x10000 = 1.0x).
     pub game_speed_target: i32,
-    /// 0x72E0-0x72EB: Unknown
-    pub _unknown_72e0: [u8; 0x72EC - 0x72E0],
+    /// 0x72E0-0x72E3: Unknown
+    pub _unknown_72e0: u32,
+    /// 0x72E4: Active render/weapon slot count. Reset to 14 (0x0E) by WeaponRelease
+    /// sync check, matching the render_entries array size.
+    pub render_slot_count: u32,
+    /// 0x72E8-0x72EB: Unknown
+    pub _unknown_72e8: u32,
     /// 0x72EC: RNG state word 1 (changes every frame).
     pub rng_state_1: u32,
     /// 0x72F0: RNG state word 2 (changes every frame).
@@ -435,6 +440,39 @@ impl DDGame {
             .wrapping_add(0x3C6EF35F);
         self.team_health_ratio[0] = rng as i32;
         rng
+    }
+
+    /// Read a per-team sound ID from the team sound table at DDGame+0x7768.
+    ///
+    /// The table has stride 0xF0 per team (240-byte per-team config blocks).
+    /// The u32 at the base of each block is a sound ID used for type-2 (rope)
+    /// weapon release sounds.
+    ///
+    /// # Safety
+    /// `team_id` must be a valid team index (0–5).
+    pub unsafe fn team_sound_id(&self, team_id: u32) -> u32 {
+        let base = (self as *const DDGame as *const u8).add(0x7768);
+        *(base.add((team_id as usize) * 0xF0) as *const u32)
+    }
+
+    /// Get a mutable pointer to a per-team/per-worm weapon stat counter.
+    ///
+    /// Four counters exist at DDGame base offsets 0x40CC, 0x40D0, 0x40D4, 0x40D8,
+    /// indexed by `team_id * 0x51C + worm_id * 0x9C` (same stride as FullTeamBlock
+    /// and WormEntry). These track weapon usage stats during gameplay.
+    ///
+    /// # Safety
+    /// `team_id` and `worm_id` must be valid indices.
+    pub unsafe fn weapon_stat_counter(
+        &mut self,
+        team_id: u32,
+        worm_id: u32,
+        base_offset: usize,
+    ) -> *mut i32 {
+        (self as *mut DDGame as *mut u8)
+            .add(base_offset)
+            .add((team_id as usize) * 0x51C)
+            .add((worm_id as usize) * 0x9C) as *mut i32
     }
 
     /// Show the "too many objects" warning on the HUD.

@@ -422,7 +422,7 @@ fn can_fire_subtype16(state: u32) -> bool {
 /// Look up the CTaskTeam entity for a worm via SharedData.
 ///
 /// Returns null if not found.
-unsafe fn lookup_team_task(worm: *const CTaskWorm) -> *mut openwa_core::task::CTaskTeam {
+pub(crate) unsafe fn lookup_team_task(worm: *const CTaskWorm) -> *mut openwa_core::task::CTaskTeam {
     use openwa_core::task::{SharedDataTable, Task};
 
     let table = SharedDataTable::from_task((*worm).as_task_ptr());

@@ -9,7 +9,7 @@ use openwa_core::address::va;
 use openwa_core::log::log_line;
 use openwa_core::rebase::rb;
 use openwa_core::task::worm::CTaskWorm;
-use openwa_core::task::{CGameTask, SharedDataTable, Task};
+use openwa_core::task::{CGameTask, Task};
 
 use crate::hook::{self, usercall_trampoline};
 use crate::replacements::{sound, weapon};
@@ -107,14 +107,12 @@ unsafe extern "cdecl" fn weapon_release_impl(
 
     // ── 1. Sync check ───────────────────────────────────────
     if w.fire_sync_frame_1 == w.fire_sync_frame_2 {
-        let ddgame = w.ddgame() as *mut u8;
-        *(ddgame.add(0x72E4) as *mut u32) = 0x0E;
-        let mut offset = 0u32;
-        while (offset as i32) < 0x118 {
-            *(ddgame.add(0x73B0).add(offset as usize) as *mut u32) = 0;
-            offset += 0x14;
+        let g = &mut *w.ddgame();
+        g.render_slot_count = 0x0E;
+        for entry in &mut g.render_entries {
+            entry.active = 0;
         }
-        *(ddgame.add(0x739C) as *mut u32) = 0;
+        g.render_state_flag = 0;
     }
 
     // ── 2. Populate context fields ──────────────────────────
@@ -185,11 +183,9 @@ unsafe extern "cdecl" fn weapon_release_impl(
     }
 
     // ── 5. Network timing ───────────────────────────────────
-    let ddgame_ptr = w.ddgame();
-    let ddgame_raw = ddgame_ptr as *const u8;
-    let ptr_at_24 = *(ddgame_raw.add(0x24) as *const *const u8);
-    let is_network = *ptr_at_24.add(0xD9D0);
-    let fe_version = *ptr_at_24.add(0xD9B1);
+    let game_info = (*w.ddgame()).game_info as *const u8;
+    let is_network = *game_info.add(0xD9D0);
+    let fe_version = *game_info.add(0xD9B1);
 
     let mut adjust = 0i32;
     let max_clients = if is_network == 0 {
@@ -227,20 +223,10 @@ unsafe extern "cdecl" fn weapon_release_impl(
     );
     write_u32(&mut msg_buf, 0x1C, weapon_id);
 
-    let table = SharedDataTable::from_task((*worm).as_task_ptr());
-    let team_entity = table.lookup(0, 0x14);
-    if !team_entity.is_null() {
-        let vtable = *(team_entity as *const *const usize);
-        let handle_msg: unsafe extern "thiscall" fn(
-            *mut u8,
-            *mut u8,
-            u32,
-            u32,
-            *const u8,
-        ) = core::mem::transmute(*vtable.add(2));
-        handle_msg(
-            team_entity as *mut u8,
-            (*worm).as_task_ptr_mut() as *mut u8,
+    let team = weapon::lookup_team_task(worm);
+    if !team.is_null() {
+        (*team).handle_message(
+            (*worm).as_task_ptr_mut(),
             0x49,
             0x408,
             msg_buf.as_ptr(),
@@ -248,42 +234,25 @@ unsafe extern "cdecl" fn weapon_release_impl(
     }
 
     // ── 8. Weapon stat counters ─────────────────────────────
-    let ddgame = (*worm).ddgame() as *mut u8;
+    let g = &mut *(*worm).ddgame();
     let team_id = (*worm).team_index;
     let worm_id = (*worm).worm_index;
-    let current_weapon_byte = *ddgame.add(0x7E3F);
 
-    if is_super_weapon(weapon_id, current_weapon_byte) {
-        let counter = ddgame
-            .add(0x40D8)
-            .add((team_id * 0x51C) as usize)
-            .add((worm_id * 0x9C) as usize) as *mut i32;
-        *counter += 1;
+    if is_super_weapon(weapon_id, g.version_flag_3) {
+        *g.weapon_stat_counter(team_id, worm_id, 0x40D8) += 1;
     }
 
     // Range 0x3E..=0x46
     if weapon_id.wrapping_sub(0x3E) <= 8 {
-        let counter = ddgame
-            .add(0x40D4)
-            .add((team_id * 0x51C) as usize)
-            .add((worm_id * 0x9C) as usize) as *mut i32;
-        *counter += 1;
+        *g.weapon_stat_counter(team_id, worm_id, 0x40D4) += 1;
     }
 
     if is_weapon_category_a(weapon_id) {
-        let counter = ddgame
-            .add(0x40D0)
-            .add((team_id * 0x51C) as usize)
-            .add((worm_id * 0x9C) as usize) as *mut i32;
-        *counter += 1;
+        *g.weapon_stat_counter(team_id, worm_id, 0x40D0) += 1;
     }
 
     if is_weapon_category_b(weapon_id) {
-        let counter = ddgame
-            .add(0x40CC)
-            .add((team_id * 0x51C) as usize)
-            .add((worm_id * 0x9C) as usize) as *mut i32;
-        *counter += 1;
+        *g.weapon_stat_counter(team_id, worm_id, 0x40CC) += 1;
     }
 
     // ── 9. Sound dispatch + 10. Visual effect ───────────────
@@ -342,10 +311,7 @@ unsafe extern "cdecl" fn weapon_release_impl(
         }
         2 => {
             if w._unknown_2cc == 0 || w._unknown_2c8 == 1 {
-                // Team sound from DDGame+0x7768 + team_id * 0xF0
-                let ddgame = w.ddgame() as *const u8;
-                let team_sound_offset = (team_id as usize) * 0xF0 + 0x7768;
-                let team_sound = *(ddgame.add(team_sound_offset) as *const u32);
+                let team_sound = (*w.ddgame()).team_sound_id(team_id);
                 sound::play_sound_local(task, team_sound, 3, 0x10000, 0x10000);
             }
         }
@@ -360,8 +326,8 @@ unsafe extern "cdecl" fn weapon_release_impl(
                     sound::play_sound_local(task, sound_id, 3, 0x10000, 0x10000);
                 }
                 4 => {
-                    let sound_id = *((&raw const (*entry).fire_params as *const u8).add(4)
-                        as *const u32);
+                    // Sound ID at entry+0x40 = fire_params.spread (polymorphic use)
+                    let sound_id = (*entry).fire_params.spread as u32;
                     sound::play_sound_local(task, sound_id, 3, 0x10000, 0x10000);
                 }
                 10 => {
@@ -383,7 +349,7 @@ unsafe extern "cdecl" fn weapon_release_impl(
     // ── 10. Visual effect (if triggered by sound dispatch) ──
     if do_effect {
         let ddgame = &mut *(*worm).ddgame();
-        let gfx_handler = *((&raw const *ddgame as *const u8).add(0x528) as *const *const u8);
+        let gfx_handler = ddgame.game_state_stream as *const u8;
         let palette = *(gfx_handler.add(0x22C) as *const u32);
 
         let rng1 = ddgame.advance_effect_rng();
