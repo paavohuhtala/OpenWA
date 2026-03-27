@@ -405,8 +405,9 @@ unsafe fn fire_weapon_special(
         22 => fire_jet_pack(worm),
         // Magic Bullet
         23 => (*worm).set_state(WormState::WeaponAimed_Maybe),
-        // Low Gravity — kept on bridge; changing this arm causes codegen-dependent
-        // desync in freeze_nuke_armageddon (Armageddon behavior changes). Needs investigation.
+        // Low Gravity — kept on bridge. Changing this arm to non-naked-fn code causes
+        // a codegen-dependent desync: LLVM's register allocation for the match changes,
+        // exposing latent UB somewhere in the reachable code paths. See investigation notes.
         24 => call_fire_usercall(entry as *const (), worm, rb(0x51EA60)),
         _ => {}
     }
