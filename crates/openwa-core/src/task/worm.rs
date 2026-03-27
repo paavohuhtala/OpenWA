@@ -29,14 +29,20 @@ pub enum WormState {
     Active = 0x67,
     /// Active variant — observed in WormEntry. Start of weapon/action range.
     ActiveVariant_Maybe = 0x68,
-    // 0x69–0x6B: unknown (within weapon/action range)
+    /// Unknown (within weapon/action range).
+    Unknown_0x69 = 0x69,
+    /// Unknown (within weapon/action range).
+    Unknown_0x6A = 0x6A,
+    /// Unknown (within weapon/action range).
+    Unknown_0x6B = 0x6B,
     /// Blowtorch — using the blowtorch weapon.
     Blowtorch = 0x6C,
     /// Baseball Bat — swinging the baseball bat. Frequently checked in HandleMessage.
     BaseballBat = 0x6D,
     /// Kamikaze — performing kamikaze attack.
     Kamikaze = 0x6E,
-    // 0x6F: unknown
+    /// Air Strike pending — set when air strike fires with `_unknown_208 == 0`.
+    AirStrikePending_Maybe = 0x6F,
     /// Dragon Ball — performing dragon ball attack.
     DragonBall = 0x70,
     /// Scales of Justice — using scales of justice.
@@ -50,14 +56,18 @@ pub enum WormState {
     TeleportCancelled_Maybe = 0x74,
     /// Fire Punch — performing fire punch attack.
     FirePunch = 0x75,
-    // 0x76: unknown
+    /// Unknown (within weapon/action range).
+    Unknown_0x76 = 0x76,
     /// Weapon selected — entered via SelectCursor (msg 0x24) from idle/active states.
     /// HandleMessage sets param[0xa7]=-1 when already in this state.
     WeaponSelected_Maybe = 0x77,
     /// Weapon aimed — post-select state. Teleport check accepts this.
     /// Also used for Magic Bullet weapon fire.
     WeaponAimed_Maybe = 0x78,
-    // 0x79–0x7A: unknown
+    /// Unknown. Checked in WeaponRelease spawn offset (type 2, Y adjustment when state == 0x79).
+    Unknown_0x79 = 0x79,
+    /// Unknown.
+    Unknown_0x7A = 0x7A,
     /// Aiming with angle — entered for aimed weapons. Sets angle params.
     /// Teleport check accepts this. Transitions to 0x73 on fire.
     AimingAngle_Maybe = 0x7B,
@@ -80,7 +90,10 @@ pub enum WormState {
     Dying1_Maybe = 0x82,
     /// Dying variant 2 — checked alongside 0x82 in HandleMessage.
     Dying2_Maybe = 0x83,
-    // 0x84–0x85: unknown
+    /// Unknown.
+    Unknown_0x84 = 0x84,
+    /// Unknown.
+    Unknown_0x85 = 0x85,
     /// Dead — set by Surrender (msg 0x29). Frequently checked in HandleMessage.
     Dead = 0x86,
     /// Dead variant 3.
@@ -89,19 +102,14 @@ pub enum WormState {
     Unknown_0x88 = 0x88,
     /// Dying/special animation (from WormEntry state documentation).
     DyingAnimation_Maybe = 0x89,
-    // 0x8A: end of weapon/action range
+    /// Unknown. End of weapon/action range.
+    Unknown_0x8A = 0x8A,
     /// Unknown state checked in CTaskTeam handlers.
     /// Grouped with idle states in HandleMessage switch cases.
     Unknown_0x8B = 0x8B,
 }
 
-impl WormState {
-    /// Create a WormState from a raw u8 value without validation.
-    /// Use for states not yet added to the enum.
-    pub const unsafe fn from_raw_unchecked(val: u8) -> Self {
-        core::mem::transmute(val)
-    }
-}
+impl WormState {}
 
 /// Raw-pointer methods for CTaskWorm.
 ///
@@ -277,8 +285,18 @@ pub struct CTaskWorm {
     pub display_health_raw: u32,
     /// 0x17C: Target health (matches WormEntry.health). Same byte layout as display_health.
     pub target_health_raw: u32,
-    /// 0x180–0x1A7: Unknown
-    pub _unknown_180: [u8; 0x1A8 - 0x180],
+    /// 0x180–0x18F: Unknown
+    pub _unknown_180: [u8; 0x190 - 0x180],
+    /// 0x190: Secondary position/mode field. Air strike temporarily swaps this with +0x34.
+    pub _unknown_190: i32,
+    /// 0x194–0x197: Unknown
+    pub _unknown_194: [u8; 4],
+    /// 0x198: Cleared after air strike fire.
+    pub _unknown_198: i32,
+    /// 0x19C: Cleared after air strike fire.
+    pub _unknown_19c: i32,
+    /// 0x1A0–0x1A7: Unknown
+    pub _unknown_1a0: [u8; 0x1A8 - 0x1A0],
     /// 0x1A8: Facing direction copy. -1 = left, +1 = right (same as +0x3DC).
     pub facing_direction_2: i32,
     /// 0x1AC: Inverted facing direction. +1 = left, -1 = right.
@@ -289,10 +307,16 @@ pub struct CTaskWorm {
     /// in one direction. Resets to 0 when movement resumes after a stop.
     /// Set to -1 when the worm is blocked (e.g. hits a wall).
     pub movement_streak: i32,
-    /// 0x1F0–0x247: Unknown
-    pub _unknown_1f0: [u8; 0x248 - 0x1F0],
-    /// 0x248: Unknown
-    pub _unknown_248: u32,
+    /// 0x1F0–0x207: Unknown
+    pub _unknown_1f0: [u8; 0x208 - 0x1F0],
+    /// 0x208: Action/mode flag. Checked in air strike (must be 0 to fire).
+    /// Cleared after air strike completes.
+    pub _unknown_208: i32,
+    /// 0x20C–0x247: Unknown
+    pub _unknown_20c: [u8; 0x248 - 0x20C],
+    /// 0x248: Landscape scale factor for spawn offset calculation.
+    /// Used by WeaponRelease to convert aim params to world-space projectile offsets.
+    pub landscape_scale: i32,
     /// 0x24C: Aim angle (fixed-point 16.16, range 0..0x10000 = 0..360 degrees).
     pub aim_angle: u32,
     /// 0x250–0x267: Unknown
@@ -301,10 +325,52 @@ pub struct CTaskWorm {
     pub show_cursor: u32,
     /// 0x26C–0x283: Unknown
     pub _unknown_26c: [u8; 0x284 - 0x26C],
-    /// 0x284–0x28B: Aiming data (slots 5–6 in GetEntityData query 0x7D4)
-    pub _unknown_284: [u32; 2],
-    /// 0x28C–0x2EF: Unknown
-    pub _unknown_28c: [u8; 0x64],
+    /// 0x284: Shot/aim data 1 (slot 5 in GetEntityData query 0x7D4).
+    /// For weapons 0x22/0x24 (Teleport/Freeze), copied from shot_data_2 on first fire.
+    /// Sent in HandleMessage 0x49 buffer during WeaponRelease.
+    pub shot_data_1: u32,
+    /// 0x288: Shot/aim data 2 (slot 6 in GetEntityData query 0x7D4).
+    pub shot_data_2: u32,
+    /// 0x28C–0x28F: Unknown
+    pub _unknown_28c: [u8; 4],
+    /// 0x290: Fire sync frame counter 1. Compared with fire_sync_frame_2
+    /// in WeaponRelease; when equal, weapon slot table is reset.
+    pub fire_sync_frame_1: i32,
+    /// 0x294: Fire sync frame counter 2.
+    pub fire_sync_frame_2: i32,
+    /// 0x298–0x2BB: Unknown
+    pub _unknown_298: [u8; 0x2BC - 0x298],
+    /// 0x2BC: Network client index. Compared against max client count
+    /// (5 or 10 depending on FE version) to compute network delay.
+    pub network_client_index: i32,
+    /// 0x2C0: Difficulty level (0 = easier/30-frame delay, 1 = harder/60-frame delay).
+    pub difficulty_level: i32,
+    /// 0x2C4–0x2C7: Unknown
+    pub _unknown_2c4: [u8; 4],
+    /// 0x2C8: Network/sound condition flag. In type 2 (rope) sound dispatch,
+    /// sound plays only when this is 0 OR when it equals 1.
+    pub _unknown_2c8: i32,
+    /// 0x2CC: Network flag. Nonzero = network mode active.
+    /// Used in sound dispatch conditions and HandleMessage 0x49 buffer.
+    pub _unknown_2cc: i32,
+    /// 0x2D0–0x2DF: Unknown
+    pub _unknown_2d0: [u8; 0x2E0 - 0x2D0],
+    /// 0x2E0: Weapon parameter 1. Polymorphic per weapon:
+    /// - WeaponRelease: ammo_per_turn (copied to release context)
+    /// - Air Strike: fire position X
+    /// - Freeze: freeze effect X position
+    pub weapon_param_1: i32,
+    /// 0x2E4: Weapon parameter 2. Polymorphic per weapon:
+    /// - WeaponRelease: ammo_per_slot (copied to release context)
+    /// - Air Strike: fire position Y
+    /// - Freeze: freeze effect Y position
+    pub weapon_param_2: i32,
+    /// 0x2E8–0x2EB: Unknown
+    pub _unknown_2e8: [u8; 4],
+    /// 0x2EC: Weapon parameter 3 / launch count.
+    /// - Weapons 0x22/0x24: checked == 0 to copy shot_data_2 → shot_data_1
+    /// - Freeze: freeze target entity ID
+    pub weapon_param_3: i32,
     /// 0x2F0: Worm name, null-terminated (max 17 chars, from spawn init_data+3)
     #[field(kind = "CString")]
     pub worm_name: [u8; 0x11],
@@ -331,8 +397,14 @@ pub struct CTaskWorm {
     /// Contains fire type (+0x30), subtypes (+0x34/+0x38), and completion flag (+0x3C).
     /// Used by WeaponRelease: `MOV EAX, [EDI+0x36C]` before calling FireWeapon.
     pub active_weapon_entry: *mut WeaponEntry,
-    /// 0x370–0x3DB: Unknown (rope anchor, weapon-specific data, etc.)
-    pub _unknown_370: [u8; 0x3DC - 0x370],
+    /// 0x370–0x3AF: Unknown (rope anchor, weapon-specific data, etc.)
+    pub _unknown_370: [u8; 0x3B0 - 0x370],
+    /// 0x3B0: Streaming sound handle. Nonzero when a worm sound effect
+    /// (e.g., weapon charge-up) is actively playing. PlayWormSound stores the
+    /// new handle here; StopWormSound clears it.
+    pub sound_handle: u32,
+    /// 0x3B4–0x3DB: Unknown
+    pub _unknown_3b4: [u8; 0x3DC - 0x3B4],
     /// 0x3DC: Facing direction. -1 = facing left, +1 = facing right.
     pub facing_direction: i32,
     /// 0x3E0–0x3E3: Unknown

@@ -130,6 +130,34 @@ unsafe extern "cdecl" fn play_sound_local_impl(
     1
 }
 
+/// Play a local sound on a task — Rust-callable version of PlaySoundLocal (0x4FDFE0).
+///
+/// Queues the sound, marks it as local, records the emitter position, and
+/// increments the task's local sound count. Returns true on success.
+pub(crate) unsafe fn play_sound_local(
+    task: *mut CGameTask,
+    sound_id: u32,
+    flags: u32,
+    volume: u32,
+    pitch: u32,
+) -> bool {
+    let gt = &*task;
+    let ddgame = gt.base.ddgame;
+    let entry = match queue_sound(ddgame, sound_id, flags, volume, pitch) {
+        Some(e) => e,
+        None => return false,
+    };
+
+    (*entry).is_local = 1;
+
+    let emitter = &gt.sound_emitter;
+    (*entry).secondary_vtable = emitter as *const _ as u32;
+    ((*emitter.vtable).get_position)(emitter, &mut (*entry).pos_x, &mut (*entry).pos_y);
+
+    (*task).sound_emitter.local_sound_count += 1;
+    true
+}
+
 // ============================================================
 // Sound dispatch helpers (bridge: queue → DSSound)
 // ============================================================

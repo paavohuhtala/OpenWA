@@ -423,6 +423,20 @@ impl DDGame {
         rng
     }
 
+    /// Advance the secondary effect RNG at DDGame+0x45F0 and return the new state.
+    ///
+    /// Formula: `rng = rng * 0x19660D + 0x3C6EF35F` (simpler than [`advance_rng`] — no
+    /// frame_counter). Uses `team_health_ratio[0]`, the unused index-0 slot of the
+    /// 1-indexed health ratio array, repurposed by WA as a secondary RNG for weapon
+    /// release visual effects.
+    pub fn advance_effect_rng(&mut self) -> u32 {
+        let rng = (self.team_health_ratio[0] as u32)
+            .wrapping_mul(0x19660D)
+            .wrapping_add(0x3C6EF35F);
+        self.team_health_ratio[0] = rng as i32;
+        rng
+    }
+
     /// Show the "too many objects" warning on the HUD.
     ///
     /// Sets `hud_status_code = 6` and loads string resource 0x70F into

@@ -345,6 +345,15 @@ pub mod va {
     // =========================================================================
 
     crate::define_addresses! {
+        /// PlayWormSound: usercall(EDI=worm) + stack(sound_handle_id, volume), RET 0x8.
+        /// Stops current streaming sound at worm+0x3B0, then starts a new one.
+        fn PLAY_WORM_SOUND = 0x0051_50D0;
+        /// StopWormSound: usercall(ESI=worm), plain RET.
+        /// Stops streaming sound at worm+0x3B0 and clears the handle.
+        fn STOP_WORM_SOUND = 0x0051_5180;
+        /// SpawnEffect: complex usercall, RET 0x1C.
+        /// Builds a 0x408-byte struct from params, SharedData lookup, HandleMessage(0x56).
+        fn SPAWN_EFFECT = 0x0054_7C30;
         fn INIT_WEAPON_TABLE = 0x0053_CAB0;
         fn COUNT_ALIVE_WORMS = 0x0052_25A0;
         fn GET_AMMO = 0x0052_25E0;

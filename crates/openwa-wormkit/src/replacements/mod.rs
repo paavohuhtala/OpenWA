@@ -16,6 +16,7 @@ mod speech;
 mod task;
 mod team;
 mod weapon;
+mod weapon_release;
 
 /// Write gameplay milestone report. Called from DLL_PROCESS_DETACH.
 pub fn write_gameplay_report() {
@@ -41,5 +42,6 @@ pub fn install_all() -> Result<(), String> {
     game_state_hooks::install()?;
     replay::install()?;
     task::install()?;
+    weapon_release::install()?;
     Ok(())
 }

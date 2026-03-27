@@ -195,7 +195,7 @@ unsafe extern "C" fn trampoline_fire_weapon() {
 ///
 /// Completion flag at worm+0x3C (CGameTask.subclass_data[12]).
 /// Params pointer at entry+0x3C (WeaponEntry.fire_complete) — different object, same offset.
-unsafe extern "cdecl" fn fire_weapon_impl(
+pub(crate) unsafe extern "cdecl" fn fire_weapon_impl(
     entry: *const WeaponEntry, local_struct: *const u8, worm: *mut CTaskWorm,
 ) {
     use openwa_core::rebase::rb;
@@ -564,11 +564,8 @@ unsafe fn fire_mail_mine_mole(worm: *mut CTaskWorm) {
 unsafe fn fire_air_strike(worm: *mut CTaskWorm) {
     use openwa_core::rebase::rb;
 
-    let worm_raw = worm as *mut u8;
-    let field_208 = *(worm_raw.add(0x208) as *const i32);
-
-    if field_208 == 0 {
-        CTaskWorm::set_state_raw(worm,WormState::from_raw_unchecked(0x6F));
+    if (*worm)._unknown_208 == 0 {
+        CTaskWorm::set_state_raw(worm,WormState::AirStrikePending_Maybe);
         return;
     }
 
@@ -576,14 +573,14 @@ unsafe fn fire_air_strike(worm: *mut CTaskWorm) {
     call_worm_play_sound(worm, 0x36, 0x10000, 3, rb(0x515020));
 
     // Spawn visual effect: usercall(EAX=0x80000, ECX=x) + stdcall(y, 0, 0, 0, 600, 0x10000, 0x1999)
-    let fire_x = *(worm_raw.add(0x2E0) as *const i32);
-    let fire_y = *(worm_raw.add(0x2E4) as *const i32);
+    let fire_x = (*worm).weapon_param_1;
+    let fire_y = (*worm).weapon_param_2;
     call_spawn_effect(fire_x, fire_y, rb(0x547C30));
 
     // Temporarily swap worm+0x34 with worm+0x190, call position update, restore
+    let worm_raw = worm as *mut u8;
     let saved_34 = *(worm_raw.add(0x34) as *const i32);
-    let field_190 = *(worm_raw.add(0x190) as *const i32);
-    *(worm_raw.add(0x34) as *mut i32) = field_190;
+    *(worm_raw.add(0x34) as *mut i32) = (*worm)._unknown_190;
     call_position_update(worm, fire_x, fire_y, rb(0x4FE070));
     *(worm_raw.add(0x34) as *mut i32) = saved_34;
 
@@ -599,10 +596,10 @@ unsafe fn fire_air_strike(worm: *mut CTaskWorm) {
 
     // Clear action fields
     *(worm_raw.add(0x48) as *mut i32) = 0;
-    *(worm_raw.add(0x208) as *mut i32) = 0;
-    *(worm_raw.add(0x198) as *mut i32) = 0;
-    *(worm_raw.add(0x19C) as *mut i32) = 0;
-    *(worm_raw.add(0x1AC) as *mut i32) = 0;
+    (*worm)._unknown_208 = 0;
+    (*worm)._unknown_198 = 0;
+    (*worm)._unknown_19c = 0;
+    (*worm).facing_direction_inv = 0;
 
     // FUN_0050D450: usercall(ESI=worm), cleanup/landing check
     call_worm_landing_check(worm, rb(0x50D450));
@@ -963,10 +960,9 @@ unsafe fn fire_freeze(worm: *mut CTaskWorm) {
     let game_version = (*(*ddgame).game_info).game_version;
 
     // Read freeze position and target from CTaskWorm fields
-    let worm_raw = worm as *const u8;
-    let freeze_x = *(worm_raw.add(0x2E0) as *const i32);
-    let freeze_y = *(worm_raw.add(0x2E4) as *const i32);
-    let freeze_target = *(worm_raw.add(0x2EC) as *const i32);
+    let freeze_x = (*worm).weapon_param_1;
+    let freeze_y = (*worm).weapon_param_2;
+    let freeze_target = (*worm).weapon_param_3;
 
     // Choose sound: 0x70 if freeze has target or old version, else 0x73
     let sound_id: u32 = if freeze_target != 0 || game_version < 0x21 {
