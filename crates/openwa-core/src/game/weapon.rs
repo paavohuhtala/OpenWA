@@ -205,63 +205,83 @@ impl TryFrom<i32> for FireMethod {
     }
 }
 
-/// Special weapon subtype (WeaponEntry+0x34, when fire_type == Special).
-///
-/// Each value corresponds to a specific weapon's fire handler.
+/// Special weapon subtype — the raw `sub34` value from the weapon table,
+/// used directly as the switch discriminant in FireWeapon (0x51EE60) case 4.
+/// Names are based on confirmed weapon->sub34 mappings from replay test logs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(i32)]
+#[allow(non_camel_case_types)]
 pub enum SpecialFireSubtype {
-    Blowtorch = 1,
-    PneumaticDrill = 2,
-    Girder = 3,
-    BaseballBat = 4,
-    FirePunch = 5,
-    DragonBall = 6,
+    /// FirePunch weapon (id=16, sub34=1).
+    FirePunch = 1,
+    /// BaseballBat weapon (id=35, sub34=2). Handler calls PneumaticDrill/SpecialImpact logic.
+    BaseballBat = 2,
+    /// DragonBall weapon (id=17, sub34=3). Handler allocates CTaskGirder.
+    DragonBall = 3,
+    /// Kamikaze weapon (id=18, sub34=4).
+    Kamikaze = 4,
+    /// SuicideBomber weapon (id=19, sub34=5).
+    SuicideBomber = 5,
+    /// Unknown — no weapon observed using sub34=6 in replay tests.
+    Unknown6 = 6,
     // 7: unknown
-    Kamikaze = 8,
+    /// PneumaticDrill weapon (id=33, sub34=8).
+    PneumaticDrill = 8,
     Prod = 9,
-    AirStrike = 10,
-    ScalesOfJustice = 11,
-    // 12: unknown
-    StrikeFire = 13,
+    /// Teleport weapon (id=40, sub34=10).
+    Teleport = 10,
+    /// Blowtorch weapon (id=32, sub34=11).
+    Blowtorch = 11,
+    /// Parachute weapon (id=39, sub34=12).
+    Parachute = 12,
+    /// Surrender weapon (id=58, sub34=13). Sends message 0x2B (TaskMessage::Surrender).
+    Surrender = 13,
     MailMineMole = 14,
     // 15: unknown
-    IndianNuclearTest = 16,
-    Freeze = 17,
-    SuicideBomber = 18,
+    /// NuclearTest weapon (id=55, sub34=16).
+    NuclearTest = 16,
+    /// Girder/GirderPack weapons (id=34/36, sub34=17).
+    Girder = 17,
+    /// Unknown — no weapon observed using sub34=18 in replay tests.
+    Unknown18 = 18,
     SkipGo = 19,
-    Surrender = 20,
+    /// Freeze weapon (id=60, sub34=20). Sends message 0x29 (TaskMessage::Freeze).
+    Freeze = 20,
     SelectWorm = 21,
-    JetPack = 22,
-    MagicBullet = 23,
-    LowGravity = 24,
+    /// ScalesOfJustice weapon (id=41, sub34=22).
+    ScalesOfJustice = 22,
+    /// JetPack weapon (id=62, sub34=23).
+    JetPack = 23,
+    /// Armageddon weapon (id=56, sub34=24).
+    Armageddon = 24,
 }
 
 impl TryFrom<i32> for SpecialFireSubtype {
     type Error = i32;
     fn try_from(v: i32) -> Result<Self, i32> {
         match v {
-            1 => Ok(Self::Blowtorch),
-            2 => Ok(Self::PneumaticDrill),
-            3 => Ok(Self::Girder),
-            4 => Ok(Self::BaseballBat),
-            5 => Ok(Self::FirePunch),
-            6 => Ok(Self::DragonBall),
-            8 => Ok(Self::Kamikaze),
+            1 => Ok(Self::FirePunch),
+            2 => Ok(Self::BaseballBat),
+            3 => Ok(Self::DragonBall),
+            4 => Ok(Self::Kamikaze),
+            5 => Ok(Self::SuicideBomber),
+            6 => Ok(Self::Unknown6),
+            8 => Ok(Self::PneumaticDrill),
             9 => Ok(Self::Prod),
-            10 => Ok(Self::AirStrike),
-            11 => Ok(Self::ScalesOfJustice),
-            13 => Ok(Self::StrikeFire),
+            10 => Ok(Self::Teleport),
+            11 => Ok(Self::Blowtorch),
+            12 => Ok(Self::Parachute),
+            13 => Ok(Self::Surrender),
             14 => Ok(Self::MailMineMole),
-            16 => Ok(Self::IndianNuclearTest),
-            17 => Ok(Self::Freeze),
-            18 => Ok(Self::SuicideBomber),
+            16 => Ok(Self::NuclearTest),
+            17 => Ok(Self::Girder),
+            18 => Ok(Self::Unknown18),
             19 => Ok(Self::SkipGo),
-            20 => Ok(Self::Surrender),
+            20 => Ok(Self::Freeze),
             21 => Ok(Self::SelectWorm),
-            22 => Ok(Self::JetPack),
-            23 => Ok(Self::MagicBullet),
-            24 => Ok(Self::LowGravity),
+            22 => Ok(Self::ScalesOfJustice),
+            23 => Ok(Self::JetPack),
+            24 => Ok(Self::Armageddon),
             _ => Err(v),
         }
     }

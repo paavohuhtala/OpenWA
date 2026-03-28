@@ -10,7 +10,7 @@ use openwa_core::audio::{KnownSoundId, SoundId};
 use openwa_core::fixed::Fixed;
 use openwa_core::game::Weapon;
 use openwa_core::log::log_line;
-use openwa_core::task::team::CTaskTeam;
+use openwa_core::task::turn_game::CTaskTurnGame;
 use openwa_core::task::worm::{CTaskWorm, WormState};
 use openwa_core::task::{CGameTask, CTask, SharedDataTable, Task};
 
@@ -250,9 +250,9 @@ unsafe extern "cdecl" fn weapon_release_impl(
     );
     write_u32(&mut msg_buf, 0x1C, weapon as u32);
 
-    let team = weapon::lookup_team_task(worm);
+    let team = weapon::lookup_turn_game(worm);
     if !team.is_null() {
-        CTaskTeam::handle_message_raw(
+        CTaskTurnGame::handle_message_raw(
             team,
             worm as *mut openwa_core::task::CTask,
             0x49,
@@ -343,24 +343,24 @@ unsafe extern "cdecl" fn weapon_release_impl(
         Ok(FireType::Special) => {
             use openwa_core::game::weapon::SpecialFireSubtype as S;
             match S::try_from((*entry).special_subtype) {
-                Ok(S::PneumaticDrill) => {
+                Ok(S::BaseballBat) => {
                     sound::play_sound_local(
                         task, KnownSoundId::BaseballBatRelease, 3, Fixed::ONE, Fixed::ONE,
                     );
                 }
-                Ok(S::Girder) => {
+                Ok(S::DragonBall) => {
                     sound::play_sound_local(task, SoundId((*entry).fire_method as u32), 3, Fixed::ONE, Fixed::ONE);
                 }
-                Ok(S::BaseballBat) => {
+                Ok(S::Kamikaze) => {
                     // Sound ID from fire_params.spread (polymorphic use of field)
                     sound::play_sound_local(task, SoundId((*entry).fire_params.spread as u32), 3, Fixed::ONE, Fixed::ONE);
                 }
-                Ok(S::AirStrike) => {
+                Ok(S::Teleport) => {
                     if w._unknown_208 == 0 {
                         sound::play_sound_local(task, KnownSoundId::Teleport, 3, Fixed::ONE, Fixed::ONE);
                     }
                 }
-                Ok(S::ScalesOfJustice) => {
+                Ok(S::Blowtorch) => {
                     if w.sound_handle == 0 {
                         sound::play_worm_sound(worm, SoundId(0x10035), Fixed::ONE);
                     }

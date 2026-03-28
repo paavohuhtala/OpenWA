@@ -12,11 +12,10 @@ use crate::game::TaskMessage;
 /// its payload as typed fields instead of a raw byte buffer.
 #[derive(Debug, Clone, Copy)]
 pub enum TeamMessage {
-    /// 0x2B (Surrender): Strike fire / team-targeted action.
-    /// Used by SpecialFireSubtype::StrikeFire (subtype 13) — shared by
-    /// Napalm Strike, Surrender, and other weapons that send a team message.
+    /// 0x2B (TaskMessage::Surrender): Sent by the Surrender weapon (subtype 13).
     /// Sets a per-team flag and optionally broadcasts DetonateWeapon.
-    StrikeFire {
+    /// Handled by CTaskTurnGame::HandleMessage which also triggers end-turn logic.
+    Surrender {
         /// Team index (1-based) identifying which team fired.
         team_index: u32,
     },
@@ -38,7 +37,7 @@ impl TeamMessage {
                     return None;
                 }
                 let team_index = *(data as *const u32);
-                Some(TeamMessage::StrikeFire { team_index })
+                Some(TeamMessage::Surrender { team_index })
             }
             _ => None,
         }
@@ -49,7 +48,7 @@ impl TeamMessage {
     /// Writes the payload into `buf` and returns `(msg_type, size)`.
     pub fn to_raw(&self, buf: &mut [u8]) -> (u32, u32) {
         match self {
-            TeamMessage::StrikeFire { team_index } => {
+            TeamMessage::Surrender { team_index } => {
                 buf[0..4].copy_from_slice(&team_index.to_ne_bytes());
                 (TaskMessage::Surrender as u32, 4)
             }

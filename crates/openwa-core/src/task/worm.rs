@@ -37,27 +37,27 @@ pub enum WormState {
     Unknown_0x6A = 0x6A,
     /// Unknown (within weapon/action range).
     Unknown_0x6B = 0x6B,
-    /// Blowtorch — using the blowtorch weapon.
-    Blowtorch = 0x6C,
-    /// Baseball Bat — swinging the baseball bat. Frequently checked in HandleMessage.
-    BaseballBat = 0x6D,
-    /// Kamikaze — performing kamikaze attack.
-    Kamikaze = 0x6E,
+    /// Fire Punch — performing fire punch attack (sub34=1).
+    FirePunch = 0x6C,
+    /// Kamikaze — performing kamikaze attack (sub34=4). Frequently checked in HandleMessage.
+    Kamikaze = 0x6D,
+    /// Pneumatic Drill — using the pneumatic drill (sub34=8).
+    PneumaticDrill = 0x6E,
     /// Air Strike pending — set when air strike fires with `_unknown_208 == 0`.
     AirStrikePending_Maybe = 0x6F,
-    /// Dragon Ball — performing dragon ball attack.
-    DragonBall = 0x70,
-    /// Scales of Justice — using scales of justice.
-    ScalesOfJustice = 0x71,
-    /// Suicide Bomber — performing suicide bomber attack.
-    SuicideBomber = 0x72,
+    /// Unknown — sub34=6 has no replay test log data.
+    Unknown_0x70 = 0x70,
+    /// Blowtorch — using the blowtorch weapon (sub34=11).
+    Blowtorch = 0x71,
+    /// Unknown — sub34=18 has no replay test log data.
+    Unknown_0x72 = 0x72,
     /// Weapon charging — entered from aiming states (0x7B, 0x7C) before release.
     /// Also set by CheckPendingAction when field +0xBC is nonzero.
     WeaponCharging_Maybe = 0x73,
     /// Teleport cancelled — teleport failed or was denied.
     TeleportCancelled_Maybe = 0x74,
-    /// Fire Punch — performing fire punch attack.
-    FirePunch = 0x75,
+    /// Suicide Bomber — performing suicide bomber attack (sub34=5).
+    SuicideBomber = 0x75,
     /// Unknown (within weapon/action range).
     Unknown_0x76 = 0x76,
     /// Weapon selected — entered via SelectCursor (msg 0x24) from idle/active states.

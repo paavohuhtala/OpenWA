@@ -22,7 +22,7 @@ use openwa_core::fixed::Fixed;
 use openwa_core::game::weapon::{WeaponEntry, WeaponFireParams, WeaponSpawnData};
 use openwa_core::game::Weapon;
 use openwa_core::log::log_line;
-use openwa_core::task::team::CTaskTeam;
+use openwa_core::task::turn_game::CTaskTurnGame;
 use openwa_core::task::CTask;
 use openwa_core::task::worm::{CTaskWorm, WormState};
 
@@ -313,39 +313,40 @@ unsafe fn fire_weapon_special(
     let params_38_ptr = &raw const (*entry).fire_method as *const WeaponFireParams;
 
     match S::try_from(subtype) {
-        Ok(S::Blowtorch) => CTaskWorm::set_state_raw(worm, WormState::Blowtorch),
-        Ok(S::PneumaticDrill) => fire_drill(worm, ctx as *const u8),
-        Ok(S::Girder) => fire_girder(worm, params_38_ptr, ctx as *const u8),
-        Ok(S::BaseballBat) => CTaskWorm::set_state_raw(worm, WormState::BaseballBat),
         Ok(S::FirePunch) => CTaskWorm::set_state_raw(worm, WormState::FirePunch),
-        Ok(S::DragonBall) => CTaskWorm::set_state_raw(worm, WormState::DragonBall),
+        Ok(S::BaseballBat) => fire_drill(worm, ctx as *const u8),
+        Ok(S::DragonBall) => fire_dragon_ball(worm, params_38_ptr, ctx as *const u8),
         Ok(S::Kamikaze) => CTaskWorm::set_state_raw(worm, WormState::Kamikaze),
+        Ok(S::SuicideBomber) => CTaskWorm::set_state_raw(worm, WormState::SuicideBomber),
+        Ok(S::Unknown6) => CTaskWorm::set_state_raw(worm, WormState::Unknown_0x70),
+        Ok(S::PneumaticDrill) => CTaskWorm::set_state_raw(worm, WormState::PneumaticDrill),
         Ok(S::Prod) => fire_prod(worm, ctx as *const u8),
-        Ok(S::AirStrike) => fire_air_strike(worm),
-        Ok(S::ScalesOfJustice) => CTaskWorm::set_state_raw(worm, WormState::ScalesOfJustice),
-        Ok(S::StrikeFire) => fire_strike_typed(worm),
+        Ok(S::Teleport) => fire_teleport(worm),
+        Ok(S::Blowtorch) => CTaskWorm::set_state_raw(worm, WormState::Blowtorch),
+        Ok(S::Parachute) => {} // TODO: parachute handler
+        Ok(S::Surrender) => fire_surrender(worm),
         Ok(S::MailMineMole) => fire_mail_mine_mole(worm),
-        Ok(S::IndianNuclearTest) => {
+        Ok(S::NuclearTest) => {
             if can_fire_subtype16((*worm).state()) {
-                fire_indian_nuclear_test(worm);
+                fire_nuclear_test(worm);
             } else {
                 CTaskWorm::set_state_raw(worm, WormState::TeleportCancelled_Maybe);
             }
         }
-        Ok(S::Freeze) => fire_freeze(worm),
-        Ok(S::SuicideBomber) => CTaskWorm::set_state_raw(worm, WormState::SuicideBomber),
+        Ok(S::Girder) => fire_girder(worm),
+        Ok(S::Unknown18) => CTaskWorm::set_state_raw(worm, WormState::Unknown_0x72),
         Ok(S::SkipGo) => fire_skip_go(worm, entry),
-        Ok(S::Surrender) => fire_surrender(worm),
+        Ok(S::Freeze) => fire_freeze(worm),
         Ok(S::SelectWorm) => fire_select_worm(worm),
-        Ok(S::JetPack) => fire_jet_pack(worm),
-        Ok(S::MagicBullet) => CTaskWorm::set_state_raw(worm, WormState::WeaponAimed_Maybe),
-        Ok(S::LowGravity) => call_fire_usercall(entry as *const (), worm, rb(0x51EA60)),
+        Ok(S::ScalesOfJustice) => fire_scales_of_justice(worm),
+        Ok(S::JetPack) => CTaskWorm::set_state_raw(worm, WormState::WeaponAimed_Maybe),
+        Ok(S::Armageddon) => call_fire_usercall(entry as *const (), worm, rb(0x51EA60)),
         _ => {}
     }
 }
 
 /// Worm state validity check for subtype 16 — pure Rust port of 0x516930.
-/// Used by Indian Nuclear Test (and possibly Teleport) to gate firing.
+/// Used by Nuclear Test to gate firing.
 fn can_fire_subtype16(state: u32) -> bool {
     state == WormState::WeaponAimed_Maybe as u32
         || (WormState::AimingAngle_Maybe as u32..=WormState::PreFire_Maybe as u32).contains(&state)
@@ -353,55 +354,52 @@ fn can_fire_subtype16(state: u32) -> bool {
 
 // ── Pure Rust fire handlers (no bridge needed) ──────────────
 
-/// Look up the CTaskTeam entity for a worm via SharedData.
+/// Look up the CTaskTurnGame entity for a worm via SharedData.
 ///
+/// The entity at key (0, 0x14) is a CTaskTurnGame (inherits CTaskTeam).
 /// Returns null if not found.
-pub(crate) unsafe fn lookup_team_task(worm: *const CTaskWorm) -> *mut openwa_core::task::CTaskTeam {
+pub(crate) unsafe fn lookup_turn_game(worm: *const CTaskWorm) -> *mut openwa_core::task::CTaskTurnGame {
     use openwa_core::task::SharedDataTable;
 
     let table = SharedDataTable::from_task(worm as *const CTask);
-    // CTaskTeam is registered with key (0, 0x14) in SharedData
-    table.lookup(0, 0x14) as *mut openwa_core::task::CTaskTeam
+    table.lookup(0, 0x14) as *mut openwa_core::task::CTaskTurnGame
 }
 
-/// StrikeFire (subtype 13) — typed Rust handler.
+/// Surrender (subtype 13) — sends message 0x2B (TaskMessage::Surrender) to
+/// CTaskTurnGame via vtable dispatch.
 ///
-/// Shared by Napalm Strike, Surrender, and other weapons that send
-/// message 0x2B to CTaskTeam. Constructs a typed TeamMessage::StrikeFire,
-/// serializes to raw bytes, and dispatches through CTaskTeam's WA vtable.
+/// TurnGame::HandleMessage (0x55DC00) delegates to CTaskTeam (0x557310) for
+/// the broadcast, then handles end-turn logic and surrender sound.
 #[inline(never)]
-unsafe fn fire_strike_typed(worm: *mut CTaskWorm) {
-    use openwa_core::task::TeamMessage;
-
-    let team = lookup_team_task(worm);
+unsafe fn fire_surrender(worm: *mut CTaskWorm) {
+    let team = lookup_turn_game(worm);
     if team.is_null() {
         return;
     }
 
-    let msg = TeamMessage::StrikeFire {
-        team_index: (*worm).team_index,
-    };
     let mut buf = [0u8; 0x40C];
-    let (msg_type, size) = msg.to_raw(&mut buf);
+    buf[0..4].copy_from_slice(&(*worm).team_index.to_ne_bytes());
 
-    CTaskTeam::handle_message_raw(
+    // Dispatch through vtable — hits CTaskTurnGame::HandleMessage (0x55DC00)
+    // which delegates to CTaskTeam (0x557310) and handles end-turn/sound.
+    CTaskTurnGame::handle_message_raw(
         team,
         worm as *mut openwa_core::task::CTask,
-        msg_type,
-        size,
+        0x2B,
+        4,
         buf.as_ptr(),
     );
 }
 
-/// Send a message to the worm's CTaskTeam entity via SharedData lookup.
+/// Send a message to CTaskTurnGame via SharedData lookup + vtable dispatch.
 ///
-/// Pattern shared by Napalm Strike (msg 0x2B), Surrender (msg 0x29), etc.
-/// Looks up CTaskTeam, then calls HandleMessage (vtable slot 2).
+/// Shared pattern: look up CTaskTurnGame at key (0, 0x14), write team_index
+/// into a 0x40C-byte buffer, and call HandleMessage (vtable slot 2).
 ///
 /// The 0x40C-byte local buffer is passed as data pointer; team_index is written
 /// at buf+0x00 to identify which team fired.
 unsafe fn fire_send_team_message(worm: *mut CTaskWorm, msg_type: u32) {
-    let team = lookup_team_task(worm);
+    let team = lookup_turn_game(worm);
     if team.is_null() {
         return;
     }
@@ -410,7 +408,7 @@ unsafe fn fire_send_team_message(worm: *mut CTaskWorm, msg_type: u32) {
     let team_index = (*worm).team_index;
     buf[0..4].copy_from_slice(&team_index.to_ne_bytes());
 
-    CTaskTeam::handle_message_raw(team,
+    CTaskTurnGame::handle_message_raw(team,
         worm as *mut openwa_core::task::CTask,
         msg_type,
         4,
@@ -420,9 +418,9 @@ unsafe fn fire_send_team_message(worm: *mut CTaskWorm, msg_type: u32) {
 
 /// Select Worm (subtype 21) — pure Rust replacement for 0x51EBE0.
 ///
-/// Sends message 0x5D to CTaskTeam with buf = [8, team_index, ...].
+/// Sends message 0x5D to CTaskTurnGame with buf = [8, team_index, ...].
 unsafe fn fire_select_worm(worm: *mut CTaskWorm) {
-    let team = lookup_team_task(worm);
+    let team = lookup_turn_game(worm);
     if team.is_null() {
         return;
     }
@@ -431,7 +429,7 @@ unsafe fn fire_select_worm(worm: *mut CTaskWorm) {
     buf[0..4].copy_from_slice(&8u32.to_ne_bytes());
     buf[4..8].copy_from_slice(&(*worm).team_index.to_ne_bytes());
 
-    CTaskTeam::handle_message_raw(team,
+    CTaskTurnGame::handle_message_raw(team,
         worm as *mut openwa_core::task::CTask,
         0x5D,
         0x408,
@@ -464,11 +462,11 @@ unsafe fn fire_skip_go(worm: *const CTaskWorm, entry: *const WeaponEntry) {
     }
 }
 
-/// Surrender (subtype 20) — pure Rust replacement for 0x51E600.
+/// Freeze weapon (subtype 20) — pure Rust replacement for 0x51E600.
 ///
-/// Sends message 0x29 to CTaskTeam with buf = [team_index], then increments
+/// Sends message 0x29 (TaskMessage::Freeze) to CTaskTurnGame, then increments
 /// WormEntry.turn_action_counter_Maybe by 14 (0x0E).
-unsafe fn fire_surrender(worm: *mut CTaskWorm) {
+unsafe fn fire_freeze(worm: *mut CTaskWorm) {
     use openwa_core::engine::ddgame::TeamArenaRef;
 
     fire_send_team_message(worm, 0x29);
@@ -484,7 +482,7 @@ unsafe fn fire_surrender(worm: *mut CTaskWorm) {
 /// Mail/Mine/Mole (subtype 14) — pure Rust replacement for 0x51E670.
 ///
 /// Conditionally calls worm->vtable[0xE](0x65) based on game version and worm state,
-/// then sends message 0x28 to CTaskTeam, then increments
+/// then sends message 0x28 to CTaskTurnGame, then increments
 /// WormEntry.turn_action_counter_Maybe by 7.
 ///
 /// Version check logic (from disassembly at 0x51E670):
@@ -517,14 +515,14 @@ unsafe fn fire_mail_mine_mole(worm: *mut CTaskWorm) {
     entry.turn_action_counter_Maybe += 7;
 }
 
-/// Air Strike (subtype 10) — pure Rust port of 0x51E710.
+/// Teleport (subtype 10) — pure Rust port of 0x51E710.
 ///
-/// If CTaskWorm+0x208 == 0: set state to 0x6F (air strike pending).
+/// If CTaskWorm+0x208 == 0: set state to 0x6F (AirStrikePending_Maybe).
 /// Otherwise: play sound, spawn visual effect, update position, compute
 /// new state based on game version, clear action fields.
 ///
 /// Convention: usercall(EAX=worm, ESI=worm, EDI=worm), plain RET.
-unsafe fn fire_air_strike(worm: *mut CTaskWorm) {
+unsafe fn fire_teleport(worm: *mut CTaskWorm) {
     use openwa_core::rebase::rb;
 
     if (*worm)._unknown_208 == 0 {
@@ -570,46 +568,46 @@ unsafe fn fire_air_strike(worm: *mut CTaskWorm) {
     // Debug log block (ddgame+0x8144) omitted — only writes to debug file
 }
 
-/// Indian Nuclear Test (subtype 16) — pure Rust port of 0x51EB00.
+/// Nuclear Test (subtype 16) — pure Rust port of 0x51EB00.
 ///
-/// Sends three messages to CTaskTeam: RaiseWater (0x59), NukeBlast (0x5A),
+/// Sends three messages to CTaskTurnGame: RaiseWater (0x59), NukeBlast (0x5A),
 /// PoisonWorm (0x51), and plays two sounds. Gated by can_fire_subtype16.
 ///
 /// Convention: usercall(EAX=worm_state, ESI=worm, EDI=worm), plain RET.
-unsafe fn fire_indian_nuclear_test(worm: *mut CTaskWorm) {
+unsafe fn fire_nuclear_test(worm: *mut CTaskWorm) {
     use crate::replacements::sound;
 
     let ddgame = CTask::ddgame_raw(worm as *const CTask);
     let entry = &*(*worm).active_weapon_entry;
-    let team = lookup_team_task(worm);
+    let team = lookup_turn_game(worm);
 
     // Message 0x59 (RaiseWater): buf[0]=fire_method, buf[4]=8
     if !team.is_null() {
         let mut buf = [0u8; 0x40C];
         buf[0..4].copy_from_slice(&entry.fire_method.to_ne_bytes());
         buf[4..8].copy_from_slice(&8i32.to_ne_bytes());
-        CTaskTeam::handle_message_raw(team,worm as *mut openwa_core::task::CTask, 0x59, 0x408, buf.as_ptr());
+        CTaskTurnGame::handle_message_raw(team,worm as *mut openwa_core::task::CTask, 0x59, 0x408, buf.as_ptr());
     }
 
     // Message 0x5A (NukeBlast): buf[0]=8
-    let team = lookup_team_task(worm);
+    let team = lookup_turn_game(worm);
     if !team.is_null() {
         let mut buf = [0u8; 0x40C];
         buf[0..4].copy_from_slice(&8i32.to_ne_bytes());
-        CTaskTeam::handle_message_raw(team,worm as *mut openwa_core::task::CTask, 0x5A, 0x408, buf.as_ptr());
+        CTaskTurnGame::handle_message_raw(team,worm as *mut openwa_core::task::CTask, 0x5A, 0x408, buf.as_ptr());
     }
 
     // PlaySoundGlobal(IndianAnthem, 8, 0x10000, 0x10000)
     sound::queue_sound(ddgame, KnownSoundId::IndianAnthem.into(), 8, Fixed::ONE, Fixed::ONE);
 
     // Message 0x51 (PoisonWorm): buf[0]=shot_count, buf[4]=2, buf[8]=team_index
-    let team = lookup_team_task(worm);
+    let team = lookup_turn_game(worm);
     if !team.is_null() {
         let mut buf = [0u8; 0x40C];
         buf[0..4].copy_from_slice(&entry.fire_params.shot_count.to_ne_bytes());
         buf[4..8].copy_from_slice(&2i32.to_ne_bytes());
         buf[8..12].copy_from_slice(&(*worm).team_index.to_ne_bytes());
-        CTaskTeam::handle_message_raw(team,worm as *mut openwa_core::task::CTask, 0x51, 0x408, buf.as_ptr());
+        CTaskTurnGame::handle_message_raw(team,worm as *mut openwa_core::task::CTask, 0x51, 0x408, buf.as_ptr());
     }
 
     // PlaySoundGlobal(NukeFlash, 5, 0x10000, 0x10000)
@@ -693,17 +691,17 @@ unsafe extern "C" fn call_worm_landing_check(_worm: *mut CTaskWorm, _addr: u32) 
     );
 }
 
-/// Jet Pack (subtype 22) — pure Rust port of 0x51EC30.
+/// Scales of Justice (subtype 22) — pure Rust port of 0x51EC30.
 ///
-/// Sends message 0x5E to CTaskTeam, then plays a jet pack sound.
+/// Sends message 0x5E to CTaskTurnGame, then plays a sound.
 /// Convention: usercall(EAX=entry, ESI=worm, EDI=worm), plain RET.
-unsafe fn fire_jet_pack(worm: *mut CTaskWorm) {
+unsafe fn fire_scales_of_justice(worm: *mut CTaskWorm) {
     use openwa_core::rebase::rb;
 
-    // Send message 0x5E to CTaskTeam
-    let team = lookup_team_task(worm);
+    // Send message 0x5E to CTaskTurnGame
+    let team = lookup_turn_game(worm);
     if !team.is_null() {
-        CTaskTeam::handle_message_raw(team,
+        CTaskTurnGame::handle_message_raw(team,
             worm as *mut openwa_core::task::CTask,
             0x5E,
             0,
@@ -756,19 +754,19 @@ unsafe extern "C" fn call_play_sound_usercall(
     );
 }
 
-/// Low Gravity (subtype 24) — pure Rust port of 0x51EA60.
+/// Armageddon (subtype 24) — pure Rust port of 0x51EA60.
 ///
-/// Sends message 0x5B to CTaskTeam with weapon/team info, then conditionally
+/// Sends message 0x5B to CTaskTurnGame with weapon/team info, then conditionally
 /// sets a gravity center point via FUN_00547E70.
 /// Convention: usercall(EAX=entry, ESI=worm, EDI=worm), plain RET.
-unsafe fn fire_low_gravity(worm: *mut CTaskWorm) {
+unsafe fn fire_armageddon(worm: *mut CTaskWorm) {
     use openwa_core::rebase::rb;
 
     let ddgame = CTask::ddgame_raw(worm as *const CTask);
     let game_version = (*(*ddgame).game_info).game_version;
 
-    // Send message 0x5B to CTaskTeam with weapon info buffer
-    let team = lookup_team_task(worm);
+    // Send message 0x5B to CTaskTurnGame with weapon info buffer
+    let team = lookup_turn_game(worm);
     if !team.is_null() {
         let mut buf = [0u8; 0x40C];
         // buf[0x04] = 100 (0x64), buf[0x08] = 166 (0xA6), buf[0x0C] = weapon_id, buf[0x10] = team_index
@@ -777,7 +775,7 @@ unsafe fn fire_low_gravity(worm: *mut CTaskWorm) {
         buf[0x0C..0x10].copy_from_slice(&((*worm).selected_weapon as u32).to_ne_bytes());
         buf[0x10..0x14].copy_from_slice(&(*worm).team_index.to_ne_bytes());
 
-        CTaskTeam::handle_message_raw(team,
+        CTaskTurnGame::handle_message_raw(team,
             worm as *mut openwa_core::task::CTask,
             0x5B,
             0x408,
@@ -821,14 +819,14 @@ unsafe extern "C" fn call_set_gravity_center(
     );
 }
 
-/// Girder (type 4 subtype 3) — pure Rust port of 0x51E350.
+/// DragonBall (type 4 subtype 3) — pure Rust port of 0x51E350.
 ///
 /// Allocates a CTaskGirder (0xA4 bytes), copies 7 DWORDs from fire_params
 /// as constructor arguments, and calls the constructor. The constructor handles
 /// actually placing the girder on the landscape.
 ///
 /// Convention: stdcall(worm, fire_params, local_struct), RET 0xC.
-unsafe fn fire_girder(
+unsafe fn fire_dragon_ball(
     worm: *mut CTaskWorm, fire_params: *const WeaponFireParams, local_struct: *const u8,
 ) {
     use openwa_core::rebase::rb;
@@ -909,26 +907,26 @@ unsafe extern "C" fn call_fire_usercall(_eax: *const (), _worm: *mut CTaskWorm, 
     );
 }
 
-/// Freeze (subtype 17) — pure Rust port of 0x51E920.
+/// Girder/GirderPack (subtype 17) — pure Rust port of 0x51E920.
 ///
-/// Plays a freeze sound, optionally creates a freeze visual overlay on the
+/// Plays a sound, optionally creates a visual overlay on the
 /// landscape and increments worm counters. The visual/counter path only runs
-/// when CTaskWorm+0x2EC (freeze_target_team) is nonzero.
+/// when CTaskWorm+0x2EC (weapon_param_3) is nonzero.
 ///
 /// Convention: usercall(EAX=worm, ESI=worm, EDI=worm), plain RET.
-unsafe fn fire_freeze(worm: *mut CTaskWorm) {
+unsafe fn fire_girder(worm: *mut CTaskWorm) {
     use openwa_core::rebase::rb;
 
     let ddgame = CTask::ddgame_raw(worm as *const CTask);
     let game_version = (*(*ddgame).game_info).game_version;
 
-    // Read freeze position and target from CTaskWorm fields
-    let freeze_x = (*worm).weapon_param_1;
-    let freeze_y = (*worm).weapon_param_2;
-    let freeze_target = (*worm).weapon_param_3;
+    // Read girder position and sprite index from CTaskWorm fields
+    let girder_x = (*worm).weapon_param_1;
+    let girder_y = (*worm).weapon_param_2;
+    let girder_sprite = (*worm).weapon_param_3;
 
-    // Choose sound: 0x70 if freeze has target or old version, else 0x73
-    let sound_id: u32 = if freeze_target != 0 || game_version < 0x21 {
+    // Choose sound: 0x70 if girder has sprite or old version, else 0x73
+    let sound_id: u32 = if girder_sprite != 0 || game_version < 0x21 {
         0x70
     } else {
         0x73
@@ -939,28 +937,28 @@ unsafe fn fire_freeze(worm: *mut CTaskWorm) {
     let play_sound: PlaySoundGlobalFn = core::mem::transmute(rb(va::PLAY_SOUND_GLOBAL));
     let result = play_sound(worm, sound_id, 3, 0x10000, 0x10000);
 
-    // If sound was queued, set its position to the freeze location
+    // If sound was queued, set its position to the girder location
     if result != 0 {
         let queue_count = (*ddgame).sound_queue_count;
         if queue_count > 0 {
             let entry = &mut (*ddgame).sound_queue[(queue_count - 1) as usize];
             entry.is_local = 1;
             entry.secondary_vtable = 0;
-            entry.pos_x = freeze_x as u32;
-            entry.pos_y = freeze_y as u32;
+            entry.pos_x = girder_x as u32;
+            entry.pos_y = girder_y as u32;
         }
     }
 
-    // If freeze has a target, apply the visual effect and update counters
-    if freeze_target != 0 {
-        // Call PCLandscape vtable[5] to create freeze overlay
+    // If girder has a sprite, apply the visual overlay and update counters
+    if girder_sprite != 0 {
+        // Call PCLandscape vtable[5] to create girder overlay
         let landscape = (*ddgame).landscape as *mut u8;
         let landscape_vt = *(landscape as *const *const usize);
-        let freeze_visual: unsafe extern "thiscall" fn(*mut u8, i32, i32, *mut u8, *mut u8) =
+        let girder_visual: unsafe extern "thiscall" fn(*mut u8, i32, i32, *mut u8, *mut u8) =
             core::mem::transmute(*landscape_vt.add(5));
-        let sprite1 = (*ddgame).sprite_cache_2[freeze_target as usize];
-        let sprite2 = (*ddgame).sprite_cache_2[19 + freeze_target as usize];
-        freeze_visual(landscape, freeze_x >> 16, freeze_y >> 16, sprite1, sprite2);
+        let sprite1 = (*ddgame).sprite_cache_2[girder_sprite as usize];
+        let sprite2 = (*ddgame).sprite_cache_2[19 + girder_sprite as usize];
+        girder_visual(landscape, girder_x >> 16, girder_y >> 16, sprite1, sprite2);
 
         // Increment WormEntry counters
         let arena = openwa_core::engine::ddgame::TeamArenaRef::from_ptr(
@@ -1011,7 +1009,7 @@ fn special_impact_version_flags(base: u32, version: u8) -> u32 {
     flags
 }
 
-/// Pneumatic Drill (subtype 2) — pure Rust port of 0x51E3E0.
+/// BaseballBat (subtype 2) — pure Rust port of 0x51E3E0.
 ///
 /// Calls SpecialImpact with facing-offset position and scaled direction.
 /// The original is usercall(ECX=local_struct, ESI=worm) — the old bridge

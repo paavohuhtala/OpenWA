@@ -118,20 +118,22 @@ bind_CTaskTeamVTable!(CTaskTeam, base.vtable);
 // ── Typed message handlers ──────────────────────────────────
 
 impl CTaskTeam {
-    /// Handle StrikeFire / Surrender message (0x2B) — ported from
-    /// CTaskTeam::HandleMessage case 0x2B.
+    /// Handle message 0x2B (Surrender) at the CTaskTeam level — ported from
+    /// CTaskTeam::HandleMessage (0x557310) case 0x2B.
     ///
-    /// Used by SpecialFireSubtype::StrikeFire (subtype 13), shared by
-    /// Napalm Strike, Surrender, and other weapons.
+    /// **Important:** This is only the CTaskTeam layer. The entity at SharedData
+    /// key (0, 0x14) is actually a CTaskTurnGame (inherits CTaskTeam).
+    /// CTaskTurnGame::HandleMessage (0x55DC00) wraps this with:
+    ///   - End-turn logic (FUN_0055C300) if the active team surrenders
+    ///   - Surrender sound playback
     ///
-    /// Uses `CTask::broadcast_message_raw` for child dispatch (no `&mut self`,
-    /// no noalias UB). This is a pure Rust handler — no bridge to WA code.
-    ///
-    /// **Status:** Has a behavioral difference vs the WA handler — under investigation.
+    /// To port message 0x2B fully, CTaskTurnGame::HandleMessage case 0x2B must
+    /// also be ported. Until then, use vtable dispatch (handle_message_raw) on the
+    /// CTaskTurnGame to hit the TurnGame override.
     ///
     /// # Safety
     /// `this` must be a valid CTaskTeam pointer with valid ddgame.
-    pub unsafe fn on_strike_fire(
+    pub unsafe fn on_surrender_fire(
         this: *mut Self,
         sender: *mut CTask,
         msg_team_index: u32,

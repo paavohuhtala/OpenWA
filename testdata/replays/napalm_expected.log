@@ -1,0 +1,52 @@
+Game Started at 2026-03-28 08:43:00 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Red:  "2-UP"
+Blue: "3-UP"
+
+[00:00:00.00] ••• 2-UP starts turn
+[00:00:02.50] ••• 2-UP fires Napalm Strike
+[00:00:05.98] ••• 2-UP ends turn; time used: 1.04 sec turn, 3.00 sec retreat
+[00:00:18.14] ••• Damage dealt: 68 to 2-UP, 6 to 3-UP
+[00:00:18.14] ••• 3-UP starts turn
+[00:00:20.84] ••• 3-UP fires Napalm Strike
+[00:00:24.32] ••• 3-UP ends turn; time used: 0.52 sec turn, 3.00 sec retreat
+[00:00:37.98] ••• Damage dealt: 71 to 2-UP, 38 to 3-UP
+[00:00:37.98] ••• 2-UP starts turn
+[00:00:41.38] ••• 2-UP fires Napalm Strike
+[00:00:44.92] ••• 2-UP ends turn; time used: 0.34 sec turn, 3.00 sec retreat
+[00:00:55.80] ••• Damage dealt: 61 (1 kill) to 2-UP, 57 to 3-UP
+[00:00:55.80] ••• 3-UP starts turn
+[00:00:58.98] ••• 3-UP fires Napalm Strike
+[00:01:02.46] ••• 3-UP ends turn; time used: 1.46 sec turn, 3.00 sec retreat
+[00:01:12.92] ••• Damage dealt: 37 (1 kill) to 3-UP
+[00:01:12.92] ••• 2-UP starts turn
+[00:01:15.90] ••• 2-UP fires Napalm Strike
+[00:01:19.38] ••• 2-UP ends turn; time used: 1.26 sec turn, 3.00 sec retreat
+[00:01:31.86] ••• Damage dealt: 108 (1 kill) to 3-UP
+[00:01:31.86] ••• 3-UP starts turn
+[00:01:33.94] ••• 3-UP fires Jet Pack
+[00:01:42.20] ••• 3-UP fires Napalm Strike
+[00:01:45.88] ••• 3-UP used 30 (25) units of Jet Pack fuel
+[00:01:45.88] ••• 3-UP loses turn due to loss of control; time used: 8.20 sec turn, 3.66 sec retreat
+[00:02:02.24] ••• Damage dealt: 100 (2 kills) to 2-UP, 29 to 3-UP
+[00:02:02.26] ••• Game Ends - Round Finished
+
+Team time totals:
+2-UP: Turn: 00:00:02.64, Retreat: 00:00:09.00, Total: 00:00:11.64, Turn count: 3
+3-UP: Turn: 00:00:10.18, Retreat: 00:00:09.66, Total: 00:00:19.84, Turn count: 3
+
+Total Jet Pack fuel used: 30
+
+End of round 1
+
+Round time: 0:02:02
+Total game time elapsed: 0:02:02
+
+3-UP wins the round.
+
+Worm of the round: Druss (3-UP)
+Most kills with one shot: 2 - Druss (3-UP)
+Most damage with one shot: 129 - Druss (3-UP)
