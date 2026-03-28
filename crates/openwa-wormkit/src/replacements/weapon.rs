@@ -366,9 +366,10 @@ pub(crate) unsafe fn lookup_team_task(worm: *const CTaskWorm) -> *mut openwa_cor
 
 /// Napalm Strike (subtype 14) — typed Rust handler.
 ///
-/// Constructs a typed TeamMessage, serializes to raw bytes, and dispatches
-/// through CTaskTeam's WA vtable via handle_message_raw. The typed message
-/// ensures correct field layout without manual byte manipulation.
+/// Calls on_napalm_strike which uses broadcast_message_raw.
+/// Napalm Strike (subtype 14) — typed Rust handler.
+///
+/// Uses on_napalm_strike for the full Rust path.
 #[inline(never)]
 unsafe fn fire_napalm_strike_typed(worm: *mut CTaskWorm) {
     use openwa_core::task::TeamMessage;
