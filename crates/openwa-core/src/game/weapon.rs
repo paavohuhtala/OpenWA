@@ -223,7 +223,7 @@ pub enum SpecialFireSubtype {
     AirStrike = 10,
     ScalesOfJustice = 11,
     // 12: unknown
-    NapalmStrike = 13,
+    StrikeFire = 13,
     MailMineMole = 14,
     // 15: unknown
     IndianNuclearTest = 16,
@@ -251,7 +251,7 @@ impl TryFrom<i32> for SpecialFireSubtype {
             9 => Ok(Self::Prod),
             10 => Ok(Self::AirStrike),
             11 => Ok(Self::ScalesOfJustice),
-            13 => Ok(Self::NapalmStrike),
+            13 => Ok(Self::StrikeFire),
             14 => Ok(Self::MailMineMole),
             16 => Ok(Self::IndianNuclearTest),
             17 => Ok(Self::Freeze),

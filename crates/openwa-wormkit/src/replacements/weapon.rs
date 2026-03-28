@@ -323,7 +323,7 @@ unsafe fn fire_weapon_special(
         Ok(S::Prod) => fire_prod(worm, ctx as *const u8),
         Ok(S::AirStrike) => fire_air_strike(worm),
         Ok(S::ScalesOfJustice) => CTaskWorm::set_state_raw(worm, WormState::ScalesOfJustice),
-        Ok(S::NapalmStrike) => fire_napalm_strike_typed(worm),
+        Ok(S::StrikeFire) => fire_strike_typed(worm),
         Ok(S::MailMineMole) => fire_mail_mine_mole(worm),
         Ok(S::IndianNuclearTest) => {
             if can_fire_subtype16((*worm).state()) {
@@ -364,14 +364,13 @@ pub(crate) unsafe fn lookup_team_task(worm: *const CTaskWorm) -> *mut openwa_cor
     table.lookup(0, 0x14) as *mut openwa_core::task::CTaskTeam
 }
 
-/// Napalm Strike (subtype 14) — typed Rust handler.
+/// StrikeFire (subtype 13) — typed Rust handler.
 ///
-/// Calls on_napalm_strike which uses broadcast_message_raw.
-/// Napalm Strike (subtype 14) — typed Rust handler.
-///
-/// Uses on_napalm_strike for the full Rust path.
+/// Shared by Napalm Strike, Surrender, and other weapons that send
+/// message 0x2B to CTaskTeam. Constructs a typed TeamMessage::StrikeFire,
+/// serializes to raw bytes, and dispatches through CTaskTeam's WA vtable.
 #[inline(never)]
-unsafe fn fire_napalm_strike_typed(worm: *mut CTaskWorm) {
+unsafe fn fire_strike_typed(worm: *mut CTaskWorm) {
     use openwa_core::task::TeamMessage;
 
     let team = lookup_team_task(worm);
@@ -379,7 +378,7 @@ unsafe fn fire_napalm_strike_typed(worm: *mut CTaskWorm) {
         return;
     }
 
-    let msg = TeamMessage::NapalmStrike {
+    let msg = TeamMessage::StrikeFire {
         team_index: (*worm).team_index,
     };
     let mut buf = [0u8; 0x40C];

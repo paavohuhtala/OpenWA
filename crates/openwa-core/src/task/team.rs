@@ -118,26 +118,20 @@ bind_CTaskTeamVTable!(CTaskTeam, base.vtable);
 // ── Typed message handlers ──────────────────────────────────
 
 impl CTaskTeam {
-    /// Handle NapalmStrike message (0x2B) — ported from CTaskTeam::HandleMessage.
+    /// Handle StrikeFire / Surrender message (0x2B) — ported from
+    /// CTaskTeam::HandleMessage case 0x2B.
     ///
-    /// Uses raw pointer (not `&mut self`) to avoid noalias issues with broadcast calls.
-    ///
-    /// Logic:
-    /// 1. Team ownership check (msg team_index must match this.team_index)
-    /// 2. If game_version > 0xF4: broadcast DetonateWeapon (0x2A) to children
-    /// 3. Set per-team napalm flag at ddgame + team_index * 0x51C + 0x4618
-    /// 4. Broadcast original message (0x2B) to children
-    ///
-    /// # Safety
-    /// `this` must be a valid CTaskTeam pointer with valid ddgame.
-    /// Handle NapalmStrike message (0x2B) — ported from CTaskTeam::HandleMessage.
+    /// Used by SpecialFireSubtype::StrikeFire (subtype 13), shared by
+    /// Napalm Strike, Surrender, and other weapons.
     ///
     /// Uses `CTask::broadcast_message_raw` for child dispatch (no `&mut self`,
     /// no noalias UB). This is a pure Rust handler — no bridge to WA code.
     ///
+    /// **Status:** Has a behavioral difference vs the WA handler — under investigation.
+    ///
     /// # Safety
     /// `this` must be a valid CTaskTeam pointer with valid ddgame.
-    pub unsafe fn on_napalm_strike(
+    pub unsafe fn on_strike_fire(
         this: *mut Self,
         sender: *mut CTask,
         msg_team_index: u32,
