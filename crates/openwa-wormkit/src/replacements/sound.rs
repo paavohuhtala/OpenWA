@@ -14,7 +14,7 @@ use openwa_core::audio::{play_sound, play_sound_pooled, KnownSoundId, SoundId};
 use openwa_core::engine::{DDGame, DDGameWrapper, SoundQueueEntry};
 use openwa_core::fixed::Fixed;
 use openwa_core::task::worm::CTaskWorm;
-use openwa_core::task::{CGameTask, CTask, Task};
+use openwa_core::task::{CGameTask, CTask};
 
 use crate::hook;
 use crate::log_line;
@@ -172,13 +172,13 @@ pub(crate) unsafe fn play_sound_local(
 pub(crate) unsafe fn stop_worm_sound(worm: *mut CTaskWorm) {
     let handle = (*worm).sound_handle;
     if handle != 0 {
-        let ddgame = &*(*worm).ddgame();
-        let sound = ddgame.sound;
+        let ddgame = CTask::ddgame_raw(worm as *const CTask);
+        let sound = (*ddgame).sound;
         if !sound.is_null() && (handle as i32) >= 0 {
             if handle & 0x40000000 != 0 {
                 // Streaming sound — stop via ActiveSoundTable
-                if !ddgame.active_sounds.is_null() {
-                    (*ddgame.active_sounds).stop_sound(handle & !0x40000000);
+                if !(*ddgame).active_sounds.is_null() {
+                    (*(*ddgame).active_sounds).stop_sound(handle & !0x40000000);
                 }
             } else {
                 // Regular DSSound channel
@@ -198,16 +198,16 @@ pub(crate) unsafe fn stop_worm_sound(worm: *mut CTaskWorm) {
 pub(crate) unsafe fn play_worm_sound(worm: *mut CTaskWorm, sound_id: SoundId, volume: Fixed) {
     let handle = (*worm).sound_handle;
     if handle != 0 {
-        let ddgame = &*(*worm).ddgame();
-        let sound = ddgame.sound;
+        let ddgame = CTask::ddgame_raw(worm as *const CTask);
+        let sound = (*ddgame).sound;
         if !sound.is_null() && (handle as i32) >= 0 {
             if handle & 0x40000000 == 0 {
                 // Regular DSSound channel — stop via vtable
                 ((*(*sound).vtable).stop_channel)(sound, handle as i32);
             } else {
                 // Streaming sound — stop via ActiveSoundTable
-                if !ddgame.active_sounds.is_null() {
-                    (*ddgame.active_sounds).stop_sound(handle & !0x40000000);
+                if !(*ddgame).active_sounds.is_null() {
+                    (*(*ddgame).active_sounds).stop_sound(handle & !0x40000000);
                 }
             }
         }

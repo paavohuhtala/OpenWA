@@ -10,8 +10,9 @@ use openwa_core::audio::{KnownSoundId, SoundId};
 use openwa_core::fixed::Fixed;
 use openwa_core::game::Weapon;
 use openwa_core::log::log_line;
+use openwa_core::task::team::CTaskTeam;
 use openwa_core::task::worm::{CTaskWorm, WormState};
-use openwa_core::task::{CGameTask, SharedDataTable, Task};
+use openwa_core::task::{CGameTask, CTask, SharedDataTable, Task};
 
 use crate::hook::{self, usercall_trampoline};
 use crate::replacements::{sound, weapon};
@@ -251,8 +252,9 @@ unsafe extern "cdecl" fn weapon_release_impl(
 
     let team = weapon::lookup_team_task(worm);
     if !team.is_null() {
-        (*team).handle_message(
-            (*worm).as_task_ptr_mut(),
+        CTaskTeam::handle_message_raw(
+            team,
+            worm as *mut openwa_core::task::CTask,
             0x49,
             0x408,
             msg_buf.as_ptr(),
@@ -260,7 +262,7 @@ unsafe extern "cdecl" fn weapon_release_impl(
     }
 
     // ── 8. Weapon stat counters ─────────────────────────────
-    let g = &mut *(*worm).ddgame();
+    let g = &mut *CTask::ddgame_raw(worm as *const CTask);
     let team_id = (*worm).team_index;
     let worm_id = (*worm).worm_index;
 
@@ -371,7 +373,7 @@ unsafe extern "cdecl" fn weapon_release_impl(
 
     // ── 10. Visual effect (if triggered by sound dispatch) ──
     if do_effect {
-        let ddgame = &mut *(*worm).ddgame();
+        let ddgame = &mut *CTask::ddgame_raw(worm as *const CTask);
         let gfx_handler = ddgame.game_state_stream as *const u8;
         let palette = *(gfx_handler.add(0x22C) as *const u32);
 
@@ -448,7 +450,7 @@ pub(crate) unsafe fn spawn_effect(
     write_u32(&mut buf, 0x2C, scale.0 as u32);
 
     // SharedData lookup for entity type 0x1A (CTaskSpriteAnim)
-    let table = SharedDataTable::from_task((*worm).as_task_ptr());
+    let table = SharedDataTable::from_task(worm as *const CTask);
     let entity = table.lookup(0, 0x1A);
     if !entity.is_null() {
         let vtable = *(entity as *const *const usize);

@@ -385,6 +385,13 @@ fn generate_bind_methods(slots: &[SlotInfo]) -> syn::Result<proc_macro2::TokenSt
             quote! { self as *mut Self }
         };
 
+        // Raw-pointer `this` param type for the _raw variant
+        let raw_this_ty = if this_is_const {
+            quote! { *const Self }
+        } else {
+            quote! { *mut Self }
+        };
+
         // Remaining params
         let mut param_decls = Vec::new();
         let mut param_names = Vec::new();
@@ -406,10 +413,24 @@ fn generate_bind_methods(slots: &[SlotInfo]) -> syn::Result<proc_macro2::TokenSt
             syn::ReturnType::Type(_, ty) => quote! { -> #ty },
         };
 
+        // `_raw` variant name
+        let raw_ident = quote::format_ident!("{}_raw", ident);
+        let raw_doc = format!(
+            "{}\n\n\
+             Raw-pointer variant — avoids creating `&mut self`, preventing LLVM noalias \
+             miscompilation when WA code modifies the same memory through bridge calls.",
+            doc
+        );
+
         methods.push(quote! {
             #[doc = #doc]
             pub unsafe fn #ident(#self_param #(, #param_decls)*) #ret_ty {
                 ((*self.$($vtable_field).+).#ident)(#self_cast #(, #param_names)*)
+            }
+
+            #[doc = #raw_doc]
+            pub unsafe fn #raw_ident(this: #raw_this_ty #(, #param_decls)*) #ret_ty {
+                ((*(*this).$($vtable_field).+).#ident)(this #(, #param_names)*)
             }
         });
     }

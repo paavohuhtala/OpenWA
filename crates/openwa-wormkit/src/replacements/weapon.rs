@@ -22,7 +22,8 @@ use openwa_core::fixed::Fixed;
 use openwa_core::game::weapon::{WeaponEntry, WeaponFireParams, WeaponSpawnData};
 use openwa_core::game::Weapon;
 use openwa_core::log::log_line;
-use openwa_core::task::Task;
+use openwa_core::task::team::CTaskTeam;
+use openwa_core::task::CTask;
 use openwa_core::task::worm::{CTaskWorm, WormState};
 
 use crate::hook::{self, usercall_trampoline};
@@ -322,7 +323,7 @@ unsafe fn fire_weapon_special(
         Ok(S::Prod) => fire_prod(worm, ctx as *const u8),
         Ok(S::AirStrike) => fire_air_strike(worm),
         Ok(S::ScalesOfJustice) => CTaskWorm::set_state_raw(worm, WormState::ScalesOfJustice),
-        Ok(S::NapalmStrike) => fire_send_team_message(worm, 0x2B),
+        Ok(S::NapalmStrike) => fire_napalm_strike_typed(worm),
         Ok(S::MailMineMole) => fire_mail_mine_mole(worm),
         Ok(S::IndianNuclearTest) => {
             if can_fire_subtype16((*worm).state()) {
@@ -356,11 +357,40 @@ fn can_fire_subtype16(state: u32) -> bool {
 ///
 /// Returns null if not found.
 pub(crate) unsafe fn lookup_team_task(worm: *const CTaskWorm) -> *mut openwa_core::task::CTaskTeam {
-    use openwa_core::task::{SharedDataTable, Task};
+    use openwa_core::task::SharedDataTable;
 
-    let table = SharedDataTable::from_task((*worm).as_task_ptr());
+    let table = SharedDataTable::from_task(worm as *const CTask);
     // CTaskTeam is registered with key (0, 0x14) in SharedData
     table.lookup(0, 0x14) as *mut openwa_core::task::CTaskTeam
+}
+
+/// Napalm Strike (subtype 14) — typed Rust handler.
+///
+/// Constructs a typed TeamMessage, serializes to raw bytes, and dispatches
+/// through CTaskTeam's WA vtable via handle_message_raw. The typed message
+/// ensures correct field layout without manual byte manipulation.
+#[inline(never)]
+unsafe fn fire_napalm_strike_typed(worm: *mut CTaskWorm) {
+    use openwa_core::task::TeamMessage;
+
+    let team = lookup_team_task(worm);
+    if team.is_null() {
+        return;
+    }
+
+    let msg = TeamMessage::NapalmStrike {
+        team_index: (*worm).team_index,
+    };
+    let mut buf = [0u8; 0x40C];
+    let (msg_type, size) = msg.to_raw(&mut buf);
+
+    CTaskTeam::handle_message_raw(
+        team,
+        worm as *mut openwa_core::task::CTask,
+        msg_type,
+        size,
+        buf.as_ptr(),
+    );
 }
 
 /// Send a message to the worm's CTaskTeam entity via SharedData lookup.
@@ -380,8 +410,8 @@ unsafe fn fire_send_team_message(worm: *mut CTaskWorm, msg_type: u32) {
     let team_index = (*worm).team_index;
     buf[0..4].copy_from_slice(&team_index.to_ne_bytes());
 
-    (*team).handle_message(
-        (*worm).as_task_ptr_mut(),
+    CTaskTeam::handle_message_raw(team,
+        worm as *mut openwa_core::task::CTask,
         msg_type,
         4,
         buf.as_ptr(),
@@ -401,8 +431,8 @@ unsafe fn fire_select_worm(worm: *mut CTaskWorm) {
     buf[0..4].copy_from_slice(&8u32.to_ne_bytes());
     buf[4..8].copy_from_slice(&(*worm).team_index.to_ne_bytes());
 
-    (*team).handle_message(
-        (*worm).as_task_ptr_mut(),
+    CTaskTeam::handle_message_raw(team,
+        worm as *mut openwa_core::task::CTask,
         0x5D,
         0x408,
         buf.as_ptr(),
@@ -416,7 +446,7 @@ unsafe fn fire_select_worm(worm: *mut CTaskWorm) {
 /// In game_version > 0x1C: toggles (set/clear). Otherwise: always sets.
 unsafe fn fire_skip_go(worm: *const CTaskWorm, entry: *const WeaponEntry) {
     use openwa_core::engine::ddgame::TeamArenaRef;
-    let ddgame = (*worm).ddgame();
+    let ddgame = CTask::ddgame_raw(worm as *const CTask);
     let game_version = (*(*ddgame).game_info).game_version;
     let team_index = (*worm).team_index as usize;
 
@@ -443,7 +473,7 @@ unsafe fn fire_surrender(worm: *mut CTaskWorm) {
 
     fire_send_team_message(worm, 0x29);
 
-    let ddgame = (*worm).ddgame();
+    let ddgame = CTask::ddgame_raw(worm as *const CTask);
     let arena = TeamArenaRef::from_ptr(&raw mut (*ddgame).team_arena);
     let team_index = (*worm).team_index as usize;
     let worm_index = (*worm).worm_index as usize;
@@ -465,7 +495,7 @@ unsafe fn fire_surrender(worm: *mut CTaskWorm) {
 /// - otherwise: skip
 unsafe fn fire_mail_mine_mole(worm: *mut CTaskWorm) {
     use openwa_core::engine::ddgame::TeamArenaRef;
-    let ddgame = (*worm).ddgame();
+    let ddgame = CTask::ddgame_raw(worm as *const CTask);
     let version = (*ddgame).version_flag_4;
     let worm_state = (*worm).state();
 
@@ -518,7 +548,7 @@ unsafe fn fire_air_strike(worm: *mut CTaskWorm) {
     *(worm_raw.add(0x34) as *mut i32) = saved_34;
 
     // Compute new state: version < 455 → Idle (0x65), else → 0x8B
-    let ddgame = (*worm).ddgame();
+    let ddgame = CTask::ddgame_raw(worm as *const CTask);
     let game_version = (*(*ddgame).game_info).game_version;
     let new_state = if game_version < 0x1C7 {
         WormState::Idle
@@ -549,7 +579,7 @@ unsafe fn fire_air_strike(worm: *mut CTaskWorm) {
 unsafe fn fire_indian_nuclear_test(worm: *mut CTaskWorm) {
     use crate::replacements::sound;
 
-    let ddgame = (*worm).ddgame();
+    let ddgame = CTask::ddgame_raw(worm as *const CTask);
     let entry = &*(*worm).active_weapon_entry;
     let team = lookup_team_task(worm);
 
@@ -558,7 +588,7 @@ unsafe fn fire_indian_nuclear_test(worm: *mut CTaskWorm) {
         let mut buf = [0u8; 0x40C];
         buf[0..4].copy_from_slice(&entry.fire_method.to_ne_bytes());
         buf[4..8].copy_from_slice(&8i32.to_ne_bytes());
-        (*team).handle_message((*worm).as_task_ptr_mut(), 0x59, 0x408, buf.as_ptr());
+        CTaskTeam::handle_message_raw(team,worm as *mut openwa_core::task::CTask, 0x59, 0x408, buf.as_ptr());
     }
 
     // Message 0x5A (NukeBlast): buf[0]=8
@@ -566,7 +596,7 @@ unsafe fn fire_indian_nuclear_test(worm: *mut CTaskWorm) {
     if !team.is_null() {
         let mut buf = [0u8; 0x40C];
         buf[0..4].copy_from_slice(&8i32.to_ne_bytes());
-        (*team).handle_message((*worm).as_task_ptr_mut(), 0x5A, 0x408, buf.as_ptr());
+        CTaskTeam::handle_message_raw(team,worm as *mut openwa_core::task::CTask, 0x5A, 0x408, buf.as_ptr());
     }
 
     // PlaySoundGlobal(IndianAnthem, 8, 0x10000, 0x10000)
@@ -579,7 +609,7 @@ unsafe fn fire_indian_nuclear_test(worm: *mut CTaskWorm) {
         buf[0..4].copy_from_slice(&entry.fire_params.shot_count.to_ne_bytes());
         buf[4..8].copy_from_slice(&2i32.to_ne_bytes());
         buf[8..12].copy_from_slice(&(*worm).team_index.to_ne_bytes());
-        (*team).handle_message((*worm).as_task_ptr_mut(), 0x51, 0x408, buf.as_ptr());
+        CTaskTeam::handle_message_raw(team,worm as *mut openwa_core::task::CTask, 0x51, 0x408, buf.as_ptr());
     }
 
     // PlaySoundGlobal(NukeFlash, 5, 0x10000, 0x10000)
@@ -673,8 +703,8 @@ unsafe fn fire_jet_pack(worm: *mut CTaskWorm) {
     // Send message 0x5E to CTaskTeam
     let team = lookup_team_task(worm);
     if !team.is_null() {
-        (*team).handle_message(
-            (*worm).as_task_ptr_mut(),
+        CTaskTeam::handle_message_raw(team,
+            worm as *mut openwa_core::task::CTask,
             0x5E,
             0,
             core::ptr::null(),
@@ -684,7 +714,7 @@ unsafe fn fire_jet_pack(worm: *mut CTaskWorm) {
     // Play jet pack sound:
     // FUN_0053EC70: usercall(EDI=0x6CB) + stdcall(timer_obj)
     // FUN_005480F0: usercall(EAX=-21) + stdcall(worm, result, 0x17, &worm_name)
-    let ddgame = (*worm).ddgame();
+    let ddgame = CTask::ddgame_raw(worm as *const CTask);
     let sound_val = call_get_sound_val((*ddgame).timer_obj, rb(0x53EC70));
     call_play_sound_usercall(worm, sound_val, 0x17, (*worm).worm_name.as_ptr(), rb(0x5480F0));
 }
@@ -734,7 +764,7 @@ unsafe extern "C" fn call_play_sound_usercall(
 unsafe fn fire_low_gravity(worm: *mut CTaskWorm) {
     use openwa_core::rebase::rb;
 
-    let ddgame = (*worm).ddgame();
+    let ddgame = CTask::ddgame_raw(worm as *const CTask);
     let game_version = (*(*ddgame).game_info).game_version;
 
     // Send message 0x5B to CTaskTeam with weapon info buffer
@@ -747,8 +777,8 @@ unsafe fn fire_low_gravity(worm: *mut CTaskWorm) {
         buf[0x0C..0x10].copy_from_slice(&((*worm).selected_weapon as u32).to_ne_bytes());
         buf[0x10..0x14].copy_from_slice(&(*worm).team_index.to_ne_bytes());
 
-        (*team).handle_message(
-            (*worm).as_task_ptr_mut(),
+        CTaskTeam::handle_message_raw(team,
+            worm as *mut openwa_core::task::CTask,
             0x5B,
             0x408,
             buf.as_ptr(),
@@ -802,11 +832,11 @@ unsafe fn fire_girder(
     worm: *mut CTaskWorm, fire_params: *const WeaponFireParams, local_struct: *const u8,
 ) {
     use openwa_core::rebase::rb;
-    use openwa_core::task::{SharedDataTable, Task};
+    use openwa_core::task::SharedDataTable;
     use openwa_core::wa_alloc::wa_malloc;
 
     // Look up parent task via SharedData (same key as CreateWeaponProjectile)
-    let table = SharedDataTable::from_task((*worm).as_task_ptr());
+    let table = SharedDataTable::from_task(worm as *const CTask);
     let parent = table.lookup(0, 0x19);
 
     // Allocate CTaskGirder (0xA4 bytes), zero first 0x84
@@ -889,7 +919,7 @@ unsafe extern "C" fn call_fire_usercall(_eax: *const (), _worm: *mut CTaskWorm, 
 unsafe fn fire_freeze(worm: *mut CTaskWorm) {
     use openwa_core::rebase::rb;
 
-    let ddgame = (*worm).ddgame();
+    let ddgame = CTask::ddgame_raw(worm as *const CTask);
     let game_version = (*(*ddgame).game_info).game_version;
 
     // Read freeze position and target from CTaskWorm fields
@@ -987,7 +1017,7 @@ fn special_impact_version_flags(base: u32, version: u8) -> u32 {
 /// The original is usercall(ECX=local_struct, ESI=worm) — the old bridge
 /// did not set ECX, so this port also fixes a latent bug.
 unsafe fn fire_drill(worm: *mut CTaskWorm, local_struct: *const u8) {
-    let ddgame = (*worm).ddgame();
+    let ddgame = CTask::ddgame_raw(worm as *const CTask);
     let version = (*ddgame).version_flag_4;
     let entry = &*(*worm).active_weapon_entry;
     let shot_count = entry.fire_params.shot_count;
@@ -1019,7 +1049,7 @@ unsafe fn fire_drill(worm: *mut CTaskWorm, local_struct: *const u8) {
 unsafe fn fire_prod(worm: *mut CTaskWorm, local_struct: *const u8) {
     use openwa_core::rebase::rb;
 
-    let ddgame = (*worm).ddgame();
+    let ddgame = CTask::ddgame_raw(worm as *const CTask);
     let version = (*ddgame).version_flag_4;
     let entry = &*(*worm).active_weapon_entry;
     let shot_count = entry.fire_params.shot_count;
@@ -1157,10 +1187,10 @@ unsafe extern "cdecl" fn create_weapon_projectile_impl(
     worm: *mut CTaskWorm, fire_params: *const WeaponFireParams, local_struct: *const u8,
 ) {
     use openwa_core::rebase::rb;
-    use openwa_core::task::{SharedDataTable, Task};
+    use openwa_core::task::SharedDataTable;
     use openwa_core::wa_alloc::wa_malloc;
 
-    let ddgame = &mut *(*worm).ddgame();
+    let ddgame = &mut *CTask::ddgame_raw(worm as *const CTask);
 
     // Pool capacity check: pool_count + 7 must be <= 700
     if ddgame.object_pool_count + 7 > 700 {
@@ -1169,7 +1199,7 @@ unsafe extern "cdecl" fn create_weapon_projectile_impl(
     }
 
     // Look up parent CTaskTurnGame via SharedData (key_esi=0, key_edi=0x19)
-    let table = SharedDataTable::from_task((*worm).as_task_ptr());
+    let table = SharedDataTable::from_task(worm as *const CTask);
     let parent = table.lookup(0, 0x19);
 
     // Allocate CTaskMissile (0x40C bytes)
@@ -1250,7 +1280,7 @@ unsafe extern "cdecl" fn projectile_fire_impl(
     let sin_table = rb(va::SIN_TABLE) as *const i32;
     let cos_table = sin_table.add(256); // cos = sin offset by 256 entries (quarter turn)
 
-    let ddgame = &mut *(*worm).ddgame();
+    let ddgame = &mut *CTask::ddgame_raw(worm as *const CTask);
 
     for _i in 0..shot_count {
         // Advance game RNG (same LCG as ADVANCE_GAME_RNG at 0x53F320)
@@ -1331,10 +1361,10 @@ unsafe extern "cdecl" fn create_arrow_impl(
     worm: *mut CTaskWorm, fire_params: *const WeaponFireParams, local_struct: *const u8,
 ) {
     use openwa_core::rebase::rb;
-    use openwa_core::task::{SharedDataTable, Task};
+    use openwa_core::task::SharedDataTable;
     use openwa_core::wa_alloc::wa_malloc;
 
-    let ddgame = &mut *(*worm).ddgame();
+    let ddgame = &mut *CTask::ddgame_raw(worm as *const CTask);
 
     // Pool capacity check: pool_count + 2 must be <= 700
     if ddgame.object_pool_count + 2 > 700 {
@@ -1343,7 +1373,7 @@ unsafe extern "cdecl" fn create_arrow_impl(
     }
 
     // Look up parent CTaskTurnGame via SharedData (key 0, 0x19)
-    let table = SharedDataTable::from_task((*worm).as_task_ptr());
+    let table = SharedDataTable::from_task(worm as *const CTask);
     let parent = table.lookup(0, 0x19);
 
     // Allocate CTaskArrow (0x168 bytes)

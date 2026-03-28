@@ -274,6 +274,60 @@ pub unsafe trait Task {
 unsafe impl<V: Vtable> Task for CTask<V> {}
 
 // ---------------------------------------------------------------------------
+// Raw-pointer associated functions — no &self/&mut self, no noalias UB.
+//
+// Use these instead of Task trait methods when operating on WA-owned objects
+// through raw pointers. Any type whose first field is CTask (at offset 0)
+// can be cast to *mut CTask and used with these functions.
+// ---------------------------------------------------------------------------
+
+impl CTask {
+    /// Get the DDGame pointer from a raw CTask pointer.
+    ///
+    /// Reads the `ddgame` field (offset 0x2C) without creating a Rust reference.
+    #[inline(always)]
+    pub unsafe fn ddgame_raw(this: *const CTask) -> *mut DDGame {
+        (*this).ddgame
+    }
+
+    /// Broadcast a message to all children — raw-pointer version.
+    ///
+    /// Pure Rust port of CTask::HandleMessage (0x562F30).
+    /// Identical to `Task::broadcast_message` but takes `*mut CTask` instead
+    /// of `&mut self`, avoiding noalias UB.
+    pub unsafe fn broadcast_message_raw(
+        task_ptr: *mut CTask,
+        sender: *mut CTask,
+        msg_type: u32,
+        size: u32,
+        data: *const u8,
+    ) {
+        let mut i: usize = 0;
+        loop {
+            let child = loop {
+                let watermark = core::ptr::read_volatile(
+                    core::ptr::addr_of!((*task_ptr).children_watermark),
+                ) as usize;
+                if i >= watermark {
+                    return;
+                }
+                let children = core::ptr::read_volatile(
+                    core::ptr::addr_of!((*task_ptr).children_data),
+                );
+                let c = *children.add(i);
+                i += 1;
+                if !c.is_null() {
+                    break c;
+                }
+            };
+
+            let vt = &*((*child).vtable as *const CTaskVtable);
+            (vt.handle_message)(child, sender, msg_type, size, data);
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Shared-data entity registry
 // ---------------------------------------------------------------------------
 

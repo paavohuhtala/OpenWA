@@ -10,6 +10,7 @@ pub mod missile;
 mod overlays;
 pub mod supply_crate;
 pub mod team;
+pub mod team_message;
 pub mod turn_game;
 pub mod worm;
 
@@ -24,6 +25,7 @@ pub use missile::{CTaskMissile, CTaskMissileVTable, MissileType};
 pub use overlays::{BungeeTrailTask, WeaponAimTask};
 pub use supply_crate::{CTaskCrate, CTaskCrateVTable};
 pub use team::{CTaskTeam, CTaskTeamVTable};
+pub use team_message::TeamMessage;
 pub use turn_game::{CTaskTurnGame, CTaskTurnGameVTable, TurnGameCtx};
 pub use worm::{CTaskWorm, CTaskWormVTable, WormState};
 

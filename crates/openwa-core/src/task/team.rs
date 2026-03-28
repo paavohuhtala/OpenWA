@@ -114,3 +114,66 @@ const _: () = assert!(core::mem::size_of::<CTaskTeam>() == 0x460);
 
 // Generate typed vtable method wrappers: handle_message(), write_replay_state(), etc.
 bind_CTaskTeamVTable!(CTaskTeam, base.vtable);
+
+// ── Typed message handlers ──────────────────────────────────
+
+impl CTaskTeam {
+    /// Handle NapalmStrike message (0x2B) — ported from CTaskTeam::HandleMessage.
+    ///
+    /// Uses raw pointer (not `&mut self`) to avoid noalias issues with broadcast calls.
+    ///
+    /// Logic:
+    /// 1. Team ownership check (msg team_index must match this.team_index)
+    /// 2. If game_version > 0xF4: broadcast DetonateWeapon (0x2A) to children
+    /// 3. Set per-team napalm flag at ddgame + team_index * 0x51C + 0x4618
+    /// 4. Broadcast original message (0x2B) to children
+    ///
+    /// # Safety
+    /// `this` must be a valid CTaskTeam pointer with valid ddgame.
+    /// Handle NapalmStrike message (0x2B) — ported from CTaskTeam::HandleMessage.
+    ///
+    /// Uses `CTask::broadcast_message_raw` for child dispatch (no `&mut self`,
+    /// no noalias UB). This is a pure Rust handler — no bridge to WA code.
+    ///
+    /// # Safety
+    /// `this` must be a valid CTaskTeam pointer with valid ddgame.
+    pub unsafe fn on_napalm_strike(
+        this: *mut Self,
+        sender: *mut CTask,
+        msg_team_index: u32,
+    ) {
+        use crate::game::TaskMessage;
+
+        let team_index = (*this).team_index;
+
+        // 1. Team ownership check — only process messages for our team
+        if msg_team_index != team_index {
+            return;
+        }
+
+        // Serialize the message to raw bytes for broadcast to WA children
+        let mut buf = [0u8; 8];
+        buf[0..4].copy_from_slice(&msg_team_index.to_ne_bytes());
+        let task_ptr = this as *mut CTask;
+
+        // 2. If game_version > 0xF4: broadcast DetonateWeapon (0x2A) to children first
+        let ddgame = CTask::ddgame_raw(this as *const CTask);
+        let game_version = (*(*ddgame).game_info).game_version;
+        if game_version > 0xF4 {
+            CTask::broadcast_message_raw(
+                task_ptr, sender, TaskMessage::DetonateWeapon as u32, 4, buf.as_ptr(),
+            );
+        }
+
+        // 3. Set per-team napalm flag
+        // Original: *(ddgame + team_index * 0x51C + 0x4618) = 1
+        let flag_ptr = (ddgame as *mut u8)
+            .add(team_index as usize * 0x51C + 0x4618) as *mut u32;
+        *flag_ptr = 1;
+
+        // 4. Broadcast original message (0x2B) to children
+        CTask::broadcast_message_raw(
+            task_ptr, sender, TaskMessage::Surrender as u32, 4, buf.as_ptr(),
+        );
+    }
+}

@@ -6,7 +6,7 @@
 use openwa_core::address::va;
 use openwa_core::log::log_line;
 use openwa_core::task::filter::CTaskFilter;
-use openwa_core::task::{CTask, Task};
+use openwa_core::task::CTask;
 
 /// CTaskFilter::HandleMessage replacement.
 ///
@@ -20,17 +20,14 @@ unsafe extern "thiscall" fn filter_handle_message(
     size: u32,
     data: *const u8,
 ) {
-    let filter = &*this;
-
     // Check subscription table — messages >= 98 always pass through
-    if (msg_type as usize) < filter.subscription_table.len()
-        && filter.subscription_table[msg_type as usize] == 0
-    {
+    let table = &(*this).subscription_table;
+    if (msg_type as usize) < table.len() && table[msg_type as usize] == 0 {
         return; // message not subscribed — drop silently
     }
 
-    // Broadcast to children (pure Rust port of CTask::HandleMessage)
-    (*this).broadcast_message(sender, msg_type, size, data);
+    // Broadcast to children — raw-pointer version avoids noalias UB
+    CTask::broadcast_message_raw(this as *mut CTask, sender, msg_type, size, data);
 }
 
 pub fn install() -> Result<(), String> {
