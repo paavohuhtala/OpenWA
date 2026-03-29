@@ -14,6 +14,7 @@ use crate::log_line;
 use core::ffi::c_void;
 use core::sync::atomic::{AtomicU32, Ordering};
 use std::ffi::CStr;
+use std::sync::OnceLock;
 
 type HANDLE = *mut c_void;
 type DWORD = u32;
@@ -31,9 +32,27 @@ type CreateFileAFn = unsafe extern "system" fn(
 
 static ORIG_CREATE_FILE_A: AtomicU32 = AtomicU32::new(0);
 
+static ERRORLOG_PATH: OnceLock<Option<String>> = OnceLock::new();
+
+fn errorlog_redirect() -> Option<&'static str> {
+    ERRORLOG_PATH
+        .get_or_init(|| std::env::var("OPENWA_ERRORLOG_PATH").ok())
+        .as_deref()
+}
+
 /// Check if a path ends with one of our target filenames (case-insensitive).
 /// Returns the replacement path if it matches, None otherwise.
 fn redirect_path(path: &str) -> Option<String> {
+    // ERRORLOG.TXT → env var path (if set by test runner)
+    if let Some(target) = errorlog_redirect() {
+        let lower = path.to_ascii_lowercase();
+        if lower.ends_with("\\errorlog.txt") || lower.ends_with("/errorlog.txt")
+            || lower == "errorlog.txt"
+        {
+            return Some(target.to_string());
+        }
+    }
+
     let pid = std::process::id();
     let lower = path.to_ascii_lowercase();
 
@@ -116,8 +135,13 @@ pub fn install() -> Result<(), String> {
         ORIG_CREATE_FILE_A.store(trampoline as u32, Ordering::Relaxed);
 
         let pid = std::process::id();
+        let errorlog_msg = if let Some(target) = errorlog_redirect() {
+            format!(", ERRORLOG.TXT → {target}")
+        } else {
+            String::new()
+        };
         let _ = log_line(&format!(
-            "[FileIsolation] Hooked CreateFileA (pid={pid}): mono.tmp, land.dat, landgen.svg → per-PID paths"
+            "[FileIsolation] Hooked CreateFileA (pid={pid}): mono.tmp, land.dat, landgen.svg → per-PID paths{errorlog_msg}"
         ));
     }
 

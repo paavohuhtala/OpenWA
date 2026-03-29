@@ -7,6 +7,7 @@
 use std::env;
 use std::fmt::Write as FmtWrite;
 use std::fs;
+use std::io::IsTerminal;
 use std::os::windows::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -39,12 +40,20 @@ struct TestCase {
 }
 
 #[derive(Clone)]
+struct CrashInfo {
+    exit_code: u32,
+    name: &'static str,
+    errorlog_content: Option<String>,
+}
+
+#[derive(Clone)]
 struct TestResult {
     name: String,
     passed: bool,
     duration: Duration,
     diff_lines: Vec<String>,
     error: Option<String>,
+    crashed: Option<CrashInfo>,
 }
 
 struct Args {
@@ -222,6 +231,7 @@ fn run_test(test: &TestCase, launcher: &Path, wa_exe: &Path, run_dir: &Path) -> 
 
     // Per-instance log paths
     let openwa_log = run_dir.join(format!("{}.openwa.log", test.name));
+    let errorlog_path = run_dir.join(format!("{}.errorlog.txt", test.name));
 
     let result = Command::new(launcher)
         .arg(wa_exe)
@@ -229,6 +239,7 @@ fn run_test(test: &TestCase, launcher: &Path, wa_exe: &Path, run_dir: &Path) -> 
         .arg(&test.replay_path)
         .env("OPENWA_HEADLESS", "1")
         .env("OPENWA_LOG_PATH", &openwa_log)
+        .env("OPENWA_ERRORLOG_PATH", &errorlog_path)
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
         .creation_flags(CREATE_NO_WINDOW)
@@ -243,8 +254,11 @@ fn run_test(test: &TestCase, launcher: &Path, wa_exe: &Path, run_dir: &Path) -> 
             duration,
             diff_lines: Vec::new(),
             error: Some(format!("Failed to launch: {e}")),
+            crashed: None,
         },
         Ok(status) => {
+            let exit_code = status.code().unwrap_or(0);
+
             if duration >= Duration::from_secs(TIMEOUT_SECS) {
                 return TestResult {
                     name: test.name.clone(),
@@ -252,6 +266,40 @@ fn run_test(test: &TestCase, launcher: &Path, wa_exe: &Path, run_dir: &Path) -> 
                     duration,
                     diff_lines: Vec::new(),
                     error: Some("Timeout".to_string()),
+                    crashed: None,
+                };
+            }
+
+            // Check for crash: either an NTSTATUS exit code (negative i32)
+            // or the presence of ERRORLOG.TXT (WA.exe's SEH handler catches
+            // exceptions and exits cleanly, so exit code may be 0).
+            // Use lossy conversion — ERRORLOG.TXT may contain binary
+            // memory dump data that isn't valid UTF-8.
+            let errorlog_content = fs::read(&errorlog_path)
+                .ok()
+                .filter(|b| !b.is_empty())
+                .map(|b| String::from_utf8_lossy(&b).into_owned());
+
+            if is_crash_exit_code(exit_code) || errorlog_content.is_some() {
+                let unsigned = exit_code as u32;
+                let name = if is_crash_exit_code(exit_code) {
+                    ntstatus_name(unsigned)
+                } else {
+                    // Parse exception from ERRORLOG first line, e.g.
+                    // "WA caused an Access Violation (0xc0000005)"
+                    parse_errorlog_exception(errorlog_content.as_deref())
+                };
+                return TestResult {
+                    name: test.name.clone(),
+                    passed: false,
+                    duration,
+                    diff_lines: Vec::new(),
+                    error: None,
+                    crashed: Some(CrashInfo {
+                        exit_code: unsigned,
+                        name,
+                        errorlog_content,
+                    }),
                 };
             }
 
@@ -269,9 +317,9 @@ fn run_test(test: &TestCase, launcher: &Path, wa_exe: &Path, run_dir: &Path) -> 
                     duration,
                     diff_lines: Vec::new(),
                     error: Some(format!(
-                        "No output log generated (exit code: {})",
-                        status.code().unwrap_or(-1)
+                        "No output log generated (exit code: {exit_code})"
                     )),
+                    crashed: None,
                 };
             }
 
@@ -288,6 +336,7 @@ fn run_test(test: &TestCase, launcher: &Path, wa_exe: &Path, run_dir: &Path) -> 
                     duration,
                     diff_lines: Vec::new(),
                     error: None,
+                    crashed: None,
                 }
             } else {
                 let mut diff = compute_diff(&expected, &actual);
@@ -305,6 +354,7 @@ fn run_test(test: &TestCase, launcher: &Path, wa_exe: &Path, run_dir: &Path) -> 
                     duration,
                     diff_lines: diff,
                     error: None,
+                    crashed: None,
                 }
             }
         }
@@ -415,15 +465,53 @@ fn run_tests_parallel(
 
 // ─── Output ─────────────────────────────────────────────────────────────────
 
+fn use_color() -> bool {
+    std::io::stdout().is_terminal()
+}
+
+fn green(text: &str) -> String {
+    if use_color() {
+        format!("\x1b[32m{text}\x1b[0m")
+    } else {
+        text.to_string()
+    }
+}
+
+fn red(text: &str) -> String {
+    if use_color() {
+        format!("\x1b[31m{text}\x1b[0m")
+    } else {
+        text.to_string()
+    }
+}
+
 fn print_result(result: &TestResult) {
     let status = if result.passed {
-        "\x1b[32m  PASS\x1b[0m"
+        green("  PASS")
+    } else if result.crashed.is_some() {
+        red(" CRASH")
     } else {
-        "\x1b[31m  FAIL\x1b[0m"
+        red("  FAIL")
     };
     let secs = result.duration.as_secs_f64();
     println!("{status}  {:<28} ({secs:.1}s)", result.name);
 
+    if let Some(crash) = &result.crashed {
+        println!(
+            "        {} (exit code: 0x{:08X})",
+            crash.name, crash.exit_code
+        );
+        if let Some(content) = &crash.errorlog_content {
+            println!("        --- ERRORLOG.TXT ---");
+            let lines: Vec<&str> = content.lines().collect();
+            for line in lines.iter().take(20) {
+                println!("        | {line}");
+            }
+            if lines.len() > 20 {
+                println!("        | ... ({} lines truncated)", lines.len() - 20);
+            }
+        }
+    }
     if let Some(err) = &result.error {
         println!("        {err}");
     }
@@ -434,34 +522,62 @@ fn print_result(result: &TestResult) {
 
 fn print_summary(results: &[TestResult], wall_time: Duration) {
     let passed = results.iter().filter(|r| r.passed).count();
+    let crashed = results.iter().filter(|r| r.crashed.is_some()).count();
     let failed = results.len() - passed;
     let cpu_time: f64 = results.iter().map(|r| r.duration.as_secs_f64()).sum();
     let wall = wall_time.as_secs_f64();
 
     println!();
     if failed == 0 {
-        println!(
-            "\x1b[32m{} tests: all passed\x1b[0m (wall {wall:.1}s, cpu {cpu_time:.1}s)",
-            results.len()
-        );
+        let msg = format!("{} tests: all passed", results.len());
+        println!("{} (wall {wall:.1}s, cpu {cpu_time:.1}s)", green(&msg));
     } else {
-        println!(
-            "\x1b[31m{} tests: {passed} passed, {failed} failed\x1b[0m (wall {wall:.1}s, cpu {cpu_time:.1}s)",
+        let crash_info = if crashed > 0 {
+            format!(" ({crashed} crashed)")
+        } else {
+            String::new()
+        };
+        let msg = format!(
+            "{} tests: {passed} passed, {failed} failed{crash_info}",
             results.len()
         );
+        println!("{} (wall {wall:.1}s, cpu {cpu_time:.1}s)", red(&msg));
     }
 }
 
 fn write_summary(results: &[TestResult], wall_time: Duration, path: &Path) {
     let mut s = String::new();
     for r in results {
-        let status = if r.passed { "PASS" } else { "FAIL" };
+        let status = if r.passed {
+            "PASS"
+        } else if r.crashed.is_some() {
+            "CRASH"
+        } else {
+            "FAIL"
+        };
         let _ = writeln!(
             s,
             "{status}  {:<28} ({:.1}s)",
             r.name,
             r.duration.as_secs_f64()
         );
+        if let Some(crash) = &r.crashed {
+            let _ = writeln!(
+                s,
+                "        {} (exit code: 0x{:08X})",
+                crash.name, crash.exit_code
+            );
+            if let Some(content) = &crash.errorlog_content {
+                let _ = writeln!(s, "        --- ERRORLOG.TXT ---");
+                for line in content.lines().take(20) {
+                    let _ = writeln!(s, "        | {line}");
+                }
+                let line_count = content.lines().count();
+                if line_count > 20 {
+                    let _ = writeln!(s, "        | ... ({} lines truncated)", line_count - 20);
+                }
+            }
+        }
         if let Some(err) = &r.error {
             let _ = writeln!(s, "        {err}");
         }
@@ -470,10 +586,16 @@ fn write_summary(results: &[TestResult], wall_time: Duration, path: &Path) {
         }
     }
     let passed = results.iter().filter(|r| r.passed).count();
+    let crashed = results.iter().filter(|r| r.crashed.is_some()).count();
     let failed = results.len() - passed;
+    let crash_info = if crashed > 0 {
+        format!(" ({crashed} crashed)")
+    } else {
+        String::new()
+    };
     let _ = writeln!(
         s,
-        "\n{} tests: {passed} passed, {failed} failed (wall {:.1}s)",
+        "\n{} tests: {passed} passed, {failed} failed{crash_info} (wall {:.1}s)",
         results.len(),
         wall_time.as_secs_f64()
     );
@@ -505,6 +627,10 @@ fn cleanup_temp_files(wa_exe: &Path) {
     for (prefix, suffix) in &data_patterns {
         cleanup_matching(&data_dir, prefix, suffix);
     }
+
+    // Clean up any stale ERRORLOG.TXT / CRASH.DMP in the game directory
+    let _ = fs::remove_file(game_dir.join("ERRORLOG.TXT"));
+    let _ = fs::remove_file(game_dir.join("CRASH.DMP"));
 }
 
 fn cleanup_matching(dir: &Path, prefix: &str, suffix: &str) {
@@ -538,6 +664,45 @@ fn strip_unc(p: PathBuf) -> PathBuf {
     } else {
         p
     }
+}
+
+/// Map common NTSTATUS exception codes to human-readable names.
+fn ntstatus_name(code: u32) -> &'static str {
+    match code {
+        0xC0000005 => "access violation",
+        0xC0000374 => "heap corruption",
+        0xC00000FD => "stack overflow",
+        0xC0000409 => "stack buffer overrun",
+        0xC000001D => "illegal instruction",
+        0xC0000135 => "DLL not found",
+        0xC0000142 => "DLL init failed",
+        0x80000003 => "breakpoint",
+        0xE06D7363 => "C++ exception", // MSVC __CxxThrowException
+        _ => "exception",
+    }
+}
+
+/// NTSTATUS exception codes have the high bit set, so they're negative as i32.
+fn is_crash_exit_code(code: i32) -> bool {
+    code < 0
+}
+
+/// Parse the exception name from the first line of ERRORLOG.TXT.
+/// Expected format: "WA caused an Access Violation (0xc0000005)"
+fn parse_errorlog_exception(content: Option<&str>) -> &'static str {
+    if let Some(line) = content.and_then(|c| c.lines().next()) {
+        // Try to extract the NTSTATUS code from parentheses
+        if let Some(start) = line.find("(0x") {
+            let hex_start = start + 1; // skip '('
+            if let Some(end) = line[hex_start..].find(')') {
+                let hex_str = &line[hex_start + 2..hex_start + end]; // skip "0x"
+                if let Ok(code) = u32::from_str_radix(hex_str, 16) {
+                    return ntstatus_name(code);
+                }
+            }
+        }
+    }
+    "crash (SEH handled)"
 }
 
 // ─── Main ───────────────────────────────────────────────────────────────────

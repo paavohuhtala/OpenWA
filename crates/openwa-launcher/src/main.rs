@@ -139,6 +139,13 @@ fn run() -> Result<(), String> {
         .parent()
         .ok_or("WA.exe path has no parent directory")?;
 
+    // In headless mode, suppress WA.exe's crash dialog. The crash handler
+    // (SEH at 0x5A5A20) checks this flag before deciding to relaunch with
+    // /handlecrash — if set, it silently writes ERRORLOG.TXT and returns.
+    if std::env::var("OPENWA_HEADLESS").is_ok() {
+        wa_args.push("/silentcrash".to_string());
+    }
+
     let cmdline = build_cmdline(&wa_exe, &wa_args);
 
     println!(
