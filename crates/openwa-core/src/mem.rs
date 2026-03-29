@@ -41,7 +41,11 @@ pub unsafe fn classify_pointer(value: u32, delta: u32) -> Option<PointerInfo> {
         let name = registry::format_va(ghidra_val);
         let detail = if can_read(value, 4) {
             let vt0 = *(value as *const u32);
-            Some(format!("{} vt[0]=ghidra:0x{:08X}", name, vt0.wrapping_sub(delta)))
+            Some(format!(
+                "{} vt[0]=ghidra:0x{:08X}",
+                name,
+                vt0.wrapping_sub(delta)
+            ))
         } else {
             Some(format!("{} (unreadable)", name))
         };
@@ -164,9 +168,7 @@ pub unsafe fn identify_pointer(value: u32, delta: u32) -> Option<PointerIdentity
                 registry::AddrKind::Vtable | registry::AddrKind::VtableMethod => {
                     PointerKind::Vtable
                 }
-                registry::AddrKind::Function | registry::AddrKind::Constructor => {
-                    PointerKind::Code
-                }
+                registry::AddrKind::Function | registry::AddrKind::Constructor => PointerKind::Code,
                 _ => PointerKind::Data,
             };
             let name = if resolved.offset == 0 {
@@ -241,11 +243,7 @@ pub unsafe fn identify_pointer(value: u32, delta: u32) -> Option<PointerIdentity
 ///
 /// Returns a vec of `PointerInfo` with offsets filled in relative to `base_offset`.
 #[cfg(target_os = "windows")]
-pub unsafe fn classify_region(
-    data: &[u8],
-    base_offset: u32,
-    delta: u32,
-) -> Vec<PointerInfo> {
+pub unsafe fn classify_region(data: &[u8], base_offset: u32, delta: u32) -> Vec<PointerInfo> {
     let mut pointers = Vec::new();
     let dword_count = data.len() / 4;
     for i in 0..dword_count {

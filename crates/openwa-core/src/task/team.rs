@@ -27,7 +27,8 @@ pub struct CTaskTeamVTable {
     /// surrender, worm selection, napalm strike, etc.)
     /// thiscall + 4 stack params, RET 0x10.
     #[slot(2)]
-    pub handle_message: fn(this: *mut CTaskTeam, sender: *mut CTask, msg_type: u32, size: u32, data: *const u8),
+    pub handle_message:
+        fn(this: *mut CTaskTeam, sender: *mut CTask, msg_type: u32, size: u32, data: *const u8),
     /// GetEntityData — returns team data by query code.
     /// thiscall + 3 stack params, RET 0xC.
     #[slot(3)]
@@ -133,11 +134,7 @@ impl CTaskTeam {
     ///
     /// # Safety
     /// `this` must be a valid CTaskTeam pointer with valid ddgame.
-    pub unsafe fn on_surrender_fire(
-        this: *mut Self,
-        sender: *mut CTask,
-        msg_team_index: u32,
-    ) {
+    pub unsafe fn on_surrender_fire(this: *mut Self, sender: *mut CTask, msg_team_index: u32) {
         use crate::game::TaskMessage;
 
         let team_index = (*this).team_index;
@@ -157,19 +154,26 @@ impl CTaskTeam {
         let game_version = (*(*ddgame).game_info).game_version;
         if game_version > 0xF4 {
             CTask::broadcast_message_raw(
-                task_ptr, sender, TaskMessage::DetonateWeapon as u32, 4, buf.as_ptr(),
+                task_ptr,
+                sender,
+                TaskMessage::DetonateWeapon as u32,
+                4,
+                buf.as_ptr(),
             );
         }
 
         // 3. Set per-team napalm flag
         // Original: *(ddgame + team_index * 0x51C + 0x4618) = 1
-        let flag_ptr = (ddgame as *mut u8)
-            .add(team_index as usize * 0x51C + 0x4618) as *mut u32;
+        let flag_ptr = (ddgame as *mut u8).add(team_index as usize * 0x51C + 0x4618) as *mut u32;
         *flag_ptr = 1;
 
         // 4. Broadcast original message (0x2B) to children
         CTask::broadcast_message_raw(
-            task_ptr, sender, TaskMessage::Surrender as u32, 4, buf.as_ptr(),
+            task_ptr,
+            sender,
+            TaskMessage::Surrender as u32,
+            4,
+            buf.as_ptr(),
         );
     }
 }

@@ -116,7 +116,8 @@ pub struct CTaskVtable {
     pub free: fn(this: *mut CTask, flags: u8) -> *mut CTask,
     /// HandleMessage — broadcasts message to all children (base implementation).
     #[slot(2)]
-    pub handle_message: fn(this: *mut CTask, sender: *mut CTask, msg_type: u32, size: u32, data: *const u8),
+    pub handle_message:
+        fn(this: *mut CTask, sender: *mut CTask, msg_type: u32, size: u32, data: *const u8),
     /// ProcessChildren — iterates children with flags. Base at 0x562FA0.
     #[slot(5)]
     pub process_children: fn(this: *mut CTask, flags: u32),
@@ -246,15 +247,14 @@ pub unsafe trait Task {
         loop {
             // Scan for next non-null child
             let child = loop {
-                let watermark = core::ptr::read_volatile(
-                    core::ptr::addr_of!((*task_ptr).children_watermark),
-                ) as usize;
+                let watermark =
+                    core::ptr::read_volatile(core::ptr::addr_of!((*task_ptr).children_watermark))
+                        as usize;
                 if i >= watermark {
                     return;
                 }
-                let children = core::ptr::read_volatile(
-                    core::ptr::addr_of!((*task_ptr).children_data),
-                );
+                let children =
+                    core::ptr::read_volatile(core::ptr::addr_of!((*task_ptr).children_data));
                 let c = *children.add(i);
                 i += 1;
                 if !c.is_null() {
@@ -305,15 +305,14 @@ impl CTask {
         let mut i: usize = 0;
         loop {
             let child = loop {
-                let watermark = core::ptr::read_volatile(
-                    core::ptr::addr_of!((*task_ptr).children_watermark),
-                ) as usize;
+                let watermark =
+                    core::ptr::read_volatile(core::ptr::addr_of!((*task_ptr).children_watermark))
+                        as usize;
                 if i >= watermark {
                     return;
                 }
-                let children = core::ptr::read_volatile(
-                    core::ptr::addr_of!((*task_ptr).children_data),
-                );
+                let children =
+                    core::ptr::read_volatile(core::ptr::addr_of!((*task_ptr).children_data));
                 let c = *children.add(i);
                 i += 1;
                 if !c.is_null() {

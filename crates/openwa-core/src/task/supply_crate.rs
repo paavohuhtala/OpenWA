@@ -18,7 +18,8 @@ pub struct CTaskCrateVTable {
     /// HandleMessage — processes crate messages (collection, parachute, etc.).
     /// thiscall + 4 stack params, RET 0x10.
     #[slot(2)]
-    pub handle_message: fn(this: *mut CTaskCrate, sender: *mut CTask, msg_type: u32, size: u32, data: *const u8),
+    pub handle_message:
+        fn(this: *mut CTaskCrate, sender: *mut CTask, msg_type: u32, size: u32, data: *const u8),
     /// ProcessFrame — per-frame crate update.
     /// thiscall + 1 stack param (flags), RET 0x4.
     #[slot(7)]

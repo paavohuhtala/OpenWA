@@ -408,8 +408,7 @@ unsafe fn show_game_task_raw_fields(
                             // Pointer identification via registry
                             use openwa_core::mem;
                             let ptr_label = if val >= 0x10000 {
-                                mem::identify_pointer(val, delta)
-                                    .and_then(|id| id.name)
+                                mem::identify_pointer(val, delta).and_then(|id| id.name)
                             } else {
                                 None
                             };
@@ -569,23 +568,17 @@ impl DebugApp {
 
                     // --- CTaskMine-specific fields ---
                     if name == "CTaskMine" {
-                        show_game_task_raw_fields(
-                            ui, addr, "CTaskMine", 0x128,
-                        );
+                        show_game_task_raw_fields(ui, addr, "CTaskMine", 0x128);
                     }
 
                     // --- CTaskOilDrum-specific fields ---
                     if name == "CTaskOilDrum" {
-                        show_game_task_raw_fields(
-                            ui, addr, "CTaskOilDrum", 0x110,
-                        );
+                        show_game_task_raw_fields(ui, addr, "CTaskOilDrum", 0x110);
                     }
 
                     // --- CTaskCrate-specific fields ---
                     if name == "CTaskCrate" {
-                        show_game_task_raw_fields(
-                            ui, addr, "CTaskCrate", 0x4B0,
-                        );
+                        show_game_task_raw_fields(ui, addr, "CTaskCrate", 0x4B0);
                     }
 
                     // --- CTaskCloud-specific fields ---
@@ -803,9 +796,7 @@ impl DebugApp {
                         ));
                         ui.separator();
 
-                        show_game_task_raw_fields(
-                            ui, addr, "CTaskWorm", 0x3FC,
-                        );
+                        show_game_task_raw_fields(ui, addr, "CTaskWorm", 0x3FC);
                     }
 
                     // --- CTaskMissile-specific fields ---
@@ -821,9 +812,7 @@ impl DebugApp {
                         ));
                         ui.separator();
 
-                        show_game_task_raw_fields(
-                            ui, addr, "CTaskMissile", 0x41C,
-                        );
+                        show_game_task_raw_fields(ui, addr, "CTaskMissile", 0x41C);
                     }
                 }
             });

@@ -60,19 +60,23 @@ pub unsafe fn capture() -> String {
     // ── Team blocks + worm entries ──
     let team_count = (*ddgame).team_arena.team_count as usize;
     let _ = writeln!(out, "[Teams] count={}", team_count);
-    let arena = openwa_core::engine::ddgame::TeamArenaRef::from_ptr(
-        &raw mut (*ddgame).team_arena,
-    );
+    let arena = openwa_core::engine::ddgame::TeamArenaRef::from_ptr(&raw mut (*ddgame).team_arena);
     let blocks = arena.blocks();
     for t in 0..team_count {
         let header = arena.team_header(t);
-        let name = core::ffi::CStr::from_ptr(header.team_name.as_ptr() as *const _)
-            .to_string_lossy();
+        let name =
+            core::ffi::CStr::from_ptr(header.team_name.as_ptr() as *const _).to_string_lossy();
         let _ = writeln!(out, "\n  [Team {}] \"{}\"", t, name);
-        let _ = writeln!(out, "    eliminated={} alliance={} worm_count={} active_worm={}",
-            header.eliminated, header.alliance, header.worm_count, header.active_worm);
-        let _ = writeln!(out, "    weapon_alliance={} turn_action_flags=0x{:08X}",
-            header.weapon_alliance, header.turn_action_flags);
+        let _ = writeln!(
+            out,
+            "    eliminated={} alliance={} worm_count={} active_worm={}",
+            header.eliminated, header.alliance, header.worm_count, header.active_worm
+        );
+        let _ = writeln!(
+            out,
+            "    weapon_alliance={} turn_action_flags=0x{:08X}",
+            header.weapon_alliance, header.turn_action_flags
+        );
 
         // Worms are in block[t+1].worms[0..worm_count] (1-indexed blocks)
         let worm_count = header.worm_count.max(0) as usize;
@@ -107,8 +111,11 @@ pub unsafe fn capture() -> String {
         }
         root = parent;
     }
-    let _ = writeln!(out, "[Entities] root vt=0x{:08X}",
-        (*(root as *const u32)).wrapping_sub(delta));
+    let _ = writeln!(
+        out,
+        "[Entities] root vt=0x{:08X}",
+        (*(root as *const u32)).wrapping_sub(delta)
+    );
 
     let iter = CTaskBfsIter::new(root);
 
@@ -150,7 +157,8 @@ pub unsafe fn capture() -> String {
                 let class = vtable_name(vt);
                 if class != "Unknown" {
                     if let Some(fields) = openwa_core::registry::struct_fields_for(class) {
-                        let _ = write_registry_fields(&mut out, task as *const u8, fields, delta, 2);
+                        let _ =
+                            write_registry_fields(&mut out, task as *const u8, fields, delta, 2);
                     } else {
                         let _ = write_raw_region(&mut out, task as *const u8, 0x100, 2);
                     }
@@ -187,7 +195,11 @@ unsafe fn write_registry_fields(
     let pad = "  ".repeat(indent);
     for field in fields.fields {
         let addr = base as u32 + field.offset;
-        write!(w, "{}+0x{:04X}  {:<16} [{:>2}]  ", pad, field.offset, field.name, field.size)?;
+        write!(
+            w,
+            "{}+0x{:04X}  {:<16} [{:>2}]  ",
+            pad, field.offset, field.name, field.size
+        )?;
         if openwa_core::mem::can_read(addr, field.size) {
             let ptr = base.add(field.offset as usize);
             let data = core::slice::from_raw_parts(ptr, field.size as usize);

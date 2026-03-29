@@ -531,14 +531,21 @@ impl TeamArenaRef {
 // ── Snapshot impl ──────────────────────────────────────────
 
 impl crate::snapshot::Snapshot for WormEntry {
-    unsafe fn write_snapshot(&self, w: &mut dyn core::fmt::Write, indent: usize) -> core::fmt::Result {
+    unsafe fn write_snapshot(
+        &self,
+        w: &mut dyn core::fmt::Write,
+        indent: usize,
+    ) -> core::fmt::Result {
         use crate::snapshot::write_indent;
         let i = indent;
         let name = core::ffi::CStr::from_ptr(self.name.as_ptr() as *const core::ffi::c_char)
             .to_string_lossy();
         write_indent(w, i)?;
-        writeln!(w, "state=0x{:02X} active={} hp={}/{} name=\"{}\"",
-            self.state, self.active_flag, self.health, self.max_health, name)?;
+        writeln!(
+            w,
+            "state=0x{:02X} active={} hp={}/{} name=\"{}\"",
+            self.state, self.active_flag, self.health, self.max_health, name
+        )?;
         Ok(())
     }
 }

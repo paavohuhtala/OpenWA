@@ -94,7 +94,6 @@ pub struct GameInfo {
     pub land_dat_path: [u8; 14],
 
     // --- Replay configuration (populated by ReplayLoader) ---
-
     /// 0xDAFA-0xDB07: Unknown
     pub _unknown_dafa: [u8; 0xDB08 - 0xDAFA],
     /// 0xDB08: Invisibility (weapon 0x42) mode flag (u32). Controls team-count

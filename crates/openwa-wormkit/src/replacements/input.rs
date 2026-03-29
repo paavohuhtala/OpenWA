@@ -188,7 +188,8 @@ unsafe extern "stdcall" fn hook_turn_manager(turngame: u32) {
         crate::debug_sync::on_frame_start(game_frame);
 
         // Hardware watchpoint: arm once at the watch frame
-        static WATCH_ARMED: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+        static WATCH_ARMED: core::sync::atomic::AtomicBool =
+            core::sync::atomic::AtomicBool::new(false);
         if !WATCH_ARMED.load(Ordering::Relaxed) {
             if let Ok(val) = std::env::var("OPENWA_WATCH_FRAME") {
                 let target: i32 = val.parse().unwrap_or(0);
@@ -280,7 +281,9 @@ pub fn write_gameplay_report() {
             frames
         ));
     } else {
-        let _ = log_validation("[GAMEPLAY FAIL] Game initialized - no frames processed (game may not have started)");
+        let _ = log_validation(
+            "[GAMEPLAY FAIL] Game initialized - no frames processed (game may not have started)",
+        );
     }
 
     // Milestone 2: Match started (multiple teams with alive worms)
@@ -291,7 +294,8 @@ pub fn write_gameplay_report() {
             teams
         ));
     } else if frames > 0 {
-        let _ = log_validation("[GAMEPLAY FAIL] Match started - never detected multiple alive teams");
+        let _ =
+            log_validation("[GAMEPLAY FAIL] Match started - never detected multiple alive teams");
     } else {
         let _ = log_validation("[GAMEPLAY FAIL] Match started - game never initialized");
     }
@@ -300,13 +304,18 @@ pub fn write_gameplay_report() {
     if completed {
         let end_frame = COMPLETION_FRAME.load(Ordering::Relaxed);
         let alive = ALIVE_AT_END.load(Ordering::Relaxed);
-        let outcome = if alive == 1 { "winner decided" } else { "draw (all eliminated)" };
+        let outcome = if alive == 1 {
+            "winner decided"
+        } else {
+            "draw (all eliminated)"
+        };
         let _ = log_validation(&format!(
             "[GAMEPLAY PASS] Match completed - {} at frame {}",
             outcome, end_frame
         ));
     } else if started {
-        let _ = log_validation("[GAMEPLAY FAIL] Match completed - match started but never finished");
+        let _ =
+            log_validation("[GAMEPLAY FAIL] Match completed - match started but never finished");
     } else {
         let _ = log_validation("[GAMEPLAY FAIL] Match completed - match never started");
     }

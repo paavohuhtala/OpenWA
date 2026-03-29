@@ -98,7 +98,8 @@ pub struct CTaskTurnGameVTable {
     /// HandleMessage — processes messages for turn flow control
     /// thiscall + 4 stack params, RET 0x10.
     #[slot(2)]
-    pub handle_message: fn(this: *mut CTaskTurnGame, sender: *mut CTask, msg_type: u32, size: u32, data: *const u8),
+    pub handle_message:
+        fn(this: *mut CTaskTurnGame, sender: *mut CTask, msg_type: u32, size: u32, data: *const u8),
     /// ProcessFrame — per-frame turn update.
     /// thiscall + 1 stack param (flags), RET 0x4.
     #[slot(7)]

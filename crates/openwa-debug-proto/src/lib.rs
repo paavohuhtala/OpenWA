@@ -65,30 +65,54 @@ pub struct ResolvedField {
 pub enum Request {
     Ping,
     Help,
-    Read { addr: u32, len: u32, #[serde(default)] absolute: bool },
+    Read {
+        addr: u32,
+        len: u32,
+        #[serde(default)]
+        absolute: bool,
+    },
     /// Walk a pointer chain: start at `addr`, then for each offset in `chain`,
     /// deref the current DWORD and add the offset. Read `len` bytes at the end.
-    ReadChain { addr: u32, chain: Vec<u32>, len: u32, absolute: bool },
+    ReadChain {
+        addr: u32,
+        chain: Vec<u32>,
+        len: u32,
+        absolute: bool,
+    },
     /// Pause the game at the next frame boundary.
     Suspend,
     /// Resume the game.
     Resume,
     /// Advance `count` frames, then pause.
-    Step { count: i32 },
+    Step {
+        count: i32,
+    },
     /// Query current frame number and pause state.
     Frame,
     /// Set a frame breakpoint (-1 to clear).
-    Break { frame: i32 },
+    Break {
+        frame: i32,
+    },
     /// Capture a canonicalized game state snapshot.
     Snapshot,
     /// Typed struct inspection: read all named fields at an address.
-    Inspect { class_name: String, addr: u32, chain: Vec<u32>, absolute: bool },
+    Inspect {
+        class_name: String,
+        addr: u32,
+        chain: Vec<u32>,
+        absolute: bool,
+    },
     /// List all tracked live objects.
     ListObjects,
     /// Resolve a named alias (e.g., "ddgame") to a runtime address.
-    ResolveAlias { name: String },
+    ResolveAlias {
+        name: String,
+    },
     /// Resolve a field name to its offset within a struct.
-    ResolveField { class_name: String, field_name: String },
+    ResolveField {
+        class_name: String,
+        field_name: String,
+    },
 }
 
 /// One step in a resolved pointer chain, for display.
@@ -114,7 +138,9 @@ pub struct CommandHelp {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Response {
     Pong,
-    Help { commands: Vec<CommandHelp> },
+    Help {
+        commands: Vec<CommandHelp>,
+    },
     ReadResult {
         ghidra_addr: u32,
         runtime_addr: u32,
@@ -134,15 +160,26 @@ pub enum Response {
         pointers: Vec<PointerInfo>,
     },
     /// Game is now suspended at this frame.
-    Suspended { frame: i32 },
+    Suspended {
+        frame: i32,
+    },
     /// Game resumed.
     Resumed,
     /// Current frame info.
-    FrameInfo { frame: i32, paused: bool, breakpoint: i32 },
+    FrameInfo {
+        frame: i32,
+        paused: bool,
+        breakpoint: i32,
+    },
     /// Breakpoint set/cleared.
-    BreakSet { frame: i32 },
+    BreakSet {
+        frame: i32,
+    },
     /// Game state snapshot.
-    Snapshot { frame: i32, text: String },
+    Snapshot {
+        frame: i32,
+        text: String,
+    },
     /// Typed struct inspection result.
     InspectResult {
         class_name: String,
@@ -151,12 +188,16 @@ pub enum Response {
         fields: Vec<FieldValue>,
     },
     /// List of tracked live objects.
-    ObjectList { objects: Vec<LiveObjectInfo> },
+    ObjectList {
+        objects: Vec<LiveObjectInfo>,
+    },
     /// Resolved named alias.
     AliasResult(ResolvedAlias),
     /// Resolved field offset.
     FieldResult(ResolvedField),
-    Error { message: String },
+    Error {
+        message: String,
+    },
 }
 
 // --- Length-prefixed framing ---
@@ -188,6 +229,5 @@ pub fn read_frame<R: Read, T: for<'de> Deserialize<'de>>(reader: &mut R) -> io::
     }
     let mut payload = vec![0u8; len];
     reader.read_exact(&mut payload)?;
-    rmp_serde::from_slice(&payload)
-        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+    rmp_serde::from_slice(&payload).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
 }

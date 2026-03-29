@@ -47,9 +47,16 @@ unsafe extern "stdcall" fn call_init_replay(_game_info: *mut GameInfo, _this: *m
 /// Temp: bridge to original DDGame__Constructor for comparison.
 #[unsafe(naked)]
 unsafe extern "C" fn call_original_ddgame_ctor(
-    _wrapper: *mut DDGameWrapper, _display: *mut DDDisplay, _sound: *mut DSSound,
-    _keyboard: *mut u8, _palette: *mut Palette, _music: *mut u8,
-    _timer: *mut u8, _net_game: *mut u8, _game_info: *mut GameInfo, _input_ctrl: *mut u8,
+    _wrapper: *mut DDGameWrapper,
+    _display: *mut DDDisplay,
+    _sound: *mut DSSound,
+    _keyboard: *mut u8,
+    _palette: *mut Palette,
+    _music: *mut u8,
+    _timer: *mut u8,
+    _net_game: *mut u8,
+    _game_info: *mut GameInfo,
+    _input_ctrl: *mut u8,
 ) {
     core::arch::naked_asm!(
         "mov ecx, [esp+40]",
@@ -123,8 +130,16 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
     let use_original = std::env::var("OPENWA_USE_ORIG_CTOR").is_ok();
     if use_original {
         call_original_ddgame_ctor(
-            this, display, sound, keyboard, palette, streaming_audio,
-            timer_obj, net_game, game_info, input_ctrl,
+            this,
+            display,
+            sound,
+            keyboard,
+            palette,
+            streaming_audio,
+            timer_obj,
+            net_game,
+            game_info,
+            input_ctrl,
         );
     } else {
         create_ddgame(
@@ -139,7 +154,6 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
             game_info,
             input_ctrl as u32,
         );
-
     }
 
     // Disarm display watchpoint
@@ -152,10 +166,10 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
         core::mem::transmute(rb(va::DDGAME_INIT_GAME_STATE) as usize);
     init_state(this);
 
-
     let _ = log_line(&format!(
         "[GameSession] DDGameWrapper::Constructor done: wrapper=0x{:08X}  ddgame=0x{:08X}",
-        this as u32, (*this).ddgame as u32,
+        this as u32,
+        (*this).ddgame as u32,
     ));
 
     // Register live objects for pointer identification in debug tools.

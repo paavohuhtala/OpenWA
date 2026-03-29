@@ -33,9 +33,7 @@ use windows_sys::Win32::System::Diagnostics::Debug::{
 /// Offsets to watch. Hardware limit: 4 watchpoints (DR0–DR3).
 /// Change these to investigate different fields.
 /// NOTE: The base pointer is set by `on_ddgame_alloc()` — can be DDGame or DDGameWrapper.
-const WATCH_OFFSETS: [(u32, &str); 1] = [
-    (0x3A40, "display+0x3A40"),
-];
+const WATCH_OFFSETS: [(u32, &str); 1] = [(0x3A40, "display+0x3A40")];
 
 /// DDGame base address (set when allocation is reported).
 static DDGAME_BASE: AtomicU32 = AtomicU32::new(0);
@@ -160,7 +158,10 @@ unsafe extern "system" fn veh_handler(info: *mut EXCEPTION_POINTERS) -> i32 {
 
                     let _ = log_line(&format!(
                         "[Watchpoint] {} = 0x{:08X}  eip={} stack=[{}]",
-                        name, val, openwa_core::registry::format_va(ghidra_eip), trace,
+                        name,
+                        val,
+                        openwa_core::registry::format_va(ghidra_eip),
+                        trace,
                     ));
                 }
             }
@@ -208,8 +209,7 @@ unsafe extern "cdecl" fn malloc_hook(size: u32) -> *mut u8 {
     if size == DDGAME_ALLOC_SIZE && !result.is_null() {
         let _ = log_line(&format!(
             "[Watchpoint] Intercepted wa_malloc(0x{:X}) = 0x{:08X}",
-            size,
-            result as u32,
+            size, result as u32,
         ));
         on_ddgame_alloc(result);
     }

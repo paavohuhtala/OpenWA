@@ -98,7 +98,10 @@ fn is_weapon_category_a(weapon: Weapon) -> bool {
 /// FUN_00565920: weapon category B — fire/napalm weapons.
 fn is_weapon_category_b(weapon: Weapon) -> bool {
     use Weapon::*;
-    matches!(weapon, NapalmStrike | FlameThrower | PetrolBomb | SheepStrike)
+    matches!(
+        weapon,
+        NapalmStrike | FlameThrower | PetrolBomb | SheepStrike
+    )
 }
 
 // ── Main implementation ─────────────────────────────────────
@@ -152,7 +155,7 @@ unsafe extern "cdecl" fn weapon_release_impl(
     let special_subtype = (*entry).special_subtype;
     let fire_method = (*entry).fire_method;
 
-    use openwa_core::game::weapon::{FireType, FireMethod};
+    use openwa_core::game::weapon::{FireMethod, FireType};
 
     // ── 3. Spawn offset calculation ─────────────────────────
     let scale = w.landscape_scale;
@@ -243,11 +246,7 @@ unsafe extern "cdecl" fn weapon_release_impl(
     write_u32(&mut msg_buf, 0x0C, w.shot_data_2);
     write_u32(&mut msg_buf, 0x10, w.fire_sync_frame_1 as u32);
     write_u32(&mut msg_buf, 0x14, w.fire_sync_frame_2 as u32);
-    write_u32(
-        &mut msg_buf,
-        0x18,
-        if w._unknown_2cc != 0 { 1 } else { 0 },
-    );
+    write_u32(&mut msg_buf, 0x18, if w._unknown_2cc != 0 { 1 } else { 0 });
     write_u32(&mut msg_buf, 0x1C, weapon as u32);
 
     let team = weapon::lookup_turn_game(worm);
@@ -292,47 +291,63 @@ unsafe extern "cdecl" fn weapon_release_impl(
     let entry = w.active_weapon_entry;
 
     match FireType::try_from((*entry).fire_type) {
-        Ok(FireType::Projectile) => {
-            match (*entry).special_subtype {
-                1 => {
-                    if w.sound_handle == 0 {
-                        sound::play_worm_sound(worm, SoundId(0x1004E), Fixed::ONE);
-                    }
-                    do_effect = true;
-                    effect_state = 0x73;
+        Ok(FireType::Projectile) => match (*entry).special_subtype {
+            1 => {
+                if w.sound_handle == 0 {
+                    sound::play_worm_sound(worm, SoundId(0x1004E), Fixed::ONE);
                 }
-                2 => {
-                    sound::play_sound_local(task, KnownSoundId::ThrowRelease, 3, Fixed::ONE, Fixed::ONE);
-                    sound::stop_worm_sound(worm);
-                }
-                3 | 7 | 0xB | 0xC => {
-                    sound::play_sound_local(task, KnownSoundId::RocketRelease, 3, Fixed::ONE, Fixed::ONE);
-                    sound::stop_worm_sound(worm);
-                }
-                4 => {
-                    if w.sound_handle == 0 {
-                        sound::play_worm_sound(worm, SoundId(0x1004F), Fixed::ONE);
-                    }
-                    do_effect = true;
-                    effect_state = 0x73;
-                }
-                5 => {
-                    sound::play_sound_local(task, KnownSoundId::ShotgunFire, 3, Fixed::ONE, Fixed::ONE);
-                    do_effect = true;
-                    effect_state = 0x75;
-                }
-                6 => {
-                    sound::play_sound_local(task, KnownSoundId::HandgunFire, 3, Fixed::ONE, Fixed::ONE);
-                    do_effect = true;
-                    effect_state = 0x73;
-                }
-                10 => {
-                    sound::play_sound_local(task, KnownSoundId::LongbowRelease, 3, Fixed::ONE, Fixed::ONE);
-                    sound::stop_worm_sound(worm);
-                }
-                _ => {}
+                do_effect = true;
+                effect_state = 0x73;
             }
-        }
+            2 => {
+                sound::play_sound_local(
+                    task,
+                    KnownSoundId::ThrowRelease,
+                    3,
+                    Fixed::ONE,
+                    Fixed::ONE,
+                );
+                sound::stop_worm_sound(worm);
+            }
+            3 | 7 | 0xB | 0xC => {
+                sound::play_sound_local(
+                    task,
+                    KnownSoundId::RocketRelease,
+                    3,
+                    Fixed::ONE,
+                    Fixed::ONE,
+                );
+                sound::stop_worm_sound(worm);
+            }
+            4 => {
+                if w.sound_handle == 0 {
+                    sound::play_worm_sound(worm, SoundId(0x1004F), Fixed::ONE);
+                }
+                do_effect = true;
+                effect_state = 0x73;
+            }
+            5 => {
+                sound::play_sound_local(task, KnownSoundId::ShotgunFire, 3, Fixed::ONE, Fixed::ONE);
+                do_effect = true;
+                effect_state = 0x75;
+            }
+            6 => {
+                sound::play_sound_local(task, KnownSoundId::HandgunFire, 3, Fixed::ONE, Fixed::ONE);
+                do_effect = true;
+                effect_state = 0x73;
+            }
+            10 => {
+                sound::play_sound_local(
+                    task,
+                    KnownSoundId::LongbowRelease,
+                    3,
+                    Fixed::ONE,
+                    Fixed::ONE,
+                );
+                sound::stop_worm_sound(worm);
+            }
+            _ => {}
+        },
         Ok(FireType::Rope) => {
             if w._unknown_2cc == 0 || w._unknown_2c8 == 1 {
                 let team_sound_raw = (*w.ddgame()).team_sound_id(team_id);
@@ -345,19 +360,41 @@ unsafe extern "cdecl" fn weapon_release_impl(
             match S::try_from((*entry).special_subtype) {
                 Ok(S::BaseballBat) => {
                     sound::play_sound_local(
-                        task, KnownSoundId::BaseballBatRelease, 3, Fixed::ONE, Fixed::ONE,
+                        task,
+                        KnownSoundId::BaseballBatRelease,
+                        3,
+                        Fixed::ONE,
+                        Fixed::ONE,
                     );
                 }
                 Ok(S::DragonBall) => {
-                    sound::play_sound_local(task, SoundId((*entry).fire_method as u32), 3, Fixed::ONE, Fixed::ONE);
+                    sound::play_sound_local(
+                        task,
+                        SoundId((*entry).fire_method as u32),
+                        3,
+                        Fixed::ONE,
+                        Fixed::ONE,
+                    );
                 }
                 Ok(S::Kamikaze) => {
                     // Sound ID from fire_params.spread (polymorphic use of field)
-                    sound::play_sound_local(task, SoundId((*entry).fire_params.spread as u32), 3, Fixed::ONE, Fixed::ONE);
+                    sound::play_sound_local(
+                        task,
+                        SoundId((*entry).fire_params.spread as u32),
+                        3,
+                        Fixed::ONE,
+                        Fixed::ONE,
+                    );
                 }
                 Ok(S::Teleport) => {
                     if w._unknown_208 == 0 {
-                        sound::play_sound_local(task, KnownSoundId::Teleport, 3, Fixed::ONE, Fixed::ONE);
+                        sound::play_sound_local(
+                            task,
+                            KnownSoundId::Teleport,
+                            3,
+                            Fixed::ONE,
+                            Fixed::ONE,
+                        );
                     }
                 }
                 Ok(S::Blowtorch) => {
@@ -390,8 +427,16 @@ unsafe extern "cdecl" fn weapon_release_impl(
         let state_flag = facing_flag + effect_state;
 
         spawn_effect(
-            worm, 0x80000, speed_x, speed_y, rng_scaled, rng1_offset, palette, state_flag,
-            Fixed(0xA0000), Fixed(0x1999),
+            worm,
+            0x80000,
+            speed_x,
+            speed_y,
+            rng_scaled,
+            rng1_offset,
+            palette,
+            state_flag,
+            Fixed(0xA0000),
+            Fixed(0x1999),
         );
     }
 
@@ -454,9 +499,8 @@ pub(crate) unsafe fn spawn_effect(
     let entity = table.lookup(0, 0x1A);
     if !entity.is_null() {
         let vtable = *(entity as *const *const usize);
-        let handle_msg: unsafe extern "thiscall" fn(
-            *mut u8, *mut u8, u32, u32, *const u8,
-        ) = core::mem::transmute(*vtable.add(2));
+        let handle_msg: unsafe extern "thiscall" fn(*mut u8, *mut u8, u32, u32, *const u8) =
+            core::mem::transmute(*vtable.add(2));
         handle_msg(
             entity as *mut u8,
             worm as *mut u8,

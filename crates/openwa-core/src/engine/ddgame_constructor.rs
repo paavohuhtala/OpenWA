@@ -52,8 +52,16 @@ pub unsafe fn ddgame_init_fields(ddgame: *mut DDGame) {
     // These offsets are deep in the unknown 0x2E00-0x45EB region and don't
     // have named fields yet — keep as raw offsets for now.
     for &off in &[
-        0x379Cusize, 0x3930, 0x3AC4, 0x3C58, 0x3DEC,
-        0x3F80, 0x4114, 0x42A8, 0x443C, 0x45D0,
+        0x379Cusize,
+        0x3930,
+        0x3AC4,
+        0x3C58,
+        0x3DEC,
+        0x3F80,
+        0x4114,
+        0x42A8,
+        0x443C,
+        0x45D0,
     ] {
         *(base.add(off) as *mut u32) = 0;
     }
@@ -482,13 +490,7 @@ unsafe fn init_graphics_and_resources(
         let disp = (*wrapper).display;
         let gfx_dir = (*wrapper).primary_gfx_dir;
         (*disp).set_layer_color(1, 0xFE);
-        (*disp).load_sprite(
-            1,
-            1,
-            0,
-            gfx_dir,
-            rb(va::STR_CDROM_SPR) as *const c_char,
-        );
+        (*disp).load_sprite(1, 1, 0, gfx_dir, rb(va::STR_CDROM_SPR) as *const c_char);
         (*disp).set_layer_visibility(1, -100);
 
         // Palette slot range init (raw byte offsets into DisplayBase)
@@ -618,9 +620,15 @@ unsafe fn init_graphics_and_resources(
         let palette_ctx = wa_malloc_zeroed(0x900);
         *(palette_ctx as *mut u16) = 1;
         *(palette_ctx.add(2) as *mut u16) = 0xFE;
-        call_usercall_eax(palette_ctx as *mut DDGameWrapper, rb(va::PALETTE_CONTEXT_INIT));
-        gfx_resource =
-            gfx_resource_create(gfx_dir, rb(va::STR_MASKS_IMG) as *const core::ffi::c_char, palette_ctx);
+        call_usercall_eax(
+            palette_ctx as *mut DDGameWrapper,
+            rb(va::PALETTE_CONTEXT_INIT),
+        );
+        gfx_resource = gfx_resource_create(
+            gfx_dir,
+            rb(va::STR_MASKS_IMG) as *const core::ffi::c_char,
+            palette_ctx,
+        );
     }
 
     // ── Dump GfxResource for A/B comparison ──
@@ -771,13 +779,13 @@ unsafe fn init_graphics_and_resources(
                 let region = if !alloc.is_null() {
                     call_sprite_region_ctor(
                         alloc,
-                        (sprite_w / 2) as u32,                   // ECX → this[5] = ECX - p2
-                        (sprite_h - margin_h) as u32,            // EDX → this[4] = EDX - p3
-                        margin_w as u32,                          // p2 (left margin)
-                        margin_h as u32,                          // p3 (top margin)
-                        (sprite_w - margin_w) as u32,             // p4 → this[3] = p4 - p2
-                        (sprite_h / 2) as u32,                    // p5 → this[6] = p5 - p3
-                        sprite as u32,                            // p6 = arrow sprite (NOT landscape gfx_resource)
+                        (sprite_w / 2) as u32, // ECX → this[5] = ECX - p2
+                        (sprite_h - margin_h) as u32, // EDX → this[4] = EDX - p3
+                        margin_w as u32,       // p2 (left margin)
+                        margin_h as u32,       // p3 (top margin)
+                        (sprite_w - margin_w) as u32, // p4 → this[3] = p4 - p2
+                        (sprite_h / 2) as u32, // p5 → this[6] = p5 - p3
+                        sprite as u32,         // p6 = arrow sprite (NOT landscape gfx_resource)
                     )
                 } else {
                     core::ptr::null_mut()
@@ -917,12 +925,7 @@ unsafe fn init_graphics_and_resources(
         // GenerateDebrisParticles (0x546F70) for particle effects, which affects
         // the game RNG (DDGame+0x45EC). The original constructor loads them even
         // in headless mode. Skipping them causes replay desync.
-        (*disp).load_sprite_by_layer(
-            3,
-            0x26D,
-            land_layer,
-            c"back.spr".as_ptr().cast(),
-        );
+        (*disp).load_sprite_by_layer(3, 0x26D, land_layer, c"back.spr".as_ptr().cast());
         // debris.spr must be loaded unconditionally — it's used by
         // GenerateDebrisParticles (0x546F70) for particle effects, which
         // affects the game RNG (DDGame+0x45EC). Skipping it in headless

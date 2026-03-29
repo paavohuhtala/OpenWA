@@ -31,10 +31,23 @@ pub struct DDDisplayVtable {
     pub set_layer_visibility: fn(this: *mut DDDisplay, layer: i32, value: i32),
     /// load sprite with flag (RET 0x14)
     #[slot(31)]
-    pub load_sprite: fn(this: *mut DDDisplay, layer: u32, id: u32, flag: u32, gfx: *mut u8, name: *const core::ffi::c_char) -> i32,
+    pub load_sprite: fn(
+        this: *mut DDDisplay,
+        layer: u32,
+        id: u32,
+        flag: u32,
+        gfx: *mut u8,
+        name: *const core::ffi::c_char,
+    ) -> i32,
     /// load sprite by layer (RET 0x10)
     #[slot(37)]
-    pub load_sprite_by_layer: fn(this: *mut DDDisplay, layer: u32, id: u32, gfx: *mut u8, name: *const core::ffi::c_char) -> i32,
+    pub load_sprite_by_layer: fn(
+        this: *mut DDDisplay,
+        layer: u32,
+        id: u32,
+        gfx: *mut u8,
+        name: *const core::ffi::c_char,
+    ) -> i32,
 }
 
 // Generate calling wrappers: DDDisplay::set_layer_color(), etc.

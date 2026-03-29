@@ -66,8 +66,8 @@ fn clear_log() -> std::io::Result<()> {
 
 fn run() -> Result<(), String> {
     let _ = clear_log();
-    let validation_path = std::env::var_os("OPENWA_VALIDATION_LOG_PATH")
-        .unwrap_or("OpenWA_validation.log".into());
+    let validation_path =
+        std::env::var_os("OPENWA_VALIDATION_LOG_PATH").unwrap_or("OpenWA_validation.log".into());
     let _ = std::fs::write(validation_path, "");
 
     // Install panic hook that writes to our log file
@@ -132,7 +132,10 @@ fn signal_hooks_ready() {
         if !handle.is_null() {
             SetEvent(handle);
             CloseHandle(handle);
-            let _ = log_line(&format!("=== Signalled {}{} ===", HOOKS_READY_EVENT_PREFIX, pid));
+            let _ = log_line(&format!(
+                "=== Signalled {}{} ===",
+                HOOKS_READY_EVENT_PREFIX, pid
+            ));
         }
         // If handle is null, we weren't launched by our launcher — that's fine.
     }

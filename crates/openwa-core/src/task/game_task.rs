@@ -96,5 +96,6 @@ pub struct SoundEmitterVTable {
     pub destructor: fn(this: *mut SoundEmitter, flags: u32) -> *mut SoundEmitter,
     /// HandleMessage — sound queue manager
     #[slot(4)]
-    pub handle_message: fn(this: *mut SoundEmitter, sender: u32, msg_type: u32, size: u32, data: u32),
+    pub handle_message:
+        fn(this: *mut SoundEmitter, sender: u32, msg_type: u32, size: u32, data: u32),
 }

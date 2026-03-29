@@ -109,14 +109,13 @@ fn validate_addresses(result: &mut ValidationResult) {
     let _ = log_validation("--- Address Validation ---");
 
     // Auto-discover all registered vtables from the address registry
-    let vtables: Vec<(&str, u32)> = openwa_core::registry::entries_by_kind(
-        openwa_core::registry::AddrKind::Vtable,
-    )
-    .map(|e| {
-        let name = e.class_name.map_or(e.name, |c| c);
-        (name, e.va)
-    })
-    .collect();
+    let vtables: Vec<(&str, u32)> =
+        openwa_core::registry::entries_by_kind(openwa_core::registry::AddrKind::Vtable)
+            .map(|e| {
+                let name = e.class_name.map_or(e.name, |c| c);
+                (name, e.va)
+            })
+            .collect();
 
     let _ = log_validation("");
     let _ = log_validation(&format!(
@@ -287,7 +286,11 @@ fn validate_typed_vtable_slots(result: &mut ValidationResult) {
                     &format!(
                         "0x{:08X} {}",
                         actual,
-                        if in_text { "in .text" } else { "NOT in .text — hooked or corrupt?" }
+                        if in_text {
+                            "in .text"
+                        } else {
+                            "NOT in .text — hooked or corrupt?"
+                        }
                     ),
                 );
             }
@@ -1010,8 +1013,7 @@ fn dump_entity_census() {
         groups.sort_by(|a, b| b.1.len().cmp(&a.1.len()));
 
         for (vt_ghidra, ptrs) in &groups {
-            let name = openwa_core::registry::vtable_class_name(*vt_ghidra)
-                .unwrap_or("UNKNOWN");
+            let name = openwa_core::registry::vtable_class_name(*vt_ghidra).unwrap_or("UNKNOWN");
             let _ = log_validation(&format!(
                 "  {:>3}x  {:<20}  (vtable 0x{:08X})",
                 ptrs.len(),

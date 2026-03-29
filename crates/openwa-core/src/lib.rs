@@ -22,8 +22,8 @@ extern crate self as openwa_core;
 pub use inventory;
 
 // Re-export derive macros so users write `use openwa_core::FieldRegistry;`
-pub use openwa_derive::FieldRegistry;
 pub use openwa_derive::vtable;
+pub use openwa_derive::FieldRegistry;
 
 #[macro_use]
 pub mod macros;
@@ -37,13 +37,13 @@ pub mod input;
 pub mod render;
 
 pub mod address;
+pub mod field_format;
 pub mod fixed;
-pub mod registry;
 pub mod log;
 pub mod mem;
 pub mod rebase;
+pub mod registry;
 pub mod snapshot;
-pub mod field_format;
 pub mod task;
 pub mod vtable;
 pub mod wa;

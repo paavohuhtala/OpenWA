@@ -110,11 +110,22 @@ fn handle_request(request: Request) -> Response {
                 },
             ],
         },
-        Request::Read { addr, len, absolute } => handle_read(addr, len, absolute),
-        Request::ReadChain { addr, chain, len, absolute } => handle_read_chain(addr, &chain, len, absolute),
+        Request::Read {
+            addr,
+            len,
+            absolute,
+        } => handle_read(addr, len, absolute),
+        Request::ReadChain {
+            addr,
+            chain,
+            len,
+            absolute,
+        } => handle_read_chain(addr, &chain, len, absolute),
         Request::Suspend => {
             crate::debug_sync::suspend();
-            Response::Suspended { frame: crate::debug_sync::current_frame() }
+            Response::Suspended {
+                frame: crate::debug_sync::current_frame(),
+            }
         }
         Request::Resume => {
             crate::debug_sync::resume();
@@ -124,7 +135,9 @@ fn handle_request(request: Request) -> Response {
             crate::debug_sync::step(count);
             // Wait briefly for the step to complete, then report
             std::thread::sleep(Duration::from_millis(100));
-            Response::Suspended { frame: crate::debug_sync::current_frame() }
+            Response::Suspended {
+                frame: crate::debug_sync::current_frame(),
+            }
         }
         Request::Frame => Response::FrameInfo {
             frame: crate::debug_sync::current_frame(),
@@ -140,14 +153,18 @@ fn handle_request(request: Request) -> Response {
             let frame = crate::debug_sync::current_frame();
             Response::Snapshot { frame, text }
         }
-        Request::Inspect { class_name, addr, chain, absolute } => {
-            handle_inspect(&class_name, addr, &chain, absolute)
-        }
+        Request::Inspect {
+            class_name,
+            addr,
+            chain,
+            absolute,
+        } => handle_inspect(&class_name, addr, &chain, absolute),
         Request::ListObjects => handle_list_objects(),
         Request::ResolveAlias { name } => handle_resolve_alias(&name),
-        Request::ResolveField { class_name, field_name } => {
-            handle_resolve_field(&class_name, &field_name)
-        }
+        Request::ResolveField {
+            class_name,
+            field_name,
+        } => handle_resolve_field(&class_name, &field_name),
     }
 }
 
@@ -189,11 +206,7 @@ fn handle_read(addr: u32, len: u32, absolute: bool) -> Response {
 
         // Copy the memory region
         let mut data = vec![0u8; len as usize];
-        std::ptr::copy_nonoverlapping(
-            runtime_addr as *const u8,
-            data.as_mut_ptr(),
-            len as usize,
-        );
+        std::ptr::copy_nonoverlapping(runtime_addr as *const u8, data.as_mut_ptr(), len as usize);
 
         // Classify pointers in the copied data
         let pointers = mem::classify_region(&data, 0, delta);
@@ -230,10 +243,7 @@ fn handle_inspect(class_name: &str, addr: u32, chain: &[u32], absolute: bool) ->
             unsafe {
                 if !mem::can_read(current, 4) {
                     return Response::Error {
-                        message: format!(
-                            "Chain broke: cannot read at runtime:0x{:08X}",
-                            current
-                        ),
+                        message: format!("Chain broke: cannot read at runtime:0x{:08X}", current),
                     };
                 }
                 let value = *(current as *const u32);
@@ -370,8 +380,12 @@ fn handle_resolve_field(class_name: &str, field_name: &str) -> Response {
     }
 
     Response::Error {
-        message: format!("No field '{}' in '{}' (searched: {})", field_name, class_name,
-            search_chain.join(" -> ")),
+        message: format!(
+            "No field '{}' in '{}' (searched: {})",
+            field_name,
+            class_name,
+            search_chain.join(" -> ")
+        ),
     }
 }
 

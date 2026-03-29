@@ -110,9 +110,10 @@ fn vtable_impl(
     let mut has_implicit_slot = false;
 
     for (field_idx, field) in fields.iter().enumerate() {
-        let ident = field.ident.as_ref().ok_or_else(|| {
-            syn::Error::new_spanned(field, "Vtable fields must be named")
-        })?;
+        let ident = field
+            .ident
+            .as_ref()
+            .ok_or_else(|| syn::Error::new_spanned(field, "Vtable fields must be named"))?;
 
         let explicit_index = parse_slot_attr(&field.attrs, ident)?;
 
@@ -513,9 +514,9 @@ fn parse_vtable_attr_args(
 
     syn::parse::Parser::parse2(parser, attr)?;
 
-    let size = args.size.ok_or_else(|| {
-        syn::Error::new_spanned(span, "vtable attribute requires `size = N`")
-    })?;
+    let size = args
+        .size
+        .ok_or_else(|| syn::Error::new_spanned(span, "vtable attribute requires `size = N`"))?;
 
     Ok((size, args.va, args.class))
 }
@@ -586,9 +587,12 @@ pub fn derive_field_registry(input: TokenStream) -> TokenStream {
             }
         },
         _ => {
-            return syn::Error::new_spanned(struct_name, "FieldRegistry can only be used on structs")
-                .to_compile_error()
-                .into();
+            return syn::Error::new_spanned(
+                struct_name,
+                "FieldRegistry can only be used on structs",
+            )
+            .to_compile_error()
+            .into();
         }
     };
 
@@ -616,8 +620,8 @@ pub fn derive_field_registry(input: TokenStream) -> TokenStream {
         let size_ty = substitute_generics(field_ty, &generic_defaults);
 
         // Determine ValueKind: check for #[field(kind = "...")] override, else infer
-        let kind = parse_field_kind_attr(&field.attrs)
-            .unwrap_or_else(|| infer_value_kind(field_ty));
+        let kind =
+            parse_field_kind_attr(&field.attrs).unwrap_or_else(|| infer_value_kind(field_ty));
 
         entries.push(quote! {
             openwa_core::registry::FieldEntry {

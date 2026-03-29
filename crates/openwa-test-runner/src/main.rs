@@ -194,7 +194,14 @@ fn find_launcher() -> Option<PathBuf> {
 fn build() -> Result<Duration, String> {
     let start = Instant::now();
     let status = Command::new("cargo")
-        .args(["build", "--release", "-p", "openwa-wormkit", "-p", "openwa-launcher"])
+        .args([
+            "build",
+            "--release",
+            "-p",
+            "openwa-wormkit",
+            "-p",
+            "openwa-launcher",
+        ])
         .status()
         .map_err(|e| format!("Failed to run cargo: {e}"))?;
 
@@ -226,7 +233,6 @@ fn run_test(test: &TestCase, launcher: &Path, wa_exe: &Path, run_dir: &Path) -> 
         .stderr(std::process::Stdio::null())
         .creation_flags(CREATE_NO_WINDOW)
         .status();
-
 
     let duration = start.elapsed();
 
@@ -262,8 +268,10 @@ fn run_test(test: &TestCase, launcher: &Path, wa_exe: &Path, run_dir: &Path) -> 
                     passed: false,
                     duration,
                     diff_lines: Vec::new(),
-                    error: Some(format!("No output log generated (exit code: {})",
-                        status.code().unwrap_or(-1))),
+                    error: Some(format!(
+                        "No output log generated (exit code: {})",
+                        status.code().unwrap_or(-1)
+                    )),
                 };
             }
 
@@ -286,7 +294,8 @@ fn run_test(test: &TestCase, launcher: &Path, wa_exe: &Path, run_dir: &Path) -> 
                 if diff.is_empty() {
                     diff.push(format!(
                         "  (byte-level difference: expected {} bytes, actual {} bytes)",
-                        expected.len(), actual.len()
+                        expected.len(),
+                        actual.len()
                     ));
                 }
                 let _ = fs::remove_file(&test.output_log);
@@ -407,7 +416,11 @@ fn run_tests_parallel(
 // ─── Output ─────────────────────────────────────────────────────────────────
 
 fn print_result(result: &TestResult) {
-    let status = if result.passed { "\x1b[32m  PASS\x1b[0m" } else { "\x1b[31m  FAIL\x1b[0m" };
+    let status = if result.passed {
+        "\x1b[32m  PASS\x1b[0m"
+    } else {
+        "\x1b[31m  FAIL\x1b[0m"
+    };
     let secs = result.duration.as_secs_f64();
     println!("{status}  {:<28} ({secs:.1}s)", result.name);
 
@@ -443,7 +456,12 @@ fn write_summary(results: &[TestResult], wall_time: Duration, path: &Path) {
     let mut s = String::new();
     for r in results {
         let status = if r.passed { "PASS" } else { "FAIL" };
-        let _ = writeln!(s, "{status}  {:<28} ({:.1}s)", r.name, r.duration.as_secs_f64());
+        let _ = writeln!(
+            s,
+            "{status}  {:<28} ({:.1}s)",
+            r.name,
+            r.duration.as_secs_f64()
+        );
         if let Some(err) = &r.error {
             let _ = writeln!(s, "        {err}");
         }
@@ -453,8 +471,12 @@ fn write_summary(results: &[TestResult], wall_time: Duration, path: &Path) {
     }
     let passed = results.iter().filter(|r| r.passed).count();
     let failed = results.len() - passed;
-    let _ = writeln!(s, "\n{} tests: {passed} passed, {failed} failed (wall {:.1}s)",
-        results.len(), wall_time.as_secs_f64());
+    let _ = writeln!(
+        s,
+        "\n{} tests: {passed} passed, {failed} failed (wall {:.1}s)",
+        results.len(),
+        wall_time.as_secs_f64()
+    );
 
     let _ = fs::write(path, s);
 }
@@ -469,10 +491,7 @@ fn cleanup_temp_files(wa_exe: &Path) {
         None => return,
     };
 
-    let patterns = [
-        (game_dir, "mono_", ".tmp"),
-        (game_dir, "cur_", ".thm"),
-    ];
+    let patterns = [(game_dir, "mono_", ".tmp"), (game_dir, "cur_", ".thm")];
     let data_dir = game_dir.join("DATA");
     let data_patterns = [
         ("land_", ".dat"),

@@ -7,13 +7,13 @@
 #[repr(i32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReplayError {
-    FileNotFound = -1,       // 0xFFFFFFFF
-    InvalidFormat = -2,      // 0xFFFFFFFE
-    VersionTooNew = -3,      // 0xFFFFFFFD
-    MallocFailure = -4,      // 0xFFFFFFFC
-    MapLoadFailure = -5,     // 0xFFFFFFFB
-    ArtClassLimit = -6,      // 0xFFFFFFFA
-    RepairWithTeams = -7,    // 0xFFFFFFF9
+    FileNotFound = -1,    // 0xFFFFFFFF
+    InvalidFormat = -2,   // 0xFFFFFFFE
+    VersionTooNew = -3,   // 0xFFFFFFFD
+    MallocFailure = -4,   // 0xFFFFFFFC
+    MapLoadFailure = -5,  // 0xFFFFFFFB
+    ArtClassLimit = -6,   // 0xFFFFFFFA
+    RepairWithTeams = -7, // 0xFFFFFFF9
     // -8 is unused (gap in error codes)
     NoScheme = -9,           // 0xFFFFFFF7
     SchemeSaveFailure = -10, // 0xFFFFFFF6

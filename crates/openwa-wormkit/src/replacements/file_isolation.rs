@@ -96,9 +96,8 @@ pub fn install() -> Result<(), String> {
     }
 
     unsafe {
-        let module = windows_sys::Win32::System::LibraryLoader::GetModuleHandleA(
-            b"kernel32.dll\0".as_ptr(),
-        );
+        let module =
+            windows_sys::Win32::System::LibraryLoader::GetModuleHandleA(b"kernel32.dll\0".as_ptr());
         if module.is_null() {
             return Err("kernel32.dll not loaded".to_string());
         }

@@ -29,46 +29,41 @@ pub mod va {
 
     // Re-exported from task modules
     pub use crate::task::base::{
-        CTASK_VTABLE, CTASK_CONSTRUCTOR, CTASK_VT0_INIT, CTASK_VT1_FREE,
-        CTASK_VT2_HANDLE_MESSAGE, CTASK_VT3, CTASK_VT5, CTASK_VT6,
-        CTASK_VT7_PROCESS_FRAME,
-        CTASK_LAND_VTABLE, CTASK_LAND_CTOR,
-        CTASK_DIRT_VTABLE, CTASK_DIRT_CTOR,
-        CTASK_SPRITE_ANIM_VTABLE, CTASK_SPRITE_ANIM_CTOR,
-        CTASK_CPU_VTABLE, CTASK_CPU_CTOR,
-        CTASK_SEA_BUBBLE_VTABLE, CTASK_SEABUBBLE_CTOR,
-        CTASK_AIRSTRIKE_CTOR, CTASK_ARROW_CTOR, CTASK_CANISTER_CTOR,
-        CTASK_CROSS_CTOR, CTASK_FIREBALL_CTOR, CTASK_FLAME_CTOR,
-        CTASK_GAS_CTOR, CTASK_OLDWORM_CTOR, CTASK_SCOREBUBBLE_CTOR,
-        CTASK_SMOKE_CTOR,
+        CTASK_AIRSTRIKE_CTOR, CTASK_ARROW_CTOR, CTASK_CANISTER_CTOR, CTASK_CONSTRUCTOR,
+        CTASK_CPU_CTOR, CTASK_CPU_VTABLE, CTASK_CROSS_CTOR, CTASK_DIRT_CTOR, CTASK_DIRT_VTABLE,
+        CTASK_FIREBALL_CTOR, CTASK_FLAME_CTOR, CTASK_GAS_CTOR, CTASK_LAND_CTOR, CTASK_LAND_VTABLE,
+        CTASK_OLDWORM_CTOR, CTASK_SCOREBUBBLE_CTOR, CTASK_SEABUBBLE_CTOR, CTASK_SEA_BUBBLE_VTABLE,
+        CTASK_SMOKE_CTOR, CTASK_SPRITE_ANIM_CTOR, CTASK_SPRITE_ANIM_VTABLE, CTASK_VT0_INIT,
+        CTASK_VT1_FREE, CTASK_VT2_HANDLE_MESSAGE, CTASK_VT3, CTASK_VT5, CTASK_VT6,
+        CTASK_VT7_PROCESS_FRAME, CTASK_VTABLE,
     };
+    pub use crate::task::cloud::{CTASK_CLOUD_CTOR, CTASK_CLOUD_VTABLE};
+    pub use crate::task::filter::{CTASK_FILTER_CTOR, CTASK_FILTER_VTABLE};
+    pub use crate::task::fire::{CTASK_FIRE_CTOR, CTASK_FIRE_VTABLE};
     pub use crate::task::game_task::{
-        CGAMETASK_VTABLE, CGAMETASK_SOUND_EMITTER_VT, CGAMETASK_CONSTRUCTOR,
-        CGAMETASK_VT0, CGAMETASK_VT1_FREE, CGAMETASK_VT2_HANDLE_MESSAGE,
+        CGAMETASK_CONSTRUCTOR, CGAMETASK_SOUND_EMITTER_VT, CGAMETASK_VT0, CGAMETASK_VT1_FREE,
+        CGAMETASK_VT2_HANDLE_MESSAGE, CGAMETASK_VTABLE,
     };
-    pub use crate::task::worm::{CTASK_WORM_VTABLE, CTASK_WORM_CONSTRUCTOR};
-    pub use crate::task::turn_game::{
-        CTASK_TURN_GAME_VTABLE, CTASK_TURNGAME_CTOR,
-        TURNGAME_HANDLE_MESSAGE, TURNGAME_HURRY_HANDLER, TURNGAME_AUTO_SELECT_TEAMS,
-    };
-    pub use crate::task::team::{CTASK_TEAM_VTABLE, CTASK_TEAM_CTOR};
-    pub use crate::task::missile::{CTASK_MISSILE_VTABLE, CTASK_MISSILE_CTOR};
     pub use crate::task::mine_oil_drum::{
-        CTASK_MINE_VTABLE, CTASK_MINE_CTOR, CTASK_OILDRUM_VTABLE, CTASK_OILDRUM_CTOR,
+        CTASK_MINE_CTOR, CTASK_MINE_VTABLE, CTASK_OILDRUM_CTOR, CTASK_OILDRUM_VTABLE,
     };
-    pub use crate::task::supply_crate::{CTASK_CRATE_VTABLE, CTASK_CRATE_CTOR};
-    pub use crate::task::cloud::{CTASK_CLOUD_VTABLE, CTASK_CLOUD_CTOR};
-    pub use crate::task::filter::{CTASK_FILTER_VTABLE, CTASK_FILTER_CTOR};
-    pub use crate::task::fire::{CTASK_FIRE_VTABLE, CTASK_FIRE_CTOR};
+    pub use crate::task::missile::{CTASK_MISSILE_CTOR, CTASK_MISSILE_VTABLE};
+    pub use crate::task::supply_crate::{CTASK_CRATE_CTOR, CTASK_CRATE_VTABLE};
+    pub use crate::task::team::{CTASK_TEAM_CTOR, CTASK_TEAM_VTABLE};
+    pub use crate::task::turn_game::{
+        CTASK_TURNGAME_CTOR, CTASK_TURN_GAME_VTABLE, TURNGAME_AUTO_SELECT_TEAMS,
+        TURNGAME_HANDLE_MESSAGE, TURNGAME_HURRY_HANDLER,
+    };
+    pub use crate::task::worm::{CTASK_WORM_CONSTRUCTOR, CTASK_WORM_VTABLE};
 
     // Re-exported from modules using #[vtable(...)] attribute
-    pub use crate::display::palette::PALETTE_VTABLE;
-    pub use crate::display::dd_display::DD_DISPLAY_VTABLE;
-    pub use crate::input::controller::INPUT_CTRL_VTABLE;
-    pub use crate::frontend::map_view::MAP_VIEW_VTABLE;
-    pub use crate::task::game_task::SOUND_EMITTER_VTABLE;
-    pub use crate::display::base::DISPLAY_BASE_VTABLE;
     pub use crate::audio::dssound::DS_SOUND_VTABLE;
+    pub use crate::display::base::DISPLAY_BASE_VTABLE;
+    pub use crate::display::dd_display::DD_DISPLAY_VTABLE;
+    pub use crate::display::palette::PALETTE_VTABLE;
+    pub use crate::frontend::map_view::MAP_VIEW_VTABLE;
+    pub use crate::input::controller::INPUT_CTRL_VTABLE;
+    pub use crate::task::game_task::SOUND_EMITTER_VTABLE;
 
     crate::define_addresses! {
         class "DDGameWrapper" {

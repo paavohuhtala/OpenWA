@@ -31,16 +31,20 @@ fn main() {
         match args[i].as_str() {
             "--port" => {
                 i += 1;
-                port = args.get(i)
-                    .and_then(|s| s.parse().ok())
-                    .unwrap_or_else(|| { eprintln!("Error: --port requires a number"); process::exit(1); });
+                port = args.get(i).and_then(|s| s.parse().ok()).unwrap_or_else(|| {
+                    eprintln!("Error: --port requires a number");
+                    process::exit(1);
+                });
             }
             "--format" => {
                 i += 1;
                 format = match args.get(i).map(|s| s.as_str()) {
                     Some("hex") => Format::Hex,
                     Some("raw") => Format::Raw,
-                    _ => { eprintln!("Error: --format must be 'hex' or 'raw'"); process::exit(1); }
+                    _ => {
+                        eprintln!("Error: --format must be 'hex' or 'raw'");
+                        process::exit(1);
+                    }
                 };
             }
             other => positional.push(other.to_string()),
@@ -58,36 +62,63 @@ fn main() {
             });
             // Detect shell eating '->' as redirect: address ends with '-'
             if addr_str.ends_with('-') {
-                eprintln!("Error: address '{}' looks truncated — did the shell eat '->'?", addr_str);
+                eprintln!(
+                    "Error: address '{}' looks truncated — did the shell eat '->'?",
+                    addr_str
+                );
                 eprintln!("  Hint: quote the argument: read \"0x7A0884->0xA0->0x0\"");
                 process::exit(1);
             }
             let expr = resolve_address_expr(addr_str, port);
-            let len = positional.get(2)
-                .map(|s| parse_u32(s))
-                .unwrap_or(256);
+            let len = positional.get(2).map(|s| parse_u32(s)).unwrap_or(256);
             match expr {
-                AddressExpr::Simple { addr, absolute } =>
-                    Request::Read { addr, len, absolute },
-                AddressExpr::Chain { addr, chain, absolute } =>
-                    Request::ReadChain { addr, chain, len, absolute },
+                AddressExpr::Simple { addr, absolute } => Request::Read {
+                    addr,
+                    len,
+                    absolute,
+                },
+                AddressExpr::Chain {
+                    addr,
+                    chain,
+                    absolute,
+                } => Request::ReadChain {
+                    addr,
+                    chain,
+                    len,
+                    absolute,
+                },
             }
         }
         Some("inspect") => {
-            let class_name = positional.get(1).unwrap_or_else(|| {
-                eprintln!("Usage: inspect <class_name> <addr>");
-                process::exit(1);
-            }).clone();
+            let class_name = positional
+                .get(1)
+                .unwrap_or_else(|| {
+                    eprintln!("Usage: inspect <class_name> <addr>");
+                    process::exit(1);
+                })
+                .clone();
             let addr_str = positional.get(2).unwrap_or_else(|| {
                 eprintln!("Usage: inspect <class_name> <addr>");
                 process::exit(1);
             });
             let expr = resolve_address_expr(addr_str, port);
             match expr {
-                AddressExpr::Simple { addr, absolute } =>
-                    Request::Inspect { class_name, addr, chain: vec![], absolute },
-                AddressExpr::Chain { addr, chain, absolute } =>
-                    Request::Inspect { class_name, addr, chain, absolute },
+                AddressExpr::Simple { addr, absolute } => Request::Inspect {
+                    class_name,
+                    addr,
+                    chain: vec![],
+                    absolute,
+                },
+                AddressExpr::Chain {
+                    addr,
+                    chain,
+                    absolute,
+                } => Request::Inspect {
+                    class_name,
+                    addr,
+                    chain,
+                    absolute,
+                },
             }
         }
         Some("objects") => Request::ListObjects,
@@ -99,9 +130,19 @@ fn main() {
         }
         Some("frame") => Request::Frame,
         Some("break") => {
-            let frame = positional.get(1)
-                .map(|s| if s == "clear" || s == "off" { -1 } else { parse_u32(s) as i32 })
-                .unwrap_or_else(|| { eprintln!("Usage: break <frame> | break clear"); process::exit(1); });
+            let frame = positional
+                .get(1)
+                .map(|s| {
+                    if s == "clear" || s == "off" {
+                        -1
+                    } else {
+                        parse_u32(s) as i32
+                    }
+                })
+                .unwrap_or_else(|| {
+                    eprintln!("Usage: break <frame> | break clear");
+                    process::exit(1);
+                });
             Request::Break { frame }
         }
         Some("snapshot") => Request::Snapshot,
@@ -149,39 +190,50 @@ fn print_response(response: &Response, format: Format) {
                 println!("  {} — {}", cmd.usage, cmd.description);
             }
         }
-        Response::ReadResult { ghidra_addr, runtime_addr, data, pointers } => {
-            match format {
-                Format::Hex => print_hex_read(*ghidra_addr, *runtime_addr, data, pointers),
-                Format::Raw => {
-                    let stdout = io::stdout();
-                    let mut out = stdout.lock();
-                    let _ = out.write_all(data);
-                }
+        Response::ReadResult {
+            ghidra_addr,
+            runtime_addr,
+            data,
+            pointers,
+        } => match format {
+            Format::Hex => print_hex_read(*ghidra_addr, *runtime_addr, data, pointers),
+            Format::Raw => {
+                let stdout = io::stdout();
+                let mut out = stdout.lock();
+                let _ = out.write_all(data);
             }
-        }
-        Response::ReadChainResult { steps, ghidra_addr, runtime_addr, data, pointers } => {
-            match format {
-                Format::Hex => {
-                    println!("Pointer chain ({} steps):", steps.len());
-                    for (i, step) in steps.iter().enumerate() {
-                        println!(
-                            "  [{}] *(ghidra:0x{:08X}) = 0x{:08X}  + 0x{:X} = 0x{:08X}",
-                            i, step.deref_addr, step.value, step.offset, step.result_addr
-                        );
-                    }
-                    println!();
-                    print_hex_read(*ghidra_addr, *runtime_addr, data, pointers);
+        },
+        Response::ReadChainResult {
+            steps,
+            ghidra_addr,
+            runtime_addr,
+            data,
+            pointers,
+        } => match format {
+            Format::Hex => {
+                println!("Pointer chain ({} steps):", steps.len());
+                for (i, step) in steps.iter().enumerate() {
+                    println!(
+                        "  [{}] *(ghidra:0x{:08X}) = 0x{:08X}  + 0x{:X} = 0x{:08X}",
+                        i, step.deref_addr, step.value, step.offset, step.result_addr
+                    );
                 }
-                Format::Raw => {
-                    let stdout = io::stdout();
-                    let mut out = stdout.lock();
-                    let _ = out.write_all(data);
-                }
+                println!();
+                print_hex_read(*ghidra_addr, *runtime_addr, data, pointers);
             }
-        }
+            Format::Raw => {
+                let stdout = io::stdout();
+                let mut out = stdout.lock();
+                let _ = out.write_all(data);
+            }
+        },
         Response::Suspended { frame } => println!("Suspended at frame {frame}"),
         Response::Resumed => println!("Resumed"),
-        Response::FrameInfo { frame, paused, breakpoint } => {
+        Response::FrameInfo {
+            frame,
+            paused,
+            breakpoint,
+        } => {
             let state = if *paused { "PAUSED" } else { "running" };
             print!("Frame {frame} [{state}]");
             if *breakpoint >= 0 {
@@ -200,7 +252,12 @@ fn print_response(response: &Response, format: Format) {
             println!("=== Snapshot at frame {frame} ===\n");
             print!("{text}");
         }
-        Response::InspectResult { class_name, ghidra_addr, runtime_addr, fields } => {
+        Response::InspectResult {
+            class_name,
+            ghidra_addr,
+            runtime_addr,
+            fields,
+        } => {
             println!(
                 "{} at ghidra:0x{:08X} (runtime:0x{:08X})\n",
                 class_name, ghidra_addr, runtime_addr
@@ -226,7 +283,10 @@ fn print_response(response: &Response, format: Format) {
             }
         }
         Response::AliasResult(alias) => {
-            println!("{} at runtime:0x{:08X}", alias.class_name, alias.runtime_addr);
+            println!(
+                "{} at runtime:0x{:08X}",
+                alias.class_name, alias.runtime_addr
+            );
         }
         Response::FieldResult(field) => {
             println!("offset:0x{:X} size:{}", field.offset, field.size);
@@ -241,7 +301,9 @@ fn print_response(response: &Response, format: Format) {
 fn print_hex_read(ghidra_addr: u32, runtime_addr: u32, data: &[u8], pointers: &[PointerInfo]) {
     println!(
         "Reading 0x{:X} bytes at ghidra:0x{:08X} (runtime:0x{:08X})\n",
-        data.len(), ghidra_addr, runtime_addr
+        data.len(),
+        ghidra_addr,
+        runtime_addr
     );
 
     // Hex dump with ASCII sidebar
@@ -252,13 +314,17 @@ fn print_hex_read(ghidra_addr: u32, runtime_addr: u32, data: &[u8], pointers: &[
         // Hex bytes
         for (i, byte) in chunk.iter().enumerate() {
             print!("{:02X} ", byte);
-            if i == 7 { print!(" "); }
+            if i == 7 {
+                print!(" ");
+            }
         }
         // Padding for short last line
         if chunk.len() < 16 {
             for i in chunk.len()..16 {
                 print!("   ");
-                if i == 7 { print!(" "); }
+                if i == 7 {
+                    print!(" ");
+                }
             }
         }
         // ASCII sidebar
@@ -284,7 +350,11 @@ fn print_hex_read(ghidra_addr: u32, runtime_addr: u32, data: &[u8], pointers: &[
                 PointerKind::Object => "OBJECT",
                 PointerKind::Heap => "HEAP",
             };
-            let detail_str = p.detail.as_deref().map(|d| format!("  {d}")).unwrap_or_default();
+            let detail_str = p
+                .detail
+                .as_deref()
+                .map(|d| format!("  {d}"))
+                .unwrap_or_default();
             println!(
                 "  +0x{:03X}  0x{:08X}  {:<7} ghidra:0x{:08X}{}",
                 p.offset, p.raw_value, kind_str, p.ghidra_value, detail_str
@@ -304,7 +374,11 @@ enum AddressExpr {
     /// Simple address (with optional offset already applied)
     Simple { addr: u32, absolute: bool },
     /// Pointer chain: start address + list of deref offsets
-    Chain { addr: u32, chain: Vec<u32>, absolute: bool },
+    Chain {
+        addr: u32,
+        chain: Vec<u32>,
+        absolute: bool,
+    },
 }
 
 /// Split a string on '+' or '[' into (base, offset_str). Returns (s, None) if no compound.
@@ -330,10 +404,13 @@ fn resolve_offset(s: &str, class: &Option<String>, port: u16) -> u32 {
 
     // Try as field name
     if let Some(cls) = class {
-        match send_request(port, &Request::ResolveField {
-            class_name: cls.clone(),
-            field_name: s.to_string(),
-        }) {
+        match send_request(
+            port,
+            &Request::ResolveField {
+                class_name: cls.clone(),
+                field_name: s.to_string(),
+            },
+        ) {
             Ok(Response::FieldResult(f)) => return f.offset,
             _ => {}
         }
@@ -344,7 +421,10 @@ fn resolve_offset(s: &str, class: &Option<String>, port: u16) -> u32 {
 }
 
 fn parse_hex(s: &str) -> u32 {
-    let s = s.strip_prefix("0x").or_else(|| s.strip_prefix("0X")).unwrap_or(s);
+    let s = s
+        .strip_prefix("0x")
+        .or_else(|| s.strip_prefix("0X"))
+        .unwrap_or(s);
     u32::from_str_radix(s, 16).unwrap_or_else(|_| {
         eprintln!("Error: invalid hex address '{s}'");
         process::exit(1);
@@ -408,7 +488,10 @@ fn resolve_address_expr(s: &str, port: u16) -> AddressExpr {
     let (base_addr, base_absolute, mut current_class) = resolve_base(base_part, absolute, port);
 
     if parts.len() == 1 {
-        return AddressExpr::Simple { addr: base_addr, absolute: base_absolute };
+        return AddressExpr::Simple {
+            addr: base_addr,
+            absolute: base_absolute,
+        };
     }
 
     // Resolve each chain segment, tracking whether it's a field name or hex.
@@ -443,7 +526,11 @@ fn resolve_address_expr(s: &str, port: u16) -> AddressExpr {
         }
     }
 
-    AddressExpr::Chain { addr: final_base, chain, absolute: base_absolute }
+    AddressExpr::Chain {
+        addr: final_base,
+        chain,
+        absolute: base_absolute,
+    }
 }
 
 /// Resolve the base address part — could be a hex literal, a named alias, or alias+offset.
@@ -457,11 +544,18 @@ fn resolve_base(s: &str, absolute: bool, port: u16) -> (u32, bool, Option<String
     }
 
     // Try resolving as a named alias
-    match send_request(port, &Request::ResolveAlias { name: base_str.to_string() }) {
+    match send_request(
+        port,
+        &Request::ResolveAlias {
+            name: base_str.to_string(),
+        },
+    ) {
         Ok(Response::AliasResult(alias)) => {
             // Resolved! Use runtime address (absolute)
             let class = Some(alias.class_name);
-            let extra = offset_str.map(|o| resolve_offset(o, &class, port)).unwrap_or(0);
+            let extra = offset_str
+                .map(|o| resolve_offset(o, &class, port))
+                .unwrap_or(0);
             (alias.runtime_addr.wrapping_add(extra), true, class)
         }
         _ => {
@@ -475,7 +569,9 @@ fn resolve_base(s: &str, absolute: bool, port: u16) -> (u32, bool, Option<String
 /// Resolve a chain segment, returning whether it was a field name or hex offset.
 fn resolve_chain_segment_typed(s: &str, current_class: &Option<String>, port: u16) -> ChainSegment {
     let (base_str, offset_str) = split_compound(s);
-    let extra = offset_str.map(|o| resolve_offset(o, current_class, port)).unwrap_or(0);
+    let extra = offset_str
+        .map(|o| resolve_offset(o, current_class, port))
+        .unwrap_or(0);
 
     // If it looks like hex, parse directly — standard chain semantics
     if looks_like_hex(base_str) {
@@ -484,10 +580,13 @@ fn resolve_chain_segment_typed(s: &str, current_class: &Option<String>, port: u1
 
     // Try resolving as a field name if we know the current class
     if let Some(class) = current_class {
-        match send_request(port, &Request::ResolveField {
-            class_name: class.clone(),
-            field_name: base_str.to_string(),
-        }) {
+        match send_request(
+            port,
+            &Request::ResolveField {
+                class_name: class.clone(),
+                field_name: base_str.to_string(),
+            },
+        ) {
             Ok(Response::FieldResult(f)) => {
                 return ChainSegment::FieldOffset(f.offset.wrapping_add(extra));
             }
@@ -501,7 +600,9 @@ fn resolve_chain_segment_typed(s: &str, current_class: &Option<String>, port: u1
 
 /// Check if a string looks like a hex number (starts with 0x or a digit).
 fn looks_like_hex(s: &str) -> bool {
-    s.starts_with("0x") || s.starts_with("0X") || s.chars().next().map_or(false, |c| c.is_ascii_digit())
+    s.starts_with("0x")
+        || s.starts_with("0X")
+        || s.chars().next().map_or(false, |c| c.is_ascii_digit())
 }
 
 fn print_usage() {

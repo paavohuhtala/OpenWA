@@ -153,10 +153,7 @@ pub fn format_va(ghidra_va: u32) -> String {
             format!("{} (0x{:X})", r.entry.name, ghidra_va)
         }
         Some(r) => {
-            format!(
-                "{}+0x{:X} (0x{:X})",
-                r.entry.name, r.offset, ghidra_va
-            )
+            format!("{}+0x{:X} (0x{:X})", r.entry.name, r.offset, ghidra_va)
         }
         None => format!("0x{:08X}", ghidra_va),
     }
@@ -164,7 +161,10 @@ pub fn format_va(ghidra_va: u32) -> String {
 
 /// Iterate all entries of a given kind.
 pub fn entries_by_kind(kind: AddrKind) -> impl Iterator<Item = &'static AddrEntry> {
-    sorted_entries().iter().copied().filter(move |e| e.kind == kind)
+    sorted_entries()
+        .iter()
+        .copied()
+        .filter(move |e| e.kind == kind)
 }
 
 /// Iterate all registered entries (sorted by VA).
@@ -588,9 +588,27 @@ mod tests {
         static FIELDS: StructFields = StructFields {
             struct_name: "TestStruct",
             fields: &[
-                FieldEntry { offset: 0x00, name: "vtable", size: 4, kind: ValueKind::Pointer, doc: "" },
-                FieldEntry { offset: 0x10, name: "health", size: 4, kind: ValueKind::U32, doc: "" },
-                FieldEntry { offset: 0x20, name: "name", size: 16, kind: ValueKind::Raw, doc: "" },
+                FieldEntry {
+                    offset: 0x00,
+                    name: "vtable",
+                    size: 4,
+                    kind: ValueKind::Pointer,
+                    doc: "",
+                },
+                FieldEntry {
+                    offset: 0x10,
+                    name: "health",
+                    size: 4,
+                    kind: ValueKind::U32,
+                    doc: "",
+                },
+                FieldEntry {
+                    offset: 0x20,
+                    name: "name",
+                    size: 16,
+                    kind: ValueKind::Raw,
+                    doc: "",
+                },
             ],
         };
 
@@ -674,7 +692,11 @@ mod tests {
         let reg = CTask::field_registry();
         let vtable = reg.field_at(0x00).unwrap();
         // Doc comment should be non-empty (we have "0x00: Pointer to virtual method table")
-        assert!(!vtable.doc.is_empty(), "doc should be extracted: {:?}", vtable.doc);
+        assert!(
+            !vtable.doc.is_empty(),
+            "doc should be extracted: {:?}",
+            vtable.doc
+        );
     }
 
     #[test]
@@ -688,7 +710,10 @@ mod tests {
         assert!(ctask.is_some(), "CTask not found in struct registry");
 
         let session = struct_fields_for("GameSession");
-        assert!(session.is_some(), "GameSession not found in struct registry");
+        assert!(
+            session.is_some(),
+            "GameSession not found in struct registry"
+        );
 
         // Unknown struct returns None
         assert!(struct_fields_for("FooBarBaz").is_none());
@@ -700,7 +725,10 @@ mod tests {
 
         // DDGameWrapper vtable → "DDGameWrapper" → DDGameWrapper fields
         let fields = struct_fields_for_vtable(va::DDGAME_WRAPPER_VTABLE);
-        assert!(fields.is_some(), "DDGameWrapper fields not found via vtable");
+        assert!(
+            fields.is_some(),
+            "DDGameWrapper fields not found via vtable"
+        );
         assert_eq!(fields.unwrap().struct_name, "DDGameWrapper");
 
         // CTask vtable → "CTask" → CTask fields

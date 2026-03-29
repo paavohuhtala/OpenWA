@@ -376,10 +376,9 @@ pub unsafe fn check_weapon_avail(ddgame: *mut DDGame, weapon_index: u32) -> i32 
             }
         }
         w if w == Weapon::DoubleTurnTime as u32 => {
-            if game_version > 0xD1
-                && (*gi).double_turn_time_threshold > 0x7FFF {
-                    return 0;
-                }
+            if game_version > 0xD1 && (*gi).double_turn_time_threshold > 0x7FFF {
+                return 0;
+            }
         }
         _ => {}
     }
@@ -401,8 +400,7 @@ pub unsafe fn check_weapon_avail(ddgame: *mut DDGame, weapon_index: u32) -> i32 
         }
 
         // AquaSheep (25) or SuperSheep (24) depending on weapon_index_offset
-        let restricted_id = Weapon::AquaSheep as u32
-            - ((*gi).aquasheep_is_supersheep != 0) as u32;
+        let restricted_id = Weapon::AquaSheep as u32 - ((*gi).aquasheep_is_supersheep != 0) as u32;
         if weapon_index != restricted_id {
             return 1;
         }

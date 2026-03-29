@@ -69,7 +69,8 @@ unsafe extern "thiscall" fn cloud_handle_message(
             if (*ddgame).render_phase == 5 {
                 // Compute parallax X offset: (vel_x + wind * 10) * parallax_scale
                 let scroll_speed = (*this).vel_x.0 + (*this).wind_accel.0 * 10;
-                let parallax_x = ((scroll_speed as i64 * (*ddgame).parallax_scale as i64) >> 16) as i32;
+                let parallax_x =
+                    ((scroll_speed as i64 * (*ddgame).parallax_scale as i64) >> 16) as i32;
                 let x = parallax_x + (*this).pos_x.0;
 
                 let rq = &mut *(*ddgame).render_queue;

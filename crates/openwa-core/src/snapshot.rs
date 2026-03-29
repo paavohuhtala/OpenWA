@@ -6,9 +6,9 @@
 
 use core::fmt;
 
+use crate::address::va;
 use crate::mem;
 use crate::rebase::rb;
-use crate::address::va;
 
 /// Trait for types that can write a canonicalized snapshot.
 ///
@@ -35,12 +35,20 @@ pub fn write_indent(w: &mut dyn fmt::Write, indent: usize) -> fmt::Result {
 
 /// Format a pointer field: `<ptr>` if non-null, `null` if null.
 pub fn fmt_ptr(ptr: *const u8) -> &'static str {
-    if ptr.is_null() { "null" } else { "<ptr>" }
+    if ptr.is_null() {
+        "null"
+    } else {
+        "<ptr>"
+    }
 }
 
 /// Format a pointer field for a raw u32 that might be a pointer.
 pub fn fmt_ptr32(val: u32) -> &'static str {
-    if val == 0 { "null" } else { "<ptr>" }
+    if val == 0 {
+        "null"
+    } else {
+        "<ptr>"
+    }
 }
 
 /// Dump a raw memory region as canonicalized hex lines.
@@ -121,12 +129,22 @@ pub unsafe fn hash_region_canonical(ptr: *const u8, len: usize) -> u32 {
     for i in (0..len).step_by(4) {
         let val = if i + 4 <= len {
             *(ptr.add(i) as *const u32)
-        } else { 0 };
-        let hash_val = if is_likely_pointer(val, delta) { 0u32 } else { val };
+        } else {
+            0
+        };
+        let hash_val = if is_likely_pointer(val, delta) {
+            0u32
+        } else {
+            val
+        };
         for byte in hash_val.to_le_bytes() {
             h ^= byte as u32;
             for _ in 0..8 {
-                h = if h & 1 != 0 { (h >> 1) ^ 0xEDB88320 } else { h >> 1 };
+                h = if h & 1 != 0 {
+                    (h >> 1) ^ 0xEDB88320
+                } else {
+                    h >> 1
+                };
             }
         }
     }
@@ -155,13 +173,21 @@ pub unsafe fn hash_pointer_targets(
 
     for off in (0..struct_size).step_by(4) {
         let val = *(base.add(off) as *const u32);
-        if val == 0 { continue; }
-        if !is_likely_pointer(val, delta) { continue; }
+        if val == 0 {
+            continue;
+        }
+        if !is_likely_pointer(val, delta) {
+            continue;
+        }
         // Skip WA code/data pointers — only follow heap pointers
         let ghidra = val.wrapping_sub(delta);
-        if (va::TEXT_START..va::DATA_END).contains(&ghidra) { continue; }
+        if (va::TEXT_START..va::DATA_END).contains(&ghidra) {
+            continue;
+        }
         // Verify target is readable
-        if !mem::can_read(val, target_window as u32) { continue; }
+        if !mem::can_read(val, target_window as u32) {
+            continue;
+        }
 
         let h = hash_region_canonical(val as *const u8, target_window);
         writeln!(w, "[HASH] {}+0x{:04X} hash={:08X}", name, off, h)?;

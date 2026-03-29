@@ -1,17 +1,17 @@
-use crate::FieldRegistry;
 use crate::audio::active_sound::ActiveSoundTable;
-use crate::fixed::Fixed;
 use crate::audio::dssound::DSSound;
 use crate::audio::music::Music;
 use crate::audio::speech::SpeechSlotTable;
 use crate::display::dd_display::DDDisplay;
 use crate::display::palette::Palette;
 use crate::engine::game_info::GameInfo;
+use crate::fixed::Fixed;
 use crate::game::weapon::WeaponTable;
 use crate::input::keyboard::DDKeyboard;
 use crate::render::landscape::PCLandscape;
 use crate::render::queue::RenderQueue;
 use crate::render::turn_order::TurnOrderWidget;
+use crate::FieldRegistry;
 
 // Re-export constructor items so existing `engine::ddgame::*` imports keep working.
 pub use super::ddgame_constructor::{
@@ -24,9 +24,9 @@ pub use crate::render::gfx_dir::gfx_dir_load_dir;
 
 // Re-export all team_arena types so existing `engine::ddgame::*` imports keep working.
 pub use crate::engine::team_arena::{
-    CoordEntry, CoordList, CoordListEntry, GAME_PHASE_NORMAL_MIN, GAME_PHASE_SUDDEN_DEATH,
-    RenderEntry, SoundQueueEntry, TeamArenaRef, TeamArenaState, TeamBlock, TeamHeader,
-    TeamIndexMap, TeamSlot0, TeamWeaponSlots, WeaponSlots, WormEntry, worm,
+    worm, CoordEntry, CoordList, CoordListEntry, RenderEntry, SoundQueueEntry, TeamArenaRef,
+    TeamArenaState, TeamBlock, TeamHeader, TeamIndexMap, TeamSlot0, TeamWeaponSlots, WeaponSlots,
+    WormEntry, GAME_PHASE_NORMAL_MIN, GAME_PHASE_SUDDEN_DEATH,
 };
 
 /// DDGame — the main game engine object.
@@ -483,8 +483,8 @@ impl DDGame {
     /// # Safety
     /// `self.game_info` must be valid.
     pub unsafe fn show_pool_overflow_warning(&mut self) {
-        use crate::rebase::rb;
         use crate::address::va;
+        use crate::rebase::rb;
 
         let game_version = (*self.game_info).game_version;
         if game_version < 0x3C {
@@ -621,36 +621,91 @@ pub mod offsets {
 
 #[cfg(target_arch = "x86")]
 impl crate::snapshot::Snapshot for DDGame {
-    unsafe fn write_snapshot(&self, w: &mut dyn core::fmt::Write, indent: usize) -> core::fmt::Result {
+    unsafe fn write_snapshot(
+        &self,
+        w: &mut dyn core::fmt::Write,
+        indent: usize,
+    ) -> core::fmt::Result {
         use crate::fixed::Fixed;
-        use crate::snapshot::{write_indent, fmt_ptr};
+        use crate::snapshot::{fmt_ptr, write_indent};
         let i = indent;
 
-        write_indent(w, i)?; writeln!(w, "frame_counter = {}", self.frame_counter)?;
-        write_indent(w, i)?; writeln!(w, "game_speed = {}", Fixed(self.game_speed))?;
-        write_indent(w, i)?; writeln!(w, "game_speed_target = {}", Fixed(self.game_speed_target))?;
-        write_indent(w, i)?; writeln!(w, "rng_state = 0x{:08X} 0x{:08X}", self.rng_state_1, self.rng_state_2)?;
-        write_indent(w, i)?; writeln!(w, "camera = ({}, {})", Fixed(self.camera_x), Fixed(self.camera_y))?;
-        write_indent(w, i)?; writeln!(w, "camera_target = ({}, {})", Fixed(self.camera_target_x), Fixed(self.camera_target_y))?;
-        write_indent(w, i)?; writeln!(w, "level_size = {}x{}", self.level_width, self.level_height)?;
-        write_indent(w, i)?; writeln!(w, "level_size_raw = {}x{}", self.level_width_raw, self.level_height_raw)?;
-        write_indent(w, i)?; writeln!(w, "landscape_property = {}", fmt_ptr(self.landscape_property as *const u8))?;
-        write_indent(w, i)?; writeln!(w, "gfx_color_table = {:?}", self.gfx_color_table)?;
-        write_indent(w, i)?; writeln!(w, "fast_forward = req={} active={}", self.fast_forward_request, self.fast_forward_active)?;
-        write_indent(w, i)?; writeln!(w, "keyboard = {}", fmt_ptr(self.keyboard as *const u8))?;
-        write_indent(w, i)?; writeln!(w, "display = {}", fmt_ptr(self.display as *const u8))?;
-        write_indent(w, i)?; writeln!(w, "sound = {}", fmt_ptr(self.sound as *const u8))?;
-        write_indent(w, i)?; writeln!(w, "game_info = {}", fmt_ptr(self.game_info as *const u8))?;
-        write_indent(w, i)?; writeln!(w, "landscape = {}", fmt_ptr(self.landscape as *const u8))?;
-        write_indent(w, i)?; writeln!(w, "task_land = {}", fmt_ptr(self.task_land))?;
+        write_indent(w, i)?;
+        writeln!(w, "frame_counter = {}", self.frame_counter)?;
+        write_indent(w, i)?;
+        writeln!(w, "game_speed = {}", Fixed(self.game_speed))?;
+        write_indent(w, i)?;
+        writeln!(w, "game_speed_target = {}", Fixed(self.game_speed_target))?;
+        write_indent(w, i)?;
+        writeln!(
+            w,
+            "rng_state = 0x{:08X} 0x{:08X}",
+            self.rng_state_1, self.rng_state_2
+        )?;
+        write_indent(w, i)?;
+        writeln!(
+            w,
+            "camera = ({}, {})",
+            Fixed(self.camera_x),
+            Fixed(self.camera_y)
+        )?;
+        write_indent(w, i)?;
+        writeln!(
+            w,
+            "camera_target = ({}, {})",
+            Fixed(self.camera_target_x),
+            Fixed(self.camera_target_y)
+        )?;
+        write_indent(w, i)?;
+        writeln!(w, "level_size = {}x{}", self.level_width, self.level_height)?;
+        write_indent(w, i)?;
+        writeln!(
+            w,
+            "level_size_raw = {}x{}",
+            self.level_width_raw, self.level_height_raw
+        )?;
+        write_indent(w, i)?;
+        writeln!(
+            w,
+            "landscape_property = {}",
+            fmt_ptr(self.landscape_property as *const u8)
+        )?;
+        write_indent(w, i)?;
+        writeln!(w, "gfx_color_table = {:?}", self.gfx_color_table)?;
+        write_indent(w, i)?;
+        writeln!(
+            w,
+            "fast_forward = req={} active={}",
+            self.fast_forward_request, self.fast_forward_active
+        )?;
+        write_indent(w, i)?;
+        writeln!(w, "keyboard = {}", fmt_ptr(self.keyboard as *const u8))?;
+        write_indent(w, i)?;
+        writeln!(w, "display = {}", fmt_ptr(self.display as *const u8))?;
+        write_indent(w, i)?;
+        writeln!(w, "sound = {}", fmt_ptr(self.sound as *const u8))?;
+        write_indent(w, i)?;
+        writeln!(w, "game_info = {}", fmt_ptr(self.game_info as *const u8))?;
+        write_indent(w, i)?;
+        writeln!(w, "landscape = {}", fmt_ptr(self.landscape as *const u8))?;
+        write_indent(w, i)?;
+        writeln!(w, "task_land = {}", fmt_ptr(self.task_land))?;
 
         // TeamArenaState summary
-        write_indent(w, i)?; writeln!(w, "team_arena.team_count = {}", self.team_arena.team_count)?;
-        write_indent(w, i)?; writeln!(w, "team_arena.game_phase = {}", self.team_arena.game_phase)?;
-        write_indent(w, i)?; writeln!(w, "team_arena.game_mode_flag = {}", self.team_arena.game_mode_flag)?;
+        write_indent(w, i)?;
+        writeln!(w, "team_arena.team_count = {}", self.team_arena.team_count)?;
+        write_indent(w, i)?;
+        writeln!(w, "team_arena.game_phase = {}", self.team_arena.game_phase)?;
+        write_indent(w, i)?;
+        writeln!(
+            w,
+            "team_arena.game_mode_flag = {}",
+            self.team_arena.game_mode_flag
+        )?;
 
         // Dump weapon slots (ammo only, skip zeros)
-        write_indent(w, i)?; writeln!(w, "weapon_slots:")?;
+        write_indent(w, i)?;
+        writeln!(w, "weapon_slots:")?;
         for team in 0..6usize {
             let slots = &self.team_arena.weapon_slots.teams[team];
             let mut has_any = false;
@@ -658,7 +713,8 @@ impl crate::snapshot::Snapshot for DDGame {
                 let ammo = slots.ammo[wpn];
                 if ammo != 0 {
                     if !has_any {
-                        write_indent(w, i + 1)?; write!(w, "team[{}] ammo:", team)?;
+                        write_indent(w, i + 1)?;
+                        write!(w, "team[{}] ammo:", team)?;
                         has_any = true;
                     }
                     if ammo == -1 {
@@ -668,10 +724,11 @@ impl crate::snapshot::Snapshot for DDGame {
                     }
                 }
             }
-            if has_any { writeln!(w)?; }
+            if has_any {
+                writeln!(w)?;
+            }
         }
 
         Ok(())
     }
 }
-

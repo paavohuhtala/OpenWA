@@ -20,7 +20,8 @@ pub struct CTaskMissileVTable {
     /// HandleMessage — processes missile messages.
     /// thiscall + 4 stack params, RET 0x10.
     #[slot(2)]
-    pub handle_message: fn(this: *mut CTaskMissile, sender: *mut CTask, msg_type: u32, size: u32, data: *const u8),
+    pub handle_message:
+        fn(this: *mut CTaskMissile, sender: *mut CTask, msg_type: u32, size: u32, data: *const u8),
     /// ProcessFrame — per-frame missile update (physics, homing, detonation).
     /// thiscall + 1 stack param (flags), RET 0x4.
     #[slot(7)]
@@ -206,48 +207,89 @@ pub enum MissileType {
 
 #[cfg(target_arch = "x86")]
 impl crate::snapshot::Snapshot for CTaskMissile {
-    unsafe fn write_snapshot(&self, w: &mut dyn core::fmt::Write, indent: usize) -> core::fmt::Result {
+    unsafe fn write_snapshot(
+        &self,
+        w: &mut dyn core::fmt::Write,
+        indent: usize,
+    ) -> core::fmt::Result {
         use crate::snapshot::{write_indent, write_raw_region};
         let i = indent;
         let b = &self.base; // CGameTask
 
-        write_indent(w, i)?; writeln!(w, "pos = ({}, {})", b.pos_x, b.pos_y)?;
-        write_indent(w, i)?; writeln!(w, "speed = ({}, {})", b.speed_x, b.speed_y)?;
-        write_indent(w, i)?; writeln!(w, "launch_seed = 0x{:08X}", self.launch_seed)?;
-        write_indent(w, i)?; writeln!(w, "slot_id = {}", self.slot_id)?;
+        write_indent(w, i)?;
+        writeln!(w, "pos = ({}, {})", b.pos_x, b.pos_y)?;
+        write_indent(w, i)?;
+        writeln!(w, "speed = ({}, {})", b.speed_x, b.speed_y)?;
+        write_indent(w, i)?;
+        writeln!(w, "launch_seed = 0x{:08X}", self.launch_seed)?;
+        write_indent(w, i)?;
+        writeln!(w, "slot_id = {}", self.slot_id)?;
 
         let sp = &self.spawn_params;
-        write_indent(w, i)?; writeln!(w, "spawn_params:")?;
-        write_indent(w, i + 1)?; writeln!(w, "owner={} spawn=({}, {}) speed=({}, {})",
-            sp.owner_id, sp.spawn_x, sp.spawn_y, sp.initial_speed_x, sp.initial_speed_y)?;
-        write_indent(w, i + 1)?; writeln!(w, "cursor=({}, {}) pellet={} fallback=({}, {})",
-            sp.cursor_x, sp.cursor_y, sp.pellet_index, sp.fallback_timer, sp.fallback_param)?;
+        write_indent(w, i)?;
+        writeln!(w, "spawn_params:")?;
+        write_indent(w, i + 1)?;
+        writeln!(
+            w,
+            "owner={} spawn=({}, {}) speed=({}, {})",
+            sp.owner_id, sp.spawn_x, sp.spawn_y, sp.initial_speed_x, sp.initial_speed_y
+        )?;
+        write_indent(w, i + 1)?;
+        writeln!(
+            w,
+            "cursor=({}, {}) pellet={} fallback=({}, {})",
+            sp.cursor_x, sp.cursor_y, sp.pellet_index, sp.fallback_timer, sp.fallback_param
+        )?;
 
-        write_indent(w, i)?; write!(w, "weapon_data =")?;
+        write_indent(w, i)?;
+        write!(w, "weapon_data =")?;
         for (j, v) in self.weapon_data.iter().enumerate() {
-            if j % 16 == 0 { writeln!(w)?; write_indent(w, i + 1)?; }
+            if j % 16 == 0 {
+                writeln!(w)?;
+                write_indent(w, i + 1)?;
+            }
             write!(w, " {:08X}", v)?;
         }
         writeln!(w)?;
 
-        write_indent(w, i)?; write!(w, "render_data =")?;
+        write_indent(w, i)?;
+        write!(w, "render_data =")?;
         for (j, v) in self.render_data.iter().enumerate() {
-            if j % 16 == 0 { writeln!(w)?; write_indent(w, i + 1)?; }
+            if j % 16 == 0 {
+                writeln!(w)?;
+                write_indent(w, i + 1)?;
+            }
             write!(w, " {:08X}", v)?;
         }
         writeln!(w)?;
 
-        write_indent(w, i)?; writeln!(w, "launch_speed_raw = {}", self.launch_speed_raw)?;
-        write_indent(w, i)?; writeln!(w, "homing_enabled = {}", self.homing_enabled)?;
-        write_indent(w, i)?; writeln!(w, "direction = {}", self.direction)?;
+        write_indent(w, i)?;
+        writeln!(w, "launch_speed_raw = {}", self.launch_speed_raw)?;
+        write_indent(w, i)?;
+        writeln!(w, "homing_enabled = {}", self.homing_enabled)?;
+        write_indent(w, i)?;
+        writeln!(w, "direction = {}", self.direction)?;
 
         // Unknown regions
-        write_indent(w, i)?; writeln!(w, "_unknown_fc ({} bytes):", self._unknown_fc.len())?;
+        write_indent(w, i)?;
+        writeln!(w, "_unknown_fc ({} bytes):", self._unknown_fc.len())?;
         write_raw_region(w, self._unknown_fc.as_ptr(), self._unknown_fc.len(), i + 1)?;
-        write_indent(w, i)?; writeln!(w, "_unknown_37c ({} bytes):", self._unknown_37c.len())?;
-        write_raw_region(w, self._unknown_37c.as_ptr(), self._unknown_37c.len(), i + 1)?;
-        write_indent(w, i)?; writeln!(w, "_unknown_3cc ({} bytes):", self._unknown_3cc.len())?;
-        write_raw_region(w, self._unknown_3cc.as_ptr(), self._unknown_3cc.len(), i + 1)?;
+        write_indent(w, i)?;
+        writeln!(w, "_unknown_37c ({} bytes):", self._unknown_37c.len())?;
+        write_raw_region(
+            w,
+            self._unknown_37c.as_ptr(),
+            self._unknown_37c.len(),
+            i + 1,
+        )?;
+        write_indent(w, i)?;
+        writeln!(w, "_unknown_3cc ({} bytes):", self._unknown_3cc.len())?;
+        write_raw_region(
+            w,
+            self._unknown_3cc.as_ptr(),
+            self._unknown_3cc.len(),
+            i + 1,
+        )?;
 
         Ok(())
     }

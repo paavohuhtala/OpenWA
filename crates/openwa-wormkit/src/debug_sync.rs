@@ -36,9 +36,7 @@ fn event() -> HANDLE {
 
 /// Initialize the sync primitives. Call once from DLL init.
 pub fn init() {
-    let handle = unsafe {
-        CreateEventA(core::ptr::null(), 1, 1, core::ptr::null())
-    };
+    let handle = unsafe { CreateEventA(core::ptr::null(), 1, 1, core::ptr::null()) };
     assert!(!handle.is_null(), "debug_sync: CreateEventA failed");
     RESUME_EVENT.store(handle as usize, Ordering::Relaxed);
 
@@ -77,7 +75,9 @@ pub fn on_frame_start(frame: i32) {
 
     // Block if paused
     if PAUSED.load(Ordering::Acquire) {
-        unsafe { WaitForSingleObject(event(), 0xFFFFFFFF); }
+        unsafe {
+            WaitForSingleObject(event(), 0xFFFFFFFF);
+        }
     }
 }
 
@@ -94,7 +94,9 @@ pub fn suspend() {
 pub fn resume() {
     PAUSED.store(false, Ordering::Release);
     STEP_REMAINING.store(-1, Ordering::Relaxed);
-    unsafe { SetEvent(event()); }
+    unsafe {
+        SetEvent(event());
+    }
     let _ = log_line("[DebugSync] Resumed");
 }
 
@@ -102,7 +104,9 @@ pub fn resume() {
 pub fn step(count: i32) {
     STEP_REMAINING.store(count.max(1), Ordering::Relaxed);
     PAUSED.store(false, Ordering::Release);
-    unsafe { SetEvent(event()); }
+    unsafe {
+        SetEvent(event());
+    }
 }
 
 /// Set a frame breakpoint. -1 to clear.
@@ -129,5 +133,7 @@ pub fn breakpoint() -> i32 {
 
 fn do_suspend() {
     PAUSED.store(true, Ordering::Release);
-    unsafe { ResetEvent(event()); }
+    unsafe {
+        ResetEvent(event());
+    }
 }
