@@ -419,14 +419,17 @@ fn run_tests_parallel(
 
         handles.push(thread::spawn(move || {
             loop {
-                // Lock only long enough to recv, then drop the guard before running the test
-                let item = rx.lock().unwrap().recv();
+                let item = {
+                    let guard = rx.lock().unwrap();
+                    guard.recv()
+                    // MutexGuard drops here — lock released before running the test
+                };
                 match item {
                     Ok((idx, test)) => {
                         let result = run_test(&test, &launcher, &wa_exe, &run_dir);
                         let _ = tx.send((idx, result));
                     }
-                    Err(_) => break, // Channel closed, no more work
+                    Err(_) => break,
                 }
             }
         }));
