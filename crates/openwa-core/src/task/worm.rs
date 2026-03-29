@@ -396,8 +396,11 @@ pub struct CTaskWorm {
     /// (e.g., weapon charge-up) is actively playing. PlayWormSound stores the
     /// new handle here; StopWormSound clears it.
     pub sound_handle: u32,
-    /// 0x3B4–0x3DB: Unknown
-    pub _unknown_3b4: [u8; 0x3DC - 0x3B4],
+    /// 0x3B4: Secondary sound handle, used by FUN_00515020 (teleport/weapon sounds).
+    /// Same stop/play semantics as `sound_handle` but a separate channel.
+    pub sound_handle_2: u32,
+    /// 0x3B8–0x3DB: Unknown
+    pub _unknown_3b8: [u8; 0x3DC - 0x3B8],
     /// 0x3DC: Facing direction. -1 = facing left, +1 = facing right.
     pub facing_direction: i32,
     /// 0x3E0–0x3E3: Unknown

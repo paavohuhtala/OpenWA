@@ -16,7 +16,7 @@
 use core::sync::atomic::{AtomicU32, Ordering};
 
 use openwa_core::address::va;
-use openwa_core::audio::KnownSoundId;
+use openwa_core::audio::{KnownSoundId, SoundId};
 use openwa_core::engine::ddgame::{self, TeamArenaRef};
 use openwa_core::fixed::Fixed;
 use openwa_core::game::weapon::{WeaponEntry, WeaponFireParams, WeaponSpawnData};
@@ -517,12 +517,13 @@ unsafe fn fire_mail_mine_mole(worm: *mut CTaskWorm) {
 
 /// Teleport (subtype 10) — pure Rust port of 0x51E710.
 ///
-/// If CTaskWorm+0x208 == 0: set state to 0x6F (AirStrikePending_Maybe).
-/// Otherwise: play sound, spawn visual effect, update position, compute
-/// new state based on game version, clear action fields.
+/// If CTaskWorm+0x208 == 0: set state to AirStrikePending_Maybe.
+/// Otherwise: play teleport sound (via play_worm_sound_2), spawn visual
+/// effect, update position, compute new state, clear action fields.
 ///
 /// Convention: usercall(EAX=worm, ESI=worm, EDI=worm), plain RET.
 unsafe fn fire_teleport(worm: *mut CTaskWorm) {
+    use crate::replacements::sound;
     use openwa_core::rebase::rb;
 
     if (*worm)._unknown_208 == 0 {
@@ -530,8 +531,8 @@ unsafe fn fire_teleport(worm: *mut CTaskWorm) {
         return;
     }
 
-    // Play air strike sound: usercall(EDI=worm) + stdcall(sound_id=0x36, volume=0x10000, flags=3)
-    call_worm_play_sound(worm, 0x36, 0x10000, 3, rb(0x515020));
+    // Play teleport sound (0x36) on secondary sound handle
+    sound::play_worm_sound_2(worm, SoundId(0x36), Fixed::ONE, 3);
 
     // Spawn visual effect: usercall(EAX=0x80000, ECX=x) + stdcall(y, 0, 0, 0, 600, 0x10000, 0x1999)
     let fire_x = (*worm).weapon_param_1;
@@ -614,26 +615,6 @@ unsafe fn fire_nuclear_test(worm: *mut CTaskWorm) {
     sound::queue_sound(ddgame, KnownSoundId::NukeFlash.into(), 5, Fixed::ONE, Fixed::ONE);
 }
 
-// ── Air Strike sub-function bridges ───────────────────────
-
-/// Bridge: FUN_00515020 — usercall(EDI=worm) + stdcall(sound_id, volume, flags). RET 0xC.
-#[unsafe(naked)]
-unsafe extern "C" fn call_worm_play_sound(
-    _worm: *mut CTaskWorm, _sound_id: u32, _volume: u32, _flags: u32, _addr: u32,
-) {
-    core::arch::naked_asm!(
-        "push edi",
-        // Stack: 1 save(4) + ret(4) = 8 to first arg
-        "mov edi, [esp+8]",    // worm
-        "mov eax, [esp+24]",   // addr
-        "push [esp+20]",       // flags
-        "push [esp+20]",       // volume (shifted +4)
-        "push [esp+20]",       // sound_id (shifted +8)
-        "call eax",
-        "pop edi",
-        "ret",
-    );
-}
 
 /// Bridge: FUN_00547C30 — usercall(EAX=0x80000, ECX=x) + stdcall(y, 0,0,0, 600, 0x10000, 0x1999).
 #[unsafe(naked)]
@@ -915,6 +896,7 @@ unsafe extern "C" fn call_fire_usercall(_eax: *const (), _worm: *mut CTaskWorm, 
 ///
 /// Convention: usercall(EAX=worm, ESI=worm, EDI=worm), plain RET.
 unsafe fn fire_girder(worm: *mut CTaskWorm) {
+    use crate::replacements::sound;
     use openwa_core::rebase::rb;
 
     let ddgame = CTask::ddgame_raw(worm as *const CTask);
@@ -932,21 +914,11 @@ unsafe fn fire_girder(worm: *mut CTaskWorm) {
         0x73
     };
 
-    // Call PlaySoundGlobal — thiscall(ECX=worm, sound_id, 3, 0x10000, 0x10000)
-    type PlaySoundGlobalFn = unsafe extern "thiscall" fn(*mut CTaskWorm, u32, i32, i32, i32) -> i32;
-    let play_sound: PlaySoundGlobalFn = core::mem::transmute(rb(va::PLAY_SOUND_GLOBAL));
-    let result = play_sound(worm, sound_id, 3, 0x10000, 0x10000);
-
-    // If sound was queued, set its position to the girder location
-    if result != 0 {
-        let queue_count = (*ddgame).sound_queue_count;
-        if queue_count > 0 {
-            let entry = &mut (*ddgame).sound_queue[(queue_count - 1) as usize];
-            entry.is_local = 1;
-            entry.secondary_vtable = 0;
-            entry.pos_x = girder_x as u32;
-            entry.pos_y = girder_y as u32;
-        }
+    // Queue sound and set position to the girder location (local sound)
+    if let Some(entry) = sound::queue_sound(ddgame, SoundId(sound_id), 3, Fixed::ONE, Fixed::ONE) {
+        (*entry).is_local = 1;
+        (*entry).pos_x = girder_x as u32;
+        (*entry).pos_y = girder_y as u32;
     }
 
     // If girder has a sprite, apply the visual overlay and update counters

@@ -510,7 +510,10 @@ pub mod va {
         fn/Fastcall DISPATCH_GLOBAL_SOUND = 0x0052_6270;
         /// RecordActiveSound
         fn/Usercall RECORD_ACTIVE_SOUND = 0x0054_6260;
-        /// LoadAndPlayStreaming: usercall(EAX=worm, ESI=&sound_emitter) + stack(sound_id, 3, volume).
+        /// CTaskWorm::PlaySound2 (FUN_00515020): usercall(EDI=worm) + stdcall(sound_id, volume, flags).
+        /// Stop+play on secondary sound handle (+0x3B4). 23 callers in WA.
+        fn/Usercall WORM_PLAY_SOUND_2 = 0x0051_5020;
+        /// LoadAndPlayStreaming: usercall(EAX=worm, ESI=&sound_emitter) + stack(sound_id, flags, volume).
         /// Checks game conditions, then starts a streaming sound. Returns handle | 0x40000000.
         fn/Usercall LOAD_AND_PLAY_STREAMING = 0x0054_6C20;
         /// ComputeDistanceParams

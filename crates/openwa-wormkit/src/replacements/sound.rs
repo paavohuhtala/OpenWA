@@ -213,20 +213,155 @@ pub(crate) unsafe fn play_worm_sound(worm: *mut CTaskWorm, sound_id: SoundId, vo
         }
     }
     // Start new streaming sound via WA function (FUN_00546c20)
-    let new_handle = call_load_and_play_streaming(worm, sound_id.0, volume.0 as u32);
+    // FUN_005150D0 hardcodes flags=3
+    let new_handle = call_load_and_play_streaming(worm, sound_id.0, 3, volume.0 as u32);
     (*worm).sound_handle = new_handle;
 }
 
+/// Stop+play on the secondary sound handle (CTaskWorm+0x3B4).
+/// Port of FUN_00515020 (23 callers in WA).
+///
+/// Stops any active sound on `sound_handle_2`, then plays a new streaming
+/// sound. Has a special case for sound 0x36 (Teleport) when the worm's Y
+/// position is extremely high — plays at weapon target position instead.
+///
+/// Parameters match the WA usercall convention:
+///   EDI=worm, stdcall(sound_id, volume, flags)
+pub(crate) unsafe fn play_worm_sound_2(
+    worm: *mut CTaskWorm,
+    sound_id: SoundId,
+    volume: Fixed,
+    flags: u32,
+) {
+    // 1. Stop current sound on handle_2
+    let handle = (*worm).sound_handle_2;
+    if handle != 0 {
+        let ddgame = CTask::ddgame_raw(worm as *const CTask);
+        let sound = (*ddgame).sound;
+        if !sound.is_null() && (handle as i32) >= 0 {
+            if handle & 0x40000000 == 0 {
+                ((*(*sound).vtable).stop_channel)(sound, handle as i32);
+            } else if !(*ddgame).active_sounds.is_null() {
+                (*(*ddgame).active_sounds).stop_sound(handle & !0x40000000);
+            }
+        }
+    }
+
+    // 2. Start new sound
+    // CGameTask+0x88 = Y position (fixed-point). Check if worm is extremely high.
+    let worm_y = *((worm as *const u8).add(0x88) as *const i32);
+    let new_handle = if worm_y < -0x270F_FFFF && sound_id.0 == 0x36 {
+        // Special teleport case: play at weapon target position
+        call_load_and_play_streaming_positional(
+            worm,
+            sound_id.0,
+            flags,
+            volume.0 as u32,
+            (*worm).weapon_param_1 as u32,
+            (*worm).weapon_param_2 as u32,
+        )
+    } else {
+        // Normal case: play streaming sound
+        call_load_and_play_streaming(worm, sound_id.0, flags, volume.0 as u32)
+    };
+
+    (*worm).sound_handle_2 = new_handle;
+}
+
+/// Trampoline for hooking FUN_00515020 (CTaskWorm::PlaySound2).
+///
+/// WA convention: usercall(EDI=worm) + stdcall(sound_id, volume, flags), RET 0xC.
+/// Extracts EDI and stack params, calls play_worm_sound_2, then returns
+/// with RET 0xC to clean the 3 stdcall params.
+#[unsafe(naked)]
+unsafe extern "C" fn trampoline_worm_play_sound_2() {
+    core::arch::naked_asm!(
+        // On entry: EDI=worm, [ESP+4]=sound_id, [ESP+8]=volume, [ESP+12]=flags
+        // Call play_worm_sound_2(worm, sound_id, volume, flags) as cdecl
+        "push [esp+12]",   // flags
+        "push [esp+12]",   // volume (was +8, shifted +4)
+        "push [esp+12]",   // sound_id (was +4, shifted +8)
+        "push edi",        // worm
+        "call {f}",
+        "add esp, 16",     // clean cdecl args
+        "ret 0xC",         // clean 3 stdcall params
+        f = sym play_worm_sound_2_cdecl,
+    );
+}
+
+/// Cdecl wrapper for play_worm_sound_2 — called from the trampoline.
+unsafe extern "cdecl" fn play_worm_sound_2_cdecl(
+    worm: *mut CTaskWorm,
+    sound_id: u32,
+    volume: u32,
+    flags: u32,
+) {
+    play_worm_sound_2(
+        worm,
+        SoundId(sound_id),
+        Fixed(volume as i32),
+        flags,
+    );
+}
+
+/// Bridge to FUN_00546bb0 — load and play a positional streaming sound.
+/// usercall(EAX=worm, ESI=&worm.sound_emitter) + stdcall(sound_id, flags, volume, x, y).
+/// Returns handle | 0x40000000 on success, 0 on failure, -1 if suppressed.
+unsafe fn call_load_and_play_streaming_positional(
+    worm: *mut CTaskWorm,
+    sound_id: u32,
+    flags: u32,
+    volume: u32,
+    x: u32,
+    y: u32,
+) -> u32 {
+    let addr = openwa_core::rebase::rb(0x546BB0u32);
+    call_load_and_play_streaming_positional_bridge(worm, sound_id, flags, volume, x, y, addr)
+}
+
+#[unsafe(naked)]
+unsafe extern "C" fn call_load_and_play_streaming_positional_bridge(
+    _worm: *mut CTaskWorm,
+    _sound_id: u32,
+    _flags: u32,
+    _volume: u32,
+    _x: u32,
+    _y: u32,
+    _addr: u32,
+) -> u32 {
+    core::arch::naked_asm!(
+        "push esi",
+        "push ebx",
+        // Stack after saves: [ESP+12]=worm [+16]=sound_id [+20]=flags
+        //   [+24]=volume [+28]=x [+32]=y [+36]=addr
+        "mov eax, [esp+12]",   // worm → EAX
+        "lea esi, [eax+0xE8]", // &worm.sound_emitter → ESI
+        "mov ebx, [esp+36]",   // addr
+        // Push 5 stdcall params right-to-left: y, x, volume, flags, sound_id.
+        // Each push shifts ESP by 4, so the next original param lands at ESP+32.
+        "push [esp+32]",       // y
+        "push [esp+32]",       // x (was +28, shifted +4)
+        "push [esp+32]",       // volume (was +24, shifted +8)
+        "push [esp+32]",       // flags (was +20, shifted +12)
+        "push [esp+32]",       // sound_id (was +16, shifted +16)
+        "call ebx",
+        "pop ebx",
+        "pop esi",
+        "ret",
+    );
+}
+
 /// Bridge to FUN_00546c20 — load and play a streaming sound.
-/// usercall(EAX=worm, ESI=&worm.sound_emitter) + stack(sound_id, 3, volume), plain RET.
+/// usercall(EAX=worm, ESI=&worm.sound_emitter) + stdcall(sound_id, flags, volume), plain RET.
 /// Returns new sound handle (with bit 30 set for streaming, 0 on failure, -1 if suppressed).
 unsafe fn call_load_and_play_streaming(
     worm: *mut CTaskWorm,
     sound_id: u32,
+    flags: u32,
     volume: u32,
 ) -> u32 {
     let addr = LOAD_AND_PLAY_STREAMING_ADDR.load(core::sync::atomic::Ordering::Relaxed);
-    call_load_and_play_streaming_bridge(worm, sound_id, volume, addr)
+    call_load_and_play_streaming_bridge(worm, sound_id, flags, volume, addr)
 }
 
 static LOAD_AND_PLAY_STREAMING_ADDR: core::sync::atomic::AtomicU32 =
@@ -236,6 +371,7 @@ static LOAD_AND_PLAY_STREAMING_ADDR: core::sync::atomic::AtomicU32 =
 unsafe extern "C" fn call_load_and_play_streaming_bridge(
     _worm: *mut CTaskWorm,
     _sound_id: u32,
+    _flags: u32,
     _volume: u32,
     _addr: u32,
 ) -> u32 {
@@ -243,13 +379,13 @@ unsafe extern "C" fn call_load_and_play_streaming_bridge(
         "push esi",
         "push ebx",
         // Stack: 2 saves(8) + ret(4) = 12 to first arg
-        "mov eax, [esp+12]",   // worm → EAX (must be EAX when target is called)
+        "mov eax, [esp+12]",   // worm → EAX
         "lea esi, [eax+0xE8]", // &worm.sound_emitter → ESI
-        "mov ebx, [esp+24]",   // addr (12 + 3*4 = 24) → EBX (temp)
-        "push [esp+20]",       // volume (12+8=20)
-        "push 3",              // flags = 3
-        "push [esp+24]",       // sound_id (12+4+8=24, shifted by 2 pushes)
-        "call ebx",            // call target; EAX = worm is preserved
+        "mov ebx, [esp+28]",   // addr (12 + 4*4 = 28)
+        "push [esp+24]",       // volume (12+12=24)
+        "push [esp+20]",       // flags (12+8=20, shifted+4=24)
+        "push [esp+24]",       // sound_id (12+4=16, shifted+8=24)
+        "call ebx",
         "pop ebx",
         "pop esi",
         "ret",
@@ -381,6 +517,13 @@ pub fn install() -> Result<(), String> {
 
         // Patch DSSound vtable: replace trivial slots with Rust implementations.
         patch_dssound_vtable()?;
+
+        // Hook CTaskWorm::PlaySound2 (FUN_00515020) — 23 callers in WA
+        let _ = hook::install(
+            "WormPlaySound2",
+            va::WORM_PLAY_SOUND_2,
+            trampoline_worm_play_sound_2 as *const (),
+        )?;
 
         // Initialize bridge addresses for worm sound functions
         LOAD_AND_PLAY_STREAMING_ADDR.store(
