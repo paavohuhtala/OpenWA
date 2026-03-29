@@ -518,7 +518,7 @@ unsafe fn core_play_sound(
     // Store descriptor state.
     let desc = &mut snd.channel_descs[di];
     desc.flags_a = -1;
-    desc.flags_b = flags_and_slot as i32;
+    desc.flags_b = priority;
     desc.channel_freq = channel_freq;
     desc.channel_volume = vol_scaled;
     desc.ds_buffer = core::mem::transmute_copy(&new_buf);
@@ -710,46 +710,46 @@ pub unsafe extern "thiscall" fn stop_channel(this: *mut DSSound, pool_id: i32) -
     }
     let snd = &mut *this;
     let desc_idx = snd.buffer_pool_shadow[idx];
-    if desc_idx < 0 || desc_idx as usize >= 8 {
-        return 0;
-    }
-    let di = desc_idx as usize;
-    let desc = &mut snd.channel_descs[di];
 
-    // Stop and release the buffer.
-    if let Some(buf) = desc.take_buffer() {
-        let _ = buf.Stop();
-        // Release happens when buf drops
-    }
+    // If the descriptor is still valid, stop and release the buffer.
+    // (desc_idx may be -1 if the channel was evicted by allocate_channel)
+    if desc_idx >= 0 && (desc_idx as usize) < 8 {
+        let di = desc_idx as usize;
+        let desc = &mut snd.channel_descs[di];
 
-    // Reset descriptor to free state.
-    desc.channel_freq = 0;
-    desc.channel_volume = 0;
-    desc.flags_b = -1;
-    desc.flags_a = -1;
+        // Stop and release the buffer.
+        if let Some(buf) = desc.take_buffer() {
+            let _ = buf.Stop();
+        }
+
+        // Reset descriptor to free state.
+        desc.channel_freq = 0;
+        desc.channel_volume = 0;
+        desc.flags_b = -1;
+        desc.flags_a = -1;
+    }
 
     // Mark pool shadow as free.
     snd.buffer_pool_shadow[idx] = -1;
 
-    // Return pool index to free list.
+    // ALWAYS return pool index to free list, even if descriptor was already
+    // evicted. WA does this unconditionally — without it, evicted pool entries
+    // leak and pool_free_count drops to 0, preventing new pooled sounds.
     let free_slot = snd.buffer_pool_free_count as usize;
     snd.buffer_pool_free[free_slot] = idx as u32;
     snd.buffer_pool_free_count += 1;
 
-    // Remove from used list.
+    // Remove from used list (swap-remove with last entry, matching WA).
+    // Returns 1 if found in used list, 0 if not.
     let used_count = snd.buffer_pool_used_count as usize;
     for i in 0..used_count {
         if snd.buffer_pool_used[i] == idx as u32 {
-            // Shift remaining entries down.
-            for j in i..used_count - 1 {
-                snd.buffer_pool_used[j] = snd.buffer_pool_used[j + 1];
-            }
             snd.buffer_pool_used_count -= 1;
-            break;
+            snd.buffer_pool_used[i] = snd.buffer_pool_used[snd.buffer_pool_used_count as usize];
+            return 1;
         }
     }
-
-    1
+    0
 }
 
 /// Slot 12: load_wav — load a WAV file into a DirectSound secondary buffer

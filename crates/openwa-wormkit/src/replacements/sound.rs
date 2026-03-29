@@ -515,7 +515,7 @@ pub fn install() -> Result<(), String> {
             hook_play_sound_pooled_direct as *const (),
         )?;
 
-        // Patch DSSound vtable: replace trivial slots with Rust implementations.
+        // Patch DSSound vtable: replace all 24 slots with Rust implementations.
         patch_dssound_vtable()?;
 
         // Hook CTaskWorm::PlaySound2 (FUN_00515020) — 23 callers in WA
