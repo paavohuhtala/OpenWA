@@ -50,7 +50,18 @@ The `openwa-test-runner` crate (`openwa-test` binary) runs all replay tests auto
 .\run-tests.ps1 --no-build      # skip internal DLL/launcher build
 ```
 
-Each test runs WA.exe in headless `/getlog` mode (pure CPU simulation, no rendering) and compares the output log byte-for-byte against an expected baseline. Tests are isolated for concurrent execution via per-PID event names, log paths, and landscape temp files (`CreateFileA` hook).
+Each test runs WA.exe in headless `/getlog` mode (pure CPU simulation, no rendering) and compares the output log byte-for-byte against an expected baseline.
+
+**Test isolation** (all in headless mode only):
+- Per-PID temp directory: `.openwa_tmp/{pid}/` for writable files (writetest.txt, mono.tmp, land.dat, landgen.svg, etc.)
+- Per-PID named event: `OpenWA_HooksReady_{pid}` for launcher↔DLL synchronization
+- Per-PID semaphore: `CreateSemaphoreA("Worms Armageddon")` renamed to `Worms Armageddon_{pid}`
+- Per-PID log paths via `OPENWA_LOG_PATH` and `OPENWA_ERRORLOG_PATH` env vars
+- Per-PID playback.thm via `replay.rs` (written by Rust, read by WA's MapView::Load)
+- WA.exe crash dialog suppressed via `/silentcrash` command-line flag
+- Batched MinHook enables: all hooks use `queue_enable_hook` + single `apply_queued()` call
+
+**Crash detection**: Tests that crash show `CRASH` (not `FAIL`) with NTSTATUS name and ERRORLOG.TXT content. ERRORLOG.TXT is redirected to the per-test run directory via `OPENWA_ERRORLOG_PATH`.
 
 **IMPORTANT:** The `*_expected.log` baselines are ground truth generated from unmodified WA.exe. They must NEVER be deleted or regenerated. If a test fails, the Rust code is wrong.
 
@@ -73,10 +84,11 @@ Headful mode enables fast-forward (50x via DDGame+0x98B0) and runs struct valida
 
 ### Environment variables
 
-- `OPENWA_HEADLESS=1` — Headless mode: hooks MessageBoxA to auto-dismiss, launcher uses SW_HIDE, file isolation hook active
+- `OPENWA_HEADLESS=1` — Headless mode: hooks MessageBoxA to auto-dismiss, launcher uses SW_HIDE, file isolation hook active, semaphore renamed per-PID
 - `OPENWA_VALIDATE=1` — Enable validation module (struct checks, vtable validation, memory dumps)
 - `OPENWA_REPLAY_TEST=1` — Fast-forward mode for headful testing (50x speed, 120s safety timeout)
 - `OPENWA_LOG_PATH=<path>` — Override OpenWA.log location (used by test runner for per-instance isolation)
+- `OPENWA_ERRORLOG_PATH=<path>` — Redirect ERRORLOG.TXT to specified path (used by test runner for crash capture)
 
 ### Adding new replay tests
 
