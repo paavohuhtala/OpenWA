@@ -437,9 +437,9 @@ unsafe extern "fastcall" fn hook_dispatch_global_sound(
         dssound,
         sound_id,
         flags as i32,
-        volume as i32,
-        pitch as i32,
-        0,
+        Fixed(volume as i32),
+        Fixed(pitch as i32),
+        Fixed(0),
     ) as u32
 }
 
@@ -470,7 +470,7 @@ unsafe extern "fastcall" fn hook_play_sound_pooled_direct(
         return 0;
     }
 
-    play_sound_pooled(dssound, param1, param2 as i32, 0x10000, param3 as i32, 0) as u32
+    play_sound_pooled(dssound, param1, param2 as i32, Fixed(0x10000), Fixed(param3 as i32), Fixed(0)) as u32
 }
 
 // ============================================================

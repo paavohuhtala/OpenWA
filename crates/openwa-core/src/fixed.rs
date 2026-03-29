@@ -45,6 +45,21 @@ impl Fixed {
     pub fn to_f32(self) -> f32 {
         self.0 as f32 / Self::SCALE as f32
     }
+
+    #[inline]
+    pub fn max(self, other: Self) -> Self {
+        if self > other { self } else { other }
+    }
+
+    #[inline]
+    pub fn min(self, other: Self) -> Self {
+        if self < other { self } else { other }
+    }
+
+    #[inline]
+    pub fn abs(self) -> Self {
+        Self(self.0.abs())
+    }
 }
 
 impl Add for Fixed {

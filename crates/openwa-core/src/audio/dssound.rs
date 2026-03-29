@@ -35,15 +35,17 @@ type Ptr32 = u32;
 pub struct ChannelDescriptor {
     /// +0x00: Flags/state field (not set by constructor init helper)
     pub _field_00: u32,
-    /// +0x04: Flags A (init -1, -1 = unused/free, checked for < 0)
-    pub flags_a: i32,
-    /// +0x08: Flags B (init -1, set to -1 on release)
-    pub flags_b: i32,
-    /// +0x0C: Per-channel frequency/pitch value. Multiplied by status_2/status_1
+    /// +0x04: Buffer pool index (0..63), or -1 if not pooled.
+    /// Set by play_sound_pooled; checked by update_channels/stop_channel/allocate_channel.
+    pub pool_idx: i32,
+    /// +0x08: Sound priority (init -1, set to -1 on release).
+    /// Used by allocate_channel for eviction: lowest priority channel is evicted first.
+    pub priority: i32,
+    /// +0x0C: Per-channel frequency (Fixed 16.16). Multiplied by status_2/status_1
     /// to compute actual playback frequency. Cleared to 0 on release.
-    pub channel_freq: i32,
+    pub channel_freq: Fixed,
     /// +0x10: Per-channel volume (Fixed 16.16, 0..0x10000). Set by set_channel_volume.
-    pub channel_volume: i32,
+    pub channel_volume: Fixed,
     /// +0x14: IDirectSoundBuffer* for the active buffer (0 = empty).
     /// At absolute offset this+0x28 for desc[0]. Use `buffer()` to get a typed ref.
     pub ds_buffer: Ptr32,
@@ -86,17 +88,17 @@ pub struct DSSoundVtable {
     /// set_volume_params — sets status_1/2, adjusts channel volumes
     pub set_volume_params: fn(this: *mut DSSound, status: u32, value: i32),
     /// play_sound — wrapper around core play. RET 0x14 = 5 stack params.
-    pub play_sound: fn(this: *mut DSSound, slot: u32, flags: u32, volume: u32, pan: u32, freq: u32) -> bool,
+    pub play_sound: fn(this: *mut DSSound, slot_and_flags: u32, priority: i32, volume: Fixed, pan: Fixed, freq: Fixed) -> bool,
     /// play_sound_pooled — allocates from buffer pool, plays. RET 0x14.
-    pub play_sound_pooled: fn(this: *mut DSSound, slot: u32, flags: u32, volume: u32, pan: u32, freq: u32) -> i32,
+    pub play_sound_pooled: fn(this: *mut DSSound, slot_and_flags: u32, priority: i32, volume: Fixed, pan: Fixed, freq: Fixed) -> i32,
     /// set_pan — sets pan on channel (dB lookup)
-    pub set_pan: fn(this: *mut DSSound, channel: u32, pan: u32) -> u32,
+    pub set_pan: fn(this: *mut DSSound, channel: u32, pan: Fixed) -> u32,
     /// **stub** — returns 0
     pub stub_6: fn(this: *mut DSSound) -> u32,
     /// set_master_volume — sets volume, adjusts all channels
-    pub set_master_volume: fn(this: *mut DSSound, volume: i32) -> u32,
+    pub set_master_volume: fn(this: *mut DSSound, volume: Fixed) -> u32,
     /// set_channel_volume — volume on specific channel
-    pub set_channel_volume: fn(this: *mut DSSound, channel: i32, volume: i32) -> u32,
+    pub set_channel_volume: fn(this: *mut DSSound, channel: i32, volume: Fixed) -> u32,
     /// is_channel_finished — returns 1 if stopped, 0 if playing
     pub is_channel_finished: fn(this: *mut DSSound, channel: i32) -> u8,
     /// stop_channel — stops + releases buffer, returns to pool
@@ -212,14 +214,14 @@ pub unsafe extern "thiscall" fn update_channels(this: *mut DSSound) {
     for desc in &mut snd.channel_descs {
         if let Some(buf) = desc.buffer() {
             if let Ok(status) = buf.GetStatus() {
-                // If not playing (bit 0 clear) and flags_b < 0, release.
-                if (status & 1) == 0 && desc.flags_a < 0 {
+                // If not playing (bit 0 clear) and not pooled (pool_idx < 0), release.
+                if (status & 1) == 0 && desc.pool_idx < 0 {
                     // Take and drop to release COM ref.
                     desc.take_buffer();
-                    desc.channel_freq = 0;
-                    desc.channel_volume = 0;
-                    desc.flags_b = -1;
-                    desc.flags_a = -1;
+                    desc.channel_freq = Fixed(0);
+                    desc.channel_volume = Fixed(0);
+                    desc.priority = -1;
+                    desc.pool_idx = -1;
                 }
             }
         }
@@ -233,12 +235,12 @@ pub unsafe extern "thiscall" fn release_finished(this: *mut DSSound) -> i32 {
     for desc in &mut snd.channel_descs {
         if let Some(buf) = desc.buffer() {
             if let Ok(status) = buf.GetStatus() {
-                if (status & 1) == 0 && desc.flags_a < 0 {
+                if (status & 1) == 0 && desc.pool_idx < 0 {
                     desc.take_buffer();
-                    desc.channel_freq = 0;
-                    desc.channel_volume = 0;
-                    desc.flags_b = -1;
-                    desc.flags_a = -1;
+                    desc.channel_freq = Fixed(0);
+                    desc.channel_volume = Fixed(0);
+                    desc.priority = -1;
+                    desc.pool_idx = -1;
                     count += 1;
                 }
             }
@@ -258,11 +260,11 @@ fn volume_to_db(volume: i32) -> i32 {
 
 /// Slot 7: set_master_volume — sets the master volume and adjusts all active channels.
 /// `new_volume` is Fixed 16.16 (0 = silent, 0x10000 = max).
-pub unsafe extern "thiscall" fn set_master_volume(this: *mut DSSound, new_volume: i32) -> u32 {
+pub unsafe extern "thiscall" fn set_master_volume(this: *mut DSSound, new_volume: Fixed) -> u32 {
     let snd = &mut *this;
 
     // Clamp to [0, 0x10000].
-    let vol = new_volume.max(0).min(0x10000);
+    let vol = new_volume.0.max(0).min(0x10000);
 
     // No change → early return.
     if snd.volume.0 == vol {
@@ -280,7 +282,7 @@ pub unsafe extern "thiscall" fn set_master_volume(this: *mut DSSound, new_volume
             continue;
         }
         // Compute combined volume: master * per-channel, fixed-point multiply.
-        let combined = ((vol as i64 * desc.channel_volume as i64) >> 16) as i32;
+        let combined = ((vol as i64 * desc.channel_volume.0 as i64) >> 16) as i32;
         let db = volume_to_db(combined);
         if let Some(buf) = desc.buffer() {
             let _ = buf.SetVolume(db);
@@ -318,7 +320,7 @@ pub unsafe extern "thiscall" fn set_volume_params(this: *mut DSSound, param1: u3
         if param1 == 0 {
             continue;
         }
-        let freq = (desc.channel_freq as i64 * param2 as i64 / param1 as i64) as i32;
+        let freq = (desc.channel_freq.0 as i64 * param2 as i64 / param1 as i64) as i32;
         let freq = freq.min(200_000);
 
         let _ = buf.SetFrequency(freq as u32);
@@ -328,7 +330,7 @@ pub unsafe extern "thiscall" fn set_volume_params(this: *mut DSSound, param1: u3
 /// Slot 5: set_pan — sets stereo panning on a specific channel.
 /// `pool_id` is 1-based (1..64). `pan` is Fixed 16.16 (-0x10000..0x10000).
 /// Negative = left, positive = right.
-pub unsafe extern "thiscall" fn set_pan(this: *mut DSSound, pool_id: i32, pan: i32) -> u32 {
+pub unsafe extern "thiscall" fn set_pan(this: *mut DSSound, pool_id: i32, pan: Fixed) -> u32 {
     let idx = (pool_id - 1) as usize;
     if idx >= 64 {
         return 0;
@@ -340,7 +342,7 @@ pub unsafe extern "thiscall" fn set_pan(this: *mut DSSound, pool_id: i32, pan: i
     }
 
     // Clamp pan to [-0x10000, 0x10000].
-    let pan = pan.max(-0x10000).min(0x10000);
+    let pan = pan.0.max(-0x10000).min(0x10000);
 
     // Index into table backwards: abs(pan) >> 10 gives 0..63.
     // Table is read from the END (index 63 = near silence, index 0 = full).
@@ -364,7 +366,7 @@ pub unsafe extern "thiscall" fn set_pan(this: *mut DSSound, pool_id: i32, pan: i
 pub unsafe extern "thiscall" fn set_channel_volume(
     this: *mut DSSound,
     pool_id: i32,
-    volume: i32,
+    volume: Fixed,
 ) -> u32 {
     let idx = (pool_id - 1) as usize;
     if idx >= 64 {
@@ -378,7 +380,7 @@ pub unsafe extern "thiscall" fn set_channel_volume(
     let di = desc_idx as usize;
 
     // Clamp volume to [0, 0x10000].
-    let vol = volume.max(0).min(0x10000);
+    let vol = volume.0.max(0).min(0x10000);
 
     // Compute dB: if flag 0x20000 set, use volume directly (no master scaling).
     let db = if snd.channel_descs[di]._field_00 & 0x20000 != 0 {
@@ -393,7 +395,7 @@ pub unsafe extern "thiscall" fn set_channel_volume(
     }
 
     // Store per-channel volume.
-    snd.channel_descs[di].channel_volume = vol;
+    snd.channel_descs[di].channel_volume = Fixed(vol);
 
     1
 }
@@ -454,11 +456,11 @@ pub unsafe extern "thiscall" fn destructor(this: *mut DSSound, flags: u8) -> *mu
 /// Returns channel descriptor index on success, -1 on failure.
 unsafe fn core_play_sound(
     snd: &mut DSSound,
-    flags_and_slot: u32,
+    slot_and_flags: u32,
     priority: i32,
-    frequency: i32,
-    volume: i32,
-    pan: i32,
+    frequency: Fixed,
+    volume: Fixed,
+    pan: Fixed,
 ) -> i32 {
     use windows::Win32::Media::Audio::DirectSound::IDirectSound;
 
@@ -468,8 +470,8 @@ unsafe fn core_play_sound(
     }
 
     // Extract loop flag and slot index.
-    let loop_flag = flags_and_slot & 0x10000 != 0;
-    let slot_idx = (flags_and_slot & 0xFFFF) as usize;
+    let loop_flag = slot_and_flags & 0x10000 != 0;
+    let slot_idx = (slot_and_flags & 0xFFFF) as usize;
 
     // Validate slot index and check buffer loaded.
     if slot_idx == 0 || slot_idx > 499 || snd.channel_slots[slot_idx] == 0 {
@@ -498,13 +500,13 @@ unsafe fn core_play_sound(
     };
 
     // Clamp volume to [0, 0x10000].
-    let vol = volume.max(0).min(0x10000);
+    let vol = volume.0.max(0).min(0x10000);
 
     // Compute per-channel volume: vol * 3/4 (with rounding).
     let vol_scaled = (vol * 3 + (((vol * 3) >> 31) & 3)) >> 2;
 
     // Compute dB for volume.
-    let vol_db = if flags_and_slot & 0x20000 != 0 {
+    let vol_db = if slot_and_flags & 0x20000 != 0 {
         volume_to_db(vol_scaled)
     } else {
         let combined = ((snd.volume.0 as i64 * vol_scaled as i64) >> 16) as i32;
@@ -513,14 +515,14 @@ unsafe fn core_play_sound(
 
     // Compute channel_freq: frequency * base_freq >> 16 (fixed-point multiply).
     let base_freq = template_buf.GetFrequency().unwrap_or(22050) as i32;
-    let channel_freq = ((frequency.max(0) as i64 * base_freq as i64) >> 16) as i32;
+    let channel_freq = ((frequency.0.max(0) as i64 * base_freq as i64) >> 16) as i32;
 
     // Store descriptor state.
     let desc = &mut snd.channel_descs[di];
-    desc.flags_a = -1;
-    desc.flags_b = priority;
-    desc.channel_freq = channel_freq;
-    desc.channel_volume = vol_scaled;
+    desc.pool_idx = -1;
+    desc.priority = priority;
+    desc.channel_freq = Fixed(channel_freq);
+    desc.channel_volume = Fixed(vol_scaled);
     desc.ds_buffer = core::mem::transmute_copy(&new_buf);
     core::mem::forget(new_buf);
 
@@ -539,7 +541,7 @@ unsafe fn core_play_sound(
         let _ = buf.SetVolume(vol_db);
 
         // Pan: convert fixed-point to dB via reversed lookup table.
-        let pan_clamped = pan.max(-0x10000).min(0x10000);
+        let pan_clamped = pan.0.max(-0x10000).min(0x10000);
         let pan_idx = ((pan_clamped.unsigned_abs() >> 10) as usize).min(63);
         let mut pan_db = VOLUME_DB_TABLE[63 - pan_idx] as i32;
         if pan_clamped > 0 {
@@ -564,11 +566,11 @@ unsafe fn allocate_channel(snd: &mut DSSound, priority: i32) -> i32 {
         }
     }
 
-    // All busy — find lowest priority (flags_b is priority value).
+    // All busy — find lowest priority channel to evict.
     let mut min_priority = i32::MAX;
     let mut min_idx: i32 = -1;
     for i in 0..8 {
-        let p = snd.channel_descs[i].flags_b;
+        let p = snd.channel_descs[i].priority;
         if min_idx < 0 || p <= min_priority {
             min_priority = p;
             min_idx = i as i32;
@@ -581,8 +583,8 @@ unsafe fn allocate_channel(snd: &mut DSSound, priority: i32) -> i32 {
         let desc = &mut snd.channel_descs[di];
 
         // Clear pool shadow if this desc was in the pool.
-        if desc.flags_a >= 0 && (desc.flags_a as usize) < 64 {
-            snd.buffer_pool_shadow[desc.flags_a as usize] = -1;
+        if desc.pool_idx >= 0 && (desc.pool_idx as usize) < 64 {
+            snd.buffer_pool_shadow[desc.pool_idx as usize] = -1;
         }
 
         // Stop and release the evicted buffer.
@@ -597,19 +599,19 @@ unsafe fn allocate_channel(snd: &mut DSSound, priority: i32) -> i32 {
 }
 
 /// Slot 3: play_sound — pure thiscall with 5 stack params, RET 0x14.
-/// Params: flags_and_slot, priority, frequency, volume, pan.
+/// Params: slot_and_flags, priority, frequency, volume, pan.
 pub unsafe extern "thiscall" fn play_sound(
     this: *mut DSSound,
-    flags_and_slot: u32,
+    slot_and_flags: u32,
     priority: i32,
-    frequency: i32,
-    volume: i32,
-    pan: i32,
+    frequency: Fixed,
+    volume: Fixed,
+    pan: Fixed,
 ) -> bool {
     let snd = &mut *this;
     let result = core_play_sound(
         snd,
-        flags_and_slot & 0xFFFEFFFF,
+        slot_and_flags & 0xFFFEFFFF,
         priority,
         frequency,
         volume,
@@ -622,11 +624,11 @@ pub unsafe extern "thiscall" fn play_sound(
 /// Returns pool_id (1-based) on success, 0 on failure.
 pub unsafe extern "thiscall" fn play_sound_pooled(
     this: *mut DSSound,
-    flags_and_slot: u32,
+    slot_and_flags: u32,
     priority: i32,
-    frequency: i32,
-    volume: i32,
-    pan: i32,
+    frequency: Fixed,
+    volume: Fixed,
+    pan: Fixed,
 ) -> i32 {
     let snd = &mut *this;
 
@@ -635,7 +637,7 @@ pub unsafe extern "thiscall" fn play_sound_pooled(
         return 0;
     }
 
-    let desc_idx = core_play_sound(snd, flags_and_slot, priority, frequency, volume, pan);
+    let desc_idx = core_play_sound(snd, slot_and_flags, priority, frequency, volume, pan);
     if desc_idx < 0 {
         return 0;
     }
@@ -651,7 +653,7 @@ pub unsafe extern "thiscall" fn play_sound_pooled(
 
     // Link pool ↔ descriptor.
     snd.buffer_pool_shadow[pool_idx as usize] = desc_idx;
-    snd.channel_descs[desc_idx as usize].flags_a = pool_idx as i32;
+    snd.channel_descs[desc_idx as usize].pool_idx = pool_idx as i32;
 
     (pool_idx + 1) as i32 // 1-based
 }
@@ -723,10 +725,10 @@ pub unsafe extern "thiscall" fn stop_channel(this: *mut DSSound, pool_id: i32) -
         }
 
         // Reset descriptor to free state.
-        desc.channel_freq = 0;
-        desc.channel_volume = 0;
-        desc.flags_b = -1;
-        desc.flags_a = -1;
+        desc.channel_freq = Fixed(0);
+        desc.channel_volume = Fixed(0);
+        desc.priority = -1;
+        desc.pool_idx = -1;
     }
 
     // Mark pool shadow as free.
@@ -936,11 +938,11 @@ impl DSSound {
         // Volume = 1.0 (16.16 fixed-point)
         snd.volume = Fixed(0x10000);
 
-        // 8 channel descriptors: flags_a=-1, flags_b=-1
+        // 8 channel descriptors: pool_idx=-1, priority=-1
         // (rest is zero from mem::zeroed)
         for desc in &mut snd.channel_descs {
-            desc.flags_a = -1;
-            desc.flags_b = -1;
+            desc.pool_idx = -1;
+            desc.priority = -1;
         }
 
         // 500 channel slots: already zeroed
