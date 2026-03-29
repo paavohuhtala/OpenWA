@@ -23,8 +23,8 @@ use openwa_core::game::weapon::{WeaponEntry, WeaponFireParams, WeaponSpawnData};
 use openwa_core::game::Weapon;
 use openwa_core::log::log_line;
 use openwa_core::task::turn_game::CTaskTurnGame;
-use openwa_core::task::CTask;
 use openwa_core::task::worm::{CTaskWorm, WormState};
+use openwa_core::task::CTask;
 
 use crate::hook::{self, usercall_trampoline};
 use crate::replacements::weapon_release::WeaponReleaseContext;
@@ -103,10 +103,12 @@ unsafe extern "cdecl" fn get_ammo_impl(
     }
 
     // SelectWorm (0x3B) requires >1 alive worm on the team
-    if state.game_phase >= ddgame::GAME_PHASE_NORMAL_MIN && weapon_id == Weapon::SelectWorm as u32
-        && count_alive_worms_impl(team_index, arena) == 0 {
-            return 0;
-        }
+    if state.game_phase >= ddgame::GAME_PHASE_NORMAL_MIN
+        && weapon_id == Weapon::SelectWorm as u32
+        && count_alive_worms_impl(team_index, arena) == 0
+    {
+        return 0;
+    }
 
     state.get_ammo(alliance, wid) as u32
 }
@@ -165,24 +167,42 @@ pub(crate) unsafe fn fire_weapon(
     let weapon = (*worm).selected_weapon;
     let _ = log_line(&format!(
         "[Weapon] FireWeapon: {:?} (id={}) type={} sub34={} sub38={}",
-        weapon, weapon as u32, fire_type, (*entry).special_subtype, fire_method
+        weapon,
+        weapon as u32,
+        fire_type,
+        (*entry).special_subtype,
+        fire_method
     ));
 
     CTaskWorm::set_fire_complete_raw(worm, 0);
 
-    use openwa_core::game::weapon::{FireType, FireMethod};
+    use openwa_core::game::weapon::{FireMethod, FireType};
     match FireType::try_from(fire_type) {
         Ok(FireType::Projectile) => match FireMethod::try_from(fire_method) {
-            Ok(FireMethod::PlacedExplosive) => call_fire_placed_explosive(worm, fire_params, ctx, rb(0x51EC80)),
-            Ok(FireMethod::ProjectileFire) => call_fire_stdcall3(worm, fire_params, ctx, rb(0x51DFB0)),
-            Ok(FireMethod::CreateWeaponProjectile) => call_fire_thiscall2(worm, fire_params, ctx, rb(0x51E0F0)),
-            Ok(FireMethod::CreateArrow) => call_fire_thiscall2(worm, fire_params, ctx, rb(0x51ED90)),
+            Ok(FireMethod::PlacedExplosive) => {
+                call_fire_placed_explosive(worm, fire_params, ctx, rb(0x51EC80))
+            }
+            Ok(FireMethod::ProjectileFire) => {
+                call_fire_stdcall3(worm, fire_params, ctx, rb(0x51DFB0))
+            }
+            Ok(FireMethod::CreateWeaponProjectile) => {
+                call_fire_thiscall2(worm, fire_params, ctx, rb(0x51E0F0))
+            }
+            Ok(FireMethod::CreateArrow) => {
+                call_fire_thiscall2(worm, fire_params, ctx, rb(0x51ED90))
+            }
             _ => {}
         },
         Ok(FireType::Rope) => match FireMethod::try_from(fire_method) {
-            Ok(FireMethod::PlacedExplosive) => call_fire_stdcall3(worm, fire_params, ctx, rb(0x51E1C0)), // RopeType1
-            Ok(FireMethod::ProjectileFire) => call_fire_thiscall2(worm, fire_params, ctx, rb(0x51E0F0)),
-            Ok(FireMethod::CreateWeaponProjectile) => call_fire_stdcall3(worm, fire_params, ctx, rb(0x51E240)), // RopeType3
+            Ok(FireMethod::PlacedExplosive) => {
+                call_fire_stdcall3(worm, fire_params, ctx, rb(0x51E1C0))
+            } // RopeType1
+            Ok(FireMethod::ProjectileFire) => {
+                call_fire_thiscall2(worm, fire_params, ctx, rb(0x51E0F0))
+            }
+            Ok(FireMethod::CreateWeaponProjectile) => {
+                call_fire_stdcall3(worm, fire_params, ctx, rb(0x51E240))
+            } // RopeType3
             _ => {}
         },
         Ok(FireType::Strike) => {
@@ -208,7 +228,10 @@ pub(crate) unsafe fn fire_weapon(
 /// Args: (worm, fire_params, ctx, addr).
 #[unsafe(naked)]
 unsafe extern "C" fn call_fire_placed_explosive(
-    _worm: *mut CTaskWorm, _fire_params: *const WeaponFireParams, _ctx: *const WeaponReleaseContext, _addr: u32,
+    _worm: *mut CTaskWorm,
+    _fire_params: *const WeaponFireParams,
+    _ctx: *const WeaponReleaseContext,
+    _addr: u32,
 ) {
     core::arch::naked_asm!(
         "push ebx",
@@ -216,10 +239,10 @@ unsafe extern "C" fn call_fire_placed_explosive(
         "push edi",
         // Set up usercall registers
         // Stack: 3 saves(12) + ret(4) = 16 to first arg
-        "mov edx, [esp+16]",  // EDX = worm
-        "mov ecx, [esp+24]",  // ECX = local_struct
-        "mov ebx, [esp+28]",  // addr
-        "push [esp+20]",      // fire_params (stack param)
+        "mov edx, [esp+16]", // EDX = worm
+        "mov ecx, [esp+24]", // ECX = local_struct
+        "mov ebx, [esp+28]", // addr
+        "push [esp+20]",     // fire_params (stack param)
         "call ebx",
         "pop edi",
         "pop esi",
@@ -231,18 +254,21 @@ unsafe extern "C" fn call_fire_placed_explosive(
 /// Bridge: Projectile/Rope/Grenade — stdcall(worm, fire_params, local_struct), RET 0xC.
 #[unsafe(naked)]
 unsafe extern "C" fn call_fire_stdcall3(
-    _worm: *mut CTaskWorm, _fire_params: *const WeaponFireParams, _ctx: *const WeaponReleaseContext, _addr: u32,
+    _worm: *mut CTaskWorm,
+    _fire_params: *const WeaponFireParams,
+    _ctx: *const WeaponReleaseContext,
+    _addr: u32,
 ) {
     core::arch::naked_asm!(
         "push ebx",
         "push esi",
         "push edi",
-        "mov esi, [esp+16]",  // worm (3 saves=12 + ret=4 = 16)
+        "mov esi, [esp+16]", // worm (3 saves=12 + ret=4 = 16)
         "mov edi, [esp+16]",
-        "mov ebx, [esp+28]",  // addr (saves=12 + ret=4 + 3 args=12 = 28)
-        "push [esp+24]",      // local_struct
-        "push [esp+24]",      // params (shifted +4)
-        "push [esp+24]",      // worm (shifted +8)
+        "mov ebx, [esp+28]", // addr (saves=12 + ret=4 + 3 args=12 = 28)
+        "push [esp+24]",     // local_struct
+        "push [esp+24]",     // params (shifted +4)
+        "push [esp+24]",     // worm (shifted +8)
         "call ebx",
         "pop edi",
         "pop esi",
@@ -254,18 +280,21 @@ unsafe extern "C" fn call_fire_stdcall3(
 /// Bridge: CreateWeaponProjectile — thiscall(ECX=worm, fire_params, local_struct), RET 0x8.
 #[unsafe(naked)]
 unsafe extern "C" fn call_fire_thiscall2(
-    _worm: *mut CTaskWorm, _fire_params: *const WeaponFireParams, _ctx: *const WeaponReleaseContext, _addr: u32,
+    _worm: *mut CTaskWorm,
+    _fire_params: *const WeaponFireParams,
+    _ctx: *const WeaponReleaseContext,
+    _addr: u32,
 ) {
     core::arch::naked_asm!(
         "push ebx",
         "push esi",
         "push edi",
-        "mov esi, [esp+16]",  // worm
+        "mov esi, [esp+16]", // worm
         "mov edi, [esp+16]",
-        "mov ecx, [esp+16]",  // ECX = worm (this)
-        "mov ebx, [esp+28]",  // addr
-        "push [esp+24]",      // local_struct
-        "push [esp+24]",      // params (shifted +4)
+        "mov ecx, [esp+16]", // ECX = worm (this)
+        "mov ebx, [esp+28]", // addr
+        "push [esp+24]",     // local_struct
+        "push [esp+24]",     // params (shifted +4)
         "call ebx",
         "pop edi",
         "pop esi",
@@ -279,17 +308,20 @@ unsafe extern "C" fn call_fire_thiscall2(
 #[unsafe(naked)]
 #[allow(dead_code)]
 unsafe extern "C" fn call_fire_stdcall2(
-    _worm: *mut CTaskWorm, _fire_params: *const WeaponFireParams, _ctx: *const WeaponReleaseContext, _addr: u32,
+    _worm: *mut CTaskWorm,
+    _fire_params: *const WeaponFireParams,
+    _ctx: *const WeaponReleaseContext,
+    _addr: u32,
 ) {
     core::arch::naked_asm!(
         "push ebx",
         "push esi",
         "push edi",
-        "mov esi, [esp+16]",  // worm
+        "mov esi, [esp+16]", // worm
         "mov edi, [esp+16]",
-        "mov ebx, [esp+28]",  // addr
-        "push [esp+24]",      // local_struct
-        "push [esp+24]",      // params (shifted +4)
+        "mov ebx, [esp+28]", // addr
+        "push [esp+24]",     // local_struct
+        "push [esp+24]",     // params (shifted +4)
         "call ebx",
         "pop edi",
         "pop esi",
@@ -304,7 +336,10 @@ unsafe extern "C" fn call_fire_stdcall2(
 /// Some handlers explicitly set EAX=worm or EAX=*(worm+0x44).
 /// Handlers without explicit MOV EAX inherit the entry pointer.
 unsafe fn fire_weapon_special(
-    subtype: i32, entry: *const WeaponEntry, worm: *mut CTaskWorm, ctx: *const WeaponReleaseContext,
+    subtype: i32,
+    entry: *const WeaponEntry,
+    worm: *mut CTaskWorm,
+    ctx: *const WeaponReleaseContext,
 ) {
     use openwa_core::game::weapon::SpecialFireSubtype as S;
     use openwa_core::rebase::rb;
@@ -358,7 +393,9 @@ fn can_fire_subtype16(state: u32) -> bool {
 ///
 /// The entity at key (0, 0x14) is a CTaskTurnGame (inherits CTaskTeam).
 /// Returns null if not found.
-pub(crate) unsafe fn lookup_turn_game(worm: *const CTaskWorm) -> *mut openwa_core::task::CTaskTurnGame {
+pub(crate) unsafe fn lookup_turn_game(
+    worm: *const CTaskWorm,
+) -> *mut openwa_core::task::CTaskTurnGame {
     use openwa_core::task::SharedDataTable;
 
     let table = SharedDataTable::from_task(worm as *const CTask);
@@ -408,7 +445,8 @@ unsafe fn fire_send_team_message(worm: *mut CTaskWorm, msg_type: u32) {
     let team_index = (*worm).team_index;
     buf[0..4].copy_from_slice(&team_index.to_ne_bytes());
 
-    CTaskTurnGame::handle_message_raw(team,
+    CTaskTurnGame::handle_message_raw(
+        team,
         worm as *mut openwa_core::task::CTask,
         msg_type,
         4,
@@ -429,7 +467,8 @@ unsafe fn fire_select_worm(worm: *mut CTaskWorm) {
     buf[0..4].copy_from_slice(&8u32.to_ne_bytes());
     buf[4..8].copy_from_slice(&(*worm).team_index.to_ne_bytes());
 
-    CTaskTurnGame::handle_message_raw(team,
+    CTaskTurnGame::handle_message_raw(
+        team,
         worm as *mut openwa_core::task::CTask,
         0x5D,
         0x408,
@@ -503,7 +542,7 @@ unsafe fn fire_mail_mine_mole(worm: *mut CTaskWorm) {
                 || (worm_state == WormState::WeaponAimed_Maybe as u32 && version < 8)));
 
     if should_call_vtable {
-        CTaskWorm::set_state_raw(worm,WormState::Idle);
+        CTaskWorm::set_state_raw(worm, WormState::Idle);
     }
 
     fire_send_team_message(worm, 0x28);
@@ -527,7 +566,7 @@ unsafe fn fire_teleport(worm: *mut CTaskWorm) {
     use openwa_core::rebase::rb;
 
     if (*worm)._unknown_208 == 0 {
-        CTaskWorm::set_state_raw(worm,WormState::AirStrikePending_Maybe);
+        CTaskWorm::set_state_raw(worm, WormState::AirStrikePending_Maybe);
         return;
     }
 
@@ -554,7 +593,7 @@ unsafe fn fire_teleport(worm: *mut CTaskWorm) {
     } else {
         WormState::Unknown_0x8B
     };
-    CTaskWorm::set_state_raw(worm,new_state);
+    CTaskWorm::set_state_raw(worm, new_state);
 
     // Clear action fields
     *(worm_raw.add(0x48) as *mut i32) = 0;
@@ -587,7 +626,13 @@ unsafe fn fire_nuclear_test(worm: *mut CTaskWorm) {
         let mut buf = [0u8; 0x40C];
         buf[0..4].copy_from_slice(&entry.fire_method.to_ne_bytes());
         buf[4..8].copy_from_slice(&8i32.to_ne_bytes());
-        CTaskTurnGame::handle_message_raw(team,worm as *mut openwa_core::task::CTask, 0x59, 0x408, buf.as_ptr());
+        CTaskTurnGame::handle_message_raw(
+            team,
+            worm as *mut openwa_core::task::CTask,
+            0x59,
+            0x408,
+            buf.as_ptr(),
+        );
     }
 
     // Message 0x5A (NukeBlast): buf[0]=8
@@ -595,11 +640,23 @@ unsafe fn fire_nuclear_test(worm: *mut CTaskWorm) {
     if !team.is_null() {
         let mut buf = [0u8; 0x40C];
         buf[0..4].copy_from_slice(&8i32.to_ne_bytes());
-        CTaskTurnGame::handle_message_raw(team,worm as *mut openwa_core::task::CTask, 0x5A, 0x408, buf.as_ptr());
+        CTaskTurnGame::handle_message_raw(
+            team,
+            worm as *mut openwa_core::task::CTask,
+            0x5A,
+            0x408,
+            buf.as_ptr(),
+        );
     }
 
     // PlaySoundGlobal(IndianAnthem, 8, 0x10000, 0x10000)
-    sound::queue_sound(ddgame, KnownSoundId::IndianAnthem.into(), 8, Fixed::ONE, Fixed::ONE);
+    sound::queue_sound(
+        ddgame,
+        KnownSoundId::IndianAnthem.into(),
+        8,
+        Fixed::ONE,
+        Fixed::ONE,
+    );
 
     // Message 0x51 (PoisonWorm): buf[0]=shot_count, buf[4]=2, buf[8]=team_index
     let team = lookup_turn_game(worm);
@@ -608,13 +665,24 @@ unsafe fn fire_nuclear_test(worm: *mut CTaskWorm) {
         buf[0..4].copy_from_slice(&entry.fire_params.shot_count.to_ne_bytes());
         buf[4..8].copy_from_slice(&2i32.to_ne_bytes());
         buf[8..12].copy_from_slice(&(*worm).team_index.to_ne_bytes());
-        CTaskTurnGame::handle_message_raw(team,worm as *mut openwa_core::task::CTask, 0x51, 0x408, buf.as_ptr());
+        CTaskTurnGame::handle_message_raw(
+            team,
+            worm as *mut openwa_core::task::CTask,
+            0x51,
+            0x408,
+            buf.as_ptr(),
+        );
     }
 
     // PlaySoundGlobal(NukeFlash, 5, 0x10000, 0x10000)
-    sound::queue_sound(ddgame, KnownSoundId::NukeFlash.into(), 5, Fixed::ONE, Fixed::ONE);
+    sound::queue_sound(
+        ddgame,
+        KnownSoundId::NukeFlash.into(),
+        5,
+        Fixed::ONE,
+        Fixed::ONE,
+    );
 }
-
 
 /// Bridge: FUN_00547C30 — usercall(EAX=0x80000, ECX=x) + stdcall(y, 0,0,0, 600, 0x10000, 0x1999).
 #[unsafe(naked)]
@@ -622,15 +690,15 @@ unsafe extern "C" fn call_spawn_effect(_x: i32, _y: i32, _addr: u32) {
     core::arch::naked_asm!(
         "push ebx",
         // Stack: 1 save(4) + ret(4) = 8 to first arg
-        "mov ecx, [esp+8]",    // x
-        "mov ebx, [esp+16]",   // addr
+        "mov ecx, [esp+8]",  // x
+        "mov ebx, [esp+16]", // addr
         "push 0x1999",
         "push 0x10000",
-        "push 0x258",          // 600
+        "push 0x258", // 600
         "push 0",
         "push 0",
         "push 0",
-        "push [esp+36]",       // y (8 + 4 + 6*4 = 36)
+        "push [esp+36]", // y (8 + 4 + 6*4 = 36)
         "mov eax, 0x80000",
         "call ebx",
         "pop ebx",
@@ -640,18 +708,16 @@ unsafe extern "C" fn call_spawn_effect(_x: i32, _y: i32, _addr: u32) {
 
 /// Bridge: FUN_004FE070 — usercall(ESI=worm, EDI=y) + stdcall(x). Plain RET.
 #[unsafe(naked)]
-unsafe extern "C" fn call_position_update(
-    _worm: *mut CTaskWorm, _x: i32, _y: i32, _addr: u32,
-) {
+unsafe extern "C" fn call_position_update(_worm: *mut CTaskWorm, _x: i32, _y: i32, _addr: u32) {
     core::arch::naked_asm!(
         "push ebx",
         "push esi",
         "push edi",
         // Stack: 3 saves(12) + ret(4) = 16 to first arg
-        "mov esi, [esp+16]",   // worm
-        "mov edi, [esp+24]",   // y
-        "mov ebx, [esp+28]",   // addr
-        "push [esp+20]",       // x
+        "mov esi, [esp+16]", // worm
+        "mov edi, [esp+24]", // y
+        "mov ebx, [esp+28]", // addr
+        "push [esp+20]",     // x
         "call ebx",
         "pop edi",
         "pop esi",
@@ -665,8 +731,8 @@ unsafe extern "C" fn call_position_update(
 unsafe extern "C" fn call_worm_landing_check(_worm: *mut CTaskWorm, _addr: u32) {
     core::arch::naked_asm!(
         "push esi",
-        "mov esi, [esp+8]",    // worm (1 save + ret = 8)
-        "call [esp+12]",       // addr (8 + 4 = 12)
+        "mov esi, [esp+8]", // worm (1 save + ret = 8)
+        "call [esp+12]",    // addr (8 + 4 = 12)
         "pop esi",
         "ret",
     );
@@ -682,7 +748,8 @@ unsafe fn fire_scales_of_justice(worm: *mut CTaskWorm) {
     // Send message 0x5E to CTaskTurnGame
     let team = lookup_turn_game(worm);
     if !team.is_null() {
-        CTaskTurnGame::handle_message_raw(team,
+        CTaskTurnGame::handle_message_raw(
+            team,
             worm as *mut openwa_core::task::CTask,
             0x5E,
             0,
@@ -695,7 +762,13 @@ unsafe fn fire_scales_of_justice(worm: *mut CTaskWorm) {
     // FUN_005480F0: usercall(EAX=-21) + stdcall(worm, result, 0x17, &worm_name)
     let ddgame = CTask::ddgame_raw(worm as *const CTask);
     let sound_val = call_get_sound_val((*ddgame).timer_obj, rb(0x53EC70));
-    call_play_sound_usercall(worm, sound_val, 0x17, (*worm).worm_name.as_ptr(), rb(0x5480F0));
+    call_play_sound_usercall(
+        worm,
+        sound_val,
+        0x17,
+        (*worm).worm_name.as_ptr(),
+        rb(0x5480F0),
+    );
 }
 
 /// Bridge: FUN_0053EC70 — usercall(EDI=0x6CB) + stdcall(timer_obj). Returns EAX.
@@ -706,8 +779,8 @@ unsafe extern "C" fn call_get_sound_val(_timer_obj: *mut u8, _addr: u32) -> u32 
         "push edi",
         // Stack: 2 saves(8) + ret(4) = 12 to first arg
         "mov edi, 0x6CB",
-        "mov ebx, [esp+16]",   // addr
-        "push [esp+12]",       // timer_obj
+        "mov ebx, [esp+16]", // addr
+        "push [esp+12]",     // timer_obj
         "call ebx",
         "pop edi",
         "pop ebx",
@@ -718,7 +791,11 @@ unsafe extern "C" fn call_get_sound_val(_timer_obj: *mut u8, _addr: u32) -> u32 
 /// Bridge: usercall(EAX=-21) + stdcall(4 params). Plain RET (callee doesn't clean).
 #[unsafe(naked)]
 unsafe extern "C" fn call_play_sound_usercall(
-    _worm: *mut CTaskWorm, _sound_val: u32, _param3: u32, _name: *const u8, _addr: u32,
+    _worm: *mut CTaskWorm,
+    _sound_val: u32,
+    _param3: u32,
+    _name: *const u8,
+    _addr: u32,
 ) {
     core::arch::naked_asm!(
         "push ebx",
@@ -756,7 +833,8 @@ unsafe fn fire_armageddon(worm: *mut CTaskWorm) {
         buf[0x0C..0x10].copy_from_slice(&((*worm).selected_weapon as u32).to_ne_bytes());
         buf[0x10..0x14].copy_from_slice(&(*worm).team_index.to_ne_bytes());
 
-        CTaskTurnGame::handle_message_raw(team,
+        CTaskTurnGame::handle_message_raw(
+            team,
             worm as *mut openwa_core::task::CTask,
             0x5B,
             0x408,
@@ -785,16 +863,19 @@ unsafe fn fire_armageddon(worm: *mut CTaskWorm) {
 /// Bridge: usercall(ECX=half_x, EDX=half_y) + stdcall(worm), RET 0x4.
 #[unsafe(naked)]
 unsafe extern "C" fn call_set_gravity_center(
-    _worm: *mut CTaskWorm, _half_x: i32, _half_y: i32, _addr: u32,
+    _worm: *mut CTaskWorm,
+    _half_x: i32,
+    _half_y: i32,
+    _addr: u32,
 ) {
     core::arch::naked_asm!(
         "push ebx",
         // Stack: 1 save(4) + ret(4) = 8 to first arg
-        "mov ecx, [esp+12]",   // half_x
-        "mov edx, [esp+16]",   // half_y
-        "mov ebx, [esp+20]",   // addr
-        "push [esp+8]",        // worm (shifted by 0 extra pushes before this)
-        "call ebx",            // RET 0x4 cleans worm
+        "mov ecx, [esp+12]", // half_x
+        "mov edx, [esp+16]", // half_y
+        "mov ebx, [esp+20]", // addr
+        "push [esp+8]",      // worm (shifted by 0 extra pushes before this)
+        "call ebx",          // RET 0x4 cleans worm
         "pop ebx",
         "ret",
     );
@@ -808,7 +889,9 @@ unsafe extern "C" fn call_set_gravity_center(
 ///
 /// Convention: stdcall(worm, fire_params, local_struct), RET 0xC.
 unsafe fn fire_dragon_ball(
-    worm: *mut CTaskWorm, fire_params: *const WeaponFireParams, local_struct: *const u8,
+    worm: *mut CTaskWorm,
+    fire_params: *const WeaponFireParams,
+    local_struct: *const u8,
 ) {
     use openwa_core::rebase::rb;
     use openwa_core::task::SharedDataTable;
@@ -828,7 +911,13 @@ unsafe fn fire_dragon_ball(
     // CTaskGirder::Constructor — usercall(EAX=parent) +
     // stdcall(this, 7×fire_param DWORDs, local_struct), RET 0x24.
     // Copy 7 DWORDs from fire_params onto the stack via the naked bridge.
-    call_girder_ctor(buffer, parent as *mut u8, fire_params, local_struct, rb(0x550890));
+    call_girder_ctor(
+        buffer,
+        parent as *mut u8,
+        fire_params,
+        local_struct,
+        rb(0x550890),
+    );
 }
 
 /// Bridge: CTaskGirder::Constructor — usercall(EAX=parent) +
@@ -838,8 +927,11 @@ unsafe fn fire_dragon_ball(
 /// We replicate this by pushing them individually in reverse order.
 #[unsafe(naked)]
 unsafe extern "C" fn call_girder_ctor(
-    _this: *mut u8, _parent: *mut u8, _fire_params: *const WeaponFireParams,
-    _local_struct: *const u8, _addr: u32,
+    _this: *mut u8,
+    _parent: *mut u8,
+    _fire_params: *const WeaponFireParams,
+    _local_struct: *const u8,
+    _addr: u32,
 ) {
     core::arch::naked_asm!(
         "push ebx",
@@ -847,20 +939,20 @@ unsafe extern "C" fn call_girder_ctor(
         "push edi",
         // Stack: 3 saves(12) + ret(4) = 16 to first arg
         // Args: this=+16, parent=+20, fire_params=+24, local_struct=+28, addr=+32
-        "mov esi, [esp+24]",  // ESI = fire_params
-        "mov eax, [esp+20]",  // EAX = parent (usercall)
-        "mov ebx, [esp+32]",  // EBX = ctor address
+        "mov esi, [esp+24]", // ESI = fire_params
+        "mov eax, [esp+20]", // EAX = parent (usercall)
+        "mov ebx, [esp+32]", // EBX = ctor address
         // Push constructor args in reverse: local_struct, 7 DWORDs, this
-        "push [esp+28]",      // local_struct (B+28 → stack pos 1)
-        "push [esi+24]",      // fire_params[6]
-        "push [esi+20]",      // fire_params[5]
-        "push [esi+16]",      // fire_params[4]
-        "push [esi+12]",      // fire_params[3]
-        "push [esi+8]",       // fire_params[2]
-        "push [esi+4]",       // fire_params[1]
-        "push [esi]",         // fire_params[0] (B-28 → stack pos 8)
-        "push [esp+48]",      // this: B-32+48 = B+16 ✓
-        "call ebx",           // RET 0x24 cleans 9 params
+        "push [esp+28]", // local_struct (B+28 → stack pos 1)
+        "push [esi+24]", // fire_params[6]
+        "push [esi+20]", // fire_params[5]
+        "push [esi+16]", // fire_params[4]
+        "push [esi+12]", // fire_params[3]
+        "push [esi+8]",  // fire_params[2]
+        "push [esi+4]",  // fire_params[1]
+        "push [esi]",    // fire_params[0] (B-28 → stack pos 8)
+        "push [esp+48]", // this: B-32+48 = B+16 ✓
+        "call ebx",      // RET 0x24 cleans 9 params
         "pop edi",
         "pop esi",
         "pop ebx",
@@ -897,7 +989,6 @@ unsafe extern "C" fn call_fire_usercall(_eax: *const (), _worm: *mut CTaskWorm, 
 /// Convention: usercall(EAX=worm, ESI=worm, EDI=worm), plain RET.
 unsafe fn fire_girder(worm: *mut CTaskWorm) {
     use crate::replacements::sound;
-    use openwa_core::rebase::rb;
 
     let ddgame = CTask::ddgame_raw(worm as *const CTask);
     let game_version = (*(*ddgame).game_info).game_version;
@@ -933,9 +1024,8 @@ unsafe fn fire_girder(worm: *mut CTaskWorm) {
         girder_visual(landscape, girder_x >> 16, girder_y >> 16, sprite1, sprite2);
 
         // Increment WormEntry counters
-        let arena = openwa_core::engine::ddgame::TeamArenaRef::from_ptr(
-            &raw mut (*ddgame).team_arena,
-        );
+        let arena =
+            openwa_core::engine::ddgame::TeamArenaRef::from_ptr(&raw mut (*ddgame).team_arena);
         let team_index = (*worm).team_index as usize;
         let worm_index = (*worm).worm_index as usize;
         let entry = arena.team_worm_mut(team_index, worm_index);
@@ -954,19 +1044,51 @@ unsafe fn fire_girder(worm: *mut CTaskWorm) {
 #[allow(clippy::too_many_arguments)]
 unsafe fn call_special_impact(
     worm: *mut CTaskWorm,
-    x: i32, y: i32,
-    radius_x: i32, radius_y: i32,
+    x: i32,
+    y: i32,
+    radius_x: i32,
+    radius_y: i32,
     weapon_type: i32,
-    dx: i32, dy: i32,
-    p8: i32, p9: i32, p10: i32,
-    flags: u32, p12: i32,
+    dx: i32,
+    dy: i32,
+    p8: i32,
+    p9: i32,
+    p10: i32,
+    flags: u32,
+    p12: i32,
 ) {
     use openwa_core::rebase::rb;
     type SpecialImpactFn = unsafe extern "stdcall" fn(
-        *mut CTaskWorm, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, u32, i32,
+        *mut CTaskWorm,
+        i32,
+        i32,
+        i32,
+        i32,
+        i32,
+        i32,
+        i32,
+        i32,
+        i32,
+        i32,
+        u32,
+        i32,
     );
     let func: SpecialImpactFn = core::mem::transmute(rb(va::SPECIAL_IMPACT));
-    func(worm, x, y, radius_x, radius_y, weapon_type, dx, dy, p8, p9, p10, flags, p12);
+    func(
+        worm,
+        x,
+        y,
+        radius_x,
+        radius_y,
+        weapon_type,
+        dx,
+        dy,
+        p8,
+        p9,
+        p10,
+        flags,
+        p12,
+    );
 }
 
 /// Compute version-dependent flags for SpecialImpact.
@@ -976,8 +1098,12 @@ unsafe fn call_special_impact(
 /// - Base flags OR 0x10 if version >= 8
 fn special_impact_version_flags(base: u32, version: u8) -> u32 {
     let mut flags = base;
-    if version >= 2 { flags |= 0x20; }
-    if version >= 8 { flags |= 0x10; }
+    if version >= 2 {
+        flags |= 0x20;
+    }
+    if version >= 8 {
+        flags |= 0x10;
+    }
     flags
 }
 
@@ -1004,11 +1130,19 @@ unsafe fn fire_drill(worm: *mut CTaskWorm, local_struct: *const u8) {
     let flags = special_impact_version_flags(0x21C4C, version);
 
     call_special_impact(
-        worm, x, y,
-        0x1A_0000, 0x1E_0000,
-        weapon_type, dx, dy,
-        6, 0x61, 0x51,
-        flags, 1,
+        worm,
+        x,
+        y,
+        0x1A_0000,
+        0x1E_0000,
+        weapon_type,
+        dx,
+        dy,
+        6,
+        0x61,
+        0x51,
+        flags,
+        1,
     );
 }
 
@@ -1060,11 +1194,19 @@ unsafe fn fire_prod(worm: *mut CTaskWorm, local_struct: *const u8) {
     let flags = special_impact_version_flags(0xC4C, version);
 
     call_special_impact(
-        worm, x, y,
-        0xC_0000, 0xC_0000,
-        weapon_type, dx, dy,
-        0, 0, 0,
-        flags, 1,
+        worm,
+        x,
+        y,
+        0xC_0000,
+        0xC_0000,
+        weapon_type,
+        dx,
+        dy,
+        0,
+        0,
+        0,
+        flags,
+        1,
     );
 }
 
@@ -1074,18 +1216,21 @@ unsafe fn fire_prod(worm: *mut CTaskWorm, local_struct: *const u8) {
 /// Args: (spawn_data, worm, fire_params, addr).
 #[unsafe(naked)]
 unsafe extern "C" fn call_projectile_fire_single(
-    _spawn_data: *const WeaponSpawnData, _worm: *mut CTaskWorm, _fire_params: *const WeaponFireParams, _addr: u32,
+    _spawn_data: *const WeaponSpawnData,
+    _worm: *mut CTaskWorm,
+    _fire_params: *const WeaponFireParams,
+    _addr: u32,
 ) {
     core::arch::naked_asm!(
         "push ebx",
         "push esi",
         "push edi",
         // Stack: 3 saves(12) + ret(4) = 16 to first arg
-        "mov edi, [esp+16]",  // EDI = spawn_data
-        "mov ebx, [esp+28]",  // addr
-        "push [esp+24]",      // fire_params
-        "push [esp+24]",      // worm (shifted +4)
-        "call ebx",           // RET 0x8 cleans 2 params
+        "mov edi, [esp+16]", // EDI = spawn_data
+        "mov ebx, [esp+28]", // addr
+        "push [esp+24]",     // fire_params
+        "push [esp+24]",     // worm (shifted +4)
+        "call ebx",          // RET 0x8 cleans 2 params
         "pop edi",
         "pop esi",
         "pop ebx",
@@ -1097,26 +1242,29 @@ unsafe extern "C" fn call_projectile_fire_single(
 /// Args: (this, parent, fire_params, spawn_data, ctor_addr).
 #[unsafe(naked)]
 unsafe extern "C" fn call_missile_ctor(
-    _this: *mut u8, _parent: *mut u8, _fire_params: *const WeaponFireParams, _spawn_data: *const u8, _addr: u32,
+    _this: *mut u8,
+    _parent: *mut u8,
+    _fire_params: *const WeaponFireParams,
+    _spawn_data: *const u8,
+    _addr: u32,
 ) {
     core::arch::naked_asm!(
         "push ebx",
         "push esi",
         "push edi",
         // Stack: 3 saves(12) + ret(4) = 16 to first arg
-        "mov ecx, [esp+16]",  // ECX = this (buffer)
-        "mov ebx, [esp+32]",  // addr (16 + 4*4 args = 32)
-        "push [esp+28]",      // spawn_data
-        "push [esp+28]",      // fire_params (shifted +4)
-        "push [esp+28]",      // parent (shifted +8)
-        "call ebx",           // thiscall: RET 0xC cleans 3 params
+        "mov ecx, [esp+16]", // ECX = this (buffer)
+        "mov ebx, [esp+32]", // addr (16 + 4*4 args = 32)
+        "push [esp+28]",     // spawn_data
+        "push [esp+28]",     // fire_params (shifted +4)
+        "push [esp+28]",     // parent (shifted +8)
+        "call ebx",          // thiscall: RET 0xC cleans 3 params
         "pop edi",
         "pop esi",
         "pop ebx",
         "ret",
     );
 }
-
 
 // ============================================================
 // Passthrough hooks — fire sub-functions
@@ -1154,7 +1302,9 @@ unsafe extern "C" fn trampoline_create_weapon_projectile() {
 /// Original: 0x51E0F0. Allocates CTaskMissile (0x40C bytes), looks up
 /// parent CTaskTurnGame via SharedData, calls the original constructor.
 unsafe extern "cdecl" fn create_weapon_projectile_impl(
-    worm: *mut CTaskWorm, fire_params: *const WeaponFireParams, local_struct: *const u8,
+    worm: *mut CTaskWorm,
+    fire_params: *const WeaponFireParams,
+    local_struct: *const u8,
 ) {
     use openwa_core::rebase::rb;
     use openwa_core::task::SharedDataTable;
@@ -1228,7 +1378,9 @@ unsafe extern "C" fn trampoline_projectile_fire() {
 ///    e. Write rotated velocity into local spawn data
 ///    f. Call ProjectileFire_Single(loop_counter, fire_params) with EDI=spawn_data
 unsafe extern "cdecl" fn projectile_fire_impl(
-    worm: *mut CTaskWorm, fire_params: *const WeaponFireParams, local_struct: *const WeaponSpawnData,
+    worm: *mut CTaskWorm,
+    fire_params: *const WeaponFireParams,
+    local_struct: *const WeaponSpawnData,
 ) {
     use openwa_core::rebase::rb;
 
@@ -1279,10 +1431,8 @@ unsafe extern "cdecl" fn projectile_fire_impl(
         // 2D rotation matrix:
         // speed_x = cos * template_x + sin * template_y
         // speed_y = -sin * template_x + cos * template_y
-        let speed_x = fixed_mul(cos_val, template_speed_x)
-            + fixed_mul(sin_val, template_speed_y);
-        let speed_y = fixed_mul(-sin_val, template_speed_x)
-            + fixed_mul(cos_val, template_speed_y);
+        let speed_x = fixed_mul(cos_val, template_speed_x) + fixed_mul(sin_val, template_speed_y);
+        let speed_y = fixed_mul(-sin_val, template_speed_x) + fixed_mul(cos_val, template_speed_y);
 
         // Write rotated velocity into spawn data
         spawn_data.initial_speed_x = Fixed(speed_x);
@@ -1328,7 +1478,9 @@ unsafe extern "C" fn trampoline_create_arrow() {
 }
 
 unsafe extern "cdecl" fn create_arrow_impl(
-    worm: *mut CTaskWorm, fire_params: *const WeaponFireParams, local_struct: *const u8,
+    worm: *mut CTaskWorm,
+    fire_params: *const WeaponFireParams,
+    local_struct: *const u8,
 ) {
     use openwa_core::rebase::rb;
     use openwa_core::task::SharedDataTable;
@@ -1442,20 +1594,48 @@ pub fn install() -> Result<(), String> {
     unsafe {
         let _ = hook::install("AddAmmo", va::ADD_AMMO, trampoline_add_ammo as *const ())?;
         let _ = hook::install("GetAmmo", va::GET_AMMO, trampoline_get_ammo as *const ())?;
-        let _ = hook::install("SubtractAmmo", va::SUBTRACT_AMMO, trampoline_subtract_ammo as *const ())?;
-        let _ = hook::install("CountAliveWorms", va::COUNT_ALIVE_WORMS, trampoline_count_alive_worms as *const ())?;
+        let _ = hook::install(
+            "SubtractAmmo",
+            va::SUBTRACT_AMMO,
+            trampoline_subtract_ammo as *const (),
+        )?;
+        let _ = hook::install(
+            "CountAliveWorms",
+            va::COUNT_ALIVE_WORMS,
+            trampoline_count_alive_worms as *const (),
+        )?;
         hook::install_trap!("FireWeapon", va::FIRE_WEAPON);
 
         // Passthrough hooks on fire sub-functions (log + call original)
-        let t = hook::install("CreateWeaponProjectile", va::CREATE_WEAPON_PROJECTILE, trampoline_create_weapon_projectile as *const ())?;
+        let t = hook::install(
+            "CreateWeaponProjectile",
+            va::CREATE_WEAPON_PROJECTILE,
+            trampoline_create_weapon_projectile as *const (),
+        )?;
         ORIG_CREATE_WEAPON_PROJECTILE.store(t as u32, Ordering::Relaxed);
-        let t = hook::install("ProjectileFire", va::PROJECTILE_FIRE, trampoline_projectile_fire as *const ())?;
+        let t = hook::install(
+            "ProjectileFire",
+            va::PROJECTILE_FIRE,
+            trampoline_projectile_fire as *const (),
+        )?;
         ORIG_PROJECTILE_FIRE.store(t as u32, Ordering::Relaxed);
-        let t = hook::install("StrikeFire", va::STRIKE_FIRE, trampoline_strike_fire as *const ())?;
+        let t = hook::install(
+            "StrikeFire",
+            va::STRIKE_FIRE,
+            trampoline_strike_fire as *const (),
+        )?;
         ORIG_STRIKE_FIRE.store(t as u32, Ordering::Relaxed);
-        let t = hook::install("PlacedExplosive", va::PLACED_EXPLOSIVE, trampoline_placed_explosive as *const ())?;
+        let t = hook::install(
+            "PlacedExplosive",
+            va::PLACED_EXPLOSIVE,
+            trampoline_placed_explosive as *const (),
+        )?;
         ORIG_PLACED_EXPLOSIVE.store(t as u32, Ordering::Relaxed);
-        let _ = hook::install("CreateArrow", va::CREATE_ARROW, trampoline_create_arrow as *const ())?;
+        let _ = hook::install(
+            "CreateArrow",
+            va::CREATE_ARROW,
+            trampoline_create_arrow as *const (),
+        )?;
     }
 
     Ok(())
