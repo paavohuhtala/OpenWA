@@ -1,13 +1,13 @@
 //! Per-instance file path isolation for concurrent test execution.
 //!
-//! Hooks `kernel32!CreateFileA` to redirect landscape generation temp files
-//! to per-PID paths, preventing races when multiple WA.exe instances run
+//! Hooks `kernel32!CreateFileA` to redirect temp/scratch files to a per-PID
+//! subdirectory, preventing races when multiple WA.exe instances run
 //! simultaneously. Only active when `OPENWA_HEADLESS=1` is set.
 //!
-//! Redirected files (in game directory):
-//!   mono.tmp        → mono_{pid}.tmp
-//!   DATA\land.dat   → DATA\land_{pid}.dat
-//!   DATA\landgen.svg → DATA\landgen_{pid}.svg
+//! Redirected files:
+//!   Game dir:  writetest.txt, mono.tmp, custom.dat
+//!   DATA\:     land.dat, landgen.svg, current.thm, playback.thm
+//!   ERRORLOG:  ERRORLOG.TXT → OPENWA_ERRORLOG_PATH (if set)
 
 use crate::log_line;
 
@@ -33,6 +33,7 @@ type CreateFileAFn = unsafe extern "system" fn(
 static ORIG_CREATE_FILE_A: AtomicU32 = AtomicU32::new(0);
 
 static ERRORLOG_PATH: OnceLock<Option<String>> = OnceLock::new();
+static TEMP_DIR: OnceLock<Option<String>> = OnceLock::new();
 
 fn errorlog_redirect() -> Option<&'static str> {
     ERRORLOG_PATH
@@ -40,34 +41,62 @@ fn errorlog_redirect() -> Option<&'static str> {
         .as_deref()
 }
 
+/// Get (and lazily create) a per-PID temp directory under the game folder.
+fn temp_dir() -> Option<&'static str> {
+    TEMP_DIR
+        .get_or_init(|| {
+            // Build path: {game_dir}\.openwa_tmp\{pid}\
+            let pid = std::process::id();
+            let mut game_dir = std::env::current_dir().ok()?;
+            game_dir.push(format!(".openwa_tmp\\{pid}"));
+            std::fs::create_dir_all(&game_dir).ok()?;
+            // Also create DATA subdirectory
+            std::fs::create_dir_all(game_dir.join("DATA")).ok()?;
+            Some(game_dir.to_string_lossy().into_owned())
+        })
+        .as_deref()
+}
+
+/// Files in the game root directory that need isolation.
+const ROOT_FILES: &[&str] = &["writetest.txt", "mono.tmp", "custom.dat"];
+
+/// Files in the DATA subdirectory that need isolation.
+const DATA_FILES: &[&str] = &["land.dat", "landgen.svg", "current.thm", "playback.thm"];
+
 /// Check if a path ends with one of our target filenames (case-insensitive).
 /// Returns the replacement path if it matches, None otherwise.
 fn redirect_path(path: &str) -> Option<String> {
+    let lower = path.to_ascii_lowercase();
+
     // ERRORLOG.TXT → env var path (if set by test runner)
     if let Some(target) = errorlog_redirect() {
-        let lower = path.to_ascii_lowercase();
-        if lower.ends_with("\\errorlog.txt") || lower.ends_with("/errorlog.txt")
+        if lower.ends_with("\\errorlog.txt")
+            || lower.ends_with("/errorlog.txt")
             || lower == "errorlog.txt"
         {
             return Some(target.to_string());
         }
     }
 
-    let pid = std::process::id();
-    let lower = path.to_ascii_lowercase();
+    let tmp = temp_dir()?;
 
-    if lower.ends_with("\\mono.tmp") || lower == "mono.tmp" {
-        let prefix = &path[..path.len() - "mono.tmp".len()];
-        Some(format!("{prefix}mono_{pid}.tmp"))
-    } else if lower.ends_with("\\land.dat") || lower.ends_with("/land.dat") {
-        let prefix = &path[..path.len() - "land.dat".len()];
-        Some(format!("{prefix}land_{pid}.dat"))
-    } else if lower.ends_with("\\landgen.svg") || lower.ends_with("/landgen.svg") {
-        let prefix = &path[..path.len() - "landgen.svg".len()];
-        Some(format!("{prefix}landgen_{pid}.svg"))
-    } else {
-        None
+    // Check root-level files (writetest.txt, mono.tmp, custom.dat)
+    for &name in ROOT_FILES {
+        if lower.ends_with(&format!("\\{name}")) || lower == name {
+            return Some(format!("{tmp}\\{name}"));
+        }
     }
+
+    // Check DATA\ files (land.dat, landgen.svg, current.thm, playback.thm)
+    for &name in DATA_FILES {
+        let pattern_bs = format!("\\{name}");
+        let pattern_fs = format!("/{name}");
+        if lower.ends_with(&pattern_bs) || lower.ends_with(&pattern_fs) {
+            return Some(format!("{tmp}\\DATA\\{name}"));
+        }
+    }
+
+    None
 }
 
 unsafe extern "system" fn hook_create_file_a(
@@ -135,15 +164,27 @@ pub fn install() -> Result<(), String> {
         ORIG_CREATE_FILE_A.store(trampoline as u32, Ordering::Relaxed);
 
         let pid = std::process::id();
-        let errorlog_msg = if let Some(target) = errorlog_redirect() {
-            format!(", ERRORLOG.TXT → {target}")
-        } else {
-            String::new()
-        };
+        let tmp_msg = temp_dir()
+            .map(|d| format!(" → {d}"))
+            .unwrap_or_default();
+        let errorlog_msg = errorlog_redirect()
+            .map(|t| format!(", ERRORLOG.TXT → {t}"))
+            .unwrap_or_default();
         let _ = log_line(&format!(
-            "[FileIsolation] Hooked CreateFileA (pid={pid}): mono.tmp, land.dat, landgen.svg → per-PID paths{errorlog_msg}"
+            "[FileIsolation] Hooked CreateFileA (pid={pid}): temp files{tmp_msg}{errorlog_msg}"
         ));
     }
 
     Ok(())
+}
+
+/// Clean up the per-PID temp directory. Called during DLL detach or test cleanup.
+pub fn cleanup() {
+    if let Some(tmp) = TEMP_DIR.get().and_then(|o| o.as_deref()) {
+        let _ = std::fs::remove_dir_all(tmp);
+        // Also try to remove parent .openwa_tmp if empty
+        if let Some(parent) = std::path::Path::new(tmp).parent() {
+            let _ = std::fs::remove_dir(parent);
+        }
+    }
 }

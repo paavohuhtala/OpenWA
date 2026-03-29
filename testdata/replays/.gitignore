@@ -1,0 +1,3 @@
+# Output logs from WA.exe /getlog mode — only *_expected.log baselines are tracked
+*.log
+!*_expected.log

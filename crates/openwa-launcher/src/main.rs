@@ -230,9 +230,11 @@ unsafe fn launch(
     }
 
     // Wait for the DLL to signal that all hooks are installed.
-    // Timeout after 10s to avoid hanging if the DLL crashes during init.
+    // Use a generous timeout — under high concurrency (e.g. 16 parallel
+    // test instances), DLL loading + hook installation can exceed 10s due
+    // to I/O contention. 120s matches the test runner's own timeout.
     if !event.is_null() {
-        let wait_result = WaitForSingleObject(event, 10_000);
+        let wait_result = WaitForSingleObject(event, 120_000);
         if wait_result != 0 {
             eprintln!("openwa-launcher: warning: hooks-ready event timed out ({wait_result})");
         }

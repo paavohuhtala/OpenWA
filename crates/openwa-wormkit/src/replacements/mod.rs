@@ -18,9 +18,10 @@ mod team;
 mod weapon;
 mod weapon_release;
 
-/// Write gameplay milestone report. Called from DLL_PROCESS_DETACH.
+/// Write gameplay milestone report and clean up. Called from DLL_PROCESS_DETACH.
 pub fn write_gameplay_report() {
     input::write_gameplay_report();
+    file_isolation::cleanup();
 }
 
 pub fn install_all() -> Result<(), String> {

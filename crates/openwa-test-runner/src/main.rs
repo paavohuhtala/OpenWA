@@ -433,12 +433,7 @@ fn run_tests_parallel(
     }
     drop(tx); // Drop our sender so rx closes when all workers finish
 
-    // Submit work with small stagger to reduce startup races from unidentified
-    // shared resources (writetest.txt, steam.dat, or unknown Win32 globals).
     for (idx, test) in tests.into_iter().enumerate() {
-        if idx > 0 {
-            thread::sleep(Duration::from_millis(200));
-        }
         let _ = work_tx.send((idx, test));
     }
     drop(work_tx); // Signal no more work
@@ -605,44 +600,25 @@ fn write_summary(results: &[TestResult], wall_time: Duration, path: &Path) {
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-/// Clean up per-PID temp files left by the file isolation hook.
-/// Matches patterns: mono_*.tmp, land_*.dat, landgen_*.svg, playback_*.thm, cur_*.thm
+/// Clean up temp files and directories left by the file isolation hook.
+///
+/// The DLL creates `.openwa_tmp/{pid}/` directories and cleans them on exit,
+/// but crashed processes may leave orphans. Also cleans stale ERRORLOG/CRASH files.
 fn cleanup_temp_files(wa_exe: &Path) {
     let game_dir = match wa_exe.parent() {
         Some(d) => d,
         None => return,
     };
 
-    let patterns = [(game_dir, "mono_", ".tmp"), (game_dir, "cur_", ".thm")];
-    let data_dir = game_dir.join("DATA");
-    let data_patterns = [
-        ("land_", ".dat"),
-        ("landgen_", ".svg"),
-        ("playback_", ".thm"),
-    ];
-
-    for (dir, prefix, suffix) in &patterns {
-        cleanup_matching(dir, prefix, suffix);
-    }
-    for (prefix, suffix) in &data_patterns {
-        cleanup_matching(&data_dir, prefix, suffix);
+    // Remove the .openwa_tmp directory tree (all per-PID temp dirs)
+    let tmp_dir = game_dir.join(".openwa_tmp");
+    if tmp_dir.exists() {
+        let _ = fs::remove_dir_all(&tmp_dir);
     }
 
     // Clean up any stale ERRORLOG.TXT / CRASH.DMP in the game directory
     let _ = fs::remove_file(game_dir.join("ERRORLOG.TXT"));
     let _ = fs::remove_file(game_dir.join("CRASH.DMP"));
-}
-
-fn cleanup_matching(dir: &Path, prefix: &str, suffix: &str) {
-    if let Ok(entries) = fs::read_dir(dir) {
-        for entry in entries.flatten() {
-            let name = entry.file_name();
-            let name = name.to_string_lossy();
-            if name.starts_with(prefix) && name.ends_with(suffix) {
-                let _ = fs::remove_file(entry.path());
-            }
-        }
-    }
 }
 
 /// Normalize CRLF to LF for cross-platform comparison.
