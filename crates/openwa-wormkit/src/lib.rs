@@ -82,6 +82,13 @@ fn run() -> Result<(), String> {
 
     replacements::install_all()?;
 
+    // All hooks were queued during install_all() — now enable them in one
+    // batched VirtualProtect pass instead of one syscall per hook.
+    unsafe {
+        minhook::MinHook::apply_queued()
+            .map_err(|e| format!("MinHook apply_queued failed: {e}"))?;
+    }
+
     let _ = log_line("=== All replacements installed ===");
 
     // Signal the launcher that all hooks are installed and the main thread

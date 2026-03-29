@@ -384,8 +384,8 @@ pub unsafe fn install(
     let trampoline = MinHook::create_hook(target, detour)
         .map_err(|e| format!("MinHook create_hook failed for {name}: {e}"))?;
 
-    MinHook::enable_hook(target)
-        .map_err(|e| format!("MinHook enable_hook failed for {name}: {e}"))?;
+    MinHook::queue_enable_hook(target)
+        .map_err(|e| format!("MinHook queue_enable_hook failed for {name}: {e}"))?;
 
     let _ = log_line(&format!(
         "  [REPLACE] {name}: target 0x{:08X}, trampoline 0x{:08X}",

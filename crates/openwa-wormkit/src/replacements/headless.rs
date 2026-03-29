@@ -99,7 +99,7 @@ pub fn install() -> Result<(), String> {
             if let Some(addr) = proc {
                 let target = addr as *mut core::ffi::c_void;
                 if let Ok(trampoline) = minhook::MinHook::create_hook(target, hook_fn) {
-                    let _ = minhook::MinHook::enable_hook(target);
+                    let _ = minhook::MinHook::queue_enable_hook(target);
                     let fn_name = std::str::from_utf8(&name[..name.len() - 1]).unwrap_or("?");
                     let _ = log_line(&format!(
                         "[Headless]   user32!{fn_name} hooked at 0x{:08X}, trampoline 0x{:08X}",
@@ -130,7 +130,7 @@ pub fn install() -> Result<(), String> {
                     target,
                     hook_create_semaphore_a as *mut core::ffi::c_void,
                 ) {
-                    let _ = minhook::MinHook::enable_hook(target);
+                    let _ = minhook::MinHook::queue_enable_hook(target);
                     ORIG_CREATE_SEMAPHORE_A
                         .store(trampoline as u32, core::sync::atomic::Ordering::Relaxed);
                     let _ = log_line(&format!(

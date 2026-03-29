@@ -163,8 +163,8 @@ pub fn install() -> Result<(), String> {
         let target = addr as *mut c_void;
         let trampoline = minhook::MinHook::create_hook(target, hook_create_file_a as *mut c_void)
             .map_err(|e| format!("MinHook create_hook failed for CreateFileA: {e}"))?;
-        minhook::MinHook::enable_hook(target)
-            .map_err(|e| format!("MinHook enable_hook failed for CreateFileA: {e}"))?;
+        minhook::MinHook::queue_enable_hook(target)
+            .map_err(|e| format!("MinHook queue_enable_hook failed for CreateFileA: {e}"))?;
 
         ORIG_CREATE_FILE_A.store(trampoline as u32, Ordering::Relaxed);
 
