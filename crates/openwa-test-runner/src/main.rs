@@ -433,7 +433,12 @@ fn run_tests_parallel(
     }
     drop(tx); // Drop our sender so rx closes when all workers finish
 
+    // Small stagger between launches to reduce startup races on shared
+    // resources (thm.prv, custom.dat) that can't be safely redirected.
     for (idx, test) in tests.into_iter().enumerate() {
+        if idx > 0 {
+            thread::sleep(Duration::from_millis(50));
+        }
         let _ = work_tx.send((idx, test));
     }
     drop(work_tx); // Signal no more work

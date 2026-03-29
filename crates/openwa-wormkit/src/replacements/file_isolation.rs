@@ -41,6 +41,11 @@ fn errorlog_redirect() -> Option<&'static str> {
         .as_deref()
 }
 
+/// Returns the per-PID temp directory path, if file isolation is active.
+pub fn temp_dir_path() -> Option<&'static str> {
+    TEMP_DIR.get().and_then(|o| o.as_deref())
+}
+
 /// Get (and lazily create) a per-PID temp directory under the game folder.
 fn temp_dir() -> Option<&'static str> {
     TEMP_DIR
@@ -58,10 +63,10 @@ fn temp_dir() -> Option<&'static str> {
 }
 
 /// Files in the game root directory that need isolation.
-const ROOT_FILES: &[&str] = &["writetest.txt", "mono.tmp", "custom.dat"];
+const ROOT_FILES: &[&str] = &["writetest.txt", "mono.tmp"];
 
 /// Files in the DATA subdirectory that need isolation.
-const DATA_FILES: &[&str] = &["land.dat", "landgen.svg", "current.thm", "playback.thm"];
+const DATA_FILES: &[&str] = &["land.dat", "landgen.svg"];
 
 /// Check if a path ends with one of our target filenames (case-insensitive).
 /// Returns the replacement path if it matches, None otherwise.

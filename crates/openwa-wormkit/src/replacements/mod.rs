@@ -1,7 +1,7 @@
 mod config;
 mod ddgame_init;
 mod display;
-mod file_isolation;
+pub(crate) mod file_isolation;
 mod frontend;
 mod game_session;
 mod game_state_hooks;
