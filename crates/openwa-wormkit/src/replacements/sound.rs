@@ -10,7 +10,7 @@
 use std::sync::atomic::Ordering;
 
 use openwa_core::address::va;
-use openwa_core::audio::{play_sound, play_sound_pooled, KnownSoundId, SoundId};
+use openwa_core::audio::{play_sound, play_sound_pooled, KnownSoundId, SoundId, SoundSlot};
 use openwa_core::engine::{DDGame, DDGameWrapper, SoundQueueEntry};
 use openwa_core::fixed::Fixed;
 use openwa_core::task::worm::CTaskWorm;
@@ -296,12 +296,7 @@ unsafe extern "cdecl" fn play_worm_sound_2_cdecl(
     volume: u32,
     flags: u32,
 ) {
-    play_worm_sound_2(
-        worm,
-        SoundId(sound_id),
-        Fixed(volume as i32),
-        flags,
-    );
+    play_worm_sound_2(worm, SoundId(sound_id), Fixed(volume as i32), flags);
 }
 
 /// Bridge to FUN_00546bb0 — load and play a positional streaming sound.
@@ -339,11 +334,11 @@ unsafe extern "C" fn call_load_and_play_streaming_positional_bridge(
         "mov ebx, [esp+36]",   // addr
         // Push 5 stdcall params right-to-left: y, x, volume, flags, sound_id.
         // Each push shifts ESP by 4, so the next original param lands at ESP+32.
-        "push [esp+32]",       // y
-        "push [esp+32]",       // x (was +28, shifted +4)
-        "push [esp+32]",       // volume (was +24, shifted +8)
-        "push [esp+32]",       // flags (was +20, shifted +12)
-        "push [esp+32]",       // sound_id (was +16, shifted +16)
+        "push [esp+32]", // y
+        "push [esp+32]", // x (was +28, shifted +4)
+        "push [esp+32]", // volume (was +24, shifted +8)
+        "push [esp+32]", // flags (was +20, shifted +12)
+        "push [esp+32]", // sound_id (was +16, shifted +16)
         "call ebx",
         "pop ebx",
         "pop esi",
@@ -435,7 +430,7 @@ unsafe extern "fastcall" fn hook_dispatch_global_sound(
 
     play_sound(
         dssound,
-        sound_id,
+        SoundSlot(sound_id),
         flags as i32,
         Fixed(volume as i32),
         Fixed(pitch as i32),
@@ -448,21 +443,21 @@ unsafe extern "fastcall" fn hook_dispatch_global_sound(
 unsafe extern "fastcall" fn hook_play_sound_pooled_direct(
     _ecx: u32,
     task: *const CTask,
-    param1: u32,
-    param2: u32,
-    param3: u32,
-) -> u32 {
+    param1: SoundSlot,
+    param2: i32,
+    param3: Fixed,
+) -> i32 {
     let g = &*(*task).ddgame;
     let gi = &*g.game_info;
 
     // Suppression check
     if gi.sound_mute != 0 || g.frame_counter < gi.sound_start_frame {
-        return 0xFFFF_FFFF;
+        return -1;
     }
 
     // Fast-forward check (unique to this function)
     if g.fast_forward_active != 0 {
-        return 0xFFFF_FFFF;
+        return -1;
     }
 
     let dssound = g.sound;
@@ -470,7 +465,7 @@ unsafe extern "fastcall" fn hook_play_sound_pooled_direct(
         return 0;
     }
 
-    play_sound_pooled(dssound, param1, param2 as i32, Fixed(0x10000), Fixed(param3 as i32), Fixed(0)) as u32
+    play_sound_pooled(dssound, param1, param2, Fixed::ONE, param3, Fixed::ZERO)
 }
 
 // ============================================================

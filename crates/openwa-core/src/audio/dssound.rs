@@ -2,6 +2,42 @@ use crate::fixed::Fixed;
 
 use windows::Win32::Media::Audio::DirectSound::IDirectSoundBuffer;
 
+/// Packed sound slot index + playback flags, passed as a single u32.
+///
+/// Layout:
+/// - Bits 0-15: sound slot index (1-499)
+/// - Bit 16: loop flag (play in a loop)
+/// - Bit 17: raw volume flag (skip master volume scaling)
+#[derive(Clone, Copy)]
+#[repr(transparent)]
+pub struct SoundSlot(pub u32);
+
+impl SoundSlot {
+    /// Sound slot index (0-499). 0 = invalid/empty.
+    #[inline]
+    pub fn index(self) -> usize {
+        (self.0 & 0xFFFF) as usize
+    }
+
+    /// Whether the sound should loop continuously.
+    #[inline]
+    pub fn is_looping(self) -> bool {
+        self.0 & 0x10000 != 0
+    }
+
+    /// Whether volume should be used directly (skip master volume scaling).
+    #[inline]
+    pub fn is_raw_volume(self) -> bool {
+        self.0 & 0x20000 != 0
+    }
+
+    /// Return a copy with the loop flag cleared.
+    #[inline]
+    pub fn without_loop(self) -> Self {
+        Self(self.0 & 0xFFFE_FFFF)
+    }
+}
+
 /// Volume-to-dB attenuation table (64 entries of i16).
 /// Copied from WA.exe .rdata at 0x6A6A60.
 /// Index 0 = silence (-10000 dB), index 63 = near-unity (-22 dB).
@@ -33,8 +69,10 @@ type Ptr32 = u32;
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ChannelDescriptor {
-    /// +0x00: Flags/state field (not set by constructor init helper)
-    pub _field_00: u32,
+    /// +0x00: The SoundSlot that was used to start this channel.
+    /// Stored by core_play_sound; checked by set_master_volume/set_channel_volume
+    /// for the raw-volume flag (bit 17).
+    pub slot: SoundSlot,
     /// +0x04: Buffer pool index (0..63), or -1 if not pooled.
     /// Set by play_sound_pooled; checked by update_channels/stop_channel/allocate_channel.
     pub pool_idx: i32,
@@ -88,9 +126,23 @@ pub struct DSSoundVtable {
     /// set_volume_params — sets status_1/2, adjusts channel volumes
     pub set_volume_params: fn(this: *mut DSSound, status: u32, value: i32),
     /// play_sound — wrapper around core play. RET 0x14 = 5 stack params.
-    pub play_sound: fn(this: *mut DSSound, slot_and_flags: u32, priority: i32, volume: Fixed, pan: Fixed, freq: Fixed) -> bool,
+    pub play_sound: fn(
+        this: *mut DSSound,
+        slot: SoundSlot,
+        priority: i32,
+        volume: Fixed,
+        pan: Fixed,
+        freq: Fixed,
+    ) -> bool,
     /// play_sound_pooled — allocates from buffer pool, plays. RET 0x14.
-    pub play_sound_pooled: fn(this: *mut DSSound, slot_and_flags: u32, priority: i32, volume: Fixed, pan: Fixed, freq: Fixed) -> i32,
+    pub play_sound_pooled: fn(
+        this: *mut DSSound,
+        slot: SoundSlot,
+        priority: i32,
+        volume: Fixed,
+        pan: Fixed,
+        freq: Fixed,
+    ) -> i32,
     /// set_pan — sets pan on channel (dB lookup)
     pub set_pan: fn(this: *mut DSSound, channel: u32, pan: Fixed) -> u32,
     /// **stub** — returns 0
@@ -277,8 +329,8 @@ pub unsafe extern "thiscall" fn set_master_volume(this: *mut DSSound, new_volume
         if desc.ds_buffer == 0 {
             continue;
         }
-        // Skip if flag 0x20000 is set in _field_00.
-        if desc._field_00 & 0x20000 != 0 {
+        // Skip channels using raw volume (not scaled by master).
+        if desc.slot.is_raw_volume() {
             continue;
         }
         // Compute combined volume: master * per-channel, fixed-point multiply.
@@ -383,7 +435,7 @@ pub unsafe extern "thiscall" fn set_channel_volume(
     let vol = volume.0.max(0).min(0x10000);
 
     // Compute dB: if flag 0x20000 set, use volume directly (no master scaling).
-    let db = if snd.channel_descs[di]._field_00 & 0x20000 != 0 {
+    let db = if snd.channel_descs[di].slot.is_raw_volume() {
         volume_to_db(vol)
     } else {
         let combined = ((snd.volume.0 as i64 * vol as i64) >> 16) as i32;
@@ -456,7 +508,7 @@ pub unsafe extern "thiscall" fn destructor(this: *mut DSSound, flags: u8) -> *mu
 /// Returns channel descriptor index on success, -1 on failure.
 unsafe fn core_play_sound(
     snd: &mut DSSound,
-    slot_and_flags: u32,
+    slot: SoundSlot,
     priority: i32,
     frequency: Fixed,
     volume: Fixed,
@@ -469,11 +521,8 @@ unsafe fn core_play_sound(
         return -1;
     }
 
-    // Extract loop flag and slot index.
-    let loop_flag = slot_and_flags & 0x10000 != 0;
-    let slot_idx = (slot_and_flags & 0xFFFF) as usize;
-
     // Validate slot index and check buffer loaded.
+    let slot_idx = slot.index();
     if slot_idx == 0 || slot_idx > 499 || snd.channel_slots[slot_idx] == 0 {
         return -1;
     }
@@ -506,7 +555,7 @@ unsafe fn core_play_sound(
     let vol_scaled = (vol * 3 + (((vol * 3) >> 31) & 3)) >> 2;
 
     // Compute dB for volume.
-    let vol_db = if slot_and_flags & 0x20000 != 0 {
+    let vol_db = if slot.is_raw_volume() {
         volume_to_db(vol_scaled)
     } else {
         let combined = ((snd.volume.0 as i64 * vol_scaled as i64) >> 16) as i32;
@@ -519,6 +568,7 @@ unsafe fn core_play_sound(
 
     // Store descriptor state.
     let desc = &mut snd.channel_descs[di];
+    desc.slot = slot;
     desc.pool_idx = -1;
     desc.priority = priority;
     desc.channel_freq = Fixed(channel_freq);
@@ -549,7 +599,7 @@ unsafe fn core_play_sound(
         }
         let _ = buf.SetPan(pan_db);
 
-        let _ = buf.Play(0, 0, if loop_flag { 1 } else { 0 });
+        let _ = buf.Play(0, 0, if slot.is_looping() { 1 } else { 0 });
     }
 
     desc_idx
@@ -599,24 +649,17 @@ unsafe fn allocate_channel(snd: &mut DSSound, priority: i32) -> i32 {
 }
 
 /// Slot 3: play_sound — pure thiscall with 5 stack params, RET 0x14.
-/// Params: slot_and_flags, priority, frequency, volume, pan.
+/// Params: slot (with flags), priority, frequency, volume, pan.
 pub unsafe extern "thiscall" fn play_sound(
     this: *mut DSSound,
-    slot_and_flags: u32,
+    slot: SoundSlot,
     priority: i32,
     frequency: Fixed,
     volume: Fixed,
     pan: Fixed,
 ) -> bool {
     let snd = &mut *this;
-    let result = core_play_sound(
-        snd,
-        slot_and_flags & 0xFFFEFFFF,
-        priority,
-        frequency,
-        volume,
-        pan,
-    );
+    let result = core_play_sound(snd, slot.without_loop(), priority, frequency, volume, pan);
     result >= 0
 }
 
@@ -624,7 +667,7 @@ pub unsafe extern "thiscall" fn play_sound(
 /// Returns pool_id (1-based) on success, 0 on failure.
 pub unsafe extern "thiscall" fn play_sound_pooled(
     this: *mut DSSound,
-    slot_and_flags: u32,
+    slot: SoundSlot,
     priority: i32,
     frequency: Fixed,
     volume: Fixed,
@@ -637,7 +680,7 @@ pub unsafe extern "thiscall" fn play_sound_pooled(
         return 0;
     }
 
-    let desc_idx = core_play_sound(snd, slot_and_flags, priority, frequency, volume, pan);
+    let desc_idx = core_play_sound(snd, slot, priority, frequency, volume, pan);
     if desc_idx < 0 {
         return 0;
     }
