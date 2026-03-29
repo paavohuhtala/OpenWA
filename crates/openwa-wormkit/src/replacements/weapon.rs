@@ -342,7 +342,6 @@ unsafe fn fire_weapon_special(
     ctx: *const WeaponReleaseContext,
 ) {
     use openwa_core::game::weapon::SpecialFireSubtype as S;
-    use openwa_core::rebase::rb;
 
     // Pointer to fire_method field, reinterpreted as fire params pointer for Girder
     let params_38_ptr = &raw const (*entry).fire_method as *const WeaponFireParams;
@@ -375,7 +374,7 @@ unsafe fn fire_weapon_special(
         Ok(S::SelectWorm) => fire_select_worm(worm),
         Ok(S::ScalesOfJustice) => fire_scales_of_justice(worm),
         Ok(S::JetPack) => CTaskWorm::set_state_raw(worm, WormState::WeaponAimed_Maybe),
-        Ok(S::Armageddon) => call_fire_usercall(entry as *const (), worm, rb(0x51EA60)),
+        Ok(S::Armageddon) => fire_armageddon(worm),
         _ => {}
     }
 }
@@ -817,21 +816,25 @@ unsafe extern "C" fn call_play_sound_usercall(
 /// Sends message 0x5B to CTaskTurnGame with weapon/team info, then conditionally
 /// sets a gravity center point via FUN_00547E70.
 /// Convention: usercall(EAX=entry, ESI=worm, EDI=worm), plain RET.
+///
 unsafe fn fire_armageddon(worm: *mut CTaskWorm) {
     use openwa_core::rebase::rb;
 
-    let ddgame = CTask::ddgame_raw(worm as *const CTask);
-    let game_version = (*(*ddgame).game_info).game_version;
-
-    // Send message 0x5B to CTaskTurnGame with weapon info buffer
+    // Send message 0x5B (Armageddon) to CTaskTurnGame with weapon info buffer.
+    //
+    // The original allocates a 0x410-byte stack buffer, writes fields at offsets
+    // 0x04/0x08/0x0C/0x10 from the buffer base, then passes (buffer_base + 4)
+    // as the data pointer to HandleMessage (LEA ECX,[ESP+0x8] after one PUSH
+    // was cleaned by the SharedData lookup). So HandleMessage sees:
+    //   data[0x00] = 100 (0x64), data[0x04] = 166 (0xA6),
+    //   data[0x08] = weapon_id,  data[0x0C] = team_index
     let team = lookup_turn_game(worm);
     if !team.is_null() {
-        let mut buf = [0u8; 0x40C];
-        // buf[0x04] = 100 (0x64), buf[0x08] = 166 (0xA6), buf[0x0C] = weapon_id, buf[0x10] = team_index
-        buf[0x04..0x08].copy_from_slice(&100i32.to_ne_bytes());
-        buf[0x08..0x0C].copy_from_slice(&166i32.to_ne_bytes());
-        buf[0x0C..0x10].copy_from_slice(&((*worm).selected_weapon as u32).to_ne_bytes());
-        buf[0x10..0x14].copy_from_slice(&(*worm).team_index.to_ne_bytes());
+        let mut buf = [0u8; 0x410];
+        buf[0x00..0x04].copy_from_slice(&100i32.to_ne_bytes());
+        buf[0x04..0x08].copy_from_slice(&166i32.to_ne_bytes());
+        buf[0x08..0x0C].copy_from_slice(&((*worm).selected_weapon as u32).to_ne_bytes());
+        buf[0x0C..0x10].copy_from_slice(&(*worm).team_index.to_ne_bytes());
 
         CTaskTurnGame::handle_message_raw(
             team,
@@ -842,20 +845,20 @@ unsafe fn fire_armageddon(worm: *mut CTaskWorm) {
         );
     }
 
+    // Re-read DDGame AFTER HandleMessage — the original does this (MOV EAX,[ESI+0x2C]
+    // at 0x51EAB0 is after the CALL), and HandleMessage may modify game state.
+    let ddgame = CTask::ddgame_raw(worm as *const CTask);
+    let game_version = (*(*ddgame).game_info).game_version;
+
     // If old game version or worm state 0x69, set gravity center
-    if game_version < 0x50 || (*worm).state() == 0x69 {
-        // Compute half-level center from DDGame+0x77C0/0x77C4 (level dimensions)
+    if game_version < 0x50 || (*worm).is_in_state(WormState::Unknown_0x69) {
         let ddgame_raw = ddgame as *const u8;
         let level_w = *(ddgame_raw.add(0x77C0) as *const i32);
         let level_h = *(ddgame_raw.add(0x77C4) as *const i32);
-        // Convert to Fixed16.16 and halve: (value << 16) / 2
-        // Original uses SHL 16; CDQ; SUB EAX,EDX; SAR 1 (round-toward-zero divide)
+        // SHL 16; CDQ; SUB EAX,EDX; SAR 1 — round-toward-zero divide by 2
         let half_x = ((level_w << 16) + (if level_w < 0 { 1 } else { 0 })) >> 1;
         let half_y = ((level_h << 16) + (if level_h < 0 { 1 } else { 0 })) >> 1;
 
-        // FUN_00547E70: usercall(ECX=half_x, EDX=half_y) + stdcall(worm), RET 0x4
-        type SetGravityCenterFn = unsafe extern "stdcall" fn(*mut CTaskWorm);
-        // Need naked bridge for ECX/EDX usercall params
         call_set_gravity_center(worm, half_x, half_y, rb(0x547E70));
     }
 }
@@ -953,26 +956,6 @@ unsafe extern "C" fn call_girder_ctor(
         "push [esi]",    // fire_params[0] (B-28 → stack pos 8)
         "push [esp+48]", // this: B-32+48 = B+16 ✓
         "call ebx",      // RET 0x24 cleans 9 params
-        "pop edi",
-        "pop esi",
-        "pop ebx",
-        "ret",
-    );
-}
-
-/// Bridge: usercall(EAX=eax_val, ESI=worm, EDI=worm), plain RET.
-/// Kept for Low Gravity until the codegen UB is resolved.
-#[unsafe(naked)]
-unsafe extern "C" fn call_fire_usercall(_eax: *const (), _worm: *mut CTaskWorm, _addr: u32) {
-    core::arch::naked_asm!(
-        "push ebx",
-        "push esi",
-        "push edi",
-        "mov eax, [esp+16]",
-        "mov esi, [esp+20]",
-        "mov edi, [esp+20]",
-        "mov ebx, [esp+24]",
-        "call ebx",
         "pop edi",
         "pop esi",
         "pop ebx",

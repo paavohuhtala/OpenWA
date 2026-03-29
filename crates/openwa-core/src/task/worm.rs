@@ -430,6 +430,10 @@ impl CTaskWorm {
         unsafe { *((self as *const CTaskWorm as *const u8).add(0x44) as *const u32) }
     }
 
+    pub fn is_in_state(&self, state: WormState) -> bool {
+        self.state() == state as u32
+    }
+
     // Weapon fire dispatch state:
     // - Fire type/subtypes live in the WeaponEntry (via active_weapon_entry at +0x36C)
     // - Completion flag lives in CGameTask.subclass_data[12] (this object, at +0x3C)

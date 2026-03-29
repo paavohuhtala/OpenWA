@@ -164,8 +164,8 @@ unsafe extern "cdecl" fn weapon_release_impl(
     match FireType::try_from(fire_type) {
         Ok(FireType::Projectile) => match FireMethod::try_from(fire_method) {
             Ok(FireMethod::PlacedExplosive) => {
-                offset_x = aim_dir_x * 0x18;
-                offset_y = aim_dir_y * 0x18;
+                offset_x = aim_dir_x * 24;
+                offset_y = aim_dir_y * 24;
             }
             Ok(FireMethod::ProjectileFire) => {
                 // Falls through to Strike (passthrough)
@@ -173,20 +173,20 @@ unsafe extern "cdecl" fn weapon_release_impl(
                 offset_y = aim_dir_y;
             }
             Ok(FireMethod::CreateWeaponProjectile) => {
-                offset_x = aim_dir_x * scale * 0x18;
-                offset_y = aim_dir_y * scale * 0x18;
+                offset_x = aim_dir_x * scale * 24;
+                offset_y = aim_dir_y * scale * 24;
             }
             Ok(FireMethod::CreateArrow) => {
-                offset_x = aim_dir_x * 0x14;
-                offset_y = aim_dir_y * 0x14;
+                offset_x = aim_dir_x * 20;
+                offset_y = aim_dir_y * 20;
             }
             _ => {}
         },
         Ok(FireType::Rope) => {
-            offset_x = aim_dir_x * scale * 0x18;
-            offset_y = aim_dir_y * scale * 0x18;
+            offset_x = aim_dir_x * scale * 24;
+            offset_y = aim_dir_y * scale * 24;
             // Special Y adjustment for state 0x79
-            if w.state() == WormState::Unknown_0x79 as u32 {
+            if w.is_in_state(WormState::Unknown_0x79) {
                 offset_y += w.base.speed_y;
             }
         }
