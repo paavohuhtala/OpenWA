@@ -54,7 +54,7 @@ Each test runs WA.exe in headless `/getlog` mode (pure CPU simulation, no render
 - Per-PID named event: `OpenWA_HooksReady_{pid}` for launcher↔DLL synchronization
 - Per-PID semaphore: `CreateSemaphoreA("Worms Armageddon")` renamed to `Worms Armageddon_{pid}`
 - Per-PID log paths via `OPENWA_LOG_PATH` and `OPENWA_ERRORLOG_PATH` env vars
-- Per-PID playback.thm via `replay.rs` (written by Rust, read by WA's MapView::Load)
+- Per-PID file redirection via `file_isolation.rs` (CreateFileA hook redirects playback.thm, current.thm, land.dat, landgen.svg to `.openwa_tmp/{pid}/`)
 - WA.exe crash dialog suppressed via `/silentcrash` command-line flag
 - Batched MinHook enables: all hooks use `queue_enable_hook` + single `apply_queued()` call
 
@@ -86,6 +86,24 @@ Headful mode enables fast-forward (50x via DDGame+0x98B0) and runs struct valida
 - `OPENWA_REPLAY_TEST=1` — Fast-forward mode for headful testing (50x speed, 120s safety timeout)
 - `OPENWA_LOG_PATH=<path>` — Override OpenWA.log location (used by test runner for per-instance isolation)
 - `OPENWA_ERRORLOG_PATH=<path>` — Redirect ERRORLOG.TXT to specified path (used by test runner for crash capture)
+- `OPENWA_TRACE_DESYNC=1` — Enable per-frame checksum logging (hooks GameFrameChecksumProcessor)
+- `OPENWA_TRACE_BASELINE=1` — Baseline mode: skip all gameplay hooks, keep only infrastructure
+- `OPENWA_TRACE_HASH_PATH=<path>` — Override frame hash log location (default: frame_hashes.log)
+
+### Trace-desync (automated desync detection)
+
+The `trace-desync` subcommand hooks WA's own `GameFrameChecksumProcessor` (0x5329C0) to capture per-frame checksums, runs the game twice (baseline with minimal hooks vs all hooks), and diffs the results:
+
+```bash
+.\trace-desync.ps1 testdata/replays/longbow.WAgame
+
+# Or directly:
+openwa-test trace-desync testdata/replays/longbow.WAgame [--no-build] [--wa-path PATH]
+```
+
+Baseline mode (`OPENWA_TRACE_BASELINE=1`) installs only: headless, file_isolation, frame_hook, trace_desync. All gameplay hooks (replay, weapon, sound, constructor, etc.) are skipped, giving a "nearly vanilla" WA reference run.
+
+Output reports the first divergent frame or confirms all checksums match. Per-frame hash logs are saved in `testdata/runs/trace-<timestamp>/`.
 
 ### Adding new replay tests
 
@@ -191,6 +209,7 @@ When a register param (e.g., EAX) must be set for the target function, load the 
 
 Replay desyncs (checksum mismatches) can be caused by any code difference — constructor side effects, hooked function behaviour, missing state, wrong calling conventions, etc. Key methodology:
 
+0. **Start with `trace-desync`**: Run `.\trace-desync.ps1 testdata/replays/<replay>.WAgame` to automatically find the exact frame where baseline and hooked runs diverge. This replaces manual per-frame RNG logging as the first diagnostic step.
 1. **WA uses a single shared RNG** (DDGame+0x45EC, `AdvanceGameRNG` at 0x53F320) for both gameplay AND visual effects. There is no separate "visual RNG." Even purely decorative things like particle sprites affect the game RNG and will cause desyncs in headless mode if handled differently. A secondary effect RNG exists at DDGame+0x45F0 (`advance_effect_rng()`, simpler LCG without frame_counter) — used by WeaponRelease visual effects. Uses `team_health_ratio[0]` (unused index-0 slot).
 2. **DDGame flat memory matching is NOT sufficient.** Constructors and hooks have side effects on sub-objects (display, GfxHandler, PCLandscape). Compare all objects pointed to by DDGame AND DDGameWrapper.
 3. **Use hardware watchpoints** (`debug_watchpoint.rs`) with stack traces to find what writes a specific field. DR0–DR3 + VEH handler gives "who wrote this byte?" answers without an external debugger.
@@ -226,6 +245,9 @@ Currently dormant — no hooks wired up. Activate by adding calls in `game_sessi
 - `crates/openwa-wormkit/src/replacements/weapon.rs` — FireWeapon dispatch (trapped, called from weapon_release), 20+ subtypes pure Rust
 - `crates/openwa-wormkit/src/replacements/weapon_release.rs` — WeaponRelease (0x51C3D0), SpawnEffect (0x547C30) — fully ported
 - `crates/openwa-wormkit/src/replacements/sound.rs` — Sound queue, PlaySoundLocal/Global hooks, worm sound functions (stop/play)
+- `crates/openwa-wormkit/src/replacements/frame_hook.rs` — TurnManager_ProcessFrame hook, debug_sync, watchpoint arming (always installed)
+- `crates/openwa-wormkit/src/replacements/replay_test.rs` — Fast-forward + gameplay milestones (headful replay testing only)
+- `crates/openwa-wormkit/src/replacements/trace_desync.rs` — Per-frame checksum logging for desync bisection
 - `crates/openwa-wormkit/src/replacements/` — Function replacements (one file per subsystem)
 - `crates/openwa-wormkit/src/replacements/task/` — Vtable method replacements (cloud, filter, ...)
 - `docs/re-notes/` — Reverse engineering documentation (task hierarchy, memory map, frontend screens)
