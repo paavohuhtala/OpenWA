@@ -155,9 +155,9 @@ Key env vars:
 
 ## Crate Architecture
 
-- **`openwa-core`** — Types, addresses, parsers, ASLR rebasing, and typed WA function wrappers. The source of truth for all reverse-engineered type layouts and known addresses. Contains `registry` (structured address database + field registries), `rebase` (ASLR delta), `wa_call` (calling convention helpers), and `wa/` (typed handle wrappers like `DDGameWrapperHandle`, `CWndHandle`).
+- **`openwa-core`** — Types, addresses, parsers, ASLR rebasing, typed WA function wrappers, **and game logic**. The source of truth for all reverse-engineered type layouts, known addresses, and Rust reimplementations of WA functions. Contains `registry` (structured address database + field registries), `rebase` (ASLR delta), `wa_call` (calling convention helpers), `wa/` (typed handle wrappers), and game logic modules (`game/weapon_fire.rs`, `game/weapon_release.rs`, `audio/sound_ops.rs`, `engine/team_ops.rs`).
 - **`openwa-derive`** — Proc macro crate. Provides `#[derive(FieldRegistry)]` for struct field maps and `#[vtable(...)]` for typed vtable definitions with introspection, calling wrappers, and replacement support.
-- **`openwa-wormkit`** — Unified WormKit cdylib that replaces WA functions with Rust. Logs to `OpenWA.log`. Uses MinHook for inline hooking. Runs registry-driven startup checks (vtable locations, function prologues) automatically at load; the test runner reports any failures after the test summary.
+- **`openwa-wormkit`** — Unified WormKit cdylib: thin hook installation shims (trampolines, `usercall_trampoline!`, `install()`) that wire core's game logic into WA.exe via MinHook. Logs to `OpenWA.log`. Runs registry-driven startup checks automatically at load.
 - **`openwa-test-runner`** — Headless replay test runner (`openwa-test` binary). Discovers replay tests, runs them concurrently via WA.exe's `/getlog` mode, compares output logs. See "Replay Testing" section.
 - **`openwa-debug-cli`** — CLI tool for live memory inspection (`openwa-debug` binary). Connects to the debug server in the DLL.
 - **`openwa-debug-proto`** — Shared protocol types (Request/Response enums, MessagePack framing) between CLI and server.
@@ -237,12 +237,14 @@ Currently dormant — no hooks wired up. Activate by adding calls in `game_sessi
 - `crates/openwa-core/src/task/base.rs` — CTask<V>, CTaskVtable (7 slots), Task trait, SharedDataTable, broadcast_message
 - `crates/openwa-core/src/task/worm.rs` — CTaskWorm, CTaskWormVTable (20 slots), WormState enum (all gaps filled)
 - `crates/openwa-core/src/game/weapon.rs` — Weapon enum, WeaponEntry, FireType/FireMethod/SpecialFireSubtype enums, WeaponFireParams
-- `crates/openwa-core/src/audio/sound.rs` — SoundId newtype (any u32) + KnownSoundId enum (1-126 SFX)
+- `crates/openwa-core/src/audio/sound.rs` — SoundId packed type (low 16 = slot, bit 16 = loop, bit 17 = raw volume) + KnownSoundId enum (1-126 SFX)
+- `crates/openwa-core/src/audio/sound_ops.rs` — Sound queue, PlaySoundLocal/Global, worm sound (stop/play), 3D distance attenuation, streaming dispatch
 - `crates/openwa-core/src/engine/team_arena.rs` — TeamArenaState, WormEntry, TeamHeader, TeamArenaRef
+- `crates/openwa-core/src/engine/team_ops.rs` — Team/worm state accessors (alliance counting, health, state checks)
 - `crates/openwa-core/src/engine/ddgame_constructor.rs` — DDGame constructor (create_ddgame, init_graphics_and_resources)
-- `crates/openwa-wormkit/src/replacements/weapon.rs` — FireWeapon dispatch (trapped, called from weapon_release), 20+ subtypes pure Rust
-- `crates/openwa-wormkit/src/replacements/weapon_release.rs` — WeaponRelease (0x51C3D0), SpawnEffect (0x547C30) — fully ported
-- `crates/openwa-wormkit/src/replacements/sound.rs` — Sound queue, PlaySoundLocal/Global hooks, worm sound functions (stop/play)
+- `crates/openwa-core/src/game/weapon_fire.rs` — FireWeapon dispatch, ammo management, 20+ special weapon handlers, projectile creation
+- `crates/openwa-core/src/game/weapon_release.rs` — WeaponRelease (0x51C3D0), SpawnEffect (0x547C30) — fully ported
+- `crates/openwa-wormkit/src/replacements/sound.rs` — Hook trampolines for sound functions (thin shim over sound_ops)
 - `crates/openwa-wormkit/src/replacements/frame_hook.rs` — TurnManager_ProcessFrame hook, debug_sync, watchpoint arming (always installed)
 - `crates/openwa-wormkit/src/replacements/replay_test.rs` — Fast-forward + gameplay milestones (headful replay testing only)
 - `crates/openwa-wormkit/src/replacements/trace_desync.rs` — Per-frame checksum logging for desync bisection
