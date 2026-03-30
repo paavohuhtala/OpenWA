@@ -93,3 +93,39 @@ pub struct GameSession {
 }
 
 const _: () = assert!(core::mem::size_of::<GameSession>() == 0x120);
+
+// ─── Runtime accessors (DLL-injected context only) ──────────────────────
+
+#[cfg(target_arch = "x86")]
+use crate::address::va;
+#[cfg(target_arch = "x86")]
+use crate::engine::ddgame::DDGame;
+#[cfg(target_arch = "x86")]
+use crate::rebase::rb;
+
+/// Get the DDGameWrapper pointer from the global game session.
+///
+/// Returns null if the session or wrapper hasn't been initialized yet.
+#[cfg(target_arch = "x86")]
+#[inline]
+pub unsafe fn get_wrapper() -> *mut DDGameWrapper {
+    let session = *(rb(va::G_GAME_SESSION) as *const *mut GameSession);
+    if session.is_null() {
+        return core::ptr::null_mut();
+    }
+    (*session).ddgame_wrapper
+}
+
+/// Get the DDGame pointer from the global game session.
+///
+/// Follows the chain: G_GAME_SESSION → GameSession.ddgame_wrapper → DDGameWrapper.ddgame.
+/// Returns null if any link in the chain is uninitialized.
+#[cfg(target_arch = "x86")]
+#[inline]
+pub unsafe fn get_ddgame() -> *mut DDGame {
+    let wrapper = get_wrapper();
+    if wrapper.is_null() {
+        return core::ptr::null_mut();
+    }
+    (*wrapper).ddgame
+}

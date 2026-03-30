@@ -1,15 +1,17 @@
 mod config;
+pub(crate) mod debug_utils;
 mod ddgame_init;
 mod display;
 pub(crate) mod file_isolation;
+mod frame_hook;
 mod frontend;
 mod game_session;
 mod game_state_hooks;
 mod hardware_init;
 mod headless;
-pub(crate) mod input;
 mod render;
 mod replay;
+mod replay_test;
 mod scheme;
 mod sound;
 mod speech;
@@ -21,7 +23,7 @@ mod weapon_release;
 
 /// Write gameplay milestone report and clean up. Called from DLL_PROCESS_DETACH.
 pub fn write_gameplay_report() {
-    input::write_gameplay_report();
+    replay_test::write_gameplay_report();
     trace_desync::flush();
     file_isolation::cleanup();
 }
@@ -30,17 +32,18 @@ pub fn install_all() -> Result<(), String> {
     // Infrastructure hooks — always installed
     headless::install()?;
     file_isolation::install()?;
+    frame_hook::install()?;
     trace_desync::install()?;
 
     // Baseline mode: only install minimal hooks needed for replay playback.
     // Skips all gameplay hooks to provide a "nearly vanilla" reference run.
     if std::env::var("OPENWA_TRACE_BASELINE").is_ok() {
-        input::install()?;
         replay::install()?;
         return Ok(());
     }
 
     // Normal mode: install all hooks
+    replay_test::install()?;
     display::install()?;
     game_session::install()?;
     hardware_init::install()?;
@@ -52,7 +55,6 @@ pub fn install_all() -> Result<(), String> {
     render::install()?;
     sound::install()?;
     speech::install()?;
-    input::install()?;
     ddgame_init::install()?;
     game_state_hooks::install()?;
     replay::install()?;

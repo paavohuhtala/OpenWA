@@ -1190,7 +1190,7 @@ fn dump_worm_tasks() {
 // ---------------------------------------------------------------------------
 
 fn dump_turngame() {
-    use crate::replacements::input::dump_region;
+    use crate::replacements::debug_utils::dump_region;
     use openwa_core::task::CTaskTurnGame;
 
     let _ = log_validation("");
@@ -1366,7 +1366,7 @@ fn dump_turngame() {
 // we can verify against what WA actually stores at runtime.
 
 fn dump_ctask_children() {
-    use crate::replacements::input::dump_region;
+    use crate::replacements::debug_utils::dump_region;
 
     let _ = log_validation("");
     let _ = log_validation("--- CTask children sub-struct dump ---");
@@ -1458,7 +1458,7 @@ fn dump_ctask_children() {
 // ---------------------------------------------------------------------------
 
 fn dump_ctaskteam_entities() {
-    use crate::replacements::input::dump_region;
+    use crate::replacements::debug_utils::dump_region;
     use openwa_core::task::CTaskTeam;
 
     let _ = log_validation("");

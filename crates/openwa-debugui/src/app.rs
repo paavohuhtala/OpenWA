@@ -1,6 +1,6 @@
 use eframe::egui;
 use openwa_core::address::va;
-use openwa_core::engine::{DDGame, DDGameWrapper};
+use openwa_core::engine::{game_session, DDGame};
 use openwa_core::rebase::rb;
 use openwa_core::registry;
 use openwa_core::task::{
@@ -51,19 +51,8 @@ unsafe fn entity_label(addr: u32) -> String {
 
 /// Returns a pointer to DDGame, or None if not in-game.
 unsafe fn get_ddgame() -> Option<*const DDGame> {
-    let session_ptr = *(rb(va::G_GAME_SESSION) as *const u32);
-    if session_ptr == 0 {
-        return None;
-    }
-    let wrapper_addr = *((session_ptr + 0xA0) as *const u32);
-    if wrapper_addr == 0 {
-        return None;
-    }
-    let ddgame_ptr = (*(wrapper_addr as *const DDGameWrapper)).ddgame;
-    if ddgame_ptr.is_null() {
-        return None;
-    }
-    Some(ddgame_ptr)
+    let ptr = game_session::get_ddgame();
+    if ptr.is_null() { None } else { Some(ptr) }
 }
 
 /// Unlock all weapons: set ammo to unlimited (-1) and delays to 0 for all teams.
