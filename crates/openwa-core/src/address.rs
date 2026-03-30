@@ -283,8 +283,16 @@ pub mod va {
         fn/Stdcall TURN_MANAGER_PROCESS_FRAME = 0x0055_FDA0;
         /// Control task HandleMessage
         fn CONTROL_TASK_HANDLE_MESSAGE = 0x0054_51F0;
-        /// End-of-frame processing
-        fn GAME_FRAME_END_PROCESSOR = 0x0053_1960;
+        /// End-of-frame message queue / hurry processing
+        fn GAME_FRAME_MESSAGE_PROCESSOR = 0x0053_1960;
+        /// End-of-frame checksum computation (__thiscall, ECX=ctrl, stack=wrapper*)
+        fn/Thiscall GAME_FRAME_CHECKSUM_PROCESSOR = 0x0053_29C0;
+        /// Game state serialization for checksum (called by checksum processor)
+        fn SERIALIZE_GAME_STATE = 0x0053_2330;
+        /// Game state checksum: ROL-3-ADD hash (__fastcall)
+        fn/Fastcall COMPUTE_STATE_CHECKSUM = 0x0054_6140;
+        /// Multi-segment checksum variant
+        fn COMPUTE_STATE_CHECKSUM_MULTI = 0x0054_6170;
         /// Main frame loop
         fn GAME_FRAME_DISPATCHER = 0x0053_1D00;
         /// Sends game packet if network buffer allows

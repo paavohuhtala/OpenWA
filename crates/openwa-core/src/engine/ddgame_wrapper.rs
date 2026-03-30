@@ -26,8 +26,16 @@ pub const SPEECH_NAME_TABLE_LEN: usize = 360;
 pub struct DDGameWrapper {
     /// 0x000: Vtable pointer (0x66A30C)
     pub vtable: *mut u8,
-    /// 0x004-0x487: Unknown fields
-    pub _unknown_004: [u8; 0x484],
+    /// 0x004-0x267: Unknown fields
+    pub _unknown_004: [u8; 0x264],
+    /// 0x268: Network sync checksum A (written by GameFrameChecksumProcessor)
+    pub sync_checksum_a: u32,
+    /// 0x26C: Network sync checksum B (written by GameFrameChecksumProcessor)
+    pub sync_checksum_b: u32,
+    /// 0x270: Checksum validity flag (set to 1 after computation)
+    pub checksum_valid: u32,
+    /// 0x274-0x487: Unknown fields
+    pub _unknown_274: [u8; 0x214],
     /// 0x488: Pointer to DDGame allocation (DWORD index 0x122)
     pub ddgame: *mut DDGame,
     /// 0x48C: Network bridge object (0x2C bytes). Only set for online games (game_version == -2).

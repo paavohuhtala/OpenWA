@@ -689,9 +689,308 @@ fn parse_errorlog_exception(content: Option<&str>) -> &'static str {
     "crash (SEH handled)"
 }
 
+// ─── Trace-desync subcommand ─────────────────────────────────────────────
+
+struct TraceDesyncArgs {
+    replay: PathBuf,
+    no_build: bool,
+    wa_path: Option<PathBuf>,
+}
+
+fn parse_trace_desync_args(argv: &[String]) -> TraceDesyncArgs {
+    let mut replay = None;
+    let mut no_build = false;
+    let mut wa_path = None;
+    let mut i = 0;
+    while i < argv.len() {
+        match argv[i].as_str() {
+            "--no-build" => no_build = true,
+            "--wa-path" => {
+                i += 1;
+                if i < argv.len() {
+                    wa_path = Some(PathBuf::from(&argv[i]));
+                }
+            }
+            s if !s.starts_with('-') => replay = Some(PathBuf::from(s)),
+            other => {
+                eprintln!("Unknown argument: {other}");
+                eprintln!(
+                    "Usage: openwa-test trace-desync <replay.WAgame> [--no-build] [--wa-path PATH]"
+                );
+                std::process::exit(1);
+            }
+        }
+        i += 1;
+    }
+    let replay = replay.unwrap_or_else(|| {
+        eprintln!(
+            "Usage: openwa-test trace-desync <replay.WAgame> [--no-build] [--wa-path PATH]"
+        );
+        std::process::exit(1);
+    });
+    if replay.extension().and_then(|e| e.to_str()) != Some("WAgame") {
+        eprintln!(
+            "ERROR: Expected a .WAgame replay file, got: {}",
+            replay.display()
+        );
+        std::process::exit(1);
+    }
+    if !replay.exists() {
+        eprintln!("ERROR: Replay file not found: {}", replay.display());
+        std::process::exit(1);
+    }
+    TraceDesyncArgs {
+        replay,
+        no_build,
+        wa_path,
+    }
+}
+
+struct FrameHash {
+    frame: u32,
+    checksum_a: u32,
+    checksum_b: u32,
+}
+
+fn read_hash_log(path: &Path) -> Vec<FrameHash> {
+    let content = fs::read_to_string(path).unwrap_or_default();
+    content
+        .lines()
+        .filter_map(|line| {
+            let parts: Vec<&str> = line.split('\t').collect();
+            if parts.len() >= 3 {
+                Some(FrameHash {
+                    frame: parts[0].parse().ok()?,
+                    checksum_a: u32::from_str_radix(parts[1], 16).ok()?,
+                    checksum_b: u32::from_str_radix(parts[2], 16).ok()?,
+                })
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+fn run_trace_instance(
+    launcher: &Path,
+    wa_exe: &Path,
+    replay: &Path,
+    hash_path: &Path,
+    openwa_log: &Path,
+    errorlog_path: &Path,
+    is_baseline: bool,
+) -> (Duration, bool) {
+    let start = Instant::now();
+    let mut cmd = Command::new(launcher);
+    cmd.arg(wa_exe)
+        .arg("/getlog")
+        .arg(replay)
+        .env("OPENWA_HEADLESS", "1")
+        .env("OPENWA_TRACE_DESYNC", "1")
+        .env("OPENWA_TRACE_HASH_PATH", hash_path)
+        .env("OPENWA_LOG_PATH", openwa_log)
+        .env("OPENWA_ERRORLOG_PATH", errorlog_path)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .creation_flags(CREATE_NO_WINDOW);
+
+    if is_baseline {
+        cmd.env("OPENWA_TRACE_BASELINE", "1");
+    }
+
+    let status = cmd.status();
+    let duration = start.elapsed();
+    let ok = match status {
+        Ok(s) => {
+            if !s.success() {
+                let code = s.code().unwrap_or(-1);
+                eprintln!(
+                    "  WARNING: WA.exe exited with code {} (0x{:08X})",
+                    code, code as u32
+                );
+                false
+            } else {
+                true
+            }
+        }
+        Err(e) => {
+            eprintln!("  ERROR: Failed to launch: {e}");
+            false
+        }
+    };
+    (duration, ok)
+}
+
+fn compare_hashes(baseline: &[FrameHash], hooks: &[FrameHash]) {
+    let min_len = baseline.len().min(hooks.len());
+    if min_len == 0 {
+        eprintln!(
+            "ERROR: No frame hashes captured (baseline: {}, hooks: {})",
+            baseline.len(),
+            hooks.len()
+        );
+        std::process::exit(1);
+    }
+
+    println!("Comparing {} frames...\n", min_len);
+
+    let mut first_divergence = None;
+    for i in 0..min_len {
+        if baseline[i].checksum_a != hooks[i].checksum_a
+            || baseline[i].checksum_b != hooks[i].checksum_b
+        {
+            first_divergence = Some(i);
+            break;
+        }
+    }
+
+    match first_divergence {
+        None => {
+            if baseline.len() != hooks.len() {
+                println!(
+                    "WARN: Frame count differs (baseline: {}, hooks: {}) \
+                     but all {} common frames match.",
+                    baseline.len(),
+                    hooks.len(),
+                    min_len
+                );
+            } else {
+                println!(
+                    "{}",
+                    green(&format!(
+                        "OK: All {} frames have identical checksums.",
+                        min_len
+                    ))
+                );
+            }
+        }
+        Some(idx) => {
+            let b = &baseline[idx];
+            let h = &hooks[idx];
+            println!("{}", red(&format!("DESYNC at frame {}!", b.frame)));
+            println!(
+                "  baseline: A={:08X} B={:08X}",
+                b.checksum_a, b.checksum_b
+            );
+            println!(
+                "  hooks:    A={:08X} B={:08X}",
+                h.checksum_a, h.checksum_b
+            );
+            if idx > 0 {
+                let prev = &baseline[idx - 1];
+                println!(
+                    "  last matching frame: {} (A={:08X})",
+                    prev.frame, prev.checksum_a
+                );
+            }
+            let divergent = (idx..min_len)
+                .filter(|&i| {
+                    baseline[i].checksum_a != hooks[i].checksum_a
+                        || baseline[i].checksum_b != hooks[i].checksum_b
+                })
+                .count();
+            println!(
+                "  {} of {} remaining frames diverge",
+                divergent,
+                min_len - idx
+            );
+        }
+    }
+}
+
+fn run_trace_desync(args: TraceDesyncArgs) {
+    // Build
+    if !args.no_build {
+        eprint!("Building... ");
+        match build() {
+            Ok(d) => eprintln!("done ({:.1}s)", d.as_secs_f64()),
+            Err(e) => {
+                eprintln!("FAILED: {e}");
+                std::process::exit(1);
+            }
+        }
+    }
+
+    // Find executables
+    let wa_exe = find_wa_exe(args.wa_path.as_deref()).unwrap_or_else(|| {
+        eprintln!("Cannot find WA.exe. Use --wa-path or set OPENWA_WA_PATH.");
+        std::process::exit(1);
+    });
+    let launcher = find_launcher().unwrap_or_else(|| {
+        eprintln!("Cannot find openwa-launcher.exe. Run cargo build first.");
+        std::process::exit(1);
+    });
+
+    // Resolve replay path
+    let replay = strip_unc(fs::canonicalize(&args.replay).unwrap_or(args.replay));
+
+    // Create run directory
+    let ts = timestamp();
+    let run_dir = PathBuf::from(RUNS_DIR).join(format!("trace-{ts}"));
+    let _ = fs::create_dir_all(&run_dir);
+    let run_dir = strip_unc(fs::canonicalize(&run_dir).unwrap_or(run_dir));
+
+    // Run baseline (minimal hooks)
+    eprint!("Running baseline (minimal hooks)... ");
+    let baseline_hash = run_dir.join("baseline_hashes.log");
+    let baseline_log = run_dir.join("baseline_openwa.log");
+    let baseline_errlog = run_dir.join("baseline_errorlog.txt");
+    let (baseline_dur, _) = run_trace_instance(
+        &launcher,
+        &wa_exe,
+        &replay,
+        &baseline_hash,
+        &baseline_log,
+        &baseline_errlog,
+        true,
+    );
+    let baseline_hashes = read_hash_log(&baseline_hash);
+    eprintln!(
+        "done ({:.1}s, {} frames)",
+        baseline_dur.as_secs_f64(),
+        baseline_hashes.len()
+    );
+
+    // Run with all hooks
+    eprint!("Running with all hooks...            ");
+    let hooks_hash = run_dir.join("hooks_hashes.log");
+    let hooks_log = run_dir.join("hooks_openwa.log");
+    let hooks_errlog = run_dir.join("hooks_errorlog.txt");
+    let (hooks_dur, _) = run_trace_instance(
+        &launcher,
+        &wa_exe,
+        &replay,
+        &hooks_hash,
+        &hooks_log,
+        &hooks_errlog,
+        false,
+    );
+    let hooks_hashes = read_hash_log(&hooks_hash);
+    eprintln!(
+        "done ({:.1}s, {} frames)",
+        hooks_dur.as_secs_f64(),
+        hooks_hashes.len()
+    );
+
+    println!();
+    compare_hashes(&baseline_hashes, &hooks_hashes);
+
+    // Clean up
+    cleanup_temp_files(&wa_exe);
+    println!("\nRun directory: {}", run_dir.display());
+}
+
 // ─── Main ───────────────────────────────────────────────────────────────────
 
 fn main() {
+    // Check for subcommands before normal arg parsing
+    let argv: Vec<String> = env::args().skip(1).collect();
+    if argv.first().map(|s| s.as_str()) == Some("trace-desync") {
+        let sub_args = parse_trace_desync_args(&argv[1..]);
+        run_trace_desync(sub_args);
+        return;
+    }
+
     let args = parse_args();
 
     // Discover tests
