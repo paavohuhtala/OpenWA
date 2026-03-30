@@ -21,9 +21,6 @@ cargo build -p openwa-validator --release
 # Run tests (openwa-types is pure Rust, works on any host)
 cargo test -p openwa-core
 
-# Run harness tests (must be 32-bit, needs WA.exe on disk)
-cargo test --target i686-pc-windows-msvc -p openwa-harness
-
 # Single test
 cargo test -p openwa-core -- scheme_parse::parse_beginner_v2
 ```
@@ -145,7 +142,6 @@ Key env vars:
 - **`openwa-core`** — Types, addresses, parsers, ASLR rebasing, and typed WA function wrappers. The source of truth for all reverse-engineered type layouts and known addresses. Contains `registry` (structured address database + field registries), `rebase` (ASLR delta), `wa_call` (calling convention helpers), and `wa/` (typed handle wrappers like `DDGameWrapperHandle`, `CWndHandle`).
 - **`openwa-derive`** — Proc macro crate. Provides `#[derive(FieldRegistry)]` for struct field maps and `#[vtable(...)]` for typed vtable definitions with introspection, calling wrappers, and replacement support.
 - **`openwa-wormkit`** — Unified WormKit cdylib that replaces WA functions with Rust and optionally validates types against live memory. Logs to `OpenWA.log` (hooks) and `OpenWA_validation.log` (validation). Uses MinHook for inline hooking. Validation is enabled via `OPENWA_VALIDATE=1` env var.
-- **`openwa-harness`** — Offline test harness that loads WA.exe into process memory via `LoadLibraryExA(DONT_RESOLVE_DLL_REFERENCES)` for testing without running the game.
 - **`openwa-test-runner`** — Headless replay test runner (`openwa-test` binary). Discovers replay tests, runs them concurrently via WA.exe's `/getlog` mode, compares output logs. See "Replay Testing" section.
 - **`openwa-debug-cli`** — CLI tool for live memory inspection (`openwa-debug` binary). Connects to the debug server in the DLL.
 - **`openwa-debug-proto`** — Shared protocol types (Request/Response enums, MessagePack framing) between CLI and server.
