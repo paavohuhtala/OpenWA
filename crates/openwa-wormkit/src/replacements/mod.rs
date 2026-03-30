@@ -35,10 +35,9 @@ pub fn install_all() -> Result<(), String> {
     frame_hook::install()?;
     trace_desync::install()?;
 
-    // Baseline mode: only install minimal hooks needed for replay playback.
-    // Skips all gameplay hooks to provide a "nearly vanilla" reference run.
+    // Baseline mode: skip all gameplay hooks for a "nearly vanilla" reference run.
+    // File isolation handles playback.thm redirection, so replay hooks aren't needed.
     if std::env::var("OPENWA_TRACE_BASELINE").is_ok() {
-        replay::install()?;
         return Ok(());
     }
 

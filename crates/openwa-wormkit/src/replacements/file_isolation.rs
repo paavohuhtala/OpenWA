@@ -66,7 +66,7 @@ fn temp_dir() -> Option<&'static str> {
 const ROOT_FILES: &[&str] = &["writetest.txt", "mono.tmp"];
 
 /// Files in the DATA subdirectory that need isolation.
-const DATA_FILES: &[&str] = &["land.dat", "landgen.svg"];
+const DATA_FILES: &[&str] = &["land.dat", "landgen.svg", "current.thm", "playback.thm"];
 
 /// Check if a path ends with one of our target filenames (case-insensitive).
 /// Returns the replacement path if it matches, None otherwise.
