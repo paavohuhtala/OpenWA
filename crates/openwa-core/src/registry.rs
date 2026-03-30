@@ -523,6 +523,7 @@ mod tests {
         assert_eq!(TEST_CTOR, 0x0050_0000);
         assert_eq!(TEST_FUNC, 0x0053_0000);
         assert_eq!(TEST_GLOBAL, 0x007A_0000);
+        assert_eq!(TEST_VMETHOD, 0x0050_1000);
     }
 
     #[test]

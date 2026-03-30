@@ -41,11 +41,6 @@ fn errorlog_redirect() -> Option<&'static str> {
         .as_deref()
 }
 
-/// Returns the per-PID temp directory path, if file isolation is active.
-pub fn temp_dir_path() -> Option<&'static str> {
-    TEMP_DIR.get().and_then(|o| o.as_deref())
-}
-
 /// Get (and lazily create) a per-PID temp directory under the game folder.
 fn temp_dir() -> Option<&'static str> {
     TEMP_DIR
@@ -169,9 +164,7 @@ pub fn install() -> Result<(), String> {
         ORIG_CREATE_FILE_A.store(trampoline as u32, Ordering::Relaxed);
 
         let pid = std::process::id();
-        let tmp_msg = temp_dir()
-            .map(|d| format!(" → {d}"))
-            .unwrap_or_default();
+        let tmp_msg = temp_dir().map(|d| format!(" → {d}")).unwrap_or_default();
         let errorlog_msg = errorlog_redirect()
             .map(|t| format!(", ERRORLOG.TXT → {t}"))
             .unwrap_or_default();

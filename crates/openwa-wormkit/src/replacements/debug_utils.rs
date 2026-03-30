@@ -10,6 +10,7 @@ use openwa_core::rebase::rb;
 /// Dump a memory region as DWORDs with automatic pointer classification.
 ///
 /// Uses `openwa_core::mem::classify_pointer` for pointer detection.
+#[allow(dead_code)]
 pub unsafe fn dump_region(base_ptr: *const u8, offset: usize, size: usize, struct_name: &str) {
     use openwa_core::mem;
     use openwa_debug_proto::PointerKind;
