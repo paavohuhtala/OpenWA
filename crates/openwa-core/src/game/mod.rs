@@ -3,6 +3,8 @@ pub mod frontend;
 pub mod message;
 pub mod scheme;
 pub mod weapon;
+pub mod weapon_fire;
+pub mod weapon_release;
 
 pub use class_type::ClassType;
 pub use frontend::ScreenId;

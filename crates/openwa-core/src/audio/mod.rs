@@ -2,6 +2,7 @@ pub mod active_sound;
 pub mod dssound;
 pub mod music;
 pub mod sound;
+pub mod sound_ops;
 pub mod speech;
 pub mod streaming;
 

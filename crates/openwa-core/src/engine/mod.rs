@@ -9,6 +9,7 @@ pub mod net_bridge;
 pub mod net_wrapper;
 pub mod replay;
 pub mod team_arena;
+pub mod team_ops;
 
 pub use ddgame::DDGame;
 pub use ddgame_constructor::{

@@ -81,3 +81,25 @@ const _: () = assert!(core::mem::size_of::<CTaskFilter>() == 0xB4);
 
 // Generate typed vtable method wrappers: handle_message(), process_frame().
 bind_CTaskFilterVTable!(CTaskFilter, base.vtable);
+
+/// CTaskFilter::HandleMessage replacement — pure game logic.
+///
+/// Messages with `msg_type < 98` are only forwarded if
+/// `subscription_table[msg_type] != 0`. Messages >= 98 always pass through.
+/// Forwarding calls `broadcast_message` which propagates down to child tasks.
+pub unsafe extern "thiscall" fn filter_handle_message(
+    this: *mut CTaskFilter,
+    sender: *mut CTask,
+    msg_type: u32,
+    size: u32,
+    data: *const u8,
+) {
+    // Check subscription table — messages >= 98 always pass through
+    let table = &(*this).subscription_table;
+    if (msg_type as usize) < table.len() && table[msg_type as usize] == 0 {
+        return; // message not subscribed — drop silently
+    }
+
+    // Broadcast to children — raw-pointer version avoids noalias UB
+    CTask::broadcast_message_raw(this as *mut CTask, sender, msg_type, size, data);
+}
