@@ -285,8 +285,13 @@ pub struct DDGame {
     pub level_bound_min_y: i32,
     /// 0x77A8: Level bound max Y (Fixed-point).
     pub level_bound_max_y: i32,
-    /// 0x77AC-0x77BF: Unknown
-    pub _unknown_77ac: [u8; 0x77C0 - 0x77AC],
+    /// 0x77AC-0x77B7: Unknown
+    pub _unknown_77ac: [u8; 0x77B8 - 0x77AC],
+    /// 0x77B8: Level width for 3D sound distance computation (pixels, not fixed-point).
+    /// Read by ComputeDistanceParams, shifted left 16 before passing to Distance3D_Attenuation.
+    pub level_width_sound: i32,
+    /// 0x77BC-0x77BF: Unknown
+    pub _unknown_77bc: [u8; 0x77C0 - 0x77BC],
 
     /// 0x77C0: Level width in pixels (set by PCLandscape constructor).
     pub level_width: u32,
@@ -493,6 +498,14 @@ impl DDGame {
                 core::mem::transmute(rb(va::LOAD_STRING_RESOURCE));
             self.hud_status_text = load_string(0x70F);
         }
+    }
+
+    /// Listener position for 3D audio — stored at DDGame+0x8CEC (screen_coords[3]).
+    ///
+    /// Returns `(x, y)` as raw i32 values (fixed-point 16.16).
+    /// Used by ComputeDistanceParams / Distance3D_Attenuation.
+    pub fn listener_pos(&self) -> (i32, i32) {
+        (self.screen_coords[3].x, self.screen_coords[3].y)
     }
 }
 

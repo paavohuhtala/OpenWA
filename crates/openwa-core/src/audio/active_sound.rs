@@ -40,7 +40,7 @@ pub struct ActiveSoundEntry {
     /// 0x0C: Volume (fixed-point 16.16, 0x10000 = 1.0).
     pub volume: Fixed,
     /// 0x10: Running counter value at time of insertion (unique ID).
-    pub sequence: u32,
+    pub sequence: i32,
     /// 0x14: DSSound channel handle (return from play_sound_pooled). 0 = free slot.
     pub channel_handle: u32,
 }
@@ -54,7 +54,7 @@ impl ActiveSoundTable {
     /// strips it before calling). The low 6 bits index into the entry table.
     ///
     /// Returns true if the sound was found and stopped.
-    pub unsafe fn stop_sound(&mut self, handle: u32) -> bool {
+    pub unsafe fn stop_sound(&mut self, handle: i32) -> bool {
         let slot = (handle & 0x3F) as usize;
         let entry = &mut self.entries[slot];
 

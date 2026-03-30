@@ -2,41 +2,7 @@ use crate::fixed::Fixed;
 
 use windows::Win32::Media::Audio::DirectSound::IDirectSoundBuffer;
 
-/// Packed sound slot index + playback flags, passed as a single u32.
-///
-/// Layout:
-/// - Bits 0-15: sound slot index (1-499)
-/// - Bit 16: loop flag (play in a loop)
-/// - Bit 17: raw volume flag (skip master volume scaling)
-#[derive(Clone, Copy)]
-#[repr(transparent)]
-pub struct SoundSlot(pub u32);
-
-impl SoundSlot {
-    /// Sound slot index (0-499). 0 = invalid/empty.
-    #[inline]
-    pub fn index(self) -> usize {
-        (self.0 & 0xFFFF) as usize
-    }
-
-    /// Whether the sound should loop continuously.
-    #[inline]
-    pub fn is_looping(self) -> bool {
-        self.0 & 0x10000 != 0
-    }
-
-    /// Whether volume should be used directly (skip master volume scaling).
-    #[inline]
-    pub fn is_raw_volume(self) -> bool {
-        self.0 & 0x20000 != 0
-    }
-
-    /// Return a copy with the loop flag cleared.
-    #[inline]
-    pub fn without_loop(self) -> Self {
-        Self(self.0 & 0xFFFE_FFFF)
-    }
-}
+use crate::audio::sound::SoundId;
 
 /// Volume-to-dB attenuation table (64 entries of i16).
 /// Copied from WA.exe .rdata at 0x6A6A60.
@@ -69,10 +35,10 @@ type Ptr32 = u32;
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ChannelDescriptor {
-    /// +0x00: The SoundSlot that was used to start this channel.
+    /// +0x00: The SoundId that was used to start this channel.
     /// Stored by core_play_sound; checked by set_master_volume/set_channel_volume
     /// for the raw-volume flag (bit 17).
-    pub slot: SoundSlot,
+    pub slot: SoundId,
     /// +0x04: Buffer pool index (0..63), or -1 if not pooled.
     /// Set by play_sound_pooled; checked by update_channels/stop_channel/allocate_channel.
     pub pool_idx: i32,
@@ -128,7 +94,7 @@ pub struct DSSoundVtable {
     /// play_sound — wrapper around core play. RET 0x14 = 5 stack params.
     pub play_sound: fn(
         this: *mut DSSound,
-        slot: SoundSlot,
+        slot: SoundId,
         priority: i32,
         volume: Fixed,
         pan: Fixed,
@@ -137,7 +103,7 @@ pub struct DSSoundVtable {
     /// play_sound_pooled — allocates from buffer pool, plays. RET 0x14.
     pub play_sound_pooled: fn(
         this: *mut DSSound,
-        slot: SoundSlot,
+        slot: SoundId,
         priority: i32,
         volume: Fixed,
         pan: Fixed,
@@ -508,7 +474,7 @@ pub unsafe extern "thiscall" fn destructor(this: *mut DSSound, flags: u8) -> *mu
 /// Returns channel descriptor index on success, -1 on failure.
 unsafe fn core_play_sound(
     snd: &mut DSSound,
-    slot: SoundSlot,
+    slot: SoundId,
     priority: i32,
     frequency: Fixed,
     volume: Fixed,
@@ -652,7 +618,7 @@ unsafe fn allocate_channel(snd: &mut DSSound, priority: i32) -> i32 {
 /// Params: slot (with flags), priority, frequency, volume, pan.
 pub unsafe extern "thiscall" fn play_sound(
     this: *mut DSSound,
-    slot: SoundSlot,
+    slot: SoundId,
     priority: i32,
     frequency: Fixed,
     volume: Fixed,
@@ -667,7 +633,7 @@ pub unsafe extern "thiscall" fn play_sound(
 /// Returns pool_id (1-based) on success, 0 on failure.
 pub unsafe extern "thiscall" fn play_sound_pooled(
     this: *mut DSSound,
-    slot: SoundSlot,
+    slot: SoundId,
     priority: i32,
     frequency: Fixed,
     volume: Fixed,

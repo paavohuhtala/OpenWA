@@ -15,7 +15,7 @@ use std::sync::atomic::Ordering;
 
 use openwa_core::address::va;
 use openwa_core::audio::sound_ops;
-use openwa_core::audio::{KnownSoundId, SoundId, SoundSlot};
+use openwa_core::audio::{KnownSoundId, SoundId};
 use openwa_core::engine::{DDGame, DDGameWrapper};
 use openwa_core::fixed::Fixed;
 use openwa_core::task::worm::CTaskWorm;
@@ -31,23 +31,22 @@ static SOUND_LOG_ENABLED: std::sync::atomic::AtomicBool = std::sync::atomic::Ato
 
 unsafe extern "thiscall" fn hook_play_sound_global(
     this: *const CGameTask,
-    sound_id: u32,
+    sound_id: SoundId,
     flags: u32,
     volume: Fixed,
     pitch: Fixed,
 ) -> u32 {
     if SOUND_LOG_ENABLED.load(Ordering::Relaxed) {
-        let sound_name = KnownSoundId::try_from(sound_id)
+        let sound_name = KnownSoundId::try_from(sound_id.0)
             .map(|s| format!("{s:?}"))
             .unwrap_or_else(|v| format!("#{v}"));
         let _ = log_line(&format!(
-            "[Sound] Global: task=0x{this:08X?} id={sound_id}({sound_name}) \
+            "[Sound] Global: task=0x{this:08X?} id={sound_id:?}({sound_name}) \
              p3={flags} p4={volume} p5={pitch}"
         ));
     }
 
-    sound_ops::queue_sound((*this).base.ddgame, SoundId(sound_id), flags, volume, pitch).is_some()
-        as u32
+    sound_ops::queue_sound((*this).base.ddgame, sound_id, flags, volume, pitch).is_some() as u32
 }
 
 // ── PlaySoundLocal (0x4FDFE0): usercall(EAX=pitch, ECX=volume, EDI=task, stack) ──
@@ -59,20 +58,20 @@ unsafe extern "cdecl" fn play_sound_local_impl(
     pitch: Fixed,
     volume: Fixed,
     task: *mut CGameTask,
-    sound_id: u32,
+    sound_id: SoundId,
     flags: u32,
 ) -> u32 {
     if SOUND_LOG_ENABLED.load(Ordering::Relaxed) {
-        let sound_name = KnownSoundId::try_from(sound_id)
+        let sound_name = KnownSoundId::try_from(sound_id.0)
             .map(|s| format!("{s:?}"))
             .unwrap_or_else(|v| format!("#{v}"));
         let _ = log_line(&format!(
             "[Sound] Local: pitch={pitch} volume={volume} task=0x{task:08X?} \
-             id={sound_id}({sound_name}) flags={flags}"
+             id={sound_id:?}({sound_name}) flags={flags}"
         ));
     }
 
-    sound_ops::play_sound_local(task, SoundId(sound_id), flags, volume, pitch) as u32
+    sound_ops::play_sound_local(task, sound_id, flags, volume, pitch) as u32
 }
 
 // ── WormPlaySound2 (0x515020): usercall(EDI=worm) + stdcall(sound_id, volume, flags) ──
@@ -93,11 +92,11 @@ unsafe extern "C" fn trampoline_worm_play_sound_2() {
 
 unsafe extern "cdecl" fn play_worm_sound_2_cdecl(
     worm: *mut CTaskWorm,
-    sound_id: u32,
-    volume: u32,
+    sound_id: SoundId,
+    volume: Fixed,
     flags: u32,
 ) {
-    sound_ops::play_worm_sound_2(worm, SoundId(sound_id), Fixed(volume as i32), flags);
+    sound_ops::play_worm_sound_2(worm, sound_id, volume, flags);
 }
 
 // ── IsSoundSuppressed (0x5261E0): thiscall(ECX=DDGame*) ──
@@ -111,12 +110,12 @@ unsafe extern "thiscall" fn hook_is_sound_suppressed(ddgame: *mut DDGame) -> u32
 unsafe extern "fastcall" fn hook_dispatch_global_sound(
     _ecx: u32,
     ddgame_wrapper: *const DDGameWrapper,
-    sound_id: u32,
-    flags: u32,
-    volume: u32,
-    pitch: u32,
+    slot: SoundId,
+    priority: i32,
+    frequency: Fixed,
+    volume: Fixed,
 ) -> u32 {
-    sound_ops::dispatch_global_sound(ddgame_wrapper, sound_id, flags, volume, pitch)
+    sound_ops::dispatch_global_sound(ddgame_wrapper, slot, priority, frequency, volume)
 }
 
 // ── PlaySoundPooled_Direct (0x546B50): fastcall(ECX=unused, EDX=task) + 3 stack ──
@@ -124,11 +123,11 @@ unsafe extern "fastcall" fn hook_dispatch_global_sound(
 unsafe extern "fastcall" fn hook_play_sound_pooled_direct(
     _ecx: u32,
     task: *const CTask,
-    param1: SoundSlot,
-    param2: i32,
-    param3: Fixed,
+    slot: SoundId,
+    priority: i32,
+    volume: Fixed,
 ) -> i32 {
-    sound_ops::play_sound_pooled_direct(task, param1, param2, param3)
+    sound_ops::play_sound_pooled_direct(task, slot, priority, volume)
 }
 
 // ── Hook installation ──
@@ -175,12 +174,6 @@ pub fn install() -> Result<(), String> {
             va::WORM_PLAY_SOUND_2,
             trampoline_worm_play_sound_2 as *const (),
         )?;
-
-        // Initialize bridge address for streaming sound functions
-        sound_ops::LOAD_AND_PLAY_STREAMING_ADDR.store(
-            openwa_core::rebase::rb(va::LOAD_AND_PLAY_STREAMING),
-            core::sync::atomic::Ordering::Relaxed,
-        );
     }
 
     Ok(())

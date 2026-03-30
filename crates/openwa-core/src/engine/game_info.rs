@@ -144,8 +144,13 @@ pub struct GameInfo {
     /// 0xF374: Display flags passed to DDDisplay::Init.
     pub display_flags: u32,
 
-    /// 0xF378-0xF39F: Unknown
-    pub _unknown_f378: [u8; 0xF3A0 - 0xF378],
+    /// 0xF378-0xF38B: Unknown
+    pub _unknown_f378: [u8; 0xF38C - 0xF378],
+    /// 0xF38C: Sound distance attenuation factor (i32). When nonzero, enables 3D
+    /// positional audio via Distance3D_Attenuation. Zero = all sounds at full volume.
+    pub sound_attenuation: i32,
+    /// 0xF390-0xF39F: Unknown
+    pub _unknown_f390: [u8; 0xF3A0 - 0xF390],
 
     // --- Cluster 2: game options (populated by LoadOptions) ---
     /// 0xF3A0: Unknown config byte (from global 0x7C0D38)

@@ -14,7 +14,7 @@ pub use dssound::{
     set_master_volume, set_pan, set_volume_params, stop_channel,
     sub_destructor as dssound_sub_destructor, update_channels,
 };
-pub use dssound::{ChannelDescriptor, DSSound, DSSoundVtable, SoundSlot};
+pub use dssound::{ChannelDescriptor, DSSound, DSSoundVtable};
 pub use music::Music;
 pub use sound::{KnownSoundId, SoundId};
 pub use speech::{SpeechLineId, SpeechLineTableEntry, SpeechSlotTable, SPEECH_LINE_TABLE_COUNT};

@@ -1,4 +1,4 @@
-use core::ops::{Add, Mul, Neg, Sub};
+use core::ops::{Add, Div, Mul, Neg, Sub};
 use std::ops::{AddAssign, SubAssign};
 
 /// 16.16 fixed-point number used throughout WA for coordinates and velocities.
@@ -101,6 +101,24 @@ impl Mul<i32> for Fixed {
     #[inline]
     fn mul(self, rhs: i32) -> Self {
         Self(self.0 * rhs)
+    }
+}
+
+impl Div for Fixed {
+    type Output = Self;
+    /// Fixed-point division: (self << 16) / rhs, using i64 intermediate.
+    #[inline]
+    fn div(self, rhs: Self) -> Self {
+        Self((((self.0 as i64) << Self::FRACTIONAL_BITS) / rhs.0 as i64) as i32)
+    }
+}
+
+/// Divide a Fixed value by a plain integer (no shift — just `raw / n`).
+impl Div<i32> for Fixed {
+    type Output = Self;
+    #[inline]
+    fn div(self, rhs: i32) -> Self {
+        Self(self.0 / rhs)
     }
 }
 
