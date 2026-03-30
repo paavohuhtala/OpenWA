@@ -13,7 +13,7 @@ mod debug_watchpoint;
 pub mod hook;
 mod replacements;
 mod snapshot;
-mod validation;
+mod startup_checks;
 
 // ---------------------------------------------------------------------------
 // DllMain
@@ -66,10 +66,6 @@ fn clear_log() -> std::io::Result<()> {
 
 fn run() -> Result<(), String> {
     let _ = clear_log();
-    let validation_path =
-        std::env::var_os("OPENWA_VALIDATION_LOG_PATH").unwrap_or("OpenWA_validation.log".into());
-    let _ = std::fs::write(validation_path, "");
-
     // Install panic hook that writes to our log file
     std::panic::set_hook(Box::new(|info| {
         let _ = log_line(&format!("[PANIC] {info}"));
@@ -97,16 +93,8 @@ fn run() -> Result<(), String> {
     // module loading), the event won't exist and this is a harmless no-op.
     signal_hooks_ready();
 
-    // Run validation if OPENWA_VALIDATE=1
-    if std::env::var("OPENWA_VALIDATE").is_ok() {
-        let _ = log_line("=== Validation enabled (OPENWA_VALIDATE) ===");
-        if let Err(e) = validation::run() {
-            let _ = log_line(&format!("[ERROR] Validation failed: {e}"));
-        }
-    }
-
-    // Debug hotkeys (F9/F10) are always available, even without OPENWA_VALIDATE
-    validation::start_hotkeys();
+    // Run startup address checks (fast, always-on)
+    startup_checks::run();
 
     // Debug UI window (requires "debug-ui" feature + OPENWA_DEBUG_UI=1)
     debug_ui::maybe_spawn();

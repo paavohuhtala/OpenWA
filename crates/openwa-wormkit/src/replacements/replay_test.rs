@@ -112,41 +112,40 @@ unsafe fn check_milestones(ddgame: *const DDGame, frame: u32) {
     }
 }
 
-/// Write gameplay milestone report to the validation log.
+/// Write gameplay milestone report to the log.
 ///
 /// Called from DLL_PROCESS_DETACH to provide a final summary of game progress.
 pub fn write_gameplay_report() {
-    use crate::validation::log_validation;
+    use crate::log_line;
 
     let frames = super::frame_hook::frames_processed();
     let started = MATCH_STARTED.load(Ordering::Relaxed);
     let completed = MATCH_COMPLETED.load(Ordering::Relaxed);
 
-    let _ = log_validation("");
-    let _ = log_validation("--- Gameplay Checks ---");
+    let _ = log_line("--- Gameplay Checks ---");
 
     if frames > 0 {
-        let _ = log_validation(&format!(
+        let _ = log_line(&format!(
             "[GAMEPLAY PASS] Game initialized - {} frames processed",
             frames
         ));
     } else {
-        let _ = log_validation(
+        let _ = log_line(
             "[GAMEPLAY FAIL] Game initialized - no frames processed (game may not have started)",
         );
     }
 
     if started {
         let teams = TEAMS_AT_START.load(Ordering::Relaxed);
-        let _ = log_validation(&format!(
+        let _ = log_line(&format!(
             "[GAMEPLAY PASS] Match started - {} teams with alive worms detected",
             teams
         ));
     } else if frames > 0 {
         let _ =
-            log_validation("[GAMEPLAY FAIL] Match started - never detected multiple alive teams");
+            log_line("[GAMEPLAY FAIL] Match started - never detected multiple alive teams");
     } else {
-        let _ = log_validation("[GAMEPLAY FAIL] Match started - game never initialized");
+        let _ = log_line("[GAMEPLAY FAIL] Match started - game never initialized");
     }
 
     if completed {
@@ -157,15 +156,15 @@ pub fn write_gameplay_report() {
         } else {
             "draw (all eliminated)"
         };
-        let _ = log_validation(&format!(
+        let _ = log_line(&format!(
             "[GAMEPLAY PASS] Match completed - {} at frame {}",
             outcome, end_frame
         ));
     } else if started {
         let _ =
-            log_validation("[GAMEPLAY FAIL] Match completed - match started but never finished");
+            log_line("[GAMEPLAY FAIL] Match completed - match started but never finished");
     } else {
-        let _ = log_validation("[GAMEPLAY FAIL] Match completed - match never started");
+        let _ = log_line("[GAMEPLAY FAIL] Match completed - match never started");
     }
 }
 

@@ -16,7 +16,6 @@ cargo build --release
 
 # Build a specific crate
 cargo build -p openwa-wormkit --release
-cargo build -p openwa-validator --release
 
 # Run tests (openwa-types is pure Rust, works on any host)
 cargo test -p openwa-core
@@ -70,19 +69,18 @@ Key paths:
 
 ### Headful replay testing (interactive)
 
-Use the `/replay-test` skill for interactive testing with graphics, sound, and validation module:
+Use the `/replay-test` skill for interactive testing with graphics and sound:
 
 ```bash
 powershell -ExecutionPolicy Bypass -File replay-test.ps1
 powershell -ExecutionPolicy Bypass -File replay-test.ps1 -Headless testdata/replays/longbow.WAgame
 ```
 
-Headful mode enables fast-forward (50x via DDGame+0x98B0) and runs struct validation at 5s. Use for debugging specific replays or testing visual/audio hooks.
+Headful mode enables fast-forward (50x via DDGame+0x98B0). Use for debugging specific replays or testing visual/audio hooks.
 
 ### Environment variables
 
 - `OPENWA_HEADLESS=1` — Headless mode: hooks MessageBoxA to auto-dismiss, launcher uses SW_HIDE, file isolation hook active, semaphore renamed per-PID
-- `OPENWA_VALIDATE=1` — Enable validation module (struct checks, vtable validation, memory dumps)
 - `OPENWA_REPLAY_TEST=1` — Fast-forward mode for headful testing (50x speed, 120s safety timeout)
 - `OPENWA_LOG_PATH=<path>` — Override OpenWA.log location (used by test runner for per-instance isolation)
 - `OPENWA_ERRORLOG_PATH=<path>` — Redirect ERRORLOG.TXT to specified path (used by test runner for crash capture)
@@ -159,7 +157,7 @@ Key env vars:
 
 - **`openwa-core`** — Types, addresses, parsers, ASLR rebasing, and typed WA function wrappers. The source of truth for all reverse-engineered type layouts and known addresses. Contains `registry` (structured address database + field registries), `rebase` (ASLR delta), `wa_call` (calling convention helpers), and `wa/` (typed handle wrappers like `DDGameWrapperHandle`, `CWndHandle`).
 - **`openwa-derive`** — Proc macro crate. Provides `#[derive(FieldRegistry)]` for struct field maps and `#[vtable(...)]` for typed vtable definitions with introspection, calling wrappers, and replacement support.
-- **`openwa-wormkit`** — Unified WormKit cdylib that replaces WA functions with Rust and optionally validates types against live memory. Logs to `OpenWA.log` (hooks) and `OpenWA_validation.log` (validation). Uses MinHook for inline hooking. Validation is enabled via `OPENWA_VALIDATE=1` env var.
+- **`openwa-wormkit`** — Unified WormKit cdylib that replaces WA functions with Rust. Logs to `OpenWA.log`. Uses MinHook for inline hooking. Runs registry-driven startup checks (vtable locations, function prologues) automatically at load; the test runner reports any failures after the test summary.
 - **`openwa-test-runner`** — Headless replay test runner (`openwa-test` binary). Discovers replay tests, runs them concurrently via WA.exe's `/getlog` mode, compares output logs. See "Replay Testing" section.
 - **`openwa-debug-cli`** — CLI tool for live memory inspection (`openwa-debug` binary). Connects to the debug server in the DLL.
 - **`openwa-debug-proto`** — Shared protocol types (Request/Response enums, MessagePack framing) between CLI and server.

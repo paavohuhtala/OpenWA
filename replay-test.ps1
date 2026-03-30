@@ -67,7 +67,6 @@ if ($Headless) {
     Write-Host "Launching WA.exe with replay: $ReplayFile" -ForegroundColor Cyan
     Write-Host "  (Fast-forward mode: replay will be auto-advanced, game exits when done)" -ForegroundColor Yellow
 
-    $env:OPENWA_VALIDATE    = "1"
     $env:OPENWA_REPLAY_TEST = "1"
     $proc = Start-Process -FilePath $launcher -ArgumentList "--minimized `"$waExe`" `"$ReplayFile`"" -PassThru
     $timeout = 150
@@ -78,7 +77,6 @@ if (-not $proc.WaitForExit($timeout * 1000)) {
     $proc.Kill()
     $proc.WaitForExit(5000)
 }
-$env:OPENWA_VALIDATE    = $null
 $env:OPENWA_REPLAY_TEST = $null
 $env:OPENWA_HEADLESS    = $null
 $env:OPENWA_WA_PATH     = $null

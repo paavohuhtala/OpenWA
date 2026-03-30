@@ -980,6 +980,46 @@ fn run_trace_desync(args: TraceDesyncArgs) {
     println!("\nRun directory: {}", run_dir.display());
 }
 
+// ─── Startup check reporting ─────────────────────────────────────────────────
+
+/// Scan the first test's OpenWA.log for `[CHECK FAIL]` lines and report them
+/// once. All test instances load the same DLL against the same WA.exe, so the
+/// startup check results are deterministic — checking one log is sufficient.
+fn report_startup_check_failures(results: &[TestResult], run_dir: &Path) {
+    let first = match results.first() {
+        Some(r) => r,
+        None => return,
+    };
+    let log_path = run_dir.join(format!("{}.openwa.log", first.name));
+    let content = match fs::read_to_string(&log_path) {
+        Ok(c) => c,
+        Err(_) => return,
+    };
+
+    let failures: Vec<&str> = content
+        .lines()
+        .filter(|l| l.contains("[CHECK FAIL]"))
+        .collect();
+
+    if failures.is_empty() {
+        return;
+    }
+
+    println!();
+    let msg = format!(
+        "Startup check failures detected (from {}.openwa.log):",
+        first.name
+    );
+    if use_color() {
+        println!("\x1b[33m{msg}\x1b[0m");
+    } else {
+        println!("{msg}");
+    }
+    for line in &failures {
+        println!("  {line}");
+    }
+}
+
 // ─── Main ───────────────────────────────────────────────────────────────────
 
 fn main() {
@@ -1047,6 +1087,9 @@ fn main() {
     // Summary
     print_summary(&results, wall_time);
     write_summary(&results, wall_time, &run_dir.join("summary.txt"));
+
+    // Report startup check failures from the DLL (once, from the first test's log)
+    report_startup_check_failures(&results, &run_dir);
 
     // Clean up per-PID temp files from the game directory
     cleanup_temp_files(&wa_exe);

@@ -4,7 +4,7 @@
 //! A Vectored Exception Handler logs the exact instruction address (as Ghidra VA)
 //! of every write to the watched offsets.
 //!
-//! Activated by `OPENWA_VALIDATE=1`. No external debugger needed — the DLL
+//! Currently dormant — activate by wiring calls in `game_session.rs`. No external debugger needed — the DLL
 //! instruments itself by triggering INT3 exceptions whose VEH handler sets
 //! the debug registers directly in the thread context.
 //!

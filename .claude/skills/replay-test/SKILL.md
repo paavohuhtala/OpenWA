@@ -81,7 +81,6 @@ powershell -ExecutionPolicy Bypass -File replay-test.ps1
 ## Environment Variables
 
 - `OPENWA_HEADLESS=1` — Headless mode: auto-dismiss MessageBoxA, SW_HIDE window, file isolation
-- `OPENWA_VALIDATE=1` — (headful) Enable validation module
 - `OPENWA_REPLAY_TEST=1` — (headful) Enable fast-forward mode (50x speed)
 - `OPENWA_LOG_PATH=<path>` — Override OpenWA.log location (per-instance isolation)
 
