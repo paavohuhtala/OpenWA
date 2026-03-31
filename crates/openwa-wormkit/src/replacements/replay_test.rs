@@ -142,8 +142,7 @@ pub fn write_gameplay_report() {
             teams
         ));
     } else if frames > 0 {
-        let _ =
-            log_line("[GAMEPLAY FAIL] Match started - never detected multiple alive teams");
+        let _ = log_line("[GAMEPLAY FAIL] Match started - never detected multiple alive teams");
     } else {
         let _ = log_line("[GAMEPLAY FAIL] Match started - game never initialized");
     }
@@ -161,8 +160,7 @@ pub fn write_gameplay_report() {
             outcome, end_frame
         ));
     } else if started {
-        let _ =
-            log_line("[GAMEPLAY FAIL] Match completed - match started but never finished");
+        let _ = log_line("[GAMEPLAY FAIL] Match completed - match started but never finished");
     } else {
         let _ = log_line("[GAMEPLAY FAIL] Match completed - match never started");
     }

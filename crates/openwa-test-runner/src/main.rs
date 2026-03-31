@@ -316,9 +316,7 @@ fn run_test(test: &TestCase, launcher: &Path, wa_exe: &Path, run_dir: &Path) -> 
                     passed: false,
                     duration,
                     diff_lines: Vec::new(),
-                    error: Some(format!(
-                        "No output log generated (exit code: {exit_code})"
-                    )),
+                    error: Some(format!("No output log generated (exit code: {exit_code})")),
                     crashed: None,
                 };
             }
@@ -723,9 +721,7 @@ fn parse_trace_desync_args(argv: &[String]) -> TraceDesyncArgs {
         i += 1;
     }
     let replay = replay.unwrap_or_else(|| {
-        eprintln!(
-            "Usage: openwa-test trace-desync <replay.WAgame> [--no-build] [--wa-path PATH]"
-        );
+        eprintln!("Usage: openwa-test trace-desync <replay.WAgame> [--no-build] [--wa-path PATH]");
         std::process::exit(1);
     });
     if replay.extension().and_then(|e| e.to_str()) != Some("WAgame") {
@@ -868,14 +864,8 @@ fn compare_hashes(baseline: &[FrameHash], hooks: &[FrameHash]) {
             let b = &baseline[idx];
             let h = &hooks[idx];
             println!("{}", red(&format!("DESYNC at frame {}!", b.frame)));
-            println!(
-                "  baseline: A={:08X} B={:08X}",
-                b.checksum_a, b.checksum_b
-            );
-            println!(
-                "  hooks:    A={:08X} B={:08X}",
-                h.checksum_a, h.checksum_b
-            );
+            println!("  baseline: A={:08X} B={:08X}", b.checksum_a, b.checksum_b);
+            println!("  hooks:    A={:08X} B={:08X}", h.checksum_a, h.checksum_b);
             if idx > 0 {
                 let prev = &baseline[idx - 1];
                 println!(

@@ -48,12 +48,7 @@ const _: () = assert!(core::mem::size_of::<WeaponReleaseContext>() == 0x2C);
 // __usercall: EAX = team_index, EDX = amount, [ESP+4] = team_info_base, [ESP+8] = weapon_id
 // RET 0x8
 
-pub unsafe fn add_ammo(
-    team_index: u32,
-    amount: i32,
-    arena: TeamArenaRef,
-    weapon_id: u32,
-) {
+pub unsafe fn add_ammo(team_index: u32, amount: i32, arena: TeamArenaRef, weapon_id: u32) {
     let (alliance, wid) = arena.weapon_slot_key(team_index as usize, weapon_id);
     let state = arena.state_mut();
     let ammo = state.get_ammo(alliance, wid);
@@ -87,11 +82,7 @@ pub unsafe fn subtract_ammo(team_index: u32, arena: TeamArenaRef, weapon_id: u32
 // __usercall: EAX = team_index, ESI = team_info_base, EDX = weapon_id
 // plain RET, returns EAX = ammo count
 
-pub unsafe fn get_ammo(
-    team_index: u32,
-    arena: TeamArenaRef,
-    weapon_id: u32,
-) -> u32 {
+pub unsafe fn get_ammo(team_index: u32, arena: TeamArenaRef, weapon_id: u32) -> u32 {
     let (alliance, wid) = arena.weapon_slot_key(team_index as usize, weapon_id);
     let state = arena.state();
 
@@ -393,9 +384,7 @@ pub fn can_fire_subtype16(state: u32) -> bool {
 ///
 /// The entity at key (0, 0x14) is a CTaskTurnGame (inherits CTaskTeam).
 /// Returns null if not found.
-pub unsafe fn lookup_turn_game(
-    worm: *const CTaskWorm,
-) -> *mut crate::task::CTaskTurnGame {
+pub unsafe fn lookup_turn_game(worm: *const CTaskWorm) -> *mut crate::task::CTaskTurnGame {
     use crate::task::SharedDataTable;
 
     let table = SharedDataTable::from_task(worm as *const CTask);
@@ -419,13 +408,7 @@ unsafe fn fire_surrender(worm: *mut CTaskWorm) {
 
     // Dispatch through vtable — hits CTaskTurnGame::HandleMessage (0x55DC00)
     // which delegates to CTaskTeam (0x557310) and handles end-turn/sound.
-    CTaskTurnGame::handle_message_raw(
-        team,
-        worm as *mut crate::task::CTask,
-        0x2B,
-        4,
-        buf.as_ptr(),
-    );
+    CTaskTurnGame::handle_message_raw(team, worm as *mut crate::task::CTask, 0x2B, 4, buf.as_ptr());
 }
 
 /// Send a message to CTaskTurnGame via SharedData lookup + vtable dispatch.
@@ -1008,8 +991,7 @@ unsafe fn fire_girder(worm: *mut CTaskWorm) {
         girder_visual(landscape, girder_x >> 16, girder_y >> 16, sprite1, sprite2);
 
         // Increment WormEntry counters
-        let arena =
-            crate::engine::ddgame::TeamArenaRef::from_ptr(&raw mut (*ddgame).team_arena);
+        let arena = crate::engine::ddgame::TeamArenaRef::from_ptr(&raw mut (*ddgame).team_arena);
         let team_index = (*worm).team_index as usize;
         let worm_index = (*worm).worm_index as usize;
         let entry = arena.team_worm_mut(team_index, worm_index);

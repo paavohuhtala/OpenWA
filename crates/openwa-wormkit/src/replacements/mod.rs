@@ -1,6 +1,6 @@
 mod config;
-pub(crate) mod debug_utils;
 mod ddgame_init;
+pub(crate) mod debug_utils;
 mod display;
 pub(crate) mod file_isolation;
 mod frame_hook;

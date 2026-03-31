@@ -52,7 +52,11 @@ unsafe fn entity_label(addr: u32) -> String {
 /// Returns a pointer to DDGame, or None if not in-game.
 unsafe fn get_ddgame() -> Option<*const DDGame> {
     let ptr = game_session::get_ddgame();
-    if ptr.is_null() { None } else { Some(ptr) }
+    if ptr.is_null() {
+        None
+    } else {
+        Some(ptr)
+    }
 }
 
 /// Unlock all weapons: set ammo to unlimited (-1) and delays to 0 for all teams.

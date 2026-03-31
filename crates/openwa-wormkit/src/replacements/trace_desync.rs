@@ -62,8 +62,8 @@ pub fn install() -> Result<(), String> {
     }
 
     // Determine log file path
-    let path = std::env::var("OPENWA_TRACE_HASH_PATH")
-        .unwrap_or_else(|_| "frame_hashes.log".to_string());
+    let path =
+        std::env::var("OPENWA_TRACE_HASH_PATH").unwrap_or_else(|_| "frame_hashes.log".to_string());
 
     let file = std::fs::File::create(&path)
         .map_err(|e| format!("Failed to create hash log {path}: {e}"))?;

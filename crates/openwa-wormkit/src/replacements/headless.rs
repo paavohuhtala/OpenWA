@@ -116,9 +116,8 @@ pub fn install() -> Result<(), String> {
     // semaphore per-PID. Without this, concurrent WA.exe instances detect
     // each other and skip initialization or show warnings.
     unsafe {
-        let k32 = windows_sys::Win32::System::LibraryLoader::GetModuleHandleA(
-            b"kernel32.dll\0".as_ptr(),
-        );
+        let k32 =
+            windows_sys::Win32::System::LibraryLoader::GetModuleHandleA(b"kernel32.dll\0".as_ptr());
         if !k32.is_null() {
             let proc = windows_sys::Win32::System::LibraryLoader::GetProcAddress(
                 k32,

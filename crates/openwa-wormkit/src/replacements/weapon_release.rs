@@ -68,16 +68,7 @@ unsafe extern "cdecl" fn spawn_effect_cdecl(
     scale: Fixed,
 ) {
     wr::spawn_effect(
-        worm,
-        constant,
-        speed_x,
-        speed_y,
-        rng_scaled,
-        rng_offset,
-        palette,
-        state_flag,
-        size,
-        scale,
+        worm, constant, speed_x, speed_y, rng_scaled, rng_offset, palette, state_flag, size, scale,
     );
 }
 
