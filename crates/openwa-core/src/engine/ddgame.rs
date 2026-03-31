@@ -218,8 +218,16 @@ pub struct DDGame {
     pub rng_state_1: u32,
     /// 0x72F0: RNG state word 2 (changes every frame).
     pub rng_state_2: u32,
-    /// 0x72F4-0x7307: Unknown
-    pub _unknown_72f4: [u8; 0x7308 - 0x72F4],
+    /// 0x72F4: Unknown (zeroed by InitTurnState).
+    pub _field_72f4: u32,
+    /// 0x72F8: Unknown (zeroed by InitTurnState).
+    pub _field_72f8: u32,
+    /// 0x72FC: Unknown (zeroed by InitTurnState).
+    pub _field_72fc: u32,
+    /// 0x7300: Unknown (zeroed by InitTurnState).
+    pub _field_7300: u32,
+    /// 0x7304: Unknown (zeroed by InitTurnState).
+    pub _field_7304: u32,
     /// 0x7308: Sprite/gfx dimension data (passed to GFX_DIR_LOAD_SPRITES).
     pub gfx_sprite_data: [u8; 0x730C - 0x7308],
     /// 0x730C-0x732F: GfxDir color table (9 entries).
@@ -232,8 +240,22 @@ pub struct DDGame {
     pub _unknown_7330: [u8; 8],
     /// 0x7338: Fill pixel value
     pub fill_pixel: u32,
-    /// 0x733C-0x737F: Unknown
-    pub _unknown_733c: [u8; 0x7380 - 0x733C],
+    /// 0x733C-0x733F: Unknown
+    pub _unknown_733c: [u8; 4],
+    /// 0x7340: Landscape dimension param (passed to PCLandscape vtable slot 6).
+    pub _field_7340: u32,
+    /// 0x7344-0x734B: Unknown
+    pub _unknown_7344: [u8; 8],
+    /// 0x734C: Landscape dimension param (passed to PCLandscape vtable slot 6).
+    pub _field_734c: u32,
+    /// 0x7350-0x7373: Unknown
+    pub _unknown_7350: [u8; 36],
+    /// 0x7374: Unknown (zeroed by InitTurnState).
+    pub _field_7374: u32,
+    /// 0x7378: Unknown (zeroed by InitTurnState).
+    pub _field_7378: u32,
+    /// 0x737C: Unknown (zeroed by InitTurnState).
+    pub _field_737c: u32,
 
     /// 0x7380: Viewport width (Fixed-point, e.g. 960.0 = 0x03C00000).
     pub viewport_width: i32,
@@ -274,8 +296,16 @@ pub struct DDGame {
     pub level_width_raw: u32,
     /// 0x7780: Level height output (written by PCLandscape constructor param 11).
     pub level_height_raw: u32,
-    /// 0x7784-0x779B: Unknown
-    pub _unknown_7784: [u8; 0x779C - 0x7784],
+    /// 0x7784: Unknown (zeroed by InitTurnState).
+    pub _field_7784: u32,
+    /// 0x7788: Unknown (set from GameInfo+0xF362 during InitTurnState).
+    pub _field_7788: u32,
+    /// 0x778C: Unknown (set to Fixed 1.0 = 0x10000 by InitTurnState).
+    pub _field_778c: u32,
+    /// 0x7790: Unknown (zeroed by InitTurnState).
+    pub _field_7790: u32,
+    /// 0x7794-0x779B: Unknown
+    pub _unknown_7794: [u8; 8],
 
     /// 0x779C: Level bound min X (Fixed16.16, negative = off-screen left).
     pub level_bound_min_x: Fixed,
@@ -300,15 +330,43 @@ pub struct DDGame {
     /// 0x77C8: Total pixels (width × height).
     pub level_total_pixels: u32,
 
-    /// 0x77CC-0x77E3: Unknown
-    pub _unknown_77cc: [u8; 0x77E4 - 0x77CC],
+    /// 0x77CC-0x77D3: Unknown
+    pub _unknown_77cc: [u8; 8],
+    /// 0x77D4: Unknown (zeroed by InitTurnState).
+    pub _field_77d4: u32,
+    /// 0x77D8: Unknown (zeroed by InitTurnState).
+    pub _field_77d8: u32,
+    /// 0x77DC: Unknown (zeroed by InitTurnState).
+    pub _field_77dc: u32,
+    /// 0x77E0: Unknown (zeroed by InitTurnState).
+    pub _field_77e0: u32,
 
     /// 0x77E4: Speech slot table. Maps (team, speech_line_id) → DSSound buffer index.
     /// Cleared by DSSound_LoadAllSpeechBanks (0x571A70), filled by DDGameWrapper__LoadSpeechWAV (0x571530).
     pub speech_slot_table: SpeechSlotTable,
 
-    /// 0x7D84-0x7E24: Unknown
-    pub _unknown_7d84: [u8; 0x7E25 - 0x7D84],
+    /// 0x7D84: Unknown (zeroed by InitTurnState).
+    pub _field_7d84: u32,
+    /// 0x7D88: Per-team u32 flags (13 entries, zeroed per team by InitTurnState).
+    pub _field_7d88: [u32; 13],
+    /// 0x7DBC: Per-team byte flags array 1 (13 entries, set to 1 by InitTurnState).
+    pub _field_7dbc: [u8; 13],
+    /// 0x7DC9: Per-team byte flags array 2 (13 entries, set to 1 by InitTurnState).
+    pub _field_7dc9: [u8; 13],
+    /// 0x7DD6: Per-team byte flags array 3 (13 entries, zeroed by InitTurnState).
+    pub _field_7dd6: [u8; 13],
+    /// 0x7DE3: Per-team byte flags array 4 (13 entries, zeroed by InitTurnState).
+    pub _field_7de3: [u8; 13],
+    /// 0x7DF0: Per-team byte flags array 5 (13 entries, zeroed by InitTurnState).
+    pub _field_7df0: [u8; 13],
+    /// 0x7DFD-0x7E02: Unknown
+    pub _unknown_7dfd: [u8; 6],
+    /// 0x7E03: Unknown byte (zeroed by InitTurnState).
+    pub _field_7e03: u8,
+    /// 0x7E04: Unknown byte (zeroed by InitTurnState).
+    pub _field_7e04: u8,
+    /// 0x7E05-0x7E24: Unknown
+    pub _unknown_7e05: [u8; 32],
     /// 0x7E25: SuperSheep/AquaSheep restriction active flag (byte).
     /// When nonzero, the SuperSheep/AquaSheep weapon check is applied.
     pub supersheep_restricted: u8,
@@ -326,8 +384,20 @@ pub struct DDGame {
     /// 0x7E40: Game logic version byte 4 (set by InitVersionFlags).
     /// Used in FireWeapon__MailMineMole to gate vtable call behavior by version.
     pub version_flag_4: u8,
-    /// 0x7E41-0x7E9F: Unknown
-    pub _unknown_7e41: [u8; 0x7EA0 - 0x7E41],
+    /// 0x7E41: Unknown byte (zeroed by InitTurnState).
+    pub _field_7e41: u8,
+    /// 0x7E42-0x7E4B: Unknown
+    pub _unknown_7e42: [u8; 10],
+    /// 0x7E4C: Unknown (zeroed by InitTurnState).
+    pub _field_7e4c: u32,
+    /// 0x7E50-0x7E6F: Unknown fields (all zeroed by InitTurnState).
+    pub _fields_7e50: [u32; 8],
+    /// 0x7E70: Per-team scoring flags (6 entries, written by InitAllianceData).
+    pub team_scoring_flags: [u32; 6],
+    /// 0x7E88-0x7E9B: Unknown fields (all zeroed by InitTurnState).
+    pub _fields_7e88: [u32; 5],
+    /// 0x7E9C-0x7E9F: Unknown
+    pub _unknown_7e9c: [u8; 4],
 
     /// 0x7EA0: Flag/counter (value 4 at runtime — likely team count).
     pub field_7ea0: u32,
@@ -355,15 +425,29 @@ pub struct DDGame {
     /// 0x8140: Number of entries currently in the sound queue (0–16).
     pub sound_queue_count: i32,
 
-    /// 0x8144-0x814F: Unknown
-    pub _unknown_8144: [u8; 0x8150 - 0x8144],
+    /// 0x8144-0x8147: Unknown
+    pub _unknown_8144: [u8; 4],
+    /// 0x8148: Unknown (set to 1 by InitTurnState).
+    pub _field_8148: u32,
+    /// 0x814C-0x814F: Unknown
+    pub _unknown_814c: [u8; 4],
     /// 0x8150: Parallax/camera scale factor (Fixed-point multiplier).
     /// Used by DrawCrosshairLine (multiplied by 0x140000) and
     /// CTaskCloud render (parallax X offset = wind_speed * this >> 16).
     pub parallax_scale: i32,
 
-    /// 0x8154-0x818B: Unknown
-    pub _unknown_8154: [u8; 0x818C - 0x8154],
+    /// 0x8154-0x8157: Unknown
+    pub _unknown_8154: [u8; 4],
+    /// 0x8158: Unknown (zeroed by InitTurnState).
+    pub _field_8158: u32,
+    /// 0x815C: Unknown (zeroed by InitTurnState).
+    pub _field_815c: u32,
+    /// 0x8160: Unknown (zeroed by InitTurnState).
+    pub _field_8160: u32,
+    /// 0x8164: Unknown (zeroed by InitTurnState).
+    pub _field_8164: u32,
+    /// 0x8168-0x818B: Unknown
+    pub _unknown_8168: [u8; 36],
 
     /// 0x818C: Turn status text buffer (null-terminated ASCII).
     /// Shows on screen during gameplay, e.g. "Cheesy harkitseee siirtoaan"

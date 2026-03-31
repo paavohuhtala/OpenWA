@@ -4,6 +4,7 @@
 //! InitGameState itself is Rust or the original WA code.
 
 use crate::engine::ddgame::DDGame;
+use crate::engine::game_info::GameInfo;
 use crate::wa_alloc::wa_malloc;
 
 /// Pure Rust implementation of SpriteGfxTable__Init (0x541620).
@@ -62,15 +63,15 @@ const TEAM_ENTRY_STRIDE: usize = 3000;
 ///
 /// Chain: wrapper+0x488 → DDGame, DDGame+0x24 → GameInfo.
 #[inline]
-unsafe fn game_info_from_wrapper(wrapper: *mut u8) -> *mut u8 {
-    let ddgame = *(wrapper.add(0x488) as *const *mut u8);
-    *(ddgame.add(0x24) as *const *mut u8)
+unsafe fn game_info_from_wrapper(wrapper: *mut u8) -> *mut GameInfo {
+    let ddgame = *(wrapper.add(0x488) as *const *mut DDGame);
+    (*ddgame).game_info
 }
 
 /// Helper: read the DDGame pointer from a DDGameWrapper pointer.
 #[inline]
-unsafe fn ddgame_from_wrapper(wrapper: *mut u8) -> *mut u8 {
-    *(wrapper.add(0x488) as *const *mut u8)
+unsafe fn ddgame_from_wrapper(wrapper: *mut u8) -> *mut DDGame {
+    *(wrapper.add(0x488) as *const *mut DDGame)
 }
 
 /// Pure Rust implementation of CGameTask_InitTeamScoring_Maybe (0x528510).
@@ -97,10 +98,8 @@ unsafe fn ddgame_from_wrapper(wrapper: *mut u8) -> *mut u8 {
 pub unsafe fn init_team_scoring(wrapper: *mut u8) {
     let game_info = game_info_from_wrapper(wrapper);
 
-    // GameInfo+0xD788: scoring_param_a (u16)
-    // GameInfo+0xD78A: scoring_param_b (u16)
-    let scoring_param_a = *(game_info.add(0xD788) as *const u16) as u32;
-    let scoring_param_b = *(game_info.add(0xD78A) as *const u16) as u32;
+    let scoring_param_a = (*game_info).scoring_param_a as u32;
+    let scoring_param_b = (*game_info).scoring_param_b as u32;
     let value_a = scoring_param_a * 50; // uVar1 * 0x32
     let value_b = scoring_param_b * 50; // iVar4
 
@@ -119,15 +118,14 @@ pub unsafe fn init_team_scoring(wrapper: *mut u8) {
     }
 
     // Mark the starting team in array_1: wrapper+0x128[starting_team] = 1
-    // GameInfo+0xD9DC: starting team index (i8)
-    let starting_team = *(game_info.add(0xD9DC) as *const i8) as i32;
+    let starting_team = (*game_info).starting_team_index as i32;
     *(base.add(starting_team as usize)) = 1;
 
     // GameInfo+0xD9DD: mode flag (i8, negative = training/replay mode)
-    let mode_flag = *(game_info.add(0xD9DD) as *const i8);
+    let mode_flag = (*game_info).game_mode_flag;
 
     // GameInfo+0x0000: first byte = total team count (num_teams, u8)
-    let num_teams = *game_info as u8 as i32;
+    let num_teams = (*game_info).num_teams as i32;
 
     // Team activity flags at wrapper+0x22C (one u32 per team)
     let flags_base = wrapper.add(0x22C) as *mut u32;
@@ -143,12 +141,13 @@ pub unsafe fn init_team_scoring(wrapper: *mut u8) {
         // For each active team slot in GameInfo, clear the flag to 0
         // GameInfo+0x44C: team count for alliance data (u8)
         let game_info2 = game_info_from_wrapper(wrapper);
-        let alliance_team_count = *game_info2.add(0x44C) as u8 as i32;
+        let alliance_team_count = (*game_info2).speech_team_count as i32;
         if alliance_team_count > 0 {
             let mut offset: usize = 0;
             for _ in 0..alliance_team_count {
                 // GameInfo+0x450 + team_index*3000: alliance group (i8)
-                let alliance_group = *(game_info2.add(0x450 + offset) as *const i8) as i32;
+                let alliance_group =
+                    *((game_info2 as *const u8).add(0x450 + offset) as *const i8) as i32;
                 if alliance_group >= 0 {
                     *flags_base.add(alliance_group as usize) = 0;
                 }
@@ -167,14 +166,14 @@ pub unsafe fn init_team_scoring(wrapper: *mut u8) {
         }
 
         // Set starting team's flag to 1
-        // GameInfo+0xD9DD: starting team index for flags (i8, reuse mode_flag which is the same field)
-        let starting_flag_team = *(game_info_from_wrapper(wrapper).add(0xD9DD) as *const i8) as i32;
+        // GameInfo+0xD9DD: starting team index for flags (i8, reuse game_mode_flag which is the same field)
+        let starting_flag_team = (*game_info_from_wrapper(wrapper)).game_mode_flag as i32;
         *flags_base.add(starting_flag_team as usize) = 1;
     }
 
     // Zero CTask sub-object fields for each team's task pointer
     // wrapper+0x54[i] = CTask pointer, clear offsets +0x08..+0x18 (5 DWORDs)
-    let num_teams2 = *game_info_from_wrapper(wrapper) as u8 as i32;
+    let num_teams2 = (*game_info_from_wrapper(wrapper)).num_teams as i32;
     if num_teams2 > 0 {
         let task_ptrs = wrapper.add(0x54) as *mut *mut u8;
         for i in 0..num_teams2 as usize {
@@ -199,16 +198,16 @@ pub unsafe fn init_team_scoring(wrapper: *mut u8) {
 ///
 /// # Layout:
 /// - wrapper+0x350..+0x384: 13 × u32 alliance bitmasks (one per alliance group)
-/// - DDGame+0x7E70..+0x7E88: 6 × u32 per-team scoring flags
+/// - DDGame.team_scoring_flags: 6 × u32 per-team scoring flags
 /// - wrapper+0x3AC..: auxiliary array of non-starting-team alliance IDs (+0x10)
 ///
 /// # GameInfo fields used:
-/// - +0x000: num_teams (u8, first byte)
-/// - +0x44C: alliance_team_count (u8)
+/// - num_teams
+/// - speech_team_count (alliance_team_count)
 /// - +0x450 + i*3000: alliance_group (i8) for team i
 /// - +0x451 + i*3000: alliance_id (u8) for team i
-/// - +0xD778: game_version (i32)
-/// - +0xD9DC: starting_team_index (i8)
+/// - game_version
+/// - starting_team_index
 ///
 /// - wrapper+0x490: first byte used as scoring override value
 pub unsafe fn init_alliance_data(wrapper: *mut u8) {
@@ -220,19 +219,19 @@ pub unsafe fn init_alliance_data(wrapper: *mut u8) {
     // Build alliance bitmasks: for each team, set bit (alliance_id & 0x1F)
     // in bitmask[alliance_group]
     let game_info = game_info_from_wrapper(wrapper);
-    let num_teams = *game_info as u8 as i32;
+    let num_teams = (*game_info).num_teams as i32;
 
     // Global DAT_007a087c+4 = 0 (static variable, offset 0x7A0880)
     // We skip this — it's a global we don't own. The original sets it but
     // it appears unused in the init path.
 
-    let alliance_team_count = *game_info.add(0x44C) as u8 as i32;
+    let alliance_team_count = (*game_info).speech_team_count as i32;
     if num_teams != 0 && alliance_team_count > 0 {
         let mut offset: usize = 0;
         for _ in 0..alliance_team_count {
             let gi = game_info_from_wrapper(wrapper);
-            let alliance_group = *(gi.add(0x450 + offset) as *const i8) as i32;
-            let alliance_id = *(gi.add(0x451 + offset) as *const u8);
+            let alliance_group = *((gi as *const u8).add(0x450 + offset) as *const i8) as i32;
+            let alliance_id = *((gi as *const u8).add(0x451 + offset));
 
             if alliance_group >= 0 {
                 let bitmask = (wrapper.add(0x350) as *mut u32).add(alliance_group as usize);
@@ -243,15 +242,13 @@ pub unsafe fn init_alliance_data(wrapper: *mut u8) {
         }
     }
 
-    // Zero 6 per-team scoring flags at DDGame+0x7E70..+0x7E88
+    // Zero 6 per-team scoring flags (DDGame.team_scoring_flags)
     let ddgame = ddgame_from_wrapper(wrapper);
-    for i in 0..6u32 {
-        *(ddgame.add(0x7E70) as *mut u32).add(i as usize) = 0;
-    }
+    (*ddgame).team_scoring_flags = [0u32; 6];
 
     // Build scoring flags and auxiliary alliance array
     let game_info = game_info_from_wrapper(wrapper);
-    let alliance_team_count = *game_info.add(0x44C) as u8 as i32;
+    let alliance_team_count = (*game_info).speech_team_count as i32;
 
     // Local tracking: which alliance IDs we've already added to auxiliary array
     let mut seen: [u8; 6] = [0; 6]; // local_8[0..6], indexed by alliance_id
@@ -262,11 +259,12 @@ pub unsafe fn init_alliance_data(wrapper: *mut u8) {
 
         for team_idx in 0..alliance_team_count {
             let gi = game_info_from_wrapper(wrapper);
-            let alliance_group = *(gi.add(0x450 + team_offset) as *const i8) as i32;
-            let alliance_id = *(gi.add(0x451 + team_offset) as *const u8) as u32;
+            let alliance_group = *((gi as *const u8).add(0x450 + team_offset) as *const i8) as i32;
+            let alliance_id = *((gi as *const u8).add(0x451 + team_offset)) as u32;
 
             let ddgame = ddgame_from_wrapper(wrapper);
-            let scoring_flag = (ddgame as *mut u32).add((0x7E70 / 4) + team_idx as usize);
+            let scoring_flag =
+                core::ptr::addr_of_mut!((*ddgame).team_scoring_flags[team_idx as usize]);
 
             if alliance_group < 0 {
                 // No alliance: flag = value from wrapper+0x490 (i8 sign-extended)
@@ -275,15 +273,15 @@ pub unsafe fn init_alliance_data(wrapper: *mut u8) {
             } else {
                 // Check if this team is allied with the starting team
                 let gi = game_info_from_wrapper(wrapper);
-                let num_teams_byte = *gi as u8;
+                let num_teams_byte = (*gi).num_teams;
                 let override_byte = *(wrapper.add(0x490) as *const u8);
 
                 if num_teams_byte == 0 || override_byte != 0 {
                     // No teams or override set: flag = 1
                     *scoring_flag = 1;
                 } else {
-                    let game_version = *(gi.add(0xD778) as *const i32);
-                    let starting_team = *(gi.add(0xD9DC) as *const i8) as i32;
+                    let game_version = (*gi).game_version;
+                    let starting_team = (*gi).starting_team_index as i32;
 
                     let team_bitmask: u32 = if game_version < 0x83 {
                         // Old version: use full alliance bitmask
@@ -305,7 +303,7 @@ pub unsafe fn init_alliance_data(wrapper: *mut u8) {
 
                 // Build auxiliary array for non-starting-team alliances
                 let gi2 = game_info_from_wrapper(wrapper);
-                let starting_team2 = *(gi2.add(0xD9DC) as *const i8) as i32;
+                let starting_team2 = (*gi2).starting_team_index as i32;
 
                 if alliance_group != starting_team2 && seen[alliance_id as usize] == 0 {
                     let starting_bitmask2 =
@@ -434,7 +432,7 @@ unsafe fn wa_init_feature_flags(wrapper: *mut u8) {
 /// object.
 pub unsafe fn init_turn_state(wrapper: *mut u8) {
     let ddgame = ddgame_from_wrapper(wrapper);
-    let game_info = *(ddgame.add(0x24) as *const *mut u8);
+    let game_info = (*ddgame).game_info;
 
     // wrapper+0x458 = -1, wrapper+0x450 = 0, wrapper+0x454 = 0
     *(wrapper.add(0x458) as *mut u32) = 0xFFFF_FFFF;
@@ -442,116 +440,103 @@ pub unsafe fn init_turn_state(wrapper: *mut u8) {
     *(wrapper.add(0x454) as *mut u32) = 0;
 
     // DDGame+0x72E0/E4 = -1, DDGame+0x72E8 = 0
-    *(ddgame.add(0x72E0) as *mut u32) = 0xFFFF_FFFF;
-    *(ddgame.add(0x72E4) as *mut u32) = 0xFFFF_FFFF;
-    *(ddgame.add(0x72E8) as *mut u32) = 0;
+    (*ddgame)._unknown_72e0 = 0xFFFF_FFFF;
+    (*ddgame).render_slot_count = 0xFFFF_FFFF;
+    (*ddgame)._unknown_72e8 = 0;
 
-    // Zero array at DDGame+0x73B0, stride 0x14, while offset < 0x118
+    // Zero render entry table first u32 at DDGame+0x73B0, stride 0x14, while offset < 0x118
     {
+        let base = core::ptr::addr_of_mut!((*ddgame).render_entries) as *mut u8;
         let mut off = 0u32;
         while off < 0x118 {
-            *(ddgame.add(0x73B0 + off as usize) as *mut u32) = 0;
+            *(base.add(off as usize) as *mut u32) = 0;
             off += 0x14;
         }
     }
 
     // More DDGame field zeroing
-    *(ddgame.add(0x739C) as *mut u32) = 0;
-    *(ddgame.add(0x72F4) as *mut u32) = 0;
-    *(ddgame.add(0x72F8) as *mut u32) = 0;
-    *(ddgame.add(0x72FC) as *mut u32) = 0;
-    *(ddgame.add(0x7300) as *mut u32) = 0;
-    *(ddgame.add(0x7304) as *mut u32) = 0;
+    (*ddgame).render_state_flag = 0;
+    (*ddgame)._field_72f4 = 0;
+    (*ddgame)._field_72f8 = 0;
+    (*ddgame)._field_72fc = 0;
+    (*ddgame)._field_7300 = 0;
+    (*ddgame)._field_7304 = 0;
 
-    // DDGame+0x72EC = game_info+0xD774 (RNG seed from scheme)
-    let rng_seed = *(game_info.add(0xD774) as *const u32);
-    *(ddgame.add(0x72EC) as *mut u32) = rng_seed;
-    *(ddgame.add(0x72F0) as *mut u32) = rng_seed; // duplicate
+    // DDGame.rng_state_1/2 = game_info.rng_seed (RNG seed from scheme)
+    let rng_seed = (*game_info).rng_seed;
+    (*ddgame).rng_state_1 = rng_seed;
+    (*ddgame).rng_state_2 = rng_seed; // duplicate
 
-    *(ddgame.add(0x7378) as *mut u32) = 0;
-    *(ddgame.add(0x7374) as *mut u32) = 0;
-    *(ddgame.add(0x737C) as *mut u32) = 0;
-    *(ddgame.add(0x77DC) as *mut u32) = 0;
-    *(ddgame.add(0x77E0) as *mut u32) = 0;
-    *(ddgame.add(0x7784) as *mut u32) = 0;
+    (*ddgame)._field_7378 = 0;
+    (*ddgame)._field_7374 = 0;
+    (*ddgame)._field_737c = 0;
+    (*ddgame)._field_77dc = 0;
+    (*ddgame)._field_77e0 = 0;
+    (*ddgame)._field_7784 = 0;
 
-    // DDGame+0x7788 = game_info+0xF362 (byte → u32)
-    *(ddgame.add(0x7788) as *mut u32) = *(game_info.add(0xF362) as *const u8) as u32;
-    *(ddgame.add(0x778C) as *mut u32) = 0x10000; // Fixed-point 1.0
-    *(ddgame.add(0x7790) as *mut u32) = 0;
+    // DDGame._field_7788 = game_info._field_f362 (byte → u32)
+    (*ddgame)._field_7788 = (*game_info)._field_f362 as u32;
+    (*ddgame)._field_778c = 0x10000; // Fixed-point 1.0
+    (*ddgame)._field_7790 = 0;
 
     // Camera center: (level_width << 16) / 2, (level_height << 16) / 2
-    let level_width = *(ddgame.add(0x77C0) as *const i32);
-    let level_height = *(ddgame.add(0x77C4) as *const i32);
+    let level_width = (*ddgame).level_width as i32;
+    let level_height = (*ddgame).level_height as i32;
     let cx = (level_width << 16) / 2;
     let cy = (level_height << 16) / 2;
-    *(ddgame.add(0x7380) as *mut i32) = cx;
-    *(ddgame.add(0x7388) as *mut i32) = cx; // duplicate
-    *(ddgame.add(0x7384) as *mut i32) = cy;
-    *(ddgame.add(0x738C) as *mut i32) = cy; // duplicate
+    (*ddgame).viewport_width = cx;
+    (*ddgame).viewport_width_2 = cx; // duplicate
+    (*ddgame).viewport_height = cy;
+    (*ddgame).viewport_height_2 = cy; // duplicate
 
-    *(ddgame.add(0x7D84) as *mut u32) = 0;
-    *(ddgame.add(0x7E4C) as *mut u32) = 0;
-    *(ddgame.add(0x77D4) as *mut u32) = 0;
-    *(ddgame.add(0x77D8) as *mut u32) = 0;
+    (*ddgame)._field_7d84 = 0;
+    (*ddgame)._field_7e4c = 0;
+    (*ddgame)._field_77d4 = 0;
+    (*ddgame)._field_77d8 = 0;
 
     // Per-team loop
-    let num_teams = *game_info as u8 as i32;
+    let num_teams = (*game_info).num_teams as i32;
     if num_teams > 0 {
-        let mut off = 0x7D88u32;
-        for i in 0..num_teams {
-            *(ddgame.add(off as usize) as *mut u32) = 0;
-            *(ddgame.add(0x7DBC + i as usize) as *mut u8) = 1;
-            *(ddgame.add(0x7DC9 + i as usize) as *mut u8) = 1;
-            *(ddgame.add(0x7DD6 + i as usize) as *mut u8) = 0;
-            *(ddgame.add(0x7DE3 + i as usize) as *mut u8) = 0;
-            *(ddgame.add(0x7DF0 + i as usize) as *mut u8) = 0;
-            off += 4;
+        for i in 0..num_teams as usize {
+            (*ddgame)._field_7d88[i] = 0;
+            (*ddgame)._field_7dbc[i] = 1;
+            (*ddgame)._field_7dc9[i] = 1;
+            (*ddgame)._field_7dd6[i] = 0;
+            (*ddgame)._field_7de3[i] = 0;
+            (*ddgame)._field_7df0[i] = 0;
         }
     }
 
-    *(ddgame.add(0x7E03) as *mut u8) = 0;
-    *(ddgame.add(0x7E04) as *mut u8) = 0;
+    (*ddgame)._field_7e03 = 0;
+    (*ddgame)._field_7e04 = 0;
 
     // Call DDGame__InitFeatureFlags (600-line feature flag init, bridged)
     wa_init_feature_flags(wrapper);
 
     // Post-feature-flag field writes
-    *(ddgame.add(0x7E41) as *mut u8) = 0;
-    *(ddgame.add(0x7E50) as *mut u32) = 0;
-    *(ddgame.add(0x7E54) as *mut u32) = 0;
-    *(ddgame.add(0x7E58) as *mut u32) = 0;
-    *(ddgame.add(0x7E5C) as *mut u32) = 0;
-    *(ddgame.add(0x7E60) as *mut u32) = 0;
-    *(ddgame.add(0x7E64) as *mut u32) = 0;
-    *(ddgame.add(0x7E68) as *mut u32) = 0;
-    *(ddgame.add(0x7E6C) as *mut u32) = 0;
-    *(ddgame.add(0x7E88) as *mut u32) = 0;
-    *(ddgame.add(0x7E8C) as *mut u32) = 0;
-    *(ddgame.add(0x7E90) as *mut u32) = 0;
-    *(ddgame.add(0x7E94) as *mut u32) = 0;
-    *(ddgame.add(0x7E98) as *mut u32) = 0;
-    *(ddgame.add(0x7EA0) as *mut u32) = 0;
-    *(ddgame.add(0x7EA4) as *mut u32) = 0;
+    (*ddgame)._field_7e41 = 0;
+    (*ddgame)._fields_7e50 = [0u32; 8];
+    (*ddgame)._fields_7e88 = [0u32; 5];
+    (*ddgame).field_7ea0 = 0;
+    (*ddgame).field_7ea4 = 0;
 
-    *(ddgame.add(0x8148) as *mut u32) = 1;
+    (*ddgame)._field_8148 = 1;
 
     let ddgame2 = ddgame_from_wrapper(wrapper);
-    *(ddgame2.add(0x8158) as *mut u32) = 0;
-    *(ddgame2.add(0x815C) as *mut u32) = 0;
+    (*ddgame2)._field_8158 = 0;
+    (*ddgame2)._field_815c = 0;
     let ddgame3 = ddgame_from_wrapper(wrapper);
-    *(ddgame3.add(0x8160) as *mut u32) = 0;
-    *(ddgame3.add(0x8164) as *mut u32) = 0;
+    (*ddgame3)._field_8160 = 0;
+    (*ddgame3)._field_8164 = 0;
 
-    // Vtable dispatch: DDGame+0x20 → landscape object, vtable slot 1,
-    // param = game_info+0xD94C (byte)
+    // Vtable dispatch: DDGame.landscape → vtable slot 1,
+    // param = game_info.donkey_disabled (byte at +0xD94C)
     let ddgame4 = ddgame_from_wrapper(wrapper);
-    let landscape = *(ddgame4.add(0x20) as *const *mut u8);
+    let landscape = (*ddgame4).landscape as *mut u8;
     if !landscape.is_null() {
         let vtable = *(landscape as *const *const usize);
         let slot1: unsafe extern "thiscall" fn(*mut u8, u32) = core::mem::transmute(*vtable.add(1));
-        let game_info2 = *(ddgame4.add(0x24) as *const *const u8);
-        let param = *game_info2.add(0xD94C) as u32;
+        let param = (*(*ddgame4).game_info).donkey_disabled as u32;
         slot1(landscape, param);
     }
 }
@@ -560,22 +545,22 @@ pub unsafe fn init_turn_state(wrapper: *mut u8) {
 ///
 /// Convention: usercall(EAX=wrapper), plain RET.
 ///
-/// Checks game_info+0xD94B and dispatches landscape vtable slot 6 with
-/// appropriate parameters, then updates DDGame+0x777C.
+/// Checks game_info.landscape_scheme_flag and dispatches landscape vtable slot 6 with
+/// appropriate parameters, then updates DDGame.level_width_raw.
 pub unsafe fn init_landscape_flags(wrapper: *mut u8) {
     let ddgame = ddgame_from_wrapper(wrapper);
-    let game_info = *(ddgame.add(0x24) as *const *mut u8);
+    let game_info = (*ddgame).game_info;
 
-    let scheme_flag = *(game_info.add(0xD94B) as *const u8);
+    let scheme_flag = (*game_info).landscape_scheme_flag;
 
     // Read the 4 DDGame fields used as params
-    let field_7318 = *(ddgame.add(0x7318) as *const u32);
-    let field_730c = *(ddgame.add(0x730C) as *const u32);
-    let field_734c = *(ddgame.add(0x734C) as *const u32);
-    let field_7340 = *(ddgame.add(0x7340) as *const u32);
+    let field_7318 = (*ddgame).gfx_color_table[3];
+    let field_730c = (*ddgame).gfx_color_table[0];
+    let field_734c = (*ddgame)._field_734c;
+    let field_7340 = (*ddgame)._field_7340;
 
-    // DDGame+0x20 = landscape object
-    let landscape = *(ddgame.add(0x20) as *const *mut u8);
+    // DDGame.landscape object
+    let landscape = (*ddgame).landscape as *mut u8;
     let vtable = *(landscape as *const *const usize);
     // Vtable slot 6 = offset +0x18
     let slot6: unsafe extern "thiscall" fn(*mut u8, u32, u32, u32, u32, u32, u32, u32, u32) =
@@ -586,8 +571,8 @@ pub unsafe fn init_landscape_flags(wrapper: *mut u8) {
         slot6(
             landscape, 1, 1, 1, 1, field_7318, field_730c, field_734c, field_7340,
         );
-        *(ddgame.add(0x777C) as *mut u32) = 1;
-    } else if *(ddgame.add(0x777C) as *const u32) != 0 {
+        (*ddgame).level_width_raw = 1;
+    } else if (*ddgame).level_width_raw != 0 {
         // Call with (0, 0, 1, 0, field_7318, field_730c, field_734c, field_7340)
         slot6(
             landscape, 0, 0, 1, 0, field_7318, field_730c, field_734c, field_7340,

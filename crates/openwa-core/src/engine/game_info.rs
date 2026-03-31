@@ -19,16 +19,24 @@ pub struct GameInfo {
     /// Used by DSSound_LoadAllSpeechBanks to iterate teams.
     pub speech_team_count: u8,
 
-    /// 0x044D-0xD777: Unknown
-    pub _unknown_044d: [u8; 0xD778 - 0x44D],
+    /// 0x044D-0xD773: Unknown
+    pub _unknown_044d: [u8; 0xD774 - 0x44D],
+    /// 0xD774: Initial RNG seed from scheme options.
+    pub rng_seed: u32,
 
     /// 0xD778: Game version/mode. Compared against various thresholds:
     /// -2 = network game, -3..0 = different game modes, 8+ = new versions.
     /// Used by DDGame constructor for conditional initialization.
     pub game_version: i32,
 
-    /// 0xD77C-0xD931: Unknown
-    pub _unknown_d77c: [u8; 0xD932 - 0xD77C],
+    /// 0xD77C-0xD787: Unknown
+    pub _unknown_d77c: [u8; 0xD788 - 0xD77C],
+    /// 0xD788: Scoring parameter A (multiplied by 50 for initial score).
+    pub scoring_param_a: u16,
+    /// 0xD78A: Scoring parameter B (multiplied by 50 for initial score).
+    pub scoring_param_b: u16,
+    /// 0xD78C-0xD931: Unknown
+    pub _unknown_d78c: [u8; 0xD932 - 0xD78C],
     /// 0xD932: DoubleTurnTime availability threshold (u16).
     /// If game_version > 0xD1 and this > 0x7FFF, DoubleTurnTime is disabled.
     pub double_turn_time_threshold: u16,
@@ -47,8 +55,10 @@ pub struct GameInfo {
     /// 0xD946: Network config byte 2 (copied to network object+0x29).
     pub net_config_2: u8,
 
-    /// 0xD947-0xD94B: Unknown
-    pub _unknown_d947: [u8; 0xD94C - 0xD947],
+    /// 0xD947-0xD94A: Unknown
+    pub _unknown_d947: [u8; 4],
+    /// 0xD94B: Landscape scheme flag (nonzero enables terrain features via PCLandscape vtable slot 6).
+    pub landscape_scheme_flag: u8,
     /// 0xD94C: Donkey (weapon 0x36) disable flag.
     pub donkey_disabled: u8,
     /// 0xD94D-0xD955: Unknown
@@ -69,8 +79,14 @@ pub struct GameInfo {
     /// 0xD9A2: Network weapon exception flag. When net_config_2 != 0,
     /// weapons 10/0x37/0x38 are only disabled if this is also 0.
     pub net_weapon_exception: u8,
-    /// 0xD9A3-0xD9DF: Unknown
-    pub _unknown_d9a3: [u8; 0xD9E0 - 0xD9A3],
+    /// 0xD9A3-0xD9DB: Unknown
+    pub _unknown_d9a3: [u8; 0xD9DC - 0xD9A3],
+    /// 0xD9DC: Index of the starting team for this round.
+    pub starting_team_index: i8,
+    /// 0xD9DD: Game mode flag. Negative = training/replay mode. Also used as starting-team index for activity flags in normal mode.
+    pub game_mode_flag: i8,
+    /// 0xD9DE-0xD9DF: Unknown
+    pub _unknown_d9de: [u8; 2],
 
     /// 0xD9E0: Streaming audio config data (path config passed to streaming audio ctor).
     /// Address of this field is passed as a pointer parameter.
@@ -138,8 +154,12 @@ pub struct GameInfo {
     /// Checked by IsSoundSuppressed, DispatchGlobalSound, PlaySoundPooled_Direct.
     pub sound_mute: u8,
 
-    /// 0xF349-0xF373: Unknown
-    pub _unknown_f349: [u8; 0xF374 - 0xF349],
+    /// 0xF349-0xF361: Unknown
+    pub _unknown_f349: [u8; 0xF362 - 0xF349],
+    /// 0xF362: Unknown byte copied to DDGame+0x7788 during turn state init.
+    pub _field_f362: u8,
+    /// 0xF363-0xF373: Unknown
+    pub _unknown_f363: [u8; 0xF374 - 0xF363],
 
     /// 0xF374: Display flags passed to DDDisplay::Init.
     pub display_flags: u32,
