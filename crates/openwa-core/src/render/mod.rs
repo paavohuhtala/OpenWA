@@ -1,10 +1,12 @@
 pub mod gfx_dir;
 pub mod landscape;
 pub mod queue;
+pub mod spr;
 pub mod sprite;
 pub mod turn_order;
 
 pub use landscape::{DirtyRect, PCLandscape};
+pub use spr::{SprError, SprHeader};
 pub use queue::{
     DrawBitmapGlobalCmd, DrawLineStripHeader, DrawPixelCmd, DrawPolygonHeader, DrawRectCmd,
     DrawScaledCmd, DrawSpriteCmd, DrawSpriteOffsetCmd, DrawTextboxLocalCmd, RenderQueue,
