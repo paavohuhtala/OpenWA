@@ -15,6 +15,7 @@ mod replay_test;
 mod scheme;
 mod sound;
 mod speech;
+mod sprite;
 mod task;
 mod team;
 mod trace_desync;
@@ -52,6 +53,7 @@ pub fn install_all() -> Result<(), String> {
     weapon::install()?;
     team::install()?;
     render::install()?;
+    sprite::install()?;
     sound::install()?;
     speech::install()?;
     ddgame_init::install()?;
