@@ -56,8 +56,10 @@ pub unsafe fn palette_map_color(ctx: *mut PaletteContext, rgb: u32) -> u32 {
 
     let cache_count = *(p.add(0x606) as *const i16);
 
-    // Search cache for matching RGB (24-bit compare)
-    for i in 0..cache_count as usize {
+    // Search cache for matching RGB (24-bit compare).
+    // Clamp to 256 — WA doesn't bounds-check cache_count.
+    let search_len = (cache_count as usize).min(256);
+    for i in 0..search_len {
         let idx = *p.add(0x608 + i) as usize;
         if idx != 0 && (*(p.add(0x04 + idx * 4) as *const u32) ^ rgb) & 0xFF_FFFF == 0 {
             return idx as u32;
@@ -75,9 +77,12 @@ pub unsafe fn palette_map_color(ctx: *mut PaletteContext, rgb: u32) -> u32 {
     let slot = *p.add(0x506 + new_free_count as usize);
     let slot_idx = slot as usize;
 
-    // Add to cache (may overflow into dirty field at +0x708 when cache is full —
-    // matches WA behavior, and dirty is set to 1 immediately after anyway)
-    *p.add(0x608 + cache_count as usize) = slot;
+    // Add to cache. WA doesn't bounds-check: when cache_count == 256 it writes
+    // past cache[] into the dirty field, which is set to 1 immediately after.
+    // We just skip the write instead.
+    if (cache_count as usize) < 256 {
+        *p.add(0x608 + cache_count as usize) = slot;
+    }
     *(p.add(0x606) as *mut i16) = cache_count + 1;
 
     // Store RGB and mark in-use
