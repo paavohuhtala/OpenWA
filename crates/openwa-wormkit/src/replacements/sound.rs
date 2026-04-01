@@ -174,6 +174,12 @@ pub fn install() -> Result<(), String> {
             va::WORM_PLAY_SOUND_2,
             trampoline_worm_play_sound_2 as *const (),
         )?;
+
+        // Trap: only caller (PlayWormSound2) is fully ported Rust
+        hook::install_trap!(
+            "LoadAndPlayStreamingPositional",
+            va::LOAD_AND_PLAY_STREAMING_POSITIONAL
+        );
     }
 
     Ok(())

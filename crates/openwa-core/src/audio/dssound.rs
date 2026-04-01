@@ -2,7 +2,7 @@ use crate::fixed::Fixed;
 
 use windows::Win32::Media::Audio::DirectSound::IDirectSoundBuffer;
 
-use crate::audio::sound::SoundId;
+use crate::audio::sound_id::SoundId;
 
 /// Volume-to-dB attenuation table (64 entries of i16).
 /// Copied from WA.exe .rdata at 0x6A6A60.

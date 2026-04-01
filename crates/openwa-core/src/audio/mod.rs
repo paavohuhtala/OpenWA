@@ -1,7 +1,8 @@
 pub mod active_sound;
 pub mod dssound;
+pub mod known_sound_id;
 pub mod music;
-pub mod sound;
+pub mod sound_id;
 pub mod sound_ops;
 pub mod speech;
 pub mod streaming;
@@ -15,7 +16,8 @@ pub use dssound::{
     sub_destructor as dssound_sub_destructor, update_channels,
 };
 pub use dssound::{ChannelDescriptor, DSSound, DSSoundVtable};
+pub use known_sound_id::KnownSoundId;
 pub use music::Music;
-pub use sound::{KnownSoundId, SoundId};
+pub use sound_id::SoundId;
 pub use speech::{SpeechLineId, SpeechLineTableEntry, SpeechSlotTable, SPEECH_LINE_TABLE_COUNT};
 pub use streaming::StreamingAudio;

@@ -520,7 +520,10 @@ pub mod va {
         /// CTaskWorm::PlaySound2 (FUN_00515020): usercall(EDI=worm) + stdcall(sound_id, volume, flags).
         /// Stop+play on secondary sound handle (+0x3B4). 23 callers in WA.
         fn/Usercall WORM_PLAY_SOUND_2 = 0x0051_5020;
-        /// LoadAndPlayStreaming: usercall(EAX=worm, ESI=&sound_emitter) + stack(sound_id, flags, volume).
+        /// LoadAndPlayStreamingPositional (0x546BB0): usercall(EAX=task) + stack(volume, sound_id, flags, x, y).
+        /// Like LoadAndPlayStreaming but with explicit position. Only caller is PlayWormSound2.
+        fn/Usercall LOAD_AND_PLAY_STREAMING_POSITIONAL = 0x0054_6BB0;
+        /// LoadAndPlayStreaming: usercall(EAX=task, ESI=&sound_emitter) + stack(sound_id, flags, volume).
         /// Checks game conditions, then starts a streaming sound. Returns handle | 0x40000000.
         fn/Usercall LOAD_AND_PLAY_STREAMING = 0x0054_6C20;
         /// ComputeDistanceParams

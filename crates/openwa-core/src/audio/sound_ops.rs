@@ -141,7 +141,7 @@ pub unsafe fn play_worm_sound(worm: *mut CTaskWorm, sound_id: SoundId, volume: F
     }
     // Start new streaming sound — fully ported, no WA bridge needed
     // FUN_005150D0 hardcodes flags=3
-    let new_handle = load_and_play_streaming(worm, sound_id, 3, volume);
+    let new_handle = load_and_play_streaming(worm as *mut CGameTask, sound_id, 3, volume);
     (*worm).sound_handle = new_handle;
 }
 
@@ -177,7 +177,7 @@ pub unsafe fn play_worm_sound_2(
     let new_handle = if worm_y < -0x270F_FFFF && sound_id.0 == 0x36 {
         // Special teleport case: play at weapon target position
         load_and_play_streaming_positional(
-            worm,
+            worm as *mut CTask,
             sound_id,
             flags,
             volume,
@@ -186,7 +186,7 @@ pub unsafe fn play_worm_sound_2(
         )
     } else {
         // Normal case: play streaming sound — fully ported
-        load_and_play_streaming(worm, sound_id, flags, volume)
+        load_and_play_streaming(worm as *mut CGameTask, sound_id, flags, volume)
     };
 
     (*worm).sound_handle_2 = new_handle;
@@ -464,14 +464,15 @@ unsafe fn dispatch_local_sound(
 /// then dispatches as a local sound. Returns handle | 0x40000000 on success,
 /// 0 on failure, -1 (0xFFFFFFFF) if suppressed.
 ///
-/// Replaces the former naked asm bridge `call_load_and_play_streaming`.
+/// Takes any CGameTask (needs sound_emitter for position). Multiple WA callers
+/// pass various task types (CTaskWorm, CTaskMissile, etc.).
 pub unsafe fn load_and_play_streaming(
-    worm: *mut CTaskWorm,
+    task: *mut CGameTask,
     sound_id: SoundId,
     flags: u32,
     volume: Fixed,
 ) -> i32 {
-    let ddgame = CTask::ddgame_raw(worm as *const CTask);
+    let ddgame = CTask::ddgame_raw(task as *const CTask);
     let gi = &*(*ddgame).game_info;
 
     // Suppression checks (matching 0x546C20 exactly)
@@ -488,7 +489,6 @@ pub unsafe fn load_and_play_streaming(
     }
 
     // Get emitter position via sound_emitter vtable[0] (GetPosition)
-    let task = worm as *mut CGameTask;
     let emitter = &(*task).sound_emitter;
     let mut pos_x: u32 = 0;
     let mut pos_y: u32 = 0;
@@ -518,16 +518,17 @@ pub unsafe fn load_and_play_streaming(
 /// LoadAndPlayStreamingPositional (0x546BB0).
 ///
 /// Same as `load_and_play_streaming` but uses explicit (x, y) coordinates
-/// instead of reading from the emitter. Used by teleport sound special case.
+/// instead of reading from the emitter. Only needs CTask (reads ddgame at +0x2C).
+/// Only caller in WA is PlayWormSound2 (0x515020).
 pub unsafe fn load_and_play_streaming_positional(
-    worm: *mut CTaskWorm,
+    task: *mut CTask,
     sound_id: SoundId,
     flags: u32,
     volume: Fixed,
     x: Fixed,
     y: Fixed,
 ) -> i32 {
-    let ddgame = CTask::ddgame_raw(worm as *const CTask);
+    let ddgame = CTask::ddgame_raw(task as *const CTask);
     let gi = &*(*ddgame).game_info;
 
     // Suppression checks (matching 0x546BB0 exactly)
