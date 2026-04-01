@@ -117,6 +117,9 @@ pub fn parse_spr_header(data: &[u8]) -> Result<SprHeader, SprError> {
         cursor = align4(cursor + 2);
         secondary_frame_offset = cursor;
         cursor += secondary_frame_count as usize * 12;
+        if data.len() < cursor {
+            return Err(SprError::TooShort { expected: cursor, actual: data.len() });
+        }
     }
 
     // Main frame header (12 bytes)
@@ -146,6 +149,10 @@ pub fn parse_spr_header(data: &[u8]) -> Result<SprHeader, SprError> {
     // Frame metadata (aligned to 4 bytes)
     let frame_meta_offset = align4(cursor);
     let bitmap_offset = frame_meta_offset + frame_count as usize * 12;
+
+    if data.len() < bitmap_offset {
+        return Err(SprError::TooShort { expected: bitmap_offset, actual: data.len() });
+    }
 
     let bitmap_size = if data.len() > bitmap_offset {
         data.len() - bitmap_offset
