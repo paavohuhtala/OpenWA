@@ -192,7 +192,7 @@ Hooks use the `minhook` crate. Two patterns:
 1. **Passthrough hook** (logging only): Call original via trampoline, log result. See `replacements/scheme.rs`.
 2. **Full replacement**: Reimplement the function in Rust, call WA functions via `wa_call` helpers. See `replacements/frontend.rs`.
 
-For `__usercall` functions, use a naked trampoline to capture register params before calling the Rust impl.
+For `__usercall` functions, use a naked trampoline to capture register params before calling the Rust impl. **ECX preservation**: The standard `reg = ecx` trampoline variants do NOT preserve ECX across the cdecl impl call. MSVC-generated callers often loop calling thiscall functions without re-setting ECX between iterations (relying on the original function preserving it). Use the `preserve_ecx` variant for thiscall hooks where callers may rely on ECX being preserved: `usercall_trampoline!(fn name; impl_fn = path; reg = ecx; stack_params = N; ret_bytes = "0xN"; preserve_ecx)`.
 
 3. **Vtable method replacement**: Use `vtable_replace!` to patch vtable slots at runtime. Write the replacement as `unsafe extern "thiscall" fn`. For base-class call-through, either save the original via `[ORIG_STATIC]` syntax, or call `broadcast_message()` for CTask::HandleMessage. See `replacements/task/cloud.rs`.
 4. **Trap hook** (`install_trap!`): For functions whose only caller is now ported Rust. Panics if called unexpectedly. Used for FireWeapon (0x51EE60) after WeaponRelease was ported.
