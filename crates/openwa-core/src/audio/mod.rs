@@ -5,7 +5,9 @@ pub mod music;
 pub mod sound_id;
 pub mod sound_ops;
 pub mod speech;
+pub mod speech_ops;
 pub mod streaming;
+pub mod wav_player;
 
 pub use active_sound::{ActiveSoundEntry, ActiveSoundTable};
 pub use dssound::{
