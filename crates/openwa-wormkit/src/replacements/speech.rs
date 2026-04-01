@@ -122,21 +122,63 @@ unsafe extern "cdecl" fn wav_player_play_raw(_player: u32, _volume: u32, _func: 
 }
 
 // ============================================================
-// WA function wrappers
+// Team config name lookup (port of GetTeamConfigName 0x4A62A0)
 // ============================================================
 
-/// GetTeamConfigName: usercall(ECX=index_0based, EAX=output_buf), plain RET.
-/// Jump table with 49 cases (0-48). Writes null-terminated country/config
-/// name (e.g. "Finland", "Simple", "USA") into the buffer at EAX.
-unsafe fn get_team_config_name(index_0based: u32, buf: *mut u8) {
-    core::arch::asm!(
-        "call {func}",
-        func = in(reg) rb(va::GET_TEAM_CONFIG_NAME),
-        in("ecx") index_0based,
-        in("eax") buf as u32,
-        clobber_abi("C"),
-    );
-}
+/// Team config names indexed 0-48, matching WA.exe's jump table at 0x4A62A0.
+/// Used for fanfare WAV file paths (e.g. "user\Fanfare\Finland.wav").
+/// Note: "Leichtenstein" is WA's original misspelling — must match for file lookup.
+const TEAM_CONFIG_NAMES: [&str; 49] = [
+    "UK",             // 0
+    "Argentina",      // 1
+    "Australia",      // 2
+    "Austria",        // 3
+    "Belgium",        // 4
+    "Brazil",         // 5
+    "Canada",         // 6
+    "Croatia",        // 7
+    "Simple",         // 8
+    "Cyprus",         // 9
+    "Simple",         // 10
+    "Denmark",        // 11
+    "Finland",        // 12
+    "France",         // 13
+    "Simple",         // 14
+    "Germany",        // 15
+    "Greece",         // 16
+    "Simple",         // 17
+    "Hungary",        // 18
+    "Iceland",        // 19
+    "India",          // 20
+    "Simple",         // 21
+    "Psycho Laugh",   // 22
+    "Psycho Laugh",   // 23
+    "Ireland",        // 24
+    "Israel",         // 25
+    "Italy",          // 26
+    "Japan",          // 27
+    "Leichtenstein",  // 28
+    "Luxembourg",     // 29
+    "Simple",         // 30
+    "Malta",          // 31
+    "Mexico",         // 32
+    "Morocco",        // 33
+    "Netherlands",    // 34
+    "New Zealand",    // 35
+    "Norway",         // 36
+    "Poland",         // 37
+    "Portugal",       // 38
+    "Simple",         // 39
+    "Romania",        // 40
+    "Russia",         // 41
+    "Singapore",      // 42
+    "South Africa",   // 43
+    "Spain",          // 44
+    "Sweden",         // 45
+    "Switzerland",    // 46
+    "Turkey",         // 47
+    "USA",            // 48
+];
 
 // ============================================================
 // PlayFeSfx replacement (0x4D7960)
@@ -174,16 +216,12 @@ unsafe extern "stdcall" fn hook_play_fe_sfx(sfx_name: *const u8) {
 // Builds "<wa_path>\user\Fanfare\<name>.wav", plays on FANFARE_WAV_PLAYER.
 
 unsafe extern "stdcall" fn hook_play_fanfare_default(team_type: u32) {
-    // Get the fanfare name
-    let mut name_buf = [0u8; 64];
-    if (1..=49).contains(&team_type) {
-        get_team_config_name(team_type - 1, name_buf.as_mut_ptr());
+    // Get the fanfare name from lookup table (port of GetTeamConfigName 0x4A62A0)
+    let name = if (1..=49).contains(&team_type) {
+        TEAM_CONFIG_NAMES[(team_type - 1) as usize]
     } else {
-        name_buf[..7].copy_from_slice(b"Simple\0");
-    }
-    let name = CStr::from_ptr(name_buf.as_ptr() as *const i8)
-        .to_str()
-        .unwrap_or("Simple");
+        "Simple"
+    };
 
     // Read WA data path
     let wa_path = CStr::from_ptr(rb(va::WA_DATA_PATH) as *const i8)
