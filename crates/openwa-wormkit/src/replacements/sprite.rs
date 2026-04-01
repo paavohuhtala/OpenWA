@@ -6,6 +6,8 @@
 
 use openwa_core::address::va;
 use openwa_core::rebase::rb;
+use openwa_core::render::palette::PaletteContext;
+use openwa_core::render::sprite::{Sprite, SpriteFrame};
 
 use crate::hook::{self, usercall_trampoline};
 
@@ -16,21 +18,17 @@ use crate::hook::{self, usercall_trampoline};
 usercall_trampoline!(fn trampoline_construct_sprite; impl_fn = construct_sprite_impl;
     regs = [eax, ecx]);
 
-unsafe extern "cdecl" fn construct_sprite_impl(sprite: u32, context: u32) {
-    let p = sprite as *mut u8;
-
+unsafe extern "cdecl" fn construct_sprite_impl(sprite: *mut Sprite, context: *mut u8) {
     // Zero the entire 0x70-byte struct first
-    core::ptr::write_bytes(p, 0, 0x70);
+    core::ptr::write_bytes(sprite as *mut u8, 0, core::mem::size_of::<Sprite>());
 
-    // Vtable
-    *(p as *mut u32) = rb(va::SPRITE_VTABLE);
-    // Context pointer (+0x04)
-    *(p.add(0x04) as *mut u32) = context;
-    // DisplayGfx vtable (+0x34)
-    *(p.add(0x34) as *mut u32) = rb(va::DISPLAYGFX_VTABLE);
-    // _unknown_38 = 1 (+0x38)
+    (*sprite).vtable = rb(va::SPRITE_VTABLE) as *mut u8;
+    (*sprite).context_ptr = context;
+    (*sprite).display_gfx = rb(va::DISPLAYGFX_VTABLE) as *mut u8;
+
+    // DisplayGfx sub-object fields (within _unknown_38)
+    let p = sprite as *mut u8;
     *(p.add(0x38) as *mut u32) = 1;
-    // _unknown_40 = 8 (+0x40)
     *(p.add(0x40) as *mut u32) = 8;
 }
 
@@ -55,23 +53,23 @@ unsafe extern "cdecl" fn palette_map_color_impl(palette_ctx: u32, rgb: u32) -> u
     openwa_core::render::palette::palette_map_color(ctx, rgb)
 }
 
-unsafe extern "cdecl" fn process_sprite_impl(sprite: u32, palette_ctx: u32, raw_data: u32) -> u32 {
+unsafe extern "cdecl" fn process_sprite_impl(
+    sprite: *mut Sprite,
+    palette_ctx: *mut PaletteContext,
+    raw_data: *const u8,
+) -> u32 {
+    use openwa_core::render::palette::palette_map_color;
     use openwa_core::render::spr::parse_spr_header;
 
-    let p = sprite as *mut u8;
-    let data_ptr = raw_data as *const u8;
-
-    // We need the data as a slice. Use data_size from header to determine length.
-    // data_size is at raw_data + 4.
-    let data_size = *(data_ptr.add(4) as *const u32);
+    // We need the data as a slice. data_size is at raw_data + 4.
+    let data_size = *(raw_data.add(4) as *const u32);
     // Total buffer: data_size covers from offset +4 onward, so total = data_size + 4.
     let data_len = (data_size + 4) as usize;
-    let data = core::slice::from_raw_parts(data_ptr, data_len);
+    let data = core::slice::from_raw_parts(raw_data, data_len);
 
     let hdr = match parse_spr_header(data) {
         Ok(h) => h,
         Err(e) => {
-            // This should never happen with valid WA game data
             panic!("ProcessSprite: failed to parse .spr data: {}", e);
         }
     };
@@ -81,18 +79,18 @@ unsafe extern "cdecl" fn process_sprite_impl(sprite: u32, palette_ctx: u32, raw_
     *g_data_bytes = (*g_data_bytes).wrapping_add(data_size);
 
     // --- Store raw_frame_header_ptr (points to header_flags in raw buffer) ---
-    *(p.add(0x60) as *mut *const u8) = data_ptr.add(8);
+    (*sprite).raw_frame_header_ptr = raw_data.add(8) as *mut u8;
 
     // --- Store header_flags ---
-    *(p.add(0x14) as *mut u16) = hdr.header_flags;
+    (*sprite).header_flags = hdr.header_flags;
 
     // --- Build palette lookup table IN PLACE ---
     // palette_data_ptr points to raw_data + 0x0A (the palette_entry_count field).
     // WA overwrites this region with a 1-indexed palette index lookup table:
     //   [0] = 0 (transparent)
     //   [1..N] = PaletteContext__MapColor(rgb) for each entry
-    let palette_base = data_ptr.add(0x0A) as *mut u8;
-    *(p.add(0x68) as *mut *mut u8) = palette_base;
+    let palette_base = raw_data.add(0x0A) as *mut u8;
+    (*sprite).palette_data_ptr = palette_base;
 
     // Update global counter: palette bytes
     let g_palette = rb(va::G_SPRITE_PALETTE_BYTES) as *mut u32;
@@ -102,80 +100,74 @@ unsafe extern "cdecl" fn process_sprite_impl(sprite: u32, palette_ctx: u32, raw_
     *palette_base = 0;
 
     // Map each RGB entry to display palette index
-    let rgb_start = data_ptr.add(hdr.palette_offset);
-    let ctx = palette_ctx as *mut openwa_core::render::palette::PaletteContext;
+    let rgb_start = raw_data.add(hdr.palette_offset);
     for i in 0..hdr.palette_count as usize {
         // Read 4 bytes (3 RGB + 1 from next entry, matching WA behavior)
         let rgb_val = *(rgb_start.add(i * 3) as *const u32);
-        let mapped = openwa_core::render::palette::palette_map_color(ctx, rgb_val);
+        let mapped = palette_map_color(palette_ctx, rgb_val);
         *palette_base.add(1 + i) = mapped as u8;
     }
 
     // --- Secondary frame table (if header_flags & 0x4000) ---
     let has_secondary = hdr.header_flags & 0x4000 != 0;
     if has_secondary {
-        *(p.add(0x30) as *mut u16) = hdr.secondary_frame_count;
-        *(p.add(0x2C) as *mut *const u8) = data_ptr.add(hdr.secondary_frame_offset);
+        (*sprite).secondary_frame_count = hdr.secondary_frame_count;
+        (*sprite).secondary_frame_ptr =
+            raw_data.add(hdr.secondary_frame_offset) as *mut SpriteFrame;
     }
 
     // --- Main frame header fields ---
     // Copy unknown_08 + fps as a single u32 (matching WA's 4-byte copy)
     let frame_header_ptr = if has_secondary {
-        // After secondary frames
-        data_ptr.add(hdr.secondary_frame_offset + hdr.secondary_frame_count as usize * 12)
+        raw_data.add(hdr.secondary_frame_offset + hdr.secondary_frame_count as usize * 12)
     } else {
-        data_ptr.add(hdr.palette_offset + hdr.palette_count as usize * 3)
+        raw_data.add(hdr.palette_offset + hdr.palette_count as usize * 3)
     };
 
     // WA copies 4 bytes at once: *(u32*)(sprite+8) = *(u32*)(frame_header)
+    let p = sprite as *mut u8;
     *(p.add(0x08) as *mut u32) = *(frame_header_ptr as *const u32);
-    *(p.add(0x10) as *mut u16) = hdr.flags;
-    *(p.add(0x0C) as *mut u16) = hdr.width;
-    *(p.add(0x0E) as *mut u16) = hdr.height;
-    *(p.add(0x12) as *mut u16) = hdr.frame_count;
-    *(p.add(0x16) as *mut u16) = hdr.max_frames;
+    (*sprite).flags = hdr.flags;
+    (*sprite).width = hdr.width;
+    (*sprite).height = hdr.height;
+    (*sprite).frame_count = hdr.frame_count;
+    (*sprite).max_frames = hdr.max_frames;
 
     // --- Scale fields ---
     if hdr.is_scaled {
-        *(p.add(0x1C) as *mut u32) = hdr.scale_x;
-        *(p.add(0x20) as *mut u32) = hdr.scale_y;
-        *(p.add(0x24) as *mut u32) = 1; // is_scaled
+        (*sprite).scale_x = hdr.scale_x;
+        (*sprite).scale_y = hdr.scale_y;
+        (*sprite).is_scaled = 1;
     } else {
-        *(p.add(0x24) as *mut u32) = 0;
+        (*sprite).is_scaled = 0;
     }
 
     // --- Frame metadata and bitmap pointers ---
-    let frame_meta_ptr = data_ptr.add(hdr.frame_meta_offset);
-    let bitmap_ptr = data_ptr.add(hdr.bitmap_offset);
-    *(p.add(0x28) as *mut *const u8) = frame_meta_ptr;
-    *(p.add(0x64) as *mut *const u8) = bitmap_ptr;
+    let frame_meta_ptr = raw_data.add(hdr.frame_meta_offset) as *mut SpriteFrame;
+    let bitmap_ptr = raw_data.add(hdr.bitmap_offset) as *mut u8;
+    (*sprite).frame_meta_ptr = frame_meta_ptr;
+    (*sprite).bitmap_data_ptr = bitmap_ptr;
 
     // --- Bitmap palette remapping (only when NO secondary frames) ---
     if !has_secondary {
         // Remap every bitmap byte: pixel = lookup_table[pixel]
-        let bitmap_start_relative = hdr.bitmap_offset;
-        let bitmap_byte_count_raw = (data_size as usize + 4).saturating_sub(bitmap_start_relative);
+        let bitmap_byte_count_raw = (data_size as usize + 4).saturating_sub(hdr.bitmap_offset);
         let dword_count = (bitmap_byte_count_raw + 3) / 4;
         let remap_byte_count = dword_count * 4;
 
-        let bmp = bitmap_ptr as *mut u8;
         for i in 0..remap_byte_count {
-            let idx = *bmp.add(i) as usize;
-            *bmp.add(i) = *palette_base.add(idx);
+            let idx = *bitmap_ptr.add(i) as usize;
+            *bitmap_ptr.add(i) = *palette_base.add(idx);
         }
     }
 
     // --- Update global counters: pixel area and frame count ---
     if hdr.frame_count > 0 {
         let g_pixel_area = rb(va::G_SPRITE_PIXEL_AREA) as *mut u32;
-        let frames_ptr = frame_meta_ptr as *const [u8; 12];
         for i in 0..hdr.frame_count as usize {
-            let frame = &*frames_ptr.add(i);
-            let start_x = i16::from_le_bytes([frame[4], frame[5]]);
-            let start_y = i16::from_le_bytes([frame[6], frame[7]]);
-            let end_x = i16::from_le_bytes([frame[8], frame[9]]);
-            let end_y = i16::from_le_bytes([frame[10], frame[11]]);
-            let area = (end_x as i32 - start_x as i32) * (end_y as i32 - start_y as i32);
+            let frame = &*frame_meta_ptr.add(i);
+            let area = (frame.end_x as i32 - frame.start_x as i32)
+                * (frame.end_y as i32 - frame.start_y as i32);
             *g_pixel_area = (*g_pixel_area).wrapping_add(area as u32);
         }
     }

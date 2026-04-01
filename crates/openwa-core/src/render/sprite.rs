@@ -788,9 +788,9 @@ pub struct Sprite {
     /// 0x24: Is-scaled flag (1 if scaling active, 0 otherwise)
     pub is_scaled: u32,
     /// 0x28: Pointer to SpriteFrame array (frame_count entries)
-    pub frame_meta_ptr: *mut u8,
+    pub frame_meta_ptr: *mut SpriteFrame,
     /// 0x2C: Secondary frame table pointer (present when header_flags & 0x4000)
-    pub secondary_frame_ptr: *mut u8,
+    pub secondary_frame_ptr: *mut SpriteFrame,
     /// 0x30: Secondary frame count
     pub secondary_frame_count: u16,
     /// 0x32: Padding
