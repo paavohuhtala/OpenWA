@@ -1,0 +1,126 @@
+Game Started at 2026-04-01 20:29:54 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Red:  "2-UP"
+Blue: "3-UP"
+
+[00:00:00.00] ••• 2-UP starts turn
+[00:00:10.74] ••• 2-UP fires Ninja Rope
+[00:00:11.62] ••• 2-UP fires Ninja Rope
+[00:00:27.44] ••• 2-UP fires Parachute
+[00:00:33.30] ••• 2-UP fires Shotgun
+[00:00:40.32] ••• 2-UP fires Shotgun
+[00:00:44.48] ••• 2-UP ends turn; time used: 30.78 sec turn, 3.00 sec retreat
+[00:00:47.88] ••• Damage dealt: 50 to 3-UP
+[00:00:47.88] ••• 3-UP starts turn
+[00:00:52.00] ••• 3-UP fires Longbow
+[00:00:58.10] ••• 3-UP fires Longbow
+[00:01:01.18] ••• 3-UP ends turn; time used: 1.94 sec turn, 3.00 sec retreat
+[00:01:04.06] ••• Damage dealt: 18 to 2-UP
+[00:01:04.06] ••• 2-UP starts turn
+[00:01:10.34] ••• 2-UP fires Longbow
+[00:01:21.16] ••• 2-UP loses turn due to loss of control; time used: 10.74 sec turn, 0.00 sec retreat
+[00:01:26.00] ••• Damage dealt: 1 to 2-UP
+[00:01:26.00] ••• 3-UP starts turn
+[00:01:32.30] ••• 3-UP fires Longbow
+[00:01:40.98] ••• 3-UP fires Longbow
+[00:01:44.06] ••• 3-UP ends turn; time used: 7.70 sec turn, 3.00 sec retreat
+[00:01:48.48] ••• Damage dealt: 30 to 2-UP
+[00:01:48.48] ••• 2-UP starts turn
+[00:01:57.38] ••• 2-UP fires Ninja Rope
+[00:01:58.12] ••• 2-UP fires Ninja Rope
+[00:02:12.34] ••• 2-UP fires Shotgun
+[00:02:20.74] ••• 2-UP fires Shotgun
+[00:02:24.90] ••• 2-UP ends turn; time used: 22.50 sec turn, 3.00 sec retreat
+[00:02:29.32] ••• Damage dealt: 47 to 3-UP
+[00:02:29.32] ••• 3-UP starts turn
+[00:02:34.50] ••• 3-UP fires Ninja Rope
+[00:02:37.66] ••• 3-UP fires Ninja Rope
+[00:02:38.38] ••• 3-UP fires Ninja Rope
+[00:02:53.70] ••• 3-UP loses turn due to loss of control; time used: 20.58 sec turn, 0.00 sec retreat
+[00:02:58.28] ••• Damage dealt: 3 to 3-UP
+[00:02:58.28] ••• 2-UP starts turn
+[00:03:02.88] ••• 2-UP fires Shotgun
+[00:03:08.64] ••• 2-UP fires Shotgun
+[00:03:12.80] ••• 2-UP ends turn; time used: 3.28 sec turn, 3.00 sec retreat
+[00:03:22.16] ••• Damage dealt: 50 (1 kill) to 3-UP
+[00:03:22.16] ••• 3-UP starts turn
+[00:03:28.18] ••• 3-UP fires Ninja Rope
+[00:03:28.80] ••• 3-UP fires Ninja Rope
+[00:03:48.18] ••• 3-UP fires Ninja Rope
+[00:03:48.80] ••• 3-UP fires Ninja Rope
+[00:03:49.40] ••• 3-UP fires Ninja Rope
+[00:03:58.58] ••• 3-UP fires Longbow
+[00:04:05.82] ••• 3-UP fires Longbow
+[00:04:08.90] ••• 3-UP ends turn; time used: 34.10 sec turn, 3.00 sec retreat
+[00:04:12.92] ••• Damage dealt: 26 to 2-UP
+[00:04:12.92] ••• 2-UP starts turn
+[00:04:16.84] ••• 2-UP fires Ninja Rope
+[00:04:17.48] ••• 2-UP fires Ninja Rope
+[00:04:43.10] ••• 2-UP fires Laser Sight
+[00:04:45.98] ••• 2-UP fires Longbow
+[00:04:53.66] ••• 2-UP fires Longbow
+[00:04:57.42] ••• 2-UP ends turn; time used: 37.90 sec turn, 3.00 sec retreat
+[00:05:01.44] ••• 3-UP starts turn
+[00:05:09.60] ••• 3-UP fires Ninja Rope
+[00:05:18.02] ••• 3-UP loses turn due to loss of control; time used: 13.84 sec turn, 0.00 sec retreat
+[00:05:19.28] ••• 2-UP starts turn
+[00:05:26.38] ••• 2-UP fires Ninja Rope
+[00:05:29.06] ••• 2-UP fires Ninja Rope
+[00:05:29.80] ••• 2-UP fires Ninja Rope
+[00:05:40.06] ••• 2-UP fires Ninja Rope
+[00:05:43.00] ••• 2-UP fires Ninja Rope
+[00:05:43.66] ••• 2-UP fires Ninja Rope
+[00:05:44.16] ••• 2-UP fires Ninja Rope
+[00:05:56.12] ••• 2-UP fires Shotgun
+[00:06:03.00] ••• 2-UP fires Shotgun
+[00:06:07.16] ••• 2-UP ends turn; time used: 35.62 sec turn, 3.00 sec retreat
+[00:06:11.58] ••• Damage dealt: 54 to 3-UP
+[00:06:11.58] ••• 3-UP starts turn
+[00:06:26.74] ••• 3-UP fires Ninja Rope
+[00:06:27.42] ••• 3-UP fires Ninja Rope
+[00:06:42.24] ••• 3-UP fires Longbow
+[00:06:51.42] ••• 3-UP fires Longbow
+[00:06:55.00] ••• 3-UP ends turn; time used: 29.76 sec turn, 3.00 sec retreat
+[00:06:59.02] ••• Damage dealt: 17 to 2-UP
+[00:06:59.02] ••• 2-UP starts turn
+[00:07:05.62] ••• 2-UP fires Shotgun
+[00:07:08.12] ••• 2-UP fires Shotgun
+[00:07:12.28] ••• 2-UP ends turn; time used: 4.06 sec turn, 3.00 sec retreat
+[00:07:19.02] ••• Damage dealt: 14 to 3-UP
+[00:07:19.02] ••• 3-UP starts turn
+[00:07:24.38] ••• 3-UP fires Longbow
+[00:07:28.62] ••• 3-UP fires Longbow
+[00:07:31.70] ••• 3-UP ends turn; time used: 3.94 sec turn, 3.00 sec retreat
+[00:07:36.12] ••• Damage dealt: 30 to 2-UP
+[00:07:36.12] ••• 2-UP starts turn
+[00:07:39.12] ••• 2-UP fires Shotgun
+[00:07:46.06] ••• 2-UP fires Shotgun
+[00:07:50.22] ••• 2-UP ends turn; time used: 2.70 sec turn, 3.00 sec retreat
+[00:07:54.64] ••• Damage dealt: 50 to 3-UP
+[00:07:54.64] ••• 3-UP starts turn
+[00:07:57.16] ••• 3-UP fires Shotgun
+[00:07:58.06] ••• 3-UP loses turn due to loss of control; time used: 0.52 sec turn, 0.00 sec retreat
+[00:08:09.50] ••• Damage dealt: 41 to 2-UP, 2 (1 kill) to 3-UP
+[00:08:09.50] ••• 2-UP starts turn
+[00:08:10.62] ••• 2-UP fires Shotgun
+[00:08:17.72] ••• 2-UP fires Shotgun
+[00:08:20.24] ••• 2-UP ends turn; time used: 1.52 sec turn, 1.38 sec retreat
+[00:08:36.44] ••• Damage dealt: 7 to 2-UP, 30 (1 kill) to 3-UP
+[00:08:36.46] ••• Game Ends - Round Finished
+
+Team time totals:
+2-UP: Turn: 00:02:29.10, Retreat: 00:00:22.38, Total: 00:02:51.48, Turn count: 9
+3-UP: Turn: 00:01:52.38, Retreat: 00:00:15.00, Total: 00:02:07.38, Turn count: 8
+
+End of round 1
+
+Round time: 0:08:36
+Total game time elapsed: 0:08:36
+
+2-UP wins the round.
+
+Worm of the round: Capt. Molo (2-UP)
+Most damage with one shot: 31 - Capt. Molo (2-UP)
