@@ -5,6 +5,8 @@
 //! and shared metadata extraction (`parse_spr_header`) used by WormKit hook
 //! replacements.
 
+use crate::render::sprite::SpriteFrame;
+
 /// Errors from `.spr` parsing.
 #[derive(Debug)]
 pub enum SprError {
@@ -174,6 +176,120 @@ pub fn parse_spr_header(data: &[u8]) -> Result<SprHeader, SprError> {
     })
 }
 
+/// A fully parsed `.spr` sprite with owned data.
+///
+/// Contains raw RGB palette entries (not remapped to WA's display palette),
+/// raw bitmap pixel indices, and frame metadata. Suitable for standalone
+/// tooling, tests, and debugging.
+///
+/// For WormKit hook replacements, `parse_spr_header` is used directly
+/// with in-place buffer operations instead.
+#[derive(Debug, Clone)]
+pub struct ParsedSprite {
+    /// Unknown field at sprite+0x08.
+    pub unknown_08: u16,
+    /// Animation frames per second.
+    pub fps: u16,
+    /// Sprite flags.
+    pub flags: u16,
+    /// Header flags from `.spr` file.
+    pub header_flags: u16,
+    /// Sprite width in pixels.
+    pub width: u16,
+    /// Sprite height in pixels.
+    pub height: u16,
+    /// Number of animation frames.
+    pub frame_count: u16,
+    /// Maximum frame count.
+    pub max_frames: u16,
+    /// Scale X (`(raw << 16) >> 5`), or 0 if not scaled.
+    pub scale_x: u32,
+    /// Scale Y (`(raw << 16) >> 5`), or 0 if not scaled.
+    pub scale_y: u32,
+    /// Whether the sprite uses scaling instead of animation.
+    pub is_scaled: bool,
+    /// RGB palette entries (3 bytes each). NOT remapped to display palette.
+    pub palette: Vec<[u8; 3]>,
+    /// Per-frame metadata (bounding box + bitmap offset).
+    pub frames: Vec<SpriteFrame>,
+    /// Secondary frame table (non-empty iff header_flags & 0x4000).
+    pub secondary_frames: Vec<SpriteFrame>,
+    /// Bitmap pixel data — 8-bit indices into the sprite's local palette.
+    pub bitmap: Vec<u8>,
+    /// Total data size from `.spr` header (for global counter updates).
+    pub data_size: u32,
+}
+
+impl ParsedSprite {
+    /// Parse a `.spr` file from raw bytes.
+    ///
+    /// Returns owned data with no WA runtime dependencies.
+    pub fn parse(data: &[u8]) -> Result<Self, SprError> {
+        let hdr = parse_spr_header(data)?;
+
+        // Extract palette RGB triples
+        let mut palette = Vec::with_capacity(hdr.palette_count as usize);
+        let mut offset = hdr.palette_offset;
+        for _ in 0..hdr.palette_count {
+            palette.push([data[offset], data[offset + 1], data[offset + 2]]);
+            offset += 3;
+        }
+
+        // Extract secondary frames
+        let mut secondary_frames = Vec::new();
+        if hdr.secondary_frame_count > 0 {
+            secondary_frames.reserve(hdr.secondary_frame_count as usize);
+            let mut off = hdr.secondary_frame_offset;
+            for _ in 0..hdr.secondary_frame_count {
+                secondary_frames.push(read_sprite_frame(data, off));
+                off += 12;
+            }
+        }
+
+        // Extract main frames
+        let mut frames = Vec::with_capacity(hdr.frame_count as usize);
+        let mut off = hdr.frame_meta_offset;
+        for _ in 0..hdr.frame_count {
+            frames.push(read_sprite_frame(data, off));
+            off += 12;
+        }
+
+        // Extract bitmap data
+        let bitmap_end = data.len().min(hdr.bitmap_offset + hdr.bitmap_size);
+        let bitmap = data[hdr.bitmap_offset..bitmap_end].to_vec();
+
+        Ok(ParsedSprite {
+            unknown_08: hdr.unknown_08,
+            fps: hdr.fps,
+            flags: hdr.flags,
+            header_flags: hdr.header_flags,
+            width: hdr.width,
+            height: hdr.height,
+            frame_count: hdr.frame_count,
+            max_frames: hdr.max_frames,
+            scale_x: hdr.scale_x,
+            scale_y: hdr.scale_y,
+            is_scaled: hdr.is_scaled,
+            palette,
+            frames,
+            secondary_frames,
+            bitmap,
+            data_size: hdr.data_size,
+        })
+    }
+}
+
+/// Read a SpriteFrame from 12 bytes at the given offset.
+fn read_sprite_frame(data: &[u8], off: usize) -> SpriteFrame {
+    SpriteFrame {
+        bitmap_offset: u32::from_le_bytes([data[off], data[off+1], data[off+2], data[off+3]]),
+        start_x: u16::from_le_bytes([data[off+4], data[off+5]]),
+        start_y: u16::from_le_bytes([data[off+6], data[off+7]]),
+        end_x: u16::from_le_bytes([data[off+8], data[off+9]]),
+        end_y: u16::from_le_bytes([data[off+10], data[off+11]]),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -284,5 +400,72 @@ mod tests {
     #[test]
     fn parse_too_short() {
         assert!(parse_spr_header(&[0; 4]).is_err());
+    }
+
+    #[test]
+    fn parsed_sprite_single_frame() {
+        let mut data = make_spr(4, 4, 3, 1);
+        // Fill palette with known RGB values
+        data[12] = 0xFF; data[13] = 0x00; data[14] = 0x00; // entry 0: red
+        data[15] = 0x00; data[16] = 0xFF; data[17] = 0x00; // entry 1: green
+        data[18] = 0x00; data[19] = 0x00; data[20] = 0xFF; // entry 2: blue
+
+        let parsed = ParsedSprite::parse(&data).unwrap();
+        assert_eq!(parsed.width, 4);
+        assert_eq!(parsed.height, 4);
+        assert_eq!(parsed.palette.len(), 3);
+        assert_eq!(parsed.palette[0], [0xFF, 0x00, 0x00]);
+        assert_eq!(parsed.palette[1], [0x00, 0xFF, 0x00]);
+        assert_eq!(parsed.palette[2], [0x00, 0x00, 0xFF]);
+        assert_eq!(parsed.frames.len(), 1);
+        assert_eq!(parsed.bitmap.len(), 16); // 4*4 pixels
+    }
+
+    #[test]
+    fn parsed_sprite_secondary_frames() {
+        let mut data = Vec::new();
+
+        // Header
+        data.extend_from_slice(&0u32.to_le_bytes()); // unused
+        data.extend_from_slice(&0u32.to_le_bytes()); // data_size (fix later)
+        data.extend_from_slice(&0x4000u16.to_le_bytes()); // header_flags: secondary frames
+        data.extend_from_slice(&0u16.to_le_bytes()); // palette_count = 0
+
+        // Secondary frame table
+        data.extend_from_slice(&2u16.to_le_bytes()); // 2 secondary frames
+        // Align to 4 bytes
+        while data.len() % 4 != 0 { data.push(0); }
+        // 2 secondary SpriteFrame entries (12 bytes each)
+        for _ in 0..2 {
+            data.extend_from_slice(&[0u8; 12]);
+        }
+
+        // Main frame header
+        data.extend_from_slice(&0u16.to_le_bytes()); // unknown_08
+        data.extend_from_slice(&15u16.to_le_bytes()); // fps
+        data.extend_from_slice(&0u16.to_le_bytes()); // flags
+        data.extend_from_slice(&8u16.to_le_bytes()); // width
+        data.extend_from_slice(&8u16.to_le_bytes()); // height
+        data.extend_from_slice(&1u16.to_le_bytes()); // frame_count
+
+        while data.len() % 4 != 0 { data.push(0); }
+        // 1 main SpriteFrame
+        data.extend_from_slice(&0u32.to_le_bytes()); // bitmap_offset
+        data.extend_from_slice(&0u16.to_le_bytes()); // start_x
+        data.extend_from_slice(&0u16.to_le_bytes()); // start_y
+        data.extend_from_slice(&8u16.to_le_bytes()); // end_x
+        data.extend_from_slice(&8u16.to_le_bytes()); // end_y
+
+        // Bitmap (8*8 = 64 bytes)
+        data.resize(data.len() + 64, 0);
+
+        // Fix data_size
+        let total = (data.len() - 4) as u32;
+        data[4..8].copy_from_slice(&total.to_le_bytes());
+
+        let parsed = ParsedSprite::parse(&data).unwrap();
+        assert_eq!(parsed.secondary_frames.len(), 2);
+        assert_eq!(parsed.frames.len(), 1);
+        assert_eq!(parsed.header_flags, 0x4000);
     }
 }

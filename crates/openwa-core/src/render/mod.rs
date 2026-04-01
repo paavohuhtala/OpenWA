@@ -6,7 +6,7 @@ pub mod sprite;
 pub mod turn_order;
 
 pub use landscape::{DirtyRect, PCLandscape};
-pub use spr::{SprError, SprHeader};
+pub use spr::{ParsedSprite, SprError, SprHeader};
 pub use queue::{
     DrawBitmapGlobalCmd, DrawLineStripHeader, DrawPixelCmd, DrawPolygonHeader, DrawRectCmd,
     DrawScaledCmd, DrawSpriteCmd, DrawSpriteOffsetCmd, DrawTextboxLocalCmd, RenderQueue,
