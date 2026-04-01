@@ -52,11 +52,7 @@ unsafe fn palette_map_color(palette_ctx: u32, rgb: u32) -> u8 {
     f(palette_ctx, rgb) as u8
 }
 
-unsafe extern "cdecl" fn process_sprite_impl(
-    sprite: u32,
-    palette_ctx: u32,
-    raw_data: u32,
-) -> u32 {
+unsafe extern "cdecl" fn process_sprite_impl(sprite: u32, palette_ctx: u32, raw_data: u32) -> u32 {
     use openwa_core::render::spr::parse_spr_header;
 
     let p = sprite as *mut u8;

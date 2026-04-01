@@ -11,10 +11,7 @@ use crate::render::sprite::SpriteFrame;
 #[derive(Debug)]
 pub enum SprError {
     /// Data too short to contain required fields.
-    TooShort {
-        expected: usize,
-        actual: usize,
-    },
+    TooShort { expected: usize, actual: usize },
     /// Internal structure is inconsistent.
     InvalidData(&'static str),
 }
@@ -23,7 +20,11 @@ impl core::fmt::Display for SprError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             SprError::TooShort { expected, actual } => {
-                write!(f, "spr data too short: need {} bytes, got {}", expected, actual)
+                write!(
+                    f,
+                    "spr data too short: need {} bytes, got {}",
+                    expected, actual
+                )
             }
             SprError::InvalidData(msg) => write!(f, "invalid spr data: {}", msg),
         }
@@ -89,7 +90,10 @@ fn align4(offset: usize) -> usize {
 pub fn parse_spr_header(data: &[u8]) -> Result<SprHeader, SprError> {
     // Minimum: 4 (unused) + 4 (data_size) + 2 (header_flags) + 2 (palette_count) = 12
     if data.len() < 12 {
-        return Err(SprError::TooShort { expected: 12, actual: data.len() });
+        return Err(SprError::TooShort {
+            expected: 12,
+            actual: data.len(),
+        });
     }
 
     let data_size = u32::from_le_bytes([data[4], data[5], data[6], data[7]]);
@@ -100,7 +104,10 @@ pub fn parse_spr_header(data: &[u8]) -> Result<SprHeader, SprError> {
     let palette_end = palette_offset + palette_count as usize * 3;
 
     if data.len() < palette_end {
-        return Err(SprError::TooShort { expected: palette_end, actual: data.len() });
+        return Err(SprError::TooShort {
+            expected: palette_end,
+            actual: data.len(),
+        });
     }
 
     let mut cursor = palette_end;
@@ -111,20 +118,29 @@ pub fn parse_spr_header(data: &[u8]) -> Result<SprHeader, SprError> {
 
     if header_flags & 0x4000 != 0 {
         if data.len() < cursor + 2 {
-            return Err(SprError::TooShort { expected: cursor + 2, actual: data.len() });
+            return Err(SprError::TooShort {
+                expected: cursor + 2,
+                actual: data.len(),
+            });
         }
         secondary_frame_count = u16::from_le_bytes([data[cursor], data[cursor + 1]]);
         cursor = align4(cursor + 2);
         secondary_frame_offset = cursor;
         cursor += secondary_frame_count as usize * 12;
         if data.len() < cursor {
-            return Err(SprError::TooShort { expected: cursor, actual: data.len() });
+            return Err(SprError::TooShort {
+                expected: cursor,
+                actual: data.len(),
+            });
         }
     }
 
     // Main frame header (12 bytes)
     if data.len() < cursor + 12 {
-        return Err(SprError::TooShort { expected: cursor + 12, actual: data.len() });
+        return Err(SprError::TooShort {
+            expected: cursor + 12,
+            actual: data.len(),
+        });
     }
 
     let unknown_08 = u16::from_le_bytes([data[cursor], data[cursor + 1]]);
@@ -137,21 +153,23 @@ pub fn parse_spr_header(data: &[u8]) -> Result<SprHeader, SprError> {
     cursor += 12;
 
     // Scale processing
-    let (frame_count, max_frames, scale_x, scale_y, is_scaled) =
-        if (frame_count_raw as i16) < 0 {
-            let sx = (((frame_count_raw >> 8) & 0x7F) as u32) << 16 >> 5;
-            let sy = ((frame_count_raw & 0x7F) as u32) << 16 >> 5;
-            (1u16, 1u16, sx, sy, true)
-        } else {
-            (frame_count_raw, frame_count_raw, 0u32, 0u32, false)
-        };
+    let (frame_count, max_frames, scale_x, scale_y, is_scaled) = if (frame_count_raw as i16) < 0 {
+        let sx = (((frame_count_raw >> 8) & 0x7F) as u32) << 16 >> 5;
+        let sy = ((frame_count_raw & 0x7F) as u32) << 16 >> 5;
+        (1u16, 1u16, sx, sy, true)
+    } else {
+        (frame_count_raw, frame_count_raw, 0u32, 0u32, false)
+    };
 
     // Frame metadata (aligned to 4 bytes)
     let frame_meta_offset = align4(cursor);
     let bitmap_offset = frame_meta_offset + frame_count as usize * 12;
 
     if data.len() < bitmap_offset {
-        return Err(SprError::TooShort { expected: bitmap_offset, actual: data.len() });
+        return Err(SprError::TooShort {
+            expected: bitmap_offset,
+            actual: data.len(),
+        });
     }
 
     let bitmap_size = if data.len() > bitmap_offset {
@@ -289,11 +307,11 @@ impl ParsedSprite {
 /// Read a SpriteFrame from 12 bytes at the given offset.
 fn read_sprite_frame(data: &[u8], off: usize) -> SpriteFrame {
     SpriteFrame {
-        bitmap_offset: u32::from_le_bytes([data[off], data[off+1], data[off+2], data[off+3]]),
-        start_x: u16::from_le_bytes([data[off+4], data[off+5]]),
-        start_y: u16::from_le_bytes([data[off+6], data[off+7]]),
-        end_x: u16::from_le_bytes([data[off+8], data[off+9]]),
-        end_y: u16::from_le_bytes([data[off+10], data[off+11]]),
+        bitmap_offset: u32::from_le_bytes([data[off], data[off + 1], data[off + 2], data[off + 3]]),
+        start_x: u16::from_le_bytes([data[off + 4], data[off + 5]]),
+        start_y: u16::from_le_bytes([data[off + 6], data[off + 7]]),
+        end_x: u16::from_le_bytes([data[off + 8], data[off + 9]]),
+        end_y: u16::from_le_bytes([data[off + 10], data[off + 11]]),
     }
 }
 
@@ -413,9 +431,15 @@ mod tests {
     fn parsed_sprite_single_frame() {
         let mut data = make_spr(4, 4, 3, 1);
         // Fill palette with known RGB values
-        data[12] = 0xFF; data[13] = 0x00; data[14] = 0x00; // entry 0: red
-        data[15] = 0x00; data[16] = 0xFF; data[17] = 0x00; // entry 1: green
-        data[18] = 0x00; data[19] = 0x00; data[20] = 0xFF; // entry 2: blue
+        data[12] = 0xFF;
+        data[13] = 0x00;
+        data[14] = 0x00; // entry 0: red
+        data[15] = 0x00;
+        data[16] = 0xFF;
+        data[17] = 0x00; // entry 1: green
+        data[18] = 0x00;
+        data[19] = 0x00;
+        data[20] = 0xFF; // entry 2: blue
 
         let parsed = ParsedSprite::parse(&data).unwrap();
         assert_eq!(parsed.width, 4);
@@ -440,8 +464,10 @@ mod tests {
 
         // Secondary frame table
         data.extend_from_slice(&2u16.to_le_bytes()); // 2 secondary frames
-        // Align to 4 bytes
-        while data.len() % 4 != 0 { data.push(0); }
+                                                     // Align to 4 bytes
+        while data.len() % 4 != 0 {
+            data.push(0);
+        }
         // 2 secondary SpriteFrame entries (12 bytes each)
         for _ in 0..2 {
             data.extend_from_slice(&[0u8; 12]);
@@ -455,7 +481,9 @@ mod tests {
         data.extend_from_slice(&8u16.to_le_bytes()); // height
         data.extend_from_slice(&1u16.to_le_bytes()); // frame_count
 
-        while data.len() % 4 != 0 { data.push(0); }
+        while data.len() % 4 != 0 {
+            data.push(0);
+        }
         // 1 main SpriteFrame
         data.extend_from_slice(&0u32.to_le_bytes()); // bitmap_offset
         data.extend_from_slice(&0u16.to_le_bytes()); // start_x
