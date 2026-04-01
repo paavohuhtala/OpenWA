@@ -1,5 +1,6 @@
 pub mod gfx_dir;
 pub mod landscape;
+pub mod palette;
 pub mod queue;
 pub mod spr;
 pub mod sprite;

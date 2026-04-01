@@ -42,14 +42,17 @@ unsafe extern "cdecl" fn construct_sprite_impl(sprite: u32, context: u32) {
 usercall_trampoline!(fn trampoline_process_sprite; impl_fn = process_sprite_impl;
     regs = [eax, ecx]; stack_params = 1; ret_bytes = "0x4");
 
-static mut PALETTE_MAP_COLOR_ADDR: u32 = 0;
+// ---------------------------------------------------------------------------
+// PaletteContext__MapColor (0x5412B0)
+// thiscall(ECX=palette_ctx, stack=rgb_u32), RET 0x4
+// ---------------------------------------------------------------------------
 
-/// Call WA's PaletteContext__MapColor to find the nearest display palette index.
-#[cfg(target_arch = "x86")]
-unsafe fn palette_map_color(palette_ctx: u32, rgb: u32) -> u8 {
-    let f: unsafe extern "thiscall" fn(u32, u32) -> u32 =
-        core::mem::transmute(PALETTE_MAP_COLOR_ADDR as usize);
-    f(palette_ctx, rgb) as u8
+usercall_trampoline!(fn trampoline_palette_map_color; impl_fn = palette_map_color_impl;
+    reg = ecx; stack_params = 1; ret_bytes = "0x4");
+
+unsafe extern "cdecl" fn palette_map_color_impl(palette_ctx: u32, rgb: u32) -> u32 {
+    let ctx = palette_ctx as *mut openwa_core::render::palette::PaletteContext;
+    openwa_core::render::palette::palette_map_color(ctx, rgb)
 }
 
 unsafe extern "cdecl" fn process_sprite_impl(sprite: u32, palette_ctx: u32, raw_data: u32) -> u32 {
@@ -100,11 +103,12 @@ unsafe extern "cdecl" fn process_sprite_impl(sprite: u32, palette_ctx: u32, raw_
 
     // Map each RGB entry to display palette index
     let rgb_start = data_ptr.add(hdr.palette_offset);
+    let ctx = palette_ctx as *mut openwa_core::render::palette::PaletteContext;
     for i in 0..hdr.palette_count as usize {
         // Read 4 bytes (3 RGB + 1 from next entry, matching WA behavior)
         let rgb_val = *(rgb_start.add(i * 3) as *const u32);
-        let mapped = palette_map_color(palette_ctx, rgb_val);
-        *palette_base.add(1 + i) = mapped;
+        let mapped = openwa_core::render::palette::palette_map_color(ctx, rgb_val);
+        *palette_base.add(1 + i) = mapped as u8;
     }
 
     // --- Secondary frame table (if header_flags & 0x4000) ---
@@ -188,8 +192,6 @@ unsafe extern "cdecl" fn process_sprite_impl(sprite: u32, palette_ctx: u32, raw_
 
 pub fn install() -> Result<(), String> {
     unsafe {
-        PALETTE_MAP_COLOR_ADDR = rb(va::PALETTE_CONTEXT_MAP_COLOR);
-
         let _ = hook::install(
             "ConstructSprite",
             va::CONSTRUCT_SPRITE,
@@ -200,6 +202,12 @@ pub fn install() -> Result<(), String> {
             "ProcessSprite",
             va::PROCESS_SPRITE,
             trampoline_process_sprite as *const (),
+        )?;
+
+        let _ = hook::install(
+            "PaletteContext__MapColor",
+            va::PALETTE_CONTEXT_MAP_COLOR,
+            trampoline_palette_map_color as *const (),
         )?;
     }
     Ok(())
