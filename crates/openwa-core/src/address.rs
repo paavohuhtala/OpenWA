@@ -191,6 +191,8 @@ pub mod va {
             fn/Usercall LOAD_SPRITE_FROM_VFS = 0x004F_AAF0;
             /// ProcessSprite — parses .spr binary format
             fn/Usercall PROCESS_SPRITE = 0x004F_AB80;
+            /// DisplayGfx vtable (embedded in Sprite at +0x34)
+            vtable DISPLAYGFX_VTABLE = 0x0066_4144;
         }
 
         class "GfxHandler" {
@@ -454,6 +456,8 @@ pub mod va {
         fn GFX_RESOURCE_CREATE = 0x004F_6300;
         /// PaletteContext__Init
         fn/Usercall PALETTE_CONTEXT_INIT = 0x0054_11A0;
+        /// PaletteContext__MapColor — thiscall(palette_ctx, rgb_u32), returns nearest palette index
+        fn/Thiscall PALETTE_CONTEXT_MAP_COLOR = 0x0054_12B0;
         /// SpriteGfxTable__Init
         fn/Fastcall SPRITE_GFX_TABLE_INIT = 0x0054_1620;
         /// RingBuffer__Init
