@@ -48,7 +48,7 @@ usercall_trampoline!(fn trampoline_process_sprite; impl_fn = process_sprite_impl
 // ---------------------------------------------------------------------------
 
 usercall_trampoline!(fn trampoline_palette_map_color; impl_fn = palette_map_color_impl;
-    reg = ecx; stack_params = 1; ret_bytes = "0x4");
+    reg = ecx; stack_params = 1; ret_bytes = "0x4"; preserve_ecx);
 
 unsafe extern "cdecl" fn palette_map_color_impl(palette_ctx: u32, rgb: u32) -> u32 {
     let ctx = palette_ctx as *mut openwa_core::render::palette::PaletteContext;

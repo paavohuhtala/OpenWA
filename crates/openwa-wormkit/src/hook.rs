@@ -57,6 +57,29 @@ macro_rules! usercall_trampoline {
         }
     };
 
+    // 1 register arg (ECX), 1 stack param, ret N — preserves ECX across call.
+    // Callers of thiscall functions may rely on ECX being preserved even though
+    // the ABI says it's caller-saved (MSVC often generates loops that don't
+    // re-set ECX between calls if the callee happens to preserve it).
+    (fn $name:ident; impl_fn = $impl:path; reg = ecx;
+     stack_params = 1; ret_bytes = $ret:literal; preserve_ecx) => {
+        #[unsafe(naked)]
+        unsafe extern "C" fn $name() {
+            core::arch::naked_asm!(
+                "push edx",
+                "push ecx",                // save ECX for restoration
+                "push [esp+12]",           // stack param (shifted +4 by extra push)
+                "push ecx",               // cdecl arg (ECX still valid here)
+                "call {impl_fn}",
+                "add esp, 8",
+                "pop ecx",                // restore ECX
+                "pop edx",
+                concat!("ret ", $ret),
+                impl_fn = sym $impl,
+            );
+        }
+    };
+
     // 1 register arg, 3 stack params, ret N
     (fn $name:ident; impl_fn = $impl:path; reg = $reg:ident;
      stack_params = 3; ret_bytes = $ret:literal) => {
