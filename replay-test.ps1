@@ -13,8 +13,28 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$waExe   = if ($env:OPENWA_WA_PATH) { $env:OPENWA_WA_PATH } else { "I:\games\SteamLibrary\steamapps\common\Worms Armageddon\WA.exe" }
-$gameDir = Split-Path $waExe
+# Resolve WA installation directory using the same priority order as openwa-config:
+#   1. OPENWA_WA_PATH env var (may be WA.exe path or directory)
+#   2. HKCU\SOFTWARE\Team17SoftwareLTD\WormsArmageddon, value PATH
+function Get-WaDir {
+    if ($env:OPENWA_WA_PATH) {
+        $p = $env:OPENWA_WA_PATH
+        if ($p -match '\.exe$') { return Split-Path $p }
+        return $p
+    }
+    try {
+        $reg = Get-ItemPropertyValue -Path 'HKCU:\SOFTWARE\Team17SoftwareLTD\WormsArmageddon' -Name 'PATH' -ErrorAction Stop
+        if ($reg) { return $reg }
+    } catch {}
+    return $null
+}
+
+$gameDir = Get-WaDir
+if (-not $gameDir) {
+    Write-Error "Cannot find WA installation. Set OPENWA_WA_PATH or ensure the registry key HKCU\SOFTWARE\Team17SoftwareLTD\WormsArmageddon\PATH is set."
+    exit 1
+}
+$waExe   = Join-Path $gameDir "WA.exe"
 $src     = "target\i686-pc-windows-msvc\release"
 $logDir  = "testdata\logs"
 
@@ -50,8 +70,6 @@ if (Test-Path "$gameDir\wkOpenWAValidator.dll") {
 }
 
 # 3. Launch via launcher with replay, env vars set
-$env:OPENWA_WA_PATH = $waExe
-
 if ($Headless) {
     Write-Host "Launching WA.exe in HEADLESS mode: $ReplayFile" -ForegroundColor Cyan
     Write-Host "  (No window -- pure simulation via /getlog)" -ForegroundColor Yellow
