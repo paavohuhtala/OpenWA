@@ -24,11 +24,6 @@ const TIMEOUT_SECS: u64 = 120;
 const REPLAYS_DIR: &str = "testdata/replays";
 const RUNS_DIR: &str = "testdata/runs";
 
-/// Known WA.exe locations to try if not specified.
-const WA_CANDIDATES: &[&str] = &[
-    "I:/games/SteamLibrary/steamapps/common/Worms Armageddon/WA.exe",
-    "C:/Program Files (x86)/Steam/steamapps/common/Worms Armageddon/WA.exe",
-];
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -167,22 +162,7 @@ fn find_wa_exe(override_path: Option<&Path>) -> Option<PathBuf> {
             return Some(p.to_path_buf());
         }
     }
-
-    if let Ok(p) = env::var("OPENWA_WA_PATH") {
-        let path = PathBuf::from(p);
-        if path.exists() {
-            return Some(path);
-        }
-    }
-
-    for candidate in WA_CANDIDATES {
-        let path = PathBuf::from(candidate);
-        if path.exists() {
-            return Some(path);
-        }
-    }
-
-    None
+    openwa_config::find_wa_dir().map(|d| d.join("WA.exe"))
 }
 
 fn find_launcher() -> Option<PathBuf> {

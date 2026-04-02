@@ -111,13 +111,12 @@ fn run() -> Result<(), String> {
         }
     }
 
-    // Locate WA.exe: explicit arg > env var > hardcoded fallback paths.
+    // Locate WA.exe: explicit arg > env var / registry (via openwa-config).
     let wa_exe = if let Some(p) = wa_path_arg {
         PathBuf::from(p)
-    } else if let Ok(p) = std::env::var("OPENWA_WA_PATH") {
-        PathBuf::from(p)
     } else {
-        find_wa_hardcoded()
+        openwa_config::find_wa_dir()
+            .map(|d| d.join("WA.exe"))
             .ok_or("WA.exe not found. Set OPENWA_WA_PATH or pass the path as an argument.")?
     };
 
@@ -296,14 +295,3 @@ fn path_to_cstring(p: &Path) -> Result<CString, String> {
     .map_err(|e| format!("path contains nul byte: {e}"))
 }
 
-/// Try a few well-known default Steam install locations for WA.exe.
-/// Users with non-standard library locations should set OPENWA_WA_PATH instead.
-fn find_wa_hardcoded() -> Option<PathBuf> {
-    const CANDIDATES: &[&str] = &[
-        r"I:\games\SteamLibrary\steamapps\common\Worms Armageddon\WA.exe",
-        r"C:\Program Files (x86)\Steam\steamapps\common\Worms Armageddon\WA.exe",
-        r"C:\Program Files\Steam\steamapps\common\Worms Armageddon\WA.exe",
-    ];
-
-    CANDIDATES.iter().map(PathBuf::from).find(|p| p.exists())
-}

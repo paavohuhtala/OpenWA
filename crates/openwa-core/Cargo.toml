@@ -11,6 +11,9 @@ inventory = "0.3.22"
 openwa-derive = { path = "../openwa-derive" }
 openwa-debug-proto = { path = "../openwa-debug-proto" }
 
+[dev-dependencies]
+openwa-config = { path = "../openwa-config" }
+
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = { version = "0.62", features = [
     "Win32_Media_Audio_DirectSound",

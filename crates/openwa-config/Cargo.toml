@@ -1,0 +1,11 @@
+[package]
+name = "openwa-config"
+version = "0.1.0"
+edition = "2021"
+description = "Configuration and installation discovery for OpenWA tools"
+
+[dependencies]
+windows-sys = { version = "0.59", features = [
+    "Win32_Foundation",
+    "Win32_System_Registry",
+] }

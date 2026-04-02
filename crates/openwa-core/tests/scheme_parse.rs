@@ -181,8 +181,11 @@ fn v2_super_weapons_zeroed_region() {
 /// Parse all .wsc files from the game directory if available.
 #[test]
 fn parse_all_game_schemes() {
-    let schemes_dir =
-        Path::new("I:/games/SteamLibrary/steamapps/common/Worms Armageddon/User/Schemes");
+    let Some(wa_dir) = openwa_config::find_wa_dir() else {
+        eprintln!("Skipping: WA installation not found");
+        return;
+    };
+    let schemes_dir = wa_dir.join("User/Schemes");
     if !schemes_dir.exists() {
         eprintln!("Skipping: game schemes directory not found");
         return;

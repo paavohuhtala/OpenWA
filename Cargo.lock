@@ -1470,12 +1470,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42f5e15c9953c5e4ccceeb2e7382a716482c34515315f7b03532b8b4e8393d2d"
 
 [[package]]
+name = "openwa-config"
+version = "0.1.0"
+dependencies = [
+ "windows-sys 0.59.0",
+]
+
+[[package]]
 name = "openwa-core"
 version = "0.1.0"
 dependencies = [
  "heapless",
  "hound",
  "inventory",
+ "openwa-config",
  "openwa-debug-proto",
  "openwa-derive",
  "windows",
@@ -1518,12 +1526,16 @@ dependencies = [
 [[package]]
 name = "openwa-launcher"
 version = "0.1.0"
+dependencies = [
+ "openwa-config",
+]
 
 [[package]]
 name = "openwa-test-runner"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "openwa-config",
 ]
 
 [[package]]

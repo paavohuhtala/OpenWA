@@ -9,3 +9,4 @@ name = "openwa-launcher"
 path = "src/main.rs"
 
 [dependencies]
+openwa-config = { path = "../openwa-config" }
