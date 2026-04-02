@@ -1,5 +1,6 @@
 use crate::engine::ddgame::DDGame;
 use crate::fixed::Fixed;
+use crate::task::SoundEmitter;
 
 /// Active sound tracking table — manages positional (local) sound playback.
 ///
@@ -72,9 +73,7 @@ impl ActiveSoundTable {
 
         // Release the emitter reference
         if !entry.emitter.is_null() {
-            // Decrement ref count at emitter+8
-            let ref_count = entry.emitter.add(8) as *mut i32;
-            *ref_count -= 1;
+            (*(entry.emitter as *mut SoundEmitter)).local_ref_count -= 1;
             entry.emitter = core::ptr::null_mut();
         }
 

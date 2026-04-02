@@ -561,12 +561,11 @@ unsafe fn fire_teleport(worm: *mut CTaskWorm) {
     let fire_y = (*worm).weapon_param_2;
     call_spawn_effect(fire_x, fire_y, rb(0x547C30));
 
-    // Temporarily swap worm+0x34 with worm+0x190, call position update, restore
-    let worm_raw = worm as *mut u8;
-    let saved_34 = *(worm_raw.add(0x34) as *const i32);
-    *(worm_raw.add(0x34) as *mut i32) = (*worm)._unknown_190;
+    // Temporarily swap fire_subtype_1 (+0x34) with _unknown_190, call position update, restore
+    let saved_subtype1 = CTaskWorm::fire_subtype_1(worm);
+    CTaskWorm::set_fire_subtype_1_raw(worm, (*worm)._unknown_190);
     call_position_update(worm, fire_x, fire_y, rb(0x4FE070));
-    *(worm_raw.add(0x34) as *mut i32) = saved_34;
+    CTaskWorm::set_fire_subtype_1_raw(worm, saved_subtype1);
 
     // Compute new state: version < 455 → Idle (0x65), else → 0x8B
     let ddgame = CTask::ddgame_raw(worm as *const CTask);
@@ -579,7 +578,7 @@ unsafe fn fire_teleport(worm: *mut CTaskWorm) {
     CTaskWorm::set_state_raw(worm, new_state);
 
     // Clear action fields
-    *(worm_raw.add(0x48) as *mut i32) = 0;
+    CTaskWorm::set_action_field_raw(worm, 0);
     (*worm)._unknown_208 = 0;
     (*worm)._unknown_198 = 0;
     (*worm)._unknown_19c = 0;
@@ -836,9 +835,8 @@ unsafe fn fire_armageddon(worm: *mut CTaskWorm) {
 
     // If old game version or worm state 0x69, set gravity center
     if game_version < 0x50 || (*worm).is_in_state(WormState::Unknown_0x69) {
-        let ddgame_raw = ddgame as *const u8;
-        let level_w = *(ddgame_raw.add(0x77C0) as *const i32);
-        let level_h = *(ddgame_raw.add(0x77C4) as *const i32);
+        let level_w = (*ddgame).level_width as i32;
+        let level_h = (*ddgame).level_height as i32;
         // SHL 16; CDQ; SUB EAX,EDX; SAR 1 — round-toward-zero divide by 2
         let half_x = ((level_w << 16) + (if level_w < 0 { 1 } else { 0 })) >> 1;
         let half_y = ((level_h << 16) + (if level_h < 0 { 1 } else { 0 })) >> 1;

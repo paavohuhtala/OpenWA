@@ -17,7 +17,7 @@ use crate::audio::{play_sound, play_sound_pooled, SoundId};
 use crate::engine::{DDGame, DDGameWrapper, SoundQueueEntry};
 use crate::fixed::Fixed;
 use crate::task::worm::CTaskWorm;
-use crate::task::{CGameTask, CTask};
+use crate::task::{CGameTask, CTask, SoundEmitter};
 
 // ============================================================
 // Sound queue insertion
@@ -172,8 +172,8 @@ pub unsafe fn play_worm_sound_2(
     }
 
     // 2. Start new sound
-    // CGameTask+0x88 = Y position (fixed-point). Check if worm is extremely high.
-    let worm_y = *((worm as *const u8).add(0x88) as *const i32);
+    // Check if worm is extremely high (CGameTask.pos_y, fixed-point).
+    let worm_y = (*worm).base.pos_y.0;
     let new_handle = if worm_y < -0x270F_FFFF && sound_id.0 == 0x36 {
         // Special teleport case: play at weapon target position
         load_and_play_streaming_positional(
@@ -414,10 +414,9 @@ unsafe fn record_active_sound(
     entry.sequence = t.counter as i32;
     entry.channel_handle = channel_handle as u32;
 
-    // Increment emitter ref count (emitter+0x08)
+    // Increment emitter ref count
     if !emitter.is_null() {
-        let ref_count = emitter.add(8) as *mut i32;
-        *ref_count += 1;
+        (*(emitter as *mut SoundEmitter)).local_ref_count += 1;
     }
 
     t.counter as i32

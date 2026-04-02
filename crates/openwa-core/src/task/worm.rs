@@ -123,6 +123,23 @@ impl CTaskWorm {
         let base = this as *mut u8;
         core::ptr::write(base.add(0x3C) as *mut i32, value);
     }
+
+    /// Fire subtype 1 at CGameTask+0x34 (subclass_data[4..8]).
+    /// Air strike temporarily swaps this with `_unknown_190` during position update.
+    pub unsafe fn fire_subtype_1(this: *const CTaskWorm) -> i32 {
+        i32::from_ne_bytes((&(*this).base.subclass_data)[4..8].try_into().unwrap())
+    }
+
+    /// Set fire subtype 1 without creating `&mut self` (avoids LLVM noalias violations).
+    pub unsafe fn set_fire_subtype_1_raw(this: *mut CTaskWorm, value: i32) {
+        (&mut (*this).base.subclass_data)[4..8].copy_from_slice(&value.to_ne_bytes());
+    }
+
+    /// Set the action field at CGameTask+0x48 (subclass_data[0x18..0x1C]).
+    /// Cleared after air strike completion alongside `_unknown_208` / `_unknown_19x`.
+    pub unsafe fn set_action_field_raw(this: *mut CTaskWorm, value: i32) {
+        (&mut (*this).base.subclass_data)[0x18..0x1C].copy_from_slice(&value.to_ne_bytes());
+    }
 }
 
 crate::define_addresses! {
@@ -427,7 +444,7 @@ impl CTaskWorm {
     /// Returns the worm's current state code (lives at offset +0x44, inside
     /// `base.subclass_data`). See [`WormState`] for known values.
     pub fn state(&self) -> u32 {
-        unsafe { *((self as *const CTaskWorm as *const u8).add(0x44) as *const u32) }
+        u32::from_ne_bytes(self.base.subclass_data[0x14..0x18].try_into().unwrap())
     }
 
     pub fn is_in_state(&self, state: WormState) -> bool {

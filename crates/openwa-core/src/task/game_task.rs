@@ -69,8 +69,11 @@ const _: () = assert!(core::mem::size_of::<CGameTask>() == 0xFC);
 pub struct SoundEmitter {
     /// +0x00: Vtable pointer
     pub vtable: *const SoundEmitterVTable,
-    /// +0x04-0x0B: Unknown fields
-    pub _unknown_04: [u8; 8],
+    /// +0x04: Unknown field
+    pub _unknown_04: u32,
+    /// +0x08: Reference count — incremented when an ActiveSoundEntry holds this emitter,
+    /// decremented when the entry is released.
+    pub local_ref_count: i32,
     /// +0x0C: Number of active local sounds
     pub local_sound_count: i32,
     /// +0x10: Back-pointer to containing CGameTask
