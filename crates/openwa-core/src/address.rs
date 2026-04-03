@@ -56,8 +56,15 @@ pub mod va {
     };
     pub use crate::task::worm::{CTASK_WORM_CONSTRUCTOR, CTASK_WORM_VTABLE};
 
-    // Re-exported from modules using #[vtable(...)] attribute
+    // Re-exported from audio modules
     pub use crate::audio::dssound::DS_SOUND_VTABLE;
+    pub use crate::audio::music::{
+        MUSIC_CONSTRUCTOR, MUSIC_DESTRUCTOR, MUSIC_PLAY_TRACK, MUSIC_VOLUME_DB_TABLE,
+        MUSIC_VTABLE, STREAMING_AUDIO_FILL_AND_START, STREAMING_AUDIO_INIT,
+        STREAMING_AUDIO_INIT_PLAYBACK, STREAMING_AUDIO_OPEN, STREAMING_AUDIO_OPEN_WAV,
+        STREAMING_AUDIO_READ_CHUNK, STREAMING_AUDIO_RESET, STREAMING_AUDIO_STOP,
+        STREAMING_AUDIO_TIMER_CALLBACK,
+    };
     pub use crate::display::base::DISPLAY_BASE_VTABLE;
     pub use crate::display::dd_display::DD_DISPLAY_VTABLE;
     pub use crate::display::palette::PALETTE_VTABLE;
@@ -538,6 +545,8 @@ pub mod va {
         fn/Fastcall PLAY_SOUND_POOLED_DIRECT = 0x0054_6B50;
         /// Distance3D_Attenuation
         fn/Usercall DISTANCE_3D_ATTENUATION = 0x0054_30F0;
+        /// ActiveSoundTable::stop_sound — stops an active streaming sound by handle.
+        fn ACTIVE_SOUND_TABLE_STOP_SOUND = 0x0054_6490;
     }
 
     // =========================================================================

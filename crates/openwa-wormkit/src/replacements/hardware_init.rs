@@ -45,7 +45,7 @@ use super::game_session;
 use crate::hook;
 use crate::log_line;
 use openwa_core::address::va;
-use openwa_core::audio::{DSSound, StreamingAudio};
+use openwa_core::audio::{DSSound, Music};
 use openwa_core::display::{DDDisplay, DisplayBase, DisplayGfx, Palette};
 use openwa_core::engine::{DDGameWrapper, DDNetGameWrapper, GameInfo, GameSession, GameTimer};
 use openwa_core::input::{DDKeyboard, InputCtrl, InputCtrlVtable};
@@ -377,14 +377,14 @@ unsafe extern "cdecl" fn impl_init_hardware(
         // ── Streaming audio ───────────────────────────────────────────────────
         (*session).streaming_audio = core::ptr::null_mut();
         if !(*session).sound.is_null() && gi.speech_enabled != 0 {
-            let stream = WABox::<StreamingAudio>::alloc(0x354, 0x334).leak();
+            let stream = WABox::<Music>::alloc(0x354, 0x334).leak();
             let ids = (*(*session).sound).direct_sound as *mut u8;
             call_streaming_audio_ctor(
                 stream as *mut u8,
                 ids,
                 gi.streaming_audio_config.as_mut_ptr(),
             );
-            (*session).streaming_audio = stream as *mut u8;
+            (*session).streaming_audio = stream;
         }
     } else {
         // ── Headless / stats mode ─────────────────────────────────────────────
@@ -408,7 +408,7 @@ unsafe extern "cdecl" fn impl_init_hardware(
         (*session).sound,
         (*session).keyboard as *mut u8,
         (*session).palette,
-        (*session).streaming_audio,
+        (*session).streaming_audio as *mut u8,
         (*session).input_ctrl,
     );
     (*session).ddgame_wrapper = wrapper;

@@ -6,7 +6,6 @@ pub mod sound_id;
 pub mod sound_ops;
 pub mod speech;
 pub mod speech_ops;
-pub mod streaming;
 pub mod wav_player;
 
 pub use active_sound::{ActiveSoundEntry, ActiveSoundTable};
@@ -19,7 +18,6 @@ pub use dssound::{
 };
 pub use dssound::{ChannelDescriptor, DSSound, DSSoundVtable};
 pub use known_sound_id::KnownSoundId;
-pub use music::Music;
+pub use music::{Music, MusicVtable, StreamingAudio};
 pub use sound_id::SoundId;
 pub use speech::{SpeechLineId, SpeechLineTableEntry, SpeechSlotTable, SPEECH_LINE_TABLE_COUNT};
-pub use streaming::StreamingAudio;

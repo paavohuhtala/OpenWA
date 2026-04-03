@@ -9,6 +9,7 @@ mod game_session;
 mod game_state_hooks;
 mod hardware_init;
 mod headless;
+mod music;
 mod render;
 mod replay;
 mod replay_test;
@@ -56,6 +57,7 @@ pub fn install_all() -> Result<(), String> {
     sprite::install()?;
     sound::install()?;
     speech::install()?;
+    music::install()?;
     ddgame_init::install()?;
     game_state_hooks::install()?;
     replay::install()?;

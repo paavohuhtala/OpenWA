@@ -130,6 +130,71 @@ unsafe extern "fastcall" fn hook_play_sound_pooled_direct(
     sound_ops::play_sound_pooled_direct(task, slot, priority, volume)
 }
 
+// ── PlayWormSound (0x5150D0): usercall(EDI=worm) + stack(sound_id, volume), RET 0x8 ──
+
+#[unsafe(naked)]
+unsafe extern "C" fn trampoline_play_worm_sound() {
+    core::arch::naked_asm!(
+        "push [esp+8]",    // volume
+        "push [esp+8]",    // sound_id (was +4, shifted +4)
+        "push edi",        // worm
+        "call {f}",
+        "add esp, 12",
+        "ret 0x8",
+        f = sym play_worm_sound_cdecl,
+    );
+}
+
+unsafe extern "cdecl" fn play_worm_sound_cdecl(
+    worm: *mut CTaskWorm,
+    sound_id: SoundId,
+    volume: Fixed,
+) {
+    sound_ops::play_worm_sound(worm, sound_id, volume);
+}
+
+// ── StopWormSound (0x515180): usercall(ESI=worm), plain RET ──
+
+#[unsafe(naked)]
+unsafe extern "C" fn trampoline_stop_worm_sound() {
+    core::arch::naked_asm!(
+        "push esi",
+        "call {f}",
+        "add esp, 4",
+        "ret",
+        f = sym stop_worm_sound_cdecl,
+    );
+}
+
+unsafe extern "cdecl" fn stop_worm_sound_cdecl(worm: *mut CTaskWorm) {
+    sound_ops::stop_worm_sound(worm);
+}
+
+// ── LoadAndPlayStreaming (0x546C20): usercall(EAX=task, ESI=emitter) + stack(sound_id, flags, volume), RET 0xC ──
+
+#[unsafe(naked)]
+unsafe extern "C" fn trampoline_load_and_play_streaming() {
+    core::arch::naked_asm!(
+        "push [esp+12]",   // volume
+        "push [esp+12]",   // flags (was +8, shifted +4)
+        "push [esp+12]",   // sound_id (was +4, shifted +8)
+        "push eax",        // task (EAX)
+        "call {f}",
+        "add esp, 16",
+        "ret 0xC",
+        f = sym load_and_play_streaming_cdecl,
+    );
+}
+
+unsafe extern "cdecl" fn load_and_play_streaming_cdecl(
+    task: *mut CGameTask,
+    sound_id: SoundId,
+    flags: u32,
+    volume: Fixed,
+) -> i32 {
+    sound_ops::load_and_play_streaming(task, sound_id, flags, volume)
+}
+
 // ── Hook installation ──
 
 pub fn install() -> Result<(), String> {
@@ -180,6 +245,30 @@ pub fn install() -> Result<(), String> {
             "LoadAndPlayStreamingPositional",
             va::LOAD_AND_PLAY_STREAMING_POSITIONAL
         );
+
+        // Hook PlayWormSound + StopWormSound — these have WA callers beyond weapon_release.rs
+        let _ = hook::install(
+            "PlayWormSound",
+            va::PLAY_WORM_SOUND,
+            trampoline_play_worm_sound as *const (),
+        )?;
+        let _ = hook::install(
+            "StopWormSound",
+            va::STOP_WORM_SOUND,
+            trampoline_stop_worm_sound as *const (),
+        )?;
+
+        // NOTE: Sound sub-functions (Distance3D_Attenuation, ActiveSoundTable::stop_sound,
+        // RecordActiveSound, DispatchLocalSound, ComputeDistanceParams) all have WA callers
+        // through unported paths (PlayLocalNoEmitter, PlayLocalWithEmitter) that are
+        // exercised in headful mode. Cannot trap until those entry points are also hooked.
+
+        // Hook LoadAndPlayStreaming — has many WA callers (CTaskMissile, etc.)
+        let _ = hook::install(
+            "LoadAndPlayStreaming",
+            va::LOAD_AND_PLAY_STREAMING,
+            trampoline_load_and_play_streaming as *const (),
+        )?;
     }
 
     Ok(())

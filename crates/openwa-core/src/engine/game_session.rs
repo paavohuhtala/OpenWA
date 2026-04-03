@@ -1,4 +1,5 @@
 use crate::audio::dssound::DSSound;
+use crate::audio::music::Music;
 use crate::display::palette::Palette;
 use crate::engine::ddgame_wrapper::DDGameWrapper;
 use crate::input::keyboard::DDKeyboard;
@@ -81,8 +82,9 @@ pub struct GameSession {
     pub display: *mut u8,
     /// 0x0B0: `Palette*` — 0x28 bytes, vtable `Palette_vtable_Maybe`
     pub palette: *mut Palette,
-    /// 0x0B4: streaming audio object — 0x354 bytes (`FUN_0058bc10`)
-    pub streaming_audio: *mut u8,
+    /// 0x0B4: Music object — 0x354 bytes (constructor 0x58BC10, vtable 0x66B3E0).
+    /// Combines playlist controller + embedded streaming audio engine.
+    pub streaming_audio: *mut Music,
     /// 0x0B8: input controller — 0x1800 bytes; null if `param_4 == 0` at init
     pub input_ctrl: *mut u8,
     /// 0x0BC: timing object — 0x30 bytes (`FUN_0053e950`)
