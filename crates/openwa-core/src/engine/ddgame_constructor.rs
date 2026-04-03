@@ -209,6 +209,7 @@ static mut GFX_LOAD_SPRITES_ADDR: u32 = 0;
 /// null-terminated). For each entry, builds "data\wav\Effects\{name}.wav" and calls
 /// DSSound::load_wav (vtable slot 12, already Rust).
 unsafe fn load_effect_wavs(wrapper: *mut DDGameWrapper) {
+    use crate::audio::dssound::load_wav;
     use std::ffi::CStr;
 
     /// Sound effect name table entry: (slot_id, name_ptr).
@@ -223,7 +224,6 @@ unsafe fn load_effect_wavs(wrapper: *mut DDGameWrapper) {
     if sound.is_null() {
         return;
     }
-    let sound_vt = &*(*sound).vtable;
 
     let mut i = 0;
     loop {
@@ -238,7 +238,7 @@ unsafe fn load_effect_wavs(wrapper: *mut DDGameWrapper) {
         let name = CStr::from_ptr(entry.name_ptr).to_str().unwrap_or("");
         let path = format!("data\\wav\\Effects\\{}.wav\0", name);
 
-        (sound_vt.load_wav)(sound, entry.slot_id, path.as_ptr());
+        load_wav(sound, entry.slot_id, path.as_ptr());
 
         // Update loading progress bar
         call_usercall_ecx(wrapper, LOADING_PROGRESS_TICK_ADDR);

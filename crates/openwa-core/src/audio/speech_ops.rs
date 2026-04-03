@@ -291,8 +291,7 @@ pub unsafe fn load_speech_wav(
     }
 
     let slot_idx = count as u32 + SpeechSlotTable::BUFFER_OFFSET;
-    let vtable = (*wrapper.sound).vtable;
-    let result = ((*vtable).load_wav)(wrapper.sound, slot_idx as i32, full_path as *const u8);
+    let result = crate::audio::dssound::load_wav(wrapper.sound, slot_idx as i32, full_path as *const u8);
 
     if result != 0 {
         slot_table.set(team_index as usize, line_id, slot_idx);
