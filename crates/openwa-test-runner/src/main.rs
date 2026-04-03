@@ -667,6 +667,334 @@ fn parse_errorlog_exception(content: Option<&str>) -> &'static str {
     "crash (SEH handled)"
 }
 
+// ─── Headful subcommand ────────────────────────────────────────────────────
+
+const DEFAULT_HEADFUL_TIMEOUT_SECS: u64 = 150;
+
+struct HeadfulArgs {
+    filter_or_replay: Option<String>,
+    no_build: bool,
+    wa_path: Option<PathBuf>,
+    timeout_secs: u64,
+}
+
+fn parse_headful_args(argv: &[String]) -> HeadfulArgs {
+    let mut args = HeadfulArgs {
+        filter_or_replay: None,
+        no_build: false,
+        wa_path: None,
+        timeout_secs: DEFAULT_HEADFUL_TIMEOUT_SECS,
+    };
+    let mut i = 0;
+    while i < argv.len() {
+        match argv[i].as_str() {
+            "--no-build" => args.no_build = true,
+            "--wa-path" => {
+                i += 1;
+                if i < argv.len() {
+                    args.wa_path = Some(PathBuf::from(&argv[i]));
+                }
+            }
+            "--timeout" | "-t" => {
+                i += 1;
+                if i < argv.len() {
+                    args.timeout_secs = argv[i]
+                        .parse()
+                        .unwrap_or(DEFAULT_HEADFUL_TIMEOUT_SECS);
+                }
+            }
+            s if !s.starts_with('-') && args.filter_or_replay.is_none() => {
+                args.filter_or_replay = Some(s.to_string());
+            }
+            other => {
+                eprintln!("Unknown argument: {other}");
+                eprintln!(
+                    "Usage: openwa-test headful [filter|replay.WAgame] [--no-build] [--wa-path PATH] [--timeout SECS]"
+                );
+                std::process::exit(1);
+            }
+        }
+        i += 1;
+    }
+    args
+}
+
+/// Discover replays for headful testing. Unlike headless, doesn't require _expected.log.
+/// If `filter_or_replay` ends with .WAgame and exists, treat it as a direct path.
+fn discover_headful_tests(filter_or_replay: Option<&str>) -> Vec<TestCase> {
+    // Direct .WAgame path?
+    if let Some(arg) = filter_or_replay {
+        let path = Path::new(arg);
+        if arg.ends_with(".WAgame") && path.exists() {
+            let abs = strip_unc(fs::canonicalize(path).unwrap_or(path.to_path_buf()));
+            let stem = abs
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("unknown")
+                .to_string();
+            return vec![TestCase {
+                name: stem,
+                replay_path: abs.clone(),
+                expected_log: abs.with_extension("expected.log"),
+                output_log: abs.with_extension("log"),
+            }];
+        }
+    }
+
+    // Scan replays dir with optional filter
+    let replays_dir = Path::new(REPLAYS_DIR);
+    let entries = match fs::read_dir(replays_dir) {
+        Ok(e) => e,
+        Err(e) => {
+            eprintln!("Cannot read {REPLAYS_DIR}: {e}");
+            return Vec::new();
+        }
+    };
+
+    let mut tests = Vec::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.extension().and_then(|e| e.to_str()) != Some("WAgame") {
+            continue;
+        }
+        let stem = match path.file_stem().and_then(|s| s.to_str()) {
+            Some(s) => s.to_string(),
+            None => continue,
+        };
+        if let Some(filter) = filter_or_replay {
+            if !stem.contains(filter) {
+                continue;
+            }
+        }
+        // No _expected.log requirement for headful
+        let abs = strip_unc(fs::canonicalize(&path).unwrap_or(path.clone()));
+        tests.push(TestCase {
+            name: stem,
+            replay_path: abs.clone(),
+            expected_log: abs.with_extension("expected.log"),
+            output_log: abs.with_extension("log"),
+        });
+    }
+    tests.sort_by(|a, b| a.name.cmp(&b.name));
+    tests
+}
+
+/// Analyze an OpenWA.log for panics and gameplay check markers.
+struct HeadfulLogAnalysis {
+    panics: Vec<String>,
+    gameplay_passes: Vec<String>,
+    gameplay_fails: Vec<String>,
+}
+
+fn analyze_headful_log(log_path: &Path) -> HeadfulLogAnalysis {
+    let content = fs::read_to_string(log_path).unwrap_or_default();
+    let mut analysis = HeadfulLogAnalysis {
+        panics: Vec::new(),
+        gameplay_passes: Vec::new(),
+        gameplay_fails: Vec::new(),
+    };
+    for line in content.lines() {
+        if line.contains("[PANIC]") {
+            analysis.panics.push(line.to_string());
+        } else if line.contains("[GAMEPLAY PASS]") {
+            analysis.gameplay_passes.push(line.to_string());
+        } else if line.contains("[GAMEPLAY FAIL]") {
+            analysis.gameplay_fails.push(line.to_string());
+        }
+    }
+    analysis
+}
+
+/// Run a single headful replay test.
+fn run_headful_test(
+    test: &TestCase,
+    launcher: &Path,
+    wa_exe: &Path,
+    run_dir: &Path,
+    timeout_secs: u64,
+) -> TestResult {
+    let start = Instant::now();
+
+    let openwa_log = run_dir.join(format!("{}.openwa.log", test.name));
+    let errorlog_path = run_dir.join(format!("{}.errorlog.txt", test.name));
+
+    let result = Command::new(launcher)
+        .arg("--minimized")
+        .arg(wa_exe)
+        .arg(&test.replay_path)
+        .env("OPENWA_REPLAY_TEST", "1")
+        .env("OPENWA_LOG_PATH", &openwa_log)
+        .env("OPENWA_ERRORLOG_PATH", &errorlog_path)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status();
+
+    let duration = start.elapsed();
+
+    match result {
+        Err(e) => TestResult {
+            name: test.name.clone(),
+            passed: false,
+            duration,
+            diff_lines: Vec::new(),
+            error: Some(format!("Failed to launch: {e}")),
+            crashed: None,
+        },
+        Ok(status) => {
+            let exit_code = status.code().unwrap_or(0);
+
+            if duration >= Duration::from_secs(timeout_secs) {
+                return TestResult {
+                    name: test.name.clone(),
+                    passed: false,
+                    duration,
+                    diff_lines: Vec::new(),
+                    error: Some("Timeout".to_string()),
+                    crashed: None,
+                };
+            }
+
+            // Crash detection (same as headless)
+            let errorlog_content = fs::read(&errorlog_path)
+                .ok()
+                .filter(|b| !b.is_empty())
+                .map(|b| String::from_utf8_lossy(&b).into_owned());
+
+            if is_crash_exit_code(exit_code) || errorlog_content.is_some() {
+                let unsigned = exit_code as u32;
+                let name = if is_crash_exit_code(exit_code) {
+                    ntstatus_name(unsigned)
+                } else {
+                    parse_errorlog_exception(errorlog_content.as_deref())
+                };
+                return TestResult {
+                    name: test.name.clone(),
+                    passed: false,
+                    duration,
+                    diff_lines: Vec::new(),
+                    error: None,
+                    crashed: Some(CrashInfo {
+                        exit_code: unsigned,
+                        name,
+                        errorlog_content,
+                    }),
+                };
+            }
+
+            // Analyze OpenWA.log for panics and gameplay markers
+            let analysis = analyze_headful_log(&openwa_log);
+
+            let mut detail_lines = Vec::new();
+            for line in &analysis.panics {
+                detail_lines.push(format!("PANIC: {line}"));
+            }
+            for line in &analysis.gameplay_fails {
+                detail_lines.push(format!("FAIL: {line}"));
+            }
+            for line in &analysis.gameplay_passes {
+                detail_lines.push(line.clone());
+            }
+
+            let passed = analysis.panics.is_empty()
+                && analysis.gameplay_fails.is_empty()
+                && !analysis.gameplay_passes.is_empty();
+
+            let error = if analysis.gameplay_passes.is_empty()
+                && analysis.panics.is_empty()
+                && analysis.gameplay_fails.is_empty()
+            {
+                Some(format!(
+                    "No gameplay markers found in log (exit code: {exit_code})"
+                ))
+            } else {
+                None
+            };
+
+            TestResult {
+                name: test.name.clone(),
+                passed,
+                duration,
+                diff_lines: detail_lines,
+                error,
+                crashed: None,
+            }
+        }
+    }
+}
+
+fn run_headful(args: HeadfulArgs) {
+    let tests = discover_headful_tests(args.filter_or_replay.as_deref());
+    if tests.is_empty() {
+        eprintln!("No replay tests found in {REPLAYS_DIR}/");
+        if let Some(f) = &args.filter_or_replay {
+            eprintln!("  (filter/path: \"{f}\")");
+        }
+        std::process::exit(1);
+    }
+
+    // Build
+    if !args.no_build {
+        eprint!("Building... ");
+        match build() {
+            Ok(d) => eprintln!("done ({:.1}s)", d.as_secs_f64()),
+            Err(e) => {
+                eprintln!("FAILED: {e}");
+                std::process::exit(1);
+            }
+        }
+    }
+
+    let wa_exe = find_wa_exe(args.wa_path.as_deref()).unwrap_or_else(|| {
+        eprintln!("Cannot find WA.exe. Use --wa-path or set OPENWA_WA_PATH.");
+        std::process::exit(1);
+    });
+    let launcher = find_launcher().unwrap_or_else(|| {
+        eprintln!("Cannot find openwa-launcher.exe. Run cargo build first.");
+        std::process::exit(1);
+    });
+
+    // Clean stale files from game dir
+    if let Some(game_dir) = wa_exe.parent() {
+        let _ = fs::remove_file(game_dir.join("ERRORLOG.TXT"));
+        let _ = fs::remove_file(game_dir.join("OpenWA.log"));
+    }
+
+    let timestamp = timestamp();
+    let run_dir = PathBuf::from(RUNS_DIR).join(format!("headful-{timestamp}"));
+    let _ = fs::create_dir_all(&run_dir);
+    let run_dir = strip_unc(fs::canonicalize(&run_dir).unwrap_or(run_dir));
+
+    println!(
+        "Running {} headful test{}...\n",
+        tests.len(),
+        if tests.len() == 1 { "" } else { "s" }
+    );
+
+    let wall_start = Instant::now();
+    let mut results = Vec::new();
+
+    for test in &tests {
+        let result = run_headful_test(test, &launcher, &wa_exe, &run_dir, args.timeout_secs);
+        print_result(&result);
+        results.push(result);
+    }
+
+    let wall_time = wall_start.elapsed();
+
+    print_summary(&results, wall_time);
+    write_summary(&results, wall_time, &run_dir.join("summary.txt"));
+
+    // Report startup check failures
+    report_startup_check_failures(&results, &run_dir);
+
+    cleanup_temp_files(&wa_exe);
+
+    let failed = results.iter().any(|r| !r.passed);
+    if failed {
+        std::process::exit(1);
+    }
+}
+
 // ─── Trace-desync subcommand ─────────────────────────────────────────────
 
 struct TraceDesyncArgs {
@@ -995,10 +1323,18 @@ fn report_startup_check_failures(results: &[TestResult], run_dir: &Path) {
 fn main() {
     // Check for subcommands before normal arg parsing
     let argv: Vec<String> = env::args().skip(1).collect();
-    if argv.first().map(|s| s.as_str()) == Some("trace-desync") {
-        let sub_args = parse_trace_desync_args(&argv[1..]);
-        run_trace_desync(sub_args);
-        return;
+    match argv.first().map(|s| s.as_str()) {
+        Some("headful") => {
+            let sub_args = parse_headful_args(&argv[1..]);
+            run_headful(sub_args);
+            return;
+        }
+        Some("trace-desync") => {
+            let sub_args = parse_trace_desync_args(&argv[1..]);
+            run_trace_desync(sub_args);
+            return;
+        }
+        _ => {}
     }
 
     let args = parse_args();

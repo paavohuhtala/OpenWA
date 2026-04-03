@@ -29,15 +29,30 @@ Unit tests: `cargo test`. These are standard Rust tests covering parsers and typ
 
 WA.exe can deterministically replay recorded games (`.WAgame` files). Each replay test runs the game with the injected DLL and checks that the output matches a baseline log (`*_expected.log`) captured from unmodified WA.exe.
 
-**Headless** (`.\run-tests.ps1`): Pure CPU simulation, no rendering. Fast, runs in parallel (default 4 concurrent). Validates game logic — a log mismatch means the Rust code caused a desync. Spurious flakes from race conditions can occur; retry with `-j 1` to confirm.
+Two ways to run replay tests:
 
-**Headful** (`/replay-test` skill): Runs with graphics and sound. Requires user interaction. Needed to validate visual/audio hooks — code can pass headless but crash headful (or vice versa) since rendering and sound paths are only exercised headfully.
+### Headless (`.\run-tests.ps1`)
 
-**Use replay testing to validate assumptions and test theories.** Implement a hypothesis, run tests, iterate. You can add temporary log statements and see their results by running replay tests.
+Pure CPU simulation, no rendering. Fast, runs in parallel (default 4 concurrent). Validates game logic — a log mismatch means the Rust code caused a desync. Spurious flakes from race conditions can occur; retry with `-j 1` to confirm.
 
-**IMPORTANT:** The `*_expected.log` baselines are ground truth from unmodified WA.exe. They must NEVER be deleted or regenerated. If a test fails, the Rust code is wrong.
+### Headful (`.\replay-test.ps1` or `openwa-test headful`)
+
+Runs with graphics and sound. The game window must be focused once to start. Needed to validate visual/audio hooks — code can pass headless but crash headful (or vice versa) since rendering and sound paths are only exercised headfully. Checks for crashes, panics, and `[GAMEPLAY PASS/FAIL]` markers. Timeout configurable with `--timeout SECS` (default 150s).
 
 See `crates/openwa-test-runner/CLAUDE.md` for test isolation, crash detection, adding new tests, and env vars. Use `/desync-debug` skill after a test failure to diagnose.
+
+### Use replay testing to validate assumptions and test theories
+
+Implement a hypothesis, run tests, iterate. You can add temporary log statements and see their results by running replay tests.
+
+### **IMPORTANT**: Replay tests can only test two things:
+
+- The game simulation matches the original WA.exe, to the extent covered by the replay log and the replay's built-in checksums
+- The game doesn't crash
+
+You, as an agent, CANNOT see or hear the game, and therefore you can't verify that anything related to graphics or audio is correct. A passing headful replay test is NOT a guarantee that the rendering is correct. You need to involve the user to verify all graphics and audio related changes before committing or merging.
+
+### **IMPORTANT:** The `*_expected.log` baselines are ground truth from unmodified WA.exe. They must NEVER be deleted or regenerated, unless explicitly requested by the user. If a test fails, the Rust code is wrong.
 
 ## Debug CLI
 

@@ -1,6 +1,12 @@
 # openwa-test-runner
 
-Headless replay test runner (`openwa-test` binary). Discovers replay tests in `testdata/replays/`, runs them concurrently via WA.exe's `/getlog` mode, and compares output logs byte-for-byte against expected baselines.
+Replay test runner (`openwa-test` binary). Supports headless (concurrent, log-diff) and headful (sequential, gameplay checks) modes.
+
+## Subcommands
+
+- `openwa-test [filter] [-j N] [--no-build] [--wa-path PATH]` — Headless: discovers `testdata/replays/*.WAgame` with `*_expected.log`, runs concurrently via `/getlog`, compares output byte-for-byte.
+- `openwa-test headful [filter|replay.WAgame] [--no-build] [--wa-path PATH] [--timeout SECS]` — Headful: runs with graphics+sound, checks for crashes/panics/gameplay markers. Default timeout 150s.
+- `openwa-test trace-desync <replay.WAgame> [--no-build] [--wa-path PATH]` — Compares per-frame checksums between baseline and hooked runs.
 
 ## Test Isolation
 
@@ -18,6 +24,10 @@ All isolation mechanisms are active in headless mode only:
 
 Tests that crash show `CRASH` (not `FAIL`) with NTSTATUS name and ERRORLOG.TXT content. ERRORLOG.TXT is redirected to the per-test run directory via `OPENWA_ERRORLOG_PATH`.
 
+## Headful Pass Criteria
+
+A headful test passes when: no crash, no `[PANIC]` in OpenWA.log, no `[GAMEPLAY FAIL]`, and at least one `[GAMEPLAY PASS]` marker present.
+
 ## Adding New Replay Tests
 
 1. Record a game in WA.exe (the replay `.WAgame` file is saved automatically)
@@ -28,11 +38,13 @@ Tests that crash show `CRASH` (not `FAIL`) with NTSTATUS name and ERRORLOG.TXT c
 ## Environment Variables
 
 - `OPENWA_HEADLESS=1` — Headless mode: hooks MessageBoxA to auto-dismiss, launcher uses SW_HIDE, file isolation hook active, semaphore renamed per-PID
+- `OPENWA_REPLAY_TEST=1` — Headful mode: enables fast-forward replay (50x speed)
 - `OPENWA_LOG_PATH=<path>` — Override OpenWA.log location (used for per-instance isolation)
 - `OPENWA_ERRORLOG_PATH=<path>` — Redirect ERRORLOG.TXT to specified path (crash capture)
 
 ## Key Paths
 
 - Replay files + expected logs: `testdata/replays/*.WAgame` + `*_expected.log`
-- Per-run output: `testdata/runs/<timestamp>/` (gitignored)
-- Convenience script: `run-tests.ps1`
+- Per-run output: `testdata/runs/<timestamp>/` (headless), `testdata/runs/headful-<timestamp>/` (headful)
+- Headless script: `run-tests.ps1`
+- Headful script: `replay-test.ps1`

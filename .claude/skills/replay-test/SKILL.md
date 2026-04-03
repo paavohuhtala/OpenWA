@@ -1,13 +1,13 @@
 ---
 name: replay-test
-description: Run automated replay-based testing - builds, launches WA.exe with a replay file, captures validation logs, and presents results. Supports headful (graphics + validation) and headless (pure simulation + log diff) modes.
+description: Run automated replay-based testing - builds, launches WA.exe with a replay file, and presents results. Supports headful (graphics + gameplay checks) and headless (pure simulation + log diff) modes via the openwa-test binary.
 ---
 
 # Replay Test
 
 Run the replay-based automated testing pipeline.
 
-## Quick Start — Run All Tests
+## Quick Start — Run All Tests (Headless)
 
 The fastest way to run all replay tests:
 
@@ -15,7 +15,7 @@ The fastest way to run all replay tests:
 .\run-tests.ps1
 ```
 
-This builds and runs the `openwa-test` binary via `cargo run`, which then builds the DLL + launcher, discovers all `testdata/replays/*.WAgame` files with matching `*_expected.log`, and runs them concurrently (default 4 workers) in headless mode. Output:
+This builds and runs the `openwa-test` binary, which builds the DLL + launcher, discovers all `testdata/replays/*.WAgame` files with matching `*_expected.log`, and runs them concurrently (default 4 workers) in headless mode. Output:
 
 ```
 Building... done (2.1s)
@@ -35,25 +35,27 @@ Options:
 
 ## Modes
 
-### Headless test runner (primary)
+### Headless (primary)
 
 Uses WA's built-in `/getlog` mode: no rendering, pure CPU simulation. Compares the output log byte-for-byte against an expected baseline.
 
 ```bash
-# All tests:
 .\run-tests.ps1
-
-# Single replay via old script:
-powershell -ExecutionPolicy Bypass -File replay-test.ps1 -Headless testdata/replays/longbow.WAgame
+.\run-tests.ps1 longbow
 ```
 
-### Headful (interactive) — graphics, sound, validation
+### Headful — graphics, sound, gameplay validation
 
-Tests hooks, struct layouts, and game state with the full rendering pipeline active. Use for debugging specific replays.
+Tests hooks, struct layouts, and game state with the full rendering pipeline active. Runs sequentially. The game window must be focused once for the replay to start advancing, after which it runs to completion on its own.
 
 ```bash
-powershell -ExecutionPolicy Bypass -File replay-test.ps1
+.\replay-test.ps1
+.\replay-test.ps1 bots
+.\replay-test.ps1 testdata/replays/bots.WAgame
+.\replay-test.ps1 bots --timeout 600    # 10 minute timeout
 ```
+
+Both scripts are thin wrappers around `openwa-test` / `openwa-test headful`.
 
 ## Steps (for Claude)
 
@@ -61,22 +63,17 @@ powershell -ExecutionPolicy Bypass -File replay-test.ps1
 
 2. Read the output and present results:
 
-**Headless (test runner):**
+**Headless:**
 - PASS/FAIL summary is printed directly
 - Per-run logs stored in `testdata/runs/<timestamp>/`
 - FAIL shows first differing lines between expected and actual
 
-**Headless (single replay via script):**
-- PASS means byte-identical output to `<replay>_expected.log`
-- FAIL shows the diff lines
-
-**Headful mode:**
-- If `testdata/logs/errorlog_latest.txt` exists, WA.exe crashed. Read it and report the crash
-- Read `testdata/logs/validation_latest.log`:
-  - **Static checks** (`[STATIC PASS]`/`[STATIC FAIL]`): vtable addresses, struct offsets
-  - **Gameplay checks** (`[GAMEPLAY PASS]`/`[GAMEPLAY FAIL]`): game init, match start, match completion
-- Quote any FAIL lines exactly
-- Check `testdata/logs/openwa_latest.log` for `[PANIC]` errors
+**Headful:**
+- PASS/FAIL summary is printed directly
+- Per-run logs stored in `testdata/runs/headful-<timestamp>/`
+- Checks OpenWA.log for `[PANIC]` errors and `[GAMEPLAY PASS]`/`[GAMEPLAY FAIL]` markers
+- PASS requires: no crash, no panics, no gameplay fails, at least one gameplay pass
+- CRASH shows NTSTATUS name and ERRORLOG.TXT content
 
 ## Environment Variables
 
@@ -84,15 +81,15 @@ powershell -ExecutionPolicy Bypass -File replay-test.ps1
 - `OPENWA_REPLAY_TEST=1` — (headful) Enable fast-forward mode (50x speed)
 - `OPENWA_LOG_PATH=<path>` — Override OpenWA.log location (per-instance isolation)
 
-All are set automatically by the test runner / replay-test.ps1.
+All are set automatically by the test runner.
 
 ## Key Paths
 
 - Replay files + expected logs: `testdata/replays/*.WAgame` + `*_expected.log`
 - Per-run output: `testdata/runs/<timestamp>/` (gitignored)
 - Test runner: `crates/openwa-test-runner/` (`openwa-test` binary)
-- Convenience script: `run-tests.ps1`
-- Single-replay script: `replay-test.ps1`
+- Headless script: `run-tests.ps1`
+- Headful script: `replay-test.ps1`
 
 ## Adding New Replay Tests
 
@@ -103,6 +100,7 @@ All are set automatically by the test runner / replay-test.ps1.
 
 ## Notes
 
-- Headful replay: ~15-30s; headless: ~5s per test
+- Headful replay: ~15-30s per test; headless: ~5s per test
+- Headful timeout defaults to 150s, configurable with `--timeout SECS`
 - Concurrent headless tests use per-PID event names, log paths, and temp files (CreateFileA hook)
 - Named event: `OpenWA_HooksReady_{pid}` — ensures hooks installed before WA main thread runs
