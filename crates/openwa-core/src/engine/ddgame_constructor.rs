@@ -153,7 +153,7 @@ pub fn init_constructor_addrs() {
     unsafe {
         SPRITE_REGION_CTOR_ADDR = rb(va::SPRITE_REGION_CONSTRUCTOR);
         FUN_570A90_ADDR = rb(va::FUN_570A90);
-        FUN_570F30_ADDR = rb(va::DDGAME_LOAD_FONTS);
+
         LOAD_SPEECH_BANKS_ADDR = rb(va::DSSOUND_LOAD_ALL_SPEECH_BANKS);
         LOADING_PROGRESS_TICK_ADDR = rb(va::DDGAME_WRAPPER_LOADING_PROGRESS_TICK);
         GFX_LOAD_SPRITES_ADDR = rb(va::GFX_DIR_LOAD_SPRITES);
@@ -627,8 +627,7 @@ unsafe fn init_graphics_and_resources(
 
     // ── Audio init (non-headless + sound available) ──
     if !is_headless {
-        // FUN_570F30: font loading (usercall ESI=wrapper) — NOT audio related
-        call_usercall_esi(wrapper, FUN_570F30_ADDR);
+        crate::engine::ddgame_load_fonts::load_fonts(wrapper);
         if !(*ddgame).sound.is_null() {
             load_effect_wavs(wrapper);
             // DSSound_LoadAllSpeechBanks: the original is hooked to our Rust
@@ -1067,11 +1066,11 @@ unsafe fn init_graphics_and_resources(
 
 // Statics for usercall bridge addresses
 static mut FUN_570A90_ADDR: u32 = 0;
-static mut FUN_570F30_ADDR: u32 = 0;
+
 static mut LOAD_SPEECH_BANKS_ADDR: u32 = 0;
 static mut LOADING_PROGRESS_TICK_ADDR: u32 = 0;
 
-/// Bridge: usercall(ESI=wrapper), plain RET. Used by FUN_570E20, FUN_570F30, LoadSpeechBanks.
+/// Bridge: usercall(ESI=wrapper), plain RET. Used by FUN_570E20, LoadSpeechBanks.
 #[cfg(target_arch = "x86")]
 #[unsafe(naked)]
 unsafe extern "C" fn call_usercall_esi(_wrapper: *mut DDGameWrapper, _addr: u32) {

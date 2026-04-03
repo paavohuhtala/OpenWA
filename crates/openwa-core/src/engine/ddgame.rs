@@ -230,14 +230,13 @@ pub struct DDGame {
     pub _field_7304: u32,
     /// 0x7308: Sprite/gfx dimension data (passed to GFX_DIR_LOAD_SPRITES).
     pub gfx_sprite_data: [u8; 0x730C - 0x7308],
-    /// 0x730C-0x732F: GfxDir color table (9 entries).
+    /// 0x730C-0x7337: GfxDir color table (11 entries).
     /// Populated from colours.img pixel row: `color_table[i] = get_pixel(sprite, i, 0)`.
     /// Known entries:
     /// - [6] (0x7324): Crosshair line color (DrawPolygon param_2)
     /// - [8] (0x732C): Crosshair line style (DrawPolygon param_1)
-    pub gfx_color_table: [u32; 9],
-    /// 0x7330-0x7337: Unknown
-    pub _unknown_7330: [u8; 8],
+    /// - [9]-[10] (0x7330-0x7334): Font palette entries (used by LoadFontExtension)
+    pub gfx_color_table: [u32; 11],
     /// 0x7338: Fill pixel value
     pub fill_pixel: u32,
     /// 0x733C-0x733F: Unknown

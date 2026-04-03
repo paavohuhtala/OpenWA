@@ -104,7 +104,9 @@ pub mod va {
             /// DDGame__InitVersionFlags — stdcall(ddgame_wrapper)
             fn/Stdcall DDGAME_INIT_VERSION_FLAGS = 0x0052_5BE0;
             /// DDGame__LoadFonts — loads .fnt font resources into the display.
-            fn DDGAME_LOAD_FONTS = 0x0057_0F30;
+            fn/Usercall DDGAME_LOAD_FONTS = 0x0057_0F30;
+            /// DDGameWrapper__LoadFontExtension — loads .fex font extension for a font slot.
+            fn/Stdcall DDGAME_WRAPPER_LOAD_FONT_EXTENSION = 0x0057_0E80;
             /// DDGame__LoadHudAndWeaponSprites
             fn/Thiscall DDGAME_LOAD_HUD_AND_WEAPON_SPRITES = 0x0053_D0E0;
             /// DDGame__InitPaletteGradientSprites

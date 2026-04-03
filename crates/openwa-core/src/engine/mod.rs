@@ -1,5 +1,6 @@
 pub mod ddgame;
 pub mod ddgame_constructor;
+pub mod ddgame_load_fonts;
 pub mod ddgame_wrapper;
 pub mod game_info;
 pub mod game_session;
