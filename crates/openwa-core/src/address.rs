@@ -429,6 +429,8 @@ pub mod va {
     crate::define_addresses! {
         /// DDDisplay::Init
         fn/Usercall DDISPLAY_INIT = 0x0056_9D00;
+        /// DDDisplay vtable slot 19 — blit sprite (possibly dead code)
+        fn/Thiscall DDISPLAY_BLIT_SPRITE = 0x0056_B080;
         /// Streaming audio constructor
         fn/Stdcall STREAMING_AUDIO_CTOR = 0x0058_BC10;
         /// DDNetGameWrapper constructor

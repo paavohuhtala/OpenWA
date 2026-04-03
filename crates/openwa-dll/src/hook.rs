@@ -356,12 +356,53 @@ macro_rules! usercall_trampoline {
 
 pub(crate) use usercall_trampoline;
 
+/// Walk the EBP chain and log a symbolicated stack trace.
+///
+/// `ebp` is the current frame pointer; the function walks up to 12 frames,
+/// resolving return addresses via the address registry.
+pub unsafe fn log_stack_trace(name: &str, ebp: u32) {
+    use openwa_core::address::va;
+    use openwa_core::rebase::rb;
+    let delta = rb(va::IMAGE_BASE).wrapping_sub(va::IMAGE_BASE);
+    let wa_base = rb(va::IMAGE_BASE);
+
+    let mut trace = String::new();
+    let mut ebp = ebp;
+    for depth in 0..12 {
+        if !(0x10000..=0x7FFE0000).contains(&ebp) || (ebp & 3) != 0 {
+            break;
+        }
+        if !openwa_core::mem::can_read(ebp, 8) {
+            break;
+        }
+        let ret_addr = *((ebp + 4) as *const u32);
+        let next_ebp = *(ebp as *const u32);
+        let ghidra_ret = ret_addr.wrapping_sub(delta);
+        if depth > 0 {
+            trace.push_str("<-");
+        }
+        let in_wa = ret_addr >= wa_base && ret_addr < wa_base + 0x300000;
+        if in_wa {
+            trace.push_str(&openwa_core::registry::format_va(ghidra_ret));
+        } else {
+            use core::fmt::Write;
+            let _ = write!(trace, "r:{:08X}", ret_addr);
+        }
+        if next_ebp <= ebp {
+            break;
+        }
+        ebp = next_ebp;
+    }
+
+    let _ = crate::log_line(&format!("[TRAP] {} stack=[{}]", name, trace));
+}
+
 /// Install a panic trap on a fully-converted WA function.
 ///
 /// Use this when ALL callers of a WA function have been replaced with Rust code.
 /// The trap verifies our caller analysis by panicking if WA.exe unexpectedly
 /// calls the function. Each invocation generates a unique trap function with
-/// the function name baked into the panic message.
+/// the function name baked into the panic message, plus a stack trace.
 ///
 /// ```ignore
 /// install_trap!("DDGameWrapper__Constructor", va::CONSTRUCT_DD_GAME_WRAPPER);
@@ -369,6 +410,9 @@ pub(crate) use usercall_trampoline;
 macro_rules! install_trap {
     ($name:literal, $addr:expr) => {{
         unsafe extern "C" fn trap() {
+            let ebp: u32;
+            core::arch::asm!("mov {}, ebp", out(reg) ebp);
+            hook::log_stack_trace($name, ebp);
             panic!(concat!(
                 "TRAP: ",
                 $name,
