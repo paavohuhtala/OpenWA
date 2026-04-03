@@ -7,15 +7,29 @@ use crate::fixed::Fixed;
 /// Destructor: 0x569CE0.
 ///
 /// Actual runtime type is DisplayGfx (0x24E28 bytes), which extends DisplayBase.
-/// Manages layers, sprites, fonts, palettes, and delegates to a renderer backend
-/// (CompatRenderer for D3D/DDraw, OpenGLCPU for OpenGL).
+/// Manages layers, sprites, fonts, palettes, and delegates rendering through
+/// DDDisplayWrapper (g_DDDisplayWrapper at 0x79D6D4), which in turn dispatches
+/// to a renderer backend (CompatRenderer for D3D/DDraw, OpenGLCPU for OpenGL).
 ///
-/// Key internal fields (offsets from DisplayBase):
-/// - 0x3548/0x354C: display width/height
-/// - 0x3550-0x355C: clip rect (x1, y1, x2, y2)
-/// - 0x3560/0x3564: camera offset (x, y)
+/// ## Dispatch chain
+///
+/// ```text
+/// DDDisplay  →  DDDisplayWrapper  →  RendererBackend
+///   vtable        (CWormsApp sub-      (CompatRenderer/
+///   0x66A218       object, vtable       OpenGLCPU/DDraw)
+///                  0x662EC8)
+/// ```
+///
+/// DDDisplay methods apply camera offset and clipping, then call through
+/// `g_DDDisplayWrapper->vtable[N]` for the actual rendering operation.
+///
+/// Key internal fields (offsets from start of DisplayGfx/DisplayBase):
+/// - 0x3548/0x354C: display width/height (pixels)
+/// - 0x3550-0x355C: clip rect (x1, y1, x2, y2, pixels)
+/// - 0x3560/0x3564: camera offset (x, y, pixels)
 /// - 0x3580-0x3584: bitmap vector (ptr, end)
-/// - 0x3D9C: renderer backend pointer
+/// - 0x3D98: render lock flag (cleared by FlushRender)
+/// - 0x3D9C: display context pointer (read during FlushRender)
 ///
 /// OPAQUE: Full struct layout not yet mapped (see DisplayGfx for size).
 #[repr(C)]

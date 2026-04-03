@@ -71,7 +71,11 @@ pub mod va {
         STREAMING_AUDIO_RESET, STREAMING_AUDIO_STOP, STREAMING_AUDIO_TIMER_CALLBACK,
     };
     pub use crate::display::base::DISPLAY_BASE_VTABLE;
+    pub use crate::display::compat_renderer::{
+        CompatRendererVtable, COMPAT_RENDERER_VTABLE, DDRAW8_RENDERER_VTABLE,
+    };
     pub use crate::display::dd_display::DD_DISPLAY_VTABLE;
+    pub use crate::display::display_wrapper::{DDDisplayWrapperVtable, DD_DISPLAY_WRAPPER_VTABLE};
     pub use crate::display::palette::PALETTE_VTABLE;
     pub use crate::frontend::map_view::MAP_VIEW_VTABLE;
     pub use crate::input::controller::INPUT_CTRL_VTABLE;
