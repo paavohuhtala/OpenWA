@@ -52,8 +52,22 @@ pub struct DisplayBase {
     pub _field_352c: u32,
     // +0x3530..0x3540: indices 0xD4C..0xD4F (4 entries), zeroed by ctor
     pub _fields_3530: [u32; 4],
-    // +0x3540..0x3560: remaining padding to fill 0x3560 total
-    pub _pad_3540: [u8; 0x3560 - 0x3540],
+    // +0x3540: display initialized flag (set to 1 by DDDisplay__Init)
+    pub display_initialized: u32,
+    // +0x3544: unknown
+    pub _unknown_3544: u32,
+    // +0x3548: display width in pixels (set by DDDisplay__Init)
+    pub display_width: u32,
+    // +0x354C: display height in pixels
+    pub display_height: u32,
+    // +0x3550: clip rect x1 (left, init 0)
+    pub clip_x1: i32,
+    // +0x3554: clip rect y1 (top, init 0)
+    pub clip_y1: i32,
+    // +0x3558: clip rect x2 (right, init = width)
+    pub clip_x2: i32,
+    // +0x355C: clip rect y2 (bottom, init = height)
+    pub clip_y2: i32,
 }
 
 const _: () = assert!(core::mem::size_of::<DisplayBase>() == 0x3560);
