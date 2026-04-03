@@ -16,7 +16,7 @@
 ///
 /// Source: Ghidra decompilation of Frontend__MainNavigationLoop (0x4E6440),
 ///         65 FrontendChangeScreen call sites, wkJellyWorm Lobby.cpp,
-///         + runtime observation via openwa-wormkit
+///         + runtime observation via openwa-dll
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(i32)]
 pub enum ScreenId {

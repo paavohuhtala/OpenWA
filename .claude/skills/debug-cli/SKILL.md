@@ -278,4 +278,4 @@ Use `inspect` to see all named fields with formatted values, or `read` with a fi
 - Both are independent — you can use the CLI without the UI and vice versa
 - Protocol: MessagePack over TCP with 4-byte LE length-prefix framing
 - The `openwa-debug` binary is built to `target/i686-pc-windows-msvc/release/openwa-debug.exe`
-- Source: `crates/openwa-debug-cli/` (CLI), `crates/openwa-debug-proto/` (protocol), `crates/openwa-wormkit/src/debug_server.rs` (server)
+- Source: `crates/openwa-debug-cli/` (CLI), `crates/openwa-debug-proto/` (protocol), `crates/openwa-dll/src/debug_server.rs` (server)

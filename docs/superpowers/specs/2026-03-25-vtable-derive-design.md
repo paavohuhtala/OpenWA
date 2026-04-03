@@ -332,6 +332,6 @@ This already exists in `display.rs` — factor it out.
 
 - `cargo build -p openwa-core` — types compile
 - `cargo test -p openwa-core` — existing tests pass
-- `cargo build -p openwa-wormkit --release` — DLL builds
+- `cargo build -p openwa-dll --release` — DLL builds
 - `.\run-tests.ps1` — replay tests pass (no desync from layout changes)
 - Validate introspection: `vtable_info_for("PaletteVtable")` returns correct slot metadata

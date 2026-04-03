@@ -85,7 +85,7 @@ DDGame__Constructor(
 | File | Action |
 |------|--------|
 | `crates/openwa-core/src/engine/ddgame.rs` | Add `DDGame::new()`, fill unknown fields |
-| `crates/openwa-wormkit/src/replacements/game_session.rs` | Replace bridge with `DDGame::new()` |
+| `crates/openwa-dll/src/replacements/game_session.rs` | Replace bridge with `DDGame::new()` |
 | `crates/openwa-core/src/address.rs` | Add addresses for sub-functions |
 
 ## Verification

@@ -1,7 +1,7 @@
 //! Team and worm state accessor functions.
 //!
 //! Pure Rust reimplementations of WA.exe functions that access the TeamArenaState
-//! area (DDGame + 0x4628). These are called from wormkit hook trampolines.
+//! area (DDGame + 0x4628). Called from hook trampolines in openwa-dll.
 //!
 //! Original WA functions:
 //! - CountTeamsByAlliance (0x522030)

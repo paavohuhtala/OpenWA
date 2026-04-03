@@ -2,7 +2,7 @@
 $ErrorActionPreference = "Stop"
 
 Write-Host "Building..." -ForegroundColor Cyan
-cargo build --release -p openwa-launcher -p openwa-wormkit
+cargo build --release -p openwa-launcher -p openwa-dll
 if ($LASTEXITCODE -ne 0) { exit 1 }
 
 & "target\i686-pc-windows-msvc\release\openwa-launcher.exe"

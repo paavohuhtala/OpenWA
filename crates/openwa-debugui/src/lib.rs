@@ -7,7 +7,7 @@
 //! # Usage
 //!
 //! ```rust
-//! // In openwa-wormkit lib.rs, after rebase::init() and hook installation:
+//! // In openwa-dll lib.rs, after rebase::init() and hook installation:
 //! if std::env::var("OPENWA_DEBUG_UI").is_ok() {
 //!     openwa_debugui::spawn();
 //! }

@@ -2,7 +2,7 @@
 $ErrorActionPreference = "Stop"
 
 Write-Host "Building..." -ForegroundColor Cyan
-cargo build --release -p openwa-launcher -p openwa-wormkit -p openwa-debug-cli --features openwa-wormkit/debug-ui
+cargo build --release -p openwa-launcher -p openwa-dll -p openwa-debug-cli --features openwa-dll/debug-ui
 if ($LASTEXITCODE -ne 0) { exit 1 }
 
 $env:OPENWA_DEBUG_UI = "1"

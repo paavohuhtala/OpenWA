@@ -2,8 +2,8 @@
 //!
 //! WA's sprite format stores paletted animated sprites with per-frame metadata.
 //! This module provides both a clean Rust parser (`ParsedSprite`) for tooling
-//! and shared metadata extraction (`parse_spr_header`) used by WormKit hook
-//! replacements.
+//! and shared metadata extraction (`parse_spr_header`) used by hook
+//! replacements in openwa-dll.
 
 use crate::render::sprite::SpriteFrame;
 
@@ -86,7 +86,7 @@ fn align4(offset: usize) -> usize {
 /// Parse `.spr` header and compute data region offsets.
 ///
 /// This is a pure function with no WA dependencies. Both `ParsedSprite::parse`
-/// and the WormKit ProcessSprite hook build on this.
+/// and the ProcessSprite hook replacement build on this.
 pub fn parse_spr_header(data: &[u8]) -> Result<SprHeader, SprError> {
     // Minimum: 4 (unused) + 4 (data_size) + 2 (header_flags) + 2 (palette_count) = 12
     if data.len() < 12 {
@@ -207,7 +207,7 @@ pub fn parse_spr_header(data: &[u8]) -> Result<SprHeader, SprError> {
 /// raw bitmap pixel indices, and frame metadata. Suitable for standalone
 /// tooling, tests, and debugging.
 ///
-/// For WormKit hook replacements, `parse_spr_header` is used directly
+/// For hook replacements in openwa-dll, `parse_spr_header` is used directly
 /// with in-place buffer operations instead.
 #[derive(Debug, Clone)]
 pub struct ParsedSprite {

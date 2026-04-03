@@ -1524,6 +1524,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "openwa-dll"
+version = "0.1.0"
+dependencies = [
+ "heapless",
+ "hound",
+ "minhook",
+ "openwa-core",
+ "openwa-debug-proto",
+ "openwa-debugui",
+ "windows",
+ "windows-sys 0.59.0",
+]
+
+[[package]]
 name = "openwa-launcher"
 version = "0.1.0"
 dependencies = [
@@ -1536,20 +1550,6 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "openwa-config",
-]
-
-[[package]]
-name = "openwa-wormkit"
-version = "0.1.0"
-dependencies = [
- "heapless",
- "hound",
- "minhook",
- "openwa-core",
- "openwa-debug-proto",
- "openwa-debugui",
- "windows",
- "windows-sys 0.59.0",
 ]
 
 [[package]]

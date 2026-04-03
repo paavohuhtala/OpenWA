@@ -36,7 +36,7 @@ pub use crate::task::bit_grid::bit_grid_init;
 // Pure Rust implementations of DDGame sub-functions
 // ============================================================
 // These are called both by create_ddgame() and by MinHook
-// trampolines in openwa-wormkit/replacements/ddgame_init.rs.
+// trampolines in openwa-dll/replacements/ddgame_init.rs.
 
 /// Pure Rust implementation of DDGame__InitFields (0x526120).
 ///

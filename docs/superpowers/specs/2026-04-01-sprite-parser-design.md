@@ -77,7 +77,7 @@ Pixel data is copied verbatim — no format conversion needed.
 
 ## Hook Replacements
 
-New file `crates/openwa-wormkit/src/replacements/sprite.rs`:
+New file `crates/openwa-dll/src/replacements/sprite.rs`:
 
 ### ConstructSprite (0x4FAA30)
 
@@ -117,8 +117,8 @@ Recommended: use internal fields to derive bounds. The `data_size` header field 
 |---|---|
 | `crates/openwa-core/src/render/spr.rs` | New: `ParsedSprite`, `SprError`, `parse()`, `populate_wa_sprite()` |
 | `crates/openwa-core/src/render/mod.rs` | Add `pub mod spr;` |
-| `crates/openwa-wormkit/src/replacements/sprite.rs` | New: hook trampolines + `install()` |
-| `crates/openwa-wormkit/src/replacements/mod.rs` | Wire `sprite::install()` |
+| `crates/openwa-dll/src/replacements/sprite.rs` | New: hook trampolines + `install()` |
+| `crates/openwa-dll/src/replacements/mod.rs` | Wire `sprite::install()` |
 
 ## Verification
 

@@ -1,10 +1,11 @@
 [package]
-name = "openwa-wormkit"
+name = "openwa-dll"
 version = "0.1.0"
 edition = "2021"
-description = "WormKit DLL that replaces WA.exe functions with Rust reimplementations"
+description = "Injected DLL that replaces WA.exe functions with Rust reimplementations"
 
 [lib]
+name = "openwa"
 crate-type = ["cdylib"]
 
 [features]

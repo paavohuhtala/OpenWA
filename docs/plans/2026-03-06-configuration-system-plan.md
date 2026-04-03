@@ -4,7 +4,7 @@
 
 **Goal:** Port 7 WA.exe configuration functions (theme I/O, registry management, game options loading) to Rust.
 
-**Architecture:** New `config.rs` replacement module in openwa-wormkit hooks 7 functions. Registry helpers live in openwa-lib for reuse. Uses `windows` crate for Win32 registry/MessageBox APIs, `std::fs` for theme file I/O.
+**Architecture:** New `config.rs` replacement module in openwa-dll hooks 7 functions. Registry helpers live in openwa-lib for reuse. Uses `windows` crate for Win32 registry/MessageBox APIs, `std::fs` for theme file I/O.
 
 **Tech Stack:** Rust, `windows` crate (Win32 registry + UI), MinHook inline hooks, `std::fs`
 
@@ -28,7 +28,7 @@ windows-sys = { version = "0.59", features = [
 ] }
 ```
 
-Note: Use `windows-sys` (not `windows`) — it's the raw FFI bindings crate, already used by openwa-wormkit. Lower overhead, no COM wrappers.
+Note: Use `windows-sys` (not `windows`) — it's the raw FFI bindings crate, already used by openwa-dll. Lower overhead, no COM wrappers.
 
 **Step 2: Build to verify**
 
@@ -294,8 +294,8 @@ feat: add Win32 registry helpers to openwa-lib
 ### Task 4: Create config.rs with Theme hooks
 
 **Files:**
-- Create: `crates/openwa-wormkit/src/replacements/config.rs`
-- Modify: `crates/openwa-wormkit/src/replacements/mod.rs`
+- Create: `crates/openwa-dll/src/replacements/config.rs`
+- Modify: `crates/openwa-dll/src/replacements/mod.rs`
 
 **Step 1: Add `mod config;` to mod.rs and call install**
 
@@ -414,9 +414,9 @@ pub fn install() -> Result<(), String> {
 }
 ```
 
-**Step 3: Add windows-sys dependency to openwa-wormkit Cargo.toml**
+**Step 3: Add windows-sys dependency to openwa-dll Cargo.toml**
 
-The `windows-sys` dep in openwa-wormkit needs the UI feature too. Update the existing entry:
+The `windows-sys` dep in openwa-dll needs the UI feature too. Update the existing entry:
 
 ```toml
 [target.'cfg(target_os = "windows")'.dependencies]
@@ -428,7 +428,7 @@ windows-sys = { version = "0.59", features = [
 
 **Step 4: Build to verify**
 
-Run: `cargo build --release -p openwa-wormkit`
+Run: `cargo build --release -p openwa-dll`
 Expected: clean build
 
 **Step 5: Deploy + test theme**
@@ -446,7 +446,7 @@ feat: add Theme file I/O hooks (GetFileSize, Load, Save)
 ### Task 5: Add Registry hooks
 
 **Files:**
-- Modify: `crates/openwa-wormkit/src/replacements/config.rs`
+- Modify: `crates/openwa-dll/src/replacements/config.rs`
 
 **Step 1: Add registry hook functions**
 
@@ -529,7 +529,7 @@ Add before the closing `Ok(())`:
 
 **Step 3: Build to verify**
 
-Run: `cargo build --release -p openwa-wormkit`
+Run: `cargo build --release -p openwa-dll`
 Expected: clean build
 
 **Step 4: Commit**
@@ -543,7 +543,7 @@ feat: add Registry cleanup hooks (DeleteKeyRecursive, CleanAll)
 ### Task 6: Add GameInfo__LoadOptions hook
 
 **Files:**
-- Modify: `crates/openwa-wormkit/src/replacements/config.rs`
+- Modify: `crates/openwa-dll/src/replacements/config.rs`
 - Modify: `crates/openwa-types/src/address.rs` (global data addresses)
 
 **Step 1: Add global data address constants**
@@ -768,7 +768,7 @@ Add to the unsafe block in `install()`:
 
 **Step 4: Build to verify**
 
-Run: `cargo build --release -p openwa-wormkit`
+Run: `cargo build --release -p openwa-dll`
 Expected: clean build
 
 **Step 5: Deploy + test options**
@@ -786,7 +786,7 @@ feat: add GameInfo__LoadOptions hook (registry reads)
 ### Task 7: Add Options__GetCrashReportURL hook
 
 **Files:**
-- Modify: `crates/openwa-wormkit/src/replacements/config.rs`
+- Modify: `crates/openwa-dll/src/replacements/config.rs`
 - Modify: `crates/openwa-types/src/address.rs`
 
 **Step 1: Add global address for the URL buffer**
@@ -841,7 +841,7 @@ unsafe extern "cdecl" fn hook_get_crash_report_url() -> u32 {
 
 **Step 4: Build to verify**
 
-Run: `cargo build --release -p openwa-wormkit`
+Run: `cargo build --release -p openwa-dll`
 Expected: clean build
 
 **Step 5: Commit**
@@ -856,13 +856,13 @@ feat: add Options__GetCrashReportURL hook
 
 **Step 1: Build clean**
 
-Run: `cargo build --release -p openwa-wormkit`
+Run: `cargo build --release -p openwa-dll`
 Expected: clean build, no warnings
 
 **Step 2: Deploy**
 
 ```bash
-cp target/i686-pc-windows-msvc/release/openwa_wormkit.dll "I:/games/SteamLibrary/steamapps/common/Worms Armageddon/wkOpenWA.dll"
+cp target/i686-pc-windows-msvc/release/openwa.dll "I:/games/SteamLibrary/steamapps/common/Worms Armageddon/wkOpenWA.dll"
 ```
 
 **Step 3: In-game verification**

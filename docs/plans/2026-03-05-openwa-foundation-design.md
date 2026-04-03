@@ -19,7 +19,7 @@ OpenWA/                     (Cargo workspace)
       - Structs: CTask, CGameTask (partial, Ghidra-verified)
       - Primitives: FixedPoint (16.16 fixed-point math)
       - Addresses: Known function/global addresses
-    openwa-wormkit/          (future: WormKit DLL module)
+    openwa-dll/          (future: WormKit DLL module)
     openwa-render/           (future: modern rendering backend)
 ```
 

@@ -1,7 +1,7 @@
 //! WeaponRelease orchestration and spawn effect.
 //!
 //! Pure Rust reimplementation of WA.exe WeaponRelease (0x51C3D0) and
-//! SpawnEffect (0x547C30). Called from wormkit hook trampolines.
+//! SpawnEffect (0x547C30). Called from hook trampolines in openwa-dll.
 
 use crate::audio::{KnownSoundId, SoundId};
 use crate::fixed::Fixed;

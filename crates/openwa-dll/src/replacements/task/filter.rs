@@ -1,6 +1,6 @@
 //! CTaskFilter vtable hooks.
 //!
-//! Thin wormkit shim — game logic lives in `openwa_core::task::filter::filter_handle_message`.
+//! Thin hook shim — game logic lives in `openwa_core::task::filter::filter_handle_message`.
 
 use openwa_core::address::va;
 use openwa_core::log::log_line;

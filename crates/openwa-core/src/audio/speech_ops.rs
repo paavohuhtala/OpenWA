@@ -1,7 +1,7 @@
 //! Speech / fanfare / FE SFX operations.
 //!
 //! Pure Rust reimplementations of WA.exe speech and fanfare functions.
-//! Called from wormkit hook trampolines.
+//! Called from hook trampolines in openwa-dll.
 //!
 //! Original WA functions:
 //! - PlayFeSfx (0x4D7960)

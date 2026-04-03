@@ -1,6 +1,6 @@
 //! CTaskCloud vtable hooks and CreateWeatherFilter replacement.
 //!
-//! Thin wormkit shim — game logic lives in `openwa_core::task::cloud`.
+//! Thin hook shim — game logic lives in `openwa_core::task::cloud`.
 
 use openwa_core::address::va;
 use openwa_core::log::log_line;

@@ -28,8 +28,8 @@ FFI bridges for complex sub-functions.
 | `crates/openwa-core/src/engine/replay.rs` | Create | ReplayStream struct, ParseReplayPosition, replay data types |
 | `crates/openwa-core/src/engine/mod.rs` | Modify | Add `pub mod replay` |
 | `crates/openwa-core/src/address.rs` | Modify | Add replay global addresses |
-| `crates/openwa-wormkit/src/replacements/replay.rs` | Create | Hook installation, ReplayLoader replacement |
-| `crates/openwa-wormkit/src/replacements/mod.rs` | Modify | Add `mod replay` + `replay::install()?` |
+| `crates/openwa-dll/src/replacements/replay.rs` | Create | Hook installation, ReplayLoader replacement |
+| `crates/openwa-dll/src/replacements/mod.rs` | Modify | Add `mod replay` + `replay::install()?` |
 
 ---
 
@@ -571,8 +571,8 @@ git commit -m "feat: port ParseReplayPosition to Rust"
 ## Task 4: Hook Installation — Passthrough + ParseReplayPosition Replacement
 
 **Files:**
-- Create: `crates/openwa-wormkit/src/replacements/replay.rs`
-- Modify: `crates/openwa-wormkit/src/replacements/mod.rs`
+- Create: `crates/openwa-dll/src/replacements/replay.rs`
+- Modify: `crates/openwa-dll/src/replacements/mod.rs`
 
 Install hooks for both functions. ReplayLoader starts as a passthrough (call
 original, log params). ParseReplayPosition is fully replaced.
@@ -580,7 +580,7 @@ original, log params). ParseReplayPosition is fully replaced.
 - [ ] **Step 1: Create replay.rs hook file**
 
 ```rust
-// crates/openwa-wormkit/src/replacements/replay.rs
+// crates/openwa-dll/src/replacements/replay.rs
 
 use crate::hook;
 use crate::log_line;
@@ -637,14 +637,14 @@ pub fn install() -> Result<(), String> {
 
 - [ ] **Step 2: Register in mod.rs**
 
-In `crates/openwa-wormkit/src/replacements/mod.rs`, add:
+In `crates/openwa-dll/src/replacements/mod.rs`, add:
 - `mod replay;` in the module list
 - `replay::install()?;` in `install_all()`
 
 - [ ] **Step 3: Build**
 
 ```bash
-cargo build --release -p openwa-wormkit
+cargo build --release -p openwa-dll
 ```
 
 Expected: compiles successfully.
@@ -670,7 +670,7 @@ port produces the same frame numbers as the original.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add crates/openwa-wormkit/src/replacements/replay.rs crates/openwa-wormkit/src/replacements/mod.rs
+git add crates/openwa-dll/src/replacements/replay.rs crates/openwa-dll/src/replacements/mod.rs
 git commit -m "feat: hook ReplayLoader (passthrough) and replace ParseReplayPosition"
 ```
 
@@ -679,7 +679,7 @@ git commit -m "feat: hook ReplayLoader (passthrough) and replace ParseReplayPosi
 ## Task 5: ReplayLoader Skeleton — Mode Routing + Header Parsing
 
 **Files:**
-- Modify: `crates/openwa-wormkit/src/replacements/replay.rs`
+- Modify: `crates/openwa-dll/src/replacements/replay.rs`
 - Modify: `crates/openwa-core/src/engine/replay.rs`
 
 Replace the passthrough with a mode-routing skeleton. Mode 1 (play) enters Rust;
@@ -759,7 +759,7 @@ field offsets.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add crates/openwa-wormkit/src/replacements/replay.rs crates/openwa-core/src/engine/replay.rs
+git add crates/openwa-dll/src/replacements/replay.rs crates/openwa-core/src/engine/replay.rs
 git commit -m "feat: ReplayLoader mode routing + header parsing in Rust"
 ```
 
@@ -768,7 +768,7 @@ git commit -m "feat: ReplayLoader mode routing + header parsing in Rust"
 ## Task 6: Version 2+ Payload Parsing — Scheme + Sub-version
 
 **Files:**
-- Modify: `crates/openwa-wormkit/src/replacements/replay.rs`
+- Modify: `crates/openwa-dll/src/replacements/replay.rs`
 - Modify: `crates/openwa-core/src/engine/replay.rs`
 
 Parse the first portion of the version 2+ payload: sub-version flags, game version
@@ -801,7 +801,7 @@ powershell -ExecutionPolicy Bypass -File replay-test.ps1 -Headless
 - [ ] **Step 4: Commit**
 
 ```bash
-git add crates/openwa-wormkit/src/replacements/replay.rs crates/openwa-core/src/engine/replay.rs
+git add crates/openwa-dll/src/replacements/replay.rs crates/openwa-core/src/engine/replay.rs
 git commit -m "feat: ReplayLoader version 2+ scheme parsing"
 ```
 
@@ -810,7 +810,7 @@ git commit -m "feat: ReplayLoader version 2+ scheme parsing"
 ## Task 7: Version 2+ Payload Parsing — Team Data
 
 **Files:**
-- Modify: `crates/openwa-wormkit/src/replacements/replay.rs`
+- Modify: `crates/openwa-dll/src/replacements/replay.rs`
 
 Parse the team data section. This is the largest parsing section: 6 teams ×
 0xD7B stride with per-worm names and weapon data blocks.
@@ -862,7 +862,7 @@ Headless: validates team/scheme data was written correctly.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add crates/openwa-wormkit/src/replacements/replay.rs
+git add crates/openwa-dll/src/replacements/replay.rs
 git commit -m "feat: ReplayLoader team data parsing"
 ```
 
@@ -871,7 +871,7 @@ git commit -m "feat: ReplayLoader team data parsing"
 ## Task 8: Post-Parse + Map Loading (Section 4)
 
 **Files:**
-- Modify: `crates/openwa-wormkit/src/replacements/replay.rs`
+- Modify: `crates/openwa-dll/src/replacements/replay.rs`
 
 - [ ] **Step 1: Port post-parse logic**
 
@@ -890,7 +890,7 @@ powershell -ExecutionPolicy Bypass -File replay-test.ps1 -Headless
 - [ ] **Step 3: Commit**
 
 ```bash
-git add crates/openwa-wormkit/src/replacements/replay.rs
+git add crates/openwa-dll/src/replacements/replay.rs
 git commit -m "feat: ReplayLoader post-parse and map loading"
 ```
 
@@ -899,7 +899,7 @@ git commit -m "feat: ReplayLoader post-parse and map loading"
 ## Task 9: Log Output (Section 5)
 
 **Files:**
-- Modify: `crates/openwa-wormkit/src/replacements/replay.rs`
+- Modify: `crates/openwa-dll/src/replacements/replay.rs`
 
 Port the /getlog formatted output (~600 lines). This must match byte-for-byte
 for headless replay testing.
@@ -943,7 +943,7 @@ Both must pass.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add crates/openwa-wormkit/src/replacements/replay.rs
+git add crates/openwa-dll/src/replacements/replay.rs
 git commit -m "feat: ReplayLoader log output formatting"
 ```
 
@@ -952,7 +952,7 @@ git commit -m "feat: ReplayLoader log output formatting"
 ## Task 10: Version 1 Legacy Path (Optional/Deferred)
 
 **Files:**
-- Modify: `crates/openwa-wormkit/src/replacements/replay.rs`
+- Modify: `crates/openwa-dll/src/replacements/replay.rs`
 
 Version 1 replays are from pre-3.5 WA. If encountered, the current implementation
 would need to delegate to the original. This task ports the version 1 path.

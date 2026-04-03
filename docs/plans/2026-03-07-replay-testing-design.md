@@ -19,7 +19,7 @@ WA.exe accepts a replay file (`.WAgame`) as a command-line argument. It starts p
 
 Orchestrates the full workflow:
 
-1. Build both DLLs (`cargo build --release -p openwa-wormkit -p openwa-validator`)
+1. Build both DLLs (`cargo build --release -p openwa-dll -p openwa-validator`)
 2. Deploy to game directory (same as `deploy.ps1`)
 3. Clear old `OpenWA_validation.log` and `OpenWA.log` in game directory
 4. Set `OPENWA_REPLAY_TEST=1` in environment

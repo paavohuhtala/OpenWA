@@ -1,7 +1,7 @@
 //! Weapon fire dispatch, ammo management, and object creation.
 //!
 //! Pure Rust reimplementations of WA.exe weapon functions. Called from
-//! wormkit hook trampolines.
+//! hook trampolines in openwa-dll.
 //!
 //! Original WA functions:
 //! - AddAmmo (0x522640), SubtractAmmo (0x522680), GetAmmo (0x5225E0)

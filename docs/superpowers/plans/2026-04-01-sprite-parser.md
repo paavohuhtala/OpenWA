@@ -6,7 +6,7 @@
 
 **Architecture:** A shared `parse_spr_header()` function extracts metadata and data offsets from raw `.spr` bytes. `ParsedSprite::parse()` builds on it to produce an owned Rust struct with `Vec` data. The hook replacements use `parse_spr_header()` directly, operating on the raw buffer in-place for palette remapping and bitmap index translation.
 
-**Tech Stack:** Rust, `openwa-core` (types/parser), `openwa-wormkit` (hooks), `minhook` (hooking), WA.exe runtime (PaletteContext__MapColor)
+**Tech Stack:** Rust, `openwa-core` (types/parser), `openwa-dll` (hooks), `minhook` (hooking), WA.exe runtime (PaletteContext__MapColor)
 
 ---
 
@@ -17,8 +17,8 @@
 | `crates/openwa-core/src/render/spr.rs` (create) | `SprHeader`, `SprError`, `parse_spr_header()`, `ParsedSprite`, `ParsedSprite::parse()` |
 | `crates/openwa-core/src/render/mod.rs` (modify) | Add `pub mod spr;` and re-exports |
 | `crates/openwa-core/src/address.rs` (modify) | Add `PALETTE_CONTEXT_MAP_COLOR`, `DISPLAYGFX_VTABLE` |
-| `crates/openwa-wormkit/src/replacements/sprite.rs` (create) | Hook trampolines + `install()` for ConstructSprite, ProcessSprite |
-| `crates/openwa-wormkit/src/replacements/mod.rs` (modify) | Wire `sprite::install()` |
+| `crates/openwa-dll/src/replacements/sprite.rs` (create) | Hook trampolines + `install()` for ConstructSprite, ProcessSprite |
+| `crates/openwa-dll/src/replacements/mod.rs` (modify) | Wire `sprite::install()` |
 
 ## Reference: .spr Binary Format
 
@@ -688,11 +688,11 @@ git commit -m "feat: add ParsedSprite type with owned .spr parser"
 ### Task 4: ConstructSprite Hook Replacement
 
 **Files:**
-- Create: `crates/openwa-wormkit/src/replacements/sprite.rs`
+- Create: `crates/openwa-dll/src/replacements/sprite.rs`
 
 - [ ] **Step 1: Create sprite.rs with ConstructSprite hook**
 
-Create `crates/openwa-wormkit/src/replacements/sprite.rs`:
+Create `crates/openwa-dll/src/replacements/sprite.rs`:
 
 ```rust
 //! Sprite loading hook replacements.
@@ -749,22 +749,22 @@ pub fn install() -> Result<(), String> {
 
 - [ ] **Step 2: Verify it compiles**
 
-Run: `cargo build -p openwa-wormkit --release 2>&1 | tail -5`
+Run: `cargo build -p openwa-dll --release 2>&1 | tail -5`
 Expected: Compiles (sprite.rs is not yet in mod.rs, so it won't be included — this just checks syntax).
 
 Actually, it won't compile unless added to mod.rs. Skip to step 3.
 
 - [ ] **Step 3: Add to mod.rs and verify**
 
-In `crates/openwa-wormkit/src/replacements/mod.rs`, add `mod sprite;` and add `sprite::install()?;` in `install_all()` after `render::install()?;`.
+In `crates/openwa-dll/src/replacements/mod.rs`, add `mod sprite;` and add `sprite::install()?;` in `install_all()` after `render::install()?;`.
 
-Run: `cargo build -p openwa-wormkit --release 2>&1 | tail -5`
+Run: `cargo build -p openwa-dll --release 2>&1 | tail -5`
 Expected: Compiles without errors.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add crates/openwa-wormkit/src/replacements/sprite.rs crates/openwa-wormkit/src/replacements/mod.rs
+git add crates/openwa-dll/src/replacements/sprite.rs crates/openwa-dll/src/replacements/mod.rs
 git commit -m "feat: add ConstructSprite hook replacement"
 ```
 
@@ -773,7 +773,7 @@ git commit -m "feat: add ConstructSprite hook replacement"
 ### Task 5: ProcessSprite Hook Replacement
 
 **Files:**
-- Modify: `crates/openwa-wormkit/src/replacements/sprite.rs`
+- Modify: `crates/openwa-dll/src/replacements/sprite.rs`
 
 This is the most complex task. ProcessSprite:
 1. Reads header metadata via `parse_spr_header`
@@ -985,13 +985,13 @@ pub fn install() -> Result<(), String> {
 
 - [ ] **Step 4: Build and verify**
 
-Run: `cargo build -p openwa-wormkit --release 2>&1 | tail -5`
+Run: `cargo build -p openwa-dll --release 2>&1 | tail -5`
 Expected: Compiles without errors.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add crates/openwa-wormkit/src/replacements/sprite.rs
+git add crates/openwa-dll/src/replacements/sprite.rs
 git commit -m "feat: add ProcessSprite hook replacement with palette remapping"
 ```
 

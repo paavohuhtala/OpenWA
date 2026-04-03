@@ -63,7 +63,7 @@ Compute offsets relative to the struct base. Verify with:
 
 ### 7. Verify
 
-- `cargo build --release -p openwa-wormkit` — must compile clean, zero warnings
+- `cargo build --release -p openwa-dll` — must compile clean, zero warnings
 - Run `/replay-test` (headful + headless) to verify runtime correctness
 - Check that `sizeof` assertion passes (struct size matches allocation size)
 

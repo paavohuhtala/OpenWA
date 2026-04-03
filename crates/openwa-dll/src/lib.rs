@@ -73,7 +73,7 @@ fn run() -> Result<(), String> {
 
     let delta = openwa_core::rebase::init();
     let _ = log_line(&format!(
-        "=== OpenWA WormKit DLL loaded ===\n  ASLR delta: 0x{delta:08X}"
+        "=== OpenWA DLL loaded ===\n  ASLR delta: 0x{delta:08X}"
     ));
 
     replacements::install_all()?;

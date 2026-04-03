@@ -186,7 +186,7 @@ fn build() -> Result<Duration, String> {
             "build",
             "--release",
             "-p",
-            "openwa-wormkit",
+            "openwa-dll",
             "-p",
             "openwa-launcher",
         ])

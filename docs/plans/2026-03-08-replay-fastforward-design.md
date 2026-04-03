@@ -55,7 +55,7 @@ Hooking the function that runs at each turn start would enable per-turn assertio
 
 ## Files
 
-- `crates/openwa-wormkit/src/replacements/input.rs` (new) — GetAsyncKeyState hook
-- `crates/openwa-wormkit/src/validation/mod.rs` — Update auto-capture timeout
-- `crates/openwa-wormkit/src/lib.rs` — Register input module
+- `crates/openwa-dll/src/replacements/input.rs` (new) — GetAsyncKeyState hook
+- `crates/openwa-dll/src/validation/mod.rs` — Update auto-capture timeout
+- `crates/openwa-dll/src/lib.rs` — Register input module
 - `replay-test.ps1` — Add WaitForExit timeout

@@ -2,7 +2,7 @@
 
 ## Project
 
-OpenWA (short for "Open Worms Armageddon") is an incremental Rust reimplementation of Worms Armageddon 3.8.1 (Steam). The replacement strategy is the same as was used in OpenRCT2: a custom launcher (`openwa-launcher`) injects a DLL (`openwa-wormkit`) into a suspended game process, which replaces game functions with Rust implementations (from `openwa-core`).
+OpenWA (short for "Open Worms Armageddon") is an incremental Rust reimplementation of Worms Armageddon 3.8.1 (Steam). The replacement strategy is the same as was used in OpenRCT2: a custom launcher (`openwa-launcher`) injects a DLL (`openwa-dll`) into a suspended game process, which replaces game functions with Rust implementations (from `openwa-core`).
 
 The original WA.exe is a 32-bit x86 Windows PE binary built with MSVC 2005 + MFC. All Rust code targets `i686-pc-windows-msvc`.
 
@@ -10,7 +10,7 @@ The original WA.exe is a 32-bit x86 Windows PE binary built with MSVC 2005 + MFC
 
 - **`openwa-core`** — Types, addresses, parsers, ASLR rebasing, typed WA function wrappers, **and game logic**. The source of truth for all reverse-engineered type layouts, known addresses, and Rust reimplementations of WA functions. Contains `registry` (structured address database + field registries), `rebase` (ASLR delta), `wa_call` (calling convention helpers), `wa/` (typed handle wrappers), and game logic modules (`game/weapon_fire.rs`, `game/weapon_release.rs`, `audio/sound_ops.rs`, `engine/team_ops.rs`).
 - **`openwa-derive`** — Proc macro crate. Provides `#[derive(FieldRegistry)]` for struct field maps and `#[vtable(...)]` for typed vtable definitions with introspection, calling wrappers, and replacement support.
-- **`openwa-wormkit`** — Unified WormKit cdylib: thin hook installation shims (trampolines, `usercall_trampoline!`, `install()`) that wire core's game logic into WA.exe via MinHook. Logs to `OpenWA.log`. Runs registry-driven startup checks automatically at load.
+- **`openwa-dll`** — Injected DLL (`openwa.dll`): thin hook installation shims (trampolines, `usercall_trampoline!`, `install()`) that wire core's game logic into WA.exe via MinHook. Logs to `OpenWA.log`. Runs registry-driven startup checks automatically at load.
 - **`openwa-test-runner`** — Headless replay test runner (`openwa-test` binary). Discovers replay tests, runs them concurrently via WA.exe's `/getlog` mode, compares output logs. See "Replay Testing" section.
 - **`openwa-launcher`** — Launches WA.exe with the DLL injected via CREATE_SUSPENDED + remote thread.
 - **`openwa-debugui`** — In-process egui debug window (entity census, struct inspector, cheats). Enabled via `OPENWA_DEBUG_UI=1` + `debug-ui` cargo feature.
@@ -60,7 +60,7 @@ Use the `/debug-cli` skill for live memory inspection, struct inspection, frame-
 
 ## Hardware Watchpoints
 
-`crates/openwa-wormkit/src/debug_watchpoint.rs` — x86 debug register instrumentation (DR0-DR3) for answering "who writes this memory?" without an external debugger. Uses INT3→VEH trick, logs symbolicated stack traces via `registry::format_va()`. Max 4 watchpoints per run (hardware limit).
+`crates/openwa-dll/src/debug_watchpoint.rs` — x86 debug register instrumentation (DR0-DR3) for answering "who writes this memory?" without an external debugger. Uses INT3→VEH trick, logs symbolicated stack traces via `registry::format_va()`. Max 4 watchpoints per run (hardware limit).
 
 **API:** `arm_watchpoint(base_ptr, offset, size)` sets a write watchpoint. `prepare()` initializes the VEH handler, `teardown()` removes it. Can be armed at any point during execution — on object allocation, at a specific frame via env var, or manually from debug server commands.
 
@@ -91,7 +91,7 @@ These are critical — wrong conventions cause stack corruption and crashes.
 
 ## Hooking & Desync Debugging
 
-See `crates/openwa-wormkit/CLAUDE.md` for hooking patterns (passthrough, full replacement, vtable, trap), bridge function patterns, `usercall_trampoline!` macro, and hook installation details.
+See `crates/openwa-dll/CLAUDE.md` for hooking patterns (passthrough, full replacement, vtable, trap), bridge function patterns, `usercall_trampoline!` macro, and hook installation details.
 
 Use the `/desync-debug` skill for desync diagnosis (trace-desync, per-frame analysis). Only after a headless test has already detected a failure.
 

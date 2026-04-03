@@ -47,9 +47,9 @@ See "Hardware Watchpoints" in CLAUDE.md for watchpoint env vars (`OPENWA_WATCH_F
 
 ## Key Files
 
-- `crates/openwa-wormkit/src/replacements/trace_desync.rs` -- Per-frame checksum logging
-- `crates/openwa-wormkit/src/debug_watchpoint.rs` -- Hardware watchpoint instrumentation
-- `crates/openwa-wormkit/src/replacements/frame_hook.rs` -- Frame hook (watchpoint arming)
+- `crates/openwa-dll/src/replacements/trace_desync.rs` -- Per-frame checksum logging
+- `crates/openwa-dll/src/debug_watchpoint.rs` -- Hardware watchpoint instrumentation
+- `crates/openwa-dll/src/replacements/frame_hook.rs` -- Frame hook (watchpoint arming)
 - `crates/openwa-test-runner/` -- Test runner that detects failures
 - `docs/re-notes/desync-investigation.md` -- Detailed case study
 - `trace-desync.ps1` -- Convenience script

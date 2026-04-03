@@ -244,7 +244,7 @@ git commit -m "feat: DDGame::new() phase 1 — allocation, params, trivial inits
 ### Task 4: Wire DDGame::new() into game_session.rs
 
 **Files:**
-- Modify: `crates/openwa-wormkit/src/replacements/game_session.rs`
+- Modify: `crates/openwa-dll/src/replacements/game_session.rs`
 
 - [ ] **Step 1: Replace ddgame_constructor_call with DDGame::new()**
 
@@ -279,14 +279,14 @@ hook::install_trap!("DDGame__Constructor", va::CONSTRUCT_DD_GAME);
 
 - [ ] **Step 4: Build and test**
 
-Run: `cargo build --target i686-pc-windows-msvc -p openwa-wormkit --release`
+Run: `cargo build --target i686-pc-windows-msvc -p openwa-dll --release`
 
 This will fail at runtime because DDGame::new() doesn't yet call all the sub-constructors. That's expected — the next tasks add them incrementally.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add crates/openwa-wormkit/src/replacements/game_session.rs
+git add crates/openwa-dll/src/replacements/game_session.rs
 git commit -m "refactor: wire DDGame::new() into game_session, trap original"
 ```
 

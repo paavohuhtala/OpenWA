@@ -70,8 +70,8 @@ All 7 functions are full Rust replacements — no trampolines needed. All conven
 | `crates/openwa-lib/Cargo.toml` | Add `windows` crate dependency |
 | `crates/openwa-lib/src/wa/registry.rs` (new) | `read_profile_int`, `delete_key_recursive` |
 | `crates/openwa-lib/src/wa/mod.rs` | Add `pub mod registry;` |
-| `crates/openwa-wormkit/src/replacements/config.rs` (new) | 7 hook functions + `install()` |
-| `crates/openwa-wormkit/src/replacements/mod.rs` | Add `pub mod config;` |
+| `crates/openwa-dll/src/replacements/config.rs` (new) | 7 hook functions + `install()` |
+| `crates/openwa-dll/src/replacements/mod.rs` | Add `pub mod config;` |
 
 ## Global Data References in LoadOptions
 
@@ -93,7 +93,7 @@ These are read via rebased pointers (`rb(addr)`) and written to the GameInfo str
 
 ## Verification
 
-1. Build: `cargo build --release -p openwa-wormkit` — clean
+1. Build: `cargo build --release -p openwa-dll` — clean
 2. Deploy wkOpenWA.dll to game directory
 3. Launch game, check OpenWA.log for config hook messages
 4. Verify game options persist (change Detail Level, restart, confirm it's saved)

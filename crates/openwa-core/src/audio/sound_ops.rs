@@ -1,7 +1,7 @@
 //! Sound playback operations.
 //!
 //! Pure Rust reimplementations of WA.exe sound functions. Called from
-//! wormkit hook trampolines and from other core game logic (weapon fire, etc.).
+//! hook trampolines in openwa-dll and from other core game logic (weapon fire, etc.).
 //!
 //! Original WA functions:
 //! - PlaySoundGlobal queue insertion (0x546E20)

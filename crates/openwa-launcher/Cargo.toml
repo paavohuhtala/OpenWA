@@ -2,7 +2,7 @@
 name = "openwa-launcher"
 version = "0.1.0"
 edition = "2021"
-description = "Launcher that injects openwa_wormkit.dll into WA.exe before its main thread runs"
+description = "Launcher that injects openwa.dll into WA.exe before its main thread runs"
 
 [[bin]]
 name = "openwa-launcher"

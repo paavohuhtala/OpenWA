@@ -125,10 +125,10 @@ fn run() -> Result<(), String> {
     }
 
     // Locate the DLL: same directory as the launcher executable.
-    let dll_path = launcher_dir()?.join("openwa_wormkit.dll");
+    let dll_path = launcher_dir()?.join("openwa.dll");
     if !dll_path.exists() {
         return Err(format!(
-            "openwa_wormkit.dll not found at: {}\nBuild with: cargo build --release -p openwa-wormkit",
+            "openwa.dll not found at: {}\nBuild with: cargo build --release -p openwa-dll",
             dll_path.display()
         ));
     }

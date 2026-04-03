@@ -1,6 +1,6 @@
 //! Sound playback hooks.
 //!
-//! Thin wormkit shim — game logic lives in `openwa_core::audio::sound_ops`.
+//! Thin hook shim — game logic lives in `openwa_core::audio::sound_ops`.
 //! This file contains hook entry points, trampolines, and installation.
 //!
 //! Hooks:

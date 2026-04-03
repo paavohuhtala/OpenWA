@@ -170,12 +170,12 @@ if (-not (Test-Path $ReplayFile)) {
 
 # 1. Build
 Write-Host "Building..." -ForegroundColor Cyan
-cargo build --release -p openwa-wormkit -p openwa-validator
+cargo build --release -p openwa-dll -p openwa-validator
 if ($LASTEXITCODE -ne 0) { exit 1 }
 
 # 2. Deploy
 Write-Host "Deploying to $gameDir..." -ForegroundColor Cyan
-Copy-Item "$src\openwa_wormkit.dll" "$gameDir\wkOpenWA.dll"
+Copy-Item "$src\openwa.dll" "$gameDir\wkOpenWA.dll"
 Copy-Item "$src\openwa_validator.dll" "$gameDir\wkOpenWAValidator.dll"
 
 # 3. Clear old logs
@@ -277,7 +277,7 @@ powershell -File replay-test.ps1
 ```
 
 This will:
-- Build openwa-wormkit and openwa-validator
+- Build openwa-dll and openwa-validator
 - Deploy DLLs to the WA game directory
 - Launch WA.exe with the default replay file (testdata/replays/bots.WAgame)
 - Wait for auto-capture (30s) and process exit

@@ -1,6 +1,6 @@
 //! Weapon hooks.
 //!
-//! Thin wormkit shim — all game logic lives in `openwa_core::game::weapon_fire`.
+//! Thin hook shim — all game logic lives in `openwa_core::game::weapon_fire`.
 //! This file contains usercall trampolines, passthrough hooks, and installation.
 //!
 //! Hooks:

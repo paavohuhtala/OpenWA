@@ -1,6 +1,6 @@
 //! WeaponRelease hook (0x51C3D0) and SpawnEffect (0x547C30).
 //!
-//! Thin wormkit shim — game logic lives in `openwa_core::game::weapon_release`.
+//! Thin hook shim — game logic lives in `openwa_core::game::weapon_release`.
 //! This file contains usercall trampolines and hook installation.
 
 use openwa_core::address::va;

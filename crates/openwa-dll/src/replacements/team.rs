@@ -1,6 +1,6 @@
 //! Team and worm state accessor hooks.
 //!
-//! Thin wormkit shim — all game logic lives in `openwa_core::engine::team_ops`.
+//! Thin hook shim — all game logic lives in `openwa_core::engine::team_ops`.
 //! This file contains only usercall trampolines and hook installation.
 
 use openwa_core::address::va;
