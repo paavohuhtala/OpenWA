@@ -24,7 +24,7 @@ unsafe extern "cdecl" fn construct_sprite_impl(sprite: *mut Sprite, context: *mu
 
     (*sprite).vtable = rb(va::SPRITE_VTABLE) as *mut u8;
     (*sprite).context_ptr = context;
-    (*sprite).display_gfx = rb(va::DISPLAYGFX_VTABLE) as *mut u8;
+    (*sprite).display_gfx = rb(va::BIT_GRID_DISPLAY_VTABLE) as *mut u8;
 
     // DisplayGfx sub-object fields (within _unknown_38)
     let p = sprite as *mut u8;

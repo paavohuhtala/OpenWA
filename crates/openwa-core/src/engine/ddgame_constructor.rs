@@ -852,7 +852,7 @@ unsafe fn init_graphics_and_resources(
         core::ptr::write_bytes(tsm, 0, 0x2C);
         if !tsm.is_null() {
             bit_grid_init(tsm, 8, 0x100, 0x1E0);
-            *(tsm as *mut u32) = rb(va::DISPLAY_GFX_VTABLE);
+            *(tsm as *mut u32) = rb(va::BIT_GRID_DISPLAY_VTABLE);
         }
         (*ddgame).display_gfx = tsm;
     }

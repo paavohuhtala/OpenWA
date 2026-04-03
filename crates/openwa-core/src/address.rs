@@ -71,6 +71,7 @@ pub mod va {
         STREAMING_AUDIO_RESET, STREAMING_AUDIO_STOP, STREAMING_AUDIO_TIMER_CALLBACK,
     };
     pub use crate::display::base::DISPLAY_BASE_VTABLE;
+    pub use crate::display::bitgrid::{BitGridDisplayVtable, BIT_GRID_DISPLAY_VTABLE};
     pub use crate::display::compat_renderer::{
         CompatRendererVtable, COMPAT_RENDERER_VTABLE, DDRAW8_RENDERER_VTABLE,
     };
@@ -209,8 +210,8 @@ pub mod va {
             fn/Usercall LOAD_SPRITE_FROM_VFS = 0x004F_AAF0;
             /// ProcessSprite — parses .spr binary format
             fn/Usercall PROCESS_SPRITE = 0x004F_AB80;
-            /// DisplayGfx vtable (embedded in Sprite at +0x34)
-            vtable DISPLAYGFX_VTABLE = 0x0066_4144;
+            // Note: vtable 0x664144 is BitGrid display-layer vtable,
+            // now defined via #[vtable] macro as BITGRID_DISPLAY_VTABLE.
         }
 
         class "GfxHandler" {
@@ -236,8 +237,6 @@ pub mod va {
         }
 
         class "DisplayGfx" {
-            /// DisplayGfx vtable
-            vtable DISPLAY_GFX_VTABLE = 0x0066_4144;
             /// DisplayGfx constructor
             ctor/Stdcall DISPLAYGFX_CTOR = 0x0056_9C10;
             /// DisplayGfx constructor (from raw image)
