@@ -37,7 +37,10 @@ pub mod va {
         CTASK_VT1_FREE, CTASK_VT2_HANDLE_MESSAGE, CTASK_VT3, CTASK_VT5, CTASK_VT6,
         CTASK_VT7_PROCESS_FRAME, CTASK_VTABLE,
     };
-    pub use crate::task::cloud::{CTASK_CLOUD_CTOR, CTASK_CLOUD_VTABLE};
+    pub use crate::task::cloud::{
+        CTASK_CLOUD_CTOR, CTASK_CLOUD_READ_REPLAY_STATE, CTASK_CLOUD_VTABLE,
+        CTASK_CLOUD_WRITE_REPLAY_STATE,
+    };
     pub use crate::task::filter::{CTASK_FILTER_CTOR, CTASK_FILTER_VTABLE};
     pub use crate::task::fire::{CTASK_FIRE_CTOR, CTASK_FIRE_VTABLE};
     pub use crate::task::game_task::{
