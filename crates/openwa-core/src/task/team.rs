@@ -177,3 +177,153 @@ impl CTaskTeam {
         );
     }
 }
+
+// ---------------------------------------------------------------------------
+// CTaskTeam__CreateWeatherFilter (0x552960) — cloud spawning factory
+// ---------------------------------------------------------------------------
+
+use crate::address::va;
+use crate::engine::ddgame::DDGame;
+use crate::rebase::rb;
+use crate::rng::wa_lcg;
+use crate::task::cloud::{CTaskCloud, CloudType};
+use crate::task::filter::CTaskFilter;
+use crate::wa_alloc::WABox;
+
+/// Bridge: call CTaskFilter constructor (usercall: ECX=0x1B, stdcall params: this, parent).
+/// Returns constructed pointer in EAX.
+///
+/// # Safety
+/// `this` must point to a zeroed 0xB4-byte allocation. `parent` must be a valid CTask.
+#[unsafe(naked)]
+unsafe extern "cdecl" fn call_filter_ctor(
+    _this: *mut u8,
+    _parent: *mut u8,
+    _addr: u32,
+) -> *mut CTaskFilter {
+    core::arch::naked_asm!(
+        "mov ecx, 0x1b",     // init_val_1c register param
+        "mov eax, [esp+12]", // addr (3rd cdecl param)
+        "push [esp+8]",      // push parent (2nd cdecl param)
+        "push [esp+8]",      // push this (1st cdecl param, shifted by 1 push)
+        "call eax",          // stdcall, callee cleans 2 params (RET 8)
+        "ret",               // cdecl return; caller cleans our 3 params
+    )
+}
+
+/// Pure Rust port of CTaskTeam__CreateWeatherFilter (0x552960).
+///
+/// Creates a CTaskFilter subscribed to messages {1, 2, 3, 0x54}, then spawns
+/// CTaskCloud children with deterministic LCG randomization.
+///
+/// Cloud count: 32 if `level_width_raw == 0`, else 10.
+///
+/// Called from CTaskTeam constructor. stdcall with 1 param (parent task).
+///
+/// # Safety
+/// `parent` must be a valid CTask pointer (typically a CTaskTeam child).
+pub unsafe extern "stdcall" fn create_weather_filter(parent: *mut CTask) {
+    // 1. Allocate and construct CTaskFilter
+    let filter_box = WABox::<CTaskFilter>::alloc(0xB4, 0x94);
+    let filter = call_filter_ctor(
+        filter_box.as_ptr() as *mut u8,
+        parent as *mut u8,
+        rb(va::CTASK_FILTER_CTOR),
+    );
+    filter_box.leak(); // ownership transfers to the task tree
+
+    // 2. Subscribe to messages: FrameStart(1), FrameFinish(2), RenderScene(3), SetWind(0x54)
+    (*filter).subscription_table[1] = 1;
+    (*filter).subscription_table[2] = 1;
+    (*filter).subscription_table[3] = 1;
+    (*filter).subscription_table[0x54] = 1;
+
+    // 3. Read level geometry from DDGame
+    let ddgame = (*parent).ddgame;
+    let level_right = (*ddgame).level_bound_max_x.0;
+    let level_left = (*ddgame).level_bound_min_x.0;
+    let level_width_int = (level_right - level_left) >> 16; // integer pixels
+    let level_min_x_int = (*ddgame).level_bound_min_x.0 >> 16; // integer part (signed)
+    let level_height = (*ddgame).level_height as i32;
+
+    // 4. Determine cloud count and weather modifier
+    let (cloud_count, weather_mod): (i32, i32) = if (*ddgame).level_width_raw != 0 {
+        (10, 0)
+    } else {
+        (32, -256)
+    };
+
+    if cloud_count <= 0 || level_width_int <= 0 {
+        return;
+    }
+
+    // 5. LCG random loop — spawn clouds as children of the filter
+    let mut rng_state: u32 = 0x12345678;
+    let mut layer_depth = 0x19_0000i32; // Fixed 25.0
+    let mut accum_3i = 0i32;
+
+    // Height contribution: (level_height + rounding) / 16
+    // Matches MSVC signed-division rounding: (val + (val >> 31 & 15)) >> 4
+    let height_round = if level_height < 0 {
+        level_height & 0xF
+    } else {
+        0
+    };
+    let height_contrib = (level_height + height_round) >> 4;
+
+    // Height tenth: level_height / 10 with MSVC magic-number divide
+    let height_tenth = {
+        let h = level_height as i64;
+        let raw = ((h * 0x6666_6667) >> 34) as i32;
+        raw + ((raw as u32 >> 31) as i32) // round toward zero
+    };
+
+    let ctask_ctor: unsafe extern "stdcall" fn(*mut u8, *mut u8, *mut DDGame) =
+        core::mem::transmute(rb(va::CTASK_CONSTRUCTOR) as usize);
+
+    for i in 0..cloud_count {
+        // X position: random within level bounds
+        let rand_frac = (rng_state & 0xFFFF) as i32;
+        rng_state = wa_lcg(rng_state);
+
+        let pos_x_int = rand_frac % level_width_int + level_min_x_int;
+
+        // Y seed: height/16 + scaled offset + weather modifier
+        let y_offset = height_tenth * i / cloud_count;
+        let y_seed = ((height_contrib + y_offset + weather_mod) << 16) as u32;
+
+        // X velocity: random magnitude + 0x8000, random sign
+        let vel_x_base = (rng_state & 0xFFFF) as i32 + 0x8000;
+        rng_state = wa_lcg(rng_state);
+        let vel_x = if rng_state & 0x10000 != 0 {
+            Fixed(-vel_x_base)
+        } else {
+            Fixed(vel_x_base)
+        };
+        rng_state = wa_lcg(rng_state); // advance a third time per iteration
+
+        // Cloud type: distributes large→medium→small across the batch
+        let cloud_type = match 2 - accum_3i / cloud_count {
+            0 => CloudType::Large,
+            1 => CloudType::Medium,
+            _ => CloudType::Small,
+        };
+
+        // Allocate cloud, construct CTask base, then init cloud fields
+        let cloud_box = WABox::<CTaskCloud>::alloc(0x74, 0x54);
+        let cloud_ptr = cloud_box.as_ptr();
+        ctask_ctor(cloud_ptr as *mut u8, filter as *mut u8, ddgame);
+        CTaskCloud::init(
+            cloud_ptr,
+            cloud_type,
+            Fixed(layer_depth),
+            Fixed(pos_x_int << 16),
+            vel_x,
+            y_seed,
+        );
+        cloud_box.leak(); // ownership transfers to the task tree
+
+        layer_depth -= 1;
+        accum_3i += 3;
+    }
+}

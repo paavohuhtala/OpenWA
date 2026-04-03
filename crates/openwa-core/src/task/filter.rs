@@ -5,11 +5,20 @@ crate::define_addresses! {
     class "CTaskFilter" {
         /// CTaskFilter vtable - role unclear; 4 instances in a 2-team 3-worm game
         vtable CTASK_FILTER_VTABLE = 0x0066_9DAC;
+        /// CTaskFilter constructor (usercall: ECX=init_val_1c, stdcall params: this, parent).
+        /// RET 0x8. Returns constructed pointer in EAX.
         ctor CTASK_FILTER_CTOR = 0x0054_F3D0;
+        /// CTaskFilter::Subscribe — sets subscription_table[msg_id] = 1.
+        /// thiscall + 1 stack param (msg_id), RET 0x4.
+        vmethod CTASK_FILTER_SUBSCRIBE = 0x0054_F370;
     }
+
+    /// CTaskTeam__CreateWeatherFilter — creates a CTaskFilter + spawns CTaskCloud children.
+    /// stdcall, 1 stack param (parent task), RET 0x4.
+    fn/Stdcall CTASK_TEAM_CREATE_WEATHER_FILTER = 0x0055_2960;
 }
 
-/// CTaskFilter vtable — 12 slots. Extends CTask base (8 slots) with filter behavior.
+/// CTaskFilter vtable — 12 slots. Extends CTask base (7 slots) with filter behavior.
 ///
 /// Vtable at Ghidra 0x669DAC. Slot 2 (HandleMessage) checks the subscription
 /// table before forwarding messages to children.
@@ -20,10 +29,14 @@ pub struct CTaskFilterVTable {
     #[slot(2)]
     pub handle_message:
         fn(this: *mut CTaskFilter, sender: *mut CTask, msg_type: u32, size: u32, data: *const u8),
-    /// ProcessFrame — per-frame filter update.
-    /// thiscall + 1 stack param (flags), RET 0x4.
+    /// SubscribeAll — sets all 100 subscription table entries to 1.
+    /// thiscall, no stack params.
     #[slot(7)]
-    pub process_frame: fn(this: *mut CTaskFilter, flags: u32),
+    pub subscribe_all: fn(this: *mut CTaskFilter),
+    /// Subscribe — sets subscription_table[msg_id] = 1.
+    /// thiscall + 1 stack param (msg_id), RET 0x4.
+    #[slot(8)]
+    pub subscribe: fn(this: *mut CTaskFilter, msg_id: u32),
 }
 
 /// Message-subscription filter task — routes messages selectively to child tasks.

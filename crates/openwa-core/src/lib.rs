@@ -47,5 +47,6 @@ pub mod snapshot;
 pub mod task;
 pub mod vtable;
 pub mod wa;
+pub mod rng;
 pub mod wa_alloc;
 pub mod wa_call;

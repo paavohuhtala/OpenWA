@@ -509,10 +509,7 @@ impl DDGame {
     /// shared RNG — both gameplay and visual effects advance it. Any difference in
     /// RNG call count between Rust and original code causes replay desync.
     pub fn advance_rng(&mut self) -> u32 {
-        let rng = (self.frame_counter as u32)
-            .wrapping_add(self.game_rng)
-            .wrapping_mul(0x19660D)
-            .wrapping_add(0x3C6EF35F);
+        let rng = crate::rng::wa_lcg((self.frame_counter as u32).wrapping_add(self.game_rng));
         self.game_rng = rng;
         rng
     }
@@ -524,9 +521,7 @@ impl DDGame {
     /// 1-indexed health ratio array, repurposed by WA as a secondary RNG for weapon
     /// release visual effects.
     pub fn advance_effect_rng(&mut self) -> u32 {
-        let rng = (self.team_health_ratio[0] as u32)
-            .wrapping_mul(0x19660D)
-            .wrapping_add(0x3C6EF35F);
+        let rng = crate::rng::wa_lcg(self.team_health_ratio[0] as u32);
         self.team_health_ratio[0] = rng as i32;
         rng
     }
