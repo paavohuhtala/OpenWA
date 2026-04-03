@@ -24,7 +24,6 @@ const TIMEOUT_SECS: u64 = 120;
 const REPLAYS_DIR: &str = "testdata/replays";
 const RUNS_DIR: &str = "testdata/runs";
 
-
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 struct TestCase {
@@ -698,9 +697,7 @@ fn parse_headful_args(argv: &[String]) -> HeadfulArgs {
             "--timeout" | "-t" => {
                 i += 1;
                 if i < argv.len() {
-                    args.timeout_secs = argv[i]
-                        .parse()
-                        .unwrap_or(DEFAULT_HEADFUL_TIMEOUT_SECS);
+                    args.timeout_secs = argv[i].parse().unwrap_or(DEFAULT_HEADFUL_TIMEOUT_SECS);
                 }
             }
             s if !s.starts_with('-') && args.filter_or_replay.is_none() => {

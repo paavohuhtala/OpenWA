@@ -28,7 +28,11 @@ fn from_env() -> Option<PathBuf> {
     let val = std::env::var_os("OPENWA_WA_PATH")?;
     let path = PathBuf::from(val);
     // Accept either a WA.exe path or a directory.
-    if path.extension().map(|e| e.eq_ignore_ascii_case("exe")).unwrap_or(false) {
+    if path
+        .extension()
+        .map(|e| e.eq_ignore_ascii_case("exe"))
+        .unwrap_or(false)
+    {
         path.parent().map(|p| p.to_path_buf())
     } else {
         Some(path)
@@ -50,13 +54,7 @@ fn from_registry() -> Option<PathBuf> {
 fn read_registry_sz(key: &[u8], value: &[u8], buf: &mut [u8]) -> Option<usize> {
     unsafe {
         let mut hkey: HKEY = std::ptr::null_mut();
-        let status = RegOpenKeyExA(
-            HKEY_CURRENT_USER,
-            key.as_ptr(),
-            0,
-            KEY_READ,
-            &mut hkey,
-        );
+        let status = RegOpenKeyExA(HKEY_CURRENT_USER, key.as_ptr(), 0, KEY_READ, &mut hkey);
         if status != 0 {
             return None;
         }

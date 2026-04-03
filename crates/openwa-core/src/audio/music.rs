@@ -212,19 +212,19 @@ pub struct MusicVtable {
 /// Track ID to WAV filename mapping (from PlayTrack switch at 0x58BD20).
 /// Track IDs 1-13 map to these filenames.
 pub const MUSIC_TRACKS: [&str; 13] = [
-    "ingame-01-generic.wav",        // 1
-    "ingame-02-cavern.wav",          // 2
-    "ingame-03-jungle.wav",          // 3
-    "ingame-04-battlezone.wav",      // 4
-    "ingame-05-forest.wav",          // 5
+    "ingame-01-generic.wav",          // 1
+    "ingame-02-cavern.wav",           // 2
+    "ingame-03-jungle.wav",           // 3
+    "ingame-04-battlezone.wav",       // 4
+    "ingame-05-forest.wav",           // 5
     "ingame-06-weird-alien-plan.wav", // 6
-    "ingame-07-outerspace.wav",      // 7
-    "ingame-08-desert.wav",          // 8
-    "ingame-09-hell.wav",            // 9
-    "ingame-10-mech-workshop.wav",   // 10
-    "ingame-11-rain&surf.wav",       // 11
-    "suddendeath2-loop.wav",         // 12
-    "suddendeath1-loop.wav",         // 13
+    "ingame-07-outerspace.wav",       // 7
+    "ingame-08-desert.wav",           // 8
+    "ingame-09-hell.wav",             // 9
+    "ingame-10-mech-workshop.wav",    // 10
+    "ingame-11-rain&surf.wav",        // 11
+    "suddendeath2-loop.wav",          // 12
+    "suddendeath1-loop.wav",          // 13
 ];
 
 /// Streaming audio flags.
@@ -250,12 +250,11 @@ pub mod streaming_flags {
 /// Copied from WA.exe .rdata at 0x6AF960.
 /// Index 0 = -10000 cB (silence), index 64 = 0 cB (full volume).
 const MUSIC_VOLUME_DB: [i32; 65] = [
-    -10000, -6644, -5644, -5059, -4644, -4322, -4059, -3837, -3644, -3473, -3322,
-    -3185, -3059, -2943, -2837, -2737, -2644, -2557, -2474, -2396, -2322, -2251,
-    -2184, -2119, -2059, -2000, -1943, -1889, -1837, -1787, -1737, -1690, -1644,
-    -1600, -1557, -1515, -1474, -1434, -1396, -1358, -1322, -1286, -1251, -1217,
-    -1184, -1151, -1119, -1088, -1059, -1028, -1000, -971, -943, -915, -889,
-    -862, -837, -811, -787, -762, -737, -714, -690, -667, 0,
+    -10000, -6644, -5644, -5059, -4644, -4322, -4059, -3837, -3644, -3473, -3322, -3185, -3059,
+    -2943, -2837, -2737, -2644, -2557, -2474, -2396, -2322, -2251, -2184, -2119, -2059, -2000,
+    -1943, -1889, -1837, -1787, -1737, -1690, -1644, -1600, -1557, -1515, -1474, -1434, -1396,
+    -1358, -1322, -1286, -1251, -1217, -1184, -1151, -1119, -1088, -1059, -1028, -1000, -971, -943,
+    -915, -889, -862, -837, -811, -787, -762, -737, -714, -690, -667, 0,
 ];
 
 // ============================================================
@@ -265,9 +264,7 @@ const MUSIC_VOLUME_DB: [i32; 65] = [
 use std::io::{Read, Seek, SeekFrom};
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use windows::Win32::Media::Audio::DirectSound::{
-    IDirectSound, IDirectSoundBuffer, DSBUFFERDESC,
-};
+use windows::Win32::Media::Audio::DirectSound::{IDirectSound, IDirectSoundBuffer, DSBUFFERDESC};
 use windows::Win32::Media::Audio::{WAVEFORMATEX, WAVE_FORMAT_PCM};
 
 /// Global pointer to the active StreamingAudio for the timer callback.
@@ -294,7 +291,11 @@ impl StreamingAudio {
     pub fn init(&mut self) {
         // Zero everything except keep the struct's memory layout intact
         unsafe {
-            core::ptr::write_bytes(self as *mut Self as *mut u8, 0, core::mem::size_of::<Self>());
+            core::ptr::write_bytes(
+                self as *mut Self as *mut u8,
+                0,
+                core::mem::size_of::<Self>(),
+            );
         }
     }
 
@@ -303,12 +304,7 @@ impl StreamingAudio {
     /// `flags` is a combination of `streaming_flags` constants.
     /// `path` is the absolute path to the WAV file.
     /// `ds` is the IDirectSound instance for buffer creation.
-    pub unsafe fn open(
-        &mut self,
-        path: &str,
-        flags: u32,
-        ds: Ptr32,
-    ) -> bool {
+    pub unsafe fn open(&mut self, path: &str, flags: u32, ds: Ptr32) -> bool {
         // If already initialized, stop first
         if self.is_initialized != 0 {
             self.stop();
@@ -380,7 +376,8 @@ impl StreamingAudio {
             Ok(r) => r,
             Err(e) => {
                 let _ = crate::log::log_line(&format!(
-                    "[Music] init_playback: failed to open \"{}\": {}", path_str, e
+                    "[Music] init_playback: failed to open \"{}\": {}",
+                    path_str, e
                 ));
                 return false;
             }
@@ -423,8 +420,8 @@ impl StreamingAudio {
         // Compute buffer size matching original float arithmetic (constant at 0x679760 = 1000.0):
         //   per_tick = round(timer_delay_ms * avg_bytes_per_sec / 1000.0)
         //   ds_buffer_size = per_tick * buffer_segments
-        let per_tick = (self.timer_delay_ms as f64 * avg_bytes_per_sec as f64 / 1000.0)
-            .round() as u32;
+        let per_tick =
+            (self.timer_delay_ms as f64 * avg_bytes_per_sec as f64 / 1000.0).round() as u32;
         let buffer_bytes = per_tick * self.buffer_segments;
         self.ds_buffer_size = buffer_bytes;
 
@@ -522,9 +519,10 @@ impl StreamingAudio {
         }
 
         // Read from WAV file into buffer
-        let bytes_read = self.read_file_data(
-            core::slice::from_raw_parts_mut(ptr1 as *mut u8, len1 as usize),
-        );
+        let bytes_read = self.read_file_data(core::slice::from_raw_parts_mut(
+            ptr1 as *mut u8,
+            len1 as usize,
+        ));
 
         // Zero-fill remainder if we didn't fill the whole buffer
         if (bytes_read as u32) < len1 {
@@ -596,7 +594,6 @@ impl StreamingAudio {
         self.last_play_cursor = 0;
         self.bytes_played_snapshot = 0;
     }
-
 
     /// Close the WAV file handle.
     unsafe fn close_file(&mut self) {
@@ -754,11 +751,7 @@ impl StreamingAudio {
                     }
                 } else {
                     // End of file: zero-fill remainder
-                    core::ptr::write_bytes(
-                        (ptr1 as *mut u8).add(read),
-                        0,
-                        len1 as usize - read,
-                    );
+                    core::ptr::write_bytes((ptr1 as *mut u8).add(read), 0, len1 as usize - read);
                     total_written += len1;
                 }
             } else {
@@ -786,11 +779,7 @@ impl StreamingAudio {
                         );
                     }
                 } else {
-                    core::ptr::write_bytes(
-                        (ptr2 as *mut u8).add(read),
-                        0,
-                        len2 as usize - read,
-                    );
+                    core::ptr::write_bytes((ptr2 as *mut u8).add(read), 0, len2 as usize - read);
                     total_written += len2;
                 }
             } else {
@@ -850,11 +839,7 @@ impl Music {
     ///
     /// `ds` is the IDirectSound instance (from DSSound).
     /// `base_path` is the music directory path (e.g. "DATA\\Music").
-    pub unsafe fn init(
-        this: *mut Music,
-        ds: Ptr32,
-        base_path: &str,
-    ) {
+    pub unsafe fn init(this: *mut Music, ds: Ptr32, base_path: &str) {
         // Zero the streaming sub-object
         (*this).streaming.init();
 
@@ -898,7 +883,9 @@ impl Music {
             flags |= streaming_flags::LOOP;
         }
 
-        let _ = (*this).streaming.open(&full_path, flags, (*this).direct_sound);
+        let _ = (*this)
+            .streaming
+            .open(&full_path, flags, (*this).direct_sound);
     }
 
     /// Start a specific music track (looping). Port of vtable[1] at 0x58BE70.
@@ -938,8 +925,7 @@ impl Music {
         if (*this).streaming.is_playing() {
             return;
         }
-        (*this).current_track_index =
-            ((*this).current_track_index + 1) % (*this).playlist_count;
+        (*this).current_track_index = ((*this).current_track_index + 1) % (*this).playlist_count;
         let track_id = (*this).playlist[(*this).current_track_index as usize];
         Music::play_track(this, track_id, false);
     }

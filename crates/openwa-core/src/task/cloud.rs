@@ -254,4 +254,3 @@ impl CTaskCloud {
         }
     }
 }
-

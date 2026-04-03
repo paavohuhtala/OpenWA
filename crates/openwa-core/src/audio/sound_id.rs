@@ -36,4 +36,3 @@ impl SoundId {
         Self(self.0 & 0xFFFE_FFFF)
     }
 }
-

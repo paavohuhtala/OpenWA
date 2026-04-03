@@ -16,8 +16,8 @@
 use std::ffi::{c_char, CStr};
 
 use openwa_core::address::va;
-use openwa_core::audio::{speech_ops, wav_player};
 use openwa_core::audio::wav_player::WavPlayer;
+use openwa_core::audio::{speech_ops, wav_player};
 use openwa_core::engine::DDGameWrapper;
 use openwa_core::rebase::rb;
 

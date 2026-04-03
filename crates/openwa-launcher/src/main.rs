@@ -294,4 +294,3 @@ fn path_to_cstring(p: &Path) -> Result<CString, String> {
     )
     .map_err(|e| format!("path contains nul byte: {e}"))
 }
-

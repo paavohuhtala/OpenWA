@@ -36,55 +36,55 @@ const MAX_PATH: usize = 260;
 /// Used for fanfare WAV file paths (e.g. "user\Fanfare\Finland.wav").
 /// Note: "Leichtenstein" is WA's original misspelling — must match for file lookup.
 const TEAM_CONFIG_NAMES: [&str; 49] = [
-    "UK",             // 0
-    "Argentina",      // 1
-    "Australia",      // 2
-    "Austria",        // 3
-    "Belgium",        // 4
-    "Brazil",         // 5
-    "Canada",         // 6
-    "Croatia",        // 7
-    "Simple",         // 8
-    "Cyprus",         // 9
-    "Simple",         // 10
-    "Denmark",        // 11
-    "Finland",        // 12
-    "France",         // 13
-    "Simple",         // 14
-    "Germany",        // 15
-    "Greece",         // 16
-    "Simple",         // 17
-    "Hungary",        // 18
-    "Iceland",        // 19
-    "India",          // 20
-    "Simple",         // 21
-    "Psycho Laugh",   // 22
-    "Psycho Laugh",   // 23
-    "Ireland",        // 24
-    "Israel",         // 25
-    "Italy",          // 26
-    "Japan",          // 27
-    "Leichtenstein",  // 28
-    "Luxembourg",     // 29
-    "Simple",         // 30
-    "Malta",          // 31
-    "Mexico",         // 32
-    "Morocco",        // 33
-    "Netherlands",    // 34
-    "New Zealand",    // 35
-    "Norway",         // 36
-    "Poland",         // 37
-    "Portugal",       // 38
-    "Simple",         // 39
-    "Romania",        // 40
-    "Russia",         // 41
-    "Singapore",      // 42
-    "South Africa",   // 43
-    "Spain",          // 44
-    "Sweden",         // 45
-    "Switzerland",    // 46
-    "Turkey",         // 47
-    "USA",            // 48
+    "UK",            // 0
+    "Argentina",     // 1
+    "Australia",     // 2
+    "Austria",       // 3
+    "Belgium",       // 4
+    "Brazil",        // 5
+    "Canada",        // 6
+    "Croatia",       // 7
+    "Simple",        // 8
+    "Cyprus",        // 9
+    "Simple",        // 10
+    "Denmark",       // 11
+    "Finland",       // 12
+    "France",        // 13
+    "Simple",        // 14
+    "Germany",       // 15
+    "Greece",        // 16
+    "Simple",        // 17
+    "Hungary",       // 18
+    "Iceland",       // 19
+    "India",         // 20
+    "Simple",        // 21
+    "Psycho Laugh",  // 22
+    "Psycho Laugh",  // 23
+    "Ireland",       // 24
+    "Israel",        // 25
+    "Italy",         // 26
+    "Japan",         // 27
+    "Leichtenstein", // 28
+    "Luxembourg",    // 29
+    "Simple",        // 30
+    "Malta",         // 31
+    "Mexico",        // 32
+    "Morocco",       // 33
+    "Netherlands",   // 34
+    "New Zealand",   // 35
+    "Norway",        // 36
+    "Poland",        // 37
+    "Portugal",      // 38
+    "Simple",        // 39
+    "Romania",       // 40
+    "Russia",        // 41
+    "Singapore",     // 42
+    "South Africa",  // 43
+    "Spain",         // 44
+    "Sweden",        // 45
+    "Switzerland",   // 46
+    "Turkey",        // 47
+    "USA",           // 48
 ];
 
 /// Look up a team config name by team_type (1-49). Returns "Simple" for out-of-range.
@@ -291,7 +291,8 @@ pub unsafe fn load_speech_wav(
     }
 
     let slot_idx = count as u32 + SpeechSlotTable::BUFFER_OFFSET;
-    let result = crate::audio::dssound::load_wav(wrapper.sound, slot_idx as i32, full_path as *const u8);
+    let result =
+        crate::audio::dssound::load_wav(wrapper.sound, slot_idx as i32, full_path as *const u8);
 
     if result != 0 {
         slot_table.set(team_index as usize, line_id, slot_idx);

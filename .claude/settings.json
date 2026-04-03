@@ -4,5 +4,18 @@
       "Bash(target/i686-pc-windows-msvc/release/openwa-debug resume:*)",
       "Bash(taskkill /f /im WA.exe)"
     ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$CLAUDE_TOOL_INPUT_FILE_PATH\" && cargo fmt 2>/dev/null || cargo fmt --manifest-path \"$(git rev-parse --show-toplevel)/Cargo.toml\" 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
   }
 }
