@@ -153,7 +153,7 @@ pub fn init_constructor_addrs() {
     unsafe {
         SPRITE_REGION_CTOR_ADDR = rb(va::SPRITE_REGION_CONSTRUCTOR);
         FUN_570A90_ADDR = rb(va::FUN_570A90);
-        FUN_570F30_ADDR = rb(va::DDGAME_INIT_SOUND_PATHS);
+        FUN_570F30_ADDR = rb(va::DDGAME_LOAD_FONTS);
         LOAD_SPEECH_BANKS_ADDR = rb(va::DSSOUND_LOAD_ALL_SPEECH_BANKS);
         LOADING_PROGRESS_TICK_ADDR = rb(va::DDGAME_WRAPPER_LOADING_PROGRESS_TICK);
         GFX_LOAD_SPRITES_ADDR = rb(va::GFX_DIR_LOAD_SPRITES);
@@ -203,12 +203,48 @@ unsafe extern "C" fn wa_load_sprites(
 
 static mut GFX_LOAD_SPRITES_ADDR: u32 = 0;
 
-/// DSSound_LoadEffectWAVs (0x571660): load sound effect WAVs.
-#[cfg(target_arch = "x86")]
-unsafe fn wa_load_effect_wavs(wrapper: *mut DDGameWrapper) {
-    let f: unsafe extern "stdcall" fn(*mut DDGameWrapper) =
-        core::mem::transmute(rb(va::DSSOUND_LOAD_EFFECT_WAVS) as usize);
-    f(wrapper);
+/// Port of DSSound_LoadEffectWAVs (0x5714B0).
+///
+/// Iterates the sound effect name table at 0x6AF378 (pairs of [slot_id, name_ptr],
+/// null-terminated). For each entry, builds "data\wav\Effects\{name}.wav" and calls
+/// DSSound::load_wav (vtable slot 12, already Rust).
+unsafe fn load_effect_wavs(wrapper: *mut DDGameWrapper) {
+    use std::ffi::CStr;
+
+    /// Sound effect name table entry: (slot_id, name_ptr).
+    #[repr(C)]
+    struct SfxEntry {
+        slot_id: i32,
+        name_ptr: *const std::ffi::c_char,
+    }
+
+    let table = rb(0x006A_F378) as *const SfxEntry;
+    let sound = (*wrapper).sound;
+    if sound.is_null() {
+        return;
+    }
+    let sound_vt = &*(*sound).vtable;
+
+    let mut i = 0;
+    loop {
+        let entry = &*table.add(i);
+        if entry.name_ptr.is_null() {
+            break;
+        }
+        if entry.slot_id == 0 {
+            break;
+        }
+
+        let name = CStr::from_ptr(entry.name_ptr).to_str().unwrap_or("");
+        let path = format!("data\\wav\\Effects\\{}.wav\0", name);
+
+        (sound_vt.load_wav)(sound, entry.slot_id, path.as_ptr());
+
+        // Update loading progress bar
+        call_usercall_ecx(wrapper, LOADING_PROGRESS_TICK_ADDR);
+
+        i += 1;
+    }
 }
 
 /// PCLandscape__Constructor (0x57ACB0): construct landscape object (0xB44 bytes, 11 params).
@@ -591,10 +627,10 @@ unsafe fn init_graphics_and_resources(
 
     // ── Audio init (non-headless + sound available) ──
     if !is_headless {
-        // FUN_570F30: usercall(ESI=wrapper)
+        // FUN_570F30: font loading (usercall ESI=wrapper) — NOT audio related
         call_usercall_esi(wrapper, FUN_570F30_ADDR);
         if !(*ddgame).sound.is_null() {
-            wa_load_effect_wavs(wrapper);
+            load_effect_wavs(wrapper);
             // DSSound_LoadAllSpeechBanks: the original is hooked to our Rust
             // replacement (speech.rs), so the usercall bridge calls our code.
             call_usercall_esi(wrapper, LOAD_SPEECH_BANKS_ADDR);

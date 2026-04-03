@@ -97,8 +97,8 @@ pub mod va {
             fn/Usercall DDGAME_INIT_RENDER_INDICES = 0x0052_6080;
             /// DDGame__InitVersionFlags — stdcall(ddgame_wrapper)
             fn/Stdcall DDGAME_INIT_VERSION_FLAGS = 0x0052_5BE0;
-            /// DDGame__InitSoundPaths_Maybe
-            fn DDGAME_INIT_SOUND_PATHS = 0x0057_0F30;
+            /// DDGame__LoadFonts — loads .fnt font resources into the display.
+            fn DDGAME_LOAD_FONTS = 0x0057_0F30;
             /// DDGame__LoadHudAndWeaponSprites
             fn/Thiscall DDGAME_LOAD_HUD_AND_WEAPON_SPRITES = 0x0053_D0E0;
             /// DDGame__InitPaletteGradientSprites
