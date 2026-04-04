@@ -131,7 +131,7 @@ fn clip_line(
     y1: &mut Fixed,
     x2: &mut Fixed,
     y2: &mut Fixed,
-    writer: &dyn PixelWriter,
+    writer: &impl PixelWriter,
 ) -> bool {
     let cl = Fixed::from_int(writer.clip_left());
     let ct = Fixed::from_int(writer.clip_top());
@@ -240,7 +240,7 @@ fn clip_line(
 ///
 /// Iterates from x1 to x2 (pixel-rounded), computing y via Fixed-point slope.
 fn raster_hmajor(
-    writer: &mut dyn PixelWriter,
+    writer: &mut impl PixelWriter,
     x1: Fixed,
     y1: Fixed,
     x2: Fixed,
@@ -269,7 +269,7 @@ fn raster_hmajor(
 ///
 /// Iterates from y1 to y2 (pixel-rounded), computing x via Fixed-point slope.
 fn raster_vmajor(
-    writer: &mut dyn PixelWriter,
+    writer: &mut impl PixelWriter,
     x1: Fixed,
     y1: Fixed,
     _x2: Fixed,
@@ -296,7 +296,7 @@ fn raster_vmajor(
 
 /// Draw a single-color clipped line. Port of 0x4F7500.
 pub fn draw_line_clipped(
-    writer: &mut dyn PixelWriter,
+    writer: &mut impl PixelWriter,
     mut x1: Fixed,
     mut y1: Fixed,
     mut x2: Fixed,
@@ -335,7 +335,7 @@ pub fn draw_line_clipped(
 ///
 /// Draws 8 surrounding pixels per step around a 2x2 body center.
 fn raster_thick_hmajor_wide(
-    writer: &mut dyn PixelWriter,
+    writer: &mut impl PixelWriter,
     x1: Fixed,
     y1: Fixed,
     x2: Fixed,
@@ -376,7 +376,7 @@ fn raster_thick_hmajor_wide(
 ///
 /// Draws 4 body pixels per step (2x2 center), overwriting the wide pass.
 fn raster_thick_hmajor_narrow(
-    writer: &mut dyn PixelWriter,
+    writer: &mut impl PixelWriter,
     x1: Fixed,
     y1: Fixed,
     x2: Fixed,
@@ -413,7 +413,7 @@ fn raster_thick_hmajor_narrow(
 ///
 /// Transposed version — draws 8 surrounding pixels per step.
 fn raster_thick_vmajor_wide(
-    writer: &mut dyn PixelWriter,
+    writer: &mut impl PixelWriter,
     x1: Fixed,
     y1: Fixed,
     x2: Fixed,
@@ -451,7 +451,7 @@ fn raster_thick_vmajor_wide(
 ///
 /// Transposed version — draws 4 body pixels per step.
 fn raster_thick_vmajor_narrow(
-    writer: &mut dyn PixelWriter,
+    writer: &mut impl PixelWriter,
     x1: Fixed,
     y1: Fixed,
     x2: Fixed,
@@ -486,7 +486,7 @@ fn raster_thick_vmajor_narrow(
 /// Draws a 2px-wide line. First pass draws 8 surrounding pixels in `color2`,
 /// second pass overwrites 4 center pixels in `color1`.
 pub fn draw_line_two_color(
-    writer: &mut dyn PixelWriter,
+    writer: &mut impl PixelWriter,
     mut x1: Fixed,
     mut y1: Fixed,
     mut x2: Fixed,
