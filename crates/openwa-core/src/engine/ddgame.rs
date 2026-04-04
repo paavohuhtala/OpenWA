@@ -2,9 +2,9 @@ use crate::audio::active_sound::ActiveSoundTable;
 use crate::audio::dssound::DSSound;
 use crate::audio::music::Music;
 use crate::audio::speech::SpeechSlotTable;
+use crate::bitgrid::{CollisionBitGrid, DisplayBitGrid};
 use crate::display::dd_display::DDDisplay;
 use crate::display::palette::Palette;
-use crate::display::{CollisionBitGrid, DisplayBitGrid};
 use crate::engine::game_info::GameInfo;
 use crate::engine::{
     CoordEntry, CoordList, RenderEntry, SoundQueueEntry, TeamArenaState, TeamIndexMap,

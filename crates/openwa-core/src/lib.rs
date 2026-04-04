@@ -29,6 +29,7 @@ pub use openwa_derive::FieldRegistry;
 pub mod macros;
 
 pub mod audio;
+pub mod bitgrid;
 pub mod display;
 pub mod engine;
 pub mod frontend;

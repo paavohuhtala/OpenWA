@@ -70,12 +70,12 @@ pub mod va {
         STREAMING_AUDIO_OPEN, STREAMING_AUDIO_OPEN_WAV, STREAMING_AUDIO_READ_CHUNK,
         STREAMING_AUDIO_RESET, STREAMING_AUDIO_STOP, STREAMING_AUDIO_TIMER_CALLBACK,
     };
-    pub use crate::display::base::DISPLAY_BASE_VTABLE;
-    pub use crate::display::bitgrid::{
+    pub use crate::bitgrid::{
         BitGridBaseVtable, BitGridCollisionVtable, BitGridDisplayVtable, BIT_GRID_BASE_VTABLE,
         BIT_GRID_COLLISION_VTABLE, BIT_GRID_DISPLAY_VTABLE, BIT_GRID_INIT, BLIT_SPRITE_RECT,
         DRAW_LINE_CLIPPED, DRAW_LINE_TWO_COLOR,
     };
+    pub use crate::display::base::DISPLAY_BASE_VTABLE;
     pub use crate::display::compat_renderer::{
         CompatRendererVtable, COMPAT_RENDERER_VTABLE, DDRAW8_RENDERER_VTABLE,
     };

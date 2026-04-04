@@ -1,5 +1,5 @@
 use super::base::DisplayBase;
-use super::bitgrid::DisplayBitGrid;
+use crate::bitgrid::DisplayBitGrid;
 use core::ffi::c_void;
 
 /// DisplayGfx — full display/graphics subsystem (derived from DisplayBase).

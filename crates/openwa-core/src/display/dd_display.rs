@@ -275,9 +275,9 @@ bind_DDDisplayVtable!(DDDisplay, vtable);
 // Ported DDDisplay vtable methods
 // =========================================================================
 
-use super::bitgrid::DisplayBitGrid;
 use super::gfx::DisplayGfx;
 use super::line_draw;
+use crate::bitgrid::DisplayBitGrid;
 
 /// Port of DDDisplay::GetDimensions (vtable slot 1, 0x56A460).
 ///

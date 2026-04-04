@@ -12,7 +12,7 @@ use crate::address::va;
 use crate::audio::active_sound::ActiveSoundTable;
 use crate::audio::dssound::DSSound;
 use crate::audio::music::Music;
-use crate::display::bitgrid::{BitGrid, BitGridBaseVtable, CollisionBitGrid, DisplayBitGrid};
+use crate::bitgrid::{BitGrid, BitGridBaseVtable, CollisionBitGrid, DisplayBitGrid};
 use crate::display::dd_display::DDDisplay;
 use crate::display::gradient::compute_complex_gradient;
 use crate::display::palette::Palette;

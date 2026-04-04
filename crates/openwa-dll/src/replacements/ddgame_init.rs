@@ -14,7 +14,7 @@
 use crate::hook;
 use core::ffi::c_char;
 use openwa_core::address::va;
-use openwa_core::display::BitGrid;
+use openwa_core::bitgrid::BitGrid;
 use openwa_core::engine::game_state_init::{
     check_weapon_avail, init_alliance_data, init_landscape_flags, init_team_scoring,
     init_turn_state, is_super_weapon, ring_buffer_init, sprite_gfx_table_init,

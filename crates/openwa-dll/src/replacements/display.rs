@@ -54,7 +54,7 @@ unsafe extern "thiscall" fn headless_destructor(
 /// saves pixel data to `testdata/snapshots/`. Activated by
 /// `OPENWA_CAPTURE_LINE_SNAPSHOTS=1`.
 pub unsafe fn capture_line_snapshots() {
-    use openwa_core::display::bitgrid::DisplayBitGrid;
+    use openwa_core::bitgrid::DisplayBitGrid;
     use std::fs;
     use std::io::Write;
 
@@ -273,7 +273,7 @@ pub unsafe fn capture_line_snapshots() {
 /// saves pixel output to `testdata/snapshots/`. Activated by
 /// `OPENWA_CAPTURE_BLIT_SNAPSHOTS=1`.
 pub unsafe fn capture_blit_snapshots() {
-    use openwa_core::display::bitgrid::DisplayBitGrid;
+    use openwa_core::bitgrid::DisplayBitGrid;
     use std::fs;
     use std::io::Write;
 
@@ -497,12 +497,12 @@ fn decode_gif_indexed(data: &[u8]) -> Option<IndexedImage> {
 /// `target` is the rebased runtime address of FUN_004f6910.
 #[unsafe(naked)]
 unsafe extern "cdecl" fn wa_blit_sprite_rect(
-    dst: *mut openwa_core::display::DisplayBitGrid,
+    dst: *mut openwa_core::bitgrid::DisplayBitGrid,
     dst_x: i32,
     dst_y: i32,
     width: i32,
     height: i32,
-    src: *mut openwa_core::display::DisplayBitGrid,
+    src: *mut openwa_core::bitgrid::DisplayBitGrid,
     src_x: i32,
     src_y: i32,
     color_table: u32,
@@ -584,12 +584,12 @@ unsafe extern "C" fn blit_hook_trampoline() {
 /// Handles 8bpp blend modes 0 (copy) and 1 (color table / transparency).
 /// Falls through to the original WA function for unsupported modes.
 unsafe extern "cdecl" fn blit_impl(
-    dst: *mut openwa_core::display::DisplayBitGrid,
+    dst: *mut openwa_core::bitgrid::DisplayBitGrid,
     dst_x: i32,
     dst_y: i32,
     width: i32,
     height: i32,
-    src: *mut openwa_core::display::DisplayBitGrid,
+    src: *mut openwa_core::bitgrid::DisplayBitGrid,
     src_x: i32,
     src_y: i32,
     color_table: u32,
@@ -699,12 +699,12 @@ unsafe extern "cdecl" fn blit_impl(
 ///
 /// The trampoline expects: ESI=dst, 9 stdcall params.
 unsafe fn call_original_blit(
-    dst: *mut openwa_core::display::DisplayBitGrid,
+    dst: *mut openwa_core::bitgrid::DisplayBitGrid,
     dst_x: i32,
     dst_y: i32,
     width: i32,
     height: i32,
-    src: *mut openwa_core::display::DisplayBitGrid,
+    src: *mut openwa_core::bitgrid::DisplayBitGrid,
     src_x: i32,
     src_y: i32,
     color_table: u32,
@@ -729,12 +729,12 @@ unsafe fn call_original_blit(
 /// Naked asm to call the original blit with ESI set correctly.
 #[unsafe(naked)]
 unsafe extern "cdecl" fn call_original_blit_asm(
-    _dst: *mut openwa_core::display::DisplayBitGrid,
+    _dst: *mut openwa_core::bitgrid::DisplayBitGrid,
     _dst_x: i32,
     _dst_y: i32,
     _width: i32,
     _height: i32,
-    _src: *mut openwa_core::display::DisplayBitGrid,
+    _src: *mut openwa_core::bitgrid::DisplayBitGrid,
     _src_x: i32,
     _src_y: i32,
     _color_table: u32,
