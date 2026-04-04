@@ -73,7 +73,8 @@ pub mod va {
     pub use crate::display::base::DISPLAY_BASE_VTABLE;
     pub use crate::display::bitgrid::{
         BitGridBaseVtable, BitGridCollisionVtable, BitGridDisplayVtable, BIT_GRID_BASE_VTABLE,
-        BIT_GRID_COLLISION_VTABLE, BIT_GRID_DISPLAY_VTABLE, BIT_GRID_INIT,
+        BIT_GRID_COLLISION_VTABLE, BIT_GRID_DISPLAY_VTABLE, BIT_GRID_INIT, DRAW_LINE_CLIPPED,
+        DRAW_LINE_TWO_COLOR,
     };
     pub use crate::display::compat_renderer::{
         CompatRendererVtable, COMPAT_RENDERER_VTABLE, DDRAW8_RENDERER_VTABLE,

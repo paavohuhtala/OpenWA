@@ -640,3 +640,105 @@ pub unsafe extern "thiscall" fn draw_crosshair(
     DisplayBitGrid::put_pixel_clipped_raw(layer, cx, cy + 1, fg);
     DisplayBitGrid::put_pixel_clipped_raw(layer, cx + 1, cy + 1, fg);
 }
+
+/// Port of DDDisplay::DrawLine (vtable slot 13, 0x56BDB0).
+///
+/// Draws a two-color line. Fixed-point coordinates with camera offset
+/// applied as `camera * 0x10000 + coord`. Delegates to the BitGrid
+/// line-drawing routine at 0x4F7A60.
+///
+/// # Safety
+/// `this` must be a valid `*mut DDDisplay` (actually a `*mut DisplayGfx`).
+pub unsafe extern "thiscall" fn draw_line(
+    this: *mut DDDisplay,
+    x1: Fixed,
+    y1: Fixed,
+    x2: Fixed,
+    y2: Fixed,
+    color1: u32,
+    color2: u32,
+) {
+    let gfx = this as *mut DisplayGfx;
+    let cam_x = Fixed::from_int((*gfx).camera_x);
+    let cam_y = Fixed::from_int((*gfx).camera_y);
+
+    acquire_render_lock(gfx);
+
+    let draw: unsafe extern "stdcall" fn(*mut DisplayBitGrid, i32, i32, i32, i32, u32, u32) =
+        core::mem::transmute(rb(va::DRAW_LINE_TWO_COLOR) as usize);
+    draw(
+        (*gfx).layer_0,
+        (x1 + cam_x).to_raw(),
+        (y1 + cam_y).to_raw(),
+        (x2 + cam_x).to_raw(),
+        (y2 + cam_y).to_raw(),
+        color1,
+        color2,
+    );
+}
+
+/// Port of DDDisplay::DrawLineClipped (vtable slot 14, 0x56BD50).
+///
+/// Draws a single-color clipped line. Fixed-point coordinates with camera
+/// offset. Delegates to the BitGrid clipped line routine at 0x4F7500.
+///
+/// # Safety
+/// `this` must be a valid `*mut DDDisplay` (actually a `*mut DisplayGfx`).
+pub unsafe extern "thiscall" fn draw_line_clipped(
+    this: *mut DDDisplay,
+    x1: Fixed,
+    y1: Fixed,
+    x2: Fixed,
+    y2: Fixed,
+    color: u32,
+) {
+    let gfx = this as *mut DisplayGfx;
+    let cam_x = Fixed::from_int((*gfx).camera_x);
+    let cam_y = Fixed::from_int((*gfx).camera_y);
+
+    acquire_render_lock(gfx);
+
+    let draw: unsafe extern "stdcall" fn(*mut DisplayBitGrid, i32, i32, i32, i32, u32) =
+        core::mem::transmute(rb(va::DRAW_LINE_CLIPPED) as usize);
+    draw(
+        (*gfx).layer_0,
+        (x1 + cam_x).to_raw(),
+        (y1 + cam_y).to_raw(),
+        (x2 + cam_x).to_raw(),
+        (y2 + cam_y).to_raw(),
+        color,
+    );
+}
+
+/// Port of DDDisplay::DrawPixelStrip (vtable slot 15, 0x56BE10).
+///
+/// Draws `count + 1` pixels starting at (x, y), stepping by (dx, dy) each
+/// iteration. All coordinates are Fixed-point. Camera applied as
+/// `camera * 0x10000 + coord`.
+///
+/// # Safety
+/// `this` must be a valid `*mut DDDisplay` (actually a `*mut DisplayGfx`).
+pub unsafe extern "thiscall" fn draw_pixel_strip(
+    this: *mut DDDisplay,
+    x: Fixed,
+    y: Fixed,
+    dx: Fixed,
+    dy: Fixed,
+    count: i32,
+    color: u32,
+) {
+    let gfx = this as *mut DisplayGfx;
+    let mut cx = Fixed::from_int((*gfx).camera_x) + x;
+    let mut cy = Fixed::from_int((*gfx).camera_y) + y;
+
+    acquire_render_lock(gfx);
+
+    let layer = (*gfx).layer_0;
+    if count >= 0 {
+        for _ in 0..=count {
+            DisplayBitGrid::put_pixel_clipped_raw(layer, cx.to_int(), cy.to_int(), color as u8);
+            cx += dx;
+            cy += dy;
+        }
+    }
+}
