@@ -385,28 +385,24 @@ pub unsafe extern "thiscall" fn set_clip_rect(
         cy2 = base.display_height as i32;
     }
 
-    // Mirror clip rect to layer_0 object (0x4C-byte layer context).
-    // Layout: +0x14 = width, +0x18 = height, +0x1C-0x28 = clip rect.
-    let layer = (*gfx).layer_0 as *mut u8;
-    let layer_w = *(layer.add(0x14) as *const i32);
-    let layer_h = *(layer.add(0x18) as *const i32);
-
-    *(layer.add(0x1C) as *mut i32) = cx1;
-    *(layer.add(0x20) as *mut i32) = cy1;
-    *(layer.add(0x24) as *mut i32) = cx2;
-    *(layer.add(0x28) as *mut i32) = cy2;
+    // Mirror clip rect to the layer_0 BitGrid.
+    let layer = (*gfx).layer_0;
+    (*layer).clip_left = cx1 as u32;
+    (*layer).clip_top = cy1 as u32;
+    (*layer).clip_right = cx2 as u32;
+    (*layer).clip_bottom = cy2 as u32;
 
     if cx1 < 0 {
-        *(layer.add(0x1C) as *mut i32) = 0;
+        (*layer).clip_left = 0;
     }
     if cy1 < 0 {
-        *(layer.add(0x20) as *mut i32) = 0;
+        (*layer).clip_top = 0;
     }
-    if cx2 > layer_w {
-        *(layer.add(0x24) as *mut i32) = layer_w;
+    if cx2 > (*layer).width as i32 {
+        (*layer).clip_right = (*layer).width;
     }
-    if cy2 > layer_h {
-        *(layer.add(0x28) as *mut i32) = layer_h;
+    if cy2 > (*layer).height as i32 {
+        (*layer).clip_bottom = (*layer).height;
     }
 }
 
@@ -424,8 +420,7 @@ pub unsafe extern "thiscall" fn set_clip_rect(
 unsafe fn flush_render_lock(gfx: *mut DisplayGfx) {
     if (*gfx).render_lock != 0 {
         let wrapper = *(rb(va::G_DD_DISPLAY_WRAPPER) as *const *mut DDDisplayWrapper);
-        let layer = (*gfx).layer_0 as *mut u8;
-        let data = *(layer.add(0x08) as *const u32);
+        let data = (*(*gfx).layer_0).data as u32;
         let mut buf = FastcallResult::default();
         DDDisplayWrapper::unlock_surface_write_raw(wrapper, &mut buf, data);
         (*gfx).render_lock = 0;
