@@ -696,10 +696,10 @@ pub unsafe extern "thiscall" fn draw_line(
     let mut writer = BitGridWriter((*gfx).layer_0);
     line_draw::draw_line_two_color(
         &mut writer,
-        (x1 + cam_x).to_raw(),
-        (y1 + cam_y).to_raw(),
-        (x2 + cam_x).to_raw(),
-        (y2 + cam_y).to_raw(),
+        x1 + cam_x,
+        y1 + cam_y,
+        x2 + cam_x,
+        y2 + cam_y,
         color1 as u8,
         color2 as u8,
     );
@@ -729,10 +729,10 @@ pub unsafe extern "thiscall" fn draw_line_clipped(
     let mut writer = BitGridWriter((*gfx).layer_0);
     line_draw::draw_line_clipped(
         &mut writer,
-        (x1 + cam_x).to_raw(),
-        (y1 + cam_y).to_raw(),
-        (x2 + cam_x).to_raw(),
-        (y2 + cam_y).to_raw(),
+        x1 + cam_x,
+        y1 + cam_y,
+        x2 + cam_x,
+        y2 + cam_y,
         color as u8,
     );
 }

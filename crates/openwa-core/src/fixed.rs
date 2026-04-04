@@ -68,6 +68,47 @@ impl Fixed {
     pub fn abs(self) -> Self {
         Self(self.0.abs())
     }
+
+    /// Floor to integer boundary: clears the fractional bits.
+    /// `Fixed(0x38000).floor()` = `Fixed(0x30000)`.
+    #[inline]
+    pub const fn floor(self) -> Self {
+        Self(self.0 & !0xFFFF)
+    }
+
+    /// Pixel center: floor + 0.5. Used by line rasterizers to snap to pixel centers.
+    #[inline]
+    pub const fn pixel_center(self) -> Self {
+        Self((self.0 & !0xFFFF) + 0x8000)
+    }
+
+    /// Round to nearest integer (half-up): `(self + 0.5).to_int()`.
+    #[inline]
+    pub const fn round_to_int(self) -> i32 {
+        (self.0 + 0x8000) >> Self::FRACTIONAL_BITS
+    }
+
+    /// Fixed-point division for line clipping: `(self << 16) / rhs`.
+    ///
+    /// This is NOT the same as `Fixed / Fixed` (which is `(self << 16) / rhs`
+    /// treating both as Fixed). This divides two Fixed values and returns a
+    /// Fixed-point ratio suitable for interpolation.
+    #[inline]
+    pub fn div_raw(self, rhs: Self) -> Self {
+        if rhs.0 == 0 {
+            return Self::ZERO;
+        }
+        Self((((self.0 as i64) << 16) / rhs.0 as i64) as i32)
+    }
+
+    /// Fixed-point multiply returning Fixed: `(self * rhs) >> 16`.
+    #[inline]
+    pub fn mul_raw(self, rhs: Self) -> Self {
+        Self(((self.0 as i64 * rhs.0 as i64) >> 16) as i32)
+    }
+
+    /// Half a pixel (0.5 in Fixed).
+    pub const HALF: Self = Self(0x8000);
 }
 
 impl Add for Fixed {

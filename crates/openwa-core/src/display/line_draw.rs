@@ -15,6 +15,8 @@
 //!   └── DDA rasterizer — 1 pixel per step (horizontal or vertical major)
 //! ```
 
+use crate::fixed::Fixed;
+
 /// Trait for pixel-addressable surfaces used by line-drawing algorithms.
 ///
 /// Implemented for `PixelGrid` (test-only, pure Rust) and can be implemented
@@ -64,7 +66,7 @@ impl PixelGrid {
         self.data.fill(0);
     }
 
-    /// Load a snapshot file and return (header, pixel_data).
+    /// Load a snapshot file.
     #[cfg(test)]
     pub fn from_snapshot(bytes: &[u8]) -> Self {
         let width = u32::from_le_bytes(bytes[0..4].try_into().unwrap());
@@ -118,23 +120,6 @@ impl PixelWriter for PixelGrid {
 // Fixed-point line clipping (port of 0x4F7150)
 // =========================================================================
 
-/// Fixed-point divide: `(numerator << 16) / denominator`.
-///
-/// Port of FUN_005b3501. Used by the line clipper for endpoint interpolation.
-#[inline]
-fn fixed_div(numerator: i32, denominator: i32) -> i32 {
-    if denominator == 0 {
-        return 0;
-    }
-    (((numerator as i64) << 16) / denominator as i64) as i32
-}
-
-/// Fixed-point multiply-shift: `(a * b) >> 16`.
-#[inline]
-fn fixed_mul_shift(a: i32, b: i32) -> i32 {
-    ((a as i64 * b as i64) >> 16) as i32
-}
-
 /// Clip a line segment to the writer's clip rectangle.
 ///
 /// Port of 0x4F7150. All coordinates are Fixed-point (16.16).
@@ -142,16 +127,16 @@ fn fixed_mul_shift(a: i32, b: i32) -> i32 {
 ///
 /// The clip rectangle is scaled from the writer's pixel bounds to Fixed.
 fn clip_line(
-    x1: &mut i32,
-    y1: &mut i32,
-    x2: &mut i32,
-    y2: &mut i32,
+    x1: &mut Fixed,
+    y1: &mut Fixed,
+    x2: &mut Fixed,
+    y2: &mut Fixed,
     writer: &dyn PixelWriter,
 ) -> bool {
-    let cl = writer.clip_left() << 16;
-    let ct = writer.clip_top() << 16;
-    let cr = writer.clip_right() << 16;
-    let cb = writer.clip_bottom() << 16;
+    let cl = Fixed::from_int(writer.clip_left());
+    let ct = Fixed::from_int(writer.clip_top());
+    let cr = Fixed::from_int(writer.clip_right());
+    let cb = Fixed::from_int(writer.clip_bottom());
 
     // Cohen-Sutherland outcodes
     let mut code1 = 0u8;
@@ -189,30 +174,27 @@ fn clip_line(
 
     // Clip endpoint 1 against x bounds
     if *x1 < cl {
-        let ratio = fixed_div(cl - *x1, *x2 - *x1);
-        *y1 += fixed_mul_shift(*y2 - *y1, ratio);
+        let ratio = (cl - *x1).div_raw(*x2 - *x1);
+        *y1 += (*y2 - *y1).mul_raw(ratio);
         *x1 = cl;
     } else if *x1 > cr {
-        let ratio = fixed_div(cr - *x1, *x2 - *x1);
-        *y1 += fixed_mul_shift(*y2 - *y1, ratio);
+        let ratio = (cr - *x1).div_raw(*x2 - *x1);
+        *y1 += (*y2 - *y1).mul_raw(ratio);
         *x1 = cr;
     }
 
     // Clip endpoint 2 against x bounds
     if *x2 < cl {
-        let ratio = fixed_div(cl - *x2, *x1 - *x2);
-        *y2 += fixed_mul_shift(*y1 - *y2, ratio);
+        let ratio = (cl - *x2).div_raw(*x1 - *x2);
+        *y2 += (*y1 - *y2).mul_raw(ratio);
         *x2 = cl;
     } else if *x2 > cr {
-        let ratio = fixed_div(cr - *x2, *x1 - *x2);
-        *y2 += fixed_mul_shift(*y1 - *y2, ratio);
+        let ratio = (cr - *x2).div_raw(*x1 - *x2);
+        *y2 += (*y1 - *y2).mul_raw(ratio);
         *x2 = cr;
     }
 
     // Check y visibility after x clipping
-    if (*y1 > cb || *y2 > cb) && (*y1 < ct || *y2 < ct) {
-        // Spans both sides — skip (original logic)
-    }
     if !(*y1 <= cb || *y2 <= cb) {
         return false;
     }
@@ -222,23 +204,23 @@ fn clip_line(
 
     // Clip endpoint 1 against y bounds
     if *y1 < ct {
-        let ratio = fixed_div(ct - *y1, *y2 - *y1);
-        *x1 += fixed_mul_shift(*x2 - *x1, ratio);
+        let ratio = (ct - *y1).div_raw(*y2 - *y1);
+        *x1 += (*x2 - *x1).mul_raw(ratio);
         *y1 = ct;
     } else if *y1 > cb {
-        let ratio = fixed_div(cb - *y1, *y2 - *y1);
-        *x1 += fixed_mul_shift(*x2 - *x1, ratio);
+        let ratio = (cb - *y1).div_raw(*y2 - *y1);
+        *x1 += (*x2 - *x1).mul_raw(ratio);
         *y1 = cb;
     }
 
     // Clip endpoint 2 against y bounds
     if *y2 < ct {
-        let ratio = fixed_div(ct - *y2, *y1 - *y2);
-        *x2 += fixed_mul_shift(*x1 - *x2, ratio);
+        let ratio = (ct - *y2).div_raw(*y1 - *y2);
+        *x2 += (*x1 - *x2).mul_raw(ratio);
         *y2 = ct;
     } else if *y2 > cb {
-        let ratio = fixed_div(cb - *y2, *y1 - *y2);
-        *x2 += fixed_mul_shift(*x1 - *x2, ratio);
+        let ratio = (cb - *y2).div_raw(*y1 - *y2);
+        *x2 += (*x1 - *x2).mul_raw(ratio);
         *y2 = cb;
     }
 
@@ -257,21 +239,27 @@ fn clip_line(
 /// Horizontal-major DDA rasterizer (port of 0x4F7400).
 ///
 /// Iterates from x1 to x2 (pixel-rounded), computing y via Fixed-point slope.
-fn raster_hmajor(writer: &mut dyn PixelWriter, x1: i32, y1: i32, x2: i32, y2: i32, color: u8) {
-    let start = (x1 & !0xFFFF) + 0x8000; // round to pixel center
-    let end = (x2 & !0xFFFF) + 0x8000;
+fn raster_hmajor(
+    writer: &mut dyn PixelWriter,
+    x1: Fixed,
+    y1: Fixed,
+    x2: Fixed,
+    _y2: Fixed,
+    color: u8,
+) {
+    let start = x1.pixel_center();
+    let end = x2.pixel_center();
     if start == end {
         return;
     }
 
-    // slope = ((y2 - y1) << 16) / (x2 - x1), in 16.16 fixed
-    let slope = fixed_div(y2 - y1, x2 - x1);
-    let mut px = start >> 16;
-    let mut y = y1; // starts at raw y1, NOT adjusted for sub-pixel offset
-    let count = (end - start) >> 16;
+    let slope = (_y2 - y1).div_raw(x2 - x1);
+    let mut px = start.to_int();
+    let mut y = y1; // raw Fixed y, NOT adjusted for sub-pixel offset
+    let count = (end - start).to_int();
 
     for _ in 0..=count {
-        writer.put_pixel_clipped(px, (y + 0x8000) >> 16, color);
+        writer.put_pixel_clipped(px, y.round_to_int(), color);
         y += slope;
         px += 1;
     }
@@ -280,41 +268,45 @@ fn raster_hmajor(writer: &mut dyn PixelWriter, x1: i32, y1: i32, x2: i32, y2: i3
 /// Vertical-major DDA rasterizer (port of 0x4F7480).
 ///
 /// Iterates from y1 to y2 (pixel-rounded), computing x via Fixed-point slope.
-fn raster_vmajor(writer: &mut dyn PixelWriter, x1: i32, y1: i32, x2: i32, y2: i32, color: u8) {
-    let start = (y1 & !0xFFFF) + 0x8000;
-    let end = (y2 & !0xFFFF) + 0x8000;
+fn raster_vmajor(
+    writer: &mut dyn PixelWriter,
+    x1: Fixed,
+    y1: Fixed,
+    _x2: Fixed,
+    y2: Fixed,
+    color: u8,
+) {
+    let start = y1.pixel_center();
+    let end = y2.pixel_center();
     if start == end {
         return;
     }
 
-    // slope = ((x2 - x1) << 16) / (y2 - y1)
-    let slope = fixed_div(x2 - x1, y2 - y1);
-    let mut py = start >> 16;
-    let mut x = x1; // starts at raw x1
-    let count = (end - start) >> 16;
+    let slope = (_x2 - x1).div_raw(y2 - y1);
+    let mut py = start.to_int();
+    let mut x = x1; // raw Fixed x
+    let count = (end - start).to_int();
 
     for _ in 0..=count {
-        writer.put_pixel_clipped((x + 0x8000) >> 16, py, color);
+        writer.put_pixel_clipped(x.round_to_int(), py, color);
         x += slope;
         py += 1;
     }
 }
 
 /// Draw a single-color clipped line. Port of 0x4F7500.
-///
-/// All coordinates are Fixed-point (16.16).
 pub fn draw_line_clipped(
     writer: &mut dyn PixelWriter,
-    mut x1: i32,
-    mut y1: i32,
-    mut x2: i32,
-    mut y2: i32,
+    mut x1: Fixed,
+    mut y1: Fixed,
+    mut x2: Fixed,
+    mut y2: Fixed,
     color: u8,
 ) {
-    let abs_dx = (x2 - x1).unsigned_abs();
-    let abs_dy = (y2 - y1).unsigned_abs();
+    let dx = (x2 - x1).abs();
+    let dy = (y2 - y1).abs();
 
-    if abs_dx < abs_dy {
+    if dx < dy {
         // Vertical-major: sort so y1 <= y2
         if y1 > y2 {
             core::mem::swap(&mut x1, &mut x2);
@@ -339,36 +331,33 @@ pub fn draw_line_clipped(
 // Two-color thick line rasterizer (port of 0x4F7A60)
 // =========================================================================
 
-/// Horizontal-major thick outline rasterizer (port of 0x4F77C0).
+/// Horizontal-major thick wide rasterizer (port of 0x4F77C0).
 ///
-/// Draws 8 outline pixels per step around a 2x2 body center.
-fn raster_thick_hmajor_outline(
+/// Draws 8 surrounding pixels per step around a 2x2 body center.
+fn raster_thick_hmajor_wide(
     writer: &mut dyn PixelWriter,
-    x1: i32,
-    y1: i32,
-    x2: i32,
-    y2: i32,
+    x1: Fixed,
+    y1: Fixed,
+    x2: Fixed,
+    y2: Fixed,
     color: u8,
 ) {
-    let start = (x1 & !0xFFFF_i32) + 0x8000;
-    let end = (x2 & !0xFFFF_i32) + 0x8000;
+    let start = x1.pixel_center();
+    let end = x2.pixel_center();
     if start == end {
         return;
     }
 
-    // slope = ((y2 - y1) << 16) / (x2 - x1)
-    let slope = fixed_div(y2 - y1, x2 - x1);
-    // Sub-pixel y adjustment for pixel-center start
-    let mut y = y1 + fixed_mul_shift(slope, start - x1);
-    let mut px = start >> 16;
-    let count = (end - start) >> 16;
+    let slope = (y2 - y1).div_raw(x2 - x1);
+    let mut y = y1 + slope.mul_raw(start - x1);
+    let mut px = start.to_int();
+    let count = (end - start).to_int();
     if count == 0 {
         return;
     }
 
     for _ in 0..count {
-        let py = y >> 16;
-        // 8 outline pixels around the 2x2 body
+        let py = y.to_int();
         writer.put_pixel_clipped(px, py - 1, color);
         writer.put_pixel_clipped(px + 1, py - 1, color);
         writer.put_pixel_clipped(px - 1, py, color);
@@ -383,34 +372,33 @@ fn raster_thick_hmajor_outline(
     }
 }
 
-/// Horizontal-major thick fill rasterizer (port of 0x4F75F0).
+/// Horizontal-major thick narrow rasterizer (port of 0x4F75F0).
 ///
-/// Draws 4 body pixels per step (2x2 center).
-fn raster_thick_hmajor_fill(
+/// Draws 4 body pixels per step (2x2 center), overwriting the wide pass.
+fn raster_thick_hmajor_narrow(
     writer: &mut dyn PixelWriter,
-    x1: i32,
-    y1: i32,
-    x2: i32,
-    y2: i32,
+    x1: Fixed,
+    y1: Fixed,
+    x2: Fixed,
+    y2: Fixed,
     color: u8,
 ) {
-    let start = (x1 & !0xFFFF_i32) + 0x8000;
-    let end = (x2 & !0xFFFF_i32) + 0x8000;
+    let start = x1.pixel_center();
+    let end = x2.pixel_center();
     if start == end {
         return;
     }
 
-    let slope = fixed_div(y2 - y1, x2 - x1);
-    let mut y = y1 + fixed_mul_shift(slope, start - x1);
-    let mut px = start >> 16;
-    let count = (end - start) >> 16;
+    let slope = (y2 - y1).div_raw(x2 - x1);
+    let mut y = y1 + slope.mul_raw(start - x1);
+    let mut px = start.to_int();
+    let count = (end - start).to_int();
     if count == 0 {
         return;
     }
 
     for _ in 0..count {
-        let py = y >> 16;
-        // 2x2 body
+        let py = y.to_int();
         writer.put_pixel_clipped(px, py, color);
         writer.put_pixel_clipped(px + 1, py, color);
         writer.put_pixel_clipped(px, py + 1, color);
@@ -421,31 +409,30 @@ fn raster_thick_hmajor_fill(
     }
 }
 
-/// Vertical-major thick outline rasterizer (port of 0x4F7910).
+/// Vertical-major thick wide rasterizer (port of 0x4F7910).
 ///
-/// Transposed version of the horizontal-major outline — draws 8 pixels per step.
-fn raster_thick_vmajor_outline(
+/// Transposed version — draws 8 surrounding pixels per step.
+fn raster_thick_vmajor_wide(
     writer: &mut dyn PixelWriter,
-    x1: i32,
-    y1: i32,
-    x2: i32,
-    y2: i32,
+    x1: Fixed,
+    y1: Fixed,
+    x2: Fixed,
+    y2: Fixed,
     color: u8,
 ) {
-    let start = (y1 & !0xFFFF_i32) + 0x8000;
-    let end = (y2 & !0xFFFF_i32) + 0x8000;
+    let start = y1.pixel_center();
+    let end = y2.pixel_center();
     if start == end {
         return;
     }
 
-    let slope = fixed_div(x2 - x1, y2 - y1);
-    let mut x = x1 + fixed_mul_shift(slope, start - y1);
-    let mut py = start >> 16;
-    let count = (end - start) >> 16;
+    let slope = (x2 - x1).div_raw(y2 - y1);
+    let mut x = x1 + slope.mul_raw(start - y1);
+    let mut py = start.to_int();
+    let count = (end - start).to_int();
 
     for _ in 0..count {
-        let px = x >> 16;
-        // 8 outline pixels (transposed pattern)
+        let px = x.to_int();
         writer.put_pixel_clipped(px, py - 1, color);
         writer.put_pixel_clipped(px + 1, py - 1, color);
         writer.put_pixel_clipped(px - 1, py, color);
@@ -460,31 +447,30 @@ fn raster_thick_vmajor_outline(
     }
 }
 
-/// Vertical-major thick fill rasterizer (port of 0x4F76D0).
+/// Vertical-major thick narrow rasterizer (port of 0x4F76D0).
 ///
 /// Transposed version — draws 4 body pixels per step.
-fn raster_thick_vmajor_fill(
+fn raster_thick_vmajor_narrow(
     writer: &mut dyn PixelWriter,
-    x1: i32,
-    y1: i32,
-    x2: i32,
-    y2: i32,
+    x1: Fixed,
+    y1: Fixed,
+    x2: Fixed,
+    y2: Fixed,
     color: u8,
 ) {
-    let start = (y1 & !0xFFFF_i32) + 0x8000;
-    let end = (y2 & !0xFFFF_i32) + 0x8000;
+    let start = y1.pixel_center();
+    let end = y2.pixel_center();
     if start == end {
         return;
     }
 
-    let slope = fixed_div(x2 - x1, y2 - y1);
-    let mut x = x1 + fixed_mul_shift(slope, start - y1);
-    let mut py = start >> 16;
-    let count = (end - start) >> 16;
+    let slope = (x2 - x1).div_raw(y2 - y1);
+    let mut x = x1 + slope.mul_raw(start - y1);
+    let mut py = start.to_int();
+    let count = (end - start).to_int();
 
     for _ in 0..count {
-        let px = x >> 16;
-        // 2x2 body
+        let px = x.to_int();
         writer.put_pixel_clipped(px, py, color);
         writer.put_pixel_clipped(px + 1, py, color);
         writer.put_pixel_clipped(px, py + 1, color);
@@ -497,53 +483,49 @@ fn raster_thick_vmajor_fill(
 
 /// Draw a two-color thick clipped line. Port of 0x4F7A60.
 ///
-/// All coordinates are Fixed-point (16.16). Draws a 2px-wide line with
-/// `color1` as outline and `color2` as body fill.
+/// Draws a 2px-wide line. First pass draws 8 surrounding pixels in `color2`,
+/// second pass overwrites 4 center pixels in `color1`.
 pub fn draw_line_two_color(
     writer: &mut dyn PixelWriter,
-    mut x1: i32,
-    mut y1: i32,
-    mut x2: i32,
-    mut y2: i32,
+    mut x1: Fixed,
+    mut y1: Fixed,
+    mut x2: Fixed,
+    mut y2: Fixed,
     color1: u8,
     color2: u8,
 ) {
-    let abs_dx = (x2 - x1).unsigned_abs();
-    let abs_dy = (y2 - y1).unsigned_abs();
+    let dx = (x2 - x1).abs();
+    let dy = (y2 - y1).abs();
 
-    if abs_dx < abs_dy {
+    if dx < dy {
         // Vertical-major
-        // Special case: zero horizontal extent → nudge x coords back by 1 pixel
-        if abs_dx == 0 {
-            x1 -= 0x10000;
-            x2 -= 0x10000;
+        // Special case: zero horizontal extent → nudge x back by 1 pixel
+        if dx == Fixed::ZERO {
+            x1 -= Fixed::ONE;
+            x2 -= Fixed::ONE;
         }
-        // Sort so y1 <= y2
         if y1 > y2 {
             core::mem::swap(&mut x1, &mut x2);
             core::mem::swap(&mut y1, &mut y2);
         }
         if clip_line(&mut x1, &mut y1, &mut x2, &mut y2, writer) {
-            // First pass: color2 wide (8 pixels/step), then color1 narrow (4 pixels/step)
-            raster_thick_vmajor_outline(writer, x1, y1, x2, y2, color2);
-            raster_thick_vmajor_fill(writer, x1, y1, x2, y2, color1);
+            raster_thick_vmajor_wide(writer, x1, y1, x2, y2, color2);
+            raster_thick_vmajor_narrow(writer, x1, y1, x2, y2, color1);
         }
     } else {
         // Horizontal-major
-        // Special case: zero vertical extent → nudge y coords back by 1 pixel
-        if abs_dy == 0 {
-            y1 -= 0x10000;
-            y2 -= 0x10000;
+        // Special case: zero vertical extent → nudge y back by 1 pixel
+        if dy == Fixed::ZERO {
+            y1 -= Fixed::ONE;
+            y2 -= Fixed::ONE;
         }
-        // Sort so x1 <= x2
         if x1 > x2 {
             core::mem::swap(&mut x1, &mut x2);
             core::mem::swap(&mut y1, &mut y2);
         }
         if clip_line(&mut x1, &mut y1, &mut x2, &mut y2, writer) {
-            // First pass: color2 wide (8 pixels/step), then color1 narrow (4 pixels/step)
-            raster_thick_hmajor_outline(writer, x1, y1, x2, y2, color2);
-            raster_thick_hmajor_fill(writer, x1, y1, x2, y2, color1);
+            raster_thick_hmajor_wide(writer, x1, y1, x2, y2, color2);
+            raster_thick_hmajor_narrow(writer, x1, y1, x2, y2, color1);
         }
     }
 }
@@ -587,8 +569,8 @@ mod tests {
         assert_eq!(grid.data[4 * grid.row_stride as usize + 3], 0);
     }
 
-    fn f(x: i32) -> i32 {
-        x << 16
+    fn f(x: i32) -> Fixed {
+        Fixed::from_int(x)
     }
 
     fn load_snapshot(name: &str) -> PixelGrid {
@@ -611,7 +593,6 @@ mod tests {
             "{name}: stride mismatch"
         );
         if actual.data != expected.data {
-            // Find first differing pixel for a helpful error message
             let mut diff_count = 0;
             let mut first_diff = None;
             for y in 0..actual.height {
@@ -700,10 +681,10 @@ mod tests {
     snapshot_test_clipped!(
         snap_clipped_subpixel,
         "clipped_subpixel",
-        f(10) + 0x8000,
-        f(20) + 0x4000,
-        f(100) + 0xC000,
-        f(80) + 0x2000,
+        Fixed::from_raw(f(10).to_raw() + 0x8000),
+        Fixed::from_raw(f(20).to_raw() + 0x4000),
+        Fixed::from_raw(f(100).to_raw() + 0xC000),
+        Fixed::from_raw(f(80).to_raw() + 0x2000),
         7
     );
     snapshot_test_clipped!(
@@ -820,10 +801,10 @@ mod tests {
     snapshot_test_twocol!(
         snap_twocol_subpixel,
         "twocol_subpixel",
-        f(10) + 0x8000,
-        f(20) + 0x4000,
-        f(100) + 0xC000,
-        f(80) + 0x2000,
+        Fixed::from_raw(f(10).to_raw() + 0x8000),
+        Fixed::from_raw(f(20).to_raw() + 0x4000),
+        Fixed::from_raw(f(100).to_raw() + 0xC000),
+        Fixed::from_raw(f(80).to_raw() + 0x2000),
         7,
         8
     );
