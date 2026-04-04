@@ -15,8 +15,6 @@
 //!   └── DDA rasterizer — 1 pixel per step (horizontal or vertical major)
 //! ```
 
-use crate::fixed::Fixed;
-
 /// Trait for pixel-addressable surfaces used by line-drawing algorithms.
 ///
 /// Implemented for `PixelGrid` (test-only, pure Rust) and can be implemented
@@ -338,6 +336,219 @@ pub fn draw_line_clipped(
 }
 
 // =========================================================================
+// Two-color thick line rasterizer (port of 0x4F7A60)
+// =========================================================================
+
+/// Horizontal-major thick outline rasterizer (port of 0x4F77C0).
+///
+/// Draws 8 outline pixels per step around a 2x2 body center.
+fn raster_thick_hmajor_outline(
+    writer: &mut dyn PixelWriter,
+    x1: i32,
+    y1: i32,
+    x2: i32,
+    y2: i32,
+    color: u8,
+) {
+    let start = (x1 & !0xFFFF_i32) + 0x8000;
+    let end = (x2 & !0xFFFF_i32) + 0x8000;
+    if start == end {
+        return;
+    }
+
+    // slope = ((y2 - y1) << 16) / (x2 - x1)
+    let slope = fixed_div(y2 - y1, x2 - x1);
+    // Sub-pixel y adjustment for pixel-center start
+    let mut y = y1 + fixed_mul_shift(slope, start - x1);
+    let mut px = start >> 16;
+    let count = (end - start) >> 16;
+    if count == 0 {
+        return;
+    }
+
+    for _ in 0..count {
+        let py = y >> 16;
+        // 8 outline pixels around the 2x2 body
+        writer.put_pixel_clipped(px, py - 1, color);
+        writer.put_pixel_clipped(px + 1, py - 1, color);
+        writer.put_pixel_clipped(px - 1, py, color);
+        writer.put_pixel_clipped(px + 2, py, color);
+        writer.put_pixel_clipped(px - 1, py + 1, color);
+        writer.put_pixel_clipped(px + 2, py + 1, color);
+        writer.put_pixel_clipped(px, py + 2, color);
+        writer.put_pixel_clipped(px + 1, py + 2, color);
+
+        y += slope;
+        px += 1;
+    }
+}
+
+/// Horizontal-major thick fill rasterizer (port of 0x4F75F0).
+///
+/// Draws 4 body pixels per step (2x2 center).
+fn raster_thick_hmajor_fill(
+    writer: &mut dyn PixelWriter,
+    x1: i32,
+    y1: i32,
+    x2: i32,
+    y2: i32,
+    color: u8,
+) {
+    let start = (x1 & !0xFFFF_i32) + 0x8000;
+    let end = (x2 & !0xFFFF_i32) + 0x8000;
+    if start == end {
+        return;
+    }
+
+    let slope = fixed_div(y2 - y1, x2 - x1);
+    let mut y = y1 + fixed_mul_shift(slope, start - x1);
+    let mut px = start >> 16;
+    let count = (end - start) >> 16;
+    if count == 0 {
+        return;
+    }
+
+    for _ in 0..count {
+        let py = y >> 16;
+        // 2x2 body
+        writer.put_pixel_clipped(px, py, color);
+        writer.put_pixel_clipped(px + 1, py, color);
+        writer.put_pixel_clipped(px, py + 1, color);
+        writer.put_pixel_clipped(px + 1, py + 1, color);
+
+        y += slope;
+        px += 1;
+    }
+}
+
+/// Vertical-major thick outline rasterizer (port of 0x4F7910).
+///
+/// Transposed version of the horizontal-major outline — draws 8 pixels per step.
+fn raster_thick_vmajor_outline(
+    writer: &mut dyn PixelWriter,
+    x1: i32,
+    y1: i32,
+    x2: i32,
+    y2: i32,
+    color: u8,
+) {
+    let start = (y1 & !0xFFFF_i32) + 0x8000;
+    let end = (y2 & !0xFFFF_i32) + 0x8000;
+    if start == end {
+        return;
+    }
+
+    let slope = fixed_div(x2 - x1, y2 - y1);
+    let mut x = x1 + fixed_mul_shift(slope, start - y1);
+    let mut py = start >> 16;
+    let count = (end - start) >> 16;
+
+    for _ in 0..count {
+        let px = x >> 16;
+        // 8 outline pixels (transposed pattern)
+        writer.put_pixel_clipped(px, py - 1, color);
+        writer.put_pixel_clipped(px + 1, py - 1, color);
+        writer.put_pixel_clipped(px - 1, py, color);
+        writer.put_pixel_clipped(px + 2, py, color);
+        writer.put_pixel_clipped(px - 1, py + 1, color);
+        writer.put_pixel_clipped(px + 2, py + 1, color);
+        writer.put_pixel_clipped(px, py + 2, color);
+        writer.put_pixel_clipped(px + 1, py + 2, color);
+
+        x += slope;
+        py += 1;
+    }
+}
+
+/// Vertical-major thick fill rasterizer (port of 0x4F76D0).
+///
+/// Transposed version — draws 4 body pixels per step.
+fn raster_thick_vmajor_fill(
+    writer: &mut dyn PixelWriter,
+    x1: i32,
+    y1: i32,
+    x2: i32,
+    y2: i32,
+    color: u8,
+) {
+    let start = (y1 & !0xFFFF_i32) + 0x8000;
+    let end = (y2 & !0xFFFF_i32) + 0x8000;
+    if start == end {
+        return;
+    }
+
+    let slope = fixed_div(x2 - x1, y2 - y1);
+    let mut x = x1 + fixed_mul_shift(slope, start - y1);
+    let mut py = start >> 16;
+    let count = (end - start) >> 16;
+
+    for _ in 0..count {
+        let px = x >> 16;
+        // 2x2 body
+        writer.put_pixel_clipped(px, py, color);
+        writer.put_pixel_clipped(px + 1, py, color);
+        writer.put_pixel_clipped(px, py + 1, color);
+        writer.put_pixel_clipped(px + 1, py + 1, color);
+
+        x += slope;
+        py += 1;
+    }
+}
+
+/// Draw a two-color thick clipped line. Port of 0x4F7A60.
+///
+/// All coordinates are Fixed-point (16.16). Draws a 2px-wide line with
+/// `color1` as outline and `color2` as body fill.
+pub fn draw_line_two_color(
+    writer: &mut dyn PixelWriter,
+    mut x1: i32,
+    mut y1: i32,
+    mut x2: i32,
+    mut y2: i32,
+    color1: u8,
+    color2: u8,
+) {
+    let abs_dx = (x2 - x1).unsigned_abs();
+    let abs_dy = (y2 - y1).unsigned_abs();
+
+    if abs_dx < abs_dy {
+        // Vertical-major
+        // Special case: zero horizontal extent → nudge x coords back by 1 pixel
+        if abs_dx == 0 {
+            x1 -= 0x10000;
+            x2 -= 0x10000;
+        }
+        // Sort so y1 <= y2
+        if y1 > y2 {
+            core::mem::swap(&mut x1, &mut x2);
+            core::mem::swap(&mut y1, &mut y2);
+        }
+        if clip_line(&mut x1, &mut y1, &mut x2, &mut y2, writer) {
+            // First pass: color2 wide (8 pixels/step), then color1 narrow (4 pixels/step)
+            raster_thick_vmajor_outline(writer, x1, y1, x2, y2, color2);
+            raster_thick_vmajor_fill(writer, x1, y1, x2, y2, color1);
+        }
+    } else {
+        // Horizontal-major
+        // Special case: zero vertical extent → nudge y coords back by 1 pixel
+        if abs_dy == 0 {
+            y1 -= 0x10000;
+            y2 -= 0x10000;
+        }
+        // Sort so x1 <= x2
+        if x1 > x2 {
+            core::mem::swap(&mut x1, &mut x2);
+            core::mem::swap(&mut y1, &mut y2);
+        }
+        if clip_line(&mut x1, &mut y1, &mut x2, &mut y2, writer) {
+            // First pass: color2 wide (8 pixels/step), then color1 narrow (4 pixels/step)
+            raster_thick_hmajor_outline(writer, x1, y1, x2, y2, color2);
+            raster_thick_hmajor_fill(writer, x1, y1, x2, y2, color1);
+        }
+    }
+}
+
+// =========================================================================
 // Tests
 // =========================================================================
 
@@ -532,5 +743,99 @@ mod tests {
         grid.clip_bottom = 98;
         draw_line_clipped(&mut grid, f(10), f(10), f(118), f(118), 11);
         assert_matches_snapshot(&grid, "clipped_restricted_clip");
+    }
+
+    // Two-color snapshot tests
+    macro_rules! snapshot_test_twocol {
+        ($name:ident, $snap:expr, $x1:expr, $y1:expr, $x2:expr, $y2:expr, $c1:expr, $c2:expr) => {
+            #[test]
+            fn $name() {
+                let mut grid = PixelGrid::new(128, 128);
+                draw_line_two_color(&mut grid, $x1, $y1, $x2, $y2, $c1, $c2);
+                assert_matches_snapshot(&grid, $snap);
+            }
+        };
+    }
+
+    snapshot_test_twocol!(
+        snap_twocol_horizontal,
+        "twocol_horizontal",
+        f(10),
+        f(64),
+        f(118),
+        f(64),
+        1,
+        2
+    );
+    snapshot_test_twocol!(
+        snap_twocol_vertical,
+        "twocol_vertical",
+        f(64),
+        f(10),
+        f(64),
+        f(118),
+        1,
+        2
+    );
+    snapshot_test_twocol!(
+        snap_twocol_diagonal_45,
+        "twocol_diagonal_45",
+        f(10),
+        f(10),
+        f(118),
+        f(118),
+        1,
+        2
+    );
+    snapshot_test_twocol!(
+        snap_twocol_steep,
+        "twocol_steep",
+        f(60),
+        f(10),
+        f(68),
+        f(118),
+        3,
+        4
+    );
+    snapshot_test_twocol!(
+        snap_twocol_shallow,
+        "twocol_shallow",
+        f(10),
+        f(60),
+        f(118),
+        f(68),
+        3,
+        4
+    );
+    snapshot_test_twocol!(
+        snap_twocol_negative,
+        "twocol_negative",
+        f(118),
+        f(10),
+        f(10),
+        f(118),
+        5,
+        6
+    );
+    snapshot_test_twocol!(
+        snap_twocol_subpixel,
+        "twocol_subpixel",
+        f(10) + 0x8000,
+        f(20) + 0x4000,
+        f(100) + 0xC000,
+        f(80) + 0x2000,
+        7,
+        8
+    );
+
+    #[test]
+    fn snap_twocol_restricted_clip() {
+        let mut grid = PixelGrid::new(128, 128);
+        grid.clip_left = 30;
+        grid.clip_top = 30;
+        grid.clip_right = 98;
+        grid.clip_bottom = 98;
+        draw_line_two_color(&mut grid, f(10), f(10), f(118), f(118), 9, 10);
+        assert_matches_snapshot(&grid, "twocol_restricted_clip");
     }
 }
