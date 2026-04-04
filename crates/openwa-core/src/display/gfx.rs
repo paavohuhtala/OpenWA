@@ -97,12 +97,17 @@ pub struct DisplayGfx {
     // =========================================================================
     /// 0x3D98: Render lock flag. Set during rendering, cleared by FlushRender.
     pub render_lock: u32,
-    /// 0x3D9C: Layer 0 — BitGrid pixel buffer (0x4C bytes, vtable 0x664144).
-    /// Allocated and initialized in DDDisplay__Init.
+    /// 0x3D9C: Layer 0 — rendering context BitGrid (vtable 0x664144).
+    ///
+    /// Allocated as 0x4C bytes (0x2C BitGrid + 0x20 unknown tail), but all observed
+    /// access is within BitGrid offsets (0x00-0x28). Initialized with `external_buffer=1`
+    /// and `cells_per_unit=8`; the acquire-render-lock helper (0x56A370) populates
+    /// `data`/`width`/`height`/`row_stride` from the locked DDDisplayWrapper surface.
+    /// `set_clip_rect` mirrors DisplayBase's clip rect into this BitGrid's clip fields.
     pub layer_0: *mut DisplayBitGrid,
-    /// 0x3DA0: Layer 1 — BitGrid pixel buffer (same type as layer_0)
+    /// 0x3DA0: Layer 1 — same layout as layer_0.
     pub layer_1: *mut DisplayBitGrid,
-    /// 0x3DA4: Layer 2 — BitGrid pixel buffer (uses BitGrid__Init for extended setup)
+    /// 0x3DA4: Layer 2 — same layout, but also initialized via BitGrid::Init(8, 128, 128).
     pub layer_2: *mut DisplayBitGrid,
     /// 0x3DA8: BitGrid vtable pointer (0x664144). Set in constructor.
     pub bitgrid_vtable: *const c_void,
