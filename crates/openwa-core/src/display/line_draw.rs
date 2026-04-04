@@ -17,12 +17,14 @@
 
 use crate::fixed::Fixed;
 
-/// Trait for pixel-addressable surfaces used by line-drawing algorithms.
+/// Trait for pixel-addressable surfaces used by drawing algorithms.
 ///
 /// Implemented for `PixelGrid` (test-only, pure Rust) and can be implemented
 /// for `DisplayBitGrid` (runtime, via vtable dispatch).
 pub trait PixelWriter {
     fn put_pixel_clipped(&mut self, x: i32, y: i32, color: u8);
+    /// Fill a horizontal span from x1 (inclusive) to x2 (exclusive) at row y.
+    fn fill_hline(&mut self, x1: i32, x2: i32, y: i32, color: u8);
     fn clip_left(&self) -> i32;
     fn clip_top(&self) -> i32;
     fn clip_right(&self) -> i32;
@@ -96,6 +98,13 @@ impl PixelWriter for PixelGrid {
         {
             self.data[(y as u32 * self.row_stride + x as u32) as usize] = color;
         }
+    }
+
+    #[inline]
+    fn fill_hline(&mut self, x1: i32, x2: i32, y: i32, color: u8) {
+        let offset = (y as u32 * self.row_stride + x1 as u32) as usize;
+        let len = (x2 - x1) as usize;
+        self.data[offset..offset + len].fill(color);
     }
 
     #[inline]
@@ -531,6 +540,285 @@ pub fn draw_line_two_color(
 }
 
 // =========================================================================
+// Polygon fill (port of 0x4F7BA0 + 0x4F7D00 + 0x4F7E90)
+// =========================================================================
+
+/// Maximum vertices after clipping. Sutherland-Hodgman can at most double
+/// the vertex count per clip edge, but in practice WA's global buffers are
+/// ~256 entries. We use a generous limit.
+const MAX_CLIP_VERTS: usize = 512;
+
+/// A Fixed-point vertex (x, y).
+#[derive(Clone, Copy)]
+struct Vertex {
+    x: Fixed,
+    y: Fixed,
+}
+
+/// Clip polygon edges against a single axis boundary.
+///
+/// Sutherland-Hodgman one-edge clip. For each consecutive edge (prev → curr),
+/// outputs 0, 1, or 2 vertices depending on inside/outside transitions.
+///
+/// `inside` returns true if the coordinate is inside the boundary.
+/// `intersect` computes the intersection point on the boundary.
+fn clip_polygon_edge(
+    input: &[Vertex],
+    output: &mut [Vertex; MAX_CLIP_VERTS],
+    inside: impl Fn(Fixed) -> bool,
+    coord: impl Fn(&Vertex) -> Fixed,
+    other: impl Fn(&Vertex) -> Fixed,
+    make_vertex: impl Fn(Fixed, Fixed) -> Vertex,
+    boundary: Fixed,
+) -> usize {
+    if input.len() < 2 {
+        return 0;
+    }
+    let mut out_count = 0;
+
+    let mut prev = input[input.len() - 1];
+    for &curr in input {
+        let prev_in = inside(coord(&prev));
+        let curr_in = inside(coord(&curr));
+
+        if prev_in && curr_in {
+            // Both inside → emit current
+            output[out_count] = curr;
+            out_count += 1;
+        } else if prev_in && !curr_in {
+            // Leaving → emit intersection
+            let ratio = (boundary - coord(&prev)).div_raw(coord(&curr) - coord(&prev));
+            let clipped_other = other(&prev) + (other(&curr) - other(&prev)).mul_raw(ratio);
+            output[out_count] = make_vertex(boundary, clipped_other);
+            out_count += 1;
+        } else if !prev_in && curr_in {
+            // Entering → emit intersection then current
+            let ratio = (boundary - coord(&prev)).div_raw(coord(&curr) - coord(&prev));
+            let clipped_other = other(&prev) + (other(&curr) - other(&prev)).mul_raw(ratio);
+            output[out_count] = make_vertex(boundary, clipped_other);
+            out_count += 1;
+            output[out_count] = curr;
+            out_count += 1;
+        }
+        // else both outside → emit nothing
+
+        if out_count >= MAX_CLIP_VERTS {
+            break;
+        }
+        prev = curr;
+    }
+    out_count
+}
+
+/// Clip polygon against the writer's clip rectangle.
+///
+/// Port of 0x4F7BA0 (X clip) + 0x4F7D00 (Y clip).
+/// Returns the clipped vertex count. Vertices are stored in `out`.
+fn clip_polygon(
+    verts: &[Vertex],
+    out: &mut [Vertex; MAX_CLIP_VERTS],
+    writer: &impl PixelWriter,
+) -> usize {
+    let cl = Fixed::from_int(writer.clip_left());
+    let cr = Fixed::from_int(writer.clip_right());
+    let ct = Fixed::from_int(writer.clip_top());
+    let cb = Fixed::from_int(writer.clip_bottom());
+
+    // Clip against left X
+    let mut buf_a = [Vertex {
+        x: Fixed::ZERO,
+        y: Fixed::ZERO,
+    }; MAX_CLIP_VERTS];
+    let count = clip_polygon_edge(
+        verts,
+        &mut buf_a,
+        |x| x >= cl,
+        |v| v.x,
+        |v| v.y,
+        |x, y| Vertex { x, y },
+        cl,
+    );
+    if count < 3 {
+        return 0;
+    }
+
+    // Clip against right X
+    let mut buf_b = [Vertex {
+        x: Fixed::ZERO,
+        y: Fixed::ZERO,
+    }; MAX_CLIP_VERTS];
+    let count = clip_polygon_edge(
+        &buf_a[..count],
+        &mut buf_b,
+        |x| x <= cr,
+        |v| v.x,
+        |v| v.y,
+        |x, y| Vertex { x, y },
+        cr,
+    );
+    if count < 3 {
+        return 0;
+    }
+
+    // Clip against top Y
+    let count = clip_polygon_edge(
+        &buf_b[..count],
+        &mut buf_a,
+        |y| y >= ct,
+        |v| v.y,
+        |v| v.x,
+        |y, x| Vertex { x, y },
+        ct,
+    );
+    if count < 3 {
+        return 0;
+    }
+
+    // Clip against bottom Y
+    let count = clip_polygon_edge(
+        &buf_a[..count],
+        out,
+        |y| y <= cb,
+        |v| v.y,
+        |v| v.x,
+        |y, x| Vertex { x, y },
+        cb,
+    );
+
+    count
+}
+
+/// Maximum scanline height for the span table.
+const MAX_SCANLINES: usize = 1024;
+
+/// Rasterize a clipped convex polygon using scanline fill.
+///
+/// Port of 0x4F7E90. For each edge, computes a span table (X per scanline),
+/// then fills horizontal lines between left and right span tables.
+pub fn fill_polygon(writer: &mut impl PixelWriter, verts: &[Vertex], color: u8) {
+    if verts.len() < 3 {
+        return;
+    }
+
+    // Two span tables: one accumulates "left" edges, the other "right".
+    // WA uses two global i16 arrays at 0x8AD058 and 0x8AD858.
+    let mut span_a = [0i16; MAX_SCANLINES];
+    let mut span_b = [0i16; MAX_SCANLINES];
+    let mut y_min = i32::MAX;
+    let mut y_max = i32::MIN;
+
+    let n = verts.len();
+    for i in 0..n {
+        let prev = verts[(i + n - 1) % n];
+        let curr = verts[i];
+
+        let py_prev = prev.y.round_to_int();
+        let py_curr = curr.y.round_to_int();
+
+        if py_prev == py_curr {
+            continue;
+        }
+
+        // Determine direction: iterate from smaller Y to larger Y
+        let (start_x, start_y, end_x, end_y, py_start, py_end);
+        if py_curr < py_prev {
+            start_x = curr.x;
+            start_y = curr.y;
+            end_x = prev.x;
+            end_y = prev.y;
+            py_start = py_prev;
+            py_end = py_curr;
+        } else {
+            start_x = prev.x;
+            start_y = prev.y;
+            end_x = curr.x;
+            end_y = curr.y;
+            py_start = py_curr;
+            py_end = py_prev;
+        };
+
+        if py_end < y_min {
+            y_min = py_end;
+        }
+        if py_start > y_max {
+            y_max = py_start;
+        }
+
+        let scanline_count = py_start - py_end;
+        if scanline_count <= 0 {
+            continue;
+        }
+
+        // Compute DDA slope for X across scanlines (plain integer divide)
+        let dx = end_x.to_raw() - start_x.to_raw();
+        let dy = end_y.to_raw() - start_y.to_raw();
+        let slope = if dy != 0 { dx / dy } else { 0 };
+
+        // Starting X with sub-pixel correction
+        let x_start = start_x.to_raw() + ((py_end * 0x10000 - start_y.to_raw()) + 0x8000) * slope;
+
+        // Corrected step for the span table DDA
+        let x_end_correction =
+            ((py_start * 0x10000 - end_y.to_raw()) + 0x8000) * slope - x_start + end_x.to_raw();
+        let step = if scanline_count != 0 {
+            x_end_correction / scanline_count
+        } else {
+            0
+        };
+
+        // Fill the appropriate span table
+        // Which table depends on edge direction (left vs right side of polygon).
+        // WA uses two fixed tables offset by 0x800 bytes (1024 i16 entries).
+        // We pick table based on the table pointer offset in the original:
+        // 0x8AD058 vs 0x8AD858 — determined by the scanline pointer base.
+        let table = if py_curr < py_prev {
+            &mut span_a
+        } else {
+            &mut span_b
+        };
+
+        let mut val = x_start + 0x8000; // round
+        for j in 0..scanline_count as usize {
+            let idx = py_end as usize + j;
+            if idx < MAX_SCANLINES {
+                table[idx] = (val >> 16) as i16;
+            }
+            val = val.wrapping_add(step);
+        }
+    }
+
+    // Fill scanlines between the two span tables
+    for y in y_min..y_max {
+        if y < 0 || y as usize >= MAX_SCANLINES {
+            continue;
+        }
+        let a = span_a[y as usize] as i32;
+        let b = span_b[y as usize] as i32;
+        if a != b {
+            let (x1, x2) = if a < b { (a, b) } else { (b, a) };
+            writer.fill_hline(x1, x2, y, color);
+        }
+    }
+}
+
+/// Draw a filled polygon. Clips against the writer's bounds, then scanline-fills.
+///
+/// Input vertices are Fixed-point (x, y) pairs.
+pub fn draw_polygon_filled(writer: &mut impl PixelWriter, vertices: &[(Fixed, Fixed)], color: u8) {
+    let input: Vec<Vertex> = vertices.iter().map(|&(x, y)| Vertex { x, y }).collect();
+
+    let mut clipped = [Vertex {
+        x: Fixed::ZERO,
+        y: Fixed::ZERO,
+    }; MAX_CLIP_VERTS];
+    let count = clip_polygon(&input, &mut clipped, writer);
+
+    if count > 2 {
+        fill_polygon(writer, &clipped[..count], color);
+    }
+}
+
+// =========================================================================
 // Tests
 // =========================================================================
 
@@ -818,5 +1106,67 @@ mod tests {
         grid.clip_bottom = 98;
         draw_line_two_color(&mut grid, f(10), f(10), f(118), f(118), 9, 10);
         assert_matches_snapshot(&grid, "twocol_restricted_clip");
+    }
+
+    // Polygon fill snapshot tests
+    macro_rules! snapshot_test_poly {
+        ($name:ident, $snap:expr, $verts:expr, $color:expr) => {
+            #[test]
+            fn $name() {
+                let mut grid = PixelGrid::new(128, 128);
+                draw_polygon_filled(&mut grid, $verts, $color);
+                assert_matches_snapshot(&grid, $snap);
+            }
+        };
+    }
+
+    snapshot_test_poly!(
+        snap_poly_triangle,
+        "poly_triangle",
+        &[(f(64), f(10)), (f(118), f(100)), (f(10), f(100))],
+        1
+    );
+    snapshot_test_poly!(
+        snap_poly_square,
+        "poly_square",
+        &[
+            (f(20), f(20)),
+            (f(100), f(20)),
+            (f(100), f(100)),
+            (f(20), f(100))
+        ],
+        2
+    );
+    snapshot_test_poly!(
+        snap_poly_diamond,
+        "poly_diamond",
+        &[
+            (f(64), f(10)),
+            (f(118), f(64)),
+            (f(64), f(118)),
+            (f(10), f(64))
+        ],
+        3
+    );
+    snapshot_test_poly!(
+        snap_poly_partially_outside,
+        "poly_partially_outside",
+        &[(f(64), f(-30)), (f(160), f(100)), (f(-30), f(100))],
+        4
+    );
+
+    #[test]
+    fn snap_poly_restricted_clip() {
+        let mut grid = PixelGrid::new(128, 128);
+        grid.clip_left = 30;
+        grid.clip_top = 30;
+        grid.clip_right = 98;
+        grid.clip_bottom = 98;
+        draw_polygon_filled(
+            &mut grid,
+            &[(f(64), f(10)), (f(118), f(100)), (f(10), f(100))],
+            5,
+        );
+        assert_matches_snapshot(&grid, "poly_restricted_clip");
     }
 }

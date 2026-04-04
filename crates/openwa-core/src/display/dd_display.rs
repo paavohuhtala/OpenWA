@@ -654,6 +654,10 @@ impl line_draw::PixelWriter for BitGridWriter {
         unsafe { DisplayBitGrid::put_pixel_clipped_raw(self.0, x, y, color) }
     }
     #[inline]
+    fn fill_hline(&mut self, x1: i32, x2: i32, y: i32, color: u8) {
+        unsafe { DisplayBitGrid::fill_hline_raw(self.0, x1, x2, y, color) }
+    }
+    #[inline]
     fn clip_left(&self) -> i32 {
         unsafe { (*self.0).clip_left as i32 }
     }

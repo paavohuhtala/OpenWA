@@ -167,8 +167,98 @@ pub unsafe fn capture_line_snapshots() {
     });
     count += 1;
 
+    // Polygon fill tests — call WA's polygon pipeline directly
+    let clip_x: unsafe extern "thiscall" fn(*mut DisplayBitGrid, *const i32, i32) -> i32 =
+        core::mem::transmute(rb(0x004F_7BA0) as usize);
+    let clip_y: unsafe extern "thiscall" fn(*mut DisplayBitGrid, i32) -> i32 =
+        core::mem::transmute(rb(0x004F_7D00) as usize);
+    let rasterize: unsafe extern "stdcall" fn(*mut DisplayBitGrid, i32, u32) =
+        core::mem::transmute(rb(0x004F_7E90) as usize);
+
+    // Helper: write vertices to the global vertex buffer (0x8B1370) and call pipeline
+    let vert_buf = rb(0x008B_1370) as *mut i32;
+
+    macro_rules! polygon_snap {
+        ($name:expr, $verts:expr, $color:expr) => {{
+            let verts: &[(i32, i32)] = $verts;
+            for (i, &(x, y)) in verts.iter().enumerate() {
+                *vert_buf.add(i * 2) = x;
+                *vert_buf.add(i * 2 + 1) = y;
+            }
+            snap!($name, {
+                let n = clip_x(grid, vert_buf, verts.len() as i32);
+                if n > 2 {
+                    let n = clip_y(grid, n);
+                    if n > 2 {
+                        rasterize(grid, n, $color);
+                    }
+                }
+            });
+            count += 1;
+        }};
+    }
+
+    // Triangle
+    polygon_snap!(
+        "poly_triangle",
+        &[(f(64), f(10)), (f(118), f(100)), (f(10), f(100))],
+        1u32
+    );
+
+    // Square
+    polygon_snap!(
+        "poly_square",
+        &[
+            (f(20), f(20)),
+            (f(100), f(20)),
+            (f(100), f(100)),
+            (f(20), f(100))
+        ],
+        2u32
+    );
+
+    // Diamond
+    polygon_snap!(
+        "poly_diamond",
+        &[
+            (f(64), f(10)),
+            (f(118), f(64)),
+            (f(64), f(118)),
+            (f(10), f(64))
+        ],
+        3u32
+    );
+
+    // Partially outside (triangle extending beyond grid)
+    polygon_snap!(
+        "poly_partially_outside",
+        &[(f(64), f(-30)), (f(160), f(100)), (f(-30), f(100))],
+        4u32
+    );
+
+    // Restricted clip rect
+    snap!("poly_restricted_clip", {
+        (*grid).clip_left = 30;
+        (*grid).clip_top = 30;
+        (*grid).clip_right = 98;
+        (*grid).clip_bottom = 98;
+        let verts: &[(i32, i32)] = &[(f(64), f(10)), (f(118), f(100)), (f(10), f(100))];
+        for (i, &(x, y)) in verts.iter().enumerate() {
+            *vert_buf.add(i * 2) = x;
+            *vert_buf.add(i * 2 + 1) = y;
+        }
+        let n = clip_x(grid, vert_buf, verts.len() as i32);
+        if n > 2 {
+            let n = clip_y(grid, n);
+            if n > 2 {
+                rasterize(grid, n, 5u32);
+            }
+        }
+    });
+    count += 1;
+
     let _ = log_line(&format!(
-        "[Display] SNAPSHOT: Saved {count} line snapshots to {dir}/"
+        "[Display] SNAPSHOT: Saved {count} snapshots to {dir}/"
     ));
 
     // Free the grid
