@@ -277,6 +277,7 @@ bind_DDDisplayVtable!(DDDisplay, vtable);
 
 use super::bitgrid::DisplayBitGrid;
 use super::gfx::DisplayGfx;
+use super::line_draw;
 
 /// Port of DDDisplay::GetDimensions (vtable slot 1, 0x56A460).
 ///
@@ -641,11 +642,39 @@ pub unsafe extern "thiscall" fn draw_crosshair(
     DisplayBitGrid::put_pixel_clipped_raw(layer, cx + 1, cy + 1, fg);
 }
 
+/// Wrapper that implements `PixelWriter` for a raw `*mut DisplayBitGrid`.
+///
+/// Dispatches `put_pixel_clipped` through the vtable, reads clip rect from
+/// the BitGrid's clip fields.
+struct BitGridWriter(*mut DisplayBitGrid);
+
+impl line_draw::PixelWriter for BitGridWriter {
+    #[inline]
+    fn put_pixel_clipped(&mut self, x: i32, y: i32, color: u8) {
+        unsafe { DisplayBitGrid::put_pixel_clipped_raw(self.0, x, y, color) }
+    }
+    #[inline]
+    fn clip_left(&self) -> i32 {
+        unsafe { (*self.0).clip_left as i32 }
+    }
+    #[inline]
+    fn clip_top(&self) -> i32 {
+        unsafe { (*self.0).clip_top as i32 }
+    }
+    #[inline]
+    fn clip_right(&self) -> i32 {
+        unsafe { (*self.0).clip_right as i32 }
+    }
+    #[inline]
+    fn clip_bottom(&self) -> i32 {
+        unsafe { (*self.0).clip_bottom as i32 }
+    }
+}
+
 /// Port of DDDisplay::DrawLine (vtable slot 13, 0x56BDB0).
 ///
-/// Draws a two-color line. Fixed-point coordinates with camera offset
-/// applied as `camera * 0x10000 + coord`. Delegates to the BitGrid
-/// line-drawing routine at 0x4F7A60.
+/// Draws a two-color thick line. Fixed-point coordinates with camera offset
+/// applied as `camera * 0x10000 + coord`. Pure Rust implementation.
 ///
 /// # Safety
 /// `this` must be a valid `*mut DDDisplay` (actually a `*mut DisplayGfx`).
@@ -664,23 +693,22 @@ pub unsafe extern "thiscall" fn draw_line(
 
     acquire_render_lock(gfx);
 
-    let draw: unsafe extern "stdcall" fn(*mut DisplayBitGrid, i32, i32, i32, i32, u32, u32) =
-        core::mem::transmute(rb(va::DRAW_LINE_TWO_COLOR) as usize);
-    draw(
-        (*gfx).layer_0,
+    let mut writer = BitGridWriter((*gfx).layer_0);
+    line_draw::draw_line_two_color(
+        &mut writer,
         (x1 + cam_x).to_raw(),
         (y1 + cam_y).to_raw(),
         (x2 + cam_x).to_raw(),
         (y2 + cam_y).to_raw(),
-        color1,
-        color2,
+        color1 as u8,
+        color2 as u8,
     );
 }
 
 /// Port of DDDisplay::DrawLineClipped (vtable slot 14, 0x56BD50).
 ///
 /// Draws a single-color clipped line. Fixed-point coordinates with camera
-/// offset. Delegates to the BitGrid clipped line routine at 0x4F7500.
+/// offset. Pure Rust implementation.
 ///
 /// # Safety
 /// `this` must be a valid `*mut DDDisplay` (actually a `*mut DisplayGfx`).
@@ -698,15 +726,14 @@ pub unsafe extern "thiscall" fn draw_line_clipped(
 
     acquire_render_lock(gfx);
 
-    let draw: unsafe extern "stdcall" fn(*mut DisplayBitGrid, i32, i32, i32, i32, u32) =
-        core::mem::transmute(rb(va::DRAW_LINE_CLIPPED) as usize);
-    draw(
-        (*gfx).layer_0,
+    let mut writer = BitGridWriter((*gfx).layer_0);
+    line_draw::draw_line_clipped(
+        &mut writer,
         (x1 + cam_x).to_raw(),
         (y1 + cam_y).to_raw(),
         (x2 + cam_x).to_raw(),
         (y2 + cam_y).to_raw(),
-        color,
+        color as u8,
     );
 }
 
