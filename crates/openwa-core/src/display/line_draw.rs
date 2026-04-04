@@ -1,19 +1,18 @@
 //! Line-drawing algorithms for 8bpp BitGrid surfaces.
 //!
-//! Pure Rust ports of WA's thick-line drawing system (0x4F7500 / 0x4F7A60).
-//! The original draws 2-pixel-wide Bresenham-style lines with Fixed-point
-//! Cohen-Sutherland clipping.
+//! Pure Rust ports of WA's line drawing system:
 //!
-//! ## Architecture
+//! - `draw_line_clipped` (0x4F7500): Single-color DDA line with Cohen-Sutherland clipping.
+//! - `draw_line_two_color` (0x4F7A60): Two-color thick (2px) line with clipping.
+//!
+//! ## Single-color architecture (0x4F7500)
 //!
 //! ```text
-//! draw_line_clipped / draw_line_two_color (outer dispatch)
+//! draw_line_clipped
 //!   ├── Determine dominant axis (|dx| vs |dy|)
 //!   ├── Sort endpoints in positive direction
 //!   ├── clip_line() — Cohen-Sutherland, Fixed-point
-//!   ├── Rasterizer (horizontal-major or vertical-major)
-//!   │     └── put_pixel_clipped × 8 per step (outline)
-//!   └── Fill rasterizer — 4 pixels per step (body color)
+//!   └── DDA rasterizer — 1 pixel per step (horizontal or vertical major)
 //! ```
 
 use crate::fixed::Fixed;
@@ -66,6 +65,25 @@ impl PixelGrid {
     pub fn clear(&mut self) {
         self.data.fill(0);
     }
+
+    /// Load a snapshot file and return (header, pixel_data).
+    #[cfg(test)]
+    pub fn from_snapshot(bytes: &[u8]) -> Self {
+        let width = u32::from_le_bytes(bytes[0..4].try_into().unwrap());
+        let height = u32::from_le_bytes(bytes[4..8].try_into().unwrap());
+        let row_stride = u32::from_le_bytes(bytes[8..12].try_into().unwrap());
+        let data = bytes[12..].to_vec();
+        Self {
+            data,
+            width,
+            height,
+            row_stride,
+            clip_left: 0,
+            clip_top: 0,
+            clip_right: width,
+            clip_bottom: height,
+        }
+    }
 }
 
 impl PixelWriter for PixelGrid {
@@ -102,145 +120,9 @@ impl PixelWriter for PixelGrid {
 // Fixed-point line clipping (port of 0x4F7150)
 // =========================================================================
 
-/// Cohen-Sutherland outcode bits for line clipping.
-const LEFT: u8 = 1;
-const RIGHT: u8 = 2;
-const TOP: u8 = 4;
-const BOTTOM: u8 = 8;
-
-/// Compute Cohen-Sutherland outcode for a Fixed-point coordinate.
-fn outcode(x: Fixed, y: Fixed, clip: &ClipRect) -> u8 {
-    let mut code = 0u8;
-    if x.to_raw() < clip.left.to_raw() {
-        code |= LEFT;
-    }
-    if x.to_raw() > clip.right.to_raw() {
-        code |= RIGHT;
-    }
-    if y.to_raw() < clip.top.to_raw() {
-        code |= TOP;
-    }
-    if y.to_raw() > clip.bottom.to_raw() {
-        code |= BOTTOM;
-    }
-    code
-}
-
-/// Clip rectangle in Fixed-point coordinates.
-struct ClipRect {
-    left: Fixed,
-    top: Fixed,
-    right: Fixed,
-    bottom: Fixed,
-}
-
-/// Fixed-point multiply then shift: `(a * b) >> 16`.
+/// Fixed-point divide: `(numerator << 16) / denominator`.
 ///
-/// Port of the pattern used throughout the WA line clipper.
-#[inline]
-fn fixed_mul_shift(a: i32, b: i32) -> i32 {
-    ((a as i64 * b as i64) >> 16) as i32
-}
-
-/// Clip a line segment to the clip rectangle.
-///
-/// Port of 0x4F7150. Returns true if the clipped line is visible.
-/// Modifies coordinates in-place.
-///
-/// The clip rectangle is read from the PixelWriter's bounds, scaled to Fixed.
-fn clip_line(
-    x1: &mut Fixed,
-    y1: &mut Fixed,
-    x2: &mut Fixed,
-    y2: &mut Fixed,
-    writer: &dyn PixelWriter,
-) -> bool {
-    let clip = ClipRect {
-        left: Fixed::from_int(writer.clip_left()),
-        top: Fixed::from_int(writer.clip_top()),
-        right: Fixed::from_int(writer.clip_right()),
-        bottom: Fixed::from_int(writer.clip_bottom()),
-    };
-
-    let code1 = outcode(*x1, *y1, &clip);
-    let code2 = outcode(*x2, *y2, &clip);
-
-    // Trivial reject: both endpoints on same side
-    if code1 & code2 != 0 {
-        return false;
-    }
-
-    // Clip x1 against left/right bounds
-    if x1.to_raw() < clip.left.to_raw() {
-        let ratio = fixed_div(clip.left.to_raw() - x1.to_raw(), x2.to_raw() - x1.to_raw());
-        y1.0 += fixed_mul_shift(y2.to_raw() - y1.to_raw(), ratio);
-        *x1 = clip.left;
-    } else if x1.to_raw() > clip.right.to_raw() {
-        let ratio = fixed_div(clip.right.to_raw() - x1.to_raw(), x2.to_raw() - x1.to_raw());
-        y1.0 += fixed_mul_shift(y2.to_raw() - y1.to_raw(), ratio);
-        *x1 = clip.right;
-    }
-
-    // Clip x2 against left/right bounds
-    if x2.to_raw() < clip.left.to_raw() {
-        let ratio = fixed_div(clip.left.to_raw() - x2.to_raw(), x1.to_raw() - x2.to_raw());
-        y2.0 += fixed_mul_shift(y1.to_raw() - y2.to_raw(), ratio);
-        *x2 = clip.left;
-    } else if x2.to_raw() > clip.right.to_raw() {
-        let ratio = fixed_div(clip.right.to_raw() - x2.to_raw(), x1.to_raw() - x2.to_raw());
-        y2.0 += fixed_mul_shift(y1.to_raw() - y2.to_raw(), ratio);
-        *x2 = clip.right;
-    }
-
-    // Check y bounds after x clipping
-    if y1.to_raw() > clip.bottom.to_raw() || y2.to_raw() > clip.bottom.to_raw() {
-        return false;
-    }
-    if y1.to_raw() < clip.top.to_raw() && y2.to_raw() < clip.top.to_raw() {
-        return false;
-    }
-
-    // Clip y1 against top/bottom bounds
-    if y1.to_raw() < clip.top.to_raw() {
-        let ratio = fixed_div(clip.top.to_raw() - y1.to_raw(), y2.to_raw() - y1.to_raw());
-        x1.0 += fixed_mul_shift(x2.to_raw() - x1.to_raw(), ratio);
-        *y1 = clip.top;
-    } else if y1.to_raw() > clip.bottom.to_raw() {
-        let ratio = fixed_div(
-            clip.bottom.to_raw() - y1.to_raw(),
-            y2.to_raw() - y1.to_raw(),
-        );
-        x1.0 += fixed_mul_shift(x2.to_raw() - x1.to_raw(), ratio);
-        *y1 = clip.bottom;
-    }
-
-    // Clip y2 against top/bottom bounds
-    if y2.to_raw() < clip.top.to_raw() {
-        let ratio = fixed_div(clip.top.to_raw() - y2.to_raw(), y1.to_raw() - y2.to_raw());
-        x2.0 += fixed_mul_shift(x1.to_raw() - x2.to_raw(), ratio);
-        *y2 = clip.top;
-    } else if y2.to_raw() > clip.bottom.to_raw() {
-        let ratio = fixed_div(
-            clip.bottom.to_raw() - y2.to_raw(),
-            y1.to_raw() - y2.to_raw(),
-        );
-        x2.0 += fixed_mul_shift(x1.to_raw() - x2.to_raw(), ratio);
-        *y2 = clip.bottom;
-    }
-
-    // Final check: both endpoints must be within bounds
-    if (x1.to_raw() < clip.left.to_raw() || x1.to_raw() > clip.right.to_raw())
-        && (x2.to_raw() < clip.left.to_raw() || x2.to_raw() > clip.right.to_raw())
-    {
-        return false;
-    }
-
-    true
-}
-
-/// Fixed-point divide used by the line clipper.
-///
-/// Port of FUN_005b3501: computes `(numerator << 16) / denominator`.
+/// Port of FUN_005b3501. Used by the line clipper for endpoint interpolation.
 #[inline]
 fn fixed_div(numerator: i32, denominator: i32) -> i32 {
     if denominator == 0 {
@@ -248,6 +130,216 @@ fn fixed_div(numerator: i32, denominator: i32) -> i32 {
     }
     (((numerator as i64) << 16) / denominator as i64) as i32
 }
+
+/// Fixed-point multiply-shift: `(a * b) >> 16`.
+#[inline]
+fn fixed_mul_shift(a: i32, b: i32) -> i32 {
+    ((a as i64 * b as i64) >> 16) as i32
+}
+
+/// Clip a line segment to the writer's clip rectangle.
+///
+/// Port of 0x4F7150. All coordinates are Fixed-point (16.16).
+/// Returns true if the clipped line is (partially) visible.
+///
+/// The clip rectangle is scaled from the writer's pixel bounds to Fixed.
+fn clip_line(
+    x1: &mut i32,
+    y1: &mut i32,
+    x2: &mut i32,
+    y2: &mut i32,
+    writer: &dyn PixelWriter,
+) -> bool {
+    let cl = writer.clip_left() << 16;
+    let ct = writer.clip_top() << 16;
+    let cr = writer.clip_right() << 16;
+    let cb = writer.clip_bottom() << 16;
+
+    // Cohen-Sutherland outcodes
+    let mut code1 = 0u8;
+    if *x1 < cl {
+        code1 |= 1;
+    }
+    if *x1 > cr {
+        code1 |= 2;
+    }
+    if *y1 < ct {
+        code1 |= 4;
+    }
+    if *y1 > cb {
+        code1 |= 8;
+    }
+
+    let mut code2 = 0u8;
+    if *x2 < cl {
+        code2 |= 1;
+    }
+    if *x2 > cr {
+        code2 |= 2;
+    }
+    if *y2 < ct {
+        code2 |= 4;
+    }
+    if *y2 > cb {
+        code2 |= 8;
+    }
+
+    // Trivial reject
+    if code1 & code2 != 0 {
+        return false;
+    }
+
+    // Clip endpoint 1 against x bounds
+    if *x1 < cl {
+        let ratio = fixed_div(cl - *x1, *x2 - *x1);
+        *y1 += fixed_mul_shift(*y2 - *y1, ratio);
+        *x1 = cl;
+    } else if *x1 > cr {
+        let ratio = fixed_div(cr - *x1, *x2 - *x1);
+        *y1 += fixed_mul_shift(*y2 - *y1, ratio);
+        *x1 = cr;
+    }
+
+    // Clip endpoint 2 against x bounds
+    if *x2 < cl {
+        let ratio = fixed_div(cl - *x2, *x1 - *x2);
+        *y2 += fixed_mul_shift(*y1 - *y2, ratio);
+        *x2 = cl;
+    } else if *x2 > cr {
+        let ratio = fixed_div(cr - *x2, *x1 - *x2);
+        *y2 += fixed_mul_shift(*y1 - *y2, ratio);
+        *x2 = cr;
+    }
+
+    // Check y visibility after x clipping
+    if (*y1 > cb || *y2 > cb) && (*y1 < ct || *y2 < ct) {
+        // Spans both sides — skip (original logic)
+    }
+    if !(*y1 <= cb || *y2 <= cb) {
+        return false;
+    }
+    if !(*y1 >= ct || *y2 >= ct) {
+        return false;
+    }
+
+    // Clip endpoint 1 against y bounds
+    if *y1 < ct {
+        let ratio = fixed_div(ct - *y1, *y2 - *y1);
+        *x1 += fixed_mul_shift(*x2 - *x1, ratio);
+        *y1 = ct;
+    } else if *y1 > cb {
+        let ratio = fixed_div(cb - *y1, *y2 - *y1);
+        *x1 += fixed_mul_shift(*x2 - *x1, ratio);
+        *y1 = cb;
+    }
+
+    // Clip endpoint 2 against y bounds
+    if *y2 < ct {
+        let ratio = fixed_div(ct - *y2, *y1 - *y2);
+        *x2 += fixed_mul_shift(*x1 - *x2, ratio);
+        *y2 = ct;
+    } else if *y2 > cb {
+        let ratio = fixed_div(cb - *y2, *y1 - *y2);
+        *x2 += fixed_mul_shift(*x1 - *x2, ratio);
+        *y2 = cb;
+    }
+
+    // Final visibility check
+    if (*x1 < cl || *x1 > cr) && (*x2 < cl || *x2 > cr) {
+        return false;
+    }
+
+    true
+}
+
+// =========================================================================
+// Single-color DDA line rasterizer (port of 0x4F7500)
+// =========================================================================
+
+/// Horizontal-major DDA rasterizer (port of 0x4F7400).
+///
+/// Iterates from x1 to x2 (pixel-rounded), computing y via Fixed-point slope.
+fn raster_hmajor(writer: &mut dyn PixelWriter, x1: i32, y1: i32, x2: i32, y2: i32, color: u8) {
+    let start = (x1 & !0xFFFF) + 0x8000; // round to pixel center
+    let end = (x2 & !0xFFFF) + 0x8000;
+    if start == end {
+        return;
+    }
+
+    // slope = ((y2 - y1) << 16) / (x2 - x1), in 16.16 fixed
+    let slope = fixed_div(y2 - y1, x2 - x1);
+    let mut px = start >> 16;
+    let mut y = y1; // starts at raw y1, NOT adjusted for sub-pixel offset
+    let count = (end - start) >> 16;
+
+    for _ in 0..=count {
+        writer.put_pixel_clipped(px, (y + 0x8000) >> 16, color);
+        y += slope;
+        px += 1;
+    }
+}
+
+/// Vertical-major DDA rasterizer (port of 0x4F7480).
+///
+/// Iterates from y1 to y2 (pixel-rounded), computing x via Fixed-point slope.
+fn raster_vmajor(writer: &mut dyn PixelWriter, x1: i32, y1: i32, x2: i32, y2: i32, color: u8) {
+    let start = (y1 & !0xFFFF) + 0x8000;
+    let end = (y2 & !0xFFFF) + 0x8000;
+    if start == end {
+        return;
+    }
+
+    // slope = ((x2 - x1) << 16) / (y2 - y1)
+    let slope = fixed_div(x2 - x1, y2 - y1);
+    let mut py = start >> 16;
+    let mut x = x1; // starts at raw x1
+    let count = (end - start) >> 16;
+
+    for _ in 0..=count {
+        writer.put_pixel_clipped((x + 0x8000) >> 16, py, color);
+        x += slope;
+        py += 1;
+    }
+}
+
+/// Draw a single-color clipped line. Port of 0x4F7500.
+///
+/// All coordinates are Fixed-point (16.16).
+pub fn draw_line_clipped(
+    writer: &mut dyn PixelWriter,
+    mut x1: i32,
+    mut y1: i32,
+    mut x2: i32,
+    mut y2: i32,
+    color: u8,
+) {
+    let abs_dx = (x2 - x1).unsigned_abs();
+    let abs_dy = (y2 - y1).unsigned_abs();
+
+    if abs_dx < abs_dy {
+        // Vertical-major: sort so y1 <= y2
+        if y1 > y2 {
+            core::mem::swap(&mut x1, &mut x2);
+            core::mem::swap(&mut y1, &mut y2);
+        }
+        if clip_line(&mut x1, &mut y1, &mut x2, &mut y2, writer) {
+            raster_vmajor(writer, x1, y1, x2, y2, color);
+        }
+    } else {
+        // Horizontal-major: sort so x1 <= x2
+        if x1 > x2 {
+            core::mem::swap(&mut x1, &mut x2);
+            core::mem::swap(&mut y1, &mut y2);
+        }
+        if clip_line(&mut x1, &mut y1, &mut x2, &mut y2, writer) {
+            raster_hmajor(writer, x1, y1, x2, y2, color);
+        }
+    }
+}
+
+// =========================================================================
+// Tests
+// =========================================================================
 
 #[cfg(test)]
 mod tests {
@@ -274,16 +366,171 @@ mod tests {
         grid.clip_right = 12;
         grid.clip_bottom = 12;
 
-        // Inside clip rect — should write
         grid.put_pixel_clipped(4, 4, 1);
         assert_eq!(grid.data[4 * grid.row_stride as usize + 4], 1);
 
-        // At clip boundary (exclusive) — should NOT write
         grid.put_pixel_clipped(12, 4, 2);
         assert_eq!(grid.data[4 * grid.row_stride as usize + 12], 0);
 
-        // Outside clip rect — should NOT write
         grid.put_pixel_clipped(3, 4, 3);
         assert_eq!(grid.data[4 * grid.row_stride as usize + 3], 0);
+    }
+
+    fn f(x: i32) -> i32 {
+        x << 16
+    }
+
+    fn load_snapshot(name: &str) -> PixelGrid {
+        let path = format!(
+            "{}/../../testdata/snapshots/{}.bin",
+            env!("CARGO_MANIFEST_DIR"),
+            name
+        );
+        let bytes = std::fs::read(&path)
+            .unwrap_or_else(|e| panic!("Failed to load snapshot {}: {} (path: {})", name, e, path));
+        PixelGrid::from_snapshot(&bytes)
+    }
+
+    fn assert_matches_snapshot(actual: &PixelGrid, name: &str) {
+        let expected = load_snapshot(name);
+        assert_eq!(actual.width, expected.width, "{name}: width mismatch");
+        assert_eq!(actual.height, expected.height, "{name}: height mismatch");
+        assert_eq!(
+            actual.row_stride, expected.row_stride,
+            "{name}: stride mismatch"
+        );
+        if actual.data != expected.data {
+            // Find first differing pixel for a helpful error message
+            let mut diff_count = 0;
+            let mut first_diff = None;
+            for y in 0..actual.height {
+                for x in 0..actual.width {
+                    let idx = (y * actual.row_stride + x) as usize;
+                    if actual.data[idx] != expected.data[idx] {
+                        diff_count += 1;
+                        if first_diff.is_none() {
+                            first_diff = Some((x, y, actual.data[idx], expected.data[idx]));
+                        }
+                    }
+                }
+            }
+            let (fx, fy, got, want) = first_diff.unwrap();
+            panic!(
+                "{name}: {diff_count} pixel(s) differ. First at ({fx},{fy}): got {got}, want {want}"
+            );
+        }
+    }
+
+    macro_rules! snapshot_test_clipped {
+        ($name:ident, $snap:expr, $x1:expr, $y1:expr, $x2:expr, $y2:expr, $color:expr) => {
+            #[test]
+            fn $name() {
+                let mut grid = PixelGrid::new(128, 128);
+                draw_line_clipped(&mut grid, $x1, $y1, $x2, $y2, $color);
+                assert_matches_snapshot(&grid, $snap);
+            }
+        };
+    }
+
+    snapshot_test_clipped!(
+        snap_clipped_horizontal,
+        "clipped_horizontal",
+        f(10),
+        f(64),
+        f(118),
+        f(64),
+        1
+    );
+    snapshot_test_clipped!(
+        snap_clipped_vertical,
+        "clipped_vertical",
+        f(64),
+        f(10),
+        f(64),
+        f(118),
+        2
+    );
+    snapshot_test_clipped!(
+        snap_clipped_diagonal_45,
+        "clipped_diagonal_45",
+        f(10),
+        f(10),
+        f(118),
+        f(118),
+        3
+    );
+    snapshot_test_clipped!(
+        snap_clipped_diagonal_steep,
+        "clipped_diagonal_steep",
+        f(60),
+        f(10),
+        f(68),
+        f(118),
+        4
+    );
+    snapshot_test_clipped!(
+        snap_clipped_diagonal_shallow,
+        "clipped_diagonal_shallow",
+        f(10),
+        f(60),
+        f(118),
+        f(68),
+        5
+    );
+    snapshot_test_clipped!(
+        snap_clipped_negative_slope,
+        "clipped_negative_slope",
+        f(118),
+        f(10),
+        f(10),
+        f(118),
+        6
+    );
+    snapshot_test_clipped!(
+        snap_clipped_subpixel,
+        "clipped_subpixel",
+        f(10) + 0x8000,
+        f(20) + 0x4000,
+        f(100) + 0xC000,
+        f(80) + 0x2000,
+        7
+    );
+    snapshot_test_clipped!(
+        snap_clipped_zero_length,
+        "clipped_zero_length",
+        f(64),
+        f(64),
+        f(64),
+        f(64),
+        8
+    );
+    snapshot_test_clipped!(
+        snap_clipped_partially_outside,
+        "clipped_partially_outside",
+        f(-20),
+        f(64),
+        f(148),
+        f(64),
+        9
+    );
+    snapshot_test_clipped!(
+        snap_clipped_fully_outside,
+        "clipped_fully_outside",
+        f(-50),
+        f(-50),
+        f(-10),
+        f(-10),
+        10
+    );
+
+    #[test]
+    fn snap_clipped_restricted_clip() {
+        let mut grid = PixelGrid::new(128, 128);
+        grid.clip_left = 30;
+        grid.clip_top = 30;
+        grid.clip_right = 98;
+        grid.clip_bottom = 98;
+        draw_line_clipped(&mut grid, f(10), f(10), f(118), f(118), 11);
+        assert_matches_snapshot(&grid, "clipped_restricted_clip");
     }
 }
