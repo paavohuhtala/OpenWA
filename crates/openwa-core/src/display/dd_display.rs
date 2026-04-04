@@ -325,3 +325,174 @@ pub unsafe extern "thiscall" fn flush_render(this: *mut DDDisplay) {
     let mut buf = FastcallResult::default();
     DDDisplayWrapper::get_renderer_surface_raw(wrapper, &mut buf);
 }
+
+/// Port of DDDisplay::SetCameraOffset (vtable slot 27, 0x56CC40).
+///
+/// Converts Fixed-point camera coordinates to pixel integers and stores them.
+///
+/// # Safety
+/// `this` must be a valid `*mut DDDisplay` (actually a `*mut DisplayGfx`).
+pub unsafe extern "thiscall" fn set_camera_offset(this: *mut DDDisplay, x: Fixed, y: Fixed) {
+    let gfx = this as *mut DisplayGfx;
+    (*gfx).camera_x = x.to_int();
+    (*gfx).camera_y = y.to_int();
+}
+
+/// Port of DDDisplay::SetClipRect (vtable slot 28, 0x56CC60).
+///
+/// Converts Fixed-point clip rectangle to pixel integers, clamps to display
+/// dimensions, stores in DisplayBase, and mirrors to the layer_0 object.
+///
+/// # Safety
+/// `this` must be a valid `*mut DDDisplay` (actually a `*mut DisplayGfx`).
+/// `layer_0` (at +0x3D9C) must be initialized.
+pub unsafe extern "thiscall" fn set_clip_rect(
+    this: *mut DDDisplay,
+    x1: Fixed,
+    y1: Fixed,
+    x2: Fixed,
+    y2: Fixed,
+) {
+    let gfx = this as *mut DisplayGfx;
+    let base = &mut (*gfx).base;
+
+    // Convert Fixed to pixel integers
+    let mut cx1 = x1.to_int();
+    let mut cy1 = y1.to_int();
+    let mut cx2 = x2.to_int();
+    let mut cy2 = y2.to_int();
+
+    // Store and clamp to display dimensions
+    base.clip_x1 = cx1;
+    base.clip_y1 = cy1;
+    base.clip_x2 = cx2;
+    base.clip_y2 = cy2;
+
+    if cx1 < 0 {
+        base.clip_x1 = 0;
+        cx1 = 0;
+    }
+    if cy1 < 0 {
+        base.clip_y1 = 0;
+        cy1 = 0;
+    }
+    if cx2 > base.display_width as i32 {
+        base.clip_x2 = base.display_width as i32;
+        cx2 = base.display_width as i32;
+    }
+    if cy2 > base.display_height as i32 {
+        base.clip_y2 = base.display_height as i32;
+        cy2 = base.display_height as i32;
+    }
+
+    // Mirror clip rect to layer_0 object (0x4C-byte layer context).
+    // Layout: +0x14 = width, +0x18 = height, +0x1C-0x28 = clip rect.
+    let layer = (*gfx).layer_0 as *mut u8;
+    let layer_w = *(layer.add(0x14) as *const i32);
+    let layer_h = *(layer.add(0x18) as *const i32);
+
+    *(layer.add(0x1C) as *mut i32) = cx1;
+    *(layer.add(0x20) as *mut i32) = cy1;
+    *(layer.add(0x24) as *mut i32) = cx2;
+    *(layer.add(0x28) as *mut i32) = cy2;
+
+    if cx1 < 0 {
+        *(layer.add(0x1C) as *mut i32) = 0;
+    }
+    if cy1 < 0 {
+        *(layer.add(0x20) as *mut i32) = 0;
+    }
+    if cx2 > layer_w {
+        *(layer.add(0x24) as *mut i32) = layer_w;
+    }
+    if cy2 > layer_h {
+        *(layer.add(0x28) as *mut i32) = layer_h;
+    }
+}
+
+/// Port of the render-lock flush helper at 0x56A330.
+///
+/// If the render lock is held, releases it by calling
+/// DDDisplayWrapper::unlock_surface_write (slot 18), then clears the flag.
+/// Called by drawing methods (fill_rect, draw_line, etc.) before rendering.
+///
+/// Original uses ESI = this (usercall).
+///
+/// # Safety
+/// `gfx` must be a valid `*mut DisplayGfx` with `layer_0` initialized.
+/// `g_DDDisplayWrapper` must be initialized.
+unsafe fn flush_render_lock(gfx: *mut DisplayGfx) {
+    if (*gfx).render_lock != 0 {
+        let wrapper = *(rb(va::G_DD_DISPLAY_WRAPPER) as *const *mut DDDisplayWrapper);
+        let layer = (*gfx).layer_0 as *mut u8;
+        let data = *(layer.add(0x08) as *const u32);
+        let mut buf = FastcallResult::default();
+        DDDisplayWrapper::unlock_surface_write_raw(wrapper, &mut buf, data);
+        (*gfx).render_lock = 0;
+    }
+}
+
+/// Port of DDDisplay::FillRect (vtable slot 18, 0x56B810).
+///
+/// Fills a rectangle with a solid color. Pixel-integer coordinates are
+/// offset by the camera position and clipped to the clip rect before
+/// dispatching to DDDisplayWrapper::fill_rect (slot 19).
+///
+/// # Safety
+/// `this` must be a valid `*mut DDDisplay` (actually a `*mut DisplayGfx`).
+/// `g_DDDisplayWrapper` must be initialized.
+pub unsafe extern "thiscall" fn fill_rect(
+    this: *mut DDDisplay,
+    x1: i32,
+    y1: i32,
+    x2: i32,
+    y2: i32,
+    color: u32,
+) {
+    let gfx = this as *mut DisplayGfx;
+    let base = &(*gfx).base;
+
+    // Apply camera offset
+    let mut left = x1 + (*gfx).camera_x;
+    let mut top = y1 + (*gfx).camera_y;
+    let mut right = x2 + (*gfx).camera_x;
+    let mut bottom = y2 + (*gfx).camera_y;
+
+    // Early-out: no intersection with clip rect
+    if right <= base.clip_x1
+        || bottom <= base.clip_y1
+        || left >= base.clip_x2
+        || top >= base.clip_y2
+    {
+        return;
+    }
+
+    // Clamp to clip rect
+    if left < base.clip_x1 {
+        left = base.clip_x1;
+    }
+    if top < base.clip_y1 {
+        top = base.clip_y1;
+    }
+    if right > base.clip_x2 {
+        right = base.clip_x2;
+    }
+    if bottom > base.clip_y2 {
+        bottom = base.clip_y2;
+    }
+
+    flush_render_lock(gfx);
+
+    // DDDisplayWrapper::fill_rect takes (x, y, width, height, color)
+    let wrapper = *(rb(va::G_DD_DISPLAY_WRAPPER) as *const *mut DDDisplayWrapper);
+    let mut buf = FastcallResult::default();
+    DDDisplayWrapper::fill_rect_raw(
+        wrapper,
+        &mut buf,
+        left,
+        top,
+        right - left,
+        bottom - top,
+        color,
+    );
+}
