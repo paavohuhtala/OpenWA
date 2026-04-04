@@ -139,8 +139,11 @@ unsafe extern "system" fn hook_create_file_a(
 }
 
 pub fn install() -> Result<(), String> {
-    if std::env::var("OPENWA_HEADLESS").is_err() {
-        return Ok(()); // Only active in headless mode
+    let is_test =
+        std::env::var("OPENWA_HEADLESS").is_ok() || std::env::var("OPENWA_REPLAY_TEST").is_ok();
+
+    if !is_test {
+        return Ok(()); // File isolation only active during tests
     }
 
     unsafe {
