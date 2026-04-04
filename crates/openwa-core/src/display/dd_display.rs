@@ -275,6 +275,7 @@ bind_DDDisplayVtable!(DDDisplay, vtable);
 // Ported DDDisplay vtable methods
 // =========================================================================
 
+use super::bitgrid::DisplayBitGrid;
 use super::gfx::DisplayGfx;
 
 /// Port of DDDisplay::GetDimensions (vtable slot 1, 0x56A460).
@@ -427,6 +428,75 @@ unsafe fn flush_render_lock(gfx: *mut DisplayGfx) {
     }
 }
 
+/// Port of the render-lock acquire helper at 0x56A370.
+///
+/// If the render lock is NOT held, queries DDDisplayWrapper for framebuffer
+/// dimensions (slot 3) and locks the surface for writing (slot 17), then
+/// populates layer_0's BitGrid fields (data, stride, dimensions) from the
+/// locked surface and copies DisplayBase's clip rect into layer_0.
+///
+/// Original uses ESI = this (usercall).
+///
+/// # Safety
+/// `gfx` must be a valid `*mut DisplayGfx` with `layer_0` initialized.
+/// `g_DDDisplayWrapper` must be initialized.
+unsafe fn acquire_render_lock(gfx: *mut DisplayGfx) {
+    if (*gfx).render_lock != 0 {
+        return; // already locked
+    }
+
+    let wrapper = *(rb(va::G_DD_DISPLAY_WRAPPER) as *const *mut DDDisplayWrapper);
+    let mut buf = FastcallResult::default();
+
+    // Get framebuffer dimensions (slot 3).
+    // The wrapper writes width and height to the output buffer.
+    let mut dims: [u32; 2] = [0; 2];
+    DDDisplayWrapper::get_framebuffer_dims_raw(wrapper, &mut buf, dims.as_mut_ptr());
+    let fb_width = dims[0];
+    let fb_height = dims[1];
+
+    // Lock surface for writing (slot 17).
+    // The wrapper writes framebuffer pointer and stride through the params.
+    let mut data_ptr: u32 = 0;
+    let mut stride: u32 = 0;
+    DDDisplayWrapper::lock_surface_write_raw(wrapper, &mut buf, &mut data_ptr, &mut stride);
+
+    // Populate layer_0 from the locked surface
+    let layer = (*gfx).layer_0;
+    if (*layer).external_buffer != 0 {
+        (*layer).width = fb_width;
+        (*layer).height = fb_height;
+        (*layer).data = data_ptr as *mut u8;
+        (*layer).row_stride = stride;
+        (*layer).clip_left = 0;
+        (*layer).clip_top = 0;
+        (*layer).clip_right = fb_width;
+        (*layer).clip_bottom = fb_height;
+    }
+
+    // Copy DisplayBase clip rect to layer_0, clamped to layer dimensions
+    let base = &(*gfx).base;
+    (*layer).clip_left = base.clip_x1 as u32;
+    (*layer).clip_top = base.clip_y1 as u32;
+    (*layer).clip_right = base.clip_x2 as u32;
+    (*layer).clip_bottom = base.clip_y2 as u32;
+
+    if base.clip_x1 < 0 {
+        (*layer).clip_left = 0;
+    }
+    if base.clip_y1 < 0 {
+        (*layer).clip_top = 0;
+    }
+    if base.clip_x2 > (*layer).width as i32 {
+        (*layer).clip_right = (*layer).width;
+    }
+    if base.clip_y2 > (*layer).height as i32 {
+        (*layer).clip_bottom = (*layer).height;
+    }
+
+    (*gfx).render_lock = 1;
+}
+
 /// Port of DDDisplay::FillRect (vtable slot 18, 0x56B810).
 ///
 /// Fills a rectangle with a solid color. Pixel-integer coordinates are
@@ -490,4 +560,83 @@ pub unsafe extern "thiscall" fn fill_rect(
         bottom - top,
         color,
     );
+}
+
+/// Port of DDDisplay::DrawOutlinedPixel (vtable slot 17, 0x56BFD0).
+///
+/// Draws a center pixel in `color_fg` with 4 cardinal neighbor pixels in
+/// `color_bg` (if `color_bg != 0`). Pixel-integer coordinates with camera offset.
+///
+/// # Safety
+/// `this` must be a valid `*mut DDDisplay` (actually a `*mut DisplayGfx`).
+pub unsafe extern "thiscall" fn draw_outlined_pixel(
+    this: *mut DDDisplay,
+    x: i32,
+    y: i32,
+    color_fg: u32,
+    color_bg: i32,
+) {
+    let gfx = this as *mut DisplayGfx;
+    let cx = x + (*gfx).camera_x;
+    let cy = y + (*gfx).camera_y;
+
+    acquire_render_lock(gfx);
+
+    let layer = (*gfx).layer_0;
+    if color_bg != 0 {
+        let bg = color_bg as u8;
+        DisplayBitGrid::put_pixel_clipped_raw(layer, cx - 1, cy, bg);
+        DisplayBitGrid::put_pixel_clipped_raw(layer, cx + 1, cy, bg);
+        DisplayBitGrid::put_pixel_clipped_raw(layer, cx, cy - 1, bg);
+        DisplayBitGrid::put_pixel_clipped_raw(layer, cx, cy + 1, bg);
+    }
+    DisplayBitGrid::put_pixel_clipped_raw(layer, cx, cy, color_fg as u8);
+}
+
+/// Port of DDDisplay::DrawCrosshair (vtable slot 16, 0x56BE80).
+///
+/// Draws a 2x2 foreground block at (cx, cy)–(cx+1, cy+1) with an 8-pixel
+/// outline in `color_bg`. Pixel-integer coordinates with camera offset.
+///
+/// ```text
+///     bg bg
+///  bg FG FG bg
+///  bg FG FG bg
+///     bg bg
+/// ```
+///
+/// # Safety
+/// `this` must be a valid `*mut DDDisplay` (actually a `*mut DisplayGfx`).
+pub unsafe extern "thiscall" fn draw_crosshair(
+    this: *mut DDDisplay,
+    x: i32,
+    y: i32,
+    color_fg: u32,
+    color_bg: u32,
+) {
+    let gfx = this as *mut DisplayGfx;
+    let cx = x + (*gfx).camera_x;
+    let cy = y + (*gfx).camera_y;
+
+    acquire_render_lock(gfx);
+
+    let layer = (*gfx).layer_0;
+    let bg = color_bg as u8;
+    let fg = color_fg as u8;
+
+    // Background outline (8 pixels)
+    DisplayBitGrid::put_pixel_clipped_raw(layer, cx, cy - 1, bg);
+    DisplayBitGrid::put_pixel_clipped_raw(layer, cx + 1, cy - 1, bg);
+    DisplayBitGrid::put_pixel_clipped_raw(layer, cx - 1, cy, bg);
+    DisplayBitGrid::put_pixel_clipped_raw(layer, cx + 2, cy, bg);
+    DisplayBitGrid::put_pixel_clipped_raw(layer, cx - 1, cy + 1, bg);
+    DisplayBitGrid::put_pixel_clipped_raw(layer, cx + 2, cy + 1, bg);
+    DisplayBitGrid::put_pixel_clipped_raw(layer, cx, cy + 2, bg);
+    DisplayBitGrid::put_pixel_clipped_raw(layer, cx + 1, cy + 2, bg);
+
+    // Foreground 2x2 block (4 pixels)
+    DisplayBitGrid::put_pixel_clipped_raw(layer, cx, cy, fg);
+    DisplayBitGrid::put_pixel_clipped_raw(layer, cx + 1, cy, fg);
+    DisplayBitGrid::put_pixel_clipped_raw(layer, cx, cy + 1, fg);
+    DisplayBitGrid::put_pixel_clipped_raw(layer, cx + 1, cy + 1, fg);
 }

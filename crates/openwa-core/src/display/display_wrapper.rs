@@ -160,13 +160,15 @@ pub struct DDDisplayWrapperVtable {
         this: *mut DDDisplayWrapper,
         result: *mut FastcallResult,
     ) -> *mut FastcallResult,
-    /// lock surface for reading — returns framebuffer ptr + width (0x5A2690, RET 0x8)
+    /// lock surface for reading (0x5A2690, RET 0x8)
+    ///
+    /// Writes framebuffer pointer to `*out_data` and stride to `*out_stride`.
     #[slot(15)]
     pub lock_surface_read: unsafe extern "fastcall" fn(
         this: *mut DDDisplayWrapper,
         result: *mut FastcallResult,
-        p2: u32,
-        p3: u32,
+        out_data: *mut u32,
+        out_stride: *mut u32,
     ) -> *mut FastcallResult,
     /// unlock surface (0x5A2C10, RET 0x4)
     ///
@@ -178,12 +180,14 @@ pub struct DDDisplayWrapperVtable {
         p2: u32,
     ) -> *mut FastcallResult,
     /// lock surface for writing (0x5A2690 — same fn as slot 15, RET 0x8)
+    ///
+    /// Writes framebuffer pointer to `*out_data` and stride to `*out_stride`.
     #[slot(17)]
     pub lock_surface_write: unsafe extern "fastcall" fn(
         this: *mut DDDisplayWrapper,
         result: *mut FastcallResult,
-        p2: u32,
-        p3: u32,
+        out_data: *mut u32,
+        out_stride: *mut u32,
     ) -> *mut FastcallResult,
     /// unlock surface after writing (0x5A2C10 — same fn as slot 16, RET 0x4)
     #[slot(18)]

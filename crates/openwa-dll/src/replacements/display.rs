@@ -81,13 +81,15 @@ pub fn install() -> Result<(), String> {
 
         // Patch DDDisplay vtable (0x66A218): replace ported methods with Rust.
         vtable_replace!(DDDisplayVtable, va::DD_DISPLAY_VTABLE, {
-            get_dimensions   => dd_display::get_dimensions,
-            fill_rect        => dd_display::fill_rect,
-            flush_render     => dd_display::flush_render,
-            set_camera_offset => dd_display::set_camera_offset,
-            set_clip_rect    => dd_display::set_clip_rect,
+            get_dimensions      => dd_display::get_dimensions,
+            draw_crosshair      => dd_display::draw_crosshair,
+            draw_outlined_pixel => dd_display::draw_outlined_pixel,
+            fill_rect           => dd_display::fill_rect,
+            flush_render        => dd_display::flush_render,
+            set_camera_offset   => dd_display::set_camera_offset,
+            set_clip_rect       => dd_display::set_clip_rect,
         })?;
-        let _ = log_line("[Display]   DDDisplay: patched 5 methods → Rust");
+        let _ = log_line("[Display]   DDDisplay: patched 7 methods → Rust");
     }
 
     Ok(())
