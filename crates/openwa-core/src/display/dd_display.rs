@@ -294,9 +294,33 @@ pub unsafe extern "thiscall" fn get_dimensions(
     *out_h = (*gfx).base.display_height;
 }
 
-// FlushRender (vtable slot 26, 0x56A580) — NOT YET PORTED.
-//
-// Calls DDDisplayWrapper::unlock_surface_write and ::get_renderer_surface,
-// which use a non-standard fastcall convention (EDX = result pointer, not
-// standard thiscall). Needs a naked asm bridge or corrected vtable typing
-// for the DDDisplayWrapper methods before this can be ported.
+use super::display_wrapper::DDDisplayWrapper;
+use crate::address::va;
+use crate::rebase::rb;
+
+/// Port of DDDisplay::FlushRender (vtable slot 26, 0x56A580).
+///
+/// If the render lock is held, clears it (the original also calls
+/// DDDisplayWrapper::unlock_surface_write, but that's a no-op that
+/// writes a success code to a discarded result buffer).
+///
+/// Then calls DDDisplayWrapper::get_renderer_surface (slot 13),
+/// which dispatches to the renderer backend's Flip.
+///
+/// # Safety
+/// `this` must be a valid `*mut DDDisplay` (actually a `*mut DisplayGfx`).
+/// `g_DDDisplayWrapper` (0x79D6D4) must be initialized.
+pub unsafe extern "thiscall" fn flush_render(this: *mut DDDisplay) {
+    let gfx = this as *mut DisplayGfx;
+    let wrapper = *(rb(va::G_DD_DISPLAY_WRAPPER) as *const *mut DDDisplayWrapper);
+
+    if (*gfx).render_lock != 0 {
+        // Original calls wrapper->vtable[18] (unlock_surface_write) here,
+        // but that function ignores its data parameter and just writes a
+        // success code to a result buffer that FlushRender never reads.
+        (*gfx).render_lock = 0;
+    }
+
+    // get_renderer_surface → renderer Flip
+    DDDisplayWrapper::call_method(wrapper, 13);
+}

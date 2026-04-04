@@ -140,4 +140,56 @@ pub struct DDDisplayWrapper {
 const _: () = assert!(core::mem::size_of::<DDDisplayWrapper>() == 0x1C);
 
 // Generate calling wrappers: DDDisplayWrapper::flip_surface(), etc.
+// NOTE: The generated bind wrappers assume standard thiscall, but
+// DDDisplayWrapper methods actually use MFC result-return convention
+// (ECX=this, EDX=result_buf_ptr). Use call_wrapper_method() instead.
 bind_DDDisplayWrapperVtable!(DDDisplayWrapper, vtable);
+
+impl DDDisplayWrapper {
+    /// Call a DDDisplayWrapper vtable method by slot index.
+    ///
+    /// DDDisplayWrapper methods use an MFC result-return convention:
+    /// ECX = this, EDX = pointer to caller-allocated result buffer.
+    /// The result is discarded by most callers.
+    ///
+    /// # Safety
+    /// `this` must be a valid DDDisplayWrapper pointer with an initialized vtable.
+    #[inline]
+    pub unsafe fn call_method(this: *mut DDDisplayWrapper, slot: usize) {
+        let vtable = (*this).vtable as *const u32;
+        let func: u32 = *vtable.add(slot);
+        let mut result_buf: [u32; 2] = [0; 2];
+        core::arch::asm!(
+            "call {func}",
+            func = in(reg) func,
+            in("ecx") this,
+            inout("edx") result_buf.as_mut_ptr() => _,
+            out("eax") _,
+            clobber_abi("C"),
+        );
+    }
+
+    /// Call a DDDisplayWrapper vtable method with one stack parameter.
+    ///
+    /// Same MFC convention as `call_method`, with an additional stack argument
+    /// pushed before the call (callee cleans via RET N).
+    ///
+    /// # Safety
+    /// `this` must be a valid DDDisplayWrapper pointer with an initialized vtable.
+    #[inline]
+    pub unsafe fn call_method_1(this: *mut DDDisplayWrapper, slot: usize, param: u32) {
+        let vtable = (*this).vtable as *const u32;
+        let func: u32 = *vtable.add(slot);
+        let mut result_buf: [u32; 2] = [0; 2];
+        core::arch::asm!(
+            "push {param}",
+            "call {func}",
+            param = in(reg) param,
+            func = in(reg) func,
+            in("ecx") this,
+            inout("edx") result_buf.as_mut_ptr() => _,
+            out("eax") _,
+            clobber_abi("C"),
+        );
+    }
+}
