@@ -550,9 +550,16 @@ const MAX_CLIP_VERTS: usize = 512;
 
 /// A Fixed-point vertex (x, y).
 #[derive(Clone, Copy)]
-struct Vertex {
-    x: Fixed,
-    y: Fixed,
+pub struct Vertex {
+    pub x: Fixed,
+    pub y: Fixed,
+}
+
+impl Vertex {
+    #[inline]
+    pub const fn new(x: Fixed, y: Fixed) -> Self {
+        Self { x, y }
+    }
 }
 
 /// Clip polygon edges against a single axis boundary.
@@ -803,15 +810,13 @@ pub fn fill_polygon(writer: &mut impl PixelWriter, verts: &[Vertex], color: u8) 
 
 /// Draw a filled polygon. Clips against the writer's bounds, then scanline-fills.
 ///
-/// Input vertices are Fixed-point (x, y) pairs.
-pub fn draw_polygon_filled(writer: &mut impl PixelWriter, vertices: &[(Fixed, Fixed)], color: u8) {
-    let input: Vec<Vertex> = vertices.iter().map(|&(x, y)| Vertex { x, y }).collect();
-
+/// No heap allocation — uses stack buffers for clipping.
+pub fn draw_polygon_filled(writer: &mut impl PixelWriter, vertices: &[Vertex], color: u8) {
     let mut clipped = [Vertex {
         x: Fixed::ZERO,
         y: Fixed::ZERO,
     }; MAX_CLIP_VERTS];
-    let count = clip_polygon(&input, &mut clipped, writer);
+    let count = clip_polygon(vertices, &mut clipped, writer);
 
     if count > 2 {
         fill_polygon(writer, &clipped[..count], color);
@@ -1109,6 +1114,10 @@ mod tests {
     }
 
     // Polygon fill snapshot tests
+    fn v(x: Fixed, y: Fixed) -> Vertex {
+        Vertex::new(x, y)
+    }
+
     macro_rules! snapshot_test_poly {
         ($name:ident, $snap:expr, $verts:expr, $color:expr) => {
             #[test]
@@ -1123,17 +1132,17 @@ mod tests {
     snapshot_test_poly!(
         snap_poly_triangle,
         "poly_triangle",
-        &[(f(64), f(10)), (f(118), f(100)), (f(10), f(100))],
+        &[v(f(64), f(10)), v(f(118), f(100)), v(f(10), f(100))],
         1
     );
     snapshot_test_poly!(
         snap_poly_square,
         "poly_square",
         &[
-            (f(20), f(20)),
-            (f(100), f(20)),
-            (f(100), f(100)),
-            (f(20), f(100))
+            v(f(20), f(20)),
+            v(f(100), f(20)),
+            v(f(100), f(100)),
+            v(f(20), f(100))
         ],
         2
     );
@@ -1141,17 +1150,17 @@ mod tests {
         snap_poly_diamond,
         "poly_diamond",
         &[
-            (f(64), f(10)),
-            (f(118), f(64)),
-            (f(64), f(118)),
-            (f(10), f(64))
+            v(f(64), f(10)),
+            v(f(118), f(64)),
+            v(f(64), f(118)),
+            v(f(10), f(64))
         ],
         3
     );
     snapshot_test_poly!(
         snap_poly_partially_outside,
         "poly_partially_outside",
-        &[(f(64), f(-30)), (f(160), f(100)), (f(-30), f(100))],
+        &[v(f(64), f(-30)), v(f(160), f(100)), v(f(-30), f(100))],
         4
     );
 
@@ -1164,7 +1173,7 @@ mod tests {
         grid.clip_bottom = 98;
         draw_polygon_filled(
             &mut grid,
-            &[(f(64), f(10)), (f(118), f(100)), (f(10), f(100))],
+            &[v(f(64), f(10)), v(f(118), f(100)), v(f(10), f(100))],
             5,
         );
         assert_matches_snapshot(&grid, "poly_restricted_clip");

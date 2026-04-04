@@ -741,6 +741,44 @@ pub unsafe extern "thiscall" fn draw_line_clipped(
     );
 }
 
+/// Port of DDDisplay::DrawPolyline (vtable slot 12, 0x56BCC0).
+///
+/// Transforms point array by camera offset, clips, and fills the polygon.
+/// Points are Fixed-point (x, y) pairs. Pixel-integer camera is applied as
+/// `camera * 0x10000 + coord`.
+///
+/// # Safety
+/// `this` must be a valid `*mut DDDisplay` (actually a `*mut DisplayGfx`).
+pub unsafe extern "thiscall" fn draw_polyline(
+    this: *mut DDDisplay,
+    points: *mut i32,
+    count: i32,
+    color: u32,
+) {
+    let gfx = this as *mut DisplayGfx;
+    let cam_x = Fixed::from_int((*gfx).camera_x);
+    let cam_y = Fixed::from_int((*gfx).camera_y);
+
+    // Build vertex array with camera offset on the stack
+    let n = count as usize;
+    if n == 0 || n > 256 {
+        return;
+    }
+
+    let mut verts = [line_draw::Vertex::new(Fixed::ZERO, Fixed::ZERO); 256];
+    for i in 0..n {
+        verts[i] = line_draw::Vertex::new(
+            Fixed::from_raw(*points.add(i * 2)) + cam_x,
+            Fixed::from_raw(*points.add(i * 2 + 1)) + cam_y,
+        );
+    }
+
+    acquire_render_lock(gfx);
+
+    let mut writer = BitGridWriter((*gfx).layer_0);
+    line_draw::draw_polygon_filled(&mut writer, &verts[..n], color as u8);
+}
+
 /// Port of DDDisplay::DrawPixelStrip (vtable slot 15, 0x56BE10).
 ///
 /// Draws `count + 1` pixels starting at (x, y), stepping by (dx, dy) each
