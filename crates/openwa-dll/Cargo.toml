@@ -15,6 +15,7 @@ debug-ui = ["dep:openwa-debugui"]
 openwa-core = { path = "../openwa-core" }
 openwa-debug-proto = { path = "../openwa-debug-proto" }
 openwa-debugui = { path = "../openwa-debugui", optional = true }
+gif = "0.14"
 heapless = "0.9"
 hound = "3"
 minhook = "0.9"

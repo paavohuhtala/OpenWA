@@ -63,10 +63,13 @@ unsafe extern "stdcall" fn hook_turn_manager(turngame: u32) {
 
     let frame = FRAMES_PROCESSED.fetch_add(1, Ordering::Relaxed) + 1;
 
-    // Line snapshot capture: run once at frame 10 when env var is set
+    // Snapshot capture: run once at frame 10 when env vars are set
     if frame == 10 {
         if std::env::var("OPENWA_CAPTURE_LINE_SNAPSHOTS").is_ok() {
             super::display::capture_line_snapshots();
+        }
+        if std::env::var("OPENWA_CAPTURE_BLIT_SNAPSHOTS").is_ok() {
+            super::display::capture_blit_snapshots();
         }
     }
 

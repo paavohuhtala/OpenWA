@@ -32,8 +32,13 @@ pub struct DisplayBase {
     pub vtable: *const DisplayBaseVtable,
     // +0x004: sprite cache wrapper (0x28-byte SpriteCacheWrapper)
     pub sprite_cache: Ptr32,
-    // +0x008..0x3008: three contiguous 0x400-entry u32 arrays, all zeroed by ctor
-    pub _buf_008: [u32; 0xC00],
+    // +0x008..0x1008: sprite pointer array 0 (0x400 entries), zeroed by ctor.
+    // IsSpriteLoaded checks this at offset 0x1008 (which is array 1 below).
+    pub sprite_array_0: [u32; 0x400],
+    // +0x1008..0x2008: sprite pointer array 1 (0x400 entries), zeroed by ctor.
+    pub sprite_array_1: [u32; 0x400],
+    // +0x2008..0x3008: sprite pointer array 2 (0x400 entries), zeroed by ctor.
+    pub sprite_array_2: [u32; 0x400],
     // +0x3008..0x3018: gap (0x10 bytes, 4 u32s: indices 0xC02..0xC05)
     pub _gap_3008: [u32; 4],
     // +0x3018: field at u32 index 0xC06, zeroed by ctor

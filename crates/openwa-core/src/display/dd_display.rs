@@ -779,6 +779,63 @@ pub unsafe extern "thiscall" fn draw_polyline(
     line_draw::draw_polygon_filled(&mut writer, &verts[..n], color as u8);
 }
 
+/// Port of DDDisplay::IsSpriteLoaded (vtable slot 32, 0x56A480).
+///
+/// Returns 1 if the sprite ID is loaded in any of the three sprite arrays
+/// (DisplayBase sprite_array_1/sprite_array_2, DisplayGfx sprite_table).
+/// ID must be in range [1, 0x400).
+///
+/// # Safety
+/// `this` must be a valid `*mut DDDisplay` (actually a `*mut DisplayGfx`).
+pub unsafe extern "thiscall" fn is_sprite_loaded(this: *mut DDDisplay, id: i32) -> u32 {
+    let id_u = id as u32;
+    if id_u.wrapping_sub(1) >= 0x3FF {
+        return 0;
+    }
+    let gfx = this as *mut DisplayGfx;
+    let base = &(*gfx).base;
+    if base.sprite_array_1[id as usize] != 0
+        || base.sprite_array_2[id as usize] != 0
+        || (*gfx).sprite_table[id as usize] != 0
+    {
+        1
+    } else {
+        0
+    }
+}
+
+/// Port of DDDisplay::DrawViaCallback (vtable slot 21, 0x56B7C0).
+///
+/// Acquires the render lock, applies camera offset to fixed-point coordinates,
+/// then calls `obj->vtable[2](layer_0, pixel_x, pixel_y, p5, p6)`.
+///
+/// # Safety
+/// `this` must be a valid `*mut DDDisplay` (actually a `*mut DisplayGfx`).
+/// `obj` must point to a valid object with a vtable where slot 2 is a
+/// drawing callback.
+pub unsafe extern "thiscall" fn draw_via_callback(
+    this: *mut DDDisplay,
+    x: Fixed,
+    y: Fixed,
+    obj: *mut u8,
+    p5: u32,
+    p6: u32,
+) {
+    let gfx = this as *mut DisplayGfx;
+    acquire_render_lock(gfx);
+
+    let pixel_x = (Fixed::from_int((*gfx).camera_x) + x).to_int();
+    let pixel_y = (Fixed::from_int((*gfx).camera_y) + y).to_int();
+    let layer_0 = (*gfx).layer_0;
+
+    // Call obj->vtable[2](obj, layer_0, pixel_x, pixel_y, p5, p6)
+    // vtable[2] is at offset 8 in the vtable
+    let vtable = *(obj as *const *const u32);
+    let callback: unsafe extern "thiscall" fn(*mut u8, *mut DisplayBitGrid, i32, i32, u32, u32) =
+        core::mem::transmute(*vtable.add(2));
+    callback(obj, layer_0, pixel_x, pixel_y, p5, p6);
+}
+
 /// Port of DDDisplay::DrawPixelStrip (vtable slot 15, 0x56BE10).
 ///
 /// Draws `count + 1` pixels starting at (x, y), stepping by (dx, dy) each

@@ -44,6 +44,8 @@ crate::define_addresses! {
     class "BitGrid" {
         /// BitGrid::init (0x4F6370) — allocates buffer, sets base vtable
         fn BIT_GRID_INIT = 0x004F_6370;
+        /// Core sprite blit (0x4F6910) — ESI=dst BitGrid, 9 stack params
+        fn/Usercall BLIT_SPRITE_RECT = 0x004F_6910;
         /// Clipped line draw on 8bpp BitGrid (0x4F7500)
         fn DRAW_LINE_CLIPPED = 0x004F_7500;
         /// Two-color line draw on 8bpp BitGrid (0x4F7A60)

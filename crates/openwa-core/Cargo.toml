@@ -12,6 +12,8 @@ openwa-derive = { path = "../openwa-derive" }
 openwa-debug-proto = { path = "../openwa-debug-proto" }
 
 [dev-dependencies]
+gif = "0.14"
+image = { version = "0.25", default-features = false, features = ["gif", "png"] }
 openwa-config = { path = "../openwa-config" }
 
 [target.'cfg(target_os = "windows")'.dependencies]

@@ -8,6 +8,7 @@ pub mod gradient;
 pub mod line_draw;
 pub mod opengl;
 pub mod palette;
+pub mod sprite_blit;
 
 pub use base::{DisplayBase, DisplayBaseVtable, SpriteBufferCtrl, SpriteCacheWrapper};
 pub use bitgrid::{
