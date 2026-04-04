@@ -14,15 +14,15 @@
 use crate::hook;
 use core::ffi::c_char;
 use openwa_core::address::va;
-use openwa_core::engine::ddgame::{
-    bit_grid_init, ddgame_init_fields, ddgame_init_render_indices, display_layer_color_init,
-    gfx_dir_find_entry, gfx_dir_load_dir, gfx_resource_create, DDGame,
-};
+use openwa_core::display::BitGrid;
 use openwa_core::engine::game_state_init::{
     check_weapon_avail, init_alliance_data, init_landscape_flags, init_team_scoring,
     init_turn_state, is_super_weapon, ring_buffer_init, sprite_gfx_table_init,
 };
-use openwa_core::engine::DDGameWrapper;
+use openwa_core::engine::{
+    ddgame_init_fields, ddgame_init_render_indices, display_layer_color_init, DDGame, DDGameWrapper,
+};
+use openwa_core::render::gfx_dir::{gfx_dir_find_entry, gfx_dir_load_dir, gfx_resource_create};
 
 // ─── DDGame__InitFields (0x526120) ──────────────────────────────────────────
 
@@ -54,13 +54,18 @@ extern "cdecl" fn impl_init_render_indices(base: u32) -> u32 {
 
 // ─── BitGrid__Init (0x4F6370) ──────────────────────────────────────
 
-extern "cdecl" fn impl_tsm_init(object: u32, param1: u32, height: u32, width: u32) -> u32 {
-    unsafe { bit_grid_init(object as *mut u8, param1, width, height) }
-    object // Original: MOV EAX, ESI; RET 0x4
+extern "cdecl" fn impl_bitgrid_init(
+    bit_grid: *mut BitGrid,
+    cells_per_unit: u32,
+    height: u32,
+    width: u32,
+) -> *mut BitGrid {
+    unsafe { BitGrid::init(bit_grid, cells_per_unit, width, height) }
+    bit_grid // Original: MOV EAX, ESI; RET 0x4
 }
 
 #[unsafe(naked)]
-unsafe extern "C" fn tsm_init_trampoline() {
+unsafe extern "C" fn bitgrid_init_trampoline() {
     core::arch::naked_asm!(
         "push edx",
         "push [esp+8]",       // width (stack param)
@@ -71,7 +76,7 @@ unsafe extern "C" fn tsm_init_trampoline() {
         "add esp, 16",
         "pop edx",
         "ret 0x4",
-        impl_fn = sym impl_tsm_init,
+        impl_fn = sym impl_bitgrid_init,
     );
 }
 
@@ -180,7 +185,7 @@ pub fn install() -> Result<(), String> {
         hook::install(
             "BitGrid__Init",
             va::BIT_GRID_INIT,
-            tsm_init_trampoline as *const (),
+            bitgrid_init_trampoline as *const (),
         )?;
 
         hook::install(

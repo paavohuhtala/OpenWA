@@ -6,10 +6,10 @@
 //! may have subtle color differences due to the tangled decompiler output.
 
 use crate::address::va;
+use crate::display::bitgrid::BitGrid;
 use crate::engine::ddgame::DDGame;
 use crate::rebase::rb;
 use crate::render::gfx_dir::call_gfx_find_and_load;
-use crate::task::bit_grid::BitGrid;
 use crate::wa_alloc::{wa_free, wa_malloc};
 
 /// Palette context for gradient color mapping.

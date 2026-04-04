@@ -3,9 +3,8 @@
 //! Thin hook shim — all game logic lives in `openwa_core::engine::team_ops`.
 //! This file contains only usercall trampolines and hook installation.
 
-use openwa_core::address::va;
-use openwa_core::engine::ddgame::TeamArenaRef;
 use openwa_core::engine::team_ops;
+use openwa_core::{address::va, engine::TeamArenaRef};
 
 use crate::hook::{self, usercall_trampoline};
 

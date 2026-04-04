@@ -795,8 +795,9 @@ pub struct Sprite {
     pub secondary_frame_count: u16,
     /// 0x32: Padding
     pub _pad_32: u16,
-    /// 0x34: DisplayGfx bitmap handle (vtable 0x664144 set by ConstructSprite)
-    pub display_gfx: *mut u8,
+    /// 0x34: Embedded BitGrid vtable pointer (0x664144, set by ConstructSprite).
+    /// Part of a BitGrid sub-object within the Sprite.
+    pub bitgrid_vtable: *mut u8,
     /// 0x38-0x5F: Unknown fields
     pub _unknown_38: [u8; 0x28],
     /// 0x60: Pointer to raw frame header data

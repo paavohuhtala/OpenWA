@@ -1,6 +1,5 @@
 pub mod arrow;
 pub mod base;
-pub mod bit_grid;
 pub mod cloud;
 pub mod filter;
 pub mod fire;

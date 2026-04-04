@@ -19,6 +19,8 @@ use openwa_core::task::{CTask, CTaskBfsIter, CTaskMissile, CTaskWorm};
 /// Must be called from the DLL while the game is paused (frame breakpoint).
 #[cfg(target_arch = "x86")]
 pub unsafe fn capture() -> String {
+    use openwa_core::engine::TeamArenaRef;
+
     let mut out = String::with_capacity(128 * 1024);
 
     let session_ptr = rb(va::G_GAME_SESSION) as *const *mut GameSession;
@@ -60,7 +62,7 @@ pub unsafe fn capture() -> String {
     // ── Team blocks + worm entries ──
     let team_count = (*ddgame).team_arena.team_count as usize;
     let _ = writeln!(out, "[Teams] count={}", team_count);
-    let arena = openwa_core::engine::ddgame::TeamArenaRef::from_ptr(&raw mut (*ddgame).team_arena);
+    let arena = TeamArenaRef::from_ptr(&raw mut (*ddgame).team_arena);
     let blocks = arena.blocks();
     for t in 0..team_count {
         let header = arena.team_header(t);

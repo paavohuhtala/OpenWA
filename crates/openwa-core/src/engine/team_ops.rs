@@ -13,7 +13,9 @@
 //! - CheckAnyWormState0x8b (0x522970)
 //! - SetActiveWorm_Maybe (0x522500)
 
-use super::ddgame::{self, TeamArenaRef};
+use crate::engine::team_arena::worm;
+
+use super::team_arena::TeamArenaRef;
 
 /// Count teams by alliance membership — port of 0x522030.
 ///
@@ -67,7 +69,7 @@ pub unsafe fn is_worm_in_special_state(
     worm_index: u32,
     arena: TeamArenaRef,
 ) -> u32 {
-    if ddgame::worm::is_special_state(
+    if worm::is_special_state(
         arena
             .team_worm(team_index as usize, worm_index as usize)
             .state,

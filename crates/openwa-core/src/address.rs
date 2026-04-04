@@ -182,10 +182,8 @@ pub mod va {
             fn/Usercall INPUT_CTRL_INIT = 0x0058_C0D0;
         }
 
-        class "TaskStateMachine" {
-            /// TaskStateMachine vtable
-            vtable TASK_STATE_MACHINE_VTABLE = 0x0066_4118;
-        }
+        // TaskStateMachine was our old name for BitGrid before we understood it.
+        // Vtable 0x664118 is now BIT_GRID_VARIANT_VTABLE in the BitGrid class block.
 
         class "OpenGLCPU" {
             /// OpenGLCPU vtable (0x48-byte object)
@@ -230,7 +228,7 @@ pub mod va {
         class "BitGrid" {
             /// BitGrid base vtable
             vtable BIT_GRID_VTABLE = 0x0066_40EC;
-            /// BitGrid variant vtable (TaskStateMachine-class)
+            /// BitGrid variant vtable (used for DDGame+0x380 collision grid)
             vtable BIT_GRID_VARIANT_VTABLE = 0x0066_4118;
             /// BitGrid init
             fn BIT_GRID_INIT = 0x004F_6370;

@@ -13,6 +13,25 @@ pub unsafe fn wa_malloc(size: u32) -> *mut u8 {
     f(size)
 }
 
+/// Allocate space for a `T` on WA's heap and return a pointer to it.
+///
+/// Equivalent to `wa_malloc(size_of::<T>())` with a cast. The allocation is uninitialized.
+///
+/// # Safety
+/// Must only be called from within the WA.exe process (game or injected DLL).
+pub unsafe fn wa_malloc_struct<T>() -> *mut T {
+    wa_malloc(core::mem::size_of::<T>() as u32) as *mut T
+}
+
+/// Allocate space for a `T` on WA's heap, zero-initialize it, and return a pointer to it.
+/// Equivalent to `wa_malloc_zeroed(size_of::<T>())` with a cast. The allocation is zero-initialized.
+///
+/// # Safety
+/// Must only be called from within the WA.exe process (game or injected DLL).
+pub unsafe fn wa_malloc_struct_zeroed<T>() -> *mut T {
+    wa_malloc_zeroed(core::mem::size_of::<T>() as u32) as *mut T
+}
+
 /// Allocate `size` bytes from WA's CRT heap and zero-initialize them.
 ///
 /// Equivalent to `wa_malloc(size)` followed by `write_bytes(ptr, 0, size)`.

@@ -12,12 +12,11 @@
 
 use core::sync::atomic::{AtomicU32, Ordering};
 
-use openwa_core::address::va;
-use openwa_core::engine::ddgame::TeamArenaRef;
 use openwa_core::game::weapon::WeaponFireParams;
 use openwa_core::game::weapon_fire;
 use openwa_core::log::log_line;
 use openwa_core::task::worm::CTaskWorm;
+use openwa_core::{address::va, engine::TeamArenaRef};
 
 use crate::hook::{self, usercall_trampoline};
 

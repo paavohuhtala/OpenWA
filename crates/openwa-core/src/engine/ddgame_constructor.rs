@@ -12,6 +12,7 @@ use crate::address::va;
 use crate::audio::active_sound::ActiveSoundTable;
 use crate::audio::dssound::DSSound;
 use crate::audio::music::Music;
+use crate::display::bitgrid::BitGrid;
 use crate::display::dd_display::DDDisplay;
 use crate::display::gradient::compute_complex_gradient;
 use crate::display::palette::Palette;
@@ -26,11 +27,7 @@ use crate::render::gfx_dir::{
 };
 pub use crate::render::gfx_dir::{gfx_dir_find_entry, gfx_resource_create};
 use crate::render::landscape::PCLandscape;
-use crate::task::bit_grid::BitGrid;
 use crate::wa_alloc::{wa_malloc, wa_malloc_zeroed};
-
-// Re-export bit_grid_init so existing `engine::ddgame::bit_grid_init` paths keep working.
-pub use crate::task::bit_grid::bit_grid_init;
 
 // ============================================================
 // Pure Rust implementations of DDGame sub-functions
@@ -708,16 +705,16 @@ unsafe fn init_graphics_and_resources(
         }
     };
 
-    // ── BitGrid at DDGame+0x380 (alloc 0x4C, memset 0x2C) ──
-    // Pure Rust: allocate object, call bit_grid_init, override vtable.
+    // ── BitGrid at DDGame+0x380 ──
     {
-        let bit_grid = wa_malloc(0x4C);
-        core::ptr::write_bytes(bit_grid, 0, 0x2C);
+        use crate::wa_alloc::wa_malloc_struct_zeroed;
+
+        let bit_grid = wa_malloc_struct_zeroed::<BitGrid>();
         if !bit_grid.is_null() {
             let width = (*ddgame).level_width;
             let height = (*ddgame).level_height;
-            bit_grid_init(bit_grid, 1, width, height);
-            *(bit_grid as *mut u32) = rb(va::BIT_GRID_VARIANT_VTABLE);
+            BitGrid::init(bit_grid as *mut BitGrid, 1, width, height);
+            (*bit_grid).vtable = rb(va::BIT_GRID_VARIANT_VTABLE);
         }
         (*ddgame).bit_grid = bit_grid;
     }
@@ -803,9 +800,9 @@ unsafe fn init_graphics_and_resources(
             //   right/bottom = dim - margin
             // Result: this[5]=this[6]=10 for sprites >20px (the 10px inset).
             if !sprite.is_null() {
-                let tsm = &*(sprite as *const BitGrid);
-                let sprite_w = tsm.width as i32;
-                let sprite_h = tsm.height as i32;
+                let grid = &*(sprite as *const BitGrid);
+                let sprite_w = grid.width as i32;
+                let sprite_h = grid.height as i32;
                 let margin_w = (sprite_w / 2 - 10).max(0);
                 let margin_h = (sprite_h / 2 - 10).max(0);
 
@@ -846,15 +843,16 @@ unsafe fn init_graphics_and_resources(
         release(gfx_resource, 1);
     }
 
-    // ── DisplayGfx at DDGame+0x138 ──
+    // ── Display BitGrid at DDGame+0x138 ──
     {
-        let tsm = wa_malloc(0x4C);
-        core::ptr::write_bytes(tsm, 0, 0x2C);
-        if !tsm.is_null() {
-            bit_grid_init(tsm, 8, 0x100, 0x1E0);
-            *(tsm as *mut u32) = rb(va::BIT_GRID_DISPLAY_VTABLE);
+        use crate::wa_alloc::wa_malloc_struct_zeroed;
+
+        let grid = wa_malloc_struct_zeroed::<BitGrid>();
+        if !grid.is_null() {
+            BitGrid::init(grid, 8, 0x100, 0x1E0);
+            *(grid as *mut u32) = rb(va::BIT_GRID_DISPLAY_VTABLE);
         }
-        (*ddgame).display_gfx = tsm;
+        (*ddgame).display_bitgrid = grid as *mut BitGrid;
     }
 
     // ── CoordList at DDGame+0x50C (capacity 600, 0x12C0 buffer) ──

@@ -143,6 +143,7 @@ pub struct WormEntry {
     /// 0x00: Worm state machine state.
     /// Values: 0x65=idle, 0x67=active/selected, 0x68=active variant.
     /// Special states {0x80..0x85, 0x89} = dying/drowning/special animation.
+    /// TODO: Update this to use WormState enum
     pub state: u32,
     /// 0x04: Unknown counter. Incremented by Freeze (+10).
     pub effect_counter_04_Maybe: i32,
@@ -310,6 +311,7 @@ pub struct TeamArenaState {
     /// 0x2C10: Unknown padding
     pub _pad_2c10: [u8; 0x18],
     /// 0x2C28: Game phase counter (>=484 = sudden death, >=-2 = normal game)
+    /// TODO: Convert this to GamePhase enum
     pub game_phase: i32,
 
     // === Alliance tracking (set by CountTeamsByAlliance + SetActiveWorm_Maybe) ===
@@ -332,6 +334,7 @@ pub struct TeamArenaState {
 const _: () = assert!(core::mem::size_of::<TeamArenaState>() == 0x2C48);
 
 /// Worm state constants and helpers.
+/// TODO: Replace this module with the WormState enum
 pub mod worm {
     // --- Known state values (runtime-validated via validator dumps) ---
 

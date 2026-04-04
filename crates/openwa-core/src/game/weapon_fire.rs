@@ -11,7 +11,7 @@
 
 use crate::address::va;
 use crate::audio::{KnownSoundId, SoundId};
-use crate::engine::ddgame::{self, TeamArenaRef};
+use crate::engine::{TeamArenaRef, GAME_PHASE_NORMAL_MIN, GAME_PHASE_SUDDEN_DEATH};
 use crate::fixed::Fixed;
 use crate::game::weapon::{WeaponEntry, WeaponFireParams, WeaponSpawnData};
 use crate::game::Weapon;
@@ -93,15 +93,13 @@ pub unsafe fn get_ammo(team_index: u32, arena: TeamArenaRef, weapon_id: u32) -> 
         }
         // In sudden death (phase >= 484), delayed weapons return 0
         // unless it's Teleport (weapon 0x28)
-        if state.game_phase >= ddgame::GAME_PHASE_SUDDEN_DEATH
-            && weapon_id != Weapon::Teleport as u32
-        {
+        if state.game_phase >= GAME_PHASE_SUDDEN_DEATH && weapon_id != Weapon::Teleport as u32 {
             return 0;
         }
     }
 
     // SelectWorm (0x3B) requires >1 alive worm on the team
-    if state.game_phase >= ddgame::GAME_PHASE_NORMAL_MIN
+    if state.game_phase >= GAME_PHASE_NORMAL_MIN
         && weapon_id == Weapon::SelectWorm as u32
         && count_alive_worms(team_index, arena) == 0
     {
@@ -465,7 +463,6 @@ unsafe fn fire_select_worm(worm: *mut CTaskWorm) {
 /// Bit position comes from weapon entry's fire_params.
 /// In game_version > 0x1C: toggles (set/clear). Otherwise: always sets.
 unsafe fn fire_skip_go(worm: *const CTaskWorm, entry: *const WeaponEntry) {
-    use crate::engine::ddgame::TeamArenaRef;
     let ddgame = CTask::ddgame_raw(worm as *const CTask);
     let game_version = (*(*ddgame).game_info).game_version;
     let team_index = (*worm).team_index as usize;
@@ -489,8 +486,6 @@ unsafe fn fire_skip_go(worm: *const CTaskWorm, entry: *const WeaponEntry) {
 /// Sends message 0x29 (TaskMessage::Freeze) to CTaskTurnGame, then increments
 /// WormEntry.turn_action_counter_Maybe by 14 (0x0E).
 unsafe fn fire_freeze(worm: *mut CTaskWorm) {
-    use crate::engine::ddgame::TeamArenaRef;
-
     fire_send_team_message(worm, 0x29);
 
     let ddgame = CTask::ddgame_raw(worm as *const CTask);
@@ -514,7 +509,6 @@ unsafe fn fire_freeze(worm: *mut CTaskWorm) {
 /// - version >= 5 && worm state == 0x78 && version < 8: call vtable
 /// - otherwise: skip
 unsafe fn fire_mail_mine_mole(worm: *mut CTaskWorm) {
-    use crate::engine::ddgame::TeamArenaRef;
     let ddgame = CTask::ddgame_raw(worm as *const CTask);
     let version = (*ddgame).version_flag_4;
     let worm_state = (*worm).state();
@@ -989,7 +983,7 @@ unsafe fn fire_girder(worm: *mut CTaskWorm) {
         girder_visual(landscape, girder_x >> 16, girder_y >> 16, sprite1, sprite2);
 
         // Increment WormEntry counters
-        let arena = crate::engine::ddgame::TeamArenaRef::from_ptr(&raw mut (*ddgame).team_arena);
+        let arena = TeamArenaRef::from_ptr(&raw mut (*ddgame).team_arena);
         let team_index = (*worm).team_index as usize;
         let worm_index = (*worm).worm_index as usize;
         let entry = arena.team_worm_mut(team_index, worm_index);

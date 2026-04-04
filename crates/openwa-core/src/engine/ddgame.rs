@@ -4,7 +4,11 @@ use crate::audio::music::Music;
 use crate::audio::speech::SpeechSlotTable;
 use crate::display::dd_display::DDDisplay;
 use crate::display::palette::Palette;
+use crate::display::BitGrid;
 use crate::engine::game_info::GameInfo;
+use crate::engine::{
+    CoordEntry, CoordList, RenderEntry, SoundQueueEntry, TeamArenaState, TeamIndexMap,
+};
 use crate::fixed::Fixed;
 use crate::game::weapon::WeaponTable;
 use crate::input::keyboard::DDKeyboard;
@@ -12,22 +16,6 @@ use crate::render::landscape::PCLandscape;
 use crate::render::queue::RenderQueue;
 use crate::render::turn_order::TurnOrderWidget;
 use crate::FieldRegistry;
-
-// Re-export constructor items so existing `engine::ddgame::*` imports keep working.
-pub use super::ddgame_constructor::{
-    bit_grid_init, create_ddgame, ddgame_init_fields, ddgame_init_render_indices,
-    display_layer_color_init, gfx_dir_find_entry, gfx_resource_create, init_constructor_addrs,
-    ON_DDGAME_ALLOC,
-};
-// Re-export public GfxHandler functions so existing `engine::ddgame::*` imports keep working.
-pub use crate::render::gfx_dir::gfx_dir_load_dir;
-
-// Re-export all team_arena types so existing `engine::ddgame::*` imports keep working.
-pub use crate::engine::team_arena::{
-    worm, CoordEntry, CoordList, CoordListEntry, RenderEntry, SoundQueueEntry, TeamArenaRef,
-    TeamArenaState, TeamBlock, TeamHeader, TeamIndexMap, TeamSlot0, TeamWeaponSlots, WeaponSlots,
-    WormEntry, GAME_PHASE_NORMAL_MIN, GAME_PHASE_SUDDEN_DEATH,
-};
 
 /// DDGame — the main game engine object.
 ///
@@ -81,15 +69,16 @@ pub struct DDGame {
     pub arrow_sprites: [*mut u8; 32],
     /// 0x0B8-0x134: Arrow GfxDir pointers (32 entries, conditional)
     pub arrow_gfxdirs: [*mut u8; 32],
-    /// 0x138: DisplayGfx object pointer (vtable 0x664144)
-    pub display_gfx: *mut u8,
-    /// 0x13C-0x37F: Sprite/image object cache (145 pointer slots).
-    /// All populated entries have vtable 0x664144 (same class as `display_gfx`).
+    /// 0x138: Primary display BitGrid (vtable 0x664144, 8bpp pixel buffer).
+    /// Allocated as 0x4C bytes, initialized with BitGrid::init(8, 0x100, 0x1E0).
+    pub display_bitgrid: *mut BitGrid,
+    /// 0x13C-0x37F: Sprite/image BitGrid cache (145 pointer slots).
+    /// All populated entries have vtable 0x664144 (same class as `display_bitgrid`).
     /// Not initialized in DDGame__Constructor — filled during gameplay with
     /// weapon sprites, effect images, cursor graphics, etc.
     pub sprite_cache: [*mut u8; 145],
     /// 0x380: BitGrid pointer (vtable 0x664118, 0x2C bytes)
-    pub bit_grid: *mut u8,
+    pub bit_grid: *mut BitGrid,
     /// 0x384-0x467: Additional sprite/image object slots.
     /// Same vtable 0x664144 as sprite_cache. ~20 entries populated at runtime.
     pub sprite_cache_2: [*mut u8; 57],
@@ -590,7 +579,7 @@ impl DDGame {
 // DDGame constructor code (create_ddgame, init helpers, usercall bridges)
 // has been moved to ddgame_constructor.rs.
 
-// BitGrid__Init moved to crate::task::bit_grid
+// BitGrid__Init lives in crate::display::bitgrid
 // Re-exported via ddgame_constructor.rs
 /// Well-known byte offsets into DDGame, for use with raw pointer access.
 ///
