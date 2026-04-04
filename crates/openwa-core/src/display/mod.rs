@@ -15,7 +15,7 @@ pub use bitgrid::{
 };
 pub use compat_renderer::CompatRenderer;
 pub use dd_display::DDDisplay;
-pub use display_wrapper::DDDisplayWrapper;
+pub use display_wrapper::{DDDisplayWrapper, FastcallResult};
 pub use gfx::DisplayGfx;
 pub use opengl::OpenGLState;
 pub use palette::{Palette, PaletteVtable};

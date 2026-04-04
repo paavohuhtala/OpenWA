@@ -294,7 +294,7 @@ pub unsafe extern "thiscall" fn get_dimensions(
     *out_h = (*gfx).base.display_height;
 }
 
-use super::display_wrapper::DDDisplayWrapper;
+use super::display_wrapper::{DDDisplayWrapper, FastcallResult};
 use crate::address::va;
 use crate::rebase::rb;
 
@@ -322,5 +322,6 @@ pub unsafe extern "thiscall" fn flush_render(this: *mut DDDisplay) {
     }
 
     // get_renderer_surface → renderer Flip
-    DDDisplayWrapper::call_method(wrapper, 13);
+    let mut buf = FastcallResult::default();
+    DDDisplayWrapper::get_renderer_surface_raw(wrapper, &mut buf);
 }
