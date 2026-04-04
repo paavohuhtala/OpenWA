@@ -12,7 +12,7 @@ use crate::address::va;
 use crate::audio::active_sound::ActiveSoundTable;
 use crate::audio::dssound::DSSound;
 use crate::audio::music::Music;
-use crate::display::bitgrid::BitGrid;
+use crate::display::bitgrid::{BitGrid, BitGridBaseVtable, CollisionBitGrid, DisplayBitGrid};
 use crate::display::dd_display::DDDisplay;
 use crate::display::gradient::compute_complex_gradient;
 use crate::display::palette::Palette;
@@ -705,18 +705,11 @@ unsafe fn init_graphics_and_resources(
         }
     };
 
-    // ── BitGrid at DDGame+0x380 ──
+    // ── Collision BitGrid at DDGame+0x380 ──
     {
-        use crate::wa_alloc::wa_malloc_struct_zeroed;
-
-        let bit_grid = wa_malloc_struct_zeroed::<BitGrid>();
-        if !bit_grid.is_null() {
-            let width = (*ddgame).level_width;
-            let height = (*ddgame).level_height;
-            BitGrid::init(bit_grid as *mut BitGrid, 1, width, height);
-            (*bit_grid).vtable = rb(va::BIT_GRID_VARIANT_VTABLE);
-        }
-        (*ddgame).bit_grid = bit_grid;
+        let width = (*ddgame).level_width;
+        let height = (*ddgame).level_height;
+        (*ddgame).collision_grid = CollisionBitGrid::alloc(1, width, height);
     }
 
     // ── 8× SpriteRegion at DDGame+0x46C..0x488 ──
@@ -844,16 +837,7 @@ unsafe fn init_graphics_and_resources(
     }
 
     // ── Display BitGrid at DDGame+0x138 ──
-    {
-        use crate::wa_alloc::wa_malloc_struct_zeroed;
-
-        let grid = wa_malloc_struct_zeroed::<BitGrid>();
-        if !grid.is_null() {
-            BitGrid::init(grid, 8, 0x100, 0x1E0);
-            *(grid as *mut u32) = rb(va::BIT_GRID_DISPLAY_VTABLE);
-        }
-        (*ddgame).display_bitgrid = grid as *mut BitGrid;
-    }
+    (*ddgame).display_bitgrid = DisplayBitGrid::alloc(8, 0x100, 0x1E0);
 
     // ── CoordList at DDGame+0x50C (capacity 600, 0x12C0 buffer) ──
     {
@@ -1025,9 +1009,11 @@ unsafe fn init_graphics_and_resources(
     // ── Gradient image stub (DDGame+0x30) ──
     // Minimal stub: [6]=0 (zero-width) so CTaskLand skips the gradient column loop.
     if (*ddgame).gradient_image.is_null() {
-        let obj = wa_malloc_zeroed(core::mem::size_of::<BitGrid>() as u32) as *mut BitGrid;
+        use crate::wa_alloc::wa_malloc_struct_zeroed;
+
+        let obj = wa_malloc_struct_zeroed::<BitGrid>();
         if !obj.is_null() {
-            (*obj).vtable = rb(va::BIT_GRID_VTABLE);
+            (*obj).vtable = rb(va::BIT_GRID_BASE_VTABLE) as *const BitGridBaseVtable;
             // height = 0 → CTaskLand skips the gradient column loop
             (*ddgame).gradient_image = obj as *mut u8;
         }

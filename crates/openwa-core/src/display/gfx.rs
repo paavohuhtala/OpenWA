@@ -1,5 +1,5 @@
 use super::base::DisplayBase;
-use super::bitgrid::BitGrid;
+use super::bitgrid::DisplayBitGrid;
 use core::ffi::c_void;
 
 /// DisplayGfx — full display/graphics subsystem (derived from DisplayBase).
@@ -99,11 +99,11 @@ pub struct DisplayGfx {
     pub render_lock: u32,
     /// 0x3D9C: Layer 0 — BitGrid pixel buffer (0x4C bytes, vtable 0x664144).
     /// Allocated and initialized in DDDisplay__Init.
-    pub layer_0: *mut BitGrid,
+    pub layer_0: *mut DisplayBitGrid,
     /// 0x3DA0: Layer 1 — BitGrid pixel buffer (same type as layer_0)
-    pub layer_1: *mut BitGrid,
+    pub layer_1: *mut DisplayBitGrid,
     /// 0x3DA4: Layer 2 — BitGrid pixel buffer (uses BitGrid__Init for extended setup)
-    pub layer_2: *mut BitGrid,
+    pub layer_2: *mut DisplayBitGrid,
     /// 0x3DA8: BitGrid vtable pointer (0x664144). Set in constructor.
     pub bitgrid_vtable: *const c_void,
     /// 0x3DAC: Layer active flag (init 1)

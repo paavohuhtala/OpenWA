@@ -4,7 +4,7 @@ use crate::audio::music::Music;
 use crate::audio::speech::SpeechSlotTable;
 use crate::display::dd_display::DDDisplay;
 use crate::display::palette::Palette;
-use crate::display::BitGrid;
+use crate::display::{CollisionBitGrid, DisplayBitGrid};
 use crate::engine::game_info::GameInfo;
 use crate::engine::{
     CoordEntry, CoordList, RenderEntry, SoundQueueEntry, TeamArenaState, TeamIndexMap,
@@ -71,14 +71,15 @@ pub struct DDGame {
     pub arrow_gfxdirs: [*mut u8; 32],
     /// 0x138: Primary display BitGrid (vtable 0x664144, 8bpp pixel buffer).
     /// Allocated as 0x4C bytes, initialized with BitGrid::init(8, 0x100, 0x1E0).
-    pub display_bitgrid: *mut BitGrid,
+    pub display_bitgrid: *mut DisplayBitGrid,
     /// 0x13C-0x37F: Sprite/image BitGrid cache (145 pointer slots).
     /// All populated entries have vtable 0x664144 (same class as `display_bitgrid`).
     /// Not initialized in DDGame__Constructor — filled during gameplay with
     /// weapon sprites, effect images, cursor graphics, etc.
     pub sprite_cache: [*mut u8; 145],
-    /// 0x380: BitGrid pointer (vtable 0x664118, 0x2C bytes)
-    pub bit_grid: *mut BitGrid,
+    /// 0x380: Collision BitGrid pointer (vtable 0x664118, 0x2C bytes).
+    /// Used for terrain collision/spatial queries.
+    pub collision_grid: *mut CollisionBitGrid,
     /// 0x384-0x467: Additional sprite/image object slots.
     /// Same vtable 0x664144 as sprite_cache. ~20 entries populated at runtime.
     pub sprite_cache_2: [*mut u8; 57],

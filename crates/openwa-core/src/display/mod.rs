@@ -9,7 +9,10 @@ pub mod opengl;
 pub mod palette;
 
 pub use base::{DisplayBase, DisplayBaseVtable, SpriteBufferCtrl, SpriteCacheWrapper};
-pub use bitgrid::{BitGrid, BitGridDisplayVtable};
+pub use bitgrid::{
+    BitGrid, BitGridBaseVtable, BitGridCollisionVtable, BitGridDisplayVtable, CollisionBitGrid,
+    DisplayBitGrid,
+};
 pub use compat_renderer::CompatRenderer;
 pub use dd_display::DDDisplay;
 pub use display_wrapper::DDDisplayWrapper;

@@ -71,7 +71,10 @@ pub mod va {
         STREAMING_AUDIO_RESET, STREAMING_AUDIO_STOP, STREAMING_AUDIO_TIMER_CALLBACK,
     };
     pub use crate::display::base::DISPLAY_BASE_VTABLE;
-    pub use crate::display::bitgrid::{BitGridDisplayVtable, BIT_GRID_DISPLAY_VTABLE};
+    pub use crate::display::bitgrid::{
+        BitGridBaseVtable, BitGridCollisionVtable, BitGridDisplayVtable, BIT_GRID_BASE_VTABLE,
+        BIT_GRID_COLLISION_VTABLE, BIT_GRID_DISPLAY_VTABLE, BIT_GRID_INIT,
+    };
     pub use crate::display::compat_renderer::{
         CompatRendererVtable, COMPAT_RENDERER_VTABLE, DDRAW8_RENDERER_VTABLE,
     };
@@ -182,8 +185,7 @@ pub mod va {
             fn/Usercall INPUT_CTRL_INIT = 0x0058_C0D0;
         }
 
-        // TaskStateMachine was our old name for BitGrid before we understood it.
-        // Vtable 0x664118 is now BIT_GRID_VARIANT_VTABLE in the BitGrid class block.
+        // BitGrid vtables and init are now in display::bitgrid via define_addresses! + #[vtable].
 
         class "OpenGLCPU" {
             /// OpenGLCPU vtable (0x48-byte object)
@@ -223,15 +225,6 @@ pub mod va {
             fn GFX_DIR_FIND_ENTRY = 0x0056_6520;
             /// GfxDir load image
             fn GFX_DIR_LOAD_IMAGE = 0x0056_66D0;
-        }
-
-        class "BitGrid" {
-            /// BitGrid base vtable
-            vtable BIT_GRID_VTABLE = 0x0066_40EC;
-            /// BitGrid variant vtable (used for DDGame+0x380 collision grid)
-            vtable BIT_GRID_VARIANT_VTABLE = 0x0066_4118;
-            /// BitGrid init
-            fn BIT_GRID_INIT = 0x004F_6370;
         }
 
         class "DisplayGfx" {
