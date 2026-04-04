@@ -438,7 +438,7 @@ pub mod va {
         fn RQ_DRAW_PIXEL = 0x0054_1D60;
         fn RQ_DRAW_LINE_STRIP = 0x0054_1DD0;
         fn RQ_DRAW_POLYGON = 0x0054_1E50;
-        fn RQ_DRAW_SCALED = 0x0054_1ED0;
+        fn RQ_DRAW_CROSSHAIR = 0x0054_1ED0;
         fn RQ_DRAW_RECT = 0x0054_1F40;
         fn RQ_DRAW_SPRITE_GLOBAL = 0x0054_1FE0;
         fn RQ_DRAW_SPRITE_LOCAL = 0x0054_2060;

@@ -8,8 +8,8 @@ pub mod turn_order;
 
 pub use landscape::{DirtyRect, PCLandscape};
 pub use queue::{
-    DrawBitmapGlobalCmd, DrawLineStripHeader, DrawPixelCmd, DrawPolygonHeader, DrawRectCmd,
-    DrawScaledCmd, DrawSpriteCmd, DrawSpriteOffsetCmd, DrawTextboxLocalCmd, RenderQueue,
+    DrawBitmapGlobalCmd, DrawCrosshairCmd, DrawLineStripHeader, DrawPixelCmd, DrawPolygonHeader,
+    DrawRectCmd, DrawSpriteCmd, DrawSpriteOffsetCmd, DrawTextboxLocalCmd, RenderQueue,
 };
 pub use spr::{ParsedSprite, SprError, SprHeader};
 pub use sprite::{Sprite, SpriteFrame, SpriteId};

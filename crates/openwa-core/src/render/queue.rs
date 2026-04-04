@@ -92,19 +92,23 @@ pub struct DrawPixelCmd {
 
 const _: () = assert!(core::mem::size_of::<DrawPixelCmd>() == 0x18);
 
-/// Type 0xB — scaled sprite draw (0x1C = 28 bytes).
+/// Type 0xB — draw crosshair (0x1C = 28 bytes).
+///
+/// Dispatched by RenderDrawingQueue case 0xB → DDDisplay::draw_crosshair (slot 16).
+/// The enqueue function at 0x541ED0 writes fields in non-sequential order:
+/// `[1]=layer, [4]=x, [5]=y, [2]=color_fg, [3]=color_bg, [6]=0`.
 #[repr(C)]
-pub struct DrawScaledCmd {
+pub struct DrawCrosshairCmd {
     pub command_type: u32, // 0xB
     pub layer: u32,
+    pub color_fg: u32,
+    pub color_bg: u32,
     pub x_pos: u32,
     pub y_pos: u32,
-    pub sprite_id: u32,
-    pub frame: u32,
-    pub _reserved: u32, // hardcoded 0
+    pub _reserved: u32, // hardcoded 0 (clip ref)
 }
 
-const _: () = assert!(core::mem::size_of::<DrawScaledCmd>() == 0x1C);
+const _: () = assert!(core::mem::size_of::<DrawCrosshairCmd>() == 0x1C);
 
 /// Type 0 — filled rectangle (0x20 = 32 bytes).
 #[repr(C)]
@@ -211,6 +215,7 @@ pub mod command_type {
     pub const DRAW_SPRITE_OFFSET: u32 = 6;
     pub const DRAW_LINE_STRIP: u32 = 8;
     pub const DRAW_POLYGON: u32 = 9;
-    pub const DRAW_SCALED: u32 = 0xB;
+    pub const DRAW_CROSSHAIR: u32 = 0xB;
+    pub const DRAW_OUTLINED_PIXEL: u32 = 0xC;
     pub const DRAW_PIXEL: u32 = 0xD;
 }

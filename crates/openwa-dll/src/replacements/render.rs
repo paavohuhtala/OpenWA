@@ -102,30 +102,32 @@ unsafe extern "cdecl" fn draw_polygon_impl(
 }
 
 // ---------------------------------------------------------------------------
-// DrawScaled (0x541ED0) — type 0xB, ECX=this, 5 stack, RET 0x14
+// DrawCrosshair (0x541ED0) — type 0xB, ECX=this, 5 stack, RET 0x14
+// Enqueues a crosshair draw command. Dispatched by RenderDrawingQueue
+// case 0xB → DDDisplay::draw_crosshair (vtable slot 16).
 // ---------------------------------------------------------------------------
 
-usercall_trampoline!(fn trampoline_draw_scaled; impl_fn = draw_scaled_impl;
+usercall_trampoline!(fn trampoline_draw_crosshair; impl_fn = draw_crosshair_impl;
     reg = ecx; stack_params = 5; ret_bytes = "0x14");
 
-unsafe extern "cdecl" fn draw_scaled_impl(
+unsafe extern "cdecl" fn draw_crosshair_impl(
     this: u32,
     layer: u32,
-    sprite_id: u32,
-    frame: u32,
     x_pos: u32,
     y_pos: u32,
+    color_fg: u32,
+    color_bg: u32,
 ) {
     let q = &mut *(this as *mut RenderQueue);
 
-    if let Some(entry) = q.alloc::<DrawScaledCmd>() {
-        *entry = DrawScaledCmd {
-            command_type: command_type::DRAW_SCALED,
+    if let Some(entry) = q.alloc::<DrawCrosshairCmd>() {
+        *entry = DrawCrosshairCmd {
+            command_type: command_type::DRAW_CROSSHAIR,
             layer,
+            color_fg,
+            color_bg,
             x_pos,
             y_pos,
-            sprite_id,
-            frame,
             _reserved: 0,
         };
     }
@@ -600,9 +602,9 @@ pub fn install() -> Result<(), String> {
         )?;
 
         let _ = hook::install(
-            "DrawScaled",
-            va::RQ_DRAW_SCALED,
-            trampoline_draw_scaled as *const (),
+            "DrawCrosshair",
+            va::RQ_DRAW_CROSSHAIR,
+            trampoline_draw_crosshair as *const (),
         )?;
 
         let _ = hook::install(
