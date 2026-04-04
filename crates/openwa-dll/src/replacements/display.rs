@@ -7,9 +7,11 @@
 
 use crate::log_line;
 use openwa_core::address::va;
+use openwa_core::display::dd_display::{self, DDDisplayVtable};
 use openwa_core::display::{DisplayBase, SpriteBufferCtrl, SpriteCacheWrapper};
 use openwa_core::rebase::rb;
 use openwa_core::vtable::patch_vtable;
+use openwa_core::vtable_replace;
 use openwa_core::wa_alloc::wa_free;
 
 /// The _purecall function address (calls abort).
@@ -76,6 +78,12 @@ pub fn install() -> Result<(), String> {
             *vt = headless_destructor as *const () as u32;
             let _ = log_line("[Display]   Headless: patched slot 0 (destructor) → Rust");
         })?;
+
+        // Patch DDDisplay vtable (0x66A218): replace ported methods with Rust.
+        vtable_replace!(DDDisplayVtable, va::DD_DISPLAY_VTABLE, {
+            get_dimensions => dd_display::get_dimensions,
+        })?;
+        let _ = log_line("[Display]   DDDisplay: patched get_dimensions → Rust");
     }
 
     Ok(())

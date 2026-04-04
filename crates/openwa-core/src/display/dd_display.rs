@@ -270,3 +270,33 @@ pub struct DDDisplayVtable {
 
 // Generate calling wrappers: DDDisplay::set_layer_color(), etc.
 bind_DDDisplayVtable!(DDDisplay, vtable);
+
+// =========================================================================
+// Ported DDDisplay vtable methods
+// =========================================================================
+
+use super::gfx::DisplayGfx;
+
+/// Port of DDDisplay::GetDimensions (vtable slot 1, 0x56A460).
+///
+/// Reads display_width/display_height from DisplayBase and writes them
+/// to the output pointers.
+///
+/// # Safety
+/// `this` must be a valid `*mut DDDisplay` (actually a `*mut DisplayGfx`).
+pub unsafe extern "thiscall" fn get_dimensions(
+    this: *mut DDDisplay,
+    out_w: *mut u32,
+    out_h: *mut u32,
+) {
+    let gfx = this as *mut DisplayGfx;
+    *out_w = (*gfx).base.display_width;
+    *out_h = (*gfx).base.display_height;
+}
+
+// FlushRender (vtable slot 26, 0x56A580) — NOT YET PORTED.
+//
+// Calls DDDisplayWrapper::unlock_surface_write and ::get_renderer_surface,
+// which use a non-standard fastcall convention (EDX = result pointer, not
+// standard thiscall). Needs a naked asm bridge or corrected vtable typing
+// for the DDDisplayWrapper methods before this can be ported.
