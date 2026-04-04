@@ -816,7 +816,6 @@ fn run_headful_test(
     let errorlog_path = run_dir.join(format!("{}.errorlog.txt", test.name));
 
     let result = Command::new(launcher)
-        .arg("--minimized")
         .arg(wa_exe)
         .arg(&test.replay_path)
         .env("OPENWA_REPLAY_TEST", "1")

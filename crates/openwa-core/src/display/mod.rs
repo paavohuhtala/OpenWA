@@ -5,6 +5,7 @@ pub mod dd_display;
 pub mod display_wrapper;
 pub mod gfx;
 pub mod gradient;
+pub mod line_draw;
 pub mod opengl;
 pub mod palette;
 

@@ -48,6 +48,134 @@ unsafe extern "thiscall" fn headless_destructor(
     this
 }
 
+/// Capture line-drawing snapshots from WA's native BitGrid line functions.
+///
+/// Creates a test BitGrid, calls WA line functions with known inputs,
+/// saves pixel data to `testdata/snapshots/`. Activated by
+/// `OPENWA_CAPTURE_LINE_SNAPSHOTS=1`.
+pub unsafe fn capture_line_snapshots() {
+    use openwa_core::display::bitgrid::DisplayBitGrid;
+    use std::fs;
+    use std::io::Write;
+
+    let grid_w: u32 = 128;
+    let grid_h: u32 = 128;
+    let grid = DisplayBitGrid::alloc(8, grid_w, grid_h);
+    if grid.is_null() {
+        let _ = log_line("[Display] SNAPSHOT: Failed to allocate test BitGrid");
+        return;
+    }
+
+    let row_stride = (*grid).row_stride;
+    let data_ptr = (*grid).data;
+    let data_size = (row_stride * grid_h) as usize;
+
+    // WA line functions (stdcall)
+    let draw_clipped: unsafe extern "stdcall" fn(*mut DisplayBitGrid, i32, i32, i32, i32, u32) =
+        core::mem::transmute(rb(va::DRAW_LINE_CLIPPED) as usize);
+
+    let draw_two: unsafe extern "stdcall" fn(*mut DisplayBitGrid, i32, i32, i32, i32, u32, u32) =
+        core::mem::transmute(rb(va::DRAW_LINE_TWO_COLOR) as usize);
+
+    let dir = "testdata/snapshots";
+    let _ = fs::create_dir_all(dir);
+
+    // Macro: clear grid, reset clip, run drawing code, save to file.
+    macro_rules! snap {
+        ($name:expr, $body:expr) => {{
+            core::ptr::write_bytes(data_ptr, 0, data_size);
+            (*grid).clip_left = 0;
+            (*grid).clip_top = 0;
+            (*grid).clip_right = grid_w;
+            (*grid).clip_bottom = grid_h;
+            $body;
+            let path = format!("{}/{}.bin", dir, $name);
+            if let Ok(mut file) = fs::File::create(&path) {
+                let _ = file.write_all(&grid_w.to_le_bytes());
+                let _ = file.write_all(&grid_h.to_le_bytes());
+                let _ = file.write_all(&row_stride.to_le_bytes());
+                let _ = file.write_all(core::slice::from_raw_parts(data_ptr, data_size));
+            }
+        }};
+    }
+
+    let f = |x: i32| x << 16; // int to Fixed raw
+    let mut count = 0u32;
+
+    // Single-color line tests
+    for &(name, x1, y1, x2, y2, color) in &[
+        ("clipped_horizontal", f(10), f(64), f(118), f(64), 1u32),
+        ("clipped_vertical", f(64), f(10), f(64), f(118), 2),
+        ("clipped_diagonal_45", f(10), f(10), f(118), f(118), 3),
+        ("clipped_diagonal_steep", f(60), f(10), f(68), f(118), 4),
+        ("clipped_diagonal_shallow", f(10), f(60), f(118), f(68), 5),
+        ("clipped_negative_slope", f(118), f(10), f(10), f(118), 6),
+        (
+            "clipped_subpixel",
+            f(10) + 0x8000,
+            f(20) + 0x4000,
+            f(100) + 0xC000,
+            f(80) + 0x2000,
+            7,
+        ),
+        ("clipped_zero_length", f(64), f(64), f(64), f(64), 8),
+        ("clipped_partially_outside", f(-20), f(64), f(148), f(64), 9),
+        ("clipped_fully_outside", f(-50), f(-50), f(-10), f(-10), 10),
+    ] {
+        snap!(name, draw_clipped(grid, x1, y1, x2, y2, color));
+        count += 1;
+    }
+
+    // Two-color line tests
+    for &(name, x1, y1, x2, y2, c1, c2) in &[
+        ("twocol_horizontal", f(10), f(64), f(118), f(64), 1u32, 2u32),
+        ("twocol_vertical", f(64), f(10), f(64), f(118), 1, 2),
+        ("twocol_diagonal_45", f(10), f(10), f(118), f(118), 1, 2),
+        ("twocol_steep", f(60), f(10), f(68), f(118), 3, 4),
+        ("twocol_shallow", f(10), f(60), f(118), f(68), 3, 4),
+        ("twocol_negative", f(118), f(10), f(10), f(118), 5, 6),
+        (
+            "twocol_subpixel",
+            f(10) + 0x8000,
+            f(20) + 0x4000,
+            f(100) + 0xC000,
+            f(80) + 0x2000,
+            7,
+            8,
+        ),
+    ] {
+        snap!(name, draw_two(grid, x1, y1, x2, y2, c1, c2));
+        count += 1;
+    }
+
+    // Restricted clip rect tests
+    snap!("clipped_restricted_clip", {
+        (*grid).clip_left = 30;
+        (*grid).clip_top = 30;
+        (*grid).clip_right = 98;
+        (*grid).clip_bottom = 98;
+        draw_clipped(grid, f(10), f(10), f(118), f(118), 11)
+    });
+    count += 1;
+
+    snap!("twocol_restricted_clip", {
+        (*grid).clip_left = 30;
+        (*grid).clip_top = 30;
+        (*grid).clip_right = 98;
+        (*grid).clip_bottom = 98;
+        draw_two(grid, f(10), f(10), f(118), f(118), 9, 10)
+    });
+    count += 1;
+
+    let _ = log_line(&format!(
+        "[Display] SNAPSHOT: Saved {count} line snapshots to {dir}/"
+    ));
+
+    // Free the grid
+    let destructor = (*(*grid).vtable).destructor;
+    destructor(grid, 1);
+}
+
 pub fn install() -> Result<(), String> {
     let _ = log_line("[Display] Patching DisplayBase vtables");
 
