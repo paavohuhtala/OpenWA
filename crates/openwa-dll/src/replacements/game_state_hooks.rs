@@ -90,7 +90,7 @@ unsafe extern "stdcall" fn hook_displaygfx_full(
     orig(p1, p2, p3, p4, p5)
 }
 
-// DDDisplay__ConstructTextbox (0x4FAF00): stdcall(3 params), RET 0xC
+// DisplayGfx__ConstructTextbox (0x4FAF00): stdcall(3 params), RET 0xC
 unsafe extern "stdcall" fn hook_textbox(p1: u32, p2: u32, p3: u32) -> u32 {
     let orig: unsafe extern "stdcall" fn(u32, u32, u32) -> u32 = core::mem::transmute(TEXTBOX_ORIG);
     orig(p1, p2, p3)
@@ -170,7 +170,7 @@ pub fn install() -> Result<(), String> {
         )? as *const ();
 
         TEXTBOX_ORIG = hook::install(
-            "DDDisplay__ConstructTextbox",
+            "DisplayGfx__ConstructTextbox",
             va::CONSTRUCT_TEXTBOX,
             hook_textbox as *const (),
         )? as *const ();

@@ -4,7 +4,7 @@ use crate::audio::music::Music;
 use crate::audio::speech::SpeechSlotTable;
 use crate::audio::SoundQueueEntry;
 use crate::bitgrid::{CollisionBitGrid, DisplayBitGrid};
-use crate::display::dd_display::DDDisplay;
+use crate::display::gfx::DisplayGfx;
 use crate::display::palette::Palette;
 use crate::engine::game_info::GameInfo;
 use crate::engine::{CoordEntry, CoordList, TeamArena, TeamIndexMap};
@@ -36,8 +36,8 @@ use crate::FieldRegistry;
 pub struct DDGame {
     /// 0x000: DDKeyboard pointer (vtable 0x66AEC8). Constructor param "keyboard".
     pub keyboard: *mut DDKeyboard,
-    /// 0x004: DDDisplay pointer (vtable 0x66A218). Constructor param "display".
-    pub display: *mut DDDisplay,
+    /// 0x004: DisplayGfx pointer (vtable 0x66A218). Constructor param "display".
+    pub display: *mut DisplayGfx,
     /// 0x008: DSSound pointer (vtable 0x66AF20). Constructor param "sound".
     /// Null means sound is disabled (checked by PlaySoundGlobal).
     pub sound: *mut DSSound,

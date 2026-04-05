@@ -441,7 +441,7 @@ pub unsafe fn capture_blit_snapshots() {
 
 /// Capture stippled and tiled blit snapshots from WA's native functions.
 ///
-/// Creates synthetic BitGrids and a minimal fake DDDisplay context (render_lock=1
+/// Creates synthetic BitGrids and a minimal fake DisplayGfx context (render_lock=1
 /// so AcquireRenderLock is a no-op), then calls the original WA functions.
 ///
 /// Activated by `OPENWA_CAPTURE_SNAPSHOTS=1`.
@@ -521,13 +521,13 @@ pub unsafe fn capture_stippled_tiled_snapshots() {
     // ---------------------------------------------------------------
     // Stippled blit capture
     // ---------------------------------------------------------------
-    // DDDisplay__BlitStippled (0x56AEF0):
+    // DisplayGfx__BlitStippled (0x56AEF0):
     //   usercall: EAX = height, ESI set internally from stack param
     //   8 stack params (RET 0x20):
     //     this, dst_x, dst_y, width, sprite, src_x, src_y, stipple_mode
     //   Accesses this+0x3D98 (render_lock) and this+0x3D9C (layer_0).
     //
-    // We create a minimal fake DDDisplay context with render_lock=1
+    // We create a minimal fake DisplayGfx context with render_lock=1
     // (so AcquireRenderLock skips) and layer_0 pointing to our dst grid.
     {
         let dw = (sw + 32) as u32;
@@ -539,7 +539,7 @@ pub unsafe fn capture_stippled_tiled_snapshots() {
             let dst_data = (*dst).data;
             let dst_size = ((*dst).row_stride * dh) as usize;
 
-            // Fake DDDisplay context — only fields at 0x3D98 and 0x3D9C matter.
+            // Fake DisplayGfx context — only fields at 0x3D98 and 0x3D9C matter.
             const FAKE_SIZE: usize = 0x3DA0;
             let fake_display: Vec<u8> = vec![0u8; FAKE_SIZE];
             let fake_ptr = fake_display.as_ptr() as *mut u8;
@@ -600,8 +600,8 @@ pub unsafe fn capture_stippled_tiled_snapshots() {
     // ---------------------------------------------------------------
     // Tiled blit capture
     // ---------------------------------------------------------------
-    // DDDisplay__BlitTiled tiles BlitSpriteRect horizontally.
-    // Rather than calling the original (which needs complex DDDisplay setup),
+    // DisplayGfx__BlitTiled tiles BlitSpriteRect horizontally.
+    // Rather than calling the original (which needs complex DisplayGfx setup),
     // we replicate the tiling loop using wa_blit_sprite_rect (original blit).
     {
         // Wide destination for visible tiling
@@ -702,7 +702,7 @@ pub unsafe fn capture_stippled_tiled_snapshots() {
     ));
 }
 
-/// Call WA's DDDisplay__BlitStippled (0x56AEF0).
+/// Call WA's DisplayGfx__BlitStippled (0x56AEF0).
 ///
 /// Usercall: EAX = height, 8 stdcall params (RET 0x20).
 /// `target` is the rebased runtime address.

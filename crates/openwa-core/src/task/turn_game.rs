@@ -78,11 +78,11 @@ pub struct TurnGameCtx {
     /// Observed value: 15. `FUN_00525f50` is a slot-allocation helper; this may
     /// be a pool slot index or a pre-computed game-state token.
     pub _slot_d0: u32,
-    /// +0xA4: `DDDisplay` textbox handle — created by `DDDisplay__ConstructTextbox`
+    /// +0xA4: `DisplayGfx` textbox handle — created by `DisplayGfx__ConstructTextbox`
     /// with params `(buf, -1280, 2)` if `DDGame+0x7EF8 != 0` (display active).
     /// Likely the HUD timer textbox.  NULL when display is disabled.
     pub _hud_textbox_a: u32,
-    /// +0xA8: `DDDisplay` textbox handle — created with params `(buf, 8, 4)`.
+    /// +0xA8: `DisplayGfx` textbox handle — created with params `(buf, 8, 4)`.
     /// Likely a secondary HUD element.  NULL when display is disabled.
     pub _hud_textbox_b: u32,
 }

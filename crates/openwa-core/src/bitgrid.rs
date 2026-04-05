@@ -270,7 +270,7 @@ pub type DisplayBitGrid = BitGrid<*const BitGridDisplayVtable>;
 /// Byte-level (8bpp) pixel buffer operations for rendering layers.
 /// All pixel addressing uses: `data[y * row_stride + x]`
 ///
-/// DDDisplay creates 3 layer objects in DDDisplay__Init:
+/// DisplayGfx creates 3 layer objects in DisplayGfx__Init:
 /// - Layer 0 at DisplayGfx+0x3D9C
 /// - Layer 1 at DisplayGfx+0x3DA0
 /// - Layer 2 at DisplayGfx+0x3DA4
@@ -293,7 +293,7 @@ pub struct BitGridDisplayVtable {
     pub get_pixel_clipped: fn(this: *mut DisplayBitGrid, x: i32, y: i32) -> u8,
     /// put pixel (clipped) — no-op if outside clip rect (0x4F9180, RET 0xC)
     ///
-    /// This is the main rendering primitive — DDDisplay dispatches drawing
+    /// This is the main rendering primitive — DisplayGfx dispatches drawing
     /// operations through these layer objects.
     #[slot(5)]
     pub put_pixel_clipped: fn(this: *mut DisplayBitGrid, x: i32, y: i32, color: u8),

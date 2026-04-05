@@ -1,16 +1,17 @@
 use super::base::DisplayBase;
+use super::display_vtable::DisplayVtable;
 use crate::bitgrid::DisplayBitGrid;
 use core::ffi::c_void;
 
 /// DisplayGfx — full display/graphics subsystem (derived from DisplayBase).
 ///
 /// Constructor: DisplayGfx__Constructor (0x569C10), stdcall(this) → DisplayGfx*.
-/// Initializer: DDDisplay__Init (0x569D00), usercall.
+/// Initializer: DisplayGfx__Init (0x569D00), usercall.
 /// Size: 0x24E28 bytes.
 ///
 /// Inheritance: DisplayBase (0x3560) → DisplayGfx (0x24E28).
 /// The constructor calls DisplayBase__Constructor first, then sets the
-/// DDDisplay vtable (0x66A218) and initializes display-specific fields.
+/// DisplayGfx vtable (0x66A218) and initializes display-specific fields.
 ///
 /// Created by GameEngine__InitHardware in normal (non-headless) mode.
 /// Stored in the session's `display` field (shared with DisplayBase in headless).
@@ -41,12 +42,12 @@ pub struct DisplayGfx {
     // DisplayBase (0x0000 - 0x355F)
     // =========================================================================
     /// 0x0000: DisplayBase fields (vtable, sprite cache, slot table, etc.)
-    pub base: DisplayBase,
+    pub base: DisplayBase<*const DisplayVtable>,
 
     // =========================================================================
     // Display dimensions and clip rect (0x3560 - 0x357F)
     // =========================================================================
-    /// 0x3560: Camera X offset (pixels). DDDisplay methods add this to coordinates.
+    /// 0x3560: Camera X offset (pixels). DisplayGfx methods add this to coordinates.
     pub camera_x: i32,
     /// 0x3564: Camera Y offset (pixels).
     pub camera_y: i32,
@@ -56,9 +57,9 @@ pub struct DisplayGfx {
     pub _unknown_356c: u32,
     /// 0x3570: Unknown (set to 0 in InitDisplayFinal)
     pub _unknown_3570: u32,
-    /// 0x3574: Unknown (set to 0 in DDDisplay__Init)
+    /// 0x3574: Unknown (set to 0 in DisplayGfx__Init)
     pub _unknown_3574: u32,
-    /// 0x3578: Window handle (HWND), used for MoveWindow in DDDisplay__Init
+    /// 0x3578: Window handle (HWND), used for MoveWindow in DisplayGfx__Init
     pub hwnd: u32,
     /// 0x357C: Unknown
     pub _unknown_357c: u32,
@@ -104,7 +105,7 @@ pub struct DisplayGfx {
     /// Allocated as 0x4C bytes (0x2C BitGrid + 0x20 unknown tail), but all observed
     /// access is within BitGrid offsets (0x00-0x28). Initialized with `external_buffer=1`
     /// and `cells_per_unit=8`; the acquire-render-lock helper (0x56A370) populates
-    /// `data`/`width`/`height`/`row_stride` from the locked DDDisplayWrapper surface.
+    /// `data`/`width`/`height`/`row_stride` from the locked DisplayGfxWrapper surface.
     /// `set_clip_rect` mirrors DisplayBase's clip rect into this BitGrid's clip fields.
     pub layer_0: *mut DisplayBitGrid,
     /// 0x3DA0: Layer 1 — same layout as layer_0.
@@ -125,7 +126,7 @@ pub struct DisplayGfx {
     // =========================================================================
     // Sprite/bitmap table (0x3DD4 - 0x4DD7)
     // =========================================================================
-    /// 0x3DD4: Sprite table — 1024 DWORD entries, zeroed in DDDisplay__Init.
+    /// 0x3DD4: Sprite table — 1024 DWORD entries, zeroed in DisplayGfx__Init.
     /// Used for tracking loaded sprites/bitmaps by ID.
     pub sprite_table: [u32; 0x400],
     /// 0x4DD4: Sprite table metadata field 1 (init 0)
@@ -154,7 +155,7 @@ pub struct DisplayGfx {
     /// InitDisplayFinal (1 = reduced red weight, else normal).
     pub blend_mode_flag: u32,
     /// 0x24DF8 - 0x24E07: Object vector (std::vector-like).
-    /// Holds palette/display objects pushed during DDDisplay__Init.
+    /// Holds palette/display objects pushed during DisplayGfx__Init.
     pub object_vector_start: u32,
     /// 0x24DFC: Vector data pointer
     pub object_vector_ptr: u32,

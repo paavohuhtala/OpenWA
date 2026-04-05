@@ -16,7 +16,7 @@ use crate::hook;
 use crate::log_line;
 use openwa_core::address::va;
 use openwa_core::audio::DSSound;
-use openwa_core::display::{DDDisplay, Palette};
+use openwa_core::display::{DisplayGfx, Palette};
 use openwa_core::engine::create_ddgame;
 use openwa_core::engine::init_constructor_addrs;
 use openwa_core::engine::{DDGameWrapper, GameInfo, GameSession};
@@ -49,7 +49,7 @@ unsafe extern "stdcall" fn call_init_replay(_game_info: *mut GameInfo, _this: *m
 #[unsafe(naked)]
 unsafe extern "C" fn call_original_ddgame_ctor(
     _wrapper: *mut DDGameWrapper,
-    _display: *mut DDDisplay,
+    _display: *mut DisplayGfx,
     _sound: *mut DSSound,
     _keyboard: *mut u8,
     _palette: *mut Palette,
@@ -81,7 +81,7 @@ static mut DDGAME_CTOR_ADDR: u32 = 0;
 pub(crate) unsafe fn construct_ddgame_wrapper(
     game_info: *mut GameInfo,
     this: *mut DDGameWrapper,
-    display: *mut DDDisplay,
+    display: *mut DisplayGfx,
     sound: *mut DSSound,
     keyboard: *mut u8,
     palette: *mut Palette,

@@ -105,7 +105,7 @@ pub struct TurnOrderTeamEntry {
     pub color_index: i32,
     /// 0x0C: DDGame pointer (back-reference for accessing health ratios etc).
     pub ddgame: *mut DDGame,
-    /// 0x10: Textbox object pointer (DDDisplay text renderer, 0x158 bytes).
+    /// 0x10: Textbox object pointer (DisplayGfx text renderer, 0x158 bytes).
     /// NULL when sound is disabled (headless mode).
     pub textbox: *mut u8,
     /// 0x14: DisplayGfx sprite for the health bar (vtable 0x664144).

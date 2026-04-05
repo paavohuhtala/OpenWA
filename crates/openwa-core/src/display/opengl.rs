@@ -4,7 +4,7 @@
 /// Vtable: 0x6774C0
 ///
 /// Small object (0x48 bytes) holding OpenGL rendering state.
-/// The actual OpenGL context (HDC, HGLRC) is stored in DDDisplay
+/// The actual OpenGL context (HDC, HGLRC) is stored in DisplayGfx
 /// fields during OpenGL__Init (0x59F000).
 #[repr(C)]
 pub struct OpenGLState {

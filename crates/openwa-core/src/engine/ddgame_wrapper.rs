@@ -1,5 +1,5 @@
 use crate::audio::dssound::DSSound;
-use crate::display::dd_display::DDDisplay;
+use crate::display::gfx::DisplayGfx;
 use crate::engine::ddgame::DDGame;
 use crate::engine::net_bridge::NetBridge;
 use crate::render::landscape::PCLandscape;
@@ -50,8 +50,8 @@ pub struct DDGameWrapper {
     pub gfx_mode: u32,
     /// 0x4CC: PCLandscape object pointer (DWORD index 0x133)
     pub landscape: *mut PCLandscape,
-    /// 0x4D0: DDDisplay pointer (param2 of constructor)
-    pub display: *mut DDDisplay,
+    /// 0x4D0: DisplayGfx pointer (param2 of constructor)
+    pub display: *mut DisplayGfx,
     /// 0x4D4: DSSound pointer (param3 of constructor)
     pub sound: *mut DSSound,
     /// 0x4D8: Loading progress counter (incremented per loading tick).

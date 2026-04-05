@@ -94,7 +94,7 @@ const _: () = assert!(core::mem::size_of::<DrawPixelCmd>() == 0x18);
 
 /// Type 0xB — draw crosshair (0x1C = 28 bytes).
 ///
-/// Dispatched by RenderDrawingQueue case 0xB → DDDisplay::draw_crosshair (slot 16).
+/// Dispatched by RenderDrawingQueue case 0xB → DisplayGfx::draw_crosshair (slot 16).
 /// The enqueue function at 0x541ED0 writes fields in non-sequential order:
 /// `[1]=layer, [4]=x, [5]=y, [2]=color_fg, [3]=color_bg, [6]=0`.
 #[repr(C)]

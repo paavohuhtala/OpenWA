@@ -6,7 +6,7 @@
 use core::ffi::c_char;
 use heapless::CString;
 
-use crate::display::dd_display::DDDisplay;
+use crate::display::gfx::DisplayGfx;
 use crate::engine::ddgame_wrapper::DDGameWrapper;
 
 /// Total number of font slots loaded (1-based, so slots 1..=28).
@@ -90,7 +90,7 @@ const FONT_EXT_CHAR_MAP: [u8; 61] = [
 ///
 /// Port of DDGameWrapper__LoadFontExtension (0x570E80, stdcall, RET 0x8).
 /// Formats the .fex path from the font's size category, copies the character map,
-/// resolves the palette value, and calls DDDisplay::load_font_extension.
+/// resolves the palette value, and calls DisplayGfx::load_font_extension.
 unsafe fn load_font_extension(wrapper: *mut DDGameWrapper, font_id: u32) {
     let size_category = FONT_SIZE_CATEGORY[font_id as usize];
     let prefix = SIZE_PREFIXES[size_category as usize];
@@ -111,7 +111,7 @@ unsafe fn load_font_extension(wrapper: *mut DDGameWrapper, font_id: u32) {
     let palette_value = (*ddgame).gfx_color_table[table_index];
 
     let display = (*wrapper).display;
-    DDDisplay::load_font_extension_raw(
+    DisplayGfx::load_font_extension_raw(
         display,
         font_id as i32,
         path.as_ptr() as *const c_char,
@@ -125,9 +125,9 @@ unsafe fn load_font_extension(wrapper: *mut DDGameWrapper, font_id: u32) {
 ///
 /// Port of DDGame__LoadFonts (0x570F30, usercall ESI=DDGameWrapper).
 ///
-/// Phase 1: Loads 28 .fnt bitmap fonts via DDDisplay::load_font.
+/// Phase 1: Loads 28 .fnt bitmap fonts via DisplayGfx::load_font.
 /// Phase 2: Loads .fex font extensions for font slots 1-23.
-/// Phase 3: Sets the font palette via DDDisplay::set_font_palette.
+/// Phase 3: Sets the font palette via DisplayGfx::set_font_palette.
 pub unsafe fn load_fonts(wrapper: *mut DDGameWrapper) {
     let display = (*wrapper).display;
     let gfx_dir = (*wrapper).primary_gfx_dir;
@@ -135,7 +135,7 @@ pub unsafe fn load_fonts(wrapper: *mut DDGameWrapper) {
     // Phase 1: Load all 28 .fnt font files
     for font_id in 1..=FONT_COUNT {
         let filename = FONT_FILENAMES[font_id as usize];
-        DDDisplay::load_font_raw(
+        DisplayGfx::load_font_raw(
             display,
             1,
             font_id as i32,
@@ -152,5 +152,5 @@ pub unsafe fn load_fonts(wrapper: *mut DDGameWrapper) {
     // Phase 3: Set font palette — passes font count and gfx_color_table[7].
     let ddgame = (*wrapper).ddgame;
     let palette_value = (*ddgame).gfx_color_table[7];
-    DDDisplay::set_font_palette_raw(display, FONT_COUNT, palette_value);
+    DisplayGfx::set_font_palette_raw(display, FONT_COUNT, palette_value);
 }

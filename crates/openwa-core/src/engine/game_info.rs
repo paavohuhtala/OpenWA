@@ -161,7 +161,7 @@ pub struct GameInfo {
     /// 0xF363-0xF373: Unknown
     pub _unknown_f363: [u8; 0xF374 - 0xF363],
 
-    /// 0xF374: Display flags passed to DDDisplay::Init.
+    /// 0xF374: Display flags passed to DisplayGfx::Init.
     pub display_flags: u32,
 
     /// 0xF378-0xF38B: Unknown
@@ -196,10 +196,10 @@ pub struct GameInfo {
     /// 0xF3B1: Unknown
     pub _unknown_f3b1: [u8; 3],
     /// 0xF3B4: Display width — first DWORD of the config block.
-    /// Written from G_CONFIG_DWORDS_F3B4, updated by DDDisplay::Init retry loop.
+    /// Written from G_CONFIG_DWORDS_F3B4, updated by DisplayGfx::Init retry loop.
     pub display_width: u32,
     /// 0xF3B8: Display height — second DWORD of the config block.
-    /// Written from G_CONFIG_DWORDS_F3B4, updated by DDDisplay::Init retry loop.
+    /// Written from G_CONFIG_DWORDS_F3B4, updated by DisplayGfx::Init retry loop.
     pub display_height: u32,
     /// 0xF3BC: Remaining config DWORDs (indices 2..7 of the original block).
     /// LoadOptions writes indices 0..5 from G_CONFIG_DWORDS_F3B4,

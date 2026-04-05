@@ -1,68 +1,30 @@
 use crate::display::line_draw::Vertex;
 use crate::fixed::Fixed;
 
-/// DDDisplay — display/rendering subsystem.
+/// DisplayVtable — vtable for the display/rendering subsystem (DisplayGfx).
 ///
-/// Constructor: DDDisplay__Init (0x569D00).
+/// Constructor: DisplayGfx__Init (0x569D00).
 /// Vtable: 0x66A218 (38 slots).
 /// Destructor: 0x569CE0.
 ///
-/// Actual runtime type is DisplayGfx (0x24E28 bytes), which extends DisplayBase.
+/// DisplayGfx (0x24E28 bytes) extends DisplayBase.
 /// Manages layers, sprites, fonts, palettes, and delegates rendering through
-/// DDDisplayWrapper (g_DDDisplayWrapper at 0x79D6D4), which in turn dispatches
+/// RenderContext (g_RenderContext at 0x79D6D4), which in turn dispatches
 /// to a renderer backend (CompatRenderer for D3D/DDraw, OpenGLCPU for OpenGL).
 ///
 /// ## Dispatch chain
 ///
 /// ```text
-/// DDDisplay  →  DDDisplayWrapper  →  RendererBackend
-///   vtable        (CWormsApp sub-      (CompatRenderer/
-///   0x66A218       object, vtable       OpenGLCPU/DDraw)
+/// DisplayGfx  →  RenderContext         →  RendererBackend
+///   vtable        (CWormsApp sub-          (CompatRenderer/
+///   0x66A218       object, vtable           OpenGLCPU/DDraw)
 ///                  0x662EC8)
 /// ```
 ///
-/// DDDisplay methods apply camera offset and clipping, then call through
-/// `g_DDDisplayWrapper->vtable[N]` for the actual rendering operation.
-///
-/// Key internal fields (offsets from start of DisplayGfx/DisplayBase):
-/// - 0x3548/0x354C: display width/height (pixels)
-/// - 0x3550-0x355C: clip rect (x1, y1, x2, y2, pixels)
-/// - 0x3560/0x3564: camera offset (x, y, pixels)
-/// - 0x3580-0x3584: bitmap vector (ptr, end)
-/// - 0x3D98: render lock flag (cleared by FlushRender)
-/// - 0x3D9C: display context pointer (read during FlushRender)
-///
-/// In memory, `DDDisplay` is the same object as `DisplayGfx` (which contains
-/// `DisplayBase`). They all start at offset 0 with the vtable pointer. The
-/// vtable determines the class identity:
-///
-/// ```text
-/// +0x0000  vtable ptr  ← DDDisplay (0x66A218), DisplayBase (0x6645F8 or 0x66A0F8)
-/// +0x0004  DisplayBase fields (sprite cache, arrays, clip rect, ...)
-///   ...
-/// +0x3560  DisplayGfx fields (camera, palette, layers, ...)
-///   ...    (total: 0x24E28 bytes)
-/// ```
-///
-/// `DDDisplay` is used as the `this` type in vtable method signatures.
-/// To access fields, cast to `*mut DisplayGfx`: both point to offset 0.
-#[repr(C)]
-pub struct DDDisplay {
-    /// 0x000: Vtable pointer (0x66A218)
-    pub vtable: *const DDDisplayVtable,
-}
+/// DisplayGfx methods apply camera offset and clipping, then call through
+/// `g_RenderContext->vtable[N]` for the actual rendering operation.
 
-impl DDDisplay {
-    /// Cast to the full `DisplayGfx` layout for field access.
-    ///
-    /// Safe because `DDDisplay` and `DisplayGfx` are the same object in memory.
-    #[inline(always)]
-    pub fn as_gfx(ptr: *mut DDDisplay) -> *mut DisplayGfx {
-        ptr as *mut DisplayGfx
-    }
-}
-
-/// DDDisplay vtable (0x66A218, 38 slots).
+/// Display vtable (0x66A218, 38 slots).
 ///
 /// Slots 2, 3, 25, 29 are stubs (CGameTask no-ops).
 /// All other slots are standard thiscall.
@@ -70,29 +32,29 @@ impl DDDisplay {
 /// Coordinate conventions:
 /// - Methods that add `camera * 0x10000` take Fixed (16.16) coordinates.
 /// - Methods that add `camera` directly take pixel-integer coordinates.
-#[openwa_core::vtable(size = 38, va = 0x0066_A218, class = "DDDisplay")]
-pub struct DDDisplayVtable {
+#[openwa_core::vtable(size = 38, va = 0x0066_A218, class = "DisplayGfx")]
+pub struct DisplayVtable {
     /// destructor (0x569CE0, RET 0x4)
     #[slot(0)]
-    pub destructor: fn(this: *mut DDDisplay, flags: u8) -> *mut DDDisplay,
+    pub destructor: fn(this: *mut DisplayGfx, flags: u8) -> *mut DisplayGfx,
     /// get display dimensions in pixels (0x56A460, RET 0x8)
     #[slot(1)]
-    pub get_dimensions: fn(this: *mut DDDisplay, out_w: *mut u32, out_h: *mut u32),
+    pub get_dimensions: fn(this: *mut DisplayGfx, out_w: *mut u32, out_h: *mut u32),
     /// set layer color (0x5231E0, RET 0x8)
     #[slot(4)]
-    pub set_layer_color: fn(this: *mut DDDisplay, layer: i32, color: i32),
+    pub set_layer_color: fn(this: *mut DisplayGfx, layer: i32, color: i32),
     /// set active layer, returns layer context ptr (0x523270, RET 0x4)
     #[slot(5)]
-    pub set_active_layer: fn(this: *mut DDDisplay, layer: i32) -> *mut u8,
+    pub set_active_layer: fn(this: *mut DisplayGfx, layer: i32) -> *mut u8,
     /// get sprite info by layer and id (0x523500, RET 0x10)
     #[slot(6)]
-    pub get_sprite_info: fn(this: *mut DDDisplay, layer: i32, p3: u32, p4: u32) -> u32,
+    pub get_sprite_info: fn(this: *mut DisplayGfx, layer: i32, p3: u32, p4: u32) -> u32,
     /// draw text onto a bitmap surface (0x5236B0, RET 0x1C)
     ///
     /// font_id low 16 bits = font slot (1-based), high 16 bits = extra flags.
     #[slot(7)]
     pub draw_text_on_bitmap: fn(
-        this: *mut DDDisplay,
+        this: *mut DisplayGfx,
         font_id: i32,
         bitmap: i32,
         h_align: i32,
@@ -103,30 +65,30 @@ pub struct DDDisplayVtable {
     ) -> i32,
     /// get font info for a font slot (0x523790, RET 0xC)
     #[slot(8)]
-    pub get_font_info: fn(this: *mut DDDisplay, font_id: i32, p3: u32) -> u32,
+    pub get_font_info: fn(this: *mut DisplayGfx, font_id: i32, p3: u32) -> u32,
     /// get font metric (0x523750, RET 0x10)
     #[slot(9)]
-    pub get_font_metric: fn(this: *mut DDDisplay, font_id: i32, p3: u32, p4: u32) -> u32,
+    pub get_font_metric: fn(this: *mut DisplayGfx, font_id: i32, p3: u32, p4: u32) -> u32,
     /// set font rendering parameter (0x523710, RET 0x10)
     #[slot(10)]
-    pub set_font_param: fn(this: *mut DDDisplay, font_id: i32, p3: u32, p4: u32, p5: u32) -> u32,
+    pub set_font_param: fn(this: *mut DisplayGfx, font_id: i32, p3: u32, p4: u32, p5: u32) -> u32,
     /// create bitmap object (0x56B8C0, RET 0xC)
     ///
     /// Allocates CBitmap, initializes from sprite data.
     #[slot(11)]
-    pub create_bitmap: fn(this: *mut DDDisplay, count: u32, p3: i32, p4: i32),
+    pub create_bitmap: fn(this: *mut DisplayGfx, count: u32, p3: i32, p4: i32),
     /// draw polyline with camera offset (0x56BCC0, RET 0xC)
     ///
     /// Transforms point array by camera offset, then draws connected line segments.
     /// Points are pixel-integer pairs.
     #[slot(12)]
-    pub draw_polyline: fn(this: *mut DDDisplay, points: *mut i32, count: i32, color: u32),
+    pub draw_polyline: fn(this: *mut DisplayGfx, points: *mut i32, count: i32, color: u32),
     /// draw line with camera offset (0x56BDB0, RET 0x18)
     ///
     /// Coordinates are fixed-point; camera is applied as `camera * 0x10000 + coord`.
     #[slot(13)]
     pub draw_line: fn(
-        this: *mut DDDisplay,
+        this: *mut DisplayGfx,
         x1: Fixed,
         y1: Fixed,
         x2: Fixed,
@@ -137,29 +99,30 @@ pub struct DDDisplayVtable {
     /// draw line with camera offset and clip (0x56BD50, RET 0x14)
     #[slot(14)]
     pub draw_line_clipped:
-        fn(this: *mut DDDisplay, x1: Fixed, y1: Fixed, x2: Fixed, y2: Fixed, color: u32),
+        fn(this: *mut DisplayGfx, x1: Fixed, y1: Fixed, x2: Fixed, y2: Fixed, color: u32),
     /// draw repeated pixels along a vector (0x56BE10, RET 0x18)
     ///
     /// Draws count+1 pixels starting at (x,y), stepping by (dx,dy) each iteration.
     /// All coordinates are fixed-point.
     #[slot(15)]
     pub draw_pixel_strip:
-        fn(this: *mut DDDisplay, x: Fixed, y: Fixed, dx: Fixed, dy: Fixed, count: i32, color: u32),
+        fn(this: *mut DisplayGfx, x: Fixed, y: Fixed, dx: Fixed, dy: Fixed, count: i32, color: u32),
     /// draw crosshair pattern — 9 pixels in a cross (0x56BE80, RET 0x10)
     ///
     /// Pixel-integer coordinates (adds camera directly).
     #[slot(16)]
-    pub draw_crosshair: fn(this: *mut DDDisplay, x: i32, y: i32, color_fg: u32, color_bg: u32),
+    pub draw_crosshair: fn(this: *mut DisplayGfx, x: i32, y: i32, color_fg: u32, color_bg: u32),
     /// draw outlined pixel — center + 4 cardinal neighbors (0x56BFD0, RET 0x10)
     ///
     /// Pixel-integer coordinates.
     #[slot(17)]
-    pub draw_outlined_pixel: fn(this: *mut DDDisplay, x: i32, y: i32, color_fg: u32, color_bg: i32),
+    pub draw_outlined_pixel:
+        fn(this: *mut DisplayGfx, x: i32, y: i32, color_fg: u32, color_bg: i32),
     /// fill rectangle with camera offset and clipping (0x56B810, RET 0x14)
     ///
     /// Pixel-integer coordinates (adds camera directly, then clips).
     #[slot(18)]
-    pub fill_rect: fn(this: *mut DDDisplay, x1: i32, y1: i32, x2: i32, y2: i32, color: u32),
+    pub fill_rect: fn(this: *mut DisplayGfx, x1: i32, y1: i32, x2: i32, y2: i32, color: u32),
     /// blit sprite to display (0x56B080, RET 0x10)
     ///
     /// Complex sprite blitting with orientation, palette, and blend flags.
@@ -171,7 +134,7 @@ pub struct DDDisplayVtable {
     /// (sprite width, sprite height, extra flags) via callee-saved registers.
     /// These are not part of the thiscall ABI and cannot be expressed here.
     #[slot(19)]
-    pub blit_sprite: fn(this: *mut DDDisplay, x: Fixed, y: Fixed, sprite_flags: u32, palette: u32),
+    pub blit_sprite: fn(this: *mut DisplayGfx, x: Fixed, y: Fixed, sprite_flags: u32, palette: u32),
     /// draw scaled/rotated sprite (0x56B660, RET 0x20)
     ///
     /// x/y are fixed-point world coordinates.
@@ -184,7 +147,7 @@ pub struct DDDisplayVtable {
     /// - bit 28 (0x10000000): stippled mode 1
     #[slot(20)]
     pub draw_scaled_sprite: fn(
-        this: *mut DDDisplay,
+        this: *mut DisplayGfx,
         x: Fixed,
         y: Fixed,
         sprite: *mut DisplayBitGrid,
@@ -200,17 +163,17 @@ pub struct DDDisplayVtable {
     /// x/y are fixed-point.
     #[slot(21)]
     pub draw_via_callback:
-        fn(this: *mut DDDisplay, x: Fixed, y: Fixed, obj: *mut u8, p5: u32, p6: u32),
+        fn(this: *mut DisplayGfx, x: Fixed, y: Fixed, obj: *mut u8, p5: u32, p6: u32),
     /// stream/animation data to display (0x56C5A0, RET 0x10)
     #[slot(22)]
-    pub stream_data: fn(this: *mut DDDisplay, p2: i32, p3: i32, count: i32, flags: u32),
+    pub stream_data: fn(this: *mut DisplayGfx, p2: i32, p3: i32, count: i32, flags: u32),
     /// set layer visibility (0x56A5D0, RET 0x8)
     #[slot(23)]
-    pub set_layer_visibility: fn(this: *mut DDDisplay, layer: i32, visible: i32),
+    pub set_layer_visibility: fn(this: *mut DisplayGfx, layer: i32, visible: i32),
     /// update palette from PaletteContext (0x56A610, RET 0x8)
     #[slot(24)]
     pub update_palette: fn(
-        this: *mut DDDisplay,
+        this: *mut DisplayGfx,
         palette_ctx: *mut crate::render::palette::PaletteContext,
         commit: i32,
     ),
@@ -218,30 +181,30 @@ pub struct DDDisplayVtable {
     /// flush pending render state (0x56A580, plain RET)
     ///
     /// No stack params. Releases renderer lock and
-    /// calls through DDDisplayWrapper vtable to finalize.
+    /// calls through RenderContext vtable to finalize.
     #[slot(26)]
-    pub flush_render: fn(this: *mut DDDisplay),
+    pub flush_render: fn(this: *mut DisplayGfx),
     /// set camera offset (0x56CC40, RET 0x8)
     ///
     /// Fixed-point input; internally `>> 16` to pixel integers stored at +0x3560/+0x3564.
     #[slot(27)]
-    pub set_camera_offset: fn(this: *mut DDDisplay, x: Fixed, y: Fixed),
+    pub set_camera_offset: fn(this: *mut DisplayGfx, x: Fixed, y: Fixed),
     /// set clip rectangle (0x56CC60, RET 0x10)
     ///
     /// Fixed-point input; internally `>> 16` to pixel integers, clamped to display dimensions.
     #[slot(28)]
-    pub set_clip_rect: fn(this: *mut DDDisplay, x1: Fixed, y1: Fixed, x2: Fixed, y2: Fixed),
+    pub set_clip_rect: fn(this: *mut DisplayGfx, x1: Fixed, y1: Fixed, x2: Fixed, y2: Fixed),
     // Slot 29: stub (CGameTask__vt18)
     /// load sprite with extended params (0x523310, RET 0x18)
     ///
     /// Allocates 0x17C sprite object, calls DisplayGfx constructor.
     #[slot(30)]
     pub load_sprite_ex:
-        fn(this: *mut DDDisplay, mode: i32, id: i32, p4: u32, count: i32, p6: u32, p7: u32) -> i32,
+        fn(this: *mut DisplayGfx, mode: i32, id: i32, p4: u32, count: i32, p6: u32, p7: u32) -> i32,
     /// load sprite into layer (0x523400, RET 0x14)
     #[slot(31)]
     pub load_sprite: fn(
-        this: *mut DDDisplay,
+        this: *mut DisplayGfx,
         layer: u32,
         id: u32,
         flag: u32,
@@ -252,13 +215,13 @@ pub struct DDDisplayVtable {
     ///
     /// Returns 1 if the sprite exists in any of the three sprite arrays.
     #[slot(32)]
-    pub is_sprite_loaded: fn(this: *mut DDDisplay, id: i32) -> u32,
+    pub is_sprite_loaded: fn(this: *mut DisplayGfx, id: i32) -> u32,
     /// load sprite with complex params (0x5237C0, RET 0x24)
     ///
     /// 9 stack params. Dual-path loading depending on layer type.
     #[slot(33)]
     pub load_sprite_complex: fn(
-        this: *mut DDDisplay,
+        this: *mut DisplayGfx,
         layer: i32,
         p3: u32,
         p4: u32,
@@ -272,7 +235,7 @@ pub struct DDDisplayVtable {
     /// load .fnt bitmap font into a font slot (0x523560, RET 0x10)
     #[slot(34)]
     pub load_font: fn(
-        this: *mut DDDisplay,
+        this: *mut DisplayGfx,
         mode: i32,
         font_id: i32,
         gfx: *mut u8,
@@ -281,7 +244,7 @@ pub struct DDDisplayVtable {
     /// load .fex font extension for a font slot (0x523620, RET 0x14)
     #[slot(35)]
     pub load_font_extension: fn(
-        this: *mut DDDisplay,
+        this: *mut DisplayGfx,
         font_id: i32,
         path: *const core::ffi::c_char,
         char_map: *const u8,
@@ -290,11 +253,11 @@ pub struct DDDisplayVtable {
     ) -> u32,
     /// set font palette for all loaded fonts (0x523690, RET 0x8)
     #[slot(36)]
-    pub set_font_palette: fn(this: *mut DDDisplay, font_count: u32, palette_value: u32),
+    pub set_font_palette: fn(this: *mut DisplayGfx, font_count: u32, palette_value: u32),
     /// load sprite by layer with fallback allocation (0x56A4C0, RET 0x10)
     #[slot(37)]
     pub load_sprite_by_layer: fn(
-        this: *mut DDDisplay,
+        this: *mut DisplayGfx,
         layer: u32,
         id: u32,
         gfx: *mut u8,
@@ -302,11 +265,11 @@ pub struct DDDisplayVtable {
     ) -> i32,
 }
 
-// Generate calling wrappers: DDDisplay::set_layer_color(), etc.
-bind_DDDisplayVtable!(DDDisplay, vtable);
+// Generate calling wrappers: DisplayGfx::set_layer_color(), etc.
+bind_DisplayVtable!(DisplayGfx, base.vtable);
 
 // =========================================================================
-// Ported DDDisplay vtable methods
+// Ported DisplayGfx vtable methods
 // =========================================================================
 
 use super::gfx::DisplayGfx;
@@ -314,84 +277,80 @@ use super::line_draw;
 use crate::bitgrid::DisplayBitGrid;
 use crate::render::palette::PaletteContext;
 
-/// Port of DDDisplay::GetDimensions (vtable slot 1, 0x56A460).
+/// Port of DisplayGfx::GetDimensions (vtable slot 1, 0x56A460).
 ///
 /// Reads display_width/display_height from DisplayBase and writes them
 /// to the output pointers.
 ///
 /// # Safety
-/// `this` must be a valid `*mut DDDisplay` (actually a `*mut DisplayGfx`).
+/// `this` must be a valid `*mut DisplayGfx`.
 pub unsafe extern "thiscall" fn get_dimensions(
-    this: *mut DDDisplay,
+    this: *mut DisplayGfx,
     out_w: *mut u32,
     out_h: *mut u32,
 ) {
-    let gfx = DDDisplay::as_gfx(this);
-    *out_w = (*gfx).base.display_width;
-    *out_h = (*gfx).base.display_height;
+    *out_w = (*this).base.display_width;
+    *out_h = (*this).base.display_height;
 }
 
-use super::display_wrapper::{DDDisplayWrapper, FastcallResult};
+use super::render_context::{FastcallResult, RenderContext};
 use crate::address::va;
 use crate::rebase::rb;
 
-/// Port of DDDisplay::FlushRender (vtable slot 26, 0x56A580).
+/// Port of DisplayGfx::FlushRender (vtable slot 26, 0x56A580).
 ///
 /// If the render lock is held, clears it (the original also calls
-/// DDDisplayWrapper::unlock_surface_write, but that's a no-op that
+/// RenderContext::unlock_surface_write, but that's a no-op that
 /// writes a success code to a discarded result buffer).
 ///
-/// Then calls DDDisplayWrapper::get_renderer_surface (slot 13),
+/// Then calls RenderContext::get_renderer_surface (slot 13),
 /// which dispatches to the renderer backend's Flip.
 ///
 /// # Safety
-/// `this` must be a valid `*mut DDDisplay` (actually a `*mut DisplayGfx`).
-/// `g_DDDisplayWrapper` (0x79D6D4) must be initialized.
-pub unsafe extern "thiscall" fn flush_render(this: *mut DDDisplay) {
-    let gfx = DDDisplay::as_gfx(this);
-    let wrapper = *(rb(va::G_DD_DISPLAY_WRAPPER) as *const *mut DDDisplayWrapper);
+/// `this` must be a valid `*mut DisplayGfx`.
+/// `g_RenderContext` (0x79D6D4) must be initialized.
+pub unsafe extern "thiscall" fn flush_render(this: *mut DisplayGfx) {
+    let wrapper = *(rb(va::G_RENDER_CONTEXT) as *const *mut RenderContext);
 
-    if (*gfx).render_lock != 0 {
+    if (*this).render_lock != 0 {
         // Original calls wrapper->vtable[18] (unlock_surface_write) here,
         // but that function ignores its data parameter and just writes a
         // success code to a result buffer that FlushRender never reads.
-        (*gfx).render_lock = 0;
+        (*this).render_lock = 0;
     }
 
     // get_renderer_surface → renderer Flip
     let mut buf = FastcallResult::default();
-    DDDisplayWrapper::get_renderer_surface_raw(wrapper, &mut buf);
+    RenderContext::get_renderer_surface_raw(wrapper, &mut buf);
 }
 
-/// Port of DDDisplay::SetCameraOffset (vtable slot 27, 0x56CC40).
+/// Port of DisplayGfx::SetCameraOffset (vtable slot 27, 0x56CC40).
 ///
 /// Converts Fixed-point camera coordinates to pixel integers and stores them.
 ///
 /// # Safety
-/// `this` must be a valid `*mut DDDisplay` (actually a `*mut DisplayGfx`).
-pub unsafe extern "thiscall" fn set_camera_offset(this: *mut DDDisplay, x: Fixed, y: Fixed) {
-    let gfx = DDDisplay::as_gfx(this);
-    (*gfx).camera_x = x.to_int();
-    (*gfx).camera_y = y.to_int();
+/// `this` must be a valid `*mut DisplayGfx`.
+pub unsafe extern "thiscall" fn set_camera_offset(this: *mut DisplayGfx, x: Fixed, y: Fixed) {
+    (*this).camera_x = x.to_int();
+    (*this).camera_y = y.to_int();
 }
 
-/// Port of DDDisplay::SetClipRect (vtable slot 28, 0x56CC60).
+/// Port of DisplayGfx::SetClipRect (vtable slot 28, 0x56CC60).
 ///
 /// Converts Fixed-point clip rectangle to pixel integers, clamps to display
 /// dimensions, stores in DisplayBase, and mirrors to the layer_0 object.
 ///
 /// # Safety
-/// `this` must be a valid `*mut DDDisplay` (actually a `*mut DisplayGfx`).
+/// `this` must be a valid `*mut DisplayGfx`.
 /// `layer_0` (at +0x3D9C) must be initialized.
 pub unsafe extern "thiscall" fn set_clip_rect(
-    this: *mut DDDisplay,
+    this: *mut DisplayGfx,
     x1: Fixed,
     y1: Fixed,
     x2: Fixed,
     y2: Fixed,
 ) {
-    let gfx = DDDisplay::as_gfx(this);
-    let base = &mut (*gfx).base;
+    let base = &mut (*this).base;
 
     // Convert Fixed to pixel integers
     let mut cx1 = x1.to_int();
@@ -423,7 +382,7 @@ pub unsafe extern "thiscall" fn set_clip_rect(
     }
 
     // Mirror clip rect to the layer_0 BitGrid.
-    let layer = (*gfx).layer_0;
+    let layer = (*this).layer_0;
     (*layer).clip_left = cx1 as u32;
     (*layer).clip_top = cy1 as u32;
     (*layer).clip_right = cx2 as u32;
@@ -446,27 +405,27 @@ pub unsafe extern "thiscall" fn set_clip_rect(
 /// Port of the render-lock flush helper at 0x56A330.
 ///
 /// If the render lock is held, releases it by calling
-/// DDDisplayWrapper::unlock_surface_write (slot 18), then clears the flag.
+/// RenderContext::unlock_surface_write (slot 18), then clears the flag.
 /// Called by drawing methods (fill_rect, draw_line, etc.) before rendering.
 ///
 /// Original uses ESI = this (usercall).
 ///
 /// # Safety
 /// `gfx` must be a valid `*mut DisplayGfx` with `layer_0` initialized.
-/// `g_DDDisplayWrapper` must be initialized.
+/// `g_RenderContext` must be initialized.
 unsafe fn flush_render_lock(gfx: *mut DisplayGfx) {
     if (*gfx).render_lock != 0 {
-        let wrapper = *(rb(va::G_DD_DISPLAY_WRAPPER) as *const *mut DDDisplayWrapper);
+        let wrapper = *(rb(va::G_RENDER_CONTEXT) as *const *mut RenderContext);
         let data = (*(*gfx).layer_0).data as u32;
         let mut buf = FastcallResult::default();
-        DDDisplayWrapper::unlock_surface_write_raw(wrapper, &mut buf, data);
+        RenderContext::unlock_surface_write_raw(wrapper, &mut buf, data);
         (*gfx).render_lock = 0;
     }
 }
 
 /// Port of the render-lock acquire helper at 0x56A370.
 ///
-/// If the render lock is NOT held, queries DDDisplayWrapper for framebuffer
+/// If the render lock is NOT held, queries RenderContext for framebuffer
 /// dimensions (slot 3) and locks the surface for writing (slot 17), then
 /// populates layer_0's BitGrid fields (data, stride, dimensions) from the
 /// locked surface and copies DisplayBase's clip rect into layer_0.
@@ -475,19 +434,19 @@ unsafe fn flush_render_lock(gfx: *mut DisplayGfx) {
 ///
 /// # Safety
 /// `gfx` must be a valid `*mut DisplayGfx` with `layer_0` initialized.
-/// `g_DDDisplayWrapper` must be initialized.
+/// `g_RenderContext` must be initialized.
 pub unsafe fn acquire_render_lock(gfx: *mut DisplayGfx) {
     if (*gfx).render_lock != 0 {
         return; // already locked
     }
 
-    let wrapper = *(rb(va::G_DD_DISPLAY_WRAPPER) as *const *mut DDDisplayWrapper);
+    let wrapper = *(rb(va::G_RENDER_CONTEXT) as *const *mut RenderContext);
     let mut buf = FastcallResult::default();
 
     // Get framebuffer dimensions (slot 3).
     // The wrapper writes width and height to the output buffer.
     let mut dims: [u32; 2] = [0; 2];
-    DDDisplayWrapper::get_framebuffer_dims_raw(wrapper, &mut buf, dims.as_mut_ptr());
+    RenderContext::get_framebuffer_dims_raw(wrapper, &mut buf, dims.as_mut_ptr());
     let fb_width = dims[0];
     let fb_height = dims[1];
 
@@ -495,7 +454,7 @@ pub unsafe fn acquire_render_lock(gfx: *mut DisplayGfx) {
     // The wrapper writes framebuffer pointer and stride through the params.
     let mut data_ptr: u32 = 0;
     let mut stride: u32 = 0;
-    DDDisplayWrapper::lock_surface_write_raw(wrapper, &mut buf, &mut data_ptr, &mut stride);
+    RenderContext::lock_surface_write_raw(wrapper, &mut buf, &mut data_ptr, &mut stride);
 
     // Populate layer_0 from the locked surface
     let layer = (*gfx).layer_0;
@@ -533,31 +492,30 @@ pub unsafe fn acquire_render_lock(gfx: *mut DisplayGfx) {
     (*gfx).render_lock = 1;
 }
 
-/// Port of DDDisplay::FillRect (vtable slot 18, 0x56B810).
+/// Port of DisplayGfx::FillRect (vtable slot 18, 0x56B810).
 ///
 /// Fills a rectangle with a solid color. Pixel-integer coordinates are
 /// offset by the camera position and clipped to the clip rect before
-/// dispatching to DDDisplayWrapper::fill_rect (slot 19).
+/// dispatching to RenderContext::fill_rect (slot 19).
 ///
 /// # Safety
-/// `this` must be a valid `*mut DDDisplay` (actually a `*mut DisplayGfx`).
-/// `g_DDDisplayWrapper` must be initialized.
+/// `this` must be a valid `*mut DisplayGfx`.
+/// `g_RenderContext` must be initialized.
 pub unsafe extern "thiscall" fn fill_rect(
-    this: *mut DDDisplay,
+    this: *mut DisplayGfx,
     x1: i32,
     y1: i32,
     x2: i32,
     y2: i32,
     color: u32,
 ) {
-    let gfx = DDDisplay::as_gfx(this);
-    let base = &(*gfx).base;
+    let base = &(*this).base;
 
     // Apply camera offset
-    let mut left = x1 + (*gfx).camera_x;
-    let mut top = y1 + (*gfx).camera_y;
-    let mut right = x2 + (*gfx).camera_x;
-    let mut bottom = y2 + (*gfx).camera_y;
+    let mut left = x1 + (*this).camera_x;
+    let mut top = y1 + (*this).camera_y;
+    let mut right = x2 + (*this).camera_x;
+    let mut bottom = y2 + (*this).camera_y;
 
     // Early-out: no intersection with clip rect
     if right <= base.clip_x1
@@ -582,12 +540,12 @@ pub unsafe extern "thiscall" fn fill_rect(
         bottom = base.clip_y2;
     }
 
-    flush_render_lock(gfx);
+    flush_render_lock(this);
 
-    // DDDisplayWrapper::fill_rect takes (x, y, width, height, color)
-    let wrapper = *(rb(va::G_DD_DISPLAY_WRAPPER) as *const *mut DDDisplayWrapper);
+    // RenderContext::fill_rect takes (x, y, width, height, color)
+    let wrapper = *(rb(va::G_RENDER_CONTEXT) as *const *mut RenderContext);
     let mut buf = FastcallResult::default();
-    DDDisplayWrapper::fill_rect_raw(
+    RenderContext::fill_rect_raw(
         wrapper,
         &mut buf,
         left,
@@ -598,27 +556,26 @@ pub unsafe extern "thiscall" fn fill_rect(
     );
 }
 
-/// Port of DDDisplay::DrawOutlinedPixel (vtable slot 17, 0x56BFD0).
+/// Port of DisplayGfx::DrawOutlinedPixel (vtable slot 17, 0x56BFD0).
 ///
 /// Draws a center pixel in `color_fg` with 4 cardinal neighbor pixels in
 /// `color_bg` (if `color_bg != 0`). Pixel-integer coordinates with camera offset.
 ///
 /// # Safety
-/// `this` must be a valid `*mut DDDisplay` (actually a `*mut DisplayGfx`).
+/// `this` must be a valid `*mut DisplayGfx`.
 pub unsafe extern "thiscall" fn draw_outlined_pixel(
-    this: *mut DDDisplay,
+    this: *mut DisplayGfx,
     x: i32,
     y: i32,
     color_fg: u32,
     color_bg: i32,
 ) {
-    let gfx = DDDisplay::as_gfx(this);
-    let cx = x + (*gfx).camera_x;
-    let cy = y + (*gfx).camera_y;
+    let cx = x + (*this).camera_x;
+    let cy = y + (*this).camera_y;
 
-    acquire_render_lock(gfx);
+    acquire_render_lock(this);
 
-    let layer = (*gfx).layer_0;
+    let layer = (*this).layer_0;
     if color_bg != 0 {
         let bg = color_bg as u8;
         DisplayBitGrid::put_pixel_clipped_raw(layer, cx - 1, cy, bg);
@@ -629,7 +586,7 @@ pub unsafe extern "thiscall" fn draw_outlined_pixel(
     DisplayBitGrid::put_pixel_clipped_raw(layer, cx, cy, color_fg as u8);
 }
 
-/// Port of DDDisplay::DrawCrosshair (vtable slot 16, 0x56BE80).
+/// Port of DisplayGfx::DrawCrosshair (vtable slot 16, 0x56BE80).
 ///
 /// Draws a 2x2 foreground block at (cx, cy)–(cx+1, cy+1) with an 8-pixel
 /// outline in `color_bg`. Pixel-integer coordinates with camera offset.
@@ -642,21 +599,20 @@ pub unsafe extern "thiscall" fn draw_outlined_pixel(
 /// ```
 ///
 /// # Safety
-/// `this` must be a valid `*mut DDDisplay` (actually a `*mut DisplayGfx`).
+/// `this` must be a valid `*mut DisplayGfx`.
 pub unsafe extern "thiscall" fn draw_crosshair(
-    this: *mut DDDisplay,
+    this: *mut DisplayGfx,
     x: i32,
     y: i32,
     color_fg: u32,
     color_bg: u32,
 ) {
-    let gfx = DDDisplay::as_gfx(this);
-    let cx = x + (*gfx).camera_x;
-    let cy = y + (*gfx).camera_y;
+    let cx = x + (*this).camera_x;
+    let cy = y + (*this).camera_y;
 
-    acquire_render_lock(gfx);
+    acquire_render_lock(this);
 
-    let layer = (*gfx).layer_0;
+    let layer = (*this).layer_0;
     let bg = color_bg as u8;
     let fg = color_fg as u8;
 
@@ -710,15 +666,15 @@ impl line_draw::PixelWriter for BitGridWriter {
     }
 }
 
-/// Port of DDDisplay::DrawLine (vtable slot 13, 0x56BDB0).
+/// Port of DisplayGfx::DrawLine (vtable slot 13, 0x56BDB0).
 ///
 /// Draws a two-color thick line. Fixed-point coordinates with camera offset
 /// applied as `camera * 0x10000 + coord`. Pure Rust implementation.
 ///
 /// # Safety
-/// `this` must be a valid `*mut DDDisplay` (actually a `*mut DisplayGfx`).
+/// `this` must be a valid `*mut DisplayGfx`.
 pub unsafe extern "thiscall" fn draw_line(
-    this: *mut DDDisplay,
+    this: *mut DisplayGfx,
     x1: Fixed,
     y1: Fixed,
     x2: Fixed,
@@ -726,13 +682,12 @@ pub unsafe extern "thiscall" fn draw_line(
     color1: u32,
     color2: u32,
 ) {
-    let gfx = DDDisplay::as_gfx(this);
-    let cam_x = Fixed::from_int((*gfx).camera_x);
-    let cam_y = Fixed::from_int((*gfx).camera_y);
+    let cam_x = Fixed::from_int((*this).camera_x);
+    let cam_y = Fixed::from_int((*this).camera_y);
 
-    acquire_render_lock(gfx);
+    acquire_render_lock(this);
 
-    let mut writer = BitGridWriter((*gfx).layer_0);
+    let mut writer = BitGridWriter((*this).layer_0);
     line_draw::draw_line_two_color(
         &mut writer,
         x1 + cam_x,
@@ -744,28 +699,27 @@ pub unsafe extern "thiscall" fn draw_line(
     );
 }
 
-/// Port of DDDisplay::DrawLineClipped (vtable slot 14, 0x56BD50).
+/// Port of DisplayGfx::DrawLineClipped (vtable slot 14, 0x56BD50).
 ///
 /// Draws a single-color clipped line. Fixed-point coordinates with camera
 /// offset. Pure Rust implementation.
 ///
 /// # Safety
-/// `this` must be a valid `*mut DDDisplay` (actually a `*mut DisplayGfx`).
+/// `this` must be a valid `*mut DisplayGfx`.
 pub unsafe extern "thiscall" fn draw_line_clipped(
-    this: *mut DDDisplay,
+    this: *mut DisplayGfx,
     x1: Fixed,
     y1: Fixed,
     x2: Fixed,
     y2: Fixed,
     color: u32,
 ) {
-    let gfx = DDDisplay::as_gfx(this);
-    let cam_x = Fixed::from_int((*gfx).camera_x);
-    let cam_y = Fixed::from_int((*gfx).camera_y);
+    let cam_x = Fixed::from_int((*this).camera_x);
+    let cam_y = Fixed::from_int((*this).camera_y);
 
-    acquire_render_lock(gfx);
+    acquire_render_lock(this);
 
-    let mut writer = BitGridWriter((*gfx).layer_0);
+    let mut writer = BitGridWriter((*this).layer_0);
     line_draw::draw_line_clipped(
         &mut writer,
         x1 + cam_x,
@@ -776,23 +730,22 @@ pub unsafe extern "thiscall" fn draw_line_clipped(
     );
 }
 
-/// Port of DDDisplay::DrawPolyline (vtable slot 12, 0x56BCC0).
+/// Port of DisplayGfx::DrawPolyline (vtable slot 12, 0x56BCC0).
 ///
 /// Transforms point array by camera offset, clips, and fills the polygon.
 /// Points are Fixed-point (x, y) pairs. Pixel-integer camera is applied as
 /// `camera * 0x10000 + coord`.
 ///
 /// # Safety
-/// `this` must be a valid `*mut DDDisplay` (actually a `*mut DisplayGfx`).
+/// `this` must be a valid `*mut DisplayGfx`.
 pub unsafe extern "thiscall" fn draw_polyline(
-    this: *mut DDDisplay,
+    this: *mut DisplayGfx,
     points: *mut i32,
     count: i32,
     color: u32,
 ) {
-    let gfx = DDDisplay::as_gfx(this);
-    let cam_x = Fixed::from_int((*gfx).camera_x);
-    let cam_y = Fixed::from_int((*gfx).camera_y);
+    let cam_x = Fixed::from_int((*this).camera_x);
+    let cam_y = Fixed::from_int((*this).camera_y);
 
     // Build vertex array with camera offset on the stack
     let n = count as usize;
@@ -808,30 +761,30 @@ pub unsafe extern "thiscall" fn draw_polyline(
         );
     }
 
-    acquire_render_lock(gfx);
+    acquire_render_lock(this);
 
-    let mut writer = BitGridWriter((*gfx).layer_0);
+    let mut writer = BitGridWriter((*this).layer_0);
     line_draw::draw_polygon_filled(&mut writer, &verts[..n], color as u8);
 }
 
-/// Port of DDDisplay::IsSpriteLoaded (vtable slot 32, 0x56A480).
+/// Port of DisplayGfx::IsSpriteLoaded (vtable slot 32, 0x56A480).
 ///
 /// Returns 1 if the sprite ID is loaded in any of the three sprite arrays
 /// (DisplayBase sprite_array_1/sprite_array_2, DisplayGfx sprite_table).
 /// ID must be in range [1, 0x400).
 ///
 /// # Safety
-/// `this` must be a valid `*mut DDDisplay` (actually a `*mut DisplayGfx`).
-pub unsafe extern "thiscall" fn is_sprite_loaded(this: *mut DDDisplay, id: i32) -> u32 {
+/// `this` must be a valid `*mut DisplayGfx`.
+pub unsafe extern "thiscall" fn is_sprite_loaded(this: *mut DisplayGfx, id: i32) -> u32 {
     let id_u = id as u32;
     if id_u.wrapping_sub(1) >= 0x3FF {
         return 0;
     }
-    let gfx = DDDisplay::as_gfx(this);
-    let base = &(*gfx).base;
+
+    let base = &(*this).base;
     if base.sprite_array_1[id as usize] != 0
         || base.sprite_array_2[id as usize] != 0
-        || (*gfx).sprite_table[id as usize] != 0
+        || (*this).sprite_table[id as usize] != 0
     {
         1
     } else {
@@ -839,29 +792,28 @@ pub unsafe extern "thiscall" fn is_sprite_loaded(this: *mut DDDisplay, id: i32) 
     }
 }
 
-/// Port of DDDisplay::DrawViaCallback (vtable slot 21, 0x56B7C0).
+/// Port of DisplayGfx::DrawViaCallback (vtable slot 21, 0x56B7C0).
 ///
 /// Acquires the render lock, applies camera offset to fixed-point coordinates,
 /// then calls `obj->vtable[2](layer_0, pixel_x, pixel_y, p5, p6)`.
 ///
 /// # Safety
-/// `this` must be a valid `*mut DDDisplay` (actually a `*mut DisplayGfx`).
+/// `this` must be a valid `*mut DisplayGfx`.
 /// `obj` must point to a valid object with a vtable where slot 2 is a
 /// drawing callback.
 pub unsafe extern "thiscall" fn draw_via_callback(
-    this: *mut DDDisplay,
+    this: *mut DisplayGfx,
     x: Fixed,
     y: Fixed,
     obj: *mut u8,
     p5: u32,
     p6: u32,
 ) {
-    let gfx = DDDisplay::as_gfx(this);
-    acquire_render_lock(gfx);
+    acquire_render_lock(this);
 
-    let pixel_x = (Fixed::from_int((*gfx).camera_x) + x).to_int();
-    let pixel_y = (Fixed::from_int((*gfx).camera_y) + y).to_int();
-    let layer_0 = (*gfx).layer_0;
+    let pixel_x = (Fixed::from_int((*this).camera_x) + x).to_int();
+    let pixel_y = (Fixed::from_int((*this).camera_y) + y).to_int();
+    let layer_0 = (*this).layer_0;
 
     // Call obj->vtable[2](obj, layer_0, pixel_x, pixel_y, p5, p6)
     // vtable[2] is at offset 8 in the vtable
@@ -871,15 +823,15 @@ pub unsafe extern "thiscall" fn draw_via_callback(
     callback(obj, layer_0, pixel_x, pixel_y, p5, p6);
 }
 
-/// Port of DDDisplay::DrawPixelStrip (vtable slot 15, 0x56BE10).
+/// Port of DisplayGfx::DrawPixelStrip (vtable slot 15, 0x56BE10).
 ///
 /// Draws `count + 1` pixels starting at (x, y), stepping by (dx, dy) each
 /// iteration. All coordinates are Fixed-point. Camera applied as
 /// `camera * 0x10000 + coord`.
 ///
 /// # Safety
-/// `this` must be a valid `*mut DDDisplay` (actually a `*mut DisplayGfx`).
-/// Port of DDDisplay::DrawScaledSprite (vtable slot 20, 0x56B660).
+/// `this` must be a valid `*mut DisplayGfx`.
+/// Port of DisplayGfx::DrawScaledSprite (vtable slot 20, 0x56B660).
 ///
 /// Blits a source BitGrid to the display layer with camera offset and centering.
 /// The source rectangle is `(src_x, src_y)` to `(src_w, src_h)` — width and
@@ -894,10 +846,10 @@ pub unsafe extern "thiscall" fn draw_via_callback(
 /// Bit 20 controls the blend mode: clear = ColorTable (transparency), set = Copy (opaque).
 ///
 /// # Safety
-/// `this` must be a valid `*mut DDDisplay` (actually a `*mut DisplayGfx`).
+/// `this` must be a valid `*mut DisplayGfx`.
 /// `sprite` must be a valid `*mut DisplayBitGrid`.
 pub unsafe fn draw_scaled_sprite(
-    this: *mut DDDisplay,
+    this: *mut DisplayGfx,
     x: Fixed,
     y: Fixed,
     sprite: *mut DisplayBitGrid,
@@ -907,8 +859,6 @@ pub unsafe fn draw_scaled_sprite(
     src_h: i32,
     flags: u32,
 ) -> DrawScaledSpriteResult {
-    let gfx = DDDisplay::as_gfx(this);
-
     let width = src_w - src_x;
     let height = src_h - src_y;
 
@@ -925,8 +875,8 @@ pub unsafe fn draw_scaled_sprite(
     };
 
     // Camera offset + centering + fixed-point to pixel conversion
-    let dst_x = (*gfx).camera_x - half_w + (x.0 >> 16);
-    let dst_y = (*gfx).camera_y - half_h + (y.0 >> 16);
+    let dst_x = (*this).camera_x - half_w + (x.0 >> 16);
+    let dst_y = (*this).camera_y - half_h + (y.0 >> 16);
 
     // Blend mode from flag bit 20: clear = 1 (ColorTable), set = 0 (Copy)
     let blend_mode = (!(flags >> 20)) & 1;
@@ -935,7 +885,7 @@ pub unsafe fn draw_scaled_sprite(
     if (flags & 0x8000000) != 0 || (flags & 0x10000000) != 0 {
         let stipple_mode: u32 = if (flags & 0x10000000) != 0 { 1 } else { 0 };
         return DrawScaledSpriteResult::Stippled {
-            layer: (*gfx).layer_0,
+            layer: (*this).layer_0,
             dst_x,
             dst_y,
             width,
@@ -950,10 +900,10 @@ pub unsafe fn draw_scaled_sprite(
     // Determine color table pointer from flags
     let color_table: *const u8 = if (flags & 0x200000) != 0 {
         // Additive: use color_add_table (offset 0x4DF4 in DisplayGfx)
-        (*gfx).color_add_table.as_ptr()
+        (*this).color_add_table.as_ptr()
     } else if (flags & 0x4000000) != 0 {
         // Color blend: use color_blend_table (offset 0x14DF4 in DisplayGfx)
-        (*gfx).color_blend_table.as_ptr()
+        (*this).color_blend_table.as_ptr()
     } else {
         // Normal: no color table (transparency handled by blend mode 1)
         core::ptr::null()
@@ -964,9 +914,9 @@ pub unsafe fn draw_scaled_sprite(
         return DrawScaledSpriteResult::Handled;
     }
 
-    acquire_render_lock(gfx);
+    acquire_render_lock(this);
 
-    let layer = (*gfx).layer_0;
+    let layer = (*this).layer_0;
 
     // Build flags for core blit: blend_mode in low 16 bits
     // The core blit interprets: 0 = Copy, 1 = ColorTable
@@ -1020,12 +970,12 @@ pub enum DrawScaledSpriteResult {
     Handled,
 }
 
-/// Port of DDDisplay::DrawPixelStrip (vtable slot 15, 0x56BE10).
+/// Port of DisplayGfx::DrawPixelStrip (vtable slot 15, 0x56BE10).
 ///
 /// # Safety
-/// `this` must be a valid `*mut DDDisplay` (actually a `*mut DisplayGfx`).
+/// `this` must be a valid `*mut DisplayGfx`.
 pub unsafe extern "thiscall" fn draw_pixel_strip(
-    this: *mut DDDisplay,
+    this: *mut DisplayGfx,
     x: Fixed,
     y: Fixed,
     dx: Fixed,
@@ -1033,13 +983,12 @@ pub unsafe extern "thiscall" fn draw_pixel_strip(
     count: i32,
     color: u32,
 ) {
-    let gfx = DDDisplay::as_gfx(this);
-    let mut cx = Fixed::from_int((*gfx).camera_x) + x;
-    let mut cy = Fixed::from_int((*gfx).camera_y) + y;
+    let mut cx = Fixed::from_int((*this).camera_x) + x;
+    let mut cy = Fixed::from_int((*this).camera_y) + y;
 
-    acquire_render_lock(gfx);
+    acquire_render_lock(this);
 
-    let layer = (*gfx).layer_0;
+    let layer = (*this).layer_0;
     if count >= 0 {
         for _ in 0..=count {
             DisplayBitGrid::put_pixel_clipped_raw(layer, cx.to_int(), cy.to_int(), color as u8);
@@ -1049,24 +998,23 @@ pub unsafe extern "thiscall" fn draw_pixel_strip(
     }
 }
 
-/// Port of DDDisplay::SetActiveLayer (vtable slot 5, 0x523270).
+/// Port of DisplayGfx::SetActiveLayer (vtable slot 5, 0x523270).
 ///
 /// Returns the layer context pointer for `layer` (valid: 1, 2, 3), or null
 /// if the layer index is out of range. The returned pointer is used as
 /// palette data input for `update_palette`.
 ///
 /// # Safety
-/// `this` must be a valid `*mut DDDisplay` (actually a `*mut DisplayGfx`).
-pub unsafe extern "thiscall" fn set_active_layer(this: *mut DDDisplay, layer: i32) -> *mut u8 {
-    let gfx = DDDisplay::as_gfx(this);
+/// `this` must be a valid `*mut DisplayGfx`.
+pub unsafe extern "thiscall" fn set_active_layer(this: *mut DisplayGfx, layer: i32) -> *mut u8 {
     if (layer as u32).wrapping_sub(1) < 3 {
-        (*gfx).base.layer_contexts[layer as usize] as *mut u8
+        (*this).base.layer_contexts[layer as usize] as *mut u8
     } else {
         core::ptr::null_mut()
     }
 }
 
-/// Port of DDDisplay::UpdatePalette (vtable slot 24, 0x56A610).
+/// Port of DisplayGfx::UpdatePalette (vtable slot 24, 0x56A610).
 ///
 /// Updates DisplayGfx palette entries from a `PaletteContext`. The context's
 /// `cache` array lists which palette indices to copy, and `cache_count` says
@@ -1077,14 +1025,13 @@ pub unsafe extern "thiscall" fn set_active_layer(this: *mut DDDisplay, layer: i3
 /// the updated entries to the DDraw surface palette.
 ///
 /// # Safety
-/// `this` must be a valid `*mut DDDisplay` (actually a `*mut DisplayGfx`).
+/// `this` must be a valid `*mut DisplayGfx`.
 /// `palette_ctx` must point to a valid `PaletteContext`.
 pub unsafe extern "thiscall" fn update_palette(
-    this: *mut DDDisplay,
+    this: *mut DisplayGfx,
     palette_ctx: *mut PaletteContext,
     commit: i32,
 ) {
-    let gfx = DDDisplay::as_gfx(this);
     let ctx = &mut *palette_ctx;
 
     // Reset iteration counter
@@ -1108,10 +1055,10 @@ pub unsafe extern "thiscall" fn update_palette(
         let rgb = ctx.rgb_table[idx].to_le_bytes();
 
         // Write to DisplayGfx palette_entries: [R, G, B, flags=0]
-        (*gfx).palette_entries[idx * 4] = rgb[0];
-        (*gfx).palette_entries[idx * 4 + 1] = rgb[1];
-        (*gfx).palette_entries[idx * 4 + 2] = rgb[2];
-        (*gfx).palette_entries[idx * 4 + 3] = 0;
+        (*this).palette_entries[idx * 4] = rgb[0];
+        (*this).palette_entries[idx * 4 + 1] = rgb[1];
+        (*this).palette_entries[idx * 4 + 2] = rgb[2];
+        (*this).palette_entries[idx * 4 + 3] = 0;
 
         // Check if we've processed all entries
         if ctx.cache_iter >= ctx.cache_count {
@@ -1124,18 +1071,18 @@ pub unsafe extern "thiscall" fn update_palette(
     }
 
     // Track dirty palette range (expand to cover this update)
-    if ((*gfx).palette_dirty_min as i32) > dirty_min {
-        (*gfx).palette_dirty_min = dirty_min as u32;
+    if ((*this).palette_dirty_min as i32) > dirty_min {
+        (*this).palette_dirty_min = dirty_min as u32;
     }
-    if ((*gfx).palette_dirty_max as i32) < dirty_max {
-        (*gfx).palette_dirty_max = dirty_max as u32;
+    if ((*this).palette_dirty_max as i32) < dirty_max {
+        (*this).palette_dirty_max = dirty_max as u32;
     }
 
     // Commit palette to DDraw surface if requested
     if commit != 0 {
-        palette_commit(gfx);
-        (*gfx).palette_dirty_min = 0x100;
-        (*gfx).palette_dirty_max = 0xFFFF_FFFF;
+        palette_commit(this);
+        (*this).palette_dirty_min = 0x100;
+        (*this).palette_dirty_max = 0xFFFF_FFFF;
     }
 }
 
@@ -1170,27 +1117,25 @@ unsafe extern "cdecl" fn palette_commit_bridge(
     );
 }
 
-/// Port of DDDisplay::SetLayerVisibility (vtable slot 23, 0x56A5D0).
+/// Port of DisplayGfx::SetLayerVisibility (vtable slot 23, 0x56A5D0).
 ///
 /// Gets the layer context via `set_active_layer`, then updates the palette
 /// from that context if it exists. If `visible < 0`, clears the layer's
 /// visibility flag.
 ///
 /// # Safety
-/// `this` must be a valid `*mut DDDisplay` (actually a `*mut DisplayGfx`).
+/// `this` must be a valid `*mut DisplayGfx`.
 pub unsafe extern "thiscall" fn set_layer_visibility(
-    this: *mut DDDisplay,
+    this: *mut DisplayGfx,
     layer: i32,
     visible: i32,
 ) {
-    let gfx = DDDisplay::as_gfx(this);
-
     let layer_ctx = set_active_layer(this, layer) as *mut PaletteContext;
     if !layer_ctx.is_null() {
         update_palette(this, layer_ctx, visible);
     }
 
     if visible < 0 {
-        (*gfx).base.layer_visibility[layer as usize] = 0;
+        (*this).base.layer_visibility[layer as usize] = 0;
     }
 }

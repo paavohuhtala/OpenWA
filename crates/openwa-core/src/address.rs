@@ -79,9 +79,9 @@ pub mod va {
     pub use crate::display::compat_renderer::{
         CompatRendererVtable, COMPAT_RENDERER_VTABLE, DDRAW8_RENDERER_VTABLE,
     };
-    pub use crate::display::dd_display::DD_DISPLAY_VTABLE;
-    pub use crate::display::display_wrapper::{DDDisplayWrapperVtable, DD_DISPLAY_WRAPPER_VTABLE};
+    pub use crate::display::display_vtable::DISPLAY_GFX_VTABLE;
     pub use crate::display::palette::PALETTE_VTABLE;
+    pub use crate::display::render_context::{RenderContextVtable, RENDER_CONTEXT_VTABLE};
     pub use crate::frontend::map_view::MAP_VIEW_VTABLE;
     pub use crate::input::controller::INPUT_CTRL_VTABLE;
     pub use crate::task::game_task::SOUND_EMITTER_VTABLE;
@@ -247,7 +247,7 @@ pub mod va {
     /// Alias for backward compatibility with validation code.
     pub const CGAMETASK_VTABLE2: u32 = CGAMETASK_SOUND_EMITTER_VT;
     /// Alias for callers using the old name.
-    pub const CONSTRUCT_DD_DISPLAY: u32 = DDISPLAY_INIT;
+    pub const CONSTRUCT_DISPLAY_GFX: u32 = DISPLAY_GFX_INIT;
     /// Duplicate: same as PC_LANDSCAPE_CONSTRUCTOR.
     pub const CONSTRUCT_PC_LANDSCAPE: u32 = PC_LANDSCAPE_CONSTRUCTOR;
     /// Duplicate: same as SPRITE_REGION_CONSTRUCTOR.
@@ -422,18 +422,18 @@ pub mod va {
     // =========================================================================
 
     crate::define_addresses! {
-        /// DDDisplay::Init
-        fn/Usercall DDISPLAY_INIT = 0x0056_9D00;
-        /// DDDisplay vtable slot 19 — blit sprite
-        fn/Thiscall DDISPLAY_BLIT_SPRITE = 0x0056_B080;
-        /// DDDisplay bitmap sprite info lookup — usercall(EAX=bitmap_obj, EDX=palette), RET 0x18
-        fn/Usercall DDISPLAY_GET_BITMAP_SPRITE_INFO = 0x0057_3C50;
-        /// DDDisplay bitmap blit (clipped) — usercall(EAX=this, EDX=width), RET 0x14
-        fn/Usercall DDISPLAY_BLIT_BITMAP_CLIPPED = 0x0056_A700;
-        /// DDDisplay bitmap blit (tiled) — usercall(EAX=initial_x, EDI=tile_width), RET 0x10
-        fn/Usercall DDISPLAY_BLIT_BITMAP_TILED = 0x0056_A7D0;
-        /// DDDisplay flush render lock — releases lock, plain RET
-        fn DDISPLAY_FLUSH_RENDER_LOCK = 0x0056_A330;
+        /// DisplayGfx::Init
+        fn/Usercall DISPLAY_GFX_INIT = 0x0056_9D00;
+        /// DisplayGfx vtable slot 19 — blit sprite
+        fn/Thiscall DISPLAY_GFX_BLIT_SPRITE = 0x0056_B080;
+        /// DisplayGfx bitmap sprite info lookup — usercall(EAX=bitmap_obj, EDX=palette), RET 0x18
+        fn/Usercall DISPLAY_GFX_GET_BITMAP_SPRITE_INFO = 0x0057_3C50;
+        /// DisplayGfx bitmap blit (clipped) — usercall(EAX=this, EDX=width), RET 0x14
+        fn/Usercall DISPLAY_GFX_BLIT_BITMAP_CLIPPED = 0x0056_A700;
+        /// DisplayGfx bitmap blit (tiled) — usercall(EAX=initial_x, EDI=tile_width), RET 0x10
+        fn/Usercall DISPLAY_GFX_BLIT_BITMAP_TILED = 0x0056_A7D0;
+        /// DisplayGfx flush render lock — releases lock, plain RET
+        fn DISPLAY_GFX_FLUSH_RENDER_LOCK = 0x0056_A330;
         /// Streaming audio constructor
         fn/Stdcall STREAMING_AUDIO_CTOR = 0x0058_BC10;
         /// DDNetGameWrapper constructor
@@ -497,7 +497,7 @@ pub mod va {
         fn/Stdcall TEAM_MANAGER_CONSTRUCTOR = 0x0056_3D40;
         /// CTaskGameState constructor
         fn/Stdcall GAME_STATE_CONSTRUCTOR = 0x0053_2330;
-        /// DDDisplay::ConstructTextbox
+        /// DisplayGfx::ConstructTextbox
         fn/Stdcall CONSTRUCT_TEXTBOX = 0x004F_AF00;
         fn/Stdcall FUN_567770 = 0x0056_7770;
         /// Buffer object constructor
@@ -774,8 +774,8 @@ pub mod va {
         fn FONT_LOAD_FONTS = 0x0041_4680;
         fn FONT_RENDER_GLYPHS = 0x0041_43D0;
         fn FONT_DRAW_TEXT = 0x0042_7830;
-        fn/Thiscall DDDISPLAY_DRAW_TEXT_ON_BITMAP = 0x0052_36B0;
-        fn/Thiscall DDDISPLAY_CONSTRUCT_TEXTBOX = 0x004F_AF00;
+        fn/Thiscall DISPLAY_GFX_DRAW_TEXT_ON_BITMAP = 0x0052_36B0;
+        fn/Thiscall DISPLAY_GFX_CONSTRUCT_TEXTBOX = 0x004F_AF00;
         fn/Stdcall SET_TEXTBOX_TEXT = 0x004F_B070;
     }
 
@@ -841,9 +841,9 @@ pub mod va {
         global G_FRONTEND_HWND = 0x006B_390C;
         global G_SKIP_TO_MAIN_MENU = 0x007A_083D;
         global G_AUTO_NETWORK_FLAG = 0x007A_083F;
-        global G_DD_DISPLAY_WRAPPER = 0x0079_D6D4;
+        global G_RENDER_CONTEXT = 0x0079_D6D4;
         /// Stipple checkerboard parity — toggled (XOR 1) each render frame in GameRender.
-        /// Used by DDDisplay__BlitStippled to alternate the checkerboard pattern.
+        /// Used by DisplayGfx__BlitStippled to alternate the checkerboard pattern.
         global G_STIPPLE_PARITY = 0x007A_087C;
         global G_FONT_ARRAY = 0x007A_0F58;
         global G_MAIN_MENU_ACTIVE = 0x007C_0A20;

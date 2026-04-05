@@ -104,7 +104,7 @@ unsafe extern "cdecl" fn draw_polygon_impl(
 // ---------------------------------------------------------------------------
 // DrawCrosshair (0x541ED0) — type 0xB, ECX=this, 5 stack, RET 0x14
 // Enqueues a crosshair draw command. Dispatched by RenderDrawingQueue
-// case 0xB → DDDisplay::draw_crosshair (vtable slot 16).
+// case 0xB → DisplayGfx::draw_crosshair (vtable slot 16).
 // ---------------------------------------------------------------------------
 
 usercall_trampoline!(fn trampoline_draw_crosshair; impl_fn = draw_crosshair_impl;

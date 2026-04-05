@@ -188,7 +188,7 @@ pub fn blit_sprite_rect(
     match blend {
         BlitBlend::Copy => {
             // WA's mode 0 (direct copy) is always a forward memcpy.
-            // Orientation is ignored — the DDDisplay layer handles visual
+            // Orientation is ignored — the DisplayGfx layer handles visual
             // mirroring by adjusting destination coordinates before calling
             // the core blit. Source offset uses Normal orientation.
             let (sx_start, sy_start) = adjust_source_for_clip(
@@ -557,7 +557,7 @@ pub fn pixel_grid_from_indexed(width: u32, height: u32, pixels: &[u8]) -> PixelG
 
 /// Blit a sprite with a checkerboard (stippled) pattern.
 ///
-/// Port of DDDisplay__BlitStippled (0x56AEF0). Draws every other pixel
+/// Port of DisplayGfx__BlitStippled (0x56AEF0). Draws every other pixel
 /// in a checkerboard pattern, creating a dithered transparency effect.
 ///
 /// The checkerboard is determined by: `(dst_x ^ parity ^ dst_y ^ mode) & 1`.
@@ -627,7 +627,7 @@ pub fn blit_stippled(
 
 /// Blit a sprite tiled horizontally across a destination region.
 ///
-/// Port of DDDisplay__BlitTiled (0x56B000). Tiles the sprite from
+/// Port of DisplayGfx__BlitTiled (0x56B000). Tiles the sprite from
 /// `clip_left` to `clip_right` by repeatedly calling `blit_sprite_rect`.
 ///
 /// The `initial_x` is wrapped to the largest value <= `clip_left`

@@ -13,7 +13,7 @@ use crate::audio::active_sound::ActiveSoundTable;
 use crate::audio::dssound::DSSound;
 use crate::audio::music::Music;
 use crate::bitgrid::{BitGrid, BitGridBaseVtable, CollisionBitGrid, DisplayBitGrid};
-use crate::display::dd_display::DDDisplay;
+use crate::display::gfx::DisplayGfx;
 use crate::display::gradient::compute_complex_gradient;
 use crate::display::palette::Palette;
 use crate::engine::coord::{CoordList, CoordListEntry};
@@ -172,7 +172,7 @@ unsafe fn wa_init_version_flags(wrapper: *mut DDGameWrapper) {
 
 /// GfxHandler__LoadSprites (0x570B50): usercall(ESI=layer_ctx) + stdcall(4 params).
 ///
-/// ESI must hold the display layer context (from DDDisplay::set_active_layer).
+/// ESI must hold the display layer context (from DisplayGfx::set_active_layer).
 /// The function uses ESI for LoadSpriteFromVfs and GfxResource__Create_Maybe
 /// when param4 (gfx_dir) is non-null.
 #[cfg(target_arch = "x86")]
@@ -254,7 +254,7 @@ unsafe fn wa_pc_landscape_ctor(
     this: *mut u8,
     ddgame: *mut DDGame,
     gfx_resource: *mut u8,
-    display: *mut DDDisplay,
+    display: *mut DisplayGfx,
     landscape_data: *const u8,
     byte_output: *mut u8,
     gfx_mode: u32,
@@ -267,7 +267,7 @@ unsafe fn wa_pc_landscape_ctor(
         *mut u8,
         *mut DDGame,
         *mut u8,
-        *mut DDDisplay,
+        *mut DisplayGfx,
         *const u8,
         *mut u8,
         u32,
@@ -301,8 +301,8 @@ unsafe fn wa_displaygfx_ctor(raw_image: *mut u8) -> *mut u8 {
 
 /// DDGame__InitDisplayFinal (0x56A830): finalize display for non-headless mode.
 #[cfg(target_arch = "x86")]
-unsafe fn wa_init_display_final(display: *mut DDDisplay) {
-    let f: unsafe extern "stdcall" fn(*mut DDDisplay) =
+unsafe fn wa_init_display_final(display: *mut DisplayGfx) {
+    let f: unsafe extern "stdcall" fn(*mut DisplayGfx) =
         core::mem::transmute(rb(va::DDGAME_INIT_DISPLAY_FINAL) as usize);
     f(display);
 }
@@ -342,7 +342,7 @@ pub static mut ON_DDGAME_ALLOC: Option<unsafe fn(*mut u8)> = None;
 pub unsafe fn create_ddgame(
     wrapper: *mut DDGameWrapper,
     keyboard: *mut DDKeyboard,
-    display: *mut DDDisplay,
+    display: *mut DisplayGfx,
     sound: *mut DSSound,
     palette: *mut Palette,
     music: *mut Music,
@@ -425,7 +425,7 @@ unsafe fn init_graphics_and_resources(
     wrapper: *mut DDGameWrapper,
     game_info: *mut GameInfo,
     _net_game: *mut u8,
-    _display: *mut DDDisplay,
+    _display: *mut DisplayGfx,
     is_headless: bool,
 ) {
     let ddgame = (*wrapper).ddgame;

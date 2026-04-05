@@ -22,14 +22,15 @@
 /// vtable at a different address crashes even with identical content. We must
 /// point to WA's vtable in .rdata and patch individual slots there in-place
 /// (via VirtualProtect in `display.rs`).
+use crate::task::base::Vtable;
 
 /// Ptr32 alias for raw pointer fields (compiles on 64-bit host).
 type Ptr32 = u32;
 
 #[repr(C)]
-pub struct DisplayBase {
+pub struct DisplayBase<V: Vtable = *const DisplayBaseVtable> {
     // +0x000: vtable pointer
-    pub vtable: *const DisplayBaseVtable,
+    pub vtable: V,
     // +0x004: sprite cache wrapper (0x28-byte SpriteCacheWrapper)
     pub sprite_cache: Ptr32,
     // +0x008..0x1008: sprite pointer array 0 (0x400 entries), zeroed by ctor.
@@ -61,11 +62,11 @@ pub struct DisplayBase {
     // +0x3530..0x3540: layer visibility flags (4 entries), zeroed by ctor.
     // Indexed by layer. Cleared to 0 by set_layer_visibility when visible < 0.
     pub layer_visibility: [u32; 4],
-    // +0x3540: display initialized flag (set to 1 by DDDisplay__Init)
+    // +0x3540: display initialized flag (set to 1 by DisplayGfx__Init)
     pub display_initialized: u32,
     // +0x3544: unknown
     pub _unknown_3544: u32,
-    // +0x3548: display width in pixels (set by DDDisplay__Init)
+    // +0x3548: display width in pixels (set by DisplayGfx__Init)
     pub display_width: u32,
     // +0x354C: display height in pixels
     pub display_height: u32,

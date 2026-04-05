@@ -8,7 +8,8 @@
 use crate::log_line;
 use openwa_core::address::va;
 use openwa_core::bitgrid::DisplayBitGrid;
-use openwa_core::display::dd_display::{self, DDDisplay, DDDisplayVtable};
+use openwa_core::display::display_vtable::{self as display_vtable, DisplayVtable};
+use openwa_core::display::DisplayGfx;
 use openwa_core::display::{DisplayBase, SpriteBufferCtrl, SpriteCacheWrapper};
 use openwa_core::fixed::Fixed;
 use openwa_core::rebase::rb;
@@ -52,7 +53,7 @@ unsafe extern "thiscall" fn headless_destructor(
 
 // No saved originals needed — all paths are fully ported or use direct bridges.
 
-/// Rust port of DDDisplay::BlitSprite (slot 19, 0x56B080).
+/// Rust port of DisplayGfx::BlitSprite (slot 19, 0x56B080).
 ///
 /// Standard thiscall: ECX=this, stack params: x, y, sprite_flags, palette (RET 0x10).
 ///
@@ -73,14 +74,14 @@ unsafe extern "thiscall" fn headless_destructor(
 ///     bit 27 (0x8000000): stippled mode 0
 ///     bit 28 (0x10000000): stippled mode 1
 unsafe extern "thiscall" fn blit_sprite(
-    this: *mut DDDisplay,
+    this: *mut DisplayGfx,
     x: Fixed,
     y: Fixed,
     sprite_flags: u32,
     palette: u32,
 ) {
     use openwa_core::bitgrid::DisplayBitGrid;
-    use openwa_core::display::dd_display;
+    use openwa_core::display::display_vtable;
     use openwa_core::display::gfx::DisplayGfx;
 
     let gfx = this as *mut DisplayGfx;
@@ -149,7 +150,7 @@ unsafe extern "thiscall" fn blit_sprite(
             &mut rect_top,
             &mut rect_right,
             &mut rect_bottom,
-            rb(openwa_core::address::va::DDISPLAY_GET_BITMAP_SPRITE_INFO),
+            rb(openwa_core::address::va::DISPLAY_GFX_GET_BITMAP_SPRITE_INFO),
         );
         if frame_data.is_null() {
             return;
@@ -174,7 +175,7 @@ unsafe extern "thiscall" fn blit_sprite(
                 blit_h,
                 frame_data,
                 2,
-                rb(openwa_core::address::va::DDISPLAY_BLIT_BITMAP_CLIPPED),
+                rb(openwa_core::address::va::DISPLAY_GFX_BLIT_BITMAP_CLIPPED),
             );
         } else {
             // Tiled: BlitBitmapTiled
@@ -186,7 +187,7 @@ unsafe extern "thiscall" fn blit_sprite(
                 dst_y,
                 blit_h,
                 frame_data,
-                rb(openwa_core::address::va::DDISPLAY_BLIT_BITMAP_TILED),
+                rb(openwa_core::address::va::DISPLAY_GFX_BLIT_BITMAP_TILED),
             );
         }
         return;
@@ -237,7 +238,7 @@ unsafe extern "thiscall" fn blit_sprite(
     let mut out_unknown: u32 = 0;
 
     let fn33: unsafe extern "thiscall" fn(
-        *mut DDDisplay,
+        *mut DisplayGfx,
         u32,
         u32,
         *mut i32,
@@ -418,7 +419,7 @@ unsafe extern "thiscall" fn blit_sprite(
         };
         let parity = *(rb(openwa_core::address::va::G_STIPPLE_PARITY) as *const u32);
 
-        dd_display::acquire_render_lock(gfx);
+        display_vtable::acquire_render_lock(gfx);
 
         super::bitgrid::blit_stippled_raw(
             (*gfx).layer_0,
@@ -437,7 +438,7 @@ unsafe extern "thiscall" fn blit_sprite(
 
     // Tiled mode (horizontal sprite tiling)
     if (high_flags & 0x0001_0000) != 0 {
-        dd_display::acquire_render_lock(gfx);
+        display_vtable::acquire_render_lock(gfx);
 
         super::bitgrid::blit_tiled_raw(
             (*gfx).layer_0,
@@ -462,7 +463,7 @@ unsafe extern "thiscall" fn blit_sprite(
         core::ptr::null()
     };
 
-    dd_display::acquire_render_lock(gfx);
+    display_vtable::acquire_render_lock(gfx);
 
     // src_x=0, src_y=0 always — vtable[33] already set up the sprite surface
     super::bitgrid::blit_impl(
@@ -483,7 +484,7 @@ unsafe extern "thiscall" fn blit_sprite(
 // Bitmap sprite bridges (naked asm for usercall conventions)
 // =========================================================================
 
-/// Call DDDisplay__GetBitmapSpriteInfo (0x573C50).
+/// Call DisplayGfx__GetBitmapSpriteInfo (0x573C50).
 /// Usercall: EAX=bitmap_obj, EDX=palette, 6 stack params (output ptrs), RET 0x18.
 #[unsafe(naked)]
 unsafe extern "cdecl" fn wa_get_bitmap_sprite_info(
@@ -512,7 +513,7 @@ unsafe extern "cdecl" fn wa_get_bitmap_sprite_info(
     );
 }
 
-/// Call DDDisplay__BlitBitmapClipped (0x56A700).
+/// Call DisplayGfx__BlitBitmapClipped (0x56A700).
 /// Usercall: EAX=this, EDX=width, 5 stack params (dst_x, dst_y, height, frame_data, flags), RET 0x14.
 #[unsafe(naked)]
 unsafe extern "cdecl" fn wa_blit_bitmap_clipped(
@@ -539,7 +540,7 @@ unsafe extern "cdecl" fn wa_blit_bitmap_clipped(
     );
 }
 
-/// Call DDDisplay__BlitBitmapTiled (0x56A7D0).
+/// Call DisplayGfx__BlitBitmapTiled (0x56A7D0).
 /// Usercall: EAX=initial_x, EDI=tile_width, 4 stack params (this, dst_y, height, frame_data), RET 0x10.
 #[unsafe(naked)]
 unsafe extern "cdecl" fn wa_blit_bitmap_tiled(
@@ -566,11 +567,11 @@ unsafe extern "cdecl" fn wa_blit_bitmap_tiled(
     );
 }
 
-/// Thiscall wrapper for DDDisplay::DrawScaledSprite (slot 20).
+/// Thiscall wrapper for DisplayGfx::DrawScaledSprite (slot 20).
 ///
 /// Computes coordinates in core, then dispatches the blit via blit_impl.
 unsafe extern "thiscall" fn draw_scaled_sprite(
-    this: *mut DDDisplay,
+    this: *mut DisplayGfx,
     x: Fixed,
     y: Fixed,
     sprite: *mut DisplayBitGrid,
@@ -580,9 +581,10 @@ unsafe extern "thiscall" fn draw_scaled_sprite(
     src_h: i32,
     flags: u32,
 ) {
-    use openwa_core::display::dd_display::{self, DrawScaledSpriteResult};
+    use openwa_core::display::display_vtable::{self, DrawScaledSpriteResult};
 
-    match dd_display::draw_scaled_sprite(this, x, y, sprite, src_x, src_y, src_w, src_h, flags) {
+    match display_vtable::draw_scaled_sprite(this, x, y, sprite, src_x, src_y, src_w, src_h, flags)
+    {
         DrawScaledSpriteResult::Blit {
             layer,
             dst_x,
@@ -668,28 +670,28 @@ pub fn install() -> Result<(), String> {
             let _ = log_line("[Display]   Headless: patched slot 0 (destructor) → Rust");
         })?;
 
-        // Patch DDDisplay vtable (0x66A218): replace ported methods with Rust.
-        vtable_replace!(DDDisplayVtable, va::DD_DISPLAY_VTABLE, {
-            get_dimensions      => dd_display::get_dimensions,
-            draw_polyline       => dd_display::draw_polyline,
-            draw_line           => dd_display::draw_line,
-            draw_line_clipped   => dd_display::draw_line_clipped,
-            draw_pixel_strip    => dd_display::draw_pixel_strip,
-            draw_crosshair      => dd_display::draw_crosshair,
-            draw_outlined_pixel => dd_display::draw_outlined_pixel,
-            fill_rect           => dd_display::fill_rect,
-            draw_via_callback   => dd_display::draw_via_callback,
-            flush_render        => dd_display::flush_render,
-            set_camera_offset   => dd_display::set_camera_offset,
-            set_clip_rect       => dd_display::set_clip_rect,
-            is_sprite_loaded    => dd_display::is_sprite_loaded,
+        // Patch DisplayGfx vtable (0x66A218): replace ported methods with Rust.
+        vtable_replace!(DisplayVtable, va::DISPLAY_GFX_VTABLE, {
+            get_dimensions      => display_vtable::get_dimensions,
+            draw_polyline       => display_vtable::draw_polyline,
+            draw_line           => display_vtable::draw_line,
+            draw_line_clipped   => display_vtable::draw_line_clipped,
+            draw_pixel_strip    => display_vtable::draw_pixel_strip,
+            draw_crosshair      => display_vtable::draw_crosshair,
+            draw_outlined_pixel => display_vtable::draw_outlined_pixel,
+            fill_rect           => display_vtable::fill_rect,
+            draw_via_callback   => display_vtable::draw_via_callback,
+            flush_render        => display_vtable::flush_render,
+            set_camera_offset   => display_vtable::set_camera_offset,
+            set_clip_rect       => display_vtable::set_clip_rect,
+            is_sprite_loaded    => display_vtable::is_sprite_loaded,
             draw_scaled_sprite  => draw_scaled_sprite,
-            set_active_layer    => dd_display::set_active_layer,
-            set_layer_visibility => dd_display::set_layer_visibility,
-            update_palette      => dd_display::update_palette,
+            set_active_layer    => display_vtable::set_active_layer,
+            set_layer_visibility => display_vtable::set_layer_visibility,
+            update_palette      => display_vtable::update_palette,
             slot 19 => blit_sprite,
         })?;
-        let _ = log_line("[Display]   DDDisplay: patched 18 methods → Rust");
+        let _ = log_line("[Display]   DisplayGfx: patched 18 methods → Rust");
     }
 
     Ok(())

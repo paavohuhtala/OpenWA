@@ -64,18 +64,18 @@ pub worm_name: [u8; 0x11],  // Displays as "Ainsley" instead of raw hex
 Defines typed vtable structs from sparse slot definitions. The macro generates the full `#[repr(C)]` struct with `usize` gap-fillers, registry metadata, a companion `bind_!` macro, and optional address constants.
 
 ```rust
-#[openwa_core::vtable(size = 38, va = 0x0066_A218, class = "DDDisplay")]
-pub struct DDDisplayVtable {
+#[openwa_core::vtable(size = 38, va = 0x0066_A218, class = "DisplayGfx")]
+pub struct DisplayVtable {
     /// set layer color
     #[slot(4)]
-    pub set_layer_color: fn(this: *mut DDDisplay, layer: i32, color: i32),
+    pub set_layer_color: fn(this: *mut DisplayGfx, layer: i32, color: i32),
     /// set active layer, returns layer context ptr
     #[slot(5)]
-    pub set_active_layer: fn(this: *mut DDDisplay, layer: i32) -> *mut u8,
+    pub set_active_layer: fn(this: *mut DisplayGfx, layer: i32) -> *mut u8,
 }
 
-// Generate calling wrappers on the class struct
-bind_DDDisplayVtable!(DDDisplay, vtable);
+// Generate calling wrappers on the class struct (supports nested field paths)
+bind_DisplayVtable!(DisplayGfx, base.vtable);
 ```
 
 Key features:

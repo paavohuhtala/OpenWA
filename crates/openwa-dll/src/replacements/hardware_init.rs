@@ -23,7 +23,7 @@
 //!
 //! IF GameInfo.headless_mode == 0 (normal mode):
 //!   DisplayGfx (0x24E28, stdcall ctor) → session+0xAC
-//!   DDDisplay::Init retry loop (configured → 1024×768 → 800×600 → 640×480)
+//!   DisplayGfx::Init retry loop (configured → 1024×768 → 800×600 → 640×480)
 //!   screen center / cursor setup
 //!   DDKeyboard (0x33C, inline) → session+0xA4
 //!   Palette (0x28, inline) → session+0xB0
@@ -46,7 +46,7 @@ use crate::hook;
 use crate::log_line;
 use openwa_core::address::va;
 use openwa_core::audio::{DSSound, Music};
-use openwa_core::display::{DDDisplay, DisplayBase, DisplayGfx, Palette};
+use openwa_core::display::{DisplayBase, DisplayGfx, Palette};
 use openwa_core::engine::{DDGameWrapper, DDNetGameWrapper, GameInfo, GameSession, GameTimer};
 use openwa_core::input::{DDKeyboard, InputCtrl, InputCtrlVtable};
 use openwa_core::rebase::rb;
@@ -63,10 +63,10 @@ static mut SAVED_RET: u32 = 0;
 static mut TIMER_CTOR_ADDR: u32 = 0;
 static mut INPUT_CTRL_INIT_ADDR: u32 = 0;
 static mut STREAM_CTOR_ADDR: u32 = 0;
-static mut DDISPLAY_INIT_ADDR: u32 = 0;
+static mut DISPLAY_GFX_INIT_ADDR: u32 = 0;
 
-/// Height passed in ECX to `call_ddisplay_init` — set before each call.
-static mut DDISPLAY_INIT_ECX: u32 = 0;
+/// Height passed in ECX to `call_display_gfx_init` — set before each call.
+static mut DISPLAY_GFX_INIT_ECX: u32 = 0;
 
 /// Implicit ESI for `call_input_ctrl_init` (set by `impl_init_hardware`).
 static mut INPUT_CTRL_ESI: u32 = 0;
@@ -164,11 +164,11 @@ unsafe extern "cdecl" fn call_streaming_audio_ctor(
     );
 }
 
-/// DDDisplay::Init — usercall(ECX=height) + stdcall(display_gfx, hwnd, width, flags), RET 0x10.
+/// DisplayGfx::Init — usercall(ECX=height) + stdcall(display_gfx, hwnd, width, flags), RET 0x10.
 /// Tail-jump: callee's RET 0x10 cleans the 4 stack args and returns to our caller.
-/// Caller must set `DDISPLAY_INIT_ECX = height` before calling.
+/// Caller must set `DISPLAY_GFX_INIT_ECX = height` before calling.
 #[unsafe(naked)]
-unsafe extern "stdcall" fn call_ddisplay_init(
+unsafe extern "stdcall" fn call_display_gfx_init(
     _display_gfx: *mut u8,
     _hwnd: u32,
     _width: u32,
@@ -178,8 +178,8 @@ unsafe extern "stdcall" fn call_ddisplay_init(
         // Stack: [ret, display_gfx, hwnd, width, flags]  ECX = whatever
         "movl {ecx_val}, %ecx",  // ECX = height
         "jmpl *({fn})",          // tail-jump; callee RET 0x10 cleans 4 args
-        ecx_val = sym DDISPLAY_INIT_ECX,
-        fn = sym DDISPLAY_INIT_ADDR,
+        ecx_val = sym DISPLAY_GFX_INIT_ECX,
+        fn = sym DISPLAY_GFX_INIT_ADDR,
         options(att_syntax),
     );
 }
@@ -289,13 +289,13 @@ unsafe extern "cdecl" fn impl_init_hardware(
         let display_gfx = DisplayGfx::construct();
         (*session).display = display_gfx as *mut u8;
 
-        // ── DDDisplay::Init retry loop ────────────────────────────────────────
+        // ── DisplayGfx::Init retry loop ────────────────────────────────────────
         let flags = gi.display_flags;
         let w0 = gi.display_width;
         let h0 = gi.display_height;
 
-        DDISPLAY_INIT_ECX = h0;
-        let mut init_ok = call_ddisplay_init(display_gfx as *mut u8, hwnd, w0, flags) != 0;
+        DISPLAY_GFX_INIT_ECX = h0;
+        let mut init_ok = call_display_gfx_init(display_gfx as *mut u8, hwnd, w0, flags) != 0;
 
         if !init_ok {
             let fallbacks: [(u32, u32); 3] = [
@@ -306,8 +306,8 @@ unsafe extern "cdecl" fn impl_init_hardware(
             for &(w, h) in &fallbacks {
                 gi.display_width = w;
                 gi.display_height = h;
-                DDISPLAY_INIT_ECX = h;
-                if call_ddisplay_init(display_gfx as *mut u8, hwnd, w, flags) != 0 {
+                DISPLAY_GFX_INIT_ECX = h;
+                if call_display_gfx_init(display_gfx as *mut u8, hwnd, w, flags) != 0 {
                     init_ok = true;
                     break;
                 }
@@ -404,7 +404,7 @@ unsafe extern "cdecl" fn impl_init_hardware(
     let wrapper = game_session::construct_ddgame_wrapper(
         game_info,
         WABox::<DDGameWrapper>::alloc(0x6F10, 0x6EF0).leak(),
-        (*session).display as *mut DDDisplay,
+        (*session).display as *mut DisplayGfx,
         (*session).sound,
         (*session).keyboard as *mut u8,
         (*session).palette,
@@ -471,7 +471,7 @@ pub fn install() -> Result<(), String> {
         TIMER_CTOR_ADDR = rb(va::GAME_ENGINE_TIMER_CTOR);
         INPUT_CTRL_INIT_ADDR = rb(va::INPUT_CTRL_INIT);
         STREAM_CTOR_ADDR = rb(va::STREAMING_AUDIO_CTOR);
-        DDISPLAY_INIT_ADDR = rb(va::DDISPLAY_INIT);
+        DISPLAY_GFX_INIT_ADDR = rb(va::DISPLAY_GFX_INIT);
 
         // Full replacement — trampoline not needed.
         let _ = hook::install(
