@@ -32,11 +32,34 @@ use crate::fixed::Fixed;
 /// - 0x3D98: render lock flag (cleared by FlushRender)
 /// - 0x3D9C: display context pointer (read during FlushRender)
 ///
-/// OPAQUE: Full struct layout not yet mapped (see DisplayGfx for size).
+/// In memory, `DDDisplay` is the same object as `DisplayGfx` (which contains
+/// `DisplayBase`). They all start at offset 0 with the vtable pointer. The
+/// vtable determines the class identity:
+///
+/// ```text
+/// +0x0000  vtable ptr  ← DDDisplay (0x66A218), DisplayBase (0x6645F8 or 0x66A0F8)
+/// +0x0004  DisplayBase fields (sprite cache, arrays, clip rect, ...)
+///   ...
+/// +0x3560  DisplayGfx fields (camera, palette, layers, ...)
+///   ...    (total: 0x24E28 bytes)
+/// ```
+///
+/// `DDDisplay` is used as the `this` type in vtable method signatures.
+/// To access fields, cast to `*mut DisplayGfx`: both point to offset 0.
 #[repr(C)]
 pub struct DDDisplay {
     /// 0x000: Vtable pointer (0x66A218)
     pub vtable: *const DDDisplayVtable,
+}
+
+impl DDDisplay {
+    /// Cast to the full `DisplayGfx` layout for field access.
+    ///
+    /// Safe because `DDDisplay` and `DisplayGfx` are the same object in memory.
+    #[inline(always)]
+    pub fn as_gfx(ptr: *mut DDDisplay) -> *mut DisplayGfx {
+        ptr as *mut DisplayGfx
+    }
 }
 
 /// DDDisplay vtable (0x66A218, 38 slots).
@@ -303,7 +326,7 @@ pub unsafe extern "thiscall" fn get_dimensions(
     out_w: *mut u32,
     out_h: *mut u32,
 ) {
-    let gfx = this as *mut DisplayGfx;
+    let gfx = DDDisplay::as_gfx(this);
     *out_w = (*gfx).base.display_width;
     *out_h = (*gfx).base.display_height;
 }
@@ -325,7 +348,7 @@ use crate::rebase::rb;
 /// `this` must be a valid `*mut DDDisplay` (actually a `*mut DisplayGfx`).
 /// `g_DDDisplayWrapper` (0x79D6D4) must be initialized.
 pub unsafe extern "thiscall" fn flush_render(this: *mut DDDisplay) {
-    let gfx = this as *mut DisplayGfx;
+    let gfx = DDDisplay::as_gfx(this);
     let wrapper = *(rb(va::G_DD_DISPLAY_WRAPPER) as *const *mut DDDisplayWrapper);
 
     if (*gfx).render_lock != 0 {
@@ -347,7 +370,7 @@ pub unsafe extern "thiscall" fn flush_render(this: *mut DDDisplay) {
 /// # Safety
 /// `this` must be a valid `*mut DDDisplay` (actually a `*mut DisplayGfx`).
 pub unsafe extern "thiscall" fn set_camera_offset(this: *mut DDDisplay, x: Fixed, y: Fixed) {
-    let gfx = this as *mut DisplayGfx;
+    let gfx = DDDisplay::as_gfx(this);
     (*gfx).camera_x = x.to_int();
     (*gfx).camera_y = y.to_int();
 }
@@ -367,7 +390,7 @@ pub unsafe extern "thiscall" fn set_clip_rect(
     x2: Fixed,
     y2: Fixed,
 ) {
-    let gfx = this as *mut DisplayGfx;
+    let gfx = DDDisplay::as_gfx(this);
     let base = &mut (*gfx).base;
 
     // Convert Fixed to pixel integers
@@ -527,7 +550,7 @@ pub unsafe extern "thiscall" fn fill_rect(
     y2: i32,
     color: u32,
 ) {
-    let gfx = this as *mut DisplayGfx;
+    let gfx = DDDisplay::as_gfx(this);
     let base = &(*gfx).base;
 
     // Apply camera offset
@@ -589,7 +612,7 @@ pub unsafe extern "thiscall" fn draw_outlined_pixel(
     color_fg: u32,
     color_bg: i32,
 ) {
-    let gfx = this as *mut DisplayGfx;
+    let gfx = DDDisplay::as_gfx(this);
     let cx = x + (*gfx).camera_x;
     let cy = y + (*gfx).camera_y;
 
@@ -627,7 +650,7 @@ pub unsafe extern "thiscall" fn draw_crosshair(
     color_fg: u32,
     color_bg: u32,
 ) {
-    let gfx = this as *mut DisplayGfx;
+    let gfx = DDDisplay::as_gfx(this);
     let cx = x + (*gfx).camera_x;
     let cy = y + (*gfx).camera_y;
 
@@ -703,7 +726,7 @@ pub unsafe extern "thiscall" fn draw_line(
     color1: u32,
     color2: u32,
 ) {
-    let gfx = this as *mut DisplayGfx;
+    let gfx = DDDisplay::as_gfx(this);
     let cam_x = Fixed::from_int((*gfx).camera_x);
     let cam_y = Fixed::from_int((*gfx).camera_y);
 
@@ -736,7 +759,7 @@ pub unsafe extern "thiscall" fn draw_line_clipped(
     y2: Fixed,
     color: u32,
 ) {
-    let gfx = this as *mut DisplayGfx;
+    let gfx = DDDisplay::as_gfx(this);
     let cam_x = Fixed::from_int((*gfx).camera_x);
     let cam_y = Fixed::from_int((*gfx).camera_y);
 
@@ -767,7 +790,7 @@ pub unsafe extern "thiscall" fn draw_polyline(
     count: i32,
     color: u32,
 ) {
-    let gfx = this as *mut DisplayGfx;
+    let gfx = DDDisplay::as_gfx(this);
     let cam_x = Fixed::from_int((*gfx).camera_x);
     let cam_y = Fixed::from_int((*gfx).camera_y);
 
@@ -804,7 +827,7 @@ pub unsafe extern "thiscall" fn is_sprite_loaded(this: *mut DDDisplay, id: i32) 
     if id_u.wrapping_sub(1) >= 0x3FF {
         return 0;
     }
-    let gfx = this as *mut DisplayGfx;
+    let gfx = DDDisplay::as_gfx(this);
     let base = &(*gfx).base;
     if base.sprite_array_1[id as usize] != 0
         || base.sprite_array_2[id as usize] != 0
@@ -833,7 +856,7 @@ pub unsafe extern "thiscall" fn draw_via_callback(
     p5: u32,
     p6: u32,
 ) {
-    let gfx = this as *mut DisplayGfx;
+    let gfx = DDDisplay::as_gfx(this);
     acquire_render_lock(gfx);
 
     let pixel_x = (Fixed::from_int((*gfx).camera_x) + x).to_int();
@@ -884,7 +907,7 @@ pub unsafe fn draw_scaled_sprite(
     src_h: i32,
     flags: u32,
 ) -> DrawScaledSpriteResult {
-    let gfx = this as *mut DisplayGfx;
+    let gfx = DDDisplay::as_gfx(this);
 
     let width = src_w - src_x;
     let height = src_h - src_y;
@@ -1010,7 +1033,7 @@ pub unsafe extern "thiscall" fn draw_pixel_strip(
     count: i32,
     color: u32,
 ) {
-    let gfx = this as *mut DisplayGfx;
+    let gfx = DDDisplay::as_gfx(this);
     let mut cx = Fixed::from_int((*gfx).camera_x) + x;
     let mut cy = Fixed::from_int((*gfx).camera_y) + y;
 
@@ -1035,7 +1058,7 @@ pub unsafe extern "thiscall" fn draw_pixel_strip(
 /// # Safety
 /// `this` must be a valid `*mut DDDisplay` (actually a `*mut DisplayGfx`).
 pub unsafe extern "thiscall" fn set_active_layer(this: *mut DDDisplay, layer: i32) -> *mut u8 {
-    let gfx = this as *mut DisplayGfx;
+    let gfx = DDDisplay::as_gfx(this);
     if (layer as u32).wrapping_sub(1) < 3 {
         (*gfx).base.layer_contexts[layer as usize] as *mut u8
     } else {
@@ -1061,7 +1084,7 @@ pub unsafe extern "thiscall" fn update_palette(
     palette_ctx: *mut PaletteContext,
     commit: i32,
 ) {
-    let gfx = this as *mut DisplayGfx;
+    let gfx = DDDisplay::as_gfx(this);
     let ctx = &mut *palette_ctx;
 
     // Reset iteration counter
@@ -1160,7 +1183,7 @@ pub unsafe extern "thiscall" fn set_layer_visibility(
     layer: i32,
     visible: i32,
 ) {
-    let gfx = this as *mut DisplayGfx;
+    let gfx = DDDisplay::as_gfx(this);
 
     let layer_ctx = set_active_layer(this, layer) as *mut PaletteContext;
     if !layer_ctx.is_null() {
