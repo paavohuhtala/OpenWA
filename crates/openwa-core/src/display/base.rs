@@ -45,18 +45,22 @@ pub struct DisplayBase {
     pub _field_3018: u32,
     // +0x301C..0x309C: gap (0x80 bytes, 32 u32s: indices 0xC07..0xC26)
     pub _gap_301c: [u32; 32],
-    // +0x309C..0x311C: indices 0xC27..0xC46 (32 entries), zeroed by ctor
-    pub _fields_309c: [u32; 32],
-    // +0x311C..0x312C: indices 0xC47..0xC4A (4 entries), zeroed by ctor
-    pub _fields_311c: [u32; 4],
+    // +0x309C..0x311C: font object pointers (32 entries), zeroed by ctor.
+    // Indexed by font_id (valid range 1-31). Used by GetFontInfo, GetFontMetric, SetFontParam.
+    pub font_table: [u32; 32],
+    // +0x311C..0x312C: layer context pointers (4 entries), zeroed by ctor.
+    // Indexed by layer (valid range 1-3). Returned by set_active_layer (vtable slot 5).
+    // Used as palette data input for update_palette (vtable slot 24).
+    pub layer_contexts: [u32; 4],
     // +0x312C: index 0xC4B, zeroed by ctor
     pub _field_312c: u32,
     // +0x3130..0x352C: slot_table — 0xFF entries, all initialized to 1 by ctor
     pub slot_table: [u32; 0xFF],
     // +0x352C: index 0xD4B = 0xFFFFFFFF
     pub _field_352c: u32,
-    // +0x3530..0x3540: indices 0xD4C..0xD4F (4 entries), zeroed by ctor
-    pub _fields_3530: [u32; 4],
+    // +0x3530..0x3540: layer visibility flags (4 entries), zeroed by ctor.
+    // Indexed by layer. Cleared to 0 by set_layer_visibility when visible < 0.
+    pub layer_visibility: [u32; 4],
     // +0x3540: display initialized flag (set to 1 by DDDisplay__Init)
     pub display_initialized: u32,
     // +0x3544: unknown

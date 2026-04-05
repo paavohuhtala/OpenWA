@@ -87,10 +87,12 @@ pub struct DisplayGfx {
     // =========================================================================
     // Palette metadata and render state (0x3D90 - 0x3D97)
     // =========================================================================
-    /// 0x3D90: Palette entry count (init 0x100 = 256)
-    pub palette_count: u32,
-    /// 0x3D94: Unknown (init 0xFFFFFFFF)
-    pub _unknown_3d94: u32,
+    /// 0x3D90: Lowest dirty palette index (init 0x100 = none dirty).
+    /// Updated by `update_palette`, reset to 0x100 after palette commit.
+    pub palette_dirty_min: u32,
+    /// 0x3D94: Highest dirty palette index (init 0xFFFFFFFF = none dirty).
+    /// Updated by `update_palette`, reset to 0xFFFFFFFF after palette commit.
+    pub palette_dirty_max: u32,
 
     // =========================================================================
     // Render state and layer pointers (0x3D98 - 0x3DD3)

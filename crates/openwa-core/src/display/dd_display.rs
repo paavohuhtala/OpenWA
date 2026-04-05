@@ -184,9 +184,13 @@ pub struct DDDisplayVtable {
     /// set layer visibility (0x56A5D0, RET 0x8)
     #[slot(23)]
     pub set_layer_visibility: fn(this: *mut DDDisplay, layer: i32, visible: i32),
-    /// update palette from palette data (0x56A610, RET 0x8)
+    /// update palette from PaletteContext (0x56A610, RET 0x8)
     #[slot(24)]
-    pub update_palette: fn(this: *mut DDDisplay, palette_data: *mut i16, p3: i32),
+    pub update_palette: fn(
+        this: *mut DDDisplay,
+        palette_ctx: *mut crate::render::palette::PaletteContext,
+        commit: i32,
+    ),
     // Slot 25: stub (CGameTask__vt19)
     /// flush pending render state (0x56A580, plain RET)
     ///
@@ -285,6 +289,7 @@ bind_DDDisplayVtable!(DDDisplay, vtable);
 use super::gfx::DisplayGfx;
 use super::line_draw;
 use crate::bitgrid::DisplayBitGrid;
+use crate::render::palette::PaletteContext;
 
 /// Port of DDDisplay::GetDimensions (vtable slot 1, 0x56A460).
 ///
@@ -1018,5 +1023,151 @@ pub unsafe extern "thiscall" fn draw_pixel_strip(
             cx += dx;
             cy += dy;
         }
+    }
+}
+
+/// Port of DDDisplay::SetActiveLayer (vtable slot 5, 0x523270).
+///
+/// Returns the layer context pointer for `layer` (valid: 1, 2, 3), or null
+/// if the layer index is out of range. The returned pointer is used as
+/// palette data input for `update_palette`.
+///
+/// # Safety
+/// `this` must be a valid `*mut DDDisplay` (actually a `*mut DisplayGfx`).
+pub unsafe extern "thiscall" fn set_active_layer(this: *mut DDDisplay, layer: i32) -> *mut u8 {
+    let gfx = this as *mut DisplayGfx;
+    if (layer as u32).wrapping_sub(1) < 3 {
+        (*gfx).base.layer_contexts[layer as usize] as *mut u8
+    } else {
+        core::ptr::null_mut()
+    }
+}
+
+/// Port of DDDisplay::UpdatePalette (vtable slot 24, 0x56A610).
+///
+/// Updates DisplayGfx palette entries from a `PaletteContext`. The context's
+/// `cache` array lists which palette indices to copy, and `cache_count` says
+/// how many. Each index's RGB is read from `rgb_table` and written to the
+/// DisplayGfx `palette_entries` table.
+///
+/// If `commit != 0`, calls the palette commit function (0x56CD20) to push
+/// the updated entries to the DDraw surface palette.
+///
+/// # Safety
+/// `this` must be a valid `*mut DDDisplay` (actually a `*mut DisplayGfx`).
+/// `palette_ctx` must point to a valid `PaletteContext`.
+pub unsafe extern "thiscall" fn update_palette(
+    this: *mut DDDisplay,
+    palette_ctx: *mut PaletteContext,
+    commit: i32,
+) {
+    let gfx = this as *mut DisplayGfx;
+    let ctx = &mut *palette_ctx;
+
+    // Reset iteration counter
+    ctx.cache_iter = 0;
+
+    if ctx.cache_count <= 0 {
+        return;
+    }
+
+    let dirty_min = ctx.dirty_range_min as i32;
+    let dirty_max = ctx.dirty_range_max as i32;
+
+    // Mark iteration started
+    ctx.cache_iter = 1;
+
+    // First index to update
+    let mut idx = ctx.cache[0] as usize;
+
+    loop {
+        // Read RGB entry from PaletteContext rgb_table (stored as u32: low 3 bytes = R, G, B)
+        let rgb = ctx.rgb_table[idx].to_le_bytes();
+
+        // Write to DisplayGfx palette_entries: [R, G, B, flags=0]
+        (*gfx).palette_entries[idx * 4] = rgb[0];
+        (*gfx).palette_entries[idx * 4 + 1] = rgb[1];
+        (*gfx).palette_entries[idx * 4 + 2] = rgb[2];
+        (*gfx).palette_entries[idx * 4 + 3] = 0;
+
+        // Check if we've processed all entries
+        if ctx.cache_iter >= ctx.cache_count {
+            break;
+        }
+
+        // Advance to next index
+        idx = ctx.cache[ctx.cache_iter as usize] as usize;
+        ctx.cache_iter += 1;
+    }
+
+    // Track dirty palette range (expand to cover this update)
+    if ((*gfx).palette_dirty_min as i32) > dirty_min {
+        (*gfx).palette_dirty_min = dirty_min as u32;
+    }
+    if ((*gfx).palette_dirty_max as i32) < dirty_max {
+        (*gfx).palette_dirty_max = dirty_max as u32;
+    }
+
+    // Commit palette to DDraw surface if requested
+    if commit != 0 {
+        palette_commit(gfx);
+        (*gfx).palette_dirty_min = 0x100;
+        (*gfx).palette_dirty_max = 0xFFFF_FFFF;
+    }
+}
+
+/// Call WA's palette commit function (0x56CD20).
+///
+/// Usercall: EAX = dirty_min, EDX = dirty_max, stack param = this (DisplayGfx*).
+/// Pushes updated palette entries to the DDraw surface palette.
+unsafe fn palette_commit(gfx: *mut DisplayGfx) {
+    let dirty_min = (*gfx).palette_dirty_min;
+    let dirty_max = (*gfx).palette_dirty_max;
+    palette_commit_bridge(
+        gfx as *mut u8,
+        dirty_min,
+        dirty_max,
+        crate::rebase::rb(0x0056_CD20),
+    );
+}
+
+#[unsafe(naked)]
+unsafe extern "cdecl" fn palette_commit_bridge(
+    _gfx: *mut u8,
+    _dirty_min: u32,
+    _dirty_max: u32,
+    _target: u32,
+) {
+    core::arch::naked_asm!(
+        "mov eax, [esp + 8]",        // dirty_min
+        "mov edx, [esp + 12]",       // dirty_max
+        "push dword ptr [esp + 4]",  // gfx (this)
+        "call dword ptr [esp + 20]", // target (+4 from our push, +16 from original)
+        "ret",
+    );
+}
+
+/// Port of DDDisplay::SetLayerVisibility (vtable slot 23, 0x56A5D0).
+///
+/// Gets the layer context via `set_active_layer`, then updates the palette
+/// from that context if it exists. If `visible < 0`, clears the layer's
+/// visibility flag.
+///
+/// # Safety
+/// `this` must be a valid `*mut DDDisplay` (actually a `*mut DisplayGfx`).
+pub unsafe extern "thiscall" fn set_layer_visibility(
+    this: *mut DDDisplay,
+    layer: i32,
+    visible: i32,
+) {
+    let gfx = this as *mut DisplayGfx;
+
+    let layer_ctx = set_active_layer(this, layer) as *mut PaletteContext;
+    if !layer_ctx.is_null() {
+        update_palette(this, layer_ctx, visible);
+    }
+
+    if visible < 0 {
+        (*gfx).base.layer_visibility[layer as usize] = 0;
     }
 }

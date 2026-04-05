@@ -557,10 +557,13 @@ pub fn install() -> Result<(), String> {
             set_camera_offset   => dd_display::set_camera_offset,
             set_clip_rect       => dd_display::set_clip_rect,
             is_sprite_loaded    => dd_display::is_sprite_loaded,
-            draw_scaled_sprite => draw_scaled_sprite,
+            draw_scaled_sprite  => draw_scaled_sprite,
+            set_active_layer    => dd_display::set_active_layer,
+            set_layer_visibility => dd_display::set_layer_visibility,
+            update_palette      => dd_display::update_palette,
             slot 19 [originals::BLIT_SPRITE] => blit_sprite,
         })?;
-        let _ = log_line("[Display]   DDDisplay: patched 15 methods → Rust");
+        let _ = log_line("[Display]   DDDisplay: patched 18 methods → Rust");
     }
 
     Ok(())

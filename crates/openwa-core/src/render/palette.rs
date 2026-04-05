@@ -9,8 +9,11 @@
 /// May be embedded in a larger composite object (e.g. GfxDir + palette data).
 #[repr(C)]
 pub struct PaletteContext {
-    /// +0x00: Unknown (possibly vtable or parent object field).
-    pub _unknown_00: u32,
+    /// +0x00: Lowest palette index in the current update batch.
+    /// Set by the caller before `update_palette`; used to expand `palette_dirty_min`.
+    pub dirty_range_min: i16,
+    /// +0x02: Highest palette index in the current update batch.
+    pub dirty_range_max: i16,
     /// +0x04: RGB values stored per palette index (24-bit RGB in low 3 bytes).
     pub rgb_table: [u32; 256],
     /// +0x404: In-use flag per palette index (1 = allocated).
@@ -25,8 +28,13 @@ pub struct PaletteContext {
     pub cache: [u8; 256],
     /// +0x708: Dirty flag (set to 1 when a new slot is allocated).
     pub dirty: u16,
+    /// +0x70A: Iteration position in cache[] during `update_palette`.
+    /// Read/written by `update_palette` to track progress through the cache.
+    pub cache_iter: i16,
 }
 
+const _: () = assert!(core::mem::offset_of!(PaletteContext, dirty_range_min) == 0x00);
+const _: () = assert!(core::mem::offset_of!(PaletteContext, dirty_range_max) == 0x02);
 const _: () = assert!(core::mem::offset_of!(PaletteContext, rgb_table) == 0x04);
 const _: () = assert!(core::mem::offset_of!(PaletteContext, in_use) == 0x404);
 const _: () = assert!(core::mem::offset_of!(PaletteContext, free_count) == 0x504);
@@ -34,6 +42,7 @@ const _: () = assert!(core::mem::offset_of!(PaletteContext, free_stack) == 0x506
 const _: () = assert!(core::mem::offset_of!(PaletteContext, cache_count) == 0x606);
 const _: () = assert!(core::mem::offset_of!(PaletteContext, cache) == 0x608);
 const _: () = assert!(core::mem::offset_of!(PaletteContext, dirty) == 0x708);
+const _: () = assert!(core::mem::offset_of!(PaletteContext, cache_iter) == 0x70A);
 
 /// Map an RGB color to the nearest display palette index.
 ///
