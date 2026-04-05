@@ -551,6 +551,137 @@ pub fn pixel_grid_from_indexed(width: u32, height: u32, pixels: &[u8]) -> PixelG
     grid
 }
 
+// ---------------------------------------------------------------------------
+// Stippled blit (checkerboard pattern)
+// ---------------------------------------------------------------------------
+
+/// Blit a sprite with a checkerboard (stippled) pattern.
+///
+/// Port of DDDisplay__BlitStippled (0x56AEF0). Draws every other pixel
+/// in a checkerboard pattern, creating a dithered transparency effect.
+///
+/// The checkerboard is determined by: `(dst_x ^ parity ^ dst_y ^ mode) & 1`.
+/// - `parity` alternates 0/1 each frame (g_StippleParity at 0x7A087C)
+/// - `mode` is 0 or 1, inverting the pattern between the two stippled flag bits
+///
+/// Only non-zero source pixels are drawn (transparent = 0).
+/// Pixels outside the destination clip rect are skipped.
+pub fn blit_stippled(
+    dst: &mut PixelGrid,
+    src: &BlitSource<'_>,
+    dst_x: i32,
+    dst_y: i32,
+    width: i32,
+    height: i32,
+    src_x: i32,
+    src_y: i32,
+    stipple_mode: u32,
+    parity: u32,
+) {
+    if width <= 0 || height <= 0 {
+        return;
+    }
+
+    // Source-to-destination offset (for mapping dst coords back to src)
+    let src_offset_x = src_x - dst_x;
+
+    for row in 0..height {
+        let sy = src_y + row;
+        let dy = (dst_y - src_y) + sy; // = dst_y + row
+
+        // Clip: skip rows outside destination
+        if dy < dst.clip_top as i32 || dy >= dst.clip_bottom as i32 {
+            continue;
+        }
+
+        for col in 0..width {
+            let dx = dst_x + col;
+
+            // Clip: skip columns outside destination
+            if dx < dst.clip_left as i32 || dx >= dst.clip_right as i32 {
+                continue;
+            }
+
+            // Checkerboard test — matching WA's XOR pattern
+            if (dx as u32 ^ parity ^ dy as u32 ^ stipple_mode) & 1 == 0 {
+                continue;
+            }
+
+            // Read source pixel (with bounds check matching get_pixel_clipped)
+            let sx = src_offset_x + dx;
+            if sx < 0 || sx >= src.width as i32 || sy < 0 || sy >= src.height as i32 {
+                continue;
+            }
+
+            let pixel = src.data[sy as usize * src.row_stride as usize + sx as usize];
+            if pixel != 0 {
+                dst.data[dy as usize * dst.row_stride as usize + dx as usize] = pixel;
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tiled blit (horizontal tiling)
+// ---------------------------------------------------------------------------
+
+/// Blit a sprite tiled horizontally across a destination region.
+///
+/// Port of DDDisplay__BlitTiled (0x56B000). Tiles the sprite from
+/// `clip_left` to `clip_right` by repeatedly calling `blit_sprite_rect`.
+///
+/// The `initial_x` is wrapped to the largest value <= `clip_left`
+/// using the tiling width, then blits are emitted rightward.
+///
+/// `flags` is the blit flags word (orientation + blend mode) passed through
+/// to each individual `blit_sprite_rect` call.
+pub fn blit_tiled(
+    dst: &mut PixelGrid,
+    src: &BlitSource<'_>,
+    initial_x: i32,
+    dst_y: i32,
+    tile_width: i32,
+    tile_height: i32,
+    clip_left: i32,
+    clip_right: i32,
+    color_table: Option<&[u8; 256]>,
+    flags: u32,
+) {
+    if tile_width <= 0 || tile_height <= 0 {
+        return;
+    }
+
+    let orientation = BlitOrientation::from_flags(flags);
+    let blend = BlitBlend::from_flags(flags);
+
+    // Wrap x to largest value <= clip_left (matching WA's wrapping loop)
+    let mut x = initial_x;
+    while x < clip_left {
+        x += tile_width;
+    }
+    while x > clip_left {
+        x -= tile_width;
+    }
+
+    // Tile rightward until past clip_right
+    while x < clip_right {
+        blit_sprite_rect(
+            dst,
+            src,
+            x,
+            dst_y,
+            tile_width,
+            tile_height,
+            0,
+            0,
+            color_table,
+            orientation,
+            blend,
+        );
+        x += tile_width;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1609,5 +1740,82 @@ mod tests {
             BlitBlend::Subtractive,
             0,
         );
+    }
+
+    // ---------------------------------------------------------------
+    // Stippled blit snapshot tests
+    // ---------------------------------------------------------------
+
+    /// Run a stippled blit and compare against WA snapshot.
+    fn run_stippled_snapshot_test(snap_name: &str, stipple_mode: u32, parity: u32) {
+        let path = test_asset_path("sprite_transparent_test.gif");
+        let (sprite, _) = load_gif_indexed(&path);
+        let src = BlitSource::from(&sprite);
+        let sw = sprite.width as i32;
+        let sh = sprite.height as i32;
+
+        let canvas_w = (sw + 32) as u32;
+        let canvas_h = (sh + 32) as u32;
+        let mut dst = PixelGrid::new(canvas_w, canvas_h);
+        dst.data.fill(77); // background matching DLL capture
+
+        blit_stippled(&mut dst, &src, 16, 16, sw, sh, 0, 0, stipple_mode, parity);
+
+        assert_matches_snapshot(&dst, snap_name);
+    }
+
+    #[test]
+    fn snap_stippled_mode0_par0() {
+        run_stippled_snapshot_test("stippled_mode0_par0", 0, 0);
+    }
+    #[test]
+    fn snap_stippled_mode0_par1() {
+        run_stippled_snapshot_test("stippled_mode0_par1", 0, 1);
+    }
+    #[test]
+    fn snap_stippled_mode1_par0() {
+        run_stippled_snapshot_test("stippled_mode1_par0", 1, 0);
+    }
+    #[test]
+    fn snap_stippled_mode1_par1() {
+        run_stippled_snapshot_test("stippled_mode1_par1", 1, 1);
+    }
+
+    // ---------------------------------------------------------------
+    // Tiled blit snapshot tests
+    // ---------------------------------------------------------------
+
+    /// Run a tiled blit and compare against WA snapshot.
+    fn run_tiled_snapshot_test(snap_name: &str, flags: u32, bg_fill: u8) {
+        let path = test_asset_path("sprite_transparent_test.gif");
+        let (sprite, _) = load_gif_indexed(&path);
+        let src = BlitSource::from(&sprite);
+        let sw = sprite.width as i32;
+        let sh = sprite.height as i32;
+
+        // Match DLL capture: tile_w = sw * 4 + 32
+        let canvas_w = (sw as u32) * 4 + 32;
+        let canvas_h = (sh + 32) as u32;
+        let mut dst = PixelGrid::new(canvas_w, canvas_h);
+        dst.data.fill(bg_fill);
+
+        let clip_left = 0i32;
+        let clip_right = canvas_w as i32;
+
+        blit_tiled(
+            &mut dst, &src, 8, // initial_x matching DLL capture
+            16, sw, sh, clip_left, clip_right, None, flags,
+        );
+
+        assert_matches_snapshot(&dst, snap_name);
+    }
+
+    #[test]
+    fn snap_tiled_transparent() {
+        run_tiled_snapshot_test("tiled_transparent", 0x0000_0001, 77);
+    }
+    #[test]
+    fn snap_tiled_copy() {
+        run_tiled_snapshot_test("tiled_copy", 0x0000_0000, 0);
     }
 }

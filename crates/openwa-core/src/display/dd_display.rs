@@ -861,7 +861,7 @@ pub unsafe extern "thiscall" fn draw_via_callback(
 /// - Default: normal blit (color table mode for transparency)
 /// - 0x200000: additive blend via color_add_table LUT
 /// - 0x4000000: color blend via color_blend_table LUT
-/// - 0x8000000 / 0x10000000: stippled (checkerboard) blit — NOT YET PORTED, falls through
+/// - 0x8000000 / 0x10000000: stippled (checkerboard) blit
 ///
 /// Bit 20 controls the blend mode: clear = ColorTable (transparency), set = Copy (opaque).
 ///
@@ -903,9 +903,20 @@ pub unsafe fn draw_scaled_sprite(
     // Blend mode from flag bit 20: clear = 1 (ColorTable), set = 0 (Copy)
     let blend_mode = (!(flags >> 20)) & 1;
 
-    // Stippled modes — not yet ported
+    // Stippled modes (checkerboard blit)
     if (flags & 0x8000000) != 0 || (flags & 0x10000000) != 0 {
-        return DrawScaledSpriteResult::Unhandled;
+        let stipple_mode: u32 = if (flags & 0x10000000) != 0 { 1 } else { 0 };
+        return DrawScaledSpriteResult::Stippled {
+            layer: (*gfx).layer_0,
+            dst_x,
+            dst_y,
+            width,
+            height,
+            sprite,
+            src_x,
+            src_y,
+            stipple_mode,
+        };
     }
 
     // Determine color table pointer from flags
@@ -965,10 +976,20 @@ pub enum DrawScaledSpriteResult {
         color_table: *const u8,
         blit_flags: u32,
     },
+    /// Stippled (checkerboard) blit — caller should use blit_stippled_raw.
+    Stippled {
+        layer: *mut DisplayBitGrid,
+        dst_x: i32,
+        dst_y: i32,
+        width: i32,
+        height: i32,
+        sprite: *mut DisplayBitGrid,
+        src_x: i32,
+        src_y: i32,
+        stipple_mode: u32,
+    },
     /// Already handled (e.g. zero-size, early out).
     Handled,
-    /// Unhandled mode — caller should fall through to original WA function.
-    Unhandled,
 }
 
 /// Port of DDDisplay::DrawPixelStrip (vtable slot 15, 0x56BE10).

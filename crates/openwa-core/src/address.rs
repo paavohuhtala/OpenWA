@@ -834,6 +834,9 @@ pub mod va {
         global G_SKIP_TO_MAIN_MENU = 0x007A_083D;
         global G_AUTO_NETWORK_FLAG = 0x007A_083F;
         global G_DD_DISPLAY_WRAPPER = 0x0079_D6D4;
+        /// Stipple checkerboard parity — toggled (XOR 1) each render frame in GameRender.
+        /// Used by DDDisplay__BlitStippled to alternate the checkerboard pattern.
+        global G_STIPPLE_PARITY = 0x007A_087C;
         global G_FONT_ARRAY = 0x007A_0F58;
         global G_MAIN_MENU_ACTIVE = 0x007C_0A20;
         global G_CWINAPP = 0x007C_03D0;

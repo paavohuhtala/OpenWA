@@ -55,7 +55,6 @@ unsafe extern "thiscall" fn headless_destructor(
 mod originals {
     use std::sync::atomic::AtomicU32;
     pub static BLIT_SPRITE: AtomicU32 = AtomicU32::new(0);
-    pub static DRAW_SCALED_SPRITE: AtomicU32 = AtomicU32::new(0);
 }
 
 /// Rust port of DDDisplay::BlitSprite (slot 19, 0x56B080).
@@ -351,12 +350,51 @@ unsafe extern "thiscall" fn blit_sprite(
     // Blit dispatch based on high_flags
     // ---------------------------------------------------------------
 
-    // Stippled/tiled modes — fall through to original
-    if (high_flags & 0x0800_0000) != 0
-        || (high_flags & 0x1000_0000) != 0
-        || (high_flags & 0x0001_0000) != 0
-    {
-        call_original_blit_sprite(this, x, y, sprite_flags, palette);
+    if blit_w <= 0 || blit_h <= 0 {
+        return;
+    }
+
+    // Stippled mode (checkerboard per-pixel blit)
+    if (high_flags & 0x0800_0000) != 0 || (high_flags & 0x1000_0000) != 0 {
+        let stipple_mode: u32 = if (high_flags & 0x1000_0000) != 0 {
+            1
+        } else {
+            0
+        };
+        let parity = *(rb(openwa_core::address::va::G_STIPPLE_PARITY) as *const u32);
+
+        dd_display::acquire_render_lock(gfx);
+
+        super::bitgrid::blit_stippled_raw(
+            (*gfx).layer_0,
+            sprite_surface,
+            dst_x,
+            dst_y,
+            blit_w,
+            blit_h,
+            0,
+            0,
+            stipple_mode,
+            parity,
+        );
+        return;
+    }
+
+    // Tiled mode (horizontal sprite tiling)
+    if (high_flags & 0x0001_0000) != 0 {
+        dd_display::acquire_render_lock(gfx);
+
+        super::bitgrid::blit_tiled_raw(
+            (*gfx).layer_0,
+            sprite_surface,
+            dst_x,
+            dst_y,
+            blit_w,
+            blit_h,
+            (*gfx).base.clip_x1,
+            (*gfx).base.clip_x2,
+            orient_local,
+        );
         return;
     }
 
@@ -368,10 +406,6 @@ unsafe extern "thiscall" fn blit_sprite(
     } else {
         core::ptr::null()
     };
-
-    if blit_w <= 0 || blit_h <= 0 {
-        return;
-    }
 
     dd_display::acquire_render_lock(gfx);
 
@@ -409,7 +443,6 @@ unsafe fn call_original_blit_sprite(
 /// Thiscall wrapper for DDDisplay::DrawScaledSprite (slot 20).
 ///
 /// Computes coordinates in core, then dispatches the blit via blit_impl.
-/// Falls through to the original WA function for unhandled modes (stippled).
 unsafe extern "thiscall" fn draw_scaled_sprite(
     this: *mut DDDisplay,
     x: Fixed,
@@ -449,25 +482,32 @@ unsafe extern "thiscall" fn draw_scaled_sprite(
                 blit_flags,
             );
         }
-        DrawScaledSpriteResult::Handled => {}
-        DrawScaledSpriteResult::Unhandled => {
-            // Fall through to original WA function for stippled modes
-            let orig = originals::DRAW_SCALED_SPRITE.load(Ordering::Relaxed);
-            if orig != 0 {
-                let f: unsafe extern "thiscall" fn(
-                    *mut DDDisplay,
-                    Fixed,
-                    Fixed,
-                    *mut DisplayBitGrid,
-                    i32,
-                    i32,
-                    i32,
-                    i32,
-                    u32,
-                ) = core::mem::transmute(orig as usize);
-                f(this, x, y, sprite, src_x, src_y, src_w, src_h, flags);
-            }
+        DrawScaledSpriteResult::Stippled {
+            layer,
+            dst_x,
+            dst_y,
+            width,
+            height,
+            sprite,
+            src_x,
+            src_y,
+            stipple_mode,
+        } => {
+            let parity = *(rb(openwa_core::address::va::G_STIPPLE_PARITY) as *const u32);
+            super::bitgrid::blit_stippled_raw(
+                layer,
+                sprite,
+                dst_x,
+                dst_y,
+                width,
+                height,
+                src_x,
+                src_y,
+                stipple_mode,
+                parity,
+            );
         }
+        DrawScaledSpriteResult::Handled => {}
     }
 }
 
@@ -517,7 +557,7 @@ pub fn install() -> Result<(), String> {
             set_camera_offset   => dd_display::set_camera_offset,
             set_clip_rect       => dd_display::set_clip_rect,
             is_sprite_loaded    => dd_display::is_sprite_loaded,
-            draw_scaled_sprite [originals::DRAW_SCALED_SPRITE] => draw_scaled_sprite,
+            draw_scaled_sprite => draw_scaled_sprite,
             slot 19 [originals::BLIT_SPRITE] => blit_sprite,
         })?;
         let _ = log_line("[Display]   DDDisplay: patched 15 methods → Rust");
