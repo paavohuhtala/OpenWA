@@ -1,5 +1,5 @@
 use super::base::CTask;
-use crate::FieldRegistry;
+use crate::{fixed::Fixed, FieldRegistry};
 
 crate::define_addresses! {
     class "CTaskFire" {
@@ -51,9 +51,9 @@ pub struct CTaskFire {
     pub burn_rate: u32,
     pub _unknown_40: u32,
     /// 0x44: spawn X position (Fixed 16.16)
-    pub spawn_x: crate::fixed::Fixed,
+    pub spawn_x: Fixed,
     /// 0x48: spawn Y position (Fixed 16.16)
-    pub spawn_y: crate::fixed::Fixed,
+    pub spawn_y: Fixed,
     pub _unknown_4c: [u8; 0x24],
     /// 0x70: absolute tick (frame counter) when this flame was spawned
     pub spawn_time: u32,

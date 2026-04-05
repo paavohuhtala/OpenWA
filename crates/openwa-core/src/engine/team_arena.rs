@@ -5,6 +5,8 @@
 // Extracted from ddgame.rs: team/worm data structures, TeamArenaRef,
 // and related helper structs used as DDGame fields.
 
+use core::ffi::CStr;
+
 use super::ddgame::offsets;
 
 /// Coordinate entry used in DDGame screen coordinate tables (stride 0x10).
@@ -541,8 +543,7 @@ impl crate::snapshot::Snapshot for WormEntry {
     ) -> core::fmt::Result {
         use crate::snapshot::write_indent;
         let i = indent;
-        let name = core::ffi::CStr::from_ptr(self.name.as_ptr() as *const core::ffi::c_char)
-            .to_string_lossy();
+        let name = CStr::from_ptr(self.name.as_ptr() as *const core::ffi::c_char).to_string_lossy();
         write_indent(w, i)?;
         writeln!(
             w,

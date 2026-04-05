@@ -5,10 +5,14 @@
 //! - Headless vtable (0x66A0F8): replaces destructor with Rust version that
 //!   correctly frees our Rust-allocated sprite cache sub-objects
 
+use core::sync::atomic::Ordering;
+
 use crate::log_line;
 use openwa_core::address::va;
-use openwa_core::display::dd_display::{self, DDDisplayVtable};
+use openwa_core::bitgrid::DisplayBitGrid;
+use openwa_core::display::dd_display::{self, DDDisplay, DDDisplayVtable};
 use openwa_core::display::{DisplayBase, SpriteBufferCtrl, SpriteCacheWrapper};
+use openwa_core::fixed::Fixed;
 use openwa_core::rebase::rb;
 use openwa_core::vtable::patch_vtable;
 use openwa_core::vtable_replace;
@@ -75,9 +79,9 @@ mod originals {
 ///     bit 27 (0x8000000): stippled mode 0
 ///     bit 28 (0x10000000): stippled mode 1
 unsafe extern "thiscall" fn blit_sprite(
-    this: *mut openwa_core::display::dd_display::DDDisplay,
-    x: openwa_core::fixed::Fixed,
-    y: openwa_core::fixed::Fixed,
+    this: *mut DDDisplay,
+    x: Fixed,
+    y: Fixed,
     sprite_flags: u32,
     palette: u32,
 ) {
@@ -179,7 +183,7 @@ unsafe extern "thiscall" fn blit_sprite(
     let mut out_unknown: u32 = 0;
 
     let fn33: unsafe extern "thiscall" fn(
-        *mut openwa_core::display::dd_display::DDDisplay,
+        *mut DDDisplay,
         u32,
         u32,
         *mut i32,
@@ -249,7 +253,7 @@ unsafe extern "thiscall" fn blit_sprite(
 
         // Call BitGrid__ClearColumn_Maybe (0x4F6590) — clears shadow channel
         let clear_fn: unsafe extern "cdecl" fn(*mut u8) =
-            core::mem::transmute(openwa_core::rebase::rb(0x004F6590) as usize);
+            core::mem::transmute(rb(0x004F6590) as usize);
         clear_fn(table_byte as *mut u8);
 
         *table_byte = saved;
@@ -388,21 +392,16 @@ unsafe extern "thiscall" fn blit_sprite(
 
 /// Call the original DDDisplay::BlitSprite via saved vtable pointer.
 unsafe fn call_original_blit_sprite(
-    this: *mut openwa_core::display::dd_display::DDDisplay,
-    x: openwa_core::fixed::Fixed,
-    y: openwa_core::fixed::Fixed,
+    this: *mut DDDisplay,
+    x: Fixed,
+    y: Fixed,
     sprite_flags: u32,
     palette: u32,
 ) {
-    let orig = originals::BLIT_SPRITE.load(core::sync::atomic::Ordering::Relaxed);
+    let orig = originals::BLIT_SPRITE.load(Ordering::Relaxed);
     if orig != 0 {
-        let f: unsafe extern "thiscall" fn(
-            *mut openwa_core::display::dd_display::DDDisplay,
-            openwa_core::fixed::Fixed,
-            openwa_core::fixed::Fixed,
-            u32,
-            u32,
-        ) = core::mem::transmute(orig as usize);
+        let f: unsafe extern "thiscall" fn(*mut DDDisplay, Fixed, Fixed, u32, u32) =
+            core::mem::transmute(orig as usize);
         f(this, x, y, sprite_flags, palette);
     }
 }
@@ -412,10 +411,10 @@ unsafe fn call_original_blit_sprite(
 /// Computes coordinates in core, then dispatches the blit via blit_impl.
 /// Falls through to the original WA function for unhandled modes (stippled).
 unsafe extern "thiscall" fn draw_scaled_sprite(
-    this: *mut openwa_core::display::dd_display::DDDisplay,
-    x: openwa_core::fixed::Fixed,
-    y: openwa_core::fixed::Fixed,
-    sprite: *mut openwa_core::bitgrid::DisplayBitGrid,
+    this: *mut DDDisplay,
+    x: Fixed,
+    y: Fixed,
+    sprite: *mut DisplayBitGrid,
     src_x: i32,
     src_y: i32,
     src_w: i32,
@@ -453,13 +452,13 @@ unsafe extern "thiscall" fn draw_scaled_sprite(
         DrawScaledSpriteResult::Handled => {}
         DrawScaledSpriteResult::Unhandled => {
             // Fall through to original WA function for stippled modes
-            let orig = originals::DRAW_SCALED_SPRITE.load(core::sync::atomic::Ordering::Relaxed);
+            let orig = originals::DRAW_SCALED_SPRITE.load(Ordering::Relaxed);
             if orig != 0 {
                 let f: unsafe extern "thiscall" fn(
-                    *mut openwa_core::display::dd_display::DDDisplay,
-                    openwa_core::fixed::Fixed,
-                    openwa_core::fixed::Fixed,
-                    *mut openwa_core::bitgrid::DisplayBitGrid,
+                    *mut DDDisplay,
+                    Fixed,
+                    Fixed,
+                    *mut DisplayBitGrid,
                     i32,
                     i32,
                     i32,
