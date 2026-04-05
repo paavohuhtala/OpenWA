@@ -48,6 +48,430 @@ unsafe extern "thiscall" fn headless_destructor(
     this
 }
 
+mod originals {
+    use std::sync::atomic::AtomicU32;
+    pub static BLIT_SPRITE: AtomicU32 = AtomicU32::new(0);
+    pub static DRAW_SCALED_SPRITE: AtomicU32 = AtomicU32::new(0);
+}
+
+/// Rust port of DDDisplay::BlitSprite (slot 19, 0x56B080).
+///
+/// Standard thiscall: ECX=this, stack params: x, y, sprite_flags, palette (RET 0x10).
+///
+/// sprite_flags layout:
+///   low 16 bits  = sprite ID (0 = no sprite)
+///   high 16 bits = orientation/flags:
+///     bit 16 (0x10000): tiled mode
+///     bit 17: additional orientation
+///     bit 18 (0x40000): extra mirror X
+///     bit 19 (0x80000): extra mirror Y
+///     bit 20 (0x100000): stippled palette adjust
+///     bit 21 (0x200000): additive blend
+///     bit 22 (0x400000): shadow clear
+///     bit 23 (0x800000): invert palette
+///     bit 24 (0x1000000): palette ×4 adjust
+///     bit 25 (0x2000000): palette transform
+///     bit 26 (0x4000000): color blend
+///     bit 27 (0x8000000): stippled mode 0
+///     bit 28 (0x10000000): stippled mode 1
+unsafe extern "thiscall" fn blit_sprite(
+    this: *mut openwa_core::display::dd_display::DDDisplay,
+    x: openwa_core::fixed::Fixed,
+    y: openwa_core::fixed::Fixed,
+    sprite_flags: u32,
+    palette: u32,
+) {
+    use openwa_core::bitgrid::DisplayBitGrid;
+    use openwa_core::display::dd_display;
+    use openwa_core::display::gfx::DisplayGfx;
+
+    let gfx = this as *mut DisplayGfx;
+    let base = this as *const u8;
+
+    // ---------------------------------------------------------------
+    // Extract sprite ID and high flags
+    // ---------------------------------------------------------------
+    let high_flags = sprite_flags & 0xFFFF_0000;
+    let sprite_id = sprite_flags & 0xFFFF;
+
+    if sprite_id == 0 {
+        return;
+    }
+
+    // ---------------------------------------------------------------
+    // Palette manipulation
+    // ---------------------------------------------------------------
+    let mut pal: u32 = palette;
+    if (high_flags & 0x0080_0000) != 0 {
+        // Bit 23: invert palette
+        pal = 0x10000u32.wrapping_sub(palette);
+        if sprite_id.wrapping_sub(0x1D5) < 3 {
+            // Special sprite IDs: scale by 8/18
+            pal = (0x10000u32.wrapping_sub(palette).wrapping_mul(8)) / 0x12;
+        }
+    }
+    if (high_flags & 0x0200_0000) != 0 {
+        // Bit 25: palette transform (modular arithmetic for color cycling)
+        let tmp = ((pal.wrapping_mul(0x1F) as i32)
+            .wrapping_add(((pal.wrapping_mul(0x1F) as i32) >> 31) & 0x1F)
+            >> 5) as u32;
+        let tmp = tmp.wrapping_add(0x400) & 0xFFFF;
+        pal = (tmp.wrapping_rem(0xF800)) / 2;
+        if (pal & 0x400) != 0 {
+            pal = (pal & !0x400) | 0x8000;
+        }
+    }
+
+    // ---------------------------------------------------------------
+    // Check sprite arrays — bitmap path if not in primary arrays
+    // ---------------------------------------------------------------
+    let arr1 = *(base.add(sprite_id as usize * 4 + 0x1008) as *const u32);
+    let arr2 = *(base.add(sprite_id as usize * 4 + 0x2008) as *const u32);
+
+    if arr1 == 0 && arr2 == 0 {
+        // Bitmap fallback — not yet ported, call original
+        call_original_blit_sprite(this, x, y, sprite_flags, palette);
+        return;
+    }
+
+    // ---------------------------------------------------------------
+    // Bit 24: palette ×4 adjust with orientation-dependent high bits
+    // ---------------------------------------------------------------
+    // The original ASM at 0x56B145 does a complex palette×4 + orientation mapping
+    // that writes extra orientation bits into the local orient variable.
+    // For now, handle the simple case:
+    let mut orient_local: u32 = 0x0000_0001; // blend=1 (ColorTable/transparency), orientation=0 (Normal)
+    if (high_flags & 0x0100_0000) != 0 {
+        // The ASM computes: pal = pal * 4 + 0x8000, then maps (pal >> 16) & 3
+        // to set specific orient values (0x80001, 0xC0001, 0x40001)
+        let scaled = pal.wrapping_mul(4).wrapping_add(0x8000);
+        pal = scaled & 0xFFFF;
+        let quad = ((scaled as i32) >> 16) & 3;
+        orient_local = match quad {
+            0 => 0x0008_0001,
+            1 => 0x000C_0001,
+            2 => 0x0004_0001,
+            _ => 0x0000_0001, // shouldn't happen, keep default blend=1
+        };
+    }
+
+    // ---------------------------------------------------------------
+    // Sprite data lookup via vtable[33]
+    // ---------------------------------------------------------------
+    let vtable_ptr = *(this as *const *const u32);
+    let slot33_addr = *vtable_ptr.add(33);
+
+    // vtable[33] is thiscall with 9 stack params (RET 0x24).
+    // Output semantics (traced from ASM ESP offsets through LEA/PUSH sequence):
+    //   param 3 → sprite full width (for centering)
+    //   param 4 → sprite full height (for centering)
+    //   param 5 → render rect LEFT
+    //   param 6 → render rect TOP (overwrites palette on original stack!)
+    //   param 7 → render rect RIGHT
+    //   param 8 → render rect BOTTOM
+    //   param 9 → unknown (unused)
+    let mut out_sprite_w: i32 = 0;
+    let mut out_sprite_h: i32 = 0;
+    let mut out_rect_left: i32 = 0;
+    let mut out_rect_top: i32 = 0;
+    let mut out_rect_right: i32 = 0;
+    let mut out_rect_bottom: i32 = 0;
+    let mut out_unknown: u32 = 0;
+
+    let fn33: unsafe extern "thiscall" fn(
+        *mut openwa_core::display::dd_display::DDDisplay,
+        u32,
+        u32,
+        *mut i32,
+        *mut i32,
+        *mut i32,
+        *mut i32,
+        *mut i32,
+        *mut i32,
+        *mut u32,
+    ) -> *mut DisplayBitGrid = core::mem::transmute(slot33_addr as usize);
+
+    let mut sprite_surface = fn33(
+        this,
+        sprite_id,
+        pal,
+        &mut out_sprite_w,
+        &mut out_sprite_h,
+        &mut out_rect_left,
+        &mut out_rect_top,
+        &mut out_rect_right,
+        &mut out_rect_bottom,
+        &mut out_unknown,
+    );
+
+    if sprite_surface.is_null() {
+        return;
+    }
+
+    let sprite_w = out_sprite_w;
+    let sprite_h = out_sprite_h;
+    let rect_left = out_rect_left;
+    let rect_top = out_rect_top;
+    let rect_right = out_rect_right;
+    let rect_bottom = out_rect_bottom;
+
+    // Size checks
+    if rect_left >= rect_right || rect_top >= rect_bottom {
+        return;
+    }
+
+    let mut blit_w = rect_right - rect_left;
+    let mut blit_h = rect_bottom - rect_top;
+
+    // ---------------------------------------------------------------
+    // Shadow clear (high_flags bit 22)
+    // ---------------------------------------------------------------
+    if (high_flags & 0x0040_0000) != 0 {
+        // Blit sprite to layer_2 as shadow base
+        let layer2 = (*gfx).layer_2;
+        super::bitgrid::blit_impl(
+            layer2,
+            0,
+            0,
+            blit_w,
+            blit_h,
+            sprite_surface,
+            0,
+            0,
+            core::ptr::null(),
+            0, // mode 0 = copy
+        );
+        // Manipulate color_add_table entry for shadow
+        let color_idx = ((*gfx)._unknown_356c as usize) * 0x100;
+        let table_byte = &mut (*gfx).color_add_table[color_idx];
+        let saved = *table_byte;
+        *table_byte = 0;
+
+        // Call BitGrid__ClearColumn_Maybe (0x4F6590) — clears shadow channel
+        let clear_fn: unsafe extern "cdecl" fn(*mut u8) =
+            core::mem::transmute(openwa_core::rebase::rb(0x004F6590) as usize);
+        clear_fn(table_byte as *mut u8);
+
+        *table_byte = saved;
+
+        // Replace sprite surface with layer_2 (shadow-processed)
+        sprite_surface = layer2;
+    }
+
+    // ---------------------------------------------------------------
+    // Extra orientation flags from high_flags
+    // ---------------------------------------------------------------
+    if (high_flags & 0x0004_0000) != 0 {
+        orient_local |= 0x0001_0000;
+    }
+    if (high_flags & 0x0008_0000) != 0 {
+        orient_local |= 0x0002_0000;
+    }
+
+    // ---------------------------------------------------------------
+    // 16-case orientation switch for camera coordinate mapping
+    // ---------------------------------------------------------------
+    let camera_x = (*gfx).camera_x;
+    let camera_y = (*gfx).camera_y;
+
+    // Signed divide toward zero (matches MSVC CDQ+SUB+SAR pattern)
+    let half_w = if sprite_w < 0 {
+        (sprite_w + 1) / 2
+    } else {
+        sprite_w / 2
+    };
+    let half_h = if sprite_h < 0 {
+        (sprite_h + 1) / 2
+    } else {
+        sprite_h / 2
+    };
+
+    let x_px = x.0 >> 16;
+    let y_px = y.0 >> 16;
+
+    let (dst_x, dst_y);
+    let orientation_key = (orient_local >> 16) as i32;
+
+    match orientation_key {
+        1 | 10 => {
+            // MirrorX
+            dst_x = camera_x + half_w + x_px - rect_right;
+            dst_y = camera_y - half_h + rect_top + y_px;
+        }
+        2 | 9 => {
+            // MirrorY — X same as Normal, Y mirrored
+            dst_x = camera_x - half_w + rect_left + x_px;
+            dst_y = camera_y + half_h + y_px - rect_bottom;
+        }
+        3 | 8 => {
+            // MirrorXY
+            dst_x = camera_x + half_w + x_px - rect_right;
+            dst_y = camera_y + half_h + y_px - rect_bottom;
+        }
+        4 | 15 => {
+            // Rotate90 — swap axes
+            dst_x = camera_x - half_h + rect_top + x_px;
+            dst_y = camera_y + half_w + y_px - rect_right;
+            blit_w = rect_bottom - rect_top;
+            blit_h = rect_right - rect_left;
+        }
+        5 | 14 => {
+            // Rotate90MirrorX
+            dst_x = camera_x + half_h + x_px - rect_bottom;
+            dst_y = camera_y + half_w + y_px - rect_right;
+            blit_w = rect_bottom - rect_top;
+            blit_h = rect_right - rect_left;
+        }
+        6 | 13 => {
+            // Rotate90MirrorY
+            dst_x = camera_x - half_h + rect_top + x_px;
+            dst_y = camera_y - half_w + rect_left + y_px;
+            blit_w = rect_bottom - rect_top;
+            blit_h = rect_right - rect_left;
+        }
+        7 | 12 => {
+            // Rotate90MirrorXY
+            dst_x = camera_x + half_h + x_px - rect_bottom;
+            dst_y = camera_y - half_w + rect_left + y_px;
+            blit_w = rect_bottom - rect_top;
+            blit_h = rect_right - rect_left;
+        }
+        _ => {
+            // Normal (0, 11, and any other value)
+            dst_x = camera_x - half_w + rect_left + x_px;
+            dst_y = camera_y - half_h + rect_top + y_px;
+        }
+    }
+
+    // ---------------------------------------------------------------
+    // Blit dispatch based on high_flags
+    // ---------------------------------------------------------------
+
+    // Stippled/tiled modes — fall through to original
+    if (high_flags & 0x0800_0000) != 0
+        || (high_flags & 0x1000_0000) != 0
+        || (high_flags & 0x0001_0000) != 0
+    {
+        call_original_blit_sprite(this, x, y, sprite_flags, palette);
+        return;
+    }
+
+    // Determine color table pointer
+    let color_table: *const u8 = if (high_flags & 0x0020_0000) != 0 {
+        (*gfx).color_add_table.as_ptr()
+    } else if (high_flags & 0x0400_0000) != 0 {
+        (*gfx).color_blend_table.as_ptr()
+    } else {
+        core::ptr::null()
+    };
+
+    if blit_w <= 0 || blit_h <= 0 {
+        return;
+    }
+
+    dd_display::acquire_render_lock(gfx);
+
+    // src_x=0, src_y=0 always — vtable[33] already set up the sprite surface
+    super::bitgrid::blit_impl(
+        (*gfx).layer_0,
+        dst_x,
+        dst_y,
+        blit_w,
+        blit_h,
+        sprite_surface,
+        0,
+        0,
+        color_table,
+        orient_local,
+    );
+}
+
+/// Call the original DDDisplay::BlitSprite via saved vtable pointer.
+unsafe fn call_original_blit_sprite(
+    this: *mut openwa_core::display::dd_display::DDDisplay,
+    x: openwa_core::fixed::Fixed,
+    y: openwa_core::fixed::Fixed,
+    sprite_flags: u32,
+    palette: u32,
+) {
+    let orig = originals::BLIT_SPRITE.load(core::sync::atomic::Ordering::Relaxed);
+    if orig != 0 {
+        let f: unsafe extern "thiscall" fn(
+            *mut openwa_core::display::dd_display::DDDisplay,
+            openwa_core::fixed::Fixed,
+            openwa_core::fixed::Fixed,
+            u32,
+            u32,
+        ) = core::mem::transmute(orig as usize);
+        f(this, x, y, sprite_flags, palette);
+    }
+}
+
+/// Thiscall wrapper for DDDisplay::DrawScaledSprite (slot 20).
+///
+/// Computes coordinates in core, then dispatches the blit via blit_impl.
+/// Falls through to the original WA function for unhandled modes (stippled).
+unsafe extern "thiscall" fn draw_scaled_sprite(
+    this: *mut openwa_core::display::dd_display::DDDisplay,
+    x: openwa_core::fixed::Fixed,
+    y: openwa_core::fixed::Fixed,
+    sprite: *mut openwa_core::bitgrid::DisplayBitGrid,
+    src_x: i32,
+    src_y: i32,
+    src_w: i32,
+    src_h: i32,
+    flags: u32,
+) {
+    use openwa_core::display::dd_display::{self, DrawScaledSpriteResult};
+
+    match dd_display::draw_scaled_sprite(this, x, y, sprite, src_x, src_y, src_w, src_h, flags) {
+        DrawScaledSpriteResult::Blit {
+            layer,
+            dst_x,
+            dst_y,
+            width,
+            height,
+            sprite,
+            src_x,
+            src_y,
+            color_table,
+            blit_flags,
+        } => {
+            super::bitgrid::blit_impl(
+                layer,
+                dst_x,
+                dst_y,
+                width,
+                height,
+                sprite,
+                src_x,
+                src_y,
+                color_table,
+                blit_flags,
+            );
+        }
+        DrawScaledSpriteResult::Handled => {}
+        DrawScaledSpriteResult::Unhandled => {
+            // Fall through to original WA function for stippled modes
+            let orig = originals::DRAW_SCALED_SPRITE.load(core::sync::atomic::Ordering::Relaxed);
+            if orig != 0 {
+                let f: unsafe extern "thiscall" fn(
+                    *mut openwa_core::display::dd_display::DDDisplay,
+                    openwa_core::fixed::Fixed,
+                    openwa_core::fixed::Fixed,
+                    *mut openwa_core::bitgrid::DisplayBitGrid,
+                    i32,
+                    i32,
+                    i32,
+                    i32,
+                    u32,
+                ) = core::mem::transmute(orig as usize);
+                f(this, x, y, sprite, src_x, src_y, src_w, src_h, flags);
+            }
+        }
+    }
+}
+
 pub fn install() -> Result<(), String> {
     let _ = log_line("[Display] Patching DisplayBase vtables");
 
@@ -94,8 +518,10 @@ pub fn install() -> Result<(), String> {
             set_camera_offset   => dd_display::set_camera_offset,
             set_clip_rect       => dd_display::set_clip_rect,
             is_sprite_loaded    => dd_display::is_sprite_loaded,
+            draw_scaled_sprite [originals::DRAW_SCALED_SPRITE] => draw_scaled_sprite,
+            slot 19 [originals::BLIT_SPRITE] => blit_sprite,
         })?;
-        let _ = log_line("[Display]   DDDisplay: patched 13 methods → Rust");
+        let _ = log_line("[Display]   DDDisplay: patched 15 methods → Rust");
     }
 
     Ok(())

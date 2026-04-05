@@ -151,13 +151,19 @@ pub struct DDDisplayVtable {
     /// draw scaled/rotated sprite (0x56B660, RET 0x20)
     ///
     /// x/y are fixed-point world coordinates.
-    /// Dispatches by flags: bit 21 mirror, bit 26 additive, bit 27/28 blend modes.
+    /// `sprite` is a source DisplayBitGrid pointer.
+    /// Dispatches by flags:
+    /// - bit 20: blend mode toggle (0 = ColorTable/transparency, 1 = Copy/opaque)
+    /// - bit 21 (0x200000): additive blend (uses color_add_table LUT)
+    /// - bit 26 (0x4000000): color blend (uses color_blend_table LUT)
+    /// - bit 27 (0x8000000): stippled mode 0
+    /// - bit 28 (0x10000000): stippled mode 1
     #[slot(20)]
     pub draw_scaled_sprite: fn(
         this: *mut DDDisplay,
         x: Fixed,
         y: Fixed,
-        sprite: u32,
+        sprite: *mut crate::bitgrid::DisplayBitGrid,
         src_x: i32,
         src_y: i32,
         src_w: i32,
@@ -441,7 +447,7 @@ unsafe fn flush_render_lock(gfx: *mut DisplayGfx) {
 /// # Safety
 /// `gfx` must be a valid `*mut DisplayGfx` with `layer_0` initialized.
 /// `g_DDDisplayWrapper` must be initialized.
-unsafe fn acquire_render_lock(gfx: *mut DisplayGfx) {
+pub unsafe fn acquire_render_lock(gfx: *mut DisplayGfx) {
     if (*gfx).render_lock != 0 {
         return; // already locked
     }
@@ -841,6 +847,130 @@ pub unsafe extern "thiscall" fn draw_via_callback(
 /// Draws `count + 1` pixels starting at (x, y), stepping by (dx, dy) each
 /// iteration. All coordinates are Fixed-point. Camera applied as
 /// `camera * 0x10000 + coord`.
+///
+/// # Safety
+/// `this` must be a valid `*mut DDDisplay` (actually a `*mut DisplayGfx`).
+/// Port of DDDisplay::DrawScaledSprite (vtable slot 20, 0x56B660).
+///
+/// Blits a source BitGrid to the display layer with camera offset and centering.
+/// The source rectangle is `(src_x, src_y)` to `(src_w, src_h)` — width and
+/// height are computed as `src_w - src_x` and `src_h - src_y`.
+///
+/// Dispatches to different blit modes based on flag bits:
+/// - Default: normal blit (color table mode for transparency)
+/// - 0x200000: additive blend via color_add_table LUT
+/// - 0x4000000: color blend via color_blend_table LUT
+/// - 0x8000000 / 0x10000000: stippled (checkerboard) blit — NOT YET PORTED, falls through
+///
+/// Bit 20 controls the blend mode: clear = ColorTable (transparency), set = Copy (opaque).
+///
+/// # Safety
+/// `this` must be a valid `*mut DDDisplay` (actually a `*mut DisplayGfx`).
+/// `sprite` must be a valid `*mut DisplayBitGrid`.
+pub unsafe fn draw_scaled_sprite(
+    this: *mut DDDisplay,
+    x: Fixed,
+    y: Fixed,
+    sprite: *mut crate::bitgrid::DisplayBitGrid,
+    src_x: i32,
+    src_y: i32,
+    src_w: i32,
+    src_h: i32,
+    flags: u32,
+) -> DrawScaledSpriteResult {
+    let gfx = this as *mut DisplayGfx;
+
+    let width = src_w - src_x;
+    let height = src_h - src_y;
+
+    // Signed division rounding toward zero: (n + (n >> 31)) >> 1
+    let half_w = if width < 0 {
+        (width + 1) / 2
+    } else {
+        width / 2
+    };
+    let half_h = if height < 0 {
+        (height + 1) / 2
+    } else {
+        height / 2
+    };
+
+    // Camera offset + centering + fixed-point to pixel conversion
+    let dst_x = (*gfx).camera_x - half_w + (x.0 >> 16);
+    let dst_y = (*gfx).camera_y - half_h + (y.0 >> 16);
+
+    // Blend mode from flag bit 20: clear = 1 (ColorTable), set = 0 (Copy)
+    let blend_mode = (!(flags >> 20)) & 1;
+
+    // Stippled modes — not yet ported
+    if (flags & 0x8000000) != 0 || (flags & 0x10000000) != 0 {
+        return DrawScaledSpriteResult::Unhandled;
+    }
+
+    // Determine color table pointer from flags
+    let color_table: *const u8 = if (flags & 0x200000) != 0 {
+        // Additive: use color_add_table (offset 0x4DF4 in DisplayGfx)
+        (*gfx).color_add_table.as_ptr()
+    } else if (flags & 0x4000000) != 0 {
+        // Color blend: use color_blend_table (offset 0x14DF4 in DisplayGfx)
+        (*gfx).color_blend_table.as_ptr()
+    } else {
+        // Normal: no color table (transparency handled by blend mode 1)
+        core::ptr::null()
+    };
+
+    // Early out if zero-size
+    if width <= 0 || height <= 0 {
+        return DrawScaledSpriteResult::Handled;
+    }
+
+    acquire_render_lock(gfx);
+
+    let layer = (*gfx).layer_0;
+
+    // Build flags for core blit: blend_mode in low 16 bits
+    // The core blit interprets: 0 = Copy, 1 = ColorTable
+    let blit_flags = blend_mode;
+
+    DrawScaledSpriteResult::Blit {
+        layer,
+        dst_x,
+        dst_y,
+        width,
+        height,
+        sprite,
+        src_x,
+        src_y,
+        color_table,
+        blit_flags,
+    }
+}
+
+/// Result of draw_scaled_sprite coordinate computation.
+///
+/// The actual blit call is performed by the DLL hook layer, since it needs
+/// access to `blit_impl` which bridges DisplayBitGrid → PixelGrid.
+pub enum DrawScaledSpriteResult {
+    /// Blit should be performed with these parameters.
+    Blit {
+        layer: *mut crate::bitgrid::DisplayBitGrid,
+        dst_x: i32,
+        dst_y: i32,
+        width: i32,
+        height: i32,
+        sprite: *mut crate::bitgrid::DisplayBitGrid,
+        src_x: i32,
+        src_y: i32,
+        color_table: *const u8,
+        blit_flags: u32,
+    },
+    /// Already handled (e.g. zero-size, early out).
+    Handled,
+    /// Unhandled mode — caller should fall through to original WA function.
+    Unhandled,
+}
+
+/// Port of DDDisplay::DrawPixelStrip (vtable slot 15, 0x56BE10).
 ///
 /// # Safety
 /// `this` must be a valid `*mut DDDisplay` (actually a `*mut DisplayGfx`).

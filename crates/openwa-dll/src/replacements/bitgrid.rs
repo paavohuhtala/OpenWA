@@ -553,7 +553,7 @@ unsafe extern "C" fn blit_hook_trampoline() {
 ///
 /// Handles all 8bpp blend modes: 0 (copy), 1 (color table), 2 (additive mask), 3 (subtractive mask).
 /// Falls through to the original WA function for non-8bpp surfaces.
-unsafe extern "cdecl" fn blit_impl(
+pub(crate) unsafe extern "cdecl" fn blit_impl(
     dst: *mut openwa_core::bitgrid::DisplayBitGrid,
     dst_x: i32,
     dst_y: i32,
