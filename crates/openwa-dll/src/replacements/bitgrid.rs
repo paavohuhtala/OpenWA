@@ -382,9 +382,21 @@ pub unsafe fn capture_blit_snapshots() {
                 0x0000_0000,
                 0,
             ),
+            // Additive mask (mode 2) — writes only where both src and dst are non-zero
+            ("additive", 16, 16, sw, sh, 0, 0, 0x0000_0002, 77),
+            // Subtractive mask (mode 3) — writes only where src != 0 and dst == 0
+            ("subtractive", 16, 16, sw, sh, 0, 0, 0x0000_0003, 0),
         ];
 
-        let blit_target = rb(va::BLIT_SPRITE_RECT);
+        // Use the original (unhooked) blit function for ground-truth captures.
+        // ORIG_BLIT is set by MinHook when the hook is installed; if not hooked
+        // yet (shouldn't happen), fall back to the raw address.
+        let orig = ORIG_BLIT.load(core::sync::atomic::Ordering::Relaxed);
+        let blit_target = if orig != 0 {
+            orig
+        } else {
+            rb(va::BLIT_SPRITE_RECT)
+        };
 
         for &(suffix, dx, dy, w, h, sx, sy, flags, bg) in test_cases {
             // Clear destination
@@ -400,7 +412,7 @@ pub unsafe fn capture_blit_snapshots() {
                 src,
                 sx,
                 sy,
-                0, // color_table = 0 (none) for mode 0; ignored for mode 1 without table
+                core::ptr::null(), // no color table
                 flags,
                 blit_target,
             );
@@ -478,7 +490,7 @@ unsafe extern "cdecl" fn wa_blit_sprite_rect(
     _src: *mut openwa_core::bitgrid::DisplayBitGrid,
     _src_x: i32,
     _src_y: i32,
-    _color_table: u32,
+    _color_table: *const u8,
     _flags: u32,
     _target: u32,
 ) {
@@ -539,8 +551,8 @@ unsafe extern "C" fn blit_hook_trampoline() {
 
 /// Rust implementation of the core sprite blit.
 ///
-/// Handles 8bpp blend modes 0 (copy) and 1 (color table / transparency).
-/// Falls through to the original WA function for unsupported modes.
+/// Handles all 8bpp blend modes: 0 (copy), 1 (color table), 2 (additive mask), 3 (subtractive mask).
+/// Falls through to the original WA function for non-8bpp surfaces.
 unsafe extern "cdecl" fn blit_impl(
     dst: *mut openwa_core::bitgrid::DisplayBitGrid,
     dst_x: i32,
@@ -550,7 +562,7 @@ unsafe extern "cdecl" fn blit_impl(
     src: *mut openwa_core::bitgrid::DisplayBitGrid,
     src_x: i32,
     src_y: i32,
-    color_table: u32,
+    color_table: *const u8,
     flags: u32,
 ) -> u32 {
     use openwa_core::display::sprite_blit::{
@@ -565,8 +577,8 @@ unsafe extern "cdecl" fn blit_impl(
     let src_cpp = (*src).cells_per_unit;
     let dst_cpp = (*dst).cells_per_unit;
 
-    // Only handle 8bpp surfaces with blend modes 0 and 1
-    if dst_cpp != 8 || src_cpp != 8 || blend_mode > 1 {
+    // Only handle 8bpp surfaces with blend modes 0-3
+    if dst_cpp != 8 || src_cpp != 8 || blend_mode > 3 {
         return call_original_blit(
             dst,
             dst_x,
@@ -581,22 +593,12 @@ unsafe extern "cdecl" fn blit_impl(
         );
     }
 
-    // For mode 1 with a color table pointer, fall through for now
-    // (we'd need to read 256 bytes from the pointer, which could be a mixing LUT)
-    if blend_mode == 1 && color_table != 0 {
-        return call_original_blit(
-            dst,
-            dst_x,
-            dst_y,
-            width,
-            height,
-            src,
-            src_x,
-            src_y,
-            color_table,
-            flags,
-        );
-    }
+    // Convert color_table from raw pointer to typed reference
+    let color_table_ref: Option<&[u8; 256]> = if !color_table.is_null() {
+        Some(&*(color_table as *const [u8; 256]))
+    } else {
+        None
+    };
 
     let orientation = BlitOrientation::from_flags(flags);
     let blend = BlitBlend::from_flags(flags);
@@ -641,7 +643,7 @@ unsafe extern "cdecl" fn blit_impl(
         height,
         src_x,
         src_y,
-        None, // no color table for modes we handle
+        color_table_ref,
         orientation,
         blend,
     );
@@ -663,7 +665,7 @@ unsafe fn call_original_blit(
     src: *mut openwa_core::bitgrid::DisplayBitGrid,
     src_x: i32,
     src_y: i32,
-    color_table: u32,
+    color_table: *const u8,
     flags: u32,
 ) -> u32 {
     let orig = ORIG_BLIT.load(Ordering::Relaxed);
@@ -693,7 +695,7 @@ unsafe extern "cdecl" fn call_original_blit_asm(
     _src: *mut openwa_core::bitgrid::DisplayBitGrid,
     _src_x: i32,
     _src_y: i32,
-    _color_table: u32,
+    _color_table: *const u8,
     _flags: u32,
     _target: u32,
 ) -> u32 {

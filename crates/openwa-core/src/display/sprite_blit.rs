@@ -98,9 +98,11 @@ pub enum BlitBlend {
     /// Color-table blend — each source pixel is remapped through a 256-byte LUT.
     /// If `color_table` is None, uses direct copy with transparency.
     ColorTable,
-    /// Additive color mix — source pixel index used as a fixed-point X scale.
+    /// Additive mask — copy source pixel only where both src and dst are non-zero.
+    /// Used for overlay effects (paint only on existing content).
     Additive,
-    /// Subtractive color mix.
+    /// Subtractive mask — copy source pixel only where src is non-zero and dst is zero.
+    /// Used for gap-fill effects (paint only where destination is empty).
     Subtractive,
 }
 
@@ -237,10 +239,64 @@ pub fn blit_sprite_rect(
             }
         }
         BlitBlend::Additive => {
-            // TODO: port additive blend
+            // WA's mode 2: forward scan only (orientation ignored in inner loop).
+            let (sx_start, sy_start) = adjust_source_for_clip(
+                BlitOrientation::Normal,
+                src_x,
+                src_y,
+                dst_x,
+                dst_y,
+                width,
+                height,
+                vis_left,
+                vis_top,
+                vis_right,
+                vis_bottom,
+            );
+            blit_masked(
+                dst,
+                src,
+                vis_left,
+                vis_top,
+                vis_w,
+                vis_h,
+                sx_start,
+                sy_start,
+                |s, d| {
+                    // Write src where both src and dst are non-zero
+                    s != 0 && d != 0
+                },
+            );
         }
         BlitBlend::Subtractive => {
-            // TODO: port subtractive blend
+            // WA's mode 3: forward scan only (orientation ignored in inner loop).
+            let (sx_start, sy_start) = adjust_source_for_clip(
+                BlitOrientation::Normal,
+                src_x,
+                src_y,
+                dst_x,
+                dst_y,
+                width,
+                height,
+                vis_left,
+                vis_top,
+                vis_right,
+                vis_bottom,
+            );
+            blit_masked(
+                dst,
+                src,
+                vis_left,
+                vis_top,
+                vis_w,
+                vis_h,
+                sx_start,
+                sy_start,
+                |s, d| {
+                    // Write src where src is non-zero and dst is zero
+                    s != 0 && d == 0
+                },
+            );
         }
     }
 
@@ -431,6 +487,43 @@ fn blit_color_table_swapped(
         }
 
         src_x += sx_step;
+    }
+}
+
+/// Masked blit — forward scan only (no orientation).
+///
+/// Copies source pixels to destination where the predicate `should_write(src, dst)` is true.
+/// Used by modes 2 (additive) and 3 (subtractive).
+fn blit_masked(
+    dst: &mut PixelGrid,
+    src: &BlitSource,
+    vis_left: i32,
+    vis_top: i32,
+    vis_w: i32,
+    vis_h: i32,
+    sx_start: i32,
+    sy_start: i32,
+    should_write: impl Fn(u8, u8) -> bool,
+) {
+    let dst_stride = dst.row_stride as usize;
+    let src_stride = src.row_stride as usize;
+
+    let mut sy = sy_start;
+    for dy in 0..vis_h {
+        let dst_row = (vis_top + dy) as usize * dst_stride + vis_left as usize;
+        let src_row = sy as usize * src_stride;
+
+        let mut sx = sx_start;
+        for dx in 0..vis_w {
+            let src_pixel = src.data[src_row + sx as usize];
+            let dst_pixel = dst.data[dst_row + dx as usize];
+            if should_write(src_pixel, dst_pixel) {
+                dst.data[dst_row + dx as usize] = src_pixel;
+            }
+            sx += 1;
+        }
+
+        sy += 1;
     }
 }
 
@@ -706,6 +799,198 @@ mod tests {
         assert_eq!(p(1, 0), 99, "transparent pixel preserved background");
         assert_eq!(p(3, 3), 5, "diagonal pixel drawn");
         assert_eq!(p(4, 3), 99, "transparent pixel preserved background");
+    }
+
+    #[test]
+    fn blit_color_table_lut_remaps_pixels() {
+        // Verify that a non-identity LUT actually remaps pixel values.
+        let sprite = make_test_sprite(); // quadrants: TL=1, TR=2, BL=3, BR=4
+        let src = BlitSource::from(&sprite);
+        let mut dst = PixelGrid::new(16, 16);
+        dst.data.fill(99); // background
+
+        // LUT: remap 1->10, 2->20, 3->30, 4->40, 0->0 (transparent)
+        let mut lut = [0u8; 256];
+        lut[1] = 10;
+        lut[2] = 20;
+        lut[3] = 30;
+        lut[4] = 40;
+
+        blit_sprite_rect(
+            &mut dst,
+            &src,
+            4,
+            4,
+            8,
+            8,
+            0,
+            0,
+            Some(&lut),
+            BlitOrientation::Normal,
+            BlitBlend::ColorTable,
+        );
+
+        let p = |x: i32, y: i32| dst.data[(y as u32 * dst.row_stride + x as u32) as usize];
+        assert_eq!(p(4, 4), 10, "TL remapped 1->10");
+        assert_eq!(p(8, 4), 20, "TR remapped 2->20");
+        assert_eq!(p(4, 8), 30, "BL remapped 3->30");
+        assert_eq!(p(8, 8), 40, "BR remapped 4->40");
+        // Background outside sprite preserved
+        assert_eq!(p(3, 4), 99, "background unchanged");
+    }
+
+    #[test]
+    fn blit_color_table_lut_with_mirror() {
+        let sprite = make_test_sprite();
+        let src = BlitSource::from(&sprite);
+        let mut dst = PixelGrid::new(16, 16);
+
+        let mut lut = [0u8; 256];
+        lut[1] = 10;
+        lut[2] = 20;
+        lut[3] = 30;
+        lut[4] = 40;
+
+        blit_sprite_rect(
+            &mut dst,
+            &src,
+            4,
+            4,
+            8,
+            8,
+            0,
+            0,
+            Some(&lut),
+            BlitOrientation::MirrorX,
+            BlitBlend::ColorTable,
+        );
+
+        let p = |x: i32, y: i32| dst.data[(y as u32 * dst.row_stride + x as u32) as usize];
+        // MirrorX flips left/right: TL<->TR, BL<->BR
+        assert_eq!(p(4, 4), 20, "mirror: TR->TL remapped 2->20");
+        assert_eq!(p(8, 4), 10, "mirror: TL->TR remapped 1->10");
+        assert_eq!(p(4, 8), 40, "mirror: BR->BL remapped 4->40");
+        assert_eq!(p(8, 8), 30, "mirror: BL->BR remapped 3->30");
+    }
+
+    #[test]
+    fn blit_additive_writes_only_where_both_nonzero() {
+        let sprite = make_test_sprite(); // all pixels 1-4 (non-zero)
+        let src = BlitSource::from(&sprite);
+        let mut dst = PixelGrid::new(16, 16);
+        // Fill only the right half of the destination with non-zero
+        for y in 0..16u32 {
+            for x in 8..16u32 {
+                dst.data[(y * dst.row_stride + x) as usize] = 99;
+            }
+        }
+
+        blit_sprite_rect(
+            &mut dst,
+            &src,
+            4,
+            4,
+            8,
+            8,
+            0,
+            0,
+            None,
+            BlitOrientation::Normal,
+            BlitBlend::Additive,
+        );
+
+        let p = |x: i32, y: i32| dst.data[(y as u32 * dst.row_stride + x as u32) as usize];
+        // Left half of sprite (dst_x 4-7): dst was 0, so additive skips
+        assert_eq!(p(4, 4), 0, "dst was 0, additive should not write");
+        assert_eq!(p(7, 7), 0, "dst was 0, additive should not write");
+        // Right half of sprite (dst_x 8-11): dst was 99, so additive writes src
+        assert_eq!(p(8, 4), 2, "dst was non-zero, additive writes src (TR)");
+        assert_eq!(p(8, 8), 4, "dst was non-zero, additive writes src (BR)");
+        // Outside sprite: unchanged
+        assert_eq!(p(12, 4), 99, "outside sprite, right half preserved");
+        assert_eq!(p(3, 4), 0, "outside sprite, left half preserved");
+    }
+
+    #[test]
+    fn blit_subtractive_writes_only_where_dst_zero() {
+        let sprite = make_test_sprite(); // all pixels 1-4 (non-zero)
+        let src = BlitSource::from(&sprite);
+        let mut dst = PixelGrid::new(16, 16);
+        // Fill only the right half with non-zero
+        for y in 0..16u32 {
+            for x in 8..16u32 {
+                dst.data[(y * dst.row_stride + x) as usize] = 99;
+            }
+        }
+
+        blit_sprite_rect(
+            &mut dst,
+            &src,
+            4,
+            4,
+            8,
+            8,
+            0,
+            0,
+            None,
+            BlitOrientation::Normal,
+            BlitBlend::Subtractive,
+        );
+
+        let p = |x: i32, y: i32| dst.data[(y as u32 * dst.row_stride + x as u32) as usize];
+        // Left half of sprite (dst_x 4-7): dst was 0, so subtractive writes
+        assert_eq!(p(4, 4), 1, "dst was 0, subtractive writes src pixel");
+        assert_eq!(
+            p(7, 7),
+            1,
+            "dst was 0, subtractive writes src (TL quadrant)"
+        );
+        // Right half of sprite (dst_x 8-11): dst was 99, so subtractive skips
+        assert_eq!(
+            p(8, 4),
+            99,
+            "dst was non-zero, subtractive should not write"
+        );
+        assert_eq!(
+            p(8, 8),
+            99,
+            "dst was non-zero, subtractive should not write"
+        );
+    }
+
+    #[test]
+    fn blit_additive_skips_transparent_src() {
+        // Sprite with transparent (0) pixels should never write them
+        let mut pixels = vec![0u8; 8 * 8];
+        for i in 0..8 {
+            pixels[i * 8 + i] = 5; // diagonal only
+        }
+        let sprite = pixel_grid_from_indexed(8, 8, &pixels);
+        let src = BlitSource::from(&sprite);
+        let mut dst = PixelGrid::new(8, 8);
+        dst.data.fill(99); // all non-zero
+
+        blit_sprite_rect(
+            &mut dst,
+            &src,
+            0,
+            0,
+            8,
+            8,
+            0,
+            0,
+            None,
+            BlitOrientation::Normal,
+            BlitBlend::Additive,
+        );
+
+        let p = |x: i32, y: i32| dst.data[(y as u32 * dst.row_stride + x as u32) as usize];
+        // Diagonal: src=5, dst=99 → both non-zero → writes 5
+        assert_eq!(p(0, 0), 5, "diagonal written");
+        assert_eq!(p(3, 3), 5, "diagonal written");
+        // Off-diagonal: src=0 → skipped even though dst is non-zero
+        assert_eq!(p(1, 0), 99, "transparent src not written");
+        assert_eq!(p(0, 1), 99, "transparent src not written");
     }
 
     // =======================================================================
@@ -1267,6 +1552,62 @@ mod tests {
             BlitOrientation::Normal,
             BlitBlend::ColorTable,
             77,
+        );
+    }
+    #[test]
+    fn snap_blit_opaque_additive() {
+        run_snapshot_test(
+            "sprite_test.gif",
+            "blit_opaque_additive",
+            16,
+            16,
+            None,
+            (0, 0),
+            BlitOrientation::Normal,
+            BlitBlend::Additive,
+            77,
+        );
+    }
+    #[test]
+    fn snap_blit_opaque_subtractive() {
+        run_snapshot_test(
+            "sprite_test.gif",
+            "blit_opaque_subtractive",
+            16,
+            16,
+            None,
+            (0, 0),
+            BlitOrientation::Normal,
+            BlitBlend::Subtractive,
+            0,
+        );
+    }
+    #[test]
+    fn snap_blit_transparent_additive() {
+        run_snapshot_test(
+            "sprite_transparent_test.gif",
+            "blit_transparent_additive",
+            16,
+            16,
+            None,
+            (0, 0),
+            BlitOrientation::Normal,
+            BlitBlend::Additive,
+            77,
+        );
+    }
+    #[test]
+    fn snap_blit_transparent_subtractive() {
+        run_snapshot_test(
+            "sprite_transparent_test.gif",
+            "blit_transparent_subtractive",
+            16,
+            16,
+            None,
+            (0, 0),
+            BlitOrientation::Normal,
+            BlitBlend::Subtractive,
+            0,
         );
     }
 }
