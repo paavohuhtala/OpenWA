@@ -11,7 +11,7 @@
 
 use crate::address::va;
 use crate::audio::{KnownSoundId, SoundId};
-use crate::engine::{TeamArenaRef, GAME_PHASE_NORMAL_MIN, GAME_PHASE_SUDDEN_DEATH};
+use crate::engine::{TeamArena, GAME_PHASE_NORMAL_MIN, GAME_PHASE_SUDDEN_DEATH};
 use crate::fixed::Fixed;
 use crate::game::weapon::{WeaponEntry, WeaponFireParams, WeaponSpawnData};
 use crate::game::Weapon;
@@ -48,15 +48,14 @@ const _: () = assert!(core::mem::size_of::<WeaponReleaseContext>() == 0x2C);
 // __usercall: EAX = team_index, EDX = amount, [ESP+4] = team_info_base, [ESP+8] = weapon_id
 // RET 0x8
 
-pub unsafe fn add_ammo(team_index: u32, amount: i32, arena: TeamArenaRef, weapon_id: u32) {
-    let (alliance, wid) = arena.weapon_slot_key(team_index as usize, weapon_id);
-    let state = arena.state_mut();
-    let ammo = state.get_ammo(alliance, wid);
+pub unsafe fn add_ammo(team_index: u32, amount: i32, arena: *mut TeamArena, weapon_id: u32) {
+    let (alliance, wid) = TeamArena::weapon_slot_key(arena, team_index as usize, weapon_id);
+    let ammo = (*arena).get_ammo(alliance, wid);
     if ammo >= 0 {
         if amount < 0 {
-            *state.ammo_mut(alliance, wid) = -1;
+            *(*arena).ammo_mut(alliance, wid) = -1;
         } else {
-            *state.ammo_mut(alliance, wid) = ammo + amount;
+            *(*arena).ammo_mut(alliance, wid) = ammo + amount;
         }
     }
 }
@@ -67,12 +66,11 @@ pub unsafe fn add_ammo(team_index: u32, amount: i32, arena: TeamArenaRef, weapon
 // __usercall: EAX = team_index, ECX = team_info_base, [ESP+4] = weapon_id
 // RET 0x4
 
-pub unsafe fn subtract_ammo(team_index: u32, arena: TeamArenaRef, weapon_id: u32) {
-    let (alliance, wid) = arena.weapon_slot_key(team_index as usize, weapon_id);
-    let state = arena.state_mut();
-    let ammo = state.get_ammo(alliance, wid);
+pub unsafe fn subtract_ammo(team_index: u32, arena: *mut TeamArena, weapon_id: u32) {
+    let (alliance, wid) = TeamArena::weapon_slot_key(arena, team_index as usize, weapon_id);
+    let ammo = (*arena).get_ammo(alliance, wid);
     if ammo > 0 {
-        *state.ammo_mut(alliance, wid) = ammo - 1;
+        *(*arena).ammo_mut(alliance, wid) = ammo - 1;
     }
 }
 
@@ -82,31 +80,30 @@ pub unsafe fn subtract_ammo(team_index: u32, arena: TeamArenaRef, weapon_id: u32
 // __usercall: EAX = team_index, ESI = team_info_base, EDX = weapon_id
 // plain RET, returns EAX = ammo count
 
-pub unsafe fn get_ammo(team_index: u32, arena: TeamArenaRef, weapon_id: u32) -> u32 {
-    let (alliance, wid) = arena.weapon_slot_key(team_index as usize, weapon_id);
-    let state = arena.state();
+pub unsafe fn get_ammo(team_index: u32, arena: *mut TeamArena, weapon_id: u32) -> u32 {
+    let (alliance, wid) = TeamArena::weapon_slot_key(arena, team_index as usize, weapon_id);
 
     // Check weapon delay
-    if state.get_delay(alliance, wid) != 0 {
-        if state.game_mode_flag == 0 {
+    if (*arena).get_delay(alliance, wid) != 0 {
+        if (*arena).game_mode_flag == 0 {
             return 0;
         }
         // In sudden death (phase >= 484), delayed weapons return 0
         // unless it's Teleport (weapon 0x28)
-        if state.game_phase >= GAME_PHASE_SUDDEN_DEATH && weapon_id != Weapon::Teleport as u32 {
+        if (*arena).game_phase >= GAME_PHASE_SUDDEN_DEATH && weapon_id != Weapon::Teleport as u32 {
             return 0;
         }
     }
 
     // SelectWorm (0x3B) requires >1 alive worm on the team
-    if state.game_phase >= GAME_PHASE_NORMAL_MIN
+    if (*arena).game_phase >= GAME_PHASE_NORMAL_MIN
         && weapon_id == Weapon::SelectWorm as u32
         && count_alive_worms(team_index, arena) == 0
     {
         return 0;
     }
 
-    state.get_ammo(alliance, wid) as u32
+    (*arena).get_ammo(alliance, wid) as u32
 }
 
 // ============================================================
@@ -115,12 +112,12 @@ pub unsafe fn get_ammo(team_index: u32, arena: TeamArenaRef, weapon_id: u32) -> 
 // __usercall: EAX = team_index, ECX = base
 // plain RET, returns EAX = bool (1 if >1 worm alive on team)
 
-pub unsafe fn count_alive_worms(team_index: u32, arena: TeamArenaRef) -> u32 {
-    let header = arena.team_header(team_index as usize);
-    let worm_count = header.worm_count;
+pub unsafe fn count_alive_worms(team_index: u32, arena: *const TeamArena) -> u32 {
+    let header = TeamArena::team_header(arena, team_index as usize);
+    let worm_count = (*header).worm_count;
     let mut alive = 0i32;
     for w in 1..=worm_count as usize {
-        if arena.team_worm(team_index as usize, w).health > 0 {
+        if (*TeamArena::team_worm(arena, team_index as usize, w)).health > 0 {
             alive += 1;
         }
     }
@@ -470,14 +467,14 @@ unsafe fn fire_skip_go(worm: *const CTaskWorm, entry: *const WeaponEntry) {
     let bit_index = ((*entry).fire_params.shot_count & 0x1F) as u32;
     let bit = 1u32 << bit_index;
 
-    let arena = TeamArenaRef::from_ptr(&raw mut (*ddgame).team_arena);
-    let header = arena.team_header_mut(team_index);
-    let flags = header.turn_action_flags;
+    let arena = &raw mut (*ddgame).team_arena;
+    let header = TeamArena::team_header_mut(arena, team_index);
+    let flags = (*header).turn_action_flags;
 
     if game_version > 0x1C && (flags & bit) != 0 {
-        header.turn_action_flags = flags & !bit;
+        (*header).turn_action_flags = flags & !bit;
     } else {
-        header.turn_action_flags = flags | bit;
+        (*header).turn_action_flags = flags | bit;
     }
 }
 
@@ -489,11 +486,11 @@ unsafe fn fire_freeze(worm: *mut CTaskWorm) {
     fire_send_team_message(worm, 0x29);
 
     let ddgame = CTask::ddgame_raw(worm as *const CTask);
-    let arena = TeamArenaRef::from_ptr(&raw mut (*ddgame).team_arena);
+    let arena = &raw mut (*ddgame).team_arena;
     let team_index = (*worm).team_index as usize;
     let worm_index = (*worm).worm_index as usize;
-    let entry = arena.team_worm_mut(team_index, worm_index);
-    entry.turn_action_counter_Maybe += 14;
+    let entry = TeamArena::team_worm_mut(arena, team_index, worm_index);
+    (*entry).turn_action_counter_Maybe += 14;
 }
 
 /// Mail/Mine/Mole (subtype 14) — pure Rust replacement for 0x51E670.
@@ -524,11 +521,11 @@ unsafe fn fire_mail_mine_mole(worm: *mut CTaskWorm) {
 
     fire_send_team_message(worm, 0x28);
 
-    let arena = TeamArenaRef::from_ptr(&raw mut (*ddgame).team_arena);
+    let arena = &raw mut (*ddgame).team_arena;
     let team_index = (*worm).team_index as usize;
     let worm_index = (*worm).worm_index as usize;
-    let entry = arena.team_worm_mut(team_index, worm_index);
-    entry.turn_action_counter_Maybe += 7;
+    let entry = TeamArena::team_worm_mut(arena, team_index, worm_index);
+    (*entry).turn_action_counter_Maybe += 7;
 }
 
 /// Teleport (subtype 10) — pure Rust port of 0x51E710.
@@ -983,12 +980,12 @@ unsafe fn fire_girder(worm: *mut CTaskWorm) {
         girder_visual(landscape, girder_x >> 16, girder_y >> 16, sprite1, sprite2);
 
         // Increment WormEntry counters
-        let arena = TeamArenaRef::from_ptr(&raw mut (*ddgame).team_arena);
+        let arena = &raw mut (*ddgame).team_arena;
         let team_index = (*worm).team_index as usize;
         let worm_index = (*worm).worm_index as usize;
-        let entry = arena.team_worm_mut(team_index, worm_index);
-        entry.turn_action_counter_Maybe += 3;
-        entry.effect_counter_04_Maybe += 10;
+        let entry = TeamArena::team_worm_mut(arena, team_index, worm_index);
+        (*entry).turn_action_counter_Maybe += 3;
+        (*entry).effect_counter_04_Maybe += 10;
     }
 }
 

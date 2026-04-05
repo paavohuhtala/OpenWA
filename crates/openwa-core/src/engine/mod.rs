@@ -1,3 +1,4 @@
+pub mod coord;
 pub mod ddgame;
 pub mod ddgame_constructor;
 pub mod ddgame_load_fonts;
@@ -12,6 +13,7 @@ pub mod replay;
 pub mod team_arena;
 pub mod team_ops;
 
+pub use coord::{CoordEntry, CoordList, CoordListEntry};
 pub use ddgame::DDGame;
 pub use ddgame_constructor::{
     create_ddgame, ddgame_init_fields, ddgame_init_render_indices, display_layer_color_init,
@@ -23,7 +25,6 @@ pub use game_session::GameSession;
 pub use game_timer::GameTimer;
 pub use net_wrapper::DDNetGameWrapper;
 pub use team_arena::{
-    CoordEntry, CoordList, CoordListEntry, RenderEntry, SoundQueueEntry, TeamArenaRef,
-    TeamArenaState, TeamBlock, TeamHeader, TeamIndexMap, TeamSlot0, TeamWeaponSlots, WeaponSlots,
+    TeamArena, TeamBlock, TeamHeader, TeamIndexMap, TeamSlot0, TeamWeaponSlots, WeaponSlots,
     WormEntry, GAME_PHASE_NORMAL_MIN, GAME_PHASE_SUDDEN_DEATH,
 };

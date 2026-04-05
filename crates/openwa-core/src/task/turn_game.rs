@@ -152,9 +152,9 @@ pub struct CTaskTurnGame {
     pub current_team: u32,
     /// 0x130: active worm index within the current team, **0-based** (stride 0x9C).
     pub current_worm: u32,
-    /// 0x134: arena team index used for TeamArenaState lookups.
+    /// 0x134: arena team index used for TeamArena lookups.
     pub arena_team: u32,
-    /// 0x138: arena worm index used for TeamArenaState lookups.
+    /// 0x138: arena worm index used for TeamArena lookups.
     pub arena_worm: u32,
     pub _unknown_13c: u32,
     /// 0x140: set to 1 at construction; role unclear.

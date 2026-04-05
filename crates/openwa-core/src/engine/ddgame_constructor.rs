@@ -16,10 +16,10 @@ use crate::bitgrid::{BitGrid, BitGridBaseVtable, CollisionBitGrid, DisplayBitGri
 use crate::display::dd_display::DDDisplay;
 use crate::display::gradient::compute_complex_gradient;
 use crate::display::palette::Palette;
+use crate::engine::coord::{CoordList, CoordListEntry};
 use crate::engine::ddgame_wrapper::DDGameWrapper;
 use crate::engine::game_info::GameInfo;
 use crate::engine::net_bridge::NetBridge;
-use crate::engine::team_arena::{CoordList, CoordListEntry};
 use crate::input::keyboard::DDKeyboard;
 use crate::rebase::rb;
 use crate::render::gfx_dir::{
@@ -63,7 +63,7 @@ pub unsafe fn ddgame_init_fields(ddgame: *mut DDGame) {
         *(base.add(off) as *mut u32) = 0;
     }
 
-    // init_field_64d8 = TeamArenaState.team_count (arena+0x1EB0)
+    // init_field_64d8 = TeamArena.team_count (arena+0x1EB0)
     (*ddgame).team_arena.team_count = 0;
     // init_field_72a4 = weapon_slots flat[754] = alliance 5, ammo[44]
     (*ddgame).team_arena.weapon_slots.teams[5].ammo[44] = 0;

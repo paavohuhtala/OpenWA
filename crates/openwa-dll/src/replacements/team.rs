@@ -4,13 +4,13 @@
 //! This file contains only usercall trampolines and hook installation.
 
 use openwa_core::engine::team_ops;
-use openwa_core::{address::va, engine::TeamArenaRef};
+use openwa_core::{address::va, engine::TeamArena};
 
 use crate::hook::{self, usercall_trampoline};
 
 // ── CountTeamsByAlliance (0x522030): usercall(EAX=base, EDI=alliance_id) ──
 
-unsafe extern "cdecl" fn count_teams_by_alliance_impl(arena: TeamArenaRef, alliance_id: i32) {
+unsafe extern "cdecl" fn count_teams_by_alliance_impl(arena: *mut TeamArena, alliance_id: i32) {
     team_ops::count_teams_by_alliance(arena, alliance_id);
 }
 
@@ -19,7 +19,7 @@ usercall_trampoline!(fn trampoline_count_teams_by_alliance; impl_fn = count_team
 
 // ── GetTeamTotalHealth (0x5224D0): fastcall(ECX=team_index, EDX=base) ──
 
-unsafe extern "cdecl" fn get_team_total_health_impl(team_index: u32, arena: TeamArenaRef) -> i32 {
+unsafe extern "cdecl" fn get_team_total_health_impl(team_index: u32, arena: *mut TeamArena) -> i32 {
     team_ops::get_team_total_health(team_index, arena)
 }
 
@@ -31,7 +31,7 @@ usercall_trampoline!(fn trampoline_get_team_total_health; impl_fn = get_team_tot
 unsafe extern "cdecl" fn is_worm_in_special_state_impl(
     team_index: u32,
     worm_index: u32,
-    arena: TeamArenaRef,
+    arena: *mut TeamArena,
 ) -> u32 {
     team_ops::is_worm_in_special_state(team_index, worm_index, arena)
 }
@@ -44,7 +44,7 @@ usercall_trampoline!(fn trampoline_is_worm_in_special_state; impl_fn = is_worm_i
 unsafe extern "cdecl" fn get_worm_position_impl(
     team_index: u32,
     worm_index: u32,
-    arena: TeamArenaRef,
+    arena: *mut TeamArena,
     out_x: *mut i32,
     out_y: *mut i32,
 ) {
@@ -56,7 +56,7 @@ usercall_trampoline!(fn trampoline_get_worm_position; impl_fn = get_worm_positio
 
 // ── CheckWormState0x64 (0x5228D0): usercall(EAX=base) ──
 
-unsafe extern "cdecl" fn check_worm_state_0x64_impl(arena: TeamArenaRef) -> u32 {
+unsafe extern "cdecl" fn check_worm_state_0x64_impl(arena: *mut TeamArena) -> u32 {
     team_ops::check_worm_state_0x64(arena)
 }
 
@@ -66,7 +66,7 @@ usercall_trampoline!(fn trampoline_check_worm_state_0x64; impl_fn = check_worm_s
 // ── CheckTeamWormState0x64 (0x522930): usercall(ECX=base, EAX=team_idx) ──
 
 unsafe extern "cdecl" fn check_team_worm_state_0x64_impl(
-    arena: TeamArenaRef,
+    arena: *mut TeamArena,
     team_idx: u32,
 ) -> u32 {
     team_ops::check_team_worm_state_0x64(arena, team_idx)
@@ -77,7 +77,7 @@ usercall_trampoline!(fn trampoline_check_team_worm_state_0x64; impl_fn = check_t
 
 // ── CheckAnyWormState0x8b (0x522970): usercall(EAX=base) ──
 
-unsafe extern "cdecl" fn check_any_worm_state_0x8b_impl(arena: TeamArenaRef) -> u32 {
+unsafe extern "cdecl" fn check_any_worm_state_0x8b_impl(arena: *mut TeamArena) -> u32 {
     team_ops::check_any_worm_state_0x8b(arena)
 }
 
@@ -86,7 +86,11 @@ usercall_trampoline!(fn trampoline_check_any_worm_state_0x8b; impl_fn = check_an
 
 // ── SetActiveWorm_Maybe (0x522500): usercall(EAX=base, EDX=team_idx, ESI=worm) ──
 
-unsafe extern "cdecl" fn set_active_worm_impl(arena: TeamArenaRef, team_idx: u32, worm_index: i32) {
+unsafe extern "cdecl" fn set_active_worm_impl(
+    arena: *mut TeamArena,
+    team_idx: u32,
+    worm_index: i32,
+) {
     team_ops::set_active_worm(arena, team_idx, worm_index);
 }
 

@@ -9,7 +9,7 @@ use crate::FieldRegistry;
 ///
 /// CTaskWorm's `SetState` (vtable slot 14) transitions between these.
 /// The state byte lives at CTaskWorm+0x44 (inside `base.subclass_data`).
-/// Also stored in WormEntry.state in the TeamArenaState.
+/// Also stored in WormEntry.state in the TeamArena.
 ///
 /// States 0x68..=0x8A are the "weapon/action active" range — checked by
 /// `(state - 0x68) < 0x23` in HandleMessage. States 0x80+ are dying/dead.

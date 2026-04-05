@@ -66,7 +66,7 @@ pub struct CTaskTeam {
     pub _secondary_vtable: u32,
     /// 0x34: Unknown — observed to hold the same value as `team_index` in all runs.
     pub _unknown_34: u32,
-    /// 0x38: Team number, **1-based**.  Matches TeamArenaState slot index.
+    /// 0x38: Team number, **1-based**.  Matches TeamArena slot index.
     pub team_index: u32,
     /// 0x3C: Unknown — observed 0 for team 1, 1 for team 2.
     pub _unknown_3c: u32,

@@ -2,19 +2,19 @@ use crate::audio::active_sound::ActiveSoundTable;
 use crate::audio::dssound::DSSound;
 use crate::audio::music::Music;
 use crate::audio::speech::SpeechSlotTable;
+use crate::audio::SoundQueueEntry;
 use crate::bitgrid::{CollisionBitGrid, DisplayBitGrid};
 use crate::display::dd_display::DDDisplay;
 use crate::display::palette::Palette;
 use crate::engine::game_info::GameInfo;
-use crate::engine::{
-    CoordEntry, CoordList, RenderEntry, SoundQueueEntry, TeamArenaState, TeamIndexMap,
-};
+use crate::engine::{CoordEntry, CoordList, TeamArena, TeamIndexMap};
 use crate::fixed::Fixed;
 use crate::game::weapon::WeaponTable;
 use crate::input::keyboard::DDKeyboard;
 use crate::render::landscape::PCLandscape;
 use crate::render::queue::RenderQueue;
 use crate::render::turn_order::TurnOrderWidget;
+use crate::render::RenderEntry;
 use crate::FieldRegistry;
 
 /// DDGame — the main game engine object.
@@ -183,7 +183,7 @@ pub struct DDGame {
     /// 0x4628: Team arena state — per-team data, ammo, delays, alliance tracking.
     /// Note: fields previously named init_field_64d8 (= team_count at arena+0x1EB0)
     /// and init_field_72a4 (= weapon_slots entry at arena+0x2A7C) are inside this struct.
-    pub team_arena: TeamArenaState,
+    pub team_arena: TeamArena,
     /// 0x7270-0x72A3: Unknown
     pub _unknown_7270: [u8; 0x72A4 - 0x7270],
     /// 0x72A4: Object pool counter. Incremented by +7 per CTaskMissile, +2 per CTaskArrow.
@@ -610,7 +610,7 @@ pub mod offsets {
     pub const WEAPON_PANEL: usize = 0x548;
 
     // === Team weapon state (DDGame + 0x4628) ===
-    /// Base of TeamArenaState sub-struct within DDGame.
+    /// Base of TeamArena sub-struct within DDGame.
     /// Callers pass DDGame + TEAM_ARENA_STATE as base pointer to
     /// GetAmmo/AddAmmo/SubtractAmmo.
     pub const TEAM_ARENA_STATE: usize = 0x4628;
@@ -621,7 +621,7 @@ pub mod offsets {
     /// Runtime-confirmed: block[0] is zeroed preamble, blocks[1-6] hold team data.
     pub const TEAM_BLOCKS: usize = 0x4090;
 
-    /// Byte offset from TeamArenaState base back to TeamBlock array start.
+    /// Byte offset from TeamArena base back to TeamBlock array start.
     /// `blocks_ptr = (tws_base as *const c_char).sub(ARENA_TO_BLOCKS) as *const TeamBlock`
     ///
     /// entry_ptr(0) = DDGame+0x4628 = TEAM_BLOCKS + 0x598.
@@ -772,7 +772,7 @@ impl crate::snapshot::Snapshot for DDGame {
         write_indent(w, i)?;
         writeln!(w, "task_land = {}", fmt_ptr(self.task_land))?;
 
-        // TeamArenaState summary
+        // TeamArena summary
         write_indent(w, i)?;
         writeln!(w, "team_arena.team_count = {}", self.team_arena.team_count)?;
         write_indent(w, i)?;

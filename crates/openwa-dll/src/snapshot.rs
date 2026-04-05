@@ -19,7 +19,7 @@ use openwa_core::task::{CTask, CTaskBfsIter, CTaskMissile, CTaskWorm};
 /// Must be called from the DLL while the game is paused (frame breakpoint).
 #[cfg(target_arch = "x86")]
 pub unsafe fn capture() -> String {
-    use openwa_core::engine::TeamArenaRef;
+    use openwa_core::engine::TeamArena;
 
     let mut out = String::with_capacity(128 * 1024);
 
@@ -62,26 +62,30 @@ pub unsafe fn capture() -> String {
     // ── Team blocks + worm entries ──
     let team_count = (*ddgame).team_arena.team_count as usize;
     let _ = writeln!(out, "[Teams] count={}", team_count);
-    let arena = TeamArenaRef::from_ptr(&raw mut (*ddgame).team_arena);
-    let blocks = arena.blocks();
+    let arena = &raw mut (*ddgame).team_arena;
+    let blocks = TeamArena::blocks_mut(arena);
     for t in 0..team_count {
-        let header = arena.team_header(t);
+        let header = TeamArena::team_header_mut(arena, t);
         let name =
-            core::ffi::CStr::from_ptr(header.team_name.as_ptr() as *const _).to_string_lossy();
+            core::ffi::CStr::from_ptr((*header).team_name.as_ptr() as *const _).to_string_lossy();
         let _ = writeln!(out, "\n  [Team {}] \"{}\"", t, name);
         let _ = writeln!(
             out,
             "    eliminated={} alliance={} worm_count={} active_worm={}",
-            header.eliminated, header.alliance, header.worm_count, header.active_worm
+            (*header).eliminated,
+            (*header).alliance,
+            (*header).worm_count,
+            (*header).active_worm
         );
         let _ = writeln!(
             out,
             "    weapon_alliance={} turn_action_flags=0x{:08X}",
-            header.weapon_alliance, header.turn_action_flags
+            (*header).weapon_alliance,
+            (*header).turn_action_flags
         );
 
         // Worms are in block[t+1].worms[0..worm_count] (1-indexed blocks)
-        let worm_count = header.worm_count.max(0) as usize;
+        let worm_count = (*header).worm_count.max(0) as usize;
         let block = &*blocks.add(t + 1);
         for wi in 0..worm_count.min(7) {
             let worm = &block.worms[wi];

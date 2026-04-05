@@ -13,8 +13,9 @@
 //! - DispatchGlobalSound (0x526270)
 //! - PlaySoundPooled_Direct (0x546B50)
 
+use crate::audio::SoundQueueEntry;
 use crate::audio::{play_sound, play_sound_pooled, SoundId};
-use crate::engine::{DDGame, DDGameWrapper, SoundQueueEntry};
+use crate::engine::{DDGame, DDGameWrapper};
 use crate::fixed::Fixed;
 use crate::task::worm::CTaskWorm;
 use crate::task::{CGameTask, CTask, SoundEmitter};

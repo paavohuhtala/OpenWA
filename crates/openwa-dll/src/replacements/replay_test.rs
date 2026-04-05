@@ -13,10 +13,9 @@
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU32, Ordering};
 
 use crate::log_line;
-use openwa_core::engine::ddgame::offsets;
 use openwa_core::engine::game_session;
 use openwa_core::engine::DDGame;
-use openwa_core::engine::TeamArenaRef;
+use openwa_core::engine::TeamArena;
 
 // ---------------------------------------------------------------------------
 // Fast-forward
@@ -69,9 +68,8 @@ pub unsafe fn on_frame(frame: u32) {
 ///
 /// Returns (alive_team_count, total_team_count).
 unsafe fn count_alive_teams(ddgame: *const DDGame) -> (i32, i32) {
-    let arena_base = (ddgame as u32) + offsets::TEAM_ARENA_STATE as u32;
-    let arena = TeamArenaRef::from_raw(arena_base);
-    let team_count = arena.state().team_count;
+    let arena = &raw const (*ddgame).team_arena;
+    let team_count = (*arena).team_count;
     if team_count <= 0 || team_count > 6 {
         return (0, 0);
     }
@@ -80,8 +78,7 @@ unsafe fn count_alive_teams(ddgame: *const DDGame) -> (i32, i32) {
     for t in 1..=team_count as usize {
         let mut team_has_alive = false;
         for w in 1..=8usize {
-            let worm = arena.team_worm(t, w);
-            if worm.health > 0 {
+            if (*TeamArena::team_worm(arena, t, w)).health > 0 {
                 team_has_alive = true;
                 break;
             }

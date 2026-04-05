@@ -2,26 +2,14 @@
 // Team arena state — sub-struct at DDGame + 0x4628
 // ============================================================
 //
-// Extracted from ddgame.rs: team/worm data structures, TeamArenaRef,
+// Extracted from ddgame.rs: team/worm data structures, TeamArena,
 // and related helper structs used as DDGame fields.
 
 use core::ffi::CStr;
 
+use crate::snapshot::Snapshot;
+
 use super::ddgame::offsets;
-
-/// Coordinate entry used in DDGame screen coordinate tables (stride 0x10).
-///
-/// InitFields zeroes x and y; at runtime they contain fixed-point screen
-/// coordinates used for camera tracking and rendering regions.
-#[repr(C)]
-#[derive(Clone, Copy)]
-pub struct CoordEntry {
-    pub x: i32,
-    pub y: i32,
-    pub _unknown: [u8; 8],
-}
-
-const _: () = assert!(core::mem::size_of::<CoordEntry>() == 0x10);
 
 /// Team index permutation map (0x64 = 100 bytes).
 ///
@@ -42,86 +30,6 @@ pub struct TeamIndexMap {
 }
 const _: () = assert!(core::mem::size_of::<TeamIndexMap>() == 0x64);
 
-/// Render table entry (0x14 = 20 bytes).
-///
-/// 14 entries live at DDGame+0x73B0 (stride 0x14). Only the first u32
-/// is zeroed during construction; the rest is uninitialized/unknown.
-#[repr(C)]
-#[derive(Clone, Copy)]
-pub struct RenderEntry {
-    /// Active/state flag (zeroed on init).
-    pub active: u32,
-    /// Unknown data.
-    pub _unknown: [u8; 16],
-}
-const _: () = assert!(core::mem::size_of::<RenderEntry>() == 0x14);
-
-// ============================================================
-// CoordList — dynamic array of packed terrain coordinates
-// ============================================================
-
-/// Packed terrain coordinate entry (8 bytes).
-///
-/// `coord` packs x and y as `x * 0x10000 + y` (fixed-point).
-/// `flag` is always 1 for populated entries.
-#[repr(C)]
-#[derive(Clone, Copy)]
-pub struct CoordListEntry {
-    pub coord: u32,
-    pub flag: u32,
-}
-const _: () = assert!(core::mem::size_of::<CoordListEntry>() == 8);
-
-/// Dynamic coordinate array header (12 bytes).
-///
-/// Allocated at DDGame+0x50C during `init_graphics_and_resources`.
-/// Data buffer is a separate allocation of `capacity * 8` bytes.
-/// Used for terrain coordinate lookups (spawning, aiming, collision).
-#[repr(C)]
-pub struct CoordList {
-    /// Number of entries currently stored.
-    pub count: u32,
-    /// Maximum number of entries (600).
-    pub capacity: u32,
-    /// Pointer to the data buffer (`capacity * sizeof(CoordListEntry)` bytes).
-    pub data: *mut CoordListEntry,
-}
-const _: () = assert!(core::mem::size_of::<CoordList>() == 12);
-
-// ============================================================
-// Sound queue entry — 16 entries at DDGame + 0x7F00
-// ============================================================
-
-/// Sound queue entry (0x24 = 36 bytes, stride between consecutive entries).
-///
-/// DDGame maintains a 16-slot sound queue at offset 0x7F00. PlaySoundGlobal
-/// appends entries; PlaySoundLocal additionally marks entries as local and
-/// stores position via the task's secondary vtable.
-#[repr(C)]
-pub struct SoundQueueEntry {
-    /// Sound effect ID (SoundId enum value).
-    pub sound_id: u32,
-    /// Flags / priority (e.g. 3=weapon, 7=explosion).
-    pub flags: u32,
-    /// Volume (Fixed-point, 0x10000 = 1.0).
-    pub volume: u32,
-    /// Pitch (Fixed-point, 0x10000 = 1.0).
-    pub pitch: u32,
-    /// Reserved, always 0.
-    pub reserved: u32,
-    /// 0 = global, 1 = local (has position tracking).
-    pub is_local: u8,
-    pub _pad: [u8; 3],
-    /// Position X (filled by secondary vtable GetPosition for local sounds).
-    pub pos_x: u32,
-    /// Position Y (filled by secondary vtable GetPosition for local sounds).
-    pub pos_y: u32,
-    /// Pointer to task's secondary vtable (at task+0xE8) for position updates.
-    pub secondary_vtable: u32,
-}
-
-const _: () = assert!(core::mem::size_of::<SoundQueueEntry>() == 0x24);
-
 // ============================================================
 // Per-worm and per-team block structs
 // ============================================================
@@ -131,7 +39,7 @@ const _: () = assert!(core::mem::size_of::<SoundQueueEntry>() == 0x24);
 /// WA supports up to 8 playable worms per team. The original code accesses
 /// worms via raw pointer arithmetic from the team entry pointer, using
 /// stride 0x9C. This means the 8th worm crosses the TeamBlock boundary
-/// into the next block's header slot — see `TeamArenaRef::team_worm()`.
+/// into the next block's header slot — see `TeamArena::team_worm()`.
 ///
 /// Field offsets confirmed by runtime memory dump (validator DLL):
 /// - state at 0x00: 0x67 = active/selected, 0x65 = idle, 0x80+ = special
@@ -179,7 +87,7 @@ const _: () = assert!(core::mem::size_of::<WormEntry>() == 0x9C);
 /// offsets (0x00-0x5F) may contain data from the previous team's 8th worm
 /// when that team has 8 worms — they are treated as opaque padding.
 ///
-/// Accessed via `TeamArenaRef::team_header()` and `team_header_b()`.
+/// Accessed via `TeamArena::team_header()` and `team_header_b()`.
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct TeamHeader {
@@ -235,10 +143,10 @@ pub union TeamSlot0 {
 /// The remaining 7 worm slots follow, then 0x3C bytes of metadata.
 ///
 /// **Block indexing**: Block 0 is unused (preamble, all zeros). Actual team
-/// data starts at block 1. Worms are accessed via `TeamArenaRef::team_worm()`
+/// data starts at block 1. Worms are accessed via `TeamArena::team_worm()`
 /// which uses raw pointer arithmetic and naturally crosses block boundaries.
 ///
-/// **Header access**: Use `TeamArenaRef::team_header(idx)` to get the
+/// **Header access**: Use `TeamArena::team_header(idx)` to get the
 /// `TeamHeader` for a team (reads from `blocks[idx+1].header.team`).
 #[repr(C)]
 pub struct TeamBlock {
@@ -286,13 +194,13 @@ const _: () = assert!(core::mem::size_of::<WeaponSlots>() == 852 * 4);
 /// `weapon_slots.teams[alliance].ammo[weapon]` and
 /// `weapon_slots.teams[alliance].delay[weapon]`.
 #[repr(C)]
-pub struct TeamArenaState {
+pub struct TeamArena {
     /// 0x0000-0x1EAF: Per-team data region (opaque).
     ///
     /// This region contains 7 team entries at stride 0x51C (1-indexed, index 0
     /// is preamble). The original WA.exe accesses team data via raw pointer
     /// arithmetic relative to the arena base. In our Rust code, team data is
-    /// accessed through `TeamArenaRef`, `TeamBlock`, and `TeamHeader`,
+    /// accessed through `TeamArena`, `TeamBlock`, and `TeamHeader`,
     /// so this region is treated as opaque padding.
     ///
     /// The 7th entry (team 6, 1-indexed) only has 8 bytes before team_count;
@@ -333,7 +241,7 @@ pub struct TeamArenaState {
     pub last_active_alliance: i32,
 }
 
-const _: () = assert!(core::mem::size_of::<TeamArenaState>() == 0x2C48);
+const _: () = assert!(core::mem::size_of::<TeamArena>() == 0x2C48);
 
 /// Worm state constants and helpers.
 /// TODO: Replace this module with the WormState enum
@@ -361,11 +269,11 @@ pub mod worm {
     }
 }
 
-/// Game phase thresholds (stored in TeamArenaState::game_phase).
+/// Game phase thresholds (stored in TeamArena::game_phase).
 pub const GAME_PHASE_SUDDEN_DEATH: i32 = 0x1E4; // 484
 pub const GAME_PHASE_NORMAL_MIN: i32 = -2;
 
-impl TeamArenaState {
+impl TeamArena {
     /// Get ammo count for a weapon by alliance and weapon ID.
     pub fn get_ammo(&self, alliance: usize, weapon_id: usize) -> i32 {
         self.weapon_slots.teams[alliance].ammo[weapon_id]
@@ -380,82 +288,44 @@ impl TeamArenaState {
     pub fn get_delay(&self, alliance: usize, weapon_id: usize) -> i32 {
         self.weapon_slots.teams[alliance].delay[weapon_id]
     }
-}
 
-/// Typed handle to a TeamArenaState pointer received from WA.exe.
-///
-/// Wraps the raw `base: u32` from trampoline register captures and provides
-/// accessor methods that encapsulate the backward pointer arithmetic to reach
-/// TeamBlock worm data. The TeamBlock array lives 0x598 bytes before
-/// the TeamArenaState in DDGame memory.
-///
-/// # Safety
-/// Must only be constructed from a valid DDGame + TEAM_ARENA_STATE pointer.
-/// `repr(transparent)` ensures identical ABI to `*const u8` / `u32` on i686,
-/// so it can be received directly from usercall trampoline register captures.
-#[repr(transparent)]
-#[derive(Clone, Copy)]
-pub struct TeamArenaRef {
-    base: *mut u8,
-}
-
-impl TeamArenaRef {
-    /// Wrap a raw integer pointer (for usercall trampoline register captures).
-    ///
-    /// # Safety
-    /// `base` must point to a valid TeamArenaState (DDGame + 0x4628).
-    #[inline]
-    pub unsafe fn from_raw(base: u32) -> Self {
-        Self {
-            base: base as *mut u8,
-        }
-    }
-
-    /// Wrap a typed pointer to TeamArenaState.
-    ///
-    /// # Safety
-    /// `arena` must point to a valid TeamArenaState within a live DDGame.
-    #[inline]
-    pub unsafe fn from_ptr(arena: *mut TeamArenaState) -> Self {
-        Self {
-            base: arena as *mut u8,
-        }
-    }
-
-    /// Access the TeamArenaState fields (read-only).
-    #[inline]
-    pub unsafe fn state(&self) -> &TeamArenaState {
-        &*(self.base as *const TeamArenaState)
-    }
-
-    /// Access the TeamArenaState fields (mutable).
-    #[inline]
-    pub unsafe fn state_mut(&self) -> &mut TeamArenaState {
-        &mut *(self.base as *mut TeamArenaState)
-    }
+    // ── Raw-pointer accessors (safe from noalias miscompilation) ──
 
     /// Get pointer to the TeamBlock array base.
+    ///
+    /// The TeamBlock array lives 0x598 bytes before TeamArena in DDGame memory.
     #[inline]
-    pub unsafe fn blocks(&self) -> *mut TeamBlock {
-        self.base.sub(offsets::ARENA_TO_BLOCKS) as *mut TeamBlock
+    pub unsafe fn blocks_mut(this: *mut Self) -> *mut TeamBlock {
+        (this as *mut u8).sub(offsets::ARENA_TO_BLOCKS) as *mut TeamBlock
     }
 
-    /// Get the team header (metadata) for a team.
+    /// Get pointer to the TeamBlock array base (read-only).
     ///
-    /// Returns `&block[team_idx+1].header.team`, which holds team metadata:
+    /// The TeamBlock array lives 0x598 bytes before TeamArena in DDGame memory.
+    #[inline]
+    pub unsafe fn blocks(this: *const Self) -> *const TeamBlock {
+        (this as *const u8).sub(offsets::ARENA_TO_BLOCKS) as *const TeamBlock
+    }
+
+    /// Get pointer to team header (metadata) for a team.
+    ///
+    /// Returns `blocks[team_idx+1].header.team`, which holds team metadata:
     /// worm_count, eliminated flag, weapon_alliance, team_name.
     #[inline]
-    pub unsafe fn team_header(&self, team_idx: usize) -> &TeamHeader {
-        &(*self.blocks().add(team_idx + 1)).header.team
+    pub unsafe fn team_header_mut(this: *mut Self, team_idx: usize) -> *mut TeamHeader {
+        &raw mut (*Self::blocks_mut(this).add(team_idx + 1)).header.team as *mut TeamHeader
     }
 
-    /// Get a mutable team header for a team.
+    /// Get pointer to team header (metadata) for a team.
+    ///
+    /// Returns `blocks[team_idx+1].header.team`, which holds team metadata:
+    /// worm_count, eliminated flag, weapon_alliance, team_name.
     #[inline]
-    pub unsafe fn team_header_mut(&self, team_idx: usize) -> &mut TeamHeader {
-        &mut (*self.blocks().add(team_idx + 1)).header.team
+    pub unsafe fn team_header(this: *const Self, team_idx: usize) -> *const TeamHeader {
+        &raw const (*Self::blocks(this).add(team_idx + 1)).header.team as *const TeamHeader
     }
 
-    /// Get a playable worm entry by 1-indexed worm number (1..=8).
+    /// Get pointer to a playable worm entry by 1-indexed worm number (1..=8).
     ///
     /// Uses raw pointer arithmetic matching the original WA code:
     /// `base + team_idx * 0x51C + worm_num * 0x9C - 0x598`.
@@ -464,56 +334,60 @@ impl TeamArenaRef {
     /// next block's header slot. The header metadata lives at high offsets
     /// (0x6C+) that don't conflict with worm data (0x00-0x5F).
     #[inline]
-    pub unsafe fn team_worm(&self, team_idx: usize, worm_num: usize) -> &WormEntry {
-        let ptr = self
-            .base
-            .add(team_idx * 0x51C)
-            .add(worm_num * 0x9C)
-            .sub(0x598);
-        &*(ptr as *const WormEntry)
+    pub unsafe fn team_worm_mut(
+        this: *mut Self,
+        team_idx: usize,
+        worm_num: usize,
+    ) -> *mut WormEntry {
+        let base = this as *mut u8;
+        base.add(team_idx * 0x51C).add(worm_num * 0x9C).sub(0x598) as *mut WormEntry
     }
 
-    /// Get a mutable reference to a specific worm entry.
-    pub unsafe fn team_worm_mut(&self, team_idx: usize, worm_num: usize) -> &mut WormEntry {
-        let ptr = self
-            .base
-            .add(team_idx * 0x51C)
-            .add(worm_num * 0x9C)
-            .sub(0x598);
-        &mut *(ptr as *mut WormEntry)
+    #[inline]
+    pub unsafe fn team_worm(
+        this: *const Self,
+        team_idx: usize,
+        worm_num: usize,
+    ) -> *const WormEntry {
+        let base = this as *const u8;
+        base.add(team_idx * 0x51C).add(worm_num * 0x9C).sub(0x598) as *const WormEntry
     }
 
-    /// Get a team's block and its header in one call.
+    /// Get a team's block pointer and its header pointer in one call.
     ///
-    /// Returns `(block[team_idx], &block[team_idx+1].header.team)`.
+    /// Returns `(blocks[team_idx], blocks[team_idx+1].header.team)`.
     /// The block contains worm data, and the header (slot 0 of the next block)
     /// holds team metadata (worm_count, eliminated flag).
     ///
     /// **Note**: For accessing worms, prefer `team_worm()` which handles
     /// 8-worm teams correctly via cross-boundary pointer arithmetic.
     #[inline]
-    pub unsafe fn team_and_header(&self, team_idx: usize) -> (&TeamBlock, &TeamHeader) {
-        let blocks = self.blocks();
-        let block = &*blocks.add(team_idx);
-        let header = &(*blocks.add(team_idx + 1)).header.team;
+    pub unsafe fn team_and_header(
+        this: *mut Self,
+        team_idx: usize,
+    ) -> (*mut TeamBlock, *mut TeamHeader) {
+        let blocks = Self::blocks_mut(this);
+        let block = blocks.add(team_idx);
+        let header = &raw mut (*blocks.add(team_idx + 1)).header.team as *mut TeamHeader;
         (block, header)
     }
 
-    /// Get team header for Pattern B access (alliance/active_worm at +0x70/+0x74).
+    /// Get team header pointer for Pattern B access (alliance/active_worm at +0x70/+0x74).
     ///
     /// Pattern B indexes from block[i+2] for 0-indexed team `i`:
     /// `base + 0x510 + i*0x51C` = `blocks[i+2].header.team + 0x70`.
     #[inline]
-    pub unsafe fn team_header_b(&self, team_idx: usize) -> &TeamHeader {
-        &(*self.blocks().add(team_idx + 2)).header.team
+    pub unsafe fn team_header_b_mut(this: *mut Self, team_idx: usize) -> *mut TeamHeader {
+        &raw mut (*Self::blocks_mut(this).add(team_idx + 2)).header.team as *mut TeamHeader
     }
 
-    /// Get mutable team header for Pattern B access.
+    /// Get team header pointer for Pattern B access (alliance/active_worm at +0x70/+0x74).
+    ///
+    /// Pattern B indexes from block[i+2] for 0-indexed team `i`:
+    /// `base + 0x510 + i*0x51C` = `blocks[i+2].header.team + 0x70`.
     #[inline]
-    pub unsafe fn team_header_b_mut(&self, team_idx: usize) -> &mut TeamHeader {
-        &mut (*(self.blocks() as *mut TeamBlock).add(team_idx + 2))
-            .header
-            .team
+    pub unsafe fn team_header_b(this: *const Self, team_idx: usize) -> *const TeamHeader {
+        &raw const (*Self::blocks(this).add(team_idx + 2)).header.team as *const TeamHeader
     }
 
     /// Compute the flat index for ammo/delay table access.
@@ -521,21 +395,21 @@ impl TeamArenaRef {
     /// Reads the weapon alliance ID from the team header for the given
     /// 1-indexed team, then computes `alliance_id * 142 + weapon_id`.
     ///
-    /// The weapon_slots array is interleaved: per alliance, 71 ammo slots
-    /// then 71 delay slots (stride 142 per alliance).
-    /// Ammo: `weapon_slots[alliance_id * 142 + weapon_id]`
-    /// Delay: `weapon_slots[alliance_id * 142 + 71 + weapon_id]`
-    /// Returns (alliance_id, weapon_id) for accessing weapon slots.
+    /// Returns (alliance_id, weapon_id) for accessing weapon_slots.
     #[inline]
-    pub unsafe fn weapon_slot_key(&self, team_index: usize, weapon_id: u32) -> (usize, usize) {
-        let alliance_id = self.team_header(team_index).weapon_alliance as usize;
+    pub unsafe fn weapon_slot_key(
+        this: *const Self,
+        team_index: usize,
+        weapon_id: u32,
+    ) -> (usize, usize) {
+        let alliance_id = (*Self::team_header(this, team_index)).weapon_alliance as usize;
         (alliance_id, weapon_id as usize)
     }
 }
 
 // ── Snapshot impl ──────────────────────────────────────────
 
-impl crate::snapshot::Snapshot for WormEntry {
+impl Snapshot for WormEntry {
     unsafe fn write_snapshot(
         &self,
         w: &mut dyn core::fmt::Write,
