@@ -30,6 +30,7 @@ const VALID_PROLOGUES: &[u8] = &[
     0x89, // mov reg, reg
     0x8B, // mov reg, ...
     0x8D, // lea reg, ...
+    0x0F, // two-byte opcode prefix (e.g. movzx, movsx)
     0xA1, // mov eax, [imm32]
     0xB8, // mov eax, imm32
     0xC1, // shr/shl reg, imm8
