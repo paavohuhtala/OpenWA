@@ -1,3 +1,4 @@
+use crate::display::line_draw::Vertex;
 use crate::fixed::Fixed;
 
 /// DDDisplay — display/rendering subsystem.
@@ -163,7 +164,7 @@ pub struct DDDisplayVtable {
         this: *mut DDDisplay,
         x: Fixed,
         y: Fixed,
-        sprite: *mut crate::bitgrid::DisplayBitGrid,
+        sprite: *mut DisplayBitGrid,
         src_x: i32,
         src_y: i32,
         src_w: i32,
@@ -771,9 +772,9 @@ pub unsafe extern "thiscall" fn draw_polyline(
         return;
     }
 
-    let mut verts = [line_draw::Vertex::new(Fixed::ZERO, Fixed::ZERO); 256];
-    for i in 0..n {
-        verts[i] = line_draw::Vertex::new(
+    let mut verts = [Vertex::new(Fixed::ZERO, Fixed::ZERO); 256];
+    for (i, vert) in verts.iter_mut().enumerate().take(n) {
+        *vert = Vertex::new(
             Fixed::from_raw(*points.add(i * 2)) + cam_x,
             Fixed::from_raw(*points.add(i * 2 + 1)) + cam_y,
         );
@@ -871,7 +872,7 @@ pub unsafe fn draw_scaled_sprite(
     this: *mut DDDisplay,
     x: Fixed,
     y: Fixed,
-    sprite: *mut crate::bitgrid::DisplayBitGrid,
+    sprite: *mut DisplayBitGrid,
     src_x: i32,
     src_y: i32,
     src_w: i32,
@@ -953,12 +954,12 @@ pub unsafe fn draw_scaled_sprite(
 pub enum DrawScaledSpriteResult {
     /// Blit should be performed with these parameters.
     Blit {
-        layer: *mut crate::bitgrid::DisplayBitGrid,
+        layer: *mut DisplayBitGrid,
         dst_x: i32,
         dst_y: i32,
         width: i32,
         height: i32,
-        sprite: *mut crate::bitgrid::DisplayBitGrid,
+        sprite: *mut DisplayBitGrid,
         src_x: i32,
         src_y: i32,
         color_table: *const u8,

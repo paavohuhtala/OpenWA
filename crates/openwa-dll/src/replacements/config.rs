@@ -57,7 +57,7 @@ unsafe extern "stdcall" fn hook_theme_load(dest: u32) {
 /// stdcall(buffer: *const u8, size: u32)
 unsafe extern "stdcall" fn hook_theme_save(buffer: u32, size: u32) {
     let data = core::slice::from_raw_parts(buffer as *const u8, size as usize);
-    if let Err(_) = std::fs::write(THEME_PATH, data) {
+    if std::fs::write(THEME_PATH, data).is_err() {
         show_error_message("ERROR: Could Not create CURRENT.THM File");
     }
 }
@@ -124,7 +124,7 @@ unsafe extern "stdcall" fn hook_registry_clean_all(struct_ptr: u32) {
     extern "system" {
         fn WriteProfileSectionA(app_name: *const u8, string: *const u8) -> i32;
     }
-    WriteProfileSectionA(b"NetSettings\0".as_ptr(), b"\0".as_ptr());
+    WriteProfileSectionA(c"NetSettings".as_ptr().cast(), c"".as_ptr().cast());
 
     *((struct_ptr as usize + CLEAN_ALL_FLAG_OFFSET) as *mut u8) = 0;
 

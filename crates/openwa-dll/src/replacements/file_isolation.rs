@@ -16,17 +16,17 @@ use core::sync::atomic::{AtomicU32, Ordering};
 use std::ffi::CStr;
 use std::sync::OnceLock;
 
-type HANDLE = *mut c_void;
-type DWORD = u32;
+use windows_sys::Win32::Foundation::HANDLE;
+
 type LpSecurityAttributes = *mut c_void;
 
 type CreateFileAFn = unsafe extern "system" fn(
     lpFileName: *const u8,
-    dwDesiredAccess: DWORD,
-    dwShareMode: DWORD,
+    dwDesiredAccess: u32,
+    dwShareMode: u32,
     lpSecurityAttributes: LpSecurityAttributes,
-    dwCreationDisposition: DWORD,
-    dwFlagsAndAttributes: DWORD,
+    dwCreationDisposition: u32,
+    dwFlagsAndAttributes: u32,
     hTemplateFile: HANDLE,
 ) -> HANDLE;
 
@@ -101,11 +101,11 @@ fn redirect_path(path: &str) -> Option<String> {
 
 unsafe extern "system" fn hook_create_file_a(
     lp_file_name: *const u8,
-    desired_access: DWORD,
-    share_mode: DWORD,
+    desired_access: u32,
+    share_mode: u32,
     security_attributes: LpSecurityAttributes,
-    creation_disposition: DWORD,
-    flags_and_attributes: DWORD,
+    creation_disposition: u32,
+    flags_and_attributes: u32,
     template_file: HANDLE,
 ) -> HANDLE {
     let orig: CreateFileAFn = core::mem::transmute(ORIG_CREATE_FILE_A.load(Ordering::Relaxed));
@@ -147,15 +147,16 @@ pub fn install() -> Result<(), String> {
     }
 
     unsafe {
-        let module =
-            windows_sys::Win32::System::LibraryLoader::GetModuleHandleA(b"kernel32.dll\0".as_ptr());
+        let module = windows_sys::Win32::System::LibraryLoader::GetModuleHandleA(
+            c"kernel32.dll".as_ptr().cast(),
+        );
         if module.is_null() {
             return Err("kernel32.dll not loaded".to_string());
         }
 
         let proc = windows_sys::Win32::System::LibraryLoader::GetProcAddress(
             module,
-            b"CreateFileA\0".as_ptr(),
+            c"CreateFileA".as_ptr().cast(),
         );
         let addr = proc.ok_or("CreateFileA not found in kernel32.dll")?;
         let target = addr as *mut c_void;

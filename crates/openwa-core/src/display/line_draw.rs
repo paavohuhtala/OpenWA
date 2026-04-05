@@ -682,7 +682,7 @@ fn clip_polygon(
     }
 
     // Clip against bottom Y
-    let count = clip_polygon_edge(
+    clip_polygon_edge(
         &buf_a[..count],
         out,
         |y| y <= cb,
@@ -690,9 +690,7 @@ fn clip_polygon(
         |v| v.x,
         |y, x| Vertex { x, y },
         cb,
-    );
-
-    count
+    )
 }
 
 /// Maximum scanline height for the span table.

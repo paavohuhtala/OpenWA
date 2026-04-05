@@ -357,6 +357,7 @@ pub unsafe fn capture_blit_snapshots() {
         let dst_size = ((*dst).row_stride * dh) as usize;
 
         // Test cases: (name_suffix, dst_x, dst_y, width, height, src_x, src_y, flags, bg_fill)
+        #[allow(clippy::type_complexity)]
         let test_cases: &[(&str, i32, i32, i32, i32, i32, i32, u32, u8)] = &[
             // Basic orientations (blend mode 0 = direct copy)
             ("identity", 16, 16, sw, sh, 0, 0, 0x0000_0000, 0),

@@ -1563,6 +1563,7 @@ name = "openwa-launcher"
 version = "0.1.0"
 dependencies = [
  "openwa-config",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]

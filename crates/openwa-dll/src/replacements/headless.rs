@@ -78,8 +78,9 @@ pub fn install() -> Result<(), String> {
     let _ = log_line("[Headless] Suppressing all message boxes");
 
     unsafe {
-        let module =
-            windows_sys::Win32::System::LibraryLoader::GetModuleHandleA(b"user32.dll\0".as_ptr());
+        let module = windows_sys::Win32::System::LibraryLoader::GetModuleHandleA(
+            c"user32.dll".as_ptr().cast(),
+        );
         if module.is_null() {
             return Err("user32.dll not loaded".to_string());
         }
@@ -116,12 +117,13 @@ pub fn install() -> Result<(), String> {
     // semaphore per-PID. Without this, concurrent WA.exe instances detect
     // each other and skip initialization or show warnings.
     unsafe {
-        let k32 =
-            windows_sys::Win32::System::LibraryLoader::GetModuleHandleA(b"kernel32.dll\0".as_ptr());
+        let k32 = windows_sys::Win32::System::LibraryLoader::GetModuleHandleA(
+            c"kernel32.dll".as_ptr().cast(),
+        );
         if !k32.is_null() {
             let proc = windows_sys::Win32::System::LibraryLoader::GetProcAddress(
                 k32,
-                b"CreateSemaphoreA\0".as_ptr(),
+                c"CreateSemaphoreA".as_ptr().cast(),
             );
             if let Some(addr) = proc {
                 let target = addr as *mut core::ffi::c_void;

@@ -865,7 +865,7 @@ impl Music {
     ///
     /// Maps the track ID to a WAV filename, builds the full path, and starts streaming.
     pub unsafe fn play_track(this: *mut Music, track_id: u32, do_loop: bool) {
-        if track_id < 1 || track_id > 13 {
+        if !(1..=13).contains(&track_id) {
             return;
         }
 

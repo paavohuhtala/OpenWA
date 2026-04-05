@@ -37,7 +37,7 @@ fn playback_thm_path() -> String {
 // WA's CRT FILE* can't be used with Rust's std::fs::File directly, but we can
 // extract the Win32 HANDLE via _fileno + _get_osfhandle and wrap it.
 
-#[allow(non_camel_case_types)]
+#[allow(non_camel_case_types, clippy::upper_case_acronyms)]
 type FILE = c_void;
 
 /// Convert a WA CRT FILE* to a borrowed Rust File (ManuallyDrop — we don't own it).

@@ -152,7 +152,7 @@ unsafe extern "cdecl" fn process_sprite_impl(
     if !has_secondary {
         // Remap every bitmap byte: pixel = lookup_table[pixel]
         let bitmap_byte_count_raw = (data_size as usize + 4).saturating_sub(hdr.bitmap_offset);
-        let dword_count = (bitmap_byte_count_raw + 3) / 4;
+        let dword_count = bitmap_byte_count_raw.div_ceil(4);
         let remap_byte_count = dword_count * 4;
 
         for i in 0..remap_byte_count {

@@ -5,86 +5,16 @@ use std::mem;
 use std::path::{Path, PathBuf};
 use std::ptr;
 
-// Declare Win32 types and functions directly to avoid windows-sys feature-flag issues.
-#[allow(non_camel_case_types)]
-type HANDLE = *mut core::ffi::c_void;
-#[allow(non_camel_case_types)]
-type HMODULE = *mut core::ffi::c_void;
-#[allow(non_camel_case_types)]
-type DWORD = u32;
-#[allow(non_camel_case_types)]
-type BOOL = i32;
-#[allow(non_camel_case_types)]
-type LPVOID = *mut core::ffi::c_void;
-#[allow(non_camel_case_types)]
-type LPDWORD = *mut u32;
+use windows_sys::Win32::Foundation::{CloseHandle, HMODULE};
+use windows_sys::Win32::System::LibraryLoader::GetModuleFileNameA;
+use windows_sys::Win32::System::Threading::{
+    CreateEventA, CreateProcessA, GetExitCodeProcess, ResumeThread, TerminateProcess,
+    WaitForSingleObject, CREATE_NO_WINDOW, CREATE_SUSPENDED, INFINITE, PROCESS_INFORMATION,
+    STARTF_USESHOWWINDOW, STARTUPINFOA,
+};
 
-#[repr(C)]
-#[allow(non_snake_case)]
-struct STARTUPINFOA {
-    cb: DWORD,
-    lpReserved: *mut u8,
-    lpDesktop: *mut u8,
-    lpTitle: *mut u8,
-    dwX: DWORD,
-    dwY: DWORD,
-    dwXSize: DWORD,
-    dwYSize: DWORD,
-    dwXCountChars: DWORD,
-    dwYCountChars: DWORD,
-    dwFillAttribute: DWORD,
-    dwFlags: DWORD,
-    wShowWindow: u16,
-    cbReserved2: u16,
-    lpReserved2: *mut u8,
-    hStdInput: HANDLE,
-    hStdOutput: HANDLE,
-    hStdError: HANDLE,
-}
-
-#[repr(C)]
-#[allow(non_snake_case)]
-struct PROCESS_INFORMATION {
-    hProcess: HANDLE,
-    hThread: HANDLE,
-    dwProcessId: DWORD,
-    dwThreadId: DWORD,
-}
-
-const CREATE_SUSPENDED: DWORD = 0x0000_0004;
-const CREATE_NO_WINDOW: DWORD = 0x0800_0000;
-const STARTF_USESHOWWINDOW: DWORD = 0x0000_0001;
 const SW_HIDE: u16 = 0;
 const SW_SHOWMINIMIZED: u16 = 2;
-const INFINITE: DWORD = 0xFFFF_FFFF;
-
-#[link(name = "kernel32")]
-extern "system" {
-    fn CreateProcessA(
-        lpApplicationName: *const u8,
-        lpCommandLine: *mut u8,
-        lpProcessAttributes: LPVOID,
-        lpThreadAttributes: LPVOID,
-        bInheritHandles: BOOL,
-        dwCreationFlags: DWORD,
-        lpEnvironment: LPVOID,
-        lpCurrentDirectory: *const u8,
-        lpStartupInfo: *const STARTUPINFOA,
-        lpProcessInformation: *mut PROCESS_INFORMATION,
-    ) -> BOOL;
-    fn ResumeThread(hThread: HANDLE) -> DWORD;
-    fn WaitForSingleObject(hHandle: HANDLE, dwMilliseconds: DWORD) -> DWORD;
-    fn GetExitCodeProcess(hProcess: HANDLE, lpExitCode: LPDWORD) -> BOOL;
-    fn TerminateProcess(hProcess: HANDLE, uExitCode: u32) -> BOOL;
-    fn CloseHandle(hObject: HANDLE) -> BOOL;
-    fn GetModuleFileNameA(hModule: HMODULE, lpFilename: *mut u8, nSize: DWORD) -> DWORD;
-    fn CreateEventA(
-        lpEventAttributes: LPVOID,
-        bManualReset: BOOL,
-        bInitialState: BOOL,
-        lpName: *const u8,
-    ) -> HANDLE;
-}
 
 fn main() {
     if let Err(e) = run() {
@@ -171,7 +101,7 @@ unsafe fn launch(
     let headless = std::env::var("OPENWA_HEADLESS").is_ok();
 
     let mut si: STARTUPINFOA = mem::zeroed();
-    si.cb = mem::size_of::<STARTUPINFOA>() as DWORD;
+    si.cb = mem::size_of::<STARTUPINFOA>() as u32;
     if headless {
         si.dwFlags |= STARTF_USESHOWWINDOW;
         si.wShowWindow = SW_HIDE;
@@ -185,11 +115,11 @@ unsafe fn launch(
     let ok = CreateProcessA(
         exe_cstr.as_ptr().cast(),
         cmdline_buf.as_mut_ptr(),
-        ptr::null_mut(),
-        ptr::null_mut(),
+        ptr::null(),
+        ptr::null(),
         0, // bInheritHandles = FALSE
         CREATE_SUSPENDED | if headless { CREATE_NO_WINDOW } else { 0 },
-        ptr::null_mut(), // inherit environment
+        ptr::null(), // inherit environment
         wd_cstr.as_ptr().cast(),
         &si,
         &mut pi,
@@ -216,7 +146,7 @@ unsafe fn launch(
     // possible for a suspended process. So we rely on the DLL reading the
     // event name from a fixed pattern: OpenWA_HooksReady_{its_own_pid}.
     // The DLL can call GetCurrentProcessId() to reconstruct the same name.
-    let event = CreateEventA(ptr::null_mut(), 1, 0, event_name.as_ptr());
+    let event = CreateEventA(ptr::null(), 1, 0, event_name.as_ptr());
     // event may be null if CreateEventA fails — we'll fall through gracefully.
 
     if let Err(e) = inject::inject_dll(pi.hProcess, dll_str) {
@@ -247,7 +177,7 @@ unsafe fn launch(
 
     // Wait for WA.exe to exit, then propagate its exit code.
     WaitForSingleObject(pi.hProcess, INFINITE);
-    let mut exit_code: DWORD = 0;
+    let mut exit_code: u32 = 0;
     GetExitCodeProcess(pi.hProcess, &mut exit_code);
     CloseHandle(pi.hProcess);
 
@@ -260,7 +190,7 @@ unsafe fn launch(
 
 fn launcher_dir() -> Result<PathBuf, String> {
     let mut buf = vec![0u8; 32768];
-    let len = unsafe { GetModuleFileNameA(ptr::null_mut(), buf.as_mut_ptr(), buf.len() as DWORD) };
+    let len = unsafe { GetModuleFileNameA(HMODULE::default(), buf.as_mut_ptr(), buf.len() as u32) };
     if len == 0 {
         return Err("GetModuleFileNameA failed".to_string());
     }

@@ -59,10 +59,10 @@ pub fn format_field(
 
     // Built-in defaults
     match field.kind {
-        ValueKind::U8 if data.len() >= 1 => {
+        ValueKind::U8 if !data.is_empty() => {
             write!(w, "{}", data[0])
         }
-        ValueKind::I8 if data.len() >= 1 => {
+        ValueKind::I8 if !data.is_empty() => {
             write!(w, "{}", data[0] as i8)
         }
         ValueKind::U16 if data.len() >= 2 => {
@@ -85,7 +85,7 @@ pub fn format_field(
             let v = i32::from_le_bytes([data[0], data[1], data[2], data[3]]);
             write!(w, "{}", v)
         }
-        ValueKind::Bool if data.len() >= 1 => match data[0] {
+        ValueKind::Bool if !data.is_empty() => match data[0] {
             0 => write!(w, "false"),
             1 => write!(w, "true"),
             v => write!(w, "??(0x{:02X})", v),

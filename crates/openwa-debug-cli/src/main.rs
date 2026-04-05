@@ -404,15 +404,14 @@ fn resolve_offset(s: &str, class: &Option<String>, port: u16) -> u32 {
 
     // Try as field name
     if let Some(cls) = class {
-        match send_request(
+        if let Ok(Response::FieldResult(f)) = send_request(
             port,
             &Request::ResolveField {
                 class_name: cls.clone(),
                 field_name: s.to_string(),
             },
         ) {
-            Ok(Response::FieldResult(f)) => return f.offset,
-            _ => {}
+            return f.offset;
         }
     }
 
@@ -473,7 +472,7 @@ fn resolve_address_expr(s: &str, port: u16) -> AddressExpr {
     let (s, absolute) = if let Some(rest) = s.strip_prefix("abs:") {
         (rest, true)
     } else {
-        (s.as_ref(), false)
+        (s, false)
     };
 
     // Split on "->" for chain syntax
@@ -539,7 +538,7 @@ fn resolve_base(s: &str, absolute: bool, port: u16) -> (u32, bool, Option<String
 
     // If it looks like hex (starts with digit or 0x), parse directly
     if looks_like_hex(base_str) {
-        let extra = offset_str.map(|o| parse_u32(o)).unwrap_or(0);
+        let extra = offset_str.map(parse_u32).unwrap_or(0);
         return (parse_hex(base_str).wrapping_add(extra), absolute, None);
     }
 
@@ -560,7 +559,7 @@ fn resolve_base(s: &str, absolute: bool, port: u16) -> (u32, bool, Option<String
         }
         _ => {
             // Fall back to hex parse (will error if not valid hex)
-            let extra = offset_str.map(|o| parse_u32(o)).unwrap_or(0);
+            let extra = offset_str.map(parse_u32).unwrap_or(0);
             (parse_hex(base_str).wrapping_add(extra), absolute, None)
         }
     }
@@ -580,17 +579,14 @@ fn resolve_chain_segment_typed(s: &str, current_class: &Option<String>, port: u1
 
     // Try resolving as a field name if we know the current class
     if let Some(class) = current_class {
-        match send_request(
+        if let Ok(Response::FieldResult(f)) = send_request(
             port,
             &Request::ResolveField {
                 class_name: class.clone(),
                 field_name: base_str.to_string(),
             },
         ) {
-            Ok(Response::FieldResult(f)) => {
-                return ChainSegment::FieldOffset(f.offset.wrapping_add(extra));
-            }
-            _ => {}
+            return ChainSegment::FieldOffset(f.offset.wrapping_add(extra));
         }
     }
 
@@ -602,7 +598,7 @@ fn resolve_chain_segment_typed(s: &str, current_class: &Option<String>, port: u1
 fn looks_like_hex(s: &str) -> bool {
     s.starts_with("0x")
         || s.starts_with("0X")
-        || s.chars().next().map_or(false, |c| c.is_ascii_digit())
+        || s.chars().next().is_some_and(|c| c.is_ascii_digit())
 }
 
 fn print_usage() {
