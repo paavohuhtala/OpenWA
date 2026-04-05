@@ -66,7 +66,7 @@ unsafe extern "stdcall" fn hook_turn_manager(turngame: u32) {
     // Snapshot capture: run once at frame 10 when env vars are set
     if frame == 10 {
         if std::env::var("OPENWA_CAPTURE_LINE_SNAPSHOTS").is_ok() {
-            super::display::capture_line_snapshots();
+            super::bitgrid::capture_line_snapshots();
         }
         if std::env::var("OPENWA_CAPTURE_BLIT_SNAPSHOTS").is_ok() {
             super::bitgrid::capture_blit_snapshots();

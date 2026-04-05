@@ -1,14 +1,239 @@
-//! BitGrid blit hook and snapshot capture.
+//! BitGrid hooks and snapshot capture.
 //!
 //! Hooks BitGrid__BlitSpriteRect (0x4F6910), the core sprite/bitmap blitting
 //! function used for both rendering and collision mask construction.
 //! Rust handles 8bpp blend modes 0 (copy) and 1 (color table / transparency),
 //! falling through to the original for unsupported modes.
+//!
+//! Also provides snapshot capture for line drawing and polygon fill
+//! (activated by env vars at frame 10).
 
 use crate::log_line;
 use core::sync::atomic::{AtomicU32, Ordering};
 use openwa_core::address::va;
 use openwa_core::rebase::rb;
+
+// =========================================================================
+// Line drawing snapshot capture
+// =========================================================================
+
+/// Capture line-drawing snapshots from WA's native BitGrid line functions.
+///
+/// Creates a test BitGrid, calls WA line functions with known inputs,
+/// saves pixel data to `testdata/snapshots/`. Activated by
+/// `OPENWA_CAPTURE_LINE_SNAPSHOTS=1`.
+pub unsafe fn capture_line_snapshots() {
+    use openwa_core::bitgrid::DisplayBitGrid;
+    use std::fs;
+    use std::io::Write;
+
+    let grid_w: u32 = 128;
+    let grid_h: u32 = 128;
+    let grid = DisplayBitGrid::alloc(8, grid_w, grid_h);
+    if grid.is_null() {
+        let _ = log_line("[BitGrid] LINE SNAPSHOT: Failed to allocate test BitGrid");
+        return;
+    }
+
+    let row_stride = (*grid).row_stride;
+    let data_ptr = (*grid).data;
+    let data_size = (row_stride * grid_h) as usize;
+
+    // WA line functions (stdcall)
+    let draw_clipped: unsafe extern "stdcall" fn(*mut DisplayBitGrid, i32, i32, i32, i32, u32) =
+        core::mem::transmute(rb(va::DRAW_LINE_CLIPPED) as usize);
+
+    let draw_two: unsafe extern "stdcall" fn(*mut DisplayBitGrid, i32, i32, i32, i32, u32, u32) =
+        core::mem::transmute(rb(va::DRAW_LINE_TWO_COLOR) as usize);
+
+    let dir = "testdata/snapshots";
+    let _ = fs::create_dir_all(dir);
+
+    // Macro: clear grid, reset clip, run drawing code, save to file.
+    macro_rules! snap {
+        ($name:expr, $body:expr) => {{
+            core::ptr::write_bytes(data_ptr, 0, data_size);
+            (*grid).clip_left = 0;
+            (*grid).clip_top = 0;
+            (*grid).clip_right = grid_w;
+            (*grid).clip_bottom = grid_h;
+            $body;
+            let path = format!("{}/{}.bin", dir, $name);
+            if let Ok(mut file) = fs::File::create(&path) {
+                let _ = file.write_all(&grid_w.to_le_bytes());
+                let _ = file.write_all(&grid_h.to_le_bytes());
+                let _ = file.write_all(&row_stride.to_le_bytes());
+                let _ = file.write_all(core::slice::from_raw_parts(data_ptr, data_size));
+            }
+        }};
+    }
+
+    let f = |x: i32| x << 16; // int to Fixed raw
+    let mut count = 0u32;
+
+    // Single-color line tests
+    for &(name, x1, y1, x2, y2, color) in &[
+        ("clipped_horizontal", f(10), f(64), f(118), f(64), 1u32),
+        ("clipped_vertical", f(64), f(10), f(64), f(118), 2),
+        ("clipped_diagonal_45", f(10), f(10), f(118), f(118), 3),
+        ("clipped_diagonal_steep", f(60), f(10), f(68), f(118), 4),
+        ("clipped_diagonal_shallow", f(10), f(60), f(118), f(68), 5),
+        ("clipped_negative_slope", f(118), f(10), f(10), f(118), 6),
+        (
+            "clipped_subpixel",
+            f(10) + 0x8000,
+            f(20) + 0x4000,
+            f(100) + 0xC000,
+            f(80) + 0x2000,
+            7,
+        ),
+        ("clipped_zero_length", f(64), f(64), f(64), f(64), 8),
+        ("clipped_partially_outside", f(-20), f(64), f(148), f(64), 9),
+        ("clipped_fully_outside", f(-50), f(-50), f(-10), f(-10), 10),
+    ] {
+        snap!(name, draw_clipped(grid, x1, y1, x2, y2, color));
+        count += 1;
+    }
+
+    // Two-color line tests
+    for &(name, x1, y1, x2, y2, c1, c2) in &[
+        ("twocol_horizontal", f(10), f(64), f(118), f(64), 1u32, 2u32),
+        ("twocol_vertical", f(64), f(10), f(64), f(118), 1, 2),
+        ("twocol_diagonal_45", f(10), f(10), f(118), f(118), 1, 2),
+        ("twocol_steep", f(60), f(10), f(68), f(118), 3, 4),
+        ("twocol_shallow", f(10), f(60), f(118), f(68), 3, 4),
+        ("twocol_negative", f(118), f(10), f(10), f(118), 5, 6),
+        (
+            "twocol_subpixel",
+            f(10) + 0x8000,
+            f(20) + 0x4000,
+            f(100) + 0xC000,
+            f(80) + 0x2000,
+            7,
+            8,
+        ),
+    ] {
+        snap!(name, draw_two(grid, x1, y1, x2, y2, c1, c2));
+        count += 1;
+    }
+
+    // Restricted clip rect tests
+    snap!("clipped_restricted_clip", {
+        (*grid).clip_left = 30;
+        (*grid).clip_top = 30;
+        (*grid).clip_right = 98;
+        (*grid).clip_bottom = 98;
+        draw_clipped(grid, f(10), f(10), f(118), f(118), 11)
+    });
+    count += 1;
+
+    snap!("twocol_restricted_clip", {
+        (*grid).clip_left = 30;
+        (*grid).clip_top = 30;
+        (*grid).clip_right = 98;
+        (*grid).clip_bottom = 98;
+        draw_two(grid, f(10), f(10), f(118), f(118), 9, 10)
+    });
+    count += 1;
+
+    // Polygon fill tests — call WA's polygon pipeline directly
+    let clip_x: unsafe extern "thiscall" fn(*mut DisplayBitGrid, *const i32, i32) -> i32 =
+        core::mem::transmute(rb(0x004F_7BA0) as usize);
+    let clip_y: unsafe extern "thiscall" fn(*mut DisplayBitGrid, i32) -> i32 =
+        core::mem::transmute(rb(0x004F_7D00) as usize);
+    let rasterize: unsafe extern "stdcall" fn(*mut DisplayBitGrid, i32, u32) =
+        core::mem::transmute(rb(0x004F_7E90) as usize);
+
+    // Helper: write vertices to the global vertex buffer (0x8B1370) and call pipeline
+    let vert_buf = rb(0x008B_1370) as *mut i32;
+
+    macro_rules! polygon_snap {
+        ($name:expr, $verts:expr, $color:expr) => {{
+            let verts: &[(i32, i32)] = $verts;
+            for (i, &(x, y)) in verts.iter().enumerate() {
+                *vert_buf.add(i * 2) = x;
+                *vert_buf.add(i * 2 + 1) = y;
+            }
+            snap!($name, {
+                let n = clip_x(grid, vert_buf, verts.len() as i32);
+                if n > 2 {
+                    let n = clip_y(grid, n);
+                    if n > 2 {
+                        rasterize(grid, n, $color);
+                    }
+                }
+            });
+            count += 1;
+        }};
+    }
+
+    // Triangle
+    polygon_snap!(
+        "poly_triangle",
+        &[(f(64), f(10)), (f(118), f(100)), (f(10), f(100))],
+        1u32
+    );
+
+    // Square
+    polygon_snap!(
+        "poly_square",
+        &[
+            (f(20), f(20)),
+            (f(100), f(20)),
+            (f(100), f(100)),
+            (f(20), f(100))
+        ],
+        2u32
+    );
+
+    // Diamond
+    polygon_snap!(
+        "poly_diamond",
+        &[
+            (f(64), f(10)),
+            (f(118), f(64)),
+            (f(64), f(118)),
+            (f(10), f(64))
+        ],
+        3u32
+    );
+
+    // Partially outside (triangle extending beyond grid)
+    polygon_snap!(
+        "poly_partially_outside",
+        &[(f(64), f(-30)), (f(160), f(100)), (f(-30), f(100))],
+        4u32
+    );
+
+    // Restricted clip rect
+    snap!("poly_restricted_clip", {
+        (*grid).clip_left = 30;
+        (*grid).clip_top = 30;
+        (*grid).clip_right = 98;
+        (*grid).clip_bottom = 98;
+        let verts: &[(i32, i32)] = &[(f(64), f(10)), (f(118), f(100)), (f(10), f(100))];
+        for (i, &(x, y)) in verts.iter().enumerate() {
+            *vert_buf.add(i * 2) = x;
+            *vert_buf.add(i * 2 + 1) = y;
+        }
+        let n = clip_x(grid, vert_buf, verts.len() as i32);
+        if n > 2 {
+            let n = clip_y(grid, n);
+            if n > 2 {
+                rasterize(grid, n, 5u32);
+            }
+        }
+    });
+    count += 1;
+
+    let _ = log_line(&format!(
+        "[BitGrid] LINE SNAPSHOT: Saved {count} snapshots to {dir}/"
+    ));
+
+    // Free the grid
+    let destructor = (*(*grid).vtable).destructor;
+    destructor(grid, 1);
+}
 
 // =========================================================================
 // Blit snapshot capture
