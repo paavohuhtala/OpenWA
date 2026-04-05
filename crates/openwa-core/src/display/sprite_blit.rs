@@ -400,39 +400,6 @@ fn blit_color_table(
     }
 }
 
-/// Direct copy blit — 90° rotated orientations (axes swapped).
-///
-/// Source X advances with dst Y, source Y advances with dst X.
-fn blit_copy_swapped(
-    dst: &mut PixelGrid,
-    src: &BlitSource,
-    vis_left: i32,
-    vis_top: i32,
-    vis_w: i32,
-    vis_h: i32,
-    sx_start: i32,
-    sy_start: i32,
-    sx_step: i32,
-    sy_step: i32,
-) {
-    let dst_stride = dst.row_stride as usize;
-    let src_stride = src.row_stride as usize;
-
-    let mut src_x = sx_start;
-    for dy in 0..vis_h {
-        let dst_row = (vis_top + dy) as usize * dst_stride + vis_left as usize;
-
-        let mut src_y = sy_start;
-        for dx in 0..vis_w {
-            dst.data[dst_row + dx as usize] =
-                src.data[src_x as usize * src_stride + src_y as usize];
-            src_y += sy_step;
-        }
-
-        src_x += sx_step;
-    }
-}
-
 /// Color-table blend blit — 90° rotated orientations (axes swapped).
 fn blit_color_table_swapped(
     dst: &mut PixelGrid,
