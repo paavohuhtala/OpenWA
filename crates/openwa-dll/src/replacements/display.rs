@@ -5,8 +5,6 @@
 //! - Headless vtable (0x66A0F8): replaces destructor with Rust version that
 //!   correctly frees our Rust-allocated sprite cache sub-objects
 
-use core::sync::atomic::Ordering;
-
 use crate::log_line;
 use openwa_core::address::va;
 use openwa_core::bitgrid::DisplayBitGrid;
@@ -52,10 +50,7 @@ unsafe extern "thiscall" fn headless_destructor(
     this
 }
 
-mod originals {
-    use std::sync::atomic::AtomicU32;
-    pub static BLIT_SPRITE: AtomicU32 = AtomicU32::new(0);
-}
+// No saved originals needed — all paths are fully ported or use direct bridges.
 
 /// Rust port of DDDisplay::BlitSprite (slot 19, 0x56B080).
 ///
@@ -132,8 +127,68 @@ unsafe extern "thiscall" fn blit_sprite(
     let arr2 = *(base.add(sprite_id as usize * 4 + 0x2008) as *const u32);
 
     if arr1 == 0 && arr2 == 0 {
-        // Bitmap fallback — not yet ported, call original
-        call_original_blit_sprite(this, x, y, sprite_flags, palette);
+        // Bitmap sprite path — sprite is in the bitmap table at 0x3DD4.
+        let bitmap_obj = (*gfx).sprite_table[sprite_id as usize];
+        if bitmap_obj == 0 {
+            return;
+        }
+
+        // Get frame data and dimensions from bitmap sprite object
+        let mut sprite_w: i32 = 0;
+        let mut sprite_h: i32 = 0;
+        let mut rect_left: i32 = 0;
+        let mut rect_top: i32 = 0;
+        let mut rect_right: i32 = 0;
+        let mut rect_bottom: i32 = 0;
+        let frame_data = wa_get_bitmap_sprite_info(
+            bitmap_obj as *mut u8,
+            pal,
+            &mut sprite_w,
+            &mut sprite_h,
+            &mut rect_left,
+            &mut rect_top,
+            &mut rect_right,
+            &mut rect_bottom,
+            rb(openwa_core::address::va::DDISPLAY_GET_BITMAP_SPRITE_INFO),
+        );
+        if frame_data.is_null() {
+            return;
+        }
+
+        let camera_x = (*gfx).camera_x;
+        let camera_y = (*gfx).camera_y;
+        let half_w = sprite_w / 2;
+        let half_h = sprite_h / 2;
+        let blit_h = rect_bottom - rect_top;
+
+        let dst_y = (y.0 >> 16) + (camera_y - half_h) + rect_top;
+
+        if (high_flags & 0x0001_0000) == 0 {
+            // Non-tiled: BlitBitmapClipped
+            let dst_x = (x.0 >> 16) + (camera_x - half_w) + rect_left;
+            wa_blit_bitmap_clipped(
+                this as *mut u8,
+                sprite_w as u32,
+                dst_x,
+                dst_y,
+                blit_h,
+                frame_data,
+                2,
+                rb(openwa_core::address::va::DDISPLAY_BLIT_BITMAP_CLIPPED),
+            );
+        } else {
+            // Tiled: BlitBitmapTiled
+            let dst_x = (x.0 >> 16) + (camera_x - half_w) + rect_left;
+            wa_blit_bitmap_tiled(
+                dst_x,
+                sprite_w,
+                this as *mut u8,
+                dst_y,
+                blit_h,
+                frame_data,
+                rb(openwa_core::address::va::DDISPLAY_BLIT_BITMAP_TILED),
+            );
+        }
         return;
     }
 
@@ -424,20 +479,91 @@ unsafe extern "thiscall" fn blit_sprite(
     );
 }
 
-/// Call the original DDDisplay::BlitSprite via saved vtable pointer.
-unsafe fn call_original_blit_sprite(
-    this: *mut DDDisplay,
-    x: Fixed,
-    y: Fixed,
-    sprite_flags: u32,
-    palette: u32,
+// =========================================================================
+// Bitmap sprite bridges (naked asm for usercall conventions)
+// =========================================================================
+
+/// Call DDDisplay__GetBitmapSpriteInfo (0x573C50).
+/// Usercall: EAX=bitmap_obj, EDX=palette, 6 stack params (output ptrs), RET 0x18.
+#[unsafe(naked)]
+unsafe extern "cdecl" fn wa_get_bitmap_sprite_info(
+    _bitmap_obj: *mut u8,
+    _palette: u32,
+    _out_w: *mut i32,
+    _out_h: *mut i32,
+    _out_left: *mut i32,
+    _out_top: *mut i32,
+    _out_right: *mut i32,
+    _out_bottom: *mut i32,
+    _target: u32,
+) -> *const u8 {
+    core::arch::naked_asm!(
+        "mov eax, [esp + 4]",        // bitmap_obj
+        "mov edx, [esp + 8]",        // palette
+        "mov ecx, [esp + 36]",       // target
+        "push dword ptr [esp + 32]", // out_bottom
+        "push dword ptr [esp + 32]", // out_right
+        "push dword ptr [esp + 32]", // out_top
+        "push dword ptr [esp + 32]", // out_left
+        "push dword ptr [esp + 32]", // out_h
+        "push dword ptr [esp + 32]", // out_w
+        "call ecx",                  // RET 0x18 cleans 6 params
+        "ret",
+    );
+}
+
+/// Call DDDisplay__BlitBitmapClipped (0x56A700).
+/// Usercall: EAX=this, EDX=width, 5 stack params (dst_x, dst_y, height, frame_data, flags), RET 0x14.
+#[unsafe(naked)]
+unsafe extern "cdecl" fn wa_blit_bitmap_clipped(
+    _this: *mut u8,
+    _width: u32,
+    _dst_x: i32,
+    _dst_y: i32,
+    _height: i32,
+    _frame_data: *const u8,
+    _flags: u32,
+    _target: u32,
 ) {
-    let orig = originals::BLIT_SPRITE.load(Ordering::Relaxed);
-    if orig != 0 {
-        let f: unsafe extern "thiscall" fn(*mut DDDisplay, Fixed, Fixed, u32, u32) =
-            core::mem::transmute(orig as usize);
-        f(this, x, y, sprite_flags, palette);
-    }
+    core::arch::naked_asm!(
+        "mov eax, [esp + 4]",        // this
+        "mov edx, [esp + 8]",        // width
+        "mov ecx, [esp + 32]",       // target
+        "push dword ptr [esp + 28]", // flags
+        "push dword ptr [esp + 28]", // frame_data
+        "push dword ptr [esp + 28]", // height
+        "push dword ptr [esp + 28]", // dst_y
+        "push dword ptr [esp + 28]", // dst_x
+        "call ecx",                  // RET 0x14 cleans 5 params
+        "ret",
+    );
+}
+
+/// Call DDDisplay__BlitBitmapTiled (0x56A7D0).
+/// Usercall: EAX=initial_x, EDI=tile_width, 4 stack params (this, dst_y, height, frame_data), RET 0x10.
+#[unsafe(naked)]
+unsafe extern "cdecl" fn wa_blit_bitmap_tiled(
+    _initial_x: i32,
+    _tile_width: i32,
+    _this: *mut u8,
+    _dst_y: i32,
+    _height: i32,
+    _frame_data: *const u8,
+    _target: u32,
+) {
+    core::arch::naked_asm!(
+        "push edi",
+        "mov eax, [esp + 8]",        // initial_x
+        "mov edi, [esp + 12]",       // tile_width
+        "mov ecx, [esp + 32]",       // target (offset +4 from push edi)
+        "push dword ptr [esp + 28]", // frame_data
+        "push dword ptr [esp + 28]", // height
+        "push dword ptr [esp + 28]", // dst_y
+        "push dword ptr [esp + 28]", // this
+        "call ecx",                  // RET 0x10 cleans 4 params
+        "pop edi",
+        "ret",
+    );
 }
 
 /// Thiscall wrapper for DDDisplay::DrawScaledSprite (slot 20).
@@ -561,7 +687,7 @@ pub fn install() -> Result<(), String> {
             set_active_layer    => dd_display::set_active_layer,
             set_layer_visibility => dd_display::set_layer_visibility,
             update_palette      => dd_display::update_palette,
-            slot 19 [originals::BLIT_SPRITE] => blit_sprite,
+            slot 19 => blit_sprite,
         })?;
         let _ = log_line("[Display]   DDDisplay: patched 18 methods → Rust");
     }

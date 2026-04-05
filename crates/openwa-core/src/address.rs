@@ -424,8 +424,16 @@ pub mod va {
     crate::define_addresses! {
         /// DDDisplay::Init
         fn/Usercall DDISPLAY_INIT = 0x0056_9D00;
-        /// DDDisplay vtable slot 19 — blit sprite (possibly dead code)
+        /// DDDisplay vtable slot 19 — blit sprite
         fn/Thiscall DDISPLAY_BLIT_SPRITE = 0x0056_B080;
+        /// DDDisplay bitmap sprite info lookup — usercall(EAX=bitmap_obj, EDX=palette), RET 0x18
+        fn/Usercall DDISPLAY_GET_BITMAP_SPRITE_INFO = 0x0057_3C50;
+        /// DDDisplay bitmap blit (clipped) — usercall(EAX=this, EDX=width), RET 0x14
+        fn/Usercall DDISPLAY_BLIT_BITMAP_CLIPPED = 0x0056_A700;
+        /// DDDisplay bitmap blit (tiled) — usercall(EAX=initial_x, EDI=tile_width), RET 0x10
+        fn/Usercall DDISPLAY_BLIT_BITMAP_TILED = 0x0056_A7D0;
+        /// DDDisplay flush render lock — releases lock, plain RET
+        fn DDISPLAY_FLUSH_RENDER_LOCK = 0x0056_A330;
         /// Streaming audio constructor
         fn/Stdcall STREAMING_AUDIO_CTOR = 0x0058_BC10;
         /// DDNetGameWrapper constructor
