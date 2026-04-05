@@ -69,7 +69,7 @@ unsafe extern "stdcall" fn hook_turn_manager(turngame: u32) {
             super::display::capture_line_snapshots();
         }
         if std::env::var("OPENWA_CAPTURE_BLIT_SNAPSHOTS").is_ok() {
-            super::display::capture_blit_snapshots();
+            super::bitgrid::capture_blit_snapshots();
         }
     }
 
