@@ -9,7 +9,7 @@ pub mod palette;
 pub mod render_context;
 pub mod sprite_blit;
 
-pub use base::{DisplayBase, DisplayBaseVtable, SpriteBufferCtrl, SpriteCacheWrapper};
+pub use base::{DisplayBase, DisplayBaseVtable, SpriteBufferCtrl, SpriteCache};
 pub use compat_renderer::CompatRenderer;
 pub use display_vtable::{DisplayVtable, DrawScaledSpriteResult};
 pub use gfx::DisplayGfx;

@@ -9,8 +9,8 @@ use crate::log_line;
 use openwa_core::address::va;
 use openwa_core::bitgrid::DisplayBitGrid;
 use openwa_core::display::display_vtable::{self as display_vtable, DisplayVtable};
+use openwa_core::display::DisplayBase;
 use openwa_core::display::DisplayGfx;
-use openwa_core::display::{DisplayBase, SpriteBufferCtrl, SpriteCacheWrapper};
 use openwa_core::fixed::Fixed;
 use openwa_core::rebase::rb;
 use openwa_core::vtable::patch_vtable;
@@ -31,22 +31,20 @@ unsafe extern "thiscall" fn headless_destructor(
     this: *mut DisplayBase,
     flags: u8,
 ) -> *mut DisplayBase {
-    let wrapper_addr = (*this).sprite_cache;
-    if wrapper_addr != 0 {
-        let wrapper = wrapper_addr as *mut SpriteCacheWrapper;
-        let ctrl_addr = (*wrapper).buffer_ctrl;
-        if ctrl_addr != 0 {
-            let ctrl = ctrl_addr as *mut SpriteBufferCtrl;
+    let sprite_cache = (*this).sprite_cache;
+    if !sprite_cache.is_null() {
+        let ctrl = (*sprite_cache).buffer_ctrl;
+        if !ctrl.is_null() {
             let buf = (*ctrl).buffer;
-            if buf != 0 {
-                wa_free(buf as *mut u8);
+            if !buf.is_null() {
+                wa_free(buf);
             }
-            wa_free(ctrl as *mut u8);
+            wa_free(ctrl);
         }
-        wa_free(wrapper as *mut u8);
+        wa_free(sprite_cache);
     }
     if flags & 1 != 0 {
-        wa_free(this as *mut u8);
+        wa_free(this);
     }
     this
 }

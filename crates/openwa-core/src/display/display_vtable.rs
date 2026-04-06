@@ -795,8 +795,8 @@ pub unsafe extern "thiscall" fn is_sprite_loaded(this: *mut DisplayGfx, id: i32)
     }
 
     let base = &(*this).base;
-    if base.sprite_ptrs[id as usize] != 0
-        || base.sprite_banks[id as usize] != 0
+    if !base.sprite_ptrs[id as usize].is_null()
+        || !base.sprite_banks[id as usize].is_null()
         || (*this).sprite_table[id as usize] != 0
     {
         1
@@ -830,26 +830,15 @@ pub unsafe extern "thiscall" fn get_sprite_info(
     let base = &(*this).base;
 
     // Path 1: Sprite* in sprite_ptrs
-    let sprite_ptr = base.sprite_ptrs[layer as usize];
-    if sprite_ptr != 0 {
-        return sprite_info_from_sprite(
-            sprite_ptr as *const Sprite,
-            out_data,
-            out_flags,
-            out_width,
-        );
+    let sprite = base.sprite_ptrs[layer as usize];
+    if !sprite.is_null() {
+        return sprite_info_from_sprite(sprite, out_data, out_flags, out_width);
     }
 
     // Path 2: SpriteBank* in sprite_banks
-    let bank_ptr = base.sprite_banks[layer as usize];
-    if bank_ptr != 0 {
-        return sprite_info_from_bank(
-            bank_ptr as *const SpriteBank,
-            layer,
-            out_data,
-            out_flags,
-            out_width,
-        );
+    let bank = base.sprite_banks[layer as usize];
+    if !bank.is_null() {
+        return sprite_info_from_bank(bank, layer, out_data, out_flags, out_width);
     }
 
     0

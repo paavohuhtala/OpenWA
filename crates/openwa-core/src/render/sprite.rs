@@ -168,15 +168,13 @@ pub struct SpriteVtable {
     pub slot_7: fn(this: *mut Sprite),
 }
 
-/// SpriteBank vtable (0x664180, 3 slots).
-#[openwa_core::vtable(size = 3, va = 0x0066_4180, class = "SpriteBank")]
+/// SpriteBank vtable (0x664180, 2 slots).
+#[openwa_core::vtable(size = 2, va = 0x0066_4180, class = "SpriteBank")]
 pub struct SpriteBankVtable {
     /// destructor (0x4F94E0)
     pub destructor: fn(this: *mut SpriteBank, flags: u32),
     /// init/load (0x4F9580)
     pub slot_1: fn(this: *mut SpriteBank),
-    /// unknown (0x4FA910)
-    pub slot_2: fn(this: *mut SpriteBank),
 }
 
 crate::define_addresses! {

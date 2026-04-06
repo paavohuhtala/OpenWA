@@ -22,26 +22,27 @@
 /// vtable at a different address crashes even with identical content. We must
 /// point to WA's vtable in .rdata and patch individual slots there in-place
 /// (via VirtualProtect in `display.rs`).
-use crate::task::base::Vtable;
-
-/// Ptr32 alias for raw pointer fields (compiles on 64-bit host).
-type Ptr32 = u32;
+use crate::{
+    render::sprite::{Sprite, SpriteBank},
+    task::base::Vtable,
+    wa_alloc::{wa_malloc_struct_zeroed, wa_malloc_zeroed},
+};
 
 #[repr(C)]
 pub struct DisplayBase<V: Vtable = *const DisplayBaseVtable> {
     // +0x000: vtable pointer
     pub vtable: V,
     // +0x004: sprite cache wrapper (0x28-byte SpriteCacheWrapper)
-    pub sprite_cache: Ptr32,
-    // +0x008..0x1008: per-slot palette/layer ID (0x400 entries), zeroed by ctor.
+    pub sprite_cache: *mut SpriteCache,
+    // +0x008..0x1008: per-slot layer ID (0x400 entries), zeroed by ctor.
     // Stores which layer (1-3) each sprite slot belongs to.
-    pub sprite_palettes: [u32; 0x400],
+    pub sprite_layers: [u32; 0x400],
     // +0x1008..0x2008: per-slot Sprite* pointers (0x400 entries), zeroed by ctor.
     // Points to Sprite objects (0x70 bytes, vtable 0x66418C). Checked by IsSpriteLoaded/GetSpriteInfo.
-    pub sprite_ptrs: [u32; 0x400],
+    pub sprite_ptrs: [*mut Sprite; 0x400],
     // +0x2008..0x3008: per-slot SpriteBank* pointers (0x400 entries), zeroed by ctor.
     // Points to SpriteBank objects (0x17C bytes). Fallback path in GetSpriteInfo/LoadSpriteComplex.
-    pub sprite_banks: [u32; 0x400],
+    pub sprite_banks: [*mut SpriteBank; 0x400],
     // +0x3008..0x3018: gap (0x10 bytes, 4 u32s: indices 0xC02..0xC05)
     pub _gap_3008: [u32; 4],
     // +0x3018: field at u32 index 0xC06, zeroed by ctor
@@ -136,7 +137,7 @@ pub struct DisplayBaseVtable {
 #[repr(C)]
 pub struct SpriteBufferCtrl {
     /// Pointer to pixel buffer (0x80020 allocated, 0x80000 used)
-    pub buffer: Ptr32,
+    pub buffer: *mut u8,
     /// Buffer capacity (0x80000)
     pub capacity: u32,
     pub _fields_08: [u32; 5],
@@ -145,21 +146,31 @@ pub struct SpriteBufferCtrl {
 
 const _: () = assert!(core::mem::size_of::<SpriteBufferCtrl>() == 0x3C);
 
-/// Sprite cache wrapper (0x28 bytes, outer).
+/// Sprite cache (0x28 bytes).
 /// Constructed by FUN_004fa860 (receives `this` in EDI).
-/// Has its own vtable (0x664188) and holds a pointer to [`SpriteBufferCtrl`].
+/// Has its own vtable (0x664188, 1 slot) and holds a pointer to [`SpriteBufferCtrl`].
 #[repr(C)]
-pub struct SpriteCacheWrapper {
-    /// Vtable pointer (0x664188 in WA, rebased at runtime)
-    pub vtable: Ptr32,
+pub struct SpriteCache {
+    /// Vtable pointer (0x664188 in WA, 1 slot)
+    pub vtable: *const SpriteCacheVtable,
     /// Pointer to the 0x3C-byte buffer control block
-    pub buffer_ctrl: Ptr32,
+    pub buffer_ctrl: *mut SpriteBufferCtrl,
     pub _pad_08: [u8; 0x28 - 0x08],
 }
 
-const _: () = assert!(core::mem::size_of::<SpriteCacheWrapper>() == 0x28);
+const _: () = assert!(core::mem::size_of::<SpriteCache>() == 0x28);
 
-/// Ghidra address of the SpriteCacheWrapper vtable.
+/// SpriteCache vtable (0x664188, 1 slot).
+///
+/// Single-slot vtable for the sprite cache object. Slot 0 is a destructor-like
+/// function (0x4FA910).
+#[repr(C)]
+pub struct SpriteCacheVtable {
+    /// Slot 0: destructor / release (0x4FA910)
+    pub destructor: unsafe extern "thiscall" fn(this: *mut SpriteCache, flags: u32),
+}
+
+/// Ghidra address of the SpriteCache vtable.
 const SPRITE_CACHE_VTABLE: u32 = 0x0066_4188;
 
 // ── Construction ──────────────────────────────────────────────────────────
@@ -180,7 +191,7 @@ impl DisplayBase {
     pub unsafe fn new_headless() -> *mut Self {
         use crate::address::va;
         use crate::rebase::rb;
-        use crate::wa_alloc::{wa_malloc, WABox};
+        use crate::wa_alloc::WABox;
 
         // Allocate and zero the entire struct.
         let this = WABox::<Self>::alloc(0x3560, 0x3560).leak();
@@ -204,17 +215,16 @@ impl DisplayBase {
         //   3. Allocates 0x3C buffer ctrl, sets ctrl[0] = buffer, ctrl[4] = capacity
         //   4. Sets wrapper[4] = ctrl pointer
         //   5. Returns wrapper in EAX → stored at this+4
-        let wrapper = WABox::<SpriteCacheWrapper>::alloc(0x28, 0x28).leak();
-        (*wrapper).vtable = rb(SPRITE_CACHE_VTABLE);
+        let wrapper = wa_malloc_struct_zeroed::<SpriteCache>();
+        (*wrapper).vtable = rb(SPRITE_CACHE_VTABLE) as *const SpriteCacheVtable;
 
-        let ctrl = WABox::<SpriteBufferCtrl>::alloc(0x3C, 0x3C).leak();
-        let buf = wa_malloc(0x80020);
-        core::ptr::write_bytes(buf, 0, 0x80000);
-        (*ctrl).buffer = buf as u32;
+        let ctrl = wa_malloc_struct_zeroed::<SpriteBufferCtrl>();
+        // Original allocates 0x80020 but capacity is 0x80000 — extra 0x20 is guard margin.
+        (*ctrl).buffer = wa_malloc_zeroed(0x80020);
         (*ctrl).capacity = 0x80000;
 
-        (*wrapper).buffer_ctrl = ctrl as u32;
-        (*this).sprite_cache = wrapper as u32;
+        (*wrapper).buffer_ctrl = ctrl;
+        (*this).sprite_cache = wrapper;
 
         this
     }
