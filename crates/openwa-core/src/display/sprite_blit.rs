@@ -22,7 +22,7 @@
 //!       └── Mode 3: subtractive color mix
 //! ```
 
-use super::line_draw::PixelGrid;
+use super::line_draw::{PixelGrid, PixelGridMut};
 
 /// Source surface for blit operations.
 ///
@@ -135,7 +135,7 @@ impl BlitBlend {
 ///
 /// Returns `true` if any pixels were drawn.
 pub fn blit_sprite_rect(
-    dst: &mut PixelGrid,
+    mut dst: PixelGridMut<'_>,
     src: &BlitSource,
     dst_x: i32,
     dst_y: i32,
@@ -205,7 +205,7 @@ pub fn blit_sprite_rect(
                 vis_bottom,
             );
             blit_copy(
-                dst, src, vis_left, vis_top, vis_w, vis_h, sx_start, sy_start, 1, 1,
+                &mut dst, src, vis_left, vis_top, vis_w, vis_h, sx_start, sy_start, 1, 1,
             );
         }
         BlitBlend::ColorTable => {
@@ -228,12 +228,12 @@ pub fn blit_sprite_rect(
             let table = color_table.unwrap_or(&IDENTITY_TABLE);
             if swap_axes {
                 blit_color_table_swapped(
-                    dst, src, vis_left, vis_top, vis_w, vis_h, sx_start, sy_start, sx_step,
+                    &mut dst, src, vis_left, vis_top, vis_w, vis_h, sx_start, sy_start, sx_step,
                     sy_step, table,
                 );
             } else {
                 blit_color_table(
-                    dst, src, vis_left, vis_top, vis_w, vis_h, sx_start, sy_start, sx_step,
+                    &mut dst, src, vis_left, vis_top, vis_w, vis_h, sx_start, sy_start, sx_step,
                     sy_step, table,
                 );
             }
@@ -254,7 +254,7 @@ pub fn blit_sprite_rect(
                 vis_bottom,
             );
             blit_masked(
-                dst,
+                &mut dst,
                 src,
                 vis_left,
                 vis_top,
@@ -284,7 +284,7 @@ pub fn blit_sprite_rect(
                 vis_bottom,
             );
             blit_masked(
-                dst,
+                &mut dst,
                 src,
                 vis_left,
                 vis_top,
@@ -381,7 +381,7 @@ fn orientation_steps(orientation: BlitOrientation) -> (i32, i32, bool) {
 ///
 /// Source is scanned with sx advancing per dst X, sy advancing per dst Y.
 fn blit_copy(
-    dst: &mut PixelGrid,
+    dst: &mut PixelGridMut<'_>,
     src: &BlitSource,
     vis_left: i32,
     vis_top: i32,
@@ -423,7 +423,7 @@ fn blit_copy(
 /// Each non-zero source pixel is looked up in the color table before writing.
 /// Zero (transparent) pixels are skipped.
 fn blit_color_table(
-    dst: &mut PixelGrid,
+    dst: &mut PixelGridMut<'_>,
     src: &BlitSource,
     vis_left: i32,
     vis_top: i32,
@@ -458,7 +458,7 @@ fn blit_color_table(
 
 /// Color-table blend blit — 90° rotated orientations (axes swapped).
 fn blit_color_table_swapped(
-    dst: &mut PixelGrid,
+    dst: &mut PixelGridMut<'_>,
     src: &BlitSource,
     vis_left: i32,
     vis_top: i32,
@@ -495,7 +495,7 @@ fn blit_color_table_swapped(
 /// Copies source pixels to destination where the predicate `should_write(src, dst)` is true.
 /// Used by modes 2 (additive) and 3 (subtractive).
 fn blit_masked(
-    dst: &mut PixelGrid,
+    dst: &mut PixelGridMut<'_>,
     src: &BlitSource,
     vis_left: i32,
     vis_top: i32,
@@ -552,6 +552,262 @@ pub fn pixel_grid_from_indexed(width: u32, height: u32, pixels: &[u8]) -> PixelG
 }
 
 // ---------------------------------------------------------------------------
+// 1-bit blit (collision masks)
+// ---------------------------------------------------------------------------
+
+/// Get a single bit from a 1-bit BitGrid data buffer.
+///
+/// Bit layout matches WA's CollisionBitGrid (0x4F5D70):
+/// byte = data[y * stride + (x >> 3)], bit = (byte >> (x & 7)) & 1
+#[inline]
+fn bit_get(data: &[u8], stride: u32, x: i32, y: i32) -> u8 {
+    let byte = data[(y as u32 * stride + (x as u32 >> 3)) as usize];
+    (byte >> (x & 7)) & 1
+}
+
+/// Set a single bit in a 1-bit BitGrid data buffer.
+///
+/// Matches WA's CollisionBitGrid__Put (0x4F5DA0):
+/// clear the bit, then OR in the new value.
+#[inline]
+fn bit_put(data: &mut [u8], stride: u32, x: i32, y: i32, value: u8) {
+    let idx = (y as u32 * stride + (x as u32 >> 3)) as usize;
+    let bit = (x & 7) as u8;
+    data[idx] = (data[idx] & !(1 << bit)) | (((value != 0) as u8) << bit);
+}
+
+/// Byte-aligned 1-bit blit fast path.
+///
+/// Port of the optimized 1-bit path in BitGrid__BlitSpriteRect (0x4F6910).
+/// Requires: both surfaces cpp==1, clip_left/clip_right/src_x all byte-aligned
+/// (divisible by 8), no color table, Normal orientation.
+///
+/// Blend modes:
+/// - 0 (Copy): memcpy bytes
+/// - 1 (ColorTable) / 3 (Subtractive): bitwise OR (both simplify to OR for 1-bit)
+/// - 2 (Additive): no-op (AND of single bits is identity when both are 1)
+pub fn blit_1bit_aligned(
+    dst: &mut [u8],
+    dst_stride: u32,
+    src: &[u8],
+    src_stride: u32,
+    clip_left: i32,
+    clip_top: i32,
+    clip_right: i32,
+    clip_bottom: i32,
+    src_x: i32,
+    src_y: i32,
+    blend_mode: u32,
+) {
+    let byte_width = ((clip_right - clip_left) >> 3) as usize;
+    let dst_byte_x = (clip_left >> 3) as usize;
+    let src_byte_x = (src_x >> 3) as usize;
+
+    match blend_mode {
+        0 => {
+            // Mode 0 (Copy): memcpy per row
+            for row in clip_top..clip_bottom {
+                let dst_off = row as usize * dst_stride as usize + dst_byte_x;
+                let src_row = src_y + (row - clip_top);
+                let src_off = src_row as usize * src_stride as usize + src_byte_x;
+                dst[dst_off..dst_off + byte_width]
+                    .copy_from_slice(&src[src_off..src_off + byte_width]);
+            }
+        }
+        2 => {
+            // Mode 2 (Additive): no-op for 1-bit
+        }
+        _ => {
+            // Mode 1 (ColorTable) and 3 (Subtractive): bitwise OR
+            // Both simplify to OR for single-bit values.
+            for row in clip_top..clip_bottom {
+                let dst_off = row as usize * dst_stride as usize + dst_byte_x;
+                let src_row = src_y + (row - clip_top);
+                let src_off = src_row as usize * src_stride as usize + src_byte_x;
+                for i in 0..byte_width {
+                    dst[dst_off + i] |= src[src_off + i];
+                }
+            }
+        }
+    }
+}
+
+/// Generic per-pixel blit fallback.
+///
+/// Port of FUN_004f80c0 — handles all blend modes (0-5) for any cells_per_unit
+/// by operating one pixel at a time. Slower than the specialized fast paths but
+/// handles unaligned 1-bit blits, oriented blits that fell through, and blend
+/// modes 4 (erase) and 5 (collision test).
+///
+/// Parameters match the original's calling convention:
+/// - clip_left..clip_right, clip_top..clip_bottom: destination region (already clipped)
+/// - src_x: source X corresponding to clip_left
+/// - src_y: source Y corresponding to clip_top
+/// - blend_mode: 0=copy, 1=color_table, 2=additive, 3=subtractive, 4=erase, 5=collision_test
+///
+/// Returns 1 normally, or for mode 5: 1 if collision detected, 0 if not.
+pub fn blit_generic_perpixel(
+    dst: &mut [u8],
+    dst_stride: u32,
+    dst_cpp: u32,
+    src: &[u8],
+    src_stride: u32,
+    src_cpp: u32,
+    clip_left: i32,
+    clip_top: i32,
+    clip_right: i32,
+    clip_bottom: i32,
+    src_x: i32,
+    src_y: i32,
+    color_table: Option<&[u8; 256]>,
+    blend_mode: u32,
+) -> u32 {
+    // Pixel accessors based on cells_per_unit
+    #[inline]
+    fn get_pixel(data: &[u8], stride: u32, cpp: u32, x: i32, y: i32) -> u8 {
+        if cpp == 1 {
+            bit_get(data, stride, x, y)
+        } else {
+            data[y as usize * stride as usize + x as usize]
+        }
+    }
+
+    #[inline]
+    fn put_pixel(data: &mut [u8], stride: u32, cpp: u32, x: i32, y: i32, value: u8) {
+        if cpp == 1 {
+            bit_put(data, stride, x, y, value);
+        } else {
+            data[y as usize * stride as usize + x as usize] = value;
+        }
+    }
+
+    let src_x_offset = src_x - clip_left;
+
+    match blend_mode {
+        0 => {
+            // Copy: get from src, put to dst
+            for y in clip_top..clip_bottom {
+                for x in clip_left..clip_right {
+                    let pixel = get_pixel(
+                        src,
+                        src_stride,
+                        src_cpp,
+                        src_x_offset + x,
+                        src_y + (y - clip_top),
+                    );
+                    put_pixel(dst, dst_stride, dst_cpp, x, y, pixel);
+                }
+            }
+            1
+        }
+        1 => {
+            // Color table blend — per-pixel with optional LUT
+            for y in clip_top..clip_bottom {
+                for x in clip_left..clip_right {
+                    let pixel = get_pixel(
+                        src,
+                        src_stride,
+                        src_cpp,
+                        src_x_offset + x,
+                        src_y + (y - clip_top),
+                    );
+                    if pixel != 0 {
+                        let value = match color_table {
+                            Some(table) => table[pixel as usize],
+                            None => pixel,
+                        };
+                        put_pixel(dst, dst_stride, dst_cpp, x, y, value);
+                    }
+                }
+            }
+            1
+        }
+        2 => {
+            // Additive: copy src where both src and dst non-zero
+            for y in clip_top..clip_bottom {
+                for x in clip_left..clip_right {
+                    let src_pixel = get_pixel(
+                        src,
+                        src_stride,
+                        src_cpp,
+                        src_x_offset + x,
+                        src_y + (y - clip_top),
+                    );
+                    if src_pixel != 0 {
+                        let dst_pixel = get_pixel(dst, dst_stride, dst_cpp, x, y);
+                        if dst_pixel != 0 {
+                            put_pixel(dst, dst_stride, dst_cpp, x, y, src_pixel);
+                        }
+                    }
+                }
+            }
+            1
+        }
+        3 => {
+            // Subtractive: copy src where src non-zero and dst zero
+            for y in clip_top..clip_bottom {
+                for x in clip_left..clip_right {
+                    let src_pixel = get_pixel(
+                        src,
+                        src_stride,
+                        src_cpp,
+                        src_x_offset + x,
+                        src_y + (y - clip_top),
+                    );
+                    if src_pixel != 0 {
+                        let dst_pixel = get_pixel(dst, dst_stride, dst_cpp, x, y);
+                        if dst_pixel == 0 {
+                            put_pixel(dst, dst_stride, dst_cpp, x, y, src_pixel);
+                        }
+                    }
+                }
+            }
+            1
+        }
+        4 => {
+            // Erase: clear dst where src non-zero
+            for y in clip_top..clip_bottom {
+                for x in clip_left..clip_right {
+                    let src_pixel = get_pixel(
+                        src,
+                        src_stride,
+                        src_cpp,
+                        src_x_offset + x,
+                        src_y + (y - clip_top),
+                    );
+                    if src_pixel != 0 {
+                        put_pixel(dst, dst_stride, dst_cpp, x, y, 0);
+                    }
+                }
+            }
+            1
+        }
+        5 => {
+            // Collision test: return 1 if any pixel overlaps (both non-zero)
+            for y in clip_top..clip_bottom {
+                for x in clip_left..clip_right {
+                    let dst_pixel = get_pixel(dst, dst_stride, dst_cpp, x, y);
+                    if dst_pixel != 0 {
+                        let src_pixel = get_pixel(
+                            src,
+                            src_stride,
+                            src_cpp,
+                            src_x_offset + x,
+                            src_y + (y - clip_top),
+                        );
+                        if src_pixel != 0 {
+                            return 1;
+                        }
+                    }
+                }
+            }
+            0
+        }
+        _ => 1,
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Stippled blit (checkerboard pattern)
 // ---------------------------------------------------------------------------
 
@@ -567,7 +823,7 @@ pub fn pixel_grid_from_indexed(width: u32, height: u32, pixels: &[u8]) -> PixelG
 /// Only non-zero source pixels are drawn (transparent = 0).
 /// Pixels outside the destination clip rect are skipped.
 pub fn blit_stippled(
-    dst: &mut PixelGrid,
+    dst: &mut PixelGridMut<'_>,
     src: &BlitSource<'_>,
     dst_x: i32,
     dst_y: i32,
@@ -636,7 +892,7 @@ pub fn blit_stippled(
 /// `flags` is the blit flags word (orientation + blend mode) passed through
 /// to each individual `blit_sprite_rect` call.
 pub fn blit_tiled(
-    dst: &mut PixelGrid,
+    dst: &mut PixelGridMut<'_>,
     src: &BlitSource<'_>,
     initial_x: i32,
     dst_y: i32,
@@ -666,7 +922,7 @@ pub fn blit_tiled(
     // Tile rightward until past clip_right
     while x < clip_right {
         blit_sprite_rect(
-            dst,
+            dst.reborrow(),
             src,
             x,
             dst_y,
@@ -711,7 +967,7 @@ mod tests {
         let mut dst = PixelGrid::new(16, 16);
 
         blit_sprite_rect(
-            &mut dst,
+            dst.as_grid_mut(),
             &src,
             4,
             4, // dst position
@@ -744,7 +1000,7 @@ mod tests {
         let mut dst_mirror = PixelGrid::new(16, 16);
 
         blit_sprite_rect(
-            &mut dst_normal,
+            dst_normal.as_grid_mut(),
             &src,
             4,
             4,
@@ -757,7 +1013,7 @@ mod tests {
             BlitBlend::Copy,
         );
         blit_sprite_rect(
-            &mut dst_mirror,
+            dst_mirror.as_grid_mut(),
             &src,
             4,
             4,
@@ -784,7 +1040,7 @@ mod tests {
         let mut dst = PixelGrid::new(16, 16);
 
         blit_sprite_rect(
-            &mut dst,
+            dst.as_grid_mut(),
             &src,
             4,
             4,
@@ -811,7 +1067,7 @@ mod tests {
         let mut dst = PixelGrid::new(16, 16);
 
         blit_sprite_rect(
-            &mut dst,
+            dst.as_grid_mut(),
             &src,
             4,
             4,
@@ -841,7 +1097,7 @@ mod tests {
         dst.clip_top = 8;
 
         blit_sprite_rect(
-            &mut dst,
+            dst.as_grid_mut(),
             &src,
             4,
             4,
@@ -877,7 +1133,7 @@ mod tests {
         table[0] = 0; // transparent stays 0
 
         blit_sprite_rect(
-            &mut dst,
+            dst.as_grid_mut(),
             &src,
             4,
             4,
@@ -912,7 +1168,7 @@ mod tests {
         dst.data.fill(99); // background
 
         blit_sprite_rect(
-            &mut dst,
+            dst.as_grid_mut(),
             &src,
             0,
             0,
@@ -948,7 +1204,7 @@ mod tests {
         lut[4] = 40;
 
         blit_sprite_rect(
-            &mut dst,
+            dst.as_grid_mut(),
             &src,
             4,
             4,
@@ -983,7 +1239,7 @@ mod tests {
         lut[4] = 40;
 
         blit_sprite_rect(
-            &mut dst,
+            dst.as_grid_mut(),
             &src,
             4,
             4,
@@ -1017,7 +1273,7 @@ mod tests {
         }
 
         blit_sprite_rect(
-            &mut dst,
+            dst.as_grid_mut(),
             &src,
             4,
             4,
@@ -1055,7 +1311,7 @@ mod tests {
         }
 
         blit_sprite_rect(
-            &mut dst,
+            dst.as_grid_mut(),
             &src,
             4,
             4,
@@ -1102,7 +1358,7 @@ mod tests {
         dst.data.fill(99); // all non-zero
 
         blit_sprite_rect(
-            &mut dst,
+            dst.as_grid_mut(),
             &src,
             0,
             0,
@@ -1241,7 +1497,7 @@ mod tests {
         let mut dst = PixelGrid::new(canvas_w, canvas_h);
 
         blit_sprite_rect(
-            &mut dst,
+            dst.as_grid_mut(),
             &src,
             16,
             16,
@@ -1279,7 +1535,7 @@ mod tests {
 
         let mut dst = PixelGrid::new(sprite.width, sprite.height);
         blit_sprite_rect(
-            &mut dst,
+            dst.as_grid_mut(),
             &src,
             0,
             0,
@@ -1311,7 +1567,7 @@ mod tests {
         // Blit at (-16, -16) so only bottom-right portion is visible
         let mut dst = PixelGrid::new(sprite.width, sprite.height);
         blit_sprite_rect(
-            &mut dst,
+            dst.as_grid_mut(),
             &src,
             -16,
             -16,
@@ -1344,7 +1600,7 @@ mod tests {
         dst.data.fill(42); // background color
 
         blit_sprite_rect(
-            &mut dst,
+            dst.as_grid_mut(),
             &src,
             0,
             0,
@@ -1397,7 +1653,7 @@ mod tests {
         dst.data.fill(42);
 
         blit_sprite_rect(
-            &mut dst,
+            dst.as_grid_mut(),
             &src,
             0,
             0,
@@ -1504,7 +1760,7 @@ mod tests {
         dst.data.fill(bg_fill);
 
         blit_sprite_rect(
-            &mut dst,
+            dst.as_grid_mut(),
             &src,
             dst_x,
             dst_y,
@@ -1759,7 +2015,18 @@ mod tests {
         let mut dst = PixelGrid::new(canvas_w, canvas_h);
         dst.data.fill(77); // background matching DLL capture
 
-        blit_stippled(&mut dst, &src, 16, 16, sw, sh, 0, 0, stipple_mode, parity);
+        blit_stippled(
+            &mut dst.as_grid_mut(),
+            &src,
+            16,
+            16,
+            sw,
+            sh,
+            0,
+            0,
+            stipple_mode,
+            parity,
+        );
 
         assert_matches_snapshot(&dst, snap_name);
     }
@@ -1803,8 +2070,16 @@ mod tests {
         let clip_right = canvas_w as i32;
 
         blit_tiled(
-            &mut dst, &src, 8, // initial_x matching DLL capture
-            16, sw, sh, clip_left, clip_right, None, flags,
+            &mut dst.as_grid_mut(),
+            &src,
+            8, // initial_x matching DLL capture
+            16,
+            sw,
+            sh,
+            clip_left,
+            clip_right,
+            None,
+            flags,
         );
 
         assert_matches_snapshot(&dst, snap_name);

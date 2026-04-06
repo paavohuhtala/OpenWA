@@ -46,6 +46,41 @@ pub struct PixelGrid {
     pub clip_bottom: u32,
 }
 
+/// Borrowed mutable view into an 8bpp pixel buffer.
+///
+/// Same layout as `PixelGrid`, but `data` is a `&mut [u8]` instead of `Vec<u8>`.
+/// Used when the buffer is owned externally (e.g., WA's BitGrid data) and wrapping
+/// it in a `Vec` would be unsound. All blit functions accept this type.
+pub struct PixelGridMut<'a> {
+    pub data: &'a mut [u8],
+    pub width: u32,
+    pub height: u32,
+    pub row_stride: u32,
+    pub clip_left: u32,
+    pub clip_top: u32,
+    pub clip_right: u32,
+    pub clip_bottom: u32,
+}
+
+impl<'a> PixelGridMut<'a> {
+    /// Create a new `PixelGridMut` with a shorter lifetime, allowing the
+    /// original to be reused afterward. Equivalent to `&mut *self` for
+    /// a by-value type — needed when passing to functions that consume
+    /// `PixelGridMut` inside a loop.
+    pub fn reborrow(&mut self) -> PixelGridMut<'_> {
+        PixelGridMut {
+            data: self.data,
+            width: self.width,
+            height: self.height,
+            row_stride: self.row_stride,
+            clip_left: self.clip_left,
+            clip_top: self.clip_top,
+            clip_right: self.clip_right,
+            clip_bottom: self.clip_bottom,
+        }
+    }
+}
+
 impl PixelGrid {
     /// Create a new zeroed pixel grid with default clip rect covering the full surface.
     pub fn new(width: u32, height: u32) -> Self {
@@ -60,6 +95,20 @@ impl PixelGrid {
             clip_top: 0,
             clip_right: width,
             clip_bottom: height,
+        }
+    }
+
+    /// Borrow this grid as a `PixelGridMut` — the type accepted by blit functions.
+    pub fn as_grid_mut(&mut self) -> PixelGridMut<'_> {
+        PixelGridMut {
+            data: &mut self.data,
+            width: self.width,
+            height: self.height,
+            row_stride: self.row_stride,
+            clip_left: self.clip_left,
+            clip_top: self.clip_top,
+            clip_right: self.clip_right,
+            clip_bottom: self.clip_bottom,
         }
     }
 
