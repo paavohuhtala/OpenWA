@@ -175,9 +175,13 @@ pub struct DisplayVtable {
     #[slot(21)]
     pub draw_via_callback:
         fn(this: *mut DisplayGfx, x: Fixed, y: Fixed, obj: *mut u8, p5: u32, p6: u32),
-    /// stream/animation data to display (0x56C5A0, RET 0x10)
+    /// draw tiled terrain (0x56C5A0, RET 0x10)
+    ///
+    /// Tiles bitmaps from a grid config in a row-major pattern with camera offset.
+    /// `count` limits the number of pixel-rows rendered. `flags` low 16 bits
+    /// selects mode (only 1 supported), bit 19 controls a blit transparency flag.
     #[slot(22)]
-    pub stream_data: fn(this: *mut DisplayGfx, p2: i32, p3: i32, count: i32, flags: u32),
+    pub draw_tiled_terrain: fn(this: *mut DisplayGfx, x: Fixed, y: Fixed, count: i32, flags: u32),
     /// set layer visibility (0x56A5D0, RET 0x8)
     #[slot(23)]
     pub set_layer_visibility: fn(this: *mut DisplayGfx, layer: i32, visible: i32),
@@ -949,6 +953,152 @@ pub unsafe extern "thiscall" fn draw_via_callback(
     let callback: unsafe extern "thiscall" fn(*mut u8, *mut DisplayBitGrid, i32, i32, u32, u32) =
         core::mem::transmute(*vtable.add(2));
     callback(obj, layer_0, pixel_x, pixel_y, p5, p6);
+}
+
+/// Port of DisplayGfx::StreamData (vtable slot 22, 0x56C5A0).
+///
+/// Tiles bitmaps from a grid configuration in row-major order with camera offset.
+/// The tile grid is defined by `tile_total_width/height` and `tile_col_width/row_height`
+/// fields on DisplayGfx. Bitmaps come from the object at `tile_bitmap_sets[1]`,
+/// whose field at +0x04 is a pointer array of bitmap pointers.
+///
+/// `x`/`y` are Fixed-point (>> 16 for pixels). `count` limits how many pixel-rows
+/// are rendered. `flags` low 16 bits must be 1 (only supported mode); bit 19
+/// controls a blit transparency flag.
+///
+/// # Safety
+/// `this` must be a valid `*mut DisplayGfx`.
+pub unsafe extern "thiscall" fn draw_tiled_terrain(
+    this: *mut DisplayGfx,
+    x: Fixed,
+    y: Fixed,
+    mut count: i32,
+    flags: u32,
+) {
+    if count <= 0 {
+        return;
+    }
+
+    let total_height = (*this).tile_total_height;
+    if count > total_height {
+        count = total_height;
+    }
+
+    // Only mode 1 is supported
+    if (flags & 0xFFFF) != 1 {
+        return;
+    }
+
+    // Get the bitmap tile set (mode 1 → tile_bitmap_sets[1] at offset 0x4DD8)
+    let tile_set = (*this).tile_bitmap_sets[1];
+    if tile_set.is_null() {
+        return;
+    }
+
+    let bitmap_array = (*tile_set).bitmap_ptrs;
+
+    let pixel_x = (*this).camera_x + x.to_int();
+    let pixel_y = (*this).camera_y + y.to_int();
+    let blit_flags = (!flags >> 19) & 2;
+
+    let total_width = (*this).tile_total_width;
+    let col_width = (*this).tile_col_width;
+    let row_height = (*this).tile_row_height;
+
+    let mut bitmap_idx = 0u32;
+    let mut y_offset = 0i32;
+
+    if total_height <= 0 {
+        return;
+    }
+
+    while y_offset < total_height {
+        if y_offset >= count {
+            return;
+        }
+
+        // Clamp row height to remaining count
+        let mut row_h = row_height;
+        if count - y_offset < row_height {
+            row_h = count - y_offset;
+        }
+
+        let mut x_offset = 0i32;
+        while x_offset < total_width {
+            // Clamp column width to remaining grid width
+            let col_w = col_width.min(total_width - x_offset);
+
+            let bitmap_ptr = *bitmap_array.add(bitmap_idx as usize);
+
+            blit_bitmap_clipped(
+                this,
+                col_w,
+                pixel_x + x_offset,
+                pixel_y + y_offset,
+                row_h,
+                bitmap_ptr,
+                blit_flags,
+            );
+
+            bitmap_idx += 1;
+            x_offset += col_width;
+        }
+
+        y_offset += row_height;
+    }
+}
+
+/// Bridge to DisplayGfx__BlitBitmapClipped (0x56A700).
+///
+/// Usercall: EAX=this (DisplayGfx*), EDX=col_width, 5 stack params (dst_x, dst_y,
+/// row_height, bitmap_ptr, flags), RET 0x14.
+///
+/// Clips the bitmap rectangle against the display clip rect, calls flush_render_lock,
+/// then delegates to the low-level blit function (0x403C60).
+unsafe fn blit_bitmap_clipped(
+    gfx: *mut DisplayGfx,
+    col_width: i32,
+    dst_x: i32,
+    dst_y: i32,
+    row_height: i32,
+    bitmap_ptr: u32,
+    flags: u32,
+) {
+    blit_bitmap_clipped_bridge(
+        gfx as u32,
+        col_width as u32,
+        dst_x as u32,
+        dst_y as u32,
+        row_height as u32,
+        bitmap_ptr,
+        flags,
+        rb(va::DISPLAY_GFX_BLIT_BITMAP_CLIPPED),
+    );
+}
+
+/// Naked bridge: sets EAX=this, EDX=col_width, pushes 5 stack params, calls target.
+#[unsafe(naked)]
+unsafe extern "cdecl" fn blit_bitmap_clipped_bridge(
+    _this: u32,
+    _col_width: u32,
+    _dst_x: u32,
+    _dst_y: u32,
+    _row_height: u32,
+    _bitmap_ptr: u32,
+    _flags: u32,
+    _target: u32,
+) {
+    core::arch::naked_asm!(
+        "mov eax, [esp + 4]", // EAX = this
+        "mov edx, [esp + 8]", // EDX = col_width
+        "push [esp + 28]",    // flags
+        "push [esp + 28]",    // bitmap_ptr (shifted by our push)
+        "push [esp + 28]",    // row_height
+        "push [esp + 28]",    // dst_y
+        "push [esp + 28]",    // dst_x
+        "call [esp + 52]",    // target (offset: 5 pushes × 4 + 32 original)
+        "ret",
+    );
 }
 
 /// Port of DisplayGfx::DrawPixelStrip (vtable slot 15, 0x56BE10).

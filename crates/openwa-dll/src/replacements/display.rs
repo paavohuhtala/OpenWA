@@ -682,6 +682,7 @@ pub fn install() -> Result<(), String> {
             draw_outlined_pixel => display_vtable::draw_outlined_pixel,
             fill_rect           => display_vtable::fill_rect,
             draw_via_callback   => display_vtable::draw_via_callback,
+            draw_tiled_terrain  => display_vtable::draw_tiled_terrain,
             flush_render        => display_vtable::flush_render,
             set_camera_offset   => display_vtable::set_camera_offset,
             set_clip_rect       => display_vtable::set_clip_rect,
@@ -691,7 +692,7 @@ pub fn install() -> Result<(), String> {
             update_palette      => display_vtable::update_palette,
             slot 19 => blit_sprite,
         })?;
-        let _ = log_line("[Display]   DisplayGfx: patched 20 methods → Rust");
+        let _ = log_line("[Display]   DisplayGfx: patched 21 methods → Rust");
     }
 
     Ok(())

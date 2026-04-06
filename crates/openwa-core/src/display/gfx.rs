@@ -129,12 +129,25 @@ pub struct DisplayGfx {
     /// 0x3DD4: Sprite table — 1024 DWORD entries, zeroed in DisplayGfx__Init.
     /// Used for tracking loaded sprites/bitmaps by ID.
     pub sprite_table: [u32; 0x400],
-    /// 0x4DD4: Sprite table metadata field 1 (init 0)
-    pub sprite_meta_0: u32,
-    /// 0x4DD8: Sprite table metadata field 2 (init 0)
-    pub sprite_meta_1: u32,
-    /// 0x4DDC - 0x4DF3: Unknown gap
-    pub _unknown_4ddc: [u8; 0x4DF4 - 0x4DDC],
+    // =========================================================================
+    // Tile stream config (0x4DD4 - 0x4DF3)
+    // =========================================================================
+    /// 0x4DD4: Bitmap tile set pointers, indexed by mode (0-based).
+    /// draw_tiled_terrain (slot 22) uses mode 1 (index 1, at offset 0x4DD8). Init 0.
+    pub tile_bitmap_sets: [*const TileBitmapSet; 2],
+    /// 0x4DDC: Total tile grid width in pixels. Inner loop iterates
+    /// x from 0 to this value in steps of `tile_col_width`.
+    pub tile_total_width: i32,
+    /// 0x4DE0: Total tile grid height in pixels. Outer loop iterates
+    /// y from 0 to this value in steps of `tile_row_height`.
+    /// Also used to clamp the `count` parameter in draw_tiled_terrain.
+    pub tile_total_height: i32,
+    /// 0x4DE4: Width of each tile column in pixels.
+    pub tile_col_width: i32,
+    /// 0x4DE8: Height of each tile row in pixels.
+    pub tile_row_height: i32,
+    /// 0x4DEC - 0x4DF3: Unknown (2 u32s)
+    pub _unknown_4dec: [u32; 2],
 
     // =========================================================================
     // Color mixing lookup tables (0x4DF4 - 0x24DF3)
@@ -168,6 +181,11 @@ pub struct DisplayGfx {
 }
 
 const _: () = assert!(core::mem::size_of::<DisplayGfx>() == 0x24E28);
+const _: () = assert!(core::mem::offset_of!(DisplayGfx, tile_bitmap_sets) == 0x4DD4);
+const _: () = assert!(core::mem::offset_of!(DisplayGfx, tile_total_width) == 0x4DDC);
+const _: () = assert!(core::mem::offset_of!(DisplayGfx, tile_total_height) == 0x4DE0);
+const _: () = assert!(core::mem::offset_of!(DisplayGfx, tile_col_width) == 0x4DE4);
+const _: () = assert!(core::mem::offset_of!(DisplayGfx, tile_row_height) == 0x4DE8);
 
 impl DisplayGfx {
     /// Allocate and construct a DisplayGfx via WA's native constructor.
@@ -182,4 +200,16 @@ impl DisplayGfx {
             core::mem::transmute(rb(va::DISPLAYGFX_CTOR) as usize);
         ctor(WABox::<Self>::alloc(0x24E28, 0x24E08).leak())
     }
+}
+
+/// Tile bitmap set — holds an array of bitmap pointers for tiled rendering.
+///
+/// Pointed to by `DisplayGfx::tile_bitmap_sets`. Used by draw_tiled_terrain (slot 22)
+/// to iterate over bitmap tiles in a grid pattern.
+#[repr(C)]
+pub struct TileBitmapSet {
+    /// 0x00: Bitmap count or total size (observed values: 0x168 = 360)
+    pub count: u32,
+    /// 0x04: Pointer to array of bitmap pointers (one per grid tile, row-major order)
+    pub bitmap_ptrs: *const u32,
 }
