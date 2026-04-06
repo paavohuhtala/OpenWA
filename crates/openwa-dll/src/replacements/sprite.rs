@@ -7,7 +7,7 @@
 use openwa_core::address::va;
 use openwa_core::rebase::rb;
 use openwa_core::render::palette::PaletteContext;
-use openwa_core::render::sprite::{Sprite, SpriteFrame};
+use openwa_core::render::sprite::{Sprite, SpriteFrame, SpriteVtable};
 
 use crate::hook::{self, usercall_trampoline};
 
@@ -22,7 +22,7 @@ unsafe extern "cdecl" fn construct_sprite_impl(sprite: *mut Sprite, context: *mu
     // Zero the entire 0x70-byte struct first
     core::ptr::write_bytes(sprite as *mut u8, 0, core::mem::size_of::<Sprite>());
 
-    (*sprite).vtable = rb(va::SPRITE_VTABLE) as *mut u8;
+    (*sprite).vtable = rb(va::SPRITE_VTABLE) as *const SpriteVtable;
     (*sprite).context_ptr = context;
     (*sprite).bitgrid_vtable = rb(va::BIT_GRID_DISPLAY_VTABLE) as *mut u8;
 

@@ -13,6 +13,7 @@ use openwa_core::registry::{self, AddrKind};
 /// Valid first bytes for x86 function prologues (MSVC).
 /// This covers standard prologues plus common non-standard function starts.
 const VALID_PROLOGUES: &[u8] = &[
+    0x2B, // sub reg, r/m32 (e.g. SpriteBank__GetInfo starts with SUB EAX, [ECX+8])
     0x33, // xor reg, reg
     0x51, // push ecx
     0x52, // push edx

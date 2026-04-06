@@ -101,3 +101,14 @@ pub unsafe fn palette_map_color(ctx: *mut PaletteContext, rgb: u32) -> u32 {
 
     slot_idx as u32
 }
+
+crate::define_addresses! {
+    class "PaletteContext" {
+        /// PaletteContext__Init — usercall EAX=ctx* (no stack params)
+        fn/Usercall PALETTE_CONTEXT_INIT = 0x0054_11A0;
+        /// PaletteContext__InitRange — usercall ESI=ctx*, 2 stack params (range_min, range_max)
+        fn/Usercall PALETTE_CONTEXT_INIT_RANGE = 0x0054_1170;
+        /// PaletteContext__MapColor — thiscall(palette_ctx, rgb_u32), returns nearest palette index
+        fn/Thiscall PALETTE_CONTEXT_MAP_COLOR = 0x0054_12B0;
+    }
+}

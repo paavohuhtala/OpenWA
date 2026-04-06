@@ -4,6 +4,7 @@ pub mod palette;
 pub mod queue;
 pub mod spr;
 pub mod sprite;
+pub mod sprite_id;
 pub mod turn_order;
 
 pub use landscape::{DirtyRect, PCLandscape};

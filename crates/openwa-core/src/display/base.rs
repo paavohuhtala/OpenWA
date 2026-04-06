@@ -33,13 +33,15 @@ pub struct DisplayBase<V: Vtable = *const DisplayBaseVtable> {
     pub vtable: V,
     // +0x004: sprite cache wrapper (0x28-byte SpriteCacheWrapper)
     pub sprite_cache: Ptr32,
-    // +0x008..0x1008: sprite pointer array 0 (0x400 entries), zeroed by ctor.
-    // IsSpriteLoaded checks this at offset 0x1008 (which is array 1 below).
-    pub sprite_array_0: [u32; 0x400],
-    // +0x1008..0x2008: sprite pointer array 1 (0x400 entries), zeroed by ctor.
-    pub sprite_array_1: [u32; 0x400],
-    // +0x2008..0x3008: sprite pointer array 2 (0x400 entries), zeroed by ctor.
-    pub sprite_array_2: [u32; 0x400],
+    // +0x008..0x1008: per-slot palette/layer ID (0x400 entries), zeroed by ctor.
+    // Stores which layer (1-3) each sprite slot belongs to.
+    pub sprite_palettes: [u32; 0x400],
+    // +0x1008..0x2008: per-slot Sprite* pointers (0x400 entries), zeroed by ctor.
+    // Points to Sprite objects (0x70 bytes, vtable 0x66418C). Checked by IsSpriteLoaded/GetSpriteInfo.
+    pub sprite_ptrs: [u32; 0x400],
+    // +0x2008..0x3008: per-slot SpriteBank* pointers (0x400 entries), zeroed by ctor.
+    // Points to SpriteBank objects (0x17C bytes). Fallback path in GetSpriteInfo/LoadSpriteComplex.
+    pub sprite_banks: [u32; 0x400],
     // +0x3008..0x3018: gap (0x10 bytes, 4 u32s: indices 0xC02..0xC05)
     pub _gap_3008: [u32; 4],
     // +0x3018: field at u32 index 0xC06, zeroed by ctor
@@ -53,12 +55,16 @@ pub struct DisplayBase<V: Vtable = *const DisplayBaseVtable> {
     // Indexed by layer (valid range 1-3). Returned by set_active_layer (vtable slot 5).
     // Used as palette data input for update_palette (vtable slot 24).
     pub layer_contexts: [u32; 4],
-    // +0x312C: index 0xC4B, zeroed by ctor
-    pub _field_312c: u32,
-    // +0x3130..0x352C: slot_table — 0xFF entries, all initialized to 1 by ctor
+    // +0x312C: Palette slot table guard. Always 0 — prevents palette_slot_alloc
+    // from allocating starting at index 0. Part of the contiguous scan area:
+    // [slot_table_guard(0)] [slot_table(1s)...] [slot_table_sentinel(-1)].
+    pub slot_table_guard: u32,
+    // +0x3130..0x352C: Palette slot table — 0xFF entries, all initialized to 1 by ctor.
+    // Value 1 = available, 0 = in-use. Scanned by palette_slot_alloc (set_layer_color).
     pub slot_table: [u32; 0xFF],
-    // +0x352C: index 0xD4B = 0xFFFFFFFF
-    pub _field_352c: u32,
+    // +0x352C: Palette slot table sentinel. Initialized to -1 (0xFFFFFFFF).
+    // Terminates the palette_slot_alloc scan with failure if no free slots found.
+    pub slot_table_sentinel: u32,
     // +0x3530..0x3540: layer visibility flags (4 entries), zeroed by ctor.
     // Indexed by layer. Cleared to 0 by set_layer_visibility when visible < 0.
     pub layer_visibility: [u32; 4],
@@ -187,8 +193,8 @@ impl DisplayBase {
             *slot = 1;
         }
 
-        // Sentinel value
-        (*this)._field_352c = 0xFFFF_FFFF;
+        // Sentinel value — terminates palette_slot_alloc scan
+        (*this).slot_table_sentinel = 0xFFFF_FFFF;
 
         // Create sprite cache: 0x28 wrapper → 0x3C buffer ctrl → 0x80020 buffer.
         //

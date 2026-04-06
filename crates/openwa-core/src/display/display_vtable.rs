@@ -47,8 +47,19 @@ pub struct DisplayVtable {
     #[slot(5)]
     pub set_active_layer: fn(this: *mut DisplayGfx, layer: i32) -> *mut u8,
     /// get sprite info by layer and id (0x523500, RET 0x10)
+    ///
+    /// Looks up sprite metadata for the given layer ID. Checks sprite_ptrs
+    /// (Sprite* pointers) first, then sprite_banks. On success, writes
+    /// sprite data, flags, and width to the output pointers.
+    /// Returns a pointer to the string "sprite" on success, or 0 on failure.
     #[slot(6)]
-    pub get_sprite_info: fn(this: *mut DisplayGfx, layer: i32, p3: u32, p4: u32) -> u32,
+    pub get_sprite_info: fn(
+        this: *mut DisplayGfx,
+        layer: i32,
+        out_data: *mut u32,
+        out_flags: *mut u32,
+        out_width: *mut u32,
+    ) -> u32,
     /// draw text onto a bitmap surface (0x5236B0, RET 0x1C)
     ///
     /// font_id low 16 bits = font slot (1-based), high 16 bits = extra flags.
@@ -272,10 +283,12 @@ bind_DisplayVtable!(DisplayGfx, base.vtable);
 // Ported DisplayGfx vtable methods
 // =========================================================================
 
+use super::base::DisplayBase;
 use super::gfx::DisplayGfx;
 use super::line_draw;
 use crate::bitgrid::DisplayBitGrid;
 use crate::render::palette::PaletteContext;
+use crate::render::sprite::{Sprite, SpriteBank};
 
 /// Port of DisplayGfx::GetDimensions (vtable slot 1, 0x56A460).
 ///
@@ -770,7 +783,7 @@ pub unsafe extern "thiscall" fn draw_polyline(
 /// Port of DisplayGfx::IsSpriteLoaded (vtable slot 32, 0x56A480).
 ///
 /// Returns 1 if the sprite ID is loaded in any of the three sprite arrays
-/// (DisplayBase sprite_array_1/sprite_array_2, DisplayGfx sprite_table).
+/// (DisplayBase sprite_ptrs/sprite_banks, DisplayGfx sprite_table).
 /// ID must be in range [1, 0x400).
 ///
 /// # Safety
@@ -782,14 +795,140 @@ pub unsafe extern "thiscall" fn is_sprite_loaded(this: *mut DisplayGfx, id: i32)
     }
 
     let base = &(*this).base;
-    if base.sprite_array_1[id as usize] != 0
-        || base.sprite_array_2[id as usize] != 0
+    if base.sprite_ptrs[id as usize] != 0
+        || base.sprite_banks[id as usize] != 0
         || (*this).sprite_table[id as usize] != 0
     {
         1
     } else {
         0
     }
+}
+
+/// Port of DisplayGfx::GetSpriteInfo (vtable slot 6, 0x523500).
+///
+/// Looks up sprite metadata for `layer` (valid: 1..=0x3FF). Checks
+/// `sprite_ptrs` (Sprite* pointers) first, then `sprite_banks`
+/// (indexed sprite containers). On success, writes data, flags, and
+/// width to the output pointers and returns a pointer to the static
+/// string "sprite" (0x664170). Returns 0 on failure.
+///
+/// # Safety
+/// `this` must be a valid `*mut DisplayGfx`.
+/// Output pointers must be valid for writing.
+pub unsafe extern "thiscall" fn get_sprite_info(
+    this: *mut DisplayGfx,
+    layer: i32,
+    out_data: *mut u32,
+    out_flags: *mut u32,
+    out_width: *mut u32,
+) -> u32 {
+    if (layer as u32).wrapping_sub(1) > 0x3FE {
+        return 0;
+    }
+
+    let base = &(*this).base;
+
+    // Path 1: Sprite* in sprite_ptrs
+    let sprite_ptr = base.sprite_ptrs[layer as usize];
+    if sprite_ptr != 0 {
+        return sprite_info_from_sprite(
+            sprite_ptr as *const Sprite,
+            out_data,
+            out_flags,
+            out_width,
+        );
+    }
+
+    // Path 2: SpriteBank* in sprite_banks
+    let bank_ptr = base.sprite_banks[layer as usize];
+    if bank_ptr != 0 {
+        return sprite_info_from_bank(
+            bank_ptr as *const SpriteBank,
+            layer,
+            out_data,
+            out_flags,
+            out_width,
+        );
+    }
+
+    0
+}
+
+/// Address of the static "sprite" string in WA.exe .rdata.
+/// Used as a type-tag return value by sprite info functions.
+const SPRITE_STRING: u32 = va::STR_SPRITE;
+
+/// Extract sprite info from a Sprite object — port of Sprite__GetInfo (0x4FAEC0).
+///
+/// Usercall: EAX=Sprite*, ESI=out_data, ECX=out_width, stack=out_flags.
+/// Reads frame_meta_ptr (validity check), packed _unknown_08/fps as data,
+/// max_frames as width (doubled-minus-one if flags & 2), and flags & 1.
+unsafe fn sprite_info_from_sprite(
+    sprite: *const Sprite,
+    out_data: *mut u32,
+    out_flags: *mut u32,
+    out_width: *mut u32,
+) -> u32 {
+    let s = &*sprite;
+
+    // Validity check: frame_meta_ptr must be non-null
+    if s.frame_meta_ptr.is_null() {
+        return 0;
+    }
+
+    // out_data = packed DWORD: _unknown_08 (u16) | fps (u16) << 16
+    *out_data = (s._unknown_08 as u32) | ((s.fps as u32) << 16);
+
+    // Width from max_frames, doubled-minus-one if flags bit 1 set
+    let mut width = s.max_frames as u32;
+    if s.flags & 2 != 0 {
+        width = width * 2 - 1;
+    }
+    *out_width = width;
+
+    *out_flags = (s.flags & 1) as u32;
+
+    crate::rebase::rb(SPRITE_STRING)
+}
+
+/// Extract sprite info from a SpriteBank — port of SpriteBank__GetInfo (0x4F98C0).
+///
+/// Usercall: EAX=layer, ECX=SpriteBank*, ESI=out_width, stack=out_data+out_flags.
+/// Uses the bank's index table to map the layer ID to a frame entry, then
+/// reads width/flags/data from the SpriteBankFrame.
+unsafe fn sprite_info_from_bank(
+    bank: *const SpriteBank,
+    layer: i32,
+    out_data: *mut u32,
+    out_flags: *mut u32,
+    out_width: *mut u32,
+) -> u32 {
+    let b = &*bank;
+
+    if b.frame_table.is_null() {
+        return 0;
+    }
+
+    let entry_idx = *b.index_table.offset((layer - b.base_id) as isize);
+    if entry_idx < 0 || entry_idx >= b.frame_count {
+        return 0;
+    }
+
+    let frame = &*b.frame_table.add(entry_idx as usize);
+
+    *out_data = (frame.data_value as u32) << 8;
+    *out_flags = (frame.flags & 1) as u32;
+
+    if frame.width & 0x8000 != 0 {
+        *out_width = 1;
+    } else if frame.flags & 2 != 0 {
+        *out_width = (frame.width as u32) * 2 - 1;
+    } else {
+        *out_width = frame.width as u32;
+    }
+
+    crate::rebase::rb(SPRITE_STRING)
 }
 
 /// Port of DisplayGfx::DrawViaCallback (vtable slot 21, 0x56B7C0).
@@ -996,6 +1135,113 @@ pub unsafe extern "thiscall" fn draw_pixel_strip(
             cy += dy;
         }
     }
+}
+
+/// Port of DisplayGfx::SetLayerColor (vtable slot 4, 0x5231E0).
+///
+/// Allocates a `PaletteContext` for the given layer (1-3) if one doesn't exist.
+/// Finds `color` consecutive available entries in the slot table, claims them,
+/// and initializes a PaletteContext with that palette index range.
+///
+/// # Safety
+/// `this` must be a valid `*mut DisplayGfx`.
+pub unsafe extern "thiscall" fn set_layer_color(this: *mut DisplayGfx, layer: i32, color: i32) {
+    // Layer must be 1, 2, or 3
+    if (layer as u32).wrapping_sub(1) >= 3 {
+        return;
+    }
+
+    // Only allocate if no context exists for this layer
+    if (*this).base.layer_contexts[layer as usize] != 0 {
+        return;
+    }
+
+    // Find `color` consecutive available (non-zero) entries in the slot table area.
+    // The scan covers slot_table_guard (guard=0) + slot_table[0..255] + slot_table_sentinel (sentinel=-1).
+    let start = palette_slot_alloc(&mut (*this).base, color);
+
+    // Allocate PaletteContext (0x72C total, zero first 0x70C)
+    let ctx = crate::wa_alloc::wa_malloc(0x72C);
+    core::ptr::write_bytes(ctx, 0, 0x70C);
+
+    let result = if ctx.is_null() {
+        0u32
+    } else {
+        let ctx = ctx as *mut PaletteContext;
+        palette_context_init(ctx, start as i16, (start as i32 + color - 1) as i16);
+        ctx as u32
+    };
+
+    (*this).base.layer_contexts[layer as usize] = result;
+    (*this).base.layer_visibility[layer as usize] = 0;
+}
+
+/// Palette slot allocator — port of FUN_00523190.
+///
+/// Scans the slot table area (this+0x312C) for `count` consecutive entries
+/// with value > 0 (available). Zeros the found entries to mark them as claimed.
+/// Returns the start index, or -1 if a negative sentinel is hit.
+///
+/// The scan area is: `slot_table_guard` (guard=0) + `slot_table[0..255]` + `slot_table_sentinel` (sentinel=-1).
+/// The guard at index 0 is always 0, so allocations start from index 1.
+/// The sentinel (-1) at index 256 terminates the scan with failure.
+unsafe fn palette_slot_alloc(base: &mut DisplayBase<*const DisplayVtable>, count: i32) -> i32 {
+    let count = count as usize;
+    let table = &base.slot_table_guard as *const u32;
+    // Total entries: slot_table_guard(1) + slot_table(255) + slot_table_sentinel(1) = 257
+    let total = 1 + 0xFF + 1;
+
+    let mut consecutive = 0usize;
+    let mut scan = 0usize;
+
+    loop {
+        if consecutive == count {
+            let start = scan - count;
+            for i in start..scan {
+                *(table.add(i) as *mut u32) = 0;
+            }
+            return start as i32;
+        }
+        if scan >= total {
+            return -1;
+        }
+        let val = *table.add(scan) as i32;
+        scan += 1;
+        if val == 0 {
+            consecutive = 0;
+        } else if val < 0 {
+            return -1;
+        } else {
+            consecutive += 1;
+        }
+    }
+}
+
+/// Initialize a PaletteContext with a palette index range — port of FUN_00541170 + FUN_005411a0.
+///
+/// Sets dirty_range_min/max, fills the free stack with descending indices,
+/// clears in_use flags and cache, then clears the dirty flag.
+unsafe fn palette_context_init(ctx: *mut PaletteContext, range_min: i16, range_max: i16) {
+    (*ctx).dirty_range_min = range_min;
+    (*ctx).dirty_range_max = range_max;
+
+    // PaletteContext__Init (0x5411A0)
+    let range_size = range_max - range_min + 1;
+    (*ctx).cache_count = 0;
+    (*ctx).free_count = range_size;
+
+    // Fill free_stack with [range_max, range_max-1, ..., range_min]
+    if range_size > 0 {
+        for i in 0..range_size as usize {
+            (*ctx).free_stack[i] = (range_max as u8).wrapping_sub(i as u8);
+        }
+    }
+
+    (*ctx).cache_iter = 0;
+    core::ptr::write_bytes((*ctx).in_use.as_mut_ptr(), 0, 256);
+
+    // FUN_00541170 epilogue
+    (*ctx).dirty = 0;
 }
 
 /// Port of DisplayGfx::SetActiveLayer (vtable slot 5, 0x523270).

@@ -673,6 +673,9 @@ pub fn install() -> Result<(), String> {
         // Patch DisplayGfx vtable (0x66A218): replace ported methods with Rust.
         vtable_replace!(DisplayVtable, va::DISPLAY_GFX_VTABLE, {
             get_dimensions      => display_vtable::get_dimensions,
+            set_layer_color     => display_vtable::set_layer_color,
+            set_active_layer    => display_vtable::set_active_layer,
+            get_sprite_info     => display_vtable::get_sprite_info,
             draw_polyline       => display_vtable::draw_polyline,
             draw_line           => display_vtable::draw_line,
             draw_line_clipped   => display_vtable::draw_line_clipped,
@@ -686,12 +689,11 @@ pub fn install() -> Result<(), String> {
             set_clip_rect       => display_vtable::set_clip_rect,
             is_sprite_loaded    => display_vtable::is_sprite_loaded,
             draw_scaled_sprite  => draw_scaled_sprite,
-            set_active_layer    => display_vtable::set_active_layer,
             set_layer_visibility => display_vtable::set_layer_visibility,
             update_palette      => display_vtable::update_palette,
             slot 19 => blit_sprite,
         })?;
-        let _ = log_line("[Display]   DisplayGfx: patched 18 methods → Rust");
+        let _ = log_line("[Display]   DisplayGfx: patched 20 methods → Rust");
     }
 
     Ok(())

@@ -86,6 +86,16 @@ pub mod va {
     pub use crate::input::controller::INPUT_CTRL_VTABLE;
     pub use crate::task::game_task::SOUND_EMITTER_VTABLE;
 
+    // Sprite, SpriteBank, PaletteContext — defined alongside their structs
+    pub use crate::render::palette::{
+        PALETTE_CONTEXT_INIT, PALETTE_CONTEXT_INIT_RANGE, PALETTE_CONTEXT_MAP_COLOR,
+    };
+    pub use crate::render::sprite::SPRITE_BANK_VTABLE;
+    pub use crate::render::sprite::{
+        CONSTRUCT_SPRITE, DESTROY_SPRITE, LOAD_SPRITE_FROM_VFS, PROCESS_SPRITE,
+        SPRITE_BANK_GET_INFO, SPRITE_GET_INFO, SPRITE_VTABLE,
+    };
+
     crate::define_addresses! {
         class "DDGameWrapper" {
             /// DDGameWrapper vtable
@@ -200,21 +210,6 @@ pub mod va {
             vtable WATER_EFFECT_VTABLE = 0x0066_B268;
         }
 
-        class "Sprite" {
-            /// Sprite vtable (0x70-byte objects, 8 entries)
-            vtable SPRITE_VTABLE = 0x0066_418C;
-            /// ConstructSprite — usercall EAX=sprite_ptr, ECX=context_ptr
-            ctor/Usercall CONSTRUCT_SPRITE = 0x004F_AA30;
-            /// Sprite destructor — thiscall, vtable slot 0
-            fn/Thiscall DESTROY_SPRITE = 0x004F_AA80;
-            /// LoadSpriteFromVfs
-            fn/Usercall LOAD_SPRITE_FROM_VFS = 0x004F_AAF0;
-            /// ProcessSprite — parses .spr binary format
-            fn/Usercall PROCESS_SPRITE = 0x004F_AB80;
-            // Note: vtable 0x664144 is BitGrid display-layer vtable,
-            // now defined via #[vtable] macro as BITGRID_DISPLAY_VTABLE.
-        }
-
         class "GfxHandler" {
             /// GfxHandler vtable
             vtable GFX_DIR_VTABLE = 0x0066_B280;
@@ -228,6 +223,11 @@ pub mod va {
             fn GFX_DIR_LOAD_IMAGE = 0x0056_66D0;
         }
 
+        class "DisplayBase" {
+            /// DisplayBase__AllocPaletteSlots — usercall EAX=count, 1 stack(this)
+            fn/Usercall DISPLAY_BASE_ALLOC_PALETTE_SLOTS = 0x0052_3190;
+        }
+
         class "DisplayGfx" {
             /// DisplayGfx constructor
             ctor/Stdcall DISPLAYGFX_CTOR = 0x0056_9C10;
@@ -237,7 +237,12 @@ pub mod va {
             fn/Stdcall DISPLAYGFX_CONSTRUCT_FULL = 0x0056_3FC0;
             /// DisplayGfx init team palette display objects
             fn/Stdcall DISPLAY_GFX_INIT_TEAM_PALETTE_DISPLAY = 0x0057_03E0;
+            /// DisplayGfx__LoadSpriteEx (vtable slot 30) — thiscall
+            fn/Thiscall DISPLAY_GFX_LOAD_SPRITE_EX = 0x0052_3310;
         }
+
+        /// "sprite" type-tag string in .rdata — returned by Sprite/SpriteBank GetInfo
+        global STR_SPRITE = 0x0066_4170;
 
     }
 
@@ -473,10 +478,6 @@ pub mod va {
         fn OPENGL_INIT = 0x0059_F000;
         /// GfxResource__Create_Maybe
         fn GFX_RESOURCE_CREATE = 0x004F_6300;
-        /// PaletteContext__Init
-        fn/Usercall PALETTE_CONTEXT_INIT = 0x0054_11A0;
-        /// PaletteContext__MapColor — thiscall(palette_ctx, rgb_u32), returns nearest palette index
-        fn/Thiscall PALETTE_CONTEXT_MAP_COLOR = 0x0054_12B0;
         /// SpriteGfxTable__Init
         fn/Fastcall SPRITE_GFX_TABLE_INIT = 0x0054_1620;
         /// RingBuffer__Init
