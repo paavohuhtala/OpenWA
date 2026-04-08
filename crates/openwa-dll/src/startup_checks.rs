@@ -15,6 +15,7 @@ use openwa_core::registry::{self, AddrKind};
 const VALID_PROLOGUES: &[u8] = &[
     0x2B, // sub reg, r/m32 (e.g. SpriteBank__GetInfo starts with SUB EAX, [ECX+8])
     0x33, // xor reg, reg
+    0x3C, // cmp al, imm8 (usercall with AL input, e.g. Font__GetMetric)
     0x51, // push ecx
     0x52, // push edx
     0x53, // push ebx

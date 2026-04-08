@@ -241,6 +241,19 @@ pub mod va {
             fn/Thiscall DISPLAY_GFX_LOAD_SPRITE_EX = 0x0052_3310;
         }
 
+        class "Font" {
+            /// Font object: draw text — usercall(EAX=h_align, EDX=bitmap, ESI=font_obj) + 5 stack, RET 0x14
+            fn/Usercall FONT_OBJ_DRAW_TEXT = 0x004F_A4E0;
+            /// Font object: set param — usercall(ECX=p4, EDX=font_obj) + 2 stack(p3, p5), RET 0x8
+            fn/Usercall FONT_OBJ_SET_PARAM = 0x004F_A720;
+            /// Font object: get metric — usercall(AL=char, EDX=out1, EDI=out2) + 1 stack(font_obj), RET 0x4
+            fn/Usercall FONT_OBJ_GET_METRIC = 0x004F_A780;
+            /// Font object: get info — usercall(EAX=font_obj, EDX=out2, EDI=out1), plain RET
+            fn/Usercall FONT_OBJ_GET_INFO = 0x004F_A7D0;
+            /// Font object: set palette — usercall(ESI=font_obj) + 1 stack(palette_value), RET 0x4
+            fn/Usercall FONT_OBJ_SET_PALETTE = 0x004F_9F20;
+        }
+
         /// "sprite" type-tag string in .rdata — returned by Sprite/SpriteBank GetInfo
         global STR_SPRITE = 0x0066_4170;
 

@@ -75,11 +75,25 @@ pub struct DisplayVtable {
         a8: i32,
     ) -> i32,
     /// get font info for a font slot (0x523790, RET 0xC)
+    ///
+    /// Reads two signed shorts from the font object and writes them to output pointers.
+    /// Returns 1 on success, 0 if font_id is out of range or font slot is empty.
     #[slot(8)]
-    pub get_font_info: fn(this: *mut DisplayGfx, font_id: i32, p3: u32) -> u32,
-    /// get font metric (0x523750, RET 0x10)
+    pub get_font_info:
+        fn(this: *mut DisplayGfx, font_id: i32, out_1: *mut u32, out_2: *mut u32) -> u32,
+    /// get font metric for a character (0x523750, RET 0x10)
+    ///
+    /// Queries character metrics from the font object. `char_code` is passed
+    /// as a byte (low 8 bits). Returns result via two output pointers.
+    /// Returns 1 on success, 0 if font_id is out of range or font slot is empty.
     #[slot(9)]
-    pub get_font_metric: fn(this: *mut DisplayGfx, font_id: i32, p3: u32, p4: u32) -> u32,
+    pub get_font_metric: fn(
+        this: *mut DisplayGfx,
+        font_id: i32,
+        char_code: u32,
+        out_1: *mut u32,
+        out_2: *mut u32,
+    ) -> u32,
     /// set font rendering parameter (0x523710, RET 0x10)
     #[slot(10)]
     pub set_font_param: fn(this: *mut DisplayGfx, font_id: i32, p3: u32, p4: u32, p5: u32) -> u32,
