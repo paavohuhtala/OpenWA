@@ -22,7 +22,9 @@ use openwa_core::engine::game_state_init::{
 use openwa_core::engine::{
     ddgame_init_fields, ddgame_init_render_indices, display_layer_color_init, DDGame, DDGameWrapper,
 };
-use openwa_core::render::gfx_dir::{gfx_dir_find_entry, gfx_dir_load_dir, gfx_resource_create};
+use openwa_core::render::sprite::gfx_dir::{
+    gfx_dir_find_entry, gfx_dir_load_dir, gfx_resource_create,
+};
 
 // ─── DDGame__InitFields (0x526120) ──────────────────────────────────────────
 

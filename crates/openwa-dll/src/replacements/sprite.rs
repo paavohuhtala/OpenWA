@@ -7,7 +7,8 @@
 use openwa_core::address::va;
 use openwa_core::rebase::rb;
 use openwa_core::render::palette::PaletteContext;
-use openwa_core::render::sprite::{Sprite, SpriteFrame, SpriteVtable};
+use openwa_core::render::sprite::sprite::SpriteVtable;
+use openwa_core::render::sprite::{Sprite, SpriteFrame};
 
 use crate::hook::{self, usercall_trampoline};
 
@@ -59,7 +60,7 @@ unsafe extern "cdecl" fn process_sprite_impl(
     raw_data: *const u8,
 ) -> u32 {
     use openwa_core::render::palette::palette_map_color;
-    use openwa_core::render::spr::parse_spr_header;
+    use openwa_core::render::sprite::spr::parse_spr_header;
 
     // We need the data as a slice. data_size is at raw_data + 4.
     let data_size = *(raw_data.add(4) as *const u32);

@@ -16,11 +16,11 @@ use crate::hook;
 use crate::log_line;
 use openwa_core::address::va;
 use openwa_core::audio::DSSound;
-use openwa_core::display::{DisplayGfx, Palette};
 use openwa_core::engine::create_ddgame;
 use openwa_core::engine::init_constructor_addrs;
 use openwa_core::engine::{DDGameWrapper, GameInfo, GameSession};
 use openwa_core::rebase::rb;
+use openwa_core::render::{DisplayGfx, Palette};
 
 /// Implicit EDI = game_info pointer, captured from EDI on entry.
 static mut GAME_INFO: *mut GameInfo = core::ptr::null_mut();

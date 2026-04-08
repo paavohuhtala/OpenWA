@@ -46,10 +46,10 @@ use crate::hook;
 use crate::log_line;
 use openwa_core::address::va;
 use openwa_core::audio::{DSSound, Music};
-use openwa_core::display::{DisplayBase, DisplayGfx, Palette};
 use openwa_core::engine::{DDGameWrapper, DDNetGameWrapper, GameInfo, GameSession, GameTimer};
 use openwa_core::input::{DDKeyboard, InputCtrl, InputCtrlVtable};
 use openwa_core::rebase::rb;
+use openwa_core::render::{DisplayBase, DisplayGfx, Palette};
 use openwa_core::wa_alloc::WABox;
 
 // ─── Entry trampoline state ───────────────────────────────────────────────────

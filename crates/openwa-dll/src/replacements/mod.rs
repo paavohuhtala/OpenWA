@@ -2,7 +2,6 @@ mod bitgrid;
 mod config;
 mod ddgame_init;
 pub(crate) mod debug_utils;
-mod display;
 pub(crate) mod file_isolation;
 mod frame_hook;
 mod frontend;
@@ -47,7 +46,6 @@ pub fn install_all() -> Result<(), String> {
     // Normal mode: install all hooks
     replay_test::install()?;
     bitgrid::install()?;
-    display::install()?;
     game_session::install()?;
     hardware_init::install()?;
     frontend::install()?;

@@ -956,7 +956,7 @@ pub(crate) unsafe extern "cdecl" fn blit_impl(
         let src_aligned = (adj_src_x & 7) == 0;
 
         if left_aligned && right_aligned && src_aligned && color_table.is_null() && flags < 4 {
-            openwa_core::display::sprite_blit::blit_1bit_aligned(
+            openwa_core::render::display::sprite_blit::blit_1bit_aligned(
                 dst_data,
                 (*dst).row_stride,
                 src_data,
@@ -981,7 +981,7 @@ pub(crate) unsafe extern "cdecl" fn blit_impl(
     };
 
     // Generic per-pixel fallback — handles all remaining cases
-    openwa_core::display::sprite_blit::blit_generic_perpixel(
+    openwa_core::render::display::sprite_blit::blit_generic_perpixel(
         dst_data,
         (*dst).row_stride,
         dst_cpp,
@@ -1083,7 +1083,7 @@ unsafe fn blit_8bpp(
     color_table: *const u8,
     flags: u32,
 ) -> u32 {
-    use openwa_core::display::sprite_blit::{
+    use openwa_core::render::display::sprite_blit::{
         blit_sprite_rect, BlitBlend, BlitOrientation, BlitSource,
     };
 
@@ -1106,7 +1106,7 @@ unsafe fn blit_8bpp(
     };
 
     let dst_data_len = ((*dst).row_stride * (*dst).height) as usize;
-    let dst_grid = openwa_core::display::line_draw::PixelGridMut {
+    let dst_grid = openwa_core::render::display::line_draw::PixelGridMut {
         data: core::slice::from_raw_parts_mut((*dst).data, dst_data_len),
         width: (*dst).width,
         height: (*dst).height,
@@ -1148,7 +1148,7 @@ pub(crate) unsafe fn blit_stippled_raw(
     stipple_mode: u32,
     parity: u32,
 ) {
-    use openwa_core::display::sprite_blit::{blit_stippled, BlitSource};
+    use openwa_core::render::display::sprite_blit::{blit_stippled, BlitSource};
 
     let src_data =
         core::slice::from_raw_parts((*src).data, ((*src).row_stride * (*src).height) as usize);
@@ -1160,7 +1160,7 @@ pub(crate) unsafe fn blit_stippled_raw(
     };
 
     let dst_data_len = ((*dst).row_stride * (*dst).height) as usize;
-    let mut dst_grid = openwa_core::display::line_draw::PixelGridMut {
+    let mut dst_grid = openwa_core::render::display::line_draw::PixelGridMut {
         data: core::slice::from_raw_parts_mut((*dst).data, dst_data_len),
         width: (*dst).width,
         height: (*dst).height,
@@ -1200,7 +1200,7 @@ pub(crate) unsafe fn blit_tiled_raw(
     clip_right: i32,
     flags: u32,
 ) {
-    use openwa_core::display::sprite_blit::{blit_tiled, BlitSource};
+    use openwa_core::render::display::sprite_blit::{blit_tiled, BlitSource};
 
     let src_data =
         core::slice::from_raw_parts((*src).data, ((*src).row_stride * (*src).height) as usize);
@@ -1212,7 +1212,7 @@ pub(crate) unsafe fn blit_tiled_raw(
     };
 
     let dst_data_len = ((*dst).row_stride * (*dst).height) as usize;
-    let mut dst_grid = openwa_core::display::line_draw::PixelGridMut {
+    let mut dst_grid = openwa_core::render::display::line_draw::PixelGridMut {
         data: core::slice::from_raw_parts_mut((*dst).data, dst_data_len),
         width: (*dst).width,
         height: (*dst).height,
