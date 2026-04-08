@@ -13,20 +13,20 @@ use crate::audio::active_sound::ActiveSoundTable;
 use crate::audio::dssound::DSSound;
 use crate::audio::music::Music;
 use crate::bitgrid::{BitGrid, BitGridBaseVtable, CollisionBitGrid, DisplayBitGrid};
-use crate::display::gfx::DisplayGfx;
-use crate::display::gradient::compute_complex_gradient;
-use crate::display::palette::Palette;
 use crate::engine::coord::{CoordList, CoordListEntry};
 use crate::engine::ddgame_wrapper::DDGameWrapper;
 use crate::engine::game_info::GameInfo;
 use crate::engine::net_bridge::NetBridge;
 use crate::input::keyboard::DDKeyboard;
 use crate::rebase::rb;
-use crate::render::gfx_dir::{
+use crate::render::display::gfx::DisplayGfx;
+use crate::render::display::gradient::compute_complex_gradient;
+use crate::render::display::palette::Palette;
+use crate::render::landscape::PCLandscape;
+use crate::render::sprite::gfx_dir::{
     call_gfx_find_and_load, call_gfx_load_and_wrap, call_gfx_load_dir, GfxDir,
 };
-pub use crate::render::gfx_dir::{gfx_dir_find_entry, gfx_resource_create};
-use crate::render::landscape::PCLandscape;
+pub use crate::render::sprite::gfx_dir::{gfx_dir_find_entry, gfx_resource_create};
 use crate::wa_alloc::{wa_malloc, wa_malloc_zeroed};
 
 // ============================================================
@@ -155,7 +155,7 @@ pub fn init_constructor_addrs() {
         LOADING_PROGRESS_TICK_ADDR = rb(va::DDGAME_WRAPPER_LOADING_PROGRESS_TICK);
         GFX_LOAD_SPRITES_ADDR = rb(va::GFX_DIR_LOAD_SPRITES);
     }
-    crate::render::gfx_dir::init_addrs();
+    crate::render::sprite::gfx_dir::init_addrs();
 }
 
 // ── Typed wrappers for WA stdcall functions ────────────────────────────────
@@ -475,7 +475,10 @@ unsafe fn init_graphics_and_resources(
         let fp = fopen(path.as_ptr(), c"rb".as_ptr());
         (*gfx1).file_handle = fp;
         if !fp.is_null()
-            && call_gfx_load_dir(gfx1 as *mut u8, crate::render::gfx_dir::gfx_load_dir_addr()) != 0
+            && call_gfx_load_dir(
+                gfx1 as *mut u8,
+                crate::render::sprite::gfx_dir::gfx_load_dir_addr(),
+            ) != 0
         {
             gfx_loaded_idx = i as u32;
             break;
@@ -505,7 +508,7 @@ unsafe fn init_graphics_and_resources(
 
         let fp = fopen(gfx_c_path.as_ptr().cast(), c"rb".as_ptr());
         (*gfx2).file_handle = fp;
-        let load_addr = crate::render::gfx_dir::gfx_load_dir_addr();
+        let load_addr = crate::render::sprite::gfx_dir::gfx_load_dir_addr();
         if fp.is_null() || call_gfx_load_dir(gfx2 as *mut u8, load_addr) == 0 {
             let fp2 = fopen(c"data\\Gfx\\Gfx.dir".as_ptr(), c"rb".as_ptr());
             (*gfx2).file_handle = fp2;

@@ -1,8 +1,8 @@
 use crate::audio::dssound::DSSound;
 use crate::audio::music::Music;
-use crate::display::palette::Palette;
 use crate::engine::ddgame_wrapper::DDGameWrapper;
 use crate::input::keyboard::DDKeyboard;
+use crate::render::display::palette::Palette;
 use crate::FieldRegistry;
 
 /// Top-level game session context, allocated once per game run.

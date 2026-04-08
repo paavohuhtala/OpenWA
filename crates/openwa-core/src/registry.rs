@@ -780,7 +780,7 @@ mod tests {
     fn vtable_size_assertion() {
         // PaletteVtable should be 5 * 4 = 20 bytes
         assert_eq!(
-            core::mem::size_of::<crate::display::palette::PaletteVtable>(),
+            core::mem::size_of::<crate::render::display::palette::PaletteVtable>(),
             5 * core::mem::size_of::<usize>()
         );
     }

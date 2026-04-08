@@ -75,23 +75,23 @@ pub mod va {
         BIT_GRID_COLLISION_VTABLE, BIT_GRID_DISPLAY_VTABLE, BIT_GRID_INIT, BLIT_SPRITE_RECT,
         DRAW_LINE_CLIPPED, DRAW_LINE_TWO_COLOR,
     };
-    pub use crate::display::base::DISPLAY_BASE_VTABLE;
-    pub use crate::display::compat_renderer::{
-        CompatRendererVtable, COMPAT_RENDERER_VTABLE, DDRAW8_RENDERER_VTABLE,
-    };
-    pub use crate::display::display_vtable::DISPLAY_GFX_VTABLE;
-    pub use crate::display::palette::PALETTE_VTABLE;
-    pub use crate::display::render_context::{RenderContextVtable, RENDER_CONTEXT_VTABLE};
     pub use crate::frontend::map_view::MAP_VIEW_VTABLE;
     pub use crate::input::controller::INPUT_CTRL_VTABLE;
+    pub use crate::render::ddraw::compat_renderer::{
+        CompatRendererVtable, COMPAT_RENDERER_VTABLE, DDRAW8_RENDERER_VTABLE,
+    };
+    pub use crate::render::display::base::DISPLAY_BASE_VTABLE;
+    pub use crate::render::display::context::{RenderContextVtable, RENDER_CONTEXT_VTABLE};
+    pub use crate::render::display::palette::PALETTE_VTABLE;
+    pub use crate::render::display::vtable::DISPLAY_GFX_VTABLE;
     pub use crate::task::game_task::SOUND_EMITTER_VTABLE;
 
     // Sprite, SpriteBank, PaletteContext — defined alongside their structs
     pub use crate::render::palette::{
         PALETTE_CONTEXT_INIT, PALETTE_CONTEXT_INIT_RANGE, PALETTE_CONTEXT_MAP_COLOR,
     };
-    pub use crate::render::sprite::SPRITE_BANK_VTABLE;
-    pub use crate::render::sprite::{
+    pub use crate::render::sprite::sprite::SPRITE_BANK_VTABLE;
+    pub use crate::render::sprite::sprite::{
         CONSTRUCT_SPRITE, DESTROY_SPRITE, LOAD_SPRITE_FROM_VFS, PROCESS_SPRITE,
         SPRITE_BANK_GET_INFO, SPRITE_GET_INFO, SPRITE_VTABLE,
     };

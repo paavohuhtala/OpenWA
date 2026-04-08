@@ -4,13 +4,13 @@ use crate::audio::music::Music;
 use crate::audio::speech::SpeechSlotTable;
 use crate::audio::SoundQueueEntry;
 use crate::bitgrid::{CollisionBitGrid, DisplayBitGrid};
-use crate::display::gfx::DisplayGfx;
-use crate::display::palette::Palette;
 use crate::engine::game_info::GameInfo;
 use crate::engine::{CoordEntry, CoordList, TeamArena, TeamIndexMap};
 use crate::fixed::Fixed;
 use crate::game::weapon::WeaponTable;
 use crate::input::keyboard::DDKeyboard;
+use crate::render::display::gfx::DisplayGfx;
+use crate::render::display::palette::Palette;
 use crate::render::landscape::PCLandscape;
 use crate::render::queue::RenderQueue;
 use crate::render::turn_order::TurnOrderWidget;
@@ -580,7 +580,7 @@ impl DDGame {
 // DDGame constructor code (create_ddgame, init helpers, usercall bridges)
 // has been moved to ddgame_constructor.rs.
 
-// BitGrid__Init lives in crate::display::bitgrid
+// BitGrid__Init lives in crate::bitgrid
 // Re-exported via ddgame_constructor.rs
 /// Well-known byte offsets into DDGame, for use with raw pointer access.
 ///

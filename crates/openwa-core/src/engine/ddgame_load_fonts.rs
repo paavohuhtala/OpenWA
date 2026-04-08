@@ -6,8 +6,8 @@
 use core::ffi::c_char;
 use heapless::CString;
 
-use crate::display::gfx::DisplayGfx;
 use crate::engine::ddgame_wrapper::DDGameWrapper;
+use crate::render::display::gfx::DisplayGfx;
 
 /// Total number of font slots loaded (1-based, so slots 1..=28).
 const FONT_COUNT: u32 = 0x1C;

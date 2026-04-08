@@ -1,7 +1,7 @@
 use crate::audio::dssound::DSSound;
-use crate::display::gfx::DisplayGfx;
 use crate::engine::ddgame::DDGame;
 use crate::engine::net_bridge::NetBridge;
+use crate::render::display::gfx::DisplayGfx;
 use crate::render::landscape::PCLandscape;
 use crate::FieldRegistry;
 

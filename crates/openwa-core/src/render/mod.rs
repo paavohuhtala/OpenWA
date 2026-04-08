@@ -1,19 +1,24 @@
-pub mod gfx_dir;
+pub mod ddraw;
+pub mod display;
 pub mod landscape;
+pub mod opengl;
 pub mod palette;
 pub mod queue;
-pub mod spr;
 pub mod sprite;
-pub mod sprite_id;
 pub mod turn_order;
 
+pub use ddraw::CompatRenderer;
+pub use display::{
+    DisplayBase, DisplayBaseVtable, DisplayGfx, DisplayVtable, DrawScaledSpriteResult,
+    FastcallResult, Palette, PaletteVtable, RenderContext, SpriteBufferCtrl, SpriteCache,
+};
 pub use landscape::{DirtyRect, PCLandscape};
+pub use opengl::OpenGLState;
 pub use queue::{
     DrawBitmapGlobalCmd, DrawCrosshairCmd, DrawLineStripHeader, DrawPixelCmd, DrawPolygonHeader,
     DrawRectCmd, DrawSpriteCmd, DrawSpriteOffsetCmd, DrawTextboxLocalCmd, RenderQueue,
 };
-pub use spr::{ParsedSprite, SprError, SprHeader};
-pub use sprite::{Sprite, SpriteFrame, SpriteId};
+pub use sprite::{ParsedSprite, Sprite, SpriteBank, SpriteFrame, SpriteId};
 pub use turn_order::{
     AnimatedItemList, TurnOrderAllianceGroup, TurnOrderTeamEntry, TurnOrderWidget,
 };

@@ -9,7 +9,7 @@ use crate::address::va;
 use crate::bitgrid::{BitGrid, BitGridBaseVtable};
 use crate::engine::ddgame::DDGame;
 use crate::rebase::rb;
-use crate::render::gfx_dir::call_gfx_find_and_load;
+use crate::render::sprite::gfx_dir::call_gfx_find_and_load;
 use crate::wa_alloc::{wa_free, wa_malloc};
 
 /// Palette context for gradient color mapping.

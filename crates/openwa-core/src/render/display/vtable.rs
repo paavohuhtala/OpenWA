@@ -1,5 +1,5 @@
-use crate::display::line_draw::Vertex;
 use crate::fixed::Fixed;
+use crate::render::display::line_draw::Vertex;
 
 /// DisplayVtable — vtable for the display/rendering subsystem (DisplayGfx).
 ///
@@ -310,7 +310,7 @@ pub unsafe extern "thiscall" fn get_dimensions(
     *out_h = (*this).base.display_height;
 }
 
-use super::render_context::{FastcallResult, RenderContext};
+use super::context::{FastcallResult, RenderContext};
 use crate::address::va;
 use crate::rebase::rb;
 

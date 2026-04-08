@@ -1,5 +1,5 @@
 use super::base::DisplayBase;
-use super::display_vtable::DisplayVtable;
+use super::vtable::DisplayVtable;
 use crate::bitgrid::DisplayBitGrid;
 use core::ffi::c_void;
 
