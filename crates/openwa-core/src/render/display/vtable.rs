@@ -1,5 +1,6 @@
 use crate::fixed::Fixed;
 use crate::render::display::line_draw::Vertex;
+use crate::render::sprite::sprite::{LayerSprite, LayerSpriteFrame};
 use crate::render::SpriteCache;
 use crate::wa_alloc::wa_malloc_struct_zeroed;
 
@@ -1659,38 +1660,332 @@ pub unsafe fn load_sprite(
     1
 }
 
+/// Port of FUN_005733b0 — load sprite data from GfxDir stream.
+///
+/// Original convention: `usercall(EDI=sprite, ECX=gfx_dir) + stack(palette_ctx, name), RET 0x8`.
+/// Ported to a regular Rust function — no usercall bridge needed.
+///
+/// Reads sprite header, palette, and frame pixel data from a `.dir` archive stream.
+/// In headless mode (g_DisplayModeFlag != 0), skips all surface creation.
+///
+/// # Safety
+/// All pointers must be valid. `sprite` must be a zeroed 0x70-byte allocation.
+pub unsafe fn load_sprite_by_name(
+    sprite: *mut LayerSprite,
+    gfx_dir: *mut u8,
+    palette_ctx: *mut PaletteContext,
+    name: *const core::ffi::c_char,
+) -> i32 {
+    use crate::address::va;
+    use crate::rebase::rb;
+    use crate::render::display::context::{FastcallResult, RenderContext};
+    use crate::render::palette::{palette_map_color, remap_pixels_through_lut};
+    use crate::render::sprite::gfx_dir::{call_gfx_load_image, GfxDirStream};
+
+    use crate::wa_alloc::wa_malloc;
+
+    let sp = sprite as *mut u8;
+
+    // 1. Copy name into sprite.name (max 0x4F chars + null)
+    let name_dest = (*sprite).name.as_mut_ptr();
+    let mut i = 0usize;
+    while i < 0x4F {
+        let ch = *name.add(i);
+        *name_dest.add(i) = ch as u8;
+        if ch == 0 {
+            break;
+        }
+        i += 1;
+    }
+    *name_dest.add(i.min(0x4F)) = 0;
+
+    // 2. Store gfx_dir and palette_ctx in sprite
+    (*sprite).gfx_dir = gfx_dir;
+    (*sprite).palette_ctx = palette_ctx as u32;
+
+    // 3. Load image stream from GfxDir
+    let stream = call_gfx_load_image(gfx_dir, name) as *mut GfxDirStream;
+    if stream.is_null() {
+        return 0;
+    }
+
+    // 5. Check headless mode — skip all surface creation if g_DisplayModeFlag != 0
+    let display_mode_flag = *(rb(va::G_DISPLAY_MODE_FLAG) as *const u8);
+    if display_mode_flag == 0 {
+        // ── Graphics path: read header, palette, allocate surfaces ──
+
+        // Read and discard: remaining() result (original calls vtable[2])
+        GfxDirStream::remaining_raw(stream);
+
+        // Read .spr header as 4+4+2+2 separate calls, matching the original exactly.
+        // The stream seeks before each read; matching the original's read granularity
+        // may matter for internal stream state.
+        let mut hdr4 = [0u8; 4];
+        GfxDirStream::read_raw(stream, hdr4.as_mut_ptr(), 4); // unused/version
+        GfxDirStream::read_raw(stream, hdr4.as_mut_ptr(), 4); // data_size
+
+        let mut header_flags: u16 = 0;
+        GfxDirStream::read_raw(stream, &mut header_flags as *mut u16 as *mut u8, 2);
+
+        let mut palette_count: u32 = 0;
+        GfxDirStream::read_raw(stream, &mut palette_count as *mut u32 as *mut u8, 2);
+
+        // Build palette LUT: bulk-read all RGB triplets then iterate.
+        let mut palette_lut = [0u8; 256];
+        let lut_count = (palette_count as usize).min(256);
+        let bulk_size = palette_count as usize * 3;
+        let mut palette_data = [0u8; 768]; // max 256 * 3
+        GfxDirStream::read_raw(stream, palette_data.as_mut_ptr(), bulk_size as u32);
+
+        // Palette entry 0 is always transparent (display index 0).
+        // The palette RGB data in the file defines entries 1..palette_count,
+        // NOT entry 0. So palette_data[0..3] maps to lut[1], etc.
+        palette_lut[0] = 0;
+        for idx in 0..lut_count {
+            let r = palette_data[idx * 3];
+            let g = palette_data[idx * 3 + 1];
+            let b = palette_data[idx * 3 + 2];
+
+            if r == 0 && g == 0 && b == 0 {
+                palette_lut[idx + 1] = 0;
+            } else {
+                let rgb = (r as u32) | ((g as u32) << 8) | ((b as u32) << 16);
+                let mapped = palette_map_color(palette_ctx, rgb);
+                palette_lut[idx + 1] = mapped as u8;
+            }
+        }
+
+        // Read sprite metadata fields
+        GfxDirStream::read_raw(stream, sp.add(0x60), 4); // field_60
+        GfxDirStream::read_raw(stream, sp.add(0x64), 2); // field_64
+        GfxDirStream::read_raw(stream, sp.add(0x68), 2); // field_68
+        GfxDirStream::read_raw(stream, sp.add(0x6A), 2); // field_6a
+
+        // frame_count: zero first, then read
+        (*sprite).frame_count = 0;
+        GfxDirStream::read_raw(stream, sp.add(0x66), 2);
+        let frame_count = (*sprite).frame_count as usize;
+
+        // Allocate LayerSpriteFrame array (counted array: count at [-4])
+        // Size per element: 0x14, with 4-byte count prefix
+        let total_elems = frame_count;
+        // Overflow check matching original (saturate on overflow)
+        let checked_count = total_elems as u32;
+        let checked_size = checked_count.checked_mul(0x14).unwrap_or(u32::MAX);
+        let checked_alloc = checked_size.checked_add(4).unwrap_or(u32::MAX);
+
+        let array_base = wa_malloc(checked_alloc);
+        let frame_array = if !array_base.is_null() {
+            *(array_base as *mut u32) = checked_count; // store count at [-4]
+            let arr = array_base.add(4);
+            // Construct each element: set vtable at +0x08, zero surface at +0x0C
+            let bitmap_vtable = rb(0x00643F64) as u32; // CBitmap vtable (set by constructor at 0x573C30)
+            for j in 0..total_elems {
+                let elem = arr.add(j * 0x14);
+                *(elem.add(0x08) as *mut u32) = bitmap_vtable;
+                *(elem.add(0x0C) as *mut u32) = 0;
+            }
+            arr
+        } else {
+            core::ptr::null_mut()
+        };
+        (*sprite).frame_array = frame_array as *mut LayerSpriteFrame;
+
+        // Skip alignment padding: while (remaining() & 3) != 0, read 1 dummy byte
+        loop {
+            let remaining = GfxDirStream::remaining_raw(stream);
+            if remaining & 3 == 0 {
+                break;
+            }
+            let mut dummy = 0u8;
+            GfxDirStream::read_raw(stream, &mut dummy, 1);
+        }
+
+        // Read frame headers
+        if frame_count > 0 && !frame_array.is_null() {
+            for j in 0..frame_count {
+                let elem = frame_array.add(j * 0x14);
+                // Read 4-byte unknown header (discarded)
+                let mut frame_hdr = [0u8; 4];
+                GfxDirStream::read_raw(stream, frame_hdr.as_mut_ptr(), 4);
+                // Read 4x u16: start_x, start_y, end_x, end_y
+                GfxDirStream::read_raw(stream, elem, 2); // start_x
+                GfxDirStream::read_raw(stream, elem.add(2), 2); // start_y
+                GfxDirStream::read_raw(stream, elem.add(4), 2); // end_x
+                GfxDirStream::read_raw(stream, elem.add(6), 2); // end_y
+            }
+        }
+
+        // Surface creation loop: create surfaces and read pixel data for each frame
+        if frame_count > 0 && !frame_array.is_null() {
+            let render_ctx = *(rb(va::G_RENDER_CONTEXT) as *const *mut RenderContext);
+
+            for j in 0..frame_count {
+                let elem = frame_array.add(j * 0x14);
+                let start_x = *(elem as *const i16) as i32;
+                let start_y = *(elem.add(2) as *const i16) as i32;
+                let end_x = *(elem.add(4) as *const i16) as i32;
+                let end_y = *(elem.add(6) as *const i16) as i32;
+
+                let width = end_x - start_x;
+                let height = end_y - start_y;
+
+                if width * height == 0 {
+                    continue;
+                }
+
+                // Ensure surface exists at elem+0x0C
+                // alloc_surface returns the surface pointer in EAX (the return value),
+                // NOT via the FastcallResult buffer. The original code at 0x57367f
+                // does: MOV [EBX+0xC], EAX — storing EAX directly.
+                let surface_ptr = elem.add(0x0C) as *mut u32;
+                if *surface_ptr == 0 {
+                    let mut buf = FastcallResult::default();
+                    let ret = RenderContext::alloc_surface_raw(render_ctx, &mut buf);
+                    *surface_ptr = ret as u32;
+                }
+                let surface = *surface_ptr as *mut u8;
+                if surface.is_null() {
+                    continue;
+                }
+
+                // Init surface: surface->vtable[5](width, height, 0)
+                {
+                    let vt = *(surface as *const *const u32);
+                    let init_fn: unsafe extern "fastcall" fn(
+                        *mut u8,
+                        *mut FastcallResult,
+                        u32,
+                        u32,
+                        u32,
+                    ) = core::mem::transmute(*vt.add(5));
+                    let mut buf = FastcallResult::default();
+                    init_fn(surface, &mut buf, width as u32, height as u32, 0);
+                }
+
+                // SetColorKey: surface->vtable[7](0, 0x10)
+                {
+                    let vt = *(surface as *const *const u32);
+                    let set_ck_fn: unsafe extern "fastcall" fn(
+                        *mut u8,
+                        *mut FastcallResult,
+                        u32,
+                        u32,
+                    ) = core::mem::transmute(*vt.add(7));
+                    let mut buf = FastcallResult::default();
+                    set_ck_fn(surface, &mut buf, 0, 0x10);
+                }
+
+                // Lock: surface->vtable[3](&out_data, &out_pitch)
+                let mut data_ptr: u32 = 0;
+                let mut pitch: u32 = 0;
+                {
+                    let vt = *(surface as *const *const u32);
+                    let lock_fn: unsafe extern "fastcall" fn(
+                        *mut u8,
+                        *mut FastcallResult,
+                        *mut u32,
+                        *mut u32,
+                    ) = core::mem::transmute(*vt.add(3));
+                    let mut buf = FastcallResult::default();
+                    lock_fn(surface, &mut buf, &mut data_ptr, &mut pitch);
+                }
+
+                if data_ptr != 0 && pitch != 0 {
+                    // Read pixel data row by row
+                    let data = data_ptr as *mut u8;
+                    for row in 0..height {
+                        let row_dest = data.add((row as u32 * pitch) as usize);
+                        GfxDirStream::read_raw(stream, row_dest, width as u32);
+                    }
+
+                    // Remap pixels through palette LUT
+                    let width_dwords = ((width as u32) + 3) / 4;
+                    remap_pixels_through_lut(
+                        data,
+                        pitch,
+                        palette_lut.as_ptr(),
+                        width_dwords,
+                        height as u32,
+                    );
+                }
+
+                // Unlock: surface->vtable[4](data_ptr)
+                {
+                    let vt = *(surface as *const *const u32);
+                    let unlock_fn: unsafe extern "fastcall" fn(*mut u8, *mut FastcallResult, u32) =
+                        core::mem::transmute(*vt.add(4));
+                    let mut buf = FastcallResult::default();
+                    unlock_fn(surface, &mut buf, data_ptr);
+                }
+            }
+        }
+    }
+
+    // Destroy stream reader
+    GfxDirStream::destroy_raw(stream);
+    1
+}
+
+/// Free a LayerSprite and its associated surfaces.
+///
+/// Port of FUN_0056a2f0 (usercall EDI=sprite, plain RET).
+/// Destroys each LayerSpriteFrame's surface via `surface->vtable[0](1)`,
+/// frees the counted array, then frees the sprite itself.
+///
+/// # Safety
+/// `sprite` must be a valid LayerSprite pointer allocated via `wa_malloc`.
+pub unsafe fn free_layer_sprite(sprite: *mut LayerSprite) {
+    use crate::wa_alloc::wa_free;
+
+    let frame_array = (*sprite).frame_array as *mut u8;
+    if !frame_array.is_null() {
+        let count_ptr = (frame_array as *mut u32).sub(1);
+        let count = *count_ptr as usize;
+
+        // Destroy each frame's surface in reverse order
+        // (matches eh_vector_destructor_iterator behavior)
+        for i in (0..count).rev() {
+            let elem = frame_array.add(i * 0x14);
+            let surface = *(elem.add(0x0C) as *const u32);
+            if surface != 0 {
+                let vt = *(surface as *const *const u32);
+                let dtor: unsafe extern "thiscall" fn(u32, u32) = core::mem::transmute(*vt);
+                dtor(surface, 1);
+            }
+        }
+
+        wa_free(count_ptr);
+    }
+
+    wa_free(sprite);
+}
+
 /// Port of DisplayGfx::LoadSpriteByLayer (vtable slot 37, 0x56A4C0).
 ///
 /// Simplified sprite loading that stores into DisplayGfx::sprite_table
 /// (offset 0x3DD4) instead of DisplayBase::sprite_ptrs. Allocates a raw
-/// 0x70-byte object, partially initializes it (NOT via ConstructSprite),
-/// then loads via FUN_005733b0.
+/// 0x70-byte LayerSprite, partially initializes it, then loads via
+/// `load_sprite_by_name` (pure Rust port of FUN_005733b0).
 ///
 /// # Safety
 /// `this` must be a valid `*mut DisplayGfx`.
-/// `load_fn` must be a valid function pointer to FUN_005733b0.
-/// `free_fn` must be a valid function pointer to FUN_0056a2f0.
 pub unsafe fn load_sprite_by_layer(
     this: *mut DisplayGfx,
     layer: u32,
     id: u32,
     gfx: *mut u8,
     name: *const core::ffi::c_char,
-    load_fn: unsafe extern "cdecl" fn(
-        sprite: *mut u8,
-        gfx: *mut u8,
-        id: u32,
-        name: *const core::ffi::c_char,
-    ) -> i32,
-    free_fn: unsafe extern "cdecl" fn(sprite: *mut u8),
 ) -> i32 {
+    use crate::wa_alloc::wa_malloc_zeroed;
+
     // Bit 23 set = already loaded sentinel
     if id & 0x80_0000 != 0 {
         return 1;
     }
 
-    // Call set_active_layer (vtable slot 5) — already ported Rust
-    set_active_layer(this, layer as i32);
+    // Call set_active_layer (vtable slot 5) — returns PaletteContext*
+    let palette_ctx = set_active_layer(this, layer as i32) as *mut PaletteContext;
 
     if !is_valid_sprite_id(id as i32) {
         return 0;
@@ -1702,27 +1997,27 @@ pub unsafe fn load_sprite_by_layer(
     }
 
     // Allocate 0x70 bytes + 0x20 guard (matching WA_MallocMemset behavior)
-    use crate::wa_alloc::wa_malloc_zeroed;
-    let sprite = wa_malloc_zeroed(0x90);
+    let sprite = wa_malloc_zeroed(0x90) as *mut LayerSprite;
     if sprite.is_null() {
         return 0;
     }
 
     // Partial init (NOT ConstructSprite — different from load_sprite)
-    *(sprite.add(0x58) as *mut *mut DisplayGfx) = this;
-    *(sprite.add(0x66) as *mut u16) = 0;
-    *(sprite.add(0x6C) as *mut u32) = 0;
-    *(sprite.add(0x54) as *mut u32) = 0;
+    (*sprite).display_gfx = this;
+    (*sprite).frame_count = 0;
+    (*sprite).frame_array = core::ptr::null_mut();
+    (*sprite).gfx_dir = core::ptr::null_mut();
 
-    // Load via FUN_005733b0
-    let result = load_fn(sprite, gfx, id, name);
+    // Load sprite data — pure Rust port of FUN_005733b0
+    let result = load_sprite_by_name(sprite, gfx, palette_ctx, name);
     if result == 0 {
-        free_fn(sprite);
+        free_layer_sprite(sprite);
         return 0;
     }
 
     // Store in sprite_table (DisplayGfx offset 0x3DD4)
     (*this).sprite_table[id as usize] = sprite as u32;
+
     1
 }
 

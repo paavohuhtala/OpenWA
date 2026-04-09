@@ -180,6 +180,66 @@ pub struct SpriteBankVtable {
     pub slot_1: fn(this: *mut SpriteBank),
 }
 
+/// Layer sprite — 0x70-byte object used by `load_sprite_by_layer` (vtable slot 37).
+///
+/// Unlike `Sprite` (which has a vtable and is created via ConstructSprite), this
+/// is a raw allocation with partial init by the caller. Used for background layers
+/// (back.spr, layer.spr) which load DirectDraw surfaces directly from `.dir` files.
+#[repr(C)]
+pub struct LayerSprite {
+    pub _pad_00: u32,
+    /// 0x04: Sprite name (null-terminated, max 0x50 bytes including null).
+    pub name: [u8; 0x50],
+    /// 0x54: GfxDir pointer (set by load_sprite_by_name).
+    pub gfx_dir: *mut u8,
+    /// 0x58: DisplayGfx pointer (set by caller before load).
+    pub display_gfx: *mut crate::render::display::gfx::DisplayGfx,
+    /// 0x5C: PaletteContext pointer (as u32, set by load_sprite_by_name).
+    pub palette_ctx: u32,
+    /// 0x60: Header field from stream (4 bytes).
+    pub field_60: u32,
+    /// 0x64: Header field from stream (2 bytes).
+    pub field_64: u16,
+    /// 0x66: Frame count (zeroed, then read from stream).
+    pub frame_count: u16,
+    /// 0x68: Header field from stream (2 bytes).
+    pub field_68: u16,
+    /// 0x6A: Header field from stream (2 bytes).
+    pub field_6a: u16,
+    /// 0x6C: Pointer to LayerSpriteFrame array (count stored at ptr[-4]).
+    pub frame_array: *mut LayerSpriteFrame,
+}
+
+const _: () = assert!(core::mem::size_of::<LayerSprite>() == 0x70);
+
+/// Per-frame surface element for LayerSprite (0x14 bytes).
+///
+/// Holds bounding box coordinates and a DirectDraw surface pointer.
+/// Allocated in counted arrays: `malloc(count * 0x14 + 4)`, count at `[-4]`.
+///
+/// Ghidra name: `CBitmap` (unrelated to `BitGrid`/`DisplayBitGrid`).
+/// Constructor: 0x573C30 (sets vtable, zeroes surface).
+/// Destructor: 0x5732E0 (releases surface via `surface->vtable[0](1)`).
+#[repr(C)]
+pub struct LayerSpriteFrame {
+    /// 0x00: Frame start X coordinate.
+    pub start_x: i16,
+    /// 0x02: Frame start Y coordinate.
+    pub start_y: i16,
+    /// 0x04: Frame end X coordinate.
+    pub end_x: i16,
+    /// 0x06: Frame end Y coordinate.
+    pub end_y: i16,
+    /// 0x08: CBitmap vtable pointer (set by constructor).
+    pub bitmap_vtable: u32,
+    /// 0x0C: Surface object pointer (created lazily by alloc_surface).
+    pub surface: u32,
+    /// 0x10: Reserved/padding.
+    pub _pad_10: u32,
+}
+
+const _: () = assert!(core::mem::size_of::<LayerSpriteFrame>() == 0x14);
+
 crate::define_addresses! {
     class "Sprite" {
         /// ConstructSprite — usercall EAX=sprite_ptr, ECX=context_ptr

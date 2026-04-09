@@ -1603,14 +1603,19 @@ unsafe extern "cdecl" fn wa_load_sprite_from_vfs(
 
 static mut LOAD_SPRITE_FROM_VFS_ADDR: u32 = 0;
 
-// LoadSpriteByLayer (vtable slot 37, 0x56A4C0) is NOT ported — the internal
-// loader FUN_005733b0 is a 379-instruction DirectDraw surface creator with
-// complex usercall conventions and caller-frame reads. Left as original WA code.
+// LoadSpriteComplex (slot 33) is NOT ported — its internal functions
+// (0x4FAD30, 0x4F9710) use ESI for sprite/bank pointers in complex
+// usercall conventions that are impractical to bridge.
 
-// LoadSpriteComplex (slot 33) and LoadSpriteByLayer (slot 37) are NOT ported —
-// their internal functions (FUN_005733b0, FUN_004FAD30, FUN_004F9710) have
-// complex usercall conventions with caller-frame reads and DirectDraw surface
-// creation. Left as original WA code.
+unsafe extern "thiscall" fn load_sprite_by_layer(
+    this: *mut DisplayGfx,
+    layer: u32,
+    id: u32,
+    gfx: *mut u8,
+    name: *const core::ffi::c_char,
+) -> i32 {
+    display_vtable::load_sprite_by_layer(this, layer, id, gfx, name)
+}
 
 // ---------------------------------------------------------------------------
 // Display installation
@@ -1679,8 +1684,9 @@ fn install_display() -> Result<(), String> {
             update_palette      => display_vtable::update_palette,
             set_font_palette    => set_font_palette,
             slot 19 => blit_sprite,
+            load_sprite_by_layer => load_sprite_by_layer,
         })?;
-        let _ = log_line("[Display]   DisplayGfx: patched 28 methods -> Rust");
+        let _ = log_line("[Display]   DisplayGfx: patched 29 methods -> Rust");
     }
 
     Ok(())

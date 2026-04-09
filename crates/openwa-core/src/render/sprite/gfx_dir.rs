@@ -430,6 +430,62 @@ pub(crate) unsafe fn call_gfx_load_and_wrap(
     result
 }
 
+/// Stream reader returned by `GfxDir__LoadImage` (vtable 0x66A1C0).
+///
+/// A 12-byte object wrapping a cached read position within a `.dir` archive.
+/// Created by `GfxDir__LoadImage`, destroyed by calling `vtable[0](1)`.
+///
+/// The vtable provides a sequential read interface over the cached resource data.
+#[repr(C)]
+pub struct GfxDirStream {
+    /// 0x00: Vtable pointer (0x66A1C0).
+    pub vtable: *const GfxDirStreamVtable,
+    /// 0x04: Cache slot index within the parent GfxDir.
+    pub slot_index: u32,
+    /// 0x08: Parent GfxDir pointer.
+    pub gfx_dir: *mut u8,
+}
+
+/// Vtable for GfxDirStream (6 slots at 0x66A1C0).
+#[repr(C)]
+pub struct GfxDirStreamVtable {
+    /// Slot 0 (0x5661E0): Destructor — releases cache slot, optionally frees.
+    pub destructor: unsafe extern "thiscall" fn(this: *mut GfxDirStream, flags: u32),
+    /// Slot 1 (0x566210): Returns 1 if read position < end position.
+    pub has_data: unsafe extern "thiscall" fn(this: *mut GfxDirStream) -> u32,
+    /// Slot 2 (0x566240): Returns remaining bytes (end - current position).
+    pub remaining: unsafe extern "thiscall" fn(this: *mut GfxDirStream) -> u32,
+    /// Slot 3 (0x566270): Unknown.
+    pub _slot_3: usize,
+    /// Slot 4 (0x5662C0): Unknown.
+    pub _slot_4: usize,
+    /// Slot 5 (0x5662F0): Read `size` bytes into `dest`.
+    pub read: unsafe extern "thiscall" fn(this: *mut GfxDirStream, dest: *mut u8, size: u32),
+}
+
+impl GfxDirStream {
+    /// Read `size` bytes from the stream into `dest`.
+    ///
+    /// # Safety
+    /// `this` must be a valid stream pointer. `dest` must have room for `size` bytes.
+    #[inline]
+    pub unsafe fn read_raw(this: *mut Self, dest: *mut u8, size: u32) {
+        ((*(*this).vtable).read)(this, dest, size);
+    }
+
+    /// Returns the number of bytes remaining in the stream.
+    #[inline]
+    pub unsafe fn remaining_raw(this: *mut Self) -> u32 {
+        ((*(*this).vtable).remaining)(this)
+    }
+
+    /// Destroy the stream reader, releasing its cache slot.
+    #[inline]
+    pub unsafe fn destroy_raw(this: *mut Self) {
+        ((*(*this).vtable).destructor)(this, 1);
+    }
+}
+
 static mut GFX_LOAD_DIR_ADDR: u32 = 0;
 
 // GfxDir__LoadImage is usercall(ESI=gfx_dir) + 1 stack(name), RET 0x4.
@@ -454,7 +510,7 @@ pub(crate) unsafe fn call_gfx_load_dir(handler: *mut u8, addr: u32) -> i32 {
 
 #[cfg(target_arch = "x86")]
 #[unsafe(naked)]
-unsafe extern "C" fn call_gfx_load_image(
+pub unsafe extern "C" fn call_gfx_load_image(
     _gfx_dir: *mut u8,
     _name: *const core::ffi::c_char,
 ) -> *mut u8 {

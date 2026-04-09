@@ -102,6 +102,38 @@ pub unsafe fn palette_map_color(ctx: *mut PaletteContext, rgb: u32) -> u32 {
     slot_idx as u32
 }
 
+/// Remap each pixel in a buffer through a 256-byte lookup table.
+///
+/// Port of FUN_005b2beb (stdcall, RET 0x14). Used by `load_sprite_by_name`
+/// to apply the palette mapping to freshly-loaded sprite pixel data.
+///
+/// Processes `width_dwords * 4` bytes per row, advancing by `pitch` bytes
+/// between rows.
+///
+/// # Safety
+/// - `data` must point to a pixel buffer with at least `height` rows of
+///   `pitch` bytes each.
+/// - `lut` must point to a 256-byte lookup table.
+/// - `width_dwords * 4` must not exceed `pitch`.
+pub unsafe fn remap_pixels_through_lut(
+    data: *mut u8,
+    pitch: u32,
+    lut: *const u8,
+    width_dwords: u32,
+    height: u32,
+) {
+    let pixel_count = width_dwords * 4;
+    let mut row_ptr = data;
+    for _ in 0..height {
+        let mut p = row_ptr;
+        for _ in 0..pixel_count {
+            *p = *lut.add(*p as usize);
+            p = p.add(1);
+        }
+        row_ptr = row_ptr.add(pitch as usize);
+    }
+}
+
 crate::define_addresses! {
     class "PaletteContext" {
         /// PaletteContext__Init — usercall EAX=ctx* (no stack params)
