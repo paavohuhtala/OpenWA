@@ -1559,6 +1559,59 @@ unsafe extern "cdecl" fn wa_font_draw_text(
     );
 }
 
+// =========================================================================
+// Sprite loading vtable method wrappers
+// =========================================================================
+
+/// Thiscall wrapper for DisplayGfx::LoadSprite (vtable slot 31, 0x523400).
+unsafe extern "thiscall" fn load_sprite(
+    this: *mut DisplayGfx,
+    layer: u32,
+    id: u32,
+    flag: u32,
+    gfx: *mut u8,
+    name: *const core::ffi::c_char,
+) -> i32 {
+    display_vtable::load_sprite(this, layer, id, flag, gfx, name, wa_load_sprite_from_vfs)
+}
+
+/// Bridge to LoadSpriteFromVfs (0x4FAAF0).
+/// Usercall: ECX=gfx, EAX=name, stack(sprite, layer_ctx), RET 0x8.
+///
+/// Verified from caller at 0x523489:
+///   ECX ← layer_contexts[layer] (gfx/VFS context)... wait, re-checked:
+///   ECX ← gfx param, EAX ← name param.
+///   Stack: sprite (EDI from ConstructSprite), layer_ctx.
+#[unsafe(naked)]
+unsafe extern "cdecl" fn wa_load_sprite_from_vfs(
+    _sprite: *mut openwa_core::render::sprite::Sprite,
+    _gfx: *mut u8,
+    _name: *const core::ffi::c_char,
+    _layer_ctx: u32,
+) -> i32 {
+    core::arch::naked_asm!(
+        // cdecl: +4=sprite, +8=gfx, +12=name, +16=layer_ctx
+        "mov ecx, [esp+8]",         // gfx → ECX
+        "mov eax, [esp+12]",        // name → EAX
+        "push dword ptr [esp+16]",  // layer_ctx
+        "push dword ptr [esp+8]",   // sprite (shifted +4 by push)
+        "call [{ADDR}]",            // RET 0x8 cleans 2 stack params
+        "ret",
+        ADDR = sym LOAD_SPRITE_FROM_VFS_ADDR,
+    );
+}
+
+static mut LOAD_SPRITE_FROM_VFS_ADDR: u32 = 0;
+
+// LoadSpriteByLayer (vtable slot 37, 0x56A4C0) is NOT ported — the internal
+// loader FUN_005733b0 is a 379-instruction DirectDraw surface creator with
+// complex usercall conventions and caller-frame reads. Left as original WA code.
+
+// LoadSpriteComplex (slot 33) and LoadSpriteByLayer (slot 37) are NOT ported —
+// their internal functions (FUN_005733b0, FUN_004FAD30, FUN_004F9710) have
+// complex usercall conventions with caller-frame reads and DirectDraw surface
+// creation. Left as original WA code.
+
 // ---------------------------------------------------------------------------
 // Display installation
 // ---------------------------------------------------------------------------
@@ -1594,6 +1647,9 @@ fn install_display() -> Result<(), String> {
             let _ = log_line("[Display]   Headless: patched slot 0 (destructor) -> Rust");
         })?;
 
+        // Initialize bridge address statics for sprite loading
+        LOAD_SPRITE_FROM_VFS_ADDR = rb(va::LOAD_SPRITE_FROM_VFS);
+
         // Patch DisplayGfx vtable (0x66A218): replace ported methods with Rust.
         vtable_replace!(DisplayVtable, va::DISPLAY_GFX_VTABLE, {
             get_dimensions      => display_vtable::get_dimensions,
@@ -1617,13 +1673,14 @@ fn install_display() -> Result<(), String> {
             set_camera_offset   => display_vtable::set_camera_offset,
             set_clip_rect       => display_vtable::set_clip_rect,
             is_sprite_loaded    => display_vtable::is_sprite_loaded,
+            load_sprite          => load_sprite,
             draw_scaled_sprite  => draw_scaled_sprite,
             set_layer_visibility => display_vtable::set_layer_visibility,
             update_palette      => display_vtable::update_palette,
             set_font_palette    => set_font_palette,
             slot 19 => blit_sprite,
         })?;
-        let _ = log_line("[Display]   DisplayGfx: patched 26 methods -> Rust");
+        let _ = log_line("[Display]   DisplayGfx: patched 28 methods -> Rust");
     }
 
     Ok(())

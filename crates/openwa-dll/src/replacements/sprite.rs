@@ -7,8 +7,8 @@
 use openwa_core::address::va;
 use openwa_core::rebase::rb;
 use openwa_core::render::palette::PaletteContext;
-use openwa_core::render::sprite::sprite::SpriteVtable;
 use openwa_core::render::sprite::{Sprite, SpriteFrame};
+use openwa_core::render::SpriteCache;
 
 use crate::hook::{self, usercall_trampoline};
 
@@ -19,18 +19,19 @@ use crate::hook::{self, usercall_trampoline};
 usercall_trampoline!(fn trampoline_construct_sprite; impl_fn = construct_sprite_impl;
     regs = [eax, ecx]);
 
-unsafe extern "cdecl" fn construct_sprite_impl(sprite: *mut Sprite, context: *mut u8) {
-    // Zero the entire 0x70-byte struct first
+unsafe extern "cdecl" fn construct_sprite_impl(sprite: *mut Sprite, context: *mut SpriteCache) {
+    use openwa_core::bitgrid::{BitGridDisplayVtable, BIT_GRID_DISPLAY_VTABLE};
+    use openwa_core::render::sprite::SpriteVtable;
+
     core::ptr::write_bytes(sprite as *mut u8, 0, core::mem::size_of::<Sprite>());
 
     (*sprite).vtable = rb(va::SPRITE_VTABLE) as *const SpriteVtable;
     (*sprite).context_ptr = context;
-    (*sprite).bitgrid_vtable = rb(va::BIT_GRID_DISPLAY_VTABLE) as *mut u8;
 
-    // BitGrid sub-object fields (within _unknown_38)
-    let p = sprite as *mut u8;
-    *(p.add(0x38) as *mut u32) = 1;
-    *(p.add(0x40) as *mut u32) = 8;
+    // Embedded DisplayBitGrid sub-object at +0x34
+    (*sprite).bitgrid.vtable = rb(BIT_GRID_DISPLAY_VTABLE) as *const BitGridDisplayVtable;
+    (*sprite).bitgrid.external_buffer = 1;
+    (*sprite).bitgrid.cells_per_unit = 8;
 }
 
 // ---------------------------------------------------------------------------

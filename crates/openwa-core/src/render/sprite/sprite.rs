@@ -1,3 +1,5 @@
+use crate::render::SpriteCache;
+
 // Re-export SpriteId from its own module to keep this file focused on struct layouts.
 pub use super::sprite_id::SpriteId;
 
@@ -39,7 +41,7 @@ pub struct Sprite {
     /// 0x00: Vtable pointer (0x66418C, 8 slots)
     pub vtable: *const SpriteVtable,
     /// 0x04: Context/parent pointer (ECX from ConstructSprite)
-    pub context_ptr: *mut u8,
+    pub context_ptr: *mut SpriteCache,
     /// 0x08: Unknown
     pub _unknown_08: u16,
     /// 0x0A: Animation frames per second
@@ -74,11 +76,10 @@ pub struct Sprite {
     pub secondary_frame_count: u16,
     /// 0x32: Padding
     pub _pad_32: u16,
-    /// 0x34: Embedded BitGrid vtable pointer (0x664144, set by ConstructSprite).
-    /// Part of a BitGrid sub-object within the Sprite.
-    pub bitgrid_vtable: *mut u8,
-    /// 0x38-0x5F: Unknown fields
-    pub _unknown_38: [u8; 0x28],
+    /// 0x34: Embedded DisplayBitGrid sub-object (0x2C bytes).
+    /// ConstructSprite sets vtable=0x664144, external_buffer=1, cells_per_unit=8.
+    /// Populated further by ProcessSprite with pixel data pointers.
+    pub bitgrid: crate::bitgrid::DisplayBitGrid,
     /// 0x60: Pointer to raw frame header data
     pub raw_frame_header_ptr: *mut u8,
     /// 0x64: Pointer to bitmap pixel data
@@ -90,6 +91,8 @@ pub struct Sprite {
 }
 
 const _: () = assert!(core::mem::size_of::<Sprite>() == 0x70);
+const _: () = assert!(core::mem::offset_of!(Sprite, bitgrid) == 0x34);
+const _: () = assert!(core::mem::offset_of!(Sprite, raw_frame_header_ptr) == 0x60);
 
 /// SpriteBank — indexed sprite container (0x17C bytes).
 ///
@@ -194,5 +197,18 @@ crate::define_addresses! {
     class "SpriteBank" {
         /// SpriteBank__GetInfo — usercall EAX=layer, ECX=bank*, ESI=out_width, 2 stack params
         fn/Usercall SPRITE_BANK_GET_INFO = 0x004F_98C0;
+        /// SpriteBank__Init — usercall, initializes from VFS resource
+        fn/Usercall SPRITE_BANK_INIT = 0x004F_95A0;
+    }
+
+    class "DisplayGfx_Sprite" {
+        /// Load sprite from VFS by name — usercall(EDI=sprite, ECX=gfx) + stack(id, name), RET 0x8
+        fn/Usercall LOAD_SPRITE_BY_NAME = 0x0057_33B0;
+        /// Free sprite object (with sub-object cleanup) — usercall(EDI=sprite), plain RET
+        fn/Usercall FREE_SPRITE_OBJECT = 0x0056_A2F0;
+        /// Sprite-path dispatch for LoadSpriteComplex — usercall on Sprite*
+        fn/Usercall SPRITE_COMPLEX_SPRITE_PATH = 0x004F_AD30;
+        /// SpriteBank-path dispatch for LoadSpriteComplex — usercall on SpriteBank*
+        fn/Usercall SPRITE_COMPLEX_BANK_PATH = 0x004F_9710;
     }
 }

@@ -1,5 +1,7 @@
 use crate::fixed::Fixed;
 use crate::render::display::line_draw::Vertex;
+use crate::render::SpriteCache;
+use crate::wa_alloc::wa_malloc_struct_zeroed;
 
 /// DisplayVtable — vtable for the display/rendering subsystem (DisplayGfx).
 ///
@@ -306,7 +308,7 @@ use super::gfx::DisplayGfx;
 use super::line_draw;
 use crate::bitgrid::DisplayBitGrid;
 use crate::render::palette::PaletteContext;
-use crate::render::sprite::{Sprite, SpriteBank};
+use crate::render::sprite::{Sprite, SpriteBank, SpriteVtable};
 
 /// Port of DisplayGfx::GetDimensions (vtable slot 1, 0x56A460).
 ///
@@ -807,8 +809,7 @@ pub unsafe extern "thiscall" fn draw_polyline(
 /// # Safety
 /// `this` must be a valid `*mut DisplayGfx`.
 pub unsafe extern "thiscall" fn is_sprite_loaded(this: *mut DisplayGfx, id: i32) -> u32 {
-    let id_u = id as u32;
-    if id_u.wrapping_sub(1) >= 0x3FF {
+    if !is_valid_sprite_id(id) {
         return 0;
     }
 
@@ -821,6 +822,18 @@ pub unsafe extern "thiscall" fn is_sprite_loaded(this: *mut DisplayGfx, id: i32)
     } else {
         0
     }
+}
+
+/// Check if a sprite ID is in the valid range [1, 0x3FF].
+#[inline]
+fn is_valid_sprite_id(id: i32) -> bool {
+    (1..=0x3FF).contains(&id)
+}
+
+/// Check if a layer ID is in the valid range [1, 3].
+#[inline]
+fn is_valid_layer(layer: u32) -> bool {
+    (1..=3).contains(&layer)
 }
 
 /// Port of DisplayGfx::GetSpriteInfo (vtable slot 6, 0x523500).
@@ -1538,3 +1551,181 @@ pub unsafe extern "thiscall" fn set_layer_visibility(
         (*this).base.layer_visibility[layer as usize] = 0;
     }
 }
+
+// =========================================================================
+// Sprite loading methods
+// =========================================================================
+
+/// Construct a Sprite in-place — pure Rust port of ConstructSprite (0x4FAA30).
+///
+/// Sets vtable, embedded BitGrid sub-object, and context pointer.
+/// All other fields are expected to be zeroed by the caller's allocation.
+///
+/// # Safety
+/// `sprite` must point to a zeroed `Sprite`-sized allocation.
+pub unsafe fn construct_sprite(sprite: *mut Sprite, sprite_cache: *mut SpriteCache) {
+    use crate::bitgrid::{BitGridDisplayVtable, BIT_GRID_DISPLAY_VTABLE};
+    use crate::rebase::rb;
+
+    (*sprite).vtable = rb(va::SPRITE_VTABLE) as *const SpriteVtable;
+    (*sprite).context_ptr = sprite_cache;
+
+    // Initialize embedded DisplayBitGrid sub-object
+    (*sprite).bitgrid.vtable = rb(BIT_GRID_DISPLAY_VTABLE) as *const BitGridDisplayVtable;
+    (*sprite).bitgrid.external_buffer = 1; // sprite doesn't own pixel data
+    (*sprite).bitgrid.cells_per_unit = 8; // 8bpp pixel buffer
+}
+
+/// Port of DisplayGfx::LoadSprite (vtable slot 31, 0x523400).
+///
+/// Loads a Sprite from VFS into the sprite table. Allocates a Sprite object,
+/// constructs it, and loads data via LoadSpriteFromVfs. On success, stores
+/// in sprite_ptrs[id] and updates layer metadata.
+///
+/// The `flag` parameter controls max_frames clamping on the loaded sprite.
+///
+/// # Safety
+/// `this` must be a valid `*mut DisplayGfx`.
+/// `load_sprite_from_vfs` must be a valid function pointer to 0x4FAAF0.
+pub unsafe fn load_sprite(
+    this: *mut DisplayGfx,
+    layer: u32,
+    id: u32,
+    flag: u32,
+    _gfx: *mut u8,
+    _name: *const core::ffi::c_char,
+    load_sprite_from_vfs: unsafe extern "cdecl" fn(
+        sprite: *mut Sprite,
+        gfx: *mut u8,
+        name: *const core::ffi::c_char,
+        layer_ctx: u32,
+    ) -> i32,
+) -> i32 {
+    // Bit 23 set = already loaded sentinel
+    if id & 0x80_0000 != 0 {
+        return 1;
+    }
+
+    if !is_valid_layer(layer) {
+        return 0;
+    }
+    let base = &mut (*this).base;
+    if base.layer_contexts[layer as usize] == 0 {
+        return 0;
+    }
+    if !is_valid_sprite_id(id as i32) {
+        return 0;
+    }
+
+    // Already loaded?
+    if is_sprite_loaded(this, id as i32) != 0 {
+        return 0;
+    }
+
+    let sprite = wa_malloc_struct_zeroed::<Sprite>();
+    if sprite.is_null() {
+        return 0;
+    }
+    construct_sprite(sprite, base.sprite_cache);
+
+    // Load from VFS
+    let layer_ctx = base.layer_contexts[layer as usize];
+    let result = load_sprite_from_vfs(sprite, _gfx, _name, layer_ctx);
+    if result == 0 {
+        // Load failed — destroy sprite via vtable[0]
+        if !sprite.is_null() {
+            let dtor = (*(*sprite).vtable).destructor;
+            dtor(sprite, 1);
+        }
+        return 0;
+    }
+
+    // Store in sprite table
+    let base = &mut (*this).base;
+    base.sprite_ptrs[id as usize] = sprite;
+    base.sprite_layers[id as usize] = layer;
+    base.layer_visibility[layer as usize] += 1;
+
+    // Update max_frames on the sprite if flag is set
+    if flag != 0 {
+        let sprite = base.sprite_ptrs[id as usize];
+        let id_u16 = id as u16;
+        if id_u16 != 0 && id_u16 < (*sprite).max_frames {
+            (*sprite).max_frames = id_u16;
+        }
+        (*sprite)._unknown_18 = (id >> 16) as u16;
+    }
+
+    1
+}
+
+/// Port of DisplayGfx::LoadSpriteByLayer (vtable slot 37, 0x56A4C0).
+///
+/// Simplified sprite loading that stores into DisplayGfx::sprite_table
+/// (offset 0x3DD4) instead of DisplayBase::sprite_ptrs. Allocates a raw
+/// 0x70-byte object, partially initializes it (NOT via ConstructSprite),
+/// then loads via FUN_005733b0.
+///
+/// # Safety
+/// `this` must be a valid `*mut DisplayGfx`.
+/// `load_fn` must be a valid function pointer to FUN_005733b0.
+/// `free_fn` must be a valid function pointer to FUN_0056a2f0.
+pub unsafe fn load_sprite_by_layer(
+    this: *mut DisplayGfx,
+    layer: u32,
+    id: u32,
+    gfx: *mut u8,
+    name: *const core::ffi::c_char,
+    load_fn: unsafe extern "cdecl" fn(
+        sprite: *mut u8,
+        gfx: *mut u8,
+        id: u32,
+        name: *const core::ffi::c_char,
+    ) -> i32,
+    free_fn: unsafe extern "cdecl" fn(sprite: *mut u8),
+) -> i32 {
+    // Bit 23 set = already loaded sentinel
+    if id & 0x80_0000 != 0 {
+        return 1;
+    }
+
+    // Call set_active_layer (vtable slot 5) — already ported Rust
+    set_active_layer(this, layer as i32);
+
+    if !is_valid_sprite_id(id as i32) {
+        return 0;
+    }
+
+    // Already loaded?
+    if is_sprite_loaded(this, id as i32) != 0 {
+        return 1;
+    }
+
+    // Allocate 0x70 bytes + 0x20 guard (matching WA_MallocMemset behavior)
+    use crate::wa_alloc::wa_malloc_zeroed;
+    let sprite = wa_malloc_zeroed(0x90);
+    if sprite.is_null() {
+        return 0;
+    }
+
+    // Partial init (NOT ConstructSprite — different from load_sprite)
+    *(sprite.add(0x58) as *mut *mut DisplayGfx) = this;
+    *(sprite.add(0x66) as *mut u16) = 0;
+    *(sprite.add(0x6C) as *mut u32) = 0;
+    *(sprite.add(0x54) as *mut u32) = 0;
+
+    // Load via FUN_005733b0
+    let result = load_fn(sprite, gfx, id, name);
+    if result == 0 {
+        free_fn(sprite);
+        return 0;
+    }
+
+    // Store in sprite_table (DisplayGfx offset 0x3DD4)
+    (*this).sprite_table[id as usize] = sprite as u32;
+    1
+}
+
+// LoadSpriteComplex (vtable slot 33, 0x5237C0) is NOT ported — the internal
+// dispatch functions (0x4FAD30, 0x4F9710) use ESI for sprite/bank pointers
+// in complex usercall conventions that are impractical to bridge.
