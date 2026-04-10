@@ -41,7 +41,8 @@ pub struct DisplayBase<V: Vtable = *const DisplayBaseVtable> {
     // Points to Sprite objects (0x70 bytes, vtable 0x66418C). Checked by IsSpriteLoaded/GetSpriteInfo.
     pub sprite_ptrs: [*mut Sprite; 0x400],
     // +0x2008..0x3008: per-slot SpriteBank* pointers (0x400 entries), zeroed by ctor.
-    // Points to SpriteBank objects (0x17C bytes). Fallback path in GetSpriteInfo/LoadSpriteComplex.
+    // Points to SpriteBank objects (0x17C bytes). Fallback path in
+    // GetSpriteInfo and GetSpriteFrameForBlit (vtable slot 33).
     pub sprite_banks: [*mut SpriteBank; 0x400],
     // +0x3008..0x3018: gap (0x10 bytes, 4 u32s: indices 0xC02..0xC05)
     pub _gap_3008: [u32; 4],

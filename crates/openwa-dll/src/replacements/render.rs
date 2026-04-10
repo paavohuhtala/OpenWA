@@ -756,7 +756,6 @@ unsafe extern "thiscall" fn blit_sprite(
     sprite_flags: u32,
     palette: u32,
 ) {
-    use openwa_core::bitgrid::DisplayBitGrid;
     use openwa_core::render::display::gfx::DisplayGfx;
     use openwa_core::render::display::vtable as display_vtable;
 
@@ -891,43 +890,21 @@ unsafe extern "thiscall" fn blit_sprite(
     }
 
     // ---------------------------------------------------------------
-    // Sprite data lookup via vtable[33]
+    // Sprite frame lookup via DisplayGfx::GetSpriteFrameForBlit (slot 33).
     // ---------------------------------------------------------------
-    let vtable_ptr = *(this as *const *const u32);
-    let slot33_addr = *vtable_ptr.add(33);
-
-    // vtable[33] is thiscall with 9 stack params (RET 0x24).
-    // Output semantics (traced from ASM ESP offsets through LEA/PUSH sequence):
-    //   param 3 -> sprite full width (for centering)
-    //   param 4 -> sprite full height (for centering)
-    //   param 5 -> render rect LEFT
-    //   param 6 -> render rect TOP (overwrites palette on original stack!)
-    //   param 7 -> render rect RIGHT
-    //   param 8 -> render rect BOTTOM
-    //   param 9 -> unknown (unused)
+    // Resolves the sprite ID + animation value into the actual decompressed
+    // frame surface plus its bounding box and full sprite-cell dimensions
+    // (used below for centering and clipped blits).
     let mut out_sprite_w: i32 = 0;
     let mut out_sprite_h: i32 = 0;
     let mut out_rect_left: i32 = 0;
     let mut out_rect_top: i32 = 0;
     let mut out_rect_right: i32 = 0;
     let mut out_rect_bottom: i32 = 0;
-    let mut out_unknown: u32 = 0;
+    let mut out_anim_frac: u32 = 0;
 
-    let fn33: unsafe extern "thiscall" fn(
-        *mut DisplayGfx,
-        u32,
-        u32,
-        *mut i32,
-        *mut i32,
-        *mut i32,
-        *mut i32,
-        *mut i32,
-        *mut i32,
-        *mut u32,
-    ) -> *mut DisplayBitGrid = core::mem::transmute(slot33_addr as usize);
-
-    let mut sprite_surface = fn33(
-        this,
+    let mut sprite_surface = DisplayGfx::get_sprite_frame_for_blit_raw(
+        gfx,
         sprite_id,
         pal,
         &mut out_sprite_w,
@@ -936,7 +913,7 @@ unsafe extern "thiscall" fn blit_sprite(
         &mut out_rect_top,
         &mut out_rect_right,
         &mut out_rect_bottom,
-        &mut out_unknown,
+        &mut out_anim_frac,
     );
 
     if sprite_surface.is_null() {
@@ -1474,9 +1451,10 @@ unsafe extern "cdecl" fn wa_load_sprite_from_vfs(
 
 static mut LOAD_SPRITE_FROM_VFS_ADDR: u32 = 0;
 
-// LoadSpriteComplex (slot 33) is NOT ported — its internal functions
-// (0x4FAD30, 0x4F9710) use ESI for sprite/bank pointers in complex
-// usercall conventions that are impractical to bridge.
+// GetSpriteFrameForBlit (slot 33) is NOT ported — see the docstring on
+// `DisplayVtable::get_sprite_frame_for_blit` in openwa-core for the full
+// rationale. Our `blit_sprite` (slot 19) above calls it via the bound
+// vtable wrapper on every sprite render.
 
 unsafe extern "thiscall" fn load_sprite_by_layer(
     this: *mut DisplayGfx,

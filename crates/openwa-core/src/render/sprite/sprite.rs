@@ -104,8 +104,8 @@ const _: () = assert!(core::mem::offset_of!(Sprite, raw_frame_header_ptr) == 0x6
 /// Created by LoadSpriteEx (0x523310): allocated 0x17C bytes, first 0x15C zeroed,
 /// then constructed and initialized via FUN_004f95a0.
 ///
-/// Used by GetSpriteInfo (0x523500) and LoadSpriteComplex (0x5237C0) as the
-/// fallback path when sprite_ptrs[id] is null.
+/// Used by GetSpriteInfo (0x523500) and GetSpriteFrameForBlit (0x5237C0,
+/// vtable slot 33) as the fallback path when sprite_ptrs[id] is null.
 #[repr(C)]
 pub struct SpriteBank {
     /// 0x00: Vtable pointer (0x664180, 3 slots)
@@ -266,9 +266,13 @@ crate::define_addresses! {
         fn/Usercall LOAD_SPRITE_BY_NAME = 0x0057_33B0;
         /// Free sprite object (with sub-object cleanup) — usercall(EDI=sprite), plain RET
         fn/Usercall FREE_SPRITE_OBJECT = 0x0056_A2F0;
-        /// Sprite-path dispatch for LoadSpriteComplex — usercall on Sprite*
-        fn/Usercall SPRITE_COMPLEX_SPRITE_PATH = 0x004F_AD30;
-        /// SpriteBank-path dispatch for LoadSpriteComplex — usercall on SpriteBank*
-        fn/Usercall SPRITE_COMPLEX_BANK_PATH = 0x004F_9710;
+        /// `Sprite__GetFrameForBlit` — usercall on Sprite* (ESI=sprite).
+        /// Looks up an animation frame in a Sprite, lazily decompresses its
+        /// surface, and returns the frame metadata. Called by
+        /// `DisplayGfx::GetSpriteFrameForBlit` (slot 33) for sprite_ptrs IDs.
+        fn/Usercall SPRITE_GET_FRAME_FOR_BLIT = 0x004F_AD30;
+        /// `SpriteBank__GetFrameForBlit` — usercall on SpriteBank* (ESI=bank).
+        /// Same as above but for SpriteBank-backed sprite IDs (sprite_banks).
+        fn/Usercall SPRITE_BANK_GET_FRAME_FOR_BLIT = 0x004F_9710;
     }
 }

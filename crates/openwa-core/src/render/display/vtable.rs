@@ -274,22 +274,49 @@ pub struct DisplayVtable {
     /// Returns 1 if the sprite exists in any of the three sprite arrays.
     #[slot(32)]
     pub is_sprite_loaded: fn(this: *mut DisplayGfx, id: i32) -> u32,
-    /// load sprite with complex params (0x5237C0, RET 0x24)
+    /// look up a sprite frame's surface and metadata for blitting
+    /// (0x5237C0, RET 0x24) — `DisplayGfx::GetSpriteFrameForBlit`.
     ///
-    /// 9 stack params. Dual-path loading depending on layer type.
+    /// **Not a "load" function** despite the historic mis-name. Called every
+    /// frame from `BlitSprite` (slot 19) to resolve a sprite ID + animation
+    /// value into a renderable frame: clamps the animation value, looks up
+    /// the matching frame entry in the sprite's frame table, lazily
+    /// decompresses the frame's surface via `FUN_004FA950`, and returns
+    /// the surface pointer plus the frame's bounding box.
+    ///
+    /// Dispatches via the two arrays at `DisplayGfx + 0x1008` (Sprite*)
+    /// and `DisplayGfx + 0x2008` (SpriteBank*) — both lookups go through
+    /// the same outputs:
+    ///
+    /// | Output                         | Meaning                                          |
+    /// |--------------------------------|--------------------------------------------------|
+    /// | return value                   | `*mut DisplayBitGrid` — decompressed frame surface |
+    /// | `out_w`, `out_h`               | full sprite cell width / height (for centering)  |
+    /// | `out_left`/`top`/`right`/`bot` | frame bounding box within the cell               |
+    /// | `out_anim_frac`                | sub-frame interpolation value (Fixed16) or 0     |
+    ///
+    /// `Sprite*` path → `Sprite__GetFrameForBlit` (FUN_004FAD30, ESI=sprite).
+    /// `SpriteBank*` path → `SpriteBank__GetFrameForBlit` (FUN_004F9710,
+    /// ESI=bank). Both inner helpers use ESI for the receiver in a complex
+    /// usercall convention, which is why this slot has not been ported yet —
+    /// it would require porting the FrameCache and the surface decompression
+    /// helper (`FUN_004FA950` / `FUN_005B29E0`) first.
+    ///
+    /// `BlitSprite` calls this directly via `vtable[33]` today; see
+    /// `replacements/render.rs::blit_sprite`.
     #[slot(33)]
-    pub load_sprite_complex: fn(
+    pub get_sprite_frame_for_blit: fn(
         this: *mut DisplayGfx,
-        layer: i32,
-        p3: u32,
-        p4: u32,
-        p5: u32,
-        p6: u32,
-        p7: u32,
-        p8: u32,
-        p9: u32,
-        p10: u32,
-    ) -> u32,
+        sprite_id: u32,
+        anim_value: u32,
+        out_w: *mut i32,
+        out_h: *mut i32,
+        out_left: *mut i32,
+        out_top: *mut i32,
+        out_right: *mut i32,
+        out_bottom: *mut i32,
+        out_anim_frac: *mut u32,
+    ) -> *mut DisplayBitGrid,
     /// load .fnt bitmap font into a font slot (0x523560, RET 0x10)
     #[slot(34)]
     pub load_font: fn(
@@ -2047,9 +2074,13 @@ pub unsafe fn load_sprite_by_layer(
     1
 }
 
-// LoadSpriteComplex (vtable slot 33, 0x5237C0) is NOT ported — the internal
-// dispatch functions (0x4FAD30, 0x4F9710) use ESI for sprite/bank pointers
-// in complex usercall conventions that are impractical to bridge.
+// GetSpriteFrameForBlit (vtable slot 33, 0x5237C0) is NOT ported — it is
+// hot-path though, called from our own `blit_sprite` (slot 19) on every
+// sprite render via the raw vtable pointer. The two inner helpers
+// (Sprite__GetFrameForBlit at 0x4FAD30, SpriteBank__GetFrameForBlit at
+// 0x4F9710) use ESI for the sprite/bank receiver in a usercall convention
+// that's impractical to bridge directly. Porting requires first porting
+// the FrameCache + decompression chain (FUN_004FA950 → FUN_005B29E0).
 
 // =========================================================================
 // Font loading
