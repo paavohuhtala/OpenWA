@@ -767,6 +767,10 @@ pub mod va {
         fn/Cdecl WA_FREE = 0x005D_0D2B;
         /// WA's CRT _fopen
         fn/Cdecl WA_FOPEN = 0x005D_3271;
+        /// WA's CRT fread
+        fn/Cdecl WA_FREAD = 0x005D_4531;
+        /// WA's CRT fclose
+        fn/Cdecl WA_FCLOSE = 0x005D_399B;
         /// WA's CRT _fileno
         fn/Cdecl WA_FILENO = 0x005D_5155;
         /// WA's CRT _get_osfhandle

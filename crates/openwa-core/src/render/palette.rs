@@ -102,6 +102,112 @@ pub unsafe fn palette_map_color(ctx: *mut PaletteContext, rgb: u32) -> u32 {
     slot_idx as u32
 }
 
+/// Look up an existing palette entry by slot index.
+///
+/// Rust port of `FUN_00541200` (usercall: ECX=ctx, EAX=index, stack=out_rgb,
+/// RET 0x4). Validates that the index is within the context's `dirty_range_min`
+/// / `dirty_range_max` window AND that the slot is currently in use, then
+/// writes the slot's stored RGB to `out_rgb` and returns 1. On any validation
+/// failure, returns 0 without touching `out_rgb`.
+///
+/// Note: despite the field names, `dirty_range_min/max` here behave as a
+/// generic "valid index range" — `FUN_00541200` is a pure lookup, not part
+/// of an update batch.
+///
+/// # Safety
+/// `ctx` must point to a valid `PaletteContext`. `out_rgb` must point to a
+/// writable u32 (only written on success).
+pub unsafe fn palette_context_lookup_entry(
+    ctx: *mut PaletteContext,
+    index: i32,
+    out_rgb: *mut u32,
+) -> u32 {
+    let range_min = (*ctx).dirty_range_min as i32;
+    let range_max = (*ctx).dirty_range_max as i32;
+    if index < range_min || index > range_max {
+        return 0;
+    }
+    if (*ctx).in_use[index as usize] == 0 {
+        return 0;
+    }
+    *out_rgb = (*ctx).rgb_table[index as usize];
+    1
+}
+
+/// Find the closest palette index for an RGB color in the recently-mapped cache.
+///
+/// Rust port of `FUN_00541340` (usercall: EDI=ctx, stack=rgb, stack=out_distance).
+/// Walks `cache[0..cache_count]` and computes a perceptual distance
+/// `5*|dG| + 2*|dB| + 3*|dR|` against each cached slot's stored RGB.
+///
+/// Returns the cached slot index of the closest match, or 0 if the cache is
+/// empty / contains no usable entries. Writes a 0..100 distance score to
+/// `*out_distance` (0 means exact match), unless the cache had no entries.
+///
+/// Differs from `palette_map_color`: this only searches the cache, never
+/// allocates a new slot, and reports the perceptual distance to the caller.
+/// Used by font palette LUT building to gauge how well an interpolated color
+/// matches the existing palette.
+///
+/// # Safety
+/// `ctx` must point to a valid `PaletteContext`. `out_distance` must point
+/// to a writable i32.
+pub unsafe fn palette_find_nearest_cached(
+    ctx: *mut PaletteContext,
+    rgb: u32,
+    out_distance: *mut i32,
+) -> u32 {
+    let p = ctx as *mut u8;
+    let cache_count = *(p.add(0x606) as *const i16);
+    if cache_count <= 0 {
+        return 0;
+    }
+
+    let target_r = (rgb & 0xff) as i32;
+    let target_g = ((rgb >> 8) & 0xff) as i32;
+    let target_b = ((rgb >> 16) & 0xff) as i32;
+
+    let mut best_dist = i32::MAX;
+    let mut best_idx: u32 = 0;
+    let mut last_idx: u32 = 0;
+
+    for i in 0..cache_count as usize {
+        let slot = *p.add(0x608 + i) as u32;
+        last_idx = slot;
+        if slot == 0 {
+            continue;
+        }
+        // rgb_table entries are u32 in low 3 bytes (R, G, B). Read each byte.
+        let entry_base = p.add(0x04 + slot as usize * 4);
+        let er = *entry_base as i32;
+        let eg = *entry_base.add(1) as i32;
+        let eb = *entry_base.add(2) as i32;
+
+        let dr = (er - target_r).abs();
+        let dg = (eg - target_g).abs();
+        let db = (eb - target_b).abs();
+        let dist = dg * 5 + db * 2 + dr * 3;
+
+        if dist == 0 {
+            *out_distance = 0;
+            return slot;
+        }
+        if dist < best_dist {
+            best_dist = dist;
+            best_idx = slot;
+        }
+    }
+
+    if best_idx != 0 {
+        // Original computes (best_dist * 100) / 0x2fd ≈ scaled to 0..100
+        *out_distance = (best_dist * 100) / 0x2fd;
+        best_idx
+    } else {
+        // No usable entries — return whatever last slot we saw (matches original).
+        last_idx
+    }
+}
+
 /// Remap each pixel in a buffer through a 256-byte lookup table.
 ///
 /// Port of FUN_005b2beb (stdcall, RET 0x14). Used by `load_sprite_by_name`
