@@ -21,22 +21,31 @@ use crate::log_line;
 // Calling conventions are __usercall variants with register + stack params.
 
 // ---------------------------------------------------------------------------
-// DrawPixel (0x541D60) — type 0xD, EAX=this, 3 stack, RET 0xC
+// EnqueueTiledBitmap (0x541D60) — type 0xD, EAX=this, 3 stack, RET 0xC
+//
+// Mis-labelled `RQ_DrawPixel` in earlier reverse-engineering passes. It does
+// NOT enqueue a single-pixel draw — it enqueues a tile-cached bitmap draw
+// dispatched by `RenderDrawingQueue` case 0xD into vtable slot 11.
 // ---------------------------------------------------------------------------
 
-usercall_trampoline!(fn trampoline_draw_pixel; impl_fn = draw_pixel_impl;
+usercall_trampoline!(fn trampoline_enqueue_tiled_bitmap; impl_fn = enqueue_tiled_bitmap_impl;
     reg = eax; stack_params = 3; ret_bytes = "0xC");
 
-unsafe extern "cdecl" fn draw_pixel_impl(this: u32, x_pos: u32, y_pos: u32, flags: u32) {
+unsafe extern "cdecl" fn enqueue_tiled_bitmap_impl(
+    this: u32,
+    y_fixed16: u32,
+    source_descriptor: u32,
+    flags: u32,
+) {
     let q = &mut *(this as *mut RenderQueue);
 
-    if let Some(entry) = q.alloc::<DrawPixelCmd>() {
-        *entry = DrawPixelCmd {
-            command_type: command_type::DRAW_PIXEL,
+    if let Some(entry) = q.alloc::<DrawTiledBitmapCmd>() {
+        *entry = DrawTiledBitmapCmd {
+            command_type: command_type::DRAW_TILED_BITMAP,
             layer: 0x1B_0000,
-            color: 0xFF00_0000,
-            x_pos,
-            y_pos,
+            x_fixed16: 0xFF00_0000,
+            y_fixed16,
+            source_descriptor,
             flags: flags as u8,
             _pad: [0; 3],
         };
@@ -594,9 +603,9 @@ unsafe extern "cdecl" fn draw_crosshair_line_impl(task_ptr: u32) {
 fn install_render_queue() -> Result<(), String> {
     unsafe {
         let _ = hook::install(
-            "DrawPixel",
-            va::RQ_DRAW_PIXEL,
-            trampoline_draw_pixel as *const (),
+            "EnqueueTiledBitmap",
+            va::RQ_ENQUEUE_TILED_BITMAP,
+            trampoline_enqueue_tiled_bitmap as *const (),
         )?;
 
         let _ = hook::install(

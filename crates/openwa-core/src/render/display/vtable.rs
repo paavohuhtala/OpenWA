@@ -100,11 +100,37 @@ pub struct DisplayVtable {
     /// set font rendering parameter (0x523710, RET 0x10)
     #[slot(10)]
     pub set_font_param: fn(this: *mut DisplayGfx, font_id: i32, p3: u32, p4: u32, p5: u32) -> u32,
-    /// create bitmap object (0x56B8C0, RET 0xC)
+    /// draw tile-cached bitmap (0x56B8C0, RET 0xC) — `DisplayGfx__DrawTiledBitmap`.
     ///
-    /// Allocates CBitmap, initializes from sprite data.
+    /// Three-phase tile-bitmap operation, run as a single composite call.
+    /// Each invocation does some or all of:
+    ///
+    /// 1. **Allocate** (only if `this->bitmap_vec` is empty): walk the source
+    ///    height in 0x400-row strips. For each strip, `wa_malloc(0xC)` a
+    ///    `CBitmap` (vtable `0x643F64`, surface ptr at +4), lazily ask the
+    ///    render context for a surface, init the surface as `0x40 × strip × 8bpp`
+    ///    (retrying with 4bpp on failure), and `vector::push_back` the bitmap
+    ///    into `DisplayGfx + 0x3580`. Sets `DisplayGfx[+0x358C] = 0`.
+    /// 2. **Populate** (only if `DisplayGfx[+0x358C] == 0`): for each tile,
+    ///    lock its surface, blit the corresponding source strip via
+    ///    `FUN_005B2A5E` (8bpp) or `BlitColorTable_Forward` (CLUT, `bpp == 0x40`),
+    ///    unlock. Sets `DisplayGfx[+0x358C] = 1`.
+    /// 3. **Display**: `dest_x` is masked to a 0x40-aligned X coord; the
+    ///    visible Y range is computed from `camera_y + dest_y` against
+    ///    `display_height`, clamped to the available tile range. For each
+    ///    visible tile × each `0x40`-wide destination column, calls
+    ///    `DisplayGfx__BlitBitmapClipped`.
+    ///
+    /// `source` is a sprite-source descriptor with at least these fields:
+    /// `+0x08` = bpp (8 or 0x40), `+0x10` = source row stride,
+    /// `+0x14` = (saved early, purpose unconfirmed), `+0x18` = total height.
+    ///
+    /// **Reachable at runtime** via `RenderDrawingQueue` case 0xD, fed by
+    /// `RQ_EnqueueTiledBitmap` (0x541D60). The only known producer is
+    /// `CTaskLand::RenderLandscape`. Currently bridged to the original WA
+    /// function — needs porting if/when slot 11 is replaced.
     #[slot(11)]
-    pub create_bitmap: fn(this: *mut DisplayGfx, count: u32, p3: i32, p4: i32),
+    pub draw_tiled_bitmap: fn(this: *mut DisplayGfx, dest_x: u32, dest_y: i32, source: *mut u8),
     /// draw polyline with camera offset (0x56BCC0, RET 0xC)
     ///
     /// Transforms point array by camera offset, then draws connected line segments.

@@ -240,6 +240,13 @@ pub mod va {
             fn/Stdcall DISPLAY_GFX_INIT_TEAM_PALETTE_DISPLAY = 0x0057_03E0;
             /// DisplayGfx__LoadSpriteEx (vtable slot 30) — thiscall
             fn/Thiscall DISPLAY_GFX_LOAD_SPRITE_EX = 0x0052_3310;
+            /// `DisplayGfx__DrawTiledBitmap` (vtable slot 11) — thiscall.
+            /// Tile-cached bitmap draw: lazily allocates 0x400-row tile
+            /// surfaces from a sprite source descriptor, populates them, and
+            /// blits the visible tiles to the display. Reachable today via
+            /// `RenderDrawingQueue` case 0xD; needs porting if/when slot is
+            /// replaced.
+            fn/Thiscall DISPLAY_GFX_DRAW_TILED_BITMAP = 0x0056_B8C0;
         }
 
         class "Font" {
@@ -463,7 +470,10 @@ pub mod va {
         fn BLIT_SCREEN = 0x005A_2020;
         fn RQ_RENDER_DRAWING_QUEUE = 0x0054_2350;
         fn DRAW_LANDSCAPE = 0x005A_2790;
-        fn RQ_DRAW_PIXEL = 0x0054_1D60;
+        /// `RQ_EnqueueTiledBitmap` — formerly mis-labelled `RQ_DrawPixel`.
+        /// Enqueues a tile-cached bitmap draw command (type 0xD), dispatched
+        /// by `RenderDrawingQueue` into `DisplayGfx::draw_tiled_bitmap`.
+        fn RQ_ENQUEUE_TILED_BITMAP = 0x0054_1D60;
         fn RQ_DRAW_LINE_STRIP = 0x0054_1DD0;
         fn RQ_DRAW_POLYGON = 0x0054_1E50;
         fn RQ_DRAW_CROSSHAIR = 0x0054_1ED0;

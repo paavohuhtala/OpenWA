@@ -15,8 +15,8 @@ pub use display::{
 pub use landscape::{DirtyRect, PCLandscape};
 pub use opengl::OpenGLState;
 pub use queue::{
-    DrawBitmapGlobalCmd, DrawCrosshairCmd, DrawLineStripHeader, DrawPixelCmd, DrawPolygonHeader,
-    DrawRectCmd, DrawSpriteCmd, DrawSpriteOffsetCmd, DrawTextboxLocalCmd, RenderQueue,
+    DrawBitmapGlobalCmd, DrawCrosshairCmd, DrawLineStripHeader, DrawPolygonHeader, DrawRectCmd,
+    DrawSpriteCmd, DrawSpriteOffsetCmd, DrawTextboxLocalCmd, DrawTiledBitmapCmd, RenderQueue,
 };
 pub use sprite::{ParsedSprite, Sprite, SpriteBank, SpriteFrame, SpriteId};
 pub use turn_order::{

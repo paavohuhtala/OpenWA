@@ -78,19 +78,54 @@ impl RenderQueue {
     }
 }
 
-/// Type 0xD — single pixel (0x18 bytes).
+/// Type 0xD — tile-bitmap draw command (0x18 bytes).
+///
+/// Enqueued by `RQ_EnqueueTiledBitmap` (0x541D60, formerly mis-labelled
+/// `RQ_DrawPixel`). The only known producer is `CTaskLand::RenderLandscape`,
+/// which uses it to draw cached landscape texture tiles.
+///
+/// Inside `RenderDrawingQueue`, case 0xD dispatches to
+/// `DisplayGfx::draw_tiled_bitmap` (vtable slot 11, 0x56B8C0):
+/// ```text
+/// RQ_ClipCoordinates(0, x_fixed16, y_fixed16, &out_x, &out_y, ...);
+/// vtable[slot 11](
+///     out_x >> 16 (or 0 if `flags & 1`),  // X in pixels
+///     out_y >> 16,                          // Y in pixels
+///     source_descriptor                     // sprite source struct *
+/// );
+/// ```
+///
+/// The slot 11 method itself runs three phases on each call: lazily allocate
+/// 0x400-row tile surfaces from `source_descriptor->total_height` (cached in
+/// `DisplayGfx + 0x3580`), populate them from the source, then clipped-blit
+/// the tiles to the display.
+///
+/// Field names below are corrected. Wire format is byte-identical to what
+/// the original `RQ_EnqueueTiledBitmap` writes.
 #[repr(C)]
-pub struct DrawPixelCmd {
-    pub command_type: u32, // 0xD
-    pub layer: u32,        // hardcoded 0x1B_0000
-    pub color: u32,        // hardcoded 0xFF00_0000
-    pub x_pos: u32,
-    pub y_pos: u32,
+pub struct DrawTiledBitmapCmd {
+    /// 0x00: Command type — always 0xD.
+    pub command_type: u32,
+    /// 0x04: Render layer — hardcoded 0x1B_0000 by the enqueue function.
+    pub layer: u32,
+    /// 0x08: Source X coordinate (Fixed16). Hardcoded 0xFF00_0000 (= -256.0)
+    /// — the tile sheet always renders from off-screen-left, with the
+    /// dispatcher's clipping pass producing the on-screen X.
+    pub x_fixed16: u32,
+    /// 0x0C: Source Y coordinate (Fixed16). Caller-supplied; goes through
+    /// `RQ_ClipCoordinates` and the high 16 bits become the destination Y.
+    pub y_fixed16: u32,
+    /// 0x10: Pointer to a sprite source descriptor — read by the slot 11
+    /// method as `p4` with fields at `+0x08` (bpp, 8 or 0x40), `+0x10`
+    /// (source row stride), `+0x14`, and `+0x18` (total source height).
+    pub source_descriptor: u32,
+    /// 0x14: Flag byte. Bit 0 forces the destination X to 0 (ignoring the
+    /// clipped result), used for "always start at left edge" rendering.
     pub flags: u8,
     pub _pad: [u8; 3],
 }
 
-const _: () = assert!(core::mem::size_of::<DrawPixelCmd>() == 0x18);
+const _: () = assert!(core::mem::size_of::<DrawTiledBitmapCmd>() == 0x18);
 
 /// Type 0xB — draw crosshair (0x1C = 28 bytes).
 ///
@@ -217,5 +252,7 @@ pub mod command_type {
     pub const DRAW_POLYGON: u32 = 9;
     pub const DRAW_CROSSHAIR: u32 = 0xB;
     pub const DRAW_OUTLINED_PIXEL: u32 = 0xC;
-    pub const DRAW_PIXEL: u32 = 0xD;
+    /// Tile-cached bitmap draw — dispatches to `DisplayGfx::draw_tiled_bitmap`
+    /// (vtable slot 11). Formerly mis-labelled `DRAW_PIXEL`.
+    pub const DRAW_TILED_BITMAP: u32 = 0xD;
 }
