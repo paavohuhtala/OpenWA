@@ -1353,144 +1353,6 @@ unsafe extern "cdecl" fn wa_font_set_palette(_font_obj: u32, _palette_value: u32
     );
 }
 
-/// Port of DisplayGfx::SetFontParam (vtable slot 10, 0x523710).
-///
-/// Validates font_id, then calls Font__SetParam (0x4fa720):
-/// usercall(ECX=p4, EDX=font_obj) + stack(p3, p5), RET 0x8.
-unsafe extern "thiscall" fn set_font_param(
-    this: *mut DisplayGfx,
-    font_id: i32,
-    p3: u32,
-    p4: u32,
-    p5: u32,
-) -> u32 {
-    if !(1..=31).contains(&font_id) {
-        return 0;
-    }
-    let font_obj = (*this).base.font_table[font_id as usize];
-    if font_obj == 0 {
-        return 0;
-    }
-    wa_font_set_param(font_obj, p3, p4, p5, rb(va::FONT_OBJ_SET_PARAM));
-    1
-}
-
-/// Bridge to Font__SetParam (0x4fa720).
-/// Usercall: ECX=p4, EDX=font_obj, stack(p3, p5), RET 0x8.
-#[unsafe(naked)]
-unsafe extern "cdecl" fn wa_font_set_param(
-    _font_obj: u32,
-    _p3: u32,
-    _p4: u32,
-    _p5: u32,
-    _target: u32,
-) {
-    core::arch::naked_asm!(
-        "mov edx, [esp+4]",        // font_obj → EDX
-        "mov ecx, [esp+12]",       // p4 → ECX
-        "mov eax, [esp+20]",       // target
-        "push dword ptr [esp+16]", // p5
-        "push dword ptr [esp+12]", // p3 (shifted +4 by push)
-        "call eax",                // RET 0x8 cleans 2 params
-        "ret",
-    );
-}
-
-/// Port of DisplayGfx::GetFontInfo (vtable slot 8, 0x523790).
-///
-/// Validates font_id, then calls Font__GetInfo (0x4fa7d0):
-/// usercall(EAX=font_obj, EDX=out_1, EDI=out_2), plain RET.
-unsafe extern "thiscall" fn get_font_info(
-    this: *mut DisplayGfx,
-    font_id: i32,
-    out_1: *mut u32,
-    out_2: *mut u32,
-) -> u32 {
-    if !(1..=31).contains(&font_id) {
-        return 0;
-    }
-    let font_obj = (*this).base.font_table[font_id as usize];
-    if font_obj == 0 {
-        return 0;
-    }
-    wa_font_get_info(font_obj, out_1, out_2, rb(va::FONT_OBJ_GET_INFO))
-}
-
-/// Bridge to Font__GetInfo (0x4fa7d0).
-/// Usercall: EAX=font_obj, EDX=out_2, EDI=out_1, no stack params, plain RET.
-///
-/// Register mapping verified from caller at 0x523790:
-///   EDX ← [ESP+0xC] = out_2 (3rd vtable param)
-///   EDI ← [ESP+0x8] after PUSH EDI = out_1 (2nd vtable param)
-#[unsafe(naked)]
-unsafe extern "cdecl" fn wa_font_get_info(
-    _font_obj: u32,
-    _out_1: *mut u32,
-    _out_2: *mut u32,
-    _target: u32,
-) -> u32 {
-    core::arch::naked_asm!(
-        "push edi",
-        "mov eax, [esp+8]",  // font_obj → EAX
-        "mov edx, [esp+16]", // out_2 → EDX
-        "mov edi, [esp+12]", // out_1 → EDI
-        "mov ecx, [esp+20]", // target
-        "call ecx",          // plain RET
-        "pop edi",
-        "ret",
-    );
-}
-
-/// Port of DisplayGfx::GetFontMetric (vtable slot 9, 0x523750).
-///
-/// Validates font_id, then calls Font__GetMetric (0x4fa780):
-/// usercall(AL=char_code, EDX=out_1, EDI=out_2) + stack(font_obj), RET 0x4.
-unsafe extern "thiscall" fn get_font_metric(
-    this: *mut DisplayGfx,
-    font_id: i32,
-    char_code: u32,
-    out_1: *mut u32,
-    out_2: *mut u32,
-) -> u32 {
-    if !(1..=31).contains(&font_id) {
-        return 0;
-    }
-    let font_obj = (*this).base.font_table[font_id as usize];
-    if font_obj == 0 {
-        return 0;
-    }
-    wa_font_get_metric(
-        font_obj,
-        char_code,
-        out_1,
-        out_2,
-        rb(va::FONT_OBJ_GET_METRIC),
-    )
-}
-
-/// Bridge to Font__GetMetric (0x4fa780).
-/// Usercall: AL=char_code, EDX=out_1, EDI=out_2, stack(font_obj), RET 0x4.
-#[unsafe(naked)]
-unsafe extern "cdecl" fn wa_font_get_metric(
-    _font_obj: u32,
-    _char_code: u32,
-    _out_1: *mut u32,
-    _out_2: *mut u32,
-    _target: u32,
-) -> u32 {
-    core::arch::naked_asm!(
-        "push edi",
-        "mov al, [esp+12]",       // char_code (byte) → AL
-        "mov edx, [esp+16]",      // out_1 → EDX
-        "mov edi, [esp+20]",      // out_2 → EDI
-        "mov ecx, [esp+24]",      // target
-        "push dword ptr [esp+8]", // font_obj → stack (shifted +4 by push edi)
-        "call ecx",               // RET 0x4 cleans 1 param
-        "pop edi",
-        "ret",
-    );
-}
-
 /// Port of DisplayGfx::DrawTextOnBitmap (vtable slot 7, 0x5236B0).
 ///
 /// Extracts font_id from low 16 bits, extra flags from high 16 bits.
@@ -1692,9 +1554,9 @@ fn install_display() -> Result<(), String> {
             set_active_layer    => display_vtable::set_active_layer,
             get_sprite_info     => display_vtable::get_sprite_info,
             draw_text_on_bitmap => draw_text_on_bitmap,
-            get_font_info       => get_font_info,
-            get_font_metric     => get_font_metric,
-            set_font_param      => set_font_param,
+            get_font_info       => display_vtable::get_font_info,
+            get_font_metric     => display_vtable::get_font_metric,
+            set_font_param      => display_vtable::set_font_param,
             draw_polyline       => display_vtable::draw_polyline,
             draw_line           => display_vtable::draw_line,
             draw_line_clipped   => display_vtable::draw_line_clipped,

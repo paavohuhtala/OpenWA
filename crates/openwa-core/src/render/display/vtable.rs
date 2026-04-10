@@ -2077,8 +2077,13 @@ pub struct FontObject {
     pub _height2: u16,
     /// 0x08: Pointer to glyph table (height entries of 12 bytes each).
     pub glyph_table: *mut GlyphEntry,
-    /// 0x0C: Pointer to end-of-palette position in the source buffer.
-    pub palette_end: *mut u8,
+    /// 0x0C: Pointer to a 256-byte char→glyph-index lookup table that lives
+    /// in the .fnt buffer immediately after the RGB palette triplets.
+    /// Each entry is a 1-based glyph index (or 0 if the codepoint has no
+    /// glyph) — `Font__GetMetric` / `Font__SetParam` use it to map a string
+    /// byte to its `glyph_table[index - 1]` entry. `font_extend` writes new
+    /// codepoints into this table.
+    pub char_to_glyph_idx: *mut u8,
     /// 0x10: Pointer to remapped pixel data in the source buffer.
     pub pixel_data: *mut u8,
     /// 0x14: Zeroed by `load_font`; purpose unknown.
@@ -2188,8 +2193,9 @@ pub unsafe fn font_parse_data(
         cursor = cursor.add(3);
     }
 
-    // palette_end = cursor after palette triplets.
-    (*font_obj).palette_end = cursor;
+    // char_to_glyph_idx points to the 256-byte char→glyph-index table that
+    // sits immediately after the RGB palette triplets in the .fnt buffer.
+    (*font_obj).char_to_glyph_idx = cursor;
 
     // Read max_width (i16) at cursor + 0x100 — the character-width table sits
     // between the palette and the header.
@@ -2392,7 +2398,7 @@ pub unsafe fn load_font(
 /// - allocates a single new buffer holding `[old + new glyph entries][new pixels]`
 /// - copies the old glyph entries verbatim into the front of the new buffer
 /// - writes per-codepoint indices into the font's char-width table (the bytes
-///   referenced by `font_obj.palette_end`)
+///   referenced by `font_obj.char_to_glyph_idx`)
 /// - reads the new pixel rows from disk via `_fread`
 /// - computes a tight bounding box per new glyph and writes it as a new entry
 /// - remaps every new pixel byte through the LUT
@@ -2478,16 +2484,15 @@ pub unsafe fn font_extend(
         core::ptr::copy_nonoverlapping(old_glyphs, alloc, (old_height * 12) as usize);
     }
 
-    // ── Update the per-codepoint char-width table ──
-    // For each new char in char_map, write `(old_height + idx + 1)` into
-    // char_widths[char_byte]. The base table lives at `font_obj.palette_end`
-    // (set by the original .fnt parser).
-    let char_widths = (*font_obj).palette_end;
+    // ── Update the per-codepoint char→glyph-index table ──
+    // For each new char in char_map, write the new (1-based) glyph index
+    // `(old_height + idx + 1)` into the table at `font_obj.char_to_glyph_idx`.
+    let char_to_glyph = (*font_obj).char_to_glyph_idx;
     let mut q = char_map;
     for i in 0..new_count {
         let ch = *q as usize;
         q = q.add(1);
-        *char_widths.add(ch) = (old_height + i + 1) as u8;
+        *char_to_glyph.add(ch) = (old_height + i + 1) as u8;
     }
 
     // ── Build 256-byte palette LUT by stepping R/G/B per `palette_value` ──
@@ -2694,5 +2699,201 @@ pub unsafe fn load_font_extension(
     let layer_ctx = base.layer_contexts[mode] as *mut PaletteContext;
 
     font_extend(font_obj, layer_ctx, path, char_map, resolved_rgb);
+    1
+}
+
+// =========================================================================
+// Font__GetInfo / Font__GetMetric / Font__SetParam ports
+// =========================================================================
+//
+// These three helpers (originally at 0x4FA7D0, 0x4FA780, 0x4FA720) are pure
+// reads against a `FontObject`. They were the last bridge calls remaining in
+// `DisplayGfx::{GetFontInfo,GetFontMetric,SetFontParam}` (vtable slots 8/9/10).
+
+/// Read a glyph's advance metric from the glyph table. Returns
+/// `glyph_table[idx_1based - 1].width as i32 + 1` (matching the original's
+/// `*(ushort*)(glyph_table - 8 + idx*0xC) + 1`).
+#[inline]
+unsafe fn glyph_advance_metric(font_obj: *const FontObject, idx_1based: u8) -> i32 {
+    let entry = (*font_obj).glyph_table.add(idx_1based as usize - 1);
+    (*entry).width as i32 + 1
+}
+
+/// Pure-Rust port of `Font__GetInfo` (0x4FA7D0).
+///
+/// Writes the font's max width to `*out_width` and the longest glyph
+/// advance metric (max of `width_div_5` and `glyph.width + 1` for every
+/// glyph) to `*out_max_metric`. Returns 1 unconditionally.
+///
+/// # Safety
+/// `font_obj` must be a valid `*const FontObject` with a glyph table of at
+/// least `font_obj.height` entries. The output pointers must be writable.
+pub unsafe fn font_get_info_impl(
+    font_obj: *const FontObject,
+    out_max_metric: *mut i32,
+    out_width: *mut i32,
+) -> u32 {
+    *out_width = (*font_obj).width as i16 as i32;
+    let mut max_metric = (*font_obj).width_div_5 as i16 as i32;
+    let height = (*font_obj).height as i32;
+    for i in 0..height {
+        let entry = (*font_obj).glyph_table.add(i as usize);
+        let candidate = (*entry).width as i32 + 1;
+        if max_metric < candidate {
+            max_metric = candidate;
+        }
+    }
+    *out_max_metric = max_metric;
+    1
+}
+
+/// Pure-Rust port of `Font__GetMetric` (0x4FA780).
+///
+/// Always writes the font's max width to `*out_width`. For space (`0x20`)
+/// and non-breaking space (`0xA0`), writes `width_div_5` to `*out_metric`
+/// and returns 1. Otherwise looks up the codepoint in `char_to_glyph_idx`;
+/// if the codepoint is unmapped (entry is 0) returns 0, else writes
+/// `glyph_table[idx-1].width + 1` to `*out_metric` and returns 1.
+///
+/// # Safety
+/// `font_obj` must be a valid `*const FontObject`. The output pointers must
+/// be writable.
+pub unsafe fn font_get_metric_impl(
+    font_obj: *const FontObject,
+    char_code: u8,
+    out_metric: *mut i32,
+    out_width: *mut i32,
+) -> u32 {
+    *out_width = (*font_obj).width as i16 as i32;
+    if char_code != 0x20 && char_code != 0xA0 {
+        let glyph_idx = *(*font_obj).char_to_glyph_idx.add(char_code as usize);
+        if glyph_idx == 0 {
+            return 0;
+        }
+        *out_metric = glyph_advance_metric(font_obj, glyph_idx);
+        return 1;
+    }
+    *out_metric = (*font_obj).width_div_5 as i16 as i32;
+    1
+}
+
+/// Pure-Rust port of `Font__SetParam` (0x4FA720).
+///
+/// Walks the null-terminated byte string `text`, accumulating each
+/// codepoint's advance metric (`width_div_5` for unmapped codepoints,
+/// `glyph.width + 1` for mapped ones) into `*out_total`. Always writes the
+/// font's max width to `*out_width`.
+///
+/// # Safety
+/// `font_obj` must be a valid `*const FontObject`. `text` must be a valid
+/// null-terminated byte string. Output pointers must be writable.
+pub unsafe fn font_set_param_impl(
+    font_obj: *const FontObject,
+    text: *const u8,
+    out_total: *mut i32,
+    out_width: *mut i32,
+) {
+    *out_width = (*font_obj).width as i16 as i32;
+    *out_total = 0;
+    let mut p = text;
+    loop {
+        let ch = *p;
+        if ch == 0 {
+            break;
+        }
+        let glyph_idx = *(*font_obj).char_to_glyph_idx.add(ch as usize);
+        let advance = if glyph_idx == 0 {
+            (*font_obj).width_div_5 as i16 as i32
+        } else {
+            glyph_advance_metric(font_obj, glyph_idx)
+        };
+        *out_total += advance;
+        p = p.add(1);
+    }
+}
+
+/// Port of `DisplayGfx::GetFontInfo` (vtable slot 8, 0x523790).
+///
+/// Validates `font_id` (must be in `1..=31` with a non-null entry in
+/// `font_table`), then dispatches to `font_get_info_impl`. The original
+/// passes `out_2` via `EDX` and `out_1` via `EDI`; this port preserves
+/// that mapping (`out_1` = max metric, `out_2` = font max width).
+///
+/// # Safety
+/// `this` must be a valid `*mut DisplayGfx`. The output pointers must be
+/// writable.
+pub unsafe extern "thiscall" fn get_font_info(
+    this: *mut DisplayGfx,
+    font_id: i32,
+    out_1: *mut u32,
+    out_2: *mut u32,
+) -> u32 {
+    if !(1..=31).contains(&font_id) {
+        return 0;
+    }
+    let font_obj = (*this).base.font_table[font_id as usize] as *const FontObject;
+    if font_obj.is_null() {
+        return 0;
+    }
+    font_get_info_impl(font_obj, out_1 as *mut i32, out_2 as *mut i32)
+}
+
+/// Port of `DisplayGfx::GetFontMetric` (vtable slot 9, 0x523750).
+///
+/// Validates `font_id`, then dispatches to `font_get_metric_impl`.
+/// `char_code` is truncated to 8 bits to match the original's `MOV AL, ...`
+/// register usage. The original passes `out_1` via `EDX` and `out_2` via
+/// `EDI`, so `out_1` receives the per-character metric and `out_2`
+/// receives the font's max width.
+///
+/// # Safety
+/// `this` must be a valid `*mut DisplayGfx`. The output pointers must be
+/// writable.
+pub unsafe extern "thiscall" fn get_font_metric(
+    this: *mut DisplayGfx,
+    font_id: i32,
+    char_code: u32,
+    out_1: *mut u32,
+    out_2: *mut u32,
+) -> u32 {
+    if !(1..=31).contains(&font_id) {
+        return 0;
+    }
+    let font_obj = (*this).base.font_table[font_id as usize] as *const FontObject;
+    if font_obj.is_null() {
+        return 0;
+    }
+    font_get_metric_impl(
+        font_obj,
+        char_code as u8,
+        out_1 as *mut i32,
+        out_2 as *mut i32,
+    )
+}
+
+/// Port of `DisplayGfx::SetFontParam` (vtable slot 10, 0x523710).
+///
+/// Validates `font_id`, then dispatches to `font_set_param_impl`. Per the
+/// original's register shuffle: `p3` is the input string, `p4` is the
+/// output total advance, and `p5` is the output font max width.
+///
+/// # Safety
+/// `this` must be a valid `*mut DisplayGfx`. `p3` must be a valid
+/// null-terminated byte string. `p4` and `p5` must be writable `*mut i32`.
+pub unsafe extern "thiscall" fn set_font_param(
+    this: *mut DisplayGfx,
+    font_id: i32,
+    p3: u32,
+    p4: u32,
+    p5: u32,
+) -> u32 {
+    if !(1..=31).contains(&font_id) {
+        return 0;
+    }
+    let font_obj = (*this).base.font_table[font_id as usize] as *const FontObject;
+    if font_obj.is_null() {
+        return 0;
+    }
+    font_set_param_impl(font_obj, p3 as *const u8, p4 as *mut i32, p5 as *mut i32);
     1
 }
