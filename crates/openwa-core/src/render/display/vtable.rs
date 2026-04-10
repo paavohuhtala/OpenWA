@@ -2119,8 +2119,14 @@ pub struct FontObject {
     pub pixel_data: *mut u8,
     /// 0x14: Zeroed by `load_font`; purpose unknown.
     pub _unknown_14: u32,
-    /// 0x18: Zeroed by `load_font`; purpose unknown.
-    pub _unknown_18: u32,
+    /// 0x18: When non-null, holds the address of an auxiliary allocation
+    /// owned by this font (a separate buffer of glyph entries + pixel data
+    /// pointed at by individual `GlyphEntry::pixel_offset` deltas). Zeroed
+    /// by `load_font`; written by `font_extend` (which appends new glyphs
+    /// from a `.fex` file) and `font_set_palette_impl` (which derives the
+    /// `.`/`;` glyphs for the digital font). The cleanup path frees this
+    /// when the FontObject is destroyed.
+    pub aux_alloc: u32,
 }
 
 const _: () = assert!(core::mem::size_of::<FontObject>() == 0x1C);
@@ -2434,7 +2440,7 @@ pub unsafe fn load_font(
 /// - computes a tight bounding box per new glyph and writes it as a new entry
 /// - remaps every new pixel byte through the LUT
 /// - swaps `font_obj.glyph_table` to the new buffer and bumps `font_obj.height`
-/// - records the allocation in `font_obj._unknown_18`
+/// - records the allocation in `font_obj.aux_alloc`
 ///
 /// The `pixel_offset` field in each new glyph entry stores
 /// `(absolute_pixel_addr - font_obj.pixel_data)` so the existing
@@ -2507,7 +2513,7 @@ pub unsafe fn font_extend(
     let new_pixels = alloc.add(glyph_entries_bytes as usize);
 
     // Record the allocation so font cleanup paths can free it.
-    (*font_obj)._unknown_18 = alloc as u32;
+    (*font_obj).aux_alloc = alloc as u32;
 
     // ── Copy existing glyph entries verbatim into the new buffer ──
     let old_glyphs = (*font_obj).glyph_table as *const u8;
@@ -2927,4 +2933,218 @@ pub unsafe extern "thiscall" fn set_font_param(
     }
     font_set_param_impl(font_obj, p3 as *const u8, p4 as *mut i32, p5 as *mut i32);
     1
+}
+
+/// Pure-Rust port of `Font__SetPalette` (0x4F9F20).
+///
+/// **The function name is misleading** — despite "SetPalette", this routine
+/// extends the font with two new derived glyphs rather than recoloring an
+/// existing palette. It is called once during `DDGame__LoadFonts` for the
+/// digital seven-segment font (`digiwht.fnt`, slot 28), which doesn't ship
+/// with `'.'` or `';'` glyphs and needs them generated at runtime.
+///
+/// What it does, in order:
+///
+/// 1. Look up the **`'-'`** (0x2D), **`'8'`** (0x38) and **`':'`** (0x3A)
+///    glyph indices via `char_to_glyph_idx`. If any is missing, return 0.
+/// 2. Sample the foreground-color palette indices of `'-'` and `'8'` by
+///    reading byte +5 within each glyph's pixel data. Save them as
+///    `minus_fg` and `eight_fg`.
+/// 3. Allocate a new buffer sized for `(old_height + 2)` glyph entries
+///    plus enough pixel area for **two** glyphs the size of `':'`.
+/// 4. Copy all existing glyph entries verbatim into the start of the
+///    buffer.
+/// 5. Add two new glyph entries:
+///    - `char_to_glyph_idx[0x2E]` (= `'.'`) → 1-based index `old_height + 1`
+///    - `char_to_glyph_idx[0x3B]` (= `';'`) → 1-based index `old_height + 2`
+///
+///    Both new entries copy `start_x`/`start_y`/`width`/`height` from the
+///    `':'` glyph. Their `pixel_offset` fields point at consecutive
+///    `colon_height * font_width`-byte regions inside the new buffer.
+/// 6. Initialize the **first** new glyph (`'.'`)'s pixel area:
+///    - `memset(area, palette_value as u8, colon_height * font_width / 2)`
+///      — fills approximately the top half with a uniform palette index.
+///    - For rows `colon_height/2 .. colon_height-1`, copy `colon.width`
+///      bytes per row from `':'`'s pixel data into the new buffer at
+///      `font_width`-strided rows.
+/// 7. Initialize the **second** new glyph (`';'`)'s pixel area: for every
+///    `(row, col)` in `(0..colon.height, 0..colon.width)`, copy the
+///    `':'` source pixel; if it equals `eight_fg`, replace it with
+///    `minus_fg` instead.
+/// 8. Update `font_obj.glyph_table` to point at the new buffer, store the
+///    new buffer in `aux_alloc` (so destructors can free it), and bump
+///    `font_obj.height` by 2.
+///
+/// The original uses `wa_malloc(round_up_to_4(total_size) + 0x20)` and
+/// zero-initializes the body up to `total_size` (the trailing 0x20 padding
+/// is left uninitialized).
+///
+/// # Safety
+/// `font_obj` must be a valid mutable `FontObject`. `palette_value`'s low
+/// byte is used as a single-byte memset filler. The original's
+/// allocate/copy/update sequence is preserved verbatim.
+pub unsafe fn font_set_palette_impl(font_obj: *mut FontObject, palette_value: u32) -> u32 {
+    use crate::wa_alloc::wa_malloc;
+
+    let char_to_glyph = (*font_obj).char_to_glyph_idx;
+    if char_to_glyph.is_null() {
+        return 0;
+    }
+
+    // Step 1: '-' (0x2D) glyph index.
+    let minus_idx = *char_to_glyph.add(0x2D);
+    if minus_idx == 0 {
+        return 0;
+    }
+
+    // Step 2a: read byte +5 of '-' glyph's pixel data.
+    let glyph_table = (*font_obj).glyph_table;
+    let pixel_data = (*font_obj).pixel_data;
+    let minus_glyph = glyph_table.add(minus_idx as usize - 1);
+    let minus_fg = *pixel_data.add((*minus_glyph).pixel_offset as usize + 5);
+
+    // Step 2b: '8' (0x38) glyph index + byte +5.
+    let eight_idx = *char_to_glyph.add(0x38);
+    if eight_idx == 0 {
+        return 0;
+    }
+    let eight_glyph = glyph_table.add(eight_idx as usize - 1);
+    let eight_fg = *pixel_data.add((*eight_glyph).pixel_offset as usize + 5);
+
+    // Step 1c: ':' (0x3A) — required for the template.
+    let colon_idx = *char_to_glyph.add(0x3A);
+    if colon_idx == 0 {
+        return 0;
+    }
+
+    let old_height = (*font_obj).height as i32; // signed via MOVSX in the original
+    let new_height = old_height + 2;
+    let font_width = (*font_obj).width as i16 as i32;
+
+    // Step 3: compute total size and allocate.
+    //   total_size = (colon.height * font_width + new_height * 6) * 2
+    //              = colon_height * font_width * 2  +  new_height * 12
+    //   alloc = round_up_to_dword(total_size) + 0x20
+    let colon_glyph = glyph_table.add(colon_idx as usize - 1);
+    let colon_height = (*colon_glyph).height as i32;
+    let colon_width = (*colon_glyph).width as i32;
+    let colon_pixel_offset = (*colon_glyph).pixel_offset as usize;
+
+    let total_size = (colon_height * font_width + new_height * 6) * 2;
+    let alloc_size = ((total_size as u32 + 3) & !3u32) + 0x20;
+    let new_buffer = wa_malloc(alloc_size);
+    if new_buffer.is_null() {
+        return 0;
+    }
+    // Zero-init the body (not the trailing 0x20 padding).
+    core::ptr::write_bytes(new_buffer, 0, total_size as usize);
+
+    // _Dst = new_buffer + new_height*12 = where pixel data starts in the new buffer.
+    let new_glyph_table = new_buffer as *mut GlyphEntry;
+    let new_pixel_area = new_buffer.add((new_height as usize) * 12);
+
+    // Save the allocation in aux_alloc so cleanup paths can free it
+    // (the original writes this *before* the copy loop).
+    (*font_obj).aux_alloc = new_buffer as u32;
+
+    // Step 4: copy existing glyph entries.
+    if old_height > 0 {
+        core::ptr::copy_nonoverlapping(
+            glyph_table as *const u8,
+            new_buffer,
+            (old_height as usize) * 12,
+        );
+    }
+
+    // Step 5: write new char_to_glyph_idx entries for '.' and ';'.
+    *char_to_glyph.add(0x2E) = (old_height as u8).wrapping_add(1);
+    *char_to_glyph.add(0x3B) = (old_height as u8).wrapping_add(2);
+
+    // Step 5b: first new glyph (= colon copy with adjusted pixel_offset).
+    //   pixel_offset = (_Dst - pixel_data)
+    let new_first = new_glyph_table.add(old_height as usize);
+    (*new_first).start_x = (*colon_glyph).start_x;
+    (*new_first).start_y = (*colon_glyph).start_y;
+    (*new_first).width = (*colon_glyph).width;
+    (*new_first).height = (*colon_glyph).height;
+    (*new_first).pixel_offset = (new_pixel_area as u32).wrapping_sub(pixel_data as u32);
+
+    // Step 5c: second new glyph (= duplicate of first new glyph, but its
+    // pixel_offset is bumped by colon_height * font_width so it points to
+    // the *next* chunk of new pixel data).
+    let new_second = new_first.add(1);
+    (*new_second).start_x = (*new_first).start_x;
+    (*new_second).start_y = (*new_first).start_y;
+    (*new_second).width = (*new_first).width;
+    (*new_second).height = (*new_first).height;
+    (*new_second).pixel_offset = (*new_first)
+        .pixel_offset
+        .wrapping_add((colon_height * font_width) as u32);
+
+    // Step 6a: memset top portion of FIRST new glyph with palette_value's
+    // low byte. Length = (colon_height * font_width) with sign-correct /2.
+    let memset_len = {
+        let v = colon_height.wrapping_mul(font_width);
+        // CDQ + SUB EAX,EDX + SAR EAX,1 = signed div by 2 with rounding toward zero
+        let v_signed = v;
+        let cdq = v_signed >> 31;
+        ((v_signed - cdq) >> 1) as usize
+    };
+    core::ptr::write_bytes(new_pixel_area, palette_value as u8, memset_len);
+
+    // Step 6b: copy bottom half rows of ':' into FIRST new glyph at
+    // font-width row stride.
+    let half = (colon_height as u32 >> 1) as i32;
+    if half < colon_height {
+        for row in half..colon_height {
+            let src = pixel_data.add(colon_pixel_offset + (row * colon_width) as usize);
+            let dst = new_pixel_area.add((row * font_width) as usize);
+            core::ptr::copy_nonoverlapping(src, dst, colon_width as usize);
+        }
+    }
+
+    // Step 7: pixel-by-pixel copy for SECOND new glyph with eight→minus
+    // foreground substitution. The destination is offset by
+    // colon_height * font_width within new_pixel_area.
+    if colon_height > 0 {
+        for row in 0..colon_height {
+            for col in 0..colon_width {
+                let src_addr =
+                    pixel_data.add(colon_pixel_offset + (row * colon_width + col) as usize);
+                let dst_addr =
+                    new_pixel_area.add(((colon_height + row) * font_width + col) as usize);
+                let src_byte = *src_addr;
+                if src_byte == eight_fg {
+                    *dst_addr = minus_fg;
+                } else {
+                    *dst_addr = src_byte;
+                }
+            }
+        }
+    }
+
+    // Step 8: update font_obj fields.
+    (*font_obj).glyph_table = new_glyph_table;
+    (*font_obj).height = new_height as u16;
+    1
+}
+
+/// Port of `DisplayGfx::SetFontPalette` (vtable slot 36, 0x523690).
+///
+/// Despite the name, this is the entry point for `font_set_palette_impl` —
+/// see that function's doc for what it actually does (it extends the
+/// digital font with derived `'.'` and `';'` glyphs). The wrapper is just
+/// a thin index lookup into `font_table`; the original has no bounds or
+/// null check on the index, so we mirror that.
+///
+/// # Safety
+/// `this` must be a valid `*mut DisplayGfx` and `font_index` must be a
+/// valid index into `font_table` whose entry is a non-null `FontObject`.
+pub unsafe extern "thiscall" fn set_font_palette(
+    this: *mut DisplayGfx,
+    font_index: u32,
+    palette_value: u32,
+) {
+    let font_obj = (*this).base.font_table[font_index as usize] as *mut FontObject;
+    let _ = font_set_palette_impl(font_obj, palette_value);
 }

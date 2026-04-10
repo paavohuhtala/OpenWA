@@ -261,7 +261,10 @@ pub mod va {
             /// Font object: get info — usercall(EAX=font_obj, EDX=out2, EDI=out1), plain RET.
             /// Ported as `display::vtable::font_get_info_impl`; address kept for registry.
             fn/Usercall FONT_OBJ_GET_INFO = 0x004F_A7D0;
-            /// Font object: set palette — usercall(ESI=font_obj) + 1 stack(palette_value), RET 0x4
+            /// Font object: "set palette" — usercall(ESI=font_obj) + 1 stack(palette_value), RET 0x4.
+            /// Misnamed in the original — actually extends `digiwht.fnt` with
+            /// derived `'.'` and `';'` glyphs at runtime. Ported as
+            /// `display::vtable::font_set_palette_impl`; address kept for registry.
             fn/Usercall FONT_OBJ_SET_PALETTE = 0x004F_9F20;
         }
 

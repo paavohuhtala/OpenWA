@@ -1296,39 +1296,10 @@ unsafe extern "thiscall" fn draw_scaled_sprite(
 // Font vtable method bridges and implementations
 // =========================================================================
 //
-// Font methods are thin wrappers: validate font_id (1..31), check font slot
-// is populated, then delegate to an internal usercall function on the font
-// object. The font object pointer is stored at DisplayBase+0x309C[font_id].
-
-/// Port of DisplayGfx::SetFontPalette (vtable slot 36, 0x523690).
-///
-/// Loads font object from font_table[font_count], then calls
-/// Font__SetPalette (0x4f9f20): usercall(ESI=font_obj) + stack(palette_value), RET 0x4.
-///
-/// The original has NO bounds check on font_count — it trusts the caller.
-unsafe extern "thiscall" fn set_font_palette(
-    this: *mut DisplayGfx,
-    font_count: u32,
-    palette_value: u32,
-) {
-    let font_obj = (*this).base.font_table[font_count as usize];
-    wa_font_set_palette(font_obj, palette_value, rb(va::FONT_OBJ_SET_PALETTE));
-}
-
-/// Bridge to Font__SetPalette (0x4f9f20).
-/// Usercall: ESI=font_obj, stack(palette_value), RET 0x4.
-#[unsafe(naked)]
-unsafe extern "cdecl" fn wa_font_set_palette(_font_obj: u32, _palette_value: u32, _target: u32) {
-    core::arch::naked_asm!(
-        "push esi",
-        "mov esi, [esp+8]",        // font_obj
-        "mov ecx, [esp+16]",       // target
-        "push dword ptr [esp+12]", // palette_value
-        "call ecx",                // RET 0x4 cleans 1 param
-        "pop esi",
-        "ret",
-    );
-}
+// Font slot wrappers (slots 7/8/9/10/34/35/36) all live in openwa-core's
+// `display::vtable` module. The wrappers below for slots 7/31/34/35/37 are
+// thin forwarders only because they need to capture a bridge function
+// pointer (`wa_load_sprite_from_vfs` etc.) at install time.
 
 /// Port of DisplayGfx::DrawTextOnBitmap (vtable slot 7, 0x5236B0).
 ///
@@ -1552,7 +1523,7 @@ fn install_display() -> Result<(), String> {
             draw_scaled_sprite  => draw_scaled_sprite,
             set_layer_visibility => display_vtable::set_layer_visibility,
             update_palette      => display_vtable::update_palette,
-            set_font_palette    => set_font_palette,
+            set_font_palette    => display_vtable::set_font_palette,
             slot 19 => blit_sprite,
             load_sprite_by_layer => load_sprite_by_layer,
             load_font            => load_font,
