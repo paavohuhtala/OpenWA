@@ -1710,6 +1710,12 @@ fn install_display() -> Result<(), String> {
             load_font_extension  => load_font_extension,
         })?;
         let _ = log_line("[Display]   DisplayGfx: patched 31 methods -> Rust");
+
+        // DisplayGfx::LoadSpriteEx (vtable slot 30) has zero callers in both
+        // WA.exe (no instructions reach vtable[+0x78] on a DisplayGfx) and our
+        // own Rust code (no `bind_DisplayVtable!` invocation, no direct call).
+        // Trap it so we'll be alerted the moment any future caller appears.
+        hook::install_trap!("DisplayGfx__LoadSpriteEx", va::DISPLAY_GFX_LOAD_SPRITE_EX);
     }
 
     Ok(())
