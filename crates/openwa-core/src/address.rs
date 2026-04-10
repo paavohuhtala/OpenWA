@@ -250,7 +250,10 @@ pub mod va {
         }
 
         class "Font" {
-            /// Font object: draw text — usercall(EAX=h_align, EDX=bitmap, ESI=font_obj) + 5 stack, RET 0x14
+            /// BitmapFont::DrawText — usercall(EAX=BitGrid* dst, EDX=out_width, ESI=FontObject*) +
+            /// 5 stack(pen_x, pen_y, msg, out_pen_x, font_id_high), RET 0x14.
+            /// Glyph rasterizer for in-game .fnt fonts (NOT the frontend MFC font system).
+            /// Ported as `display::vtable::font_draw_text_impl`; address kept for registry.
             fn/Usercall FONT_OBJ_DRAW_TEXT = 0x004F_A4E0;
             /// Font object: set param — usercall(ECX=p4, EDX=font_obj) + 2 stack(p3, p5), RET 0x8.
             /// Ported as `display::vtable::font_set_param_impl`; address kept for registry.

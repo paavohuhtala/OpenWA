@@ -63,19 +63,35 @@ pub struct DisplayVtable {
         out_flags: *mut u32,
         out_width: *mut u32,
     ) -> u32,
-    /// draw text onto a bitmap surface (0x5236B0, RET 0x1C)
+    /// draw bitmap text onto a `BitGrid` surface (0x5236B0, RET 0x1C).
     ///
-    /// font_id low 16 bits = font slot (1-based), high 16 bits = extra flags.
+    /// `font_id` low 16 bits = font slot (1-based, validated against
+    /// `font_table[1..=31]`); `font_id` high 16 bits = flags. Bit 1 of the
+    /// high half flips the rasterizer to right-aligned mode (draws the
+    /// string right-to-left starting from `pen_x` as the right anchor).
+    ///
+    /// `bitmap` is the destination `BitGrid` (caller passes a layer surface
+    /// or sprite-bitmap pointer). `pen_x`/`pen_y` are the top-left corner
+    /// of the text area (or right edge in right-aligned mode).
+    ///
+    /// `out_pen_x` receives the running advance after drawing (the X-pixel
+    /// distance covered by the rendered text). `out_width` always receives
+    /// the font's max-glyph-width unconditionally.
+    ///
+    /// Returns the count of characters successfully drawn (or the index of
+    /// the first character that didn't fit if truncated, or `-1` for the
+    /// right-aligned path completing the full string, or 0 on early
+    /// validation failure).
     #[slot(7)]
     pub draw_text_on_bitmap: fn(
         this: *mut DisplayGfx,
         font_id: i32,
-        bitmap: i32,
-        h_align: i32,
-        v_align: i32,
+        bitmap: *mut crate::bitgrid::BitGrid,
+        pen_x: i32,
+        pen_y: i32,
         msg: *const core::ffi::c_char,
-        a7: i32,
-        a8: i32,
+        out_pen_x: *mut i32,
+        out_width: *mut i32,
     ) -> i32,
     /// get font info for a font slot (0x523790, RET 0xC)
     ///
@@ -360,7 +376,7 @@ bind_DisplayVtable!(DisplayGfx, base.vtable);
 use super::base::DisplayBase;
 use super::gfx::DisplayGfx;
 use super::line_draw;
-use crate::bitgrid::DisplayBitGrid;
+use crate::bitgrid::{BitGrid, DisplayBitGrid};
 use crate::render::palette::PaletteContext;
 use crate::render::sprite::{Sprite, SpriteBank, SpriteVtable};
 
@@ -3147,4 +3163,255 @@ pub unsafe extern "thiscall" fn set_font_palette(
 ) {
     let font_obj = (*this).base.font_table[font_index as usize] as *mut FontObject;
     let _ = font_set_palette_impl(font_obj, palette_value);
+}
+
+/// Pure-Rust replacement for `FUN_004FA490` plus the 9 unrolled blit
+/// helpers at `0x4FA1E0..0x4FA470` (dispatch table at `0x6A9594`).
+///
+/// The original splits a glyph into chunks of `min(remaining_width, 8)`
+/// pixels and dispatches to a helper that copies that many bytes per row,
+/// stepping `dst_stride`/`src_stride` per row. **No transparency, no
+/// blending** — every byte (palette index) is copied verbatim. Verified
+/// against helpers 1 (1-byte/row) and 8 (8-byte/row).
+///
+/// Collapses the entire dispatch + 9 helpers into a single nested loop.
+///
+/// # Safety
+/// `dst` and `src` must be valid pointers to buffers of at least
+/// `(height-1)*stride + width` bytes (with their respective strides).
+/// `width` and `height` must be non-negative.
+#[inline]
+pub unsafe fn font_blit_glyph(
+    dst: *mut u8,
+    dst_stride: i32,
+    src: *const u8,
+    src_stride: i32,
+    width: i32,
+    height: i32,
+) {
+    for row in 0..height {
+        let dst_row = dst.offset((row * dst_stride) as isize);
+        let src_row = src.offset((row * src_stride) as isize);
+        core::ptr::copy_nonoverlapping(src_row, dst_row, width as usize);
+    }
+}
+
+/// Pure-Rust port of `Font__DrawText` (0x4FA4E0).
+///
+/// Walks `msg` and rasterizes each character into the destination
+/// `BitGrid`. Glyph rows are copied directly with no transparency: the
+/// destination byte is overwritten with the source byte even when the
+/// source byte is 0. (The font's "background" pixels carry whatever
+/// palette index the font baked into the .fnt file.)
+///
+/// **Calling convention details that match the original exactly:**
+///
+/// - The first thing the function does is `*out_width = font.width`
+///   unconditionally — including on the early validation-failure paths.
+/// - On success, returns the number of characters successfully drawn
+///   (forward) or `-1` (right-aligned, full string).
+/// - On truncation (next glyph wouldn't fit), returns the index of the
+///   first character that wasn't drawn.
+/// - On early validation failure (negative pen, doesn't fit vertically),
+///   returns 0 — but `*out_width` has already been written.
+/// - `out_pen_x` is initialised to 0 and updated as the running advance
+///   (how many pixels of horizontal space the text consumed).
+///
+/// **Glyph source row stride** is `glyph.width` for base-font glyphs but
+/// `font.width` for extension glyphs (those with index `>= font._height2`,
+/// added by `font_extend` or `font_set_palette_impl`). Extension glyphs
+/// live in a separate buffer with uniform `font.width`-byte rows; base
+/// glyphs are tightly packed in the main `.fnt` pixel data.
+///
+/// `font_id_high` is the *high 16 bits* of the slot 7 caller's `font_id`,
+/// sign-extended (the slot wrapper does `SAR EAX, 0x10`). Bit 1 selects
+/// right-aligned mode; other bits are ignored by the rasterizer.
+///
+/// # Safety
+/// `font_obj` must be a valid `*const FontObject`. `bitmap` must be a
+/// valid `*const BitGrid` whose `data`/`row_stride`/`width`/`height`
+/// describe a backing buffer large enough for the requested glyph rect.
+/// `msg` must be a valid null-terminated byte string. `out_pen_x` and
+/// `out_width` must be writable.
+pub unsafe fn font_draw_text_impl(
+    font_obj: *const FontObject,
+    bitmap: *const BitGrid,
+    pen_x: i32,
+    pen_y: i32,
+    msg: *const u8,
+    out_pen_x: *mut i32,
+    out_width: *mut i32,
+    font_id_high: i32,
+) -> i32 {
+    let font = &*font_obj;
+    let font_width = font.width as i16 as i32;
+
+    // Always write font width to out_width — even on validation failure.
+    *out_width = font_width;
+
+    let bm = &*bitmap;
+    let bitmap_width = bm.width as i32;
+    let bitmap_height = bm.height as i32;
+    let stride = bm.row_stride as i32;
+
+    // Validation: pen must be non-negative AND a glyph must fit vertically.
+    if pen_x < 0 || pen_y < 0 || font_width + pen_y > bitmap_height {
+        return 0;
+    }
+
+    // Pre-adjust the data pointer to the (pen_x, pen_y) origin so each
+    // glyph dst calculation only needs the per-glyph offset.
+    let data_origin = bm.data.offset((pen_y * stride + pen_x) as isize);
+
+    let height2 = font._height2 as i16 as i32;
+    let char_to_glyph = font.char_to_glyph_idx;
+    let glyph_table = font.glyph_table;
+    let pixel_data = font.pixel_data;
+    let width_div_5 = font.width_div_5 as i16 as i32;
+
+    *out_pen_x = 0;
+
+    if (font_id_high >> 1) & 1 != 0 {
+        // -----------------------------------------------------------------
+        // Right-aligned path: walk msg right-to-left, advance leftward.
+        // -----------------------------------------------------------------
+        let mut len: i32 = 0;
+        while *msg.offset(len as isize) != 0 {
+            len += 1;
+        }
+        let mut idx = len - 1;
+        if idx < 0 {
+            return idx; // -1 for empty string
+        }
+
+        loop {
+            let ch = *msg.offset(idx as isize) as usize;
+            let glyph_idx_1based = *char_to_glyph.add(ch);
+            if glyph_idx_1based == 0 {
+                // Unmapped char: just advance.
+                *out_pen_x += width_div_5;
+            } else {
+                let glyph_idx = glyph_idx_1based as i32 - 1;
+                let glyph = &*glyph_table.add(glyph_idx as usize);
+                let glyph_width = glyph.width as i32;
+                let glyph_height = glyph.height as i32;
+                let cur_advance = *out_pen_x;
+
+                // Right-align fit check: leftmost edge must be ≥ 0.
+                let leftmost = pen_x - cur_advance - glyph_width;
+                if leftmost < 0 {
+                    return idx;
+                }
+
+                let src_stride = if glyph_idx >= height2 {
+                    font_width
+                } else {
+                    glyph_width
+                };
+                let dst = data_origin
+                    .offset(((glyph.start_y as i32) * stride - glyph_width - cur_advance) as isize);
+                let src = pixel_data.add(glyph.pixel_offset as usize);
+                font_blit_glyph(dst, stride, src, src_stride, glyph_width, glyph_height);
+
+                *out_pen_x += glyph_width + 1;
+            }
+            idx -= 1;
+            if idx < 0 {
+                return idx; // -1 = full string drawn
+            }
+        }
+    } else {
+        // -----------------------------------------------------------------
+        // Forward path: walk msg left-to-right, advance rightward.
+        // -----------------------------------------------------------------
+        if *msg == 0 {
+            return 0;
+        }
+        let mut idx: i32 = 0;
+        loop {
+            let cur_advance = *out_pen_x;
+            // Outer fit check: stop if next char would start past the bitmap.
+            if cur_advance + pen_x >= bitmap_width {
+                return idx;
+            }
+
+            let ch = *msg.offset(idx as isize) as usize;
+            let glyph_idx_1based = *char_to_glyph.add(ch);
+            if glyph_idx_1based == 0 {
+                // Unmapped char: just advance.
+                *out_pen_x = cur_advance + width_div_5;
+            } else {
+                let glyph_idx = glyph_idx_1based as i32 - 1;
+                let glyph = &*glyph_table.add(glyph_idx as usize);
+                let glyph_width = glyph.width as i32;
+                let glyph_height = glyph.height as i32;
+
+                // Inner fit check: glyph must end before bitmap.width-2.
+                if glyph_width + cur_advance + pen_x + 2 > bitmap_width {
+                    return idx;
+                }
+
+                let src_stride = if glyph_idx >= height2 {
+                    font_width
+                } else {
+                    glyph_width
+                };
+                let dst =
+                    data_origin.offset(((glyph.start_y as i32) * stride + cur_advance) as isize);
+                let src = pixel_data.add(glyph.pixel_offset as usize);
+                font_blit_glyph(dst, stride, src, src_stride, glyph_width, glyph_height);
+
+                *out_pen_x += glyph_width + 1;
+            }
+            idx += 1;
+            if *msg.offset(idx as isize) == 0 {
+                return idx;
+            }
+        }
+    }
+}
+
+/// Port of `DisplayGfx::DrawTextOnBitmap` (vtable slot 7, 0x5236B0).
+///
+/// Splits `font_id` into `font_id_low` (1-based slot, validated against
+/// `1..=31`) and `font_id_high` (sign-extended flags). Looks up the
+/// `FontObject` from `font_table[font_id_low]`, dispatches to
+/// `font_draw_text_impl`. The original is sloppy about validation: if
+/// `font_id_low` is out of range OR the slot is null, it returns 0 WITHOUT
+/// writing `*out_width`. We mirror that exactly.
+///
+/// # Safety
+/// `this` must be a valid `*mut DisplayGfx`. `bitmap`, `msg`, `out_pen_x`,
+/// `out_width` must satisfy `font_draw_text_impl`'s contract on the
+/// success path.
+pub unsafe extern "thiscall" fn draw_text_on_bitmap(
+    this: *mut DisplayGfx,
+    font_id: i32,
+    bitmap: *mut BitGrid,
+    pen_x: i32,
+    pen_y: i32,
+    msg: *const core::ffi::c_char,
+    out_pen_x: *mut i32,
+    out_width: *mut i32,
+) -> i32 {
+    let font_id_low = (font_id as u32) & 0xFFFF;
+    if !(1..=31).contains(&font_id_low) {
+        return 0;
+    }
+    let font_obj = (*this).base.font_table[font_id_low as usize] as *const FontObject;
+    if font_obj.is_null() {
+        return 0;
+    }
+    // Sign-extend the high half (matches `SAR EAX, 0x10` in the wrapper).
+    let font_id_high = (font_id as i32) >> 16;
+    font_draw_text_impl(
+        font_obj,
+        bitmap as *const BitGrid,
+        pen_x,
+        pen_y,
+        msg as *const u8,
+        out_pen_x,
+        out_width,
+        font_id_high,
+    )
 }

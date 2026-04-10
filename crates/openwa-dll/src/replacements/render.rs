@@ -1293,90 +1293,14 @@ unsafe extern "thiscall" fn draw_scaled_sprite(
 }
 
 // =========================================================================
-// Font vtable method bridges and implementations
+// Font vtable method wrappers
 // =========================================================================
 //
 // Font slot wrappers (slots 7/8/9/10/34/35/36) all live in openwa-core's
-// `display::vtable` module. The wrappers below for slots 7/31/34/35/37 are
-// thin forwarders only because they need to capture a bridge function
-// pointer (`wa_load_sprite_from_vfs` etc.) at install time.
-
-/// Port of DisplayGfx::DrawTextOnBitmap (vtable slot 7, 0x5236B0).
-///
-/// Extracts font_id from low 16 bits, extra flags from high 16 bits.
-/// Validates font_id, then calls Font__DrawText (0x4fa4e0):
-/// usercall(EAX=bitmap, EDX=a8, ESI=font_obj) + stack(h_align, v_align, msg, a7, high_bits), RET 0x14.
-///
-/// Calling convention verified by tracing the wrapper at 0x5236B0:
-///   EAX receives bitmap (loaded last via [ESP+0x20] after 5 pushes)
-///   EDX receives a8 (loaded via [ESP+0x30] after 4 pushes)
-///   Stack params pushed: h_align, v_align, msg, a7, high_bits
-unsafe extern "thiscall" fn draw_text_on_bitmap(
-    this: *mut DisplayGfx,
-    font_id: i32,
-    bitmap: i32,
-    h_align: i32,
-    v_align: i32,
-    msg: *const core::ffi::c_char,
-    a7: i32,
-    a8: i32,
-) -> i32 {
-    let font_id_low = (font_id as u32) & 0xFFFF;
-    if !(1..=31).contains(&font_id_low) {
-        return 0;
-    }
-    let font_obj = (*this).base.font_table[font_id_low as usize];
-    if font_obj == 0 {
-        return 0;
-    }
-    let font_id_high = ((font_id as u32) >> 16) as i32;
-    wa_font_draw_text(
-        font_obj,
-        bitmap,
-        a8,
-        h_align,
-        v_align,
-        msg,
-        a7,
-        font_id_high,
-        rb(va::FONT_OBJ_DRAW_TEXT),
-    )
-}
-
-/// Bridge to Font__DrawText (0x4fa4e0).
-/// Usercall: EAX=bitmap, EDX=a8, ESI=font_obj, stack(h_align, v_align, msg, a7, high_bits), RET 0x14.
-#[unsafe(naked)]
-unsafe extern "cdecl" fn wa_font_draw_text(
-    _font_obj: u32,
-    _bitmap: i32,
-    _a8: i32,
-    _h_align: i32,
-    _v_align: i32,
-    _msg: *const core::ffi::c_char,
-    _a7: i32,
-    _high_bits: i32,
-    _target: u32,
-) -> i32 {
-    core::arch::naked_asm!(
-        "push esi",
-        // After push esi: +8=font_obj, +12=bitmap, +16=a8, +20=h_align,
-        //   +24=v_align, +28=msg, +32=a7, +36=high_bits, +40=target
-        "mov esi, [esp+8]",  // font_obj → ESI
-        "mov eax, [esp+12]", // bitmap → EAX
-        "mov edx, [esp+16]", // a8 → EDX
-        "mov ecx, [esp+40]", // target
-        // Push 5 stack params in reverse order. Each push shifts ESP by -4,
-        // and the next param is 4 bytes lower, so the offset stays constant.
-        "push dword ptr [esp+36]", // high_bits
-        "push dword ptr [esp+36]", // a7
-        "push dword ptr [esp+36]", // msg
-        "push dword ptr [esp+36]", // v_align
-        "push dword ptr [esp+36]", // h_align
-        "call ecx",                // RET 0x14 cleans 5 params
-        "pop esi",
-        "ret",
-    );
-}
+// `display::vtable` module. The wrappers in this file (slots 31/34/35/37
+// for sprite/font loading) are thin forwarders only because they need to
+// capture a bridge function pointer (`wa_load_sprite_from_vfs` etc.) at
+// install time.
 
 // =========================================================================
 // Sprite loading vtable method wrappers
@@ -1502,7 +1426,7 @@ fn install_display() -> Result<(), String> {
             set_layer_color     => display_vtable::set_layer_color,
             set_active_layer    => display_vtable::set_active_layer,
             get_sprite_info     => display_vtable::get_sprite_info,
-            draw_text_on_bitmap => draw_text_on_bitmap,
+            draw_text_on_bitmap => display_vtable::draw_text_on_bitmap,
             get_font_info       => display_vtable::get_font_info,
             get_font_metric     => display_vtable::get_font_metric,
             set_font_param      => display_vtable::set_font_param,
