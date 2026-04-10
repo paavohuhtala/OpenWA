@@ -228,13 +228,34 @@ pub struct RenderContextVtable {
         this: *mut RenderContext,
         result: *mut FastcallResult,
     ) -> *mut FastcallResult,
-    /// draw landscape — blit with clipping and optional color-key transparency (0x5A2790)
+    /// draw landscape — blit a `Surface` to the framebuffer with optional
+    /// color-key transparency (0x5A2790).
+    ///
+    /// 8 stack args (verified by RET 0x20 at 0x5a2cba):
+    ///   - `surface`: source `Surface*` (its vtable's slot 17 = lock-write,
+    ///     slot 18 = unlock are dispatched internally to read pixel data)
+    ///   - `dst_x`/`dst_y`: framebuffer destination top-left
+    ///   - `src_x`/`src_y`: rect origin within the surface to copy from
+    ///   - `width`/`height`: rect size
+    ///   - `flags`: bit 1 (`0x2`) = use color-key transparency (skip pixels
+    ///     equal to the surface's color-key); bit 0 (`0x1`) is set by the
+    ///     caller in `BlitBitmapClipped` and is reserved/ignored by the
+    ///     blit loop here.
+    ///
+    /// Used by `DisplayGfx::DrawTiledBitmap` (slot 11) and
+    /// `DisplayGfx::DrawTiledTerrain` (slot 22) via the `CBitmap` blit
+    /// helper at `FUN_00403c60`.
     #[slot(23)]
     pub draw_landscape: unsafe extern "fastcall" fn(
         this: *mut RenderContext,
         result: *mut FastcallResult,
         surface: *mut u8,
-        y_offset: i32,
+        dst_x: i32,
+        dst_y: i32,
+        src_x: i32,
+        src_y: i32,
+        width: i32,
+        height: i32,
         flags: u32,
     ) -> *mut FastcallResult,
     /// blit surface to framebuffer — optimized copy with stride alignment (0x5A2A40)
@@ -267,3 +288,68 @@ const _: () = assert!(core::mem::size_of::<RenderContext>() == 0x1C);
 // Use the `_raw` variants to avoid LLVM noalias miscompilation.
 // Callers must pass a `&mut FastcallResult` buffer (allocated on the stack).
 bind_RenderContextVtable!(RenderContext, vtable);
+
+// ---------------------------------------------------------------------------
+// Surface — DDraw/D3D/OpenGL surface object created by alloc_surface (slot 22)
+// ---------------------------------------------------------------------------
+
+/// Vtable for `Surface` objects allocated by `RenderContext::alloc_surface`
+/// (slot 22). This is the rendering-backend surface interface — different
+/// backends (CompatRenderer / OpenGLCPU / DDraw) implement different vtables
+/// at the same slot positions.
+///
+/// Slots typed here are the ones used by `DisplayGfx::DrawTiledBitmap`
+/// (slot 11) and `LoadSpriteByName` (which already uses raw transmutes).
+/// The remaining slots are unmapped — extend as needed.
+///
+/// All slots are `__fastcall(this, *FastcallResult, ...args)`. The
+/// `FastcallResult.value` field receives a non-zero failure code on
+/// `init_surface` failure (slot 11 retries with bpp=4 if bpp=8 fails).
+#[openwa_core::vtable(size = 8, class = "Surface")]
+pub struct SurfaceVtable {
+    /// lock surface for direct pixel access (slot 3).
+    ///
+    /// Writes the locked surface base pointer to `*out_data` and the row
+    /// stride (bytes between rows) to `*out_stride`.
+    #[slot(3)]
+    pub lock_surface: unsafe extern "fastcall" fn(
+        this: *mut Surface,
+        result: *mut FastcallResult,
+        out_data: *mut *mut u8,
+        out_stride: *mut i32,
+    ) -> *mut FastcallResult,
+    /// unlock surface after editing (slot 4).
+    ///
+    /// `addr` is the surface base pointer previously obtained from
+    /// `lock_surface`'s `out_data`.
+    #[slot(4)]
+    pub unlock_surface: unsafe extern "fastcall" fn(
+        this: *mut Surface,
+        result: *mut FastcallResult,
+        addr: *mut u8,
+    ) -> *mut FastcallResult,
+    /// init/recreate surface storage (slot 5).
+    ///
+    /// `(width, height, bpp)`. Returns 0 in `*result.value` on success;
+    /// non-zero on failure.
+    #[slot(5)]
+    pub init_surface: unsafe extern "fastcall" fn(
+        this: *mut Surface,
+        result: *mut FastcallResult,
+        width: i32,
+        height: i32,
+        bpp: i32,
+    ) -> *mut FastcallResult,
+}
+
+/// Backend-specific surface object created by
+/// `RenderContext::alloc_surface` (slot 22). Layout beyond the vtable
+/// pointer is opaque (varies by backend); we only access it through the
+/// `SurfaceVtable` slots.
+#[repr(C)]
+pub struct Surface {
+    /// 0x00: vtable pointer (one of several backend vtables)
+    pub vtable: *const SurfaceVtable,
+}
+
+bind_SurfaceVtable!(Surface, vtable);

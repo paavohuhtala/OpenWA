@@ -1427,6 +1427,7 @@ fn install_display() -> Result<(), String> {
             set_active_layer    => display_vtable::set_active_layer,
             get_sprite_info     => display_vtable::get_sprite_info,
             draw_text_on_bitmap => display_vtable::draw_text_on_bitmap,
+            draw_tiled_bitmap   => display_vtable::draw_tiled_bitmap,
             get_font_info       => display_vtable::get_font_info,
             get_font_metric     => display_vtable::get_font_metric,
             set_font_param      => display_vtable::set_font_param,
@@ -1453,7 +1454,7 @@ fn install_display() -> Result<(), String> {
             load_font            => load_font,
             load_font_extension  => load_font_extension,
         })?;
-        let _ = log_line("[Display]   DisplayGfx: patched 31 methods -> Rust");
+        let _ = log_line("[Display]   DisplayGfx: patched 32 methods -> Rust");
 
         // DisplayGfx::LoadSpriteEx (vtable slot 30) has zero callers in both
         // WA.exe (no instructions reach vtable[+0x78] on a DisplayGfx) and our

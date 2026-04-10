@@ -137,16 +137,15 @@ pub struct DisplayVtable {
     ///    visible tile × each `0x40`-wide destination column, calls
     ///    `DisplayGfx__BlitBitmapClipped`.
     ///
-    /// `source` is a sprite-source descriptor with at least these fields:
-    /// `+0x08` = bpp (8 or 0x40), `+0x10` = source row stride,
-    /// `+0x14` = (saved early, purpose unconfirmed), `+0x18` = total height.
+    /// `source` is a [`TiledBitmapSource`] descriptor — see that struct
+    /// for the field layout.
     ///
     /// **Reachable at runtime** via `RenderDrawingQueue` case 0xD, fed by
     /// `RQ_EnqueueTiledBitmap` (0x541D60). The only known producer is
-    /// `CTaskLand::RenderLandscape`. Currently bridged to the original WA
-    /// function — needs porting if/when slot 11 is replaced.
+    /// `CTaskLand::RenderLandscape`.
     #[slot(11)]
-    pub draw_tiled_bitmap: fn(this: *mut DisplayGfx, dest_x: u32, dest_y: i32, source: *mut u8),
+    pub draw_tiled_bitmap:
+        fn(this: *mut DisplayGfx, dest_x: i32, dest_y: i32, source: *const TiledBitmapSource),
     /// draw polyline with camera offset (0x56BCC0, RET 0xC)
     ///
     /// Transforms point array by camera offset, then draws connected line segments.
@@ -3414,4 +3413,530 @@ pub unsafe extern "thiscall" fn draw_text_on_bitmap(
         out_width,
         font_id_high,
     )
+}
+
+// =============================================================================
+// DrawTiledBitmap (slot 11) and its leaf primitives
+// =============================================================================
+
+use crate::render::display::context::Surface;
+use crate::render::sprite::sprite::CBitmap;
+use crate::wa_alloc::wa_malloc;
+
+/// Source descriptor passed to `DisplayGfx::DrawTiledBitmap` (slot 11) as
+/// the third stack arg. The slot reads four fields out of this struct;
+/// the rest of the layout is unknown.
+///
+/// Field offsets verified by tracing the disassembly of slot 11
+/// (`0x56b8c0`): the function reads `[ECX+0x14]` (bpp dispatch),
+/// `[ECX+0x18]` (total height), `[ECX+0x10]` (row stride), and
+/// `[ECX+0x08]` (source data base pointer).
+#[repr(C)]
+pub struct TiledBitmapSource {
+    /// 0x00..0x07: unknown header bytes
+    pub _unknown_00: [u8; 8],
+    /// 0x08: source pixel data base pointer. Used as the start of the
+    /// blit source; per-strip offset is `data + current_y * row_stride`.
+    pub data: *const u8,
+    /// 0x0C: unknown
+    pub _unknown_0c: u32,
+    /// 0x10: source row stride in bytes (passed as `src_stride` to the
+    /// `0x40`-bpp blit primitive; for the 8bpp path the inner loop ignores
+    /// it and advances 8 bytes per row internally).
+    pub row_stride: i32,
+    /// 0x14: bpp dispatch value. `8` selects the 8-byte-pattern replicator
+    /// ([`blit_64byte_row_pattern`]); `0x40` selects the transparent CLUT
+    /// blit ([`blit_color_table_forward`]); any other value skips the blit.
+    pub bpp: u32,
+    /// 0x18: total source height in rows. The cache is allocated as
+    /// `ceil(source_height / 0x400)` strips of `min(remaining, 0x400)` rows.
+    pub source_height: i32,
+}
+
+const _: () = assert!(core::mem::offset_of!(TiledBitmapSource, data) == 0x08);
+const _: () = assert!(core::mem::offset_of!(TiledBitmapSource, row_stride) == 0x10);
+const _: () = assert!(core::mem::offset_of!(TiledBitmapSource, bpp) == 0x14);
+const _: () = assert!(core::mem::offset_of!(TiledBitmapSource, source_height) == 0x18);
+
+/// Pure-Rust port of `FUN_005B2A5E` (the 8bpp 64-byte row replicator).
+///
+/// For each of `row_count` rows, reads 8 bytes from `src` and writes them
+/// 8 times consecutively to `dst` (filling 64 bytes per row), then advances
+/// `dst` by `dst_stride` and `src` by exactly 8 bytes (regardless of any
+/// caller-side row stride). The original is hand-unrolled in asm with 16
+/// dword writes per row; the port collapses to one inner loop.
+///
+/// Used by `DisplayGfx::DrawTiledBitmap` (slot 11) for the 8bpp tile
+/// populate phase. Has only that single caller (verified via
+/// `get_xrefs_to FUN_005B2A5E`).
+///
+/// # Safety
+/// `dst` must point to a buffer with at least `(row_count - 1) * dst_stride
+/// + 64` bytes; `src` must point to a buffer with at least `row_count * 8`
+/// bytes. `row_count` must be positive (the original loops at least once
+/// before checking; we mirror that with `>= 1`).
+unsafe fn blit_64byte_row_pattern(
+    mut dst: *mut u8,
+    dst_stride: i32,
+    mut src: *const u8,
+    row_count: i32,
+) {
+    let mut remaining = row_count;
+    while remaining > 0 {
+        // Read 8 source bytes (one row's pattern).
+        let pattern_lo = (src as *const u32).read_unaligned();
+        let pattern_hi = (src.add(4) as *const u32).read_unaligned();
+
+        // Write 16 dwords = 64 bytes by replicating (lo, hi) 8 times.
+        let dst_dw = dst as *mut u32;
+        let mut i = 0;
+        while i < 8 {
+            dst_dw.add(i * 2).write_unaligned(pattern_lo);
+            dst_dw.add(i * 2 + 1).write_unaligned(pattern_hi);
+            i += 1;
+        }
+
+        src = src.add(8);
+        dst = dst.offset(dst_stride as isize);
+        remaining -= 1;
+    }
+}
+
+/// Pure-Rust port of `BlitColorTable_Forward` (`0x5B2B5D`).
+///
+/// Transparent byte-level blit: for each pixel in a `width × height` rect,
+/// if the source byte is non-zero, write it to the destination; otherwise
+/// leave the destination unchanged. Walks rows with independent
+/// `dst_stride`/`src_stride`.
+///
+/// Used by `DisplayGfx::DrawTiledBitmap` (slot 11) for the `0x40`-bpp tile
+/// populate phase. The other listed caller in WA — `BitGrid::BlitSpriteRect`
+/// at `0x4F6C93` — is already replaced by our pure-Rust `blit_sprite_rect`
+/// in `sprite_blit.rs`, so this primitive is exclusively reachable through
+/// slot 11 in our build.
+///
+/// # Safety
+/// `dst`/`src` must point to buffers large enough for the requested rect
+/// at the given strides. `width` and `height` must be positive (the
+/// original loops once before checking, mirrored here).
+unsafe fn blit_color_table_forward(
+    mut dst: *mut u8,
+    dst_stride: i32,
+    mut src: *const u8,
+    src_stride: i32,
+    width: i32,
+    height: i32,
+) {
+    let mut rows_left = height;
+    while rows_left > 0 {
+        let mut col = 0;
+        while col < width as isize {
+            let s = *src.offset(col);
+            if s != 0 {
+                *dst.offset(col) = s;
+            }
+            col += 1;
+        }
+        dst = dst.offset(dst_stride as isize);
+        src = src.offset(src_stride as isize);
+        rows_left -= 1;
+    }
+}
+
+/// Pure-Rust port of `FUN_00403c60` — the `CBitmap` blit-via-wrapper helper.
+///
+/// Lazily allocates the backing surface for `cbm` via the render context's
+/// `alloc_surface` (slot 22) the first time it is called for this
+/// `CBitmap`, then dispatches the blit through `draw_landscape` (slot 23).
+///
+/// `alloc_surface` returns the surface pointer in EAX (the binding's return
+/// value), NOT via the `FastcallResult` buffer — see
+/// `feedback_alloc_surface_return.md`.
+///
+/// # Safety
+/// `cbm` must be a valid `*mut CBitmap`. `g_RenderContext` must be
+/// initialized.
+unsafe fn cbitmap_blit_via_wrapper(
+    cbm: *mut CBitmap,
+    dst_x: i32,
+    dst_y: i32,
+    src_x: i32,
+    src_y: i32,
+    width: i32,
+    height: i32,
+    flags: u32,
+) {
+    let wrapper = *(rb(va::G_RENDER_CONTEXT) as *const *mut RenderContext);
+
+    // Lazy alloc: if the cbm has no surface yet, ask the wrapper for one.
+    if (*cbm).surface.is_null() {
+        let mut buf = FastcallResult::default();
+        let ret = RenderContext::alloc_surface_raw(wrapper, &mut buf);
+        // alloc_surface returns the surface pointer in EAX (the bound
+        // wrapper's return value).
+        (*cbm).surface = ret as *mut Surface;
+    }
+
+    let mut buf = FastcallResult::default();
+    RenderContext::draw_landscape_raw(
+        wrapper,
+        &mut buf,
+        (*cbm).surface as *mut u8,
+        dst_x,
+        dst_y,
+        src_x,
+        src_y,
+        width,
+        height,
+        flags,
+    );
+}
+
+/// Pure-Rust port of `DisplayGfx::BlitBitmapClipped` (`0x56A700`).
+///
+/// Computes the clipped intersection of `(dst_x, dst_y, width, height)`
+/// against the `DisplayBase` clip rect (`0x3550..0x355C`), flushes the
+/// render lock if held, and dispatches the actual blit through
+/// `cbitmap_blit_via_wrapper`.
+///
+/// The original WA function still exists and is called by other slots
+/// (`DrawTiledTerrain`, `BlitBitmapTiled_Maybe`); we don't replace it
+/// in-place. This Rust version is only used by our ported slot 11.
+/// (The earlier `blit_bitmap_clipped` in this file is the asm bridge to
+/// the original WA function used by slot 22 — kept until it has a typed
+/// caller to validate against.)
+///
+/// # Safety
+/// `this` must be a valid `*mut DisplayGfx`. `surface` must be a valid
+/// `*mut CBitmap`. `g_RenderContext` must be initialized.
+unsafe fn blit_bitmap_clipped_native(
+    this: *mut DisplayGfx,
+    dst_x: i32,
+    dst_y: i32,
+    width: i32,
+    height: i32,
+    surface: *mut CBitmap,
+    flags: u32,
+) {
+    let base = &(*this).base;
+    let cx1 = base.clip_x1;
+    let cy1 = base.clip_y1;
+    let cx2 = base.clip_x2;
+    let cy2 = base.clip_y2;
+
+    let dst_x2 = dst_x + width;
+    let dst_y2 = dst_y + height;
+
+    // Trivial reject — entirely outside the clip rect.
+    if dst_x >= cx2 || dst_x2 <= cx1 || dst_y >= cy2 || dst_y2 <= cy1 {
+        return;
+    }
+
+    let new_left = cx1.max(dst_x);
+    let new_right = cx2.min(dst_x2);
+    let new_top = cy1.max(dst_y);
+    let new_bottom = cy2.min(dst_y2);
+
+    // Degenerate (zero-width or zero-height clipped rect) — original
+    // checks `local_28 != iVar2 && local_24 != iVar1`. Mirror exactly.
+    if new_left == new_right || new_top == new_bottom {
+        return;
+    }
+
+    flush_render_lock(this);
+
+    cbitmap_blit_via_wrapper(
+        surface,
+        new_left,
+        new_top,
+        new_left - dst_x,
+        new_top - dst_y,
+        new_right - new_left,
+        new_bottom - new_top,
+        flags | 1,
+    );
+}
+
+/// Pure-Rust port of `DisplayGfx::DrawTiledBitmap` (vtable slot 11,
+/// `0x56B8C0`).
+///
+/// Three-phase tile-cached landscape blit. See the docstring on
+/// [`DisplayVtable::draw_tiled_bitmap`] for the high-level semantics.
+///
+/// **Tile-cache vector pre-reservation.** The original allocates and
+/// `vector::push_back`s each strip's `CBitmap*` into `bitmap_vec`
+/// (`+0x3580`) one at a time, growing the vector as needed. We sidestep
+/// porting `std::vector::push_back` (`FUN_00402e90`) by computing the
+/// final entry count up front (`ceil(source_height / 0x400)`), allocating
+/// the entire backing buffer in one shot, then writing entries directly
+/// and bumping `bitmap_end`. This changes WA's heap allocation pattern
+/// slightly (one bigger allocation vs many growing reallocs) but is
+/// behaviorally equivalent: each `DisplayGfx` only ever populates the
+/// vector once.
+///
+/// # Safety
+/// `this` must be a valid `*mut DisplayGfx`. `source` must be a valid
+/// `*const TiledBitmapSource` whose fields describe the source landscape
+/// data. `g_RenderContext` must be initialized.
+pub unsafe fn draw_tiled_bitmap_impl(
+    this: *mut DisplayGfx,
+    dest_x: i32,
+    dest_y: i32,
+    source: *const TiledBitmapSource,
+) {
+    let total_height = (*source).source_height;
+    let row_stride = (*source).row_stride;
+    let bpp = (*source).bpp;
+    let source_data = (*source).data;
+
+    // -------------------------------------------------------------------
+    // Phase 1 — Allocate (only if bitmap_vec is empty)
+    // -------------------------------------------------------------------
+    let vec_empty = (*this).bitmap_ptr.is_null()
+        || ((*this).bitmap_end as usize - (*this).bitmap_ptr as usize) >> 2 == 0;
+
+    if vec_empty {
+        if total_height > 0 {
+            // Pre-reserve the entire bitmap_vec in one allocation. The
+            // original grows the vector incrementally; we don't.
+            let max_tiles = ((total_height + 0x3FF) >> 10) as usize;
+            let vec_buf = wa_malloc((max_tiles * core::mem::size_of::<*mut CBitmap>()) as u32)
+                as *mut *mut CBitmap;
+            if vec_buf.is_null() {
+                return;
+            }
+            (*this).bitmap_ptr = vec_buf;
+            (*this).bitmap_end = vec_buf;
+            (*this).bitmap_capacity = vec_buf.add(max_tiles);
+
+            let cbitmap_vt = rb(va::CBITMAP_VTABLE_MAYBE) as *const core::ffi::c_void;
+            let wrapper = *(rb(va::G_RENDER_CONTEXT) as *const *mut RenderContext);
+
+            let mut accum = 0i32;
+            let mut remaining = total_height;
+            while accum < total_height {
+                // Allocate one CBitmap entry.
+                let cbm = wa_malloc(core::mem::size_of::<CBitmap>() as u32) as *mut CBitmap;
+                if !cbm.is_null() {
+                    (*cbm).vtable = cbitmap_vt;
+                    (*cbm).surface = core::ptr::null_mut();
+                    (*cbm)._pad = 0;
+                }
+                // The original assumes the malloc succeeded for the rest
+                // of the loop body (no null check on `puVar6`). Mirror
+                // that exactly.
+
+                let strip_h = remaining.min(0x400);
+
+                // Lazy-alloc the surface (matches the original's
+                // double-checked alloc_surface inside the strip loop).
+                if (*cbm).surface.is_null() {
+                    let mut buf = FastcallResult::default();
+                    let s = RenderContext::alloc_surface_raw(wrapper, &mut buf);
+                    (*cbm).surface = s as *mut Surface;
+                }
+
+                // Init at 0x40 × strip_h × 8bpp.
+                let mut init_buf = FastcallResult::default();
+                Surface::init_surface_raw((*cbm).surface, &mut init_buf, 0x40, strip_h, 8);
+
+                // On failure, retry with bpp=4. The original re-allocates
+                // the surface first (still null-checks), then retries.
+                if init_buf.value != 0 {
+                    if (*cbm).surface.is_null() {
+                        let mut buf = FastcallResult::default();
+                        let s = RenderContext::alloc_surface_raw(wrapper, &mut buf);
+                        (*cbm).surface = s as *mut Surface;
+                    }
+                    let mut init_buf2 = FastcallResult::default();
+                    Surface::init_surface_raw((*cbm).surface, &mut init_buf2, 0x40, strip_h, 4);
+                    if init_buf2.value != 0 {
+                        // Both inits failed — bail (matches the original's
+                        // `JNZ 0056bcb4` to the function epilogue).
+                        return;
+                    }
+                }
+
+                // push_back: write the entry and bump end (capacity is
+                // pre-reserved; this never reallocates).
+                *(*this).bitmap_end = cbm;
+                (*this).bitmap_end = (*this).bitmap_end.add(1);
+
+                accum += 0x400;
+                remaining -= 0x400;
+            }
+        }
+        (*this).tile_cache_populated = 0;
+    }
+
+    // -------------------------------------------------------------------
+    // Phase 2 — Populate (only if tile_cache_populated == 0)
+    // -------------------------------------------------------------------
+    if (*this).tile_cache_populated == 0 {
+        let mut tile_idx: usize = 0;
+        let mut current_y: i32 = 0;
+        loop {
+            let vec_size = if (*this).bitmap_ptr.is_null() {
+                0
+            } else {
+                ((*this).bitmap_end as usize - (*this).bitmap_ptr as usize) >> 2
+            };
+            if tile_idx >= vec_size {
+                break;
+            }
+
+            let strip_end = total_height.min(current_y + 0x400);
+            let strip_h = strip_end - current_y;
+
+            let cbm = *(*this).bitmap_ptr.add(tile_idx);
+
+            // Lazy-alloc surface (paranoid: should already be non-null
+            // from phase 1, but the original repeats the check).
+            if (*cbm).surface.is_null() {
+                let wrapper = *(rb(va::G_RENDER_CONTEXT) as *const *mut RenderContext);
+                let mut buf = FastcallResult::default();
+                let s = RenderContext::alloc_surface_raw(wrapper, &mut buf);
+                (*cbm).surface = s as *mut Surface;
+            }
+
+            // Lock the surface (slot 3): writes data ptr to `surf_data`
+            // and stride to `surf_stride`.
+            let mut surf_data: *mut u8 = core::ptr::null_mut();
+            let mut surf_stride: i32 = 0;
+            {
+                let mut buf = FastcallResult::default();
+                Surface::lock_surface_raw(
+                    (*cbm).surface,
+                    &mut buf,
+                    &mut surf_data,
+                    &mut surf_stride,
+                );
+            }
+
+            // Compute the source row pointer for this strip.
+            let src_row = source_data.offset((current_y as isize) * (row_stride as isize));
+
+            if bpp == 8 {
+                blit_64byte_row_pattern(surf_data, surf_stride, src_row, strip_h);
+            } else if bpp == 0x40 {
+                blit_color_table_forward(
+                    surf_data,
+                    surf_stride,
+                    src_row,
+                    row_stride,
+                    0x40,
+                    strip_h,
+                );
+            }
+            // (other bpp: no blit, just unlock — matches original)
+
+            // Unlock the surface (slot 4) with the locked data ptr.
+            {
+                let mut buf = FastcallResult::default();
+                Surface::unlock_surface_raw((*cbm).surface, &mut buf, surf_data);
+            }
+
+            tile_idx += 1;
+            current_y += 0x400;
+        }
+        (*this).tile_cache_populated = 1;
+    }
+
+    // -------------------------------------------------------------------
+    // Phase 3 — Display
+    // -------------------------------------------------------------------
+    // dest_x: snap to a 0x40 grid by computing (dest_x mod 0x40) - 0x40
+    // (with the mod result in [-0x3f, 0x3f] using sign-preserving
+    // rounding). The result is the X offset of the FIRST visible tile
+    // column relative to the screen origin: in the range [-0x3f, 0],
+    // such that stepping by 0x40 produces tile-aligned column positions
+    // that cover the visible area.
+    let col_x: i32 = {
+        // Reproduce the original's signed mod 0x40:
+        //   AND EAX, 0x8000003f      ; preserve sign bit + low 6 bits
+        //   if negative: DEC, OR 0xffffffc0, INC   (sign-extend)
+        let dest_x_u = dest_x as u32;
+        let masked = dest_x_u & 0x8000_003f;
+        let mut v = if (masked as i32) < 0 {
+            // sign-preserve
+            (((masked.wrapping_sub(1)) | 0xffff_ffc0).wrapping_add(1)) as i32
+        } else {
+            masked as i32
+        };
+        // If v > 0, subtract 0x40.
+        if v > 0 {
+            v -= 0x40;
+        }
+        v
+    };
+
+    // Y-tile range: compute first/last visible tile index from
+    //   (camera_y + dest_y) and (camera_y + dest_y - display_height)
+    // using the same signed `(v + ((v >> 31) & 0x3FF)) >> 10` rounding
+    // idiom that the original applies (round toward zero).
+    let camera_y = (*this).camera_y;
+    let neg = -(camera_y + dest_y);
+    let display_height = (*this).base.display_height as i32;
+    let first_v = neg + 0x20000;
+    let last_v = display_height + neg + 0x20000;
+
+    let mut y_first = (((first_v + ((first_v >> 31) & 0x3FF)) >> 10) - 0x80) as i32;
+    let mut y_last = (((last_v + ((last_v >> 31) & 0x3FF)) >> 10) - 0x80) as i32;
+
+    // Clamp y_first to >= 0 (matches the SETLE/SUB/AND idiom).
+    if y_first < 0 {
+        y_first = 0;
+    }
+
+    let vec_size = if (*this).bitmap_ptr.is_null() {
+        0i32
+    } else {
+        (((*this).bitmap_end as usize - (*this).bitmap_ptr as usize) >> 2) as i32
+    };
+    let max_idx = vec_size - 1;
+    if max_idx <= y_last {
+        y_last = vec_size - 1;
+    }
+
+    if y_first > y_last {
+        return;
+    }
+
+    let display_width = (*this).base.display_width as i32;
+    let mut tile_idx_y = y_first;
+    let mut current_strip_y = y_first << 10; // y_first * 0x400
+
+    while tile_idx_y <= y_last {
+        let strip_end = total_height.min(current_strip_y + 0x400);
+        let strip_h = strip_end - current_strip_y;
+
+        // Skip the column loop if the start column is already off-screen.
+        if col_x < display_width {
+            let cbm = *(*this).bitmap_ptr.add(tile_idx_y as usize);
+            let dst_y = camera_y + current_strip_y + dest_y;
+            let mut x = col_x;
+            while x < display_width {
+                blit_bitmap_clipped_native(this, x, dst_y, 0x40, strip_h, cbm, 0);
+                x += 0x40;
+            }
+        }
+
+        tile_idx_y += 1;
+        current_strip_y += 0x400;
+    }
+}
+
+/// Thiscall entry point for `DisplayGfx::DrawTiledBitmap` (vtable slot 11).
+/// Matches the original's signature: `(this, dest_x, dest_y, source)` with
+/// `RET 0xC` (3 stack args, callee-cleaned).
+///
+/// # Safety
+/// See [`draw_tiled_bitmap_impl`].
+pub unsafe extern "thiscall" fn draw_tiled_bitmap(
+    this: *mut DisplayGfx,
+    dest_x: i32,
+    dest_y: i32,
+    source: *const TiledBitmapSource,
+) {
+    draw_tiled_bitmap_impl(this, dest_x, dest_y, source);
 }

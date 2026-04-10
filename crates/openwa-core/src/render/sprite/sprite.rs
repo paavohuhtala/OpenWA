@@ -212,12 +212,42 @@ pub struct LayerSprite {
 
 const _: () = assert!(core::mem::size_of::<LayerSprite>() == 0x70);
 
+/// Standalone `CBitmap` cache entry — 12 bytes, vtable `0x643F64`.
+///
+/// Allocated by `DisplayGfx::DrawTiledBitmap` (slot 11) as the per-strip
+/// cached tile bitmap entry stored in `DisplayGfx.bitmap_vec`. Not the
+/// same struct as [`LayerSpriteFrame`] (which is 0x14 bytes and uses the
+/// same vtable but with a leading 8-byte bounding box) — but the trailing
+/// (vtable, surface, pad) triple matches.
+///
+/// The vtable pointer is `0x643F64` (constructor at 0x573C30 sets it).
+/// The `surface` field is lazily allocated via `RenderContext::alloc_surface`
+/// the first time the bitmap is blitted.
+#[repr(C)]
+pub struct CBitmap {
+    /// 0x00: Vtable pointer (= `0x643F64`).
+    pub vtable: *const core::ffi::c_void,
+    /// 0x04: Backend surface object pointer. Lazily allocated by
+    /// `cbitmap_blit_via_wrapper` (`FUN_00403c60`); zero until the first
+    /// `BlitBitmapClipped` call for this bitmap.
+    pub surface: *mut crate::render::display::context::Surface,
+    /// 0x08: Padding/reserved (zeroed by constructor).
+    pub _pad: u32,
+}
+
+const _: () = assert!(core::mem::size_of::<CBitmap>() == 0xC);
+
 /// Per-frame surface element for LayerSprite (0x14 bytes).
 ///
 /// Holds bounding box coordinates and a DirectDraw surface pointer.
 /// Allocated in counted arrays: `malloc(count * 0x14 + 4)`, count at `[-4]`.
 ///
-/// Ghidra name: `CBitmap` (unrelated to `BitGrid`/`DisplayBitGrid`).
+/// Ghidra name: `CBitmap` (unrelated to `BitGrid`/`DisplayBitGrid`). The
+/// trailing 12 bytes (vtable + surface + pad) are isomorphic to
+/// [`CBitmap`] above and share the same vtable `0x643F64`, but the
+/// container has an 8-byte bounding-box prefix that the standalone form
+/// does not.
+///
 /// Constructor: 0x573C30 (sets vtable, zeroes surface).
 /// Destructor: 0x5732E0 (releases surface via `surface->vtable[0](1)`).
 #[repr(C)]
@@ -241,6 +271,12 @@ pub struct LayerSpriteFrame {
 const _: () = assert!(core::mem::size_of::<LayerSpriteFrame>() == 0x14);
 
 crate::define_addresses! {
+    class "CBitmap" {
+        /// Vtable shared by [`CBitmap`] (12 bytes) and [`LayerSpriteFrame`]
+        /// (0x14 bytes). Set by the CBitmap constructor at 0x573C30.
+        vtable CBITMAP_VTABLE_MAYBE = 0x0064_3F64;
+    }
+
     class "Sprite" {
         /// ConstructSprite — usercall EAX=sprite_ptr, ECX=context_ptr
         ctor/Usercall CONSTRUCT_SPRITE = 0x004F_AA30;

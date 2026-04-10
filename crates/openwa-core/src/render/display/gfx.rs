@@ -65,20 +65,26 @@ pub struct DisplayGfx {
     pub _unknown_357c: u32,
 
     // =========================================================================
-    // Bitmap/sprite storage (0x3580 - 0x358B)
+    // Tile-cache bitmap vector (0x3580 - 0x358B)
     // =========================================================================
-    /// 0x3580: Bitmap vector pointer (init 0)
-    pub bitmap_ptr: u32,
-    /// 0x3584: Bitmap vector end (init 0)
-    pub bitmap_end: u32,
-    /// 0x3588: Bitmap vector capacity (init 0)
-    pub bitmap_capacity: u32,
+    /// 0x3580: Tile-cache `CBitmap*` vector — start pointer (init 0).
+    /// Populated by `DisplayGfx::DrawTiledBitmap` (slot 11) on its first
+    /// call: one entry per 0x400-row strip of the source landscape.
+    pub bitmap_ptr: *mut *mut crate::render::sprite::sprite::CBitmap,
+    /// 0x3584: Tile-cache vector end pointer (init 0). `(end - ptr) >> 2`
+    /// = current entry count.
+    pub bitmap_end: *mut *mut crate::render::sprite::sprite::CBitmap,
+    /// 0x3588: Tile-cache vector capacity-end pointer (init 0).
+    pub bitmap_capacity: *mut *mut crate::render::sprite::sprite::CBitmap,
 
     // =========================================================================
     // Palette entry table (0x358C - 0x3D8F)
     // =========================================================================
-    /// 0x358C: Palette entry count or lead byte
-    pub _unknown_358c: u8,
+    /// 0x358C: Tile-cache populate flag. Set to 0 by `DrawTiledBitmap`'s
+    /// allocate phase, set to 1 once the populate phase has filled every
+    /// strip's surface. While 0, the next `DrawTiledBitmap` call repopulates
+    /// the cached tile bitmaps from the source descriptor.
+    pub tile_cache_populated: u8,
     /// 0x358D - 0x398C: Palette entries (256 × 4 bytes = 0x400 bytes).
     /// Each entry is 4 bytes (R, G, B, flags?). Entry 255 (0x3989) = white.
     pub palette_entries: [u8; 0x400],
