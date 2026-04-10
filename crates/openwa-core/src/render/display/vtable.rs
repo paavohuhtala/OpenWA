@@ -2024,3 +2024,318 @@ pub unsafe fn load_sprite_by_layer(
 // LoadSpriteComplex (vtable slot 33, 0x5237C0) is NOT ported — the internal
 // dispatch functions (0x4FAD30, 0x4F9710) use ESI for sprite/bank pointers
 // in complex usercall conventions that are impractical to bridge.
+
+// =========================================================================
+// Font loading
+// =========================================================================
+
+/// Font object — 0x1C bytes.
+///
+/// Allocated by `load_font` (vtable slot 34) from a `.fnt` file loaded via
+/// GfxDir. Referenced from `DisplayBase::font_table` (offset 0x309C). Read by
+/// `Font__GetInfo` / `Font__GetMetric` / `Font__DrawText` / `Font__SetPalette`
+/// to render bitmap text.
+///
+/// Field semantics derived from `FUN_004f99d0` (the parser) and `Font__GetInfo`
+/// (0x4fa7d0, which confirms width at +0, width_div_5 at +2, glyph count at +4,
+/// and glyph table at +8 with 12-byte entries whose byte +4 is a max metric).
+#[repr(C)]
+pub struct FontObject {
+    /// 0x00: Font max width in pixels (read from .fnt metadata).
+    pub width: u16,
+    /// 0x02: `width / 5 + 1` — initial max metric seed in `Font__GetInfo`.
+    pub width_div_5: u16,
+    /// 0x04: Glyph count / font height.
+    pub height: u16,
+    /// 0x06: Duplicate of height.
+    pub _height2: u16,
+    /// 0x08: Pointer to glyph table (height entries of 12 bytes each).
+    pub glyph_table: *mut GlyphEntry,
+    /// 0x0C: Pointer to end-of-palette position in the source buffer.
+    pub palette_end: *mut u8,
+    /// 0x10: Pointer to remapped pixel data in the source buffer.
+    pub pixel_data: *mut u8,
+    /// 0x14: Zeroed by `load_font`; purpose unknown.
+    pub _unknown_14: u32,
+    /// 0x18: Zeroed by `load_font`; purpose unknown.
+    pub _unknown_18: u32,
+}
+
+const _: () = assert!(core::mem::size_of::<FontObject>() == 0x1C);
+
+/// Per-glyph metadata in a `.fnt` file (12 bytes).
+///
+/// Indexed by `FontObject::glyph_table`. `Font__GetInfo` (0x4fa7d0) reads
+/// `max_metric` at +0x4 to compute the maximum advance; the other fields are
+/// not yet exercised from Rust. Layout matches the loop stride of 0xC used by
+/// both the parser and `Font__GetInfo`.
+#[repr(C)]
+pub struct GlyphEntry {
+    /// 0x00: Unknown / start coordinates.
+    pub _unknown_00: u32,
+    /// 0x04: Max metric seed read by `Font__GetInfo` (used as `max(current, val + 1)`).
+    pub max_metric: u16,
+    /// 0x06: Remaining per-glyph fields (bearing / advance / pixel offset).
+    pub _unknown_06: [u8; 6],
+}
+
+const _: () = assert!(core::mem::size_of::<GlyphEntry>() == 0xC);
+
+/// Fixed prefix of a `.fnt` binary blob (0xC bytes).
+///
+/// Followed in memory by: packed RGB triplets (`palette_count * 3` bytes),
+/// a 0x100-byte character-width table, `max_width: i16`, `glyph_count: u16`,
+/// 4-byte alignment padding, `GlyphEntry[glyph_count]`, then the packed
+/// glyph pixel data. `font_parse_data` walks this variable-length tail using
+/// byte pointers rather than a single `#[repr(C)]` struct.
+#[repr(C)]
+pub struct FntHeader {
+    /// 0x00: Unknown / version.
+    pub _unknown_00: u32,
+    /// 0x04: Total size of this record in bytes, including this field.
+    pub data_size: i32,
+    /// 0x08: Unknown u16 (skipped by the parser).
+    pub _unknown_08: u16,
+    /// 0x0A: Number of palette entries that follow this header.
+    pub palette_count: u16,
+    // +0x0C: packed RGB triplets (variable length)
+}
+
+const _: () = assert!(core::mem::size_of::<FntHeader>() == 0xC);
+
+/// Port of `FUN_004f99d0` — parses `.fnt` binary data into a `FontObject`.
+///
+/// Original convention: cdecl with 1 stack arg (buffer), `unaff_EDI = font_obj`.
+/// Ported as a plain Rust function.
+///
+/// Buffer layout:
+/// ```text
+/// +0x00  u32        (unknown / version)
+/// +0x04  i32        data_size (total bytes in this record, including this field)
+/// +0x08  u16        (unknown)
+/// +0x0A  u16        palette_count
+/// +0x0C  RGB[palette_count * 3]  packed RGB triplets
+/// +...   u8[0x100]  character-width table (1 byte per codepoint)
+/// +0x100 u16        max_width
+/// +0x102 u16        glyph_count / height
+/// +...               align to 4 from buffer start
+/// +...   GlyphEntry[glyph_count]  12 bytes each (start_x/start_y/end_x/end_y/...)
+/// +...   u8[]       packed 4bpp glyph pixels (remapped in place via palette LUT)
+/// ```
+///
+/// # Safety
+/// `font_obj` must be a valid writable `FontObject`. `header` must point to a
+/// freshly-loaded `.fnt` blob at least `header.data_size` bytes long and
+/// followed in memory by the variable-length tail described above.
+/// `palette_ctx` must be a valid `PaletteContext`.
+pub unsafe fn font_parse_data(
+    font_obj: *mut FontObject,
+    header: *mut FntHeader,
+    palette_ctx: *mut PaletteContext,
+) -> u32 {
+    use crate::render::palette::{palette_map_color, remap_pixels_through_lut};
+
+    let data_size = (*header).data_size;
+    let palette_count = (*header).palette_count as i32;
+    let base_bytes = header as *mut u8;
+
+    // Cursor starts at the first byte after the fixed header (the RGB triplets).
+    let mut cursor = base_bytes.add(core::mem::size_of::<FntHeader>());
+
+    // Build 256-byte palette LUT. Entry 0 = map_color(0); entries 1..=palette_count
+    // come from the RGB triplets. The original reads 4 bytes per triplet but
+    // advances by 3 — only the low 24 bits matter.
+    let mut palette_lut = [0u8; 256];
+    palette_lut[0] = palette_map_color(palette_ctx, 0) as u8;
+    for i in 0..palette_count {
+        let rgb = *(cursor as *const u32);
+        palette_lut[(1 + i) as usize] = palette_map_color(palette_ctx, rgb) as u8;
+        cursor = cursor.add(3);
+    }
+
+    // palette_end = cursor after palette triplets.
+    (*font_obj).palette_end = cursor;
+
+    // Read max_width (i16) at cursor + 0x100 — the character-width table sits
+    // between the palette and the header.
+    let max_width = *(cursor.add(0x100) as *const i16) as i32;
+    cursor = cursor.add(0x100);
+    (*font_obj).width = max_width as u16;
+
+    // Seed value for Font__GetInfo's max metric: signed (width / 5) + 1,
+    // with a +1 correction when the quotient is negative (matches the
+    // IMUL+SAR+SHR+LEA sequence in the original).
+    let w_div_5 = max_width / 5;
+    let seed = w_div_5.wrapping_add((w_div_5 >> 31) & 1).wrapping_add(1);
+    (*font_obj).width_div_5 = seed as u16;
+
+    // Skip max_width, read glyph_count (u16).
+    cursor = cursor.add(2);
+    let glyph_count = *(cursor as *const u16);
+    cursor = cursor.add(2);
+    (*font_obj).height = glyph_count;
+    (*font_obj)._height2 = glyph_count;
+
+    // Align cursor to 4 bytes relative to the buffer start.
+    let base_addr = base_bytes as usize;
+    while (cursor as usize - base_addr) & 3 != 0 {
+        cursor = cursor.add(1);
+    }
+
+    // Glyph table: glyph_count entries of 12 bytes each.
+    let glyph_table = cursor as *mut GlyphEntry;
+    (*font_obj).glyph_table = glyph_table;
+    let pixel_data = glyph_table.add(glyph_count as usize) as *mut u8;
+    (*font_obj).pixel_data = pixel_data;
+
+    // Pixel byte count: data_size - (pixel_data - buffer), rounded down to dwords.
+    // Original uses CDQ+AND 3+ADD+SAR 2 which rounds toward zero.
+    let remaining = data_size - (pixel_data as usize - base_addr) as i32;
+    let dword_count = remaining
+        .wrapping_add((remaining >> 31) & 3)
+        .wrapping_shr(2) as u32;
+
+    remap_pixels_through_lut(pixel_data, 0, palette_lut.as_ptr(), dword_count, 1);
+
+    1
+}
+
+/// Port of `FUN_004f9940` — loads a font resource by name from a GfxDir and
+/// feeds it into `font_parse_data`.
+///
+/// Original convention: usercall with `EAX = gfx_dir`, `ECX = font_obj`,
+/// `stack[0] = layer_ctx`, `stack[1] = filename`, `RET 0x8`. The function
+/// first tries `GfxDir__FindEntry` + cached-load via `gfx_dir->vtable[2]`;
+/// on miss it falls back to `GfxDir__LoadImage` + `image->vtable[4]` (get_size)
+/// + `image->vtable[5]` (read into caller-allocated buffer) + `image->vtable[0](1)`
+/// (destroy), then tail-calls the parser.
+///
+/// Note: `layer_ctx` is only used by `font_parse_data` (as the PaletteContext).
+/// The original never touches it in this function — it just forwards it via
+/// ECX to the tail call.
+///
+/// # Safety
+/// `font_obj` must be a valid writable `FontObject`. `gfx_dir` must be a valid
+/// GfxDir. `palette_ctx` must be a valid PaletteContext. `name` must be a
+/// valid null-terminated C string.
+pub unsafe fn font_load_from_gfx(
+    font_obj: *mut FontObject,
+    gfx_dir: *mut u8,
+    palette_ctx: *mut PaletteContext,
+    name: *const core::ffi::c_char,
+) -> u32 {
+    use crate::render::sprite::gfx_dir::{call_gfx_load_image, gfx_dir_find_entry, GfxDirEntry};
+    use crate::wa_alloc::wa_malloc;
+
+    // 1. Try FindEntry → gfx_dir->vtable[2](entry->value) for cached load.
+    let entry = gfx_dir_find_entry(name, gfx_dir);
+    if !entry.is_null() {
+        let vt = *(gfx_dir as *const *const u32);
+        let load_cached: unsafe extern "thiscall" fn(*mut u8, u32) -> *mut FntHeader =
+            core::mem::transmute(*vt.add(2));
+        let entry_val = (*(entry as *const GfxDirEntry)).value;
+        let cached = load_cached(gfx_dir, entry_val);
+        if !cached.is_null() {
+            return font_parse_data(font_obj, cached, palette_ctx);
+        }
+    }
+
+    // 2. Fallback: LoadImage → vtable[4] (size) → wa_malloc → vtable[5] (read) → vtable[0] (destroy)
+    let image = call_gfx_load_image(gfx_dir, name);
+    if image.is_null() {
+        return 0;
+    }
+
+    let image_vt = *(image as *const *const u32);
+
+    // vtable[4] — get size (thiscall, no args)
+    let get_size: unsafe extern "thiscall" fn(*mut u8) -> u32 =
+        core::mem::transmute(*image_vt.add(4));
+    let size = get_size(image);
+
+    // Match the original's allocation: round size up to 4-byte multiple, add 0x20 guard.
+    let alloc_size = ((size + 3) & !3u32).wrapping_add(0x20);
+    let buffer = wa_malloc(alloc_size);
+    // Original memsets only `size` bytes, not the full allocation.
+    if !buffer.is_null() {
+        core::ptr::write_bytes(buffer, 0, size as usize);
+    }
+
+    // vtable[5] — read into buffer (thiscall with 2 stack args: buffer, size)
+    let read_into: unsafe extern "thiscall" fn(*mut u8, *mut u8, u32) =
+        core::mem::transmute(*image_vt.add(5));
+    read_into(image, buffer, size);
+
+    // vtable[0] — destroy image (thiscall with 1 arg: flags = 1)
+    let destroy: unsafe extern "thiscall" fn(*mut u8, u32) = core::mem::transmute(*image_vt);
+    destroy(image, 1);
+
+    font_parse_data(font_obj, buffer as *mut FntHeader, palette_ctx)
+}
+
+/// Port of `DisplayGfx::LoadFont` (vtable slot 34, 0x523560).
+///
+/// Validates `mode` (1..=3) and `font_id` (1..=31), then allocates a
+/// zero-initialized 0x1C-byte `FontObject`, loads the named resource via
+/// `font_load_from_gfx`, and stores the object in `DisplayBase::font_table`.
+///
+/// On load failure, the partially-initialized font object is leaked to match
+/// the original's behavior (it calls a sprite-bank-style cleanup helper
+/// `FUN_005230c0` which is not exercised here).
+///
+/// # Safety
+/// `this` must be a valid `*mut DisplayGfx`. `_gfx` must be a GfxDir pointer
+/// (or null if only the cached path is needed). `filename` must be a valid
+/// null-terminated C string.
+pub unsafe fn load_font(
+    this: *mut DisplayGfx,
+    mode: i32,
+    font_id: i32,
+    _gfx: *mut u8,
+    filename: *const core::ffi::c_char,
+) -> u32 {
+    use crate::wa_alloc::wa_malloc_struct_zeroed;
+
+    // Validate mode (1..=3) and that the layer context exists.
+    if !(1..=3).contains(&mode) {
+        return 0;
+    }
+    let base = &mut (*this).base;
+    let layer_ctx = base.layer_contexts[mode as usize];
+    if layer_ctx == 0 {
+        return 0;
+    }
+
+    // Validate font_id (1..=31) and that the slot is empty.
+    if !(1..=31).contains(&font_id) {
+        return 0;
+    }
+    if base.font_table[font_id as usize] != 0 {
+        return 0;
+    }
+
+    // Allocate zeroed FontObject. The original uses WA_MallocMemset(0x1C)
+    // which only memsets the requested size; wa_malloc_struct_zeroed matches.
+    let font_obj = wa_malloc_struct_zeroed::<FontObject>();
+    if font_obj.is_null() {
+        return 0;
+    }
+
+    // Load and parse the font data.
+    let result = font_load_from_gfx(font_obj, _gfx, layer_ctx as *mut PaletteContext, filename);
+    if result == 0 {
+        // Original leaks here on failure (via an unported cleanup helper).
+        // We match that behavior rather than introducing a free path that
+        // might differ from WA's.
+        return 0;
+    }
+
+    // Install into font_table. The original also records which mode owns this
+    // font slot at DisplayBase + 0x301C + font_id*4 (the gap region next to
+    // font_table), then bumps the layer visibility counter.
+    base.font_table[font_id as usize] = font_obj as u32;
+    base._gap_301c[font_id as usize] = mode as u32;
+    base.layer_visibility[mode as usize] += 1;
+
+    1
+}

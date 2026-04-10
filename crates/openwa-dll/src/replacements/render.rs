@@ -1617,6 +1617,16 @@ unsafe extern "thiscall" fn load_sprite_by_layer(
     display_vtable::load_sprite_by_layer(this, layer, id, gfx, name)
 }
 
+unsafe extern "thiscall" fn load_font(
+    this: *mut DisplayGfx,
+    mode: i32,
+    font_id: i32,
+    gfx: *mut u8,
+    filename: *const core::ffi::c_char,
+) -> u32 {
+    display_vtable::load_font(this, mode, font_id, gfx, filename)
+}
+
 // ---------------------------------------------------------------------------
 // Display installation
 // ---------------------------------------------------------------------------
@@ -1685,8 +1695,9 @@ fn install_display() -> Result<(), String> {
             set_font_palette    => set_font_palette,
             slot 19 => blit_sprite,
             load_sprite_by_layer => load_sprite_by_layer,
+            load_font            => load_font,
         })?;
-        let _ = log_line("[Display]   DisplayGfx: patched 29 methods -> Rust");
+        let _ = log_line("[Display]   DisplayGfx: patched 30 methods -> Rust");
     }
 
     Ok(())
