@@ -1403,6 +1403,36 @@ fn install_display() -> Result<(), String> {
             "DisplayBitGrid__SetExternalBuffer",
             va::DISPLAY_BIT_GRID_SET_EXTERNAL_BUFFER
         );
+
+        // ── Slot 0 destructor leaves: trap the WA-side originals ──────
+        //
+        // After `vtable_replace!` swapped slot 0 to our Rust impl, the
+        // original `DisplayGfx::DestructorImpl` (0x56A010) is no longer
+        // reached, so its only-callee helpers lose their last live
+        // caller too.
+        //
+        // `TileBitmapSet::Destructor` (0x569BC0) has a *second* xref to
+        // `FUN_0056C2E0` (a tile-bitmap-set realloc helper called only
+        // from `CBitmap__Constructor_Maybe` at 0x56C060). That second
+        // chain is **structurally dead** in shipping WA: 0x56C060 sits
+        // in the DisplayGfx vtable .rdata block at slot index 38 (offset
+        // 0x98 past the vtable base 0x66A218), but no instruction in
+        // WA.exe loads from offset 0x98 of any pointer — verified by
+        // byte-pattern search for `FF 90 98 00 00 00` (CALL [reg+0x98])
+        // and `8B 4? 98` (MOV reg,[reg+0x98]) returning no DisplayGfx
+        // hits. The compiler emitted slots 38/39 of DisplayGfx into
+        // .rdata but the C++ source has no live caller for them — they
+        // are vestigial vtable entries from a removed feature. So
+        // trapping `TileBitmapSet::Destructor` is safe.
+        hook::install_trap!(
+            "DisplayGfx__DestructorImpl",
+            va::DISPLAY_GFX_DESTRUCTOR_IMPL
+        );
+        hook::install_trap!(
+            "DisplayGfx__FreeLayerSpriteTable",
+            va::DISPLAY_GFX_FREE_LAYER_SPRITE_TABLE
+        );
+        hook::install_trap!("TileBitmapSet__Destructor", va::TILE_BITMAP_SET_DESTRUCTOR);
     }
 
     Ok(())
