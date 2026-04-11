@@ -187,15 +187,19 @@ pub struct RenderContextVtable {
     pub lock_surface_write: unsafe extern "fastcall" fn(
         this: *mut RenderContext,
         result: *mut FastcallResult,
-        out_data: *mut u32,
+        out_data: *mut *mut u8,
         out_stride: *mut u32,
     ) -> *mut FastcallResult,
     /// unlock surface after writing (0x5A2C10 — same fn as slot 16, RET 0x4)
+    ///
+    /// `data` is the framebuffer pointer previously returned from
+    /// `lock_surface_write`. The original ignores it; we still pass it
+    /// through for fidelity.
     #[slot(18)]
     pub unlock_surface_write: unsafe extern "fastcall" fn(
         this: *mut RenderContext,
         result: *mut FastcallResult,
-        p2: u32,
+        data: *mut u8,
     ) -> *mut FastcallResult,
     /// fill rectangle — lock, memset rows, unlock (0x5A25C0)
     ///
@@ -350,6 +354,18 @@ pub struct SurfaceVtable {
     pub release: unsafe extern "fastcall" fn(
         this: *mut Surface,
         result: *mut FastcallResult,
+    ) -> *mut FastcallResult,
+    /// set color-key (transparency) (slot 7).
+    ///
+    /// Used by `load_sprite_by_name` after `init_surface` to enable
+    /// transparency on the freshly-allocated frame surface (color key
+    /// `0`, flag `0x10`). The result code is unused by all known callers.
+    #[slot(7)]
+    pub set_color_key: unsafe extern "fastcall" fn(
+        this: *mut Surface,
+        result: *mut FastcallResult,
+        color_key: u32,
+        flags: u32,
     ) -> *mut FastcallResult,
 }
 

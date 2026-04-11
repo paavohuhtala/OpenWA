@@ -255,7 +255,8 @@ pub struct DisplayGfxVtable {
     pub flush_render: fn(this: *mut DisplayGfx),
     /// set camera offset (0x56CC40, RET 0x8)
     ///
-    /// Fixed-point input; internally `>> 16` to pixel integers stored at +0x3560/+0x3564.
+    /// Fixed-point input; internally `>> 16` to pixel integers stored
+    /// in `DisplayGfx::camera_x` / `camera_y`.
     #[slot(27)]
     pub set_camera_offset: fn(this: *mut DisplayGfx, x: Fixed, y: Fixed),
     /// set clip rectangle (0x56CC60, RET 0x10)
@@ -315,7 +316,7 @@ pub struct DisplayGfxVtable {
         this: *mut DisplayGfx,
         font_id: i32,
         path: *const c_char,
-        char_map: *const u8,
+        char_map: *const c_char,
         palette_value: u32,
         flag: i32,
     ) -> u32,
@@ -448,7 +449,7 @@ pub unsafe extern "thiscall" fn set_clip_rect(
 unsafe fn flush_render_lock(gfx: *mut DisplayGfx) {
     if (*gfx).render_lock != 0 {
         let wrapper = *(rb(va::G_RENDER_CONTEXT) as *const *mut RenderContext);
-        let data = (*(*gfx).layer_0).data as u32;
+        let data = (*(*gfx).layer_0).data;
         let mut buf = FastcallResult::default();
         RenderContext::unlock_surface_write_raw(wrapper, &mut buf, data);
         (*gfx).render_lock = 0;
@@ -469,7 +470,7 @@ pub unsafe fn acquire_render_lock(gfx: *mut DisplayGfx) {
     let fb_width = dims[0];
     let fb_height = dims[1];
 
-    let mut data_ptr: u32 = 0;
+    let mut data_ptr: *mut u8 = core::ptr::null_mut();
     let mut stride: u32 = 0;
     RenderContext::lock_surface_write_raw(wrapper, &mut buf, &mut data_ptr, &mut stride);
 
@@ -477,7 +478,7 @@ pub unsafe fn acquire_render_lock(gfx: *mut DisplayGfx) {
     if (*layer).external_buffer != 0 {
         (*layer).width = fb_width;
         (*layer).height = fb_height;
-        (*layer).data = data_ptr as *mut u8;
+        (*layer).data = data_ptr;
         (*layer).row_stride = stride;
         (*layer).clip_left = 0;
         (*layer).clip_top = 0;
@@ -760,10 +761,26 @@ pub unsafe extern "thiscall" fn is_sprite_loaded(this: *mut DisplayGfx, id: i32)
     }
 }
 
-/// Check if a sprite ID is in the valid range [1, 0x3FF].
+/// Maximum valid font slot index — `font_table` has 32 entries, slot 0
+/// is reserved (the original validates `1..=31` everywhere).
+pub const MAX_FONT_ID: i32 = 31;
+
+/// Sentinel bit on the `id` parameter of `load_sprite` / `load_sprite_by_layer`
+/// meaning "already loaded — return success without doing any work".
+const SPRITE_LOAD_ALREADY_DONE: u32 = 0x0080_0000;
+
+/// Check if a sprite ID is in the valid range `[1, 0x3FF]`. Note that
+/// the slot 33 dispatcher uses a slightly tighter bound (`1..=0x3FE`)
+/// matching the original — see `get_sprite_frame_for_blit`.
 #[inline]
 fn is_valid_sprite_id(id: i32) -> bool {
     (1..=0x3FF).contains(&id)
+}
+
+/// Check if `font_id` is a valid 1-based index into `font_table`.
+#[inline]
+fn is_valid_font_id(id: i32) -> bool {
+    (1..=MAX_FONT_ID).contains(&id)
 }
 
 /// Port of DisplayGfx::GetSpriteInfo (slot 6, 0x523500).
@@ -1506,17 +1523,12 @@ pub unsafe extern "thiscall" fn update_palette(
 unsafe fn palette_commit(gfx: *mut DisplayGfx) {
     let dirty_min = (*gfx).palette_dirty_min;
     let dirty_max = (*gfx).palette_dirty_max;
-    palette_commit_bridge(
-        gfx as *mut u8,
-        dirty_min,
-        dirty_max,
-        crate::rebase::rb(0x0056_CD20),
-    );
+    palette_commit_bridge(gfx, dirty_min, dirty_max, crate::rebase::rb(0x0056_CD20));
 }
 
 #[unsafe(naked)]
 unsafe extern "cdecl" fn palette_commit_bridge(
-    _gfx: *mut u8,
+    _gfx: *mut DisplayGfx,
     _dirty_min: u32,
     _dirty_max: u32,
     _target: u32,
@@ -1589,8 +1601,7 @@ pub unsafe fn load_sprite(
         layer_ctx: *mut PaletteContext,
     ) -> i32,
 ) -> i32 {
-    // Bit 23 set = "already loaded" sentinel.
-    if id & 0x80_0000 != 0 {
+    if id & SPRITE_LOAD_ALREADY_DONE != 0 {
         return 1;
     }
 
@@ -1660,13 +1671,11 @@ pub unsafe fn load_sprite_by_name(
 ) -> i32 {
     use crate::address::va;
     use crate::rebase::rb;
-    use crate::render::display::context::{FastcallResult, RenderContext};
+    use crate::render::display::context::{FastcallResult, RenderContext, Surface};
     use crate::render::palette::{palette_map_color, remap_pixels_through_lut};
     use crate::render::sprite::gfx_dir::{call_gfx_load_image, GfxDirStream};
 
     use crate::wa_alloc::wa_malloc;
-
-    let sp = sprite as *mut u8;
 
     // Copy name into sprite.name (max 0x4F chars + null terminator).
     let name_dest = (*sprite).name.as_mut_ptr();
@@ -1732,38 +1741,38 @@ pub unsafe fn load_sprite_by_name(
 
         // Sprite metadata fields, in the original's read order
         // (field_60 before flags/cell_width/cell_height).
-        GfxDirStream::read_raw(stream, sp.add(0x60), 4);
-        GfxDirStream::read_raw(stream, sp.add(0x64), 2);
-        GfxDirStream::read_raw(stream, sp.add(0x68), 2);
-        GfxDirStream::read_raw(stream, sp.add(0x6A), 2);
+        GfxDirStream::read_raw(stream, &raw mut (*sprite).field_60 as *mut u8, 4);
+        GfxDirStream::read_raw(stream, &raw mut (*sprite).flags as *mut u8, 2);
+        GfxDirStream::read_raw(stream, &raw mut (*sprite).cell_width as *mut u8, 2);
+        GfxDirStream::read_raw(stream, &raw mut (*sprite).cell_height as *mut u8, 2);
 
         (*sprite).frame_count = 0;
-        GfxDirStream::read_raw(stream, sp.add(0x66), 2);
+        GfxDirStream::read_raw(stream, &raw mut (*sprite).frame_count as *mut u8, 2);
         let frame_count = (*sprite).frame_count as usize;
 
-        // Counted LayerSpriteFrame array: 0x14 bytes per element with a
-        // 4-byte count prefix at [-4]. Saturate the allocation size on
+        // Counted `LayerSpriteFrame` array: `count * 0x14` bytes plus a
+        // 4-byte count prefix at `[-4]`. Saturate the allocation size on
         // overflow to match the original's checked-mul behavior.
-        let total_elems = frame_count;
-        let checked_count = total_elems as u32;
-        let checked_size = checked_count.checked_mul(0x14).unwrap_or(u32::MAX);
+        const LSF_SIZE: u32 = core::mem::size_of::<LayerSpriteFrame>() as u32;
+        let checked_count = frame_count as u32;
+        let checked_size = checked_count.checked_mul(LSF_SIZE).unwrap_or(u32::MAX);
         let checked_alloc = checked_size.checked_add(4).unwrap_or(u32::MAX);
 
         let array_base = wa_malloc(checked_alloc);
-        let frame_array = if !array_base.is_null() {
+        let frame_array: *mut LayerSpriteFrame = if !array_base.is_null() {
             *(array_base as *mut u32) = checked_count;
-            let arr = array_base.add(4);
-            let bitmap_vtable = rb(0x00643F64) as u32; // CBitmap vtable
-            for j in 0..total_elems {
-                let elem = arr.add(j * 0x14);
-                *(elem.add(0x08) as *mut u32) = bitmap_vtable;
-                *(elem.add(0x0C) as *mut u32) = 0;
+            let arr = array_base.add(4) as *mut LayerSpriteFrame;
+            let cbitmap_vt = rb(va::CBITMAP_VTABLE_MAYBE) as *const core::ffi::c_void;
+            for j in 0..frame_count {
+                let elem = arr.add(j);
+                (*elem).bitmap_vtable = cbitmap_vt;
+                (*elem).surface = core::ptr::null_mut();
             }
             arr
         } else {
             core::ptr::null_mut()
         };
-        (*sprite).frame_array = frame_array as *mut LayerSpriteFrame;
+        (*sprite).frame_array = frame_array;
 
         // Skip alignment padding: while (remaining() & 3) != 0, read 1 byte.
         loop {
@@ -1778,13 +1787,13 @@ pub unsafe fn load_sprite_by_name(
         // Frame headers: 4-byte discarded prefix, then start_x/y, end_x/y.
         if frame_count > 0 && !frame_array.is_null() {
             for j in 0..frame_count {
-                let elem = frame_array.add(j * 0x14);
+                let frame = frame_array.add(j);
                 let mut frame_hdr = [0u8; 4];
                 GfxDirStream::read_raw(stream, frame_hdr.as_mut_ptr(), 4);
-                GfxDirStream::read_raw(stream, elem, 2);
-                GfxDirStream::read_raw(stream, elem.add(2), 2);
-                GfxDirStream::read_raw(stream, elem.add(4), 2);
-                GfxDirStream::read_raw(stream, elem.add(6), 2);
+                GfxDirStream::read_raw(stream, &raw mut (*frame).start_x as *mut u8, 2);
+                GfxDirStream::read_raw(stream, &raw mut (*frame).start_y as *mut u8, 2);
+                GfxDirStream::read_raw(stream, &raw mut (*frame).end_x as *mut u8, 2);
+                GfxDirStream::read_raw(stream, &raw mut (*frame).end_y as *mut u8, 2);
             }
         }
 
@@ -1793,14 +1802,9 @@ pub unsafe fn load_sprite_by_name(
             let render_ctx = *(rb(va::G_RENDER_CONTEXT) as *const *mut RenderContext);
 
             for j in 0..frame_count {
-                let elem = frame_array.add(j * 0x14);
-                let start_x = *(elem as *const i16) as i32;
-                let start_y = *(elem.add(2) as *const i16) as i32;
-                let end_x = *(elem.add(4) as *const i16) as i32;
-                let end_y = *(elem.add(6) as *const i16) as i32;
-
-                let width = end_x - start_x;
-                let height = end_y - start_y;
+                let frame = frame_array.add(j);
+                let width = ((*frame).end_x - (*frame).start_x) as i32;
+                let height = ((*frame).end_y - (*frame).start_y) as i32;
 
                 if width * height == 0 {
                     continue;
@@ -1808,84 +1812,41 @@ pub unsafe fn load_sprite_by_name(
 
                 // alloc_surface returns the surface pointer in EAX, NOT via
                 // the FastcallResult buffer — see feedback_alloc_surface_return.md.
-                let surface_ptr = elem.add(0x0C) as *mut u32;
-                if *surface_ptr == 0 {
+                if (*frame).surface.is_null() {
                     let mut buf = FastcallResult::default();
                     let ret = RenderContext::alloc_surface_raw(render_ctx, &mut buf);
-                    *surface_ptr = ret as u32;
+                    (*frame).surface = ret as *mut Surface;
                 }
-                let surface = *surface_ptr as *mut u8;
+                let surface = (*frame).surface;
                 if surface.is_null() {
                     continue;
                 }
 
-                // surface->vtable[5](width, height, 0) — init storage.
-                {
-                    let vt = *(surface as *const *const u32);
-                    let init_fn: unsafe extern "fastcall" fn(
-                        *mut u8,
-                        *mut FastcallResult,
-                        u32,
-                        u32,
-                        u32,
-                    ) = core::mem::transmute(*vt.add(5));
-                    let mut buf = FastcallResult::default();
-                    init_fn(surface, &mut buf, width as u32, height as u32, 0);
-                }
+                let mut buf = FastcallResult::default();
+                Surface::init_surface_raw(surface, &mut buf, width, height, 0);
+                Surface::set_color_key_raw(surface, &mut buf, 0, 0x10);
 
-                // surface->vtable[7](0, 0x10) — SetColorKey.
-                {
-                    let vt = *(surface as *const *const u32);
-                    let set_ck_fn: unsafe extern "fastcall" fn(
-                        *mut u8,
-                        *mut FastcallResult,
-                        u32,
-                        u32,
-                    ) = core::mem::transmute(*vt.add(7));
-                    let mut buf = FastcallResult::default();
-                    set_ck_fn(surface, &mut buf, 0, 0x10);
-                }
+                let mut data_ptr: *mut u8 = core::ptr::null_mut();
+                let mut pitch: i32 = 0;
+                Surface::lock_surface_raw(surface, &mut buf, &mut data_ptr, &mut pitch);
 
-                // surface->vtable[3](&out_data, &out_pitch) — Lock.
-                let mut data_ptr: u32 = 0;
-                let mut pitch: u32 = 0;
-                {
-                    let vt = *(surface as *const *const u32);
-                    let lock_fn: unsafe extern "fastcall" fn(
-                        *mut u8,
-                        *mut FastcallResult,
-                        *mut u32,
-                        *mut u32,
-                    ) = core::mem::transmute(*vt.add(3));
-                    let mut buf = FastcallResult::default();
-                    lock_fn(surface, &mut buf, &mut data_ptr, &mut pitch);
-                }
-
-                if data_ptr != 0 && pitch != 0 {
-                    let data = data_ptr as *mut u8;
+                if !data_ptr.is_null() && pitch != 0 {
                     for row in 0..height {
-                        let row_dest = data.add((row as u32 * pitch) as usize);
+                        let row_dest = data_ptr.add((row * pitch) as usize);
                         GfxDirStream::read_raw(stream, row_dest, width as u32);
                     }
 
                     let width_dwords = ((width as u32) + 3) / 4;
                     remap_pixels_through_lut(
-                        data,
-                        pitch,
+                        data_ptr,
+                        pitch as u32,
                         palette_lut.as_ptr(),
                         width_dwords,
                         height as u32,
                     );
                 }
 
-                // surface->vtable[4](data_ptr) — Unlock.
-                {
-                    let vt = *(surface as *const *const u32);
-                    let unlock_fn: unsafe extern "fastcall" fn(*mut u8, *mut FastcallResult, u32) =
-                        core::mem::transmute(*vt.add(4));
-                    let mut buf = FastcallResult::default();
-                    unlock_fn(surface, &mut buf, data_ptr);
-                }
+                Surface::unlock_surface_raw(surface, &mut buf, data_ptr);
             }
         }
     }
@@ -1898,18 +1859,21 @@ pub unsafe fn load_sprite_by_name(
 pub unsafe fn free_layer_sprite(sprite: *mut LayerSprite) {
     use crate::wa_alloc::wa_free;
 
-    let frame_array = (*sprite).frame_array as *mut u8;
+    let frame_array = (*sprite).frame_array;
     if !frame_array.is_null() {
+        // Counted array: count lives at `frame_array[-4]`.
         let count_ptr = (frame_array as *mut u32).sub(1);
         let count = *count_ptr as usize;
 
         // Reverse-order destruction matches eh_vector_destructor_iterator.
         for i in (0..count).rev() {
-            let elem = frame_array.add(i * 0x14);
-            let surface = *(elem.add(0x0C) as *const u32);
-            if surface != 0 {
-                let vt = *(surface as *const *const u32);
-                let dtor: unsafe extern "thiscall" fn(u32, u32) = core::mem::transmute(*vt);
+            let frame = frame_array.add(i);
+            let surface = (*frame).surface;
+            if !surface.is_null() {
+                // Surface destructor is vtable[0]; not yet a typed slot.
+                let vt = (*surface).vtable as *const usize;
+                let dtor: unsafe extern "thiscall" fn(*mut Surface, u32) =
+                    core::mem::transmute(*vt);
                 dtor(surface, 1);
             }
         }
@@ -1934,8 +1898,7 @@ pub unsafe fn load_sprite_by_layer(
 ) -> i32 {
     use crate::wa_alloc::wa_malloc_zeroed;
 
-    // Bit 23 set = "already loaded" sentinel.
-    if id & 0x80_0000 != 0 {
+    if id & SPRITE_LOAD_ALREADY_DONE != 0 {
         return 1;
     }
 
@@ -1999,7 +1962,7 @@ pub unsafe fn load_font(
         return 0;
     }
 
-    if !(1..=31).contains(&font_id) {
+    if !is_valid_font_id(font_id) {
         return 0;
     }
     if !base.font_table[font_id as usize].is_null() {
@@ -2029,13 +1992,13 @@ pub unsafe fn load_font_extension(
     this: *mut DisplayGfx,
     font_id: i32,
     path: *const c_char,
-    char_map: *const u8,
+    char_map: *const c_char,
     palette_value: u32,
     _flag: i32,
 ) -> u32 {
     use crate::render::palette::palette_context_lookup_entry;
 
-    if !(1..=31).contains(&font_id) {
+    if !is_valid_font_id(font_id) {
         return 0;
     }
     let base = &mut (*this).base;
@@ -2074,7 +2037,7 @@ pub unsafe extern "thiscall" fn get_font_info(
     out_1: *mut u32,
     out_2: *mut u32,
 ) -> u32 {
-    if !(1..=31).contains(&font_id) {
+    if !is_valid_font_id(font_id) {
         return 0;
     }
     let font_obj = (*this).base.font_table[font_id as usize] as *const Font;
@@ -2095,7 +2058,7 @@ pub unsafe extern "thiscall" fn get_font_metric(
     out_1: *mut u32,
     out_2: *mut u32,
 ) -> u32 {
-    if !(1..=31).contains(&font_id) {
+    if !is_valid_font_id(font_id) {
         return 0;
     }
     let font_obj = (*this).base.font_table[font_id as usize] as *const Font;
@@ -2121,7 +2084,7 @@ pub unsafe extern "thiscall" fn set_font_param(
     p4: u32,
     p5: u32,
 ) -> u32 {
-    if !(1..=31).contains(&font_id) {
+    if !is_valid_font_id(font_id) {
         return 0;
     }
     let font_obj = (*this).base.font_table[font_id as usize] as *const Font;
@@ -2198,11 +2161,12 @@ pub unsafe fn font_draw_text_impl(
     bitmap: *const BitGrid,
     pen_x: i32,
     pen_y: i32,
-    msg: *const u8,
+    msg: *const c_char,
     out_pen_x: *mut i32,
     out_width: *mut i32,
     font_id_high: i32,
 ) -> i32 {
+    let msg = msg as *const u8;
     let font = &*font_obj;
     let font_width = font.width as i16 as i32;
 
@@ -2339,8 +2303,8 @@ pub unsafe extern "thiscall" fn draw_text_on_bitmap(
     out_pen_x: *mut i32,
     out_width: *mut i32,
 ) -> i32 {
-    let font_id_low = (font_id as u32) & 0xFFFF;
-    if !(1..=31).contains(&font_id_low) {
+    let font_id_low = font_id & 0xFFFF;
+    if !is_valid_font_id(font_id_low) {
         return 0;
     }
     let font_obj = (*this).base.font_table[font_id_low as usize] as *const Font;
@@ -2353,7 +2317,7 @@ pub unsafe extern "thiscall" fn draw_text_on_bitmap(
         bitmap as *const BitGrid,
         pen_x,
         pen_y,
-        msg as *const u8,
+        msg,
         out_pen_x,
         out_width,
         font_id_high,

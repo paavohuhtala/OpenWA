@@ -398,7 +398,7 @@ pub unsafe fn font_extend(
     font_obj: *mut Font,
     palette_ctx: *mut PaletteContext,
     filename: *const c_char,
-    char_map: *const u8,
+    char_map: *const c_char,
     palette_value: u32,
 ) {
     use crate::address::va;
@@ -406,6 +406,8 @@ pub unsafe fn font_extend(
     use crate::render::palette::{palette_find_nearest_cached, remap_pixels_through_lut};
     use crate::wa_alloc::wa_malloc;
     use core::ffi::c_char;
+
+    let char_map = char_map as *const u8;
 
     // Open the .fex file via WA's CRT _fopen.
     let fopen: unsafe extern "cdecl" fn(*const c_char, *const c_char) -> *mut u8 =

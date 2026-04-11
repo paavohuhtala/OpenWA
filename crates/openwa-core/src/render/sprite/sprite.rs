@@ -473,10 +473,10 @@ pub struct LayerSpriteFrame {
     pub end_x: i16,
     /// 0x06: Frame end Y coordinate.
     pub end_y: i16,
-    /// 0x08: CBitmap vtable pointer (set by constructor).
-    pub bitmap_vtable: u32,
-    /// 0x0C: Surface object pointer (created lazily by alloc_surface).
-    pub surface: u32,
+    /// 0x08: CBitmap vtable pointer (`0x643F64`, set by constructor).
+    pub bitmap_vtable: *const core::ffi::c_void,
+    /// 0x0C: Backend surface object pointer (lazy via `alloc_surface`).
+    pub surface: *mut crate::render::display::context::Surface,
     /// 0x10: Reserved/padding.
     pub _pad_10: u32,
 }

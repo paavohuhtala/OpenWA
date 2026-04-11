@@ -115,7 +115,7 @@ unsafe fn load_font_extension(wrapper: *mut DDGameWrapper, font_id: u32) {
         display,
         font_id as i32,
         path.as_ptr() as *const c_char,
-        char_map.as_ptr(),
+        char_map.as_ptr() as *const c_char,
         palette_value,
         0,
     );

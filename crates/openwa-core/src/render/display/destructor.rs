@@ -211,14 +211,16 @@ unsafe fn free_layer_sprite_table(this: *mut DisplayGfx) {
 unsafe fn layer_sprite_frame_destructor(frame: *mut LayerSpriteFrame) {
     use crate::render::sprite::sprite::CBITMAP_VTABLE_MAYBE;
 
-    (*frame).bitmap_vtable = rb(CBITMAP_VTABLE_MAYBE);
-    let surface = (*frame).surface as *mut c_void;
+    (*frame).bitmap_vtable = rb(CBITMAP_VTABLE_MAYBE) as *const c_void;
+    let surface = (*frame).surface;
     if !surface.is_null() {
         // surface->vtable[0](this, 1) — scalar deleting destructor.
-        let vtable = *(surface as *const *const *const c_void);
+        // Surface's vtable doesn't yet expose the destructor as a typed
+        // slot (slots 3-7 are typed; slot 0 is class-specific dtor).
+        let vtable = (*surface).vtable as *const usize;
         let dtor: unsafe extern "thiscall" fn(*mut c_void, u32) -> *mut c_void =
             core::mem::transmute(*vtable);
-        dtor(surface, 1);
+        dtor(surface as *mut c_void, 1);
     }
 }
 

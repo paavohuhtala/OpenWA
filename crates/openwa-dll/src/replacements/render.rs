@@ -1284,7 +1284,7 @@ unsafe extern "thiscall" fn load_font_extension(
     this: *mut DisplayGfx,
     font_id: i32,
     path: *const c_char,
-    char_map: *const u8,
+    char_map: *const c_char,
     palette_value: u32,
     flag: i32,
 ) -> u32 {
