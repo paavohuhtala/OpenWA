@@ -1126,11 +1126,11 @@ pub unsafe extern "thiscall" fn draw_tiled_terrain(
 
             let bitmap_ptr = *bitmap_array.add(bitmap_idx as usize);
 
-            blit_bitmap_clipped(
+            blit_bitmap_clipped_native(
                 this,
-                col_w,
                 pixel_x + x_offset,
                 pixel_y + y_offset,
+                col_w,
                 row_h,
                 bitmap_ptr,
                 blit_flags,
@@ -1142,59 +1142,6 @@ pub unsafe extern "thiscall" fn draw_tiled_terrain(
 
         y_offset += row_height;
     }
-}
-
-/// Bridge to DisplayGfx__BlitBitmapClipped (0x56A700).
-///
-/// Usercall: EAX=this (DisplayGfx*), EDX=col_width, 5 stack params (dst_x, dst_y,
-/// row_height, bitmap_ptr, flags), RET 0x14.
-///
-/// Clips the bitmap rectangle against the display clip rect, calls flush_render_lock,
-/// then delegates to the low-level blit function (0x403C60).
-unsafe fn blit_bitmap_clipped(
-    gfx: *mut DisplayGfx,
-    col_width: i32,
-    dst_x: i32,
-    dst_y: i32,
-    row_height: i32,
-    bitmap_ptr: u32,
-    flags: u32,
-) {
-    blit_bitmap_clipped_bridge(
-        gfx as u32,
-        col_width as u32,
-        dst_x as u32,
-        dst_y as u32,
-        row_height as u32,
-        bitmap_ptr,
-        flags,
-        rb(va::DISPLAY_GFX_BLIT_BITMAP_CLIPPED),
-    );
-}
-
-/// Naked bridge: sets EAX=this, EDX=col_width, pushes 5 stack params, calls target.
-#[unsafe(naked)]
-unsafe extern "cdecl" fn blit_bitmap_clipped_bridge(
-    _this: u32,
-    _col_width: u32,
-    _dst_x: u32,
-    _dst_y: u32,
-    _row_height: u32,
-    _bitmap_ptr: u32,
-    _flags: u32,
-    _target: u32,
-) {
-    core::arch::naked_asm!(
-        "mov eax, [esp + 4]", // EAX = this
-        "mov edx, [esp + 8]", // EDX = col_width
-        "push [esp + 28]",    // flags
-        "push [esp + 28]",    // bitmap_ptr (shifted by our push)
-        "push [esp + 28]",    // row_height
-        "push [esp + 28]",    // dst_y
-        "push [esp + 28]",    // dst_x
-        "call [esp + 52]",    // target (offset: 5 pushes × 4 + 32 original)
-        "ret",
-    );
 }
 
 /// Port of DisplayGfx::DrawPixelStrip (vtable slot 15, 0x56BE10).
@@ -2764,12 +2711,11 @@ unsafe fn cbitmap_blit_via_wrapper(
 /// render lock if held, and dispatches the actual blit through
 /// `cbitmap_blit_via_wrapper`.
 ///
-/// The original WA function still exists and is called by other slots
-/// (`DrawTiledTerrain`, `BlitBitmapTiled_Maybe`); we don't replace it
-/// in-place. This Rust version is only used by our ported slot 11.
-/// (The earlier `blit_bitmap_clipped` in this file is the asm bridge to
-/// the original WA function used by slot 22 — kept until it has a typed
-/// caller to validate against.)
+/// Used by ported slots 11 (`DrawTiledBitmap`) and 22 (`DrawTiledTerrain`).
+/// The original WA function at `0x56A700` still exists and is called by
+/// the slot-19 bitmap-sprite fallback path (`wa_blit_bitmap_clipped`) —
+/// see follow-up plan item 4. The address constant
+/// `DISPLAY_GFX_BLIT_BITMAP_CLIPPED` is kept until that path is ported.
 ///
 /// # Safety
 /// `this` must be a valid `*mut DisplayGfx`. `surface` must be a valid

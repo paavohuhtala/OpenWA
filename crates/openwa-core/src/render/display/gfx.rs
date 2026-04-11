@@ -1,6 +1,7 @@
 use super::base::DisplayBase;
 use super::vtable::DisplayGfxVtable;
 use crate::bitgrid::DisplayBitGrid;
+use crate::render::sprite::sprite::CBitmap;
 use core::ffi::c_void;
 
 /// DisplayGfx — full display/graphics subsystem (derived from DisplayBase).
@@ -212,10 +213,15 @@ impl DisplayGfx {
 ///
 /// Pointed to by `DisplayGfx::tile_bitmap_sets`. Used by draw_tiled_terrain (slot 22)
 /// to iterate over bitmap tiles in a grid pattern.
+///
+/// Each `bitmap_ptrs[i]` is a [`CBitmap`] — the same struct slot 11's
+/// `bitmap_vec` uses. WA's BlitBitmapClipped (`0x56A700`) and the inner
+/// FUN_00403c60 read `+0x4` (the `surface` field) on every entry; the
+/// vtable+surface+pad layout matches.
 #[repr(C)]
 pub struct TileBitmapSet {
     /// 0x00: Bitmap count or total size (observed values: 0x168 = 360)
     pub count: u32,
-    /// 0x04: Pointer to array of bitmap pointers (one per grid tile, row-major order)
-    pub bitmap_ptrs: *const u32,
+    /// 0x04: Pointer to array of CBitmap pointers (one per grid tile, row-major).
+    pub bitmap_ptrs: *const *mut CBitmap,
 }
