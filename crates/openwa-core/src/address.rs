@@ -82,6 +82,11 @@ pub mod va {
     };
     pub use crate::render::display::base::DISPLAY_BASE_VTABLE;
     pub use crate::render::display::context::{RenderContextVtable, RENDER_CONTEXT_VTABLE};
+    pub use crate::render::display::frame_hook::{
+        FramePostProcessHookVtable, FRAME_POST_PROCESS_HOOK_DESTRUCTOR,
+        FRAME_POST_PROCESS_HOOK_VTABLE, SCREENSHOT_HOOK_CAPTURE_TO_PNG,
+        SCREENSHOT_HOOK_GET_CAPTURE_REQUEST, SCREENSHOT_HOOK_VTABLE,
+    };
     pub use crate::render::display::gfx::{
         DISPLAY_BASE_DESTRUCTOR_IMPL, DISPLAY_GFX_DESTRUCTOR, DISPLAY_GFX_DESTRUCTOR_IMPL,
         DISPLAY_GFX_DISPATCH_FRAME_POST_PROCESS_HOOKS, DISPLAY_GFX_FREE_LAYER_SPRITE_TABLE,

@@ -39,6 +39,7 @@ const VALID_PROLOGUES: &[u8] = &[
     0xE8, // call rel32
     0xE9, // jmp rel32 (MinHook trampoline — function is hooked)
     0xEB, // jmp rel8 (short jump)
+    0xF6, // test byte ptr [mem], imm8 (e.g. FramePostProcessHook__Destructor's flag check)
     0xFF, // call/jmp [mem]
 ];
 

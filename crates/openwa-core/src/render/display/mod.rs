@@ -1,6 +1,7 @@
 pub mod base;
 pub mod context;
 pub mod font;
+pub mod frame_hook;
 pub mod gfx;
 pub mod gradient;
 pub mod layer;
