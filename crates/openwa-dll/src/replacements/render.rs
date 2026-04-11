@@ -808,19 +808,19 @@ unsafe extern "thiscall" fn blit_sprite(
     if arr1 == 0 && arr2 == 0 {
         // Bitmap sprite path — sprite is in the bitmap table at 0x3DD4.
         let bitmap_obj = (*gfx).sprite_table[sprite_id as usize];
-        if bitmap_obj == 0 {
+        if bitmap_obj.is_null() {
             return;
         }
 
-        // Get frame data and dimensions from bitmap sprite object
+        // Get frame data and dimensions from bitmap sprite object.
         let mut sprite_w: i32 = 0;
         let mut sprite_h: i32 = 0;
         let mut rect_left: i32 = 0;
         let mut rect_top: i32 = 0;
         let mut rect_right: i32 = 0;
         let mut rect_bottom: i32 = 0;
-        let frame_data = wa_get_bitmap_sprite_info(
-            bitmap_obj as *mut u8,
+        let frame_data = display_vtable::get_bitmap_sprite_info(
+            bitmap_obj,
             pal,
             &mut sprite_w,
             &mut sprite_h,
@@ -828,7 +828,6 @@ unsafe extern "thiscall" fn blit_sprite(
             &mut rect_top,
             &mut rect_right,
             &mut rect_bottom,
-            rb(openwa_core::address::va::DISPLAY_GFX_GET_BITMAP_SPRITE_INFO),
         );
         if frame_data.is_null() {
             return;
@@ -839,33 +838,18 @@ unsafe extern "thiscall" fn blit_sprite(
         let half_w = sprite_w / 2;
         let half_h = sprite_h / 2;
         let blit_h = rect_bottom - rect_top;
-
+        let dst_x = (x.0 >> 16) + (camera_x - half_w) + rect_left;
         let dst_y = (y.0 >> 16) + (camera_y - half_h) + rect_top;
 
         if (high_flags & 0x0001_0000) == 0 {
-            // Non-tiled: BlitBitmapClipped
-            let dst_x = (x.0 >> 16) + (camera_x - half_w) + rect_left;
-            wa_blit_bitmap_clipped(
-                this as *mut u8,
-                sprite_w as u32,
-                dst_x,
-                dst_y,
-                blit_h,
-                frame_data,
-                2,
-                rb(openwa_core::address::va::DISPLAY_GFX_BLIT_BITMAP_CLIPPED),
+            // Non-tiled: clipped blit at (dst_x, dst_y).
+            display_vtable::blit_bitmap_clipped_native(
+                gfx, dst_x, dst_y, sprite_w, blit_h, frame_data, 2,
             );
         } else {
-            // Tiled: BlitBitmapTiled
-            let dst_x = (x.0 >> 16) + (camera_x - half_w) + rect_left;
-            wa_blit_bitmap_tiled(
-                dst_x,
-                sprite_w,
-                this as *mut u8,
-                dst_y,
-                blit_h,
-                frame_data,
-                rb(openwa_core::address::va::DISPLAY_GFX_BLIT_BITMAP_TILED),
+            // Tiled: horizontal tile across the clip rect.
+            display_vtable::blit_bitmap_tiled_native(
+                gfx, dst_x, sprite_w, dst_y, blit_h, frame_data,
             );
         }
         return;
@@ -1133,93 +1117,6 @@ unsafe extern "thiscall" fn blit_sprite(
         0,
         color_table,
         orient_local,
-    );
-}
-
-// =========================================================================
-// Bitmap sprite bridges (naked asm for usercall conventions)
-// =========================================================================
-
-/// Call DisplayGfx__GetBitmapSpriteInfo (0x573C50).
-/// Usercall: EAX=bitmap_obj, EDX=palette, 6 stack params (output ptrs), RET 0x18.
-#[unsafe(naked)]
-unsafe extern "cdecl" fn wa_get_bitmap_sprite_info(
-    _bitmap_obj: *mut u8,
-    _palette: u32,
-    _out_w: *mut i32,
-    _out_h: *mut i32,
-    _out_left: *mut i32,
-    _out_top: *mut i32,
-    _out_right: *mut i32,
-    _out_bottom: *mut i32,
-    _target: u32,
-) -> *const u8 {
-    core::arch::naked_asm!(
-        "mov eax, [esp + 4]",        // bitmap_obj
-        "mov edx, [esp + 8]",        // palette
-        "mov ecx, [esp + 36]",       // target
-        "push dword ptr [esp + 32]", // out_bottom
-        "push dword ptr [esp + 32]", // out_right
-        "push dword ptr [esp + 32]", // out_top
-        "push dword ptr [esp + 32]", // out_left
-        "push dword ptr [esp + 32]", // out_h
-        "push dword ptr [esp + 32]", // out_w
-        "call ecx",                  // RET 0x18 cleans 6 params
-        "ret",
-    );
-}
-
-/// Call DisplayGfx__BlitBitmapClipped (0x56A700).
-/// Usercall: EAX=this, EDX=width, 5 stack params (dst_x, dst_y, height, frame_data, flags), RET 0x14.
-#[unsafe(naked)]
-unsafe extern "cdecl" fn wa_blit_bitmap_clipped(
-    _this: *mut u8,
-    _width: u32,
-    _dst_x: i32,
-    _dst_y: i32,
-    _height: i32,
-    _frame_data: *const u8,
-    _flags: u32,
-    _target: u32,
-) {
-    core::arch::naked_asm!(
-        "mov eax, [esp + 4]",        // this
-        "mov edx, [esp + 8]",        // width
-        "mov ecx, [esp + 32]",       // target
-        "push dword ptr [esp + 28]", // flags
-        "push dword ptr [esp + 28]", // frame_data
-        "push dword ptr [esp + 28]", // height
-        "push dword ptr [esp + 28]", // dst_y
-        "push dword ptr [esp + 28]", // dst_x
-        "call ecx",                  // RET 0x14 cleans 5 params
-        "ret",
-    );
-}
-
-/// Call DisplayGfx__BlitBitmapTiled (0x56A7D0).
-/// Usercall: EAX=initial_x, EDI=tile_width, 4 stack params (this, dst_y, height, frame_data), RET 0x10.
-#[unsafe(naked)]
-unsafe extern "cdecl" fn wa_blit_bitmap_tiled(
-    _initial_x: i32,
-    _tile_width: i32,
-    _this: *mut u8,
-    _dst_y: i32,
-    _height: i32,
-    _frame_data: *const u8,
-    _target: u32,
-) {
-    core::arch::naked_asm!(
-        "push edi",
-        "mov eax, [esp + 8]",        // initial_x
-        "mov edi, [esp + 12]",       // tile_width
-        "mov ecx, [esp + 32]",       // target (offset +4 from push edi)
-        "push dword ptr [esp + 28]", // frame_data
-        "push dword ptr [esp + 28]", // height
-        "push dword ptr [esp + 28]", // dst_y
-        "push dword ptr [esp + 28]", // this
-        "call ecx",                  // RET 0x10 cleans 4 params
-        "pop edi",
-        "ret",
     );
 }
 

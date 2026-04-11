@@ -184,6 +184,12 @@ pub struct SpriteBankVtable {
 
 /// Layer sprite — 0x70-byte object used by `load_sprite_by_layer` (vtable slot 37).
 ///
+/// Also used for the "bitmap sprite" path of `BlitSprite` (slot 19): the
+/// per-id pointers in `DisplayGfx::sprite_table` (`+0x3DD4`) point at
+/// `LayerSprite` instances. `DisplayGfx::GetBitmapSpriteInfo` reads
+/// `flags`, `frame_count`, `cell_width`, `cell_height`, and `frame_array`
+/// to resolve a frame index → frame metadata + `CBitmap` pointer.
+///
 /// Unlike `Sprite` (which has a vtable and is created via ConstructSprite), this
 /// is a raw allocation with partial init by the caller. Used for background layers
 /// (back.spr, layer.spr) which load DirectDraw surfaces directly from `.dir` files.
@@ -200,14 +206,18 @@ pub struct LayerSprite {
     pub palette_ctx: *mut PaletteContext,
     /// 0x60: Header field from stream (4 bytes).
     pub field_60: u32,
-    /// 0x64: Header field from stream (2 bytes).
-    pub field_64: u16,
+    /// 0x64: Animation/playback mode flags. Read by
+    /// `GetBitmapSpriteInfo` to decide how to interpret the
+    /// palette/anim parameter:
+    /// - bit 0: low 16 bits used as-is (no clamp)
+    /// - bit 1: ping-pong (bounce) frame iteration
+    pub flags: u16,
     /// 0x66: Frame count (zeroed, then read from stream).
     pub frame_count: u16,
-    /// 0x68: Header field from stream (2 bytes).
-    pub field_68: u16,
-    /// 0x6A: Header field from stream (2 bytes).
-    pub field_6a: u16,
+    /// 0x68: Sprite cell width in pixels (used for centering during blit).
+    pub cell_width: i16,
+    /// 0x6A: Sprite cell height in pixels (used for centering during blit).
+    pub cell_height: i16,
     /// 0x6C: Pointer to LayerSpriteFrame array (count stored at ptr[-4]).
     pub frame_array: *mut LayerSpriteFrame,
 }
@@ -271,6 +281,18 @@ pub struct LayerSpriteFrame {
 }
 
 const _: () = assert!(core::mem::size_of::<LayerSpriteFrame>() == 0x14);
+
+impl LayerSpriteFrame {
+    /// Returns a pointer to the trailing 12-byte `CBitmap` block
+    /// (`bitmap_vtable`/`surface`/`_pad_10`) inside this entry. The
+    /// `CBitmap` layout is bit-identical to the trailing 12 bytes of
+    /// `LayerSpriteFrame`, so the value can be passed to any function
+    /// that takes `*mut CBitmap` (e.g., `blit_bitmap_clipped_native`).
+    #[inline]
+    pub fn bitmap_ptr(this: *mut Self) -> *mut CBitmap {
+        unsafe { (this as *mut u8).add(0x08) as *mut CBitmap }
+    }
+}
 
 crate::define_addresses! {
     class "CBitmap" {

@@ -891,7 +891,7 @@ pub unsafe extern "thiscall" fn is_sprite_loaded(this: *mut DisplayGfx, id: i32)
     let base = &(*this).base;
     if !base.sprite_ptrs[id as usize].is_null()
         || !base.sprite_banks[id as usize].is_null()
-        || (*this).sprite_table[id as usize] != 0
+        || !(*this).sprite_table[id as usize].is_null()
     {
         1
     } else {
@@ -1772,11 +1772,12 @@ pub unsafe fn load_sprite_by_name(
             }
         }
 
-        // Read sprite metadata fields
+        // Read sprite metadata fields (in original WA's read order:
+        // field_60 first, then flags / cell_width / cell_height).
         GfxDirStream::read_raw(stream, sp.add(0x60), 4); // field_60
-        GfxDirStream::read_raw(stream, sp.add(0x64), 2); // field_64
-        GfxDirStream::read_raw(stream, sp.add(0x68), 2); // field_68
-        GfxDirStream::read_raw(stream, sp.add(0x6A), 2); // field_6a
+        GfxDirStream::read_raw(stream, sp.add(0x64), 2); // flags
+        GfxDirStream::read_raw(stream, sp.add(0x68), 2); // cell_width
+        GfxDirStream::read_raw(stream, sp.add(0x6A), 2); // cell_height
 
         // frame_count: zero first, then read
         (*sprite).frame_count = 0;
@@ -2034,7 +2035,7 @@ pub unsafe fn load_sprite_by_layer(
     }
 
     // Store in sprite_table (DisplayGfx offset 0x3DD4)
-    (*this).sprite_table[id as usize] = sprite as u32;
+    (*this).sprite_table[id as usize] = sprite;
 
     1
 }
@@ -2711,16 +2712,14 @@ unsafe fn cbitmap_blit_via_wrapper(
 /// render lock if held, and dispatches the actual blit through
 /// `cbitmap_blit_via_wrapper`.
 ///
-/// Used by ported slots 11 (`DrawTiledBitmap`) and 22 (`DrawTiledTerrain`).
-/// The original WA function at `0x56A700` still exists and is called by
-/// the slot-19 bitmap-sprite fallback path (`wa_blit_bitmap_clipped`) —
-/// see follow-up plan item 4. The address constant
-/// `DISPLAY_GFX_BLIT_BITMAP_CLIPPED` is kept until that path is ported.
+/// Used by ported slots 11 (`DrawTiledBitmap`), 22 (`DrawTiledTerrain`),
+/// and the bitmap-sprite branch of slot 19 (`BlitSprite`) via the DLL
+/// `blit_sprite` hook.
 ///
 /// # Safety
 /// `this` must be a valid `*mut DisplayGfx`. `surface` must be a valid
 /// `*mut CBitmap`. `g_RenderContext` must be initialized.
-unsafe fn blit_bitmap_clipped_native(
+pub unsafe fn blit_bitmap_clipped_native(
     this: *mut DisplayGfx,
     dst_x: i32,
     dst_y: i32,
@@ -2766,6 +2765,122 @@ unsafe fn blit_bitmap_clipped_native(
         new_bottom - new_top,
         flags | 1,
     );
+}
+
+/// Pure-Rust port of `DisplayGfx::BlitBitmapTiled` (`0x56A7D0`,
+/// usercall EAX=initial_x, EDI=tile_width).
+///
+/// Tiles `surface` horizontally across the visible clip range
+/// `[clip_x1, clip_x2)`. The function first walks `initial_x` by
+/// `±tile_width` until `x ≤ clip_x1`, then blits at `(x, dst_y),
+/// (x + tile_width, dst_y), …` until past `clip_x2`. Each blit goes
+/// through `blit_bitmap_clipped_native` with the same fixed `flags = 2`
+/// the original WA function uses.
+///
+/// Used by the bitmap-sprite branch of slot 19 (`BlitSprite`) when the
+/// `tiled` mode bit (high_flags bit 16) is set on the sprite.
+///
+/// # Safety
+/// `this` must be a valid `*mut DisplayGfx` with an initialized clip
+/// rect. `surface` must be a valid `*mut CBitmap`. `tile_width` must be
+/// positive (zero or negative would loop forever; matches the original).
+pub unsafe fn blit_bitmap_tiled_native(
+    this: *mut DisplayGfx,
+    initial_x: i32,
+    tile_width: i32,
+    dst_y: i32,
+    height: i32,
+    surface: *mut CBitmap,
+) {
+    let clip_x1 = (*this).base.clip_x1;
+    let clip_x2 = (*this).base.clip_x2;
+
+    // Walk to the largest x ≤ clip_x1 in the arithmetic sequence
+    // {initial_x ± k*tile_width} (matches the original's two-loop pattern
+    // at 0x56A7DD..0x56A7F4).
+    let mut x = initial_x;
+    while x < clip_x1 {
+        x += tile_width;
+    }
+    while x > clip_x1 {
+        x -= tile_width;
+    }
+
+    while x < clip_x2 {
+        blit_bitmap_clipped_native(this, x, dst_y, tile_width, height, surface, 2);
+        x += tile_width;
+    }
+}
+
+/// Pure-Rust port of `DisplayGfx::GetBitmapSpriteInfo` (`0x573C50`,
+/// usercall EAX=bitmap_obj, EDX=palette_or_anim).
+///
+/// Resolves an animation/palette value into a frame index for a
+/// `LayerSprite`, then writes the selected frame's bounding box and the
+/// sprite's full cell width/height to the output pointers and returns a
+/// pointer to the frame's `CBitmap` (the trailing 12 bytes of the
+/// `LayerSpriteFrame` entry).
+///
+/// `bitmap_obj.flags` (`LayerSprite +0x64`) controls interpretation of
+/// `palette_or_anim`:
+/// - bit 0 set: low 16 bits taken as-is (no clamp)
+/// - bit 0 clear: signed clamp to `[0, 0xFFFF]`
+/// - bit 1 set: ping-pong (bounce) iteration over `[0, frame_count)`
+/// - bit 1 clear: forward iteration
+///
+/// Used by the bitmap-sprite branch of slot 19 (`BlitSprite`).
+///
+/// # Safety
+/// `bitmap_obj` must be a valid `LayerSprite` with a populated
+/// `frame_array`. The output pointers must be writable.
+pub unsafe fn get_bitmap_sprite_info(
+    bitmap_obj: *mut LayerSprite,
+    palette_or_anim: u32,
+    out_w: *mut i32,
+    out_h: *mut i32,
+    out_left: *mut i32,
+    out_top: *mut i32,
+    out_right: *mut i32,
+    out_bottom: *mut i32,
+) -> *mut CBitmap {
+    let flags = (*bitmap_obj).flags as i32;
+
+    // Step 1: clamp / mask the palette_or_anim value into [0, 0xFFFF].
+    let pal: i32 = if flags & 1 != 0 {
+        (palette_or_anim & 0xFFFF) as i32
+    } else {
+        let p = palette_or_anim as i32;
+        p.max(0).min(0xFFFF)
+    };
+
+    // Step 2: compute frame index from frame_count and pal.
+    let frame_count = (*bitmap_obj).frame_count as i16 as i32;
+    let frame_idx = if flags & 2 != 0 {
+        // Ping-pong: scaled = ((2*frame_count - 1) * pal) >> 16
+        // If scaled >= frame_count, fold back: (2*frame_count - scaled) - 1.
+        let scaled = ((frame_count * 2 - 1) * pal) >> 16;
+        if scaled >= frame_count {
+            (frame_count * 2 - scaled) - 1
+        } else {
+            scaled
+        }
+    } else {
+        // Forward: idx = (frame_count * pal) >> 16
+        (frame_count * pal) >> 16
+    };
+
+    // Step 3: read the selected frame entry.
+    let frame = (*bitmap_obj).frame_array.offset(frame_idx as isize);
+
+    *out_left = (*frame).start_x as i32;
+    *out_top = (*frame).start_y as i32;
+    *out_right = (*frame).end_x as i32;
+    *out_bottom = (*frame).end_y as i32;
+
+    *out_w = (*bitmap_obj).cell_width as i32;
+    *out_h = (*bitmap_obj).cell_height as i32;
+
+    LayerSpriteFrame::bitmap_ptr(frame)
 }
 
 /// Pure-Rust port of `DisplayGfx::DrawTiledBitmap` (vtable slot 11,

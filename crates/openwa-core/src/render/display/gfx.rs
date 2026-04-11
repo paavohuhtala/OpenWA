@@ -1,7 +1,7 @@
 use super::base::DisplayBase;
 use super::vtable::DisplayGfxVtable;
 use crate::bitgrid::DisplayBitGrid;
-use crate::render::sprite::sprite::CBitmap;
+use crate::render::sprite::sprite::{CBitmap, LayerSprite};
 use core::ffi::c_void;
 
 /// DisplayGfx — full display/graphics subsystem (derived from DisplayBase).
@@ -133,9 +133,11 @@ pub struct DisplayGfx {
     // =========================================================================
     // Sprite/bitmap table (0x3DD4 - 0x4DD7)
     // =========================================================================
-    /// 0x3DD4: Sprite table — 1024 DWORD entries, zeroed in DisplayGfx__Init.
-    /// Used for tracking loaded sprites/bitmaps by ID.
-    pub sprite_table: [u32; 0x400],
+    /// 0x3DD4: Bitmap-sprite table — 1024 entries, zeroed in DisplayGfx__Init.
+    /// Each non-null entry is a `LayerSprite` allocated by `load_sprite_by_layer`
+    /// (vtable slot 37). Read by `GetBitmapSpriteInfo` (slot's helper, used
+    /// by the bitmap-sprite branch of `BlitSprite` / slot 19).
+    pub sprite_table: [*mut LayerSprite; 0x400],
     // =========================================================================
     // Tile stream config (0x4DD4 - 0x4DF3)
     // =========================================================================

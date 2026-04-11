@@ -462,12 +462,6 @@ pub mod va {
         fn/Usercall DISPLAY_GFX_INIT = 0x0056_9D00;
         /// DisplayGfx vtable slot 19 — blit sprite
         fn/Thiscall DISPLAY_GFX_BLIT_SPRITE = 0x0056_B080;
-        /// DisplayGfx bitmap sprite info lookup — usercall(EAX=bitmap_obj, EDX=palette), RET 0x18
-        fn/Usercall DISPLAY_GFX_GET_BITMAP_SPRITE_INFO = 0x0057_3C50;
-        /// DisplayGfx bitmap blit (clipped) — usercall(EAX=this, EDX=width), RET 0x14
-        fn/Usercall DISPLAY_GFX_BLIT_BITMAP_CLIPPED = 0x0056_A700;
-        /// DisplayGfx bitmap blit (tiled) — usercall(EAX=initial_x, EDI=tile_width), RET 0x10
-        fn/Usercall DISPLAY_GFX_BLIT_BITMAP_TILED = 0x0056_A7D0;
         /// DisplayGfx flush render lock — releases lock, plain RET
         fn DISPLAY_GFX_FLUSH_RENDER_LOCK = 0x0056_A330;
         /// Streaming audio constructor
