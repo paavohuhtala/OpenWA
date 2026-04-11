@@ -268,10 +268,7 @@ impl DisplayBase {
     pub unsafe fn new_headless() -> *mut Self {
         use crate::address::va;
         use crate::rebase::rb;
-        use crate::wa_alloc::WABox;
-
-        // Allocate and zero the entire struct.
-        let this = WABox::<Self>::alloc(0x3560, 0x3560).leak();
+        let this = wa_malloc_struct_zeroed::<Self>();
 
         // Point to WA's headless vtable in .rdata (identity-checked by WA code).
         (*this).vtable = rb(va::DISPLAY_BASE_HEADLESS_VTABLE) as *const DisplayBaseVtable;

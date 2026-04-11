@@ -70,8 +70,8 @@ pub struct DDGameWrapper {
     pub speech_name_count: u32,
     /// 0x6EEC: Init 0 (DWORD index 0x1BBA)
     pub _field_6eec: u32,
-    /// 0x6EF0-end: Unknown trailing fields
-    pub _unknown_6ef0: [u8; 0x10],
+    /// 0x6EF0-0x6F0F: Unknown trailing fields (not zeroed by constructor memset).
+    pub _unknown_6ef0: [u8; 0x20],
 }
 
-const _: () = assert!(core::mem::size_of::<DDGameWrapper>() == 0x6F00);
+const _: () = assert!(core::mem::size_of::<DDGameWrapper>() == 0x6F10);

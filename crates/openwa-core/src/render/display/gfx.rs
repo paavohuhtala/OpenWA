@@ -204,10 +204,10 @@ impl DisplayGfx {
     pub unsafe fn construct() -> *mut Self {
         use crate::address::va;
         use crate::rebase::rb;
-        use crate::wa_alloc::WABox;
+        use crate::wa_alloc::wa_malloc_struct_zeroed;
         let ctor: unsafe extern "stdcall" fn(*mut Self) -> *mut Self =
             core::mem::transmute(rb(va::DISPLAYGFX_CTOR) as usize);
-        ctor(WABox::<Self>::alloc(0x24E28, 0x24E08).leak())
+        ctor(wa_malloc_struct_zeroed::<Self>())
     }
 }
 

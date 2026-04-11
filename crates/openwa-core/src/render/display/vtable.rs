@@ -3709,7 +3709,7 @@ pub unsafe fn draw_tiled_bitmap_impl(
             let mut remaining = total_height;
             while accum < total_height {
                 // Allocate one CBitmap entry.
-                let cbm = wa_malloc(core::mem::size_of::<CBitmap>() as u32) as *mut CBitmap;
+                let cbm = wa_malloc_struct_zeroed::<CBitmap>();
                 if !cbm.is_null() {
                     (*cbm).vtable = cbitmap_vt;
                     (*cbm).surface = core::ptr::null_mut();

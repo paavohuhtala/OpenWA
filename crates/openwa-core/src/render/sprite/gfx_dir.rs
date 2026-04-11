@@ -8,7 +8,7 @@ use openwa_core::vtable;
 
 use crate::address::va;
 use crate::rebase::rb;
-use crate::wa_alloc::wa_malloc;
+use crate::wa_alloc::{wa_malloc, wa_malloc_struct_zeroed};
 
 /// .dir archive reader (0x19C bytes, vtable 0x66B280).
 ///
@@ -43,9 +43,8 @@ const _: () = assert!(core::mem::size_of::<GfxDir>() == 0x19C);
 impl GfxDir {
     /// Allocate and initialize a new GfxDir with the given vtable.
     pub unsafe fn alloc(vtable: *const GfxDirVtable) -> *mut Self {
-        let ptr = wa_malloc(core::mem::size_of::<Self>() as u32) as *mut Self;
+        let ptr = wa_malloc_struct_zeroed::<Self>();
         if !ptr.is_null() {
-            core::ptr::write_bytes(ptr as *mut u8, 0, core::mem::size_of::<Self>());
             (*ptr).vtable = vtable;
         }
         ptr

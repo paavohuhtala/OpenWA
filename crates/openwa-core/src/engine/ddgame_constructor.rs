@@ -844,7 +844,9 @@ unsafe fn init_graphics_and_resources(
 
     // ── CoordList at DDGame+0x50C (capacity 600, 0x12C0 buffer) ──
     {
-        let cl = wa_malloc(core::mem::size_of::<CoordList>() as u32) as *mut CoordList;
+        use crate::wa_alloc::wa_malloc_struct_zeroed;
+
+        let cl = wa_malloc_struct_zeroed::<CoordList>();
         (*cl).count = 0;
         (*cl).capacity = 600;
         let data = wa_malloc_zeroed(600 * core::mem::size_of::<CoordListEntry>() as u32)

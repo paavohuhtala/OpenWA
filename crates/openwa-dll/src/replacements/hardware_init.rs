@@ -50,7 +50,7 @@ use openwa_core::engine::{DDGameWrapper, DDNetGameWrapper, GameInfo, GameSession
 use openwa_core::input::{DDKeyboard, InputCtrl, InputCtrlVtable};
 use openwa_core::rebase::rb;
 use openwa_core::render::{DisplayBase, DisplayGfx, Palette};
-use openwa_core::wa_alloc::WABox;
+use openwa_core::wa_alloc::{wa_malloc_struct, wa_malloc_struct_zeroed};
 
 // ─── Entry trampoline state ───────────────────────────────────────────────────
 
@@ -200,7 +200,8 @@ unsafe fn create_dssound(hwnd: u32) -> *mut DSSound {
     };
 
     // Pure Rust construction — replaces call_dssound_ctor bridge.
-    let snd = WABox::<DSSound>::from_value(DSSound::new(hwnd)).leak();
+    let snd = wa_malloc_struct::<DSSound>();
+    core::ptr::write(snd, DSSound::new(hwnd));
 
     // DirectSound COM initialization — replaces call_dssound_init_buffers bridge.
     let mut ds: Option<IDirectSound> = None;
@@ -261,7 +262,7 @@ unsafe extern "cdecl" fn impl_init_hardware(
     if param4 == 0 {
         (*session).input_ctrl = core::ptr::null_mut();
     } else {
-        let ctrl = WABox::<InputCtrl>::alloc(0x1800, 0x17E0).leak();
+        let ctrl = wa_malloc_struct_zeroed::<InputCtrl>();
         (*ctrl)._field_d74 = 0x3F9;
         (*ctrl).vtable = rb(va::INPUT_CTRL_VTABLE) as *const InputCtrlVtable;
         (*session).input_ctrl = ctrl as *mut u8;
@@ -278,7 +279,7 @@ unsafe extern "cdecl" fn impl_init_hardware(
     }
 
     // ── Timer object (ALWAYS) ─────────────────────────────────────────────────
-    let timer = WABox::<GameTimer>::alloc(0x30, 0x30).leak();
+    let timer = wa_malloc_struct_zeroed::<GameTimer>();
     call_timer_ctor(timer, crosshair_threshold);
     (*session).timer_obj = timer as *mut u8;
 
@@ -360,15 +361,19 @@ unsafe extern "cdecl" fn impl_init_hardware(
         }
 
         // ── DDKeyboard (inline construction) ──────────────────────────────────
-        let kb = WABox::from_value(DDKeyboard::new(
-            rb(va::DDKEYBOARD_VTABLE),
-            &raw mut gi.input_state_f918 as u32,
-        ))
-        .leak();
+        let kb = wa_malloc_struct::<DDKeyboard>();
+        core::ptr::write(
+            kb,
+            DDKeyboard::new(
+                rb(va::DDKEYBOARD_VTABLE),
+                &raw mut gi.input_state_f918 as u32,
+            ),
+        );
         (*session).keyboard = kb;
 
         // ── Palette (inline construction) ─────────────────────────────────────
-        let pal = WABox::from_value(Palette::new(rb(va::PALETTE_VTABLE))).leak();
+        let pal = wa_malloc_struct::<Palette>();
+        core::ptr::write(pal, Palette::new(rb(va::PALETTE_VTABLE)));
         (*session).palette = pal;
 
         // ── DSSound ───────────────────────────────────────────────────────────
@@ -377,7 +382,7 @@ unsafe extern "cdecl" fn impl_init_hardware(
         // ── Streaming audio ───────────────────────────────────────────────────
         (*session).streaming_audio = core::ptr::null_mut();
         if !(*session).sound.is_null() && gi.speech_enabled != 0 {
-            let stream = WABox::<Music>::alloc(0x354, 0x334).leak();
+            let stream = wa_malloc_struct_zeroed::<Music>();
             let ids = (*(*session).sound).direct_sound as *mut u8;
             call_streaming_audio_ctor(
                 stream as *mut u8,
@@ -403,7 +408,7 @@ unsafe extern "cdecl" fn impl_init_hardware(
     let _ = crate::log_line("[hardware_init] Creating DDGameWrapper");
     let wrapper = game_session::construct_ddgame_wrapper(
         game_info,
-        WABox::<DDGameWrapper>::alloc(0x6F10, 0x6EF0).leak(),
+        wa_malloc_struct_zeroed::<DDGameWrapper>(),
         (*session).display as *mut DisplayGfx,
         (*session).sound,
         (*session).keyboard as *mut u8,

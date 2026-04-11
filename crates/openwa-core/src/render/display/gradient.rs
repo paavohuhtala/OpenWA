@@ -12,6 +12,8 @@ use crate::rebase::rb;
 use crate::render::sprite::gfx_dir::call_gfx_find_and_load;
 #[cfg(target_arch = "x86")]
 use crate::render::sprite::gfx_dir::GfxDir;
+#[cfg(target_arch = "x86")]
+use crate::wa_alloc::wa_malloc_struct_zeroed;
 use crate::wa_alloc::{wa_free, wa_malloc};
 
 /// Palette context for gradient color mapping.
@@ -244,12 +246,11 @@ pub(crate) unsafe fn compute_complex_gradient(
 
     // Step 8: Wrap pixel data in a BitGrid-compatible object
     // (shares vtable 0x6640EC; CTaskLand reads .height to decide whether to render)
-    let gfx_obj = wa_malloc(core::mem::size_of::<BitGrid>() as u32) as *mut BitGrid;
+    let gfx_obj = wa_malloc_struct_zeroed::<BitGrid>();
     if gfx_obj.is_null() {
         wa_free(data);
         return;
     }
-    core::ptr::write_bytes(gfx_obj as *mut u8, 0, core::mem::size_of::<BitGrid>());
     (*gfx_obj).vtable = rb(va::BIT_GRID_BASE_VTABLE) as *const BitGridBaseVtable;
     (*gfx_obj).data = data;
     (*gfx_obj).row_stride = stride;

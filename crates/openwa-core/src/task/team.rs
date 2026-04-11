@@ -188,7 +188,7 @@ use crate::rebase::rb;
 use crate::rng::wa_lcg;
 use crate::task::cloud::{CTaskCloud, CloudType};
 use crate::task::filter::CTaskFilter;
-use crate::wa_alloc::WABox;
+use crate::wa_alloc::wa_malloc_struct_zeroed;
 
 /// Bridge: call CTaskFilter constructor (usercall: ECX=0x1B, stdcall params: this, parent).
 /// Returns constructed pointer in EAX.
@@ -224,13 +224,13 @@ unsafe extern "cdecl" fn call_filter_ctor(
 /// `parent` must be a valid CTask pointer (typically a CTaskTeam child).
 pub unsafe extern "stdcall" fn create_weather_filter(parent: *mut CTask) {
     // 1. Allocate and construct CTaskFilter
-    let filter_box = WABox::<CTaskFilter>::alloc(0xB4, 0x94);
+    let filter_ptr = wa_malloc_struct_zeroed::<CTaskFilter>();
     let filter = call_filter_ctor(
-        filter_box.as_ptr() as *mut u8,
+        filter_ptr as *mut u8,
         parent as *mut u8,
         rb(va::CTASK_FILTER_CTOR),
     );
-    filter_box.leak(); // ownership transfers to the task tree
+    // ownership transfers to the task tree
 
     // 2. Subscribe to messages: FrameStart(1), FrameFinish(2), RenderScene(3), SetWind(0x54)
     (*filter).subscription_table[1] = 1;
@@ -310,8 +310,7 @@ pub unsafe extern "stdcall" fn create_weather_filter(parent: *mut CTask) {
         };
 
         // Allocate cloud, construct CTask base, then init cloud fields
-        let cloud_box = WABox::<CTaskCloud>::alloc(0x74, 0x54);
-        let cloud_ptr = cloud_box.as_ptr();
+        let cloud_ptr = wa_malloc_struct_zeroed::<CTaskCloud>();
         ctask_ctor(cloud_ptr as *mut u8, filter as *mut u8, ddgame);
         CTaskCloud::init(
             cloud_ptr,
@@ -321,7 +320,7 @@ pub unsafe extern "stdcall" fn create_weather_filter(parent: *mut CTask) {
             vel_x,
             y_seed,
         );
-        cloud_box.leak(); // ownership transfers to the task tree
+        // ownership transfers to the task tree
 
         layer_depth -= 1;
         accum_3i += 3;

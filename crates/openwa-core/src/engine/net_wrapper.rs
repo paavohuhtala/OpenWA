@@ -1,3 +1,5 @@
+use crate::wa_alloc::wa_malloc_struct_zeroed;
+
 /// DDNetGameWrapper — network game wrapper.
 ///
 /// Constructor: DDNetGameWrapper__Constructor (0x56D1F0), stdcall(this) → DDNetGameWrapper*.
@@ -22,9 +24,8 @@ impl DDNetGameWrapper {
     pub unsafe fn construct() -> *mut Self {
         use crate::address::va;
         use crate::rebase::rb;
-        use crate::wa_alloc::WABox;
         let ctor: unsafe extern "stdcall" fn(*mut Self) -> *mut Self =
             core::mem::transmute(rb(va::DDNETGAME_WRAPPER_CTOR) as usize);
-        ctor(WABox::<Self>::alloc(0x2C, 0).leak())
+        ctor(wa_malloc_struct_zeroed::<Self>())
     }
 }
