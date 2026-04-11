@@ -291,28 +291,27 @@ pub unsafe fn render_drawing_queue(
     });
 
     let clip_ref: &ClipContext = &*clip;
-    let vtable = (*display).base.vtable;
 
     // Walk from the highest index downward.
     for i in (0..count).rev() {
         let cmd = entries[i] as *const u32;
         let cmd_type = *cmd;
         match cmd_type {
-            0 => dispatch_case_0_fill_rect(display, vtable, clip_ref, cmd),
-            1 => dispatch_case_1_bitmap_global(display, vtable, cmd),
-            2 => dispatch_case_2_textbox_local(display, vtable, clip_ref, cmd),
-            3 => dispatch_case_3_via_callback(display, vtable, clip_ref, cmd),
-            4 => dispatch_case_4_sprite_global(display, vtable, cmd),
-            5 => dispatch_case_5_sprite_local(display, vtable, clip_ref, cmd),
-            6 => dispatch_case_6_sprite_offset(display, vtable, clip_ref, cmd),
-            7 => dispatch_case_7_polyline(display, vtable, cmd),
-            8 => dispatch_case_8_line_strip(display, vtable, clip_ref, cmd),
-            9 => dispatch_case_9_polygon(display, vtable, clip_ref, cmd),
-            0xA => dispatch_case_a_pixel_strip(display, vtable, clip_ref, cmd),
-            0xB => dispatch_case_b_crosshair(display, vtable, clip_ref, cmd),
-            0xC => dispatch_case_c_outlined_pixel(display, vtable, clip_ref, cmd),
-            0xD => dispatch_case_d_tiled_bitmap(display, vtable, clip_ref, cmd),
-            0xE => dispatch_case_e_tiled_terrain(display, vtable, clip_ref, cmd),
+            0 => dispatch_case_0_fill_rect(display, clip_ref, cmd),
+            1 => dispatch_case_1_bitmap_global(display, cmd),
+            2 => dispatch_case_2_textbox_local(display, clip_ref, cmd),
+            3 => dispatch_case_3_via_callback(display, clip_ref, cmd),
+            4 => dispatch_case_4_sprite_global(display, cmd),
+            5 => dispatch_case_5_sprite_local(display, clip_ref, cmd),
+            6 => dispatch_case_6_sprite_offset(display, clip_ref, cmd),
+            7 => dispatch_case_7_polyline(display, cmd),
+            8 => dispatch_case_8_line_strip(display, clip_ref, cmd),
+            9 => dispatch_case_9_polygon(display, clip_ref, cmd),
+            0xA => dispatch_case_a_pixel_strip(display, clip_ref, cmd),
+            0xB => dispatch_case_b_crosshair(display, clip_ref, cmd),
+            0xC => dispatch_case_c_outlined_pixel(display, clip_ref, cmd),
+            0xD => dispatch_case_d_tiled_bitmap(display, clip_ref, cmd),
+            0xE => dispatch_case_e_tiled_terrain(display, clip_ref, cmd),
             _ => { /* unknown command type — silently skipped, matching WA */ }
         }
     }
@@ -325,8 +324,11 @@ pub unsafe fn render_drawing_queue(
 // Each case body mirrors the corresponding `case N:` arm of WA's
 // `RenderDrawingQueue` (0x542350). Field offsets are the `puVar1[N]`
 // indices from the decompile (each step = 4 bytes).
-
-use crate::render::display::vtable::DisplayGfxVtable;
+//
+// Vtable dispatch goes through the auto-generated `DisplayGfx::*_raw`
+// methods (from `bind_DisplayGfxVtable!(DisplayGfx, base.vtable)`),
+// which take a raw `*mut DisplayGfx` to avoid creating `&mut self` —
+// see the noalias rule in CLAUDE.md.
 
 #[inline]
 unsafe fn read_field(cmd: *const u32, idx: usize) -> i32 {
@@ -346,12 +348,7 @@ unsafe fn read_fixed(cmd: *const u32, idx: usize) -> Fixed {
 //     if !iVar4 break;
 //     // x/y MIN-corner clamps to keep pixel-perfect rect edges
 //     vtable[18](this, x1>>16, y1>>16, x2>>16, y2>>16, cmd[2]);
-unsafe fn dispatch_case_0_fill_rect(
-    display: *mut DisplayGfx,
-    vtable: *const DisplayGfxVtable,
-    clip: &ClipContext,
-    cmd: *const u32,
-) {
+unsafe fn dispatch_case_0_fill_rect(display: *mut DisplayGfx, clip: &ClipContext, cmd: *const u32) {
     let mut x1 = Fixed::ZERO;
     let mut y1 = Fixed::ZERO;
     let mut x2 = Fixed::ZERO;
@@ -398,7 +395,7 @@ unsafe fn dispatch_case_0_fill_rect(
     }
 
     let color = *(cmd.add(2));
-    ((*vtable).fill_rect)(
+    DisplayGfx::fill_rect_raw(
         display,
         x1.to_int(),
         y1.to_int(),
@@ -413,11 +410,7 @@ unsafe fn dispatch_case_0_fill_rect(
 //     vtable[20](this, cmd[2], cmd[3], cmd[4], cmd[5], cmd[6], cmd[7], cmd[8], cmd[9]);
 //
 // Pure passthrough — global bitmaps draw at the supplied world coords.
-unsafe fn dispatch_case_1_bitmap_global(
-    display: *mut DisplayGfx,
-    vtable: *const DisplayGfxVtable,
-    cmd: *const u32,
-) {
+unsafe fn dispatch_case_1_bitmap_global(display: *mut DisplayGfx, cmd: *const u32) {
     use crate::bitgrid::DisplayBitGrid;
     let x = read_fixed(cmd, 2);
     let y = read_fixed(cmd, 3);
@@ -427,7 +420,7 @@ unsafe fn dispatch_case_1_bitmap_global(
     let src_w = read_field(cmd, 7);
     let src_h = read_field(cmd, 8);
     let flags = *(cmd.add(9));
-    ((*vtable).draw_scaled_sprite)(display, x, y, sprite, src_x, src_y, src_w, src_h, flags);
+    DisplayGfx::draw_scaled_sprite_raw(display, x, y, sprite, src_x, src_y, src_w, src_h, flags);
 }
 
 // ---- case 2: DRAW_TEXTBOX_LOCAL → slot 20 (draw_scaled_sprite) -------------
@@ -437,7 +430,6 @@ unsafe fn dispatch_case_1_bitmap_global(
 // `cmd+8` controlling whether the result clamps to the second clip pair.
 unsafe fn dispatch_case_2_textbox_local(
     display: *mut DisplayGfx,
-    vtable: *const DisplayGfxVtable,
     clip: &ClipContext,
     cmd: *const u32,
 ) {
@@ -497,7 +489,7 @@ unsafe fn dispatch_case_2_textbox_local(
     let src_w = read_field(cmd, 10);
     let src_h = read_field(cmd, 11);
     let flags = *(cmd.add(12));
-    ((*vtable).draw_scaled_sprite)(display, x1, y1, sprite, src_x, src_y, src_w, src_h, flags);
+    DisplayGfx::draw_scaled_sprite_raw(display, x1, y1, sprite, src_x, src_y, src_w, src_h, flags);
 }
 
 // ---- case 3 → slot 21 (draw_via_callback) ----------------------------------
@@ -507,7 +499,6 @@ unsafe fn dispatch_case_2_textbox_local(
 //     vtable[21](this, x, y, cmd[6], cmd[7], cmd[8]);
 unsafe fn dispatch_case_3_via_callback(
     display: *mut DisplayGfx,
-    vtable: *const DisplayGfxVtable,
     clip: &ClipContext,
     cmd: *const u32,
 ) {
@@ -528,22 +519,18 @@ unsafe fn dispatch_case_3_via_callback(
     let obj = read_field(cmd, 6) as *mut u8;
     let p5 = *(cmd.add(7));
     let p6 = *(cmd.add(8));
-    ((*vtable).draw_via_callback)(display, x, y, obj, p5, p6);
+    DisplayGfx::draw_via_callback_raw(display, x, y, obj, p5, p6);
 }
 
 // ---- case 4: DRAW_SPRITE_GLOBAL → slot 19 (blit_sprite) --------------------
 //
 //     vtable[19](this, cmd[2], cmd[3], cmd[4], cmd[5]);
-unsafe fn dispatch_case_4_sprite_global(
-    display: *mut DisplayGfx,
-    vtable: *const DisplayGfxVtable,
-    cmd: *const u32,
-) {
+unsafe fn dispatch_case_4_sprite_global(display: *mut DisplayGfx, cmd: *const u32) {
     let x = read_fixed(cmd, 2);
     let y = read_fixed(cmd, 3);
     let sprite_flags = *(cmd.add(4));
     let palette = *(cmd.add(5));
-    ((*vtable).blit_sprite)(display, x, y, sprite_flags, palette);
+    DisplayGfx::blit_sprite_raw(display, x, y, sprite_flags, palette);
 }
 
 // ---- case 5: DRAW_SPRITE_LOCAL → slot 19 (blit_sprite) ---------------------
@@ -552,7 +539,6 @@ unsafe fn dispatch_case_4_sprite_global(
 //     vtable[19](this, x, y, cmd[4], cmd[5]);
 unsafe fn dispatch_case_5_sprite_local(
     display: *mut DisplayGfx,
-    vtable: *const DisplayGfxVtable,
     clip: &ClipContext,
     cmd: *const u32,
 ) {
@@ -561,7 +547,7 @@ unsafe fn dispatch_case_5_sprite_local(
     rq_translate_coordinates(clip, read_fixed(cmd, 2), read_fixed(cmd, 3), &mut x, &mut y);
     let sprite_flags = *(cmd.add(4));
     let palette = *(cmd.add(5));
-    ((*vtable).blit_sprite)(display, x, y, sprite_flags, palette);
+    DisplayGfx::blit_sprite_raw(display, x, y, sprite_flags, palette);
 }
 
 // ---- case 6: DRAW_SPRITE_OFFSET → slot 19 (blit_sprite) --------------------
@@ -572,7 +558,6 @@ unsafe fn dispatch_case_5_sprite_local(
 // screen-space offset sprites.
 unsafe fn dispatch_case_6_sprite_offset(
     display: *mut DisplayGfx,
-    vtable: *const DisplayGfxVtable,
     clip: &ClipContext,
     cmd: *const u32,
 ) {
@@ -636,7 +621,7 @@ unsafe fn dispatch_case_6_sprite_offset(
 
     let sprite_flags = *(cmd.add(7));
     let palette = *(cmd.add(8));
-    ((*vtable).blit_sprite)(display, x, y, sprite_flags, palette);
+    DisplayGfx::blit_sprite_raw(display, x, y, sprite_flags, palette);
 }
 
 // ---- case 7 → slot 12 (draw_polyline) --------------------------------------
@@ -645,15 +630,11 @@ unsafe fn dispatch_case_6_sprite_offset(
 //
 // `cmd[2]` is the vertex count, `cmd[3]` is the color, vertex data
 // follows starting at `cmd[4]`.
-unsafe fn dispatch_case_7_polyline(
-    display: *mut DisplayGfx,
-    vtable: *const DisplayGfxVtable,
-    cmd: *const u32,
-) {
+unsafe fn dispatch_case_7_polyline(display: *mut DisplayGfx, cmd: *const u32) {
     let points = cmd.add(4) as *mut i32;
     let count = read_field(cmd, 2);
     let color = *(cmd.add(3));
-    ((*vtable).draw_polyline)(display, points, count, color);
+    DisplayGfx::draw_polyline_raw(display, points, count, color);
 }
 
 // ---- case 8: DRAW_LINE_STRIP → slot 14 (draw_line_clipped) -----------------
@@ -663,7 +644,6 @@ unsafe fn dispatch_case_7_polyline(
 // `cmd[3]` is the color shared by all segments.
 unsafe fn dispatch_case_8_line_strip(
     display: *mut DisplayGfx,
-    vtable: *const DisplayGfxVtable,
     clip: &ClipContext,
     cmd: *const u32,
 ) {
@@ -703,7 +683,7 @@ unsafe fn dispatch_case_8_line_strip(
         ) {
             break;
         }
-        ((*vtable).draw_line_clipped)(display, x1, y1, x2, y2, color);
+        DisplayGfx::draw_line_clipped_raw(display, x1, y1, x2, y2, color);
         x1 = x2;
         y1 = y2;
         vert = vert.add(3);
@@ -714,12 +694,7 @@ unsafe fn dispatch_case_8_line_strip(
 //
 // Same shape as case 8 but with two color params (cmd[3], cmd[4]) and the
 // first vertex starts at `cmd[5..8]`. Per-segment vertex stride is 3 u32s.
-unsafe fn dispatch_case_9_polygon(
-    display: *mut DisplayGfx,
-    vtable: *const DisplayGfxVtable,
-    clip: &ClipContext,
-    cmd: *const u32,
-) {
+unsafe fn dispatch_case_9_polygon(display: *mut DisplayGfx, clip: &ClipContext, cmd: *const u32) {
     let mut x1 = Fixed::ZERO;
     let mut y1 = Fixed::ZERO;
     let mut scale = Fixed::ZERO;
@@ -755,7 +730,7 @@ unsafe fn dispatch_case_9_polygon(
         ) {
             break;
         }
-        ((*vtable).draw_line)(display, x1, y1, x2, y2, color1, color2);
+        DisplayGfx::draw_line_raw(display, x1, y1, x2, y2, color1, color2);
         x1 = x2;
         y1 = y2;
         vert = vert.add(3);
@@ -773,7 +748,6 @@ unsafe fn dispatch_case_9_polygon(
 //     vtable[15](this, x, y, cmd[4], cmd[5], cmd[6], cmd[7]);
 unsafe fn dispatch_case_a_pixel_strip(
     display: *mut DisplayGfx,
-    vtable: *const DisplayGfxVtable,
     clip: &ClipContext,
     cmd: *const u32,
 ) {
@@ -788,7 +762,7 @@ unsafe fn dispatch_case_a_pixel_strip(
     let dy = read_fixed(cmd, 5);
     let count = read_field(cmd, 6);
     let color = *(cmd.add(7));
-    ((*vtable).draw_pixel_strip)(display, x, y, dx, dy, count, color);
+    DisplayGfx::draw_pixel_strip_raw(display, x, y, dx, dy, count, color);
 }
 
 // ---- case 0xB: DRAW_CROSSHAIR → slot 16 (draw_crosshair) -------------------
@@ -796,12 +770,7 @@ unsafe fn dispatch_case_a_pixel_strip(
 //     iVar4 = RQ_ClipCoordinates(this, cmd[4], cmd[5], cmd[6], &x, &y, ..);
 //     if !iVar4 break;
 //     vtable[16](this, x>>16, y>>16, cmd[2], cmd[3]);
-unsafe fn dispatch_case_b_crosshair(
-    display: *mut DisplayGfx,
-    vtable: *const DisplayGfxVtable,
-    clip: &ClipContext,
-    cmd: *const u32,
-) {
+unsafe fn dispatch_case_b_crosshair(display: *mut DisplayGfx, clip: &ClipContext, cmd: *const u32) {
     let mut x = Fixed::ZERO;
     let mut y = Fixed::ZERO;
     let mut scale = Fixed::ZERO;
@@ -818,7 +787,7 @@ unsafe fn dispatch_case_b_crosshair(
     }
     let color_fg = *(cmd.add(2));
     let color_bg = *(cmd.add(3));
-    ((*vtable).draw_crosshair)(display, x.to_int(), y.to_int(), color_fg, color_bg);
+    DisplayGfx::draw_crosshair_raw(display, x.to_int(), y.to_int(), color_fg, color_bg);
 }
 
 // ---- case 0xC → slot 17 (draw_outlined_pixel) ------------------------------
@@ -828,7 +797,6 @@ unsafe fn dispatch_case_b_crosshair(
 //     vtable[17](this, x>>16, y>>16, cmd[2], cmd[3]);
 unsafe fn dispatch_case_c_outlined_pixel(
     display: *mut DisplayGfx,
-    vtable: *const DisplayGfxVtable,
     clip: &ClipContext,
     cmd: *const u32,
 ) {
@@ -848,7 +816,7 @@ unsafe fn dispatch_case_c_outlined_pixel(
     }
     let color_fg = *(cmd.add(2));
     let color_bg = read_field(cmd, 3);
-    ((*vtable).draw_outlined_pixel)(display, x.to_int(), y.to_int(), color_fg, color_bg);
+    DisplayGfx::draw_outlined_pixel_raw(display, x.to_int(), y.to_int(), color_fg, color_bg);
 }
 
 // ---- case 0xD: DRAW_TILED_BITMAP → slot 11 (draw_tiled_bitmap) -------------
@@ -859,7 +827,6 @@ unsafe fn dispatch_case_c_outlined_pixel(
 //     vtable[11](this, (flag ? 0 : x>>16), y>>16, cmd[4]);
 unsafe fn dispatch_case_d_tiled_bitmap(
     display: *mut DisplayGfx,
-    vtable: *const DisplayGfxVtable,
     clip: &ClipContext,
     cmd: *const u32,
 ) {
@@ -881,7 +848,7 @@ unsafe fn dispatch_case_d_tiled_bitmap(
     let flag_byte = *(cmd.add(5)) as u8;
     let dest_x = if flag_byte != 0 { 0 } else { x.to_int() };
     let source = read_field(cmd, 4) as *const TiledBitmapSource;
-    ((*vtable).draw_tiled_bitmap)(display, dest_x, y.to_int(), source);
+    DisplayGfx::draw_tiled_bitmap_raw(display, dest_x, y.to_int(), source);
 }
 
 // ---- case 0xE → slot 22 (draw_tiled_terrain) -------------------------------
@@ -890,7 +857,6 @@ unsafe fn dispatch_case_d_tiled_bitmap(
 // runs the two-clip path with the same flag-byte clamps.
 unsafe fn dispatch_case_e_tiled_terrain(
     display: *mut DisplayGfx,
-    vtable: *const DisplayGfxVtable,
     clip: &ClipContext,
     cmd: *const u32,
 ) {
@@ -945,7 +911,7 @@ unsafe fn dispatch_case_e_tiled_terrain(
     }
     let count = read_field(cmd, 7);
     let flags = *(cmd.add(8));
-    ((*vtable).draw_tiled_terrain)(display, x, y, count, flags);
+    DisplayGfx::draw_tiled_terrain_raw(display, x, y, count, flags);
 }
 
 // =============================================================================
