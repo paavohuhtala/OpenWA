@@ -1341,7 +1341,7 @@ unsafe extern "cdecl" fn wa_load_sprite_from_vfs(
     _sprite: *mut openwa_core::render::sprite::Sprite,
     _gfx_dir: *mut GfxDir,
     _name: *const c_char,
-    _layer_ctx: u32,
+    _layer_ctx: *mut openwa_core::render::palette::PaletteContext,
 ) -> i32 {
     core::arch::naked_asm!(
         // cdecl: +4=sprite, +8=gfx, +12=name, +16=layer_ctx

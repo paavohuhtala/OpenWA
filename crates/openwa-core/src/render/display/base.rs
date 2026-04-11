@@ -25,6 +25,7 @@
 use crate::{
     render::{
         display::font::Font,
+        palette::PaletteContext,
         sprite::{Sprite, SpriteBank},
     },
     task::base::Vtable,
@@ -65,9 +66,10 @@ pub struct DisplayBase<V: Vtable = *const DisplayBaseVtable> {
     // Indexed by font_id (valid range 1-31). Used by GetFontInfo, GetFontMetric, SetFontParam.
     pub font_table: [*mut Font; 32],
     // +0x311C..0x312C: layer context pointers (4 entries), zeroed by ctor.
-    // Indexed by layer (valid range 1-3). Returned by set_active_layer (vtable slot 5).
-    // Used as palette data input for update_palette (vtable slot 24).
-    pub layer_contexts: [u32; 4],
+    // Indexed by `Layer` (valid range 1-3); index 0 unused. Returned by
+    // set_active_layer (vtable slot 5). Used as palette data input for
+    // update_palette (vtable slot 24). `null_mut()` = no context allocated.
+    pub layer_contexts: [*mut PaletteContext; 4],
     // +0x312C: Palette slot table guard. Always 0 — prevents palette_slot_alloc
     // from allocating starting at index 0. Part of the contiguous scan area:
     // [slot_table_guard(0)] [slot_table(1s)...] [slot_table_sentinel(-1)].

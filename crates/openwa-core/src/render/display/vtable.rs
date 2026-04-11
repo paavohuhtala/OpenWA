@@ -7,6 +7,7 @@ use crate::render::display::font::{
     font_extend, font_get_info_impl, font_get_metric_impl, font_load_from_gfx,
     font_set_palette_impl, font_set_param_impl, Font,
 };
+use crate::render::display::layer::Layer;
 use crate::render::display::line_draw::Vertex;
 use crate::render::sprite::gfx_dir::GfxDir;
 use crate::render::sprite::sprite::{LayerSprite, LayerSpriteFrame};
@@ -904,12 +905,6 @@ fn is_valid_sprite_id(id: i32) -> bool {
     (1..=0x3FF).contains(&id)
 }
 
-/// Check if a layer ID is in the valid range [1, 3].
-#[inline]
-fn is_valid_layer(layer: u32) -> bool {
-    (1..=3).contains(&layer)
-}
-
 /// Port of DisplayGfx::GetSpriteInfo (vtable slot 6, 0x523500).
 ///
 /// Looks up sprite metadata for `layer` (valid: 1..=0x3FF). Checks
@@ -1386,13 +1381,12 @@ pub unsafe extern "thiscall" fn draw_pixel_strip(
 /// # Safety
 /// `this` must be a valid `*mut DisplayGfx`.
 pub unsafe extern "thiscall" fn set_layer_color(this: *mut DisplayGfx, layer: i32, color: i32) {
-    // Layer must be 1, 2, or 3
-    if (layer as u32).wrapping_sub(1) >= 3 {
+    let Some(layer) = Layer::try_from_i32(layer) else {
         return;
-    }
+    };
 
     // Only allocate if no context exists for this layer
-    if (*this).base.layer_contexts[layer as usize] != 0 {
+    if !(*this).base.layer_contexts[layer.idx()].is_null() {
         return;
     }
 
@@ -1405,15 +1399,15 @@ pub unsafe extern "thiscall" fn set_layer_color(this: *mut DisplayGfx, layer: i3
     core::ptr::write_bytes(ctx, 0, 0x70C);
 
     let result = if ctx.is_null() {
-        0u32
+        core::ptr::null_mut()
     } else {
         let ctx = ctx as *mut PaletteContext;
         palette_context_init(ctx, start as i16, (start as i32 + color - 1) as i16);
-        ctx as u32
+        ctx
     };
 
-    (*this).base.layer_contexts[layer as usize] = result;
-    (*this).base.layer_visibility[layer as usize] = 0;
+    (*this).base.layer_contexts[layer.idx()] = result;
+    (*this).base.layer_visibility[layer.idx()] = 0;
 }
 
 /// Palette slot allocator — port of FUN_00523190.
@@ -1493,10 +1487,9 @@ unsafe fn palette_context_init(ctx: *mut PaletteContext, range_min: i16, range_m
 /// # Safety
 /// `this` must be a valid `*mut DisplayGfx`.
 pub unsafe extern "thiscall" fn set_active_layer(this: *mut DisplayGfx, layer: i32) -> *mut u8 {
-    if (layer as u32).wrapping_sub(1) < 3 {
-        (*this).base.layer_contexts[layer as usize] as *mut u8
-    } else {
-        core::ptr::null_mut()
+    match Layer::try_from_i32(layer) {
+        Some(layer) => (*this).base.layer_contexts[layer.idx()] as *mut u8,
+        None => core::ptr::null_mut(),
     }
 }
 
@@ -1616,13 +1609,17 @@ pub unsafe extern "thiscall" fn set_layer_visibility(
     layer: i32,
     visible: i32,
 ) {
-    let layer_ctx = set_active_layer(this, layer) as *mut PaletteContext;
+    let Some(layer) = Layer::try_from_i32(layer) else {
+        return;
+    };
+
+    let layer_ctx = (*this).base.layer_contexts[layer.idx()];
     if !layer_ctx.is_null() {
         update_palette(this, layer_ctx, visible);
     }
 
     if visible < 0 {
-        (*this).base.layer_visibility[layer as usize] = 0;
+        (*this).base.layer_visibility[layer.idx()] = 0;
     }
 }
 
@@ -1672,7 +1669,7 @@ pub unsafe fn load_sprite(
         sprite: *mut Sprite,
         gfx_dir: *mut GfxDir,
         name: *const c_char,
-        layer_ctx: u32,
+        layer_ctx: *mut PaletteContext,
     ) -> i32,
 ) -> i32 {
     // Bit 23 set = already loaded sentinel
@@ -1680,11 +1677,12 @@ pub unsafe fn load_sprite(
         return 1;
     }
 
-    if !is_valid_layer(layer) {
+    let Some(layer) = Layer::try_from_u32(layer) else {
         return 0;
-    }
+    };
     let base = &mut (*this).base;
-    if base.layer_contexts[layer as usize] == 0 {
+    let layer_ctx = base.layer_contexts[layer.idx()];
+    if layer_ctx.is_null() {
         return 0;
     }
     if !is_valid_sprite_id(id as i32) {
@@ -1703,7 +1701,6 @@ pub unsafe fn load_sprite(
     construct_sprite(sprite, base.sprite_cache);
 
     // Load from VFS
-    let layer_ctx = base.layer_contexts[layer as usize];
     let result = load_sprite_from_vfs(sprite, gfx_dir, _name, layer_ctx);
     if result == 0 {
         // Load failed — destroy sprite via vtable[0]
@@ -1717,8 +1714,8 @@ pub unsafe fn load_sprite(
     // Store in sprite table
     let base = &mut (*this).base;
     base.sprite_ptrs[id as usize] = sprite;
-    base.sprite_layers[id as usize] = layer;
-    base.layer_visibility[layer as usize] += 1;
+    base.sprite_layers[id as usize] = layer.as_u32();
+    base.layer_visibility[layer.idx()] += 1;
 
     // Update max_frames on the sprite if flag is set
     if flag != 0 {
@@ -1774,7 +1771,7 @@ pub unsafe fn load_sprite_by_name(
 
     // 2. Store gfx_dir and palette_ctx in sprite
     (*sprite).gfx_dir = gfx_dir;
-    (*sprite).palette_ctx = palette_ctx as u32;
+    (*sprite).palette_ctx = palette_ctx;
 
     // 3. Load image stream from GfxDir
     let stream = call_gfx_load_image(gfx_dir, name) as *mut GfxDirStream;
@@ -2057,7 +2054,8 @@ pub unsafe fn load_sprite_by_layer(
         return 1;
     }
 
-    // Call set_active_layer (vtable slot 5) — returns PaletteContext*
+    // Call set_active_layer (vtable slot 5) — returns the layer's
+    // PaletteContext, or null if `layer` is out of range.
     let palette_ctx = set_active_layer(this, layer as i32) as *mut PaletteContext;
 
     if !is_valid_sprite_id(id as i32) {
@@ -2130,13 +2128,13 @@ pub unsafe fn load_font(
 ) -> u32 {
     use crate::wa_alloc::wa_malloc_struct_zeroed;
 
-    if !(1..=3).contains(&layer) {
+    let Some(layer) = Layer::try_from_u32(layer) else {
         return 0;
-    }
+    };
 
     let base = &mut (*this).base;
-    let layer_ctx = base.layer_contexts[layer as usize];
-    if layer_ctx == 0 {
+    let layer_ctx = base.layer_contexts[layer.idx()];
+    if layer_ctx.is_null() {
         return 0;
     }
 
@@ -2156,12 +2154,7 @@ pub unsafe fn load_font(
     }
 
     // Load and parse the font data.
-    let result = font_load_from_gfx(
-        font_obj,
-        gfx_dir,
-        layer_ctx as *mut PaletteContext,
-        filename,
-    );
+    let result = font_load_from_gfx(font_obj, gfx_dir, layer_ctx, filename);
     if result == 0 {
         // Original leaks here on failure (via an unported cleanup helper).
         // We match that behavior rather than introducing a free path that
@@ -2173,8 +2166,8 @@ pub unsafe fn load_font(
     // this font slot at DisplayBase + 0x301C + font_id*4 (the gap region
     // next to font_table), then bumps the layer visibility counter.
     base.font_table[font_id as usize] = font_obj;
-    base.font_layers[font_id as usize] = layer;
-    base.layer_visibility[layer as usize] += 1;
+    base.font_layers[font_id as usize] = layer.as_u32();
+    base.layer_visibility[layer.idx()] += 1;
 
     1
 }
@@ -2213,13 +2206,17 @@ pub unsafe fn load_font_extension(
     // The original always reads layer_contexts[1] here, regardless of which
     // mode owns the font. This matches the disassembly at 0x52364d:
     //   `MOV ECX, [EDI+0x3120]` (= layer_contexts[1])
-    let layer1_ctx = base.layer_contexts[1] as *mut PaletteContext;
+    let layer1_ctx = base.layer_contexts[Layer::ONE.idx()];
     let mut resolved_rgb: u32 = 0;
     let _ = palette_context_lookup_entry(layer1_ctx, palette_value as i32, &mut resolved_rgb);
 
-    // The actual font extension call uses the font's owning layer's palette ctx.
-    let layer = base.font_layers[font_id as usize] as usize;
-    let layer_ctx = base.layer_contexts[layer] as *mut PaletteContext;
+    // The actual font extension call uses the font's owning layer's palette
+    // ctx. The original reads `layer_contexts[font_layers[font_id]]` directly
+    // without validation; if `font_layers` is 0 it reads index 0 (always
+    // null on a properly-initialized DisplayBase). We preserve that exact
+    // index lookup rather than going through `Layer` here.
+    let layer_idx = base.font_layers[font_id as usize] as usize;
+    let layer_ctx = base.layer_contexts[layer_idx];
 
     font_extend(font_obj, layer_ctx, path, char_map, resolved_rgb);
 

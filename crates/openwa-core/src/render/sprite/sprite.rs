@@ -1,4 +1,6 @@
-use crate::render::{display::gfx::DisplayGfx, sprite::gfx_dir::GfxDir, SpriteCache};
+use crate::render::{
+    display::gfx::DisplayGfx, palette::PaletteContext, sprite::gfx_dir::GfxDir, SpriteCache,
+};
 
 // Re-export SpriteId from its own module to keep this file focused on struct layouts.
 pub use super::sprite_id::SpriteId;
@@ -194,8 +196,8 @@ pub struct LayerSprite {
     pub gfx_dir: *mut GfxDir,
     /// 0x58: DisplayGfx pointer (set by caller before load).
     pub display_gfx: *mut DisplayGfx,
-    /// 0x5C: PaletteContext pointer (as u32, set by load_sprite_by_name).
-    pub palette_ctx: u32,
+    /// 0x5C: PaletteContext pointer (set by load_sprite_by_name).
+    pub palette_ctx: *mut PaletteContext,
     /// 0x60: Header field from stream (4 bytes).
     pub field_60: u32,
     /// 0x64: Header field from stream (2 bytes).
