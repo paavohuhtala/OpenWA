@@ -4,6 +4,7 @@ pub mod landscape;
 pub mod opengl;
 pub mod palette;
 pub mod queue;
+pub mod queue_dispatch;
 pub mod sprite;
 pub mod turn_order;
 

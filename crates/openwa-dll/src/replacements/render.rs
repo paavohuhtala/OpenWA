@@ -676,8 +676,37 @@ fn install_render_queue() -> Result<(), String> {
             va::DRAW_CROSSHAIR_LINE,
             trampoline_draw_crosshair_line as *const (),
         )?;
+
+        let _ = hook::install(
+            "RenderDrawingQueue",
+            va::RQ_RENDER_DRAWING_QUEUE,
+            trampoline_render_drawing_queue as *const (),
+        )?;
     }
     Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// RenderDrawingQueue (0x542350) — usercall(EAX=RenderQueue*) + 2 stack
+// (DisplayGfx*, ClipContext*), RET 0x8.
+//
+// The per-frame render-queue dispatcher. Pure Rust port lives in
+// `openwa_core::render::queue_dispatch::render_drawing_queue`. The
+// trampoline captures EAX and forwards the two stack args.
+// ---------------------------------------------------------------------------
+
+use openwa_core::render::queue_dispatch::{render_drawing_queue, ClipContext};
+
+usercall_trampoline!(fn trampoline_render_drawing_queue;
+    impl_fn = render_drawing_queue_impl;
+    reg = eax; stack_params = 2; ret_bytes = "0x8");
+
+unsafe extern "cdecl" fn render_drawing_queue_impl(
+    rq: *mut RenderQueue,
+    display: *mut DisplayGfx,
+    clip: *mut ClipContext,
+) {
+    render_drawing_queue(rq, display, clip);
 }
 
 // ==========================================================================
