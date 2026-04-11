@@ -3,6 +3,43 @@ use super::vtable::DisplayGfxVtable;
 use crate::bitgrid::{BitGrid, BitGridBaseVtable, DisplayBitGrid};
 use crate::render::sprite::sprite::{CBitmap, LayerSprite};
 
+crate::define_addresses! {
+    class "DisplayGfx" {
+        /// `DisplayGfx::Destructor` (vtable slot 0 thunk, 0x569CE0) — thiscall.
+        /// Calls `DestructorImpl` then `_free(this)` if `flags & 1`.
+        fn/Thiscall DISPLAY_GFX_DESTRUCTOR = 0x0056_9CE0;
+        /// `DisplayGfx::DestructorImpl` (0x56A010) — fastcall(ECX=this).
+        /// The actual cleanup body. Wrapped in C++ SEH; rebinds vtable to
+        /// the most-derived DisplayGfx vtable (standard MSVC pattern), then
+        /// frees layer sprites, tile bitmap set, CBitmap vec, layers, hook
+        /// vec, embedded BitGrid, and chains to `DisplayBase::Destructor`.
+        fn/Fastcall DISPLAY_GFX_DESTRUCTOR_IMPL = 0x0056_A010;
+        /// `DisplayGfx::FreeLayerSpriteTable` (0x56A280) — fastcall(ECX=this).
+        /// Iterates `sprite_table[1..0x3FF]` at `+0x3DD4` and frees each
+        /// `LayerSprite` + its `frame_array`.
+        fn/Fastcall DISPLAY_GFX_FREE_LAYER_SPRITE_TABLE = 0x0056_A280;
+        /// `DisplayGfx::DispatchFramePostProcessHooks` (0x56CDB0) — per-frame
+        /// poll/dispatch over the FramePostProcessHook* vector at `+0x24DF8`.
+        /// Called from `RenderFrame_Maybe` (0x56E06C) which is still bridged.
+        fn/Thiscall DISPLAY_GFX_DISPATCH_FRAME_POST_PROCESS_HOOKS = 0x0056_CDB0;
+    }
+
+    class "TileBitmapSet" {
+        /// `TileBitmapSet::Destructor` (0x569BC0) — fastcall(ECX=this).
+        /// Iterates `bitmap_ptrs[0..count]`, calls `vtable[0](1)` on each,
+        /// frees `bitmap_ptrs`.
+        fn/Fastcall TILE_BITMAP_SET_DESTRUCTOR = 0x0056_9BC0;
+    }
+
+    class "DisplayBase" {
+        /// `DisplayBase::Destructor` (0x522F60) — thiscall(ECX=this).
+        /// Parent class destructor; rebinds vtable to DisplayBase
+        /// (`0x6645F8`) and tears down sprite cache, palette slots, etc.
+        /// Chained from `DisplayGfx::DestructorImpl` as the final step.
+        fn/Thiscall DISPLAY_BASE_DESTRUCTOR_IMPL = 0x0052_2F60;
+    }
+}
+
 /// DisplayGfx — full display/graphics subsystem (derived from DisplayBase).
 ///
 /// Constructor: DisplayGfx__Constructor (0x569C10), stdcall(this) → DisplayGfx*.
@@ -174,15 +211,29 @@ pub struct DisplayGfx {
     /// 0x24DF4: Blend mode flag. Controls color distance weighting in
     /// InitDisplayFinal (1 = reduced red weight, else normal).
     pub blend_mode_flag: u32,
-    /// 0x24DF8 - 0x24E07: Object vector (std::vector-like).
-    /// Holds palette/display objects pushed during DisplayGfx__Init.
-    pub object_vector_start: u32,
-    /// 0x24DFC: Vector data pointer
-    pub object_vector_ptr: u32,
-    /// 0x24E00: Vector end pointer
-    pub object_vector_end: u32,
-    /// 0x24E04: Vector capacity pointer
-    pub object_vector_cap: u32,
+    /// 0x24DF8 - 0x24E07: `std::vector<FramePostProcessHook*>` (16-byte
+    /// MSVC 2005 layout with the iterator-debug proxy at offset 0).
+    ///
+    /// ```text
+    /// +0x00 (= +0x24DF8) _Myproxy : *const c_void                       — debug iterator container proxy
+    /// +0x04 (= +0x24DFC) _Myfirst : *mut *mut FramePostProcessHook       — start
+    /// +0x08 (= +0x24E00) _Mylast  : *mut *mut FramePostProcessHook       — end
+    /// +0x0C (= +0x24E04) _Myend   : *mut *mut FramePostProcessHook       — capacity end
+    /// ```
+    ///
+    /// Populated during `DisplayGfx::Init` with the registered post-process
+    /// hooks (the only known shipping entry is `ScreenshotHook`, which writes
+    /// the rendered frame as a numbered PNG when a screenshot is requested).
+    /// Iterated every frame by `DispatchFramePostProcessHooks` (0x56CDB0).
+    /// Until the FramePostProcessHook type lands the entry pointer is left
+    /// as `*mut u8`.
+    pub hook_vec_proxy: *const core::ffi::c_void,
+    /// 0x24DFC: hook vec `_Myfirst` — start pointer.
+    pub hook_vec_first: *mut *mut u8,
+    /// 0x24E00: hook vec `_Mylast` — end pointer.
+    pub hook_vec_last: *mut *mut u8,
+    /// 0x24E04: hook vec `_Myend` — capacity end pointer.
+    pub hook_vec_end: *mut *mut u8,
     /// 0x24E08 - 0x24E27: Remaining tail (0x20 bytes)
     pub _tail: [u8; 0x24E28 - 0x24E08],
 }

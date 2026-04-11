@@ -82,6 +82,11 @@ pub mod va {
     };
     pub use crate::render::display::base::DISPLAY_BASE_VTABLE;
     pub use crate::render::display::context::{RenderContextVtable, RENDER_CONTEXT_VTABLE};
+    pub use crate::render::display::gfx::{
+        DISPLAY_BASE_DESTRUCTOR_IMPL, DISPLAY_GFX_DESTRUCTOR, DISPLAY_GFX_DESTRUCTOR_IMPL,
+        DISPLAY_GFX_DISPATCH_FRAME_POST_PROCESS_HOOKS, DISPLAY_GFX_FREE_LAYER_SPRITE_TABLE,
+        TILE_BITMAP_SET_DESTRUCTOR,
+    };
     pub use crate::render::display::palette::PALETTE_VTABLE;
     pub use crate::render::display::vtable::DISPLAY_GFX_VTABLE;
     pub use crate::task::game_task::SOUND_EMITTER_VTABLE;
