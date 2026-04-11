@@ -1,5 +1,6 @@
 pub mod base;
 pub mod context;
+pub mod destructor;
 pub mod font;
 pub mod frame_hook;
 pub mod gfx;

@@ -340,6 +340,17 @@ pub struct SurfaceVtable {
         height: i32,
         bpp: i32,
     ) -> *mut FastcallResult,
+    /// release surface backing storage (slot 6).
+    ///
+    /// Pure fastcall — no stack args. Writes a result code into
+    /// `*result.value` (which most callers ignore). Called from the
+    /// `DisplayGfx` destructor's CBitmap-vec teardown loop on every
+    /// non-null `CBitmap.surface` before the bitmap itself is freed.
+    #[slot(6)]
+    pub release: unsafe extern "fastcall" fn(
+        this: *mut Surface,
+        result: *mut FastcallResult,
+    ) -> *mut FastcallResult,
 }
 
 /// Backend-specific surface object created by

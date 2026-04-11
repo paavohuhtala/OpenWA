@@ -691,6 +691,7 @@ fn install_render_queue() -> Result<(), String> {
 
 use openwa_core::bitgrid::DisplayBitGrid;
 use openwa_core::fixed::Fixed;
+use openwa_core::render::display::destructor as display_destructor;
 use openwa_core::render::display::vtable::{self as display_vtable, DisplayGfxVtable};
 use openwa_core::render::display::DisplayBase;
 use openwa_core::render::display::DisplayGfx;
@@ -1330,6 +1331,7 @@ fn install_display() -> Result<(), String> {
 
         // Patch DisplayGfx vtable (0x66A218): replace ported methods with Rust.
         vtable_replace!(DisplayGfxVtable, va::DISPLAY_GFX_VTABLE, {
+            destructor          => display_destructor::display_gfx_destructor,
             get_dimensions      => display_vtable::get_dimensions,
             set_layer_color     => display_vtable::set_layer_color,
             set_active_layer    => display_vtable::set_active_layer,
