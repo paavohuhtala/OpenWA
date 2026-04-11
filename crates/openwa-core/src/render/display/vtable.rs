@@ -47,9 +47,20 @@ use crate::wa_alloc::wa_malloc_struct_zeroed;
 /// - Methods that add `camera` directly take pixel-integer coordinates.
 #[vtable(size = 38, va = 0x0066_A218, class = "DisplayGfx")]
 pub struct DisplayGfxVtable {
-    /// destructor (0x569CE0, RET 0x4)
+    /// scalar deleting destructor (original at 0x569CE0, RET 0x4).
+    ///
+    /// **Ported.** Native Rust impl is
+    /// [`crate::render::display::destructor::display_gfx_destructor`].
+    /// The thunk runs the cleanup body (`DestructorImpl`, originally
+    /// 0x56A010) and then `_free(this)` if `flags & 1` is set, returning
+    /// `this` per the MSVC ABI. Wired via `vtable_replace!` in
+    /// `install_display`. The three WA-side helpers
+    /// (`DestructorImpl`, `FreeLayerSpriteTable`,
+    /// `TileBitmapSet::Destructor`) are trapped — see commit 5 of the
+    /// destructor port for the dead-slot analysis behind trapping the
+    /// `TileBitmapSet` helper.
     #[slot(0)]
-    pub destructor: fn(this: *mut DisplayGfx, flags: u8) -> *mut DisplayGfx,
+    pub destructor: fn(this: *mut DisplayGfx, flags: u32) -> *mut DisplayGfx,
     /// get display dimensions in pixels (0x56A460, RET 0x8)
     #[slot(1)]
     pub get_dimensions: fn(this: *mut DisplayGfx, out_w: *mut u32, out_h: *mut u32),
