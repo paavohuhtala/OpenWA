@@ -9,7 +9,7 @@ pub mod palette;
 pub mod sprite_blit;
 pub mod vtable;
 
-pub use base::{DisplayBase, DisplayBaseVtable, SpriteBufferCtrl, SpriteCache};
+pub use base::{DisplayBase, DisplayBaseVtable, FrameCache, FrameCacheEntry, SpriteCache};
 pub use context::{FastcallResult, RenderContext};
 pub use gfx::DisplayGfx;
 pub use layer::Layer;

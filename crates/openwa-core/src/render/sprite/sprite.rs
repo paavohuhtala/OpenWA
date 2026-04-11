@@ -15,7 +15,16 @@ pub use super::sprite_id::SpriteId;
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
 pub struct SpriteFrame {
-    /// 0x00: Offset into bitmap data for this frame's pixels
+    /// 0x00: Offset into bitmap data for this frame's pixels.
+    ///
+    /// When the parent sprite's `header_flags & 0x4000` is clear, this is a
+    /// flat byte offset within `Sprite::bitmap_data_ptr` and the bytes there
+    /// are already-decoded pixels.
+    ///
+    /// When `header_flags & 0x4000` is set, the field is split: the **high
+    /// byte** (signed `i8`) is an index into `Sprite::subframe_cache_table`,
+    /// and the **low 24 bits** are a pixel offset within the corresponding
+    /// decoded subframe payload.
     pub bitmap_offset: u32,
     /// 0x04: Left edge X coordinate
     pub start_x: u16,
@@ -28,6 +37,98 @@ pub struct SpriteFrame {
 }
 
 const _: () = assert!(core::mem::size_of::<SpriteFrame>() == 0x0C);
+
+/// Per-sprite subframe cache entry (0xC bytes).
+///
+/// Array stored at `Sprite::subframe_cache_table`, count
+/// `Sprite::subframe_cache_count`. Each entry tracks one lazily-decompressed
+/// LZSS subframe payload owned by the per-`SpriteCache` `FrameCache`.
+///
+/// The `decoded_ptr` is null until the corresponding frame is first
+/// requested by `Sprite__GetFrameForBlit`, then populated by allocating
+/// `decoded_size` bytes from the `FrameCache` and decoding the LZSS stream
+/// at `Sprite::bitmap_data_ptr + compressed_offset`. When the FrameCache
+/// evicts the payload, `Sprite::vtable[1] (on_subframe_evicted)` is called
+/// with the subframe index and clears `decoded_ptr` back to null.
+///
+/// **Note:** the field order differs from
+/// [`SpriteBankSubframeCache`] — Sprite has `decoded_ptr` at `+4` and
+/// `decoded_size` at `+8`, while SpriteBank has them swapped. This is
+/// verified at 0x4FAE42/0x4FAE4B (Sprite path) and 0x4F984D/0x4F9853
+/// (SpriteBank path). Sharing one type would corrupt one of the two paths.
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct SpriteSubframeCache {
+    /// +0x00: Byte offset within `Sprite::bitmap_data_ptr` to the LZSS
+    /// compressed source for this subframe.
+    pub compressed_offset: u32,
+    /// +0x04: Pointer to decompressed pixels within the FrameCache buffer.
+    /// Null until the subframe is first requested; cleared back to null on
+    /// FrameCache eviction.
+    pub decoded_ptr: *mut u8,
+    /// +0x08: Decompressed payload size in bytes (passed to
+    /// `FrameCache__Allocate` as `entry_size`).
+    pub decoded_size: u32,
+}
+
+const _: () = assert!(core::mem::size_of::<SpriteSubframeCache>() == 0x0C);
+const _: () = assert!(core::mem::offset_of!(SpriteSubframeCache, decoded_ptr) == 0x04);
+const _: () = assert!(core::mem::offset_of!(SpriteSubframeCache, decoded_size) == 0x08);
+
+/// Per-`SpriteBank` subframe cache entry (0xC bytes).
+///
+/// Array stored at `SpriteBank::subframe_cache_table`, count
+/// `SpriteBank::subframe_cache_count`. Plays the same role as
+/// [`SpriteSubframeCache`] but **with a different field order**:
+/// `decoded_size` at `+4` and `decoded_ptr` at `+8`. Verified at
+/// 0x4F984D/0x4F9853 in `SpriteBank__GetFrameForBlit` and at the
+/// eviction callback `SpriteBank::vtable[1]` (0x4F9580) which clears
+/// `*(table + idx * 0xC + 8)` (i.e. `decoded_ptr` at `+8`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct SpriteBankSubframeCache {
+    /// +0x00: Byte offset within `SpriteBank::bitmap_data_ptr` to the LZSS
+    /// compressed source for this subframe.
+    pub compressed_offset: u32,
+    /// +0x04: Decompressed payload size in bytes.
+    pub decoded_size: u32,
+    /// +0x08: Pointer to decompressed pixels within the FrameCache buffer,
+    /// or null if not yet cached.
+    pub decoded_ptr: *mut u8,
+}
+
+const _: () = assert!(core::mem::size_of::<SpriteBankSubframeCache>() == 0x0C);
+const _: () = assert!(core::mem::offset_of!(SpriteBankSubframeCache, decoded_size) == 0x04);
+const _: () = assert!(core::mem::offset_of!(SpriteBankSubframeCache, decoded_ptr) == 0x08);
+
+/// Per-`SpriteBank` frame bounding-box entry (0xC bytes).
+///
+/// Array stored at `SpriteBank::bbox_table`. Each entry holds a subframe
+/// cache index (used to look up the decompressed pixel data in
+/// `SpriteBank::subframe_cache_table`), the per-frame offset within the
+/// decoded payload, and the source bounding-box coordinates returned to
+/// the caller of `SpriteBank__GetFrameForBlit`.
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct SpriteBankBboxEntry {
+    /// +0x00: Subframe cache index — selects an entry in
+    /// `SpriteBank::subframe_cache_table`.
+    pub subframe_idx: u16,
+    /// +0x02: Byte offset within the decoded subframe payload to this
+    /// frame's pixel data. Added to `SpriteBankSubframeCache::decoded_ptr`
+    /// when computing the surface address.
+    pub decoded_offset: u16,
+    /// +0x04: Left edge X coordinate.
+    pub start_x: u16,
+    /// +0x06: Top edge Y coordinate.
+    pub start_y: u16,
+    /// +0x08: Right edge X coordinate.
+    pub end_x: u16,
+    /// +0x0A: Bottom edge Y coordinate.
+    pub end_y: u16,
+}
+
+const _: () = assert!(core::mem::size_of::<SpriteBankBboxEntry>() == 0x0C);
 
 /// Sprite object (0x70 bytes, vtable 0x66418C).
 ///
@@ -60,8 +161,15 @@ pub struct Sprite {
     pub header_flags: u16,
     /// 0x16: Maximum frame count
     pub max_frames: u16,
-    /// 0x18: Unknown
-    pub _unknown_18: u16,
+    /// 0x18: Frame index rounding mode flag (read by
+    /// `Sprite__GetFrameForBlit`). When bit 0 is set, the
+    /// `frame_idx = (max_frames * anim_value) >> 16` computation adds
+    /// `0x8000` for round-to-nearest, with a special case that wraps
+    /// `frame_idx == max_frames` back to 0. When clear, simple truncation.
+    pub frame_round_mode: u8,
+    /// 0x19: Unknown — paired with `frame_round_mode` byte. Both bytes are
+    /// written together as `(id >> 16) as u16` by `load_sprite_by_name`.
+    pub _unknown_19: u8,
     /// 0x1A: Unknown
     pub _unknown_1a: u16,
     /// 0x1C: Scale X (set when negative frame count in .spr)
@@ -72,10 +180,13 @@ pub struct Sprite {
     pub is_scaled: u32,
     /// 0x28: Pointer to SpriteFrame array (frame_count entries)
     pub frame_meta_ptr: *mut SpriteFrame,
-    /// 0x2C: Secondary frame table pointer (present when header_flags & 0x4000)
-    pub secondary_frame_ptr: *mut SpriteFrame,
-    /// 0x30: Secondary frame count
-    pub secondary_frame_count: u16,
+    /// 0x2C: Pointer to subframe cache table — array of
+    /// `subframe_cache_count` [`SpriteSubframeCache`] entries. Present when
+    /// `header_flags & 0x4000`. Each entry caches one lazily-decompressed
+    /// LZSS subframe payload owned by the per-`SpriteCache` `FrameCache`.
+    pub subframe_cache_table: *mut SpriteSubframeCache,
+    /// 0x30: Number of entries in `subframe_cache_table`.
+    pub subframe_cache_count: u16,
     /// 0x32: Padding
     pub _pad_32: u16,
     /// 0x34: Embedded DisplayBitGrid sub-object (0x2C bytes).
@@ -108,47 +219,128 @@ const _: () = assert!(core::mem::offset_of!(Sprite, raw_frame_header_ptr) == 0x6
 ///
 /// Used by GetSpriteInfo (0x523500) and GetSpriteFrameForBlit (0x5237C0,
 /// vtable slot 33) as the fallback path when sprite_ptrs[id] is null.
+///
+/// Layout was reverse-engineered jointly from `SpriteBank__GetFrameForBlit`
+/// (0x4F9710) and `SpriteBank__ParseData` (0x4F9640), which writes the
+/// table pointers and counts after loading the gfx-dir image.
 #[repr(C)]
 pub struct SpriteBank {
-    /// 0x00: Vtable pointer (0x664180, 3 slots)
+    /// 0x00: Vtable pointer (0x664180, 2 slots).
     pub vtable: *const SpriteBankVtable,
-    /// 0x04: Unknown (context pointer?)
-    pub _unknown_04: u32,
-    /// 0x08: Base sprite ID — subtracted from the lookup ID to compute the index table offset.
+    /// 0x04: Pointer to the per-process [`SpriteCache`]. Read by
+    /// `SpriteBank__GetFrameForBlit` and forwarded to
+    /// `FrameCache__Allocate` to find the shared `FrameCache`.
+    pub context_ptr: *mut crate::render::SpriteCache,
+    /// 0x08: Base sprite ID — subtracted from the lookup ID to compute
+    /// the `index_table` offset.
     pub base_id: i32,
-    /// 0x0C: Index table pointer — maps `(id - base_id)` to frame indices in the frame table.
+    /// 0x0C: Index table — maps `(id - base_id)` to frame indices in
+    /// `frame_table`.
     pub index_table: *const i32,
-    /// 0x10: Frame table pointer — array of SpriteFrame entries (0xC bytes each).
+    /// 0x10: Frame table — array of `frame_count` [`SpriteBankFrame`]
+    /// entries (animation metadata: flags / width / height /
+    /// base frame idx / scale-or-count).
     pub frame_table: *const SpriteBankFrame,
-    /// 0x14: Number of valid entries in the frame table (bounds check for lookups).
+    /// 0x14: Number of valid entries in `frame_table`.
     pub frame_count: i32,
-    /// 0x18 - 0x17B: Remaining fields (unknown)
-    pub _unknown_18: [u8; 0x17C - 0x18],
+    /// 0x18: Bounding-box table — array of `bbox_count`
+    /// [`SpriteBankBboxEntry`] entries. Indexed by the resolved subframe
+    /// index from a `SpriteBankFrame`. Holds the per-frame source
+    /// rectangle plus a subframe cache index + decoded-payload offset.
+    pub bbox_table: *mut SpriteBankBboxEntry,
+    /// 0x1C: Number of valid entries in `bbox_table`.
+    pub bbox_count: i32,
+    /// 0x20: Subframe cache table — array of `subframe_cache_count`
+    /// [`SpriteBankSubframeCache`] entries. Each entry tracks one
+    /// lazily-decompressed LZSS subframe payload owned by the per-process
+    /// `FrameCache`.
+    pub subframe_cache_table: *mut SpriteBankSubframeCache,
+    /// 0x24: Number of valid entries in `subframe_cache_table`.
+    pub subframe_cache_count: i32,
+    /// 0x28: Compressed bitmap data base. The LZSS source for any
+    /// subframe is `bitmap_data_ptr + cache_entry.compressed_offset`.
+    pub bitmap_data_ptr: *const u8,
+    /// 0x2C: Owning allocation for the loaded gfx-dir image. The other
+    /// `*_table` pointers above index into this buffer; on destruction
+    /// only this is freed.
+    pub raw_image_buffer: *mut u8,
+    /// 0x30..0x130: 256-byte palette translation lookup table. Entry 0
+    /// is the implicit transparent index (always 0); entries
+    /// `1..=palette_count` are filled by `PaletteContext::map_color` from
+    /// the loaded `.spr` palette. Used by `Sprite_LZSS_Decode` to map
+    /// source bytes to display palette indices.
+    pub palette_lut: [u8; 0x100],
+    /// 0x130: Embedded `DisplayBitGrid` sub-object (0x2C bytes). Returned
+    /// to callers of `SpriteBank__GetFrameForBlit` after its data
+    /// pointer / dimensions / clip rect have been updated to point at the
+    /// just-decompressed subframe.
+    pub frame_bitgrid: crate::bitgrid::DisplayBitGrid,
+    /// 0x15C..0x17C: Trailing 0x20 bytes — uninitialized by the constructor.
+    /// Purpose unknown.
+    pub _trailing: [u8; 0x17C - 0x15C],
 }
 
 const _: () = assert!(core::mem::size_of::<SpriteBank>() == 0x17C);
+const _: () = assert!(core::mem::offset_of!(SpriteBank, frame_table) == 0x10);
+const _: () = assert!(core::mem::offset_of!(SpriteBank, bbox_table) == 0x18);
+const _: () = assert!(core::mem::offset_of!(SpriteBank, subframe_cache_table) == 0x20);
+const _: () = assert!(core::mem::offset_of!(SpriteBank, bitmap_data_ptr) == 0x28);
+const _: () = assert!(core::mem::offset_of!(SpriteBank, palette_lut) == 0x30);
+const _: () = assert!(core::mem::offset_of!(SpriteBank, frame_bitgrid) == 0x130);
 
-/// Frame entry in a SpriteBank's frame table (0xC bytes).
+/// Animation metadata entry in a `SpriteBank::frame_table` (0xC bytes).
 ///
-/// Structurally identical to SpriteFrame but fields have different semantics
-/// when accessed by SpriteBank__GetInfo (FUN_004f98c0):
-/// - `flags` byte 0: bit 0 = transparency flag, bit 1 = double-width flag
-/// - `width` at +0x08: frame width (bit 15 = single-width override)
-/// - `data_value` at +0x0A: data reference (shifted left 8 for output)
+/// Holds the per-animation flags, source dimensions, base frame index, and
+/// either a frame count or a scaled-mode interpolation pair. Plays the same
+/// role as the combination of `Sprite::flags` + `Sprite::width`/`height` +
+/// `Sprite::scale_x`/`scale_y` for a single animation within the bank.
+///
+/// Layout verified from `SpriteBank__GetFrameForBlit` (0x4F9710), which
+/// reads the entry as `ushort[6]` and indexes:
+/// - `[0] flags & 1` → "anim_value used as-is" mode
+/// - `[0] flags & 2` → ping-pong mode
+/// - `[1] width`     → out_w
+/// - `[2] height`    → out_h
+/// - `[3] base_frame_idx` → added to the resolved sub-frame index
+/// - `[4] & 0x8000`  → scaled mode toggle, with the low/high 7-bit nibbles
+///   sign-extended via `<< 16 >> 5` to form a Fixed16 interpolation pair
+///   (analogous to `Sprite::scale_x`/`scale_y`); when clear, multiplied by
+///   `anim_value >> 16` like `Sprite::max_frames`.
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
 pub struct SpriteBankFrame {
-    /// 0x00: Flags byte. Bit 0 = has transparency, bit 1 = double-width.
-    pub flags: u8,
-    /// 0x01-0x07: Padding / other fields
-    pub _pad_01: [u8; 7],
-    /// 0x08: Frame width in pixels. Bit 15 set = force width to 1.
+    /// 0x00: Animation flags. Bit 0 = `anim_value` used as-is (no signed
+    /// clamp), bit 1 = ping-pong frame iteration.
+    pub flags: u16,
+    /// 0x02: Frame source width in pixels (returned via `out_w`).
     pub width: u16,
-    /// 0x0A: Data reference value (shifted left 8 when returned by GetSpriteInfo).
+    /// 0x04: Frame source height in pixels (returned via `out_h`).
+    pub height: u16,
+    /// 0x06: Base frame index — added to the sub-frame index resolved
+    /// from `scale_or_count` to produce the final lookup into
+    /// `SpriteBank::bbox_table`.
+    pub base_frame_idx: u16,
+    /// 0x08: Scaled mode toggle and payload (also doubles as the "API
+    /// width" reported by `SpriteBank__GetInfo`). When `& 0x8000` is set,
+    /// the low and high 7-bit nibbles are sign-extended (`<< 16 >> 5`)
+    /// into a Fixed16 `scale_x`/`scale_y` pair, identical to
+    /// `Sprite::scale_x`/`scale_y`, AND `GetInfo` returns `out_width = 1`.
+    /// When clear, the field is the frame count multiplier
+    /// (`(scale_or_count * anim_value) >> 16`) and `GetInfo` returns it as
+    /// `out_width` (or `width * 2 - 1` if the ping-pong flag is set).
+    pub scale_or_count: u16,
+    /// 0x0A: Auxiliary 16-bit data value reported by
+    /// `SpriteBank__GetInfo` as `out_data << 8`. Not used by
+    /// `SpriteBank__GetFrameForBlit`.
     pub data_value: u16,
 }
 
 const _: () = assert!(core::mem::size_of::<SpriteBankFrame>() == 0x0C);
+const _: () = assert!(core::mem::offset_of!(SpriteBankFrame, width) == 0x02);
+const _: () = assert!(core::mem::offset_of!(SpriteBankFrame, height) == 0x04);
+const _: () = assert!(core::mem::offset_of!(SpriteBankFrame, base_frame_idx) == 0x06);
+const _: () = assert!(core::mem::offset_of!(SpriteBankFrame, scale_or_count) == 0x08);
+const _: () = assert!(core::mem::offset_of!(SpriteBankFrame, data_value) == 0x0A);
 
 /// Sprite vtable (0x66418C, 8 slots).
 ///
@@ -157,8 +349,14 @@ const _: () = assert!(core::mem::size_of::<SpriteBankFrame>() == 0x0C);
 pub struct SpriteVtable {
     /// destructor (0x4FAA80)
     pub destructor: fn(this: *mut Sprite, flags: u32),
-    /// unknown (0x4FAAD0)
-    pub slot_1: fn(this: *mut Sprite),
+    /// FrameCache eviction callback (0x4FAAD0). Called by
+    /// `FrameCache__Allocate` when the LRU buffer evicts an entry owned by
+    /// this `Sprite` — the body clears
+    /// `subframe_cache_table[subframe_idx].decoded_ptr` so the next blit
+    /// re-decompresses the LZSS stream. Stack args: `(subframe_idx,
+    /// payload_addr)`; the `payload_addr` arg is unused but pushed by the
+    /// allocator anyway.
+    pub on_subframe_evicted: fn(this: *mut Sprite, subframe_idx: u32, payload: *mut u8),
     /// unknown (0x4FB5C0)
     pub slot_2: fn(this: *mut Sprite),
     /// unknown (0x4FE550)
@@ -178,8 +376,11 @@ pub struct SpriteVtable {
 pub struct SpriteBankVtable {
     /// destructor (0x4F94E0)
     pub destructor: fn(this: *mut SpriteBank, flags: u32),
-    /// init/load (0x4F9580)
-    pub slot_1: fn(this: *mut SpriteBank),
+    /// FrameCache eviction callback (0x4F9580). Same role as
+    /// [`SpriteVtable::on_subframe_evicted`] but clears
+    /// `subframe_cache_table[subframe_idx].decoded_ptr` (at offset `+8`
+    /// in the bank-side entry, vs `+4` in the sprite-side entry).
+    pub on_subframe_evicted: fn(this: *mut SpriteBank, subframe_idx: u32, payload: *mut u8),
 }
 
 /// Layer sprite — 0x70-byte object used by `load_sprite_by_layer` (vtable slot 37).

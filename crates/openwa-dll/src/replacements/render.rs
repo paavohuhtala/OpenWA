@@ -707,20 +707,20 @@ const VTABLE_SLOTS: usize = 32;
 unsafe extern "thiscall" fn noop_thiscall(_this: *mut u8) {}
 
 /// Rust destructor for headless DisplayBase. Frees the sprite cache chain
-/// (wrapper -> buffer_ctrl -> buffer) that was allocated by new_headless().
+/// (SpriteCache -> FrameCache -> buffer) that was allocated by new_headless().
 unsafe extern "thiscall" fn headless_destructor(
     this: *mut DisplayBase,
     flags: u8,
 ) -> *mut DisplayBase {
     let sprite_cache = (*this).sprite_cache;
     if !sprite_cache.is_null() {
-        let ctrl = (*sprite_cache).buffer_ctrl;
-        if !ctrl.is_null() {
-            let buf = (*ctrl).buffer;
+        let frame_cache = (*sprite_cache).frame_cache;
+        if !frame_cache.is_null() {
+            let buf = (*frame_cache).buffer;
             if !buf.is_null() {
                 wa_free(buf);
             }
-            wa_free(ctrl);
+            wa_free(frame_cache);
         }
         wa_free(sprite_cache);
     }

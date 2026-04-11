@@ -4,4 +4,7 @@ pub mod sprite;
 pub mod sprite_id;
 
 pub use spr::{ParsedSprite, SprError, SprHeader};
-pub use sprite::{Sprite, SpriteBank, SpriteFrame, SpriteId, SpriteVtable};
+pub use sprite::{
+    Sprite, SpriteBank, SpriteBankBboxEntry, SpriteBankFrame, SpriteBankSubframeCache,
+    SpriteBankVtable, SpriteFrame, SpriteId, SpriteSubframeCache, SpriteVtable,
+};

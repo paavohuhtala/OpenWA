@@ -146,29 +146,92 @@ pub struct DisplayBaseVtable {
 
 // ── Sprite cache sub-objects ──────────────────────────────────────────────
 
-/// Sprite buffer control block (0x3C bytes, inner).
-/// Allocated by FUN_004fa860. Holds a raw pixel buffer and capacity.
+/// FrameCache — LRU ring-buffer allocator for decompressed sprite subframe
+/// pixels. Allocated as 0x3C bytes by FUN_004fa860; only the first 0x1C are
+/// initialized and used by the LRU bookkeeping. The remaining 0x20 bytes are
+/// unknown / unused by `FrameCache__Allocate` (0x4FA950).
+///
+/// Lives at `SpriteCache + 0x4` (one shared cache per `SpriteCache`, NOT per
+/// `Sprite`/`SpriteBank`). Both `Sprite__GetFrameForBlit` and
+/// `SpriteBank__GetFrameForBlit` allocate decompressed frame surfaces here.
+///
+/// Each allocation produces a `FrameCacheEntry` (16-byte header + payload)
+/// in the ring buffer, owned by the sprite/bank that requested it. When the
+/// buffer fills, the oldest entry is evicted and its owner is notified via
+/// `owner.vtable[1](owner, frame_idx, payload)` so the owner can clear its
+/// per-subframe `decoded_ptr`.
 #[repr(C)]
-pub struct SpriteBufferCtrl {
-    /// Pointer to pixel buffer (0x80020 allocated, 0x80000 used)
+pub struct FrameCache {
+    /// +0x00: Pointer to the pixel buffer (0x80020 allocated, 0x80000 used).
     pub buffer: *mut u8,
-    /// Buffer capacity (0x80000)
+    /// +0x04: Buffer capacity in bytes (0x80000).
     pub capacity: u32,
-    pub _fields_08: [u32; 5],
-    pub _pad_1c: [u8; 0x3C - 0x1C],
+    /// +0x08: Current allocation cursor (offset within `buffer`).
+    pub write_head: u32,
+    /// +0x0C: Read head / wrap point (offset within `buffer`).
+    pub wrap_marker: u32,
+    /// +0x10: Most recently allocated entry (LRU tail).
+    pub tail_entry: *mut FrameCacheEntry,
+    /// +0x14: Oldest entry (LRU head, evicted first).
+    pub head_entry: *mut FrameCacheEntry,
+    /// +0x18: Number of live entries.
+    pub entry_count: u32,
+    /// +0x1C..0x3C: Trailing 0x20 bytes — allocated but never written by
+    /// the constructor. Purpose unknown.
+    pub _trailing: [u8; 0x3C - 0x1C],
 }
 
-const _: () = assert!(core::mem::size_of::<SpriteBufferCtrl>() == 0x3C);
+const _: () = assert!(core::mem::size_of::<FrameCache>() == 0x3C);
+const _: () = assert!(core::mem::offset_of!(FrameCache, write_head) == 0x08);
+const _: () = assert!(core::mem::offset_of!(FrameCache, tail_entry) == 0x10);
+const _: () = assert!(core::mem::offset_of!(FrameCache, entry_count) == 0x18);
+
+/// FrameCache entry header (16 bytes, followed inline by `payload_size - 8`
+/// bytes of payload).
+///
+/// Allocated by `FrameCache__Allocate` (0x4FA950) inside the FrameCache ring
+/// buffer. The header lays out as:
+///
+/// - `+0x00 payload_size` is `entry_size + 8` (NOT padded — the function
+///   stores the unpadded "data length" here; the actual ring-buffer stride is
+///   `((entry_size + 8 + 0xb) & ~3)` and is recomputed each pass).
+/// - `+0x04 next` links into the singly-linked LRU chain (head → ... → tail).
+/// - `+0x08 frame_idx` and `+0x0c owner` are the third/second stack args from
+///   the caller — note the swap relative to the caller's argument order.
+///
+/// On eviction the cache calls `owner.vtable[1](owner, frame_idx, payload)`
+/// so the owner can clear its `decoded_ptr` for that subframe.
+#[repr(C)]
+pub struct FrameCacheEntry {
+    /// +0x00: Stored size (= caller's `entry_size + 8`).
+    pub payload_size: u32,
+    /// +0x04: Next entry in the LRU list, or null at the tail.
+    pub next: *mut FrameCacheEntry,
+    /// +0x08: Caller's third stack arg — the subframe cache index used by
+    /// the eviction callback to identify which subframe entry to clear.
+    pub frame_idx: u32,
+    /// +0x0c: Caller's second stack arg — the owner pointer (`*mut Sprite`
+    /// or `*mut SpriteBank`). The eviction callback dispatches through
+    /// `(*owner).vtable[1]`.
+    pub owner: *mut core::ffi::c_void,
+    // Followed inline by `payload_size - 8` bytes of payload.
+}
+
+const _: () = assert!(core::mem::size_of::<FrameCacheEntry>() == 0x10);
+const _: () = assert!(core::mem::offset_of!(FrameCacheEntry, frame_idx) == 0x08);
+const _: () = assert!(core::mem::offset_of!(FrameCacheEntry, owner) == 0x0C);
 
 /// Sprite cache (0x28 bytes).
-/// Constructed by FUN_004fa860 (receives `this` in EDI).
-/// Has its own vtable (0x664188, 1 slot) and holds a pointer to [`SpriteBufferCtrl`].
+///
+/// Constructed by FUN_004fa860 (receives `this` in EDI). Has its own vtable
+/// (0x664188, 1 slot) and holds a pointer to the per-process [`FrameCache`].
 #[repr(C)]
 pub struct SpriteCache {
     /// Vtable pointer (0x664188 in WA, 1 slot)
     pub vtable: *const SpriteCacheVtable,
-    /// Pointer to the 0x3C-byte buffer control block
-    pub buffer_ctrl: *mut SpriteBufferCtrl,
+    /// +0x04: Pointer to the shared `FrameCache`. Read by
+    /// `FrameCache__Allocate` (`*(context_ptr + 4)`).
+    pub frame_cache: *mut FrameCache,
     pub _pad_08: [u8; 0x28 - 0x08],
 }
 
@@ -221,24 +284,24 @@ impl DisplayBase {
         // Sentinel value — terminates palette_slot_alloc scan
         (*this).slot_table_sentinel = 0xFFFF_FFFF;
 
-        // Create sprite cache: 0x28 wrapper → 0x3C buffer ctrl → 0x80020 buffer.
+        // Create sprite cache: 0x28 SpriteCache → 0x3C FrameCache → 0x80020 buffer.
         //
         // Original flow (FUN_004fa860):
-        //   1. Constructor allocates 0x28 wrapper, passes as EDI to FUN_004fa860
-        //   2. FUN_004fa860 sets wrapper[0] = vtable 0x664188
-        //   3. Allocates 0x3C buffer ctrl, sets ctrl[0] = buffer, ctrl[4] = capacity
-        //   4. Sets wrapper[4] = ctrl pointer
-        //   5. Returns wrapper in EAX → stored at this+4
-        let wrapper = wa_malloc_struct_zeroed::<SpriteCache>();
-        (*wrapper).vtable = rb(SPRITE_CACHE_VTABLE) as *const SpriteCacheVtable;
+        //   1. Constructor allocates 0x28 SpriteCache, passes as EDI to FUN_004fa860
+        //   2. FUN_004fa860 sets sc[0] = vtable 0x664188
+        //   3. Allocates 0x3C FrameCache, sets fc.buffer + fc.capacity
+        //   4. Sets sc.frame_cache = fc
+        //   5. Returns sc in EAX → stored at this+4
+        let sprite_cache = wa_malloc_struct_zeroed::<SpriteCache>();
+        (*sprite_cache).vtable = rb(SPRITE_CACHE_VTABLE) as *const SpriteCacheVtable;
 
-        let ctrl = wa_malloc_struct_zeroed::<SpriteBufferCtrl>();
+        let frame_cache = wa_malloc_struct_zeroed::<FrameCache>();
         // Original allocates 0x80020 but capacity is 0x80000 — extra 0x20 is guard margin.
-        (*ctrl).buffer = wa_malloc_zeroed(0x80020);
-        (*ctrl).capacity = 0x80000;
+        (*frame_cache).buffer = wa_malloc_zeroed(0x80020);
+        (*frame_cache).capacity = 0x80000;
 
-        (*wrapper).buffer_ctrl = ctrl;
-        (*this).sprite_cache = wrapper;
+        (*sprite_cache).frame_cache = frame_cache;
+        (*this).sprite_cache = sprite_cache;
 
         this
     }

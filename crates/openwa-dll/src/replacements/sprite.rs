@@ -7,7 +7,7 @@
 use openwa_core::address::va;
 use openwa_core::rebase::rb;
 use openwa_core::render::palette::PaletteContext;
-use openwa_core::render::sprite::{Sprite, SpriteFrame};
+use openwa_core::render::sprite::{Sprite, SpriteFrame, SpriteSubframeCache};
 use openwa_core::render::SpriteCache;
 
 use crate::hook::{self, usercall_trampoline};
@@ -110,12 +110,20 @@ unsafe extern "cdecl" fn process_sprite_impl(
         *palette_base.add(1 + i) = mapped as u8;
     }
 
-    // --- Secondary frame table (if header_flags & 0x4000) ---
+    // --- Subframe cache table (if header_flags & 0x4000) ---
+    //
+    // Despite being parsed in-place from the same `.spr` file as the
+    // primary frame table, this is a different layout: each 0xC-byte
+    // entry is a `SpriteSubframeCache` (compressed_offset, decoded_ptr,
+    // decoded_size) used to lazily decompress LZSS subframes. The on-disk
+    // bytes happen to be a valid initial state (decoded_ptr = 0 → "not
+    // yet cached"), so we just point at them and let
+    // `Sprite__GetFrameForBlit` populate `decoded_ptr` on first use.
     let has_secondary = hdr.header_flags & 0x4000 != 0;
     if has_secondary {
-        (*sprite).secondary_frame_count = hdr.secondary_frame_count;
-        (*sprite).secondary_frame_ptr =
-            raw_data.add(hdr.secondary_frame_offset) as *mut SpriteFrame;
+        (*sprite).subframe_cache_count = hdr.secondary_frame_count;
+        (*sprite).subframe_cache_table =
+            raw_data.add(hdr.secondary_frame_offset) as *mut SpriteSubframeCache;
     }
 
     // --- Main frame header fields ---

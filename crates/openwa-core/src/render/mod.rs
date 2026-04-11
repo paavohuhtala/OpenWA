@@ -10,7 +10,8 @@ pub mod turn_order;
 pub use ddraw::CompatRenderer;
 pub use display::{
     DisplayBase, DisplayBaseVtable, DisplayGfx, DisplayGfxVtable, DrawScaledSpriteResult,
-    FastcallResult, Palette, PaletteVtable, RenderContext, SpriteBufferCtrl, SpriteCache,
+    FastcallResult, FrameCache, FrameCacheEntry, Palette, PaletteVtable, RenderContext,
+    SpriteCache,
 };
 pub use landscape::{DirtyRect, PCLandscape};
 pub use opengl::OpenGLState;

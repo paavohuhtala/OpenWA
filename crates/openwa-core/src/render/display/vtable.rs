@@ -302,8 +302,9 @@ pub struct DisplayGfxVtable {
     /// frame from `BlitSprite` (slot 19) to resolve a sprite ID + animation
     /// value into a renderable frame: clamps the animation value, looks up
     /// the matching frame entry in the sprite's frame table, lazily
-    /// decompresses the frame's surface via `FUN_004FA950`, and returns
-    /// the surface pointer plus the frame's bounding box.
+    /// decompresses the frame's surface via `FrameCache__Allocate`
+    /// + `Sprite_LZSS_Decode`, and returns the surface pointer plus the
+    /// frame's bounding box.
     ///
     /// Dispatches via the two arrays at `DisplayGfx + 0x1008` (Sprite*)
     /// and `DisplayGfx + 0x2008` (SpriteBank*) — both lookups go through
@@ -316,15 +317,478 @@ pub struct DisplayGfxVtable {
     /// | `out_left`/`top`/`right`/`bot` | frame bounding box within the cell               |
     /// | `out_anim_frac`                | sub-frame interpolation value (Fixed16) or 0     |
     ///
-    /// `Sprite*` path → `Sprite__GetFrameForBlit` (FUN_004FAD30, ESI=sprite).
-    /// `SpriteBank*` path → `SpriteBank__GetFrameForBlit` (FUN_004F9710,
-    /// ESI=bank). Both inner helpers use ESI for the receiver in a complex
-    /// usercall convention, which is why this slot has not been ported yet —
-    /// it would require porting the FrameCache and the surface decompression
-    /// helper (`FUN_004FA950` / `FUN_005B29E0`) first.
+    /// Currently still bridged: `BlitSprite` (slot 19) calls this through
+    /// the typed `get_sprite_frame_for_blit_raw` wrapper from
+    /// `replacements/render.rs::blit_sprite`. This is the **last** in-game
+    /// render bridge; everything else in the pipeline runs as native Rust.
     ///
-    /// `BlitSprite` calls this directly via `vtable[33]` today; see
-    /// `replacements/render.rs::blit_sprite`.
+    /// # Porting blueprint
+    ///
+    /// ## Dispatcher (slot 33 itself, 0x5237C0, RET 0x24)
+    ///
+    /// 9 stack args (RET 0x24 = 36 bytes), `__thiscall` on `DisplayGfx`:
+    ///
+    /// ```text
+    /// fn(this, sprite_id: u32, anim_value: u32,
+    ///    out_w, out_h, out_left, out_top, out_right, out_bottom, out_anim_frac)
+    ///    -> *mut DisplayBitGrid
+    /// ```
+    ///
+    /// Body (verified at 0x5237C0–0x52384D):
+    /// 1. `sprite_id - 1 < 0x3FE` → bail with 0 if not (valid range 1..=0x3FE)
+    /// 2. If `this->sprite_ptrs[sprite_id]` (`+0x1008 + id*4`) is non-null:
+    ///    call `Sprite__GetFrameForBlit` (sprite path) and return.
+    /// 3. Else if `this->sprite_banks[sprite_id]` (`+0x2008 + id*4`) is
+    ///    non-null: call `SpriteBank__GetFrameForBlit` (bank path) and return.
+    /// 4. Else return 0.
+    ///
+    /// **Both helpers return the same `*mut DisplayBitGrid` shape via EAX**
+    /// (`sprite + 0x34` for the sprite path, `bank + 0x130` for the bank
+    /// path), so the dispatcher is a thin pass-through.
+    ///
+    /// ## `Sprite__GetFrameForBlit` (0x4FAD30, RET 0x18)
+    ///
+    /// **Usercall** (verified by stack-tracking 0x4FAD30–0x4FAEBD):
+    ///
+    /// | Reg/Stack | Param          |
+    /// |-----------|----------------|
+    /// | `ESI`     | `this: *mut Sprite` |
+    /// | `EAX`     | `out_anim_frac: *mut u32` (`*EAX = 0` or interpolation value) |
+    /// | `EDX`     | `anim_value: u32` (Fixed16, clamped) |
+    /// | stack[0]  | `out_w: *mut i32` |
+    /// | stack[1]  | `out_h: *mut i32` |
+    /// | stack[2]  | `out_left: *mut i32` |
+    /// | stack[3]  | `out_top: *mut i32` |
+    /// | stack[4]  | `out_right: *mut i32` |
+    /// | stack[5]  | `out_bottom: *mut i32` |
+    ///
+    /// Returns `LEA EAX, [ESI+0x34]` — pointer to the embedded
+    /// `DisplayBitGrid` sub-object inside `Sprite` (`bitgrid` field).
+    ///
+    /// Body, in order:
+    /// 1. **Clamp `anim_value`** by `Sprite::flags` (`+0x10`):
+    ///    - bit 0 set: `anim_value &= 0xFFFF` (use as-is)
+    ///    - bit 0 clear: clamp signed to `[0, 0xFFFF]`
+    /// 2. **Ping-pong** if `flags & 2`: `anim_value *= 2; if (>0xFFFF) anim_value = 0x1FFFE - 2*orig`
+    /// 3. **Frame index resolution**:
+    ///    - If `Sprite::is_scaled` (`+0x24`) != 0: linearly interpolate
+    ///      between `scale_x` (`+0x1C`) and `scale_y` (`+0x20`):
+    ///      `*out_anim_frac = (((scale_y - scale_x) * anim_value) >> 16) + scale_x`
+    ///      and `frame_idx = 0`
+    ///    - Else if `Sprite[+0x18].byte0 & 1` (rounding-mode flag, currently
+    ///      `_unknown_18`): `frame_idx = ((max_frames * anim_value + 0x8000) >> 16)`,
+    ///      with the special case that if rounding produces `frame_idx == max_frames`,
+    ///      set `frame_idx = 0` (wrap). `*out_anim_frac = 0`.
+    ///    - Else: `frame_idx = (max_frames * anim_value) >> 16`. `*out_anim_frac = 0`.
+    /// 4. **Read frame metadata** from `frame_meta_ptr[frame_idx]`
+    ///    (12 bytes per `SpriteFrame`):
+    ///    `*out_left = start_x`, `*out_top = start_y`,
+    ///    `*out_right = end_x`, `*out_bottom = end_y`.
+    ///    Then `*out_w = sprite->width` (`+0xC`), `*out_h = sprite->height` (`+0xE`).
+    /// 5. **Surface decompression dispatch** based on `header_flags & 0x4000`
+    ///    (`+0x14`):
+    ///
+    ///    **Flat (no cache) path** — `(header_flags & 0x4000) == 0`:
+    ///    Surface address = `sprite->bitmap_data_ptr (+0x64) + frame_meta[frame_idx].bitmap_offset`.
+    ///    No decompression: the bitmap data is already-decoded raw pixels in
+    ///    the original load buffer.
+    ///
+    ///    **Cached path** — `(header_flags & 0x4000) != 0`:
+    ///    The `bitmap_offset` u32 in `SpriteFrame` is split:
+    ///    - **High byte** (signed `i8`): subframe index into the per-sprite
+    ///      cache table at `Sprite + 0x2C` (currently mis-typed as
+    ///      `secondary_frame_ptr: *mut SpriteFrame` — see "Pre-work" below).
+    ///    - **Low 24 bits** (`& 0xFFFFFF`): pixel offset within the
+    ///      decompressed subframe.
+    ///
+    ///    Per-sprite subframe cache entry layout (`Sprite + 0x2C` is a
+    ///    pointer to an array of these, count = `Sprite + 0x30`):
+    ///    ```text
+    ///    struct SpriteSubframeCache {
+    ///        compressed_offset: u32,  // +0: byte offset within sprite->bitmap_data_ptr
+    ///        decoded_ptr: *mut u8,    // +4: 0 if not yet cached; lazily set
+    ///        decoded_size: u32,       // +8: uncompressed size in bytes
+    ///    }
+    ///    ```
+    ///
+    ///    If `decoded_ptr == 0`:
+    ///    - `decoded_ptr = FrameCache__Allocate(decoded_size, sprite->context_ptr, sprite, subframe_idx)`
+    ///    - `Sprite_LZSS_Decode(decoded_ptr,
+    ///        sprite->bitmap_data_ptr + entry.compressed_offset,
+    ///        sprite->palette_data_ptr (+0x68))`
+    ///
+    ///    Surface address = `decoded_ptr + (frame_meta[frame_idx].bitmap_offset & 0xFFFFFF)`.
+    /// 6. **Update embedded bitgrid** at `sprite + 0x34` (only if its
+    ///    `data` field at `+0x4 == sprite+0x38` is non-zero — i.e. the
+    ///    bitgrid is initialized):
+    ///    Set `data = surface_addr`, `width = (right - left)`,
+    ///    `height = (bottom - top)`, clip = `(0, 0, width, height)`.
+    ///    Note: only 8 fields are written (not the full bitgrid init);
+    ///    the row stride and `cells_per_unit` are assumed already set.
+    /// 7. Return `sprite + 0x34` (the embedded `DisplayBitGrid`).
+    ///
+    /// ## `SpriteBank__GetFrameForBlit` (0x4F9710, RET 0x1C)
+    ///
+    /// **Usercall**, very similar shape to the Sprite version but with one
+    /// extra stack arg and a different EAX role:
+    ///
+    /// | Reg/Stack | Param          |
+    /// |-----------|----------------|
+    /// | `ESI`     | `this: *mut SpriteBank` |
+    /// | `EAX`     | `sprite_id: u32` (used for index_table lookup) |
+    /// | `EDX`     | `anim_value: u32` |
+    /// | stack[0]  | `out_w` |
+    /// | stack[1]  | `out_h` |
+    /// | stack[2]  | `out_left` |
+    /// | stack[3]  | `out_top` |
+    /// | stack[4]  | `out_right` |
+    /// | stack[5]  | `out_bottom` |
+    /// | stack[6]  | `out_anim_frac` |
+    ///
+    /// Returns `bank + 0x130` (a `DisplayBitGrid` sub-object embedded in
+    /// `SpriteBank` — currently inside `_unknown_18`, needs typing).
+    ///
+    /// Body:
+    /// 1. **Index table lookup**: `frame_idx = bank->index_table[sprite_id - bank->base_id]`
+    ///    (`bank+0xC`, `bank+0x8`).
+    /// 2. **Validate**: `bank->frame_table` (`+0x10`) non-null AND
+    ///    `0 <= frame_idx < bank->frame_count` (`+0x14`). Return 0 on fail.
+    /// 3. `entry = &frame_table[frame_idx]` (12-byte stride). Each entry
+    ///    has the **same role** as a Sprite + SpriteBankFrame combined —
+    ///    the existing `SpriteBankFrame` Rust struct is wrong (see "Pre-work").
+    ///    Verified field accesses on the entry:
+    ///    - `+0` u8/u16: animation flags (bit 0 = use-as-is, bit 1 = ping-pong) — same role as `Sprite::flags`
+    ///    - `+2` u16: width  → `*out_w`
+    ///    - `+4` u16: height → `*out_h`
+    ///    - `+6` u16: base_frame_index (added to scaled value)
+    ///    - `+8` u16: scale or frame_count. **High bit `0x8000` set** = scaled mode, similar to Sprite's `is_scaled`+`scale_x`/`scale_y` path; the low/high 7-bit nibbles are sign-extended `<< 16 >> 5` to form `(scale_y - scale_x) * anim_value` (a Fixed16 interpolation). High bit clear = plain frame_count multiplier.
+    /// 4. **Clamp `anim_value`** + ping-pong, identical to the Sprite path.
+    /// 5. **Frame index resolution** (analogous to Sprite, but using the
+    ///    `frame_table[frame_idx]` fields above instead of `Sprite::scale_*`/`max_frames`).
+    /// 6. **Read frame bbox metadata** from a *second* table at `bank + 0x18`
+    ///    (currently inside `_unknown_18`!) — this is a `*mut SpriteFrame`-
+    ///    shaped array indexed by the resolved sub-`frame_idx`. Reads:
+    ///    `[+4] start_x → *out_left`, `[+6] start_y → *out_top`,
+    ///    `[+8] end_x → *out_right`, `[+0xA] end_y → *out_bottom`.
+    /// 7. **Subframe cache lookup**: read `subframe_idx` from the *low word*
+    ///    of `bbox_table[frame_idx][+0]` (just like Sprite's high byte trick,
+    ///    but here it's the low u16 of `bitmap_offset`). Then index into
+    ///    `bank->subframe_cache_table` at `bank + 0x20` (12-byte entries).
+    ///
+    ///    **SpriteBank cache entry layout — note the field order differs
+    ///    from Sprite!**:
+    ///    ```text
+    ///    struct SpriteBankSubframeCache {
+    ///        compressed_offset: u32,  // +0
+    ///        decoded_size: u32,       // +4   (Sprite has decoded_ptr here!)
+    ///        decoded_ptr: *mut u8,    // +8   (Sprite has decoded_size here!)
+    ///    }
+    ///    ```
+    ///    The `decoded_ptr == 0` check is at `+8`, and `decoded_size` (the
+    ///    arg to `FrameCache__Allocate`) is read from `+4`. Both Sprite and
+    ///    SpriteBank versions allocate from the same FrameCache instance via
+    ///    `bank->context_ptr (+0x4)`.
+    ///
+    /// 8. After (re)decompression: call `DisplayBitGrid::SetExternalBuffer`
+    ///    (FUN_004F6470 — fastcall ECX=height, EDX=width, stack=(bitgrid,
+    ///    decoded_data, row_stride)) on `bank + 0x130` to update the
+    ///    embedded bitgrid's pixel pointer + dimensions + clip rect to the
+    ///    new subframe.
+    /// 9. Return `bank + 0x130`.
+    ///
+    /// ## Leaf primitives
+    ///
+    /// ### `FrameCache__Allocate` (0x4FA950, FUN_004FA950, RET 0xC)
+    ///
+    /// LRU ring-buffer allocator for decompressed sprite subframe pixels.
+    ///
+    /// **Usercall**: `EAX = entry_size`, stack = `(context_ptr, owner_ptr, frame_idx)`.
+    /// Returns the payload pointer (`entry + 0x10`) in EAX.
+    ///
+    /// FrameCache lives at `*(context_ptr + 4)` — a single shared cache per
+    /// SpriteCache, NOT per sprite. **The SpriteCache type is unknown;
+    /// `Sprite::context_ptr` is currently typed as `*mut SpriteCache` but
+    /// SpriteCache itself is opaque.** The FrameCache struct sits at offset
+    /// `+4` of SpriteCache.
+    ///
+    /// **FrameCache layout** (verified at 0x4FA970–0x4FA9BF):
+    /// ```text
+    /// struct FrameCache {
+    ///     buffer: *mut u8,             // +0x00
+    ///     capacity: u32,               // +0x04 — total bytes
+    ///     write_head: u32,             // +0x08 — current alloc cursor (offset within buffer)
+    ///     wrap_marker: u32,            // +0x0c — read head / wrap point
+    ///     tail_entry: *mut Entry,      // +0x10 — most recently allocated
+    ///     head_entry: *mut Entry,      // +0x14 — oldest, evicted first
+    ///     entry_count: u32,            // +0x18
+    /// }
+    /// ```
+    ///
+    /// **Entry header** (16 bytes + payload):
+    /// ```text
+    /// struct FrameCacheEntry {
+    ///     padded_size: u32,            // +0x00 — = ((req + 8 + 0xb) & ~3)
+    ///     next: *mut FrameCacheEntry,  // +0x04 — LRU linked list
+    ///     owner: *mut c_void,          // +0x08 — sprite or bank ptr (caller's stack arg 2)
+    ///     frame_idx: u32,              // +0x0c — caller's stack arg 3
+    ///     // payload: [u8; req_size]   // +0x10 — returned to caller
+    /// }
+    /// ```
+    ///
+    /// **Allocation algorithm** (paraphrased):
+    /// ```text
+    /// loop {
+    ///     pad = align(entry_size + 8 + 0xb, 4);  // total bytes incl. header
+    ///     payload_size = entry_size + 8;          // size stored in entry header
+    ///     fc = *(context_ptr + 4);
+    ///     write = fc.write_head;
+    ///     wrap  = fc.wrap_marker;
+    ///     end   = write + pad;
+    ///
+    ///     if write < wrap {
+    ///         if end <= wrap { goto fit; }  // would not collide with read head
+    ///     } else {
+    ///         if end <= fc.capacity { goto fit; }  // fits before end of buffer
+    ///         // wrap-around: try writing at offset 0
+    ///         if pad <= wrap { write = 0; goto fit; }
+    ///     }
+    ///
+    ///     // No room: evict the oldest entry, retry.
+    ///     if fc.head_entry != null {
+    ///         victim = fc.head_entry;
+    ///         // Notify owner that its decoded surface is being dropped:
+    ///         (victim.owner.vtable[1])(victim.owner, &victim.owner.subframe_cache_entry_for(victim.frame_idx));
+    ///         // Unlink victim, advance head_entry, recompute wrap_marker.
+    ///     }
+    ///     continue;
+    ///
+    /// fit:
+    ///     entry = fc.buffer + write;
+    ///     entry.padded_size = payload_size;
+    ///     entry.next = null;
+    ///     if fc.tail_entry { fc.tail_entry.next = entry; }
+    ///     fc.tail_entry = entry;
+    ///     if fc.head_entry == null { fc.head_entry = entry; }
+    ///     fc.entry_count += 1;
+    ///     fc.write_head = write + pad;
+    ///     entry.owner = owner;
+    ///     entry.frame_idx = frame_idx;
+    ///     return entry + 0x10;
+    /// }
+    /// ```
+    ///
+    /// **Eviction notification**: the cache calls
+    /// `victim.owner.vtable[1]` — slot 1 of `Sprite::vtable`
+    /// (currently named `slot_1: fn(this: *mut Sprite)` at 0x4FAAD0,
+    /// vtable 0x66418C) and slot 1 of `SpriteBank::vtable` (currently named
+    /// `slot_1: fn(this: *mut SpriteBank)` at 0x4F9580, vtable 0x664180).
+    /// **These slots are the "drop subframe pointer" callback**, not generic
+    /// init/load functions as their current names suggest. Renaming them to
+    /// `on_frame_evicted` (or similar) is part of the Pre-work below.
+    /// The second arg to the callback is `entry.owner + 0x10` — i.e. the
+    /// FrameCacheEntry's payload start, which the callback uses to identify
+    /// which subframe table entry to clear.
+    ///
+    /// ### `Sprite_LZSS_Decode` (0x5B29E0, FUN_005B29E0, RET 0xC)
+    ///
+    /// **Stdcall**: `(dst: *mut u8, src: *const u8, lut: *const u8)`. The
+    /// outer `PUSHAD/POPAD` makes this safe to bridge from any context.
+    ///
+    /// LZSS variant with palette LUT remapping. Format (per source byte):
+    /// - **Literal** (`src[0] < 0x80`): emit `lut[src[0]]`, advance `src` by 1.
+    /// - **Short back-ref** (`src[0] >= 0x80`, length nibble != 0):
+    ///   - `length = ((src[0] >> 3) & 0xF) + 2` (range 3..18)
+    ///   - `distance = ((src[0] << 8) | src[1]) & 0x7FF` (range 0..0x7FF)
+    ///   - Copy `length` bytes from `dst - distance - 1` to `dst`. Advance `src` by 2.
+    /// - **Long back-ref** (`src[0] >= 0x80`, length nibble == 0,
+    ///   `distance != 0`):
+    ///   - `length = src[2] + 18` (range 18..273)
+    ///   - `distance` as above. Copy + advance `src` by 3.
+    /// - **Terminator** (length nibble == 0 AND distance == 0): exit loop.
+    ///
+    /// LUT is the 256-byte palette translation table from
+    /// `Sprite::palette_data_ptr (+0x68)` for the sprite path, or
+    /// `bank + 0x30` (inline 256-byte array) for the bank path.
+    ///
+    /// ## Pre-work needed before any porting begins
+    ///
+    /// These type/struct fixes are pure refactors and should be the first
+    /// landed commits in this porting push. Each is a small,
+    /// behavior-preserving change.
+    ///
+    /// 1. **Type the FrameCache** — define `#[repr(C)] struct FrameCache`
+    ///    with the 7 fields above, asserted at `size = 0x1C`. Define
+    ///    `#[repr(C)] struct FrameCacheEntry` (header only). Place in
+    ///    `crates/openwa-core/src/render/sprite/frame_cache.rs`.
+    ///
+    /// 2. **Type SpriteCache** — currently `Sprite::context_ptr` points at
+    ///    a `SpriteCache` whose layout is opaque. Even an incomplete
+    ///    `#[repr(C)] struct SpriteCache { _pad_00: u32, frame_cache: FrameCache, ... }`
+    ///    (size unknown) is enough to enable `(*ctx).frame_cache.write_head`
+    ///    typed access from the allocator port. Verify `frame_cache` lives
+    ///    *inline* at `+0x4` (likely) versus being a pointer (`*mut FrameCache`).
+    ///    `Sprite__GetFrameForBlit` reads `[ESI+0x4]` and passes it to
+    ///    `FrameCache__Allocate`, which then loads `[EBP+4]` — that's a
+    ///    **double dereference**, so SpriteCache+0x4 is a `*mut FrameCache`,
+    ///    not an inline FrameCache. Verify this from the SpriteCache
+    ///    constructor (find via xrefs to ConstructSprite).
+    ///
+    /// 3. **Re-type `Sprite::secondary_frame_ptr`** — currently
+    ///    `*mut SpriteFrame`, actually `*mut SpriteSubframeCache`. Add the
+    ///    new struct (3 fields, 12 bytes) and rename the field to
+    ///    `subframe_cache_table: *mut SpriteSubframeCache`. The
+    ///    `secondary_frame_count: u16` field stays — it's the entry count.
+    ///    Update `docs/re-notes/sprites.md` row +0x2C accordingly.
+    ///
+    /// 4. **Fix `SpriteBankFrame`** — the current Rust struct is **wrong**
+    ///    end-to-end. Re-derive the layout from `SpriteBank__GetInfo`
+    ///    (FUN_004F98C0) AND `SpriteBank__GetFrameForBlit` jointly. The
+    ///    correct shape per the disasm:
+    ///    ```text
+    ///    struct SpriteBankFrame {  // 0xC bytes
+    ///        flags: u8,            // +0  — bit 0 = anim_value used as-is, bit 1 = ping-pong
+    ///        _pad_01: u8,
+    ///        width: u16,           // +2  — was at +8 in old struct
+    ///        height: u16,          // +4
+    ///        base_frame_idx: u16,  // +6
+    ///        scale_or_count: u16,  // +8  — high bit set = scaled mode (low/high 7-bit nibbles → scale_x/scale_y), clear = frame count multiplier
+    ///        _pad_0a: u16,
+    ///    }
+    ///    ```
+    ///    Cross-check by reading `GetInfo` and confirming both functions
+    ///    agree on every offset. This **probably breaks downstream callers**
+    ///    of `SpriteBankFrame.width`/`data_value`; grep for them and fix in
+    ///    the same commit.
+    ///
+    /// 5. **Type the SpriteBank `_unknown_18` blob fields**:
+    ///    - `+0x18`: `bbox_table: *mut SpriteFrame` — primary frame metadata
+    ///      (start_x/start_y/end_x/end_y, indexed by resolved subframe idx)
+    ///    - `+0x20`: `subframe_cache_table: *mut SpriteBankSubframeCache`
+    ///      (12-byte entries, **field order differs from Sprite!** — see
+    ///      doc above)
+    ///    - `+0x28`: `bitmap_data_ptr: *mut u8` — compressed source base
+    ///    - `+0x30`: `palette_lut: [u8; 256]` — inline 256-byte LUT
+    ///    - `+0x130`: `frame_bitgrid: DisplayBitGrid` — embedded sub-object
+    ///      returned to callers (replaces tail of `_unknown_18`)
+    ///
+    /// 6. **Define `SpriteBankSubframeCache`** as its own struct (NOT a
+    ///    typedef of the Sprite version — different field order). Add a
+    ///    test that asserts both have `size_of == 0xC` and the correct
+    ///    `offset_of` values for their respective `decoded_ptr`/`decoded_size`
+    ///    fields.
+    ///
+    /// 7. **Rename `Sprite::_unknown_18` byte0** to `frame_round_mode: u8`
+    ///    (or similar) — bit 0 controls the `+0x8000` rounding in the
+    ///    frame-index computation. This is a 1-line struct change.
+    ///
+    /// 8. **Rename `Sprite::vtable[1]`** (currently `slot_1` at 0x4FAAD0)
+    ///    and `SpriteBank::vtable[1]` (currently `slot_1` at 0x4F9580) to
+    ///    `on_subframe_evicted`. Both are the FrameCache eviction
+    ///    notification callback, NOT init helpers as their current names
+    ///    imply. Verify by reading their bodies — they should clear a
+    ///    `decoded_ptr` field somewhere in the owner's subframe table.
+    ///
+    /// ## Leaf-first porting order (one PR-sized commit each)
+    ///
+    /// 1. **Pre-work commits** (above) — type fixes, no logic changes.
+    ///    Land first, run headless tests, no headful needed.
+    ///
+    /// 2. **Port `Sprite_LZSS_Decode`** — pure function, no WA dependencies.
+    ///    Trivial to test against the original via byte-for-byte output
+    ///    comparison on a known compressed buffer. Land standalone in
+    ///    `crates/openwa-core/src/render/sprite/lzss.rs`. The original at
+    ///    0x5B29E0 has 4 callers, only 2 of which we touch here — leave
+    ///    the original in place for now and only swap the in-game render
+    ///    callers in step 5.
+    ///
+    /// 3. **Port `FrameCache__Allocate`** — depends on FrameCache type from
+    ///    pre-work step 1 and the eviction-callback rename from step 8.
+    ///    Once typed, the LRU bookkeeping is straightforward but
+    ///    error-prone (the wrap-around check is the trickiest part).
+    ///    Validate by:
+    ///    - Standalone unit test that allocates entries until forced
+    ///      eviction and verifies the head/tail/count bookkeeping matches
+    ///      a known sequence.
+    ///    - **Bridge-then-port** technique (lesson #4): first wire the new
+    ///      Rust impl as a *secondary* path that runs alongside the
+    ///      original and asserts equality of the returned pointer. Once
+    ///      stable, drop the bridge.
+    ///
+    /// 4. **Port `Sprite__GetFrameForBlit`** — needs both leaves above
+    ///    plus the `Sprite::vtable[1]` rename. Use a `Sprite_GetFrameForBlit`
+    ///    bridge from `replacements/sprite.rs` style usercall trampoline
+    ///    only if absolutely needed; ideally write the port directly in
+    ///    core and call it from slot 33.
+    ///
+    /// 5. **Port `SpriteBank__GetFrameForBlit`** — same shape, plus the
+    ///    `DisplayBitGrid::SetExternalBuffer` (FUN_004F6470) call. Port
+    ///    that helper as a leaf in step 2.5 (or inline it; it's only 8
+    ///    field writes).
+    ///
+    /// 6. **Port slot 33 itself** as a thin dispatcher between the two
+    ///    helpers. Wire via `vtable_replace!` in `install_display`. Delete
+    ///    the `replacements/render.rs::blit_sprite` raw call to
+    ///    `get_sprite_frame_for_blit_raw` — it now goes through the
+    ///    typed Rust impl.
+    ///
+    /// ## Verification
+    ///
+    /// **Headless tests** validate game logic only — slot 33 is a render
+    /// path, so headless will only catch crashes, not visual correctness
+    /// (lesson `feedback_headless_does_not_test_rendering.md`).
+    ///
+    /// **Headful tests + user visual confirmation are required at every
+    /// step that touches rendering**:
+    /// - After step 2 (LZSS port): no visual change, but worth a smoke test.
+    /// - After step 3 (FrameCache port): no visual change (only allocation
+    ///   bookkeeping). Run a long replay to exercise eviction.
+    /// - After step 4 (Sprite__GetFrameForBlit): **all** sprite-based
+    ///   animation comes through this path. Test with worms moving,
+    ///   weapons firing, particles, fire/smoke, water animations.
+    /// - After step 5 (SpriteBank__GetFrameForBlit): exercises any
+    ///   sprite_bank-backed sprites. The bank path is rarer than the
+    ///   sprite path; check after-game scoreboard, weapon icons, HUD
+    ///   elements.
+    /// - After step 6: full headful round, since slot 33 is now Rust-only.
+    ///
+    /// ## Known gotchas
+    ///
+    /// 1. **The two cache entry layouts have different field orders**
+    ///    (Sprite: `{offset, ptr, size}`, SpriteBank: `{offset, size, ptr}`).
+    ///    DO NOT define a single shared struct — give them different names
+    ///    and asserted offsets, and let the type system enforce the
+    ///    distinction. This is the single most likely source of porting
+    ///    bugs.
+    ///
+    /// 2. **`Sprite::secondary_frame_count` lives at +0x30** but the
+    ///    cache table at `+0x2C` is indexed by a *signed* `i8` from the
+    ///    high byte of `bitmap_offset`. Negative subframe indices would be
+    ///    a bug, but make sure the port reads `as i8` not `as u8` to match
+    ///    the `MOVSX EDX, byte ptr [...]` in the disasm.
+    ///
+    /// 3. **Slot 33's stack-shuffle is asymmetric between paths** — the
+    ///    Sprite path gets 6 stack args + EAX=out_anim_frac, the SpriteBank
+    ///    path gets 7 stack args (out_anim_frac on stack) + EAX=sprite_id.
+    ///    Verify the call site argument order matches the helper's
+    ///    expected register/stack layout exactly (re-check the disasm
+    ///    of the dispatcher at 0x5237DB and 0x523815).
+    ///
+    /// 4. **The eviction notification dereferences a vtable** — if the
+    ///    sprite's vtable[1] is the new "on_subframe_evicted" Rust impl,
+    ///    it must NOT recursively call back into the FrameCache (that
+    ///    would deadlock if we hold any cache invariants). Read the
+    ///    original 0x4FAAD0 / 0x4F9580 implementations carefully before
+    ///    porting them.
+    ///
+    /// 5. **Lesson #16 (`feedback_thirdparty_RE_xrefs_lie`)**: don't
+    ///    blindly trust Ghidra xrefs as a substitute for grepping the
+    ///    current Rust code. Both helpers are in the WA xref list as
+    ///    "called from slot 33" and that's it — but our `blit_sprite`
+    ///    has been calling slot 33 directly via the typed `_raw` wrapper
+    ///    for months, so the **only** in-program caller of slot 33 today
+    ///    is our own Rust code. Once slot 33 is ported, the bridge to
+    ///    WA's helpers is fully gone — there is no remaining WA caller
+    ///    to validate against.
     #[slot(33)]
     pub get_sprite_frame_for_blit: fn(
         this: *mut DisplayGfx,
@@ -1009,12 +1473,15 @@ unsafe fn sprite_info_from_bank(
     *out_data = (frame.data_value as u32) << 8;
     *out_flags = (frame.flags & 1) as u32;
 
-    if frame.width & 0x8000 != 0 {
+    // GetInfo's "API width" is read from `scale_or_count` (the +8 field),
+    // not the per-frame source width at +2 — see the original disassembly
+    // at 0x4F98C0 which reads `*(ushort *)(entry + 8)`.
+    if frame.scale_or_count & 0x8000 != 0 {
         *out_width = 1;
     } else if frame.flags & 2 != 0 {
-        *out_width = (frame.width as u32) * 2 - 1;
+        *out_width = (frame.scale_or_count as u32) * 2 - 1;
     } else {
-        *out_width = frame.width as u32;
+        *out_width = frame.scale_or_count as u32;
     }
 
     crate::rebase::rb(SPRITE_STRING)
@@ -1671,7 +2138,12 @@ pub unsafe fn load_sprite(
         if id_u16 != 0 && id_u16 < (*sprite).max_frames {
             (*sprite).max_frames = id_u16;
         }
-        (*sprite)._unknown_18 = (id >> 16) as u16;
+        // Original: `(*sprite)._unknown_18 = (id >> 16) as u16` — splits the
+        // high word of `id` into the rounding-mode byte (bit 0 picks the
+        // round-to-nearest path in `Sprite__GetFrameForBlit`) and the
+        // adjacent unknown byte.
+        (*sprite).frame_round_mode = (id >> 16) as u8;
+        (*sprite)._unknown_19 = (id >> 24) as u8;
     }
 
     1
@@ -2040,13 +2512,13 @@ pub unsafe fn load_sprite_by_layer(
     1
 }
 
-// GetSpriteFrameForBlit (vtable slot 33, 0x5237C0) is NOT ported — it is
-// hot-path though, called from our own `blit_sprite` (slot 19) on every
-// sprite render via the raw vtable pointer. The two inner helpers
-// (Sprite__GetFrameForBlit at 0x4FAD30, SpriteBank__GetFrameForBlit at
-// 0x4F9710) use ESI for the sprite/bank receiver in a usercall convention
-// that's impractical to bridge directly. Porting requires first porting
-// the FrameCache + decompression chain (FUN_004FA950 → FUN_005B29E0).
+// GetSpriteFrameForBlit (vtable slot 33, 0x5237C0) is NOT ported — see the
+// **porting blueprint** in the slot 33 doc comment on `DisplayVtable`
+// earlier in this file (search for `#[slot(33)]`). It covers the dispatcher
+// shape, the two helper usercall conventions, the FrameCache LRU allocator
+// and the LZSS decoder leaf primitives, the type pre-work needed before
+// porting can start, the leaf-first commit order, and the verification gates.
+// This is the last in-game render bridge.
 
 /// Port of `DisplayGfx::LoadFont` (vtable slot 34, 0x523560).
 ///
