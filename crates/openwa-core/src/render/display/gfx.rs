@@ -1,5 +1,5 @@
 use super::base::DisplayBase;
-use super::vtable::DisplayVtable;
+use super::vtable::DisplayGfxVtable;
 use crate::bitgrid::DisplayBitGrid;
 use core::ffi::c_void;
 
@@ -42,7 +42,7 @@ pub struct DisplayGfx {
     // DisplayBase (0x0000 - 0x355F)
     // =========================================================================
     /// 0x0000: DisplayBase fields (vtable, sprite cache, slot table, etc.)
-    pub base: DisplayBase<*const DisplayVtable>,
+    pub base: DisplayBase<*const DisplayGfxVtable>,
 
     // =========================================================================
     // Display dimensions and clip rect (0x3560 - 0x357F)

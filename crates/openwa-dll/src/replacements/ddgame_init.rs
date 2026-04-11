@@ -23,7 +23,7 @@ use openwa_core::engine::{
     ddgame_init_fields, ddgame_init_render_indices, display_layer_color_init, DDGame, DDGameWrapper,
 };
 use openwa_core::render::sprite::gfx_dir::{
-    gfx_dir_find_entry, gfx_dir_load_dir, gfx_resource_create,
+    gfx_dir_find_entry, gfx_dir_load_dir, gfx_resource_create, GfxDir,
 };
 
 // ─── DDGame__InitFields (0x526120) ──────────────────────────────────────────
@@ -97,10 +97,12 @@ extern "cdecl" fn impl_display_layer_init(wrapper: u32) -> u32 {
 
 // ─── GfxResource__Create_Maybe (0x4F6300) ───────────────────────────────────
 
-extern "cdecl" fn impl_gfx_resource_create(gfx_dir: u32, name: u32, output: u32) -> u32 {
-    let result = unsafe {
-        gfx_resource_create(gfx_dir as *mut u8, name as *const c_char, output as *mut u8)
-    };
+extern "cdecl" fn impl_gfx_resource_create(
+    gfx_dir: *mut GfxDir,
+    name: *const c_char,
+    output: *mut u8,
+) -> u32 {
+    let result = unsafe { gfx_resource_create(gfx_dir, name, output) };
     result as u32
 }
 
@@ -132,8 +134,8 @@ hook::usercall_trampoline!(
 
 static FIND_ENTRY_LOG_COUNT: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(0);
 
-extern "cdecl" fn impl_find_entry(name: u32, gfx_dir: u32) -> u32 {
-    let result = unsafe { gfx_dir_find_entry(name as *const c_char, gfx_dir as *mut u8) };
+extern "cdecl" fn impl_find_entry(name: *const c_char, gfx_dir: *mut GfxDir) -> u32 {
+    let result = unsafe { gfx_dir_find_entry(name, gfx_dir) };
 
     // Log first 20 lookups for debugging
     let count = FIND_ENTRY_LOG_COUNT.fetch_add(1, core::sync::atomic::Ordering::Relaxed);

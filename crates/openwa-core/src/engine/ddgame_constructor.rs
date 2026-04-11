@@ -310,8 +310,8 @@ unsafe fn wa_init_display_final(display: *mut DisplayGfx) {
 /// DDGame__LoadHudAndWeaponSprites (0x53D0E0): load weapon icons and HUD sprites.
 /// thiscall(ECX=gfx_dir) + 2 stack(ddgame, secondary_gfx_dir), RET 0x8.
 #[cfg(target_arch = "x86")]
-unsafe fn wa_load_hud_sprites(gfx_dir: *mut u8, ddgame: *mut DDGame, secondary: *mut u8) {
-    let f: unsafe extern "thiscall" fn(*mut u8, *mut DDGame, *mut u8) =
+unsafe fn wa_load_hud_sprites(gfx_dir: *mut GfxDir, ddgame: *mut DDGame, secondary: *mut GfxDir) {
+    let f: unsafe extern "thiscall" fn(*mut GfxDir, *mut DDGame, *mut GfxDir) =
         core::mem::transmute(rb(va::DDGAME_LOAD_HUD_AND_WEAPON_SPRITES) as usize);
     f(gfx_dir, ddgame, secondary);
 }
@@ -436,7 +436,7 @@ unsafe fn init_graphics_and_resources(
 
     // ── GfxDir #1 (primary) ──
     let gfx1 = GfxDir::alloc(gfx_dir_vtable);
-    (*wrapper).primary_gfx_dir = gfx1 as *mut u8;
+    (*wrapper).primary_gfx_dir = gfx1;
     (*wrapper).secondary_gfx_dir = core::ptr::null_mut();
 
     // Build path list (order depends on headless + display_flags)
@@ -499,16 +499,18 @@ unsafe fn init_graphics_and_resources(
     let game_version = (*game_info).game_version;
     let threshold = if (*wrapper).gfx_mode != 0 { 33 } else { -2i32 };
     if game_version < threshold {
+        use crate::render::sprite::gfx_dir::gfx_load_dir_addr;
+
         let c_digit = if game_version > -3 { b'2' } else { b'1' };
         let mut gfx_c_path = *b"data\\Gfx\\GfxC_3_0.dir\0";
         gfx_c_path[14] = c_digit;
 
         let gfx2 = GfxDir::alloc(gfx_dir_vtable);
-        (*wrapper).secondary_gfx_dir = gfx2 as *mut u8;
+        (*wrapper).secondary_gfx_dir = gfx2;
 
         let fp = fopen(gfx_c_path.as_ptr().cast(), c"rb".as_ptr());
         (*gfx2).file_handle = fp;
-        let load_addr = crate::render::sprite::gfx_dir::gfx_load_dir_addr();
+        let load_addr = gfx_load_dir_addr();
         if fp.is_null() || call_gfx_load_dir(gfx2 as *mut u8, load_addr) == 0 {
             let fp2 = fopen(c"data\\Gfx\\Gfx.dir".as_ptr(), c"rb".as_ptr());
             (*gfx2).file_handle = fp2;
@@ -772,7 +774,7 @@ unsafe fn init_graphics_and_resources(
             if !entry.is_null() {
                 // Try gfx_dir->vtable[2](entry->field_4)
                 let gfx_vt = *(gfx_dir as *const *const u32);
-                let load_cached: unsafe extern "thiscall" fn(*mut u8, u32) -> *mut u8 =
+                let load_cached: unsafe extern "thiscall" fn(*mut GfxDir, u32) -> *mut u8 =
                     core::mem::transmute(*gfx_vt.add(2));
                 let entry_val = *(entry.add(4) as *const u32);
                 let cached = load_cached(gfx_dir, entry_val);
@@ -823,8 +825,10 @@ unsafe fn init_graphics_and_resources(
 
             // Arrow GfxDir (conditional on secondary gfxdir)
             if !(*ddgame).secondary_gfxdir.is_null() {
-                let gfx_resource_create: unsafe extern "thiscall" fn(*mut u8, *mut u8) -> *mut u8 =
-                    core::mem::transmute(rb(va::GFX_RESOURCE_CREATE) as usize);
+                let gfx_resource_create: unsafe extern "thiscall" fn(
+                    *mut GfxDir,
+                    *mut u8,
+                ) -> *mut u8 = core::mem::transmute(rb(va::GFX_RESOURCE_CREATE) as usize);
                 (*ddgame).arrow_gfxdirs[i as usize] =
                     gfx_resource_create(gfx_dir, core::ptr::null_mut());
             }
@@ -892,15 +896,15 @@ unsafe fn init_graphics_and_resources(
     // 5 stack params (layer, gfx_dir, base_path, data_table, table_size)
     {
         let landscape_ptr = (*wrapper).landscape;
-        let water_layer = (*landscape_ptr).water_gfx_dir;
-        let land_layer = (*landscape_ptr).level_gfx_dir;
+        let water_dir = (*landscape_ptr).water_gfx_dir;
+        let land_dir = (*landscape_ptr).level_gfx_dir;
         let gfx_dir = (*wrapper).primary_gfx_dir;
 
         let wrapper_vt = *(wrapper as *const *const u32);
         let load_resource_list: unsafe extern "thiscall" fn(
             *mut DDGameWrapper,
             u32,
-            *mut u8,
+            *mut GfxDir,
             *const u8,
             *const u8,
             u32,
@@ -932,7 +936,7 @@ unsafe fn init_graphics_and_resources(
         load_resource_list(
             wrapper,
             2,
-            water_layer,
+            water_dir,
             rb(va::SPRITE_RESOURCE_BASE_PATH) as *const u8,
             rb(va::WATER_RESOURCE_TABLE) as *const u8,
             0x2F4,
@@ -945,17 +949,17 @@ unsafe fn init_graphics_and_resources(
         // GenerateDebrisParticles (0x546F70) for particle effects, which affects
         // the game RNG (DDGame+0x45EC). The original constructor loads them even
         // in headless mode. Skipping them causes replay desync.
-        (*disp).load_sprite_by_layer(3, 0x26D, land_layer, c"back.spr".as_ptr().cast());
+        (*disp).load_sprite_by_layer(3, 0x26D, land_dir, c"back.spr".as_ptr().cast());
         // debris.spr must be loaded unconditionally — it's used by
         // GenerateDebrisParticles (0x546F70) for particle effects, which
         // affects the game RNG (DDGame+0x45EC). Skipping it in headless
         // mode causes desync (longbow replay checksum mismatch at frame 1350).
-        (*disp).load_sprite(3, 0x26E, 0, land_layer, c"debris.spr".as_ptr());
+        (*disp).load_sprite(3, 0x26E, 0, land_dir, c"debris.spr".as_ptr());
 
         (*disp).load_sprite_by_layer(
             2,
             0x26C,
-            water_layer,
+            water_dir,
             c"layer\\layer.spr|layer.spr".as_ptr().cast(),
         );
 
@@ -968,10 +972,10 @@ unsafe fn init_graphics_and_resources(
 
         if s_var1 < 0x61 && level_height == 0x2B8 {
             // Simple gradient: load gradient.img directly
-            let gradient = call_gfx_find_and_load(land_layer, c"gradient.img", layer3_ctx);
+            let gradient = call_gfx_find_and_load(land_dir, c"gradient.img", layer3_ctx);
             (*ddgame).gradient_image = gradient;
         } else {
-            compute_complex_gradient(ddgame, land_layer, layer3_ctx, s_var1);
+            compute_complex_gradient(ddgame, land_dir, layer3_ctx, s_var1);
         }
 
         // ── Fill image → fill_pixel (0x7338) ──
@@ -979,7 +983,7 @@ unsafe fn init_graphics_and_resources(
             let layer2_ctx = (*(*ddgame).display).set_active_layer(2);
             // In the original, fill.img uses piStack_126c which the decompiler
             // shows was set from piVar3 (water_layer from landscape+0xB38).
-            let fill_sprite = call_gfx_find_and_load(water_layer, c"fill.img", layer2_ctx);
+            let fill_sprite = call_gfx_find_and_load(water_dir, c"fill.img", layer2_ctx);
             if !fill_sprite.is_null() {
                 // Get pixel value: fill_sprite->vtable[4](0, 0)
                 let fill_vt = *(fill_sprite as *const *const u32);
@@ -1023,12 +1027,12 @@ unsafe fn init_graphics_and_resources(
     }
 
     // ── Release primary GfxHandler (vtable[3] = release, param 1 = free) ──
-    let gfx_dir_4c0 = (*wrapper).primary_gfx_dir;
-    if !gfx_dir_4c0.is_null() {
-        let gfx_vt = *(gfx_dir_4c0 as *const *const u32);
-        let release: unsafe extern "thiscall" fn(*mut u8, u32) =
+    let primary_gfx_dir = (*wrapper).primary_gfx_dir;
+    if !primary_gfx_dir.is_null() {
+        let gfx_vt = *(primary_gfx_dir as *const *const u32);
+        let release: unsafe extern "thiscall" fn(*mut GfxDir, u32) =
             core::mem::transmute(*gfx_vt.add(3));
-        release(gfx_dir_4c0, 1);
+        release(primary_gfx_dir, 1);
     }
 
     if !is_headless {

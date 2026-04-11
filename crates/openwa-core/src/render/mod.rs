@@ -9,7 +9,7 @@ pub mod turn_order;
 
 pub use ddraw::CompatRenderer;
 pub use display::{
-    DisplayBase, DisplayBaseVtable, DisplayGfx, DisplayVtable, DrawScaledSpriteResult,
+    DisplayBase, DisplayBaseVtable, DisplayGfx, DisplayGfxVtable, DrawScaledSpriteResult,
     FastcallResult, Palette, PaletteVtable, RenderContext, SpriteBufferCtrl, SpriteCache,
 };
 pub use landscape::{DirtyRect, PCLandscape};

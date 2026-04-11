@@ -10,6 +10,8 @@ use crate::bitgrid::{BitGrid, BitGridBaseVtable};
 use crate::engine::ddgame::DDGame;
 use crate::rebase::rb;
 use crate::render::sprite::gfx_dir::call_gfx_find_and_load;
+#[cfg(target_arch = "x86")]
+use crate::render::sprite::gfx_dir::GfxDir;
 use crate::wa_alloc::{wa_free, wa_malloc};
 
 /// Palette context for gradient color mapping.
@@ -106,14 +108,14 @@ impl PaletteContext {
 #[cfg(target_arch = "x86")]
 pub(crate) unsafe fn compute_complex_gradient(
     ddgame: *mut DDGame,
-    land_layer: *mut u8,
+    land_dir: *mut GfxDir,
     layer3_ctx: *mut u8,
     sky_height: i16,
 ) {
     let mut palette = PaletteContext::new();
 
     // Step 1: Load gradient.img
-    let gradient_sprite = call_gfx_find_and_load(land_layer, c"gradient.img", layer3_ctx);
+    let gradient_sprite = call_gfx_find_and_load(land_dir, c"gradient.img", layer3_ctx);
     if gradient_sprite.is_null() {
         return;
     }
@@ -142,7 +144,7 @@ pub(crate) unsafe fn compute_complex_gradient(
 
     // Step 3: If heights match, also set gradient_image_2
     if target_rows == gradient_height {
-        let gradient2 = call_gfx_find_and_load(land_layer, c"gradient.img", layer3_ctx);
+        let gradient2 = call_gfx_find_and_load(land_dir, c"gradient.img", layer3_ctx);
         (*ddgame).gradient_image_2 = gradient2;
     }
 

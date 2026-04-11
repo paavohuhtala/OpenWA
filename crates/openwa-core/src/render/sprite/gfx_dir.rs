@@ -104,7 +104,10 @@ unsafe fn gfx_dir_hash(name: *const u8) -> u32 {
 /// `gfx_dir` must be a valid GfxHandler with initialized hash table at +0x04.
 /// `name` must be a valid null-terminated C string.
 #[cfg(target_arch = "x86")]
-pub unsafe fn gfx_dir_find_entry(name: *const core::ffi::c_char, gfx_dir: *mut u8) -> *mut u8 {
+pub unsafe fn gfx_dir_find_entry(
+    name: *const core::ffi::c_char,
+    gfx_dir: *const GfxDir,
+) -> *mut u8 {
     let mut current_name = name as *const u8;
 
     loop {
@@ -152,8 +155,7 @@ pub unsafe fn gfx_dir_find_entry(name: *const core::ffi::c_char, gfx_dir: *mut u
         let bucket = gfx_dir_hash(buf.as_ptr());
 
         // Walk linked list in hash bucket
-        let gfx = &*(gfx_dir as *const GfxDir);
-        let bucket_array = gfx.bucket_array as *const u32;
+        let bucket_array = (*gfx_dir).bucket_array as *const u32;
         let mut entry = *bucket_array.add(bucket as usize) as *mut GfxDirEntry;
 
         while !entry.is_null() {
@@ -336,7 +338,7 @@ pub unsafe fn gfx_dir_load_dir(handler: *mut u8) -> i32 {
 /// All pointers must be valid WA objects.
 #[cfg(target_arch = "x86")]
 pub unsafe fn gfx_resource_create(
-    gfx_dir: *mut u8,
+    gfx_dir: *mut GfxDir,
     name: *const core::ffi::c_char,
     output: *mut u8,
 ) -> *mut u8 {
@@ -345,7 +347,7 @@ pub unsafe fn gfx_resource_create(
     if !entry.is_null() {
         // gfx_dir->vtable[2](entry->field_4) — cached load
         let vt = *(gfx_dir as *const *const u32);
-        let load_cached: unsafe extern "thiscall" fn(*mut u8, u32) -> *mut u8 =
+        let load_cached: unsafe extern "thiscall" fn(*mut GfxDir, u32) -> *mut u8 =
             core::mem::transmute(*vt.add(2));
         let entry_val = (*(entry as *const GfxDirEntry)).value;
         let cached = load_cached(gfx_dir, entry_val);
@@ -381,7 +383,7 @@ pub unsafe fn gfx_resource_create(
 /// Returns a DisplayGfx/sprite pointer or null.
 #[cfg(target_arch = "x86")]
 pub(crate) unsafe fn call_gfx_find_and_load(
-    gfx_dir: *mut u8,
+    gfx_dir: *mut GfxDir,
     name: &core::ffi::CStr,
     display_ctx: *mut u8,
 ) -> *mut u8 {
@@ -391,7 +393,7 @@ pub(crate) unsafe fn call_gfx_find_and_load(
     if !entry.is_null() {
         // Try cached load: gfx_dir->vtable[2](entry->field_4)
         let dir_vt = *(gfx_dir as *const *const u32);
-        let load_cached: unsafe extern "thiscall" fn(*mut u8, u32) -> *mut u8 =
+        let load_cached: unsafe extern "thiscall" fn(*mut GfxDir, u32) -> *mut u8 =
             core::mem::transmute(*dir_vt.add(2));
         let cached = load_cached(gfx_dir, (*(entry as *const GfxDirEntry)).value);
         if !cached.is_null() {
@@ -411,7 +413,7 @@ pub(crate) unsafe fn call_gfx_find_and_load(
 /// Used by arrow sprite loop when GfxDir__FindEntry returns null.
 #[cfg(target_arch = "x86")]
 pub(crate) unsafe fn call_gfx_load_and_wrap(
-    gfx_dir: *mut u8,
+    gfx_dir: *mut GfxDir,
     name: *const core::ffi::c_char,
     display_ctx: *mut u8,
 ) -> *mut u8 {
@@ -511,7 +513,7 @@ pub(crate) unsafe fn call_gfx_load_dir(handler: *mut u8, addr: u32) -> i32 {
 #[cfg(target_arch = "x86")]
 #[unsafe(naked)]
 pub unsafe extern "C" fn call_gfx_load_image(
-    _gfx_dir: *mut u8,
+    _gfx_dir: *mut GfxDir,
     _name: *const core::ffi::c_char,
 ) -> *mut u8 {
     core::arch::naked_asm!(

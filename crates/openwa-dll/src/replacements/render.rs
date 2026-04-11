@@ -5,9 +5,12 @@
 //! - DisplayGfx vtable patches (DisplayBase pure-call stubs, headless destructor,
 //!   and ported DisplayGfx methods)
 
+use core::ffi::c_char;
+
 use openwa_core::address::va;
 use openwa_core::rebase::rb;
 use openwa_core::render::queue::*;
+use openwa_core::render::sprite::gfx_dir::GfxDir;
 use openwa_core::task::{BungeeTrailTask, WeaponAimTask};
 
 use crate::hook::{self, usercall_trampoline};
@@ -688,7 +691,7 @@ fn install_render_queue() -> Result<(), String> {
 
 use openwa_core::bitgrid::DisplayBitGrid;
 use openwa_core::fixed::Fixed;
-use openwa_core::render::display::vtable::{self as display_vtable, DisplayVtable};
+use openwa_core::render::display::vtable::{self as display_vtable, DisplayGfxVtable};
 use openwa_core::render::display::DisplayBase;
 use openwa_core::render::display::DisplayGfx;
 use openwa_core::vtable::patch_vtable;
@@ -1312,10 +1315,18 @@ unsafe extern "thiscall" fn load_sprite(
     layer: u32,
     id: u32,
     flag: u32,
-    gfx: *mut u8,
-    name: *const core::ffi::c_char,
+    gfx_dir: *mut GfxDir,
+    name: *const c_char,
 ) -> i32 {
-    display_vtable::load_sprite(this, layer, id, flag, gfx, name, wa_load_sprite_from_vfs)
+    display_vtable::load_sprite(
+        this,
+        layer,
+        id,
+        flag,
+        gfx_dir,
+        name,
+        wa_load_sprite_from_vfs,
+    )
 }
 
 /// Bridge to LoadSpriteFromVfs (0x4FAAF0).
@@ -1328,8 +1339,8 @@ unsafe extern "thiscall" fn load_sprite(
 #[unsafe(naked)]
 unsafe extern "cdecl" fn wa_load_sprite_from_vfs(
     _sprite: *mut openwa_core::render::sprite::Sprite,
-    _gfx: *mut u8,
-    _name: *const core::ffi::c_char,
+    _gfx_dir: *mut GfxDir,
+    _name: *const c_char,
     _layer_ctx: u32,
 ) -> i32 {
     core::arch::naked_asm!(
@@ -1355,26 +1366,26 @@ unsafe extern "thiscall" fn load_sprite_by_layer(
     this: *mut DisplayGfx,
     layer: u32,
     id: u32,
-    gfx: *mut u8,
-    name: *const core::ffi::c_char,
+    gfx_dir: *mut GfxDir,
+    name: *const c_char,
 ) -> i32 {
-    display_vtable::load_sprite_by_layer(this, layer, id, gfx, name)
+    display_vtable::load_sprite_by_layer(this, layer, id, gfx_dir, name)
 }
 
 unsafe extern "thiscall" fn load_font(
     this: *mut DisplayGfx,
-    mode: i32,
+    mode: u32,
     font_id: i32,
-    gfx: *mut u8,
-    filename: *const core::ffi::c_char,
+    gfx_dir: *mut GfxDir,
+    filename: *const c_char,
 ) -> u32 {
-    display_vtable::load_font(this, mode, font_id, gfx, filename)
+    display_vtable::load_font(this, mode, font_id, gfx_dir, filename)
 }
 
 unsafe extern "thiscall" fn load_font_extension(
     this: *mut DisplayGfx,
     font_id: i32,
-    path: *const core::ffi::c_char,
+    path: *const c_char,
     char_map: *const u8,
     palette_value: u32,
     flag: i32,
@@ -1421,7 +1432,7 @@ fn install_display() -> Result<(), String> {
         LOAD_SPRITE_FROM_VFS_ADDR = rb(va::LOAD_SPRITE_FROM_VFS);
 
         // Patch DisplayGfx vtable (0x66A218): replace ported methods with Rust.
-        vtable_replace!(DisplayVtable, va::DISPLAY_GFX_VTABLE, {
+        vtable_replace!(DisplayGfxVtable, va::DISPLAY_GFX_VTABLE, {
             get_dimensions      => display_vtable::get_dimensions,
             set_layer_color     => display_vtable::set_layer_color,
             set_active_layer    => display_vtable::set_active_layer,

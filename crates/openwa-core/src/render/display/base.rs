@@ -23,7 +23,10 @@
 /// point to WA's vtable in .rdata and patch individual slots there in-place
 /// (via VirtualProtect in `display.rs`).
 use crate::{
-    render::sprite::{Sprite, SpriteBank},
+    render::{
+        display::font::Font,
+        sprite::{Sprite, SpriteBank},
+    },
     task::base::Vtable,
     wa_alloc::{wa_malloc_struct_zeroed, wa_malloc_zeroed},
 };
@@ -48,11 +51,19 @@ pub struct DisplayBase<V: Vtable = *const DisplayBaseVtable> {
     pub _gap_3008: [u32; 4],
     // +0x3018: field at u32 index 0xC06, zeroed by ctor
     pub _field_3018: u32,
-    // +0x301C..0x309C: gap (0x80 bytes, 32 u32s: indices 0xC07..0xC26)
-    pub _gap_301c: [u32; 32],
+    // +0x301C..0x309C: per-font layer index (0x80 bytes, 32 u32s).
+    // Records which `layer_contexts[1..=3]` palette context owns each
+    // font's color slots. Written by `load_font` (slot 34) — the WA API
+    // calls this parameter "mode", but it's the same value space as the
+    // layer index used by `set_layer_color` / `set_active_layer` /
+    // `update_palette` / `set_layer_visibility`. Read back by
+    // `load_font_extension` (slot 35) to recover the owning palette
+    // context. Valid values are 1, 2, or 3; only 1 is observed in the
+    // shipping game (all 28 fonts go on layer 1).
+    pub font_layers: [u32; 32],
     // +0x309C..0x311C: font object pointers (32 entries), zeroed by ctor.
     // Indexed by font_id (valid range 1-31). Used by GetFontInfo, GetFontMetric, SetFontParam.
-    pub font_table: [u32; 32],
+    pub font_table: [*mut Font; 32],
     // +0x311C..0x312C: layer context pointers (4 entries), zeroed by ctor.
     // Indexed by layer (valid range 1-3). Returned by set_active_layer (vtable slot 5).
     // Used as palette data input for update_palette (vtable slot 24).

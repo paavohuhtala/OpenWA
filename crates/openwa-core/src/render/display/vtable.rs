@@ -1,5 +1,14 @@
+use core::ffi::c_char;
+
+use openwa_core::vtable;
+
 use crate::fixed::Fixed;
+use crate::render::display::font::{
+    font_extend, font_get_info_impl, font_get_metric_impl, font_load_from_gfx,
+    font_set_palette_impl, font_set_param_impl, Font,
+};
 use crate::render::display::line_draw::Vertex;
+use crate::render::sprite::gfx_dir::GfxDir;
 use crate::render::sprite::sprite::{LayerSprite, LayerSpriteFrame};
 use crate::render::SpriteCache;
 use crate::wa_alloc::wa_malloc_struct_zeroed;
@@ -35,8 +44,8 @@ use crate::wa_alloc::wa_malloc_struct_zeroed;
 /// Coordinate conventions:
 /// - Methods that add `camera * 0x10000` take Fixed (16.16) coordinates.
 /// - Methods that add `camera` directly take pixel-integer coordinates.
-#[openwa_core::vtable(size = 38, va = 0x0066_A218, class = "DisplayGfx")]
-pub struct DisplayVtable {
+#[vtable(size = 38, va = 0x0066_A218, class = "DisplayGfx")]
+pub struct DisplayGfxVtable {
     /// destructor (0x569CE0, RET 0x4)
     #[slot(0)]
     pub destructor: fn(this: *mut DisplayGfx, flags: u8) -> *mut DisplayGfx,
@@ -86,10 +95,10 @@ pub struct DisplayVtable {
     pub draw_text_on_bitmap: fn(
         this: *mut DisplayGfx,
         font_id: i32,
-        bitmap: *mut crate::bitgrid::BitGrid,
+        bitmap: *mut BitGrid,
         pen_x: i32,
         pen_y: i32,
-        msg: *const core::ffi::c_char,
+        msg: *const c_char,
         out_pen_x: *mut i32,
         out_width: *mut i32,
     ) -> i32,
@@ -245,11 +254,7 @@ pub struct DisplayVtable {
     pub set_layer_visibility: fn(this: *mut DisplayGfx, layer: i32, visible: i32),
     /// update palette from PaletteContext (0x56A610, RET 0x8)
     #[slot(24)]
-    pub update_palette: fn(
-        this: *mut DisplayGfx,
-        palette_ctx: *mut crate::render::palette::PaletteContext,
-        commit: i32,
-    ),
+    pub update_palette: fn(this: *mut DisplayGfx, palette_ctx: *mut PaletteContext, commit: i32),
     // Slot 25: stub (CGameTask__vt19)
     /// flush pending render state (0x56A580, plain RET)
     ///
@@ -281,8 +286,8 @@ pub struct DisplayVtable {
         layer: u32,
         id: u32,
         flag: u32,
-        gfx: *mut u8,
-        name: *const core::ffi::c_char,
+        gfx_dir: *mut GfxDir,
+        name: *const c_char,
     ) -> i32,
     /// check if a sprite ID is loaded (0x56A480, RET 0x4)
     ///
@@ -338,15 +343,15 @@ pub struct DisplayVtable {
         this: *mut DisplayGfx,
         mode: i32,
         font_id: i32,
-        gfx: *mut u8,
-        filename: *const core::ffi::c_char,
+        gfx_dir: *mut GfxDir,
+        filename: *const c_char,
     ) -> u32,
     /// load .fex font extension for a font slot (0x523620, RET 0x14)
     #[slot(35)]
     pub load_font_extension: fn(
         this: *mut DisplayGfx,
         font_id: i32,
-        path: *const core::ffi::c_char,
+        path: *const c_char,
         char_map: *const u8,
         palette_value: u32,
         flag: i32,
@@ -360,13 +365,13 @@ pub struct DisplayVtable {
         this: *mut DisplayGfx,
         layer: u32,
         id: u32,
-        gfx: *mut u8,
-        name: *const core::ffi::c_char,
+        gfx: *mut GfxDir,
+        name: *const c_char,
     ) -> i32,
 }
 
 // Generate calling wrappers: DisplayGfx::set_layer_color(), etc.
-bind_DisplayVtable!(DisplayGfx, base.vtable);
+bind_DisplayGfxVtable!(DisplayGfx, base.vtable);
 
 // =========================================================================
 // Ported DisplayGfx vtable methods
@@ -1420,7 +1425,7 @@ pub unsafe extern "thiscall" fn set_layer_color(this: *mut DisplayGfx, layer: i3
 /// The scan area is: `slot_table_guard` (guard=0) + `slot_table[0..255]` + `slot_table_sentinel` (sentinel=-1).
 /// The guard at index 0 is always 0, so allocations start from index 1.
 /// The sentinel (-1) at index 256 terminates the scan with failure.
-unsafe fn palette_slot_alloc(base: &mut DisplayBase<*const DisplayVtable>, count: i32) -> i32 {
+unsafe fn palette_slot_alloc(base: &mut DisplayBase<*const DisplayGfxVtable>, count: i32) -> i32 {
     let count = count as usize;
     let table = &base.slot_table_guard as *const u32;
     // Total entries: slot_table_guard(1) + slot_table(255) + slot_table_sentinel(1) = 257
@@ -1661,12 +1666,12 @@ pub unsafe fn load_sprite(
     layer: u32,
     id: u32,
     flag: u32,
-    _gfx: *mut u8,
-    _name: *const core::ffi::c_char,
+    gfx_dir: *mut GfxDir,
+    _name: *const c_char,
     load_sprite_from_vfs: unsafe extern "cdecl" fn(
         sprite: *mut Sprite,
-        gfx: *mut u8,
-        name: *const core::ffi::c_char,
+        gfx_dir: *mut GfxDir,
+        name: *const c_char,
         layer_ctx: u32,
     ) -> i32,
 ) -> i32 {
@@ -1699,7 +1704,7 @@ pub unsafe fn load_sprite(
 
     // Load from VFS
     let layer_ctx = base.layer_contexts[layer as usize];
-    let result = load_sprite_from_vfs(sprite, _gfx, _name, layer_ctx);
+    let result = load_sprite_from_vfs(sprite, gfx_dir, _name, layer_ctx);
     if result == 0 {
         // Load failed — destroy sprite via vtable[0]
         if !sprite.is_null() {
@@ -1740,9 +1745,9 @@ pub unsafe fn load_sprite(
 /// All pointers must be valid. `sprite` must be a zeroed 0x70-byte allocation.
 pub unsafe fn load_sprite_by_name(
     sprite: *mut LayerSprite,
-    gfx_dir: *mut u8,
+    gfx_dir: *mut GfxDir,
     palette_ctx: *mut PaletteContext,
-    name: *const core::ffi::c_char,
+    name: *const c_char,
 ) -> i32 {
     use crate::address::va;
     use crate::rebase::rb;
@@ -2042,8 +2047,8 @@ pub unsafe fn load_sprite_by_layer(
     this: *mut DisplayGfx,
     layer: u32,
     id: u32,
-    gfx: *mut u8,
-    name: *const core::ffi::c_char,
+    gfx_dir: *mut GfxDir,
+    name: *const c_char,
 ) -> i32 {
     use crate::wa_alloc::wa_malloc_zeroed;
 
@@ -2077,7 +2082,7 @@ pub unsafe fn load_sprite_by_layer(
     (*sprite).gfx_dir = core::ptr::null_mut();
 
     // Load sprite data — pure Rust port of FUN_005733b0
-    let result = load_sprite_by_name(sprite, gfx, palette_ctx, name);
+    let result = load_sprite_by_name(sprite, gfx_dir, palette_ctx, name);
     if result == 0 {
         free_layer_sprite(sprite);
         return 0;
@@ -2097,280 +2102,16 @@ pub unsafe fn load_sprite_by_layer(
 // that's impractical to bridge directly. Porting requires first porting
 // the FrameCache + decompression chain (FUN_004FA950 → FUN_005B29E0).
 
-// =========================================================================
-// Font loading
-// =========================================================================
-
-/// Font object — 0x1C bytes.
-///
-/// Allocated by `load_font` (vtable slot 34) from a `.fnt` file loaded via
-/// GfxDir. Referenced from `DisplayBase::font_table` (offset 0x309C). Read by
-/// `Font__GetInfo` / `Font__GetMetric` / `Font__DrawText` / `Font__SetPalette`
-/// to render bitmap text.
-///
-/// Field semantics derived from `FUN_004f99d0` (the parser) and `Font__GetInfo`
-/// (0x4fa7d0, which confirms width at +0, width_div_5 at +2, glyph count at +4,
-/// and glyph table at +8 with 12-byte entries whose byte +4 is a max metric).
-#[repr(C)]
-pub struct FontObject {
-    /// 0x00: Font max width in pixels (read from .fnt metadata).
-    pub width: u16,
-    /// 0x02: `width / 5 + 1` — initial max metric seed in `Font__GetInfo`.
-    pub width_div_5: u16,
-    /// 0x04: Glyph count / font height.
-    pub height: u16,
-    /// 0x06: Duplicate of height.
-    pub _height2: u16,
-    /// 0x08: Pointer to glyph table (height entries of 12 bytes each).
-    pub glyph_table: *mut GlyphEntry,
-    /// 0x0C: Pointer to a 256-byte char→glyph-index lookup table that lives
-    /// in the .fnt buffer immediately after the RGB palette triplets.
-    /// Each entry is a 1-based glyph index (or 0 if the codepoint has no
-    /// glyph) — `Font__GetMetric` / `Font__SetParam` use it to map a string
-    /// byte to its `glyph_table[index - 1]` entry. `font_extend` writes new
-    /// codepoints into this table.
-    pub char_to_glyph_idx: *mut u8,
-    /// 0x10: Pointer to remapped pixel data in the source buffer.
-    pub pixel_data: *mut u8,
-    /// 0x14: Zeroed by `load_font`; purpose unknown.
-    pub _unknown_14: u32,
-    /// 0x18: When non-null, holds the address of an auxiliary allocation
-    /// owned by this font (a separate buffer of glyph entries + pixel data
-    /// pointed at by individual `GlyphEntry::pixel_offset` deltas). Zeroed
-    /// by `load_font`; written by `font_extend` (which appends new glyphs
-    /// from a `.fex` file) and `font_set_palette_impl` (which derives the
-    /// `.`/`;` glyphs for the digital font). The cleanup path frees this
-    /// when the FontObject is destroyed.
-    pub aux_alloc: u32,
-}
-
-const _: () = assert!(core::mem::size_of::<FontObject>() == 0x1C);
-
-/// Per-glyph metadata in a `.fnt` file (12 bytes).
-///
-/// Indexed by `FontObject::glyph_table`. Layout matches the loop stride of 0xC
-/// used by the parser, `Font__GetInfo` (0x4fa7d0), and `Font__GetMetric` (0x4fa780).
-///
-/// `Font__GetMetric` reads `width` (offset +4) as the character advance metric.
-/// `Font__DrawText` uses `pixel_offset` as a byte delta from
-/// `FontObject::pixel_data` to locate the glyph's bitmap rows. The offset can
-/// be negative when `font_extend` adds glyphs from a separate allocation.
-#[repr(C)]
-pub struct GlyphEntry {
-    /// 0x00: Glyph bounding-box top-left X within the glyph cell.
-    pub start_x: u16,
-    /// 0x02: Glyph bounding-box top-left Y within the glyph cell.
-    pub start_y: u16,
-    /// 0x04: Glyph bounding-box width in pixels (also used as the advance metric).
-    pub width: u16,
-    /// 0x06: Glyph bounding-box height in pixels.
-    pub height: u16,
-    /// 0x08: Byte delta from `FontObject::pixel_data` to this glyph's bitmap.
-    /// Treated as a signed offset by drawing code so `font_extend` can point
-    /// glyphs at pixels that live in a different allocation.
-    pub pixel_offset: u32,
-}
-
-const _: () = assert!(core::mem::size_of::<GlyphEntry>() == 0xC);
-
-/// Fixed prefix of a `.fnt` binary blob (0xC bytes).
-///
-/// Followed in memory by: packed RGB triplets (`palette_count * 3` bytes),
-/// a 0x100-byte character-width table, `max_width: i16`, `glyph_count: u16`,
-/// 4-byte alignment padding, `GlyphEntry[glyph_count]`, then the packed
-/// glyph pixel data. `font_parse_data` walks this variable-length tail using
-/// byte pointers rather than a single `#[repr(C)]` struct.
-#[repr(C)]
-pub struct FntHeader {
-    /// 0x00: Unknown / version.
-    pub _unknown_00: u32,
-    /// 0x04: Total size of this record in bytes, including this field.
-    pub data_size: i32,
-    /// 0x08: Unknown u16 (skipped by the parser).
-    pub _unknown_08: u16,
-    /// 0x0A: Number of palette entries that follow this header.
-    pub palette_count: u16,
-    // +0x0C: packed RGB triplets (variable length)
-}
-
-const _: () = assert!(core::mem::size_of::<FntHeader>() == 0xC);
-
-/// Port of `FUN_004f99d0` — parses `.fnt` binary data into a `FontObject`.
-///
-/// Original convention: cdecl with 1 stack arg (buffer), `unaff_EDI = font_obj`.
-/// Ported as a plain Rust function.
-///
-/// Buffer layout:
-/// ```text
-/// +0x00  u32        (unknown / version)
-/// +0x04  i32        data_size (total bytes in this record, including this field)
-/// +0x08  u16        (unknown)
-/// +0x0A  u16        palette_count
-/// +0x0C  RGB[palette_count * 3]  packed RGB triplets
-/// +...   u8[0x100]  character-width table (1 byte per codepoint)
-/// +0x100 u16        max_width
-/// +0x102 u16        glyph_count / height
-/// +...               align to 4 from buffer start
-/// +...   GlyphEntry[glyph_count]  12 bytes each (start_x/start_y/end_x/end_y/...)
-/// +...   u8[]       packed 4bpp glyph pixels (remapped in place via palette LUT)
-/// ```
-///
-/// # Safety
-/// `font_obj` must be a valid writable `FontObject`. `header` must point to a
-/// freshly-loaded `.fnt` blob at least `header.data_size` bytes long and
-/// followed in memory by the variable-length tail described above.
-/// `palette_ctx` must be a valid `PaletteContext`.
-pub unsafe fn font_parse_data(
-    font_obj: *mut FontObject,
-    header: *mut FntHeader,
-    palette_ctx: *mut PaletteContext,
-) -> u32 {
-    use crate::render::palette::{palette_map_color, remap_pixels_through_lut};
-
-    let data_size = (*header).data_size;
-    let palette_count = (*header).palette_count as i32;
-    let base_bytes = header as *mut u8;
-
-    // Cursor starts at the first byte after the fixed header (the RGB triplets).
-    let mut cursor = base_bytes.add(core::mem::size_of::<FntHeader>());
-
-    // Build 256-byte palette LUT. Entry 0 = map_color(0); entries 1..=palette_count
-    // come from the RGB triplets. The original reads 4 bytes per triplet but
-    // advances by 3 — only the low 24 bits matter.
-    let mut palette_lut = [0u8; 256];
-    palette_lut[0] = palette_map_color(palette_ctx, 0) as u8;
-    for i in 0..palette_count {
-        let rgb = *(cursor as *const u32);
-        palette_lut[(1 + i) as usize] = palette_map_color(palette_ctx, rgb) as u8;
-        cursor = cursor.add(3);
-    }
-
-    // char_to_glyph_idx points to the 256-byte char→glyph-index table that
-    // sits immediately after the RGB palette triplets in the .fnt buffer.
-    (*font_obj).char_to_glyph_idx = cursor;
-
-    // Read max_width (i16) at cursor + 0x100 — the character-width table sits
-    // between the palette and the header.
-    let max_width = *(cursor.add(0x100) as *const i16) as i32;
-    cursor = cursor.add(0x100);
-    (*font_obj).width = max_width as u16;
-
-    // Seed value for Font__GetInfo's max metric: signed (width / 5) + 1,
-    // with a +1 correction when the quotient is negative (matches the
-    // IMUL+SAR+SHR+LEA sequence in the original).
-    let w_div_5 = max_width / 5;
-    let seed = w_div_5.wrapping_add((w_div_5 >> 31) & 1).wrapping_add(1);
-    (*font_obj).width_div_5 = seed as u16;
-
-    // Skip max_width, read glyph_count (u16).
-    cursor = cursor.add(2);
-    let glyph_count = *(cursor as *const u16);
-    cursor = cursor.add(2);
-    (*font_obj).height = glyph_count;
-    (*font_obj)._height2 = glyph_count;
-
-    // Align cursor to 4 bytes relative to the buffer start.
-    let base_addr = base_bytes as usize;
-    while (cursor as usize - base_addr) & 3 != 0 {
-        cursor = cursor.add(1);
-    }
-
-    // Glyph table: glyph_count entries of 12 bytes each.
-    let glyph_table = cursor as *mut GlyphEntry;
-    (*font_obj).glyph_table = glyph_table;
-    let pixel_data = glyph_table.add(glyph_count as usize) as *mut u8;
-    (*font_obj).pixel_data = pixel_data;
-
-    // Pixel byte count: data_size - (pixel_data - buffer), rounded down to dwords.
-    // Original uses CDQ+AND 3+ADD+SAR 2 which rounds toward zero.
-    let remaining = data_size - (pixel_data as usize - base_addr) as i32;
-    let dword_count = remaining
-        .wrapping_add((remaining >> 31) & 3)
-        .wrapping_shr(2) as u32;
-
-    remap_pixels_through_lut(pixel_data, 0, palette_lut.as_ptr(), dword_count, 1);
-
-    1
-}
-
-/// Port of `FUN_004f9940` — loads a font resource by name from a GfxDir and
-/// feeds it into `font_parse_data`.
-///
-/// Original convention: usercall with `EAX = gfx_dir`, `ECX = font_obj`,
-/// `stack[0] = layer_ctx`, `stack[1] = filename`, `RET 0x8`. The function
-/// first tries `GfxDir__FindEntry` + cached-load via `gfx_dir->vtable[2]`;
-/// on miss it falls back to `GfxDir__LoadImage` + `image->vtable[4]` (get_size)
-/// + `image->vtable[5]` (read into caller-allocated buffer) + `image->vtable[0](1)`
-/// (destroy), then tail-calls the parser.
-///
-/// Note: `layer_ctx` is only used by `font_parse_data` (as the PaletteContext).
-/// The original never touches it in this function — it just forwards it via
-/// ECX to the tail call.
-///
-/// # Safety
-/// `font_obj` must be a valid writable `FontObject`. `gfx_dir` must be a valid
-/// GfxDir. `palette_ctx` must be a valid PaletteContext. `name` must be a
-/// valid null-terminated C string.
-pub unsafe fn font_load_from_gfx(
-    font_obj: *mut FontObject,
-    gfx_dir: *mut u8,
-    palette_ctx: *mut PaletteContext,
-    name: *const core::ffi::c_char,
-) -> u32 {
-    use crate::render::sprite::gfx_dir::{call_gfx_load_image, gfx_dir_find_entry, GfxDirEntry};
-    use crate::wa_alloc::wa_malloc;
-
-    // 1. Try FindEntry → gfx_dir->vtable[2](entry->value) for cached load.
-    let entry = gfx_dir_find_entry(name, gfx_dir);
-    if !entry.is_null() {
-        let vt = *(gfx_dir as *const *const u32);
-        let load_cached: unsafe extern "thiscall" fn(*mut u8, u32) -> *mut FntHeader =
-            core::mem::transmute(*vt.add(2));
-        let entry_val = (*(entry as *const GfxDirEntry)).value;
-        let cached = load_cached(gfx_dir, entry_val);
-        if !cached.is_null() {
-            return font_parse_data(font_obj, cached, palette_ctx);
-        }
-    }
-
-    // 2. Fallback: LoadImage → vtable[4] (size) → wa_malloc → vtable[5] (read) → vtable[0] (destroy)
-    let image = call_gfx_load_image(gfx_dir, name);
-    if image.is_null() {
-        return 0;
-    }
-
-    let image_vt = *(image as *const *const u32);
-
-    // vtable[4] — get size (thiscall, no args)
-    let get_size: unsafe extern "thiscall" fn(*mut u8) -> u32 =
-        core::mem::transmute(*image_vt.add(4));
-    let size = get_size(image);
-
-    // Match the original's allocation: round size up to 4-byte multiple, add 0x20 guard.
-    let alloc_size = ((size + 3) & !3u32).wrapping_add(0x20);
-    let buffer = wa_malloc(alloc_size);
-    // Original memsets only `size` bytes, not the full allocation.
-    if !buffer.is_null() {
-        core::ptr::write_bytes(buffer, 0, size as usize);
-    }
-
-    // vtable[5] — read into buffer (thiscall with 2 stack args: buffer, size)
-    let read_into: unsafe extern "thiscall" fn(*mut u8, *mut u8, u32) =
-        core::mem::transmute(*image_vt.add(5));
-    read_into(image, buffer, size);
-
-    // vtable[0] — destroy image (thiscall with 1 arg: flags = 1)
-    let destroy: unsafe extern "thiscall" fn(*mut u8, u32) = core::mem::transmute(*image_vt);
-    destroy(image, 1);
-
-    font_parse_data(font_obj, buffer as *mut FntHeader, palette_ctx)
-}
-
 /// Port of `DisplayGfx::LoadFont` (vtable slot 34, 0x523560).
 ///
-/// Validates `mode` (1..=3) and `font_id` (1..=31), then allocates a
+/// Validates `layer` (1..=3) and `font_id` (1..=31), then allocates a
 /// zero-initialized 0x1C-byte `FontObject`, loads the named resource via
 /// `font_load_from_gfx`, and stores the object in `DisplayBase::font_table`.
+///
+/// **`layer` is the WA "mode" parameter, but it's the same value space as
+/// the layer index everywhere else** — it indexes `layer_contexts[1..=3]`
+/// and `layer_visibility[1..=3]` exactly the way `set_layer_color` and
+/// `set_active_layer` do. The shipping game only ever passes `1`.
 ///
 /// On load failure, the partially-initialized font object is leaked to match
 /// the original's behavior (it calls a sprite-bank-style cleanup helper
@@ -2382,19 +2123,19 @@ pub unsafe fn font_load_from_gfx(
 /// null-terminated C string.
 pub unsafe fn load_font(
     this: *mut DisplayGfx,
-    mode: i32,
+    layer: u32,
     font_id: i32,
-    _gfx: *mut u8,
-    filename: *const core::ffi::c_char,
+    gfx_dir: *mut GfxDir,
+    filename: *const c_char,
 ) -> u32 {
     use crate::wa_alloc::wa_malloc_struct_zeroed;
 
-    // Validate mode (1..=3) and that the layer context exists.
-    if !(1..=3).contains(&mode) {
+    if !(1..=3).contains(&layer) {
         return 0;
     }
+
     let base = &mut (*this).base;
-    let layer_ctx = base.layer_contexts[mode as usize];
+    let layer_ctx = base.layer_contexts[layer as usize];
     if layer_ctx == 0 {
         return 0;
     }
@@ -2403,19 +2144,24 @@ pub unsafe fn load_font(
     if !(1..=31).contains(&font_id) {
         return 0;
     }
-    if base.font_table[font_id as usize] != 0 {
+    if !base.font_table[font_id as usize].is_null() {
         return 0;
     }
 
     // Allocate zeroed FontObject. The original uses WA_MallocMemset(0x1C)
     // which only memsets the requested size; wa_malloc_struct_zeroed matches.
-    let font_obj = wa_malloc_struct_zeroed::<FontObject>();
+    let font_obj = wa_malloc_struct_zeroed::<Font>();
     if font_obj.is_null() {
         return 0;
     }
 
     // Load and parse the font data.
-    let result = font_load_from_gfx(font_obj, _gfx, layer_ctx as *mut PaletteContext, filename);
+    let result = font_load_from_gfx(
+        font_obj,
+        gfx_dir,
+        layer_ctx as *mut PaletteContext,
+        filename,
+    );
     if result == 0 {
         // Original leaks here on failure (via an unported cleanup helper).
         // We match that behavior rather than introducing a free path that
@@ -2423,289 +2169,14 @@ pub unsafe fn load_font(
         return 0;
     }
 
-    // Install into font_table. The original also records which mode owns this
-    // font slot at DisplayBase + 0x301C + font_id*4 (the gap region next to
-    // font_table), then bumps the layer visibility counter.
-    base.font_table[font_id as usize] = font_obj as u32;
-    base._gap_301c[font_id as usize] = mode as u32;
-    base.layer_visibility[mode as usize] += 1;
+    // Install into font_table. The original also records which layer owns
+    // this font slot at DisplayBase + 0x301C + font_id*4 (the gap region
+    // next to font_table), then bumps the layer visibility counter.
+    base.font_table[font_id as usize] = font_obj;
+    base.font_layers[font_id as usize] = layer;
+    base.layer_visibility[layer as usize] += 1;
 
     1
-}
-
-/// Port of `FUN_004f9ad0` — extends an existing `FontObject` with new glyphs
-/// loaded from a `.fex` (font extension) file.
-///
-/// Original convention: usercall with `EAX = filename`, `ESI = font_obj`,
-/// stack args = (`layer_ctx`, `char_map`, `palette_value`), `RET 0xC`.
-///
-/// The `.fex` file contains raw pixel data for new glyphs (no header). Each
-/// glyph occupies `font.width * stride` bytes (where `stride = font.width`,
-/// or `font.width + 1` for fonts with `width >= 16`). The new bitmap also
-/// gets remapped through a 256-byte LUT built by walking R/G/B in lockstep
-/// with the per-channel steps packed into `palette_value` and using
-/// `palette_find_nearest_cached` to map each composed RGB to a palette index.
-///
-/// On success the function:
-/// - allocates a single new buffer holding `[old + new glyph entries][new pixels]`
-/// - copies the old glyph entries verbatim into the front of the new buffer
-/// - writes per-codepoint indices into the font's char-width table (the bytes
-///   referenced by `font_obj.char_to_glyph_idx`)
-/// - reads the new pixel rows from disk via `_fread`
-/// - computes a tight bounding box per new glyph and writes it as a new entry
-/// - remaps every new pixel byte through the LUT
-/// - swaps `font_obj.glyph_table` to the new buffer and bumps `font_obj.height`
-/// - records the allocation in `font_obj.aux_alloc`
-///
-/// The `pixel_offset` field in each new glyph entry stores
-/// `(absolute_pixel_addr - font_obj.pixel_data)` so the existing
-/// `Font__DrawText` lookup `pixel_data + offset` still resolves correctly,
-/// even though the new pixels live in a separate allocation.
-///
-/// # Safety
-/// `font_obj` must be a fully-parsed `FontObject` (created by `load_font`).
-/// `palette_ctx` must be a valid `PaletteContext`. `filename` and `char_map`
-/// must be valid null-terminated C strings.
-pub unsafe fn font_extend(
-    font_obj: *mut FontObject,
-    palette_ctx: *mut PaletteContext,
-    filename: *const core::ffi::c_char,
-    char_map: *const u8,
-    palette_value: u32,
-) {
-    use crate::address::va;
-    use crate::rebase::rb;
-    use crate::render::palette::{palette_find_nearest_cached, remap_pixels_through_lut};
-    use crate::wa_alloc::wa_malloc;
-    use core::ffi::c_char;
-
-    // Open the .fex file via WA's CRT _fopen.
-    let fopen: unsafe extern "cdecl" fn(*const c_char, *const c_char) -> *mut u8 =
-        core::mem::transmute(rb(va::WA_FOPEN) as usize);
-    let fread: unsafe extern "cdecl" fn(*mut u8, u32, u32, *mut u8) -> u32 =
-        core::mem::transmute(rb(va::WA_FREAD) as usize);
-    let fclose: unsafe extern "cdecl" fn(*mut u8) -> i32 =
-        core::mem::transmute(rb(va::WA_FCLOSE) as usize);
-
-    let file = fopen(filename, c"rb".as_ptr());
-    if file.is_null() {
-        return;
-    }
-
-    // ── Geometry ──
-    let font_width = (*font_obj).width as i32;
-    // Per-glyph row stride in the .fex file. Wide fonts use width+1 to allow
-    // an extra byte after each row (matches the `if (font.width > 15)` test).
-    let row_stride = if font_width > 15 {
-        font_width + 1
-    } else {
-        font_width
-    };
-
-    // strlen(char_map) — count of new glyphs.
-    let mut new_count: i32 = 0;
-    let mut p = char_map;
-    while *p != 0 {
-        p = p.add(1);
-        new_count += 1;
-    }
-
-    let old_height = (*font_obj).height as i32; // existing glyph count
-    let total_glyphs = old_height + new_count; // resulting glyph count
-    let glyph_entries_bytes = total_glyphs * 12;
-    let new_pixels_bytes = new_count * font_width * row_stride;
-    let total_size = (glyph_entries_bytes + new_pixels_bytes) as u32;
-
-    // Allocate (matches WA_MallocMemset alignment + 0x20 guard).
-    let alloc = wa_malloc(((total_size + 3) & !3u32).wrapping_add(0x20));
-    if alloc.is_null() {
-        let _ = fclose(file);
-        return;
-    }
-    core::ptr::write_bytes(alloc, 0, total_size as usize);
-
-    // pixel data area starts immediately after the glyph entries.
-    let new_pixels = alloc.add(glyph_entries_bytes as usize);
-
-    // Record the allocation so font cleanup paths can free it.
-    (*font_obj).aux_alloc = alloc as u32;
-
-    // ── Copy existing glyph entries verbatim into the new buffer ──
-    let old_glyphs = (*font_obj).glyph_table as *const u8;
-    if old_height > 0 && !old_glyphs.is_null() {
-        core::ptr::copy_nonoverlapping(old_glyphs, alloc, (old_height * 12) as usize);
-    }
-
-    // ── Update the per-codepoint char→glyph-index table ──
-    // For each new char in char_map, write the new (1-based) glyph index
-    // `(old_height + idx + 1)` into the table at `font_obj.char_to_glyph_idx`.
-    let char_to_glyph = (*font_obj).char_to_glyph_idx;
-    let mut q = char_map;
-    for i in 0..new_count {
-        let ch = *q as usize;
-        q = q.add(1);
-        *char_to_glyph.add(ch) = (old_height + i + 1) as u8;
-    }
-
-    // ── Build 256-byte palette LUT by stepping R/G/B per `palette_value` ──
-    // The original walks 256 entries, accumulating signed R/G/B values via the
-    // step bytes packed in `palette_value` (low byte=R step, mid=G, high=B),
-    // each reduced mod 255 with sign correction (the `IMUL 0x80808081` trick).
-    // Each composed RGB is fed to `palette_find_nearest_cached` and the
-    // returned palette index becomes lut[i].
-    let r_step = (palette_value & 0xff) as i32;
-    let g_step = ((palette_value >> 8) & 0xff) as i32;
-    let b_step = ((palette_value >> 16) & 0xff) as i32;
-
-    let mut palette_lut = [0u8; 256];
-    let mut acc_r: i32 = 0;
-    let mut acc_g: i32 = 0;
-    let mut acc_b: i32 = 0;
-    for slot in palette_lut.iter_mut() {
-        // Reduce each accumulator mod 255 with sign correction. The original
-        // uses signed magic division by 255; for 0..255 the result is just
-        // `acc - 0` for 0..254 and `acc - 1` for 255. We use rem_euclid for
-        // a clean cross-platform equivalent (palette steps are non-negative
-        // so this matches the original even on edge cases).
-        let r = mod_255_signed(acc_r);
-        let g = mod_255_signed(acc_g);
-        let b = mod_255_signed(acc_b);
-        let composed = (r as u32) | ((g as u32) << 8) | ((b as u32) << 16);
-
-        let mut distance: i32 = 0;
-        let idx = palette_find_nearest_cached(palette_ctx, composed, &mut distance) as u8;
-        *slot = idx;
-
-        acc_r += r_step;
-        acc_g += g_step;
-        acc_b += b_step;
-    }
-
-    // ── Read the new pixel rows from disk ──
-    // fread(new_pixels, new_count, font_width * row_stride, file)
-    let _ = fread(
-        new_pixels,
-        new_count as u32,
-        (font_width * row_stride) as u32,
-        file,
-    );
-    let _ = fclose(file);
-
-    // ── Bounding-box scan for each new glyph + write its glyph entry ──
-    let mut row_offset_in_pixels: i32 = 0; // i.e. iVar16 in the original
-    let new_glyph_base = alloc as *mut GlyphEntry;
-    for new_idx in 0..new_count {
-        // Find the LEFTMOST non-empty column (== start_x).
-        let mut start_x: u16 = 0;
-        let mut found_left = false;
-        'outer_left: for col in 0..font_width as u16 {
-            for row in 0..font_width as i32 {
-                let addr = new_pixels
-                    .offset(((row + row_offset_in_pixels) * font_width + col as i32) as isize);
-                if *addr != 0 {
-                    start_x = col;
-                    found_left = true;
-                    break 'outer_left;
-                }
-            }
-        }
-        // Find the TOPMOST non-empty row (== start_y).
-        let mut start_y: u16 = 0;
-        if found_left {
-            'outer_top: for row in 0..font_width as u16 {
-                for col in 0..font_width as i32 {
-                    let addr = new_pixels
-                        .offset((col + (row as i32 + row_offset_in_pixels) * font_width) as isize);
-                    if *addr != 0 {
-                        start_y = row;
-                        break 'outer_top;
-                    }
-                }
-            }
-        }
-        // Find the RIGHTMOST non-empty column (scan right→left from font_width-1).
-        let mut right: u16 = (font_width - 1).max(0) as u16;
-        if found_left && right != 0 {
-            'outer_right: for col in (1..font_width as u16).rev() {
-                let mut empty = true;
-                for row in 0..font_width as i32 {
-                    let addr = new_pixels
-                        .offset(((row + row_offset_in_pixels) * font_width + col as i32) as isize);
-                    if *addr != 0 {
-                        empty = false;
-                        break;
-                    }
-                }
-                if !empty {
-                    right = col;
-                    break 'outer_right;
-                }
-                right = col - 1;
-            }
-        }
-        // Find the BOTTOMMOST non-empty row (scan bottom→top from font_width-1).
-        let mut bottom: u16 = (font_width - 1).max(0) as u16;
-        if found_left {
-            loop {
-                let mut empty = true;
-                for col in 0..font_width as i32 {
-                    let addr = new_pixels.offset(
-                        (col + (bottom as i32 + row_offset_in_pixels) * font_width) as isize,
-                    );
-                    if *addr != 0 {
-                        empty = false;
-                        break;
-                    }
-                }
-                if !empty || bottom == 0 {
-                    break;
-                }
-                bottom -= 1;
-            }
-        }
-
-        // Write the new glyph entry. The slot index is (old_height + new_idx).
-        let entry = new_glyph_base.add((old_height + new_idx) as usize);
-        (*entry).start_x = start_x;
-        (*entry).start_y = start_y;
-        (*entry).width = right.saturating_sub(start_x) + 1;
-        (*entry).height = bottom.saturating_sub(start_y) + 1;
-        // pixel_offset = absolute address of the glyph's bitmap top-left,
-        // expressed as a delta from font_obj.pixel_data so existing draw code
-        // can do `pixel_data + offset` and reach the new allocation.
-        let abs_addr = new_pixels.offset(
-            (start_x as i32 + (start_y as i32 + row_offset_in_pixels) * font_width) as isize,
-        );
-        (*entry).pixel_offset = (abs_addr as u32).wrapping_sub((*font_obj).pixel_data as u32);
-
-        // Advance to the next glyph's pixel rows.
-        row_offset_in_pixels += row_stride;
-    }
-
-    // ── Remap every new pixel byte through the LUT ──
-    let total_pixel_bytes = font_width * new_count * row_stride;
-    if total_pixel_bytes > 0 {
-        // remap_pixels_through_lut takes (data, pitch, lut, width_dwords, height).
-        // The original walks each byte one at a time, so use width_dwords = 1
-        // and height = total_bytes / 4 ... actually simpler: do a flat single-row
-        // remap with width_dwords = total/4 and height = 1.
-        let dword_count = (total_pixel_bytes as u32 + 3) / 4;
-        remap_pixels_through_lut(new_pixels, 0, palette_lut.as_ptr(), dword_count, 1);
-    }
-
-    // ── Swap glyph_table and bump glyph count ──
-    (*font_obj).glyph_table = alloc as *mut GlyphEntry;
-    (*font_obj).height = (old_height + new_count) as u16;
-}
-
-/// Helper for `font_extend`'s palette stepping. Reduces a non-negative i32
-/// modulo 255 the way the original signed-magic-division sequence does.
-#[inline]
-fn mod_255_signed(value: i32) -> i32 {
-    // For non-negative values this is just `value % 255`.
-    // The original uses signed magic-division so we mirror that for safety.
-    let q = value / 255;
-    value - q * 255
 }
 
 /// Port of `DisplayGfx::LoadFontExtension` (vtable slot 35, 0x523620).
@@ -2721,7 +2192,7 @@ fn mod_255_signed(value: i32) -> i32 {
 pub unsafe fn load_font_extension(
     this: *mut DisplayGfx,
     font_id: i32,
-    path: *const core::ffi::c_char,
+    path: *const c_char,
     char_map: *const u8,
     palette_value: u32,
     _flag: i32,
@@ -2733,10 +2204,10 @@ pub unsafe fn load_font_extension(
     }
     let base = &mut (*this).base;
     let font_obj_addr = base.font_table[font_id as usize];
-    if font_obj_addr == 0 {
+    if font_obj_addr.is_null() {
         return 0;
     }
-    let font_obj = font_obj_addr as *mut FontObject;
+    let font_obj = font_obj_addr as *mut Font;
 
     // Resolve the RGB color via the layer-1 palette context (DisplayBase+0x3120).
     // The original always reads layer_contexts[1] here, regardless of which
@@ -2746,122 +2217,13 @@ pub unsafe fn load_font_extension(
     let mut resolved_rgb: u32 = 0;
     let _ = palette_context_lookup_entry(layer1_ctx, palette_value as i32, &mut resolved_rgb);
 
-    // The actual font extension call uses the font's owning mode's palette ctx.
-    let mode = base._gap_301c[font_id as usize] as usize;
-    let layer_ctx = base.layer_contexts[mode] as *mut PaletteContext;
+    // The actual font extension call uses the font's owning layer's palette ctx.
+    let layer = base.font_layers[font_id as usize] as usize;
+    let layer_ctx = base.layer_contexts[layer] as *mut PaletteContext;
 
     font_extend(font_obj, layer_ctx, path, char_map, resolved_rgb);
+
     1
-}
-
-// =========================================================================
-// Font__GetInfo / Font__GetMetric / Font__SetParam ports
-// =========================================================================
-//
-// These three helpers (originally at 0x4FA7D0, 0x4FA780, 0x4FA720) are pure
-// reads against a `FontObject`. They were the last bridge calls remaining in
-// `DisplayGfx::{GetFontInfo,GetFontMetric,SetFontParam}` (vtable slots 8/9/10).
-
-/// Read a glyph's advance metric from the glyph table. Returns
-/// `glyph_table[idx_1based - 1].width as i32 + 1` (matching the original's
-/// `*(ushort*)(glyph_table - 8 + idx*0xC) + 1`).
-#[inline]
-unsafe fn glyph_advance_metric(font_obj: *const FontObject, idx_1based: u8) -> i32 {
-    let entry = (*font_obj).glyph_table.add(idx_1based as usize - 1);
-    (*entry).width as i32 + 1
-}
-
-/// Pure-Rust port of `Font__GetInfo` (0x4FA7D0).
-///
-/// Writes the font's max width to `*out_width` and the longest glyph
-/// advance metric (max of `width_div_5` and `glyph.width + 1` for every
-/// glyph) to `*out_max_metric`. Returns 1 unconditionally.
-///
-/// # Safety
-/// `font_obj` must be a valid `*const FontObject` with a glyph table of at
-/// least `font_obj.height` entries. The output pointers must be writable.
-pub unsafe fn font_get_info_impl(
-    font_obj: *const FontObject,
-    out_max_metric: *mut i32,
-    out_width: *mut i32,
-) -> u32 {
-    *out_width = (*font_obj).width as i16 as i32;
-    let mut max_metric = (*font_obj).width_div_5 as i16 as i32;
-    let height = (*font_obj).height as i32;
-    for i in 0..height {
-        let entry = (*font_obj).glyph_table.add(i as usize);
-        let candidate = (*entry).width as i32 + 1;
-        if max_metric < candidate {
-            max_metric = candidate;
-        }
-    }
-    *out_max_metric = max_metric;
-    1
-}
-
-/// Pure-Rust port of `Font__GetMetric` (0x4FA780).
-///
-/// Always writes the font's max width to `*out_width`. For space (`0x20`)
-/// and non-breaking space (`0xA0`), writes `width_div_5` to `*out_metric`
-/// and returns 1. Otherwise looks up the codepoint in `char_to_glyph_idx`;
-/// if the codepoint is unmapped (entry is 0) returns 0, else writes
-/// `glyph_table[idx-1].width + 1` to `*out_metric` and returns 1.
-///
-/// # Safety
-/// `font_obj` must be a valid `*const FontObject`. The output pointers must
-/// be writable.
-pub unsafe fn font_get_metric_impl(
-    font_obj: *const FontObject,
-    char_code: u8,
-    out_metric: *mut i32,
-    out_width: *mut i32,
-) -> u32 {
-    *out_width = (*font_obj).width as i16 as i32;
-    if char_code != 0x20 && char_code != 0xA0 {
-        let glyph_idx = *(*font_obj).char_to_glyph_idx.add(char_code as usize);
-        if glyph_idx == 0 {
-            return 0;
-        }
-        *out_metric = glyph_advance_metric(font_obj, glyph_idx);
-        return 1;
-    }
-    *out_metric = (*font_obj).width_div_5 as i16 as i32;
-    1
-}
-
-/// Pure-Rust port of `Font__SetParam` (0x4FA720).
-///
-/// Walks the null-terminated byte string `text`, accumulating each
-/// codepoint's advance metric (`width_div_5` for unmapped codepoints,
-/// `glyph.width + 1` for mapped ones) into `*out_total`. Always writes the
-/// font's max width to `*out_width`.
-///
-/// # Safety
-/// `font_obj` must be a valid `*const FontObject`. `text` must be a valid
-/// null-terminated byte string. Output pointers must be writable.
-pub unsafe fn font_set_param_impl(
-    font_obj: *const FontObject,
-    text: *const u8,
-    out_total: *mut i32,
-    out_width: *mut i32,
-) {
-    *out_width = (*font_obj).width as i16 as i32;
-    *out_total = 0;
-    let mut p = text;
-    loop {
-        let ch = *p;
-        if ch == 0 {
-            break;
-        }
-        let glyph_idx = *(*font_obj).char_to_glyph_idx.add(ch as usize);
-        let advance = if glyph_idx == 0 {
-            (*font_obj).width_div_5 as i16 as i32
-        } else {
-            glyph_advance_metric(font_obj, glyph_idx)
-        };
-        *out_total += advance;
-        p = p.add(1);
-    }
 }
 
 /// Port of `DisplayGfx::GetFontInfo` (vtable slot 8, 0x523790).
@@ -2883,7 +2245,7 @@ pub unsafe extern "thiscall" fn get_font_info(
     if !(1..=31).contains(&font_id) {
         return 0;
     }
-    let font_obj = (*this).base.font_table[font_id as usize] as *const FontObject;
+    let font_obj = (*this).base.font_table[font_id as usize] as *const Font;
     if font_obj.is_null() {
         return 0;
     }
@@ -2911,7 +2273,7 @@ pub unsafe extern "thiscall" fn get_font_metric(
     if !(1..=31).contains(&font_id) {
         return 0;
     }
-    let font_obj = (*this).base.font_table[font_id as usize] as *const FontObject;
+    let font_obj = (*this).base.font_table[font_id as usize] as *const Font;
     if font_obj.is_null() {
         return 0;
     }
@@ -2942,205 +2304,11 @@ pub unsafe extern "thiscall" fn set_font_param(
     if !(1..=31).contains(&font_id) {
         return 0;
     }
-    let font_obj = (*this).base.font_table[font_id as usize] as *const FontObject;
+    let font_obj = (*this).base.font_table[font_id as usize] as *const Font;
     if font_obj.is_null() {
         return 0;
     }
     font_set_param_impl(font_obj, p3 as *const u8, p4 as *mut i32, p5 as *mut i32);
-    1
-}
-
-/// Pure-Rust port of `Font__SetPalette` (0x4F9F20).
-///
-/// **The function name is misleading** — despite "SetPalette", this routine
-/// extends the font with two new derived glyphs rather than recoloring an
-/// existing palette. It is called once during `DDGame__LoadFonts` for the
-/// digital seven-segment font (`digiwht.fnt`, slot 28), which doesn't ship
-/// with `'.'` or `';'` glyphs and needs them generated at runtime.
-///
-/// What it does, in order:
-///
-/// 1. Look up the **`'-'`** (0x2D), **`'8'`** (0x38) and **`':'`** (0x3A)
-///    glyph indices via `char_to_glyph_idx`. If any is missing, return 0.
-/// 2. Sample the foreground-color palette indices of `'-'` and `'8'` by
-///    reading byte +5 within each glyph's pixel data. Save them as
-///    `minus_fg` and `eight_fg`.
-/// 3. Allocate a new buffer sized for `(old_height + 2)` glyph entries
-///    plus enough pixel area for **two** glyphs the size of `':'`.
-/// 4. Copy all existing glyph entries verbatim into the start of the
-///    buffer.
-/// 5. Add two new glyph entries:
-///    - `char_to_glyph_idx[0x2E]` (= `'.'`) → 1-based index `old_height + 1`
-///    - `char_to_glyph_idx[0x3B]` (= `';'`) → 1-based index `old_height + 2`
-///
-///    Both new entries copy `start_x`/`start_y`/`width`/`height` from the
-///    `':'` glyph. Their `pixel_offset` fields point at consecutive
-///    `colon_height * font_width`-byte regions inside the new buffer.
-/// 6. Initialize the **first** new glyph (`'.'`)'s pixel area:
-///    - `memset(area, palette_value as u8, colon_height * font_width / 2)`
-///      — fills approximately the top half with a uniform palette index.
-///    - For rows `colon_height/2 .. colon_height-1`, copy `colon.width`
-///      bytes per row from `':'`'s pixel data into the new buffer at
-///      `font_width`-strided rows.
-/// 7. Initialize the **second** new glyph (`';'`)'s pixel area: for every
-///    `(row, col)` in `(0..colon.height, 0..colon.width)`, copy the
-///    `':'` source pixel; if it equals `eight_fg`, replace it with
-///    `minus_fg` instead.
-/// 8. Update `font_obj.glyph_table` to point at the new buffer, store the
-///    new buffer in `aux_alloc` (so destructors can free it), and bump
-///    `font_obj.height` by 2.
-///
-/// The original uses `wa_malloc(round_up_to_4(total_size) + 0x20)` and
-/// zero-initializes the body up to `total_size` (the trailing 0x20 padding
-/// is left uninitialized).
-///
-/// # Safety
-/// `font_obj` must be a valid mutable `FontObject`. `palette_value`'s low
-/// byte is used as a single-byte memset filler. The original's
-/// allocate/copy/update sequence is preserved verbatim.
-pub unsafe fn font_set_palette_impl(font_obj: *mut FontObject, palette_value: u32) -> u32 {
-    use crate::wa_alloc::wa_malloc;
-
-    let char_to_glyph = (*font_obj).char_to_glyph_idx;
-    if char_to_glyph.is_null() {
-        return 0;
-    }
-
-    // Step 1: '-' (0x2D) glyph index.
-    let minus_idx = *char_to_glyph.add(0x2D);
-    if minus_idx == 0 {
-        return 0;
-    }
-
-    // Step 2a: read byte +5 of '-' glyph's pixel data.
-    let glyph_table = (*font_obj).glyph_table;
-    let pixel_data = (*font_obj).pixel_data;
-    let minus_glyph = glyph_table.add(minus_idx as usize - 1);
-    let minus_fg = *pixel_data.add((*minus_glyph).pixel_offset as usize + 5);
-
-    // Step 2b: '8' (0x38) glyph index + byte +5.
-    let eight_idx = *char_to_glyph.add(0x38);
-    if eight_idx == 0 {
-        return 0;
-    }
-    let eight_glyph = glyph_table.add(eight_idx as usize - 1);
-    let eight_fg = *pixel_data.add((*eight_glyph).pixel_offset as usize + 5);
-
-    // Step 1c: ':' (0x3A) — required for the template.
-    let colon_idx = *char_to_glyph.add(0x3A);
-    if colon_idx == 0 {
-        return 0;
-    }
-
-    let old_height = (*font_obj).height as i32; // signed via MOVSX in the original
-    let new_height = old_height + 2;
-    let font_width = (*font_obj).width as i16 as i32;
-
-    // Step 3: compute total size and allocate.
-    //   total_size = (colon.height * font_width + new_height * 6) * 2
-    //              = colon_height * font_width * 2  +  new_height * 12
-    //   alloc = round_up_to_dword(total_size) + 0x20
-    let colon_glyph = glyph_table.add(colon_idx as usize - 1);
-    let colon_height = (*colon_glyph).height as i32;
-    let colon_width = (*colon_glyph).width as i32;
-    let colon_pixel_offset = (*colon_glyph).pixel_offset as usize;
-
-    let total_size = (colon_height * font_width + new_height * 6) * 2;
-    let alloc_size = ((total_size as u32 + 3) & !3u32) + 0x20;
-    let new_buffer = wa_malloc(alloc_size);
-    if new_buffer.is_null() {
-        return 0;
-    }
-    // Zero-init the body (not the trailing 0x20 padding).
-    core::ptr::write_bytes(new_buffer, 0, total_size as usize);
-
-    // _Dst = new_buffer + new_height*12 = where pixel data starts in the new buffer.
-    let new_glyph_table = new_buffer as *mut GlyphEntry;
-    let new_pixel_area = new_buffer.add((new_height as usize) * 12);
-
-    // Save the allocation in aux_alloc so cleanup paths can free it
-    // (the original writes this *before* the copy loop).
-    (*font_obj).aux_alloc = new_buffer as u32;
-
-    // Step 4: copy existing glyph entries.
-    if old_height > 0 {
-        core::ptr::copy_nonoverlapping(
-            glyph_table as *const u8,
-            new_buffer,
-            (old_height as usize) * 12,
-        );
-    }
-
-    // Step 5: write new char_to_glyph_idx entries for '.' and ';'.
-    *char_to_glyph.add(0x2E) = (old_height as u8).wrapping_add(1);
-    *char_to_glyph.add(0x3B) = (old_height as u8).wrapping_add(2);
-
-    // Step 5b: first new glyph (= colon copy with adjusted pixel_offset).
-    //   pixel_offset = (_Dst - pixel_data)
-    let new_first = new_glyph_table.add(old_height as usize);
-    (*new_first).start_x = (*colon_glyph).start_x;
-    (*new_first).start_y = (*colon_glyph).start_y;
-    (*new_first).width = (*colon_glyph).width;
-    (*new_first).height = (*colon_glyph).height;
-    (*new_first).pixel_offset = (new_pixel_area as u32).wrapping_sub(pixel_data as u32);
-
-    // Step 5c: second new glyph (= duplicate of first new glyph, but its
-    // pixel_offset is bumped by colon_height * font_width so it points to
-    // the *next* chunk of new pixel data).
-    let new_second = new_first.add(1);
-    (*new_second).start_x = (*new_first).start_x;
-    (*new_second).start_y = (*new_first).start_y;
-    (*new_second).width = (*new_first).width;
-    (*new_second).height = (*new_first).height;
-    (*new_second).pixel_offset = (*new_first)
-        .pixel_offset
-        .wrapping_add((colon_height * font_width) as u32);
-
-    // Step 6a: memset top portion of FIRST new glyph with palette_value's
-    // low byte. Length = (colon_height * font_width) with sign-correct /2.
-    let memset_len = {
-        let v = colon_height.wrapping_mul(font_width);
-        // CDQ + SUB EAX,EDX + SAR EAX,1 = signed div by 2 with rounding toward zero
-        let v_signed = v;
-        let cdq = v_signed >> 31;
-        ((v_signed - cdq) >> 1) as usize
-    };
-    core::ptr::write_bytes(new_pixel_area, palette_value as u8, memset_len);
-
-    // Step 6b: copy bottom half rows of ':' into FIRST new glyph at
-    // font-width row stride.
-    let half = (colon_height as u32 >> 1) as i32;
-    if half < colon_height {
-        for row in half..colon_height {
-            let src = pixel_data.add(colon_pixel_offset + (row * colon_width) as usize);
-            let dst = new_pixel_area.add((row * font_width) as usize);
-            core::ptr::copy_nonoverlapping(src, dst, colon_width as usize);
-        }
-    }
-
-    // Step 7: pixel-by-pixel copy for SECOND new glyph with eight→minus
-    // foreground substitution. The destination is offset by
-    // colon_height * font_width within new_pixel_area.
-    if colon_height > 0 {
-        for row in 0..colon_height {
-            for col in 0..colon_width {
-                let src_addr =
-                    pixel_data.add(colon_pixel_offset + (row * colon_width + col) as usize);
-                let dst_addr =
-                    new_pixel_area.add(((colon_height + row) * font_width + col) as usize);
-                let src_byte = *src_addr;
-                if src_byte == eight_fg {
-                    *dst_addr = minus_fg;
-                } else {
-                    *dst_addr = src_byte;
-                }
-            }
-        }
-    }
-
-    // Step 8: update font_obj fields.
-    (*font_obj).glyph_table = new_glyph_table;
-    (*font_obj).height = new_height as u16;
     1
 }
 
@@ -3160,7 +2328,7 @@ pub unsafe extern "thiscall" fn set_font_palette(
     font_index: u32,
     palette_value: u32,
 ) {
-    let font_obj = (*this).base.font_table[font_index as usize] as *mut FontObject;
+    let font_obj = (*this).base.font_table[font_index as usize] as *mut Font;
     let _ = font_set_palette_impl(font_obj, palette_value);
 }
 
@@ -3233,7 +2401,7 @@ pub unsafe fn font_blit_glyph(
 /// `msg` must be a valid null-terminated byte string. `out_pen_x` and
 /// `out_width` must be writable.
 pub unsafe fn font_draw_text_impl(
-    font_obj: *const FontObject,
+    font_obj: *const Font,
     bitmap: *const BitGrid,
     pen_x: i32,
     pen_y: i32,
@@ -3389,7 +2557,7 @@ pub unsafe extern "thiscall" fn draw_text_on_bitmap(
     bitmap: *mut BitGrid,
     pen_x: i32,
     pen_y: i32,
-    msg: *const core::ffi::c_char,
+    msg: *const c_char,
     out_pen_x: *mut i32,
     out_width: *mut i32,
 ) -> i32 {
@@ -3397,7 +2565,7 @@ pub unsafe extern "thiscall" fn draw_text_on_bitmap(
     if !(1..=31).contains(&font_id_low) {
         return 0;
     }
-    let font_obj = (*this).base.font_table[font_id_low as usize] as *const FontObject;
+    let font_obj = (*this).base.font_table[font_id_low as usize] as *const Font;
     if font_obj.is_null() {
         return 0;
     }
