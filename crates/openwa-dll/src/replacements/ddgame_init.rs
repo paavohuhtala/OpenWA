@@ -102,6 +102,10 @@ extern "cdecl" fn impl_gfx_resource_create(
     name: *const c_char,
     output: *mut u8,
 ) -> u32 {
+    // The trampoline catches an opaque stack pointer; the underlying
+    // WA caller always passes a `PaletteContext*` (verified at all known
+    // call sites — `set_active_layer`'s return value).
+    let output = output as *mut openwa_core::render::palette::PaletteContext;
     let result = unsafe { gfx_resource_create(gfx_dir, name, output) };
     result as u32
 }

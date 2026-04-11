@@ -67,9 +67,14 @@ pub struct DisplayGfxVtable {
     /// set layer color (0x5231E0, RET 0x8)
     #[slot(4)]
     pub set_layer_color: fn(this: *mut DisplayGfx, layer: i32, color: i32),
-    /// set active layer, returns layer context ptr (0x523270, RET 0x4)
+    /// set active layer, returns layer context ptr (0x523270, RET 0x4).
+    ///
+    /// Returns the `PaletteContext*` for the requested layer (1-3),
+    /// or null if the index is out of range. Callers feed the result to
+    /// `update_palette` (slot 24) and to GfxDir loaders that need a
+    /// palette context for color remapping.
     #[slot(5)]
-    pub set_active_layer: fn(this: *mut DisplayGfx, layer: i32) -> *mut u8,
+    pub set_active_layer: fn(this: *mut DisplayGfx, layer: i32) -> *mut PaletteContext,
     /// get sprite info by layer and id (0x523500, RET 0x10)
     ///
     /// Looks up sprite metadata for the given layer ID. Checks sprite_ptrs
@@ -1457,9 +1462,12 @@ unsafe fn palette_context_init(ctx: *mut PaletteContext, range_min: i16, range_m
 ///
 /// Returns the `PaletteContext*` for `layer` (1-3), or null if out of
 /// range. Used as palette data input for `update_palette`.
-pub unsafe extern "thiscall" fn set_active_layer(this: *mut DisplayGfx, layer: i32) -> *mut u8 {
+pub unsafe extern "thiscall" fn set_active_layer(
+    this: *mut DisplayGfx,
+    layer: i32,
+) -> *mut PaletteContext {
     match Layer::try_from_i32(layer) {
-        Some(layer) => (*this).base.layer_contexts[layer.idx()] as *mut u8,
+        Some(layer) => (*this).base.layer_contexts[layer.idx()],
         None => core::ptr::null_mut(),
     }
 }
@@ -1902,7 +1910,7 @@ pub unsafe fn load_sprite_by_layer(
         return 1;
     }
 
-    let palette_ctx = set_active_layer(this, layer as i32) as *mut PaletteContext;
+    let palette_ctx = set_active_layer(this, layer as i32);
 
     if !is_valid_sprite_id(id as i32) {
         return 0;

@@ -350,7 +350,7 @@ pub unsafe fn gfx_dir_load_dir(handler: *mut u8) -> i32 {
 pub unsafe fn gfx_resource_create(
     gfx_dir: *mut GfxDir,
     name: *const core::ffi::c_char,
-    output: *mut u8,
+    output: *mut crate::render::palette::PaletteContext,
 ) -> *mut u8 {
     // 1. Try FindEntry → cached load → DisplayGfx wrap
     let entry = gfx_dir_find_entry(name, gfx_dir);
@@ -375,7 +375,7 @@ pub unsafe fn gfx_resource_create(
     // IMG_Decode: stdcall(output, raw_image, 1), RET 0xC
     let decode: unsafe extern "stdcall" fn(*mut u8, *mut u8, i32) -> *mut u8 =
         core::mem::transmute(rb(va::IMG_DECODE) as usize);
-    let result = decode(output, raw_image as *mut u8, 1);
+    let result = decode(output as *mut u8, raw_image as *mut u8, 1);
 
     GfxDirStream::destroy_raw(raw_image);
 
@@ -388,7 +388,7 @@ pub unsafe fn gfx_resource_create(
 pub(crate) unsafe fn call_gfx_find_and_load(
     gfx_dir: *mut GfxDir,
     name: &core::ffi::CStr,
-    display_ctx: *mut u8,
+    display_ctx: *mut crate::render::palette::PaletteContext,
 ) -> *mut u8 {
     let name_ptr = name.as_ptr() as *const u8;
     let entry = gfx_dir_find_entry(name_ptr.cast(), gfx_dir);
@@ -415,7 +415,7 @@ pub(crate) unsafe fn call_gfx_find_and_load(
 pub(crate) unsafe fn call_gfx_load_and_wrap(
     gfx_dir: *mut GfxDir,
     name: *const core::ffi::c_char,
-    display_ctx: *mut u8,
+    display_ctx: *mut crate::render::palette::PaletteContext,
 ) -> *mut u8 {
     let image = call_gfx_load_image(gfx_dir, name);
     if image.is_null() {
@@ -424,7 +424,7 @@ pub(crate) unsafe fn call_gfx_load_and_wrap(
     // FUN_004F5F80(display_ctx, image, 1) — stdcall, RET 0xC (3 params)
     let f: unsafe extern "stdcall" fn(*mut u8, *mut u8, u32) -> *mut u8 =
         core::mem::transmute(rb(va::IMG_DECODE) as usize);
-    let result = f(display_ctx, image as *mut u8, 1);
+    let result = f(display_ctx as *mut u8, image as *mut u8, 1);
     GfxDirStream::destroy_raw(image);
     result
 }

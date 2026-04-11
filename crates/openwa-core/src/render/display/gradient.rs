@@ -111,7 +111,7 @@ impl PaletteContext {
 pub(crate) unsafe fn compute_complex_gradient(
     ddgame: *mut DDGame,
     land_dir: *mut GfxDir,
-    layer3_ctx: *mut u8,
+    layer3_ctx: *mut crate::render::palette::PaletteContext,
     sky_height: i16,
 ) {
     let mut palette = PaletteContext::new();

@@ -182,7 +182,7 @@ unsafe extern "C" fn wa_load_sprites(
     _sprite_data: *mut u8,
     _display_flags: u32,
     _param4: u32,
-    _layer_ctx: *mut u8, // → ESI
+    _layer_ctx: *mut crate::render::palette::PaletteContext, // → ESI
 ) {
     core::arch::naked_asm!(
         "push esi",
@@ -664,7 +664,7 @@ unsafe fn init_graphics_and_resources(
         gfx_resource = gfx_resource_create(
             gfx_dir,
             rb(va::STR_MASKS_IMG) as *const core::ffi::c_char,
-            palette_ctx,
+            palette_ctx as *mut crate::render::palette::PaletteContext,
         );
     }
 
@@ -966,7 +966,7 @@ unsafe fn init_graphics_and_resources(
         // ── Gradient image (0x030) ──
         let level_height = (*ddgame).level_height as i32;
         let layer3_ctx = (*disp).set_active_layer(3);
-        let s_var1 = *(layer3_ctx.add(0x606) as *const i16);
+        let s_var1 = (*layer3_ctx).cache_count;
 
         if s_var1 < 0x61 && level_height == 0x2B8 {
             // Simple gradient: load gradient.img directly
