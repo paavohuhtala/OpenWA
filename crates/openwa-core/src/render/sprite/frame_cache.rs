@@ -23,6 +23,18 @@ use crate::render::display::base::FrameCache;
 use crate::render::display::base::FrameCacheEntry;
 use crate::render::SpriteCache;
 
+crate::define_addresses! {
+    class "FrameCache" {
+        /// `FrameCache__Allocate` (FUN_004FA950) — usercall LRU
+        /// allocator. `EAX = entry_size`, stack args
+        /// `(context_ptr, owner, frame_idx)`. Ported to
+        /// [`frame_cache_allocate`]; only callers were
+        /// `Sprite__GetFrameForBlit` and `SpriteBank__GetFrameForBlit`,
+        /// both bypassed by the slot 33 vtable_replace.
+        fn/Usercall FRAME_CACHE_ALLOCATE = 0x004F_A950;
+    }
+}
+
 /// Eviction callback signature — `vtable[1]` of both `Sprite` and
 /// `SpriteBank`. Called when the oldest entry is being dropped from the
 /// LRU ring buffer; the callback clears the owner's per-subframe

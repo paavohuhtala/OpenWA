@@ -50,6 +50,12 @@ crate::define_addresses! {
         fn DRAW_LINE_CLIPPED = 0x004F_7500;
         /// Two-color line draw on 8bpp BitGrid (0x4F7A60)
         fn DRAW_LINE_TWO_COLOR = 0x004F_7A60;
+        /// `DisplayBitGrid::SetExternalBuffer` (FUN_004F6470) — fastcall
+        /// `(ECX=height, EDX=width, stack=(bitgrid, data, row_stride))`.
+        /// Updates an external-buffer bitgrid's data pointer + dimensions
+        /// + clip rect. Only known caller is `SpriteBank__GetFrameForBlit`,
+        /// which is itself unreachable in shipping WA — see slot 33.
+        fn/Fastcall DISPLAY_BIT_GRID_SET_EXTERNAL_BUFFER = 0x004F_6470;
     }
 }
 

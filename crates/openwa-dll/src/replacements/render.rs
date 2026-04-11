@@ -1370,6 +1370,37 @@ fn install_display() -> Result<(), String> {
         // own Rust code (no `bind_DisplayVtable!` invocation, no direct call).
         // Trap it so we'll be alerted the moment any future caller appears.
         hook::install_trap!("DisplayGfx__LoadSpriteEx", va::DISPLAY_GFX_LOAD_SPRITE_EX);
+
+        // ── Slot 33 leaf functions: trap the WA-side originals ────────
+        //
+        // After `vtable_replace!` swapped slot 33 to our Rust impl, the
+        // original `DisplayGfx::GetSpriteFrameForBlit` (0x5237C0) is no
+        // longer reached, which means its leaves have no remaining
+        // callers in shipping WA either:
+        //
+        // - `Sprite__GetFrameForBlit` (0x4FAD30): only caller was the
+        //   original slot 33 dispatcher.
+        // - `SpriteBank__GetFrameForBlit` (0x4F9710): same. Also bank
+        //   objects are themselves unreachable (LoadSpriteEx is trapped).
+        // - `FrameCache__Allocate` (0x4FA950): only callers were the
+        //   two GetFrameForBlit helpers above.
+        // - `DisplayBitGrid::SetExternalBuffer` (0x4F6470): only caller
+        //   was `SpriteBank__GetFrameForBlit`.
+        //
+        // `Sprite_LZSS_Decode` (0x5B29E0) is NOT trapped — it has
+        // independent callers (`IMG_Decode`, `FUN_0048EE32`) reachable
+        // from `DDGame__Constructor`/`SoundEmitter`/`LoadHudAndWeaponSprites`,
+        // all still bridged. Trapping it would break those.
+        hook::install_trap!("Sprite__GetFrameForBlit", va::SPRITE_GET_FRAME_FOR_BLIT);
+        hook::install_trap!(
+            "SpriteBank__GetFrameForBlit",
+            va::SPRITE_BANK_GET_FRAME_FOR_BLIT
+        );
+        hook::install_trap!("FrameCache__Allocate", va::FRAME_CACHE_ALLOCATE);
+        hook::install_trap!(
+            "DisplayBitGrid__SetExternalBuffer",
+            va::DISPLAY_BIT_GRID_SET_EXTERNAL_BUFFER
+        );
     }
 
     Ok(())

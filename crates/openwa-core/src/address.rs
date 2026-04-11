@@ -73,7 +73,7 @@ pub mod va {
     pub use crate::bitgrid::{
         BitGridBaseVtable, BitGridCollisionVtable, BitGridDisplayVtable, BIT_GRID_BASE_VTABLE,
         BIT_GRID_COLLISION_VTABLE, BIT_GRID_DISPLAY_VTABLE, BIT_GRID_INIT, BLIT_SPRITE_RECT,
-        DRAW_LINE_CLIPPED, DRAW_LINE_TWO_COLOR,
+        DISPLAY_BIT_GRID_SET_EXTERNAL_BUFFER, DRAW_LINE_CLIPPED, DRAW_LINE_TWO_COLOR,
     };
     pub use crate::frontend::map_view::MAP_VIEW_VTABLE;
     pub use crate::input::controller::INPUT_CTRL_VTABLE;
@@ -90,6 +90,7 @@ pub mod va {
     pub use crate::render::palette::{
         PALETTE_CONTEXT_INIT, PALETTE_CONTEXT_INIT_RANGE, PALETTE_CONTEXT_MAP_COLOR,
     };
+    pub use crate::render::sprite::frame_cache::FRAME_CACHE_ALLOCATE;
     pub use crate::render::sprite::sprite::SPRITE_BANK_VTABLE;
     pub use crate::render::sprite::sprite::{
         CBITMAP_VTABLE_MAYBE, CONSTRUCT_SPRITE, DESTROY_SPRITE, FREE_SPRITE_OBJECT,
