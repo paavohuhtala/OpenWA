@@ -7,7 +7,7 @@ crate::define_addresses! {
     class "CTaskCloud" {
         /// CTaskCloud vtable - cloud/airstrike entity
         vtable CTASK_CLOUD_VTABLE = 0x0066_9D38;
-        /// CTaskCloud constructor (usercall: ESI=this, EAX=parent, EDI=y_seed,
+        /// CTaskCloud constructor (usercall: ESI=this, EAX=parent, EDI=render_y,
         /// stack: cloud_type, layer_depth, pos_x, vel_x). RET 0x10.
         ctor CTASK_CLOUD_CTOR = 0x0054_82E0;
         /// CTaskCloud::WriteReplayState — serializes cloud state to replay stream.
@@ -43,7 +43,7 @@ pub struct CTaskCloudVTable {
 /// scroll on a parallax layer, and render as a single sprite.
 ///
 /// Allocation: 0x74 bytes (operator new in CTaskTeam__CreateWeatherFilter 0x552960).
-/// Constructor: 0x5482E0 (usercall ESI=this, EAX=parent, EDI=y_seed).
+/// Constructor: 0x5482E0 (usercall ESI=this, EAX=parent, EDI=render_y).
 /// Vtable: 0x669D38. Class type byte: 0x17 (ClassType::Cloud).
 ///
 /// Three cloud sizes chosen by `cloud_type` param (0/1/2):
@@ -52,9 +52,10 @@ pub struct CTaskCloudVTable {
 /// - type 2: sprite 0x26A (small),  vel_y 0xCC
 ///
 /// CreateWeatherFilter spawns clouds with a deterministic LCG (seed 0x12345678),
-/// randomizing pos_x within level bounds and vel_x with random sign. The y_seed
-/// (cloud count) contributes to the initial pos_y via `(pos_x + y_seed) & 0xFFFF`,
-/// placing clouds near y ≈ 0 so they drift downward.
+/// randomizing pos_x within level bounds and vel_x with random sign. The
+/// `render_y` field encodes the cloud's vertical screen position as Fixed16
+/// (`level_height/16 + scaled_offset` per cloud index) and is passed to
+/// `RQ_DrawSpriteLocal` as the sprite Y at render time.
 ///
 /// Source: Ghidra decompilation of 0x5482E0 (constructor), 0x5484C0 (HandleMessage),
 ///         0x548430 (WriteReplayState), 0x548370 (ReadReplayState).
@@ -66,8 +67,13 @@ pub struct CTaskCloud {
     /// 0x30: Parallax scroll layer depth (Fixed; starts at 0x190000 = 25.0,
     /// decrements by 1 each cloud spawned in a batch)
     pub layer_depth: Fixed,
-    /// 0x34: Y position (Fixed 16.16); updated each frame: pos_y += vel_y.
-    /// Initial value: (pos_x + y_seed) & 0xFFFF (near zero, clouds drift downward).
+    /// 0x34: Per-frame phase counter (Fixed 16.16); incremented by `vel_y`
+    /// each FrameFinish. Despite the name, this is **not** the rendered Y —
+    /// `render_y` is. The original passes this value as the trailing stack
+    /// arg to `RQ_DrawSpriteLocal`, where it ends up in the queue command's
+    /// `palette` slot (cmd[5]) as a per-cloud animation/palette index.
+    /// Constructor initializes it to `(pos_x + render_y) & 0xFFFF`, which is
+    /// always 0 since both addends have zero low halves.
     pub pos_y: Fixed,
     /// 0x38: Y velocity (Fixed 16.16; set by cloud type: large=0x200, medium=0x166, small=0xCC)
     pub vel_y: Fixed,
@@ -75,11 +81,17 @@ pub struct CTaskCloud {
     pub sprite_id: u32,
     /// 0x40: X position (Fixed 16.16); wraps at landscape bounds each frame
     pub pos_x: Fixed,
-    /// 0x44: Y seed value — EDI register from constructor call site.
-    /// In CreateWeatherFilter this is the total cloud count (e.g. 10).
-    /// Used to compute initial pos_y: (pos_x + y_seed) & 0xFFFF.
-    /// Serialized in replay state but not read during gameplay.
-    pub y_seed: u32,
+    /// 0x44: Rendered Y position (Fixed 16.16, integer part in upper 16 bits).
+    /// EDI register from constructor call site. In CreateWeatherFilter this is
+    /// `(level_height/16 + level_height/10 * i/cloud_count + weather_mod) << 16`,
+    /// placing each cloud at a small Y near the top of the level.
+    ///
+    /// Despite contributing to the initial `pos_y` computation
+    /// `(pos_x + render_y) & 0xFFFF` in the constructor, that mask discards the
+    /// integer part and only ever yields 0 (both `pos_x` and `render_y` have
+    /// their lower 16 bits zero). The integer Y is read here in HandleMessage
+    /// and passed to `RQ_DrawSpriteLocal` as the sprite's screen Y.
+    pub render_y: Fixed,
     /// 0x48: X velocity base (Fixed 16.16)
     pub vel_x: Fixed,
     /// 0x4C: Current wind acceleration (Fixed); converges toward wind_target each frame
@@ -164,13 +176,18 @@ pub unsafe extern "thiscall" fn cloud_handle_message(
 
                 let rq = &mut *(*ddgame).render_queue;
                 if let Some(entry) = rq.alloc::<DrawSpriteCmd>() {
+                    // Original (0x548527..0x54852f) loads `[ESI+0x44]` (render_y)
+                    // into EAX as the usercall Y register, and pushes `pos_y`
+                    // (`[ESI+0x34]`) as the trailing stack arg that becomes the
+                    // queue entry's `palette` field. `pos_y` grows monotonically
+                    // each frame and acts as a per-cloud animation/palette index.
                     *entry = DrawSpriteCmd {
                         command_type: command_type::DRAW_SPRITE_LOCAL,
                         layer: (*this).layer_depth.0 as u32,
                         x_pos: x as u32 & 0xFFFF0000,
-                        y_pos: (*this).pos_y.0 as u32 & 0xFFFF0000,
+                        y_pos: (*this).render_y.0 as u32 & 0xFFFF0000,
                         sprite_id: (*this).sprite_id,
-                        frame: 0,
+                        frame: (*this).pos_y.0 as u32,
                     };
                 }
             }
@@ -220,7 +237,7 @@ impl CTaskCloud {
         layer_depth: Fixed,
         pos_x: Fixed,
         vel_x: Fixed,
-        y_seed: u32,
+        render_y: Fixed,
     ) {
         use crate::rebase::rb;
 
@@ -228,11 +245,13 @@ impl CTaskCloud {
         (*this).base.vtable = rb(CTASK_CLOUD_VTABLE) as *const CTaskCloudVTable;
         (*this).base.class_type = ClassType::Cloud;
 
-        // Position: x is the initial horizontal position, y is derived from x + seed
+        // Position: x is the initial horizontal position. The original computes
+        // `pos_y = (pos_x + render_y) & 0xFFFF`, but both pos_x and render_y
+        // have their lower 16 bits zero, so the result is always 0.
         (*this).pos_x = pos_x;
-        (*this).pos_y = Fixed((pos_x.0.wrapping_add(y_seed as i32)) & 0xFFFF);
+        (*this).pos_y = Fixed((pos_x.0.wrapping_add(render_y.0)) & 0xFFFF);
         (*this).layer_depth = layer_depth;
-        (*this).y_seed = y_seed;
+        (*this).render_y = render_y;
         (*this).vel_x = vel_x;
         (*this).wind_accel = Fixed(0);
         (*this).wind_target = Fixed(0);

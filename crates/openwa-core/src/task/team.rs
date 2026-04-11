@@ -288,9 +288,10 @@ pub unsafe extern "stdcall" fn create_weather_filter(parent: *mut CTask) {
 
         let pos_x_int = rand_frac % level_width_int + level_min_x_int;
 
-        // Y seed: height/16 + scaled offset + weather modifier
+        // Render Y: height/16 + scaled offset + weather modifier, in Fixed16.16
+        // (integer pixel value placed in the upper 16 bits).
         let y_offset = height_tenth * i / cloud_count;
-        let y_seed = ((height_contrib + y_offset + weather_mod) << 16) as u32;
+        let render_y = Fixed((height_contrib + y_offset + weather_mod) << 16);
 
         // X velocity: random magnitude + 0x8000, random sign
         let vel_x_base = (rng_state & 0xFFFF) as i32 + 0x8000;
@@ -318,7 +319,7 @@ pub unsafe extern "stdcall" fn create_weather_filter(parent: *mut CTask) {
             Fixed(layer_depth),
             Fixed(pos_x_int << 16),
             vel_x,
-            y_seed,
+            render_y,
         );
         // ownership transfers to the task tree
 
