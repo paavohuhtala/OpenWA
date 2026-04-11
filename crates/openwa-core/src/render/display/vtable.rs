@@ -317,12 +317,20 @@ pub struct DisplayGfxVtable {
     /// | `out_left`/`top`/`right`/`bot` | frame bounding box within the cell               |
     /// | `out_anim_frac`                | sub-frame interpolation value (Fixed16) or 0     |
     ///
-    /// Currently still bridged: `BlitSprite` (slot 19) calls this through
-    /// the typed `get_sprite_frame_for_blit_raw` wrapper from
-    /// `replacements/render.rs::blit_sprite`. This is the **last** in-game
-    /// render bridge; everything else in the pipeline runs as native Rust.
+    /// **Ported.** Native Rust impl is [`get_sprite_frame_for_blit`]
+    /// in this file (Sprite path → [`sprite_get_frame_for_blit`],
+    /// SpriteBank path → [`sprite_bank_get_frame_for_blit`]). Wired via
+    /// `vtable_replace!` in `install_display`. With this slot ported,
+    /// the entire in-game render pipeline of a normal Worms match runs
+    /// on Rust code with zero bridges into WA's render functions.
     ///
-    /// # Porting blueprint
+    /// **SpriteBank path is suspected dead in normal gameplay** — adding
+    /// a `panic!()` to `sprite_bank_get_frame_for_blit` and playing
+    /// several turns of a normal match did not trigger it. The path is
+    /// still ported (per the disassembly) as a defensive measure for any
+    /// obscure game state we haven't sampled.
+    ///
+    /// # Porting blueprint (kept for archival reference)
     ///
     /// ## Dispatcher (slot 33 itself, 0x5237C0, RET 0x24)
     ///
@@ -847,7 +855,9 @@ use super::gfx::DisplayGfx;
 use super::line_draw;
 use crate::bitgrid::{BitGrid, DisplayBitGrid};
 use crate::render::palette::PaletteContext;
-use crate::render::sprite::{Sprite, SpriteBank, SpriteVtable};
+use crate::render::sprite::{
+    frame_cache::frame_cache_allocate, lzss::sprite_lzss_decode, Sprite, SpriteBank, SpriteVtable,
+};
 
 /// Port of DisplayGfx::GetDimensions (vtable slot 1, 0x56A460).
 ///
@@ -1485,6 +1495,424 @@ unsafe fn sprite_info_from_bank(
     }
 
     crate::rebase::rb(SPRITE_STRING)
+}
+
+/// Pure-Rust port of `Sprite__GetFrameForBlit` (0x4FAD30).
+///
+/// Resolves an animation value to a frame within `sprite`, lazily
+/// decompresses its surface via [`frame_cache_allocate`] +
+/// [`sprite_lzss_decode`] if the sprite uses the cached path
+/// (`header_flags & 0x4000`), updates `sprite.bitgrid` to point at the
+/// resulting pixel data, and returns a pointer to that embedded bitgrid.
+///
+/// Mirrors the original WA usercall (`ESI=this, EAX=out_anim_frac,
+/// EDX=anim_value, stack=(out_w, out_h, out_left, out_top, out_right,
+/// out_bottom)`) as a regular Rust function — the slot 33 dispatcher
+/// shuffles its caller's args into this signature.
+///
+/// # Safety
+///
+/// All output pointers must be valid for writes. `sprite` must point at a
+/// fully-constructed [`Sprite`] (i.e. `frame_meta_ptr` populated and, for
+/// the cached path, `subframe_cache_table` and `bitmap_data_ptr` set).
+unsafe fn sprite_get_frame_for_blit(
+    sprite: *mut Sprite,
+    mut anim_value: u32,
+    out_anim_frac: *mut u32,
+    out_w: *mut i32,
+    out_h: *mut i32,
+    out_left: *mut i32,
+    out_top: *mut i32,
+    out_right: *mut i32,
+    out_bottom: *mut i32,
+) -> *mut DisplayBitGrid {
+    let flags = (*sprite).flags;
+
+    // ── Step 1: clamp `anim_value` ───────────────────────────────────
+    if flags & 1 != 0 {
+        // Use-as-is mode: just truncate to 16 bits.
+        anim_value &= 0xFFFF;
+    } else {
+        // Signed clamp to [0, 0xFFFF].
+        let signed = anim_value as i32;
+        if signed < 0 {
+            anim_value = 0;
+        } else if signed >= 0x10000 {
+            anim_value = 0xFFFF;
+        }
+    }
+
+    // ── Step 2: ping-pong ────────────────────────────────────────────
+    if flags & 2 != 0 {
+        anim_value &= 0xFFFF;
+        anim_value = anim_value.wrapping_mul(2);
+        if anim_value >= 0x10000 {
+            anim_value = 0x1FFFE - anim_value;
+        }
+    }
+
+    // ── Step 3: frame index resolution ───────────────────────────────
+    let frame_idx: u32 = if (*sprite).is_scaled != 0 {
+        // Scaled mode: linearly interpolate between scale_x and scale_y
+        // by the (Fixed16) anim_value, write the interpolated result to
+        // *out_anim_frac. Always use frame 0 in this mode.
+        let scale_x = (*sprite).scale_x as i32;
+        let scale_y = (*sprite).scale_y as i32;
+        let diff = scale_y.wrapping_sub(scale_x);
+        // Original asm: `IMUL EDX; SHRD EAX, EDX, 0x10` — 32×32 → 64
+        // signed multiply with `>> 16` (Fixed16). The multiplicand is the
+        // raw `anim_value` interpreted as a signed 32-bit integer (after
+        // the clamp/ping-pong above it's always in [0, 0xFFFF], so the
+        // sign bit is clear).
+        let prod = (diff as i64).wrapping_mul((anim_value as i32) as i64);
+        let interp = ((prod >> 16) as i32).wrapping_add(scale_x);
+        *out_anim_frac = interp as u32;
+        0
+    } else if (*sprite).frame_round_mode & 1 != 0 {
+        // Round-to-nearest mode: `((max_frames * anim_value) + 0x8000) >> 16`,
+        // with the special case that if rounding produces `frame_idx ==
+        // max_frames` we wrap back to 0 (avoids reading past the table).
+        let max_frames = (*sprite).max_frames as i32;
+        let prod = max_frames.wrapping_mul(anim_value as i32);
+        let f = (prod.wrapping_add(0x8000) >> 16) as u32;
+        *out_anim_frac = 0;
+        if f == max_frames as u32 {
+            0
+        } else {
+            f
+        }
+    } else {
+        // Truncating mode.
+        let max_frames = (*sprite).max_frames as i32;
+        let prod = max_frames.wrapping_mul(anim_value as i32);
+        *out_anim_frac = 0;
+        (prod >> 16) as u32
+    };
+
+    // ── Step 4: read frame metadata + sprite cell dimensions ─────────
+    let frame_meta = (*sprite).frame_meta_ptr.add(frame_idx as usize);
+    let start_x = (*frame_meta).start_x as i16 as i32;
+    let start_y = (*frame_meta).start_y as i16 as i32;
+    let end_x = (*frame_meta).end_x as i16 as i32;
+    let end_y = (*frame_meta).end_y as i16 as i32;
+    *out_left = start_x;
+    *out_top = start_y;
+    *out_right = end_x;
+    *out_bottom = end_y;
+    *out_w = (*sprite).width as i32;
+    *out_h = (*sprite).height as i32;
+    let frame_w = end_x - start_x;
+    let frame_h = end_y - start_y;
+
+    // ── Step 5: surface address (flat or cached/decompressed) ────────
+    let surface_addr: *mut u8 = if (*sprite).header_flags & 0x4000 == 0 {
+        // Flat path: bytes are already-decoded raw pixels in the load
+        // buffer.
+        let bitmap_offset = (*frame_meta).bitmap_offset;
+        (*sprite).bitmap_data_ptr.add(bitmap_offset as usize)
+    } else {
+        // Cached path: bitmap_offset is split into a signed-byte
+        // subframe index (high byte) and a pixel offset (low 24 bits).
+        let bitmap_offset = (*frame_meta).bitmap_offset;
+        let subframe_idx_signed = ((bitmap_offset >> 24) as i8) as i32;
+
+        // The original asm uses MOVSX byte ptr [EAX+EDI+3] then a *12
+        // lea — i.e. negative subframe indices index *backward* from the
+        // table base. Mirror via `offset(isize)`.
+        let entry = (*sprite)
+            .subframe_cache_table
+            .offset(subframe_idx_signed as isize);
+
+        if (*entry).decoded_ptr.is_null() {
+            // Allocate from the per-SpriteCache FrameCache and decompress.
+            let context_ptr = (*sprite).context_ptr;
+            let decoded_size = (*entry).decoded_size;
+            let decoded = frame_cache_allocate(
+                decoded_size,
+                context_ptr,
+                sprite as *mut core::ffi::c_void,
+                subframe_idx_signed as u32,
+            );
+            (*entry).decoded_ptr = decoded;
+            let src = (*sprite)
+                .bitmap_data_ptr
+                .add((*entry).compressed_offset as usize);
+            sprite_lzss_decode(decoded, src, (*sprite).palette_data_ptr);
+        }
+
+        let pixel_offset = (bitmap_offset & 0xFF_FFFF) as usize;
+        (*entry).decoded_ptr.add(pixel_offset)
+    };
+
+    // ── Step 6: update embedded bitgrid (only if external_buffer != 0)
+    let bitgrid = &raw mut (*sprite).bitgrid;
+    if (*bitgrid).external_buffer != 0 {
+        // Order copied from the asm at 0x4FAEA2..0x4FAEB7. Equivalent
+        // to `bitgrid_set_external_buffer(bitgrid, surface, frame_w,
+        // frame_w, frame_h)` — see SpriteBank path which calls the
+        // shared `DisplayBitGrid::SetExternalBuffer` helper.
+        (*bitgrid).clip_bottom = frame_h as u32;
+        (*bitgrid).clip_right = frame_w as u32;
+        (*bitgrid).clip_top = 0;
+        (*bitgrid).clip_left = 0;
+        (*bitgrid).row_stride = frame_w as u32;
+        (*bitgrid).data = surface_addr;
+        (*bitgrid).height = frame_h as u32;
+        (*bitgrid).width = frame_w as u32;
+    }
+
+    bitgrid
+}
+
+/// Pure-Rust port of `DisplayBitGrid::SetExternalBuffer` (0x4F6470).
+///
+/// Sets a `DisplayBitGrid`'s data pointer, dimensions, row stride, and
+/// clip rect (full-rect: `(0, 0, width, height)`). Returns `false` if the
+/// bitgrid's `external_buffer` flag is currently zero (i.e. it owns its
+/// own buffer and the caller has no business swapping it out).
+///
+/// Used by the SpriteBank path of slot 33 to point the bank's embedded
+/// `frame_bitgrid` (at `bank + 0x130`) at the freshly-decompressed
+/// subframe pixels. Inlined manually in the Sprite path because that one
+/// uses `frame_w` for both `width` and `row_stride`.
+#[inline]
+unsafe fn bitgrid_set_external_buffer(
+    bitgrid: *mut DisplayBitGrid,
+    data: *mut u8,
+    row_stride: u32,
+    width: u32,
+    height: u32,
+) -> bool {
+    if (*bitgrid).external_buffer == 0 {
+        return false;
+    }
+    (*bitgrid).data = data;
+    (*bitgrid).row_stride = row_stride;
+    (*bitgrid).width = width;
+    (*bitgrid).height = height;
+    (*bitgrid).clip_left = 0;
+    (*bitgrid).clip_top = 0;
+    (*bitgrid).clip_right = width;
+    (*bitgrid).clip_bottom = height;
+    true
+}
+
+/// Pure-Rust port of `SpriteBank__GetFrameForBlit` (0x4F9710).
+///
+/// SpriteBank-side counterpart of [`sprite_get_frame_for_blit`]: walks
+/// the bank's `index_table` to map `sprite_id` to a frame in
+/// `frame_table`, resolves the animation value to a sub-frame index in
+/// `bbox_table`, lazily decompresses the corresponding subframe via
+/// [`frame_cache_allocate`] + [`sprite_lzss_decode`], updates the
+/// embedded `frame_bitgrid` (at `bank + 0x130`), and returns a pointer
+/// to it. Returns null on any validation failure (null `frame_table` or
+/// out-of-range `entry_idx`).
+///
+/// Note the structural differences from the Sprite path:
+/// - Animation metadata lives in [`SpriteBankFrame`]
+///   (`flags/width/height/base_frame_idx/scale_or_count`) instead of
+///   `Sprite::flags`/`max_frames`/`scale_*`.
+/// - Out-`w`/`h` come from the per-frame `width`/`height`, NOT from a
+///   sprite-wide cell dimension.
+/// - The bbox table is a separate array of [`SpriteBankBboxEntry`] at
+///   `bank + 0x18`, with `subframe_idx` at `+0` (low u16 of what would
+///   be `SpriteFrame::bitmap_offset`) and `decoded_offset` at `+2`.
+/// - The subframe cache uses [`SpriteBankSubframeCache`] with
+///   `decoded_ptr` at `+8` (vs `+4` in `SpriteSubframeCache`).
+/// - The LUT for LZSS is the inline 256-byte `palette_lut` at
+///   `bank + 0x30`, not a separately-allocated palette pointer.
+/// - The bitgrid update goes through `bitgrid_set_external_buffer`
+///   instead of inline writes.
+///
+/// # Safety
+///
+/// `bank` must point at a valid, fully-parsed [`SpriteBank`]. Output
+/// pointers must be writable.
+#[allow(clippy::too_many_arguments)]
+unsafe fn sprite_bank_get_frame_for_blit(
+    bank: *mut SpriteBank,
+    sprite_id: u32,
+    mut anim_value: u32,
+    out_anim_frac: *mut u32,
+    out_w: *mut i32,
+    out_h: *mut i32,
+    out_left: *mut i32,
+    out_top: *mut i32,
+    out_right: *mut i32,
+    out_bottom: *mut i32,
+) -> *mut DisplayBitGrid {
+    // ── Index lookup + bounds check ──────────────────────────────────
+    let entry_idx = *(*bank)
+        .index_table
+        .offset((sprite_id as i32 - (*bank).base_id) as isize);
+    if (*bank).frame_table.is_null() || entry_idx < 0 || entry_idx >= (*bank).frame_count {
+        return core::ptr::null_mut();
+    }
+    let frame = (*bank).frame_table.add(entry_idx as usize);
+    let frame_flags = (*frame).flags;
+
+    // ── Clamp anim_value ─────────────────────────────────────────────
+    if frame_flags & 1 != 0 {
+        anim_value &= 0xFFFF;
+    } else {
+        let signed = anim_value as i32;
+        if signed < 0 {
+            anim_value = 0;
+        } else if signed >= 0x10000 {
+            anim_value = 0xFFFF;
+        }
+    }
+
+    // ── Ping-pong ────────────────────────────────────────────────────
+    if frame_flags & 2 != 0 {
+        anim_value &= 0xFFFF;
+        anim_value = anim_value.wrapping_mul(2);
+        if anim_value >= 0x10000 {
+            anim_value = 0x1FFFE - anim_value;
+        }
+    }
+
+    // ── Frame index resolution ───────────────────────────────────────
+    let scale_or_count = (*frame).scale_or_count;
+    let base_frame_idx = (*frame).base_frame_idx;
+
+    let resolved_idx: u32 = if scale_or_count & 0x8000 != 0 {
+        // Scaled mode: low/high 7-bit nibbles of `scale_or_count` form a
+        // signed Fixed16 pair. The asm extracts both via:
+        //   `value = (low_or_high_7 << 16) >> 5` (signed)
+        // i.e. shift the 7-bit value into the high half, sign-extend
+        // from bit 22, then shift right by 5 → effective `<< 11` with
+        // sign extension from bit 6 of the original 7-bit value.
+        let low7 = scale_or_count & 0x7F;
+        let high7 = (scale_or_count >> 8) & 0x7F;
+        let low_val = (((low7 as u32) << 16) as i32) >> 5;
+        let high_val = (((high7 as u32) << 16) as i32) >> 5;
+        // Note: the asm computes `EAX = low - high` (NOT high - low) —
+        // verified at 0x4F97AD `SUB EAX, EDI` where EAX = low_val and
+        // EDI = high_val.
+        let diff = low_val.wrapping_sub(high_val);
+        let prod = (diff as i64).wrapping_mul((anim_value as i32) as i64);
+        let interp = ((prod >> 16) as i32).wrapping_add(high_val);
+        *out_anim_frac = interp as u32;
+        // Scaled mode uses `base_frame_idx` directly as the bbox index.
+        base_frame_idx as u32
+    } else {
+        // Non-scaled mode: subframe_idx = ((scale_or_count * anim_value) >> 16)
+        // + base_frame_idx. *out_anim_frac = 0.
+        let prod = (scale_or_count as i32).wrapping_mul(anim_value as i32);
+        *out_anim_frac = 0;
+        ((prod >> 16) as u32).wrapping_add(base_frame_idx as u32)
+    };
+
+    // ── Read bbox metadata ───────────────────────────────────────────
+    let bbox = (*bank).bbox_table.add(resolved_idx as usize);
+    *out_left = (*bbox).start_x as i32;
+    *out_top = (*bbox).start_y as i32;
+    *out_right = (*bbox).end_x as i32;
+    *out_bottom = (*bbox).end_y as i32;
+    // out_w/out_h come from the per-frame width/height, NOT the bbox.
+    *out_w = (*frame).width as i32;
+    *out_h = (*frame).height as i32;
+    let frame_w = (*out_right - *out_left) as u32;
+    let frame_h = (*out_bottom - *out_top) as u32;
+
+    // ── Subframe cache lookup + lazy decompress ──────────────────────
+    let subframe_idx = (*bbox).subframe_idx as u32;
+    let entry = (*bank).subframe_cache_table.add(subframe_idx as usize);
+
+    if (*entry).decoded_ptr.is_null() {
+        let context_ptr = (*bank).context_ptr;
+        let decoded_size = (*entry).decoded_size;
+        let decoded = frame_cache_allocate(
+            decoded_size,
+            context_ptr,
+            bank as *mut core::ffi::c_void,
+            subframe_idx,
+        );
+        (*entry).decoded_ptr = decoded;
+        let src = (*bank)
+            .bitmap_data_ptr
+            .add((*entry).compressed_offset as usize) as *mut u8;
+        // Bank LUT is the inline 256-byte palette_lut at bank+0x30.
+        let lut = (&raw const (*bank).palette_lut) as *const u8;
+        sprite_lzss_decode(decoded, src, lut);
+    }
+
+    // ── Update embedded bitgrid via SetExternalBuffer ────────────────
+    //
+    // Surface address = bbox.decoded_offset + entry.decoded_ptr.
+    let surface = (*entry).decoded_ptr.add((*bbox).decoded_offset as usize);
+    let bitgrid = &raw mut (*bank).frame_bitgrid;
+    bitgrid_set_external_buffer(bitgrid, surface, frame_w, frame_w, frame_h);
+    bitgrid
+}
+
+/// Port of `DisplayGfx::GetSpriteFrameForBlit` (vtable slot 33, 0x5237C0).
+///
+/// Thin dispatcher: validates `sprite_id`, then forwards to either
+/// [`sprite_get_frame_for_blit`] (for `sprite_ptrs`-backed IDs) or
+/// [`sprite_bank_get_frame_for_blit`] (for `sprite_banks`-backed IDs).
+/// Returns null if neither table has an entry for the ID.
+///
+/// See the slot 33 docstring on
+/// [`DisplayGfxVtable::get_sprite_frame_for_blit`] for the original
+/// usercall convention and the full body breakdown.
+///
+/// # Safety
+///
+/// `this` must be a valid `*mut DisplayGfx`. All output pointers must
+/// be writable.
+#[allow(clippy::too_many_arguments)]
+pub unsafe extern "thiscall" fn get_sprite_frame_for_blit(
+    this: *mut DisplayGfx,
+    sprite_id: u32,
+    anim_value: u32,
+    out_w: *mut i32,
+    out_h: *mut i32,
+    out_left: *mut i32,
+    out_top: *mut i32,
+    out_right: *mut i32,
+    out_bottom: *mut i32,
+    out_anim_frac: *mut u32,
+) -> *mut DisplayBitGrid {
+    // Validity check: sprite_id - 1 must be < 0x3FE (so 1..=0x3FE).
+    if sprite_id.wrapping_sub(1) >= 0x3FE {
+        return core::ptr::null_mut();
+    }
+
+    let base = &mut (*this).base;
+    let sprite = base.sprite_ptrs[sprite_id as usize];
+    if !sprite.is_null() {
+        return sprite_get_frame_for_blit(
+            sprite,
+            anim_value,
+            out_anim_frac,
+            out_w,
+            out_h,
+            out_left,
+            out_top,
+            out_right,
+            out_bottom,
+        );
+    }
+
+    let bank = base.sprite_banks[sprite_id as usize];
+    if !bank.is_null() {
+        return sprite_bank_get_frame_for_blit(
+            bank,
+            sprite_id,
+            anim_value,
+            out_anim_frac,
+            out_w,
+            out_h,
+            out_left,
+            out_top,
+            out_right,
+            out_bottom,
+        );
+    }
+
+    core::ptr::null_mut()
 }
 
 /// Port of DisplayGfx::DrawViaCallback (vtable slot 21, 0x56B7C0).

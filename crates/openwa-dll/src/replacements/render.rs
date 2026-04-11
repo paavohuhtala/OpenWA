@@ -1358,6 +1358,7 @@ fn install_display() -> Result<(), String> {
             update_palette      => display_vtable::update_palette,
             set_font_palette    => display_vtable::set_font_palette,
             slot 19 => blit_sprite,
+            get_sprite_frame_for_blit => display_vtable::get_sprite_frame_for_blit,
             load_sprite_by_layer => load_sprite_by_layer,
             load_font            => load_font,
             load_font_extension  => load_font_extension,
