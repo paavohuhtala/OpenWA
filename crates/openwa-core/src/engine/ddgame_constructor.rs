@@ -24,7 +24,7 @@ use crate::render::display::gradient::compute_complex_gradient;
 use crate::render::display::palette::Palette;
 use crate::render::landscape::PCLandscape;
 use crate::render::sprite::gfx_dir::{
-    call_gfx_find_and_load, call_gfx_load_and_wrap, call_gfx_load_dir, GfxDir,
+    call_gfx_find_and_load, call_gfx_load_and_wrap, call_gfx_load_dir, GfxDir, GfxDirVtable,
 };
 pub use crate::render::sprite::gfx_dir::{gfx_dir_find_entry, gfx_resource_create};
 use crate::wa_alloc::{wa_malloc, wa_malloc_zeroed};
@@ -432,7 +432,7 @@ unsafe fn init_graphics_and_resources(
     use core::ffi::c_char;
     let fopen: unsafe extern "cdecl" fn(*const c_char, *const c_char) -> *mut u8 =
         core::mem::transmute(rb(va::WA_FOPEN) as usize);
-    let gfx_dir_vtable = rb(va::GFX_DIR_VTABLE) as u32;
+    let gfx_dir_vtable = rb(va::GFX_DIR_VTABLE) as *const GfxDirVtable;
 
     // ── GfxDir #1 (primary) ──
     let gfx1 = GfxDir::alloc(gfx_dir_vtable);
@@ -772,12 +772,8 @@ unsafe fn init_graphics_and_resources(
 
             let sprite: *mut u8;
             if !entry.is_null() {
-                // Try gfx_dir->vtable[2](entry->field_4)
-                let gfx_vt = *(gfx_dir as *const *const u32);
-                let load_cached: unsafe extern "thiscall" fn(*mut GfxDir, u32) -> *mut u8 =
-                    core::mem::transmute(*gfx_vt.add(2));
                 let entry_val = *(entry.add(4) as *const u32);
-                let cached = load_cached(gfx_dir, entry_val);
+                let cached = GfxDir::load_cached_raw(gfx_dir, entry_val);
                 if !cached.is_null() {
                     sprite = wa_displaygfx_ctor(cached);
                 } else {
@@ -1029,10 +1025,7 @@ unsafe fn init_graphics_and_resources(
     // ── Release primary GfxHandler (vtable[3] = release, param 1 = free) ──
     let primary_gfx_dir = (*wrapper).primary_gfx_dir;
     if !primary_gfx_dir.is_null() {
-        let gfx_vt = *(primary_gfx_dir as *const *const u32);
-        let release: unsafe extern "thiscall" fn(*mut GfxDir, u32) =
-            core::mem::transmute(*gfx_vt.add(3));
-        release(primary_gfx_dir, 1);
+        GfxDir::release_raw(primary_gfx_dir, 1);
     }
 
     if !is_headless {

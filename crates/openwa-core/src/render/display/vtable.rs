@@ -2488,7 +2488,7 @@ pub unsafe fn load_sprite_by_name(
     (*sprite).palette_ctx = palette_ctx;
 
     // 3. Load image stream from GfxDir
-    let stream = call_gfx_load_image(gfx_dir, name) as *mut GfxDirStream;
+    let stream = call_gfx_load_image(gfx_dir, name);
     if stream.is_null() {
         return 0;
     }

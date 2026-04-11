@@ -4,6 +4,8 @@
 //! `Gfx0.dir`). It provides name→resource lookup via a 1024-bucket hash table
 //! and delegates file I/O and caching to vtable methods.
 
+use openwa_core::vtable;
+
 use crate::address::va;
 use crate::rebase::rb;
 use crate::wa_alloc::wa_malloc;
@@ -15,7 +17,7 @@ use crate::wa_alloc::wa_malloc;
 #[repr(C)]
 pub struct GfxDir {
     /// 0x000: Vtable pointer (0x66B280).
-    pub vtable: u32,
+    pub vtable: *const GfxDirVtable,
     /// 0x004: Bucket array — 1024 pointers to GfxDirEntry linked lists.
     pub bucket_array: *mut u8,
     /// 0x008: 1 if bucket_array was allocated via malloc fallback (needs free).
@@ -40,7 +42,7 @@ const _: () = assert!(core::mem::size_of::<GfxDir>() == 0x19C);
 
 impl GfxDir {
     /// Allocate and initialize a new GfxDir with the given vtable.
-    pub unsafe fn alloc(vtable: u32) -> *mut Self {
+    pub unsafe fn alloc(vtable: *const GfxDirVtable) -> *mut Self {
         let ptr = wa_malloc(core::mem::size_of::<Self>() as u32) as *mut Self;
         if !ptr.is_null() {
             core::ptr::write_bytes(ptr as *mut u8, 0, core::mem::size_of::<Self>());
@@ -49,6 +51,24 @@ impl GfxDir {
         ptr
     }
 }
+
+/// Vtable for `GfxDir` / GfxHandler (4 slots at 0x66B280).
+///
+/// Provides sequential I/O into the open `.dir` file and a cached resource
+/// access path.
+#[vtable(size = 4, va = 0x0066_B280, class = "GfxDir")]
+pub struct GfxDirVtable {
+    /// Slot 0 (0x58BBD0): Read `size` bytes into `buf`. Returns bytes read.
+    pub read: fn(this: *mut GfxDir, buf: *mut u8, size: u32) -> u32,
+    /// Slot 1 (0x58BBB0): Seek forward `skip` bytes in the file.
+    pub seek: fn(this: *mut GfxDir, skip: u32),
+    /// Slot 2 (0x571AF0): Return cached data pointer for `entry_val`, or null if not mapped.
+    pub load_cached: fn(this: *mut GfxDir, entry_val: u32) -> *mut u8,
+    /// Slot 3 (0x58BB70): Release resources; if `flags & 1`, free the object.
+    pub release: fn(this: *mut GfxDir, flags: u32),
+}
+
+bind_GfxDirVtable!(GfxDir, vtable);
 
 /// Entry in a GfxDir hash bucket linked list.
 /// Each entry maps a name string to a cached resource value.
@@ -231,20 +251,11 @@ unsafe fn gfx_dir_reset(handler: *mut u8) {
 pub unsafe fn gfx_dir_load_dir(handler: *mut u8) -> i32 {
     gfx_dir_reset(handler);
     let gfx = &mut *(handler as *mut GfxDir);
-
-    let vt = *(handler as *const *const u32);
-    // vtable[0] = read: thiscall(handler, buf, size) -> bytes_read
-    let vt_read: unsafe extern "thiscall" fn(*mut u8, *mut u8, u32) -> u32 =
-        core::mem::transmute(*vt);
-    // vtable[1] = seek: thiscall(handler, size)
-    let vt_seek: unsafe extern "thiscall" fn(*mut u8, u32) = core::mem::transmute(*vt.add(1));
-    // vtable[2] = allocate: thiscall(handler, size) -> *mut u8
-    let vt_alloc: unsafe extern "thiscall" fn(*mut u8, u32) -> *mut u8 =
-        core::mem::transmute(*vt.add(2));
+    let gfx_ptr = handler as *mut GfxDir;
 
     // Read and validate magic
     let mut magic: u32 = 0;
-    if vt_read(handler, &mut magic as *mut u32 as *mut u8, 4) != 4 {
+    if GfxDir::read_raw(gfx_ptr, &mut magic as *mut u32 as *mut u8, 4) != 4 {
         return 0;
     }
     if magic != 0x1A524944 {
@@ -254,23 +265,23 @@ pub unsafe fn gfx_dir_load_dir(handler: *mut u8) -> i32 {
 
     // Read total_file_size and data_size
     let mut total_file_size: u32 = 0;
-    if vt_read(handler, &mut total_file_size as *mut u32 as *mut u8, 4) != 4 {
+    if GfxDir::read_raw(gfx_ptr, &mut total_file_size as *mut u32 as *mut u8, 4) != 4 {
         return 0;
     }
     let mut data_size: u32 = 0;
-    if vt_read(handler, &mut data_size as *mut u32 as *mut u8, 4) != 4 {
+    if GfxDir::read_raw(gfx_ptr, &mut data_size as *mut u32 as *mut u8, 4) != 4 {
         return 0;
     }
 
     let alloc_size = data_size + 4;
 
-    // Try fast path: vtable[2] allocate (memory-maps the data)
-    let data = vt_alloc(handler, alloc_size);
+    // Try fast path: vtable[2] load_cached (memory-maps the data)
+    let data = GfxDir::load_cached_raw(gfx_ptr, alloc_size);
     gfx.bucket_array = data;
 
     if data.is_null() {
         // Fallback: seek past header, then malloc + read entire data block
-        vt_seek(handler, alloc_size);
+        GfxDir::seek_raw(gfx_ptr, alloc_size);
 
         let read_size = total_file_size - data_size - 4;
         let malloc_size = ((read_size + 3) & !3) + 0x20;
@@ -281,7 +292,7 @@ pub unsafe fn gfx_dir_load_dir(handler: *mut u8) -> i32 {
         core::ptr::write_bytes(buf, 0, read_size as usize);
         gfx.bucket_array = buf;
 
-        let bytes_read = vt_read(handler, buf, read_size);
+        let bytes_read = GfxDir::read_raw(gfx_ptr, buf, read_size);
         if bytes_read != read_size {
             crate::wa_alloc::wa_free(buf);
             return 0;
@@ -346,11 +357,8 @@ pub unsafe fn gfx_resource_create(
     let entry = gfx_dir_find_entry(name, gfx_dir);
     if !entry.is_null() {
         // gfx_dir->vtable[2](entry->field_4) — cached load
-        let vt = *(gfx_dir as *const *const u32);
-        let load_cached: unsafe extern "thiscall" fn(*mut GfxDir, u32) -> *mut u8 =
-            core::mem::transmute(*vt.add(2));
         let entry_val = (*(entry as *const GfxDirEntry)).value;
-        let cached = load_cached(gfx_dir, entry_val);
+        let cached = GfxDir::load_cached_raw(gfx_dir, entry_val);
         if !cached.is_null() {
             // DisplayGfx__Constructor_Maybe: stdcall(raw_image), RET 0x4
             let ctor: unsafe extern "stdcall" fn(*mut u8) -> *mut u8 =
@@ -368,13 +376,9 @@ pub unsafe fn gfx_resource_create(
     // IMG_Decode: stdcall(output, raw_image, 1), RET 0xC
     let decode: unsafe extern "stdcall" fn(*mut u8, *mut u8, i32) -> *mut u8 =
         core::mem::transmute(rb(va::IMG_DECODE) as usize);
-    let result = decode(output, raw_image, 1);
+    let result = decode(output, raw_image as *mut u8, 1);
 
-    // Release raw image: raw_image->vtable[0](1)
-    let img_vt = *(raw_image as *const *const u32);
-    let fn_ptr = *img_vt;
-    let release: unsafe extern "thiscall" fn(*mut u8, i32) = core::mem::transmute(fn_ptr);
-    release(raw_image, 1);
+    GfxDirStream::destroy_raw(raw_image);
 
     result
 }
@@ -392,10 +396,7 @@ pub(crate) unsafe fn call_gfx_find_and_load(
 
     if !entry.is_null() {
         // Try cached load: gfx_dir->vtable[2](entry->field_4)
-        let dir_vt = *(gfx_dir as *const *const u32);
-        let load_cached: unsafe extern "thiscall" fn(*mut GfxDir, u32) -> *mut u8 =
-            core::mem::transmute(*dir_vt.add(2));
-        let cached = load_cached(gfx_dir, (*(entry as *const GfxDirEntry)).value);
+        let cached = GfxDir::load_cached_raw(gfx_dir, (*(entry as *const GfxDirEntry)).value);
         if !cached.is_null() {
             // Wrap with DisplayGfx__Constructor_Maybe (0x4F5E80)
             // This is stdcall(1 param), RET 0x4
@@ -424,11 +425,8 @@ pub(crate) unsafe fn call_gfx_load_and_wrap(
     // FUN_004F5F80(display_ctx, image, 1) — stdcall, RET 0xC (3 params)
     let f: unsafe extern "stdcall" fn(*mut u8, *mut u8, u32) -> *mut u8 =
         core::mem::transmute(rb(va::IMG_DECODE) as usize);
-    let result = f(display_ctx, image, 1);
-    // Release the raw image
-    let image_vt = *(image as *const *const u32);
-    let destroy: unsafe extern "thiscall" fn(*mut u8, u32) = core::mem::transmute(*image_vt);
-    destroy(image, 1);
+    let result = f(display_ctx, image as *mut u8, 1);
+    GfxDirStream::destroy_raw(image);
     result
 }
 
@@ -459,8 +457,8 @@ pub struct GfxDirStreamVtable {
     pub remaining: unsafe extern "thiscall" fn(this: *mut GfxDirStream) -> u32,
     /// Slot 3 (0x566270): Unknown.
     pub _slot_3: usize,
-    /// Slot 4 (0x5662C0): Unknown.
-    pub _slot_4: usize,
+    /// Slot 4 (0x5662C0): Return total byte size of this stream's data region.
+    pub get_total_size: unsafe extern "thiscall" fn(this: *mut GfxDirStream) -> u32,
     /// Slot 5 (0x5662F0): Read `size` bytes into `dest`.
     pub read: unsafe extern "thiscall" fn(this: *mut GfxDirStream, dest: *mut u8, size: u32),
 }
@@ -479,6 +477,12 @@ impl GfxDirStream {
     #[inline]
     pub unsafe fn remaining_raw(this: *mut Self) -> u32 {
         ((*(*this).vtable).remaining)(this)
+    }
+
+    /// Returns the total byte size of this stream's data region.
+    #[inline]
+    pub unsafe fn total_size_raw(this: *mut Self) -> u32 {
+        ((*(*this).vtable).get_total_size)(this)
     }
 
     /// Destroy the stream reader, releasing its cache slot.
@@ -515,7 +519,7 @@ pub(crate) unsafe fn call_gfx_load_dir(handler: *mut u8, addr: u32) -> i32 {
 pub unsafe extern "C" fn call_gfx_load_image(
     _gfx_dir: *mut GfxDir,
     _name: *const core::ffi::c_char,
-) -> *mut u8 {
+) -> *mut GfxDirStream {
     core::arch::naked_asm!(
         "pushl %esi",
         "movl 8(%esp), %esi",     // ESI = gfx_dir

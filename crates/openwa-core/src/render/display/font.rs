@@ -222,34 +222,28 @@ pub unsafe fn font_load_from_gfx(
     palette_ctx: *mut PaletteContext,
     name: *const c_char,
 ) -> u32 {
-    use crate::render::sprite::gfx_dir::{call_gfx_load_image, gfx_dir_find_entry, GfxDirEntry};
+    use crate::render::sprite::gfx_dir::{
+        call_gfx_load_image, gfx_dir_find_entry, GfxDirEntry, GfxDirStream,
+    };
     use crate::wa_alloc::wa_malloc;
 
     // 1. Try FindEntry → gfx_dir->vtable[2](entry->value) for cached load.
     let entry = gfx_dir_find_entry(name, gfx_dir);
     if !entry.is_null() {
-        let vt = *(gfx_dir as *const *const u32);
-        let load_cached: unsafe extern "thiscall" fn(*mut GfxDir, u32) -> *mut FntHeader =
-            core::mem::transmute(*vt.add(2));
         let entry_val = (*(entry as *const GfxDirEntry)).value;
-        let cached = load_cached(gfx_dir, entry_val);
+        let cached = GfxDir::load_cached_raw(gfx_dir, entry_val) as *mut FntHeader;
         if !cached.is_null() {
             return font_parse_data(font_obj, cached, palette_ctx);
         }
     }
 
-    // 2. Fallback: LoadImage → vtable[4] (size) → wa_malloc → vtable[5] (read) → vtable[0] (destroy)
+    // 2. Fallback: LoadImage → get_total_size → wa_malloc → read → destroy
     let image = call_gfx_load_image(gfx_dir, name);
     if image.is_null() {
         return 0;
     }
 
-    let image_vt = *(image as *const *const u32);
-
-    // vtable[4] — get size (thiscall, no args)
-    let get_size: unsafe extern "thiscall" fn(*mut u8) -> u32 =
-        core::mem::transmute(*image_vt.add(4));
-    let size = get_size(image);
+    let size = GfxDirStream::total_size_raw(image);
 
     // Match the original's allocation: round size up to 4-byte multiple, add 0x20 guard.
     let alloc_size = ((size + 3) & !3u32).wrapping_add(0x20);
@@ -259,14 +253,8 @@ pub unsafe fn font_load_from_gfx(
         core::ptr::write_bytes(buffer, 0, size as usize);
     }
 
-    // vtable[5] — read into buffer (thiscall with 2 stack args: buffer, size)
-    let read_into: unsafe extern "thiscall" fn(*mut u8, *mut u8, u32) =
-        core::mem::transmute(*image_vt.add(5));
-    read_into(image, buffer, size);
-
-    // vtable[0] — destroy image (thiscall with 1 arg: flags = 1)
-    let destroy: unsafe extern "thiscall" fn(*mut u8, u32) = core::mem::transmute(*image_vt);
-    destroy(image, 1);
+    GfxDirStream::read_raw(image, buffer, size);
+    GfxDirStream::destroy_raw(image);
 
     font_parse_data(font_obj, buffer as *mut FntHeader, palette_ctx)
 }
