@@ -137,33 +137,12 @@ pub struct DisplayGfxVtable {
     /// set font rendering parameter (0x523710, RET 0x10)
     #[slot(10)]
     pub set_font_param: fn(this: *mut DisplayGfx, font_id: i32, p3: u32, p4: u32, p5: u32) -> u32,
-    /// draw tile-cached bitmap (0x56B8C0, RET 0xC) — `DisplayGfx__DrawTiledBitmap`.
+    /// `DisplayGfx::DrawTiledBitmap` (0x56B8C0, RET 0xC).
     ///
-    /// Three-phase tile-bitmap operation, run as a single composite call.
-    /// Each invocation does some or all of:
-    ///
-    /// 1. **Allocate** (only if `this->bitmap_vec` is empty): walk the source
-    ///    height in 0x400-row strips. For each strip, `wa_malloc(0xC)` a
-    ///    `CBitmap` (vtable `0x643F64`, surface ptr at +4), lazily ask the
-    ///    render context for a surface, init the surface as `0x40 × strip × 8bpp`
-    ///    (retrying with 4bpp on failure), and `vector::push_back` the bitmap
-    ///    into `DisplayGfx + 0x3580`. Sets `DisplayGfx[+0x358C] = 0`.
-    /// 2. **Populate** (only if `DisplayGfx[+0x358C] == 0`): for each tile,
-    ///    lock its surface, blit the corresponding source strip via
-    ///    `FUN_005B2A5E` (8bpp) or `BlitColorTable_Forward` (CLUT, `bpp == 0x40`),
-    ///    unlock. Sets `DisplayGfx[+0x358C] = 1`.
-    /// 3. **Display**: `dest_x` is masked to a 0x40-aligned X coord; the
-    ///    visible Y range is computed from `camera_y + dest_y` against
-    ///    `display_height`, clamped to the available tile range. For each
-    ///    visible tile × each `0x40`-wide destination column, calls
-    ///    `DisplayGfx__BlitBitmapClipped`.
-    ///
-    /// `source` is a [`TiledBitmapSource`] descriptor — see that struct
-    /// for the field layout.
-    ///
-    /// **Reachable at runtime** via `RenderDrawingQueue` case 0xD, fed by
-    /// `RQ_EnqueueTiledBitmap` (0x541D60). The only known producer is
-    /// `CTaskLand::RenderLandscape`.
+    /// Three-phase tile-cached landscape blit (allocate / populate /
+    /// display). `source` is a [`TiledBitmapSource`] descriptor. Reachable
+    /// at runtime via `RenderDrawingQueue` case 0xD; only known producer is
+    /// `CTaskLand::RenderLandscape`. Ported impl at [`draw_tiled_bitmap_impl`].
     #[slot(11)]
     pub draw_tiled_bitmap:
         fn(this: *mut DisplayGfx, dest_x: i32, dest_y: i32, source: *const TiledBitmapSource),
@@ -308,504 +287,6 @@ pub struct DisplayGfxVtable {
     pub is_sprite_loaded: fn(this: *mut DisplayGfx, id: i32) -> u32,
     /// look up a sprite frame's surface and metadata for blitting
     /// (0x5237C0, RET 0x24) — `DisplayGfx::GetSpriteFrameForBlit`.
-    ///
-    /// **Not a "load" function** despite the historic mis-name. Called every
-    /// frame from `BlitSprite` (slot 19) to resolve a sprite ID + animation
-    /// value into a renderable frame: clamps the animation value, looks up
-    /// the matching frame entry in the sprite's frame table, lazily
-    /// decompresses the frame's surface via `FrameCache__Allocate`
-    /// + `Sprite_LZSS_Decode`, and returns the surface pointer plus the
-    /// frame's bounding box.
-    ///
-    /// Dispatches via the two arrays at `DisplayGfx + 0x1008` (Sprite*)
-    /// and `DisplayGfx + 0x2008` (SpriteBank*) — both lookups go through
-    /// the same outputs:
-    ///
-    /// | Output                         | Meaning                                          |
-    /// |--------------------------------|--------------------------------------------------|
-    /// | return value                   | `*mut DisplayBitGrid` — decompressed frame surface |
-    /// | `out_w`, `out_h`               | full sprite cell width / height (for centering)  |
-    /// | `out_left`/`top`/`right`/`bot` | frame bounding box within the cell               |
-    /// | `out_anim_frac`                | sub-frame interpolation value (Fixed16) or 0     |
-    ///
-    /// **Ported (Sprite path only).** Native Rust impl is
-    /// [`get_sprite_frame_for_blit`] in this file: Sprite path →
-    /// [`sprite_get_frame_for_blit`], SpriteBank path →
-    /// [`sprite_bank_get_frame_for_blit`] (a `panic!()` stub — see its
-    /// docstring for the structural-deadness argument). Wired via
-    /// `vtable_replace!` in `install_display`.
-    ///
-    /// With this slot ported, the entire in-game render pipeline of a
-    /// normal Worms match runs on Rust code with zero bridges into WA's
-    /// render functions.
-    ///
-    /// # Porting blueprint (kept for archival reference)
-    ///
-    /// ## Dispatcher (slot 33 itself, 0x5237C0, RET 0x24)
-    ///
-    /// 9 stack args (RET 0x24 = 36 bytes), `__thiscall` on `DisplayGfx`:
-    ///
-    /// ```text
-    /// fn(this, sprite_id: u32, anim_value: u32,
-    ///    out_w, out_h, out_left, out_top, out_right, out_bottom, out_anim_frac)
-    ///    -> *mut DisplayBitGrid
-    /// ```
-    ///
-    /// Body (verified at 0x5237C0–0x52384D):
-    /// 1. `sprite_id - 1 < 0x3FE` → bail with 0 if not (valid range 1..=0x3FE)
-    /// 2. If `this->sprite_ptrs[sprite_id]` (`+0x1008 + id*4`) is non-null:
-    ///    call `Sprite__GetFrameForBlit` (sprite path) and return.
-    /// 3. Else if `this->sprite_banks[sprite_id]` (`+0x2008 + id*4`) is
-    ///    non-null: call `SpriteBank__GetFrameForBlit` (bank path) and return.
-    /// 4. Else return 0.
-    ///
-    /// **Both helpers return the same `*mut DisplayBitGrid` shape via EAX**
-    /// (`sprite + 0x34` for the sprite path, `bank + 0x130` for the bank
-    /// path), so the dispatcher is a thin pass-through.
-    ///
-    /// ## `Sprite__GetFrameForBlit` (0x4FAD30, RET 0x18)
-    ///
-    /// **Usercall** (verified by stack-tracking 0x4FAD30–0x4FAEBD):
-    ///
-    /// | Reg/Stack | Param          |
-    /// |-----------|----------------|
-    /// | `ESI`     | `this: *mut Sprite` |
-    /// | `EAX`     | `out_anim_frac: *mut u32` (`*EAX = 0` or interpolation value) |
-    /// | `EDX`     | `anim_value: u32` (Fixed16, clamped) |
-    /// | stack[0]  | `out_w: *mut i32` |
-    /// | stack[1]  | `out_h: *mut i32` |
-    /// | stack[2]  | `out_left: *mut i32` |
-    /// | stack[3]  | `out_top: *mut i32` |
-    /// | stack[4]  | `out_right: *mut i32` |
-    /// | stack[5]  | `out_bottom: *mut i32` |
-    ///
-    /// Returns `LEA EAX, [ESI+0x34]` — pointer to the embedded
-    /// `DisplayBitGrid` sub-object inside `Sprite` (`bitgrid` field).
-    ///
-    /// Body, in order:
-    /// 1. **Clamp `anim_value`** by `Sprite::flags` (`+0x10`):
-    ///    - bit 0 set: `anim_value &= 0xFFFF` (use as-is)
-    ///    - bit 0 clear: clamp signed to `[0, 0xFFFF]`
-    /// 2. **Ping-pong** if `flags & 2`: `anim_value *= 2; if (>0xFFFF) anim_value = 0x1FFFE - 2*orig`
-    /// 3. **Frame index resolution**:
-    ///    - If `Sprite::is_scaled` (`+0x24`) != 0: linearly interpolate
-    ///      between `scale_x` (`+0x1C`) and `scale_y` (`+0x20`):
-    ///      `*out_anim_frac = (((scale_y - scale_x) * anim_value) >> 16) + scale_x`
-    ///      and `frame_idx = 0`
-    ///    - Else if `Sprite[+0x18].byte0 & 1` (rounding-mode flag, currently
-    ///      `_unknown_18`): `frame_idx = ((max_frames * anim_value + 0x8000) >> 16)`,
-    ///      with the special case that if rounding produces `frame_idx == max_frames`,
-    ///      set `frame_idx = 0` (wrap). `*out_anim_frac = 0`.
-    ///    - Else: `frame_idx = (max_frames * anim_value) >> 16`. `*out_anim_frac = 0`.
-    /// 4. **Read frame metadata** from `frame_meta_ptr[frame_idx]`
-    ///    (12 bytes per `SpriteFrame`):
-    ///    `*out_left = start_x`, `*out_top = start_y`,
-    ///    `*out_right = end_x`, `*out_bottom = end_y`.
-    ///    Then `*out_w = sprite->width` (`+0xC`), `*out_h = sprite->height` (`+0xE`).
-    /// 5. **Surface decompression dispatch** based on `header_flags & 0x4000`
-    ///    (`+0x14`):
-    ///
-    ///    **Flat (no cache) path** — `(header_flags & 0x4000) == 0`:
-    ///    Surface address = `sprite->bitmap_data_ptr (+0x64) + frame_meta[frame_idx].bitmap_offset`.
-    ///    No decompression: the bitmap data is already-decoded raw pixels in
-    ///    the original load buffer.
-    ///
-    ///    **Cached path** — `(header_flags & 0x4000) != 0`:
-    ///    The `bitmap_offset` u32 in `SpriteFrame` is split:
-    ///    - **High byte** (signed `i8`): subframe index into the per-sprite
-    ///      cache table at `Sprite + 0x2C` (currently mis-typed as
-    ///      `secondary_frame_ptr: *mut SpriteFrame` — see "Pre-work" below).
-    ///    - **Low 24 bits** (`& 0xFFFFFF`): pixel offset within the
-    ///      decompressed subframe.
-    ///
-    ///    Per-sprite subframe cache entry layout (`Sprite + 0x2C` is a
-    ///    pointer to an array of these, count = `Sprite + 0x30`):
-    ///    ```text
-    ///    struct SpriteSubframeCache {
-    ///        compressed_offset: u32,  // +0: byte offset within sprite->bitmap_data_ptr
-    ///        decoded_ptr: *mut u8,    // +4: 0 if not yet cached; lazily set
-    ///        decoded_size: u32,       // +8: uncompressed size in bytes
-    ///    }
-    ///    ```
-    ///
-    ///    If `decoded_ptr == 0`:
-    ///    - `decoded_ptr = FrameCache__Allocate(decoded_size, sprite->context_ptr, sprite, subframe_idx)`
-    ///    - `Sprite_LZSS_Decode(decoded_ptr,
-    ///        sprite->bitmap_data_ptr + entry.compressed_offset,
-    ///        sprite->palette_data_ptr (+0x68))`
-    ///
-    ///    Surface address = `decoded_ptr + (frame_meta[frame_idx].bitmap_offset & 0xFFFFFF)`.
-    /// 6. **Update embedded bitgrid** at `sprite + 0x34` (only if its
-    ///    `data` field at `+0x4 == sprite+0x38` is non-zero — i.e. the
-    ///    bitgrid is initialized):
-    ///    Set `data = surface_addr`, `width = (right - left)`,
-    ///    `height = (bottom - top)`, clip = `(0, 0, width, height)`.
-    ///    Note: only 8 fields are written (not the full bitgrid init);
-    ///    the row stride and `cells_per_unit` are assumed already set.
-    /// 7. Return `sprite + 0x34` (the embedded `DisplayBitGrid`).
-    ///
-    /// ## `SpriteBank__GetFrameForBlit` (0x4F9710, RET 0x1C)
-    ///
-    /// **Usercall**, very similar shape to the Sprite version but with one
-    /// extra stack arg and a different EAX role:
-    ///
-    /// | Reg/Stack | Param          |
-    /// |-----------|----------------|
-    /// | `ESI`     | `this: *mut SpriteBank` |
-    /// | `EAX`     | `sprite_id: u32` (used for index_table lookup) |
-    /// | `EDX`     | `anim_value: u32` |
-    /// | stack[0]  | `out_w` |
-    /// | stack[1]  | `out_h` |
-    /// | stack[2]  | `out_left` |
-    /// | stack[3]  | `out_top` |
-    /// | stack[4]  | `out_right` |
-    /// | stack[5]  | `out_bottom` |
-    /// | stack[6]  | `out_anim_frac` |
-    ///
-    /// Returns `bank + 0x130` (a `DisplayBitGrid` sub-object embedded in
-    /// `SpriteBank` — currently inside `_unknown_18`, needs typing).
-    ///
-    /// Body:
-    /// 1. **Index table lookup**: `frame_idx = bank->index_table[sprite_id - bank->base_id]`
-    ///    (`bank+0xC`, `bank+0x8`).
-    /// 2. **Validate**: `bank->frame_table` (`+0x10`) non-null AND
-    ///    `0 <= frame_idx < bank->frame_count` (`+0x14`). Return 0 on fail.
-    /// 3. `entry = &frame_table[frame_idx]` (12-byte stride). Each entry
-    ///    has the **same role** as a Sprite + SpriteBankFrame combined —
-    ///    the existing `SpriteBankFrame` Rust struct is wrong (see "Pre-work").
-    ///    Verified field accesses on the entry:
-    ///    - `+0` u8/u16: animation flags (bit 0 = use-as-is, bit 1 = ping-pong) — same role as `Sprite::flags`
-    ///    - `+2` u16: width  → `*out_w`
-    ///    - `+4` u16: height → `*out_h`
-    ///    - `+6` u16: base_frame_index (added to scaled value)
-    ///    - `+8` u16: scale or frame_count. **High bit `0x8000` set** = scaled mode, similar to Sprite's `is_scaled`+`scale_x`/`scale_y` path; the low/high 7-bit nibbles are sign-extended `<< 16 >> 5` to form `(scale_y - scale_x) * anim_value` (a Fixed16 interpolation). High bit clear = plain frame_count multiplier.
-    /// 4. **Clamp `anim_value`** + ping-pong, identical to the Sprite path.
-    /// 5. **Frame index resolution** (analogous to Sprite, but using the
-    ///    `frame_table[frame_idx]` fields above instead of `Sprite::scale_*`/`max_frames`).
-    /// 6. **Read frame bbox metadata** from a *second* table at `bank + 0x18`
-    ///    (currently inside `_unknown_18`!) — this is a `*mut SpriteFrame`-
-    ///    shaped array indexed by the resolved sub-`frame_idx`. Reads:
-    ///    `[+4] start_x → *out_left`, `[+6] start_y → *out_top`,
-    ///    `[+8] end_x → *out_right`, `[+0xA] end_y → *out_bottom`.
-    /// 7. **Subframe cache lookup**: read `subframe_idx` from the *low word*
-    ///    of `bbox_table[frame_idx][+0]` (just like Sprite's high byte trick,
-    ///    but here it's the low u16 of `bitmap_offset`). Then index into
-    ///    `bank->subframe_cache_table` at `bank + 0x20` (12-byte entries).
-    ///
-    ///    **SpriteBank cache entry layout — note the field order differs
-    ///    from Sprite!**:
-    ///    ```text
-    ///    struct SpriteBankSubframeCache {
-    ///        compressed_offset: u32,  // +0
-    ///        decoded_size: u32,       // +4   (Sprite has decoded_ptr here!)
-    ///        decoded_ptr: *mut u8,    // +8   (Sprite has decoded_size here!)
-    ///    }
-    ///    ```
-    ///    The `decoded_ptr == 0` check is at `+8`, and `decoded_size` (the
-    ///    arg to `FrameCache__Allocate`) is read from `+4`. Both Sprite and
-    ///    SpriteBank versions allocate from the same FrameCache instance via
-    ///    `bank->context_ptr (+0x4)`.
-    ///
-    /// 8. After (re)decompression: call `DisplayBitGrid::SetExternalBuffer`
-    ///    (FUN_004F6470 — fastcall ECX=height, EDX=width, stack=(bitgrid,
-    ///    decoded_data, row_stride)) on `bank + 0x130` to update the
-    ///    embedded bitgrid's pixel pointer + dimensions + clip rect to the
-    ///    new subframe.
-    /// 9. Return `bank + 0x130`.
-    ///
-    /// ## Leaf primitives
-    ///
-    /// ### `FrameCache__Allocate` (0x4FA950, FUN_004FA950, RET 0xC)
-    ///
-    /// LRU ring-buffer allocator for decompressed sprite subframe pixels.
-    ///
-    /// **Usercall**: `EAX = entry_size`, stack = `(context_ptr, owner_ptr, frame_idx)`.
-    /// Returns the payload pointer (`entry + 0x10`) in EAX.
-    ///
-    /// FrameCache lives at `*(context_ptr + 4)` — a single shared cache per
-    /// SpriteCache, NOT per sprite. **The SpriteCache type is unknown;
-    /// `Sprite::context_ptr` is currently typed as `*mut SpriteCache` but
-    /// SpriteCache itself is opaque.** The FrameCache struct sits at offset
-    /// `+4` of SpriteCache.
-    ///
-    /// **FrameCache layout** (verified at 0x4FA970–0x4FA9BF):
-    /// ```text
-    /// struct FrameCache {
-    ///     buffer: *mut u8,             // +0x00
-    ///     capacity: u32,               // +0x04 — total bytes
-    ///     write_head: u32,             // +0x08 — current alloc cursor (offset within buffer)
-    ///     wrap_marker: u32,            // +0x0c — read head / wrap point
-    ///     tail_entry: *mut Entry,      // +0x10 — most recently allocated
-    ///     head_entry: *mut Entry,      // +0x14 — oldest, evicted first
-    ///     entry_count: u32,            // +0x18
-    /// }
-    /// ```
-    ///
-    /// **Entry header** (16 bytes + payload):
-    /// ```text
-    /// struct FrameCacheEntry {
-    ///     padded_size: u32,            // +0x00 — = ((req + 8 + 0xb) & ~3)
-    ///     next: *mut FrameCacheEntry,  // +0x04 — LRU linked list
-    ///     owner: *mut c_void,          // +0x08 — sprite or bank ptr (caller's stack arg 2)
-    ///     frame_idx: u32,              // +0x0c — caller's stack arg 3
-    ///     // payload: [u8; req_size]   // +0x10 — returned to caller
-    /// }
-    /// ```
-    ///
-    /// **Allocation algorithm** (paraphrased):
-    /// ```text
-    /// loop {
-    ///     pad = align(entry_size + 8 + 0xb, 4);  // total bytes incl. header
-    ///     payload_size = entry_size + 8;          // size stored in entry header
-    ///     fc = *(context_ptr + 4);
-    ///     write = fc.write_head;
-    ///     wrap  = fc.wrap_marker;
-    ///     end   = write + pad;
-    ///
-    ///     if write < wrap {
-    ///         if end <= wrap { goto fit; }  // would not collide with read head
-    ///     } else {
-    ///         if end <= fc.capacity { goto fit; }  // fits before end of buffer
-    ///         // wrap-around: try writing at offset 0
-    ///         if pad <= wrap { write = 0; goto fit; }
-    ///     }
-    ///
-    ///     // No room: evict the oldest entry, retry.
-    ///     if fc.head_entry != null {
-    ///         victim = fc.head_entry;
-    ///         // Notify owner that its decoded surface is being dropped:
-    ///         (victim.owner.vtable[1])(victim.owner, &victim.owner.subframe_cache_entry_for(victim.frame_idx));
-    ///         // Unlink victim, advance head_entry, recompute wrap_marker.
-    ///     }
-    ///     continue;
-    ///
-    /// fit:
-    ///     entry = fc.buffer + write;
-    ///     entry.padded_size = payload_size;
-    ///     entry.next = null;
-    ///     if fc.tail_entry { fc.tail_entry.next = entry; }
-    ///     fc.tail_entry = entry;
-    ///     if fc.head_entry == null { fc.head_entry = entry; }
-    ///     fc.entry_count += 1;
-    ///     fc.write_head = write + pad;
-    ///     entry.owner = owner;
-    ///     entry.frame_idx = frame_idx;
-    ///     return entry + 0x10;
-    /// }
-    /// ```
-    ///
-    /// **Eviction notification**: the cache calls
-    /// `victim.owner.vtable[1]` — slot 1 of `Sprite::vtable`
-    /// (currently named `slot_1: fn(this: *mut Sprite)` at 0x4FAAD0,
-    /// vtable 0x66418C) and slot 1 of `SpriteBank::vtable` (currently named
-    /// `slot_1: fn(this: *mut SpriteBank)` at 0x4F9580, vtable 0x664180).
-    /// **These slots are the "drop subframe pointer" callback**, not generic
-    /// init/load functions as their current names suggest. Renaming them to
-    /// `on_frame_evicted` (or similar) is part of the Pre-work below.
-    /// The second arg to the callback is `entry.owner + 0x10` — i.e. the
-    /// FrameCacheEntry's payload start, which the callback uses to identify
-    /// which subframe table entry to clear.
-    ///
-    /// ### `Sprite_LZSS_Decode` (0x5B29E0, FUN_005B29E0, RET 0xC)
-    ///
-    /// **Stdcall**: `(dst: *mut u8, src: *const u8, lut: *const u8)`. The
-    /// outer `PUSHAD/POPAD` makes this safe to bridge from any context.
-    ///
-    /// LZSS variant with palette LUT remapping. Format (per source byte):
-    /// - **Literal** (`src[0] < 0x80`): emit `lut[src[0]]`, advance `src` by 1.
-    /// - **Short back-ref** (`src[0] >= 0x80`, length nibble != 0):
-    ///   - `length = ((src[0] >> 3) & 0xF) + 2` (range 3..18)
-    ///   - `distance = ((src[0] << 8) | src[1]) & 0x7FF` (range 0..0x7FF)
-    ///   - Copy `length` bytes from `dst - distance - 1` to `dst`. Advance `src` by 2.
-    /// - **Long back-ref** (`src[0] >= 0x80`, length nibble == 0,
-    ///   `distance != 0`):
-    ///   - `length = src[2] + 18` (range 18..273)
-    ///   - `distance` as above. Copy + advance `src` by 3.
-    /// - **Terminator** (length nibble == 0 AND distance == 0): exit loop.
-    ///
-    /// LUT is the 256-byte palette translation table from
-    /// `Sprite::palette_data_ptr (+0x68)` for the sprite path, or
-    /// `bank + 0x30` (inline 256-byte array) for the bank path.
-    ///
-    /// ## Pre-work needed before any porting begins
-    ///
-    /// These type/struct fixes are pure refactors and should be the first
-    /// landed commits in this porting push. Each is a small,
-    /// behavior-preserving change.
-    ///
-    /// 1. **Type the FrameCache** — define `#[repr(C)] struct FrameCache`
-    ///    with the 7 fields above, asserted at `size = 0x1C`. Define
-    ///    `#[repr(C)] struct FrameCacheEntry` (header only). Place in
-    ///    `crates/openwa-core/src/render/sprite/frame_cache.rs`.
-    ///
-    /// 2. **Type SpriteCache** — currently `Sprite::context_ptr` points at
-    ///    a `SpriteCache` whose layout is opaque. Even an incomplete
-    ///    `#[repr(C)] struct SpriteCache { _pad_00: u32, frame_cache: FrameCache, ... }`
-    ///    (size unknown) is enough to enable `(*ctx).frame_cache.write_head`
-    ///    typed access from the allocator port. Verify `frame_cache` lives
-    ///    *inline* at `+0x4` (likely) versus being a pointer (`*mut FrameCache`).
-    ///    `Sprite__GetFrameForBlit` reads `[ESI+0x4]` and passes it to
-    ///    `FrameCache__Allocate`, which then loads `[EBP+4]` — that's a
-    ///    **double dereference**, so SpriteCache+0x4 is a `*mut FrameCache`,
-    ///    not an inline FrameCache. Verify this from the SpriteCache
-    ///    constructor (find via xrefs to ConstructSprite).
-    ///
-    /// 3. **Re-type `Sprite::secondary_frame_ptr`** — currently
-    ///    `*mut SpriteFrame`, actually `*mut SpriteSubframeCache`. Add the
-    ///    new struct (3 fields, 12 bytes) and rename the field to
-    ///    `subframe_cache_table: *mut SpriteSubframeCache`. The
-    ///    `secondary_frame_count: u16` field stays — it's the entry count.
-    ///    Update `docs/re-notes/sprites.md` row +0x2C accordingly.
-    ///
-    /// 4. **Fix `SpriteBankFrame`** — the current Rust struct is **wrong**
-    ///    end-to-end. Re-derive the layout from `SpriteBank__GetInfo`
-    ///    (FUN_004F98C0) AND `SpriteBank__GetFrameForBlit` jointly. The
-    ///    correct shape per the disasm:
-    ///    ```text
-    ///    struct SpriteBankFrame {  // 0xC bytes
-    ///        flags: u8,            // +0  — bit 0 = anim_value used as-is, bit 1 = ping-pong
-    ///        _pad_01: u8,
-    ///        width: u16,           // +2  — was at +8 in old struct
-    ///        height: u16,          // +4
-    ///        base_frame_idx: u16,  // +6
-    ///        scale_or_count: u16,  // +8  — high bit set = scaled mode (low/high 7-bit nibbles → scale_x/scale_y), clear = frame count multiplier
-    ///        _pad_0a: u16,
-    ///    }
-    ///    ```
-    ///    Cross-check by reading `GetInfo` and confirming both functions
-    ///    agree on every offset. This **probably breaks downstream callers**
-    ///    of `SpriteBankFrame.width`/`data_value`; grep for them and fix in
-    ///    the same commit.
-    ///
-    /// 5. **Type the SpriteBank `_unknown_18` blob fields**:
-    ///    - `+0x18`: `bbox_table: *mut SpriteFrame` — primary frame metadata
-    ///      (start_x/start_y/end_x/end_y, indexed by resolved subframe idx)
-    ///    - `+0x20`: `subframe_cache_table: *mut SpriteBankSubframeCache`
-    ///      (12-byte entries, **field order differs from Sprite!** — see
-    ///      doc above)
-    ///    - `+0x28`: `bitmap_data_ptr: *mut u8` — compressed source base
-    ///    - `+0x30`: `palette_lut: [u8; 256]` — inline 256-byte LUT
-    ///    - `+0x130`: `frame_bitgrid: DisplayBitGrid` — embedded sub-object
-    ///      returned to callers (replaces tail of `_unknown_18`)
-    ///
-    /// 6. **Define `SpriteBankSubframeCache`** as its own struct (NOT a
-    ///    typedef of the Sprite version — different field order). Add a
-    ///    test that asserts both have `size_of == 0xC` and the correct
-    ///    `offset_of` values for their respective `decoded_ptr`/`decoded_size`
-    ///    fields.
-    ///
-    /// 7. **Rename `Sprite::_unknown_18` byte0** to `frame_round_mode: u8`
-    ///    (or similar) — bit 0 controls the `+0x8000` rounding in the
-    ///    frame-index computation. This is a 1-line struct change.
-    ///
-    /// 8. **Rename `Sprite::vtable[1]`** (currently `slot_1` at 0x4FAAD0)
-    ///    and `SpriteBank::vtable[1]` (currently `slot_1` at 0x4F9580) to
-    ///    `on_subframe_evicted`. Both are the FrameCache eviction
-    ///    notification callback, NOT init helpers as their current names
-    ///    imply. Verify by reading their bodies — they should clear a
-    ///    `decoded_ptr` field somewhere in the owner's subframe table.
-    ///
-    /// ## Leaf-first porting order (one PR-sized commit each)
-    ///
-    /// 1. **Pre-work commits** (above) — type fixes, no logic changes.
-    ///    Land first, run headless tests, no headful needed.
-    ///
-    /// 2. **Port `Sprite_LZSS_Decode`** — pure function, no WA dependencies.
-    ///    Trivial to test against the original via byte-for-byte output
-    ///    comparison on a known compressed buffer. Land standalone in
-    ///    `crates/openwa-core/src/render/sprite/lzss.rs`. The original at
-    ///    0x5B29E0 has 4 callers, only 2 of which we touch here — leave
-    ///    the original in place for now and only swap the in-game render
-    ///    callers in step 5.
-    ///
-    /// 3. **Port `FrameCache__Allocate`** — depends on FrameCache type from
-    ///    pre-work step 1 and the eviction-callback rename from step 8.
-    ///    Once typed, the LRU bookkeeping is straightforward but
-    ///    error-prone (the wrap-around check is the trickiest part).
-    ///    Validate by:
-    ///    - Standalone unit test that allocates entries until forced
-    ///      eviction and verifies the head/tail/count bookkeeping matches
-    ///      a known sequence.
-    ///    - **Bridge-then-port** technique (lesson #4): first wire the new
-    ///      Rust impl as a *secondary* path that runs alongside the
-    ///      original and asserts equality of the returned pointer. Once
-    ///      stable, drop the bridge.
-    ///
-    /// 4. **Port `Sprite__GetFrameForBlit`** — needs both leaves above
-    ///    plus the `Sprite::vtable[1]` rename. Use a `Sprite_GetFrameForBlit`
-    ///    bridge from `replacements/sprite.rs` style usercall trampoline
-    ///    only if absolutely needed; ideally write the port directly in
-    ///    core and call it from slot 33.
-    ///
-    /// 5. **Port `SpriteBank__GetFrameForBlit`** — same shape, plus the
-    ///    `DisplayBitGrid::SetExternalBuffer` (FUN_004F6470) call. Port
-    ///    that helper as a leaf in step 2.5 (or inline it; it's only 8
-    ///    field writes).
-    ///
-    /// 6. **Port slot 33 itself** as a thin dispatcher between the two
-    ///    helpers. Wire via `vtable_replace!` in `install_display`. Delete
-    ///    the `replacements/render.rs::blit_sprite` raw call to
-    ///    `get_sprite_frame_for_blit_raw` — it now goes through the
-    ///    typed Rust impl.
-    ///
-    /// ## Verification
-    ///
-    /// **Headless tests** validate game logic only — slot 33 is a render
-    /// path, so headless will only catch crashes, not visual correctness
-    /// (lesson `feedback_headless_does_not_test_rendering.md`).
-    ///
-    /// **Headful tests + user visual confirmation are required at every
-    /// step that touches rendering**:
-    /// - After step 2 (LZSS port): no visual change, but worth a smoke test.
-    /// - After step 3 (FrameCache port): no visual change (only allocation
-    ///   bookkeeping). Run a long replay to exercise eviction.
-    /// - After step 4 (Sprite__GetFrameForBlit): **all** sprite-based
-    ///   animation comes through this path. Test with worms moving,
-    ///   weapons firing, particles, fire/smoke, water animations.
-    /// - After step 5 (SpriteBank__GetFrameForBlit): exercises any
-    ///   sprite_bank-backed sprites. The bank path is rarer than the
-    ///   sprite path; check after-game scoreboard, weapon icons, HUD
-    ///   elements.
-    /// - After step 6: full headful round, since slot 33 is now Rust-only.
-    ///
-    /// ## Known gotchas
-    ///
-    /// 1. **The two cache entry layouts have different field orders**
-    ///    (Sprite: `{offset, ptr, size}`, SpriteBank: `{offset, size, ptr}`).
-    ///    DO NOT define a single shared struct — give them different names
-    ///    and asserted offsets, and let the type system enforce the
-    ///    distinction. This is the single most likely source of porting
-    ///    bugs.
-    ///
-    /// 2. **`Sprite::secondary_frame_count` lives at +0x30** but the
-    ///    cache table at `+0x2C` is indexed by a *signed* `i8` from the
-    ///    high byte of `bitmap_offset`. Negative subframe indices would be
-    ///    a bug, but make sure the port reads `as i8` not `as u8` to match
-    ///    the `MOVSX EDX, byte ptr [...]` in the disasm.
-    ///
-    /// 3. **Slot 33's stack-shuffle is asymmetric between paths** — the
-    ///    Sprite path gets 6 stack args + EAX=out_anim_frac, the SpriteBank
-    ///    path gets 7 stack args (out_anim_frac on stack) + EAX=sprite_id.
-    ///    Verify the call site argument order matches the helper's
-    ///    expected register/stack layout exactly (re-check the disasm
-    ///    of the dispatcher at 0x5237DB and 0x523815).
-    ///
-    /// 4. **The eviction notification dereferences a vtable** — if the
-    ///    sprite's vtable[1] is the new "on_subframe_evicted" Rust impl,
-    ///    it must NOT recursively call back into the FrameCache (that
-    ///    would deadlock if we hold any cache invariants). Read the
-    ///    original 0x4FAAD0 / 0x4F9580 implementations carefully before
-    ///    porting them.
-    ///
-    /// 5. **Lesson #16 (`feedback_thirdparty_RE_xrefs_lie`)**: don't
-    ///    blindly trust Ghidra xrefs as a substitute for grepping the
-    ///    current Rust code. Both helpers are in the WA xref list as
-    ///    "called from slot 33" and that's it — but our `blit_sprite`
-    ///    has been calling slot 33 directly via the typed `_raw` wrapper
-    ///    for months, so the **only** in-program caller of slot 33 today
-    ///    is our own Rust code. Once slot 33 is ported, the bridge to
-    ///    WA's helpers is fully gone — there is no remaining WA caller
-    ///    to validate against.
     #[slot(33)]
     pub get_sprite_frame_for_blit: fn(
         this: *mut DisplayGfx,
@@ -868,13 +349,7 @@ use crate::render::sprite::{
     frame_cache::frame_cache_allocate, lzss::sprite_lzss_decode, Sprite, SpriteBank, SpriteVtable,
 };
 
-/// Port of DisplayGfx::GetDimensions (vtable slot 1, 0x56A460).
-///
-/// Reads display_width/display_height from DisplayBase and writes them
-/// to the output pointers.
-///
-/// # Safety
-/// `this` must be a valid `*mut DisplayGfx`.
+/// Port of DisplayGfx::GetDimensions (slot 1, 0x56A460).
 pub unsafe extern "thiscall" fn get_dimensions(
     this: *mut DisplayGfx,
     out_w: *mut u32,
@@ -888,52 +363,28 @@ use super::context::{FastcallResult, RenderContext};
 use crate::address::va;
 use crate::rebase::rb;
 
-/// Port of DisplayGfx::FlushRender (vtable slot 26, 0x56A580).
+/// Port of DisplayGfx::FlushRender (slot 26, 0x56A580).
 ///
-/// If the render lock is held, clears it (the original also calls
-/// RenderContext::unlock_surface_write, but that's a no-op that
-/// writes a success code to a discarded result buffer).
-///
-/// Then calls RenderContext::get_renderer_surface (slot 13),
-/// which dispatches to the renderer backend's Flip.
-///
-/// # Safety
-/// `this` must be a valid `*mut DisplayGfx`.
-/// `g_RenderContext` (0x79D6D4) must be initialized.
+/// The original also calls `unlock_surface_write` when the lock is held,
+/// but that's a no-op whose result is discarded — we just clear the flag.
 pub unsafe extern "thiscall" fn flush_render(this: *mut DisplayGfx) {
     let wrapper = *(rb(va::G_RENDER_CONTEXT) as *const *mut RenderContext);
 
     if (*this).render_lock != 0 {
-        // Original calls wrapper->vtable[18] (unlock_surface_write) here,
-        // but that function ignores its data parameter and just writes a
-        // success code to a result buffer that FlushRender never reads.
         (*this).render_lock = 0;
     }
 
-    // get_renderer_surface → renderer Flip
     let mut buf = FastcallResult::default();
     RenderContext::get_renderer_surface_raw(wrapper, &mut buf);
 }
 
-/// Port of DisplayGfx::SetCameraOffset (vtable slot 27, 0x56CC40).
-///
-/// Converts Fixed-point camera coordinates to pixel integers and stores them.
-///
-/// # Safety
-/// `this` must be a valid `*mut DisplayGfx`.
+/// Port of DisplayGfx::SetCameraOffset (slot 27, 0x56CC40).
 pub unsafe extern "thiscall" fn set_camera_offset(this: *mut DisplayGfx, x: Fixed, y: Fixed) {
     (*this).camera_x = x.to_int();
     (*this).camera_y = y.to_int();
 }
 
-/// Port of DisplayGfx::SetClipRect (vtable slot 28, 0x56CC60).
-///
-/// Converts Fixed-point clip rectangle to pixel integers, clamps to display
-/// dimensions, stores in DisplayBase, and mirrors to the layer_0 object.
-///
-/// # Safety
-/// `this` must be a valid `*mut DisplayGfx`.
-/// `layer_0` (at +0x3D9C) must be initialized.
+/// Port of DisplayGfx::SetClipRect (slot 28, 0x56CC60).
 pub unsafe extern "thiscall" fn set_clip_rect(
     this: *mut DisplayGfx,
     x1: Fixed,
@@ -993,17 +444,7 @@ pub unsafe extern "thiscall" fn set_clip_rect(
     }
 }
 
-/// Port of the render-lock flush helper at 0x56A330.
-///
-/// If the render lock is held, releases it by calling
-/// RenderContext::unlock_surface_write (slot 18), then clears the flag.
-/// Called by drawing methods (fill_rect, draw_line, etc.) before rendering.
-///
-/// Original uses ESI = this (usercall).
-///
-/// # Safety
-/// `gfx` must be a valid `*mut DisplayGfx` with `layer_0` initialized.
-/// `g_RenderContext` must be initialized.
+/// Port of the render-lock flush helper at 0x56A330 (usercall on ESI).
 unsafe fn flush_render_lock(gfx: *mut DisplayGfx) {
     if (*gfx).render_lock != 0 {
         let wrapper = *(rb(va::G_RENDER_CONTEXT) as *const *mut RenderContext);
@@ -1014,18 +455,7 @@ unsafe fn flush_render_lock(gfx: *mut DisplayGfx) {
     }
 }
 
-/// Port of the render-lock acquire helper at 0x56A370.
-///
-/// If the render lock is NOT held, queries RenderContext for framebuffer
-/// dimensions (slot 3) and locks the surface for writing (slot 17), then
-/// populates layer_0's BitGrid fields (data, stride, dimensions) from the
-/// locked surface and copies DisplayBase's clip rect into layer_0.
-///
-/// Original uses ESI = this (usercall).
-///
-/// # Safety
-/// `gfx` must be a valid `*mut DisplayGfx` with `layer_0` initialized.
-/// `g_RenderContext` must be initialized.
+/// Port of the render-lock acquire helper at 0x56A370 (usercall on ESI).
 pub unsafe fn acquire_render_lock(gfx: *mut DisplayGfx) {
     if (*gfx).render_lock != 0 {
         return; // already locked
@@ -1034,20 +464,15 @@ pub unsafe fn acquire_render_lock(gfx: *mut DisplayGfx) {
     let wrapper = *(rb(va::G_RENDER_CONTEXT) as *const *mut RenderContext);
     let mut buf = FastcallResult::default();
 
-    // Get framebuffer dimensions (slot 3).
-    // The wrapper writes width and height to the output buffer.
     let mut dims: [u32; 2] = [0; 2];
     RenderContext::get_framebuffer_dims_raw(wrapper, &mut buf, dims.as_mut_ptr());
     let fb_width = dims[0];
     let fb_height = dims[1];
 
-    // Lock surface for writing (slot 17).
-    // The wrapper writes framebuffer pointer and stride through the params.
     let mut data_ptr: u32 = 0;
     let mut stride: u32 = 0;
     RenderContext::lock_surface_write_raw(wrapper, &mut buf, &mut data_ptr, &mut stride);
 
-    // Populate layer_0 from the locked surface
     let layer = (*gfx).layer_0;
     if (*layer).external_buffer != 0 {
         (*layer).width = fb_width;
@@ -1060,7 +485,6 @@ pub unsafe fn acquire_render_lock(gfx: *mut DisplayGfx) {
         (*layer).clip_bottom = fb_height;
     }
 
-    // Copy DisplayBase clip rect to layer_0, clamped to layer dimensions
     let base = &(*gfx).base;
     (*layer).clip_left = base.clip_x1 as u32;
     (*layer).clip_top = base.clip_y1 as u32;
@@ -1083,15 +507,7 @@ pub unsafe fn acquire_render_lock(gfx: *mut DisplayGfx) {
     (*gfx).render_lock = 1;
 }
 
-/// Port of DisplayGfx::FillRect (vtable slot 18, 0x56B810).
-///
-/// Fills a rectangle with a solid color. Pixel-integer coordinates are
-/// offset by the camera position and clipped to the clip rect before
-/// dispatching to RenderContext::fill_rect (slot 19).
-///
-/// # Safety
-/// `this` must be a valid `*mut DisplayGfx`.
-/// `g_RenderContext` must be initialized.
+/// Port of DisplayGfx::FillRect (slot 18, 0x56B810).
 pub unsafe extern "thiscall" fn fill_rect(
     this: *mut DisplayGfx,
     x1: i32,
@@ -1102,13 +518,11 @@ pub unsafe extern "thiscall" fn fill_rect(
 ) {
     let base = &(*this).base;
 
-    // Apply camera offset
     let mut left = x1 + (*this).camera_x;
     let mut top = y1 + (*this).camera_y;
     let mut right = x2 + (*this).camera_x;
     let mut bottom = y2 + (*this).camera_y;
 
-    // Early-out: no intersection with clip rect
     if right <= base.clip_x1
         || bottom <= base.clip_y1
         || left >= base.clip_x2
@@ -1117,7 +531,6 @@ pub unsafe extern "thiscall" fn fill_rect(
         return;
     }
 
-    // Clamp to clip rect
     if left < base.clip_x1 {
         left = base.clip_x1;
     }
@@ -1133,7 +546,6 @@ pub unsafe extern "thiscall" fn fill_rect(
 
     flush_render_lock(this);
 
-    // RenderContext::fill_rect takes (x, y, width, height, color)
     let wrapper = *(rb(va::G_RENDER_CONTEXT) as *const *mut RenderContext);
     let mut buf = FastcallResult::default();
     RenderContext::fill_rect_raw(
@@ -1147,13 +559,10 @@ pub unsafe extern "thiscall" fn fill_rect(
     );
 }
 
-/// Port of DisplayGfx::DrawOutlinedPixel (vtable slot 17, 0x56BFD0).
+/// Port of DisplayGfx::DrawOutlinedPixel (slot 17, 0x56BFD0).
 ///
-/// Draws a center pixel in `color_fg` with 4 cardinal neighbor pixels in
-/// `color_bg` (if `color_bg != 0`). Pixel-integer coordinates with camera offset.
-///
-/// # Safety
-/// `this` must be a valid `*mut DisplayGfx`.
+/// Center pixel in `color_fg` with 4 cardinal neighbors in `color_bg`
+/// (if non-zero).
 pub unsafe extern "thiscall" fn draw_outlined_pixel(
     this: *mut DisplayGfx,
     x: i32,
@@ -1177,10 +586,9 @@ pub unsafe extern "thiscall" fn draw_outlined_pixel(
     DisplayBitGrid::put_pixel_clipped_raw(layer, cx, cy, color_fg as u8);
 }
 
-/// Port of DisplayGfx::DrawCrosshair (vtable slot 16, 0x56BE80).
+/// Port of DisplayGfx::DrawCrosshair (slot 16, 0x56BE80).
 ///
-/// Draws a 2x2 foreground block at (cx, cy)–(cx+1, cy+1) with an 8-pixel
-/// outline in `color_bg`. Pixel-integer coordinates with camera offset.
+/// 2×2 foreground block with an 8-pixel `color_bg` outline:
 ///
 /// ```text
 ///     bg bg
@@ -1188,9 +596,6 @@ pub unsafe extern "thiscall" fn draw_outlined_pixel(
 ///  bg FG FG bg
 ///     bg bg
 /// ```
-///
-/// # Safety
-/// `this` must be a valid `*mut DisplayGfx`.
 pub unsafe extern "thiscall" fn draw_crosshair(
     this: *mut DisplayGfx,
     x: i32,
@@ -1207,7 +612,6 @@ pub unsafe extern "thiscall" fn draw_crosshair(
     let bg = color_bg as u8;
     let fg = color_fg as u8;
 
-    // Background outline (8 pixels)
     DisplayBitGrid::put_pixel_clipped_raw(layer, cx, cy - 1, bg);
     DisplayBitGrid::put_pixel_clipped_raw(layer, cx + 1, cy - 1, bg);
     DisplayBitGrid::put_pixel_clipped_raw(layer, cx - 1, cy, bg);
@@ -1217,17 +621,13 @@ pub unsafe extern "thiscall" fn draw_crosshair(
     DisplayBitGrid::put_pixel_clipped_raw(layer, cx, cy + 2, bg);
     DisplayBitGrid::put_pixel_clipped_raw(layer, cx + 1, cy + 2, bg);
 
-    // Foreground 2x2 block (4 pixels)
     DisplayBitGrid::put_pixel_clipped_raw(layer, cx, cy, fg);
     DisplayBitGrid::put_pixel_clipped_raw(layer, cx + 1, cy, fg);
     DisplayBitGrid::put_pixel_clipped_raw(layer, cx, cy + 1, fg);
     DisplayBitGrid::put_pixel_clipped_raw(layer, cx + 1, cy + 1, fg);
 }
 
-/// Wrapper that implements `PixelWriter` for a raw `*mut DisplayBitGrid`.
-///
-/// Dispatches `put_pixel_clipped` through the vtable, reads clip rect from
-/// the BitGrid's clip fields.
+/// `PixelWriter` adapter over a raw `*mut DisplayBitGrid`.
 struct BitGridWriter(*mut DisplayBitGrid);
 
 impl line_draw::PixelWriter for BitGridWriter {
@@ -1257,13 +657,7 @@ impl line_draw::PixelWriter for BitGridWriter {
     }
 }
 
-/// Port of DisplayGfx::DrawLine (vtable slot 13, 0x56BDB0).
-///
-/// Draws a two-color thick line. Fixed-point coordinates with camera offset
-/// applied as `camera * 0x10000 + coord`. Pure Rust implementation.
-///
-/// # Safety
-/// `this` must be a valid `*mut DisplayGfx`.
+/// Port of DisplayGfx::DrawLine (slot 13, 0x56BDB0).
 pub unsafe extern "thiscall" fn draw_line(
     this: *mut DisplayGfx,
     x1: Fixed,
@@ -1290,13 +684,7 @@ pub unsafe extern "thiscall" fn draw_line(
     );
 }
 
-/// Port of DisplayGfx::DrawLineClipped (vtable slot 14, 0x56BD50).
-///
-/// Draws a single-color clipped line. Fixed-point coordinates with camera
-/// offset. Pure Rust implementation.
-///
-/// # Safety
-/// `this` must be a valid `*mut DisplayGfx`.
+/// Port of DisplayGfx::DrawLineClipped (slot 14, 0x56BD50).
 pub unsafe extern "thiscall" fn draw_line_clipped(
     this: *mut DisplayGfx,
     x1: Fixed,
@@ -1321,14 +709,9 @@ pub unsafe extern "thiscall" fn draw_line_clipped(
     );
 }
 
-/// Port of DisplayGfx::DrawPolyline (vtable slot 12, 0x56BCC0).
+/// Port of DisplayGfx::DrawPolyline (slot 12, 0x56BCC0).
 ///
-/// Transforms point array by camera offset, clips, and fills the polygon.
-/// Points are Fixed-point (x, y) pairs. Pixel-integer camera is applied as
-/// `camera * 0x10000 + coord`.
-///
-/// # Safety
-/// `this` must be a valid `*mut DisplayGfx`.
+/// Points are Fixed-point (x, y) pairs.
 pub unsafe extern "thiscall" fn draw_polyline(
     this: *mut DisplayGfx,
     points: *mut i32,
@@ -1338,7 +721,6 @@ pub unsafe extern "thiscall" fn draw_polyline(
     let cam_x = Fixed::from_int((*this).camera_x);
     let cam_y = Fixed::from_int((*this).camera_y);
 
-    // Build vertex array with camera offset on the stack
     let n = count as usize;
     if n == 0 || n > 256 {
         return;
@@ -1358,14 +740,10 @@ pub unsafe extern "thiscall" fn draw_polyline(
     line_draw::draw_polygon_filled(&mut writer, &verts[..n], color as u8);
 }
 
-/// Port of DisplayGfx::IsSpriteLoaded (vtable slot 32, 0x56A480).
+/// Port of DisplayGfx::IsSpriteLoaded (slot 32, 0x56A480).
 ///
-/// Returns 1 if the sprite ID is loaded in any of the three sprite arrays
-/// (DisplayBase sprite_ptrs/sprite_banks, DisplayGfx sprite_table).
-/// ID must be in range [1, 0x400).
-///
-/// # Safety
-/// `this` must be a valid `*mut DisplayGfx`.
+/// Checks all three sprite arrays (DisplayBase `sprite_ptrs`/`sprite_banks`
+/// and DisplayGfx `sprite_table`).
 pub unsafe extern "thiscall" fn is_sprite_loaded(this: *mut DisplayGfx, id: i32) -> u32 {
     if !is_valid_sprite_id(id) {
         return 0;
@@ -1388,17 +766,11 @@ fn is_valid_sprite_id(id: i32) -> bool {
     (1..=0x3FF).contains(&id)
 }
 
-/// Port of DisplayGfx::GetSpriteInfo (vtable slot 6, 0x523500).
+/// Port of DisplayGfx::GetSpriteInfo (slot 6, 0x523500).
 ///
-/// Looks up sprite metadata for `layer` (valid: 1..=0x3FF). Checks
-/// `sprite_ptrs` (Sprite* pointers) first, then `sprite_banks`
-/// (indexed sprite containers). On success, writes data, flags, and
-/// width to the output pointers and returns a pointer to the static
-/// string "sprite" (0x664170). Returns 0 on failure.
-///
-/// # Safety
-/// `this` must be a valid `*mut DisplayGfx`.
-/// Output pointers must be valid for writing.
+/// Returns the static "sprite" string (0x664170) on success, or 0 if
+/// `layer` is out of range or no entry exists in `sprite_ptrs` /
+/// `sprite_banks`.
 pub unsafe extern "thiscall" fn get_sprite_info(
     this: *mut DisplayGfx,
     layer: i32,
@@ -1427,15 +799,12 @@ pub unsafe extern "thiscall" fn get_sprite_info(
     0
 }
 
-/// Address of the static "sprite" string in WA.exe .rdata.
-/// Used as a type-tag return value by sprite info functions.
+/// Address of the static "sprite" string in WA.exe .rdata, returned as
+/// a type-tag by `get_sprite_info` and friends.
 const SPRITE_STRING: u32 = va::STR_SPRITE;
 
-/// Extract sprite info from a Sprite object — port of Sprite__GetInfo (0x4FAEC0).
-///
-/// Usercall: EAX=Sprite*, ESI=out_data, ECX=out_width, stack=out_flags.
-/// Reads frame_meta_ptr (validity check), packed _unknown_08/fps as data,
-/// max_frames as width (doubled-minus-one if flags & 2), and flags & 1.
+/// Port of Sprite__GetInfo (0x4FAEC0; usercall EAX=this, ESI=out_data,
+/// ECX=out_width, stack=out_flags).
 unsafe fn sprite_info_from_sprite(
     sprite: *const Sprite,
     out_data: *mut u32,
@@ -1444,15 +813,13 @@ unsafe fn sprite_info_from_sprite(
 ) -> u32 {
     let s = &*sprite;
 
-    // Validity check: frame_meta_ptr must be non-null
     if s.frame_meta_ptr.is_null() {
         return 0;
     }
 
-    // out_data = packed DWORD: _unknown_08 (u16) | fps (u16) << 16
     *out_data = (s._unknown_08 as u32) | ((s.fps as u32) << 16);
 
-    // Width from max_frames, doubled-minus-one if flags bit 1 set
+    // Ping-pong sprites (flags bit 1) report a doubled-minus-one width.
     let mut width = s.max_frames as u32;
     if s.flags & 2 != 0 {
         width = width * 2 - 1;
@@ -1464,11 +831,8 @@ unsafe fn sprite_info_from_sprite(
     crate::rebase::rb(SPRITE_STRING)
 }
 
-/// Extract sprite info from a SpriteBank — port of SpriteBank__GetInfo (0x4F98C0).
-///
-/// Usercall: EAX=layer, ECX=SpriteBank*, ESI=out_width, stack=out_data+out_flags.
-/// Uses the bank's index table to map the layer ID to a frame entry, then
-/// reads width/flags/data from the SpriteBankFrame.
+/// Port of SpriteBank__GetInfo (0x4F98C0; usercall EAX=layer, ECX=this,
+/// ESI=out_width, stack=out_data+out_flags).
 unsafe fn sprite_info_from_bank(
     bank: *const SpriteBank,
     layer: i32,
@@ -1508,22 +872,9 @@ unsafe fn sprite_info_from_bank(
 
 /// Pure-Rust port of `Sprite__GetFrameForBlit` (0x4FAD30).
 ///
-/// Resolves an animation value to a frame within `sprite`, lazily
-/// decompresses its surface via [`frame_cache_allocate`] +
-/// [`sprite_lzss_decode`] if the sprite uses the cached path
-/// (`header_flags & 0x4000`), updates `sprite.bitgrid` to point at the
-/// resulting pixel data, and returns a pointer to that embedded bitgrid.
-///
-/// Mirrors the original WA usercall (`ESI=this, EAX=out_anim_frac,
-/// EDX=anim_value, stack=(out_w, out_h, out_left, out_top, out_right,
-/// out_bottom)`) as a regular Rust function — the slot 33 dispatcher
-/// shuffles its caller's args into this signature.
-///
-/// # Safety
-///
-/// All output pointers must be valid for writes. `sprite` must point at a
-/// fully-constructed [`Sprite`] (i.e. `frame_meta_ptr` populated and, for
-/// the cached path, `subframe_cache_table` and `bitmap_data_ptr` set).
+/// Original is usercall (`ESI=this, EAX=out_anim_frac, EDX=anim_value,
+/// stack=(out_w, out_h, out_left, out_top, out_right, out_bottom)`); the
+/// slot 33 dispatcher shuffles its args into this regular signature.
 unsafe fn sprite_get_frame_for_blit(
     sprite: *mut Sprite,
     mut anim_value: u32,
@@ -1537,12 +888,10 @@ unsafe fn sprite_get_frame_for_blit(
 ) -> *mut DisplayBitGrid {
     let flags = (*sprite).flags;
 
-    // ── Step 1: clamp `anim_value` ───────────────────────────────────
+    // Clamp anim_value: bit 0 = use-as-is (truncate), else signed clamp.
     if flags & 1 != 0 {
-        // Use-as-is mode: just truncate to 16 bits.
         anim_value &= 0xFFFF;
     } else {
-        // Signed clamp to [0, 0xFFFF].
         let signed = anim_value as i32;
         if signed < 0 {
             anim_value = 0;
@@ -1551,7 +900,7 @@ unsafe fn sprite_get_frame_for_blit(
         }
     }
 
-    // ── Step 2: ping-pong ────────────────────────────────────────────
+    // Ping-pong (bounce) iteration.
     if flags & 2 != 0 {
         anim_value &= 0xFFFF;
         anim_value = anim_value.wrapping_mul(2);
@@ -1560,27 +909,20 @@ unsafe fn sprite_get_frame_for_blit(
         }
     }
 
-    // ── Step 3: frame index resolution ───────────────────────────────
     let frame_idx: u32 = if (*sprite).is_scaled != 0 {
-        // Scaled mode: linearly interpolate between scale_x and scale_y
-        // by the (Fixed16) anim_value, write the interpolated result to
-        // *out_anim_frac. Always use frame 0 in this mode.
+        // Scaled mode: Fixed16 lerp between scale_x/scale_y by anim_value,
+        // result written to *out_anim_frac. Original asm:
+        // `IMUL EDX; SHRD EAX, EDX, 0x10` (32×32 → 64 signed mul, >> 16).
         let scale_x = (*sprite).scale_x as i32;
         let scale_y = (*sprite).scale_y as i32;
         let diff = scale_y.wrapping_sub(scale_x);
-        // Original asm: `IMUL EDX; SHRD EAX, EDX, 0x10` — 32×32 → 64
-        // signed multiply with `>> 16` (Fixed16). The multiplicand is the
-        // raw `anim_value` interpreted as a signed 32-bit integer (after
-        // the clamp/ping-pong above it's always in [0, 0xFFFF], so the
-        // sign bit is clear).
         let prod = (diff as i64).wrapping_mul((anim_value as i32) as i64);
         let interp = ((prod >> 16) as i32).wrapping_add(scale_x);
         *out_anim_frac = interp as u32;
         0
     } else if (*sprite).frame_round_mode & 1 != 0 {
-        // Round-to-nearest mode: `((max_frames * anim_value) + 0x8000) >> 16`,
-        // with the special case that if rounding produces `frame_idx ==
-        // max_frames` we wrap back to 0 (avoids reading past the table).
+        // Round-to-nearest, with `frame_idx == max_frames` wrapping to 0
+        // to avoid reading past the table.
         let max_frames = (*sprite).max_frames as i32;
         let prod = max_frames.wrapping_mul(anim_value as i32);
         let f = (prod.wrapping_add(0x8000) >> 16) as u32;
@@ -1591,14 +933,12 @@ unsafe fn sprite_get_frame_for_blit(
             f
         }
     } else {
-        // Truncating mode.
         let max_frames = (*sprite).max_frames as i32;
         let prod = max_frames.wrapping_mul(anim_value as i32);
         *out_anim_frac = 0;
         (prod >> 16) as u32
     };
 
-    // ── Step 4: read frame metadata + sprite cell dimensions ─────────
     let frame_meta = (*sprite).frame_meta_ptr.add(frame_idx as usize);
     let start_x = (*frame_meta).start_x as i16 as i32;
     let start_y = (*frame_meta).start_y as i16 as i32;
@@ -1613,27 +953,23 @@ unsafe fn sprite_get_frame_for_blit(
     let frame_w = end_x - start_x;
     let frame_h = end_y - start_y;
 
-    // ── Step 5: surface address (flat or cached/decompressed) ────────
+    // Resolve surface address: flat (already-decoded pixels in the load
+    // buffer) or cached/decompressed (lazy via FrameCache + LZSS).
     let surface_addr: *mut u8 = if (*sprite).header_flags & 0x4000 == 0 {
-        // Flat path: bytes are already-decoded raw pixels in the load
-        // buffer.
         let bitmap_offset = (*frame_meta).bitmap_offset;
         (*sprite).bitmap_data_ptr.add(bitmap_offset as usize)
     } else {
         // Cached path: bitmap_offset is split into a signed-byte
         // subframe index (high byte) and a pixel offset (low 24 bits).
+        // The original uses `MOVSX byte ptr [EAX+EDI+3]` + a *12 lea —
+        // negative subframe indices index *backward* from the table base.
         let bitmap_offset = (*frame_meta).bitmap_offset;
         let subframe_idx_signed = ((bitmap_offset >> 24) as i8) as i32;
-
-        // The original asm uses MOVSX byte ptr [EAX+EDI+3] then a *12
-        // lea — i.e. negative subframe indices index *backward* from the
-        // table base. Mirror via `offset(isize)`.
         let entry = (*sprite)
             .subframe_cache_table
             .offset(subframe_idx_signed as isize);
 
         if (*entry).decoded_ptr.is_null() {
-            // Allocate from the per-SpriteCache FrameCache and decompress.
             let context_ptr = (*sprite).context_ptr;
             let decoded_size = (*entry).decoded_size;
             let decoded = frame_cache_allocate(
@@ -1653,13 +989,12 @@ unsafe fn sprite_get_frame_for_blit(
         (*entry).decoded_ptr.add(pixel_offset)
     };
 
-    // ── Step 6: update embedded bitgrid (only if external_buffer != 0)
+    // Update embedded bitgrid only if it owns an external buffer slot.
+    // Field write order copied from 0x4FAEA2..0x4FAEB7; equivalent to
+    // the shared `DisplayBitGrid::SetExternalBuffer` helper that the
+    // SpriteBank path calls.
     let bitgrid = &raw mut (*sprite).bitgrid;
     if (*bitgrid).external_buffer != 0 {
-        // Order copied from the asm at 0x4FAEA2..0x4FAEB7. Equivalent
-        // to `bitgrid_set_external_buffer(bitgrid, surface, frame_w,
-        // frame_w, frame_h)` — see SpriteBank path which calls the
-        // shared `DisplayBitGrid::SetExternalBuffer` helper.
         (*bitgrid).clip_bottom = frame_h as u32;
         (*bitgrid).clip_right = frame_w as u32;
         (*bitgrid).clip_top = 0;
@@ -1673,35 +1008,16 @@ unsafe fn sprite_get_frame_for_blit(
     bitgrid
 }
 
-/// Stub for `SpriteBank__GetFrameForBlit` (0x4F9710).
+/// Panic stub for `SpriteBank__GetFrameForBlit` (0x4F9710).
 ///
-/// **Structurally unreachable in shipping WA.** The only function that
-/// constructs a `SpriteBank` object is `SpriteBank__Constructor`
-/// (0x4F9450), and the only caller of *that* is
-/// `DisplayGfx::LoadSpriteEx` (slot 30, 0x523310), which has zero
-/// callers in WA.exe and zero in Rust and is currently trapped via
-/// `install_trap!("DisplayGfx__LoadSpriteEx", ...)` in `install_display`.
-///
-/// Therefore `DisplayBase::sprite_banks[id]` is always null in shipping
-/// WA, and the `bank.is_null()` check in [`get_sprite_frame_for_blit`]
-/// always succeeds. The bank branch of slot 33 is dead code in normal
-/// gameplay — confirmed by adding a `panic!()` here and playing several
-/// turns of a regular Worms match without triggering it.
-///
-/// A previous revision of this function (commit `973f234`) contained a
-/// disassembly-derived port of the bank-side logic, but it was untested
-/// because no replay or live play could reach it. Per the project rule
-/// against keeping unverified code, the body has been replaced with a
-/// panic — if any future change to WA, mods, or our ports starts
-/// producing live `SpriteBank` objects, this panic will fire and we'll
-/// need to revive the port (see git history for the unverified Ghidra
-/// translation, which would then need bridge-and-compare validation
-/// against the original WA function at 0x4F9710).
-///
-/// The slot 33 dispatcher still calls this stub when `sprite_banks[id]`
-/// is non-null so we get a clear, source-located error rather than
-/// silently returning null (which would just present as missing
-/// graphics with no diagnostic).
+/// Structurally unreachable in shipping WA: the only `SpriteBank`
+/// constructor is `SpriteBank__Constructor` (0x4F9450), reached only
+/// via `LoadSpriteEx` (slot 30, 0x523310), which is itself trapped in
+/// `install_display`. So `sprite_banks[id]` is always null and the bank
+/// branch of slot 33 is dead code — confirmed by playing several turns
+/// without firing this panic. A disassembly-derived port lived in
+/// commit `973f234`; per the no-unverified-code rule it was deleted.
+/// Revive from history if banks ever become live.
 #[allow(clippy::too_many_arguments)]
 unsafe fn sprite_bank_get_frame_for_blit(
     _bank: *mut SpriteBank,
@@ -1716,30 +1032,17 @@ unsafe fn sprite_bank_get_frame_for_blit(
     _out_bottom: *mut i32,
 ) -> *mut DisplayBitGrid {
     panic!(
-        "SpriteBank::GetFrameForBlit reached for sprite_id={sprite_id}, \
-         but `DisplayBase::sprite_banks` was supposed to be unreachable \
-         (LoadSpriteEx slot 30 is trapped). The bank-side port was \
-         removed because it was unverifiable; revive it from commit \
-         973f234 if banks have become live and validate against \
-         0x4F9710 by bridge-and-compare."
+        "SpriteBank::GetFrameForBlit reached for sprite_id={sprite_id} — \
+         banks were supposed to be unreachable. Revive the port from \
+         commit 973f234 and validate against 0x4F9710."
     );
 }
 
-/// Port of `DisplayGfx::GetSpriteFrameForBlit` (vtable slot 33, 0x5237C0).
+/// Port of `DisplayGfx::GetSpriteFrameForBlit` (slot 33, 0x5237C0).
 ///
-/// Thin dispatcher: validates `sprite_id`, then forwards to either
-/// [`sprite_get_frame_for_blit`] (for `sprite_ptrs`-backed IDs) or
-/// [`sprite_bank_get_frame_for_blit`] (for `sprite_banks`-backed IDs).
-/// Returns null if neither table has an entry for the ID.
-///
-/// See the slot 33 docstring on
-/// [`DisplayGfxVtable::get_sprite_frame_for_blit`] for the original
-/// usercall convention and the full body breakdown.
-///
-/// # Safety
-///
-/// `this` must be a valid `*mut DisplayGfx`. All output pointers must
-/// be writable.
+/// Thin dispatcher: forwards `sprite_ptrs`-backed IDs to
+/// [`sprite_get_frame_for_blit`] and `sprite_banks`-backed IDs to
+/// [`sprite_bank_get_frame_for_blit`] (a panic stub).
 #[allow(clippy::too_many_arguments)]
 pub unsafe extern "thiscall" fn get_sprite_frame_for_blit(
     this: *mut DisplayGfx,
@@ -1753,7 +1056,6 @@ pub unsafe extern "thiscall" fn get_sprite_frame_for_blit(
     out_bottom: *mut i32,
     out_anim_frac: *mut u32,
 ) -> *mut DisplayBitGrid {
-    // Validity check: sprite_id - 1 must be < 0x3FE (so 1..=0x3FE).
     if sprite_id.wrapping_sub(1) >= 0x3FE {
         return core::ptr::null_mut();
     }
@@ -1793,15 +1095,10 @@ pub unsafe extern "thiscall" fn get_sprite_frame_for_blit(
     core::ptr::null_mut()
 }
 
-/// Port of DisplayGfx::DrawViaCallback (vtable slot 21, 0x56B7C0).
+/// Port of DisplayGfx::DrawViaCallback (slot 21, 0x56B7C0).
 ///
-/// Acquires the render lock, applies camera offset to fixed-point coordinates,
-/// then calls `obj->vtable[2](layer_0, pixel_x, pixel_y, p5, p6)`.
-///
-/// # Safety
-/// `this` must be a valid `*mut DisplayGfx`.
-/// `obj` must point to a valid object with a vtable where slot 2 is a
-/// drawing callback.
+/// Calls `obj->vtable[2](layer_0, pixel_x, pixel_y, p5, p6)` with
+/// camera-adjusted coordinates.
 pub unsafe extern "thiscall" fn draw_via_callback(
     this: *mut DisplayGfx,
     x: Fixed,
@@ -1816,27 +1113,17 @@ pub unsafe extern "thiscall" fn draw_via_callback(
     let pixel_y = (Fixed::from_int((*this).camera_y) + y).to_int();
     let layer_0 = (*this).layer_0;
 
-    // Call obj->vtable[2](obj, layer_0, pixel_x, pixel_y, p5, p6)
-    // vtable[2] is at offset 8 in the vtable
     let vtable = *(obj as *const *const u32);
     let callback: unsafe extern "thiscall" fn(*mut u8, *mut DisplayBitGrid, i32, i32, u32, u32) =
         core::mem::transmute(*vtable.add(2));
     callback(obj, layer_0, pixel_x, pixel_y, p5, p6);
 }
 
-/// Port of DisplayGfx::StreamData (vtable slot 22, 0x56C5A0).
+/// Port of DisplayGfx::DrawTiledTerrain (slot 22, 0x56C5A0).
 ///
-/// Tiles bitmaps from a grid configuration in row-major order with camera offset.
-/// The tile grid is defined by `tile_total_width/height` and `tile_col_width/row_height`
-/// fields on DisplayGfx. Bitmaps come from the object at `tile_bitmap_sets[1]`,
-/// whose field at +0x04 is a pointer array of bitmap pointers.
-///
-/// `x`/`y` are Fixed-point (>> 16 for pixels). `count` limits how many pixel-rows
-/// are rendered. `flags` low 16 bits must be 1 (only supported mode); bit 19
-/// controls a blit transparency flag.
-///
-/// # Safety
-/// `this` must be a valid `*mut DisplayGfx`.
+/// Tiles `tile_bitmap_sets[1]`'s bitmaps in a row-major grid. `count`
+/// limits how many pixel-rows are rendered. `flags` low 16 bits must be 1
+/// (only supported mode); bit 19 controls a blit transparency flag.
 pub unsafe extern "thiscall" fn draw_tiled_terrain(
     this: *mut DisplayGfx,
     x: Fixed,
@@ -1853,12 +1140,10 @@ pub unsafe extern "thiscall" fn draw_tiled_terrain(
         count = total_height;
     }
 
-    // Only mode 1 is supported
     if (flags & 0xFFFF) != 1 {
         return;
     }
 
-    // Get the bitmap tile set (mode 1 → tile_bitmap_sets[1] at offset 0x4DD8)
     let tile_set = (*this).tile_bitmap_sets[1];
     if tile_set.is_null() {
         return;
@@ -1886,7 +1171,6 @@ pub unsafe extern "thiscall" fn draw_tiled_terrain(
             return;
         }
 
-        // Clamp row height to remaining count
         let mut row_h = row_height;
         if count - y_offset < row_height {
             row_h = count - y_offset;
@@ -1894,7 +1178,6 @@ pub unsafe extern "thiscall" fn draw_tiled_terrain(
 
         let mut x_offset = 0i32;
         while x_offset < total_width {
-            // Clamp column width to remaining grid width
             let col_w = col_width.min(total_width - x_offset);
 
             let bitmap_ptr = *bitmap_array.add(bitmap_idx as usize);
@@ -1917,31 +1200,14 @@ pub unsafe extern "thiscall" fn draw_tiled_terrain(
     }
 }
 
-/// Port of DisplayGfx::DrawPixelStrip (vtable slot 15, 0x56BE10).
+/// Port of DisplayGfx::DrawScaledSprite (slot 20, 0x56B660).
 ///
-/// Draws `count + 1` pixels starting at (x, y), stepping by (dx, dy) each
-/// iteration. All coordinates are Fixed-point. Camera applied as
-/// `camera * 0x10000 + coord`.
-///
-/// # Safety
-/// `this` must be a valid `*mut DisplayGfx`.
-/// Port of DisplayGfx::DrawScaledSprite (vtable slot 20, 0x56B660).
-///
-/// Blits a source BitGrid to the display layer with camera offset and centering.
-/// The source rectangle is `(src_x, src_y)` to `(src_w, src_h)` — width and
-/// height are computed as `src_w - src_x` and `src_h - src_y`.
-///
-/// Dispatches to different blit modes based on flag bits:
-/// - Default: normal blit (color table mode for transparency)
-/// - 0x200000: additive blend via color_add_table LUT
-/// - 0x4000000: color blend via color_blend_table LUT
+/// The source rect is `(src_x, src_y)..(src_w, src_h)`. Flags select
+/// the blit mode:
+/// - bit 20: 0 = ColorTable (transparency), 1 = Copy (opaque)
+/// - 0x200000: additive blend via `color_add_table` LUT
+/// - 0x4000000: color blend via `color_blend_table` LUT
 /// - 0x8000000 / 0x10000000: stippled (checkerboard) blit
-///
-/// Bit 20 controls the blend mode: clear = ColorTable (transparency), set = Copy (opaque).
-///
-/// # Safety
-/// `this` must be a valid `*mut DisplayGfx`.
-/// `sprite` must be a valid `*mut DisplayBitGrid`.
 pub unsafe fn draw_scaled_sprite(
     this: *mut DisplayGfx,
     x: Fixed,
@@ -1956,7 +1222,7 @@ pub unsafe fn draw_scaled_sprite(
     let width = src_w - src_x;
     let height = src_h - src_y;
 
-    // Signed division rounding toward zero: (n + (n >> 31)) >> 1
+    // Signed division rounding toward zero.
     let half_w = if width < 0 {
         (width + 1) / 2
     } else {
@@ -1968,14 +1234,11 @@ pub unsafe fn draw_scaled_sprite(
         height / 2
     };
 
-    // Camera offset + centering + fixed-point to pixel conversion
     let dst_x = (*this).camera_x - half_w + (x.0 >> 16);
     let dst_y = (*this).camera_y - half_h + (y.0 >> 16);
 
-    // Blend mode from flag bit 20: clear = 1 (ColorTable), set = 0 (Copy)
     let blend_mode = (!(flags >> 20)) & 1;
 
-    // Stippled modes (checkerboard blit)
     if (flags & 0x8000000) != 0 || (flags & 0x10000000) != 0 {
         let stipple_mode: u32 = if (flags & 0x10000000) != 0 { 1 } else { 0 };
         return DrawScaledSpriteResult::Stippled {
@@ -1991,19 +1254,14 @@ pub unsafe fn draw_scaled_sprite(
         };
     }
 
-    // Determine color table pointer from flags
     let color_table: *const u8 = if (flags & 0x200000) != 0 {
-        // Additive: use color_add_table (offset 0x4DF4 in DisplayGfx)
         (*this).color_add_table.as_ptr()
     } else if (flags & 0x4000000) != 0 {
-        // Color blend: use color_blend_table (offset 0x14DF4 in DisplayGfx)
         (*this).color_blend_table.as_ptr()
     } else {
-        // Normal: no color table (transparency handled by blend mode 1)
         core::ptr::null()
     };
 
-    // Early out if zero-size
     if width <= 0 || height <= 0 {
         return DrawScaledSpriteResult::Handled;
     }
@@ -2012,8 +1270,7 @@ pub unsafe fn draw_scaled_sprite(
 
     let layer = (*this).layer_0;
 
-    // Build flags for core blit: blend_mode in low 16 bits
-    // The core blit interprets: 0 = Copy, 1 = ColorTable
+    // Core blit flags: low 16 bits = blend mode (0 = Copy, 1 = ColorTable).
     let blit_flags = blend_mode;
 
     DrawScaledSpriteResult::Blit {
@@ -2030,10 +1287,9 @@ pub unsafe fn draw_scaled_sprite(
     }
 }
 
-/// Result of draw_scaled_sprite coordinate computation.
-///
-/// The actual blit call is performed by the DLL hook layer, since it needs
-/// access to `blit_impl` which bridges DisplayBitGrid → PixelGrid.
+/// Result of `draw_scaled_sprite`'s coordinate / mode resolution. The
+/// actual blit is performed by the DLL hook layer, which has access to
+/// `blit_impl` (the bridge from `DisplayBitGrid` to `PixelGrid`).
 pub enum DrawScaledSpriteResult {
     /// Blit should be performed with these parameters.
     Blit {
@@ -2064,10 +1320,7 @@ pub enum DrawScaledSpriteResult {
     Handled,
 }
 
-/// Port of DisplayGfx::DrawPixelStrip (vtable slot 15, 0x56BE10).
-///
-/// # Safety
-/// `this` must be a valid `*mut DisplayGfx`.
+/// Port of DisplayGfx::DrawPixelStrip (slot 15, 0x56BE10).
 pub unsafe extern "thiscall" fn draw_pixel_strip(
     this: *mut DisplayGfx,
     x: Fixed,
@@ -2092,29 +1345,22 @@ pub unsafe extern "thiscall" fn draw_pixel_strip(
     }
 }
 
-/// Port of DisplayGfx::SetLayerColor (vtable slot 4, 0x5231E0).
+/// Port of DisplayGfx::SetLayerColor (slot 4, 0x5231E0).
 ///
-/// Allocates a `PaletteContext` for the given layer (1-3) if one doesn't exist.
-/// Finds `color` consecutive available entries in the slot table, claims them,
-/// and initializes a PaletteContext with that palette index range.
-///
-/// # Safety
-/// `this` must be a valid `*mut DisplayGfx`.
+/// Allocates a `PaletteContext` for `layer` (1-3) if one doesn't exist,
+/// claiming `color` consecutive entries in the slot table.
 pub unsafe extern "thiscall" fn set_layer_color(this: *mut DisplayGfx, layer: i32, color: i32) {
     let Some(layer) = Layer::try_from_i32(layer) else {
         return;
     };
 
-    // Only allocate if no context exists for this layer
     if !(*this).base.layer_contexts[layer.idx()].is_null() {
         return;
     }
 
-    // Find `color` consecutive available (non-zero) entries in the slot table area.
-    // The scan covers slot_table_guard (guard=0) + slot_table[0..255] + slot_table_sentinel (sentinel=-1).
     let start = palette_slot_alloc(&mut (*this).base, color);
 
-    // Allocate PaletteContext (0x72C total, zero first 0x70C)
+    // PaletteContext is 0x72C bytes; only the first 0x70C is zeroed.
     let ctx = crate::wa_alloc::wa_malloc(0x72C);
     core::ptr::write_bytes(ctx, 0, 0x70C);
 
@@ -2132,17 +1378,13 @@ pub unsafe extern "thiscall" fn set_layer_color(this: *mut DisplayGfx, layer: i3
 
 /// Palette slot allocator — port of FUN_00523190.
 ///
-/// Scans the slot table area (this+0x312C) for `count` consecutive entries
-/// with value > 0 (available). Zeros the found entries to mark them as claimed.
-/// Returns the start index, or -1 if a negative sentinel is hit.
-///
-/// The scan area is: `slot_table_guard` (guard=0) + `slot_table[0..255]` + `slot_table_sentinel` (sentinel=-1).
-/// The guard at index 0 is always 0, so allocations start from index 1.
-/// The sentinel (-1) at index 256 terminates the scan with failure.
+/// Scans the 257-entry table `slot_table_guard(0) + slot_table[1..=255] +
+/// slot_table_sentinel(-1)` for `count` consecutive available (non-zero)
+/// entries, zeroes them, and returns the start index. Returns -1 on
+/// failure (the sentinel is hit before `count` consecutive slots).
 unsafe fn palette_slot_alloc(base: &mut DisplayBase<*const DisplayGfxVtable>, count: i32) -> i32 {
     let count = count as usize;
     let table = &base.slot_table_guard as *const u32;
-    // Total entries: slot_table_guard(1) + slot_table(255) + slot_table_sentinel(1) = 257
     let total = 1 + 0xFF + 1;
 
     let mut consecutive = 0usize;
@@ -2171,20 +1413,17 @@ unsafe fn palette_slot_alloc(base: &mut DisplayBase<*const DisplayGfxVtable>, co
     }
 }
 
-/// Initialize a PaletteContext with a palette index range — port of FUN_00541170 + FUN_005411a0.
-///
-/// Sets dirty_range_min/max, fills the free stack with descending indices,
-/// clears in_use flags and cache, then clears the dirty flag.
+/// Initialize a PaletteContext with a palette index range —
+/// port of FUN_00541170 + FUN_005411A0.
 unsafe fn palette_context_init(ctx: *mut PaletteContext, range_min: i16, range_max: i16) {
     (*ctx).dirty_range_min = range_min;
     (*ctx).dirty_range_max = range_max;
 
-    // PaletteContext__Init (0x5411A0)
     let range_size = range_max - range_min + 1;
     (*ctx).cache_count = 0;
     (*ctx).free_count = range_size;
 
-    // Fill free_stack with [range_max, range_max-1, ..., range_min]
+    // Fill free_stack with [range_max, range_max-1, ..., range_min].
     if range_size > 0 {
         for i in 0..range_size as usize {
             (*ctx).free_stack[i] = (range_max as u8).wrapping_sub(i as u8);
@@ -2194,18 +1433,13 @@ unsafe fn palette_context_init(ctx: *mut PaletteContext, range_min: i16, range_m
     (*ctx).cache_iter = 0;
     core::ptr::write_bytes((*ctx).in_use.as_mut_ptr(), 0, 256);
 
-    // FUN_00541170 epilogue
     (*ctx).dirty = 0;
 }
 
-/// Port of DisplayGfx::SetActiveLayer (vtable slot 5, 0x523270).
+/// Port of DisplayGfx::SetActiveLayer (slot 5, 0x523270).
 ///
-/// Returns the layer context pointer for `layer` (valid: 1, 2, 3), or null
-/// if the layer index is out of range. The returned pointer is used as
-/// palette data input for `update_palette`.
-///
-/// # Safety
-/// `this` must be a valid `*mut DisplayGfx`.
+/// Returns the `PaletteContext*` for `layer` (1-3), or null if out of
+/// range. Used as palette data input for `update_palette`.
 pub unsafe extern "thiscall" fn set_active_layer(this: *mut DisplayGfx, layer: i32) -> *mut u8 {
     match Layer::try_from_i32(layer) {
         Some(layer) => (*this).base.layer_contexts[layer.idx()] as *mut u8,
@@ -2213,19 +1447,11 @@ pub unsafe extern "thiscall" fn set_active_layer(this: *mut DisplayGfx, layer: i
     }
 }
 
-/// Port of DisplayGfx::UpdatePalette (vtable slot 24, 0x56A610).
+/// Port of DisplayGfx::UpdatePalette (slot 24, 0x56A610).
 ///
-/// Updates DisplayGfx palette entries from a `PaletteContext`. The context's
-/// `cache` array lists which palette indices to copy, and `cache_count` says
-/// how many. Each index's RGB is read from `rgb_table` and written to the
-/// DisplayGfx `palette_entries` table.
-///
-/// If `commit != 0`, calls the palette commit function (0x56CD20) to push
-/// the updated entries to the DDraw surface palette.
-///
-/// # Safety
-/// `this` must be a valid `*mut DisplayGfx`.
-/// `palette_ctx` must point to a valid `PaletteContext`.
+/// Copies the indices listed in `palette_ctx.cache` from its `rgb_table`
+/// into DisplayGfx's `palette_entries`. Pushes the result to the DDraw
+/// surface palette via [`palette_commit`] if `commit != 0`.
 pub unsafe extern "thiscall" fn update_palette(
     this: *mut DisplayGfx,
     palette_ctx: *mut PaletteContext,
@@ -2233,7 +1459,6 @@ pub unsafe extern "thiscall" fn update_palette(
 ) {
     let ctx = &mut *palette_ctx;
 
-    // Reset iteration counter
     ctx.cache_iter = 0;
 
     if ctx.cache_count <= 0 {
@@ -2243,33 +1468,25 @@ pub unsafe extern "thiscall" fn update_palette(
     let dirty_min = ctx.dirty_range_min as i32;
     let dirty_max = ctx.dirty_range_max as i32;
 
-    // Mark iteration started
     ctx.cache_iter = 1;
-
-    // First index to update
     let mut idx = ctx.cache[0] as usize;
 
     loop {
-        // Read RGB entry from PaletteContext rgb_table (stored as u32: low 3 bytes = R, G, B)
+        // rgb_table[idx] is a packed u32: low 3 bytes = R, G, B.
         let rgb = ctx.rgb_table[idx].to_le_bytes();
-
-        // Write to DisplayGfx palette_entries: [R, G, B, flags=0]
         (*this).palette_entries[idx * 4] = rgb[0];
         (*this).palette_entries[idx * 4 + 1] = rgb[1];
         (*this).palette_entries[idx * 4 + 2] = rgb[2];
         (*this).palette_entries[idx * 4 + 3] = 0;
 
-        // Check if we've processed all entries
         if ctx.cache_iter >= ctx.cache_count {
             break;
         }
-
-        // Advance to next index
         idx = ctx.cache[ctx.cache_iter as usize] as usize;
         ctx.cache_iter += 1;
     }
 
-    // Track dirty palette range (expand to cover this update)
+    // Expand the dirty palette range to cover this update.
     if ((*this).palette_dirty_min as i32) > dirty_min {
         (*this).palette_dirty_min = dirty_min as u32;
     }
@@ -2277,7 +1494,6 @@ pub unsafe extern "thiscall" fn update_palette(
         (*this).palette_dirty_max = dirty_max as u32;
     }
 
-    // Commit palette to DDraw surface if requested
     if commit != 0 {
         palette_commit(this);
         (*this).palette_dirty_min = 0x100;
@@ -2285,10 +1501,8 @@ pub unsafe extern "thiscall" fn update_palette(
     }
 }
 
-/// Call WA's palette commit function (0x56CD20).
-///
-/// Usercall: EAX = dirty_min, EDX = dirty_max, stack param = this (DisplayGfx*).
-/// Pushes updated palette entries to the DDraw surface palette.
+/// Call WA's palette commit function (0x56CD20). Usercall:
+/// `EAX=dirty_min, EDX=dirty_max, stack=this (DisplayGfx*)`.
 unsafe fn palette_commit(gfx: *mut DisplayGfx) {
     let dirty_min = (*gfx).palette_dirty_min;
     let dirty_max = (*gfx).palette_dirty_max;
@@ -2316,14 +1530,10 @@ unsafe extern "cdecl" fn palette_commit_bridge(
     );
 }
 
-/// Port of DisplayGfx::SetLayerVisibility (vtable slot 23, 0x56A5D0).
+/// Port of DisplayGfx::SetLayerVisibility (slot 23, 0x56A5D0).
 ///
-/// Gets the layer context via `set_active_layer`, then updates the palette
-/// from that context if it exists. If `visible < 0`, clears the layer's
-/// visibility flag.
-///
-/// # Safety
-/// `this` must be a valid `*mut DisplayGfx`.
+/// Updates the palette from the layer's context (if it exists) and
+/// clears the layer's visibility flag when `visible < 0`.
 pub unsafe extern "thiscall" fn set_layer_visibility(
     this: *mut DisplayGfx,
     layer: i32,
@@ -2347,13 +1557,8 @@ pub unsafe extern "thiscall" fn set_layer_visibility(
 // Sprite loading methods
 // =========================================================================
 
-/// Construct a Sprite in-place — pure Rust port of ConstructSprite (0x4FAA30).
-///
-/// Sets vtable, embedded BitGrid sub-object, and context pointer.
-/// All other fields are expected to be zeroed by the caller's allocation.
-///
-/// # Safety
-/// `sprite` must point to a zeroed `Sprite`-sized allocation.
+/// Pure-Rust port of `ConstructSprite` (0x4FAA30). The caller must
+/// pre-zero the rest of the `Sprite` allocation.
 pub unsafe fn construct_sprite(sprite: *mut Sprite, sprite_cache: *mut SpriteCache) {
     use crate::bitgrid::{BitGridDisplayVtable, BIT_GRID_DISPLAY_VTABLE};
     use crate::rebase::rb;
@@ -2361,23 +1566,15 @@ pub unsafe fn construct_sprite(sprite: *mut Sprite, sprite_cache: *mut SpriteCac
     (*sprite).vtable = rb(va::SPRITE_VTABLE) as *const SpriteVtable;
     (*sprite).context_ptr = sprite_cache;
 
-    // Initialize embedded DisplayBitGrid sub-object
     (*sprite).bitgrid.vtable = rb(BIT_GRID_DISPLAY_VTABLE) as *const BitGridDisplayVtable;
-    (*sprite).bitgrid.external_buffer = 1; // sprite doesn't own pixel data
-    (*sprite).bitgrid.cells_per_unit = 8; // 8bpp pixel buffer
+    (*sprite).bitgrid.external_buffer = 1;
+    (*sprite).bitgrid.cells_per_unit = 8;
 }
 
-/// Port of DisplayGfx::LoadSprite (vtable slot 31, 0x523400).
+/// Port of DisplayGfx::LoadSprite (slot 31, 0x523400).
 ///
-/// Loads a Sprite from VFS into the sprite table. Allocates a Sprite object,
-/// constructs it, and loads data via LoadSpriteFromVfs. On success, stores
-/// in sprite_ptrs[id] and updates layer metadata.
-///
-/// The `flag` parameter controls max_frames clamping on the loaded sprite.
-///
-/// # Safety
-/// `this` must be a valid `*mut DisplayGfx`.
-/// `load_sprite_from_vfs` must be a valid function pointer to 0x4FAAF0.
+/// `flag != 0` clamps `max_frames` to the low 16 bits of `id` and uses
+/// the high 16 bits to seed the per-sprite frame round mode bytes.
 pub unsafe fn load_sprite(
     this: *mut DisplayGfx,
     layer: u32,
@@ -2392,7 +1589,7 @@ pub unsafe fn load_sprite(
         layer_ctx: *mut PaletteContext,
     ) -> i32,
 ) -> i32 {
-    // Bit 23 set = already loaded sentinel
+    // Bit 23 set = "already loaded" sentinel.
     if id & 0x80_0000 != 0 {
         return 1;
     }
@@ -2409,7 +1606,6 @@ pub unsafe fn load_sprite(
         return 0;
     }
 
-    // Already loaded?
     if is_sprite_loaded(this, id as i32) != 0 {
         return 0;
     }
@@ -2420,10 +1616,8 @@ pub unsafe fn load_sprite(
     }
     construct_sprite(sprite, base.sprite_cache);
 
-    // Load from VFS
     let result = load_sprite_from_vfs(sprite, gfx_dir, _name, layer_ctx);
     if result == 0 {
-        // Load failed — destroy sprite via vtable[0]
         if !sprite.is_null() {
             let dtor = (*(*sprite).vtable).destructor;
             dtor(sprite, 1);
@@ -2431,23 +1625,20 @@ pub unsafe fn load_sprite(
         return 0;
     }
 
-    // Store in sprite table
     let base = &mut (*this).base;
     base.sprite_ptrs[id as usize] = sprite;
     base.sprite_layers[id as usize] = layer.as_u32();
     base.layer_visibility[layer.idx()] += 1;
 
-    // Update max_frames on the sprite if flag is set
     if flag != 0 {
         let sprite = base.sprite_ptrs[id as usize];
         let id_u16 = id as u16;
         if id_u16 != 0 && id_u16 < (*sprite).max_frames {
             (*sprite).max_frames = id_u16;
         }
-        // Original: `(*sprite)._unknown_18 = (id >> 16) as u16` — splits the
-        // high word of `id` into the rounding-mode byte (bit 0 picks the
-        // round-to-nearest path in `Sprite__GetFrameForBlit`) and the
-        // adjacent unknown byte.
+        // Original splits the high word of `id` into the rounding-mode
+        // byte (bit 0 picks the round-to-nearest path in
+        // `Sprite__GetFrameForBlit`) and an adjacent unknown byte.
         (*sprite).frame_round_mode = (id >> 16) as u8;
         (*sprite)._unknown_19 = (id >> 24) as u8;
     }
@@ -2455,16 +1646,12 @@ pub unsafe fn load_sprite(
     1
 }
 
-/// Port of FUN_005733b0 — load sprite data from GfxDir stream.
+/// Port of FUN_005733B0 (`LoadSpriteByName`; original is usercall
+/// `EDI=sprite, ECX=gfx_dir, stack=(palette_ctx, name), RET 0x8`).
 ///
-/// Original convention: `usercall(EDI=sprite, ECX=gfx_dir) + stack(palette_ctx, name), RET 0x8`.
-/// Ported to a regular Rust function — no usercall bridge needed.
-///
-/// Reads sprite header, palette, and frame pixel data from a `.dir` archive stream.
-/// In headless mode (g_DisplayModeFlag != 0), skips all surface creation.
-///
-/// # Safety
-/// All pointers must be valid. `sprite` must be a zeroed 0x70-byte allocation.
+/// Reads the sprite header, palette, and frame pixel data from a `.dir`
+/// archive stream. In headless mode (`g_DisplayModeFlag != 0`) skips all
+/// surface creation.
 pub unsafe fn load_sprite_by_name(
     sprite: *mut LayerSprite,
     gfx_dir: *mut GfxDir,
@@ -2481,7 +1668,7 @@ pub unsafe fn load_sprite_by_name(
 
     let sp = sprite as *mut u8;
 
-    // 1. Copy name into sprite.name (max 0x4F chars + null)
+    // Copy name into sprite.name (max 0x4F chars + null terminator).
     let name_dest = (*sprite).name.as_mut_ptr();
     let mut i = 0usize;
     while i < 0x4F {
@@ -2494,27 +1681,21 @@ pub unsafe fn load_sprite_by_name(
     }
     *name_dest.add(i.min(0x4F)) = 0;
 
-    // 2. Store gfx_dir and palette_ctx in sprite
     (*sprite).gfx_dir = gfx_dir;
     (*sprite).palette_ctx = palette_ctx;
 
-    // 3. Load image stream from GfxDir
     let stream = call_gfx_load_image(gfx_dir, name);
     if stream.is_null() {
         return 0;
     }
 
-    // 5. Check headless mode — skip all surface creation if g_DisplayModeFlag != 0
     let display_mode_flag = *(rb(va::G_DISPLAY_MODE_FLAG) as *const u8);
     if display_mode_flag == 0 {
-        // ── Graphics path: read header, palette, allocate surfaces ──
-
-        // Read and discard: remaining() result (original calls vtable[2])
+        // The original calls remaining() and discards the result.
         GfxDirStream::remaining_raw(stream);
 
-        // Read .spr header as 4+4+2+2 separate calls, matching the original exactly.
-        // The stream seeks before each read; matching the original's read granularity
-        // may matter for internal stream state.
+        // Read the .spr header as 4+4+2+2 separate calls — matching the
+        // original's read granularity may matter for internal stream state.
         let mut hdr4 = [0u8; 4];
         GfxDirStream::read_raw(stream, hdr4.as_mut_ptr(), 4); // unused/version
         GfxDirStream::read_raw(stream, hdr4.as_mut_ptr(), 4); // data_size
@@ -2526,15 +1707,14 @@ pub unsafe fn load_sprite_by_name(
         GfxDirStream::read_raw(stream, &mut palette_count as *mut u32 as *mut u8, 2);
 
         // Build palette LUT: bulk-read all RGB triplets then iterate.
+        // Palette entry 0 is always transparent — the file's RGB data
+        // defines entries 1..=palette_count, not entry 0. So
+        // palette_data[0..3] maps to lut[1], not lut[0].
         let mut palette_lut = [0u8; 256];
         let lut_count = (palette_count as usize).min(256);
         let bulk_size = palette_count as usize * 3;
-        let mut palette_data = [0u8; 768]; // max 256 * 3
+        let mut palette_data = [0u8; 768];
         GfxDirStream::read_raw(stream, palette_data.as_mut_ptr(), bulk_size as u32);
-
-        // Palette entry 0 is always transparent (display index 0).
-        // The palette RGB data in the file defines entries 1..palette_count,
-        // NOT entry 0. So palette_data[0..3] maps to lut[1], etc.
         palette_lut[0] = 0;
         for idx in 0..lut_count {
             let r = palette_data[idx * 3];
@@ -2550,32 +1730,30 @@ pub unsafe fn load_sprite_by_name(
             }
         }
 
-        // Read sprite metadata fields (in original WA's read order:
-        // field_60 first, then flags / cell_width / cell_height).
-        GfxDirStream::read_raw(stream, sp.add(0x60), 4); // field_60
-        GfxDirStream::read_raw(stream, sp.add(0x64), 2); // flags
-        GfxDirStream::read_raw(stream, sp.add(0x68), 2); // cell_width
-        GfxDirStream::read_raw(stream, sp.add(0x6A), 2); // cell_height
+        // Sprite metadata fields, in the original's read order
+        // (field_60 before flags/cell_width/cell_height).
+        GfxDirStream::read_raw(stream, sp.add(0x60), 4);
+        GfxDirStream::read_raw(stream, sp.add(0x64), 2);
+        GfxDirStream::read_raw(stream, sp.add(0x68), 2);
+        GfxDirStream::read_raw(stream, sp.add(0x6A), 2);
 
-        // frame_count: zero first, then read
         (*sprite).frame_count = 0;
         GfxDirStream::read_raw(stream, sp.add(0x66), 2);
         let frame_count = (*sprite).frame_count as usize;
 
-        // Allocate LayerSpriteFrame array (counted array: count at [-4])
-        // Size per element: 0x14, with 4-byte count prefix
+        // Counted LayerSpriteFrame array: 0x14 bytes per element with a
+        // 4-byte count prefix at [-4]. Saturate the allocation size on
+        // overflow to match the original's checked-mul behavior.
         let total_elems = frame_count;
-        // Overflow check matching original (saturate on overflow)
         let checked_count = total_elems as u32;
         let checked_size = checked_count.checked_mul(0x14).unwrap_or(u32::MAX);
         let checked_alloc = checked_size.checked_add(4).unwrap_or(u32::MAX);
 
         let array_base = wa_malloc(checked_alloc);
         let frame_array = if !array_base.is_null() {
-            *(array_base as *mut u32) = checked_count; // store count at [-4]
+            *(array_base as *mut u32) = checked_count;
             let arr = array_base.add(4);
-            // Construct each element: set vtable at +0x08, zero surface at +0x0C
-            let bitmap_vtable = rb(0x00643F64) as u32; // CBitmap vtable (set by constructor at 0x573C30)
+            let bitmap_vtable = rb(0x00643F64) as u32; // CBitmap vtable
             for j in 0..total_elems {
                 let elem = arr.add(j * 0x14);
                 *(elem.add(0x08) as *mut u32) = bitmap_vtable;
@@ -2587,7 +1765,7 @@ pub unsafe fn load_sprite_by_name(
         };
         (*sprite).frame_array = frame_array as *mut LayerSpriteFrame;
 
-        // Skip alignment padding: while (remaining() & 3) != 0, read 1 dummy byte
+        // Skip alignment padding: while (remaining() & 3) != 0, read 1 byte.
         loop {
             let remaining = GfxDirStream::remaining_raw(stream);
             if remaining & 3 == 0 {
@@ -2597,22 +1775,20 @@ pub unsafe fn load_sprite_by_name(
             GfxDirStream::read_raw(stream, &mut dummy, 1);
         }
 
-        // Read frame headers
+        // Frame headers: 4-byte discarded prefix, then start_x/y, end_x/y.
         if frame_count > 0 && !frame_array.is_null() {
             for j in 0..frame_count {
                 let elem = frame_array.add(j * 0x14);
-                // Read 4-byte unknown header (discarded)
                 let mut frame_hdr = [0u8; 4];
                 GfxDirStream::read_raw(stream, frame_hdr.as_mut_ptr(), 4);
-                // Read 4x u16: start_x, start_y, end_x, end_y
-                GfxDirStream::read_raw(stream, elem, 2); // start_x
-                GfxDirStream::read_raw(stream, elem.add(2), 2); // start_y
-                GfxDirStream::read_raw(stream, elem.add(4), 2); // end_x
-                GfxDirStream::read_raw(stream, elem.add(6), 2); // end_y
+                GfxDirStream::read_raw(stream, elem, 2);
+                GfxDirStream::read_raw(stream, elem.add(2), 2);
+                GfxDirStream::read_raw(stream, elem.add(4), 2);
+                GfxDirStream::read_raw(stream, elem.add(6), 2);
             }
         }
 
-        // Surface creation loop: create surfaces and read pixel data for each frame
+        // Per-frame surface creation + pixel data load.
         if frame_count > 0 && !frame_array.is_null() {
             let render_ctx = *(rb(va::G_RENDER_CONTEXT) as *const *mut RenderContext);
 
@@ -2630,10 +1806,8 @@ pub unsafe fn load_sprite_by_name(
                     continue;
                 }
 
-                // Ensure surface exists at elem+0x0C
-                // alloc_surface returns the surface pointer in EAX (the return value),
-                // NOT via the FastcallResult buffer. The original code at 0x57367f
-                // does: MOV [EBX+0xC], EAX — storing EAX directly.
+                // alloc_surface returns the surface pointer in EAX, NOT via
+                // the FastcallResult buffer — see feedback_alloc_surface_return.md.
                 let surface_ptr = elem.add(0x0C) as *mut u32;
                 if *surface_ptr == 0 {
                     let mut buf = FastcallResult::default();
@@ -2645,7 +1819,7 @@ pub unsafe fn load_sprite_by_name(
                     continue;
                 }
 
-                // Init surface: surface->vtable[5](width, height, 0)
+                // surface->vtable[5](width, height, 0) — init storage.
                 {
                     let vt = *(surface as *const *const u32);
                     let init_fn: unsafe extern "fastcall" fn(
@@ -2659,7 +1833,7 @@ pub unsafe fn load_sprite_by_name(
                     init_fn(surface, &mut buf, width as u32, height as u32, 0);
                 }
 
-                // SetColorKey: surface->vtable[7](0, 0x10)
+                // surface->vtable[7](0, 0x10) — SetColorKey.
                 {
                     let vt = *(surface as *const *const u32);
                     let set_ck_fn: unsafe extern "fastcall" fn(
@@ -2672,7 +1846,7 @@ pub unsafe fn load_sprite_by_name(
                     set_ck_fn(surface, &mut buf, 0, 0x10);
                 }
 
-                // Lock: surface->vtable[3](&out_data, &out_pitch)
+                // surface->vtable[3](&out_data, &out_pitch) — Lock.
                 let mut data_ptr: u32 = 0;
                 let mut pitch: u32 = 0;
                 {
@@ -2688,14 +1862,12 @@ pub unsafe fn load_sprite_by_name(
                 }
 
                 if data_ptr != 0 && pitch != 0 {
-                    // Read pixel data row by row
                     let data = data_ptr as *mut u8;
                     for row in 0..height {
                         let row_dest = data.add((row as u32 * pitch) as usize);
                         GfxDirStream::read_raw(stream, row_dest, width as u32);
                     }
 
-                    // Remap pixels through palette LUT
                     let width_dwords = ((width as u32) + 3) / 4;
                     remap_pixels_through_lut(
                         data,
@@ -2706,7 +1878,7 @@ pub unsafe fn load_sprite_by_name(
                     );
                 }
 
-                // Unlock: surface->vtable[4](data_ptr)
+                // surface->vtable[4](data_ptr) — Unlock.
                 {
                     let vt = *(surface as *const *const u32);
                     let unlock_fn: unsafe extern "fastcall" fn(*mut u8, *mut FastcallResult, u32) =
@@ -2718,19 +1890,11 @@ pub unsafe fn load_sprite_by_name(
         }
     }
 
-    // Destroy stream reader
     GfxDirStream::destroy_raw(stream);
     1
 }
 
-/// Free a LayerSprite and its associated surfaces.
-///
-/// Port of FUN_0056a2f0 (usercall EDI=sprite, plain RET).
-/// Destroys each LayerSpriteFrame's surface via `surface->vtable[0](1)`,
-/// frees the counted array, then frees the sprite itself.
-///
-/// # Safety
-/// `sprite` must be a valid LayerSprite pointer allocated via `wa_malloc`.
+/// Port of FUN_0056A2F0 (`FreeLayerSprite`; usercall EDI=sprite).
 pub unsafe fn free_layer_sprite(sprite: *mut LayerSprite) {
     use crate::wa_alloc::wa_free;
 
@@ -2739,8 +1903,7 @@ pub unsafe fn free_layer_sprite(sprite: *mut LayerSprite) {
         let count_ptr = (frame_array as *mut u32).sub(1);
         let count = *count_ptr as usize;
 
-        // Destroy each frame's surface in reverse order
-        // (matches eh_vector_destructor_iterator behavior)
+        // Reverse-order destruction matches eh_vector_destructor_iterator.
         for i in (0..count).rev() {
             let elem = frame_array.add(i * 0x14);
             let surface = *(elem.add(0x0C) as *const u32);
@@ -2757,15 +1920,11 @@ pub unsafe fn free_layer_sprite(sprite: *mut LayerSprite) {
     wa_free(sprite);
 }
 
-/// Port of DisplayGfx::LoadSpriteByLayer (vtable slot 37, 0x56A4C0).
+/// Port of DisplayGfx::LoadSpriteByLayer (slot 37, 0x56A4C0).
 ///
-/// Simplified sprite loading that stores into DisplayGfx::sprite_table
-/// (offset 0x3DD4) instead of DisplayBase::sprite_ptrs. Allocates a raw
-/// 0x70-byte LayerSprite, partially initializes it, then loads via
-/// `load_sprite_by_name` (pure Rust port of FUN_005733b0).
-///
-/// # Safety
-/// `this` must be a valid `*mut DisplayGfx`.
+/// Simplified sprite loading that stores into `DisplayGfx::sprite_table`
+/// (+0x3DD4) instead of `DisplayBase::sprite_ptrs`. Unlike `load_sprite`
+/// it does NOT call `construct_sprite`.
 pub unsafe fn load_sprite_by_layer(
     this: *mut DisplayGfx,
     layer: u32,
@@ -2775,76 +1934,52 @@ pub unsafe fn load_sprite_by_layer(
 ) -> i32 {
     use crate::wa_alloc::wa_malloc_zeroed;
 
-    // Bit 23 set = already loaded sentinel
+    // Bit 23 set = "already loaded" sentinel.
     if id & 0x80_0000 != 0 {
         return 1;
     }
 
-    // Call set_active_layer (vtable slot 5) — returns the layer's
-    // PaletteContext, or null if `layer` is out of range.
     let palette_ctx = set_active_layer(this, layer as i32) as *mut PaletteContext;
 
     if !is_valid_sprite_id(id as i32) {
         return 0;
     }
 
-    // Already loaded?
     if is_sprite_loaded(this, id as i32) != 0 {
         return 1;
     }
 
-    // Allocate 0x70 bytes + 0x20 guard (matching WA_MallocMemset behavior)
+    // 0x70 bytes + 0x20 trailing guard, matching WA_MallocMemset.
     let sprite = wa_malloc_zeroed(0x90) as *mut LayerSprite;
     if sprite.is_null() {
         return 0;
     }
 
-    // Partial init (NOT ConstructSprite — different from load_sprite)
     (*sprite).display_gfx = this;
     (*sprite).frame_count = 0;
     (*sprite).frame_array = core::ptr::null_mut();
     (*sprite).gfx_dir = core::ptr::null_mut();
 
-    // Load sprite data — pure Rust port of FUN_005733b0
     let result = load_sprite_by_name(sprite, gfx_dir, palette_ctx, name);
     if result == 0 {
         free_layer_sprite(sprite);
         return 0;
     }
 
-    // Store in sprite_table (DisplayGfx offset 0x3DD4)
     (*this).sprite_table[id as usize] = sprite;
 
     1
 }
 
-// GetSpriteFrameForBlit (vtable slot 33, 0x5237C0) is NOT ported — see the
-// **porting blueprint** in the slot 33 doc comment on `DisplayVtable`
-// earlier in this file (search for `#[slot(33)]`). It covers the dispatcher
-// shape, the two helper usercall conventions, the FrameCache LRU allocator
-// and the LZSS decoder leaf primitives, the type pre-work needed before
-// porting can start, the leaf-first commit order, and the verification gates.
-// This is the last in-game render bridge.
-
-/// Port of `DisplayGfx::LoadFont` (vtable slot 34, 0x523560).
+/// Port of `DisplayGfx::LoadFont` (slot 34, 0x523560).
 ///
-/// Validates `layer` (1..=3) and `font_id` (1..=31), then allocates a
-/// zero-initialized 0x1C-byte `FontObject`, loads the named resource via
-/// `font_load_from_gfx`, and stores the object in `DisplayBase::font_table`.
+/// `layer` is the WA "mode" parameter, but it's the same value space as
+/// the layer index everywhere else (indexes `layer_contexts[1..=3]` and
+/// `layer_visibility[1..=3]`). Shipping WA only ever passes `1`.
 ///
-/// **`layer` is the WA "mode" parameter, but it's the same value space as
-/// the layer index everywhere else** — it indexes `layer_contexts[1..=3]`
-/// and `layer_visibility[1..=3]` exactly the way `set_layer_color` and
-/// `set_active_layer` do. The shipping game only ever passes `1`.
-///
-/// On load failure, the partially-initialized font object is leaked to match
-/// the original's behavior (it calls a sprite-bank-style cleanup helper
-/// `FUN_005230c0` which is not exercised here).
-///
-/// # Safety
-/// `this` must be a valid `*mut DisplayGfx`. `_gfx` must be a GfxDir pointer
-/// (or null if only the cached path is needed). `filename` must be a valid
-/// null-terminated C string.
+/// On load failure the partially-initialized font object is leaked, to
+/// match the original's call to an unported sprite-bank-style cleanup
+/// helper (`FUN_005230C0`).
 pub unsafe fn load_font(
     this: *mut DisplayGfx,
     layer: u32,
@@ -2864,7 +1999,6 @@ pub unsafe fn load_font(
         return 0;
     }
 
-    // Validate font_id (1..=31) and that the slot is empty.
     if !(1..=31).contains(&font_id) {
         return 0;
     }
@@ -2872,25 +2006,17 @@ pub unsafe fn load_font(
         return 0;
     }
 
-    // Allocate zeroed FontObject. The original uses WA_MallocMemset(0x1C)
-    // which only memsets the requested size; wa_malloc_struct_zeroed matches.
     let font_obj = wa_malloc_struct_zeroed::<Font>();
     if font_obj.is_null() {
         return 0;
     }
 
-    // Load and parse the font data.
     let result = font_load_from_gfx(font_obj, gfx_dir, layer_ctx, filename);
     if result == 0 {
-        // Original leaks here on failure (via an unported cleanup helper).
-        // We match that behavior rather than introducing a free path that
-        // might differ from WA's.
+        // Leak on failure to match the original's behavior.
         return 0;
     }
 
-    // Install into font_table. The original also records which layer owns
-    // this font slot at DisplayBase + 0x301C + font_id*4 (the gap region
-    // next to font_table), then bumps the layer visibility counter.
     base.font_table[font_id as usize] = font_obj;
     base.font_layers[font_id as usize] = layer.as_u32();
     base.layer_visibility[layer.idx()] += 1;
@@ -2898,16 +2024,7 @@ pub unsafe fn load_font(
     1
 }
 
-/// Port of `DisplayGfx::LoadFontExtension` (vtable slot 35, 0x523620).
-///
-/// Validates `font_id`, looks up the existing font object, resolves the
-/// palette context for the font's mode (recorded in `_gap_301c` by `load_font`),
-/// resolves the RGB color from `palette_value` via `palette_context_lookup_entry`,
-/// and dispatches to `font_extend`.
-///
-/// # Safety
-/// `this` must be a valid `*mut DisplayGfx`. `path` and `char_map` must be
-/// valid null-terminated C strings.
+/// Port of `DisplayGfx::LoadFontExtension` (slot 35, 0x523620).
 pub unsafe fn load_font_extension(
     this: *mut DisplayGfx,
     font_id: i32,
@@ -2928,19 +2045,17 @@ pub unsafe fn load_font_extension(
     }
     let font_obj = font_obj_addr as *mut Font;
 
-    // Resolve the RGB color via the layer-1 palette context (DisplayBase+0x3120).
-    // The original always reads layer_contexts[1] here, regardless of which
-    // mode owns the font. This matches the disassembly at 0x52364d:
-    //   `MOV ECX, [EDI+0x3120]` (= layer_contexts[1])
+    // The original ALWAYS resolves the RGB through layer_contexts[1],
+    // regardless of which layer owns the font. (Disasm at 0x52364D:
+    // `MOV ECX, [EDI+0x3120]` = `layer_contexts[1]`.)
     let layer1_ctx = base.layer_contexts[Layer::ONE.idx()];
     let mut resolved_rgb: u32 = 0;
     let _ = palette_context_lookup_entry(layer1_ctx, palette_value as i32, &mut resolved_rgb);
 
-    // The actual font extension call uses the font's owning layer's palette
-    // ctx. The original reads `layer_contexts[font_layers[font_id]]` directly
-    // without validation; if `font_layers` is 0 it reads index 0 (always
-    // null on a properly-initialized DisplayBase). We preserve that exact
-    // index lookup rather than going through `Layer` here.
+    // For the extension call we use the font's *owning* layer's palette
+    // context. The original reads `layer_contexts[font_layers[font_id]]`
+    // without validation, so a zero font_layers entry indexes
+    // `layer_contexts[0]` (always null). We preserve that exact lookup.
     let layer_idx = base.font_layers[font_id as usize] as usize;
     let layer_ctx = base.layer_contexts[layer_idx];
 
@@ -2949,16 +2064,10 @@ pub unsafe fn load_font_extension(
     1
 }
 
-/// Port of `DisplayGfx::GetFontInfo` (vtable slot 8, 0x523790).
+/// Port of `DisplayGfx::GetFontInfo` (slot 8, 0x523790).
 ///
-/// Validates `font_id` (must be in `1..=31` with a non-null entry in
-/// `font_table`), then dispatches to `font_get_info_impl`. The original
-/// passes `out_2` via `EDX` and `out_1` via `EDI`; this port preserves
-/// that mapping (`out_1` = max metric, `out_2` = font max width).
-///
-/// # Safety
-/// `this` must be a valid `*mut DisplayGfx`. The output pointers must be
-/// writable.
+/// `out_1` = max metric, `out_2` = font max width — the original passes
+/// them via EDI/EDX respectively.
 pub unsafe extern "thiscall" fn get_font_info(
     this: *mut DisplayGfx,
     font_id: i32,
@@ -2975,17 +2084,10 @@ pub unsafe extern "thiscall" fn get_font_info(
     font_get_info_impl(font_obj, out_1 as *mut i32, out_2 as *mut i32)
 }
 
-/// Port of `DisplayGfx::GetFontMetric` (vtable slot 9, 0x523750).
+/// Port of `DisplayGfx::GetFontMetric` (slot 9, 0x523750).
 ///
-/// Validates `font_id`, then dispatches to `font_get_metric_impl`.
-/// `char_code` is truncated to 8 bits to match the original's `MOV AL, ...`
-/// register usage. The original passes `out_1` via `EDX` and `out_2` via
-/// `EDI`, so `out_1` receives the per-character metric and `out_2`
-/// receives the font's max width.
-///
-/// # Safety
-/// `this` must be a valid `*mut DisplayGfx`. The output pointers must be
-/// writable.
+/// `out_1` = per-character metric (via EDX), `out_2` = font max width
+/// (via EDI). `char_code` is truncated to 8 bits to match `MOV AL, ...`.
 pub unsafe extern "thiscall" fn get_font_metric(
     this: *mut DisplayGfx,
     font_id: i32,
@@ -3008,15 +2110,10 @@ pub unsafe extern "thiscall" fn get_font_metric(
     )
 }
 
-/// Port of `DisplayGfx::SetFontParam` (vtable slot 10, 0x523710).
+/// Port of `DisplayGfx::SetFontParam` (slot 10, 0x523710).
 ///
-/// Validates `font_id`, then dispatches to `font_set_param_impl`. Per the
-/// original's register shuffle: `p3` is the input string, `p4` is the
-/// output total advance, and `p5` is the output font max width.
-///
-/// # Safety
-/// `this` must be a valid `*mut DisplayGfx`. `p3` must be a valid
-/// null-terminated byte string. `p4` and `p5` must be writable `*mut i32`.
+/// Per the original's register shuffle: `p3` = input string, `p4` =
+/// output total advance, `p5` = output font max width.
 pub unsafe extern "thiscall" fn set_font_param(
     this: *mut DisplayGfx,
     font_id: i32,
@@ -3035,17 +2132,11 @@ pub unsafe extern "thiscall" fn set_font_param(
     1
 }
 
-/// Port of `DisplayGfx::SetFontPalette` (vtable slot 36, 0x523690).
+/// Port of `DisplayGfx::SetFontPalette` (slot 36, 0x523690).
 ///
-/// Despite the name, this is the entry point for `font_set_palette_impl` —
-/// see that function's doc for what it actually does (it extends the
-/// digital font with derived `'.'` and `';'` glyphs). The wrapper is just
-/// a thin index lookup into `font_table`; the original has no bounds or
-/// null check on the index, so we mirror that.
-///
-/// # Safety
-/// `this` must be a valid `*mut DisplayGfx` and `font_index` must be a
-/// valid index into `font_table` whose entry is a non-null `FontObject`.
+/// Despite the name this is the entry point for `font_set_palette_impl`,
+/// which extends the digital font with derived `'.'` and `';'` glyphs.
+/// The original has no bounds or null check on `font_index`; we mirror that.
 pub unsafe extern "thiscall" fn set_font_palette(
     this: *mut DisplayGfx,
     font_index: u32,
@@ -3058,18 +2149,10 @@ pub unsafe extern "thiscall" fn set_font_palette(
 /// Pure-Rust replacement for `FUN_004FA490` plus the 9 unrolled blit
 /// helpers at `0x4FA1E0..0x4FA470` (dispatch table at `0x6A9594`).
 ///
-/// The original splits a glyph into chunks of `min(remaining_width, 8)`
-/// pixels and dispatches to a helper that copies that many bytes per row,
-/// stepping `dst_stride`/`src_stride` per row. **No transparency, no
-/// blending** — every byte (palette index) is copied verbatim. Verified
-/// against helpers 1 (1-byte/row) and 8 (8-byte/row).
-///
-/// Collapses the entire dispatch + 9 helpers into a single nested loop.
-///
-/// # Safety
-/// `dst` and `src` must be valid pointers to buffers of at least
-/// `(height-1)*stride + width` bytes (with their respective strides).
-/// `width` and `height` must be non-negative.
+/// The original splits a glyph into `min(remaining_width, 8)`-pixel
+/// chunks and dispatches to one of 9 hand-unrolled helpers. We collapse
+/// all of that into one nested loop. No transparency: every source byte
+/// (palette index) is copied verbatim, including 0.
 #[inline]
 pub unsafe fn font_blit_glyph(
     dst: *mut u8,
@@ -3088,41 +2171,28 @@ pub unsafe fn font_blit_glyph(
 
 /// Pure-Rust port of `Font__DrawText` (0x4FA4E0).
 ///
-/// Walks `msg` and rasterizes each character into the destination
-/// `BitGrid`. Glyph rows are copied directly with no transparency: the
-/// destination byte is overwritten with the source byte even when the
-/// source byte is 0. (The font's "background" pixels carry whatever
-/// palette index the font baked into the .fnt file.)
+/// Rasterizes `msg` into `bitmap`. Glyph rows are copied verbatim — the
+/// "background" of each glyph carries whatever palette index the .fnt
+/// file baked in, including 0.
 ///
-/// **Calling convention details that match the original exactly:**
+/// Subtle behaviors that match the original exactly:
 ///
-/// - The first thing the function does is `*out_width = font.width`
-///   unconditionally — including on the early validation-failure paths.
-/// - On success, returns the number of characters successfully drawn
-///   (forward) or `-1` (right-aligned, full string).
-/// - On truncation (next glyph wouldn't fit), returns the index of the
-///   first character that wasn't drawn.
-/// - On early validation failure (negative pen, doesn't fit vertically),
-///   returns 0 — but `*out_width` has already been written.
-/// - `out_pen_x` is initialised to 0 and updated as the running advance
-///   (how many pixels of horizontal space the text consumed).
+/// - `*out_width = font.width` is written unconditionally up front,
+///   even on the early validation-failure paths.
+/// - On success: returns the number of chars drawn (forward path) or
+///   `-1` (right-aligned, full string drawn).
+/// - On truncation: returns the index of the first un-drawn char.
+/// - On validation failure (negative pen, vertical overflow): returns 0
+///   but `*out_width` has already been written.
+/// - `out_pen_x` is initialized to 0 and updated to the running advance.
 ///
 /// **Glyph source row stride** is `glyph.width` for base-font glyphs but
-/// `font.width` for extension glyphs (those with index `>= font._height2`,
-/// added by `font_extend` or `font_set_palette_impl`). Extension glyphs
-/// live in a separate buffer with uniform `font.width`-byte rows; base
-/// glyphs are tightly packed in the main `.fnt` pixel data.
+/// `font.width` for extension glyphs (index `>= font._height2`, added by
+/// `font_extend` / `font_set_palette_impl`). Extension glyphs live in a
+/// separate uniform-stride buffer.
 ///
-/// `font_id_high` is the *high 16 bits* of the slot 7 caller's `font_id`,
-/// sign-extended (the slot wrapper does `SAR EAX, 0x10`). Bit 1 selects
-/// right-aligned mode; other bits are ignored by the rasterizer.
-///
-/// # Safety
-/// `font_obj` must be a valid `*const FontObject`. `bitmap` must be a
-/// valid `*const BitGrid` whose `data`/`row_stride`/`width`/`height`
-/// describe a backing buffer large enough for the requested glyph rect.
-/// `msg` must be a valid null-terminated byte string. `out_pen_x` and
-/// `out_width` must be writable.
+/// `font_id_high` is the sign-extended high half of slot 7's `font_id`
+/// (the wrapper does `SAR EAX, 0x10`). Bit 1 selects right-aligned mode.
 pub unsafe fn font_draw_text_impl(
     font_obj: *const Font,
     bitmap: *const BitGrid,
@@ -3136,7 +2206,7 @@ pub unsafe fn font_draw_text_impl(
     let font = &*font_obj;
     let font_width = font.width as i16 as i32;
 
-    // Always write font width to out_width — even on validation failure.
+    // Written unconditionally — even on validation failure (matches original).
     *out_width = font_width;
 
     let bm = &*bitmap;
@@ -3144,13 +2214,12 @@ pub unsafe fn font_draw_text_impl(
     let bitmap_height = bm.height as i32;
     let stride = bm.row_stride as i32;
 
-    // Validation: pen must be non-negative AND a glyph must fit vertically.
     if pen_x < 0 || pen_y < 0 || font_width + pen_y > bitmap_height {
         return 0;
     }
 
-    // Pre-adjust the data pointer to the (pen_x, pen_y) origin so each
-    // glyph dst calculation only needs the per-glyph offset.
+    // Pre-offset data pointer to (pen_x, pen_y) — glyph dst calc only
+    // needs the per-glyph delta after this.
     let data_origin = bm.data.offset((pen_y * stride + pen_x) as isize);
 
     let height2 = font._height2 as i16 as i32;
@@ -3162,23 +2231,20 @@ pub unsafe fn font_draw_text_impl(
     *out_pen_x = 0;
 
     if (font_id_high >> 1) & 1 != 0 {
-        // -----------------------------------------------------------------
         // Right-aligned path: walk msg right-to-left, advance leftward.
-        // -----------------------------------------------------------------
         let mut len: i32 = 0;
         while *msg.offset(len as isize) != 0 {
             len += 1;
         }
         let mut idx = len - 1;
         if idx < 0 {
-            return idx; // -1 for empty string
+            return idx;
         }
 
         loop {
             let ch = *msg.offset(idx as isize) as usize;
             let glyph_idx_1based = *char_to_glyph.add(ch);
             if glyph_idx_1based == 0 {
-                // Unmapped char: just advance.
                 *out_pen_x += width_div_5;
             } else {
                 let glyph_idx = glyph_idx_1based as i32 - 1;
@@ -3207,20 +2273,17 @@ pub unsafe fn font_draw_text_impl(
             }
             idx -= 1;
             if idx < 0 {
-                return idx; // -1 = full string drawn
+                return idx;
             }
         }
     } else {
-        // -----------------------------------------------------------------
         // Forward path: walk msg left-to-right, advance rightward.
-        // -----------------------------------------------------------------
         if *msg == 0 {
             return 0;
         }
         let mut idx: i32 = 0;
         loop {
             let cur_advance = *out_pen_x;
-            // Outer fit check: stop if next char would start past the bitmap.
             if cur_advance + pen_x >= bitmap_width {
                 return idx;
             }
@@ -3228,7 +2291,6 @@ pub unsafe fn font_draw_text_impl(
             let ch = *msg.offset(idx as isize) as usize;
             let glyph_idx_1based = *char_to_glyph.add(ch);
             if glyph_idx_1based == 0 {
-                // Unmapped char: just advance.
                 *out_pen_x = cur_advance + width_div_5;
             } else {
                 let glyph_idx = glyph_idx_1based as i32 - 1;
@@ -3236,7 +2298,7 @@ pub unsafe fn font_draw_text_impl(
                 let glyph_width = glyph.width as i32;
                 let glyph_height = glyph.height as i32;
 
-                // Inner fit check: glyph must end before bitmap.width-2.
+                // Glyph must end at least 2 px before the bitmap edge.
                 if glyph_width + cur_advance + pen_x + 2 > bitmap_width {
                     return idx;
                 }
@@ -3261,19 +2323,12 @@ pub unsafe fn font_draw_text_impl(
     }
 }
 
-/// Port of `DisplayGfx::DrawTextOnBitmap` (vtable slot 7, 0x5236B0).
+/// Port of `DisplayGfx::DrawTextOnBitmap` (slot 7, 0x5236B0).
 ///
-/// Splits `font_id` into `font_id_low` (1-based slot, validated against
-/// `1..=31`) and `font_id_high` (sign-extended flags). Looks up the
-/// `FontObject` from `font_table[font_id_low]`, dispatches to
-/// `font_draw_text_impl`. The original is sloppy about validation: if
-/// `font_id_low` is out of range OR the slot is null, it returns 0 WITHOUT
-/// writing `*out_width`. We mirror that exactly.
-///
-/// # Safety
-/// `this` must be a valid `*mut DisplayGfx`. `bitmap`, `msg`, `out_pen_x`,
-/// `out_width` must satisfy `font_draw_text_impl`'s contract on the
-/// success path.
+/// `font_id` low half = 1-based slot index (1..=31), high half = flags
+/// (sign-extended via `SAR EAX, 0x10`). On validation failure (bad slot
+/// or null entry) the original returns 0 *without* writing `*out_width`;
+/// we mirror that.
 pub unsafe extern "thiscall" fn draw_text_on_bitmap(
     this: *mut DisplayGfx,
     font_id: i32,
@@ -3292,7 +2347,6 @@ pub unsafe extern "thiscall" fn draw_text_on_bitmap(
     if font_obj.is_null() {
         return 0;
     }
-    // Sign-extend the high half (matches `SAR EAX, 0x10` in the wrapper).
     let font_id_high = (font_id as i32) >> 16;
     font_draw_text_impl(
         font_obj,
@@ -3315,13 +2369,8 @@ use crate::render::sprite::sprite::CBitmap;
 use crate::wa_alloc::wa_malloc;
 
 /// Source descriptor passed to `DisplayGfx::DrawTiledBitmap` (slot 11) as
-/// the third stack arg. The slot reads four fields out of this struct;
-/// the rest of the layout is unknown.
-///
-/// Field offsets verified by tracing the disassembly of slot 11
-/// (`0x56b8c0`): the function reads `[ECX+0x14]` (bpp dispatch),
-/// `[ECX+0x18]` (total height), `[ECX+0x10]` (row stride), and
-/// `[ECX+0x08]` (source data base pointer).
+/// the third stack arg. Field offsets verified from the slot 11 disasm
+/// (`0x56B8C0`): only `+0x08`, `+0x10`, `+0x14`, `+0x18` are read.
 #[repr(C)]
 pub struct TiledBitmapSource {
     /// 0x00..0x07: unknown header bytes
@@ -3349,23 +2398,15 @@ const _: () = assert!(core::mem::offset_of!(TiledBitmapSource, row_stride) == 0x
 const _: () = assert!(core::mem::offset_of!(TiledBitmapSource, bpp) == 0x14);
 const _: () = assert!(core::mem::offset_of!(TiledBitmapSource, source_height) == 0x18);
 
-/// Pure-Rust port of `FUN_005B2A5E` (the 8bpp 64-byte row replicator).
+/// Pure-Rust port of `FUN_005B2A5E` — 8bpp 64-byte row replicator.
 ///
-/// For each of `row_count` rows, reads 8 bytes from `src` and writes them
-/// 8 times consecutively to `dst` (filling 64 bytes per row), then advances
-/// `dst` by `dst_stride` and `src` by exactly 8 bytes (regardless of any
-/// caller-side row stride). The original is hand-unrolled in asm with 16
-/// dword writes per row; the port collapses to one inner loop.
+/// For each of `row_count` rows: read 8 bytes from `src`, write them 8
+/// times consecutively to `dst` (= 64 bytes per row), advance `dst` by
+/// `dst_stride` and `src` by exactly 8 bytes. The original is asm
+/// hand-unrolled to 16 dword writes per row.
 ///
-/// Used by `DisplayGfx::DrawTiledBitmap` (slot 11) for the 8bpp tile
-/// populate phase. Has only that single caller (verified via
-/// `get_xrefs_to FUN_005B2A5E`).
-///
-/// # Safety
-/// `dst` must point to a buffer with at least `(row_count - 1) * dst_stride
-/// + 64` bytes; `src` must point to a buffer with at least `row_count * 8`
-/// bytes. `row_count` must be positive (the original loops at least once
-/// before checking; we mirror that with `>= 1`).
+/// Only caller (verified via xrefs) is `DrawTiledBitmap` slot 11's 8bpp
+/// populate phase.
 unsafe fn blit_64byte_row_pattern(
     mut dst: *mut u8,
     dst_stride: i32,
@@ -3374,11 +2415,10 @@ unsafe fn blit_64byte_row_pattern(
 ) {
     let mut remaining = row_count;
     while remaining > 0 {
-        // Read 8 source bytes (one row's pattern).
         let pattern_lo = (src as *const u32).read_unaligned();
         let pattern_hi = (src.add(4) as *const u32).read_unaligned();
 
-        // Write 16 dwords = 64 bytes by replicating (lo, hi) 8 times.
+        // Replicate (lo, hi) 8 times = 16 dwords = 64 bytes per row.
         let dst_dw = dst as *mut u32;
         let mut i = 0;
         while i < 8 {
@@ -3393,23 +2433,12 @@ unsafe fn blit_64byte_row_pattern(
     }
 }
 
-/// Pure-Rust port of `BlitColorTable_Forward` (`0x5B2B5D`).
+/// Pure-Rust port of `BlitColorTable_Forward` (0x5B2B5D) — transparent
+/// byte-level blit (skip source bytes that are 0).
 ///
-/// Transparent byte-level blit: for each pixel in a `width × height` rect,
-/// if the source byte is non-zero, write it to the destination; otherwise
-/// leave the destination unchanged. Walks rows with independent
-/// `dst_stride`/`src_stride`.
-///
-/// Used by `DisplayGfx::DrawTiledBitmap` (slot 11) for the `0x40`-bpp tile
-/// populate phase. The other listed caller in WA — `BitGrid::BlitSpriteRect`
-/// at `0x4F6C93` — is already replaced by our pure-Rust `blit_sprite_rect`
-/// in `sprite_blit.rs`, so this primitive is exclusively reachable through
-/// slot 11 in our build.
-///
-/// # Safety
-/// `dst`/`src` must point to buffers large enough for the requested rect
-/// at the given strides. `width` and `height` must be positive (the
-/// original loops once before checking, mirrored here).
+/// In our build only `DrawTiledBitmap` (slot 11) reaches this — the
+/// other WA caller `BitGrid::BlitSpriteRect` (0x4F6C93) is replaced by
+/// our `blit_sprite_rect` in `sprite_blit.rs`.
 unsafe fn blit_color_table_forward(
     mut dst: *mut u8,
     dst_stride: i32,
@@ -3434,19 +2463,12 @@ unsafe fn blit_color_table_forward(
     }
 }
 
-/// Pure-Rust port of `FUN_00403c60` — the `CBitmap` blit-via-wrapper helper.
+/// Pure-Rust port of `FUN_00403C60` — the `CBitmap` blit-via-wrapper.
 ///
-/// Lazily allocates the backing surface for `cbm` via the render context's
-/// `alloc_surface` (slot 22) the first time it is called for this
-/// `CBitmap`, then dispatches the blit through `draw_landscape` (slot 23).
-///
-/// `alloc_surface` returns the surface pointer in EAX (the binding's return
-/// value), NOT via the `FastcallResult` buffer — see
-/// `feedback_alloc_surface_return.md`.
-///
-/// # Safety
-/// `cbm` must be a valid `*mut CBitmap`. `g_RenderContext` must be
-/// initialized.
+/// Lazy-allocs `cbm.surface` via `alloc_surface` (slot 22) on first
+/// call, then dispatches the blit through `draw_landscape` (slot 23).
+/// Note: `alloc_surface` returns its result in EAX, not via the
+/// `FastcallResult` buffer — see `feedback_alloc_surface_return.md`.
 unsafe fn cbitmap_blit_via_wrapper(
     cbm: *mut CBitmap,
     dst_x: i32,
@@ -3459,12 +2481,9 @@ unsafe fn cbitmap_blit_via_wrapper(
 ) {
     let wrapper = *(rb(va::G_RENDER_CONTEXT) as *const *mut RenderContext);
 
-    // Lazy alloc: if the cbm has no surface yet, ask the wrapper for one.
     if (*cbm).surface.is_null() {
         let mut buf = FastcallResult::default();
         let ret = RenderContext::alloc_surface_raw(wrapper, &mut buf);
-        // alloc_surface returns the surface pointer in EAX (the bound
-        // wrapper's return value).
         (*cbm).surface = ret as *mut Surface;
     }
 
@@ -3483,20 +2502,10 @@ unsafe fn cbitmap_blit_via_wrapper(
     );
 }
 
-/// Pure-Rust port of `DisplayGfx::BlitBitmapClipped` (`0x56A700`).
+/// Pure-Rust port of `DisplayGfx::BlitBitmapClipped` (0x56A700).
 ///
-/// Computes the clipped intersection of `(dst_x, dst_y, width, height)`
-/// against the `DisplayBase` clip rect (`0x3550..0x355C`), flushes the
-/// render lock if held, and dispatches the actual blit through
-/// `cbitmap_blit_via_wrapper`.
-///
-/// Used by ported slots 11 (`DrawTiledBitmap`), 22 (`DrawTiledTerrain`),
-/// and the bitmap-sprite branch of slot 19 (`BlitSprite`) via the DLL
-/// `blit_sprite` hook.
-///
-/// # Safety
-/// `this` must be a valid `*mut DisplayGfx`. `surface` must be a valid
-/// `*mut CBitmap`. `g_RenderContext` must be initialized.
+/// Used by slots 11 (`DrawTiledBitmap`), 22 (`DrawTiledTerrain`), and
+/// the bitmap-sprite branch of slot 19 (`BlitSprite`).
 pub unsafe fn blit_bitmap_clipped_native(
     this: *mut DisplayGfx,
     dst_x: i32,
@@ -3515,7 +2524,6 @@ pub unsafe fn blit_bitmap_clipped_native(
     let dst_x2 = dst_x + width;
     let dst_y2 = dst_y + height;
 
-    // Trivial reject — entirely outside the clip rect.
     if dst_x >= cx2 || dst_x2 <= cx1 || dst_y >= cy2 || dst_y2 <= cy1 {
         return;
     }
@@ -3525,8 +2533,8 @@ pub unsafe fn blit_bitmap_clipped_native(
     let new_top = cy1.max(dst_y);
     let new_bottom = cy2.min(dst_y2);
 
-    // Degenerate (zero-width or zero-height clipped rect) — original
-    // checks `local_28 != iVar2 && local_24 != iVar1`. Mirror exactly.
+    // Degenerate clipped rect — matches the original's
+    // `local_28 != iVar2 && local_24 != iVar1` check.
     if new_left == new_right || new_top == new_bottom {
         return;
     }
@@ -3545,23 +2553,11 @@ pub unsafe fn blit_bitmap_clipped_native(
     );
 }
 
-/// Pure-Rust port of `DisplayGfx::BlitBitmapTiled` (`0x56A7D0`,
-/// usercall EAX=initial_x, EDI=tile_width).
+/// Pure-Rust port of `DisplayGfx::BlitBitmapTiled` (0x56A7D0; usercall
+/// `EAX=initial_x, EDI=tile_width`).
 ///
-/// Tiles `surface` horizontally across the visible clip range
-/// `[clip_x1, clip_x2)`. The function first walks `initial_x` by
-/// `±tile_width` until `x ≤ clip_x1`, then blits at `(x, dst_y),
-/// (x + tile_width, dst_y), …` until past `clip_x2`. Each blit goes
-/// through `blit_bitmap_clipped_native` with the same fixed `flags = 2`
-/// the original WA function uses.
-///
-/// Used by the bitmap-sprite branch of slot 19 (`BlitSprite`) when the
-/// `tiled` mode bit (high_flags bit 16) is set on the sprite.
-///
-/// # Safety
-/// `this` must be a valid `*mut DisplayGfx` with an initialized clip
-/// rect. `surface` must be a valid `*mut CBitmap`. `tile_width` must be
-/// positive (zero or negative would loop forever; matches the original).
+/// Tiles `surface` horizontally across `[clip_x1, clip_x2)`. Used by
+/// slot 19's bitmap-sprite branch when the tiled mode bit is set.
 pub unsafe fn blit_bitmap_tiled_native(
     this: *mut DisplayGfx,
     initial_x: i32,
@@ -3573,9 +2569,8 @@ pub unsafe fn blit_bitmap_tiled_native(
     let clip_x1 = (*this).base.clip_x1;
     let clip_x2 = (*this).base.clip_x2;
 
-    // Walk to the largest x ≤ clip_x1 in the arithmetic sequence
-    // {initial_x ± k*tile_width} (matches the original's two-loop pattern
-    // at 0x56A7DD..0x56A7F4).
+    // Two-loop walk to the largest `x ≤ clip_x1` in the sequence
+    // {initial_x ± k*tile_width}, matching 0x56A7DD..0x56A7F4.
     let mut x = initial_x;
     while x < clip_x1 {
         x += tile_width;
@@ -3590,27 +2585,15 @@ pub unsafe fn blit_bitmap_tiled_native(
     }
 }
 
-/// Pure-Rust port of `DisplayGfx::GetBitmapSpriteInfo` (`0x573C50`,
-/// usercall EAX=bitmap_obj, EDX=palette_or_anim).
+/// Pure-Rust port of `DisplayGfx::GetBitmapSpriteInfo` (0x573C50;
+/// usercall `EAX=bitmap_obj, EDX=palette_or_anim`).
 ///
-/// Resolves an animation/palette value into a frame index for a
-/// `LayerSprite`, then writes the selected frame's bounding box and the
-/// sprite's full cell width/height to the output pointers and returns a
-/// pointer to the frame's `CBitmap` (the trailing 12 bytes of the
-/// `LayerSpriteFrame` entry).
+/// `bitmap_obj.flags` interprets `palette_or_anim`:
+/// - bit 0: 0 = signed clamp to `[0, 0xFFFF]`, 1 = use low 16 bits as-is
+/// - bit 1: 0 = forward iter, 1 = ping-pong over `[0, frame_count)`
 ///
-/// `bitmap_obj.flags` (`LayerSprite +0x64`) controls interpretation of
-/// `palette_or_anim`:
-/// - bit 0 set: low 16 bits taken as-is (no clamp)
-/// - bit 0 clear: signed clamp to `[0, 0xFFFF]`
-/// - bit 1 set: ping-pong (bounce) iteration over `[0, frame_count)`
-/// - bit 1 clear: forward iteration
-///
-/// Used by the bitmap-sprite branch of slot 19 (`BlitSprite`).
-///
-/// # Safety
-/// `bitmap_obj` must be a valid `LayerSprite` with a populated
-/// `frame_array`. The output pointers must be writable.
+/// Returns a pointer to the selected `LayerSpriteFrame`'s embedded
+/// `CBitmap` (the trailing 12 bytes). Used by slot 19's bitmap-sprite branch.
 pub unsafe fn get_bitmap_sprite_info(
     bitmap_obj: *mut LayerSprite,
     palette_or_anim: u32,
@@ -3623,7 +2606,6 @@ pub unsafe fn get_bitmap_sprite_info(
 ) -> *mut CBitmap {
     let flags = (*bitmap_obj).flags as i32;
 
-    // Step 1: clamp / mask the palette_or_anim value into [0, 0xFFFF].
     let pal: i32 = if flags & 1 != 0 {
         (palette_or_anim & 0xFFFF) as i32
     } else {
@@ -3631,11 +2613,10 @@ pub unsafe fn get_bitmap_sprite_info(
         p.max(0).min(0xFFFF)
     };
 
-    // Step 2: compute frame index from frame_count and pal.
     let frame_count = (*bitmap_obj).frame_count as i16 as i32;
     let frame_idx = if flags & 2 != 0 {
-        // Ping-pong: scaled = ((2*frame_count - 1) * pal) >> 16
-        // If scaled >= frame_count, fold back: (2*frame_count - scaled) - 1.
+        // Ping-pong: scaled = ((2*frame_count - 1) * pal) >> 16, fold
+        // back to `(2*frame_count - scaled) - 1` when past the midpoint.
         let scaled = ((frame_count * 2 - 1) * pal) >> 16;
         if scaled >= frame_count {
             (frame_count * 2 - scaled) - 1
@@ -3643,11 +2624,9 @@ pub unsafe fn get_bitmap_sprite_info(
             scaled
         }
     } else {
-        // Forward: idx = (frame_count * pal) >> 16
         (frame_count * pal) >> 16
     };
 
-    // Step 3: read the selected frame entry.
     let frame = (*bitmap_obj).frame_array.offset(frame_idx as isize);
 
     *out_left = (*frame).start_x as i32;
@@ -3701,8 +2680,7 @@ pub unsafe fn draw_tiled_bitmap_impl(
 
     if vec_empty {
         if total_height > 0 {
-            // Pre-reserve the entire bitmap_vec in one allocation. The
-            // original grows the vector incrementally; we don't.
+            // Pre-reserve in one allocation; see the docstring above.
             let max_tiles = ((total_height + 0x3FF) >> 10) as usize;
             let vec_buf = wa_malloc((max_tiles * core::mem::size_of::<*mut CBitmap>()) as u32)
                 as *mut *mut CBitmap;
@@ -3719,33 +2697,26 @@ pub unsafe fn draw_tiled_bitmap_impl(
             let mut accum = 0i32;
             let mut remaining = total_height;
             while accum < total_height {
-                // Allocate one CBitmap entry.
+                // The original doesn't null-check the malloc; mirror that.
                 let cbm = wa_malloc_struct_zeroed::<CBitmap>();
                 if !cbm.is_null() {
                     (*cbm).vtable = cbitmap_vt;
                     (*cbm).surface = core::ptr::null_mut();
                     (*cbm)._pad = 0;
                 }
-                // The original assumes the malloc succeeded for the rest
-                // of the loop body (no null check on `puVar6`). Mirror
-                // that exactly.
 
                 let strip_h = remaining.min(0x400);
 
-                // Lazy-alloc the surface (matches the original's
-                // double-checked alloc_surface inside the strip loop).
                 if (*cbm).surface.is_null() {
                     let mut buf = FastcallResult::default();
                     let s = RenderContext::alloc_surface_raw(wrapper, &mut buf);
                     (*cbm).surface = s as *mut Surface;
                 }
 
-                // Init at 0x40 × strip_h × 8bpp.
+                // Init at 0x40 × strip_h × 8bpp; retry with 4bpp on failure.
                 let mut init_buf = FastcallResult::default();
                 Surface::init_surface_raw((*cbm).surface, &mut init_buf, 0x40, strip_h, 8);
 
-                // On failure, retry with bpp=4. The original re-allocates
-                // the surface first (still null-checks), then retries.
                 if init_buf.value != 0 {
                     if (*cbm).surface.is_null() {
                         let mut buf = FastcallResult::default();
@@ -3755,14 +2726,10 @@ pub unsafe fn draw_tiled_bitmap_impl(
                     let mut init_buf2 = FastcallResult::default();
                     Surface::init_surface_raw((*cbm).surface, &mut init_buf2, 0x40, strip_h, 4);
                     if init_buf2.value != 0 {
-                        // Both inits failed — bail (matches the original's
-                        // `JNZ 0056bcb4` to the function epilogue).
                         return;
                     }
                 }
 
-                // push_back: write the entry and bump end (capacity is
-                // pre-reserved; this never reallocates).
                 *(*this).bitmap_end = cbm;
                 (*this).bitmap_end = (*this).bitmap_end.add(1);
 
@@ -3774,7 +2741,7 @@ pub unsafe fn draw_tiled_bitmap_impl(
     }
 
     // -------------------------------------------------------------------
-    // Phase 2 — Populate (only if tile_cache_populated == 0)
+    // Phase 2 — Populate
     // -------------------------------------------------------------------
     if (*this).tile_cache_populated == 0 {
         let mut tile_idx: usize = 0;
@@ -3794,8 +2761,8 @@ pub unsafe fn draw_tiled_bitmap_impl(
 
             let cbm = *(*this).bitmap_ptr.add(tile_idx);
 
-            // Lazy-alloc surface (paranoid: should already be non-null
-            // from phase 1, but the original repeats the check).
+            // Paranoid lazy-alloc — should already be non-null from
+            // phase 1, but the original repeats the check.
             if (*cbm).surface.is_null() {
                 let wrapper = *(rb(va::G_RENDER_CONTEXT) as *const *mut RenderContext);
                 let mut buf = FastcallResult::default();
@@ -3803,8 +2770,6 @@ pub unsafe fn draw_tiled_bitmap_impl(
                 (*cbm).surface = s as *mut Surface;
             }
 
-            // Lock the surface (slot 3): writes data ptr to `surf_data`
-            // and stride to `surf_stride`.
             let mut surf_data: *mut u8 = core::ptr::null_mut();
             let mut surf_stride: i32 = 0;
             {
@@ -3817,7 +2782,6 @@ pub unsafe fn draw_tiled_bitmap_impl(
                 );
             }
 
-            // Compute the source row pointer for this strip.
             let src_row = source_data.offset((current_y as isize) * (row_stride as isize));
 
             if bpp == 8 {
@@ -3832,9 +2796,8 @@ pub unsafe fn draw_tiled_bitmap_impl(
                     strip_h,
                 );
             }
-            // (other bpp: no blit, just unlock — matches original)
+            // (other bpp values: no blit, just unlock — matches original)
 
-            // Unlock the surface (slot 4) with the locked data ptr.
             {
                 let mut buf = FastcallResult::default();
                 Surface::unlock_surface_raw((*cbm).surface, &mut buf, surf_data);
@@ -3849,35 +2812,26 @@ pub unsafe fn draw_tiled_bitmap_impl(
     // -------------------------------------------------------------------
     // Phase 3 — Display
     // -------------------------------------------------------------------
-    // dest_x: snap to a 0x40 grid by computing (dest_x mod 0x40) - 0x40
-    // (with the mod result in [-0x3f, 0x3f] using sign-preserving
-    // rounding). The result is the X offset of the FIRST visible tile
-    // column relative to the screen origin: in the range [-0x3f, 0],
-    // such that stepping by 0x40 produces tile-aligned column positions
-    // that cover the visible area.
+    // Snap dest_x to a 0x40-aligned column ≤ dest_x: result is in
+    // [-0x3f, 0], so stepping by 0x40 covers the visible area starting
+    // off the left edge. Reproduces the original's
+    // `AND EAX, 0x8000003f` + sign-extend dance for signed mod 0x40.
     let col_x: i32 = {
-        // Reproduce the original's signed mod 0x40:
-        //   AND EAX, 0x8000003f      ; preserve sign bit + low 6 bits
-        //   if negative: DEC, OR 0xffffffc0, INC   (sign-extend)
         let dest_x_u = dest_x as u32;
         let masked = dest_x_u & 0x8000_003f;
         let mut v = if (masked as i32) < 0 {
-            // sign-preserve
             (((masked.wrapping_sub(1)) | 0xffff_ffc0).wrapping_add(1)) as i32
         } else {
             masked as i32
         };
-        // If v > 0, subtract 0x40.
         if v > 0 {
             v -= 0x40;
         }
         v
     };
 
-    // Y-tile range: compute first/last visible tile index from
-    //   (camera_y + dest_y) and (camera_y + dest_y - display_height)
-    // using the same signed `(v + ((v >> 31) & 0x3FF)) >> 10` rounding
-    // idiom that the original applies (round toward zero).
+    // First/last visible Y-tile indices, using the original's signed
+    // `(v + ((v >> 31) & 0x3FF)) >> 10` rounding-toward-zero idiom.
     let camera_y = (*this).camera_y;
     let neg = -(camera_y + dest_y);
     let display_height = (*this).base.display_height as i32;
@@ -3887,7 +2841,6 @@ pub unsafe fn draw_tiled_bitmap_impl(
     let mut y_first = (((first_v + ((first_v >> 31) & 0x3FF)) >> 10) - 0x80) as i32;
     let mut y_last = (((last_v + ((last_v >> 31) & 0x3FF)) >> 10) - 0x80) as i32;
 
-    // Clamp y_first to >= 0 (matches the SETLE/SUB/AND idiom).
     if y_first < 0 {
         y_first = 0;
     }
@@ -3908,13 +2861,12 @@ pub unsafe fn draw_tiled_bitmap_impl(
 
     let display_width = (*this).base.display_width as i32;
     let mut tile_idx_y = y_first;
-    let mut current_strip_y = y_first << 10; // y_first * 0x400
+    let mut current_strip_y = y_first << 10;
 
     while tile_idx_y <= y_last {
         let strip_end = total_height.min(current_strip_y + 0x400);
         let strip_h = strip_end - current_strip_y;
 
-        // Skip the column loop if the start column is already off-screen.
         if col_x < display_width {
             let cbm = *(*this).bitmap_ptr.add(tile_idx_y as usize);
             let dst_y = camera_y + current_strip_y + dest_y;
@@ -3930,12 +2882,7 @@ pub unsafe fn draw_tiled_bitmap_impl(
     }
 }
 
-/// Thiscall entry point for `DisplayGfx::DrawTiledBitmap` (vtable slot 11).
-/// Matches the original's signature: `(this, dest_x, dest_y, source)` with
-/// `RET 0xC` (3 stack args, callee-cleaned).
-///
-/// # Safety
-/// See [`draw_tiled_bitmap_impl`].
+/// Thiscall entry point for `DisplayGfx::DrawTiledBitmap` (slot 11).
 pub unsafe extern "thiscall" fn draw_tiled_bitmap(
     this: *mut DisplayGfx,
     dest_x: i32,
