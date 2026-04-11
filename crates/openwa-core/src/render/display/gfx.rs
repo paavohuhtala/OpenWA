@@ -1,8 +1,7 @@
 use super::base::DisplayBase;
 use super::vtable::DisplayGfxVtable;
-use crate::bitgrid::DisplayBitGrid;
+use crate::bitgrid::{BitGrid, BitGridBaseVtable, DisplayBitGrid};
 use crate::render::sprite::sprite::{CBitmap, LayerSprite};
-use core::ffi::c_void;
 
 /// DisplayGfx — full display/graphics subsystem (derived from DisplayBase).
 ///
@@ -119,16 +118,15 @@ pub struct DisplayGfx {
     pub layer_1: *mut DisplayBitGrid,
     /// 0x3DA4: Layer 2 — same layout, but also initialized via BitGrid::Init(8, 128, 128).
     pub layer_2: *mut DisplayBitGrid,
-    /// 0x3DA8: BitGrid vtable pointer (0x664144). Set in constructor.
-    pub bitgrid_vtable: *const c_void,
-    /// 0x3DAC: Layer active flag (init 1)
-    pub layer_active: u32,
-    /// 0x3DB0: Unknown (init 0)
-    pub _unknown_3db0: u32,
-    /// 0x3DB4: Bit depth (init 8 in constructor — 8bpp paletted mode)
-    pub bit_depth: u32,
-    /// 0x3DB8 - 0x3DD3: Unknown fields (all init 0 in constructor)
-    pub _unknown_3db8: [u8; 0x3DD4 - 0x3DB8],
+    /// 0x3DA8 - 0x3DD3: Embedded `BitGrid` sub-object (0x2C bytes).
+    ///
+    /// A BitGrid allocated INLINE in DisplayGfx, distinct from the three
+    /// heap-allocated layer pointers above. Confirmed by `DisplayGfx::DestructorImpl`
+    /// (0x56A010), which rebinds `+0x3DA8` to `&BitGrid__vtable` and frees
+    /// `+0x3DB0` (= BitGrid::data) if `+0x3DAC` (= BitGrid::external_buffer) is 0.
+    /// The constructor sets `+0x3DAC = 1` (external_buffer) and `+0x3DB4 = 8`
+    /// (cells_per_unit), matching the standard BitGrid layout exactly.
+    pub embedded_bitgrid: BitGrid<*const BitGridBaseVtable>,
 
     // =========================================================================
     // Sprite/bitmap table (0x3DD4 - 0x4DD7)
@@ -190,6 +188,8 @@ pub struct DisplayGfx {
 }
 
 const _: () = assert!(core::mem::size_of::<DisplayGfx>() == 0x24E28);
+const _: () = assert!(core::mem::offset_of!(DisplayGfx, embedded_bitgrid) == 0x3DA8);
+const _: () = assert!(core::mem::offset_of!(DisplayGfx, sprite_table) == 0x3DD4);
 const _: () = assert!(core::mem::offset_of!(DisplayGfx, tile_bitmap_sets) == 0x4DD4);
 const _: () = assert!(core::mem::offset_of!(DisplayGfx, tile_total_width) == 0x4DDC);
 const _: () = assert!(core::mem::offset_of!(DisplayGfx, tile_total_height) == 0x4DE0);
