@@ -54,6 +54,7 @@
 
 use crate::fixed::Fixed;
 use crate::render::display::gfx::DisplayGfx;
+use crate::render::message::{RenderMessage, TypedRenderCmd, COMMAND_TYPE_TYPED};
 use crate::render::queue::RenderQueue;
 
 // =============================================================================
@@ -312,6 +313,10 @@ pub unsafe fn render_drawing_queue(
             0xC => dispatch_case_c_outlined_pixel(display, clip_ref, cmd),
             0xD => dispatch_case_d_tiled_bitmap(display, clip_ref, cmd),
             0xE => dispatch_case_e_tiled_terrain(display, clip_ref, cmd),
+            COMMAND_TYPE_TYPED => {
+                let typed = &(*(cmd as *const TypedRenderCmd)).message;
+                dispatch_typed(display, clip_ref, typed);
+            }
             _ => { /* unknown command type — silently skipped, matching WA */ }
         }
     }
@@ -912,6 +917,34 @@ unsafe fn dispatch_case_e_tiled_terrain(
     let count = read_field(cmd, 7);
     let flags = *(cmd.add(8));
     DisplayGfx::draw_tiled_terrain_raw(display, x, y, count, flags);
+}
+
+// =============================================================================
+// Typed message dispatcher
+// =============================================================================
+
+/// Dispatch a [`RenderMessage`] to the appropriate `DisplayGfx` vtable method.
+unsafe fn dispatch_typed(display: *mut DisplayGfx, clip: &ClipContext, msg: &RenderMessage) {
+    match *msg {
+        RenderMessage::Sprite {
+            local,
+            x,
+            y,
+            sprite_flags,
+            palette,
+        } => {
+            if local {
+                // Screen-space: apply camera translation (same as case 5).
+                let mut out_x = Fixed::ZERO;
+                let mut out_y = Fixed::ZERO;
+                rq_translate_coordinates(clip, x, y, &mut out_x, &mut out_y);
+                DisplayGfx::blit_sprite_raw(display, out_x, out_y, sprite_flags, palette);
+            } else {
+                // World-space: pass through directly (same as case 4).
+                DisplayGfx::blit_sprite_raw(display, x, y, sprite_flags, palette);
+            }
+        }
+    }
 }
 
 // =============================================================================

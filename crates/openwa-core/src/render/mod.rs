@@ -1,6 +1,7 @@
 pub mod ddraw;
 pub mod display;
 pub mod landscape;
+pub mod message;
 pub mod opengl;
 pub mod palette;
 pub mod queue;
@@ -15,6 +16,7 @@ pub use display::{
     SpriteCache,
 };
 pub use landscape::{DirtyRect, PCLandscape};
+pub use message::{RenderMessage, TypedRenderCmd, COMMAND_TYPE_TYPED};
 pub use opengl::OpenGLState;
 pub use queue::{
     DrawBitmapGlobalCmd, DrawCrosshairCmd, DrawLineStripHeader, DrawPolygonHeader, DrawRectCmd,

@@ -211,8 +211,8 @@ unsafe extern "cdecl" fn draw_sprite_global_impl(
             layer,
             x_pos: x_pos & 0xFFFF0000,
             y_pos: y_pos & 0xFFFF0000,
-            sprite_id,
-            frame,
+            sprite_flags: sprite_id,
+            palette: frame,
         };
     }
 }
@@ -240,8 +240,8 @@ unsafe extern "cdecl" fn draw_sprite_local_impl(
             layer,
             x_pos: x_pos & 0xFFFF0000,
             y_pos: y_pos & 0xFFFF0000,
-            sprite_id,
-            frame,
+            sprite_flags: sprite_id,
+            palette: frame,
         };
     }
 }
@@ -419,8 +419,8 @@ unsafe extern "stdcall" fn draw_bungee_trail_impl(task_ptr: u32, style: u32, fil
             layer: 0xDFFFF,
             x_pos: x as u32 & 0xFFFF0000,
             y_pos: y as u32 & 0xFFFF0000,
-            sprite_id: 0x45,
-            frame: (first_angle + 0x8100) as u32,
+            sprite_flags: 0x45,
+            palette: (first_angle + 0x8100) as u32,
         };
     }
 
@@ -592,8 +592,8 @@ unsafe extern "cdecl" fn draw_crosshair_line_impl(task_ptr: u32) {
                 layer: 0x4_0000,
                 x_pos: endpoint_x as u32 & 0xFFFF0000,
                 y_pos: endpoint_y as u32 & 0xFFFF0000,
-                sprite_id: 0x44,
-                frame: (0x8000u32).wrapping_sub(angle),
+                sprite_flags: 0x44,
+                palette: (0x8000u32).wrapping_sub(angle),
             };
         }
     }

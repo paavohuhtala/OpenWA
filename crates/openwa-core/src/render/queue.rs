@@ -1,3 +1,5 @@
+use super::message::{RenderMessage, TypedRenderCmd, COMMAND_TYPE_TYPED};
+
 /// Render command entry (0x18 bytes).
 ///
 /// Enqueued by DrawSpriteGlobal (type 4), DrawSpriteLocal (type 5),
@@ -11,8 +13,12 @@ pub struct DrawSpriteCmd {
     pub x_pos: u32,
     /// Y position, upper 16 bits used (Fixed16 format)
     pub y_pos: u32,
-    pub sprite_id: u32,
-    pub frame: u32,
+    /// Packed sprite ID + frame + flip flags. Passed to
+    /// `DisplayGfx::blit_sprite` (vtable slot 19) as `sprite_flags`.
+    pub sprite_flags: u32,
+    /// Palette context — passed to `blit_sprite` as the last arg.
+    /// Semantics vary by producer (palette pointer, animation index, etc.).
+    pub palette: u32,
 }
 
 const _: () = assert!(core::mem::size_of::<DrawSpriteCmd>() == 0x18);
@@ -239,6 +245,30 @@ pub struct DrawPolygonHeader {
 }
 
 const _: () = assert!(core::mem::size_of::<DrawPolygonHeader>() == 0x14);
+
+impl RenderQueue {
+    /// Enqueue a typed render message. Constant-time, zero allocation —
+    /// the message is stored inline in the existing per-frame buffer.
+    ///
+    /// Returns `false` if the per-frame queue is full.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure `self` points to a valid, live `RenderQueue`.
+    pub unsafe fn push_typed(&mut self, layer: u32, message: RenderMessage) -> bool {
+        match self.alloc::<TypedRenderCmd>() {
+            Some(slot) => {
+                *slot = TypedRenderCmd {
+                    command_type: COMMAND_TYPE_TYPED,
+                    layer,
+                    message,
+                };
+                true
+            }
+            None => false,
+        }
+    }
+}
 
 /// Render command type constants.
 pub mod command_type {
