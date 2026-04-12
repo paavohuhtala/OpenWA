@@ -2,16 +2,22 @@
 // Coordinate types — DDGame sub-structs for screen and terrain coords
 // ============================================================
 
-/// Coordinate entry used in DDGame screen coordinate tables (stride 0x10).
+/// Coordinate entry used in DDGame viewport/camera tables (stride 0x10).
 ///
-/// InitFields zeroes x and y; at runtime they contain fixed-point screen
-/// coordinates used for camera tracking and rendering regions.
+/// Each entry tracks a camera center position as two pairs of Fixed16.16
+/// coordinates (current and target). InitGameState initializes all four
+/// fields to the level center.
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct CoordEntry {
-    pub x: i32,
-    pub y: i32,
-    pub _unknown: [u8; 8],
+    /// +0x00: Camera center X (Fixed16.16).
+    pub center_x: crate::fixed::Fixed,
+    /// +0x04: Camera center Y (Fixed16.16).
+    pub center_y: crate::fixed::Fixed,
+    /// +0x08: Camera center X target (Fixed16.16).
+    pub center_x_target: crate::fixed::Fixed,
+    /// +0x0C: Camera center Y target (Fixed16.16).
+    pub center_y_target: crate::fixed::Fixed,
 }
 
 const _: () = assert!(core::mem::size_of::<CoordEntry>() == 0x10);

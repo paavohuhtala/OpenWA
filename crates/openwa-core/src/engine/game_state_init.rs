@@ -938,7 +938,7 @@ pub unsafe fn init_game_state(wrapper: *mut DDGameWrapper) {
     init_landscape_flags(wrapper as *mut u8);
 
     // ===== Level bounds and camera initialization =====
-    init_game_state_level_bounds(ddgame_raw, game_info);
+    init_game_state_level_bounds(ddgame, game_info);
 
     // ===== Display objects for HUD (headful only) =====
     if is_headful {
@@ -1526,9 +1526,7 @@ unsafe fn create_camera_object(
 }
 
 /// Initialize level bounds and camera center positions.
-unsafe fn init_game_state_level_bounds(ddgame_raw: *mut u8, game_info: *const GameInfo) {
-    let ddgame = ddgame_raw as *mut DDGame;
-
+unsafe fn init_game_state_level_bounds(ddgame: *mut DDGame, game_info: *const GameInfo) {
     (*ddgame)._field_7794 = 0;
     (*ddgame)._field_7798 = 0;
 
@@ -1551,15 +1549,17 @@ unsafe fn init_game_state_level_bounds(ddgame_raw: *mut u8, game_info: *const Ga
     }
 
     // Camera center initialization (4 viewports)
-    for viewport_offset in [0x8CBCu32, 0x8CCCu32, 0x8CDCu32, 0x8CECu32] {
-        let level_w = (*ddgame).level_width as i32;
-        let level_h = (*ddgame).level_height as i32;
-        let cx = (level_w << 16) / 2;
-        let cy = (level_h * 0x10000) / 2;
-        *(ddgame_raw.add(viewport_offset as usize + 0x18) as *mut i32) = cx;
-        *(ddgame_raw.add(viewport_offset as usize + 0x10) as *mut i32) = cx;
-        *(ddgame_raw.add(viewport_offset as usize + 0x1C) as *mut i32) = cy;
-        *(ddgame_raw.add(viewport_offset as usize + 0x14) as *mut i32) = cy;
+    // Each iteration writes to viewport_coords[i+1] (entries 1..5).
+    let level_w = (*ddgame).level_width as i32;
+    let level_h = (*ddgame).level_height as i32;
+    let cx = Fixed((level_w << 16) / 2);
+    let cy = Fixed((level_h << 16) / 2);
+    for i in 0..4 {
+        let entry = &mut (*ddgame).viewport_coords[i + 1];
+        entry.center_x = cx;
+        entry.center_y = cy;
+        entry.center_x_target = cx;
+        entry.center_y_target = cy;
     }
 
     // Map dimension fields

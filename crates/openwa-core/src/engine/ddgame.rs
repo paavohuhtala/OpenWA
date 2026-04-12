@@ -499,13 +499,13 @@ pub struct DDGame {
     /// - 0x8174: value 0x3FC (1020) at runtime
     pub _unknown_81cc: [u8; 0x8CBC - 0x81CC],
 
-    /// 0x8CBC-0x8CFB: 4 coordinate entries (0x10-byte stride).
-    /// InitFields zeroes x and y of each. At runtime contains fixed-point
-    /// screen coordinates (e.g. 393.0, 532.0, 960.0, 348.0).
-    pub screen_coords: [CoordEntry; 4],
+    /// 0x8CBC-0x8D0B: 5 viewport coordinate entries (0x10-byte stride).
+    /// InitGameState writes camera center to entries 1..5 (indexed from base 0..4).
+    /// Entry 0 is not written by init (used for other purposes).
+    pub viewport_coords: [CoordEntry; 5],
 
-    /// 0x8CFC-0x984F: Unknown
-    pub _unknown_8cfc: [u8; 0x9850 - 0x8CFC],
+    /// 0x8D0C-0x984F: Unknown
+    pub _unknown_8d0c: [u8; 0x9850 - 0x8D0C],
 
     /// 0x9850-0x988F: 4 coordinate entries (0x10-byte stride, zeroed by InitFields).
     pub screen_coords_2: [CoordEntry; 4],
@@ -618,12 +618,15 @@ impl DDGame {
         }
     }
 
-    /// Listener position for 3D audio — stored at DDGame+0x8CEC (screen_coords[3]).
+    /// Listener position for 3D audio — stored at DDGame+0x8CEC (viewport_coords[3]).
     ///
     /// Returns `(x, y)` as raw i32 values (fixed-point 16.16).
     /// Used by ComputeDistanceParams / Distance3D_Attenuation.
     pub fn listener_pos(&self) -> (i32, i32) {
-        (self.screen_coords[3].x, self.screen_coords[3].y)
+        (
+            self.viewport_coords[3].center_x.0,
+            self.viewport_coords[3].center_y.0,
+        )
     }
 }
 

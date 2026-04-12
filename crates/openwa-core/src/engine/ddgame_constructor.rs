@@ -17,6 +17,7 @@ use crate::engine::coord::{CoordList, CoordListEntry};
 use crate::engine::ddgame_wrapper::DDGameWrapper;
 use crate::engine::game_info::GameInfo;
 use crate::engine::net_bridge::NetBridge;
+use crate::fixed::Fixed;
 use crate::input::keyboard::DDKeyboard;
 use crate::rebase::rb;
 use crate::render::display::gfx::DisplayGfx;
@@ -72,13 +73,13 @@ pub unsafe fn ddgame_init_fields(ddgame: *mut DDGame) {
     ddgame_init_render_indices(ddgame);
 
     // Zero x and y of each screen coordinate entry (4 entries each)
-    for entry in &mut (*ddgame).screen_coords {
-        entry.x = 0;
-        entry.y = 0;
+    for entry in &mut (*ddgame).viewport_coords {
+        entry.center_x = Fixed(0);
+        entry.center_y = Fixed(0);
     }
     for entry in &mut (*ddgame).screen_coords_2 {
-        entry.x = 0;
-        entry.y = 0;
+        entry.center_x = Fixed(0);
+        entry.center_y = Fixed(0);
     }
 }
 
