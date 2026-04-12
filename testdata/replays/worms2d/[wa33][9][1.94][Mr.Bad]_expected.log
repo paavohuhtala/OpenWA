@@ -1,0 +1,82 @@
+Game Started at 2007-12-03 20:39:12 GMT
+Game Engine Version: 3.6.28.0
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #33: Spectral recovery?
+
+Red:  "ßäĞ Gùÿ$"
+Blue: "Enemy"    [CPU 4.25]
+Blue: "Officers" [CPU 4.50]
+
+[00:00:05.86] ••• ßäĞ Gùÿ$ starts turn
+[00:00:05.88] ••• ßäĞ Gùÿ$ fires Blow Torch
+[00:00:13.92] ••• ßäĞ Gùÿ$ ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:00:17.94] ••• Enemy starts turn
+[00:00:32.18] ••• Enemy fires Grenade (1 sec, min bounce)
+[00:00:35.78] ••• Enemy ends turn; time used: 14.22 sec turn, 3.00 sec retreat
+[00:00:39.90] ••• Damage dealt: 40 to ßäĞ Gùÿ$
+[00:00:39.90] ••• ßäĞ Gùÿ$ starts turn
+[00:00:39.92] ••• ßäĞ Gùÿ$ fires Grenade (3 sec, min bounce)
+[00:00:44.48] ••• ßäĞ Gùÿ$ loses turn due to loss of control; time used: 0.00 sec turn, 2.86 sec retreat
+[00:00:51.94] ••• Damage dealt: 9 to ßäĞ Gùÿ$
+[00:00:51.94] ••• Officers starts turn
+[00:01:01.56] ••• Officers fires Grenade (4 sec, min bounce)
+[00:01:07.02] ••• Officers ends turn; time used: 9.60 sec turn, 3.00 sec retreat
+[00:01:16.06] ••• ßäĞ Gùÿ$ starts turn
+[00:01:16.08] ••• ßäĞ Gùÿ$ fires Blow Torch
+[00:01:24.12] ••• ßäĞ Gùÿ$ ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:01:28.16] ••• Enemy starts turn
+[00:01:40.34] ••• Enemy fires Grenade (1 sec, min bounce)
+[00:01:43.90] ••• Enemy ends turn; time used: 12.16 sec turn, 3.00 sec retreat
+[00:01:46.42] ••• Damage dealt: 45 to ßäĞ Gùÿ$
+[00:01:46.42] ••• ßäĞ Gùÿ$ starts turn
+[00:01:46.44] ••• ßäĞ Gùÿ$ fires Blow Torch
+[00:01:54.48] ••• ßäĞ Gùÿ$ ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:01:58.50] ••• Officers starts turn
+[00:02:03.62] ••• Officers fires Air Strike
+[00:02:07.30] ••• Officers ends turn; time used: 5.10 sec turn, 3.00 sec retreat
+[00:02:12.28] ••• ßäĞ Gùÿ$ starts turn
+[00:02:12.30] ••• ßäĞ Gùÿ$ fires Blow Torch
+[00:02:20.34] ••• ßäĞ Gùÿ$ ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:02:24.38] ••• Enemy starts turn
+[00:02:30.74] ••• Enemy fires Grenade (1 sec, min bounce)
+[00:02:34.38] ••• Enemy ends turn; time used: 6.34 sec turn, 3.00 sec retreat
+[00:02:38.40] ••• ßäĞ Gùÿ$ starts turn
+[00:02:38.42] ••• ßäĞ Gùÿ$ fires Blow Torch
+[00:02:46.46] ••• ßäĞ Gùÿ$ ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:02:50.50] ••• Officers starts turn
+[00:02:55.56] ••• Officers fires Air Strike
+[00:02:59.78] ••• Officers ends turn; time used: 5.04 sec turn, 3.00 sec retreat
+[00:03:07.42] ••• Damage dealt: 5 to ßäĞ Gùÿ$
+[00:03:07.42] ••• ßäĞ Gùÿ$ starts turn
+[00:03:07.44] ••• ßäĞ Gùÿ$ fires Blow Torch
+[00:03:11.96] ••• ßäĞ Gùÿ$ ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:03:15.98] ••• Enemy starts turn
+[00:03:22.74] ••• Enemy fires Grenade (4 sec, min bounce)
+[00:03:29.30] ••• Enemy ends turn; time used: 6.74 sec turn, 3.00 sec retreat
+[00:03:36.52] ••• ßäĞ Gùÿ$ starts turn
+[00:03:36.54] ••• ßäĞ Gùÿ$ fires Shotgun
+[00:03:39.90] ••• ßäĞ Gùÿ$ fires Shotgun
+[00:03:40.80] ••• ßäĞ Gùÿ$ loses turn due to loss of control; time used: 1.26 sec turn, 0.00 sec retreat
+[00:03:51.62] ••• Damage dealt: 6 (1 kill) to ßäĞ Gùÿ$
+[00:03:51.62] ••• Officers starts turn
+[00:04:06.84] ••• Officers fires Grenade (4 sec, min bounce)
+[00:04:13.52] ••• Officers ends turn; time used: 15.20 sec turn, 3.00 sec retreat
+[00:04:20.74] ••• ßäĞ Gùÿ$ starts turn
+[00:04:21.44] ••• ßäĞ Gùÿ$ fires Girder
+[00:04:24.52] ••• ßäĞ Gùÿ$ ends turn; time used: 0.68 sec turn, 3.00 sec retreat
+[00:04:33.00] ••• Enemy starts turn
+[00:04:42.30] ••• Enemy fires Grenade (4 sec, min bounce)
+[00:04:47.84] ••• Enemy ends turn; time used: 9.28 sec turn, 3.00 sec retreat
+[00:04:55.06] ••• ßäĞ Gùÿ$ starts turn
+[00:04:55.08] ••• ßäĞ Gùÿ$ fires Skip Go
+[00:04:55.10] ••• ßäĞ Gùÿ$ ends turn; time used: 0.00 sec turn, 0.00 sec retreat
+[00:04:57.36] ••• Game Ends - Round Finished
+
+Team time totals:
+ßäĞ Gùÿ$: Turn: 00:00:01.94, Retreat: 00:00:23.86, Total: 00:00:25.80, Turn count: 10
+Enemy:    Turn: 00:00:48.74, Retreat: 00:00:15.00, Total: 00:01:03.74, Turn count: 5
+Officers: Turn: 00:00:34.94, Retreat: 00:00:12.00, Total: 00:00:46.94, Turn count: 4
+
+Mission Successful

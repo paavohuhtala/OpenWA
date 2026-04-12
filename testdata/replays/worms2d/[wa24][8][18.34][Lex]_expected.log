@@ -1,0 +1,79 @@
+Game Started at 2006-12-12 06:59:39 GMT
+Game Engine Version: 3.6.26.5
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #24: Countdown to Armageddon!
+
+Red:  "Lunchpack Gang"
+Red:  "Cannon Fodder"
+Blue: "Patrol" [CPU 2.25]
+
+[00:00:02.84] ••• Lunchpack Gang starts turn
+[00:00:03.64] ••• Lunchpack Gang fires Ninja Rope
+[00:00:11.82] ••• Lunchpack Gang fires Baseball Bat
+[00:00:13.88] ••• Glide Glitch #1
+[00:00:15.40] ••• Lunchpack Gang ends turn; time used: 8.96 sec turn, 3.00 sec retreat
+[00:00:18.20] ••• Damage dealt: 39 to Cannon Fodder
+[00:00:18.20] ••• Patrol starts turn
+[00:00:21.58] ••• Patrol fires Shotgun
+[00:00:29.44] ••• Patrol fires Shotgun
+[00:00:33.62] ••• Patrol ends turn; time used: 5.76 sec turn, 3.00 sec retreat
+[00:00:37.64] ••• Damage dealt: 25 to Patrol
+[00:00:37.64] ••• Lunchpack Gang starts turn
+[00:00:38.46] ••• Lunchpack Gang fires Ninja Rope
+[00:00:44.56] ••• Lunchpack Gang fires Girder Starter-Pack
+[00:00:45.42] ••• Lunchpack Gang fires Girder Starter-Pack
+[00:00:45.94] ••• Lunchpack Gang fires Girder Starter-Pack
+[00:00:46.60] ••• Lunchpack Gang fires Girder Starter-Pack
+[00:00:47.04] ••• Lunchpack Gang fires Girder Starter-Pack
+[00:00:50.06] ••• Lunchpack Gang ends turn; time used: 9.38 sec turn, 3.00 sec retreat
+[00:00:52.10] ••• Patrol starts turn
+[00:00:59.36] ••• Patrol fires Bazooka
+[00:01:00.16] ••• Patrol loses turn due to loss of control; time used: 7.24 sec turn, 0.14 sec retreat
+[00:01:05.12] ••• Damage dealt: 33 to Lunchpack Gang, 7 to Patrol
+[00:01:05.12] ••• Lunchpack Gang starts turn
+[00:01:05.14] ••• Lunchpack Gang fires Skip Go
+[00:01:05.16] ••• Lunchpack Gang ends turn; time used: 0.00 sec turn, 0.00 sec retreat
+[00:01:07.20] ••• Patrol starts turn
+[00:01:15.28] ••• Patrol fires Bazooka
+[00:01:18.82] ••• Patrol ends turn; time used: 8.06 sec turn, 3.00 sec retreat
+[00:01:21.38] ••• Damage dealt: 44 to Lunchpack Gang
+[00:01:21.38] ••• Lunchpack Gang starts turn
+[00:01:21.40] ••• Lunchpack Gang fires Skip Go
+[00:01:21.42] ••• Lunchpack Gang ends turn; time used: 0.00 sec turn, 0.00 sec retreat
+[00:01:23.46] ••• Patrol starts turn
+[00:01:29.82] ••• Patrol fires Grenade (2 sec, min bounce)
+[00:01:33.68] ••• Patrol ends turn; time used: 6.34 sec turn, 3.00 sec retreat
+[00:01:36.86] ••• Damage dealt: 38 to Lunchpack Gang, 79 to Patrol
+[00:01:36.86] ••• Lunchpack Gang starts turn
+[00:01:36.88] ••• Lunchpack Gang fires Skip Go
+[00:01:36.90] ••• Lunchpack Gang ends turn; time used: 0.00 sec turn, 0.00 sec retreat
+[00:01:38.92] ••• Patrol starts turn
+[00:01:48.04] ••• Patrol fires Grenade (2 sec, min bounce)
+[00:01:51.94] ••• Patrol ends turn; time used: 9.10 sec turn, 3.00 sec retreat
+[00:01:55.98] ••• Lunchpack Gang starts turn
+[00:01:56.00] ••• Lunchpack Gang fires Mortar
+[00:01:56.02] ••• Lunchpack Gang loses turn due to loss of control; time used: 0.00 sec turn, 0.00 sec retreat
+[00:02:16.12] ••• Damage dealt: 18 (1 kill) to Lunchpack Gang, 84 (2 kills) to Patrol
+[00:02:16.12] ••• Patrol starts turn
+[00:02:19.30] ••• Patrol ends turn; time used: 3.16 sec turn, 0.00 sec retreat
+[00:02:21.32] ••• Lunchpack Gang starts turn
+[00:02:21.34] ••• Lunchpack Gang fires Grenade (3 sec, min bounce)
+[00:02:25.52] ••• Lunchpack Gang ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:02:32.86] ••• Damage dealt: 25 to Patrol
+[00:02:32.86] ••• Patrol starts turn
+[00:02:38.30] ••• Patrol fires Shotgun
+[00:02:42.74] ••• Patrol fires Shotgun
+[00:02:46.92] ••• Patrol ends turn; time used: 7.74 sec turn, 3.00 sec retreat
+[00:02:54.14] ••• Lunchpack Gang starts turn
+[00:02:54.16] ••• Lunchpack Gang fires Skip Go
+[00:02:54.18] ••• Lunchpack Gang ends turn; time used: 0.00 sec turn, 0.00 sec retreat
+[00:03:38.38] ••• Game Ends - Round Finished
+
+Team time totals:
+Lunchpack Gang: Turn: 00:00:18.34, Retreat: 00:00:09.00, Total: 00:00:27.34, Turn count: 8
+Cannon Fodder:  Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Patrol:         Turn: 00:00:47.40, Retreat: 00:00:15.14, Total: 00:01:02.54, Turn count: 7
+
+Mission Successful

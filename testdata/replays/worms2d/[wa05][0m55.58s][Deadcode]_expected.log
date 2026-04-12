@@ -1,0 +1,36 @@
+Game Started at 2021-12-07 19:20:23 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #5: Do the Locomotion.
+
+Red:  "0xDEADC0DE"
+Blue: "Patrol" [CPU 3.50]
+
+[00:00:07.08] ••• 0xDEADC0DE starts turn
+[00:00:12.50] ••• 0xDEADC0DE fires Fire Punch
+[00:00:18.94] ••• 0xDEADC0DE ends turn; time used: 5.40 sec turn, 5.00 sec retreat
+[00:00:22.86] ••• Damage dealt: 30 (1 kill) to Patrol
+[00:00:22.86] ••• Patrol starts turn
+[00:00:26.02] ••• Patrol ends turn; time used: 3.14 sec turn, 0.00 sec retreat
+[00:00:28.04] ••• 0xDEADC0DE starts turn
+[00:00:29.60] ••• 0xDEADC0DE uses Bungee
+[00:00:35.24] ••• 0xDEADC0DE loses turn due to loss of control; time used: 7.20 sec turn, 0.00 sec retreat
+[00:00:37.46] ••• Patrol starts turn
+[00:00:40.60] ••• Patrol ends turn; time used: 3.12 sec turn, 0.00 sec retreat
+[00:00:45.84] ••• 0xDEADC0DE starts turn
+[00:00:46.64] ••• 0xDEADC0DE uses Bungee
+[00:00:49.14] ••• 0xDEADC0DE fires Jet Pack
+[00:00:54.52] ••• 0xDEADC0DE used 26 units of Jet Pack fuel
+[00:00:54.60] ••• 0xDEADC0DE fires Skip Go
+[00:00:54.62] ••• 0xDEADC0DE ends turn; time used: 8.32 sec turn, 0.00 sec retreat
+[00:00:56.66] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE: Turn: 00:00:20.92, Retreat: 00:00:05.00, Total: 00:00:25.92, Turn count: 3
+Patrol:     Turn: 00:00:06.26, Retreat: 00:00:00.00, Total: 00:00:06.26, Turn count: 2
+
+Total Jet Pack fuel used: 26
+
+Mission Successful

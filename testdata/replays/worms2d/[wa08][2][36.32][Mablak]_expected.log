@@ -1,0 +1,32 @@
+Game Started at 2021-12-14 08:00:17 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #8: Big Shot.
+
+Red:  "Ro Bad 2"
+Blue: "Cannon Fodder" [CPU 3.00]
+Blue: "Enemy"         [CPU 3.00]
+
+[00:00:01.88] ••• Ro Bad 2 starts turn
+[00:00:20.12] ••• Ro Bad 2 fires Longbow
+[00:00:28.00] ••• Ro Bad 2 fires Longbow
+[00:00:31.08] ••• Ro Bad 2 ends turn; time used: 20.88 sec turn, 3.00 sec retreat
+[00:00:44.14] ••• Damage dealt: 40 (1 kill) to Cannon Fodder, 50 (1 kill) to Enemy
+[00:00:44.14] ••• Cannon Fodder starts turn
+[00:00:54.62] ••• Cannon Fodder fires Uzi
+[00:00:58.84] ••• Cannon Fodder ends turn; time used: 10.46 sec turn, 3.00 sec retreat
+[00:01:02.86] ••• Ro Bad 2 starts turn
+[00:01:03.48] ••• Ro Bad 2 fires Ninja Rope
+[00:01:25.36] ••• Ro Bad 2 fires Uzi
+[00:01:29.56] ••• Ro Bad 2 ends turn; time used: 15.44 sec turn, 3.00 sec retreat
+[00:01:39.28] ••• Damage dealt: 40 (1 kill) to Cannon Fodder, 50 (1 kill) to Enemy
+[00:01:39.30] ••• Game Ends - Round Finished
+
+Team time totals:
+Ro Bad 2:      Turn: 00:00:36.32, Retreat: 00:00:06.00, Total: 00:00:42.32, Turn count: 2
+Cannon Fodder: Turn: 00:00:10.46, Retreat: 00:00:03.00, Total: 00:00:13.46, Turn count: 1
+Enemy:         Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

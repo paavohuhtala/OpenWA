@@ -1,0 +1,65 @@
+Game Started at 2006-07-11 23:41:33 GMT
+Game Engine Version: 3.6.26.5
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #11: Chemical Warfare.
+
+Red:  "Lunchpack Gang"
+Blue: "Platoon"  [CPU 3.25]
+Blue: "Officers" [CPU 4.25]
+
+[00:00:01.74] ••• Lunchpack Gang starts turn
+[00:00:01.76] ••• Lunchpack Gang fires Ninja Rope
+[00:00:05.38] ••• Lunchpack Gang fires Dragon Ball
+[00:00:09.74] ••• Lunchpack Gang loses turn due to loss of control; time used: 3.48 sec turn, 2.84 sec retreat
+[00:00:15.04] ••• Damage dealt: 90 (1 kill) to Lunchpack Gang, 70 (1 kill) to Platoon
+[00:00:15.04] ••• Platoon starts turn
+[00:00:27.28] ••• Platoon fires Grenade (3 sec, min bounce)
+[00:00:31.60] ••• Platoon ends turn; time used: 12.22 sec turn, 3.00 sec retreat
+[00:00:34.68] ••• Lunchpack Gang starts turn
+[00:00:35.04] ••• Lunchpack Gang fires Ninja Rope
+[00:00:38.58] ••• Lunchpack Gang fires Fire Punch
+[00:00:43.38] ••• Lunchpack Gang ends turn; time used: 3.80 sec turn, 3.00 sec retreat
+[00:00:51.62] ••• Damage dealt: 32 (1 kill) to Officers
+[00:00:51.62] ••• Officers starts turn
+[00:00:55.76] ••• Officers ends turn; time used: 4.12 sec turn, 0.00 sec retreat
+[00:00:57.78] ••• Lunchpack Gang starts turn
+[00:01:01.90] ••• Lunchpack Gang fires Fire Punch
+[00:01:06.12] ••• Lunchpack Gang ends turn; time used: 4.10 sec turn, 3.00 sec retreat
+[00:01:14.34] ••• Damage dealt: 30 (1 kill) to Officers
+[00:01:14.34] ••• Platoon starts turn
+[00:01:22.92] ••• Platoon fires Grenade (2 sec, min bounce)
+[00:01:26.86] ••• Platoon ends turn; time used: 8.56 sec turn, 3.00 sec retreat
+[00:01:29.54] ••• Damage dealt: 26 to Lunchpack Gang
+[00:01:29.54] ••• Lunchpack Gang starts turn
+[00:01:30.78] ••• Lunchpack Gang fires Ninja Rope
+[00:01:31.42] ••• Lunchpack Gang fires Ninja Rope
+[00:01:41.94] ••• Lunchpack Gang fires Shotgun
+[00:01:47.58] ••• Lunchpack Gang fires Shotgun
+[00:01:51.74] ••• Lunchpack Gang ends turn; time used: 12.96 sec turn, 3.00 sec retreat
+[00:01:59.42] ••• Damage dealt: 70 (1 kill) to Platoon
+[00:01:59.42] ••• Officers starts turn
+[00:02:05.66] ••• Officers fires Air Strike
+[00:02:09.34] ••• Officers ends turn; time used: 6.22 sec turn, 3.00 sec retreat
+[00:02:13.82] ••• Lunchpack Gang starts turn
+[00:02:13.84] ••• Lunchpack Gang fires Dynamite
+[00:02:18.88] ••• Lunchpack Gang loses turn due to loss of control; time used: 0.00 sec turn, 4.86 sec retreat
+[00:02:33.78] ••• Damage dealt: 77 to Lunchpack Gang, 58 (2 kills) to Officers
+[00:02:33.78] ••• Platoon starts turn
+[00:02:37.56] ••• Platoon fires Air Strike
+[00:02:41.24] ••• Platoon ends turn; time used: 3.76 sec turn, 3.00 sec retreat
+[00:02:46.30] ••• Damage dealt: 90 (1 kill) to Lunchpack Gang
+[00:02:46.30] ••• Lunchpack Gang starts turn
+[00:02:46.92] ••• Lunchpack Gang fires Ninja Rope
+[00:02:52.00] ••• Lunchpack Gang fires Fire Punch
+[00:02:53.92] ••• Lunchpack Gang loses turn due to loss of control; time used: 5.62 sec turn, 0.46 sec retreat
+[00:03:05.64] ••• Damage dealt: 47 to Lunchpack Gang, 70 (1 kill) to Platoon
+[00:03:05.66] ••• Game Ends - Round Finished
+
+Team time totals:
+Lunchpack Gang: Turn: 00:00:29.96, Retreat: 00:00:17.16, Total: 00:00:47.12, Turn count: 6
+Platoon:        Turn: 00:00:24.54, Retreat: 00:00:09.00, Total: 00:00:33.54, Turn count: 3
+Officers:       Turn: 00:00:10.34, Retreat: 00:00:03.00, Total: 00:00:13.34, Turn count: 2
+
+Mission Successful

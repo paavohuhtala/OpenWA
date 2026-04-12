@@ -1,0 +1,43 @@
+Game Started at 2005-09-26 20:37:15 GMT
+Game Engine Version: 3.6.25.1
+File Format Version: 3.6.20.1 - 3.6.26.3
+Exported with Version: 3.8.1 (Steam)
+
+Mission #18: Rescue Agent Dennis!
+
+Red:  "7hè Ðêç4þî7à7ór$"
+Blue: "Resistance"     [CPU 4.25]
+Blue: "Elite"          [CPU 4.25]
+Blue: "Special Forces" [CPU 5.00]
+
+[00:00:05.74] ••• 7hè Ðêç4þî7à7ór$ starts turn
+[00:00:09.96] ••• 7hè Ðêç4þî7à7ór$ fires Dynamite
+[00:00:15.00] ••• 7hè Ðêç4þî7à7ór$ loses turn due to loss of control; time used: 4.20 sec turn, 4.86 sec retreat
+[00:00:24.58] ••• Damage dealt: 42 to 7hè Ðêç4þî7à7ór$, 300 (3 kills) to Special Forces
+[00:00:24.58] ••• Resistance starts turn
+[00:00:36.02] ••• Resistance fires Shotgun
+[00:00:44.94] ••• Resistance fires Shotgun
+[00:00:49.12] ••• Resistance ends turn; time used: 15.56 sec turn, 3.00 sec retreat
+[00:00:55.24] ••• Damage dealt: 50 to 7hè Ðêç4þî7à7ór$
+[00:00:55.24] ••• 7hè Ðêç4þî7à7ór$ starts turn
+[00:00:57.08] ••• 7hè Ðêç4þî7à7ór$ fires Napalm Strike
+[00:01:00.56] ••• 7hè Ðêç4þî7à7ór$ ends turn; time used: 1.82 sec turn, 3.00 sec retreat
+[00:01:10.30] ••• Damage dealt: 100 (1 kill) to Special Forces
+[00:01:10.30] ••• Elite starts turn
+[00:01:16.92] ••• Elite fires Bazooka
+[00:01:20.54] ••• Elite ends turn; time used: 6.60 sec turn, 3.00 sec retreat
+[00:01:29.56] ••• Damage dealt: 45 to 7hè Ðêç4þî7à7ór$
+[00:01:29.56] ••• 7hè Ðêç4þî7à7ór$ starts turn
+[00:01:31.40] ••• 7hè Ðêç4þî7à7ór$ fires Ninja Rope
+[00:01:39.54] ••• 7hè Ðêç4þî7à7ór$ fires Banana Bomb (4 sec)
+[00:01:43.28] ••• 7hè Ðêç4þî7à7ór$ loses turn due to loss of control; time used: 9.96 sec turn, 3.00 sec retreat
+[00:02:01.42] ••• Damage dealt: 63 (1 kill) to 7hè Ðêç4þî7à7ór$, 100 (1 kill) to Resistance, 100 (1 kill) to Elite, 200 (2 kills) to Special Forces
+[00:02:01.44] ••• Game Ends - Round Finished
+
+Team time totals:
+7hè Ðêç4þî7à7ór$: Turn: 00:00:15.98, Retreat: 00:00:10.86, Total: 00:00:26.84, Turn count: 3
+Resistance:       Turn: 00:00:15.56, Retreat: 00:00:03.00, Total: 00:00:18.56, Turn count: 1
+Elite:            Turn: 00:00:06.60, Retreat: 00:00:03.00, Total: 00:00:09.60, Turn count: 1
+Special Forces:   Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

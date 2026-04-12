@@ -1,0 +1,38 @@
+Game Started at 2006-09-07 12:31:35 GMT
+Game Engine Version: 3.6.26.5
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #2: Operation Market Garden.
+
+Red:  "Lunchpack Gang"
+Blue: "Gunners"   [CPU 2.00]
+Blue: "Guardsmen" [CPU 2.25]
+
+[00:00:02.06] ••• Lunchpack Gang starts turn
+[00:00:10.24] ••• Lunchpack Gang fires Grenade (4 sec, max bounce)
+[00:00:15.46] ••• Lunchpack Gang ends turn; time used: 8.16 sec turn, 3.00 sec retreat
+[00:00:21.54] ••• Damage dealt: 24 to Guardsmen
+[00:00:21.54] ••• Gunners starts turn
+[00:00:27.68] ••• Gunners fires Grenade (3 sec, min bounce)
+[00:00:32.04] ••• Gunners ends turn; time used: 6.12 sec turn, 3.00 sec retreat
+[00:00:36.06] ••• Lunchpack Gang starts turn
+[00:01:13.64] ••• Lunchpack Gang fires Grenade (2 sec, min bounce)
+[00:01:17.62] ••• Lunchpack Gang ends turn; time used: 37.56 sec turn, 3.00 sec retreat
+[00:01:40.04] ••• Damage dealt: 130 (2 kills) to Gunners, 76 (1 kill) to Guardsmen
+[00:01:40.04] ••• Gunners starts turn
+[00:01:45.48] ••• Gunners fires Grenade (2 sec, min bounce)
+[00:01:48.48] ••• Gunners loses turn due to loss of control; time used: 5.42 sec turn, 1.86 sec retreat
+[00:01:53.02] ••• Damage dealt: 30 to Gunners
+[00:01:53.02] ••• Lunchpack Gang starts turn
+[00:01:57.56] ••• Lunchpack Gang fires Grenade (2 sec, max bounce)
+[00:02:01.50] ••• Lunchpack Gang ends turn; time used: 4.52 sec turn, 3.00 sec retreat
+[00:02:11.22] ••• Damage dealt: 35 (1 kill) to Gunners
+[00:02:11.24] ••• Game Ends - Round Finished
+
+Team time totals:
+Lunchpack Gang: Turn: 00:00:50.24, Retreat: 00:00:09.00, Total: 00:00:59.24, Turn count: 3
+Gunners:        Turn: 00:00:11.54, Retreat: 00:00:04.86, Total: 00:00:16.40, Turn count: 2
+Guardsmen:      Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

@@ -1,0 +1,60 @@
+Game Started at 2021-12-09 20:40:16 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #22: Go Bananas!
+
+Red:  "0xDEADC0DE"
+Blue: "Cannon Fodder" [CPU 3.00]
+Blue: "Enemy"         [CPU 3.00]
+Blue: "Officers"      [CPU 3.00]
+
+[00:00:02.86] ••• 0xDEADC0DE starts turn
+[00:00:07.06] ••• 0xDEADC0DE uses Bungee
+[00:00:14.04] ••• 0xDEADC0DE fires Uzi
+[00:00:18.24] ••• 0xDEADC0DE ends turn; time used: 11.16 sec turn, 3.00 sec retreat
+[00:00:22.26] ••• Cannon Fodder starts turn
+[00:00:30.04] ••• Cannon Fodder fires Bazooka
+[00:00:33.60] ••• Cannon Fodder ends turn; time used: 7.76 sec turn, 3.00 sec retreat
+[00:00:37.62] ••• 0xDEADC0DE starts turn
+[00:00:37.64] ••• 0xDEADC0DE fires Skip Go
+[00:00:37.66] ••• 0xDEADC0DE ends turn; time used: 0.00 sec turn, 0.00 sec retreat
+[00:00:39.68] ••• Enemy starts turn
+[00:00:47.78] ••• Enemy fires Grenade (2 sec, min bounce)
+[00:00:51.84] ••• Enemy ends turn; time used: 8.08 sec turn, 3.00 sec retreat
+[00:00:55.86] ••• 0xDEADC0DE starts turn
+[00:00:55.88] ••• 0xDEADC0DE fires Skip Go
+[00:00:55.90] ••• 0xDEADC0DE ends turn; time used: 0.00 sec turn, 0.00 sec retreat
+[00:00:57.94] ••• Officers starts turn
+[00:01:02.72] ••• Officers fires Bazooka
+[00:01:07.00] ••• Officers ends turn; time used: 4.76 sec turn, 3.00 sec retreat
+[00:01:11.06] ••• Damage dealt: 35 to Enemy
+[00:01:11.06] ••• 0xDEADC0DE starts turn
+[00:01:11.08] ••• 0xDEADC0DE fires Skip Go
+[00:01:11.10] ••• 0xDEADC0DE ends turn; time used: 0.00 sec turn, 0.00 sec retreat
+[00:01:13.12] ••• Cannon Fodder starts turn
+[00:01:19.62] ••• Cannon Fodder fires Bazooka
+[00:01:23.44] ••• Cannon Fodder ends turn; time used: 6.48 sec turn, 3.00 sec retreat
+[00:01:27.46] ••• 0xDEADC0DE starts turn
+[00:01:27.88] ••• 0xDEADC0DE fires Low Gravity
+[00:01:35.52] ••• 0xDEADC0DE fires Blow Torch
+[00:01:43.56] ••• 0xDEADC0DE ends turn; time used: 8.04 sec turn, 3.00 sec retreat
+[00:01:47.24] ••• Enemy starts turn
+[00:01:54.98] ••• Enemy fires Grenade (3 sec, min bounce)
+[00:01:59.48] ••• Enemy ends turn; time used: 7.72 sec turn, 3.00 sec retreat
+[00:02:03.50] ••• 0xDEADC0DE starts turn
+[00:02:04.64] ••• 0xDEADC0DE fires Parachute
+[00:02:07.00] ••• 0xDEADC0DE uses Bungee
+[00:02:07.02] ••• 0xDEADC0DE fires Bazooka
+[00:02:10.12] ••• 0xDEADC0DE ends turn; time used: 3.50 sec turn, 3.00 sec retreat
+[00:02:12.80] ••• Damage dealt: 15 to Officers
+[00:02:12.82] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE:    Turn: 00:00:22.70, Retreat: 00:00:09.00, Total: 00:00:31.70, Turn count: 6
+Cannon Fodder: Turn: 00:00:14.24, Retreat: 00:00:06.00, Total: 00:00:20.24, Turn count: 2
+Enemy:         Turn: 00:00:15.80, Retreat: 00:00:06.00, Total: 00:00:21.80, Turn count: 2
+Officers:      Turn: 00:00:04.76, Retreat: 00:00:03.00, Total: 00:00:07.76, Turn count: 1
+
+Mission Successful

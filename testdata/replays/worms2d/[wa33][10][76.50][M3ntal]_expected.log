@@ -1,0 +1,83 @@
+Game Started at 2004-02-20 00:09:57 GMT
+Game Engine Version: 3.6.19.14
+File Format Version: 3.6.19.14
+Exported with Version: 3.8.1 (Steam)
+
+Mission #33: Spectral recovery?
+
+Red:  "SfX::Hex()"
+Blue: "Enemy"    [CPU 4.25]
+Blue: "Officers" [CPU 4.50]
+
+[00:00:05.86] ••• SfX::Hex() starts turn
+[00:00:08.34] ••• SfX::Hex() fires Blow Torch
+[00:00:16.38] ••• SfX::Hex() ends turn; time used: 2.46 sec turn, 3.00 sec retreat
+[00:00:20.40] ••• Enemy starts turn
+[00:00:34.66] ••• Enemy fires Grenade (1 sec, min bounce)
+[00:00:38.28] ••• Enemy ends turn; time used: 14.24 sec turn, 3.00 sec retreat
+[00:00:42.40] ••• Damage dealt: 43 to SfX::Hex()
+[00:00:42.40] ••• SfX::Hex() starts turn
+[00:00:51.34] ••• SfX::Hex() fires Fire Punch
+[00:00:56.14] ••• SfX::Hex() loses turn due to loss of control; time used: 8.92 sec turn, 3.00 sec retreat
+[00:01:03.30] ••• Damage dealt: 57 (1 kill) to SfX::Hex(), 90 (1 kill) to Enemy
+[00:01:03.30] ••• Officers starts turn
+[00:01:24.54] ••• Officers fires Shotgun
+[00:01:28.90] ••• Officers fires Shotgun
+[00:01:33.08] ••• Officers ends turn; time used: 23.46 sec turn, 3.00 sec retreat
+[00:01:37.10] ••• SfX::Hex() starts turn
+[00:01:47.56] ••• SfX::Hex() fires Blow Torch
+[00:01:55.60] ••• SfX::Hex() ends turn; time used: 10.44 sec turn, 3.00 sec retreat
+[00:01:59.64] ••• Officers starts turn
+[00:02:18.48] ••• Officers fires Uzi
+[00:02:22.70] ••• Officers ends turn; time used: 18.82 sec turn, 3.00 sec retreat
+[00:02:26.74] ••• SfX::Hex() starts turn
+[00:02:32.74] ••• SfX::Hex() fires Shotgun
+[00:02:34.84] ••• SfX::Hex() fires Shotgun
+[00:02:39.00] ••• SfX::Hex() ends turn; time used: 5.98 sec turn, 3.00 sec retreat
+[00:02:41.70] ••• Officers starts turn
+[00:02:56.10] ••• Officers fires Uzi
+[00:03:00.32] ••• Officers ends turn; time used: 14.38 sec turn, 3.00 sec retreat
+[00:03:04.42] ••• Damage dealt: 50 to SfX::Hex()
+[00:03:04.42] ••• SfX::Hex() starts turn
+[00:03:30.92] ••• SfX::Hex() fires Blow Torch
+[00:03:38.96] ••• SfX::Hex() ends turn; time used: 26.48 sec turn, 3.00 sec retreat
+[00:03:43.00] ••• Officers starts turn
+[00:03:46.74] ••• Officers fires Air Strike
+[00:03:50.42] ••• Officers ends turn; time used: 3.72 sec turn, 3.00 sec retreat
+[00:04:03.06] ••• Damage dealt: 100 (1 kill) to Officers
+[00:04:03.06] ••• SfX::Hex() starts turn
+[00:04:04.64] ••• SfX::Hex() fires Blow Torch
+[00:04:11.74] ••• SfX::Hex() ends turn; time used: 1.56 sec turn, 3.00 sec retreat
+[00:04:15.78] ••• Officers starts turn
+[00:04:19.50] ••• Officers fires Air Strike
+[00:04:23.18] ••• Officers ends turn; time used: 3.70 sec turn, 3.00 sec retreat
+[00:04:31.68] ••• SfX::Hex() starts turn
+[00:04:38.50] ••• SfX::Hex() fires Blow Torch
+[00:04:46.54] ••• SfX::Hex() ends turn; time used: 6.80 sec turn, 3.00 sec retreat
+[00:04:50.56] ••• Officers starts turn
+[00:04:56.24] ••• Officers fires Uzi
+[00:05:00.46] ••• Officers ends turn; time used: 5.66 sec turn, 3.00 sec retreat
+[00:05:07.68] ••• SfX::Hex() starts turn
+[00:05:09.86] ••• SfX::Hex() fires Girder
+[00:05:12.94] ••• SfX::Hex() ends turn; time used: 2.16 sec turn, 3.00 sec retreat
+[00:05:14.96] ••• Officers starts turn
+[00:05:18.72] ••• Officers fires Uzi
+[00:05:22.94] ••• Officers ends turn; time used: 3.74 sec turn, 3.00 sec retreat
+[00:05:30.16] ••• SfX::Hex() starts turn
+[00:05:33.02] ••• SfX::Hex() fires Shotgun
+[00:05:35.12] ••• SfX::Hex() fires Shotgun
+[00:05:39.28] ••• SfX::Hex() ends turn; time used: 2.84 sec turn, 3.00 sec retreat
+[00:05:49.06] ••• Officers starts turn
+[00:05:52.84] ••• Officers fires Shotgun
+[00:05:58.64] ••• Officers fires Shotgun
+[00:06:02.82] ••• Officers ends turn; time used: 7.44 sec turn, 3.00 sec retreat
+[00:06:10.04] ••• SfX::Hex() starts turn
+[00:06:18.90] ••• SfX::Hex() ends turn; time used: 8.86 sec turn, 0.00 sec retreat
+[00:06:20.94] ••• Game Ends - Round Finished
+
+Team time totals:
+SfX::Hex(): Turn: 00:01:16.50, Retreat: 00:00:27.00, Total: 00:01:43.50, Turn count: 10
+Enemy:      Turn: 00:00:14.24, Retreat: 00:00:03.00, Total: 00:00:17.24, Turn count: 1
+Officers:   Turn: 00:01:20.92, Retreat: 00:00:24.00, Total: 00:01:44.92, Turn count: 8
+
+Mission Successful

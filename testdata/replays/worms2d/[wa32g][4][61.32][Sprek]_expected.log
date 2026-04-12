@@ -1,0 +1,47 @@
+Game Started at 2004-05-09 04:31:11 GMT
+Game Engine Version: 3.6.19.18-19
+File Format Version: 3.6.19.17 - 3.6.19.19
+Exported with Version: 3.8.1 (Steam)
+
+Mission #32: Trouble in Toy Store.
+
+Red:  "Ducks"
+Red:  "Enemy"   [CPU 3.25]
+Blue: "Platoon" [CPU 3.75]
+
+[00:00:02.56] ••• Ducks starts turn
+[00:00:19.16] ••• Ducks fires Grenade (4 sec, min bounce)
+[00:00:23.92] ••• Ducks loses turn due to loss of control; time used: 16.58 sec turn, 3.00 sec retreat
+[00:00:33.60] ••• Damage dealt: 7 to Ducks, 126 to Platoon
+[00:00:33.60] ••• Platoon starts turn
+[00:00:38.04] ••• Platoon fires Cluster Bomb (2 sec, min bounce)
+[00:00:42.96] ••• Platoon ends turn; time used: 4.42 sec turn, 3.00 sec retreat
+[00:00:47.68] ••• Damage dealt: 3 to Ducks
+[00:00:47.68] ••• Ducks starts turn
+[00:01:04.80] ••• Ducks fires Dynamite
+[00:01:09.84] ••• Ducks loses turn due to loss of control; time used: 17.10 sec turn, 4.86 sec retreat
+[00:01:30.40] ••• Damage dealt: 102 to Ducks, 63 to Enemy, 24 (2 kills) to Platoon
+[00:01:30.40] ••• Platoon starts turn
+[00:01:36.30] ••• Platoon fires Grenade (3 sec, min bounce)
+[00:01:40.80] ••• Platoon ends turn; time used: 5.88 sec turn, 3.00 sec retreat
+[00:01:56.44] ••• Damage dealt: 97 (1 kill) to Ducks
+[00:01:56.44] ••• Ducks starts turn
+[00:02:14.52] ••• Ducks fires Cluster Bomb (5 sec, min bounce)
+[00:02:22.32] ••• Ducks ends turn; time used: 18.06 sec turn, 3.00 sec retreat
+[00:02:36.26] ••• Damage dealt: 160 (2 kills) to Platoon
+[00:02:36.26] ••• Platoon starts turn
+[00:02:41.90] ••• Platoon fires Uzi
+[00:02:46.12] ••• Platoon ends turn; time used: 5.62 sec turn, 3.00 sec retreat
+[00:02:56.36] ••• Damage dealt: 26 to Ducks
+[00:02:56.36] ••• Ducks starts turn
+[00:03:05.96] ••• Ducks fires Cluster Bomb (5 sec, min bounce)
+[00:03:11.06] ••• Ducks loses turn due to loss of control; time used: 9.58 sec turn, 3.00 sec retreat
+[00:03:29.60] ••• Damage dealt: 43 (1 kill) to Ducks, 80 (1 kill) to Platoon
+[00:03:29.62] ••• Game Ends - Round Finished
+
+Team time totals:
+Ducks:   Turn: 00:01:01.32, Retreat: 00:00:13.86, Total: 00:01:15.18, Turn count: 4
+Enemy:   Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Platoon: Turn: 00:00:15.92, Retreat: 00:00:09.00, Total: 00:00:24.92, Turn count: 3
+
+Mission Successful

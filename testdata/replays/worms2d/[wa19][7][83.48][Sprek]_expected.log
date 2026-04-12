@@ -1,0 +1,71 @@
+Game Started at 2004-04-15 03:12:34 GMT
+Game Engine Version: 3.6.19.18-19
+File Format Version: 3.6.19.17 - 3.6.19.19
+Exported with Version: 3.8.1 (Steam)
+
+Mission #19: Horny Nuke.
+
+Red:  "Ducks"
+Blue: "Guardsmen" [CPU 3.00]
+Blue: "Gunners"   [CPU 3.25]
+
+[00:00:09.00] ••• Ducks starts turn
+[00:00:13.42] ••• Ducks fires Ninja Rope
+[00:00:52.54] ••• Ducks fires Grenade (3 sec, min bounce)
+[00:00:55.54] ••• Ducks ends turn; time used: 43.52 sec turn, 2.00 sec retreat
+[00:01:02.12] ••• Damage dealt: 45 to Guardsmen
+[00:01:02.12] ••• Guardsmen starts turn
+[00:01:05.38] ••• Guardsmen ends turn; time used: 3.24 sec turn, 0.00 sec retreat
+[00:01:07.40] ••• Ducks starts turn
+[00:01:09.98] ••• Ducks fires Uzi
+[00:01:13.18] ••• Ducks ends turn; time used: 2.16 sec turn, 2.00 sec retreat
+[00:01:15.76] ••• Damage dealt: 26 to Gunners
+[00:01:15.76] ••• Gunners starts turn
+[00:01:20.66] ••• Gunners fires Bazooka
+[00:01:23.48] ••• Gunners ends turn; time used: 4.88 sec turn, 2.00 sec retreat
+[00:01:27.24] ••• Damage dealt: 43 to Ducks
+[00:01:27.24] ••• Ducks starts turn
+[00:01:28.48] ••• Ducks fires Ninja Rope
+[00:01:34.30] ••• Ducks fires Pneumatic Drill
+[00:01:36.26] ••• Ducks ends turn; time used: 6.76 sec turn, 0.02 sec retreat
+[00:01:39.26] ••• Guardsmen starts turn
+[00:01:49.64] ••• Guardsmen fires Uzi
+[00:01:52.86] ••• Guardsmen ends turn; time used: 10.36 sec turn, 2.00 sec retreat
+[00:01:57.30] ••• Damage dealt: 2 to Gunners
+[00:01:57.30] ••• Ducks starts turn
+[00:01:58.70] ••• Ducks fires Ninja Rope
+[00:02:01.50] ••• Ducks fires Holy Hand-Grenade
+[00:02:06.30] ••• Ducks ends turn; time used: 3.86 sec turn, 2.00 sec retreat
+[00:02:11.30] ••• Damage dealt: 2 to Guardsmen, 51 to Gunners
+[00:02:11.30] ••• Gunners starts turn
+[00:02:14.44] ••• Gunners ends turn; time used: 3.12 sec turn, 0.00 sec retreat
+[00:02:16.48] ••• Ducks starts turn
+[00:02:22.16] ••• Ducks fires Indian Nuclear Test
+[00:02:30.62] ••• Ducks ends turn; time used: 4.18 sec turn, 0.02 sec retreat
+[00:02:36.52] ••• Damage dealt: 2 to Ducks, 8 to Guardsmen, 57 (1 kill) to Gunners
+[00:02:36.52] ••• Guardsmen starts turn
+[00:02:50.68] ••• Guardsmen fires Shotgun
+[00:03:00.06] ••• Guardsmen fires Shotgun
+[00:03:03.24] ••• Guardsmen ends turn; time used: 21.40 sec turn, 2.00 sec retreat
+[00:03:09.34] ••• Ducks starts turn
+[00:03:11.94] ••• Ducks fires Ninja Rope
+[00:03:15.54] ••• Ducks fires Banana Bomb (5 sec)
+[00:03:24.94] ••• Ducks ends turn; time used: 4.72 sec turn, 2.00 sec retreat
+[00:03:36.86] ••• Damage dealt: 170 (2 kills) to Guardsmen, 162 (2 kills) to Gunners
+[00:03:36.86] ••• Guardsmen starts turn
+[00:03:41.76] ••• Guardsmen fires Shotgun
+[00:03:48.52] ••• Guardsmen fires Shotgun
+[00:03:51.70] ••• Guardsmen ends turn; time used: 9.52 sec turn, 2.00 sec retreat
+[00:03:57.82] ••• Ducks starts turn
+[00:03:59.22] ••• Ducks fires Ninja Rope
+[00:04:17.38] ••• Ducks fires Grenade (5 sec, min bounce)
+[00:04:22.54] ••• Ducks loses turn due to loss of control; time used: 18.28 sec turn, 2.00 sec retreat
+[00:04:38.02] ••• Damage dealt: 23 to Ducks, 84 (2 kills) to Guardsmen
+[00:04:38.04] ••• Game Ends - Round Finished
+
+Team time totals:
+Ducks:     Turn: 00:01:23.48, Retreat: 00:00:10.04, Total: 00:01:33.52, Turn count: 7
+Guardsmen: Turn: 00:00:44.52, Retreat: 00:00:06.00, Total: 00:00:50.52, Turn count: 4
+Gunners:   Turn: 00:00:08.00, Retreat: 00:00:02.00, Total: 00:00:10.00, Turn count: 2
+
+Mission Successful

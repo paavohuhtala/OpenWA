@@ -1,0 +1,52 @@
+Game Started at 2006-11-24 12:07:26 GMT
+Game Engine Version: 3.6.26.5
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #3: All quiet in the library?
+
+Red:  "Team09"
+Blue: "Gunners"  [CPU 3.00]
+Blue: "Officers" [CPU 3.75]
+Blue: "Platoon"  [CPU 2.75]
+
+[00:00:24.66] ••• Team09 starts turn
+[00:00:26.44] ••• Team09 fires Uzi
+[00:00:30.64] ••• Team09 ends turn; time used: 1.76 sec turn, 3.00 sec retreat
+[00:00:35.42] ••• Damage dealt: 200 (2 kills) to Gunners
+[00:00:35.42] ••• Gunners starts turn
+[00:00:56.78] ••• Gunners fires Bazooka
+[00:01:00.36] ••• Gunners ends turn; time used: 21.34 sec turn, 3.00 sec retreat
+[00:01:02.98] ••• Damage dealt: 44 to Team09
+[00:01:02.98] ••• Team09 starts turn
+[00:01:03.80] ••• Team09 fires Ninja Rope
+[00:01:15.72] ••• Team09 fires Cluster Bomb (3 sec, min bounce)
+[00:01:18.84] ••• Team09 loses turn due to loss of control; time used: 12.72 sec turn, 2.86 sec retreat
+[00:01:39.18] ••• Damage dealt: 100 (1 kill) to Team09, 100 (1 kill) to Platoon
+[00:01:39.18] ••• Officers starts turn
+[00:01:49.68] ••• Officers fires Bazooka
+[00:01:53.24] ••• Officers ends turn; time used: 10.48 sec turn, 3.00 sec retreat
+[00:02:02.72] ••• Damage dealt: 100 (1 kill) to Team09
+[00:02:02.72] ••• Team09 starts turn
+[00:02:03.88] ••• Team09 fires Ninja Rope
+[00:02:14.98] ••• Team09 fires Air Strike
+[00:02:18.00] ••• Team09 ends turn; time used: 12.24 sec turn, 3.00 sec retreat
+[00:02:47.06] ••• Damage dealt: 64 (1 kill) to Team09, 100 (1 kill) to Gunners, 100 (1 kill) to Platoon
+[00:02:47.06] ••• Officers starts turn
+[00:02:53.90] ••• Officers fires Bazooka
+[00:02:57.86] ••• Officers ends turn; time used: 6.82 sec turn, 3.00 sec retreat
+[00:03:08.56] ••• Damage dealt: 115 (1 kill) to Team09
+[00:03:08.56] ••• Team09 starts turn
+[00:03:10.34] ••• Team09 fires Ninja Rope
+[00:03:16.58] ••• Team09 fires Baseball Bat
+[00:03:20.16] ••• Team09 ends turn; time used: 8.00 sec turn, 3.00 sec retreat
+[00:03:25.78] ••• Damage dealt: 150 (1 kill) to Officers
+[00:03:25.80] ••• Game Ends - Round Finished
+
+Team time totals:
+Team09:   Turn: 00:00:34.72, Retreat: 00:00:11.86, Total: 00:00:46.58, Turn count: 4
+Gunners:  Turn: 00:00:21.34, Retreat: 00:00:03.00, Total: 00:00:24.34, Turn count: 1
+Officers: Turn: 00:00:17.30, Retreat: 00:00:06.00, Total: 00:00:23.30, Turn count: 2
+Platoon:  Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

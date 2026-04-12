@@ -1,0 +1,78 @@
+Game Started at 2004-02-19 18:56:29 GMT
+Game Engine Version: 3.6.19.14
+File Format Version: 3.6.19.14
+Exported with Version: 3.8.1 (Steam)
+
+Mission #13: Who left the flood-gates open?
+
+Red:  "SfX::Hex()"
+Blue: "Guardsmen" [CPU 4.50]
+Blue: "Patrol"    [CPU 4.50]
+
+[00:00:01.64] ••• Sudden Death
+[00:00:04.24] ••• SfX::Hex() starts turn
+[00:00:14.76] ••• SfX::Hex() fires Girder
+[00:00:19.84] ••• SfX::Hex() ends turn; time used: 10.50 sec turn, 5.00 sec retreat
+[00:00:26.32] ••• Guardsmen starts turn
+[00:00:34.98] ••• Guardsmen fires Bazooka
+[00:00:41.18] ••• Guardsmen ends turn; time used: 8.64 sec turn, 5.00 sec retreat
+[00:00:50.48] ••• SfX::Hex() starts turn
+[00:00:57.50] ••• SfX::Hex() fires Minigun
+[00:01:04.10] ••• SfX::Hex() ends turn; time used: 7.00 sec turn, 5.00 sec retreat
+[00:01:16.32] ••• Damage dealt: 14 to Guardsmen
+[00:01:16.32] ••• Patrol starts turn
+[00:01:26.24] ••• Patrol fires Bazooka
+[00:01:30.68] ••• Patrol ends turn; time used: 9.90 sec turn, 3.90 sec retreat
+[00:01:35.96] ••• SfX::Hex() starts turn
+[00:01:52.74] ••• SfX::Hex() fires Longbow
+[00:02:10.50] ••• SfX::Hex() fires Longbow
+[00:02:15.58] ••• SfX::Hex() ends turn; time used: 27.82 sec turn, 5.00 sec retreat
+[00:02:24.50] ••• Damage dealt: 101 (1 kill) to Guardsmen
+[00:02:24.50] ••• Guardsmen starts turn
+[00:02:30.72] ••• Guardsmen fires Teleport
+[00:02:33.22] ••• Guardsmen ends turn; time used: 6.20 sec turn, 0.02 sec retreat
+[00:02:36.50] ••• SfX::Hex() starts turn
+[00:02:48.20] ••• SfX::Hex() fires Ninja Rope
+[00:03:05.78] ••• SfX::Hex() fires Longbow
+[00:03:09.90] ••• SfX::Hex() fires Longbow
+[00:03:14.98] ••• SfX::Hex() ends turn; time used: 29.18 sec turn, 5.00 sec retreat
+[00:03:20.36] ••• Damage dealt: 30 to Patrol
+[00:03:20.36] ••• Patrol starts turn
+[00:03:26.52] ••• Patrol fires Bazooka
+[00:03:32.46] ••• Patrol ends turn; time used: 6.14 sec turn, 5.00 sec retreat
+[00:03:40.94] ••• SfX::Hex() starts turn
+[00:03:48.96] ••• SfX::Hex() fires Shotgun
+[00:03:59.80] ••• SfX::Hex() fires Shotgun
+[00:04:05.96] ••• SfX::Hex() ends turn; time used: 14.28 sec turn, 5.00 sec retreat
+[00:04:11.32] ••• Damage dealt: 40 to Patrol
+[00:04:11.32] ••• Guardsmen starts turn
+[00:04:18.02] ••• Guardsmen fires Bazooka
+[00:04:23.88] ••• Guardsmen ends turn; time used: 6.68 sec turn, 5.00 sec retreat
+[00:04:29.16] ••• SfX::Hex() starts turn
+[00:04:36.46] ••• SfX::Hex() fires Blow Torch
+[00:04:43.96] ••• SfX::Hex() ends turn; time used: 7.28 sec turn, 5.00 sec retreat
+[00:04:49.24] ••• Patrol starts turn
+[00:05:00.10] ••• Patrol fires Bazooka
+[00:05:05.98] ••• Patrol ends turn; time used: 10.84 sec turn, 5.00 sec retreat
+[00:05:11.34] ••• Damage dealt: 2 to SfX::Hex()
+[00:05:11.34] ••• SfX::Hex() starts turn
+[00:05:17.70] ••• SfX::Hex() fires Shotgun
+[00:05:22.52] ••• SfX::Hex() fires Shotgun
+[00:05:28.68] ••• SfX::Hex() ends turn; time used: 6.34 sec turn, 5.00 sec retreat
+[00:05:39.92] ••• Damage dealt: 115 (1 kill) to Patrol
+[00:05:39.92] ••• Guardsmen starts turn
+[00:05:44.26] ••• Guardsmen fires Bazooka
+[00:05:48.86] ••• Guardsmen ends turn; time used: 4.32 sec turn, 3.44 sec retreat
+[00:05:58.92] ••• SfX::Hex() starts turn
+[00:06:01.96] ••• SfX::Hex() fires Ninja Rope
+[00:06:15.24] ••• SfX::Hex() fires Grenade (3 sec, min bounce)
+[00:06:20.26] ••• SfX::Hex() ends turn; time used: 16.26 sec turn, 5.00 sec retreat
+[00:06:32.26] ••• Damage dealt: 85 (1 kill) to Guardsmen, 100 (1 kill) to Patrol
+[00:06:32.28] ••• Game Ends - Round Finished
+
+Team time totals:
+SfX::Hex(): Turn: 00:01:58.66, Retreat: 00:00:40.00, Total: 00:02:38.66, Turn count: 8
+Guardsmen:  Turn: 00:00:25.84, Retreat: 00:00:13.46, Total: 00:00:39.30, Turn count: 4
+Patrol:     Turn: 00:00:26.88, Retreat: 00:00:13.90, Total: 00:00:40.78, Turn count: 3
+
+Mission Successful

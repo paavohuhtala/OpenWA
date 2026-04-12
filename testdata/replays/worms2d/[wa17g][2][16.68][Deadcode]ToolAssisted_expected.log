@@ -1,0 +1,31 @@
+Game Started at 2021-11-11 05:33:03 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #17: Chateau Assassin.
+
+Red:  "0xDEADC0DE"
+Blue: "Officers" [CPU 5.00]
+
+[00:00:00.30] ••• 0xDEADC0DE starts turn
+[00:00:04.34] ••• 0xDEADC0DE fires Select Worm
+[00:00:06.98] ••• 0xDEADC0DE fires Select Worm
+[00:00:12.76] ••• 0xDEADC0DE fires Girder
+[00:00:17.82] ••• 0xDEADC0DE loses turn due to loss of control; time used: 12.32 sec turn, 4.98 sec retreat
+[00:00:22.80] ••• Damage dealt: 38 to 0xDEADC0DE
+[00:00:22.80] ••• Officers starts turn
+[00:00:25.94] ••• Officers ends turn; time used: 3.12 sec turn, 0.00 sec retreat
+[00:00:27.96] ••• 0xDEADC0DE starts turn
+[00:00:27.98] ••• 0xDEADC0DE fires Select Worm
+[00:00:32.12] ••• 0xDEADC0DE fires Parachute
+[00:00:32.40] ••• 0xDEADC0DE fires Girder
+[00:00:36.82] ••• 0xDEADC0DE loses turn due to loss of control; time used: 4.36 sec turn, 4.40 sec retreat
+[00:00:50.08] ••• Damage dealt: 2 (1 kill) to 0xDEADC0DE, 60 (1 kill) to Officers
+[00:00:50.10] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE: Turn: 00:00:16.68, Retreat: 00:00:09.38, Total: 00:00:26.06, Turn count: 2
+Officers:   Turn: 00:00:03.12, Retreat: 00:00:00.00, Total: 00:00:03.12, Turn count: 1
+
+Mission Successful

@@ -1,0 +1,85 @@
+Game Started at 2005-09-28 17:23:40 GMT
+Game Engine Version: 3.6.25.1
+File Format Version: 3.6.26.4 - 3.6.29.17 (originally 3.6.20.1 - 3.6.26.3)
+Exported with Version: 3.8.1 (Steam)
+
+Mission #33: Spectral recovery?
+
+Red:  "0xDEADC0DE"
+Blue: "Enemy"    [CPU 4.25]
+Blue: "Officers" [CPU 4.50]
+
+[00:00:05.86] ••• 0xDEADC0DE starts turn
+[00:00:07.26] ••• 0xDEADC0DE fires Blow Torch
+[00:00:15.30] ••• 0xDEADC0DE ends turn; time used: 1.38 sec turn, 3.00 sec retreat
+[00:00:19.32] ••• Enemy starts turn
+[00:00:33.58] ••• Enemy fires Grenade (1 sec, min bounce)
+[00:00:37.18] ••• Enemy ends turn; time used: 14.24 sec turn, 3.00 sec retreat
+[00:00:41.30] ••• Damage dealt: 39 to 0xDEADC0DE
+[00:00:41.30] ••• 0xDEADC0DE starts turn
+[00:00:42.32] ••• 0xDEADC0DE fires Grenade (3 sec, min bounce)
+[00:00:46.52] ••• 0xDEADC0DE loses turn due to loss of control; time used: 1.00 sec turn, 2.86 sec retreat
+[00:01:05.40] ••• Damage dealt: 61 (1 kill) to 0xDEADC0DE, 90 (1 kill) to Enemy
+[00:01:05.40] ••• Officers starts turn
+[00:01:26.56] ••• Officers fires Shotgun
+[00:01:32.32] ••• Officers fires Shotgun
+[00:01:36.50] ••• Officers ends turn; time used: 24.78 sec turn, 3.00 sec retreat
+[00:01:40.52] ••• 0xDEADC0DE starts turn
+[00:01:44.02] ••• 0xDEADC0DE fires Blow Torch
+[00:01:52.06] ••• 0xDEADC0DE ends turn; time used: 3.48 sec turn, 3.00 sec retreat
+[00:01:56.10] ••• Officers starts turn
+[00:02:16.52] ••• Officers fires Shotgun
+[00:02:28.12] ••• Officers ends turn; time used: 27.40 sec turn, 0.00 sec retreat
+[00:02:30.16] ••• Damage dealt: 18 to 0xDEADC0DE
+[00:02:30.16] ••• 0xDEADC0DE starts turn
+[00:02:30.18] ••• 0xDEADC0DE fires Shotgun
+[00:02:34.34] ••• 0xDEADC0DE fires Shotgun
+[00:02:38.50] ••• 0xDEADC0DE ends turn; time used: 2.06 sec turn, 3.00 sec retreat
+[00:02:42.52] ••• Officers starts turn
+[00:02:46.42] ••• Officers fires Air Strike
+[00:02:48.98] ••• Officers loses turn due to loss of control; time used: 3.88 sec turn, 1.88 sec retreat
+[00:02:54.22] ••• Damage dealt: 95 (1 kill) to Officers
+[00:02:54.22] ••• 0xDEADC0DE starts turn
+[00:02:57.78] ••• 0xDEADC0DE fires Fire Punch
+[00:02:57.80] ••• 0xDEADC0DE loses turn due to loss of control; time used: 3.54 sec turn, 0.00 sec retreat
+[00:03:06.98] ••• Damage dealt: 35 to 0xDEADC0DE, 1 to Officers
+[00:03:06.98] ••• Officers starts turn
+[00:03:17.08] ••• Officers fires Grenade (2 sec, min bounce)
+[00:03:20.10] ••• Officers loses turn due to loss of control; time used: 10.08 sec turn, 1.86 sec retreat
+[00:03:23.54] ••• Damage dealt: 8 to Officers
+[00:03:23.54] ••• 0xDEADC0DE starts turn
+[00:03:23.58] ••• 0xDEADC0DE fires Grenade (5 sec, max bounce)
+[00:03:29.68] ••• 0xDEADC0DE ends turn; time used: 0.02 sec turn, 3.00 sec retreat
+[00:03:39.32] ••• Damage dealt: 91 (1 kill) to Officers
+[00:03:39.32] ••• 0xDEADC0DE starts turn
+[00:03:39.34] ••• 0xDEADC0DE fires Shotgun
+[00:03:42.02] ••• 0xDEADC0DE fires Shotgun
+[00:03:46.18] ••• 0xDEADC0DE ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:03:54.72] ••• Damage dealt: 28 to 0xDEADC0DE
+[00:03:54.72] ••• 0xDEADC0DE starts turn
+[00:03:54.76] ••• 0xDEADC0DE fires Girder
+[00:03:57.02] ••• 0xDEADC0DE loses turn due to loss of control; time used: 0.02 sec turn, 2.18 sec retreat
+[00:04:02.22] ••• Damage dealt: 25 to 0xDEADC0DE
+[00:04:02.22] ••• 0xDEADC0DE starts turn
+[00:04:02.24] ••• 0xDEADC0DE fires Skip Go
+[00:04:02.26] ••• 0xDEADC0DE ends turn; time used: 0.00 sec turn, 0.00 sec retreat
+[00:04:07.48] ••• 0xDEADC0DE starts turn
+[00:04:07.50] ••• 0xDEADC0DE fires Skip Go
+[00:04:07.52] ••• 0xDEADC0DE ends turn; time used: 0.00 sec turn, 0.00 sec retreat
+[00:04:09.54] ••• 0xDEADC0DE starts turn
+[00:04:09.56] ••• 0xDEADC0DE fires Skip Go
+[00:04:09.58] ••• 0xDEADC0DE ends turn; time used: 0.00 sec turn, 0.00 sec retreat
+[00:04:14.80] ••• 0xDEADC0DE starts turn
+[00:04:14.82] ••• 0xDEADC0DE fires Skip Go
+[00:04:14.84] ••• 0xDEADC0DE ends turn; time used: 0.00 sec turn, 0.00 sec retreat
+[00:04:20.76] ••• 0xDEADC0DE starts turn
+[00:04:20.78] ••• 0xDEADC0DE fires Skip Go
+[00:04:20.80] ••• 0xDEADC0DE ends turn; time used: 0.00 sec turn, 0.00 sec retreat
+[00:04:23.06] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE: Turn: 00:00:11.50, Retreat: 00:00:20.04, Total: 00:00:31.54, Turn count: 13
+Enemy:      Turn: 00:00:14.24, Retreat: 00:00:03.00, Total: 00:00:17.24, Turn count: 1
+Officers:   Turn: 00:01:06.14, Retreat: 00:00:06.74, Total: 00:01:12.88, Turn count: 4
+
+Mission Successful

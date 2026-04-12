@@ -1,0 +1,31 @@
+Game Started at 2021-11-14 01:16:02 GMT
+Game Engine Version: 3.6.31.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #29: Sinking Ice Cap.
+
+Red:  "0xDEADC0DE"
+Blue: "Special Forces" [CPU 5.00]
+
+[00:00:01.74] ••• 0xDEADC0DE starts turn
+[00:00:02.20] ••• 0xDEADC0DE fires Ninja Rope
+[00:00:06.50] ••• 0xDEADC0DE fires Blow Torch
+[00:00:16.48] ••• 0xDEADC0DE ends turn; time used: 4.74 sec turn, 5.00 sec retreat
+[00:00:24.96] ••• Damage dealt: 20 (1 kill) to Special Forces
+[00:00:24.96] ••• Special Forces starts turn
+[00:00:28.66] ••• Special Forces fires Air Strike
+[00:00:29.02] ••• Special Forces loses turn due to loss of control; time used: 3.68 sec turn, 0.00 sec retreat
+[00:00:38.68] ••• Damage dealt: 51 to 0xDEADC0DE, 20 (1 kill) to Special Forces
+[00:00:38.68] ••• 0xDEADC0DE starts turn
+[00:00:39.14] ••• 0xDEADC0DE fires Ninja Rope
+[00:00:44.08] ••• 0xDEADC0DE fires Blow Torch
+[00:00:49.72] ••• 0xDEADC0DE ends turn; time used: 5.38 sec turn, 5.00 sec retreat
+[00:01:12.82] ••• Damage dealt: 4 (1 kill) to 0xDEADC0DE, 40 (2 kills) to Special Forces
+[00:01:12.84] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE:     Turn: 00:00:10.12, Retreat: 00:00:10.00, Total: 00:00:20.12, Turn count: 2
+Special Forces: Turn: 00:00:03.68, Retreat: 00:00:00.00, Total: 00:00:03.68, Turn count: 1
+
+Mission Successful

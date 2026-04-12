@@ -1,0 +1,25 @@
+Game Started at 2021-12-13 11:13:58 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #25: Mars Star.
+
+Red:  "Ro Bad 2"
+Blue: "Enemy" [CPU 1.75]
+
+[00:00:07.72] ••• Ro Bad 2 starts turn
+[00:00:07.80] ••• Ro Bad 2 fires Grenade (4 sec, min bounce)
+[00:00:09.88] ••• Ro Bad 2 fires Grenade (4 sec, min bounce)
+[00:00:12.32] ••• Ro Bad 2 fires Girder Starter-Pack
+[00:00:13.18] ••• Ro Bad 2 fires Girder Starter-Pack
+[00:00:18.80] ••• Ro Bad 2 fires Girder Starter-Pack
+[00:00:19.80] ••• Ro Bad 2 fires Skip Go
+[00:00:19.82] ••• Ro Bad 2 ends turn; time used: 12.08 sec turn, 0.00 sec retreat
+[00:00:23.04] ••• Game Ends - Round Finished
+
+Team time totals:
+Ro Bad 2: Turn: 00:00:12.08, Retreat: 00:00:00.00, Total: 00:00:12.08, Turn count: 1
+Enemy:    Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

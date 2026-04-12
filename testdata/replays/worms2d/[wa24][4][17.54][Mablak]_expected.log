@@ -1,0 +1,46 @@
+Game Started at 2021-10-23 23:23:00 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #24: Countdown to Armageddon!
+
+Red:  "Ro Bad"
+Red:  "Cannon Fodder"
+Blue: "Patrol" [CPU 2.25]
+
+[00:00:02.80] ••• Ro Bad starts turn
+[00:00:03.92] ••• Ro Bad fires Grenade (1 sec, min bounce)
+[00:00:08.62] ••• Ro Bad ends turn; time used: 1.10 sec turn, 3.00 sec retreat
+[00:00:15.64] ••• Damage dealt: 5 to Ro Bad, 70 (1 kill) to Patrol
+[00:00:15.64] ••• Patrol starts turn
+[00:00:23.48] ••• Patrol fires Bazooka
+[00:00:26.78] ••• Patrol ends turn; time used: 7.82 sec turn, 3.00 sec retreat
+[00:00:29.82] ••• Damage dealt: 43 to Ro Bad
+[00:00:29.82] ••• Ro Bad starts turn
+[00:00:30.16] ••• Ro Bad fires Ninja Rope
+[00:00:36.34] ••• Ro Bad fires Grenade (3 sec, min bounce)
+[00:00:39.34] ••• Ro Bad loses turn due to loss of control; time used: 6.38 sec turn, 2.98 sec retreat
+[00:00:47.50] ••• Damage dealt: 100 (1 kill) to Ro Bad, 112 (1 kill) to Patrol
+[00:00:47.50] ••• Patrol starts turn
+[00:00:51.02] ••• Patrol ends turn; time used: 3.50 sec turn, 0.00 sec retreat
+[00:00:53.04] ••• Ro Bad starts turn
+[00:00:54.14] ••• Ro Bad fires Ninja Rope
+[00:00:56.14] ••• Ro Bad fires Mine
+[00:01:01.16] ••• Ro Bad ends turn; time used: 3.08 sec turn, 5.00 sec retreat
+[00:01:09.62] ••• Damage dealt: 40 to Patrol
+[00:01:09.62] ••• Patrol starts turn
+[00:01:13.12] ••• Patrol ends turn; time used: 3.48 sec turn, 0.00 sec retreat
+[00:01:15.14] ••• Ro Bad starts turn
+[00:01:16.32] ••• Ro Bad fires Ninja Rope
+[00:01:22.14] ••• Ro Bad fires Baseball Bat
+[00:01:25.72] ••• Ro Bad ends turn; time used: 6.98 sec turn, 3.00 sec retreat
+[00:01:57.66] ••• Damage dealt: 393 (6 kills) to Patrol
+[00:01:57.68] ••• Game Ends - Round Finished
+
+Team time totals:
+Ro Bad:        Turn: 00:00:17.54, Retreat: 00:00:13.98, Total: 00:00:31.52, Turn count: 4
+Cannon Fodder: Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Patrol:        Turn: 00:00:14.80, Retreat: 00:00:03.00, Total: 00:00:17.80, Turn count: 3
+
+Mission Successful

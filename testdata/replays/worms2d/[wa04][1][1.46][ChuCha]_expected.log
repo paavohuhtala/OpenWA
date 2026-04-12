@@ -1,0 +1,27 @@
+Game Started at 2006-12-15 15:11:40 GMT
+Game Engine Version: 3.6.26.5
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #4: Cool as ice.
+
+Red:  "Team09"
+Blue: "Guardsmen" [CPU 3.00]
+
+[00:00:02.78] ••• Sudden Death
+[00:00:05.54] ••• Team09 starts turn
+[00:00:05.58] ••• Team09 fires Jet Pack
+[00:00:06.96] ••• Team09 used 7 units of Jet Pack fuel
+[00:00:07.20] ••• Team09 fires Parachute
+[00:00:07.44] ••• Team09 fires Uzi
+[00:00:10.64] ••• Team09 ends turn; time used: 1.46 sec turn, 2.00 sec retreat
+[00:00:20.30] ••• Damage dealt: 100 (1 kill) to Guardsmen
+[00:00:20.32] ••• Game Ends - Round Finished
+
+Team time totals:
+Team09:    Turn: 00:00:01.46, Retreat: 00:00:02.00, Total: 00:00:03.46, Turn count: 1
+Guardsmen: Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Total Jet Pack fuel used: 7
+
+Mission Successful

@@ -1,0 +1,75 @@
+Game Started at 2021-10-31 09:01:40 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #33: Spectral recovery?
+
+Red:  "Ro Bad 3"
+Blue: "Enemy"    [CPU 4.25]
+Blue: "Officers" [CPU 4.50]
+
+[00:00:05.86] ••• Ro Bad 3 starts turn
+[00:00:07.52] ••• Ro Bad 3 fires Blow Torch
+[00:00:15.56] ••• Ro Bad 3 ends turn; time used: 1.64 sec turn, 3.00 sec retreat
+[00:00:19.58] ••• Enemy starts turn
+[00:00:24.66] ••• Enemy fires Grenade (3 sec, min bounce)
+[00:00:29.06] ••• Enemy ends turn; time used: 5.06 sec turn, 3.00 sec retreat
+[00:00:33.10] ••• Ro Bad 3 starts turn
+[00:00:43.84] ••• Ro Bad 3 fires Grenade (2 sec, max bounce)
+[00:00:48.54] ••• Ro Bad 3 ends turn; time used: 10.72 sec turn, 3.00 sec retreat
+[00:00:58.60] ••• Damage dealt: 100 (1 kill) to Ro Bad 3, 90 (1 kill) to Enemy, 95 (1 kill) to Officers
+[00:00:58.60] ••• Officers starts turn
+[00:01:18.36] ••• Officers fires Air Strike
+[00:01:22.04] ••• Officers ends turn; time used: 19.74 sec turn, 3.00 sec retreat
+[00:01:26.06] ••• Ro Bad 3 starts turn
+[00:01:29.06] ••• Ro Bad 3 fires Blow Torch
+[00:01:34.28] ••• Ro Bad 3 ends turn; time used: 2.98 sec turn, 3.00 sec retreat
+[00:01:41.62] ••• Damage dealt: 100 (1 kill) to Officers
+[00:01:41.62] ••• Ro Bad 3 starts turn
+[00:01:42.02] ••• Ro Bad 3 fires Blow Torch
+[00:01:50.06] ••• Ro Bad 3 ends turn; time used: 0.38 sec turn, 3.00 sec retreat
+[00:01:54.10] ••• Ro Bad 3 starts turn
+[00:01:54.12] ••• Ro Bad 3 fires Blow Torch
+[00:01:58.60] ••• Ro Bad 3 ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:02:02.62] ••• Ro Bad 3 starts turn
+[00:02:14.46] ••• Ro Bad 3 fires Blow Torch
+[00:02:22.50] ••• Ro Bad 3 ends turn; time used: 11.82 sec turn, 3.00 sec retreat
+[00:02:26.52] ••• Ro Bad 3 starts turn
+[00:02:26.54] ••• Ro Bad 3 fires Blow Torch
+[00:02:34.58] ••• Ro Bad 3 ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:02:38.62] ••• Ro Bad 3 starts turn
+[00:02:38.64] ••• Ro Bad 3 fires Blow Torch
+[00:02:42.42] ••• Ro Bad 3 loses turn due to loss of control; time used: 0.00 sec turn, 0.00 sec retreat
+[00:02:48.04] ••• Damage dealt: 36 to Ro Bad 3
+[00:02:48.04] ••• Ro Bad 3 starts turn
+[00:02:50.06] ••• Ro Bad 3 fires Girder
+[00:02:53.14] ••• Ro Bad 3 ends turn; time used: 2.00 sec turn, 3.00 sec retreat
+[00:02:53.56] ••• Ro Bad 3 starts turn
+[00:02:55.58] ••• Ro Bad 3 fires Skip Go
+[00:02:55.60] ••• Ro Bad 3 ends turn; time used: 2.00 sec turn, 0.00 sec retreat
+[00:03:00.84] ••• Ro Bad 3 starts turn
+[00:03:00.94] ••• Ro Bad 3 fires Skip Go
+[00:03:00.96] ••• Ro Bad 3 ends turn; time used: 0.08 sec turn, 0.00 sec retreat
+[00:03:02.98] ••• Ro Bad 3 starts turn
+[00:03:03.00] ••• Ro Bad 3 fires Skip Go
+[00:03:03.02] ••• Ro Bad 3 ends turn; time used: 0.00 sec turn, 0.00 sec retreat
+[00:03:08.24] ••• Ro Bad 3 starts turn
+[00:03:08.26] ••• Ro Bad 3 fires Skip Go
+[00:03:08.28] ••• Ro Bad 3 ends turn; time used: 0.00 sec turn, 0.00 sec retreat
+[00:03:10.30] ••• Ro Bad 3 starts turn
+[00:03:10.32] ••• Ro Bad 3 fires Skip Go
+[00:03:10.34] ••• Ro Bad 3 ends turn; time used: 0.00 sec turn, 0.00 sec retreat
+[00:03:15.56] ••• Ro Bad 3 starts turn
+[00:03:15.58] ••• Ro Bad 3 fires Skip Go
+[00:03:15.60] ••• Ro Bad 3 ends turn; time used: 0.00 sec turn, 0.00 sec retreat
+[00:03:21.62] ••• Ro Bad 3 starts turn
+[00:03:21.64] ••• Ro Bad 3 ends turn; time used: 0.02 sec turn, 0.00 sec retreat
+[00:03:23.92] ••• Game Ends - Round Finished
+
+Team time totals:
+Ro Bad 3: Turn: 00:00:31.64, Retreat: 00:00:24.00, Total: 00:00:55.64, Turn count: 16
+Enemy:    Turn: 00:00:05.06, Retreat: 00:00:03.00, Total: 00:00:08.06, Turn count: 1
+Officers: Turn: 00:00:19.74, Retreat: 00:00:03.00, Total: 00:00:22.74, Turn count: 1
+
+Mission Successful

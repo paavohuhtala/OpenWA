@@ -1,0 +1,52 @@
+Game Started at 2021-10-31 08:26:54 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #19: Horny Nuke.
+
+Red:  "Ro Bad 3"
+Blue: "Guardsmen" [CPU 3.00]
+Blue: "Gunners"   [CPU 3.25]
+
+[00:00:02.56] ••• Ro Bad 3 starts turn
+[00:00:03.48] ••• Glide Glitch #1
+[00:00:07.12] ••• Ro Bad 3 fires Ninja Rope
+[00:00:32.12] ••• Ro Bad 3 fires Grenade (3 sec, min bounce)
+[00:00:34.70] ••• Ro Bad 3 loses turn due to loss of control; time used: 29.54 sec turn, 2.00 sec retreat
+[00:00:41.60] ••• Damage dealt: 2 to Ro Bad 3, 2 to Guardsmen, 47 to Gunners
+[00:00:41.60] ••• Guardsmen starts turn
+[00:00:47.66] ••• Guardsmen ends turn; time used: 6.04 sec turn, 0.00 sec retreat
+[00:00:49.68] ••• Ro Bad 3 starts turn
+[00:00:50.42] ••• Ro Bad 3 fires Ninja Rope
+[00:00:52.72] ••• Ro Bad 3 fires Banana Bomb (1 sec)
+[00:00:55.46] ••• Ro Bad 3 ends turn; time used: 2.80 sec turn, 2.00 sec retreat
+[00:01:15.96] ••• Damage dealt: 223 (2 kills) to Guardsmen, 153 (2 kills) to Gunners
+[00:01:15.96] ••• Gunners starts turn
+[00:01:19.10] ••• Gunners ends turn; time used: 3.12 sec turn, 0.00 sec retreat
+[00:01:21.12] ••• Ro Bad 3 starts turn
+[00:01:22.10] ••• Ro Bad 3 fires Ninja Rope
+[00:01:27.40] ••• Ro Bad 3 fires Grenade (2 sec, min bounce)
+[00:01:29.42] ••• Ro Bad 3 ends turn; time used: 5.96 sec turn, 2.00 sec retreat
+[00:01:36.14] ••• Damage dealt: 42 to Guardsmen
+[00:01:36.14] ••• Guardsmen starts turn
+[00:01:40.08] ••• Guardsmen ends turn; time used: 3.92 sec turn, 0.00 sec retreat
+[00:01:42.10] ••• Ro Bad 3 starts turn
+[00:01:44.30] ••• Ro Bad 3 fires Grenade (3 sec, min bounce)
+[00:01:47.56] ••• Ro Bad 3 ends turn; time used: 2.18 sec turn, 2.00 sec retreat
+[00:02:03.16] ••• Damage dealt: 58 (2 kills) to Guardsmen
+[00:02:03.16] ••• Gunners starts turn
+[00:02:06.30] ••• Gunners ends turn; time used: 3.12 sec turn, 0.00 sec retreat
+[00:02:08.34] ••• Ro Bad 3 starts turn
+[00:02:09.54] ••• Ro Bad 3 fires Ninja Rope
+[00:02:17.06] ••• Ro Bad 3 fires Holy Hand-Grenade
+[00:02:21.86] ••• Ro Bad 3 loses turn due to loss of control; time used: 8.62 sec turn, 2.00 sec retreat
+[00:02:36.90] ••• Damage dealt: 10 to Ro Bad 3, 100 (1 kill) to Gunners
+[00:02:36.92] ••• Game Ends - Round Finished
+
+Team time totals:
+Ro Bad 3:  Turn: 00:00:49.10, Retreat: 00:00:10.00, Total: 00:00:59.10, Turn count: 5
+Guardsmen: Turn: 00:00:09.96, Retreat: 00:00:00.00, Total: 00:00:09.96, Turn count: 2
+Gunners:   Turn: 00:00:06.24, Retreat: 00:00:00.00, Total: 00:00:06.24, Turn count: 2
+
+Mission Successful

@@ -1,0 +1,38 @@
+Game Started at 2021-12-03 02:54:27 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #26: Mad Cows.
+
+Red:  "0xDEADC0DE"
+Blue: "Officers" [CPU 4.00]
+
+[00:00:00.08] ••• 0xDEADC0DE starts turn
+[00:00:01.98] ••• 0xDEADC0DE fires Grenade (4 sec, min bounce)
+[00:00:07.24] ••• 0xDEADC0DE ends turn; time used: 1.74 sec turn, 3.00 sec retreat
+[00:00:16.10] ••• Damage dealt: 100 (1 kill) to 0xDEADC0DE, 200 (2 kills) to Officers
+[00:00:16.10] ••• Officers starts turn
+[00:00:23.96] ••• Officers fires Bazooka
+[00:00:26.48] ••• Officers ends turn; time used: 7.84 sec turn, 1.86 sec retreat
+[00:00:29.72] ••• Damage dealt: 39 to 0xDEADC0DE
+[00:00:29.72] ••• 0xDEADC0DE starts turn
+[00:00:30.58] ••• 0xDEADC0DE fires Ninja Rope
+[00:00:34.26] ••• 0xDEADC0DE fires Bazooka
+[00:00:38.86] ••• 0xDEADC0DE ends turn; time used: 4.10 sec turn, 3.00 sec retreat
+[00:00:44.78] ••• Damage dealt: 46 to Officers
+[00:00:44.78] ••• Officers starts turn
+[00:00:53.98] ••• Officers fires Bazooka
+[00:00:56.42] ••• Officers ends turn; time used: 9.18 sec turn, 1.96 sec retreat
+[00:01:04.64] ••• Damage dealt: 46 to 0xDEADC0DE
+[00:01:04.64] ••• 0xDEADC0DE starts turn
+[00:01:06.08] ••• 0xDEADC0DE fires Cluster Bomb (1 sec, min bounce)
+[00:01:07.16] ••• 0xDEADC0DE loses turn due to loss of control; time used: 1.14 sec turn, 0.86 sec retreat
+[00:01:28.86] ••• Damage dealt: 15 (1 kill) to 0xDEADC0DE, 154 (2 kills) to Officers
+[00:01:28.88] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE: Turn: 00:00:06.98, Retreat: 00:00:06.86, Total: 00:00:13.84, Turn count: 3
+Officers:   Turn: 00:00:17.02, Retreat: 00:00:03.82, Total: 00:00:20.84, Turn count: 2
+
+Mission Successful

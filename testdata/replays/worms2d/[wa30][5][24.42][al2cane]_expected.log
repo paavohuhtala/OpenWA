@@ -1,0 +1,51 @@
+Game Started at 2004-04-14 11:33:34 GMT
+Game Engine Version: 3.6.19.18-19
+File Format Version: 3.6.19.17 - 3.6.19.19
+Exported with Version: 3.8.1 (Steam)
+
+Mission #30: Aim long, aim true.
+
+Red:  "Men At Arms"
+Blue: "Officers" [CPU 3.60]
+Blue: "Gunners"  [CPU 3.75]
+
+[00:00:02.56] ••• Men At Arms starts turn
+[00:00:03.76] ••• Men At Arms fires Grenade (3 sec, min bounce)
+[00:00:08.24] ••• Men At Arms ends turn; time used: 1.18 sec turn, 3.00 sec retreat
+[00:00:15.66] ••• Damage dealt: 30 (1 kill) to Gunners
+[00:00:15.66] ••• Officers starts turn
+[00:00:18.88] ••• Officers ends turn; time used: 3.20 sec turn, 0.00 sec retreat
+[00:00:20.90] ••• Men At Arms starts turn
+[00:00:22.88] ••• Men At Arms fires Grenade (2 sec, min bounce)
+[00:00:26.84] ••• Men At Arms ends turn; time used: 1.96 sec turn, 3.00 sec retreat
+[00:00:41.00] ••• Damage dealt: 49 (1 kill) to Gunners
+[00:00:41.00] ••• Gunners starts turn
+[00:00:45.86] ••• Gunners fires Grenade (3 sec, min bounce)
+[00:00:50.28] ••• Gunners ends turn; time used: 4.84 sec turn, 3.00 sec retreat
+[00:00:54.30] ••• Men At Arms starts turn
+[00:00:56.82] ••• Men At Arms fires Grenade (3 sec, min bounce)
+[00:01:01.10] ••• Men At Arms ends turn; time used: 2.50 sec turn, 3.00 sec retreat
+[00:01:10.14] ••• Damage dealt: 11 (1 kill) to Gunners
+[00:01:10.14] ••• Officers starts turn
+[00:01:13.32] ••• Officers ends turn; time used: 3.16 sec turn, 0.00 sec retreat
+[00:01:15.34] ••• Men At Arms starts turn
+[00:01:21.74] ••• Men At Arms fires Girder Starter-Pack
+[00:01:25.80] ••• Men At Arms fires Girder Starter-Pack
+[00:01:29.46] ••• Men At Arms fires Girder Starter-Pack
+[00:01:30.90] ••• Men At Arms fires Girder Starter-Pack
+[00:01:31.90] ••• Men At Arms fires Girder Starter-Pack
+[00:01:32.00] ••• Men At Arms ends turn; time used: 16.30 sec turn, 0.02 sec retreat
+[00:01:34.02] ••• Officers starts turn
+[00:01:37.20] ••• Officers ends turn; time used: 3.16 sec turn, 0.00 sec retreat
+[00:01:39.22] ••• Men At Arms starts turn
+[00:01:41.72] ••• Men At Arms fires Grenade (5 sec, min bounce)
+[00:01:48.08] ••• Men At Arms ends turn; time used: 2.48 sec turn, 3.00 sec retreat
+[00:01:57.90] ••• Damage dealt: 40 (1 kill) to Officers
+[00:01:57.92] ••• Game Ends - Round Finished
+
+Team time totals:
+Men At Arms: Turn: 00:00:24.42, Retreat: 00:00:12.02, Total: 00:00:36.44, Turn count: 5
+Officers:    Turn: 00:00:09.52, Retreat: 00:00:00.00, Total: 00:00:09.52, Turn count: 3
+Gunners:     Turn: 00:00:04.84, Retreat: 00:00:03.00, Total: 00:00:07.84, Turn count: 1
+
+Mission Successful

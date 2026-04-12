@@ -1,0 +1,62 @@
+Game Started at 2005-11-09 15:48:22 GMT
+Game Engine Version: 3.6.25.1
+File Format Version: 3.6.20.1 - 3.6.26.3
+Exported with Version: 3.8.1 (Steam)
+
+Mission #24: Countdown to Armageddon!
+
+Red:  ":', :: :: :."
+Red:  "Cannon Fodder"
+Blue: "Patrol" [CPU 2.25]
+
+[00:00:02.84] ••• :', :: :: :. starts turn
+[00:00:02.96] ••• :', :: :: :. fires Grenade (1 sec, min bounce)
+[00:00:07.24] ••• :', :: :: :. ends turn; time used: 0.10 sec turn, 3.00 sec retreat
+[00:00:10.42] ••• Damage dealt: 44 to Patrol
+[00:00:10.42] ••• Patrol starts turn
+[00:00:15.94] ••• Patrol fires Grenade (1 sec, min bounce)
+[00:00:19.44] ••• Patrol ends turn; time used: 5.50 sec turn, 3.00 sec retreat
+[00:00:23.20] ••• Damage dealt: 41 to :', :: :: :.
+[00:00:23.20] ••• :', :: :: :. starts turn
+[00:00:23.88] ••• :', :: :: :. fires Ninja Rope
+[00:00:26.78] ••• :', :: :: :. fires Shotgun
+[00:00:36.30] ••• :', :: :: :. fires Shotgun
+[00:00:40.46] ••• :', :: :: :. ends turn; time used: 3.98 sec turn, 3.00 sec retreat
+[00:00:44.22] ••• Damage dealt: 94 (1 kill) to Patrol
+[00:00:44.22] ••• Patrol starts turn
+[00:00:48.66] ••• Patrol fires Grenade (2 sec, min bounce)
+[00:00:52.78] ••• Patrol ends turn; time used: 4.42 sec turn, 3.00 sec retreat
+[00:00:56.80] ••• :', :: :: :. starts turn
+[00:00:56.90] ••• :', :: :: :. fires Grenade (3 sec, min bounce)
+[00:01:01.32] ••• :', :: :: :. ends turn; time used: 0.08 sec turn, 3.00 sec retreat
+[00:01:09.78] ••• Damage dealt: 166 (3 kills) to Patrol
+[00:01:09.78] ••• Patrol starts turn
+[00:01:12.96] ••• Patrol ends turn; time used: 3.16 sec turn, 0.00 sec retreat
+[00:01:14.98] ••• :', :: :: :. starts turn
+[00:01:15.44] ••• :', :: :: :. fires Cluster Bomb (3 sec, min bounce)
+[00:01:18.56] ••• :', :: :: :. loses turn due to loss of control; time used: 0.44 sec turn, 2.86 sec retreat
+[00:01:41.36] ••• Damage dealt: 59 (1 kill) to :', :: :: :., 111 (2 kills) to Patrol
+[00:01:41.36] ••• Patrol starts turn
+[00:01:47.34] ••• Patrol fires Bazooka
+[00:01:51.00] ••• Patrol ends turn; time used: 5.96 sec turn, 3.00 sec retreat
+[00:01:55.46] ••• Damage dealt: 5 to :', :: :: :.
+[00:01:55.46] ••• :', :: :: :. starts turn
+[00:01:56.88] ••• :', :: :: :. fires Baseball Bat
+[00:02:00.46] ••• :', :: :: :. ends turn; time used: 1.40 sec turn, 3.00 sec retreat
+[00:02:03.74] ••• Damage dealt: 30 to Patrol
+[00:02:03.74] ••• Patrol starts turn
+[00:02:12.74] ••• Patrol fires Bazooka
+[00:02:16.10] ••• Patrol ends turn; time used: 8.98 sec turn, 3.00 sec retreat
+[00:02:20.56] ••• Damage dealt: 44 to :', :: :: :.
+[00:02:20.56] ••• :', :: :: :. starts turn
+[00:02:20.70] ••• :', :: :: :. fires Cluster Bomb (3 sec, min bounce)
+[00:02:23.76] ••• :', :: :: :. loses turn due to loss of control; time used: 0.12 sec turn, 2.86 sec retreat
+[00:02:46.64] ••• Damage dealt: 100 (1 kill) to :', :: :: :., 170 (2 kills) to Patrol
+[00:02:46.66] ••• Game Ends - Round Finished
+
+Team time totals:
+:', :: :: :.:  Turn: 00:00:06.12, Retreat: 00:00:17.72, Total: 00:00:23.84, Turn count: 6
+Cannon Fodder: Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Patrol:        Turn: 00:00:28.02, Retreat: 00:00:12.00, Total: 00:00:40.02, Turn count: 5
+
+Mission Successful

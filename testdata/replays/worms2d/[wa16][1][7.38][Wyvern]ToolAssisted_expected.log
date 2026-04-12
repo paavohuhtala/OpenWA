@@ -1,0 +1,26 @@
+Game Started at 2008-03-30 11:47:51 GMT
+Game Engine Version: 3.6.28.0
+File Format Version: 3.6.29.48 - 3.7.2.97 (originally 3.6.26.4 - 3.6.29.17)
+Exported with Version: 3.8.1 (Steam)
+
+Mission #16: Trouble on Mount Wormore.
+
+Red:  "Don't be stupid!"
+Blue: "Guardsmen" [CPU 3.50]
+Blue: "Gunners"   [CPU 3.50]
+Blue: "Patrol"    [CPU 4.50]
+
+[00:00:03.12] ••• Don't be stupid! starts turn
+[00:00:03.92] ••• Don't be stupid! fires Ninja Rope
+[00:00:10.52] ••• Don't be stupid! fires Kamikaze
+[00:00:11.76] ••• Don't be stupid! loses turn due to loss of control; time used: 7.38 sec turn, 0.00 sec retreat
+[00:00:23.86] ••• Damage dealt: 80 (1 kill) to Don't be stupid!, 150 (1 kill) to Patrol
+[00:00:23.88] ••• Game Ends - Round Finished
+
+Team time totals:
+Don't be stupid!: Turn: 00:00:07.38, Retreat: 00:00:00.00, Total: 00:00:07.38, Turn count: 1
+Guardsmen:        Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Gunners:          Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Patrol:           Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

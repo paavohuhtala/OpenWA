@@ -1,0 +1,56 @@
+Game Started at 2004-02-20 14:23:22 GMT
+Game Engine Version: 3.6.19.14
+File Format Version: 3.6.19.14
+Exported with Version: 3.8.1 (Steam)
+
+Mission #31: Goody two-shoes.
+
+Red:  "SfX::Hex()"
+Blue: "Enemy" [CPU 4.90]
+
+[00:00:05.90] ••• SfX::Hex() starts turn
+[00:00:09.86] ••• SfX::Hex() fires Blow Torch
+[00:00:17.90] ••• SfX::Hex() ends turn; time used: 3.94 sec turn, 3.00 sec retreat
+[00:00:21.92] ••• Enemy starts turn
+[00:00:40.30] ••• Enemy fires Bazooka
+[00:00:43.92] ••• Enemy ends turn; time used: 18.36 sec turn, 3.00 sec retreat
+[00:00:47.94] ••• SfX::Hex() starts turn
+[00:00:49.86] ••• SfX::Hex() fires Blow Torch
+[00:00:57.90] ••• SfX::Hex() ends turn; time used: 1.90 sec turn, 3.00 sec retreat
+[00:01:05.12] ••• Enemy starts turn
+[00:01:20.78] ••• Enemy fires Grenade (3 sec, min bounce)
+[00:01:25.06] ••• Enemy ends turn; time used: 15.64 sec turn, 3.00 sec retreat
+[00:01:29.08] ••• SfX::Hex() starts turn
+[00:01:31.36] ••• SfX::Hex() fires Blow Torch
+[00:01:39.40] ••• SfX::Hex() ends turn; time used: 2.26 sec turn, 3.00 sec retreat
+[00:01:43.66] ••• Damage dealt: 90 (1 kill) to Enemy
+[00:01:43.66] ••• Enemy starts turn
+[00:02:03.18] ••• Enemy fires Grenade (2 sec, min bounce)
+[00:02:06.96] ••• Enemy ends turn; time used: 19.50 sec turn, 3.00 sec retreat
+[00:02:10.98] ••• SfX::Hex() starts turn
+[00:02:13.70] ••• SfX::Hex() fires Aqua Sheep
+[00:02:27.58] ••• SfX::Hex() ends turn; time used: 2.70 sec turn, 3.00 sec retreat
+[00:02:34.30] ••• Damage dealt: 90 (1 kill) to Enemy
+[00:02:34.30] ••• Enemy starts turn
+[00:02:51.62] ••• Enemy fires Grenade (2 sec, min bounce)
+[00:02:55.48] ••• Enemy ends turn; time used: 17.30 sec turn, 3.00 sec retreat
+[00:02:59.50] ••• SfX::Hex() starts turn
+[00:03:16.70] ••• SfX::Hex() fires Ninja Rope
+[00:03:32.52] ••• SfX::Hex() fires Baseball Bat
+[00:03:36.10] ••• SfX::Hex() ends turn; time used: 33.00 sec turn, 3.00 sec retreat
+[00:03:42.64] ••• Damage dealt: 90 (1 kill) to Enemy
+[00:03:42.64] ••• Enemy starts turn
+[00:03:59.38] ••• Enemy fires Grenade (3 sec, min bounce)
+[00:04:03.70] ••• Enemy ends turn; time used: 16.72 sec turn, 3.00 sec retreat
+[00:04:07.72] ••• Sudden Death
+[00:04:10.20] ••• SfX::Hex() starts turn
+[00:04:16.22] ••• SfX::Hex() fires Air Strike
+[00:04:19.70] ••• SfX::Hex() ends turn; time used: 6.00 sec turn, 3.00 sec retreat
+[00:04:28.00] ••• Damage dealt: 190 (2 kills) to Enemy
+[00:04:28.02] ••• Game Ends - Round Finished
+
+Team time totals:
+SfX::Hex(): Turn: 00:00:49.80, Retreat: 00:00:18.00, Total: 00:01:07.80, Turn count: 6
+Enemy:      Turn: 00:01:27.52, Retreat: 00:00:15.00, Total: 00:01:42.52, Turn count: 5
+
+Mission Successful

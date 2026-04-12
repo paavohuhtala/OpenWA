@@ -1,0 +1,33 @@
+Game Started at 2006-10-29 22:36:46 GMT
+Game Engine Version: 3.6.26.5
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #5: Do the Locomotion.
+
+Red:  "0xDEADC0DE"
+Blue: "Patrol" [CPU 3.50]
+
+[00:00:07.08] ••• 0xDEADC0DE starts turn
+[00:00:11.44] ••• 0xDEADC0DE fires Fire Punch
+[00:00:17.86] ••• 0xDEADC0DE ends turn; time used: 4.34 sec turn, 5.00 sec retreat
+[00:00:21.58] ••• Damage dealt: 30 (1 kill) to Patrol
+[00:00:21.58] ••• Patrol starts turn
+[00:00:25.66] ••• Patrol fires Uzi
+[00:00:25.70] ••• Patrol loses turn due to loss of control; time used: 4.06 sec turn, 0.00 sec retreat
+[00:00:29.00] ••• Damage dealt: 1 to Patrol
+[00:00:29.00] ••• 0xDEADC0DE starts turn
+[00:00:29.38] ••• 0xDEADC0DE uses Bungee
+[00:00:30.78] ••• 0xDEADC0DE fires Girder
+[00:00:30.80] *** Checksum Mismatch in Frame 1540 / 1793
+[00:00:35.80] ••• 0xDEADC0DE loses turn due to loss of control; time used: 1.76 sec turn, 5.00 sec retreat
+[00:00:41.38] ••• Damage dealt: 11 to 0xDEADC0DE
+[00:00:41.38] ••• Patrol starts turn
+[00:00:41.40] ••• Patrol ends turn; time used: 0.02 sec turn, 0.00 sec retreat
+[00:00:43.68] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE: Turn: 00:00:06.10, Retreat: 00:00:10.00, Total: 00:00:16.10, Turn count: 2
+Patrol:     Turn: 00:00:04.08, Retreat: 00:00:00.00, Total: 00:00:04.08, Turn count: 2
+
+Mission Successful

@@ -1,0 +1,41 @@
+Game Started at 2004-04-14 21:13:30 GMT
+Game Engine Version: 3.6.19.18-19
+File Format Version: 3.6.19.17 - 3.6.19.19
+Exported with Version: 3.8.1 (Steam)
+
+Mission #18: Rescue Agent Dennis!
+
+Red:  "Ducks"
+Blue: "Resistance"     [CPU 4.25]
+Blue: "Elite"          [CPU 4.25]
+Blue: "Special Forces" [CPU 5.00]
+
+[00:00:05.74] ••• Ducks starts turn
+[00:00:15.42] ••• Ducks fires Shotgun
+[00:00:28.28] ••• Ducks fires Shotgun
+[00:00:32.44] ••• Ducks ends turn; time used: 14.34 sec turn, 3.00 sec retreat
+[00:00:35.26] ••• Damage dealt: 300 (3 kills) to Special Forces
+[00:00:35.26] ••• Resistance starts turn
+[00:00:54.66] ••• Resistance fires Grenade (3 sec, min bounce)
+[00:00:58.92] ••• Resistance ends turn; time used: 19.38 sec turn, 3.00 sec retreat
+[00:01:02.94] ••• Ducks starts turn
+[00:01:06.92] ••• Ducks fires Napalm Strike
+[00:01:10.40] ••• Ducks ends turn; time used: 3.96 sec turn, 3.00 sec retreat
+[00:01:19.04] ••• Damage dealt: 100 (1 kill) to Special Forces
+[00:01:19.04] ••• Elite starts turn
+[00:01:28.20] ••• Elite fires Grenade (3 sec, min bounce)
+[00:01:32.62] ••• Elite ends turn; time used: 9.14 sec turn, 3.00 sec retreat
+[00:01:45.24] ••• Ducks starts turn
+[00:01:47.60] ••• Ducks fires Ninja Rope
+[00:02:12.76] ••• Ducks fires Banana Bomb (3 sec)
+[00:02:20.10] ••• Ducks ends turn; time used: 27.50 sec turn, 3.00 sec retreat
+[00:02:40.78] ••• Damage dealt: 100 (1 kill) to Resistance, 100 (1 kill) to Elite, 200 (2 kills) to Special Forces
+[00:02:40.80] ••• Game Ends - Round Finished
+
+Team time totals:
+Ducks:          Turn: 00:00:45.80, Retreat: 00:00:09.00, Total: 00:00:54.80, Turn count: 3
+Resistance:     Turn: 00:00:19.38, Retreat: 00:00:03.00, Total: 00:00:22.38, Turn count: 1
+Elite:          Turn: 00:00:09.14, Retreat: 00:00:03.00, Total: 00:00:12.14, Turn count: 1
+Special Forces: Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

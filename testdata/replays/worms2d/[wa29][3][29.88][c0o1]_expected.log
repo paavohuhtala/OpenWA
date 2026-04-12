@@ -1,0 +1,38 @@
+Game Started at 2004-04-27 01:49:59 GMT
+Game Engine Version: 3.6.19.18-19
+File Format Version: 3.6.19.17 - 3.6.19.19
+Exported with Version: 3.8.1 (Steam)
+
+Mission #29: Sinking Ice Cap.
+
+Red:  ".Nice&Slow."
+Blue: "Fuerzas especial" [CPU 5.00]
+
+[00:00:01.74] ••• .Nice&Slow. starts turn
+[00:00:03.00] ••• .Nice&Slow. fires Ninja Rope
+[00:00:12.96] ••• .Nice&Slow. fires Blow Torch
+[00:00:19.76] ••• .Nice&Slow. ends turn; time used: 11.20 sec turn, 5.00 sec retreat
+[00:00:27.24] ••• Damage dealt: 20 (1 kill) to Fuerzas especial
+[00:00:27.24] ••• Fuerzas especial starts turn
+[00:00:37.30] ••• Fuerzas especial fires Cluster Bomb (3 sec, min bounce)
+[00:00:43.86] ••• Fuerzas especial ends turn; time used: 10.04 sec turn, 5.00 sec retreat
+[00:00:55.86] ••• Damage dealt: 42 to .Nice&Slow., 20 (1 kill) to Fuerzas especial
+[00:00:55.86] ••• .Nice&Slow. starts turn
+[00:00:57.40] ••• .Nice&Slow. fires Ninja Rope
+[00:01:08.40] ••• .Nice&Slow. fires Blow Torch
+[00:01:14.74] ••• .Nice&Slow. ends turn; time used: 12.52 sec turn, 5.00 sec retreat
+[00:01:23.78] ••• Damage dealt: 20 (1 kill) to Fuerzas especial
+[00:01:23.78] ••• Fuerzas especial starts turn
+[00:01:27.50] ••• Fuerzas especial fires Air Strike
+[00:01:33.18] ••• Fuerzas especial ends turn; time used: 3.70 sec turn, 5.00 sec retreat
+[00:01:37.20] ••• .Nice&Slow. starts turn
+[00:01:38.56] ••• .Nice&Slow. fires Ninja Rope
+[00:01:43.42] ••• .Nice&Slow. loses turn due to loss of control; time used: 6.16 sec turn, 0.00 sec retreat
+[00:02:01.48] ••• Damage dealt: 13 (1 kill) to .Nice&Slow., 20 (1 kill) to Fuerzas especial
+[00:02:01.50] ••• Game Ends - Round Finished
+
+Team time totals:
+.Nice&Slow.:      Turn: 00:00:29.88, Retreat: 00:00:10.00, Total: 00:00:39.88, Turn count: 3
+Fuerzas especial: Turn: 00:00:13.74, Retreat: 00:00:10.00, Total: 00:00:23.74, Turn count: 2
+
+Mission Successful

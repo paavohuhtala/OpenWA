@@ -1,0 +1,53 @@
+Game Started at 2016-09-20 00:32:49 GMT
+Game Engine Version: 3.7.2.1-3
+File Format Version: 3.6.29.48 - 3.7.2.97
+Exported with Version: 3.8.1 (Steam)
+
+Mission #13: Who left the flood-gates open?
+
+Red:  "0xDEADC0DE"
+Blue: "Guardsmen" [CPU 4.50]
+Blue: "Patrol"    [CPU 4.50]
+
+[00:00:01.64] ••• Sudden Death
+[00:00:04.24] ••• 0xDEADC0DE starts turn
+[00:00:04.26] ••• 0xDEADC0DE fires Select Worm
+[00:00:05.00] ••• 0xDEADC0DE fires Homing Missile
+[00:00:10.66] ••• 0xDEADC0DE ends turn; time used: 0.68 sec turn, 5.00 sec retreat
+[00:00:25.16] ••• Damage dealt: 74 to Guardsmen
+[00:00:25.16] ••• Guardsmen starts turn
+[00:00:31.20] ••• Guardsmen fires Bazooka
+[00:00:37.32] ••• Guardsmen ends turn; time used: 6.02 sec turn, 5.00 sec retreat
+[00:00:46.24] ••• 0xDEADC0DE starts turn
+[00:00:46.26] ••• 0xDEADC0DE fires Bazooka
+[00:00:52.72] ••• 0xDEADC0DE ends turn; time used: 0.00 sec turn, 5.00 sec retreat
+[00:01:11.78] ••• Damage dealt: 100 (1 kill) to Guardsmen, 46 to Patrol
+[00:01:11.78] ••• Patrol starts turn
+[00:01:18.34] ••• Patrol ends turn; time used: 6.54 sec turn, 0.00 sec retreat
+[00:01:21.62] ••• 0xDEADC0DE starts turn
+[00:01:21.64] ••• 0xDEADC0DE fires Bazooka
+[00:01:27.54] ••• 0xDEADC0DE ends turn; time used: 0.00 sec turn, 5.00 sec retreat
+[00:01:40.74] ••• Patrol starts turn
+[00:01:47.18] ••• Patrol fires Bazooka
+[00:01:50.50] ••• Patrol ends turn; time used: 6.42 sec turn, 2.66 sec retreat
+[00:01:57.72] ••• Damage dealt: 20 to Patrol
+[00:01:57.72] ••• 0xDEADC0DE starts turn
+[00:01:57.74] ••• 0xDEADC0DE fires Grenade (3 sec, max bounce)
+[00:02:04.28] ••• 0xDEADC0DE ends turn; time used: 0.00 sec turn, 5.00 sec retreat
+[00:02:11.26] ••• Damage dealt: 52 to Patrol
+[00:02:11.26] ••• Patrol starts turn
+[00:02:25.12] ••• Patrol fires Bazooka
+[00:02:27.74] ••• Patrol ends turn; time used: 13.84 sec turn, 2.32 sec retreat
+[00:02:38.68] ••• Damage dealt: 13 to 0xDEADC0DE
+[00:02:38.68] ••• 0xDEADC0DE starts turn
+[00:02:38.70] ••• 0xDEADC0DE fires Grenade (1 sec, min bounce)
+[00:02:45.34] ••• 0xDEADC0DE ends turn; time used: 0.00 sec turn, 5.00 sec retreat
+[00:02:58.46] ••• Damage dealt: 36 to Patrol
+[00:02:58.48] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE: Turn: 00:00:00.68, Retreat: 00:00:25.00, Total: 00:00:25.68, Turn count: 5
+Guardsmen:  Turn: 00:00:06.02, Retreat: 00:00:05.00, Total: 00:00:11.02, Turn count: 1
+Patrol:     Turn: 00:00:26.80, Retreat: 00:00:04.98, Total: 00:00:31.78, Turn count: 3
+
+Mission Successful

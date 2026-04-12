@@ -1,0 +1,36 @@
+Game Started at 2006-12-20 01:38:05 GMT
+Game Engine Version: 3.6.26.5
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #31: Goody two-shoes.
+
+Red:  "Lunchpack Gang"
+Blue: "Enemy" [CPU 4.90]
+
+[00:00:05.90] ••• Lunchpack Gang starts turn
+[00:00:05.96] ••• Lunchpack Gang fires Shotgun
+[00:00:08.06] ••• Lunchpack Gang fires Shotgun
+[00:00:08.96] ••• Lunchpack Gang loses turn due to loss of control; time used: 0.04 sec turn, 0.00 sec retreat
+[00:00:12.76] ••• Damage dealt: 22 to Lunchpack Gang
+[00:00:12.76] ••• Enemy starts turn
+[00:00:31.70] ••• Enemy fires Bazooka
+[00:00:35.26] ••• Enemy ends turn; time used: 18.92 sec turn, 3.00 sec retreat
+[00:00:39.28] ••• Lunchpack Gang starts turn
+[00:00:40.24] ••• Lunchpack Gang fires Aqua Sheep
+[00:00:47.04] ••• Lunchpack Gang ends turn; time used: 0.94 sec turn, 3.00 sec retreat
+[00:01:00.56] ••• Damage dealt: 270 (3 kills) to Enemy
+[00:01:00.56] ••• Enemy starts turn
+[00:01:10.10] ••• Enemy fires Bazooka
+[00:01:14.12] ••• Enemy ends turn; time used: 9.52 sec turn, 3.00 sec retreat
+[00:01:19.72] ••• Lunchpack Gang starts turn
+[00:01:19.76] ••• Lunchpack Gang fires Air Strike
+[00:01:23.62] ••• Lunchpack Gang ends turn; time used: 0.02 sec turn, 3.00 sec retreat
+[00:01:34.06] ••• Damage dealt: 190 (2 kills) to Enemy
+[00:01:34.08] ••• Game Ends - Round Finished
+
+Team time totals:
+Lunchpack Gang: Turn: 00:00:01.00, Retreat: 00:00:06.00, Total: 00:00:07.00, Turn count: 3
+Enemy:          Turn: 00:00:28.44, Retreat: 00:00:06.00, Total: 00:00:34.44, Turn count: 2
+
+Mission Successful

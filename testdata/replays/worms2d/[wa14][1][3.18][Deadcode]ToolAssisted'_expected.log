@@ -1,0 +1,21 @@
+Game Started at 2021-11-19 18:59:57 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #14: Super Sheep to the rescue!
+
+Red:  "0xDEADC0DE"
+Blue: "Cannon Fodder" [CPU 0.05]
+
+[00:00:06.00] ••• 0xDEADC0DE starts turn
+[00:00:06.02] ••• 0xDEADC0DE fires Super Sheep
+[00:00:11.20] ••• 0xDEADC0DE ends turn; time used: 0.00 sec turn, 5.00 sec retreat
+[00:00:20.48] ••• Damage dealt: 10 (1 kill) to Cannon Fodder
+[00:00:20.50] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE:    Turn: 00:00:00.00, Retreat: 00:00:05.00, Total: 00:00:05.00, Turn count: 1
+Cannon Fodder: Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

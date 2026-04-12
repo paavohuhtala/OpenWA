@@ -1,0 +1,42 @@
+Game Started at 2006-12-15 19:12:15 GMT
+Game Engine Version: 3.6.26.5
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #18: Rescue Agent Dennis!
+
+Red:  "ßäÐ Gùÿ$"
+Blue: "Resistance"     [CPU 4.25]
+Blue: "Elite"          [CPU 4.25]
+Blue: "Special Forces" [CPU 5.00]
+
+[00:00:05.36] ••• ßäÐ Gùÿ$ starts turn
+[00:00:06.86] ••• ßäÐ Gùÿ$ fires Flame Thrower
+[00:00:14.34] ••• ßäÐ Gùÿ$ ends turn; time used: 1.48 sec turn, 3.00 sec retreat
+[00:00:17.78] ••• Damage dealt: 200 (2 kills) to Special Forces
+[00:00:17.78] ••• Resistance starts turn
+[00:00:26.16] ••• Resistance fires Bazooka
+[00:00:29.84] ••• Resistance ends turn; time used: 8.36 sec turn, 3.00 sec retreat
+[00:00:33.94] ••• Damage dealt: 44 to ßäÐ Gùÿ$
+[00:00:33.94] ••• ßäÐ Gùÿ$ starts turn
+[00:00:35.12] ••• ßäÐ Gùÿ$ fires Napalm Strike
+[00:00:38.60] ••• ßäÐ Gùÿ$ ends turn; time used: 1.16 sec turn, 3.00 sec retreat
+[00:00:50.62] ••• Damage dealt: 200 (2 kills) to Special Forces
+[00:00:50.62] ••• Elite starts turn
+[00:00:59.06] ••• Elite fires Bazooka
+[00:01:02.86] ••• Elite ends turn; time used: 8.42 sec turn, 3.00 sec retreat
+[00:01:13.48] ••• Damage dealt: 12 to ßäÐ Gùÿ$
+[00:01:13.48] ••• ßäÐ Gùÿ$ starts turn
+[00:01:14.52] ••• ßäÐ Gùÿ$ fires Ninja Rope
+[00:01:17.06] ••• ßäÐ Gùÿ$ fires Banana Bomb (3 sec)
+[00:01:20.06] ••• ßäÐ Gùÿ$ loses turn due to loss of control; time used: 3.56 sec turn, 2.98 sec retreat
+[00:01:37.64] ••• Damage dealt: 64 to ßäÐ Gùÿ$, 100 (1 kill) to Resistance, 100 (1 kill) to Elite, 200 (2 kills) to Special Forces
+[00:01:37.66] ••• Game Ends - Round Finished
+
+Team time totals:
+ßäÐ Gùÿ$:       Turn: 00:00:06.20, Retreat: 00:00:08.98, Total: 00:00:15.18, Turn count: 3
+Resistance:     Turn: 00:00:08.36, Retreat: 00:00:03.00, Total: 00:00:11.36, Turn count: 1
+Elite:          Turn: 00:00:08.42, Retreat: 00:00:03.00, Total: 00:00:11.42, Turn count: 1
+Special Forces: Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

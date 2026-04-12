@@ -1,0 +1,49 @@
+Game Started at 2005-10-02 07:38:23 GMT
+Game Engine Version: 3.6.25.1
+File Format Version: 3.6.20.1 - 3.6.26.3
+Exported with Version: 3.8.1 (Steam)
+
+Mission #20: Rumble in the Farmyard.
+
+Red:  ":', :: :: :."
+Blue: "Enemigo" [CPU 3.00]
+
+[00:00:01.62] ••• Sudden Death
+[00:00:01.64] ••• Sudden Death
+[00:00:13.82] ••• :', :: :: :. starts turn
+[00:00:13.84] ••• :', :: :: :. fires Bazooka
+[00:00:18.44] ••• :', :: :: :. ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:00:25.62] ••• Damage dealt: 47 to Enemigo
+[00:00:25.62] ••• Enemigo starts turn
+[00:00:29.86] ••• Enemigo fires Bazooka
+[00:00:33.20] ••• Enemigo ends turn; time used: 4.22 sec turn, 2.70 sec retreat
+[00:00:37.98] ••• Damage dealt: 49 to :', :: :: :.
+[00:00:37.98] ••• :', :: :: :. starts turn
+[00:00:40.52] ••• :', :: :: :. fires Ninja Rope
+[00:00:57.60] ••• :', :: :: :. fires Dynamite
+[00:01:02.60] ••• :', :: :: :. loses turn due to loss of control; time used: 19.60 sec turn, 4.98 sec retreat
+[00:01:09.54] ••• Damage dealt: 27 to :', :: :: :., 26 to Enemigo
+[00:01:09.54] ••• Enemigo starts turn
+[00:01:13.30] ••• Enemigo fires Air Strike
+[00:01:16.98] ••• Enemigo ends turn; time used: 3.74 sec turn, 3.00 sec retreat
+[00:01:21.34] ••• Damage dealt: 13 to :', :: :: :.
+[00:01:21.34] ••• :', :: :: :. starts turn
+[00:01:22.56] ••• :', :: :: :. fires Ninja Rope
+[00:01:31.98] ••• :', :: :: :. fires Grenade (5 sec, min bounce)
+[00:01:37.14] ••• :', :: :: :. loses turn due to loss of control; time used: 10.62 sec turn, 3.00 sec retreat
+[00:01:44.16] ••• Damage dealt: 34 to :', :: :: :., 42 to Enemigo
+[00:01:44.16] ••• Enemigo starts turn
+[00:01:49.30] ••• Enemigo fires Uzi
+[00:01:52.20] ••• Enemigo ends turn; time used: 5.12 sec turn, 1.68 sec retreat
+[00:02:06.72] ••• Damage dealt: 51 (2 kills) to Enemigo
+[00:02:06.72] ••• :', :: :: :. starts turn
+[00:02:15.94] ••• :', :: :: :. fires Cluster Bomb (3 sec, min bounce)
+[00:02:19.08] ••• :', :: :: :. loses turn due to loss of control; time used: 9.20 sec turn, 2.86 sec retreat
+[00:02:40.30] ••• Damage dealt: 60 (1 kill) to :', :: :: :., 129 (2 kills) to Enemigo
+[00:02:40.32] ••• Game Ends - Round Finished
+
+Team time totals:
+:', :: :: :.: Turn: 00:00:39.42, Retreat: 00:00:13.84, Total: 00:00:53.26, Turn count: 4
+Enemigo:      Turn: 00:00:13.08, Retreat: 00:00:07.38, Total: 00:00:20.46, Turn count: 3
+
+Mission Successful

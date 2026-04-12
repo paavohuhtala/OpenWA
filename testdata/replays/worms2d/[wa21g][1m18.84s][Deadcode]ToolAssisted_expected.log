@@ -1,0 +1,43 @@
+Game Started at 2021-11-11 18:09:54 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #21: Wooden Ambush!
+
+Red:  "0xDEADC0DE"
+Blue: "Elite" [CPU 4.75]
+
+[00:00:01.56] ••• 0xDEADC0DE starts turn
+[00:00:01.58] ••• 0xDEADC0DE fires Jet Pack
+[00:00:07.42] ••• 0xDEADC0DE used 29 units of Jet Pack fuel
+[00:00:09.24] ••• 0xDEADC0DE fires Ninja Rope
+[00:00:09.46] ••• 0xDEADC0DE fires Sheep
+[00:00:10.76] ••• 0xDEADC0DE loses turn due to loss of control; time used: 7.46 sec turn, 1.28 sec retreat
+[00:00:19.52] ••• Damage dealt: 15 to 0xDEADC0DE, 220 (2 kills) to Elite
+[00:00:19.52] ••• Elite starts turn
+[00:00:33.40] ••• Elite fires Bazooka
+[00:00:37.92] ••• Elite ends turn; time used: 13.86 sec turn, 3.00 sec retreat
+[00:00:41.94] ••• 0xDEADC0DE starts turn
+[00:00:41.96] ••• 0xDEADC0DE fires Jet Pack
+[00:00:44.62] ••• 0xDEADC0DE fires Grenade (3 sec, min bounce)
+[00:00:46.68] ••• 0xDEADC0DE used 30 (17) units of Jet Pack fuel
+[00:00:47.62] ••• 0xDEADC0DE loses turn due to loss of control; time used: 2.24 sec turn, 2.98 sec retreat
+[00:00:53.72] ••• Damage dealt: 51 to 0xDEADC0DE
+[00:00:53.72] ••• Elite starts turn
+[00:01:00.56] ••• Elite fires Grenade (1 sec, min bounce)
+[00:01:03.26] ••• Elite ends turn; time used: 6.82 sec turn, 2.22 sec retreat
+[00:01:06.26] ••• Damage dealt: 40 to 0xDEADC0DE
+[00:01:06.26] ••• 0xDEADC0DE starts turn
+[00:01:06.28] ••• 0xDEADC0DE fires Grenade (1 sec, max bounce)
+[00:01:07.32] ••• 0xDEADC0DE loses turn due to loss of control; time used: 0.00 sec turn, 0.86 sec retreat
+[00:01:18.82] ••• Damage dealt: 9 (1 kill) to 0xDEADC0DE, 220 (2 kills) to Elite
+[00:01:18.84] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE: Turn: 00:00:09.70, Retreat: 00:00:05.12, Total: 00:00:14.82, Turn count: 3
+Elite:      Turn: 00:00:20.68, Retreat: 00:00:05.22, Total: 00:00:25.90, Turn count: 2
+
+Total Jet Pack fuel used: 59
+
+Mission Successful

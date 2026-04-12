@@ -1,0 +1,64 @@
+Game Started at 2021-10-09 09:26:25 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #11: Chemical Warfare.
+
+Red:  "Ro Bad 2"
+Blue: "Platoon"  [CPU 3.25]
+Blue: "Officers" [CPU 4.25]
+
+[00:00:01.72] ••• Ro Bad 2 starts turn
+[00:00:02.26] ••• Ro Bad 2 fires Ninja Rope
+[00:00:05.04] ••• Ro Bad 2 fires Dragon Ball
+[00:00:08.06] ••• Ro Bad 2 ends turn; time used: 3.16 sec turn, 3.00 sec retreat
+[00:00:12.78] ••• Damage dealt: 70 (1 kill) to Platoon
+[00:00:12.78] ••• Platoon starts turn
+[00:00:17.88] ••• Platoon fires Grenade (4 sec, min bounce)
+[00:00:23.40] ••• Platoon ends turn; time used: 5.08 sec turn, 3.00 sec retreat
+[00:00:27.42] ••• Ro Bad 2 starts turn
+[00:00:28.38] ••• Ro Bad 2 fires Ninja Rope
+[00:00:34.92] ••• Ro Bad 2 fires Fire Punch
+[00:00:39.72] ••• Ro Bad 2 ends turn; time used: 4.90 sec turn, 3.00 sec retreat
+[00:00:48.28] ••• Damage dealt: 32 (1 kill) to Officers
+[00:00:48.28] ••• Officers starts turn
+[00:00:52.12] ••• Officers fires Air Strike
+[00:00:56.38] ••• Officers ends turn; time used: 3.82 sec turn, 3.00 sec retreat
+[00:01:01.66] ••• Damage dealt: 90 (1 kill) to Ro Bad 2
+[00:01:01.66] ••• Ro Bad 2 starts turn
+[00:01:08.90] ••• Ro Bad 2 fires Shotgun
+[00:01:23.56] ••• Ro Bad 2 fires Shotgun
+[00:01:26.92] ••• Ro Bad 2 loses turn due to loss of control; time used: 12.82 sec turn, 2.20 sec retreat
+[00:01:39.32] ••• Damage dealt: 33 to Ro Bad 2, 70 (1 kill) to Platoon, 13 to Officers
+[00:01:39.32] ••• Platoon starts turn
+[00:01:43.28] ••• Platoon fires Grenade (4 sec, min bounce)
+[00:01:48.76] ••• Platoon ends turn; time used: 3.94 sec turn, 3.00 sec retreat
+[00:01:55.56] ••• Damage dealt: 15 to Platoon
+[00:01:55.56] ••• Ro Bad 2 starts turn
+[00:01:56.34] ••• Ro Bad 2 fires Ninja Rope
+[00:02:04.08] ••• Ro Bad 2 fires Minigun
+[00:02:08.68] ••• Ro Bad 2 ends turn; time used: 8.50 sec turn, 3.00 sec retreat
+[00:02:17.14] ••• Damage dealt: 55 (1 kill) to Platoon
+[00:02:17.14] ••• Officers starts turn
+[00:02:20.44] ••• Officers ends turn; time used: 3.28 sec turn, 0.00 sec retreat
+[00:02:22.46] ••• Ro Bad 2 starts turn
+[00:02:23.72] ••• Ro Bad 2 fires Baseball Bat
+[00:02:27.30] ••• Ro Bad 2 ends turn; time used: 1.24 sec turn, 3.00 sec retreat
+[00:02:41.50] ••• Damage dealt: 45 (2 kills) to Officers
+[00:02:41.50] ••• Officers starts turn
+[00:02:45.22] ••• Officers fires Air Strike
+[00:02:48.90] ••• Officers ends turn; time used: 3.70 sec turn, 3.00 sec retreat
+[00:02:53.84] ••• Ro Bad 2 starts turn
+[00:02:56.28] ••• Ro Bad 2 fires Ninja Rope
+[00:03:03.10] ••• Ro Bad 2 fires Fire Punch
+[00:03:05.76] ••• Ro Bad 2 ends turn; time used: 9.12 sec turn, 1.42 sec retreat
+[00:03:15.82] ••• Damage dealt: 30 (1 kill) to Officers
+[00:03:15.84] ••• Game Ends - Round Finished
+
+Team time totals:
+Ro Bad 2: Turn: 00:00:39.74, Retreat: 00:00:15.62, Total: 00:00:55.36, Turn count: 6
+Platoon:  Turn: 00:00:09.02, Retreat: 00:00:06.00, Total: 00:00:15.02, Turn count: 2
+Officers: Turn: 00:00:10.80, Retreat: 00:00:06.00, Total: 00:00:16.80, Turn count: 3
+
+Mission Successful

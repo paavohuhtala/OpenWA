@@ -1,0 +1,45 @@
+Game Started at 2004-02-19 16:17:42 GMT
+Game Engine Version: 3.6.19.14
+File Format Version: 3.6.19.14
+Exported with Version: 3.8.1 (Steam)
+
+Mission #9: Water Surprise.
+
+Red:  "SfX::Hex()"
+Blue: "Officers" [CPU 4.75]
+
+[00:00:03.88] ••• SfX::Hex() starts turn
+[00:00:14.68] ••• SfX::Hex() fires Longbow
+[00:00:22.66] ••• SfX::Hex() fires Longbow
+[00:00:26.74] ••• SfX::Hex() ends turn; time used: 14.20 sec turn, 4.00 sec retreat
+[00:00:30.76] ••• Officers starts turn
+[00:00:33.94] ••• Officers ends turn; time used: 3.16 sec turn, 0.00 sec retreat
+[00:00:41.36] ••• SfX::Hex() starts turn
+[00:00:58.56] ••• SfX::Hex() fires Longbow
+[00:01:05.92] ••• SfX::Hex() fires Longbow
+[00:01:07.54] ••• SfX::Hex() loses turn due to loss of control; time used: 23.32 sec turn, 1.54 sec retreat
+[00:01:12.28] ••• Damage dealt: 30 to SfX::Hex()
+[00:01:12.28] ••• Officers starts turn
+[00:01:15.46] ••• Officers ends turn; time used: 3.16 sec turn, 0.00 sec retreat
+[00:01:20.70] ••• SfX::Hex() starts turn
+[00:01:31.52] ••• SfX::Hex() fires Longbow
+[00:01:32.84] ••• SfX::Hex() fires Longbow
+[00:01:36.92] ••• SfX::Hex() ends turn; time used: 10.90 sec turn, 4.00 sec retreat
+[00:01:39.40] ••• Officers starts turn
+[00:01:42.58] ••• Officers ends turn; time used: 3.16 sec turn, 0.00 sec retreat
+[00:01:44.60] ••• SfX::Hex() starts turn
+[00:02:12.02] ••• SfX::Hex() fires Girder
+[00:02:16.10] ••• SfX::Hex() ends turn; time used: 27.40 sec turn, 4.00 sec retreat
+[00:02:18.12] ••• Officers starts turn
+[00:02:21.30] ••• Officers ends turn; time used: 3.16 sec turn, 0.00 sec retreat
+[00:02:26.52] ••• SfX::Hex() starts turn
+[00:02:33.02] ••• SfX::Hex() fires Aqua Sheep
+[00:02:43.78] ••• SfX::Hex() ends turn; time used: 6.48 sec turn, 4.00 sec retreat
+[00:02:52.42] ••• Damage dealt: 50 (1 kill) to Officers
+[00:02:52.44] ••• Game Ends - Round Finished
+
+Team time totals:
+SfX::Hex(): Turn: 00:01:22.30, Retreat: 00:00:17.54, Total: 00:01:39.84, Turn count: 5
+Officers:   Turn: 00:00:12.64, Retreat: 00:00:00.00, Total: 00:00:12.64, Turn count: 4
+
+Mission Successful

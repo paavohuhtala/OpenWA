@@ -1,0 +1,76 @@
+Game Started at 2004-04-10 01:18:50 GMT
+Game Engine Version: 3.6.19.18-19
+File Format Version: 3.6.19.17 - 3.6.19.19
+Exported with Version: 3.8.1 (Steam)
+
+Mission #11: Chemical Warfare.
+
+Red:  "Team Toke"
+Blue: "Platoon"  [CPU 3.25]
+Blue: "Officers" [CPU 4.25]
+
+[00:00:01.74] ••• Team Toke starts turn
+[00:00:03.66] ••• Team Toke uses Parachute
+[00:00:04.52] ••• Team Toke fires Fire Punch
+[00:00:09.32] ••• Team Toke ends turn; time used: 2.76 sec turn, 3.00 sec retreat
+[00:00:13.58] ••• Damage dealt: 70 (1 kill) to Platoon
+[00:00:13.58] ••• Platoon starts turn
+[00:00:26.02] ••• Platoon fires Grenade (3 sec, min bounce)
+[00:00:30.32] ••• Platoon ends turn; time used: 12.42 sec turn, 3.00 sec retreat
+[00:00:36.84] ••• Team Toke starts turn
+[00:00:40.20] ••• Team Toke fires Ninja Rope
+[00:00:50.36] ••• Team Toke fires Baseball Bat
+[00:00:53.94] ••• Team Toke ends turn; time used: 11.36 sec turn, 3.00 sec retreat
+[00:01:02.28] ••• Damage dealt: 30 (1 kill) to Officers
+[00:01:02.28] ••• Officers starts turn
+[00:01:06.14] ••• Officers fires Air Strike
+[00:01:09.82] ••• Officers ends turn; time used: 3.84 sec turn, 3.00 sec retreat
+[00:01:13.84] ••• Team Toke starts turn
+[00:01:19.44] ••• Team Toke fires Dragon Ball
+[00:01:22.46] ••• Team Toke ends turn; time used: 5.58 sec turn, 3.00 sec retreat
+[00:01:31.00] ••• Damage dealt: 70 (1 kill) to Platoon
+[00:01:31.00] ••• Platoon starts turn
+[00:01:47.50] ••• Platoon fires Grenade (3 sec, min bounce)
+[00:01:51.80] ••• Platoon ends turn; time used: 16.48 sec turn, 3.00 sec retreat
+[00:01:54.62] ••• Team Toke starts turn
+[00:01:56.86] ••• Team Toke fires Ninja Rope
+[00:02:07.32] ••• Team Toke fires Minigun
+[00:02:11.92] ••• Team Toke ends turn; time used: 12.52 sec turn, 3.00 sec retreat
+[00:02:23.38] ••• Damage dealt: 20 to Team Toke, 85 (1 kill) to Platoon
+[00:02:23.38] ••• Officers starts turn
+[00:02:27.22] ••• Officers fires Air Strike
+[00:02:30.90] ••• Officers ends turn; time used: 3.82 sec turn, 3.00 sec retreat
+[00:02:34.92] ••• Team Toke starts turn
+[00:02:36.58] ••• Team Toke fires Ninja Rope
+[00:02:51.94] ••• Team Toke fires Shotgun
+[00:02:56.40] ••• Team Toke fires Shotgun
+[00:03:00.56] ••• Team Toke ends turn; time used: 16.86 sec turn, 3.00 sec retreat
+[00:03:08.06] ••• Damage dealt: 30 (1 kill) to Officers
+[00:03:08.06] ••• Officers starts turn
+[00:03:11.84] ••• Officers fires Air Strike
+[00:03:15.52] ••• Officers ends turn; time used: 3.76 sec turn, 3.00 sec retreat
+[00:03:18.14] ••• Damage dealt: 12 to Team Toke
+[00:03:18.14] ••• Team Toke starts turn
+[00:03:26.74] ••• Team Toke fires Ninja Rope
+[00:03:28.26] ••• Team Toke fires Ninja Rope
+[00:03:37.56] ••• Team Toke fires Ninja Rope
+[00:03:46.54] ••• Team Toke fires Dynamite
+[00:03:51.56] ••• Team Toke ends turn; time used: 27.92 sec turn, 5.00 sec retreat
+[00:04:00.44] ••• Damage dealt: 30 (1 kill) to Officers
+[00:04:00.44] ••• Officers starts turn
+[00:04:04.22] ••• Officers fires Air Strike
+[00:04:07.90] ••• Officers ends turn; time used: 3.76 sec turn, 3.00 sec retreat
+[00:04:12.38] ••• Damage dealt: 62 to Team Toke
+[00:04:12.38] ••• Team Toke starts turn
+[00:04:16.98] ••• Team Toke fires Shotgun
+[00:04:23.12] ••• Team Toke fires Shotgun
+[00:04:25.28] ••• Team Toke ends turn; time used: 5.22 sec turn, 1.02 sec retreat
+[00:04:35.34] ••• Damage dealt: 30 (1 kill) to Officers
+[00:04:35.36] ••• Game Ends - Round Finished
+
+Team time totals:
+Team Toke: Turn: 00:01:22.22, Retreat: 00:00:21.02, Total: 00:01:43.24, Turn count: 7
+Platoon:   Turn: 00:00:28.90, Retreat: 00:00:06.00, Total: 00:00:34.90, Turn count: 2
+Officers:  Turn: 00:00:15.18, Retreat: 00:00:12.00, Total: 00:00:27.18, Turn count: 4
+
+Mission Successful

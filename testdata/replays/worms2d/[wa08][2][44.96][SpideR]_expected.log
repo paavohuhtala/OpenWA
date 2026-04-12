@@ -1,0 +1,33 @@
+Game Started at 2005-09-30 19:34:15 GMT
+Game Engine Version: 3.6.25.1
+File Format Version: 3.6.20.1 - 3.6.26.3
+Exported with Version: 3.8.1 (Steam)
+
+Mission #8: Big Shot.
+
+Red:  ".pròdïgál."
+Blue: "Carne de canhão" [CPU 3.00]
+Blue: "Inimigo"         [CPU 3.00]
+
+[00:00:01.88] ••• .pròdïgál. starts turn
+[00:00:15.38] ••• .pròdïgál. fires Longbow
+[00:00:41.46] ••• .pròdïgál. fires Longbow
+[00:00:44.54] ••• .pròdïgál. ends turn; time used: 28.06 sec turn, 3.00 sec retreat
+[00:00:52.88] ••• Damage dealt: 40 (1 kill) to Carne de canhão, 50 (1 kill) to Inimigo
+[00:00:52.88] ••• Carne de canhão starts turn
+[00:01:01.12] ••• Carne de canhão fires Uzi
+[00:01:05.34] ••• Carne de canhão ends turn; time used: 8.22 sec turn, 3.00 sec retreat
+[00:01:09.36] ••• .pròdïgál. starts turn
+[00:01:09.86] ••• .pròdïgál. fires Ninja Rope
+[00:01:10.48] ••• .pròdïgál. fires Ninja Rope
+[00:01:34.02] ••• .pròdïgál. fires Uzi
+[00:01:38.22] ••• .pròdïgál. ends turn; time used: 16.90 sec turn, 3.00 sec retreat
+[00:01:48.64] ••• Damage dealt: 40 (1 kill) to Carne de canhão, 50 (1 kill) to Inimigo
+[00:01:48.66] ••• Game Ends - Round Finished
+
+Team time totals:
+.pròdïgál.:      Turn: 00:00:44.96, Retreat: 00:00:06.00, Total: 00:00:50.96, Turn count: 2
+Carne de canhão: Turn: 00:00:08.22, Retreat: 00:00:03.00, Total: 00:00:11.22, Turn count: 1
+Inimigo:         Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

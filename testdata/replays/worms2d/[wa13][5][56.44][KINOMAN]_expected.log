@@ -1,0 +1,57 @@
+Game Started at 2007-11-18 21:45:32 GMT
+Game Engine Version: 3.6.28.0
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #13: Who left the flood-gates open?
+
+Red:  "RuSsIaN N%bZ"
+Blue: "Guardsmen" [CPU 4.50]
+Blue: "Patrol"    [CPU 4.50]
+
+[00:00:01.64] ••• Sudden Death
+[00:00:04.24] ••• RuSsIaN N%bZ starts turn
+[00:00:04.94] ••• RuSsIaN N%bZ fires Select Worm
+[00:00:21.30] ••• RuSsIaN N%bZ fires Longbow
+[00:00:33.70] ••• RuSsIaN N%bZ fires Longbow
+[00:00:38.78] ••• RuSsIaN N%bZ ends turn; time used: 22.16 sec turn, 5.00 sec retreat
+[00:00:47.34] ••• Damage dealt: 30 to Guardsmen
+[00:00:47.34] ••• Guardsmen starts turn
+[00:00:54.26] ••• Guardsmen fires Bazooka
+[00:01:00.62] ••• Guardsmen ends turn; time used: 6.90 sec turn, 5.00 sec retreat
+[00:01:09.64] ••• RuSsIaN N%bZ starts turn
+[00:01:17.16] ••• RuSsIaN N%bZ fires Homing Missile
+[00:01:23.24] ••• RuSsIaN N%bZ ends turn; time used: 7.50 sec turn, 5.00 sec retreat
+[00:01:40.62] ••• Damage dealt: 100 (1 kill) to Guardsmen, 46 to Patrol
+[00:01:40.62] ••• Patrol starts turn
+[00:01:50.58] ••• Patrol fires Bazooka
+[00:01:56.00] ••• Patrol ends turn; time used: 9.94 sec turn, 4.66 sec retreat
+[00:02:05.06] ••• RuSsIaN N%bZ starts turn
+[00:02:13.72] ••• RuSsIaN N%bZ fires Bazooka
+[00:02:19.86] ••• RuSsIaN N%bZ ends turn; time used: 8.64 sec turn, 5.00 sec retreat
+[00:02:34.28] ••• Patrol starts turn
+[00:02:43.08] ••• Patrol fires Bazooka
+[00:02:48.60] ••• Patrol ends turn; time used: 8.78 sec turn, 5.00 sec retreat
+[00:02:53.88] ••• RuSsIaN N%bZ starts turn
+[00:02:55.18] ••• RuSsIaN N%bZ fires Ninja Rope
+[00:03:00.84] ••• RuSsIaN N%bZ fires Shotgun
+[00:03:09.92] ••• RuSsIaN N%bZ fires Shotgun
+[00:03:16.08] ••• RuSsIaN N%bZ ends turn; time used: 11.40 sec turn, 5.00 sec retreat
+[00:03:21.46] ••• Damage dealt: 45 to Patrol
+[00:03:21.46] ••• Patrol starts turn
+[00:03:29.16] ••• Patrol fires Bazooka
+[00:03:34.86] ••• Patrol ends turn; time used: 7.68 sec turn, 5.00 sec retreat
+[00:03:40.14] ••• RuSsIaN N%bZ starts turn
+[00:03:41.42] ••• RuSsIaN N%bZ fires Ninja Rope
+[00:03:47.10] ••• RuSsIaN N%bZ fires Shotgun
+[00:03:55.38] ••• RuSsIaN N%bZ fires Shotgun
+[00:04:01.54] ••• RuSsIaN N%bZ ends turn; time used: 6.74 sec turn, 5.00 sec retreat
+[00:04:14.66] ••• Damage dealt: 100 (1 kill) to Patrol
+[00:04:14.68] ••• Game Ends - Round Finished
+
+Team time totals:
+RuSsIaN N%bZ: Turn: 00:00:56.44, Retreat: 00:00:25.00, Total: 00:01:21.44, Turn count: 5
+Guardsmen:    Turn: 00:00:06.90, Retreat: 00:00:05.00, Total: 00:00:11.90, Turn count: 1
+Patrol:       Turn: 00:00:26.40, Retreat: 00:00:14.66, Total: 00:00:41.06, Turn count: 3
+
+Mission Successful

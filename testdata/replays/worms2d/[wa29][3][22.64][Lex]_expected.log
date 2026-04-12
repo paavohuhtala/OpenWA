@@ -1,0 +1,39 @@
+Game Started at 2006-01-25 16:59:26 GMT
+Game Engine Version: 3.6.26.5
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #29: Sinking Ice Cap.
+
+Red:  "Lunchpack Gang"
+Blue: "Special Forces" [CPU 5.00]
+
+[00:00:01.74] ••• Lunchpack Gang starts turn
+[00:00:02.82] ••• Lunchpack Gang fires Ninja Rope
+[00:00:08.30] ••• Lunchpack Gang fires Blow Torch
+[00:00:14.36] ••• Lunchpack Gang ends turn; time used: 6.54 sec turn, 5.00 sec retreat
+[00:00:21.96] ••• Damage dealt: 20 (1 kill) to Special Forces
+[00:00:21.96] ••• Special Forces starts turn
+[00:00:32.02] ••• Special Forces fires Cluster Bomb (3 sec, min bounce)
+[00:00:38.58] ••• Special Forces ends turn; time used: 10.04 sec turn, 5.00 sec retreat
+[00:00:51.26] ••• Damage dealt: 14 to Lunchpack Gang, 20 (1 kill) to Special Forces
+[00:00:51.26] ••• Lunchpack Gang starts turn
+[00:00:52.50] ••• Lunchpack Gang fires Ninja Rope
+[00:00:59.80] ••• Lunchpack Gang fires Blow Torch
+[00:01:05.60] ••• Lunchpack Gang ends turn; time used: 8.52 sec turn, 5.00 sec retreat
+[00:01:17.86] ••• Damage dealt: 20 (1 kill) to Special Forces
+[00:01:17.86] ••• Special Forces starts turn
+[00:01:21.58] ••• Special Forces fires Air Strike
+[00:01:27.26] ••• Special Forces ends turn; time used: 3.70 sec turn, 5.00 sec retreat
+[00:01:34.50] ••• Lunchpack Gang starts turn
+[00:01:35.62] ••• Lunchpack Gang fires Ninja Rope
+[00:01:42.16] ••• Lunchpack Gang fires Blow Torch
+[00:01:44.32] ••• Lunchpack Gang ends turn; time used: 7.58 sec turn, 1.38 sec retreat
+[00:01:56.88] ••• Damage dealt: 1 to Lunchpack Gang, 20 (1 kill) to Special Forces
+[00:01:56.90] ••• Game Ends - Round Finished
+
+Team time totals:
+Lunchpack Gang: Turn: 00:00:22.64, Retreat: 00:00:11.38, Total: 00:00:34.02, Turn count: 3
+Special Forces: Turn: 00:00:13.74, Retreat: 00:00:10.00, Total: 00:00:23.74, Turn count: 2
+
+Mission Successful

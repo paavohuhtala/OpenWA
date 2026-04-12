@@ -1,0 +1,31 @@
+Game Started at 2004-04-28 13:10:41 GMT
+Game Engine Version: 3.6.19.18-19
+File Format Version: 3.6.19.17 - 3.6.19.19
+Exported with Version: 3.8.1 (Steam)
+
+Mission #15: Hot Stuff.
+
+Red:  "Cømpressed"
+Blue: "Special Forces" [CPU 4.95]
+
+[00:00:02.54] ••• Cømpressed starts turn
+[00:00:03.34] ••• Cømpressed fires Ninja Rope
+[00:00:07.92] ••• Cømpressed fires Dynamite
+[00:00:10.88] ••• Cømpressed loses turn due to loss of control; time used: 5.36 sec turn, 2.94 sec retreat
+[00:00:20.92] ••• Damage dealt: 17 to Cømpressed, 300 (1 kill) to Special Forces
+[00:00:20.92] ••• Special Forces starts turn
+[00:00:26.58] ••• Special Forces fires Bazooka
+[00:00:31.90] ••• Special Forces ends turn; time used: 5.64 sec turn, 4.40 sec retreat
+[00:00:44.40] ••• Damage dealt: 48 (1 kill) to Cømpressed
+[00:00:44.40] ••• Cømpressed starts turn
+[00:00:45.16] ••• Cømpressed fires Ninja Rope
+[00:00:48.36] ••• Cømpressed fires Holy Hand-Grenade
+[00:00:53.38] ••• Cømpressed ends turn; time used: 3.66 sec turn, 5.00 sec retreat
+[00:01:05.24] ••• Damage dealt: 75 (1 kill) to Cømpressed, 600 (2 kills) to Special Forces
+[00:01:05.26] ••• Game Ends - Round Finished
+
+Team time totals:
+Cømpressed:     Turn: 00:00:09.02, Retreat: 00:00:07.94, Total: 00:00:16.96, Turn count: 2
+Special Forces: Turn: 00:00:05.64, Retreat: 00:00:04.40, Total: 00:00:10.04, Turn count: 1
+
+Mission Successful

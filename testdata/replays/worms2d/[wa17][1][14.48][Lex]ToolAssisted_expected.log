@@ -1,0 +1,25 @@
+Game Started at 2007-07-13 00:17:15 GMT
+Game Engine Version: 3.6.27.3h-i
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #17: Chateau Assassin.
+
+Red:  "Lunchpack Gang"
+Blue: "Officers" [CPU 5.00]
+
+[00:00:00.34] ••• Lunchpack Gang starts turn
+[00:00:04.38] ••• Lunchpack Gang fires Select Worm
+[00:00:07.04] ••• Lunchpack Gang fires Select Worm
+[00:00:12.44] ••• Lunchpack Gang fires Low Gravity
+[00:00:14.92] ••• Lunchpack Gang fires Parachute
+[00:00:14.96] ••• Lunchpack Gang fires Girder
+[00:00:19.98] ••• Lunchpack Gang ends turn; time used: 14.48 sec turn, 5.00 sec retreat
+[00:00:34.68] ••• Damage dealt: 40 (1 kill) to Lunchpack Gang, 60 (1 kill) to Officers
+[00:00:34.70] ••• Game Ends - Round Finished
+
+Team time totals:
+Lunchpack Gang: Turn: 00:00:14.48, Retreat: 00:00:05.00, Total: 00:00:19.48, Turn count: 1
+Officers:       Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

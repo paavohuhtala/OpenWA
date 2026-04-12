@@ -1,0 +1,46 @@
+Game Started at 2005-10-02 22:30:41 GMT
+Game Engine Version: 3.6.25.1
+File Format Version: 3.6.20.1 - 3.6.26.3
+Exported with Version: 3.8.1 (Steam)
+
+Mission #20: Rumble in the Farmyard.
+
+Red:  "0xDEADC0DE"
+Blue: "Enemy" [CPU 3.00]
+
+[00:00:01.62] ••• Sudden Death
+[00:00:01.64] ••• Sudden Death
+[00:00:13.82] ••• 0xDEADC0DE starts turn
+[00:00:13.84] ••• 0xDEADC0DE fires Bazooka
+[00:00:17.78] ••• 0xDEADC0DE ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:00:25.68] ••• Damage dealt: 47 to Enemy
+[00:00:25.68] ••• Enemy starts turn
+[00:00:30.20] ••• Enemy fires Bazooka
+[00:00:34.42] ••• Enemy ends turn; time used: 4.50 sec turn, 3.00 sec retreat
+[00:00:39.94] ••• Damage dealt: 49 to 0xDEADC0DE
+[00:00:39.94] ••• 0xDEADC0DE starts turn
+[00:00:40.76] ••• 0xDEADC0DE fires Ninja Rope
+[00:00:48.88] ••• 0xDEADC0DE fires Dynamite
+[00:00:50.76] ••• 0xDEADC0DE loses turn due to loss of control; time used: 8.92 sec turn, 1.86 sec retreat
+[00:01:08.64] ••• Damage dealt: 92 to 0xDEADC0DE, 73 (1 kill) to Enemy
+[00:01:08.64] ••• Enemy starts turn
+[00:01:18.54] ••• Enemy ends turn; time used: 9.88 sec turn, 0.00 sec retreat
+[00:01:21.82] ••• 0xDEADC0DE starts turn
+[00:01:23.38] ••• 0xDEADC0DE fires Bazooka
+[00:01:27.24] ••• 0xDEADC0DE ends turn; time used: 1.54 sec turn, 3.00 sec retreat
+[00:01:33.12] ••• Damage dealt: 44 to Enemy
+[00:01:33.12] ••• Enemy starts turn
+[00:01:38.34] ••• Enemy fires Uzi
+[00:01:41.24] ••• Enemy ends turn; time used: 5.20 sec turn, 1.68 sec retreat
+[00:01:55.88] ••• Damage dealt: 49 (2 kills) to Enemy
+[00:01:55.88] ••• 0xDEADC0DE starts turn
+[00:01:55.94] ••• 0xDEADC0DE fires Cluster Bomb (1 sec, min bounce)
+[00:01:57.42] ••• 0xDEADC0DE loses turn due to loss of control; time used: 0.04 sec turn, 0.86 sec retreat
+[00:02:09.18] ••• Damage dealt: 3 to 0xDEADC0DE, 82 (1 kill) to Enemy
+[00:02:09.20] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE: Turn: 00:00:10.50, Retreat: 00:00:08.72, Total: 00:00:19.22, Turn count: 4
+Enemy:      Turn: 00:00:19.58, Retreat: 00:00:04.68, Total: 00:00:24.26, Turn count: 3
+
+Mission Successful

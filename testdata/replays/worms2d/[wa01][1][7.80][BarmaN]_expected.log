@@ -1,0 +1,23 @@
+Game Started at 2005-09-28 14:44:32 GMT
+Game Engine Version: 3.6.25.1
+File Format Version: 3.6.20.1 - 3.6.26.3
+Exported with Version: 3.8.1 (Steam)
+
+Mission #1: Pumpkin Problems.
+
+Red:  "b+Ar[m]aN ^Te.Am"
+Blue: "Patrol"  [CPU 4.00]
+Blue: "Gunners" [CPU 3.00]
+
+[00:00:02.42] ••• b+Ar[m]aN ^Te.Am starts turn
+[00:00:02.80] ••• b+Ar[m]aN ^Te.Am fires Ninja Rope
+[00:00:04.50] ••• b+Ar[m]aN ^Te.Am fires Ninja Rope
+[00:00:10.64] ••• b+Ar[m]aN ^Te.Am loses turn due to loss of control; time used: 7.80 sec turn, 0.00 sec retreat
+[00:00:13.52] ••• Game Ends - Round Finished
+
+Team time totals:
+b+Ar[m]aN ^Te.Am: Turn: 00:00:07.80, Retreat: 00:00:00.00, Total: 00:00:07.80, Turn count: 1
+Patrol:           Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Gunners:          Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

@@ -1,0 +1,73 @@
+Game Started at 2007-02-23 13:01:37 GMT
+Game Engine Version: 3.6.26.5
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #24: Countdown to Armageddon!
+
+Red:  "Lunchpack Gang"
+Red:  "Cannon Fodder"
+Blue: "Patrol" [CPU 2.25]
+
+[00:00:02.80] ••• Lunchpack Gang starts turn
+[00:00:02.84] ••• Lunchpack Gang fires Cluster Bomb (5 sec, max bounce)
+[00:00:07.96] ••• Lunchpack Gang loses turn due to loss of control; time used: 0.02 sec turn, 3.00 sec retreat
+[00:00:18.66] ••• Damage dealt: 194 (1 kill) to Lunchpack Gang, 25 to Patrol
+[00:00:18.66] ••• Patrol starts turn
+[00:00:21.86] ••• Patrol fires Shotgun
+[00:00:30.18] ••• Patrol fires Shotgun
+[00:00:34.36] ••• Patrol ends turn; time used: 6.88 sec turn, 3.00 sec retreat
+[00:00:38.46] ••• Damage dealt: 43 to Lunchpack Gang
+[00:00:38.46] ••• Lunchpack Gang starts turn
+[00:00:39.26] ••• Lunchpack Gang fires Ninja Rope
+[00:00:42.00] ••• Lunchpack Gang fires Baseball Bat
+[00:00:45.48] ••• Lunchpack Gang loses turn due to loss of control; time used: 3.40 sec turn, 2.90 sec retreat
+[00:00:49.90] ••• Damage dealt: 1 to Lunchpack Gang, 30 to Cannon Fodder, 30 to Patrol
+[00:00:49.90] ••• Patrol starts turn
+[00:00:53.28] ••• Patrol fires Bazooka
+[00:00:57.24] ••• Patrol ends turn; time used: 3.36 sec turn, 3.00 sec retreat
+[00:01:12.54] ••• Damage dealt: 62 (2 kills) to Lunchpack Gang, 30 to Patrol
+[00:01:12.54] ••• Patrol starts turn
+[00:01:19.72] ••• Patrol fires Bazooka
+[00:01:23.56] ••• Patrol ends turn; time used: 7.16 sec turn, 3.00 sec retreat
+[00:01:27.60] ••• Patrol starts turn
+[00:01:34.40] ••• Patrol fires Bazooka
+[00:01:38.38] ••• Patrol ends turn; time used: 6.78 sec turn, 3.00 sec retreat
+[00:01:42.40] ••• Patrol starts turn
+[00:01:51.42] ••• Patrol fires Bazooka
+[00:01:54.92] ••• Patrol ends turn; time used: 9.00 sec turn, 3.00 sec retreat
+[00:01:58.96] ••• Patrol starts turn
+[00:02:02.12] ••• Patrol ends turn; time used: 3.14 sec turn, 0.00 sec retreat
+[00:02:04.16] ••• Patrol starts turn
+[00:02:11.08] ••• Patrol fires Bazooka
+[00:02:14.94] ••• Patrol ends turn; time used: 6.90 sec turn, 3.00 sec retreat
+[00:02:18.80] ••• Patrol starts turn
+[00:02:29.70] ••• Patrol fires Bazooka
+[00:02:33.78] ••• Patrol ends turn; time used: 10.88 sec turn, 3.00 sec retreat
+[00:02:36.18] ••• Patrol starts turn
+[00:02:55.48] ••• Patrol fires Bazooka
+[00:02:59.20] ••• Patrol ends turn; time used: 19.28 sec turn, 3.00 sec retreat
+[00:03:03.24] ••• Patrol starts turn
+[00:03:09.16] ••• Patrol fires Grenade (4 sec, min bounce)
+[00:03:14.66] ••• Patrol ends turn; time used: 5.90 sec turn, 3.00 sec retreat
+[00:03:18.68] ••• Patrol starts turn
+[00:03:36.52] ••• Patrol fires Bazooka
+[00:03:40.02] ••• Patrol ends turn; time used: 17.82 sec turn, 3.00 sec retreat
+[00:03:47.54] ••• Patrol starts turn
+[00:03:55.62] ••• Patrol fires Bazooka
+[00:04:00.02] ••• Patrol ends turn; time used: 8.06 sec turn, 3.00 sec retreat
+[00:04:07.24] ••• Patrol starts turn
+[00:04:14.86] ••• Patrol fires Grenade (4 sec, min bounce)
+[00:04:20.42] ••• Patrol ends turn; time used: 7.60 sec turn, 3.00 sec retreat
+[00:04:54.58] ••• Patrol starts turn
+[00:04:57.46] ••• Patrol fires Bazooka
+[00:05:01.58] ••• Patrol loses turn due to loss of control; time used: 2.86 sec turn, 2.78 sec retreat
+[00:05:07.76] ••• Damage dealt: 51 (1 kill) to Patrol
+[00:05:07.78] ••• Game Ends - Round Finished
+
+Team time totals:
+Lunchpack Gang: Turn: 00:00:03.42, Retreat: 00:00:05.90, Total: 00:00:09.32, Turn count: 2
+Cannon Fodder:  Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Patrol:         Turn: 00:01:55.62, Retreat: 00:00:38.78, Total: 00:02:34.40, Turn count: 14
+
+Mission Successful

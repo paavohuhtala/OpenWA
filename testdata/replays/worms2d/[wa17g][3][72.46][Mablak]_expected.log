@@ -1,0 +1,36 @@
+Game Started at 2021-10-29 22:02:44 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #17: Chateau Assassin.
+
+Red:  "Ro Bad"
+Blue: "Officers" [CPU 5.00]
+
+[00:00:00.30] ••• Ro Bad starts turn
+[00:00:07.06] ••• Ro Bad fires Select Worm
+[00:00:11.00] ••• Ro Bad fires Select Worm
+[00:00:40.28] ••• Ro Bad fires Girder
+[00:00:45.22] ••• Ro Bad loses turn due to loss of control; time used: 39.84 sec turn, 4.86 sec retreat
+[00:00:50.26] ••• Damage dealt: 30 to Ro Bad
+[00:00:50.26] ••• Officers starts turn
+[00:00:53.40] ••• Officers ends turn; time used: 3.12 sec turn, 0.00 sec retreat
+[00:00:55.42] ••• Ro Bad starts turn
+[00:00:56.00] ••• Ro Bad fires Select Worm
+[00:01:09.10] ••• Ro Bad fires Girder
+[00:01:14.18] ••• Ro Bad ends turn; time used: 13.60 sec turn, 5.00 sec retreat
+[00:01:18.30] ••• Officers starts turn
+[00:01:21.44] ••• Officers ends turn; time used: 3.12 sec turn, 0.00 sec retreat
+[00:01:23.46] ••• Ro Bad starts turn
+[00:01:23.90] ••• Ro Bad fires Select Worm
+[00:01:42.56] ••• Ro Bad fires Baseball Bat
+[00:01:48.14] ••• Ro Bad ends turn; time used: 19.02 sec turn, 5.00 sec retreat
+[00:01:57.56] ••• Damage dealt: 120 (2 kills) to Officers
+[00:01:57.58] ••• Game Ends - Round Finished
+
+Team time totals:
+Ro Bad:   Turn: 00:01:12.46, Retreat: 00:00:14.86, Total: 00:01:27.32, Turn count: 3
+Officers: Turn: 00:00:06.24, Retreat: 00:00:00.00, Total: 00:00:06.24, Turn count: 2
+
+Mission Successful

@@ -1,0 +1,37 @@
+Game Started at 2006-02-19 05:26:14 GMT
+Game Engine Version: 3.6.26.5
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #12: No Substitute.
+
+Red:  "Lunchpack Gang"
+Blue: "Enemy"    [CPU 4.00]
+Blue: "Gunners"  [CPU 3.75]
+Blue: "Officers" [CPU 4.75]
+
+[00:00:03.04] ••• Sudden Death
+[00:00:03.06] ••• Sudden Death
+[00:00:05.60] ••• Sudden Death
+[00:00:05.62] ••• Sudden Death
+[00:00:11.30] ••• Lunchpack Gang starts turn
+[00:00:19.92] ••• Lunchpack Gang fires Holy Hand-Grenade
+[00:00:24.82] ••• Lunchpack Gang loses turn due to loss of control; time used: 8.60 sec turn, 3.00 sec retreat
+[00:00:50.20] ••• Damage dealt: 200 (2 kills) to Lunchpack Gang, 200 (2 kills) to Enemy, 55 (1 kill) to Gunners
+[00:00:50.20] ••• Enemy starts turn
+[00:00:55.74] ••• Enemy fires Bazooka
+[00:00:58.90] ••• Enemy loses turn due to loss of control; time used: 5.52 sec turn, 2.20 sec retreat
+[00:01:05.54] ••• Damage dealt: 55 to Enemy
+[00:01:05.54] ••• Lunchpack Gang starts turn
+[00:01:05.56] ••• Lunchpack Gang fires Bazooka
+[00:01:10.16] ••• Lunchpack Gang ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:01:18.06] ••• Damage dealt: 45 (1 kill) to Enemy, 80 (1 kill) to Officers
+[00:01:18.08] ••• Game Ends - Round Finished
+
+Team time totals:
+Lunchpack Gang: Turn: 00:00:08.60, Retreat: 00:00:06.00, Total: 00:00:14.60, Turn count: 2
+Enemy:          Turn: 00:00:05.52, Retreat: 00:00:02.20, Total: 00:00:07.72, Turn count: 1
+Gunners:        Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Officers:       Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

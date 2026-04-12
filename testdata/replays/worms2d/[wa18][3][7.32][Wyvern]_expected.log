@@ -1,0 +1,42 @@
+Game Started at 2006-12-02 22:05:03 GMT
+Game Engine Version: 3.6.26.5
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #18: Rescue Agent Dennis!
+
+Red:  "Don't be stupid!"
+Blue: "Resistance"     [CPU 4.25]
+Blue: "Elite"          [CPU 4.25]
+Blue: "Special Forces" [CPU 5.00]
+
+[00:00:05.36] ••• Don't be stupid! starts turn
+[00:00:06.98] ••• Don't be stupid! fires Flame Thrower
+[00:00:14.46] ••• Don't be stupid! ends turn; time used: 1.60 sec turn, 3.00 sec retreat
+[00:00:19.84] ••• Damage dealt: 300 (3 kills) to Special Forces
+[00:00:19.84] ••• Resistance starts turn
+[00:00:28.06] ••• Resistance fires Bazooka
+[00:00:31.66] ••• Resistance ends turn; time used: 8.20 sec turn, 3.00 sec retreat
+[00:00:35.76] ••• Damage dealt: 30 to Don't be stupid!
+[00:00:35.76] ••• Don't be stupid! starts turn
+[00:00:36.60] ••• Don't be stupid! fires Napalm Strike
+[00:00:40.08] ••• Don't be stupid! ends turn; time used: 0.82 sec turn, 3.00 sec retreat
+[00:00:49.52] ••• Damage dealt: 100 (1 kill) to Special Forces
+[00:00:49.52] ••• Elite starts turn
+[00:00:59.32] ••• Elite fires Bazooka
+[00:01:03.20] ••• Elite ends turn; time used: 9.78 sec turn, 3.00 sec retreat
+[00:01:15.18] ••• Damage dealt: 53 to Don't be stupid!
+[00:01:15.18] ••• Don't be stupid! starts turn
+[00:01:16.38] ••• Don't be stupid! fires Ninja Rope
+[00:01:20.10] ••• Don't be stupid! fires Banana Bomb (3 sec)
+[00:01:23.10] ••• Don't be stupid! loses turn due to loss of control; time used: 4.90 sec turn, 2.98 sec retreat
+[00:01:40.80] ••• Damage dealt: 70 to Don't be stupid!, 100 (1 kill) to Resistance, 100 (1 kill) to Elite, 200 (2 kills) to Special Forces
+[00:01:40.82] ••• Game Ends - Round Finished
+
+Team time totals:
+Don't be stupid!: Turn: 00:00:07.32, Retreat: 00:00:08.98, Total: 00:00:16.30, Turn count: 3
+Resistance:       Turn: 00:00:08.20, Retreat: 00:00:03.00, Total: 00:00:11.20, Turn count: 1
+Elite:            Turn: 00:00:09.78, Retreat: 00:00:03.00, Total: 00:00:12.78, Turn count: 1
+Special Forces:   Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

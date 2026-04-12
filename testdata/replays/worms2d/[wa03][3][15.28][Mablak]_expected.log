@@ -1,0 +1,45 @@
+Game Started at 2016-09-16 21:55:38 GMT
+Game Engine Version: 3.7.2.1-3
+File Format Version: 3.6.29.48 - 3.7.2.97
+Exported with Version: 3.8.1 (Steam)
+
+Mission #3: All quiet in the library?
+
+Red:  "Ro Bad"
+Blue: "Gunners"  [CPU 3.00]
+Blue: "Officers" [CPU 3.75]
+Blue: "Platoon"  [CPU 2.75]
+
+[00:00:24.66] ••• Ro Bad starts turn
+[00:00:25.44] ••• Ro Bad fires Ninja Rope
+[00:00:29.18] ••• Ro Bad fires Baseball Bat
+[00:00:32.76] ••• Ro Bad ends turn; time used: 4.50 sec turn, 3.00 sec retreat
+[00:00:40.82] ••• Damage dealt: 200 (2 kills) to Gunners, 150 (1 kill) to Officers
+[00:00:40.82] ••• Gunners starts turn
+[00:00:47.70] ••• Gunners fires Grenade (2 sec, min bounce)
+[00:00:51.64] ••• Gunners ends turn; time used: 6.86 sec turn, 3.00 sec retreat
+[00:00:54.92] ••• Damage dealt: 5 to Ro Bad
+[00:00:54.92] ••• Ro Bad starts turn
+[00:00:55.82] ••• Ro Bad fires Ninja Rope
+[00:01:00.14] ••• Ro Bad fires Baseball Bat
+[00:01:03.72] ••• Ro Bad ends turn; time used: 5.20 sec turn, 3.00 sec retreat
+[00:01:12.32] ••• Damage dealt: 30 to Gunners
+[00:01:12.32] ••• Platoon starts turn
+[00:01:27.78] ••• Platoon fires Shotgun
+[00:01:47.08] ••• Platoon fires Shotgun
+[00:01:51.26] ••• Platoon ends turn; time used: 27.20 sec turn, 3.00 sec retreat
+[00:02:00.50] ••• Damage dealt: 12 to Ro Bad
+[00:02:00.50] ••• Ro Bad starts turn
+[00:02:01.74] ••• Ro Bad fires Ninja Rope
+[00:02:06.10] ••• Ro Bad fires Napalm Strike
+[00:02:09.12] ••• Ro Bad ends turn; time used: 5.58 sec turn, 3.00 sec retreat
+[00:02:35.24] ••• Damage dealt: 200 (2 kills) to Ro Bad, 70 (1 kill) to Gunners, 200 (2 kills) to Platoon
+[00:02:35.26] ••• Game Ends - Round Finished
+
+Team time totals:
+Ro Bad:   Turn: 00:00:15.28, Retreat: 00:00:09.00, Total: 00:00:24.28, Turn count: 3
+Gunners:  Turn: 00:00:06.86, Retreat: 00:00:03.00, Total: 00:00:09.86, Turn count: 1
+Officers: Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Platoon:  Turn: 00:00:27.20, Retreat: 00:00:03.00, Total: 00:00:30.20, Turn count: 1
+
+Mission Successful

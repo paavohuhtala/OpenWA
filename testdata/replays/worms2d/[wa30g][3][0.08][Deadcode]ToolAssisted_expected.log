@@ -1,0 +1,40 @@
+Game Started at 2005-09-18 13:24:25 GMT
+Game Engine Version: 3.6.25.1
+File Format Version: 3.7.3.0 - 3.8.1 (originally 3.6.20.1 - 3.6.26.3)
+Exported with Version: 3.8.1 (Steam)
+
+Mission #30: Aim long, aim true.
+
+Red:  "0xDEADC0DE"
+Blue: "Officers" [CPU 3.60]
+Blue: "Gunners"  [CPU 3.75]
+
+[00:00:02.54] ••• 0xDEADC0DE starts turn
+[00:00:02.56] ••• 0xDEADC0DE fires Girder Starter-Pack
+[00:00:02.64] ••• 0xDEADC0DE fires Girder Starter-Pack
+[00:00:02.72] ••• 0xDEADC0DE fires Girder Starter-Pack
+[00:00:02.80] ••• 0xDEADC0DE fires Girder Starter-Pack
+[00:00:02.88] ••• 0xDEADC0DE fires Girder Starter-Pack
+[00:00:05.96] ••• 0xDEADC0DE ends turn; time used: 0.08 sec turn, 3.00 sec retreat
+[00:00:07.98] ••• Officers starts turn
+[00:00:11.20] ••• Officers ends turn; time used: 3.20 sec turn, 0.00 sec retreat
+[00:00:13.22] ••• 0xDEADC0DE starts turn
+[00:00:13.24] ••• 0xDEADC0DE fires Grenade (4 sec, max bounce)
+[00:00:18.64] ••• 0xDEADC0DE ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:00:26.84] ••• Damage dealt: 40 (1 kill) to Officers
+[00:00:26.84] ••• Gunners starts turn
+[00:00:31.78] ••• Gunners fires Grenade (3 sec, min bounce)
+[00:00:35.96] ••• Gunners loses turn due to loss of control; time used: 4.92 sec turn, 2.86 sec retreat
+[00:00:47.98] ••• Damage dealt: 53 (1 kill) to Gunners
+[00:00:47.98] ••• 0xDEADC0DE starts turn
+[00:00:48.00] ••• 0xDEADC0DE fires Grenade (3 sec, min bounce)
+[00:00:52.36] ••• 0xDEADC0DE ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:01:09.30] ••• Damage dealt: 37 (2 kills) to Gunners
+[00:01:09.32] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE: Turn: 00:00:00.08, Retreat: 00:00:09.00, Total: 00:00:09.08, Turn count: 3
+Officers:   Turn: 00:00:03.20, Retreat: 00:00:00.00, Total: 00:00:03.20, Turn count: 1
+Gunners:    Turn: 00:00:04.92, Retreat: 00:00:02.86, Total: 00:00:07.78, Turn count: 1
+
+Mission Successful

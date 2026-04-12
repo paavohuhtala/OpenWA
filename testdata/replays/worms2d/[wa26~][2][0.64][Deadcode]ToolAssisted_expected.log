@@ -1,0 +1,30 @@
+Game Started at 2021-12-03 21:26:13 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #26: Mad Cows.
+
+Red:  "0xDEADC0DE"
+Blue: "Officers" [CPU 4.00]
+
+[00:00:00.08] ••• 0xDEADC0DE starts turn
+[00:00:00.10] ••• 0xDEADC0DE fires Ninja Rope
+[00:00:01.00] ••• 0xDEADC0DE fires Cluster Bomb (1 sec, min bounce)
+[00:00:02.00] ••• 0xDEADC0DE loses turn due to loss of control; time used: 0.64 sec turn, 0.98 sec retreat
+[00:00:14.38] ••• Damage dealt: 89 to 0xDEADC0DE, 196 (1 kill) to Officers
+[00:00:14.38] ••• Officers starts turn
+[00:00:18.92] ••• Officers fires Grenade (1 sec, min bounce)
+[00:00:22.58] ••• Officers ends turn; time used: 4.52 sec turn, 3.00 sec retreat
+[00:00:36.14] ••• Damage dealt: 11 (1 kill) to 0xDEADC0DE, 4 (1 kill) to Officers
+[00:00:36.14] ••• 0xDEADC0DE starts turn
+[00:00:36.16] ••• 0xDEADC0DE fires Grenade (4 sec, min bounce)
+[00:00:41.42] ••• 0xDEADC0DE ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:00:52.10] ••• Damage dealt: 100 (1 kill) to 0xDEADC0DE, 200 (2 kills) to Officers
+[00:00:52.12] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE: Turn: 00:00:00.64, Retreat: 00:00:03.98, Total: 00:00:04.62, Turn count: 2
+Officers:   Turn: 00:00:04.52, Retreat: 00:00:03.00, Total: 00:00:07.52, Turn count: 1
+
+Mission Successful

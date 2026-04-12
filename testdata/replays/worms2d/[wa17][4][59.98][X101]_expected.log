@@ -1,0 +1,42 @@
+Game Started at 2004-04-28 13:26:21 GMT
+Game Engine Version: 3.6.19.18-19
+File Format Version: 3.6.19.17 - 3.6.19.19
+Exported with Version: 3.8.1 (Steam)
+
+Mission #17: Chateau Assassin.
+
+Red:  "Cømpressed"
+Blue: "Officers" [CPU 5.00]
+
+[00:00:00.34] ••• Cømpressed starts turn
+[00:00:07.72] ••• Cømpressed fires Select Worm
+[00:00:13.38] ••• Cømpressed fires Select Worm
+[00:00:24.06] ••• Cømpressed fires Low Gravity
+[00:00:28.40] ••• Cømpressed fires Girder
+[00:00:33.48] ••• Cømpressed ends turn; time used: 27.86 sec turn, 5.00 sec retreat
+[00:00:38.96] ••• Officers starts turn
+[00:00:42.10] ••• Officers ends turn; time used: 3.12 sec turn, 0.00 sec retreat
+[00:00:47.32] ••• Cømpressed starts turn
+[00:00:48.14] ••• Cømpressed fires Select Worm
+[00:00:53.36] ••• Cømpressed fires Girder
+[00:00:58.44] ••• Cømpressed ends turn; time used: 5.96 sec turn, 5.00 sec retreat
+[00:01:02.46] ••• Officers starts turn
+[00:01:05.60] ••• Officers ends turn; time used: 3.12 sec turn, 0.00 sec retreat
+[00:01:07.62] ••• Cømpressed starts turn
+[00:01:08.64] ••• Cømpressed fires Select Worm
+[00:01:23.48] ••• Cømpressed fires Girder
+[00:01:28.56] ••• Cømpressed ends turn; time used: 15.78 sec turn, 5.00 sec retreat
+[00:01:33.78] ••• Officers starts turn
+[00:01:36.92] ••• Officers ends turn; time used: 3.12 sec turn, 0.00 sec retreat
+[00:01:38.94] ••• Cømpressed starts turn
+[00:01:41.50] ••• Cømpressed fires Select Worm
+[00:01:49.40] ••• Cømpressed fires Handgun
+[00:01:55.68] ••• Cømpressed loses turn due to loss of control; time used: 10.38 sec turn, 3.16 sec retreat
+[00:02:14.94] ••• Damage dealt: 40 (1 kill) to Cømpressed, 120 (2 kills) to Officers
+[00:02:14.96] ••• Game Ends - Round Finished
+
+Team time totals:
+Cømpressed: Turn: 00:00:59.98, Retreat: 00:00:18.16, Total: 00:01:18.14, Turn count: 4
+Officers:   Turn: 00:00:09.36, Retreat: 00:00:00.00, Total: 00:00:09.36, Turn count: 3
+
+Mission Successful

@@ -1,0 +1,27 @@
+Game Started at 2006-12-09 00:19:44 GMT
+Game Engine Version: 3.6.26.5
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #4: Cool as ice.
+
+Red:  "Lunchpack Gang"
+Blue: "Guardsmen" [CPU 3.00]
+
+[00:00:02.78] ••• Sudden Death
+[00:00:05.54] ••• Lunchpack Gang starts turn
+[00:00:05.58] ••• Lunchpack Gang fires Jet Pack
+[00:00:06.96] ••• Lunchpack Gang used 7 units of Jet Pack fuel
+[00:00:07.32] ••• Lunchpack Gang fires Parachute
+[00:00:07.48] ••• Lunchpack Gang fires Uzi
+[00:00:10.68] ••• Lunchpack Gang ends turn; time used: 1.50 sec turn, 2.00 sec retreat
+[00:00:20.04] ••• Damage dealt: 100 (1 kill) to Guardsmen
+[00:00:20.06] ••• Game Ends - Round Finished
+
+Team time totals:
+Lunchpack Gang: Turn: 00:00:01.50, Retreat: 00:00:02.00, Total: 00:00:03.50, Turn count: 1
+Guardsmen:      Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Total Jet Pack fuel used: 7
+
+Mission Successful

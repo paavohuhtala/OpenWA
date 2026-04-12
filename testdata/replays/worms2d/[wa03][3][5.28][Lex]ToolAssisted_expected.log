@@ -1,0 +1,43 @@
+Game Started at 2006-12-25 10:02:31 GMT
+Game Engine Version: 3.6.26.5
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #3: All quiet in the library?
+
+Red:  "Lunchpack Gang"
+Blue: "Gunners"  [CPU 3.00]
+Blue: "Officers" [CPU 3.75]
+Blue: "Platoon"  [CPU 2.75]
+
+[00:00:24.66] ••• Lunchpack Gang starts turn
+[00:00:25.48] ••• Lunchpack Gang fires Ninja Rope
+[00:00:28.66] ••• Lunchpack Gang fires Baseball Bat
+[00:00:32.24] ••• Lunchpack Gang ends turn; time used: 3.98 sec turn, 3.00 sec retreat
+[00:00:40.06] ••• Damage dealt: 200 (2 kills) to Gunners, 150 (1 kill) to Officers
+[00:00:40.06] ••• Gunners starts turn
+[00:01:00.42] ••• Gunners fires Grenade (1 sec, min bounce)
+[00:01:01.92] ••• Gunners loses turn due to loss of control; time used: 20.34 sec turn, 0.86 sec retreat
+[00:01:06.62] ••• Damage dealt: 5 to Lunchpack Gang, 37 to Gunners, 23 to Platoon
+[00:01:06.62] ••• Lunchpack Gang starts turn
+[00:01:06.64] ••• Lunchpack Gang fires Grenade (5 sec, min bounce)
+[00:01:12.64] ••• Lunchpack Gang ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:01:21.40] ••• Damage dealt: 42 to Lunchpack Gang, 46 to Gunners, 39 to Platoon
+[00:01:21.40] ••• Platoon starts turn
+[00:01:28.82] ••• Platoon fires Grenade (3 sec, min bounce)
+[00:01:33.10] ••• Platoon loses turn due to loss of control; time used: 7.40 sec turn, 2.86 sec retreat
+[00:01:52.58] ••• Damage dealt: 57 (1 kill) to Lunchpack Gang, 17 (1 kill) to Gunners, 38 (1 kill) to Platoon
+[00:01:52.58] ••• Lunchpack Gang starts turn
+[00:01:53.40] ••• Lunchpack Gang fires Ninja Rope
+[00:01:53.90] ••• Lunchpack Gang fires Air Strike
+[00:01:55.64] ••• Lunchpack Gang loses turn due to loss of control; time used: 1.30 sec turn, 1.72 sec retreat
+[00:02:08.40] ••• Damage dealt: 96 (1 kill) to Lunchpack Gang, 100 (1 kill) to Platoon
+[00:02:08.42] ••• Game Ends - Round Finished
+
+Team time totals:
+Lunchpack Gang: Turn: 00:00:05.28, Retreat: 00:00:07.72, Total: 00:00:13.00, Turn count: 3
+Gunners:        Turn: 00:00:20.34, Retreat: 00:00:00.86, Total: 00:00:21.20, Turn count: 1
+Officers:       Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Platoon:        Turn: 00:00:07.40, Retreat: 00:00:02.86, Total: 00:00:10.26, Turn count: 1
+
+Mission Successful

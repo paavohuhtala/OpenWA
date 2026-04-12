@@ -1,0 +1,44 @@
+Game Started at 2007-01-16 11:23:47 GMT
+Game Engine Version: 3.6.26.5
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #6: Sand in your eye.
+
+Red:  "Team09"
+Blue: "Commandos"      [CPU 3.75]
+Blue: "Special Forces" [CPU 4.25]
+Blue: "Guardsmen"      [CPU 4.25]
+
+[00:00:09.92] ••• Team09 starts turn
+[00:00:11.34] ••• Team09 fires Ninja Rope
+[00:00:25.92] ••• Team09 fires Flame Thrower
+[00:00:33.40] ••• Team09 ends turn; time used: 15.98 sec turn, 3.00 sec retreat
+[00:00:43.96] ••• Damage dealt: 90 (1 kill) to Commandos, 131 (1 kill) to Guardsmen
+[00:00:43.96] ••• Commandos starts turn
+[00:00:59.12] ••• Commandos fires Grenade (2 sec, min bounce)
+[00:01:03.02] ••• Commandos ends turn; time used: 15.14 sec turn, 3.00 sec retreat
+[00:01:05.86] ••• Damage dealt: 17 to Team09
+[00:01:05.86] ••• Team09 starts turn
+[00:01:09.04] ••• Team09 fires Ninja Rope
+[00:01:15.64] ••• Team09 fires Ninja Rope
+[00:01:18.04] ••• Team09 fires Flame Thrower
+[00:01:25.52] ••• Team09 ends turn; time used: 12.04 sec turn, 3.00 sec retreat
+[00:01:46.18] ••• Damage dealt: 90 (1 kill) to Commandos, 9 (1 kill) to Guardsmen
+[00:01:46.18] ••• Special Forces starts turn
+[00:01:50.16] ••• Special Forces fires Bazooka
+[00:01:52.74] ••• Special Forces ends turn; time used: 3.96 sec turn, 1.82 sec retreat
+[00:02:00.22] ••• Damage dealt: 9 to Team09
+[00:02:00.22] ••• Team09 starts turn
+[00:02:04.94] ••• Team09 fires Flame Thrower
+[00:02:08.48] ••• Team09 loses turn due to loss of control; time used: 4.70 sec turn, 0.00 sec retreat
+[00:02:18.52] ••• Damage dealt: 3 to Team09, 110 (1 kill) to Special Forces
+[00:02:18.54] ••• Game Ends - Round Finished
+
+Team time totals:
+Team09:         Turn: 00:00:32.72, Retreat: 00:00:06.00, Total: 00:00:38.72, Turn count: 3
+Commandos:      Turn: 00:00:15.14, Retreat: 00:00:03.00, Total: 00:00:18.14, Turn count: 1
+Special Forces: Turn: 00:00:03.96, Retreat: 00:00:01.82, Total: 00:00:05.78, Turn count: 1
+Guardsmen:      Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

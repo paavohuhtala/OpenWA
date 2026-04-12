@@ -1,0 +1,30 @@
+Game Started at 2004-05-21 02:19:09 GMT
+Game Engine Version: 3.6.19.18-19
+File Format Version: 3.6.19.17 - 3.6.19.19
+Exported with Version: 3.8.1 (Steam)
+
+Mission #28: Stolen Goods.
+
+Red:  "1"
+Blue: "Platoon" [CPU 4.95]
+
+[00:00:02.88] ••• 1 starts turn
+[00:00:06.30] ••• 1 fires Ninja Rope
+[00:00:17.70] ••• 1 fires Ninja Rope
+[00:00:18.86] ••• 1 fires Blow Torch
+[00:00:24.52] ••• 1 ends turn; time used: 15.96 sec turn, 3.00 sec retreat
+[00:00:28.54] ••• Platoon starts turn
+[00:00:42.96] ••• Platoon fires Cluster Bomb (2 sec, min bounce)
+[00:00:49.82] ••• Platoon ends turn; time used: 14.40 sec turn, 3.00 sec retreat
+[00:00:57.14] ••• Damage dealt: 15 to 1
+[00:00:57.14] ••• 1 starts turn
+[00:00:59.66] ••• 1 fires French Sheep Strike
+[00:01:03.42] ••• 1 ends turn; time used: 2.50 sec turn, 3.00 sec retreat
+[00:01:33.68] ••• Damage dealt: 340 (4 kills) to Platoon
+[00:01:33.70] ••• Game Ends - Round Finished
+
+Team time totals:
+1:       Turn: 00:00:18.46, Retreat: 00:00:06.00, Total: 00:00:24.46, Turn count: 2
+Platoon: Turn: 00:00:14.40, Retreat: 00:00:03.00, Total: 00:00:17.40, Turn count: 1
+
+Mission Successful

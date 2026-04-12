@@ -1,0 +1,30 @@
+Game Started at 2021-11-20 20:48:56 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #28: Stolen Goods.
+
+Red:  "0xDEADC0DE"
+Blue: "Platoon" [CPU 4.95]
+
+[00:00:02.88] ••• 0xDEADC0DE starts turn
+[00:00:03.50] ••• 0xDEADC0DE fires Girder
+[00:00:05.82] ••• 0xDEADC0DE loses turn due to loss of control; time used: 0.60 sec turn, 2.24 sec retreat
+[00:00:16.70] ••• Damage dealt: 30 (1 kill) to 0xDEADC0DE
+[00:00:16.70] ••• Platoon starts turn
+[00:00:30.96] ••• Platoon fires Cluster Bomb (2 sec, min bounce)
+[00:00:35.50] ••• Platoon ends turn; time used: 14.24 sec turn, 3.00 sec retreat
+[00:00:38.86] ••• Damage dealt: 14 to 0xDEADC0DE
+[00:00:38.86] ••• 0xDEADC0DE starts turn
+[00:00:38.88] ••• 0xDEADC0DE fires Ninja Rope
+[00:00:41.14] ••• 0xDEADC0DE fires French Sheep Strike
+[00:00:44.40] ••• 0xDEADC0DE ends turn; time used: 2.20 sec turn, 3.00 sec retreat
+[00:01:01.70] ••• Damage dealt: 8 to 0xDEADC0DE, 340 (4 kills) to Platoon
+[00:01:01.72] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE: Turn: 00:00:02.80, Retreat: 00:00:05.24, Total: 00:00:08.04, Turn count: 2
+Platoon:    Turn: 00:00:14.24, Retreat: 00:00:03.00, Total: 00:00:17.24, Turn count: 1
+
+Mission Successful

@@ -1,0 +1,49 @@
+Game Started at 2021-11-08 08:26:35 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #13: Who left the flood-gates open?
+
+Red:  "Ro Bad 2"
+Blue: "Guardsmen" [CPU 4.50]
+Blue: "Patrol"    [CPU 4.50]
+
+[00:00:01.64] ••• Sudden Death
+[00:00:04.24] ••• Ro Bad 2 starts turn
+[00:00:04.90] ••• Ro Bad 2 fires Select Worm
+[00:00:20.26] ••• Ro Bad 2 fires Grenade (3 sec, max bounce)
+[00:00:26.96] ••• Ro Bad 2 ends turn; time used: 15.94 sec turn, 5.00 sec retreat
+[00:00:41.08] ••• Damage dealt: 40 to Guardsmen, 11 to Patrol
+[00:00:41.08] ••• Guardsmen starts turn
+[00:00:49.12] ••• Guardsmen fires Grenade (2 sec, min bounce)
+[00:00:53.44] ••• Guardsmen ends turn; time used: 8.02 sec turn, 3.38 sec retreat
+[00:00:59.62] ••• Damage dealt: 100 (1 kill) to Ro Bad 2
+[00:00:59.62] ••• Ro Bad 2 starts turn
+[00:01:05.50] ••• Ro Bad 2 fires Girder
+[00:01:10.58] ••• Ro Bad 2 ends turn; time used: 5.86 sec turn, 5.00 sec retreat
+[00:01:21.54] ••• Patrol starts turn
+[00:01:26.66] ••• Patrol fires Teleport
+[00:01:29.16] ••• Patrol ends turn; time used: 5.10 sec turn, 0.02 sec retreat
+[00:01:36.42] ••• Ro Bad 2 starts turn
+[00:01:43.02] ••• Ro Bad 2 fires Longbow
+[00:01:54.60] ••• Ro Bad 2 fires Longbow
+[00:01:59.68] ••• Ro Bad 2 ends turn; time used: 12.54 sec turn, 5.00 sec retreat
+[00:02:14.28] ••• Damage dealt: 15 to Guardsmen, 15 to Patrol
+[00:02:14.28] ••• Patrol starts turn
+[00:02:21.22] ••• Patrol fires Bazooka
+[00:02:23.72] ••• Patrol ends turn; time used: 6.92 sec turn, 1.86 sec retreat
+[00:02:35.04] ••• Ro Bad 2 starts turn
+[00:02:36.04] ••• Ro Bad 2 fires Ninja Rope
+[00:02:46.12] ••• Ro Bad 2 fires Shotgun
+[00:02:52.46] ••• Ro Bad 2 fires Shotgun
+[00:02:58.14] ••• Ro Bad 2 ends turn; time used: 11.40 sec turn, 4.54 sec retreat
+[00:03:09.02] ••• Damage dealt: 100 (1 kill) to Patrol
+[00:03:09.04] ••• Game Ends - Round Finished
+
+Team time totals:
+Ro Bad 2:  Turn: 00:00:45.74, Retreat: 00:00:19.54, Total: 00:01:05.28, Turn count: 4
+Guardsmen: Turn: 00:00:08.02, Retreat: 00:00:03.38, Total: 00:00:11.40, Turn count: 1
+Patrol:    Turn: 00:00:12.02, Retreat: 00:00:01.88, Total: 00:00:13.90, Turn count: 2
+
+Mission Successful

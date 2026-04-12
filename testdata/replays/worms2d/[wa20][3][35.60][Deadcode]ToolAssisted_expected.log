@@ -1,0 +1,38 @@
+Game Started at 2021-11-29 08:50:37 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #20: Rumble in the Farmyard.
+
+Red:  "0xDEADC0DE"
+Blue: "Enemy" [CPU 3.00]
+
+[00:00:01.62] ••• Sudden Death
+[00:00:01.64] ••• Sudden Death
+[00:00:12.56] ••• 0xDEADC0DE starts turn
+[00:00:13.62] ••• 0xDEADC0DE fires Ninja Rope
+[00:00:25.32] ••• 0xDEADC0DE fires Bazooka
+[00:00:28.34] ••• 0xDEADC0DE ends turn; time used: 12.74 sec turn, 3.00 sec retreat
+[00:00:35.04] ••• Damage dealt: 5 to Enemy
+[00:00:35.04] ••• Enemy starts turn
+[00:00:39.86] ••• Enemy fires Bazooka
+[00:00:45.58] ••• Enemy ends turn; time used: 4.80 sec turn, 3.00 sec retreat
+[00:00:49.60] ••• 0xDEADC0DE starts turn
+[00:01:06.26] ••• 0xDEADC0DE fires Cluster Bomb (3 sec, min bounce)
+[00:01:09.36] ••• 0xDEADC0DE loses turn due to loss of control; time used: 16.64 sec turn, 2.86 sec retreat
+[00:01:21.96] ••• Damage dealt: 95 to 0xDEADC0DE, 70 (1 kill) to Enemy
+[00:01:21.96] ••• Enemy starts turn
+[00:01:26.16] ••• Enemy ends turn; time used: 4.18 sec turn, 0.00 sec retreat
+[00:01:28.18] ••• 0xDEADC0DE starts turn
+[00:01:29.10] ••• 0xDEADC0DE fires Ninja Rope
+[00:01:34.42] ••• 0xDEADC0DE fires Dynamite
+[00:01:39.42] ••• 0xDEADC0DE loses turn due to loss of control; time used: 6.22 sec turn, 4.98 sec retreat
+[00:02:18.98] ••• Damage dealt: 105 (2 kills) to 0xDEADC0DE, 220 (3 kills) to Enemy
+[00:02:19.00] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE: Turn: 00:00:35.60, Retreat: 00:00:10.84, Total: 00:00:46.44, Turn count: 3
+Enemy:      Turn: 00:00:08.98, Retreat: 00:00:03.00, Total: 00:00:11.98, Turn count: 2
+
+Mission Successful

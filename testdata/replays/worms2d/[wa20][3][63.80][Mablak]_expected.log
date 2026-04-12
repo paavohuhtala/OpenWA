@@ -1,0 +1,40 @@
+Game Started at 2021-11-30 22:01:33 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #20: Rumble in the Farmyard.
+
+Red:  "Ro Bad 3"
+Blue: "Enemy" [CPU 3.00]
+
+[00:00:01.62] ••• Sudden Death
+[00:00:01.64] ••• Sudden Death
+[00:00:12.56] ••• Ro Bad 3 starts turn
+[00:00:14.14] ••• Ro Bad 3 fires Ninja Rope
+[00:00:35.84] ••• Ro Bad 3 fires Dynamite
+[00:00:40.88] ••• Ro Bad 3 loses turn due to loss of control; time used: 23.26 sec turn, 4.86 sec retreat
+[00:00:48.28] ••• Damage dealt: 55 to Ro Bad 3, 14 to Enemy
+[00:00:48.28] ••• Enemy starts turn
+[00:00:52.34] ••• Enemy fires Bazooka
+[00:00:55.12] ••• Enemy ends turn; time used: 4.04 sec turn, 1.82 sec retreat
+[00:00:58.48] ••• Damage dealt: 16 to Ro Bad 3
+[00:00:58.48] ••• Ro Bad 3 starts turn
+[00:01:26.48] ••• Ro Bad 3 fires Bazooka
+[00:01:28.02] ••• Ro Bad 3 loses turn due to loss of control; time used: 27.98 sec turn, 0.00 sec retreat
+[00:01:34.46] ••• Damage dealt: 47 to Ro Bad 3, 50 to Enemy
+[00:01:34.46] ••• Enemy starts turn
+[00:01:47.68] ••• Enemy fires Air Strike
+[00:01:51.36] ••• Enemy ends turn; time used: 13.20 sec turn, 3.00 sec retreat
+[00:01:55.38] ••• Ro Bad 3 starts turn
+[00:01:56.30] ••• Ro Bad 3 fires Ninja Rope
+[00:02:08.10] ••• Ro Bad 3 fires Blow Torch
+[00:02:16.14] ••• Ro Bad 3 ends turn; time used: 12.56 sec turn, 3.00 sec retreat
+[00:02:49.74] ••• Damage dealt: 29 (1 kill) to Ro Bad 3, 231 (4 kills) to Enemy
+[00:02:49.76] ••• Game Ends - Round Finished
+
+Team time totals:
+Ro Bad 3: Turn: 00:01:03.80, Retreat: 00:00:07.86, Total: 00:01:11.66, Turn count: 3
+Enemy:    Turn: 00:00:17.24, Retreat: 00:00:04.82, Total: 00:00:22.06, Turn count: 2
+
+Mission Successful

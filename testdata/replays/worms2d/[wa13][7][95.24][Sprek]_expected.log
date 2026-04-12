@@ -1,0 +1,69 @@
+Game Started at 2004-05-06 22:40:40 GMT
+Game Engine Version: 3.6.19.18-19
+File Format Version: 3.6.19.17 - 3.6.19.19
+Exported with Version: 3.8.1 (Steam)
+
+Mission #13: Who left the flood-gates open?
+
+Red:  "Ducks"
+Blue: "Guardsmen" [CPU 4.50]
+Blue: "Patrol"    [CPU 4.50]
+
+[00:00:01.64] ••• Sudden Death
+[00:00:04.24] ••• Ducks starts turn
+[00:00:10.52] ••• Ducks fires Shotgun
+[00:00:26.00] ••• Ducks fires Shotgun
+[00:00:32.16] ••• Ducks ends turn; time used: 19.64 sec turn, 5.00 sec retreat
+[00:00:40.64] ••• Guardsmen starts turn
+[00:00:46.70] ••• Guardsmen fires Bazooka
+[00:00:52.82] ••• Guardsmen ends turn; time used: 6.04 sec turn, 5.00 sec retreat
+[00:01:02.20] ••• Ducks starts turn
+[00:01:13.52] ••• Ducks fires Homing Missile
+[00:01:19.72] ••• Ducks ends turn; time used: 11.30 sec turn, 5.00 sec retreat
+[00:01:31.42] ••• Damage dealt: 63 to Patrol
+[00:01:31.42] ••• Patrol starts turn
+[00:01:41.42] ••• Patrol fires Bazooka
+[00:01:47.82] ••• Patrol ends turn; time used: 9.98 sec turn, 5.00 sec retreat
+[00:01:53.18] ••• Damage dealt: 44 to Ducks
+[00:01:53.18] ••• Ducks starts turn
+[00:02:00.84] ••• Ducks fires Girder
+[00:02:05.92] ••• Ducks ends turn; time used: 7.64 sec turn, 5.00 sec retreat
+[00:02:12.28] ••• Guardsmen starts turn
+[00:02:18.30] ••• Guardsmen fires Bazooka
+[00:02:24.62] ••• Guardsmen ends turn; time used: 6.00 sec turn, 5.00 sec retreat
+[00:02:29.90] ••• Ducks starts turn
+[00:02:45.02] ••• Ducks fires Baseball Bat
+[00:02:50.60] ••• Ducks ends turn; time used: 15.10 sec turn, 5.00 sec retreat
+[00:02:57.96] ••• Damage dealt: 100 (1 kill) to Guardsmen, 100 (1 kill) to Patrol
+[00:02:57.96] ••• Patrol starts turn
+[00:03:09.50] ••• Patrol fires Bazooka
+[00:03:15.20] ••• Patrol ends turn; time used: 11.52 sec turn, 5.00 sec retreat
+[00:03:22.66] ••• Ducks starts turn
+[00:03:23.60] ••• Ducks fires Ninja Rope
+[00:03:36.38] ••• Ducks fires Bazooka
+[00:03:42.98] ••• Ducks ends turn; time used: 13.44 sec turn, 5.00 sec retreat
+[00:03:49.76] ••• Damage dealt: 100 (1 kill) to Guardsmen
+[00:03:49.76] ••• Patrol starts turn
+[00:03:51.64] ••• Patrol fires Teleport
+[00:03:54.14] ••• Patrol ends turn; time used: 1.86 sec turn, 0.02 sec retreat
+[00:03:57.42] ••• Ducks starts turn
+[00:04:07.32] ••• Ducks fires Bazooka
+[00:04:13.18] ••• Ducks ends turn; time used: 9.88 sec turn, 5.00 sec retreat
+[00:04:19.94] ••• Damage dealt: 115 (1 kill) to Patrol
+[00:04:19.94] ••• Patrol starts turn
+[00:04:28.94] ••• Patrol fires Bazooka
+[00:04:35.42] ••• Patrol ends turn; time used: 8.98 sec turn, 5.00 sec retreat
+[00:04:40.70] ••• Ducks starts turn
+[00:04:41.66] ••• Ducks fires Ninja Rope
+[00:04:42.42] ••• Ducks fires Ninja Rope
+[00:04:59.68] ••• Ducks fires Grenade (3 sec, min bounce)
+[00:05:02.84] ••• Ducks loses turn due to loss of control; time used: 18.24 sec turn, 2.86 sec retreat
+[00:05:16.16] ••• Damage dealt: 18 to Ducks, 37 (1 kill) to Patrol
+[00:05:16.18] ••• Game Ends - Round Finished
+
+Team time totals:
+Ducks:     Turn: 00:01:35.24, Retreat: 00:00:32.86, Total: 00:02:08.10, Turn count: 7
+Guardsmen: Turn: 00:00:12.04, Retreat: 00:00:10.00, Total: 00:00:22.04, Turn count: 2
+Patrol:    Turn: 00:00:32.34, Retreat: 00:00:15.02, Total: 00:00:47.36, Turn count: 4
+
+Mission Successful

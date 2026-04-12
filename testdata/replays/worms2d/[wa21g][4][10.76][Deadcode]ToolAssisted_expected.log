@@ -1,0 +1,49 @@
+Game Started at 2021-11-11 14:44:54 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #21: Wooden Ambush!
+
+Red:  "0xDEADC0DE"
+Blue: "Elite" [CPU 4.75]
+
+[00:00:01.56] ••• 0xDEADC0DE starts turn
+[00:00:01.58] ••• 0xDEADC0DE fires Ninja Rope
+[00:00:09.30] ••• 0xDEADC0DE fires Ninja Rope
+[00:00:10.20] ••• 0xDEADC0DE fires Sheep
+[00:00:14.24] ••• 0xDEADC0DE loses turn due to loss of control; time used: 8.48 sec turn, 3.00 sec retreat
+[00:00:22.98] ••• Damage dealt: 12 to 0xDEADC0DE, 220 (2 kills) to Elite
+[00:00:22.98] ••• Elite starts turn
+[00:00:37.36] ••• Elite fires Bazooka
+[00:00:41.88] ••• Elite ends turn; time used: 14.36 sec turn, 3.00 sec retreat
+[00:00:45.90] ••• 0xDEADC0DE starts turn
+[00:00:45.92] ••• 0xDEADC0DE fires Jet Pack
+[00:00:48.60] ••• 0xDEADC0DE used 15 units of Jet Pack fuel
+[00:00:48.62] ••• 0xDEADC0DE fires Grenade (4 sec, min bounce)
+[00:00:54.08] ••• 0xDEADC0DE ends turn; time used: 2.28 sec turn, 3.00 sec retreat
+[00:00:58.40] ••• Damage dealt: 22 to Elite
+[00:00:58.40] ••• Elite starts turn
+[00:01:08.16] ••• Elite fires Grenade (1 sec, min bounce)
+[00:01:12.12] ••• Elite ends turn; time used: 9.74 sec turn, 3.00 sec retreat
+[00:01:16.54] ••• Damage dealt: 16 to 0xDEADC0DE
+[00:01:16.54] ••• 0xDEADC0DE starts turn
+[00:01:16.56] ••• 0xDEADC0DE fires Grenade (4 sec, min bounce)
+[00:01:20.84] ••• 0xDEADC0DE ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:01:25.46] ••• Damage dealt: 43 to Elite
+[00:01:25.46] ••• Elite starts turn
+[00:01:35.08] ••• Elite fires Bazooka
+[00:01:39.00] ••• Elite ends turn; time used: 9.60 sec turn, 3.00 sec retreat
+[00:01:43.02] ••• 0xDEADC0DE starts turn
+[00:01:43.04] ••• 0xDEADC0DE fires Grenade (4 sec, min bounce)
+[00:01:48.02] ••• 0xDEADC0DE ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:01:58.00] ••• Damage dealt: 155 (2 kills) to Elite
+[00:01:58.02] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE: Turn: 00:00:10.76, Retreat: 00:00:12.00, Total: 00:00:22.76, Turn count: 4
+Elite:      Turn: 00:00:33.70, Retreat: 00:00:09.00, Total: 00:00:42.70, Turn count: 3
+
+Total Jet Pack fuel used: 15
+
+Mission Successful

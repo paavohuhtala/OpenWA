@@ -1,0 +1,22 @@
+Game Started at 2021-12-09 08:49:45 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #25: Mars Star.
+
+Red:  "0xDEADC0DE"
+Blue: "Enemy" [CPU 1.75]
+
+[00:00:07.74] ••• 0xDEADC0DE starts turn
+[00:00:07.76] ••• 0xDEADC0DE fires Petrol Bomb
+[00:00:09.46] ••• 0xDEADC0DE fires Petrol Bomb
+[00:00:11.20] ••• 0xDEADC0DE fires Skip Go
+[00:00:11.22] ••• 0xDEADC0DE ends turn; time used: 3.46 sec turn, 0.00 sec retreat
+[00:00:23.70] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE: Turn: 00:00:03.46, Retreat: 00:00:00.00, Total: 00:00:03.46, Turn count: 1
+Enemy:      Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

@@ -1,0 +1,31 @@
+Game Started at 2006-12-12 08:12:27 GMT
+Game Engine Version: 3.6.26.5
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #27: Bazooka on the Rocks.
+
+Red:  "Lunchpack Gang"
+Blue: "Officers" [CPU 3.50]
+Blue: "Platoon"  [CPU 4.50]
+
+[00:00:04.68] ••• Lunchpack Gang starts turn
+[00:00:04.70] ••• Lunchpack Gang fires Bazooka
+[00:00:10.64] ••• Lunchpack Gang ends turn; time used: 0.00 sec turn, 5.00 sec retreat
+[00:00:27.74] ••• Damage dealt: 65 (1 kill) to Officers, 75 (1 kill) to Platoon
+[00:00:27.74] ••• Officers starts turn
+[00:00:43.74] ••• Officers fires Bazooka
+[00:00:49.88] ••• Officers ends turn; time used: 15.98 sec turn, 5.00 sec retreat
+[00:01:03.34] ••• Damage dealt: 102 (1 kill) to Lunchpack Gang, 11 to Officers
+[00:01:03.34] ••• Lunchpack Gang starts turn
+[00:01:03.36] ••• Lunchpack Gang fires Bazooka
+[00:01:09.36] ••• Lunchpack Gang ends turn; time used: 0.00 sec turn, 5.00 sec retreat
+[00:01:22.64] ••• Damage dealt: 139 (2 kills) to Officers
+[00:01:22.66] ••• Game Ends - Round Finished
+
+Team time totals:
+Lunchpack Gang: Turn: 00:00:00.00, Retreat: 00:00:10.00, Total: 00:00:10.00, Turn count: 2
+Officers:       Turn: 00:00:15.98, Retreat: 00:00:05.00, Total: 00:00:20.98, Turn count: 1
+Platoon:        Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

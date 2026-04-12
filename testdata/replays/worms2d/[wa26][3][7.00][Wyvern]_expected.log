@@ -1,0 +1,38 @@
+Game Started at 2006-12-03 23:13:34 GMT
+Game Engine Version: 3.6.26.5
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #26: Mad Cows.
+
+Red:  "Don't be stupid!"
+Blue: "Officers" [CPU 4.00]
+
+[00:00:00.08] ••• Don't be stupid! starts turn
+[00:00:01.86] ••• Don't be stupid! fires Ninja Rope
+[00:00:03.36] ••• Don't be stupid! fires Dynamite
+[00:00:07.84] ••• Don't be stupid! loses turn due to loss of control; time used: 3.18 sec turn, 4.46 sec retreat
+[00:00:18.18] ••• Damage dealt: 100 (1 kill) to Don't be stupid!, 200 (2 kills) to Officers
+[00:00:18.18] ••• Officers starts turn
+[00:00:26.38] ••• Officers fires Bazooka
+[00:00:30.00] ••• Officers ends turn; time used: 8.18 sec turn, 3.00 sec retreat
+[00:00:34.10] ••• Damage dealt: 46 to Don't be stupid!
+[00:00:34.10] ••• Don't be stupid! starts turn
+[00:00:35.76] ••• Don't be stupid! fires Bazooka
+[00:00:40.36] ••• Don't be stupid! ends turn; time used: 1.40 sec turn, 3.00 sec retreat
+[00:00:47.22] ••• Damage dealt: 36 to Officers
+[00:00:47.22] ••• Officers starts turn
+[00:00:58.40] ••• Officers fires Shotgun
+[00:01:12.02] ••• Officers ends turn; time used: 20.00 sec turn, 0.00 sec retreat
+[00:01:29.68] ••• Damage dealt: 25 to Don't be stupid!
+[00:01:29.68] ••• Don't be stupid! starts turn
+[00:01:32.26] ••• Don't be stupid! fires Cluster Bomb (3 sec, min bounce)
+[00:01:35.34] ••• Don't be stupid! loses turn due to loss of control; time used: 2.42 sec turn, 2.86 sec retreat
+[00:01:55.56] ••• Damage dealt: 29 (1 kill) to Don't be stupid!, 164 (2 kills) to Officers
+[00:01:55.58] ••• Game Ends - Round Finished
+
+Team time totals:
+Don't be stupid!: Turn: 00:00:07.00, Retreat: 00:00:10.32, Total: 00:00:17.32, Turn count: 3
+Officers:         Turn: 00:00:28.18, Retreat: 00:00:03.00, Total: 00:00:31.18, Turn count: 2
+
+Mission Successful

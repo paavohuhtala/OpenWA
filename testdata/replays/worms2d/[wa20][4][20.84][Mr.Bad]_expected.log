@@ -1,0 +1,49 @@
+Game Started at 2006-12-11 22:21:37 GMT
+Game Engine Version: 3.6.26.5
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #20: Rumble in the Farmyard.
+
+Red:  "ßäÐ Gùÿ$"
+Blue: "Enemy" [CPU 3.00]
+
+[00:00:01.62] ••• Sudden Death
+[00:00:01.64] ••• Sudden Death
+[00:00:13.82] ••• ßäÐ Gùÿ$ starts turn
+[00:00:13.84] ••• ßäÐ Gùÿ$ fires Bazooka
+[00:00:18.44] ••• ßäÐ Gùÿ$ ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:00:25.62] ••• Damage dealt: 47 to Enemy
+[00:00:25.62] ••• Enemy starts turn
+[00:00:29.92] ••• Enemy fires Bazooka
+[00:00:34.16] ••• Enemy ends turn; time used: 4.28 sec turn, 3.00 sec retreat
+[00:00:39.52] ••• Damage dealt: 1 to ßäÐ Gùÿ$
+[00:00:39.52] ••• ßäÐ Gùÿ$ starts turn
+[00:00:40.46] ••• ßäÐ Gùÿ$ fires Ninja Rope
+[00:00:52.58] ••• ßäÐ Gùÿ$ fires Dynamite
+[00:00:57.58] ••• ßäÐ Gùÿ$ loses turn due to loss of control; time used: 13.04 sec turn, 4.98 sec retreat
+[00:01:04.22] ••• Damage dealt: 26 to ßäÐ Gùÿ$, 25 to Enemy
+[00:01:04.22] ••• Enemy starts turn
+[00:01:08.68] ••• Enemy fires Air Strike
+[00:01:11.22] ••• Enemy loses turn due to loss of control; time used: 4.44 sec turn, 1.86 sec retreat
+[00:01:16.44] ••• Damage dealt: 22 to ßäÐ Gùÿ$, 47 to Enemy
+[00:01:16.44] ••• ßäÐ Gùÿ$ starts turn
+[00:01:17.90] ••• ßäÐ Gùÿ$ fires Ninja Rope
+[00:01:22.02] ••• ßäÐ Gùÿ$ fires Grenade (3 sec, min bounce)
+[00:01:26.58] ••• ßäÐ Gùÿ$ loses turn due to loss of control; time used: 5.56 sec turn, 2.86 sec retreat
+[00:01:33.56] ••• Damage dealt: 38 to ßäÐ Gùÿ$, 42 to Enemy
+[00:01:33.56] ••• Enemy starts turn
+[00:01:38.68] ••• Enemy fires Uzi
+[00:01:41.58] ••• Enemy ends turn; time used: 5.10 sec turn, 1.68 sec retreat
+[00:01:56.56] ••• Damage dealt: 51 (2 kills) to Enemy
+[00:01:56.56] ••• ßäÐ Gùÿ$ starts turn
+[00:01:58.82] ••• ßäÐ Gùÿ$ fires Cluster Bomb (3 sec, min bounce)
+[00:02:01.94] ••• ßäÐ Gùÿ$ loses turn due to loss of control; time used: 2.24 sec turn, 2.86 sec retreat
+[00:02:22.84] ••• Damage dealt: 52 (1 kill) to ßäÐ Gùÿ$, 83 (2 kills) to Enemy
+[00:02:22.86] ••• Game Ends - Round Finished
+
+Team time totals:
+ßäÐ Gùÿ$: Turn: 00:00:20.84, Retreat: 00:00:13.70, Total: 00:00:34.54, Turn count: 4
+Enemy:    Turn: 00:00:13.82, Retreat: 00:00:06.54, Total: 00:00:20.36, Turn count: 3
+
+Mission Successful

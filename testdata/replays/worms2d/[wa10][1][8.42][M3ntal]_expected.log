@@ -1,0 +1,26 @@
+Game Started at 2004-02-19 16:25:08 GMT
+Game Engine Version: 3.6.19.14
+File Format Version: 3.6.19.14
+Exported with Version: 3.8.1 (Steam)
+
+Mission #10: Jurassic Worm.
+
+Red:  "SfX::Hex()"
+Blue: "Guardsmen" [CPU 4.25]
+Blue: "Officers"  [CPU 4.95]
+Blue: "Enemy"     [CPU 3.50]
+
+[00:00:06.74] ••• SfX::Hex() starts turn
+[00:00:07.50] ••• SfX::Hex() fires Ninja Rope
+[00:00:15.18] ••• SfX::Hex() fires Mole Bomb
+[00:00:20.24] ••• SfX::Hex() loses turn due to loss of control; time used: 8.42 sec turn, 3.00 sec retreat
+[00:00:40.40] ••• Damage dealt: 28 to SfX::Hex(), 100 (1 kill) to Officers
+[00:00:40.42] ••• Game Ends - Round Finished
+
+Team time totals:
+SfX::Hex(): Turn: 00:00:08.42, Retreat: 00:00:03.00, Total: 00:00:11.42, Turn count: 1
+Guardsmen:  Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Officers:   Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Enemy:      Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

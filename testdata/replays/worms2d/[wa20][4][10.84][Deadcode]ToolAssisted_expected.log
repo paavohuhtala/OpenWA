@@ -1,0 +1,45 @@
+Game Started at 2021-11-24 01:19:40 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #20: Rumble in the Farmyard.
+
+Red:  "0xDEADC0DE"
+Blue: "Enemy" [CPU 3.00]
+
+[00:00:01.62] ••• Sudden Death
+[00:00:01.64] ••• Sudden Death
+[00:00:12.56] ••• 0xDEADC0DE starts turn
+[00:00:12.58] ••• 0xDEADC0DE fires Grenade (3 sec, max bounce)
+[00:00:16.90] ••• 0xDEADC0DE ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:00:24.82] ••• Damage dealt: 36 to 0xDEADC0DE, 48 to Enemy
+[00:00:24.82] ••• Enemy starts turn
+[00:00:28.80] ••• Enemy fires Bazooka
+[00:00:32.22] ••• Enemy ends turn; time used: 3.96 sec turn, 2.26 sec retreat
+[00:00:36.60] ••• Damage dealt: 44 to 0xDEADC0DE
+[00:00:36.60] ••• 0xDEADC0DE starts turn
+[00:00:36.62] ••• 0xDEADC0DE fires Ninja Rope
+[00:00:44.92] ••• 0xDEADC0DE fires Dynamite
+[00:00:49.34] ••• 0xDEADC0DE loses turn due to loss of control; time used: 8.20 sec turn, 4.40 sec retreat
+[00:01:04.44] ••• Damage dealt: 81 to 0xDEADC0DE, 77 (1 kill) to Enemy
+[00:01:04.44] ••• Enemy starts turn
+[00:01:13.28] ••• Enemy ends turn; time used: 8.82 sec turn, 0.00 sec retreat
+[00:01:15.30] ••• 0xDEADC0DE starts turn
+[00:01:15.76] ••• 0xDEADC0DE fires Ninja Rope
+[00:01:17.96] ••• 0xDEADC0DE fires Grenade (1 sec, min bounce)
+[00:01:19.00] ••• 0xDEADC0DE loses turn due to loss of control; time used: 2.64 sec turn, 0.86 sec retreat
+[00:01:42.56] ••• Damage dealt: 20 (1 kill) to 0xDEADC0DE, 92 (2 kills) to Enemy
+[00:01:42.56] ••• Enemy starts turn
+[00:01:45.78] ••• Enemy ends turn; time used: 3.20 sec turn, 0.00 sec retreat
+[00:01:47.80] ••• 0xDEADC0DE starts turn
+[00:01:47.82] ••• 0xDEADC0DE fires Cluster Bomb (2 sec, min bounce)
+[00:01:51.70] ••• 0xDEADC0DE ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:02:02.02] ••• Damage dealt: 78 (1 kill) to Enemy
+[00:02:02.04] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE: Turn: 00:00:10.84, Retreat: 00:00:11.26, Total: 00:00:22.10, Turn count: 4
+Enemy:      Turn: 00:00:15.98, Retreat: 00:00:02.26, Total: 00:00:18.24, Turn count: 3
+
+Mission Successful

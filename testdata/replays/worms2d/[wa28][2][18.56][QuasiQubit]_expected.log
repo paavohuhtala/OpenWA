@@ -1,0 +1,29 @@
+Game Started at 2004-05-01 22:42:49 GMT
+Game Engine Version: 3.6.19.18-19
+File Format Version: 3.6.19.17 - 3.6.19.19
+Exported with Version: 3.8.1 (Steam)
+
+Mission #28: Stolen Goods.
+
+Red:  "POTS"
+Blue: "Platoon" [CPU 4.95]
+
+[00:00:02.88] ••• POTS starts turn
+[00:00:06.30] ••• POTS fires Ninja Rope
+[00:00:19.80] ••• POTS fires Blow Torch
+[00:00:25.34] ••• POTS ends turn; time used: 16.90 sec turn, 3.00 sec retreat
+[00:00:29.36] ••• Platoon starts turn
+[00:00:43.76] ••• Platoon fires Cluster Bomb (2 sec, min bounce)
+[00:00:50.54] ••• Platoon ends turn; time used: 14.38 sec turn, 3.00 sec retreat
+[00:00:54.64] ••• Damage dealt: 26 to POTS
+[00:00:54.64] ••• POTS starts turn
+[00:00:56.32] ••• POTS fires French Sheep Strike
+[00:01:00.12] ••• POTS ends turn; time used: 1.66 sec turn, 3.00 sec retreat
+[00:01:21.12] ••• Damage dealt: 340 (4 kills) to Platoon
+[00:01:21.14] ••• Game Ends - Round Finished
+
+Team time totals:
+POTS:    Turn: 00:00:18.56, Retreat: 00:00:06.00, Total: 00:00:24.56, Turn count: 2
+Platoon: Turn: 00:00:14.38, Retreat: 00:00:03.00, Total: 00:00:17.38, Turn count: 1
+
+Mission Successful

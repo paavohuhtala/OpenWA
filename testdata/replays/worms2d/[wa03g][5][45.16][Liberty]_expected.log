@@ -1,0 +1,58 @@
+Game Started at 2004-04-12 11:53:18 GMT
+Game Engine Version: 3.6.19.18-19
+File Format Version: 3.6.19.17 - 3.6.19.19
+Exported with Version: 3.8.1 (Steam)
+
+Mission #3: All quiet in the library?
+
+Red:  "[3o5]"
+Blue: "Gunners"  [CPU 3.00]
+Blue: "Officers" [CPU 3.75]
+Blue: "Platoon"  [CPU 2.75]
+
+[00:00:19.66] ••• [3o5] starts turn
+[00:00:22.00] ••• [3o5] fires Uzi
+[00:00:26.20] ••• [3o5] ends turn; time used: 2.32 sec turn, 3.00 sec retreat
+[00:00:30.94] ••• Damage dealt: 200 (2 kills) to Gunners
+[00:00:30.94] ••• Gunners starts turn
+[00:00:51.56] ••• Gunners fires Grenade (1 sec, min bounce)
+[00:00:53.08] ••• Gunners loses turn due to loss of control; time used: 20.60 sec turn, 0.86 sec retreat
+[00:00:58.02] ••• Damage dealt: 45 to [3o5], 2 to Gunners
+[00:00:58.02] ••• [3o5] starts turn
+[00:01:05.00] ••• [3o5] fires Air Strike
+[00:01:08.48] ••• [3o5] ends turn; time used: 6.96 sec turn, 3.00 sec retreat
+[00:01:22.70] ••• Damage dealt: 72 (1 kill) to [3o5], 66 to Gunners, 46 to Platoon
+[00:01:22.70] ••• Officers starts turn
+[00:01:30.22] ••• Officers fires Bazooka
+[00:01:33.64] ••• Officers ends turn; time used: 7.50 sec turn, 3.00 sec retreat
+[00:01:42.96] ••• Damage dealt: 44 to [3o5]
+[00:01:42.96] ••• [3o5] starts turn
+[00:01:45.24] ••• [3o5] fires Grenade (3 sec, min bounce)
+[00:01:48.50] ••• [3o5] loses turn due to loss of control; time used: 2.26 sec turn, 2.86 sec retreat
+[00:02:08.32] ••• Damage dealt: 1 to [3o5], 32 (1 kill) to Gunners, 54 (1 kill) to Platoon
+[00:02:08.32] ••• Platoon starts turn
+[00:02:18.32] ••• Platoon fires Bazooka
+[00:02:21.66] ••• Platoon ends turn; time used: 9.98 sec turn, 3.00 sec retreat
+[00:02:32.34] ••• Damage dealt: 100 (1 kill) to [3o5]
+[00:02:32.34] ••• [3o5] starts turn
+[00:02:44.74] ••• [3o5] fires Baseball Bat
+[00:02:48.32] ••• [3o5] ends turn; time used: 12.38 sec turn, 3.00 sec retreat
+[00:02:57.02] ••• Damage dealt: 100 (1 kill) to Platoon
+[00:02:57.02] ••• Officers starts turn
+[00:03:08.28] ••• Officers fires Bazooka
+[00:03:12.04] ••• Officers ends turn; time used: 11.24 sec turn, 3.00 sec retreat
+[00:03:16.52] ••• Damage dealt: 44 to [3o5]
+[00:03:16.52] ••• [3o5] starts turn
+[00:03:21.46] ••• [3o5] fires Ninja Rope
+[00:03:37.78] ••• [3o5] fires Cluster Bomb (3 sec, min bounce)
+[00:03:40.94] ••• [3o5] loses turn due to loss of control; time used: 21.24 sec turn, 2.86 sec retreat
+[00:03:57.36] ••• Damage dealt: 100 (1 kill) to [3o5], 150 (1 kill) to Officers
+[00:03:57.38] ••• Game Ends - Round Finished
+
+Team time totals:
+[3o5]:    Turn: 00:00:45.16, Retreat: 00:00:14.72, Total: 00:00:59.88, Turn count: 5
+Gunners:  Turn: 00:00:20.60, Retreat: 00:00:00.86, Total: 00:00:21.46, Turn count: 1
+Officers: Turn: 00:00:18.74, Retreat: 00:00:06.00, Total: 00:00:24.74, Turn count: 2
+Platoon:  Turn: 00:00:09.98, Retreat: 00:00:03.00, Total: 00:00:12.98, Turn count: 1
+
+Mission Successful

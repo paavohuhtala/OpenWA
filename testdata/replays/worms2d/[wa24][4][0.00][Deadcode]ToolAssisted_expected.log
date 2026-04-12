@@ -1,0 +1,51 @@
+Game Started at 2021-11-14 19:56:32 GMT
+Game Engine Version: 3.7.2.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #24: Countdown to Armageddon!
+
+Red:  "0xDEADC0DE"
+Red:  "Cannon Fodder"
+Blue: "Patrol" [CPU 2.25]
+
+[00:00:02.80] ••• 0xDEADC0DE starts turn
+[00:00:02.82] ••• 0xDEADC0DE fires Grenade (4 sec, max bounce)
+[00:00:05.74] ••• 0xDEADC0DE loses turn due to loss of control; time used: 0.00 sec turn, 1.60 sec retreat
+[00:00:14.62] ••• Damage dealt: 1 to 0xDEADC0DE, 53 to Patrol
+[00:00:14.62] ••• Patrol starts turn
+[00:00:19.06] ••• Patrol fires Bazooka
+[00:00:22.48] ••• Patrol ends turn; time used: 4.42 sec turn, 2.78 sec retreat
+[00:00:42.78] ••• Damage dealt: 152 (3 kills) to Patrol
+[00:00:42.78] ••• 0xDEADC0DE starts turn
+[00:00:42.80] ••• 0xDEADC0DE fires Grenade (1 sec, min bounce)
+[00:00:47.28] ••• 0xDEADC0DE ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:00:54.38] ••• Damage dealt: 140 (2 kills) to Patrol
+[00:00:54.38] ••• Patrol starts turn
+[00:00:58.98] ••• Patrol fires Bazooka
+[00:01:02.40] ••• Patrol ends turn; time used: 4.58 sec turn, 2.78 sec retreat
+[00:01:06.30] ••• Damage dealt: 34 to 0xDEADC0DE
+[00:01:06.30] ••• 0xDEADC0DE starts turn
+[00:01:06.32] ••• 0xDEADC0DE fires Mine
+[00:01:11.50] ••• 0xDEADC0DE ends turn; time used: 0.00 sec turn, 5.00 sec retreat
+[00:01:19.88] ••• Damage dealt: 40 to 0xDEADC0DE, 40 to Patrol
+[00:01:19.88] ••• Patrol starts turn
+[00:01:25.52] ••• Patrol fires Bazooka
+[00:01:26.24] ••• Patrol loses turn due to loss of control; time used: 5.62 sec turn, 0.00 sec retreat
+[00:01:31.34] ••• Damage dealt: 14 to 0xDEADC0DE, 59 to Patrol
+[00:01:31.34] ••• 0xDEADC0DE starts turn
+[00:01:31.36] ••• 0xDEADC0DE fires Grenade (5 sec, min bounce)
+[00:01:37.54] ••• 0xDEADC0DE ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:01:44.78] ••• Damage dealt: 70 (1 kill) to Patrol
+[00:01:44.78] ••• Patrol starts turn
+[00:01:47.42] ••• Patrol fires Grenade (3 sec, min bounce)
+[00:01:51.58] ••• Patrol loses turn due to loss of control; time used: 2.62 sec turn, 2.86 sec retreat
+[00:02:14.50] ••• Damage dealt: 12 (1 kill) to 0xDEADC0DE, 101 (2 kills) to Patrol
+[00:02:14.52] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE:    Turn: 00:00:00.00, Retreat: 00:00:12.60, Total: 00:00:12.60, Turn count: 4
+Cannon Fodder: Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Patrol:        Turn: 00:00:17.24, Retreat: 00:00:08.42, Total: 00:00:25.66, Turn count: 4
+
+Mission Successful

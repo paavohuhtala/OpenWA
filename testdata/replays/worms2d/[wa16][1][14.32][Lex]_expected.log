@@ -1,0 +1,26 @@
+Game Started at 2006-02-19 06:54:04 GMT
+Game Engine Version: 3.6.26.5
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #16: Trouble on Mount Wormore.
+
+Red:  "Lunchpack Gang"
+Blue: "Guardsmen" [CPU 3.50]
+Blue: "Gunners"   [CPU 3.50]
+Blue: "Patrol"    [CPU 4.50]
+
+[00:00:03.12] ••• Lunchpack Gang starts turn
+[00:00:05.14] ••• Lunchpack Gang fires Ninja Rope
+[00:00:17.46] ••• Lunchpack Gang fires Kamikaze
+[00:00:18.70] ••• Lunchpack Gang loses turn due to loss of control; time used: 14.32 sec turn, 0.00 sec retreat
+[00:00:31.22] ••• Damage dealt: 80 (1 kill) to Lunchpack Gang, 150 (1 kill) to Patrol
+[00:00:31.24] ••• Game Ends - Round Finished
+
+Team time totals:
+Lunchpack Gang: Turn: 00:00:14.32, Retreat: 00:00:00.00, Total: 00:00:14.32, Turn count: 1
+Guardsmen:      Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Gunners:        Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Patrol:         Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

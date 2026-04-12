@@ -1,0 +1,42 @@
+Game Started at 2021-11-10 03:18:50 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #32: Trouble in Toy Store.
+
+Red:  "0xDEADC0DE"
+Red:  "Enemy"   [CPU 3.25]
+Blue: "Platoon" [CPU 3.75]
+
+[00:00:02.56] ••• 0xDEADC0DE starts turn
+[00:00:02.58] ••• 0xDEADC0DE fires Grenade (3 sec, min bounce)
+[00:00:05.36] ••• 0xDEADC0DE loses turn due to loss of control; time used: 0.00 sec turn, 1.64 sec retreat
+[00:00:16.34] ••• Damage dealt: 8 to 0xDEADC0DE, 160 (2 kills) to Platoon
+[00:00:16.34] ••• Platoon starts turn
+[00:00:22.46] ••• Platoon fires Bazooka
+[00:00:26.58] ••• Platoon ends turn; time used: 6.10 sec turn, 2.78 sec retreat
+[00:00:34.26] ••• Damage dealt: 100 (1 kill) to 0xDEADC0DE
+[00:00:34.26] ••• 0xDEADC0DE starts turn
+[00:00:36.24] ••• 0xDEADC0DE fires Cluster Bomb (1 sec, min bounce)
+[00:00:40.64] ••• 0xDEADC0DE ends turn; time used: 1.96 sec turn, 3.00 sec retreat
+[00:00:59.66] ••• Damage dealt: 6 to 0xDEADC0DE, 150 (2 kills) to Platoon
+[00:00:59.66] ••• Platoon starts turn
+[00:01:06.30] ••• Platoon fires Uzi
+[00:01:10.52] ••• Platoon ends turn; time used: 6.62 sec turn, 3.00 sec retreat
+[00:01:16.64] ••• 0xDEADC0DE starts turn
+[00:01:17.06] ••• 0xDEADC0DE fires Dynamite
+[00:01:22.10] ••• 0xDEADC0DE loses turn due to loss of control; time used: 0.40 sec turn, 4.86 sec retreat
+[00:01:29.72] ••• Damage dealt: 117 to 0xDEADC0DE, 60 to Enemy, 2 to Platoon
+[00:01:29.72] ••• Platoon starts turn
+[00:01:33.48] ••• Platoon fires Uzi
+[00:01:36.40] ••• Platoon ends turn; time used: 3.74 sec turn, 1.70 sec retreat
+[00:01:59.48] ••• Damage dealt: 69 (2 kills) to 0xDEADC0DE, 78 (1 kill) to Platoon
+[00:01:59.50] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE: Turn: 00:00:02.36, Retreat: 00:00:09.50, Total: 00:00:11.86, Turn count: 3
+Enemy:      Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Platoon:    Turn: 00:00:16.46, Retreat: 00:00:07.48, Total: 00:00:23.94, Turn count: 3
+
+Mission Successful

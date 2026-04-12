@@ -1,0 +1,42 @@
+Game Started at 2005-10-07 09:53:27 GMT
+Game Engine Version: 3.6.25.1
+File Format Version: 3.6.20.1 - 3.6.26.3
+Exported with Version: 3.8.1 (Steam)
+
+Mission #18: Rescue Agent Dennis!
+
+Red:  "DJOSZEE"
+Blue: "Verzet"           [CPU 4.25]
+Blue: "Elite"            [CPU 4.25]
+Blue: "Speciale eenhede" [CPU 5.00]
+
+[00:00:05.74] ••• DJOSZEE starts turn
+[00:00:10.22] ••• DJOSZEE fires Dynamite
+[00:00:15.22] ••• DJOSZEE loses turn due to loss of control; time used: 4.46 sec turn, 4.98 sec retreat
+[00:00:26.56] ••• Damage dealt: 57 to DJOSZEE, 300 (3 kills) to Speciale eenhede
+[00:00:26.56] ••• Verzet starts turn
+[00:00:42.62] ••• Verzet fires Bazooka
+[00:00:46.66] ••• Verzet ends turn; time used: 16.04 sec turn, 3.00 sec retreat
+[00:00:50.76] ••• Damage dealt: 24 to DJOSZEE
+[00:00:50.76] ••• DJOSZEE starts turn
+[00:00:51.10] ••• DJOSZEE fires Napalm Strike
+[00:00:54.96] ••• DJOSZEE ends turn; time used: 0.32 sec turn, 3.00 sec retreat
+[00:01:04.22] ••• Damage dealt: 100 (1 kill) to Speciale eenhede
+[00:01:04.22] ••• Elite starts turn
+[00:01:11.42] ••• Elite fires Bazooka
+[00:01:15.86] ••• Elite ends turn; time used: 7.18 sec turn, 3.00 sec retreat
+[00:01:26.42] ••• Damage dealt: 46 to Verzet
+[00:01:26.42] ••• DJOSZEE starts turn
+[00:01:27.34] ••• DJOSZEE fires Ninja Rope
+[00:01:28.42] ••• DJOSZEE fires Banana Bomb (3 sec)
+[00:01:31.24] ••• DJOSZEE loses turn due to loss of control; time used: 1.98 sec turn, 2.80 sec retreat
+[00:01:47.52] ••• Damage dealt: 12 to DJOSZEE, 54 (1 kill) to Verzet, 100 (1 kill) to Elite, 200 (2 kills) to Speciale eenhede
+[00:01:47.54] ••• Game Ends - Round Finished
+
+Team time totals:
+DJOSZEE:          Turn: 00:00:06.76, Retreat: 00:00:10.78, Total: 00:00:17.54, Turn count: 3
+Verzet:           Turn: 00:00:16.04, Retreat: 00:00:03.00, Total: 00:00:19.04, Turn count: 1
+Elite:            Turn: 00:00:07.18, Retreat: 00:00:03.00, Total: 00:00:10.18, Turn count: 1
+Speciale eenhede: Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

@@ -1,0 +1,32 @@
+Game Started at 2006-10-28 13:52:20 GMT
+Game Engine Version: 3.6.26.5
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #22: Go Bananas!
+
+Red:  "Lunchpack Gang"
+Blue: "Cannon Fodder" [CPU 3.00]
+Blue: "Enemy"         [CPU 3.00]
+Blue: "Officers"      [CPU 3.00]
+
+[00:00:02.86] ••• Lunchpack Gang starts turn
+[00:00:07.26] ••• Lunchpack Gang fires Grenade (3 sec, min bounce)
+[00:00:10.34] ••• Lunchpack Gang loses turn due to loss of control; time used: 4.38 sec turn, 2.86 sec retreat
+[00:00:17.80] ••• Damage dealt: 44 to Lunchpack Gang
+[00:00:17.80] ••• Cannon Fodder starts turn
+[00:00:25.18] ••• Cannon Fodder fires Bazooka
+[00:00:29.08] ••• Cannon Fodder ends turn; time used: 7.36 sec turn, 3.00 sec retreat
+[00:00:33.10] ••• Lunchpack Gang starts turn
+[00:00:36.58] ••• Lunchpack Gang fires Blow Torch
+[00:00:42.44] ••• Lunchpack Gang loses turn due to loss of control; time used: 3.46 sec turn, 0.82 sec retreat
+[00:00:46.70] ••• Damage dealt: 56 (1 kill) to Lunchpack Gang
+[00:00:46.72] ••• Game Ends - Round Finished
+
+Team time totals:
+Lunchpack Gang: Turn: 00:00:07.84, Retreat: 00:00:03.68, Total: 00:00:11.52, Turn count: 2
+Cannon Fodder:  Turn: 00:00:07.36, Retreat: 00:00:03.00, Total: 00:00:10.36, Turn count: 1
+Enemy:          Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Officers:       Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

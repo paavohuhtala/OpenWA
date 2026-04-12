@@ -1,0 +1,46 @@
+Game Started at 2006-02-20 03:59:56 GMT
+Game Engine Version: 3.6.26.5
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #21: Wooden Ambush!
+
+Red:  "Lunchpack Gang"
+Blue: "Elite" [CPU 4.75]
+
+[00:00:01.60] ••• Lunchpack Gang starts turn
+[00:00:01.62] ••• Lunchpack Gang fires Jet Pack
+[00:00:09.16] ••• Lunchpack Gang used 30 units of Jet Pack fuel
+[00:00:10.90] ••• Lunchpack Gang fires Jet Pack
+[00:00:16.58] ••• Lunchpack Gang used 19 units of Jet Pack fuel
+[00:00:17.76] ••• Lunchpack Gang fires Jet Pack
+[00:00:20.34] ••• Lunchpack Gang fires Dynamite
+[00:00:25.34] ••• Lunchpack Gang used 30 (10) units of Jet Pack fuel
+[00:00:25.34] ••• Lunchpack Gang loses turn due to loss of control; time used: 17.46 sec turn, 4.98 sec retreat
+[00:00:33.58] ••• Damage dealt: 5 to Lunchpack Gang, 220 (2 kills) to Elite
+[00:00:33.58] ••• Elite starts turn
+[00:00:48.06] ••• Elite fires Bazooka
+[00:00:52.62] ••• Elite ends turn; time used: 14.46 sec turn, 3.00 sec retreat
+[00:00:56.64] ••• Lunchpack Gang starts turn
+[00:00:57.00] ••• Lunchpack Gang fires Jet Pack
+[00:01:01.64] ••• Lunchpack Gang used 13 units of Jet Pack fuel
+[00:01:02.40] ••• Lunchpack Gang fires Sheep
+[00:01:19.38] ••• Lunchpack Gang ends turn; time used: 5.32 sec turn, 3.00 sec retreat
+[00:01:25.08] ••• Damage dealt: 126 to Elite
+[00:01:25.08] ••• Elite starts turn
+[00:01:36.36] ••• Elite fires Bazooka
+[00:01:40.24] ••• Elite ends turn; time used: 11.26 sec turn, 3.00 sec retreat
+[00:01:43.72] ••• Damage dealt: 3 to Lunchpack Gang
+[00:01:43.72] ••• Lunchpack Gang starts turn
+[00:01:47.04] ••• Lunchpack Gang fires Grenade (3 sec, min bounce)
+[00:01:51.74] ••• Lunchpack Gang ends turn; time used: 3.30 sec turn, 3.00 sec retreat
+[00:02:00.18] ••• Damage dealt: 94 (2 kills) to Elite
+[00:02:00.20] ••• Game Ends - Round Finished
+
+Team time totals:
+Lunchpack Gang: Turn: 00:00:26.08, Retreat: 00:00:10.98, Total: 00:00:37.06, Turn count: 3
+Elite:          Turn: 00:00:25.72, Retreat: 00:00:06.00, Total: 00:00:31.72, Turn count: 2
+
+Total Jet Pack fuel used: 92
+
+Mission Successful

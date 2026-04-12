@@ -1,0 +1,57 @@
+Game Started at 2006-12-02 19:00:59 GMT
+Game Engine Version: 3.6.26.5
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #19: Horny Nuke.
+
+Red:  "Don't be stupid!"
+Blue: "Guardsmen" [CPU 3.00]
+Blue: "Gunners"   [CPU 3.25]
+
+[00:00:09.00] ••• Don't be stupid! starts turn
+[00:00:09.92] ••• Glide Glitch #1
+[00:00:13.06] ••• Don't be stupid! fires Ninja Rope
+[00:00:30.10] ••• Don't be stupid! fires Grenade (3 sec, min bounce)
+[00:00:33.10] ••• Don't be stupid! ends turn; time used: 21.08 sec turn, 2.00 sec retreat
+[00:00:39.10] ••• Damage dealt: 3 to Guardsmen, 47 to Gunners
+[00:00:39.10] ••• Guardsmen starts turn
+[00:00:46.10] ••• Guardsmen ends turn; time used: 6.98 sec turn, 0.00 sec retreat
+[00:00:48.12] ••• Don't be stupid! starts turn
+[00:00:49.14] ••• Don't be stupid! fires Ninja Rope
+[00:00:52.60] ••• Don't be stupid! fires Banana Bomb (3 sec)
+[00:00:57.16] ••• Don't be stupid! ends turn; time used: 4.26 sec turn, 2.00 sec retreat
+[00:01:20.98] ••• Damage dealt: 222 (2 kills) to Guardsmen, 153 (2 kills) to Gunners
+[00:01:20.98] ••• Gunners starts turn
+[00:01:24.12] ••• Gunners ends turn; time used: 3.12 sec turn, 0.00 sec retreat
+[00:01:26.14] ••• Don't be stupid! starts turn
+[00:01:26.88] ••• Don't be stupid! fires Ninja Rope
+[00:01:30.50] ••• Don't be stupid! fires Holy Hand-Grenade
+[00:01:35.30] ••• Don't be stupid! ends turn; time used: 3.94 sec turn, 2.00 sec retreat
+[00:01:50.00] ••• Damage dealt: 100 (1 kill) to Gunners
+[00:01:50.00] ••• Guardsmen starts turn
+[00:01:59.64] ••• Guardsmen fires Shotgun
+[00:02:05.74] ••• Guardsmen fires Shotgun
+[00:02:08.92] ••• Guardsmen ends turn; time used: 13.60 sec turn, 2.00 sec retreat
+[00:02:12.94] ••• Don't be stupid! starts turn
+[00:02:14.12] ••• Don't be stupid! fires Ninja Rope
+[00:02:22.50] ••• Don't be stupid! fires Minigun
+[00:02:26.10] ••• Don't be stupid! ends turn; time used: 8.98 sec turn, 2.00 sec retreat
+[00:02:29.28] ••• Damage dealt: 68 to Guardsmen
+[00:02:29.28] ••• Guardsmen starts turn
+[00:02:38.00] ••• Guardsmen fires Shotgun
+[00:02:44.72] ••• Guardsmen fires Shotgun
+[00:02:47.90] ••• Guardsmen ends turn; time used: 13.30 sec turn, 2.00 sec retreat
+[00:02:51.94] ••• Don't be stupid! starts turn
+[00:02:52.82] ••• Don't be stupid! fires Ninja Rope
+[00:02:55.34] ••• Don't be stupid! fires Grenade (3 sec, min bounce)
+[00:02:58.34] ••• Don't be stupid! ends turn; time used: 3.04 sec turn, 2.00 sec retreat
+[00:03:13.26] ••• Damage dealt: 32 (2 kills) to Guardsmen
+[00:03:13.28] ••• Game Ends - Round Finished
+
+Team time totals:
+Don't be stupid!: Turn: 00:00:41.30, Retreat: 00:00:10.00, Total: 00:00:51.30, Turn count: 5
+Guardsmen:        Turn: 00:00:33.88, Retreat: 00:00:04.00, Total: 00:00:37.88, Turn count: 3
+Gunners:          Turn: 00:00:03.12, Retreat: 00:00:00.00, Total: 00:00:03.12, Turn count: 1
+
+Mission Successful

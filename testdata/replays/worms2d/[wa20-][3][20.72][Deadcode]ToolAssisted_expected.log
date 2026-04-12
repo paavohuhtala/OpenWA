@@ -1,0 +1,39 @@
+Game Started at 2021-12-01 00:26:14 GMT
+Game Engine Version: 3.6.29.0
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #20: Rumble in the Farmyard.
+
+Red:  "0xDEADC0DE"
+Blue: "Enemy" [CPU 3.00]
+
+[00:00:01.62] ••• Sudden Death
+[00:00:01.64] ••• Sudden Death
+[00:00:13.82] ••• 0xDEADC0DE starts turn
+[00:00:13.84] ••• 0xDEADC0DE fires Ninja Rope
+[00:00:22.76] ••• 0xDEADC0DE fires Dynamite
+[00:00:27.76] ••• 0xDEADC0DE loses turn due to loss of control; time used: 8.84 sec turn, 4.98 sec retreat
+[00:00:36.02] ••• Damage dealt: 52 to 0xDEADC0DE, 26 to Enemy
+[00:00:36.02] ••• Enemy starts turn
+[00:00:40.16] ••• Enemy fires Bazooka
+[00:00:44.00] ••• Enemy ends turn; time used: 4.12 sec turn, 3.00 sec retreat
+[00:00:49.28] ••• 0xDEADC0DE starts turn
+[00:00:49.30] ••• 0xDEADC0DE fires Ninja Rope
+[00:00:53.92] ••• 0xDEADC0DE fires Bazooka
+[00:00:54.72] ••• 0xDEADC0DE loses turn due to loss of control; time used: 4.52 sec turn, 0.00 sec retreat
+[00:01:02.16] ••• Damage dealt: 47 to 0xDEADC0DE, 50 to Enemy
+[00:01:02.16] ••• Enemy starts turn
+[00:01:15.02] ••• Enemy fires Air Strike
+[00:01:18.70] ••• Enemy ends turn; time used: 12.84 sec turn, 3.00 sec retreat
+[00:01:23.98] ••• 0xDEADC0DE starts turn
+[00:01:31.36] ••• 0xDEADC0DE fires Blow Torch
+[00:01:38.68] ••• 0xDEADC0DE ends turn; time used: 7.36 sec turn, 3.00 sec retreat
+[00:02:10.26] ••• Damage dealt: 48 (1 kill) to 0xDEADC0DE, 219 (4 kills) to Enemy
+[00:02:10.28] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE: Turn: 00:00:20.72, Retreat: 00:00:07.98, Total: 00:00:28.70, Turn count: 3
+Enemy:      Turn: 00:00:16.96, Retreat: 00:00:06.00, Total: 00:00:22.96, Turn count: 2
+
+Mission Successful

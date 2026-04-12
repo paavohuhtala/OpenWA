@@ -1,0 +1,35 @@
+Game Started at 2004-04-13 19:21:04 GMT
+Game Engine Version: 3.6.19.18-19
+File Format Version: 3.6.19.17 - 3.6.19.19
+Exported with Version: 3.8.1 (Steam)
+
+Mission #5: Do the Locomotion.
+
+Red:  "Burp"
+Blue: "Patrouille" [CPU 3.50]
+
+[00:00:07.08] ••• Burp starts turn
+[00:00:11.36] ••• Burp fires Blow Torch
+[00:00:20.52] ••• Burp ends turn; time used: 4.26 sec turn, 5.00 sec retreat
+[00:00:24.02] ••• Patrouille starts turn
+[00:00:27.18] ••• Patrouille ends turn; time used: 3.14 sec turn, 0.00 sec retreat
+[00:00:31.54] ••• Burp starts turn
+[00:00:34.90] ••• Burp fires Girder
+[00:00:39.98] ••• Burp ends turn; time used: 3.34 sec turn, 5.00 sec retreat
+[00:00:41.20] ••• Patrouille starts turn
+[00:00:44.34] ••• Patrouille ends turn; time used: 3.12 sec turn, 0.00 sec retreat
+[00:00:49.58] ••• Burp starts turn
+[00:01:04.92] ••• Burp uses Bungee
+[00:01:09.24] ••• Burp fires Jet Pack
+[00:01:15.40] ••• Burp used 30 units of Jet Pack fuel
+[00:01:16.10] ••• Burp ends turn; time used: 24.00 sec turn, 0.00 sec retreat
+[00:01:18.12] ••• Damage dealt: 16 to Patrouille
+[00:01:18.14] ••• Game Ends - Round Finished
+
+Team time totals:
+Burp:       Turn: 00:00:31.60, Retreat: 00:00:10.00, Total: 00:00:41.60, Turn count: 3
+Patrouille: Turn: 00:00:06.26, Retreat: 00:00:00.00, Total: 00:00:06.26, Turn count: 2
+
+Total Jet Pack fuel used: 30
+
+Mission Successful

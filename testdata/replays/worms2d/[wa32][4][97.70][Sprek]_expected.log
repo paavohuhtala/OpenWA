@@ -1,0 +1,46 @@
+Game Started at 2004-05-02 16:45:26 GMT
+Game Engine Version: 3.6.19.18-19
+File Format Version: 3.6.19.17 - 3.6.19.19
+Exported with Version: 3.8.1 (Steam)
+
+Mission #32: Trouble in Toy Store.
+
+Red:  "Ducks"
+Red:  "Enemy"   [CPU 3.25]
+Blue: "Platoon" [CPU 3.75]
+
+[00:00:02.56] ••• Ducks starts turn
+[00:00:30.04] ••• Ducks fires Grenade (4 sec, min bounce)
+[00:00:34.82] ••• Ducks loses turn due to loss of control; time used: 27.46 sec turn, 3.00 sec retreat
+[00:00:53.28] ••• Damage dealt: 7 to Ducks, 150 (2 kills) to Platoon
+[00:00:53.28] ••• Platoon starts turn
+[00:00:57.72] ••• Platoon fires Cluster Bomb (2 sec, min bounce)
+[00:01:02.34] ••• Platoon ends turn; time used: 4.42 sec turn, 3.00 sec retreat
+[00:01:08.12] ••• Damage dealt: 15 to Ducks
+[00:01:08.12] ••• Ducks starts turn
+[00:01:22.64] ••• Ducks fires Dynamite
+[00:01:27.68] ••• Ducks loses turn due to loss of control; time used: 14.50 sec turn, 4.86 sec retreat
+[00:01:39.38] ••• Damage dealt: 122 to Ducks, 28 to Enemy
+[00:01:39.38] ••• Platoon starts turn
+[00:01:44.92] ••• Platoon fires Grenade (3 sec, min bounce)
+[00:01:49.36] ••• Platoon ends turn; time used: 5.52 sec turn, 3.00 sec retreat
+[00:02:03.72] ••• Ducks starts turn
+[00:02:43.20] ••• Ducks fires Holy Hand-Grenade
+[00:02:49.08] ••• Ducks loses turn due to loss of control; time used: 39.46 sec turn, 3.00 sec retreat
+[00:03:04.32] ••• Damage dealt: 13 to Ducks, 160 (2 kills) to Platoon
+[00:03:04.32] ••• Platoon starts turn
+[00:03:10.98] ••• Platoon fires Uzi
+[00:03:15.20] ••• Platoon ends turn; time used: 6.64 sec turn, 3.00 sec retreat
+[00:03:25.84] ••• Damage dealt: 52 to Ducks
+[00:03:25.84] ••• Ducks starts turn
+[00:03:42.14] ••• Ducks fires Cluster Bomb (4 sec, min bounce)
+[00:03:46.28] ••• Ducks loses turn due to loss of control; time used: 16.28 sec turn, 3.00 sec retreat
+[00:04:03.22] ••• Damage dealt: 33 (1 kill) to Ducks, 80 (1 kill) to Platoon
+[00:04:03.24] ••• Game Ends - Round Finished
+
+Team time totals:
+Ducks:   Turn: 00:01:37.70, Retreat: 00:00:13.86, Total: 00:01:51.56, Turn count: 4
+Enemy:   Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Platoon: Turn: 00:00:16.58, Retreat: 00:00:09.00, Total: 00:00:25.58, Turn count: 3
+
+Mission Successful

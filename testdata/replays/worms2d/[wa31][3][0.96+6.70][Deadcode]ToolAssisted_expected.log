@@ -1,0 +1,36 @@
+Game Started at 2021-11-15 12:15:51 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #31: Goody two-shoes.
+
+Red:  "0xDEADC0DE"
+Blue: "Enemy" [CPU 4.90]
+
+[00:00:05.90] ••• 0xDEADC0DE starts turn
+[00:00:05.92] ••• 0xDEADC0DE fires Shotgun
+[00:00:08.04] ••• 0xDEADC0DE fires Shotgun
+[00:00:08.94] ••• 0xDEADC0DE loses turn due to loss of control; time used: 0.02 sec turn, 0.00 sec retreat
+[00:00:13.06] ••• Damage dealt: 22 to 0xDEADC0DE
+[00:00:13.06] ••• Enemy starts turn
+[00:00:27.26] ••• Enemy fires Bazooka
+[00:00:30.64] ••• Enemy ends turn; time used: 14.18 sec turn, 3.00 sec retreat
+[00:00:34.66] ••• 0xDEADC0DE starts turn
+[00:00:35.62] ••• 0xDEADC0DE fires Aqua Sheep
+[00:00:42.32] ••• 0xDEADC0DE ends turn; time used: 0.94 sec turn, 3.00 sec retreat
+[00:00:56.92] ••• Damage dealt: 270 (3 kills) to Enemy
+[00:00:56.92] ••• Enemy starts turn
+[00:01:06.24] ••• Enemy fires Bazooka
+[00:01:10.56] ••• Enemy ends turn; time used: 9.30 sec turn, 3.00 sec retreat
+[00:01:14.58] ••• 0xDEADC0DE starts turn
+[00:01:14.60] ••• 0xDEADC0DE fires Air Strike
+[00:01:18.48] ••• 0xDEADC0DE ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:01:28.64] ••• Damage dealt: 190 (2 kills) to Enemy
+[00:01:28.66] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE: Turn: 00:00:00.96, Retreat: 00:00:06.00, Total: 00:00:06.96, Turn count: 3
+Enemy:      Turn: 00:00:23.48, Retreat: 00:00:06.00, Total: 00:00:29.48, Turn count: 2
+
+Mission Successful

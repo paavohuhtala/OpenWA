@@ -1,0 +1,27 @@
+Game Started at 2021-11-07 18:23:05 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #1: Pumpkin Problems.
+
+Red:  "0xDEADC0DE"
+Blue: "Patrol"  [CPU 4.00]
+Blue: "Gunners" [CPU 3.00]
+
+[00:00:02.42] ••• 0xDEADC0DE starts turn
+[00:00:02.44] ••• 0xDEADC0DE fires Ninja Rope
+[00:00:04.30] ••• 0xDEADC0DE fires Ninja Rope
+[00:00:04.74] ••• 0xDEADC0DE fires Ninja Rope
+[00:00:06.76] ••• 0xDEADC0DE fires Girder
+[00:00:09.78] ••• 0xDEADC0DE ends turn; time used: 3.80 sec turn, 3.00 sec retreat
+[00:00:11.38] ••• Patrol starts turn
+[00:00:11.40] ••• Patrol ends turn; time used: 0.02 sec turn, 0.00 sec retreat
+[00:00:13.68] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE: Turn: 00:00:03.80, Retreat: 00:00:03.00, Total: 00:00:06.80, Turn count: 1
+Patrol:     Turn: 00:00:00.02, Retreat: 00:00:00.00, Total: 00:00:00.02, Turn count: 1
+Gunners:    Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

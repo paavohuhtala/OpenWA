@@ -1,0 +1,32 @@
+Game Started at 2004-04-14 07:31:10 GMT
+Game Engine Version: 3.6.19.18-19
+File Format Version: 3.6.19.17 - 3.6.19.19
+Exported with Version: 3.8.1 (Steam)
+
+Mission #8: Big Shot.
+
+Red:  "Burp"
+Blue: "Chair à canon" [CPU 3.00]
+Blue: "Ennemi"        [CPU 3.00]
+
+[00:00:01.88] ••• Burp starts turn
+[00:00:18.40] ••• Burp fires Longbow
+[00:00:47.02] ••• Burp fires Longbow
+[00:00:50.10] ••• Burp ends turn; time used: 33.08 sec turn, 3.00 sec retreat
+[00:00:59.82] ••• Damage dealt: 40 (1 kill) to Chair à canon, 50 (1 kill) to Ennemi
+[00:00:59.82] ••• Chair à canon starts turn
+[00:01:08.10] ••• Chair à canon fires Uzi
+[00:01:12.32] ••• Chair à canon ends turn; time used: 8.26 sec turn, 3.00 sec retreat
+[00:01:16.34] ••• Burp starts turn
+[00:01:18.30] ••• Burp fires Ninja Rope
+[00:02:02.60] ••• Burp fires Old Woman
+[00:02:07.60] ••• Burp ends turn; time used: 38.24 sec turn, 3.00 sec retreat
+[00:02:17.16] ••• Damage dealt: 40 (1 kill) to Chair à canon, 50 (1 kill) to Ennemi
+[00:02:17.18] ••• Game Ends - Round Finished
+
+Team time totals:
+Burp:          Turn: 00:01:11.32, Retreat: 00:00:06.00, Total: 00:01:17.32, Turn count: 2
+Chair à canon: Turn: 00:00:08.26, Retreat: 00:00:03.00, Total: 00:00:11.26, Turn count: 1
+Ennemi:        Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

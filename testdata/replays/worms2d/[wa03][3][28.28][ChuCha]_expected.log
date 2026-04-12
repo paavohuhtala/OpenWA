@@ -1,0 +1,44 @@
+Game Started at 2006-12-09 14:15:50 GMT
+Game Engine Version: 3.6.26.5
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #3: All quiet in the library?
+
+Red:  "Team09"
+Blue: "Gunners"  [CPU 3.00]
+Blue: "Officers" [CPU 3.75]
+Blue: "Platoon"  [CPU 2.75]
+
+[00:00:24.66] ••• Team09 starts turn
+[00:00:25.54] ••• Team09 fires Ninja Rope
+[00:00:32.60] ••• Team09 fires Baseball Bat
+[00:00:35.72] ••• Team09 ends turn; time used: 7.92 sec turn, 3.00 sec retreat
+[00:00:44.00] ••• Damage dealt: 200 (2 kills) to Gunners, 150 (1 kill) to Officers
+[00:00:44.00] ••• Gunners starts turn
+[00:01:05.08] ••• Gunners fires Bazooka
+[00:01:08.68] ••• Gunners ends turn; time used: 21.06 sec turn, 3.00 sec retreat
+[00:01:11.30] ••• Damage dealt: 34 to Team09
+[00:01:11.30] ••• Team09 starts turn
+[00:01:12.12] ••• Team09 fires Ninja Rope
+[00:01:21.68] ••• Team09 fires Cluster Bomb (3 sec, min bounce)
+[00:01:25.08] ••• Team09 loses turn due to loss of control; time used: 10.36 sec turn, 2.86 sec retreat
+[00:01:44.88] ••• Damage dealt: 100 (1 kill) to Team09, 100 (1 kill) to Platoon
+[00:01:44.88] ••• Platoon starts turn
+[00:01:54.16] ••• Platoon fires Grenade (1 sec, min bounce)
+[00:01:57.62] ••• Platoon ends turn; time used: 9.26 sec turn, 3.00 sec retreat
+[00:02:06.94] ••• Damage dealt: 44 to Team09
+[00:02:06.94] ••• Team09 starts turn
+[00:02:07.80] ••• Team09 fires Ninja Rope
+[00:02:16.96] ••• Team09 fires Air Strike
+[00:02:19.98] ••• Team09 ends turn; time used: 10.00 sec turn, 3.00 sec retreat
+[00:02:38.08] ••• Damage dealt: 100 (1 kill) to Gunners, 100 (1 kill) to Platoon
+[00:02:38.10] ••• Game Ends - Round Finished
+
+Team time totals:
+Team09:   Turn: 00:00:28.28, Retreat: 00:00:08.86, Total: 00:00:37.14, Turn count: 3
+Gunners:  Turn: 00:00:21.06, Retreat: 00:00:03.00, Total: 00:00:24.06, Turn count: 1
+Officers: Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Platoon:  Turn: 00:00:09.26, Retreat: 00:00:03.00, Total: 00:00:12.26, Turn count: 1
+
+Mission Successful

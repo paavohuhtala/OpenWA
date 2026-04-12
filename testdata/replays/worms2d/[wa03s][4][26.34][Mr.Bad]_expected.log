@@ -1,0 +1,58 @@
+Game Started at 2006-12-07 22:41:12 GMT
+Game Engine Version: 3.6.26.5
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #3: All quiet in the library?
+
+Red:  "ßäÐ Gùÿ$"
+Blue: "Gunners"  [CPU 3.00]
+Blue: "Officers" [CPU 3.75]
+Blue: "Platoon"  [CPU 2.75]
+
+[00:00:00.00] *** Checksum Mismatch in Frame 0
+[00:00:24.66] ••• ßäÐ Gùÿ$ starts turn
+[00:00:26.34] ••• ßäÐ Gùÿ$ fires Uzi
+[00:00:26.36] *** Checksum Mismatch in Frame 1318
+[00:00:30.54] ••• ßäÐ Gùÿ$ ends turn; time used: 1.66 sec turn, 3.00 sec retreat
+[00:00:34.68] ••• Damage dealt: 200 (2 kills) to Gunners
+[00:00:34.68] ••• Gunners starts turn
+[00:00:53.34] ••• Gunners fires Bazooka
+[00:00:54.70] ••• Gunners loses turn due to loss of control; time used: 18.64 sec turn, 0.80 sec retreat
+[00:00:58.32] ••• Damage dealt: 31 to ßäÐ Gùÿ$, 3 to Gunners, 1 to Platoon
+[00:00:58.32] ••• ßäÐ Gùÿ$ starts turn
+[00:01:00.12] ••• ßäÐ Gùÿ$ fires Ninja Rope
+[00:01:00.14] *** Checksum Mismatch in Frame 3007
+[00:01:11.32] ••• ßäÐ Gùÿ$ fires Cluster Bomb (3 sec, min bounce)
+[00:01:11.34] *** Checksum Mismatch in Frame 3567
+[00:01:14.42] ••• ßäÐ Gùÿ$ loses turn due to loss of control; time used: 12.98 sec turn, 2.86 sec retreat
+[00:01:34.26] ••• Damage dealt: 100 (1 kill) to ßäÐ Gùÿ$, 100 (1 kill) to Platoon
+[00:01:34.26] ••• Officers starts turn
+[00:01:44.52] ••• Officers fires Bazooka
+[00:01:48.26] ••• Officers ends turn; time used: 10.24 sec turn, 3.00 sec retreat
+[00:01:57.94] ••• Damage dealt: 100 (1 kill) to ßäÐ Gùÿ$
+[00:01:57.94] ••• ßäÐ Gùÿ$ starts turn
+[00:01:58.86] ••• ßäÐ Gùÿ$ fires Ninja Rope
+[00:01:58.88] *** Checksum Mismatch in Frame 5944
+[00:02:08.04] ••• ßäÐ Gùÿ$ fires Air Strike
+[00:02:08.06] *** Checksum Mismatch in Frame 6403
+[00:02:11.06] ••• ßäÐ Gùÿ$ ends turn; time used: 10.08 sec turn, 3.00 sec retreat
+[00:02:44.14] ••• Damage dealt: 100 (1 kill) to ßäÐ Gùÿ$, 97 (1 kill) to Gunners, 99 (1 kill) to Platoon
+[00:02:44.14] ••• Officers starts turn
+[00:02:52.86] ••• Officers fires Shotgun
+[00:03:10.04] ••• Officers fires Shotgun
+[00:03:14.22] ••• Officers ends turn; time used: 23.76 sec turn, 3.00 sec retreat
+[00:03:25.38] ••• ßäÐ Gùÿ$ starts turn
+[00:03:27.02] ••• ßäÐ Gùÿ$ fires Homing Missile
+[00:03:27.04] *** Checksum Mismatch in Frame 10352
+[00:03:31.32] ••• ßäÐ Gùÿ$ ends turn; time used: 1.62 sec turn, 3.00 sec retreat
+[00:03:38.66] ••• Damage dealt: 165 (1 kill) to Officers
+[00:03:38.68] ••• Game Ends - Round Finished
+
+Team time totals:
+ßäÐ Gùÿ$: Turn: 00:00:26.34, Retreat: 00:00:11.86, Total: 00:00:38.20, Turn count: 4
+Gunners:  Turn: 00:00:18.64, Retreat: 00:00:00.80, Total: 00:00:19.44, Turn count: 1
+Officers: Turn: 00:00:34.00, Retreat: 00:00:06.00, Total: 00:00:40.00, Turn count: 2
+Platoon:  Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

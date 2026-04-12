@@ -1,0 +1,60 @@
+Game Started at 2004-04-13 18:19:50 GMT
+Game Engine Version: 3.6.19.18-19
+File Format Version: 3.6.19.17 - 3.6.19.19
+Exported with Version: 3.8.1 (Steam)
+
+Mission #3: All quiet in the library?
+
+Red:  "Burp"
+Blue: "Canonniers" [CPU 3.00]
+Blue: "Officiers"  [CPU 3.75]
+Blue: "Section"    [CPU 2.75]
+
+[00:00:24.66] ••• Burp starts turn
+[00:00:26.44] ••• Burp fires Uzi
+[00:00:30.64] ••• Burp ends turn; time used: 1.76 sec turn, 3.00 sec retreat
+[00:00:35.42] ••• Damage dealt: 200 (2 kills) to Canonniers
+[00:00:35.42] ••• Canonniers starts turn
+[00:00:53.48] ••• Canonniers fires Bazooka
+[00:00:57.10] ••• Canonniers ends turn; time used: 18.04 sec turn, 3.00 sec retreat
+[00:01:00.20] ••• Damage dealt: 41 to Burp
+[00:01:00.20] ••• Burp starts turn
+[00:01:03.82] ••• Burp fires Air Strike
+[00:01:07.30] ••• Burp ends turn; time used: 3.60 sec turn, 3.00 sec retreat
+[00:01:15.50] ••• Damage dealt: 37 to Canonniers, 57 to Section
+[00:01:15.50] ••• Officiers starts turn
+[00:01:25.44] ••• Officiers fires Bazooka
+[00:01:28.88] ••• Officiers ends turn; time used: 9.92 sec turn, 3.00 sec retreat
+[00:01:38.20] ••• Damage dealt: 44 to Burp
+[00:01:38.20] ••• Burp starts turn
+[00:01:39.44] ••• Burp fires Grenade (3 sec, min bounce)
+[00:01:42.56] ••• Burp loses turn due to loss of control; time used: 1.22 sec turn, 2.86 sec retreat
+[00:02:19.64] ••• Damage dealt: 159 (2 kills) to Burp, 63 (1 kill) to Canonniers, 43 (1 kill) to Section
+[00:02:19.64] ••• Section starts turn
+[00:02:29.20] ••• Section fires Bazooka
+[00:02:32.78] ••• Section ends turn; time used: 9.54 sec turn, 3.00 sec retreat
+[00:02:43.60] ••• Damage dealt: 100 (1 kill) to Burp
+[00:02:43.60] ••• Burp starts turn
+[00:02:44.76] ••• Burp fires Ninja Rope
+[00:02:52.54] ••• Burp fires Baseball Bat
+[00:02:56.12] ••• Burp ends turn; time used: 8.92 sec turn, 3.00 sec retreat
+[00:03:04.82] ••• Damage dealt: 100 (1 kill) to Section
+[00:03:04.82] ••• Officiers starts turn
+[00:03:18.46] ••• Officiers fires Shotgun
+[00:03:27.34] ••• Officiers fires Shotgun
+[00:03:31.52] ••• Officiers ends turn; time used: 17.70 sec turn, 3.00 sec retreat
+[00:03:35.54] ••• Damage dealt: 25 to Burp
+[00:03:35.54] ••• Burp starts turn
+[00:03:37.32] ••• Burp fires Ninja Rope
+[00:03:57.72] ••• Burp fires Cluster Bomb (3 sec, min bounce)
+[00:04:01.98] ••• Burp loses turn due to loss of control; time used: 22.16 sec turn, 2.86 sec retreat
+[00:04:17.34] ••• Damage dealt: 31 (1 kill) to Burp, 150 (1 kill) to Officiers
+[00:04:17.36] ••• Game Ends - Round Finished
+
+Team time totals:
+Burp:       Turn: 00:00:37.66, Retreat: 00:00:14.72, Total: 00:00:52.38, Turn count: 5
+Canonniers: Turn: 00:00:18.04, Retreat: 00:00:03.00, Total: 00:00:21.04, Turn count: 1
+Officiers:  Turn: 00:00:27.62, Retreat: 00:00:06.00, Total: 00:00:33.62, Turn count: 2
+Section:    Turn: 00:00:09.54, Retreat: 00:00:03.00, Total: 00:00:12.54, Turn count: 1
+
+Mission Successful

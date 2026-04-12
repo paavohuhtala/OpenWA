@@ -1,0 +1,34 @@
+Game Started at 2007-01-14 18:29:00 GMT
+Game Engine Version: 3.6.26.5
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #27: Bazooka on the Rocks.
+
+Red:  "ßäÐ Gùÿ$"
+Blue: "Officers" [CPU 3.50]
+Blue: "Platoon"  [CPU 4.50]
+
+[00:00:04.68] ••• ßäÐ Gùÿ$ starts turn
+[00:00:04.70] ••• ßäÐ Gùÿ$ fires Bazooka
+[00:00:10.64] ••• ßäÐ Gùÿ$ ends turn; time used: 0.00 sec turn, 5.00 sec retreat
+[00:00:27.74] ••• Damage dealt: 65 (1 kill) to Officers, 75 (1 kill) to Platoon
+[00:00:27.74] ••• Officers starts turn
+[00:00:38.30] ••• Officers fires Bazooka
+[00:00:44.80] ••• Officers ends turn; time used: 10.54 sec turn, 5.00 sec retreat
+[00:00:48.82] ••• ßäÐ Gùÿ$ starts turn
+[00:00:48.84] ••• ßäÐ Gùÿ$ fires Bazooka
+[00:00:55.44] ••• ßäÐ Gùÿ$ ends turn; time used: 0.00 sec turn, 5.00 sec retreat
+[00:01:03.18] ••• Damage dealt: 94 to ßäÐ Gùÿ$
+[00:01:03.18] ••• Officers starts turn
+[00:01:17.48] ••• Officers fires Bazooka
+[00:01:18.58] ••• Officers loses turn due to loss of control; time used: 14.28 sec turn, 0.70 sec retreat
+[00:01:34.88] ••• Damage dealt: 6 (1 kill) to ßäÐ Gùÿ$, 150 (2 kills) to Officers
+[00:01:34.90] ••• Game Ends - Round Finished
+
+Team time totals:
+ßäÐ Gùÿ$: Turn: 00:00:00.00, Retreat: 00:00:10.00, Total: 00:00:10.00, Turn count: 2
+Officers: Turn: 00:00:24.82, Retreat: 00:00:05.70, Total: 00:00:30.52, Turn count: 2
+Platoon:  Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

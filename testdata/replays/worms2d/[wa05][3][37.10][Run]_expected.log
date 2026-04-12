@@ -1,0 +1,35 @@
+Game Started at 2004-04-08 16:30:53 GMT
+Game Engine Version: 3.6.19.18-19
+File Format Version: 3.6.19.17 - 3.6.19.19
+Exported with Version: 3.8.1 (Steam)
+
+Mission #5: Do the Locomotion.
+
+Red:  "RúñFörYôürLìfê"
+Blue: "Patrol" [CPU 3.50]
+
+[00:00:07.08] ••• RúñFörYôürLìfê starts turn
+[00:00:13.30] ••• RúñFörYôürLìfê fires Blow Torch
+[00:00:20.78] ••• RúñFörYôürLìfê ends turn; time used: 6.20 sec turn, 5.00 sec retreat
+[00:00:24.34] ••• Patrol starts turn
+[00:00:27.50] ••• Patrol ends turn; time used: 3.14 sec turn, 0.00 sec retreat
+[00:00:29.52] ••• RúñFörYôürLìfê starts turn
+[00:00:34.62] ••• RúñFörYôürLìfê fires Girder
+[00:00:39.70] ••• RúñFörYôürLìfê ends turn; time used: 5.08 sec turn, 5.00 sec retreat
+[00:00:40.24] ••• Patrol starts turn
+[00:00:43.38] ••• Patrol ends turn; time used: 3.12 sec turn, 0.00 sec retreat
+[00:00:48.62] ••• RúñFörYôürLìfê starts turn
+[00:01:06.06] ••• RúñFörYôürLìfê uses Bungee
+[00:01:10.66] ••• RúñFörYôürLìfê fires Jet Pack
+[00:01:16.18] ••• RúñFörYôürLìfê used 21 units of Jet Pack fuel
+[00:01:16.96] ••• RúñFörYôürLìfê ends turn; time used: 25.82 sec turn, 0.00 sec retreat
+[00:01:18.98] ••• Damage dealt: 16 to Patrol
+[00:01:19.00] ••• Game Ends - Round Finished
+
+Team time totals:
+RúñFörYôürLìfê: Turn: 00:00:37.10, Retreat: 00:00:10.00, Total: 00:00:47.10, Turn count: 3
+Patrol:         Turn: 00:00:06.26, Retreat: 00:00:00.00, Total: 00:00:06.26, Turn count: 2
+
+Total Jet Pack fuel used: 21
+
+Mission Successful

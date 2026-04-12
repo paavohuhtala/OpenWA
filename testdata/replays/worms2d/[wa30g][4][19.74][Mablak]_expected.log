@@ -1,0 +1,45 @@
+Game Started at 2016-03-21 03:10:13 GMT
+Game Engine Version: 3.7.2.1-3
+File Format Version: 3.6.29.48 - 3.7.2.97
+Exported with Version: 3.8.1 (Steam)
+
+Mission #30: Aim long, aim true.
+
+Red:  "Ro Bad"
+Blue: "Officers" [CPU 3.60]
+Blue: "Gunners"  [CPU 3.75]
+
+[00:00:02.54] ••• Ro Bad starts turn
+[00:00:05.14] ••• Ro Bad fires Girder Starter-Pack
+[00:00:05.80] ••• Ro Bad fires Girder Starter-Pack
+[00:00:07.24] ••• Ro Bad fires Girder Starter-Pack
+[00:00:08.24] ••• Ro Bad fires Girder Starter-Pack
+[00:00:08.62] ••• Ro Bad fires Girder Starter-Pack
+[00:00:11.70] ••• Ro Bad ends turn; time used: 5.82 sec turn, 3.00 sec retreat
+[00:00:13.72] ••• Officers starts turn
+[00:00:16.94] ••• Officers ends turn; time used: 3.20 sec turn, 0.00 sec retreat
+[00:00:18.96] ••• Ro Bad starts turn
+[00:00:22.86] ••• Ro Bad fires Grenade (5 sec, min bounce)
+[00:00:29.42] ••• Ro Bad ends turn; time used: 3.88 sec turn, 3.00 sec retreat
+[00:00:42.74] ••• Damage dealt: 43 (1 kill) to Gunners
+[00:00:42.74] ••• Gunners starts turn
+[00:00:47.34] ••• Gunners fires Grenade (2 sec, min bounce)
+[00:00:51.38] ••• Gunners ends turn; time used: 4.58 sec turn, 3.00 sec retreat
+[00:00:55.40] ••• Ro Bad starts turn
+[00:00:57.68] ••• Ro Bad fires Grenade (5 sec, min bounce)
+[00:01:03.56] ••• Ro Bad ends turn; time used: 2.26 sec turn, 3.00 sec retreat
+[00:01:21.42] ••• Damage dealt: 47 (2 kills) to Gunners
+[00:01:21.42] ••• Officers starts turn
+[00:01:24.60] ••• Officers ends turn; time used: 3.16 sec turn, 0.00 sec retreat
+[00:01:26.62] ••• Ro Bad starts turn
+[00:01:34.42] ••• Ro Bad fires Grenade (5 sec, max bounce)
+[00:01:40.98] ••• Ro Bad ends turn; time used: 7.78 sec turn, 3.00 sec retreat
+[00:01:51.10] ••• Damage dealt: 40 (1 kill) to Officers
+[00:01:51.12] ••• Game Ends - Round Finished
+
+Team time totals:
+Ro Bad:   Turn: 00:00:19.74, Retreat: 00:00:12.00, Total: 00:00:31.74, Turn count: 4
+Officers: Turn: 00:00:06.36, Retreat: 00:00:00.00, Total: 00:00:06.36, Turn count: 2
+Gunners:  Turn: 00:00:04.58, Retreat: 00:00:03.00, Total: 00:00:07.58, Turn count: 1
+
+Mission Successful

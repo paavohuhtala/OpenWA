@@ -1,0 +1,30 @@
+Game Started at 2006-10-29 23:37:52 GMT
+Game Engine Version: 3.6.26.5
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #17: Chateau Assassin.
+
+Red:  "Don't be stupid!"
+Blue: "Offiziere" [CPU 5.00]
+
+[00:00:00.34] ••• Don't be stupid! starts turn
+[00:00:05.36] ••• Don't be stupid! fires Select Worm
+[00:00:09.00] ••• Don't be stupid! fires Select Worm
+[00:00:18.42] ••• Don't be stupid! fires Girder
+[00:00:23.50] ••• Don't be stupid! ends turn; time used: 17.94 sec turn, 5.00 sec retreat
+[00:00:28.72] ••• Offiziere starts turn
+[00:00:31.86] ••• Offiziere ends turn; time used: 3.12 sec turn, 0.00 sec retreat
+[00:00:37.08] ••• Don't be stupid! starts turn
+[00:00:40.68] ••• Don't be stupid! fires Select Worm
+[00:00:42.22] ••• Don't be stupid! fires Low Gravity
+[00:01:06.96] ••• Don't be stupid! fires Girder
+[00:01:12.04] ••• Don't be stupid! ends turn; time used: 29.74 sec turn, 5.00 sec retreat
+[00:01:39.24] ••• Damage dealt: 40 (1 kill) to Don't be stupid!, 120 (2 kills) to Offiziere
+[00:01:39.26] ••• Game Ends - Round Finished
+
+Team time totals:
+Don't be stupid!: Turn: 00:00:47.68, Retreat: 00:00:10.00, Total: 00:00:57.68, Turn count: 2
+Offiziere:        Turn: 00:00:03.12, Retreat: 00:00:00.00, Total: 00:00:03.12, Turn count: 1
+
+Mission Successful

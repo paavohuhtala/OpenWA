@@ -1,0 +1,46 @@
+Game Started at 2021-06-12 06:50:53 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #32: Trouble in Toy Store.
+
+Red:  "Ro Bad 2"
+Red:  "Enemy"   [CPU 3.25]
+Blue: "Platoon" [CPU 3.75]
+
+[00:00:02.56] ••• Ro Bad 2 starts turn
+[00:00:09.46] ••• Ro Bad 2 fires Grenade (4 sec, min bounce)
+[00:00:15.02] ••• Ro Bad 2 ends turn; time used: 6.88 sec turn, 3.00 sec retreat
+[00:00:24.54] ••• Damage dealt: 160 (2 kills) to Platoon
+[00:00:24.54] ••• Platoon starts turn
+[00:00:31.08] ••• Platoon fires Bazooka
+[00:00:34.68] ••• Platoon ends turn; time used: 6.52 sec turn, 2.78 sec retreat
+[00:00:40.04] ••• Damage dealt: 20 to Ro Bad 2
+[00:00:40.04] ••• Ro Bad 2 starts turn
+[00:00:53.84] ••• Ro Bad 2 fires Cluster Bomb (1 sec, min bounce)
+[00:00:58.54] ••• Ro Bad 2 ends turn; time used: 13.78 sec turn, 3.00 sec retreat
+[00:01:14.00] ••• Damage dealt: 6 to Ro Bad 2, 150 (2 kills) to Platoon
+[00:01:14.00] ••• Platoon starts turn
+[00:01:20.58] ••• Platoon fires Uzi
+[00:01:24.80] ••• Platoon ends turn; time used: 6.56 sec turn, 3.00 sec retreat
+[00:01:30.92] ••• Ro Bad 2 starts turn
+[00:01:44.90] ••• Ro Bad 2 fires Dynamite
+[00:01:49.94] ••• Ro Bad 2 loses turn due to loss of control; time used: 13.96 sec turn, 4.86 sec retreat
+[00:01:57.06] ••• Damage dealt: 81 to Ro Bad 2, 30 to Enemy, 8 to Platoon
+[00:01:57.06] ••• Platoon starts turn
+[00:02:01.36] ••• Platoon fires Uzi
+[00:02:01.40] ••• Platoon loses turn due to loss of control; time used: 4.28 sec turn, 0.00 sec retreat
+[00:02:11.48] ••• Damage dealt: 1 to Platoon
+[00:02:11.48] ••• Ro Bad 2 starts turn
+[00:02:22.86] ••• Ro Bad 2 fires Cluster Bomb (1 sec, min bounce)
+[00:02:23.96] ••• Ro Bad 2 loses turn due to loss of control; time used: 11.36 sec turn, 0.86 sec retreat
+[00:02:41.12] ••• Damage dealt: 69 (1 kill) to Ro Bad 2, 71 (1 kill) to Platoon
+[00:02:41.14] ••• Game Ends - Round Finished
+
+Team time totals:
+Ro Bad 2: Turn: 00:00:45.98, Retreat: 00:00:11.72, Total: 00:00:57.70, Turn count: 4
+Enemy:    Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Platoon:  Turn: 00:00:17.36, Retreat: 00:00:05.78, Total: 00:00:23.14, Turn count: 3
+
+Mission Successful

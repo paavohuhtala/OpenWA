@@ -1,0 +1,33 @@
+Game Started at 2021-12-08 06:20:22 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #5: Do the Locomotion.
+
+Red:  "Ro Bad 2"
+Blue: "Patrol" [CPU 3.50]
+
+[00:00:07.08] ••• Ro Bad 2 starts turn
+[00:00:11.72] ••• Ro Bad 2 fires Fire Punch
+[00:00:18.16] ••• Ro Bad 2 ends turn; time used: 4.62 sec turn, 5.00 sec retreat
+[00:00:22.38] ••• Damage dealt: 30 (1 kill) to Patrol
+[00:00:22.38] ••• Patrol starts turn
+[00:00:25.54] ••• Patrol ends turn; time used: 3.14 sec turn, 0.00 sec retreat
+[00:00:27.56] ••• Ro Bad 2 starts turn
+[00:00:29.14] ••• Ro Bad 2 uses Bungee
+[00:00:44.92] ••• Ro Bad 2 uses Bungee
+[00:00:47.26] ••• Ro Bad 2 fires Jet Pack
+[00:00:52.58] ••• Ro Bad 2 used 20 units of Jet Pack fuel
+[00:00:52.68] ••• Ro Bad 2 fires Skip Go
+[00:00:52.70] ••• Ro Bad 2 ends turn; time used: 22.22 sec turn, 0.00 sec retreat
+[00:00:54.72] ••• Damage dealt: 1 to Patrol
+[00:00:54.74] ••• Game Ends - Round Finished
+
+Team time totals:
+Ro Bad 2: Turn: 00:00:26.84, Retreat: 00:00:05.00, Total: 00:00:31.84, Turn count: 2
+Patrol:   Turn: 00:00:03.14, Retreat: 00:00:00.00, Total: 00:00:03.14, Turn count: 1
+
+Total Jet Pack fuel used: 20
+
+Mission Successful

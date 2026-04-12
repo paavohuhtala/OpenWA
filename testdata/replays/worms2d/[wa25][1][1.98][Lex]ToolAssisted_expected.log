@@ -1,0 +1,26 @@
+Game Started at 2007-03-06 08:26:34 GMT
+Game Engine Version: 3.6.26.5
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #25: Mars Star.
+
+Red:  "Lunchpack Gang"
+Blue: "Enemy" [CPU 1.75]
+
+[00:00:07.72] ••• Lunchpack Gang starts turn
+[00:00:07.74] ••• Lunchpack Gang fires Grenade (5 sec, min bounce)
+[00:00:07.92] ••• Lunchpack Gang fires Grenade (4 sec, max bounce)
+[00:00:09.10] ••• Lunchpack Gang fires Girder Starter-Pack
+[00:00:09.18] ••• Lunchpack Gang fires Girder Starter-Pack
+[00:00:09.26] ••• Lunchpack Gang fires Sheep
+[00:00:09.70] ••• Lunchpack Gang fires Skip Go
+[00:00:09.72] ••• Lunchpack Gang ends turn; time used: 1.98 sec turn, 0.00 sec retreat
+[00:00:32.56] ••• Damage dealt: 30 (1 kill) to Lunchpack Gang
+[00:00:32.58] ••• Game Ends - Round Finished
+
+Team time totals:
+Lunchpack Gang: Turn: 00:00:01.98, Retreat: 00:00:00.00, Total: 00:00:01.98, Turn count: 1
+Enemy:          Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

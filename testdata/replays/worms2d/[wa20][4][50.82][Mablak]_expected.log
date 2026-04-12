@@ -1,0 +1,50 @@
+Game Started at 2021-11-26 05:41:21 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #20: Rumble in the Farmyard.
+
+Red:  "Ro Bad 3"
+Blue: "Enemy" [CPU 3.00]
+
+[00:00:01.62] ••• Sudden Death
+[00:00:01.64] ••• Sudden Death
+[00:00:12.56] ••• Ro Bad 3 starts turn
+[00:00:20.14] ••• Ro Bad 3 fires Grenade (4 sec, max bounce)
+[00:00:25.70] ••• Ro Bad 3 ends turn; time used: 7.56 sec turn, 3.00 sec retreat
+[00:00:34.34] ••• Damage dealt: 38 to Ro Bad 3, 49 to Enemy
+[00:00:34.34] ••• Enemy starts turn
+[00:00:38.72] ••• Enemy fires Bazooka
+[00:00:42.08] ••• Enemy ends turn; time used: 4.36 sec turn, 2.70 sec retreat
+[00:00:44.98] ••• Damage dealt: 46 to Ro Bad 3
+[00:00:44.98] ••• Ro Bad 3 starts turn
+[00:00:45.76] ••• Ro Bad 3 fires Ninja Rope
+[00:00:59.26] ••• Ro Bad 3 fires Dynamite
+[00:01:04.28] ••• Ro Bad 3 ends turn; time used: 14.26 sec turn, 5.00 sec retreat
+[00:01:09.96] ••• Damage dealt: 25 to Enemy
+[00:01:09.96] ••• Enemy starts turn
+[00:01:13.66] ••• Enemy fires Air Strike
+[00:01:16.28] ••• Enemy loses turn due to loss of control; time used: 3.68 sec turn, 1.94 sec retreat
+[00:01:20.54] ••• Damage dealt: 10 to Ro Bad 3, 46 to Enemy
+[00:01:20.54] ••• Ro Bad 3 starts turn
+[00:01:21.92] ••• Ro Bad 3 fires Ninja Rope
+[00:01:22.60] ••• Ro Bad 3 fires Ninja Rope
+[00:01:40.98] ••• Ro Bad 3 fires Grenade (5 sec, min bounce)
+[00:01:46.06] ••• Ro Bad 3 loses turn due to loss of control; time used: 20.40 sec turn, 3.00 sec retreat
+[00:02:07.72] ••• Damage dealt: 16 (1 kill) to Ro Bad 3, 91 (2 kills) to Enemy
+[00:02:07.72] ••• Enemy starts turn
+[00:02:11.90] ••• Enemy fires Bazooka
+[00:02:15.86] ••• Enemy ends turn; time used: 4.16 sec turn, 3.00 sec retreat
+[00:02:20.28] ••• Damage dealt: 3 to Ro Bad 3
+[00:02:20.28] ••• Ro Bad 3 starts turn
+[00:02:28.90] ••• Ro Bad 3 fires Cluster Bomb (1 sec, min bounce)
+[00:02:29.98] ••• Ro Bad 3 loses turn due to loss of control; time used: 8.60 sec turn, 0.86 sec retreat
+[00:02:51.56] ••• Damage dealt: 87 (1 kill) to Ro Bad 3, 84 (2 kills) to Enemy
+[00:02:51.58] ••• Game Ends - Round Finished
+
+Team time totals:
+Ro Bad 3: Turn: 00:00:50.82, Retreat: 00:00:11.86, Total: 00:01:02.68, Turn count: 4
+Enemy:    Turn: 00:00:12.20, Retreat: 00:00:07.64, Total: 00:00:19.84, Turn count: 3
+
+Mission Successful

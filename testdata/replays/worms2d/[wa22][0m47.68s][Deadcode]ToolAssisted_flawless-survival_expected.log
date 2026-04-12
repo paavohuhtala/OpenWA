@@ -1,0 +1,30 @@
+Game Started at 2021-11-16 05:50:02 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #22: Go Bananas!
+
+Red:  "0xDEADC0DE"
+Blue: "Cannon Fodder" [CPU 3.00]
+Blue: "Enemy"         [CPU 3.00]
+Blue: "Officers"      [CPU 3.00]
+
+[00:00:02.86] ••• 0xDEADC0DE starts turn
+[00:00:07.06] ••• 0xDEADC0DE uses Bungee
+[00:00:17.94] ••• 0xDEADC0DE loses turn due to loss of control; time used: 15.08 sec turn, 0.00 sec retreat
+[00:00:21.96] ••• Cannon Fodder starts turn
+[00:00:29.42] ••• Cannon Fodder fires Bazooka
+[00:00:33.50] ••• Cannon Fodder ends turn; time used: 7.44 sec turn, 3.00 sec retreat
+[00:00:37.52] ••• 0xDEADC0DE starts turn
+[00:00:39.04] ••• 0xDEADC0DE fires Blow Torch
+[00:00:45.64] ••• 0xDEADC0DE ends turn; time used: 1.50 sec turn, 1.58 sec retreat
+[00:00:47.68] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE:    Turn: 00:00:16.58, Retreat: 00:00:01.58, Total: 00:00:18.16, Turn count: 2
+Cannon Fodder: Turn: 00:00:07.44, Retreat: 00:00:03.00, Total: 00:00:10.44, Turn count: 1
+Enemy:         Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Officers:      Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

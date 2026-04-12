@@ -1,0 +1,30 @@
+Game Started at 2005-09-30 02:52:21 GMT
+Game Engine Version: 3.6.25.1
+File Format Version: 3.6.20.1 - 3.6.26.3
+Exported with Version: 3.8.1 (Steam)
+
+Mission #15: Hot Stuff.
+
+Red:  "Lunchpack Gang"
+Blue: "Special Forces" [CPU 4.95]
+
+[00:00:02.54] ••• Lunchpack Gang starts turn
+[00:00:02.90] ••• Lunchpack Gang fires Homing Missile
+[00:00:09.50] ••• Lunchpack Gang ends turn; time used: 0.34 sec turn, 5.00 sec retreat
+[00:00:12.58] ••• Damage dealt: 27 to Special Forces
+[00:00:12.58] ••• Special Forces starts turn
+[00:00:18.08] ••• Special Forces fires Grenade (2 sec, min bounce)
+[00:00:23.42] ••• Special Forces ends turn; time used: 5.48 sec turn, 4.32 sec retreat
+[00:00:27.52] ••• Damage dealt: 41 to Lunchpack Gang
+[00:00:27.52] ••• Lunchpack Gang starts turn
+[00:00:28.36] ••• Lunchpack Gang fires Ninja Rope
+[00:00:29.10] ••• Lunchpack Gang fires Holy Hand-Grenade
+[00:00:34.12] ••• Lunchpack Gang ends turn; time used: 1.56 sec turn, 5.00 sec retreat
+[00:00:57.48] ••• Damage dealt: 48 (1 kill) to Lunchpack Gang, 873 (3 kills) to Special Forces
+[00:00:57.50] ••• Game Ends - Round Finished
+
+Team time totals:
+Lunchpack Gang: Turn: 00:00:01.90, Retreat: 00:00:10.00, Total: 00:00:11.90, Turn count: 2
+Special Forces: Turn: 00:00:05.48, Retreat: 00:00:04.32, Total: 00:00:09.80, Turn count: 1
+
+Mission Successful

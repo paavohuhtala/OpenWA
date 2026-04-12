@@ -1,0 +1,26 @@
+Game Started at 2006-12-16 19:22:35 GMT
+Game Engine Version: 3.6.26.5
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #16: Trouble on Mount Wormore.
+
+Red:  "ßäÐ Gùÿ$"
+Blue: "Guardsmen" [CPU 3.50]
+Blue: "Gunners"   [CPU 3.50]
+Blue: "Patrol"    [CPU 4.50]
+
+[00:00:10.38] ••• ßäÐ Gùÿ$ starts turn
+[00:00:11.48] ••• ßäÐ Gùÿ$ fires Ninja Rope
+[00:00:22.42] ••• ßäÐ Gùÿ$ fires Kamikaze
+[00:00:23.66] ••• ßäÐ Gùÿ$ loses turn due to loss of control; time used: 12.02 sec turn, 0.00 sec retreat
+[00:00:36.18] ••• Damage dealt: 80 (1 kill) to ßäÐ Gùÿ$, 150 (1 kill) to Patrol
+[00:00:36.20] ••• Game Ends - Round Finished
+
+Team time totals:
+ßäÐ Gùÿ$:  Turn: 00:00:12.02, Retreat: 00:00:00.00, Total: 00:00:12.02, Turn count: 1
+Guardsmen: Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Gunners:   Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Patrol:    Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

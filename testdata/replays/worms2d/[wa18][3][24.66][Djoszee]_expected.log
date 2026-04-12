@@ -1,0 +1,41 @@
+Game Started at 2005-09-25 13:29:36 GMT
+Game Engine Version: 3.6.25.1
+File Format Version: 3.6.20.1 - 3.6.26.3
+Exported with Version: 3.8.1 (Steam)
+
+Mission #18: Rescue Agent Dennis!
+
+Red:  "DJOSZEE"
+Blue: "Verzet"           [CPU 4.25]
+Blue: "Elite"            [CPU 4.25]
+Blue: "Speciale eenhede" [CPU 5.00]
+
+[00:00:05.74] ••• DJOSZEE starts turn
+[00:00:10.40] ••• DJOSZEE fires Dynamite
+[00:00:15.44] ••• DJOSZEE loses turn due to loss of control; time used: 4.64 sec turn, 4.86 sec retreat
+[00:00:27.00] ••• Damage dealt: 68 to DJOSZEE, 1 to Verzet, 300 (3 kills) to Speciale eenhede
+[00:00:27.00] ••• Verzet starts turn
+[00:00:33.68] ••• Verzet fires Bazooka
+[00:00:37.44] ••• Verzet ends turn; time used: 6.66 sec turn, 3.00 sec retreat
+[00:00:43.84] ••• DJOSZEE starts turn
+[00:00:45.62] ••• DJOSZEE fires Napalm Strike
+[00:00:49.10] ••• DJOSZEE ends turn; time used: 1.76 sec turn, 3.00 sec retreat
+[00:00:58.06] ••• Damage dealt: 56 to Speciale eenhede
+[00:00:58.06] ••• Elite starts turn
+[00:01:06.00] ••• Elite fires Bazooka
+[00:01:09.62] ••• Elite ends turn; time used: 7.92 sec turn, 3.00 sec retreat
+[00:01:22.44] ••• Damage dealt: 25 to DJOSZEE, 9 to Verzet
+[00:01:22.44] ••• DJOSZEE starts turn
+[00:01:23.44] ••• DJOSZEE fires Ninja Rope
+[00:01:40.72] ••• DJOSZEE fires Banana Bomb (3 sec)
+[00:01:48.36] ••• DJOSZEE ends turn; time used: 18.26 sec turn, 3.00 sec retreat
+[00:02:04.84] ••• Damage dealt: 90 (1 kill) to Verzet, 100 (1 kill) to Elite, 244 (3 kills) to Speciale eenhede
+[00:02:04.86] ••• Game Ends - Round Finished
+
+Team time totals:
+DJOSZEE:          Turn: 00:00:24.66, Retreat: 00:00:10.86, Total: 00:00:35.52, Turn count: 3
+Verzet:           Turn: 00:00:06.66, Retreat: 00:00:03.00, Total: 00:00:09.66, Turn count: 1
+Elite:            Turn: 00:00:07.92, Retreat: 00:00:03.00, Total: 00:00:10.92, Turn count: 1
+Speciale eenhede: Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

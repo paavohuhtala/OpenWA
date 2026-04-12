@@ -1,0 +1,39 @@
+Game Started at 2004-05-03 06:47:06 GMT
+Game Engine Version: 3.6.19.18-19
+File Format Version: 3.6.19.17 - 3.6.19.19
+Exported with Version: 3.8.1 (Steam)
+
+Mission #28: Stolen Goods.
+
+Red:  "1"
+Blue: "Platoon" [CPU 4.95]
+
+[00:00:02.88] ••• 1 starts turn
+[00:00:06.04] ••• 1 fires Ninja Rope
+[00:00:14.46] ••• 1 fires Ninja Rope
+[00:00:20.32] ••• 1 fires Ninja Rope
+[00:00:32.10] ••• 1 fires Blow Torch
+[00:00:37.64] ••• 1 ends turn; time used: 29.20 sec turn, 3.00 sec retreat
+[00:00:41.66] ••• Platoon starts turn
+[00:00:56.10] ••• Platoon fires Cluster Bomb (2 sec, min bounce)
+[00:01:02.92] ••• Platoon ends turn; time used: 14.42 sec turn, 3.00 sec retreat
+[00:01:10.44] ••• Damage dealt: 30 (1 kill) to 1
+[00:01:10.44] ••• 1 starts turn
+[00:01:14.36] ••• 1 fires French Sheep Strike
+[00:01:18.04] ••• 1 ends turn; time used: 3.90 sec turn, 3.00 sec retreat
+[00:01:45.40] ••• Damage dealt: 24 to 1, 322 (3 kills) to Platoon
+[00:01:45.40] ••• Platoon starts turn
+[00:01:56.78] ••• Platoon fires Cluster Bomb (3 sec, min bounce)
+[00:02:02.06] ••• Platoon ends turn; time used: 11.36 sec turn, 3.00 sec retreat
+[00:02:06.08] ••• 1 starts turn
+[00:02:11.00] ••• 1 fires Ninja Rope
+[00:02:23.90] ••• 1 fires Shotgun
+[00:02:26.58] ••• 1 ends turn; time used: 17.62 sec turn, 0.00 sec retreat
+[00:02:37.80] ••• Damage dealt: 18 (1 kill) to Platoon
+[00:02:37.82] ••• Game Ends - Round Finished
+
+Team time totals:
+1:       Turn: 00:00:50.72, Retreat: 00:00:06.00, Total: 00:00:56.72, Turn count: 3
+Platoon: Turn: 00:00:25.78, Retreat: 00:00:06.00, Total: 00:00:31.78, Turn count: 2
+
+Mission Successful

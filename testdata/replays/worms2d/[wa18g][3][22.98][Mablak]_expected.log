@@ -1,0 +1,42 @@
+Game Started at 2021-06-20 06:59:26 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #18: Rescue Agent Dennis!
+
+Red:  "Ro Bad"
+Blue: "Resistance"     [CPU 4.25]
+Blue: "Elite"          [CPU 4.25]
+Blue: "Special Forces" [CPU 5.00]
+
+[00:00:05.36] ••• Ro Bad starts turn
+[00:00:10.50] ••• Ro Bad fires Homing Missile
+[00:00:15.10] ••• Ro Bad ends turn; time used: 5.12 sec turn, 3.00 sec retreat
+[00:00:23.44] ••• Damage dealt: 4 to Resistance, 147 (1 kill) to Special Forces
+[00:00:23.44] ••• Resistance starts turn
+[00:00:39.10] ••• Resistance fires Bazooka
+[00:00:43.38] ••• Resistance ends turn; time used: 15.64 sec turn, 3.00 sec retreat
+[00:00:49.84] ••• Ro Bad starts turn
+[00:00:51.94] ••• Ro Bad fires Ninja Rope
+[00:00:58.92] ••• Ro Bad fires Longbow
+[00:01:08.86] ••• Ro Bad fires Longbow
+[00:01:11.94] ••• Ro Bad ends turn; time used: 10.66 sec turn, 3.00 sec retreat
+[00:01:17.94] ••• Damage dealt: 300 (3 kills) to Special Forces
+[00:01:17.94] ••• Elite starts turn
+[00:01:26.46] ••• Elite fires Grenade (3 sec, min bounce)
+[00:01:30.96] ••• Elite ends turn; time used: 8.50 sec turn, 3.00 sec retreat
+[00:01:37.72] ••• Damage dealt: 25 to Ro Bad
+[00:01:37.72] ••• Ro Bad starts turn
+[00:01:44.94] ••• Ro Bad fires Banana Bomb (5 sec)
+[00:01:48.20] ••• Ro Bad loses turn due to loss of control; time used: 7.20 sec turn, 1.56 sec retreat
+[00:02:08.08] ••• Damage dealt: 190 (1 kill) to Ro Bad, 96 (1 kill) to Resistance, 100 (1 kill) to Elite, 153 (2 kills) to Special Forces
+[00:02:08.10] ••• Game Ends - Round Finished
+
+Team time totals:
+Ro Bad:         Turn: 00:00:22.98, Retreat: 00:00:07.56, Total: 00:00:30.54, Turn count: 3
+Resistance:     Turn: 00:00:15.64, Retreat: 00:00:03.00, Total: 00:00:18.64, Turn count: 1
+Elite:          Turn: 00:00:08.50, Retreat: 00:00:03.00, Total: 00:00:11.50, Turn count: 1
+Special Forces: Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

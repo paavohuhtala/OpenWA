@@ -1,0 +1,23 @@
+Game Started at 2004-04-19 14:26:16 GMT
+Game Engine Version: 3.6.19.18-19
+File Format Version: 3.6.19.17 - 3.6.19.19
+Exported with Version: 3.8.1 (Steam)
+
+Mission #25: Mars Star.
+
+Red:  "0xDEADC0DE"
+Blue: "Enemy" [CPU 1.75]
+
+[00:00:11.00] ••• 0xDEADC0DE starts turn
+[00:00:12.80] ••• 0xDEADC0DE fires Petrol Bomb
+[00:00:14.74] ••• 0xDEADC0DE fires Petrol Bomb
+[00:00:16.94] ••• 0xDEADC0DE fires Grenade (1 sec, min bounce)
+[00:00:18.06] ••• 0xDEADC0DE loses turn due to loss of control; time used: 7.06 sec turn, 0.00 sec retreat
+[00:00:36.98] ••• Damage dealt: 30 (1 kill) to 0xDEADC0DE
+[00:00:37.00] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE: Turn: 00:00:07.06, Retreat: 00:00:00.00, Total: 00:00:07.06, Turn count: 1
+Enemy:      Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

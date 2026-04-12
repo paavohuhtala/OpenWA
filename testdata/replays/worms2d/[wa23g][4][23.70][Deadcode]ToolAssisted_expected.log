@@ -1,0 +1,57 @@
+Game Started at 2021-11-10 18:06:05 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #23: The Drop Zone.
+
+Red:  "0xDEADC0DE"
+Blue: "Gunners" [CPU 3.50]
+
+[00:00:03.32] ••• 0xDEADC0DE starts turn
+[00:00:03.34] ••• 0xDEADC0DE fires Girder
+[00:00:04.82] ••• 0xDEADC0DE loses turn due to loss of control; time used: 0.00 sec turn, 1.40 sec retreat
+[00:00:12.58] ••• Damage dealt: 10 to 0xDEADC0DE, 100 (1 kill) to Gunners
+[00:00:12.58] ••• Gunners starts turn
+[00:00:24.88] ••• Gunners fires Bazooka
+[00:00:29.04] ••• Gunners ends turn; time used: 12.28 sec turn, 3.00 sec retreat
+[00:00:35.00] ••• Damage dealt: 90 (1 kill) to 0xDEADC0DE
+[00:00:35.00] ••• 0xDEADC0DE starts turn
+[00:00:35.74] ••• 0xDEADC0DE fires Parachute
+[00:00:41.24] ••• 0xDEADC0DE uses Parachute
+[00:00:41.36] ••• 0xDEADC0DE uses Parachute
+[00:00:41.50] ••• 0xDEADC0DE uses Parachute
+[00:00:41.64] ••• 0xDEADC0DE uses Parachute
+[00:00:41.76] ••• 0xDEADC0DE uses Parachute
+[00:00:41.80] ••• 0xDEADC0DE fires Parachute
+[00:00:42.82] ••• 0xDEADC0DE fires Fire Punch
+[00:00:47.62] ••• 0xDEADC0DE ends turn; time used: 7.80 sec turn, 3.00 sec retreat
+[00:01:01.28] ••• Damage dealt: 100 (1 kill) to 0xDEADC0DE, 300 (3 kills) to Gunners
+[00:01:01.28] ••• Gunners starts turn
+[00:01:07.98] ••• Gunners fires Bazooka
+[00:01:12.22] ••• Gunners ends turn; time used: 6.68 sec turn, 3.00 sec retreat
+[00:01:15.20] ••• Damage dealt: 51 to 0xDEADC0DE
+[00:01:15.20] ••• 0xDEADC0DE starts turn
+[00:01:15.92] ••• 0xDEADC0DE fires Parachute
+[00:01:16.62] ••• 0xDEADC0DE fires Parachute
+[00:01:17.28] ••• 0xDEADC0DE fires Parachute
+[00:01:28.98] ••• 0xDEADC0DE fires Girder
+[00:01:31.44] ••• 0xDEADC0DE loses turn due to loss of control; time used: 13.76 sec turn, 2.44 sec retreat
+[00:01:40.22] ••• Damage dealt: 41 to 0xDEADC0DE, 100 (1 kill) to Gunners
+[00:01:40.22] ••• Gunners starts turn
+[00:01:45.22] ••• Gunners fires Bazooka
+[00:01:50.94] ••• Gunners ends turn; time used: 4.98 sec turn, 3.00 sec retreat
+[00:01:54.96] ••• 0xDEADC0DE starts turn
+[00:01:55.70] ••• 0xDEADC0DE fires Parachute
+[00:01:56.42] ••• 0xDEADC0DE fires Parachute
+[00:01:57.10] ••• 0xDEADC0DE fires Parachute
+[00:01:57.12] ••• 0xDEADC0DE fires Suicide Bomber
+[00:01:58.48] ••• 0xDEADC0DE loses turn due to loss of control; time used: 2.14 sec turn, 0.00 sec retreat
+[00:02:07.86] ••• Damage dealt: 13 (1 kill) to 0xDEADC0DE, 100 (1 kill) to Gunners
+[00:02:07.88] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE: Turn: 00:00:23.70, Retreat: 00:00:06.84, Total: 00:00:30.54, Turn count: 4
+Gunners:    Turn: 00:00:23.94, Retreat: 00:00:09.00, Total: 00:00:32.94, Turn count: 3
+
+Mission Successful

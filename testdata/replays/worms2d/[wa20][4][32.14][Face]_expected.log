@@ -1,0 +1,47 @@
+Game Started at 2006-02-18 12:39:42 GMT
+Game Engine Version: 3.6.26.5
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #20: Rumble in the Farmyard.
+
+Red:  "PTeam"
+Blue: "Enemy" [CPU 3.00]
+
+[00:00:01.62] ••• Sudden Death
+[00:00:01.64] ••• Sudden Death
+[00:00:13.82] ••• PTeam starts turn
+[00:00:13.84] ••• PTeam fires Bazooka
+[00:00:18.44] ••• PTeam ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:00:25.62] ••• Damage dealt: 47 to Enemy
+[00:00:25.62] ••• Enemy starts turn
+[00:00:29.72] ••• Enemy fires Bazooka
+[00:00:34.02] ••• Enemy ends turn; time used: 4.08 sec turn, 3.00 sec retreat
+[00:00:39.30] ••• PTeam starts turn
+[00:00:40.46] ••• PTeam fires Ninja Rope
+[00:00:58.42] ••• PTeam fires Dynamite
+[00:01:03.42] ••• PTeam loses turn due to loss of control; time used: 19.10 sec turn, 4.98 sec retreat
+[00:01:11.26] ••• Damage dealt: 42 to PTeam, 31 to Enemy
+[00:01:11.26] ••• Enemy starts turn
+[00:01:15.74] ••• Enemy fires Air Strike
+[00:01:18.26] ••• Enemy loses turn due to loss of control; time used: 4.46 sec turn, 1.84 sec retreat
+[00:01:23.80] ••• Damage dealt: 31 to PTeam, 6 to Enemy
+[00:01:23.80] ••• PTeam starts turn
+[00:01:32.34] ••• PTeam fires Grenade (5 sec, min bounce)
+[00:01:37.48] ••• PTeam loses turn due to loss of control; time used: 8.52 sec turn, 3.00 sec retreat
+[00:01:44.54] ••• Damage dealt: 34 to PTeam, 42 to Enemy
+[00:01:44.54] ••• Enemy starts turn
+[00:01:49.70] ••• Enemy fires Uzi
+[00:01:52.60] ••• Enemy ends turn; time used: 5.14 sec turn, 1.68 sec retreat
+[00:02:07.28] ••• Damage dealt: 51 (2 kills) to Enemy
+[00:02:07.28] ••• PTeam starts turn
+[00:02:11.82] ••• PTeam fires Cluster Bomb (5 sec, min bounce)
+[00:02:16.92] ••• PTeam loses turn due to loss of control; time used: 4.52 sec turn, 3.00 sec retreat
+[00:02:38.92] ••• Damage dealt: 27 (1 kill) to PTeam, 118 (2 kills) to Enemy
+[00:02:38.94] ••• Game Ends - Round Finished
+
+Team time totals:
+PTeam: Turn: 00:00:32.14, Retreat: 00:00:13.98, Total: 00:00:46.12, Turn count: 4
+Enemy: Turn: 00:00:13.68, Retreat: 00:00:06.52, Total: 00:00:20.20, Turn count: 3
+
+Mission Successful

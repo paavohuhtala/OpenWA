@@ -1,0 +1,25 @@
+Game Started at 2021-11-16 05:50:02 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #22: Go Bananas!
+
+Red:  "0xDEADC0DE"
+Blue: "Cannon Fodder" [CPU 3.00]
+Blue: "Enemy"         [CPU 3.00]
+Blue: "Officers"      [CPU 3.00]
+
+[00:00:02.86] ••• 0xDEADC0DE starts turn
+[00:00:07.06] ••• 0xDEADC0DE uses Bungee
+[00:00:23.64] ••• 0xDEADC0DE fires Blow Torch
+[00:00:30.24] ••• 0xDEADC0DE ends turn; time used: 20.76 sec turn, 1.58 sec retreat
+[00:00:32.28] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE:    Turn: 00:00:20.76, Retreat: 00:00:01.58, Total: 00:00:22.34, Turn count: 1
+Cannon Fodder: Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Enemy:         Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Officers:      Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

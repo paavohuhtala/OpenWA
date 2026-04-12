@@ -1,0 +1,32 @@
+Game Started at 2006-12-09 14:00:07 GMT
+Game Engine Version: 3.6.26.5
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #9: Water Surprise.
+
+Red:  "+LosT in SH+"
+Blue: "Officers" [CPU 4.75]
+
+[00:00:03.88] ••• +LosT in SH+ starts turn
+[00:00:08.64] ••• +LosT in SH+ fires Longbow
+[00:00:15.60] ••• +LosT in SH+ fires Longbow
+[00:00:19.68] ••• +LosT in SH+ ends turn; time used: 7.64 sec turn, 4.00 sec retreat
+[00:00:28.28] ••• Officers starts turn
+[00:00:31.46] ••• Officers ends turn; time used: 3.16 sec turn, 0.00 sec retreat
+[00:00:38.88] ••• +LosT in SH+ starts turn
+[00:00:47.60] ••• +LosT in SH+ fires Girder
+[00:00:51.68] ••• +LosT in SH+ ends turn; time used: 8.70 sec turn, 4.00 sec retreat
+[00:00:53.70] ••• Officers starts turn
+[00:00:56.88] ••• Officers ends turn; time used: 3.16 sec turn, 0.00 sec retreat
+[00:01:05.34] ••• +LosT in SH+ starts turn
+[00:01:29.38] ••• +LosT in SH+ fires Aqua Sheep
+[00:01:33.40] ••• +LosT in SH+ ends turn; time used: 24.02 sec turn, 4.00 sec retreat
+[00:01:40.64] ••• Damage dealt: 2 to +LosT in SH+, 50 (1 kill) to Officers
+[00:01:40.66] ••• Game Ends - Round Finished
+
+Team time totals:
++LosT in SH+: Turn: 00:00:40.36, Retreat: 00:00:12.00, Total: 00:00:52.36, Turn count: 3
+Officers:     Turn: 00:00:06.32, Retreat: 00:00:00.00, Total: 00:00:06.32, Turn count: 2
+
+Mission Successful

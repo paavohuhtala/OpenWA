@@ -1,0 +1,40 @@
+Game Started at 2016-09-20 00:32:49 GMT
+Game Engine Version: 3.7.2.1-3
+File Format Version: 3.7.3.0 - 3.8.1 (originally 3.6.29.48 - 3.7.2.97)
+Exported with Version: 3.8.1 (Steam)
+
+Mission #13: Who left the flood-gates open?
+
+Red:  "0xDEADC0DE"
+Blue: "Guardsmen" [CPU 4.50]
+Blue: "Patrol"    [CPU 4.50]
+
+[00:00:01.64] ••• Sudden Death
+[00:00:04.24] ••• 0xDEADC0DE starts turn
+[00:00:04.26] ••• 0xDEADC0DE fires Select Worm
+[00:00:07.84] ••• 0xDEADC0DE fires Grenade (4 sec, max bounce)
+[00:00:14.54] ••• 0xDEADC0DE ends turn; time used: 3.52 sec turn, 5.00 sec retreat
+[00:00:30.26] ••• Damage dealt: 40 to 0xDEADC0DE, 40 to Guardsmen, 15 to Patrol
+[00:00:30.26] ••• Guardsmen starts turn
+[00:00:38.30] ••• Guardsmen fires Bazooka
+[00:00:44.14] ••• Guardsmen ends turn; time used: 8.02 sec turn, 4.96 sec retreat
+[00:00:53.10] ••• Damage dealt: 9 to 0xDEADC0DE
+[00:00:53.10] ••• 0xDEADC0DE starts turn
+[00:00:53.14] ••• 0xDEADC0DE fires Homing Missile
+[00:00:59.00] ••• 0xDEADC0DE loses turn due to loss of control; time used: 0.02 sec turn, 4.84 sec retreat
+[00:01:15.10] ••• Damage dealt: 18 to 0xDEADC0DE, 58 to Patrol
+[00:01:15.10] ••• Patrol starts turn
+[00:01:20.16] ••• Patrol fires Teleport
+[00:01:22.66] ••• Patrol ends turn; time used: 5.04 sec turn, 0.02 sec retreat
+[00:01:30.02] ••• 0xDEADC0DE starts turn
+[00:01:30.04] ••• 0xDEADC0DE fires Bazooka
+[00:01:35.76] ••• 0xDEADC0DE ends turn; time used: 0.00 sec turn, 5.00 sec retreat
+[00:01:49.84] ••• Damage dealt: 6 to Patrol
+[00:01:49.86] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE: Turn: 00:00:03.54, Retreat: 00:00:14.84, Total: 00:00:18.38, Turn count: 3
+Guardsmen:  Turn: 00:00:08.02, Retreat: 00:00:04.96, Total: 00:00:12.98, Turn count: 1
+Patrol:     Turn: 00:00:05.04, Retreat: 00:00:00.02, Total: 00:00:05.06, Turn count: 1
+
+Mission Successful

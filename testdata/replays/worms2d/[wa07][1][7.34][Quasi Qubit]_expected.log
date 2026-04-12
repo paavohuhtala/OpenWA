@@ -1,0 +1,32 @@
+Game Started at 2004-04-19 03:24:23 GMT
+Game Engine Version: 3.6.19.18-19
+File Format Version: 3.6.19.17 - 3.6.19.19
+Exported with Version: 3.8.1 (Steam)
+
+Mission #7: Not Mushroom out there...
+
+Red:  "2"
+Blue: "Guardsmen" [CPU 2.50]
+Blue: "Patrol"    [CPU 0.05]
+Blue: "Enemy"     [CPU 2.50]
+
+[00:00:02.56] ••• 2 starts turn
+[00:00:04.04] ••• 2 fires Ninja Rope
+[00:00:08.36] ••• 2 fires Girder Starter-Pack
+[00:00:09.28] ••• 2 fires Girder Starter-Pack
+[00:00:09.52] ••• 2 fires Girder Starter-Pack
+[00:00:09.78] ••• 2 fires Girder Starter-Pack
+[00:00:10.16] ••• 2 fires Girder Starter-Pack
+[00:00:15.18] ••• 2 ends turn; time used: 7.34 sec turn, 5.00 sec retreat
+[00:00:22.58] ••• Damage dealt: 13 to 2
+[00:00:22.58] ••• Guardsmen starts turn
+[00:00:22.60] ••• Guardsmen ends turn; time used: 0.02 sec turn, 0.00 sec retreat
+[00:00:24.64] ••• Game Ends - Round Finished
+
+Team time totals:
+2:         Turn: 00:00:07.34, Retreat: 00:00:05.00, Total: 00:00:12.34, Turn count: 1
+Guardsmen: Turn: 00:00:00.02, Retreat: 00:00:00.00, Total: 00:00:00.02, Turn count: 1
+Patrol:    Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Enemy:     Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

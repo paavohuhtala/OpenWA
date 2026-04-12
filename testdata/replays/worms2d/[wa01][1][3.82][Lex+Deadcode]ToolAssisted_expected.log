@@ -1,0 +1,26 @@
+Game Started at 2006-12-20 19:02:28 GMT
+Game Engine Version: 3.6.26.5
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #1: Pumpkin Problems.
+
+Red:  "Lunchpack Gang"
+Blue: "Patrol"  [CPU 4.00]
+Blue: "Gunners" [CPU 3.00]
+
+[00:00:02.42] ••• Lunchpack Gang starts turn
+[00:00:02.46] ••• Lunchpack Gang fires Ninja Rope
+[00:00:04.30] ••• Lunchpack Gang fires Ninja Rope
+[00:00:06.78] ••• Lunchpack Gang fires Girder
+[00:00:09.80] ••• Lunchpack Gang ends turn; time used: 3.82 sec turn, 3.00 sec retreat
+[00:00:11.30] ••• Patrol starts turn
+[00:00:11.32] ••• Patrol ends turn; time used: 0.02 sec turn, 0.00 sec retreat
+[00:00:13.60] ••• Game Ends - Round Finished
+
+Team time totals:
+Lunchpack Gang: Turn: 00:00:03.82, Retreat: 00:00:03.00, Total: 00:00:06.82, Turn count: 1
+Patrol:         Turn: 00:00:00.02, Retreat: 00:00:00.00, Total: 00:00:00.02, Turn count: 1
+Gunners:        Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

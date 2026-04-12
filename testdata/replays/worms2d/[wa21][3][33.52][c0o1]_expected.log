@@ -1,0 +1,45 @@
+Game Started at 2004-04-13 06:25:05 GMT
+Game Engine Version: 3.6.19.18-19
+File Format Version: 3.6.19.17 - 3.6.19.19
+Exported with Version: 3.8.1 (Steam)
+
+Mission #21: Wooden Ambush!
+
+Red:  "c0o1 ~~>"
+Blue: "Elite" [CPU 4.75]
+
+[00:00:01.60] ••• c0o1 ~~> starts turn
+[00:00:02.32] ••• c0o1 ~~> fires Jet Pack
+[00:00:08.20] ••• c0o1 ~~> used 17 units of Jet Pack fuel
+[00:00:09.08] ••• c0o1 ~~> fires Jet Pack
+[00:00:18.52] ••• c0o1 ~~> used 24 units of Jet Pack fuel
+[00:00:19.44] ••• c0o1 ~~> fires Jet Pack
+[00:00:23.18] ••• c0o1 ~~> fires Dynamite
+[00:00:24.90] ••• c0o1 ~~> used 30 (18) units of Jet Pack fuel
+[00:00:28.20] ••• c0o1 ~~> ends turn; time used: 20.30 sec turn, 5.00 sec retreat
+[00:00:35.48] ••• Damage dealt: 220 (2 kills) to Elite
+[00:00:35.48] ••• Elite starts turn
+[00:00:48.92] ••• Elite fires Bazooka
+[00:00:53.50] ••• Elite ends turn; time used: 13.42 sec turn, 3.00 sec retreat
+[00:00:57.52] ••• c0o1 ~~> starts turn
+[00:00:58.18] ••• c0o1 ~~> fires Ninja Rope
+[00:01:08.90] ••• c0o1 ~~> fires Sheep
+[00:01:13.46] ••• c0o1 ~~> ends turn; time used: 11.16 sec turn, 3.00 sec retreat
+[00:01:19.10] ••• Damage dealt: 141 to Elite
+[00:01:19.10] ••• Elite starts turn
+[00:01:27.44] ••• Elite fires Bazooka
+[00:01:31.50] ••• Elite ends turn; time used: 8.32 sec turn, 3.00 sec retreat
+[00:01:35.60] ••• Damage dealt: 31 to c0o1 ~~>
+[00:01:35.60] ••• c0o1 ~~> starts turn
+[00:01:37.68] ••• c0o1 ~~> fires Grenade (3 sec, min bounce)
+[00:01:41.10] ••• c0o1 ~~> ends turn; time used: 2.06 sec turn, 3.00 sec retreat
+[00:01:49.90] ••• Damage dealt: 79 (2 kills) to Elite
+[00:01:49.92] ••• Game Ends - Round Finished
+
+Team time totals:
+c0o1 ~~>: Turn: 00:00:33.52, Retreat: 00:00:11.00, Total: 00:00:44.52, Turn count: 3
+Elite:    Turn: 00:00:21.74, Retreat: 00:00:06.00, Total: 00:00:27.74, Turn count: 2
+
+Total Jet Pack fuel used: 71
+
+Mission Successful

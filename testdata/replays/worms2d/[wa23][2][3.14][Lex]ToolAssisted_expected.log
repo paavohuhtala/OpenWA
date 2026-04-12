@@ -1,0 +1,37 @@
+Game Started at 2007-05-29 08:20:17 GMT
+Game Engine Version: 3.6.27.3h-i
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #23: The Drop Zone.
+
+Red:  "Lunchpack Gang"
+Blue: "Gunners" [CPU 3.50]
+
+[00:00:03.36] ••• Lunchpack Gang starts turn
+[00:00:04.62] ••• Lunchpack Gang fires Parachute
+[00:00:06.48] ••• Lunchpack Gang fires Parachute
+[00:00:06.50] ••• Lunchpack Gang fires Shotgun
+[00:00:12.22] ••• Lunchpack Gang fires Shotgun
+[00:00:14.98] ••• Lunchpack Gang loses turn due to loss of control; time used: 3.12 sec turn, 1.60 sec retreat
+[00:00:22.28] ••• Damage dealt: 100 (1 kill) to Lunchpack Gang, 300 (3 kills) to Gunners
+[00:00:22.28] ••• Gunners starts turn
+[00:00:30.94] ••• Gunners fires Bazooka
+[00:00:35.12] ••• Gunners ends turn; time used: 8.64 sec turn, 3.00 sec retreat
+[00:00:43.40] ••• Damage dealt: 294 (2 kills) to Lunchpack Gang
+[00:00:43.40] ••• Lunchpack Gang starts turn
+[00:00:43.44] ••• Lunchpack Gang fires Shotgun
+[00:00:49.48] ••• Lunchpack Gang fires Shotgun
+[00:00:53.64] ••• Lunchpack Gang ends turn; time used: 0.02 sec turn, 3.00 sec retreat
+[00:00:58.52] ••• Damage dealt: 200 (2 kills) to Gunners
+[00:00:58.52] ••• Gunners starts turn
+[00:01:02.56] ••• Gunners fires Bazooka
+[00:01:05.96] ••• Gunners ends turn; time used: 4.02 sec turn, 1.82 sec retreat
+[00:01:18.70] ••• Damage dealt: 100 (1 kill) to Lunchpack Gang, 100 (1 kill) to Gunners
+[00:01:18.72] ••• Game Ends - Round Finished
+
+Team time totals:
+Lunchpack Gang: Turn: 00:00:03.14, Retreat: 00:00:04.60, Total: 00:00:07.74, Turn count: 2
+Gunners:        Turn: 00:00:12.66, Retreat: 00:00:04.82, Total: 00:00:17.48, Turn count: 2
+
+Mission Successful

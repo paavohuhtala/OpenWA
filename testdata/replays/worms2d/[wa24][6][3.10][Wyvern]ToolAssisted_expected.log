@@ -1,0 +1,63 @@
+Game Started at 2006-12-15 00:33:47 GMT
+Game Engine Version: 3.6.26.5
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #24: Countdown to Armageddon!
+
+Red:  "Don't be stupid!"
+Red:  "Cannon Fodder"
+Blue: "Patrol" [CPU 2.25]
+
+[00:00:02.84] ••• Don't be stupid! starts turn
+[00:00:02.90] ••• Don't be stupid! fires Grenade (1 sec, min bounce)
+[00:00:07.22] ••• Don't be stupid! ends turn; time used: 0.04 sec turn, 3.00 sec retreat
+[00:00:11.20] ••• Damage dealt: 36 to Patrol
+[00:00:11.20] ••• Patrol starts turn
+[00:00:16.68] ••• Patrol fires Grenade (1 sec, min bounce)
+[00:00:20.08] ••• Patrol ends turn; time used: 5.46 sec turn, 3.00 sec retreat
+[00:00:24.18] ••• Damage dealt: 24 to Don't be stupid!
+[00:00:24.18] ••• Don't be stupid! starts turn
+[00:00:24.24] ••• Don't be stupid! fires Grenade (2 sec, min bounce)
+[00:00:28.40] ••• Don't be stupid! ends turn; time used: 0.04 sec turn, 3.00 sec retreat
+[00:00:35.66] ••• Damage dealt: 140 (2 kills) to Patrol
+[00:00:35.66] ••• Patrol starts turn
+[00:00:45.50] ••• Patrol fires Bazooka
+[00:00:49.04] ••• Patrol ends turn; time used: 9.82 sec turn, 3.00 sec retreat
+[00:00:53.14] ••• Damage dealt: 45 to Don't be stupid!
+[00:00:53.14] ••• Don't be stupid! starts turn
+[00:00:53.18] ••• Don't be stupid! fires Cluster Bomb (3 sec, min bounce)
+[00:00:56.24] ••• Don't be stupid! loses turn due to loss of control; time used: 0.02 sec turn, 2.86 sec retreat
+[00:01:16.48] ••• Damage dealt: 55 (1 kill) to Don't be stupid!, 134 (2 kills) to Patrol
+[00:01:16.48] ••• Patrol starts turn
+[00:01:20.08] ••• Patrol fires Bazooka
+[00:01:24.18] ••• Patrol ends turn; time used: 3.58 sec turn, 3.00 sec retreat
+[00:01:26.90] ••• Damage dealt: 20 to Don't be stupid!
+[00:01:26.90] ••• Don't be stupid! starts turn
+[00:01:27.04] ••• Don't be stupid! fires Ninja Rope
+[00:01:29.96] ••• Don't be stupid! fires Baseball Bat
+[00:01:33.54] ••• Don't be stupid! ends turn; time used: 2.92 sec turn, 3.00 sec retreat
+[00:01:36.02] ••• Damage dealt: 35 to Patrol
+[00:01:36.02] ••• Patrol starts turn
+[00:01:40.36] ••• Patrol fires Bazooka
+[00:01:44.34] ••• Patrol ends turn; time used: 4.32 sec turn, 3.00 sec retreat
+[00:01:47.88] ••• Damage dealt: 35 to Don't be stupid!
+[00:01:47.88] ••• Don't be stupid! starts turn
+[00:01:47.92] ••• Don't be stupid! fires Cluster Bomb (2 sec, min bounce)
+[00:01:49.98] ••• Don't be stupid! loses turn due to loss of control; time used: 0.02 sec turn, 1.86 sec retreat
+[00:02:14.64] ••• Damage dealt: 100 (1 kill) to Don't be stupid!, 200 (3 kills) to Patrol
+[00:02:14.64] ••• Patrol starts turn
+[00:02:29.12] ••• Patrol fires Grenade (4 sec, min bounce)
+[00:02:34.60] ••• Patrol ends turn; time used: 14.46 sec turn, 3.00 sec retreat
+[00:02:38.64] ••• Don't be stupid! starts turn
+[00:02:38.72] ••• Don't be stupid! fires Grenade (3 sec, min bounce)
+[00:02:43.14] ••• Don't be stupid! ends turn; time used: 0.06 sec turn, 3.00 sec retreat
+[00:02:50.72] ••• Damage dealt: 85 (1 kill) to Patrol
+[00:02:50.74] ••• Game Ends - Round Finished
+
+Team time totals:
+Don't be stupid!: Turn: 00:00:03.10, Retreat: 00:00:16.72, Total: 00:00:19.82, Turn count: 6
+Cannon Fodder:    Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Patrol:           Turn: 00:00:37.64, Retreat: 00:00:15.00, Total: 00:00:52.64, Turn count: 5
+
+Mission Successful

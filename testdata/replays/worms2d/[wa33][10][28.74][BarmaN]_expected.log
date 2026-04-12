@@ -1,0 +1,81 @@
+Game Started at 2005-09-28 15:23:42 GMT
+Game Engine Version: 3.6.25.1
+File Format Version: 3.6.20.1 - 3.6.26.3
+Exported with Version: 3.8.1 (Steam)
+
+Mission #33: Spectral recovery?
+
+Red:  "b+Ar[m]aN ^Te.Am"
+Blue: "Enemy"    [CPU 4.25]
+Blue: "Officers" [CPU 4.50]
+
+[00:00:05.86] ••• b+Ar[m]aN ^Te.Am starts turn
+[00:00:06.96] ••• b+Ar[m]aN ^Te.Am fires Blow Torch
+[00:00:15.00] ••• b+Ar[m]aN ^Te.Am ends turn; time used: 1.08 sec turn, 3.00 sec retreat
+[00:00:19.02] ••• Enemy starts turn
+[00:00:33.26] ••• Enemy fires Grenade (1 sec, min bounce)
+[00:00:36.88] ••• Enemy ends turn; time used: 14.22 sec turn, 3.00 sec retreat
+[00:00:41.00] ••• Damage dealt: 42 to b+Ar[m]aN ^Te.Am
+[00:00:41.00] ••• b+Ar[m]aN ^Te.Am starts turn
+[00:00:41.84] ••• b+Ar[m]aN ^Te.Am fires Grenade (3 sec, min bounce)
+[00:00:44.94] ••• b+Ar[m]aN ^Te.Am loses turn due to loss of control; time used: 0.82 sec turn, 2.86 sec retreat
+[00:00:58.42] ••• Damage dealt: 58 (1 kill) to b+Ar[m]aN ^Te.Am
+[00:00:58.42] ••• Officers starts turn
+[00:01:19.94] ••• Officers fires Shotgun
+[00:01:24.30] ••• Officers fires Shotgun
+[00:01:28.48] ••• Officers ends turn; time used: 23.74 sec turn, 3.00 sec retreat
+[00:01:32.50] ••• b+Ar[m]aN ^Te.Am starts turn
+[00:01:38.06] ••• b+Ar[m]aN ^Te.Am fires Blow Torch
+[00:01:46.10] ••• b+Ar[m]aN ^Te.Am ends turn; time used: 5.54 sec turn, 3.00 sec retreat
+[00:01:50.14] ••• Enemy starts turn
+[00:02:00.72] ••• Enemy fires Grenade (4 sec, min bounce)
+[00:02:06.22] ••• Enemy ends turn; time used: 10.56 sec turn, 3.00 sec retreat
+[00:02:10.26] ••• b+Ar[m]aN ^Te.Am starts turn
+[00:02:10.28] ••• b+Ar[m]aN ^Te.Am fires Shotgun
+[00:02:12.38] ••• b+Ar[m]aN ^Te.Am fires Shotgun
+[00:02:16.54] ••• b+Ar[m]aN ^Te.Am ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:02:19.74] ••• Officers starts turn
+[00:02:36.48] ••• Officers fires Uzi
+[00:02:40.70] ••• Officers ends turn; time used: 16.72 sec turn, 3.00 sec retreat
+[00:02:44.72] ••• b+Ar[m]aN ^Te.Am starts turn
+[00:03:02.36] ••• b+Ar[m]aN ^Te.Am fires Blow Torch
+[00:03:10.40] ••• b+Ar[m]aN ^Te.Am ends turn; time used: 17.62 sec turn, 3.00 sec retreat
+[00:03:14.44] ••• Enemy starts turn
+[00:03:29.84] ••• Enemy fires Grenade (4 sec, min bounce)
+[00:03:35.34] ••• Enemy ends turn; time used: 15.38 sec turn, 3.00 sec retreat
+[00:03:39.36] ••• b+Ar[m]aN ^Te.Am starts turn
+[00:03:39.38] ••• b+Ar[m]aN ^Te.Am fires Blow Torch
+[00:03:46.70] ••• b+Ar[m]aN ^Te.Am ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:03:50.74] ••• Officers starts turn
+[00:03:54.80] ••• Officers fires Air Strike
+[00:03:58.48] ••• Officers ends turn; time used: 4.04 sec turn, 3.00 sec retreat
+[00:04:06.96] ••• b+Ar[m]aN ^Te.Am starts turn
+[00:04:06.98] ••• b+Ar[m]aN ^Te.Am fires Blow Torch
+[00:04:15.02] ••• b+Ar[m]aN ^Te.Am ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:04:19.04] ••• Enemy starts turn
+[00:04:24.14] ••• Enemy fires Grenade (4 sec, min bounce)
+[00:04:29.62] ••• Enemy ends turn; time used: 5.08 sec turn, 3.00 sec retreat
+[00:04:36.84] ••• b+Ar[m]aN ^Te.Am starts turn
+[00:04:38.80] ••• b+Ar[m]aN ^Te.Am fires Girder
+[00:04:41.88] ••• b+Ar[m]aN ^Te.Am ends turn; time used: 1.94 sec turn, 3.00 sec retreat
+[00:04:47.10] ••• Officers starts turn
+[00:04:50.94] ••• Officers fires Air Strike
+[00:04:54.62] ••• Officers ends turn; time used: 3.82 sec turn, 3.00 sec retreat
+[00:05:00.40] ••• b+Ar[m]aN ^Te.Am starts turn
+[00:05:00.42] ••• b+Ar[m]aN ^Te.Am fires Shotgun
+[00:05:02.52] ••• b+Ar[m]aN ^Te.Am fires Shotgun
+[00:05:06.68] ••• b+Ar[m]aN ^Te.Am ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:05:16.46] ••• Enemy starts turn
+[00:05:32.68] ••• Enemy fires Grenade (4 sec, min bounce)
+[00:05:38.12] ••• Enemy ends turn; time used: 16.20 sec turn, 3.00 sec retreat
+[00:05:44.84] ••• Damage dealt: 7 to Officers
+[00:05:44.84] ••• b+Ar[m]aN ^Te.Am starts turn
+[00:05:46.58] ••• b+Ar[m]aN ^Te.Am ends turn; time used: 1.74 sec turn, 0.00 sec retreat
+[00:05:48.62] ••• Game Ends - Round Finished
+
+Team time totals:
+b+Ar[m]aN ^Te.Am: Turn: 00:00:28.74, Retreat: 00:00:26.86, Total: 00:00:55.60, Turn count: 10
+Enemy:            Turn: 00:01:01.44, Retreat: 00:00:15.00, Total: 00:01:16.44, Turn count: 5
+Officers:         Turn: 00:00:48.32, Retreat: 00:00:12.00, Total: 00:01:00.32, Turn count: 4
+
+Mission Successful

@@ -1,0 +1,26 @@
+Game Started at 2007-01-19 04:57:56 GMT
+Game Engine Version: 3.6.26.5
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #10: Jurassic Worm.
+
+Red:  "0xDEADC0DE"
+Blue: "Guardsmen" [CPU 4.25]
+Blue: "Officers"  [CPU 4.95]
+Blue: "Enemy"     [CPU 3.50]
+
+[00:00:06.74] ••• 0xDEADC0DE starts turn
+[00:00:07.16] ••• 0xDEADC0DE fires Ninja Rope
+[00:00:09.48] ••• 0xDEADC0DE fires Mole Bomb
+[00:00:18.42] ••• 0xDEADC0DE ends turn; time used: 2.68 sec turn, 3.00 sec retreat
+[00:00:30.78] ••• Damage dealt: 100 (1 kill) to Officers
+[00:00:30.80] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE: Turn: 00:00:02.68, Retreat: 00:00:03.00, Total: 00:00:05.68, Turn count: 1
+Guardsmen:  Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Officers:   Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Enemy:      Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

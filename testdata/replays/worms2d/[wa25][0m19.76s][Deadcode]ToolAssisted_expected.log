@@ -1,0 +1,28 @@
+Game Started at 2021-11-26 18:27:47 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #25: Mars Star.
+
+Red:  "0xDEADC0DE"
+Blue: "Enemy" [CPU 1.75]
+
+[00:00:07.72] ••• 0xDEADC0DE starts turn
+[00:00:07.74] ••• 0xDEADC0DE fires Grenade (4 sec, max bounce)
+[00:00:08.88] ••• 0xDEADC0DE fires Grenade (3 sec, min bounce)
+[00:00:10.20] ••• 0xDEADC0DE fires Girder Starter-Pack
+[00:00:10.28] ••• 0xDEADC0DE fires Girder Starter-Pack
+[00:00:10.36] ••• 0xDEADC0DE fires Girder Starter-Pack
+[00:00:10.44] ••• 0xDEADC0DE fires Girder Starter-Pack
+[00:00:10.52] ••• 0xDEADC0DE fires Girder Starter-Pack
+[00:00:10.60] ••• 0xDEADC0DE fires Petrol Bomb
+[00:00:10.90] ••• 0xDEADC0DE fires Skip Go
+[00:00:10.92] ••• 0xDEADC0DE ends turn; time used: 3.18 sec turn, 0.00 sec retreat
+[00:00:19.76] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE: Turn: 00:00:03.18, Retreat: 00:00:00.00, Total: 00:00:03.18, Turn count: 1
+Enemy:      Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

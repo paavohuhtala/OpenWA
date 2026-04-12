@@ -1,0 +1,38 @@
+Game Started at 2004-04-17 09:08:34 GMT
+Game Engine Version: 3.6.19.18-19
+File Format Version: 3.6.19.17 - 3.6.19.19
+Exported with Version: 3.8.1 (Steam)
+
+Mission #12: No Substitute.
+
+Red:  "c0o1 ~~>"
+Blue: "Enemigo"   [CPU 4.00]
+Blue: "Tiradores" [CPU 3.75]
+Blue: "Oficiales" [CPU 4.75]
+
+[00:00:03.04] ••• Sudden Death
+[00:00:03.06] ••• Sudden Death
+[00:00:05.60] ••• Sudden Death
+[00:00:05.62] ••• Sudden Death
+[00:00:11.30] ••• c0o1 ~~> starts turn
+[00:00:20.98] ••• c0o1 ~~> fires Holy Hand-Grenade
+[00:00:25.92] ••• c0o1 ~~> loses turn due to loss of control; time used: 9.66 sec turn, 3.00 sec retreat
+[00:00:52.76] ••• Damage dealt: 100 (1 kill) to c0o1 ~~>, 200 (2 kills) to Enemigo, 55 (1 kill) to Tiradores
+[00:00:52.76] ••• Enemigo starts turn
+[00:00:58.00] ••• Enemigo fires Bazooka
+[00:01:00.94] ••• Enemigo ends turn; time used: 5.22 sec turn, 2.26 sec retreat
+[00:01:12.62] ••• Damage dealt: 100 (1 kill) to c0o1 ~~>
+[00:01:12.62] ••• c0o1 ~~> starts turn
+[00:01:26.34] ••• c0o1 ~~> fires Shotgun
+[00:01:46.60] ••• c0o1 ~~> fires Shotgun
+[00:01:47.50] ••• c0o1 ~~> loses turn due to loss of control; time used: 26.40 sec turn, 0.00 sec retreat
+[00:01:58.30] ••• Damage dealt: 16 to c0o1 ~~>, 100 (1 kill) to Enemigo, 80 (1 kill) to Oficiales
+[00:01:58.32] ••• Game Ends - Round Finished
+
+Team time totals:
+c0o1 ~~>:  Turn: 00:00:36.06, Retreat: 00:00:03.00, Total: 00:00:39.06, Turn count: 2
+Enemigo:   Turn: 00:00:05.22, Retreat: 00:00:02.26, Total: 00:00:07.48, Turn count: 1
+Tiradores: Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Oficiales: Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

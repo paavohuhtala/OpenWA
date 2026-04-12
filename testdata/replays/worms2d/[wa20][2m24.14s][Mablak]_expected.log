@@ -1,0 +1,46 @@
+Game Started at 2021-11-26 09:01:41 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #20: Rumble in the Farmyard.
+
+Red:  "Ro Bad"
+Blue: "Enemy" [CPU 3.00]
+
+[00:00:01.62] ••• Sudden Death
+[00:00:01.64] ••• Sudden Death
+[00:00:12.56] ••• Ro Bad starts turn
+[00:00:29.88] ••• Ro Bad fires Bazooka
+[00:00:31.42] ••• Ro Bad loses turn due to loss of control; time used: 17.30 sec turn, 0.00 sec retreat
+[00:00:43.06] ••• Damage dealt: 43 to Ro Bad, 70 (1 kill) to Enemy
+[00:00:43.06] ••• Enemy starts turn
+[00:00:47.06] ••• Enemy fires Bazooka
+[00:00:50.66] ••• Enemy ends turn; time used: 3.98 sec turn, 2.70 sec retreat
+[00:00:53.88] ••• Damage dealt: 31 to Ro Bad
+[00:00:53.88] ••• Ro Bad starts turn
+[00:00:54.68] ••• Ro Bad fires Ninja Rope
+[00:01:10.78] ••• Ro Bad fires Dynamite
+[00:01:15.78] ••• Ro Bad loses turn due to loss of control; time used: 16.88 sec turn, 4.98 sec retreat
+[00:01:21.50] ••• Damage dealt: 25 to Ro Bad, 24 to Enemy
+[00:01:21.50] ••• Enemy starts turn
+[00:01:25.20] ••• Enemy fires Air Strike
+[00:01:28.88] ••• Enemy ends turn; time used: 3.68 sec turn, 3.00 sec retreat
+[00:01:32.42] ••• Ro Bad starts turn
+[00:01:33.48] ••• Ro Bad fires Ninja Rope
+[00:01:43.70] ••• Ro Bad fires Cluster Bomb (1 sec, min bounce)
+[00:01:44.78] ••• Ro Bad loses turn due to loss of control; time used: 11.14 sec turn, 0.86 sec retreat
+[00:01:58.34] ••• Damage dealt: 26 (1 kill) to Ro Bad, 70 (1 kill) to Enemy
+[00:01:58.34] ••• Enemy starts turn
+[00:02:01.50] ••• Enemy ends turn; time used: 3.14 sec turn, 0.00 sec retreat
+[00:02:03.52] ••• Ro Bad starts turn
+[00:02:06.46] ••• Ro Bad fires Cluster Bomb (1 sec, min bounce)
+[00:02:07.58] ••• Ro Bad loses turn due to loss of control; time used: 2.92 sec turn, 0.86 sec retreat
+[00:02:24.12] ••• Damage dealt: 37 to Ro Bad, 131 (2 kills) to Enemy
+[00:02:24.14] ••• Game Ends - Round Finished
+
+Team time totals:
+Ro Bad: Turn: 00:00:48.24, Retreat: 00:00:06.70, Total: 00:00:54.94, Turn count: 4
+Enemy:  Turn: 00:00:10.80, Retreat: 00:00:05.70, Total: 00:00:16.50, Turn count: 3
+
+Mission Successful

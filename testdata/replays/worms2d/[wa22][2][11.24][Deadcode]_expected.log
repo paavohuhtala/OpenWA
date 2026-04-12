@@ -1,0 +1,33 @@
+Game Started at 2004-04-19 17:20:27 GMT
+Game Engine Version: 3.6.19.18-19
+File Format Version: 3.6.19.17 - 3.6.19.19
+Exported with Version: 3.8.1 (Steam)
+
+Mission #22: Go Bananas!
+
+Red:  "0xDEADC0DE"
+Blue: "Cannon Fodder" [CPU 3.00]
+Blue: "Enemy"         [CPU 3.00]
+Blue: "Officers"      [CPU 3.00]
+
+[00:00:02.86] ••• 0xDEADC0DE starts turn
+[00:00:10.52] ••• 0xDEADC0DE fires Grenade (3 sec, min bounce)
+[00:00:13.62] ••• 0xDEADC0DE loses turn due to loss of control; time used: 7.64 sec turn, 2.86 sec retreat
+[00:00:20.84] ••• Damage dealt: 53 to 0xDEADC0DE
+[00:00:20.84] ••• Cannon Fodder starts turn
+[00:00:28.40] ••• Cannon Fodder fires Grenade (1 sec, min bounce)
+[00:00:31.48] ••• Cannon Fodder ends turn; time used: 7.54 sec turn, 2.16 sec retreat
+[00:00:36.54] ••• Damage dealt: 100 (1 kill) to 0xDEADC0DE
+[00:00:36.54] ••• 0xDEADC0DE starts turn
+[00:00:40.16] ••• 0xDEADC0DE fires Blow Torch
+[00:00:47.22] ••• 0xDEADC0DE loses turn due to loss of control; time used: 3.60 sec turn, 2.02 sec retreat
+[00:00:51.22] ••• Damage dealt: 47 (1 kill) to 0xDEADC0DE
+[00:00:51.24] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE:    Turn: 00:00:11.24, Retreat: 00:00:04.88, Total: 00:00:16.12, Turn count: 2
+Cannon Fodder: Turn: 00:00:07.54, Retreat: 00:00:02.16, Total: 00:00:09.70, Turn count: 1
+Enemy:         Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Officers:      Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

@@ -1,0 +1,83 @@
+Game Started at 2007-06-01 11:45:06 GMT
+Game Engine Version: 3.6.27.3h-i
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #33: Spectral recovery?
+
+Red:  "Lunchpack Gang"
+Blue: "Enemy"    [CPU 4.25]
+Blue: "Officers" [CPU 4.50]
+
+[00:00:05.86] ••• Lunchpack Gang starts turn
+[00:00:07.04] ••• Lunchpack Gang fires Blow Torch
+[00:00:15.08] ••• Lunchpack Gang ends turn; time used: 1.16 sec turn, 3.00 sec retreat
+[00:00:19.10] ••• Enemy starts turn
+[00:00:33.38] ••• Enemy fires Grenade (1 sec, min bounce)
+[00:00:36.98] ••• Enemy ends turn; time used: 14.26 sec turn, 3.00 sec retreat
+[00:00:41.10] ••• Damage dealt: 39 to Lunchpack Gang
+[00:00:41.10] ••• Lunchpack Gang starts turn
+[00:00:41.12] ••• Lunchpack Gang fires Grenade (3 sec, min bounce)
+[00:00:45.68] ••• Lunchpack Gang loses turn due to loss of control; time used: 0.00 sec turn, 2.86 sec retreat
+[00:01:04.48] ••• Damage dealt: 61 (1 kill) to Lunchpack Gang, 90 (1 kill) to Enemy
+[00:01:04.48] ••• Officers starts turn
+[00:01:25.84] ••• Officers fires Shotgun
+[00:01:30.20] ••• Officers fires Shotgun
+[00:01:34.38] ••• Officers ends turn; time used: 23.58 sec turn, 3.00 sec retreat
+[00:01:38.40] ••• Lunchpack Gang starts turn
+[00:01:40.44] ••• Lunchpack Gang fires Blow Torch
+[00:01:48.48] ••• Lunchpack Gang ends turn; time used: 2.02 sec turn, 3.00 sec retreat
+[00:01:52.52] ••• Officers starts turn
+[00:02:02.22] ••• Officers fires Shotgun
+[00:02:07.86] ••• Officers ends turn; time used: 13.20 sec turn, 0.00 sec retreat
+[00:02:11.90] ••• Lunchpack Gang starts turn
+[00:02:11.92] ••• Lunchpack Gang fires Shotgun
+[00:02:14.02] ••• Lunchpack Gang fires Shotgun
+[00:02:18.18] ••• Lunchpack Gang ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:02:22.20] ••• Officers starts turn
+[00:02:33.02] ••• Officers fires Air Strike
+[00:02:36.70] ••• Officers ends turn; time used: 10.80 sec turn, 3.00 sec retreat
+[00:02:40.60] ••• Damage dealt: 30 to Officers
+[00:02:40.60] ••• Lunchpack Gang starts turn
+[00:02:40.62] ••• Lunchpack Gang fires Grenade (3 sec, min bounce)
+[00:02:44.40] ••• Lunchpack Gang loses turn due to loss of control; time used: 0.00 sec turn, 2.86 sec retreat
+[00:02:55.42] ••• Damage dealt: 43 to Lunchpack Gang, 97 (1 kill) to Officers
+[00:02:55.42] ••• Officers starts turn
+[00:03:03.44] ••• Officers fires Grenade (1 sec, min bounce)
+[00:03:07.32] ••• Officers ends turn; time used: 8.00 sec turn, 3.00 sec retreat
+[00:03:09.90] ••• Damage dealt: 16 to Lunchpack Gang
+[00:03:09.90] ••• Lunchpack Gang starts turn
+[00:03:09.92] ••• Lunchpack Gang fires Shotgun
+[00:03:13.80] ••• Lunchpack Gang fires Shotgun
+[00:03:17.96] ••• Lunchpack Gang ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:03:21.58] ••• Officers starts turn
+[00:03:25.94] ••• Officers fires Grenade (3 sec, min bounce)
+[00:03:30.26] ••• Officers loses turn due to loss of control; time used: 4.34 sec turn, 2.86 sec retreat
+[00:03:40.02] ••• Damage dealt: 68 (1 kill) to Officers
+[00:03:40.02] ••• Lunchpack Gang starts turn
+[00:03:43.06] ••• Lunchpack Gang fires Girder
+[00:03:46.02] ••• Lunchpack Gang loses turn due to loss of control; time used: 3.02 sec turn, 2.88 sec retreat
+[00:03:51.32] ••• Damage dealt: 25 to Lunchpack Gang
+[00:03:51.32] ••• Lunchpack Gang starts turn
+[00:03:51.34] ••• Lunchpack Gang fires Skip Go
+[00:03:51.36] ••• Lunchpack Gang ends turn; time used: 0.00 sec turn, 0.00 sec retreat
+[00:03:56.58] ••• Lunchpack Gang starts turn
+[00:03:56.60] ••• Lunchpack Gang fires Skip Go
+[00:03:56.62] ••• Lunchpack Gang ends turn; time used: 0.00 sec turn, 0.00 sec retreat
+[00:03:58.64] ••• Lunchpack Gang starts turn
+[00:03:58.66] ••• Lunchpack Gang fires Skip Go
+[00:03:58.68] ••• Lunchpack Gang ends turn; time used: 0.00 sec turn, 0.00 sec retreat
+[00:04:03.90] ••• Lunchpack Gang starts turn
+[00:04:03.92] ••• Lunchpack Gang fires Skip Go
+[00:04:03.94] ••• Lunchpack Gang ends turn; time used: 0.00 sec turn, 0.00 sec retreat
+[00:04:09.66] ••• Lunchpack Gang starts turn
+[00:04:09.68] ••• Lunchpack Gang fires Skip Go
+[00:04:09.70] ••• Lunchpack Gang ends turn; time used: 0.00 sec turn, 0.00 sec retreat
+[00:04:11.96] ••• Game Ends - Round Finished
+
+Team time totals:
+Lunchpack Gang: Turn: 00:00:06.20, Retreat: 00:00:20.60, Total: 00:00:26.80, Turn count: 12
+Enemy:          Turn: 00:00:14.26, Retreat: 00:00:03.00, Total: 00:00:17.26, Turn count: 1
+Officers:       Turn: 00:00:59.92, Retreat: 00:00:11.86, Total: 00:01:11.78, Turn count: 5
+
+Mission Successful

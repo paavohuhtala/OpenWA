@@ -1,0 +1,47 @@
+Game Started at 2007-11-17 14:56:46 GMT
+Game Engine Version: 3.6.28.0
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #32: Trouble in Toy Store.
+
+Red:  "RuSsIaN N%bZ"
+Red:  "Enemy"   [CPU 3.25]
+Blue: "Platoon" [CPU 3.75]
+
+[00:00:02.56] ••• RuSsIaN N%bZ starts turn
+[00:00:04.54] ••• RuSsIaN N%bZ fires Grenade (4 sec, min bounce)
+[00:00:10.10] ••• RuSsIaN N%bZ ends turn; time used: 1.96 sec turn, 3.00 sec retreat
+[00:00:27.74] ••• Damage dealt: 150 (2 kills) to Platoon
+[00:00:27.74] ••• Platoon starts turn
+[00:00:32.56] ••• Platoon fires Cluster Bomb (3 sec, min bounce)
+[00:00:38.18] ••• Platoon ends turn; time used: 4.80 sec turn, 3.00 sec retreat
+[00:00:43.96] ••• Damage dealt: 7 to RuSsIaN N%bZ
+[00:00:43.96] ••• RuSsIaN N%bZ starts turn
+[00:00:55.68] ••• RuSsIaN N%bZ fires Dynamite
+[00:01:00.86] ••• RuSsIaN N%bZ ends turn; time used: 11.70 sec turn, 5.00 sec retreat
+[00:01:11.74] ••• Damage dealt: 14 to RuSsIaN N%bZ, 49 to Enemy, 5 to Platoon
+[00:01:11.74] ••• Platoon starts turn
+[00:01:18.66] ••• Platoon fires Grenade (3 sec, min bounce)
+[00:01:23.04] ••• Platoon ends turn; time used: 6.90 sec turn, 3.00 sec retreat
+[00:01:37.14] ••• Damage dealt: 34 to RuSsIaN N%bZ
+[00:01:37.14] ••• RuSsIaN N%bZ starts turn
+[00:01:47.58] ••• RuSsIaN N%bZ fires Holy Hand-Grenade
+[00:01:55.84] ••• RuSsIaN N%bZ ends turn; time used: 10.42 sec turn, 3.00 sec retreat
+[00:02:10.80] ••• Damage dealt: 160 (2 kills) to Platoon
+[00:02:10.80] ••• Platoon starts turn
+[00:02:15.70] ••• Platoon fires Uzi
+[00:02:19.92] ••• Platoon ends turn; time used: 4.88 sec turn, 3.00 sec retreat
+[00:02:30.54] ••• Damage dealt: 32 to Enemy
+[00:02:30.54] ••• RuSsIaN N%bZ starts turn
+[00:02:42.34] ••• RuSsIaN N%bZ fires Cluster Bomb (4 sec, min bounce)
+[00:02:46.54] ••• RuSsIaN N%bZ loses turn due to loss of control; time used: 11.78 sec turn, 3.00 sec retreat
+[00:03:05.24] ••• Damage dealt: 45 (1 kill) to RuSsIaN N%bZ, 75 (1 kill) to Platoon
+[00:03:05.26] ••• Game Ends - Round Finished
+
+Team time totals:
+RuSsIaN N%bZ: Turn: 00:00:35.86, Retreat: 00:00:14.00, Total: 00:00:49.86, Turn count: 4
+Enemy:        Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Platoon:      Turn: 00:00:16.58, Retreat: 00:00:09.00, Total: 00:00:25.58, Turn count: 3
+
+Mission Successful

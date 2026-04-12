@@ -1,0 +1,34 @@
+Game Started at 2004-04-30 20:52:42 GMT
+Game Engine Version: 3.6.19.18-19
+File Format Version: 3.6.19.17 - 3.6.19.19
+Exported with Version: 3.8.1 (Steam)
+
+Mission #26: Mad Cows.
+
+Red:  ".Nice&Slow."
+Blue: "Oficiales" [CPU 4.00]
+
+[00:00:00.00] *** Checksum Mismatch in Frame 0
+[00:00:00.08] ••• .Nice&Slow. starts turn
+[00:00:16.50] ••• .Nice&Slow. fires Cluster Bomb (3 sec, min bounce)
+[00:00:16.52] *** Checksum Mismatch in Frame 826
+[00:00:19.64] ••• .Nice&Slow. loses turn due to loss of control; time used: 15.02 sec turn, 2.86 sec retreat
+[00:00:24.28] ••• Damage dealt: 97 to .Nice&Slow., 150 to Oficiales
+[00:00:24.28] ••• Oficiales starts turn
+[00:00:36.96] ••• Oficiales fires Bazooka
+[00:00:37.74] ••• Oficiales loses turn due to loss of control; time used: 12.66 sec turn, 0.26 sec retreat
+[00:00:42.08] ••• Damage dealt: 33 to .Nice&Slow., 4 to Oficiales
+[00:00:42.08] ••• .Nice&Slow. starts turn
+[00:00:45.60] ••• .Nice&Slow. fires Ninja Rope
+[00:00:45.62] *** Checksum Mismatch in Frame 2281
+[00:00:57.40] ••• .Nice&Slow. fires Dynamite
+[00:00:57.42] *** Checksum Mismatch in Frame 2871
+[00:01:02.44] ••• .Nice&Slow. loses turn due to loss of control; time used: 13.66 sec turn, 4.86 sec retreat
+[00:01:39.06] ••• Damage dealt: 3 (1 kill) to .Nice&Slow., 246 (4 kills) to Oficiales
+[00:01:39.08] ••• Game Ends - Round Finished
+
+Team time totals:
+.Nice&Slow.: Turn: 00:00:28.68, Retreat: 00:00:07.72, Total: 00:00:36.40, Turn count: 2
+Oficiales:   Turn: 00:00:12.66, Retreat: 00:00:00.26, Total: 00:00:12.92, Turn count: 1
+
+Mission Successful

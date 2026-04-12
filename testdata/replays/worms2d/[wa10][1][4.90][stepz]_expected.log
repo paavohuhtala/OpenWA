@@ -1,0 +1,26 @@
+Game Started at 2005-09-20 12:33:55 GMT
+Game Engine Version: 3.6.25.1
+File Format Version: 3.6.20.1 - 3.6.26.3
+Exported with Version: 3.8.1 (Steam)
+
+Mission #10: Jurassic Worm.
+
+Red:  "fit im schritt!"
+Blue: "Gardist"   [CPU 4.25]
+Blue: "Offiziere" [CPU 4.95]
+Blue: "Feind"     [CPU 3.50]
+
+[00:00:06.74] ••• fit im schritt! starts turn
+[00:00:07.50] ••• fit im schritt! fires Ninja Rope
+[00:00:11.66] ••• fit im schritt! fires Mole Bomb
+[00:00:19.88] ••• fit im schritt! ends turn; time used: 4.90 sec turn, 3.00 sec retreat
+[00:00:34.46] ••• Damage dealt: 100 (1 kill) to Offiziere
+[00:00:34.48] ••• Game Ends - Round Finished
+
+Team time totals:
+fit im schritt!: Turn: 00:00:04.90, Retreat: 00:00:03.00, Total: 00:00:07.90, Turn count: 1
+Gardist:         Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Offiziere:       Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Feind:           Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

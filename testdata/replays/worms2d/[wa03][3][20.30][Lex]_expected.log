@@ -1,0 +1,53 @@
+Game Started at 2006-12-11 19:40:03 GMT
+Game Engine Version: 3.6.26.5
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #3: All quiet in the library?
+
+Red:  "Lunchpack Gang"
+Blue: "Gunners"  [CPU 3.00]
+Blue: "Officers" [CPU 3.75]
+Blue: "Platoon"  [CPU 2.75]
+
+[00:00:00.00] *** Checksum Mismatch in Frame 0
+[00:00:24.66] ••• Lunchpack Gang starts turn
+[00:00:25.78] ••• Lunchpack Gang fires Ninja Rope
+[00:00:25.80] *** Checksum Mismatch in Frame 1290
+[00:00:29.58] ••• Lunchpack Gang fires Baseball Bat
+[00:00:29.60] *** Checksum Mismatch in Frame 1480
+[00:00:33.16] ••• Lunchpack Gang ends turn; time used: 4.90 sec turn, 3.00 sec retreat
+[00:00:40.98] ••• Damage dealt: 200 (2 kills) to Gunners, 150 (1 kill) to Officers
+[00:00:40.98] ••• Gunners starts turn
+[00:01:01.86] ••• Gunners fires Grenade (1 sec, min bounce)
+[00:01:03.36] ••• Gunners loses turn due to loss of control; time used: 20.86 sec turn, 0.86 sec retreat
+[00:01:08.02] ••• Damage dealt: 16 to Lunchpack Gang, 23 to Gunners, 12 to Platoon
+[00:01:08.02] ••• Lunchpack Gang starts turn
+[00:01:08.80] ••• Lunchpack Gang fires Ninja Rope
+[00:01:08.82] *** Checksum Mismatch in Frame 3441
+[00:01:15.54] ••• Lunchpack Gang fires Cluster Bomb (3 sec, min bounce)
+[00:01:15.56] *** Checksum Mismatch in Frame 3778
+[00:01:18.66] ••• Lunchpack Gang loses turn due to loss of control; time used: 7.50 sec turn, 2.86 sec retreat
+[00:01:44.84] ••• Damage dealt: 108 (1 kill) to Lunchpack Gang, 77 (1 kill) to Gunners, 88 (1 kill) to Platoon
+[00:01:44.84] ••• Platoon starts turn
+[00:01:53.90] ••• Platoon fires Bazooka
+[00:01:57.50] ••• Platoon ends turn; time used: 9.04 sec turn, 3.00 sec retreat
+[00:02:06.36] ••• Damage dealt: 100 (1 kill) to Lunchpack Gang
+[00:02:06.36] ••• Lunchpack Gang starts turn
+[00:02:07.18] ••• Lunchpack Gang fires Ninja Rope
+[00:02:07.20] *** Checksum Mismatch in Frame 6360
+[00:02:08.04] ••• Lunchpack Gang fires Ninja Rope
+[00:02:08.06] *** Checksum Mismatch in Frame 6403
+[00:02:14.52] ••• Lunchpack Gang fires Bazooka
+[00:02:14.54] *** Checksum Mismatch in Frame 6727
+[00:02:15.70] ••• Lunchpack Gang loses turn due to loss of control; time used: 7.90 sec turn, 0.00 sec retreat
+[00:02:25.54] ••• Damage dealt: 36 to Lunchpack Gang, 100 (1 kill) to Platoon
+[00:02:25.56] ••• Game Ends - Round Finished
+
+Team time totals:
+Lunchpack Gang: Turn: 00:00:20.30, Retreat: 00:00:05.86, Total: 00:00:26.16, Turn count: 3
+Gunners:        Turn: 00:00:20.86, Retreat: 00:00:00.86, Total: 00:00:21.72, Turn count: 1
+Officers:       Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Platoon:        Turn: 00:00:09.04, Retreat: 00:00:03.00, Total: 00:00:12.04, Turn count: 1
+
+Mission Successful

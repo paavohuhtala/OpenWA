@@ -1,0 +1,32 @@
+Game Started at 2021-11-08 18:22:33 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #9: Water Surprise.
+
+Red:  "0xDEADC0DE"
+Blue: "Officers" [CPU 4.75]
+
+[00:00:03.88] ••• 0xDEADC0DE starts turn
+[00:00:03.90] ••• 0xDEADC0DE fires Girder
+[00:00:07.98] ••• 0xDEADC0DE ends turn; time used: 0.00 sec turn, 4.00 sec retreat
+[00:00:10.00] ••• Officers starts turn
+[00:00:13.18] ••• Officers ends turn; time used: 3.16 sec turn, 0.00 sec retreat
+[00:00:15.20] ••• 0xDEADC0DE starts turn
+[00:00:16.22] ••• 0xDEADC0DE fires Longbow
+[00:00:31.92] ••• 0xDEADC0DE fires Longbow
+[00:00:36.00] ••• 0xDEADC0DE ends turn; time used: 12.92 sec turn, 4.00 sec retreat
+[00:00:38.28] ••• Officers starts turn
+[00:00:41.46] ••• Officers ends turn; time used: 3.16 sec turn, 0.00 sec retreat
+[00:00:43.48] ••• 0xDEADC0DE starts turn
+[00:00:43.50] ••• 0xDEADC0DE fires Aqua Sheep
+[00:00:44.30] ••• 0xDEADC0DE loses turn due to loss of control; time used: 0.00 sec turn, 0.62 sec retreat
+[00:00:53.02] ••• Damage dealt: 5 to 0xDEADC0DE, 50 (1 kill) to Officers
+[00:00:53.04] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE: Turn: 00:00:12.92, Retreat: 00:00:08.62, Total: 00:00:21.54, Turn count: 3
+Officers:   Turn: 00:00:06.32, Retreat: 00:00:00.00, Total: 00:00:06.32, Turn count: 2
+
+Mission Successful

@@ -1,0 +1,57 @@
+Game Started at 2006-03-06 18:23:59 GMT
+Game Engine Version: 3.6.26.5
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #19: Horny Nuke.
+
+Red:  "Lunchpack Gang"
+Blue: "Guardsmen" [CPU 3.00]
+Blue: "Gunners"   [CPU 3.25]
+
+[00:00:09.00] ••• Lunchpack Gang starts turn
+[00:00:09.92] ••• Glide Glitch #1
+[00:00:13.62] ••• Lunchpack Gang fires Ninja Rope
+[00:00:35.20] ••• Lunchpack Gang fires Grenade (3 sec, min bounce)
+[00:00:38.20] ••• Lunchpack Gang ends turn; time used: 26.18 sec turn, 2.00 sec retreat
+[00:00:44.90] ••• Damage dealt: 2 to Guardsmen, 45 to Gunners
+[00:00:44.90] ••• Guardsmen starts turn
+[00:00:52.92] ••• Guardsmen ends turn; time used: 8.00 sec turn, 0.00 sec retreat
+[00:00:54.94] ••• Lunchpack Gang starts turn
+[00:00:56.16] ••• Lunchpack Gang fires Ninja Rope
+[00:01:00.24] ••• Lunchpack Gang fires Banana Bomb (3 sec)
+[00:01:04.86] ••• Lunchpack Gang ends turn; time used: 4.62 sec turn, 2.00 sec retreat
+[00:01:26.78] ••• Damage dealt: 223 (2 kills) to Guardsmen, 155 (2 kills) to Gunners
+[00:01:26.78] ••• Gunners starts turn
+[00:01:29.92] ••• Gunners ends turn; time used: 3.12 sec turn, 0.00 sec retreat
+[00:01:31.94] ••• Lunchpack Gang starts turn
+[00:01:32.96] ••• Lunchpack Gang fires Ninja Rope
+[00:01:36.22] ••• Lunchpack Gang fires Holy Hand-Grenade
+[00:01:41.02] ••• Lunchpack Gang loses turn due to loss of control; time used: 4.12 sec turn, 2.00 sec retreat
+[00:01:55.46] ••• Damage dealt: 21 to Lunchpack Gang, 100 (1 kill) to Gunners
+[00:01:55.46] ••• Guardsmen starts turn
+[00:02:10.26] ••• Guardsmen fires Shotgun
+[00:02:17.58] ••• Guardsmen fires Shotgun
+[00:02:20.76] ••• Guardsmen ends turn; time used: 19.98 sec turn, 2.00 sec retreat
+[00:02:24.78] ••• Lunchpack Gang starts turn
+[00:02:26.04] ••• Lunchpack Gang fires Ninja Rope
+[00:02:36.74] ••• Lunchpack Gang fires Grenade (3 sec, min bounce)
+[00:02:39.74] ••• Lunchpack Gang ends turn; time used: 11.48 sec turn, 2.00 sec retreat
+[00:02:45.56] ••• Damage dealt: 46 to Guardsmen
+[00:02:45.56] ••• Guardsmen starts turn
+[00:02:53.54] ••• Guardsmen fires Shotgun
+[00:03:04.42] ••• Guardsmen fires Shotgun
+[00:03:07.60] ••• Guardsmen ends turn; time used: 16.72 sec turn, 2.00 sec retreat
+[00:03:11.64] ••• Lunchpack Gang starts turn
+[00:03:12.48] ••• Lunchpack Gang fires Ninja Rope
+[00:03:26.12] ••• Lunchpack Gang fires Minigun
+[00:03:29.02] ••• Lunchpack Gang ends turn; time used: 14.12 sec turn, 1.32 sec retreat
+[00:03:43.68] ••• Damage dealt: 54 (2 kills) to Guardsmen
+[00:03:43.70] ••• Game Ends - Round Finished
+
+Team time totals:
+Lunchpack Gang: Turn: 00:01:00.52, Retreat: 00:00:09.32, Total: 00:01:09.84, Turn count: 5
+Guardsmen:      Turn: 00:00:44.70, Retreat: 00:00:04.00, Total: 00:00:48.70, Turn count: 3
+Gunners:        Turn: 00:00:03.12, Retreat: 00:00:00.00, Total: 00:00:03.12, Turn count: 1
+
+Mission Successful

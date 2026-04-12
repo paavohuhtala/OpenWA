@@ -1,0 +1,58 @@
+Game Started at 2021-05-25 02:31:43 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #11: Chemical Warfare.
+
+Red:  "Name"
+Blue: "Platoon"  [CPU 3.25]
+Blue: "Officers" [CPU 4.25]
+
+[00:00:01.74] ••• Name starts turn
+[00:00:01.86] ••• Name fires Ninja Rope
+[00:00:05.60] ••• Name fires Dragon Ball
+[00:00:08.62] ••• Name ends turn; time used: 3.70 sec turn, 3.00 sec retreat
+[00:00:13.36] ••• Damage dealt: 70 (1 kill) to Platoon
+[00:00:13.36] ••• Platoon starts turn
+[00:00:18.50] ••• Platoon fires Grenade (4 sec, min bounce)
+[00:00:24.00] ••• Platoon ends turn; time used: 5.12 sec turn, 3.00 sec retreat
+[00:00:27.94] ••• Damage dealt: 32 to Name
+[00:00:27.94] ••• Name starts turn
+[00:00:30.10] ••• Name fires Ninja Rope
+[00:00:34.02] ••• Name fires Fire Punch
+[00:00:38.78] ••• Name ends turn; time used: 5.94 sec turn, 3.00 sec retreat
+[00:00:46.56] ••• Damage dealt: 32 (1 kill) to Officers
+[00:00:46.56] ••• Officers starts turn
+[00:00:50.40] ••• Officers fires Air Strike
+[00:00:54.64] ••• Officers ends turn; time used: 3.82 sec turn, 3.00 sec retreat
+[00:01:00.24] ••• Damage dealt: 90 (1 kill) to Name
+[00:01:00.24] ••• Name starts turn
+[00:01:04.58] ••• Name fires Fire Punch
+[00:01:08.80] ••• Name ends turn; time used: 4.32 sec turn, 3.00 sec retreat
+[00:01:17.34] ••• Damage dealt: 30 (1 kill) to Officers
+[00:01:17.34] ••• Platoon starts turn
+[00:01:25.78] ••• Platoon fires Grenade (2 sec, min bounce)
+[00:01:28.64] ••• Platoon loses turn due to loss of control; time used: 8.42 sec turn, 1.86 sec retreat
+[00:01:37.36] ••• Damage dealt: 1 to Name, 70 (1 kill) to Platoon
+[00:01:37.36] ••• Name starts turn
+[00:01:38.52] ••• Name fires Ninja Rope
+[00:01:46.30] ••• Name fires Baseball Bat
+[00:01:49.88] ••• Name ends turn; time used: 8.92 sec turn, 3.00 sec retreat
+[00:01:56.22] ••• Damage dealt: 70 (1 kill) to Platoon
+[00:01:56.22] ••• Officers starts turn
+[00:02:03.64] ••• Officers fires Air Strike
+[00:02:07.32] ••• Officers ends turn; time used: 7.40 sec turn, 3.00 sec retreat
+[00:02:13.82] ••• Damage dealt: 12 to Name
+[00:02:13.82] ••• Name starts turn
+[00:02:13.84] ••• Name fires Dynamite
+[00:02:18.88] ••• Name loses turn due to loss of control; time used: 0.00 sec turn, 4.86 sec retreat
+[00:02:33.06] ••• Damage dealt: 46 to Name, 58 (2 kills) to Officers
+[00:02:33.08] ••• Game Ends - Round Finished
+
+Team time totals:
+Name:     Turn: 00:00:22.88, Retreat: 00:00:16.86, Total: 00:00:39.74, Turn count: 5
+Platoon:  Turn: 00:00:13.54, Retreat: 00:00:04.86, Total: 00:00:18.40, Turn count: 2
+Officers: Turn: 00:00:11.22, Retreat: 00:00:06.00, Total: 00:00:17.22, Turn count: 2
+
+Mission Successful

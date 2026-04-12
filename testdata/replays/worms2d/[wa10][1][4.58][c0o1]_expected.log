@@ -1,0 +1,26 @@
+Game Started at 2006-01-19 03:57:26 GMT
+Game Engine Version: 3.6.26.5
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #10: Jurassic Worm.
+
+Red:  ":', :: :: :."
+Blue: "Soldados de la g" [CPU 4.25]
+Blue: "Oficiales"        [CPU 4.95]
+Blue: "Enemigo"          [CPU 3.50]
+
+[00:00:06.74] ••• :', :: :: :. starts turn
+[00:00:07.76] ••• :', :: :: :. fires Ninja Rope
+[00:00:11.34] ••• :', :: :: :. fires Mole Bomb
+[00:00:20.10] ••• :', :: :: :. ends turn; time used: 4.58 sec turn, 3.00 sec retreat
+[00:00:31.74] ••• Damage dealt: 100 (1 kill) to Oficiales
+[00:00:31.76] ••• Game Ends - Round Finished
+
+Team time totals:
+:', :: :: :.:     Turn: 00:00:04.58, Retreat: 00:00:03.00, Total: 00:00:07.58, Turn count: 1
+Soldados de la g: Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Oficiales:        Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Enemigo:          Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

@@ -1,0 +1,46 @@
+Game Started at 2021-11-09 06:49:01 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #24: Countdown to Armageddon!
+
+Red:  "0xDEADC0DE"
+Red:  "Cannon Fodder"
+Blue: "Patrol" [CPU 2.25]
+
+[00:00:02.80] ••• 0xDEADC0DE starts turn
+[00:00:02.82] ••• 0xDEADC0DE fires Grenade (2 sec, max bounce)
+[00:00:05.98] ••• 0xDEADC0DE loses turn due to loss of control; time used: 0.00 sec turn, 1.68 sec retreat
+[00:00:13.94] ••• Damage dealt: 9 to 0xDEADC0DE, 70 (1 kill) to Patrol
+[00:00:13.94] ••• Patrol starts turn
+[00:00:21.34] ••• Patrol fires Bazooka
+[00:00:24.88] ••• Patrol ends turn; time used: 7.38 sec turn, 3.00 sec retreat
+[00:00:27.92] ••• Damage dealt: 46 to 0xDEADC0DE
+[00:00:27.92] ••• 0xDEADC0DE starts turn
+[00:00:27.94] ••• 0xDEADC0DE fires Grenade (3 sec, min bounce)
+[00:00:32.46] ••• 0xDEADC0DE ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:00:40.70] ••• Damage dealt: 140 (2 kills) to Patrol
+[00:00:40.70] ••• Patrol starts turn
+[00:00:45.52] ••• Patrol fires Bazooka
+[00:00:48.62] ••• Patrol loses turn due to loss of control; time used: 4.80 sec turn, 2.14 sec retreat
+[00:00:55.34] ••• Damage dealt: 42 to Patrol
+[00:00:55.34] ••• 0xDEADC0DE starts turn
+[00:00:55.36] ••• 0xDEADC0DE fires Grenade (3 sec, max bounce)
+[00:00:59.72] ••• 0xDEADC0DE ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:01:05.00] ••• Damage dealt: 46 to Patrol
+[00:01:05.00] ••• Patrol starts turn
+[00:01:08.18] ••• Patrol ends turn; time used: 3.16 sec turn, 0.00 sec retreat
+[00:01:10.20] ••• 0xDEADC0DE starts turn
+[00:01:11.34] ••• 0xDEADC0DE fires Ninja Rope
+[00:01:14.70] ••• 0xDEADC0DE fires Baseball Bat
+[00:01:18.28] ••• 0xDEADC0DE ends turn; time used: 4.48 sec turn, 3.00 sec retreat
+[00:01:50.16] ••• Damage dealt: 96 (1 kill) to 0xDEADC0DE, 317 (5 kills) to Patrol
+[00:01:50.18] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE:    Turn: 00:00:04.48, Retreat: 00:00:10.68, Total: 00:00:15.16, Turn count: 4
+Cannon Fodder: Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Patrol:        Turn: 00:00:15.34, Retreat: 00:00:05.14, Total: 00:00:20.48, Turn count: 3
+
+Mission Successful

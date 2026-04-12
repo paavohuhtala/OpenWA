@@ -1,0 +1,44 @@
+Game Started at 2021-11-10 03:18:50 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #32: Trouble in Toy Store.
+
+Red:  "0xDEADC0DE"
+Red:  "Enemy"   [CPU 3.25]
+Blue: "Platoon" [CPU 3.75]
+
+[00:00:02.56] ••• 0xDEADC0DE starts turn
+[00:00:02.58] ••• 0xDEADC0DE fires Grenade (3 sec, min bounce)
+[00:00:05.38] ••• 0xDEADC0DE loses turn due to loss of control; time used: 0.00 sec turn, 1.66 sec retreat
+[00:00:16.34] ••• Damage dealt: 8 to 0xDEADC0DE, 160 (2 kills) to Platoon
+[00:00:16.34] ••• Platoon starts turn
+[00:00:23.28] ••• Platoon fires Bazooka
+[00:00:27.12] ••• Platoon ends turn; time used: 6.92 sec turn, 3.00 sec retreat
+[00:00:35.20] ••• Damage dealt: 100 (1 kill) to 0xDEADC0DE
+[00:00:35.20] ••• 0xDEADC0DE starts turn
+[00:00:37.90] ••• 0xDEADC0DE fires Cluster Bomb (4 sec, min bounce)
+[00:00:42.56] ••• 0xDEADC0DE loses turn due to loss of control; time used: 2.68 sec turn, 3.00 sec retreat
+[00:01:05.00] ••• Damage dealt: 6 to 0xDEADC0DE, 150 (2 kills) to Platoon
+[00:01:05.00] ••• Platoon starts turn
+[00:01:11.70] ••• Platoon fires Uzi
+[00:01:15.92] ••• Platoon ends turn; time used: 6.68 sec turn, 3.00 sec retreat
+[00:01:22.04] ••• 0xDEADC0DE starts turn
+[00:01:22.06] ••• 0xDEADC0DE fires Cluster Bomb (1 sec, min bounce)
+[00:01:23.10] ••• 0xDEADC0DE loses turn due to loss of control; time used: 0.00 sec turn, 0.86 sec retreat
+[00:01:37.72] ••• Damage dealt: 164 (1 kill) to 0xDEADC0DE, 1 to Enemy
+[00:01:37.72] ••• Platoon starts turn
+[00:01:40.94] ••• Platoon ends turn; time used: 3.20 sec turn, 0.00 sec retreat
+[00:01:49.94] ••• 0xDEADC0DE starts turn
+[00:01:49.96] ••• 0xDEADC0DE fires Dynamite
+[00:01:55.14] ••• 0xDEADC0DE ends turn; time used: 0.00 sec turn, 5.00 sec retreat
+[00:02:05.02] ••• Damage dealt: 80 (1 kill) to Platoon
+[00:02:05.04] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE: Turn: 00:00:02.68, Retreat: 00:00:10.52, Total: 00:00:13.20, Turn count: 4
+Enemy:      Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Platoon:    Turn: 00:00:16.80, Retreat: 00:00:06.00, Total: 00:00:22.80, Turn count: 3
+
+Mission Successful

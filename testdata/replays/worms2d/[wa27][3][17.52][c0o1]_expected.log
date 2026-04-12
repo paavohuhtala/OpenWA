@@ -1,0 +1,39 @@
+Game Started at 2004-04-24 08:52:35 GMT
+Game Engine Version: 3.6.19.18-19
+File Format Version: 3.6.19.17 - 3.6.19.19
+Exported with Version: 3.8.1 (Steam)
+
+Mission #27: Bazooka on the Rocks.
+
+Red:  "c0o1 ~~>"
+Blue: "Oficiales"       [CPU 3.50]
+Blue: "Sección militar" [CPU 4.50]
+
+[00:00:04.10] ••• c0o1 ~~> starts turn
+[00:00:05.92] ••• c0o1 ~~> fires Bazooka
+[00:00:11.96] ••• c0o1 ~~> ends turn; time used: 1.80 sec turn, 5.00 sec retreat
+[00:00:21.00] ••• Damage dealt: 75 (1 kill) to Sección militar
+[00:00:21.00] ••• Oficiales starts turn
+[00:00:27.74] ••• Oficiales fires Bazooka
+[00:00:33.96] ••• Oficiales ends turn; time used: 6.72 sec turn, 5.00 sec retreat
+[00:00:38.06] ••• Damage dealt: 17 to c0o1 ~~>
+[00:00:38.06] ••• c0o1 ~~> starts turn
+[00:00:41.78] ••• c0o1 ~~> fires Bazooka
+[00:00:47.72] ••• c0o1 ~~> ends turn; time used: 3.70 sec turn, 5.00 sec retreat
+[00:01:06.26] ••• Damage dealt: 68 (1 kill) to Oficiales
+[00:01:06.26] ••• Oficiales starts turn
+[00:01:12.86] ••• Oficiales fires Grenade (3 sec, min bounce)
+[00:01:19.22] ••• Oficiales ends turn; time used: 6.58 sec turn, 5.00 sec retreat
+[00:01:26.22] ••• Damage dealt: 12 to c0o1 ~~>
+[00:01:26.22] ••• c0o1 ~~> starts turn
+[00:01:38.26] ••• c0o1 ~~> fires Homing Missile
+[00:01:44.86] ••• c0o1 ~~> ends turn; time used: 12.02 sec turn, 5.00 sec retreat
+[00:01:54.96] ••• Damage dealt: 127 (2 kills) to Oficiales
+[00:01:54.98] ••• Game Ends - Round Finished
+
+Team time totals:
+c0o1 ~~>:        Turn: 00:00:17.52, Retreat: 00:00:15.00, Total: 00:00:32.52, Turn count: 3
+Oficiales:       Turn: 00:00:13.30, Retreat: 00:00:10.00, Total: 00:00:23.30, Turn count: 2
+Sección militar: Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

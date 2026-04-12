@@ -1,0 +1,59 @@
+Game Started at 2021-11-21 06:29:38 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #11: Chemical Warfare.
+
+Red:  "0xDEADC0DE"
+Blue: "Platoon"  [CPU 3.25]
+Blue: "Officers" [CPU 4.25]
+
+[00:00:01.72] ••• 0xDEADC0DE starts turn
+[00:00:01.82] ••• 0xDEADC0DE fires Ninja Rope
+[00:00:07.44] ••• 0xDEADC0DE fires Shotgun
+[00:00:18.78] ••• 0xDEADC0DE fires Shotgun
+[00:00:22.52] ••• 0xDEADC0DE loses turn due to loss of control; time used: 9.16 sec turn, 2.58 sec retreat
+[00:00:37.58] ••• Damage dealt: 81 to 0xDEADC0DE, 70 (1 kill) to Platoon, 30 (1 kill) to Officers
+[00:00:37.58] ••• Platoon starts turn
+[00:00:42.66] ••• Platoon fires Grenade (4 sec, min bounce)
+[00:00:48.14] ••• Platoon ends turn; time used: 5.06 sec turn, 3.00 sec retreat
+[00:00:52.16] ••• 0xDEADC0DE starts turn
+[00:00:54.18] ••• 0xDEADC0DE fires Shotgun
+[00:01:02.20] ••• 0xDEADC0DE fires Shotgun
+[00:01:06.36] ••• 0xDEADC0DE ends turn; time used: 5.24 sec turn, 3.00 sec retreat
+[00:01:15.02] ••• Damage dealt: 30 (1 kill) to Officers
+[00:01:15.02] ••• Officers starts turn
+[00:01:18.86] ••• Officers fires Air Strike
+[00:01:22.54] ••• Officers ends turn; time used: 3.82 sec turn, 3.00 sec retreat
+[00:01:26.34] ••• Damage dealt: 51 to 0xDEADC0DE
+[00:01:26.34] ••• 0xDEADC0DE starts turn
+[00:01:26.36] ••• 0xDEADC0DE fires Minigun
+[00:01:30.96] ••• 0xDEADC0DE ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:01:39.60] ••• Damage dealt: 30 (1 kill) to Officers
+[00:01:39.60] ••• Platoon starts turn
+[00:01:48.46] ••• Platoon fires Grenade (1 sec, min bounce)
+[00:01:50.08] ••• Platoon loses turn due to loss of control; time used: 8.84 sec turn, 0.86 sec retreat
+[00:01:56.26] ••• Damage dealt: 70 (1 kill) to Platoon
+[00:01:56.26] ••• 0xDEADC0DE starts turn
+[00:01:57.54] ••• 0xDEADC0DE fires Ninja Rope
+[00:02:02.22] ••• 0xDEADC0DE fires Baseball Bat
+[00:02:05.80] ••• 0xDEADC0DE ends turn; time used: 5.74 sec turn, 3.00 sec retreat
+[00:02:12.14] ••• Damage dealt: 70 (1 kill) to Platoon
+[00:02:12.14] ••• Officers starts turn
+[00:02:16.08] ••• Officers fires Air Strike
+[00:02:19.76] ••• Officers ends turn; time used: 3.92 sec turn, 3.00 sec retreat
+[00:02:23.06] ••• Damage dealt: 62 to 0xDEADC0DE
+[00:02:23.06] ••• 0xDEADC0DE starts turn
+[00:02:23.08] ••• 0xDEADC0DE fires Ninja Rope
+[00:02:30.86] ••• 0xDEADC0DE fires Fire Punch
+[00:02:33.10] ••• 0xDEADC0DE ends turn; time used: 7.66 sec turn, 1.08 sec retreat
+[00:02:43.26] ••• Damage dealt: 30 (1 kill) to Officers
+[00:02:43.28] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE: Turn: 00:00:27.80, Retreat: 00:00:12.66, Total: 00:00:40.46, Turn count: 5
+Platoon:    Turn: 00:00:13.90, Retreat: 00:00:03.86, Total: 00:00:17.76, Turn count: 2
+Officers:   Turn: 00:00:07.74, Retreat: 00:00:06.00, Total: 00:00:13.74, Turn count: 2
+
+Mission Successful

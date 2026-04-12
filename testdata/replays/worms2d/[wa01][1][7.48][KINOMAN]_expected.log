@@ -1,0 +1,23 @@
+Game Started at 2007-11-05 16:31:44 GMT
+Game Engine Version: 3.6.28.0
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #1: Pumpkin Problems.
+
+Red:  "RuSsIaN N%bZ"
+Blue: "Patrol"  [CPU 4.00]
+Blue: "Gunners" [CPU 3.00]
+
+[00:00:02.42] ••• RuSsIaN N%bZ starts turn
+[00:00:02.96] ••• RuSsIaN N%bZ fires Ninja Rope
+[00:00:04.46] ••• RuSsIaN N%bZ fires Ninja Rope
+[00:00:10.74] ••• RuSsIaN N%bZ loses turn due to loss of control; time used: 7.48 sec turn, 0.00 sec retreat
+[00:00:12.54] ••• Game Ends - Round Finished
+
+Team time totals:
+RuSsIaN N%bZ: Turn: 00:00:07.48, Retreat: 00:00:00.00, Total: 00:00:07.48, Turn count: 1
+Patrol:       Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Gunners:      Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

@@ -1,0 +1,34 @@
+Game Started at 2004-04-15 22:09:03 GMT
+Game Engine Version: 3.6.19.18-19
+File Format Version: 3.6.19.17 - 3.6.19.19
+Exported with Version: 3.8.1 (Steam)
+
+Mission #7: Not Mushroom out there...
+
+Red:  "7hè Ðêç4þî7à7ór$"
+Blue: "Guardsmen" [CPU 2.50]
+Blue: "Patrol"    [CPU 0.05]
+Blue: "Enemy"     [CPU 2.50]
+
+[00:00:02.56] ••• 7hè Ðêç4þî7à7ór$ starts turn
+[00:00:07.72] ••• 7hè Ðêç4þî7à7ór$ fires Girder Starter-Pack
+[00:00:08.84] ••• 7hè Ðêç4þî7à7ór$ fires Girder Starter-Pack
+[00:00:10.08] ••• 7hè Ðêç4þî7à7ór$ fires Girder Starter-Pack
+[00:00:10.74] ••• 7hè Ðêç4þî7à7ór$ fires Girder Starter-Pack
+[00:00:11.40] ••• 7hè Ðêç4þî7à7ór$ fires Girder Starter-Pack
+[00:00:11.50] ••• 7hè Ðêç4þî7à7ór$ ends turn; time used: 8.58 sec turn, 0.02 sec retreat
+[00:00:16.74] ••• Guardsmen starts turn
+[00:00:20.46] ••• Guardsmen fires Uzi
+[00:00:24.80] ••• Guardsmen ends turn; time used: 3.70 sec turn, 3.12 sec retreat
+[00:00:28.82] ••• 7hè Ðêç4þî7à7ór$ starts turn
+[00:00:30.98] ••• 7hè Ðêç4þî7à7ór$ fires Ninja Rope
+[00:00:53.26] ••• 7hè Ðêç4þî7à7ór$ ends turn; time used: 24.44 sec turn, 0.00 sec retreat
+[00:00:55.30] ••• Game Ends - Round Finished
+
+Team time totals:
+7hè Ðêç4þî7à7ór$: Turn: 00:00:33.02, Retreat: 00:00:00.02, Total: 00:00:33.04, Turn count: 2
+Guardsmen:        Turn: 00:00:03.70, Retreat: 00:00:03.12, Total: 00:00:06.82, Turn count: 1
+Patrol:           Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Enemy:            Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

@@ -1,0 +1,44 @@
+Game Started at 2021-11-07 22:05:11 GMT
+Game Engine Version: 3.6.29.3-8
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #3: All quiet in the library?
+
+Red:  "0xDEADC0DE"
+Blue: "Gunners"  [CPU 3.00]
+Blue: "Officers" [CPU 3.75]
+Blue: "Platoon"  [CPU 2.75]
+
+[00:00:24.66] ••• 0xDEADC0DE starts turn
+[00:00:25.42] ••• 0xDEADC0DE fires Ninja Rope
+[00:00:25.92] ••• 0xDEADC0DE fires Ninja Rope
+[00:00:28.72] ••• 0xDEADC0DE fires Baseball Bat
+[00:00:32.30] ••• 0xDEADC0DE ends turn; time used: 3.82 sec turn, 3.00 sec retreat
+[00:00:40.12] ••• Damage dealt: 200 (2 kills) to Gunners, 150 (1 kill) to Officers
+[00:00:40.12] ••• Gunners starts turn
+[00:01:00.84] ••• Gunners fires Grenade (1 sec, min bounce)
+[00:01:02.34] ••• Gunners loses turn due to loss of control; time used: 20.70 sec turn, 0.86 sec retreat
+[00:01:07.14] ••• Damage dealt: 3 to 0xDEADC0DE, 40 to Gunners, 25 to Platoon
+[00:01:07.14] ••• 0xDEADC0DE starts turn
+[00:01:07.16] ••• 0xDEADC0DE fires Grenade (3 sec, min bounce)
+[00:01:11.34] ••• 0xDEADC0DE ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:01:19.86] ••• Damage dealt: 42 to 0xDEADC0DE, 44 to Gunners, 39 to Platoon
+[00:01:19.86] ••• Platoon starts turn
+[00:01:27.38] ••• Platoon fires Grenade (3 sec, min bounce)
+[00:01:31.60] ••• Platoon loses turn due to loss of control; time used: 7.50 sec turn, 2.86 sec retreat
+[00:01:52.02] ••• Damage dealt: 36 to 0xDEADC0DE, 16 (1 kill) to Gunners, 36 (1 kill) to Platoon
+[00:01:52.02] ••• 0xDEADC0DE starts turn
+[00:01:52.78] ••• 0xDEADC0DE fires Ninja Rope
+[00:01:52.82] ••• 0xDEADC0DE fires Air Strike
+[00:01:54.66] ••• 0xDEADC0DE loses turn due to loss of control; time used: 0.78 sec turn, 1.82 sec retreat
+[00:02:07.42] ••• Damage dealt: 100 (1 kill) to 0xDEADC0DE, 100 (1 kill) to Platoon
+[00:02:07.44] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE: Turn: 00:00:04.60, Retreat: 00:00:07.82, Total: 00:00:12.42, Turn count: 3
+Gunners:    Turn: 00:00:20.70, Retreat: 00:00:00.86, Total: 00:00:21.56, Turn count: 1
+Officers:   Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Platoon:    Turn: 00:00:07.50, Retreat: 00:00:02.86, Total: 00:00:10.36, Turn count: 1
+
+Mission Successful

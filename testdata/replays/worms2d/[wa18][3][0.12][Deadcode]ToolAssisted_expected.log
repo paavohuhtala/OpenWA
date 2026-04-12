@@ -1,0 +1,41 @@
+Game Started at 2005-10-08 20:14:34 GMT
+Game Engine Version: 3.6.25.1
+File Format Version: 3.6.20.1 - 3.6.26.3
+Exported with Version: 3.8.1 (Steam)
+
+Mission #18: Rescue Agent Dennis!
+
+Red:  "0xDEADC0DE"
+Blue: "Resistance"     [CPU 4.25]
+Blue: "Elite"          [CPU 4.25]
+Blue: "Special Forces" [CPU 5.00]
+
+[00:00:05.74] ••• 0xDEADC0DE starts turn
+[00:00:05.78] ••• 0xDEADC0DE fires Napalm Strike
+[00:00:09.64] ••• 0xDEADC0DE ends turn; time used: 0.02 sec turn, 3.00 sec retreat
+[00:00:20.54] ••• Damage dealt: 300 (3 kills) to Special Forces
+[00:00:20.54] ••• Resistance starts turn
+[00:00:32.14] ••• Resistance fires Bazooka
+[00:00:35.68] ••• Resistance ends turn; time used: 11.58 sec turn, 3.00 sec retreat
+[00:00:38.38] ••• Damage dealt: 42 to 0xDEADC0DE
+[00:00:38.38] ••• 0xDEADC0DE starts turn
+[00:00:38.44] ••• 0xDEADC0DE fires Grenade (1 sec, min bounce)
+[00:00:42.62] ••• 0xDEADC0DE ends turn; time used: 0.04 sec turn, 3.00 sec retreat
+[00:00:46.40] ••• Damage dealt: 100 (1 kill) to Special Forces
+[00:00:46.40] ••• Elite starts turn
+[00:00:55.02] ••• Elite fires Bazooka
+[00:00:59.06] ••• Elite ends turn; time used: 8.60 sec turn, 3.00 sec retreat
+[00:01:09.36] ••• Damage dealt: 44 to 0xDEADC0DE
+[00:01:09.36] ••• 0xDEADC0DE starts turn
+[00:01:09.44] ••• 0xDEADC0DE fires Banana Bomb (2 sec)
+[00:01:15.04] ••• 0xDEADC0DE loses turn due to loss of control; time used: 0.06 sec turn, 3.00 sec retreat
+[00:01:32.22] ••• Damage dealt: 112 to 0xDEADC0DE, 100 (1 kill) to Resistance, 100 (1 kill) to Elite, 200 (2 kills) to Special Forces
+[00:01:32.24] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE:     Turn: 00:00:00.12, Retreat: 00:00:09.00, Total: 00:00:09.12, Turn count: 3
+Resistance:     Turn: 00:00:11.58, Retreat: 00:00:03.00, Total: 00:00:14.58, Turn count: 1
+Elite:          Turn: 00:00:08.60, Retreat: 00:00:03.00, Total: 00:00:11.60, Turn count: 1
+Special Forces: Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

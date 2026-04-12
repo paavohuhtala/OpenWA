@@ -1,0 +1,30 @@
+Game Started at 2021-11-11 06:16:07 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #7: Not Mushroom out there...
+
+Red:  "0xDEADC0DE"
+Blue: "Guardsmen" [CPU 2.50]
+Blue: "Patrol"    [CPU 0.05]
+Blue: "Enemy"     [CPU 2.50]
+
+[00:00:02.54] ••• 0xDEADC0DE starts turn
+[00:00:02.56] ••• 0xDEADC0DE fires Ninja Rope
+[00:00:05.54] ••• 0xDEADC0DE fires Girder Starter-Pack
+[00:00:05.86] ••• 0xDEADC0DE fires Girder Starter-Pack
+[00:00:05.88] ••• 0xDEADC0DE fires Girder Starter-Pack
+[00:00:05.90] ••• 0xDEADC0DE fires Girder Starter-Pack
+[00:00:08.92] ••• 0xDEADC0DE loses turn due to loss of control; time used: 3.34 sec turn, 3.00 sec retreat
+[00:00:10.56] ••• Guardsmen starts turn
+[00:00:10.58] ••• Guardsmen ends turn; time used: 0.02 sec turn, 0.00 sec retreat
+[00:00:12.62] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE: Turn: 00:00:03.34, Retreat: 00:00:03.00, Total: 00:00:06.34, Turn count: 1
+Guardsmen:  Turn: 00:00:00.02, Retreat: 00:00:00.00, Total: 00:00:00.02, Turn count: 1
+Patrol:     Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Enemy:      Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

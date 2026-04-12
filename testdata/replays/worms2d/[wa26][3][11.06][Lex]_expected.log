@@ -1,0 +1,40 @@
+Game Started at 2006-10-28 17:16:29 GMT
+Game Engine Version: 3.6.26.5
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #26: Mad Cows.
+
+Red:  "Lunchpack Gang"
+Blue: "Officers" [CPU 4.00]
+
+[00:00:00.08] ••• Lunchpack Gang starts turn
+[00:00:01.68] ••• Lunchpack Gang fires Ninja Rope
+[00:00:02.24] ••• Lunchpack Gang fires Ninja Rope
+[00:00:05.92] ••• Lunchpack Gang fires Dynamite
+[00:00:10.96] ••• Lunchpack Gang loses turn due to loss of control; time used: 5.04 sec turn, 4.86 sec retreat
+[00:00:24.54] ••• Damage dealt: 90 to Lunchpack Gang, 200 (2 kills) to Officers
+[00:00:24.54] ••• Officers starts turn
+[00:00:29.74] ••• Officers fires Shotgun
+[00:00:39.88] ••• Officers fires Shotgun
+[00:00:44.06] ••• Officers ends turn; time used: 10.48 sec turn, 3.00 sec retreat
+[00:00:48.16] ••• Damage dealt: 42 to Lunchpack Gang
+[00:00:48.16] ••• Lunchpack Gang starts turn
+[00:00:49.32] ••• Lunchpack Gang fires Bazooka
+[00:00:53.92] ••• Lunchpack Gang ends turn; time used: 0.96 sec turn, 3.00 sec retreat
+[00:01:01.22] ••• Damage dealt: 43 to Officers
+[00:01:01.22] ••• Officers starts turn
+[00:01:11.06] ••• Officers fires Bazooka
+[00:01:15.14] ••• Officers ends turn; time used: 9.82 sec turn, 3.00 sec retreat
+[00:01:33.80] ••• Damage dealt: 46 to Lunchpack Gang
+[00:01:33.80] ••• Lunchpack Gang starts turn
+[00:01:39.14] ••• Lunchpack Gang fires Cluster Bomb (3 sec, min bounce)
+[00:01:42.22] ••• Lunchpack Gang loses turn due to loss of control; time used: 5.06 sec turn, 2.86 sec retreat
+[00:02:04.68] ••• Damage dealt: 12 (1 kill) to Lunchpack Gang, 157 (2 kills) to Officers
+[00:02:04.70] ••• Game Ends - Round Finished
+
+Team time totals:
+Lunchpack Gang: Turn: 00:00:11.06, Retreat: 00:00:10.72, Total: 00:00:21.78, Turn count: 3
+Officers:       Turn: 00:00:20.30, Retreat: 00:00:06.00, Total: 00:00:26.30, Turn count: 2
+
+Mission Successful

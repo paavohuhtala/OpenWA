@@ -1,0 +1,26 @@
+Game Started at 2007-01-18 12:36:23 GMT
+Game Engine Version: 3.6.26.5
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #10: Jurassic Worm.
+
+Red:  "Don't be stupid!"
+Blue: "Guardsmen" [CPU 4.25]
+Blue: "Officers"  [CPU 4.95]
+Blue: "Enemy"     [CPU 3.50]
+
+[00:00:06.74] ••• Don't be stupid! starts turn
+[00:00:07.62] ••• Don't be stupid! fires Ninja Rope
+[00:00:09.92] ••• Don't be stupid! fires Mole Bomb
+[00:00:19.56] ••• Don't be stupid! ends turn; time used: 3.16 sec turn, 3.00 sec retreat
+[00:00:34.84] ••• Damage dealt: 100 (1 kill) to Officers
+[00:00:34.86] ••• Game Ends - Round Finished
+
+Team time totals:
+Don't be stupid!: Turn: 00:00:03.16, Retreat: 00:00:03.00, Total: 00:00:06.16, Turn count: 1
+Guardsmen:        Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Officers:         Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Enemy:            Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

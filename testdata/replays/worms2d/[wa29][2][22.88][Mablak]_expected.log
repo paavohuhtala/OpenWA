@@ -1,0 +1,31 @@
+Game Started at 2021-10-20 21:36:22 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #29: Sinking Ice Cap.
+
+Red:  "Ro Bad"
+Blue: "Special Forces" [CPU 5.00]
+
+[00:00:01.74] ••• Ro Bad starts turn
+[00:00:02.98] ••• Ro Bad fires Ninja Rope
+[00:00:10.30] ••• Ro Bad fires Blow Torch
+[00:00:20.10] ••• Ro Bad ends turn; time used: 8.54 sec turn, 5.00 sec retreat
+[00:00:28.54] ••• Damage dealt: 20 (1 kill) to Special Forces
+[00:00:28.54] ••• Special Forces starts turn
+[00:00:32.22] ••• Special Forces fires Air Strike
+[00:00:32.42] ••• Special Forces loses turn due to loss of control; time used: 3.66 sec turn, 0.00 sec retreat
+[00:00:41.98] ••• Damage dealt: 49 to Ro Bad, 20 (1 kill) to Special Forces
+[00:00:41.98] ••• Ro Bad starts turn
+[00:00:43.76] ••• Ro Bad fires Ninja Rope
+[00:00:56.34] ••• Ro Bad fires Blow Torch
+[00:01:02.36] ••• Ro Bad ends turn; time used: 14.34 sec turn, 5.00 sec retreat
+[00:01:25.94] ••• Damage dealt: 6 (1 kill) to Ro Bad, 40 (2 kills) to Special Forces
+[00:01:25.96] ••• Game Ends - Round Finished
+
+Team time totals:
+Ro Bad:         Turn: 00:00:22.88, Retreat: 00:00:10.00, Total: 00:00:32.88, Turn count: 2
+Special Forces: Turn: 00:00:03.66, Retreat: 00:00:00.00, Total: 00:00:03.66, Turn count: 1
+
+Mission Successful

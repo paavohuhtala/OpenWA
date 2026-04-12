@@ -1,0 +1,51 @@
+Game Started at 2007-02-17 14:18:52 GMT
+Game Engine Version: 3.6.26.5
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #24: Countdown to Armageddon!
+
+Red:  "Lunchpack Gang"
+Red:  "Cannon Fodder"
+Blue: "Patrol" [CPU 2.25]
+
+[00:00:02.82] ••• Lunchpack Gang starts turn
+[00:00:02.86] ••• Lunchpack Gang fires Grenade (4 sec, max bounce)
+[00:00:07.32] ••• Lunchpack Gang loses turn due to loss of control; time used: 0.02 sec turn, 3.00 sec retreat
+[00:00:14.34] ••• Damage dealt: 1 to Lunchpack Gang, 53 to Patrol
+[00:00:14.34] ••• Patrol starts turn
+[00:00:18.54] ••• Patrol fires Bazooka
+[00:00:22.32] ••• Patrol ends turn; time used: 4.18 sec turn, 3.00 sec retreat
+[00:00:42.48] ••• Damage dealt: 152 (3 kills) to Patrol
+[00:00:42.48] ••• Lunchpack Gang starts turn
+[00:00:42.52] ••• Lunchpack Gang fires Grenade (2 sec, max bounce)
+[00:00:46.68] ••• Lunchpack Gang ends turn; time used: 0.02 sec turn, 3.00 sec retreat
+[00:00:53.36] ••• Damage dealt: 140 (2 kills) to Patrol
+[00:00:53.36] ••• Patrol starts turn
+[00:01:00.96] ••• Patrol fires Bazooka
+[00:01:04.58] ••• Patrol ends turn; time used: 7.58 sec turn, 3.00 sec retreat
+[00:01:07.66] ••• Damage dealt: 35 to Lunchpack Gang
+[00:01:07.66] ••• Lunchpack Gang starts turn
+[00:01:07.68] ••• Lunchpack Gang fires Mine
+[00:01:12.86] ••• Lunchpack Gang ends turn; time used: 0.00 sec turn, 5.00 sec retreat
+[00:01:20.90] ••• Damage dealt: 41 to Lunchpack Gang, 41 to Patrol
+[00:01:20.90] ••• Patrol starts turn
+[00:01:25.36] ••• Patrol fires Bazooka
+[00:01:26.10] ••• Patrol loses turn due to loss of control; time used: 4.44 sec turn, 0.00 sec retreat
+[00:01:37.22] ••• Damage dealt: 24 (1 kill) to Lunchpack Gang, 108 to Patrol
+[00:01:37.22] ••• Lunchpack Gang starts turn
+[00:01:37.24] ••• Lunchpack Gang fires Grenade (2 sec, max bounce)
+[00:01:39.98] ••• Lunchpack Gang loses turn due to loss of control; time used: 0.00 sec turn, 1.72 sec retreat
+[00:01:47.02] ••• Damage dealt: 10 to Lunchpack Gang, 70 (1 kill) to Patrol
+[00:01:47.02] ••• Patrol starts turn
+[00:01:50.84] ••• Patrol fires Grenade (4 sec, min bounce)
+[00:01:56.10] ••• Patrol loses turn due to loss of control; time used: 3.80 sec turn, 3.00 sec retreat
+[00:02:11.30] ••• Damage dealt: 51 (2 kills) to Patrol
+[00:02:11.32] ••• Game Ends - Round Finished
+
+Team time totals:
+Lunchpack Gang: Turn: 00:00:00.04, Retreat: 00:00:12.72, Total: 00:00:12.76, Turn count: 4
+Cannon Fodder:  Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Patrol:         Turn: 00:00:20.00, Retreat: 00:00:09.00, Total: 00:00:29.00, Turn count: 4
+
+Mission Successful

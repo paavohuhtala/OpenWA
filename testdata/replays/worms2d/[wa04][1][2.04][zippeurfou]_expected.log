@@ -1,0 +1,26 @@
+Game Started at 2004-04-13 18:54:08 GMT
+Game Engine Version: 3.6.19.18-19
+File Format Version: 3.6.19.17 - 3.6.19.19
+Exported with Version: 3.8.1 (Steam)
+
+Mission #4: Cool as ice.
+
+Red:  "Burp"
+Blue: "Soldats de la ga" [CPU 3.00]
+
+[00:00:02.78] ••• Sudden Death
+[00:00:05.54] ••• Burp starts turn
+[00:00:05.76] ••• Burp fires Jet Pack
+[00:00:07.14] ••• Burp used 6 units of Jet Pack fuel
+[00:00:08.02] ••• Burp fires Uzi
+[00:00:11.22] ••• Burp ends turn; time used: 2.04 sec turn, 2.00 sec retreat
+[00:00:20.46] ••• Damage dealt: 100 (1 kill) to Soldats de la ga
+[00:00:20.48] ••• Game Ends - Round Finished
+
+Team time totals:
+Burp:             Turn: 00:00:02.04, Retreat: 00:00:02.00, Total: 00:00:04.04, Turn count: 1
+Soldats de la ga: Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Total Jet Pack fuel used: 6
+
+Mission Successful

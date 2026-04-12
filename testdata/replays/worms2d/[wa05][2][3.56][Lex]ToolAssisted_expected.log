@@ -1,0 +1,31 @@
+Game Started at 2007-01-13 06:48:10 GMT
+Game Engine Version: 3.6.26.5
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #5: Do the Locomotion.
+
+Red:  "Lunchpack Gang"
+Blue: "Patrol" [CPU 3.50]
+
+[00:00:07.08] ••• Lunchpack Gang starts turn
+[00:00:07.10] ••• Lunchpack Gang fires Fire Punch
+[00:00:12.58] ••• Lunchpack Gang loses turn due to loss of control; time used: 0.00 sec turn, 3.68 sec retreat
+[00:00:19.08] ••• Damage dealt: 35 to Lunchpack Gang
+[00:00:19.08] ••• Patrol starts turn
+[00:00:23.10] ••• Patrol fires Uzi
+[00:00:27.44] ••• Patrol ends turn; time used: 4.00 sec turn, 3.12 sec retreat
+[00:00:33.80] ••• Lunchpack Gang starts turn
+[00:00:36.12] ••• Lunchpack Gang uses Bungee
+[00:00:37.38] ••• Lunchpack Gang fires Girder
+[00:00:42.40] ••• Lunchpack Gang loses turn due to loss of control; time used: 3.56 sec turn, 5.00 sec retreat
+[00:00:47.98] ••• Damage dealt: 11 to Lunchpack Gang
+[00:00:47.98] ••• Patrol starts turn
+[00:00:48.00] ••• Patrol ends turn; time used: 0.02 sec turn, 0.00 sec retreat
+[00:00:50.28] ••• Game Ends - Round Finished
+
+Team time totals:
+Lunchpack Gang: Turn: 00:00:03.56, Retreat: 00:00:08.68, Total: 00:00:12.24, Turn count: 2
+Patrol:         Turn: 00:00:04.02, Retreat: 00:00:03.12, Total: 00:00:07.14, Turn count: 2
+
+Mission Successful

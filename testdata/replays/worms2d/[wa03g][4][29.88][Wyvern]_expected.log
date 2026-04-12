@@ -1,0 +1,52 @@
+Game Started at 2006-12-02 16:18:43 GMT
+Game Engine Version: 3.6.26.5
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #3: All quiet in the library?
+
+Red:  "Don't be stupid!"
+Blue: "Gunners"  [CPU 3.00]
+Blue: "Officers" [CPU 3.75]
+Blue: "Platoon"  [CPU 2.75]
+
+[00:00:24.66] ••• Don't be stupid! starts turn
+[00:00:26.54] ••• Don't be stupid! fires Uzi
+[00:00:30.74] ••• Don't be stupid! ends turn; time used: 1.86 sec turn, 3.00 sec retreat
+[00:00:35.52] ••• Damage dealt: 200 (2 kills) to Gunners
+[00:00:35.52] ••• Gunners starts turn
+[00:00:54.34] ••• Gunners fires Bazooka
+[00:00:55.14] ••• Gunners loses turn due to loss of control; time used: 18.80 sec turn, 0.22 sec retreat
+[00:00:59.22] ••• Damage dealt: 31 to Don't be stupid!, 6 to Gunners, 4 to Platoon
+[00:00:59.22] ••• Don't be stupid! starts turn
+[00:01:00.88] ••• Don't be stupid! fires Ninja Rope
+[00:01:10.12] ••• Don't be stupid! fires Cluster Bomb (3 sec, min bounce)
+[00:01:14.46] ••• Don't be stupid! loses turn due to loss of control; time used: 10.88 sec turn, 2.86 sec retreat
+[00:01:34.54] ••• Damage dealt: 100 (1 kill) to Don't be stupid!, 100 (1 kill) to Platoon
+[00:01:34.54] ••• Officers starts turn
+[00:01:47.30] ••• Officers fires Bazooka
+[00:01:50.88] ••• Officers ends turn; time used: 12.74 sec turn, 3.00 sec retreat
+[00:01:59.80] ••• Damage dealt: 100 (1 kill) to Don't be stupid!
+[00:01:59.80] ••• Don't be stupid! starts turn
+[00:02:00.78] ••• Don't be stupid! fires Ninja Rope
+[00:02:08.34] ••• Don't be stupid! fires Air Strike
+[00:02:11.36] ••• Don't be stupid! ends turn; time used: 8.52 sec turn, 3.00 sec retreat
+[00:02:43.62] ••• Damage dealt: 100 (1 kill) to Don't be stupid!, 94 (1 kill) to Gunners, 2 to Officers, 96 (1 kill) to Platoon
+[00:02:43.62] ••• Officers starts turn
+[00:02:52.02] ••• Officers fires Bazooka
+[00:02:55.48] ••• Officers ends turn; time used: 8.38 sec turn, 3.00 sec retreat
+[00:03:06.76] ••• Damage dealt: 69 (1 kill) to Don't be stupid!
+[00:03:06.76] ••• Don't be stupid! starts turn
+[00:03:08.72] ••• Don't be stupid! fires Ninja Rope
+[00:03:15.40] ••• Don't be stupid! fires Baseball Bat
+[00:03:18.98] ••• Don't be stupid! ends turn; time used: 8.62 sec turn, 3.00 sec retreat
+[00:03:24.06] ••• Damage dealt: 148 (1 kill) to Officers
+[00:03:24.08] ••• Game Ends - Round Finished
+
+Team time totals:
+Don't be stupid!: Turn: 00:00:29.88, Retreat: 00:00:11.86, Total: 00:00:41.74, Turn count: 4
+Gunners:          Turn: 00:00:18.80, Retreat: 00:00:00.22, Total: 00:00:19.02, Turn count: 1
+Officers:         Turn: 00:00:21.12, Retreat: 00:00:06.00, Total: 00:00:27.12, Turn count: 2
+Platoon:          Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

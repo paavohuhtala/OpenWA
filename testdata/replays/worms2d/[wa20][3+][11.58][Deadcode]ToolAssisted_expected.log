@@ -1,0 +1,42 @@
+Game Started at 2021-11-29 08:50:37 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #20: Rumble in the Farmyard.
+
+Red:  "0xDEADC0DE"
+Blue: "Enemy" [CPU 3.00]
+
+[00:00:01.62] ••• Sudden Death
+[00:00:01.64] ••• Sudden Death
+[00:00:12.56] ••• 0xDEADC0DE starts turn
+[00:00:12.64] ••• 0xDEADC0DE fires Ninja Rope
+[00:00:21.46] ••• 0xDEADC0DE fires Bazooka
+[00:00:24.48] ••• 0xDEADC0DE ends turn; time used: 8.80 sec turn, 3.00 sec retreat
+[00:00:29.96] ••• Damage dealt: 5 to Enemy
+[00:00:29.96] ••• Enemy starts turn
+[00:00:33.92] ••• Enemy fires Bazooka
+[00:00:37.78] ••• Enemy ends turn; time used: 3.94 sec turn, 3.00 sec retreat
+[00:00:41.80] ••• 0xDEADC0DE starts turn
+[00:00:41.82] ••• 0xDEADC0DE fires Ninja Rope
+[00:00:44.70] ••• 0xDEADC0DE fires Dynamite
+[00:00:49.70] ••• 0xDEADC0DE loses turn due to loss of control; time used: 2.78 sec turn, 4.98 sec retreat
+[00:00:56.94] ••• Damage dealt: 61 to 0xDEADC0DE, 61 to Enemy
+[00:00:56.94] ••• Enemy starts turn
+[00:01:01.12] ••• Enemy ends turn; time used: 4.16 sec turn, 0.00 sec retreat
+[00:01:03.14] ••• 0xDEADC0DE starts turn
+[00:01:03.16] ••• 0xDEADC0DE fires Grenade (2 sec, min bounce)
+[00:01:07.30] ••• 0xDEADC0DE ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:01:12.52] ••• Damage dealt: 50 to Enemy
+[00:01:12.52] ••• Enemy starts turn
+[00:01:18.38] ••• Enemy fires Uzi
+[00:01:22.60] ••• Enemy ends turn; time used: 5.84 sec turn, 3.00 sec retreat
+[00:01:58.66] ••• Damage dealt: 95 (1 kill) to 0xDEADC0DE, 179 (4 kills) to Enemy
+[00:01:58.68] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE: Turn: 00:00:11.58, Retreat: 00:00:10.98, Total: 00:00:22.56, Turn count: 3
+Enemy:      Turn: 00:00:13.94, Retreat: 00:00:06.00, Total: 00:00:19.94, Turn count: 3
+
+Mission Successful

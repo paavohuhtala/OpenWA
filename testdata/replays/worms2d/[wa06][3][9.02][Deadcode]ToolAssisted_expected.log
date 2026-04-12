@@ -1,0 +1,43 @@
+Game Started at 2021-11-08 16:50:51 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #6: Sand in your eye.
+
+Red:  "0xDEADC0DE"
+Blue: "Commandos"      [CPU 3.75]
+Blue: "Special Forces" [CPU 4.25]
+Blue: "Guardsmen"      [CPU 4.25]
+
+[00:00:09.88] ••• 0xDEADC0DE starts turn
+[00:00:10.88] ••• 0xDEADC0DE fires Ninja Rope
+[00:00:18.92] ••• 0xDEADC0DE fires Flame Thrower
+[00:00:26.40] ••• 0xDEADC0DE ends turn; time used: 9.02 sec turn, 3.00 sec retreat
+[00:00:45.20] ••• Damage dealt: 90 (1 kill) to Commandos, 140 (2 kills) to Guardsmen
+[00:00:45.20] ••• Commandos starts turn
+[00:00:51.46] ••• Commandos fires Shotgun
+[00:01:00.52] ••• Commandos fires Shotgun
+[00:01:04.70] ••• Commandos ends turn; time used: 10.14 sec turn, 3.00 sec retreat
+[00:01:08.72] ••• Damage dealt: 22 to 0xDEADC0DE
+[00:01:08.72] ••• 0xDEADC0DE starts turn
+[00:01:08.74] ••• 0xDEADC0DE fires Bazooka
+[00:01:12.72] ••• 0xDEADC0DE ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:01:23.98] ••• Damage dealt: 90 (1 kill) to Commandos
+[00:01:23.98] ••• Special Forces starts turn
+[00:01:27.98] ••• Special Forces fires Bazooka
+[00:01:30.30] ••• Special Forces ends turn; time used: 3.98 sec turn, 1.82 sec retreat
+[00:01:38.28] ••• Damage dealt: 47 to 0xDEADC0DE
+[00:01:38.28] ••• 0xDEADC0DE starts turn
+[00:01:38.30] ••• 0xDEADC0DE fires Bazooka
+[00:01:42.32] ••• 0xDEADC0DE ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:01:49.38] ••• Damage dealt: 110 (1 kill) to Special Forces
+[00:01:49.40] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE:     Turn: 00:00:09.02, Retreat: 00:00:09.00, Total: 00:00:18.02, Turn count: 3
+Commandos:      Turn: 00:00:10.14, Retreat: 00:00:03.00, Total: 00:00:13.14, Turn count: 1
+Special Forces: Turn: 00:00:03.98, Retreat: 00:00:01.82, Total: 00:00:05.80, Turn count: 1
+Guardsmen:      Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

@@ -1,0 +1,44 @@
+Game Started at 2006-06-18 22:47:44 GMT
+Game Engine Version: 3.6.26.5
+File Format Version: 3.6.20.1 - 3.6.26.3
+Exported with Version: 3.8.1 (Steam)
+
+Mission #2: Operation Market Garden.
+
+Red:  "0xDEADC0DE"
+Blue: "Gunners"   [CPU 2.00]
+Blue: "Guardsmen" [CPU 2.25]
+
+[00:00:02.06] ••• 0xDEADC0DE starts turn
+[00:00:02.08] ••• 0xDEADC0DE fires Grenade (2 sec, max bounce)
+[00:00:06.40] ••• 0xDEADC0DE ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:00:11.44] ••• Damage dealt: 50 to Gunners
+[00:00:11.44] ••• Gunners starts turn
+[00:00:17.52] ••• Gunners fires Bazooka
+[00:00:21.70] ••• Gunners ends turn; time used: 6.06 sec turn, 3.00 sec retreat
+[00:00:25.72] ••• 0xDEADC0DE starts turn
+[00:00:25.74] ••• 0xDEADC0DE fires Grenade (3 sec, max bounce)
+[00:00:30.44] ••• 0xDEADC0DE ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:00:34.96] ••• Damage dealt: 40 to Guardsmen
+[00:00:34.96] ••• Guardsmen starts turn
+[00:00:41.32] ••• Guardsmen fires Grenade (2 sec, min bounce)
+[00:00:45.40] ••• Guardsmen ends turn; time used: 6.34 sec turn, 3.00 sec retreat
+[00:00:49.42] ••• 0xDEADC0DE starts turn
+[00:00:49.44] ••• 0xDEADC0DE fires Grenade (5 sec, max bounce)
+[00:00:55.96] ••• 0xDEADC0DE ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:01:15.84] ••• Damage dealt: 80 (2 kills) to Gunners, 60 (1 kill) to Guardsmen
+[00:01:15.84] ••• Gunners starts turn
+[00:01:23.22] ••• Gunners fires Grenade (3 sec, min bounce)
+[00:01:27.60] ••• Gunners ends turn; time used: 7.36 sec turn, 3.00 sec retreat
+[00:01:31.62] ••• 0xDEADC0DE starts turn
+[00:01:31.64] ••• 0xDEADC0DE fires Grenade (2 sec, max bounce)
+[00:01:36.14] ••• 0xDEADC0DE ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:01:48.32] ••• Damage dealt: 65 (1 kill) to Gunners
+[00:01:48.34] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE: Turn: 00:00:00.00, Retreat: 00:00:12.00, Total: 00:00:12.00, Turn count: 4
+Gunners:    Turn: 00:00:13.42, Retreat: 00:00:06.00, Total: 00:00:19.42, Turn count: 2
+Guardsmen:  Turn: 00:00:06.34, Retreat: 00:00:03.00, Total: 00:00:09.34, Turn count: 1
+
+Mission Successful

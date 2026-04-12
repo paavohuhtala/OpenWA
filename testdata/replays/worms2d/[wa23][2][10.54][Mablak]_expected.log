@@ -1,0 +1,31 @@
+Game Started at 2016-09-15 22:38:50 GMT
+Game Engine Version: 3.7.2.1-3
+File Format Version: 3.6.29.48 - 3.7.2.97
+Exported with Version: 3.8.1 (Steam)
+
+Mission #23: The Drop Zone.
+
+Red:  "Ro Bad"
+Blue: "Gunners" [CPU 3.50]
+
+[00:00:03.36] ••• Ro Bad starts turn
+[00:00:10.24] ••• Ro Bad fires Shotgun
+[00:00:20.86] ••• Ro Bad fires Shotgun
+[00:00:24.42] ••• Ro Bad loses turn due to loss of control; time used: 6.86 sec turn, 2.40 sec retreat
+[00:00:32.20] ••• Damage dealt: 100 (1 kill) to Ro Bad, 400 (4 kills) to Gunners
+[00:00:32.20] ••• Gunners starts turn
+[00:00:38.62] ••• Gunners fires Bazooka
+[00:00:43.20] ••• Gunners ends turn; time used: 6.40 sec turn, 3.00 sec retreat
+[00:00:47.06] ••• Damage dealt: 40 to Ro Bad
+[00:00:47.06] ••• Ro Bad starts turn
+[00:00:50.02] ••• Ro Bad fires Shotgun
+[00:00:57.90] ••• Ro Bad fires Shotgun
+[00:01:02.06] ••• Ro Bad ends turn; time used: 3.68 sec turn, 3.00 sec retreat
+[00:01:08.08] ••• Damage dealt: 200 (2 kills) to Gunners
+[00:01:08.10] ••• Game Ends - Round Finished
+
+Team time totals:
+Ro Bad:  Turn: 00:00:10.54, Retreat: 00:00:05.40, Total: 00:00:15.94, Turn count: 2
+Gunners: Turn: 00:00:06.40, Retreat: 00:00:03.00, Total: 00:00:09.40, Turn count: 1
+
+Mission Successful

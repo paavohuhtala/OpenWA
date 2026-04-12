@@ -1,0 +1,32 @@
+Game Started at 2005-09-20 14:40:33 GMT
+Game Engine Version: 3.6.25.1
+File Format Version: 3.6.20.1 - 3.6.26.3
+Exported with Version: 3.8.1 (Steam)
+
+Mission #8: Big Shot.
+
+Red:  "fit im schritt!"
+Blue: "Kanonenfutter" [CPU 3.00]
+Blue: "Feind"         [CPU 3.00]
+
+[00:00:01.88] ••• fit im schritt! starts turn
+[00:00:18.12] ••• fit im schritt! fires Longbow
+[00:00:48.40] ••• fit im schritt! fires Longbow
+[00:00:51.48] ••• fit im schritt! ends turn; time used: 34.94 sec turn, 3.00 sec retreat
+[00:00:59.58] ••• Damage dealt: 40 (1 kill) to Kanonenfutter, 50 (1 kill) to Feind
+[00:00:59.58] ••• Kanonenfutter starts turn
+[00:01:07.86] ••• Kanonenfutter fires Uzi
+[00:01:12.08] ••• Kanonenfutter ends turn; time used: 8.26 sec turn, 3.00 sec retreat
+[00:01:16.10] ••• fit im schritt! starts turn
+[00:01:17.76] ••• fit im schritt! fires Ninja Rope
+[00:01:50.58] ••• fit im schritt! fires Old Woman
+[00:01:55.62] ••• fit im schritt! ends turn; time used: 27.16 sec turn, 3.00 sec retreat
+[00:02:08.58] ••• Damage dealt: 40 (1 kill) to Kanonenfutter, 50 (1 kill) to Feind
+[00:02:08.60] ••• Game Ends - Round Finished
+
+Team time totals:
+fit im schritt!: Turn: 00:01:02.10, Retreat: 00:00:06.00, Total: 00:01:08.10, Turn count: 2
+Kanonenfutter:   Turn: 00:00:08.26, Retreat: 00:00:03.00, Total: 00:00:11.26, Turn count: 1
+Feind:           Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

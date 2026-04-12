@@ -1,0 +1,94 @@
+Game Started at 2007-11-14 20:54:56 GMT
+Game Engine Version: 3.6.28.0
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #24: Countdown to Armageddon!
+
+Red:  "RuSsIaN N%bZ"
+Red:  "Cannon Fodder"
+Blue: "Patrol" [CPU 2.25]
+
+[00:00:02.84] ••• RuSsIaN N%bZ starts turn
+[00:00:02.86] ••• RuSsIaN N%bZ fires Grenade (3 sec, min bounce)
+[00:00:04.96] ••• RuSsIaN N%bZ loses turn due to loss of control; time used: 0.00 sec turn, 1.56 sec retreat
+[00:00:11.52] ••• Damage dealt: 1 to RuSsIaN N%bZ, 45 to Patrol
+[00:00:11.52] ••• Patrol starts turn
+[00:00:17.32] ••• Patrol fires Grenade (2 sec, min bounce)
+[00:00:21.12] ••• Patrol ends turn; time used: 5.78 sec turn, 3.00 sec retreat
+[00:00:25.16] ••• Damage dealt: 57 to RuSsIaN N%bZ
+[00:00:25.16] ••• RuSsIaN N%bZ starts turn
+[00:00:25.18] ••• RuSsIaN N%bZ fires Grenade (3 sec, min bounce)
+[00:00:28.74] ••• RuSsIaN N%bZ loses turn due to loss of control; time used: 0.00 sec turn, 2.86 sec retreat
+[00:00:42.08] ••• Damage dealt: 126 (1 kill) to RuSsIaN N%bZ, 20 (1 kill) to Patrol
+[00:00:42.08] ••• Patrol starts turn
+[00:00:52.50] ••• Patrol fires Bazooka
+[00:00:56.06] ••• Patrol ends turn; time used: 10.40 sec turn, 3.00 sec retreat
+[00:00:59.14] ••• Damage dealt: 37 to RuSsIaN N%bZ
+[00:00:59.14] ••• RuSsIaN N%bZ starts turn
+[00:00:59.96] ••• RuSsIaN N%bZ fires Ninja Rope
+[00:01:04.98] ••• RuSsIaN N%bZ fires Baseball Bat
+[00:01:08.56] ••• RuSsIaN N%bZ ends turn; time used: 5.82 sec turn, 3.00 sec retreat
+[00:01:15.90] ••• Damage dealt: 63 (1 kill) to RuSsIaN N%bZ, 39 to Cannon Fodder, 30 to Patrol
+[00:01:15.90] ••• Patrol starts turn
+[00:01:23.74] ••• Patrol fires Grenade (4 sec, min bounce)
+[00:01:29.14] ••• Patrol ends turn; time used: 7.82 sec turn, 3.00 sec retreat
+[00:01:41.00] ••• Damage dealt: 16 (1 kill) to RuSsIaN N%bZ
+[00:01:41.00] ••• Patrol starts turn
+[00:01:46.42] ••• Patrol fires Bazooka
+[00:01:51.00] ••• Patrol ends turn; time used: 5.40 sec turn, 3.00 sec retreat
+[00:01:55.04] ••• Patrol starts turn
+[00:02:02.60] ••• Patrol fires Bazooka
+[00:02:06.20] ••• Patrol ends turn; time used: 7.54 sec turn, 3.00 sec retreat
+[00:02:10.32] ••• Damage dealt: 45 to Patrol
+[00:02:10.32] ••• Patrol starts turn
+[00:02:14.06] ••• Patrol fires Bazooka
+[00:02:16.52] ••• Patrol loses turn due to loss of control; time used: 3.72 sec turn, 1.72 sec retreat
+[00:02:21.60] ••• Damage dealt: 4 to Patrol
+[00:02:21.60] ••• Patrol starts turn
+[00:02:30.26] ••• Patrol fires Bazooka
+[00:02:31.14] ••• Patrol loses turn due to loss of control; time used: 8.64 sec turn, 0.08 sec retreat
+[00:02:34.74] ••• Damage dealt: 8 to Patrol
+[00:02:34.74] ••• Patrol starts turn
+[00:02:50.34] ••• Patrol fires Bazooka
+[00:02:54.00] ••• Patrol ends turn; time used: 15.58 sec turn, 3.00 sec retreat
+[00:02:58.04] ••• Patrol starts turn
+[00:03:02.80] ••• Patrol fires Grenade (4 sec, min bounce)
+[00:03:08.30] ••• Patrol ends turn; time used: 4.74 sec turn, 3.00 sec retreat
+[00:03:12.32] ••• Patrol starts turn
+[00:03:29.70] ••• Patrol fires Bazooka
+[00:03:34.10] ••• Patrol ends turn; time used: 17.36 sec turn, 3.00 sec retreat
+[00:03:41.22] ••• Patrol starts turn
+[00:03:52.88] ••• Patrol fires Bazooka
+[00:03:53.82] ••• Patrol loses turn due to loss of control; time used: 11.64 sec turn, 0.10 sec retreat
+[00:04:00.28] ••• Damage dealt: 2 to Patrol
+[00:04:00.28] ••• Patrol starts turn
+[00:04:08.84] ••• Patrol fires Grenade (3 sec, min bounce)
+[00:04:13.14] ••• Patrol ends turn; time used: 8.54 sec turn, 3.00 sec retreat
+[00:05:04.86] ••• Patrol starts turn
+[00:05:16.46] ••• Patrol fires Bazooka
+[00:05:20.48] ••• Patrol ends turn; time used: 11.58 sec turn, 3.00 sec retreat
+[00:05:24.50] ••• Patrol starts turn
+[00:05:28.70] ••• Patrol fires Grenade (3 sec, min bounce)
+[00:05:33.08] ••• Patrol ends turn; time used: 4.18 sec turn, 3.00 sec retreat
+[00:05:37.10] ••• Patrol starts turn
+[00:05:41.14] ••• Patrol fires Grenade (3 sec, min bounce)
+[00:05:45.46] ••• Patrol ends turn; time used: 4.02 sec turn, 3.00 sec retreat
+[00:05:49.48] ••• Patrol starts turn
+[00:05:52.86] ••• Patrol fires Grenade (3 sec, min bounce)
+[00:05:57.26] ••• Patrol ends turn; time used: 3.36 sec turn, 3.00 sec retreat
+[00:06:01.28] ••• Patrol starts turn
+[00:06:04.68] ••• Patrol fires Grenade (3 sec, min bounce)
+[00:06:09.04] ••• Patrol ends turn; time used: 3.38 sec turn, 3.00 sec retreat
+[00:06:13.06] ••• Patrol starts turn
+[00:06:16.48] ••• Patrol fires Bazooka
+[00:06:17.30] ••• Patrol loses turn due to loss of control; time used: 3.40 sec turn, 0.04 sec retreat
+[00:06:24.32] ••• Damage dealt: 32 (1 kill) to Patrol
+[00:06:24.34] ••• Game Ends - Round Finished
+
+Team time totals:
+RuSsIaN N%bZ:  Turn: 00:00:05.82, Retreat: 00:00:07.42, Total: 00:00:13.24, Turn count: 3
+Cannon Fodder: Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Patrol:        Turn: 00:02:17.08, Retreat: 00:00:43.94, Total: 00:03:01.02, Turn count: 18
+
+Mission Successful

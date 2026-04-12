@@ -1,0 +1,26 @@
+Game Started at 2004-04-08 07:59:36 GMT
+Game Engine Version: 3.6.19.18-19
+File Format Version: 3.6.19.17 - 3.6.19.19
+Exported with Version: 3.8.1 (Steam)
+
+Mission #4: Cool as ice.
+
+Red:  "Ducks"
+Blue: "Guardsmen" [CPU 3.00]
+
+[00:00:02.78] ••• Sudden Death
+[00:00:05.54] ••• Ducks starts turn
+[00:00:06.32] ••• Ducks fires Jet Pack
+[00:00:15.32] ••• Ducks fires Mortar
+[00:00:15.58] ••• Ducks used 90 (43) units of Jet Pack fuel
+[00:00:15.58] ••• Ducks loses turn due to loss of control; time used: 9.34 sec turn, 0.24 sec retreat
+[00:00:37.16] ••• Damage dealt: 10 (1 kill) to Ducks, 100 (1 kill) to Guardsmen
+[00:00:37.18] ••• Game Ends - Round Finished
+
+Team time totals:
+Ducks:     Turn: 00:00:09.34, Retreat: 00:00:00.24, Total: 00:00:09.58, Turn count: 1
+Guardsmen: Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Total Jet Pack fuel used: 90
+
+Mission Successful

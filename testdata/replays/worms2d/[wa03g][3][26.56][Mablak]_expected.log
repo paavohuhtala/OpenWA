@@ -1,0 +1,44 @@
+Game Started at 2021-10-04 23:48:34 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #3: All quiet in the library?
+
+Red:  "Ro Bad 2"
+Blue: "Gunners"  [CPU 3.00]
+Blue: "Officers" [CPU 3.75]
+Blue: "Platoon"  [CPU 2.75]
+
+[00:00:15.40] ••• Ro Bad 2 starts turn
+[00:00:16.28] ••• Ro Bad 2 fires Ninja Rope
+[00:00:28.20] ••• Ro Bad 2 fires Baseball Bat
+[00:00:31.78] ••• Ro Bad 2 ends turn; time used: 12.78 sec turn, 3.00 sec retreat
+[00:00:41.54] ••• Damage dealt: 300 (3 kills) to Gunners
+[00:00:41.54] ••• Officers starts turn
+[00:00:47.54] ••• Officers fires Shotgun
+[00:00:59.64] ••• Officers ends turn; time used: 12.34 sec turn, 0.00 sec retreat
+[00:01:01.66] ••• Damage dealt: 25 to Ro Bad 2
+[00:01:01.66] ••• Ro Bad 2 starts turn
+[00:01:06.96] ••• Ro Bad 2 fires Mine
+[00:01:12.14] ••• Ro Bad 2 ends turn; time used: 5.28 sec turn, 5.00 sec retreat
+[00:01:29.92] ••• Damage dealt: 150 (1 kill) to Officers
+[00:01:29.92] ••• Platoon starts turn
+[00:01:44.92] ••• Platoon fires Shotgun
+[00:02:01.68] ••• Platoon fires Shotgun
+[00:02:04.68] ••• Platoon ends turn; time used: 26.76 sec turn, 1.82 sec retreat
+[00:02:14.32] ••• Damage dealt: 44 to Ro Bad 2
+[00:02:14.32] ••• Ro Bad 2 starts turn
+[00:02:15.84] ••• Ro Bad 2 fires Ninja Rope
+[00:02:22.84] ••• Ro Bad 2 fires Air Strike
+[00:02:25.86] ••• Ro Bad 2 ends turn; time used: 8.50 sec turn, 3.00 sec retreat
+[00:02:40.24] ••• Damage dealt: 200 (2 kills) to Platoon
+[00:02:40.26] ••• Game Ends - Round Finished
+
+Team time totals:
+Ro Bad 2: Turn: 00:00:26.56, Retreat: 00:00:11.00, Total: 00:00:37.56, Turn count: 3
+Gunners:  Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Officers: Turn: 00:00:12.34, Retreat: 00:00:00.00, Total: 00:00:12.34, Turn count: 1
+Platoon:  Turn: 00:00:26.76, Retreat: 00:00:01.82, Total: 00:00:28.58, Turn count: 1
+
+Mission Successful

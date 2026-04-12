@@ -1,0 +1,35 @@
+Game Started at 2021-12-07 07:33:09 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #5: Do the Locomotion.
+
+Red:  "Sycotropic"
+Blue: "Patrol" [CPU 3.50]
+
+[00:00:07.08] ••• Sycotropic starts turn
+[00:00:12.08] ••• Sycotropic fires Fire Punch
+[00:00:18.50] ••• Sycotropic ends turn; time used: 4.98 sec turn, 5.00 sec retreat
+[00:00:24.12] ••• Damage dealt: 30 (1 kill) to Patrol
+[00:00:24.12] ••• Patrol starts turn
+[00:00:27.28] ••• Patrol ends turn; time used: 3.14 sec turn, 0.00 sec retreat
+[00:00:31.64] ••• Sycotropic starts turn
+[00:00:33.46] ••• Sycotropic uses Bungee
+[00:00:38.60] ••• Sycotropic loses turn due to loss of control; time used: 6.96 sec turn, 0.00 sec retreat
+[00:00:45.04] ••• Damage dealt: 3 to Sycotropic
+[00:00:45.04] ••• Patrol starts turn
+[00:00:48.18] ••• Patrol ends turn; time used: 3.12 sec turn, 0.00 sec retreat
+[00:00:53.42] ••• Sycotropic starts turn
+[00:00:54.00] ••• Sycotropic fires Jet Pack
+[00:00:59.14] ••• Sycotropic used 30 units of Jet Pack fuel
+[00:00:59.98] ••• Sycotropic ends turn; time used: 6.14 sec turn, 0.00 sec retreat
+[00:01:02.02] ••• Game Ends - Round Finished
+
+Team time totals:
+Sycotropic: Turn: 00:00:18.08, Retreat: 00:00:05.00, Total: 00:00:23.08, Turn count: 3
+Patrol:     Turn: 00:00:06.26, Retreat: 00:00:00.00, Total: 00:00:06.26, Turn count: 2
+
+Total Jet Pack fuel used: 30
+
+Mission Successful

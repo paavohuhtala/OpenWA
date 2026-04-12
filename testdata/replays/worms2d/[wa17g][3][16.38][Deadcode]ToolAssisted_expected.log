@@ -1,0 +1,36 @@
+Game Started at 2021-11-11 05:33:03 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #17: Chateau Assassin.
+
+Red:  "0xDEADC0DE"
+Blue: "Officers" [CPU 5.00]
+
+[00:00:00.30] ••• 0xDEADC0DE starts turn
+[00:00:04.34] ••• 0xDEADC0DE fires Select Worm
+[00:00:06.98] ••• 0xDEADC0DE fires Select Worm
+[00:00:12.76] ••• 0xDEADC0DE fires Girder
+[00:00:17.62] ••• 0xDEADC0DE loses turn due to loss of control; time used: 12.32 sec turn, 4.78 sec retreat
+[00:00:22.62] ••• Damage dealt: 38 to 0xDEADC0DE
+[00:00:22.62] ••• Officers starts turn
+[00:00:25.76] ••• Officers ends turn; time used: 3.12 sec turn, 0.00 sec retreat
+[00:00:27.78] ••• 0xDEADC0DE starts turn
+[00:00:27.80] ••• 0xDEADC0DE fires Select Worm
+[00:00:31.90] ••• 0xDEADC0DE fires Girder
+[00:00:36.98] ••• 0xDEADC0DE ends turn; time used: 4.04 sec turn, 5.00 sec retreat
+[00:00:42.20] ••• Officers starts turn
+[00:00:45.34] ••• Officers ends turn; time used: 3.12 sec turn, 0.00 sec retreat
+[00:00:47.36] ••• 0xDEADC0DE starts turn
+[00:00:47.38] ••• 0xDEADC0DE fires Select Worm
+[00:00:47.46] ••• 0xDEADC0DE fires Girder
+[00:00:52.54] ••• 0xDEADC0DE ends turn; time used: 0.02 sec turn, 5.00 sec retreat
+[00:01:05.78] ••• Damage dealt: 2 (1 kill) to 0xDEADC0DE, 120 (2 kills) to Officers
+[00:01:05.80] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE: Turn: 00:00:16.38, Retreat: 00:00:14.78, Total: 00:00:31.16, Turn count: 3
+Officers:   Turn: 00:00:06.24, Retreat: 00:00:00.00, Total: 00:00:06.24, Turn count: 2
+
+Mission Successful

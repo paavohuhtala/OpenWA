@@ -1,0 +1,26 @@
+Game Started at 2005-09-25 04:24:15 GMT
+Game Engine Version: 3.6.25.1
+File Format Version: 3.6.20.1 - 3.6.26.3
+Exported with Version: 3.8.1 (Steam)
+
+Mission #25: Mars Star.
+
+Red:  "0xDEADC0DE"
+Blue: "Enemy" [CPU 1.75]
+
+[00:00:07.72] ••• 0xDEADC0DE starts turn
+[00:00:07.76] ••• 0xDEADC0DE fires Girder Starter-Pack
+[00:00:07.84] ••• 0xDEADC0DE fires Girder Starter-Pack
+[00:00:07.92] ••• 0xDEADC0DE fires Girder Starter-Pack
+[00:00:08.00] ••• 0xDEADC0DE fires Grenade (4 sec, max bounce)
+[00:00:09.16] ••• 0xDEADC0DE fires Grenade (1 sec, max bounce)
+[00:00:10.06] ••• 0xDEADC0DE fires Sheep
+[00:00:10.22] ••• 0xDEADC0DE loses turn due to loss of control; time used: 2.50 sec turn, 0.00 sec retreat
+[00:00:29.36] ••• Damage dealt: 30 (1 kill) to 0xDEADC0DE
+[00:00:29.38] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE: Turn: 00:00:02.50, Retreat: 00:00:00.00, Total: 00:00:02.50, Turn count: 1
+Enemy:      Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

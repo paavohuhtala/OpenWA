@@ -1,0 +1,30 @@
+Game Started at 2005-09-28 06:04:48 GMT
+Game Engine Version: 3.6.25.1
+File Format Version: 3.6.20.1 - 3.6.26.3
+Exported with Version: 3.8.1 (Steam)
+
+Mission #15: Hot Stuff.
+
+Red:  "b+Ar[m]aN ^Te.Am"
+Blue: "Special Forces" [CPU 4.95]
+
+[00:00:02.54] ••• b+Ar[m]aN ^Te.Am starts turn
+[00:00:03.64] ••• b+Ar[m]aN ^Te.Am fires Homing Missile
+[00:00:09.88] ••• b+Ar[m]aN ^Te.Am ends turn; time used: 1.08 sec turn, 5.00 sec retreat
+[00:00:13.98] ••• Damage dealt: 18 to Special Forces
+[00:00:13.98] ••• Special Forces starts turn
+[00:00:20.18] ••• Special Forces fires Bazooka
+[00:00:24.90] ••• Special Forces ends turn; time used: 6.18 sec turn, 3.92 sec retreat
+[00:00:29.00] ••• Damage dealt: 44 to b+Ar[m]aN ^Te.Am
+[00:00:29.00] ••• b+Ar[m]aN ^Te.Am starts turn
+[00:00:30.04] ••• b+Ar[m]aN ^Te.Am fires Ninja Rope
+[00:00:32.90] ••• b+Ar[m]aN ^Te.Am fires Holy Hand-Grenade
+[00:00:36.92] ••• b+Ar[m]aN ^Te.Am loses turn due to loss of control; time used: 3.88 sec turn, 4.00 sec retreat
+[00:00:50.90] ••• Damage dealt: 35 (1 kill) to b+Ar[m]aN ^Te.Am, 882 (3 kills) to Special Forces
+[00:00:50.92] ••• Game Ends - Round Finished
+
+Team time totals:
+b+Ar[m]aN ^Te.Am: Turn: 00:00:04.96, Retreat: 00:00:09.00, Total: 00:00:13.96, Turn count: 2
+Special Forces:   Turn: 00:00:06.18, Retreat: 00:00:03.92, Total: 00:00:10.10, Turn count: 1
+
+Mission Successful

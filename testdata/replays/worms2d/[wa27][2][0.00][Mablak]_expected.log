@@ -1,0 +1,31 @@
+Game Started at 2022-12-23 08:28:43 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #27: Bazooka on the Rocks.
+
+Red:  "Ro Bad"
+Blue: "Officers" [CPU 3.50]
+Blue: "Platoon"  [CPU 4.50]
+
+[00:00:04.68] ••• Ro Bad starts turn
+[00:00:04.70] ••• Ro Bad fires Bazooka
+[00:00:11.30] ••• Ro Bad ends turn; time used: 0.00 sec turn, 5.00 sec retreat
+[00:00:18.14] ••• Damage dealt: 65 (1 kill) to Officers
+[00:00:18.14] ••• Officers starts turn
+[00:00:27.60] ••• Officers fires Bazooka
+[00:00:29.84] ••• Officers loses turn due to loss of control; time used: 9.44 sec turn, 1.22 sec retreat
+[00:00:52.76] ••• Damage dealt: 130 (2 kills) to Officers, 5 to Platoon
+[00:00:52.76] ••• Ro Bad starts turn
+[00:00:52.78] ••• Ro Bad fires Bazooka
+[00:00:57.94] ••• Ro Bad ends turn; time used: 0.00 sec turn, 4.38 sec retreat
+[00:01:08.82] ••• Damage dealt: 70 (1 kill) to Platoon
+[00:01:08.84] ••• Game Ends - Round Finished
+
+Team time totals:
+Ro Bad:   Turn: 00:00:00.00, Retreat: 00:00:09.38, Total: 00:00:09.38, Turn count: 2
+Officers: Turn: 00:00:09.44, Retreat: 00:00:01.22, Total: 00:00:10.66, Turn count: 1
+Platoon:  Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

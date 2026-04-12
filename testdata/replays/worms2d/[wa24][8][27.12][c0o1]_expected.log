@@ -1,0 +1,76 @@
+Game Started at 2004-04-09 05:24:57 GMT
+Game Engine Version: 3.6.19.18-19
+File Format Version: 3.6.19.17 - 3.6.19.19
+Exported with Version: 3.8.1 (Steam)
+
+Mission #24: Countdown to Armageddon!
+
+Red:  "c0o1 ~~>"
+Red:  "Carne de cañón"
+Blue: "Patrulleros" [CPU 2.25]
+
+[00:00:02.84] ••• c0o1 ~~> starts turn
+[00:00:03.94] ••• c0o1 ~~> fires Ninja Rope
+[00:00:10.92] ••• c0o1 ~~> fires Fire Punch
+[00:00:15.72] ••• c0o1 ~~> ends turn; time used: 8.06 sec turn, 3.00 sec retreat
+[00:00:19.82] ••• Damage dealt: 30 to Carne de cañón
+[00:00:19.82] ••• Patrulleros starts turn
+[00:00:23.32] ••• Patrulleros fires Shotgun
+[00:00:30.46] ••• Patrulleros fires Shotgun
+[00:00:34.64] ••• Patrulleros ends turn; time used: 5.98 sec turn, 3.00 sec retreat
+[00:00:38.74] ••• Damage dealt: 25 to c0o1 ~~>, 25 to Patrulleros
+[00:00:38.74] ••• c0o1 ~~> starts turn
+[00:00:40.02] ••• c0o1 ~~> fires Ninja Rope
+[00:00:47.66] ••• c0o1 ~~> fires Girder Starter-Pack
+[00:00:51.58] ••• c0o1 ~~> fires Girder Starter-Pack
+[00:00:53.46] ••• c0o1 ~~> fires Girder Starter-Pack
+[00:00:55.28] ••• c0o1 ~~> fires Girder Starter-Pack
+[00:00:56.78] ••• c0o1 ~~> fires Girder Starter-Pack
+[00:00:56.88] ••• c0o1 ~~> ends turn; time used: 17.78 sec turn, 0.02 sec retreat
+[00:00:58.92] ••• Patrulleros starts turn
+[00:01:06.68] ••• Patrulleros fires Bazooka
+[00:01:10.22] ••• Patrulleros ends turn; time used: 7.74 sec turn, 3.00 sec retreat
+[00:01:13.24] ••• Damage dealt: 46 to c0o1 ~~>
+[00:01:13.24] ••• c0o1 ~~> starts turn
+[00:01:13.26] ••• c0o1 ~~> fires Skip Go
+[00:01:13.28] ••• c0o1 ~~> ends turn; time used: 0.00 sec turn, 0.00 sec retreat
+[00:01:15.32] ••• Patrulleros starts turn
+[00:01:21.34] ••• Patrulleros fires Bazooka
+[00:01:24.58] ••• Patrulleros ends turn; time used: 6.00 sec turn, 3.00 sec retreat
+[00:01:27.16] ••• Damage dealt: 44 to c0o1 ~~>
+[00:01:27.16] ••• c0o1 ~~> starts turn
+[00:01:27.18] ••• c0o1 ~~> fires Skip Go
+[00:01:27.20] ••• c0o1 ~~> ends turn; time used: 0.00 sec turn, 0.00 sec retreat
+[00:01:29.24] ••• Patrulleros starts turn
+[00:01:36.36] ••• Patrulleros fires Bazooka
+[00:01:39.96] ••• Patrulleros ends turn; time used: 7.10 sec turn, 3.00 sec retreat
+[00:01:44.08] ••• Damage dealt: 2 to Patrulleros
+[00:01:44.08] ••• c0o1 ~~> starts turn
+[00:01:44.10] ••• c0o1 ~~> fires Mortar
+[00:01:44.12] ••• c0o1 ~~> loses turn due to loss of control; time used: 0.00 sec turn, 0.00 sec retreat
+[00:01:48.16] ••• Damage dealt: 21 to c0o1 ~~>
+[00:01:48.16] ••• Patrulleros starts turn
+[00:01:58.48] ••• Patrulleros fires Bazooka
+[00:02:01.94] ••• Patrulleros ends turn; time used: 10.30 sec turn, 3.00 sec retreat
+[00:02:05.98] ••• c0o1 ~~> starts turn
+[00:02:06.42] ••• c0o1 ~~> fires Skip Go
+[00:02:06.44] ••• c0o1 ~~> ends turn; time used: 0.42 sec turn, 0.00 sec retreat
+[00:02:08.48] ••• Patrulleros starts turn
+[00:02:11.66] ••• Patrulleros ends turn; time used: 3.16 sec turn, 0.00 sec retreat
+[00:02:13.68] ••• c0o1 ~~> starts turn
+[00:02:14.04] ••• c0o1 ~~> fires Skip Go
+[00:02:14.06] ••• c0o1 ~~> ends turn; time used: 0.34 sec turn, 0.00 sec retreat
+[00:02:19.30] ••• Patrulleros starts turn
+[00:02:25.16] ••• Patrulleros fires Grenade (4 sec, min bounce)
+[00:02:30.70] ••• Patrulleros ends turn; time used: 5.84 sec turn, 3.00 sec retreat
+[00:02:37.92] ••• c0o1 ~~> starts turn
+[00:02:38.46] ••• c0o1 ~~> fires Skip Go
+[00:02:38.48] ••• c0o1 ~~> ends turn; time used: 0.52 sec turn, 0.00 sec retreat
+[00:03:31.78] ••• Game Ends - Round Finished
+
+Team time totals:
+c0o1 ~~>:       Turn: 00:00:27.12, Retreat: 00:00:03.02, Total: 00:00:30.14, Turn count: 8
+Carne de cañón: Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Patrulleros:    Turn: 00:00:46.12, Retreat: 00:00:18.00, Total: 00:01:04.12, Turn count: 7
+
+Mission Successful

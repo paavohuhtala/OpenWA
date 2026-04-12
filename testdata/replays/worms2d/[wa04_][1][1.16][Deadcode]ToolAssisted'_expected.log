@@ -1,0 +1,27 @@
+Game Started at 2021-11-23 06:25:16 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #4: Cool as ice.
+
+Red:  "0xDEADC0DE"
+Blue: "Guardsmen" [CPU 3.00]
+
+[00:00:02.78] ••• Sudden Death
+[00:00:04.28] ••• 0xDEADC0DE starts turn
+[00:00:04.30] ••• 0xDEADC0DE fires Jet Pack
+[00:00:05.68] ••• 0xDEADC0DE used 5 units of Jet Pack fuel
+[00:00:05.86] ••• 0xDEADC0DE fires Parachute
+[00:00:05.88] ••• 0xDEADC0DE fires Uzi
+[00:00:09.08] ••• 0xDEADC0DE ends turn; time used: 1.16 sec turn, 2.00 sec retreat
+[00:00:17.42] ••• Damage dealt: 100 (1 kill) to Guardsmen
+[00:00:17.44] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE: Turn: 00:00:01.16, Retreat: 00:00:02.00, Total: 00:00:03.16, Turn count: 1
+Guardsmen:  Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Total Jet Pack fuel used: 5
+
+Mission Successful

@@ -1,0 +1,47 @@
+Game Started at 2021-11-11 02:27:18 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #3: All quiet in the library?
+
+Red:  "0xDEADC0DE"
+Blue: "Gunners"  [CPU 3.00]
+Blue: "Officers" [CPU 3.75]
+Blue: "Platoon"  [CPU 2.75]
+
+[00:00:15.40] ••• 0xDEADC0DE starts turn
+[00:00:16.22] ••• 0xDEADC0DE fires Ninja Rope
+[00:00:19.34] ••• 0xDEADC0DE fires Baseball Bat
+[00:00:22.92] ••• 0xDEADC0DE ends turn; time used: 3.92 sec turn, 3.00 sec retreat
+[00:00:26.84] ••• Damage dealt: 30 to Officers
+[00:00:26.84] ••• Gunners starts turn
+[00:00:32.32] ••• Gunners fires Grenade (4 sec, min bounce)
+[00:00:37.88] ••• Gunners ends turn; time used: 5.46 sec turn, 3.00 sec retreat
+[00:00:48.06] ••• Damage dealt: 200 (2 kills) to Gunners, 120 (1 kill) to Officers
+[00:00:48.06] ••• 0xDEADC0DE starts turn
+[00:00:48.08] ••• 0xDEADC0DE fires Grenade (4 sec, max bounce)
+[00:00:53.26] ••• 0xDEADC0DE ends turn; time used: 0.00 sec turn, 3.00 sec retreat
+[00:01:03.98] ••• Damage dealt: 42 to Gunners
+[00:01:03.98] ••• Platoon starts turn
+[00:01:11.20] ••• Platoon fires Bazooka
+[00:01:12.98] ••• Platoon loses turn due to loss of control; time used: 7.20 sec turn, 1.04 sec retreat
+[00:01:24.96] ••• Damage dealt: 63 to 0xDEADC0DE, 30 to Gunners, 31 to Platoon
+[00:01:24.96] ••• 0xDEADC0DE starts turn
+[00:01:25.66] ••• 0xDEADC0DE fires Ninja Rope
+[00:01:37.00] ••• 0xDEADC0DE fires Air Strike
+[00:01:37.68] ••• 0xDEADC0DE loses turn due to loss of control; time used: 12.02 sec turn, 0.66 sec retreat
+[00:01:56.68] ••• Damage dealt: 38 to 0xDEADC0DE, 100 (1 kill) to Platoon
+[00:01:56.68] ••• Gunners starts turn
+[00:02:02.16] ••• Gunners fires Bazooka
+[00:02:03.32] ••• Gunners loses turn due to loss of control; time used: 5.46 sec turn, 0.58 sec retreat
+[00:02:35.20] ••• Damage dealt: 177 (2 kills) to 0xDEADC0DE, 28 (1 kill) to Gunners, 69 (1 kill) to Platoon
+[00:02:35.22] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE: Turn: 00:00:15.94, Retreat: 00:00:06.66, Total: 00:00:22.60, Turn count: 3
+Gunners:    Turn: 00:00:10.92, Retreat: 00:00:03.58, Total: 00:00:14.50, Turn count: 2
+Officers:   Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Platoon:    Turn: 00:00:07.20, Retreat: 00:00:01.04, Total: 00:00:08.24, Turn count: 1
+
+Mission Successful

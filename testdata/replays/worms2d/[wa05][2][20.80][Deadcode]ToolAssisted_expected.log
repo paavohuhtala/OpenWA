@@ -1,0 +1,33 @@
+Game Started at 2005-09-16 23:02:01 GMT
+Game Engine Version: 3.6.25.1
+File Format Version: 3.6.20.1 - 3.6.26.3
+Exported with Version: 3.8.1 (Steam)
+
+Mission #5: Do the Locomotion.
+
+Red:  "0xDEADC0DE"
+Blue: "Patrol" [CPU 3.50]
+
+[00:00:07.08] ••• 0xDEADC0DE starts turn
+[00:00:07.10] ••• 0xDEADC0DE fires Fire Punch
+[00:00:12.58] ••• 0xDEADC0DE loses turn due to loss of control; time used: 0.00 sec turn, 3.68 sec retreat
+[00:00:17.58] ••• Damage dealt: 34 to 0xDEADC0DE
+[00:00:17.58] ••• Patrol starts turn
+[00:00:21.64] ••• Patrol fires Uzi
+[00:00:25.98] ••• Patrol ends turn; time used: 4.04 sec turn, 3.12 sec retreat
+[00:00:30.00] ••• 0xDEADC0DE starts turn
+[00:00:31.90] ••• 0xDEADC0DE uses Bungee
+[00:00:43.94] ••• 0xDEADC0DE uses Bungee
+[00:00:46.34] ••• 0xDEADC0DE fires Jet Pack
+[00:00:50.98] ••• 0xDEADC0DE used 16 units of Jet Pack fuel
+[00:00:51.22] ••• 0xDEADC0DE loses turn due to loss of control; time used: 20.80 sec turn, 0.00 sec retreat
+[00:00:55.60] ••• Damage dealt: 2 to 0xDEADC0DE
+[00:00:55.62] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE: Turn: 00:00:20.80, Retreat: 00:00:03.68, Total: 00:00:24.48, Turn count: 2
+Patrol:     Turn: 00:00:04.04, Retreat: 00:00:03.12, Total: 00:00:07.16, Turn count: 1
+
+Total Jet Pack fuel used: 16
+
+Mission Successful

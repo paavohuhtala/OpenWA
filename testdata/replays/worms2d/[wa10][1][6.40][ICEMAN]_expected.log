@@ -1,0 +1,26 @@
+Game Started at 2005-09-19 23:33:03 GMT
+Game Engine Version: 3.6.25.1
+File Format Version: 3.6.20.1 - 3.6.26.3
+Exported with Version: 3.8.1 (Steam)
+
+Mission #10: Jurassic Worm.
+
+Red:  "7hè Ðêç4þî7à7ór$"
+Blue: "Guardsmen" [CPU 4.25]
+Blue: "Officers"  [CPU 4.95]
+Blue: "Enemy"     [CPU 3.50]
+
+[00:00:06.74] ••• 7hè Ðêç4þî7à7ór$ starts turn
+[00:00:07.72] ••• 7hè Ðêç4þî7à7ór$ fires Ninja Rope
+[00:00:13.16] ••• 7hè Ðêç4þî7à7ór$ fires Mole Bomb
+[00:00:18.04] ••• 7hè Ðêç4þî7à7ór$ loses turn due to loss of control; time used: 6.40 sec turn, 3.00 sec retreat
+[00:00:36.76] ••• Damage dealt: 33 to 7hè Ðêç4þî7à7ór$, 100 (1 kill) to Officers
+[00:00:36.78] ••• Game Ends - Round Finished
+
+Team time totals:
+7hè Ðêç4þî7à7ór$: Turn: 00:00:06.40, Retreat: 00:00:03.00, Total: 00:00:09.40, Turn count: 1
+Guardsmen:        Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Officers:         Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+Enemy:            Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

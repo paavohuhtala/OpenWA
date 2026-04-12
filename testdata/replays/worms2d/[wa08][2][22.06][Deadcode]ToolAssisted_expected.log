@@ -1,0 +1,31 @@
+Game Started at 2021-11-19 16:27:52 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #8: Big Shot.
+
+Red:  "0xDEADC0DE"
+Blue: "Cannon Fodder" [CPU 3.00]
+Blue: "Enemy"         [CPU 3.00]
+
+[00:00:01.88] ••• 0xDEADC0DE starts turn
+[00:00:13.46] ••• 0xDEADC0DE fires Uzi
+[00:00:17.66] ••• 0xDEADC0DE ends turn; time used: 11.56 sec turn, 3.00 sec retreat
+[00:00:31.98] ••• Damage dealt: 40 (1 kill) to Cannon Fodder, 50 (1 kill) to Enemy
+[00:00:31.98] ••• Cannon Fodder starts turn
+[00:00:42.46] ••• Cannon Fodder fires Uzi
+[00:00:46.68] ••• Cannon Fodder ends turn; time used: 10.46 sec turn, 3.00 sec retreat
+[00:00:50.70] ••• 0xDEADC0DE starts turn
+[00:00:50.72] ••• 0xDEADC0DE fires Ninja Rope
+[00:01:01.52] ••• 0xDEADC0DE fires Blow Torch
+[00:01:05.76] ••• 0xDEADC0DE ends turn; time used: 10.50 sec turn, 3.00 sec retreat
+[00:01:24.10] ••• Damage dealt: 31 to 0xDEADC0DE, 40 (1 kill) to Cannon Fodder, 50 (1 kill) to Enemy
+[00:01:24.12] ••• Game Ends - Round Finished
+
+Team time totals:
+0xDEADC0DE:    Turn: 00:00:22.06, Retreat: 00:00:06.00, Total: 00:00:28.06, Turn count: 2
+Cannon Fodder: Turn: 00:00:10.46, Retreat: 00:00:03.00, Total: 00:00:13.46, Turn count: 1
+Enemy:         Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+
+Mission Successful

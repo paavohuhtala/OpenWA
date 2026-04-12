@@ -1,0 +1,50 @@
+Game Started at 2021-10-02 11:02:14 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #23: The Drop Zone.
+
+Red:  "Ro Bad 2"
+Blue: "Gunners" [CPU 3.50]
+
+[00:00:03.34] ••• Ro Bad 2 starts turn
+[00:00:05.56] ••• Ro Bad 2 fires Parachute
+[00:00:18.22] ••• Ro Bad 2 fires Parachute
+[00:00:27.62] ••• Ro Bad 2 fires Parachute
+[00:00:40.48] ••• Ro Bad 2 fires Fire Punch
+[00:00:45.28] ••• Ro Bad 2 ends turn; time used: 34.66 sec turn, 3.00 sec retreat
+[00:00:58.06] ••• Damage dealt: 100 (1 kill) to Ro Bad 2, 300 (3 kills) to Gunners
+[00:00:58.06] ••• Gunners starts turn
+[00:01:06.60] ••• Gunners fires Bazooka
+[00:01:11.10] ••• Gunners ends turn; time used: 8.52 sec turn, 3.00 sec retreat
+[00:01:15.12] ••• Ro Bad 2 starts turn
+[00:01:17.34] ••• Ro Bad 2 fires Parachute
+[00:01:27.12] ••• Ro Bad 2 fires Suicide Bomber
+[00:01:28.48] ••• Ro Bad 2 loses turn due to loss of control; time used: 11.98 sec turn, 0.00 sec retreat
+[00:01:35.94] ••• Damage dealt: 100 (1 kill) to Ro Bad 2, 100 (1 kill) to Gunners
+[00:01:35.94] ••• Gunners starts turn
+[00:01:41.96] ••• Gunners fires Bazooka
+[00:01:46.06] ••• Gunners ends turn; time used: 6.00 sec turn, 3.00 sec retreat
+[00:01:53.18] ••• Damage dealt: 102 (1 kill) to Ro Bad 2
+[00:01:53.18] ••• Ro Bad 2 starts turn
+[00:01:56.56] ••• Glide Glitch #1
+[00:02:00.14] ••• Ro Bad 2 fires Parachute
+[00:02:10.30] ••• Ro Bad 2 fires Suicide Bomber
+[00:02:11.66] ••• Ro Bad 2 loses turn due to loss of control; time used: 17.10 sec turn, 0.00 sec retreat
+[00:02:19.18] ••• Damage dealt: 100 (1 kill) to Ro Bad 2, 100 (1 kill) to Gunners
+[00:02:19.18] ••• Gunners starts turn
+[00:02:23.24] ••• Gunners fires Bazooka
+[00:02:27.82] ••• Gunners ends turn; time used: 4.04 sec turn, 3.00 sec retreat
+[00:02:31.84] ••• Ro Bad 2 starts turn
+[00:02:40.48] ••• Ro Bad 2 uses Parachute
+[00:02:42.82] ••• Ro Bad 2 fires Suicide Bomber
+[00:02:44.18] ••• Ro Bad 2 loses turn due to loss of control; time used: 10.96 sec turn, 0.00 sec retreat
+[00:02:53.68] ••• Damage dealt: 98 (1 kill) to Ro Bad 2, 100 (1 kill) to Gunners
+[00:02:53.70] ••• Game Ends - Round Finished
+
+Team time totals:
+Ro Bad 2: Turn: 00:01:14.70, Retreat: 00:00:03.00, Total: 00:01:17.70, Turn count: 4
+Gunners:  Turn: 00:00:18.56, Retreat: 00:00:09.00, Total: 00:00:27.56, Turn count: 3
+
+Mission Successful

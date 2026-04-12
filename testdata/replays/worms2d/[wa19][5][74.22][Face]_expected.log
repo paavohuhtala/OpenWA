@@ -1,0 +1,57 @@
+Game Started at 2006-02-21 18:02:12 GMT
+Game Engine Version: 3.6.26.5
+File Format Version: 3.6.26.4 - 3.6.29.17
+Exported with Version: 3.8.1 (Steam)
+
+Mission #19: Horny Nuke.
+
+Red:  "PTeam"
+Blue: "Guardsmen" [CPU 3.00]
+Blue: "Gunners"   [CPU 3.25]
+
+[00:00:09.00] ••• PTeam starts turn
+[00:00:10.04] ••• Glide Glitch #1
+[00:00:13.36] ••• PTeam fires Ninja Rope
+[00:00:45.06] ••• PTeam fires Grenade (3 sec, min bounce)
+[00:00:47.00] ••• PTeam loses turn due to loss of control; time used: 35.92 sec turn, 1.64 sec retreat
+[00:00:54.42] ••• Damage dealt: 1 to PTeam, 3 to Guardsmen, 47 to Gunners
+[00:00:54.42] ••• Guardsmen starts turn
+[00:00:59.18] ••• Guardsmen ends turn; time used: 4.74 sec turn, 0.00 sec retreat
+[00:01:01.20] ••• PTeam starts turn
+[00:01:03.76] ••• PTeam fires Ninja Rope
+[00:01:13.30] ••• PTeam fires Banana Bomb (5 sec)
+[00:01:19.74] ••• PTeam loses turn due to loss of control; time used: 11.70 sec turn, 2.00 sec retreat
+[00:01:41.78] ••• Damage dealt: 28 to PTeam, 197 (2 kills) to Guardsmen, 153 (2 kills) to Gunners
+[00:01:41.78] ••• Gunners starts turn
+[00:01:44.92] ••• Gunners ends turn; time used: 3.12 sec turn, 0.00 sec retreat
+[00:01:46.94] ••• PTeam starts turn
+[00:01:51.02] ••• PTeam fires Ninja Rope
+[00:01:55.26] ••• PTeam fires Holy Hand-Grenade
+[00:02:00.06] ••• PTeam loses turn due to loss of control; time used: 7.96 sec turn, 2.00 sec retreat
+[00:02:13.52] ••• Damage dealt: 19 to PTeam, 100 (1 kill) to Gunners
+[00:02:13.52] ••• Guardsmen starts turn
+[00:02:28.36] ••• Guardsmen fires Shotgun
+[00:02:39.12] ••• Guardsmen fires Shotgun
+[00:02:42.30] ••• Guardsmen ends turn; time used: 23.46 sec turn, 2.00 sec retreat
+[00:02:46.32] ••• PTeam starts turn
+[00:02:47.60] ••• PTeam fires Ninja Rope
+[00:02:56.94] ••• PTeam fires Grenade (5 sec, min bounce)
+[00:03:01.94] ••• PTeam ends turn; time used: 9.90 sec turn, 2.00 sec retreat
+[00:03:07.82] ••• Damage dealt: 46 to Guardsmen
+[00:03:07.82] ••• Guardsmen starts turn
+[00:03:13.92] ••• Guardsmen fires Shotgun
+[00:03:23.48] ••• Guardsmen fires Shotgun
+[00:03:26.66] ••• Guardsmen ends turn; time used: 13.52 sec turn, 2.00 sec retreat
+[00:03:30.70] ••• PTeam starts turn
+[00:03:32.40] ••• PTeam fires Ninja Rope
+[00:03:40.58] ••• PTeam fires Minigun
+[00:03:43.54] ••• PTeam ends turn; time used: 8.74 sec turn, 1.38 sec retreat
+[00:04:00.02] ••• Damage dealt: 24 to PTeam, 54 (2 kills) to Guardsmen
+[00:04:00.04] ••• Game Ends - Round Finished
+
+Team time totals:
+PTeam:     Turn: 00:01:14.22, Retreat: 00:00:09.02, Total: 00:01:23.24, Turn count: 5
+Guardsmen: Turn: 00:00:41.72, Retreat: 00:00:04.00, Total: 00:00:45.72, Turn count: 3
+Gunners:   Turn: 00:00:03.12, Retreat: 00:00:00.00, Total: 00:00:03.12, Turn count: 1
+
+Mission Successful

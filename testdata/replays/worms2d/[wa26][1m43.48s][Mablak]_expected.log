@@ -1,0 +1,38 @@
+Game Started at 2021-12-01 10:30:40 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Mission #26: Mad Cows.
+
+Red:  "Ro Bad 3"
+Blue: "Officers" [CPU 4.00]
+
+[00:00:00.08] ••• Ro Bad 3 starts turn
+[00:00:07.48] ••• Ro Bad 3 fires Grenade (2 sec, min bounce)
+[00:00:09.58] ••• Ro Bad 3 loses turn due to loss of control; time used: 7.14 sec turn, 1.86 sec retreat
+[00:00:17.64] ••• Damage dealt: 33 to Ro Bad 3, 100 (1 kill) to Officers
+[00:00:17.64] ••• Officers starts turn
+[00:00:30.90] ••• Officers fires Bazooka
+[00:00:32.18] ••• Officers loses turn due to loss of control; time used: 13.24 sec turn, 0.74 sec retreat
+[00:00:36.58] ••• Damage dealt: 46 to Ro Bad 3, 6 to Officers
+[00:00:36.58] ••• Ro Bad 3 starts turn
+[00:00:38.10] ••• Ro Bad 3 fires Ninja Rope
+[00:00:44.92] ••• Ro Bad 3 fires Grenade (3 sec, min bounce)
+[00:00:48.02] ••• Ro Bad 3 loses turn due to loss of control; time used: 7.80 sec turn, 2.86 sec retreat
+[00:01:03.68] ••• Damage dealt: 100 (1 kill) to Ro Bad 3, 200 (2 kills) to Officers
+[00:01:03.68] ••• Officers starts turn
+[00:01:10.30] ••• Officers fires Bazooka
+[00:01:13.76] ••• Officers ends turn; time used: 6.60 sec turn, 3.00 sec retreat
+[00:01:21.42] ••• Damage dealt: 87 to Ro Bad 3
+[00:01:21.42] ••• Ro Bad 3 starts turn
+[00:01:28.18] ••• Ro Bad 3 fires Dynamite
+[00:01:33.36] ••• Ro Bad 3 ends turn; time used: 6.48 sec turn, 5.00 sec retreat
+[00:01:43.46] ••• Damage dealt: 94 (1 kill) to Officers
+[00:01:43.48] ••• Game Ends - Round Finished
+
+Team time totals:
+Ro Bad 3: Turn: 00:00:21.42, Retreat: 00:00:09.72, Total: 00:00:31.14, Turn count: 3
+Officers: Turn: 00:00:19.84, Retreat: 00:00:03.74, Total: 00:00:23.58, Turn count: 2
+
+Mission Successful
