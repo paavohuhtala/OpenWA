@@ -684,7 +684,7 @@ unsafe fn parse_and_write_v2plus(
         call_usercall_esi(map as u32, rb(va::MAP_VIEW_COPY_INFO));
 
         // Terrain flag: zero = cavern terrain
-        (*gi).terrain_flag = ((*map).terrain_flag == 0) as u8;
+        (*gi).set_terrain_flag(((*map).terrain_flag == 0) as u8);
 
         // Release map object
         ((*(*map).vtable).destructor)(map, 1);

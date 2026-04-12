@@ -35,13 +35,25 @@ pub struct GameInfo {
     pub scoring_param_a: u16,
     /// 0xD78A: Scoring parameter B (multiplied by 50 for initial score).
     pub scoring_param_b: u16,
-    /// 0xD78C-0xD931: Unknown
-    pub _unknown_d78c: [u8; 0xD932 - 0xD78C],
+    /// 0xD78C-0xD923: Unknown
+    pub _unknown_d78c: [u8; 0xD924 - 0xD78C],
+    /// 0xD924: Starting team color index (u8). Copied to DDGame.team_color at init.
+    pub team_color_source: u8,
+    /// 0xD925-0xD931: Unknown
+    pub _unknown_d925: [u8; 0xD932 - 0xD925],
     /// 0xD932: DoubleTurnTime availability threshold (u16).
     /// If game_version > 0xD1 and this > 0x7FFF, DoubleTurnTime is disabled.
     pub double_turn_time_threshold: u16,
-    /// 0xD934-0xD93B: Unknown
-    pub _unknown_d934: [u8; 0xD93C - 0xD934],
+    /// 0xD934-0xD937: Unknown
+    pub _unknown_d934: [u8; 0xD938 - 0xD934],
+    /// 0xD938: Random crate drop percentage — land mines (u8, 0-100).
+    pub drop_pct_land: u8,
+    /// 0xD939: Random crate drop percentage — mines (u8, 0-100).
+    pub drop_pct_mine: u8,
+    /// 0xD93A: Random crate drop percentage — oil barrels (u8, 0-100).
+    pub drop_pct_barrel: u8,
+    /// 0xD93B: Unknown
+    pub _unknown_d93b: u8,
     /// 0xD93C: Super weapon allowed flag. If 0, super weapons are
     /// disabled (except when game_version < 0x2A).
     pub super_weapon_allowed: u8,
@@ -61,21 +73,41 @@ pub struct GameInfo {
     pub landscape_scheme_flag: u8,
     /// 0xD94C: Donkey (weapon 0x36) disable flag.
     pub donkey_disabled: u8,
-    /// 0xD94D-0xD955: Unknown
-    pub _unknown_d94d: [u8; 0xD956 - 0xD94D],
+    /// 0xD94D-0xD954: Unknown
+    pub _unknown_d94d: [u8; 0xD955 - 0xD94D],
+    /// 0xD955: Terrain drop config byte A. Copied to DDGame.terrain_pct_a.
+    pub terrain_cfg_a: u8,
     /// 0xD956: When set, the AquaSheep slot is treated as SuperSheep instead.
     pub aquasheep_is_supersheep: u8,
-    /// 0xD957-0xD958: Unknown
-    pub _unknown_d957: [u8; 0xD959 - 0xD957],
+    /// 0xD957: Terrain drop config byte C. Copied to DDGame.terrain_pct_c.
+    pub terrain_cfg_c: u8,
+    /// 0xD958: Terrain drop config byte B. Copied to DDGame.terrain_pct_b.
+    pub terrain_cfg_b: u8,
     /// 0xD959: Version-gated weapon restriction. If nonzero and game_version > 0x29,
     /// returns -2 for unavailable weapons.
     pub weapon_version_gate: u8,
-    /// 0xD95A-0xD98A: Unknown
-    pub _unknown_d95a: [u8; 0xD98B - 0xD95A],
-    /// 0xD98B: Terrain flag (set from map object during replay loading).
-    pub terrain_flag: u8,
-    /// 0xD98C-0xD9A1: Unknown
-    pub _unknown_d98c: [u8; 0xD9A2 - 0xD98C],
+    /// 0xD95A-0xD967: Unknown
+    pub _unknown_d95a: [u8; 0xD968 - 0xD95A],
+    /// 0xD968: Extended team count (u16). Used for buffer allocation sizing.
+    pub num_teams_alloc: u16,
+    /// 0xD96A: Extended terrain drop percentage (u8, remainder after land/mine/barrel).
+    pub ext_terrain_pct: u8,
+    /// 0xD96B: Extended terrain drop type (u8). 0 = auto-fill remainder.
+    pub ext_terrain_type: u8,
+    /// 0xD96C-0xD987: Unknown
+    pub _unknown_d96c: [u8; 0xD988 - 0xD96C],
+    /// 0xD988: Game speed config (Fixed16.16). Read as i32 for headful game_speed_target.
+    /// Note: high byte (0xD98B) overlaps with terrain_flag — use `terrain_flag` accessor.
+    pub game_speed_config: i32,
+    /// 0xD98C-0xD98F: Unknown
+    pub _unknown_d98c: [u8; 0xD990 - 0xD98C],
+    /// 0xD990: Team slot allocation count (u32). Used to size DDGame+0x514 array.
+    pub team_slot_count: u32,
+    /// 0xD994: Object slot allocation count (u32). Used to size DDGame+0x518 array
+    /// and buffer object allocation.
+    pub object_slot_count: u32,
+    /// 0xD998-0xD9A1: Unknown
+    pub _unknown_d998: [u8; 0xD9A2 - 0xD998],
     /// 0xD9A2: Network weapon exception flag. When net_config_2 != 0,
     /// weapons 10/0x37/0x38 are only disabled if this is also 0.
     pub net_weapon_exception: u8,
@@ -96,8 +128,10 @@ pub struct GameInfo {
     /// If nonzero, streaming audio subsystem is created in InitHardware.
     pub speech_enabled: u8,
 
-    /// 0xDAA5-0xDAAB: Unknown
-    pub _unknown_daa5: [u8; 0xDAAC - 0xDAA5],
+    /// 0xDAA5-0xDAA7: Unknown
+    pub _unknown_daa5: [u8; 0xDAA8 - 0xDAA5],
+    /// 0xDAA8: Turn percentage raw value (i32). Converted to fixed-point: `(val << 16) / 100`.
+    pub turn_percentage_raw: i32,
 
     /// 0xDAAC: Landscape data path (passed to PCLandscape constructor).
     /// Points to a path string used for loading level terrain data.
@@ -115,8 +149,10 @@ pub struct GameInfo {
     /// 0xDB08: Invisibility (weapon 0x42) mode flag (u32). Controls team-count
     /// vs network_ecx check for availability.
     pub invisibility_mode: u32,
-    /// 0xDB0C-0xDB1B: Unknown
-    pub _unknown_db0c: [u8; 0xDB1C - 0xDB0C],
+    /// 0xDB0C: Replay/network config flag (u8). Checked by InitGameState.
+    pub replay_config_flag: u8,
+    /// 0xDB0D-0xDB1B: Unknown
+    pub _unknown_db0d: [u8; 0xDB1C - 0xDB0D],
     /// 0xDB1C: Replay map sub-type (first DWORD of first payload).
     /// >= 1: map stored in playback.thm. Negative: inline map data.
     pub replay_map_type: i32,
@@ -142,8 +178,10 @@ pub struct GameInfo {
     pub _unknown_df60: [u8; 0xEF60 - 0xDF60],
     /// 0xEF60: Cleared to 0 during replay loading.
     pub replay_field_ef60: u32,
-    /// 0xEF64-0xF343: Unknown
-    pub _unknown_ef64: [u8; 0xF344 - 0xEF64],
+    /// 0xEF64-0xF33F: Unknown
+    pub _unknown_ef64: [u8; 0xF340 - 0xEF64],
+    /// 0xF340: State flag. InitGameState: `(this != 0) - 1` → wrapper+0xEC.
+    pub _field_f340: u32,
 
     /// 0xF344: Sound start frame threshold (i32). Sound is suppressed when
     /// DDGame.frame_counter < this value. Checked by IsSoundSuppressed and
@@ -154,12 +192,32 @@ pub struct GameInfo {
     /// Checked by IsSoundSuppressed, DispatchGlobalSound, PlaySoundPooled_Direct.
     pub sound_mute: u8,
 
-    /// 0xF349-0xF361: Unknown
-    pub _unknown_f349: [u8; 0xF362 - 0xF349],
+    /// 0xF349-0xF34B: Unknown
+    pub _unknown_f349: [u8; 0xF34C - 0xF349],
+    /// 0xF34C: State field (i32). Set to -1 by InitGameState.
+    pub _field_f34c: i32,
+    /// 0xF350-0xF360: Unknown
+    pub _unknown_f350: [u8; 0xF361 - 0xF350],
+    /// 0xF361: Render phase config byte. Copied to DDGame.render_phase at init.
+    pub render_phase_cfg: u8,
     /// 0xF362: Unknown byte copied to DDGame+0x7788 during turn state init.
     pub _field_f362: u8,
-    /// 0xF363-0xF373: Unknown
-    pub _unknown_f363: [u8; 0xF374 - 0xF363],
+    /// 0xF363: Config byte. Copied to DDGame._field_7644 at init.
+    pub _field_f363: u8,
+    /// 0xF364: Config byte. Copied to DDGame._field_7648 at init.
+    pub _field_f364: u8,
+    /// 0xF365: Terrain config flag (u8). Bool-ified to wrapper+0x414.
+    pub _field_f365: u8,
+    /// 0xF366-0xF367: Unknown
+    pub _unknown_f366: [u8; 0xF368 - 0xF366],
+    /// 0xF368: Worm selection count config (i32). 0 = use default.
+    pub worm_select_cfg_a: i32,
+    /// 0xF36C: Worm selection count alt config (i32). -1 = use default (7).
+    pub worm_select_cfg_b: i32,
+    /// 0xF370: Display palette flag (u8). Bool-ified to palette+0x10 if headful.
+    pub _field_f370: u8,
+    /// 0xF371-0xF373: Unknown
+    pub _unknown_f371: [u8; 0xF374 - 0xF371],
 
     /// 0xF374: Display flags passed to DisplayGfx::Init.
     pub display_flags: u32,
@@ -249,6 +307,18 @@ pub struct GameInfo {
 }
 
 const _: () = assert!(core::mem::size_of::<GameInfo>() == 0xF91C);
+
+impl GameInfo {
+    /// Access terrain_flag at offset 0xD98B (high byte of game_speed_config).
+    /// Set from map object during replay loading: 0 = cavern terrain.
+    pub fn terrain_flag(&self) -> u8 {
+        (self.game_speed_config >> 24) as u8
+    }
+    /// Set terrain_flag (high byte of game_speed_config at 0xD98B).
+    pub fn set_terrain_flag(&mut self, val: u8) {
+        self.game_speed_config = (self.game_speed_config & 0x00FF_FFFF) | ((val as i32) << 24);
+    }
+}
 
 struct HexU32s<'a>(&'a [u32]);
 

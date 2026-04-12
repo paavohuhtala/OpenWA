@@ -131,35 +131,67 @@ pub struct DDGame {
     /// 0x54C: CTaskLand pointer (set by CTaskLand__InitLandscape at 0x5056F0).
     /// The landscape/terrain task. Vtable at 0x664388.
     pub task_land: *mut u8,
-    /// 0x550-0x5CB: Unknown.
-    ///
-    /// Runtime observations (not yet linked to code):
-    /// - 0x5C4: value matches code address 0x5755D0 (fixed-point normalize fn)
-    /// - 0x5C8-0x5CB: config-like values
-    pub _unknown_550: [u8; 0x5CC - 0x550],
+    /// 0x550-0x5C3: Unknown.
+    pub _unknown_550: [u8; 0x5C4 - 0x550],
+    /// 0x5C4: Vector normalize function pointer. Selected by game version in InitGameState:
+    /// < 0x99 → VECTOR_NORMALIZE_SIMPLE (0x5755D0), >= 0x99 → VECTOR_NORMALIZE_OVERFLOW.
+    pub vector_normalize_fn: u32,
+    /// 0x5C8: Stack height config. Version-dependent: < -1 → 0x700, >= -1 → 0x800.
+    pub stack_height: u32,
 
     /// 0x5CC: Game frame counter. Incremented at end of each frame in
     /// GameFrameDispatcher. Compared against GameInfo+0xF344 (sound start
     /// threshold) by IsSoundSuppressed and DispatchGlobalSound.
     pub frame_counter: i32,
 
-    /// 0x5D0-0x25FF: Large unverified region.
-    ///
-    /// Runtime observations:
-    /// - 0x5D0: frame processing flag (set 0/1 by GameFrameEndProcessor)
-    /// - 0x5D8-0x5FF: small config-like values (2048, 150, 3000, 696, 896, 100, 300)
-    /// - 0x600-0x25FF: identity permutation [0,1,2,...,~2048] — purpose unknown
-    pub _unknown_5d0: [u8; 0x2600 - 0x5D0],
+    /// 0x5D0: Frame processing flag (set 0/1 by GameFrameEndProcessor, zeroed by InitGameState).
+    pub _field_5d0: u32,
+    /// 0x5D4: Unknown (zeroed by InitGameState).
+    pub _field_5d4: u32,
+    /// 0x5D8: Unknown (zeroed by InitGameState).
+    pub _field_5d8: u32,
+    /// 0x5DC: Unknown (zeroed by InitGameState).
+    pub _field_5dc: u32,
+    /// 0x5E0: Water level in pixels. Computed as `(100 - water_pct) * level_height / 100`.
+    pub water_level: i32,
+    /// 0x5E4: Water kill Y boundary (pixels). Derived from level_bound_max_y integer part + 0x28.
+    pub water_kill_y: i32,
+    /// 0x5E8: Initial water level (copy of water_level at init time).
+    pub water_level_initial: i32,
+    /// 0x5EC: Unknown (zeroed by InitGameState).
+    pub _field_5ec: u32,
+    /// 0x5F0: Unknown (set to 1 by InitGameState).
+    pub _field_5f0: u32,
+    /// 0x5F4: Unknown (set to 100 by InitGameState).
+    pub _field_5f4: u32,
+    /// 0x5F8: Unknown (zeroed by InitGameState).
+    pub _field_5f8: u32,
+    /// 0x5FC: Unknown (zeroed by InitGameState).
+    pub _field_5fc: u32,
+    /// 0x600-0x25FF: Identity permutation [0,1,2,...,~2048] — SpriteGfxTable.
+    pub _unknown_600: [u8; 0x2600 - 0x600],
 
     /// 0x2600-0x2DFF: Block of 0xFFFFFFFF values at runtime (512 i32 entries).
     /// May be unused slots in a parallel table to the 0x600 permutation.
     pub _unknown_2600: [u8; 0x2E00 - 0x2600],
 
-    /// 0x2E00-0x45EB: Unknown (mostly zero at runtime)
+    /// 0x2E00-0x45D3: Unknown (mostly zero at runtime).
     ///
     /// Contains FUN_00526120 zeroed offsets at stride 0x194:
     /// 0x379C, 0x3930, 0x3AC4, 0x3C58, 0x3DEC, 0x3F80, 0x4114, 0x42A8, 0x443C, 0x45D0
-    pub _unknown_2e00: [u8; 0x45EC - 0x2E00],
+    pub _unknown_2e00: [u8; 0x45D4 - 0x2E00],
+    /// 0x45D4: Terrain drop percentage A (from GameInfo+0xD955).
+    pub terrain_pct_a: u32,
+    /// 0x45D8: Terrain drop percentage B (from GameInfo+0xD958).
+    pub terrain_pct_b: u32,
+    /// 0x45DC: Terrain drop percentage C (from GameInfo+0xD957).
+    pub terrain_pct_c: u32,
+    /// 0x45E0: Unknown (zeroed by InitGameState version config).
+    pub _field_45e0: u32,
+    /// 0x45E4: Unknown (zeroed by InitGameState version config).
+    pub _field_45e4: u32,
+    /// 0x45E8: Unknown (zeroed by InitGameState version config).
+    pub _field_45e8: u32,
 
     /// 0x45EC: Game RNG state. Advanced each frame and by weapon spread:
     /// `rng = (frame_counter + rng) * 0x19660D + 0x3C6EF35F`.
@@ -193,10 +225,10 @@ pub struct DDGame {
     /// 0x72A8-0x72D7: Unknown
     pub _unknown_72a8: [u8; 0x72D8 - 0x72A8],
 
-    /// 0x72D8: Game speed multiplier (Fixed-point, 0x10000 = 1.0x).
-    pub game_speed: i32,
-    /// 0x72DC: Game speed target (Fixed-point, 0x10000 = 1.0x).
-    pub game_speed_target: i32,
+    /// 0x72D8: Game speed multiplier (Fixed16.16, 1.0 = normal speed).
+    pub game_speed: Fixed,
+    /// 0x72DC: Game speed target (Fixed16.16, 1.0 = normal speed).
+    pub game_speed_target: Fixed,
     /// 0x72E0-0x72E3: Unknown
     pub _unknown_72e0: u32,
     /// 0x72E4: Active render/weapon slot count. Reset to 14 (0x0E) by WeaponRelease
@@ -237,8 +269,11 @@ pub struct DDGame {
     pub _unknown_7344: [u8; 8],
     /// 0x734C: Landscape dimension param (passed to PCLandscape vtable slot 6).
     pub _field_734c: u32,
-    /// 0x7350-0x7373: Unknown
-    pub _unknown_7350: [u8; 36],
+    /// 0x7350-0x736F: Unknown
+    pub _unknown_7350: [u8; 0x7370 - 0x7350],
+    /// 0x7370: Current team color index. Set from GameInfo+0xD924;
+    /// overridden to -1 (0xFFFFFFFF) if any CPU team is detected.
+    pub team_color: u32,
     /// 0x7374: Unknown (zeroed by InitTurnState).
     pub _field_7374: u32,
     /// 0x7378: Unknown (zeroed by InitTurnState).
@@ -254,8 +289,12 @@ pub struct DDGame {
     pub viewport_width_2: i32,
     /// 0x738C: Viewport height max/duplicate (Fixed-point).
     pub viewport_height_2: i32,
-    /// 0x7390-0x739B: Unknown
-    pub _unknown_7390: [u8; 0x739C - 0x7390],
+    /// 0x7390: Unknown (zeroed by InitGameState).
+    pub _field_7390: u32,
+    /// 0x7394: Render scale factor (Fixed-point, 0x10000 = 1.0).
+    pub render_scale: Fixed,
+    /// 0x7398: Unknown (zeroed by InitGameState).
+    pub _field_7398: u32,
     /// 0x739C: Render state flag (zeroed by InitRenderIndices).
     pub render_state_flag: u32,
 
@@ -271,8 +310,14 @@ pub struct DDGame {
     /// 0x73B0: Render entry table (14 entries × 0x14 bytes).
     /// First u32 of each entry zeroed by InitRenderIndices.
     pub render_entries: [RenderEntry; 14],
-    /// 0x74C8-0x764B: Unknown
-    pub _unknown_74c8: [u8; 0x764C - 0x74C8],
+    /// 0x74C8-0x763F: Unknown
+    pub _unknown_74c8: [u8; 0x7640 - 0x74C8],
+    /// 0x7640: Unknown (zeroed by InitGameState).
+    pub _field_7640: u32,
+    /// 0x7644: Unknown config (from GameInfo+0xF363).
+    pub _field_7644: u32,
+    /// 0x7648: Unknown config (from GameInfo+0xF364).
+    pub _field_7648: u32,
     /// 0x764C: Rendering phase. Checked by CTaskCloud::HandleMessage:
     /// clouds only render when this == 5 (in-game rendering active).
     pub render_phase: i32,
@@ -289,28 +334,31 @@ pub struct DDGame {
     pub _field_7784: u32,
     /// 0x7788: Unknown (set from GameInfo+0xF362 during InitTurnState).
     pub _field_7788: u32,
-    /// 0x778C: Unknown (set to Fixed 1.0 = 0x10000 by InitTurnState).
-    pub _field_778c: u32,
+    /// 0x778C: Unknown (set to Fixed 1.0 by InitTurnState).
+    pub _field_778c: Fixed,
     /// 0x7790: Unknown (zeroed by InitTurnState).
     pub _field_7790: u32,
-    /// 0x7794-0x779B: Unknown
-    pub _unknown_7794: [u8; 8],
+    /// 0x7794: Unknown (zeroed by InitGameState level bounds).
+    pub _field_7794: u32,
+    /// 0x7798: Unknown (zeroed by InitGameState level bounds).
+    pub _field_7798: u32,
 
     /// 0x779C: Level bound min X (Fixed16.16, negative = off-screen left).
     pub level_bound_min_x: Fixed,
     /// 0x77A0: Level bound max X (Fixed16.16).
     pub level_bound_max_x: Fixed,
-    /// 0x77A4: Level bound min Y (Fixed-point, same as min_x typically).
-    pub level_bound_min_y: i32,
-    /// 0x77A8: Level bound max Y (Fixed-point).
-    pub level_bound_max_y: i32,
+    /// 0x77A4: Level bound min Y (Fixed16.16).
+    pub level_bound_min_y: Fixed,
+    /// 0x77A8: Level bound max Y (Fixed16.16).
+    pub level_bound_max_y: Fixed,
     /// 0x77AC-0x77B7: Unknown
     pub _unknown_77ac: [u8; 0x77B8 - 0x77AC],
     /// 0x77B8: Level width for 3D sound distance computation (pixels, not fixed-point).
     /// Read by ComputeDistanceParams, shifted left 16 before passing to Distance3D_Attenuation.
     pub level_width_sound: i32,
-    /// 0x77BC-0x77BF: Unknown
-    pub _unknown_77bc: [u8; 0x77C0 - 0x77BC],
+    /// 0x77BC: Screen height in pixels (output from display vtable[1]).
+    /// Read by InitGameState for resolution-dependent layout.
+    pub screen_height_pixels: i32,
 
     /// 0x77C0: Level width in pixels (set by PCLandscape constructor).
     pub level_width: u32,
@@ -319,8 +367,10 @@ pub struct DDGame {
     /// 0x77C8: Total pixels (width × height).
     pub level_total_pixels: u32,
 
-    /// 0x77CC-0x77D3: Unknown
-    pub _unknown_77cc: [u8; 8],
+    /// 0x77CC: Map boundary width. Default 0x30D4; updated to `level_w + 0x2954` for version > 0x32.
+    pub map_boundary_width: u32,
+    /// 0x77D0: Map boundary height. Default = level_height; updated to 0x2B8 for version > 0x32.
+    pub map_boundary_height: u32,
     /// 0x77D4: Unknown (zeroed by InitTurnState).
     pub _field_77d4: u32,
     /// 0x77D8: Unknown (zeroed by InitTurnState).
@@ -714,9 +764,9 @@ impl crate::snapshot::Snapshot for DDGame {
         write_indent(w, i)?;
         writeln!(w, "frame_counter = {}", self.frame_counter)?;
         write_indent(w, i)?;
-        writeln!(w, "game_speed = {}", Fixed(self.game_speed))?;
+        writeln!(w, "game_speed = {}", self.game_speed)?;
         write_indent(w, i)?;
-        writeln!(w, "game_speed_target = {}", Fixed(self.game_speed_target))?;
+        writeln!(w, "game_speed_target = {}", self.game_speed_target)?;
         write_indent(w, i)?;
         writeln!(
             w,
