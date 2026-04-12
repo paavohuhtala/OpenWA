@@ -23,7 +23,7 @@ pub unsafe fn blit_sprite(
     this: *mut DisplayGfx,
     x: Fixed,
     y: Fixed,
-    sprite_flags: u32,
+    sprite: SpriteOp,
     palette: u32,
 ) {
     let gfx = this;
@@ -32,7 +32,6 @@ pub unsafe fn blit_sprite(
     // ---------------------------------------------------------------
     // Extract sprite index and flags
     // ---------------------------------------------------------------
-    let sprite = SpriteOp(sprite_flags);
     let flags = sprite.flags();
     let sprite_id = sprite.index() as u32;
 

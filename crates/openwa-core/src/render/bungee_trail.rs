@@ -21,8 +21,8 @@ use crate::trig::trig_lookup;
 ///
 /// `task_ptr` must point to a valid `BungeeTrailTask`. ASLR rebase must be
 /// initialized.
-pub unsafe fn draw_bungee_trail(task_ptr: u32, style: u32, fill: u32) {
-    let task = &*(task_ptr as *const BungeeTrailTask);
+pub unsafe fn draw_bungee_trail(task: *const BungeeTrailTask, style: u32, fill: u32) {
+    let task = &*task;
 
     if task.trail_visible == 0 {
         return;

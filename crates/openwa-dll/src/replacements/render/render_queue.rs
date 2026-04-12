@@ -1,382 +1,322 @@
-//! RenderQueue enqueue hooks — full Rust replacements for command enqueueing,
-//! plus the per-frame RenderDrawingQueue dispatcher bridge.
+//! RenderQueue enqueue hooks and the per-frame dispatcher bridge.
 
 use openwa_core::address::va;
+use openwa_core::bitgrid::DisplayBitGrid;
 use openwa_core::fixed::Fixed;
+use openwa_core::render::display::vtable::TiledBitmapSource;
 use openwa_core::render::display::DisplayGfx;
 use openwa_core::render::queue::*;
 use openwa_core::render::queue_dispatch::{render_drawing_queue, ClipContext};
 use openwa_core::render::SpriteOp;
+use openwa_core::task::{BungeeTrailTask, WeaponAimTask};
 
 use crate::hook::{self, usercall_trampoline};
 
-// ---------------------------------------------------------------------------
-// EnqueueTiledBitmap (0x541D60) — type 0xD, EAX=this, 3 stack, RET 0xC
-//
-// Mis-labelled `RQ_DrawPixel` in earlier reverse-engineering passes. It does
-// NOT enqueue a single-pixel draw — it enqueues a tile-cached bitmap draw
-// dispatched by `RenderDrawingQueue` case 0xD into vtable slot 11.
-// ---------------------------------------------------------------------------
+// EnqueueTiledBitmap (0x541D60)
 
 usercall_trampoline!(fn trampoline_enqueue_tiled_bitmap; impl_fn = enqueue_tiled_bitmap_impl;
     reg = eax; stack_params = 3; ret_bytes = "0xC");
 
 unsafe extern "cdecl" fn enqueue_tiled_bitmap_impl(
-    this: u32,
-    y_fixed16: u32,
-    source_descriptor: u32,
+    queue: *mut RenderQueue,
+    y: Fixed,
+    source: *const TiledBitmapSource,
     flags: u32,
 ) {
-    let q = &mut *(this as *mut RenderQueue);
-
-    if let Some(entry) = q.alloc::<DrawTiledBitmapCmd>() {
+    if let Some(entry) = (*queue).alloc::<DrawTiledBitmapCmd>() {
         *entry = DrawTiledBitmapCmd {
             command_type: command_type::DRAW_TILED_BITMAP,
             layer: 0x1B_0000,
             x: Fixed(0xFF00_0000u32 as i32),
-            y: Fixed(y_fixed16 as i32),
-            source: source_descriptor as *const _,
+            y,
+            source,
             flags: flags as u8,
             _pad: [0; 3],
         };
     }
 }
 
-// ---------------------------------------------------------------------------
-// DrawLineStrip (0x541DD0) — type 8, EAX=this, EDI=count, 2 stack, RET 0x8
-// Allocation: count * 0xC + 0x1C (variable size)
-// ---------------------------------------------------------------------------
+// DrawLineStrip (0x541DD0) — variable-size allocation: count * 0xC + 0x1C
 
 usercall_trampoline!(fn trampoline_draw_line_strip; impl_fn = draw_line_strip_impl;
     regs = [eax, edi]; stack_params = 2; ret_bytes = "0x8");
 
 unsafe extern "cdecl" fn draw_line_strip_impl(
-    this: u32,
+    queue: *mut RenderQueue,
     count: u32,
-    vertex_ptr: u32,
-    param_1: u32,
+    vertices: *const u8,
+    color: u32,
 ) {
-    let q = &mut *(this as *mut RenderQueue);
     let total_size = count as usize * 0xC + 0x1C;
 
-    if let Some(ptr) = q.alloc_raw(total_size) {
+    if let Some(ptr) = (*queue).alloc_raw(total_size) {
         let header = &mut *(ptr as *mut DrawLineStripHeader);
         *header = DrawLineStripHeader {
             command_type: command_type::DRAW_LINE_STRIP,
             layer: 0xE_0000,
             count,
-            color: param_1,
+            color,
         };
         core::ptr::copy_nonoverlapping(
-            vertex_ptr as *const u8,
+            vertices,
             ptr.add(core::mem::size_of::<DrawLineStripHeader>()),
             count as usize * 0xC,
         );
     }
 }
 
-// ---------------------------------------------------------------------------
-// DrawPolygon (0x541E50) — type 9, ECX=this, ESI=count, 3 stack, RET 0xC
-// Allocation: count * 0xC + 0x20 (variable size)
-// ---------------------------------------------------------------------------
+// DrawPolygon (0x541E50) — variable-size allocation: count * 0xC + 0x20
 
 usercall_trampoline!(fn trampoline_draw_polygon; impl_fn = draw_polygon_impl;
     regs = [ecx, esi]; stack_params = 3; ret_bytes = "0xC");
 
 unsafe extern "cdecl" fn draw_polygon_impl(
-    this: u32,
+    queue: *mut RenderQueue,
     count: u32,
-    vertex_ptr: u32,
-    param_1: u32,
-    param_2: u32,
+    vertices: *const u8,
+    color1: u32,
+    color2: u32,
 ) {
-    let q = &mut *(this as *mut RenderQueue);
     let total_size = count as usize * 0xC + 0x20;
 
-    if let Some(ptr) = q.alloc_raw(total_size) {
+    if let Some(ptr) = (*queue).alloc_raw(total_size) {
         let header = &mut *(ptr as *mut DrawPolygonHeader);
         *header = DrawPolygonHeader {
             command_type: command_type::DRAW_POLYGON,
             layer: 0xE_0000,
             count,
-            color1: param_1,
-            color2: param_2,
+            color1,
+            color2,
         };
         core::ptr::copy_nonoverlapping(
-            vertex_ptr as *const u8,
+            vertices,
             ptr.add(core::mem::size_of::<DrawPolygonHeader>()),
             count as usize * 0xC,
         );
     }
 }
 
-// ---------------------------------------------------------------------------
-// DrawCrosshair (0x541ED0) — type 0xB, ECX=this, 5 stack, RET 0x14
-// Enqueues a crosshair draw command. Dispatched by RenderDrawingQueue
-// case 0xB → DisplayGfx::draw_crosshair (vtable slot 16).
-// ---------------------------------------------------------------------------
+// DrawCrosshair (0x541ED0)
 
 usercall_trampoline!(fn trampoline_draw_crosshair; impl_fn = draw_crosshair_impl;
     reg = ecx; stack_params = 5; ret_bytes = "0x14");
 
 unsafe extern "cdecl" fn draw_crosshair_impl(
-    this: u32,
+    queue: *mut RenderQueue,
     layer: u32,
-    x_pos: u32,
-    y_pos: u32,
+    x: Fixed,
+    y: Fixed,
     color_fg: u32,
     color_bg: u32,
 ) {
-    let q = &mut *(this as *mut RenderQueue);
-
-    if let Some(entry) = q.alloc::<DrawCrosshairCmd>() {
+    if let Some(entry) = (*queue).alloc::<DrawCrosshairCmd>() {
         *entry = DrawCrosshairCmd {
             command_type: command_type::DRAW_CROSSHAIR,
             layer,
             color_fg,
             color_bg,
-            x: Fixed(x_pos as i32),
-            y: Fixed(y_pos as i32),
+            x,
+            y,
             ref_z: 0,
         };
     }
 }
 
-// ---------------------------------------------------------------------------
-// DrawRect (0x541F40) — type 0, ECX=this, EDX=y_clip, 6 stack, RET 0x18
-// ---------------------------------------------------------------------------
+// DrawRect (0x541F40)
 
 usercall_trampoline!(fn trampoline_draw_rect; impl_fn = draw_rect_impl;
     regs = [ecx, edx]; stack_params = 6; ret_bytes = "0x18");
 
 unsafe extern "cdecl" fn draw_rect_impl(
-    this: u32,
-    y_clip: u32,
+    queue: *mut RenderQueue,
+    y_clip: Fixed,
     layer: u32,
-    x1: u32,
-    y1: u32,
-    x2: u32,
-    y2: u32,
+    x1: Fixed,
+    y1: Fixed,
+    x2: Fixed,
+    y2: Fixed,
     color: u32,
 ) {
-    let q = &mut *(this as *mut RenderQueue);
-
-    if let Some(entry) = q.alloc::<DrawRectCmd>() {
+    if let Some(entry) = (*queue).alloc::<DrawRectCmd>() {
         *entry = DrawRectCmd {
             command_type: command_type::DRAW_RECT,
             layer,
             color,
-            x1: Fixed(x1 as i32).floor(),
-            y1: Fixed(y1 as i32).floor(),
-            x2: Fixed(x2 as i32).floor(),
-            y2: Fixed(y2 as i32).floor(),
-            ref_z: Fixed(y_clip as i32).floor().0,
+            x1: x1.floor(),
+            y1: y1.floor(),
+            x2: x2.floor(),
+            y2: y2.floor(),
+            ref_z: y_clip.floor().0,
         };
     }
 }
 
-// ---------------------------------------------------------------------------
-// DrawSpriteGlobal (0x541FE0) — type 4, EAX=y, ECX=this, 4 stack, RET 0x10
-// ---------------------------------------------------------------------------
+// DrawSpriteGlobal (0x541FE0)
 
 usercall_trampoline!(fn trampoline_draw_sprite_global; impl_fn = draw_sprite_global_impl;
     regs = [eax, ecx]; stack_params = 4; ret_bytes = "0x10");
 
 unsafe extern "cdecl" fn draw_sprite_global_impl(
-    y_pos: u32,
-    this: u32,
+    y_pos: Fixed,
+    queue: *mut RenderQueue,
     layer: u32,
-    x_pos: u32,
-    sprite_id: u32,
+    x_pos: Fixed,
+    sprite: SpriteOp,
     frame: u32,
 ) {
-    let q = &mut *(this as *mut RenderQueue);
-
-    if let Some(entry) = q.alloc::<DrawSpriteCmd>() {
+    if let Some(entry) = (*queue).alloc::<DrawSpriteCmd>() {
         *entry = DrawSpriteCmd {
             command_type: command_type::DRAW_SPRITE_GLOBAL,
             layer,
-            x: Fixed(x_pos as i32).floor(),
-            y: Fixed(y_pos as i32).floor(),
-            sprite: SpriteOp(sprite_id),
+            x: x_pos.floor(),
+            y: y_pos.floor(),
+            sprite,
             palette: frame,
         };
     }
 }
 
-// ---------------------------------------------------------------------------
-// DrawSpriteLocal (0x542060) — type 5, EAX=y, ECX=this, 4 stack, RET 0x10
-// ---------------------------------------------------------------------------
+// DrawSpriteLocal (0x542060)
 
 usercall_trampoline!(fn trampoline_draw_sprite_local; impl_fn = draw_sprite_local_impl;
     regs = [eax, ecx]; stack_params = 4; ret_bytes = "0x10");
 
 unsafe extern "cdecl" fn draw_sprite_local_impl(
-    y_pos: u32,
-    this: u32,
+    y_pos: Fixed,
+    queue: *mut RenderQueue,
     layer: u32,
-    x_pos: u32,
-    sprite_id: u32,
+    x_pos: Fixed,
+    sprite: SpriteOp,
     frame: u32,
 ) {
-    let q = &mut *(this as *mut RenderQueue);
-
-    if let Some(entry) = q.alloc::<DrawSpriteCmd>() {
+    if let Some(entry) = (*queue).alloc::<DrawSpriteCmd>() {
         *entry = DrawSpriteCmd {
             command_type: command_type::DRAW_SPRITE_LOCAL,
             layer,
-            x: Fixed(x_pos as i32).floor(),
-            y: Fixed(y_pos as i32).floor(),
-            sprite: SpriteOp(sprite_id),
+            x: x_pos.floor(),
+            y: y_pos.floor(),
+            sprite,
             palette: frame,
         };
     }
 }
 
-// ---------------------------------------------------------------------------
-// DrawSpriteOffset (0x5420E0) — type 6, ECX=this, EDX=y_clip, 6 stack, RET 0x18
-// ---------------------------------------------------------------------------
+// DrawSpriteOffset (0x5420E0)
 
 usercall_trampoline!(fn trampoline_draw_sprite_offset; impl_fn = draw_sprite_offset_impl;
     regs = [ecx, edx]; stack_params = 6; ret_bytes = "0x18");
 
 unsafe extern "cdecl" fn draw_sprite_offset_impl(
-    this: u32,
-    y_clip: u32,
+    queue: *mut RenderQueue,
+    y_clip: Fixed,
     layer: u32,
-    x_pos: u32,
-    y_pos: u32,
-    sprite_id: u32,
-    param_7: u32,
-    param_8: u32,
+    x_pos: Fixed,
+    y_pos: Fixed,
+    flags: u32,
+    sprite: SpriteOp,
+    palette: u32,
 ) {
-    let q = &mut *(this as *mut RenderQueue);
-
-    if let Some(entry) = q.alloc::<DrawSpriteOffsetCmd>() {
+    if let Some(entry) = (*queue).alloc::<DrawSpriteOffsetCmd>() {
         *entry = DrawSpriteOffsetCmd {
             command_type: command_type::DRAW_SPRITE_OFFSET,
             layer,
-            flags: sprite_id,
-            x: Fixed(x_pos as i32).floor(),
-            y: Fixed(y_pos as i32).floor(),
+            flags,
+            x: x_pos.floor(),
+            y: y_pos.floor(),
             ref_z: 0,
-            ref_z_2: Fixed(y_clip as i32).floor().0,
-            sprite: SpriteOp(param_7),
-            palette: param_8,
+            ref_z_2: y_clip.floor().0,
+            sprite,
+            palette,
         };
     }
 }
 
-// ---------------------------------------------------------------------------
-// DrawBitmapGlobal (0x542170) — type 1, ECX=this, EDX=y, 7 stack, RET 0x1C
-// ---------------------------------------------------------------------------
+// DrawBitmapGlobal (0x542170)
 
 usercall_trampoline!(fn trampoline_draw_bitmap_global; impl_fn = draw_bitmap_global_impl;
     regs = [ecx, edx]; stack_params = 7; ret_bytes = "0x1C");
 
 unsafe extern "cdecl" fn draw_bitmap_global_impl(
-    this: u32,
-    y_pos: u32,
+    queue: *mut RenderQueue,
+    y_pos: Fixed,
     layer: u32,
-    x_pos: u32,
-    bitmap_ptr: u32,
-    param_6: u32,
-    param_7: u32,
-    param_8: u32,
-    param_9: u32,
+    x_pos: Fixed,
+    bitmap: *mut DisplayBitGrid,
+    src_y: i32,
+    src_w: i32,
+    src_h: i32,
+    flags: u32,
 ) {
-    let q = &mut *(this as *mut RenderQueue);
-
-    if let Some(entry) = q.alloc::<DrawBitmapGlobalCmd>() {
+    if let Some(entry) = (*queue).alloc::<DrawBitmapGlobalCmd>() {
         *entry = DrawBitmapGlobalCmd {
             command_type: command_type::DRAW_BITMAP_GLOBAL,
             layer,
-            x: Fixed(x_pos as i32).floor(),
-            y: Fixed(y_pos as i32).floor(),
-            bitmap: bitmap_ptr as *mut _,
+            x: x_pos.floor(),
+            y: y_pos.floor(),
+            bitmap,
             src_x: 0,
-            src_y: param_6 as i32,
-            src_w: param_7 as i32,
-            src_h: param_8 as i32,
-            flags: param_9,
+            src_y,
+            src_w,
+            src_h,
+            flags,
         };
     }
 }
 
-// ---------------------------------------------------------------------------
-// DrawTextboxLocal (0x542200) — type 2, ECX=this, EDX=y, 6 stack, RET 0x18
-// ---------------------------------------------------------------------------
+// DrawTextboxLocal (0x542200)
 
 usercall_trampoline!(fn trampoline_draw_textbox_local; impl_fn = draw_textbox_local_impl;
     regs = [ecx, edx]; stack_params = 6; ret_bytes = "0x18");
 
 unsafe extern "cdecl" fn draw_textbox_local_impl(
-    this: u32,
-    y_pos: u32,
+    q: *mut RenderQueue,
+    y_pos: Fixed,
     layer: u32,
-    x_pos: u32,
-    text_ptr: u32,
-    param_6: u32,
-    param_7: u32,
-    param_8: u32,
+    x_pos: Fixed,
+    bitmap: *mut DisplayBitGrid,
+    src_w: i32,
+    src_h: i32,
+    flags: u32,
 ) {
-    let q = &mut *(this as *mut RenderQueue);
-
-    if let Some(entry) = q.alloc::<DrawTextboxLocalCmd>() {
+    if let Some(entry) = (*q).alloc::<DrawTextboxLocalCmd>() {
         *entry = DrawTextboxLocalCmd {
             command_type: command_type::DRAW_TEXTBOX_LOCAL,
             layer,
             mode: 0,
-            x: Fixed(x_pos as i32).floor(),
-            y: Fixed(y_pos as i32).floor(),
+            x: x_pos.floor(),
+            y: y_pos.floor(),
             ref_z: 0,
             ref_z_2: 0,
-            bitmap: text_ptr as *mut _,
+            bitmap,
             src_x: 0,
             src_y: 0,
-            src_w: param_6 as i32,
-            src_h: param_7 as i32,
-            flags: param_8,
+            src_w,
+            src_h,
+            flags,
         };
     }
 }
 
-// ---------------------------------------------------------------------------
-// DrawBungeeTrail (0x500720) — stdcall(task, style, fill), RET 0xC
-//
-// Draws bungee drop trajectory path. Logic lives in openwa_core::render::bungee_trail.
-// ---------------------------------------------------------------------------
+// DrawBungeeTrail (0x500720)
 
-unsafe extern "stdcall" fn draw_bungee_trail_impl(task_ptr: u32, style: u32, fill: u32) {
-    openwa_core::render::bungee_trail::draw_bungee_trail(task_ptr, style, fill);
+unsafe extern "stdcall" fn draw_bungee_trail_impl(
+    task: *const BungeeTrailTask,
+    style: u32,
+    fill: u32,
+) {
+    openwa_core::render::bungee_trail::draw_bungee_trail(task, style, fill);
 }
 
-// ---------------------------------------------------------------------------
-// DrawCrosshairLine (0x5197D0) — usercall(EDI=task_ptr), plain RET
-//
-// Draws the weapon aiming crosshair line:
-//   1. Compute direction from angle at task+0x264
-//   2. Compute line length from DDGame scale + task offset
-//   3. Endpoint = start + direction * length (with overflow clamping)
-//   4. DrawPolygon (2 vertices) for the line
-//   5. Conditionally DrawSpriteLocal at endpoint (crosshair sprite)
-// ---------------------------------------------------------------------------
+// DrawCrosshairLine (0x5197D0)
 
 usercall_trampoline!(fn trampoline_draw_crosshair_line; impl_fn = draw_crosshair_line_impl;
     reg = edi);
 
-unsafe extern "cdecl" fn draw_crosshair_line_impl(task_ptr: u32) {
-    openwa_core::render::crosshair_line::draw_crosshair_line(task_ptr);
+unsafe extern "cdecl" fn draw_crosshair_line_impl(task: *const WeaponAimTask) {
+    openwa_core::render::crosshair_line::draw_crosshair_line(task);
 }
 
-// ---------------------------------------------------------------------------
-// RenderDrawingQueue (0x542350) — usercall(EAX=RenderQueue*) + 2 stack
-// (DisplayGfx*, ClipContext*), RET 0x8.
-//
-// The per-frame render-queue dispatcher. Pure Rust port lives in
-// `openwa_core::render::queue_dispatch::render_drawing_queue`. The
-// trampoline captures EAX and forwards the two stack args.
-// ---------------------------------------------------------------------------
+// RenderDrawingQueue (0x542350)
 
 usercall_trampoline!(fn trampoline_render_drawing_queue;
     impl_fn = render_drawing_queue_impl;
@@ -389,10 +329,6 @@ unsafe extern "cdecl" fn render_drawing_queue_impl(
 ) {
     render_drawing_queue(rq, display, clip);
 }
-
-// ---------------------------------------------------------------------------
-// Installation
-// ---------------------------------------------------------------------------
 
 pub fn install() -> Result<(), String> {
     unsafe {

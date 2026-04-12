@@ -22,11 +22,10 @@ use crate::trig::trig_lookup;
 ///
 /// `task_ptr` must point to a valid `WeaponAimTask`. ASLR rebase must be
 /// initialized.
-pub unsafe fn draw_crosshair_line(task_ptr: u32) {
-    let task = &*(task_ptr as *const WeaponAimTask);
-    let gt = &task.game_task;
+pub unsafe fn draw_crosshair_line(task: *const WeaponAimTask) {
+    let gt = &(*task).game_task;
 
-    if task.aim_active == 0 {
+    if (*task).aim_active == 0 {
         return;
     }
 
@@ -36,7 +35,7 @@ pub unsafe fn draw_crosshair_line(task_ptr: u32) {
     let start_x = gt.pos_x.0;
     let start_y = gt.pos_y.0;
 
-    let angle = task.aim_angle;
+    let angle = (*task).aim_angle;
 
     // Trig interpolation
     let sin_table = rb(va::G_SIN_TABLE) as *const i32;
@@ -45,7 +44,7 @@ pub unsafe fn draw_crosshair_line(task_ptr: u32) {
     let cos_interp = trig_lookup(cos_table, angle);
 
     // Scale = fixed_mul(DDGame.parallax_scale, 0x140000) + task.aim_range_offset
-    let scale = Fixed(ddgame.parallax_scale).mul_raw(Fixed(0x14_0000)).0 + task.aim_range_offset;
+    let scale = Fixed(ddgame.parallax_scale).mul_raw(Fixed(0x14_0000)).0 + (*task).aim_range_offset;
 
     // Endpoint = start + direction * scale
     let mut endpoint_x = Fixed(sin_interp.0)
