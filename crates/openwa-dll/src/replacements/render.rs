@@ -872,23 +872,22 @@ unsafe extern "thiscall" fn blit_sprite(
     }
 
     // ---------------------------------------------------------------
-    // Bit 24: palette x4 adjust with orientation-dependent high bits
+    // Bit 24: palette ×4 adjust with orientation-dependent high bits
     // ---------------------------------------------------------------
-    // The original ASM at 0x56B145 does a complex palette*4 + orientation mapping
-    // that writes extra orientation bits into the local orient variable.
-    // For now, handle the simple case:
+    // The original ASM at 0x56B145 scales pal by 4, adds 0x8000, then
+    // uses the overflow quadrant (bits 16-17 of the scaled value) to
+    // select an orientation+blend combo. The low 16 bits become the
+    // new palette value.
     let mut orient_local: u32 = 0x0000_0001; // blend=1 (ColorTable/transparency), orientation=0 (Normal)
     if flags.contains(SpriteFlags::PALETTE_X4) {
-        // The ASM computes: pal = pal * 4 + 0x8000, then maps (pal >> 16) & 3
-        // to set specific orient values (0x80001, 0xC0001, 0x40001)
         let scaled = pal.wrapping_mul(4).wrapping_add(0x8000);
         pal = scaled & 0xFFFF;
         let quad = ((scaled as i32) >> 16) & 3;
         orient_local = match quad {
-            0 => 0x0008_0001,
-            1 => 0x000C_0001,
-            2 => 0x0004_0001,
-            _ => 0x0000_0001, // shouldn't happen, keep default blend=1
+            0 => 0x0008_0001, // MirrorXY + ColorTable
+            1 => 0x000C_0001, // Rotate90MirrorXY + ColorTable
+            2 => 0x0004_0001, // Rotate90 + ColorTable
+            _ => 0x0000_0001, // Normal + ColorTable
         };
     }
 
