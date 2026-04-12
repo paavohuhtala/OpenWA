@@ -584,14 +584,14 @@ impl DebugApp {
                                     ui.label("pos_x");
                                     ui.label(format!("{:.1}", (*cloud).pos_x.to_f32()));
                                     ui.end_row();
-                                    ui.label("pos_y");
-                                    ui.label(format!("{:.1}", (*cloud).pos_y.to_f32()));
+                                    ui.label("anim_phase");
+                                    ui.label(format!("{:.1}", (*cloud).anim_phase.to_f32()));
                                     ui.end_row();
                                     ui.label("vel_x");
                                     ui.label(format!("{:.4}", (*cloud).vel_x.to_f32()));
                                     ui.end_row();
-                                    ui.label("vel_y");
-                                    ui.label(format!("{:.4}", (*cloud).vel_y.to_f32()));
+                                    ui.label("phase_speed");
+                                    ui.label(format!("{:.4}", (*cloud).phase_speed.to_f32()));
                                     ui.end_row();
                                     ui.label("wind_accel");
                                     ui.label(format!("{:.4}", (*cloud).wind_accel.to_f32()));

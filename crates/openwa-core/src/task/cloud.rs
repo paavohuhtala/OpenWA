@@ -47,9 +47,9 @@ pub struct CTaskCloudVTable {
 /// Vtable: 0x669D38. Class type byte: 0x17 (ClassType::Cloud).
 ///
 /// Three cloud sizes chosen by `cloud_type` param (0/1/2):
-/// - type 0: sprite 0x268 (large),  vel_y 0x200
-/// - type 1: sprite 0x269 (medium), vel_y 0x166
-/// - type 2: sprite 0x26A (small),  vel_y 0xCC
+/// - type 0: sprite 0x268 (large),  phase_speed 0x200
+/// - type 1: sprite 0x269 (medium), phase_speed 0x166
+/// - type 2: sprite 0x26A (small),  phase_speed 0xCC
 ///
 /// CreateWeatherFilter spawns clouds with a deterministic LCG (seed 0x12345678),
 /// randomizing pos_x within level bounds and vel_x with random sign. The
@@ -67,16 +67,14 @@ pub struct CTaskCloud {
     /// 0x30: Parallax scroll layer depth (Fixed; starts at 0x190000 = 25.0,
     /// decrements by 1 each cloud spawned in a batch)
     pub layer_depth: Fixed,
-    /// 0x34: Per-frame phase counter (Fixed 16.16); incremented by `vel_y`
-    /// each FrameFinish. Despite the name, this is **not** the rendered Y —
-    /// `render_y` is. The original passes this value as the trailing stack
-    /// arg to `RQ_DrawSpriteLocal`, where it ends up in the queue command's
-    /// `palette` slot (cmd[5]) as a per-cloud animation/palette index.
+    /// 0x34: Per-frame animation phase counter (Fixed 16.16); incremented by
+    /// `phase_speed` each FrameFinish. Passed to `blit_sprite` as the
+    /// `palette` arg (cmd[5]) — acts as a per-cloud animation/palette index.
     /// Constructor initializes it to `(pos_x + render_y) & 0xFFFF`, which is
     /// always 0 since both addends have zero low halves.
-    pub pos_y: Fixed,
-    /// 0x38: Y velocity (Fixed 16.16; set by cloud type: large=0x200, medium=0x166, small=0xCC)
-    pub vel_y: Fixed,
+    pub anim_phase: Fixed,
+    /// 0x38: Animation phase speed (Fixed 16.16; set by cloud type: large=0x200, medium=0x166, small=0xCC)
+    pub phase_speed: Fixed,
     /// 0x3C: Sprite ID passed to DrawSpriteLocal (0x268=large, 0x269=medium, 0x26A=small)
     pub sprite_id: u32,
     /// 0x40: X position (Fixed 16.16); wraps at landscape bounds each frame
@@ -86,11 +84,11 @@ pub struct CTaskCloud {
     /// `(level_height/16 + level_height/10 * i/cloud_count + weather_mod) << 16`,
     /// placing each cloud at a small Y near the top of the level.
     ///
-    /// Despite contributing to the initial `pos_y` computation
+    /// Despite contributing to the initial `anim_phase` computation
     /// `(pos_x + render_y) & 0xFFFF` in the constructor, that mask discards the
     /// integer part and only ever yields 0 (both `pos_x` and `render_y` have
     /// their lower 16 bits zero). The integer Y is read here in HandleMessage
-    /// and passed to `RQ_DrawSpriteLocal` as the sprite's screen Y.
+    /// and passed to `blit_sprite` as the sprite's screen Y.
     pub render_y: Fixed,
     /// 0x48: X velocity base (Fixed 16.16)
     pub vel_x: Fixed,
@@ -110,7 +108,7 @@ const _: () = assert!(core::mem::size_of::<CTaskCloud>() == 0x74);
 bind_CTaskCloudVTable!(CTaskCloud, base.vtable);
 
 use crate::game::TaskMessage;
-use crate::render::queue::{command_type, DrawSpriteCmd};
+use crate::render::message::RenderMessage;
 
 /// CTaskCloud::HandleMessage replacement — pure game logic.
 ///
@@ -132,7 +130,7 @@ pub unsafe extern "thiscall" fn cloud_handle_message(
     match msg {
         Ok(TaskMessage::FrameFinish) => {
             // Advance Y position
-            (*this).pos_y = Fixed((*this).pos_y.0 + (*this).vel_y.0);
+            (*this).anim_phase = Fixed((*this).anim_phase.0 + (*this).phase_speed.0);
 
             // Advance X position: base velocity + wind * 10
             let wind = (*this).wind_accel.0;
@@ -175,21 +173,20 @@ pub unsafe extern "thiscall" fn cloud_handle_message(
                 let x = parallax_x + (*this).pos_x.0;
 
                 let rq = &mut *(*ddgame).render_queue;
-                if let Some(entry) = rq.alloc::<DrawSpriteCmd>() {
-                    // Original (0x548527..0x54852f) loads `[ESI+0x44]` (render_y)
-                    // into EAX as the usercall Y register, and pushes `pos_y`
-                    // (`[ESI+0x34]`) as the trailing stack arg that becomes the
-                    // queue entry's `palette` field. `pos_y` grows monotonically
-                    // each frame and acts as a per-cloud animation/palette index.
-                    *entry = DrawSpriteCmd {
-                        command_type: command_type::DRAW_SPRITE_LOCAL,
-                        layer: (*this).layer_depth.0 as u32,
-                        x_pos: x as u32 & 0xFFFF0000,
-                        y_pos: (*this).render_y.0 as u32 & 0xFFFF0000,
-                        sprite_id: (*this).sprite_id,
-                        frame: (*this).pos_y.0 as u32,
-                    };
-                }
+                // Original (0x548527..0x54852f) loads `[ESI+0x44]` (render_y)
+                // into EAX as the usercall Y register, and pushes `anim_phase`
+                // (`[ESI+0x34]`) as the trailing stack arg that becomes
+                // `blit_sprite`'s `palette` parameter.
+                let _ = rq.push_typed(
+                    (*this).layer_depth.0 as u32,
+                    RenderMessage::Sprite {
+                        local: true,
+                        x: Fixed(x).floor(),
+                        y: (*this).render_y.floor(),
+                        sprite_flags: (*this).sprite_id,
+                        palette: (*this).anim_phase.0 as u32,
+                    },
+                );
             }
         }
 
@@ -210,11 +207,11 @@ pub unsafe extern "thiscall" fn cloud_handle_message(
 #[repr(u32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CloudType {
-    /// Large cloud: sprite 0x268, vel_y 0x200
+    /// Large cloud: sprite 0x268, phase_speed 0x200
     Large = 0,
-    /// Medium cloud: sprite 0x269, vel_y 0x166
+    /// Medium cloud: sprite 0x269, phase_speed 0x166
     Medium = 1,
-    /// Small cloud: sprite 0x26A, vel_y 0xCC
+    /// Small cloud: sprite 0x26A, phase_speed 0xCC
     Small = 2,
 }
 
@@ -246,10 +243,10 @@ impl CTaskCloud {
         (*this).base.class_type = ClassType::Cloud;
 
         // Position: x is the initial horizontal position. The original computes
-        // `pos_y = (pos_x + render_y) & 0xFFFF`, but both pos_x and render_y
+        // `anim_phase = (pos_x + render_y) & 0xFFFF`, but both pos_x and render_y
         // have their lower 16 bits zero, so the result is always 0.
         (*this).pos_x = pos_x;
-        (*this).pos_y = Fixed((pos_x.0.wrapping_add(render_y.0)) & 0xFFFF);
+        (*this).anim_phase = Fixed((pos_x.0.wrapping_add(render_y.0)) & 0xFFFF);
         (*this).layer_depth = layer_depth;
         (*this).render_y = render_y;
         (*this).vel_x = vel_x;
@@ -259,15 +256,15 @@ impl CTaskCloud {
         // Set type-dependent velocity and sprite
         match cloud_type {
             CloudType::Large => {
-                (*this).vel_y = Fixed(0x200);
+                (*this).phase_speed = Fixed(0x200);
                 (*this).sprite_id = 0x268;
             }
             CloudType::Medium => {
-                (*this).vel_y = Fixed(0x166);
+                (*this).phase_speed = Fixed(0x166);
                 (*this).sprite_id = 0x269;
             }
             CloudType::Small => {
-                (*this).vel_y = Fixed(0xCC);
+                (*this).phase_speed = Fixed(0xCC);
                 (*this).sprite_id = 0x26A;
             }
         }
