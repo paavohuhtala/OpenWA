@@ -208,10 +208,9 @@ pub unsafe fn blit_sprite(
         let saved = *table_byte;
         *table_byte = 0;
 
-        // Call BitGrid__ClearColumn_Maybe (0x4F6590) — clears shadow channel
-        let clear_fn: unsafe extern "cdecl" fn(*mut u8) =
-            core::mem::transmute(rb(0x004F6590) as usize);
-        clear_fn(table_byte as *mut u8);
+        // BitGrid__RemapPixelsThroughLut (0x4F6590) — remaps layer_2 pixels
+        // through the color table.
+        remap_pixels_through_shadow_lut(layer2, table_byte as *mut u8);
 
         *table_byte = saved;
 
@@ -450,5 +449,37 @@ pub unsafe fn draw_scaled_sprite(
             );
         }
         DrawScaledSpriteResult::Handled => {}
+    }
+}
+
+/// Pure Rust port of `BitGrid__RemapPixelsThroughLut` (0x4F6590).
+///
+/// Remaps every pixel in an 8bpp BitGrid through a 256-byte LUT.
+/// The inner loop is unrolled 4x, matching the original.
+unsafe fn remap_pixels_through_shadow_lut(bitgrid: *mut DisplayBitGrid, color_table: *const u8) {
+    let grid = &*bitgrid;
+    if grid.cells_per_unit != 8 {
+        return;
+    }
+
+    let data = grid.data;
+    let stride = grid.row_stride as usize;
+    let height = grid.height as usize;
+    // The original passes stride/4 as the inner loop count (4 pixels per iteration).
+    let quads_per_row = stride / 4;
+
+    let lut = core::slice::from_raw_parts(color_table, 256);
+    let mut row_ptr = data;
+
+    for _ in 0..height {
+        let mut p = row_ptr;
+        for _ in 0..quads_per_row {
+            *p = lut[*p as usize];
+            *p.add(1) = lut[*p.add(1) as usize];
+            *p.add(2) = lut[*p.add(2) as usize];
+            *p.add(3) = lut[*p.add(3) as usize];
+            p = p.add(4);
+        }
+        row_ptr = row_ptr.add(stride);
     }
 }
