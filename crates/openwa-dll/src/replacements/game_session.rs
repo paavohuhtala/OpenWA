@@ -10,7 +10,7 @@
 //! - `DDGameWrapper__InitReplay` (0x56F860): usercall(EAX=game_info, ESI=this),
 //!   plain RET (no stack args). Bridged via `call_init_replay`.
 //! - `DDGame__Constructor` (0x56E220): fully replaced by `create_ddgame()` in openwa-core.
-//! - `DDGame__InitGameState` (0x526500): plain stdcall(this), called via transmute.
+//! - `DDGame__InitGameState` (0x526500): ported to Rust in `init_game_state()`.
 
 use crate::hook;
 use crate::log_line;
@@ -162,10 +162,8 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
         crate::debug_watchpoint::teardown();
     }
 
-    // Initialize DDGame's game-state fields.
-    let init_state: unsafe extern "stdcall" fn(*mut DDGameWrapper) =
-        core::mem::transmute(rb(va::DDGAME_INIT_GAME_STATE) as usize);
-    init_state(this);
+    // Initialize DDGame's game-state fields (Rust port).
+    openwa_core::engine::game_state_init::init_game_state(this);
 
     let _ = log_line(&format!(
         "[GameSession] DDGameWrapper::Constructor done: wrapper=0x{:08X}  ddgame=0x{:08X}",
@@ -199,6 +197,7 @@ pub fn install() -> Result<(), String> {
         DDGAME_CTOR_ADDR = rb(0x56E220);
         init_constructor_addrs();
         hook::install_trap!("DDGameWrapper__Constructor", va::CONSTRUCT_DD_GAME_WRAPPER);
+        hook::install_trap!("DDGame__InitGameState", va::DDGAME_INIT_GAME_STATE);
     }
     Ok(())
 }

@@ -397,6 +397,10 @@ pub mod va {
         fn PROJECTILE_FIRE_SINGLE = 0x0051_DCF0;
         /// Sin lookup table (1024 entries of Fixed16.16). cos = sin + 256 entries.
         global SIN_TABLE = 0x006A_1860;
+        /// VectorNormalize (simple version, used for game_version < 0x99)
+        fn VECTOR_NORMALIZE_SIMPLE = 0x0057_5590;
+        /// VectorNormalize (overflow-safe version, used for game_version >= 0x99)
+        fn VECTOR_NORMALIZE_OVERFLOW = 0x0057_55D0;
         /// Load a string resource by ID. cdecl(resource_id) -> *const c_char.
         fn/Cdecl LOAD_STRING_RESOURCE = 0x0059_3180;
     }
@@ -539,7 +543,8 @@ pub mod va {
         fn/Stdcall GAME_STATE_CONSTRUCTOR = 0x0053_2330;
         /// DisplayGfx::ConstructTextbox
         fn/Stdcall CONSTRUCT_TEXTBOX = 0x004F_AF00;
-        fn/Stdcall FUN_567770 = 0x0056_7770;
+        /// DDGame__InitWeaponPanel
+        fn/Stdcall INIT_WEAPON_PANEL = 0x0056_7770;
         /// Buffer object constructor
         fn/Stdcall BUFFER_OBJECT_CONSTRUCTOR = 0x0054_5FD0;
         /// GameStateStream sub-init
