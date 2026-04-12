@@ -1,3 +1,7 @@
+use crate::bitgrid::DisplayBitGrid;
+use crate::fixed::Fixed;
+use crate::render::display::vtable::TiledBitmapSource;
+
 use super::message::{RenderMessage, TypedRenderCmd, COMMAND_TYPE_TYPED};
 use super::sprite::sprite_op::SpriteOp;
 
@@ -10,10 +14,10 @@ pub struct DrawSpriteCmd {
     /// Command type: 4 = sprite global (world-space), 5 = sprite local (screen-space)
     pub command_type: u32,
     pub layer: u32,
-    /// X position, upper 16 bits used (Fixed16 format)
-    pub x_pos: u32,
-    /// Y position, upper 16 bits used (Fixed16 format)
-    pub y_pos: u32,
+    /// X position (Fixed16, fractional bits always zero — producers floor before storing).
+    pub x: Fixed,
+    /// Y position (Fixed16, fractional bits always zero — producers floor before storing).
+    pub y: Fixed,
     pub sprite: SpriteOp,
     /// Palette context — passed to `blit_sprite` as the last arg.
     /// Semantics vary by producer (palette pointer, animation index, etc.).
@@ -116,14 +120,14 @@ pub struct DrawTiledBitmapCmd {
     /// 0x08: Source X coordinate (Fixed16). Hardcoded 0xFF00_0000 (= -256.0)
     /// — the tile sheet always renders from off-screen-left, with the
     /// dispatcher's clipping pass producing the on-screen X.
-    pub x_fixed16: u32,
+    pub x: Fixed,
     /// 0x0C: Source Y coordinate (Fixed16). Caller-supplied; goes through
     /// `RQ_ClipCoordinates` and the high 16 bits become the destination Y.
-    pub y_fixed16: u32,
-    /// 0x10: Pointer to a sprite source descriptor — read by the slot 11
-    /// method as `p4` with fields at `+0x08` (bpp, 8 or 0x40), `+0x10`
+    pub y: Fixed,
+    /// 0x10: Pointer to a [`TiledBitmapSource`] descriptor — read by the
+    /// slot 11 method with fields at `+0x08` (bpp, 8 or 0x40), `+0x10`
     /// (source row stride), `+0x14`, and `+0x18` (total source height).
-    pub source_descriptor: u32,
+    pub source: *const TiledBitmapSource,
     /// 0x14: Flag byte. Bit 0 forces the destination X to 0 (ignoring the
     /// clipped result), used for "always start at left edge" rendering.
     pub flags: u8,
@@ -143,9 +147,9 @@ pub struct DrawCrosshairCmd {
     pub layer: u32,
     pub color_fg: u32,
     pub color_bg: u32,
-    pub x_pos: u32,
-    pub y_pos: u32,
-    pub _reserved: u32, // hardcoded 0 (clip ref)
+    pub x: Fixed,
+    pub y: Fixed,
+    pub ref_z: i32, // hardcoded 0 (perspective clip reference Z)
 }
 
 const _: () = assert!(core::mem::size_of::<DrawCrosshairCmd>() == 0x1C);
@@ -156,11 +160,11 @@ pub struct DrawRectCmd {
     pub command_type: u32, // 0
     pub layer: u32,
     pub color: u32,
-    pub x1: u32,     // & 0xFFFF0000
-    pub y1: u32,     // & 0xFFFF0000
-    pub x2: u32,     // & 0xFFFF0000
-    pub y2: u32,     // & 0xFFFF0000
-    pub y_clip: u32, // EDX & 0xFFFF0000
+    pub x1: Fixed,
+    pub y1: Fixed,
+    pub x2: Fixed,
+    pub y2: Fixed,
+    pub ref_z: i32, // perspective clip reference Z (EDX & 0xFFFF0000)
 }
 
 const _: () = assert!(core::mem::size_of::<DrawRectCmd>() == 0x20);
@@ -170,13 +174,13 @@ const _: () = assert!(core::mem::size_of::<DrawRectCmd>() == 0x20);
 pub struct DrawSpriteOffsetCmd {
     pub command_type: u32, // 6
     pub layer: u32,
-    pub sprite_id: u32,
-    pub x_pos: u32,     // & 0xFFFF0000
-    pub y_pos: u32,     // & 0xFFFF0000
-    pub _reserved: u32, // hardcoded 0
-    pub y_clip: u32,    // EDX & 0xFFFF0000
-    pub param_7: u32,
-    pub param_8: u32,
+    pub flags: u32,
+    pub x: Fixed,
+    pub y: Fixed,
+    pub ref_z: i32,   // first Z reference for perspective clip (hardcoded 0)
+    pub ref_z_2: i32, // second Z reference (EDX & 0xFFFF0000)
+    pub sprite: SpriteOp,
+    pub palette: u32,
 }
 
 const _: () = assert!(core::mem::size_of::<DrawSpriteOffsetCmd>() == 0x24);
@@ -186,14 +190,14 @@ const _: () = assert!(core::mem::size_of::<DrawSpriteOffsetCmd>() == 0x24);
 pub struct DrawBitmapGlobalCmd {
     pub command_type: u32, // 1
     pub layer: u32,
-    pub x_pos: u32, // & 0xFFFF0000
-    pub y_pos: u32, // EDX & 0xFFFF0000
-    pub bitmap_ptr: u32,
-    pub _reserved: u32, // hardcoded 0
-    pub param_6: u32,
-    pub param_7: u32,
-    pub param_8: u32,
-    pub param_9: u32,
+    pub x: Fixed,
+    pub y: Fixed,
+    pub bitmap: *mut DisplayBitGrid,
+    pub src_x: i32, // hardcoded 0
+    pub src_y: i32,
+    pub src_w: i32,
+    pub src_h: i32,
+    pub flags: u32,
 }
 
 const _: () = assert!(core::mem::size_of::<DrawBitmapGlobalCmd>() == 0x28);
@@ -203,17 +207,17 @@ const _: () = assert!(core::mem::size_of::<DrawBitmapGlobalCmd>() == 0x28);
 pub struct DrawTextboxLocalCmd {
     pub command_type: u32, // 2
     pub layer: u32,
-    pub _reserved_2: u32, // hardcoded 0
-    pub x_pos: u32,       // & 0xFFFF0000
-    pub y_pos: u32,       // EDX & 0xFFFF0000
-    pub _reserved_5: u32, // hardcoded 0
-    pub _reserved_6: u32, // hardcoded 0
-    pub text_ptr: u32,
-    pub _reserved_8: u32, // hardcoded 0
-    pub _reserved_9: u32, // hardcoded 0
-    pub param_6: u32,
-    pub param_7: u32,
-    pub param_8: u32,
+    pub mode: u32,
+    pub x: Fixed,
+    pub y: Fixed,
+    pub ref_z: i32,   // perspective clip reference Z (hardcoded 0)
+    pub ref_z_2: i32, // second Z reference (hardcoded 0)
+    pub bitmap: *mut DisplayBitGrid,
+    pub src_x: i32, // hardcoded 0
+    pub src_y: i32, // hardcoded 0
+    pub src_w: i32,
+    pub src_h: i32,
+    pub flags: u32,
 }
 
 const _: () = assert!(core::mem::size_of::<DrawTextboxLocalCmd>() == 0x34);
@@ -226,7 +230,7 @@ pub struct DrawLineStripHeader {
     pub command_type: u32, // 8
     pub layer: u32,        // hardcoded 0xE_0000
     pub count: u32,        // vertex count (from EDI)
-    pub param_1: u32,      // stack param
+    pub color: u32,        // line color
 }
 
 const _: () = assert!(core::mem::size_of::<DrawLineStripHeader>() == 0x10);
@@ -239,8 +243,8 @@ pub struct DrawPolygonHeader {
     pub command_type: u32, // 9
     pub layer: u32,        // hardcoded 0xE_0000
     pub count: u32,        // vertex count (from ESI)
-    pub param_1: u32,      // stack param 1
-    pub param_2: u32,      // stack param 2
+    pub color1: u32,       // line color 1
+    pub color2: u32,       // line color 2
 }
 
 const _: () = assert!(core::mem::size_of::<DrawPolygonHeader>() == 0x14);

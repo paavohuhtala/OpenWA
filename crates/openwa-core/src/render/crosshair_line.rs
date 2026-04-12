@@ -1,0 +1,120 @@
+//! Crosshair line rendering — draws the weapon aiming crosshair line.
+//!
+//! Ported from WA.exe `DrawCrosshairLine` (0x5197D0).
+//! Draws:
+//!   1. Compute direction from angle at task+0x264
+//!   2. Compute line length from DDGame scale + task offset
+//!   3. Endpoint = start + direction * length (with overflow clamping)
+//!   4. DrawPolygon (2 vertices) for the line
+//!   5. Conditionally DrawSpriteLocal at endpoint (crosshair sprite)
+
+use crate::address::va;
+use crate::fixed::Fixed;
+use crate::rebase::rb;
+use crate::render::queue::*;
+use crate::render::SpriteOp;
+use crate::task::WeaponAimTask;
+use crate::trig::trig_lookup;
+
+/// Draw the weapon aiming crosshair line for the given task.
+///
+/// # Safety
+///
+/// `task_ptr` must point to a valid `WeaponAimTask`. ASLR rebase must be
+/// initialized.
+pub unsafe fn draw_crosshair_line(task_ptr: u32) {
+    let task = &*(task_ptr as *const WeaponAimTask);
+    let gt = &task.game_task;
+
+    if task.aim_active == 0 {
+        return;
+    }
+
+    let ddgame = &*gt.base.ddgame;
+    let rq = &mut *ddgame.render_queue;
+
+    let start_x = gt.pos_x.0;
+    let start_y = gt.pos_y.0;
+
+    let angle = task.aim_angle;
+
+    // Trig interpolation
+    let sin_table = rb(va::G_SIN_TABLE) as *const i32;
+    let cos_table = rb(va::G_COS_TABLE) as *const i32;
+    let sin_interp = trig_lookup(sin_table, angle);
+    let cos_interp = trig_lookup(cos_table, angle);
+
+    // Scale = fixed_mul(DDGame.parallax_scale, 0x140000) + task.aim_range_offset
+    let scale = Fixed(ddgame.parallax_scale).mul_raw(Fixed(0x14_0000)).0 + task.aim_range_offset;
+
+    // Endpoint = start + direction * scale
+    let mut endpoint_x = Fixed(sin_interp.0)
+        .mul_raw(Fixed(scale))
+        .0
+        .wrapping_add(start_x);
+    let mut endpoint_y = Fixed(cos_interp.0)
+        .mul_raw(Fixed(scale))
+        .0
+        .wrapping_add(start_y);
+
+    // Overflow clamping — when endpoint overflows i32 due to large scale
+    let mut overflowed = false;
+    let mut clamp_factor = 0i32;
+
+    let threshold = (*ddgame.game_info).game_version;
+
+    if threshold > 0x11E {
+        // Check X overflow: sin > 0 but endpoint wrapped below start
+        if sin_interp.0 > 0 && endpoint_x < start_x {
+            overflowed = true;
+            clamp_factor = (0x7FFFFFFFi32 - start_x) / sin_interp.0;
+        }
+        // Check Y overflow: cos > 0 but endpoint wrapped below start
+        if cos_interp.0 > 0 && endpoint_y < start_y {
+            let y_clamp = (0x7FFFFFFFi32 - start_y) / cos_interp.0;
+            if !overflowed || y_clamp < clamp_factor {
+                clamp_factor = y_clamp;
+            }
+            overflowed = true;
+        }
+        if overflowed {
+            endpoint_x = start_x + clamp_factor * sin_interp.0;
+            endpoint_y = start_y + clamp_factor * cos_interp.0;
+        }
+    }
+
+    // Enqueue polygon line (2 vertices)
+    let poly_param_1 = ddgame.gfx_color_table[8]; // crosshair line style
+    let poly_param_2 = ddgame.gfx_color_table[6]; // crosshair line color
+    let verts: [[i32; 3]; 2] = [[start_x, start_y, 0], [endpoint_x, endpoint_y, 0]];
+    let total_size = 2 * 0xC + 0x20;
+    if let Some(ptr) = rq.alloc_raw(total_size) {
+        let header = &mut *(ptr as *mut DrawPolygonHeader);
+        *header = DrawPolygonHeader {
+            command_type: command_type::DRAW_POLYGON,
+            layer: 0xE_0000,
+            count: 2,
+            color1: poly_param_1,
+            color2: poly_param_2,
+        };
+        core::ptr::copy_nonoverlapping(
+            verts.as_ptr() as *const u8,
+            ptr.add(core::mem::size_of::<DrawPolygonHeader>()),
+            2 * 0xC,
+        );
+    }
+
+    // Draw crosshair sprite at endpoint (only if no overflow clamping)
+    if !overflowed {
+        if let Some(entry) = rq.alloc::<DrawSpriteCmd>() {
+            *entry = DrawSpriteCmd {
+                command_type: command_type::DRAW_SPRITE_LOCAL,
+                layer: 0x4_0000,
+                x: Fixed(endpoint_x).floor(),
+                y: Fixed(endpoint_y).floor(),
+                sprite: SpriteOp(0x44),
+                palette: (0x8000u32).wrapping_sub(angle),
+            };
+        }
+    }
+}

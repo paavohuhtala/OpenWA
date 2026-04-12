@@ -46,6 +46,7 @@ pub mod registry;
 pub mod rng;
 pub mod snapshot;
 pub mod task;
+pub mod trig;
 pub mod vtable;
 pub mod wa;
 pub mod wa_alloc;

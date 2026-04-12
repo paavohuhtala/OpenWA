@@ -1,3 +1,5 @@
+pub mod bungee_trail;
+pub mod crosshair_line;
 pub mod ddraw;
 pub mod display;
 pub mod landscape;

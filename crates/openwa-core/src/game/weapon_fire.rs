@@ -1363,7 +1363,7 @@ pub unsafe fn projectile_fire(
 /// Fixed-point 16.16 multiply: (a * b) >> 16, using full 64-bit intermediate.
 #[inline(always)]
 fn fixed_mul(a: i32, b: i32) -> i32 {
-    ((a as i64 * b as i64) >> 16) as i32
+    crate::fixed::Fixed(a).mul_raw(crate::fixed::Fixed(b)).0
 }
 
 /// Rust implementation of CreateArrow (0x51ED90).

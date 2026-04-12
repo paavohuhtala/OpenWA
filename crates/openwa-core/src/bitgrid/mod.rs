@@ -35,6 +35,8 @@
 //! (*display_grid).vtable = rb_ptr(BIT_GRID_DISPLAY_VTABLE);
 //! ```
 
+pub mod blit;
+
 use crate::rebase::rb;
 use crate::task::base::Vtable;
 use crate::wa_alloc::{wa_malloc, wa_malloc_struct_zeroed};

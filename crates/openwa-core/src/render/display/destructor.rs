@@ -43,6 +43,7 @@ use core::ptr;
 use crate::address::va;
 use crate::bitgrid::{BitGridBaseVtable, BIT_GRID_BASE_VTABLE};
 use crate::rebase::rb;
+use crate::render::display::base::DisplayBase;
 use crate::render::display::context::{FastcallResult, RenderContext};
 use crate::render::display::frame_hook::FramePostProcessHook;
 use crate::render::display::gfx::{DisplayGfx, TileBitmapSet, DISPLAY_BASE_DESTRUCTOR_IMPL};
@@ -292,4 +293,39 @@ unsafe fn cbitmap_vtable0(bitmap: *mut CBitmap, flags: u32) {
     let dtor: unsafe extern "thiscall" fn(*mut CBitmap, u32) -> *mut CBitmap =
         core::mem::transmute(*vtable);
     dtor(bitmap, flags);
+}
+
+// =============================================================================
+// Headless destructor — used when DisplayBase is a headless stub
+// =============================================================================
+
+/// Destructor for the headless `DisplayBase` — frees the sprite cache chain
+/// (SpriteCache → FrameCache → buffer) that was allocated by `new_headless()`.
+///
+/// Installed as vtable slot 0 on the headless `DisplayBase` vtable (0x66A0F8)
+/// by the DLL's display hook installer.
+///
+/// # Safety
+///
+/// `this` must be a valid `DisplayBase` pointer with a headless-allocated
+/// sprite cache chain.
+pub unsafe fn headless_destructor(this: *mut DisplayBase, flags: u8) -> *mut DisplayBase {
+    use crate::wa_alloc::wa_free;
+
+    let sprite_cache = (*this).sprite_cache;
+    if !sprite_cache.is_null() {
+        let frame_cache = (*sprite_cache).frame_cache;
+        if !frame_cache.is_null() {
+            let buf = (*frame_cache).buffer;
+            if !buf.is_null() {
+                wa_free(buf);
+            }
+            wa_free(frame_cache);
+        }
+        wa_free(sprite_cache);
+    }
+    if flags & 1 != 0 {
+        wa_free(this);
+    }
+    this
 }

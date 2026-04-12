@@ -1,4 +1,5 @@
 pub mod base;
+pub mod blit_sprite;
 pub mod context;
 pub mod destructor;
 pub mod font;
