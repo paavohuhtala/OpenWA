@@ -11,7 +11,7 @@
 use crate::address::va;
 use crate::fixed::Fixed;
 use crate::rebase::rb;
-use crate::render::queue::*;
+use crate::render::message::RenderMessage;
 use crate::render::SpriteOp;
 use crate::task::WeaponAimTask;
 use crate::trig::trig_lookup;
@@ -86,34 +86,31 @@ pub unsafe fn draw_crosshair_line(task: *const WeaponAimTask) {
     let poly_param_1 = ddgame.gfx_color_table[8]; // crosshair line style
     let poly_param_2 = ddgame.gfx_color_table[6]; // crosshair line color
     let verts: [[i32; 3]; 2] = [[start_x, start_y, 0], [endpoint_x, endpoint_y, 0]];
-    let total_size = 2 * 0xC + 0x20;
-    if let Some(ptr) = rq.alloc_raw(total_size) {
-        let header = &mut *(ptr as *mut DrawPolygonHeader);
-        *header = DrawPolygonHeader {
-            command_type: command_type::DRAW_POLYGON,
-            layer: 0xE_0000,
-            count: 2,
-            color1: poly_param_1,
-            color2: poly_param_2,
-        };
-        core::ptr::copy_nonoverlapping(
-            verts.as_ptr() as *const u8,
-            ptr.add(core::mem::size_of::<DrawPolygonHeader>()),
-            2 * 0xC,
+    let byte_len = 2 * core::mem::size_of::<[i32; 3]>();
+    if let Some(vert_ptr) = rq.alloc_aux(byte_len) {
+        core::ptr::copy_nonoverlapping(verts.as_ptr() as *const u8, vert_ptr, byte_len);
+        let _ = rq.push_typed(
+            0xE_0000,
+            RenderMessage::Polygon {
+                count: 2,
+                color1: poly_param_1,
+                color2: poly_param_2,
+                vertices: vert_ptr as *const [i32; 3],
+            },
         );
     }
 
     // Draw crosshair sprite at endpoint (only if no overflow clamping)
     if !overflowed {
-        if let Some(entry) = rq.alloc::<DrawSpriteCmd>() {
-            *entry = DrawSpriteCmd {
-                command_type: command_type::DRAW_SPRITE_LOCAL,
-                layer: 0x4_0000,
+        let _ = rq.push_typed(
+            0x4_0000,
+            RenderMessage::Sprite {
+                local: true,
                 x: Fixed(endpoint_x).floor(),
                 y: Fixed(endpoint_y).floor(),
                 sprite: SpriteOp(0x44),
                 palette: (0x8000u32).wrapping_sub(angle),
-            };
-        }
+            },
+        );
     }
 }

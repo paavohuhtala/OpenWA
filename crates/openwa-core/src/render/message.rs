@@ -12,8 +12,18 @@
 //! `rq.push_typed(layer, RenderMessage::Xxx { ... })` one at a time.
 //! The dispatcher (`queue_dispatch.rs`) handles both legacy and typed
 //! commands simultaneously until all producers are migrated.
+//!
+//! ## Variable-length commands
+//!
+//! Commands with variable-length data (LineStrip, Polygon) allocate
+//! their vertex arrays separately in the arena via
+//! `RenderQueue::alloc_aux()` and store an explicit pointer in the
+//! enum variant. This avoids layout coupling between the command and
+//! its auxiliary data.
 
+use crate::bitgrid::DisplayBitGrid;
 use crate::fixed::Fixed;
+use crate::render::display::vtable::TiledBitmapSource;
 use crate::render::sprite::sprite_op::SpriteOp;
 
 /// Sentinel `command_type` value for [`TypedRenderCmd`]. Sits outside
@@ -47,11 +57,104 @@ pub enum RenderMessage {
         /// Semantics vary by producer (palette pointer, animation index, etc.).
         palette: u32,
     },
-    // Future variants added here as producers migrate:
-    // FillRect { ... }
-    // Crosshair { ... }
-    // TiledBitmap { ... }
-    // etc.
+
+    /// Replaces legacy type 0 (`DRAW_RECT`).
+    FillRect {
+        color: u32,
+        x1: Fixed,
+        y1: Fixed,
+        x2: Fixed,
+        y2: Fixed,
+        /// Perspective clip reference Z (`cmd[7]` in legacy format).
+        ref_z: i32,
+    },
+
+    /// Replaces legacy type 0xB (`DRAW_CROSSHAIR`).
+    ///
+    /// `ref_z` is always 0 in all known producers — omitted here,
+    /// the dispatcher passes 0 directly.
+    Crosshair {
+        color_fg: u32,
+        color_bg: u32,
+        x: Fixed,
+        y: Fixed,
+    },
+
+    /// Replaces legacy type 0xD (`DRAW_TILED_BITMAP`).
+    TiledBitmap {
+        x: Fixed,
+        y: Fixed,
+        source: *const TiledBitmapSource,
+        /// Bit 0 forces destination X to 0.
+        flags: u8,
+    },
+
+    /// Replaces legacy type 6 (`DRAW_SPRITE_OFFSET`).
+    ///
+    /// `ref_z` (first Z reference) is always 0 in all known producers —
+    /// omitted here, the dispatcher passes 0 directly.
+    SpriteOffset {
+        flags: u32,
+        x: Fixed,
+        y: Fixed,
+        /// Second Z reference for perspective clip (`cmd[6]` in legacy format).
+        ref_z_2: i32,
+        sprite: SpriteOp,
+        palette: u32,
+    },
+
+    /// Replaces legacy type 1 (`DRAW_BITMAP_GLOBAL`).
+    ///
+    /// `src_x` is always 0 in all known producers — omitted here.
+    BitmapGlobal {
+        x: Fixed,
+        y: Fixed,
+        bitmap: *mut DisplayBitGrid,
+        src_y: i32,
+        src_w: i32,
+        src_h: i32,
+        flags: u32,
+    },
+
+    /// Replaces legacy type 2 (`DRAW_TEXTBOX_LOCAL`).
+    ///
+    /// `mode`, `ref_z`, `ref_z_2`, `src_x`, `src_y` are always 0 in
+    /// all known producers — omitted here.
+    TextboxLocal {
+        x: Fixed,
+        y: Fixed,
+        bitmap: *mut DisplayBitGrid,
+        src_w: i32,
+        src_h: i32,
+        flags: u32,
+    },
+
+    /// Replaces legacy type 8 (`DRAW_LINE_STRIP`).
+    ///
+    /// Vertex data is allocated separately via `RenderQueue::alloc_aux()`
+    /// and referenced by the explicit `vertices` pointer.
+    /// Each vertex is `[x: i32, y: i32, z: i32]` in Fixed16.
+    LineStrip {
+        count: u32,
+        color: u32,
+        /// Pointer to `count` vertices in the arena. Allocated via
+        /// `alloc_aux()`, valid for the current frame only.
+        vertices: *const [i32; 3],
+    },
+
+    /// Replaces legacy type 9 (`DRAW_POLYGON`).
+    ///
+    /// Vertex data is allocated separately via `RenderQueue::alloc_aux()`
+    /// and referenced by the explicit `vertices` pointer.
+    /// Each vertex is `[x: i32, y: i32, z: i32]` in Fixed16.
+    Polygon {
+        count: u32,
+        color1: u32,
+        color2: u32,
+        /// Pointer to `count` vertices in the arena. Allocated via
+        /// `alloc_aux()`, valid for the current frame only.
+        vertices: *const [i32; 3],
+    },
 }
 
 /// Wrapper that carries a [`RenderMessage`] inline in the render queue
@@ -66,3 +169,7 @@ pub struct TypedRenderCmd {
     /// The typed payload.
     pub message: RenderMessage,
 }
+
+// Canary for buffer pressure — if this fires, revisit the size budget
+// note in the plan (consider #[repr(u8)] discriminant or variant splitting).
+const _: () = assert!(core::mem::size_of::<TypedRenderCmd>() <= 48);

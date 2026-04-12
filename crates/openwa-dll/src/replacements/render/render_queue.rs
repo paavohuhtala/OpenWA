@@ -5,7 +5,8 @@ use openwa_core::bitgrid::DisplayBitGrid;
 use openwa_core::fixed::Fixed;
 use openwa_core::render::display::vtable::TiledBitmapSource;
 use openwa_core::render::display::DisplayGfx;
-use openwa_core::render::queue::*;
+use openwa_core::render::message::RenderMessage;
+use openwa_core::render::queue::RenderQueue;
 use openwa_core::render::queue_dispatch::{render_drawing_queue, ClipContext};
 use openwa_core::render::SpriteOp;
 use openwa_core::task::{BungeeTrailTask, WeaponAimTask};
@@ -23,20 +24,18 @@ unsafe extern "cdecl" fn enqueue_tiled_bitmap_impl(
     source: *const TiledBitmapSource,
     flags: u32,
 ) {
-    if let Some(entry) = (*queue).alloc::<DrawTiledBitmapCmd>() {
-        *entry = DrawTiledBitmapCmd {
-            command_type: command_type::DRAW_TILED_BITMAP,
-            layer: 0x1B_0000,
+    let _ = (*queue).push_typed(
+        0x1B_0000,
+        RenderMessage::TiledBitmap {
             x: Fixed(0xFF00_0000u32 as i32),
             y,
             source,
             flags: flags as u8,
-            _pad: [0; 3],
-        };
-    }
+        },
+    );
 }
 
-// DrawLineStrip (0x541DD0) — variable-size allocation: count * 0xC + 0x1C
+// DrawLineStrip (0x541DD0) — variable-size: vertex data via alloc_aux
 
 usercall_trampoline!(fn trampoline_draw_line_strip; impl_fn = draw_line_strip_impl;
     regs = [eax, edi]; stack_params = 2; ret_bytes = "0x8");
@@ -44,28 +43,25 @@ usercall_trampoline!(fn trampoline_draw_line_strip; impl_fn = draw_line_strip_im
 unsafe extern "cdecl" fn draw_line_strip_impl(
     queue: *mut RenderQueue,
     count: u32,
-    vertices: *const u8,
+    vertices: *const [i32; 3],
     color: u32,
 ) {
-    let total_size = count as usize * 0xC + 0x1C;
-
-    if let Some(ptr) = (*queue).alloc_raw(total_size) {
-        let header = &mut *(ptr as *mut DrawLineStripHeader);
-        *header = DrawLineStripHeader {
-            command_type: command_type::DRAW_LINE_STRIP,
-            layer: 0xE_0000,
-            count,
-            color,
-        };
-        core::ptr::copy_nonoverlapping(
-            vertices,
-            ptr.add(core::mem::size_of::<DrawLineStripHeader>()),
-            count as usize * 0xC,
+    let rq = &mut *queue;
+    let byte_len = count as usize * core::mem::size_of::<[i32; 3]>();
+    if let Some(vert_ptr) = rq.alloc_aux(byte_len) {
+        core::ptr::copy_nonoverlapping(vertices as *const u8, vert_ptr, byte_len);
+        let _ = rq.push_typed(
+            0xE_0000,
+            RenderMessage::LineStrip {
+                count,
+                color,
+                vertices: vert_ptr as *const [i32; 3],
+            },
         );
     }
 }
 
-// DrawPolygon (0x541E50) — variable-size allocation: count * 0xC + 0x20
+// DrawPolygon (0x541E50) — variable-size: vertex data via alloc_aux
 
 usercall_trampoline!(fn trampoline_draw_polygon; impl_fn = draw_polygon_impl;
     regs = [ecx, esi]; stack_params = 3; ret_bytes = "0xC");
@@ -73,25 +69,22 @@ usercall_trampoline!(fn trampoline_draw_polygon; impl_fn = draw_polygon_impl;
 unsafe extern "cdecl" fn draw_polygon_impl(
     queue: *mut RenderQueue,
     count: u32,
-    vertices: *const u8,
+    vertices: *const [i32; 3],
     color1: u32,
     color2: u32,
 ) {
-    let total_size = count as usize * 0xC + 0x20;
-
-    if let Some(ptr) = (*queue).alloc_raw(total_size) {
-        let header = &mut *(ptr as *mut DrawPolygonHeader);
-        *header = DrawPolygonHeader {
-            command_type: command_type::DRAW_POLYGON,
-            layer: 0xE_0000,
-            count,
-            color1,
-            color2,
-        };
-        core::ptr::copy_nonoverlapping(
-            vertices,
-            ptr.add(core::mem::size_of::<DrawPolygonHeader>()),
-            count as usize * 0xC,
+    let rq = &mut *queue;
+    let byte_len = count as usize * core::mem::size_of::<[i32; 3]>();
+    if let Some(vert_ptr) = rq.alloc_aux(byte_len) {
+        core::ptr::copy_nonoverlapping(vertices as *const u8, vert_ptr, byte_len);
+        let _ = rq.push_typed(
+            0xE_0000,
+            RenderMessage::Polygon {
+                count,
+                color1,
+                color2,
+                vertices: vert_ptr as *const [i32; 3],
+            },
         );
     }
 }
@@ -109,17 +102,15 @@ unsafe extern "cdecl" fn draw_crosshair_impl(
     color_fg: u32,
     color_bg: u32,
 ) {
-    if let Some(entry) = (*queue).alloc::<DrawCrosshairCmd>() {
-        *entry = DrawCrosshairCmd {
-            command_type: command_type::DRAW_CROSSHAIR,
-            layer,
+    let _ = (*queue).push_typed(
+        layer,
+        RenderMessage::Crosshair {
             color_fg,
             color_bg,
             x,
             y,
-            ref_z: 0,
-        };
-    }
+        },
+    );
 }
 
 // DrawRect (0x541F40)
@@ -137,18 +128,17 @@ unsafe extern "cdecl" fn draw_rect_impl(
     y2: Fixed,
     color: u32,
 ) {
-    if let Some(entry) = (*queue).alloc::<DrawRectCmd>() {
-        *entry = DrawRectCmd {
-            command_type: command_type::DRAW_RECT,
-            layer,
+    let _ = (*queue).push_typed(
+        layer,
+        RenderMessage::FillRect {
             color,
             x1: x1.floor(),
             y1: y1.floor(),
             x2: x2.floor(),
             y2: y2.floor(),
             ref_z: y_clip.floor().0,
-        };
-    }
+        },
+    );
 }
 
 // DrawSpriteGlobal (0x541FE0)
@@ -164,16 +154,16 @@ unsafe extern "cdecl" fn draw_sprite_global_impl(
     sprite: SpriteOp,
     frame: u32,
 ) {
-    if let Some(entry) = (*queue).alloc::<DrawSpriteCmd>() {
-        *entry = DrawSpriteCmd {
-            command_type: command_type::DRAW_SPRITE_GLOBAL,
-            layer,
+    let _ = (*queue).push_typed(
+        layer,
+        RenderMessage::Sprite {
+            local: false,
             x: x_pos.floor(),
             y: y_pos.floor(),
             sprite,
             palette: frame,
-        };
-    }
+        },
+    );
 }
 
 // DrawSpriteLocal (0x542060)
@@ -189,16 +179,16 @@ unsafe extern "cdecl" fn draw_sprite_local_impl(
     sprite: SpriteOp,
     frame: u32,
 ) {
-    if let Some(entry) = (*queue).alloc::<DrawSpriteCmd>() {
-        *entry = DrawSpriteCmd {
-            command_type: command_type::DRAW_SPRITE_LOCAL,
-            layer,
+    let _ = (*queue).push_typed(
+        layer,
+        RenderMessage::Sprite {
+            local: true,
             x: x_pos.floor(),
             y: y_pos.floor(),
             sprite,
             palette: frame,
-        };
-    }
+        },
+    );
 }
 
 // DrawSpriteOffset (0x5420E0)
@@ -216,19 +206,17 @@ unsafe extern "cdecl" fn draw_sprite_offset_impl(
     sprite: SpriteOp,
     palette: u32,
 ) {
-    if let Some(entry) = (*queue).alloc::<DrawSpriteOffsetCmd>() {
-        *entry = DrawSpriteOffsetCmd {
-            command_type: command_type::DRAW_SPRITE_OFFSET,
-            layer,
+    let _ = (*queue).push_typed(
+        layer,
+        RenderMessage::SpriteOffset {
             flags,
             x: x_pos.floor(),
             y: y_pos.floor(),
-            ref_z: 0,
             ref_z_2: y_clip.floor().0,
             sprite,
             palette,
-        };
-    }
+        },
+    );
 }
 
 // DrawBitmapGlobal (0x542170)
@@ -247,20 +235,18 @@ unsafe extern "cdecl" fn draw_bitmap_global_impl(
     src_h: i32,
     flags: u32,
 ) {
-    if let Some(entry) = (*queue).alloc::<DrawBitmapGlobalCmd>() {
-        *entry = DrawBitmapGlobalCmd {
-            command_type: command_type::DRAW_BITMAP_GLOBAL,
-            layer,
+    let _ = (*queue).push_typed(
+        layer,
+        RenderMessage::BitmapGlobal {
             x: x_pos.floor(),
             y: y_pos.floor(),
             bitmap,
-            src_x: 0,
             src_y,
             src_w,
             src_h,
             flags,
-        };
-    }
+        },
+    );
 }
 
 // DrawTextboxLocal (0x542200)
@@ -278,23 +264,17 @@ unsafe extern "cdecl" fn draw_textbox_local_impl(
     src_h: i32,
     flags: u32,
 ) {
-    if let Some(entry) = (*q).alloc::<DrawTextboxLocalCmd>() {
-        *entry = DrawTextboxLocalCmd {
-            command_type: command_type::DRAW_TEXTBOX_LOCAL,
-            layer,
-            mode: 0,
+    let _ = (*q).push_typed(
+        layer,
+        RenderMessage::TextboxLocal {
             x: x_pos.floor(),
             y: y_pos.floor(),
-            ref_z: 0,
-            ref_z_2: 0,
             bitmap,
-            src_x: 0,
-            src_y: 0,
             src_w,
             src_h,
             flags,
-        };
-    }
+        },
+    );
 }
 
 // DrawBungeeTrail (0x500720)

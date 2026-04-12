@@ -935,14 +935,256 @@ unsafe fn dispatch_typed(display: *mut DisplayGfx, clip: &ClipContext, msg: &Ren
             palette,
         } => {
             if local {
-                // Screen-space: apply camera translation (same as case 5).
                 let mut out_x = Fixed::ZERO;
                 let mut out_y = Fixed::ZERO;
                 rq_translate_coordinates(clip, x, y, &mut out_x, &mut out_y);
                 DisplayGfx::blit_sprite_raw(display, out_x, out_y, sprite, palette);
             } else {
-                // World-space: pass through directly (same as case 4).
                 DisplayGfx::blit_sprite_raw(display, x, y, sprite, palette);
+            }
+        }
+
+        RenderMessage::FillRect {
+            color,
+            x1,
+            y1,
+            x2,
+            y2,
+            ref_z,
+        } => {
+            let mut ox1 = Fixed::ZERO;
+            let mut oy1 = Fixed::ZERO;
+            let mut ox2 = Fixed::ZERO;
+            let mut oy2 = Fixed::ZERO;
+            let mut scale = Fixed::ZERO;
+            if !rq_clip_coordinates(clip, x1, y1, ref_z, &mut ox1, &mut oy1, &mut scale) {
+                return;
+            }
+            if !rq_clip_coordinates(clip, x2, y2, ref_z, &mut ox2, &mut oy2, &mut scale) {
+                return;
+            }
+            // Sentinel clamps for "infinite" screen-space rectangles.
+            if x1.0 == i32::MIN {
+                ox1 = Fixed(i32::MIN);
+            }
+            if y1.0 == i32::MIN {
+                oy1 = Fixed(i32::MIN);
+            }
+            if x2.0 == 0x7FFF_0000 {
+                ox2 = Fixed(i32::MAX);
+            }
+            if y2.0 == 0x7FFF_0000 {
+                oy2 = Fixed(i32::MAX);
+            }
+            DisplayGfx::fill_rect_raw(
+                display,
+                ox1.to_int(),
+                oy1.to_int(),
+                ox2.to_int(),
+                oy2.to_int(),
+                color,
+            );
+        }
+
+        RenderMessage::Crosshair {
+            color_fg,
+            color_bg,
+            x,
+            y,
+        } => {
+            let mut ox = Fixed::ZERO;
+            let mut oy = Fixed::ZERO;
+            let mut scale = Fixed::ZERO;
+            if !rq_clip_coordinates(clip, x, y, 0, &mut ox, &mut oy, &mut scale) {
+                return;
+            }
+            DisplayGfx::draw_crosshair_raw(display, ox.to_int(), oy.to_int(), color_fg, color_bg);
+        }
+
+        RenderMessage::TiledBitmap {
+            x,
+            y,
+            source,
+            flags,
+        } => {
+            let mut ox = Fixed::ZERO;
+            let mut oy = Fixed::ZERO;
+            let mut scale = Fixed::ZERO;
+            if !rq_clip_coordinates(clip, Fixed::ZERO, x, y.0, &mut ox, &mut oy, &mut scale) {
+                return;
+            }
+            let dest_x = if flags & 1 != 0 { 0 } else { ox.to_int() };
+            DisplayGfx::draw_tiled_bitmap_raw(display, dest_x, oy.to_int(), source);
+        }
+
+        RenderMessage::SpriteOffset {
+            flags,
+            x,
+            y,
+            ref_z_2,
+            sprite,
+            palette,
+        } => {
+            let mut ox = Fixed::ZERO;
+            let mut oy = Fixed::ZERO;
+            let mut scale = Fixed::ZERO;
+
+            if flags == 0 {
+                rq_translate_coordinates(clip, x, y, &mut ox, &mut oy);
+            } else {
+                let use_pivot = (flags & 4) != 0;
+                let clip_fn: fn(
+                    &ClipContext,
+                    Fixed,
+                    Fixed,
+                    i32,
+                    &mut Fixed,
+                    &mut Fixed,
+                    &mut Fixed,
+                ) -> bool = if use_pivot {
+                    rq_clip_coordinates_with_ref
+                } else {
+                    rq_clip_coordinates
+                };
+                // ref_z (first Z reference) is always 0.
+                if !clip_fn(clip, x, y, 0, &mut ox, &mut oy, &mut scale) {
+                    return;
+                }
+                let mut ox2 = Fixed::ZERO;
+                let mut oy2 = Fixed::ZERO;
+                if !clip_fn(clip, x, y, ref_z_2, &mut ox2, &mut oy2, &mut scale) {
+                    return;
+                }
+                if flags & 1 != 0 {
+                    ox = ox2;
+                }
+                if flags & 2 != 0 {
+                    oy = oy2;
+                }
+            }
+
+            DisplayGfx::blit_sprite_raw(display, ox, oy, sprite, palette);
+        }
+
+        RenderMessage::BitmapGlobal {
+            x,
+            y,
+            bitmap,
+            src_y,
+            src_w,
+            src_h,
+            flags,
+        } => {
+            // src_x is always 0 in all known producers.
+            DisplayGfx::draw_scaled_sprite_raw(
+                display, x, y, bitmap, 0, src_y, src_w, src_h, flags,
+            );
+        }
+
+        RenderMessage::TextboxLocal {
+            x,
+            y,
+            bitmap,
+            src_w,
+            src_h,
+            flags,
+        } => {
+            // mode is always 0, so simple one-clip path.
+            // ref_z is always 0.
+            let mut ox = Fixed::ZERO;
+            let mut oy = Fixed::ZERO;
+            let mut scale = Fixed::ZERO;
+            if !rq_clip_coordinates(clip, x, y, 0, &mut ox, &mut oy, &mut scale) {
+                return;
+            }
+            // src_x and src_y are always 0.
+            DisplayGfx::draw_scaled_sprite_raw(display, ox, oy, bitmap, 0, 0, src_w, src_h, flags);
+        }
+
+        RenderMessage::LineStrip {
+            count,
+            color,
+            vertices,
+        } => {
+            if count <= 1 {
+                return;
+            }
+            let verts = core::slice::from_raw_parts(vertices, count as usize);
+            let mut x1 = Fixed::ZERO;
+            let mut y1 = Fixed::ZERO;
+            let mut scale = Fixed::ZERO;
+            if !rq_clip_coordinates(
+                clip,
+                Fixed::from_raw(verts[0][0]),
+                Fixed::from_raw(verts[0][1]),
+                verts[0][2],
+                &mut x1,
+                &mut y1,
+                &mut scale,
+            ) {
+                return;
+            }
+            for v in &verts[1..] {
+                let mut x2 = Fixed::ZERO;
+                let mut y2 = Fixed::ZERO;
+                if !rq_clip_coordinates(
+                    clip,
+                    Fixed::from_raw(v[0]),
+                    Fixed::from_raw(v[1]),
+                    v[2],
+                    &mut x2,
+                    &mut y2,
+                    &mut scale,
+                ) {
+                    break;
+                }
+                DisplayGfx::draw_line_clipped_raw(display, x1, y1, x2, y2, color);
+                x1 = x2;
+                y1 = y2;
+            }
+        }
+
+        RenderMessage::Polygon {
+            count,
+            color1,
+            color2,
+            vertices,
+        } => {
+            if count <= 1 {
+                return;
+            }
+            let verts = core::slice::from_raw_parts(vertices, count as usize);
+            let mut x1 = Fixed::ZERO;
+            let mut y1 = Fixed::ZERO;
+            let mut scale = Fixed::ZERO;
+            if !rq_clip_coordinates(
+                clip,
+                Fixed::from_raw(verts[0][0]),
+                Fixed::from_raw(verts[0][1]),
+                verts[0][2],
+                &mut x1,
+                &mut y1,
+                &mut scale,
+            ) {
+                return;
+            }
+            for v in &verts[1..] {
+                let mut x2 = Fixed::ZERO;
+                let mut y2 = Fixed::ZERO;
+                if !rq_clip_coordinates(
+                    clip,
+                    Fixed::from_raw(v[0]),
+                    Fixed::from_raw(v[1]),
+                    v[2],
+                    &mut x2,
+                    &mut y2,
+                    &mut scale,
+                ) {
+                    break;
+                }
+                DisplayGfx::draw_line_raw(display, x1, y1, x2, y2, color1, color2);
+                x1 = x2;
+                y1 = y2;
             }
         }
     }

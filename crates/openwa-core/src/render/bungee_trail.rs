@@ -10,7 +10,7 @@
 use crate::address::va;
 use crate::fixed::Fixed;
 use crate::rebase::rb;
-use crate::render::queue::*;
+use crate::render::message::RenderMessage;
 use crate::render::SpriteOp;
 use crate::task::BungeeTrailTask;
 use crate::trig::trig_lookup;
@@ -46,17 +46,17 @@ pub unsafe fn draw_bungee_trail(task: *const BungeeTrailTask, style: u32, fill: 
 
     let first_angle = *(seg_data.add(4) as *const i32);
 
-    // Enqueue start sprite (command type 5 = local)
-    if let Some(entry) = rq.alloc::<DrawSpriteCmd>() {
-        *entry = DrawSpriteCmd {
-            command_type: command_type::DRAW_SPRITE_LOCAL,
-            layer: 0xDFFFF,
+    // Enqueue start sprite (screen-space)
+    let _ = rq.push_typed(
+        0xDFFFF,
+        RenderMessage::Sprite {
+            local: true,
             x: Fixed(x).floor(),
             y: Fixed(y).floor(),
             sprite: SpriteOp(0x45),
             palette: (first_angle + 0x8100) as u32,
-        };
-    }
+        },
+    );
 
     // Build vertex array from trail segments
     const MAX_VERTICES: usize = 256;
@@ -91,38 +91,30 @@ pub unsafe fn draw_bungee_trail(task: *const BungeeTrailTask, style: u32, fill: 
         vert_count += 1;
     }
 
-    // Enqueue as polygon or line strip
-    if fill != 0 {
-        let total_size = vert_count * 0xC + 0x20;
-        if let Some(ptr) = rq.alloc_raw(total_size) {
-            let header = &mut *(ptr as *mut DrawPolygonHeader);
-            *header = DrawPolygonHeader {
-                command_type: command_type::DRAW_POLYGON,
-                layer: 0xE_0000,
-                count: vert_count as u32,
-                color1: style,
-                color2: fill,
-            };
-            core::ptr::copy_nonoverlapping(
-                verts.as_ptr() as *const u8,
-                ptr.add(core::mem::size_of::<DrawPolygonHeader>()),
-                vert_count * 0xC,
+    // Allocate vertex data in the arena and enqueue as polygon or line strip
+    let byte_len = vert_count * core::mem::size_of::<[i32; 3]>();
+    if let Some(vert_ptr) = rq.alloc_aux(byte_len) {
+        core::ptr::copy_nonoverlapping(verts.as_ptr() as *const u8, vert_ptr, byte_len);
+        let vert_slice = vert_ptr as *const [i32; 3];
+
+        if fill != 0 {
+            let _ = rq.push_typed(
+                0xE_0000,
+                RenderMessage::Polygon {
+                    count: vert_count as u32,
+                    color1: style,
+                    color2: fill,
+                    vertices: vert_slice,
+                },
             );
-        }
-    } else {
-        let total_size = vert_count * 0xC + 0x1C;
-        if let Some(ptr) = rq.alloc_raw(total_size) {
-            let header = &mut *(ptr as *mut DrawLineStripHeader);
-            *header = DrawLineStripHeader {
-                command_type: command_type::DRAW_LINE_STRIP,
-                layer: 0xE_0000,
-                count: vert_count as u32,
-                color: style,
-            };
-            core::ptr::copy_nonoverlapping(
-                verts.as_ptr() as *const u8,
-                ptr.add(core::mem::size_of::<DrawLineStripHeader>()),
-                vert_count * 0xC,
+        } else {
+            let _ = rq.push_typed(
+                0xE_0000,
+                RenderMessage::LineStrip {
+                    count: vert_count as u32,
+                    color: style,
+                    vertices: vert_slice,
+                },
             );
         }
     }
