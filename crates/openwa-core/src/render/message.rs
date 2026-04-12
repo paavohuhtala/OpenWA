@@ -14,6 +14,7 @@
 //! commands simultaneously until all producers are migrated.
 
 use crate::fixed::Fixed;
+use crate::render::sprite::sprite_op::SpriteOp;
 
 /// Sentinel `command_type` value for [`TypedRenderCmd`]. Sits outside
 /// the legacy 0..=0xE range so the existing per-case dispatcher arms
@@ -41,9 +42,7 @@ pub enum RenderMessage {
         local: bool,
         x: Fixed,
         y: Fixed,
-        /// Packed sprite ID + frame + flip flags. Passed directly to
-        /// `DisplayGfx::blit_sprite` slot 19 as `sprite_flags`.
-        sprite_flags: u32,
+        sprite: SpriteOp,
         /// Palette context — passed to `blit_sprite` as the last arg.
         /// Semantics vary by producer (palette pointer, animation index, etc.).
         palette: u32,

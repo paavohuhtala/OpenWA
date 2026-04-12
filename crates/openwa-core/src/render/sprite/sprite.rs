@@ -2,10 +2,9 @@ use crate::render::{
     display::gfx::DisplayGfx, palette::PaletteContext, sprite::gfx_dir::GfxDir, SpriteCache,
 };
 
-// Re-export SpriteId from its own module to keep this file focused on struct layouts.
-pub use super::sprite_id::SpriteId;
-
-// (SpriteId enum moved to sprite_id.rs)
+// Re-export sprite types from their own modules to keep this file focused on struct layouts.
+pub use super::sprite_id::KnownSpriteId;
+pub use super::sprite_op::{SpriteFlags, SpriteOp};
 /// Per-frame metadata within a Sprite (0x0C bytes).
 ///
 /// Describes the bounding box and bitmap data offset for one animation frame.

@@ -1,13 +1,15 @@
-/// Sprite/animation frame IDs. Range 1-696 with gaps at 620-621.
+/// Known sprite/animation frame IDs. Range 1-696 with gaps at 620-621.
 ///
 /// Names preserved from the original sprite file names in the game data.
 /// The original names are terse 8-character identifiers from the game's
 /// sprite sheets.
 ///
+/// Not exhaustive — unknown IDs can still be represented via [`SpriteOp`].
+///
 /// Source: wkJellyWorm Constants.h
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(u32)]
-pub enum SpriteId {
+pub enum KnownSpriteId {
     Cdrom = 1,
     CrshairR = 2,
     CrshairB = 3,
@@ -705,7 +707,7 @@ pub enum SpriteId {
     WBz5LnkD = 696,
 }
 
-impl TryFrom<u32> for SpriteId {
+impl TryFrom<u32> for KnownSpriteId {
     type Error = u32;
 
     fn try_from(value: u32) -> Result<Self, Self::Error> {

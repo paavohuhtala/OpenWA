@@ -1,4 +1,5 @@
 use super::message::{RenderMessage, TypedRenderCmd, COMMAND_TYPE_TYPED};
+use super::sprite::sprite_op::SpriteOp;
 
 /// Render command entry (0x18 bytes).
 ///
@@ -13,9 +14,7 @@ pub struct DrawSpriteCmd {
     pub x_pos: u32,
     /// Y position, upper 16 bits used (Fixed16 format)
     pub y_pos: u32,
-    /// Packed sprite ID + frame + flip flags. Passed to
-    /// `DisplayGfx::blit_sprite` (vtable slot 19) as `sprite_flags`.
-    pub sprite_flags: u32,
+    pub sprite: SpriteOp,
     /// Palette context — passed to `blit_sprite` as the last arg.
     /// Semantics vary by producer (palette pointer, animation index, etc.).
     pub palette: u32,

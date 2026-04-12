@@ -11,6 +11,7 @@ use crate::render::display::layer::Layer;
 use crate::render::display::line_draw::Vertex;
 use crate::render::sprite::gfx_dir::GfxDir;
 use crate::render::sprite::sprite::{LayerSprite, LayerSpriteFrame};
+use crate::render::sprite::sprite_op::SpriteOp;
 use crate::render::SpriteCache;
 use crate::wa_alloc::wa_malloc_struct_zeroed;
 
@@ -208,7 +209,7 @@ pub struct DisplayGfxVtable {
     /// (sprite width, sprite height, extra flags) via callee-saved registers.
     /// These are not part of the thiscall ABI and cannot be expressed here.
     #[slot(19)]
-    pub blit_sprite: fn(this: *mut DisplayGfx, x: Fixed, y: Fixed, sprite_flags: u32, palette: u32),
+    pub blit_sprite: fn(this: *mut DisplayGfx, x: Fixed, y: Fixed, sprite: SpriteOp, palette: u32),
     /// draw scaled/rotated sprite (0x56B660, RET 0x20)
     ///
     /// x/y are fixed-point world coordinates.

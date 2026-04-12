@@ -22,7 +22,9 @@ pub use queue::{
     DrawBitmapGlobalCmd, DrawCrosshairCmd, DrawLineStripHeader, DrawPolygonHeader, DrawRectCmd,
     DrawSpriteCmd, DrawSpriteOffsetCmd, DrawTextboxLocalCmd, DrawTiledBitmapCmd, RenderQueue,
 };
-pub use sprite::{ParsedSprite, Sprite, SpriteBank, SpriteFrame, SpriteId};
+pub use sprite::{
+    KnownSpriteId, ParsedSprite, Sprite, SpriteBank, SpriteFlags, SpriteFrame, SpriteOp,
+};
 pub use turn_order::{
     AnimatedItemList, TurnOrderAllianceGroup, TurnOrderTeamEntry, TurnOrderWidget,
 };

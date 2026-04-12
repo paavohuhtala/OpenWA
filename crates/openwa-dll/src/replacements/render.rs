@@ -11,6 +11,7 @@ use openwa_core::address::va;
 use openwa_core::rebase::rb;
 use openwa_core::render::queue::*;
 use openwa_core::render::sprite::gfx_dir::GfxDir;
+use openwa_core::render::SpriteOp;
 use openwa_core::task::{BungeeTrailTask, WeaponAimTask};
 
 use crate::hook::{self, usercall_trampoline};
@@ -211,7 +212,7 @@ unsafe extern "cdecl" fn draw_sprite_global_impl(
             layer,
             x_pos: x_pos & 0xFFFF0000,
             y_pos: y_pos & 0xFFFF0000,
-            sprite_flags: sprite_id,
+            sprite: SpriteOp(sprite_id),
             palette: frame,
         };
     }
@@ -240,7 +241,7 @@ unsafe extern "cdecl" fn draw_sprite_local_impl(
             layer,
             x_pos: x_pos & 0xFFFF0000,
             y_pos: y_pos & 0xFFFF0000,
-            sprite_flags: sprite_id,
+            sprite: SpriteOp(sprite_id),
             palette: frame,
         };
     }
@@ -419,7 +420,7 @@ unsafe extern "stdcall" fn draw_bungee_trail_impl(task_ptr: u32, style: u32, fil
             layer: 0xDFFFF,
             x_pos: x as u32 & 0xFFFF0000,
             y_pos: y as u32 & 0xFFFF0000,
-            sprite_flags: 0x45,
+            sprite: SpriteOp(0x45),
             palette: (first_angle + 0x8100) as u32,
         };
     }
@@ -592,7 +593,7 @@ unsafe extern "cdecl" fn draw_crosshair_line_impl(task_ptr: u32) {
                 layer: 0x4_0000,
                 x_pos: endpoint_x as u32 & 0xFFFF0000,
                 y_pos: endpoint_y as u32 & 0xFFFF0000,
-                sprite_flags: 0x44,
+                sprite: SpriteOp(0x44),
                 palette: (0x8000u32).wrapping_sub(angle),
             };
         }
@@ -766,22 +767,6 @@ unsafe extern "thiscall" fn headless_destructor(
 ///
 /// Standard thiscall: ECX=this, stack params: x, y, sprite_flags, palette (RET 0x10).
 ///
-/// sprite_flags layout:
-///   low 16 bits  = sprite ID (0 = no sprite)
-///   high 16 bits = orientation/flags:
-///     bit 16 (0x10000): tiled mode
-///     bit 17: additional orientation
-///     bit 18 (0x40000): extra mirror X
-///     bit 19 (0x80000): extra mirror Y
-///     bit 20 (0x100000): stippled palette adjust
-///     bit 21 (0x200000): additive blend
-///     bit 22 (0x400000): shadow clear
-///     bit 23 (0x800000): invert palette
-///     bit 24 (0x1000000): palette x4 adjust
-///     bit 25 (0x2000000): palette transform
-///     bit 26 (0x4000000): color blend
-///     bit 27 (0x8000000): stippled mode 0
-///     bit 28 (0x10000000): stippled mode 1
 unsafe extern "thiscall" fn blit_sprite(
     this: *mut DisplayGfx,
     x: Fixed,
@@ -791,15 +776,17 @@ unsafe extern "thiscall" fn blit_sprite(
 ) {
     use openwa_core::render::display::gfx::DisplayGfx;
     use openwa_core::render::display::vtable as display_vtable;
+    use openwa_core::render::SpriteFlags;
 
     let gfx = this as *mut DisplayGfx;
     let base = this as *const u8;
 
     // ---------------------------------------------------------------
-    // Extract sprite ID and high flags
+    // Extract sprite index and flags
     // ---------------------------------------------------------------
-    let high_flags = sprite_flags & 0xFFFF_0000;
-    let sprite_id = sprite_flags & 0xFFFF;
+    let sprite = SpriteOp(sprite_flags);
+    let flags = sprite.flags();
+    let sprite_id = sprite.index() as u32;
 
     if sprite_id == 0 {
         return;
@@ -809,15 +796,14 @@ unsafe extern "thiscall" fn blit_sprite(
     // Palette manipulation
     // ---------------------------------------------------------------
     let mut pal: u32 = palette;
-    if (high_flags & 0x0080_0000) != 0 {
-        // Bit 23: invert palette
+    if flags.contains(SpriteFlags::INVERT_PALETTE) {
         pal = 0x10000u32.wrapping_sub(palette);
         if sprite_id.wrapping_sub(0x1D5) < 3 {
             // Special sprite IDs: scale by 8/18
             pal = (0x10000u32.wrapping_sub(palette).wrapping_mul(8)) / 0x12;
         }
     }
-    if (high_flags & 0x0200_0000) != 0 {
+    if flags.contains(SpriteFlags::PALETTE_XFORM) {
         // Bit 25: palette transform (modular arithmetic for color cycling)
         let tmp = ((pal.wrapping_mul(0x1F) as i32)
             .wrapping_add(((pal.wrapping_mul(0x1F) as i32) >> 31) & 0x1F)
@@ -871,7 +857,7 @@ unsafe extern "thiscall" fn blit_sprite(
         let dst_x = (x.0 >> 16) + (camera_x - half_w) + rect_left;
         let dst_y = (y.0 >> 16) + (camera_y - half_h) + rect_top;
 
-        if (high_flags & 0x0001_0000) == 0 {
+        if !flags.contains(SpriteFlags::TILED) {
             // Non-tiled: clipped blit at (dst_x, dst_y).
             display_vtable::blit_bitmap_clipped_native(
                 gfx, dst_x, dst_y, sprite_w, blit_h, frame_data, 2,
@@ -892,7 +878,7 @@ unsafe extern "thiscall" fn blit_sprite(
     // that writes extra orientation bits into the local orient variable.
     // For now, handle the simple case:
     let mut orient_local: u32 = 0x0000_0001; // blend=1 (ColorTable/transparency), orientation=0 (Normal)
-    if (high_flags & 0x0100_0000) != 0 {
+    if flags.contains(SpriteFlags::PALETTE_X4) {
         // The ASM computes: pal = pal * 4 + 0x8000, then maps (pal >> 16) & 3
         // to set specific orient values (0x80001, 0xC0001, 0x40001)
         let scaled = pal.wrapping_mul(4).wrapping_add(0x8000);
@@ -955,7 +941,7 @@ unsafe extern "thiscall" fn blit_sprite(
     // ---------------------------------------------------------------
     // Shadow clear (high_flags bit 22)
     // ---------------------------------------------------------------
-    if (high_flags & 0x0040_0000) != 0 {
+    if flags.contains(SpriteFlags::SHADOW_CLEAR) {
         // Blit sprite to layer_2 as shadow base
         let layer2 = (*gfx).layer_2;
         super::bitgrid::blit_impl(
@@ -990,10 +976,10 @@ unsafe extern "thiscall" fn blit_sprite(
     // ---------------------------------------------------------------
     // Extra orientation flags from high_flags
     // ---------------------------------------------------------------
-    if (high_flags & 0x0004_0000) != 0 {
+    if flags.contains(SpriteFlags::MIRROR_X) {
         orient_local |= 0x0001_0000;
     }
-    if (high_flags & 0x0008_0000) != 0 {
+    if flags.contains(SpriteFlags::MIRROR_Y) {
         orient_local |= 0x0002_0000;
     }
 
@@ -1081,8 +1067,8 @@ unsafe extern "thiscall" fn blit_sprite(
     }
 
     // Stippled mode (checkerboard per-pixel blit)
-    if (high_flags & 0x0800_0000) != 0 || (high_flags & 0x1000_0000) != 0 {
-        let stipple_mode: u32 = if (high_flags & 0x1000_0000) != 0 {
+    if flags.intersects(SpriteFlags::STIPPLED_0 | SpriteFlags::STIPPLED_1) {
+        let stipple_mode: u32 = if flags.contains(SpriteFlags::STIPPLED_1) {
             1
         } else {
             0
@@ -1107,7 +1093,7 @@ unsafe extern "thiscall" fn blit_sprite(
     }
 
     // Tiled mode (horizontal sprite tiling)
-    if (high_flags & 0x0001_0000) != 0 {
+    if flags.contains(SpriteFlags::TILED) {
         display_vtable::acquire_render_lock(gfx);
 
         super::bitgrid::blit_tiled_raw(
@@ -1125,9 +1111,9 @@ unsafe extern "thiscall" fn blit_sprite(
     }
 
     // Determine color table pointer
-    let color_table: *const u8 = if (high_flags & 0x0020_0000) != 0 {
+    let color_table: *const u8 = if flags.contains(SpriteFlags::ADDITIVE) {
         (*gfx).color_add_table.as_ptr()
-    } else if (high_flags & 0x0400_0000) != 0 {
+    } else if flags.contains(SpriteFlags::COLOR_BLEND) {
         (*gfx).color_blend_table.as_ptr()
     } else {
         core::ptr::null()

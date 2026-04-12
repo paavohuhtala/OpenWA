@@ -56,6 +56,7 @@ use crate::fixed::Fixed;
 use crate::render::display::gfx::DisplayGfx;
 use crate::render::message::{RenderMessage, TypedRenderCmd, COMMAND_TYPE_TYPED};
 use crate::render::queue::RenderQueue;
+use crate::render::sprite::sprite_op::SpriteOp;
 
 // =============================================================================
 // ClipContext — the 4-i32 anchor/pivot block GameRender_Maybe builds on stack
@@ -533,9 +534,9 @@ unsafe fn dispatch_case_3_via_callback(
 unsafe fn dispatch_case_4_sprite_global(display: *mut DisplayGfx, cmd: *const u32) {
     let x = read_fixed(cmd, 2);
     let y = read_fixed(cmd, 3);
-    let sprite_flags = *(cmd.add(4));
+    let sprite = SpriteOp(*(cmd.add(4)));
     let palette = *(cmd.add(5));
-    DisplayGfx::blit_sprite_raw(display, x, y, sprite_flags, palette);
+    DisplayGfx::blit_sprite_raw(display, x, y, sprite, palette);
 }
 
 // ---- case 5: DRAW_SPRITE_LOCAL → slot 19 (blit_sprite) ---------------------
@@ -550,9 +551,9 @@ unsafe fn dispatch_case_5_sprite_local(
     let mut x = Fixed::ZERO;
     let mut y = Fixed::ZERO;
     rq_translate_coordinates(clip, read_fixed(cmd, 2), read_fixed(cmd, 3), &mut x, &mut y);
-    let sprite_flags = *(cmd.add(4));
+    let sprite = SpriteOp(*(cmd.add(4)));
     let palette = *(cmd.add(5));
-    DisplayGfx::blit_sprite_raw(display, x, y, sprite_flags, palette);
+    DisplayGfx::blit_sprite_raw(display, x, y, sprite, palette);
 }
 
 // ---- case 6: DRAW_SPRITE_OFFSET → slot 19 (blit_sprite) --------------------
@@ -624,9 +625,9 @@ unsafe fn dispatch_case_6_sprite_offset(
         }
     }
 
-    let sprite_flags = *(cmd.add(7));
+    let sprite = SpriteOp(*(cmd.add(7)));
     let palette = *(cmd.add(8));
-    DisplayGfx::blit_sprite_raw(display, x, y, sprite_flags, palette);
+    DisplayGfx::blit_sprite_raw(display, x, y, sprite, palette);
 }
 
 // ---- case 7 → slot 12 (draw_polyline) --------------------------------------
@@ -930,7 +931,7 @@ unsafe fn dispatch_typed(display: *mut DisplayGfx, clip: &ClipContext, msg: &Ren
             local,
             x,
             y,
-            sprite_flags,
+            sprite,
             palette,
         } => {
             if local {
@@ -938,10 +939,10 @@ unsafe fn dispatch_typed(display: *mut DisplayGfx, clip: &ClipContext, msg: &Ren
                 let mut out_x = Fixed::ZERO;
                 let mut out_y = Fixed::ZERO;
                 rq_translate_coordinates(clip, x, y, &mut out_x, &mut out_y);
-                DisplayGfx::blit_sprite_raw(display, out_x, out_y, sprite_flags, palette);
+                DisplayGfx::blit_sprite_raw(display, out_x, out_y, sprite, palette);
             } else {
                 // World-space: pass through directly (same as case 4).
-                DisplayGfx::blit_sprite_raw(display, x, y, sprite_flags, palette);
+                DisplayGfx::blit_sprite_raw(display, x, y, sprite, palette);
             }
         }
     }

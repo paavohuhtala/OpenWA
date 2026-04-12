@@ -109,6 +109,7 @@ bind_CTaskCloudVTable!(CTaskCloud, base.vtable);
 
 use crate::game::TaskMessage;
 use crate::render::message::RenderMessage;
+use crate::render::sprite::sprite_op::SpriteOp;
 
 /// CTaskCloud::HandleMessage replacement — pure game logic.
 ///
@@ -183,7 +184,7 @@ pub unsafe extern "thiscall" fn cloud_handle_message(
                         local: true,
                         x: Fixed(x).floor(),
                         y: (*this).render_y.floor(),
-                        sprite_flags: (*this).sprite_id,
+                        sprite: SpriteOp((*this).sprite_id),
                         palette: (*this).anim_phase.0 as u32,
                     },
                 );
