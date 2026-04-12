@@ -4,9 +4,10 @@ Replay test runner (`openwa-test` binary). Supports headless (concurrent, log-di
 
 ## Subcommands
 
-- `openwa-test [filter] [-j N] [--no-build] [--wa-path PATH]` — Headless: discovers `testdata/replays/*.WAgame` with `*_expected.log`, runs concurrently via `/getlog`, compares output byte-for-byte.
+- `openwa-test [filter] [-j N] [-d DIR] [--no-build] [--wa-path PATH]` — Headless: discovers `*.WAgame`/`*.wagame` with `*_expected.log` in DIR (default `testdata/replays`), runs concurrently via `/getlog`, compares output byte-for-byte.
 - `openwa-test headful [filter|replay.WAgame] [--no-build] [--wa-path PATH] [--timeout SECS]` — Headful: runs with graphics+sound, checks for crashes/panics/gameplay markers. Default timeout 150s.
 - `openwa-test trace-desync <replay.WAgame> [--no-build] [--wa-path PATH]` — Compares per-frame checksums between baseline and hooked runs.
+- `openwa-test generate-baseline [filter] [-d DIR] [-j N] [--no-build] [--wa-path PATH]` — Generates `*_expected.log` baselines for replays that don't have one yet. Runs with `OPENWA_TRACE_BASELINE=1` (minimal hooks).
 
 ## Test Isolation
 
@@ -42,9 +43,18 @@ A headful test passes when: no crash, no `[PANIC]` in OpenWA.log, no `[GAMEPLAY 
 - `OPENWA_LOG_PATH=<path>` — Override OpenWA.log location (used for per-instance isolation)
 - `OPENWA_ERRORLOG_PATH=<path>` — Redirect ERRORLOG.TXT to specified path (crash capture)
 
+## Worms 2D Speedrun Suite
+
+~598 replays in `testdata/replays/worms2d/` (`.wagame` extension). Must run with `-j 1` or `-j 2` — higher concurrency causes ~5-7% flakes from shared resource contention. Full suite takes ~3-4 min at `-j 1`. Use for final validation only.
+
+```bash
+openwa-test -d testdata/replays/worms2d -j 1
+```
+
 ## Key Paths
 
 - Replay files + expected logs: `testdata/replays/*.WAgame` + `*_expected.log`
+- Worms 2D replays: `testdata/replays/worms2d/*.wagame` + `*_expected.log`
 - Per-run output: `testdata/runs/<timestamp>/` (headless), `testdata/runs/headful-<timestamp>/` (headful)
 - Headless script: `run-tests.ps1`
 - Headful script: `replay-test.ps1`
