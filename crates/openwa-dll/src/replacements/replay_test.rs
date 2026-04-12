@@ -116,9 +116,32 @@ unsafe fn check_milestones(ddgame: *const DDGame, frame: u32) {
 pub fn write_gameplay_report() {
     use crate::log_line;
 
+    // Final milestone check if DDGame is still alive at detach time.
+    unsafe {
+        let ddgame = openwa_core::engine::game_session::get_ddgame();
+        if !ddgame.is_null() {
+            let frame = super::frame_hook::frames_processed();
+            check_milestones(ddgame, frame);
+        }
+    }
+
     let frames = super::frame_hook::frames_processed();
     let started = MATCH_STARTED.load(Ordering::Relaxed);
-    let completed = MATCH_COMPLETED.load(Ordering::Relaxed);
+    let mut completed = MATCH_COMPLETED.load(Ordering::Relaxed);
+
+    // If DDGame was already cleaned up (null at detach), that means
+    // DDGameWrapper::EndGame ran — the game session ended normally. If the
+    // match had started, this counts as completion. This handles cases like
+    // Surrender where TeamArena health values don't reflect the game-over
+    // state, so the per-frame alive-team check never triggers.
+    if started && !completed {
+        let ddgame_null = unsafe { game_session::get_ddgame().is_null() };
+        if ddgame_null && frames > 0 {
+            completed = true;
+            MATCH_COMPLETED.store(true, Ordering::Relaxed);
+            COMPLETION_FRAME.store(frames, Ordering::Relaxed);
+        }
+    }
 
     let _ = log_line("--- Gameplay Checks ---");
 
@@ -150,8 +173,10 @@ pub fn write_gameplay_report() {
         let alive = ALIVE_AT_END.load(Ordering::Relaxed);
         let outcome = if alive == 1 {
             "winner decided"
-        } else {
+        } else if alive == 0 {
             "draw (all eliminated)"
+        } else {
+            "game session ended normally"
         };
         let _ = log_line(&format!(
             "[GAMEPLAY PASS] Match completed - {} at frame {}",
