@@ -236,6 +236,11 @@ pub mod va {
             fn GFX_DIR_LOAD_IMAGE = 0x0056_66D0;
         }
 
+        class "GfxDirStream" {
+            /// GfxDirStream vtable (6 slots)
+            vtable GFX_DIR_STREAM_VTABLE = 0x0066_A1C0;
+        }
+
         class "DisplayBase" {
             /// DisplayBase__AllocPaletteSlots — usercall EAX=count, 1 stack(this)
             fn/Usercall DISPLAY_BASE_ALLOC_PALETTE_SLOTS = 0x0052_3190;
@@ -801,6 +806,8 @@ pub mod va {
         fn/Cdecl WA_FOPEN = 0x005D_3271;
         /// WA's CRT fread
         fn/Cdecl WA_FREAD = 0x005D_4531;
+        /// WA's CRT fseek
+        fn/Cdecl WA_FSEEK = 0x005D_38A4;
         /// WA's CRT fclose
         fn/Cdecl WA_FCLOSE = 0x005D_399B;
         /// WA's CRT _fileno

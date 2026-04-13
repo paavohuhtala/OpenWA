@@ -7,6 +7,7 @@ mod frame_hook;
 mod frontend;
 mod game_session;
 mod game_state_hooks;
+mod gfx_dir;
 mod hardware_init;
 mod headless;
 mod music;
@@ -59,6 +60,7 @@ pub fn install_all() -> Result<(), String> {
     speech::install()?;
     music::install()?;
     ddgame_init::install()?;
+    gfx_dir::install()?;
     game_state_hooks::install()?;
     replay::install()?;
     task::install()?;

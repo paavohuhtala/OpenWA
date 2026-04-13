@@ -2,6 +2,7 @@ use core::ffi::c_char;
 
 use openwa_core::vtable;
 
+use crate::asset::gfx_dir::GfxDir;
 use crate::fixed::Fixed;
 use crate::render::display::font::{
     font_extend, font_get_info_impl, font_get_metric_impl, font_load_from_gfx,
@@ -9,7 +10,6 @@ use crate::render::display::font::{
 };
 use crate::render::display::layer::Layer;
 use crate::render::display::line_draw::Vertex;
-use crate::render::sprite::gfx_dir::GfxDir;
 use crate::render::sprite::sprite::{LayerSprite, LayerSpriteFrame};
 use crate::render::sprite::sprite_op::SpriteOp;
 use crate::render::SpriteCache;
@@ -1679,10 +1679,10 @@ pub unsafe fn load_sprite_by_name(
     name: *const c_char,
 ) -> i32 {
     use crate::address::va;
+    use crate::asset::gfx_dir::{gfx_dir_load_image, GfxDirStream};
     use crate::rebase::rb;
     use crate::render::display::context::{FastcallResult, RenderContext, Surface};
     use crate::render::palette::{palette_map_color, remap_pixels_through_lut};
-    use crate::render::sprite::gfx_dir::{call_gfx_load_image, GfxDirStream};
 
     use crate::wa_alloc::wa_malloc;
 
@@ -1702,7 +1702,7 @@ pub unsafe fn load_sprite_by_name(
     (*sprite).gfx_dir = gfx_dir;
     (*sprite).palette_ctx = palette_ctx;
 
-    let stream = call_gfx_load_image(gfx_dir, name);
+    let stream = gfx_dir_load_image(gfx_dir, name);
     if stream.is_null() {
         return 0;
     }
@@ -1710,7 +1710,7 @@ pub unsafe fn load_sprite_by_name(
     let display_mode_flag = *(rb(va::G_DISPLAY_MODE_FLAG) as *const u8);
     if display_mode_flag == 0 {
         // The original calls remaining() and discards the result.
-        GfxDirStream::remaining_raw(stream);
+        GfxDirStream::bytes_consumed_raw(stream);
 
         // Read the .spr header as 4+4+2+2 separate calls — matching the
         // original's read granularity may matter for internal stream state.
@@ -1785,7 +1785,7 @@ pub unsafe fn load_sprite_by_name(
 
         // Skip alignment padding: while (remaining() & 3) != 0, read 1 byte.
         loop {
-            let remaining = GfxDirStream::remaining_raw(stream);
+            let remaining = GfxDirStream::bytes_consumed_raw(stream);
             if remaining & 3 == 0 {
                 break;
             }

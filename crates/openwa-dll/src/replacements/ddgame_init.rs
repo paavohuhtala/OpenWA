@@ -14,6 +14,9 @@
 use crate::hook;
 use core::ffi::c_char;
 use openwa_core::address::va;
+use openwa_core::asset::gfx_dir::{
+    gfx_dir_find_entry, gfx_dir_load_dir, gfx_resource_create, GfxDir,
+};
 use openwa_core::bitgrid::BitGrid;
 use openwa_core::engine::game_state_init::{
     check_weapon_avail, init_alliance_data, init_landscape_flags, init_team_scoring,
@@ -21,9 +24,6 @@ use openwa_core::engine::game_state_init::{
 };
 use openwa_core::engine::{
     ddgame_init_fields, ddgame_init_render_indices, display_layer_color_init, DDGame, DDGameWrapper,
-};
-use openwa_core::render::sprite::gfx_dir::{
-    gfx_dir_find_entry, gfx_dir_load_dir, gfx_resource_create, GfxDir,
 };
 
 // ─── DDGame__InitFields (0x526120) ──────────────────────────────────────────

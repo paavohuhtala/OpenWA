@@ -1,4 +1,4 @@
-use crate::{engine::ddgame::DDGame, render::sprite::gfx_dir::GfxDir};
+use crate::{asset::gfx_dir::GfxDir, engine::ddgame::DDGame};
 
 /// PCLandscape — terrain/landscape subsystem (0xB40 bytes).
 ///

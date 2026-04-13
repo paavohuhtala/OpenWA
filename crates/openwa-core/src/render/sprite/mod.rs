@@ -1,5 +1,4 @@
 pub mod frame_cache;
-pub mod gfx_dir;
 pub mod lzss;
 pub mod spr;
 pub mod sprite;

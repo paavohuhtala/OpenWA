@@ -9,6 +9,10 @@
 
 use super::ddgame::DDGame;
 use crate::address::va;
+use crate::asset::gfx_dir::{
+    call_gfx_find_and_load, call_gfx_load_and_wrap, gfx_dir_load_dir, GfxDir, GfxDirVtable,
+};
+pub use crate::asset::gfx_dir::{gfx_dir_find_entry, gfx_resource_create};
 use crate::audio::active_sound::ActiveSoundTable;
 use crate::audio::dssound::DSSound;
 use crate::audio::music::Music;
@@ -24,10 +28,6 @@ use crate::render::display::gfx::DisplayGfx;
 use crate::render::display::gradient::compute_complex_gradient;
 use crate::render::display::palette::Palette;
 use crate::render::landscape::PCLandscape;
-use crate::render::sprite::gfx_dir::{
-    call_gfx_find_and_load, call_gfx_load_and_wrap, call_gfx_load_dir, GfxDir, GfxDirVtable,
-};
-pub use crate::render::sprite::gfx_dir::{gfx_dir_find_entry, gfx_resource_create};
 use crate::wa_alloc::{wa_malloc, wa_malloc_zeroed};
 
 // ============================================================
@@ -156,7 +156,6 @@ pub fn init_constructor_addrs() {
         LOADING_PROGRESS_TICK_ADDR = rb(va::DDGAME_WRAPPER_LOADING_PROGRESS_TICK);
         GFX_LOAD_SPRITES_ADDR = rb(va::GFX_DIR_LOAD_SPRITES);
     }
-    crate::render::sprite::gfx_dir::init_addrs();
 }
 
 // ── Typed wrappers for WA stdcall functions ────────────────────────────────
@@ -475,12 +474,7 @@ unsafe fn init_graphics_and_resources(
     for (i, path) in paths.iter().enumerate() {
         let fp = fopen(path.as_ptr(), c"rb".as_ptr());
         (*gfx1).file_handle = fp;
-        if !fp.is_null()
-            && call_gfx_load_dir(
-                gfx1 as *mut u8,
-                crate::render::sprite::gfx_dir::gfx_load_dir_addr(),
-            ) != 0
-        {
+        if !fp.is_null() && gfx_dir_load_dir(gfx1 as *mut u8) != 0 {
             gfx_loaded_idx = i as u32;
             break;
         }
@@ -500,8 +494,6 @@ unsafe fn init_graphics_and_resources(
     let game_version = (*game_info).game_version;
     let threshold = if (*wrapper).gfx_mode != 0 { 33 } else { -2i32 };
     if game_version < threshold {
-        use crate::render::sprite::gfx_dir::gfx_load_dir_addr;
-
         let c_digit = if game_version > -3 { b'2' } else { b'1' };
         let mut gfx_c_path = *b"data\\Gfx\\GfxC_3_0.dir\0";
         gfx_c_path[14] = c_digit;
@@ -511,11 +503,10 @@ unsafe fn init_graphics_and_resources(
 
         let fp = fopen(gfx_c_path.as_ptr().cast(), c"rb".as_ptr());
         (*gfx2).file_handle = fp;
-        let load_addr = gfx_load_dir_addr();
-        if fp.is_null() || call_gfx_load_dir(gfx2 as *mut u8, load_addr) == 0 {
+        if fp.is_null() || gfx_dir_load_dir(gfx2 as *mut u8) == 0 {
             let fp2 = fopen(c"data\\Gfx\\Gfx.dir".as_ptr(), c"rb".as_ptr());
             (*gfx2).file_handle = fp2;
-            if fp2.is_null() || call_gfx_load_dir(gfx2 as *mut u8, load_addr) == 0 {
+            if fp2.is_null() || gfx_dir_load_dir(gfx2 as *mut u8) == 0 {
                 panic!("DDGame: couldn't open secondary Gfx.dir");
             }
         }

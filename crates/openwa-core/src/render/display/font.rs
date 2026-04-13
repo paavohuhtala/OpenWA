@@ -4,7 +4,8 @@
 
 use std::ffi::c_char;
 
-use crate::render::{palette::PaletteContext, sprite::gfx_dir::GfxDir};
+use crate::asset::gfx_dir::GfxDir;
+use crate::render::palette::PaletteContext;
 
 /// Font object — 0x1C bytes.
 ///
@@ -222,8 +223,8 @@ pub unsafe fn font_load_from_gfx(
     palette_ctx: *mut PaletteContext,
     name: *const c_char,
 ) -> u32 {
-    use crate::render::sprite::gfx_dir::{
-        call_gfx_load_image, gfx_dir_find_entry, GfxDirEntry, GfxDirStream,
+    use crate::asset::gfx_dir::{
+        gfx_dir_find_entry, gfx_dir_load_image, GfxDirEntry, GfxDirStream,
     };
     use crate::wa_alloc::wa_malloc;
 
@@ -238,12 +239,12 @@ pub unsafe fn font_load_from_gfx(
     }
 
     // 2. Fallback: LoadImage → get_total_size → wa_malloc → read → destroy
-    let image = call_gfx_load_image(gfx_dir, name);
+    let image = gfx_dir_load_image(gfx_dir, name);
     if image.is_null() {
         return 0;
     }
 
-    let size = GfxDirStream::total_size_raw(image);
+    let size = GfxDirStream::get_total_size_raw(image);
 
     // Match the original's allocation: round size up to 4-byte multiple, add 0x20 guard.
     let alloc_size = ((size + 3) & !3u32).wrapping_add(0x20);

@@ -4,6 +4,7 @@
 use core::ffi::c_char;
 
 use openwa_core::address::va;
+use openwa_core::asset::gfx_dir::GfxDir;
 use openwa_core::bitgrid::DisplayBitGrid;
 use openwa_core::fixed::Fixed;
 use openwa_core::rebase::rb;
@@ -11,7 +12,6 @@ use openwa_core::render::display::destructor as display_destructor;
 use openwa_core::render::display::vtable::{self as display_vtable_impl, DisplayGfxVtable};
 use openwa_core::render::display::DisplayBase;
 use openwa_core::render::display::DisplayGfx;
-use openwa_core::render::sprite::gfx_dir::GfxDir;
 use openwa_core::render::SpriteOp;
 use openwa_core::vtable::patch_vtable;
 use openwa_core::vtable_replace;
