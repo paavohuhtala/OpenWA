@@ -5,6 +5,7 @@
 //! InitGameState itself is Rust or the original WA code.
 
 use crate::audio::dssound::DSSound;
+use crate::bitgrid::DisplayBitGrid;
 use crate::engine::ddgame::DDGame;
 use crate::engine::ddgame_wrapper::DDGameWrapper;
 use crate::engine::game_info::GameInfo;
@@ -1028,23 +1029,64 @@ pub unsafe fn init_game_state(wrapper: *mut DDGameWrapper) {
 
 /// Allocate a BufferObject (0x48 bytes) with size computed from game setup.
 /// Used for main_buffer and state_buffer.
+///
+/// Pure Rust port of BufferObject__Constructor (0x545FD0).
+/// The original function is usercall: stdcall(this, size, ddgame) with an implicit
+/// EDI register carrying the second buffer's capacity.
+///
+/// ## Dual-buffer layout (0x48 = 18 × u32):
+/// - [0]: buf1 data ptr    [5]: buf2 data ptr
+/// - [1]: buf1 capacity    [6]: buf2 capacity
+/// - [2]: 0                [7]: 0
+/// - [3]: 0                [8]: 0
+/// - [4]: ddgame ptr       [9]: ddgame ptr
+///
+/// ## Second buffer capacity (originally passed via EDI):
+/// Base = 0x2DC. If game_info[0xD9B4] != 0 AND (game_info[0xD9B1] as i8) is
+/// outside range [2, 0x22], add 0x190 (total 0x46C).
 unsafe fn allocate_buffer_object(ddgame: *mut DDGame, game_info: *const GameInfo) -> *mut u8 {
-    use crate::address::va;
-    use crate::rebase::rb;
-    use crate::wa_alloc::wa_malloc_zeroed;
+    use crate::wa_alloc::{wa_malloc, wa_malloc_zeroed};
 
     let mem = wa_malloc_zeroed(0x48) as *mut u32;
     if mem.is_null() {
         return core::ptr::null_mut();
     }
-    // Compute size: num_teams * 0x450 + 0x4F178 + num_objects * 0x70
+
+    // Primary buffer: size from game setup
     let num_teams = (*game_info).num_teams_alloc as u32;
     let num_objects = (*game_info).object_slot_count;
-    let size = num_teams * 0x450 + 0x4F178 + num_objects * 0x70;
+    let buf1_capacity = num_teams * 0x450 + 0x4F178 + num_objects * 0x70;
 
-    let ctor: unsafe extern "stdcall" fn(*mut u32, u32, u32) -> *mut u8 =
-        core::mem::transmute(rb(va::BUFFER_OBJECT_CONSTRUCTOR) as usize);
-    ctor(mem, size, ddgame as u32)
+    let buf1 = wa_malloc((buf1_capacity + 3 & !3) + 0x20);
+    core::ptr::write_bytes(buf1, 0, buf1_capacity as usize);
+
+    *mem.add(0) = buf1 as u32;
+    *mem.add(1) = buf1_capacity;
+    *mem.add(2) = 0;
+    *mem.add(3) = 0;
+    *mem.add(4) = ddgame as u32;
+
+    // Secondary buffer: capacity from game_info version fields (originally EDI)
+    let gi_raw = game_info as *const u8;
+    let field_d9b4 = *gi_raw.add(0xD9B4);
+    let field_d9b1 = *gi_raw.add(0xD9B1) as i8;
+    let extra = if field_d9b4 != 0 && ((field_d9b1 as i32 - 2) as u32) >= 0x21 {
+        0x190u32
+    } else {
+        0
+    };
+    let buf2_capacity = extra + 0x2DC;
+
+    let buf2 = wa_malloc((buf2_capacity + 3 & !3) + 0x20);
+    core::ptr::write_bytes(buf2, 0, buf2_capacity as usize);
+
+    *mem.add(5) = buf2 as u32;
+    *mem.add(6) = buf2_capacity;
+    *mem.add(7) = 0;
+    *mem.add(8) = 0;
+    *mem.add(9) = ddgame as u32;
+
+    mem as *mut u8
 }
 
 /// Allocate a raw ring-buffer-like object with manual field initialization.
@@ -1263,9 +1305,9 @@ unsafe fn init_game_state_display(
     }
 
     // Dirty rect / clipping calls on layers A, B, C
-    call_display_gfx_dirty_rect((*wrapper).display_gfx_a, ddgame);
-    call_display_gfx_dirty_rect((*wrapper).display_gfx_b, ddgame);
-    call_display_gfx_dirty_rect((*wrapper).display_gfx_c, ddgame);
+    fill_display_layer((*wrapper).display_gfx_a as *mut DisplayBitGrid, ddgame);
+    fill_display_layer((*wrapper).display_gfx_b as *mut DisplayBitGrid, ddgame);
+    fill_display_layer((*wrapper).display_gfx_c as *mut DisplayBitGrid, ddgame);
 
     // ===== Layer 4 (wrapper+0x2C): BitGrid(8, 0x100, 0x154) — constant =====
     (*wrapper).display_gfx_d = create_display_gfx_layer_sized(0x100, 0x154);
@@ -1296,43 +1338,34 @@ unsafe fn create_display_gfx_layer_sized(height: u32, width: u32) -> *mut u8 {
     mem as *mut u8
 }
 
-/// Call the DisplayGfx dirty rect/clipping vtable dispatch (slot 0).
-unsafe fn call_display_gfx_dirty_rect(gfx: *mut u8, ddgame: *mut DDGame) {
+/// Fill a DisplayBitGrid layer with its background color, respecting clip bounds.
+unsafe fn fill_display_layer(gfx: *mut DisplayBitGrid, ddgame: *mut DDGame) {
     if gfx.is_null() {
         return;
     }
-    let gfx32 = gfx as *mut u32;
-    let height = *gfx32.add(6);
-    let width = *gfx32.add(5);
+    let width = (*gfx).width as i32;
+    let height = (*gfx).height as i32;
     if width <= 0 || height <= 0 {
         return;
     }
-    if *(gfx32.add(9)) <= 0 || *(gfx32.add(10)) <= 0 {
+    let clip_right = (*gfx).clip_right as i32;
+    let clip_bottom = (*gfx).clip_bottom as i32;
+    if clip_right <= 0 || clip_bottom <= 0 {
         return;
     }
-    let clip_x1 = *gfx32.add(7) as i32;
-    let clip_y1 = *gfx32.add(8) as i32;
-    if clip_x1 >= width as i32 || clip_y1 >= height as i32 {
+    let clip_left = (*gfx).clip_left as i32;
+    let clip_top = (*gfx).clip_top as i32;
+    if clip_left >= width || clip_top >= height {
         return;
     }
 
-    let x1 = if clip_x1 > 0 { clip_x1 } else { 0 };
-    let y1 = if clip_y1 > 0 { clip_y1 } else { 0 };
-    let x2 = if (*gfx32.add(9) as i32) < width as i32 {
-        *gfx32.add(9) as i32
-    } else {
-        width as i32
-    };
-    let y2 = if (*gfx32.add(10) as i32) < height as i32 {
-        *gfx32.add(10) as i32
-    } else {
-        height as i32
-    };
+    let x1 = clip_left.max(0);
+    let y1 = clip_top.max(0);
+    let x2 = clip_right.min(width);
+    let y2 = clip_bottom.min(height);
 
-    let vtable = *(gfx as *const *const u32);
-    let vmethod: unsafe extern "thiscall" fn(*mut u8, i32, i32, i32, i32, u32) =
-        core::mem::transmute(*vtable);
-    vmethod(gfx, x1, y1, x2, y2, (*ddgame).gfx_color_table[7]);
+    let color = (*ddgame).gfx_color_table[7] as u8;
+    DisplayBitGrid::fill_rect_raw(gfx, x1, y1, x2, y2, color);
 }
 
 /// Create a camera/display object (0x3D4 bytes).

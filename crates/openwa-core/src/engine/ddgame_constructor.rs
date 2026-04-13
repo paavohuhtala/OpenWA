@@ -598,15 +598,14 @@ unsafe fn init_graphics_and_resources(
         );
     }
 
-    // ── Secondary GfxDir object (DDGame+0x2C, conditional) ──
+    // ── Secondary PaletteContext (DDGame+0x2C, conditional on secondary GfxDir) ──
     if !(*wrapper).secondary_gfx_dir.is_null() {
-        let gfxdir2 = wa_malloc_zeroed(0x70C);
-        *(gfxdir2 as *mut u16) = 1;
-        *(gfxdir2.add(2) as *mut u16) = 0x5A;
-        // FUN_5411A0: usercall(EAX=gfxdir2), plain RET
-        call_usercall_eax(gfxdir2 as *mut DDGameWrapper, rb(va::PALETTE_CONTEXT_INIT));
-        *(gfxdir2.add(0x708) as *mut u16) = 0;
-        (*ddgame).secondary_gfxdir = gfxdir2;
+        let palette_ctx = wa_malloc_zeroed(0x70C) as *mut crate::render::palette::PaletteContext;
+        (*palette_ctx).dirty_range_min = 1;
+        (*palette_ctx).dirty_range_max = 0x5A;
+        crate::render::palette::palette_context_init(palette_ctx);
+        (*palette_ctx).dirty = 0;
+        (*ddgame).secondary_palette_ctx = palette_ctx;
         // param4=0 so the ESI-dependent block is skipped; layer_ctx doesn't matter
         wa_load_sprites(
             wrapper,
@@ -653,15 +652,10 @@ unsafe fn init_graphics_and_resources(
     let gfx_resource: *mut u8;
     {
         let gfx_dir = (*wrapper).primary_gfx_dir;
-        // Create PaletteContext the same way the original DDGame constructor does:
-        // word[0]=1, word[1]=0xFE, then PaletteContext__Init (0x5411A0)
-        let palette_ctx = wa_malloc_zeroed(0x900);
-        *(palette_ctx as *mut u16) = 1;
-        *(palette_ctx.add(2) as *mut u16) = 0xFE;
-        call_usercall_eax(
-            palette_ctx as *mut DDGameWrapper,
-            rb(va::PALETTE_CONTEXT_INIT),
-        );
+        let palette_ctx = wa_malloc_zeroed(0x900) as *mut crate::render::palette::PaletteContext;
+        (*palette_ctx).dirty_range_min = 1;
+        (*palette_ctx).dirty_range_max = 0xFE;
+        crate::render::palette::palette_context_init(palette_ctx);
         gfx_resource = gfx_resource_create(
             gfx_dir,
             rb(va::STR_MASKS_IMG) as *const core::ffi::c_char,
@@ -821,7 +815,7 @@ unsafe fn init_graphics_and_resources(
             }
 
             // Arrow GfxDir (conditional on secondary gfxdir)
-            if !(*ddgame).secondary_gfxdir.is_null() {
+            if !(*ddgame).secondary_palette_ctx.is_null() {
                 let gfx_resource_create: unsafe extern "thiscall" fn(
                     *mut GfxDir,
                     *mut u8,

@@ -59,8 +59,8 @@ pub struct DDGame {
     pub game_info: *mut GameInfo,
     /// 0x028: Network game object (param_9 to DDGameWrapper constructor).
     pub net_game: *mut u8,
-    /// 0x02C: Secondary GfxDir object (0x70C bytes, conditional on GfxHandler 1)
-    pub secondary_gfxdir: *mut u8,
+    /// 0x02C: Secondary PaletteContext (0x70C bytes, conditional on secondary GfxDir)
+    pub secondary_palette_ctx: *mut crate::render::palette::PaletteContext,
     /// 0x030: Gradient image pointer
     pub gradient_image: *mut u8,
     /// 0x034: Gradient image 2 pointer
