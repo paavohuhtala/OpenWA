@@ -74,10 +74,10 @@ pub struct DDGameWrapper {
     /// 0x050: RingBuffer C (capacity 0x1000)
     pub ring_buffer_c: *mut u8,
 
-    // ===== 0x054-0x087: Timer/counter block =====
-    /// 0x054-0x087: Zeroed by InitGameState. Team task pointers and counters.
-    /// Accessed via pointer arithmetic in game_state_init.rs (0x054 = team CTask ptrs).
-    pub _zeroed_054: [u32; 13],
+    // ===== 0x054-0x087: Per-team CTask pointers =====
+    /// 0x054: Per-team CTask pointers (13 slots). Zeroed by InitGameState.
+    /// Sub-fields +0x08..+0x18 cleared if non-null during InitTeamScoring.
+    pub team_task_ptrs: [*mut u8; 13],
 
     // ===== 0x088-0x090: PaletteContext pointers =====
     /// 0x088: PaletteContext A (allocated 0x72C bytes)
@@ -103,12 +103,21 @@ pub struct DDGameWrapper {
     /// 0x0F0: Init flag (set to 1 by InitGameState early)
     pub init_flag: u32,
 
-    // ===== 0x0F4-0x25F: Team arrays and game configuration =====
-    /// 0x0F4-0x25F: Large region containing team data arrays.
-    /// Key sub-regions accessed via pointer arithmetic:
-    ///   0x128: Team scoring base array (13 elements × 7 parallel arrays)
-    ///   0x22C: Team activity flags
-    pub _unknown_0f4: [u8; 0x260 - 0x0F4],
+    // ===== 0x0F4-0x25F: Team scoring arrays (7 parallel arrays of 13 u32s) =====
+    /// 0x0F4: Team score array 0 — zeroed by InitTeamScoring.
+    pub team_score_array_0: [u32; 13],
+    /// 0x128: Starting team marker — 1 for starting team, 0 for others.
+    pub team_starting_marker: [u32; 13],
+    /// 0x15C: Team scoring A — initialized to scoring_param_a × 50.
+    pub team_scoring_a: [u32; 13],
+    /// 0x190: Team score array 3 — zeroed by InitTeamScoring.
+    pub team_score_array_3: [u32; 13],
+    /// 0x1C4: Team scoring B — initialized to scoring_param_b × 50.
+    pub team_scoring_b: [u32; 13],
+    /// 0x1F8: Team scoring C — initialized to scoring_param_b × 50.
+    pub team_scoring_c: [u32; 13],
+    /// 0x22C: Team activity flags — -1 (normal), -2 (training), 0 (inactive), 1 (starting).
+    pub team_activity_flags: [u32; 13],
 
     // ===== 0x260-0x267: Game config =====
     /// 0x260: Health display precision (initialized to 500)
@@ -142,8 +151,12 @@ pub struct DDGameWrapper {
     pub team_count_config: i32,
     /// 0x2B0: Maximum team render index (0xC or 0x10)
     pub max_team_render_index: i32,
-    /// 0x2B4-0x34F: Unknown (includes team arrays accessed by init_alliance_data at 0x350)
-    pub _unknown_2b4: [u8; 0x350 - 0x2B4],
+    /// 0x2B4-0x2BB: Unknown.
+    pub _unknown_2b4: [u8; 8],
+    /// 0x2BC: Team score array 6 — set to 1 by InitTeamScoring.
+    pub team_score_array_6: [u32; 13],
+    /// 0x2F0-0x34F: Unknown.
+    pub _unknown_2f0: [u8; 0x350 - 0x2F0],
     /// 0x350-0x383: Alliance bitmask arrays (13 × u32, accessed by init_alliance_data)
     pub _alliance_bitmasks: [u32; 13],
     /// 0x384: Screen offset (computed from screen height and team count)

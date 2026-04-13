@@ -351,8 +351,12 @@ pub struct DDGame {
     pub level_bound_min_y: Fixed,
     /// 0x77A8: Level bound max Y (Fixed16.16).
     pub level_bound_max_y: Fixed,
-    /// 0x77AC-0x77B7: Unknown
-    pub _unknown_77ac: [u8; 0x77B8 - 0x77AC],
+    /// 0x77AC-0x77AF: Unknown
+    pub _unknown_77ac: u32,
+    /// 0x77B0: Unknown (zeroed by InitGameState).
+    pub _field_77b0: u32,
+    /// 0x77B4: Unknown
+    pub _unknown_77b4: u32,
     /// 0x77B8: Level width for 3D sound distance computation (pixels, not fixed-point).
     /// Read by ComputeDistanceParams, shifted left 16 before passing to Distance3D_Attenuation.
     pub level_width_sound: i32,

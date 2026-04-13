@@ -34,8 +34,8 @@ hook::usercall_trampoline!(
     reg = edi
 );
 
-extern "cdecl" fn impl_init_fields(ddgame: u32) -> u32 {
-    unsafe { ddgame_init_fields(ddgame as *mut DDGame) }
+extern "cdecl" fn impl_init_fields(ddgame: *mut DDGame) -> *mut DDGame {
+    unsafe { ddgame_init_fields(ddgame) }
     ddgame // Original: MOV EAX, EDI; RET
 }
 
@@ -90,8 +90,8 @@ hook::usercall_trampoline!(
     reg = esi
 );
 
-extern "cdecl" fn impl_display_layer_init(wrapper: u32) -> u32 {
-    unsafe { display_layer_color_init(wrapper as *mut DDGameWrapper) }
+extern "cdecl" fn impl_display_layer_init(wrapper: *mut DDGameWrapper) -> *mut DDGameWrapper {
+    unsafe { display_layer_color_init(wrapper) }
     wrapper
 }
 
@@ -303,15 +303,15 @@ unsafe extern "C" fn ring_buffer_init_trampoline() {
 // ─── CGameTask__InitTeamScoring (0x528510) ──────────────────────────────────
 // Convention: fastcall(ECX=wrapper), plain RET.
 
-unsafe extern "fastcall" fn init_team_scoring_trampoline(wrapper: u32, _edx: u32) {
-    init_team_scoring(wrapper as *mut u8);
+unsafe extern "fastcall" fn init_team_scoring_trampoline(wrapper: *mut DDGameWrapper, _edx: u32) {
+    init_team_scoring(wrapper);
 }
 
 // ─── CGameTask__InitAllianceData (0x5262D0) ─────────────────────────────────
 // Convention: usercall(EAX=wrapper), plain RET.
 
-extern "cdecl" fn impl_init_alliance_data(wrapper: u32) {
-    unsafe { init_alliance_data(wrapper as *mut u8) }
+extern "cdecl" fn impl_init_alliance_data(wrapper: *mut DDGameWrapper) {
+    unsafe { init_alliance_data(wrapper) }
 }
 
 #[unsafe(naked)]
@@ -330,8 +330,8 @@ unsafe extern "C" fn init_alliance_data_trampoline() {
 // ─── CGameTask__InitTurnState (0x528690) ────────────────────────────────────
 // Convention: usercall(EAX=wrapper), plain RET.
 
-extern "cdecl" fn impl_init_turn_state(wrapper: u32) {
-    unsafe { init_turn_state(wrapper as *mut u8) }
+extern "cdecl" fn impl_init_turn_state(wrapper: *mut DDGameWrapper) {
+    unsafe { init_turn_state(wrapper) }
 }
 
 #[unsafe(naked)]
@@ -351,8 +351,8 @@ unsafe extern "C" fn init_turn_state_trampoline() {
 // Convention: fastcall(ECX=ddgame) + unaff_ESI=weapon_index, plain RET.
 // Returns i32 in EAX.
 
-extern "cdecl" fn impl_check_weapon_avail(ddgame: u32, weapon_index: u32) -> i32 {
-    unsafe { check_weapon_avail(ddgame as *mut DDGame, weapon_index) }
+extern "cdecl" fn impl_check_weapon_avail(ddgame: *mut DDGame, weapon_index: u32) -> i32 {
+    unsafe { check_weapon_avail(ddgame, weapon_index) }
 }
 
 #[unsafe(naked)]
@@ -372,8 +372,8 @@ unsafe extern "C" fn check_weapon_avail_trampoline() {
 // ─── CGameTask__InitLandscapeFlags (0x528480) ───────────────────────────────
 // Convention: usercall(EAX=wrapper), plain RET.
 
-extern "cdecl" fn impl_init_landscape_flags(wrapper: u32) {
-    unsafe { init_landscape_flags(wrapper as *mut u8) }
+extern "cdecl" fn impl_init_landscape_flags(wrapper: *mut DDGameWrapper) {
+    unsafe { init_landscape_flags(wrapper) }
 }
 
 #[unsafe(naked)]
