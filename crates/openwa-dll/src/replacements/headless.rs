@@ -70,12 +70,68 @@ unsafe extern "system" fn hook_messagebox_w(
     }
 }
 
+/// Suppress focus stealing — headless processes should never grab foreground.
+unsafe extern "system" fn hook_set_foreground_window(_hwnd: u32) -> i32 {
+    1 // pretend success
+}
+
+/// Suppress SetFocus — headless processes don't need keyboard focus.
+unsafe extern "system" fn hook_set_focus(_hwnd: u32) -> u32 {
+    0 // "previous focus window" = NULL
+}
+
 pub fn install() -> Result<(), String> {
     if std::env::var("OPENWA_HEADLESS").is_err() {
         return Ok(());
     }
 
     let _ = log_line("[Headless] Suppressing all message boxes");
+
+    // Skip the "Loading, please wait..." splash dialog entirely.
+    //
+    // In Frontend__MainNavigationLoop at VA 0x004E9F19, a flag at
+    // CWinApp+0x651 controls whether the loading dialog is created.
+    // When zero (default), the code creates a dialog (resource 0x135D),
+    // shows it, spawns a loading thread gated on WM_PAINT, and runs a
+    // message pump. When non-zero, it calls ReplayLoader() directly —
+    // no window, no thread, no focus steal.
+    //
+    // At VA 0x004E9F20 there's a `JNZ +0x1C7` (0F 85 C7 01 00 00) that
+    // skips the dialog path. Patch it to an unconditional JMP so the
+    // dialog is never created in headless mode.
+    unsafe {
+        use openwa_core::rebase::rb;
+        let patch_addr = rb(0x004E_9F20) as *mut u8;
+        let mut old_protect: u32 = 0;
+        let ok = windows_sys::Win32::System::Memory::VirtualProtect(
+            patch_addr as *mut core::ffi::c_void,
+            6,
+            0x40, // PAGE_EXECUTE_READWRITE
+            &mut old_protect,
+        );
+        if ok != 0 {
+            assert_eq!(
+                core::slice::from_raw_parts(patch_addr, 2),
+                &[0x0F, 0x85],
+                "expected JNZ (0F 85) at patch site"
+            );
+            // JNZ rel32 (6 bytes) → JMP rel32 (5 bytes) + NOP (1 byte)
+            // Offset adjusts +1 because JMP is 1 byte shorter than JNZ.
+            *patch_addr = 0xE9; // JMP rel32
+            *patch_addr.add(1) = 0xC8;
+            *patch_addr.add(2) = 0x01;
+            *patch_addr.add(3) = 0x00;
+            *patch_addr.add(4) = 0x00;
+            *patch_addr.add(5) = 0x90; // NOP
+            windows_sys::Win32::System::Memory::VirtualProtect(
+                patch_addr as *mut core::ffi::c_void,
+                6,
+                old_protect,
+                &mut old_protect,
+            );
+            let _ = log_line("[Headless] Patched loading dialog: JNZ → JMP (dialog skipped)");
+        }
+    }
 
     unsafe {
         let module = windows_sys::Win32::System::LibraryLoader::GetModuleHandleA(
@@ -94,6 +150,11 @@ pub fn install() -> Result<(), String> {
                 &b"MessageBoxW\0"[..],
                 hook_messagebox_w as *mut core::ffi::c_void,
             ),
+            (
+                &b"SetForegroundWindow\0"[..],
+                hook_set_foreground_window as *mut core::ffi::c_void,
+            ),
+            (&b"SetFocus\0"[..], hook_set_focus as *mut core::ffi::c_void),
         ] {
             let proc =
                 windows_sys::Win32::System::LibraryLoader::GetProcAddress(module, name.as_ptr());
@@ -111,7 +172,7 @@ pub fn install() -> Result<(), String> {
         }
     }
 
-    let _ = log_line("[Headless] All message box paths suppressed");
+    let _ = log_line("[Headless] All message box and focus paths suppressed");
 
     // Hook CreateSemaphoreA to rename the "Worms Armageddon" instance
     // semaphore per-PID. Without this, concurrent WA.exe instances detect
