@@ -24,7 +24,7 @@ use crate::{engine::ddgame::DDGame, render::sprite::gfx_dir::GfxDir};
 #[repr(C)]
 pub struct PCLandscape {
     /// 0x000: Vtable pointer (0x66B208)
-    pub vtable: *mut u8,
+    pub vtable: *const PCLandscapeVtable,
     /// 0x004: Parent DDGame pointer (param_1[1])
     pub ddgame: *mut DDGame,
     /// 0x008-0x0CB: Pre-rendered crater sprites for 15 explosion sizes.
@@ -89,8 +89,8 @@ pub struct PCLandscape {
     pub level_gfx_dir: *mut GfxDir,
     /// 0xB38: GfxHandler for Water.dir (param_1[0x2CE])
     pub water_gfx_dir: *mut GfxDir,
-    /// 0xB3C: Remaining control flag
-    pub _unknown_b3c: u32,
+    /// 0xB3C: Control flag set by vtable slot 1 (donkey mode / landscape control)
+    pub control_flag: u32,
 }
 
 const _: () = assert!(core::mem::size_of::<PCLandscape>() == 0xB40);
@@ -108,14 +108,37 @@ pub struct DirtyRect {
 
 const _: () = assert!(core::mem::size_of::<DirtyRect>() == 8);
 
-/// PCLandscape vtable slot indices (32 entries at 0x66B208).
-pub mod vtable_slots {
-    /// Slot 0: Destructor (0x57B540)
-    pub const DESTRUCTOR: usize = 0;
-    /// Slot 2: Apply explosion crater (0x57C820) — terrain destruction
-    pub const APPLY_EXPLOSION: usize = 2;
-    /// Slot 6: Draw borders — 8px checkered borders at landscape edges (0x57D7F0)
-    pub const DRAW_BORDERS: usize = 6;
-    /// Slot 8: Redraw single row (0x57CF60)
-    pub const REDRAW_ROW: usize = 8;
+/// PCLandscape vtable (32 slots at 0x66B208).
+#[openwa_core::vtable(size = 32, va = 0x0066_B208, class = "PCLandscape")]
+pub struct PCLandscapeVtable {
+    /// destructor (0x57B540, RET 0x4)
+    #[slot(0)]
+    pub destructor: fn(this: *mut PCLandscape, flags: u32) -> *mut PCLandscape,
+    /// set control flag at +0xB3C (0x57BD10, RET 0x4)
+    #[slot(1)]
+    pub set_control_flag: fn(this: *mut PCLandscape, flag: u32),
+    /// apply explosion crater (0x57C820, RET 0xC) — terrain destruction
+    #[slot(2)]
+    pub apply_explosion: fn(this: *mut PCLandscape, p1: u32, p2: u32, p3: u32),
+    /// init landscape borders and layers (0x57D7F0, RET 0x20)
+    #[slot(6)]
+    pub init_borders: fn(
+        this: *mut PCLandscape,
+        p1: u32,
+        p2: u32,
+        p3: u32,
+        p4: u32,
+        p5: u32,
+        p6: u32,
+        p7: u32,
+        p8: u32,
+    ),
+    /// redraw single row (0x57CF60, RET 0x4)
+    #[slot(8)]
+    pub redraw_row: fn(this: *mut PCLandscape, row: u32),
+    /// get frame checksum component (0x57D540, plain RET)
+    #[slot(18)]
+    pub get_frame_checksum: fn(this: *mut PCLandscape) -> u32,
 }
+
+bind_PCLandscapeVtable!(PCLandscape, vtable);

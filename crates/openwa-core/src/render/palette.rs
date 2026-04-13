@@ -44,6 +44,29 @@ const _: () = assert!(core::mem::offset_of!(PaletteContext, cache) == 0x608);
 const _: () = assert!(core::mem::offset_of!(PaletteContext, dirty) == 0x708);
 const _: () = assert!(core::mem::offset_of!(PaletteContext, cache_iter) == 0x70A);
 
+/// Pure Rust port of PaletteContext__Init (0x5411A0).
+///
+/// Usercall: EAX = ctx pointer, plain RET.
+///
+/// Initializes the free slot stack and clears the in-use table.
+/// Caller must set `dirty_range_min` and `dirty_range_max` before calling.
+pub unsafe fn palette_context_init(ctx: *mut PaletteContext) {
+    let min = (*ctx).dirty_range_min;
+    let max = (*ctx).dirty_range_max;
+    let count = (max - min) + 1;
+
+    (*ctx).cache_count = 0;
+    (*ctx).free_count = count;
+
+    // Fill free stack with palette indices from max down to min
+    for i in 0..count as usize {
+        (*ctx).free_stack[i] = (max as u8).wrapping_sub(i as u8);
+    }
+
+    (*ctx).cache_iter = 0;
+    (*ctx).in_use = [0u8; 256];
+}
+
 /// Map an RGB color to the nearest display palette index.
 ///
 /// Rust port of `PaletteContext__MapColor` (0x5412B0). Operates on a raw

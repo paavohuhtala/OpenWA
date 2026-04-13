@@ -279,15 +279,15 @@ unsafe fn patch_dssound_vtable() -> Result<(), &'static str> {
     use openwa_core::audio::{
         dssound_destructor, dssound_noop, dssound_returns_0, dssound_returns_1,
         dssound_sub_destructor, is_channel_finished, is_slot_loaded, load_wav, play_sound,
-        play_sound_pooled, release_finished, set_channel_volume, set_master_volume, set_pan,
-        set_volume_params, stop_channel, update_channels, DSSoundVtable,
+        play_sound_pooled, release_finished, set_channel_volume, set_frequency_scale,
+        set_master_volume, set_pan, stop_channel, update_channels, DSSoundVtable,
     };
     use openwa_core::vtable_replace;
 
     vtable_replace!(DSSoundVtable, va::DS_SOUND_VTABLE, {
         destructor          => dssound_destructor,
         update_channels     => update_channels,
-        set_volume_params   => set_volume_params,
+        set_frequency_scale => set_frequency_scale,
         play_sound          => play_sound,
         play_sound_pooled   => play_sound_pooled,
         set_pan             => set_pan,

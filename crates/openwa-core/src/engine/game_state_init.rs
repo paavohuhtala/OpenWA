@@ -11,6 +11,7 @@ use crate::engine::game_info::GameInfo;
 use crate::fixed::Fixed;
 use crate::render::display::gfx::DisplayGfx;
 use crate::render::landscape::PCLandscape;
+use crate::wa_alloc::{wa_malloc_struct_zeroed, wa_malloc_zeroed};
 
 /// Pure Rust implementation of SpriteGfxTable__Init (0x541620).
 ///
@@ -492,15 +493,12 @@ pub unsafe fn init_turn_state(wrapper: *mut DDGameWrapper) {
     (*ddgame3)._field_8160 = 0;
     (*ddgame3)._field_8164 = 0;
 
-    // Vtable dispatch: DDGame.landscape → vtable slot 1,
-    // param = game_info.donkey_disabled (byte at +0xD94C)
+    // Landscape vtable slot 1: set control flag (donkey_disabled)
     let ddgame4 = ddgame_from_wrapper(wrapper);
-    let landscape = (*ddgame4).landscape as *mut u8;
+    let landscape = (*ddgame4).landscape;
     if !landscape.is_null() {
-        let vtable = *(landscape as *const *const usize);
-        let slot1: unsafe extern "thiscall" fn(*mut u8, u32) = core::mem::transmute(*vtable.add(1));
         let param = (*(*ddgame4).game_info).donkey_disabled as u32;
-        slot1(landscape, param);
+        PCLandscape::set_control_flag_raw(landscape, param);
     }
 }
 
@@ -522,22 +520,15 @@ pub unsafe fn init_landscape_flags(wrapper: *mut DDGameWrapper) {
     let field_734c = (*ddgame)._field_734c;
     let field_7340 = (*ddgame)._field_7340;
 
-    // DDGame.landscape object
-    let landscape = (*ddgame).landscape as *mut u8;
-    let vtable = *(landscape as *const *const usize);
-    // Vtable slot 6 = offset +0x18
-    let slot6: unsafe extern "thiscall" fn(*mut u8, u32, u32, u32, u32, u32, u32, u32, u32) =
-        core::mem::transmute(*vtable.add(6));
+    let landscape = (*ddgame).landscape;
 
     if scheme_flag != 0 {
-        // Call with (1, 1, 1, 1, field_7318, field_730c, field_734c, field_7340)
-        slot6(
+        PCLandscape::init_borders_raw(
             landscape, 1, 1, 1, 1, field_7318, field_730c, field_734c, field_7340,
         );
         (*ddgame).level_width_raw = 1;
     } else if (*ddgame).level_width_raw != 0 {
-        // Call with (0, 0, 1, 0, field_7318, field_730c, field_734c, field_7340)
-        slot6(
+        PCLandscape::init_borders_raw(
             landscape, 0, 0, 1, 0, field_7318, field_730c, field_734c, field_7340,
         );
     }
@@ -622,9 +613,7 @@ pub unsafe fn init_game_state(wrapper: *mut DDGameWrapper) {
         let mem = wa_malloc_zeroed(0x264) as *mut u32;
         if !mem.is_null() {
             *mem = rb(0x664194); // GameStateStream vtable
-            let init: unsafe extern "stdcall" fn(*mut u32) =
-                core::mem::transmute(rb(va::GAME_STATE_STREAM_INIT) as usize);
-            init(mem.add(1)); // Init sub-object at offset +4
+            game_state_stream_init(mem.add(1));
             *mem.add(1) = 0;
             *mem.add(0x90) = ddgame as u32; // DDGame ptr backref
             *mem.add(0x8B) = 0;
@@ -642,18 +631,12 @@ pub unsafe fn init_game_state(wrapper: *mut DDGameWrapper) {
         (*ddgame)._unknown_52c = mem;
     }
 
-    // ===== Virtual call: display->vtable[1](&level_width_sound, &screen_height_pixels) =====
-    {
-        let display = (*ddgame).display;
-        let vtable = *(display as *const *const u32);
-        let vmethod: unsafe extern "thiscall" fn(*mut DisplayGfx, *mut i32, *mut i32) =
-            core::mem::transmute(*vtable.add(1));
-        vmethod(
-            display,
-            core::ptr::addr_of_mut!((*ddgame).level_width_sound),
-            core::ptr::addr_of_mut!((*ddgame).screen_height_pixels),
-        );
-    }
+    // Get display dimensions
+    DisplayGfx::get_dimensions_raw(
+        (*ddgame).display,
+        core::ptr::addr_of_mut!((*ddgame).level_width_sound) as *mut u32,
+        core::ptr::addr_of_mut!((*ddgame).screen_height_pixels) as *mut u32,
+    );
     (*ddgame)._field_77b0 = 0;
 
     // ===== Allocate BufferObject (main_buffer at wrapper+0x0C) =====
@@ -936,10 +919,7 @@ pub unsafe fn init_game_state(wrapper: *mut DDGameWrapper) {
     // ===== Network sync callback =====
     let sound = (*ddgame).sound;
     if !sound.is_null() {
-        let vtable = *(sound as *const *const u32);
-        let vmethod: unsafe extern "thiscall" fn(*mut DSSound) =
-            core::mem::transmute(*vtable.add(1));
-        vmethod(sound);
+        DSSound::update_channels_raw(sound);
     }
 
     // ===== CTaskTurnGame constructor =====
@@ -1024,10 +1004,7 @@ pub unsafe fn init_game_state(wrapper: *mut DDGameWrapper) {
 
         // Get frame counter via landscape vtable
         let landscape = (*ddgame).landscape;
-        let landscape_vtable = *(landscape as *const *const u32);
-        let get_frame: unsafe extern "thiscall" fn(*mut PCLandscape) -> u32 =
-            core::mem::transmute(*landscape_vtable.add(0x12));
-        let frame = get_frame(landscape);
+        let frame = PCLandscape::get_frame_checksum_raw(landscape);
 
         (*wrapper).initial_checksum = frame.wrapping_add(hash);
     }
@@ -1111,33 +1088,17 @@ unsafe fn allocate_ring_buffer_init() -> *mut u8 {
 /// Allocate and initialize a PaletteContext (0x72C bytes).
 /// Sets dirty_range_min=1, dirty_range_max=0xFF, then calls PaletteContext__Init.
 unsafe fn allocate_palette_context() -> *mut crate::render::palette::PaletteContext {
-    use crate::address::va;
-    use crate::rebase::rb;
-    use crate::wa_alloc::wa_malloc_zeroed;
+    use crate::render::palette::{palette_context_init, PaletteContext};
 
-    let mem = wa_malloc_zeroed(0x72C) as *mut u16;
-    if mem.is_null() {
+    let ctx = wa_malloc_struct_zeroed::<PaletteContext>();
+    if ctx.is_null() {
         return core::ptr::null_mut();
     }
-    *mem = 1; // dirty_range_min
-    *mem.add(1) = 0xFF; // dirty_range_max
-                        // Call PaletteContext__Init — usercall(EAX=ctx)
-    call_usercall_eax(mem as *mut u8, rb(va::PALETTE_CONTEXT_INIT));
-    *mem.add(900) = 0; // offset 0x708 (word)
-    mem as *mut crate::render::palette::PaletteContext
-}
-
-/// Bridge: usercall(EAX=ptr), plain RET.
-#[cfg(target_arch = "x86")]
-#[unsafe(naked)]
-unsafe extern "C" fn call_usercall_eax(_ptr: *mut u8, _addr: u32) {
-    core::arch::naked_asm!(
-        "movl 4(%esp), %eax", // EAX = ptr
-        "movl 8(%esp), %ecx", // ECX = target address (temp)
-        "calll *%ecx",
-        "retl",
-        options(att_syntax),
-    );
+    (*ctx).dirty_range_min = 1;
+    (*ctx).dirty_range_max = 0xFF;
+    palette_context_init(ctx);
+    (*ctx).dirty = 0;
+    ctx
 }
 
 /// Bridge: stdcall constructor with ECX = implicit register param.
@@ -1200,16 +1161,9 @@ unsafe fn init_game_state_display(
 
     let max_team_render = (*wrapper).max_team_render_index;
 
-    // Display virtual call: display->vtable[1](&display_width, &display_height)
     let mut display_width: u32 = 0;
     let mut display_height: u32 = 0;
-    {
-        let display = (*ddgame).display;
-        let vtable = *(display as *const *const u32);
-        let vmethod: unsafe extern "thiscall" fn(*mut DisplayGfx, *mut u32, *mut u32) =
-            core::mem::transmute(*vtable.add(1));
-        vmethod(display, &mut display_width, &mut display_height);
-    }
+    DisplayGfx::get_dimensions_raw((*ddgame).display, &mut display_width, &mut display_height);
 
     // Screen height for HUD: 0x12C (300) if wide layout, 0x8C (140) if narrow
     let screen_height: i32 = if max_team_render != 0xC {
@@ -1780,14 +1734,10 @@ unsafe fn init_game_state_tracking_arrays(ddgame: *mut DDGame, game_info: *const
     // Network speed callback
     let sound = (*ddgame).sound;
     if !sound.is_null() {
-        let snd_ptr = sound as *const u8;
-        let vtable = *(snd_ptr as *const *const u32);
-        let vmethod: unsafe extern "thiscall" fn(*const u8, u32, u32) =
-            core::mem::transmute(*vtable.add(2));
-        vmethod(
-            snd_ptr,
+        DSSound::set_frequency_scale_raw(
+            sound,
             (*ddgame).game_speed.0 as u32,
-            (*ddgame).game_speed_target.0 as u32,
+            (*ddgame).game_speed_target.0,
         );
     }
 
@@ -1846,5 +1796,39 @@ unsafe fn init_game_state_tracking_arrays(ddgame: *mut DDGame, game_info: *const
 
             *(obj32.add(10)) = 0xFFFF_FFFF; // +0x28 = -1
         }
+    }
+}
+
+/// Pure Rust port of GameStateStream__Init (0x4FB490).
+///
+/// Convention: stdcall(sub_object_ptr), plain RET.
+///
+/// Initializes the sub-object within GameStateStream:
+/// - +0x14: capacity (0x100)
+/// - +0x18/+0x1C: zeroed
+/// - +0x20: main buffer (0x420 bytes, first 0x400 zeroed)
+/// - +0x24..+0x224: 32 sub-buffer elements (each 0x10 bytes)
+///
+/// Each sub-buffer element (FUN_004fdc20):
+/// - [0]: capacity (0x100)
+/// - [1]/[2]: zeroed
+/// - [3]: buffer (0x420 bytes, first 0x400 zeroed)
+unsafe fn game_state_stream_init(sub_obj: *mut u32) {
+    *sub_obj.add(5) = 0x100; // +0x14: capacity
+    *sub_obj.add(6) = 0; // +0x18
+    *sub_obj.add(7) = 0; // +0x1C
+
+    // +0x20: main buffer
+    let buf = wa_malloc_zeroed(0x420);
+    *sub_obj.add(8) = buf as u32;
+
+    // +0x24: 32 sub-buffer elements, each 0x10 bytes (4 u32s)
+    for i in 0..32usize {
+        let elem = sub_obj.add(9 + i * 4); // +0x24 + i*0x10
+        *elem = 0x100; // capacity
+        *elem.add(1) = 0;
+        *elem.add(2) = 0;
+        let elem_buf = wa_malloc_zeroed(0x420);
+        *elem.add(3) = elem_buf as u32;
     }
 }

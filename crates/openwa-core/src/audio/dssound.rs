@@ -89,8 +89,8 @@ pub struct DSSoundVtable {
     pub destructor: fn(this: *mut DSSound, flags: u8) -> *mut DSSound,
     /// update_channels — iterates 8 descs, releases finished buffers
     pub update_channels: fn(this: *mut DSSound),
-    /// set_volume_params — sets status_1/2, adjusts channel volumes
-    pub set_volume_params: fn(this: *mut DSSound, status: u32, value: i32),
+    /// set_frequency_scale — sets pitch scaling factors, adjusts active channel frequencies
+    pub set_frequency_scale: fn(this: *mut DSSound, divisor: u32, multiplier: i32),
     /// play_sound — wrapper around core play. RET 0x14 = 5 stack params.
     pub play_sound: fn(
         this: *mut DSSound,
@@ -184,10 +184,10 @@ pub struct DSSound {
     pub buffer_pool_used_count: u32,
     /// 0xBB0: Total bytes loaded (incremented by load_wav)
     pub total_bytes_loaded: u32,
-    /// 0xBB4: Status flag 1 (init 1, used by set_volume_params)
-    pub status_1: u32,
-    /// 0xBB8: Status flag 2 (init 1, used by set_volume_params)
-    pub status_2: u32,
+    /// 0xBB4: Frequency scale divisor (init 1, used by set_frequency_scale)
+    pub freq_scale_divisor: u32,
+    /// 0xBB8: Frequency scale multiplier (init 1, used by set_frequency_scale)
+    pub freq_scale_multiplier: u32,
     /// 0xBBC: Init success flag — set to 1 when DirectSoundCreate +
     /// init_buffers + IDirectSoundBuffer::Play all succeed.
     pub init_success: u32,
@@ -196,6 +196,8 @@ pub struct DSSound {
 }
 
 const _: () = assert!(core::mem::size_of::<DSSound>() == 0xBE0);
+
+bind_DSSoundVtable!(DSSound, vtable);
 
 // ── Trivial vtable method implementations ─────────────────────────────────
 
@@ -310,18 +312,22 @@ pub unsafe extern "thiscall" fn set_master_volume(this: *mut DSSound, new_volume
     1
 }
 
-/// Slot 2: set_volume_params — sets frequency scaling params and adjusts active channels.
-/// `param1` is the divisor (status_1), `param2` is the multiplier (status_2).
-/// For each playing channel: new_freq = channel_freq * param2 / param1, clamped to 200000.
-pub unsafe extern "thiscall" fn set_volume_params(this: *mut DSSound, param1: u32, param2: i32) {
+/// Slot 2: set_frequency_scale — sets pitch scaling factors and adjusts active channel frequencies.
+/// `divisor` is the frequency divisor, `multiplier` is the frequency multiplier.
+/// For each playing channel: new_freq = channel_freq * multiplier / divisor, clamped to 200000.
+pub unsafe extern "thiscall" fn set_frequency_scale(
+    this: *mut DSSound,
+    divisor: u32,
+    multiplier: i32,
+) {
     let snd = &mut *this;
 
     // No change → early return.
-    if snd.status_1 == param1 && snd.status_2 == param2 as u32 {
+    if snd.freq_scale_divisor == divisor && snd.freq_scale_multiplier == multiplier as u32 {
         return;
     }
-    snd.status_1 = param1;
-    snd.status_2 = param2 as u32;
+    snd.freq_scale_divisor = divisor;
+    snd.freq_scale_multiplier = multiplier as u32;
 
     for desc in &snd.channel_descs {
         let Some(buf) = desc.buffer() else { continue };
@@ -334,11 +340,11 @@ pub unsafe extern "thiscall" fn set_volume_params(this: *mut DSSound, param1: u3
             continue;
         }
 
-        // Compute adjusted frequency: channel_freq * param2 / param1.
-        if param1 == 0 {
+        // Compute adjusted frequency: channel_freq * multiplier / divisor.
+        if divisor == 0 {
             continue;
         }
-        let freq = (desc.channel_freq.0 as i64 * param2 as i64 / param1 as i64) as i32;
+        let freq = (desc.channel_freq.0 as i64 * multiplier as i64 / divisor as i64) as i32;
         let freq = freq.min(200_000);
 
         let _ = buf.SetFrequency(freq as u32);
@@ -542,9 +548,10 @@ unsafe fn core_play_sound(
     desc.ds_buffer = core::mem::transmute_copy(&new_buf);
     core::mem::forget(new_buf);
 
-    // Compute actual playback frequency: channel_freq * status_2 / status_1.
-    let freq = if snd.status_1 != 0 {
-        let f = (channel_freq as i64 * snd.status_2 as i64 / snd.status_1 as i64) as i32;
+    // Compute actual playback frequency: channel_freq * multiplier / divisor.
+    let freq = if snd.freq_scale_divisor != 0 {
+        let f = (channel_freq as i64 * snd.freq_scale_multiplier as i64
+            / snd.freq_scale_divisor as i64) as i32;
         f.min(200_000)
     } else {
         channel_freq
@@ -965,9 +972,9 @@ impl DSSound {
         }
         snd.buffer_pool_free_count = 64;
 
-        // Status flags
-        snd.status_1 = 1;
-        snd.status_2 = 1;
+        // Frequency scaling (1:1 = no scaling)
+        snd.freq_scale_divisor = 1;
+        snd.freq_scale_multiplier = 1;
         // init_success stays 0 until COM init succeeds
 
         snd
