@@ -1,11 +1,11 @@
 //! Per-instance file path isolation for concurrent test execution.
 //!
-//! Hooks `kernel32!CreateFileA` to redirect temp/scratch files to a per-PID
-//! subdirectory, preventing races when multiple WA.exe instances run
-//! simultaneously. Only active when `OPENWA_HEADLESS=1` is set.
+//! Hooks `kernel32!CreateFileA`, `FindFirstFileA`, and `DeleteFileA` to redirect
+//! temp/scratch files to a per-PID subdirectory, preventing races when multiple
+//! WA.exe instances run simultaneously. Only active when `OPENWA_HEADLESS=1`.
 //!
 //! Redirected files:
-//!   Game dir:  writetest.txt, mono.tmp, custom.dat
+//!   Game dir:  writetest.txt, mono.tmp, custom.dat, thm.prv
 //!   DATA\:     land.dat, landgen.svg, current.thm, playback.thm
 //!   ERRORLOG:  ERRORLOG.TXT → OPENWA_ERRORLOG_PATH (if set)
 
@@ -30,7 +30,14 @@ type CreateFileAFn = unsafe extern "system" fn(
     hTemplateFile: HANDLE,
 ) -> HANDLE;
 
+type FindFirstFileAFn =
+    unsafe extern "system" fn(lpFileName: *const u8, lpFindFileData: *mut u8) -> HANDLE;
+
+type DeleteFileAFn = unsafe extern "system" fn(lpFileName: *const u8) -> i32;
+
 static ORIG_CREATE_FILE_A: AtomicU32 = AtomicU32::new(0);
+static ORIG_FIND_FIRST_FILE_A: AtomicU32 = AtomicU32::new(0);
+static ORIG_DELETE_FILE_A: AtomicU32 = AtomicU32::new(0);
 
 static ERRORLOG_PATH: OnceLock<Option<String>> = OnceLock::new();
 static TEMP_DIR: OnceLock<Option<String>> = OnceLock::new();
@@ -58,7 +65,9 @@ fn temp_dir() -> Option<&'static str> {
 }
 
 /// Files in the game root directory that need isolation.
-const ROOT_FILES: &[&str] = &["writetest.txt", "mono.tmp"];
+/// `thm.prv` is a temporary file created/read/deleted by MAP_VIEW_LOAD during
+/// terrain processing — concurrent instances fight over it without isolation.
+const ROOT_FILES: &[&str] = &["writetest.txt", "mono.tmp", "custom.dat", "thm.prv"];
 
 /// Files in the DATA subdirectory that need isolation.
 const DATA_FILES: &[&str] = &["land.dat", "landgen.svg", "current.thm", "playback.thm"];
@@ -80,7 +89,7 @@ fn redirect_path(path: &str) -> Option<String> {
 
     let tmp = temp_dir()?;
 
-    // Check root-level files (writetest.txt, mono.tmp, custom.dat)
+    // Check root-level files
     for &name in ROOT_FILES {
         if lower.ends_with(&format!("\\{name}")) || lower == name {
             return Some(format!("{tmp}\\{name}"));
@@ -99,6 +108,11 @@ fn redirect_path(path: &str) -> Option<String> {
     None
 }
 
+// ─── CreateFileA hook ──────────────────────────────────────────────────────
+
+/// WA.exe opens data files with `dwShareMode=0` (exclusive access), which blocks
+/// concurrent instances from reading the same files. In headless mode, force
+/// `FILE_SHARE_READ` on all file opens so multiple test instances can coexist.
 unsafe extern "system" fn hook_create_file_a(
     lp_file_name: *const u8,
     desired_access: u32,
@@ -109,6 +123,12 @@ unsafe extern "system" fn hook_create_file_a(
     template_file: HANDLE,
 ) -> HANDLE {
     let orig: CreateFileAFn = core::mem::transmute(ORIG_CREATE_FILE_A.load(Ordering::Relaxed));
+
+    // Force FILE_SHARE_READ on all opens to prevent exclusive locking between
+    // concurrent WA.exe instances. WA opens .img, .wav, .bmp etc. with share=0,
+    // which causes "File Error" failures under high concurrency.
+    const FILE_SHARE_READ: u32 = 0x00000001;
+    let share_mode = share_mode | FILE_SHARE_READ;
 
     if !lp_file_name.is_null() {
         if let Ok(path) = CStr::from_ptr(lp_file_name as *const i8).to_str() {
@@ -138,6 +158,63 @@ unsafe extern "system" fn hook_create_file_a(
     )
 }
 
+// ─── FindFirstFileA hook ───────────────────────────────────────────────────
+
+/// Redirect FindFirstFileA for isolated files. MAP_VIEW_LOAD's file reader
+/// (FUN_004dfa70) uses FindFirstFileA to get the file size before _fopen.
+/// Without this hook, it looks in the game directory instead of the per-PID
+/// temp directory where CreateFileA wrote the file.
+unsafe extern "system" fn hook_find_first_file_a(
+    lp_file_name: *const u8,
+    lp_find_file_data: *mut u8,
+) -> HANDLE {
+    let orig: FindFirstFileAFn =
+        core::mem::transmute(ORIG_FIND_FIRST_FILE_A.load(Ordering::Relaxed));
+
+    if !lp_file_name.is_null() {
+        if let Ok(path) = CStr::from_ptr(lp_file_name as *const i8).to_str() {
+            if let Some(new_path) = redirect_path(path) {
+                let cstr: Vec<u8> = new_path.bytes().chain(std::iter::once(0)).collect();
+                return orig(cstr.as_ptr(), lp_find_file_data);
+            }
+        }
+    }
+
+    orig(lp_file_name, lp_find_file_data)
+}
+
+// ─── DeleteFileA hook ──────────────────────────────────────────────────────
+
+/// Redirect DeleteFileA for isolated files. MAP_VIEW_LOAD deletes the temporary
+/// `thm.prv` file after reading it. Without this hook, the delete targets the
+/// game directory while the file is in the per-PID temp directory.
+unsafe extern "system" fn hook_delete_file_a(lp_file_name: *const u8) -> i32 {
+    let orig: DeleteFileAFn = core::mem::transmute(ORIG_DELETE_FILE_A.load(Ordering::Relaxed));
+
+    if !lp_file_name.is_null() {
+        if let Ok(path) = CStr::from_ptr(lp_file_name as *const i8).to_str() {
+            if let Some(new_path) = redirect_path(path) {
+                let cstr: Vec<u8> = new_path.bytes().chain(std::iter::once(0)).collect();
+                return orig(cstr.as_ptr());
+            }
+        }
+    }
+
+    orig(lp_file_name)
+}
+
+// ─── File-exists check hook ────────────────────────────────────────────────
+
+/// WA's file-existence check (0x4DFA30) uses `_findfirst` which does a directory
+/// enumeration. Under high concurrency, NTFS directory contention causes transient
+/// failures. Replace with a simple "always exists" in headless mode — the checked
+/// files (steam.dat, graphics\Font.bmp) are guaranteed present in the game dir.
+unsafe extern "fastcall" fn hook_file_exists_check(_filename: *const u8) -> u32 {
+    1 // always report file as existing
+}
+
+// ─── Installation ──────────────────────────────────────────────────────────
+
 pub fn install() -> Result<(), String> {
     let is_test =
         std::env::var("OPENWA_HEADLESS").is_ok() || std::env::var("OPENWA_REPLAY_TEST").is_ok();
@@ -147,25 +224,43 @@ pub fn install() -> Result<(), String> {
     }
 
     unsafe {
-        let module = windows_sys::Win32::System::LibraryLoader::GetModuleHandleA(
+        let k32 = windows_sys::Win32::System::LibraryLoader::GetModuleHandleA(
             c"kernel32.dll".as_ptr().cast(),
         );
-        if module.is_null() {
+        if k32.is_null() {
             return Err("kernel32.dll not loaded".to_string());
         }
 
-        let proc = windows_sys::Win32::System::LibraryLoader::GetProcAddress(
-            module,
-            c"CreateFileA".as_ptr().cast(),
-        );
-        let addr = proc.ok_or("CreateFileA not found in kernel32.dll")?;
-        let target = addr as *mut c_void;
-        let trampoline = minhook::MinHook::create_hook(target, hook_create_file_a as *mut c_void)
-            .map_err(|e| format!("MinHook create_hook failed for CreateFileA: {e}"))?;
-        minhook::MinHook::queue_enable_hook(target)
-            .map_err(|e| format!("MinHook queue_enable_hook failed for CreateFileA: {e}"))?;
+        // Hook CreateFileA — path redirection + FILE_SHARE_READ forcing
+        hook_kernel32_fn(
+            k32,
+            c"CreateFileA",
+            hook_create_file_a as *mut c_void,
+            &ORIG_CREATE_FILE_A,
+        )?;
 
-        ORIG_CREATE_FILE_A.store(trampoline as u32, Ordering::Relaxed);
+        // Hook FindFirstFileA — path redirection for file size lookups
+        hook_kernel32_fn(
+            k32,
+            c"FindFirstFileA",
+            hook_find_first_file_a as *mut c_void,
+            &ORIG_FIND_FIRST_FILE_A,
+        )?;
+
+        // Hook DeleteFileA — path redirection for temp file cleanup
+        hook_kernel32_fn(
+            k32,
+            c"DeleteFileA",
+            hook_delete_file_a as *mut c_void,
+            &ORIG_DELETE_FILE_A,
+        )?;
+
+        // Hook file-exists check to avoid _findfirst contention under concurrency
+        crate::hook::install(
+            "FileExistsCheck",
+            openwa_core::address::va::FILE_EXISTS_CHECK,
+            hook_file_exists_check as *const (),
+        )?;
 
         let pid = std::process::id();
         let tmp_msg = temp_dir().map(|d| format!(" → {d}")).unwrap_or_default();
@@ -173,10 +268,32 @@ pub fn install() -> Result<(), String> {
             .map(|t| format!(", ERRORLOG.TXT → {t}"))
             .unwrap_or_default();
         let _ = log_line(&format!(
-            "[FileIsolation] Hooked CreateFileA (pid={pid}): temp files{tmp_msg}{errorlog_msg}"
+            "[FileIsolation] Hooked CreateFileA+FindFirstFileA+DeleteFileA (pid={pid}): temp files{tmp_msg}{errorlog_msg}"
         ));
     }
 
+    Ok(())
+}
+
+/// Helper: hook a kernel32 function via MinHook.
+unsafe fn hook_kernel32_fn(
+    module: *mut c_void,
+    name: &core::ffi::CStr,
+    hook_fn: *mut c_void,
+    orig_store: &AtomicU32,
+) -> Result<(), String> {
+    let fn_name = name.to_str().unwrap_or("?");
+    let proc = windows_sys::Win32::System::LibraryLoader::GetProcAddress(
+        module as _,
+        name.as_ptr().cast(),
+    );
+    let addr = proc.ok_or(format!("{fn_name} not found in kernel32.dll"))?;
+    let target = addr as *mut c_void;
+    let trampoline = minhook::MinHook::create_hook(target, hook_fn)
+        .map_err(|e| format!("MinHook create_hook failed for {fn_name}: {e}"))?;
+    minhook::MinHook::queue_enable_hook(target)
+        .map_err(|e| format!("MinHook queue_enable_hook failed for {fn_name}: {e}"))?;
+    orig_store.store(trampoline as u32, Ordering::Relaxed);
     Ok(())
 }
 

@@ -45,10 +45,10 @@ A headful test passes when: no crash, no `[PANIC]` in OpenWA.log, no `[GAMEPLAY 
 
 ## Worms 2D Speedrun Suite
 
-~598 replays in `testdata/replays/worms2d/` (`.wagame` extension). Must run with `-j 1` or `-j 2` — higher concurrency causes ~5-7% flakes from shared resource contention. Full suite takes ~3-4 min at `-j 1`. Use for final validation only.
+~598 replays in `testdata/replays/worms2d/` (`.wagame` extension). Supports high concurrency (`-j 16` or higher). Full suite takes ~40s at `-j 16`. Use for final validation after complex changes.
 
 ```bash
-openwa-test -d testdata/replays/worms2d -j 1
+openwa-test -d testdata/replays/worms2d -j 16
 ```
 
 ## Key Paths

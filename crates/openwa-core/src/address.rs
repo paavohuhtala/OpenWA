@@ -696,6 +696,8 @@ pub mod va {
         fn FRONTEND_LOCAL_MP_CTOR = 0x0049_C420;
         fn FRONTEND_TRAINING_CTOR = 0x004E_0880;
         fn FRONTEND_MISSIONS_CTOR = 0x0049_9190;
+        /// File-existence check via _findfirst (fastcall, ECX=filename)
+        fn/Fastcall FILE_EXISTS_CHECK = 0x004D_FA30;
         fn FRONTEND_POST_INIT_CTOR = 0x004C_91B0;
         fn FRONTEND_MAIN_MENU_CTOR = 0x0048_66C0;
         fn FRONTEND_SINGLE_PLAYER_CTOR = 0x004D_69F0;
