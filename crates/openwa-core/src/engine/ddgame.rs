@@ -3,7 +3,7 @@ use crate::audio::dssound::DSSound;
 use crate::audio::music::Music;
 use crate::audio::speech::SpeechSlotTable;
 use crate::audio::SoundQueueEntry;
-use crate::bitgrid::{CollisionBitGrid, DisplayBitGrid};
+use crate::bitgrid::{BitGrid, CollisionBitGrid, DisplayBitGrid};
 use crate::engine::game_info::GameInfo;
 use crate::engine::{CoordEntry, CoordList, TeamArena, TeamIndexMap};
 use crate::fixed::Fixed;
@@ -61,12 +61,12 @@ pub struct DDGame {
     pub net_game: *mut u8,
     /// 0x02C: Secondary PaletteContext (0x70C bytes, conditional on secondary GfxDir)
     pub secondary_palette_ctx: *mut crate::render::palette::PaletteContext,
-    /// 0x030: Gradient image pointer
-    pub gradient_image: *mut u8,
-    /// 0x034: Gradient image 2 pointer
-    pub gradient_image_2: *mut u8,
-    /// 0x038-0x0B4: Arrow sprite object pointers (32 entries)
-    pub arrow_sprites: [*mut u8; 32],
+    /// 0x030: Gradient image (decoded from gradient.img via IMG_Decode).
+    pub gradient_image: *mut BitGrid,
+    /// 0x034: Gradient image 2 pointer.
+    pub gradient_image_2: *mut BitGrid,
+    /// 0x038-0x0B4: Arrow sprite BitGrid pointers (32 entries, decoded from arrow*.img).
+    pub arrow_sprites: [*mut BitGrid; 32],
     /// 0x0B8-0x134: Arrow GfxDir pointers (32 entries, conditional)
     pub arrow_gfxdirs: [*mut u8; 32],
     /// 0x138: Primary display BitGrid (vtable 0x664144, 8bpp pixel buffer).

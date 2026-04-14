@@ -117,18 +117,19 @@ pub(crate) unsafe fn compute_complex_gradient(
     let mut palette = PaletteContext::new();
 
     // Step 1: Load gradient.img
-    let gradient_sprite = call_gfx_find_and_load(land_dir, c"gradient.img", layer3_ctx);
-    if gradient_sprite.is_null() {
-        return;
-    }
+    let gradient_decoded = call_gfx_find_and_load(land_dir, c"gradient.img", layer3_ctx);
+    let gradient_sprite = match gradient_decoded {
+        Some(d) => d.as_bitgrid_ptr(),
+        None => return,
+    };
 
     // Sprite height from BitGrid layout (shared vtable 0x6640EC)
-    let gradient_height = (*(gradient_sprite as *const BitGrid)).height as i32;
+    let gradient_height = (*gradient_sprite).height as i32;
     if gradient_height <= 0 {
         return;
     }
 
-    let get_pixel: unsafe extern "thiscall" fn(*mut u8, i32, i32) -> u32 =
+    let get_pixel: unsafe extern "thiscall" fn(*mut BitGrid, i32, i32) -> u32 =
         core::mem::transmute(*(*(gradient_sprite as *const *const u32)).add(4));
 
     // Step 2: Compute target rows and stretch gradient through palette
@@ -146,8 +147,9 @@ pub(crate) unsafe fn compute_complex_gradient(
 
     // Step 3: If heights match, also set gradient_image_2
     if target_rows == gradient_height {
-        let gradient2 = call_gfx_find_and_load(land_dir, c"gradient.img", layer3_ctx);
-        (*ddgame).gradient_image_2 = gradient2;
+        (*ddgame).gradient_image_2 = call_gfx_find_and_load(land_dir, c"gradient.img", layer3_ctx)
+            .map(|d| d.as_bitgrid_ptr())
+            .unwrap_or(core::ptr::null_mut());
     }
 
     // Step 4: Sample 7 anchor colors by averaging 8×2 pixel blocks.
@@ -184,7 +186,7 @@ pub(crate) unsafe fn compute_complex_gradient(
 
     // Release the gradient sprite
     let gvt = *(gradient_sprite as *const *const u32);
-    let release: unsafe extern "thiscall" fn(*mut u8, u8) = core::mem::transmute(*gvt.add(3));
+    let release: unsafe extern "thiscall" fn(*mut BitGrid, u8) = core::mem::transmute(*gvt.add(3));
     release(gradient_sprite, 1);
 
     // Step 5: Establish initial/fallback color via palette closest-match.
@@ -256,5 +258,5 @@ pub(crate) unsafe fn compute_complex_gradient(
     (*gfx_obj).row_stride = stride;
     (*gfx_obj).width = 0;
     (*gfx_obj).height = total_height as u32;
-    (*ddgame).gradient_image = gfx_obj as *mut u8;
+    (*ddgame).gradient_image = gfx_obj;
 }

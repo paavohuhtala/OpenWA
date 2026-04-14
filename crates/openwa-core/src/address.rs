@@ -249,8 +249,8 @@ pub mod va {
         class "DisplayGfx" {
             /// DisplayGfx constructor
             ctor/Stdcall DISPLAYGFX_CTOR = 0x0056_9C10;
-            /// DisplayGfx constructor (from raw image)
-            ctor/Stdcall DISPLAYGFX_CONSTRUCTOR = 0x004F_5E80;
+            /// IMG__DecodeCached: decode cached raw image buffer into DisplayBitGrid
+            fn/Stdcall IMG_DECODE_CACHED = 0x004F_5E80;
             /// DisplayGfx construct full (5 params)
             fn/Stdcall DISPLAYGFX_CONSTRUCT_FULL = 0x0056_3FC0;
             /// DisplayGfx init team palette display objects
@@ -524,8 +524,8 @@ pub mod va {
         fn PALETTE_ANIMATE_MAYBE = 0x0053_3A80;
         fn LOAD_SPRITE = 0x0052_3400;
         fn OPENGL_INIT = 0x0059_F000;
-        /// GfxResource__Create_Maybe
-        fn GFX_RESOURCE_CREATE = 0x004F_6300;
+        /// IMG__LoadFromDir: look up + decode IMG resource from a .dir archive
+        fn IMG_LOAD_FROM_DIR = 0x004F_6300;
         /// SpriteGfxTable__Init
         fn/Fastcall SPRITE_GFX_TABLE_INIT = 0x0054_1620;
         /// RingBuffer__Init

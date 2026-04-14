@@ -8,14 +8,14 @@
 //! - `DDGame__InitFields` (0x526120): usercall(EDI=ddgame), plain RET → EAX=ddgame
 //! - `DDGame__InitRenderIndices` (0x526080): usercall(ESI=base), plain RET → EAX=base
 //! - `BitGrid__Init` (0x4F6370): usercall(ESI,ECX,EDI) + 1 stack, RET 0x4
-//! - `GfxResource__Create_Maybe` (0x4F6300): usercall(ECX,EAX) + 1 stack, RET 0x4
+//! - `IMG__LoadFromDir` (0x4F6300): usercall(ECX,EAX) + 1 stack, RET 0x4
 //! - `FUN_570E20` (display layer init): usercall(ESI=wrapper), plain RET
 
 use crate::hook;
 use core::ffi::c_char;
 use openwa_core::address::va;
 use openwa_core::asset::gfx_dir::{
-    gfx_dir_find_entry, gfx_dir_load_dir, gfx_resource_create, GfxDir,
+    gfx_dir_find_entry, gfx_dir_load_dir, img_load_from_dir, GfxDir,
 };
 use openwa_core::bitgrid::BitGrid;
 use openwa_core::engine::game_state_init::{
@@ -95,9 +95,9 @@ extern "cdecl" fn impl_display_layer_init(wrapper: *mut DDGameWrapper) -> *mut D
     wrapper
 }
 
-// ─── GfxResource__Create_Maybe (0x4F6300) ───────────────────────────────────
+// ─── IMG__LoadFromDir (0x4F6300) ───────────────────────────────────
 
-extern "cdecl" fn impl_gfx_resource_create(
+extern "cdecl" fn impl_img_load_from_dir(
     gfx_dir: *mut GfxDir,
     name: *const c_char,
     output: *mut u8,
@@ -106,12 +106,12 @@ extern "cdecl" fn impl_gfx_resource_create(
     // WA caller always passes a `PaletteContext*` (verified at all known
     // call sites — `set_active_layer`'s return value).
     let output = output as *mut openwa_core::render::palette::PaletteContext;
-    let result = unsafe { gfx_resource_create(gfx_dir, name, output) };
+    let result = unsafe { img_load_from_dir(gfx_dir, name, output) };
     result as u32
 }
 
 #[unsafe(naked)]
-unsafe extern "C" fn gfx_resource_create_trampoline() {
+unsafe extern "C" fn img_load_from_dir_trampoline() {
     core::arch::naked_asm!(
         "push edx",
         "push [esp+8]",       // output (stack param)
@@ -121,7 +121,7 @@ unsafe extern "C" fn gfx_resource_create_trampoline() {
         "add esp, 12",
         "pop edx",
         "ret 0x4",
-        impl_fn = sym impl_gfx_resource_create,
+        impl_fn = sym impl_img_load_from_dir,
     );
 }
 
@@ -197,9 +197,9 @@ pub fn install() -> Result<(), String> {
         )?;
 
         hook::install(
-            "GfxResource__Create",
-            va::GFX_RESOURCE_CREATE,
-            gfx_resource_create_trampoline as *const (),
+            "IMG__LoadFromDir",
+            va::IMG_LOAD_FROM_DIR,
+            img_load_from_dir_trampoline as *const (),
         )?;
 
         hook::install(

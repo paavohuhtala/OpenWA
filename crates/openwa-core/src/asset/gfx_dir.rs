@@ -4,11 +4,19 @@
 //! `Gfx0.dir`). It provides name→resource lookup via a 1024-bucket hash table
 //! and delegates file I/O and caching to vtable methods.
 
+#[cfg(target_arch = "x86")]
+use core::ffi::{c_char, CStr};
+
 use openwa_core::vtable;
 
 use crate::address::va;
+#[cfg(target_arch = "x86")]
+use crate::asset::img::DecodedBitGrid;
+use crate::bitgrid::BitGrid;
 use crate::rebase::rb;
 use crate::wa_alloc::{wa_malloc, wa_malloc_struct_zeroed};
+#[cfg(target_arch = "x86")]
+use crate::{asset, render::palette::PaletteContext};
 
 /// Cache slot within a GfxDir (0x10 bytes).
 ///
@@ -143,10 +151,7 @@ unsafe fn gfx_dir_hash(name: *const u8) -> u32 {
 /// `gfx_dir` must be a valid GfxHandler with initialized hash table at +0x04.
 /// `name` must be a valid null-terminated C string.
 #[cfg(target_arch = "x86")]
-pub unsafe fn gfx_dir_find_entry(
-    name: *const core::ffi::c_char,
-    gfx_dir: *const GfxDir,
-) -> *mut u8 {
+pub unsafe fn gfx_dir_find_entry(name: *const c_char, gfx_dir: *const GfxDir) -> *mut GfxDirEntry {
     let mut current_name = name as *const u8;
 
     loop {
@@ -215,7 +220,7 @@ pub unsafe fn gfx_dir_find_entry(
             }
 
             if match_found {
-                return entry as *mut u8;
+                return entry;
             }
 
             entry = (*entry).next;
@@ -448,94 +453,86 @@ pub unsafe extern "thiscall" fn gfx_dir_release(this: *mut GfxDir, flags: u32) {
     }
 }
 
-/// Pure Rust implementation of GfxResource__Create_Maybe (0x4F6300).
+/// Pure Rust implementation of IMG__LoadFromDir (0x4F6300).
 ///
-/// Convention: usercall(ECX=gfx_dir, EAX=name) + 1 stack(output), RET 0x4.
+/// Convention: usercall(ECX=gfx_dir, EAX=name) + 1 stack(palette_ctx), RET 0x4.
 ///
-/// Looks up `name` in the GfxHandler's directory, tries cached load, wraps
-/// as DisplayGfx. Falls back to loading the raw image and decoding it.
+/// Looks up `name` in the GfxDir archive's hash table. If found in cache,
+/// decodes via `img_decode_cached`. Otherwise loads from the archive stream
+/// and decodes via `img_decode`.
 ///
 /// # Safety
 /// All pointers must be valid WA objects.
 #[cfg(target_arch = "x86")]
-pub unsafe fn gfx_resource_create(
+pub unsafe fn img_load_from_dir(
     gfx_dir: *mut GfxDir,
-    name: *const core::ffi::c_char,
-    output: *mut crate::render::palette::PaletteContext,
-) -> *mut u8 {
-    // 1. Try FindEntry → cached load → DisplayGfx wrap
+    name: *const c_char,
+    palette_ctx: *mut PaletteContext,
+) -> *mut BitGrid {
+    use crate::asset::img::{img_decode, img_decode_cached};
+
+    // 1. Try FindEntry → cached load → decode from raw buffer
     let entry = gfx_dir_find_entry(name, gfx_dir);
     if !entry.is_null() {
-        // gfx_dir->vtable[2](entry->field_4) — cached load
-        let entry_val = (*(entry as *const GfxDirEntry)).value;
+        let entry_val = (*entry).value;
         let cached = GfxDir::load_cached_raw(gfx_dir, entry_val);
         if !cached.is_null() {
-            // DisplayGfx__Constructor_Maybe: stdcall(raw_image), RET 0x4
-            let ctor: unsafe extern "stdcall" fn(*mut u8) -> *mut u8 =
-                core::mem::transmute(rb(va::DISPLAYGFX_CONSTRUCTOR) as usize);
-            return ctor(cached);
+            return img_decode_cached(palette_ctx, cached) as *mut BitGrid;
         }
     }
 
-    // 2. Fallback: LoadImage → IMG_Decode
+    // 2. Fallback: LoadImage → IMG_Decode from stream
     let raw_image = gfx_dir_load_image(gfx_dir, name);
     if raw_image.is_null() {
         return core::ptr::null_mut();
     }
 
-    // IMG_Decode: stdcall(output, raw_image, 1), RET 0xC
-    let decode: unsafe extern "stdcall" fn(*mut u8, *mut u8, i32) -> *mut u8 =
-        core::mem::transmute(rb(va::IMG_DECODE) as usize);
-    let result = decode(output as *mut u8, raw_image as *mut u8, 1);
-
+    let result = match img_decode(palette_ctx, raw_image, 1) {
+        Some(decoded) => decoded.as_bitgrid_ptr(),
+        None => core::ptr::null_mut(),
+    };
     GfxDirStream::destroy_raw(raw_image);
 
     result
 }
 
 /// Helper: find entry in GfxDir and load image, or load directly.
-/// Returns a DisplayGfx/sprite pointer or null.
 #[cfg(target_arch = "x86")]
 pub(crate) unsafe fn call_gfx_find_and_load(
     gfx_dir: *mut GfxDir,
-    name: &core::ffi::CStr,
-    display_ctx: *mut crate::render::palette::PaletteContext,
-) -> *mut u8 {
-    let name_ptr = name.as_ptr() as *const u8;
-    let entry = gfx_dir_find_entry(name_ptr.cast(), gfx_dir);
+    name: &CStr,
+    palette_ctx: *mut PaletteContext,
+) -> Option<DecodedBitGrid> {
+    let name_ptr = name.as_ptr();
+    let entry = gfx_dir_find_entry(name_ptr, gfx_dir);
 
     if !entry.is_null() {
-        // Try cached load: gfx_dir->vtable[2](entry->field_4)
-        let cached = GfxDir::load_cached_raw(gfx_dir, (*(entry as *const GfxDirEntry)).value);
+        let cached = GfxDir::load_cached_raw(gfx_dir, (*entry).value);
         if !cached.is_null() {
-            // Wrap with DisplayGfx__Constructor_Maybe (0x4F5E80)
-            // This is stdcall(1 param), RET 0x4
-            let ctor: unsafe extern "stdcall" fn(*mut u8) -> *mut u8 =
-                core::mem::transmute(rb(va::DISPLAYGFX_CONSTRUCTOR) as usize);
-            return ctor(cached);
+            let grid = asset::img::img_decode_cached(palette_ctx, cached);
+            if !grid.is_null() {
+                return Some(DecodedBitGrid::Display(grid));
+            }
+            return None;
         }
     }
 
     // Fallback: load image directly
-    call_gfx_load_and_wrap(gfx_dir, name_ptr.cast(), display_ctx)
+    call_gfx_load_and_wrap(gfx_dir, name_ptr.cast(), palette_ctx)
 }
 
-/// Helper: load image via GfxDir__LoadImage + wrap as DisplayGfx.
-/// Used by arrow sprite loop when GfxDir__FindEntry returns null.
+/// Helper: load image via GfxDir__LoadImage + IMG_Decode.
 #[cfg(target_arch = "x86")]
 pub(crate) unsafe fn call_gfx_load_and_wrap(
     gfx_dir: *mut GfxDir,
-    name: *const core::ffi::c_char,
-    display_ctx: *mut crate::render::palette::PaletteContext,
-) -> *mut u8 {
+    name: *const c_char,
+    palette_ctx: *mut PaletteContext,
+) -> Option<DecodedBitGrid> {
     let image = gfx_dir_load_image(gfx_dir, name);
     if image.is_null() {
-        return core::ptr::null_mut();
+        return None;
     }
-    // FUN_004F5F80(display_ctx, image, 1) — stdcall, RET 0xC (3 params)
-    let f: unsafe extern "stdcall" fn(*mut u8, *mut u8, u32) -> *mut u8 =
-        core::mem::transmute(rb(va::IMG_DECODE) as usize);
-    let result = f(display_ctx as *mut u8, image as *mut u8, 1);
+    let result = asset::img::img_decode(palette_ctx, image, 1);
     GfxDirStream::destroy_raw(image);
     result
 }
@@ -806,10 +803,7 @@ pub unsafe extern "thiscall" fn gfx_dir_stream_read(
 /// creates a GfxDirStream for sequential reading, and returns it.
 /// Returns null if no free slots or name not found.
 #[cfg(target_arch = "x86")]
-pub unsafe fn gfx_dir_load_image(
-    gfx_dir: *mut GfxDir,
-    name: *const core::ffi::c_char,
-) -> *mut GfxDirStream {
+pub unsafe fn gfx_dir_load_image(gfx_dir: *mut GfxDir, name: *const c_char) -> *mut GfxDirStream {
     // Check if there are free cache slots
     if (*gfx_dir).slot_count == 0 {
         return core::ptr::null_mut();

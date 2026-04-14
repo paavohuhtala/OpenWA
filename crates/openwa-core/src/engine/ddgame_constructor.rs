@@ -12,7 +12,8 @@ use crate::address::va;
 use crate::asset::gfx_dir::{
     call_gfx_find_and_load, call_gfx_load_and_wrap, gfx_dir_load_dir, GfxDir, GfxDirVtable,
 };
-pub use crate::asset::gfx_dir::{gfx_dir_find_entry, gfx_resource_create};
+pub use crate::asset::gfx_dir::{gfx_dir_find_entry, img_load_from_dir};
+use crate::asset::img::DecodedBitGrid;
 use crate::audio::active_sound::ActiveSoundTable;
 use crate::audio::dssound::DSSound;
 use crate::audio::music::Music;
@@ -173,7 +174,7 @@ unsafe fn wa_init_version_flags(wrapper: *mut DDGameWrapper) {
 /// GfxHandler__LoadSprites (0x570B50): usercall(ESI=layer_ctx) + stdcall(4 params).
 ///
 /// ESI must hold the display layer context (from DisplayGfx::set_active_layer).
-/// The function uses ESI for LoadSpriteFromVfs and GfxResource__Create_Maybe
+/// The function uses ESI for LoadSpriteFromVfs and IMG__LoadFromDir
 /// when param4 (gfx_dir) is non-null.
 #[cfg(target_arch = "x86")]
 #[unsafe(naked)]
@@ -253,7 +254,7 @@ unsafe fn load_effect_wavs(wrapper: *mut DDGameWrapper) {
 unsafe fn wa_pc_landscape_ctor(
     this: *mut u8,
     ddgame: *mut DDGame,
-    gfx_resource: *mut u8,
+    gfx_resource: *mut crate::bitgrid::BitGrid,
     display: *mut DisplayGfx,
     landscape_data: *const u8,
     byte_output: *mut u8,
@@ -266,7 +267,7 @@ unsafe fn wa_pc_landscape_ctor(
     let f: unsafe extern "stdcall" fn(
         *mut u8,
         *mut DDGame,
-        *mut u8,
+        *mut crate::bitgrid::BitGrid,
         *mut DisplayGfx,
         *const u8,
         *mut u8,
@@ -291,12 +292,13 @@ unsafe fn wa_pc_landscape_ctor(
     )
 }
 
-/// DisplayGfx__Constructor (0x4F5E80): wrap raw image data in DisplayGfx object.
+/// Decode a cached raw image buffer into a BitGrid (0x4F5E80).
 #[cfg(target_arch = "x86")]
-unsafe fn wa_displaygfx_ctor(raw_image: *mut u8) -> *mut u8 {
-    let f: unsafe extern "stdcall" fn(*mut u8) -> *mut u8 =
-        core::mem::transmute(rb(va::DISPLAYGFX_CONSTRUCTOR) as usize);
-    f(raw_image)
+unsafe fn wa_displaygfx_ctor(
+    palette_ctx: *mut crate::render::palette::PaletteContext,
+    raw_image: *mut u8,
+) -> *mut BitGrid {
+    crate::asset::img::img_decode_cached(palette_ctx, raw_image) as *mut BitGrid
 }
 
 /// DDGame__InitDisplayFinal (0x56A830): finalize display for non-headless mode.
@@ -545,27 +547,27 @@ unsafe fn init_graphics_and_resources(
 
     // ── Display vtable slot 5 (offset 0x14) ──
     // Original: CALL EAX (vtable[5]), saves return value in ESI for use as
-    // the `output` parameter in the color-entries GfxResource__Create call below.
+    // the `output` parameter in the color-entries IMG__LoadFromDir call below.
     let layer_ctx = (*(*ddgame).display).set_active_layer(1);
 
     // ── GfxDir color entries DDGame+0x730C..0x732C ──
-    // Original logic: if gfx_mode!=0, try GfxResource__Create for colours.img.
+    // Original logic: if gfx_mode!=0, try IMG__LoadFromDir for colours.img.
     // If gfx_mode==0 OR resource creation fails, fall back to LoadSprites.
     // The fallback's 4th param is primary_gfx_dir when gfx_mode==0, or 0 on resource fail.
     if (*wrapper).gfx_mode != 0 {
-        let res = gfx_resource_create(
+        let res = img_load_from_dir(
             (*wrapper).primary_gfx_dir,
             rb(va::STR_COLOURS_IMG) as *const core::ffi::c_char,
             layer_ctx,
         );
         if !res.is_null() {
             let rvt = *(res as *const *const u32);
-            let get_color: unsafe extern "thiscall" fn(*mut u8, u32, u32) -> u32 =
+            let get_color: unsafe extern "thiscall" fn(*mut BitGrid, u32, u32) -> u32 =
                 core::mem::transmute(*rvt.add(4));
             for i in 0..9u32 {
                 (*ddgame).gfx_color_table[i as usize] = get_color(res, i, 0);
             }
-            let release: unsafe extern "thiscall" fn(*mut u8, u8) =
+            let release: unsafe extern "thiscall" fn(*mut BitGrid, u8) =
                 core::mem::transmute(*rvt.add(3));
             release(res, 1);
         } else {
@@ -638,16 +640,16 @@ unsafe fn init_graphics_and_resources(
     // ── GfxResource for masks.img ──
     // The original constructor uses a stack-local PaletteContext buffer (ESP+0x1A4)
     // initialized at the start with (word=1, word=0xFE, PaletteContext__Init).
-    // This same buffer is reused as the output param for GfxResource__Create(masks.img).
+    // This same buffer is reused as the output param for IMG__LoadFromDir(masks.img).
     // We replicate this initialization here. Size 0x900 matches the stack allocation.
-    let gfx_resource: *mut u8;
+    let gfx_resource: *mut crate::bitgrid::BitGrid;
     {
         let gfx_dir = (*wrapper).primary_gfx_dir;
         let palette_ctx = wa_malloc_zeroed(0x900) as *mut crate::render::palette::PaletteContext;
         (*palette_ctx).dirty_range_min = 1;
         (*palette_ctx).dirty_range_max = 0xFE;
         crate::render::palette::palette_context_init(palette_ctx);
-        gfx_resource = gfx_resource_create(
+        gfx_resource = img_load_from_dir(
             gfx_dir,
             rb(va::STR_MASKS_IMG) as *const core::ffi::c_char,
             palette_ctx as *mut crate::render::palette::PaletteContext,
@@ -659,7 +661,7 @@ unsafe fn init_graphics_and_resources(
         let use_orig = std::env::var("OPENWA_USE_ORIG_CTOR").is_ok();
         let tag = if use_orig { "orig" } else { "rust" };
         // Dump GfxResource object + first sub-object
-        let gr_data = core::slice::from_raw_parts(gfx_resource, 0x100);
+        let gr_data = core::slice::from_raw_parts(gfx_resource as *const u8, 0x100);
         let _ = std::fs::write(format!("gfx_resource_{}.bin", tag), gr_data);
     }
 
@@ -707,7 +709,7 @@ unsafe fn init_graphics_and_resources(
     // SpriteRegion__Constructor: fastcall(ECX, EDX) + 6 stack(this, p2, p3, p4, p5, p6), RET 0x18
     {
         // (array_index, ECX, EDX, p2, p3, p4, p5, p6=gfx_resource)
-        // p6 is the GfxResource pointer returned by GfxResource__Create_Maybe.
+        // p6 is the GfxResource pointer returned by IMG__LoadFromDir.
         let gr = gfx_resource as u32;
         let regions: [(usize, u32, u32, u32, u32, u32, u32, u32); 8] = [
             (2, 0x37, 0x36, 0x2E, 0x24, 0x41, 0x2D, gr),
@@ -756,22 +758,27 @@ unsafe fn init_graphics_and_resources(
 
             let entry = gfx_dir_find_entry(name_buf.as_ptr().cast(), gfx_dir);
 
-            let sprite: *mut u8;
-            if !entry.is_null() {
+            let decoded = if !entry.is_null() {
                 let entry_val = *(entry.add(4) as *const u32);
                 let cached = GfxDir::load_cached_raw(gfx_dir, entry_val);
                 if !cached.is_null() {
-                    sprite = wa_displaygfx_ctor(cached);
+                    let grid = wa_displaygfx_ctor(layer_ctx, cached);
+                    if !grid.is_null() {
+                        Some(DecodedBitGrid::Display(grid as *mut DisplayBitGrid))
+                    } else {
+                        None
+                    }
                 } else {
-                    // Fallback: load from file via GfxDir__LoadImage + IMG_Decode
-                    sprite = call_gfx_load_and_wrap(gfx_dir, name_buf.as_ptr().cast(), layer_ctx);
+                    call_gfx_load_and_wrap(gfx_dir, name_buf.as_ptr().cast(), layer_ctx)
                 }
             } else {
-                // Entry not found — try direct file load
-                sprite = call_gfx_load_and_wrap(gfx_dir, name_buf.as_ptr().cast(), layer_ctx);
-            }
+                call_gfx_load_and_wrap(gfx_dir, name_buf.as_ptr().cast(), layer_ctx)
+            };
 
             // Store arrow sprite at DDGame+0x38+i*4
+            let sprite = decoded
+                .map(|d| d.as_bitgrid_ptr())
+                .unwrap_or(core::ptr::null_mut());
             (*ddgame).arrow_sprites[i as usize] = sprite;
 
             // Calculate collision region dimensions from sprite.
@@ -780,9 +787,8 @@ unsafe fn init_graphics_and_resources(
             //   right/bottom = dim - margin
             // Result: this[5]=this[6]=10 for sprites >20px (the 10px inset).
             if !sprite.is_null() {
-                let grid = &*(sprite as *const BitGrid);
-                let sprite_w = grid.width as i32;
-                let sprite_h = grid.height as i32;
+                let sprite_w = (*sprite).width as i32;
+                let sprite_h = (*sprite).height as i32;
                 let margin_w = (sprite_w / 2 - 10).max(0);
                 let margin_h = (sprite_h / 2 - 10).max(0);
 
@@ -807,12 +813,12 @@ unsafe fn init_graphics_and_resources(
 
             // Arrow GfxDir (conditional on secondary gfxdir)
             if !(*ddgame).secondary_palette_ctx.is_null() {
-                let gfx_resource_create: unsafe extern "thiscall" fn(
+                let wa_img_load_from_dir: unsafe extern "thiscall" fn(
                     *mut GfxDir,
                     *mut u8,
-                ) -> *mut u8 = core::mem::transmute(rb(va::GFX_RESOURCE_CREATE) as usize);
+                ) -> *mut u8 = core::mem::transmute(rb(va::IMG_LOAD_FROM_DIR) as usize);
                 (*ddgame).arrow_gfxdirs[i as usize] =
-                    gfx_resource_create(gfx_dir, core::ptr::null_mut());
+                    wa_img_load_from_dir(gfx_dir, core::ptr::null_mut());
             }
         }
     }
@@ -821,7 +827,8 @@ unsafe fn init_graphics_and_resources(
     // vtable[3] = DisplayGfx__vmethod_3: thiscall(this, byte param_2), RET 4.
     if !gfx_resource.is_null() {
         let rvt = *(gfx_resource as *const *const u32);
-        let release: unsafe extern "thiscall" fn(*mut u8, u8) = core::mem::transmute(*rvt.add(3));
+        let release: unsafe extern "thiscall" fn(*mut crate::bitgrid::BitGrid, u8) =
+            core::mem::transmute(*rvt.add(3));
         release(gfx_resource, 1);
     }
 
@@ -956,8 +963,10 @@ unsafe fn init_graphics_and_resources(
 
         if s_var1 < 0x61 && level_height == 0x2B8 {
             // Simple gradient: load gradient.img directly
-            let gradient = call_gfx_find_and_load(land_dir, c"gradient.img", layer3_ctx);
-            (*ddgame).gradient_image = gradient;
+            (*ddgame).gradient_image =
+                call_gfx_find_and_load(land_dir, c"gradient.img", layer3_ctx)
+                    .map(|d| d.as_bitgrid_ptr())
+                    .unwrap_or(core::ptr::null_mut());
         } else {
             compute_complex_gradient(ddgame, land_dir, layer3_ctx, s_var1);
         }
@@ -965,19 +974,18 @@ unsafe fn init_graphics_and_resources(
         // ── Fill image → fill_pixel (0x7338) ──
         {
             let layer2_ctx = (*(*ddgame).display).set_active_layer(2);
-            // In the original, fill.img uses piStack_126c which the decompiler
-            // shows was set from piVar3 (water_layer from landscape+0xB38).
             let fill_sprite = call_gfx_find_and_load(water_dir, c"fill.img", layer2_ctx);
-            if !fill_sprite.is_null() {
-                // Get pixel value: fill_sprite->vtable[4](0, 0)
-                let fill_vt = *(fill_sprite as *const *const u32);
-                let get_pixel: unsafe extern "thiscall" fn(*mut u8, i32, i32) -> u32 =
+            if let Some(decoded) = fill_sprite {
+                let ptr = decoded.as_bitgrid_ptr();
+                // Get pixel value: vtable[4](0, 0)
+                let fill_vt = *(ptr as *const *const u32);
+                let get_pixel: unsafe extern "thiscall" fn(*mut BitGrid, i32, i32) -> u32 =
                     core::mem::transmute(*fill_vt.add(4));
-                (*ddgame).fill_pixel = get_pixel(fill_sprite, 0, 0);
-                // Release fill sprite: vtable[3] = DisplayGfx__vmethod_3(this, param_2=1)
-                let release: unsafe extern "thiscall" fn(*mut u8, u8) =
+                (*ddgame).fill_pixel = get_pixel(ptr, 0, 0);
+                // Release: vtable[3](this, flags=1)
+                let release: unsafe extern "thiscall" fn(*mut BitGrid, u8) =
                     core::mem::transmute(*fill_vt.add(3));
-                release(fill_sprite, 1);
+                release(ptr, 1);
             }
         }
 
@@ -1006,7 +1014,7 @@ unsafe fn init_graphics_and_resources(
         if !obj.is_null() {
             (*obj).vtable = rb(va::BIT_GRID_BASE_VTABLE) as *const BitGridBaseVtable;
             // height = 0 → CTaskLand skips the gradient column loop
-            (*ddgame).gradient_image = obj as *mut u8;
+            (*ddgame).gradient_image = obj;
         }
     }
 
