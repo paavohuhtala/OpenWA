@@ -12,6 +12,8 @@ use openwa_core::render::display::destructor as display_destructor;
 use openwa_core::render::display::vtable::{self as display_vtable_impl, DisplayGfxVtable};
 use openwa_core::render::display::DisplayBase;
 use openwa_core::render::display::DisplayGfx;
+use openwa_core::render::palette::PaletteContext;
+use openwa_core::render::sprite::Sprite;
 use openwa_core::render::SpriteOp;
 use openwa_core::vtable::patch_vtable;
 use openwa_core::vtable_replace;
@@ -101,10 +103,10 @@ unsafe extern "thiscall" fn load_sprite(
 // LoadSpriteFromVfs (0x4FAAF0) — naked bridge
 #[unsafe(naked)]
 unsafe extern "cdecl" fn wa_load_sprite_from_vfs(
-    _sprite: *mut openwa_core::render::sprite::Sprite,
+    _sprite: *mut Sprite,
     _gfx_dir: *mut GfxDir,
     _name: *const c_char,
-    _layer_ctx: *mut openwa_core::render::palette::PaletteContext,
+    _layer_ctx: *mut PaletteContext,
 ) -> i32 {
     core::arch::naked_asm!(
         // cdecl: +4=sprite, +8=gfx, +12=name, +16=layer_ctx

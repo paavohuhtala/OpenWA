@@ -10,8 +10,8 @@ use crate::render::display::font::{
 };
 use crate::render::display::layer::Layer;
 use crate::render::display::line_draw::Vertex;
-use crate::render::sprite::sprite::{LayerSprite, LayerSpriteFrame};
 use crate::render::sprite::sprite_op::SpriteOp;
+use crate::render::sprite::{LayerSprite, LayerSpriteFrame};
 use crate::render::SpriteCache;
 use crate::wa_alloc::wa_malloc_struct_zeroed;
 
@@ -2338,7 +2338,7 @@ pub unsafe extern "thiscall" fn draw_text_on_bitmap(
 // =============================================================================
 
 use crate::render::display::context::Surface;
-use crate::render::sprite::sprite::CBitmap;
+use crate::render::sprite::CBitmap;
 use crate::wa_alloc::wa_malloc;
 
 /// Source descriptor passed to `DisplayGfx::DrawTiledBitmap` (slot 11) as

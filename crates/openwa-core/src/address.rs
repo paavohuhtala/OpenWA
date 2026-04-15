@@ -101,8 +101,7 @@ pub mod va {
         PALETTE_CONTEXT_INIT, PALETTE_CONTEXT_INIT_RANGE, PALETTE_CONTEXT_MAP_COLOR,
     };
     pub use crate::render::sprite::frame_cache::FRAME_CACHE_ALLOCATE;
-    pub use crate::render::sprite::sprite::SPRITE_BANK_VTABLE;
-    pub use crate::render::sprite::sprite::{
+    pub use crate::render::sprite::{
         CBITMAP_VTABLE_MAYBE, CONSTRUCT_SPRITE, DESTROY_SPRITE, FREE_SPRITE_OBJECT,
         LOAD_SPRITE_BY_NAME, LOAD_SPRITE_FROM_VFS, PROCESS_SPRITE, SPRITE_BANK_GET_FRAME_FOR_BLIT,
         SPRITE_BANK_GET_INFO, SPRITE_BANK_INIT, SPRITE_GET_FRAME_FOR_BLIT, SPRITE_GET_INFO,

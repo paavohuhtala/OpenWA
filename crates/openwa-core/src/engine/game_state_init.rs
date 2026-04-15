@@ -1843,9 +1843,9 @@ unsafe fn init_game_state_tracking_arrays(ddgame: *mut DDGame, game_info: *const
 /// - +0x24..+0x224: 32 sub-buffer elements (each 0x10 bytes)
 ///
 /// Each sub-buffer element (FUN_004fdc20):
-/// - [0]: capacity (0x100)
-/// - [1]/[2]: zeroed
-/// - [3]: buffer (0x420 bytes, first 0x400 zeroed)
+/// - 0: capacity (0x100)
+/// - 1/2: zeroed
+/// - 3: buffer (0x420 bytes, first 0x400 zeroed)
 unsafe fn game_state_stream_init(sub_obj: *mut u32) {
     *sub_obj.add(5) = 0x100; // +0x14: capacity
     *sub_obj.add(6) = 0; // +0x18

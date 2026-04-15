@@ -5,7 +5,7 @@
 //! and shared metadata extraction (`parse_spr_header`) used by hook
 //! replacements in openwa-dll.
 
-use crate::render::sprite::SpriteFrame;
+use crate::render::SpriteFrame;
 
 /// Errors from `.spr` parsing.
 #[derive(Debug)]

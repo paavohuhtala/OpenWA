@@ -48,7 +48,7 @@ use crate::render::display::context::{FastcallResult, RenderContext};
 use crate::render::display::frame_hook::FramePostProcessHook;
 use crate::render::display::gfx::{DisplayGfx, TileBitmapSet, DISPLAY_BASE_DESTRUCTOR_IMPL};
 use crate::render::display::vtable::{DisplayGfxVtable, DISPLAY_GFX_VTABLE};
-use crate::render::sprite::sprite::{CBitmap, LayerSprite, LayerSpriteFrame};
+use crate::render::sprite::{CBitmap, LayerSprite, LayerSpriteFrame};
 use crate::wa_alloc::wa_free;
 
 // =============================================================================
@@ -210,7 +210,7 @@ unsafe fn free_layer_sprite_table(this: *mut DisplayGfx) {
 /// dispatch through it — then releases the surface via its `vtable[0](1)`
 /// scalar deleting destructor if non-null.
 unsafe fn layer_sprite_frame_destructor(frame: *mut LayerSpriteFrame) {
-    use crate::render::sprite::sprite::CBITMAP_VTABLE_MAYBE;
+    use crate::render::sprite::CBITMAP_VTABLE_MAYBE;
 
     (*frame).bitmap_vtable = rb(CBITMAP_VTABLE_MAYBE) as *const c_void;
     let surface = (*frame).surface;

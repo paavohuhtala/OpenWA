@@ -222,10 +222,8 @@ fn sub_saturate(in_val: Fixed, cam: Fixed) -> Fixed {
         if cam.0 > 0 && delta.0 > 0 {
             return Fixed(i32::MIN);
         }
-    } else {
-        if cam.0 < 0 && delta.0 < 0 {
-            return Fixed(i32::MAX);
-        }
+    } else if cam.0 < 0 && delta.0 < 0 {
+        return Fixed(i32::MAX);
     }
     delta
 }

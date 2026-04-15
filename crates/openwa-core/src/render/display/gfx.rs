@@ -1,7 +1,7 @@
 use super::base::DisplayBase;
 use super::vtable::DisplayGfxVtable;
 use crate::bitgrid::{BitGrid, BitGridBaseVtable, DisplayBitGrid};
-use crate::render::sprite::sprite::{CBitmap, LayerSprite};
+use crate::render::sprite::{CBitmap, LayerSprite};
 
 crate::define_addresses! {
     class "DisplayGfx" {
@@ -107,12 +107,12 @@ pub struct DisplayGfx {
     /// 0x3580: Tile-cache `CBitmap*` vector — start pointer (init 0).
     /// Populated by `DisplayGfx::DrawTiledBitmap` (slot 11) on its first
     /// call: one entry per 0x400-row strip of the source landscape.
-    pub bitmap_ptr: *mut *mut crate::render::sprite::sprite::CBitmap,
+    pub bitmap_ptr: *mut *mut crate::render::sprite::CBitmap,
     /// 0x3584: Tile-cache vector end pointer (init 0). `(end - ptr) >> 2`
     /// = current entry count.
-    pub bitmap_end: *mut *mut crate::render::sprite::sprite::CBitmap,
+    pub bitmap_end: *mut *mut crate::render::sprite::CBitmap,
     /// 0x3588: Tile-cache vector capacity-end pointer (init 0).
-    pub bitmap_capacity: *mut *mut crate::render::sprite::sprite::CBitmap,
+    pub bitmap_capacity: *mut *mut crate::render::sprite::CBitmap,
 
     // =========================================================================
     // Palette entry table (0x358C - 0x3D8F)
