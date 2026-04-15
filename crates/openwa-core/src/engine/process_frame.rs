@@ -65,11 +65,9 @@ pub unsafe fn advance_frame() -> u32 {
     (*session).timer_counter_lo = new_counter as u32;
     (*session).timer_counter_hi = (new_counter >> 32) as u32;
 
-    // Dispatch frame timing — stdcall(wrapper, time_lo, time_hi, freq_lo, freq_hi)
-    let dispatch: unsafe extern "stdcall" fn(*mut DDGameWrapper, u32, u32, u32, u32) =
-        core::mem::transmute(rb(va::DDGAMEWRAPPER_DISPATCH_FRAME) as usize);
+    // Dispatch frame timing via Rust port
     let wrapper = (*session).ddgame_wrapper;
-    dispatch(
+    crate::engine::dispatch_frame::dispatch_frame(
         wrapper,
         time as u32,
         (time >> 32) as u32,
