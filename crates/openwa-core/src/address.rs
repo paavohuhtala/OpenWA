@@ -122,6 +122,32 @@ pub mod va {
             fn/Usercall DDGAMEWRAPPER_LOAD_SPEECH_WAV = 0x0057_1530;
             /// DDGameWrapper__DispatchFrame — main frame timing/simulation dispatch (stdcall, 5 params)
             fn/Stdcall DDGAMEWRAPPER_DISPATCH_FRAME = 0x0052_9160;
+            /// DDGameWrapper__StepFrame — core single-frame step (usercall EAX=this, 5 stack params, RET 0x14)
+            fn/Usercall DDGAMEWRAPPER_STEP_FRAME = 0x0052_9F30;
+            /// DDGameWrapper__ShouldContinueFrameLoop — check elapsed time for frame catch-up (usercall EAX=this, 2 stack params, plain RET)
+            fn/Usercall DDGAMEWRAPPER_SHOULD_CONTINUE = 0x0052_A840;
+            /// DDGameWrapper__ResetFrameState (usercall EAX=this, no stack params, plain RET)
+            fn/Usercall DDGAMEWRAPPER_RESET_FRAME_STATE = 0x0052_A910;
+            /// DDGameWrapper__UpdateFrameTiming (usercall EAX=this, 4 stack params, RET 0x10)
+            fn/Usercall DDGAMEWRAPPER_UPDATE_FRAME_TIMING = 0x0052_A9C0;
+            /// DDGameWrapper__AdvanceFrameCounters (usercall EAX=this, 5 stack params, RET 0x14)
+            fn/Usercall DDGAMEWRAPPER_ADVANCE_FRAME_COUNTERS = 0x0052_AAA0;
+            /// DDGameWrapper__CalcTimingRatio (usercall EAX=this, 1 stack param, RET 0x4)
+            fn/Usercall DDGAMEWRAPPER_CALC_TIMING_RATIO = 0x0052_ABF0;
+            /// DDGameWrapper__InitFrameDelay (usercall EAX=this, no stack params, plain RET)
+            fn/Usercall DDGAMEWRAPPER_INIT_FRAME_DELAY = 0x0052_CAF0;
+            /// DDGameWrapper__NetworkUpdate (usercall EAX=this, no stack params, plain RET)
+            fn/Usercall DDGAMEWRAPPER_NETWORK_UPDATE = 0x0052_DB90;
+            /// DDGameWrapper__IsFramePaused (usercall EAX=this, no stack params, plain RET)
+            fn/Usercall DDGAMEWRAPPER_IS_FRAME_PAUSED = 0x0053_4880;
+            /// DDGameWrapper__SetupFrameParams (usercall EAX=this, 3 stack params, RET 0xC)
+            fn/Usercall DDGAMEWRAPPER_SETUP_FRAME_PARAMS = 0x0053_4CA0;
+            /// DDGameWrapper__ProcessNetworkFrame (usercall EAX=this, 4 stack params, RET 0x10)
+            fn/Usercall DDGAMEWRAPPER_PROCESS_NETWORK_FRAME = 0x0053_DF00;
+            /// DDGameWrapper__IsReplayMode (usercall EAX=this, no stack params, plain RET)
+            fn/Usercall DDGAMEWRAPPER_IS_REPLAY_MODE = 0x0053_7060;
+            /// DDGameWrapper__WriteHeadlessLog (usercall EAX=this, 2 stack params, RET 0x8)
+            fn/Usercall DDGAMEWRAPPER_WRITE_HEADLESS_LOG = 0x0053_F0A0;
         }
 
         class "DDGame" {
