@@ -15,7 +15,7 @@ pub const SPEECH_NAME_TABLE_LEN: usize = 360;
 /// DDGameWrapper vtable (0x66A30C, 10 slots).
 ///
 /// Slot 7 is the per-frame render dispatch, called from `GameSession__ProcessFrame`.
-/// Slot 9 returns `state_initialized` (+0x484), used by `GameSession__AdvanceFrame`.
+/// Slot 9 returns `game_state` (+0x484), used by `advance_frame`.
 #[openwa_core::vtable(size = 10, va = 0x0066_A30C, class = "DDGameWrapper")]
 pub struct DDGameWrapperVtable {
     /// Scalar deleting destructor (0x5713C0).
@@ -24,10 +24,10 @@ pub struct DDGameWrapperVtable {
     /// Render frame (0x56E040) — called each frame from `GameSession__ProcessFrame`.
     #[slot(7)]
     pub render_frame: fn(this: *mut DDGameWrapper),
-    /// Get state_initialized (0x528A20) — returns `self.state_initialized` (+0x484).
+    /// Get game state (0x528A20) — returns `self.game_state` (+0x484).
     /// See `process_frame::game_state` for known return values.
     #[slot(9)]
-    pub get_state_initialized: fn(this: *mut DDGameWrapper) -> u32,
+    pub get_game_state: fn(this: *mut DDGameWrapper) -> u32,
 }
 
 bind_DDGameWrapperVtable!(DDGameWrapper, vtable);
@@ -257,8 +257,9 @@ pub struct DDGameWrapper {
     pub _unknown_47c: u32,
     /// 0x480: Zeroed
     pub _field_480: u32,
-    /// 0x484: State initialized flag (set to 1 at end of InitGameState)
-    pub state_initialized: u32,
+    /// 0x484: Game state — set to 1 at end of InitGameState, checked via vtable slot 9.
+    /// See `process_frame::game_state` for known values (0=running, 4=headless exit, 5=exit).
+    pub game_state: u32,
 
     // ===== 0x488-0x4BF: Core pointers and flags =====
     /// 0x488: Pointer to DDGame allocation (DWORD index 0x122)

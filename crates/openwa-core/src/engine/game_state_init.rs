@@ -710,7 +710,7 @@ pub unsafe fn init_game_state(wrapper: *mut DDGameWrapper) {
     (*wrapper)._field_468 = -1;
     (*wrapper)._field_46c = -1;
     (*wrapper)._field_470 = -1;
-    (*wrapper).state_initialized = 0;
+    (*wrapper).game_state = 0;
     (*wrapper)._field_480 = 0;
     (*wrapper)._field_264 = 0;
     (*wrapper).sync_checksum_a = 0;
@@ -978,7 +978,7 @@ pub unsafe fn init_game_state(wrapper: *mut DDGameWrapper) {
     (*wrapper)._field_0ec = (((*game_info)._field_f340 != 0) as u32).wrapping_sub(1);
 
     (*game_info)._field_f34c = -1;
-    (*wrapper).state_initialized = 1;
+    (*wrapper).game_state = 1;
 
     // ===== Serialize initial game state =====
     {

@@ -7,13 +7,16 @@
 //! `advance_frame` handles timer reads, accumulator updates, and
 //! dispatches the frame timing to `DDGameWrapper__DispatchFrame`.
 
+use windows_sys::Win32::System::Performance::QueryPerformanceCounter;
+use windows_sys::Win32::System::SystemInformation::GetTickCount;
+
 use crate::address::va;
 use crate::engine::ddgame_wrapper::DDGameWrapper;
 use crate::engine::game_session::GameSession;
 use crate::rebase::rb;
 use crate::render::display::gfx::DisplayGfx;
 
-/// Game state values returned by `advance_frame` (via `DDGameWrapper::get_state_initialized`).
+/// Game state values returned by `advance_frame` (via `DDGameWrapper::get_game_state`).
 /// Not an enum because we don't know all variants — transmuting an unknown discriminant is UB.
 pub mod game_state {
     /// Game is running normally.
@@ -29,13 +32,11 @@ pub mod game_state {
 /// Reads the current time (via `GetTickCount` or `QueryPerformanceCounter`),
 /// updates the timer accumulator, dispatches frame timing to
 /// `DDGameWrapper__DispatchFrame` (0x529160), and returns the game state
-/// from `DDGameWrapper::get_state_initialized`.
+/// from `DDGameWrapper::get_game_state`.
 ///
 /// # Safety
 /// Must be called from within the WA.exe process with a valid `g_GameSession`.
 pub unsafe fn advance_frame() -> u32 {
-    use windows_sys::Win32::System::SystemInformation::GetTickCount;
-
     let session = *(rb(va::G_GAME_SESSION) as *const *mut GameSession);
     let freq_lo = (*session).timer_freq_lo;
     let freq_hi = (*session).timer_freq_hi;
@@ -53,7 +54,7 @@ pub unsafe fn advance_frame() -> u32 {
     } else {
         // Use QueryPerformanceCounter
         let mut qpc: i64 = 0;
-        windows_sys::Win32::System::Performance::QueryPerformanceCounter(&mut qpc);
+        QueryPerformanceCounter(&mut qpc);
         new_counter = counter.wrapping_mul(4).wrapping_add((qpc as u64) & 3);
         time = qpc as u64;
         call_freq_lo = freq_lo;
@@ -77,7 +78,7 @@ pub unsafe fn advance_frame() -> u32 {
     );
 
     // Return game state (vtable slot 9)
-    DDGameWrapper::get_state_initialized_raw(wrapper)
+    DDGameWrapper::get_game_state_raw(wrapper)
 }
 
 /// Rust port of `GameSession__ProcessFrame` (0x572C80).
