@@ -36,6 +36,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y llvm
+
       - name: Install cargo-xwin
         run: cargo install cargo-xwin
 
