@@ -1,8 +1,11 @@
-//! Rust port of `GameSession__ProcessFrame` (0x572C80).
+//! Rust ports of `GameSession__ProcessFrame` (0x572C80) and
+//! `GameSession__AdvanceFrame` (0x56DDC0).
 //!
 //! Called every iteration of the main game loop in `GameSession__Run`.
-//! Handles desktop availability checks, keyboard state, engine frame
-//! advance, render dispatch, and minimize requests.
+//! `process_frame` handles desktop availability checks, keyboard state,
+//! frame advance, render dispatch, and minimize requests.
+//! `advance_frame` handles timer reads, accumulator updates, and
+//! dispatches the frame timing to `DDGameWrapper__DispatchFrame`.
 
 use crate::address::va;
 use crate::engine::ddgame_wrapper::DDGameWrapper;
@@ -10,7 +13,7 @@ use crate::engine::game_session::GameSession;
 use crate::rebase::rb;
 use crate::render::display::gfx::DisplayGfx;
 
-/// Game state values returned by `GameSession__AdvanceFrame` (via `DDGameWrapper::get_state_initialized`).
+/// Game state values returned by `advance_frame` (via `DDGameWrapper::get_state_initialized`).
 /// Not an enum because we don't know all variants — transmuting an unknown discriminant is UB.
 pub mod game_state {
     /// Game is running normally.
@@ -19,6 +22,62 @@ pub mod game_state {
     pub const EXIT_HEADLESS: u32 = 4;
     /// Normal exit condition.
     pub const EXIT: u32 = 5;
+}
+
+/// Rust port of `GameSession__AdvanceFrame` (0x56DDC0).
+///
+/// Reads the current time (via `GetTickCount` or `QueryPerformanceCounter`),
+/// updates the timer accumulator, dispatches frame timing to
+/// `DDGameWrapper__DispatchFrame` (0x529160), and returns the game state
+/// from `DDGameWrapper::get_state_initialized`.
+///
+/// # Safety
+/// Must be called from within the WA.exe process with a valid `g_GameSession`.
+pub unsafe fn advance_frame() -> u32 {
+    use windows_sys::Win32::System::SystemInformation::GetTickCount;
+
+    let session = *(rb(va::G_GAME_SESSION) as *const *mut GameSession);
+    let freq_lo = (*session).timer_freq_lo;
+    let freq_hi = (*session).timer_freq_hi;
+    let counter = ((*session).timer_counter_hi as u64) << 32 | (*session).timer_counter_lo as u64;
+
+    let (time, new_counter, call_freq_lo, call_freq_hi);
+
+    if freq_lo == 0 && freq_hi == 0 {
+        // No QueryPerformanceCounter — use GetTickCount
+        let tick = GetTickCount();
+        new_counter = counter.wrapping_mul(2).wrapping_add((tick & 1) as u64);
+        time = tick as u64 * 1000;
+        call_freq_lo = 1_000_000u32;
+        call_freq_hi = 0u32;
+    } else {
+        // Use QueryPerformanceCounter
+        let mut qpc: i64 = 0;
+        windows_sys::Win32::System::Performance::QueryPerformanceCounter(&mut qpc);
+        new_counter = counter.wrapping_mul(4).wrapping_add((qpc as u64) & 3);
+        time = qpc as u64;
+        call_freq_lo = freq_lo;
+        call_freq_hi = freq_hi;
+    };
+
+    // Store updated accumulator
+    (*session).timer_counter_lo = new_counter as u32;
+    (*session).timer_counter_hi = (new_counter >> 32) as u32;
+
+    // Dispatch frame timing — stdcall(wrapper, time_lo, time_hi, freq_lo, freq_hi)
+    let dispatch: unsafe extern "stdcall" fn(*mut DDGameWrapper, u32, u32, u32, u32) =
+        core::mem::transmute(rb(va::DDGAMEWRAPPER_DISPATCH_FRAME) as usize);
+    let wrapper = (*session).ddgame_wrapper;
+    dispatch(
+        wrapper,
+        time as u32,
+        (time >> 32) as u32,
+        call_freq_lo,
+        call_freq_hi,
+    );
+
+    // Return game state (vtable slot 9)
+    DDGameWrapper::get_state_initialized_raw(wrapper)
 }
 
 /// Rust port of `GameSession__ProcessFrame` (0x572C80).
@@ -81,13 +140,9 @@ pub unsafe fn process_frame() {
     }
 
     // ── Engine frame path ──
-
-    // Advance frame timing and get state
-    let advance_frame: unsafe extern "C" fn() -> u32 =
-        core::mem::transmute(rb(va::GAME_SESSION_ADVANCE_FRAME) as usize);
     let state = advance_frame();
 
-    // Re-read session after AdvanceFrame (it may have been modified)
+    // Re-read session after advance_frame (it may have been modified)
     let session = *(rb(va::G_GAME_SESSION) as *const *mut GameSession);
 
     if state == game_state::EXIT {

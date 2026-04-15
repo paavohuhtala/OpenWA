@@ -120,6 +120,8 @@ pub mod va {
             fn/Stdcall DDGAME_WRAPPER_LOADING_PROGRESS_TICK = 0x0057_17A0;
             /// DDGameWrapper__LoadSpeechWAV
             fn/Usercall DDGAMEWRAPPER_LOAD_SPEECH_WAV = 0x0057_1530;
+            /// DDGameWrapper__DispatchFrame — main frame timing/simulation dispatch (stdcall, 5 params)
+            fn/Stdcall DDGAMEWRAPPER_DISPATCH_FRAME = 0x0052_9160;
         }
 
         class "DDGame" {
