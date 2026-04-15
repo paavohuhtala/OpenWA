@@ -620,7 +620,7 @@ pub unsafe fn font_extend(
         // The original walks each byte one at a time, so use width_dwords = 1
         // and height = total_bytes / 4 ... actually simpler: do a flat single-row
         // remap with width_dwords = total/4 and height = 1.
-        let dword_count = (total_pixel_bytes as u32 + 3) / 4;
+        let dword_count = (total_pixel_bytes as u32).div_ceil(4);
         remap_pixels_through_lut(new_pixels, 0, palette_lut.as_ptr(), dword_count, 1);
     }
 

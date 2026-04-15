@@ -1000,7 +1000,7 @@ pub unsafe fn init_game_state(wrapper: *mut DDGameWrapper) {
         let buf_len = *((*wrapper).state_buffer.add(0x0C) as *const u32); // field[3]
         let mut hash = 0u32;
         for i in 0..buf_len as usize {
-            hash = (hash << 3 | hash >> 29).wrapping_add(*buf_ptr.add(i) as u32);
+            hash = hash.rotate_left(3).wrapping_add(*buf_ptr.add(i) as u32);
         }
 
         // Get frame counter via landscape vtable
@@ -1057,7 +1057,7 @@ unsafe fn allocate_buffer_object(ddgame: *mut DDGame, game_info: *const GameInfo
     let num_objects = (*game_info).object_slot_count;
     let buf1_capacity = num_teams * 0x450 + 0x4F178 + num_objects * 0x70;
 
-    let buf1 = wa_malloc((buf1_capacity + 3 & !3) + 0x20);
+    let buf1 = wa_malloc(((buf1_capacity + 3) & !3) + 0x20);
     core::ptr::write_bytes(buf1, 0, buf1_capacity as usize);
 
     *mem.add(0) = buf1 as u32;
@@ -1077,7 +1077,7 @@ unsafe fn allocate_buffer_object(ddgame: *mut DDGame, game_info: *const GameInfo
     };
     let buf2_capacity = extra + 0x2DC;
 
-    let buf2 = wa_malloc((buf2_capacity + 3 & !3) + 0x20);
+    let buf2 = wa_malloc(((buf2_capacity + 3) & !3) + 0x20);
     core::ptr::write_bytes(buf2, 0, buf2_capacity as usize);
 
     *mem.add(5) = buf2 as u32;
