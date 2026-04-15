@@ -711,7 +711,7 @@ pub unsafe fn init_game_state(wrapper: *mut DDGameWrapper) {
     (*wrapper)._field_46c = -1;
     (*wrapper)._field_470 = -1;
     (*wrapper).game_state = 0;
-    (*wrapper)._field_480 = 0;
+    (*wrapper).game_end_speed = 0;
     (*wrapper)._field_264 = 0;
     (*wrapper).sync_checksum_a = 0;
     (*wrapper).checksum_valid = 0;
@@ -764,7 +764,7 @@ pub unsafe fn init_game_state(wrapper: *mut DDGameWrapper) {
     }
 
     // ===== Game logic initialization =====
-    (*wrapper)._field_474 = 0;
+    (*wrapper).game_end_phase = 0;
     (*wrapper).init_flag = 1;
 
     // Already-ported sub-functions
@@ -773,7 +773,7 @@ pub unsafe fn init_game_state(wrapper: *mut DDGameWrapper) {
 
     // ===== Game speed/timing fields =====
     (*wrapper).health_precision = 500;
-    (*wrapper)._field_45c = 0;
+    (*wrapper).timing_jitter_state = 0;
     (*wrapper)._field_464 = 0;
     (*wrapper)._field_460 = 0;
     (*wrapper)._field_478 = 0;
@@ -954,8 +954,21 @@ pub unsafe fn init_game_state(wrapper: *mut DDGameWrapper) {
         }
     }
 
-    // ===== Zero state block (0x98-0xCC, 14 entries) =====
-    (*wrapper)._zeroed_098 = [0u32; 14];
+    // ===== Zero frame timing state (0x98-0xD4) =====
+    (*wrapper).timing_ref_lo = 0;
+    (*wrapper).timing_ref_hi = 0;
+    (*wrapper).last_frame_time_lo = 0;
+    (*wrapper).last_frame_time_hi = 0;
+    (*wrapper).frame_accum_a_lo = 0;
+    (*wrapper).frame_accum_a_hi = 0;
+    (*wrapper).frame_accum_b_lo = 0;
+    (*wrapper).frame_accum_b_hi = 0;
+    (*wrapper).frame_accum_c_lo = 0;
+    (*wrapper).frame_accum_c_hi = 0;
+    (*wrapper).initial_ref_lo = 0;
+    (*wrapper).initial_ref_hi = 0;
+    (*wrapper).pause_detect_lo = 0;
+    (*wrapper).pause_detect_hi = 0;
 
     // ===== Replay/network mode flag =====
     {
@@ -975,7 +988,7 @@ pub unsafe fn init_game_state(wrapper: *mut DDGameWrapper) {
     (*wrapper)._field_0e0 = 0;
 
     // 0xEC: (game_info.f340 != 0) - 1 (i.e., 0 if nonzero, 0xFFFFFFFF if zero)
-    (*wrapper)._field_0ec = (((*game_info)._field_f340 != 0) as u32).wrapping_sub(1);
+    (*wrapper).frame_delay_counter = (((*game_info)._field_f340 != 0) as i32).wrapping_sub(1);
 
     (*game_info)._field_f34c = -1;
     (*wrapper).game_state = 1;
