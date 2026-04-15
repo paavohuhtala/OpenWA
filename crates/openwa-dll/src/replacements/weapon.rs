@@ -76,20 +76,7 @@ static ORIG_PLACED_EXPLOSIVE: AtomicU32 = AtomicU32::new(0);
 
 // ── CreateWeaponProjectile (0x51E0F0): thiscall(ECX=worm, fire_params, local_struct) ──
 
-#[unsafe(naked)]
-unsafe extern "C" fn trampoline_create_weapon_projectile() {
-    core::arch::naked_asm!(
-        "push dword ptr [esp+8]",
-        "push dword ptr [esp+8]",
-        "push ecx",
-        "call {impl_fn}",
-        "add esp, 12",
-        "ret 0x8",
-        impl_fn = sym create_weapon_projectile_wrapper,
-    );
-}
-
-unsafe extern "cdecl" fn create_weapon_projectile_wrapper(
+unsafe extern "thiscall" fn hook_create_weapon_projectile(
     worm: *mut CTaskWorm,
     fire_params: *const WeaponFireParams,
     local_struct: *const u8,
@@ -99,47 +86,17 @@ unsafe extern "cdecl" fn create_weapon_projectile_wrapper(
 
 // ── ProjectileFire (0x51DFB0): stdcall(worm, fire_params, local_struct) ──
 
-#[unsafe(naked)]
-unsafe extern "C" fn trampoline_projectile_fire() {
-    core::arch::naked_asm!(
-        "push dword ptr [esp+12]",
-        "push dword ptr [esp+12]",
-        "push dword ptr [esp+12]",
-        "call {impl_fn}",
-        "add esp, 12",
-        "ret 0xC",
-        impl_fn = sym projectile_fire_wrapper,
-    );
-}
-
-unsafe extern "cdecl" fn projectile_fire_wrapper(
+unsafe extern "stdcall" fn hook_projectile_fire(
     worm: *mut CTaskWorm,
     fire_params: *const WeaponFireParams,
-    local_struct: *const u8,
+    local_struct: *const openwa_core::game::weapon::WeaponSpawnData,
 ) {
-    weapon_fire::projectile_fire(
-        worm,
-        fire_params,
-        local_struct as *const openwa_core::game::weapon::WeaponSpawnData,
-    );
+    weapon_fire::projectile_fire(worm, fire_params, local_struct);
 }
 
 // ── CreateArrow (0x51ED90): thiscall(ECX=worm, fire_params, local_struct) ──
 
-#[unsafe(naked)]
-unsafe extern "C" fn trampoline_create_arrow() {
-    core::arch::naked_asm!(
-        "push dword ptr [esp+8]",
-        "push dword ptr [esp+8]",
-        "push ecx",
-        "call {impl_fn}",
-        "add esp, 12",
-        "ret 0x8",
-        impl_fn = sym create_arrow_wrapper,
-    );
-}
-
-unsafe extern "cdecl" fn create_arrow_wrapper(
+unsafe extern "thiscall" fn hook_create_arrow(
     worm: *mut CTaskWorm,
     fire_params: *const WeaponFireParams,
     local_struct: *const u8,
@@ -235,17 +192,17 @@ pub fn install() -> Result<(), String> {
         let _ = hook::install(
             "CreateWeaponProjectile",
             va::CREATE_WEAPON_PROJECTILE,
-            trampoline_create_weapon_projectile as *const (),
+            hook_create_weapon_projectile as *const (),
         )?;
         let _ = hook::install(
             "ProjectileFire",
             va::PROJECTILE_FIRE,
-            trampoline_projectile_fire as *const (),
+            hook_projectile_fire as *const (),
         )?;
         let _ = hook::install(
             "CreateArrow",
             va::CREATE_ARROW,
-            trampoline_create_arrow as *const (),
+            hook_create_arrow as *const (),
         )?;
 
         // Passthrough hooks (log + call original)

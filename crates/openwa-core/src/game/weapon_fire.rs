@@ -1261,7 +1261,7 @@ pub unsafe fn create_weapon_projectile(
     // thiscall(ECX=buffer, parent, fire_params, local_struct), RET 0xC
     call_missile_ctor(
         buffer,
-        parent as *mut u8,
+        parent,
         fire_params,
         local_struct,
         rb(va::CTASK_MISSILE_CTOR),
