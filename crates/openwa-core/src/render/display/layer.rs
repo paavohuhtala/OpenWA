@@ -43,7 +43,7 @@ impl Layer {
     /// Construct from a raw `u8`. Returns `None` outside `1..=3`.
     pub const fn new(value: u8) -> Option<Self> {
         match value {
-            1 | 2 | 3 => match NonZeroU8::new(value) {
+            1..=3 => match NonZeroU8::new(value) {
                 Some(n) => Some(Layer(n)),
                 None => None,
             },

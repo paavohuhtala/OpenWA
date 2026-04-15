@@ -180,7 +180,7 @@ pub unsafe fn img_decode(
     } else {
         // Row-by-row path: read raw pixel data
         let bits_per_row = width as u32 * bpp as u32;
-        let bytes_per_row = (bits_per_row + 7) / 8;
+        let bytes_per_row = bits_per_row.div_ceil(8);
 
         for row in 0..height as u32 {
             let row_ptr = pixel_data.add((row * row_stride) as usize);

@@ -762,8 +762,8 @@ unsafe fn dispatch_case_a_pixel_strip(
     rq_translate_coordinates(clip, read_fixed(cmd, 2), read_fixed(cmd, 3), &mut x, &mut y);
     let cmd_x = *(cmd.add(2));
     let cmd_y = *(cmd.add(3));
-    x = x + Fixed::from_raw((cmd_x & 0xFFFF) as i32);
-    y = y + Fixed::from_raw((cmd_y & 0xFFFF) as i32);
+    x += Fixed::from_raw((cmd_x & 0xFFFF) as i32);
+    y += Fixed::from_raw((cmd_y & 0xFFFF) as i32);
     let dx = read_fixed(cmd, 4);
     let dy = read_fixed(cmd, 5);
     let count = read_field(cmd, 6);

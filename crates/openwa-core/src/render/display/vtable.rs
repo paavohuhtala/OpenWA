@@ -1764,8 +1764,8 @@ pub unsafe fn load_sprite_by_name(
         // overflow to match the original's checked-mul behavior.
         const LSF_SIZE: u32 = core::mem::size_of::<LayerSpriteFrame>() as u32;
         let checked_count = frame_count as u32;
-        let checked_size = checked_count.checked_mul(LSF_SIZE).unwrap_or(u32::MAX);
-        let checked_alloc = checked_size.checked_add(4).unwrap_or(u32::MAX);
+        let checked_size = checked_count.saturating_mul(LSF_SIZE);
+        let checked_alloc = checked_size.saturating_add(4);
 
         let array_base = wa_malloc(checked_alloc);
         let frame_array: *mut LayerSpriteFrame = if !array_base.is_null() {
@@ -1845,7 +1845,7 @@ pub unsafe fn load_sprite_by_name(
                         GfxDirStream::read_raw(stream, row_dest, width as u32);
                     }
 
-                    let width_dwords = ((width as u32) + 3) / 4;
+                    let width_dwords = (width as u32).div_ceil(4);
                     remap_pixels_through_lut(
                         data_ptr,
                         pitch as u32,
