@@ -12,6 +12,26 @@ pub const SPEECH_NAME_ENTRY_SIZE: usize = 0x40;
 /// Maximum number of speech name entries.
 pub const SPEECH_NAME_TABLE_LEN: usize = 360;
 
+/// DDGameWrapper vtable (0x66A30C, 10 slots).
+///
+/// Slot 7 is the per-frame render dispatch, called from `GameSession__ProcessFrame`.
+/// Slot 9 returns `state_initialized` (+0x484), used by `GameSession__AdvanceFrame`.
+#[openwa_core::vtable(size = 10, va = 0x0066_A30C, class = "DDGameWrapper")]
+pub struct DDGameWrapperVtable {
+    /// Scalar deleting destructor (0x5713C0).
+    #[slot(0)]
+    pub destructor: fn(this: *mut DDGameWrapper, flags: u32) -> *mut DDGameWrapper,
+    /// Render frame (0x56E040) — called each frame from `GameSession__ProcessFrame`.
+    #[slot(7)]
+    pub render_frame: fn(this: *mut DDGameWrapper),
+    /// Get state_initialized (0x528A20) — returns `self.state_initialized` (+0x484).
+    /// See `process_frame::game_state` for known return values.
+    #[slot(9)]
+    pub get_state_initialized: fn(this: *mut DDGameWrapper) -> u32,
+}
+
+bind_DDGameWrapperVtable!(DDGameWrapper, vtable);
+
 /// DDGameWrapper — large wrapper around DDGame.
 ///
 /// Created by DDGameWrapper__Constructor (0x56DEF0).
@@ -30,7 +50,7 @@ pub const SPEECH_NAME_TABLE_LEN: usize = 360;
 pub struct DDGameWrapper {
     // ===== 0x000: Vtable =====
     /// 0x000: Vtable pointer (0x66A30C)
-    pub vtable: *mut u8,
+    pub vtable: *const DDGameWrapperVtable,
     /// 0x004: Unknown (4 bytes gap)
     pub _unknown_004: u32,
 

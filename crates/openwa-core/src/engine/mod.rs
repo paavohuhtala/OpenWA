@@ -9,6 +9,7 @@ pub mod game_state_init;
 pub mod game_timer;
 pub mod net_bridge;
 pub mod net_wrapper;
+pub mod process_frame;
 pub mod replay;
 pub mod team_arena;
 pub mod team_ops;
@@ -19,7 +20,7 @@ pub use ddgame_constructor::{
     create_ddgame, ddgame_init_fields, ddgame_init_render_indices, display_layer_color_init,
     init_constructor_addrs, ON_DDGAME_ALLOC,
 };
-pub use ddgame_wrapper::DDGameWrapper;
+pub use ddgame_wrapper::{DDGameWrapper, DDGameWrapperVtable};
 pub use game_info::GameInfo;
 pub use game_session::GameSession;
 pub use game_timer::GameTimer;

@@ -43,6 +43,15 @@ pub struct DDKeyboard {
 const _: () = assert!(core::mem::size_of::<DDKeyboard>() == 0x33C);
 
 impl DDKeyboard {
+    /// Clear both key state buffers.
+    ///
+    /// Port of DDKeyboard__ClearKeyStates (0x5722F0, usercall EAX=this, plain RET).
+    /// Zeroes `key_state` (+0x11C) and `prev_state` (+0x21C), each 256 bytes.
+    pub fn clear_key_states(&mut self) {
+        self.key_state.fill(0);
+        self.prev_state.fill(0);
+    }
+
     /// Poll keyboard state via WA's PollKeyboardState (0x572290).
     ///
     /// # Safety

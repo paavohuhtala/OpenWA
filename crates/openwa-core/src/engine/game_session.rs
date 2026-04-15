@@ -1,6 +1,7 @@
 use crate::audio::dssound::DSSound;
 use crate::audio::music::Music;
 use crate::engine::ddgame_wrapper::DDGameWrapper;
+use crate::engine::game_info::GameInfo;
 use crate::input::keyboard::DDKeyboard;
 use crate::render::display::palette::Palette;
 use crate::FieldRegistry;
@@ -32,27 +33,47 @@ pub struct GameSession {
     pub _unknown_004: [u8; 4],
     /// 0x008: main window HWND, stored from `hWnd` in `GameSession__Run`
     pub hwnd: u32,
-    pub _unknown_00c: [u8; 0x18],
+    /// 0x00C: first param from `GameSession__Run` (passed through from `Frontend__LaunchGameSession`)
+    pub run_param_1: u32,
+    pub _unknown_010: [u8; 0x14],
     /// 0x024: Always set to 1 by GameEngine__InitHardware.
     pub init_flag: u32,
     /// 0x028: Fullscreen flag — `(GameInfo.home_lock != 0) as u32`.
     pub fullscreen_flag: u32,
     /// 0x02C: set to 1 on init (role TBD)
     pub flag_2c: u32,
-    pub _unknown_030: [u8; 8],
+    /// 0x030: set to 1 when desktop is unavailable (`OpenInputDesktop` returns null)
+    pub desktop_lost: u32,
+    /// 0x034: checked in `GameSession__ProcessFrame` for non-engine frame path
+    pub flag_34: u32,
     /// 0x038: back-pointer to the `GameInfo` config struct (ESI from `GameSession__Run`)
-    pub config_ptr: *mut u8,
+    pub config_ptr: *mut GameInfo,
     /// 0x03C: nonzero = exit the game main loop (checked each frame in `GameSession__Run`)
     pub exit_flag: u32,
     /// 0x040: game-end status/result code
     pub flag_40: u32,
-    pub _unknown_044: [u8; 0x10],
+    pub _unknown_044: [u8; 0x8],
+    /// 0x04C: copied from `GameInfo+0xF39C` (display param)
+    pub display_param_1: u32,
+    /// 0x050: copied from `GameInfo+0xF3A0` (display param)
+    pub display_param_2: u32,
     /// 0x054: display center X = `display_width / 2`.
     /// Initialized to `0x80000000` by `GameSession__Constructor`, then overwritten.
     pub screen_center_x: i32,
     /// 0x058: display center Y = `display_height / 2`
     pub screen_center_y: i32,
-    pub _unknown_05c: [u8; 0x14],
+    /// 0x05C: checked in post-loop cleanup — nonzero triggers keyboard vtable call.
+    /// Constructor initializes to 0; `GameSession__ProcessFrame` reads it.
+    pub flag_5c: u32,
+    /// 0x060: gate flag for engine frame advance in `GameSession__ProcessFrame`.
+    /// Constructor initializes to 1.
+    pub flag_60: u32,
+    /// 0x064: frame state — set to -1 before engine tick, then 1 after.
+    pub frame_state: i32,
+    /// 0x068: minimize request — when nonzero, posts `WM_SYSCOMMAND SC_MINIMIZE`
+    /// to `g_FrontendHwnd` and clears itself.
+    pub minimize_request: u32,
+    pub _unknown_06c: [u8; 4],
     /// 0x070: cursor X at session start (from `GetCursorPos`)
     pub cursor_initial_x: i32,
     /// 0x074: cursor Y at session start
@@ -62,7 +83,10 @@ pub struct GameSession {
     pub cursor_x: i32,
     /// 0x084: cursor center Y
     pub cursor_y: i32,
-    pub _unknown_088: [u8; 8],
+    /// 0x088: cleared when desktop is lost and keyboard object exists.
+    /// Used for input state tracking.
+    pub input_active_flag: u32,
+    pub _unknown_08c: [u8; 4],
     /// 0x090: `QueryPerformanceFrequency` result low DWORD (0 if QPC unavailable)
     pub timer_freq_lo: u32,
     /// 0x094: high DWORD

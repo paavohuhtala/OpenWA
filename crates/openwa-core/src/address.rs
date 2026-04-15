@@ -464,6 +464,10 @@ pub mod va {
             ctor/Usercall GAME_SESSION_CONSTRUCTOR = 0x0058_BFA0;
             /// GameSession__Run
             fn/Usercall GAME_SESSION_RUN = 0x0057_2F50;
+            /// GameSession__ProcessFrame — per-frame processing (desktop check, engine tick, render)
+            fn/Cdecl GAME_SESSION_PROCESS_FRAME = 0x0057_2C80;
+            /// GameSession__AdvanceFrame — frame timing + engine vtable dispatch
+            fn/Cdecl GAME_SESSION_ADVANCE_FRAME = 0x0056_DDC0;
         }
 
         /// GameEngine__InitHardware
@@ -922,6 +926,10 @@ pub mod va {
         global G_FRAME_BUFFER_HEIGHT = 0x007A_0EF4;
         global G_CRASH_REPORT_URL = 0x0079_FFD8;
         global G_VERSION_BYTE = 0x0069_7702;
+        /// In-game-loop flag — set to 1 during message pump in GameSession__PumpMessages
+        global G_IN_GAME_LOOP = 0x006B_39BC;
+        /// Desktop check threshold — ProcessFrame skips desktop check when <= 1
+        global G_DESKTOP_CHECK_LEVEL = 0x006B_3920;
     }
 
     // =========================================================================

@@ -18,6 +18,7 @@ use openwa_core::address::va;
 use openwa_core::audio::DSSound;
 use openwa_core::engine::create_ddgame;
 use openwa_core::engine::init_constructor_addrs;
+use openwa_core::engine::DDGameWrapperVtable;
 use openwa_core::engine::{DDGameWrapper, GameInfo, GameSession};
 use openwa_core::rebase::rb;
 use openwa_core::render::{DisplayGfx, Palette};
@@ -93,7 +94,7 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
     // Initialize DDGameWrapper fields (order matches original decompile).
     (*this).ddgame = core::ptr::null_mut();
     (*this).landscape = core::ptr::null_mut();
-    (*this).vtable = rb(va::DDGAME_WRAPPER_VTABLE) as *mut u8;
+    (*this).vtable = rb(va::DDGAME_WRAPPER_VTABLE) as *const DDGameWrapperVtable;
     (*this).sound = sound;
     (*this).display = display;
 
