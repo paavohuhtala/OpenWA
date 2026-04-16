@@ -76,19 +76,12 @@ unsafe extern "cdecl" fn play_sound_local_impl(
 
 // ── WormPlaySound2 (0x515020): usercall(EDI=worm) + stdcall(sound_id, volume, flags) ──
 
-#[unsafe(naked)]
-unsafe extern "C" fn trampoline_worm_play_sound_2() {
-    core::arch::naked_asm!(
-        "push [esp+12]",   // flags
-        "push [esp+12]",   // volume (was +8, shifted +4)
-        "push [esp+12]",   // sound_id (was +4, shifted +8)
-        "push edi",        // worm
-        "call {f}",
-        "add esp, 16",     // clean cdecl args
-        "ret 0xC",         // clean 3 stdcall params
-        f = sym play_worm_sound_2_cdecl,
-    );
-}
+hook::usercall_trampoline!(
+    fn trampoline_worm_play_sound_2;
+    impl_fn = play_worm_sound_2_cdecl;
+    reg = edi;
+    stack_params = 3; ret_bytes = "0xC"
+);
 
 unsafe extern "cdecl" fn play_worm_sound_2_cdecl(
     worm: *mut CTaskWorm,
@@ -132,18 +125,11 @@ unsafe extern "fastcall" fn hook_play_sound_pooled_direct(
 
 // ── PlayWormSound (0x5150D0): usercall(EDI=worm) + stack(sound_id, volume), RET 0x8 ──
 
-#[unsafe(naked)]
-unsafe extern "C" fn trampoline_play_worm_sound() {
-    core::arch::naked_asm!(
-        "push [esp+8]",    // volume
-        "push [esp+8]",    // sound_id (was +4, shifted +4)
-        "push edi",        // worm
-        "call {f}",
-        "add esp, 12",
-        "ret 0x8",
-        f = sym play_worm_sound_cdecl,
-    );
-}
+hook::usercall_trampoline!(
+    fn trampoline_play_worm_sound;
+    impl_fn = play_worm_sound_cdecl;
+    reg = edi; stack_params = 2; ret_bytes = "0x8"
+);
 
 unsafe extern "cdecl" fn play_worm_sound_cdecl(
     worm: *mut CTaskWorm,
@@ -155,16 +141,11 @@ unsafe extern "cdecl" fn play_worm_sound_cdecl(
 
 // ── StopWormSound (0x515180): usercall(ESI=worm), plain RET ──
 
-#[unsafe(naked)]
-unsafe extern "C" fn trampoline_stop_worm_sound() {
-    core::arch::naked_asm!(
-        "push esi",
-        "call {f}",
-        "add esp, 4",
-        "ret",
-        f = sym stop_worm_sound_cdecl,
-    );
-}
+hook::usercall_trampoline!(
+    fn trampoline_stop_worm_sound;
+    impl_fn = stop_worm_sound_cdecl;
+    reg = esi
+);
 
 unsafe extern "cdecl" fn stop_worm_sound_cdecl(worm: *mut CTaskWorm) {
     sound_ops::stop_worm_sound(worm);
@@ -172,19 +153,11 @@ unsafe extern "cdecl" fn stop_worm_sound_cdecl(worm: *mut CTaskWorm) {
 
 // ── LoadAndPlayStreaming (0x546C20): usercall(EAX=task, ESI=emitter) + stack(sound_id, flags, volume), RET 0xC ──
 
-#[unsafe(naked)]
-unsafe extern "C" fn trampoline_load_and_play_streaming() {
-    core::arch::naked_asm!(
-        "push [esp+12]",   // volume
-        "push [esp+12]",   // flags (was +8, shifted +4)
-        "push [esp+12]",   // sound_id (was +4, shifted +8)
-        "push eax",        // task (EAX)
-        "call {f}",
-        "add esp, 16",
-        "ret 0xC",
-        f = sym load_and_play_streaming_cdecl,
-    );
-}
+hook::usercall_trampoline!(
+    fn trampoline_load_and_play_streaming;
+    impl_fn = load_and_play_streaming_cdecl;
+    reg = eax; stack_params = 3; ret_bytes = "0xC"
+);
 
 unsafe extern "cdecl" fn load_and_play_streaming_cdecl(
     task: *mut CGameTask,
