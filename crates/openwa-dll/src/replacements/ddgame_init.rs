@@ -110,20 +110,12 @@ extern "cdecl" fn impl_img_load_from_dir(
     result as u32
 }
 
-#[unsafe(naked)]
-unsafe extern "C" fn img_load_from_dir_trampoline() {
-    core::arch::naked_asm!(
-        "push edx",
-        "push [esp+8]",       // output (stack param)
-        "push eax",           // name
-        "push ecx",           // gfx_dir
-        "call {impl_fn}",
-        "add esp, 12",
-        "pop edx",
-        "ret 0x4",
-        impl_fn = sym impl_img_load_from_dir,
-    );
-}
+hook::usercall_trampoline!(
+    fn img_load_from_dir_trampoline;
+    impl_fn = impl_img_load_from_dir;
+    regs = [ecx, eax];
+    stack_params = 1; ret_bytes = "0x4"
+);
 
 // ─── GfxDir__FindEntry (0x566520) ────────────────────────────────────────────
 //
@@ -286,19 +278,11 @@ extern "cdecl" fn impl_ring_buffer_init(struct_ptr: u32, capacity: u32) {
     unsafe { ring_buffer_init(struct_ptr as *mut u8, capacity) }
 }
 
-#[unsafe(naked)]
-unsafe extern "C" fn ring_buffer_init_trampoline() {
-    core::arch::naked_asm!(
-        "push edx",
-        "push eax",        // capacity (EAX)
-        "push esi",        // struct_ptr (ESI)
-        "call {impl_fn}",
-        "add esp, 8",
-        "pop edx",
-        "ret",
-        impl_fn = sym impl_ring_buffer_init,
-    );
-}
+hook::usercall_trampoline!(
+    fn ring_buffer_init_trampoline;
+    impl_fn = impl_ring_buffer_init;
+    regs = [esi, eax]
+);
 
 // ─── CGameTask__InitTeamScoring (0x528510) ──────────────────────────────────
 // Convention: fastcall(ECX=wrapper), plain RET.
@@ -314,18 +298,11 @@ extern "cdecl" fn impl_init_alliance_data(wrapper: *mut DDGameWrapper) {
     unsafe { init_alliance_data(wrapper) }
 }
 
-#[unsafe(naked)]
-unsafe extern "C" fn init_alliance_data_trampoline() {
-    core::arch::naked_asm!(
-        "push edx",
-        "push eax",        // wrapper (EAX)
-        "call {impl_fn}",
-        "add esp, 4",
-        "pop edx",
-        "ret",
-        impl_fn = sym impl_init_alliance_data,
-    );
-}
+hook::usercall_trampoline!(
+    fn init_alliance_data_trampoline;
+    impl_fn = impl_init_alliance_data;
+    reg = eax
+);
 
 // ─── CGameTask__InitTurnState (0x528690) ────────────────────────────────────
 // Convention: usercall(EAX=wrapper), plain RET.
@@ -334,18 +311,11 @@ extern "cdecl" fn impl_init_turn_state(wrapper: *mut DDGameWrapper) {
     unsafe { init_turn_state(wrapper) }
 }
 
-#[unsafe(naked)]
-unsafe extern "C" fn init_turn_state_trampoline() {
-    core::arch::naked_asm!(
-        "push edx",
-        "push eax",        // wrapper (EAX)
-        "call {impl_fn}",
-        "add esp, 4",
-        "pop edx",
-        "ret",
-        impl_fn = sym impl_init_turn_state,
-    );
-}
+hook::usercall_trampoline!(
+    fn init_turn_state_trampoline;
+    impl_fn = impl_init_turn_state;
+    reg = eax
+);
 
 // ─── DDGame__CheckWeaponAvail (0x53FFC0) ────────────────────────────────────
 // Convention: fastcall(ECX=ddgame) + unaff_ESI=weapon_index, plain RET.
@@ -355,19 +325,11 @@ extern "cdecl" fn impl_check_weapon_avail(ddgame: *mut DDGame, weapon_index: u32
     unsafe { check_weapon_avail(ddgame, weapon_index) }
 }
 
-#[unsafe(naked)]
-unsafe extern "C" fn check_weapon_avail_trampoline() {
-    core::arch::naked_asm!(
-        "push edx",
-        "push esi",        // weapon_index (ESI)
-        "push ecx",        // ddgame (ECX)
-        "call {impl_fn}",
-        "add esp, 8",
-        "pop edx",
-        "ret",
-        impl_fn = sym impl_check_weapon_avail,
-    );
-}
+hook::usercall_trampoline!(
+    fn check_weapon_avail_trampoline;
+    impl_fn = impl_check_weapon_avail;
+    regs = [ecx, esi]
+);
 
 // ─── CGameTask__InitLandscapeFlags (0x528480) ───────────────────────────────
 // Convention: usercall(EAX=wrapper), plain RET.
@@ -376,18 +338,11 @@ extern "cdecl" fn impl_init_landscape_flags(wrapper: *mut DDGameWrapper) {
     unsafe { init_landscape_flags(wrapper) }
 }
 
-#[unsafe(naked)]
-unsafe extern "C" fn init_landscape_flags_trampoline() {
-    core::arch::naked_asm!(
-        "push edx",
-        "push eax",        // wrapper (EAX)
-        "call {impl_fn}",
-        "add esp, 4",
-        "pop edx",
-        "ret",
-        impl_fn = sym impl_init_landscape_flags,
-    );
-}
+hook::usercall_trampoline!(
+    fn init_landscape_flags_trampoline;
+    impl_fn = impl_init_landscape_flags;
+    reg = eax
+);
 
 // ─── DDGame__IsSuperWeapon (0x565960) ───────────────────────────────────────
 // Convention: usercall(EAX=weapon_index) + 1 stack param (param_1: u8), plain RET.

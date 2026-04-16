@@ -64,20 +64,14 @@ unsafe extern "thiscall" fn hook_stop_and_cleanup(this: *mut Music) {
 
 // ── Music constructor hook ──
 
-/// Hook for Music::Constructor (0x58BC10).
-/// usercall(ESI=this) + stack(IDirectSound*, path_ptr), RET 0x8.
-#[unsafe(naked)]
-unsafe extern "C" fn trampoline_music_constructor() {
-    core::arch::naked_asm!(
-        "push [esp+8]",    // path_ptr
-        "push [esp+8]",    // ids (was +4, shifted +4)
-        "push esi",        // this
-        "call {f}",
-        "add esp, 12",
-        "ret 0x8",
-        f = sym music_constructor_cdecl,
-    );
-}
+// Hook for Music::Constructor (0x58BC10).
+// usercall(ESI=this) + stack(IDirectSound*, path_ptr), RET 0x8.
+hook::usercall_trampoline!(
+    fn trampoline_music_constructor;
+    impl_fn = music_constructor_cdecl;
+    reg = esi;
+    stack_params = 2; ret_bytes = "0x8"
+);
 
 unsafe extern "cdecl" fn music_constructor_cdecl(this: *mut Music, ids: u32, path_ptr: *const u8) {
     let path = std::ffi::CStr::from_ptr(path_ptr as *const i8)

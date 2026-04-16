@@ -14,6 +14,8 @@ use openwa_core::bitgrid::BitGrid;
 use openwa_core::log::log_line;
 use openwa_core::render::palette::PaletteContext;
 
+use crate::hook;
+
 // ─── GfxDir__LoadImage (0x5666D0) ───────────────────────────────────────────
 // Convention: usercall(ESI=gfx_dir) + 1 stack(name), RET 0x4.
 
@@ -21,19 +23,12 @@ extern "cdecl" fn impl_load_image(gfx_dir: *mut GfxDir, name: *const c_char) -> 
     unsafe { gfx_dir_load_image(gfx_dir, name) }
 }
 
-#[unsafe(naked)]
-unsafe extern "C" fn load_image_trampoline() {
-    core::arch::naked_asm!(
-        "push edx",
-        "push [esp+8]",     // name (stack param, shifted by push edx)
-        "push esi",          // gfx_dir (ESI)
-        "call {impl_fn}",
-        "add esp, 8",
-        "pop edx",
-        "ret 0x4",           // callee cleans 1 stack param
-        impl_fn = sym impl_load_image,
-    );
-}
+hook::usercall_trampoline!(
+    fn load_image_trampoline;
+    impl_fn = impl_load_image;
+    reg = esi;
+    stack_params = 1; ret_bytes = "0x4"
+);
 
 // ─── IMG_Decode (0x4F5F80) ──────────────────────────────────────────────────
 // Convention: stdcall(palette_ctx, stream, align_flag), RET 0xC.
