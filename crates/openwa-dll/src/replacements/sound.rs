@@ -36,17 +36,19 @@ unsafe extern "thiscall" fn hook_play_sound_global(
     volume: Fixed,
     pitch: Fixed,
 ) -> u32 {
-    if SOUND_LOG_ENABLED.load(Ordering::Relaxed) {
-        let sound_name = KnownSoundId::try_from(sound_id.0)
-            .map(|s| format!("{s:?}"))
-            .unwrap_or_else(|v| format!("#{v}"));
-        let _ = log_line(&format!(
-            "[Sound] Global: task=0x{this:08X?} id={sound_id:?}({sound_name}) \
+    unsafe {
+        if SOUND_LOG_ENABLED.load(Ordering::Relaxed) {
+            let sound_name = KnownSoundId::try_from(sound_id.0)
+                .map(|s| format!("{s:?}"))
+                .unwrap_or_else(|v| format!("#{v}"));
+            let _ = log_line(&format!(
+                "[Sound] Global: task=0x{this:08X?} id={sound_id:?}({sound_name}) \
              p3={flags} p4={volume} p5={pitch}"
-        ));
-    }
+            ));
+        }
 
-    sound_ops::queue_sound((*this).base.ddgame, sound_id, flags, volume, pitch).is_some() as u32
+        sound_ops::queue_sound((*this).base.ddgame, sound_id, flags, volume, pitch).is_some() as u32
+    }
 }
 
 // ── PlaySoundLocal (0x4FDFE0): usercall(EAX=pitch, ECX=volume, EDI=task, stack) ──
@@ -61,17 +63,19 @@ unsafe extern "cdecl" fn play_sound_local_impl(
     sound_id: SoundId,
     flags: u32,
 ) -> u32 {
-    if SOUND_LOG_ENABLED.load(Ordering::Relaxed) {
-        let sound_name = KnownSoundId::try_from(sound_id.0)
-            .map(|s| format!("{s:?}"))
-            .unwrap_or_else(|v| format!("#{v}"));
-        let _ = log_line(&format!(
-            "[Sound] Local: pitch={pitch} volume={volume} task=0x{task:08X?} \
+    unsafe {
+        if SOUND_LOG_ENABLED.load(Ordering::Relaxed) {
+            let sound_name = KnownSoundId::try_from(sound_id.0)
+                .map(|s| format!("{s:?}"))
+                .unwrap_or_else(|v| format!("#{v}"));
+            let _ = log_line(&format!(
+                "[Sound] Local: pitch={pitch} volume={volume} task=0x{task:08X?} \
              id={sound_id:?}({sound_name}) flags={flags}"
-        ));
-    }
+            ));
+        }
 
-    sound_ops::play_sound_local(task, sound_id, flags, volume, pitch) as u32
+        sound_ops::play_sound_local(task, sound_id, flags, volume, pitch) as u32
+    }
 }
 
 // ── WormPlaySound2 (0x515020): usercall(EDI=worm) + stdcall(sound_id, volume, flags) ──
@@ -96,13 +100,15 @@ unsafe extern "cdecl" fn play_worm_sound_2_cdecl(
     volume: Fixed,
     flags: u32,
 ) {
-    sound_ops::play_worm_sound_2(worm, sound_id, volume, flags);
+    unsafe {
+        sound_ops::play_worm_sound_2(worm, sound_id, volume, flags);
+    }
 }
 
 // ── IsSoundSuppressed (0x5261E0): thiscall(ECX=DDGame*) ──
 
 unsafe extern "thiscall" fn hook_is_sound_suppressed(ddgame: *mut DDGame) -> u32 {
-    sound_ops::is_sound_suppressed(ddgame) as u32
+    unsafe { sound_ops::is_sound_suppressed(ddgame) as u32 }
 }
 
 // ── DispatchGlobalSound (0x526270): fastcall(ECX=unused, EDX=wrapper) + 4 stack ──
@@ -115,7 +121,7 @@ unsafe extern "fastcall" fn hook_dispatch_global_sound(
     frequency: Fixed,
     volume: Fixed,
 ) -> u32 {
-    sound_ops::dispatch_global_sound(ddgame_wrapper, slot, priority, frequency, volume)
+    unsafe { sound_ops::dispatch_global_sound(ddgame_wrapper, slot, priority, frequency, volume) }
 }
 
 // ── PlaySoundPooled_Direct (0x546B50): fastcall(ECX=unused, EDX=task) + 3 stack ──
@@ -127,7 +133,7 @@ unsafe extern "fastcall" fn hook_play_sound_pooled_direct(
     priority: i32,
     volume: Fixed,
 ) -> i32 {
-    sound_ops::play_sound_pooled_direct(task, slot, priority, volume)
+    unsafe { sound_ops::play_sound_pooled_direct(task, slot, priority, volume) }
 }
 
 // ── PlayWormSound (0x5150D0): usercall(EDI=worm) + stack(sound_id, volume), RET 0x8 ──
@@ -150,7 +156,9 @@ unsafe extern "cdecl" fn play_worm_sound_cdecl(
     sound_id: SoundId,
     volume: Fixed,
 ) {
-    sound_ops::play_worm_sound(worm, sound_id, volume);
+    unsafe {
+        sound_ops::play_worm_sound(worm, sound_id, volume);
+    }
 }
 
 // ── StopWormSound (0x515180): usercall(ESI=worm), plain RET ──
@@ -167,7 +175,9 @@ unsafe extern "C" fn trampoline_stop_worm_sound() {
 }
 
 unsafe extern "cdecl" fn stop_worm_sound_cdecl(worm: *mut CTaskWorm) {
-    sound_ops::stop_worm_sound(worm);
+    unsafe {
+        sound_ops::stop_worm_sound(worm);
+    }
 }
 
 // ── LoadAndPlayStreaming (0x546C20): usercall(EAX=task, ESI=emitter) + stack(sound_id, flags, volume), RET 0xC ──
@@ -192,7 +202,7 @@ unsafe extern "cdecl" fn load_and_play_streaming_cdecl(
     flags: u32,
     volume: Fixed,
 ) -> i32 {
-    sound_ops::load_and_play_streaming(task, sound_id, flags, volume)
+    unsafe { sound_ops::load_and_play_streaming(task, sound_id, flags, volume) }
 }
 
 // ── Hook installation ──
@@ -277,10 +287,10 @@ pub fn install() -> Result<(), String> {
 /// Patch DSSound vtable (0x66AF20) to replace trivial methods with Rust.
 unsafe fn patch_dssound_vtable() -> Result<(), &'static str> {
     use openwa_core::audio::{
-        dssound_destructor, dssound_noop, dssound_returns_0, dssound_returns_1,
+        DSSoundVtable, dssound_destructor, dssound_noop, dssound_returns_0, dssound_returns_1,
         dssound_sub_destructor, is_channel_finished, is_slot_loaded, load_wav, play_sound,
         play_sound_pooled, release_finished, set_channel_volume, set_frequency_scale,
-        set_master_volume, set_pan, stop_channel, update_channels, DSSoundVtable,
+        set_master_volume, set_pan, stop_channel, update_channels,
     };
     use openwa_core::vtable_replace;
 

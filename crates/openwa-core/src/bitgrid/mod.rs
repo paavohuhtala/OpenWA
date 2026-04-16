@@ -37,10 +37,10 @@
 
 pub mod blit;
 
+use crate::FieldRegistry;
 use crate::rebase::rb;
 use crate::task::base::Vtable;
 use crate::wa_alloc::{wa_malloc, wa_malloc_struct_zeroed};
-use crate::FieldRegistry;
 
 crate::define_addresses! {
     class "BitGrid" {

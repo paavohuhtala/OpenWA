@@ -11,8 +11,8 @@
 use crate::address::va;
 use crate::fixed::Fixed;
 use crate::rebase::rb;
-use crate::render::message::RenderMessage;
 use crate::render::SpriteOp;
+use crate::render::message::RenderMessage;
 use crate::task::WeaponAimTask;
 use crate::trig::trig_lookup;
 

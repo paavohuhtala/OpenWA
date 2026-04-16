@@ -5,7 +5,9 @@
 use openwa_core::address::va;
 
 unsafe extern "C" fn hook_process_frame() {
-    openwa_core::engine::process_frame::process_frame();
+    unsafe {
+        openwa_core::engine::process_frame::process_frame();
+    }
 }
 
 pub fn install() -> Result<(), String> {

@@ -224,7 +224,7 @@ pub unsafe fn font_load_from_gfx(
     name: *const c_char,
 ) -> u32 {
     use crate::asset::gfx_dir::{
-        gfx_dir_find_entry, gfx_dir_load_image, GfxDirEntry, GfxDirStream,
+        GfxDirEntry, GfxDirStream, gfx_dir_find_entry, gfx_dir_load_image,
     };
     use crate::wa_alloc::wa_malloc;
 

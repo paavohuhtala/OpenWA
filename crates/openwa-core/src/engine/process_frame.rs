@@ -89,7 +89,7 @@ pub unsafe fn process_frame() {
     use windows_sys::Win32::System::StationsAndDesktops::{CloseDesktop, OpenInputDesktop};
     use windows_sys::Win32::System::Threading::Sleep;
     use windows_sys::Win32::UI::WindowsAndMessaging::{
-        DispatchMessageA, PeekMessageA, TranslateMessage, PM_REMOVE,
+        DispatchMessageA, PM_REMOVE, PeekMessageA, TranslateMessage,
     };
 
     let session = *(rb(va::G_GAME_SESSION) as *const *mut GameSession);

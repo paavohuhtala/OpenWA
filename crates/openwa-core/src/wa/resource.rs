@@ -3,7 +3,7 @@
 #[allow(clippy::upper_case_acronyms)]
 type LPCSTR = *const u8;
 
-extern "system" {
+unsafe extern "system" {
     fn GetModuleHandleA(lpModuleName: *const u8) -> u32;
     fn FindResourceA(hModule: u32, lpName: LPCSTR, lpType: LPCSTR) -> u32;
     fn LoadResource(hModule: u32, hResInfo: u32) -> u32;
@@ -12,7 +12,7 @@ extern "system" {
 }
 
 #[link(name = "user32")]
-extern "system" {
+unsafe extern "system" {
     fn LoadStringA(hInstance: u32, uID: u32, lpBuffer: *mut u8, cchBufferMax: i32) -> i32;
     fn CharLowerBuffA(lpsz: *mut u8, cchLength: u32) -> u32;
 }
@@ -20,13 +20,15 @@ extern "system" {
 /// Load a string resource from WA.exe by ID.
 /// Returns the string content, or an empty string on failure.
 pub unsafe fn load_string_resource(id: u32) -> String {
-    let hmodule = GetModuleHandleA(core::ptr::null());
-    let mut buf = [0u8; 256];
-    let len = LoadStringA(hmodule, id, buf.as_mut_ptr(), buf.len() as i32);
-    if len <= 0 {
-        return String::new();
+    unsafe {
+        let hmodule = GetModuleHandleA(core::ptr::null());
+        let mut buf = [0u8; 256];
+        let len = LoadStringA(hmodule, id, buf.as_mut_ptr(), buf.len() as i32);
+        if len <= 0 {
+            return String::new();
+        }
+        String::from_utf8_lossy(&buf[..len as usize]).into_owned()
     }
-    String::from_utf8_lossy(&buf[..len as usize]).into_owned()
 }
 
 /// Lowercase an ANSI string using the system's Active Code Page.
@@ -44,7 +46,7 @@ pub fn lowercase_ansi(s: &str) -> String {
 /// Returns a slice of the resource data, or None on failure.
 /// The returned slice is valid for the lifetime of the module (i.e., forever).
 pub unsafe fn load_pe_resource(type_name: &str, id: u32) -> Option<&'static [u8]> {
-    let hmodule = GetModuleHandleA(core::ptr::null());
+    let hmodule = unsafe { GetModuleHandleA(core::ptr::null()) };
 
     // MAKEINTRESOURCE(id)
     let lp_name = id as LPCSTR;
@@ -58,25 +60,25 @@ pub unsafe fn load_pe_resource(type_name: &str, id: u32) -> Option<&'static [u8]
     type_buf[..type_bytes.len()].copy_from_slice(type_bytes);
     // type_buf is already zero-initialized, so null terminator is in place
 
-    let h_res = FindResourceA(hmodule, lp_name, type_buf.as_ptr());
+    let h_res = unsafe { FindResourceA(hmodule, lp_name, type_buf.as_ptr()) };
     if h_res == 0 {
         return None;
     }
 
-    let size = SizeofResource(hmodule, h_res) as usize;
+    let size = unsafe { SizeofResource(hmodule, h_res) as usize };
     if size == 0 {
         return None;
     }
 
-    let h_data = LoadResource(hmodule, h_res);
+    let h_data = unsafe { LoadResource(hmodule, h_res) };
     if h_data == 0 {
         return None;
     }
 
-    let ptr = LockResource(h_data);
+    let ptr = unsafe { LockResource(h_data) };
     if ptr.is_null() {
         return None;
     }
 
-    Some(core::slice::from_raw_parts(ptr, size))
+    Some(unsafe { core::slice::from_raw_parts(ptr, size) })
 }

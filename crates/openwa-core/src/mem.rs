@@ -5,7 +5,7 @@ use crate::registry;
 use openwa_debug_proto::{PointerInfo, PointerKind};
 
 #[cfg(target_os = "windows")]
-extern "system" {
+unsafe extern "system" {
     fn IsBadReadPtr(lp: *const u8, ucb: usize) -> i32;
 }
 
@@ -13,12 +13,12 @@ extern "system" {
 #[cfg(target_os = "windows")]
 #[inline]
 pub unsafe fn can_read(ptr: u32, size: u32) -> bool {
-    ptr >= 0x10000 && IsBadReadPtr(ptr as *const u8, size as usize) == 0
+    unsafe { ptr >= 0x10000 && IsBadReadPtr(ptr as *const u8, size as usize) == 0 }
 }
 
 /// Stub for non-Windows (always returns false).
 #[cfg(not(target_os = "windows"))]
-pub unsafe fn can_read(_ptr: u32, _size: u32) -> bool {
+pub fn can_read(_ptr: u32, _size: u32) -> bool {
     false
 }
 
@@ -40,7 +40,7 @@ pub unsafe fn classify_pointer(value: u32, delta: u32) -> Option<PointerInfo> {
     if (va::RDATA_START..va::DATA_START).contains(&ghidra_val) {
         let name = registry::format_va(ghidra_val);
         let detail = if can_read(value, 4) {
-            let vt0 = *(value as *const u32);
+            let vt0 = unsafe { *(value as *const u32) };
             Some(format!(
                 "{} vt[0]=ghidra:0x{:08X}",
                 name,
@@ -90,7 +90,7 @@ pub unsafe fn classify_pointer(value: u32, delta: u32) -> Option<PointerInfo> {
 
     // Heap pointer checks
     if can_read(value, 4) {
-        let first = *(value as *const u32);
+        let first = unsafe { *(value as *const u32) };
         let ghidra_first = first.wrapping_sub(delta);
 
         // Object — heap pointer whose first DWORD is a vtable
@@ -99,7 +99,7 @@ pub unsafe fn classify_pointer(value: u32, delta: u32) -> Option<PointerInfo> {
             let detail = match class {
                 Some(name) => Some(format!("{}* (vtable=0x{:08X})", name, ghidra_first)),
                 None if can_read(first, 4) => {
-                    let vt0 = *(first as *const u32);
+                    let vt0 = unsafe { *(first as *const u32) };
                     Some(format!(
                         "vtable=ghidra:0x{:08X} vt[0]=ghidra:0x{:08X}",
                         ghidra_first,
@@ -162,29 +162,27 @@ pub unsafe fn identify_pointer(value: u32, delta: u32) -> Option<PointerIdentity
     let ghidra_val = value.wrapping_sub(delta);
 
     // 1. Check static registry for a known address
-    if let Some(resolved) = registry::lookup_va(ghidra_val) {
-        if resolved.offset < 0x1000 {
-            let segment = match resolved.entry.kind {
-                registry::AddrKind::Vtable | registry::AddrKind::VtableMethod => {
-                    PointerKind::Vtable
-                }
-                registry::AddrKind::Function | registry::AddrKind::Constructor => PointerKind::Code,
-                _ => PointerKind::Data,
-            };
-            let name = if resolved.offset == 0 {
-                resolved.entry.name.to_string()
-            } else {
-                format!("{}+0x{:X}", resolved.entry.name, resolved.offset)
-            };
-            return Some(PointerIdentity {
-                raw_value: value,
-                ghidra_value: ghidra_val,
-                segment,
-                name: Some(name),
-                class_name: resolved.entry.class_name,
-                detail: None,
-            });
-        }
+    if let Some(resolved) = registry::lookup_va(ghidra_val)
+        && resolved.offset < 0x1000
+    {
+        let segment = match resolved.entry.kind {
+            registry::AddrKind::Vtable | registry::AddrKind::VtableMethod => PointerKind::Vtable,
+            registry::AddrKind::Function | registry::AddrKind::Constructor => PointerKind::Code,
+            _ => PointerKind::Data,
+        };
+        let name = if resolved.offset == 0 {
+            resolved.entry.name.to_string()
+        } else {
+            format!("{}+0x{:X}", resolved.entry.name, resolved.offset)
+        };
+        return Some(PointerIdentity {
+            raw_value: value,
+            ghidra_value: ghidra_val,
+            segment,
+            name: Some(name),
+            class_name: resolved.entry.class_name,
+            detail: None,
+        });
     }
 
     // 2. Check if pointer falls inside a tracked live object

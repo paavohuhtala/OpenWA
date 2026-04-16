@@ -1,6 +1,7 @@
 #![allow(non_snake_case)]
 #![allow(clippy::missing_safety_doc)]
 #![allow(clippy::too_many_arguments)]
+#![allow(unsafe_op_in_unsafe_fn)]
 // FFI code frequently casts pointers for clarity even when redundant
 #![allow(clippy::unnecessary_cast)]
 // Transmute annotations are verbose for FFI function pointer casts
@@ -22,8 +23,8 @@ extern crate self as openwa_core;
 pub use inventory;
 
 // Re-export derive macros so users write `use openwa_core::FieldRegistry;`
-pub use openwa_derive::vtable;
 pub use openwa_derive::FieldRegistry;
+pub use openwa_derive::vtable;
 
 #[macro_use]
 pub mod macros;

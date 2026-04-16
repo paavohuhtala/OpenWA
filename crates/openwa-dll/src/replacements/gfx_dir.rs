@@ -5,9 +5,10 @@
 use core::ffi::c_char;
 use openwa_core::address::va;
 use openwa_core::asset::gfx_dir::{
-    gfx_dir_load_cached, gfx_dir_load_image, gfx_dir_read, gfx_dir_release, gfx_dir_seek,
-    gfx_dir_stream_bytes_consumed, gfx_dir_stream_destructor, gfx_dir_stream_get_total_size,
-    gfx_dir_stream_has_data, gfx_dir_stream_read, gfx_dir_stream_seek, GfxDir, GfxDirStream,
+    GfxDir, GfxDirStream, gfx_dir_load_cached, gfx_dir_load_image, gfx_dir_read, gfx_dir_release,
+    gfx_dir_seek, gfx_dir_stream_bytes_consumed, gfx_dir_stream_destructor,
+    gfx_dir_stream_get_total_size, gfx_dir_stream_has_data, gfx_dir_stream_read,
+    gfx_dir_stream_seek,
 };
 use openwa_core::asset::img::{img_decode, img_decode_cached};
 use openwa_core::bitgrid::BitGrid;
@@ -43,9 +44,11 @@ unsafe extern "stdcall" fn img_decode_hook(
     stream: *mut GfxDirStream,
     align_flag: i32,
 ) -> *mut BitGrid {
-    match img_decode(palette_ctx, stream, align_flag) {
-        Some(decoded) => decoded.as_bitgrid_ptr(),
-        None => core::ptr::null_mut(),
+    unsafe {
+        match img_decode(palette_ctx, stream, align_flag) {
+            Some(decoded) => decoded.as_bitgrid_ptr(),
+            None => core::ptr::null_mut(),
+        }
     }
 }
 

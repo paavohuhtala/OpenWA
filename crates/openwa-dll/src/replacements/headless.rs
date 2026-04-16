@@ -16,30 +16,28 @@ unsafe extern "system" fn hook_messagebox_a(
     caption: *const u8,
     flags: u32,
 ) -> i32 {
-    let t = if text.is_null() {
-        "<null>".to_string()
-    } else {
-        std::ffi::CStr::from_ptr(text as *const i8)
-            .to_str()
-            .unwrap_or("<invalid utf8>")
-            .to_string()
-    };
-    let c = if caption.is_null() {
-        "<null>".to_string()
-    } else {
-        std::ffi::CStr::from_ptr(caption as *const i8)
-            .to_str()
-            .unwrap_or("<invalid utf8>")
-            .to_string()
-    };
-    let _ = log_line(&format!(
-        "[Headless] Suppressed MessageBoxA: caption={c:?} text={t:?}"
-    ));
-    if flags & 0xF == 0x4 {
-        6
-    } else {
-        1
-    } // IDYES for MB_YESNO, IDOK otherwise
+    unsafe {
+        let t = if text.is_null() {
+            "<null>".to_string()
+        } else {
+            std::ffi::CStr::from_ptr(text as *const i8)
+                .to_str()
+                .unwrap_or("<invalid utf8>")
+                .to_string()
+        };
+        let c = if caption.is_null() {
+            "<null>".to_string()
+        } else {
+            std::ffi::CStr::from_ptr(caption as *const i8)
+                .to_str()
+                .unwrap_or("<invalid utf8>")
+                .to_string()
+        };
+        let _ = log_line(&format!(
+            "[Headless] Suppressed MessageBoxA: caption={c:?} text={t:?}"
+        ));
+        if flags & 0xF == 0x4 { 6 } else { 1 } // IDYES for MB_YESNO, IDOK otherwise
+    }
 }
 
 unsafe extern "system" fn hook_messagebox_w(
@@ -48,25 +46,23 @@ unsafe extern "system" fn hook_messagebox_w(
     caption: *const u16,
     flags: u32,
 ) -> i32 {
-    let t = if text.is_null() {
-        "<null>".to_string()
-    } else {
-        let len = (0..).take_while(|&i| *text.add(i) != 0).count();
-        String::from_utf16_lossy(core::slice::from_raw_parts(text, len))
-    };
-    let c = if caption.is_null() {
-        "<null>".to_string()
-    } else {
-        let len = (0..).take_while(|&i| *caption.add(i) != 0).count();
-        String::from_utf16_lossy(core::slice::from_raw_parts(caption, len))
-    };
-    let _ = log_line(&format!(
-        "[Headless] Suppressed MessageBoxW: caption={c:?} text={t:?}"
-    ));
-    if flags & 0xF == 0x4 {
-        6
-    } else {
-        1
+    unsafe {
+        let t = if text.is_null() {
+            "<null>".to_string()
+        } else {
+            let len = (0..).take_while(|&i| *text.add(i) != 0).count();
+            String::from_utf16_lossy(core::slice::from_raw_parts(text, len))
+        };
+        let c = if caption.is_null() {
+            "<null>".to_string()
+        } else {
+            let len = (0..).take_while(|&i| *caption.add(i) != 0).count();
+            String::from_utf16_lossy(core::slice::from_raw_parts(caption, len))
+        };
+        let _ = log_line(&format!(
+            "[Headless] Suppressed MessageBoxW: caption={c:?} text={t:?}"
+        ));
+        if flags & 0xF == 0x4 { 6 } else { 1 }
     }
 }
 
@@ -226,21 +222,22 @@ unsafe extern "system" fn hook_create_semaphore_a(
     max: i32,
     name: *const u8,
 ) -> *mut core::ffi::c_void {
-    let orig: CreateSemaphoreAFn =
-        core::mem::transmute(ORIG_CREATE_SEMAPHORE_A.load(Ordering::Relaxed));
+    unsafe {
+        let orig: CreateSemaphoreAFn =
+            core::mem::transmute(ORIG_CREATE_SEMAPHORE_A.load(Ordering::Relaxed));
 
-    if !name.is_null() {
-        if let Ok(s) = std::ffi::CStr::from_ptr(name as *const i8).to_str() {
-            if s == "Worms Armageddon" {
-                let pid = std::process::id();
-                let new_name = format!("Worms Armageddon_{pid}\0");
-                let _ = log_line(&format!(
-                    "[Headless] Renamed semaphore \"{s}\" → \"Worms Armageddon_{pid}\""
-                ));
-                return orig(attrs, initial, max, new_name.as_ptr());
-            }
+        if !name.is_null()
+            && let Ok(s) = std::ffi::CStr::from_ptr(name as *const i8).to_str()
+            && s == "Worms Armageddon"
+        {
+            let pid = std::process::id();
+            let new_name = format!("Worms Armageddon_{pid}\0");
+            let _ = log_line(&format!(
+                "[Headless] Renamed semaphore \"{s}\" → \"Worms Armageddon_{pid}\""
+            ));
+            return orig(attrs, initial, max, new_name.as_ptr());
         }
-    }
 
-    orig(attrs, initial, max, name)
+        orig(attrs, initial, max, name)
+    }
 }

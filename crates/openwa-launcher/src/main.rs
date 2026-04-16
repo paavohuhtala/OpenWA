@@ -8,9 +8,9 @@ use std::ptr;
 use windows_sys::Win32::Foundation::{CloseHandle, HMODULE};
 use windows_sys::Win32::System::LibraryLoader::GetModuleFileNameA;
 use windows_sys::Win32::System::Threading::{
-    CreateEventA, CreateProcessA, GetExitCodeProcess, ResumeThread, TerminateProcess,
-    WaitForSingleObject, CREATE_NO_WINDOW, CREATE_SUSPENDED, INFINITE, PROCESS_INFORMATION,
-    STARTF_USESHOWWINDOW, STARTUPINFOA,
+    CREATE_NO_WINDOW, CREATE_SUSPENDED, CreateEventA, CreateProcessA, GetExitCodeProcess, INFINITE,
+    PROCESS_INFORMATION, ResumeThread, STARTF_USESHOWWINDOW, STARTUPINFOA, TerminateProcess,
+    WaitForSingleObject,
 };
 
 const SW_HIDE: u16 = 0;
@@ -94,94 +94,96 @@ unsafe fn launch(
     dll_path: &Path,
     minimized: bool,
 ) -> Result<(), String> {
-    let exe_cstr = path_to_cstring(wa_exe)?;
-    let mut cmdline_buf: Vec<u8> = cmdline.bytes().chain(std::iter::once(0u8)).collect();
-    let wd_cstr = path_to_cstring(working_dir)?;
+    unsafe {
+        let exe_cstr = path_to_cstring(wa_exe)?;
+        let mut cmdline_buf: Vec<u8> = cmdline.bytes().chain(std::iter::once(0u8)).collect();
+        let wd_cstr = path_to_cstring(working_dir)?;
 
-    let headless = std::env::var("OPENWA_HEADLESS").is_ok();
+        let headless = std::env::var("OPENWA_HEADLESS").is_ok();
 
-    let mut si: STARTUPINFOA = mem::zeroed();
-    si.cb = mem::size_of::<STARTUPINFOA>() as u32;
-    if headless {
-        si.dwFlags |= STARTF_USESHOWWINDOW;
-        si.wShowWindow = SW_HIDE;
-    } else if minimized {
-        si.dwFlags |= STARTF_USESHOWWINDOW;
-        si.wShowWindow = SW_SHOWMINIMIZED;
-    }
+        let mut si: STARTUPINFOA = mem::zeroed();
+        si.cb = mem::size_of::<STARTUPINFOA>() as u32;
+        if headless {
+            si.dwFlags |= STARTF_USESHOWWINDOW;
+            si.wShowWindow = SW_HIDE;
+        } else if minimized {
+            si.dwFlags |= STARTF_USESHOWWINDOW;
+            si.wShowWindow = SW_SHOWMINIMIZED;
+        }
 
-    let mut pi: PROCESS_INFORMATION = mem::zeroed();
+        let mut pi: PROCESS_INFORMATION = mem::zeroed();
 
-    let ok = CreateProcessA(
-        exe_cstr.as_ptr().cast(),
-        cmdline_buf.as_mut_ptr(),
-        ptr::null(),
-        ptr::null(),
-        0, // bInheritHandles = FALSE
-        CREATE_SUSPENDED | if headless { CREATE_NO_WINDOW } else { 0 },
-        ptr::null(), // inherit environment
-        wd_cstr.as_ptr().cast(),
-        &si,
-        &mut pi,
-    );
+        let ok = CreateProcessA(
+            exe_cstr.as_ptr().cast(),
+            cmdline_buf.as_mut_ptr(),
+            ptr::null(),
+            ptr::null(),
+            0, // bInheritHandles = FALSE
+            CREATE_SUSPENDED | if headless { CREATE_NO_WINDOW } else { 0 },
+            ptr::null(), // inherit environment
+            wd_cstr.as_ptr().cast(),
+            &si,
+            &mut pi,
+        );
 
-    if ok == 0 {
-        return Err("CreateProcessA failed — is WA.exe path correct?".to_string());
-    }
+        if ok == 0 {
+            return Err("CreateProcessA failed — is WA.exe path correct?".to_string());
+        }
 
-    let dll_str = dll_path.to_str().ok_or("DLL path is not valid UTF-8")?;
+        let dll_str = dll_path.to_str().ok_or("DLL path is not valid UTF-8")?;
 
-    // Create a named event that the DLL will signal after all hooks are
-    // installed. This ensures the main thread doesn't run any WA code
-    // before our hooks are in place.
-    //
-    // Use a per-instance event name based on the child PID to allow
-    // concurrent launcher instances (e.g., parallel test runner).
-    let event_name_str = format!("OpenWA_HooksReady_{}\0", pi.dwProcessId);
-    let event_name = event_name_str.as_bytes();
-    // Also set env var so the DLL (in the child process) knows the event name.
-    // The child inherits our env, but it was created before we set this var.
-    // Instead, we write the event name into a small shared memory region:
-    // we use SetEnvironmentVariableA in the child's context — but that's not
-    // possible for a suspended process. So we rely on the DLL reading the
-    // event name from a fixed pattern: OpenWA_HooksReady_{its_own_pid}.
-    // The DLL can call GetCurrentProcessId() to reconstruct the same name.
-    let event = CreateEventA(ptr::null(), 1, 0, event_name.as_ptr());
-    // event may be null if CreateEventA fails — we'll fall through gracefully.
+        // Create a named event that the DLL will signal after all hooks are
+        // installed. This ensures the main thread doesn't run any WA code
+        // before our hooks are in place.
+        //
+        // Use a per-instance event name based on the child PID to allow
+        // concurrent launcher instances (e.g., parallel test runner).
+        let event_name_str = format!("OpenWA_HooksReady_{}\0", pi.dwProcessId);
+        let event_name = event_name_str.as_bytes();
+        // Also set env var so the DLL (in the child process) knows the event name.
+        // The child inherits our env, but it was created before we set this var.
+        // Instead, we write the event name into a small shared memory region:
+        // we use SetEnvironmentVariableA in the child's context — but that's not
+        // possible for a suspended process. So we rely on the DLL reading the
+        // event name from a fixed pattern: OpenWA_HooksReady_{its_own_pid}.
+        // The DLL can call GetCurrentProcessId() to reconstruct the same name.
+        let event = CreateEventA(ptr::null(), 1, 0, event_name.as_ptr());
+        // event may be null if CreateEventA fails — we'll fall through gracefully.
 
-    if let Err(e) = inject::inject_dll(pi.hProcess, dll_str) {
+        if let Err(e) = inject::inject_dll(pi.hProcess, dll_str) {
+            if !event.is_null() {
+                CloseHandle(event);
+            }
+            TerminateProcess(pi.hProcess, 1);
+            CloseHandle(pi.hProcess);
+            CloseHandle(pi.hThread);
+            return Err(format!("DLL injection failed: {e}"));
+        }
+
+        // Wait for the DLL to signal that all hooks are installed.
+        // Use a generous timeout — under high concurrency (e.g. 16 parallel
+        // test instances), DLL loading + hook installation can exceed 10s due
+        // to I/O contention. 120s matches the test runner's own timeout.
         if !event.is_null() {
+            let wait_result = WaitForSingleObject(event, 120_000);
+            if wait_result != 0 {
+                eprintln!("openwa-launcher: warning: hooks-ready event timed out ({wait_result})");
+            }
             CloseHandle(event);
         }
-        TerminateProcess(pi.hProcess, 1);
-        CloseHandle(pi.hProcess);
+
+        // All hooks installed — let WA.exe run.
+        ResumeThread(pi.hThread);
         CloseHandle(pi.hThread);
-        return Err(format!("DLL injection failed: {e}"));
+
+        // Wait for WA.exe to exit, then propagate its exit code.
+        WaitForSingleObject(pi.hProcess, INFINITE);
+        let mut exit_code: u32 = 0;
+        GetExitCodeProcess(pi.hProcess, &mut exit_code);
+        CloseHandle(pi.hProcess);
+
+        std::process::exit(exit_code as i32);
     }
-
-    // Wait for the DLL to signal that all hooks are installed.
-    // Use a generous timeout — under high concurrency (e.g. 16 parallel
-    // test instances), DLL loading + hook installation can exceed 10s due
-    // to I/O contention. 120s matches the test runner's own timeout.
-    if !event.is_null() {
-        let wait_result = WaitForSingleObject(event, 120_000);
-        if wait_result != 0 {
-            eprintln!("openwa-launcher: warning: hooks-ready event timed out ({wait_result})");
-        }
-        CloseHandle(event);
-    }
-
-    // All hooks installed — let WA.exe run.
-    ResumeThread(pi.hThread);
-    CloseHandle(pi.hThread);
-
-    // Wait for WA.exe to exit, then propagate its exit code.
-    WaitForSingleObject(pi.hProcess, INFINITE);
-    let mut exit_code: u32 = 0;
-    GetExitCodeProcess(pi.hProcess, &mut exit_code);
-    CloseHandle(pi.hProcess);
-
-    std::process::exit(exit_code as i32);
 }
 
 // ---------------------------------------------------------------------------

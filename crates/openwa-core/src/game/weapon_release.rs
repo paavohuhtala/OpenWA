@@ -164,11 +164,9 @@ pub unsafe fn weapon_release(
             offset_x = aim_dir_x;
             offset_y = aim_dir_y;
         }
-        Ok(FireType::Special) => {
-            if (special_subtype as u32).wrapping_sub(1) < 0x18 {
-                offset_x = aim_dir_x;
-                offset_y = aim_dir_y;
-            }
+        Ok(FireType::Special) if (special_subtype as u32).wrapping_sub(1) < 0x18 => {
+            offset_x = aim_dir_x;
+            offset_y = aim_dir_y;
         }
         _ => {}
     }
@@ -318,11 +316,9 @@ pub unsafe fn weapon_release(
             }
             _ => {}
         },
-        Ok(FireType::Rope) => {
-            if w._unknown_2cc == 0 || w._unknown_2c8 == 1 {
-                let team_sound_raw = (*w.ddgame()).team_sound_id(team_id);
-                sound::play_sound_local(task, SoundId(team_sound_raw), 3, Fixed::ONE, Fixed::ONE);
-            }
+        Ok(FireType::Rope) if w._unknown_2cc == 0 || w._unknown_2c8 == 1 => {
+            let team_sound_raw = (*w.ddgame()).team_sound_id(team_id);
+            sound::play_sound_local(task, SoundId(team_sound_raw), 3, Fixed::ONE, Fixed::ONE);
         }
         // Type 3 (Strike): no sound
         Ok(FireType::Special) => {
@@ -356,21 +352,17 @@ pub unsafe fn weapon_release(
                         Fixed::ONE,
                     );
                 }
-                Ok(S::Teleport) => {
-                    if w._unknown_208 == 0 {
-                        sound::play_sound_local(
-                            task,
-                            KnownSoundId::Teleport,
-                            3,
-                            Fixed::ONE,
-                            Fixed::ONE,
-                        );
-                    }
+                Ok(S::Teleport) if w._unknown_208 == 0 => {
+                    sound::play_sound_local(
+                        task,
+                        KnownSoundId::Teleport,
+                        3,
+                        Fixed::ONE,
+                        Fixed::ONE,
+                    );
                 }
-                Ok(S::Blowtorch) => {
-                    if w.sound_handle == 0 {
-                        sound::play_worm_sound(worm, SoundId(0x10035), Fixed::ONE);
-                    }
+                Ok(S::Blowtorch) if w.sound_handle == 0 => {
+                    sound::play_worm_sound(worm, SoundId(0x10035), Fixed::ONE);
                 }
                 _ => {}
             }

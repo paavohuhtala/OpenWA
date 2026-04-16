@@ -232,18 +232,17 @@ pub unsafe extern "thiscall" fn returns_1(_this: *mut DSSound) -> u32 {
 pub unsafe extern "thiscall" fn update_channels(this: *mut DSSound) {
     let snd = &mut *this;
     for desc in &mut snd.channel_descs {
-        if let Some(buf) = desc.buffer() {
-            if let Ok(status) = buf.GetStatus() {
-                // If not playing (bit 0 clear) and not pooled (pool_idx < 0), release.
-                if (status & 1) == 0 && desc.pool_idx < 0 {
-                    // Take and drop to release COM ref.
-                    desc.take_buffer();
-                    desc.channel_freq = Fixed(0);
-                    desc.channel_volume = Fixed(0);
-                    desc.priority = -1;
-                    desc.pool_idx = -1;
-                }
-            }
+        if let Some(buf) = desc.buffer()
+            && let Ok(status) = buf.GetStatus()
+            && (status & 1) == 0
+            && desc.pool_idx < 0
+        {
+            // Take and drop to release COM ref.
+            desc.take_buffer();
+            desc.channel_freq = Fixed(0);
+            desc.channel_volume = Fixed(0);
+            desc.priority = -1;
+            desc.pool_idx = -1;
         }
     }
 }
@@ -253,17 +252,17 @@ pub unsafe extern "thiscall" fn release_finished(this: *mut DSSound) -> i32 {
     let snd = &mut *this;
     let mut count = 0i32;
     for desc in &mut snd.channel_descs {
-        if let Some(buf) = desc.buffer() {
-            if let Ok(status) = buf.GetStatus() {
-                if (status & 1) == 0 && desc.pool_idx < 0 {
-                    desc.take_buffer();
-                    desc.channel_freq = Fixed(0);
-                    desc.channel_volume = Fixed(0);
-                    desc.priority = -1;
-                    desc.pool_idx = -1;
-                    count += 1;
-                }
-            }
+        if let Some(buf) = desc.buffer()
+            && let Ok(status) = buf.GetStatus()
+            && (status & 1) == 0
+            && desc.pool_idx < 0
+        {
+            desc.take_buffer();
+            desc.channel_freq = Fixed(0);
+            desc.channel_volume = Fixed(0);
+            desc.priority = -1;
+            desc.pool_idx = -1;
+            count += 1;
         }
     }
     count
@@ -709,11 +708,7 @@ pub unsafe extern "thiscall" fn is_channel_finished(this: *mut DSSound, pool_id:
     let Some(buf) = desc.buffer() else { return 1 };
     match buf.GetStatus() {
         Ok(status) => {
-            if status & 1 != 0 {
-                0
-            } else {
-                1
-            } // playing → 0, stopped → 1
+            if status & 1 != 0 { 0 } else { 1 } // playing → 0, stopped → 1
         }
         Err(_) => 1, // error → treat as finished
     }
@@ -786,9 +781,9 @@ pub unsafe extern "thiscall" fn load_wav(
     path: *const u8,
 ) -> u32 {
     use windows::Win32::Media::Audio::DirectSound::{
-        IDirectSound, IDirectSoundBuffer, DSBLOCK_ENTIREBUFFER, DSBUFFERDESC,
+        DSBLOCK_ENTIREBUFFER, DSBUFFERDESC, IDirectSound, IDirectSoundBuffer,
     };
-    use windows::Win32::Media::Audio::{WAVEFORMATEX, WAVE_FORMAT_PCM};
+    use windows::Win32::Media::Audio::{WAVE_FORMAT_PCM, WAVEFORMATEX};
 
     // Validate: need DirectSound, valid slot, not already loaded.
     // Slot index is used directly as array index (1-based, slot 0 unused).

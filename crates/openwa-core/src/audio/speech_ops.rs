@@ -14,15 +14,15 @@
 //! - DSSound_LoadSpeechBank (0x571660)
 //! - DSSound_LoadAllSpeechBanks (0x571A70)
 
-use std::ffi::{c_char, CStr};
+use std::ffi::{CStr, c_char};
 
 use heapless::CString;
 
 use crate::address::va::{self, game_info_offsets};
 use crate::audio::wav_player::{self, WavPlayer};
 use crate::audio::{SpeechLineTableEntry, SpeechSlotTable};
-use crate::engine::ddgame_wrapper::SPEECH_NAME_ENTRY_SIZE;
 use crate::engine::DDGameWrapper;
+use crate::engine::ddgame_wrapper::SPEECH_NAME_ENTRY_SIZE;
 use crate::rebase::rb;
 
 /// Windows MAX_PATH (260 bytes including nul terminator).

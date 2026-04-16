@@ -1,9 +1,9 @@
 use super::base::CTask;
 use super::game_task::CGameTask;
-use crate::fixed::Fixed;
-use crate::game::weapon::WeaponEntry;
-use crate::game::Weapon;
 use crate::FieldRegistry;
+use crate::fixed::Fixed;
+use crate::game::Weapon;
+use crate::game::weapon::WeaponEntry;
 
 /// Worm state machine states.
 ///

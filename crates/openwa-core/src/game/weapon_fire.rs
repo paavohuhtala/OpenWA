@@ -11,14 +11,14 @@
 
 use crate::address::va;
 use crate::audio::{KnownSoundId, SoundId};
-use crate::engine::{TeamArena, GAME_PHASE_NORMAL_MIN, GAME_PHASE_SUDDEN_DEATH};
+use crate::engine::{GAME_PHASE_NORMAL_MIN, GAME_PHASE_SUDDEN_DEATH, TeamArena};
 use crate::fixed::Fixed;
-use crate::game::weapon::{WeaponEntry, WeaponFireParams, WeaponSpawnData};
 use crate::game::Weapon;
+use crate::game::weapon::{WeaponEntry, WeaponFireParams, WeaponSpawnData};
 use crate::log::log_line;
+use crate::task::CTask;
 use crate::task::turn_game::CTaskTurnGame;
 use crate::task::worm::{CTaskWorm, WormState};
-use crate::task::CTask;
 
 // ── WeaponReleaseContext ────────────────────────────────────
 
@@ -121,11 +121,7 @@ pub unsafe fn count_alive_worms(team_index: u32, arena: *const TeamArena) -> u32
             alive += 1;
         }
     }
-    if alive > 1 {
-        1
-    } else {
-        0
-    }
+    if alive > 1 { 1 } else { 0 }
 }
 
 // ============================================================

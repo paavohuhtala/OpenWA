@@ -4,15 +4,15 @@ use openwa_core::vtable;
 
 use crate::asset::gfx_dir::GfxDir;
 use crate::fixed::Fixed;
+use crate::render::SpriteCache;
 use crate::render::display::font::{
-    font_extend, font_get_info_impl, font_get_metric_impl, font_load_from_gfx,
-    font_set_palette_impl, font_set_param_impl, Font,
+    Font, font_extend, font_get_info_impl, font_get_metric_impl, font_load_from_gfx,
+    font_set_palette_impl, font_set_param_impl,
 };
 use crate::render::display::layer::Layer;
 use crate::render::display::line_draw::Vertex;
 use crate::render::sprite::sprite_op::SpriteOp;
 use crate::render::sprite::{LayerSprite, LayerSpriteFrame};
-use crate::render::SpriteCache;
 use crate::wa_alloc::wa_malloc_struct_zeroed;
 
 /// DisplayVtable — vtable for the display/rendering subsystem (DisplayGfx).
@@ -353,7 +353,7 @@ use super::line_draw;
 use crate::bitgrid::{BitGrid, DisplayBitGrid};
 use crate::render::palette::PaletteContext;
 use crate::render::sprite::{
-    frame_cache::frame_cache_allocate, lzss::sprite_lzss_decode, Sprite, SpriteBank, SpriteVtable,
+    Sprite, SpriteBank, SpriteVtable, frame_cache::frame_cache_allocate, lzss::sprite_lzss_decode,
 };
 
 /// Port of DisplayGfx::GetDimensions (slot 1, 0x56A460).
@@ -950,11 +950,7 @@ unsafe fn sprite_get_frame_for_blit(
         let prod = max_frames.wrapping_mul(anim_value as i32);
         let f = (prod.wrapping_add(0x8000) >> 16) as u32;
         *out_anim_frac = 0;
-        if f == max_frames as u32 {
-            0
-        } else {
-            f
-        }
+        if f == max_frames as u32 { 0 } else { f }
     } else {
         let max_frames = (*sprite).max_frames as i32;
         let prod = max_frames.wrapping_mul(anim_value as i32);
@@ -1581,7 +1577,7 @@ pub unsafe extern "thiscall" fn set_layer_visibility(
 /// Pure-Rust port of `ConstructSprite` (0x4FAA30). The caller must
 /// pre-zero the rest of the `Sprite` allocation.
 pub unsafe fn construct_sprite(sprite: *mut Sprite, sprite_cache: *mut SpriteCache) {
-    use crate::bitgrid::{BitGridDisplayVtable, BIT_GRID_DISPLAY_VTABLE};
+    use crate::bitgrid::{BIT_GRID_DISPLAY_VTABLE, BitGridDisplayVtable};
     use crate::rebase::rb;
 
     (*sprite).vtable = rb(va::SPRITE_VTABLE) as *const SpriteVtable;
@@ -1679,7 +1675,7 @@ pub unsafe fn load_sprite_by_name(
     name: *const c_char,
 ) -> i32 {
     use crate::address::va;
-    use crate::asset::gfx_dir::{gfx_dir_load_image, GfxDirStream};
+    use crate::asset::gfx_dir::{GfxDirStream, gfx_dir_load_image};
     use crate::rebase::rb;
     use crate::render::display::context::{FastcallResult, RenderContext, Surface};
     use crate::render::palette::{palette_map_color, remap_pixels_through_lut};

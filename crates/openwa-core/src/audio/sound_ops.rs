@@ -14,7 +14,7 @@
 //! - PlaySoundPooled_Direct (0x546B50)
 
 use crate::audio::SoundQueueEntry;
-use crate::audio::{play_sound, play_sound_pooled, SoundId};
+use crate::audio::{SoundId, play_sound, play_sound_pooled};
 use crate::engine::{DDGame, DDGameWrapper};
 use crate::fixed::Fixed;
 use crate::task::worm::CTaskWorm;
@@ -455,7 +455,7 @@ unsafe fn dispatch_local_sound(
         return 0;
     }
 
-    record_active_sound(table, emitter, pos.0 .0, pos.1 .0, volume.0, handle)
+    record_active_sound(table, emitter, pos.0.0, pos.1.0, volume.0, handle)
 }
 
 /// Load and play a streaming sound — port of LoadAndPlayStreaming (0x546C20).

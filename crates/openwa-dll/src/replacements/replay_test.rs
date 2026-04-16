@@ -13,9 +13,9 @@
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU32, Ordering};
 
 use crate::log_line;
-use openwa_core::engine::game_session;
 use openwa_core::engine::DDGame;
 use openwa_core::engine::TeamArena;
+use openwa_core::engine::game_session;
 
 // ---------------------------------------------------------------------------
 // Fast-forward
@@ -47,20 +47,22 @@ static ALIVE_AT_END: AtomicI32 = AtomicI32::new(-1);
 ///
 /// Handles fast-forward flag setting and periodic milestone checks.
 pub unsafe fn on_frame(frame: u32) {
-    let ddgame = game_session::get_ddgame();
-    if ddgame.is_null() {
-        return;
-    }
+    unsafe {
+        let ddgame = game_session::get_ddgame();
+        if ddgame.is_null() {
+            return;
+        }
 
-    // Re-set fast-forward each frame (WA clears it at turn boundaries)
-    if FAST_FORWARD.load(Ordering::Relaxed) {
-        (*ddgame).fast_forward_active = 1;
-    }
+        // Re-set fast-forward each frame (WA clears it at turn boundaries)
+        if FAST_FORWARD.load(Ordering::Relaxed) {
+            (*ddgame).fast_forward_active = 1;
+        }
 
-    // Milestone detection (check every 50 frames to reduce overhead).
-    // Skip the first 100 frames to let game state fully initialize.
-    if frame >= 100 && frame.is_multiple_of(50) {
-        check_milestones(ddgame, frame);
+        // Milestone detection (check every 50 frames to reduce overhead).
+        // Skip the first 100 frames to let game state fully initialize.
+        if frame >= 100 && frame.is_multiple_of(50) {
+            check_milestones(ddgame, frame);
+        }
     }
 }
 
@@ -68,45 +70,49 @@ pub unsafe fn on_frame(frame: u32) {
 ///
 /// Returns (alive_team_count, total_team_count).
 unsafe fn count_alive_teams(ddgame: *const DDGame) -> (i32, i32) {
-    let arena = &raw const (*ddgame).team_arena;
-    let team_count = (*arena).team_count;
-    if team_count <= 0 || team_count > 6 {
-        return (0, 0);
-    }
+    unsafe {
+        let arena = &raw const (*ddgame).team_arena;
+        let team_count = (*arena).team_count;
+        if team_count <= 0 || team_count > 6 {
+            return (0, 0);
+        }
 
-    let mut alive_teams = 0i32;
-    for t in 1..=team_count as usize {
-        let mut team_has_alive = false;
-        for w in 1..=8usize {
-            if (*TeamArena::team_worm(arena, t, w)).health > 0 {
-                team_has_alive = true;
-                break;
+        let mut alive_teams = 0i32;
+        for t in 1..=team_count as usize {
+            let mut team_has_alive = false;
+            for w in 1..=8usize {
+                if (*TeamArena::team_worm(arena, t, w)).health > 0 {
+                    team_has_alive = true;
+                    break;
+                }
+            }
+            if team_has_alive {
+                alive_teams += 1;
             }
         }
-        if team_has_alive {
-            alive_teams += 1;
-        }
+        (alive_teams, team_count)
     }
-    (alive_teams, team_count)
 }
 
 /// Check and update gameplay milestones.
 unsafe fn check_milestones(ddgame: *const DDGame, frame: u32) {
-    if MATCH_COMPLETED.load(Ordering::Relaxed) {
-        return;
-    }
-
-    let (alive, _total) = count_alive_teams(ddgame);
-
-    if !MATCH_STARTED.load(Ordering::Relaxed) {
-        if alive >= 2 {
-            MATCH_STARTED.store(true, Ordering::Relaxed);
-            TEAMS_AT_START.store(alive as u32, Ordering::Relaxed);
+    unsafe {
+        if MATCH_COMPLETED.load(Ordering::Relaxed) {
+            return;
         }
-    } else if alive <= 1 {
-        MATCH_COMPLETED.store(true, Ordering::Relaxed);
-        COMPLETION_FRAME.store(frame, Ordering::Relaxed);
-        ALIVE_AT_END.store(alive, Ordering::Relaxed);
+
+        let (alive, _total) = count_alive_teams(ddgame);
+
+        if !MATCH_STARTED.load(Ordering::Relaxed) {
+            if alive >= 2 {
+                MATCH_STARTED.store(true, Ordering::Relaxed);
+                TEAMS_AT_START.store(alive as u32, Ordering::Relaxed);
+            }
+        } else if alive <= 1 {
+            MATCH_COMPLETED.store(true, Ordering::Relaxed);
+            COMPLETION_FRAME.store(frame, Ordering::Relaxed);
+            ALIVE_AT_END.store(alive, Ordering::Relaxed);
+        }
     }
 }
 

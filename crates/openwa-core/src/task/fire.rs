@@ -1,5 +1,5 @@
 use super::base::CTask;
-use crate::{fixed::Fixed, FieldRegistry};
+use crate::{FieldRegistry, fixed::Fixed};
 
 crate::define_addresses! {
     class "CTaskFire" {

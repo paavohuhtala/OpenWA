@@ -1,4 +1,4 @@
-use super::message::{RenderMessage, TypedRenderCmd, COMMAND_TYPE_TYPED};
+use super::message::{COMMAND_TYPE_TYPED, RenderMessage, TypedRenderCmd};
 
 /// Render queue — manages a downward-growing arena buffer of draw commands.
 ///

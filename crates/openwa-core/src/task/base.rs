@@ -1,6 +1,6 @@
+use crate::FieldRegistry;
 use crate::engine::ddgame::DDGame;
 use crate::game::class_type::ClassType;
-use crate::FieldRegistry;
 
 crate::define_addresses! {
     class "CTask" {

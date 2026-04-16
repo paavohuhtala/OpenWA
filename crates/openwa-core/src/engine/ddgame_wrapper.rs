@@ -1,3 +1,4 @@
+use crate::FieldRegistry;
 use crate::asset::gfx_dir::GfxDir;
 use crate::audio::dssound::DSSound;
 use crate::engine::ddgame::DDGame;
@@ -5,7 +6,6 @@ use crate::engine::net_bridge::NetBridge;
 use crate::render::display::gfx::DisplayGfx;
 use crate::render::landscape::PCLandscape;
 use crate::render::palette::PaletteContext;
-use crate::FieldRegistry;
 
 /// Speech name table entry size (0x40 = 64 bytes, null-terminated C string).
 pub const SPEECH_NAME_ENTRY_SIZE: usize = 0x40;

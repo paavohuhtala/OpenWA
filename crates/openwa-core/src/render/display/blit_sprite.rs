@@ -5,8 +5,8 @@
 //! and dispatch to the low-level BitGrid blit routines.
 
 use crate::address::va;
-use crate::bitgrid::blit::{blit_impl, blit_stippled_raw, blit_tiled_raw};
 use crate::bitgrid::DisplayBitGrid;
+use crate::bitgrid::blit::{blit_impl, blit_stippled_raw, blit_tiled_raw};
 use crate::fixed::Fixed;
 use crate::rebase::rb;
 use crate::render::display::gfx::DisplayGfx;

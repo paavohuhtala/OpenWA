@@ -264,8 +264,8 @@ const MUSIC_VOLUME_DB: [i32; 65] = [
 use std::io::{Read, Seek, SeekFrom};
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use windows::Win32::Media::Audio::DirectSound::{IDirectSound, IDirectSoundBuffer, DSBUFFERDESC};
-use windows::Win32::Media::Audio::{WAVEFORMATEX, WAVE_FORMAT_PCM};
+use windows::Win32::Media::Audio::DirectSound::{DSBUFFERDESC, IDirectSound, IDirectSoundBuffer};
+use windows::Win32::Media::Audio::{WAVE_FORMAT_PCM, WAVEFORMATEX};
 
 /// Global pointer to the active StreamingAudio for the timer callback.
 /// Only one streaming audio instance is active at a time (music playback).
@@ -276,14 +276,14 @@ static STREAMING_AUDIO_PTR: AtomicU32 = AtomicU32::new(0);
 /// struct field), NOT a stack local — the returned reference borrows it.
 #[inline]
 unsafe fn ds_buf_from_field(field: *const Ptr32) -> &'static IDirectSoundBuffer {
-    &*(field as *const IDirectSoundBuffer)
+    unsafe { &*(field as *const IDirectSoundBuffer) }
 }
 
 /// Reinterpret a `*const Ptr32` field (pointing to a stored raw COM pointer)
 /// as `&IDirectSound`.
 #[inline]
 unsafe fn ds_from_field(field: *const Ptr32) -> &'static IDirectSound {
-    &*(field as *const IDirectSound)
+    unsafe { &*(field as *const IDirectSound) }
 }
 
 impl StreamingAudio {
@@ -956,7 +956,7 @@ impl Music {
 // ============================================================
 
 #[link(name = "winmm")]
-extern "system" {
+unsafe extern "system" {
     fn timeSetEvent(
         delay: u32,
         resolution: u32,

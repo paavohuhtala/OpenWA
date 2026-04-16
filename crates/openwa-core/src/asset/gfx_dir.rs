@@ -5,7 +5,7 @@
 //! and delegates file I/O and caching to vtable methods.
 
 #[cfg(target_arch = "x86")]
-use core::ffi::{c_char, CStr};
+use core::ffi::{CStr, c_char};
 
 use openwa_core::vtable;
 
@@ -371,11 +371,7 @@ pub unsafe extern "thiscall" fn gfx_dir_read(this: *mut GfxDir, buf: *mut u8, si
     let fread: unsafe extern "cdecl" fn(*mut u8, u32, u32, *mut u8) -> u32 =
         core::mem::transmute(rb(va::WA_FREAD) as usize);
     let bytes_read = fread(buf, 1, size, (*this).file_handle);
-    if bytes_read != size {
-        0
-    } else {
-        size
-    }
+    if bytes_read != size { 0 } else { size }
 }
 
 /// Pure Rust implementation of GfxHandler__Seek (vtable slot 1, 0x58BBB0).
@@ -386,11 +382,7 @@ pub unsafe extern "thiscall" fn gfx_dir_seek(this: *mut GfxDir, offset: u32) -> 
     let fseek: unsafe extern "cdecl" fn(*mut u8, i32, i32) -> i32 =
         core::mem::transmute(rb(va::WA_FSEEK) as usize);
     let result = fseek((*this).file_handle, offset as i32, 0); // SEEK_SET = 0
-    if result == 0 {
-        1
-    } else {
-        0
-    }
+    if result == 0 { 1 } else { 0 }
 }
 
 /// Pure Rust implementation of GfxHandler__LoadCached (vtable slot 2, 0x571AF0).

@@ -18,10 +18,10 @@
 use core::ffi::c_void;
 use core::ptr::null_mut;
 
+use crate::render::SpriteCache;
 #[cfg(test)]
 use crate::render::display::base::FrameCache;
 use crate::render::display::base::FrameCacheEntry;
-use crate::render::SpriteCache;
 
 crate::define_addresses! {
     class "FrameCache" {
@@ -104,11 +104,7 @@ pub unsafe fn frame_cache_allocate(
             // Case A: write_head sits behind wrap_marker (a previously
             // wrapped buffer). Allocation succeeds iff it doesn't reach
             // wrap_marker.
-            if end <= wrap {
-                Some(write)
-            } else {
-                None
-            }
+            if end <= wrap { Some(write) } else { None }
         } else {
             // Case B: write_head ahead of wrap_marker. Allocation
             // succeeds iff it fits before the end of the buffer; if it

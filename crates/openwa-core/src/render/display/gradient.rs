@@ -6,9 +6,9 @@
 //! may have subtle color differences due to the tangled decompiler output.
 
 use crate::address::va;
-use crate::asset::gfx_dir::call_gfx_find_and_load;
 #[cfg(target_arch = "x86")]
 use crate::asset::gfx_dir::GfxDir;
+use crate::asset::gfx_dir::call_gfx_find_and_load;
 use crate::bitgrid::{BitGrid, BitGridBaseVtable};
 use crate::engine::ddgame::DDGame;
 use crate::rebase::rb;

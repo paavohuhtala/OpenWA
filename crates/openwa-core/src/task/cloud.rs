@@ -1,7 +1,7 @@
 use super::base::CTask;
+use crate::FieldRegistry;
 use crate::fixed::Fixed;
 use crate::game::class_type::ClassType;
-use crate::FieldRegistry;
 
 crate::define_addresses! {
     class "CTaskCloud" {
@@ -191,10 +191,8 @@ pub unsafe extern "thiscall" fn cloud_handle_message(
             }
         }
 
-        Ok(TaskMessage::SetWind) => {
-            if !data.is_null() {
-                (*this).wind_target = Fixed(*(data as *const i32));
-            }
+        Ok(TaskMessage::SetWind) if !data.is_null() => {
+            (*this).wind_target = Fixed(*(data as *const i32));
         }
 
         _ => {}
@@ -239,34 +237,36 @@ impl CTaskCloud {
     ) {
         use crate::rebase::rb;
 
-        // Set vtable pointer to the CTaskCloud vtable (rebased for ASLR)
-        (*this).base.vtable = rb(CTASK_CLOUD_VTABLE) as *const CTaskCloudVTable;
-        (*this).base.class_type = ClassType::Cloud;
+        unsafe {
+            // Set vtable pointer to the CTaskCloud vtable (rebased for ASLR)
+            (*this).base.vtable = rb(CTASK_CLOUD_VTABLE) as *const CTaskCloudVTable;
+            (*this).base.class_type = ClassType::Cloud;
 
-        // Position: x is the initial horizontal position. The original computes
-        // `anim_phase = (pos_x + render_y) & 0xFFFF`, but both pos_x and render_y
-        // have their lower 16 bits zero, so the result is always 0.
-        (*this).pos_x = pos_x;
-        (*this).anim_phase = Fixed((pos_x.0.wrapping_add(render_y.0)) & 0xFFFF);
-        (*this).layer_depth = layer_depth;
-        (*this).render_y = render_y;
-        (*this).vel_x = vel_x;
-        (*this).wind_accel = Fixed(0);
-        (*this).wind_target = Fixed(0);
+            // Position: x is the initial horizontal position. The original computes
+            // `anim_phase = (pos_x + render_y) & 0xFFFF`, but both pos_x and render_y
+            // have their lower 16 bits zero, so the result is always 0.
+            (*this).pos_x = pos_x;
+            (*this).anim_phase = Fixed((pos_x.0.wrapping_add(render_y.0)) & 0xFFFF);
+            (*this).layer_depth = layer_depth;
+            (*this).render_y = render_y;
+            (*this).vel_x = vel_x;
+            (*this).wind_accel = Fixed(0);
+            (*this).wind_target = Fixed(0);
 
-        // Set type-dependent velocity and sprite
-        match cloud_type {
-            CloudType::Large => {
-                (*this).phase_speed = Fixed(0x200);
-                (*this).sprite_id = 0x268;
-            }
-            CloudType::Medium => {
-                (*this).phase_speed = Fixed(0x166);
-                (*this).sprite_id = 0x269;
-            }
-            CloudType::Small => {
-                (*this).phase_speed = Fixed(0xCC);
-                (*this).sprite_id = 0x26A;
+            // Set type-dependent velocity and sprite
+            match cloud_type {
+                CloudType::Large => {
+                    (*this).phase_speed = Fixed(0x200);
+                    (*this).sprite_id = 0x268;
+                }
+                CloudType::Medium => {
+                    (*this).phase_speed = Fixed(0x166);
+                    (*this).sprite_id = 0x269;
+                }
+                CloudType::Small => {
+                    (*this).phase_speed = Fixed(0xCC);
+                    (*this).sprite_id = 0x26A;
+                }
             }
         }
     }

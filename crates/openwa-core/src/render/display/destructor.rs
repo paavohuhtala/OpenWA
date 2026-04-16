@@ -41,13 +41,13 @@ use core::ffi::c_void;
 use core::ptr;
 
 use crate::address::va;
-use crate::bitgrid::{BitGridBaseVtable, BIT_GRID_BASE_VTABLE};
+use crate::bitgrid::{BIT_GRID_BASE_VTABLE, BitGridBaseVtable};
 use crate::rebase::rb;
 use crate::render::display::base::DisplayBase;
 use crate::render::display::context::{FastcallResult, RenderContext};
 use crate::render::display::frame_hook::FramePostProcessHook;
-use crate::render::display::gfx::{DisplayGfx, TileBitmapSet, DISPLAY_BASE_DESTRUCTOR_IMPL};
-use crate::render::display::vtable::{DisplayGfxVtable, DISPLAY_GFX_VTABLE};
+use crate::render::display::gfx::{DISPLAY_BASE_DESTRUCTOR_IMPL, DisplayGfx, TileBitmapSet};
+use crate::render::display::vtable::{DISPLAY_GFX_VTABLE, DisplayGfxVtable};
 use crate::render::sprite::{CBitmap, LayerSprite, LayerSpriteFrame};
 use crate::wa_alloc::wa_free;
 

@@ -380,40 +380,42 @@ pub(crate) use usercall_trampoline;
 /// `ebp` is the current frame pointer; the function walks up to 12 frames,
 /// resolving return addresses via the address registry.
 pub unsafe fn log_stack_trace(name: &str, ebp: u32) {
-    use openwa_core::address::va;
-    use openwa_core::rebase::rb;
-    let delta = rb(va::IMAGE_BASE).wrapping_sub(va::IMAGE_BASE);
-    let wa_base = rb(va::IMAGE_BASE);
+    unsafe {
+        use openwa_core::address::va;
+        use openwa_core::rebase::rb;
+        let delta = rb(va::IMAGE_BASE).wrapping_sub(va::IMAGE_BASE);
+        let wa_base = rb(va::IMAGE_BASE);
 
-    let mut trace = String::new();
-    let mut ebp = ebp;
-    for depth in 0..12 {
-        if !(0x10000..=0x7FFE0000).contains(&ebp) || (ebp & 3) != 0 {
-            break;
+        let mut trace = String::new();
+        let mut ebp = ebp;
+        for depth in 0..12 {
+            if !(0x10000..=0x7FFE0000).contains(&ebp) || (ebp & 3) != 0 {
+                break;
+            }
+            if !openwa_core::mem::can_read(ebp, 8) {
+                break;
+            }
+            let ret_addr = *((ebp + 4) as *const u32);
+            let next_ebp = *(ebp as *const u32);
+            let ghidra_ret = ret_addr.wrapping_sub(delta);
+            if depth > 0 {
+                trace.push_str("<-");
+            }
+            let in_wa = ret_addr >= wa_base && ret_addr < wa_base + 0x300000;
+            if in_wa {
+                trace.push_str(&openwa_core::registry::format_va(ghidra_ret));
+            } else {
+                use core::fmt::Write;
+                let _ = write!(trace, "r:{:08X}", ret_addr);
+            }
+            if next_ebp <= ebp {
+                break;
+            }
+            ebp = next_ebp;
         }
-        if !openwa_core::mem::can_read(ebp, 8) {
-            break;
-        }
-        let ret_addr = *((ebp + 4) as *const u32);
-        let next_ebp = *(ebp as *const u32);
-        let ghidra_ret = ret_addr.wrapping_sub(delta);
-        if depth > 0 {
-            trace.push_str("<-");
-        }
-        let in_wa = ret_addr >= wa_base && ret_addr < wa_base + 0x300000;
-        if in_wa {
-            trace.push_str(&openwa_core::registry::format_va(ghidra_ret));
-        } else {
-            use core::fmt::Write;
-            let _ = write!(trace, "r:{:08X}", ret_addr);
-        }
-        if next_ebp <= ebp {
-            break;
-        }
-        ebp = next_ebp;
+
+        let _ = crate::log_line(&format!("[TRAP] {} stack=[{}]", name, trace));
     }
-
-    let _ = crate::log_line(&format!("[TRAP] {} stack=[{}]", name, trace));
 }
 
 /// Install a panic trap on a fully-converted WA function.
@@ -430,8 +432,8 @@ macro_rules! install_trap {
     ($name:literal, $addr:expr) => {{
         unsafe extern "C" fn trap() {
             let ebp: u32;
-            core::arch::asm!("mov {}, ebp", out(reg) ebp);
-            hook::log_stack_trace($name, ebp);
+            unsafe { core::arch::asm!("mov {}, ebp", out(reg) ebp) };
+            unsafe { hook::log_stack_trace($name, ebp) };
             panic!(concat!(
                 "TRAP: ",
                 $name,
@@ -464,19 +466,21 @@ pub unsafe fn install(
     ghidra_addr: u32,
     detour: *const (),
 ) -> Result<*mut c_void, String> {
-    let target = rb(ghidra_addr) as *mut c_void;
-    let detour = detour as *mut c_void;
+    unsafe {
+        let target = rb(ghidra_addr) as *mut c_void;
+        let detour = detour as *mut c_void;
 
-    let trampoline = MinHook::create_hook(target, detour)
-        .map_err(|e| format!("MinHook create_hook failed for {name}: {e}"))?;
+        let trampoline = MinHook::create_hook(target, detour)
+            .map_err(|e| format!("MinHook create_hook failed for {name}: {e}"))?;
 
-    MinHook::queue_enable_hook(target)
-        .map_err(|e| format!("MinHook queue_enable_hook failed for {name}: {e}"))?;
+        MinHook::queue_enable_hook(target)
+            .map_err(|e| format!("MinHook queue_enable_hook failed for {name}: {e}"))?;
 
-    let _ = log_line(&format!(
-        "  [REPLACE] {name}: target 0x{:08X}, trampoline 0x{:08X}",
-        target as u32, trampoline as u32
-    ));
+        let _ = log_line(&format!(
+            "  [REPLACE] {name}: target 0x{:08X}, trampoline 0x{:08X}",
+            target as u32, trampoline as u32
+        ));
 
-    Ok(trampoline)
+        Ok(trampoline)
+    }
 }

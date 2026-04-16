@@ -1122,7 +1122,7 @@ mod tests {
         data.extend_from_slice(b"SCHM");
         data.push(0x03);
         data.extend_from_slice(&[0xAA; SCHEME_PAYLOAD_V2]); // V2 portion filled with 0xAA
-                                                            // No extended options bytes — should be padded with defaults
+        // No extended options bytes — should be padded with defaults
 
         let scheme = SchemeFile::from_bytes(&data).expect("should accept short V3");
         assert_eq!(scheme.version, SchemeVersion::V3);

@@ -6,7 +6,7 @@
 use crate::bitgrid::DisplayBitGrid;
 use crate::render::display::line_draw::PixelGridMut;
 use crate::render::display::sprite_blit::{
-    blit_sprite_rect, blit_stippled, blit_tiled, BlitBlend, BlitOrientation, BlitSource,
+    BlitBlend, BlitOrientation, BlitSource, blit_sprite_rect, blit_stippled, blit_tiled,
 };
 
 /// Rust implementation of the core sprite blit (BitGrid__BlitSpriteRect, 0x4F6910).

@@ -317,18 +317,16 @@ pub unsafe fn check_weapon_avail(ddgame: *mut DDGame, weapon_index: u32) -> i32 
 
     // Step 1: Special per-weapon disabling rules
     match weapon_index {
-        w if w == Weapon::Earthquake as u32
+        w if (w == Weapon::Earthquake as u32
             || w == Weapon::NuclearTest as u32
-            || w == Weapon::Armageddon as u32 =>
+            || w == Weapon::Armageddon as u32)
+            && (*gi).net_config_2 != 0
+            && (*gi).net_weapon_exception == 0 =>
         {
-            if (*gi).net_config_2 != 0 && (*gi).net_weapon_exception == 0 {
-                return 0;
-            }
+            return 0;
         }
-        w if w == Weapon::Donkey as u32 => {
-            if (*gi).donkey_disabled != 0 {
-                return 0;
-            }
+        w if w == Weapon::Donkey as u32 && (*gi).donkey_disabled != 0 => {
+            return 0;
         }
         w if w == Weapon::Invisibility as u32 => {
             if (*gi).invisibility_mode == 0 {
@@ -339,10 +337,11 @@ pub unsafe fn check_weapon_avail(ddgame: *mut DDGame, weapon_index: u32) -> i32 
                 return 0;
             }
         }
-        w if w == Weapon::DoubleTurnTime as u32 => {
-            if game_version > 0xD1 && (*gi).double_turn_time_threshold > 0x7FFF {
-                return 0;
-            }
+        w if w == Weapon::DoubleTurnTime as u32
+            && game_version > 0xD1
+            && (*gi).double_turn_time_threshold > 0x7FFF =>
+        {
+            return 0;
         }
         _ => {}
     }
@@ -1130,7 +1129,7 @@ unsafe fn allocate_ring_buffer_init() -> *mut u8 {
 /// Allocate and initialize a PaletteContext (0x72C bytes).
 /// Sets dirty_range_min=1, dirty_range_max=0xFF, then calls PaletteContext__Init.
 unsafe fn allocate_palette_context() -> *mut crate::render::palette::PaletteContext {
-    use crate::render::palette::{palette_context_init, PaletteContext};
+    use crate::render::palette::{PaletteContext, palette_context_init};
 
     let ctx = wa_malloc_struct_zeroed::<PaletteContext>();
     if ctx.is_null() {
@@ -1323,7 +1322,7 @@ unsafe fn init_game_state_display(
 /// Create a DisplayGfx layer (0x4C bytes): malloc + memset + BitGrid__Init + vtable.
 /// Each layer has specific height/width for its BitGrid.
 unsafe fn create_display_gfx_layer_sized(height: u32, width: u32) -> *mut u8 {
-    use crate::bitgrid::{BitGrid, BIT_GRID_DISPLAY_VTABLE};
+    use crate::bitgrid::{BIT_GRID_DISPLAY_VTABLE, BitGrid};
     use crate::rebase::rb;
     use crate::wa_alloc::wa_malloc_zeroed;
 
@@ -1811,8 +1810,8 @@ unsafe fn init_game_state_tracking_arrays(ddgame: *mut DDGame, game_info: *const
         let obj = (*ddgame)._unknown_51c;
         if !obj.is_null() {
             *(obj as *mut u32) = 0; // first field = 0
-                                    // The vector operations (FUN_005370c0, etc.) are complex.
-                                    // Bridge to original via setting fields directly.
+            // The vector operations (FUN_005370c0, etc.) are complex.
+            // Bridge to original via setting fields directly.
             let obj32 = obj as *mut u32;
             // Reset the internal vector state
             *(obj32.add(5)) = 0; // +0x14

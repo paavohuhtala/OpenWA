@@ -403,16 +403,16 @@ fn resolve_offset(s: &str, class: &Option<String>, port: u16) -> u32 {
     }
 
     // Try as field name
-    if let Some(cls) = class {
-        if let Ok(Response::FieldResult(f)) = send_request(
+    if let Some(cls) = class
+        && let Ok(Response::FieldResult(f)) = send_request(
             port,
             &Request::ResolveField {
                 class_name: cls.clone(),
                 field_name: s.to_string(),
             },
-        ) {
-            return f.offset;
-        }
+        )
+    {
+        return f.offset;
     }
 
     // Fall back to numeric parse (will exit on error)
@@ -578,16 +578,16 @@ fn resolve_chain_segment_typed(s: &str, current_class: &Option<String>, port: u1
     }
 
     // Try resolving as a field name if we know the current class
-    if let Some(class) = current_class {
-        if let Ok(Response::FieldResult(f)) = send_request(
+    if let Some(class) = current_class
+        && let Ok(Response::FieldResult(f)) = send_request(
             port,
             &Request::ResolveField {
                 class_name: class.clone(),
                 field_name: base_str.to_string(),
             },
-        ) {
-            return ChainSegment::FieldOffset(f.offset.wrapping_add(extra));
-        }
+        )
+    {
+        return ChainSegment::FieldOffset(f.offset.wrapping_add(extra));
     }
 
     // Fall back to numeric parse — treat as hex semantics

@@ -8,13 +8,13 @@ use openwa_core::asset::gfx_dir::GfxDir;
 use openwa_core::bitgrid::DisplayBitGrid;
 use openwa_core::fixed::Fixed;
 use openwa_core::rebase::rb;
-use openwa_core::render::display::destructor as display_destructor;
-use openwa_core::render::display::vtable::{self as display_vtable_impl, DisplayGfxVtable};
+use openwa_core::render::SpriteOp;
 use openwa_core::render::display::DisplayBase;
 use openwa_core::render::display::DisplayGfx;
+use openwa_core::render::display::destructor as display_destructor;
+use openwa_core::render::display::vtable::{self as display_vtable_impl, DisplayGfxVtable};
 use openwa_core::render::palette::PaletteContext;
 use openwa_core::render::sprite::Sprite;
-use openwa_core::render::SpriteOp;
 use openwa_core::vtable::patch_vtable;
 use openwa_core::vtable_replace;
 use openwa_core::wa_alloc::wa_free;
@@ -34,22 +34,24 @@ unsafe extern "thiscall" fn headless_destructor(
     this: *mut DisplayBase,
     flags: u8,
 ) -> *mut DisplayBase {
-    let sprite_cache = (*this).sprite_cache;
-    if !sprite_cache.is_null() {
-        let frame_cache = (*sprite_cache).frame_cache;
-        if !frame_cache.is_null() {
-            let buf = (*frame_cache).buffer;
-            if !buf.is_null() {
-                wa_free(buf);
+    unsafe {
+        let sprite_cache = (*this).sprite_cache;
+        if !sprite_cache.is_null() {
+            let frame_cache = (*sprite_cache).frame_cache;
+            if !frame_cache.is_null() {
+                let buf = (*frame_cache).buffer;
+                if !buf.is_null() {
+                    wa_free(buf);
+                }
+                wa_free(frame_cache);
             }
-            wa_free(frame_cache);
+            wa_free(sprite_cache);
         }
-        wa_free(sprite_cache);
+        if flags & 1 != 0 {
+            wa_free(this);
+        }
+        this
     }
-    if flags & 1 != 0 {
-        wa_free(this);
-    }
-    this
 }
 
 // BlitSprite (slot 19, 0x56B080)
@@ -60,7 +62,9 @@ unsafe extern "thiscall" fn blit_sprite(
     sprite: SpriteOp,
     palette: u32,
 ) {
-    openwa_core::render::display::blit_sprite::blit_sprite(this, x, y, sprite, palette);
+    unsafe {
+        openwa_core::render::display::blit_sprite::blit_sprite(this, x, y, sprite, palette);
+    }
 }
 
 // DrawScaledSprite (slot 20, 0x56B5F0)
@@ -75,9 +79,11 @@ unsafe extern "thiscall" fn draw_scaled_sprite(
     src_h: i32,
     flags: u32,
 ) {
-    openwa_core::render::display::blit_sprite::draw_scaled_sprite(
-        this, x, y, sprite, src_x, src_y, src_w, src_h, flags,
-    );
+    unsafe {
+        openwa_core::render::display::blit_sprite::draw_scaled_sprite(
+            this, x, y, sprite, src_x, src_y, src_w, src_h, flags,
+        );
+    }
 }
 
 // LoadSprite (slot 31, 0x523400)
@@ -89,15 +95,17 @@ unsafe extern "thiscall" fn load_sprite(
     gfx_dir: *mut GfxDir,
     name: *const c_char,
 ) -> i32 {
-    display_vtable_impl::load_sprite(
-        this,
-        layer,
-        id,
-        flag,
-        gfx_dir,
-        name,
-        wa_load_sprite_from_vfs,
-    )
+    unsafe {
+        display_vtable_impl::load_sprite(
+            this,
+            layer,
+            id,
+            flag,
+            gfx_dir,
+            name,
+            wa_load_sprite_from_vfs,
+        )
+    }
 }
 
 // LoadSpriteFromVfs (0x4FAAF0) — naked bridge
@@ -130,7 +138,7 @@ unsafe extern "thiscall" fn load_sprite_by_layer(
     gfx_dir: *mut GfxDir,
     name: *const c_char,
 ) -> i32 {
-    display_vtable_impl::load_sprite_by_layer(this, layer, id, gfx_dir, name)
+    unsafe { display_vtable_impl::load_sprite_by_layer(this, layer, id, gfx_dir, name) }
 }
 
 // LoadFont (slot 35)
@@ -141,7 +149,7 @@ unsafe extern "thiscall" fn load_font(
     gfx_dir: *mut GfxDir,
     filename: *const c_char,
 ) -> u32 {
-    display_vtable_impl::load_font(this, mode, font_id, gfx_dir, filename)
+    unsafe { display_vtable_impl::load_font(this, mode, font_id, gfx_dir, filename) }
 }
 
 // LoadFontExtension (slot 36)
@@ -153,7 +161,9 @@ unsafe extern "thiscall" fn load_font_extension(
     palette_value: u32,
     flag: i32,
 ) -> u32 {
-    display_vtable_impl::load_font_extension(this, font_id, path, char_map, palette_value, flag)
+    unsafe {
+        display_vtable_impl::load_font_extension(this, font_id, path, char_map, palette_value, flag)
+    }
 }
 
 pub fn install() -> Result<(), String> {

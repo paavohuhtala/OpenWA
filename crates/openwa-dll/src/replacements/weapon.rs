@@ -28,7 +28,7 @@ unsafe extern "cdecl" fn add_ammo_impl(
     arena: *mut TeamArena,
     weapon_id: u32,
 ) {
-    weapon_fire::add_ammo(team_index, amount, arena, weapon_id);
+    unsafe { weapon_fire::add_ammo(team_index, amount, arena, weapon_id) };
 }
 
 usercall_trampoline!(fn trampoline_add_ammo; impl_fn = add_ammo_impl;
@@ -41,7 +41,7 @@ unsafe extern "cdecl" fn subtract_ammo_impl(
     arena: *mut TeamArena,
     weapon_id: u32,
 ) {
-    weapon_fire::subtract_ammo(team_index, arena, weapon_id);
+    unsafe { weapon_fire::subtract_ammo(team_index, arena, weapon_id) };
 }
 
 usercall_trampoline!(fn trampoline_subtract_ammo; impl_fn = subtract_ammo_impl;
@@ -54,7 +54,7 @@ unsafe extern "cdecl" fn get_ammo_impl(
     arena: *mut TeamArena,
     weapon_id: u32,
 ) -> u32 {
-    weapon_fire::get_ammo(team_index, arena, weapon_id)
+    unsafe { weapon_fire::get_ammo(team_index, arena, weapon_id) }
 }
 
 usercall_trampoline!(fn trampoline_get_ammo; impl_fn = get_ammo_impl;
@@ -63,7 +63,7 @@ usercall_trampoline!(fn trampoline_get_ammo; impl_fn = get_ammo_impl;
 // ── CountAliveWorms (0x5225A0): usercall(EAX=team, ECX=arena) ──
 
 unsafe extern "cdecl" fn count_alive_worms_impl(team_index: u32, arena: *mut TeamArena) -> u32 {
-    weapon_fire::count_alive_worms(team_index, arena)
+    unsafe { weapon_fire::count_alive_worms(team_index, arena) }
 }
 
 usercall_trampoline!(fn trampoline_count_alive_worms; impl_fn = count_alive_worms_impl;
@@ -81,7 +81,7 @@ unsafe extern "thiscall" fn hook_create_weapon_projectile(
     fire_params: *const WeaponFireParams,
     local_struct: *const u8,
 ) {
-    weapon_fire::create_weapon_projectile(worm, fire_params, local_struct);
+    unsafe { weapon_fire::create_weapon_projectile(worm, fire_params, local_struct) };
 }
 
 // ── ProjectileFire (0x51DFB0): stdcall(worm, fire_params, local_struct) ──
@@ -91,7 +91,7 @@ unsafe extern "stdcall" fn hook_projectile_fire(
     fire_params: *const WeaponFireParams,
     local_struct: *const openwa_core::game::weapon::WeaponSpawnData,
 ) {
-    weapon_fire::projectile_fire(worm, fire_params, local_struct);
+    unsafe { weapon_fire::projectile_fire(worm, fire_params, local_struct) };
 }
 
 // ── CreateArrow (0x51ED90): thiscall(ECX=worm, fire_params, local_struct) ──
@@ -101,7 +101,7 @@ unsafe extern "thiscall" fn hook_create_arrow(
     fire_params: *const WeaponFireParams,
     local_struct: *const u8,
 ) {
-    weapon_fire::create_arrow(worm, fire_params, local_struct);
+    unsafe { weapon_fire::create_arrow(worm, fire_params, local_struct) };
 }
 
 // ── StrikeFire (0x51E2C0): passthrough (log + call original) ──

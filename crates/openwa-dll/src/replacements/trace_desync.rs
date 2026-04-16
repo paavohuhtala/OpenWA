@@ -11,8 +11,8 @@
 //!   frame_number<TAB>checksum_a_hex<TAB>checksum_b_hex
 
 use std::io::Write;
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicU32, Ordering};
 
 use crate::hook;
 use crate::log_line;
@@ -32,25 +32,28 @@ static HASH_LOG: Mutex<Option<std::io::BufWriter<std::fs::File>>> = Mutex::new(N
 /// After calling the original, reads the computed checksums and logs them.
 unsafe extern "thiscall" fn hook_checksum_processor(ctrl: u32, wrapper: *mut DDGameWrapper) {
     // Call original
-    let orig: unsafe extern "thiscall" fn(u32, *mut DDGameWrapper) =
-        core::mem::transmute(ORIG_CHECKSUM_PROCESSOR.load(Ordering::Relaxed));
+    let orig: extern "thiscall" fn(u32, *mut DDGameWrapper) =
+        unsafe { core::mem::transmute(ORIG_CHECKSUM_PROCESSOR.load(Ordering::Relaxed)) };
     orig(ctrl, wrapper);
 
     // Read checksums written by the original function
     if wrapper.is_null() {
         return;
     }
-    let ddgame = (*wrapper).ddgame;
-    if ddgame.is_null() {
-        return;
-    }
 
-    let frame = (*ddgame).frame_counter;
-    let checksum_a = (*wrapper).sync_checksum_a;
-    let checksum_b = (*wrapper).sync_checksum_b;
+    unsafe {
+        let ddgame = (*wrapper).ddgame;
+        if ddgame.is_null() {
+            return;
+        }
 
-    if let Ok(mut guard) = HASH_LOG.lock() {
-        if let Some(writer) = guard.as_mut() {
+        let frame = (*ddgame).frame_counter;
+        let checksum_a = (*wrapper).sync_checksum_a;
+        let checksum_b = (*wrapper).sync_checksum_b;
+
+        if let Ok(mut guard) = HASH_LOG.lock()
+            && let Some(writer) = guard.as_mut()
+        {
             let _ = writeln!(writer, "{}\t{:08X}\t{:08X}", frame, checksum_a, checksum_b);
         }
     }

@@ -15,7 +15,7 @@ use crate::hook;
 use core::ffi::c_char;
 use openwa_core::address::va;
 use openwa_core::asset::gfx_dir::{
-    gfx_dir_find_entry, gfx_dir_load_dir, img_load_from_dir, GfxDir,
+    GfxDir, gfx_dir_find_entry, gfx_dir_load_dir, img_load_from_dir,
 };
 use openwa_core::bitgrid::BitGrid;
 use openwa_core::engine::game_state_init::{
@@ -23,7 +23,7 @@ use openwa_core::engine::game_state_init::{
     init_turn_state, is_super_weapon, ring_buffer_init, sprite_gfx_table_init,
 };
 use openwa_core::engine::{
-    ddgame_init_fields, ddgame_init_render_indices, display_layer_color_init, DDGame, DDGameWrapper,
+    DDGame, DDGameWrapper, ddgame_init_fields, ddgame_init_render_indices, display_layer_color_init,
 };
 
 // ─── DDGame__InitFields (0x526120) ──────────────────────────────────────────
@@ -276,7 +276,9 @@ pub fn install() -> Result<(), String> {
 // Convention: fastcall(ECX=base, EDX=count), plain RET.
 
 unsafe extern "fastcall" fn sprite_gfx_table_init_trampoline(base: u32, count: u32) {
-    sprite_gfx_table_init(base as *mut u8, count);
+    unsafe {
+        sprite_gfx_table_init(base as *mut u8, count);
+    }
 }
 
 // ─── RingBuffer__Init (0x541060) ────────────────────────────────────────────
@@ -304,7 +306,9 @@ unsafe extern "C" fn ring_buffer_init_trampoline() {
 // Convention: fastcall(ECX=wrapper), plain RET.
 
 unsafe extern "fastcall" fn init_team_scoring_trampoline(wrapper: *mut DDGameWrapper, _edx: u32) {
-    init_team_scoring(wrapper);
+    unsafe {
+        init_team_scoring(wrapper);
+    }
 }
 
 // ─── CGameTask__InitAllianceData (0x5262D0) ─────────────────────────────────

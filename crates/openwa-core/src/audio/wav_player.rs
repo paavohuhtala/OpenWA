@@ -11,12 +11,12 @@
 //! The WavPlayer system uses its own IDirectSound instance (global at
 //! 0x79D654), separate from DSSound's instance.
 
-use std::ffi::{c_char, c_void, CStr, CString};
+use std::ffi::{CStr, CString, c_char, c_void};
 
 use windows::Win32::Media::Audio::DirectSound::{
-    IDirectSound, IDirectSoundBuffer, DSBLOCK_ENTIREBUFFER, DSBUFFERDESC,
+    DSBLOCK_ENTIREBUFFER, DSBUFFERDESC, IDirectSound, IDirectSoundBuffer,
 };
-use windows::Win32::Media::Audio::{WAVEFORMATEX, WAVE_FORMAT_PCM};
+use windows::Win32::Media::Audio::{WAVE_FORMAT_PCM, WAVEFORMATEX};
 
 use crate::rebase::rb;
 

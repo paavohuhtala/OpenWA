@@ -35,20 +35,12 @@ pub fn write_indent(w: &mut dyn fmt::Write, indent: usize) -> fmt::Result {
 
 /// Format a pointer field: `<ptr>` if non-null, `null` if null.
 pub fn fmt_ptr(ptr: *const u8) -> &'static str {
-    if ptr.is_null() {
-        "null"
-    } else {
-        "<ptr>"
-    }
+    if ptr.is_null() { "null" } else { "<ptr>" }
 }
 
 /// Format a pointer field for a raw u32 that might be a pointer.
 pub fn fmt_ptr32(val: u32) -> &'static str {
-    if val == 0 {
-        "null"
-    } else {
-        "<ptr>"
-    }
+    if val == 0 { "null" } else { "<ptr>" }
 }
 
 /// Dump a raw memory region as canonicalized hex lines.

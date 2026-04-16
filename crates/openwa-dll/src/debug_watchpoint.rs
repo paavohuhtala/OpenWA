@@ -27,7 +27,7 @@ use openwa_core::address::va;
 use openwa_core::rebase::rb;
 use std::sync::atomic::{AtomicU32, Ordering};
 use windows_sys::Win32::System::Diagnostics::Debug::{
-    AddVectoredExceptionHandler, RemoveVectoredExceptionHandler, EXCEPTION_POINTERS,
+    AddVectoredExceptionHandler, EXCEPTION_POINTERS, RemoveVectoredExceptionHandler,
 };
 
 /// Offsets to watch. Hardware limit: 4 watchpoints (DR0–DR3).
@@ -70,108 +70,110 @@ const STATUS_SINGLE_STEP: i32 = 0x80000004u32 as i32;
 /// write. The logged Ghidra VA is therefore one instruction past the actual
 /// writer. Look at the preceding instruction in Ghidra.
 unsafe extern "system" fn veh_handler(info: *mut EXCEPTION_POINTERS) -> i32 {
-    let ei = &*info;
-    let rec = &*ei.ExceptionRecord;
-    let ctx = &mut *ei.ContextRecord;
+    unsafe {
+        let ei = &*info;
+        let rec = &*ei.ExceptionRecord;
+        let ctx = &mut *ei.ContextRecord;
 
-    let phase = core::ptr::read_volatile(&raw const PHASE);
-    match (rec.ExceptionCode, phase) {
-        // ── INT3: arm watchpoints ──
-        (STATUS_BREAKPOINT, Phase::Arming) => {
-            // Save original debug registers so we can restore them later
-            SAVED_DR = [ctx.Dr0, ctx.Dr1, ctx.Dr2, ctx.Dr3, ctx.Dr6, ctx.Dr7];
+        let phase = core::ptr::read_volatile(&raw const PHASE);
+        match (rec.ExceptionCode, phase) {
+            // ── INT3: arm watchpoints ──
+            (STATUS_BREAKPOINT, Phase::Arming) => {
+                // Save original debug registers so we can restore them later
+                SAVED_DR = [ctx.Dr0, ctx.Dr1, ctx.Dr2, ctx.Dr3, ctx.Dr6, ctx.Dr7];
 
-            let base = DDGAME_BASE.load(Ordering::Relaxed);
-            let dr_regs = [&mut ctx.Dr0, &mut ctx.Dr1, &mut ctx.Dr2, &mut ctx.Dr3];
-            for (i, dr) in dr_regs.into_iter().enumerate() {
-                if i < WATCH_OFFSETS.len() {
-                    *dr = base + WATCH_OFFSETS[i].0;
-                }
-            }
-            ctx.Dr6 = 0;
-            ctx.Dr7 = dr7_for_count(WATCH_OFFSETS.len());
-
-            PHASE = Phase::Active;
-            ctx.Eip = ctx.Eip.wrapping_add(1); // skip INT3 (1 byte)
-            -1 // EXCEPTION_CONTINUE_EXECUTION
-        }
-
-        // ── INT3: disarm watchpoints ──
-        (STATUS_BREAKPOINT, Phase::Disarming) => {
-            ctx.Dr0 = SAVED_DR[0];
-            ctx.Dr1 = SAVED_DR[1];
-            ctx.Dr2 = SAVED_DR[2];
-            ctx.Dr3 = SAVED_DR[3];
-            ctx.Dr6 = SAVED_DR[4];
-            ctx.Dr7 = SAVED_DR[5];
-
-            PHASE = Phase::Idle;
-            ctx.Eip = ctx.Eip.wrapping_add(1);
-            -1
-        }
-
-        // ── Hardware watchpoint hit ──
-        (STATUS_SINGLE_STEP, Phase::Active) => {
-            let dr6 = ctx.Dr6;
-            let eip = ctx.Eip;
-            let delta = rb(va::IMAGE_BASE).wrapping_sub(va::IMAGE_BASE);
-            let wa_base = rb(va::IMAGE_BASE);
-
-            let base = DDGAME_BASE.load(Ordering::Relaxed);
-            for (i, &(offset, name)) in WATCH_OFFSETS.iter().enumerate() {
-                if dr6 & (1 << i) != 0 {
-                    let val = *((base + offset) as *const u32);
-                    let ghidra_eip = eip.wrapping_sub(delta);
-
-                    // Walk EBP chain for stack trace
-                    let mut trace = String::new();
-                    let mut ebp = ctx.Ebp;
-                    for depth in 0..12 {
-                        // Validate EBP: must be in plausible stack range, aligned,
-                        // and above ESP (stack grows down)
-                        if !(0x10000..=0x7FFE0000).contains(&ebp) || (ebp & 3) != 0 {
-                            break;
-                        }
-                        // Safety: check both [ebp] and [ebp+4] are readable
-                        if !openwa_core::mem::can_read(ebp, 8) {
-                            break;
-                        }
-                        let ret_addr = *((ebp + 4) as *const u32);
-                        let next_ebp = *(ebp as *const u32);
-                        let ghidra_ret = ret_addr.wrapping_sub(delta);
-                        let in_wa = ret_addr >= wa_base && ret_addr < wa_base + 0x300000;
-                        if depth > 0 {
-                            trace.push_str("<-");
-                        }
-                        if in_wa {
-                            trace.push_str(&openwa_core::registry::format_va(ghidra_ret));
-                        } else {
-                            use core::fmt::Write;
-                            let _ = write!(trace, "r:{:08X}", ret_addr);
-                        }
-                        // EBP must increase (frames go up the stack)
-                        if next_ebp <= ebp {
-                            break;
-                        }
-                        ebp = next_ebp;
+                let base = DDGAME_BASE.load(Ordering::Relaxed);
+                let dr_regs = [&mut ctx.Dr0, &mut ctx.Dr1, &mut ctx.Dr2, &mut ctx.Dr3];
+                for (i, dr) in dr_regs.into_iter().enumerate() {
+                    if i < WATCH_OFFSETS.len() {
+                        *dr = base + WATCH_OFFSETS[i].0;
                     }
-
-                    let _ = log_line(&format!(
-                        "[Watchpoint] {} = 0x{:08X}  eip={} stack=[{}]",
-                        name,
-                        val,
-                        openwa_core::registry::format_va(ghidra_eip),
-                        trace,
-                    ));
                 }
+                ctx.Dr6 = 0;
+                ctx.Dr7 = dr7_for_count(WATCH_OFFSETS.len());
+
+                PHASE = Phase::Active;
+                ctx.Eip = ctx.Eip.wrapping_add(1); // skip INT3 (1 byte)
+                -1 // EXCEPTION_CONTINUE_EXECUTION
             }
 
-            ctx.Dr6 = 0;
-            -1
-        }
+            // ── INT3: disarm watchpoints ──
+            (STATUS_BREAKPOINT, Phase::Disarming) => {
+                ctx.Dr0 = SAVED_DR[0];
+                ctx.Dr1 = SAVED_DR[1];
+                ctx.Dr2 = SAVED_DR[2];
+                ctx.Dr3 = SAVED_DR[3];
+                ctx.Dr6 = SAVED_DR[4];
+                ctx.Dr7 = SAVED_DR[5];
 
-        // Not ours — pass to next handler
-        _ => 0, // EXCEPTION_CONTINUE_SEARCH
+                PHASE = Phase::Idle;
+                ctx.Eip = ctx.Eip.wrapping_add(1);
+                -1
+            }
+
+            // ── Hardware watchpoint hit ──
+            (STATUS_SINGLE_STEP, Phase::Active) => {
+                let dr6 = ctx.Dr6;
+                let eip = ctx.Eip;
+                let delta = rb(va::IMAGE_BASE).wrapping_sub(va::IMAGE_BASE);
+                let wa_base = rb(va::IMAGE_BASE);
+
+                let base = DDGAME_BASE.load(Ordering::Relaxed);
+                for (i, &(offset, name)) in WATCH_OFFSETS.iter().enumerate() {
+                    if dr6 & (1 << i) != 0 {
+                        let val = *((base + offset) as *const u32);
+                        let ghidra_eip = eip.wrapping_sub(delta);
+
+                        // Walk EBP chain for stack trace
+                        let mut trace = String::new();
+                        let mut ebp = ctx.Ebp;
+                        for depth in 0..12 {
+                            // Validate EBP: must be in plausible stack range, aligned,
+                            // and above ESP (stack grows down)
+                            if !(0x10000..=0x7FFE0000).contains(&ebp) || (ebp & 3) != 0 {
+                                break;
+                            }
+                            // Safety: check both [ebp] and [ebp+4] are readable
+                            if !openwa_core::mem::can_read(ebp, 8) {
+                                break;
+                            }
+                            let ret_addr = *((ebp + 4) as *const u32);
+                            let next_ebp = *(ebp as *const u32);
+                            let ghidra_ret = ret_addr.wrapping_sub(delta);
+                            let in_wa = ret_addr >= wa_base && ret_addr < wa_base + 0x300000;
+                            if depth > 0 {
+                                trace.push_str("<-");
+                            }
+                            if in_wa {
+                                trace.push_str(&openwa_core::registry::format_va(ghidra_ret));
+                            } else {
+                                use core::fmt::Write;
+                                let _ = write!(trace, "r:{:08X}", ret_addr);
+                            }
+                            // EBP must increase (frames go up the stack)
+                            if next_ebp <= ebp {
+                                break;
+                            }
+                            ebp = next_ebp;
+                        }
+
+                        let _ = log_line(&format!(
+                            "[Watchpoint] {} = 0x{:08X}  eip={} stack=[{}]",
+                            name,
+                            val,
+                            openwa_core::registry::format_va(ghidra_eip),
+                            trace,
+                        ));
+                    }
+                }
+
+                ctx.Dr6 = 0;
+                -1
+            }
+
+            // Not ours — pass to next handler
+            _ => 0, // EXCEPTION_CONTINUE_SEARCH
+        }
     }
 }
 
@@ -205,15 +207,17 @@ static mut MALLOC_TRAMPOLINE: unsafe extern "cdecl" fn(u32) -> *mut u8 = malloc_
 
 /// Hooked wa_malloc — intercepts the DDGame allocation to arm watchpoints.
 unsafe extern "cdecl" fn malloc_hook(size: u32) -> *mut u8 {
-    let result = MALLOC_TRAMPOLINE(size);
-    if size == DDGAME_ALLOC_SIZE && !result.is_null() {
-        let _ = log_line(&format!(
-            "[Watchpoint] Intercepted wa_malloc(0x{:X}) = 0x{:08X}",
-            size, result as u32,
-        ));
-        on_ddgame_alloc(result);
+    unsafe {
+        let result = MALLOC_TRAMPOLINE(size);
+        if size == DDGAME_ALLOC_SIZE && !result.is_null() {
+            let _ = log_line(&format!(
+                "[Watchpoint] Intercepted wa_malloc(0x{:X}) = 0x{:08X}",
+                size, result as u32,
+            ));
+            on_ddgame_alloc(result);
+        }
+        result
     }
-    result
 }
 
 /// Whether the wa_malloc hook is currently installed.
@@ -221,52 +225,60 @@ static mut MALLOC_HOOKED: bool = false;
 
 /// Install a minhook on wa_malloc (0x5C0AE3) to intercept the DDGame allocation.
 unsafe fn hook_wa_malloc() {
-    use minhook::MinHook;
-    let target = rb(va::WA_MALLOC) as *mut core::ffi::c_void;
-    let detour = malloc_hook as *mut core::ffi::c_void;
-    match MinHook::create_hook(target, detour) {
-        Ok(trampoline) => {
-            MALLOC_TRAMPOLINE = core::mem::transmute(trampoline);
-            if let Err(e) = MinHook::enable_hook(target) {
-                let _ = log_line(&format!("[Watchpoint] MH_EnableHook failed: {:?}", e));
-            } else {
-                MALLOC_HOOKED = true;
-                let _ = log_line("[Watchpoint] wa_malloc hooked for DDGame interception");
+    unsafe {
+        use minhook::MinHook;
+        let target = rb(va::WA_MALLOC) as *mut core::ffi::c_void;
+        let detour = malloc_hook as *mut core::ffi::c_void;
+        match MinHook::create_hook(target, detour) {
+            Ok(trampoline) => {
+                MALLOC_TRAMPOLINE = core::mem::transmute(trampoline);
+                if let Err(e) = MinHook::enable_hook(target) {
+                    let _ = log_line(&format!("[Watchpoint] MH_EnableHook failed: {:?}", e));
+                } else {
+                    MALLOC_HOOKED = true;
+                    let _ = log_line("[Watchpoint] wa_malloc hooked for DDGame interception");
+                }
             }
-        }
-        Err(e) => {
-            let _ = log_line(&format!("[Watchpoint] MH_CreateHook failed: {:?}", e));
+            Err(e) => {
+                let _ = log_line(&format!("[Watchpoint] MH_CreateHook failed: {:?}", e));
+            }
         }
     }
 }
 
 /// Remove the wa_malloc hook.
 unsafe fn unhook_wa_malloc() {
-    if !MALLOC_HOOKED {
-        return;
+    unsafe {
+        if !MALLOC_HOOKED {
+            return;
+        }
+        use minhook::MinHook;
+        let target = rb(va::WA_MALLOC) as *mut core::ffi::c_void;
+        let _ = MinHook::disable_hook(target);
+        let _ = MinHook::remove_hook(target);
+        MALLOC_HOOKED = false;
+        let _ = log_line("[Watchpoint] wa_malloc hook removed");
     }
-    use minhook::MinHook;
-    let target = rb(va::WA_MALLOC) as *mut core::ffi::c_void;
-    let _ = MinHook::disable_hook(target);
-    let _ = MinHook::remove_hook(target);
-    MALLOC_HOOKED = false;
-    let _ = log_line("[Watchpoint] wa_malloc hook removed");
 }
 
 // ─── Public API ─────────────────────────────────────────────────────────────
 
 /// Register the VEH. Call before `create_ddgame`.
 pub unsafe fn prepare() {
-    VEH_HANDLE = AddVectoredExceptionHandler(1, Some(veh_handler));
-    let _ = log_line("[Watchpoint] VEH installed, awaiting DDGame allocation");
+    unsafe {
+        VEH_HANDLE = AddVectoredExceptionHandler(1, Some(veh_handler));
+        let _ = log_line("[Watchpoint] VEH installed, awaiting DDGame allocation");
+    }
 }
 
 /// Register the VEH and hook wa_malloc to intercept the DDGame allocation.
 /// Use this when instrumenting the **original** WA constructor.
 pub unsafe fn prepare_with_malloc_hook() {
-    VEH_HANDLE = AddVectoredExceptionHandler(1, Some(veh_handler));
-    let _ = log_line("[Watchpoint] VEH installed");
-    hook_wa_malloc();
+    unsafe {
+        VEH_HANDLE = AddVectoredExceptionHandler(1, Some(veh_handler));
+        let _ = log_line("[Watchpoint] VEH installed");
+        hook_wa_malloc();
+    }
 }
 
 /// Called right after DDGame `wa_malloc`. Arms the watchpoints via INT3 → VEH.
@@ -274,39 +286,43 @@ pub unsafe fn prepare_with_malloc_hook() {
 /// When this function returns, all 4 hardware watchpoints are live on the
 /// current thread.
 pub unsafe fn on_ddgame_alloc(ddgame: *mut u8) {
-    let base = ddgame as u32;
-    DDGAME_BASE.store(base, Ordering::Relaxed);
+    unsafe {
+        let base = ddgame as u32;
+        DDGAME_BASE.store(base, Ordering::Relaxed);
 
-    let _ = log_line(&format!(
-        "[Watchpoint] DDGame at 0x{:08X}, arming watchpoints on: {}",
-        base,
-        WATCH_OFFSETS
-            .iter()
-            .map(|(off, name)| format!("+0x{:04X}({})", off, name))
-            .collect::<Vec<_>>()
-            .join(", "),
-    ));
+        let _ = log_line(&format!(
+            "[Watchpoint] DDGame at 0x{:08X}, arming watchpoints on: {}",
+            base,
+            WATCH_OFFSETS
+                .iter()
+                .map(|(off, name)| format!("+0x{:04X}({})", off, name))
+                .collect::<Vec<_>>()
+                .join(", "),
+        ));
 
-    PHASE = Phase::Arming;
-    // INT3 triggers our VEH which sets DR0–DR3 and DR7 in the thread context.
-    // When execution resumes here, the watchpoints are active.
-    core::arch::asm!("int3");
-    let _ = log_line("[Watchpoint] Armed!");
+        PHASE = Phase::Arming;
+        // INT3 triggers our VEH which sets DR0–DR3 and DR7 in the thread context.
+        // When execution resumes here, the watchpoints are active.
+        core::arch::asm!("int3");
+        let _ = log_line("[Watchpoint] Armed!");
+    }
 }
 
 /// Disarm watchpoints, remove VEH, and unhook wa_malloc if needed.
 pub unsafe fn teardown() {
-    unhook_wa_malloc();
+    unsafe {
+        unhook_wa_malloc();
 
-    if PHASE == Phase::Active {
-        PHASE = Phase::Disarming;
-        core::arch::asm!("int3");
+        if PHASE == Phase::Active {
+            PHASE = Phase::Disarming;
+            core::arch::asm!("int3");
+        }
+
+        if !VEH_HANDLE.is_null() {
+            RemoveVectoredExceptionHandler(VEH_HANDLE);
+            VEH_HANDLE = core::ptr::null_mut();
+        }
+
+        let _ = log_line("[Watchpoint] Disarmed and VEH removed");
     }
-
-    if !VEH_HANDLE.is_null() {
-        RemoveVectoredExceptionHandler(VEH_HANDLE);
-        VEH_HANDLE = core::ptr::null_mut();
-    }
-
-    let _ = log_line("[Watchpoint] Disarmed and VEH removed");
 }

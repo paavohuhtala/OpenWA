@@ -13,7 +13,7 @@ pub fn rb(ghidra_addr: u32) -> u32 {
     ghidra_addr.wrapping_add(REBASE_DELTA.load(Ordering::Relaxed))
 }
 
-extern "system" {
+unsafe extern "system" {
     fn GetModuleHandleA(lpModuleName: *const u8) -> u32;
 }
 

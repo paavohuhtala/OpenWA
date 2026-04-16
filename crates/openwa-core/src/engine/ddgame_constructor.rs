@@ -10,7 +10,7 @@
 use super::ddgame::DDGame;
 use crate::address::va;
 use crate::asset::gfx_dir::{
-    call_gfx_find_and_load, call_gfx_load_and_wrap, gfx_dir_load_dir, GfxDir, GfxDirVtable,
+    GfxDir, GfxDirVtable, call_gfx_find_and_load, call_gfx_load_and_wrap, gfx_dir_load_dir,
 };
 pub use crate::asset::gfx_dir::{gfx_dir_find_entry, img_load_from_dir};
 use crate::asset::img::DecodedBitGrid;
@@ -131,11 +131,7 @@ pub unsafe fn display_layer_color_init(wrapper: *mut DDGameWrapper) {
     let layer1_color = if (*wrapper).gfx_mode == 0 {
         // (game_version > -2) - 1: yields 0 if true, -1 if false
         // Then + 0x69: yields 0x69 or 0x68
-        if game_version > -2 {
-            0x69i32
-        } else {
-            0x68i32
-        }
+        if game_version > -2 { 0x69i32 } else { 0x68i32 }
     } else {
         5 + 0x69 // = 0x6E
     };

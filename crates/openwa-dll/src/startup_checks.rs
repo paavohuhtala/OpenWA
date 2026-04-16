@@ -58,8 +58,8 @@ fn is_in_rdata(addr: u32) -> bool {
 #[inline]
 fn is_executable(addr: u32) -> bool {
     use windows_sys::Win32::System::Memory::{
-        VirtualQuery, MEMORY_BASIC_INFORMATION, PAGE_EXECUTE, PAGE_EXECUTE_READ,
-        PAGE_EXECUTE_READWRITE, PAGE_EXECUTE_WRITECOPY,
+        MEMORY_BASIC_INFORMATION, PAGE_EXECUTE, PAGE_EXECUTE_READ, PAGE_EXECUTE_READWRITE,
+        PAGE_EXECUTE_WRITECOPY, VirtualQuery,
     };
     unsafe {
         let mut mbi: MEMORY_BASIC_INFORMATION = core::mem::zeroed();

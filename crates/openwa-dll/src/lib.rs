@@ -2,6 +2,7 @@
 #![allow(clippy::missing_safety_doc)]
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::missing_transmute_annotations)]
+#![allow(unsafe_op_in_unsafe_fn)]
 
 use std::ffi::c_void;
 
@@ -28,7 +29,7 @@ const DLL_PROCESS_DETACH: u32 = 0;
 /// independently construct the same name, enabling concurrent instances.
 const HOOKS_READY_EVENT_PREFIX: &str = "OpenWA_HooksReady_";
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 unsafe extern "system" fn DllMain(
     _module: *mut c_void,
     reason: u32,

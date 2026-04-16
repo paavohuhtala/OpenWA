@@ -193,56 +193,58 @@ unsafe extern "stdcall" fn call_display_gfx_init(
 /// The returned pointer is always valid (sound may be partially initialized
 /// if COM steps fail, matching original WA behavior).
 unsafe fn create_dssound(hwnd: u32) -> *mut DSSound {
-    use windows::Win32::Foundation::HWND;
-    use windows::Win32::Media::Audio::DirectSound::{
-        DirectSoundCreate, IDirectSound, IDirectSoundBuffer, DSBCAPS_PRIMARYBUFFER,
-        DSBPLAY_LOOPING, DSBUFFERDESC, DSSCL_PRIORITY,
-    };
-
-    // Pure Rust construction — replaces call_dssound_ctor bridge.
-    let snd = wa_malloc_struct::<DSSound>();
-    core::ptr::write(snd, DSSound::new(hwnd));
-
-    // DirectSound COM initialization — replaces call_dssound_init_buffers bridge.
-    let mut ds: Option<IDirectSound> = None;
-    if DirectSoundCreate(None, &mut ds, None).is_ok() {
-        let ds = ds.unwrap();
-
-        // SetCooperativeLevel(hwnd, DSSCL_PRIORITY)
-        let _ = ds.SetCooperativeLevel(HWND(hwnd as _), DSSCL_PRIORITY);
-
-        // CreateSoundBuffer with DSBCAPS_PRIMARYBUFFER (no format — primary buffer)
-        let desc = DSBUFFERDESC {
-            dwSize: core::mem::size_of::<DSBUFFERDESC>() as u32,
-            dwFlags: DSBCAPS_PRIMARYBUFFER,
-            ..core::mem::zeroed()
+    unsafe {
+        use windows::Win32::Foundation::HWND;
+        use windows::Win32::Media::Audio::DirectSound::{
+            DSBCAPS_PRIMARYBUFFER, DSBPLAY_LOOPING, DSBUFFERDESC, DSSCL_PRIORITY,
+            DirectSoundCreate, IDirectSound, IDirectSoundBuffer,
         };
-        let mut primary: Option<IDirectSoundBuffer> = None;
-        if ds.CreateSoundBuffer(&desc, &mut primary, None).is_ok() {
-            let primary = primary.unwrap();
 
-            // GetCaps to populate primary_buffer_caps
-            let mut caps =
-                core::mem::zeroed::<windows::Win32::Media::Audio::DirectSound::DSBCAPS>();
-            caps.dwSize = core::mem::size_of_val(&caps) as u32;
-            let _ = primary.GetCaps(&mut caps);
-            (*snd).primary_buffer_caps = caps.dwBufferBytes;
+        // Pure Rust construction — replaces call_dssound_ctor bridge.
+        let snd = wa_malloc_struct::<DSSound>();
+        core::ptr::write(snd, DSSound::new(hwnd));
 
-            // Start primary buffer looping
-            if primary.Play(0, 0, DSBPLAY_LOOPING).is_ok() {
-                (*snd).init_success = 1;
+        // DirectSound COM initialization — replaces call_dssound_init_buffers bridge.
+        let mut ds: Option<IDirectSound> = None;
+        if DirectSoundCreate(None, &mut ds, None).is_ok() {
+            let ds = ds.unwrap();
+
+            // SetCooperativeLevel(hwnd, DSSCL_PRIORITY)
+            let _ = ds.SetCooperativeLevel(HWND(hwnd as _), DSSCL_PRIORITY);
+
+            // CreateSoundBuffer with DSBCAPS_PRIMARYBUFFER (no format — primary buffer)
+            let desc = DSBUFFERDESC {
+                dwSize: core::mem::size_of::<DSBUFFERDESC>() as u32,
+                dwFlags: DSBCAPS_PRIMARYBUFFER,
+                ..core::mem::zeroed()
+            };
+            let mut primary: Option<IDirectSoundBuffer> = None;
+            if ds.CreateSoundBuffer(&desc, &mut primary, None).is_ok() {
+                let primary = primary.unwrap();
+
+                // GetCaps to populate primary_buffer_caps
+                let mut caps =
+                    core::mem::zeroed::<windows::Win32::Media::Audio::DirectSound::DSBCAPS>();
+                caps.dwSize = core::mem::size_of_val(&caps) as u32;
+                let _ = primary.GetCaps(&mut caps);
+                (*snd).primary_buffer_caps = caps.dwBufferBytes;
+
+                // Start primary buffer looping
+                if primary.Play(0, 0, DSBPLAY_LOOPING).is_ok() {
+                    (*snd).init_success = 1;
+                }
+
+                // Store COM pointers as raw u32 (WA owns the references)
+                (*snd).primary_buffer = core::mem::transmute_copy(&primary);
+                core::mem::forget(primary);
             }
 
-            // Store COM pointers as raw u32 (WA owns the references)
-            (*snd).primary_buffer = core::mem::transmute_copy(&primary);
-            core::mem::forget(primary);
+            (*snd).direct_sound = core::mem::transmute_copy(&ds);
+            core::mem::forget(ds);
         }
 
-        (*snd).direct_sound = core::mem::transmute_copy(&ds);
-        core::mem::forget(ds);
+        snd
     }
-
-    snd
 }
 
 // ─── Implementation ───────────────────────────────────────────────────────────
@@ -253,192 +255,194 @@ unsafe extern "cdecl" fn impl_init_hardware(
     param3: u32,
     param4: u32,
 ) -> u32 {
-    let _ = log_line("[hardware_init] GameEngine::InitHardware");
-    let session = *(rb(va::G_GAME_SESSION) as *const *mut GameSession);
-    let gi = &mut *game_info;
-    let crosshair_threshold = gi.game_version as u32;
+    unsafe {
+        let _ = log_line("[hardware_init] GameEngine::InitHardware");
+        let session = *(rb(va::G_GAME_SESSION) as *const *mut GameSession);
+        let gi = &mut *game_info;
+        let crosshair_threshold = gi.game_version as u32;
 
-    // ── Input controller (if param4 != 0) ────────────────────────────────────
-    if param4 == 0 {
-        (*session).input_ctrl = core::ptr::null_mut();
-    } else {
-        let ctrl = wa_malloc_struct_zeroed::<InputCtrl>();
-        (*ctrl)._field_d74 = 0x3F9;
-        (*ctrl).vtable = rb(va::INPUT_CTRL_VTABLE) as *const InputCtrlVtable;
-        (*session).input_ctrl = ctrl as *mut u8;
-
-        // Original passes GameInfo+4 (skips first DWORD of unknown padding).
-        let game_info_plus_4 = (game_info as *mut u8).add(4);
-        INPUT_CTRL_ESI = ctrl as u32;
-        let ok = call_input_ctrl_init(game_info_plus_4, param3, param4, crosshair_threshold);
-        if ok == 0 {
-            (*ctrl).destroy(1);
+        // ── Input controller (if param4 != 0) ────────────────────────────────────
+        if param4 == 0 {
             (*session).input_ctrl = core::ptr::null_mut();
-            return 0;
+        } else {
+            let ctrl = wa_malloc_struct_zeroed::<InputCtrl>();
+            (*ctrl)._field_d74 = 0x3F9;
+            (*ctrl).vtable = rb(va::INPUT_CTRL_VTABLE) as *const InputCtrlVtable;
+            (*session).input_ctrl = ctrl as *mut u8;
+
+            // Original passes GameInfo+4 (skips first DWORD of unknown padding).
+            let game_info_plus_4 = (game_info as *mut u8).add(4);
+            INPUT_CTRL_ESI = ctrl as u32;
+            let ok = call_input_ctrl_init(game_info_plus_4, param3, param4, crosshair_threshold);
+            if ok == 0 {
+                (*ctrl).destroy(1);
+                (*session).input_ctrl = core::ptr::null_mut();
+                return 0;
+            }
         }
-    }
 
-    // ── Timer object (ALWAYS) ─────────────────────────────────────────────────
-    let timer = wa_malloc_struct_zeroed::<GameTimer>();
-    call_timer_ctor(timer, crosshair_threshold);
-    (*session).timer_obj = timer as *mut u8;
+        // ── Timer object (ALWAYS) ─────────────────────────────────────────────────
+        let timer = wa_malloc_struct_zeroed::<GameTimer>();
+        call_timer_ctor(timer, crosshair_threshold);
+        (*session).timer_obj = timer as *mut u8;
 
-    let headless = gi.headless_mode != 0;
+        let headless = gi.headless_mode != 0;
 
-    if !headless {
-        // ── DisplayGfx ───────────────────────────────────────────────────────
-        let display_gfx = DisplayGfx::construct();
-        (*session).display = display_gfx as *mut u8;
+        if !headless {
+            // ── DisplayGfx ───────────────────────────────────────────────────────
+            let display_gfx = DisplayGfx::construct();
+            (*session).display = display_gfx as *mut u8;
 
-        // ── DisplayGfx::Init retry loop ────────────────────────────────────────
-        let flags = gi.display_flags;
-        let w0 = gi.display_width;
-        let h0 = gi.display_height;
+            // ── DisplayGfx::Init retry loop ────────────────────────────────────────
+            let flags = gi.display_flags;
+            let w0 = gi.display_width;
+            let h0 = gi.display_height;
 
-        DISPLAY_GFX_INIT_ECX = h0;
-        let mut init_ok = call_display_gfx_init(display_gfx as *mut u8, hwnd, w0, flags) != 0;
+            DISPLAY_GFX_INIT_ECX = h0;
+            let mut init_ok = call_display_gfx_init(display_gfx as *mut u8, hwnd, w0, flags) != 0;
 
-        if !init_ok {
-            let fallbacks: [(u32, u32); 3] = [
-                (0x400, 0x300), // 1024×768
-                (0x320, 0x258), // 800×600
-                (0x280, 0x1E0), // 640×480
-            ];
-            for &(w, h) in &fallbacks {
-                gi.display_width = w;
-                gi.display_height = h;
-                DISPLAY_GFX_INIT_ECX = h;
-                if call_display_gfx_init(display_gfx as *mut u8, hwnd, w, flags) != 0 {
-                    init_ok = true;
-                    break;
+            if !init_ok {
+                let fallbacks: [(u32, u32); 3] = [
+                    (0x400, 0x300), // 1024×768
+                    (0x320, 0x258), // 800×600
+                    (0x280, 0x1E0), // 640×480
+                ];
+                for &(w, h) in &fallbacks {
+                    gi.display_width = w;
+                    gi.display_height = h;
+                    DISPLAY_GFX_INIT_ECX = h;
+                    if call_display_gfx_init(display_gfx as *mut u8, hwnd, w, flags) != 0 {
+                        init_ok = true;
+                        break;
+                    }
                 }
             }
-        }
 
-        if !init_ok {
-            return 0;
-        }
+            if !init_ok {
+                return 0;
+            }
 
-        // ── Screen center and cursor ──────────────────────────────────────────
-        use windows_sys::Win32::UI::WindowsAndMessaging::{
-            GetSystemMetrics, SetCursorPos, SM_CXSCREEN, SM_CYSCREEN,
-        };
+            // ── Screen center and cursor ──────────────────────────────────────────
+            use windows_sys::Win32::UI::WindowsAndMessaging::{
+                GetSystemMetrics, SM_CXSCREEN, SM_CYSCREEN, SetCursorPos,
+            };
 
-        let fullscreen = *(rb(va::G_FULLSCREEN_FLAG) as *const u32) != 0;
-        let (cx, cy): (i32, i32) = if fullscreen {
-            let w = GetSystemMetrics(SM_CXSCREEN);
-            let h = GetSystemMetrics(SM_CYSCREEN);
-            (w / 2, h / 2)
+            let fullscreen = *(rb(va::G_FULLSCREEN_FLAG) as *const u32) != 0;
+            let (cx, cy): (i32, i32) = if fullscreen {
+                let w = GetSystemMetrics(SM_CXSCREEN);
+                let h = GetSystemMetrics(SM_CYSCREEN);
+                (w / 2, h / 2)
+            } else {
+                (gi.display_width as i32 / 2, gi.display_height as i32 / 2)
+            };
+
+            (*session).screen_center_x = cx;
+            (*session).screen_center_y = cy;
+            (*session).cursor_x = cx;
+            (*session).cursor_y = cy;
+
+            let suppress = *(rb(va::G_SUPPRESS_CURSOR) as *const u8);
+            if suppress == 0 {
+                SetCursorPos(cx, cy);
+                if fullscreen {
+                    use windows_sys::Win32::Foundation::{HWND, RECT};
+                    use windows_sys::Win32::UI::WindowsAndMessaging::{ClipCursor, GetClientRect};
+                    let hwnd_val: HWND = *(rb(va::G_FRONTEND_HWND) as *const HWND);
+                    let mut rect = RECT {
+                        left: 0,
+                        top: 0,
+                        right: 0,
+                        bottom: 0,
+                    };
+                    GetClientRect(hwnd_val, &mut rect);
+                    let map_fn_ptr = *(rb(va::IAT_MAP_WINDOW_POINTS) as *const usize);
+                    let map_fn: unsafe extern "stdcall" fn(HWND, HWND, *mut RECT, u32) -> i32 =
+                        core::mem::transmute(map_fn_ptr);
+                    map_fn(hwnd_val, core::ptr::null_mut(), &mut rect, 2);
+                    ClipCursor(&rect);
+                }
+            }
+
+            // ── DDKeyboard (inline construction) ──────────────────────────────────
+            let kb = wa_malloc_struct::<DDKeyboard>();
+            core::ptr::write(
+                kb,
+                DDKeyboard::new(
+                    rb(va::DDKEYBOARD_VTABLE),
+                    &raw mut gi.input_state_f918 as u32,
+                ),
+            );
+            (*session).keyboard = kb;
+
+            // ── Palette (inline construction) ─────────────────────────────────────
+            let pal = wa_malloc_struct::<Palette>();
+            core::ptr::write(pal, Palette::new(rb(va::PALETTE_VTABLE)));
+            (*session).palette = pal;
+
+            // ── DSSound ───────────────────────────────────────────────────────────
+            (*session).sound = create_dssound(hwnd);
+
+            // ── Streaming audio ───────────────────────────────────────────────────
+            (*session).streaming_audio = core::ptr::null_mut();
+            if !(*session).sound.is_null() && gi.speech_enabled != 0 {
+                let stream = wa_malloc_struct_zeroed::<Music>();
+                let ids = (*(*session).sound).direct_sound as *mut u8;
+                call_streaming_audio_ctor(
+                    stream as *mut u8,
+                    ids,
+                    gi.streaming_audio_config.as_mut_ptr(),
+                );
+                (*session).streaming_audio = stream;
+            }
         } else {
-            (gi.display_width as i32 / 2, gi.display_height as i32 / 2)
-        };
+            // ── Headless / stats mode ─────────────────────────────────────────────
+            (*session).display = DisplayBase::new_headless() as *mut u8;
+            (*session).keyboard = core::ptr::null_mut();
+            (*session).sound = core::ptr::null_mut();
+            (*session).palette = core::ptr::null_mut();
+            (*session).streaming_audio = core::ptr::null_mut();
+        }
 
-        (*session).screen_center_x = cx;
-        (*session).screen_center_y = cy;
-        (*session).cursor_x = cx;
-        (*session).cursor_y = cy;
+        // ── Session flags ─────────────────────────────────────────────────────────
+        (*session).init_flag = 1;
+        (*session).fullscreen_flag = (gi.home_lock != 0) as u32;
 
-        let suppress = *(rb(va::G_SUPPRESS_CURSOR) as *const u8);
-        if suppress == 0 {
-            SetCursorPos(cx, cy);
-            if fullscreen {
-                use windows_sys::Win32::Foundation::{HWND, RECT};
-                use windows_sys::Win32::UI::WindowsAndMessaging::{ClipCursor, GetClientRect};
-                let hwnd_val: HWND = *(rb(va::G_FRONTEND_HWND) as *const HWND);
-                let mut rect = RECT {
-                    left: 0,
-                    top: 0,
-                    right: 0,
-                    bottom: 0,
-                };
-                GetClientRect(hwnd_val, &mut rect);
-                let map_fn_ptr = *(rb(va::IAT_MAP_WINDOW_POINTS) as *const usize);
-                let map_fn: unsafe extern "stdcall" fn(HWND, HWND, *mut RECT, u32) -> i32 =
-                    core::mem::transmute(map_fn_ptr);
-                map_fn(hwnd_val, core::ptr::null_mut(), &mut rect, 2);
-                ClipCursor(&rect);
+        // ── DDGameWrapper (ALWAYS) ────────────────────────────────────────────────
+        let _ = crate::log_line("[hardware_init] Creating DDGameWrapper");
+        let wrapper = game_session::construct_ddgame_wrapper(
+            game_info,
+            wa_malloc_struct_zeroed::<DDGameWrapper>(),
+            (*session).display as *mut DisplayGfx,
+            (*session).sound,
+            (*session).keyboard as *mut u8,
+            (*session).palette,
+            (*session).streaming_audio as *mut u8,
+            (*session).input_ctrl,
+        );
+        (*session).ddgame_wrapper = wrapper;
+        let _ = crate::log_line("[hardware_init] DDGameWrapper created OK");
+
+        // ── Palette vtable[4/3/2] + keyboard poll (normal mode only) ─────────────
+        if !headless {
+            let pal = (*session).palette;
+            if !pal.is_null() {
+                (*pal).reset();
+                (*pal).init();
+                (*pal).set_mode(7);
+            }
+
+            let kb = (*session).keyboard;
+            if !kb.is_null() {
+                (*kb).poll();
             }
         }
 
-        // ── DDKeyboard (inline construction) ──────────────────────────────────
-        let kb = wa_malloc_struct::<DDKeyboard>();
-        core::ptr::write(
-            kb,
-            DDKeyboard::new(
-                rb(va::DDKEYBOARD_VTABLE),
-                &raw mut gi.input_state_f918 as u32,
-            ),
-        );
-        (*session).keyboard = kb;
+        // ── DDNetGameWrapper (ALWAYS) ─────────────────────────────────────────────
+        (*session).net_game = DDNetGameWrapper::construct() as *mut u8;
 
-        // ── Palette (inline construction) ─────────────────────────────────────
-        let pal = wa_malloc_struct::<Palette>();
-        core::ptr::write(pal, Palette::new(rb(va::PALETTE_VTABLE)));
-        (*session).palette = pal;
-
-        // ── DSSound ───────────────────────────────────────────────────────────
-        (*session).sound = create_dssound(hwnd);
-
-        // ── Streaming audio ───────────────────────────────────────────────────
-        (*session).streaming_audio = core::ptr::null_mut();
-        if !(*session).sound.is_null() && gi.speech_enabled != 0 {
-            let stream = wa_malloc_struct_zeroed::<Music>();
-            let ids = (*(*session).sound).direct_sound as *mut u8;
-            call_streaming_audio_ctor(
-                stream as *mut u8,
-                ids,
-                gi.streaming_audio_config.as_mut_ptr(),
-            );
-            (*session).streaming_audio = stream;
-        }
-    } else {
-        // ── Headless / stats mode ─────────────────────────────────────────────
-        (*session).display = DisplayBase::new_headless() as *mut u8;
-        (*session).keyboard = core::ptr::null_mut();
-        (*session).sound = core::ptr::null_mut();
-        (*session).palette = core::ptr::null_mut();
-        (*session).streaming_audio = core::ptr::null_mut();
+        let _ = log_line("[hardware_init] GameEngine::InitHardware done");
+        1
     }
-
-    // ── Session flags ─────────────────────────────────────────────────────────
-    (*session).init_flag = 1;
-    (*session).fullscreen_flag = (gi.home_lock != 0) as u32;
-
-    // ── DDGameWrapper (ALWAYS) ────────────────────────────────────────────────
-    let _ = crate::log_line("[hardware_init] Creating DDGameWrapper");
-    let wrapper = game_session::construct_ddgame_wrapper(
-        game_info,
-        wa_malloc_struct_zeroed::<DDGameWrapper>(),
-        (*session).display as *mut DisplayGfx,
-        (*session).sound,
-        (*session).keyboard as *mut u8,
-        (*session).palette,
-        (*session).streaming_audio as *mut u8,
-        (*session).input_ctrl,
-    );
-    (*session).ddgame_wrapper = wrapper;
-    let _ = crate::log_line("[hardware_init] DDGameWrapper created OK");
-
-    // ── Palette vtable[4/3/2] + keyboard poll (normal mode only) ─────────────
-    if !headless {
-        let pal = (*session).palette;
-        if !pal.is_null() {
-            (*pal).reset();
-            (*pal).init();
-            (*pal).set_mode(7);
-        }
-
-        let kb = (*session).keyboard;
-        if !kb.is_null() {
-            (*kb).poll();
-        }
-    }
-
-    // ── DDNetGameWrapper (ALWAYS) ─────────────────────────────────────────────
-    (*session).net_game = DDNetGameWrapper::construct() as *mut u8;
-
-    let _ = log_line("[hardware_init] GameEngine::InitHardware done");
-    1
 }
 
 // ─── Naked entry trampoline ───────────────────────────────────────────────────
