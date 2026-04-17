@@ -167,6 +167,21 @@ pub fn run() -> u32 {
         }
     }
 
+    // 5. Trig table equality: the sin/cos tables embedded in openwa-core must
+    //    match WA.exe's .rdata byte-for-byte. A mismatch means either the
+    //    binary changed or our copy is stale — fail loudly.
+    unsafe {
+        match openwa_game::trig::validate_against_wa_exe() {
+            Ok(()) => pass += 1,
+            Err((which, idx, embedded, live)) => {
+                fail += 1;
+                let _ = log_line(&format!(
+                    "[CHECK FAIL] trig {which} table entry {idx}: embedded 0x{embedded:08X} != WA.exe 0x{live:08X}"
+                ));
+            }
+        }
+    }
+
     let total = pass + fail;
     let _ = log_line(&format!("[CHECK] {pass}/{total} passed, {fail} failed"));
     fail
