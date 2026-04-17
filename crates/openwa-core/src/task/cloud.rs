@@ -191,10 +191,8 @@ pub unsafe extern "thiscall" fn cloud_handle_message(
             }
         }
 
-        Ok(TaskMessage::SetWind) => {
-            if !data.is_null() {
-                (*this).wind_target = Fixed(*(data as *const i32));
-            }
+        Ok(TaskMessage::SetWind) if !data.is_null() => {
+            (*this).wind_target = Fixed(*(data as *const i32));
         }
 
         _ => {}

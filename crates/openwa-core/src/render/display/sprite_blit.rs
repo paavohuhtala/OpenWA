@@ -508,22 +508,17 @@ fn blit_masked(
     let dst_stride = dst.row_stride as usize;
     let src_stride = src.row_stride as usize;
 
-    let mut sy = sy_start;
-    for dy in 0..vis_h {
+    for (sy, dy) in (sy_start..).zip(0..vis_h) {
         let dst_row = (vis_top + dy) as usize * dst_stride + vis_left as usize;
         let src_row = sy as usize * src_stride;
 
-        let mut sx = sx_start;
-        for dx in 0..vis_w {
+        for (sx, dx) in (sx_start..).zip(0..vis_w) {
             let src_pixel = src.data[src_row + sx as usize];
             let dst_pixel = dst.data[dst_row + dx as usize];
             if should_write(src_pixel, dst_pixel) {
                 dst.data[dst_row + dx as usize] = src_pixel;
             }
-            sx += 1;
         }
-
-        sy += 1;
     }
 }
 
@@ -1127,8 +1122,8 @@ mod tests {
 
         // Remap: 1->11, 2->12, 3->13, 4->14
         let mut table = [0u8; 256];
-        for i in 0..256 {
-            table[i] = (i as u8).wrapping_add(10);
+        for (i, value) in table.iter_mut().enumerate() {
+            *value = (i as u8).wrapping_add(10);
         }
         table[0] = 0; // transparent stays 0
 
@@ -1550,8 +1545,8 @@ mod tests {
 
         // First row: dst[0] should be src[sw-1], dst[1] should be src[sw-2], etc.
         for x in 0..sw {
-            let dst_val = dst.data[(0 * dst.row_stride as i32 + x) as usize];
-            let src_val = sprite.data[(0 * sprite.row_stride as i32 + (sw - 1 - x)) as usize];
+            let dst_val = dst.data[x as usize];
+            let src_val = sprite.data[(sw - 1 - x) as usize];
             assert_eq!(dst_val, src_val, "mirror-x row 0, col {x}");
         }
     }

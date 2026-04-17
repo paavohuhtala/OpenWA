@@ -69,10 +69,10 @@ fn beginner_options() {
     assert_eq!(opts.hot_seat_delay, 10); // 0x0A
     assert_eq!(opts.retreat_time, 5);
     assert_eq!(opts.rope_retreat_time, 5);
-    assert_eq!(opts.display_total_round_time, true);
-    assert_eq!(opts.automatic_replays, true);
+    assert!(opts.display_total_round_time);
+    assert!(opts.automatic_replays);
     assert_eq!(opts.fall_damage, 0);
-    assert_eq!(opts.artillery_mode, false);
+    assert!(!opts.artillery_mode);
     assert_eq!(opts.bounty_mode, 0);
     assert_eq!(opts.stockpiling, 1); // On
     assert_eq!(opts.worm_select, 1); // Manual
@@ -90,10 +90,10 @@ fn classic_options() {
     assert_eq!(opts.hot_seat_delay, 5);
     assert_eq!(opts.retreat_time, 5);
     assert_eq!(opts.rope_retreat_time, 5);
-    assert_eq!(opts.display_total_round_time, false);
-    assert_eq!(opts.automatic_replays, true);
+    assert!(!opts.display_total_round_time);
+    assert!(opts.automatic_replays);
     assert_eq!(opts.fall_damage, 1);
-    assert_eq!(opts.artillery_mode, false);
+    assert!(!opts.artillery_mode);
     assert_eq!(opts.stockpiling, 0); // Off
     assert_eq!(opts.worm_select, 1); // Manual
     assert_eq!(opts.worm_energy, 100); // hex: 0x64
@@ -195,7 +195,7 @@ fn parse_all_game_schemes() {
     for entry in std::fs::read_dir(schemes_dir).unwrap() {
         let entry = entry.unwrap();
         let path = entry.path();
-        if path.extension().map_or(false, |e| e == "wsc") {
+        if path.extension().is_some_and(|e| e == "wsc") {
             let scheme = SchemeFile::from_file(&path)
                 .unwrap_or_else(|e| panic!("failed to parse {}: {e}", path.display()));
 

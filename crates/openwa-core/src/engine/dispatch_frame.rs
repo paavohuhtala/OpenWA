@@ -608,11 +608,7 @@ pub unsafe fn dispatch_frame(
             let new_fps_product = (65536.0 * elapsed_f * 7.5 / fd50_f) as i32;
             let new_render_scale =
                 0x10000 - (65536.0 * (elapsed_f * RENDER_DECAY / fd50_f).exp()) as i32;
-            let advance_ratio = if frame_duration > 0 {
-                (frame_fixed / frame_duration) as u32
-            } else {
-                0
-            };
+            let advance_ratio = frame_fixed.checked_div(frame_duration).unwrap_or(0) as u32;
             bridge_advance_frame_counters(
                 wrapper,
                 fps_scaled,
@@ -623,11 +619,7 @@ pub unsafe fn dispatch_frame(
             );
         } else {
             // Simple path: normal speed or replay mode
-            let advance_ratio = if frame_interval > 0 {
-                (frame_fixed / frame_interval) as u32
-            } else {
-                0
-            };
+            let advance_ratio = frame_fixed.checked_div(frame_interval).unwrap_or(0) as u32;
             bridge_advance_frame_counters(
                 wrapper,
                 fps_scaled,
@@ -993,19 +985,17 @@ pub unsafe fn dispatch_frame(
                 {
                     // Update speed ratios from accumulators
                     let accum_a = combine((*wrapper).frame_accum_a_lo, (*wrapper).frame_accum_a_hi);
-                    let speed_a = if frame_duration > 0 {
-                        (accum_a.wrapping_mul(0x10000) / frame_duration) as u32
-                    } else {
-                        0
-                    };
+                    let speed_a = accum_a
+                        .wrapping_mul(0x10000)
+                        .checked_div(frame_duration)
+                        .unwrap_or(0) as u32;
                     *((ddgame as *mut u8).add(0x8150) as *mut u32) = speed_a;
 
                     let accum_b = combine((*wrapper).frame_accum_b_lo, (*wrapper).frame_accum_b_hi);
-                    let speed_b = if frame_duration > 0 {
-                        (accum_b.wrapping_mul(0x10000) / frame_duration) as u32
-                    } else {
-                        0
-                    };
+                    let speed_b = accum_b
+                        .wrapping_mul(0x10000)
+                        .checked_div(frame_duration)
+                        .unwrap_or(0) as u32;
                     *((ddgame as *mut u8).add(0x8154) as *mut u32) = speed_b;
 
                     // Intentional deviation from vanilla: while truly paused,
@@ -1066,11 +1056,10 @@ pub unsafe fn dispatch_frame(
                         let accum_c =
                             combine((*wrapper).frame_accum_c_lo, (*wrapper).frame_accum_c_hi);
                         if accum_c != 0 {
-                            let scaled_c = if frame_duration > 0 {
-                                accum_c.wrapping_mul(scale) / frame_duration
-                            } else {
-                                0
-                            };
+                            let scaled_c = accum_c
+                                .wrapping_mul(scale)
+                                .checked_div(frame_duration)
+                                .unwrap_or(0);
                             (*wrapper).frame_accum_c_lo = scaled_c as u32;
                             (*wrapper).frame_accum_c_hi = (scaled_c >> 32) as u32;
                         }
@@ -1126,9 +1115,9 @@ pub unsafe fn dispatch_frame(
             let centiseconds = (r2 % 50) * 100 / 50;
 
             let mut buf = heapless::String::<32>::new();
-            let _ = write!(
+            let _ = writeln!(
                 buf,
-                "{:02}:{:02}:{:02}.{:02}\n",
+                "{:02}:{:02}:{:02}.{:02}",
                 hours, minutes, seconds, centiseconds
             );
 
