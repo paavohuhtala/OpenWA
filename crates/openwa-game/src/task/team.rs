@@ -185,7 +185,7 @@ impl CTaskTeam {
 use crate::address::va;
 use crate::engine::ddgame::DDGame;
 use crate::rebase::rb;
-use crate::rng::wa_lcg;
+use openwa_core::rng::wa_lcg;
 use crate::task::cloud::{CTaskCloud, CloudType};
 use crate::task::filter::CTaskFilter;
 use crate::wa_alloc::wa_malloc_struct_zeroed;

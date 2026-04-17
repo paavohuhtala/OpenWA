@@ -43,7 +43,6 @@ pub mod log;
 pub mod mem;
 pub mod rebase;
 pub mod registry;
-pub mod rng;
 pub mod snapshot;
 pub mod task;
 pub mod trig;
