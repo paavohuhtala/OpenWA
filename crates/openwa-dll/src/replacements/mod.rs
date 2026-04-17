@@ -2,6 +2,7 @@ mod bitgrid;
 mod config;
 mod ddgame_init;
 pub(crate) mod debug_utils;
+mod dispatch_trace;
 pub(crate) mod file_isolation;
 mod frame_hook;
 mod frontend;
@@ -29,6 +30,7 @@ mod weapon_release;
 pub fn write_gameplay_report() {
     replay_test::write_gameplay_report();
     trace_desync::flush();
+    dispatch_trace::flush();
     file_isolation::cleanup();
 }
 
@@ -38,6 +40,7 @@ pub fn install_all() -> Result<(), String> {
     file_isolation::install()?;
     frame_hook::install()?;
     trace_desync::install()?;
+    dispatch_trace::install()?;
 
     // Baseline mode: skip all gameplay hooks for a "nearly vanilla" reference run.
     // File isolation handles playback.thm redirection, so replay hooks aren't needed.

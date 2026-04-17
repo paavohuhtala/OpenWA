@@ -130,8 +130,8 @@ mod tests {
     /// Identity LUT — `lut[i] == i`.
     fn id_lut() -> [u8; 256] {
         let mut l = [0u8; 256];
-        for i in 0..256 {
-            l[i] = i as u8;
+        for (i, value) in l.iter_mut().enumerate() {
+            *value = i as u8;
         }
         l
     }

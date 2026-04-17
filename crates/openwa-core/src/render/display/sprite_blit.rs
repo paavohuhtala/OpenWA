@@ -1122,8 +1122,8 @@ mod tests {
 
         // Remap: 1->11, 2->12, 3->13, 4->14
         let mut table = [0u8; 256];
-        for i in 0..256 {
-            table[i] = (i as u8).wrapping_add(10);
+        for (i, value) in table.iter_mut().enumerate() {
+            *value = (i as u8).wrapping_add(10);
         }
         table[0] = 0; // transparent stays 0
 
@@ -1545,8 +1545,8 @@ mod tests {
 
         // First row: dst[0] should be src[sw-1], dst[1] should be src[sw-2], etc.
         for x in 0..sw {
-            let dst_val = dst.data[(0 * dst.row_stride as i32 + x) as usize];
-            let src_val = sprite.data[(0 * sprite.row_stride as i32 + (sw - 1 - x)) as usize];
+            let dst_val = dst.data[x as usize];
+            let src_val = sprite.data[(sw - 1 - x) as usize];
             assert_eq!(dst_val, src_val, "mirror-x row 0, col {x}");
         }
     }

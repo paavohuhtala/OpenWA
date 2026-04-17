@@ -10,6 +10,7 @@ unsafe extern "C" fn hook_process_frame() {
 
 pub fn install() -> Result<(), String> {
     unsafe {
+        openwa_core::engine::dispatch_frame::init_dispatch_addrs();
         crate::hook::install(
             "GameSession__ProcessFrame",
             va::GAME_SESSION_PROCESS_FRAME,

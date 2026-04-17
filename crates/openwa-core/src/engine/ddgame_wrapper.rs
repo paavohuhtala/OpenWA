@@ -107,19 +107,49 @@ pub struct DDGameWrapper {
     /// 0x090: PaletteContext C (allocated 0x72C bytes)
     pub palette_ctx_c: *mut PaletteContext,
 
-    // ===== 0x094-0x0F3: State fields =====
+    // ===== 0x094-0x0F3: Frame timing state (used by DispatchFrame) =====
     /// 0x094: Unknown gap
     pub _unknown_094: u32,
-    /// 0x098-0x0CF: State block (14 u32s zeroed by InitGameState)
-    pub _zeroed_098: [u32; 14],
-    /// 0x0D0-0x0DF: Unknown
-    pub _unknown_0d0: [u8; 0x10],
+    /// 0x098: Reference timestamp lo — set to current time, used for delta calculation
+    pub timing_ref_lo: u32,
+    /// 0x09C: Reference timestamp hi
+    pub timing_ref_hi: u32,
+    /// 0x0A0: Last frame timestamp lo — stored at end of DispatchFrame
+    pub last_frame_time_lo: u32,
+    /// 0x0A4: Last frame timestamp hi
+    pub last_frame_time_hi: u32,
+    /// 0x0A8: Frame accumulator A lo — paused frame time
+    pub frame_accum_a_lo: u32,
+    /// 0x0AC: Frame accumulator A hi
+    pub frame_accum_a_hi: u32,
+    /// 0x0B0: Frame accumulator B lo — running frame time
+    pub frame_accum_b_lo: u32,
+    /// 0x0B4: Frame accumulator B hi
+    pub frame_accum_b_hi: u32,
+    /// 0x0B8: Frame accumulator C lo — sub-frame remainder
+    pub frame_accum_c_lo: u32,
+    /// 0x0BC: Frame accumulator C hi
+    pub frame_accum_c_hi: u32,
+    /// 0x0C0: Initial reference timestamp lo
+    pub initial_ref_lo: u32,
+    /// 0x0C4: Initial reference timestamp hi
+    pub initial_ref_hi: u32,
+    /// 0x0C8: Pause detection timestamp lo
+    pub pause_detect_lo: u32,
+    /// 0x0CC: Pause detection timestamp hi
+    pub pause_detect_hi: u32,
+    /// 0x0D0: Secondary pause timestamp lo
+    pub pause_secondary_lo: u32,
+    /// 0x0D4: Secondary pause timestamp hi
+    pub pause_secondary_hi: u32,
+    /// 0x0D8-0x0DF: Unknown
+    pub _unknown_0d8: [u8; 8],
     /// 0x0E0: State flag (zeroed by InitGameState)
     pub _field_0e0: u32,
     /// 0x0E4-0x0EB: Unknown
     pub _unknown_0e4: [u8; 8],
-    /// 0x0EC: State flag
-    pub _field_0ec: u32,
+    /// 0x0EC: Frame delay counter — counts down during speed transitions, -1 = inactive
+    pub frame_delay_counter: i32,
     /// 0x0F0: Init flag (set to 1 by InitGameState early)
     pub init_flag: u32,
 
@@ -237,8 +267,8 @@ pub struct DDGameWrapper {
     pub _field_450: u32,
     pub _field_454: u32,
     pub _field_458: u32,
-    /// 0x45C: Zeroed
-    pub _field_45c: i32,
+    /// 0x45C: Timing jitter state — values 0/1/2, used by DispatchFrame pause detection
+    pub timing_jitter_state: i32,
     /// 0x460: Zeroed
     pub _field_460: i32,
     /// 0x464: Zeroed
@@ -249,14 +279,14 @@ pub struct DDGameWrapper {
     pub _field_46c: i32,
     /// 0x470: Sentinel -1
     pub _field_470: i32,
-    /// 0x474: Zeroed
-    pub _field_474: u32,
+    /// 0x474: Game end phase — 0=running, 1=ending. Set by DispatchFrame on game-over.
+    pub game_end_phase: u32,
     /// 0x478: Zeroed
     pub _field_478: u32,
-    /// 0x47C: Unknown
-    pub _unknown_47c: u32,
-    /// 0x480: Zeroed
-    pub _field_480: u32,
+    /// 0x47C: Cleared on game end
+    pub game_end_clear: u32,
+    /// 0x480: Set to 0x10000 on game end
+    pub game_end_speed: u32,
     /// 0x484: Game state — set to 1 at end of InitGameState, checked via vtable slot 9.
     /// See `process_frame::game_state` for known values (0=running, 4=headless exit, 5=exit).
     pub game_state: u32,
