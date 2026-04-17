@@ -16,8 +16,8 @@ use std::sync::Mutex;
 
 use crate::hook;
 use crate::log_line;
-use openwa_core::address::va;
-use openwa_core::engine::DDGameWrapper;
+use openwa_game::address::va;
+use openwa_game::engine::DDGameWrapper;
 
 /// Trampoline to the original GameFrameChecksumProcessor.
 static ORIG_CHECKSUM_PROCESSOR: AtomicU32 = AtomicU32::new(0);

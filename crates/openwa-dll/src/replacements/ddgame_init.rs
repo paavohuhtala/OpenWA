@@ -13,16 +13,16 @@
 
 use crate::hook;
 use core::ffi::c_char;
-use openwa_core::address::va;
-use openwa_core::asset::gfx_dir::{
+use openwa_game::address::va;
+use openwa_game::asset::gfx_dir::{
     gfx_dir_find_entry, gfx_dir_load_dir, img_load_from_dir, GfxDir,
 };
-use openwa_core::bitgrid::BitGrid;
-use openwa_core::engine::game_state_init::{
+use openwa_game::bitgrid::BitGrid;
+use openwa_game::engine::game_state_init::{
     check_weapon_avail, init_alliance_data, init_landscape_flags, init_team_scoring,
     init_turn_state, is_super_weapon, ring_buffer_init, sprite_gfx_table_init,
 };
-use openwa_core::engine::{
+use openwa_game::engine::{
     ddgame_init_fields, ddgame_init_render_indices, display_layer_color_init, DDGame, DDGameWrapper,
 };
 
@@ -105,7 +105,7 @@ extern "cdecl" fn impl_img_load_from_dir(
     // The trampoline catches an opaque stack pointer; the underlying
     // WA caller always passes a `PaletteContext*` (verified at all known
     // call sites — `set_active_layer`'s return value).
-    let output = output as *mut openwa_core::render::palette::PaletteContext;
+    let output = output as *mut openwa_game::render::palette::PaletteContext;
     let result = unsafe { img_load_from_dir(gfx_dir, name, output) };
     result as u32
 }

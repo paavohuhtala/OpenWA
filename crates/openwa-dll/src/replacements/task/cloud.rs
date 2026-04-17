@@ -1,13 +1,13 @@
 //! CTaskCloud vtable hooks and CreateWeatherFilter replacement.
 //!
-//! Thin hook shim — game logic lives in `openwa_core::task::cloud`.
+//! Thin hook shim — game logic lives in `openwa_game::task::cloud`.
 
-use openwa_core::address::va;
-use openwa_core::log::log_line;
-use openwa_core::task::{cloud, team};
+use openwa_game::address::va;
+use openwa_game::log::log_line;
+use openwa_game::task::{cloud, team};
 
 pub fn install() -> Result<(), String> {
-    use openwa_core::vtable_replace;
+    use openwa_game::vtable_replace;
 
     vtable_replace!(cloud::CTaskCloudVTable, va::CTASK_CLOUD_VTABLE, {
         handle_message => cloud::cloud_handle_message,

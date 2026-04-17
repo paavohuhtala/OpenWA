@@ -3,16 +3,16 @@
 //! Replaces vtable methods, LoadImage, IMG_Decode, and DisplayGfx__Constructor.
 
 use core::ffi::c_char;
-use openwa_core::address::va;
-use openwa_core::asset::gfx_dir::{
+use openwa_game::address::va;
+use openwa_game::asset::gfx_dir::{
     gfx_dir_load_cached, gfx_dir_load_image, gfx_dir_read, gfx_dir_release, gfx_dir_seek,
     gfx_dir_stream_bytes_consumed, gfx_dir_stream_destructor, gfx_dir_stream_get_total_size,
     gfx_dir_stream_has_data, gfx_dir_stream_read, gfx_dir_stream_seek, GfxDir, GfxDirStream,
 };
-use openwa_core::asset::img::{img_decode, img_decode_cached};
-use openwa_core::bitgrid::BitGrid;
-use openwa_core::log::log_line;
-use openwa_core::render::palette::PaletteContext;
+use openwa_game::asset::img::{img_decode, img_decode_cached};
+use openwa_game::bitgrid::BitGrid;
+use openwa_game::log::log_line;
+use openwa_game::render::palette::PaletteContext;
 
 use crate::hook;
 
@@ -74,16 +74,16 @@ unsafe extern "C" fn displaygfx_ctor_trampoline() {
 }
 
 pub fn install() -> Result<(), String> {
-    use openwa_core::vtable_replace;
+    use openwa_game::vtable_replace;
 
-    vtable_replace!(openwa_core::asset::gfx_dir::GfxDirVtable, va::GFX_DIR_VTABLE, {
+    vtable_replace!(openwa_game::asset::gfx_dir::GfxDirVtable, va::GFX_DIR_VTABLE, {
         read => gfx_dir_read,
         seek => gfx_dir_seek,
         load_cached => gfx_dir_load_cached,
         release => gfx_dir_release,
     })?;
 
-    vtable_replace!(openwa_core::asset::gfx_dir::GfxDirStreamVtable, va::GFX_DIR_STREAM_VTABLE, {
+    vtable_replace!(openwa_game::asset::gfx_dir::GfxDirStreamVtable, va::GFX_DIR_STREAM_VTABLE, {
         destructor => gfx_dir_stream_destructor,
         has_data => gfx_dir_stream_has_data,
         bytes_consumed => gfx_dir_stream_bytes_consumed,

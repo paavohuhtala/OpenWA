@@ -9,10 +9,10 @@ use std::net::{TcpListener, TcpStream};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
-use openwa_core::address::va;
-use openwa_core::mem;
-use openwa_core::rebase::rb;
 use openwa_debug_proto::*;
+use openwa_game::address::va;
+use openwa_game::mem;
+use openwa_game::rebase::rb;
 
 use crate::log_line;
 
@@ -221,8 +221,8 @@ fn handle_read(addr: u32, len: u32, absolute: bool) -> Response {
 }
 
 fn handle_inspect(class_name: &str, addr: u32, chain: &[u32], absolute: bool) -> Response {
-    use openwa_core::field_format::{self, FormatContext};
-    use openwa_core::registry;
+    use openwa_game::field_format::{self, FormatContext};
+    use openwa_game::registry;
 
     let fields = match registry::struct_fields_for(class_name) {
         Some(f) => f,
@@ -310,7 +310,7 @@ fn handle_inspect(class_name: &str, addr: u32, chain: &[u32], absolute: bool) ->
 }
 
 fn handle_list_objects() -> Response {
-    use openwa_core::registry;
+    use openwa_game::registry;
 
     let wa_base = rb(va::IMAGE_BASE);
     let wa_end = wa_base + 0x300000; // approximate WA image end
@@ -338,7 +338,7 @@ fn handle_list_objects() -> Response {
 }
 
 fn handle_resolve_alias(name: &str) -> Response {
-    use openwa_core::registry;
+    use openwa_game::registry;
 
     let name_lower = name.to_lowercase();
     for obj in registry::live_objects() {
@@ -356,7 +356,7 @@ fn handle_resolve_alias(name: &str) -> Response {
 }
 
 fn handle_resolve_field(class_name: &str, field_name: &str) -> Response {
-    use openwa_core::registry;
+    use openwa_game::registry;
 
     // Search the class and its CTask inheritance chain for a field by name.
     // Mirrors the inheritance chain in registry::field_at_inherited.

@@ -1,9 +1,9 @@
 use eframe::egui;
-use openwa_core::address::va;
-use openwa_core::engine::{game_session, DDGame};
-use openwa_core::rebase::rb;
-use openwa_core::registry;
-use openwa_core::task::{
+use openwa_game::address::va;
+use openwa_game::engine::{game_session, DDGame};
+use openwa_game::rebase::rb;
+use openwa_game::registry;
+use openwa_game::task::{
     CTask, CTaskCloud, CTaskFire, CTaskTeam, CTaskTurnGame, CTaskWorm, TurnGameCtx,
 };
 
@@ -20,7 +20,7 @@ const TRANSIENT_VTABLES: &[u32] = &[va::CTASK_SEA_BUBBLE_VTABLE];
 fn vtable_name(runtime_vtable: u32) -> Option<&'static str> {
     let delta = rb(va::IMAGE_BASE).wrapping_sub(va::IMAGE_BASE);
     let ghidra_va = runtime_vtable.wrapping_sub(delta);
-    openwa_core::registry::vtable_class_name(ghidra_va)
+    openwa_game::registry::vtable_class_name(ghidra_va)
 }
 
 /// Returns a display name for the entity at `addr`.
@@ -417,7 +417,7 @@ unsafe fn show_game_task_raw_fields(
                                 ui.label(field_name);
 
                                 // Pointer identification via registry
-                                use openwa_core::mem;
+                                use openwa_game::mem;
                                 let ptr_label = if val >= 0x10000 {
                                     mem::identify_pointer(val, delta).and_then(|id| id.name)
                                 } else {
@@ -792,7 +792,7 @@ impl DebugApp {
 
                     // --- CTaskWorm-specific fields ---
                     if name == "CTaskWorm"
-                        || (*task).class_type == openwa_core::game::ClassType::Worm
+                        || (*task).class_type == openwa_game::game::ClassType::Worm
                     {
                         // Summary header with key info
                         let worm = addr as *const CTaskWorm;
@@ -816,7 +816,7 @@ impl DebugApp {
 
                     // --- CTaskMissile-specific fields ---
                     if name == "CTaskMissile" {
-                        use openwa_core::task::CTaskMissile;
+                        use openwa_game::task::CTaskMissile;
                         let m = &*(addr as *const CTaskMissile);
                         ui.label(format!(
                             "Missile: type={:?}  slot={}  homing={}  dir={}",

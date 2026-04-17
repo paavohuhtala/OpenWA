@@ -1,0 +1,33 @@
+[package]
+name = "openwa-game"
+version = "0.1.0"
+edition = "2021"
+description = "WA.exe-specific code for Worms Armageddon reverse engineering — types, addresses, ASLR rebasing, typed WA function wrappers, and game logic"
+
+[dependencies]
+bitflags = "2"
+heapless = "0.9"
+hound = "3"
+inventory = "0.3.22"
+openwa-derive = { path = "../openwa-derive" }
+openwa-debug-proto = { path = "../openwa-debug-proto" }
+
+[dev-dependencies]
+gif = "0.14"
+image = { version = "0.25", default-features = false, features = ["gif", "png"] }
+openwa-config = { path = "../openwa-config" }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { version = "0.62", features = [
+    "Win32_Media_Audio_DirectSound",
+] }
+windows-sys = { version = "0.59", features = [
+    "Win32_Foundation",
+    "Win32_System_Memory",
+    "Win32_System_Performance",
+    "Win32_System_Registry",
+    "Win32_System_StationsAndDesktops",
+    "Win32_System_SystemInformation",
+    "Win32_System_Threading",
+    "Win32_UI_WindowsAndMessaging",
+] }

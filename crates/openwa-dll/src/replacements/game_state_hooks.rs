@@ -7,7 +7,7 @@
 
 use crate::hook;
 use crate::log_line;
-use openwa_core::address::va;
+use openwa_game::address::va;
 
 // ─── Trampoline storage ─────────────────────────────────────────────────────
 

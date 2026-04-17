@@ -2,7 +2,7 @@
 //!
 //! Spawns a floating egui window (backed by OpenGL via eframe) in a background
 //! thread. The window is in the same process as WA.exe, so it can read game
-//! memory directly through the `openwa-core` typed structs.
+//! memory directly through the `openwa-game` typed structs.
 //!
 //! # Usage
 //!
@@ -29,7 +29,7 @@ use app::DebugApp;
 /// Spawn the debug UI window in a background thread.
 ///
 /// Returns immediately. The window runs until closed by the user.
-/// This must be called *after* `openwa_core::rebase::init()`.
+/// This must be called *after* `openwa_game::rebase::init()`.
 pub fn spawn() {
     std::thread::spawn(|| {
         if let Err(e) = run_window() {

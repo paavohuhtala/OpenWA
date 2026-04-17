@@ -16,8 +16,8 @@ use std::sync::Mutex;
 
 use crate::hook;
 use crate::log_line;
-use openwa_core::address::va;
-use openwa_core::engine::ddgame_wrapper::DDGameWrapper;
+use openwa_game::address::va;
+use openwa_game::engine::ddgame_wrapper::DDGameWrapper;
 
 static ORIG_AFC: AtomicU32 = AtomicU32::new(0);
 static ORIG_SFP: AtomicU32 = AtomicU32::new(0);

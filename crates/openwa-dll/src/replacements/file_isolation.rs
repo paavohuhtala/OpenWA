@@ -264,7 +264,7 @@ pub fn install() -> Result<(), String> {
         // Hook file-exists check to avoid _findfirst contention under concurrency
         crate::hook::install(
             "FileExistsCheck",
-            openwa_core::address::va::FILE_EXISTS_CHECK,
+            openwa_game::address::va::FILE_EXISTS_CHECK,
             hook_file_exists_check as *const (),
         )?;
 

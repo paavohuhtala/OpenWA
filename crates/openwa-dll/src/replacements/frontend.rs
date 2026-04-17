@@ -6,10 +6,10 @@
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use crate::log_line;
-use openwa_core::address::va;
-use openwa_core::game::ScreenId;
-use openwa_core::wa::mfc::{CDialogHandle, CWndHandle};
-use openwa_core::wa_call;
+use openwa_game::address::va;
+use openwa_game::game::ScreenId;
+use openwa_game::wa::mfc::{CDialogHandle, CWndHandle};
+use openwa_game::wa_call;
 
 // Frontend dialog struct offsets (MFC CDialog-derived)
 const DIALOG_FLAGS: usize = 0x3C;
@@ -53,7 +53,7 @@ unsafe extern "cdecl" fn frontend_change_screen_impl(dialog: u32, screen_id: u32
 
             let palette_param = *((dialog as usize + DIALOG_PALETTE_PARAM) as *const u32);
             let eax_value = *((dialog as usize + DIALOG_PALETTE_OBJ) as *const u32);
-            openwa_core::wa::frontend::palette_animation(eax_value, palette_param);
+            openwa_game::wa::frontend::palette_animation(eax_value, palette_param);
 
             for i in 1u32..=2 {
                 let vtable = *(dialog as *const u32);

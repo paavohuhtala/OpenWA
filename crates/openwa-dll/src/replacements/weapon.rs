@@ -1,6 +1,6 @@
 //! Weapon hooks.
 //!
-//! Thin hook shim — all game logic lives in `openwa_core::game::weapon_fire`.
+//! Thin hook shim — all game logic lives in `openwa_game::game::weapon_fire`.
 //! This file contains usercall trampolines, passthrough hooks, and installation.
 //!
 //! Hooks:
@@ -12,11 +12,11 @@
 
 use core::sync::atomic::{AtomicU32, Ordering};
 
-use openwa_core::game::weapon::WeaponFireParams;
-use openwa_core::game::weapon_fire;
-use openwa_core::log::log_line;
-use openwa_core::task::worm::CTaskWorm;
-use openwa_core::{address::va, engine::TeamArena};
+use openwa_game::game::weapon::WeaponFireParams;
+use openwa_game::game::weapon_fire;
+use openwa_game::log::log_line;
+use openwa_game::task::worm::CTaskWorm;
+use openwa_game::{address::va, engine::TeamArena};
 
 use crate::hook::{self, usercall_trampoline};
 
@@ -95,7 +95,7 @@ unsafe extern "thiscall" fn hook_create_weapon_projectile(
 unsafe extern "stdcall" fn hook_projectile_fire(
     worm: *mut CTaskWorm,
     fire_params: *const WeaponFireParams,
-    local_struct: *const openwa_core::game::weapon::WeaponSpawnData,
+    local_struct: *const openwa_game::game::weapon::WeaponSpawnData,
 ) {
     unsafe {
         weapon_fire::projectile_fire(worm, fire_params, local_struct);

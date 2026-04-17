@@ -5,13 +5,13 @@
 
 use core::fmt::Write;
 
-use openwa_core::address::va;
-use openwa_core::engine::GameSession;
-use openwa_core::field_format::{self, FormatContext};
-use openwa_core::rebase::rb;
-use openwa_core::registry::StructFields;
-use openwa_core::snapshot::{hash_pointer_targets, write_raw_region, Snapshot};
-use openwa_core::task::{CTask, CTaskBfsIter, CTaskMissile, CTaskWorm};
+use openwa_game::address::va;
+use openwa_game::engine::GameSession;
+use openwa_game::field_format::{self, FormatContext};
+use openwa_game::rebase::rb;
+use openwa_game::registry::StructFields;
+use openwa_game::snapshot::{hash_pointer_targets, write_raw_region, Snapshot};
+use openwa_game::task::{CTask, CTaskBfsIter, CTaskMissile, CTaskWorm};
 
 /// Capture a full game state snapshot as text.
 ///
@@ -20,7 +20,7 @@ use openwa_core::task::{CTask, CTaskBfsIter, CTaskMissile, CTaskWorm};
 #[cfg(target_arch = "x86")]
 pub unsafe fn capture() -> String {
     unsafe {
-        use openwa_core::engine::TeamArena;
+        use openwa_game::engine::TeamArena;
 
         let mut out = String::with_capacity(128 * 1024);
 
@@ -163,7 +163,7 @@ pub unsafe fn capture() -> String {
                     // Try FieldRegistry-based dump for known types
                     let class = vtable_name(vt);
                     if class != "Unknown" {
-                        if let Some(fields) = openwa_core::registry::struct_fields_for(class) {
+                        if let Some(fields) = openwa_game::registry::struct_fields_for(class) {
                             let _ = write_registry_fields(
                                 &mut out,
                                 task as *const u8,
@@ -187,7 +187,7 @@ pub unsafe fn capture() -> String {
 }
 
 fn vtable_name(ghidra_vt: u32) -> &'static str {
-    openwa_core::registry::vtable_class_name(ghidra_vt).unwrap_or("Unknown")
+    openwa_game::registry::vtable_class_name(ghidra_vt).unwrap_or("Unknown")
 }
 
 /// Write struct fields using FieldRegistry metadata and the format_field system.
@@ -214,7 +214,7 @@ unsafe fn write_registry_fields(
                 "{}+0x{:04X}  {:<16} [{:>2}]  ",
                 pad, field.offset, field.name, field.size
             )?;
-            if openwa_core::mem::can_read(addr, field.size) {
+            if openwa_game::mem::can_read(addr, field.size) {
                 let ptr = base.add(field.offset as usize);
                 let data = core::slice::from_raw_parts(ptr, field.size as usize);
                 field_format::format_field(w, data, field, &ctx)?;

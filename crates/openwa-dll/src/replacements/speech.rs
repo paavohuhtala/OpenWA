@@ -1,7 +1,7 @@
 //! Speech / fanfare / FE SFX / WavPlayer hooks.
 //!
-//! Thin hook shims — game logic lives in `openwa_core::audio::speech_ops`
-//! and `openwa_core::audio::wav_player`.
+//! Thin hook shims — game logic lives in `openwa_game::audio::speech_ops`
+//! and `openwa_game::audio::wav_player`.
 //!
 //! Hooks:
 //! - WavPlayer_Stop (0x599670): usercall(ESI=player, EDI=&result), plain RET — REPLACED
@@ -15,11 +15,11 @@
 
 use std::ffi::{c_char, CStr};
 
-use openwa_core::address::va;
-use openwa_core::audio::wav_player::WavPlayer;
-use openwa_core::audio::{speech_ops, wav_player};
-use openwa_core::engine::DDGameWrapper;
-use openwa_core::rebase::rb;
+use openwa_game::address::va;
+use openwa_game::audio::wav_player::WavPlayer;
+use openwa_game::audio::{speech_ops, wav_player};
+use openwa_game::engine::DDGameWrapper;
+use openwa_game::rebase::rb;
 
 use crate::hook::{self, usercall_trampoline};
 use crate::log_line;

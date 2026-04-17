@@ -15,12 +15,12 @@ use std::path::Path;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use crate::log_line;
-use openwa_core::address::va;
-use openwa_core::game::scheme::{
+use openwa_game::address::va;
+use openwa_game::game::scheme::{
     ExtendedOptions, SchemeFile, SchemeVersion, EXTENDED_OPTIONS_DEFAULTS, EXTENDED_OPTIONS_SIZE,
     SCHEME_PAYLOAD_V1, SCHEME_PAYLOAD_V2, SCHEME_PAYLOAD_V3,
 };
-use openwa_core::rebase::rb;
+use openwa_game::rebase::rb;
 
 // ============================================================
 // Scheme__ReadFile replacement (0x4D3890)
@@ -363,7 +363,7 @@ unsafe extern "fastcall" fn hook_init_from_data(
     name_cstring: u32,
 ) {
     unsafe {
-        use openwa_core::wa::mfc::{cstring_release, CStringRef};
+        use openwa_game::wa::mfc::{cstring_release, CStringRef};
 
         // Step 1: Copy 0xD8 bytes (V1 payload) from src_data to dest+0x14
         core::ptr::copy_nonoverlapping(
@@ -448,7 +448,7 @@ unsafe extern "stdcall" fn hook_scan_directory(cstring_param: u32) {
         let _ = log_line("[Scheme] ScanDirectory completed (Rust)");
 
         // Release the CString parameter's refcount (caller transferred ownership)
-        openwa_core::wa::mfc::cstring_release(cstring_param);
+        openwa_game::wa::mfc::cstring_release(cstring_param);
     }
 }
 
@@ -542,7 +542,7 @@ const BUILTIN_SCHEME_NAMES: [&str; 14] = [
 /// built-in schemes from PE resources (type "SCHEMES") to User\Schemes\.
 unsafe extern "stdcall" fn hook_extract_builtins() {
     unsafe {
-        use openwa_core::wa::resource;
+        use openwa_game::wa::resource;
 
         // Step 1: Zero 16 bytes of slot flags (4 DWORDs covering slots 0-15)
         let slot_flags = rb(va::SCHEME_SLOT_FLAGS) as *mut u8;

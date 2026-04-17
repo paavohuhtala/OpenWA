@@ -217,7 +217,7 @@ fn vtable_impl(
             let name = s.ident.to_string();
             let doc = &s.doc;
             quote! {
-                openwa_core::registry::VtableSlotEntry {
+                openwa_game::registry::VtableSlotEntry {
                     index: #idx,
                     name: #name,
                     doc: #doc,
@@ -250,11 +250,11 @@ fn vtable_impl(
         quote! {
             #vis const #const_ident: u32 = #va;
 
-            openwa_core::inventory::submit! {
-                openwa_core::registry::AddrEntry {
+            openwa_game::inventory::submit! {
+                openwa_game::registry::AddrEntry {
                     va: #va,
                     name: #const_name_str,
-                    kind: openwa_core::registry::AddrKind::Vtable,
+                    kind: openwa_game::registry::AddrKind::Vtable,
                     calling_conv: None,
                     class_name: #class_expr,
                     doc: "",
@@ -285,27 +285,27 @@ fn vtable_impl(
         // Vtable registry metadata
         #[doc(hidden)]
         #[allow(non_upper_case_globals)]
-        static #info_static: openwa_core::registry::VtableInfo = openwa_core::registry::VtableInfo {
+        static #info_static: openwa_game::registry::VtableInfo = openwa_game::registry::VtableInfo {
             struct_name: #struct_name_str,
             class_name: #class_name_str,
             ghidra_va: #va_value,
             slot_count: #vtable_size,
             slots: {
-                const ENTRIES: [openwa_core::registry::VtableSlotEntry; #slot_entry_count] = [
+                const ENTRIES: [openwa_game::registry::VtableSlotEntry; #slot_entry_count] = [
                     #(#slot_entries),*
                 ];
                 &ENTRIES
             },
         };
 
-        impl openwa_core::registry::HasVtableRegistry for #struct_name {
-            fn vtable_info() -> &'static openwa_core::registry::VtableInfo {
+        impl openwa_game::registry::HasVtableRegistry for #struct_name {
+            fn vtable_info() -> &'static openwa_game::registry::VtableInfo {
                 &#info_static
             }
         }
 
-        openwa_core::inventory::submit! {
-            openwa_core::registry::VtableRegistration {
+        openwa_game::inventory::submit! {
+            openwa_game::registry::VtableRegistration {
                 info: &#info_static,
             }
         }
@@ -313,7 +313,7 @@ fn vtable_impl(
         #va_items
 
         // Mark *const ThisVtable as a valid vtable pointer type for CTask<V>.
-        unsafe impl openwa_core::task::Vtable for *const #struct_name {}
+        unsafe impl openwa_game::task::Vtable for *const #struct_name {}
 
         /// Bind this vtable's known methods as wrapper methods on a class struct.
         ///
@@ -624,7 +624,7 @@ pub fn derive_field_registry(input: TokenStream) -> TokenStream {
             parse_field_kind_attr(&field.attrs).unwrap_or_else(|| infer_value_kind(field_ty));
 
         entries.push(quote! {
-            openwa_core::registry::FieldEntry {
+            openwa_game::registry::FieldEntry {
                 offset: core::mem::offset_of!(#struct_name, #field_ident) as u32,
                 name: #field_name,
                 size: core::mem::size_of::<#size_ty>() as u32,
@@ -644,27 +644,27 @@ pub fn derive_field_registry(input: TokenStream) -> TokenStream {
         // and from the inventory registration (which needs a const context).
         #[doc(hidden)]
         #[allow(non_upper_case_globals)]
-        static #fields_static: openwa_core::registry::StructFields = openwa_core::registry::StructFields {
+        static #fields_static: openwa_game::registry::StructFields = openwa_game::registry::StructFields {
             struct_name: #struct_name_str,
             fields: {
                 // Fields are already sorted by offset because #[repr(C)]
                 // guarantees declaration order = memory order.
-                const ENTRIES: [openwa_core::registry::FieldEntry; #entry_count] = [
+                const ENTRIES: [openwa_game::registry::FieldEntry; #entry_count] = [
                     #(#entries),*
                 ];
                 &ENTRIES
             },
         };
 
-        impl openwa_core::registry::HasFieldRegistry for #struct_name {
-            fn field_registry() -> &'static openwa_core::registry::StructFields {
+        impl openwa_game::registry::HasFieldRegistry for #struct_name {
+            fn field_registry() -> &'static openwa_game::registry::StructFields {
                 &#fields_static
             }
         }
 
         // Register in the global struct registry so struct_fields_for() works.
-        openwa_core::inventory::submit! {
-            openwa_core::registry::StructRegistration {
+        openwa_game::inventory::submit! {
+            openwa_game::registry::StructRegistration {
                 fields: &#fields_static,
             }
         }
@@ -743,10 +743,10 @@ fn infer_value_kind(ty: &syn::Type) -> proc_macro2::TokenStream {
     }
 }
 
-/// Produce a `openwa_core::registry::ValueKind::Variant` token stream.
+/// Produce a `openwa_game::registry::ValueKind::Variant` token stream.
 fn value_kind_token(variant: &str) -> proc_macro2::TokenStream {
     let ident = quote::format_ident!("{}", variant);
-    quote! { openwa_core::registry::ValueKind::#ident }
+    quote! { openwa_game::registry::ValueKind::#ident }
 }
 
 /// Recursively substitute generic type parameters with their defaults.

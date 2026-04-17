@@ -52,7 +52,7 @@ unsafe extern "system" fn DllMain(
 // Logging
 // ---------------------------------------------------------------------------
 
-pub use openwa_core::log::log_line;
+pub use openwa_game::log::log_line;
 
 fn clear_log() -> std::io::Result<()> {
     let path = std::env::var_os("OPENWA_LOG_PATH").unwrap_or("OpenWA.log".into());
@@ -71,7 +71,7 @@ fn run() -> Result<(), String> {
         let _ = log_line(&format!("[PANIC] {info}"));
     }));
 
-    let delta = openwa_core::rebase::init();
+    let delta = openwa_game::rebase::init();
     let _ = log_line(&format!(
         "=== OpenWA DLL loaded ===\n  ASLR delta: 0x{delta:08X}"
     ));

@@ -10,8 +10,8 @@
 //! - Options__GetCrashReportURL (0x5A63F0): crash report URL from registry
 
 use crate::log_line;
-use openwa_core::rebase::rb;
-use openwa_core::{address::va, engine::GameInfo};
+use openwa_game::rebase::rb;
+use openwa_game::{address::va, engine::GameInfo};
 
 const THEME_PATH: &str = "data\\current.thm";
 const CLEAN_ALL_FLAG_OFFSET: usize = 0xE0;
@@ -97,7 +97,7 @@ unsafe extern "stdcall" fn hook_delete_key_recursive(hkey: u32, subkey: u32) -> 
         let _ = log_line(&format!("[Config] DeleteKeyRecursive: {subkey_str}"));
 
         let result =
-            openwa_core::wa::registry::delete_key_recursive(hkey as usize as HKEY, &subkey_str);
+            openwa_game::wa::registry::delete_key_recursive(hkey as usize as HKEY, &subkey_str);
 
         let _ = log_line(&format!("[Config] DeleteKeyRecursive result: {result}"));
         result as i32
@@ -124,7 +124,7 @@ unsafe extern "stdcall" fn hook_registry_clean_all(struct_ptr: u32) {
         ];
 
         for section in &sections {
-            openwa_core::wa::registry::delete_key_recursive(HKEY_CURRENT_USER, section);
+            openwa_game::wa::registry::delete_key_recursive(HKEY_CURRENT_USER, section);
         }
 
         // Clear the NetSettings INI section
@@ -150,7 +150,7 @@ unsafe extern "stdcall" fn hook_registry_clean_all(struct_ptr: u32) {
 /// into the GameInfo struct at known offsets.
 unsafe extern "stdcall" fn hook_load_options(game_info: *mut GameInfo) {
     unsafe {
-        use openwa_core::wa::registry::read_profile_int;
+        use openwa_game::wa::registry::read_profile_int;
 
         let _ = log_line("[Config] LoadOptions: loading game options from registry");
         let gi = &mut *game_info;
@@ -295,7 +295,7 @@ unsafe extern "cdecl" fn hook_get_crash_report_url() -> u32 {
         let buf_slice = core::slice::from_raw_parts_mut(buf, CRASH_REPORT_URL_BUF_SIZE);
 
         let len =
-            openwa_core::wa::registry::read_profile_string("Options", "CrashReportURL", buf_slice);
+            openwa_game::wa::registry::read_profile_string("Options", "CrashReportURL", buf_slice);
 
         if len > 0 {
             // Null-terminate

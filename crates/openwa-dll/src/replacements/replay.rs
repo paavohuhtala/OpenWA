@@ -5,12 +5,12 @@
 
 use crate::hook;
 use crate::log_line;
-use openwa_core::address::va;
-use openwa_core::engine::game_info::GameInfo;
-use openwa_core::engine::replay::{self, ReplayError, ReplayStream, ReplayTeamEntry};
-use openwa_core::frontend::MapView;
-use openwa_core::rebase::rb;
-use openwa_core::wa_alloc::{wa_free, wa_malloc};
+use openwa_game::address::va;
+use openwa_game::engine::game_info::GameInfo;
+use openwa_game::engine::replay::{self, ReplayError, ReplayStream, ReplayTeamEntry};
+use openwa_game::frontend::MapView;
+use openwa_game::rebase::rb;
+use openwa_game::wa_alloc::{wa_free, wa_malloc};
 
 use core::ffi::c_void;
 use core::fmt::Write;

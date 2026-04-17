@@ -1,6 +1,6 @@
 //! Sound playback hooks.
 //!
-//! Thin hook shim — game logic lives in `openwa_core::audio::sound_ops`.
+//! Thin hook shim — game logic lives in `openwa_game::audio::sound_ops`.
 //! This file contains hook entry points, trampolines, and installation.
 //!
 //! Hooks:
@@ -13,13 +13,13 @@
 
 use std::sync::atomic::Ordering;
 
-use openwa_core::address::va;
-use openwa_core::audio::sound_ops;
-use openwa_core::audio::{KnownSoundId, SoundId};
-use openwa_core::engine::{DDGame, DDGameWrapper};
-use openwa_core::fixed::Fixed;
-use openwa_core::task::worm::CTaskWorm;
-use openwa_core::task::{CGameTask, CTask};
+use openwa_game::address::va;
+use openwa_game::audio::sound_ops;
+use openwa_game::audio::{KnownSoundId, SoundId};
+use openwa_game::engine::{DDGame, DDGameWrapper};
+use openwa_game::fixed::Fixed;
+use openwa_game::task::worm::CTaskWorm;
+use openwa_game::task::{CGameTask, CTask};
 
 use crate::hook;
 use crate::log_line;
@@ -259,13 +259,13 @@ pub fn install() -> Result<(), String> {
 
 /// Patch DSSound vtable (0x66AF20) to replace trivial methods with Rust.
 unsafe fn patch_dssound_vtable() -> Result<(), &'static str> {
-    use openwa_core::audio::{
+    use openwa_game::audio::{
         dssound_destructor, dssound_noop, dssound_returns_0, dssound_returns_1,
         dssound_sub_destructor, is_channel_finished, is_slot_loaded, load_wav, play_sound,
         play_sound_pooled, release_finished, set_channel_volume, set_frequency_scale,
         set_master_volume, set_pan, stop_channel, update_channels, DSSoundVtable,
     };
-    use openwa_core::vtable_replace;
+    use openwa_game::vtable_replace;
 
     vtable_replace!(DSSoundVtable, va::DS_SOUND_VTABLE, {
         destructor          => dssound_destructor,

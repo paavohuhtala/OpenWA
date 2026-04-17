@@ -1,7 +1,7 @@
 //! Music playback hooks.
 //!
 //! Replaces WA's Music vtable (0x66B3E0, 6 slots) with Rust implementations
-//! from `openwa_core::audio::music`.
+//! from `openwa_game::audio::music`.
 //!
 //! The Music system handles background music during gameplay:
 //! - Track selection from playlist (track IDs 1-13 → WAV filenames)
@@ -9,11 +9,11 @@
 //! - Volume control with dB lookup table
 //! - Playlist cycling (advance to next track when current finishes)
 
-use openwa_core::address::va;
-use openwa_core::audio::music::{Music, MusicVtable};
-use openwa_core::fixed::Fixed;
-use openwa_core::rebase::rb;
-use openwa_core::wa_alloc::wa_free;
+use openwa_game::address::va;
+use openwa_game::audio::music::{Music, MusicVtable};
+use openwa_game::fixed::Fixed;
+use openwa_game::rebase::rb;
+use openwa_game::wa_alloc::wa_free;
 
 use crate::hook;
 use crate::log_line;
@@ -105,8 +105,8 @@ unsafe extern "cdecl" fn music_constructor_cdecl(this: *mut Music, ids: u32, pat
 pub fn install() -> Result<(), String> {
     unsafe {
         // Patch the Music vtable using vtable_replace!
-        use openwa_core::audio::music::MusicVtable;
-        use openwa_core::vtable_replace;
+        use openwa_game::audio::music::MusicVtable;
+        use openwa_game::vtable_replace;
 
         vtable_replace!(MusicVtable, va::MUSIC_VTABLE, {
             scalar_deleting_dtor => hook_scalar_deleting_dtor,

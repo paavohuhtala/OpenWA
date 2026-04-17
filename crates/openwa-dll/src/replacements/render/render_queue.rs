@@ -1,15 +1,15 @@
 //! RenderQueue enqueue hooks and the per-frame dispatcher bridge.
 
-use openwa_core::address::va;
-use openwa_core::bitgrid::DisplayBitGrid;
-use openwa_core::fixed::Fixed;
-use openwa_core::render::display::vtable::TiledBitmapSource;
-use openwa_core::render::display::DisplayGfx;
-use openwa_core::render::message::RenderMessage;
-use openwa_core::render::queue::RenderQueue;
-use openwa_core::render::queue_dispatch::{render_drawing_queue, ClipContext};
-use openwa_core::render::SpriteOp;
-use openwa_core::task::{BungeeTrailTask, WeaponAimTask};
+use openwa_game::address::va;
+use openwa_game::bitgrid::DisplayBitGrid;
+use openwa_game::fixed::Fixed;
+use openwa_game::render::display::vtable::TiledBitmapSource;
+use openwa_game::render::display::DisplayGfx;
+use openwa_game::render::message::RenderMessage;
+use openwa_game::render::queue::RenderQueue;
+use openwa_game::render::queue_dispatch::{render_drawing_queue, ClipContext};
+use openwa_game::render::SpriteOp;
+use openwa_game::task::{BungeeTrailTask, WeaponAimTask};
 
 use crate::hook::{self, usercall_trampoline};
 
@@ -305,7 +305,7 @@ unsafe extern "stdcall" fn draw_bungee_trail_impl(
     fill: u32,
 ) {
     unsafe {
-        openwa_core::render::bungee_trail::draw_bungee_trail(task, style, fill);
+        openwa_game::render::bungee_trail::draw_bungee_trail(task, style, fill);
     }
 }
 
@@ -316,7 +316,7 @@ usercall_trampoline!(fn trampoline_draw_crosshair_line; impl_fn = draw_crosshair
 
 unsafe extern "cdecl" fn draw_crosshair_line_impl(task: *const WeaponAimTask) {
     unsafe {
-        openwa_core::render::crosshair_line::draw_crosshair_line(task);
+        openwa_game::render::crosshair_line::draw_crosshair_line(task);
     }
 }
 

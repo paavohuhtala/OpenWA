@@ -3,21 +3,21 @@
 
 use core::ffi::c_char;
 
-use openwa_core::address::va;
-use openwa_core::asset::gfx_dir::GfxDir;
-use openwa_core::bitgrid::DisplayBitGrid;
-use openwa_core::fixed::Fixed;
-use openwa_core::rebase::rb;
-use openwa_core::render::display::destructor as display_destructor;
-use openwa_core::render::display::vtable::{self as display_vtable_impl, DisplayGfxVtable};
-use openwa_core::render::display::DisplayBase;
-use openwa_core::render::display::DisplayGfx;
-use openwa_core::render::palette::PaletteContext;
-use openwa_core::render::sprite::Sprite;
-use openwa_core::render::SpriteOp;
-use openwa_core::vtable::patch_vtable;
-use openwa_core::vtable_replace;
-use openwa_core::wa_alloc::wa_free;
+use openwa_game::address::va;
+use openwa_game::asset::gfx_dir::GfxDir;
+use openwa_game::bitgrid::DisplayBitGrid;
+use openwa_game::fixed::Fixed;
+use openwa_game::rebase::rb;
+use openwa_game::render::display::destructor as display_destructor;
+use openwa_game::render::display::vtable::{self as display_vtable_impl, DisplayGfxVtable};
+use openwa_game::render::display::DisplayBase;
+use openwa_game::render::display::DisplayGfx;
+use openwa_game::render::palette::PaletteContext;
+use openwa_game::render::sprite::Sprite;
+use openwa_game::render::SpriteOp;
+use openwa_game::vtable::patch_vtable;
+use openwa_game::vtable_replace;
+use openwa_game::wa_alloc::wa_free;
 
 use crate::hook;
 use crate::log_line;
@@ -63,7 +63,7 @@ unsafe extern "thiscall" fn blit_sprite(
     palette: u32,
 ) {
     unsafe {
-        openwa_core::render::display::blit_sprite::blit_sprite(this, x, y, sprite, palette);
+        openwa_game::render::display::blit_sprite::blit_sprite(this, x, y, sprite, palette);
     }
 }
 
@@ -80,7 +80,7 @@ unsafe extern "thiscall" fn draw_scaled_sprite(
     flags: u32,
 ) {
     unsafe {
-        openwa_core::render::display::blit_sprite::draw_scaled_sprite(
+        openwa_game::render::display::blit_sprite::draw_scaled_sprite(
             this, x, y, sprite, src_x, src_y, src_w, src_h, flags,
         );
     }

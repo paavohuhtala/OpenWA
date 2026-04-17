@@ -9,20 +9,20 @@
 //!
 //! - `DDGameWrapper__InitReplay` (0x56F860): usercall(EAX=game_info, ESI=this),
 //!   plain RET (no stack args). Bridged via `call_init_replay`.
-//! - `DDGame__Constructor` (0x56E220): fully replaced by `create_ddgame()` in openwa-core.
+//! - `DDGame__Constructor` (0x56E220): fully replaced by `create_ddgame()` in openwa-game.
 //! - `DDGame__InitGameState` (0x526500): ported to Rust in `init_game_state()`.
 
 use crate::hook;
 use crate::log_line;
-use openwa_core::address::va;
-use openwa_core::audio::DSSound;
-use openwa_core::engine::create_ddgame;
-use openwa_core::engine::game_session::get_game_session;
-use openwa_core::engine::init_constructor_addrs;
-use openwa_core::engine::DDGameWrapperVtable;
-use openwa_core::engine::{DDGameWrapper, GameInfo};
-use openwa_core::rebase::rb;
-use openwa_core::render::{DisplayGfx, Palette};
+use openwa_game::address::va;
+use openwa_game::audio::DSSound;
+use openwa_game::engine::create_ddgame;
+use openwa_game::engine::game_session::get_game_session;
+use openwa_game::engine::init_constructor_addrs;
+use openwa_game::engine::DDGameWrapperVtable;
+use openwa_game::engine::{DDGameWrapper, GameInfo};
+use openwa_game::rebase::rb;
+use openwa_game::render::{DisplayGfx, Palette};
 
 /// Implicit EDI = game_info pointer, captured from EDI on entry.
 static mut GAME_INFO: *mut GameInfo = core::ptr::null_mut();
@@ -110,7 +110,7 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
 
         // Register GameSession as a live object.
         {
-            use openwa_core::registry::{self, LiveObject};
+            use openwa_game::registry::{self, LiveObject};
             registry::register_live_object(LiveObject {
                 ptr: session as u32,
                 size: 0x120,
@@ -148,11 +148,11 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
         } else {
             create_ddgame(
                 this,
-                keyboard as *mut openwa_core::input::DDKeyboard,
+                keyboard as *mut openwa_game::input::DDKeyboard,
                 display,
                 sound,
                 palette,
-                streaming_audio as *mut openwa_core::audio::Music,
+                streaming_audio as *mut openwa_game::audio::Music,
                 timer_obj,
                 net_game,
                 game_info,
@@ -166,7 +166,7 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
         }
 
         // Initialize DDGame's game-state fields (Rust port).
-        openwa_core::engine::game_state_init::init_game_state(this);
+        openwa_game::engine::game_state_init::init_game_state(this);
 
         let _ = log_line(&format!(
             "[GameSession] DDGameWrapper::Constructor done: wrapper=0x{:08X}  ddgame=0x{:08X}",
@@ -175,7 +175,7 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
         ));
 
         // Register live objects for pointer identification in debug tools.
-        use openwa_core::registry::{self, LiveObject};
+        use openwa_game::registry::{self, LiveObject};
         registry::register_live_object(LiveObject {
             ptr: this as u32,
             size: core::mem::size_of::<DDGameWrapper>() as u32,

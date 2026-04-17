@@ -1,12 +1,12 @@
 //! WeaponRelease hook (0x51C3D0) and SpawnEffect (0x547C30).
 //!
-//! Thin hook shim — game logic lives in `openwa_core::game::weapon_release`.
+//! Thin hook shim — game logic lives in `openwa_game::game::weapon_release`.
 //! This file contains usercall trampolines and hook installation.
 
-use openwa_core::address::va;
-use openwa_core::fixed::Fixed;
-use openwa_core::game::weapon_release as wr;
-use openwa_core::task::worm::CTaskWorm;
+use openwa_game::address::va;
+use openwa_game::fixed::Fixed;
+use openwa_game::game::weapon_release as wr;
+use openwa_game::task::worm::CTaskWorm;
 
 use crate::hook::{self, usercall_trampoline};
 

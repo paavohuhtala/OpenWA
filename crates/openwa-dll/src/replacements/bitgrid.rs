@@ -10,8 +10,8 @@
 
 use crate::log_line;
 use core::sync::atomic::{AtomicU32, Ordering};
-use openwa_core::address::va;
-use openwa_core::rebase::rb;
+use openwa_game::address::va;
+use openwa_game::rebase::rb;
 
 // =========================================================================
 // Line drawing snapshot capture
@@ -24,7 +24,7 @@ use openwa_core::rebase::rb;
 /// `OPENWA_CAPTURE_SNAPSHOTS=1`.
 pub unsafe fn capture_line_snapshots() {
     unsafe {
-        use openwa_core::bitgrid::DisplayBitGrid;
+        use openwa_game::bitgrid::DisplayBitGrid;
         use std::fs;
         use std::io::Write;
 
@@ -256,7 +256,7 @@ pub unsafe fn capture_line_snapshots() {
 /// `OPENWA_CAPTURE_SNAPSHOTS=1`.
 pub unsafe fn capture_blit_snapshots() {
     unsafe {
-        use openwa_core::bitgrid::DisplayBitGrid;
+        use openwa_game::bitgrid::DisplayBitGrid;
         use std::fs;
         use std::io::Write;
 
@@ -460,8 +460,8 @@ pub unsafe fn capture_blit_snapshots() {
 /// Activated by `OPENWA_CAPTURE_SNAPSHOTS=1`.
 pub unsafe fn capture_stippled_tiled_snapshots() {
     unsafe {
-        use openwa_core::bitgrid::DisplayBitGrid;
-        use openwa_core::rebase::rb;
+        use openwa_game::bitgrid::DisplayBitGrid;
+        use openwa_game::rebase::rb;
         use std::fs;
         use std::io::Write;
 
@@ -565,7 +565,7 @@ pub unsafe fn capture_stippled_tiled_snapshots() {
                 *(fake_ptr.add(0x3D9C) as *mut *mut DisplayBitGrid) = dst;
 
                 // Save and set g_StippleParity to known values
-                let parity_ptr = rb(openwa_core::address::va::G_STIPPLE_PARITY) as *mut u32;
+                let parity_ptr = rb(openwa_game::address::va::G_STIPPLE_PARITY) as *mut u32;
                 let saved_parity = *parity_ptr;
 
                 // Test cases: (name, dst_x, dst_y, width, height, src_x, src_y, stipple_mode, parity, bg)
@@ -644,7 +644,7 @@ pub unsafe fn capture_stippled_tiled_snapshots() {
                 let blit_target = if orig != 0 {
                     orig
                 } else {
-                    rb(openwa_core::address::va::BLIT_SPRITE_RECT)
+                    rb(openwa_game::address::va::BLIT_SPRITE_RECT)
                 };
 
                 // Tile modes: blend mode 1 (color table / transparency, no color table = skip zero)
@@ -739,7 +739,7 @@ unsafe extern "cdecl" fn wa_blit_stippled(
     _dst_x: u32,
     _dst_y: i32,
     _width: i32,
-    _sprite: *mut openwa_core::bitgrid::DisplayBitGrid,
+    _sprite: *mut openwa_game::bitgrid::DisplayBitGrid,
     _src_x: i32,
     _src_y: i32,
     _stipple_mode: u32,
@@ -814,12 +814,12 @@ fn decode_gif_indexed(data: &[u8]) -> Option<IndexedImage> {
 /// `target` is the rebased runtime address.
 #[unsafe(naked)]
 unsafe extern "cdecl" fn wa_blit_sprite_rect(
-    _dst: *mut openwa_core::bitgrid::DisplayBitGrid,
+    _dst: *mut openwa_game::bitgrid::DisplayBitGrid,
     _dst_x: i32,
     _dst_y: i32,
     _width: i32,
     _height: i32,
-    _src: *mut openwa_core::bitgrid::DisplayBitGrid,
+    _src: *mut openwa_game::bitgrid::DisplayBitGrid,
     _src_x: i32,
     _src_y: i32,
     _color_table: *const u8,
@@ -881,24 +881,24 @@ unsafe extern "C" fn blit_hook_trampoline() {
     );
 }
 
-/// Thin cdecl wrapper around `openwa_core::bitgrid::blit::blit_impl`.
+/// Thin cdecl wrapper around `openwa_game::bitgrid::blit::blit_impl`.
 ///
 /// The naked asm trampoline calls this with cdecl convention; this simply
 /// forwards to the core implementation which is a plain `unsafe fn`.
 unsafe extern "cdecl" fn blit_impl_cdecl(
-    dst: *mut openwa_core::bitgrid::DisplayBitGrid,
+    dst: *mut openwa_game::bitgrid::DisplayBitGrid,
     dst_x: i32,
     dst_y: i32,
     width: i32,
     height: i32,
-    src: *mut openwa_core::bitgrid::DisplayBitGrid,
+    src: *mut openwa_game::bitgrid::DisplayBitGrid,
     src_x: i32,
     src_y: i32,
     color_table: *const u8,
     flags: u32,
 ) -> u32 {
     unsafe {
-        openwa_core::bitgrid::blit::blit_impl(
+        openwa_game::bitgrid::blit::blit_impl(
             dst,
             dst_x,
             dst_y,
@@ -917,12 +917,12 @@ unsafe extern "cdecl" fn blit_impl_cdecl(
 /// No longer used — kept for debugging if fallthrough is temporarily needed.
 #[allow(dead_code)]
 unsafe fn call_original_blit(
-    dst: *mut openwa_core::bitgrid::DisplayBitGrid,
+    dst: *mut openwa_game::bitgrid::DisplayBitGrid,
     dst_x: i32,
     dst_y: i32,
     width: i32,
     height: i32,
-    src: *mut openwa_core::bitgrid::DisplayBitGrid,
+    src: *mut openwa_game::bitgrid::DisplayBitGrid,
     src_x: i32,
     src_y: i32,
     color_table: *const u8,
@@ -950,12 +950,12 @@ unsafe fn call_original_blit(
 #[allow(dead_code)]
 #[unsafe(naked)]
 unsafe extern "cdecl" fn call_original_blit_asm(
-    _dst: *mut openwa_core::bitgrid::DisplayBitGrid,
+    _dst: *mut openwa_game::bitgrid::DisplayBitGrid,
     _dst_x: i32,
     _dst_y: i32,
     _width: i32,
     _height: i32,
-    _src: *mut openwa_core::bitgrid::DisplayBitGrid,
+    _src: *mut openwa_game::bitgrid::DisplayBitGrid,
     _src_x: i32,
     _src_y: i32,
     _color_table: *const u8,

@@ -1,6 +1,6 @@
 # openwa-dll
 
-Injected DLL (`openwa.dll`). Contains thin hook installation shims that wire `openwa-core` game logic into WA.exe via MinHook. Game logic itself lives in `openwa-core` — this crate is purely the wiring layer.
+Injected DLL (`openwa.dll`). Contains thin hook installation shims that wire `openwa-game` game logic into WA.exe via MinHook. Game logic itself lives in `openwa-game` — this crate is purely the wiring layer.
 
 See the root `CLAUDE.md` for project-wide rules: architecture, calling conventions, ASLR rebasing, FFI style, design conventions.
 

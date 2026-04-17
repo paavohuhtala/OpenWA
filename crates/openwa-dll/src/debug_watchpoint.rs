@@ -23,8 +23,8 @@
 //!    then removes the VEH.
 
 use crate::log_line;
-use openwa_core::address::va;
-use openwa_core::rebase::rb;
+use openwa_game::address::va;
+use openwa_game::rebase::rb;
 use std::sync::atomic::{AtomicU32, Ordering};
 use windows_sys::Win32::System::Diagnostics::Debug::{
     AddVectoredExceptionHandler, RemoveVectoredExceptionHandler, EXCEPTION_POINTERS,
@@ -134,7 +134,7 @@ unsafe extern "system" fn veh_handler(info: *mut EXCEPTION_POINTERS) -> i32 {
                                 break;
                             }
                             // Safety: check both [ebp] and [ebp+4] are readable
-                            if !openwa_core::mem::can_read(ebp, 8) {
+                            if !openwa_game::mem::can_read(ebp, 8) {
                                 break;
                             }
                             let ret_addr = *((ebp + 4) as *const u32);
@@ -145,7 +145,7 @@ unsafe extern "system" fn veh_handler(info: *mut EXCEPTION_POINTERS) -> i32 {
                                 trace.push_str("<-");
                             }
                             if in_wa {
-                                trace.push_str(&openwa_core::registry::format_va(ghidra_ret));
+                                trace.push_str(&openwa_game::registry::format_va(ghidra_ret));
                             } else {
                                 use core::fmt::Write;
                                 let _ = write!(trace, "r:{:08X}", ret_addr);
@@ -161,7 +161,7 @@ unsafe extern "system" fn veh_handler(info: *mut EXCEPTION_POINTERS) -> i32 {
                             "[Watchpoint] {} = 0x{:08X}  eip={} stack=[{}]",
                             name,
                             val,
-                            openwa_core::registry::format_va(ghidra_eip),
+                            openwa_game::registry::format_va(ghidra_eip),
                             trace,
                         ));
                     }

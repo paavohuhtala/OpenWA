@@ -4,17 +4,17 @@
 //! Used by the validation module for struct inspection.
 
 use crate::log_line;
-use openwa_core::address::va;
-use openwa_core::rebase::rb;
+use openwa_game::address::va;
+use openwa_game::rebase::rb;
 
 /// Dump a memory region as DWORDs with automatic pointer classification.
 ///
-/// Uses `openwa_core::mem::classify_pointer` for pointer detection.
+/// Uses `openwa_game::mem::classify_pointer` for pointer detection.
 #[allow(dead_code)]
 pub unsafe fn dump_region(base_ptr: *const u8, offset: usize, size: usize, struct_name: &str) {
     unsafe {
-        use openwa_core::mem;
         use openwa_debug_proto::PointerKind;
+        use openwa_game::mem;
 
         let wa_base = rb(va::IMAGE_BASE);
         let delta = wa_base.wrapping_sub(va::IMAGE_BASE);

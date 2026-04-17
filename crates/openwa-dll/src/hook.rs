@@ -381,8 +381,8 @@ pub(crate) use usercall_trampoline;
 /// resolving return addresses via the address registry.
 pub unsafe fn log_stack_trace(name: &str, ebp: u32) {
     unsafe {
-        use openwa_core::address::va;
-        use openwa_core::rebase::rb;
+        use openwa_game::address::va;
+        use openwa_game::rebase::rb;
         let delta = rb(va::IMAGE_BASE).wrapping_sub(va::IMAGE_BASE);
         let wa_base = rb(va::IMAGE_BASE);
 
@@ -392,7 +392,7 @@ pub unsafe fn log_stack_trace(name: &str, ebp: u32) {
             if !(0x10000..=0x7FFE0000).contains(&ebp) || (ebp & 3) != 0 {
                 break;
             }
-            if !openwa_core::mem::can_read(ebp, 8) {
+            if !openwa_game::mem::can_read(ebp, 8) {
                 break;
             }
             let ret_addr = *((ebp + 4) as *const u32);
@@ -403,7 +403,7 @@ pub unsafe fn log_stack_trace(name: &str, ebp: u32) {
             }
             let in_wa = ret_addr >= wa_base && ret_addr < wa_base + 0x300000;
             if in_wa {
-                trace.push_str(&openwa_core::registry::format_va(ghidra_ret));
+                trace.push_str(&openwa_game::registry::format_va(ghidra_ret));
             } else {
                 use core::fmt::Write;
                 let _ = write!(trace, "r:{:08X}", ret_addr);
@@ -453,7 +453,7 @@ use std::ffi::c_void;
 use minhook::MinHook;
 
 use crate::log_line;
-use openwa_core::rebase::rb;
+use openwa_game::rebase::rb;
 
 /// Install a MinHook inline hook on a WA.exe function.
 ///

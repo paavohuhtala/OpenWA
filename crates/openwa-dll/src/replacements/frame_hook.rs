@@ -10,8 +10,8 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 use crate::hook;
 use crate::log_line;
-use openwa_core::address::va;
-use openwa_core::engine::game_session;
+use openwa_game::address::va;
+use openwa_game::engine::game_session;
 
 /// Trampoline to the original TurnManager_ProcessFrame.
 static ORIG_TURN_MANAGER: AtomicU32 = AtomicU32::new(0);

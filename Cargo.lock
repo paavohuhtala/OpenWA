@@ -1501,23 +1501,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "openwa-core"
-version = "0.1.0"
-dependencies = [
- "bitflags 2.11.1",
- "gif",
- "heapless",
- "hound",
- "image",
- "inventory",
- "openwa-config",
- "openwa-debug-proto",
- "openwa-derive",
- "windows",
- "windows-sys 0.59.0",
-]
-
-[[package]]
 name = "openwa-debug-cli"
 version = "0.1.0"
 dependencies = [
@@ -1537,7 +1520,7 @@ name = "openwa-debugui"
 version = "0.1.0"
 dependencies = [
  "eframe",
- "openwa-core",
+ "openwa-game",
  "winit",
 ]
 
@@ -1558,9 +1541,26 @@ dependencies = [
  "heapless",
  "hound",
  "minhook",
- "openwa-core",
  "openwa-debug-proto",
  "openwa-debugui",
+ "openwa-game",
+ "windows",
+ "windows-sys 0.59.0",
+]
+
+[[package]]
+name = "openwa-game"
+version = "0.1.0"
+dependencies = [
+ "bitflags 2.11.1",
+ "gif",
+ "heapless",
+ "hound",
+ "image",
+ "inventory",
+ "openwa-config",
+ "openwa-debug-proto",
+ "openwa-derive",
  "windows",
  "windows-sys 0.59.0",
 ]

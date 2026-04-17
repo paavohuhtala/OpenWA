@@ -44,14 +44,14 @@
 use super::game_session;
 use crate::hook;
 use crate::log_line;
-use openwa_core::address::va;
-use openwa_core::audio::{DSSound, Music};
-use openwa_core::engine::game_session::get_game_session;
-use openwa_core::engine::{DDGameWrapper, DDNetGameWrapper, GameInfo, GameTimer};
-use openwa_core::input::{DDKeyboard, InputCtrl, InputCtrlVtable};
-use openwa_core::rebase::rb;
-use openwa_core::render::{DisplayBase, DisplayGfx, Palette};
-use openwa_core::wa_alloc::{wa_malloc_struct, wa_malloc_struct_zeroed};
+use openwa_game::address::va;
+use openwa_game::audio::{DSSound, Music};
+use openwa_game::engine::game_session::get_game_session;
+use openwa_game::engine::{DDGameWrapper, DDNetGameWrapper, GameInfo, GameTimer};
+use openwa_game::input::{DDKeyboard, InputCtrl, InputCtrlVtable};
+use openwa_game::rebase::rb;
+use openwa_game::render::{DisplayBase, DisplayGfx, Palette};
+use openwa_game::wa_alloc::{wa_malloc_struct, wa_malloc_struct_zeroed};
 
 // ─── Entry trampoline state ───────────────────────────────────────────────────
 

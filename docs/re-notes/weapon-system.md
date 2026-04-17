@@ -89,11 +89,11 @@ Source: `wkJellyWorm/src/CustomWeapons.h` (WeaponStruct) + InitWeaponTable analy
 - +0x28 = 1 (enabled)
 - Weapon 0 (None), 57 (SkipGo), 58 (Surrender): availability forced to 0
 
-**Rust types:** `WeaponEntry`, `WeaponTable` in `openwa-core/src/game/weapon.rs`.
+**Rust types:** `WeaponEntry`, `WeaponTable` in `openwa-game/src/game/weapon.rs`.
 
 ### Weapon Enum (71 entries)
 
-Defined in `openwa-core/src/game/weapon.rs`. Key weapon IDs:
+Defined in `openwa-game/src/game/weapon.rs`. Key weapon IDs:
 
 | ID | Hex | Name | Category |
 |----|-----|------|----------|
@@ -167,7 +167,7 @@ The second variant at 0x558E80 (fastcall) has 3 xrefs from `CTaskTeam_vt2__vmeth
 ### DDGame__CheckWeaponAvail (0x53FFC0)
 
 Convention: fastcall(DDGame), ESI=weapon_id. Ported as `check_weapon_avail`
-in `openwa-core/src/engine/game_state_init.rs`.
+in `openwa-game/src/engine/game_state_init.rs`.
 
 **Per-weapon disable rules:**
 
@@ -384,7 +384,7 @@ weapon table and ammo arrays at game start.
 | V2 | 0x124 bytes | V1 + 19 super weapons |
 | V3 | 0x192 bytes | V2 + 110 extended options (physics tweaks) |
 
-**Port status:** Scheme parsing fully ported in `openwa-core/src/game/scheme.rs`
+**Port status:** Scheme parsing fully ported in `openwa-game/src/game/scheme.rs`
 (10 hooks in `replacements/scheme.rs`).
 
 ## Complete Function Address Table

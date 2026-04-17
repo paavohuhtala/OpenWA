@@ -5,10 +5,10 @@
 //! regions in the live binary. Fully auto-generated from `define_addresses!`
 //! and `#[vtable(...)]` metadata — no hardcoded address lists.
 
-use openwa_core::address::va;
-use openwa_core::log::log_line;
-use openwa_core::rebase::rb;
-use openwa_core::registry::{self, AddrKind};
+use openwa_game::address::va;
+use openwa_game::log::log_line;
+use openwa_game::rebase::rb;
+use openwa_game::registry::{self, AddrKind};
 
 /// Valid first bytes for x86 function prologues (MSVC).
 /// This covers standard prologues plus common non-standard function starts.

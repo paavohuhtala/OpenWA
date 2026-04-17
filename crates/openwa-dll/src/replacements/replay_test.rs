@@ -13,9 +13,9 @@
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU32, Ordering};
 
 use crate::log_line;
-use openwa_core::engine::game_session;
-use openwa_core::engine::DDGame;
-use openwa_core::engine::TeamArena;
+use openwa_game::engine::game_session;
+use openwa_game::engine::DDGame;
+use openwa_game::engine::TeamArena;
 
 // ---------------------------------------------------------------------------
 // Fast-forward
@@ -124,7 +124,7 @@ pub fn write_gameplay_report() {
 
     // Final milestone check if DDGame is still alive at detach time.
     unsafe {
-        let ddgame = openwa_core::engine::game_session::get_ddgame();
+        let ddgame = openwa_game::engine::game_session::get_ddgame();
         if !ddgame.is_null() {
             let frame = super::frame_hook::frames_processed();
             check_milestones(ddgame, frame);

@@ -2,13 +2,13 @@
 
 ## Project
 
-OpenWA (short for "Open Worms Armageddon") is an incremental Rust reimplementation of Worms Armageddon 3.8.1 (Steam). The replacement strategy is the same as was used in OpenRCT2: a custom launcher (`openwa-launcher`) injects a DLL (`openwa-dll`) into a suspended game process, which replaces game functions with Rust implementations (from `openwa-core`).
+OpenWA (short for "Open Worms Armageddon") is an incremental Rust reimplementation of Worms Armageddon 3.8.1 (Steam). The replacement strategy is the same as was used in OpenRCT2: a custom launcher (`openwa-launcher`) injects a DLL (`openwa-dll`) into a suspended game process, which replaces game functions with Rust implementations (from `openwa-game`).
 
 The original WA.exe is a 32-bit x86 Windows PE binary built with MSVC 2005 + MFC. All Rust code targets `i686-pc-windows-msvc`.
 
 ## Crate Architecture
 
-- **`openwa-core`** — Types, addresses, parsers, ASLR rebasing, typed WA function wrappers, **and game logic**. The source of truth for all reverse-engineered type layouts, known addresses, and Rust reimplementations of WA functions. Contains `registry` (structured address database + field registries), `rebase` (ASLR delta), `wa_call` (calling convention helpers), `wa/` (typed handle wrappers), and game logic modules (`game/weapon_fire.rs`, `game/weapon_release.rs`, `audio/sound_ops.rs`, `engine/team_ops.rs`).
+- **`openwa-game`** — Types, addresses, parsers, ASLR rebasing, typed WA function wrappers, **and game logic**. The source of truth for all reverse-engineered type layouts, known addresses, and Rust reimplementations of WA functions. Contains `registry` (structured address database + field registries), `rebase` (ASLR delta), `wa_call` (calling convention helpers), `wa/` (typed handle wrappers), and game logic modules (`game/weapon_fire.rs`, `game/weapon_release.rs`, `audio/sound_ops.rs`, `engine/team_ops.rs`).
 - **`openwa-derive`** — Proc macro crate. Provides `#[derive(FieldRegistry)]` for struct field maps and `#[vtable(...)]` for typed vtable definitions with introspection, calling wrappers, and replacement support.
 - **`openwa-dll`** — Injected DLL (`openwa.dll`): thin hook installation shims (trampolines, `usercall_trampoline!`, `install()`) that wire core's game logic into WA.exe via MinHook. Logs to `OpenWA.log`. Runs registry-driven startup checks automatically at load.
 - **`openwa-test-runner`** — Headless replay test runner (`openwa-test` binary). Discovers replay tests, runs them concurrently via WA.exe's `/getlog` mode, compares output logs. See "Replay Testing" section.
@@ -107,7 +107,7 @@ A Ghidra MCP bridge is configured in `.mcp.json`. When using Ghidra tools:
 
 ## Address Registry, FieldRegistry & Vtable Macros
 
-See `crates/openwa-core/CLAUDE.md` for the full reference on `define_addresses!`, `#[derive(FieldRegistry)]`, `#[vtable(...)]`, `vtable_replace!`, and the registry query API.
+See `crates/openwa-game/CLAUDE.md` for the full reference on `define_addresses!`, `#[derive(FieldRegistry)]`, `#[vtable(...)]`, `vtable_replace!`, and the registry query API.
 
 ## Design Conventions
 

@@ -104,7 +104,7 @@ pub fn install() -> Result<(), String> {
     // skips the dialog path. Patch it to an unconditional JMP so the
     // dialog is never created in headless mode.
     unsafe {
-        use openwa_core::rebase::rb;
+        use openwa_game::rebase::rb;
         let patch_addr = rb(0x004E_9F20) as *mut u8;
         let mut old_protect: u32 = 0;
         let ok = windows_sys::Win32::System::Memory::VirtualProtect(

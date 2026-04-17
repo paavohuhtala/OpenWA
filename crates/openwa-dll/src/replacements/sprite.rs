@@ -1,14 +1,14 @@
 //! Sprite loading hook replacements.
 //!
 //! Replaces ConstructSprite (0x4FAA30) and ProcessSprite (0x4FAB80) with
-//! Rust implementations. Uses `parse_spr_header` from openwa-core for
+//! Rust implementations. Uses `parse_spr_header` from openwa-game for
 //! format parsing.
 
-use openwa_core::address::va;
-use openwa_core::rebase::rb;
-use openwa_core::render::palette::PaletteContext;
-use openwa_core::render::sprite::{Sprite, SpriteFrame, SpriteSubframeCache};
-use openwa_core::render::SpriteCache;
+use openwa_game::address::va;
+use openwa_game::rebase::rb;
+use openwa_game::render::palette::PaletteContext;
+use openwa_game::render::sprite::{Sprite, SpriteFrame, SpriteSubframeCache};
+use openwa_game::render::SpriteCache;
 
 use crate::hook::{self, usercall_trampoline};
 
@@ -21,8 +21,8 @@ usercall_trampoline!(fn trampoline_construct_sprite; impl_fn = construct_sprite_
 
 unsafe extern "cdecl" fn construct_sprite_impl(sprite: *mut Sprite, context: *mut SpriteCache) {
     unsafe {
-        use openwa_core::bitgrid::{BitGridDisplayVtable, BIT_GRID_DISPLAY_VTABLE};
-        use openwa_core::render::sprite::SpriteVtable;
+        use openwa_game::bitgrid::{BitGridDisplayVtable, BIT_GRID_DISPLAY_VTABLE};
+        use openwa_game::render::sprite::SpriteVtable;
 
         core::ptr::write_bytes(sprite as *mut u8, 0, core::mem::size_of::<Sprite>());
 
@@ -54,8 +54,8 @@ usercall_trampoline!(fn trampoline_palette_map_color; impl_fn = palette_map_colo
 
 unsafe extern "cdecl" fn palette_map_color_impl(palette_ctx: u32, rgb: u32) -> u32 {
     unsafe {
-        let ctx = palette_ctx as *mut openwa_core::render::palette::PaletteContext;
-        openwa_core::render::palette::palette_map_color(ctx, rgb)
+        let ctx = palette_ctx as *mut openwa_game::render::palette::PaletteContext;
+        openwa_game::render::palette::palette_map_color(ctx, rgb)
     }
 }
 
@@ -65,8 +65,8 @@ unsafe extern "cdecl" fn process_sprite_impl(
     raw_data: *const u8,
 ) -> u32 {
     unsafe {
-        use openwa_core::render::palette::palette_map_color;
-        use openwa_core::render::sprite::spr::parse_spr_header;
+        use openwa_game::render::palette::palette_map_color;
+        use openwa_game::render::sprite::spr::parse_spr_header;
 
         // We need the data as a slice. data_size is at raw_data + 4.
         let data_size = *(raw_data.add(4) as *const u32);
