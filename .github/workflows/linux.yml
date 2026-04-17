@@ -47,12 +47,3 @@ jobs:
 
       - name: Build all crates
         run: cargo xwin build --target i686-pc-windows-msvc --workspace --release
-
-      - name: Upload release artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: openwa-release
-          path: |
-            target/i686-pc-windows-msvc/release/*.dll
-            target/i686-pc-windows-msvc/release/*.exe
-          if-no-files-found: ignore
