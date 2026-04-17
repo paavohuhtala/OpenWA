@@ -167,10 +167,12 @@ pub unsafe extern "thiscall" fn cloud_handle_message(
 
             // Only render when rendering phase == 5 (in-game rendering active)
             if (*ddgame).render_phase == 5 {
-                // Compute parallax X offset: (vel_x + wind * 10) * parallax_scale
+                // Sub-frame parallax X offset: interpolate this frame's scroll
+                // using the render_interp_a ratio so clouds scroll smoothly
+                // between the 50Hz simulation steps.
                 let scroll_speed = (*this).vel_x.0 + (*this).wind_accel.0 * 10;
                 let parallax_x =
-                    ((scroll_speed as i64 * (*ddgame).parallax_scale as i64) >> 16) as i32;
+                    ((scroll_speed as i64 * (*ddgame).render_interp_a as i64) >> 16) as i32;
                 let x = parallax_x + (*this).pos_x.0;
 
                 let rq = &mut *(*ddgame).render_queue;

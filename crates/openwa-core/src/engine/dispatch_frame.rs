@@ -5,6 +5,8 @@
 //! advance, dispatches them via `StepFrame`, and handles post-frame timing,
 //! headless log output, and game-end detection.
 
+use windows_sys::Win32::System::Threading::ExitProcess;
+
 use crate::address::va;
 use crate::audio::active_sound::ActiveSoundTable;
 use crate::audio::dssound::DSSound;
@@ -652,8 +654,8 @@ pub unsafe fn dispatch_frame(
             let speed_accum = combine((*ddgame)._field_8158, (*ddgame)._field_815c);
             let speed_val =
                 (speed_accum / replay_ticks as u64) as i32 - (*ddgame)._field_8160 as i32;
-            (*ddgame).parallax_scale = speed_val;
-            (*ddgame).parallax_scale_b = speed_val;
+            (*ddgame).render_interp_a = speed_val;
+            (*ddgame).render_interp_b = speed_val;
 
             // Advance the accumulator by 0x320000 (one replay step).
             let accum_ptr = core::ptr::addr_of_mut!((*ddgame)._field_8158) as *mut u64;
@@ -670,7 +672,7 @@ pub unsafe fn dispatch_frame(
         if gi.replay_ticks != 0 {
             let frame_counter = (*ddgame).frame_counter;
             let replay_end = gi.replay_end_frame;
-            let speed_val = (*ddgame).parallax_scale;
+            let speed_val = (*ddgame).render_interp_a;
 
             if (frame_counter > replay_end || (frame_counter == replay_end && speed_val > 0))
                 && (*wrapper).game_end_phase != 1
@@ -788,7 +790,7 @@ pub unsafe fn dispatch_frame(
             }
         } else {
             // Replay frame dispatch.
-            let speed_val = (*ddgame).parallax_scale;
+            let speed_val = (*ddgame).render_interp_a;
             if speed_val < 0x10000 {
                 break;
             }
@@ -833,21 +835,21 @@ pub unsafe fn dispatch_frame(
                     .wrapping_mul(0x10000)
                     .checked_div(frame_duration)
                     .unwrap_or(0) as i32;
-                (*ddgame).parallax_scale = speed_a;
+                (*ddgame).render_interp_a = speed_a;
 
                 let accum_b = combine((*wrapper).frame_accum_b_lo, (*wrapper).frame_accum_b_hi);
                 let speed_b = accum_b
                     .wrapping_mul(0x10000)
                     .checked_div(frame_duration)
                     .unwrap_or(0) as i32;
-                (*ddgame).parallax_scale_b = speed_b;
+                (*ddgame).render_interp_b = speed_b;
 
                 // Intentional deviation from vanilla: while truly paused,
                 // clamp interpolation scales to 0 to prevent deterministic
                 // backwards render stutter during pause.
                 if is_frame_paused(wrapper) {
-                    (*ddgame).parallax_scale = 0;
-                    (*ddgame).parallax_scale_b = 0;
+                    (*ddgame).render_interp_a = 0;
+                    (*ddgame).render_interp_b = 0;
                 }
 
                 if (*wrapper).frame_delay_counter >= 0 {
@@ -871,21 +873,21 @@ pub unsafe fn dispatch_frame(
                         (*wrapper).frame_accum_b_hi = 0;
                         (*wrapper).frame_accum_c_lo = 0;
                         (*wrapper).frame_accum_c_hi = 0;
-                        (*ddgame).parallax_scale = 0;
-                        (*ddgame).parallax_scale_b = 0;
+                        (*ddgame).render_interp_a = 0;
+                        (*ddgame).render_interp_b = 0;
                     } else {
                         let new_interval = freq / 50;
                         let new_speed = (*ddgame).game_speed.to_raw();
                         let scale = ((new_speed as i64).wrapping_mul(new_interval as i64)
                             / (new_target as i64)) as u64;
 
-                        let scaled_a = (((*ddgame).parallax_scale as i64)
+                        let scaled_a = (((*ddgame).render_interp_a as i64)
                             .wrapping_mul(scale as i64)
                             >> 16) as u64;
                         (*wrapper).frame_accum_a_lo = scaled_a as u32;
                         (*wrapper).frame_accum_a_hi = (scaled_a >> 32) as u32;
 
-                        let scaled_b = (((*ddgame).parallax_scale_b as i64)
+                        let scaled_b = (((*ddgame).render_interp_b as i64)
                             .wrapping_mul(scale as i64)
                             >> 16) as u64;
                         (*wrapper).frame_accum_b_lo = scaled_b as u32;
@@ -906,8 +908,8 @@ pub unsafe fn dispatch_frame(
                 }
             } else {
                 // Before game start — zero speed.
-                (*ddgame).parallax_scale = 0;
-                (*ddgame).parallax_scale_b = 0;
+                (*ddgame).render_interp_a = 0;
+                (*ddgame).render_interp_b = 0;
             }
             (*wrapper).timing_ref_lo = time_lo;
             (*wrapper).timing_ref_hi = time_hi;
@@ -957,13 +959,13 @@ pub unsafe fn dispatch_frame(
             let result = fputs(buf.as_ptr(), stdout_file);
 
             if result == -1 {
-                windows_sys::Win32::System::Threading::ExitProcess(0xFFFFFFFF);
+                ExitProcess(0xFFFFFFFF);
             }
 
             let ferror: unsafe extern "C" fn(*mut u8) -> i32 =
                 core::mem::transmute(rb(va::CRT_FERROR) as usize);
             if ferror(stdout_file) != 0 {
-                windows_sys::Win32::System::Threading::ExitProcess(0xFFFFFFFF);
+                ExitProcess(0xFFFFFFFF);
             }
         }
     }

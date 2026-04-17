@@ -475,14 +475,24 @@ pub struct DDGame {
     pub _field_8148: u32,
     /// 0x814C-0x814F: Unknown
     pub _unknown_814c: [u8; 4],
-    /// 0x8150: Parallax/camera scale factor (Fixed-point multiplier).
-    /// Used by DrawCrosshairLine (multiplied by 0x140000) and
-    /// CTaskCloud render (parallax X offset = wind_speed * this >> 16).
-    pub parallax_scale: i32,
+    /// 0x8150: Render interpolation factor A (16.16 fixed, 0..0x10000).
+    ///
+    /// Written each frame by `DispatchFrame` as the fraction of the current
+    /// simulation tick elapsed in wall time — effectively a sub-frame
+    /// progress ratio. Consumers multiply it by per-object velocities to
+    /// interpolate smooth render positions between the 50Hz simulation
+    /// ticks (`CTaskCloud`'s parallax scroll, crosshair aim-range animation,
+    /// worm render-position offset, etc.).
+    ///
+    /// Clamped to 0 while the game is paused. In replay mode holds a
+    /// speed ratio where `>= 0x10000` triggers one simulation step.
+    pub render_interp_a: i32,
 
-    /// 0x8154: Secondary parallax/speed scale — written alongside `parallax_scale`
-    /// by DispatchFrame. Consumed by HUD/sub-frame render code.
-    pub parallax_scale_b: i32,
+    /// 0x8154: Render interpolation factor B — parallels `render_interp_a`
+    /// but is driven by `frame_accum_b` (running frame accumulator) instead
+    /// of `frame_accum_a` (paused accumulator). Written in the same block
+    /// by `DispatchFrame` and rescaled on speed changes.
+    pub render_interp_b: i32,
     /// 0x8158: Unknown (zeroed by InitTurnState).
     pub _field_8158: u32,
     /// 0x815C: Unknown (zeroed by InitTurnState).
@@ -731,8 +741,10 @@ pub mod offsets {
     pub const LEVEL_BOUND_MAX_Y: usize = 0x77A8;
     pub const TURN_TIME_LIMIT: usize = 0x7EA8;
     pub const SOUND_AVAILABLE: usize = 0x7EF8;
-    /// Scale factor used by DrawCrosshairLine (multiplied by 0x140000).
-    pub const PARALLAX_SCALE: usize = 0x8150;
+    /// Sub-frame render interpolation factor (0..0x10000).
+    /// Written by `DispatchFrame`, consumed by per-object render code
+    /// (clouds, crosshair, worms) as a Fixed multiplier.
+    pub const RENDER_INTERP_A: usize = 0x8150;
     /// Turn status text (null-terminated ASCII, shown during gameplay).
     pub const TURN_STATUS_TEXT: usize = 0x818C;
     /// Checkpoint active flag.
