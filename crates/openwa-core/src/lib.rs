@@ -7,3 +7,5 @@
 //!
 //! Modules migrate here from `openwa-game` one at a time. See the root
 //! `CLAUDE.md` for the current charter.
+
+pub mod fixed;

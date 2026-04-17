@@ -3,7 +3,6 @@ use core::ffi::c_char;
 use openwa_game::vtable;
 
 use crate::asset::gfx_dir::GfxDir;
-use crate::fixed::Fixed;
 use crate::render::display::font::{
     font_extend, font_get_info_impl, font_get_metric_impl, font_load_from_gfx,
     font_set_palette_impl, font_set_param_impl, Font,
@@ -14,6 +13,7 @@ use crate::render::sprite::sprite_op::SpriteOp;
 use crate::render::sprite::{LayerSprite, LayerSpriteFrame};
 use crate::render::SpriteCache;
 use crate::wa_alloc::wa_malloc_struct_zeroed;
+use openwa_core::fixed::Fixed;
 
 /// DisplayVtable — vtable for the display/rendering subsystem (DisplayGfx).
 ///

@@ -10,8 +10,8 @@
 //! the lower 6 bits are used for linear interpolation between adjacent
 //! entries.
 
-use crate::fixed::Fixed;
 use crate::rebase::rb;
+use openwa_core::fixed::Fixed;
 
 /// Interpolated lookup from a 1025-entry fixed-point trig table.
 ///

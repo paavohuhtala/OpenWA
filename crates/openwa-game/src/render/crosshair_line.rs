@@ -9,12 +9,12 @@
 //!   5. Conditionally DrawSpriteLocal at endpoint (crosshair sprite)
 
 use crate::address::va;
-use crate::fixed::Fixed;
 use crate::rebase::rb;
 use crate::render::message::RenderMessage;
 use crate::render::SpriteOp;
 use crate::task::WeaponAimTask;
 use crate::trig::trig_lookup;
+use openwa_core::fixed::Fixed;
 
 /// Draw the weapon aiming crosshair line for the given task.
 ///

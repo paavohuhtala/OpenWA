@@ -3,8 +3,8 @@
 //! Thin hook shim — game logic lives in `openwa_game::game::weapon_release`.
 //! This file contains usercall trampolines and hook installation.
 
+use openwa_core::fixed::Fixed;
 use openwa_game::address::va;
-use openwa_game::fixed::Fixed;
 use openwa_game::game::weapon_release as wr;
 use openwa_game::task::worm::CTaskWorm;
 

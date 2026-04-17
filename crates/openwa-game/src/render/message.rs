@@ -22,9 +22,9 @@
 //! its auxiliary data.
 
 use crate::bitgrid::DisplayBitGrid;
-use crate::fixed::Fixed;
 use crate::render::display::vtable::TiledBitmapSource;
 use crate::render::sprite::sprite_op::SpriteOp;
+use openwa_core::fixed::Fixed;
 
 /// Sentinel `command_type` value for [`TypedRenderCmd`]. Sits outside
 /// the legacy 0..=0xE range so the existing per-case dispatcher arms

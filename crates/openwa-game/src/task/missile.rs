@@ -1,8 +1,8 @@
 use super::base::CTask;
 use super::game_task::CGameTask;
-use crate::fixed::Fixed;
 use crate::game::weapon::WeaponSpawnData;
 use crate::FieldRegistry;
+use openwa_core::fixed::Fixed;
 
 crate::define_addresses! {
     class "CTaskMissile" {

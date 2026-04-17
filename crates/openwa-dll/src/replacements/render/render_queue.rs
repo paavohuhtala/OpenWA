@@ -1,8 +1,8 @@
 //! RenderQueue enqueue hooks and the per-frame dispatcher bridge.
 
+use openwa_core::fixed::Fixed;
 use openwa_game::address::va;
 use openwa_game::bitgrid::DisplayBitGrid;
-use openwa_game::fixed::Fixed;
 use openwa_game::render::display::vtable::TiledBitmapSource;
 use openwa_game::render::display::DisplayGfx;
 use openwa_game::render::message::RenderMessage;

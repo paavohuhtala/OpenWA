@@ -10,7 +10,7 @@
 /// (typically `Data\streams`).
 use std::ffi::c_char;
 
-use crate::fixed::Fixed;
+use openwa_core::fixed::Fixed;
 
 /// Raw COM pointer stored as u32 (matches the 32-bit target's pointer size).
 type Ptr32 = u32;

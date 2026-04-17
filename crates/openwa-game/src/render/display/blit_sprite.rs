@@ -7,12 +7,12 @@
 use crate::address::va;
 use crate::bitgrid::blit::{blit_impl, blit_stippled_raw, blit_tiled_raw};
 use crate::bitgrid::DisplayBitGrid;
-use crate::fixed::Fixed;
 use crate::rebase::rb;
 use crate::render::display::gfx::DisplayGfx;
 use crate::render::display::vtable as display_vtable;
 use crate::render::display::vtable::DrawScaledSpriteResult;
 use crate::render::{SpriteFlags, SpriteOp};
+use openwa_core::fixed::Fixed;
 
 /// Rust port of DisplayGfx::BlitSprite (slot 19, 0x56B080).
 ///

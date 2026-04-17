@@ -92,7 +92,7 @@ pub fn format_field(
         },
         ValueKind::Fixed if data.len() >= 4 => {
             let raw = i32::from_le_bytes([data[0], data[1], data[2], data[3]]);
-            let f = crate::fixed::Fixed(raw);
+            let f = openwa_core::fixed::Fixed(raw);
             write!(w, "{:.4} (0x{:08X})", f.to_f32(), raw as u32)
         }
         ValueKind::Pointer if data.len() >= 4 => {

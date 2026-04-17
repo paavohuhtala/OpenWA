@@ -1,6 +1,6 @@
 use core::ffi::c_char;
 
-use crate::fixed::Fixed;
+use openwa_core::fixed::Fixed;
 
 /// Weapon types. Contiguous range 0-70.
 ///

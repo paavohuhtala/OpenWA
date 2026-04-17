@@ -9,9 +9,9 @@
 //! - Volume control with dB lookup table
 //! - Playlist cycling (advance to next track when current finishes)
 
+use openwa_core::fixed::Fixed;
 use openwa_game::address::va;
 use openwa_game::audio::music::{Music, MusicVtable};
-use openwa_game::fixed::Fixed;
 use openwa_game::rebase::rb;
 use openwa_game::wa_alloc::wa_free;
 

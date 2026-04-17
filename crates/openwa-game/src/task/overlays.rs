@@ -1,7 +1,7 @@
 use super::base::CTask;
 use super::game_task::{CGameTask, SoundEmitter};
-use crate::fixed::Fixed;
 use crate::FieldRegistry;
+use openwa_core::fixed::Fixed;
 
 /// Bungee trail rendering task fields.
 ///

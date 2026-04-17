@@ -3,10 +3,10 @@
 
 use core::ffi::c_char;
 
+use openwa_core::fixed::Fixed;
 use openwa_game::address::va;
 use openwa_game::asset::gfx_dir::GfxDir;
 use openwa_game::bitgrid::DisplayBitGrid;
-use openwa_game::fixed::Fixed;
 use openwa_game::rebase::rb;
 use openwa_game::render::display::destructor as display_destructor;
 use openwa_game::render::display::vtable::{self as display_vtable_impl, DisplayGfxVtable};

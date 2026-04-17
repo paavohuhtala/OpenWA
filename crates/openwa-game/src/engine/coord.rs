@@ -11,13 +11,13 @@
 #[derive(Clone, Copy)]
 pub struct CoordEntry {
     /// +0x00: Camera center X (Fixed16.16).
-    pub center_x: crate::fixed::Fixed,
+    pub center_x: openwa_core::fixed::Fixed,
     /// +0x04: Camera center Y (Fixed16.16).
-    pub center_y: crate::fixed::Fixed,
+    pub center_y: openwa_core::fixed::Fixed,
     /// +0x08: Camera center X target (Fixed16.16).
-    pub center_x_target: crate::fixed::Fixed,
+    pub center_x_target: openwa_core::fixed::Fixed,
     /// +0x0C: Camera center Y target (Fixed16.16).
-    pub center_y_target: crate::fixed::Fixed,
+    pub center_y_target: openwa_core::fixed::Fixed,
 }
 
 const _: () = assert!(core::mem::size_of::<CoordEntry>() == 0x10);

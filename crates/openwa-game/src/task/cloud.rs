@@ -1,7 +1,7 @@
 use super::base::CTask;
-use crate::fixed::Fixed;
 use crate::game::class_type::ClassType;
 use crate::FieldRegistry;
+use openwa_core::fixed::Fixed;
 
 crate::define_addresses! {
     class "CTaskCloud" {

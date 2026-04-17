@@ -1,4 +1,4 @@
-use crate::fixed::Fixed;
+use openwa_core::fixed::Fixed;
 
 use windows::Win32::Media::Audio::DirectSound::IDirectSoundBuffer;
 

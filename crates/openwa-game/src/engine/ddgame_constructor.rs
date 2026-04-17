@@ -22,7 +22,6 @@ use crate::engine::coord::{CoordList, CoordListEntry};
 use crate::engine::ddgame_wrapper::DDGameWrapper;
 use crate::engine::game_info::GameInfo;
 use crate::engine::net_bridge::NetBridge;
-use crate::fixed::Fixed;
 use crate::input::keyboard::DDKeyboard;
 use crate::rebase::rb;
 use crate::render::display::gfx::DisplayGfx;
@@ -30,6 +29,7 @@ use crate::render::display::gradient::compute_complex_gradient;
 use crate::render::display::palette::Palette;
 use crate::render::landscape::PCLandscape;
 use crate::wa_alloc::{wa_malloc, wa_malloc_zeroed};
+use openwa_core::fixed::Fixed;
 
 // ============================================================
 // Pure Rust implementations of DDGame sub-functions

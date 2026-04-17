@@ -13,11 +13,11 @@
 
 use std::sync::atomic::Ordering;
 
+use openwa_core::fixed::Fixed;
 use openwa_game::address::va;
 use openwa_game::audio::sound_ops;
 use openwa_game::audio::{KnownSoundId, SoundId};
 use openwa_game::engine::{DDGame, DDGameWrapper};
-use openwa_game::fixed::Fixed;
 use openwa_game::task::worm::CTaskWorm;
 use openwa_game::task::{CGameTask, CTask};
 

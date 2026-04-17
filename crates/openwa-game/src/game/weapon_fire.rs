@@ -12,13 +12,13 @@
 use crate::address::va;
 use crate::audio::{KnownSoundId, SoundId};
 use crate::engine::{TeamArena, GAME_PHASE_NORMAL_MIN, GAME_PHASE_SUDDEN_DEATH};
-use crate::fixed::Fixed;
 use crate::game::weapon::{WeaponEntry, WeaponFireParams, WeaponSpawnData};
 use crate::game::Weapon;
 use crate::log::log_line;
 use crate::task::turn_game::CTaskTurnGame;
 use crate::task::worm::{CTaskWorm, WormState};
 use crate::task::CTask;
+use openwa_core::fixed::Fixed;
 
 // ── WeaponReleaseContext ────────────────────────────────────
 
@@ -1363,7 +1363,9 @@ pub unsafe fn projectile_fire(
 /// Fixed-point 16.16 multiply: (a * b) >> 16, using full 64-bit intermediate.
 #[inline(always)]
 fn fixed_mul(a: i32, b: i32) -> i32 {
-    crate::fixed::Fixed(a).mul_raw(crate::fixed::Fixed(b)).0
+    openwa_core::fixed::Fixed(a)
+        .mul_raw(openwa_core::fixed::Fixed(b))
+        .0
 }
 
 /// Rust implementation of CreateArrow (0x51ED90).

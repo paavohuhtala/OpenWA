@@ -15,7 +15,7 @@
 //!   └── DDA rasterizer — 1 pixel per step (horizontal or vertical major)
 //! ```
 
-use crate::fixed::Fixed;
+use openwa_core::fixed::Fixed;
 
 /// Trait for pixel-addressable surfaces used by drawing algorithms.
 ///

@@ -9,10 +9,10 @@ use crate::bitgrid::DisplayBitGrid;
 use crate::engine::ddgame::DDGame;
 use crate::engine::ddgame_wrapper::DDGameWrapper;
 use crate::engine::game_info::GameInfo;
-use crate::fixed::Fixed;
 use crate::render::display::gfx::DisplayGfx;
 use crate::render::landscape::PCLandscape;
 use crate::wa_alloc::{wa_malloc_struct_zeroed, wa_malloc_zeroed};
+use openwa_core::fixed::Fixed;
 
 /// Pure Rust implementation of SpriteGfxTable__Init (0x541620).
 ///

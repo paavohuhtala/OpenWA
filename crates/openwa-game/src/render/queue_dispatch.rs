@@ -52,11 +52,11 @@
 //!   0x542B1A (`AND ECX, 0xFFFF0000`). Same shape as `RQ_ClipCoordinates`
 //!   but without the perspective scale.
 
-use crate::fixed::Fixed;
 use crate::render::display::gfx::DisplayGfx;
 use crate::render::message::{RenderMessage, TypedRenderCmd, COMMAND_TYPE_TYPED};
 use crate::render::queue::RenderQueue;
 use crate::render::sprite::sprite_op::SpriteOp;
+use openwa_core::fixed::Fixed;
 
 // =============================================================================
 // ClipContext — the 4-i32 anchor/pivot block GameRender_Maybe builds on stack

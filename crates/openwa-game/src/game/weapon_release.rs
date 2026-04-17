@@ -4,12 +4,12 @@
 //! SpawnEffect (0x547C30). Called from hook trampolines in openwa-dll.
 
 use crate::audio::{KnownSoundId, SoundId};
-use crate::fixed::Fixed;
 use crate::game::Weapon;
 use crate::log::log_line;
 use crate::task::turn_game::CTaskTurnGame;
 use crate::task::worm::{CTaskWorm, WormState};
 use crate::task::{CGameTask, CTask, SharedDataTable, Task};
+use openwa_core::fixed::Fixed;
 
 use crate::audio::sound_ops as sound;
 use crate::game::weapon_fire::{self, WeaponReleaseContext};

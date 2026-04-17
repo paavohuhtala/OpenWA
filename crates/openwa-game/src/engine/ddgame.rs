@@ -6,7 +6,6 @@ use crate::audio::SoundQueueEntry;
 use crate::bitgrid::{BitGrid, CollisionBitGrid, DisplayBitGrid};
 use crate::engine::game_info::GameInfo;
 use crate::engine::{CoordEntry, CoordList, TeamArena, TeamIndexMap};
-use crate::fixed::Fixed;
 use crate::game::weapon::WeaponTable;
 use crate::input::keyboard::DDKeyboard;
 use crate::render::display::gfx::DisplayGfx;
@@ -16,6 +15,7 @@ use crate::render::queue::RenderQueue;
 use crate::render::turn_order::TurnOrderWidget;
 use crate::render::RenderEntry;
 use crate::FieldRegistry;
+use openwa_core::fixed::Fixed;
 
 /// DDGame — the main game engine object.
 ///
@@ -778,8 +778,8 @@ impl crate::snapshot::Snapshot for DDGame {
         w: &mut dyn core::fmt::Write,
         indent: usize,
     ) -> core::fmt::Result {
-        use crate::fixed::Fixed;
         use crate::snapshot::{fmt_ptr, write_indent};
+        use openwa_core::fixed::Fixed;
         let i = indent;
 
         write_indent(w, i)?;

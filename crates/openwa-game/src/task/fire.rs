@@ -1,5 +1,6 @@
 use super::base::CTask;
-use crate::{fixed::Fixed, FieldRegistry};
+use crate::FieldRegistry;
+use openwa_core::fixed::Fixed;
 
 crate::define_addresses! {
     class "CTaskFire" {

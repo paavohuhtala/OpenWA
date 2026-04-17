@@ -1,6 +1,6 @@
 use crate::engine::ddgame::DDGame;
-use crate::fixed::Fixed;
 use crate::task::SoundEmitter;
+use openwa_core::fixed::Fixed;
 
 /// Active sound tracking table — manages positional (local) sound playback.
 ///

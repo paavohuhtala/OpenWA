@@ -8,12 +8,12 @@
 //!   4. DrawPolygon (if fill != 0) or DrawLineStrip
 
 use crate::address::va;
-use crate::fixed::Fixed;
 use crate::rebase::rb;
 use crate::render::message::RenderMessage;
 use crate::render::SpriteOp;
 use crate::task::BungeeTrailTask;
 use crate::trig::trig_lookup;
+use openwa_core::fixed::Fixed;
 
 /// Draw bungee trail for the given task.
 ///
