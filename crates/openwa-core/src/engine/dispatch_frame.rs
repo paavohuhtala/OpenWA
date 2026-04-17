@@ -76,7 +76,6 @@ static mut NETWORK_UPDATE_ADDR: u32 = 0;
 static mut IS_FRAME_PAUSED_ADDR: u32 = 0;
 static mut SETUP_FRAME_PARAMS_ADDR: u32 = 0;
 static mut PROCESS_NETWORK_FRAME_ADDR: u32 = 0;
-static mut WRITE_HEADLESS_LOG_ADDR: u32 = 0;
 
 /// Initialize all bridge addresses. Must be called once at DLL load.
 pub unsafe fn init_dispatch_addrs() {
@@ -91,7 +90,6 @@ pub unsafe fn init_dispatch_addrs() {
     IS_FRAME_PAUSED_ADDR = rb(va::DDGAMEWRAPPER_IS_FRAME_PAUSED);
     SETUP_FRAME_PARAMS_ADDR = rb(va::DDGAMEWRAPPER_SETUP_FRAME_PARAMS);
     PROCESS_NETWORK_FRAME_ADDR = rb(va::DDGAMEWRAPPER_PROCESS_NETWORK_FRAME);
-    WRITE_HEADLESS_LOG_ADDR = rb(va::DDGAMEWRAPPER_WRITE_HEADLESS_LOG);
     IS_REPLAY_MODE_ADDR = rb(va::DDGAMEWRAPPER_IS_REPLAY_MODE);
 }
 
@@ -268,15 +266,6 @@ unsafe extern "stdcall" fn bridge_should_continue(
     let func: unsafe extern "stdcall" fn(*mut DDGameWrapper, u32, u32) -> u32 =
         core::mem::transmute(SHOULD_CONTINUE_ADDR as usize);
     func(wrapper, elapsed_lo, elapsed_hi)
-}
-
-// ── WriteHeadlessLog: plain stdcall, no this, 1 stack param, RET 0x8 ──
-// The decompile shows it takes EAX=this but the call site just pushes a pointer.
-// Actually the verified report says plain stdcall with 1 stack param.
-unsafe extern "stdcall" fn bridge_write_headless_log(_log_buf: *const u8) {
-    let func: unsafe extern "stdcall" fn(*const u8) =
-        core::mem::transmute(WRITE_HEADLESS_LOG_ADDR as usize);
-    func(_log_buf);
 }
 
 // ─── Public bridge wrappers (safe-ish typed API) ───────────────────────────
@@ -1081,6 +1070,10 @@ pub unsafe fn dispatch_frame(
     (*wrapper).last_frame_time_hi = now_hi;
 
     // ── Section 9: Headless log output ─────────────────────────────────
+    //
+    // In headless mode with logging enabled, formats the current frame
+    // counter as a timestamp "HH:MM:SS.CC\n" and writes it to the CRT
+    // stdout FILE* via fputs. Calls ExitProcess(-1) on write failure.
     {
         let ddgame = (*wrapper).ddgame;
         let game_info = (*ddgame).game_info as *const u8;
@@ -1088,11 +1081,43 @@ pub unsafe fn dispatch_frame(
         let log_enabled = *(game_info.add(0xef38) as *const i32);
 
         if headless != 0 && log_enabled != 0 {
-            // TODO: port the headless log writer (WriteHeadlessLog + fputs + ExitProcess)
-            // For now, bridge to the original via EAX=this pattern
-            // The call site does: LEA ECX,[ESP+0x50]; PUSH ECX; MOV EAX,EBP; CALL
-            // So it's EAX=this with 1 stack param (pointer to log buffer)
-            // We skip this for now — headless log output is non-critical
+            use core::fmt::Write;
+
+            let fc = (*ddgame).frame_counter as u32;
+            let hours = fc / 180000; // 50fps * 60s * 60m
+            let r1 = fc % 180000;
+            let minutes = r1 / 3000; // 50fps * 60s
+            let r2 = r1 % 3000;
+            let seconds = r2 / 50;
+            let centiseconds = (r2 % 50) * 100 / 50;
+
+            let mut buf = heapless::String::<32>::new();
+            let _ = write!(
+                buf,
+                "{:02}:{:02}:{:02}.{:02}\n",
+                hours, minutes, seconds, centiseconds
+            );
+
+            // Write to the same CRT stdout as the original:
+            // FUN_005d4e40() returns __iob array, +0x20 = stdout FILE*.
+            let iob_func: unsafe extern "C" fn() -> *mut u8 =
+                core::mem::transmute(rb(0x005d4e40) as usize);
+            let stdout_file = iob_func().add(0x20);
+
+            let fputs: unsafe extern "C" fn(*const u8, *mut u8) -> i32 =
+                core::mem::transmute(*(rb(0x00649468) as *const u32) as usize);
+            let result = fputs(buf.as_ptr(), stdout_file);
+
+            if result == -1 {
+                windows_sys::Win32::System::Threading::ExitProcess(0xFFFFFFFF);
+            }
+
+            // Original also checks ferror() on the FILE*
+            let ferror: unsafe extern "C" fn(*mut u8) -> i32 =
+                core::mem::transmute(rb(0x005d5126) as usize);
+            if ferror(stdout_file) != 0 {
+                windows_sys::Win32::System::Threading::ExitProcess(0xFFFFFFFF);
+            }
         }
     }
 

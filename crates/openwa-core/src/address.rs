@@ -146,8 +146,8 @@ pub mod va {
             fn/Usercall DDGAMEWRAPPER_PROCESS_NETWORK_FRAME = 0x0053_DF00;
             /// DDGameWrapper__IsReplayMode (usercall EAX=this, no stack params, plain RET)
             fn/Usercall DDGAMEWRAPPER_IS_REPLAY_MODE = 0x0053_7060;
-            /// DDGameWrapper__WriteHeadlessLog (usercall EAX=this, 2 stack params, RET 0x8)
-            fn/Usercall DDGAMEWRAPPER_WRITE_HEADLESS_LOG = 0x0053_F0A0;
+            /// DDGameWrapper__FormatFrameTimestamp (usercall EAX=frame_counter, 2 stdcall params: sprintf_func + buffer, RET 0x8)
+            fn/Usercall DDGAMEWRAPPER_FORMAT_FRAME_TIMESTAMP = 0x0053_F0A0;
         }
 
         class "DDGame" {
