@@ -5,11 +5,11 @@
 
 use crate::audio::{KnownSoundId, SoundId};
 use crate::game::Weapon;
-use crate::log::log_line;
 use crate::task::turn_game::CTaskTurnGame;
 use crate::task::worm::{CTaskWorm, WormState};
 use crate::task::{CGameTask, CTask, SharedDataTable, Task};
 use openwa_core::fixed::Fixed;
+use openwa_core::log::log_line;
 
 use crate::audio::sound_ops as sound;
 use crate::game::weapon_fire::{self, WeaponReleaseContext};

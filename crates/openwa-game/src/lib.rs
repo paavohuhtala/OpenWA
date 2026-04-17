@@ -39,7 +39,6 @@ pub mod render;
 
 pub mod address;
 pub mod field_format;
-pub mod log;
 pub mod mem;
 pub mod rebase;
 pub mod registry;

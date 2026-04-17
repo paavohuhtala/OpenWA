@@ -12,9 +12,9 @@
 
 use core::sync::atomic::{AtomicU32, Ordering};
 
+use openwa_core::log::log_line;
 use openwa_game::game::weapon::WeaponFireParams;
 use openwa_game::game::weapon_fire;
-use openwa_game::log::log_line;
 use openwa_game::task::worm::CTaskWorm;
 use openwa_game::{address::va, engine::TeamArena};
 

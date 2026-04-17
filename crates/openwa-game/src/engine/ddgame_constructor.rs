@@ -415,7 +415,7 @@ pub unsafe fn create_ddgame(
     // ── 10. GfxHandler, landscape, sprites, audio, resources ──
     init_graphics_and_resources(wrapper, game_info, net_game, display, is_headless);
 
-    let _ = crate::log::log_line("[DDGame] create_ddgame complete");
+    let _ = openwa_core::log::log_line("[DDGame] create_ddgame complete");
     ddgame
 }
 
@@ -1041,7 +1041,7 @@ unsafe fn init_graphics_and_resources(
         (*disp).set_layer_visibility(3, 1);
     }
 
-    let _ = crate::log::log_line("[DDGame] init_graphics_and_resources DONE");
+    let _ = openwa_core::log::log_line("[DDGame] init_graphics_and_resources DONE");
 }
 
 // Statics for usercall bridge addresses

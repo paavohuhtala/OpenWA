@@ -2,8 +2,8 @@
 //!
 //! Thin hook shim — game logic lives in `openwa_game::task::cloud`.
 
+use openwa_core::log::log_line;
 use openwa_game::address::va;
-use openwa_game::log::log_line;
 use openwa_game::task::{cloud, team};
 
 pub fn install() -> Result<(), String> {

@@ -367,7 +367,7 @@ impl StreamingAudio {
         let path_str = match path_cstr.to_str() {
             Ok(s) => s,
             Err(_) => {
-                let _ = crate::log::log_line("[Music] init_playback: invalid UTF-8 path");
+                let _ = openwa_core::log::log_line("[Music] init_playback: invalid UTF-8 path");
                 return false;
             }
         };
@@ -375,7 +375,7 @@ impl StreamingAudio {
         let reader = match hound::WavReader::open(path_str) {
             Ok(r) => r,
             Err(e) => {
-                let _ = crate::log::log_line(&format!(
+                let _ = openwa_core::log::log_line(&format!(
                     "[Music] init_playback: failed to open \"{}\": {}",
                     path_str, e
                 ));

@@ -14,11 +14,11 @@ use crate::audio::{KnownSoundId, SoundId};
 use crate::engine::{TeamArena, GAME_PHASE_NORMAL_MIN, GAME_PHASE_SUDDEN_DEATH};
 use crate::game::weapon::{WeaponEntry, WeaponFireParams, WeaponSpawnData};
 use crate::game::Weapon;
-use crate::log::log_line;
 use crate::task::turn_game::CTaskTurnGame;
 use crate::task::worm::{CTaskWorm, WormState};
 use crate::task::CTask;
 use openwa_core::fixed::Fixed;
+use openwa_core::log::log_line;
 
 // ── WeaponReleaseContext ────────────────────────────────────
 

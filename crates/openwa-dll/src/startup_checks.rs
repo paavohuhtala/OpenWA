@@ -5,8 +5,8 @@
 //! regions in the live binary. Fully auto-generated from `define_addresses!`
 //! and `#[vtable(...)]` metadata — no hardcoded address lists.
 
+use openwa_core::log::log_line;
 use openwa_game::address::va;
-use openwa_game::log::log_line;
 use openwa_game::rebase::rb;
 use openwa_game::registry::{self, AddrKind};
 

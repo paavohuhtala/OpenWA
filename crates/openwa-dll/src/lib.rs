@@ -52,7 +52,7 @@ unsafe extern "system" fn DllMain(
 // Logging
 // ---------------------------------------------------------------------------
 
-pub use openwa_game::log::log_line;
+pub use openwa_core::log::log_line;
 
 fn clear_log() -> std::io::Result<()> {
     let path = std::env::var_os("OPENWA_LOG_PATH").unwrap_or("OpenWA.log".into());
