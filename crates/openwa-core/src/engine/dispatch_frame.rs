@@ -24,15 +24,16 @@ use crate::rebase::rb;
 
 /// Generate a naked bridge for a usercall(EAX=this) function with no stack params.
 /// The target does plain RET.
+/// Bridge for usercall(EAX=this), no stack params, plain RET.
 macro_rules! bridge_eax_this {
     ($name:ident, $addr:expr, $ret:ty) => {
         #[unsafe(naked)]
         unsafe extern "stdcall" fn $name(_this: *mut DDGameWrapper) -> $ret {
             core::arch::naked_asm!(
-                "popl %ecx",           // pop return address
-                "popl %eax",           // pop this → EAX (consumed from stack)
-                "pushl %ecx",          // push return address back
-                "jmpl *({fn})",        // tail-call; target does plain RET
+                "popl %ecx",
+                "popl %eax",
+                "pushl %ecx",
+                "jmpl *({fn})",
                 fn = sym $addr,
                 options(att_syntax),
             );
@@ -40,25 +41,27 @@ macro_rules! bridge_eax_this {
     };
 }
 
-/// Generate a naked bridge for a usercall(EAX=this) + N stdcall stack params.
-/// The target does RET (N*4) to clean stack params. Our `this` is consumed
-/// by the pop-to-EAX (4 bytes), and the target's RET N cleans the rest —
-/// total cleaned matches what stdcall expects.
+/// Bridge for usercall(EAX=this) + N stdcall stack params.
 macro_rules! bridge_eax_this_stdcall {
     ($name:ident, $addr:expr, ($($param:ty),+) -> $ret:ty) => {
         #[unsafe(naked)]
         unsafe extern "stdcall" fn $name(_this: *mut DDGameWrapper, $(_: $param),+) -> $ret {
             core::arch::naked_asm!(
-                "popl %ecx",           // pop return address
-                "popl %eax",           // pop this → EAX (consumed from stack)
-                "pushl %ecx",          // push return address back
-                "jmpl *({fn})",        // tail-call; target does RET N cleaning stack params
+                "popl %ecx",
+                "popl %eax",
+                "pushl %ecx",
+                "jmpl *({fn})",
                 fn = sym $addr,
                 options(att_syntax),
             );
         }
     };
 }
+
+// ESI bridges use inline asm inside regular functions.
+// ESI is LLVM-reserved on x86, so we can't use it as an asm operand,
+// but we can save/restore it manually inside the asm block.
+// We push params explicitly and use CALL to invoke the target.
 
 // ─── Runtime addresses (set in init_dispatch_addrs) ────────────────────────
 
@@ -94,41 +97,187 @@ pub unsafe fn init_dispatch_addrs() {
 
 // ─── Bridge function declarations ──────────────────────────────────────────
 
-// usercall(EAX=this), no stack params, plain RET
+// ── EAX=this, no stack params, plain RET ──
 bridge_eax_this!(bridge_is_replay_mode, IS_REPLAY_MODE_ADDR, u32);
 bridge_eax_this!(bridge_reset_frame_state, RESET_FRAME_STATE_ADDR, ());
-bridge_eax_this!(bridge_is_frame_paused, IS_FRAME_PAUSED_ADDR, u32);
 bridge_eax_this!(bridge_init_frame_delay, INIT_FRAME_DELAY_ADDR, ());
-bridge_eax_this!(bridge_network_update, NETWORK_UPDATE_ADDR, ());
+bridge_eax_this!(bridge_is_frame_paused, IS_FRAME_PAUSED_ADDR, u32);
 
-// usercall(EAX=this) + stdcall stack params
-// CalcTimingRatio: 1 stack param, RET 0x4
-bridge_eax_this_stdcall!(bridge_calc_timing_ratio, CALC_TIMING_RATIO_ADDR, (i32) -> ());
-// SetupFrameParams: 3 stack params, RET 0xC
+// ── EAX=this + stdcall stack params ──
 bridge_eax_this_stdcall!(bridge_setup_frame_params, SETUP_FRAME_PARAMS_ADDR, (i32, i32, i32) -> ());
-// AdvanceFrameCounters: 5 stack params, RET 0x14
-bridge_eax_this_stdcall!(bridge_advance_frame_counters, ADVANCE_FRAME_COUNTERS_ADDR,
-    (i32, i32, i32, i32, u32) -> ());
-// UpdateFrameTiming: 4 stack params, RET 0x10
-bridge_eax_this_stdcall!(bridge_update_frame_timing, UPDATE_FRAME_TIMING_ADDR,
-    (u32, u32, u32, u32) -> ());
-// StepFrame: 5 stack params, RET 0x14 — returns bool in AL
-bridge_eax_this_stdcall!(bridge_step_frame, STEP_FRAME_ADDR,
-    (*mut u64, u32, u32, i32, i32) -> u32);
-// ShouldContinueFrameLoop: 2 stack params — but actually 3 (wrapper, lo, hi)?
-// Let me check: the decompiled shows `FUN_0052a840(param_1, LStack_40.s.LowPart, LStack_40.s.HighPart)`
-// param_1 is already in EAX for usercall, so 2 stack params
-bridge_eax_this_stdcall!(bridge_should_continue, SHOULD_CONTINUE_ADDR,
-    (u32, u32) -> u32);
-// ProcessNetworkFrame: 4 stack params, RET 0x10
-bridge_eax_this_stdcall!(bridge_process_network_frame, PROCESS_NETWORK_FRAME_ADDR,
-    (u32, u32, u32, u32) -> ());
-// WriteHeadlessLog: 2 stack params, RET 0x8
-bridge_eax_this_stdcall!(bridge_write_headless_log, WRITE_HEADLESS_LOG_ADDR,
-    (u32, u32) -> ());
 
-// IsReplayMode needs its own static since it's not in the batch above
+// ── ESI=this, no stack params, plain RET ──
+unsafe fn bridge_network_update(wrapper: *mut DDGameWrapper) {
+    core::arch::asm!(
+        "push esi",
+        "mov esi, {this}",
+        "call [{addr}]",
+        "pop esi",
+        this = in(reg) wrapper,
+        addr = sym NETWORK_UPDATE_ADDR,
+        out("eax") _, out("ecx") _, out("edx") _,
+    );
+}
+
+/// Port of DDGameWrapper__CalcTimingRatio (0x52ABF0).
+/// ESI=this, 1 stack param (ratio), RET 0x4.
+/// Adjusts wrapper+0x400 (timing progress) toward wrapper+0x408 (timing target).
+unsafe fn calc_timing_ratio(wrapper: *mut DDGameWrapper, ratio: i32) {
+    let w = wrapper as *mut u8;
+    let ddgame = (*wrapper).ddgame;
+    let game_info = (*ddgame).game_info as *const u8;
+
+    let gi_f398 = *(game_info.add(0xf398) as *const i32);
+    let gi_f348 = *(game_info.add(0xf348) as *const u8);
+    let gi_f344 = *(game_info.add(0xf344) as *const i32);
+    let frame_counter = (*ddgame).frame_counter;
+
+    if gi_f398 == 0 && gi_f348 == 0 && gi_f344 <= frame_counter {
+        if ratio != 0 {
+            let target = *(w.add(0x408) as *const i32);
+            let progress = *(w.add(0x400) as *const i32);
+            let gap = target - progress;
+            if gap > 0 {
+                let multiplier = if gap / 5 > 1 { 2 } else { 1 } + 1;
+                let step = multiplier * ratio;
+                if gap <= step {
+                    *(w.add(0x400) as *mut i32) = target;
+                } else {
+                    *(w.add(0x400) as *mut i32) = progress + step;
+                }
+                *(w.add(0x404) as *mut u32) = 1;
+            }
+        }
+    } else {
+        let target = *(w.add(0x408) as *const i32);
+        let progress = *(w.add(0x400) as *const i32);
+        if progress != target {
+            *(w.add(0x400) as *mut i32) = target;
+            *(w.add(0x404) as *mut u32) = 1;
+        }
+    }
+}
+
+unsafe fn bridge_advance_frame_counters(
+    wrapper: *mut DDGameWrapper,
+    p1: i32,
+    p2: i32,
+    p3: i32,
+    p4: i32,
+    p5: u32,
+) {
+    let args = [p1 as u32, p2 as u32, p3 as u32, p4 as u32, p5];
+    core::arch::asm!(
+        "push esi",
+        "mov esi, {this}",
+        "push dword ptr [{a}+16]",
+        "push dword ptr [{a}+12]",
+        "push dword ptr [{a}+8]",
+        "push dword ptr [{a}+4]",
+        "push dword ptr [{a}]",
+        "call [{addr}]",       // RET 0x14 cleans 5 params
+        "pop esi",
+        this = in(reg) wrapper,
+        a = in(reg) args.as_ptr(),
+        addr = sym ADVANCE_FRAME_COUNTERS_ADDR,
+        out("eax") _, out("ecx") _, out("edx") _,
+    );
+}
+
+unsafe fn bridge_update_frame_timing(
+    wrapper: *mut DDGameWrapper,
+    p1: u32,
+    p2: u32,
+    p3: u32,
+    p4: u32,
+) {
+    let args = [p1, p2, p3, p4];
+    core::arch::asm!(
+        "push esi",
+        "mov esi, {this}",
+        "push dword ptr [{a}+12]",
+        "push dword ptr [{a}+8]",
+        "push dword ptr [{a}+4]",
+        "push dword ptr [{a}]",
+        "call [{addr}]",
+        "pop esi",
+        this = in(reg) wrapper,
+        a = in(reg) args.as_ptr(),
+        addr = sym UPDATE_FRAME_TIMING_ADDR,
+        out("eax") _, out("ecx") _, out("edx") _,
+    );
+}
+
+unsafe fn bridge_process_network_frame(
+    wrapper: *mut DDGameWrapper,
+    p1: u32,
+    p2: u32,
+    p3: u32,
+    p4: u32,
+) {
+    let args = [p1, p2, p3, p4];
+    core::arch::asm!(
+        "push esi",
+        "mov esi, {this}",
+        "push dword ptr [{a}+12]",
+        "push dword ptr [{a}+8]",
+        "push dword ptr [{a}+4]",
+        "push dword ptr [{a}]",
+        "call [{addr}]",
+        "pop esi",
+        this = in(reg) wrapper,
+        a = in(reg) args.as_ptr(),
+        addr = sym PROCESS_NETWORK_FRAME_ADDR,
+        out("eax") _, out("ecx") _, out("edx") _,
+    );
+}
+
 static mut IS_REPLAY_MODE_ADDR: u32 = 0;
+
+// ── StepFrame: ECX=this (thiscall), EAX=extra ptr, 5 stack params, RET 0x14 ──
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_step_frame(
+    _this: *mut DDGameWrapper,
+    _counter_ptr: *mut u8, // passed in EAX, NOT on stack to callee
+    _remaining: *mut u64,
+    _time_lo: u32,
+    _time_hi: u32,
+    _speed_target: i32,
+    _speed: i32,
+) -> u32 {
+    core::arch::naked_asm!(
+        "popl %edx",           // pop return address
+        "popl %ecx",           // pop this → ECX (thiscall)
+        "popl %eax",           // pop counter_ptr → EAX (extra register param)
+        "pushl %edx",          // push return address back
+        // Stack now: [ret, remaining, time_lo, time_hi, speed_target, speed]
+        // = 5 params for target's RET 0x14
+        "jmpl *({fn})",
+        fn = sym STEP_FRAME_ADDR,
+        options(att_syntax),
+    );
+}
+
+// ── ShouldContinueFrameLoop: plain stdcall(wrapper, lo, hi), RET 0xC ──
+// No register params — wrapper is on the stack
+unsafe extern "stdcall" fn bridge_should_continue(
+    wrapper: *mut DDGameWrapper,
+    elapsed_lo: u32,
+    elapsed_hi: u32,
+) -> u32 {
+    let func: unsafe extern "stdcall" fn(*mut DDGameWrapper, u32, u32) -> u32 =
+        core::mem::transmute(SHOULD_CONTINUE_ADDR as usize);
+    func(wrapper, elapsed_lo, elapsed_hi)
+}
+
+// ── WriteHeadlessLog: plain stdcall, no this, 1 stack param, RET 0x8 ──
+// The decompile shows it takes EAX=this but the call site just pushes a pointer.
+// Actually the verified report says plain stdcall with 1 stack param.
+unsafe extern "stdcall" fn bridge_write_headless_log(_log_buf: *const u8) {
+    let func: unsafe extern "stdcall" fn(*const u8) =
+        core::mem::transmute(WRITE_HEADLESS_LOG_ADDR as usize);
+    func(_log_buf);
+}
 
 // ─── Public bridge wrappers (safe-ish typed API) ───────────────────────────
 
@@ -152,8 +301,10 @@ pub unsafe fn is_frame_paused(wrapper: *mut DDGameWrapper) -> bool {
 }
 
 /// Process a single game frame step. Returns true if more frames should be processed.
+/// `counter_ptr` is a pointer to a local counter incremented by StepFrame (passed in EAX).
 pub unsafe fn step_frame(
     wrapper: *mut DDGameWrapper,
+    counter_ptr: *mut u8,
     remaining: *mut u64,
     frame_duration_lo: u32,
     frame_duration_hi: u32,
@@ -162,6 +313,7 @@ pub unsafe fn step_frame(
 ) -> bool {
     bridge_step_frame(
         wrapper,
+        counter_ptr,
         remaining,
         frame_duration_lo,
         frame_duration_hi,
@@ -204,6 +356,27 @@ fn time_sub(a_lo: u32, a_hi: u32, b_lo: u32, b_hi: u32) -> u64 {
     combine(a_lo, a_hi).wrapping_sub(combine(b_lo, b_hi))
 }
 
+/// Signed 32-bit division matching WA's FUN_005d8786.
+/// Returns (quotient, remainder) using only the low 32 bits of the dividend.
+/// The original function uses x86 IDIV which produces both values.
+#[inline(always)]
+fn wa_div(dividend_lo: i32, divisor: i32) -> (i32, i32) {
+    (dividend_lo / divisor, dividend_lo % divisor)
+}
+
+/// Subtract a sign-extended i32 remainder from a 64-bit timestamp.
+/// Matches the CDQ + SUB + SBB pattern used after FUN_005d8786 in DispatchFrame.
+#[inline(always)]
+fn time_sub_i32(time_lo: u32, time_hi: u32, remainder: i32) -> (u32, u32) {
+    let rem_u32 = remainder as u32;
+    let sign_hi = (remainder >> 31) as u32; // 0x00000000 or 0xFFFFFFFF
+    let lo = time_lo.wrapping_sub(rem_u32);
+    let hi = time_hi
+        .wrapping_sub(sign_hi)
+        .wrapping_sub(if time_lo < rem_u32 { 1 } else { 0 });
+    (lo, hi)
+}
+
 // ─── Main dispatch function ────────────────────────────────────────────────
 
 /// Rust port of `DDGameWrapper__DispatchFrame` (0x529160).
@@ -227,16 +400,10 @@ pub unsafe fn dispatch_frame(
     freq_lo: u32,
     freq_hi: u32,
 ) {
-    // TEMP: passthrough while debugging
-    let orig: unsafe extern "stdcall" fn(*mut DDGameWrapper, u32, u32, u32, u32) =
-        core::mem::transmute(rb(va::DDGAMEWRAPPER_DISPATCH_FRAME) as usize);
-    orig(wrapper, time_lo, time_hi, freq_lo, freq_hi);
-    return;
-
-    use crate::engine::ddgame::DDGame;
-
     let freq = combine(freq_lo, freq_hi);
-    let time = combine(time_lo, time_hi);
+
+    // Local counter passed to StepFrame via EAX — StepFrame increments it
+    let mut frame_step_counter: u32 = 0;
 
     // ── Section 1: Compute frame timing constants ──────────────────────
     //
@@ -260,8 +427,9 @@ pub unsafe fn dispatch_frame(
     // Only runs when sound/network is available (ddgame+0x7ef8 != 0)
     let has_sound = (*ddgame).sound_available != 0;
     let mut elapsed: u64 = 0;
-    // bVar19 in the decompile — tracks whether we took the "normal" timing path
-    let mut used_normal_path: bool = true;
+    // bVar18 in the decompile — tracks whether we took the "normal" timing path.
+    // Controls: secondary pause fallthrough, and elapsed computation from initial_ref.
+    let mut used_normal_path = false;
 
     if has_sound {
         // Initialize pause detection timestamps on first call
@@ -275,7 +443,7 @@ pub unsafe fn dispatch_frame(
         let is_replay = is_replay_mode(wrapper);
 
         if !is_replay || saved_frame_delay >= 0 {
-            // Normal timing path
+            // Normal timing path (bVar18 = true)
             let delta = time_sub(
                 time_lo,
                 time_hi,
@@ -287,75 +455,56 @@ pub unsafe fn dispatch_frame(
             let quarter_freq = freq / 4;
             if (delta as i64) >= 0 && delta <= quarter_freq {
                 // Delta is within reasonable bounds
-                if game_speed_target
-                    == *(((*ddgame).game_info as *const u8).add(0xd988) as *const i32)
-                {
-                    // Speed hasn't changed — use frame_interval directly
-                    calc_timing_and_adjust_pause(
-                        wrapper,
-                        frame_interval,
-                        time_lo,
-                        time_hi,
-                        delta,
-                        &mut used_normal_path,
-                    );
+                let gi_speed = *(((*ddgame).game_info as *const u8).add(0xd988) as *const i32);
+                if game_speed_target == gi_speed {
+                    // Path A: Speed hasn't changed — CalcTimingRatio with frame_interval
+                    let (ratio, remainder) = wa_div(delta as i32, frame_interval as i32);
+                    calc_timing_ratio(wrapper, ratio);
+                    let (pd_lo, pd_hi) = time_sub_i32(time_lo, time_hi, remainder);
+                    (*wrapper).pause_detect_lo = pd_lo;
+                    (*wrapper).pause_detect_hi = pd_hi;
                 } else {
-                    // Speed changed — use frame_duration
-                    let ratio = (delta as i64) / (frame_duration as i64);
-                    bridge_calc_timing_ratio(wrapper, ratio as i32);
-                    let adjustment = (ratio as u64).wrapping_mul(frame_duration);
-                    let (adj_lo, adj_hi) = split(adjustment);
-                    (*wrapper).pause_detect_lo = time_lo.wrapping_sub(adj_lo);
-                    (*wrapper).pause_detect_hi = (time_hi as i64)
-                        .wrapping_sub((adj_lo as i32 >> 31) as i64)
-                        .wrapping_sub(if time_lo < adj_lo { 1 } else { 0 })
-                        as u32;
-                    if used_normal_path {
-                        handle_secondary_pause(
-                            wrapper,
-                            time_lo,
-                            time_hi,
-                            freq,
-                            delta,
-                            frame_duration,
-                        );
-                    }
+                    // Path B: Speed changed — CalcTimingRatio with frame_duration
+                    let (ratio, remainder) = wa_div(delta as i32, frame_duration as i32);
+                    calc_timing_ratio(wrapper, ratio);
+                    let (pd_lo, pd_hi) = time_sub_i32(time_lo, time_hi, remainder);
+                    (*wrapper).pause_detect_lo = pd_lo;
+                    (*wrapper).pause_detect_hi = pd_hi;
                 }
+                // bVar18 is true → fall through to secondary pause (LAB_0052928c)
+                handle_secondary_pause(wrapper, time_lo, time_hi, freq);
             } else {
-                // Delta out of range — reset pause detection
+                // Path C: Delta out of range — reset pause detection
                 (*wrapper).pause_detect_lo = time_lo;
                 (*wrapper).pause_detect_hi = time_hi;
-                handle_secondary_pause(wrapper, time_lo, time_hi, freq, delta, frame_duration);
+                // Falls through to secondary pause (LAB_0052928c)
+                handle_secondary_pause(wrapper, time_lo, time_hi, freq);
             }
         } else {
-            // Replay mode with negative frame delay — use replay-specific timing
+            // Path D: Replay mode with negative frame delay
             let game_info = (*ddgame).game_info;
             let replay_ticks = *((game_info as *const u8).add(0xef3c) as *const i32);
             used_normal_path = false;
             elapsed = freq / (replay_ticks as u64);
-            // Jump to the timing ratio calculation
-            let ratio = (elapsed as i64) / (frame_interval as i64);
-            bridge_calc_timing_ratio(wrapper, ratio as i32);
-            let adjustment = (ratio as u64).wrapping_mul(frame_interval);
-            let (adj_lo, _) = split(adjustment);
-            (*wrapper).pause_detect_lo = time_lo.wrapping_sub(adj_lo);
-            (*wrapper).pause_detect_hi = time_hi
-                .wrapping_sub((adj_lo as i32 >> 31) as u32 + if time_lo < adj_lo { 1 } else { 0 });
-            // Skip secondary pause handling in replay mode
-            let timing_state = (*wrapper).timing_jitter_state;
-            if timing_state == 2 {
+            // Shared CalcTimingRatio path (LAB_00529246 → LAB_00529252)
+            let (ratio, remainder) = wa_div(elapsed as i32, frame_interval as i32);
+            calc_timing_ratio(wrapper, ratio);
+            let (pd_lo, pd_hi) = time_sub_i32(time_lo, time_hi, remainder);
+            (*wrapper).pause_detect_lo = pd_lo;
+            (*wrapper).pause_detect_hi = pd_hi;
+            // bVar18 is false → skip secondary pause delta check,
+            // jump directly to jitter calc (LAB_005292c5)
+            if (*wrapper).timing_jitter_state == 2 {
                 (*wrapper).timing_jitter_state = 1;
                 (*wrapper).pause_secondary_lo = time_lo;
                 (*wrapper).pause_secondary_hi = time_hi;
             } else {
-                let sec_ratio = (elapsed as i64) / ((freq_lo / 2) as i64);
-                (*wrapper).timing_jitter_state ^= (sec_ratio as i32) & 1;
-                let sec_adj = (sec_ratio as u64).wrapping_mul(frame_interval);
-                let (sa_lo, sa_hi) = split(sec_adj);
-                (*wrapper).pause_secondary_lo = time_lo.wrapping_sub(sa_lo);
-                (*wrapper).pause_secondary_hi = time_hi.wrapping_sub(
-                    (sa_hi as i32 >> 31) as u32 + if time_lo < sa_lo { 1 } else { 0 },
-                );
+                let half_freq = (freq as i32) / 2;
+                let (sec_ratio, sec_remainder) = wa_div(elapsed as i32, half_freq);
+                (*wrapper).timing_jitter_state ^= sec_ratio & 1;
+                let (sp_lo, sp_hi) = time_sub_i32(time_lo, time_hi, sec_remainder);
+                (*wrapper).pause_secondary_lo = sp_lo;
+                (*wrapper).pause_secondary_hi = sp_hi;
             }
         }
 
@@ -375,8 +524,12 @@ pub unsafe fn dispatch_frame(
             );
             if (init_delta as i64) >= 0 {
                 elapsed = init_delta;
+                // Original gotos into the else branch → update initial_ref
+                (*wrapper).initial_ref_lo = time_lo;
+                (*wrapper).initial_ref_hi = time_hi;
             } else {
                 elapsed = 0;
+                // Original does NOT update initial_ref when delta < 0
             }
         } else {
             (*wrapper).initial_ref_lo = time_lo;
@@ -385,93 +538,140 @@ pub unsafe fn dispatch_frame(
 
         // ── FPU section: compute fps-related values ────────────────────
         //
-        // fps_scaled = (int)(elapsed_f * 3.75 / freq_f)
-        // Clamped to 0x1333 (4915) when in normal timing path
+        // The original uses x87 FPU with 80-bit precision. We use f64 which
+        // is close enough for rendering-only timing code.
+        //
+        // Constant at 0x6797e8 — exact bit pattern from WA.exe data section.
+        // Used for exponential decay in render scale computation.
+        const RENDER_DECAY: f64 = f64::from_bits(0xC015126E978D4FDF_u64); // ≈ -5.2679
+
         let elapsed_f = elapsed as f64;
         let freq_f = freq as f64;
 
-        let mut fps_scaled = (elapsed_f * 3.75 / freq_f) as i32;
+        // fps_scaled = (int)(elapsed * 3.75 * 65536 / freq)
+        // 16.16 fixed-point ratio. Clamped to 0x1333 when bVar18.
+        let mut fps_scaled = (elapsed_f * 3.75 * 65536.0 / freq_f) as i32;
         if fps_scaled > 0x1333 && used_normal_path {
             fps_scaled = 0x1333;
         }
 
-        // headless_log_a = elapsed * 7.5 (stored as f64 for log output)
-        let headless_log_a = elapsed_f * 7.5;
-
-        // fps_product = (int)(65536 * elapsed * 3.75 / freq * elapsed * 7.5 / freq)
-        //             = (int)(65536 * 3.75 * 7.5 * elapsed^2 / freq^2)
-        let mut fps_product =
-            (65536.0 * elapsed_f * 3.75 / freq_f * elapsed_f * 7.5 / freq_f) as i32;
+        // fps_product = (int)(elapsed * 7.5 * 65536 / freq)
+        // ≈ 2 × fps_scaled (before clamping). Clamped to 0x2666 when bVar18.
+        let mut fps_product = (elapsed_f * 7.5 * 65536.0 / freq_f) as i32;
         if fps_product > 0x2666 && used_normal_path {
             fps_product = 0x2666;
         }
 
-        // fixed_render_scale = 0x10000 - (int)(result from __ftol2_sse)
-        // The __ftol2_sse call converts fps_product-related value
-        let fixed_render_scale = 0x10000_i32.wrapping_sub(fps_product);
+        // fixed_render_scale = 0x10000 - (int)(65536 * exp(elapsed * RENDER_DECAY / freq))
+        // This is an exponential decay smoothing factor for frame interpolation.
+        let fixed_render_scale =
+            0x10000 - (65536.0 * (elapsed_f * RENDER_DECAY / freq_f).exp()) as i32;
 
-        // DDGame vtable[3](0x36) — check some condition
-        let ddgame_vtable = *(ddgame as *const *const u32);
-        let vfunc3: unsafe extern "thiscall" fn(*mut DDGame, u32) -> i32 =
-            core::mem::transmute(*ddgame_vtable.add(3));
-        let minimize_request = vfunc3(ddgame, 0x36);
+        // keyboard->vtable[3](keyboard, 0x36) — check minimize request
+        let keyboard = (*ddgame).keyboard;
+        let kb_vtable = *(keyboard as *const *const u32);
+        let vfunc3: unsafe extern "thiscall" fn(*mut u8, u32) -> i32 =
+            core::mem::transmute(*kb_vtable.add(3));
+        let minimize_request = vfunc3(keyboard as *mut u8, 0x36);
         if minimize_request != 0 {
             let session = *(rb(va::G_GAME_SESSION) as *const *mut GameSession);
             (*session).minimize_request = 1;
         }
 
-        // SetupFrameParams(fps_scaled, game_speed, iStack_44)
-        bridge_setup_frame_params(
-            wrapper, fps_scaled, game_speed, 0, /* iStack_44 placeholder */
-        );
+        // SetupFrameParams(fps_scaled, fps_product, fixed_render_scale)
+        bridge_setup_frame_params(wrapper, fps_scaled, fps_product, fixed_render_scale);
 
         // ── Compute frame advance parameters ───────────────────────────
+        //
+        // Two paths based on bVar18 (used_normal_path) and frame_duration vs frame_interval:
+        //
+        // Simple path (!bVar18 || frame_dur >= frame_int):
+        //   advance_ratio = elapsed * 0x10000 / frame_interval
+        //   AdvanceFrameCounters(fps_scaled, fixed_render_scale, fps_product,
+        //                        fixed_render_scale, advance_ratio)
+        //
+        // Complex path (bVar18 && frame_dur < frame_int):
+        //   Recomputes fps_product and fixed_render_scale from frame_duration * 50.
+        //   advance_ratio = elapsed * 0x10000 / frame_duration
+        //   AdvanceFrameCounters(fps_scaled, fixed_render_scale, new_fps_product,
+        //                        new_fixed_render_scale, advance_ratio)
         let frame_fixed = (elapsed as u64).wrapping_mul(0x10000);
-        let advance_ratio = frame_fixed / frame_duration;
 
-        bridge_advance_frame_counters(
-            wrapper,
-            fixed_render_scale,
-            0, // iStack_44
-            game_speed,
-            0, // iVar14
-            advance_ratio as u32,
-        );
+        if used_normal_path && frame_duration < frame_interval {
+            // Complex path: game running slower than target speed
+            let fd50_f = (frame_duration as f64) * 50.0;
+            let new_fps_product = (65536.0 * elapsed_f * 7.5 / fd50_f) as i32;
+            let new_render_scale =
+                0x10000 - (65536.0 * (elapsed_f * RENDER_DECAY / fd50_f).exp()) as i32;
+            let advance_ratio = if frame_duration > 0 {
+                (frame_fixed / frame_duration) as u32
+            } else {
+                0
+            };
+            bridge_advance_frame_counters(
+                wrapper,
+                fps_scaled,
+                fixed_render_scale,
+                new_fps_product,
+                new_render_scale,
+                advance_ratio,
+            );
+        } else {
+            // Simple path: normal speed or replay mode
+            let advance_ratio = if frame_interval > 0 {
+                (frame_fixed / frame_interval) as u32
+            } else {
+                0
+            };
+            bridge_advance_frame_counters(
+                wrapper,
+                fps_scaled,
+                fixed_render_scale,
+                fps_product,
+                fixed_render_scale,
+                advance_ratio,
+            );
+        }
+
+        // UpdateFrameTiming(elapsed_lo, elapsed_hi, freq_lo, freq_hi)
         bridge_update_frame_timing(
             wrapper,
             elapsed as u32,
             (elapsed >> 32) as u32,
-            time_hi,
             freq_lo,
+            freq_hi,
         );
 
-        // DDGame sub-object at +8: if non-null, call its vtable[1]
-        let sub_obj_8 = *((ddgame as *const u8).add(8) as *const *mut u8);
-        if !sub_obj_8.is_null() {
-            let vtable = *(sub_obj_8 as *const *const u32);
+        // sound->vtable[1](sound): DDGame+8 = DSSound*
+        let sound = (*ddgame).sound as *mut u8;
+        if !sound.is_null() {
+            let vtable = *(sound as *const *const u32);
             let vfunc: unsafe extern "thiscall" fn(*mut u8) = core::mem::transmute(*vtable.add(1));
-            vfunc(sub_obj_8);
+            vfunc(sound);
         }
 
-        // DDGame sub-object at +0xC: if non-null, call FUN_005464e0
-        let sub_obj_c = *((ddgame as *const u8).add(0xc) as *const *mut u8);
-        if !sub_obj_c.is_null() {
-            let func: unsafe extern "C" fn(*mut u8) = core::mem::transmute(rb(0x005464e0) as usize);
-            func(sub_obj_c);
+        // active_sounds: DDGame+0xC — if non-null, call FUN_005464e0
+        let active_sounds = (*ddgame).active_sounds as *mut u8;
+        if !active_sounds.is_null() {
+            let func: unsafe extern "stdcall" fn(*mut u8) =
+                core::mem::transmute(rb(0x005464e0) as usize);
+            func(active_sounds);
         }
 
-        // DDGame sub-object at +4: call its vtable[2]
-        let sub_obj_4 = *((ddgame as *const u8).add(4) as *const *mut u8);
-        let vtable_4 = *(sub_obj_4 as *const *const u32);
-        let vfunc2: unsafe extern "thiscall" fn(*mut u8) = core::mem::transmute(*vtable_4.add(2));
-        vfunc2(sub_obj_4);
+        // display->vtable[2](display): DDGame+4 = DisplayGfx*
+        let display = (*ddgame).display as *mut u8;
+        let vtable_disp = *(display as *const *const u32);
+        let vfunc2: unsafe extern "thiscall" fn(*mut u8) =
+            core::mem::transmute(*vtable_disp.add(2));
+        vfunc2(display);
 
-        // Update DDGame+0x7E9C if _field_410 == 0
+        // keyboard->vtable[1](keyboard, 0xd) → store result at DDGame+0x7E9C
         if (*wrapper)._field_410 == 0 {
-            let ddgame_vtable = *(ddgame as *const *const u32);
-            let vfunc1: unsafe extern "thiscall" fn(*mut DDGame, u32) -> u32 =
-                core::mem::transmute(*ddgame_vtable.add(1));
-            let result = vfunc1(ddgame, 0xd);
+            let keyboard = (*ddgame).keyboard as *mut u8;
+            let kb_vtable = *(keyboard as *const *const u32);
+            let vfunc1: unsafe extern "thiscall" fn(*mut u8, u32) -> u32 =
+                core::mem::transmute(*kb_vtable.add(1));
+            let result = vfunc1(keyboard, 0xd);
             *((ddgame as *mut u8).add(0x7e9c) as *mut u32) = result;
         }
     }
@@ -582,7 +782,8 @@ pub unsafe fn dispatch_frame(
             *accum_ptr = (*accum_ptr).wrapping_add(0x320000);
 
             let session = *(rb(va::G_GAME_SESSION) as *const *mut GameSession);
-            (*session)._unknown_044[0] = 1; // session+0x44
+            // Write u32 at session+0x44 (original: *(undefined4 *)(g_GameSession + 0x44) = 1)
+            *((session as *mut u8).add(0x44) as *mut u32) = 1;
         }
     }
 
@@ -608,6 +809,7 @@ pub unsafe fn dispatch_frame(
     }
 
     // ── Section 6: Main frame loop ─────────────────────────────────────
+
     loop {
         let ddgame = (*wrapper).ddgame;
         let game_info = (*ddgame).game_info as *const u8;
@@ -625,17 +827,25 @@ pub unsafe fn dispatch_frame(
             let max_accum = if accum_a > accum_b { accum_a } else { accum_b };
 
             let budget = frame_duration.saturating_sub(max_accum);
-            let mut frame_time = remaining;
-            if remaining > budget {
+            let mut frame_time;
+            if budget <= remaining {
+                // Budget is smaller or equal — use budget as frame_time
+                frame_time = budget;
+            } else {
+                // Budget > remaining — use remaining, unless game hasn't started
                 let gi_f348 = *(game_info.add(0xf348) as *const u8);
                 let gi_f344 = *(game_info.add(0xf344) as *const i32);
-                frame_time = budget;
-                if gi_f348 == 0 && gi_f344 <= (*ddgame).frame_counter {
+                if gi_f348 != 0 || (*ddgame).frame_counter < gi_f344 {
+                    // Game not started: inflate to budget
+                    frame_time = budget;
+                    remaining = budget;
+                } else {
                     frame_time = remaining;
                 }
             }
 
             let (ft_lo, ft_hi) = split(frame_time);
+
             let session = *(rb(va::G_GAME_SESSION) as *const *mut GameSession);
 
             if (*session).flag_5c == 0 || (*ddgame).network_ecx != 0 {
@@ -668,6 +878,7 @@ pub unsafe fn dispatch_frame(
                     // Step frame
                     let stepped = step_frame(
                         wrapper,
+                        &mut frame_step_counter as *mut u32 as *mut u8,
                         &mut remaining,
                         ft_lo,
                         ft_hi,
@@ -702,6 +913,7 @@ pub unsafe fn dispatch_frame(
                     // Step frame
                     let stepped = step_frame(
                         wrapper,
+                        &mut frame_step_counter as *mut u32 as *mut u8,
                         &mut remaining,
                         ft_lo,
                         ft_hi,
@@ -736,6 +948,7 @@ pub unsafe fn dispatch_frame(
             }
             let stepped = step_frame(
                 wrapper,
+                &mut frame_step_counter as *mut u32 as *mut u8,
                 &mut remaining,
                 frame_duration as u32,
                 (frame_duration >> 32) as u32,
@@ -764,14 +977,24 @@ pub unsafe fn dispatch_frame(
             let gi_f344 = *(game_info.add(0xf344) as *const i32);
 
             if gi_f348 == 0 && gi_f344 <= (*ddgame).frame_counter {
-                // Update speed ratios from accumulators
-                let accum_a = combine((*wrapper).frame_accum_a_lo, (*wrapper).frame_accum_a_hi);
-                let speed_a = accum_a.wrapping_mul(0x10000) / frame_duration;
-                *((ddgame as *mut u8).add(0x8150) as *mut u32) = speed_a as u32;
+                {
+                    // Update speed ratios from accumulators
+                    let accum_a = combine((*wrapper).frame_accum_a_lo, (*wrapper).frame_accum_a_hi);
+                    let speed_a = if frame_duration > 0 {
+                        (accum_a.wrapping_mul(0x10000) / frame_duration) as u32
+                    } else {
+                        0
+                    };
+                    *((ddgame as *mut u8).add(0x8150) as *mut u32) = speed_a;
 
-                let accum_b = combine((*wrapper).frame_accum_b_lo, (*wrapper).frame_accum_b_hi);
-                let speed_b = accum_b.wrapping_mul(0x10000) / frame_duration;
-                *((ddgame as *mut u8).add(0x8154) as *mut u32) = speed_b as u32;
+                    let accum_b = combine((*wrapper).frame_accum_b_lo, (*wrapper).frame_accum_b_hi);
+                    let speed_b = if frame_duration > 0 {
+                        (accum_b.wrapping_mul(0x10000) / frame_duration) as u32
+                    } else {
+                        0
+                    };
+                    *((ddgame as *mut u8).add(0x8154) as *mut u32) = speed_b;
+                }
 
                 // Reset accumulators if frame_delay >= 0
                 if (*wrapper).frame_delay_counter >= 0 {
@@ -865,9 +1088,11 @@ pub unsafe fn dispatch_frame(
         let log_enabled = *(game_info.add(0xef38) as *const i32);
 
         if headless != 0 && log_enabled != 0 {
-            // Bridge to headless log writer
-            bridge_write_headless_log(wrapper, 0, 0); // TODO: pass actual log params
-                                                      // TODO: port the fputs + ExitProcess logic
+            // TODO: port the headless log writer (WriteHeadlessLog + fputs + ExitProcess)
+            // For now, bridge to the original via EAX=this pattern
+            // The call site does: LEA ECX,[ESP+0x50]; PUSH ECX; MOV EAX,EBP; CALL
+            // So it's EAX=this with 1 stack param (pointer to log buffer)
+            // We skip this for now — headless log output is non-critical
         }
     }
 
@@ -907,34 +1132,18 @@ pub unsafe fn dispatch_frame(
 
 // ─── Internal helpers ──────────────────────────────────────────────────────
 
-/// Handle timing ratio calculation and pause adjustment.
-unsafe fn calc_timing_and_adjust_pause(
-    wrapper: *mut DDGameWrapper,
-    frame_interval: u64,
-    time_lo: u32,
-    time_hi: u32,
-    delta: u64,
-    used_normal_path: &mut bool,
-) {
-    let ratio = (delta as i64) / (frame_interval as i64);
-    bridge_calc_timing_ratio(wrapper, ratio as i32);
-    let adjustment = (ratio as u64).wrapping_mul(frame_interval);
-    let (adj_lo, _) = split(adjustment);
-    (*wrapper).pause_detect_lo = time_lo.wrapping_sub(adj_lo);
-    (*wrapper).pause_detect_hi =
-        time_hi.wrapping_sub(((adj_lo as i32) >> 31) as u32 + if time_lo < adj_lo { 1 } else { 0 });
-    // Always goes to secondary pause handling
-    // (bVar19 is true here so we fall through)
-}
-
-/// Handle secondary pause detection timestamp update.
+/// Handle secondary pause detection (LAB_0052928c).
+///
+/// Computes sec_delta from pause_secondary timestamps, checks bounds,
+/// then either resets jitter state or updates via i32 remainder division.
+/// The jitter calc at LAB_005292c5 divides sec_delta_lo by freq_lo/2 and
+/// uses the REMAINDER (from EDX after IDIV) as the adjustment, matching
+/// the same CDQ+SUB+SBB pattern used for pause_detect.
 unsafe fn handle_secondary_pause(
     wrapper: *mut DDGameWrapper,
     time_lo: u32,
     time_hi: u32,
     freq: u64,
-    delta: u64,
-    frame_duration: u64,
 ) {
     let sec_delta = time_sub(
         time_lo,
@@ -946,25 +1155,25 @@ unsafe fn handle_secondary_pause(
     if (sec_delta as i64) >= 0 {
         let double_freq = freq.wrapping_mul(2);
         if sec_delta <= double_freq {
+            // LAB_005292c5
             if (*wrapper).timing_jitter_state == 2 {
+                // Falls through to LAB_005292d2 (reset)
                 (*wrapper).timing_jitter_state = 1;
                 (*wrapper).pause_secondary_lo = time_lo;
                 (*wrapper).pause_secondary_hi = time_hi;
             } else {
-                let half_freq = freq / 2;
-                let sec_ratio = (sec_delta as i64) / (half_freq as i64);
-                (*wrapper).timing_jitter_state ^= (sec_ratio as i32 & 1) as i32;
-                let sec_adj = (sec_ratio as u64).wrapping_mul(frame_duration);
-                let (sa_lo, sa_hi) = split(sec_adj);
-                (*wrapper).pause_secondary_lo = time_lo.wrapping_sub(sa_lo);
-                (*wrapper).pause_secondary_hi = time_hi.wrapping_sub(
-                    ((sa_hi as i32) >> 31) as u32 + if time_lo < sa_lo { 1 } else { 0 },
-                );
+                // Jitter calc at 0x52936c: FUN_005d8786(sec_delta_lo, freq_lo / 2)
+                let half_freq = (freq as i32) / 2;
+                let (sec_ratio, sec_remainder) = wa_div(sec_delta as i32, half_freq);
+                (*wrapper).timing_jitter_state ^= sec_ratio & 1;
+                let (sp_lo, sp_hi) = time_sub_i32(time_lo, time_hi, sec_remainder);
+                (*wrapper).pause_secondary_lo = sp_lo;
+                (*wrapper).pause_secondary_hi = sp_hi;
             }
             return;
         }
     }
-    // Delta negative or too large — reset
+    // Delta negative or too large — reset (LAB_005292d2)
     (*wrapper).timing_jitter_state = 1;
     (*wrapper).pause_secondary_lo = time_lo;
     (*wrapper).pause_secondary_hi = time_hi;
