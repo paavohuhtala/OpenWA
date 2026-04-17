@@ -146,8 +146,11 @@ pub struct DDGameWrapper {
     pub _unknown_0d8: [u8; 8],
     /// 0x0E0: State flag (zeroed by InitGameState)
     pub _field_0e0: u32,
-    /// 0x0E4-0x0EB: Unknown
-    pub _unknown_0e4: [u8; 8],
+    /// 0x0E4: Unknown
+    pub _field_0e4: u32,
+    /// 0x0E8: Running step-count accumulator — DispatchFrame adds
+    /// `(step_count - 1)` here each frame when StepFrame ran.
+    pub step_count_accum: i32,
     /// 0x0EC: Frame delay counter — counts down during speed transitions, -1 = inactive
     pub frame_delay_counter: i32,
     /// 0x0F0: Init flag (set to 1 by InitGameState early)

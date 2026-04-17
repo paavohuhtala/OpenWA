@@ -439,8 +439,9 @@ pub struct DDGame {
     pub team_scoring_flags: [u32; 6],
     /// 0x7E88-0x7E9B: Unknown fields (all zeroed by InitTurnState).
     pub _fields_7e88: [u32; 5],
-    /// 0x7E9C-0x7E9F: Unknown
-    pub _unknown_7e9c: [u8; 4],
+    /// 0x7E9C: Last keyboard poll result. Written each frame by DispatchFrame
+    /// from `DDKeyboard::vtable[1](0xd)` when `wrapper._field_410 == 0`.
+    pub kb_poll_result: u32,
 
     /// 0x7EA0: Flag/counter (value 4 at runtime — likely team count).
     pub field_7ea0: u32,
@@ -479,8 +480,9 @@ pub struct DDGame {
     /// CTaskCloud render (parallax X offset = wind_speed * this >> 16).
     pub parallax_scale: i32,
 
-    /// 0x8154-0x8157: Unknown
-    pub _unknown_8154: [u8; 4],
+    /// 0x8154: Secondary parallax/speed scale — written alongside `parallax_scale`
+    /// by DispatchFrame. Consumed by HUD/sub-frame render code.
+    pub parallax_scale_b: i32,
     /// 0x8158: Unknown (zeroed by InitTurnState).
     pub _field_8158: u32,
     /// 0x815C: Unknown (zeroed by InitTurnState).

@@ -174,8 +174,16 @@ pub struct GameInfo {
     pub _unknown_db5c: [u8; 4],
     /// 0xDB60: Replay filename buffer (C string, null-terminated).
     pub replay_filename: [u8; 0x400],
-    /// 0xDF60-0xEF5F: Unknown
-    pub _unknown_df60: [u8; 0xEF60 - 0xDF60],
+    /// 0xDF60-0xEF37: Unknown
+    pub _unknown_df60: [u8; 0xEF38 - 0xDF60],
+    /// 0xEF38: Headless log-enabled flag (nonzero = write `HH:MM:SS.CC` frame
+    /// timestamps to stdout from DispatchFrame).
+    pub headless_log_enabled: i32,
+    /// 0xEF3C: Replay tick rate (ticks per replay frame). Zero in non-replay mode;
+    /// DispatchFrame uses this as the primary replay-vs-live branch.
+    pub replay_ticks: i32,
+    /// 0xEF40-0xEF5F: Unknown
+    pub _unknown_ef40: [u8; 0xEF60 - 0xEF40],
     /// 0xEF60: Cleared to 0 during replay loading.
     pub replay_field_ef60: u32,
     /// 0xEF64-0xF33F: Unknown
@@ -196,8 +204,11 @@ pub struct GameInfo {
     pub _unknown_f349: [u8; 0xF34C - 0xF349],
     /// 0xF34C: State field (i32). Set to -1 by InitGameState.
     pub _field_f34c: i32,
-    /// 0xF350-0xF360: Unknown
-    pub _unknown_f350: [u8; 0xF361 - 0xF350],
+    /// 0xF350: Replay end frame (i32). In replay mode, DispatchFrame triggers
+    /// game-over once `DDGame.frame_counter` passes this value.
+    pub replay_end_frame: i32,
+    /// 0xF354-0xF360: Unknown
+    pub _unknown_f354: [u8; 0xF361 - 0xF354],
     /// 0xF361: Render phase config byte. Copied to DDGame.render_phase at init.
     pub render_phase_cfg: u8,
     /// 0xF362: Unknown byte copied to DDGame+0x7788 during turn state init.
@@ -227,8 +238,14 @@ pub struct GameInfo {
     /// 0xF38C: Sound distance attenuation factor (i32). When nonzero, enables 3D
     /// positional audio via Distance3D_Attenuation. Zero = all sounds at full volume.
     pub sound_attenuation: i32,
-    /// 0xF390-0xF39F: Unknown
-    pub _unknown_f390: [u8; 0xF3A0 - 0xF390],
+    /// 0xF390-0xF397: Unknown
+    pub _unknown_f390: [u8; 0xF398 - 0xF390],
+    /// 0xF398: Sound suppression flag (i32). Checked together with
+    /// `sound_start_frame` and `sound_mute` by DispatchFrame to decide whether
+    /// timing ratio updates advance normally or snap to target.
+    pub _field_f398: i32,
+    /// 0xF39C-0xF39F: Unknown
+    pub _unknown_f39c: [u8; 0xF3A0 - 0xF39C],
 
     // --- Cluster 2: game options (populated by LoadOptions) ---
     /// 0xF3A0: Unknown config byte (from global 0x7C0D38)

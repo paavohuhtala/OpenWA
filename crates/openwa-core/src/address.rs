@@ -1044,6 +1044,23 @@ pub mod va {
         global G_STREAM_INDICES_END = 0x0088_AEDC;
         global G_STREAM_FLAG = 0x0088_E394;
         global G_STREAM_VOLUME = 0x0088_AEDD;
+
+        // DispatchFrame unported callees.
+        /// ActiveSoundTable__Update — stdcall(self), iterates streaming entries
+        /// and drops finished ones. Called each DispatchFrame tick.
+        fn/Stdcall ACTIVE_SOUND_TABLE_UPDATE = 0x0054_64E0;
+        /// MSVC CRT `__iob_func` — returns the three-entry `FILE` array.
+        /// `iob_func()+0x20` is `stdout`.
+        fn/Cdecl CRT_IOB_FUNC = 0x005D_4E40;
+        /// IAT slot for `fputs` — dereference to get the live import pointer.
+        global CRT_FPUTS_IAT = 0x0064_9468;
+        /// MSVC CRT `_ferror(FILE*)`.
+        fn/Cdecl CRT_FERROR = 0x005D_5126;
+        /// BSS byte latched to 1 on first DispatchFrame pass. Gates a
+        /// clamp that inflates `remaining` up to `frame_duration` while
+        /// the game hasn't started yet. Purpose not fully confirmed; read
+        /// once, written once per frame.
+        global G_DISPATCH_FRAME_LATCH = 0x008A_CE34;
     }
 
     // =========================================================================

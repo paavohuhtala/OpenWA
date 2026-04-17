@@ -65,6 +65,10 @@ pub struct DisplayGfxVtable {
     /// get display dimensions in pixels (0x56A460, RET 0x8)
     #[slot(1)]
     pub get_dimensions: fn(this: *mut DisplayGfx, out_w: *mut u32, out_h: *mut u32),
+    /// noop stub (0x4AA060, shared with other classes' unused vtable slots).
+    /// Called each frame from `DispatchFrame`; default implementation is `ret`.
+    #[slot(2)]
+    pub slot_02_noop: fn(this: *mut DisplayGfx),
     /// set layer color (0x5231E0, RET 0x8)
     #[slot(4)]
     pub set_layer_color: fn(this: *mut DisplayGfx, layer: i32, color: i32),

@@ -52,7 +52,10 @@ pub struct GameSession {
     pub exit_flag: u32,
     /// 0x040: game-end status/result code
     pub flag_40: u32,
-    pub _unknown_044: [u8; 0x8],
+    /// 0x044: Replay-active flag — DispatchFrame sets this to 1 while the
+    /// replay speed accumulator is advancing a frame.
+    pub replay_active_flag: u32,
+    pub _unknown_048: [u8; 4],
     /// 0x04C: copied from `GameInfo+0xF39C` (display param)
     pub display_param_1: u32,
     /// 0x050: copied from `GameInfo+0xF3A0` (display param)
