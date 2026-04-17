@@ -89,107 +89,109 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
     streaming_audio: *mut u8,
     input_ctrl: *mut u8,
 ) -> *mut DDGameWrapper {
-    GAME_INFO = game_info;
+    unsafe {
+        GAME_INFO = game_info;
 
-    // Initialize DDGameWrapper fields (order matches original decompile).
-    (*this).ddgame = core::ptr::null_mut();
-    (*this).landscape = core::ptr::null_mut();
-    (*this).vtable = rb(va::DDGAME_WRAPPER_VTABLE) as *const DDGameWrapperVtable;
-    (*this).sound = sound;
-    (*this).display = display;
+        // Initialize DDGameWrapper fields (order matches original decompile).
+        (*this).ddgame = core::ptr::null_mut();
+        (*this).landscape = core::ptr::null_mut();
+        (*this).vtable = rb(va::DDGAME_WRAPPER_VTABLE) as *const DDGameWrapperVtable;
+        (*this).sound = sound;
+        (*this).display = display;
 
-    // Initialize replay subsystem.  usercall(EAX=game_info, ESI=this), plain RET.
-    call_init_replay(game_info, this);
+        // Initialize replay subsystem.  usercall(EAX=game_info, ESI=this), plain RET.
+        call_init_replay(game_info, this);
 
-    // Read timer_obj and net_game from the live game session struct.
-    let session = *(rb(va::G_GAME_SESSION) as *const *mut GameSession);
-    let timer_obj = (*session).timer_obj;
-    let net_game = (*session).net_game;
+        // Read timer_obj and net_game from the live game session struct.
+        let session = *(rb(va::G_GAME_SESSION) as *const *mut GameSession);
+        let timer_obj = (*session).timer_obj;
+        let net_game = (*session).net_game;
 
-    // Register GameSession as a live object.
-    {
-        use openwa_core::registry::{self, LiveObject};
-        registry::register_live_object(LiveObject {
-            ptr: session as u32,
-            size: 0x120,
-            class_name: "GameSession",
-            fields: registry::struct_fields_for("GameSession"),
-        });
-    }
+        // Register GameSession as a live object.
+        {
+            use openwa_core::registry::{self, LiveObject};
+            registry::register_live_object(LiveObject {
+                ptr: session as u32,
+                size: 0x120,
+                class_name: "GameSession",
+                fields: registry::struct_fields_for("GameSession"),
+            });
+        }
 
-    let _ = log_line(&format!(
+        let _ = log_line(&format!(
         "[GameSession] display=0x{:08X}, net_game=0x{:08X}, timer=0x{:08X}, game_info(EDI)=0x{:08X}",
         display as u32, net_game as u32, timer_obj as u32, game_info as u32,
     ));
 
-    // Arm display watchpoint during construction if requested
-    if std::env::var("OPENWA_WATCH_DISPLAY").is_ok() {
-        crate::debug_watchpoint::prepare();
-        crate::debug_watchpoint::on_ddgame_alloc(display as *mut u8);
-    }
+        // Arm display watchpoint during construction if requested
+        if std::env::var("OPENWA_WATCH_DISPLAY").is_ok() {
+            crate::debug_watchpoint::prepare();
+            crate::debug_watchpoint::on_ddgame_alloc(display as *mut u8);
+        }
 
-    // Use env var to switch between original and Rust constructor
-    let use_original = std::env::var("OPENWA_USE_ORIG_CTOR").is_ok();
-    if use_original {
-        call_original_ddgame_ctor(
-            this,
-            display,
-            sound,
-            keyboard,
-            palette,
-            streaming_audio,
-            timer_obj,
-            net_game,
-            game_info,
-            input_ctrl,
-        );
-    } else {
-        create_ddgame(
-            this,
-            keyboard as *mut openwa_core::input::DDKeyboard,
-            display,
-            sound,
-            palette,
-            streaming_audio as *mut openwa_core::audio::Music,
-            timer_obj,
-            net_game,
-            game_info,
-            input_ctrl as u32,
-        );
-    }
+        // Use env var to switch between original and Rust constructor
+        let use_original = std::env::var("OPENWA_USE_ORIG_CTOR").is_ok();
+        if use_original {
+            call_original_ddgame_ctor(
+                this,
+                display,
+                sound,
+                keyboard,
+                palette,
+                streaming_audio,
+                timer_obj,
+                net_game,
+                game_info,
+                input_ctrl,
+            );
+        } else {
+            create_ddgame(
+                this,
+                keyboard as *mut openwa_core::input::DDKeyboard,
+                display,
+                sound,
+                palette,
+                streaming_audio as *mut openwa_core::audio::Music,
+                timer_obj,
+                net_game,
+                game_info,
+                input_ctrl as u32,
+            );
+        }
 
-    // Disarm display watchpoint
-    if std::env::var("OPENWA_WATCH_DISPLAY").is_ok() {
-        crate::debug_watchpoint::teardown();
-    }
+        // Disarm display watchpoint
+        if std::env::var("OPENWA_WATCH_DISPLAY").is_ok() {
+            crate::debug_watchpoint::teardown();
+        }
 
-    // Initialize DDGame's game-state fields (Rust port).
-    openwa_core::engine::game_state_init::init_game_state(this);
+        // Initialize DDGame's game-state fields (Rust port).
+        openwa_core::engine::game_state_init::init_game_state(this);
 
-    let _ = log_line(&format!(
-        "[GameSession] DDGameWrapper::Constructor done: wrapper=0x{:08X}  ddgame=0x{:08X}",
-        this as u32,
-        (*this).ddgame as u32,
-    ));
+        let _ = log_line(&format!(
+            "[GameSession] DDGameWrapper::Constructor done: wrapper=0x{:08X}  ddgame=0x{:08X}",
+            this as u32,
+            (*this).ddgame as u32,
+        ));
 
-    // Register live objects for pointer identification in debug tools.
-    use openwa_core::registry::{self, LiveObject};
-    registry::register_live_object(LiveObject {
-        ptr: this as u32,
-        size: core::mem::size_of::<DDGameWrapper>() as u32,
-        class_name: "DDGameWrapper",
-        fields: registry::struct_fields_for("DDGameWrapper"),
-    });
-    if !(*this).ddgame.is_null() {
+        // Register live objects for pointer identification in debug tools.
+        use openwa_core::registry::{self, LiveObject};
         registry::register_live_object(LiveObject {
-            ptr: (*this).ddgame as u32,
-            size: 0x98D8, // DDGame size
-            class_name: "DDGame",
-            fields: registry::struct_fields_for("DDGame"),
+            ptr: this as u32,
+            size: core::mem::size_of::<DDGameWrapper>() as u32,
+            class_name: "DDGameWrapper",
+            fields: registry::struct_fields_for("DDGameWrapper"),
         });
-    }
+        if !(*this).ddgame.is_null() {
+            registry::register_live_object(LiveObject {
+                ptr: (*this).ddgame as u32,
+                size: 0x98D8, // DDGame size
+                class_name: "DDGame",
+                fields: registry::struct_fields_for("DDGame"),
+            });
+        }
 
-    this
+        this
+    }
 }
 
 pub fn install() -> Result<(), String> {

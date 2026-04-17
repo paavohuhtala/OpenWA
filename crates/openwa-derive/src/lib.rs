@@ -778,7 +778,7 @@ fn substitute_generics(
             for seg in &mut tp.path.segments {
                 if let syn::PathArguments::AngleBracketed(ref mut args) = seg.arguments {
                     for arg in &mut args.args {
-                        if let syn::GenericArgument::Type(ref mut inner_ty) = arg {
+                        if let syn::GenericArgument::Type(inner_ty) = arg {
                             *inner_ty = substitute_generics(inner_ty, defaults);
                         }
                     }

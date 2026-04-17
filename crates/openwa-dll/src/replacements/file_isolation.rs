@@ -122,40 +122,42 @@ unsafe extern "system" fn hook_create_file_a(
     flags_and_attributes: u32,
     template_file: HANDLE,
 ) -> HANDLE {
-    let orig: CreateFileAFn = core::mem::transmute(ORIG_CREATE_FILE_A.load(Ordering::Relaxed));
+    unsafe {
+        let orig: CreateFileAFn = core::mem::transmute(ORIG_CREATE_FILE_A.load(Ordering::Relaxed));
 
-    // Force FILE_SHARE_READ on all opens to prevent exclusive locking between
-    // concurrent WA.exe instances. WA opens .img, .wav, .bmp etc. with share=0,
-    // which causes "File Error" failures under high concurrency.
-    const FILE_SHARE_READ: u32 = 0x00000001;
-    let share_mode = share_mode | FILE_SHARE_READ;
+        // Force FILE_SHARE_READ on all opens to prevent exclusive locking between
+        // concurrent WA.exe instances. WA opens .img, .wav, .bmp etc. with share=0,
+        // which causes "File Error" failures under high concurrency.
+        const FILE_SHARE_READ: u32 = 0x00000001;
+        let share_mode = share_mode | FILE_SHARE_READ;
 
-    if !lp_file_name.is_null() {
-        if let Ok(path) = CStr::from_ptr(lp_file_name as *const i8).to_str() {
-            if let Some(new_path) = redirect_path(path) {
-                let cstr: Vec<u8> = new_path.bytes().chain(std::iter::once(0)).collect();
-                return orig(
-                    cstr.as_ptr(),
-                    desired_access,
-                    share_mode,
-                    security_attributes,
-                    creation_disposition,
-                    flags_and_attributes,
-                    template_file,
-                );
+        if !lp_file_name.is_null() {
+            if let Ok(path) = CStr::from_ptr(lp_file_name as *const i8).to_str() {
+                if let Some(new_path) = redirect_path(path) {
+                    let cstr: Vec<u8> = new_path.bytes().chain(std::iter::once(0)).collect();
+                    return orig(
+                        cstr.as_ptr(),
+                        desired_access,
+                        share_mode,
+                        security_attributes,
+                        creation_disposition,
+                        flags_and_attributes,
+                        template_file,
+                    );
+                }
             }
         }
-    }
 
-    orig(
-        lp_file_name,
-        desired_access,
-        share_mode,
-        security_attributes,
-        creation_disposition,
-        flags_and_attributes,
-        template_file,
-    )
+        orig(
+            lp_file_name,
+            desired_access,
+            share_mode,
+            security_attributes,
+            creation_disposition,
+            flags_and_attributes,
+            template_file,
+        )
+    }
 }
 
 // ─── FindFirstFileA hook ───────────────────────────────────────────────────
@@ -168,19 +170,21 @@ unsafe extern "system" fn hook_find_first_file_a(
     lp_file_name: *const u8,
     lp_find_file_data: *mut u8,
 ) -> HANDLE {
-    let orig: FindFirstFileAFn =
-        core::mem::transmute(ORIG_FIND_FIRST_FILE_A.load(Ordering::Relaxed));
+    unsafe {
+        let orig: FindFirstFileAFn =
+            core::mem::transmute(ORIG_FIND_FIRST_FILE_A.load(Ordering::Relaxed));
 
-    if !lp_file_name.is_null() {
-        if let Ok(path) = CStr::from_ptr(lp_file_name as *const i8).to_str() {
-            if let Some(new_path) = redirect_path(path) {
-                let cstr: Vec<u8> = new_path.bytes().chain(std::iter::once(0)).collect();
-                return orig(cstr.as_ptr(), lp_find_file_data);
+        if !lp_file_name.is_null() {
+            if let Ok(path) = CStr::from_ptr(lp_file_name as *const i8).to_str() {
+                if let Some(new_path) = redirect_path(path) {
+                    let cstr: Vec<u8> = new_path.bytes().chain(std::iter::once(0)).collect();
+                    return orig(cstr.as_ptr(), lp_find_file_data);
+                }
             }
         }
-    }
 
-    orig(lp_file_name, lp_find_file_data)
+        orig(lp_file_name, lp_find_file_data)
+    }
 }
 
 // ─── DeleteFileA hook ──────────────────────────────────────────────────────
@@ -189,18 +193,20 @@ unsafe extern "system" fn hook_find_first_file_a(
 /// `thm.prv` file after reading it. Without this hook, the delete targets the
 /// game directory while the file is in the per-PID temp directory.
 unsafe extern "system" fn hook_delete_file_a(lp_file_name: *const u8) -> i32 {
-    let orig: DeleteFileAFn = core::mem::transmute(ORIG_DELETE_FILE_A.load(Ordering::Relaxed));
+    unsafe {
+        let orig: DeleteFileAFn = core::mem::transmute(ORIG_DELETE_FILE_A.load(Ordering::Relaxed));
 
-    if !lp_file_name.is_null() {
-        if let Ok(path) = CStr::from_ptr(lp_file_name as *const i8).to_str() {
-            if let Some(new_path) = redirect_path(path) {
-                let cstr: Vec<u8> = new_path.bytes().chain(std::iter::once(0)).collect();
-                return orig(cstr.as_ptr());
+        if !lp_file_name.is_null() {
+            if let Ok(path) = CStr::from_ptr(lp_file_name as *const i8).to_str() {
+                if let Some(new_path) = redirect_path(path) {
+                    let cstr: Vec<u8> = new_path.bytes().chain(std::iter::once(0)).collect();
+                    return orig(cstr.as_ptr());
+                }
             }
         }
-    }
 
-    orig(lp_file_name)
+        orig(lp_file_name)
+    }
 }
 
 // ─── File-exists check hook ────────────────────────────────────────────────
@@ -282,19 +288,21 @@ unsafe fn hook_kernel32_fn(
     hook_fn: *mut c_void,
     orig_store: &AtomicU32,
 ) -> Result<(), String> {
-    let fn_name = name.to_str().unwrap_or("?");
-    let proc = windows_sys::Win32::System::LibraryLoader::GetProcAddress(
-        module as _,
-        name.as_ptr().cast(),
-    );
-    let addr = proc.ok_or(format!("{fn_name} not found in kernel32.dll"))?;
-    let target = addr as *mut c_void;
-    let trampoline = minhook::MinHook::create_hook(target, hook_fn)
-        .map_err(|e| format!("MinHook create_hook failed for {fn_name}: {e}"))?;
-    minhook::MinHook::queue_enable_hook(target)
-        .map_err(|e| format!("MinHook queue_enable_hook failed for {fn_name}: {e}"))?;
-    orig_store.store(trampoline as u32, Ordering::Relaxed);
-    Ok(())
+    unsafe {
+        let fn_name = name.to_str().unwrap_or("?");
+        let proc = windows_sys::Win32::System::LibraryLoader::GetProcAddress(
+            module as _,
+            name.as_ptr().cast(),
+        );
+        let addr = proc.ok_or(format!("{fn_name} not found in kernel32.dll"))?;
+        let target = addr as *mut c_void;
+        let trampoline = minhook::MinHook::create_hook(target, hook_fn)
+            .map_err(|e| format!("MinHook create_hook failed for {fn_name}: {e}"))?;
+        minhook::MinHook::queue_enable_hook(target)
+            .map_err(|e| format!("MinHook queue_enable_hook failed for {fn_name}: {e}"))?;
+        orig_store.store(trampoline as u32, Ordering::Relaxed);
+        Ok(())
+    }
 }
 
 /// Clean up the per-PID temp directory. Called during DLL detach or test cleanup.

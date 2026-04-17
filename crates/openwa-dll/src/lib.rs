@@ -28,7 +28,7 @@ const DLL_PROCESS_DETACH: u32 = 0;
 /// independently construct the same name, enabling concurrent instances.
 const HOOKS_READY_EVENT_PREFIX: &str = "OpenWA_HooksReady_";
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 unsafe extern "system" fn DllMain(
     _module: *mut c_void,
     reason: u32,

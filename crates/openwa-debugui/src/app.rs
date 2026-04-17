@@ -26,23 +26,27 @@ fn vtable_name(runtime_vtable: u32) -> Option<&'static str> {
 /// Returns a display name for the entity at `addr`.
 /// Tries the known-vtable map first; falls back to CTask.class_type.
 unsafe fn entity_type_name(addr: u32) -> String {
-    if addr == 0 {
-        return "(null)".to_owned();
+    unsafe {
+        if addr == 0 {
+            return "(null)".to_owned();
+        }
+        let vtable = *(addr as *const u32);
+        if let Some(name) = vtable_name(vtable) {
+            return name.to_owned();
+        }
+        let task = addr as *const CTask;
+        format!("{:?}", (*task).class_type)
     }
-    let vtable = *(addr as *const u32);
-    if let Some(name) = vtable_name(vtable) {
-        return name.to_owned();
-    }
-    let task = addr as *const CTask;
-    format!("{:?}", (*task).class_type)
 }
 
 /// One-line label for a task: "TypeName @ 0xADDR"
 unsafe fn entity_label(addr: u32) -> String {
-    if addr == 0 {
-        return "(null)".to_owned();
+    unsafe {
+        if addr == 0 {
+            return "(null)".to_owned();
+        }
+        format!("{} @ {:#010X}", entity_type_name(addr), addr)
     }
-    format!("{} @ {:#010X}", entity_type_name(addr), addr)
 }
 
 // ---------------------------------------------------------------------------
@@ -51,31 +55,35 @@ unsafe fn entity_label(addr: u32) -> String {
 
 /// Returns a pointer to DDGame, or None if not in-game.
 unsafe fn get_ddgame() -> Option<*const DDGame> {
-    let ptr = game_session::get_ddgame();
-    if ptr.is_null() {
-        None
-    } else {
-        Some(ptr)
+    unsafe {
+        let ptr = game_session::get_ddgame();
+        if ptr.is_null() {
+            None
+        } else {
+            Some(ptr)
+        }
     }
 }
 
 /// Unlock all weapons: set ammo to unlimited (-1) and delays to 0 for all teams.
 unsafe fn cheat_unlock_all_weapons() {
-    let Some(ddgame) = get_ddgame() else {
-        log::push("[Cheats] Not in game");
-        return;
-    };
-    let ddgame = ddgame as *mut DDGame;
-    let arena = &mut (*ddgame).team_arena;
-    for team in &mut arena.weapon_slots.teams {
-        for ammo in &mut team.ammo {
-            *ammo = -1; // unlimited
+    unsafe {
+        let Some(ddgame) = get_ddgame() else {
+            log::push("[Cheats] Not in game");
+            return;
+        };
+        let ddgame = ddgame as *mut DDGame;
+        let arena = &mut (*ddgame).team_arena;
+        for team in &mut arena.weapon_slots.teams {
+            for ammo in &mut team.ammo {
+                *ammo = -1; // unlimited
+            }
+            for delay in &mut team.delay {
+                *delay = 0; // no delay
+            }
         }
-        for delay in &mut team.delay {
-            *delay = 0; // no delay
-        }
+        log::push("[Cheats] All weapons unlocked (infinite ammo, no delays)");
     }
-    log::push("[Cheats] All weapons unlocked (infinite ammo, no delays)");
 }
 
 /// Read child task pointers from a CTask's children array.
@@ -85,14 +93,16 @@ unsafe fn cheat_unlock_all_weapons() {
 /// by CTask::HandleMessage), not the live-child count. We return all slots up to
 /// that bound so the caller can filter nulls and display the live set.
 unsafe fn read_children(task: *const CTask) -> Vec<u32> {
-    let slots = (*task).children_watermark as usize;
-    let data = (*task).children_data as *const u32;
-    if data.is_null() || slots == 0 {
-        return Vec::new();
+    unsafe {
+        let slots = (*task).children_watermark as usize;
+        let data = (*task).children_data as *const u32;
+        if data.is_null() || slots == 0 {
+            return Vec::new();
+        }
+        // Hard safety cap: 4096 slots × 4 bytes = 16 KB max read
+        let slots = slots.min(4096);
+        (0..slots).map(|i| *data.add(i)).collect()
     }
-    // Hard safety cap: 4096 slots × 4 bytes = 16 KB max read
-    let slots = slots.min(4096);
-    (0..slots).map(|i| *data.add(i)).collect()
 }
 
 // ---------------------------------------------------------------------------
@@ -103,50 +113,56 @@ unsafe fn read_children(task: *const CTask) -> Vec<u32> {
 /// Returns None if task_land is null or the chain doesn't terminate within
 /// MAX_DEPTH steps (guard against corrupt/circular pointers).
 unsafe fn find_root_task(ddgame: *const DDGame) -> Option<u32> {
-    let task_land = (*ddgame).task_land as u32;
-    if task_land == 0 {
-        return None;
-    }
-    let mut current = task_land;
-    for _ in 0..64 {
-        let parent = (*(current as *const CTask)).parent as u32;
-        if parent == 0 {
-            return Some(current);
+    unsafe {
+        let task_land = (*ddgame).task_land as u32;
+        if task_land == 0 {
+            return None;
         }
-        current = parent;
+        let mut current = task_land;
+        for _ in 0..64 {
+            let parent = (*(current as *const CTask)).parent as u32;
+            if parent == 0 {
+                return Some(current);
+            }
+            current = parent;
+        }
+        None // chain didn't terminate — corrupt data
     }
-    None // chain didn't terminate — corrupt data
 }
 
 /// DFS the task tree from `root`, returning (vtable, addr) for every node.
 /// A visited set prevents infinite loops from corrupt/circular pointers.
 unsafe fn collect_task_tree(root: u32) -> Vec<(u32, u32)> {
-    let mut out = Vec::new();
-    let mut stack = vec![root];
-    let mut visited = std::collections::HashSet::new();
-    while let Some(addr) = stack.pop() {
-        if addr == 0 || !visited.insert(addr) {
-            continue;
-        }
-        let vtable = *(addr as *const u32);
-        out.push((vtable, addr));
-        for child in read_children(addr as *const CTask) {
-            if child != 0 {
-                stack.push(child);
+    unsafe {
+        let mut out = Vec::new();
+        let mut stack = vec![root];
+        let mut visited = std::collections::HashSet::new();
+        while let Some(addr) = stack.pop() {
+            if addr == 0 || !visited.insert(addr) {
+                continue;
+            }
+            let vtable = *(addr as *const u32);
+            out.push((vtable, addr));
+            for child in read_children(addr as *const CTask) {
+                if child != 0 {
+                    stack.push(child);
+                }
             }
         }
+        out
     }
-    out
 }
 
 unsafe fn collect_live_entities() -> Vec<(u32, u32)> {
-    let Some(ddgame) = get_ddgame() else {
-        return Vec::new();
-    };
-    let Some(root) = find_root_task(ddgame) else {
-        return Vec::new();
-    };
-    collect_task_tree(root)
+    unsafe {
+        let Some(ddgame) = get_ddgame() else {
+            return Vec::new();
+        };
+        let Some(root) = find_root_task(ddgame) else {
+            return Vec::new();
+        };
+        collect_task_tree(root)
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -340,80 +356,86 @@ unsafe fn show_game_task_raw_fields(
     type_name: &str,
     total_size: usize,
 ) {
-    let base = addr as *const u32;
-    let delta = rb(va::IMAGE_BASE).wrapping_sub(va::IMAGE_BASE);
+    unsafe {
+        let base = addr as *const u32;
+        let delta = rb(va::IMAGE_BASE).wrapping_sub(va::IMAGE_BASE);
 
-    // Sections: CTask base, CGameTask unknowns, pos/speed, more unknowns, emitter,
-    // then type-specific in 0x80-byte chunks to keep each section manageable.
-    let mut sections: Vec<(usize, usize, String)> = vec![
-        (0x000, 0x030, "CTask base".into()),
-        (0x030, 0x084, "CGameTask +0x30".into()),
-        (0x084, 0x098, "pos / speed / angle".into()),
-        (0x098, 0x0E8, "CGameTask +0x98".into()),
-        (0x0E8, 0x0FC, "SoundEmitter".into()),
-    ];
-    // Split type-specific region into chunks of 0x80 bytes
-    let mut chunk_start = 0x0FC;
-    while chunk_start < total_size {
-        let chunk_end = (chunk_start + 0x80).min(total_size);
-        sections.push((
-            chunk_start,
-            chunk_end,
-            format!("{} +0x{:03X}..0x{:03X}", type_name, chunk_start, chunk_end),
-        ));
-        chunk_start = chunk_end;
-    }
-
-    for (start, end, section_name) in &sections {
-        let (start, end) = (*start, *end);
-        if start >= total_size {
-            break;
+        // Sections: CTask base, CGameTask unknowns, pos/speed, more unknowns, emitter,
+        // then type-specific in 0x80-byte chunks to keep each section manageable.
+        let mut sections: Vec<(usize, usize, String)> = vec![
+            (0x000, 0x030, "CTask base".into()),
+            (0x030, 0x084, "CGameTask +0x30".into()),
+            (0x084, 0x098, "pos / speed / angle".into()),
+            (0x098, 0x0E8, "CGameTask +0x98".into()),
+            (0x0E8, 0x0FC, "SoundEmitter".into()),
+        ];
+        // Split type-specific region into chunks of 0x80 bytes
+        let mut chunk_start = 0x0FC;
+        while chunk_start < total_size {
+            let chunk_end = (chunk_start + 0x80).min(total_size);
+            sections.push((
+                chunk_start,
+                chunk_end,
+                format!("{} +0x{:03X}..0x{:03X}", type_name, chunk_start, chunk_end),
+            ));
+            chunk_start = chunk_end;
         }
-        let end = end.min(total_size);
-        let header = format!("{} (0x{:03X}..0x{:03X})", section_name, start, end);
-        let default_open = false;
-        egui::CollapsingHeader::new(header)
-            .id_source(format!("{}_{}_{:03X}", type_name, addr, start))
-            .default_open(default_open)
-            .show(ui, |ui| {
-                egui::Grid::new(format!("raw_{}_{}_{:03X}", type_name, addr, start))
-                    .striped(true)
-                    .num_columns(4)
-                    .show(ui, |ui| {
-                        ui.strong("Offset");
-                        ui.strong("Value");
-                        ui.strong("Field");
-                        ui.strong("Points to");
-                        ui.end_row();
 
-                        let dwords = (end - start) / 4;
-                        for i in 0..dwords {
-                            let off = start + i * 4;
-                            let val = *base.add(off / 4);
-                            let field_name = registry::field_at_inherited(type_name, off as u32)
-                                .map(|f| f.name)
-                                .unwrap_or("");
-
-                            ui.label(format!("+0x{:03X}", off));
-                            ui.label(format!("{:#010X} ({})", val, val as i32));
-                            ui.label(field_name);
-
-                            // Pointer identification via registry
-                            use openwa_core::mem;
-                            let ptr_label = if val >= 0x10000 {
-                                mem::identify_pointer(val, delta).and_then(|id| id.name)
-                            } else {
-                                None
-                            };
-                            if let Some(label) = ptr_label {
-                                ui.colored_label(egui::Color32::LIGHT_BLUE, format!("→ {}", label));
-                            } else {
-                                ui.label("");
-                            }
+        for (start, end, section_name) in &sections {
+            let (start, end) = (*start, *end);
+            if start >= total_size {
+                break;
+            }
+            let end = end.min(total_size);
+            let header = format!("{} (0x{:03X}..0x{:03X})", section_name, start, end);
+            let default_open = false;
+            egui::CollapsingHeader::new(header)
+                .id_source(format!("{}_{}_{:03X}", type_name, addr, start))
+                .default_open(default_open)
+                .show(ui, |ui| {
+                    egui::Grid::new(format!("raw_{}_{}_{:03X}", type_name, addr, start))
+                        .striped(true)
+                        .num_columns(4)
+                        .show(ui, |ui| {
+                            ui.strong("Offset");
+                            ui.strong("Value");
+                            ui.strong("Field");
+                            ui.strong("Points to");
                             ui.end_row();
-                        }
-                    });
-            });
+
+                            let dwords = (end - start) / 4;
+                            for i in 0..dwords {
+                                let off = start + i * 4;
+                                let val = *base.add(off / 4);
+                                let field_name =
+                                    registry::field_at_inherited(type_name, off as u32)
+                                        .map(|f| f.name)
+                                        .unwrap_or("");
+
+                                ui.label(format!("+0x{:03X}", off));
+                                ui.label(format!("{:#010X} ({})", val, val as i32));
+                                ui.label(field_name);
+
+                                // Pointer identification via registry
+                                use openwa_core::mem;
+                                let ptr_label = if val >= 0x10000 {
+                                    mem::identify_pointer(val, delta).and_then(|id| id.name)
+                                } else {
+                                    None
+                                };
+                                if let Some(label) = ptr_label {
+                                    ui.colored_label(
+                                        egui::Color32::LIGHT_BLUE,
+                                        format!("→ {}", label),
+                                    );
+                                } else {
+                                    ui.label("");
+                                }
+                                ui.end_row();
+                            }
+                        });
+                });
+        }
     }
 }
 

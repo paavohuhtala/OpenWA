@@ -45,7 +45,9 @@ unsafe extern "C" fn hook_wav_player_stop() {
 }
 
 unsafe extern "cdecl" fn wav_player_stop_impl(player: *mut WavPlayer) {
-    wav_player::wav_player_stop(player);
+    unsafe {
+        wav_player::wav_player_stop(player);
+    }
 }
 
 // WavPlayer_Play: usercall(EDI=&result) + stack(player, flags), RET 0x8.
@@ -66,7 +68,9 @@ unsafe extern "C" fn hook_wav_player_play() {
 }
 
 unsafe extern "cdecl" fn wav_player_play_impl(player: *mut WavPlayer, flags: u32) {
-    wav_player::wav_player_play(player, flags);
+    unsafe {
+        wav_player::wav_player_play(player, flags);
+    }
 }
 
 // WavPlayer_LoadAndPlay: usercall(ESI=&result) + stack(player, path, param3), RET 0xC.
@@ -98,7 +102,7 @@ unsafe extern "cdecl" fn wav_player_load_and_play_impl(
     path: *const c_char,
     param3: i32,
 ) -> u32 {
-    wav_player::wav_player_load_and_play(player, path, param3) as u32
+    unsafe { wav_player::wav_player_load_and_play(player, path, param3) as u32 }
 }
 
 /// The success sentinel VALUE (read from *(0x8AC8A0+delta) at install time).
@@ -109,15 +113,17 @@ static mut WAV_RESULT_SUCCESS_VALUE: u32 = 0;
 // ============================================================
 
 unsafe extern "stdcall" fn hook_play_fe_sfx(sfx_name: *const u8) {
-    let name = if !sfx_name.is_null() {
-        CStr::from_ptr(sfx_name as *const i8)
-            .to_str()
-            .unwrap_or("?")
-    } else {
-        "(null)"
-    };
-    let _ = log_line(&format!("[Speech] PlayFeSfx: \"{}\"", name));
-    speech_ops::play_fe_sfx(name);
+    unsafe {
+        let name = if !sfx_name.is_null() {
+            CStr::from_ptr(sfx_name as *const i8)
+                .to_str()
+                .unwrap_or("?")
+        } else {
+            "(null)"
+        };
+        let _ = log_line(&format!("[Speech] PlayFeSfx: \"{}\"", name));
+        speech_ops::play_fe_sfx(name);
+    }
 }
 
 // ============================================================
@@ -125,11 +131,13 @@ unsafe extern "stdcall" fn hook_play_fe_sfx(sfx_name: *const u8) {
 // ============================================================
 
 unsafe extern "stdcall" fn hook_play_fanfare_default(team_type: u32) {
-    let _ = log_line(&format!(
-        "[Speech] PlayFanfare_Default: team_type={}",
-        team_type
-    ));
-    speech_ops::play_fanfare_default(team_type);
+    unsafe {
+        let _ = log_line(&format!(
+            "[Speech] PlayFanfare_Default: team_type={}",
+            team_type
+        ));
+        speech_ops::play_fanfare_default(team_type);
+    }
 }
 
 // ============================================================
@@ -140,11 +148,13 @@ usercall_trampoline!(fn trampoline_play_fanfare_current_team;
     impl_fn = play_fanfare_current_team_impl; reg = eax);
 
 unsafe extern "cdecl" fn play_fanfare_current_team_impl(eax_index: u32) -> u32 {
-    let _ = log_line(&format!(
-        "[Speech] PlayFanfare_CurrentTeam: eax={}",
-        eax_index
-    ));
-    speech_ops::play_fanfare_current_team(eax_index)
+    unsafe {
+        let _ = log_line(&format!(
+            "[Speech] PlayFanfare_CurrentTeam: eax={}",
+            eax_index
+        ));
+        speech_ops::play_fanfare_current_team(eax_index)
+    }
 }
 
 // ============================================================
@@ -160,17 +170,19 @@ unsafe extern "cdecl" fn load_speech_bank_impl(
     speech_base_path: *const u8,
     speech_dir: *const u8,
 ) {
-    let path_str = CStr::from_ptr(speech_base_path as *const i8)
-        .to_str()
-        .unwrap_or("?");
-    let dir_str = CStr::from_ptr(speech_dir as *const i8)
-        .to_str()
-        .unwrap_or("?");
-    let _ = log_line(&format!(
-        "[Speech] LoadSpeechBank: team={} path=\"{}\" dir=\"{}\"",
-        team_index, path_str, dir_str
-    ));
-    speech_ops::load_speech_bank(ddgw, team_index, speech_base_path, speech_dir);
+    unsafe {
+        let path_str = CStr::from_ptr(speech_base_path as *const i8)
+            .to_str()
+            .unwrap_or("?");
+        let dir_str = CStr::from_ptr(speech_dir as *const i8)
+            .to_str()
+            .unwrap_or("?");
+        let _ = log_line(&format!(
+            "[Speech] LoadSpeechBank: team={} path=\"{}\" dir=\"{}\"",
+            team_index, path_str, dir_str
+        ));
+        speech_ops::load_speech_bank(ddgw, team_index, speech_base_path, speech_dir);
+    }
 }
 
 // ============================================================
@@ -181,11 +193,13 @@ usercall_trampoline!(fn trampoline_load_all_speech_banks;
     impl_fn = load_all_speech_banks_impl; reg = esi);
 
 unsafe extern "cdecl" fn load_all_speech_banks_impl(ddgw: *const DDGameWrapper) {
-    let _ = log_line(&format!(
-        "[Speech] LoadAllSpeechBanks: ddgw=0x{:08X}",
-        ddgw as u32
-    ));
-    speech_ops::load_all_speech_banks(ddgw);
+    unsafe {
+        let _ = log_line(&format!(
+            "[Speech] LoadAllSpeechBanks: ddgw=0x{:08X}",
+            ddgw as u32
+        ));
+        speech_ops::load_all_speech_banks(ddgw);
+    }
 }
 
 // ============================================================

@@ -38,9 +38,11 @@ unsafe extern "stdcall" fn img_decode_hook(
     stream: *mut GfxDirStream,
     align_flag: i32,
 ) -> *mut BitGrid {
-    match img_decode(palette_ctx, stream, align_flag) {
-        Some(decoded) => decoded.as_bitgrid_ptr(),
-        None => core::ptr::null_mut(),
+    unsafe {
+        match img_decode(palette_ctx, stream, align_flag) {
+            Some(decoded) => decoded.as_bitgrid_ptr(),
+            None => core::ptr::null_mut(),
+        }
     }
 }
 

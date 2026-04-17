@@ -23,216 +23,225 @@ use openwa_core::rebase::rb;
 /// saves pixel data to `testdata/snapshots/`. Activated by
 /// `OPENWA_CAPTURE_SNAPSHOTS=1`.
 pub unsafe fn capture_line_snapshots() {
-    use openwa_core::bitgrid::DisplayBitGrid;
-    use std::fs;
-    use std::io::Write;
+    unsafe {
+        use openwa_core::bitgrid::DisplayBitGrid;
+        use std::fs;
+        use std::io::Write;
 
-    let grid_w: u32 = 128;
-    let grid_h: u32 = 128;
-    let grid = DisplayBitGrid::alloc(8, grid_w, grid_h);
-    if grid.is_null() {
-        let _ = log_line("[BitGrid] LINE SNAPSHOT: Failed to allocate test BitGrid");
-        return;
-    }
+        let grid_w: u32 = 128;
+        let grid_h: u32 = 128;
+        let grid = DisplayBitGrid::alloc(8, grid_w, grid_h);
+        if grid.is_null() {
+            let _ = log_line("[BitGrid] LINE SNAPSHOT: Failed to allocate test BitGrid");
+            return;
+        }
 
-    let row_stride = (*grid).row_stride;
-    let data_ptr = (*grid).data;
-    let data_size = (row_stride * grid_h) as usize;
+        let row_stride = (*grid).row_stride;
+        let data_ptr = (*grid).data;
+        let data_size = (row_stride * grid_h) as usize;
 
-    // WA line functions (stdcall)
-    let draw_clipped: unsafe extern "stdcall" fn(*mut DisplayBitGrid, i32, i32, i32, i32, u32) =
-        core::mem::transmute(rb(va::DRAW_LINE_CLIPPED) as usize);
+        // WA line functions (stdcall)
+        let draw_clipped: unsafe extern "stdcall" fn(*mut DisplayBitGrid, i32, i32, i32, i32, u32) =
+            core::mem::transmute(rb(va::DRAW_LINE_CLIPPED) as usize);
 
-    let draw_two: unsafe extern "stdcall" fn(*mut DisplayBitGrid, i32, i32, i32, i32, u32, u32) =
-        core::mem::transmute(rb(va::DRAW_LINE_TWO_COLOR) as usize);
+        let draw_two: unsafe extern "stdcall" fn(
+            *mut DisplayBitGrid,
+            i32,
+            i32,
+            i32,
+            i32,
+            u32,
+            u32,
+        ) = core::mem::transmute(rb(va::DRAW_LINE_TWO_COLOR) as usize);
 
-    let dir = "testdata/snapshots";
-    let _ = fs::create_dir_all(dir);
+        let dir = "testdata/snapshots";
+        let _ = fs::create_dir_all(dir);
 
-    // Macro: clear grid, reset clip, run drawing code, save to file.
-    macro_rules! snap {
-        ($name:expr, $body:expr) => {{
-            core::ptr::write_bytes(data_ptr, 0, data_size);
-            (*grid).clip_left = 0;
-            (*grid).clip_top = 0;
-            (*grid).clip_right = grid_w;
-            (*grid).clip_bottom = grid_h;
-            $body;
-            let path = format!("{}/{}.bin", dir, $name);
-            if let Ok(mut file) = fs::File::create(&path) {
-                let _ = file.write_all(&grid_w.to_le_bytes());
-                let _ = file.write_all(&grid_h.to_le_bytes());
-                let _ = file.write_all(&row_stride.to_le_bytes());
-                let _ = file.write_all(core::slice::from_raw_parts(data_ptr, data_size));
-            }
-        }};
-    }
+        // Macro: clear grid, reset clip, run drawing code, save to file.
+        macro_rules! snap {
+            ($name:expr_2021, $body:expr_2021) => {{
+                core::ptr::write_bytes(data_ptr, 0, data_size);
+                (*grid).clip_left = 0;
+                (*grid).clip_top = 0;
+                (*grid).clip_right = grid_w;
+                (*grid).clip_bottom = grid_h;
+                $body;
+                let path = format!("{}/{}.bin", dir, $name);
+                if let Ok(mut file) = fs::File::create(&path) {
+                    let _ = file.write_all(&grid_w.to_le_bytes());
+                    let _ = file.write_all(&grid_h.to_le_bytes());
+                    let _ = file.write_all(&row_stride.to_le_bytes());
+                    let _ = file.write_all(core::slice::from_raw_parts(data_ptr, data_size));
+                }
+            }};
+        }
 
-    let f = |x: i32| x << 16; // int to Fixed raw
-    let mut count = 0u32;
+        let f = |x: i32| x << 16; // int to Fixed raw
+        let mut count = 0u32;
 
-    // Single-color line tests
-    for &(name, x1, y1, x2, y2, color) in &[
-        ("clipped_horizontal", f(10), f(64), f(118), f(64), 1u32),
-        ("clipped_vertical", f(64), f(10), f(64), f(118), 2),
-        ("clipped_diagonal_45", f(10), f(10), f(118), f(118), 3),
-        ("clipped_diagonal_steep", f(60), f(10), f(68), f(118), 4),
-        ("clipped_diagonal_shallow", f(10), f(60), f(118), f(68), 5),
-        ("clipped_negative_slope", f(118), f(10), f(10), f(118), 6),
-        (
-            "clipped_subpixel",
-            f(10) + 0x8000,
-            f(20) + 0x4000,
-            f(100) + 0xC000,
-            f(80) + 0x2000,
-            7,
-        ),
-        ("clipped_zero_length", f(64), f(64), f(64), f(64), 8),
-        ("clipped_partially_outside", f(-20), f(64), f(148), f(64), 9),
-        ("clipped_fully_outside", f(-50), f(-50), f(-10), f(-10), 10),
-    ] {
-        snap!(name, draw_clipped(grid, x1, y1, x2, y2, color));
+        // Single-color line tests
+        for &(name, x1, y1, x2, y2, color) in &[
+            ("clipped_horizontal", f(10), f(64), f(118), f(64), 1u32),
+            ("clipped_vertical", f(64), f(10), f(64), f(118), 2),
+            ("clipped_diagonal_45", f(10), f(10), f(118), f(118), 3),
+            ("clipped_diagonal_steep", f(60), f(10), f(68), f(118), 4),
+            ("clipped_diagonal_shallow", f(10), f(60), f(118), f(68), 5),
+            ("clipped_negative_slope", f(118), f(10), f(10), f(118), 6),
+            (
+                "clipped_subpixel",
+                f(10) + 0x8000,
+                f(20) + 0x4000,
+                f(100) + 0xC000,
+                f(80) + 0x2000,
+                7,
+            ),
+            ("clipped_zero_length", f(64), f(64), f(64), f(64), 8),
+            ("clipped_partially_outside", f(-20), f(64), f(148), f(64), 9),
+            ("clipped_fully_outside", f(-50), f(-50), f(-10), f(-10), 10),
+        ] {
+            snap!(name, draw_clipped(grid, x1, y1, x2, y2, color));
+            count += 1;
+        }
+
+        // Two-color line tests
+        for &(name, x1, y1, x2, y2, c1, c2) in &[
+            ("twocol_horizontal", f(10), f(64), f(118), f(64), 1u32, 2u32),
+            ("twocol_vertical", f(64), f(10), f(64), f(118), 1, 2),
+            ("twocol_diagonal_45", f(10), f(10), f(118), f(118), 1, 2),
+            ("twocol_steep", f(60), f(10), f(68), f(118), 3, 4),
+            ("twocol_shallow", f(10), f(60), f(118), f(68), 3, 4),
+            ("twocol_negative", f(118), f(10), f(10), f(118), 5, 6),
+            (
+                "twocol_subpixel",
+                f(10) + 0x8000,
+                f(20) + 0x4000,
+                f(100) + 0xC000,
+                f(80) + 0x2000,
+                7,
+                8,
+            ),
+        ] {
+            snap!(name, draw_two(grid, x1, y1, x2, y2, c1, c2));
+            count += 1;
+        }
+
+        // Restricted clip rect tests
+        snap!("clipped_restricted_clip", {
+            (*grid).clip_left = 30;
+            (*grid).clip_top = 30;
+            (*grid).clip_right = 98;
+            (*grid).clip_bottom = 98;
+            draw_clipped(grid, f(10), f(10), f(118), f(118), 11)
+        });
         count += 1;
-    }
 
-    // Two-color line tests
-    for &(name, x1, y1, x2, y2, c1, c2) in &[
-        ("twocol_horizontal", f(10), f(64), f(118), f(64), 1u32, 2u32),
-        ("twocol_vertical", f(64), f(10), f(64), f(118), 1, 2),
-        ("twocol_diagonal_45", f(10), f(10), f(118), f(118), 1, 2),
-        ("twocol_steep", f(60), f(10), f(68), f(118), 3, 4),
-        ("twocol_shallow", f(10), f(60), f(118), f(68), 3, 4),
-        ("twocol_negative", f(118), f(10), f(10), f(118), 5, 6),
-        (
-            "twocol_subpixel",
-            f(10) + 0x8000,
-            f(20) + 0x4000,
-            f(100) + 0xC000,
-            f(80) + 0x2000,
-            7,
-            8,
-        ),
-    ] {
-        snap!(name, draw_two(grid, x1, y1, x2, y2, c1, c2));
+        snap!("twocol_restricted_clip", {
+            (*grid).clip_left = 30;
+            (*grid).clip_top = 30;
+            (*grid).clip_right = 98;
+            (*grid).clip_bottom = 98;
+            draw_two(grid, f(10), f(10), f(118), f(118), 9, 10)
+        });
         count += 1;
-    }
 
-    // Restricted clip rect tests
-    snap!("clipped_restricted_clip", {
-        (*grid).clip_left = 30;
-        (*grid).clip_top = 30;
-        (*grid).clip_right = 98;
-        (*grid).clip_bottom = 98;
-        draw_clipped(grid, f(10), f(10), f(118), f(118), 11)
-    });
-    count += 1;
+        // Polygon fill tests — call WA's polygon pipeline directly
+        let clip_x: unsafe extern "thiscall" fn(*mut DisplayBitGrid, *const i32, i32) -> i32 =
+            core::mem::transmute(rb(0x004F_7BA0) as usize);
+        let clip_y: unsafe extern "thiscall" fn(*mut DisplayBitGrid, i32) -> i32 =
+            core::mem::transmute(rb(0x004F_7D00) as usize);
+        let rasterize: unsafe extern "stdcall" fn(*mut DisplayBitGrid, i32, u32) =
+            core::mem::transmute(rb(0x004F_7E90) as usize);
 
-    snap!("twocol_restricted_clip", {
-        (*grid).clip_left = 30;
-        (*grid).clip_top = 30;
-        (*grid).clip_right = 98;
-        (*grid).clip_bottom = 98;
-        draw_two(grid, f(10), f(10), f(118), f(118), 9, 10)
-    });
-    count += 1;
+        // Helper: write vertices to the global vertex buffer (0x8B1370) and call pipeline
+        let vert_buf = rb(0x008B_1370) as *mut i32;
 
-    // Polygon fill tests — call WA's polygon pipeline directly
-    let clip_x: unsafe extern "thiscall" fn(*mut DisplayBitGrid, *const i32, i32) -> i32 =
-        core::mem::transmute(rb(0x004F_7BA0) as usize);
-    let clip_y: unsafe extern "thiscall" fn(*mut DisplayBitGrid, i32) -> i32 =
-        core::mem::transmute(rb(0x004F_7D00) as usize);
-    let rasterize: unsafe extern "stdcall" fn(*mut DisplayBitGrid, i32, u32) =
-        core::mem::transmute(rb(0x004F_7E90) as usize);
+        macro_rules! polygon_snap {
+            ($name:expr_2021, $verts:expr_2021, $color:expr_2021) => {{
+                let verts: &[(i32, i32)] = $verts;
+                for (i, &(x, y)) in verts.iter().enumerate() {
+                    *vert_buf.add(i * 2) = x;
+                    *vert_buf.add(i * 2 + 1) = y;
+                }
+                snap!($name, {
+                    let n = clip_x(grid, vert_buf, verts.len() as i32);
+                    if n > 2 {
+                        let n = clip_y(grid, n);
+                        if n > 2 {
+                            rasterize(grid, n, $color);
+                        }
+                    }
+                });
+                count += 1;
+            }};
+        }
 
-    // Helper: write vertices to the global vertex buffer (0x8B1370) and call pipeline
-    let vert_buf = rb(0x008B_1370) as *mut i32;
+        // Triangle
+        polygon_snap!(
+            "poly_triangle",
+            &[(f(64), f(10)), (f(118), f(100)), (f(10), f(100))],
+            1u32
+        );
 
-    macro_rules! polygon_snap {
-        ($name:expr, $verts:expr, $color:expr) => {{
-            let verts: &[(i32, i32)] = $verts;
+        // Square
+        polygon_snap!(
+            "poly_square",
+            &[
+                (f(20), f(20)),
+                (f(100), f(20)),
+                (f(100), f(100)),
+                (f(20), f(100))
+            ],
+            2u32
+        );
+
+        // Diamond
+        polygon_snap!(
+            "poly_diamond",
+            &[
+                (f(64), f(10)),
+                (f(118), f(64)),
+                (f(64), f(118)),
+                (f(10), f(64))
+            ],
+            3u32
+        );
+
+        // Partially outside (triangle extending beyond grid)
+        polygon_snap!(
+            "poly_partially_outside",
+            &[(f(64), f(-30)), (f(160), f(100)), (f(-30), f(100))],
+            4u32
+        );
+
+        // Restricted clip rect
+        snap!("poly_restricted_clip", {
+            (*grid).clip_left = 30;
+            (*grid).clip_top = 30;
+            (*grid).clip_right = 98;
+            (*grid).clip_bottom = 98;
+            let verts: &[(i32, i32)] = &[(f(64), f(10)), (f(118), f(100)), (f(10), f(100))];
             for (i, &(x, y)) in verts.iter().enumerate() {
                 *vert_buf.add(i * 2) = x;
                 *vert_buf.add(i * 2 + 1) = y;
             }
-            snap!($name, {
-                let n = clip_x(grid, vert_buf, verts.len() as i32);
-                if n > 2 {
-                    let n = clip_y(grid, n);
-                    if n > 2 {
-                        rasterize(grid, n, $color);
-                    }
-                }
-            });
-            count += 1;
-        }};
-    }
-
-    // Triangle
-    polygon_snap!(
-        "poly_triangle",
-        &[(f(64), f(10)), (f(118), f(100)), (f(10), f(100))],
-        1u32
-    );
-
-    // Square
-    polygon_snap!(
-        "poly_square",
-        &[
-            (f(20), f(20)),
-            (f(100), f(20)),
-            (f(100), f(100)),
-            (f(20), f(100))
-        ],
-        2u32
-    );
-
-    // Diamond
-    polygon_snap!(
-        "poly_diamond",
-        &[
-            (f(64), f(10)),
-            (f(118), f(64)),
-            (f(64), f(118)),
-            (f(10), f(64))
-        ],
-        3u32
-    );
-
-    // Partially outside (triangle extending beyond grid)
-    polygon_snap!(
-        "poly_partially_outside",
-        &[(f(64), f(-30)), (f(160), f(100)), (f(-30), f(100))],
-        4u32
-    );
-
-    // Restricted clip rect
-    snap!("poly_restricted_clip", {
-        (*grid).clip_left = 30;
-        (*grid).clip_top = 30;
-        (*grid).clip_right = 98;
-        (*grid).clip_bottom = 98;
-        let verts: &[(i32, i32)] = &[(f(64), f(10)), (f(118), f(100)), (f(10), f(100))];
-        for (i, &(x, y)) in verts.iter().enumerate() {
-            *vert_buf.add(i * 2) = x;
-            *vert_buf.add(i * 2 + 1) = y;
-        }
-        let n = clip_x(grid, vert_buf, verts.len() as i32);
-        if n > 2 {
-            let n = clip_y(grid, n);
+            let n = clip_x(grid, vert_buf, verts.len() as i32);
             if n > 2 {
-                rasterize(grid, n, 5u32);
+                let n = clip_y(grid, n);
+                if n > 2 {
+                    rasterize(grid, n, 5u32);
+                }
             }
-        }
-    });
-    count += 1;
+        });
+        count += 1;
 
-    let _ = log_line(&format!(
-        "[BitGrid] LINE SNAPSHOT: Saved {count} snapshots to {dir}/"
-    ));
+        let _ = log_line(&format!(
+            "[BitGrid] LINE SNAPSHOT: Saved {count} snapshots to {dir}/"
+        ));
 
-    // Free the grid
-    let destructor = (*(*grid).vtable).destructor;
-    destructor(grid, 1);
+        // Free the grid
+        let destructor = (*(*grid).vtable).destructor;
+        destructor(grid, 1);
+    }
 }
 
 // =========================================================================
@@ -246,86 +255,253 @@ pub unsafe fn capture_line_snapshots() {
 /// saves pixel output to `testdata/snapshots/`. Activated by
 /// `OPENWA_CAPTURE_SNAPSHOTS=1`.
 pub unsafe fn capture_blit_snapshots() {
-    use openwa_core::bitgrid::DisplayBitGrid;
-    use std::fs;
-    use std::io::Write;
+    unsafe {
+        use openwa_core::bitgrid::DisplayBitGrid;
+        use std::fs;
+        use std::io::Write;
 
-    let _ = log_line("[BitGrid] BLIT SNAPSHOT: Starting capture");
+        let _ = log_line("[BitGrid] BLIT SNAPSHOT: Starting capture");
 
-    // Project root at compile time — WA.exe runs from its install dir,
-    // so we need absolute paths to reach testdata/.
-    const PROJECT_ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../..");
+        // Project root at compile time — WA.exe runs from its install dir,
+        // so we need absolute paths to reach testdata/.
+        const PROJECT_ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../..");
 
-    // Load test images from GIF files
-    let opaque_data = match fs::read(format!("{PROJECT_ROOT}/testdata/assets/sprite_test.gif")) {
-        Ok(d) => d,
-        Err(e) => {
-            let _ = log_line(&format!(
-                "[BitGrid] BLIT SNAPSHOT: Failed to read sprite_test.gif: {e}"
-            ));
-            return;
+        // Load test images from GIF files
+        let opaque_data = match fs::read(format!("{PROJECT_ROOT}/testdata/assets/sprite_test.gif"))
+        {
+            Ok(d) => d,
+            Err(e) => {
+                let _ = log_line(&format!(
+                    "[BitGrid] BLIT SNAPSHOT: Failed to read sprite_test.gif: {e}"
+                ));
+                return;
+            }
+        };
+        let transparent_data = match fs::read(format!(
+            "{PROJECT_ROOT}/testdata/assets/sprite_transparent_test.gif"
+        )) {
+            Ok(d) => d,
+            Err(e) => {
+                let _ = log_line(&format!(
+                    "[BitGrid] BLIT SNAPSHOT: Failed to read sprite_transparent_test.gif: {e}"
+                ));
+                return;
+            }
+        };
+
+        let opaque_img = match decode_gif_indexed(&opaque_data) {
+            Some(img) => img,
+            None => {
+                let _ = log_line("[BitGrid] BLIT SNAPSHOT: Failed to decode sprite_test.gif");
+                return;
+            }
+        };
+        let transparent_img = match decode_gif_indexed(&transparent_data) {
+            Some(img) => img,
+            None => {
+                let _ = log_line(
+                    "[BitGrid] BLIT SNAPSHOT: Failed to decode sprite_transparent_test.gif",
+                );
+                return;
+            }
+        };
+
+        let dir = format!("{PROJECT_ROOT}/testdata/snapshots");
+        let _ = fs::create_dir_all(&dir);
+        let mut count = 0u32;
+
+        // Helper: save a BitGrid to a snapshot file
+        let save_grid = |grid: *mut DisplayBitGrid, name: &str| {
+            let w = (*grid).width;
+            let h = (*grid).height;
+            let stride = (*grid).row_stride;
+            let data = (*grid).data;
+            let data_size = (stride * h) as usize;
+            let path = format!("{dir}/{name}.bin");
+            if let Ok(mut file) = fs::File::create(&path) {
+                let _ = file.write_all(&w.to_le_bytes());
+                let _ = file.write_all(&h.to_le_bytes());
+                let _ = file.write_all(&stride.to_le_bytes());
+                let _ = file.write_all(core::slice::from_raw_parts(data, data_size));
+            }
+        };
+
+        // For each test image, run blit with various parameters
+        for (img, prefix) in [
+            (&opaque_img, "blit_opaque"),
+            (&transparent_img, "blit_transparent"),
+        ] {
+            // Create source BitGrid from image data
+            let src = DisplayBitGrid::alloc(8, img.width, img.height);
+            if src.is_null() {
+                let _ = log_line("[BitGrid] BLIT SNAPSHOT: Failed to allocate source BitGrid");
+                continue;
+            }
+            // Copy image pixels into source BitGrid
+            for y in 0..img.height {
+                let src_row = (y * img.width) as usize;
+                let dst_row = (*src).data.add((y * (*src).row_stride) as usize);
+                core::ptr::copy_nonoverlapping(
+                    img.pixels.as_ptr().add(src_row),
+                    dst_row,
+                    img.width as usize,
+                );
+            }
+            (*src).clip_left = 0;
+            (*src).clip_top = 0;
+            (*src).clip_right = img.width;
+            (*src).clip_bottom = img.height;
+
+            let sw = img.width as i32;
+            let sh = img.height as i32;
+
+            // Destination is larger than source to test positioning
+            let dw = (sw + 32) as u32;
+            let dh = (sh + 32) as u32;
+            let dst = DisplayBitGrid::alloc(8, dw, dh);
+            if dst.is_null() {
+                let destructor = (*(*src).vtable).destructor;
+                destructor(src, 1);
+                let _ = log_line("[BitGrid] BLIT SNAPSHOT: Failed to allocate dest BitGrid");
+                continue;
+            }
+            let dst_data = (*dst).data;
+            let dst_size = ((*dst).row_stride * dh) as usize;
+
+            // Test cases: (name_suffix, dst_x, dst_y, width, height, src_x, src_y, flags, bg_fill)
+            #[allow(clippy::type_complexity)]
+            let test_cases: &[(&str, i32, i32, i32, i32, i32, i32, u32, u8)] = &[
+                // Basic orientations (blend mode 0 = direct copy)
+                ("identity", 16, 16, sw, sh, 0, 0, 0x0000_0000, 0),
+                ("mirror_x", 16, 16, sw, sh, 0, 0, 0x0001_0000, 0),
+                ("mirror_y", 16, 16, sw, sh, 0, 0, 0x0002_0000, 0),
+                ("mirror_xy", 16, 16, sw, sh, 0, 0, 0x0003_0000, 0),
+                ("rotate90", 16, 16, sh, sw, 0, 0, 0x0004_0000, 0),
+                // Clipped (negative offset, only bottom-right visible)
+                ("clipped", -16, -16, sw, sh, 0, 0, 0x0000_0000, 0),
+                // Color-table blend (mode 1) with identity table — tests transparency
+                ("colortable", 16, 16, sw, sh, 0, 0, 0x0000_0001, 77),
+                // Color-table + mirror_x
+                ("colortable_mx", 16, 16, sw, sh, 0, 0, 0x0001_0001, 77),
+                // Source sub-rect
+                (
+                    "subrect",
+                    16,
+                    16,
+                    sw / 2,
+                    sh / 2,
+                    sw / 4,
+                    sh / 4,
+                    0x0000_0000,
+                    0,
+                ),
+                // Additive mask (mode 2) — writes only where both src and dst are non-zero
+                ("additive", 16, 16, sw, sh, 0, 0, 0x0000_0002, 77),
+                // Subtractive mask (mode 3) — writes only where src != 0 and dst == 0
+                ("subtractive", 16, 16, sw, sh, 0, 0, 0x0000_0003, 0),
+            ];
+
+            // Use the original (unhooked) blit function for ground-truth captures.
+            // ORIG_BLIT is set by MinHook when the hook is installed; if not hooked
+            // yet (shouldn't happen), fall back to the raw address.
+            let orig = ORIG_BLIT.load(core::sync::atomic::Ordering::Relaxed);
+            let blit_target = if orig != 0 {
+                orig
+            } else {
+                rb(va::BLIT_SPRITE_RECT)
+            };
+
+            for &(suffix, dx, dy, w, h, sx, sy, flags, bg) in test_cases {
+                // Clear destination
+                core::ptr::write_bytes(dst_data, bg, dst_size);
+
+                // Call WA's native blit: ESI=dst, 9 stack params
+                wa_blit_sprite_rect(
+                    dst,
+                    dx,
+                    dy,
+                    w,
+                    h,
+                    src,
+                    sx,
+                    sy,
+                    core::ptr::null(), // no color table
+                    flags,
+                    blit_target,
+                );
+
+                let name = format!("{prefix}_{suffix}");
+                save_grid(dst, &name);
+                count += 1;
+            }
+
+            // Free grids
+            let destructor = (*(*src).vtable).destructor;
+            destructor(src, 1);
+            let destructor = (*(*dst).vtable).destructor;
+            destructor(dst, 1);
         }
-    };
-    let transparent_data = match fs::read(format!(
-        "{PROJECT_ROOT}/testdata/assets/sprite_transparent_test.gif"
-    )) {
-        Ok(d) => d,
-        Err(e) => {
-            let _ = log_line(&format!(
-                "[BitGrid] BLIT SNAPSHOT: Failed to read sprite_transparent_test.gif: {e}"
-            ));
-            return;
-        }
-    };
 
-    let opaque_img = match decode_gif_indexed(&opaque_data) {
-        Some(img) => img,
-        None => {
-            let _ = log_line("[BitGrid] BLIT SNAPSHOT: Failed to decode sprite_test.gif");
-            return;
-        }
-    };
-    let transparent_img = match decode_gif_indexed(&transparent_data) {
-        Some(img) => img,
-        None => {
-            let _ =
-                log_line("[BitGrid] BLIT SNAPSHOT: Failed to decode sprite_transparent_test.gif");
-            return;
-        }
-    };
+        let _ = log_line(&format!(
+            "[BitGrid] BLIT SNAPSHOT: Saved {count} snapshots to {dir}/"
+        ));
+    }
+}
 
-    let dir = format!("{PROJECT_ROOT}/testdata/snapshots");
-    let _ = fs::create_dir_all(&dir);
-    let mut count = 0u32;
+// =========================================================================
+// Stippled & tiled blit snapshot capture
+// =========================================================================
 
-    // Helper: save a BitGrid to a snapshot file
-    let save_grid = |grid: *mut DisplayBitGrid, name: &str| {
-        let w = (*grid).width;
-        let h = (*grid).height;
-        let stride = (*grid).row_stride;
-        let data = (*grid).data;
-        let data_size = (stride * h) as usize;
-        let path = format!("{dir}/{name}.bin");
-        if let Ok(mut file) = fs::File::create(&path) {
-            let _ = file.write_all(&w.to_le_bytes());
-            let _ = file.write_all(&h.to_le_bytes());
-            let _ = file.write_all(&stride.to_le_bytes());
-            let _ = file.write_all(core::slice::from_raw_parts(data, data_size));
-        }
-    };
+/// Capture stippled and tiled blit snapshots from WA's native functions.
+///
+/// Creates synthetic BitGrids and a minimal fake DisplayGfx context (render_lock=1
+/// so AcquireRenderLock is a no-op), then calls the original WA functions.
+///
+/// Activated by `OPENWA_CAPTURE_SNAPSHOTS=1`.
+pub unsafe fn capture_stippled_tiled_snapshots() {
+    unsafe {
+        use openwa_core::bitgrid::DisplayBitGrid;
+        use openwa_core::rebase::rb;
+        use std::fs;
+        use std::io::Write;
 
-    // For each test image, run blit with various parameters
-    for (img, prefix) in [
-        (&opaque_img, "blit_opaque"),
-        (&transparent_img, "blit_transparent"),
-    ] {
-        // Create source BitGrid from image data
+        let _ = log_line("[BitGrid] STIPPLED/TILED SNAPSHOT: Starting capture");
+
+        const PROJECT_ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../..");
+
+        // Load test image
+        let img_data = match fs::read(format!(
+            "{PROJECT_ROOT}/testdata/assets/sprite_transparent_test.gif"
+        )) {
+            Ok(d) => d,
+            Err(e) => {
+                let _ = log_line(&format!(
+                    "[BitGrid] STIPPLED/TILED SNAPSHOT: Failed to read test image: {e}"
+                ));
+                return;
+            }
+        };
+        let img = match decode_gif_indexed(&img_data) {
+            Some(i) => i,
+            None => {
+                let _ = log_line("[BitGrid] STIPPLED/TILED SNAPSHOT: Failed to decode test image");
+                return;
+            }
+        };
+
+        let dir = format!("{PROJECT_ROOT}/testdata/snapshots");
+        let _ = fs::create_dir_all(&dir);
+        let mut count = 0u32;
+
+        let sw = img.width as i32;
+        let sh = img.height as i32;
+
+        // Create source BitGrid
         let src = DisplayBitGrid::alloc(8, img.width, img.height);
         if src.is_null() {
-            let _ = log_line("[BitGrid] BLIT SNAPSHOT: Failed to allocate source BitGrid");
-            continue;
+            let _ = log_line("[BitGrid] STIPPLED/TILED SNAPSHOT: Failed to allocate source");
+            return;
         }
-        // Copy image pixels into source BitGrid
         for y in 0..img.height {
             let src_row = (y * img.width) as usize;
             let dst_row = (*src).data.add((y * (*src).row_stride) as usize);
@@ -340,366 +516,217 @@ pub unsafe fn capture_blit_snapshots() {
         (*src).clip_right = img.width;
         (*src).clip_bottom = img.height;
 
-        let sw = img.width as i32;
-        let sh = img.height as i32;
-
-        // Destination is larger than source to test positioning
-        let dw = (sw + 32) as u32;
-        let dh = (sh + 32) as u32;
-        let dst = DisplayBitGrid::alloc(8, dw, dh);
-        if dst.is_null() {
-            let destructor = (*(*src).vtable).destructor;
-            destructor(src, 1);
-            let _ = log_line("[BitGrid] BLIT SNAPSHOT: Failed to allocate dest BitGrid");
-            continue;
-        }
-        let dst_data = (*dst).data;
-        let dst_size = ((*dst).row_stride * dh) as usize;
-
-        // Test cases: (name_suffix, dst_x, dst_y, width, height, src_x, src_y, flags, bg_fill)
-        #[allow(clippy::type_complexity)]
-        let test_cases: &[(&str, i32, i32, i32, i32, i32, i32, u32, u8)] = &[
-            // Basic orientations (blend mode 0 = direct copy)
-            ("identity", 16, 16, sw, sh, 0, 0, 0x0000_0000, 0),
-            ("mirror_x", 16, 16, sw, sh, 0, 0, 0x0001_0000, 0),
-            ("mirror_y", 16, 16, sw, sh, 0, 0, 0x0002_0000, 0),
-            ("mirror_xy", 16, 16, sw, sh, 0, 0, 0x0003_0000, 0),
-            ("rotate90", 16, 16, sh, sw, 0, 0, 0x0004_0000, 0),
-            // Clipped (negative offset, only bottom-right visible)
-            ("clipped", -16, -16, sw, sh, 0, 0, 0x0000_0000, 0),
-            // Color-table blend (mode 1) with identity table — tests transparency
-            ("colortable", 16, 16, sw, sh, 0, 0, 0x0000_0001, 77),
-            // Color-table + mirror_x
-            ("colortable_mx", 16, 16, sw, sh, 0, 0, 0x0001_0001, 77),
-            // Source sub-rect
-            (
-                "subrect",
-                16,
-                16,
-                sw / 2,
-                sh / 2,
-                sw / 4,
-                sh / 4,
-                0x0000_0000,
-                0,
-            ),
-            // Additive mask (mode 2) — writes only where both src and dst are non-zero
-            ("additive", 16, 16, sw, sh, 0, 0, 0x0000_0002, 77),
-            // Subtractive mask (mode 3) — writes only where src != 0 and dst == 0
-            ("subtractive", 16, 16, sw, sh, 0, 0, 0x0000_0003, 0),
-        ];
-
-        // Use the original (unhooked) blit function for ground-truth captures.
-        // ORIG_BLIT is set by MinHook when the hook is installed; if not hooked
-        // yet (shouldn't happen), fall back to the raw address.
-        let orig = ORIG_BLIT.load(core::sync::atomic::Ordering::Relaxed);
-        let blit_target = if orig != 0 {
-            orig
-        } else {
-            rb(va::BLIT_SPRITE_RECT)
+        // Save grid helper
+        let save_grid = |grid: *mut DisplayBitGrid, name: &str| {
+            let w = (*grid).width;
+            let h = (*grid).height;
+            let stride = (*grid).row_stride;
+            let data = (*grid).data;
+            let data_size = (stride * h) as usize;
+            let path = format!("{dir}/{name}.bin");
+            if let Ok(mut file) = fs::File::create(&path) {
+                let _ = file.write_all(&w.to_le_bytes());
+                let _ = file.write_all(&h.to_le_bytes());
+                let _ = file.write_all(&stride.to_le_bytes());
+                let _ = file.write_all(core::slice::from_raw_parts(data, data_size));
+            }
         };
 
-        for &(suffix, dx, dy, w, h, sx, sy, flags, bg) in test_cases {
-            // Clear destination
-            core::ptr::write_bytes(dst_data, bg, dst_size);
+        // ---------------------------------------------------------------
+        // Stippled blit capture
+        // ---------------------------------------------------------------
+        // DisplayGfx__BlitStippled (0x56AEF0):
+        //   usercall: EAX = height, ESI set internally from stack param
+        //   8 stack params (RET 0x20):
+        //     this, dst_x, dst_y, width, sprite, src_x, src_y, stipple_mode
+        //   Accesses this+0x3D98 (render_lock) and this+0x3D9C (layer_0).
+        //
+        // We create a minimal fake DisplayGfx context with render_lock=1
+        // (so AcquireRenderLock skips) and layer_0 pointing to our dst grid.
+        {
+            let dw = (sw + 32) as u32;
+            let dh = (sh + 32) as u32;
+            let dst = DisplayBitGrid::alloc(8, dw, dh);
+            if dst.is_null() {
+                let _ =
+                    log_line("[BitGrid] STIPPLED/TILED SNAPSHOT: Failed to allocate stipple dst");
+            } else {
+                let dst_data = (*dst).data;
+                let dst_size = ((*dst).row_stride * dh) as usize;
 
-            // Call WA's native blit: ESI=dst, 9 stack params
-            wa_blit_sprite_rect(
-                dst,
-                dx,
-                dy,
-                w,
-                h,
-                src,
-                sx,
-                sy,
-                core::ptr::null(), // no color table
-                flags,
-                blit_target,
-            );
+                // Fake DisplayGfx context — only fields at 0x3D98 and 0x3D9C matter.
+                const FAKE_SIZE: usize = 0x3DA0;
+                let fake_display: Vec<u8> = vec![0u8; FAKE_SIZE];
+                let fake_ptr = fake_display.as_ptr() as *mut u8;
 
-            let name = format!("{prefix}_{suffix}");
-            save_grid(dst, &name);
-            count += 1;
+                // render_lock = 1 (skip AcquireRenderLock)
+                *(fake_ptr.add(0x3D98) as *mut u32) = 1;
+                // layer_0 = our destination grid
+                *(fake_ptr.add(0x3D9C) as *mut *mut DisplayBitGrid) = dst;
+
+                // Save and set g_StippleParity to known values
+                let parity_ptr = rb(openwa_core::address::va::G_STIPPLE_PARITY) as *mut u32;
+                let saved_parity = *parity_ptr;
+
+                // Test cases: (name, dst_x, dst_y, width, height, src_x, src_y, stipple_mode, parity, bg)
+                #[allow(clippy::type_complexity)]
+                let test_cases: &[(
+                    &str,
+                    u32,
+                    i32,
+                    i32,
+                    i32,
+                    i32,
+                    i32,
+                    u32,
+                    u32,
+                    u8,
+                )] = &[
+                    // Mode 0 with parity 0
+                    ("stippled_mode0_par0", 16, 16, sw, sh, 0, 0, 0, 0, 77),
+                    // Mode 0 with parity 1 (inverted checkerboard)
+                    ("stippled_mode0_par1", 16, 16, sw, sh, 0, 0, 0, 1, 77),
+                    // Mode 1 with parity 0
+                    ("stippled_mode1_par0", 16, 16, sw, sh, 0, 0, 1, 0, 77),
+                    // Mode 1 with parity 1
+                    ("stippled_mode1_par1", 16, 16, sw, sh, 0, 0, 1, 1, 77),
+                ];
+
+                let blit_stippled_addr = rb(0x0056_AEF0);
+
+                for &(suffix, dx, dy, w, h, sx, sy, mode, parity, bg) in test_cases {
+                    core::ptr::write_bytes(dst_data, bg, dst_size);
+                    *parity_ptr = parity;
+
+                    wa_blit_stippled(
+                        fake_ptr,
+                        dx,
+                        dy,
+                        w,
+                        src,
+                        sx,
+                        sy,
+                        mode,
+                        h,
+                        blit_stippled_addr,
+                    );
+
+                    save_grid(dst, suffix);
+                    count += 1;
+                }
+
+                // Restore parity
+                *parity_ptr = saved_parity;
+
+                let destructor = (*(*dst).vtable).destructor;
+                destructor(dst, 1);
+            }
         }
 
-        // Free grids
+        // ---------------------------------------------------------------
+        // Tiled blit capture
+        // ---------------------------------------------------------------
+        // DisplayGfx__BlitTiled tiles BlitSpriteRect horizontally.
+        // Rather than calling the original (which needs complex DisplayGfx setup),
+        // we replicate the tiling loop using wa_blit_sprite_rect (original blit).
+        {
+            // Wide destination for visible tiling
+            let tile_w = (sw as u32) * 4 + 32;
+            let tile_h = (sh + 32) as u32;
+            let dst = DisplayBitGrid::alloc(8, tile_w, tile_h);
+            if dst.is_null() {
+                let _ = log_line("[BitGrid] STIPPLED/TILED SNAPSHOT: Failed to allocate tiled dst");
+            } else {
+                let dst_data = (*dst).data;
+                let dst_size = ((*dst).row_stride * tile_h) as usize;
+
+                let orig = ORIG_BLIT.load(core::sync::atomic::Ordering::Relaxed);
+                let blit_target = if orig != 0 {
+                    orig
+                } else {
+                    rb(openwa_core::address::va::BLIT_SPRITE_RECT)
+                };
+
+                // Tile modes: blend mode 1 (color table / transparency, no color table = skip zero)
+                // with orient = Normal (0)
+                let flags: u32 = 0x0000_0001; // blend=1 (color_table transparency), orient=Normal
+
+                // Test: tile sprite across the full width, starting from x=0
+                // Clip rect = full destination
+                let clip_left: i32 = 0;
+                let clip_right: i32 = tile_w as i32;
+                let dst_y: i32 = 16;
+
+                // Replicate BlitTiled wrapping logic from the original:
+                //   while (x < clip_left) x += width;
+                //   while (x > clip_left) x -= width;
+                // This wraps x to the largest value <= clip_left.
+                // Start from an arbitrary offset to test partial-tile clipping.
+                let mut start_x: i32 = 8;
+                while start_x < clip_left {
+                    start_x += sw;
+                }
+                while start_x > clip_left {
+                    start_x -= sw;
+                }
+
+                // Tiled with transparent blend
+                core::ptr::write_bytes(dst_data, 77, dst_size);
+                let mut x = start_x;
+                while x < clip_right {
+                    wa_blit_sprite_rect(
+                        dst,
+                        x,
+                        dst_y,
+                        sw,
+                        sh,
+                        src,
+                        0,
+                        0,
+                        core::ptr::null(),
+                        flags,
+                        blit_target,
+                    );
+                    x += sw;
+                }
+                save_grid(dst, "tiled_transparent");
+                count += 1;
+
+                // Tiled with copy mode (flags=0)
+                core::ptr::write_bytes(dst_data, 0, dst_size);
+                let mut x = start_x;
+                while x < clip_right {
+                    wa_blit_sprite_rect(
+                        dst,
+                        x,
+                        dst_y,
+                        sw,
+                        sh,
+                        src,
+                        0,
+                        0,
+                        core::ptr::null(),
+                        0x0000_0000, // copy mode
+                        blit_target,
+                    );
+                    x += sw;
+                }
+                save_grid(dst, "tiled_copy");
+                count += 1;
+
+                let destructor = (*(*dst).vtable).destructor;
+                destructor(dst, 1);
+            }
+        }
+
+        // Free source
         let destructor = (*(*src).vtable).destructor;
         destructor(src, 1);
-        let destructor = (*(*dst).vtable).destructor;
-        destructor(dst, 1);
+
+        let _ = log_line(&format!(
+            "[BitGrid] STIPPLED/TILED SNAPSHOT: Saved {count} snapshots to {dir}/"
+        ));
     }
-
-    let _ = log_line(&format!(
-        "[BitGrid] BLIT SNAPSHOT: Saved {count} snapshots to {dir}/"
-    ));
-}
-
-// =========================================================================
-// Stippled & tiled blit snapshot capture
-// =========================================================================
-
-/// Capture stippled and tiled blit snapshots from WA's native functions.
-///
-/// Creates synthetic BitGrids and a minimal fake DisplayGfx context (render_lock=1
-/// so AcquireRenderLock is a no-op), then calls the original WA functions.
-///
-/// Activated by `OPENWA_CAPTURE_SNAPSHOTS=1`.
-pub unsafe fn capture_stippled_tiled_snapshots() {
-    use openwa_core::bitgrid::DisplayBitGrid;
-    use openwa_core::rebase::rb;
-    use std::fs;
-    use std::io::Write;
-
-    let _ = log_line("[BitGrid] STIPPLED/TILED SNAPSHOT: Starting capture");
-
-    const PROJECT_ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../..");
-
-    // Load test image
-    let img_data = match fs::read(format!(
-        "{PROJECT_ROOT}/testdata/assets/sprite_transparent_test.gif"
-    )) {
-        Ok(d) => d,
-        Err(e) => {
-            let _ = log_line(&format!(
-                "[BitGrid] STIPPLED/TILED SNAPSHOT: Failed to read test image: {e}"
-            ));
-            return;
-        }
-    };
-    let img = match decode_gif_indexed(&img_data) {
-        Some(i) => i,
-        None => {
-            let _ = log_line("[BitGrid] STIPPLED/TILED SNAPSHOT: Failed to decode test image");
-            return;
-        }
-    };
-
-    let dir = format!("{PROJECT_ROOT}/testdata/snapshots");
-    let _ = fs::create_dir_all(&dir);
-    let mut count = 0u32;
-
-    let sw = img.width as i32;
-    let sh = img.height as i32;
-
-    // Create source BitGrid
-    let src = DisplayBitGrid::alloc(8, img.width, img.height);
-    if src.is_null() {
-        let _ = log_line("[BitGrid] STIPPLED/TILED SNAPSHOT: Failed to allocate source");
-        return;
-    }
-    for y in 0..img.height {
-        let src_row = (y * img.width) as usize;
-        let dst_row = (*src).data.add((y * (*src).row_stride) as usize);
-        core::ptr::copy_nonoverlapping(
-            img.pixels.as_ptr().add(src_row),
-            dst_row,
-            img.width as usize,
-        );
-    }
-    (*src).clip_left = 0;
-    (*src).clip_top = 0;
-    (*src).clip_right = img.width;
-    (*src).clip_bottom = img.height;
-
-    // Save grid helper
-    let save_grid = |grid: *mut DisplayBitGrid, name: &str| {
-        let w = (*grid).width;
-        let h = (*grid).height;
-        let stride = (*grid).row_stride;
-        let data = (*grid).data;
-        let data_size = (stride * h) as usize;
-        let path = format!("{dir}/{name}.bin");
-        if let Ok(mut file) = fs::File::create(&path) {
-            let _ = file.write_all(&w.to_le_bytes());
-            let _ = file.write_all(&h.to_le_bytes());
-            let _ = file.write_all(&stride.to_le_bytes());
-            let _ = file.write_all(core::slice::from_raw_parts(data, data_size));
-        }
-    };
-
-    // ---------------------------------------------------------------
-    // Stippled blit capture
-    // ---------------------------------------------------------------
-    // DisplayGfx__BlitStippled (0x56AEF0):
-    //   usercall: EAX = height, ESI set internally from stack param
-    //   8 stack params (RET 0x20):
-    //     this, dst_x, dst_y, width, sprite, src_x, src_y, stipple_mode
-    //   Accesses this+0x3D98 (render_lock) and this+0x3D9C (layer_0).
-    //
-    // We create a minimal fake DisplayGfx context with render_lock=1
-    // (so AcquireRenderLock skips) and layer_0 pointing to our dst grid.
-    {
-        let dw = (sw + 32) as u32;
-        let dh = (sh + 32) as u32;
-        let dst = DisplayBitGrid::alloc(8, dw, dh);
-        if dst.is_null() {
-            let _ = log_line("[BitGrid] STIPPLED/TILED SNAPSHOT: Failed to allocate stipple dst");
-        } else {
-            let dst_data = (*dst).data;
-            let dst_size = ((*dst).row_stride * dh) as usize;
-
-            // Fake DisplayGfx context — only fields at 0x3D98 and 0x3D9C matter.
-            const FAKE_SIZE: usize = 0x3DA0;
-            let fake_display: Vec<u8> = vec![0u8; FAKE_SIZE];
-            let fake_ptr = fake_display.as_ptr() as *mut u8;
-
-            // render_lock = 1 (skip AcquireRenderLock)
-            *(fake_ptr.add(0x3D98) as *mut u32) = 1;
-            // layer_0 = our destination grid
-            *(fake_ptr.add(0x3D9C) as *mut *mut DisplayBitGrid) = dst;
-
-            // Save and set g_StippleParity to known values
-            let parity_ptr = rb(openwa_core::address::va::G_STIPPLE_PARITY) as *mut u32;
-            let saved_parity = *parity_ptr;
-
-            // Test cases: (name, dst_x, dst_y, width, height, src_x, src_y, stipple_mode, parity, bg)
-            #[allow(clippy::type_complexity)]
-            let test_cases: &[(&str, u32, i32, i32, i32, i32, i32, u32, u32, u8)] = &[
-                // Mode 0 with parity 0
-                ("stippled_mode0_par0", 16, 16, sw, sh, 0, 0, 0, 0, 77),
-                // Mode 0 with parity 1 (inverted checkerboard)
-                ("stippled_mode0_par1", 16, 16, sw, sh, 0, 0, 0, 1, 77),
-                // Mode 1 with parity 0
-                ("stippled_mode1_par0", 16, 16, sw, sh, 0, 0, 1, 0, 77),
-                // Mode 1 with parity 1
-                ("stippled_mode1_par1", 16, 16, sw, sh, 0, 0, 1, 1, 77),
-            ];
-
-            let blit_stippled_addr = rb(0x0056_AEF0);
-
-            for &(suffix, dx, dy, w, h, sx, sy, mode, parity, bg) in test_cases {
-                core::ptr::write_bytes(dst_data, bg, dst_size);
-                *parity_ptr = parity;
-
-                wa_blit_stippled(
-                    fake_ptr,
-                    dx,
-                    dy,
-                    w,
-                    src,
-                    sx,
-                    sy,
-                    mode,
-                    h,
-                    blit_stippled_addr,
-                );
-
-                save_grid(dst, suffix);
-                count += 1;
-            }
-
-            // Restore parity
-            *parity_ptr = saved_parity;
-
-            let destructor = (*(*dst).vtable).destructor;
-            destructor(dst, 1);
-        }
-    }
-
-    // ---------------------------------------------------------------
-    // Tiled blit capture
-    // ---------------------------------------------------------------
-    // DisplayGfx__BlitTiled tiles BlitSpriteRect horizontally.
-    // Rather than calling the original (which needs complex DisplayGfx setup),
-    // we replicate the tiling loop using wa_blit_sprite_rect (original blit).
-    {
-        // Wide destination for visible tiling
-        let tile_w = (sw as u32) * 4 + 32;
-        let tile_h = (sh + 32) as u32;
-        let dst = DisplayBitGrid::alloc(8, tile_w, tile_h);
-        if dst.is_null() {
-            let _ = log_line("[BitGrid] STIPPLED/TILED SNAPSHOT: Failed to allocate tiled dst");
-        } else {
-            let dst_data = (*dst).data;
-            let dst_size = ((*dst).row_stride * tile_h) as usize;
-
-            let orig = ORIG_BLIT.load(core::sync::atomic::Ordering::Relaxed);
-            let blit_target = if orig != 0 {
-                orig
-            } else {
-                rb(openwa_core::address::va::BLIT_SPRITE_RECT)
-            };
-
-            // Tile modes: blend mode 1 (color table / transparency, no color table = skip zero)
-            // with orient = Normal (0)
-            let flags: u32 = 0x0000_0001; // blend=1 (color_table transparency), orient=Normal
-
-            // Test: tile sprite across the full width, starting from x=0
-            // Clip rect = full destination
-            let clip_left: i32 = 0;
-            let clip_right: i32 = tile_w as i32;
-            let dst_y: i32 = 16;
-
-            // Replicate BlitTiled wrapping logic from the original:
-            //   while (x < clip_left) x += width;
-            //   while (x > clip_left) x -= width;
-            // This wraps x to the largest value <= clip_left.
-            // Start from an arbitrary offset to test partial-tile clipping.
-            let mut start_x: i32 = 8;
-            while start_x < clip_left {
-                start_x += sw;
-            }
-            while start_x > clip_left {
-                start_x -= sw;
-            }
-
-            // Tiled with transparent blend
-            core::ptr::write_bytes(dst_data, 77, dst_size);
-            let mut x = start_x;
-            while x < clip_right {
-                wa_blit_sprite_rect(
-                    dst,
-                    x,
-                    dst_y,
-                    sw,
-                    sh,
-                    src,
-                    0,
-                    0,
-                    core::ptr::null(),
-                    flags,
-                    blit_target,
-                );
-                x += sw;
-            }
-            save_grid(dst, "tiled_transparent");
-            count += 1;
-
-            // Tiled with copy mode (flags=0)
-            core::ptr::write_bytes(dst_data, 0, dst_size);
-            let mut x = start_x;
-            while x < clip_right {
-                wa_blit_sprite_rect(
-                    dst,
-                    x,
-                    dst_y,
-                    sw,
-                    sh,
-                    src,
-                    0,
-                    0,
-                    core::ptr::null(),
-                    0x0000_0000, // copy mode
-                    blit_target,
-                );
-                x += sw;
-            }
-            save_grid(dst, "tiled_copy");
-            count += 1;
-
-            let destructor = (*(*dst).vtable).destructor;
-            destructor(dst, 1);
-        }
-    }
-
-    // Free source
-    let destructor = (*(*src).vtable).destructor;
-    destructor(src, 1);
-
-    let _ = log_line(&format!(
-        "[BitGrid] STIPPLED/TILED SNAPSHOT: Saved {count} snapshots to {dir}/"
-    ));
 }
 
 /// Call WA's DisplayGfx__BlitStippled (0x56AEF0).
@@ -870,18 +897,20 @@ unsafe extern "cdecl" fn blit_impl_cdecl(
     color_table: *const u8,
     flags: u32,
 ) -> u32 {
-    openwa_core::bitgrid::blit::blit_impl(
-        dst,
-        dst_x,
-        dst_y,
-        width,
-        height,
-        src,
-        src_x,
-        src_y,
-        color_table,
-        flags,
-    )
+    unsafe {
+        openwa_core::bitgrid::blit::blit_impl(
+            dst,
+            dst_x,
+            dst_y,
+            width,
+            height,
+            src,
+            src_x,
+            src_y,
+            color_table,
+            flags,
+        )
+    }
 }
 
 /// Call the original WA blit function via trampoline.
@@ -899,20 +928,22 @@ unsafe fn call_original_blit(
     color_table: *const u8,
     flags: u32,
 ) -> u32 {
-    let orig = ORIG_BLIT.load(Ordering::Relaxed);
-    call_original_blit_asm(
-        dst,
-        dst_x,
-        dst_y,
-        width,
-        height,
-        src,
-        src_x,
-        src_y,
-        color_table,
-        flags,
-        orig,
-    )
+    unsafe {
+        let orig = ORIG_BLIT.load(Ordering::Relaxed);
+        call_original_blit_asm(
+            dst,
+            dst_x,
+            dst_y,
+            width,
+            height,
+            src,
+            src_x,
+            src_y,
+            color_table,
+            flags,
+            orig,
+        )
+    }
 }
 
 /// Naked asm to call the original blit with ESI set correctly.

@@ -31,27 +31,29 @@ static HASH_LOG: Mutex<Option<std::io::BufWriter<std::fs::File>>> = Mutex::new(N
 /// `__thiscall`: ECX = controller object, stack param = DDGameWrapper*.
 /// After calling the original, reads the computed checksums and logs them.
 unsafe extern "thiscall" fn hook_checksum_processor(ctrl: u32, wrapper: *mut DDGameWrapper) {
-    // Call original
-    let orig: unsafe extern "thiscall" fn(u32, *mut DDGameWrapper) =
-        core::mem::transmute(ORIG_CHECKSUM_PROCESSOR.load(Ordering::Relaxed));
-    orig(ctrl, wrapper);
+    unsafe {
+        // Call original
+        let orig: unsafe extern "thiscall" fn(u32, *mut DDGameWrapper) =
+            core::mem::transmute(ORIG_CHECKSUM_PROCESSOR.load(Ordering::Relaxed));
+        orig(ctrl, wrapper);
 
-    // Read checksums written by the original function
-    if wrapper.is_null() {
-        return;
-    }
-    let ddgame = (*wrapper).ddgame;
-    if ddgame.is_null() {
-        return;
-    }
+        // Read checksums written by the original function
+        if wrapper.is_null() {
+            return;
+        }
+        let ddgame = (*wrapper).ddgame;
+        if ddgame.is_null() {
+            return;
+        }
 
-    let frame = (*ddgame).frame_counter;
-    let checksum_a = (*wrapper).sync_checksum_a;
-    let checksum_b = (*wrapper).sync_checksum_b;
+        let frame = (*ddgame).frame_counter;
+        let checksum_a = (*wrapper).sync_checksum_a;
+        let checksum_b = (*wrapper).sync_checksum_b;
 
-    if let Ok(mut guard) = HASH_LOG.lock() {
-        if let Some(writer) = guard.as_mut() {
-            let _ = writeln!(writer, "{}\t{:08X}\t{:08X}", frame, checksum_a, checksum_b);
+        if let Ok(mut guard) = HASH_LOG.lock() {
+            if let Some(writer) = guard.as_mut() {
+                let _ = writeln!(writer, "{}\t{:08X}\t{:08X}", frame, checksum_a, checksum_b);
+            }
         }
     }
 }

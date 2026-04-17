@@ -22,7 +22,9 @@ unsafe extern "cdecl" fn weapon_release_impl(
     aim_dir_x: Fixed,
     aim_dir_y: Fixed,
 ) {
-    wr::weapon_release(worm, spawn_x, spawn_y, aim_dir_x, aim_dir_y);
+    unsafe {
+        wr::weapon_release(worm, spawn_x, spawn_y, aim_dir_x, aim_dir_y);
+    }
 }
 
 // ── SpawnEffect (0x547C30): usercall(EAX=const, ECX=speed_x, ESI=worm) + 7 stack ──
@@ -67,9 +69,12 @@ unsafe extern "cdecl" fn spawn_effect_cdecl(
     size: Fixed,
     scale: Fixed,
 ) {
-    wr::spawn_effect(
-        worm, constant, speed_x, speed_y, rng_scaled, rng_offset, palette, state_flag, size, scale,
-    );
+    unsafe {
+        wr::spawn_effect(
+            worm, constant, speed_x, speed_y, rng_scaled, rng_offset, palette, state_flag, size,
+            scale,
+        );
+    }
 }
 
 // ── Hook installation ──

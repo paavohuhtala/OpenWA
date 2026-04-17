@@ -24,15 +24,17 @@ unsafe extern "cdecl" fn enqueue_tiled_bitmap_impl(
     source: *const TiledBitmapSource,
     flags: u32,
 ) {
-    let _ = (*queue).push_typed(
-        0x1B_0000,
-        RenderMessage::TiledBitmap {
-            x: Fixed(0xFF00_0000u32 as i32),
-            y,
-            source,
-            flags: flags as u8,
-        },
-    );
+    unsafe {
+        let _ = (*queue).push_typed(
+            0x1B_0000,
+            RenderMessage::TiledBitmap {
+                x: Fixed(0xFF00_0000u32 as i32),
+                y,
+                source,
+                flags: flags as u8,
+            },
+        );
+    }
 }
 
 // DrawLineStrip (0x541DD0) — variable-size: vertex data via alloc_aux
@@ -46,18 +48,20 @@ unsafe extern "cdecl" fn draw_line_strip_impl(
     vertices: *const [i32; 3],
     color: u32,
 ) {
-    let rq = &mut *queue;
-    let byte_len = count as usize * core::mem::size_of::<[i32; 3]>();
-    if let Some(vert_ptr) = rq.alloc_aux(byte_len) {
-        core::ptr::copy_nonoverlapping(vertices as *const u8, vert_ptr, byte_len);
-        let _ = rq.push_typed(
-            0xE_0000,
-            RenderMessage::LineStrip {
-                count,
-                color,
-                vertices: vert_ptr as *const [i32; 3],
-            },
-        );
+    unsafe {
+        let rq = &mut *queue;
+        let byte_len = count as usize * core::mem::size_of::<[i32; 3]>();
+        if let Some(vert_ptr) = rq.alloc_aux(byte_len) {
+            core::ptr::copy_nonoverlapping(vertices as *const u8, vert_ptr, byte_len);
+            let _ = rq.push_typed(
+                0xE_0000,
+                RenderMessage::LineStrip {
+                    count,
+                    color,
+                    vertices: vert_ptr as *const [i32; 3],
+                },
+            );
+        }
     }
 }
 
@@ -73,19 +77,21 @@ unsafe extern "cdecl" fn draw_polygon_impl(
     color1: u32,
     color2: u32,
 ) {
-    let rq = &mut *queue;
-    let byte_len = count as usize * core::mem::size_of::<[i32; 3]>();
-    if let Some(vert_ptr) = rq.alloc_aux(byte_len) {
-        core::ptr::copy_nonoverlapping(vertices as *const u8, vert_ptr, byte_len);
-        let _ = rq.push_typed(
-            0xE_0000,
-            RenderMessage::Polygon {
-                count,
-                color1,
-                color2,
-                vertices: vert_ptr as *const [i32; 3],
-            },
-        );
+    unsafe {
+        let rq = &mut *queue;
+        let byte_len = count as usize * core::mem::size_of::<[i32; 3]>();
+        if let Some(vert_ptr) = rq.alloc_aux(byte_len) {
+            core::ptr::copy_nonoverlapping(vertices as *const u8, vert_ptr, byte_len);
+            let _ = rq.push_typed(
+                0xE_0000,
+                RenderMessage::Polygon {
+                    count,
+                    color1,
+                    color2,
+                    vertices: vert_ptr as *const [i32; 3],
+                },
+            );
+        }
     }
 }
 
@@ -102,15 +108,17 @@ unsafe extern "cdecl" fn draw_crosshair_impl(
     color_fg: u32,
     color_bg: u32,
 ) {
-    let _ = (*queue).push_typed(
-        layer,
-        RenderMessage::Crosshair {
-            color_fg,
-            color_bg,
-            x,
-            y,
-        },
-    );
+    unsafe {
+        let _ = (*queue).push_typed(
+            layer,
+            RenderMessage::Crosshair {
+                color_fg,
+                color_bg,
+                x,
+                y,
+            },
+        );
+    }
 }
 
 // DrawRect (0x541F40)
@@ -128,17 +136,19 @@ unsafe extern "cdecl" fn draw_rect_impl(
     y2: Fixed,
     color: u32,
 ) {
-    let _ = (*queue).push_typed(
-        layer,
-        RenderMessage::FillRect {
-            color,
-            x1: x1.floor(),
-            y1: y1.floor(),
-            x2: x2.floor(),
-            y2: y2.floor(),
-            ref_z: y_clip.floor().0,
-        },
-    );
+    unsafe {
+        let _ = (*queue).push_typed(
+            layer,
+            RenderMessage::FillRect {
+                color,
+                x1: x1.floor(),
+                y1: y1.floor(),
+                x2: x2.floor(),
+                y2: y2.floor(),
+                ref_z: y_clip.floor().0,
+            },
+        );
+    }
 }
 
 // DrawSpriteGlobal (0x541FE0)
@@ -154,16 +164,18 @@ unsafe extern "cdecl" fn draw_sprite_global_impl(
     sprite: SpriteOp,
     frame: u32,
 ) {
-    let _ = (*queue).push_typed(
-        layer,
-        RenderMessage::Sprite {
-            local: false,
-            x: x_pos.floor(),
-            y: y_pos.floor(),
-            sprite,
-            palette: frame,
-        },
-    );
+    unsafe {
+        let _ = (*queue).push_typed(
+            layer,
+            RenderMessage::Sprite {
+                local: false,
+                x: x_pos.floor(),
+                y: y_pos.floor(),
+                sprite,
+                palette: frame,
+            },
+        );
+    }
 }
 
 // DrawSpriteLocal (0x542060)
@@ -179,16 +191,18 @@ unsafe extern "cdecl" fn draw_sprite_local_impl(
     sprite: SpriteOp,
     frame: u32,
 ) {
-    let _ = (*queue).push_typed(
-        layer,
-        RenderMessage::Sprite {
-            local: true,
-            x: x_pos.floor(),
-            y: y_pos.floor(),
-            sprite,
-            palette: frame,
-        },
-    );
+    unsafe {
+        let _ = (*queue).push_typed(
+            layer,
+            RenderMessage::Sprite {
+                local: true,
+                x: x_pos.floor(),
+                y: y_pos.floor(),
+                sprite,
+                palette: frame,
+            },
+        );
+    }
 }
 
 // DrawSpriteOffset (0x5420E0)
@@ -206,17 +220,19 @@ unsafe extern "cdecl" fn draw_sprite_offset_impl(
     sprite: SpriteOp,
     palette: u32,
 ) {
-    let _ = (*queue).push_typed(
-        layer,
-        RenderMessage::SpriteOffset {
-            flags,
-            x: x_pos.floor(),
-            y: y_pos.floor(),
-            ref_z_2: y_clip.floor().0,
-            sprite,
-            palette,
-        },
-    );
+    unsafe {
+        let _ = (*queue).push_typed(
+            layer,
+            RenderMessage::SpriteOffset {
+                flags,
+                x: x_pos.floor(),
+                y: y_pos.floor(),
+                ref_z_2: y_clip.floor().0,
+                sprite,
+                palette,
+            },
+        );
+    }
 }
 
 // DrawBitmapGlobal (0x542170)
@@ -235,18 +251,20 @@ unsafe extern "cdecl" fn draw_bitmap_global_impl(
     src_h: i32,
     flags: u32,
 ) {
-    let _ = (*queue).push_typed(
-        layer,
-        RenderMessage::BitmapGlobal {
-            x: x_pos.floor(),
-            y: y_pos.floor(),
-            bitmap,
-            src_y,
-            src_w,
-            src_h,
-            flags,
-        },
-    );
+    unsafe {
+        let _ = (*queue).push_typed(
+            layer,
+            RenderMessage::BitmapGlobal {
+                x: x_pos.floor(),
+                y: y_pos.floor(),
+                bitmap,
+                src_y,
+                src_w,
+                src_h,
+                flags,
+            },
+        );
+    }
 }
 
 // DrawTextboxLocal (0x542200)
@@ -264,17 +282,19 @@ unsafe extern "cdecl" fn draw_textbox_local_impl(
     src_h: i32,
     flags: u32,
 ) {
-    let _ = (*q).push_typed(
-        layer,
-        RenderMessage::TextboxLocal {
-            x: x_pos.floor(),
-            y: y_pos.floor(),
-            bitmap,
-            src_w,
-            src_h,
-            flags,
-        },
-    );
+    unsafe {
+        let _ = (*q).push_typed(
+            layer,
+            RenderMessage::TextboxLocal {
+                x: x_pos.floor(),
+                y: y_pos.floor(),
+                bitmap,
+                src_w,
+                src_h,
+                flags,
+            },
+        );
+    }
 }
 
 // DrawBungeeTrail (0x500720)
@@ -284,7 +304,9 @@ unsafe extern "stdcall" fn draw_bungee_trail_impl(
     style: u32,
     fill: u32,
 ) {
-    openwa_core::render::bungee_trail::draw_bungee_trail(task, style, fill);
+    unsafe {
+        openwa_core::render::bungee_trail::draw_bungee_trail(task, style, fill);
+    }
 }
 
 // DrawCrosshairLine (0x5197D0)
@@ -293,7 +315,9 @@ usercall_trampoline!(fn trampoline_draw_crosshair_line; impl_fn = draw_crosshair
     reg = edi);
 
 unsafe extern "cdecl" fn draw_crosshair_line_impl(task: *const WeaponAimTask) {
-    openwa_core::render::crosshair_line::draw_crosshair_line(task);
+    unsafe {
+        openwa_core::render::crosshair_line::draw_crosshair_line(task);
+    }
 }
 
 // RenderDrawingQueue (0x542350)
@@ -307,7 +331,9 @@ unsafe extern "cdecl" fn render_drawing_queue_impl(
     display: *mut DisplayGfx,
     clip: *mut ClipContext,
 ) {
-    render_drawing_queue(rq, display, clip);
+    unsafe {
+        render_drawing_queue(rq, display, clip);
+    }
 }
 
 pub fn install() -> Result<(), String> {

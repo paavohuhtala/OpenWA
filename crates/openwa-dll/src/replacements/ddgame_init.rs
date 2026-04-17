@@ -268,7 +268,9 @@ pub fn install() -> Result<(), String> {
 // Convention: fastcall(ECX=base, EDX=count), plain RET.
 
 unsafe extern "fastcall" fn sprite_gfx_table_init_trampoline(base: u32, count: u32) {
-    sprite_gfx_table_init(base as *mut u8, count);
+    unsafe {
+        sprite_gfx_table_init(base as *mut u8, count);
+    }
 }
 
 // ─── RingBuffer__Init (0x541060) ────────────────────────────────────────────
@@ -288,7 +290,9 @@ hook::usercall_trampoline!(
 // Convention: fastcall(ECX=wrapper), plain RET.
 
 unsafe extern "fastcall" fn init_team_scoring_trampoline(wrapper: *mut DDGameWrapper, _edx: u32) {
-    init_team_scoring(wrapper);
+    unsafe {
+        init_team_scoring(wrapper);
+    }
 }
 
 // ─── CGameTask__InitAllianceData (0x5262D0) ─────────────────────────────────
