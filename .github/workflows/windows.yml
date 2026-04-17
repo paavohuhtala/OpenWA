@@ -1,4 +1,4 @@
-name: Linux Build
+name: Windows Build
 
 on:
   push:
@@ -9,12 +9,11 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  XWIN_ARCH: x86
 
 jobs:
   build:
-    name: Build & Clippy
-    runs-on: ubuntu-latest
+    name: Build, Test & Clippy
+    runs-on: windows-latest
 
     steps:
       - uses: actions/checkout@v6
@@ -36,14 +35,20 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y llvm
-
-      - name: Install cargo-xwin
-        run: cargo install cargo-xwin
-
       - name: Run clippy
-        run: cargo xwin clippy --target i686-pc-windows-msvc --workspace -- -D warnings
+        run: cargo clippy --target i686-pc-windows-msvc --workspace -- -D warnings
+
+      - name: Run tests
+        run: cargo test --target i686-pc-windows-msvc --workspace
 
       - name: Build all crates
-        run: cargo xwin build --target i686-pc-windows-msvc --workspace --release
+        run: cargo build --target i686-pc-windows-msvc --workspace --release
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: openwa-release-windows
+          path: |
+            target/i686-pc-windows-msvc/release/*.dll
+            target/i686-pc-windows-msvc/release/*.exe
+          if-no-files-found: ignore
