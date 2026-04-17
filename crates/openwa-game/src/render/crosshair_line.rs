@@ -8,13 +8,11 @@
 //!   4. DrawPolygon (2 vertices) for the line
 //!   5. Conditionally DrawSpriteLocal at endpoint (crosshair sprite)
 
-use crate::address::va;
-use crate::rebase::rb;
 use crate::render::message::RenderMessage;
 use crate::render::SpriteOp;
 use crate::task::WeaponAimTask;
-use crate::trig::trig_lookup;
 use openwa_core::fixed::Fixed;
+use openwa_core::trig::{cos, sin};
 
 /// Draw the weapon aiming crosshair line for the given task.
 ///
@@ -38,10 +36,8 @@ pub unsafe fn draw_crosshair_line(task: *const WeaponAimTask) {
     let angle = (*task).aim_angle;
 
     // Trig interpolation
-    let sin_table = rb(va::G_SIN_TABLE) as *const i32;
-    let cos_table = rb(va::G_COS_TABLE) as *const i32;
-    let sin_interp = trig_lookup(sin_table, angle);
-    let cos_interp = trig_lookup(cos_table, angle);
+    let sin_interp = sin(angle);
+    let cos_interp = cos(angle);
 
     // Smooth aim-range animation: interpolate 20 units/tick by the sub-frame
     // progress ratio, then add the crosshair's standing aim offset.

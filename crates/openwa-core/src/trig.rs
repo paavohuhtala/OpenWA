@@ -53,22 +53,6 @@ pub fn trig_lookup_table(table: &[i32; TABLE_LEN], angle: u32) -> Fixed {
     (next - base).mul_raw(frac) + base
 }
 
-/// Raw-pointer variant of [`trig_lookup_table`] for callers that have a
-/// `*const i32` instead of a slice reference (e.g. WA.exe-side tables read
-/// via ASLR rebasing).
-///
-/// # Safety
-///
-/// `table` must point to at least 1025 readable `i32` values.
-#[inline]
-pub unsafe fn trig_lookup(table: *const i32, angle: u32) -> Fixed {
-    let index = ((angle as i32) >> 6) as usize & 0x3FF;
-    let frac = Fixed::from_raw(((angle & 0x3F) << 10) as i32);
-    let base = Fixed::from_raw(unsafe { *table.add(index) });
-    let next = Fixed::from_raw(unsafe { *table.add(index + 1) });
-    (next - base).mul_raw(frac) + base
-}
-
 /// Sine lookup using the embedded table. Safe, no WA.exe dependency.
 #[inline]
 pub fn sin(angle: u32) -> Fixed {

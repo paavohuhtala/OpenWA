@@ -1,34 +1,19 @@
-//! Thin WA.exe-side trig adapter.
+//! Runtime validation of the embedded sin/cos tables.
 //!
-//! The real sine/cosine tables and lookup logic live in
-//! [`openwa_core::trig`] as byte-for-byte copies of WA.exe's `.rdata`. This
-//! module just exposes `sin_lookup` / `cos_lookup` under their familiar names
-//! and provides [`validate_against_wa_exe`], a startup check that confirms
-//! the embedded tables still match the live binary.
+//! The sine/cosine tables and lookup logic live in [`openwa_core::trig`]
+//! as byte-for-byte copies of WA.exe's `.rdata`. Callers use
+//! `openwa_core::trig::{sin, cos}` directly; this module exists only to
+//! house [`validate_against_wa_exe`], the startup check that confirms the
+//! embedded tables still match the live binary.
 
 use crate::address::va;
 use crate::rebase::rb;
-use openwa_core::fixed::Fixed;
 use openwa_core::trig::{COS_TABLE, SIN_TABLE, TABLE_LEN};
 
-pub use openwa_core::trig::trig_lookup;
-
-/// Sine lookup. Identical to [`openwa_core::trig::sin`] — kept under this
-/// name for callers that originally went through `openwa_game::trig`.
-#[inline]
-pub fn sin_lookup(angle: u32) -> Fixed {
-    openwa_core::trig::sin(angle)
-}
-
-/// Cosine lookup. Identical to [`openwa_core::trig::cos`].
-#[inline]
-pub fn cos_lookup(angle: u32) -> Fixed {
-    openwa_core::trig::cos(angle)
-}
-
 /// Verify that the embedded const tables still match WA.exe's `.rdata`
-/// tables at runtime. Returns the 1-based index of the first mismatch,
-/// or `None` if the tables are identical.
+/// tables at runtime. Returns the name of the first differing table,
+/// its index, the embedded value, and the live value — or `Ok(())` if
+/// the tables are identical.
 ///
 /// # Safety
 ///

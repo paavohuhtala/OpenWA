@@ -7,13 +7,11 @@
 //!   3. Final vertex at task position (0x84/0x88)
 //!   4. DrawPolygon (if fill != 0) or DrawLineStrip
 
-use crate::address::va;
-use crate::rebase::rb;
 use crate::render::message::RenderMessage;
 use crate::render::SpriteOp;
 use crate::task::BungeeTrailTask;
-use crate::trig::trig_lookup;
 use openwa_core::fixed::Fixed;
+use openwa_core::trig::{cos, sin};
 
 /// Draw bungee trail for the given task.
 ///
@@ -64,9 +62,6 @@ pub unsafe fn draw_bungee_trail(task: *const BungeeTrailTask, style: u32, fill: 
     let mut vert_count: usize = 0;
     let mut accumulated_angle: u32 = 0;
 
-    let sin_table = rb(va::G_SIN_TABLE) as *const i32;
-    let cos_table = rb(va::G_COS_TABLE) as *const i32;
-
     for i in 0..segment_count {
         let seg_angle = *(seg_data.add(4 + i as usize * 8) as *const i32);
 
@@ -78,8 +73,8 @@ pub unsafe fn draw_bungee_trail(task: *const BungeeTrailTask, style: u32, fill: 
 
         accumulated_angle = accumulated_angle.wrapping_add(seg_angle as u32);
 
-        let sin_interp = trig_lookup(sin_table, accumulated_angle);
-        let cos_interp = trig_lookup(cos_table, accumulated_angle);
+        let sin_interp = sin(accumulated_angle);
+        let cos_interp = cos(accumulated_angle);
 
         x = x.wrapping_add(sin_interp.0.wrapping_mul(8));
         y = y.wrapping_sub(cos_interp.0.wrapping_mul(8));
