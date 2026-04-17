@@ -10,7 +10,6 @@ use crate::audio::active_sound::ActiveSoundTable;
 use crate::audio::dssound::DSSound;
 use crate::engine::ddgame::DDGame;
 use crate::engine::ddgame_wrapper::DDGameWrapper;
-use crate::engine::game_info::GameInfo;
 use crate::engine::game_session::GameSession;
 use crate::input::keyboard::DDKeyboard;
 use crate::rebase::rb;
@@ -973,17 +972,17 @@ pub unsafe fn dispatch_frame(
         bridge_network_update(wrapper);
     }
 
-    // Game-end detection (network timeout).
+    // Game-end detection via HomeLock.
+    //
+    // The original compiles this as `cmp word [gi+0xF3B0], ax` — a 16-bit
+    // read — but `home_lock` is authoritatively a `u8`: `LoadOptions` writes
+    // only the low byte, nothing else writes 0xF3B0/0xF3B1, and the struct
+    // is zero-initialised. Reading as `u8` is bit-identical to the original.
     {
         let gi = &*(*ddgame).game_info;
-        // FIXME: collides with `home_lock: u8` at 0xF3B0. Two code paths use
-        // the same offset with different types — needs a dedicated RE pass
-        // before the raw read is replaced with a typed field. See
-        // plans/let-s-perform-a-cleanup-mossy-sonnet.md.
-        let net_timeout = *((gi as *const GameInfo as *const u8).add(0xf3b0) as *const u16);
-
-        if net_timeout != 0
-            && (net_timeout as i32) < (*ddgame)._field_77d4 as i32 / 50
+        let home_lock = gi.home_lock as i32;
+        if home_lock != 0
+            && home_lock < (*ddgame)._field_77d4 as i32 / 50
             && (*wrapper).game_end_phase == 0
         {
             (*wrapper).game_state = 4; // EXIT_HEADLESS

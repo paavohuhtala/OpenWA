@@ -266,7 +266,18 @@ pub struct GameInfo {
     pub chat_lines: u32,
     /// 0xF3AC: Pinned chat lines (registry: PinnedChatLines, default 0xFFFFFFFF)
     pub pinned_chat_lines: u32,
-    /// 0xF3B0: Home lock (registry: HomeLock, default 0)
+    /// 0xF3B0: Home lock (registry: HomeLock, default 0).
+    ///
+    /// Authoritatively a `u8` — `LoadOptions` is the only writer and writes
+    /// the low byte only. `InitHardware` and `DispatchFrame` happen to read
+    /// this as a `word` in the disassembly, but the high byte (0xF3B1) is
+    /// zero-initialised and never modified, so the wider read is bit-for-bit
+    /// equivalent to a byte read. Consumers should use this `u8` field.
+    ///
+    /// Roles: `(home_lock != 0)` sets `GameSession.fullscreen_flag` during
+    /// `InitHardware`, and `DispatchFrame` compares it against
+    /// `DDGame._field_77d4 / 50` to trigger `game_state = 4` (headless exit)
+    /// after the matching number of turn seconds.
     pub home_lock: u8,
     /// 0xF3B1: Unknown
     pub _unknown_f3b1: [u8; 3],
