@@ -1,0 +1,7 @@
+[package]
+name = "openwa-core"
+version = "0.1.0"
+edition = "2024"
+description = "Cross-platform fundamentals for Worms Armageddon reverse engineering — idiomatic Rust types, pure math, and file-format parsers. No WA.exe memory layouts, no Ghidra addresses, no Windows APIs."
+
+[dependencies]

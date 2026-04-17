@@ -1501,6 +1501,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "openwa-core"
+version = "0.1.0"
+
+[[package]]
 name = "openwa-debug-cli"
 version = "0.1.0"
 dependencies = [
@@ -1520,6 +1524,7 @@ name = "openwa-debugui"
 version = "0.1.0"
 dependencies = [
  "eframe",
+ "openwa-core",
  "openwa-game",
  "winit",
 ]
@@ -1541,6 +1546,7 @@ dependencies = [
  "heapless",
  "hound",
  "minhook",
+ "openwa-core",
  "openwa-debug-proto",
  "openwa-debugui",
  "openwa-game",
@@ -1559,6 +1565,7 @@ dependencies = [
  "image",
  "inventory",
  "openwa-config",
+ "openwa-core",
  "openwa-debug-proto",
  "openwa-derive",
  "windows",

@@ -12,6 +12,7 @@ crate-type = ["cdylib"]
 debug-ui = ["dep:openwa-debugui"]
 
 [dependencies]
+openwa-core = { path = "../openwa-core" }
 openwa-game = { path = "../openwa-game" }
 openwa-debug-proto = { path = "../openwa-debug-proto" }
 openwa-debugui = { path = "../openwa-debugui", optional = true }

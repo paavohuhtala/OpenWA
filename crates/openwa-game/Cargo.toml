@@ -5,6 +5,7 @@ edition = "2021"
 description = "WA.exe-specific code for Worms Armageddon reverse engineering — types, addresses, ASLR rebasing, typed WA function wrappers, and game logic"
 
 [dependencies]
+openwa-core = { path = "../openwa-core" }
 bitflags = "2"
 heapless = "0.9"
 hound = "3"
