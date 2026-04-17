@@ -1,8 +1,8 @@
 use std::path::Path;
 
-use openwa_game::game::scheme::{
-    ExtendedOptions, SchemeFile, SchemeVersion, EXTENDED_OPTIONS_DEFAULTS, EXTENDED_OPTIONS_SIZE,
-    SCHEME_PAYLOAD_V1, SCHEME_PAYLOAD_V2, WEAPONS_V1_COUNT,
+use openwa_core::scheme::{
+    EXTENDED_OPTIONS_DEFAULTS, EXTENDED_OPTIONS_SIZE, ExtendedOptions, SCHEME_PAYLOAD_V1,
+    SCHEME_PAYLOAD_V2, SchemeFile, SchemeVersion, WEAPONS_V1_COUNT,
 };
 
 const FIXTURES: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures");
@@ -232,7 +232,7 @@ fn make_valid_extended_options() -> [u8; EXTENDED_OPTIONS_SIZE] {
     b[0x34..0x38].copy_from_slice(&1i32.to_le_bytes()); // max_projectile_speed
     b[0x38..0x3C].copy_from_slice(&1i32.to_le_bytes()); // max_rope_speed
     b[0x3C..0x40].copy_from_slice(&1i32.to_le_bytes()); // max_jet_pack_speed
-                                                        // game_engine_speed in [0x1000, 0x800000]
+    // game_engine_speed in [0x1000, 0x800000]
     b[0x40..0x44].copy_from_slice(&0x10000i32.to_le_bytes());
     // sheep_heavens_gate in [1, 7]
     b[0x6A] = 1;
