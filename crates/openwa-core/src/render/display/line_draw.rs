@@ -312,14 +312,12 @@ fn raster_hmajor(
     }
 
     let slope = (_y2 - y1).div_raw(x2 - x1);
-    let mut px = start.to_int();
     let mut y = y1; // raw Fixed y, NOT adjusted for sub-pixel offset
     let count = (end - start).to_int();
 
-    for _ in 0..=count {
+    for (px, _) in (start.to_int()..).zip(0..=count) {
         writer.put_pixel_clipped(px, y.round_to_int(), color);
         y += slope;
-        px += 1;
     }
 }
 
@@ -341,14 +339,12 @@ fn raster_vmajor(
     }
 
     let slope = (_x2 - x1).div_raw(y2 - y1);
-    let mut py = start.to_int();
     let mut x = x1; // raw Fixed x
     let count = (end - start).to_int();
 
-    for _ in 0..=count {
+    for (py, _) in (start.to_int()..).zip(0..=count) {
         writer.put_pixel_clipped(x.round_to_int(), py, color);
         x += slope;
-        py += 1;
     }
 }
 
@@ -408,13 +404,12 @@ fn raster_thick_hmajor_wide(
 
     let slope = (y2 - y1).div_raw(x2 - x1);
     let mut y = y1 + slope.mul_raw(start - x1);
-    let mut px = start.to_int();
     let count = (end - start).to_int();
     if count == 0 {
         return;
     }
 
-    for _ in 0..count {
+    for (px, _) in (start.to_int()..).zip(0..count) {
         let py = y.to_int();
         writer.put_pixel_clipped(px, py - 1, color);
         writer.put_pixel_clipped(px + 1, py - 1, color);
@@ -426,7 +421,6 @@ fn raster_thick_hmajor_wide(
         writer.put_pixel_clipped(px + 1, py + 2, color);
 
         y += slope;
-        px += 1;
     }
 }
 
@@ -449,13 +443,12 @@ fn raster_thick_hmajor_narrow(
 
     let slope = (y2 - y1).div_raw(x2 - x1);
     let mut y = y1 + slope.mul_raw(start - x1);
-    let mut px = start.to_int();
     let count = (end - start).to_int();
     if count == 0 {
         return;
     }
 
-    for _ in 0..count {
+    for (px, _) in (start.to_int()..).zip(0..count) {
         let py = y.to_int();
         writer.put_pixel_clipped(px, py, color);
         writer.put_pixel_clipped(px + 1, py, color);
@@ -463,7 +456,6 @@ fn raster_thick_hmajor_narrow(
         writer.put_pixel_clipped(px + 1, py + 1, color);
 
         y += slope;
-        px += 1;
     }
 }
 
@@ -486,10 +478,9 @@ fn raster_thick_vmajor_wide(
 
     let slope = (x2 - x1).div_raw(y2 - y1);
     let mut x = x1 + slope.mul_raw(start - y1);
-    let mut py = start.to_int();
     let count = (end - start).to_int();
 
-    for _ in 0..count {
+    for (py, _) in (start.to_int()..).zip(0..count) {
         let px = x.to_int();
         writer.put_pixel_clipped(px, py - 1, color);
         writer.put_pixel_clipped(px + 1, py - 1, color);
@@ -501,7 +492,6 @@ fn raster_thick_vmajor_wide(
         writer.put_pixel_clipped(px + 1, py + 2, color);
 
         x += slope;
-        py += 1;
     }
 }
 
@@ -524,10 +514,9 @@ fn raster_thick_vmajor_narrow(
 
     let slope = (x2 - x1).div_raw(y2 - y1);
     let mut x = x1 + slope.mul_raw(start - y1);
-    let mut py = start.to_int();
     let count = (end - start).to_int();
 
-    for _ in 0..count {
+    for (py, _) in (start.to_int()..).zip(0..count) {
         let px = x.to_int();
         writer.put_pixel_clipped(px, py, color);
         writer.put_pixel_clipped(px + 1, py, color);
@@ -535,7 +524,6 @@ fn raster_thick_vmajor_narrow(
         writer.put_pixel_clipped(px + 1, py + 1, color);
 
         x += slope;
-        py += 1;
     }
 }
 

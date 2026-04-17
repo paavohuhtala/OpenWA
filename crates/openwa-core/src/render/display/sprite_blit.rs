@@ -508,22 +508,17 @@ fn blit_masked(
     let dst_stride = dst.row_stride as usize;
     let src_stride = src.row_stride as usize;
 
-    let mut sy = sy_start;
-    for dy in 0..vis_h {
+    for (sy, dy) in (sy_start..).zip(0..vis_h) {
         let dst_row = (vis_top + dy) as usize * dst_stride + vis_left as usize;
         let src_row = sy as usize * src_stride;
 
-        let mut sx = sx_start;
-        for dx in 0..vis_w {
+        for (sx, dx) in (sx_start..).zip(0..vis_w) {
             let src_pixel = src.data[src_row + sx as usize];
             let dst_pixel = dst.data[dst_row + dx as usize];
             if should_write(src_pixel, dst_pixel) {
                 dst.data[dst_row + dx as usize] = src_pixel;
             }
-            sx += 1;
         }
-
-        sy += 1;
     }
 }
 
