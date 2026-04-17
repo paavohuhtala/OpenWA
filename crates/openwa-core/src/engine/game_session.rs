@@ -132,13 +132,22 @@ use crate::engine::ddgame::DDGame;
 #[cfg(target_arch = "x86")]
 use crate::rebase::rb;
 
+/// Get a pointer to the global `GameSession` struct from `G_GAME_SESSION`.
+///
+/// Can be null if called before the game session is initialized.
+#[cfg(target_arch = "x86")]
+#[inline]
+pub unsafe fn get_game_session() -> *mut GameSession {
+    *(rb(va::G_GAME_SESSION) as *const *mut GameSession)
+}
+
 /// Get the DDGameWrapper pointer from the global game session.
 ///
 /// Returns null if the session or wrapper hasn't been initialized yet.
 #[cfg(target_arch = "x86")]
 #[inline]
 pub unsafe fn get_wrapper() -> *mut DDGameWrapper {
-    let session = *(rb(va::G_GAME_SESSION) as *const *mut GameSession);
+    let session: *mut GameSession = get_game_session();
     if session.is_null() {
         return core::ptr::null_mut();
     }

@@ -46,7 +46,8 @@ use crate::hook;
 use crate::log_line;
 use openwa_core::address::va;
 use openwa_core::audio::{DSSound, Music};
-use openwa_core::engine::{DDGameWrapper, DDNetGameWrapper, GameInfo, GameSession, GameTimer};
+use openwa_core::engine::game_session::get_game_session;
+use openwa_core::engine::{DDGameWrapper, DDNetGameWrapper, GameInfo, GameTimer};
 use openwa_core::input::{DDKeyboard, InputCtrl, InputCtrlVtable};
 use openwa_core::rebase::rb;
 use openwa_core::render::{DisplayBase, DisplayGfx, Palette};
@@ -257,7 +258,7 @@ unsafe extern "cdecl" fn impl_init_hardware(
 ) -> u32 {
     unsafe {
         let _ = log_line("[hardware_init] GameEngine::InitHardware");
-        let session = *(rb(va::G_GAME_SESSION) as *const *mut GameSession);
+        let session = get_game_session();
         let gi = &mut *game_info;
         let crosshair_threshold = gi.game_version as u32;
 

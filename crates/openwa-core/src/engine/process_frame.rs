@@ -12,7 +12,7 @@ use windows_sys::Win32::System::SystemInformation::GetTickCount;
 
 use crate::address::va;
 use crate::engine::ddgame_wrapper::DDGameWrapper;
-use crate::engine::game_session::GameSession;
+use crate::engine::game_session::{get_game_session, GameSession};
 use crate::rebase::rb;
 use crate::render::display::gfx::DisplayGfx;
 
@@ -37,7 +37,7 @@ pub mod game_state {
 /// # Safety
 /// Must be called from within the WA.exe process with a valid `g_GameSession`.
 pub unsafe fn advance_frame() -> u32 {
-    let session = *(rb(va::G_GAME_SESSION) as *const *mut GameSession);
+    let session = get_game_session();
     let freq_lo = (*session).timer_freq_lo;
     let freq_hi = (*session).timer_freq_hi;
     let counter = ((*session).timer_counter_hi as u64) << 32 | (*session).timer_counter_lo as u64;
@@ -90,7 +90,7 @@ pub unsafe fn process_frame() {
         DispatchMessageA, PeekMessageA, TranslateMessage, PM_REMOVE,
     };
 
-    let session = *(rb(va::G_GAME_SESSION) as *const *mut GameSession);
+    let session = get_game_session();
 
     // ── Desktop availability check (only when g_DesktopCheckLevel > 1) ──
     let desktop_check_level = *(rb(va::G_DESKTOP_CHECK_LEVEL) as *const u32);
@@ -142,7 +142,7 @@ pub unsafe fn process_frame() {
     let state = advance_frame();
 
     // Re-read session after advance_frame (it may have been modified)
-    let session = *(rb(va::G_GAME_SESSION) as *const *mut GameSession);
+    let session = get_game_session();
 
     if state == game_state::EXIT {
         (*session).exit_flag = 1;
@@ -161,7 +161,7 @@ pub unsafe fn process_frame() {
         if (*session).frame_state != 0 {
             Sleep(1);
             // Re-read session after Sleep
-            let session = *(rb(va::G_GAME_SESSION) as *const *mut GameSession);
+            let session = get_game_session();
             check_minimize(session);
             return;
         }
@@ -173,7 +173,7 @@ pub unsafe fn process_frame() {
     DDGameWrapper::render_frame_raw(wrapper);
 
     // Re-read session after render
-    let session = *(rb(va::G_GAME_SESSION) as *const *mut GameSession);
+    let session = get_game_session();
     (*session).frame_state = 1;
 
     check_minimize(session);

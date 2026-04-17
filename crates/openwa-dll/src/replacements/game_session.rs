@@ -17,9 +17,10 @@ use crate::log_line;
 use openwa_core::address::va;
 use openwa_core::audio::DSSound;
 use openwa_core::engine::create_ddgame;
+use openwa_core::engine::game_session::get_game_session;
 use openwa_core::engine::init_constructor_addrs;
 use openwa_core::engine::DDGameWrapperVtable;
-use openwa_core::engine::{DDGameWrapper, GameInfo, GameSession};
+use openwa_core::engine::{DDGameWrapper, GameInfo};
 use openwa_core::rebase::rb;
 use openwa_core::render::{DisplayGfx, Palette};
 
@@ -103,7 +104,7 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
         call_init_replay(game_info, this);
 
         // Read timer_obj and net_game from the live game session struct.
-        let session = *(rb(va::G_GAME_SESSION) as *const *mut GameSession);
+        let session = get_game_session();
         let timer_obj = (*session).timer_obj;
         let net_game = (*session).net_game;
 

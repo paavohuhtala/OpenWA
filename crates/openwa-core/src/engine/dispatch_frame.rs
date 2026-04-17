@@ -12,7 +12,7 @@ use crate::audio::active_sound::ActiveSoundTable;
 use crate::audio::dssound::DSSound;
 use crate::engine::ddgame::DDGame;
 use crate::engine::ddgame_wrapper::DDGameWrapper;
-use crate::engine::game_session::GameSession;
+use crate::engine::game_session::get_game_session;
 use crate::input::keyboard::DDKeyboard;
 use crate::rebase::rb;
 use crate::render::display::gfx::DisplayGfx;
@@ -302,7 +302,7 @@ unsafe fn calc_timing_ratio(wrapper: *mut DDGameWrapper, ratio: i32) {
 /// Read the current time using the same method as the GameSession timer.
 /// Returns (time_lo, time_hi) matching the convention of AdvanceFrame's params.
 unsafe fn read_current_time() -> (u32, u32) {
-    let session = *(rb(va::G_GAME_SESSION) as *const *mut GameSession);
+    let session = get_game_session();
     if (*session).timer_freq_lo == 0 && (*session).timer_freq_hi == 0 {
         let tick = windows_sys::Win32::System::SystemInformation::GetTickCount();
         (tick.wrapping_mul(1000), 0)
@@ -506,7 +506,7 @@ pub unsafe fn dispatch_frame(
         // Minimize request: keyboard slot 3 polls the "minimize" action.
         let keyboard: *mut DDKeyboard = (*ddgame).keyboard;
         if ((*(*keyboard).vtable).is_action_active)(keyboard, 0x36) != 0 {
-            let session = *(rb(va::G_GAME_SESSION) as *const *mut GameSession);
+            let session = get_game_session();
             (*session).minimize_request = 1;
         }
 
@@ -661,7 +661,7 @@ pub unsafe fn dispatch_frame(
             let accum_ptr = core::ptr::addr_of_mut!((*ddgame)._field_8158) as *mut u64;
             *accum_ptr = (*accum_ptr).wrapping_add(0x320000);
 
-            let session = *(rb(va::G_GAME_SESSION) as *const *mut GameSession);
+            let session = get_game_session();
             (*session).replay_active_flag = 1;
         }
     }
@@ -715,7 +715,7 @@ pub unsafe fn dispatch_frame(
             }
             let (ft_lo, ft_hi) = split(frame_time);
 
-            let session = *(rb(va::G_GAME_SESSION) as *const *mut GameSession);
+            let session = get_game_session();
 
             if (*session).flag_5c == 0 || (*ddgame).network_ecx != 0 {
                 let accum_b_new = combine((*wrapper).frame_accum_b_lo, (*wrapper).frame_accum_b_hi)
@@ -795,7 +795,7 @@ pub unsafe fn dispatch_frame(
                 break;
             }
 
-            let session = *(rb(va::G_GAME_SESSION) as *const *mut GameSession);
+            let session = get_game_session();
             if (*session).flag_5c == 0 || (*ddgame).network_ecx != 0 {
                 bridge_reset_frame_state(wrapper);
             }
