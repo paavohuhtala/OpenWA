@@ -11,3 +11,4 @@
 pub mod fixed;
 pub mod log;
 pub mod rng;
+pub mod trig;
