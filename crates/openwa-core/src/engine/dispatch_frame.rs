@@ -136,7 +136,7 @@ unsafe fn calc_timing_ratio(wrapper: *mut DDGameWrapper, ratio: i32) {
             let progress = *(w.add(0x400) as *const i32);
             let gap = target - progress;
             if gap > 0 {
-                let multiplier = if gap / 5 > 1 { 2 } else { 1 } + 1;
+                let multiplier = if gap / 5 > 1 { 2 } else { 1 };
                 let step = multiplier * ratio;
                 if gap <= step {
                     *(w.add(0x400) as *mut i32) = target;
@@ -156,77 +156,94 @@ unsafe fn calc_timing_ratio(wrapper: *mut DDGameWrapper, ratio: i32) {
     }
 }
 
-unsafe fn bridge_advance_frame_counters(
-    wrapper: *mut DDGameWrapper,
-    p1: i32,
-    p2: i32,
-    p3: i32,
-    p4: i32,
-    p5: u32,
+// Naked bridges for usercall(ESI=this) + N stdcall params. We use naked
+// functions to avoid a Rust/LLVM inline-asm quirk where routing params
+// through an intermediate stack array (`args.as_ptr()` + memory pushes)
+// produced garbage values in release builds — the array writes would be
+// optimized away relative to the asm block's memory reads. The naked
+// variant reads stdcall args directly off the incoming stack, so the
+// compiler never has to materialize them into an auxiliary array.
+
+/// Bridge for DDGameWrapper__AdvanceFrameCounters (0x52AAA0).
+/// Usercall: ESI=this, 5 stdcall params, RET 0x14.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_advance_frame_counters(
+    _this: *mut DDGameWrapper,
+    _p1: i32,
+    _p2: i32,
+    _p3: i32,
+    _p4: i32,
+    _p5: u32,
 ) {
-    let args = [p1 as u32, p2 as u32, p3 as u32, p4 as u32, p5];
-    core::arch::asm!(
-        "push esi",
-        "mov esi, {this}",
-        "push dword ptr [{a}+16]",
-        "push dword ptr [{a}+12]",
-        "push dword ptr [{a}+8]",
-        "push dword ptr [{a}+4]",
-        "push dword ptr [{a}]",
-        "call [{addr}]",       // RET 0x14 cleans 5 params
-        "pop esi",
-        this = in(reg) wrapper,
-        a = in(reg) args.as_ptr(),
+    core::arch::naked_asm!(
+        // Entry stack:
+        //   [esp]      retaddr
+        //   [esp+4]    this
+        //   [esp+8..+0x18]  p1..p5
+        "push esi",                         // save callee-saved ESI
+        // After push esi:
+        //   [esp]      saved_esi
+        //   [esp+4]    retaddr
+        //   [esp+8]    this
+        //   [esp+0xC..+0x1C] p1..p5
+        "mov esi, [esp+8]",                 // ESI = this
+        "push dword ptr [esp+0x1C]",        // p5 (each push keeps offset same since ESP moves)
+        "push dword ptr [esp+0x1C]",        // p4
+        "push dword ptr [esp+0x1C]",        // p3
+        "push dword ptr [esp+0x1C]",        // p2
+        "push dword ptr [esp+0x1C]",        // p1
+        "call [{addr}]",                    // target cleans 5 params via RET 0x14
+        "pop esi",                           // restore ESI
+        "ret 24",                            // stdcall: clean 6 args (this + p1..p5 = 24)
         addr = sym ADVANCE_FRAME_COUNTERS_ADDR,
-        out("eax") _, out("ecx") _, out("edx") _,
     );
 }
 
-unsafe fn bridge_update_frame_timing(
-    wrapper: *mut DDGameWrapper,
-    p1: u32,
-    p2: u32,
-    p3: u32,
-    p4: u32,
+/// Bridge for DDGameWrapper__UpdateFrameTiming (0x52A9C0).
+/// Usercall: ESI=this, 4 stdcall params, RET 0x10.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_update_frame_timing(
+    _this: *mut DDGameWrapper,
+    _p1: u32,
+    _p2: u32,
+    _p3: u32,
+    _p4: u32,
 ) {
-    let args = [p1, p2, p3, p4];
-    core::arch::asm!(
+    core::arch::naked_asm!(
         "push esi",
-        "mov esi, {this}",
-        "push dword ptr [{a}+12]",
-        "push dword ptr [{a}+8]",
-        "push dword ptr [{a}+4]",
-        "push dword ptr [{a}]",
+        "mov esi, [esp+8]",
+        "push dword ptr [esp+0x18]",        // p4
+        "push dword ptr [esp+0x18]",        // p3
+        "push dword ptr [esp+0x18]",        // p2
+        "push dword ptr [esp+0x18]",        // p1
         "call [{addr}]",
         "pop esi",
-        this = in(reg) wrapper,
-        a = in(reg) args.as_ptr(),
+        "ret 20",                            // clean 5 args (this + p1..p4 = 20)
         addr = sym UPDATE_FRAME_TIMING_ADDR,
-        out("eax") _, out("ecx") _, out("edx") _,
     );
 }
 
-unsafe fn bridge_process_network_frame(
-    wrapper: *mut DDGameWrapper,
-    p1: u32,
-    p2: u32,
-    p3: u32,
-    p4: u32,
+/// Bridge for DDGameWrapper__ProcessNetworkFrame (0x52xxxx).
+/// Usercall: ESI=this, 4 stdcall params, RET 0x10.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_process_network_frame(
+    _this: *mut DDGameWrapper,
+    _p1: u32,
+    _p2: u32,
+    _p3: u32,
+    _p4: u32,
 ) {
-    let args = [p1, p2, p3, p4];
-    core::arch::asm!(
+    core::arch::naked_asm!(
         "push esi",
-        "mov esi, {this}",
-        "push dword ptr [{a}+12]",
-        "push dword ptr [{a}+8]",
-        "push dword ptr [{a}+4]",
-        "push dword ptr [{a}]",
+        "mov esi, [esp+8]",
+        "push dword ptr [esp+0x18]",
+        "push dword ptr [esp+0x18]",
+        "push dword ptr [esp+0x18]",
+        "push dword ptr [esp+0x18]",
         "call [{addr}]",
         "pop esi",
-        this = in(reg) wrapper,
-        a = in(reg) args.as_ptr(),
+        "ret 20",
         addr = sym PROCESS_NETWORK_FRAME_ADDR,
-        out("eax") _, out("ecx") _, out("edx") _,
     );
 }
 
@@ -473,7 +490,6 @@ pub unsafe fn dispatch_frame(
             // Path D: Replay mode with negative frame delay
             let game_info = (*ddgame).game_info;
             let replay_ticks = *((game_info as *const u8).add(0xef3c) as *const i32);
-            used_normal_path = false;
             elapsed = freq / (replay_ticks as u64);
             // Shared CalcTimingRatio path (LAB_00529246 → LAB_00529252)
             let (ratio, remainder) = wa_div(elapsed as i32, frame_interval as i32);
@@ -783,7 +799,6 @@ pub unsafe fn dispatch_frame(
         let replay_ticks = *(game_info.add(0xef3c) as *const i32);
         if replay_ticks != 0 {
             let replay_end = *(game_info.add(0xf350) as *const i32);
-            let replay_start = *(game_info.add(0xf344) as *const i32);
             let frame_counter = (*ddgame).frame_counter;
             let speed_val = *((ddgame as *const u8).add(0x8150) as *const i32);
 
@@ -815,8 +830,10 @@ pub unsafe fn dispatch_frame(
             let accum_b = combine((*wrapper).frame_accum_b_lo, (*wrapper).frame_accum_b_hi);
             let max_accum = if accum_a > accum_b { accum_a } else { accum_b };
 
-            let budget = frame_duration.saturating_sub(max_accum);
-            let mut frame_time;
+            // Match original unsigned SUB/SBB behavior: this wraps on underflow.
+            // The follow-up unsigned compare against `remaining` depends on wrap semantics.
+            let budget = frame_duration.wrapping_sub(max_accum);
+            let frame_time;
             if budget <= remaining {
                 // Budget is smaller or equal — use budget as frame_time
                 frame_time = budget;
@@ -832,7 +849,6 @@ pub unsafe fn dispatch_frame(
                     frame_time = remaining;
                 }
             }
-
             let (ft_lo, ft_hi) = split(frame_time);
 
             let session = *(rb(va::G_GAME_SESSION) as *const *mut GameSession);
@@ -955,6 +971,14 @@ pub unsafe fn dispatch_frame(
         }
     }
 
+    // Original increments wrapper+0xE8 by (step_count - 1) if StepFrame ran.
+    // This field is consumed by downstream timing/render code.
+    if frame_step_counter != 0 {
+        let steps_minus_one = (frame_step_counter as i32).wrapping_sub(1);
+        let field_e8 = (wrapper as *mut u8).add(0xE8) as *mut i32;
+        *field_e8 = (*field_e8).wrapping_add(steps_minus_one);
+    }
+
     // ── Section 7: Post-frame timing updates ───────────────────────────
     {
         let ddgame = (*wrapper).ddgame;
@@ -983,6 +1007,14 @@ pub unsafe fn dispatch_frame(
                         0
                     };
                     *((ddgame as *mut u8).add(0x8154) as *mut u32) = speed_b;
+
+                    // Intentional deviation from vanilla: while truly paused,
+                    // clamp interpolation scales to 0 to prevent deterministic
+                    // backwards render stutter during pause.
+                    if is_frame_paused(wrapper) {
+                        *((ddgame as *mut u8).add(0x8150) as *mut u32) = 0;
+                        *((ddgame as *mut u8).add(0x8154) as *mut u32) = 0;
+                    }
                 }
 
                 // Reset accumulators if frame_delay >= 0
@@ -1030,13 +1062,15 @@ pub unsafe fn dispatch_frame(
                         (*wrapper).frame_accum_b_lo = scaled_b as u32;
                         (*wrapper).frame_accum_b_hi = (scaled_b >> 32) as u32;
 
-                        // Rescale accum_c if nonzero
+                        // Rescale accum_c if nonzero (full 64-bit value, not lo dword only).
                         let accum_c =
                             combine((*wrapper).frame_accum_c_lo, (*wrapper).frame_accum_c_hi);
                         if accum_c != 0 {
-                            let scaled_c = (scale as i64)
-                                .wrapping_mul((*wrapper).frame_accum_c_lo as i64)
-                                / frame_duration as i64;
+                            let scaled_c = if frame_duration > 0 {
+                                accum_c.wrapping_mul(scale) / frame_duration
+                            } else {
+                                0
+                            };
                             (*wrapper).frame_accum_c_lo = scaled_c as u32;
                             (*wrapper).frame_accum_c_hi = (scaled_c >> 32) as u32;
                         }
