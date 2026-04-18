@@ -12,6 +12,7 @@ pub mod net_bridge;
 pub mod net_wrapper;
 pub mod process_frame;
 pub mod replay;
+pub mod step_frame;
 pub mod team_arena;
 pub mod team_ops;
 
