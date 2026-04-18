@@ -22,6 +22,7 @@ use crate::rebase::rb;
 static mut STEP_FRAME_ADDR: u32 = 0;
 static mut POLL_INPUT_ADDR: u32 = 0;
 static mut INPUT_HOOK_MODE_ADDR: u32 = 0;
+static mut ON_GAME_END_PHASE1_ADDR: u32 = 0;
 
 /// Initialize bridge addresses. Called once at DLL load.
 pub unsafe fn init_step_frame_addrs() {
@@ -29,6 +30,7 @@ pub unsafe fn init_step_frame_addrs() {
         STEP_FRAME_ADDR = rb(va::DDGAMEWRAPPER_STEP_FRAME);
         POLL_INPUT_ADDR = rb(va::DDGAMEWRAPPER_POLL_INPUT);
         INPUT_HOOK_MODE_ADDR = rb(va::G_INPUT_HOOK_MODE);
+        ON_GAME_END_PHASE1_ADDR = rb(va::DDGAMEWRAPPER_ON_GAME_END_PHASE1);
     }
 }
 
@@ -66,6 +68,20 @@ unsafe extern "stdcall" fn bridge_poll_input(wrapper: *mut DDGameWrapper) {
     }
 }
 
+/// FUN_00536270 — game-end phase 1 arm (network-mode scoreboard reset).
+/// Usercall(EAX=wrapper), no stack args, plain RET.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_on_game_end_phase1(_wrapper: *mut DDGameWrapper) {
+    core::arch::naked_asm!(
+        "popl %ecx",
+        "popl %eax",
+        "pushl %ecx",
+        "jmpl *({fn})",
+        fn = sym ON_GAME_END_PHASE1_ADDR,
+        options(att_syntax),
+    );
+}
+
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
 #[inline(always)]
@@ -93,20 +109,48 @@ pub unsafe fn step_frame(
         let ddgame: *mut DDGame = (*wrapper).ddgame;
         let game_info = &*(*ddgame).game_info;
 
-        // Gate: bail to the original bridge for any path that touches
-        // the game-end state machine (phase transitions, dispatch of
-        // phase handlers 2/3/4, ClearWormBuffers/AdvanceFrame, headless
-        // log dump). The common path Rust implements covers normal
-        // gameplay frames where game_end_phase == 0 and game_state == 0.
+        // ── Block A: top state transition ──────────────────────────────
         //
-        // The state-transition block at the top of StepFrame fires when
-        // `hud_status_code ∈ {6, 8}` AND `game_end_phase != hud_status_code`.
-        // Since game_end_phase is 0 during normal play, any
-        // hud_status_code of 6 or 8 triggers a transition → bail.
+        // Fires when `hud_status_code ∈ {6, 8}` AND
+        // `game_end_phase != hud_status_code`. Sets game_end_phase to
+        // that value; in the non-network branch also sets game_state=4
+        // and broadcasts msg 0x75 to CTaskTurnGame; in the network
+        // branch calls the phase-1 scoreboard-reset handler.
+        //
+        // Self-gated: the condition `game_end_phase != hud_status_code`
+        // becomes false after this block writes game_end_phase, so the
+        // bridge-fallback won't re-run Block A even if we bail below.
+        let hud_code = (*ddgame).hud_status_code;
+        if (hud_code == 6 || hud_code == 8) && (*wrapper).game_end_phase != hud_code as u32 {
+            (*wrapper).game_end_phase = hud_code as u32;
+            if (*ddgame).network_ecx == 0 {
+                (*wrapper).game_state = 4; // EXIT_HEADLESS
+                (*wrapper).game_end_clear = 0;
+                (*wrapper).game_end_speed = 0;
+                if game_info.game_version > 0x4c {
+                    // Broadcast msg 0x75 via CTaskTurnGame::HandleMessage.
+                    // Original pushes (sender=task, msg=0x75, 0, 0).
+                    let task = (*wrapper).task_turn_game;
+                    crate::task::CTaskTurnGame::handle_message_raw(
+                        task,
+                        task as *mut crate::task::CTask,
+                        0x75,
+                        0,
+                        core::ptr::null(),
+                    );
+                }
+            } else {
+                bridge_on_game_end_phase1(wrapper);
+            }
+        }
+
+        // Gate: bail to bridge for the remaining unported blocks —
+        // phase-handler dispatch (game_end_phase ∈ {2,3,4}) and the
+        // end-of-game body (game_state != 0 || game_end_phase == 4).
+        // Read state AFTER Block A (which may have mutated both fields).
         let game_end_phase = (*wrapper).game_end_phase;
         let game_state = (*wrapper).game_state;
-        let hud_code = (*ddgame).hud_status_code;
-        if game_end_phase != 0 || game_state != 0 || hud_code == 6 || hud_code == 8 {
+        if game_state != 0 || game_end_phase == 2 || game_end_phase == 3 || game_end_phase == 4 {
             return bridge_step_frame(
                 wrapper,
                 counter_ptr,
@@ -118,30 +162,38 @@ pub unsafe fn step_frame(
             ) != 0;
         }
 
-        // ── Common path (game_end_phase == 0, game_state == 0) ─────────
+        // ── Common path (Blocks B, C, E, F, G, I) ──────────────────────
 
-        // PollInput gate: input-hook mode throttles polling via team-arena
-        // counters; when no hook is active we always poll.
-        let hook_mode = *(INPUT_HOOK_MODE_ADDR as *const u32);
-        let arena = &(*ddgame).team_arena;
-        if hook_mode == 0 || arena.active_worm_count <= arena.active_team_count {
-            bridge_poll_input(wrapper);
-            *counter_ptr = (*counter_ptr).wrapping_add(1);
+        // Block B: skip PollInput + session-accum for game_end_phase ∈
+        // {1, 2, 6, 7, 9}. Phase 8 does NOT skip (intentional asymmetry
+        // with the {6, 8} set Block A tests against). Phase 2 is gated
+        // out above, so the check here is against {1, 6, 7, 9}.
+        let skip_input = matches!(game_end_phase, 1 | 6 | 7 | 9);
+        if !skip_input {
+            // PollInput gate: input-hook mode throttles polling via
+            // team-arena counters; when no hook is active we always poll.
+            let hook_mode = *(INPUT_HOOK_MODE_ADDR as *const u32);
+            let arena = &(*ddgame).team_arena;
+            if hook_mode == 0 || arena.active_worm_count <= arena.active_team_count {
+                bridge_poll_input(wrapper);
+                *counter_ptr = (*counter_ptr).wrapping_add(1);
+            }
+
+            // GameSession replay-active: tweak the replay accumulators.
+            let session = get_game_session();
+            if (*session).replay_active_flag != 0 {
+                // render_interp_a (0x8150) -= 0x10000; render_interp_b mirrors it.
+                (*ddgame).render_interp_a = (*ddgame).render_interp_a.wrapping_sub(0x10000);
+                (*ddgame).render_interp_b = (*ddgame).render_interp_a;
+                // 64-bit add at _field_8160: += 0x10000 with carry into _field_8164.
+                let accum =
+                    combine((*ddgame)._field_8160, (*ddgame)._field_8164).wrapping_add(0x10000);
+                (*ddgame)._field_8160 = accum as u32;
+                (*ddgame)._field_8164 = (accum >> 32) as u32;
+            }
         }
 
-        // GameSession replay-active: tweak the replay accumulators.
-        let session = get_game_session();
-        if (*session).replay_active_flag != 0 {
-            // render_interp_a (0x8150) -= 0x10000; render_interp_b mirrors it.
-            (*ddgame).render_interp_a = (*ddgame).render_interp_a.wrapping_sub(0x10000);
-            (*ddgame).render_interp_b = (*ddgame).render_interp_a;
-            // 64-bit add at _field_8160: += 0x10000 with carry into _field_8164.
-            let accum = combine((*ddgame)._field_8160, (*ddgame)._field_8164).wrapping_add(0x10000);
-            (*ddgame)._field_8160 = accum as u32;
-            (*ddgame)._field_8164 = (accum >> 32) as u32;
-        }
-
-        // game_end_phase dispatch 2/3/4 — skipped (game_end_phase == 0).
+        // game_end_phase dispatch 2/3/4 — gated out above.
 
         // ── f34c sentinel block #1: conditional 0x7a broadcast ─────────
         //
