@@ -135,46 +135,49 @@ impl CTaskTeam {
     /// # Safety
     /// `this` must be a valid CTaskTeam pointer with valid ddgame.
     pub unsafe fn on_surrender_fire(this: *mut Self, sender: *mut CTask, msg_team_index: u32) {
-        use crate::game::TaskMessage;
+        unsafe {
+            use crate::game::TaskMessage;
 
-        let team_index = (*this).team_index;
+            let team_index = (*this).team_index;
 
-        // 1. Team ownership check — only process messages for our team
-        if msg_team_index != team_index {
-            return;
-        }
+            // 1. Team ownership check — only process messages for our team
+            if msg_team_index != team_index {
+                return;
+            }
 
-        // Serialize the message to raw bytes for broadcast to WA children
-        let mut buf = [0u8; 8];
-        buf[0..4].copy_from_slice(&msg_team_index.to_ne_bytes());
-        let task_ptr = this as *mut CTask;
+            // Serialize the message to raw bytes for broadcast to WA children
+            let mut buf = [0u8; 8];
+            buf[0..4].copy_from_slice(&msg_team_index.to_ne_bytes());
+            let task_ptr = this as *mut CTask;
 
-        // 2. If game_version > 0xF4: broadcast DetonateWeapon (0x2A) to children first
-        let ddgame = CTask::ddgame_raw(this as *const CTask);
-        let game_version = (*(*ddgame).game_info).game_version;
-        if game_version > 0xF4 {
+            // 2. If game_version > 0xF4: broadcast DetonateWeapon (0x2A) to children first
+            let ddgame = CTask::ddgame_raw(this as *const CTask);
+            let game_version = (*(*ddgame).game_info).game_version;
+            if game_version > 0xF4 {
+                CTask::broadcast_message_raw(
+                    task_ptr,
+                    sender,
+                    TaskMessage::DetonateWeapon as u32,
+                    4,
+                    buf.as_ptr(),
+                );
+            }
+
+            // 3. Set per-team napalm flag
+            // Original: *(ddgame + team_index * 0x51C + 0x4618) = 1
+            let flag_ptr =
+                (ddgame as *mut u8).add(team_index as usize * 0x51C + 0x4618) as *mut u32;
+            *flag_ptr = 1;
+
+            // 4. Broadcast original message (0x2B) to children
             CTask::broadcast_message_raw(
                 task_ptr,
                 sender,
-                TaskMessage::DetonateWeapon as u32,
+                TaskMessage::Surrender as u32,
                 4,
                 buf.as_ptr(),
             );
         }
-
-        // 3. Set per-team napalm flag
-        // Original: *(ddgame + team_index * 0x51C + 0x4618) = 1
-        let flag_ptr = (ddgame as *mut u8).add(team_index as usize * 0x51C + 0x4618) as *mut u32;
-        *flag_ptr = 1;
-
-        // 4. Broadcast original message (0x2B) to children
-        CTask::broadcast_message_raw(
-            task_ptr,
-            sender,
-            TaskMessage::Surrender as u32,
-            4,
-            buf.as_ptr(),
-        );
     }
 }
 
@@ -223,107 +226,109 @@ unsafe extern "cdecl" fn call_filter_ctor(
 /// # Safety
 /// `parent` must be a valid CTask pointer (typically a CTaskTeam child).
 pub unsafe extern "stdcall" fn create_weather_filter(parent: *mut CTask) {
-    // 1. Allocate and construct CTaskFilter
-    let filter_ptr = wa_malloc_struct_zeroed::<CTaskFilter>();
-    let filter = call_filter_ctor(
-        filter_ptr as *mut u8,
-        parent as *mut u8,
-        rb(va::CTASK_FILTER_CTOR),
-    );
-    // ownership transfers to the task tree
-
-    // 2. Subscribe to messages: FrameStart(1), FrameFinish(2), RenderScene(3), SetWind(0x54)
-    (*filter).subscription_table[1] = 1;
-    (*filter).subscription_table[2] = 1;
-    (*filter).subscription_table[3] = 1;
-    (*filter).subscription_table[0x54] = 1;
-
-    // 3. Read level geometry from DDGame
-    let ddgame = (*parent).ddgame;
-    let level_right = (*ddgame).level_bound_max_x.0;
-    let level_left = (*ddgame).level_bound_min_x.0;
-    let level_width_int = (level_right - level_left) >> 16; // integer pixels
-    let level_min_x_int = (*ddgame).level_bound_min_x.0 >> 16; // integer part (signed)
-    let level_height = (*ddgame).level_height as i32;
-
-    // 4. Determine cloud count and weather modifier
-    let (cloud_count, weather_mod): (i32, i32) = if (*ddgame).level_width_raw != 0 {
-        (10, 0)
-    } else {
-        (32, -256)
-    };
-
-    if cloud_count <= 0 || level_width_int <= 0 {
-        return;
-    }
-
-    // 5. LCG random loop — spawn clouds as children of the filter
-    let mut rng_state: u32 = 0x12345678;
-    let mut layer_depth = 0x19_0000i32; // Fixed 25.0
-    let mut accum_3i = 0i32;
-
-    // Height contribution: (level_height + rounding) / 16
-    // Matches MSVC signed-division rounding: (val + (val >> 31 & 15)) >> 4
-    let height_round = if level_height < 0 {
-        level_height & 0xF
-    } else {
-        0
-    };
-    let height_contrib = (level_height + height_round) >> 4;
-
-    // Height tenth: level_height / 10 with MSVC magic-number divide
-    let height_tenth = {
-        let h = level_height as i64;
-        let raw = ((h * 0x6666_6667) >> 34) as i32;
-        raw + ((raw as u32 >> 31) as i32) // round toward zero
-    };
-
-    let ctask_ctor: unsafe extern "stdcall" fn(*mut u8, *mut u8, *mut DDGame) =
-        core::mem::transmute(rb(va::CTASK_CONSTRUCTOR) as usize);
-
-    for i in 0..cloud_count {
-        // X position: random within level bounds
-        let rand_frac = (rng_state & 0xFFFF) as i32;
-        rng_state = wa_lcg(rng_state);
-
-        let pos_x_int = rand_frac % level_width_int + level_min_x_int;
-
-        // Render Y: height/16 + scaled offset + weather modifier, in Fixed16.16
-        // (integer pixel value placed in the upper 16 bits).
-        let y_offset = height_tenth * i / cloud_count;
-        let render_y = Fixed((height_contrib + y_offset + weather_mod) << 16);
-
-        // X velocity: random magnitude + 0x8000, random sign
-        let vel_x_base = (rng_state & 0xFFFF) as i32 + 0x8000;
-        rng_state = wa_lcg(rng_state);
-        let vel_x = if rng_state & 0x10000 != 0 {
-            Fixed(-vel_x_base)
-        } else {
-            Fixed(vel_x_base)
-        };
-        rng_state = wa_lcg(rng_state); // advance a third time per iteration
-
-        // Cloud type: distributes large→medium→small across the batch
-        let cloud_type = match 2 - accum_3i / cloud_count {
-            0 => CloudType::Large,
-            1 => CloudType::Medium,
-            _ => CloudType::Small,
-        };
-
-        // Allocate cloud, construct CTask base, then init cloud fields
-        let cloud_ptr = wa_malloc_struct_zeroed::<CTaskCloud>();
-        ctask_ctor(cloud_ptr as *mut u8, filter as *mut u8, ddgame);
-        CTaskCloud::init(
-            cloud_ptr,
-            cloud_type,
-            Fixed(layer_depth),
-            Fixed(pos_x_int << 16),
-            vel_x,
-            render_y,
+    unsafe {
+        // 1. Allocate and construct CTaskFilter
+        let filter_ptr = wa_malloc_struct_zeroed::<CTaskFilter>();
+        let filter = call_filter_ctor(
+            filter_ptr as *mut u8,
+            parent as *mut u8,
+            rb(va::CTASK_FILTER_CTOR),
         );
         // ownership transfers to the task tree
 
-        layer_depth -= 1;
-        accum_3i += 3;
+        // 2. Subscribe to messages: FrameStart(1), FrameFinish(2), RenderScene(3), SetWind(0x54)
+        (*filter).subscription_table[1] = 1;
+        (*filter).subscription_table[2] = 1;
+        (*filter).subscription_table[3] = 1;
+        (*filter).subscription_table[0x54] = 1;
+
+        // 3. Read level geometry from DDGame
+        let ddgame = (*parent).ddgame;
+        let level_right = (*ddgame).level_bound_max_x.0;
+        let level_left = (*ddgame).level_bound_min_x.0;
+        let level_width_int = (level_right - level_left) >> 16; // integer pixels
+        let level_min_x_int = (*ddgame).level_bound_min_x.0 >> 16; // integer part (signed)
+        let level_height = (*ddgame).level_height as i32;
+
+        // 4. Determine cloud count and weather modifier
+        let (cloud_count, weather_mod): (i32, i32) = if (*ddgame).level_width_raw != 0 {
+            (10, 0)
+        } else {
+            (32, -256)
+        };
+
+        if cloud_count <= 0 || level_width_int <= 0 {
+            return;
+        }
+
+        // 5. LCG random loop — spawn clouds as children of the filter
+        let mut rng_state: u32 = 0x12345678;
+        let mut layer_depth = 0x19_0000i32; // Fixed 25.0
+        let mut accum_3i = 0i32;
+
+        // Height contribution: (level_height + rounding) / 16
+        // Matches MSVC signed-division rounding: (val + (val >> 31 & 15)) >> 4
+        let height_round = if level_height < 0 {
+            level_height & 0xF
+        } else {
+            0
+        };
+        let height_contrib = (level_height + height_round) >> 4;
+
+        // Height tenth: level_height / 10 with MSVC magic-number divide
+        let height_tenth = {
+            let h = level_height as i64;
+            let raw = ((h * 0x6666_6667) >> 34) as i32;
+            raw + ((raw as u32 >> 31) as i32) // round toward zero
+        };
+
+        let ctask_ctor: unsafe extern "stdcall" fn(*mut u8, *mut u8, *mut DDGame) =
+            core::mem::transmute(rb(va::CTASK_CONSTRUCTOR) as usize);
+
+        for i in 0..cloud_count {
+            // X position: random within level bounds
+            let rand_frac = (rng_state & 0xFFFF) as i32;
+            rng_state = wa_lcg(rng_state);
+
+            let pos_x_int = rand_frac % level_width_int + level_min_x_int;
+
+            // Render Y: height/16 + scaled offset + weather modifier, in Fixed16.16
+            // (integer pixel value placed in the upper 16 bits).
+            let y_offset = height_tenth * i / cloud_count;
+            let render_y = Fixed((height_contrib + y_offset + weather_mod) << 16);
+
+            // X velocity: random magnitude + 0x8000, random sign
+            let vel_x_base = (rng_state & 0xFFFF) as i32 + 0x8000;
+            rng_state = wa_lcg(rng_state);
+            let vel_x = if rng_state & 0x10000 != 0 {
+                Fixed(-vel_x_base)
+            } else {
+                Fixed(vel_x_base)
+            };
+            rng_state = wa_lcg(rng_state); // advance a third time per iteration
+
+            // Cloud type: distributes large→medium→small across the batch
+            let cloud_type = match 2 - accum_3i / cloud_count {
+                0 => CloudType::Large,
+                1 => CloudType::Medium,
+                _ => CloudType::Small,
+            };
+
+            // Allocate cloud, construct CTask base, then init cloud fields
+            let cloud_ptr = wa_malloc_struct_zeroed::<CTaskCloud>();
+            ctask_ctor(cloud_ptr as *mut u8, filter as *mut u8, ddgame);
+            CTaskCloud::init(
+                cloud_ptr,
+                cloud_type,
+                Fixed(layer_depth),
+                Fixed(pos_x_int << 16),
+                vel_x,
+                render_y,
+            );
+            // ownership transfers to the task tree
+
+            layer_depth -= 1;
+            accum_3i += 3;
+        }
     }
 }

@@ -14,7 +14,7 @@
 //! - PlaySoundPooled_Direct (0x546B50)
 
 use crate::audio::SoundQueueEntry;
-use crate::audio::{play_sound, play_sound_pooled, SoundId};
+use crate::audio::{SoundId, play_sound, play_sound_pooled};
 use crate::engine::{DDGame, DDGameWrapper};
 use crate::task::worm::CTaskWorm;
 use crate::task::{CGameTask, CTask, SoundEmitter};
@@ -35,25 +35,27 @@ pub unsafe fn queue_sound(
     volume: Fixed,
     pitch: Fixed,
 ) -> Option<*mut SoundQueueEntry> {
-    let g = &mut *ddgame;
-    if g.sound_queue_count >= 16 || g.sound.is_null() {
-        return None;
+    unsafe {
+        let g = &mut *ddgame;
+        if g.sound_queue_count >= 16 || g.sound.is_null() {
+            return None;
+        }
+        let entry = &mut g.sound_queue[g.sound_queue_count as usize];
+        *entry = SoundQueueEntry {
+            sound_id: sound_id.0,
+            flags,
+            volume: volume.0 as u32,
+            pitch: pitch.0 as u32,
+            reserved: 0,
+            is_local: 0,
+            _pad: [0; 3],
+            pos_x: 0,
+            pos_y: 0,
+            secondary_vtable: 0,
+        };
+        g.sound_queue_count += 1;
+        Some(entry)
     }
-    let entry = &mut g.sound_queue[g.sound_queue_count as usize];
-    *entry = SoundQueueEntry {
-        sound_id: sound_id.0,
-        flags,
-        volume: volume.0 as u32,
-        pitch: pitch.0 as u32,
-        reserved: 0,
-        is_local: 0,
-        _pad: [0; 3],
-        pos_x: 0,
-        pos_y: 0,
-        secondary_vtable: 0,
-    };
-    g.sound_queue_count += 1;
-    Some(entry)
 }
 
 // ============================================================
@@ -71,21 +73,23 @@ pub unsafe fn play_sound_local(
     volume: Fixed,
     pitch: Fixed,
 ) -> bool {
-    let gt = &*task;
-    let ddgame = gt.base.ddgame;
-    let entry = match queue_sound(ddgame, sound_id.into(), flags, volume, pitch) {
-        Some(e) => e,
-        None => return false,
-    };
+    unsafe {
+        let gt = &*task;
+        let ddgame = gt.base.ddgame;
+        let entry = match queue_sound(ddgame, sound_id.into(), flags, volume, pitch) {
+            Some(e) => e,
+            None => return false,
+        };
 
-    (*entry).is_local = 1;
+        (*entry).is_local = 1;
 
-    let emitter = &gt.sound_emitter;
-    (*entry).secondary_vtable = emitter as *const _ as u32;
-    ((*emitter.vtable).get_position)(emitter, &mut (*entry).pos_x, &mut (*entry).pos_y);
+        let emitter = &gt.sound_emitter;
+        (*entry).secondary_vtable = emitter as *const _ as u32;
+        ((*emitter.vtable).get_position)(emitter, &mut (*entry).pos_x, &mut (*entry).pos_y);
 
-    (*task).sound_emitter.local_sound_count += 1;
-    true
+        (*task).sound_emitter.local_sound_count += 1;
+        true
+    }
 }
 
 // ============================================================
@@ -98,23 +102,25 @@ pub unsafe fn play_sound_local(
 /// DSSound::stop_channel (regular) or ActiveSoundTable::stop_sound (streaming,
 /// handle has bit 30 set), then clears the handle.
 pub unsafe fn stop_worm_sound(worm: *mut CTaskWorm) {
-    let handle = (*worm).sound_handle;
-    if handle != 0 {
-        let ddgame = CTask::ddgame_raw(worm as *const CTask);
-        let sound = (*ddgame).sound;
-        if !sound.is_null() && (handle as i32) >= 0 {
-            if handle & 0x40000000 != 0 {
-                // Streaming sound — stop via ActiveSoundTable
-                if !(*ddgame).active_sounds.is_null() {
-                    (*(*ddgame).active_sounds).stop_sound(handle & !0x40000000);
+    unsafe {
+        let handle = (*worm).sound_handle;
+        if handle != 0 {
+            let ddgame = CTask::ddgame_raw(worm as *const CTask);
+            let sound = (*ddgame).sound;
+            if !sound.is_null() && (handle as i32) >= 0 {
+                if handle & 0x40000000 != 0 {
+                    // Streaming sound — stop via ActiveSoundTable
+                    if !(*ddgame).active_sounds.is_null() {
+                        (*(*ddgame).active_sounds).stop_sound(handle & !0x40000000);
+                    }
+                } else {
+                    // Regular DSSound channel
+                    ((*(*sound).vtable).stop_channel)(sound, handle as i32);
                 }
-            } else {
-                // Regular DSSound channel
-                ((*(*sound).vtable).stop_channel)(sound, handle as i32);
             }
         }
+        (*worm).sound_handle = 0;
     }
-    (*worm).sound_handle = 0;
 }
 
 /// Stop current worm sound, then start a new streaming sound.
@@ -124,26 +130,28 @@ pub unsafe fn stop_worm_sound(worm: *mut CTaskWorm) {
 /// reversed condition order matching the original), then calls the WA
 /// streaming load-and-play function (FUN_00546c20) and stores the new handle.
 pub unsafe fn play_worm_sound(worm: *mut CTaskWorm, sound_id: SoundId, volume: Fixed) {
-    let handle = (*worm).sound_handle;
-    if handle != 0 {
-        let ddgame = CTask::ddgame_raw(worm as *const CTask);
-        let sound = (*ddgame).sound;
-        if !sound.is_null() && (handle as i32) >= 0 {
-            if handle & 0x40000000 == 0 {
-                // Regular DSSound channel — stop via vtable
-                ((*(*sound).vtable).stop_channel)(sound, handle as i32);
-            } else {
-                // Streaming sound — stop via ActiveSoundTable
-                if !(*ddgame).active_sounds.is_null() {
-                    (*(*ddgame).active_sounds).stop_sound(handle & !0x40000000);
+    unsafe {
+        let handle = (*worm).sound_handle;
+        if handle != 0 {
+            let ddgame = CTask::ddgame_raw(worm as *const CTask);
+            let sound = (*ddgame).sound;
+            if !sound.is_null() && (handle as i32) >= 0 {
+                if handle & 0x40000000 == 0 {
+                    // Regular DSSound channel — stop via vtable
+                    ((*(*sound).vtable).stop_channel)(sound, handle as i32);
+                } else {
+                    // Streaming sound — stop via ActiveSoundTable
+                    if !(*ddgame).active_sounds.is_null() {
+                        (*(*ddgame).active_sounds).stop_sound(handle & !0x40000000);
+                    }
                 }
             }
         }
+        // Start new streaming sound — fully ported, no WA bridge needed
+        // FUN_005150D0 hardcodes flags=3
+        let new_handle = load_and_play_streaming(worm as *mut CGameTask, sound_id, 3, volume);
+        (*worm).sound_handle = new_handle;
     }
-    // Start new streaming sound — fully ported, no WA bridge needed
-    // FUN_005150D0 hardcodes flags=3
-    let new_handle = load_and_play_streaming(worm as *mut CGameTask, sound_id, 3, volume);
-    (*worm).sound_handle = new_handle;
 }
 
 /// Stop+play on the secondary sound handle (CTaskWorm+0x3B4).
@@ -158,39 +166,41 @@ pub unsafe fn play_worm_sound_2(
     volume: Fixed,
     flags: u32,
 ) {
-    // 1. Stop current sound on handle_2
-    let handle = (*worm).sound_handle_2;
-    if handle != 0 {
-        let ddgame = CTask::ddgame_raw(worm as *const CTask);
-        let sound = (*ddgame).sound;
-        if !sound.is_null() && (handle as i32) >= 0 {
-            if handle & 0x40000000 == 0 {
-                ((*(*sound).vtable).stop_channel)(sound, handle as i32);
-            } else if !(*ddgame).active_sounds.is_null() {
-                (*(*ddgame).active_sounds).stop_sound(handle & !0x40000000);
+    unsafe {
+        // 1. Stop current sound on handle_2
+        let handle = (*worm).sound_handle_2;
+        if handle != 0 {
+            let ddgame = CTask::ddgame_raw(worm as *const CTask);
+            let sound = (*ddgame).sound;
+            if !sound.is_null() && (handle as i32) >= 0 {
+                if handle & 0x40000000 == 0 {
+                    ((*(*sound).vtable).stop_channel)(sound, handle as i32);
+                } else if !(*ddgame).active_sounds.is_null() {
+                    (*(*ddgame).active_sounds).stop_sound(handle & !0x40000000);
+                }
             }
         }
+
+        // 2. Start new sound
+        // Check if worm is extremely high (CGameTask.pos_y, fixed-point).
+        let worm_y = (*worm).base.pos_y.0;
+        let new_handle = if worm_y < -0x270F_FFFF && sound_id.0 == 0x36 {
+            // Special teleport case: play at weapon target position
+            load_and_play_streaming_positional(
+                worm as *mut CTask,
+                sound_id,
+                flags,
+                volume,
+                Fixed((*worm).weapon_param_1 as i32),
+                Fixed((*worm).weapon_param_2 as i32),
+            )
+        } else {
+            // Normal case: play streaming sound — fully ported
+            load_and_play_streaming(worm as *mut CGameTask, sound_id, flags, volume)
+        };
+
+        (*worm).sound_handle_2 = new_handle;
     }
-
-    // 2. Start new sound
-    // Check if worm is extremely high (CGameTask.pos_y, fixed-point).
-    let worm_y = (*worm).base.pos_y.0;
-    let new_handle = if worm_y < -0x270F_FFFF && sound_id.0 == 0x36 {
-        // Special teleport case: play at weapon target position
-        load_and_play_streaming_positional(
-            worm as *mut CTask,
-            sound_id,
-            flags,
-            volume,
-            Fixed((*worm).weapon_param_1 as i32),
-            Fixed((*worm).weapon_param_2 as i32),
-        )
-    } else {
-        // Normal case: play streaming sound — fully ported
-        load_and_play_streaming(worm as *mut CGameTask, sound_id, flags, volume)
-    };
-
-    (*worm).sound_handle_2 = new_handle;
 }
 
 // ============================================================
@@ -201,9 +211,11 @@ pub unsafe fn play_worm_sound_2(
 ///
 /// Returns true if sound is muted or current frame is before sound start.
 pub unsafe fn is_sound_suppressed(ddgame: *const DDGame) -> bool {
-    let g = &*ddgame;
-    let gi = &*g.game_info;
-    gi.sound_mute != 0 || g.frame_counter < gi.sound_start_frame
+    unsafe {
+        let g = &*ddgame;
+        let gi = &*g.game_info;
+        gi.sound_mute != 0 || g.frame_counter < gi.sound_start_frame
+    }
 }
 
 /// Dispatch a global sound to DSSound — port of DispatchGlobalSound (0x526270).
@@ -217,19 +229,21 @@ pub unsafe fn dispatch_global_sound(
     frequency: Fixed,
     volume: Fixed,
 ) -> u32 {
-    let g = &*(*ddgame_wrapper).ddgame;
-    let gi = &*g.game_info;
+    unsafe {
+        let g = &*(*ddgame_wrapper).ddgame;
+        let gi = &*g.game_info;
 
-    if gi.sound_mute != 0 || g.frame_counter < gi.sound_start_frame {
-        return 0xFFFF_FFFF;
+        if gi.sound_mute != 0 || g.frame_counter < gi.sound_start_frame {
+            return 0xFFFF_FFFF;
+        }
+
+        let dssound = g.sound;
+        if dssound.is_null() {
+            return 0;
+        }
+
+        play_sound(dssound, slot, priority, frequency, volume, Fixed::ZERO) as u32
     }
-
-    let dssound = g.sound;
-    if dssound.is_null() {
-        return 0;
-    }
-
-    play_sound(dssound, slot, priority, frequency, volume, Fixed::ZERO) as u32
 }
 
 /// Direct pooled sound playback — port of PlaySoundPooled_Direct (0x546B50).
@@ -241,23 +255,25 @@ pub unsafe fn play_sound_pooled_direct(
     priority: i32,
     volume: Fixed,
 ) -> i32 {
-    let g = &*(*task).ddgame;
-    let gi = &*g.game_info;
+    unsafe {
+        let g = &*(*task).ddgame;
+        let gi = &*g.game_info;
 
-    if gi.sound_mute != 0 || g.frame_counter < gi.sound_start_frame {
-        return -1;
+        if gi.sound_mute != 0 || g.frame_counter < gi.sound_start_frame {
+            return -1;
+        }
+
+        if g.fast_forward_active != 0 {
+            return -1;
+        }
+
+        let dssound = g.sound;
+        if dssound.is_null() {
+            return 0;
+        }
+
+        play_sound_pooled(dssound, slot, priority, Fixed::ONE, volume, Fixed::ZERO)
     }
-
-    if g.fast_forward_active != 0 {
-        return -1;
-    }
-
-    let dssound = g.sound;
-    if dssound.is_null() {
-        return 0;
-    }
-
-    play_sound_pooled(dssound, slot, priority, Fixed::ONE, volume, Fixed::ZERO)
 }
 
 // ============================================================
@@ -365,18 +381,20 @@ fn distance_3d_attenuation(
 ///
 /// Convention: fastcall(ECX=&out_pan, EDX=&out_volume, stack=[table, x, y]), RET 0xC.
 unsafe fn compute_distance_params(ddgame: *const DDGame, x: Fixed, y: Fixed) -> (Fixed, Fixed) {
-    let gi = &*(*ddgame).game_info;
-    let attenuation = gi.sound_attenuation;
+    unsafe {
+        let gi = &*(*ddgame).game_info;
+        let attenuation = gi.sound_attenuation;
 
-    if attenuation == 0 {
-        // No 3D audio — full volume, center pan
-        return (Fixed::ONE, Fixed::ZERO);
+        if attenuation == 0 {
+            // No 3D audio — full volume, center pan
+            return (Fixed::ONE, Fixed::ZERO);
+        }
+
+        let level_width_fixed = Fixed((*ddgame).level_width_sound << 16);
+        let (lx, ly) = (*ddgame).listener_pos();
+
+        distance_3d_attenuation(Fixed(lx), Fixed(ly), x, y, level_width_fixed, attenuation)
     }
-
-    let level_width_fixed = Fixed((*ddgame).level_width_sound << 16);
-    let (lx, ly) = (*ddgame).listener_pos();
-
-    distance_3d_attenuation(Fixed(lx), Fixed(ly), x, y, level_width_fixed, attenuation)
 }
 
 /// Record an active local sound in the tracking table — port of
@@ -395,32 +413,34 @@ unsafe fn record_active_sound(
     volume: i32,
     channel_handle: i32,
 ) -> i32 {
-    let t = &mut *table;
+    unsafe {
+        let t = &mut *table;
 
-    // Probe for a free slot (channel_handle == 0)
-    loop {
-        t.counter = t.counter.wrapping_add(1);
-        let slot = (t.counter & 0x3F) as usize;
-        if t.entries[slot].channel_handle == 0 {
-            break;
+        // Probe for a free slot (channel_handle == 0)
+        loop {
+            t.counter = t.counter.wrapping_add(1);
+            let slot = (t.counter & 0x3F) as usize;
+            if t.entries[slot].channel_handle == 0 {
+                break;
+            }
         }
+
+        let slot = (t.counter & 0x3F) as usize;
+        let entry = &mut t.entries[slot];
+        entry.pos_x = Fixed(x);
+        entry.pos_y = Fixed(y);
+        entry.emitter = emitter;
+        entry.volume = Fixed(volume);
+        entry.sequence = t.counter as i32;
+        entry.channel_handle = channel_handle as u32;
+
+        // Increment emitter ref count
+        if !emitter.is_null() {
+            (*(emitter as *mut SoundEmitter)).local_ref_count += 1;
+        }
+
+        t.counter as i32
     }
-
-    let slot = (t.counter & 0x3F) as usize;
-    let entry = &mut t.entries[slot];
-    entry.pos_x = Fixed(x);
-    entry.pos_y = Fixed(y);
-    entry.emitter = emitter;
-    entry.volume = Fixed(volume);
-    entry.sequence = t.counter as i32;
-    entry.channel_handle = channel_handle as u32;
-
-    // Increment emitter ref count
-    if !emitter.is_null() {
-        (*(emitter as *mut SoundEmitter)).local_ref_count += 1;
-    }
-
-    t.counter as i32
 }
 
 /// Dispatch a local (positional) sound — port of DispatchLocalSound (0x546360).
@@ -438,24 +458,26 @@ unsafe fn dispatch_local_sound(
     pos: (Fixed, Fixed),
     emitter: *mut u8,
 ) -> i32 {
-    let volume = volume.min(Fixed::ONE);
+    unsafe {
+        let volume = volume.min(Fixed::ONE);
 
-    let ddgame = (*table).ddgame;
-    let (volume_atten, pan) = compute_distance_params(ddgame, pos.0, pos.1);
+        let ddgame = (*table).ddgame;
+        let (volume_atten, pan) = compute_distance_params(ddgame, pos.0, pos.1);
 
-    let scaled_volume = volume * volume_atten;
+        let scaled_volume = volume * volume_atten;
 
-    // Call DSSound::play_sound_pooled (vtable slot 4)
-    let sound = (*ddgame).sound;
-    let sound_vt = &*(*sound).vtable;
-    let handle =
-        (sound_vt.play_sound_pooled)(sound, sound_slot, flags, Fixed::ONE, scaled_volume, pan);
+        // Call DSSound::play_sound_pooled (vtable slot 4)
+        let sound = (*ddgame).sound;
+        let sound_vt = &*(*sound).vtable;
+        let handle =
+            (sound_vt.play_sound_pooled)(sound, sound_slot, flags, Fixed::ONE, scaled_volume, pan);
 
-    if handle == 0 {
-        return 0;
+        if handle == 0 {
+            return 0;
+        }
+
+        record_active_sound(table, emitter, pos.0.0, pos.1.0, volume.0, handle)
     }
-
-    record_active_sound(table, emitter, pos.0 .0, pos.1 .0, volume.0, handle)
 }
 
 /// Load and play a streaming sound — port of LoadAndPlayStreaming (0x546C20).
@@ -472,46 +494,48 @@ pub unsafe fn load_and_play_streaming(
     flags: u32,
     volume: Fixed,
 ) -> i32 {
-    let ddgame = CTask::ddgame_raw(task as *const CTask);
-    let gi = &*(*ddgame).game_info;
+    unsafe {
+        let ddgame = CTask::ddgame_raw(task as *const CTask);
+        let gi = &*(*ddgame).game_info;
 
-    // Suppression checks (matching 0x546C20 exactly)
-    if gi.sound_mute != 0 || (*ddgame).frame_counter < gi.sound_start_frame {
-        return -1;
-    }
-    if (*ddgame).fast_forward_active != 0 {
-        return -1;
-    }
+        // Suppression checks (matching 0x546C20 exactly)
+        if gi.sound_mute != 0 || (*ddgame).frame_counter < gi.sound_start_frame {
+            return -1;
+        }
+        if (*ddgame).fast_forward_active != 0 {
+            return -1;
+        }
 
-    let sound = (*ddgame).sound;
-    if sound.is_null() {
-        return 0;
-    }
+        let sound = (*ddgame).sound;
+        if sound.is_null() {
+            return 0;
+        }
 
-    // Get emitter position via sound_emitter vtable[0] (GetPosition)
-    let emitter = &(*task).sound_emitter;
-    let mut pos_x: u32 = 0;
-    let mut pos_y: u32 = 0;
-    ((*emitter.vtable).get_position)(emitter, &mut pos_x, &mut pos_y);
+        // Get emitter position via sound_emitter vtable[0] (GetPosition)
+        let emitter = &(*task).sound_emitter;
+        let mut pos_x: u32 = 0;
+        let mut pos_y: u32 = 0;
+        ((*emitter.vtable).get_position)(emitter, &mut pos_x, &mut pos_y);
 
-    // Dispatch as local sound
-    let table = (*ddgame).active_sounds;
-    if table.is_null() {
-        return 0;
-    }
+        // Dispatch as local sound
+        let table = (*ddgame).active_sounds;
+        if table.is_null() {
+            return 0;
+        }
 
-    let handle = dispatch_local_sound(
-        table,
-        volume,
-        sound_id,
-        flags as i32,
-        (Fixed(pos_x as i32), Fixed(pos_y as i32)),
-        emitter as *const _ as *mut u8,
-    );
-    if handle == 0 {
-        return 0;
+        let handle = dispatch_local_sound(
+            table,
+            volume,
+            sound_id,
+            flags as i32,
+            (Fixed(pos_x as i32), Fixed(pos_y as i32)),
+            emitter as *const _ as *mut u8,
+        );
+        if handle == 0 {
+            return 0;
+        }
+        handle | 0x40000000
     }
-    handle | 0x40000000
 }
 
 /// Load and play a streaming sound at a specific position — port of
@@ -528,38 +552,40 @@ pub unsafe fn load_and_play_streaming_positional(
     x: Fixed,
     y: Fixed,
 ) -> i32 {
-    let ddgame = CTask::ddgame_raw(task as *const CTask);
-    let gi = &*(*ddgame).game_info;
+    unsafe {
+        let ddgame = CTask::ddgame_raw(task as *const CTask);
+        let gi = &*(*ddgame).game_info;
 
-    // Suppression checks (matching 0x546BB0 exactly)
-    if gi.sound_mute != 0 || (*ddgame).frame_counter < gi.sound_start_frame {
-        return -1;
-    }
-    if (*ddgame).fast_forward_active != 0 {
-        return -1;
-    }
+        // Suppression checks (matching 0x546BB0 exactly)
+        if gi.sound_mute != 0 || (*ddgame).frame_counter < gi.sound_start_frame {
+            return -1;
+        }
+        if (*ddgame).fast_forward_active != 0 {
+            return -1;
+        }
 
-    let sound = (*ddgame).sound;
-    if sound.is_null() {
-        return 0;
-    }
+        let sound = (*ddgame).sound;
+        if sound.is_null() {
+            return 0;
+        }
 
-    let table = (*ddgame).active_sounds;
-    if table.is_null() {
-        return 0;
-    }
+        let table = (*ddgame).active_sounds;
+        if table.is_null() {
+            return 0;
+        }
 
-    // Note: positional variant passes 0 for emitter (no ref tracking)
-    let handle = dispatch_local_sound(
-        table,
-        volume,
-        sound_id,
-        flags as i32,
-        (x, y),
-        core::ptr::null_mut(),
-    );
-    if handle == 0 {
-        return 0;
+        // Note: positional variant passes 0 for emitter (no ref tracking)
+        let handle = dispatch_local_sound(
+            table,
+            volume,
+            sound_id,
+            flags as i32,
+            (x, y),
+            core::ptr::null_mut(),
+        );
+        if handle == 0 {
+            return 0;
+        }
+        handle | 0x40000000
     }
-    handle | 0x40000000
 }

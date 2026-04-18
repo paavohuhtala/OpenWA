@@ -6,9 +6,9 @@ use windows_sys::Win32::Foundation::{CloseHandle, HANDLE};
 use windows_sys::Win32::System::Diagnostics::Debug::WriteProcessMemory;
 use windows_sys::Win32::System::LibraryLoader::{GetModuleHandleA, GetProcAddress};
 use windows_sys::Win32::System::Memory::{
-    VirtualAllocEx, VirtualFreeEx, MEM_COMMIT, MEM_RELEASE, MEM_RESERVE, PAGE_READWRITE,
+    MEM_COMMIT, MEM_RELEASE, MEM_RESERVE, PAGE_READWRITE, VirtualAllocEx, VirtualFreeEx,
 };
-use windows_sys::Win32::System::Threading::{CreateRemoteThread, WaitForSingleObject, INFINITE};
+use windows_sys::Win32::System::Threading::{CreateRemoteThread, INFINITE, WaitForSingleObject};
 
 /// Inject `dll_path` into `process` by creating a remote thread that calls `LoadLibraryA`.
 ///

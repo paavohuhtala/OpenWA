@@ -51,20 +51,22 @@ const _: () = assert!(core::mem::offset_of!(PaletteContext, cache_iter) == 0x70A
 /// Initializes the free slot stack and clears the in-use table.
 /// Caller must set `dirty_range_min` and `dirty_range_max` before calling.
 pub unsafe fn palette_context_init(ctx: *mut PaletteContext) {
-    let min = (*ctx).dirty_range_min;
-    let max = (*ctx).dirty_range_max;
-    let count = (max - min) + 1;
+    unsafe {
+        let min = (*ctx).dirty_range_min;
+        let max = (*ctx).dirty_range_max;
+        let count = (max - min) + 1;
 
-    (*ctx).cache_count = 0;
-    (*ctx).free_count = count;
+        (*ctx).cache_count = 0;
+        (*ctx).free_count = count;
 
-    // Fill free stack with palette indices from max down to min
-    for i in 0..count as usize {
-        (*ctx).free_stack[i] = (max as u8).wrapping_sub(i as u8);
+        // Fill free stack with palette indices from max down to min
+        for i in 0..count as usize {
+            (*ctx).free_stack[i] = (max as u8).wrapping_sub(i as u8);
+        }
+
+        (*ctx).cache_iter = 0;
+        (*ctx).in_use = [0u8; 256];
     }
-
-    (*ctx).cache_iter = 0;
-    (*ctx).in_use = [0u8; 256];
 }
 
 /// Map an RGB color to the nearest display palette index.
@@ -81,48 +83,50 @@ pub unsafe fn palette_context_init(ctx: *mut PaletteContext) {
 ///
 /// `ctx` must point to a valid WA PaletteContext struct.
 pub unsafe fn palette_map_color(ctx: *mut PaletteContext, rgb: u32) -> u32 {
-    // Raw pointer ops throughout — no &mut to avoid noalias miscompilation,
-    // and to match WA's overflow behavior when cache_count reaches 256
-    // (writes past cache[] into dirty field, which is then set to 1 anyway).
-    let p = ctx as *mut u8;
+    unsafe {
+        // Raw pointer ops throughout — no &mut to avoid noalias miscompilation,
+        // and to match WA's overflow behavior when cache_count reaches 256
+        // (writes past cache[] into dirty field, which is then set to 1 anyway).
+        let p = ctx as *mut u8;
 
-    let cache_count = *(p.add(0x606) as *const i16);
+        let cache_count = *(p.add(0x606) as *const i16);
 
-    // Search cache for matching RGB (24-bit compare).
-    // Clamp to 256 — WA doesn't bounds-check cache_count.
-    let search_len = (cache_count as usize).min(256);
-    for i in 0..search_len {
-        let idx = *p.add(0x608 + i) as usize;
-        if idx != 0 && (*(p.add(0x04 + idx * 4) as *const u32) ^ rgb) & 0xFF_FFFF == 0 {
-            return idx as u32;
+        // Search cache for matching RGB (24-bit compare).
+        // Clamp to 256 — WA doesn't bounds-check cache_count.
+        let search_len = (cache_count as usize).min(256);
+        for i in 0..search_len {
+            let idx = *p.add(0x608 + i) as usize;
+            if idx != 0 && (*(p.add(0x04 + idx * 4) as *const u32) ^ rgb) & 0xFF_FFFF == 0 {
+                return idx as u32;
+            }
         }
+
+        // Cache miss — allocate a free slot
+        let free_count = *(p.add(0x504) as *const i16);
+        if free_count <= 0 {
+            return 0xFFFF_FFFF;
+        }
+
+        let new_free_count = free_count - 1;
+        *(p.add(0x504) as *mut i16) = new_free_count;
+        let slot = *p.add(0x506 + new_free_count as usize);
+        let slot_idx = slot as usize;
+
+        // Add to cache. WA doesn't bounds-check: when cache_count == 256 it writes
+        // past cache[] into the dirty field, which is set to 1 immediately after.
+        // We just skip the write instead.
+        if (cache_count as usize) < 256 {
+            *p.add(0x608 + cache_count as usize) = slot;
+        }
+        *(p.add(0x606) as *mut i16) = cache_count + 1;
+
+        // Store RGB and mark in-use
+        *(p.add(0x04 + slot_idx * 4) as *mut u32) = rgb;
+        *p.add(0x404 + slot_idx) = 1;
+        *(p.add(0x708) as *mut u16) = 1;
+
+        slot_idx as u32
     }
-
-    // Cache miss — allocate a free slot
-    let free_count = *(p.add(0x504) as *const i16);
-    if free_count <= 0 {
-        return 0xFFFF_FFFF;
-    }
-
-    let new_free_count = free_count - 1;
-    *(p.add(0x504) as *mut i16) = new_free_count;
-    let slot = *p.add(0x506 + new_free_count as usize);
-    let slot_idx = slot as usize;
-
-    // Add to cache. WA doesn't bounds-check: when cache_count == 256 it writes
-    // past cache[] into the dirty field, which is set to 1 immediately after.
-    // We just skip the write instead.
-    if (cache_count as usize) < 256 {
-        *p.add(0x608 + cache_count as usize) = slot;
-    }
-    *(p.add(0x606) as *mut i16) = cache_count + 1;
-
-    // Store RGB and mark in-use
-    *(p.add(0x04 + slot_idx * 4) as *mut u32) = rgb;
-    *p.add(0x404 + slot_idx) = 1;
-    *(p.add(0x708) as *mut u16) = 1;
-
-    slot_idx as u32
 }
 
 /// Look up an existing palette entry by slot index.
@@ -145,16 +149,18 @@ pub unsafe fn palette_context_lookup_entry(
     index: i32,
     out_rgb: *mut u32,
 ) -> u32 {
-    let range_min = (*ctx).dirty_range_min as i32;
-    let range_max = (*ctx).dirty_range_max as i32;
-    if index < range_min || index > range_max {
-        return 0;
+    unsafe {
+        let range_min = (*ctx).dirty_range_min as i32;
+        let range_max = (*ctx).dirty_range_max as i32;
+        if index < range_min || index > range_max {
+            return 0;
+        }
+        if (*ctx).in_use[index as usize] == 0 {
+            return 0;
+        }
+        *out_rgb = (*ctx).rgb_table[index as usize];
+        1
     }
-    if (*ctx).in_use[index as usize] == 0 {
-        return 0;
-    }
-    *out_rgb = (*ctx).rgb_table[index as usize];
-    1
 }
 
 /// Find the closest palette index for an RGB color in the recently-mapped cache.
@@ -180,54 +186,56 @@ pub unsafe fn palette_find_nearest_cached(
     rgb: u32,
     out_distance: *mut i32,
 ) -> u32 {
-    let p = ctx as *mut u8;
-    let cache_count = *(p.add(0x606) as *const i16);
-    if cache_count <= 0 {
-        return 0;
-    }
-
-    let target_r = (rgb & 0xff) as i32;
-    let target_g = ((rgb >> 8) & 0xff) as i32;
-    let target_b = ((rgb >> 16) & 0xff) as i32;
-
-    let mut best_dist = i32::MAX;
-    let mut best_idx: u32 = 0;
-    let mut last_idx: u32 = 0;
-
-    for i in 0..cache_count as usize {
-        let slot = *p.add(0x608 + i) as u32;
-        last_idx = slot;
-        if slot == 0 {
-            continue;
+    unsafe {
+        let p = ctx as *mut u8;
+        let cache_count = *(p.add(0x606) as *const i16);
+        if cache_count <= 0 {
+            return 0;
         }
-        // rgb_table entries are u32 in low 3 bytes (R, G, B). Read each byte.
-        let entry_base = p.add(0x04 + slot as usize * 4);
-        let er = *entry_base as i32;
-        let eg = *entry_base.add(1) as i32;
-        let eb = *entry_base.add(2) as i32;
 
-        let dr = (er - target_r).abs();
-        let dg = (eg - target_g).abs();
-        let db = (eb - target_b).abs();
-        let dist = dg * 5 + db * 2 + dr * 3;
+        let target_r = (rgb & 0xff) as i32;
+        let target_g = ((rgb >> 8) & 0xff) as i32;
+        let target_b = ((rgb >> 16) & 0xff) as i32;
 
-        if dist == 0 {
-            *out_distance = 0;
-            return slot;
+        let mut best_dist = i32::MAX;
+        let mut best_idx: u32 = 0;
+        let mut last_idx: u32 = 0;
+
+        for i in 0..cache_count as usize {
+            let slot = *p.add(0x608 + i) as u32;
+            last_idx = slot;
+            if slot == 0 {
+                continue;
+            }
+            // rgb_table entries are u32 in low 3 bytes (R, G, B). Read each byte.
+            let entry_base = p.add(0x04 + slot as usize * 4);
+            let er = *entry_base as i32;
+            let eg = *entry_base.add(1) as i32;
+            let eb = *entry_base.add(2) as i32;
+
+            let dr = (er - target_r).abs();
+            let dg = (eg - target_g).abs();
+            let db = (eb - target_b).abs();
+            let dist = dg * 5 + db * 2 + dr * 3;
+
+            if dist == 0 {
+                *out_distance = 0;
+                return slot;
+            }
+            if dist < best_dist {
+                best_dist = dist;
+                best_idx = slot;
+            }
         }
-        if dist < best_dist {
-            best_dist = dist;
-            best_idx = slot;
-        }
-    }
 
-    if best_idx != 0 {
-        // Original computes (best_dist * 100) / 0x2fd ≈ scaled to 0..100
-        *out_distance = (best_dist * 100) / 0x2fd;
-        best_idx
-    } else {
-        // No usable entries — return whatever last slot we saw (matches original).
-        last_idx
+        if best_idx != 0 {
+            // Original computes (best_dist * 100) / 0x2fd ≈ scaled to 0..100
+            *out_distance = (best_dist * 100) / 0x2fd;
+            best_idx
+        } else {
+            // No usable entries — return whatever last slot we saw (matches original).
+            last_idx
+        }
     }
 }
 
@@ -251,15 +259,17 @@ pub unsafe fn remap_pixels_through_lut(
     width_dwords: u32,
     height: u32,
 ) {
-    let pixel_count = width_dwords * 4;
-    let mut row_ptr = data;
-    for _ in 0..height {
-        let mut p = row_ptr;
-        for _ in 0..pixel_count {
-            *p = *lut.add(*p as usize);
-            p = p.add(1);
+    unsafe {
+        let pixel_count = width_dwords * 4;
+        let mut row_ptr = data;
+        for _ in 0..height {
+            let mut p = row_ptr;
+            for _ in 0..pixel_count {
+                *p = *lut.add(*p as usize);
+                p = p.add(1);
+            }
+            row_ptr = row_ptr.add(pitch as usize);
         }
-        row_ptr = row_ptr.add(pitch as usize);
     }
 }
 

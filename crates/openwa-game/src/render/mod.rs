@@ -18,7 +18,7 @@ pub use display::{
     SpriteCache,
 };
 pub use landscape::{DirtyRect, PCLandscape};
-pub use message::{RenderMessage, TypedRenderCmd, COMMAND_TYPE_TYPED};
+pub use message::{COMMAND_TYPE_TYPED, RenderMessage, TypedRenderCmd};
 pub use opengl::OpenGLState;
 pub use queue::RenderQueue;
 pub use sprite::{

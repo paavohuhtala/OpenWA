@@ -53,7 +53,7 @@
 //!   but without the perspective scale.
 
 use crate::render::display::gfx::DisplayGfx;
-use crate::render::message::{RenderMessage, TypedRenderCmd, COMMAND_TYPE_TYPED};
+use crate::render::message::{COMMAND_TYPE_TYPED, RenderMessage, TypedRenderCmd};
 use crate::render::queue::RenderQueue;
 use crate::render::sprite::sprite_op::SpriteOp;
 use openwa_core::fixed::Fixed;
@@ -276,47 +276,49 @@ pub unsafe fn render_drawing_queue(
     display: *mut DisplayGfx,
     clip: *mut ClipContext,
 ) {
-    let count = (*rq).entry_count as usize;
-    if count == 0 {
-        return;
-    }
-    let entry_ptrs_base = core::ptr::addr_of_mut!((*rq).entry_ptrs) as *mut *mut u8;
-    let entries: &mut [*mut u8] = core::slice::from_raw_parts_mut(entry_ptrs_base, count);
+    unsafe {
+        let count = (*rq).entry_count as usize;
+        if count == 0 {
+            return;
+        }
+        let entry_ptrs_base = core::ptr::addr_of_mut!((*rq).entry_ptrs) as *mut *mut u8;
+        let entries: &mut [*mut u8] = core::slice::from_raw_parts_mut(entry_ptrs_base, count);
 
-    // Sort by cmd[1] = layer field. The original uses MSVC qsort (unstable);
-    // we mirror that with sort_unstable_by_key.
-    entries.sort_unstable_by_key(|&p| {
-        // SAFETY: entries are valid command pointers; cmd[1] is in range.
-        unsafe { *(p as *const i32).add(1) }
-    });
+        // Sort by cmd[1] = layer field. The original uses MSVC qsort (unstable);
+        // we mirror that with sort_unstable_by_key.
+        entries.sort_unstable_by_key(|&p| {
+            // SAFETY: entries are valid command pointers; cmd[1] is in range.
+            *(p as *const i32).add(1)
+        });
 
-    let clip_ref: &ClipContext = &*clip;
+        let clip_ref: &ClipContext = &*clip;
 
-    // Walk from the highest index downward.
-    for i in (0..count).rev() {
-        let cmd = entries[i] as *const u32;
-        let cmd_type = *cmd;
-        match cmd_type {
-            0 => dispatch_case_0_fill_rect(display, clip_ref, cmd),
-            1 => dispatch_case_1_bitmap_global(display, cmd),
-            2 => dispatch_case_2_textbox_local(display, clip_ref, cmd),
-            3 => dispatch_case_3_via_callback(display, clip_ref, cmd),
-            4 => dispatch_case_4_sprite_global(display, cmd),
-            5 => dispatch_case_5_sprite_local(display, clip_ref, cmd),
-            6 => dispatch_case_6_sprite_offset(display, clip_ref, cmd),
-            7 => dispatch_case_7_polyline(display, cmd),
-            8 => dispatch_case_8_line_strip(display, clip_ref, cmd),
-            9 => dispatch_case_9_polygon(display, clip_ref, cmd),
-            0xA => dispatch_case_a_pixel_strip(display, clip_ref, cmd),
-            0xB => dispatch_case_b_crosshair(display, clip_ref, cmd),
-            0xC => dispatch_case_c_outlined_pixel(display, clip_ref, cmd),
-            0xD => dispatch_case_d_tiled_bitmap(display, clip_ref, cmd),
-            0xE => dispatch_case_e_tiled_terrain(display, clip_ref, cmd),
-            COMMAND_TYPE_TYPED => {
-                let typed = &(*(cmd as *const TypedRenderCmd)).message;
-                dispatch_typed(display, clip_ref, typed);
+        // Walk from the highest index downward.
+        for i in (0..count).rev() {
+            let cmd = entries[i] as *const u32;
+            let cmd_type = *cmd;
+            match cmd_type {
+                0 => dispatch_case_0_fill_rect(display, clip_ref, cmd),
+                1 => dispatch_case_1_bitmap_global(display, cmd),
+                2 => dispatch_case_2_textbox_local(display, clip_ref, cmd),
+                3 => dispatch_case_3_via_callback(display, clip_ref, cmd),
+                4 => dispatch_case_4_sprite_global(display, cmd),
+                5 => dispatch_case_5_sprite_local(display, clip_ref, cmd),
+                6 => dispatch_case_6_sprite_offset(display, clip_ref, cmd),
+                7 => dispatch_case_7_polyline(display, cmd),
+                8 => dispatch_case_8_line_strip(display, clip_ref, cmd),
+                9 => dispatch_case_9_polygon(display, clip_ref, cmd),
+                0xA => dispatch_case_a_pixel_strip(display, clip_ref, cmd),
+                0xB => dispatch_case_b_crosshair(display, clip_ref, cmd),
+                0xC => dispatch_case_c_outlined_pixel(display, clip_ref, cmd),
+                0xD => dispatch_case_d_tiled_bitmap(display, clip_ref, cmd),
+                0xE => dispatch_case_e_tiled_terrain(display, clip_ref, cmd),
+                COMMAND_TYPE_TYPED => {
+                    let typed = &(*(cmd as *const TypedRenderCmd)).message;
+                    dispatch_typed(display, clip_ref, typed);
+                }
+                _ => { /* unknown command type — silently skipped, matching WA */ }
             }
-            _ => { /* unknown command type — silently skipped, matching WA */ }
         }
     }
 }
@@ -336,12 +338,12 @@ pub unsafe fn render_drawing_queue(
 
 #[inline]
 unsafe fn read_field(cmd: *const u32, idx: usize) -> i32 {
-    *(cmd.add(idx) as *const i32)
+    unsafe { *(cmd.add(idx) as *const i32) }
 }
 
 #[inline]
 unsafe fn read_fixed(cmd: *const u32, idx: usize) -> Fixed {
-    Fixed::from_raw(*(cmd.add(idx) as *const i32))
+    unsafe { Fixed::from_raw(*(cmd.add(idx) as *const i32)) }
 }
 
 // ---- case 0: DRAW_RECT → slot 18 (fill_rect) -------------------------------
@@ -353,60 +355,62 @@ unsafe fn read_fixed(cmd: *const u32, idx: usize) -> Fixed {
 //     // x/y MIN-corner clamps to keep pixel-perfect rect edges
 //     vtable[18](this, x1>>16, y1>>16, x2>>16, y2>>16, cmd[2]);
 unsafe fn dispatch_case_0_fill_rect(display: *mut DisplayGfx, clip: &ClipContext, cmd: *const u32) {
-    let mut x1 = Fixed::ZERO;
-    let mut y1 = Fixed::ZERO;
-    let mut x2 = Fixed::ZERO;
-    let mut y2 = Fixed::ZERO;
-    let mut scale = Fixed::ZERO;
-    if !rq_clip_coordinates(
-        clip,
-        read_fixed(cmd, 3),
-        read_fixed(cmd, 4),
-        read_field(cmd, 7),
-        &mut x1,
-        &mut y1,
-        &mut scale,
-    ) {
-        return;
-    }
-    if !rq_clip_coordinates(
-        clip,
-        read_fixed(cmd, 5),
-        read_fixed(cmd, 6),
-        read_field(cmd, 7),
-        &mut x2,
-        &mut y2,
-        &mut scale,
-    ) {
-        return;
-    }
+    unsafe {
+        let mut x1 = Fixed::ZERO;
+        let mut y1 = Fixed::ZERO;
+        let mut x2 = Fixed::ZERO;
+        let mut y2 = Fixed::ZERO;
+        let mut scale = Fixed::ZERO;
+        if !rq_clip_coordinates(
+            clip,
+            read_fixed(cmd, 3),
+            read_fixed(cmd, 4),
+            read_field(cmd, 7),
+            &mut x1,
+            &mut y1,
+            &mut scale,
+        ) {
+            return;
+        }
+        if !rq_clip_coordinates(
+            clip,
+            read_fixed(cmd, 5),
+            read_fixed(cmd, 6),
+            read_field(cmd, 7),
+            &mut x2,
+            &mut y2,
+            &mut scale,
+        ) {
+            return;
+        }
 
-    // Pixel-perfect MIN/MAX rect-edge clamping when the source is at the
-    // sentinel anchor values: cmd[3]/cmd[4] == -0x80000000 → clamp to MIN,
-    // cmd[5]/cmd[6] == 0x7FFF0000 → clamp to MAX. WA uses these to draw
-    // "infinite" rectangles in screen space.
-    if read_field(cmd, 3) == i32::MIN {
-        x1 = Fixed(i32::MIN);
-    }
-    if read_field(cmd, 4) == i32::MIN {
-        y1 = Fixed(i32::MIN);
-    }
-    if read_field(cmd, 5) == 0x7FFF_0000 {
-        x2 = Fixed(i32::MAX);
-    }
-    if read_field(cmd, 6) == 0x7FFF_0000 {
-        y2 = Fixed(i32::MAX);
-    }
+        // Pixel-perfect MIN/MAX rect-edge clamping when the source is at the
+        // sentinel anchor values: cmd[3]/cmd[4] == -0x80000000 → clamp to MIN,
+        // cmd[5]/cmd[6] == 0x7FFF0000 → clamp to MAX. WA uses these to draw
+        // "infinite" rectangles in screen space.
+        if read_field(cmd, 3) == i32::MIN {
+            x1 = Fixed(i32::MIN);
+        }
+        if read_field(cmd, 4) == i32::MIN {
+            y1 = Fixed(i32::MIN);
+        }
+        if read_field(cmd, 5) == 0x7FFF_0000 {
+            x2 = Fixed(i32::MAX);
+        }
+        if read_field(cmd, 6) == 0x7FFF_0000 {
+            y2 = Fixed(i32::MAX);
+        }
 
-    let color = *(cmd.add(2));
-    DisplayGfx::fill_rect_raw(
-        display,
-        x1.to_int(),
-        y1.to_int(),
-        x2.to_int(),
-        y2.to_int(),
-        color,
-    );
+        let color = *(cmd.add(2));
+        DisplayGfx::fill_rect_raw(
+            display,
+            x1.to_int(),
+            y1.to_int(),
+            x2.to_int(),
+            y2.to_int(),
+            color,
+        );
+    }
 }
 
 // ---- case 1: DRAW_BITMAP_GLOBAL → slot 20 (draw_scaled_sprite) -------------
@@ -415,16 +419,20 @@ unsafe fn dispatch_case_0_fill_rect(display: *mut DisplayGfx, clip: &ClipContext
 //
 // Pure passthrough — global bitmaps draw at the supplied world coords.
 unsafe fn dispatch_case_1_bitmap_global(display: *mut DisplayGfx, cmd: *const u32) {
-    use crate::bitgrid::DisplayBitGrid;
-    let x = read_fixed(cmd, 2);
-    let y = read_fixed(cmd, 3);
-    let sprite = read_field(cmd, 4) as *mut DisplayBitGrid;
-    let src_x = read_field(cmd, 5);
-    let src_y = read_field(cmd, 6);
-    let src_w = read_field(cmd, 7);
-    let src_h = read_field(cmd, 8);
-    let flags = *(cmd.add(9));
-    DisplayGfx::draw_scaled_sprite_raw(display, x, y, sprite, src_x, src_y, src_w, src_h, flags);
+    unsafe {
+        use crate::bitgrid::DisplayBitGrid;
+        let x = read_fixed(cmd, 2);
+        let y = read_fixed(cmd, 3);
+        let sprite = read_field(cmd, 4) as *mut DisplayBitGrid;
+        let src_x = read_field(cmd, 5);
+        let src_y = read_field(cmd, 6);
+        let src_w = read_field(cmd, 7);
+        let src_h = read_field(cmd, 8);
+        let flags = *(cmd.add(9));
+        DisplayGfx::draw_scaled_sprite_raw(
+            display, x, y, sprite, src_x, src_y, src_w, src_h, flags,
+        );
+    }
 }
 
 // ---- case 2: DRAW_TEXTBOX_LOCAL → slot 20 (draw_scaled_sprite) -------------
@@ -437,63 +445,67 @@ unsafe fn dispatch_case_2_textbox_local(
     clip: &ClipContext,
     cmd: *const u32,
 ) {
-    use crate::bitgrid::DisplayBitGrid;
-    let mode = *(cmd.add(2));
-    let mut x1 = Fixed::ZERO;
-    let mut y1 = Fixed::ZERO;
-    let mut scale = Fixed::ZERO;
-    if mode == 0 {
-        if !rq_clip_coordinates(
-            clip,
-            read_fixed(cmd, 3),
-            read_fixed(cmd, 4),
-            read_field(cmd, 5),
-            &mut x1,
-            &mut y1,
-            &mut scale,
-        ) {
-            return;
+    unsafe {
+        use crate::bitgrid::DisplayBitGrid;
+        let mode = *(cmd.add(2));
+        let mut x1 = Fixed::ZERO;
+        let mut y1 = Fixed::ZERO;
+        let mut scale = Fixed::ZERO;
+        if mode == 0 {
+            if !rq_clip_coordinates(
+                clip,
+                read_fixed(cmd, 3),
+                read_fixed(cmd, 4),
+                read_field(cmd, 5),
+                &mut x1,
+                &mut y1,
+                &mut scale,
+            ) {
+                return;
+            }
+        } else {
+            if !rq_clip_coordinates(
+                clip,
+                read_fixed(cmd, 3),
+                read_fixed(cmd, 4),
+                read_field(cmd, 5),
+                &mut x1,
+                &mut y1,
+                &mut scale,
+            ) {
+                return;
+            }
+            let mut x2 = Fixed::ZERO;
+            let mut y2 = Fixed::ZERO;
+            if !rq_clip_coordinates(
+                clip,
+                read_fixed(cmd, 3),
+                read_fixed(cmd, 4),
+                read_field(cmd, 6),
+                &mut x2,
+                &mut y2,
+                &mut scale,
+            ) {
+                return;
+            }
+            let flag_byte = *(cmd.add(2)) as u8;
+            if flag_byte & 1 != 0 {
+                x1 = x2;
+            }
+            if flag_byte & 2 != 0 {
+                y1 = y2;
+            }
         }
-    } else {
-        if !rq_clip_coordinates(
-            clip,
-            read_fixed(cmd, 3),
-            read_fixed(cmd, 4),
-            read_field(cmd, 5),
-            &mut x1,
-            &mut y1,
-            &mut scale,
-        ) {
-            return;
-        }
-        let mut x2 = Fixed::ZERO;
-        let mut y2 = Fixed::ZERO;
-        if !rq_clip_coordinates(
-            clip,
-            read_fixed(cmd, 3),
-            read_fixed(cmd, 4),
-            read_field(cmd, 6),
-            &mut x2,
-            &mut y2,
-            &mut scale,
-        ) {
-            return;
-        }
-        let flag_byte = *(cmd.add(2)) as u8;
-        if flag_byte & 1 != 0 {
-            x1 = x2;
-        }
-        if flag_byte & 2 != 0 {
-            y1 = y2;
-        }
+        let sprite = read_field(cmd, 7) as *mut DisplayBitGrid;
+        let src_x = read_field(cmd, 8);
+        let src_y = read_field(cmd, 9);
+        let src_w = read_field(cmd, 10);
+        let src_h = read_field(cmd, 11);
+        let flags = *(cmd.add(12));
+        DisplayGfx::draw_scaled_sprite_raw(
+            display, x1, y1, sprite, src_x, src_y, src_w, src_h, flags,
+        );
     }
-    let sprite = read_field(cmd, 7) as *mut DisplayBitGrid;
-    let src_x = read_field(cmd, 8);
-    let src_y = read_field(cmd, 9);
-    let src_w = read_field(cmd, 10);
-    let src_h = read_field(cmd, 11);
-    let flags = *(cmd.add(12));
-    DisplayGfx::draw_scaled_sprite_raw(display, x1, y1, sprite, src_x, src_y, src_w, src_h, flags);
 }
 
 // ---- case 3 → slot 21 (draw_via_callback) ----------------------------------
@@ -506,35 +518,39 @@ unsafe fn dispatch_case_3_via_callback(
     clip: &ClipContext,
     cmd: *const u32,
 ) {
-    let mut x = Fixed::ZERO;
-    let mut y = Fixed::ZERO;
-    let mut scale = Fixed::ZERO;
-    if !rq_clip_coordinates(
-        clip,
-        read_fixed(cmd, 2),
-        read_fixed(cmd, 3),
-        read_field(cmd, 4),
-        &mut x,
-        &mut y,
-        &mut scale,
-    ) {
-        return;
+    unsafe {
+        let mut x = Fixed::ZERO;
+        let mut y = Fixed::ZERO;
+        let mut scale = Fixed::ZERO;
+        if !rq_clip_coordinates(
+            clip,
+            read_fixed(cmd, 2),
+            read_fixed(cmd, 3),
+            read_field(cmd, 4),
+            &mut x,
+            &mut y,
+            &mut scale,
+        ) {
+            return;
+        }
+        let obj = read_field(cmd, 6) as *mut u8;
+        let p5 = *(cmd.add(7));
+        let p6 = *(cmd.add(8));
+        DisplayGfx::draw_via_callback_raw(display, x, y, obj, p5, p6);
     }
-    let obj = read_field(cmd, 6) as *mut u8;
-    let p5 = *(cmd.add(7));
-    let p6 = *(cmd.add(8));
-    DisplayGfx::draw_via_callback_raw(display, x, y, obj, p5, p6);
 }
 
 // ---- case 4: DRAW_SPRITE_GLOBAL → slot 19 (blit_sprite) --------------------
 //
 //     vtable[19](this, cmd[2], cmd[3], cmd[4], cmd[5]);
 unsafe fn dispatch_case_4_sprite_global(display: *mut DisplayGfx, cmd: *const u32) {
-    let x = read_fixed(cmd, 2);
-    let y = read_fixed(cmd, 3);
-    let sprite = SpriteOp(*(cmd.add(4)));
-    let palette = *(cmd.add(5));
-    DisplayGfx::blit_sprite_raw(display, x, y, sprite, palette);
+    unsafe {
+        let x = read_fixed(cmd, 2);
+        let y = read_fixed(cmd, 3);
+        let sprite = SpriteOp(*(cmd.add(4)));
+        let palette = *(cmd.add(5));
+        DisplayGfx::blit_sprite_raw(display, x, y, sprite, palette);
+    }
 }
 
 // ---- case 5: DRAW_SPRITE_LOCAL → slot 19 (blit_sprite) ---------------------
@@ -546,12 +562,14 @@ unsafe fn dispatch_case_5_sprite_local(
     clip: &ClipContext,
     cmd: *const u32,
 ) {
-    let mut x = Fixed::ZERO;
-    let mut y = Fixed::ZERO;
-    rq_translate_coordinates(clip, read_fixed(cmd, 2), read_fixed(cmd, 3), &mut x, &mut y);
-    let sprite = SpriteOp(*(cmd.add(4)));
-    let palette = *(cmd.add(5));
-    DisplayGfx::blit_sprite_raw(display, x, y, sprite, palette);
+    unsafe {
+        let mut x = Fixed::ZERO;
+        let mut y = Fixed::ZERO;
+        rq_translate_coordinates(clip, read_fixed(cmd, 2), read_fixed(cmd, 3), &mut x, &mut y);
+        let sprite = SpriteOp(*(cmd.add(4)));
+        let palette = *(cmd.add(5));
+        DisplayGfx::blit_sprite_raw(display, x, y, sprite, palette);
+    }
 }
 
 // ---- case 6: DRAW_SPRITE_OFFSET → slot 19 (blit_sprite) --------------------
@@ -565,67 +583,69 @@ unsafe fn dispatch_case_6_sprite_offset(
     clip: &ClipContext,
     cmd: *const u32,
 ) {
-    let flags = *(cmd.add(2));
+    unsafe {
+        let flags = *(cmd.add(2));
 
-    let mut x = Fixed::ZERO;
-    let mut y = Fixed::ZERO;
-    let mut scale = Fixed::ZERO;
+        let mut x = Fixed::ZERO;
+        let mut y = Fixed::ZERO;
+        let mut scale = Fixed::ZERO;
 
-    if flags == 0 {
-        // Simple translate path (no perspective).
-        rq_translate_coordinates(clip, read_fixed(cmd, 3), read_fixed(cmd, 4), &mut x, &mut y);
-    } else {
-        // Two clip calls (top + bottom Y) with optional MIN/MAX clamps.
-        let use_pivot = (flags & 4) != 0;
-        let clip_fn: fn(
-            &ClipContext,
-            Fixed,
-            Fixed,
-            i32,
-            &mut Fixed,
-            &mut Fixed,
-            &mut Fixed,
-        ) -> bool = if use_pivot {
-            rq_clip_coordinates_with_ref
+        if flags == 0 {
+            // Simple translate path (no perspective).
+            rq_translate_coordinates(clip, read_fixed(cmd, 3), read_fixed(cmd, 4), &mut x, &mut y);
         } else {
-            rq_clip_coordinates
-        };
-        if !clip_fn(
-            clip,
-            read_fixed(cmd, 3),
-            read_fixed(cmd, 4),
-            read_field(cmd, 5),
-            &mut x,
-            &mut y,
-            &mut scale,
-        ) {
-            return;
+            // Two clip calls (top + bottom Y) with optional MIN/MAX clamps.
+            let use_pivot = (flags & 4) != 0;
+            let clip_fn: fn(
+                &ClipContext,
+                Fixed,
+                Fixed,
+                i32,
+                &mut Fixed,
+                &mut Fixed,
+                &mut Fixed,
+            ) -> bool = if use_pivot {
+                rq_clip_coordinates_with_ref
+            } else {
+                rq_clip_coordinates
+            };
+            if !clip_fn(
+                clip,
+                read_fixed(cmd, 3),
+                read_fixed(cmd, 4),
+                read_field(cmd, 5),
+                &mut x,
+                &mut y,
+                &mut scale,
+            ) {
+                return;
+            }
+            let mut x2 = Fixed::ZERO;
+            let mut y2 = Fixed::ZERO;
+            if !clip_fn(
+                clip,
+                read_fixed(cmd, 3),
+                read_fixed(cmd, 4),
+                read_field(cmd, 6),
+                &mut x2,
+                &mut y2,
+                &mut scale,
+            ) {
+                return;
+            }
+            let flag_byte = *(cmd.add(2)) as u8;
+            if flag_byte & 1 != 0 {
+                x = x2;
+            }
+            if flag_byte & 2 != 0 {
+                y = y2;
+            }
         }
-        let mut x2 = Fixed::ZERO;
-        let mut y2 = Fixed::ZERO;
-        if !clip_fn(
-            clip,
-            read_fixed(cmd, 3),
-            read_fixed(cmd, 4),
-            read_field(cmd, 6),
-            &mut x2,
-            &mut y2,
-            &mut scale,
-        ) {
-            return;
-        }
-        let flag_byte = *(cmd.add(2)) as u8;
-        if flag_byte & 1 != 0 {
-            x = x2;
-        }
-        if flag_byte & 2 != 0 {
-            y = y2;
-        }
-    }
 
-    let sprite = SpriteOp(*(cmd.add(7)));
-    let palette = *(cmd.add(8));
-    DisplayGfx::blit_sprite_raw(display, x, y, sprite, palette);
+        let sprite = SpriteOp(*(cmd.add(7)));
+        let palette = *(cmd.add(8));
+        DisplayGfx::blit_sprite_raw(display, x, y, sprite, palette);
+    }
 }
 
 // ---- case 7 → slot 12 (draw_polyline) --------------------------------------
@@ -635,10 +655,12 @@ unsafe fn dispatch_case_6_sprite_offset(
 // `cmd[2]` is the vertex count, `cmd[3]` is the color, vertex data
 // follows starting at `cmd[4]`.
 unsafe fn dispatch_case_7_polyline(display: *mut DisplayGfx, cmd: *const u32) {
-    let points = cmd.add(4) as *mut i32;
-    let count = read_field(cmd, 2);
-    let color = *(cmd.add(3));
-    DisplayGfx::draw_polyline_raw(display, points, count, color);
+    unsafe {
+        let points = cmd.add(4) as *mut i32;
+        let count = read_field(cmd, 2);
+        let color = *(cmd.add(3));
+        DisplayGfx::draw_polyline_raw(display, points, count, color);
+    }
 }
 
 // ---- case 8: DRAW_LINE_STRIP → slot 14 (draw_line_clipped) -----------------
@@ -651,46 +673,48 @@ unsafe fn dispatch_case_8_line_strip(
     clip: &ClipContext,
     cmd: *const u32,
 ) {
-    let mut x1 = Fixed::ZERO;
-    let mut y1 = Fixed::ZERO;
-    let mut scale = Fixed::ZERO;
-    if !rq_clip_coordinates(
-        clip,
-        read_fixed(cmd, 4),
-        read_fixed(cmd, 5),
-        read_field(cmd, 6),
-        &mut x1,
-        &mut y1,
-        &mut scale,
-    ) {
-        return;
-    }
-    let count = read_field(cmd, 2);
-    let color = *(cmd.add(3));
-    if count <= 1 {
-        return;
-    }
-    // Vertex N is at cmd[8 + (N-1)*3 .. 8 + (N-1)*3 + 3], a 3-tuple of (x, y, z).
-    // Walk N = 1..count.
-    let mut vert = cmd.add(8) as *const u32;
-    for _ in 1..count {
-        let mut x2 = Fixed::ZERO;
-        let mut y2 = Fixed::ZERO;
+    unsafe {
+        let mut x1 = Fixed::ZERO;
+        let mut y1 = Fixed::ZERO;
+        let mut scale = Fixed::ZERO;
         if !rq_clip_coordinates(
             clip,
-            Fixed::from_raw(*(vert.sub(1)) as i32),
-            Fixed::from_raw(*vert as i32),
-            *(vert.add(1)) as i32,
-            &mut x2,
-            &mut y2,
+            read_fixed(cmd, 4),
+            read_fixed(cmd, 5),
+            read_field(cmd, 6),
+            &mut x1,
+            &mut y1,
             &mut scale,
         ) {
-            break;
+            return;
         }
-        DisplayGfx::draw_line_clipped_raw(display, x1, y1, x2, y2, color);
-        x1 = x2;
-        y1 = y2;
-        vert = vert.add(3);
+        let count = read_field(cmd, 2);
+        let color = *(cmd.add(3));
+        if count <= 1 {
+            return;
+        }
+        // Vertex N is at cmd[8 + (N-1)*3 .. 8 + (N-1)*3 + 3], a 3-tuple of (x, y, z).
+        // Walk N = 1..count.
+        let mut vert = cmd.add(8) as *const u32;
+        for _ in 1..count {
+            let mut x2 = Fixed::ZERO;
+            let mut y2 = Fixed::ZERO;
+            if !rq_clip_coordinates(
+                clip,
+                Fixed::from_raw(*(vert.sub(1)) as i32),
+                Fixed::from_raw(*vert as i32),
+                *(vert.add(1)) as i32,
+                &mut x2,
+                &mut y2,
+                &mut scale,
+            ) {
+                break;
+            }
+            DisplayGfx::draw_line_clipped_raw(display, x1, y1, x2, y2, color);
+            x1 = x2;
+            y1 = y2;
+            vert = vert.add(3);
+        }
     }
 }
 
@@ -699,45 +723,47 @@ unsafe fn dispatch_case_8_line_strip(
 // Same shape as case 8 but with two color params (cmd[3], cmd[4]) and the
 // first vertex starts at `cmd[5..8]`. Per-segment vertex stride is 3 u32s.
 unsafe fn dispatch_case_9_polygon(display: *mut DisplayGfx, clip: &ClipContext, cmd: *const u32) {
-    let mut x1 = Fixed::ZERO;
-    let mut y1 = Fixed::ZERO;
-    let mut scale = Fixed::ZERO;
-    if !rq_clip_coordinates(
-        clip,
-        read_fixed(cmd, 5),
-        read_fixed(cmd, 6),
-        read_field(cmd, 7),
-        &mut x1,
-        &mut y1,
-        &mut scale,
-    ) {
-        return;
-    }
-    let count = read_field(cmd, 2);
-    let color1 = *(cmd.add(3));
-    let color2 = *(cmd.add(4));
-    if count <= 1 {
-        return;
-    }
-    let mut vert = cmd.add(9) as *const u32;
-    for _ in 1..count {
-        let mut x2 = Fixed::ZERO;
-        let mut y2 = Fixed::ZERO;
+    unsafe {
+        let mut x1 = Fixed::ZERO;
+        let mut y1 = Fixed::ZERO;
+        let mut scale = Fixed::ZERO;
         if !rq_clip_coordinates(
             clip,
-            Fixed::from_raw(*(vert.sub(1)) as i32),
-            Fixed::from_raw(*vert as i32),
-            *(vert.add(1)) as i32,
-            &mut x2,
-            &mut y2,
+            read_fixed(cmd, 5),
+            read_fixed(cmd, 6),
+            read_field(cmd, 7),
+            &mut x1,
+            &mut y1,
             &mut scale,
         ) {
-            break;
+            return;
         }
-        DisplayGfx::draw_line_raw(display, x1, y1, x2, y2, color1, color2);
-        x1 = x2;
-        y1 = y2;
-        vert = vert.add(3);
+        let count = read_field(cmd, 2);
+        let color1 = *(cmd.add(3));
+        let color2 = *(cmd.add(4));
+        if count <= 1 {
+            return;
+        }
+        let mut vert = cmd.add(9) as *const u32;
+        for _ in 1..count {
+            let mut x2 = Fixed::ZERO;
+            let mut y2 = Fixed::ZERO;
+            if !rq_clip_coordinates(
+                clip,
+                Fixed::from_raw(*(vert.sub(1)) as i32),
+                Fixed::from_raw(*vert as i32),
+                *(vert.add(1)) as i32,
+                &mut x2,
+                &mut y2,
+                &mut scale,
+            ) {
+                break;
+            }
+            DisplayGfx::draw_line_raw(display, x1, y1, x2, y2, color1, color2);
+            x1 = x2;
+            y1 = y2;
+            vert = vert.add(3);
+        }
     }
 }
 
@@ -755,18 +781,20 @@ unsafe fn dispatch_case_a_pixel_strip(
     clip: &ClipContext,
     cmd: *const u32,
 ) {
-    let mut x = Fixed::ZERO;
-    let mut y = Fixed::ZERO;
-    rq_translate_coordinates(clip, read_fixed(cmd, 2), read_fixed(cmd, 3), &mut x, &mut y);
-    let cmd_x = *(cmd.add(2));
-    let cmd_y = *(cmd.add(3));
-    x += Fixed::from_raw((cmd_x & 0xFFFF) as i32);
-    y += Fixed::from_raw((cmd_y & 0xFFFF) as i32);
-    let dx = read_fixed(cmd, 4);
-    let dy = read_fixed(cmd, 5);
-    let count = read_field(cmd, 6);
-    let color = *(cmd.add(7));
-    DisplayGfx::draw_pixel_strip_raw(display, x, y, dx, dy, count, color);
+    unsafe {
+        let mut x = Fixed::ZERO;
+        let mut y = Fixed::ZERO;
+        rq_translate_coordinates(clip, read_fixed(cmd, 2), read_fixed(cmd, 3), &mut x, &mut y);
+        let cmd_x = *(cmd.add(2));
+        let cmd_y = *(cmd.add(3));
+        x += Fixed::from_raw((cmd_x & 0xFFFF) as i32);
+        y += Fixed::from_raw((cmd_y & 0xFFFF) as i32);
+        let dx = read_fixed(cmd, 4);
+        let dy = read_fixed(cmd, 5);
+        let count = read_field(cmd, 6);
+        let color = *(cmd.add(7));
+        DisplayGfx::draw_pixel_strip_raw(display, x, y, dx, dy, count, color);
+    }
 }
 
 // ---- case 0xB: DRAW_CROSSHAIR → slot 16 (draw_crosshair) -------------------
@@ -775,23 +803,25 @@ unsafe fn dispatch_case_a_pixel_strip(
 //     if !iVar4 break;
 //     vtable[16](this, x>>16, y>>16, cmd[2], cmd[3]);
 unsafe fn dispatch_case_b_crosshair(display: *mut DisplayGfx, clip: &ClipContext, cmd: *const u32) {
-    let mut x = Fixed::ZERO;
-    let mut y = Fixed::ZERO;
-    let mut scale = Fixed::ZERO;
-    if !rq_clip_coordinates(
-        clip,
-        read_fixed(cmd, 4),
-        read_fixed(cmd, 5),
-        read_field(cmd, 6),
-        &mut x,
-        &mut y,
-        &mut scale,
-    ) {
-        return;
+    unsafe {
+        let mut x = Fixed::ZERO;
+        let mut y = Fixed::ZERO;
+        let mut scale = Fixed::ZERO;
+        if !rq_clip_coordinates(
+            clip,
+            read_fixed(cmd, 4),
+            read_fixed(cmd, 5),
+            read_field(cmd, 6),
+            &mut x,
+            &mut y,
+            &mut scale,
+        ) {
+            return;
+        }
+        let color_fg = *(cmd.add(2));
+        let color_bg = *(cmd.add(3));
+        DisplayGfx::draw_crosshair_raw(display, x.to_int(), y.to_int(), color_fg, color_bg);
     }
-    let color_fg = *(cmd.add(2));
-    let color_bg = *(cmd.add(3));
-    DisplayGfx::draw_crosshair_raw(display, x.to_int(), y.to_int(), color_fg, color_bg);
 }
 
 // ---- case 0xC → slot 17 (draw_outlined_pixel) ------------------------------
@@ -804,23 +834,25 @@ unsafe fn dispatch_case_c_outlined_pixel(
     clip: &ClipContext,
     cmd: *const u32,
 ) {
-    let mut x = Fixed::ZERO;
-    let mut y = Fixed::ZERO;
-    let mut scale = Fixed::ZERO;
-    if !rq_clip_coordinates(
-        clip,
-        read_fixed(cmd, 4),
-        read_fixed(cmd, 5),
-        read_field(cmd, 6),
-        &mut x,
-        &mut y,
-        &mut scale,
-    ) {
-        return;
+    unsafe {
+        let mut x = Fixed::ZERO;
+        let mut y = Fixed::ZERO;
+        let mut scale = Fixed::ZERO;
+        if !rq_clip_coordinates(
+            clip,
+            read_fixed(cmd, 4),
+            read_fixed(cmd, 5),
+            read_field(cmd, 6),
+            &mut x,
+            &mut y,
+            &mut scale,
+        ) {
+            return;
+        }
+        let color_fg = *(cmd.add(2));
+        let color_bg = read_field(cmd, 3);
+        DisplayGfx::draw_outlined_pixel_raw(display, x.to_int(), y.to_int(), color_fg, color_bg);
     }
-    let color_fg = *(cmd.add(2));
-    let color_bg = read_field(cmd, 3);
-    DisplayGfx::draw_outlined_pixel_raw(display, x.to_int(), y.to_int(), color_fg, color_bg);
 }
 
 // ---- case 0xD: DRAW_TILED_BITMAP → slot 11 (draw_tiled_bitmap) -------------
@@ -834,25 +866,27 @@ unsafe fn dispatch_case_d_tiled_bitmap(
     clip: &ClipContext,
     cmd: *const u32,
 ) {
-    use crate::render::display::vtable::TiledBitmapSource;
-    let mut x = Fixed::ZERO;
-    let mut y = Fixed::ZERO;
-    let mut scale = Fixed::ZERO;
-    if !rq_clip_coordinates(
-        clip,
-        Fixed::ZERO,
-        read_fixed(cmd, 2),
-        read_field(cmd, 3),
-        &mut x,
-        &mut y,
-        &mut scale,
-    ) {
-        return;
+    unsafe {
+        use crate::render::display::vtable::TiledBitmapSource;
+        let mut x = Fixed::ZERO;
+        let mut y = Fixed::ZERO;
+        let mut scale = Fixed::ZERO;
+        if !rq_clip_coordinates(
+            clip,
+            Fixed::ZERO,
+            read_fixed(cmd, 2),
+            read_field(cmd, 3),
+            &mut x,
+            &mut y,
+            &mut scale,
+        ) {
+            return;
+        }
+        let flag_byte = *(cmd.add(5)) as u8;
+        let dest_x = if flag_byte != 0 { 0 } else { x.to_int() };
+        let source = read_field(cmd, 4) as *const TiledBitmapSource;
+        DisplayGfx::draw_tiled_bitmap_raw(display, dest_x, y.to_int(), source);
     }
-    let flag_byte = *(cmd.add(5)) as u8;
-    let dest_x = if flag_byte != 0 { 0 } else { x.to_int() };
-    let source = read_field(cmd, 4) as *const TiledBitmapSource;
-    DisplayGfx::draw_tiled_bitmap_raw(display, dest_x, y.to_int(), source);
 }
 
 // ---- case 0xE → slot 22 (draw_tiled_terrain) -------------------------------
@@ -864,58 +898,60 @@ unsafe fn dispatch_case_e_tiled_terrain(
     clip: &ClipContext,
     cmd: *const u32,
 ) {
-    let mode = *(cmd.add(2));
-    let mut x = Fixed::ZERO;
-    let mut y = Fixed::ZERO;
-    let mut scale = Fixed::ZERO;
-    if mode == 0 {
-        if !rq_clip_coordinates(
-            clip,
-            read_fixed(cmd, 3),
-            read_fixed(cmd, 4),
-            read_field(cmd, 5),
-            &mut x,
-            &mut y,
-            &mut scale,
-        ) {
-            return;
+    unsafe {
+        let mode = *(cmd.add(2));
+        let mut x = Fixed::ZERO;
+        let mut y = Fixed::ZERO;
+        let mut scale = Fixed::ZERO;
+        if mode == 0 {
+            if !rq_clip_coordinates(
+                clip,
+                read_fixed(cmd, 3),
+                read_fixed(cmd, 4),
+                read_field(cmd, 5),
+                &mut x,
+                &mut y,
+                &mut scale,
+            ) {
+                return;
+            }
+        } else {
+            if !rq_clip_coordinates(
+                clip,
+                read_fixed(cmd, 3),
+                read_fixed(cmd, 4),
+                read_field(cmd, 5),
+                &mut x,
+                &mut y,
+                &mut scale,
+            ) {
+                return;
+            }
+            let mut x2 = Fixed::ZERO;
+            let mut y2 = Fixed::ZERO;
+            if !rq_clip_coordinates(
+                clip,
+                read_fixed(cmd, 3),
+                read_fixed(cmd, 4),
+                read_field(cmd, 6),
+                &mut x2,
+                &mut y2,
+                &mut scale,
+            ) {
+                return;
+            }
+            let flag_byte = *(cmd.add(2)) as u8;
+            if flag_byte & 1 != 0 {
+                x = x2;
+            }
+            if flag_byte & 2 != 0 {
+                y = y2;
+            }
         }
-    } else {
-        if !rq_clip_coordinates(
-            clip,
-            read_fixed(cmd, 3),
-            read_fixed(cmd, 4),
-            read_field(cmd, 5),
-            &mut x,
-            &mut y,
-            &mut scale,
-        ) {
-            return;
-        }
-        let mut x2 = Fixed::ZERO;
-        let mut y2 = Fixed::ZERO;
-        if !rq_clip_coordinates(
-            clip,
-            read_fixed(cmd, 3),
-            read_fixed(cmd, 4),
-            read_field(cmd, 6),
-            &mut x2,
-            &mut y2,
-            &mut scale,
-        ) {
-            return;
-        }
-        let flag_byte = *(cmd.add(2)) as u8;
-        if flag_byte & 1 != 0 {
-            x = x2;
-        }
-        if flag_byte & 2 != 0 {
-            y = y2;
-        }
+        let count = read_field(cmd, 7);
+        let flags = *(cmd.add(8));
+        DisplayGfx::draw_tiled_terrain_raw(display, x, y, count, flags);
     }
-    let count = read_field(cmd, 7);
-    let flags = *(cmd.add(8));
-    DisplayGfx::draw_tiled_terrain_raw(display, x, y, count, flags);
 }
 
 // =============================================================================
@@ -924,265 +960,275 @@ unsafe fn dispatch_case_e_tiled_terrain(
 
 /// Dispatch a [`RenderMessage`] to the appropriate `DisplayGfx` vtable method.
 unsafe fn dispatch_typed(display: *mut DisplayGfx, clip: &ClipContext, msg: &RenderMessage) {
-    match *msg {
-        RenderMessage::Sprite {
-            local,
-            x,
-            y,
-            sprite,
-            palette,
-        } => {
-            if local {
-                let mut out_x = Fixed::ZERO;
-                let mut out_y = Fixed::ZERO;
-                rq_translate_coordinates(clip, x, y, &mut out_x, &mut out_y);
-                DisplayGfx::blit_sprite_raw(display, out_x, out_y, sprite, palette);
-            } else {
-                DisplayGfx::blit_sprite_raw(display, x, y, sprite, palette);
-            }
-        }
-
-        RenderMessage::FillRect {
-            color,
-            x1,
-            y1,
-            x2,
-            y2,
-            ref_z,
-        } => {
-            let mut ox1 = Fixed::ZERO;
-            let mut oy1 = Fixed::ZERO;
-            let mut ox2 = Fixed::ZERO;
-            let mut oy2 = Fixed::ZERO;
-            let mut scale = Fixed::ZERO;
-            if !rq_clip_coordinates(clip, x1, y1, ref_z, &mut ox1, &mut oy1, &mut scale) {
-                return;
-            }
-            if !rq_clip_coordinates(clip, x2, y2, ref_z, &mut ox2, &mut oy2, &mut scale) {
-                return;
-            }
-            // Sentinel clamps for "infinite" screen-space rectangles.
-            if x1.0 == i32::MIN {
-                ox1 = Fixed(i32::MIN);
-            }
-            if y1.0 == i32::MIN {
-                oy1 = Fixed(i32::MIN);
-            }
-            if x2.0 == 0x7FFF_0000 {
-                ox2 = Fixed(i32::MAX);
-            }
-            if y2.0 == 0x7FFF_0000 {
-                oy2 = Fixed(i32::MAX);
-            }
-            DisplayGfx::fill_rect_raw(
-                display,
-                ox1.to_int(),
-                oy1.to_int(),
-                ox2.to_int(),
-                oy2.to_int(),
-                color,
-            );
-        }
-
-        RenderMessage::Crosshair {
-            color_fg,
-            color_bg,
-            x,
-            y,
-        } => {
-            let mut ox = Fixed::ZERO;
-            let mut oy = Fixed::ZERO;
-            let mut scale = Fixed::ZERO;
-            if !rq_clip_coordinates(clip, x, y, 0, &mut ox, &mut oy, &mut scale) {
-                return;
-            }
-            DisplayGfx::draw_crosshair_raw(display, ox.to_int(), oy.to_int(), color_fg, color_bg);
-        }
-
-        RenderMessage::TiledBitmap {
-            x,
-            y,
-            source,
-            flags,
-        } => {
-            let mut ox = Fixed::ZERO;
-            let mut oy = Fixed::ZERO;
-            let mut scale = Fixed::ZERO;
-            if !rq_clip_coordinates(clip, Fixed::ZERO, x, y.0, &mut ox, &mut oy, &mut scale) {
-                return;
-            }
-            let dest_x = if flags & 1 != 0 { 0 } else { ox.to_int() };
-            DisplayGfx::draw_tiled_bitmap_raw(display, dest_x, oy.to_int(), source);
-        }
-
-        RenderMessage::SpriteOffset {
-            flags,
-            x,
-            y,
-            ref_z_2,
-            sprite,
-            palette,
-        } => {
-            let mut ox = Fixed::ZERO;
-            let mut oy = Fixed::ZERO;
-            let mut scale = Fixed::ZERO;
-
-            if flags == 0 {
-                rq_translate_coordinates(clip, x, y, &mut ox, &mut oy);
-            } else {
-                let use_pivot = (flags & 4) != 0;
-                let clip_fn: fn(
-                    &ClipContext,
-                    Fixed,
-                    Fixed,
-                    i32,
-                    &mut Fixed,
-                    &mut Fixed,
-                    &mut Fixed,
-                ) -> bool = if use_pivot {
-                    rq_clip_coordinates_with_ref
+    unsafe {
+        match *msg {
+            RenderMessage::Sprite {
+                local,
+                x,
+                y,
+                sprite,
+                palette,
+            } => {
+                if local {
+                    let mut out_x = Fixed::ZERO;
+                    let mut out_y = Fixed::ZERO;
+                    rq_translate_coordinates(clip, x, y, &mut out_x, &mut out_y);
+                    DisplayGfx::blit_sprite_raw(display, out_x, out_y, sprite, palette);
                 } else {
-                    rq_clip_coordinates
-                };
-                // ref_z (first Z reference) is always 0.
-                if !clip_fn(clip, x, y, 0, &mut ox, &mut oy, &mut scale) {
-                    return;
+                    DisplayGfx::blit_sprite_raw(display, x, y, sprite, palette);
                 }
+            }
+
+            RenderMessage::FillRect {
+                color,
+                x1,
+                y1,
+                x2,
+                y2,
+                ref_z,
+            } => {
+                let mut ox1 = Fixed::ZERO;
+                let mut oy1 = Fixed::ZERO;
                 let mut ox2 = Fixed::ZERO;
                 let mut oy2 = Fixed::ZERO;
-                if !clip_fn(clip, x, y, ref_z_2, &mut ox2, &mut oy2, &mut scale) {
+                let mut scale = Fixed::ZERO;
+                if !rq_clip_coordinates(clip, x1, y1, ref_z, &mut ox1, &mut oy1, &mut scale) {
                     return;
                 }
-                if flags & 1 != 0 {
-                    ox = ox2;
+                if !rq_clip_coordinates(clip, x2, y2, ref_z, &mut ox2, &mut oy2, &mut scale) {
+                    return;
                 }
-                if flags & 2 != 0 {
-                    oy = oy2;
+                // Sentinel clamps for "infinite" screen-space rectangles.
+                if x1.0 == i32::MIN {
+                    ox1 = Fixed(i32::MIN);
                 }
+                if y1.0 == i32::MIN {
+                    oy1 = Fixed(i32::MIN);
+                }
+                if x2.0 == 0x7FFF_0000 {
+                    ox2 = Fixed(i32::MAX);
+                }
+                if y2.0 == 0x7FFF_0000 {
+                    oy2 = Fixed(i32::MAX);
+                }
+                DisplayGfx::fill_rect_raw(
+                    display,
+                    ox1.to_int(),
+                    oy1.to_int(),
+                    ox2.to_int(),
+                    oy2.to_int(),
+                    color,
+                );
             }
 
-            DisplayGfx::blit_sprite_raw(display, ox, oy, sprite, palette);
-        }
-
-        RenderMessage::BitmapGlobal {
-            x,
-            y,
-            bitmap,
-            src_y,
-            src_w,
-            src_h,
-            flags,
-        } => {
-            // src_x is always 0 in all known producers.
-            DisplayGfx::draw_scaled_sprite_raw(
-                display, x, y, bitmap, 0, src_y, src_w, src_h, flags,
-            );
-        }
-
-        RenderMessage::TextboxLocal {
-            x,
-            y,
-            bitmap,
-            src_w,
-            src_h,
-            flags,
-        } => {
-            // mode is always 0, so simple one-clip path.
-            // ref_z is always 0.
-            let mut ox = Fixed::ZERO;
-            let mut oy = Fixed::ZERO;
-            let mut scale = Fixed::ZERO;
-            if !rq_clip_coordinates(clip, x, y, 0, &mut ox, &mut oy, &mut scale) {
-                return;
+            RenderMessage::Crosshair {
+                color_fg,
+                color_bg,
+                x,
+                y,
+            } => {
+                let mut ox = Fixed::ZERO;
+                let mut oy = Fixed::ZERO;
+                let mut scale = Fixed::ZERO;
+                if !rq_clip_coordinates(clip, x, y, 0, &mut ox, &mut oy, &mut scale) {
+                    return;
+                }
+                DisplayGfx::draw_crosshair_raw(
+                    display,
+                    ox.to_int(),
+                    oy.to_int(),
+                    color_fg,
+                    color_bg,
+                );
             }
-            // src_x and src_y are always 0.
-            DisplayGfx::draw_scaled_sprite_raw(display, ox, oy, bitmap, 0, 0, src_w, src_h, flags);
-        }
 
-        RenderMessage::LineStrip {
-            count,
-            color,
-            vertices,
-        } => {
-            if count <= 1 {
-                return;
+            RenderMessage::TiledBitmap {
+                x,
+                y,
+                source,
+                flags,
+            } => {
+                let mut ox = Fixed::ZERO;
+                let mut oy = Fixed::ZERO;
+                let mut scale = Fixed::ZERO;
+                if !rq_clip_coordinates(clip, Fixed::ZERO, x, y.0, &mut ox, &mut oy, &mut scale) {
+                    return;
+                }
+                let dest_x = if flags & 1 != 0 { 0 } else { ox.to_int() };
+                DisplayGfx::draw_tiled_bitmap_raw(display, dest_x, oy.to_int(), source);
             }
-            let verts = core::slice::from_raw_parts(vertices, count as usize);
-            let mut x1 = Fixed::ZERO;
-            let mut y1 = Fixed::ZERO;
-            let mut scale = Fixed::ZERO;
-            if !rq_clip_coordinates(
-                clip,
-                Fixed::from_raw(verts[0][0]),
-                Fixed::from_raw(verts[0][1]),
-                verts[0][2],
-                &mut x1,
-                &mut y1,
-                &mut scale,
-            ) {
-                return;
+
+            RenderMessage::SpriteOffset {
+                flags,
+                x,
+                y,
+                ref_z_2,
+                sprite,
+                palette,
+            } => {
+                let mut ox = Fixed::ZERO;
+                let mut oy = Fixed::ZERO;
+                let mut scale = Fixed::ZERO;
+
+                if flags == 0 {
+                    rq_translate_coordinates(clip, x, y, &mut ox, &mut oy);
+                } else {
+                    let use_pivot = (flags & 4) != 0;
+                    let clip_fn: fn(
+                        &ClipContext,
+                        Fixed,
+                        Fixed,
+                        i32,
+                        &mut Fixed,
+                        &mut Fixed,
+                        &mut Fixed,
+                    ) -> bool = if use_pivot {
+                        rq_clip_coordinates_with_ref
+                    } else {
+                        rq_clip_coordinates
+                    };
+                    // ref_z (first Z reference) is always 0.
+                    if !clip_fn(clip, x, y, 0, &mut ox, &mut oy, &mut scale) {
+                        return;
+                    }
+                    let mut ox2 = Fixed::ZERO;
+                    let mut oy2 = Fixed::ZERO;
+                    if !clip_fn(clip, x, y, ref_z_2, &mut ox2, &mut oy2, &mut scale) {
+                        return;
+                    }
+                    if flags & 1 != 0 {
+                        ox = ox2;
+                    }
+                    if flags & 2 != 0 {
+                        oy = oy2;
+                    }
+                }
+
+                DisplayGfx::blit_sprite_raw(display, ox, oy, sprite, palette);
             }
-            for v in &verts[1..] {
-                let mut x2 = Fixed::ZERO;
-                let mut y2 = Fixed::ZERO;
+
+            RenderMessage::BitmapGlobal {
+                x,
+                y,
+                bitmap,
+                src_y,
+                src_w,
+                src_h,
+                flags,
+            } => {
+                // src_x is always 0 in all known producers.
+                DisplayGfx::draw_scaled_sprite_raw(
+                    display, x, y, bitmap, 0, src_y, src_w, src_h, flags,
+                );
+            }
+
+            RenderMessage::TextboxLocal {
+                x,
+                y,
+                bitmap,
+                src_w,
+                src_h,
+                flags,
+            } => {
+                // mode is always 0, so simple one-clip path.
+                // ref_z is always 0.
+                let mut ox = Fixed::ZERO;
+                let mut oy = Fixed::ZERO;
+                let mut scale = Fixed::ZERO;
+                if !rq_clip_coordinates(clip, x, y, 0, &mut ox, &mut oy, &mut scale) {
+                    return;
+                }
+                // src_x and src_y are always 0.
+                DisplayGfx::draw_scaled_sprite_raw(
+                    display, ox, oy, bitmap, 0, 0, src_w, src_h, flags,
+                );
+            }
+
+            RenderMessage::LineStrip {
+                count,
+                color,
+                vertices,
+            } => {
+                if count <= 1 {
+                    return;
+                }
+                let verts = core::slice::from_raw_parts(vertices, count as usize);
+                let mut x1 = Fixed::ZERO;
+                let mut y1 = Fixed::ZERO;
+                let mut scale = Fixed::ZERO;
                 if !rq_clip_coordinates(
                     clip,
-                    Fixed::from_raw(v[0]),
-                    Fixed::from_raw(v[1]),
-                    v[2],
-                    &mut x2,
-                    &mut y2,
+                    Fixed::from_raw(verts[0][0]),
+                    Fixed::from_raw(verts[0][1]),
+                    verts[0][2],
+                    &mut x1,
+                    &mut y1,
                     &mut scale,
                 ) {
-                    break;
+                    return;
                 }
-                DisplayGfx::draw_line_clipped_raw(display, x1, y1, x2, y2, color);
-                x1 = x2;
-                y1 = y2;
+                for v in &verts[1..] {
+                    let mut x2 = Fixed::ZERO;
+                    let mut y2 = Fixed::ZERO;
+                    if !rq_clip_coordinates(
+                        clip,
+                        Fixed::from_raw(v[0]),
+                        Fixed::from_raw(v[1]),
+                        v[2],
+                        &mut x2,
+                        &mut y2,
+                        &mut scale,
+                    ) {
+                        break;
+                    }
+                    DisplayGfx::draw_line_clipped_raw(display, x1, y1, x2, y2, color);
+                    x1 = x2;
+                    y1 = y2;
+                }
             }
-        }
 
-        RenderMessage::Polygon {
-            count,
-            color1,
-            color2,
-            vertices,
-        } => {
-            if count <= 1 {
-                return;
-            }
-            let verts = core::slice::from_raw_parts(vertices, count as usize);
-            let mut x1 = Fixed::ZERO;
-            let mut y1 = Fixed::ZERO;
-            let mut scale = Fixed::ZERO;
-            if !rq_clip_coordinates(
-                clip,
-                Fixed::from_raw(verts[0][0]),
-                Fixed::from_raw(verts[0][1]),
-                verts[0][2],
-                &mut x1,
-                &mut y1,
-                &mut scale,
-            ) {
-                return;
-            }
-            for v in &verts[1..] {
-                let mut x2 = Fixed::ZERO;
-                let mut y2 = Fixed::ZERO;
+            RenderMessage::Polygon {
+                count,
+                color1,
+                color2,
+                vertices,
+            } => {
+                if count <= 1 {
+                    return;
+                }
+                let verts = core::slice::from_raw_parts(vertices, count as usize);
+                let mut x1 = Fixed::ZERO;
+                let mut y1 = Fixed::ZERO;
+                let mut scale = Fixed::ZERO;
                 if !rq_clip_coordinates(
                     clip,
-                    Fixed::from_raw(v[0]),
-                    Fixed::from_raw(v[1]),
-                    v[2],
-                    &mut x2,
-                    &mut y2,
+                    Fixed::from_raw(verts[0][0]),
+                    Fixed::from_raw(verts[0][1]),
+                    verts[0][2],
+                    &mut x1,
+                    &mut y1,
                     &mut scale,
                 ) {
-                    break;
+                    return;
                 }
-                DisplayGfx::draw_line_raw(display, x1, y1, x2, y2, color1, color2);
-                x1 = x2;
-                y1 = y2;
+                for v in &verts[1..] {
+                    let mut x2 = Fixed::ZERO;
+                    let mut y2 = Fixed::ZERO;
+                    if !rq_clip_coordinates(
+                        clip,
+                        Fixed::from_raw(v[0]),
+                        Fixed::from_raw(v[1]),
+                        v[2],
+                        &mut x2,
+                        &mut y2,
+                        &mut scale,
+                    ) {
+                        break;
+                    }
+                    DisplayGfx::draw_line_raw(display, x1, y1, x2, y2, color1, color2);
+                    x1 = x2;
+                    y1 = y2;
+                }
             }
         }
     }

@@ -23,7 +23,7 @@
 
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, Data, DeriveInput, Fields, Lit, Meta};
+use syn::{Data, DeriveInput, Fields, Lit, Meta, parse_macro_input};
 
 // =========================================================================
 // #[derive(Vtable)]
@@ -426,12 +426,12 @@ fn generate_bind_methods(slots: &[SlotInfo]) -> syn::Result<proc_macro2::TokenSt
         methods.push(quote! {
             #[doc = #doc]
             pub unsafe fn #ident(#self_param #(, #param_decls)*) #ret_ty {
-                ((*self.$($vtable_field).+).#ident)(#self_cast #(, #param_names)*)
+                unsafe { ((*self.$($vtable_field).+).#ident)(#self_cast #(, #param_names)*) }
             }
 
             #[doc = #raw_doc]
             pub unsafe fn #raw_ident(this: #raw_this_ty #(, #param_decls)*) #ret_ty {
-                ((*(*this).$($vtable_field).+).#ident)(this #(, #param_names)*)
+                unsafe { ((*(*this).$($vtable_field).+).#ident)(this #(, #param_names)*) }
             }
         });
     }

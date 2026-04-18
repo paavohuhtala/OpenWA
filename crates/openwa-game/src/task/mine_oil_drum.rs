@@ -125,7 +125,9 @@ impl CTaskOilDrum {
     /// # Safety
     /// `self` must be a valid, fully-constructed CTaskOilDrum.
     pub unsafe fn on_fire(&self) -> bool {
-        let ptr = (self as *const CTaskOilDrum as *const u8).add(0xB0);
-        *(ptr as *const u32) != 0
+        unsafe {
+            let ptr = (self as *const CTaskOilDrum as *const u8).add(0xB0);
+            *(ptr as *const u32) != 0
+        }
     }
 }

@@ -1,6 +1,6 @@
+use crate::FieldRegistry;
 use crate::engine::ddgame::DDGame;
 use crate::game::class_type::ClassType;
-use crate::FieldRegistry;
 
 crate::define_addresses! {
     class "CTask" {
@@ -233,39 +233,41 @@ pub unsafe trait Task {
         size: u32,
         data: *const u8,
     ) {
-        let task_ptr = self.as_task_ptr_mut();
+        unsafe {
+            let task_ptr = self.as_task_ptr_mut();
 
-        // Scan for non-null children and dispatch HandleMessage.
-        // Mirrors WA's CTask::HandleMessage at 0x562F30 exactly:
-        // scan → dispatch → re-read watermark → scan next → ...
-        //
-        // IMPORTANT: read_volatile is required for watermark and children_data
-        // because child handlers may modify this task's children array
-        // (add/remove children, realloc the array). LLVM would otherwise cache
-        // these reads across the virtual dispatch call.
-        let mut i: usize = 0;
-        loop {
-            // Scan for next non-null child
-            let child = loop {
-                let watermark =
-                    core::ptr::read_volatile(core::ptr::addr_of!((*task_ptr).children_watermark))
-                        as usize;
-                if i >= watermark {
-                    return;
-                }
-                let children =
-                    core::ptr::read_volatile(core::ptr::addr_of!((*task_ptr).children_data));
-                let c = *children.add(i);
-                i += 1;
-                if !c.is_null() {
-                    break c;
-                }
-            };
+            // Scan for non-null children and dispatch HandleMessage.
+            // Mirrors WA's CTask::HandleMessage at 0x562F30 exactly:
+            // scan → dispatch → re-read watermark → scan next → ...
+            //
+            // IMPORTANT: read_volatile is required for watermark and children_data
+            // because child handlers may modify this task's children array
+            // (add/remove children, realloc the array). LLVM would otherwise cache
+            // these reads across the virtual dispatch call.
+            let mut i: usize = 0;
+            loop {
+                // Scan for next non-null child
+                let child = loop {
+                    let watermark = core::ptr::read_volatile(core::ptr::addr_of!(
+                        (*task_ptr).children_watermark
+                    )) as usize;
+                    if i >= watermark {
+                        return;
+                    }
+                    let children =
+                        core::ptr::read_volatile(core::ptr::addr_of!((*task_ptr).children_data));
+                    let c = *children.add(i);
+                    i += 1;
+                    if !c.is_null() {
+                        break c;
+                    }
+                };
 
-            // Dispatch via CTaskVtable — every task's vtable starts with
-            // the same 8-slot base layout, so this cast is always valid.
-            let vt = &*((*child).vtable as *const CTaskVtable);
-            (vt.handle_message)(child, sender, msg_type, size, data);
+                // Dispatch via CTaskVtable — every task's vtable starts with
+                // the same 8-slot base layout, so this cast is always valid.
+                let vt = &*((*child).vtable as *const CTaskVtable);
+                (vt.handle_message)(child, sender, msg_type, size, data);
+            }
         }
     }
 }
@@ -287,7 +289,7 @@ impl CTask {
     /// Reads the `ddgame` field (offset 0x2C) without creating a Rust reference.
     #[inline(always)]
     pub unsafe fn ddgame_raw(this: *const CTask) -> *mut DDGame {
-        (*this).ddgame
+        unsafe { (*this).ddgame }
     }
 
     /// Broadcast a message to all children — raw-pointer version.
@@ -302,26 +304,28 @@ impl CTask {
         size: u32,
         data: *const u8,
     ) {
-        let mut i: usize = 0;
-        loop {
-            let child = loop {
-                let watermark =
-                    core::ptr::read_volatile(core::ptr::addr_of!((*task_ptr).children_watermark))
-                        as usize;
-                if i >= watermark {
-                    return;
-                }
-                let children =
-                    core::ptr::read_volatile(core::ptr::addr_of!((*task_ptr).children_data));
-                let c = *children.add(i);
-                i += 1;
-                if !c.is_null() {
-                    break c;
-                }
-            };
+        unsafe {
+            let mut i: usize = 0;
+            loop {
+                let child = loop {
+                    let watermark = core::ptr::read_volatile(core::ptr::addr_of!(
+                        (*task_ptr).children_watermark
+                    )) as usize;
+                    if i >= watermark {
+                        return;
+                    }
+                    let children =
+                        core::ptr::read_volatile(core::ptr::addr_of!((*task_ptr).children_data));
+                    let c = *children.add(i);
+                    i += 1;
+                    if !c.is_null() {
+                        break c;
+                    }
+                };
 
-            let vt = &*((*child).vtable as *const CTaskVtable);
-            (vt.handle_message)(child, sender, msg_type, size, data);
+                let vt = &*((*child).vtable as *const CTaskVtable);
+                (vt.handle_message)(child, sender, msg_type, size, data);
+            }
         }
     }
 }
@@ -396,7 +400,7 @@ impl SharedDataTable {
     /// # Safety
     /// `task` must be a valid, aligned `CTask` pointer.
     pub unsafe fn from_task(task: *const CTask) -> Self {
-        Self::from_ptr((*task).shared_data)
+        unsafe { Self::from_ptr((*task).shared_data) }
     }
 
     /// Compute the bucket index for a (key_esi, key_edi) pair.
@@ -419,15 +423,17 @@ impl SharedDataTable {
     /// # Safety
     /// The table and all linked nodes must be valid.
     pub unsafe fn lookup(&self, key_esi: u32, key_edi: u32) -> *mut u8 {
-        let bucket = Self::bucket_for(key_esi, key_edi) as usize;
-        let mut node = *self.buckets.add(bucket);
-        while !node.is_null() {
-            if (*node).key_edi == key_edi && (*node).key_esi == key_esi {
-                return (*node).entity;
+        unsafe {
+            let bucket = Self::bucket_for(key_esi, key_edi) as usize;
+            let mut node = *self.buckets.add(bucket);
+            while !node.is_null() {
+                if (*node).key_edi == key_edi && (*node).key_esi == key_esi {
+                    return (*node).entity;
+                }
+                node = (*node).next;
             }
-            node = (*node).next;
+            core::ptr::null_mut()
         }
-        core::ptr::null_mut()
     }
 
     /// Iterate all nodes across all 256 buckets.

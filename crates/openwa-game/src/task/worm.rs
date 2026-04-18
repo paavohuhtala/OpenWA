@@ -1,8 +1,8 @@
 use super::base::CTask;
 use super::game_task::CGameTask;
-use crate::game::weapon::WeaponEntry;
-use crate::game::Weapon;
 use crate::FieldRegistry;
+use crate::game::Weapon;
+use crate::game::weapon::WeaponEntry;
 use openwa_core::fixed::Fixed;
 
 /// Worm state machine states.
@@ -120,25 +120,31 @@ impl WormState {}
 impl CTaskWorm {
     /// Set the weapon fire completion flag at +0x3C without creating `&mut self`.
     pub unsafe fn set_fire_complete_raw(this: *mut CTaskWorm, value: i32) {
-        let base = this as *mut u8;
-        core::ptr::write(base.add(0x3C) as *mut i32, value);
+        unsafe {
+            let base = this as *mut u8;
+            core::ptr::write(base.add(0x3C) as *mut i32, value);
+        }
     }
 
     /// Fire subtype 1 at CGameTask+0x34 (subclass_data[4..8]).
     /// Air strike temporarily swaps this with `_unknown_190` during position update.
     pub unsafe fn fire_subtype_1(this: *const CTaskWorm) -> i32 {
-        i32::from_ne_bytes((&(*this).base.subclass_data)[4..8].try_into().unwrap())
+        unsafe { i32::from_ne_bytes((&(*this).base.subclass_data)[4..8].try_into().unwrap()) }
     }
 
     /// Set fire subtype 1 without creating `&mut self` (avoids LLVM noalias violations).
     pub unsafe fn set_fire_subtype_1_raw(this: *mut CTaskWorm, value: i32) {
-        (&mut (*this).base.subclass_data)[4..8].copy_from_slice(&value.to_ne_bytes());
+        unsafe {
+            (&mut (*this).base.subclass_data)[4..8].copy_from_slice(&value.to_ne_bytes());
+        }
     }
 
     /// Set the action field at CGameTask+0x48 (subclass_data[0x18..0x1C]).
     /// Cleared after air strike completion alongside `_unknown_208` / `_unknown_19x`.
     pub unsafe fn set_action_field_raw(this: *mut CTaskWorm, value: i32) {
-        (&mut (*this).base.subclass_data)[0x18..0x1C].copy_from_slice(&value.to_ne_bytes());
+        unsafe {
+            (&mut (*this).base.subclass_data)[0x18..0x1C].copy_from_slice(&value.to_ne_bytes());
+        }
     }
 }
 
@@ -478,62 +484,64 @@ impl crate::snapshot::Snapshot for CTaskWorm {
         w: &mut dyn core::fmt::Write,
         indent: usize,
     ) -> core::fmt::Result {
-        use crate::snapshot::{write_indent, write_raw_region};
-        let i = indent;
-        let b = &self.base; // CGameTask
+        unsafe {
+            use crate::snapshot::{write_indent, write_raw_region};
+            let i = indent;
+            let b = &self.base; // CGameTask
 
-        write_indent(w, i)?;
-        writeln!(w, "pos = ({}, {})", b.pos_x, b.pos_y)?;
-        write_indent(w, i)?;
-        writeln!(w, "speed = ({}, {})", b.speed_x, b.speed_y)?;
-        write_indent(w, i)?;
-        writeln!(w, "angle = {}", b.angle)?;
-        write_indent(w, i)?;
-        writeln!(w, "team_index = {}", self.team_index)?;
-        write_indent(w, i)?;
-        writeln!(w, "worm_index = {}", self.worm_index)?;
-        write_indent(w, i)?;
-        writeln!(w, "slot_id = {}", self.slot_id)?;
-        write_indent(w, i)?;
-        writeln!(w, "selected_weapon = {:?}", self.selected_weapon)?;
-        write_indent(w, i)?;
-        writeln!(w, "facing = {}", self.facing_direction)?;
-        write_indent(w, i)?;
-        writeln!(w, "aim_angle = 0x{:08X}", self.aim_angle)?;
+            write_indent(w, i)?;
+            writeln!(w, "pos = ({}, {})", b.pos_x, b.pos_y)?;
+            write_indent(w, i)?;
+            writeln!(w, "speed = ({}, {})", b.speed_x, b.speed_y)?;
+            write_indent(w, i)?;
+            writeln!(w, "angle = {}", b.angle)?;
+            write_indent(w, i)?;
+            writeln!(w, "team_index = {}", self.team_index)?;
+            write_indent(w, i)?;
+            writeln!(w, "worm_index = {}", self.worm_index)?;
+            write_indent(w, i)?;
+            writeln!(w, "slot_id = {}", self.slot_id)?;
+            write_indent(w, i)?;
+            writeln!(w, "selected_weapon = {:?}", self.selected_weapon)?;
+            write_indent(w, i)?;
+            writeln!(w, "facing = {}", self.facing_direction)?;
+            write_indent(w, i)?;
+            writeln!(w, "aim_angle = 0x{:08X}", self.aim_angle)?;
 
-        write_indent(w, i)?;
-        write!(w, "spawn_params =")?;
-        for v in &self.spawn_params {
-            write!(w, " {:08X}", v)?;
+            write_indent(w, i)?;
+            write!(w, "spawn_params =")?;
+            for v in &self.spawn_params {
+                write!(w, " {:08X}", v)?;
+            }
+            writeln!(w)?;
+
+            // Raw dump of unknown regions
+            write_indent(w, i)?;
+            writeln!(w, "_unknown_1f0 ({} bytes):", self._unknown_1f0.len())?;
+            write_raw_region(
+                w,
+                self._unknown_1f0.as_ptr(),
+                self._unknown_1f0.len(),
+                i + 1,
+            )?;
+            write_indent(w, i)?;
+            writeln!(w, "_unknown_28c ({} bytes):", self._unknown_28c.len())?;
+            write_raw_region(
+                w,
+                self._unknown_28c.as_ptr(),
+                self._unknown_28c.len(),
+                i + 1,
+            )?;
+            write_indent(w, i)?;
+            writeln!(w, "_unknown_370 ({} bytes):", self._unknown_370.len())?;
+            write_raw_region(
+                w,
+                self._unknown_370.as_ptr(),
+                self._unknown_370.len(),
+                i + 1,
+            )?;
+
+            Ok(())
         }
-        writeln!(w)?;
-
-        // Raw dump of unknown regions
-        write_indent(w, i)?;
-        writeln!(w, "_unknown_1f0 ({} bytes):", self._unknown_1f0.len())?;
-        write_raw_region(
-            w,
-            self._unknown_1f0.as_ptr(),
-            self._unknown_1f0.len(),
-            i + 1,
-        )?;
-        write_indent(w, i)?;
-        writeln!(w, "_unknown_28c ({} bytes):", self._unknown_28c.len())?;
-        write_raw_region(
-            w,
-            self._unknown_28c.as_ptr(),
-            self._unknown_28c.len(),
-            i + 1,
-        )?;
-        write_indent(w, i)?;
-        writeln!(w, "_unknown_370 ({} bytes):", self._unknown_370.len())?;
-        write_raw_region(
-            w,
-            self._unknown_370.as_ptr(),
-            self._unknown_370.len(),
-            i + 1,
-        )?;
-
-        Ok(())
     }
 }

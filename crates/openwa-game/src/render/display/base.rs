@@ -266,40 +266,42 @@ impl DisplayBase {
     /// # Safety
     /// Must be called from within the WA.exe process (uses wa_malloc).
     pub unsafe fn new_headless() -> *mut Self {
-        use crate::address::va;
-        use crate::rebase::rb;
-        let this = wa_malloc_struct_zeroed::<Self>();
+        unsafe {
+            use crate::address::va;
+            use crate::rebase::rb;
+            let this = wa_malloc_struct_zeroed::<Self>();
 
-        // Point to WA's headless vtable in .rdata (identity-checked by WA code).
-        (*this).vtable = rb(va::DISPLAY_BASE_HEADLESS_VTABLE) as *const DisplayBaseVtable;
+            // Point to WA's headless vtable in .rdata (identity-checked by WA code).
+            (*this).vtable = rb(va::DISPLAY_BASE_HEADLESS_VTABLE) as *const DisplayBaseVtable;
 
-        // Initialize slot_table: 0xFF entries = 1
-        for slot in &mut (*this).slot_table {
-            *slot = 1;
+            // Initialize slot_table: 0xFF entries = 1
+            for slot in &mut (*this).slot_table {
+                *slot = 1;
+            }
+
+            // Sentinel value — terminates palette_slot_alloc scan
+            (*this).slot_table_sentinel = 0xFFFF_FFFF;
+
+            // Create sprite cache: 0x28 SpriteCache → 0x3C FrameCache → 0x80020 buffer.
+            //
+            // Original flow (FUN_004fa860):
+            //   1. Constructor allocates 0x28 SpriteCache, passes as EDI to FUN_004fa860
+            //   2. FUN_004fa860 sets sc[0] = vtable 0x664188
+            //   3. Allocates 0x3C FrameCache, sets fc.buffer + fc.capacity
+            //   4. Sets sc.frame_cache = fc
+            //   5. Returns sc in EAX → stored at this+4
+            let sprite_cache = wa_malloc_struct_zeroed::<SpriteCache>();
+            (*sprite_cache).vtable = rb(SPRITE_CACHE_VTABLE) as *const SpriteCacheVtable;
+
+            let frame_cache = wa_malloc_struct_zeroed::<FrameCache>();
+            // Original allocates 0x80020 but capacity is 0x80000 — extra 0x20 is guard margin.
+            (*frame_cache).buffer = wa_malloc_zeroed(0x80020);
+            (*frame_cache).capacity = 0x80000;
+
+            (*sprite_cache).frame_cache = frame_cache;
+            (*this).sprite_cache = sprite_cache;
+
+            this
         }
-
-        // Sentinel value — terminates palette_slot_alloc scan
-        (*this).slot_table_sentinel = 0xFFFF_FFFF;
-
-        // Create sprite cache: 0x28 SpriteCache → 0x3C FrameCache → 0x80020 buffer.
-        //
-        // Original flow (FUN_004fa860):
-        //   1. Constructor allocates 0x28 SpriteCache, passes as EDI to FUN_004fa860
-        //   2. FUN_004fa860 sets sc[0] = vtable 0x664188
-        //   3. Allocates 0x3C FrameCache, sets fc.buffer + fc.capacity
-        //   4. Sets sc.frame_cache = fc
-        //   5. Returns sc in EAX → stored at this+4
-        let sprite_cache = wa_malloc_struct_zeroed::<SpriteCache>();
-        (*sprite_cache).vtable = rb(SPRITE_CACHE_VTABLE) as *const SpriteCacheVtable;
-
-        let frame_cache = wa_malloc_struct_zeroed::<FrameCache>();
-        // Original allocates 0x80020 but capacity is 0x80000 — extra 0x20 is guard margin.
-        (*frame_cache).buffer = wa_malloc_zeroed(0x80020);
-        (*frame_cache).capacity = 0x80000;
-
-        (*sprite_cache).frame_cache = frame_cache;
-        (*this).sprite_cache = sprite_cache;
-
-        this
     }
 }

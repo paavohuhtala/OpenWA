@@ -1,11 +1,14 @@
 [package]
 name = "openwa-debugui"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 description = "Immediate-mode debug UI for OpenWA (egui floating window)"
 
 [dependencies]
 openwa-core = { path = "../openwa-core" }
 openwa-game = { path = "../openwa-game" }
-eframe = { version = "0.28", default-features = false, features = ["glow", "default_fonts"] }
+eframe = { version = "0.28", default-features = false, features = [
+    "glow",
+    "default_fonts",
+] }
 winit = "0.29"

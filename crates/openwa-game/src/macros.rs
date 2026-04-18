@@ -45,35 +45,35 @@ macro_rules! define_addresses {
     };
 
     // --- Standalone entries (with doc + calling conv) ---
-    (@parse $(#[doc = $doc:literal])* fn / $conv:ident $name:ident = $value:expr; $($rest:tt)*) => {
+    (@parse $(#[doc = $doc:literal])* fn / $conv:ident $name:ident = $value:expr_2021; $($rest:tt)*) => {
         $(#[doc = $doc])*
         pub const $name: u32 = $value;
         $crate::define_addresses!(@submit $name, $value, Function, Some($crate::registry::CallingConv::$conv), None, concat!($($doc,)* ""));
         $crate::define_addresses!(@parse $($rest)*);
     };
     // Standalone fn without calling conv
-    (@parse $(#[doc = $doc:literal])* fn $name:ident = $value:expr; $($rest:tt)*) => {
+    (@parse $(#[doc = $doc:literal])* fn $name:ident = $value:expr_2021; $($rest:tt)*) => {
         $(#[doc = $doc])*
         pub const $name: u32 = $value;
         $crate::define_addresses!(@submit $name, $value, Function, None, None, concat!($($doc,)* ""));
         $crate::define_addresses!(@parse $($rest)*);
     };
     // Standalone global
-    (@parse $(#[doc = $doc:literal])* global $name:ident = $value:expr; $($rest:tt)*) => {
+    (@parse $(#[doc = $doc:literal])* global $name:ident = $value:expr_2021; $($rest:tt)*) => {
         $(#[doc = $doc])*
         pub const $name: u32 = $value;
         $crate::define_addresses!(@submit $name, $value, Global, None, None, concat!($($doc,)* ""));
         $crate::define_addresses!(@parse $($rest)*);
     };
     // Standalone string literal
-    (@parse $(#[doc = $doc:literal])* string $name:ident = $value:expr; $($rest:tt)*) => {
+    (@parse $(#[doc = $doc:literal])* string $name:ident = $value:expr_2021; $($rest:tt)*) => {
         $(#[doc = $doc])*
         pub const $name: u32 = $value;
         $crate::define_addresses!(@submit $name, $value, StringLiteral, None, None, concat!($($doc,)* ""));
         $crate::define_addresses!(@parse $($rest)*);
     };
     // Standalone data table
-    (@parse $(#[doc = $doc:literal])* data $name:ident = $value:expr; $($rest:tt)*) => {
+    (@parse $(#[doc = $doc:literal])* data $name:ident = $value:expr_2021; $($rest:tt)*) => {
         $(#[doc = $doc])*
         pub const $name: u32 = $value;
         $crate::define_addresses!(@submit $name, $value, DataTable, None, None, concat!($($doc,)* ""));
@@ -85,42 +85,42 @@ macro_rules! define_addresses {
 
     // --- Class body items ---
     // vtable
-    (@class_items $class_name:literal $(#[doc = $doc:literal])* vtable $name:ident = $value:expr; $($rest:tt)*) => {
+    (@class_items $class_name:literal $(#[doc = $doc:literal])* vtable $name:ident = $value:expr_2021; $($rest:tt)*) => {
         $(#[doc = $doc])*
         pub const $name: u32 = $value;
         $crate::define_addresses!(@submit $name, $value, Vtable, None, Some($class_name), concat!($($doc,)* ""));
         $crate::define_addresses!(@class_items $class_name $($rest)*);
     };
     // ctor with calling conv
-    (@class_items $class_name:literal $(#[doc = $doc:literal])* ctor / $conv:ident $name:ident = $value:expr; $($rest:tt)*) => {
+    (@class_items $class_name:literal $(#[doc = $doc:literal])* ctor / $conv:ident $name:ident = $value:expr_2021; $($rest:tt)*) => {
         $(#[doc = $doc])*
         pub const $name: u32 = $value;
         $crate::define_addresses!(@submit $name, $value, Constructor, Some($crate::registry::CallingConv::$conv), Some($class_name), concat!($($doc,)* ""));
         $crate::define_addresses!(@class_items $class_name $($rest)*);
     };
     // ctor without calling conv
-    (@class_items $class_name:literal $(#[doc = $doc:literal])* ctor $name:ident = $value:expr; $($rest:tt)*) => {
+    (@class_items $class_name:literal $(#[doc = $doc:literal])* ctor $name:ident = $value:expr_2021; $($rest:tt)*) => {
         $(#[doc = $doc])*
         pub const $name: u32 = $value;
         $crate::define_addresses!(@submit $name, $value, Constructor, None, Some($class_name), concat!($($doc,)* ""));
         $crate::define_addresses!(@class_items $class_name $($rest)*);
     };
     // vmethod
-    (@class_items $class_name:literal $(#[doc = $doc:literal])* vmethod $name:ident = $value:expr; $($rest:tt)*) => {
+    (@class_items $class_name:literal $(#[doc = $doc:literal])* vmethod $name:ident = $value:expr_2021; $($rest:tt)*) => {
         $(#[doc = $doc])*
         pub const $name: u32 = $value;
         $crate::define_addresses!(@submit $name, $value, VtableMethod, None, Some($class_name), concat!($($doc,)* ""));
         $crate::define_addresses!(@class_items $class_name $($rest)*);
     };
     // fn inside class (with calling conv)
-    (@class_items $class_name:literal $(#[doc = $doc:literal])* fn / $conv:ident $name:ident = $value:expr; $($rest:tt)*) => {
+    (@class_items $class_name:literal $(#[doc = $doc:literal])* fn / $conv:ident $name:ident = $value:expr_2021; $($rest:tt)*) => {
         $(#[doc = $doc])*
         pub const $name: u32 = $value;
         $crate::define_addresses!(@submit $name, $value, Function, Some($crate::registry::CallingConv::$conv), Some($class_name), concat!($($doc,)* ""));
         $crate::define_addresses!(@class_items $class_name $($rest)*);
     };
     // fn inside class (without calling conv)
-    (@class_items $class_name:literal $(#[doc = $doc:literal])* fn $name:ident = $value:expr; $($rest:tt)*) => {
+    (@class_items $class_name:literal $(#[doc = $doc:literal])* fn $name:ident = $value:expr_2021; $($rest:tt)*) => {
         $(#[doc = $doc])*
         pub const $name: u32 = $value;
         $crate::define_addresses!(@submit $name, $value, Function, None, Some($class_name), concat!($($doc,)* ""));
@@ -130,7 +130,7 @@ macro_rules! define_addresses {
     (@class_items $class_name:literal) => {};
 
     // --- Submit helper ---
-    (@submit $name:ident, $value:expr, $kind:ident, $conv:expr, $class:expr, $doc:expr) => {
+    (@submit $name:ident, $value:expr_2021, $kind:ident, $conv:expr_2021, $class:expr_2021, $doc:expr_2021) => {
         $crate::inventory::submit! {
             $crate::registry::AddrEntry {
                 va: $value,
@@ -173,7 +173,7 @@ macro_rules! define_addresses {
 /// Size is derived from `size_of::<VtableType>() / 4`.
 #[macro_export]
 macro_rules! vtable_replace {
-    ($vtable_ty:ty, $va:expr, { $($slot:tt)* }) => {{
+    ($vtable_ty:ty, $va:expr_2021, { $($slot:tt)* }) => {{
         let vtable_ptr = $crate::rebase::rb($va) as *mut u32;
         let slot_count = core::mem::size_of::<$vtable_ty>() / 4;
         unsafe {
@@ -186,7 +186,7 @@ macro_rules! vtable_replace {
     // --- Index-based (slot N) ---
 
     // Slot with original save: slot N [static_path] => replacement,
-    (@slots $vt:ident, $vtable_ty:ty, slot $idx:literal [$orig:expr] => $replacement:expr, $($rest:tt)*) => {
+    (@slots $vt:ident, $vtable_ty:ty, slot $idx:literal [$orig:expr_2021] => $replacement:expr_2021, $($rest:tt)*) => {
         {
             let slot = $vt.add($idx);
             $orig.store(unsafe { *slot }, core::sync::atomic::Ordering::Relaxed);
@@ -196,7 +196,7 @@ macro_rules! vtable_replace {
     };
 
     // Slot without original save: slot N => replacement,
-    (@slots $vt:ident, $vtable_ty:ty, slot $idx:literal => $replacement:expr, $($rest:tt)*) => {
+    (@slots $vt:ident, $vtable_ty:ty, slot $idx:literal => $replacement:expr_2021, $($rest:tt)*) => {
         {
             let slot = $vt.add($idx);
             unsafe { *slot = $replacement as *const () as u32; }
@@ -207,7 +207,7 @@ macro_rules! vtable_replace {
     // --- Name-based (method_name) ---
 
     // Method with original save: method_name [static_path] => replacement,
-    (@slots $vt:ident, $vtable_ty:ty, $method:ident [$orig:expr] => $replacement:expr, $($rest:tt)*) => {
+    (@slots $vt:ident, $vtable_ty:ty, $method:ident [$orig:expr_2021] => $replacement:expr_2021, $($rest:tt)*) => {
         {
             const _SLOT_IDX: usize =
                 core::mem::offset_of!($vtable_ty, $method) / core::mem::size_of::<usize>();
@@ -219,7 +219,7 @@ macro_rules! vtable_replace {
     };
 
     // Method without original save: method_name => replacement,
-    (@slots $vt:ident, $vtable_ty:ty, $method:ident => $replacement:expr, $($rest:tt)*) => {
+    (@slots $vt:ident, $vtable_ty:ty, $method:ident => $replacement:expr_2021, $($rest:tt)*) => {
         {
             const _SLOT_IDX: usize =
                 core::mem::offset_of!($vtable_ty, $method) / core::mem::size_of::<usize>();
@@ -252,7 +252,7 @@ macro_rules! vtable_replace {
 /// Expands to: `((*(*$obj).vtable).$method)($obj, $($args),*)`
 #[macro_export]
 macro_rules! vcall {
-    ($obj:expr, $method:ident $(, $args:expr)*) => {
+    ($obj:expr_2021, $method:ident $(, $args:expr_2021)*) => {
         ((*(*$obj).vtable).$method)($obj $(, $args)*)
     };
 }

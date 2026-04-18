@@ -15,7 +15,7 @@ use crate::hook;
 use core::ffi::c_char;
 use openwa_game::address::va;
 use openwa_game::asset::gfx_dir::{
-    gfx_dir_find_entry, gfx_dir_load_dir, img_load_from_dir, GfxDir,
+    GfxDir, gfx_dir_find_entry, gfx_dir_load_dir, img_load_from_dir,
 };
 use openwa_game::bitgrid::BitGrid;
 use openwa_game::engine::game_state_init::{
@@ -23,7 +23,7 @@ use openwa_game::engine::game_state_init::{
     init_turn_state, is_super_weapon, ring_buffer_init, sprite_gfx_table_init,
 };
 use openwa_game::engine::{
-    ddgame_init_fields, ddgame_init_render_indices, display_layer_color_init, DDGame, DDGameWrapper,
+    DDGame, DDGameWrapper, ddgame_init_fields, ddgame_init_render_indices, display_layer_color_init,
 };
 
 // ─── DDGame__InitFields (0x526120) ──────────────────────────────────────────

@@ -296,7 +296,7 @@ impl TeamArena {
     /// The TeamBlock array lives 0x598 bytes before TeamArena in DDGame memory.
     #[inline]
     pub unsafe fn blocks_mut(this: *mut Self) -> *mut TeamBlock {
-        (this as *mut u8).sub(offsets::ARENA_TO_BLOCKS) as *mut TeamBlock
+        unsafe { (this as *mut u8).sub(offsets::ARENA_TO_BLOCKS) as *mut TeamBlock }
     }
 
     /// Get pointer to the TeamBlock array base (read-only).
@@ -304,7 +304,7 @@ impl TeamArena {
     /// The TeamBlock array lives 0x598 bytes before TeamArena in DDGame memory.
     #[inline]
     pub unsafe fn blocks(this: *const Self) -> *const TeamBlock {
-        (this as *const u8).sub(offsets::ARENA_TO_BLOCKS) as *const TeamBlock
+        unsafe { (this as *const u8).sub(offsets::ARENA_TO_BLOCKS) as *const TeamBlock }
     }
 
     /// Get pointer to team header (metadata) for a team.
@@ -313,7 +313,9 @@ impl TeamArena {
     /// worm_count, eliminated flag, weapon_alliance, team_name.
     #[inline]
     pub unsafe fn team_header_mut(this: *mut Self, team_idx: usize) -> *mut TeamHeader {
-        &raw mut (*Self::blocks_mut(this).add(team_idx + 1)).header.team as *mut TeamHeader
+        unsafe {
+            &raw mut (*Self::blocks_mut(this).add(team_idx + 1)).header.team as *mut TeamHeader
+        }
     }
 
     /// Get pointer to team header (metadata) for a team.
@@ -322,7 +324,9 @@ impl TeamArena {
     /// worm_count, eliminated flag, weapon_alliance, team_name.
     #[inline]
     pub unsafe fn team_header(this: *const Self, team_idx: usize) -> *const TeamHeader {
-        &raw const (*Self::blocks(this).add(team_idx + 1)).header.team as *const TeamHeader
+        unsafe {
+            &raw const (*Self::blocks(this).add(team_idx + 1)).header.team as *const TeamHeader
+        }
     }
 
     /// Get pointer to a playable worm entry by 1-indexed worm number (1..=8).
@@ -339,8 +343,10 @@ impl TeamArena {
         team_idx: usize,
         worm_num: usize,
     ) -> *mut WormEntry {
-        let base = this as *mut u8;
-        base.add(team_idx * 0x51C).add(worm_num * 0x9C).sub(0x598) as *mut WormEntry
+        unsafe {
+            let base = this as *mut u8;
+            base.add(team_idx * 0x51C).add(worm_num * 0x9C).sub(0x598) as *mut WormEntry
+        }
     }
 
     #[inline]
@@ -349,8 +355,10 @@ impl TeamArena {
         team_idx: usize,
         worm_num: usize,
     ) -> *const WormEntry {
-        let base = this as *const u8;
-        base.add(team_idx * 0x51C).add(worm_num * 0x9C).sub(0x598) as *const WormEntry
+        unsafe {
+            let base = this as *const u8;
+            base.add(team_idx * 0x51C).add(worm_num * 0x9C).sub(0x598) as *const WormEntry
+        }
     }
 
     /// Get a team's block pointer and its header pointer in one call.
@@ -366,10 +374,12 @@ impl TeamArena {
         this: *mut Self,
         team_idx: usize,
     ) -> (*mut TeamBlock, *mut TeamHeader) {
-        let blocks = Self::blocks_mut(this);
-        let block = blocks.add(team_idx);
-        let header = &raw mut (*blocks.add(team_idx + 1)).header.team as *mut TeamHeader;
-        (block, header)
+        unsafe {
+            let blocks = Self::blocks_mut(this);
+            let block = blocks.add(team_idx);
+            let header = &raw mut (*blocks.add(team_idx + 1)).header.team as *mut TeamHeader;
+            (block, header)
+        }
     }
 
     /// Get team header pointer for Pattern B access (alliance/active_worm at +0x70/+0x74).
@@ -378,7 +388,9 @@ impl TeamArena {
     /// `base + 0x510 + i*0x51C` = `blocks[i+2].header.team + 0x70`.
     #[inline]
     pub unsafe fn team_header_b_mut(this: *mut Self, team_idx: usize) -> *mut TeamHeader {
-        &raw mut (*Self::blocks_mut(this).add(team_idx + 2)).header.team as *mut TeamHeader
+        unsafe {
+            &raw mut (*Self::blocks_mut(this).add(team_idx + 2)).header.team as *mut TeamHeader
+        }
     }
 
     /// Get team header pointer for Pattern B access (alliance/active_worm at +0x70/+0x74).
@@ -387,7 +399,9 @@ impl TeamArena {
     /// `base + 0x510 + i*0x51C` = `blocks[i+2].header.team + 0x70`.
     #[inline]
     pub unsafe fn team_header_b(this: *const Self, team_idx: usize) -> *const TeamHeader {
-        &raw const (*Self::blocks(this).add(team_idx + 2)).header.team as *const TeamHeader
+        unsafe {
+            &raw const (*Self::blocks(this).add(team_idx + 2)).header.team as *const TeamHeader
+        }
     }
 
     /// Compute the flat index for ammo/delay table access.
@@ -402,8 +416,10 @@ impl TeamArena {
         team_index: usize,
         weapon_id: u32,
     ) -> (usize, usize) {
-        let alliance_id = (*Self::team_header(this, team_index)).weapon_alliance as usize;
-        (alliance_id, weapon_id as usize)
+        unsafe {
+            let alliance_id = (*Self::team_header(this, team_index)).weapon_alliance as usize;
+            (alliance_id, weapon_id as usize)
+        }
     }
 }
 
@@ -415,15 +431,18 @@ impl Snapshot for WormEntry {
         w: &mut dyn core::fmt::Write,
         indent: usize,
     ) -> core::fmt::Result {
-        use crate::snapshot::write_indent;
-        let i = indent;
-        let name = CStr::from_ptr(self.name.as_ptr() as *const core::ffi::c_char).to_string_lossy();
-        write_indent(w, i)?;
-        writeln!(
-            w,
-            "state=0x{:02X} active={} hp={}/{} name=\"{}\"",
-            self.state, self.active_flag, self.health, self.max_health, name
-        )?;
-        Ok(())
+        unsafe {
+            use crate::snapshot::write_indent;
+            let i = indent;
+            let name =
+                CStr::from_ptr(self.name.as_ptr() as *const core::ffi::c_char).to_string_lossy();
+            write_indent(w, i)?;
+            writeln!(
+                w,
+                "state=0x{:02X} active={} hp={}/{} name=\"{}\"",
+                self.state, self.active_flag, self.health, self.max_health, name
+            )?;
+            Ok(())
+        }
     }
 }

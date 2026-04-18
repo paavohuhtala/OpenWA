@@ -10,7 +10,7 @@ use openwa_game::engine::GameSession;
 use openwa_game::field_format::{self, FormatContext};
 use openwa_game::rebase::rb;
 use openwa_game::registry::StructFields;
-use openwa_game::snapshot::{hash_pointer_targets, write_raw_region, Snapshot};
+use openwa_game::snapshot::{Snapshot, hash_pointer_targets, write_raw_region};
 use openwa_game::task::{CTask, CTaskBfsIter, CTaskMissile, CTaskWorm};
 
 /// Capture a full game state snapshot as text.

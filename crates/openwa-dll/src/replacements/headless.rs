@@ -36,11 +36,7 @@ unsafe extern "system" fn hook_messagebox_a(
         let _ = log_line(&format!(
             "[Headless] Suppressed MessageBoxA: caption={c:?} text={t:?}"
         ));
-        if flags & 0xF == 0x4 {
-            6
-        } else {
-            1
-        } // IDYES for MB_YESNO, IDOK otherwise
+        if flags & 0xF == 0x4 { 6 } else { 1 } // IDYES for MB_YESNO, IDOK otherwise
     }
 }
 
@@ -66,11 +62,7 @@ unsafe extern "system" fn hook_messagebox_w(
         let _ = log_line(&format!(
             "[Headless] Suppressed MessageBoxW: caption={c:?} text={t:?}"
         ));
-        if flags & 0xF == 0x4 {
-            6
-        } else {
-            1
-        }
+        if flags & 0xF == 0x4 { 6 } else { 1 }
     }
 }
 

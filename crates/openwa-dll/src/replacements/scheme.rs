@@ -17,8 +17,8 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use crate::log_line;
 use openwa_game::address::va;
 use openwa_game::game::scheme::{
-    ExtendedOptions, SchemeFile, SchemeVersion, EXTENDED_OPTIONS_DEFAULTS, EXTENDED_OPTIONS_SIZE,
-    SCHEME_PAYLOAD_V1, SCHEME_PAYLOAD_V2, SCHEME_PAYLOAD_V3,
+    EXTENDED_OPTIONS_DEFAULTS, EXTENDED_OPTIONS_SIZE, ExtendedOptions, SCHEME_PAYLOAD_V1,
+    SCHEME_PAYLOAD_V2, SCHEME_PAYLOAD_V3, SchemeFile, SchemeVersion,
 };
 use openwa_game::rebase::rb;
 
@@ -218,11 +218,7 @@ unsafe extern "stdcall" fn hook_scheme_file_exists(name: u32) -> u32 {
         let c_name = CStr::from_ptr(name as *const i8);
         let name_str = c_name.to_string_lossy();
         let path = format!("User\\Schemes\\{name_str}.wsc");
-        if Path::new(&path).exists() {
-            1
-        } else {
-            0
-        }
+        if Path::new(&path).exists() { 1 } else { 0 }
     }
 }
 
@@ -324,8 +320,8 @@ unsafe extern "fastcall" fn hook_save_file(this: u32, _edx: u32, name: u32, flag
         match std::fs::write(&path, &buf) {
             Ok(()) => {
                 let _ = log_line(&format!(
-                "[Scheme] SaveFile OK (Rust): {c_name} -> V{version_byte}, {payload_size} bytes"
-            ));
+                    "[Scheme] SaveFile OK (Rust): {c_name} -> V{version_byte}, {payload_size} bytes"
+                ));
                 0
             }
             Err(e) => {
@@ -363,7 +359,7 @@ unsafe extern "fastcall" fn hook_init_from_data(
     name_cstring: u32,
 ) {
     unsafe {
-        use openwa_game::wa::mfc::{cstring_release, CStringRef};
+        use openwa_game::wa::mfc::{CStringRef, cstring_release};
 
         // Step 1: Copy 0xD8 bytes (V1 payload) from src_data to dest+0x14
         core::ptr::copy_nonoverlapping(
@@ -580,8 +576,8 @@ unsafe extern "stdcall" fn hook_extract_builtins() {
                 }
                 None => {
                     let _ = log_line(&format!(
-                    "[Scheme] ExtractBuiltins: PE resource 0x{resource_id:X} not found for slot {slot}"
-                ));
+                        "[Scheme] ExtractBuiltins: PE resource 0x{resource_id:X} not found for slot {slot}"
+                    ));
                 }
             }
         }

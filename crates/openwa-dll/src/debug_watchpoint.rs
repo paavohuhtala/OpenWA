@@ -27,7 +27,7 @@ use openwa_game::address::va;
 use openwa_game::rebase::rb;
 use std::sync::atomic::{AtomicU32, Ordering};
 use windows_sys::Win32::System::Diagnostics::Debug::{
-    AddVectoredExceptionHandler, RemoveVectoredExceptionHandler, EXCEPTION_POINTERS,
+    AddVectoredExceptionHandler, EXCEPTION_POINTERS, RemoveVectoredExceptionHandler,
 };
 
 /// Offsets to watch. Hardware limit: 4 watchpoints (DR0–DR3).

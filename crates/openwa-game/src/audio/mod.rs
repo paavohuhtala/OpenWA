@@ -10,6 +10,7 @@ pub mod speech_ops;
 pub mod wav_player;
 
 pub use active_sound::{ActiveSoundEntry, ActiveSoundTable};
+pub use dssound::{ChannelDescriptor, DSSound, DSSoundVtable};
 pub use dssound::{
     destructor as dssound_destructor, is_channel_finished, is_slot_loaded, load_wav,
     noop as dssound_noop, play_sound, play_sound_pooled, release_finished,
@@ -17,9 +18,8 @@ pub use dssound::{
     set_frequency_scale, set_master_volume, set_pan, stop_channel,
     sub_destructor as dssound_sub_destructor, update_channels,
 };
-pub use dssound::{ChannelDescriptor, DSSound, DSSoundVtable};
 pub use known_sound_id::KnownSoundId;
 pub use music::{Music, MusicVtable, StreamingAudio};
 pub use sound_id::SoundId;
 pub use sound_queue::SoundQueueEntry;
-pub use speech::{SpeechLineId, SpeechLineTableEntry, SpeechSlotTable, SPEECH_LINE_TABLE_COUNT};
+pub use speech::{SPEECH_LINE_TABLE_COUNT, SpeechLineId, SpeechLineTableEntry, SpeechSlotTable};

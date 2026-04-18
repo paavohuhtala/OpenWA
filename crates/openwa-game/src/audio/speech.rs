@@ -299,11 +299,7 @@ impl SpeechSlotTable {
     /// Returns 0 if the slot is empty (no WAV loaded for this line).
     pub fn get(&self, team: usize, line_id: u32) -> u32 {
         let idx = team * Self::LINES_PER_TEAM + line_id as usize;
-        if idx < self.0.len() {
-            self.0[idx]
-        } else {
-            0
-        }
+        if idx < self.0.len() { self.0[idx] } else { 0 }
     }
 
     /// Set the DSSound buffer index for a team's speech line.

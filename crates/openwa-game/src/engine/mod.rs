@@ -18,8 +18,8 @@ pub mod team_ops;
 pub use coord::{CoordEntry, CoordList, CoordListEntry};
 pub use ddgame::DDGame;
 pub use ddgame_constructor::{
-    create_ddgame, ddgame_init_fields, ddgame_init_render_indices, display_layer_color_init,
-    init_constructor_addrs, ON_DDGAME_ALLOC,
+    ON_DDGAME_ALLOC, create_ddgame, ddgame_init_fields, ddgame_init_render_indices,
+    display_layer_color_init, init_constructor_addrs,
 };
 pub use ddgame_wrapper::{DDGameWrapper, DDGameWrapperVtable};
 pub use game_info::GameInfo;
@@ -27,6 +27,6 @@ pub use game_session::GameSession;
 pub use game_timer::GameTimer;
 pub use net_wrapper::DDNetGameWrapper;
 pub use team_arena::{
-    TeamArena, TeamBlock, TeamHeader, TeamIndexMap, TeamSlot0, TeamWeaponSlots, WeaponSlots,
-    WormEntry, GAME_PHASE_NORMAL_MIN, GAME_PHASE_SUDDEN_DEATH,
+    GAME_PHASE_NORMAL_MIN, GAME_PHASE_SUDDEN_DEATH, TeamArena, TeamBlock, TeamHeader, TeamIndexMap,
+    TeamSlot0, TeamWeaponSlots, WeaponSlots, WormEntry,
 };

@@ -797,7 +797,7 @@ unsafe fn write_replay_log(gi: *const GameInfo, log_file: &mut File) -> Result<(
         // ── "Exported with Version" line ─────────────────────────────────────
         {
             let label_exported = wa_load_string(0x6E9); // "Exported with Version"
-                                                        // Current WA version from version table: 0x699814[DAT_00697702]
+            // Current WA version from version table: 0x699814[DAT_00697702]
             let ver_byte = *(rb(va::G_VERSION_BYTE) as *const u8) as u32;
             // "3.8.1" literal at 0x641C60 + suffix from version table
             let ver_literal = rb(va::STR_VERSION_381) as *const u8; // "3.8.1"

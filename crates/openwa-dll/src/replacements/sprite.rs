@@ -6,9 +6,9 @@
 
 use openwa_game::address::va;
 use openwa_game::rebase::rb;
+use openwa_game::render::SpriteCache;
 use openwa_game::render::palette::PaletteContext;
 use openwa_game::render::sprite::{Sprite, SpriteFrame, SpriteSubframeCache};
-use openwa_game::render::SpriteCache;
 
 use crate::hook::{self, usercall_trampoline};
 
@@ -21,7 +21,7 @@ usercall_trampoline!(fn trampoline_construct_sprite; impl_fn = construct_sprite_
 
 unsafe extern "cdecl" fn construct_sprite_impl(sprite: *mut Sprite, context: *mut SpriteCache) {
     unsafe {
-        use openwa_game::bitgrid::{BitGridDisplayVtable, BIT_GRID_DISPLAY_VTABLE};
+        use openwa_game::bitgrid::{BIT_GRID_DISPLAY_VTABLE, BitGridDisplayVtable};
         use openwa_game::render::sprite::SpriteVtable;
 
         core::ptr::write_bytes(sprite as *mut u8, 0, core::mem::size_of::<Sprite>());

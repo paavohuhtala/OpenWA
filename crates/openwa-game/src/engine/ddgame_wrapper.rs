@@ -1,3 +1,4 @@
+use crate::FieldRegistry;
 use crate::asset::gfx_dir::GfxDir;
 use crate::audio::dssound::DSSound;
 use crate::engine::ddgame::DDGame;
@@ -5,17 +6,12 @@ use crate::engine::net_bridge::NetBridge;
 use crate::render::display::gfx::DisplayGfx;
 use crate::render::landscape::PCLandscape;
 use crate::render::palette::PaletteContext;
-use crate::FieldRegistry;
 
 /// Speech name table entry size (0x40 = 64 bytes, null-terminated C string).
 pub const SPEECH_NAME_ENTRY_SIZE: usize = 0x40;
 /// Maximum number of speech name entries.
 pub const SPEECH_NAME_TABLE_LEN: usize = 360;
 
-/// DDGameWrapper vtable (0x66A30C, 10 slots).
-///
-/// Slot 7 is the per-frame render dispatch, called from `GameSession__ProcessFrame`.
-/// Slot 9 returns `game_state` (+0x484), used by `advance_frame`.
 #[openwa_game::vtable(size = 10, va = 0x0066_A30C, class = "DDGameWrapper")]
 pub struct DDGameWrapperVtable {
     /// Scalar deleting destructor (0x5713C0).

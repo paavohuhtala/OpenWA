@@ -22,10 +22,12 @@ impl DDNetGameWrapper {
     /// # Safety
     /// Must be called from within the WA.exe process.
     pub unsafe fn construct() -> *mut Self {
-        use crate::address::va;
-        use crate::rebase::rb;
-        let ctor: unsafe extern "stdcall" fn(*mut Self) -> *mut Self =
-            core::mem::transmute(rb(va::DDNETGAME_WRAPPER_CTOR) as usize);
-        ctor(wa_malloc_struct_zeroed::<Self>())
+        unsafe {
+            use crate::address::va;
+            use crate::rebase::rb;
+            let ctor: unsafe extern "stdcall" fn(*mut Self) -> *mut Self =
+                core::mem::transmute(rb(va::DDNETGAME_WRAPPER_CTOR) as usize);
+            ctor(wa_malloc_struct_zeroed::<Self>())
+        }
     }
 }

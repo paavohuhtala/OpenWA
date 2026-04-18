@@ -6,9 +6,9 @@
 //! may have subtle color differences due to the tangled decompiler output.
 
 use crate::address::va;
-use crate::asset::gfx_dir::call_gfx_find_and_load;
 #[cfg(target_arch = "x86")]
 use crate::asset::gfx_dir::GfxDir;
+use crate::asset::gfx_dir::call_gfx_find_and_load;
 use crate::bitgrid::{BitGrid, BitGridBaseVtable};
 use crate::engine::ddgame::DDGame;
 use crate::rebase::rb;
@@ -114,149 +114,153 @@ pub(crate) unsafe fn compute_complex_gradient(
     layer3_ctx: *mut crate::render::palette::PaletteContext,
     sky_height: i16,
 ) {
-    let mut palette = PaletteContext::new();
+    unsafe {
+        let mut palette = PaletteContext::new();
 
-    // Step 1: Load gradient.img
-    let gradient_decoded = call_gfx_find_and_load(land_dir, c"gradient.img", layer3_ctx);
-    let gradient_sprite = match gradient_decoded {
-        Some(d) => d.as_bitgrid_ptr(),
-        None => return,
-    };
-
-    // Sprite height from BitGrid layout (shared vtable 0x6640EC)
-    let gradient_height = (*gradient_sprite).height as i32;
-    if gradient_height <= 0 {
-        return;
-    }
-
-    let get_pixel: unsafe extern "thiscall" fn(*mut BitGrid, i32, i32) -> u32 =
-        core::mem::transmute(*(*(gradient_sprite as *const *const u32)).add(4));
-
-    // Step 2: Compute target rows and stretch gradient through palette
-    let target_rows = (0x70i32 - sky_height as i32).min(gradient_height);
-
-    if target_rows > 0 {
-        let mut src_pos = 0i32;
-        for _ in 0..target_rows {
-            let src_row = src_pos / target_rows;
-            let color = get_pixel(gradient_sprite, 0, src_row);
-            palette.map_color(color);
-            src_pos += gradient_height;
-        }
-    }
-
-    // Step 3: If heights match, also set gradient_image_2
-    if target_rows == gradient_height {
-        (*ddgame).gradient_image_2 = call_gfx_find_and_load(land_dir, c"gradient.img", layer3_ctx)
-            .map(|d| d.as_bitgrid_ptr())
-            .unwrap_or(core::ptr::null_mut());
-    }
-
-    // Step 4: Sample 7 anchor colors by averaging 8×2 pixel blocks.
-    // get_pixel returns palette indices; we look up RGB from our palette context.
-    let mut anchors = [[0i32; 3]; 7]; // [band][r, g, b] in 8.8 fixed-point
-    let grad_height_minus2 = (gradient_height - 2).max(0);
-
-    for band in 0..7u32 {
-        let start_row = if grad_height_minus2 > 0 {
-            (band as i32 * grad_height_minus2) / 6
-        } else {
-            0
+        // Step 1: Load gradient.img
+        let gradient_decoded = call_gfx_find_and_load(land_dir, c"gradient.img", layer3_ctx);
+        let gradient_sprite = match gradient_decoded {
+            Some(d) => d.as_bitgrid_ptr(),
+            None => return,
         };
-        let mut r_sum = 0i32;
-        let mut g_sum = 0i32;
-        let mut b_sum = 0i32;
 
-        for dy in 0..2i32 {
-            let row = start_row + dy;
-            for col in 0..8i32 {
-                let pidx = get_pixel(gradient_sprite, col, row) as usize;
-                if pidx < 256 && palette.valid[pidx] {
-                    let c = palette.colors[pidx];
-                    r_sum += (c & 0xFF) as i32;
-                    g_sum += ((c >> 8) & 0xFF) as i32;
-                    b_sum += ((c >> 16) & 0xFF) as i32;
+        // Sprite height from BitGrid layout (shared vtable 0x6640EC)
+        let gradient_height = (*gradient_sprite).height as i32;
+        if gradient_height <= 0 {
+            return;
+        }
+
+        let get_pixel: unsafe extern "thiscall" fn(*mut BitGrid, i32, i32) -> u32 =
+            core::mem::transmute(*(*(gradient_sprite as *const *const u32)).add(4));
+
+        // Step 2: Compute target rows and stretch gradient through palette
+        let target_rows = (0x70i32 - sky_height as i32).min(gradient_height);
+
+        if target_rows > 0 {
+            let mut src_pos = 0i32;
+            for _ in 0..target_rows {
+                let src_row = src_pos / target_rows;
+                let color = get_pixel(gradient_sprite, 0, src_row);
+                palette.map_color(color);
+                src_pos += gradient_height;
+            }
+        }
+
+        // Step 3: If heights match, also set gradient_image_2
+        if target_rows == gradient_height {
+            (*ddgame).gradient_image_2 =
+                call_gfx_find_and_load(land_dir, c"gradient.img", layer3_ctx)
+                    .map(|d| d.as_bitgrid_ptr())
+                    .unwrap_or(core::ptr::null_mut());
+        }
+
+        // Step 4: Sample 7 anchor colors by averaging 8×2 pixel blocks.
+        // get_pixel returns palette indices; we look up RGB from our palette context.
+        let mut anchors = [[0i32; 3]; 7]; // [band][r, g, b] in 8.8 fixed-point
+        let grad_height_minus2 = (gradient_height - 2).max(0);
+
+        for band in 0..7u32 {
+            let start_row = if grad_height_minus2 > 0 {
+                (band as i32 * grad_height_minus2) / 6
+            } else {
+                0
+            };
+            let mut r_sum = 0i32;
+            let mut g_sum = 0i32;
+            let mut b_sum = 0i32;
+
+            for dy in 0..2i32 {
+                let row = start_row + dy;
+                for col in 0..8i32 {
+                    let pidx = get_pixel(gradient_sprite, col, row) as usize;
+                    if pidx < 256 && palette.valid[pidx] {
+                        let c = palette.colors[pidx];
+                        r_sum += (c & 0xFF) as i32;
+                        g_sum += ((c >> 8) & 0xFF) as i32;
+                        b_sum += ((c >> 16) & 0xFF) as i32;
+                    }
                 }
             }
+
+            // Shift left 4: 16 samples × 8-bit → 8.8 fixed-point
+            anchors[band as usize] = [r_sum << 4, g_sum << 4, b_sum << 4];
         }
 
-        // Shift left 4: 16 samples × 8-bit → 8.8 fixed-point
-        anchors[band as usize] = [r_sum << 4, g_sum << 4, b_sum << 4];
-    }
+        // Release the gradient sprite
+        let gvt = *(gradient_sprite as *const *const u32);
+        let release: unsafe extern "thiscall" fn(*mut BitGrid, u8) =
+            core::mem::transmute(*gvt.add(3));
+        release(gradient_sprite, 1);
 
-    // Release the gradient sprite
-    let gvt = *(gradient_sprite as *const *const u32);
-    let release: unsafe extern "thiscall" fn(*mut BitGrid, u8) = core::mem::transmute(*gvt.add(3));
-    release(gradient_sprite, 1);
+        // Step 5: Establish initial/fallback color via palette closest-match.
+        // The original uses PaletteContext__FindClosest + PaletteContext__ReadColor
+        // to get the canonical palette color for the first anchor point.
+        let initial_idx = palette.find_closest(anchors[0][0], anchors[0][1], anchors[0][2]);
+        let mut fallback = palette.color_fp(initial_idx);
 
-    // Step 5: Establish initial/fallback color via palette closest-match.
-    // The original uses PaletteContext__FindClosest + PaletteContext__ReadColor
-    // to get the canonical palette color for the first anchor point.
-    let initial_idx = palette.find_closest(anchors[0][0], anchors[0][1], anchors[0][2]);
-    let mut fallback = palette.color_fp(initial_idx);
+        // Step 6: Create the gradient image buffer
+        let total_height = (*ddgame).level_height as i32 + 0xDC;
+        if total_height <= 0 {
+            return;
+        }
 
-    // Step 6: Create the gradient image buffer
-    let total_height = (*ddgame).level_height as i32 + 0xDC;
-    if total_height <= 0 {
-        return;
-    }
+        let stride = 0x200u32; // 64 columns × 8 bytes per entry
+        let data_size = total_height as u32 * stride;
+        let data = wa_malloc(data_size + 0x20);
+        if data.is_null() {
+            return;
+        }
+        core::ptr::write_bytes(data, 0, data_size as usize);
 
-    let stride = 0x200u32; // 64 columns × 8 bytes per entry
-    let data_size = total_height as u32 * stride;
-    let data = wa_malloc(data_size + 0x20);
-    if data.is_null() {
-        return;
-    }
-    core::ptr::write_bytes(data, 0, data_size as usize);
+        // Step 7: Interpolate between anchor colors and write each row.
+        // For each row, determine which two anchors to interpolate between.
+        // Rows beyond band 5 use the last interpolated color as fallback.
+        let band_size = if total_height > 6 {
+            total_height / 6
+        } else {
+            1
+        };
 
-    // Step 7: Interpolate between anchor colors and write each row.
-    // For each row, determine which two anchors to interpolate between.
-    // Rows beyond band 5 use the last interpolated color as fallback.
-    let band_size = if total_height > 6 {
-        total_height / 6
-    } else {
-        1
-    };
+        for row in 0..total_height {
+            let band_idx = (row * 6) / total_height;
 
-    for row in 0..total_height {
-        let band_idx = (row * 6) / total_height;
+            if band_idx < 6 {
+                let pos = row - band_idx * band_size;
+                let bi = band_idx as usize;
+                let a0 = &anchors[bi];
+                let a1 = &anchors[(bi + 1).min(6)];
 
-        if band_idx < 6 {
-            let pos = row - band_idx * band_size;
-            let bi = band_idx as usize;
-            let a0 = &anchors[bi];
-            let a1 = &anchors[(bi + 1).min(6)];
+                for ch in 0..3 {
+                    fallback[ch] = a0[ch] + ((a1[ch] - a0[ch]) * pos) / band_size;
+                    fallback[ch] = fallback[ch].clamp(0, 0xFF00);
+                }
+            }
+            // else: rows beyond band 5 keep the last fallback color
 
-            for ch in 0..3 {
-                fallback[ch] = a0[ch] + ((a1[ch] - a0[ch]) * pos) / band_size;
-                fallback[ch] = fallback[ch].clamp(0, 0xFF00);
+            let color_low = (fallback[0] as u32 & 0xFFFF) | ((fallback[1] as u32 & 0xFFFF) << 16);
+            let color_high = fallback[2] as u32 & 0xFFFF;
+
+            // Write to all 64 columns (matches GradientImage__WriteRow at 0x4F91C0)
+            let row_base = data.add(row as usize * stride as usize);
+            for col in 0..64u32 {
+                let pixel = row_base.add(col as usize * 8) as *mut u32;
+                *pixel = color_low;
+                *pixel.add(1) = color_high;
             }
         }
-        // else: rows beyond band 5 keep the last fallback color
 
-        let color_low = (fallback[0] as u32 & 0xFFFF) | ((fallback[1] as u32 & 0xFFFF) << 16);
-        let color_high = fallback[2] as u32 & 0xFFFF;
-
-        // Write to all 64 columns (matches GradientImage__WriteRow at 0x4F91C0)
-        let row_base = data.add(row as usize * stride as usize);
-        for col in 0..64u32 {
-            let pixel = row_base.add(col as usize * 8) as *mut u32;
-            *pixel = color_low;
-            *pixel.add(1) = color_high;
+        // Step 8: Wrap pixel data in a BitGrid-compatible object
+        // (shares vtable 0x6640EC; CTaskLand reads .height to decide whether to render)
+        let gfx_obj = wa_malloc_struct_zeroed::<BitGrid>();
+        if gfx_obj.is_null() {
+            wa_free(data);
+            return;
         }
+        (*gfx_obj).vtable = rb(va::BIT_GRID_BASE_VTABLE) as *const BitGridBaseVtable;
+        (*gfx_obj).data = data;
+        (*gfx_obj).row_stride = stride;
+        (*gfx_obj).width = 0;
+        (*gfx_obj).height = total_height as u32;
+        (*ddgame).gradient_image = gfx_obj;
     }
-
-    // Step 8: Wrap pixel data in a BitGrid-compatible object
-    // (shares vtable 0x6640EC; CTaskLand reads .height to decide whether to render)
-    let gfx_obj = wa_malloc_struct_zeroed::<BitGrid>();
-    if gfx_obj.is_null() {
-        wa_free(data);
-        return;
-    }
-    (*gfx_obj).vtable = rb(va::BIT_GRID_BASE_VTABLE) as *const BitGridBaseVtable;
-    (*gfx_obj).data = data;
-    (*gfx_obj).row_stride = stride;
-    (*gfx_obj).width = 0;
-    (*gfx_obj).height = total_height as u32;
-    (*ddgame).gradient_image = gfx_obj;
 }

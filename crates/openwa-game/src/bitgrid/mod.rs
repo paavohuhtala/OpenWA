@@ -37,10 +37,10 @@
 
 pub mod blit;
 
+use crate::FieldRegistry;
 use crate::rebase::rb;
 use crate::task::base::Vtable;
 use crate::wa_alloc::{wa_malloc, wa_malloc_struct_zeroed};
-use crate::FieldRegistry;
 
 crate::define_addresses! {
     class "BitGrid" {
@@ -113,36 +113,38 @@ impl BitGrid {
     /// # Safety
     /// `this` must point to a zero-filled allocation of at least 0x2C bytes.
     pub unsafe fn init(this: *mut BitGrid, cells_per_unit: u32, width: u32, height: u32) {
-        let bits = cells_per_unit.wrapping_mul(width).wrapping_add(7) as i32;
-        let row_stride = ((bits >> 3) + 3) & !3;
-        let total_size = row_stride as u32 * height;
+        unsafe {
+            let bits = cells_per_unit.wrapping_mul(width).wrapping_add(7) as i32;
+            let row_stride = ((bits >> 3) + 3) & !3;
+            let total_size = row_stride as u32 * height;
 
-        let alloc_size = ((total_size + 3) & !3) + 0x20;
-        let buffer = wa_malloc(alloc_size);
+            let alloc_size = ((total_size + 3) & !3) + 0x20;
+            let buffer = wa_malloc(alloc_size);
 
-        if buffer.is_null() {
-            return;
+            if buffer.is_null() {
+                return;
+            }
+            if total_size as usize > alloc_size as usize {
+                return;
+            }
+
+            // Note: the original calls memset twice on the same buffer (possibly a
+            // debug/paranoia pattern from MSVC 2005). We only do it once since the
+            // second write is a no-op that modern compilers would eliminate anyway.
+            core::ptr::write_bytes(buffer, 0, total_size as usize);
+
+            (*this).vtable = rb(BIT_GRID_BASE_VTABLE) as *const BitGridBaseVtable;
+            (*this).external_buffer = 0;
+            (*this).data = buffer;
+            (*this).cells_per_unit = cells_per_unit;
+            (*this).row_stride = row_stride as u32;
+            (*this).width = width;
+            (*this).height = height;
+            (*this).clip_left = 0;
+            (*this).clip_top = 0;
+            (*this).clip_right = width;
+            (*this).clip_bottom = height;
         }
-        if total_size as usize > alloc_size as usize {
-            return;
-        }
-
-        // Note: the original calls memset twice on the same buffer (possibly a
-        // debug/paranoia pattern from MSVC 2005). We only do it once since the
-        // second write is a no-op that modern compilers would eliminate anyway.
-        core::ptr::write_bytes(buffer, 0, total_size as usize);
-
-        (*this).vtable = rb(BIT_GRID_BASE_VTABLE) as *const BitGridBaseVtable;
-        (*this).external_buffer = 0;
-        (*this).data = buffer;
-        (*this).cells_per_unit = cells_per_unit;
-        (*this).row_stride = row_stride as u32;
-        (*this).width = width;
-        (*this).height = height;
-        (*this).clip_left = 0;
-        (*this).clip_top = 0;
-        (*this).clip_right = width;
-        (*this).clip_bottom = height;
     }
 }
 
@@ -190,11 +192,13 @@ impl BitGrid {
     /// # Safety
     /// Must be called from within the WA.exe process.
     pub(crate) unsafe fn alloc_base(cells_per_unit: u32, width: u32, height: u32) -> *mut BitGrid {
-        let grid = wa_malloc_struct_zeroed::<BitGrid>();
-        if !grid.is_null() {
-            BitGrid::init(grid, cells_per_unit, width, height);
+        unsafe {
+            let grid = wa_malloc_struct_zeroed::<BitGrid>();
+            if !grid.is_null() {
+                BitGrid::init(grid, cells_per_unit, width, height);
+            }
+            grid
         }
-        grid
     }
 }
 
@@ -252,13 +256,16 @@ impl CollisionBitGrid {
     /// # Safety
     /// Must be called from within the WA.exe process.
     pub unsafe fn alloc(cells_per_unit: u32, width: u32, height: u32) -> *mut CollisionBitGrid {
-        let grid = BitGrid::alloc_base(cells_per_unit, width, height);
-        if !grid.is_null() {
-            let collision = grid as *mut CollisionBitGrid;
-            (*collision).vtable = rb(BIT_GRID_COLLISION_VTABLE) as *const BitGridCollisionVtable;
-            return collision;
+        unsafe {
+            let grid = BitGrid::alloc_base(cells_per_unit, width, height);
+            if !grid.is_null() {
+                let collision = grid as *mut CollisionBitGrid;
+                (*collision).vtable =
+                    rb(BIT_GRID_COLLISION_VTABLE) as *const BitGridCollisionVtable;
+                return collision;
+            }
+            core::ptr::null_mut()
         }
-        core::ptr::null_mut()
     }
 }
 
@@ -324,12 +331,14 @@ impl DisplayBitGrid {
     /// # Safety
     /// Must be called from within the WA.exe process.
     pub unsafe fn alloc(cells_per_unit: u32, width: u32, height: u32) -> *mut DisplayBitGrid {
-        let grid = BitGrid::alloc_base(cells_per_unit, width, height);
-        if !grid.is_null() {
-            let display = grid as *mut DisplayBitGrid;
-            (*display).vtable = rb(BIT_GRID_DISPLAY_VTABLE) as *const BitGridDisplayVtable;
-            return display;
+        unsafe {
+            let grid = BitGrid::alloc_base(cells_per_unit, width, height);
+            if !grid.is_null() {
+                let display = grid as *mut DisplayBitGrid;
+                (*display).vtable = rb(BIT_GRID_DISPLAY_VTABLE) as *const BitGridDisplayVtable;
+                return display;
+            }
+            core::ptr::null_mut()
         }
-        core::ptr::null_mut()
     }
 }

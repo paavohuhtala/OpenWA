@@ -942,7 +942,7 @@ mod tests {
     }
 
     macro_rules! snapshot_test_clipped {
-        ($name:ident, $snap:expr, $x1:expr, $y1:expr, $x2:expr, $y2:expr, $color:expr) => {
+        ($name:ident, $snap:expr_2021, $x1:expr_2021, $y1:expr_2021, $x2:expr_2021, $y2:expr_2021, $color:expr_2021) => {
             #[test]
             fn $name() {
                 let mut grid = PixelGrid::new(128, 128);
@@ -1056,7 +1056,7 @@ mod tests {
 
     // Two-color snapshot tests
     macro_rules! snapshot_test_twocol {
-        ($name:ident, $snap:expr, $x1:expr, $y1:expr, $x2:expr, $y2:expr, $c1:expr, $c2:expr) => {
+        ($name:ident, $snap:expr_2021, $x1:expr_2021, $y1:expr_2021, $x2:expr_2021, $y2:expr_2021, $c1:expr_2021, $c2:expr_2021) => {
             #[test]
             fn $name() {
                 let mut grid = PixelGrid::new(128, 128);
@@ -1154,7 +1154,7 @@ mod tests {
     }
 
     macro_rules! snapshot_test_poly {
-        ($name:ident, $snap:expr, $verts:expr, $color:expr) => {
+        ($name:ident, $snap:expr_2021, $verts:expr_2021, $color:expr_2021) => {
             #[test]
             fn $name() {
                 let mut grid = PixelGrid::new(128, 128);

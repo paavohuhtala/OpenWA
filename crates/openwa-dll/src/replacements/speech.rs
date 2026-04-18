@@ -13,7 +13,7 @@
 //! - DSSound_LoadSpeechBank (0x571660): usercall(EAX=DDGameWrapper) + 3 stack, RET 0xC — REPLACED
 //! - DSSound_LoadAllSpeechBanks (0x571A70): usercall(ESI=DDGameWrapper), plain RET — REPLACED
 
-use std::ffi::{c_char, CStr};
+use std::ffi::{CStr, c_char};
 
 use openwa_game::address::va;
 use openwa_game::audio::wav_player::WavPlayer;

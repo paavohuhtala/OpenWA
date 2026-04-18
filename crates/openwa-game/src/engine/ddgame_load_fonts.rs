@@ -92,33 +92,35 @@ const FONT_EXT_CHAR_MAP: [u8; 61] = [
 /// Formats the .fex path from the font's size category, copies the character map,
 /// resolves the palette value, and calls DisplayGfx::load_font_extension.
 unsafe fn load_font_extension(wrapper: *mut DDGameWrapper, font_id: u32) {
-    let size_category = FONT_SIZE_CATEGORY[font_id as usize];
-    let prefix = SIZE_PREFIXES[size_category as usize];
+    unsafe {
+        let size_category = FONT_SIZE_CATEGORY[font_id as usize];
+        let prefix = SIZE_PREFIXES[size_category as usize];
 
-    // Format path: "Data\Gfx\FontExt\{prefix}2.fex"
-    let mut path: CString<64> = CString::new();
-    let _ = path.extend_from_bytes(b"Data\\Gfx\\FontExt\\");
-    let _ = path.extend_from_bytes(prefix.as_bytes());
-    let _ = path.extend_from_bytes(b"2.fex");
+        // Format path: "Data\Gfx\FontExt\{prefix}2.fex"
+        let mut path: CString<64> = CString::new();
+        let _ = path.extend_from_bytes(b"Data\\Gfx\\FontExt\\");
+        let _ = path.extend_from_bytes(prefix.as_bytes());
+        let _ = path.extend_from_bytes(b"2.fex");
 
-    // Copy character map to stack (original does REP MOVSD + MOVSB)
-    let char_map = FONT_EXT_CHAR_MAP;
+        // Copy character map to stack (original does REP MOVSD + MOVSB)
+        let char_map = FONT_EXT_CHAR_MAP;
 
-    // Resolve palette value: font_id → color_index → gfx_color_table entry
-    let color_index = FONT_COLOR_INDEX[font_id as usize];
-    let table_index = COLOR_TABLE_INDEX[color_index as usize];
-    let ddgame = (*wrapper).ddgame;
-    let palette_value = (*ddgame).gfx_color_table[table_index];
+        // Resolve palette value: font_id → color_index → gfx_color_table entry
+        let color_index = FONT_COLOR_INDEX[font_id as usize];
+        let table_index = COLOR_TABLE_INDEX[color_index as usize];
+        let ddgame = (*wrapper).ddgame;
+        let palette_value = (*ddgame).gfx_color_table[table_index];
 
-    let display = (*wrapper).display;
-    DisplayGfx::load_font_extension_raw(
-        display,
-        font_id as i32,
-        path.as_ptr() as *const c_char,
-        char_map.as_ptr() as *const c_char,
-        palette_value,
-        0,
-    );
+        let display = (*wrapper).display;
+        DisplayGfx::load_font_extension_raw(
+            display,
+            font_id as i32,
+            path.as_ptr() as *const c_char,
+            char_map.as_ptr() as *const c_char,
+            palette_value,
+            0,
+        );
+    }
 }
 
 /// Load all bitmap fonts and font extensions.
@@ -129,28 +131,30 @@ unsafe fn load_font_extension(wrapper: *mut DDGameWrapper, font_id: u32) {
 /// Phase 2: Loads .fex font extensions for font slots 1-23.
 /// Phase 3: Sets the font palette via DisplayGfx::set_font_palette.
 pub unsafe fn load_fonts(wrapper: *mut DDGameWrapper) {
-    let display = (*wrapper).display;
-    let gfx_dir = (*wrapper).primary_gfx_dir;
+    unsafe {
+        let display = (*wrapper).display;
+        let gfx_dir = (*wrapper).primary_gfx_dir;
 
-    // Phase 1: Load all 28 .fnt font files
-    for font_id in 1..=FONT_COUNT {
-        let filename = FONT_FILENAMES[font_id as usize];
-        DisplayGfx::load_font_raw(
-            display,
-            1,
-            font_id as i32,
-            gfx_dir,
-            filename.as_ptr() as *const c_char,
-        );
+        // Phase 1: Load all 28 .fnt font files
+        for font_id in 1..=FONT_COUNT {
+            let filename = FONT_FILENAMES[font_id as usize];
+            DisplayGfx::load_font_raw(
+                display,
+                1,
+                font_id as i32,
+                gfx_dir,
+                filename.as_ptr() as *const c_char,
+            );
+        }
+
+        // Phase 2: Load font extensions for slots 1-23
+        for font_id in 1..=FONT_EXT_COUNT {
+            load_font_extension(wrapper, font_id);
+        }
+
+        // Phase 3: Set font palette — passes font count and gfx_color_table[7].
+        let ddgame = (*wrapper).ddgame;
+        let palette_value = (*ddgame).gfx_color_table[7];
+        DisplayGfx::set_font_palette_raw(display, FONT_COUNT, palette_value);
     }
-
-    // Phase 2: Load font extensions for slots 1-23
-    for font_id in 1..=FONT_EXT_COUNT {
-        load_font_extension(wrapper, font_id);
-    }
-
-    // Phase 3: Set font palette — passes font count and gfx_color_table[7].
-    let ddgame = (*wrapper).ddgame;
-    let palette_value = (*ddgame).gfx_color_table[7];
-    DisplayGfx::set_font_palette_raw(display, FONT_COUNT, palette_value);
 }

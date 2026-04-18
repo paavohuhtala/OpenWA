@@ -1,5 +1,5 @@
 use crate::asset::gfx_dir::GfxDir;
-use crate::render::{display::gfx::DisplayGfx, palette::PaletteContext, SpriteCache};
+use crate::render::{SpriteCache, display::gfx::DisplayGfx, palette::PaletteContext};
 
 // Re-export sprite types from their own modules to keep this file focused on struct layouts.
 pub use super::sprite_id::KnownSpriteId;

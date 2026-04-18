@@ -197,8 +197,8 @@ unsafe fn create_dssound(hwnd: u32) -> *mut DSSound {
     unsafe {
         use windows::Win32::Foundation::HWND;
         use windows::Win32::Media::Audio::DirectSound::{
-            DirectSoundCreate, IDirectSound, IDirectSoundBuffer, DSBCAPS_PRIMARYBUFFER,
-            DSBPLAY_LOOPING, DSBUFFERDESC, DSSCL_PRIORITY,
+            DSBCAPS_PRIMARYBUFFER, DSBPLAY_LOOPING, DSBUFFERDESC, DSSCL_PRIORITY,
+            DirectSoundCreate, IDirectSound, IDirectSoundBuffer,
         };
 
         // Pure Rust construction — replaces call_dssound_ctor bridge.
@@ -325,7 +325,7 @@ unsafe extern "cdecl" fn impl_init_hardware(
 
             // ── Screen center and cursor ──────────────────────────────────────────
             use windows_sys::Win32::UI::WindowsAndMessaging::{
-                GetSystemMetrics, SetCursorPos, SM_CXSCREEN, SM_CYSCREEN,
+                GetSystemMetrics, SM_CXSCREEN, SM_CYSCREEN, SetCursorPos,
             };
 
             let fullscreen = *(rb(va::G_FULLSCREEN_FLAG) as *const u32) != 0;

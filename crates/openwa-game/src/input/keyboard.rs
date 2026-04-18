@@ -76,11 +76,13 @@ impl DDKeyboard {
     /// # Safety
     /// Must be called from within the WA.exe process.
     pub unsafe fn poll(&mut self) {
-        use crate::address::va;
-        use crate::rebase::rb;
-        let poll_fn: unsafe extern "stdcall" fn(*mut Self) =
-            core::mem::transmute(rb(va::DDKEYBOARD_POLL_KEYBOARD_STATE) as usize);
-        poll_fn(self);
+        unsafe {
+            use crate::address::va;
+            use crate::rebase::rb;
+            let poll_fn: unsafe extern "stdcall" fn(*mut Self) =
+                core::mem::transmute(rb(va::DDKEYBOARD_POLL_KEYBOARD_STATE) as usize);
+            poll_fn(self);
+        }
     }
 
     /// Create a new DDKeyboard with inline construction (no native C++ ctor).

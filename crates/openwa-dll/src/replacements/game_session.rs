@@ -16,10 +16,10 @@ use crate::hook;
 use crate::log_line;
 use openwa_game::address::va;
 use openwa_game::audio::DSSound;
+use openwa_game::engine::DDGameWrapperVtable;
 use openwa_game::engine::create_ddgame;
 use openwa_game::engine::game_session::get_game_session;
 use openwa_game::engine::init_constructor_addrs;
-use openwa_game::engine::DDGameWrapperVtable;
 use openwa_game::engine::{DDGameWrapper, GameInfo};
 use openwa_game::rebase::rb;
 use openwa_game::render::{DisplayGfx, Palette};
@@ -120,9 +120,9 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
         }
 
         let _ = log_line(&format!(
-        "[GameSession] display=0x{:08X}, net_game=0x{:08X}, timer=0x{:08X}, game_info(EDI)=0x{:08X}",
-        display as u32, net_game as u32, timer_obj as u32, game_info as u32,
-    ));
+            "[GameSession] display=0x{:08X}, net_game=0x{:08X}, timer=0x{:08X}, game_info(EDI)=0x{:08X}",
+            display as u32, net_game as u32, timer_obj as u32, game_info as u32,
+        ));
 
         // Arm display watchpoint during construction if requested
         if std::env::var("OPENWA_WATCH_DISPLAY").is_ok() {

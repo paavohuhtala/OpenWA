@@ -8,9 +8,9 @@ use std::ptr;
 use windows_sys::Win32::Foundation::{CloseHandle, HMODULE};
 use windows_sys::Win32::System::LibraryLoader::GetModuleFileNameA;
 use windows_sys::Win32::System::Threading::{
-    CreateEventA, CreateProcessA, GetExitCodeProcess, ResumeThread, TerminateProcess,
-    WaitForSingleObject, CREATE_NO_WINDOW, CREATE_SUSPENDED, INFINITE, PROCESS_INFORMATION,
-    STARTF_USESHOWWINDOW, STARTUPINFOA,
+    CREATE_NO_WINDOW, CREATE_SUSPENDED, CreateEventA, CreateProcessA, GetExitCodeProcess, INFINITE,
+    PROCESS_INFORMATION, ResumeThread, STARTF_USESHOWWINDOW, STARTUPINFOA, TerminateProcess,
+    WaitForSingleObject,
 };
 
 const SW_HIDE: u16 = 0;

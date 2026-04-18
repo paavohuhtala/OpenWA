@@ -108,68 +108,70 @@ pub fn read_profile_string(section: &str, key: &str, buf: &mut [u8]) -> usize {
 /// Replacement for WA's Registry__DeleteKeyRecursive (0x4E4D10).
 /// Returns 0 on success, Win32 error code on failure.
 pub unsafe fn delete_key_recursive(parent: HKEY, subkey: &str) -> u32 {
-    if subkey.is_empty() {
-        return 0x3F2; // ERROR_INVALID_PARAMETER equivalent used by original
-    }
-
-    let mut subkey_buf = String::with_capacity(subkey.len() + 1);
-    subkey_buf.push_str(subkey);
-    subkey_buf.push('\0');
-
-    let mut hkey: HKEY = core::ptr::null_mut();
-    let status = RegOpenKeyExA(
-        parent,
-        subkey_buf.as_ptr(),
-        0,
-        KEY_READ | KEY_ENUMERATE_SUB_KEYS,
-        &mut hkey,
-    );
-    if status != 0 {
-        return status;
-    }
-
-    // Enumerate and recursively delete all child keys
-    let mut name_buf = vec![0u8; 256];
-    loop {
-        let mut name_len = name_buf.len() as u32;
-        let status = RegEnumKeyExA(
-            hkey,
-            0, // always index 0 since we delete as we go
-            name_buf.as_mut_ptr(),
-            &mut name_len,
-            core::ptr::null_mut(),
-            core::ptr::null_mut(),
-            core::ptr::null_mut(),
-            core::ptr::null_mut(),
-        );
-
-        if status == 0x103 {
-            // ERROR_NO_MORE_ITEMS — all children deleted
-            break;
+    unsafe {
+        if subkey.is_empty() {
+            return 0x3F2; // ERROR_INVALID_PARAMETER equivalent used by original
         }
+
+        let mut subkey_buf = String::with_capacity(subkey.len() + 1);
+        subkey_buf.push_str(subkey);
+        subkey_buf.push('\0');
+
+        let mut hkey: HKEY = core::ptr::null_mut();
+        let status = RegOpenKeyExA(
+            parent,
+            subkey_buf.as_ptr(),
+            0,
+            KEY_READ | KEY_ENUMERATE_SUB_KEYS,
+            &mut hkey,
+        );
         if status != 0 {
-            RegCloseKey(hkey);
             return status;
         }
 
-        if name_len as usize == name_buf.len() {
-            // Name buffer too small, grow it
-            name_buf.resize(name_buf.len() * 2, 0);
-            continue;
+        // Enumerate and recursively delete all child keys
+        let mut name_buf = vec![0u8; 256];
+        loop {
+            let mut name_len = name_buf.len() as u32;
+            let status = RegEnumKeyExA(
+                hkey,
+                0, // always index 0 since we delete as we go
+                name_buf.as_mut_ptr(),
+                &mut name_len,
+                core::ptr::null_mut(),
+                core::ptr::null_mut(),
+                core::ptr::null_mut(),
+                core::ptr::null_mut(),
+            );
+
+            if status == 0x103 {
+                // ERROR_NO_MORE_ITEMS — all children deleted
+                break;
+            }
+            if status != 0 {
+                RegCloseKey(hkey);
+                return status;
+            }
+
+            if name_len as usize == name_buf.len() {
+                // Name buffer too small, grow it
+                name_buf.resize(name_buf.len() * 2, 0);
+                continue;
+            }
+
+            // Null-terminate and recurse
+            name_buf[name_len as usize] = 0;
+            let child_name = core::str::from_utf8_unchecked(&name_buf[..name_len as usize]);
+            let result = delete_key_recursive(hkey, child_name);
+            if result != 0 {
+                RegCloseKey(hkey);
+                return result;
+            }
         }
 
-        // Null-terminate and recurse
-        name_buf[name_len as usize] = 0;
-        let child_name = core::str::from_utf8_unchecked(&name_buf[..name_len as usize]);
-        let result = delete_key_recursive(hkey, child_name);
-        if result != 0 {
-            RegCloseKey(hkey);
-            return result;
-        }
+        // All children deleted, now delete the key itself
+        let status = RegDeleteKeyA(parent, subkey_buf.as_ptr());
+        RegCloseKey(hkey);
+        status
     }
-
-    // All children deleted, now delete the key itself
-    let status = RegDeleteKeyA(parent, subkey_buf.as_ptr());
-    RegCloseKey(hkey);
-    status
 }

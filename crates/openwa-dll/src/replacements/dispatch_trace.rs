@@ -11,8 +11,8 @@
 //! `RET N` returning directly to the WA caller.
 
 use std::io::Write;
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicU32, Ordering};
 
 use crate::hook;
 use crate::log_line;

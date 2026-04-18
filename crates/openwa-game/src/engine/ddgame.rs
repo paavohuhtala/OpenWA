@@ -1,20 +1,20 @@
+use crate::FieldRegistry;
+use crate::audio::SoundQueueEntry;
 use crate::audio::active_sound::ActiveSoundTable;
 use crate::audio::dssound::DSSound;
 use crate::audio::music::Music;
 use crate::audio::speech::SpeechSlotTable;
-use crate::audio::SoundQueueEntry;
 use crate::bitgrid::{BitGrid, CollisionBitGrid, DisplayBitGrid};
 use crate::engine::game_info::GameInfo;
 use crate::engine::{CoordEntry, CoordList, TeamArena, TeamIndexMap};
 use crate::game::weapon::WeaponTable;
 use crate::input::keyboard::DDKeyboard;
+use crate::render::RenderEntry;
 use crate::render::display::gfx::DisplayGfx;
 use crate::render::display::palette::Palette;
 use crate::render::landscape::PCLandscape;
 use crate::render::queue::RenderQueue;
 use crate::render::turn_order::TurnOrderWidget;
-use crate::render::RenderEntry;
-use crate::FieldRegistry;
 use openwa_core::fixed::Fixed;
 
 /// DDGame — the main game engine object.
@@ -590,8 +590,10 @@ impl DDGame {
     /// # Safety
     /// `team_id` must be a valid team index (0–5).
     pub unsafe fn team_sound_id(&self, team_id: u32) -> u32 {
-        let base = (self as *const DDGame as *const u8).add(0x7768);
-        *(base.add((team_id as usize) * 0xF0) as *const u32)
+        unsafe {
+            let base = (self as *const DDGame as *const u8).add(0x7768);
+            *(base.add((team_id as usize) * 0xF0) as *const u32)
+        }
     }
 
     /// Get a mutable pointer to a per-team/per-worm weapon stat counter.
@@ -608,10 +610,12 @@ impl DDGame {
         worm_id: u32,
         base_offset: usize,
     ) -> *mut i32 {
-        (self as *mut DDGame as *mut u8)
-            .add(base_offset)
-            .add((team_id as usize) * 0x51C)
-            .add((worm_id as usize) * 0x9C) as *mut i32
+        unsafe {
+            (self as *mut DDGame as *mut u8)
+                .add(base_offset)
+                .add((team_id as usize) * 0x51C)
+                .add((worm_id as usize) * 0x9C) as *mut i32
+        }
     }
 
     /// Show the "too many objects" warning on the HUD.
@@ -622,15 +626,17 @@ impl DDGame {
     /// # Safety
     /// `self.game_info` must be valid.
     pub unsafe fn show_pool_overflow_warning(&mut self) {
-        use crate::address::va;
-        use crate::rebase::rb;
+        unsafe {
+            use crate::address::va;
+            use crate::rebase::rb;
 
-        let game_version = (*self.game_info).game_version;
-        if game_version < 0x3C {
-            self.hud_status_code = 6;
-            let load_string: unsafe extern "cdecl" fn(u32) -> *const core::ffi::c_char =
-                core::mem::transmute(rb(va::LOAD_STRING_RESOURCE));
-            self.hud_status_text = load_string(0x70F);
+            let game_version = (*self.game_info).game_version;
+            if game_version < 0x3C {
+                self.hud_status_code = 6;
+                let load_string: unsafe extern "cdecl" fn(u32) -> *const core::ffi::c_char =
+                    core::mem::transmute(rb(va::LOAD_STRING_RESOURCE));
+                self.hud_status_text = load_string(0x70F);
+            }
         }
     }
 

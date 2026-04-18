@@ -1,6 +1,6 @@
 use super::base::CTask;
-use crate::game::class_type::ClassType;
 use crate::FieldRegistry;
+use crate::game::class_type::ClassType;
 use openwa_core::fixed::Fixed;
 
 crate::define_addresses! {
@@ -126,82 +126,84 @@ pub unsafe extern "thiscall" fn cloud_handle_message(
     size: u32,
     data: *const u8,
 ) {
-    let msg = TaskMessage::try_from(msg_type);
+    unsafe {
+        let msg = TaskMessage::try_from(msg_type);
 
-    match msg {
-        Ok(TaskMessage::FrameFinish) => {
-            // Advance Y position
-            (*this).anim_phase = Fixed((*this).anim_phase.0 + (*this).phase_speed.0);
+        match msg {
+            Ok(TaskMessage::FrameFinish) => {
+                // Advance Y position
+                (*this).anim_phase = Fixed((*this).anim_phase.0 + (*this).phase_speed.0);
 
-            // Advance X position: base velocity + wind * 10
-            let wind = (*this).wind_accel.0;
-            (*this).pos_x = Fixed((*this).pos_x.0 + (*this).vel_x.0 + wind * 10);
+                // Advance X position: base velocity + wind * 10
+                let wind = (*this).wind_accel.0;
+                (*this).pos_x = Fixed((*this).pos_x.0 + (*this).vel_x.0 + wind * 10);
 
-            // Wrap X at landscape bounds (with 128.0 Fixed padding)
-            let ddgame = CTask::ddgame_raw(this as *const CTask);
-            let padding = Fixed::from_int(128);
-            let level_left = (*ddgame).level_bound_min_x - padding;
-            let level_right = (*ddgame).level_bound_max_x + padding;
+                // Wrap X at landscape bounds (with 128.0 Fixed padding)
+                let ddgame = CTask::ddgame_raw(this as *const CTask);
+                let padding = Fixed::from_int(128);
+                let level_left = (*ddgame).level_bound_min_x - padding;
+                let level_right = (*ddgame).level_bound_max_x + padding;
 
-            if (*this).pos_x < level_left {
-                (*this).pos_x = level_right;
-            } else if (*this).pos_x > level_right {
-                (*this).pos_x = level_left;
+                if (*this).pos_x < level_left {
+                    (*this).pos_x = level_right;
+                } else if (*this).pos_x > level_right {
+                    (*this).pos_x = level_left;
+                }
+
+                // Converge wind_accel toward wind_target (clamp step to ±0x147)
+                let target = (*this).wind_target.0;
+                let current = (*this).wind_accel.0;
+                let diff = target - current;
+                if diff.abs() < 0x147 {
+                    (*this).wind_accel = Fixed(target);
+                } else if current < target {
+                    (*this).wind_accel = Fixed(current + 0x147);
+                } else {
+                    (*this).wind_accel = Fixed(current - 0x147);
+                }
             }
 
-            // Converge wind_accel toward wind_target (clamp step to ±0x147)
-            let target = (*this).wind_target.0;
-            let current = (*this).wind_accel.0;
-            let diff = target - current;
-            if diff.abs() < 0x147 {
-                (*this).wind_accel = Fixed(target);
-            } else if current < target {
-                (*this).wind_accel = Fixed(current + 0x147);
-            } else {
-                (*this).wind_accel = Fixed(current - 0x147);
+            Ok(TaskMessage::RenderScene) => {
+                let ddgame = CTask::ddgame_raw(this as *const CTask);
+
+                // Only render when rendering phase == 5 (in-game rendering active)
+                if (*ddgame).render_phase == 5 {
+                    // Sub-frame parallax X offset: interpolate this frame's scroll
+                    // using the render_interp_a ratio so clouds scroll smoothly
+                    // between the 50Hz simulation steps.
+                    let scroll_speed = (*this).vel_x.0 + (*this).wind_accel.0 * 10;
+                    let parallax_x =
+                        ((scroll_speed as i64 * (*ddgame).render_interp_a as i64) >> 16) as i32;
+                    let x = parallax_x + (*this).pos_x.0;
+
+                    let rq = &mut *(*ddgame).render_queue;
+                    // Original (0x548527..0x54852f) loads `[ESI+0x44]` (render_y)
+                    // into EAX as the usercall Y register, and pushes `anim_phase`
+                    // (`[ESI+0x34]`) as the trailing stack arg that becomes
+                    // `blit_sprite`'s `palette` parameter.
+                    let _ = rq.push_typed(
+                        (*this).layer_depth.0 as u32,
+                        RenderMessage::Sprite {
+                            local: true,
+                            x: Fixed(x).floor(),
+                            y: (*this).render_y.floor(),
+                            sprite: SpriteOp((*this).sprite_id),
+                            palette: (*this).anim_phase.0 as u32,
+                        },
+                    );
+                }
             }
-        }
 
-        Ok(TaskMessage::RenderScene) => {
-            let ddgame = CTask::ddgame_raw(this as *const CTask);
-
-            // Only render when rendering phase == 5 (in-game rendering active)
-            if (*ddgame).render_phase == 5 {
-                // Sub-frame parallax X offset: interpolate this frame's scroll
-                // using the render_interp_a ratio so clouds scroll smoothly
-                // between the 50Hz simulation steps.
-                let scroll_speed = (*this).vel_x.0 + (*this).wind_accel.0 * 10;
-                let parallax_x =
-                    ((scroll_speed as i64 * (*ddgame).render_interp_a as i64) >> 16) as i32;
-                let x = parallax_x + (*this).pos_x.0;
-
-                let rq = &mut *(*ddgame).render_queue;
-                // Original (0x548527..0x54852f) loads `[ESI+0x44]` (render_y)
-                // into EAX as the usercall Y register, and pushes `anim_phase`
-                // (`[ESI+0x34]`) as the trailing stack arg that becomes
-                // `blit_sprite`'s `palette` parameter.
-                let _ = rq.push_typed(
-                    (*this).layer_depth.0 as u32,
-                    RenderMessage::Sprite {
-                        local: true,
-                        x: Fixed(x).floor(),
-                        y: (*this).render_y.floor(),
-                        sprite: SpriteOp((*this).sprite_id),
-                        palette: (*this).anim_phase.0 as u32,
-                    },
-                );
+            Ok(TaskMessage::SetWind) if !data.is_null() => {
+                (*this).wind_target = Fixed(*(data as *const i32));
             }
+
+            _ => {}
         }
 
-        Ok(TaskMessage::SetWind) if !data.is_null() => {
-            (*this).wind_target = Fixed(*(data as *const i32));
-        }
-
-        _ => {}
+        // Broadcast to children — raw-pointer version avoids noalias UB
+        CTask::broadcast_message_raw(this as *mut CTask, sender, msg_type, size, data);
     }
-
-    // Broadcast to children — raw-pointer version avoids noalias UB
-    CTask::broadcast_message_raw(this as *mut CTask, sender, msg_type, size, data);
 }
 
 /// Cloud type determines sprite and vertical velocity.
@@ -237,36 +239,38 @@ impl CTaskCloud {
         vel_x: Fixed,
         render_y: Fixed,
     ) {
-        use crate::rebase::rb;
+        unsafe {
+            use crate::rebase::rb;
 
-        // Set vtable pointer to the CTaskCloud vtable (rebased for ASLR)
-        (*this).base.vtable = rb(CTASK_CLOUD_VTABLE) as *const CTaskCloudVTable;
-        (*this).base.class_type = ClassType::Cloud;
+            // Set vtable pointer to the CTaskCloud vtable (rebased for ASLR)
+            (*this).base.vtable = rb(CTASK_CLOUD_VTABLE) as *const CTaskCloudVTable;
+            (*this).base.class_type = ClassType::Cloud;
 
-        // Position: x is the initial horizontal position. The original computes
-        // `anim_phase = (pos_x + render_y) & 0xFFFF`, but both pos_x and render_y
-        // have their lower 16 bits zero, so the result is always 0.
-        (*this).pos_x = pos_x;
-        (*this).anim_phase = Fixed((pos_x.0.wrapping_add(render_y.0)) & 0xFFFF);
-        (*this).layer_depth = layer_depth;
-        (*this).render_y = render_y;
-        (*this).vel_x = vel_x;
-        (*this).wind_accel = Fixed(0);
-        (*this).wind_target = Fixed(0);
+            // Position: x is the initial horizontal position. The original computes
+            // `anim_phase = (pos_x + render_y) & 0xFFFF`, but both pos_x and render_y
+            // have their lower 16 bits zero, so the result is always 0.
+            (*this).pos_x = pos_x;
+            (*this).anim_phase = Fixed((pos_x.0.wrapping_add(render_y.0)) & 0xFFFF);
+            (*this).layer_depth = layer_depth;
+            (*this).render_y = render_y;
+            (*this).vel_x = vel_x;
+            (*this).wind_accel = Fixed(0);
+            (*this).wind_target = Fixed(0);
 
-        // Set type-dependent velocity and sprite
-        match cloud_type {
-            CloudType::Large => {
-                (*this).phase_speed = Fixed(0x200);
-                (*this).sprite_id = 0x268;
-            }
-            CloudType::Medium => {
-                (*this).phase_speed = Fixed(0x166);
-                (*this).sprite_id = 0x269;
-            }
-            CloudType::Small => {
-                (*this).phase_speed = Fixed(0xCC);
-                (*this).sprite_id = 0x26A;
+            // Set type-dependent velocity and sprite
+            match cloud_type {
+                CloudType::Large => {
+                    (*this).phase_speed = Fixed(0x200);
+                    (*this).sprite_id = 0x268;
+                }
+                CloudType::Medium => {
+                    (*this).phase_speed = Fixed(0x166);
+                    (*this).sprite_id = 0x269;
+                }
+                CloudType::Small => {
+                    (*this).phase_speed = Fixed(0xCC);
+                    (*this).sprite_id = 0x26A;
+                }
             }
         }
     }

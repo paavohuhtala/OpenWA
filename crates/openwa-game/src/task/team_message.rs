@@ -31,15 +31,17 @@ impl TeamMessage {
     /// # Safety
     /// `data` must be valid for `size` bytes when `size > 0`.
     pub unsafe fn from_raw(msg_type: u32, _size: u32, data: *const u8) -> Option<Self> {
-        match TaskMessage::try_from(msg_type) {
-            Ok(TaskMessage::Surrender) => {
-                if data.is_null() {
-                    return None;
+        unsafe {
+            match TaskMessage::try_from(msg_type) {
+                Ok(TaskMessage::Surrender) => {
+                    if data.is_null() {
+                        return None;
+                    }
+                    let team_index = *(data as *const u32);
+                    Some(TeamMessage::Surrender { team_index })
                 }
-                let team_index = *(data as *const u32);
-                Some(TeamMessage::Surrender { team_index })
+                _ => None,
             }
-            _ => None,
         }
     }
 

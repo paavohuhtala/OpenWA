@@ -3,12 +3,12 @@
 use openwa_core::fixed::Fixed;
 use openwa_game::address::va;
 use openwa_game::bitgrid::DisplayBitGrid;
-use openwa_game::render::display::vtable::TiledBitmapSource;
+use openwa_game::render::SpriteOp;
 use openwa_game::render::display::DisplayGfx;
+use openwa_game::render::display::vtable::TiledBitmapSource;
 use openwa_game::render::message::RenderMessage;
 use openwa_game::render::queue::RenderQueue;
-use openwa_game::render::queue_dispatch::{render_drawing_queue, ClipContext};
-use openwa_game::render::SpriteOp;
+use openwa_game::render::queue_dispatch::{ClipContext, render_drawing_queue};
 use openwa_game::task::{BungeeTrailTask, WeaponAimTask};
 
 use crate::hook::{self, usercall_trampoline};

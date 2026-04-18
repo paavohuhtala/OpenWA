@@ -22,8 +22,8 @@ extern crate self as openwa_game;
 pub use inventory;
 
 // Re-export derive macros so users write `use openwa_game::FieldRegistry;`
-pub use openwa_derive::vtable;
 pub use openwa_derive::FieldRegistry;
+pub use openwa_derive::vtable;
 
 #[macro_use]
 pub mod macros;

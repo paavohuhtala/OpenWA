@@ -253,12 +253,14 @@ impl DisplayGfx {
     /// # Safety
     /// Must be called from within the WA.exe process.
     pub unsafe fn construct() -> *mut Self {
-        use crate::address::va;
-        use crate::rebase::rb;
-        use crate::wa_alloc::wa_malloc_struct_zeroed;
-        let ctor: unsafe extern "stdcall" fn(*mut Self) -> *mut Self =
-            core::mem::transmute(rb(va::DISPLAYGFX_CTOR) as usize);
-        ctor(wa_malloc_struct_zeroed::<Self>())
+        unsafe {
+            use crate::address::va;
+            use crate::rebase::rb;
+            use crate::wa_alloc::wa_malloc_struct_zeroed;
+            let ctor: unsafe extern "stdcall" fn(*mut Self) -> *mut Self =
+                core::mem::transmute(rb(va::DISPLAYGFX_CTOR) as usize);
+            ctor(wa_malloc_struct_zeroed::<Self>())
+        }
     }
 }
 

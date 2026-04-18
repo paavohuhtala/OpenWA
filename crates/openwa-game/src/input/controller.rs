@@ -1,6 +1,3 @@
-/// Vtable for InputCtrl (0x66B3FC).
-///
-/// Only slot 0 (destructor) is known — called on init failure cleanup.
 #[openwa_game::vtable(size = 1, va = 0x0066_B3FC, class = "InputCtrl")]
 pub struct InputCtrlVtable {
     /// Destructor(this, flags) — scalar deleting destructor
@@ -36,6 +33,8 @@ bind_InputCtrlVtable!(InputCtrl, vtable);
 impl InputCtrl {
     /// Vtable[0]: Destroy and optionally free (flags & 1 = free).
     pub unsafe fn destroy(&mut self, flags: u32) {
-        self.destructor(flags);
+        unsafe {
+            self.destructor(flags);
+        }
     }
 }

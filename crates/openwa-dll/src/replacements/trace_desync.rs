@@ -11,8 +11,8 @@
 //!   frame_number<TAB>checksum_a_hex<TAB>checksum_b_hex
 
 use std::io::Write;
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicU32, Ordering};
 
 use crate::hook;
 use crate::log_line;

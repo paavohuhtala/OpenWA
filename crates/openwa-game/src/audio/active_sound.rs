@@ -56,27 +56,29 @@ impl ActiveSoundTable {
     ///
     /// Returns true if the sound was found and stopped.
     pub unsafe fn stop_sound(&mut self, handle: i32) -> bool {
-        let slot = (handle & 0x3F) as usize;
-        let entry = &mut self.entries[slot];
+        unsafe {
+            let slot = (handle & 0x3F) as usize;
+            let entry = &mut self.entries[slot];
 
-        if entry.sequence != handle || entry.channel_handle == 0 {
-            return false;
+            if entry.sequence != handle || entry.channel_handle == 0 {
+                return false;
+            }
+
+            // Stop the DSSound channel via the DDGame's sound system
+            let ddgame = &*self.ddgame;
+            let sound = ddgame.sound;
+            if !sound.is_null() {
+                ((*(*sound).vtable).stop_channel)(sound, entry.channel_handle as i32);
+            }
+            entry.channel_handle = 0;
+
+            // Release the emitter reference
+            if !entry.emitter.is_null() {
+                (*(entry.emitter as *mut SoundEmitter)).local_ref_count -= 1;
+                entry.emitter = core::ptr::null_mut();
+            }
+
+            true
         }
-
-        // Stop the DSSound channel via the DDGame's sound system
-        let ddgame = &*self.ddgame;
-        let sound = ddgame.sound;
-        if !sound.is_null() {
-            ((*(*sound).vtable).stop_channel)(sound, entry.channel_handle as i32);
-        }
-        entry.channel_handle = 0;
-
-        // Release the emitter reference
-        if !entry.emitter.is_null() {
-            (*(entry.emitter as *mut SoundEmitter)).local_ref_count -= 1;
-            entry.emitter = core::ptr::null_mut();
-        }
-
-        true
     }
 }

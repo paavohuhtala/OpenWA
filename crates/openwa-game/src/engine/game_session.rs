@@ -1,10 +1,10 @@
+use crate::FieldRegistry;
 use crate::audio::dssound::DSSound;
 use crate::audio::music::Music;
 use crate::engine::ddgame_wrapper::DDGameWrapper;
 use crate::engine::game_info::GameInfo;
 use crate::input::keyboard::DDKeyboard;
 use crate::render::display::palette::Palette;
-use crate::FieldRegistry;
 
 /// Top-level game session context, allocated once per game run.
 ///
@@ -138,7 +138,7 @@ use crate::rebase::rb;
 #[cfg(target_arch = "x86")]
 #[inline]
 pub unsafe fn get_game_session() -> *mut GameSession {
-    *(rb(va::G_GAME_SESSION) as *const *mut GameSession)
+    unsafe { *(rb(va::G_GAME_SESSION) as *const *mut GameSession) }
 }
 
 /// Get the DDGameWrapper pointer from the global game session.
@@ -147,11 +147,13 @@ pub unsafe fn get_game_session() -> *mut GameSession {
 #[cfg(target_arch = "x86")]
 #[inline]
 pub unsafe fn get_wrapper() -> *mut DDGameWrapper {
-    let session: *mut GameSession = get_game_session();
-    if session.is_null() {
-        return core::ptr::null_mut();
+    unsafe {
+        let session: *mut GameSession = get_game_session();
+        if session.is_null() {
+            return core::ptr::null_mut();
+        }
+        (*session).ddgame_wrapper
     }
-    (*session).ddgame_wrapper
 }
 
 /// Get the DDGame pointer from the global game session.
@@ -161,9 +163,11 @@ pub unsafe fn get_wrapper() -> *mut DDGameWrapper {
 #[cfg(target_arch = "x86")]
 #[inline]
 pub unsafe fn get_ddgame() -> *mut DDGame {
-    let wrapper = get_wrapper();
-    if wrapper.is_null() {
-        return core::ptr::null_mut();
+    unsafe {
+        let wrapper = get_wrapper();
+        if wrapper.is_null() {
+            return core::ptr::null_mut();
+        }
+        (*wrapper).ddgame
     }
-    (*wrapper).ddgame
 }

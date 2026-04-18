@@ -464,7 +464,7 @@ mod tests {
 
         // Secondary frame table
         data.extend_from_slice(&2u16.to_le_bytes()); // 2 secondary frames
-                                                     // Align to 4 bytes
+        // Align to 4 bytes
         while data.len() % 4 != 0 {
             data.push(0);
         }

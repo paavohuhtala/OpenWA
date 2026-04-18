@@ -10,9 +10,6 @@ crate::define_addresses! {
     }
 }
 
-/// CTaskCrate vtable — 12 slots. Extends CGameTask vtable with crate behavior.
-///
-/// Vtable at Ghidra 0x664298.
 #[openwa_game::vtable(size = 12, va = 0x0066_4298, class = "CTaskCrate")]
 pub struct CTaskCrateVTable {
     /// HandleMessage — processes crate messages (collection, parachute, etc.).

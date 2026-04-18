@@ -6,9 +6,10 @@ use core::ffi::c_char;
 use openwa_core::log::log_line;
 use openwa_game::address::va;
 use openwa_game::asset::gfx_dir::{
-    gfx_dir_load_cached, gfx_dir_load_image, gfx_dir_read, gfx_dir_release, gfx_dir_seek,
-    gfx_dir_stream_bytes_consumed, gfx_dir_stream_destructor, gfx_dir_stream_get_total_size,
-    gfx_dir_stream_has_data, gfx_dir_stream_read, gfx_dir_stream_seek, GfxDir, GfxDirStream,
+    GfxDir, GfxDirStream, gfx_dir_load_cached, gfx_dir_load_image, gfx_dir_read, gfx_dir_release,
+    gfx_dir_seek, gfx_dir_stream_bytes_consumed, gfx_dir_stream_destructor,
+    gfx_dir_stream_get_total_size, gfx_dir_stream_has_data, gfx_dir_stream_read,
+    gfx_dir_stream_seek,
 };
 use openwa_game::asset::img::{img_decode, img_decode_cached};
 use openwa_game::bitgrid::BitGrid;

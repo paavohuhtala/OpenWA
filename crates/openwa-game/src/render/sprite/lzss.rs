@@ -70,55 +70,57 @@
 /// - Back-references at `dst - distance - 1` (short) or `dst - distance`
 ///   (long) must lie within the already-decoded portion of `dst`.
 pub unsafe fn sprite_lzss_decode(mut dst: *mut u8, mut src: *const u8, lut: *const u8) {
-    loop {
-        // ── Literal run ──────────────────────────────────────────────
-        let b: u8 = loop {
-            let b = *src;
-            if b & 0x80 != 0 {
-                break b;
-            }
-            *dst = *lut.add(b as usize);
-            src = src.add(1);
-            dst = dst.add(1);
-        };
-
-        // ── Control word ─────────────────────────────────────────────
-        // CX = src[0]<<8 | src[1]; distance = CX & 0x7FF.
-        let distance = (((b as u32) << 8) | (*src.add(1) as u32)) & 0x7FF;
-        let nibble = ((b as u32) >> 3) & 0xF;
-
-        if nibble != 0 {
-            // ── Short back-ref ───────────────────────────────────────
-            // Asm uses ECX = -distance - 1 for the entire run; copies
-            // happen as `*EDI = [ECX + EDI]` followed by `INC EDI`,
-            // which means each successive write reads one position later.
-            // The total length is `nibble + 2` bytes (range 3..=17).
-            //
-            // The original asm structure does 3 unconditional copies and
-            // then `(nibble - 1)` more in a loop. Equivalent to a flat
-            // loop of `nibble + 2` iterations.
-            let copy_offset = (distance as usize).wrapping_add(1);
-            let total = (nibble as usize) + 2;
-            for _ in 0..total {
-                *dst = *dst.sub(copy_offset);
+    unsafe {
+        loop {
+            // ── Literal run ──────────────────────────────────────────────
+            let b: u8 = loop {
+                let b = *src;
+                if b & 0x80 != 0 {
+                    break b;
+                }
+                *dst = *lut.add(b as usize);
+                src = src.add(1);
                 dst = dst.add(1);
+            };
+
+            // ── Control word ─────────────────────────────────────────────
+            // CX = src[0]<<8 | src[1]; distance = CX & 0x7FF.
+            let distance = (((b as u32) << 8) | (*src.add(1) as u32)) & 0x7FF;
+            let nibble = ((b as u32) >> 3) & 0xF;
+
+            if nibble != 0 {
+                // ── Short back-ref ───────────────────────────────────────
+                // Asm uses ECX = -distance - 1 for the entire run; copies
+                // happen as `*EDI = [ECX + EDI]` followed by `INC EDI`,
+                // which means each successive write reads one position later.
+                // The total length is `nibble + 2` bytes (range 3..=17).
+                //
+                // The original asm structure does 3 unconditional copies and
+                // then `(nibble - 1)` more in a loop. Equivalent to a flat
+                // loop of `nibble + 2` iterations.
+                let copy_offset = (distance as usize).wrapping_add(1);
+                let total = (nibble as usize) + 2;
+                for _ in 0..total {
+                    *dst = *dst.sub(copy_offset);
+                    dst = dst.add(1);
+                }
+                src = src.add(2);
+            } else {
+                // ── Terminator or long back-ref ──────────────────────────
+                if distance == 0 {
+                    return;
+                }
+                // Long back-ref uses ECX = -distance (NOT decremented — the
+                // asm's `JZ extended` jumps OVER the `DEC ECX`). Length is
+                // `src[2] + 18` (range 18..=273).
+                let len = (*src.add(2) as usize) + 18;
+                let copy_offset = distance as usize;
+                for _ in 0..len {
+                    *dst = *dst.sub(copy_offset);
+                    dst = dst.add(1);
+                }
+                src = src.add(3);
             }
-            src = src.add(2);
-        } else {
-            // ── Terminator or long back-ref ──────────────────────────
-            if distance == 0 {
-                return;
-            }
-            // Long back-ref uses ECX = -distance (NOT decremented — the
-            // asm's `JZ extended` jumps OVER the `DEC ECX`). Length is
-            // `src[2] + 18` (range 18..=273).
-            let len = (*src.add(2) as usize) + 18;
-            let copy_offset = distance as usize;
-            for _ in 0..len {
-                *dst = *dst.sub(copy_offset);
-                dst = dst.add(1);
-            }
-            src = src.add(3);
         }
     }
 }

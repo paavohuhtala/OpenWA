@@ -1575,17 +1575,19 @@ fn run_baseline_parallel(
         let wa_exe = wa_exe.clone();
         let run_dir = run_dir.clone();
 
-        handles.push(thread::spawn(move || loop {
-            let item = {
-                let guard = rx.lock().unwrap();
-                guard.recv()
-            };
-            match item {
-                Ok((idx, test)) => {
-                    let result = run_baseline_test(&test, &launcher, &wa_exe, &run_dir);
-                    let _ = tx.send((idx, result));
+        handles.push(thread::spawn(move || {
+            loop {
+                let item = {
+                    let guard = rx.lock().unwrap();
+                    guard.recv()
+                };
+                match item {
+                    Ok((idx, test)) => {
+                        let result = run_baseline_test(&test, &launcher, &wa_exe, &run_dir);
+                        let _ = tx.send((idx, result));
+                    }
+                    Err(_) => break,
                 }
-                Err(_) => break,
             }
         }));
     }

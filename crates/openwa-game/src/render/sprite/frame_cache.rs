@@ -18,10 +18,10 @@
 use core::ffi::c_void;
 use core::ptr::null_mut;
 
+use crate::render::SpriteCache;
 #[cfg(test)]
 use crate::render::display::base::FrameCache;
 use crate::render::display::base::FrameCacheEntry;
-use crate::render::SpriteCache;
 
 crate::define_addresses! {
     class "FrameCache" {
@@ -90,115 +90,113 @@ pub unsafe fn frame_cache_allocate(
     owner: *mut c_void,
     frame_idx: u32,
 ) -> *mut u8 {
-    let payload_size = entry_size + 8;
-    let pad = (entry_size + 0x13) & !3;
+    unsafe {
+        let payload_size = entry_size + 8;
+        let pad = (entry_size + 0x13) & !3;
 
-    loop {
-        let fc = (*context_ptr).frame_cache;
-        let write = (*fc).write_head;
-        let wrap = (*fc).wrap_marker;
-        let end = write + pad;
+        loop {
+            let fc = (*context_ptr).frame_cache;
+            let write = (*fc).write_head;
+            let wrap = (*fc).wrap_marker;
+            let end = write + pad;
 
-        // Decide where (if anywhere) the new entry can go in this pass.
-        let placed_offset: Option<u32> = if write < wrap {
-            // Case A: write_head sits behind wrap_marker (a previously
-            // wrapped buffer). Allocation succeeds iff it doesn't reach
-            // wrap_marker.
-            if end <= wrap {
-                Some(write)
+            // Decide where (if anywhere) the new entry can go in this pass.
+            let placed_offset: Option<u32> = if write < wrap {
+                // Case A: write_head sits behind wrap_marker (a previously
+                // wrapped buffer). Allocation succeeds iff it doesn't reach
+                // wrap_marker.
+                if end <= wrap { Some(write) } else { None }
             } else {
-                None
-            }
-        } else {
-            // Case B: write_head ahead of wrap_marker. Allocation
-            // succeeds iff it fits before the end of the buffer; if it
-            // doesn't, try wrapping to offset 0 — that succeeds iff
-            // `pad <= wrap_marker` (head_entry isn't sitting in the
-            // [0, pad) range).
-            if end <= (*fc).capacity {
-                Some(write)
-            } else if pad <= wrap {
-                Some(0)
-            } else {
-                None
-            }
-        };
+                // Case B: write_head ahead of wrap_marker. Allocation
+                // succeeds iff it fits before the end of the buffer; if it
+                // doesn't, try wrapping to offset 0 — that succeeds iff
+                // `pad <= wrap_marker` (head_entry isn't sitting in the
+                // [0, pad) range).
+                if end <= (*fc).capacity {
+                    Some(write)
+                } else if pad <= wrap {
+                    Some(0)
+                } else {
+                    None
+                }
+            };
 
-        if let Some(offset) = placed_offset {
-            let entry_addr = (*fc).buffer.add(offset as usize);
-            let entry = entry_addr as *mut FrameCacheEntry;
+            if let Some(offset) = placed_offset {
+                let entry_addr = (*fc).buffer.add(offset as usize);
+                let entry = entry_addr as *mut FrameCacheEntry;
 
-            (*entry).payload_size = payload_size;
-            (*entry).next = null_mut();
+                (*entry).payload_size = payload_size;
+                (*entry).next = null_mut();
 
-            if !(*fc).tail_entry.is_null() {
-                (*(*fc).tail_entry).next = entry;
+                if !(*fc).tail_entry.is_null() {
+                    (*(*fc).tail_entry).next = entry;
+                }
+                (*fc).tail_entry = entry;
+                if (*fc).head_entry.is_null() {
+                    (*fc).head_entry = entry;
+                }
+                (*fc).entry_count += 1;
+                (*fc).write_head = offset + pad;
+
+                // Note: original asm writes frame_idx and owner AFTER the
+                // POPAD/POP sequence — this is functionally equivalent.
+                (*entry).frame_idx = frame_idx;
+                (*entry).owner = owner;
+
+                return entry_addr.add(0x10);
             }
-            (*fc).tail_entry = entry;
+
+            // ── Out of room: evict the oldest entry and retry ───────────
+            //
+            // The original asm reloads `fc` from `*(context_ptr + 4)` here
+            // (in case the eviction callback somehow rebinds it). In practice
+            // both real callbacks just clear a `decoded_ptr` field, but we
+            // mirror the reload exactly.
+            let fc = (*context_ptr).frame_cache;
+            let head = (*fc).head_entry;
+            if head.is_null() {
+                // Theoretically unreachable: an empty cache has wrap=write=0
+                // and thus must always fit; if it doesn't, `pad > capacity`
+                // and the original asm spins forever. We mirror that.
+                continue;
+            }
+
+            // Notify the owner that its subframe payload is being dropped.
+            // Both Sprite and SpriteBank vtable[1] callbacks share the same
+            // shape: thiscall(this, frame_idx, payload). The asm pushes
+            // `payload` first then `frame_idx` (so `frame_idx` is the first
+            // stack arg), with ECX = owner.
+            let victim_owner = (*head).owner;
+            let victim_frame_idx = (*head).frame_idx;
+            let victim_payload = (head as *mut u8).add(0x10);
+
+            // Read vtable[1] manually so we don't need to commit to either
+            // SpriteVtable or SpriteBankVtable as the callback's `this` type.
+            let vtable = *(victim_owner as *const *const u32);
+            let slot1 = *vtable.add(1);
+            let callback: EvictCallback = core::mem::transmute(slot1);
+            callback(victim_owner, victim_frame_idx, victim_payload);
+
+            // Reload fc and unlink the (just-notified) head entry.
+            let fc = (*context_ptr).frame_cache;
             if (*fc).head_entry.is_null() {
-                (*fc).head_entry = entry;
+                continue;
             }
-            (*fc).entry_count += 1;
-            (*fc).write_head = offset + pad;
-
-            // Note: original asm writes frame_idx and owner AFTER the
-            // POPAD/POP sequence — this is functionally equivalent.
-            (*entry).frame_idx = frame_idx;
-            (*entry).owner = owner;
-
-            return entry_addr.add(0x10);
-        }
-
-        // ── Out of room: evict the oldest entry and retry ───────────
-        //
-        // The original asm reloads `fc` from `*(context_ptr + 4)` here
-        // (in case the eviction callback somehow rebinds it). In practice
-        // both real callbacks just clear a `decoded_ptr` field, but we
-        // mirror the reload exactly.
-        let fc = (*context_ptr).frame_cache;
-        let head = (*fc).head_entry;
-        if head.is_null() {
-            // Theoretically unreachable: an empty cache has wrap=write=0
-            // and thus must always fit; if it doesn't, `pad > capacity`
-            // and the original asm spins forever. We mirror that.
-            continue;
-        }
-
-        // Notify the owner that its subframe payload is being dropped.
-        // Both Sprite and SpriteBank vtable[1] callbacks share the same
-        // shape: thiscall(this, frame_idx, payload). The asm pushes
-        // `payload` first then `frame_idx` (so `frame_idx` is the first
-        // stack arg), with ECX = owner.
-        let victim_owner = (*head).owner;
-        let victim_frame_idx = (*head).frame_idx;
-        let victim_payload = (head as *mut u8).add(0x10);
-
-        // Read vtable[1] manually so we don't need to commit to either
-        // SpriteVtable or SpriteBankVtable as the callback's `this` type.
-        let vtable = *(victim_owner as *const *const u32);
-        let slot1 = *vtable.add(1);
-        let callback: EvictCallback = core::mem::transmute(slot1);
-        callback(victim_owner, victim_frame_idx, victim_payload);
-
-        // Reload fc and unlink the (just-notified) head entry.
-        let fc = (*context_ptr).frame_cache;
-        if (*fc).head_entry.is_null() {
-            continue;
-        }
-        let new_head = (*(*fc).head_entry).next;
-        (*fc).head_entry = new_head;
-        if new_head.is_null() {
-            // Last entry just removed — clear the bookkeeping back to
-            // the empty state.
-            (*fc).entry_count -= 1;
-            (*fc).tail_entry = null_mut();
-            (*fc).wrap_marker = 0;
-            (*fc).write_head = 0;
-        } else {
-            // wrap_marker tracks where the head entry now sits within
-            // the buffer (as a byte offset from `buffer`).
-            (*fc).entry_count -= 1;
-            (*fc).wrap_marker = (new_head as u32).wrapping_sub((*fc).buffer as u32);
+            let new_head = (*(*fc).head_entry).next;
+            (*fc).head_entry = new_head;
+            if new_head.is_null() {
+                // Last entry just removed — clear the bookkeeping back to
+                // the empty state.
+                (*fc).entry_count -= 1;
+                (*fc).tail_entry = null_mut();
+                (*fc).wrap_marker = 0;
+                (*fc).write_head = 0;
+            } else {
+                // wrap_marker tracks where the head entry now sits within
+                // the buffer (as a byte offset from `buffer`).
+                (*fc).entry_count -= 1;
+                (*fc).wrap_marker = (new_head as u32).wrapping_sub((*fc).buffer as u32);
+            }
         }
     }
 }
@@ -223,9 +221,11 @@ mod tests {
     }
 
     unsafe extern "thiscall" fn mock_evict(this: *mut c_void, idx: u32, _payload: *mut u8) {
-        let owner = this as *mut MockOwner;
-        (*owner).evict_count += 1;
-        (*owner).last_idx = idx;
+        unsafe {
+            let owner = this as *mut MockOwner;
+            (*owner).evict_count += 1;
+            (*owner).last_idx = idx;
+        }
     }
 
     static MOCK_VTABLE: MockVtable = MockVtable {

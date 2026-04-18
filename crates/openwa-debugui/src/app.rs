@@ -1,6 +1,6 @@
 use eframe::egui;
 use openwa_game::address::va;
-use openwa_game::engine::{game_session, DDGame};
+use openwa_game::engine::{DDGame, game_session};
 use openwa_game::rebase::rb;
 use openwa_game::registry;
 use openwa_game::task::{
@@ -57,11 +57,7 @@ unsafe fn entity_label(addr: u32) -> String {
 unsafe fn get_ddgame() -> Option<*const DDGame> {
     unsafe {
         let ptr = game_session::get_ddgame();
-        if ptr.is_null() {
-            None
-        } else {
-            Some(ptr)
-        }
+        if ptr.is_null() { None } else { Some(ptr) }
     }
 }
 

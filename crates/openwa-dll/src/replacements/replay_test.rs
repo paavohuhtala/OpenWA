@@ -13,9 +13,9 @@
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU32, Ordering};
 
 use crate::log_line;
-use openwa_game::engine::game_session;
 use openwa_game::engine::DDGame;
 use openwa_game::engine::TeamArena;
+use openwa_game::engine::game_session;
 
 // ---------------------------------------------------------------------------
 // Fast-forward

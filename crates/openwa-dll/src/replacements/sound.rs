@@ -260,10 +260,10 @@ pub fn install() -> Result<(), String> {
 /// Patch DSSound vtable (0x66AF20) to replace trivial methods with Rust.
 unsafe fn patch_dssound_vtable() -> Result<(), &'static str> {
     use openwa_game::audio::{
-        dssound_destructor, dssound_noop, dssound_returns_0, dssound_returns_1,
+        DSSoundVtable, dssound_destructor, dssound_noop, dssound_returns_0, dssound_returns_1,
         dssound_sub_destructor, is_channel_finished, is_slot_loaded, load_wav, play_sound,
         play_sound_pooled, release_finished, set_channel_volume, set_frequency_scale,
-        set_master_volume, set_pan, stop_channel, update_channels, DSSoundVtable,
+        set_master_volume, set_pan, stop_channel, update_channels,
     };
     use openwa_game::vtable_replace;
 
