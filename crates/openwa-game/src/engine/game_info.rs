@@ -176,9 +176,11 @@ pub struct GameInfo {
     pub replay_filename: [u8; 0x400],
     /// 0xDF60-0xEF37: Unknown
     pub _unknown_df60: [u8; 0xEF38 - 0xDF60],
-    /// 0xEF38: Headless log-enabled flag (nonzero = write `HH:MM:SS.CC` frame
-    /// timestamps to stdout from DispatchFrame).
-    pub headless_log_enabled: i32,
+    /// 0xEF38: Headless log FILE* stream (CRT FILE pointer). Nonzero means
+    /// headless logging is enabled — DispatchFrame writes `HH:MM:SS.CC`
+    /// per-frame timestamps here, and StepFrame's end-of-game branch writes
+    /// the end-of-round stats block. Null = no log.
+    pub headless_log_stream: *mut core::ffi::c_void,
     /// 0xEF3C: Replay tick rate (ticks per replay frame). Zero in non-replay mode;
     /// DispatchFrame uses this as the primary replay-vs-live branch.
     pub replay_ticks: i32,

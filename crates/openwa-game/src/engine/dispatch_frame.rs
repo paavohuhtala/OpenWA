@@ -905,7 +905,7 @@ pub unsafe fn dispatch_frame(
         // and write to CRT stdout. ExitProcess(-1) on write failure.
         {
             let gi = &*(*ddgame).game_info;
-            if gi.headless_mode != 0 && gi.headless_log_enabled != 0 {
+            if gi.headless_mode != 0 && !gi.headless_log_stream.is_null() {
                 use core::fmt::Write;
 
                 let fc = (*ddgame).frame_counter as u32;

@@ -1083,6 +1083,28 @@ pub mod va {
         global CRT_FPUTS_IAT = 0x0064_9468;
         /// MSVC CRT `_ferror(FILE*)`.
         fn/Cdecl CRT_FERROR = 0x005D_5126;
+        /// IAT slot for `fprintf` — dereference to get the live import pointer.
+        global CRT_FPRINTF_IAT = 0x0064_946C;
+        /// IAT slot for `putc` — dereference to get the live import pointer.
+        global CRT_PUTC_IAT = 0x0064_92D4;
+        /// MFC/WA codepage LUT dispatcher — usercall(EAX=codepage) →
+        /// returns a 256-byte translation table pointer in EAX. Different
+        /// codepages are cached at different globals (0x7A0ED0/D4/…).
+        /// Called from the end-of-game log recoder after GetACP().
+        fn/Usercall CODEPAGE_LUT_BUILDER = 0x0059_2280;
+        /// Cached codepage LUT pointer. Lazily initialised on first use
+        /// (zero → call CODEPAGE_LUT_BUILDER, store result here).
+        global G_CODEPAGE_LUT = 0x007A_0ED8;
+        /// Byte flag: when nonzero, the end-of-game log skips codepage
+        /// recoding and prints format strings directly. When zero, it
+        /// uses the snprintf→recode→fputs path.
+        global G_CODEPAGE_DIRECT_FLAG = 0x006B_39C2;
+        /// 0x4000-byte scratch buffer used by the end-of-game log for
+        /// snprintf output before codepage recoding.
+        global G_LOG_SCRATCH_BUF = 0x0077_9428;
+        /// Stock fputs-format string `"%s"` at 0x664488 (used by the
+        /// end-of-game log for the initial game-name print).
+        global G_FMT_PERCENT_S = 0x0066_4488;
         /// BSS byte latched to 1 on first DispatchFrame pass. Gates a
         /// clamp that inflates `remaining` up to `frame_duration` while
         /// the game hasn't started yet. Purpose not fully confirmed; read
