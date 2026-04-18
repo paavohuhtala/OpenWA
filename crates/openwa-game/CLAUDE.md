@@ -1,6 +1,8 @@
 # openwa-game
 
-Types, addresses, parsers, ASLR rebasing, typed WA function wrappers, and game logic. The source of truth for all reverse-engineered type layouts, known addresses, and Rust reimplementations of WA functions.
+WA.exe-specific code (`i686-pc-windows-msvc` only). Types, addresses, parsers, ASLR rebasing, typed WA function wrappers, and game logic. The source of truth for all reverse-engineered type layouts, known addresses, and Rust reimplementations of WA functions.
+
+Cross-platform fundamentals live in `openwa-core` — see `../openwa-core/CLAUDE.md` for what's there (`fixed`, `log`, `rng`, `scheme`, `sprite_lzss`, `trig`, `weapon`). When reaching for a numeric type (`Fixed`), weapon enum (`Weapon`, `FireType`, `SpecialFireSubtype`), PRNG, or LZSS, import from `openwa_core::` directly.
 
 See root `CLAUDE.md` for project-wide rules: calling conventions, design conventions, FFI style.
 

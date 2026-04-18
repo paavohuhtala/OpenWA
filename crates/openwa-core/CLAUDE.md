@@ -13,10 +13,20 @@ Code in this crate **must not**:
 
 If a piece of code needs any of the above, it belongs in `openwa-game`.
 
-## What lives here
+## Currently hosted
 
-Fundamental types, pure math, file-format parsers, and any other code that could, in principle, be used by a tool that never runs WA.exe (e.g. an offline replay analyzer, a scheme-file editor, or a cross-platform port).
+- **`fixed`** — `Fixed(i32)` 16.16 newtype with arithmetic impls. The fundamental numeric type for coordinates and velocities across the project.
+- **`log`** — file-logging helper (`log_line`). Writes to `OpenWA.log` or the path in `OPENWA_LOG_PATH`.
+- **`rng`** — WA's LCG PRNG (`wa_lcg(state) = state * 0x19660D + 0x3C6EF35F`).
+- **`scheme`** — `.wsc` scheme file parser. Reads Worms Armageddon game settings files; has an integration test suite against real WA fixtures.
+- **`sprite_lzss`** — `sprite_lzss_decode`, a port of WA.exe's LZSS decompressor (0x5B29E0). Pure byte-level code operating on raw pointers.
+- **`trig`** — fixed-point sin/cos tables and interpolated lookup. The 1025-entry tables are byte-for-byte copies of WA.exe's `.rdata` at `G_SIN_TABLE` / `G_COS_TABLE`, embedded via `include_bytes!` + a const-fn decoder. `sin(angle)` / `cos(angle)` are the common-case helpers; `trig_lookup_table(&table, angle)` is the primitive for callers with a non-embedded table. `openwa-game::trig::validate_against_wa_exe` runs on DLL load and asserts the embedded tables still match the live binary byte-for-byte.
+- **`weapon`** — Weapon ID space (0..70) plus `FireType` / `FireMethod` / `SpecialFireSubtype` dispatch enums, all with `TryFrom<u32/i32>` impls. The layout structs these enums describe (`WeaponEntry`, `WeaponFireParams`, `WeaponTable`, `WeaponSpawnData`) stay in openwa-game because their `repr(C)` layouts are 32-bit-pointer-dependent.
 
-Modules migrate here from `openwa-game` one at a time. The acceptance test is simple: `cargo check -p openwa-core --target <non-windows>` must succeed once non-trivial code lives here.
+## What stays in openwa-game
 
-See [../openwa-game/CLAUDE.md](../openwa-game/CLAUDE.md) for the WA.exe-specific side.
+Anything that touches WA.exe memory, pointers whose size is 32-bit-dependent (`WeaponEntry` has `*const c_char` fields), hardcoded Ghidra addresses, Windows APIs, MinHook/DirectX, or depends on `rebase`/`registry`/`mem`. That's most of the codebase — see `../openwa-game/CLAUDE.md`.
+
+## Acceptance test for new modules
+
+`cargo check -p openwa-core --target <non-windows>` must succeed. If the code relies on `windows-sys`, pointer-size assumptions, or anything from `openwa-game`, it belongs on the other side of the split.

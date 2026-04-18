@@ -23,7 +23,7 @@ For each `impl_fn` function, match parameter types against the types used at the
    
    After retyping, simplify: `Fixed(x as i32).floor()` → `x.floor()`, `Fixed(x as i32)` → `x`.
 
-3. **Pointers as `u32`** → typed `*mut T` / `*const T`. Check what the body casts them to. If the pointee struct exists in openwa-game, use it. If not, consider creating a stub `#[repr(C)]` struct.
+3. **Pointers as `u32`** → typed `*mut T` / `*const T`. Check what the body casts them to. If the pointee struct exists in openwa-game (for WA memory-layout structs) or openwa-core (rare — portable types), use it. If not, consider creating a stub `#[repr(C)]` struct in openwa-game.
 
 4. **Newtype wrapping** → if the body wraps a `u32` in a newtype (`SpriteOp(x)`, `SoundId(x)`, `Weapon(x)`, etc.), change the param to that type and use it directly.
 
