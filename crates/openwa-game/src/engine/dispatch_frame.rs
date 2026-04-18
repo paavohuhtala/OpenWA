@@ -347,14 +347,14 @@ pub unsafe fn dispatch_frame(
         let saved_frame_delay = (*wrapper).frame_delay_counter;
         let saved_game_speed = game_speed;
 
-        let has_sound = (*ddgame).sound_available != 0;
+        let is_headful = (*ddgame).is_headful != 0;
         let mut elapsed: u64 = 0;
         // `bVar18` in the decompile: true when we took the "normal" timing
         // branch. Gates the secondary-pause fallthrough and the `elapsed`
         // computation from `initial_ref`.
         let mut used_normal_path = false;
 
-        if has_sound {
+        if is_headful {
             if (*wrapper).pause_detect_lo == 0 && (*wrapper).pause_detect_hi == 0 {
                 (*wrapper).pause_detect_lo = time_lo;
                 (*wrapper).pause_detect_hi = time_hi;
@@ -541,7 +541,7 @@ pub unsafe fn dispatch_frame(
                 (*ddgame).kb_poll_result = result as u32;
             }
         }
-        // end of has_sound block
+        // end of is_headful block
 
         if (*wrapper).timing_ref_lo == 0 && (*wrapper).timing_ref_hi == 0 {
             (*wrapper).timing_ref_lo = time_lo;
@@ -943,7 +943,7 @@ pub unsafe fn dispatch_frame(
             }
         }
 
-        if (*(*wrapper).ddgame).sound_available != 0 {
+        if (*(*wrapper).ddgame).is_headful != 0 {
             bridge_network_update(wrapper);
         }
 

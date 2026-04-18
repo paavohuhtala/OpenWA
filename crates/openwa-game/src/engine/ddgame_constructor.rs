@@ -406,8 +406,9 @@ pub unsafe fn create_ddgame(
 
         // ── 6. Sound available + always-1 flags ──
         let is_headless = (*game_info).headless_mode != 0;
-        // sound_available enables loading progress bar, message pump, and sound during construction.
-        (*ddgame).sound_available = if is_headless { 0 } else { 1 };
+        // is_headful gates every interactive-only subsystem: loading progress
+        // bar, message pump, sound, per-frame keyboard/palette polling, etc.
+        (*ddgame).is_headful = if is_headless { 0 } else { 1 };
         (*ddgame).field_7efc = 1;
 
         // ── 7. Network bridge (online games only) ──

@@ -15,7 +15,7 @@ pub struct DDKeyboardVtable {
     pub is_action_active: fn(this: *mut DDKeyboard, code: u32) -> i32,
     /// Slot 6: shared `CGameTask__vt19` ret stub (0x4AA060). No-op on the
     /// stock vtable; kept as a hook point (WormKit etc. may override).
-    /// Called each frame from StepFrame when `DDGame.sound_available != 0`.
+    /// Called each frame from StepFrame when `DDGame.is_headful != 0`.
     #[slot(6)]
     pub slot_06_noop: fn(this: *mut DDKeyboard),
 }

@@ -804,7 +804,7 @@ pub unsafe fn init_game_state(wrapper: *mut DDGameWrapper) {
         (*wrapper).turn_percentage = (turn_pct_raw << 16) / 100;
 
         // ===== Display setup (headful only) =====
-        let is_headful = (*ddgame).sound_available != 0;
+        let is_headful = (*ddgame).is_headful != 0;
 
         if is_headful {
             init_game_state_display(wrapper, ddgame, game_info);
@@ -1826,7 +1826,7 @@ unsafe fn init_game_state_tracking_arrays(ddgame: *mut DDGame, game_info: *const
         // Game speed
         (*ddgame).game_speed = Fixed::ONE;
 
-        let is_headful = (*ddgame).sound_available != 0;
+        let is_headful = (*ddgame).is_headful != 0;
         if !is_headful {
             (*ddgame).game_speed_target = Fixed(0x1000_0000);
         } else {

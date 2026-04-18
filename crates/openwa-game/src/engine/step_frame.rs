@@ -194,8 +194,8 @@ pub unsafe fn step_frame(
             *remaining = rem.wrapping_sub(sub);
         }
 
-        // ── Sound-available sub-call: two no-op vtable slots ───────────
-        if (*ddgame).sound_available != 0 {
+        // ── Headful-mode sub-call: two no-op vtable slots ──────────────
+        if (*ddgame).is_headful != 0 {
             let keyboard = (*ddgame).keyboard;
             crate::input::keyboard::DDKeyboard::slot_06_noop_raw(keyboard);
             let palette = (*ddgame).palette;

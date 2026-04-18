@@ -458,8 +458,13 @@ pub struct DDGame {
     /// 0x7EF4: HUD status message string pointer. Set when object pool overflows
     /// (loaded via string resource 0x70F). Read by HUD rendering for warning display.
     pub hud_status_text: *const core::ffi::c_char,
-    /// 0x7EF8: Sound available flag (1 when game_info+0xF914 == 0, i.e. not headless).
-    pub sound_available: u32,
+    /// 0x7EF8: Headful/interactive mode flag (u32, 0 = headless, 1 = headful).
+    /// Computed in the DDGame constructor as `game_info.headless_mode == 0`.
+    /// Read throughout the engine to gate interactive-mode-only work:
+    /// loading progress bar, message pumps, sound, input keyboard/palette
+    /// frame polls, rendering-related init. Not strictly "is sound enabled"
+    /// — headless tests suppress more than just sound.
+    pub is_headful: u32,
     /// 0x7EFC: Always initialized to 1 in constructor.
     pub field_7efc: u32,
 
@@ -746,7 +751,7 @@ pub mod offsets {
     pub const LEVEL_BOUND_MIN_Y: usize = 0x77A4;
     pub const LEVEL_BOUND_MAX_Y: usize = 0x77A8;
     pub const TURN_TIME_LIMIT: usize = 0x7EA8;
-    pub const SOUND_AVAILABLE: usize = 0x7EF8;
+    pub const IS_HEADFUL: usize = 0x7EF8;
     /// Sub-frame render interpolation factor (0..0x10000).
     /// Written by `DispatchFrame`, consumed by per-object render code
     /// (clouds, crosshair, worms) as a Fixed multiplier.
