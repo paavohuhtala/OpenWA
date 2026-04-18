@@ -125,9 +125,25 @@ pub unsafe fn sprite_lzss_decode(mut dst: *mut u8, mut src: *const u8, lut: *con
     }
 }
 
+/// Safe slice-based wrapper around [`sprite_lzss_decode`].
+///
+/// Caller sizes `dst` to the expected decompressed payload length. `src`
+/// must hold a well-formed LZSS stream (the decoder reads until it sees
+/// the terminator control word); the slice length is an upper bound only.
+/// `lut` is a 256-byte palette translation table.
+///
+/// Back-reference bounds are still the caller's responsibility (see the
+/// `sprite_lzss_decode` safety section) — this wrapper does not add
+/// per-byte checks, it only localizes the raw-pointer call.
+pub fn sprite_lzss_decode_slice(dst: &mut [u8], src: &[u8], lut: &[u8; 256]) {
+    unsafe {
+        sprite_lzss_decode(dst.as_mut_ptr(), src.as_ptr(), lut.as_ptr());
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::sprite_lzss_decode;
+    use super::{sprite_lzss_decode, sprite_lzss_decode_slice};
 
     /// Identity LUT — `lut[i] == i`.
     fn id_lut() -> [u8; 256] {
@@ -136,6 +152,16 @@ mod tests {
             *value = i as u8;
         }
         l
+    }
+
+    /// Safe slice wrapper exercises the same code path.
+    #[test]
+    fn slice_wrapper_literals() {
+        let lut = id_lut();
+        let src: Vec<u8> = vec![0x01, 0x02, 0x03, 0x80, 0x00];
+        let mut dst = vec![0u8; 3];
+        sprite_lzss_decode_slice(&mut dst, &src, &lut);
+        assert_eq!(dst, vec![0x01, 0x02, 0x03]);
     }
 
     /// Pure-literal stream of bytes 1..16, terminated.

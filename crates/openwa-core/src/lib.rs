@@ -9,6 +9,7 @@
 //! `CLAUDE.md` for the current charter.
 
 pub mod fixed;
+pub mod img;
 pub mod log;
 pub mod rng;
 pub mod scheme;
