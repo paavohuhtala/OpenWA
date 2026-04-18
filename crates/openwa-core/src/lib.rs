@@ -12,5 +12,6 @@ pub mod fixed;
 pub mod log;
 pub mod rng;
 pub mod scheme;
+pub mod sprite_lzss;
 pub mod trig;
 pub mod weapon;

@@ -356,9 +356,8 @@ use super::gfx::DisplayGfx;
 use super::line_draw;
 use crate::bitgrid::{BitGrid, DisplayBitGrid};
 use crate::render::palette::PaletteContext;
-use crate::render::sprite::{
-    Sprite, SpriteBank, SpriteVtable, frame_cache::frame_cache_allocate, lzss::sprite_lzss_decode,
-};
+use crate::render::sprite::{Sprite, SpriteBank, SpriteVtable, frame_cache::frame_cache_allocate};
+use openwa_core::sprite_lzss::sprite_lzss_decode;
 
 /// Port of DisplayGfx::GetDimensions (slot 1, 0x56A460).
 pub unsafe extern "thiscall" fn get_dimensions(

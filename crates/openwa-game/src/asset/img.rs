@@ -14,8 +14,8 @@ use crate::bitgrid::{
 };
 use crate::rebase::rb;
 use crate::render::palette::{PaletteContext, palette_map_color, remap_pixels_through_lut};
-use crate::render::sprite::lzss::sprite_lzss_decode;
 use crate::wa_alloc::wa_malloc_zeroed;
+use openwa_core::sprite_lzss::sprite_lzss_decode;
 
 /// IMG file magic: "IMG\x1A" as little-endian u32.
 const IMG_MAGIC: u32 = 0x1A47_4D49;
