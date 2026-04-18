@@ -146,8 +146,31 @@ pub mod va {
             fn/Usercall DDGAMEWRAPPER_PROCESS_NETWORK_FRAME = 0x0053_DF00;
             /// DDGameWrapper__IsReplayMode (usercall EAX=this, no stack params, plain RET)
             fn/Usercall DDGAMEWRAPPER_IS_REPLAY_MODE = 0x0053_7060;
-            /// DDGameWrapper__FormatFrameTimestamp (usercall EAX=frame_counter, 2 stdcall params: sprintf_func + buffer, RET 0x8)
+            /// DDGameWrapper__FormatFrameTimestamp / WriteHeadlessLog (usercall EAX=frame_counter, 2 stdcall params: sprintf_func + buffer, RET 0x8)
             fn/Usercall DDGAMEWRAPPER_FORMAT_FRAME_TIMESTAMP = 0x0053_F0A0;
+            /// DDGameWrapper__PollInput (stdcall(wrapper), plain RET). Polls keyboard/input each step.
+            fn/Stdcall DDGAMEWRAPPER_POLL_INPUT = 0x0053_4910;
+            // --- StepFrame sub-calls: game-end phase handlers (usercall ESI=wrapper, no args) ---
+            /// game_end_phase=1 arm: scoreboard reset (called when game_info.network_ecx != 0)
+            fn/Usercall DDGAMEWRAPPER_ON_GAME_END_PHASE1 = 0x0053_6270;
+            /// game_end_phase=3 dispatch (may set game_state=4/5). Usercall ESI=wrapper, EDI=wrapper.
+            fn/Usercall DDGAMEWRAPPER_ON_GAME_END_PHASE3 = 0x0053_6320;
+            /// game_end_phase=2 dispatch (turn_percentage countdown). Usercall ESI=wrapper, EDI=wrapper.
+            fn/Usercall DDGAMEWRAPPER_ON_GAME_END_PHASE2 = 0x0053_6470;
+            /// game_end_phase=4 dispatch (final countdown). Usercall ESI=wrapper.
+            fn/Usercall DDGAMEWRAPPER_ON_GAME_END_PHASE4 = 0x0053_65A0;
+            /// StepFrame terminal worm cleanup (stdcall(task_turn_game, i32), RET 0x8). 177 instr.
+            fn/Stdcall DDGAMEWRAPPER_CLEAR_WORM_BUFFERS = 0x0055_C300;
+            /// StepFrame terminal frame advance (stdcall(task_turn_game), RET 0x4). 251 instr.
+            fn/Stdcall DDGAMEWRAPPER_ADVANCE_WORM_FRAME = 0x0055_C590;
+            /// StepFrame input-queue message classifier (returns packed u64: (ecx_out, edx_out)).
+            fn/Stdcall DDGAMEWRAPPER_CLASSIFY_INPUT_MSG = 0x0054_1100;
+            /// StepFrame input-queue message dispatcher.
+            fn/Stdcall DDGAMEWRAPPER_DISPATCH_INPUT_MSG = 0x0053_0F80;
+            /// End-of-game headless log: load localized scheme/team name (called from StepFrame).
+            fn/Stdcall DDGAMEWRAPPER_LOAD_LOG_LABEL_A = 0x0053_F100;
+            /// End-of-game headless log: load localized per-team stat label.
+            fn/Stdcall DDGAMEWRAPPER_LOAD_LOG_LABEL_B = 0x0053_F190;
         }
 
         class "DDGame" {
