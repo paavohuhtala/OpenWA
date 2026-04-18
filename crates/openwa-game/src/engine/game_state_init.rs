@@ -951,7 +951,7 @@ pub unsafe fn init_game_state(wrapper: *mut DDGameWrapper) {
                 // Online game: ECX = *net_bridge (dereferenced!) for the constructor
                 let mem = wa_malloc_zeroed(0x324);
                 if mem.is_null() {
-                    (*wrapper).task_turn_game = core::ptr::null_mut();
+                    (*wrapper).task_turn_game = core::ptr::null_mut::<crate::task::CTaskTurnGame>();
                 } else {
                     let net_bridge = (*wrapper).net_bridge;
                     let ecx_val = *(net_bridge as *const u32); // deref net_bridge to get ECX
@@ -960,7 +960,7 @@ pub unsafe fn init_game_state(wrapper: *mut DDGameWrapper) {
                     // Override vtables for online mode
                     *(mem as *mut u32) = rb(0x669C28);
                     *(mem.add(0x30) as *mut u32) = rb(0x669C44);
-                    (*wrapper).task_turn_game = mem;
+                    (*wrapper).task_turn_game = mem as *mut crate::task::CTaskTurnGame;
                 }
             } else {
                 // Normal game: ECX must = DDGame for the constructor
@@ -970,7 +970,7 @@ pub unsafe fn init_game_state(wrapper: *mut DDGameWrapper) {
                 } else {
                     call_ctor_with_ecx(mem, gi_ptr, ddgame as u32, rb(va::CTASK_TURNGAME_CTOR))
                 };
-                (*wrapper).task_turn_game = result;
+                (*wrapper).task_turn_game = result as *mut crate::task::CTaskTurnGame;
             }
         }
 

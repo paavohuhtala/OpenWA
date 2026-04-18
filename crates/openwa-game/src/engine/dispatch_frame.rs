@@ -1013,12 +1013,16 @@ pub unsafe fn dispatch_frame(
                 (*wrapper).game_end_speed = 0;
 
                 if gi.game_version > 0x4c {
-                    // Broadcast message via task_turn_game vtable[2].
+                    // Broadcast game-end message via CTaskTurnGame::HandleMessage (vtable[2]).
+                    // Original (0x529F00): ECX=task, stack = [sender=task, msg=0x75, size=0, data=0].
                     let task = (*wrapper).task_turn_game;
-                    let task_vtable = *(task as *const *const u32);
-                    let vfunc: unsafe extern "thiscall" fn(*mut u8, u32, u32, u32) =
-                        core::mem::transmute(*task_vtable.add(2));
-                    vfunc(task, 0x75, 0, 0);
+                    crate::task::CTaskTurnGame::handle_message_raw(
+                        task,
+                        task as *mut crate::task::CTask,
+                        0x75,
+                        0,
+                        core::ptr::null(),
+                    );
                 }
                 (*wrapper).game_end_phase = 1;
             }

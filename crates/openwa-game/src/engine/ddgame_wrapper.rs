@@ -6,6 +6,7 @@ use crate::engine::net_bridge::NetBridge;
 use crate::render::display::gfx::DisplayGfx;
 use crate::render::landscape::PCLandscape;
 use crate::render::palette::PaletteContext;
+use crate::task::CTaskTurnGame;
 
 /// Speech name table entry size (0x40 = 64 bytes, null-terminated C string).
 pub const SPEECH_NAME_ENTRY_SIZE: usize = 0x40;
@@ -51,8 +52,9 @@ pub struct DDGameWrapper {
     pub _unknown_004: u32,
 
     // ===== 0x008-0x050: Sub-object pointers (allocated by InitGameState) =====
-    /// 0x008: CTaskTurnGame or CTaskGameState pointer
-    pub task_turn_game: *mut u8,
+    /// 0x008: CTaskTurnGame (or CTaskGameState for online games — same vtable shape at slot 2).
+    /// DispatchFrame/StepFrame broadcast game-end messages through `handle_message` (vtable slot 2).
+    pub task_turn_game: *mut CTaskTurnGame,
     /// 0x00C: Main serialization BufferObject
     pub main_buffer: *mut u8,
     /// 0x010: Unknown pointer
