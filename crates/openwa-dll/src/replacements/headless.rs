@@ -226,17 +226,16 @@ unsafe extern "system" fn hook_create_semaphore_a(
         let orig: CreateSemaphoreAFn =
             core::mem::transmute(ORIG_CREATE_SEMAPHORE_A.load(Ordering::Relaxed));
 
-        if !name.is_null() {
-            if let Ok(s) = std::ffi::CStr::from_ptr(name as *const i8).to_str() {
-                if s == "Worms Armageddon" {
-                    let pid = std::process::id();
-                    let new_name = format!("Worms Armageddon_{pid}\0");
-                    let _ = log_line(&format!(
-                        "[Headless] Renamed semaphore \"{s}\" → \"Worms Armageddon_{pid}\""
-                    ));
-                    return orig(attrs, initial, max, new_name.as_ptr());
-                }
-            }
+        if !name.is_null()
+            && let Ok(s) = std::ffi::CStr::from_ptr(name as *const i8).to_str()
+            && s == "Worms Armageddon"
+        {
+            let pid = std::process::id();
+            let new_name = format!("Worms Armageddon_{pid}\0");
+            let _ = log_line(&format!(
+                "[Headless] Renamed semaphore \"{s}\" → \"Worms Armageddon_{pid}\""
+            ));
+            return orig(attrs, initial, max, new_name.as_ptr());
         }
 
         orig(attrs, initial, max, name)

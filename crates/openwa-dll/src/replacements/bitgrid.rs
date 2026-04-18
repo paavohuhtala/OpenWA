@@ -789,14 +789,14 @@ fn decode_gif_indexed(data: &[u8]) -> Option<IndexedImage> {
     let mut pixels = frame.buffer.to_vec();
 
     // Remap transparent index to 0 (WA convention)
-    if let Some(ti) = frame.transparent {
-        if ti != 0 {
-            for p in &mut pixels {
-                if *p == 0 {
-                    *p = ti;
-                } else if *p == ti {
-                    *p = 0;
-                }
+    if let Some(ti) = frame.transparent
+        && ti != 0
+    {
+        for p in &mut pixels {
+            if *p == 0 {
+                *p = ti;
+            } else if *p == ti {
+                *p = 0;
             }
         }
     }

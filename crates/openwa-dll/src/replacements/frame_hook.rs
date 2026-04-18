@@ -36,23 +36,23 @@ unsafe extern "stdcall" fn hook_turn_manager(turngame: u32) {
             // Hardware watchpoint: arm once at the watch frame
             static WATCH_ARMED: core::sync::atomic::AtomicBool =
                 core::sync::atomic::AtomicBool::new(false);
-            if !WATCH_ARMED.load(Ordering::Relaxed) {
-                if let Ok(val) = std::env::var("OPENWA_WATCH_FRAME") {
-                    let target: i32 = val.parse().unwrap_or(0);
-                    if game_frame >= target {
-                        WATCH_ARMED.store(true, Ordering::Relaxed);
-                        crate::debug_watchpoint::prepare();
-                        // Select watchpoint base: DDGame, DDGameWrapper, or Display
-                        let watch_base = if std::env::var("OPENWA_WATCH_DISPLAY").is_ok() {
-                            let wrapper = game_session::get_wrapper();
-                            *(wrapper.byte_add(0x4D0) as *const *mut u8)
-                        } else if std::env::var("OPENWA_WATCH_WRAPPER").is_ok() {
-                            game_session::get_wrapper() as *mut u8
-                        } else {
-                            ddgame as *mut u8
-                        };
-                        crate::debug_watchpoint::on_ddgame_alloc(watch_base);
-                    }
+            if !WATCH_ARMED.load(Ordering::Relaxed)
+                && let Ok(val) = std::env::var("OPENWA_WATCH_FRAME")
+            {
+                let target: i32 = val.parse().unwrap_or(0);
+                if game_frame >= target {
+                    WATCH_ARMED.store(true, Ordering::Relaxed);
+                    crate::debug_watchpoint::prepare();
+                    // Select watchpoint base: DDGame, DDGameWrapper, or Display
+                    let watch_base = if std::env::var("OPENWA_WATCH_DISPLAY").is_ok() {
+                        let wrapper = game_session::get_wrapper();
+                        *(wrapper.byte_add(0x4D0) as *const *mut u8)
+                    } else if std::env::var("OPENWA_WATCH_WRAPPER").is_ok() {
+                        game_session::get_wrapper() as *mut u8
+                    } else {
+                        ddgame as *mut u8
+                    };
+                    crate::debug_watchpoint::on_ddgame_alloc(watch_base);
                 }
             }
         }

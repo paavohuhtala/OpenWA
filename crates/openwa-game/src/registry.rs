@@ -320,18 +320,18 @@ pub fn field_at_inherited(struct_name: &str, offset: u32) -> Option<&'static Fie
     const CTASK_CHAIN: &[&str] = &["CGameTask", "CTask"];
 
     // Try the leaf struct first
-    if let Some(fields) = struct_fields_for(struct_name) {
-        if let Some(entry) = fields.field_at(offset) {
-            return Some(entry);
-        }
+    if let Some(fields) = struct_fields_for(struct_name)
+        && let Some(entry) = fields.field_at(offset)
+    {
+        return Some(entry);
     }
 
     // Walk the inheritance chain
     for &parent in CTASK_CHAIN {
-        if let Some(fields) = struct_fields_for(parent) {
-            if let Some(entry) = fields.field_at(offset) {
-                return Some(entry);
-            }
+        if let Some(fields) = struct_fields_for(parent)
+            && let Some(entry) = fields.field_at(offset)
+        {
+            return Some(entry);
         }
     }
 

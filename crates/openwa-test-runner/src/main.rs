@@ -138,10 +138,10 @@ fn discover_tests(replays_dir: &Path, filter: Option<&str>) -> Vec<TestCase> {
             None => continue,
         };
 
-        if let Some(filter) = filter {
-            if !stem.contains(filter) {
-                continue;
-            }
+        if let Some(filter) = filter
+            && !stem.contains(filter)
+        {
+            continue;
         }
 
         let expected = replays_dir.join(format!("{stem}_expected.log"));
@@ -170,10 +170,10 @@ fn discover_tests(replays_dir: &Path, filter: Option<&str>) -> Vec<TestCase> {
 // ─── WA.exe location ────────────────────────────────────────────────────────
 
 fn find_wa_exe(override_path: Option<&Path>) -> Option<PathBuf> {
-    if let Some(p) = override_path {
-        if p.exists() {
-            return Some(p.to_path_buf());
-        }
+    if let Some(p) = override_path
+        && p.exists()
+    {
+        return Some(p.to_path_buf());
     }
     openwa_config::find_wa_dir().map(|d| d.join("WA.exe"))
 }
@@ -767,10 +767,10 @@ fn discover_headful_tests(filter_or_replay: Option<&str>) -> Vec<TestCase> {
             Some(s) => s.to_string(),
             None => continue,
         };
-        if let Some(filter) = filter_or_replay {
-            if !stem.contains(filter) {
-                continue;
-            }
+        if let Some(filter) = filter_or_replay
+            && !stem.contains(filter)
+        {
+            continue;
         }
         // No _expected.log requirement for headful
         let abs = strip_unc(fs::canonicalize(&path).unwrap_or(path.clone()));
@@ -1404,10 +1404,10 @@ fn discover_baseline_targets(dir: &Path, filter: Option<&str>) -> Vec<TestCase> 
             Some(s) => s.to_string(),
             None => continue,
         };
-        if let Some(filter) = filter {
-            if !stem.contains(filter) {
-                continue;
-            }
+        if let Some(filter) = filter
+            && !stem.contains(filter)
+        {
+            continue;
         }
 
         let expected = dir.join(format!("{stem}_expected.log"));

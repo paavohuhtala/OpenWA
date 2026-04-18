@@ -1,20 +1,20 @@
-/// Scheme file (.wsc) parser for Worms Armageddon.
-///
-/// .wsc files store game settings (turn time, wind, per-weapon ammo/delay, etc.).
-/// Located in `User\Schemes\*.wsc`.
-///
-/// Binary format:
-///   Bytes 0-3: Magic "SCHM" (0x5343484D)
-///   Byte 4:    Version byte
-///   Bytes 5+:  Payload (size depends on version)
-///
-/// Version → payload size:
-///   0x01 → 0xD8 bytes (216): 36 options + 45 weapons × 4
-///   0x02 → 0x124 bytes (292): V1 + 19 super weapons × 4
-///   0x03 → 0x192 bytes (402): V2 + 110 bytes extended options
-///
-/// Source: Ghidra decompilation of Scheme__ReadFile (0x4D3890),
-///         Scheme__SaveFile (0x4D44F0), worms2d.info/Game_scheme_file
+//! Scheme file (.wsc) parser for Worms Armageddon.
+//!
+//! .wsc files store game settings (turn time, wind, per-weapon ammo/delay, etc.).
+//! Located in `User\Schemes\*.wsc`.
+//!
+//! Binary format:
+//!   Bytes 0-3: Magic "SCHM" (0x5343484D)
+//!   Byte 4:    Version byte
+//!   Bytes 5+:  Payload (size depends on version)
+//!
+//! Version → payload size:
+//!   0x01 → 0xD8 bytes (216): 36 options + 45 weapons × 4
+//!   0x02 → 0x124 bytes (292): V1 + 19 super weapons × 4
+//!   0x03 → 0x192 bytes (402): V2 + 110 bytes extended options
+//!
+//! Source: Ghidra decompilation of Scheme__ReadFile (0x4D3890),
+//!         Scheme__SaveFile (0x4D44F0), worms2d.info/Game_scheme_file
 
 /// Magic header bytes for .wsc files.
 pub const SCHEME_MAGIC: [u8; 4] = *b"SCHM";

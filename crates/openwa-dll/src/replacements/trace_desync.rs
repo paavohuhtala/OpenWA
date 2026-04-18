@@ -50,10 +50,10 @@ unsafe extern "thiscall" fn hook_checksum_processor(ctrl: u32, wrapper: *mut DDG
         let checksum_a = (*wrapper).sync_checksum_a;
         let checksum_b = (*wrapper).sync_checksum_b;
 
-        if let Ok(mut guard) = HASH_LOG.lock() {
-            if let Some(writer) = guard.as_mut() {
-                let _ = writeln!(writer, "{}\t{:08X}\t{:08X}", frame, checksum_a, checksum_b);
-            }
+        if let Ok(mut guard) = HASH_LOG.lock()
+            && let Some(writer) = guard.as_mut()
+        {
+            let _ = writeln!(writer, "{}\t{:08X}\t{:08X}", frame, checksum_a, checksum_b);
         }
     }
 }

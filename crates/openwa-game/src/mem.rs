@@ -165,31 +165,29 @@ pub unsafe fn identify_pointer(value: u32, delta: u32) -> Option<PointerIdentity
         let ghidra_val = value.wrapping_sub(delta);
 
         // 1. Check static registry for a known address
-        if let Some(resolved) = registry::lookup_va(ghidra_val) {
-            if resolved.offset < 0x1000 {
-                let segment = match resolved.entry.kind {
-                    registry::AddrKind::Vtable | registry::AddrKind::VtableMethod => {
-                        PointerKind::Vtable
-                    }
-                    registry::AddrKind::Function | registry::AddrKind::Constructor => {
-                        PointerKind::Code
-                    }
-                    _ => PointerKind::Data,
-                };
-                let name = if resolved.offset == 0 {
-                    resolved.entry.name.to_string()
-                } else {
-                    format!("{}+0x{:X}", resolved.entry.name, resolved.offset)
-                };
-                return Some(PointerIdentity {
-                    raw_value: value,
-                    ghidra_value: ghidra_val,
-                    segment,
-                    name: Some(name),
-                    class_name: resolved.entry.class_name,
-                    detail: None,
-                });
-            }
+        if let Some(resolved) = registry::lookup_va(ghidra_val)
+            && resolved.offset < 0x1000
+        {
+            let segment = match resolved.entry.kind {
+                registry::AddrKind::Vtable | registry::AddrKind::VtableMethod => {
+                    PointerKind::Vtable
+                }
+                registry::AddrKind::Function | registry::AddrKind::Constructor => PointerKind::Code,
+                _ => PointerKind::Data,
+            };
+            let name = if resolved.offset == 0 {
+                resolved.entry.name.to_string()
+            } else {
+                format!("{}+0x{:X}", resolved.entry.name, resolved.offset)
+            };
+            return Some(PointerIdentity {
+                raw_value: value,
+                ghidra_value: ghidra_val,
+                segment,
+                name: Some(name),
+                class_name: resolved.entry.class_name,
+                detail: None,
+            });
         }
 
         // 2. Check if pointer falls inside a tracked live object

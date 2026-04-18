@@ -190,10 +190,10 @@ impl Default for DebugApp {
 impl DebugApp {
     /// Navigate to `addr`, pushing the current selection onto the history stack.
     fn navigate_to(&mut self, addr: u32) {
-        if let Some(cur) = self.selected_entity {
-            if cur != addr {
-                self.nav_history.push(cur);
-            }
+        if let Some(cur) = self.selected_entity
+            && cur != addr
+        {
+            self.nav_history.push(cur);
         }
         self.selected_entity = Some(addr);
     }
@@ -218,11 +218,12 @@ impl eframe::App for DebugApp {
         let live_addrs: std::collections::HashSet<u32> =
             live_entities.iter().map(|&(_, a)| a).collect();
 
-        if let Some(addr) = self.selected_entity {
-            if addr != 0 && !live_addrs.contains(&addr) {
-                self.selected_entity = None;
-                self.nav_history.clear();
-            }
+        if let Some(addr) = self.selected_entity
+            && addr != 0
+            && !live_addrs.contains(&addr)
+        {
+            self.selected_entity = None;
+            self.nav_history.clear();
         }
         self.nav_history.retain(|a| live_addrs.contains(a));
 

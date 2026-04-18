@@ -416,15 +416,27 @@ fn generate_bind_methods(slots: &[SlotInfo]) -> syn::Result<proc_macro2::TokenSt
 
         // `_raw` variant name
         let raw_ident = quote::format_ident!("{}_raw", ident);
-        let raw_doc = format!(
-            "{}\n\n\
-             Raw-pointer variant — avoids creating `&mut self`, preventing LLVM noalias \
-             miscompilation when WA code modifies the same memory through bridge calls.",
-            doc
-        );
+        let raw_doc = if doc.is_empty() {
+            "Raw-pointer variant — avoids creating `&mut self`, preventing LLVM noalias \
+             miscompilation when WA code modifies the same memory through bridge calls."
+                .to_string()
+        } else {
+            format!(
+                "{}\n\n\
+                 Raw-pointer variant — avoids creating `&mut self`, preventing LLVM noalias \
+                 miscompilation when WA code modifies the same memory through bridge calls.",
+                doc
+            )
+        };
+
+        let doc_attr = if doc.is_empty() {
+            quote! {}
+        } else {
+            quote! { #[doc = #doc] }
+        };
 
         methods.push(quote! {
-            #[doc = #doc]
+            #doc_attr
             pub unsafe fn #ident(#self_param #(, #param_decls)*) #ret_ty {
                 unsafe { ((*self.$($vtable_field).+).#ident)(#self_cast #(, #param_names)*) }
             }
@@ -541,10 +553,10 @@ fn to_screaming_snake(name: &str) -> String {
             let prev = name.chars().nth(i - 1).unwrap_or('_');
             if prev.is_lowercase() || prev.is_numeric() {
                 result.push('_');
-            } else if let Some(next) = name.chars().nth(i + 1) {
-                if next.is_lowercase() {
-                    result.push('_');
-                }
+            } else if let Some(next) = name.chars().nth(i + 1)
+                && next.is_lowercase()
+            {
+                result.push('_');
             }
         }
         result.push(ch.to_ascii_uppercase());
@@ -677,19 +689,17 @@ pub fn derive_field_registry(input: TokenStream) -> TokenStream {
 fn extract_doc_comment(attrs: &[syn::Attribute]) -> String {
     let mut doc = String::new();
     for attr in attrs {
-        if let Meta::NameValue(nv) = &attr.meta {
-            if nv.path.is_ident("doc") {
-                if let syn::Expr::Lit(expr_lit) = &nv.value {
-                    if let Lit::Str(s) = &expr_lit.lit {
-                        let text = s.value();
-                        let trimmed = text.trim();
-                        if !doc.is_empty() && !trimmed.is_empty() {
-                            doc.push(' ');
-                        }
-                        doc.push_str(trimmed);
-                    }
-                }
+        if let Meta::NameValue(nv) = &attr.meta
+            && nv.path.is_ident("doc")
+            && let syn::Expr::Lit(expr_lit) = &nv.value
+            && let Lit::Str(s) = &expr_lit.lit
+        {
+            let text = s.value();
+            let trimmed = text.trim();
+            if !doc.is_empty() && !trimmed.is_empty() {
+                doc.push(' ');
             }
+            doc.push_str(trimmed);
         }
     }
     doc
@@ -767,10 +777,10 @@ fn substitute_generics(
             // Check if the entire path is a generic param name (e.g., `V`)
             if tp.qself.is_none() && tp.path.segments.len() == 1 {
                 let seg = &tp.path.segments[0];
-                if seg.arguments.is_empty() {
-                    if let Some(default) = defaults.get(&seg.ident.to_string()) {
-                        return default.clone();
-                    }
+                if seg.arguments.is_empty()
+                    && let Some(default) = defaults.get(&seg.ident.to_string())
+                {
+                    return default.clone();
                 }
             }
             // Recursively substitute within generic arguments (e.g., CTask<V>)

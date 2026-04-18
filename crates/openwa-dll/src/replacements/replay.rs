@@ -244,10 +244,10 @@ unsafe fn replay_loader_play(gi: *mut GameInfo) -> Result<(), ReplayError> {
             Ok(()) => {
                 call_usercall_eax(gi, rb(va::REPLAY_PROCESS_FLAGS));
                 let wa_log_file = *(rb(va::G_LOG_FILE_PTR) as *const *mut FILE);
-                if !wa_log_file.is_null() {
-                    if let Some(mut log_file) = wa_file_to_rust(wa_log_file) {
-                        write_replay_log(gi, &mut log_file)?;
-                    }
+                if !wa_log_file.is_null()
+                    && let Some(mut log_file) = wa_file_to_rust(wa_log_file)
+                {
+                    write_replay_log(gi, &mut log_file)?;
                 }
                 let _ = log_line("[Replay] Rust replay loading complete");
                 Ok(())

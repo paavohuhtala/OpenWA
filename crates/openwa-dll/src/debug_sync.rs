@@ -41,11 +41,11 @@ pub fn init() {
     RESUME_EVENT.store(handle as usize, Ordering::Relaxed);
 
     // Check for OPENWA_BREAK_FRAME env var
-    if let Ok(val) = std::env::var("OPENWA_BREAK_FRAME") {
-        if let Ok(frame) = val.parse::<i32>() {
-            BREAK_FRAME.store(frame, Ordering::Relaxed);
-            let _ = log_line(&format!("[DebugSync] Breakpoint set at frame {frame}"));
-        }
+    if let Ok(val) = std::env::var("OPENWA_BREAK_FRAME")
+        && let Ok(frame) = val.parse::<i32>()
+    {
+        BREAK_FRAME.store(frame, Ordering::Relaxed);
+        let _ = log_line(&format!("[DebugSync] Breakpoint set at frame {frame}"));
     }
 }
 

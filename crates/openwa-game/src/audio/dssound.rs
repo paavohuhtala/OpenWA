@@ -235,17 +235,17 @@ pub unsafe extern "thiscall" fn update_channels(this: *mut DSSound) {
     unsafe {
         let snd = &mut *this;
         for desc in &mut snd.channel_descs {
-            if let Some(buf) = desc.buffer() {
-                if let Ok(status) = buf.GetStatus() {
-                    // If not playing (bit 0 clear) and not pooled (pool_idx < 0), release.
-                    if (status & 1) == 0 && desc.pool_idx < 0 {
-                        // Take and drop to release COM ref.
-                        desc.take_buffer();
-                        desc.channel_freq = Fixed(0);
-                        desc.channel_volume = Fixed(0);
-                        desc.priority = -1;
-                        desc.pool_idx = -1;
-                    }
+            if let Some(buf) = desc.buffer()
+                && let Ok(status) = buf.GetStatus()
+            {
+                // If not playing (bit 0 clear) and not pooled (pool_idx < 0), release.
+                if (status & 1) == 0 && desc.pool_idx < 0 {
+                    // Take and drop to release COM ref.
+                    desc.take_buffer();
+                    desc.channel_freq = Fixed(0);
+                    desc.channel_volume = Fixed(0);
+                    desc.priority = -1;
+                    desc.pool_idx = -1;
                 }
             }
         }
@@ -258,17 +258,17 @@ pub unsafe extern "thiscall" fn release_finished(this: *mut DSSound) -> i32 {
         let snd = &mut *this;
         let mut count = 0i32;
         for desc in &mut snd.channel_descs {
-            if let Some(buf) = desc.buffer() {
-                if let Ok(status) = buf.GetStatus() {
-                    if (status & 1) == 0 && desc.pool_idx < 0 {
-                        desc.take_buffer();
-                        desc.channel_freq = Fixed(0);
-                        desc.channel_volume = Fixed(0);
-                        desc.priority = -1;
-                        desc.pool_idx = -1;
-                        count += 1;
-                    }
-                }
+            if let Some(buf) = desc.buffer()
+                && let Ok(status) = buf.GetStatus()
+                && (status & 1) == 0
+                && desc.pool_idx < 0
+            {
+                desc.take_buffer();
+                desc.channel_freq = Fixed(0);
+                desc.channel_volume = Fixed(0);
+                desc.priority = -1;
+                desc.pool_idx = -1;
+                count += 1;
             }
         }
         count

@@ -44,14 +44,14 @@ unsafe fn frame_counter(wrapper: u32) -> i32 {
 unsafe extern "C" fn log_afc(this: u32, p1: i32, p2: i32, p3: i32, p4: i32, p5: u32) {
     unsafe {
         let fc = frame_counter(this);
-        if let Ok(mut guard) = TRACE_LOG.lock() {
-            if let Some(w) = guard.as_mut() {
-                let _ = writeln!(
-                    w,
-                    "fc={:>5} AFC p1={:>6} p2=0x{:08X} p3={:>6} p4=0x{:08X} p5=0x{:08X}",
-                    fc, p1, p2 as u32, p3, p4 as u32, p5
-                );
-            }
+        if let Ok(mut guard) = TRACE_LOG.lock()
+            && let Some(w) = guard.as_mut()
+        {
+            let _ = writeln!(
+                w,
+                "fc={:>5} AFC p1={:>6} p2=0x{:08X} p3={:>6} p4=0x{:08X} p5=0x{:08X}",
+                fc, p1, p2 as u32, p3, p4 as u32, p5
+            );
         }
     }
 }
@@ -59,14 +59,14 @@ unsafe extern "C" fn log_afc(this: u32, p1: i32, p2: i32, p3: i32, p4: i32, p5: 
 unsafe extern "C" fn log_sfp(this: u32, p1: i32, p2: i32, p3: i32) {
     unsafe {
         let fc = frame_counter(this);
-        if let Ok(mut guard) = TRACE_LOG.lock() {
-            if let Some(w) = guard.as_mut() {
-                let _ = writeln!(
-                    w,
-                    "fc={:>5} SFP p1={:>6} p2={:>6} p3=0x{:08X}",
-                    fc, p1, p2, p3 as u32
-                );
-            }
+        if let Ok(mut guard) = TRACE_LOG.lock()
+            && let Some(w) = guard.as_mut()
+        {
+            let _ = writeln!(
+                w,
+                "fc={:>5} SFP p1={:>6} p2={:>6} p3=0x{:08X}",
+                fc, p1, p2, p3 as u32
+            );
         }
     }
 }

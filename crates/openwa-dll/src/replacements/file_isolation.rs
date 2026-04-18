@@ -78,13 +78,12 @@ fn redirect_path(path: &str) -> Option<String> {
     let lower = path.to_ascii_lowercase();
 
     // ERRORLOG.TXT → env var path (if set by test runner)
-    if let Some(target) = errorlog_redirect() {
-        if lower.ends_with("\\errorlog.txt")
+    if let Some(target) = errorlog_redirect()
+        && (lower.ends_with("\\errorlog.txt")
             || lower.ends_with("/errorlog.txt")
-            || lower == "errorlog.txt"
-        {
-            return Some(target.to_string());
-        }
+            || lower == "errorlog.txt")
+    {
+        return Some(target.to_string());
     }
 
     let tmp = temp_dir()?;
@@ -131,21 +130,20 @@ unsafe extern "system" fn hook_create_file_a(
         const FILE_SHARE_READ: u32 = 0x00000001;
         let share_mode = share_mode | FILE_SHARE_READ;
 
-        if !lp_file_name.is_null() {
-            if let Ok(path) = CStr::from_ptr(lp_file_name as *const i8).to_str() {
-                if let Some(new_path) = redirect_path(path) {
-                    let cstr: Vec<u8> = new_path.bytes().chain(std::iter::once(0)).collect();
-                    return orig(
-                        cstr.as_ptr(),
-                        desired_access,
-                        share_mode,
-                        security_attributes,
-                        creation_disposition,
-                        flags_and_attributes,
-                        template_file,
-                    );
-                }
-            }
+        if !lp_file_name.is_null()
+            && let Ok(path) = CStr::from_ptr(lp_file_name as *const i8).to_str()
+            && let Some(new_path) = redirect_path(path)
+        {
+            let cstr: Vec<u8> = new_path.bytes().chain(std::iter::once(0)).collect();
+            return orig(
+                cstr.as_ptr(),
+                desired_access,
+                share_mode,
+                security_attributes,
+                creation_disposition,
+                flags_and_attributes,
+                template_file,
+            );
         }
 
         orig(
@@ -174,13 +172,12 @@ unsafe extern "system" fn hook_find_first_file_a(
         let orig: FindFirstFileAFn =
             core::mem::transmute(ORIG_FIND_FIRST_FILE_A.load(Ordering::Relaxed));
 
-        if !lp_file_name.is_null() {
-            if let Ok(path) = CStr::from_ptr(lp_file_name as *const i8).to_str() {
-                if let Some(new_path) = redirect_path(path) {
-                    let cstr: Vec<u8> = new_path.bytes().chain(std::iter::once(0)).collect();
-                    return orig(cstr.as_ptr(), lp_find_file_data);
-                }
-            }
+        if !lp_file_name.is_null()
+            && let Ok(path) = CStr::from_ptr(lp_file_name as *const i8).to_str()
+            && let Some(new_path) = redirect_path(path)
+        {
+            let cstr: Vec<u8> = new_path.bytes().chain(std::iter::once(0)).collect();
+            return orig(cstr.as_ptr(), lp_find_file_data);
         }
 
         orig(lp_file_name, lp_find_file_data)
@@ -196,13 +193,12 @@ unsafe extern "system" fn hook_delete_file_a(lp_file_name: *const u8) -> i32 {
     unsafe {
         let orig: DeleteFileAFn = core::mem::transmute(ORIG_DELETE_FILE_A.load(Ordering::Relaxed));
 
-        if !lp_file_name.is_null() {
-            if let Ok(path) = CStr::from_ptr(lp_file_name as *const i8).to_str() {
-                if let Some(new_path) = redirect_path(path) {
-                    let cstr: Vec<u8> = new_path.bytes().chain(std::iter::once(0)).collect();
-                    return orig(cstr.as_ptr());
-                }
-            }
+        if !lp_file_name.is_null()
+            && let Ok(path) = CStr::from_ptr(lp_file_name as *const i8).to_str()
+            && let Some(new_path) = redirect_path(path)
+        {
+            let cstr: Vec<u8> = new_path.bytes().chain(std::iter::once(0)).collect();
+            return orig(cstr.as_ptr());
         }
 
         orig(lp_file_name)
