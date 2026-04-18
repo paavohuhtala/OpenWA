@@ -36,6 +36,8 @@ static mut IS_FRAME_PAUSED_ADDR: u32 = 0;
 static mut SETUP_FRAME_PARAMS_ADDR: u32 = 0;
 static mut PROCESS_NETWORK_FRAME_ADDR: u32 = 0;
 static mut IS_REPLAY_MODE_ADDR: u32 = 0;
+static mut POLL_INPUT_ADDR: u32 = 0;
+static mut INPUT_HOOK_MODE_ADDR: u32 = 0;
 
 /// Initialize all bridge addresses. Must be called once at DLL load.
 pub unsafe fn init_dispatch_addrs() {
@@ -52,6 +54,8 @@ pub unsafe fn init_dispatch_addrs() {
         SETUP_FRAME_PARAMS_ADDR = rb(va::DDGAMEWRAPPER_SETUP_FRAME_PARAMS);
         PROCESS_NETWORK_FRAME_ADDR = rb(va::DDGAMEWRAPPER_PROCESS_NETWORK_FRAME);
         IS_REPLAY_MODE_ADDR = rb(va::DDGAMEWRAPPER_IS_REPLAY_MODE);
+        POLL_INPUT_ADDR = rb(va::DDGAMEWRAPPER_POLL_INPUT);
+        INPUT_HOOK_MODE_ADDR = rb(va::G_INPUT_HOOK_MODE);
     }
 }
 
@@ -214,6 +218,15 @@ unsafe extern "stdcall" fn bridge_step_frame(
     );
 }
 
+/// DDGameWrapper__PollInput — stdcall(wrapper), RET 0x4.
+unsafe extern "stdcall" fn bridge_poll_input(wrapper: *mut DDGameWrapper) {
+    unsafe {
+        let func: unsafe extern "stdcall" fn(*mut DDGameWrapper) =
+            core::mem::transmute(POLL_INPUT_ADDR as usize);
+        func(wrapper);
+    }
+}
+
 /// ShouldContinueFrameLoop: plain stdcall(wrapper, lo, hi), RET 0xC.
 unsafe extern "stdcall" fn bridge_should_continue(
     wrapper: *mut DDGameWrapper,
@@ -245,8 +258,15 @@ pub unsafe fn is_frame_paused(wrapper: *mut DDGameWrapper) -> bool {
     unsafe { bridge_is_frame_paused(wrapper) != 0 }
 }
 
-/// Process a single game frame step. Returns true if more frames should be processed.
-/// `counter_ptr` is a pointer to a local counter incremented by StepFrame (passed in EAX).
+/// Rust port of `DDGameWrapper__StepFrame` (0x529F30).
+///
+/// Returns true if more frames should be processed.
+/// `counter_ptr` is a pointer to a local counter incremented whenever input
+/// is polled (passed in EAX in the original usercall).
+///
+/// Strategy: the common frame-simulation path is Rust. Any frame that
+/// touches the game-end state machine (phase transitions, headless log
+/// dump, worm cleanup) falls back to the original `bridge_step_frame`.
 pub unsafe fn step_frame(
     wrapper: *mut DDGameWrapper,
     counter_ptr: *mut u32,
@@ -257,15 +277,127 @@ pub unsafe fn step_frame(
     game_speed: i32,
 ) -> bool {
     unsafe {
-        bridge_step_frame(
-            wrapper,
-            counter_ptr,
-            remaining,
-            frame_duration_lo,
-            frame_duration_hi,
-            game_speed_target,
-            game_speed,
-        ) != 0
+        let ddgame: *mut DDGame = (*wrapper).ddgame;
+        let game_info = &*(*ddgame).game_info;
+
+        // Gate: bail to the original bridge for any path that touches the
+        // game-end state machine (phase transitions, dispatch of phase
+        // handlers 2/3/4, ClearWormBuffers/AdvanceFrame, headless log
+        // dump). The common path Rust implements covers normal gameplay
+        // frames where game_end_phase == 0 and game_state == 0.
+        //
+        // The state-transition block at the top of StepFrame fires when
+        // `hud_status_code ∈ {6, 8}` AND `game_end_phase != hud_status_code`.
+        // Since game_end_phase is 0 during normal play, any hud_status_code
+        // of 6 or 8 triggers a transition → bail.
+        let game_end_phase = (*wrapper).game_end_phase;
+        let game_state = (*wrapper).game_state;
+        let hud_code = (*ddgame).hud_status_code;
+        if game_end_phase != 0 || game_state != 0 || hud_code == 6 || hud_code == 8 {
+            return bridge_step_frame(
+                wrapper,
+                counter_ptr,
+                remaining,
+                frame_duration_lo,
+                frame_duration_hi,
+                game_speed_target,
+                game_speed,
+            ) != 0;
+        }
+
+        // ── Common path (game_end_phase == 0, game_state == 0) ─────────
+
+        // PollInput gate: input-hook mode throttles polling via team-arena
+        // counters; when no hook is active we always poll.
+        let hook_mode = *(INPUT_HOOK_MODE_ADDR as *const u32);
+        let arena = &(*ddgame).team_arena;
+        if hook_mode == 0 || arena.active_worm_count <= arena.active_team_count {
+            bridge_poll_input(wrapper);
+            *counter_ptr = (*counter_ptr).wrapping_add(1);
+        }
+
+        // GameSession replay-active: tweak the replay accumulators.
+        let session = get_game_session();
+        if (*session).replay_active_flag != 0 {
+            // render_interp_a (0x8150) -= 0x10000; render_interp_b mirrors it.
+            (*ddgame).render_interp_a = (*ddgame).render_interp_a.wrapping_sub(0x10000);
+            (*ddgame).render_interp_b = (*ddgame).render_interp_a;
+            // 64-bit add at _field_8160: += 0x10000 with carry into _field_8164.
+            let accum = combine((*ddgame)._field_8160, (*ddgame)._field_8164).wrapping_add(0x10000);
+            (*ddgame)._field_8160 = accum as u32;
+            (*ddgame)._field_8164 = (accum >> 32) as u32;
+        }
+
+        // game_end_phase dispatch 2/3/4 — skipped (game_end_phase == 0).
+
+        // ── f34c sentinel block #1: conditional 0x7a broadcast ─────────
+        //
+        // Structure in original: two separate blocks, each doing
+        //   if (frame_counter != f34c) f34c = -1;
+        //   if (frame_counter == f34c || frame_counter == f344) { ... }
+        //
+        // During normal play f34c starts at -1 and the first step resets
+        // it to -1 whenever it drifts. frame_counter matches f34c only
+        // on genuine wrap, which doesn't happen in any practical run,
+        // so the left side of the OR is effectively false. f344 is
+        // sound_start_frame — equals frame_counter only on the game-start
+        // transition frame (and possibly once more if sound_start_frame
+        // is re-written late). Handle both branches faithfully.
+        let frame_counter = (*ddgame).frame_counter;
+        let gi_mut = (*ddgame).game_info;
+
+        if frame_counter != (*gi_mut)._field_f34c {
+            (*gi_mut)._field_f34c = -1;
+        }
+        let sentinel_match =
+            frame_counter == (*gi_mut)._field_f34c || frame_counter == (*gi_mut).sound_start_frame;
+        if sentinel_match {
+            (*wrapper)._field_404 = 1;
+            if (*ddgame).fast_forward_active == 0 {
+                // Broadcast 0x7a via CTaskTurnGame::HandleMessage.
+                // Original pushes (sender=task, msg=0x7a, 0, 0).
+                let task = (*wrapper).task_turn_game;
+                crate::task::CTaskTurnGame::handle_message_raw(
+                    task,
+                    task as *mut crate::task::CTask,
+                    0x7a,
+                    0,
+                    core::ptr::null(),
+                );
+            }
+        }
+
+        // ── f34c sentinel block #2: `remaining` adjust ─────────────────
+        if frame_counter != (*gi_mut)._field_f34c {
+            (*gi_mut)._field_f34c = -1;
+        }
+        let sentinel_match_2 =
+            frame_counter == (*gi_mut)._field_f34c || frame_counter == (*gi_mut).sound_start_frame;
+        if sentinel_match_2 && (*wrapper).frame_delay_counter >= 0 {
+            *remaining = 0;
+        } else if game_info.sound_mute == 0 && game_info.sound_start_frame <= frame_counter {
+            let rem = *remaining;
+            let sub = combine(frame_duration_lo, frame_duration_hi);
+            *remaining = rem.wrapping_sub(sub);
+        }
+
+        // ── Sound-available sub-call: two no-op vtable slots ───────────
+        if (*ddgame).sound_available != 0 {
+            let keyboard = (*ddgame).keyboard;
+            crate::input::keyboard::DDKeyboard::slot_06_noop_raw(keyboard);
+            let palette = (*ddgame).palette;
+            crate::render::display::palette::Palette::reset_raw(palette);
+        }
+
+        // ── End-of-game branch: skipped by gate ────────────────────────
+
+        // ── Return: IsReplayMode || speeds unchanged ───────────────────
+        if is_replay_mode(wrapper) {
+            return true;
+        }
+        let cur_target = (*ddgame).game_speed_target.to_raw();
+        let cur_speed = (*ddgame).game_speed.to_raw();
+        game_speed_target == cur_target && game_speed == cur_speed
     }
 }
 

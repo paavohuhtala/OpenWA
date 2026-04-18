@@ -953,6 +953,10 @@ pub mod va {
         global G_FRONTEND_HWND = 0x006B_390C;
         global G_SKIP_TO_MAIN_MENU = 0x007A_083D;
         global G_AUTO_NETWORK_FLAG = 0x007A_083F;
+        /// Input-hook mode flag (u32). Nonzero = an input hook is active; StepFrame
+        /// gates PollInput on `ddgame.team_arena.active_worm_count <= active_team_count`
+        /// only in that mode (otherwise always polls).
+        global G_INPUT_HOOK_MODE = 0x007A_0860;
         global G_RENDER_CONTEXT = 0x0079_D6D4;
         /// Stipple checkerboard parity — toggled (XOR 1) each render frame in GameRender.
         /// Used by DisplayGfx__BlitStippled to alternate the checkerboard pattern.
