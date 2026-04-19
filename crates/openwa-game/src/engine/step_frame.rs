@@ -501,7 +501,11 @@ unsafe fn log_end_of_round(
         if speech_count > 0 {
             let gi_base = game_info_ptr as *const u8;
             let team_records_base = gi_base.add(0x450);
-            for i in 0..(speech_count as usize).min(MAX_TEAMS) {
+            for (i, item) in label_widths
+                .iter_mut()
+                .enumerate()
+                .take(speech_count as usize)
+            {
                 let record = team_records_base.add(i * 3000);
                 let name_start = record.add(6);
                 let mut p = name_start;
@@ -518,7 +522,7 @@ unsafe fn log_end_of_round(
                     }
                     width = bp as i32 + width + (3 - (bank.add(1) as i32));
                 }
-                label_widths[i] = width;
+                *item = width;
                 if max_width < width {
                     max_width = width;
                 }

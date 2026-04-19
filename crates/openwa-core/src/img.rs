@@ -243,7 +243,7 @@ pub fn img_decode(
         sprite_lzss_decode_slice(&mut pixels, src, &lut);
     } else {
         // Raw rows. Packed tight on disk, copied into stride-aligned buffer.
-        let bytes_per_row = (width * bpp as u32 + 7) / 8;
+        let bytes_per_row = (width * bpp as u32).div_ceil(8);
         for row in 0..height {
             let src = cur.take(bytes_per_row as usize)?;
             let dst_start = (row * row_stride) as usize;
