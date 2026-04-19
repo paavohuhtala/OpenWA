@@ -19,6 +19,7 @@ use crate::engine::game_state;
 use crate::input::keyboard::DDKeyboard;
 use crate::rebase::rb;
 use crate::render::display::gfx::DisplayGfx;
+use crate::task::{CTask, CTaskTurnGame};
 
 // ─── Runtime addresses ─────────────────────────────────────────────────────
 //
@@ -27,7 +28,6 @@ use crate::render::display::gfx::DisplayGfx;
 // register, then `JMP`/`CALL` the target. `RET imm16` on each target cleans
 // the remaining stdcall params.
 
-static mut RESET_FRAME_STATE_ADDR: u32 = 0;
 static mut UPDATE_FRAME_TIMING_ADDR: u32 = 0;
 static mut ADVANCE_FRAME_COUNTERS_ADDR: u32 = 0;
 static mut CALC_TIMING_RATIO_ADDR: u32 = 0;
@@ -40,7 +40,6 @@ static mut PROCESS_NETWORK_FRAME_ADDR: u32 = 0;
 /// Initialize all bridge addresses. Must be called once at DLL load.
 pub unsafe fn init_dispatch_addrs() {
     unsafe {
-        RESET_FRAME_STATE_ADDR = rb(va::DDGAMEWRAPPER_RESET_FRAME_STATE);
         UPDATE_FRAME_TIMING_ADDR = rb(va::DDGAMEWRAPPER_UPDATE_FRAME_TIMING);
         ADVANCE_FRAME_COUNTERS_ADDR = rb(va::DDGAMEWRAPPER_ADVANCE_FRAME_COUNTERS);
         CALC_TIMING_RATIO_ADDR = rb(va::DDGAMEWRAPPER_CALC_TIMING_RATIO);
@@ -90,7 +89,6 @@ macro_rules! bridge_eax_this_stdcall {
     };
 }
 
-bridge_eax_this!(bridge_reset_frame_state, RESET_FRAME_STATE_ADDR, ());
 bridge_eax_this!(bridge_init_frame_delay, INIT_FRAME_DELAY_ADDR, ());
 bridge_eax_this!(bridge_is_frame_paused, IS_FRAME_PAUSED_ADDR, u32);
 
@@ -256,6 +254,68 @@ pub unsafe fn should_continue_frame_loop(wrapper: *mut DDGameWrapper, elapsed: u
 
 pub unsafe fn is_frame_paused(wrapper: *mut DDGameWrapper) -> bool {
     unsafe { bridge_is_frame_paused(wrapper) != 0 }
+}
+
+/// Bridge for `DDGameWrapper::StepRenderScaleFade` (0x005344B0), a thiscall
+/// that smooths `DDGame::render_scale` toward a target driven by the sign of
+/// `wrapper._field_464`. Returns the post-step `_field_464` value. Small
+/// enough to port inline in a follow-up.
+unsafe extern "thiscall" fn bridge_step_render_scale_fade(wrapper: *mut DDGameWrapper) -> i32 {
+    unsafe {
+        let func: unsafe extern "thiscall" fn(*mut DDGameWrapper) -> i32 =
+            core::mem::transmute(rb(va::DDGAMEWRAPPER_STEP_RENDER_SCALE_FADE) as usize);
+        func(wrapper)
+    }
+}
+
+/// Frame phases in which `reset_frame_state` must skip its frame-counter
+/// increment (pause / end-of-round / similar). Matches the set used by
+/// `step_frame` Block B's `skip_input` check.
+#[inline]
+fn is_paused_phase(v: i32) -> bool {
+    matches!(v, 1 | 2 | 6 | 7 | 9)
+}
+
+/// Rust port of `DDGameWrapper__ResetFrameState` (0x0052A910).
+///
+/// Runs once per frame between step iterations. Always broadcasts msg 5 to
+/// `task_turn_game`. In headful mode also runs `init_frame_delay`. Then, if
+/// neither `hud_status_code` nor `game_end_phase` sit in the paused set
+/// (`{1,2,6,7,9}`) and input-hooking is inactive or the arena has caught up,
+/// runs the render-scale fade step and — if the fade says the scene is
+/// fully composed — bumps `DDGame::_field_77d4` (the "active gameplay
+/// frames" counter).
+pub unsafe fn reset_frame_state(wrapper: *mut DDGameWrapper) {
+    unsafe {
+        let task = (*wrapper).task_turn_game;
+        CTaskTurnGame::handle_message_raw(task, task as *mut CTask, 5, 0, core::ptr::null());
+
+        let ddgame = (*wrapper).ddgame;
+
+        if (*ddgame).is_headful != 0 {
+            bridge_init_frame_delay(wrapper);
+        }
+
+        if is_paused_phase((*ddgame).hud_status_code)
+            || is_paused_phase((*wrapper).game_end_phase as i32)
+        {
+            return;
+        }
+
+        // Input-hook gate: when hooked, wait until the arena's worm-count
+        // catches up with the team-count before counting the frame.
+        let hook_mode = *(rb(va::G_INPUT_HOOK_MODE) as *const u32);
+        if hook_mode != 0 {
+            let arena = &(*ddgame).team_arena;
+            if arena.active_worm_count > arena.active_team_count {
+                return;
+            }
+        }
+
+        if bridge_step_render_scale_fade(wrapper) == 0 {
+            (*ddgame)._field_77d4 = (*ddgame)._field_77d4.wrapping_add(1);
+        }
+    }
 }
 
 // ─── Port of DDGameWrapper__CalcTimingRatio (0x52ABF0) ─────────────────────
@@ -649,7 +709,7 @@ pub unsafe fn dispatch_frame(wrapper: *mut DDGameWrapper, time: u64, freq: u64) 
                     (*wrapper).frame_accum_b = (*wrapper).frame_accum_b.wrapping_add(frame_time);
                     if (*wrapper).frame_accum_b == frame_duration {
                         (*wrapper).frame_accum_b = 0;
-                        bridge_reset_frame_state(wrapper);
+                        reset_frame_state(wrapper);
                     }
                 }
 
@@ -706,7 +766,7 @@ pub unsafe fn dispatch_frame(wrapper: *mut DDGameWrapper, time: u64, freq: u64) 
 
                 let session = get_game_session();
                 if (*session).flag_5c == 0 || !(*ddgame).net_session.is_null() {
-                    bridge_reset_frame_state(wrapper);
+                    reset_frame_state(wrapper);
                 }
                 if !crate::engine::step_frame::step_frame(
                     wrapper,
