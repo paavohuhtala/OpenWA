@@ -18,6 +18,13 @@ pub struct DDGameWrapperVtable {
     /// Scalar deleting destructor (0x5713C0).
     #[slot(0)]
     pub destructor: fn(this: *mut DDGameWrapper, flags: u32) -> *mut DDGameWrapper,
+    /// Send-game-state hook (0x56FAF0 base = `DDNetGameWrapper__SendGameState`).
+    /// Called by StepFrame's end-of-game headless log before draining the
+    /// input queue: thiscall(this=wrapper, buf=render_buffer_a, 0, 0).
+    /// In non-network wrappers the base impl is a no-op path; the net
+    /// subclass overrides to flush queued network state.
+    #[slot(2)]
+    pub send_game_state: fn(this: *mut DDGameWrapper, buf: *mut u8, a: u32, b: u32),
     /// Render frame (0x56E040) — called each frame from `GameSession__ProcessFrame`.
     #[slot(7)]
     pub render_frame: fn(this: *mut DDGameWrapper),

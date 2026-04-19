@@ -474,8 +474,11 @@ pub struct DDGame {
     /// 0x8140: Number of entries currently in the sound queue (0–16).
     pub sound_queue_count: i32,
 
-    /// 0x8144-0x8147: Unknown
-    pub _unknown_8144: [u8; 4],
+    /// 0x8144: Round turn count. When nonzero at end-of-round headless-log
+    /// time, StepFrame emits the `"%s %d\n\n"` turn-count footer after the
+    /// per-team stats block. Printed via `%d` (signed format), but the
+    /// stored value is used as a u32 counter.
+    pub round_turn_count: u32,
     /// 0x8148: Unknown (set to 1 by InitTurnState).
     pub _field_8148: u32,
     /// 0x814C-0x814F: Unknown
