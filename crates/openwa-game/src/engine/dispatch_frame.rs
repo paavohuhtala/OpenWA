@@ -51,6 +51,7 @@ pub unsafe fn init_dispatch_addrs() {
         PROCESS_NETWORK_FRAME_ADDR = rb(va::DDGAMEWRAPPER_PROCESS_NETWORK_FRAME);
         IS_REPLAY_MODE_ADDR = rb(va::DDGAMEWRAPPER_IS_REPLAY_MODE);
         crate::engine::step_frame::init_step_frame_addrs();
+        crate::engine::log_sink::init_log_sink_addrs();
     }
 }
 

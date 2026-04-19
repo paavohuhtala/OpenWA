@@ -453,8 +453,20 @@ pub struct DDGame {
     pub _unknown_7eac: [u8; 0x7ED0 - 0x7EAC],
     /// 0x7ED0-0x7EEF: Unknown
     pub _unknown_7ed0: [u8; 0x7EF0 - 0x7ED0],
-    /// 0x7EF0: Flag (-1 = 0xFFFFFFFF at runtime).
-    pub field_7ef0: i32,
+    /// 0x7EF0: Recording-side frame counter — `-1` during replay playback.
+    ///
+    /// `DDGame::InitGameState` sets this to `-1` when a replay is being
+    /// played back (nothing is being recorded), otherwise `0`. Outside
+    /// replay playback, `DDNetGameWrapper::SendGameState` (0x0056FAF0)
+    /// increments it once per game frame whose state was handed to the
+    /// network / recording stream. So it tracks how many frames have been
+    /// recorded, parallel to `frame_counter` (0x5CC) which tracks how
+    /// many frames have been simulated.
+    ///
+    /// The end-of-round log prefix emits `[recorded_t] [sim_t]` when
+    /// this is `>= 0`, and just `[sim_t]` during replay playback — the
+    /// two-column form makes recording-vs-sim drift visible at a glance.
+    pub recorded_frame_counter: i32,
     /// 0x7EF4: HUD status message string pointer. Set when object pool overflows
     /// (loaded via string resource 0x70F). Read by HUD rendering for warning display.
     pub hud_status_text: *const core::ffi::c_char,

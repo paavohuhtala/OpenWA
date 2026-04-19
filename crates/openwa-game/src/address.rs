@@ -146,9 +146,6 @@ pub mod va {
             fn/Usercall DDGAMEWRAPPER_PROCESS_NETWORK_FRAME = 0x0053_DF00;
             /// DDGameWrapper__IsReplayMode (usercall EAX=this, no stack params, plain RET)
             fn/Usercall DDGAMEWRAPPER_IS_REPLAY_MODE = 0x0053_7060;
-            /// DDGameWrapper__WriteHeadlessLog — usercall EAX=frame_counter,
-            /// 2 stdcall params: sprintf_func + buffer, RET 0x8.
-            fn/Usercall DDGAMEWRAPPER_WRITE_HEADLESS_LOG = 0x0053_F0A0;
             /// DDGameWrapper__PollInput — stdcall(wrapper), plain RET. Polls keyboard/input each step.
             fn/Stdcall DDGAMEWRAPPER_POLL_INPUT = 0x0053_4910;
             // --- StepFrame sub-calls: end-game state-machine handlers ---
@@ -174,14 +171,6 @@ pub mod va {
             /// DDGameWrapper__DispatchInputMsg — usercall(EAX=local_buf) +
             /// stdcall(wrapper, msg_type, payload_size), RET 0xC.
             fn/Stdcall DDGAMEWRAPPER_DISPATCH_INPUT_MSG = 0x0053_0F80;
-            /// DDGameWrapper__WriteLogTimestampPrefix — writes `[ts] ` or
-            /// `[ts1] [ts2] ` prefix to the headless log. Usercall(EDI=ddgame),
-            /// no stack args, plain RET.
-            fn/Usercall DDGAMEWRAPPER_WRITE_LOG_TIMESTAMP_PREFIX = 0x0053_F100;
-            /// DDGameWrapper__WriteLogTeamLabel — writes team name (and
-            /// optional "(bank)" suffix) for the end-of-round header.
-            /// Usercall(EAX=team_index_plus_1, EDI=ddgame), plain RET.
-            fn/Usercall DDGAMEWRAPPER_WRITE_LOG_TEAM_LABEL = 0x0053_F190;
         }
 
         class "DDGame" {
@@ -1094,8 +1083,6 @@ pub mod va {
         global CRT_FPUTS_IAT = 0x0064_9468;
         /// MSVC CRT `_ferror(FILE*)`.
         fn/Cdecl CRT_FERROR = 0x005D_5126;
-        /// IAT slot for `fprintf` — dereference to get the live import pointer.
-        global CRT_FPRINTF_IAT = 0x0064_946C;
         /// IAT slot for `putc` — dereference to get the live import pointer.
         global CRT_PUTC_IAT = 0x0064_92D4;
         /// Codepage__BuildLut — usercall(EAX=codepage) → returns a
@@ -1106,41 +1093,14 @@ pub mod va {
         /// Cached codepage LUT pointer. Lazily initialised on first use
         /// (zero → call `Codepage__BuildLut`, store result here).
         global G_CODEPAGE_LUT = 0x007A_0ED8;
-        /// Byte flag: when nonzero, the end-of-game log uses the
-        /// snprintf→recode→fputs path. When zero, it prints format strings
-        /// directly via fprintf. Verified by disassembly at 0x52A1DF
-        /// (`JNZ` to snprintf path on nonzero).
+        /// Byte flag: when nonzero, log output passes through the
+        /// codepage LUT (`LUT[byte + 0x100]`) before being written to the
+        /// stream. When zero, bytes are emitted verbatim. Read by
+        /// `LogOutput` on construction.
         global G_CODEPAGE_RECODE_FLAG = 0x006B_39C2;
-        /// 0x4000-byte scratch buffer used by the end-of-game log for
-        /// snprintf output before codepage recoding.
-        global G_LOG_SCRATCH_BUF = 0x0077_9428;
-        /// End-of-game log banner prefix literal: three bullet chars + space
-        /// (`0x95 0x95 0x95 0x20`) at 0x664488. Used as fmt arg to `fprintf`
-        /// before the "%s - %s" game/phase banner.
-        global G_LOG_BANNER_PREFIX = 0x0066_4488;
-        /// Format string `"%s - %s"` at 0x664DBC — game-name / phase-label banner.
-        global G_FMT_GAME_PHASE = 0x0066_4DBC;
-        /// Format string `"\n%s\n"` at 0x664DC4 — per-team stats header.
-        global G_FMT_STATS_HEADER = 0x0066_4DC4;
-        /// Format string `":%*s "` at 0x664DCC — per-team label padding.
-        global G_FMT_TEAM_LABEL_PAD = 0x0066_4DCC;
-        /// Format string `"%s %s, %s %s, %s %s, %s %u\n"` at 0x664DD4 — per-team stat line.
-        global G_FMT_TEAM_STATS = 0x0066_4DD4;
-        /// Format string `"%s %d\n\n"` at 0x664DF0 — end-of-round turn count.
-        global G_FMT_TURN_COUNT = 0x0066_4DF0;
-        /// Format string `" (%s)"` at 0x652664 — HUD status suffix in banner.
-        global G_FMT_HUD_SUFFIX = 0x0065_2664;
-        /// Empty C string (single null byte) at 0x643F2B. Padding target
-        /// for `:%*s ` team-label column alignment.
-        global G_EMPTY_CSTR = 0x0064_3F2B;
         /// Phase-label resource ID table indexed by `wrapper.game_end_phase`
-        /// (0..9 → resource IDs 0x704..0x70D). Read by end-of-game banner.
+        /// (0..9 → resource IDs 0x704..0x70D). Read by end-of-round banner.
         global G_PHASE_LABEL_RES_TABLE = 0x006A_70E0;
-        /// MSVC `_snprintf_s(buf, size, count, fmt, ...)` — cdecl variadic.
-        fn/Cdecl CRT_SNPRINTF_S = 0x005D_12F1;
-        /// MSVC `sprintf(buf, fmt, ...)` — cdecl variadic. Passed as the
-        /// sprintf-function pointer to `WriteHeadlessLog` (0x53F0A0).
-        fn/Cdecl CRT_SPRINTF = 0x005D_125A;
         /// BSS byte latched to 1 on first DispatchFrame pass. Gates a
         /// clamp that inflates `remaining` up to `frame_duration` while
         /// the game hasn't started yet. Purpose not fully confirmed; read

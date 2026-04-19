@@ -1000,7 +1000,7 @@ pub unsafe fn init_game_state(wrapper: *mut DDGameWrapper) {
             } else {
                 0xFFFF_FFFFu32
             };
-            (*ddgame).field_7ef0 = result as i32;
+            (*ddgame).recorded_frame_counter = result as i32;
         }
 
         (*wrapper)._field_4b0 = 0xFFFF_FFFF;
