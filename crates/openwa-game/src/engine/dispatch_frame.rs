@@ -5,6 +5,7 @@
 //! advance, dispatches them via `StepFrame`, and handles post-frame timing,
 //! headless log output, and game-end detection.
 
+use openwa_core::fixed::Fixed;
 use windows_sys::Win32::System::Threading::ExitProcess;
 
 use crate::address::va;
@@ -618,8 +619,8 @@ pub unsafe fn dispatch_frame(
                 let gi = &*(*ddgame).game_info;
                 let replay_ticks = gi.replay_ticks;
                 let speed_accum = combine((*ddgame)._field_8158, (*ddgame)._field_815c);
-                let speed_val =
-                    (speed_accum / replay_ticks as u64) as i32 - (*ddgame)._field_8160 as i32;
+                let speed_val = Fixed::from_raw((speed_accum / replay_ticks as u64) as i32)
+                    - (*ddgame).replay_frame_accum.to_fixed_wrapping();
                 (*ddgame).render_interp_a = speed_val;
                 (*ddgame).render_interp_b = speed_val;
 
@@ -640,7 +641,8 @@ pub unsafe fn dispatch_frame(
                 let replay_end = gi.replay_end_frame;
                 let speed_val = (*ddgame).render_interp_a;
 
-                if (frame_counter > replay_end || (frame_counter == replay_end && speed_val > 0))
+                if (frame_counter > replay_end
+                    || (frame_counter == replay_end && speed_val > Fixed::ZERO))
                     && (*wrapper).game_end_phase != 1
                 {
                     (*wrapper).game_end_phase = 1;
@@ -760,7 +762,7 @@ pub unsafe fn dispatch_frame(
             } else {
                 // Replay frame dispatch.
                 let speed_val = (*ddgame).render_interp_a;
-                if speed_val < 0x10000 {
+                if speed_val < Fixed::ONE {
                     break;
                 }
 
@@ -808,21 +810,21 @@ pub unsafe fn dispatch_frame(
                         .wrapping_mul(0x10000)
                         .checked_div(frame_duration)
                         .unwrap_or(0) as i32;
-                    (*ddgame).render_interp_a = speed_a;
+                    (*ddgame).render_interp_a = Fixed::from_raw(speed_a);
 
                     let accum_b = combine((*wrapper).frame_accum_b_lo, (*wrapper).frame_accum_b_hi);
                     let speed_b = accum_b
                         .wrapping_mul(0x10000)
                         .checked_div(frame_duration)
                         .unwrap_or(0) as i32;
-                    (*ddgame).render_interp_b = speed_b;
+                    (*ddgame).render_interp_b = Fixed::from_raw(speed_b);
 
                     // Intentional deviation from vanilla: while truly paused,
                     // clamp interpolation scales to 0 to prevent deterministic
                     // backwards render stutter during pause.
                     if is_frame_paused(wrapper) {
-                        (*ddgame).render_interp_a = 0;
-                        (*ddgame).render_interp_b = 0;
+                        (*ddgame).render_interp_a = Fixed::ZERO;
+                        (*ddgame).render_interp_b = Fixed::ZERO;
                     }
 
                     if (*wrapper).frame_delay_counter >= 0 {
@@ -846,8 +848,8 @@ pub unsafe fn dispatch_frame(
                             (*wrapper).frame_accum_b_hi = 0;
                             (*wrapper).frame_accum_c_lo = 0;
                             (*wrapper).frame_accum_c_hi = 0;
-                            (*ddgame).render_interp_a = 0;
-                            (*ddgame).render_interp_b = 0;
+                            (*ddgame).render_interp_a = Fixed::ZERO;
+                            (*ddgame).render_interp_b = Fixed::ZERO;
                         } else {
                             let new_interval = freq / 50;
                             let new_speed = (*ddgame).game_speed.to_raw();
@@ -855,13 +857,13 @@ pub unsafe fn dispatch_frame(
                                 / (new_target as i64))
                                 as u64;
 
-                            let scaled_a = (((*ddgame).render_interp_a as i64)
+                            let scaled_a = (((*ddgame).render_interp_a.to_raw() as i64)
                                 .wrapping_mul(scale as i64)
                                 >> 16) as u64;
                             (*wrapper).frame_accum_a_lo = scaled_a as u32;
                             (*wrapper).frame_accum_a_hi = (scaled_a >> 32) as u32;
 
-                            let scaled_b = (((*ddgame).render_interp_b as i64)
+                            let scaled_b = (((*ddgame).render_interp_b.to_raw() as i64)
                                 .wrapping_mul(scale as i64)
                                 >> 16) as u64;
                             (*wrapper).frame_accum_b_lo = scaled_b as u32;
@@ -882,8 +884,8 @@ pub unsafe fn dispatch_frame(
                     }
                 } else {
                     // Before game start — zero speed.
-                    (*ddgame).render_interp_a = 0;
-                    (*ddgame).render_interp_b = 0;
+                    (*ddgame).render_interp_a = Fixed::ZERO;
+                    (*ddgame).render_interp_b = Fixed::ZERO;
                 }
                 (*wrapper).timing_ref_lo = time_lo;
                 (*wrapper).timing_ref_hi = time_hi;

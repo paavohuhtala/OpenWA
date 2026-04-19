@@ -15,7 +15,7 @@ use crate::render::display::palette::Palette;
 use crate::render::landscape::PCLandscape;
 use crate::render::queue::RenderQueue;
 use crate::render::turn_order::TurnOrderWidget;
-use openwa_core::fixed::Fixed;
+use openwa_core::fixed::{Fixed, Fixed64};
 
 /// DDGame — the main game engine object.
 ///
@@ -506,21 +506,25 @@ pub struct DDGame {
     ///
     /// Clamped to 0 while the game is paused. In replay mode holds a
     /// speed ratio where `>= 0x10000` triggers one simulation step.
-    pub render_interp_a: i32,
+    pub render_interp_a: Fixed,
 
     /// 0x8154: Render interpolation factor B — parallels `render_interp_a`
     /// but is driven by `frame_accum_b` (running frame accumulator) instead
     /// of `frame_accum_a` (paused accumulator). Written in the same block
     /// by `DispatchFrame` and rescaled on speed changes.
-    pub render_interp_b: i32,
+    pub render_interp_b: Fixed,
     /// 0x8158: Unknown (zeroed by InitTurnState).
     pub _field_8158: u32,
     /// 0x815C: Unknown (zeroed by InitTurnState).
     pub _field_815c: u32,
-    /// 0x8160: Unknown (zeroed by InitTurnState).
-    pub _field_8160: u32,
-    /// 0x8164: Unknown (zeroed by InitTurnState).
-    pub _field_8164: u32,
+    /// 0x8160: Replay-progress accumulator (16.16 fixed, 48 integer bits).
+    ///
+    /// In replay mode, `StepFrame` adds `Fixed::ONE` per tick; the running
+    /// sum is used by `DispatchFrame`'s replay-speed computation as the
+    /// "replay time" reference (via low-32-bit projection). 64-bit
+    /// storage lets it accumulate without overflowing Fixed's ±32k
+    /// integer range (~18 min at 50 fps).
+    pub replay_frame_accum: Fixed64,
     /// 0x8168-0x818B: Unknown
     pub _unknown_8168: [u8; 36],
 

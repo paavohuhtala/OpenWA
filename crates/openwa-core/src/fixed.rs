@@ -188,3 +188,98 @@ impl SubAssign for Fixed {
         self.0 -= rhs.0;
     }
 }
+
+/// Wide sibling of [`Fixed`] — same 16 fractional bits, but 48 integer bits.
+///
+/// Used for accumulators that need to grow past `Fixed`'s ±32k integer
+/// range without losing Fixed precision: `DDGame::replay_frame_accum`
+/// adds `Fixed::ONE` every replay tick and would saturate the 32-bit
+/// form within ~18 minutes at 50 fps.
+///
+/// Byte-compatible with two adjacent `u32`s on `i686-pc-windows-msvc`
+/// (u64 aligns to 8 there, matching MSVC's C ABI).
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[repr(transparent)]
+pub struct Fixed64(pub i64);
+
+impl Fixed64 {
+    pub const FRACTIONAL_BITS: u32 = Fixed::FRACTIONAL_BITS;
+    pub const SCALE: i64 = 1 << Self::FRACTIONAL_BITS;
+
+    pub const ZERO: Self = Self(0);
+    pub const ONE: Self = Self(Self::SCALE);
+
+    #[inline]
+    pub const fn from_raw(raw: i64) -> Self {
+        Self(raw)
+    }
+
+    #[inline]
+    pub const fn to_raw(self) -> i64 {
+        self.0
+    }
+
+    #[inline]
+    pub const fn from_fixed(f: Fixed) -> Self {
+        Self(f.0 as i64)
+    }
+
+    /// Low-32-bit projection: returns the accumulator value as [`Fixed`]
+    /// with wraparound. Matches the original code's `accum as i32`
+    /// narrowing pattern (used in speed-ratio subtractions).
+    #[inline]
+    pub const fn to_fixed_wrapping(self) -> Fixed {
+        Fixed(self.0 as i32)
+    }
+
+    #[inline]
+    pub const fn wrapping_add(self, rhs: Self) -> Self {
+        Self(self.0.wrapping_add(rhs.0))
+    }
+
+    #[inline]
+    pub const fn wrapping_sub(self, rhs: Self) -> Self {
+        Self(self.0.wrapping_sub(rhs.0))
+    }
+}
+
+impl Add for Fixed64 {
+    type Output = Self;
+    #[inline]
+    fn add(self, rhs: Self) -> Self {
+        Self(self.0 + rhs.0)
+    }
+}
+
+impl Sub for Fixed64 {
+    type Output = Self;
+    #[inline]
+    fn sub(self, rhs: Self) -> Self {
+        Self(self.0 - rhs.0)
+    }
+}
+
+impl AddAssign for Fixed64 {
+    #[inline]
+    fn add_assign(&mut self, rhs: Self) {
+        self.0 += rhs.0;
+    }
+}
+
+impl SubAssign for Fixed64 {
+    #[inline]
+    fn sub_assign(&mut self, rhs: Self) {
+        self.0 -= rhs.0;
+    }
+}
+
+impl core::fmt::Debug for Fixed64 {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(
+            f,
+            "Fixed64({:.4} raw=0x{:016x})",
+            self.0 as f64 / Self::SCALE as f64,
+            self.0
+        )
+    }
+}

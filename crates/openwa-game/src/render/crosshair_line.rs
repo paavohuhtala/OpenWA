@@ -42,8 +42,7 @@ pub unsafe fn draw_crosshair_line(task: *const WeaponAimTask) {
 
         // Smooth aim-range animation: interpolate 20 units/tick by the sub-frame
         // progress ratio, then add the crosshair's standing aim offset.
-        let scale =
-            Fixed(ddgame.render_interp_a).mul_raw(Fixed(0x14_0000)).0 + (*task).aim_range_offset;
+        let scale = ddgame.render_interp_a.mul_raw(Fixed(0x14_0000)).0 + (*task).aim_range_offset;
 
         // Endpoint = start + direction * scale
         let mut endpoint_x = Fixed(sin_interp.0)

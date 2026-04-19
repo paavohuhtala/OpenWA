@@ -28,6 +28,8 @@
 
 use core::ffi::{c_char, c_void};
 
+use openwa_core::fixed::{Fixed, Fixed64};
+
 use crate::address::va;
 use crate::engine::ddgame::DDGame;
 use crate::engine::ddgame_wrapper::DDGameWrapper;
@@ -281,12 +283,10 @@ pub unsafe fn step_frame(
 
             let session = get_game_session();
             if (*session).replay_active_flag != 0 {
-                (*ddgame).render_interp_a = (*ddgame).render_interp_a.wrapping_sub(0x10000);
+                (*ddgame).render_interp_a -= Fixed::ONE;
                 (*ddgame).render_interp_b = (*ddgame).render_interp_a;
-                let accum =
-                    combine((*ddgame)._field_8160, (*ddgame)._field_8164).wrapping_add(0x10000);
-                (*ddgame)._field_8160 = accum as u32;
-                (*ddgame)._field_8164 = (accum >> 32) as u32;
+                (*ddgame).replay_frame_accum =
+                    (*ddgame).replay_frame_accum.wrapping_add(Fixed64::ONE);
             }
         }
 

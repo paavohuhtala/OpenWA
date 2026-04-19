@@ -507,8 +507,7 @@ pub unsafe fn init_turn_state(wrapper: *mut DDGameWrapper) {
         (*ddgame2)._field_8158 = 0;
         (*ddgame2)._field_815c = 0;
         let ddgame3 = ddgame_from_wrapper(wrapper);
-        (*ddgame3)._field_8160 = 0;
-        (*ddgame3)._field_8164 = 0;
+        (*ddgame3).replay_frame_accum = openwa_core::fixed::Fixed64::ZERO;
 
         // Landscape vtable slot 1: set control flag (donkey_disabled)
         let ddgame4 = ddgame_from_wrapper(wrapper);

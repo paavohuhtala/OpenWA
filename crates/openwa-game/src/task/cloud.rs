@@ -172,8 +172,9 @@ pub unsafe extern "thiscall" fn cloud_handle_message(
                     // using the render_interp_a ratio so clouds scroll smoothly
                     // between the 50Hz simulation steps.
                     let scroll_speed = (*this).vel_x.0 + (*this).wind_accel.0 * 10;
-                    let parallax_x =
-                        ((scroll_speed as i64 * (*ddgame).render_interp_a as i64) >> 16) as i32;
+                    let parallax_x = ((scroll_speed as i64
+                        * (*ddgame).render_interp_a.to_raw() as i64)
+                        >> 16) as i32;
                     let x = parallax_x + (*this).pos_x.0;
 
                     let rq = &mut *(*ddgame).render_queue;
