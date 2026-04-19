@@ -9,6 +9,7 @@ use crate::bitgrid::DisplayBitGrid;
 use crate::engine::ddgame::DDGame;
 use crate::engine::ddgame_wrapper::DDGameWrapper;
 use crate::engine::game_info::GameInfo;
+use crate::engine::game_state;
 use crate::render::display::gfx::DisplayGfx;
 use crate::render::landscape::PCLandscape;
 use crate::wa_alloc::{wa_malloc_struct_zeroed, wa_malloc_zeroed};
@@ -728,7 +729,7 @@ pub unsafe fn init_game_state(wrapper: *mut DDGameWrapper) {
         (*wrapper)._field_468 = -1;
         (*wrapper)._field_46c = -1;
         (*wrapper)._field_470 = -1;
-        (*wrapper).game_state = crate::engine::game_state::RUNNING;
+        (*wrapper).game_state = game_state::RUNNING;
         (*wrapper).game_end_speed = 0;
         (*wrapper)._field_264 = 0;
         (*wrapper).sync_checksum_a = 0;
@@ -1002,7 +1003,7 @@ pub unsafe fn init_game_state(wrapper: *mut DDGameWrapper) {
         (*wrapper).frame_delay_counter = (((*game_info)._field_f340 != 0) as i32).wrapping_sub(1);
 
         (*game_info)._field_f34c = -1;
-        (*wrapper).game_state = crate::engine::game_state::INITIALIZED;
+        (*wrapper).game_state = game_state::INITIALIZED;
 
         // ===== Serialize initial game state =====
         {

@@ -12,6 +12,7 @@ use windows_sys::Win32::System::SystemInformation::GetTickCount;
 
 use crate::address::va;
 use crate::engine::ddgame_wrapper::DDGameWrapper;
+use crate::engine::dispatch_frame::dispatch_frame;
 use crate::engine::game_session::{GameSession, get_game_session};
 use crate::engine::game_state;
 use crate::rebase::rb;
@@ -53,7 +54,7 @@ pub unsafe fn advance_frame() -> u32 {
 
         // Dispatch frame timing via Rust port
         let wrapper = (*session).ddgame_wrapper;
-        crate::engine::dispatch_frame::dispatch_frame(wrapper, time, call_freq);
+        dispatch_frame(wrapper, time, call_freq);
 
         // Return game state (vtable slot 9)
         DDGameWrapper::get_game_state_raw(wrapper)

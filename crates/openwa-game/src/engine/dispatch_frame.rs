@@ -14,6 +14,7 @@ use crate::audio::dssound::DSSound;
 use crate::engine::ddgame::DDGame;
 use crate::engine::ddgame_wrapper::DDGameWrapper;
 use crate::engine::game_session::get_game_session;
+use crate::engine::game_state;
 use crate::input::keyboard::DDKeyboard;
 use crate::rebase::rb;
 use crate::render::display::gfx::DisplayGfx;
@@ -587,7 +588,7 @@ pub unsafe fn dispatch_frame(wrapper: *mut DDGameWrapper, time: u64, freq: u64) 
                 {
                     (*wrapper).game_end_phase = 1;
                     (*wrapper).game_end_speed = 0x10000;
-                    (*wrapper).game_state = crate::engine::game_state::EXIT;
+                    (*wrapper).game_state = game_state::EXIT;
                 }
             }
         }
@@ -852,7 +853,7 @@ pub unsafe fn dispatch_frame(wrapper: *mut DDGameWrapper, time: u64, freq: u64) 
                 && home_lock < (*ddgame)._field_77d4 as i32 / 50
                 && (*wrapper).game_end_phase == 0
             {
-                (*wrapper).game_state = crate::engine::game_state::ROUND_ENDING;
+                (*wrapper).game_state = game_state::ROUND_ENDING;
                 (*wrapper).game_end_clear = 0;
                 (*wrapper).game_end_speed = 0;
 
