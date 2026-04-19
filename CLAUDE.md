@@ -8,7 +8,7 @@ The original WA.exe is a 32-bit x86 Windows PE binary built with MSVC 2005 + MFC
 
 ## Crate Architecture
 
-- **`openwa-core`** — Cross-platform, idiomatic Rust fundamentals. No WA.exe memory references, no Ghidra addresses, no Windows APIs. Currently hosts: `fixed` (16.16 `Fixed` newtype), `log` (file-logging helper), `rng` (WA's LCG PRNG), `scheme` (.wsc parser), `sprite_lzss` (LZSS decompressor), `trig` (sin/cos tables copied byte-for-byte from WA.exe .rdata plus interpolation helpers), `weapon` (Weapon/FireType/FireMethod/SpecialFireSubtype enums). New portable modules migrate here from `openwa-game` as they're confirmed platform-independent. See `crates/openwa-core/CLAUDE.md` for the charter.
+- **`openwa-core`** — Cross-platform, idiomatic Rust fundamentals. No WA.exe memory references, no Ghidra addresses, no Windows APIs. Currently hosts: `fixed` (16.16 `Fixed` + 48.16 `Fixed64` newtypes), `log` (file-logging helper), `rng` (WA's LCG PRNG), `scheme` (.wsc parser), `sprite_lzss` (LZSS decompressor), `trig` (sin/cos tables copied byte-for-byte from WA.exe .rdata plus interpolation helpers), `weapon` (Weapon/FireType/FireMethod/SpecialFireSubtype enums). New portable modules migrate here from `openwa-game` as they're confirmed platform-independent. See `crates/openwa-core/CLAUDE.md` for the charter.
 - **`openwa-game`** — WA.exe-specific code (`i686-pc-windows-msvc` only). Types, addresses, parsers, ASLR rebasing, typed WA function wrappers, **and game logic**. The source of truth for all reverse-engineered type layouts, known addresses, and Rust reimplementations of WA functions. Contains `registry` (structured address database + field registries), `rebase` (ASLR delta), `wa_call` (calling convention helpers), `wa/` (typed handle wrappers), and game logic modules (`game/weapon_fire.rs`, `game/weapon_release.rs`, `audio/sound_ops.rs`, `engine/team_ops.rs`).
 - **`openwa-derive`** — Proc macro crate. Provides `#[derive(FieldRegistry)]` for struct field maps and `#[vtable(...)]` for typed vtable definitions with introspection, calling wrappers, and replacement support.
 - **`openwa-dll`** — Injected DLL (`openwa.dll`): thin hook installation shims (trampolines, `usercall_trampoline!`, `install()`) that wire core's game logic into WA.exe via MinHook. Logs to `OpenWA.log`. Runs registry-driven startup checks automatically at load.
@@ -113,7 +113,7 @@ See `crates/openwa-game/CLAUDE.md` for the full reference on `define_addresses!`
 ## Design Conventions
 
 - Unknown struct fields as `_unknown_XX` padding arrays
-- Fixed-point: `Fixed(i32)` newtype, 16.16 format (0x10000 = 1.0)
+- Fixed-point: `Fixed(i32)` newtype, 16.16 format (0x10000 = 1.0); `Fixed64(i64)` for accumulators that need to grow past `Fixed`'s ±32k integer range.
 - Naked asm uses `naked_asm!` (Rust 1.79+ syntax), not `asm!`
 - **Generic CTask<V> for typed vtables**: `CTask<V: Vtable = *const c_void>` and `CGameTask<V: Vtable = *const c_void>` take a vtable pointer type parameter. Subclasses specify their typed vtable: `CTaskTeam { base: CTask<*const CTaskTeamVTable> }`. The `Vtable` marker trait is auto-implemented by the `#[vtable]` macro. `FieldRegistry` derive supports generics by substituting type params with their defaults for `offset_of`/`size_of`.
 - **`Task` trait**: Provides `task()`, `ddgame()`, `as_task_ptr()`, `as_task_ptr_mut()`, and `broadcast_message()` on all CTask subclasses. Eliminates `.base.base` chains. Implemented for all task types in `task/mod.rs`.

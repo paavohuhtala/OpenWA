@@ -15,7 +15,7 @@ If a piece of code needs any of the above, it belongs in `openwa-game`.
 
 ## Currently hosted
 
-- **`fixed`** — `Fixed(i32)` 16.16 newtype with arithmetic impls. The fundamental numeric type for coordinates and velocities across the project.
+- **`fixed`** — `Fixed(i32)` 16.16 newtype with arithmetic impls; the fundamental numeric type for coordinates and velocities across the project. Also `Fixed64(i64)` — same 16 fractional bits, 48 integer bits, for accumulators that would overflow `Fixed` (replay-clock counters on `DDGame`).
 - **`log`** — file-logging helper (`log_line`). Writes to `OpenWA.log` or the path in `OPENWA_LOG_PATH`.
 - **`rng`** — WA's LCG PRNG (`wa_lcg(state) = state * 0x19660D + 0x3C6EF35F`).
 - **`scheme`** — `.wsc` scheme file parser. Reads Worms Armageddon game settings files; has an integration test suite against real WA fixtures.
