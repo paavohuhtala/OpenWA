@@ -9,25 +9,26 @@
 //! - **A**: top state transition (`hud_status_code ∈ {6, 8}` → phase/state arm).
 //! - **B**: PollInput + GameSession replay accumulators. Skipped when
 //!   `game_end_phase ∈ {1, 2, 6, 7, 9}`.
-//! - **D**: end-game state dispatch keyed on `wrapper.game_state` (NOT
-//!   `game_end_phase`, despite the Ghidra `ON_GAME_END_PHASE{2,3,4}` names):
-//!   - `game_state == 2` → `FUN_00536470` (usercall EDI=ESI=wrapper)
-//!   - `game_state == 3` → `FUN_00536320` (usercall EDI=ESI=wrapper)
-//!   - `game_state == 4` → `FUN_005365A0` (usercall ESI=wrapper)
+//! - **D**: end-game state dispatch keyed on `wrapper.game_state`:
+//!   - `game_state == 2` → `DDGameWrapper__OnGameState2` (usercall EDI=ESI=wrapper)
+//!   - `game_state == 3` → `DDGameWrapper__OnGameState3` (usercall EDI=ESI=wrapper)
+//!   - `game_state == 4` → `DDGameWrapper__OnGameState4` (usercall ESI=wrapper)
 //! - **E/F**: two `_field_f34c` sentinel blocks — broadcast msg 0x7A and
 //!   reset/adjust `remaining`.
 //! - **G**: headful-only keyboard/palette vtable slot calls.
 //! - **H**: end-of-round body. Fires when `game_state == 4 || phase != 0`.
-//!   Runs `ClearWormBuffers(-1)`, `AdvanceFrame`, and — if the headless log
-//!   stream is non-null — writes the inline end-of-round stats block.
+//!   Runs `ClearWormBuffers(-1)`, `AdvanceWormFrame`, and — if the headless
+//!   log stream is non-null — writes the inline end-of-round stats block.
 //! - **Return**: `IsReplayMode() || (speed_target,speed) unchanged` on the
 //!   non-H path; `false` unconditionally when the log block was written
-//!   (disasm 0x52a76e / 0x52a7e3 `XOR AL, AL`). The forced-false after the
+//!   (disasm 0x52A76E / 0x52A7E3 `XOR AL, AL`). The forced-false after the
 //!   log is what lets headless `/getlog` runs terminate after one log
 //!   emission — `ProcessFrame` sets `exit_flag` when `advance_frame()`
 //!   returns `game_state == 4`.
 
 use core::ffi::{c_char, c_void};
+
+use windows_sys::Win32::Globalization::GetACP;
 
 use crate::address::va;
 use crate::engine::ddgame::DDGame;
@@ -35,25 +36,25 @@ use crate::engine::ddgame_wrapper::DDGameWrapper;
 use crate::engine::dispatch_frame::is_replay_mode;
 use crate::engine::game_session::get_game_session;
 use crate::rebase::rb;
+use crate::task::{CTask, CTaskTurnGame};
 
 // ─── Runtime addresses (resolved at DLL load) ──────────────────────────────
 
 static mut POLL_INPUT_ADDR: u32 = 0;
 static mut INPUT_HOOK_MODE_ADDR: u32 = 0;
-static mut ON_GAME_END_PHASE1_ADDR: u32 = 0;
+static mut BEGIN_NETWORK_GAME_END_ADDR: u32 = 0;
 static mut ON_GAME_STATE_2_ADDR: u32 = 0;
 static mut ON_GAME_STATE_3_ADDR: u32 = 0;
 static mut ON_GAME_STATE_4_ADDR: u32 = 0;
 static mut CLEAR_WORM_BUFFERS_ADDR: u32 = 0;
 static mut ADVANCE_WORM_FRAME_ADDR: u32 = 0;
-static mut LOAD_LOG_LABEL_A_ADDR: u32 = 0;
-static mut LOAD_LOG_LABEL_B_ADDR: u32 = 0;
+static mut WRITE_LOG_TIMESTAMP_PREFIX_ADDR: u32 = 0;
+static mut WRITE_LOG_TEAM_LABEL_ADDR: u32 = 0;
 static mut CLASSIFY_INPUT_MSG_ADDR: u32 = 0;
 static mut DISPATCH_INPUT_MSG_ADDR: u32 = 0;
 static mut WRITE_HEADLESS_LOG_ADDR: u32 = 0;
 static mut WA_LOAD_STRING_ADDR: u32 = 0;
-static mut CODEPAGE_LUT_BUILDER_ADDR: u32 = 0;
-static mut CRT_IOB_FUNC_ADDR: u32 = 0;
+static mut CODEPAGE_BUILD_LUT_ADDR: u32 = 0;
 static mut CRT_SPRINTF_ADDR: u32 = 0;
 
 /// Initialize bridge addresses. Called once at DLL load.
@@ -61,20 +62,19 @@ pub unsafe fn init_step_frame_addrs() {
     unsafe {
         POLL_INPUT_ADDR = rb(va::DDGAMEWRAPPER_POLL_INPUT);
         INPUT_HOOK_MODE_ADDR = rb(va::G_INPUT_HOOK_MODE);
-        ON_GAME_END_PHASE1_ADDR = rb(va::DDGAMEWRAPPER_ON_GAME_END_PHASE1);
-        ON_GAME_STATE_2_ADDR = rb(va::DDGAMEWRAPPER_ON_GAME_END_PHASE2);
-        ON_GAME_STATE_3_ADDR = rb(va::DDGAMEWRAPPER_ON_GAME_END_PHASE3);
-        ON_GAME_STATE_4_ADDR = rb(va::DDGAMEWRAPPER_ON_GAME_END_PHASE4);
+        BEGIN_NETWORK_GAME_END_ADDR = rb(va::DDGAMEWRAPPER_BEGIN_NETWORK_GAME_END);
+        ON_GAME_STATE_2_ADDR = rb(va::DDGAMEWRAPPER_ON_GAME_STATE_2);
+        ON_GAME_STATE_3_ADDR = rb(va::DDGAMEWRAPPER_ON_GAME_STATE_3);
+        ON_GAME_STATE_4_ADDR = rb(va::DDGAMEWRAPPER_ON_GAME_STATE_4);
         CLEAR_WORM_BUFFERS_ADDR = rb(va::DDGAMEWRAPPER_CLEAR_WORM_BUFFERS);
         ADVANCE_WORM_FRAME_ADDR = rb(va::DDGAMEWRAPPER_ADVANCE_WORM_FRAME);
-        LOAD_LOG_LABEL_A_ADDR = rb(va::DDGAMEWRAPPER_LOAD_LOG_LABEL_A);
-        LOAD_LOG_LABEL_B_ADDR = rb(va::DDGAMEWRAPPER_LOAD_LOG_LABEL_B);
-        CLASSIFY_INPUT_MSG_ADDR = rb(va::DDGAMEWRAPPER_CLASSIFY_INPUT_MSG);
+        WRITE_LOG_TIMESTAMP_PREFIX_ADDR = rb(va::DDGAMEWRAPPER_WRITE_LOG_TIMESTAMP_PREFIX);
+        WRITE_LOG_TEAM_LABEL_ADDR = rb(va::DDGAMEWRAPPER_WRITE_LOG_TEAM_LABEL);
+        CLASSIFY_INPUT_MSG_ADDR = rb(va::BUFFER_OBJECT_CLASSIFY_INPUT_MSG);
         DISPATCH_INPUT_MSG_ADDR = rb(va::DDGAMEWRAPPER_DISPATCH_INPUT_MSG);
-        WRITE_HEADLESS_LOG_ADDR = rb(va::DDGAMEWRAPPER_FORMAT_FRAME_TIMESTAMP);
+        WRITE_HEADLESS_LOG_ADDR = rb(va::DDGAMEWRAPPER_WRITE_HEADLESS_LOG);
         WA_LOAD_STRING_ADDR = rb(va::WA_LOAD_STRING);
-        CODEPAGE_LUT_BUILDER_ADDR = rb(va::CODEPAGE_LUT_BUILDER);
-        CRT_IOB_FUNC_ADDR = rb(va::CRT_IOB_FUNC);
+        CODEPAGE_BUILD_LUT_ADDR = rb(va::CODEPAGE_BUILD_LUT);
         CRT_SPRINTF_ADDR = rb(va::CRT_SPRINTF);
     }
 }
@@ -90,43 +90,39 @@ unsafe extern "stdcall" fn bridge_poll_input(wrapper: *mut DDGameWrapper) {
     }
 }
 
-/// FUN_00536270 — end-game phase-1 arm (network-mode scoreboard reset).
-/// Usercall(EAX=wrapper), no stack args, plain RET.
+/// `DDGameWrapper__BeginNetworkGameEnd` (0x00536270) — network-mode entry
+/// from Block A when `network_ecx != 0`. Usercall(EAX=wrapper), plain RET.
 #[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_on_game_end_phase1(_wrapper: *mut DDGameWrapper) {
+unsafe extern "stdcall" fn bridge_begin_network_game_end(_wrapper: *mut DDGameWrapper) {
     core::arch::naked_asm!(
         "popl %ecx",
         "popl %eax",
         "pushl %ecx",
         "jmpl *({fn})",
-        fn = sym ON_GAME_END_PHASE1_ADDR,
+        fn = sym BEGIN_NETWORK_GAME_END_ADDR,
         options(att_syntax),
     );
 }
 
-/// FUN_00536470 — game_state==2 handler.
-/// Usercall(EDI=wrapper, ESI=wrapper), no stack args, plain RET.
-///
-/// Save/restore ESI+EDI because they're callee-saved in the MS x86 ABI;
-/// this trampoline clobbers both to set up the usercall register inputs.
+/// `DDGameWrapper__OnGameState2` (0x00536470). Usercall(EDI=ESI=wrapper),
+/// plain RET. Save/restore ESI+EDI — they're callee-saved in the MS x86 ABI.
 #[unsafe(naked)]
 unsafe extern "stdcall" fn bridge_on_game_state_2(_wrapper: *mut DDGameWrapper) {
     core::arch::naked_asm!(
         "pushl %esi",
         "pushl %edi",
-        "movl 12(%esp), %edi",    // wrapper arg: ret@+8, arg@+12
+        "movl 12(%esp), %edi",
         "movl %edi, %esi",
         "call *({fn})",
         "popl %edi",
         "popl %esi",
-        "retl $4",                // stdcall: clean 1 stack arg
+        "retl $4",
         fn = sym ON_GAME_STATE_2_ADDR,
         options(att_syntax),
     );
 }
 
-/// FUN_00536320 — game_state==3 handler.
-/// Usercall(EDI=wrapper, ESI=wrapper), no stack args, plain RET.
+/// `DDGameWrapper__OnGameState3` (0x00536320). Usercall(EDI=ESI=wrapper), plain RET.
 #[unsafe(naked)]
 unsafe extern "stdcall" fn bridge_on_game_state_3(_wrapper: *mut DDGameWrapper) {
     core::arch::naked_asm!(
@@ -143,13 +139,12 @@ unsafe extern "stdcall" fn bridge_on_game_state_3(_wrapper: *mut DDGameWrapper) 
     );
 }
 
-/// FUN_005365A0 — game_state==4 handler.
-/// Usercall(ESI=wrapper), no stack args, plain RET.
+/// `DDGameWrapper__OnGameState4` (0x005365A0). Usercall(ESI=wrapper), plain RET.
 #[unsafe(naked)]
 unsafe extern "stdcall" fn bridge_on_game_state_4(_wrapper: *mut DDGameWrapper) {
     core::arch::naked_asm!(
         "pushl %esi",
-        "movl 8(%esp), %esi",     // wrapper arg: ret@+4, arg@+8
+        "movl 8(%esp), %esi",
         "call *({fn})",
         "popl %esi",
         "retl $4",
@@ -158,7 +153,7 @@ unsafe extern "stdcall" fn bridge_on_game_state_4(_wrapper: *mut DDGameWrapper) 
     );
 }
 
-/// FUN_0055C300 — ClearWormBuffers(task, flag). Stdcall, RET 0x8.
+/// `DDGameWrapper__ClearWormBuffers` (0x0055C300). Stdcall(task, flag), RET 0x8.
 unsafe extern "stdcall" fn bridge_clear_worm_buffers(task: *mut u8, flag: i32) {
     unsafe {
         let func: unsafe extern "stdcall" fn(*mut u8, i32) =
@@ -167,7 +162,7 @@ unsafe extern "stdcall" fn bridge_clear_worm_buffers(task: *mut u8, flag: i32) {
     }
 }
 
-/// FUN_0055C590 — AdvanceFrame(task). Stdcall, RET 0x4.
+/// `DDGameWrapper__AdvanceWormFrame` (0x0055C590). Stdcall(task), RET 0x4.
 unsafe extern "stdcall" fn bridge_advance_worm_frame(task: *mut u8) {
     unsafe {
         let func: unsafe extern "stdcall" fn(*mut u8) =
@@ -178,41 +173,43 @@ unsafe extern "stdcall" fn bridge_advance_worm_frame(task: *mut u8) {
 
 // ─── End-of-round log bridges ──────────────────────────────────────────────
 
-/// FUN_0053F100 — writes `[...] ` timestamp prefix line(s) to the headless
-/// log stream. Usercall(EDI=ddgame), no stack args, plain RET.
+/// `DDGameWrapper__WriteLogTimestampPrefix` (0x0053F100) — emits the
+/// `[hh:mm:ss.cc] ` (or `[ts1] [ts2] `) prefix. Usercall(EDI=ddgame), plain RET.
 #[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_load_log_label_a(_ddgame: *mut DDGame) {
+unsafe extern "stdcall" fn bridge_write_log_timestamp_prefix(_ddgame: *mut DDGame) {
     core::arch::naked_asm!(
         "pushl %edi",
-        "movl 8(%esp), %edi",     // ddgame arg
+        "movl 8(%esp), %edi",
         "call *({fn})",
         "popl %edi",
         "retl $4",
-        fn = sym LOAD_LOG_LABEL_A_ADDR,
+        fn = sym WRITE_LOG_TIMESTAMP_PREFIX_ADDR,
         options(att_syntax),
     );
 }
 
-/// FUN_0053F190 — writes team name and (optional) "(bank)" suffix for
-/// the end-of-round header. Usercall(EAX=team_index_plus_one, EDI=ddgame),
-/// no stack args, plain RET.
+/// `DDGameWrapper__WriteLogTeamLabel` (0x0053F190) — emits the team name
+/// plus optional `(bank)` suffix. Usercall(EAX=team_idx_plus_one, EDI=ddgame),
+/// plain RET.
 #[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_load_log_label_b(_ddgame: *mut DDGame, _team_idx_plus_1: u32) {
+unsafe extern "stdcall" fn bridge_write_log_team_label(
+    _ddgame: *mut DDGame,
+    _team_idx_plus_1: u32,
+) {
     core::arch::naked_asm!(
         "pushl %edi",
-        "movl 8(%esp), %edi",     // ddgame (arg 0): ret@+4, arg0@+8
-        "movl 12(%esp), %eax",    // team_idx_plus_1 (arg 1): at +12
+        "movl 8(%esp), %edi",
+        "movl 12(%esp), %eax",
         "call *({fn})",
         "popl %edi",
-        "retl $8",                // stdcall: clean 2 stack args
-        fn = sym LOAD_LOG_LABEL_B_ADDR,
+        "retl $8",
+        fn = sym WRITE_LOG_TEAM_LABEL_ADDR,
         options(att_syntax),
     );
 }
 
-/// FUN_00541100 — classifies a queued input message.
-/// Thiscall(ECX=render_buffer_a), no stack args. Returns u64 in EDX:EAX.
-/// The caller reads EAX (nonzero = keep going) and EDX (msg subtype).
+/// `BufferObject__ClassifyInputMsg` (0x00541100). Thiscall(ECX=render_buffer),
+/// returns packed u64 (EDX:EAX): EAX=keep-going flag, EDX=msg subtype.
 unsafe extern "thiscall" fn bridge_classify_input_msg(_render_buffer: *mut u8) -> u64 {
     unsafe {
         let func: unsafe extern "thiscall" fn(*mut u8) -> u64 =
@@ -221,9 +218,8 @@ unsafe extern "thiscall" fn bridge_classify_input_msg(_render_buffer: *mut u8) -
     }
 }
 
-/// FUN_00530F80 — dispatches an input message.
-/// Usercall(EAX=local_buf_ptr) + stdcall(wrapper, msg_type, payload_size),
-/// RET 0xC (callee cleans 3 stack args).
+/// `DDGameWrapper__DispatchInputMsg` (0x00530F80). Usercall(EAX=local_buf) +
+/// stdcall(wrapper, msg_type, payload_size), RET 0xC.
 #[unsafe(naked)]
 unsafe extern "stdcall" fn bridge_dispatch_input_msg(
     _buf: *const u8,
@@ -232,18 +228,17 @@ unsafe extern "stdcall" fn bridge_dispatch_input_msg(
     _size: u32,
 ) {
     core::arch::naked_asm!(
-        "popl %ecx",              // return addr
-        "popl %eax",              // buf ptr → EAX
-        "pushl %ecx",             // restore ret
+        "popl %ecx",
+        "popl %eax",
+        "pushl %ecx",
         "jmpl *({fn})",
         fn = sym DISPATCH_INPUT_MSG_ADDR,
         options(att_syntax),
     );
 }
 
-/// DDGameWrapper__WriteHeadlessLog (0x53F0A0).
-/// Usercall(EAX=frame_counter_like, stdcall(fmt_fn, buffer)), RET 0x8.
-/// Used to render timestamps into stack buffers for the per-team stat line.
+/// `DDGameWrapper__WriteHeadlessLog` (0x0053F0A0). Usercall(EAX=frame_counter,
+/// stdcall(sprintf_fn, buf)), RET 0x8. Renders a `HH:MM:SS.CC` string into `buf`.
 #[unsafe(naked)]
 unsafe extern "stdcall" fn bridge_write_headless_log(
     _frame_ctx: i32,
@@ -252,7 +247,7 @@ unsafe extern "stdcall" fn bridge_write_headless_log(
 ) {
     core::arch::naked_asm!(
         "popl %ecx",
-        "popl %eax",              // frame_ctx → EAX
+        "popl %eax",
         "pushl %ecx",
         "jmpl *({fn})",
         fn = sym WRITE_HEADLESS_LOG_ADDR,
@@ -260,8 +255,7 @@ unsafe extern "stdcall" fn bridge_write_headless_log(
     );
 }
 
-/// FUN_00593180 — loads a localized string resource by ID.
-/// Stdcall(resource_id), returns pointer in EAX.
+/// `WA__LoadStringResource` (0x00593180). Stdcall(resource_id) → pointer.
 unsafe fn wa_load_string(id: u32) -> *const c_char {
     unsafe {
         let func: unsafe extern "stdcall" fn(u32) -> *const c_char =
@@ -270,16 +264,15 @@ unsafe fn wa_load_string(id: u32) -> *const c_char {
     }
 }
 
-/// FUN_00592280 — codepage LUT builder.
-/// Usercall(EAX=codepage), returns LUT pointer in EAX.
+/// `Codepage__BuildLut` (0x00592280). Usercall(EAX=codepage) → LUT pointer.
 #[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_codepage_lut_builder(_acp: u32) -> *const u8 {
+unsafe extern "stdcall" fn bridge_codepage_build_lut(_acp: u32) -> *const u8 {
     core::arch::naked_asm!(
         "popl %ecx",
-        "popl %eax",              // acp → EAX
+        "popl %eax",
         "pushl %ecx",
         "jmpl *({fn})",
-        fn = sym CODEPAGE_LUT_BUILDER_ADDR,
+        fn = sym CODEPAGE_BUILD_LUT_ADDR,
         options(att_syntax),
     );
 }
@@ -365,18 +358,14 @@ unsafe fn snprintf_s_ptr() -> usize {
     rb(va::CRT_SNPRINTF_S) as usize
 }
 
-/// Lazily build the codepage LUT (via GetACP + FUN_00592280), then recode
-/// the scratch buffer in-place.
+/// Lazily build the codepage LUT via `GetACP` + `Codepage__BuildLut`,
+/// then recode the scratch buffer in place.
 unsafe fn codepage_recode_scratch() {
     unsafe {
         let lut_slot = rb(va::G_CODEPAGE_LUT) as *mut u32;
         if *lut_slot == 0 {
-            // Call kernel32.GetACP via its IAT pointer, then the WA LUT
-            // builder with the returned codepage in EAX.
-            let getacp_ptr = *(rb(va::KERNEL32_GETACP_IAT) as *const u32) as usize;
-            let getacp: unsafe extern "system" fn() -> u32 = core::mem::transmute(getacp_ptr);
-            let acp = getacp();
-            *lut_slot = bridge_codepage_lut_builder(acp) as u32;
+            let acp = GetACP();
+            *lut_slot = bridge_codepage_build_lut(acp) as u32;
         }
         let lut = *lut_slot as *const u8;
         let mut p = rb(va::G_LOG_SCRATCH_BUF) as *mut u8;
@@ -444,23 +433,21 @@ pub unsafe fn step_frame(
                 (*wrapper).game_end_speed = 0;
                 if game_info.game_version >= 0x4d {
                     let task = (*wrapper).task_turn_game;
-                    crate::task::CTaskTurnGame::handle_message_raw(
+                    CTaskTurnGame::handle_message_raw(
                         task,
-                        task as *mut crate::task::CTask,
+                        task as *mut CTask,
                         0x75,
                         0,
                         core::ptr::null(),
                     );
                 }
             } else {
-                bridge_on_game_end_phase1(wrapper);
+                bridge_begin_network_game_end(wrapper);
             }
         }
 
         // ── Block B: PollInput + session accumulator ──────────────────
-        //
-        // Skip set is {1, 2, 6, 7, 9}. (The original current-state Rust was
-        // missing phase 2; re-added here to match disasm at 0x529FAA-CA.)
+        // Skip set is {1, 2, 6, 7, 9} (disasm 0x529FAA-CA).
         let phase_for_skip = (*wrapper).game_end_phase;
         let skip_input = matches!(phase_for_skip, 1 | 2 | 6 | 7 | 9);
         if !skip_input {
@@ -503,9 +490,9 @@ pub unsafe fn step_frame(
             (*wrapper)._field_404 = 1;
             if (*ddgame).fast_forward_active == 0 {
                 let task = (*wrapper).task_turn_game;
-                crate::task::CTaskTurnGame::handle_message_raw(
+                CTaskTurnGame::handle_message_raw(
                     task,
-                    task as *mut crate::task::CTask,
+                    task as *mut CTask,
                     0x7a,
                     0,
                     core::ptr::null(),
@@ -536,11 +523,7 @@ pub unsafe fn step_frame(
         }
 
         // ── Block H: end-of-round body ────────────────────────────────
-        //
-        // Fires when `game_state == 4 || game_end_phase != 0` (disasm at
-        // 0x52A15D-0x52A172). Runs ClearWormBuffers + AdvanceFrame, then
-        // — if the headless log stream is non-null — emits the inline
-        // end-of-round stats block.
+        // Fires on `game_state == 4 || game_end_phase != 0` (disasm 0x52A15D).
         let fire_h = (*wrapper).game_state == 4 || (*wrapper).game_end_phase != 0;
         if fire_h {
             let task = (*wrapper).task_turn_game;
@@ -548,21 +531,17 @@ pub unsafe fn step_frame(
             bridge_advance_worm_frame(task as *mut u8);
 
             if headless_stream(game_info_ptr).is_null() {
-                // Log disabled — skip both the banner/drain block (0x52a19d)
-                // and the per-team stats block (0x52a408).
                 return step_frame_return(wrapper, ddgame, game_speed_target, game_speed);
             }
 
             log_end_of_round(wrapper, ddgame, game_info_ptr);
 
-            // Every log-taking exit path in the original returns `AL=0`
-            // (disasm: 0x52a76e / 0x52a7e3 `XOR AL, AL`). Falling through
-            // to `step_frame_return` would return true via IsReplayMode /
-            // speed match, keeping dispatch_frame's loop alive. Headless
-            // mode needs this false to trigger
-            // `ProcessFrame::exit_flag = 1` (see process_frame.rs:156-161)
-            // and terminate after the first log write — otherwise the log
-            // block is re-emitted every end-of-round frame.
+            // Every log-taking exit returns AL=0 in the original (disasm
+            // 0x52A76E / 0x52A7E3 `XOR AL, AL`). Falling through to
+            // `step_frame_return` here would return true via IsReplayMode
+            // or speed match and keep dispatch_frame's loop alive, which
+            // suppresses `ProcessFrame::exit_flag` and causes the log to
+            // re-emit every end-of-round tick.
             return false;
         }
 
@@ -590,16 +569,10 @@ unsafe fn step_frame_return(
 
 // ─── End-of-round headless log ─────────────────────────────────────────────
 
-/// Disasm offsets for the body below (all inside `DDGameWrapper__StepFrame`):
-/// - Banner block: 0x52A19D-0x52A32E
-/// - HUD suffix: 0x52A273-0x52A313
-/// - putc('\n'): 0x52A313-0x52A32E
-/// - Input-queue drain: 0x52A32E-0x52A407 (gated by replay_flag_a && !replay_config_flag)
-/// - Per-team label-width pass: 0x52A408-0x52A4BE
-/// - Per-team stats header: 0x52A4C0-0x52A553
-/// - Per-team stats loop: 0x52A580-0x52A712
-/// - putc('\n'): 0x52A712-0x52A72A
-/// - End-of-round turn count: 0x52A72A-0x52A7EF
+/// End-of-round stats block. Corresponds to the inline log at 0x52A19D-0x52A7EF
+/// inside the original `DDGameWrapper__StepFrame`. Emits: timestamp banner,
+/// optional HUD-status suffix, input-queue drain (replay mode only), per-team
+/// turn/retreat/total stats, and the optional turn-count footer.
 unsafe fn log_end_of_round(
     wrapper: *mut DDGameWrapper,
     ddgame: *mut DDGame,
@@ -609,17 +582,13 @@ unsafe fn log_end_of_round(
         let stream = headless_stream(game_info_ptr);
         let game_info = &*game_info_ptr;
 
-        // ── Banner ───────────────────────────────────────────────────
-        // CALL FUN_0053f100 — writes "[ts] " or "[ts1] [ts2] " prefix.
-        bridge_load_log_label_a(ddgame);
+        // ── Banner: timestamp prefix + "••• " + "<Game> - <phase label>" ──
+        bridge_write_log_timestamp_prefix(ddgame);
 
-        // fprintf(stream, "••• ") — bullet banner prefix (no variadic args).
         let banner_prefix = rb(va::G_LOG_BANNER_PREFIX) as *const u8;
         let fprintf1: Fprintf1 = core::mem::transmute(fprintf_ptr());
         fprintf1(stream, banner_prefix);
 
-        // Load localized "phase label" (via resource id phase_labels[phase])
-        // and "Game" label (resource 0x70E).
         let phase = (*wrapper).game_end_phase;
         let phase_label = wa_load_string(phase_label_resource(phase));
         let game_label = wa_load_string(0x70e);
@@ -667,34 +636,32 @@ unsafe fn log_end_of_round(
             }
         }
 
-        // putc('\n', stream).
         call_putc(b'\n' as i32, stream);
 
-        // ── Input-queue drain ────────────────────────────────────────
-        // Gated on `wrapper.replay_flag_a != 0 && !game_info.replay_config_flag`.
+        // ── Input-queue drain (replay mode only) ─────────────────────
         if (*wrapper).replay_flag_a != 0 && game_info.replay_config_flag == 0 {
-            // Call vtable[2] (send_game_state) with (render_buffer_a, 0, 0).
             let render_buf = (*wrapper).render_buffer_a;
             let vtable = (*wrapper).vtable;
-            let slot2 = (*vtable).send_game_state;
-            slot2(wrapper, render_buf, 0, 0);
-
+            ((*vtable).send_game_state)(wrapper, render_buf, 0, 0);
             input_queue_drain(wrapper);
         }
 
         // ── Per-team stats block ─────────────────────────────────────
-        //
-        // Re-checks headless_log_stream (redundant for us, but matches the
-        // original) then runs if speech_team_count > 0.
+        // Re-checks headless_log_stream (matches the original 0x52A413 JZ);
+        // runs when `speech_team_count > 0`.
         if headless_stream(game_info_ptr).is_null() {
             return;
         }
         let num_teams = game_info.num_teams;
         let speech_count = game_info.speech_team_count;
 
-        // Local aiStack_420 — per-team label widths + max width.
-        // The original computes them but the widths are only used as input
-        // to `:%*s ` padding in the per-team loop. We need to match exactly.
+        // Per-team label widths feed the `:%*s ` column padding in the
+        // per-team loop below. Team record layout (stride 3000 bytes from
+        // game_info+0x450):
+        //   +0 (i8) speech_bank_id (-1 = no bank)
+        //   +6 (c_str) team name
+        // Bank-name lookup when `num_teams != 0 && speech_bank_id >= 0`:
+        //   game_info + speech_bank_id * 0x50 + 4 → c_str bank name
         const MAX_TEAMS: usize = 32;
         let mut label_widths: [i32; MAX_TEAMS] = [0; MAX_TEAMS];
         let mut max_width: i32 = 0;
@@ -704,15 +671,13 @@ unsafe fn log_end_of_round(
             let team_records_base = gi_base.add(0x450);
             for i in 0..(speech_count as usize).min(MAX_TEAMS) {
                 let record = team_records_base.add(i * 3000);
-                // Team name strlen at record+6.
                 let name_start = record.add(6);
                 let mut p = name_start;
                 while *p != 0 {
                     p = p.add(1);
                 }
-                // Reproduce original: `name_end - (record + 7)` = name_len - 1.
+                // name_len - 1 (mirrors original `name_end - (record + 7)`).
                 let mut width = (p as isize - record.add(7) as isize) as i32;
-                // If num_teams != 0 and speech_bank_id >= 0, add bank name length + 3.
                 let speech_bank_id = *(record as *const i8);
                 if num_teams != 0 && speech_bank_id >= 0 {
                     let bank = gi_base.add((speech_bank_id as usize) * 0x50 + 4);
@@ -720,12 +685,9 @@ unsafe fn log_end_of_round(
                     while *bp != 0 {
                         bp = bp.add(1);
                     }
-                    let bank_len_end = bp;
-                    // Exactly the original expression:
-                    //   bank_end + (name_end - (record+7)) + (3 - (bank+1))
-                    // = bank_end - bank - 1 + name_len - 1 + 3
-                    // = bank_len + name_len_minus_1 + 2
-                    width = bank_len_end as i32 + width + (3 - (bank.add(1) as i32));
+                    // = bank_len + name_len_minus_1 + 2 (expanded literally from
+                    // the original `bank_end + (name_end-(record+7)) + (3-(bank+1))`).
+                    width = bp as i32 + width + (3 - (bank.add(1) as i32));
                 }
                 label_widths[i] = width;
                 if max_width < width {
@@ -734,7 +696,7 @@ unsafe fn log_end_of_round(
             }
         }
 
-        // Header print: WA_LOAD_STRING(0x71D) → "\n%s\n".
+        // Header: "\n%s\n" with resource 0x71D ("Team time totals:").
         let stats_header_label = wa_load_string(0x71d);
         let fmt_stats_header = rb(va::G_FMT_STATS_HEADER) as *const u8;
         if codepage_recode_on() {
@@ -754,10 +716,9 @@ unsafe fn log_end_of_round(
 
         // Per-team loop (1..=speech_count).
         if speech_count > 0 {
-            // Stack buffers — the original uses auStack_440, auStack_450,
-            // auStack_430 (16 bytes each for WriteHeadlessLog timestamps).
-            // WriteHeadlessLog writes `HH:MM:SS.CC\0` (12 bytes) so 16 is
-            // safe.
+            // WriteHeadlessLog formats a `HH:MM:SS.CC\0` (12 bytes) into
+            // each buffer — 16 bytes leaves slack to match the original
+            // stack layout (auStack_440 / auStack_450 / auStack_430).
             let mut buf_a: [u8; 16] = [0; 16];
             let mut buf_b: [u8; 16] = [0; 16];
             let mut buf_c: [u8; 16] = [0; 16];
@@ -765,10 +726,9 @@ unsafe fn log_end_of_round(
             for i in 0..speech_count as u32 {
                 let team_idx_plus_1 = i + 1;
 
-                // Print team label header (localized) via fprintf/snprintf
-                // with ":%*s " — width = max_width - label_widths[i], string
-                // is the empty string at 0x643F2B.
-                bridge_load_log_label_b(ddgame, team_idx_plus_1);
+                // Team name + optional `(bank)` header, then `:%*s ` column
+                // padding with the empty string at `G_EMPTY_CSTR`.
+                bridge_write_log_team_label(ddgame, team_idx_plus_1);
 
                 let pad_width = max_width - label_widths[i as usize];
                 let empty = rb(va::G_EMPTY_CSTR) as *const u8;
@@ -789,60 +749,56 @@ unsafe fn log_end_of_round(
                     fprintf4(stream, fmt_pad, pad_width, empty);
                 }
 
-                // Per-team stat fields live at offsets relative to ddgame's
-                // team-stats table. The disasm uses EBP=0x7EC0 as the base
-                // offset and steps +4 per team (but for `[EDX+EBP*1 + ...]`
-                // indexing — so EBP is per-team). Let's mirror the disasm:
-                //   time_total   = [ddgame + 0x7EC0 + i*4]        (EBP)
-                //   time_used    = [ddgame + 0x7EC0 + i*4 - 0x18] (-0x18)
-                //   turn_count   = [ddgame + 0x7EC0 + i*4 + 0x18] (+0x18)
+                // Per-team stat fields (disasm 0x52A59D-0x52A614, using
+                // EBP = 0x7EC0 + i*4 as the indexing base):
+                //   time_total = [ddgame + 0x7EC0 + i*4]
+                //   time_used  = [ddgame + 0x7EC0 + i*4 - 0x18]
+                //   turn_count = [ddgame + 0x7EC0 + i*4 + 0x18]
                 let ebp = 0x7ec0u32 + i * 4;
                 let dd_base = ddgame as *const u8;
                 let time_total = *(dd_base.add(ebp as usize) as *const i32);
                 let time_used = *(dd_base.add((ebp - 0x18) as usize) as *const i32);
                 let turn_count_u = *(dd_base.add((ebp + 0x18) as usize) as *const u32);
 
-                // WriteHeadlessLog(time_used, sprintf, &buf_a) — time-used.
+                // Render the three timestamp strings via WriteHeadlessLog.
                 bridge_write_headless_log(
                     time_used,
                     CRT_SPRINTF_ADDR as *const c_void,
                     buf_a.as_mut_ptr(),
                 );
-                // WriteHeadlessLog(time_total, sprintf, &buf_b) — time-total.
                 bridge_write_headless_log(
                     time_total,
                     CRT_SPRINTF_ADDR as *const c_void,
                     buf_b.as_mut_ptr(),
                 );
-                // WriteHeadlessLog(time_total + time_used, sprintf, &buf_c).
                 bridge_write_headless_log(
                     time_total.wrapping_add(time_used),
                     CRT_SPRINTF_ADDR as *const c_void,
                     buf_c.as_mut_ptr(),
                 );
 
-                // Load 4 localized labels: 0x721, 0x720, 0x71F, 0x71E.
+                // Localized labels for the fmt slots ("Turn:", "Retreat:",
+                // "Total:", "Turn count:" — not necessarily in that order).
                 let lbl_721 = wa_load_string(0x721);
                 let lbl_720 = wa_load_string(0x720);
                 let lbl_71f = wa_load_string(0x71f);
                 let lbl_71e = wa_load_string(0x71e);
 
-                // Final per-team print: "%s %s, %s %s, %s %s, %s %u\n".
-                // Disasm order (pushes right-to-left):
+                // fprintf(stream, "%s %s, %s %s, %s %s, %s %u\n", ...).
+                // Arg order follows the original disasm pushes (right-to-left):
                 //   push turn_count            (arg 8, u32)
                 //   push lbl_721               (arg 7, the %s before %u)
                 //   push buf_c                 (arg 6)
                 //   push lbl_720               (arg 5)
                 //   push buf_b                 (arg 4)
-                //   push lbl_71f               (arg 3)
-                //   push buf_a                 (arg 2)
-                //   push lbl_71e               (arg 1 of variadic = arg 5 of fprintf)
-                //   push fmt                   (arg 4 of fprintf)
-                //   [push stream]              (arg 1 of fprintf, direct path)
+                //   push lbl_71f
+                //   push buf_a
+                //   push lbl_71e
+                //   push fmt
+                //   [push stream]
                 //   call fprintf
-                //
-                // Variadic order (fmt first → %s slots in order): lbl_71e,
-                // buf_a, lbl_71f, buf_b, lbl_720, buf_c, lbl_721, turn_count.
+                // Variadic slot order: lbl_71e, buf_a, lbl_71f, buf_b,
+                // lbl_720, buf_c, lbl_721, turn_count.
                 let fmt_stats = rb(va::G_FMT_TEAM_STATS) as *const u8;
                 if codepage_recode_on() {
                     let snprintf8: Snprintf8 = core::mem::transmute(snprintf_s_ptr());
@@ -879,10 +835,9 @@ unsafe fn log_end_of_round(
             }
         }
 
-        // putc('\n', stream) after per-team stats.
         call_putc(b'\n' as i32, stream);
 
-        // ── End-of-round turn count line ─────────────────────────────
+        // ── End-of-round turn count (resource 0x722: "Turn count:"). ─
         let turn_count = (*ddgame).round_turn_count;
         if turn_count != 0 {
             let lbl_722 = wa_load_string(0x722);
@@ -908,19 +863,18 @@ unsafe fn log_end_of_round(
 
 /// Drain the replay input queue at `wrapper.render_buffer_a + 0x14`.
 ///
-/// Layout of each queue node (observed in disasm):
-///   +0x00  size (u32) — includes header; payload is `size - 4` bytes
+/// Queue node layout (disasm 0x52A362-0x52A3B0):
+///   +0x00  size (u32; payload is `size - 4` bytes)
 ///   +0x04  next (ptr)
 ///   +0x08  msg_type (u32)
 ///   +0x0C  payload[size - 4]
 ///
-/// Nodes larger than 0x40C are treated as malformed and drop the loop.
+/// Nodes with `size > 0x40C` are treated as malformed and drop the loop.
 unsafe fn input_queue_drain(wrapper: *mut DDGameWrapper) {
     unsafe {
         let mut local_buf: [u8; 0x408] = [0; 0x408];
         let render_buf = (*wrapper).render_buffer_a;
         loop {
-            // list_head at render_buffer_a + 0x14.
             let list_head_slot = render_buf.add(0x14) as *mut *mut u8;
             let node = *list_head_slot;
             if node.is_null() {
@@ -932,7 +886,6 @@ unsafe fn input_queue_drain(wrapper: *mut DDGameWrapper) {
             }
             let payload_size = size.wrapping_sub(4);
             if payload_size != 0 {
-                // memcpy(local_buf, node+0x0C, payload_size).
                 core::ptr::copy_nonoverlapping(
                     node.add(0x0c),
                     local_buf.as_mut_ptr(),
@@ -941,7 +894,6 @@ unsafe fn input_queue_drain(wrapper: *mut DDGameWrapper) {
             }
             let msg_type = *(node.add(0x8) as *const u32);
 
-            // Classify: thiscall(ECX=render_buf), returns u64 = (edx:eax).
             let packed = bridge_classify_input_msg(render_buf);
             let keep = packed as u32;
             let edx = (packed >> 32) as u32;
@@ -949,22 +901,22 @@ unsafe fn input_queue_drain(wrapper: *mut DDGameWrapper) {
                 break;
             }
 
+            // msg_type 0x16 can override `game_end_phase` when the current
+            // phase is 0. edx ∈ {7, 9} aborts the drain entirely.
             if msg_type == 0x16 {
                 if edx == 7 || edx == 9 {
                     break;
                 }
                 let cur_phase = (*wrapper).game_end_phase;
-                if cur_phase == edx {
-                    // fall through to dispatch
-                } else if cur_phase != 0 {
-                    continue; // skip this message, next iteration
-                } else {
+                if cur_phase != edx {
+                    if cur_phase != 0 {
+                        continue;
+                    }
                     (*wrapper).game_end_phase = edx;
                     continue;
                 }
             }
 
-            // Dispatch: usercall(EAX=&local_buf) + stdcall(wrapper, msg_type, payload_size).
             bridge_dispatch_input_msg(local_buf.as_ptr(), wrapper, msg_type, payload_size);
             if msg_type == 2 {
                 let ddgame = (*wrapper).ddgame;

@@ -146,31 +146,42 @@ pub mod va {
             fn/Usercall DDGAMEWRAPPER_PROCESS_NETWORK_FRAME = 0x0053_DF00;
             /// DDGameWrapper__IsReplayMode (usercall EAX=this, no stack params, plain RET)
             fn/Usercall DDGAMEWRAPPER_IS_REPLAY_MODE = 0x0053_7060;
-            /// DDGameWrapper__FormatFrameTimestamp / WriteHeadlessLog (usercall EAX=frame_counter, 2 stdcall params: sprintf_func + buffer, RET 0x8)
-            fn/Usercall DDGAMEWRAPPER_FORMAT_FRAME_TIMESTAMP = 0x0053_F0A0;
-            /// DDGameWrapper__PollInput (stdcall(wrapper), plain RET). Polls keyboard/input each step.
+            /// DDGameWrapper__WriteHeadlessLog — usercall EAX=frame_counter,
+            /// 2 stdcall params: sprintf_func + buffer, RET 0x8.
+            fn/Usercall DDGAMEWRAPPER_WRITE_HEADLESS_LOG = 0x0053_F0A0;
+            /// DDGameWrapper__PollInput — stdcall(wrapper), plain RET. Polls keyboard/input each step.
             fn/Stdcall DDGAMEWRAPPER_POLL_INPUT = 0x0053_4910;
-            // --- StepFrame sub-calls: game-end phase handlers (usercall ESI=wrapper, no args) ---
-            /// game_end_phase=1 arm: scoreboard reset (called when game_info.network_ecx != 0)
-            fn/Usercall DDGAMEWRAPPER_ON_GAME_END_PHASE1 = 0x0053_6270;
-            /// game_end_phase=3 dispatch (may set game_state=4/5). Usercall ESI=wrapper, EDI=wrapper.
-            fn/Usercall DDGAMEWRAPPER_ON_GAME_END_PHASE3 = 0x0053_6320;
-            /// game_end_phase=2 dispatch (turn_percentage countdown). Usercall ESI=wrapper, EDI=wrapper.
-            fn/Usercall DDGAMEWRAPPER_ON_GAME_END_PHASE2 = 0x0053_6470;
-            /// game_end_phase=4 dispatch (final countdown). Usercall ESI=wrapper.
-            fn/Usercall DDGAMEWRAPPER_ON_GAME_END_PHASE4 = 0x0053_65A0;
-            /// StepFrame terminal worm cleanup (stdcall(task_turn_game, i32), RET 0x8). 177 instr.
+            // --- StepFrame sub-calls: end-game state-machine handlers ---
+            /// DDGameWrapper__BeginNetworkGameEnd — network-mode entry (Block A
+            /// non-zero `network_ecx` path). Transitions `game_state` to 3.
+            /// Usercall(EAX=wrapper), no stack args, plain RET.
+            fn/Usercall DDGAMEWRAPPER_BEGIN_NETWORK_GAME_END = 0x0053_6270;
+            /// DDGameWrapper__OnGameState2. Usercall(EDI=ESI=wrapper), plain RET.
+            fn/Usercall DDGAMEWRAPPER_ON_GAME_STATE_2 = 0x0053_6470;
+            /// DDGameWrapper__OnGameState3. Usercall(EDI=ESI=wrapper), plain RET.
+            fn/Usercall DDGAMEWRAPPER_ON_GAME_STATE_3 = 0x0053_6320;
+            /// DDGameWrapper__OnGameState4. Usercall(ESI=wrapper), plain RET.
+            /// Increments `game_end_speed` by 0x51E per call; transitions to
+            /// `game_state = 5` (EXIT) once the high word reaches 1 (~50 frames).
+            fn/Usercall DDGAMEWRAPPER_ON_GAME_STATE_4 = 0x0053_65A0;
+            /// DDGameWrapper__ClearWormBuffers — stdcall(task_turn_game, i32), RET 0x8.
             fn/Stdcall DDGAMEWRAPPER_CLEAR_WORM_BUFFERS = 0x0055_C300;
-            /// StepFrame terminal frame advance (stdcall(task_turn_game), RET 0x4). 251 instr.
+            /// DDGameWrapper__AdvanceWormFrame — stdcall(task_turn_game), RET 0x4.
             fn/Stdcall DDGAMEWRAPPER_ADVANCE_WORM_FRAME = 0x0055_C590;
-            /// StepFrame input-queue message classifier (returns packed u64: (ecx_out, edx_out)).
-            fn/Stdcall DDGAMEWRAPPER_CLASSIFY_INPUT_MSG = 0x0054_1100;
-            /// StepFrame input-queue message dispatcher.
+            /// BufferObject__ClassifyInputMsg — thiscall(ECX=render_buffer_a).
+            /// Returns packed u64 (EDX:EAX): EAX=keep-going flag, EDX=msg subtype.
+            fn/Thiscall BUFFER_OBJECT_CLASSIFY_INPUT_MSG = 0x0054_1100;
+            /// DDGameWrapper__DispatchInputMsg — usercall(EAX=local_buf) +
+            /// stdcall(wrapper, msg_type, payload_size), RET 0xC.
             fn/Stdcall DDGAMEWRAPPER_DISPATCH_INPUT_MSG = 0x0053_0F80;
-            /// End-of-game headless log: load localized scheme/team name (called from StepFrame).
-            fn/Stdcall DDGAMEWRAPPER_LOAD_LOG_LABEL_A = 0x0053_F100;
-            /// End-of-game headless log: load localized per-team stat label.
-            fn/Stdcall DDGAMEWRAPPER_LOAD_LOG_LABEL_B = 0x0053_F190;
+            /// DDGameWrapper__WriteLogTimestampPrefix — writes `[ts] ` or
+            /// `[ts1] [ts2] ` prefix to the headless log. Usercall(EDI=ddgame),
+            /// no stack args, plain RET.
+            fn/Usercall DDGAMEWRAPPER_WRITE_LOG_TIMESTAMP_PREFIX = 0x0053_F100;
+            /// DDGameWrapper__WriteLogTeamLabel — writes team name (and
+            /// optional "(bank)" suffix) for the end-of-round header.
+            /// Usercall(EAX=team_index_plus_1, EDI=ddgame), plain RET.
+            fn/Usercall DDGAMEWRAPPER_WRITE_LOG_TEAM_LABEL = 0x0053_F190;
         }
 
         class "DDGame" {
@@ -1087,13 +1098,13 @@ pub mod va {
         global CRT_FPRINTF_IAT = 0x0064_946C;
         /// IAT slot for `putc` — dereference to get the live import pointer.
         global CRT_PUTC_IAT = 0x0064_92D4;
-        /// MFC/WA codepage LUT dispatcher — usercall(EAX=codepage) →
-        /// returns a 256-byte translation table pointer in EAX. Different
-        /// codepages are cached at different globals (0x7A0ED0/D4/…).
-        /// Called from the end-of-game log recoder after GetACP().
-        fn/Usercall CODEPAGE_LUT_BUILDER = 0x0059_2280;
+        /// Codepage__BuildLut — usercall(EAX=codepage) → returns a
+        /// 256-byte translation-table pointer in EAX. Different codepages
+        /// are cached at different globals (0x7A0ED0/D4/…). Called from
+        /// the end-of-round log recoder after `GetACP()`.
+        fn/Usercall CODEPAGE_BUILD_LUT = 0x0059_2280;
         /// Cached codepage LUT pointer. Lazily initialised on first use
-        /// (zero → call CODEPAGE_LUT_BUILDER, store result here).
+        /// (zero → call `Codepage__BuildLut`, store result here).
         global G_CODEPAGE_LUT = 0x007A_0ED8;
         /// Byte flag: when nonzero, the end-of-game log uses the
         /// snprintf→recode→fputs path. When zero, it prints format strings
@@ -1130,8 +1141,6 @@ pub mod va {
         /// MSVC `sprintf(buf, fmt, ...)` — cdecl variadic. Passed as the
         /// sprintf-function pointer to `WriteHeadlessLog` (0x53F0A0).
         fn/Cdecl CRT_SPRINTF = 0x005D_125A;
-        /// IAT slot for `GetACP` — dereference for the live import pointer.
-        global KERNEL32_GETACP_IAT = 0x0061_A2EC;
         /// BSS byte latched to 1 on first DispatchFrame pass. Gates a
         /// clamp that inflates `remaining` up to `frame_duration` while
         /// the game hasn't started yet. Purpose not fully confirmed; read
