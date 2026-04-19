@@ -11,6 +11,7 @@ use windows_sys::Win32::System::Threading::ExitProcess;
 use crate::address::va;
 use crate::audio::active_sound::ActiveSoundTable;
 use crate::audio::dssound::DSSound;
+use crate::engine::clock::read_current_time;
 use crate::engine::ddgame::DDGame;
 use crate::engine::ddgame_wrapper::DDGameWrapper;
 use crate::engine::game_session::get_game_session;
@@ -259,21 +260,6 @@ unsafe fn calc_timing_ratio(wrapper: *mut DDGameWrapper, ratio: i32) {
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
-
-/// Read the current time using the same method as the GameSession timer.
-unsafe fn read_current_time() -> u64 {
-    unsafe {
-        let session = get_game_session();
-        if (*session).timer_freq == 0 {
-            let tick = windows_sys::Win32::System::SystemInformation::GetTickCount();
-            tick.wrapping_mul(1000) as u64
-        } else {
-            let mut qpc: i64 = 0;
-            windows_sys::Win32::System::Performance::QueryPerformanceCounter(&mut qpc);
-            qpc as u64
-        }
-    }
-}
 
 /// Signed 32-bit division matching WA's FUN_005d8786.
 /// Returns (quotient, remainder) using only the low 32 bits of the dividend.

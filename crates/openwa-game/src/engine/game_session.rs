@@ -90,7 +90,10 @@ pub struct GameSession {
     /// Used for input state tracking.
     pub input_active_flag: u32,
     pub _unknown_08c: [u8; 4],
-    /// 0x090: `QueryPerformanceFrequency` result (0 if QPC unavailable).
+    /// 0x090: `QueryPerformanceFrequency` result (ticks per second),
+    /// or `0` to request the synthetic-clock path (`GetTickCount`
+    /// at 1 MHz scaled units). WA deliberately zeroes this in headless
+    /// / deterministic-replay modes.
     pub timer_freq: u64,
     /// 0x098: QPC counter accumulator.
     pub timer_counter: u64,

@@ -7,10 +7,8 @@
 //! `advance_frame` handles timer reads, accumulator updates, and
 //! dispatches the frame timing to `DDGameWrapper__DispatchFrame`.
 
-use windows_sys::Win32::System::Performance::QueryPerformanceCounter;
-use windows_sys::Win32::System::SystemInformation::GetTickCount;
-
 use crate::address::va;
+use crate::engine::clock::{effective_timer_freq, read_current_time};
 use crate::engine::ddgame_wrapper::DDGameWrapper;
 use crate::engine::dispatch_frame::dispatch_frame;
 use crate::engine::game_session::{GameSession, get_game_session};
@@ -20,10 +18,11 @@ use crate::render::display::gfx::DisplayGfx;
 
 /// Rust port of `GameSession__AdvanceFrame` (0x56DDC0).
 ///
-/// Reads the current time (via `GetTickCount` or `QueryPerformanceCounter`),
-/// updates the timer accumulator, dispatches frame timing to
-/// `DDGameWrapper__DispatchFrame` (0x529160), and returns the game state
-/// from `DDGameWrapper::get_game_state`.
+/// Reads the current timer, stirs a few bits of it into
+/// `GameSession::timer_counter` (an entropy accumulator used
+/// elsewhere), dispatches frame timing to
+/// `DDGameWrapper::DispatchFrame` (0x529160), and returns the game
+/// state from `DDGameWrapper::get_game_state`.
 ///
 /// # Safety
 /// Must be called from within the WA.exe process with a valid `g_GameSession`.
@@ -31,30 +30,24 @@ pub unsafe fn advance_frame() -> u32 {
     unsafe {
         let session = get_game_session();
         let freq = (*session).timer_freq;
-        let counter = (*session).timer_counter;
+        let time = read_current_time();
 
-        let (time, new_counter, call_freq);
-
-        if freq == 0 {
-            // No QueryPerformanceCounter — use GetTickCount
-            let tick = GetTickCount();
-            new_counter = counter.wrapping_mul(2).wrapping_add((tick & 1) as u64);
-            time = tick as u64 * 1000;
-            call_freq = 1_000_000u64;
+        // Per-path counter stir: QPC branch mixes 2 bits, GetTickCount
+        // branch mixes 1. `time` already reflects the chosen source.
+        (*session).timer_counter = if freq == 0 {
+            (*session)
+                .timer_counter
+                .wrapping_mul(2)
+                .wrapping_add(time & 1)
         } else {
-            // Use QueryPerformanceCounter
-            let mut qpc: i64 = 0;
-            QueryPerformanceCounter(&mut qpc);
-            new_counter = counter.wrapping_mul(4).wrapping_add((qpc as u64) & 3);
-            time = qpc as u64;
-            call_freq = freq;
+            (*session)
+                .timer_counter
+                .wrapping_mul(4)
+                .wrapping_add(time & 3)
         };
 
-        (*session).timer_counter = new_counter;
-
-        // Dispatch frame timing via Rust port
         let wrapper = (*session).ddgame_wrapper;
-        dispatch_frame(wrapper, time, call_freq);
+        dispatch_frame(wrapper, time, effective_timer_freq());
 
         // Return game state (vtable slot 9)
         DDGameWrapper::get_game_state_raw(wrapper)

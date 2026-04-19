@@ -1,3 +1,4 @@
+pub mod clock;
 pub mod coord;
 pub mod ddgame;
 pub mod ddgame_constructor;
