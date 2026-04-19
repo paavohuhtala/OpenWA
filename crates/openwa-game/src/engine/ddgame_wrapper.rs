@@ -162,8 +162,12 @@ pub struct DDGameWrapper {
     pub team_activity_flags: [u32; 13],
 
     // ===== 0x260-0x267: Game config =====
-    /// 0x260: Health display precision (initialized to 500)
-    pub health_precision: i32,
+    /// 0x260: Network end-game handshake countdown — initialised to 500 by
+    /// `init_game_state`; decremented every frame by the state-2/3 handlers
+    /// (`OnNetworkEndAwaitPeers`, `OnGameState3`) while waiting for peers to
+    /// converge on round-end. When it reaches zero the transition to
+    /// `ROUND_ENDING` is forced regardless of peer state.
+    pub net_end_countdown: i32,
     /// 0x264: Zeroed by InitGameState
     pub _field_264: u32,
 

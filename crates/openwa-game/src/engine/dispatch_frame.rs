@@ -532,7 +532,7 @@ pub unsafe fn dispatch_frame(wrapper: *mut DDGameWrapper, time: u64, freq: u64) 
         let now = read_current_time();
         let loop_elapsed = now.wrapping_sub((*wrapper).last_frame_time);
 
-        if (*ddgame).network_ecx != 0 {
+        if !(*ddgame).net_session.is_null() {
             bridge_process_network_frame(
                 wrapper,
                 time as u32,
@@ -629,7 +629,7 @@ pub unsafe fn dispatch_frame(wrapper: *mut DDGameWrapper, time: u64, freq: u64) 
                 }
                 let session = get_game_session();
 
-                if (*session).flag_5c == 0 || (*ddgame).network_ecx != 0 {
+                if (*session).flag_5c == 0 || !(*ddgame).net_session.is_null() {
                     (*wrapper).frame_accum_b = (*wrapper).frame_accum_b.wrapping_add(frame_time);
                     if (*wrapper).frame_accum_b == frame_duration {
                         (*wrapper).frame_accum_b = 0;
@@ -689,7 +689,7 @@ pub unsafe fn dispatch_frame(wrapper: *mut DDGameWrapper, time: u64, freq: u64) 
                 }
 
                 let session = get_game_session();
-                if (*session).flag_5c == 0 || (*ddgame).network_ecx != 0 {
+                if (*session).flag_5c == 0 || !(*ddgame).net_session.is_null() {
                     bridge_reset_frame_state(wrapper);
                 }
                 if !crate::engine::step_frame::step_frame(

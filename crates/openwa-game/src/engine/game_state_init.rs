@@ -343,7 +343,7 @@ pub unsafe fn check_weapon_avail(ddgame: *mut DDGame, weapon_index: u32) -> i32 
             }
             w if w == Weapon::Invisibility as u32 => {
                 if (*gi).invisibility_mode == 0 {
-                    if (*ddgame).network_ecx == 0 {
+                    if (*ddgame).net_session.is_null() {
                         return 0;
                     }
                 } else if (num_teams as u32) < 2 {
@@ -484,7 +484,7 @@ pub unsafe fn init_turn_state(wrapper: *mut DDGameWrapper) {
                 (*ddgame)._field_7dbc[i] = 1;
                 (*ddgame)._field_7dc9[i] = 1;
                 (*ddgame)._field_7dd6[i] = 0;
-                (*ddgame)._field_7de3[i] = 0;
+                (*ddgame).net_peer_ready_flags[i] = 0;
                 (*ddgame)._field_7df0[i] = 0;
             }
         }
@@ -676,7 +676,7 @@ pub unsafe fn init_game_state(wrapper: *mut DDGameWrapper) {
 
         // ===== wrapper+0x44: network ring buffer (conditional) =====
         (*wrapper).network_ring_buffer = core::ptr::null_mut();
-        if (*ddgame).network_ecx != 0 {
+        if !(*ddgame).net_session.is_null() {
             (*wrapper).network_ring_buffer = allocate_ring_buffer_init();
         }
 
@@ -765,7 +765,7 @@ pub unsafe fn init_game_state(wrapper: *mut DDGameWrapper) {
         (*wrapper)._field_3ec = -1;
 
         // ===== Team-to-slot mapping (conditional on network/replay mode) =====
-        if (*ddgame).network_ecx != 0 || (*wrapper).replay_flag_a != 0 {
+        if !(*ddgame).net_session.is_null() || (*wrapper).replay_flag_a != 0 {
             let team_count = (*game_info).num_teams as i32;
             let exclude_team = (*game_info).starting_team_index as i32;
             let mut slot_idx = 0usize;
@@ -791,7 +791,7 @@ pub unsafe fn init_game_state(wrapper: *mut DDGameWrapper) {
         init_alliance_data(wrapper);
 
         // ===== Game speed/timing fields =====
-        (*wrapper).health_precision = 500;
+        (*wrapper).net_end_countdown = 500;
         (*wrapper).timing_jitter_state = 0;
         (*wrapper)._field_464 = 0;
         (*wrapper)._field_460 = 0;

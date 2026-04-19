@@ -38,6 +38,7 @@ use crate::engine::game_info::GameInfo;
 use crate::engine::game_session::get_game_session;
 use crate::engine::game_state;
 use crate::engine::log_sink::LogOutput;
+use crate::engine::net_session::NetSession;
 use crate::input::buffer_object::BufferObject;
 use crate::input::keyboard::DDKeyboard;
 use crate::rebase::rb;
@@ -50,8 +51,6 @@ use crate::wa::string_resource::{StringRes, res, wa_load_string};
 static mut POLL_INPUT_ADDR: u32 = 0;
 static mut INPUT_HOOK_MODE_ADDR: u32 = 0;
 static mut BEGIN_NETWORK_GAME_END_ADDR: u32 = 0;
-static mut ON_GAME_STATE_2_ADDR: u32 = 0;
-static mut ON_GAME_STATE_3_ADDR: u32 = 0;
 static mut CLEAR_WORM_BUFFERS_ADDR: u32 = 0;
 static mut ADVANCE_WORM_FRAME_ADDR: u32 = 0;
 static mut DISPATCH_INPUT_MSG_ADDR: u32 = 0;
@@ -62,8 +61,6 @@ pub unsafe fn init_step_frame_addrs() {
         POLL_INPUT_ADDR = rb(va::DDGAMEWRAPPER_POLL_INPUT);
         INPUT_HOOK_MODE_ADDR = rb(va::G_INPUT_HOOK_MODE);
         BEGIN_NETWORK_GAME_END_ADDR = rb(va::DDGAMEWRAPPER_BEGIN_NETWORK_GAME_END);
-        ON_GAME_STATE_2_ADDR = rb(va::DDGAMEWRAPPER_ON_GAME_STATE_2);
-        ON_GAME_STATE_3_ADDR = rb(va::DDGAMEWRAPPER_ON_GAME_STATE_3);
         CLEAR_WORM_BUFFERS_ADDR = rb(va::DDGAMEWRAPPER_CLEAR_WORM_BUFFERS);
         ADVANCE_WORM_FRAME_ADDR = rb(va::DDGAMEWRAPPER_ADVANCE_WORM_FRAME);
         DISPATCH_INPUT_MSG_ADDR = rb(va::DDGAMEWRAPPER_DISPATCH_INPUT_MSG);
@@ -95,39 +92,88 @@ unsafe extern "stdcall" fn bridge_begin_network_game_end(_wrapper: *mut DDGameWr
     );
 }
 
-/// `DDGameWrapper__OnGameState2` (0x00536470). Usercall(EDI=ESI=wrapper),
-/// plain RET. Save/restore ESI+EDI — they're callee-saved in the MS x86 ABI.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_on_game_state_2(_wrapper: *mut DDGameWrapper) {
-    core::arch::naked_asm!(
-        "pushl %esi",
-        "pushl %edi",
-        "movl 12(%esp), %edi",
-        "movl %edi, %esi",
-        "call *({fn})",
-        "popl %edi",
-        "popl %esi",
-        "retl $4",
-        fn = sym ON_GAME_STATE_2_ADDR,
-        options(att_syntax),
-    );
+/// Shared prologue for `OnGameState3` / `OnNetworkEndAwaitPeers`:
+/// decrement `net_end_countdown` toward zero, then decide whether peers
+/// are still converging (sync-in-progress OR any peer score > 0). Returns
+/// `true` if we must keep waiting: peers not yet converged AND countdown
+/// has not yet hit zero.
+#[inline]
+unsafe fn peer_sync_keep_waiting(wrapper: *mut DDGameWrapper, net: *mut NetSession) -> bool {
+    unsafe {
+        let cd = (*wrapper).net_end_countdown;
+        if cd != 0 {
+            (*wrapper).net_end_countdown = cd - 1;
+        }
+
+        let stalled = ((*(*net).vtable).sync_in_progress)(net) != 0
+            || NetSession::max_peer_score_raw(net) != 0;
+
+        stalled && (*wrapper).net_end_countdown != 0
+    }
 }
 
-/// `DDGameWrapper__OnGameState3` (0x00536320). Usercall(EDI=ESI=wrapper), plain RET.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_on_game_state_3(_wrapper: *mut DDGameWrapper) {
-    core::arch::naked_asm!(
-        "pushl %esi",
-        "pushl %edi",
-        "movl 12(%esp), %edi",
-        "movl %edi, %esi",
-        "call *({fn})",
-        "popl %edi",
-        "popl %esi",
-        "retl $4",
-        fn = sym ON_GAME_STATE_3_ADDR,
-        options(att_syntax),
-    );
+/// Common tail: enter `ROUND_ENDING`, reset the round-end counters, and
+/// broadcast msg 0x75 to the turn-game task (new versions only).
+#[inline]
+unsafe fn enter_round_ending(wrapper: *mut DDGameWrapper) {
+    unsafe {
+        let ddgame = (*wrapper).ddgame;
+        (*wrapper).game_state = game_state::ROUND_ENDING;
+        (*wrapper).game_end_clear = 0;
+        (*wrapper).game_end_speed = 0;
+
+        let gi = &*(*ddgame).game_info;
+        if gi.game_version > 0x4c {
+            let task = (*wrapper).task_turn_game;
+            CTaskTurnGame::handle_message_raw(task, task as *mut CTask, 0x75, 0, core::ptr::null());
+        }
+    }
+}
+
+/// Rust port of `DDGameWrapper__OnGameState3` (0x00536320).
+///
+/// Handles `game_state == NETWORK_END_STARTED`. Waits for peers to acknowledge
+/// the end-of-round via `NetSession`, with a bounded countdown — once peers
+/// converge or `net_end_countdown` hits zero, transitions to `ROUND_ENDING`.
+unsafe fn on_game_state_3(wrapper: *mut DDGameWrapper) {
+    unsafe {
+        let net = (*(*wrapper).ddgame).net_session;
+        if peer_sync_keep_waiting(wrapper, net) {
+            return;
+        }
+        enter_round_ending(wrapper);
+    }
+}
+
+/// Rust port of `DDGameWrapper__OnNetworkEndAwaitPeers` (0x00536470).
+///
+/// Handles `game_state == NETWORK_END_AWAITING_PEERS`. Same shape as
+/// `on_game_state_3`, but while the countdown is still active also sweeps
+/// per-peer ready flags (`ddgame.net_peer_ready_flags[i]`): if any active
+/// peer is not yet marked ready, keep waiting.
+unsafe fn on_network_end_await_peers(wrapper: *mut DDGameWrapper) {
+    unsafe {
+        let ddgame = (*wrapper).ddgame;
+        let net = (*ddgame).net_session;
+        if peer_sync_keep_waiting(wrapper, net) {
+            return;
+        }
+
+        // Per-peer ready sweep — only runs while countdown hasn't expired.
+        // (Once `net_end_countdown == 0` the transition is forced regardless.)
+        if (*wrapper).net_end_countdown != 0 {
+            let gi_base = (*ddgame).game_info as *const u8;
+            let peer_count = *gi_base as u32; // game_info[0] byte = peer count
+            for i in 0..peer_count {
+                let active = ((*(*net).vtable).peer_active)(net, i) != 0;
+                if active && (*ddgame).net_peer_ready_flags[i as usize] == 0 {
+                    return;
+                }
+            }
+        }
+
+        enter_round_ending(wrapper);
+    }
 }
 
 /// Rust port of `DDGameWrapper__OnRoundEndingCountdown` (0x005365A0).
@@ -242,7 +288,7 @@ pub unsafe fn step_frame(
         let hud_code = (*ddgame).hud_status_code;
         if (hud_code == 6 || hud_code == 8) && (*wrapper).game_end_phase != hud_code as u32 {
             (*wrapper).game_end_phase = hud_code as u32;
-            if (*ddgame).network_ecx == 0 {
+            if (*ddgame).net_session.is_null() {
                 (*wrapper).game_state = game_state::ROUND_ENDING;
                 (*wrapper).game_end_clear = 0;
                 (*wrapper).game_end_speed = 0;
@@ -284,8 +330,8 @@ pub unsafe fn step_frame(
 
         // ── Block D: end-game state dispatch (keyed on game_state) ────
         match (*wrapper).game_state {
-            game_state::NETWORK_END_AWAITING_PEERS => bridge_on_game_state_2(wrapper),
-            game_state::NETWORK_END_STARTED => bridge_on_game_state_3(wrapper),
+            game_state::NETWORK_END_AWAITING_PEERS => on_network_end_await_peers(wrapper),
+            game_state::NETWORK_END_STARTED => on_game_state_3(wrapper),
             game_state::ROUND_ENDING => on_round_ending_countdown(wrapper),
             _ => {}
         }

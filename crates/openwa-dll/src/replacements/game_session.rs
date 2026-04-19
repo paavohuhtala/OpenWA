@@ -156,7 +156,7 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
                 timer_obj,
                 net_game,
                 game_info,
-                input_ctrl as u32,
+                input_ctrl as *mut openwa_game::engine::net_session::NetSession,
             );
         }
 

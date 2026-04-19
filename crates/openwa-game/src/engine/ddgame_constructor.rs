@@ -365,7 +365,7 @@ pub unsafe fn create_ddgame(
     param7: *mut u8,   // timer object (0x1F4 observed)
     net_game: *mut u8, // from GameSession
     game_info: *mut GameInfo,
-    network_ecx: u32, // implicit ECX from caller
+    net_session: *mut crate::engine::net_session::NetSession, // implicit ECX from caller
 ) -> *mut DDGame {
     unsafe {
         // ── 1. Allocate and zero-fill ──
@@ -394,7 +394,7 @@ pub unsafe fn create_ddgame(
         (*ddgame).palette = palette;
         (*ddgame).music = music;
         (*ddgame).timer_obj = param7;
-        (*ddgame).network_ecx = network_ecx;
+        (*ddgame).net_session = net_session;
         (*ddgame).game_info = game_info;
         (*ddgame).net_game = net_game;
 
@@ -421,8 +421,8 @@ pub unsafe fn create_ddgame(
             (*bridge).net_config_1 = (*game_info).net_config_1;
             (*bridge).net_config_2 = (*game_info).net_config_2;
             (*wrapper).net_bridge = bridge;
-            if network_ecx != 0 {
-                *((network_ecx as *mut u8).add(0x18) as *mut *mut NetBridge) = bridge;
+            if !net_session.is_null() {
+                *((net_session as *mut u8).add(0x18) as *mut *mut NetBridge) = bridge;
             }
         }
 

@@ -51,8 +51,10 @@ pub struct DDGame {
     pub music: *mut Music,
     /// 0x018: Timer object pointer (0x30 bytes, from GameSession+0xBC).
     pub timer_obj: *mut u8,
-    /// 0x01C: Network/caller ECX value from constructor (often NULL for offline).
-    pub network_ecx: u32,
+    /// 0x01C: Per-game network session object. NULL for offline play.
+    /// When non-null, drives end-of-round peer synchronisation via its
+    /// vtable (see `engine::net_session`).
+    pub net_session: *mut crate::engine::net_session::NetSession,
     /// 0x020: PCLandscape pointer (copied from DDGameWrapper[0x133])
     pub landscape: *mut PCLandscape,
     /// 0x024: GameInfo pointer (passed as param_10 to constructor).
@@ -399,7 +401,7 @@ pub struct DDGame {
     /// 0x7DD6: Per-team byte flags array 3 (13 entries, zeroed by InitTurnState).
     pub _field_7dd6: [u8; 13],
     /// 0x7DE3: Per-team byte flags array 4 (13 entries, zeroed by InitTurnState).
-    pub _field_7de3: [u8; 13],
+    pub net_peer_ready_flags: [u8; 13],
     /// 0x7DF0: Per-team byte flags array 5 (13 entries, zeroed by InitTurnState).
     pub _field_7df0: [u8; 13],
     /// 0x7DFD-0x7E02: Unknown
