@@ -6,6 +6,7 @@ pub mod ddgame_wrapper;
 pub mod dispatch_frame;
 pub mod game_info;
 pub mod game_session;
+pub mod game_state;
 pub mod game_state_init;
 pub mod game_timer;
 pub mod log_sink;

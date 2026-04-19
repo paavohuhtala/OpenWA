@@ -13,19 +13,9 @@ use windows_sys::Win32::System::SystemInformation::GetTickCount;
 use crate::address::va;
 use crate::engine::ddgame_wrapper::DDGameWrapper;
 use crate::engine::game_session::{GameSession, get_game_session};
+use crate::engine::game_state;
 use crate::rebase::rb;
 use crate::render::display::gfx::DisplayGfx;
-
-/// Game state values returned by `advance_frame` (via `DDGameWrapper::get_game_state`).
-/// Not an enum because we don't know all variants — transmuting an unknown discriminant is UB.
-pub mod game_state {
-    /// Game is running normally.
-    pub const RUNNING: u32 = 0;
-    /// Headless exit condition.
-    pub const EXIT_HEADLESS: u32 = 4;
-    /// Normal exit condition.
-    pub const EXIT: u32 = 5;
-}
 
 /// Rust port of `GameSession__AdvanceFrame` (0x56DDC0).
 ///
@@ -142,7 +132,7 @@ pub unsafe fn process_frame() {
 
         // Headless mode: only exit conditions matter
         if (*config_ptr).headless_mode != 0 {
-            if state == game_state::EXIT_HEADLESS {
+            if state == game_state::ROUND_ENDING {
                 (*session).exit_flag = 1;
             }
             return;

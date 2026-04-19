@@ -587,7 +587,7 @@ pub unsafe fn dispatch_frame(wrapper: *mut DDGameWrapper, time: u64, freq: u64) 
                 {
                     (*wrapper).game_end_phase = 1;
                     (*wrapper).game_end_speed = 0x10000;
-                    (*wrapper).game_state = 5; // EXIT
+                    (*wrapper).game_state = crate::engine::game_state::EXIT;
                 }
             }
         }
@@ -852,7 +852,7 @@ pub unsafe fn dispatch_frame(wrapper: *mut DDGameWrapper, time: u64, freq: u64) 
                 && home_lock < (*ddgame)._field_77d4 as i32 / 50
                 && (*wrapper).game_end_phase == 0
             {
-                (*wrapper).game_state = 4; // EXIT_HEADLESS
+                (*wrapper).game_state = crate::engine::game_state::ROUND_ENDING;
                 (*wrapper).game_end_clear = 0;
                 (*wrapper).game_end_speed = 0;
 

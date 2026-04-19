@@ -29,7 +29,7 @@ pub struct DDGameWrapperVtable {
     #[slot(7)]
     pub render_frame: fn(this: *mut DDGameWrapper),
     /// Get game state (0x528A20) — returns `self.game_state` (+0x484).
-    /// See `process_frame::game_state` for known return values.
+    /// See [`crate::engine::game_state`] for known return values.
     #[slot(9)]
     pub get_game_state: fn(this: *mut DDGameWrapper) -> u32,
 }
@@ -279,8 +279,9 @@ pub struct DDGameWrapper {
     pub game_end_clear: u32,
     /// 0x480: Set to 0x10000 on game end
     pub game_end_speed: u32,
-    /// 0x484: Game state — set to 1 at end of InitGameState, checked via vtable slot 9.
-    /// See `process_frame::game_state` for known values (0=running, 4=headless exit, 5=exit).
+    /// 0x484: Main game-loop state. Read via vtable slot 9 each frame.
+    /// See [`crate::engine::game_state`] for the constants and the
+    /// transition graph (RUNNING → INITIALIZED → round-end path → EXIT).
     pub game_state: u32,
 
     // ===== 0x488-0x4BF: Core pointers and flags =====

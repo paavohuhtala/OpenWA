@@ -10,13 +10,13 @@
 //! - **B**: PollInput + GameSession replay accumulators. Skipped when
 //!   `game_end_phase ∈ {1, 2, 6, 7, 9}`.
 //! - **D**: end-game state dispatch keyed on `wrapper.game_state`:
-//!   - `game_state == 2` → `DDGameWrapper__OnGameState2` (usercall EDI=ESI=wrapper)
-//!   - `game_state == 3` → `DDGameWrapper__OnGameState3` (usercall EDI=ESI=wrapper)
-//!   - `game_state == 4` → `DDGameWrapper__OnGameState4` (usercall ESI=wrapper)
+//!   - `NETWORK_END_AWAITING_PEERS` → `DDGameWrapper__OnGameState2` (usercall EDI=ESI=wrapper)
+//!   - `NETWORK_END_STARTED` → `DDGameWrapper__OnGameState3` (usercall EDI=ESI=wrapper)
+//!   - `ROUND_ENDING` → `DDGameWrapper__OnGameState4` (usercall ESI=wrapper)
 //! - **E/F**: two `_field_f34c` sentinel blocks — broadcast msg 0x7A and
 //!   reset/adjust `remaining`.
 //! - **G**: headful-only keyboard/palette vtable slot calls.
-//! - **H**: end-of-round body. Fires when `game_state == 4 || phase != 0`.
+//! - **H**: end-of-round body. Fires when `game_state == ROUND_ENDING || phase != 0`.
 //!   Runs `ClearWormBuffers(-1)`, `AdvanceWormFrame`, and — if the headless
 //!   log stream is non-null — writes the inline end-of-round stats block.
 //! - **Return**: `IsReplayMode() || (speed_target,speed) unchanged` on the
@@ -24,7 +24,7 @@
 //!   (disasm 0x52A76E / 0x52A7E3 `XOR AL, AL`). The forced-false after the
 //!   log is what lets headless `/getlog` runs terminate after one log
 //!   emission — `ProcessFrame` sets `exit_flag` when `advance_frame()`
-//!   returns `game_state == 4`.
+//!   returns `ROUND_ENDING`.
 
 use core::ffi::{c_char, c_void};
 
@@ -36,8 +36,11 @@ use crate::engine::ddgame_wrapper::DDGameWrapper;
 use crate::engine::dispatch_frame::is_replay_mode;
 use crate::engine::game_info::GameInfo;
 use crate::engine::game_session::get_game_session;
+use crate::engine::game_state;
 use crate::engine::log_sink::LogOutput;
+use crate::input::keyboard::DDKeyboard;
 use crate::rebase::rb;
+use crate::render::display::palette::Palette;
 use crate::task::{CTask, CTaskTurnGame};
 
 // ─── Runtime addresses (resolved at DLL load) ──────────────────────────────
@@ -245,7 +248,7 @@ pub unsafe fn step_frame(
         if (hud_code == 6 || hud_code == 8) && (*wrapper).game_end_phase != hud_code as u32 {
             (*wrapper).game_end_phase = hud_code as u32;
             if (*ddgame).network_ecx == 0 {
-                (*wrapper).game_state = 4; // EXIT_HEADLESS
+                (*wrapper).game_state = game_state::ROUND_ENDING;
                 (*wrapper).game_end_clear = 0;
                 (*wrapper).game_end_speed = 0;
                 if game_info.game_version >= 0x4d {
@@ -286,9 +289,9 @@ pub unsafe fn step_frame(
 
         // ── Block D: end-game state dispatch (keyed on game_state) ────
         match (*wrapper).game_state {
-            2 => bridge_on_game_state_2(wrapper),
-            3 => bridge_on_game_state_3(wrapper),
-            4 => bridge_on_game_state_4(wrapper),
+            game_state::NETWORK_END_AWAITING_PEERS => bridge_on_game_state_2(wrapper),
+            game_state::NETWORK_END_STARTED => bridge_on_game_state_3(wrapper),
+            game_state::ROUND_ENDING => bridge_on_game_state_4(wrapper),
             _ => {}
         }
 
@@ -330,14 +333,15 @@ pub unsafe fn step_frame(
         // ── Block G: headful-mode keyboard/palette no-op slots ────────
         if (*ddgame).is_headful != 0 {
             let keyboard = (*ddgame).keyboard;
-            crate::input::keyboard::DDKeyboard::slot_06_noop_raw(keyboard);
+            DDKeyboard::slot_06_noop_raw(keyboard);
             let palette = (*ddgame).palette;
-            crate::render::display::palette::Palette::reset_raw(palette);
+            Palette::reset_raw(palette);
         }
 
         // ── Block H: end-of-round body ────────────────────────────────
         // Fires on `game_state == 4 || game_end_phase != 0` (disasm 0x52A15D).
-        let fire_h = (*wrapper).game_state == 4 || (*wrapper).game_end_phase != 0;
+        let fire_h =
+            (*wrapper).game_state == game_state::ROUND_ENDING || (*wrapper).game_end_phase != 0;
         if fire_h {
             let task = (*wrapper).task_turn_game;
             bridge_clear_worm_buffers(task as *mut u8, -1);
