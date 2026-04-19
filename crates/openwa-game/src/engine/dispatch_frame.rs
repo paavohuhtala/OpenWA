@@ -27,7 +27,6 @@ use crate::render::display::gfx::DisplayGfx;
 // register, then `JMP`/`CALL` the target. `RET imm16` on each target cleans
 // the remaining stdcall params.
 
-static mut SHOULD_CONTINUE_ADDR: u32 = 0;
 static mut RESET_FRAME_STATE_ADDR: u32 = 0;
 static mut UPDATE_FRAME_TIMING_ADDR: u32 = 0;
 static mut ADVANCE_FRAME_COUNTERS_ADDR: u32 = 0;
@@ -41,7 +40,6 @@ static mut PROCESS_NETWORK_FRAME_ADDR: u32 = 0;
 /// Initialize all bridge addresses. Must be called once at DLL load.
 pub unsafe fn init_dispatch_addrs() {
     unsafe {
-        SHOULD_CONTINUE_ADDR = rb(va::DDGAMEWRAPPER_SHOULD_CONTINUE);
         RESET_FRAME_STATE_ADDR = rb(va::DDGAMEWRAPPER_RESET_FRAME_STATE);
         UPDATE_FRAME_TIMING_ADDR = rb(va::DDGAMEWRAPPER_UPDATE_FRAME_TIMING);
         ADVANCE_FRAME_COUNTERS_ADDR = rb(va::DDGAMEWRAPPER_ADVANCE_FRAME_COUNTERS);
@@ -191,19 +189,6 @@ unsafe extern "stdcall" fn bridge_process_network_frame(
     );
 }
 
-/// ShouldContinueFrameLoop: plain stdcall(wrapper, lo, hi), RET 0xC.
-unsafe extern "stdcall" fn bridge_should_continue(
-    wrapper: *mut DDGameWrapper,
-    elapsed_lo: u32,
-    elapsed_hi: u32,
-) -> u32 {
-    unsafe {
-        let func: unsafe extern "stdcall" fn(*mut DDGameWrapper, u32, u32) -> u32 =
-            core::mem::transmute(SHOULD_CONTINUE_ADDR as usize);
-        func(wrapper, elapsed_lo, elapsed_hi)
-    }
-}
-
 // ─── Public bridge wrappers ────────────────────────────────────────────────
 
 /// Rust port of `DDGameWrapper__IsReplayMode` (0x00537060).
@@ -234,8 +219,39 @@ pub unsafe fn is_replay_mode(wrapper: *mut DDGameWrapper) -> bool {
     }
 }
 
+/// Rust port of `DDGameWrapper__ShouldContinueFrameLoop` (0x0052A840).
+///
+/// Gates the inner frame-catch-up loop in `dispatch_frame`. Returns `true`
+/// (keep looping) while the wall-clock time since `last_frame_time` is
+/// within a budget of `multiplier × elapsed`. `multiplier` is 3× for
+/// regular play or when the current game speed target matches the scheme
+/// config, and 10× for replay / fast-forward with a non-matching speed —
+/// those paths get a longer wall-clock window before the loop gives up.
+///
+/// Always returns `true` before the first frame (`last_frame_time == 0`).
 pub unsafe fn should_continue_frame_loop(wrapper: *mut DDGameWrapper, elapsed: u64) -> bool {
-    unsafe { bridge_should_continue(wrapper, elapsed as u32, (elapsed >> 32) as u32) != 0 }
+    unsafe {
+        if (*wrapper).last_frame_time == 0 {
+            return true;
+        }
+
+        let ddgame = (*wrapper).ddgame;
+        let gi = &*(*ddgame).game_info;
+
+        let regular_play = (*wrapper).replay_flag_a == 0 && (*ddgame).fast_forward_request == 0;
+        let speed_matches_scheme = (*ddgame).game_speed_target.to_raw() == gi.game_speed_config;
+        let multiplier: u64 = if regular_play || speed_matches_scheme {
+            3
+        } else {
+            10
+        };
+
+        let budget = multiplier.wrapping_mul(elapsed);
+        let wall_elapsed =
+            crate::engine::clock::read_current_time().wrapping_sub((*wrapper).last_frame_time);
+
+        budget >= wall_elapsed
+    }
 }
 
 pub unsafe fn is_frame_paused(wrapper: *mut DDGameWrapper) -> bool {
