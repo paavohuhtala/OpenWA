@@ -5,7 +5,7 @@
 //! advance, dispatches them via `StepFrame`, and handles post-frame timing,
 //! headless log output, and game-end detection.
 
-use openwa_core::fixed::Fixed;
+use openwa_core::fixed::{Fixed, Fixed64};
 use windows_sys::Win32::System::Threading::ExitProcess;
 
 use crate::address::va;
@@ -272,11 +272,6 @@ unsafe fn read_current_time() -> u64 {
             qpc as u64
         }
     }
-}
-
-#[inline(always)]
-fn combine(lo: u32, hi: u32) -> u64 {
-    (hi as u64) << 32 | lo as u64
 }
 
 /// Signed 32-bit division matching WA's FUN_005d8786.
@@ -562,15 +557,16 @@ pub unsafe fn dispatch_frame(wrapper: *mut DDGameWrapper, time: u64, freq: u64) 
                 }
                 let gi = &*(*ddgame).game_info;
                 let replay_ticks = gi.replay_ticks;
-                let speed_accum = combine((*ddgame)._field_8158, (*ddgame)._field_815c);
-                let speed_val = Fixed::from_raw((speed_accum / replay_ticks as u64) as i32)
+                let clock_raw = (*ddgame).replay_speed_accum.to_raw() as u64 / replay_ticks as u64;
+                let speed_val = Fixed::from_raw(clock_raw as i32)
                     - (*ddgame).replay_frame_accum.to_fixed_wrapping();
                 (*ddgame).render_interp_a = speed_val;
                 (*ddgame).render_interp_b = speed_val;
 
-                // Advance the accumulator by 0x320000 (one replay step).
-                let accum_ptr = core::ptr::addr_of_mut!((*ddgame)._field_8158) as *mut u64;
-                *accum_ptr = (*accum_ptr).wrapping_add(0x320000);
+                // Advance the accumulator by one replay step: 50 Fixed units.
+                (*ddgame).replay_speed_accum = (*ddgame)
+                    .replay_speed_accum
+                    .wrapping_add(Fixed64::from_raw(0x32_0000));
 
                 let session = get_game_session();
                 (*session).replay_active_flag = 1;

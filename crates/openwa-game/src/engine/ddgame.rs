@@ -513,10 +513,19 @@ pub struct DDGame {
     /// of `frame_accum_a` (paused accumulator). Written in the same block
     /// by `DispatchFrame` and rescaled on speed changes.
     pub render_interp_b: Fixed,
-    /// 0x8158: Unknown (zeroed by InitTurnState).
-    pub _field_8158: u32,
-    /// 0x815C: Unknown (zeroed by InitTurnState).
-    pub _field_815c: u32,
+    /// 0x8158: Replay-speed accumulator — 16.16 fixed, 64-bit storage.
+    ///
+    /// Advanced by `Fixed64::from_raw(0x32_0000)` (= `50 * Fixed::ONE`) per
+    /// replay-dispatch frame in `DispatchFrame`. Divided by
+    /// `GameInfo::replay_ticks` to produce a running replay-time clock in
+    /// Fixed; the current frame's `render_interp` is that clock minus
+    /// `replay_frame_accum`. Scaling by 50 lets the division reproduce
+    /// the target tick rate for the default 50 replay-ticks-per-second.
+    ///
+    /// 64-bit width is needed so the clock doesn't wrap during long
+    /// replays; the ceremonial `.to_fixed_wrapping()` on the read side
+    /// mirrors the original's i32 low-half narrowing.
+    pub replay_speed_accum: Fixed64,
     /// 0x8160: Replay-progress accumulator (16.16 fixed, 48 integer bits).
     ///
     /// In replay mode, `StepFrame` adds `Fixed::ONE` per tick; the running

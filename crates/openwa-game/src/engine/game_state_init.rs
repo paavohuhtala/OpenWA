@@ -504,8 +504,7 @@ pub unsafe fn init_turn_state(wrapper: *mut DDGameWrapper) {
         (*ddgame)._field_8148 = 1;
 
         let ddgame2 = ddgame_from_wrapper(wrapper);
-        (*ddgame2)._field_8158 = 0;
-        (*ddgame2)._field_815c = 0;
+        (*ddgame2).replay_speed_accum = openwa_core::fixed::Fixed64::ZERO;
         let ddgame3 = ddgame_from_wrapper(wrapper);
         (*ddgame3).replay_frame_accum = openwa_core::fixed::Fixed64::ZERO;
 
