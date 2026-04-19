@@ -100,6 +100,11 @@ pub struct CTaskTurnGameVTable {
     #[slot(2)]
     pub handle_message:
         fn(this: *mut CTaskTurnGame, sender: *mut CTask, msg_type: u32, size: u32, data: *const u8),
+    /// HUD/scoreboard data query — responds to query-style messages such as
+    /// msg 0x7D3 (end-of-round data snapshot).
+    /// thiscall + 3 stack params (msg, size, buf), RET 0xC.
+    #[slot(3)]
+    pub hud_data_query: fn(this: *mut CTaskTurnGame, msg: u32, size: u32, buf: *mut u8),
     /// ProcessFrame — per-frame turn update.
     /// thiscall + 1 stack param (flags), RET 0x4.
     #[slot(7)]

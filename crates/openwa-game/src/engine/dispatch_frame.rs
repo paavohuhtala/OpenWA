@@ -37,7 +37,6 @@ static mut NETWORK_UPDATE_ADDR: u32 = 0;
 static mut IS_FRAME_PAUSED_ADDR: u32 = 0;
 static mut SETUP_FRAME_PARAMS_ADDR: u32 = 0;
 static mut PROCESS_NETWORK_FRAME_ADDR: u32 = 0;
-static mut IS_REPLAY_MODE_ADDR: u32 = 0;
 
 /// Initialize all bridge addresses. Must be called once at DLL load.
 pub unsafe fn init_dispatch_addrs() {
@@ -52,7 +51,6 @@ pub unsafe fn init_dispatch_addrs() {
         IS_FRAME_PAUSED_ADDR = rb(va::DDGAMEWRAPPER_IS_FRAME_PAUSED);
         SETUP_FRAME_PARAMS_ADDR = rb(va::DDGAMEWRAPPER_SETUP_FRAME_PARAMS);
         PROCESS_NETWORK_FRAME_ADDR = rb(va::DDGAMEWRAPPER_PROCESS_NETWORK_FRAME);
-        IS_REPLAY_MODE_ADDR = rb(va::DDGAMEWRAPPER_IS_REPLAY_MODE);
         crate::engine::step_frame::init_step_frame_addrs();
         crate::engine::log_sink::init_log_sink_addrs();
     }
@@ -94,7 +92,6 @@ macro_rules! bridge_eax_this_stdcall {
     };
 }
 
-bridge_eax_this!(bridge_is_replay_mode, IS_REPLAY_MODE_ADDR, u32);
 bridge_eax_this!(bridge_reset_frame_state, RESET_FRAME_STATE_ADDR, ());
 bridge_eax_this!(bridge_init_frame_delay, INIT_FRAME_DELAY_ADDR, ());
 bridge_eax_this!(bridge_is_frame_paused, IS_FRAME_PAUSED_ADDR, u32);
@@ -209,8 +206,32 @@ unsafe extern "stdcall" fn bridge_should_continue(
 
 // ─── Public bridge wrappers ────────────────────────────────────────────────
 
+/// Rust port of `DDGameWrapper__IsReplayMode` (0x00537060).
+///
+/// A replay is "running" when the game info has a non-zero `replay_ticks`,
+/// the wrapper's `game_state` is either `INITIALIZED` or `ROUND_ENDING`,
+/// two unnamed flag fields (`_field_424` / `_field_434`) are zero, the
+/// session's `flag_5c` is zero, and the simulation has reached the replay's
+/// recorded end frame (`frame_counter >= replay_end_frame`).
 pub unsafe fn is_replay_mode(wrapper: *mut DDGameWrapper) -> bool {
-    unsafe { bridge_is_replay_mode(wrapper) != 0 }
+    unsafe {
+        let ddgame = (*wrapper).ddgame;
+        let gi = &*(*ddgame).game_info;
+        if gi.replay_ticks == 0 {
+            return false;
+        }
+        let gs = (*wrapper).game_state;
+        if gs != game_state::INITIALIZED && gs != game_state::ROUND_ENDING {
+            return false;
+        }
+        if (*wrapper)._field_434 != 0 || (*wrapper)._field_424 != 0 {
+            return false;
+        }
+        if (*get_game_session()).flag_5c != 0 {
+            return false;
+        }
+        (*ddgame).frame_counter >= gi.replay_end_frame
+    }
 }
 
 pub unsafe fn should_continue_frame_loop(wrapper: *mut DDGameWrapper, elapsed: u64) -> bool {

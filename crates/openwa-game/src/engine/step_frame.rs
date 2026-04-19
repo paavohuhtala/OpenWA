@@ -38,6 +38,7 @@ use crate::engine::game_info::GameInfo;
 use crate::engine::game_session::get_game_session;
 use crate::engine::game_state;
 use crate::engine::log_sink::LogOutput;
+use crate::input::buffer_object::BufferObject;
 use crate::input::keyboard::DDKeyboard;
 use crate::rebase::rb;
 use crate::render::display::palette::Palette;
@@ -51,10 +52,8 @@ static mut INPUT_HOOK_MODE_ADDR: u32 = 0;
 static mut BEGIN_NETWORK_GAME_END_ADDR: u32 = 0;
 static mut ON_GAME_STATE_2_ADDR: u32 = 0;
 static mut ON_GAME_STATE_3_ADDR: u32 = 0;
-static mut ON_GAME_STATE_4_ADDR: u32 = 0;
 static mut CLEAR_WORM_BUFFERS_ADDR: u32 = 0;
 static mut ADVANCE_WORM_FRAME_ADDR: u32 = 0;
-static mut CLASSIFY_INPUT_MSG_ADDR: u32 = 0;
 static mut DISPATCH_INPUT_MSG_ADDR: u32 = 0;
 
 /// Initialize bridge addresses. Called once at DLL load.
@@ -65,10 +64,8 @@ pub unsafe fn init_step_frame_addrs() {
         BEGIN_NETWORK_GAME_END_ADDR = rb(va::DDGAMEWRAPPER_BEGIN_NETWORK_GAME_END);
         ON_GAME_STATE_2_ADDR = rb(va::DDGAMEWRAPPER_ON_GAME_STATE_2);
         ON_GAME_STATE_3_ADDR = rb(va::DDGAMEWRAPPER_ON_GAME_STATE_3);
-        ON_GAME_STATE_4_ADDR = rb(va::DDGAMEWRAPPER_ON_GAME_STATE_4);
         CLEAR_WORM_BUFFERS_ADDR = rb(va::DDGAMEWRAPPER_CLEAR_WORM_BUFFERS);
         ADVANCE_WORM_FRAME_ADDR = rb(va::DDGAMEWRAPPER_ADVANCE_WORM_FRAME);
-        CLASSIFY_INPUT_MSG_ADDR = rb(va::BUFFER_OBJECT_CLASSIFY_INPUT_MSG);
         DISPATCH_INPUT_MSG_ADDR = rb(va::DDGAMEWRAPPER_DISPATCH_INPUT_MSG);
     }
 }
@@ -133,18 +130,35 @@ unsafe extern "stdcall" fn bridge_on_game_state_3(_wrapper: *mut DDGameWrapper) 
     );
 }
 
-/// `DDGameWrapper__OnGameState4` (0x005365A0). Usercall(ESI=wrapper), plain RET.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_on_game_state_4(_wrapper: *mut DDGameWrapper) {
-    core::arch::naked_asm!(
-        "pushl %esi",
-        "movl 8(%esp), %esi",
-        "call *({fn})",
-        "popl %esi",
-        "retl $4",
-        fn = sym ON_GAME_STATE_4_ADDR,
-        options(att_syntax),
-    );
+/// Rust port of `DDGameWrapper__OnRoundEndingCountdown` (0x005365A0).
+///
+/// Drives the ~1-second delay between `ROUND_ENDING` and `EXIT`:
+///  1. Query the turn-game HUD data snapshot (msg 0x7D3) into a local scratch
+///     buffer (consumed for side effects — the game uses it to push end-of-
+///     round stats through `CTaskTurnGame::hud_data_query`).
+///  2. If `game_end_clear` is still counting down, decrement and clamp at 0.
+///  3. Otherwise advance `game_end_speed` by `Fixed(0x51E)` until its integer
+///     part reaches 1.0; once it does, transition to `EXIT`.
+unsafe fn on_round_ending_countdown(wrapper: *mut DDGameWrapper) {
+    unsafe {
+        let mut buf: [core::mem::MaybeUninit<u8>; 0x394] =
+            [core::mem::MaybeUninit::uninit(); 0x394];
+        let task = (*wrapper).task_turn_game;
+        ((*(*task).base.vtable).hud_data_query)(task, 0x7d3, 0x394, buf.as_mut_ptr() as *mut u8);
+
+        if (*wrapper).game_end_clear != 0 {
+            let next = (*wrapper).game_end_clear.wrapping_sub(1);
+            (*wrapper).game_end_clear = if (next as i32) < 1 { 0 } else { next };
+            return;
+        }
+
+        let speed = (*wrapper).game_end_speed;
+        if (speed & 0xffff_0000) < 0x10000 {
+            (*wrapper).game_end_speed = speed.wrapping_add(0x51e);
+        } else {
+            (*wrapper).game_state = game_state::EXIT;
+        }
+    }
 }
 
 /// `DDGameWrapper__ClearWormBuffers` (0x0055C300). Stdcall(task, flag), RET 0x8.
@@ -166,16 +180,6 @@ unsafe extern "stdcall" fn bridge_advance_worm_frame(task: *mut u8) {
 }
 
 // ─── End-of-round log bridges ──────────────────────────────────────────────
-
-/// `BufferObject__ClassifyInputMsg` (0x00541100). Thiscall(ECX=render_buffer),
-/// returns packed u64 (EDX:EAX): EAX=keep-going flag, EDX=msg subtype.
-unsafe extern "thiscall" fn bridge_classify_input_msg(_render_buffer: *mut u8) -> u64 {
-    unsafe {
-        let func: unsafe extern "thiscall" fn(*mut u8) -> u64 =
-            core::mem::transmute(CLASSIFY_INPUT_MSG_ADDR as usize);
-        func(_render_buffer)
-    }
-}
 
 /// `DDGameWrapper__DispatchInputMsg` (0x00530F80). Usercall(EAX=local_buf) +
 /// stdcall(wrapper, msg_type, payload_size), RET 0xC.
@@ -282,7 +286,7 @@ pub unsafe fn step_frame(
         match (*wrapper).game_state {
             game_state::NETWORK_END_AWAITING_PEERS => bridge_on_game_state_2(wrapper),
             game_state::NETWORK_END_STARTED => bridge_on_game_state_3(wrapper),
-            game_state::ROUND_ENDING => bridge_on_game_state_4(wrapper),
+            game_state::ROUND_ENDING => on_round_ending_countdown(wrapper),
             _ => {}
         }
 
@@ -623,28 +627,7 @@ unsafe fn input_queue_drain(wrapper: *mut DDGameWrapper) {
             }
             let msg_type = *(node.add(0x8) as *const u32);
 
-            let packed = bridge_classify_input_msg(render_buf);
-            let keep = packed as u32;
-            let edx = (packed >> 32) as u32;
-            if keep == 0 {
-                break;
-            }
-
-            // msg_type 0x16 can override `game_end_phase` when the current
-            // phase is 0. edx ∈ {7, 9} aborts the drain entirely.
-            if msg_type == 0x16 {
-                if edx == 7 || edx == 9 {
-                    break;
-                }
-                let cur_phase = (*wrapper).game_end_phase;
-                if cur_phase != edx {
-                    if cur_phase != 0 {
-                        continue;
-                    }
-                    (*wrapper).game_end_phase = edx;
-                    continue;
-                }
-            }
+            BufferObject::classify_input_msg_raw(render_buf as *mut BufferObject);
 
             bridge_dispatch_input_msg(local_buf.as_ptr(), wrapper, msg_type, payload_size);
             if msg_type == 2 {
