@@ -20,6 +20,7 @@ mod scheme;
 mod sound;
 mod speech;
 mod sprite;
+mod string_resource;
 mod task;
 mod team;
 mod trace_desync;
@@ -67,6 +68,7 @@ pub fn install_all() -> Result<(), String> {
     gfx_dir::install()?;
     game_state_hooks::install()?;
     replay::install()?;
+    string_resource::install()?;
     task::install()?;
     weapon_release::install()?;
     process_frame::install()?;

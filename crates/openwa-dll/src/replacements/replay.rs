@@ -10,6 +10,7 @@ use openwa_game::engine::game_info::GameInfo;
 use openwa_game::engine::replay::{self, ReplayError, ReplayStream, ReplayTeamEntry};
 use openwa_game::frontend::MapView;
 use openwa_game::rebase::rb;
+use openwa_game::wa::string_resource::{res, wa_load_string};
 use openwa_game::wa_alloc::{wa_free, wa_malloc};
 
 use core::ffi::c_void;
@@ -59,15 +60,6 @@ unsafe fn wa_file_to_rust(file: *mut FILE) -> Option<ManuallyDrop<File>> {
         Some(ManuallyDrop::new(File::from_raw_handle(
             handle as *mut core::ffi::c_void,
         )))
-    }
-}
-
-/// Load a WA string resource by ID (stdcall). Returns null-terminated C string.
-unsafe fn wa_load_string(id: u32) -> *const u8 {
-    unsafe {
-        let f: unsafe extern "stdcall" fn(u32) -> *const u8 =
-            core::mem::transmute(rb(va::WA_LOAD_STRING));
-        f(id)
     }
 }
 
@@ -760,8 +752,8 @@ unsafe fn write_replay_log(gi: *const GameInfo, log_file: &mut File) -> Result<(
         // Line 1: "Game Engine Version: <version_string>"
         // Line 2: "File Format Version: <format_version>"
 
-        let label_game_engine = wa_load_string(0x6E7);
-        let label_file_format = wa_load_string(0x6E8); // "File Format Version"
+        let label_game_engine = wa_load_string(res::LOG_GAME_ENGINE_VERSION) as *const u8;
+        let label_file_format = wa_load_string(res::LOG_FILE_FORMAT_VERSION) as *const u8;
 
         // File format version from version table
         let game_ver_id = *(rb(va::G_REPLAY_VERSION_ID) as *const i32);
@@ -770,7 +762,7 @@ unsafe fn write_replay_log(gi: *const GameInfo, log_file: &mut File) -> Result<(
                 -4 => rb(0x650EAC) as *const u8, // "1.0"
                 -2 => rb(0x650EB0) as *const u8, // "3.0"
                 -1 => rb(0x650EB4) as *const u8, // "3.5 Beta 1"
-                _ => wa_load_string(0x0F),       // "Unknown"
+                _ => wa_load_string(res::UNKNOWN) as *const u8,
             }
         } else {
             let table = rb(va::VERSION_STRING_TABLE) as *const u32;
@@ -796,7 +788,7 @@ unsafe fn write_replay_log(gi: *const GameInfo, log_file: &mut File) -> Result<(
 
         // ── "Exported with Version" line ─────────────────────────────────────
         {
-            let label_exported = wa_load_string(0x6E9); // "Exported with Version"
+            let label_exported = wa_load_string(res::LOG_EXPORTED_WITH_VERSION) as *const u8;
             // Current WA version from version table: 0x699814[DAT_00697702]
             let ver_byte = *(rb(va::G_VERSION_BYTE) as *const u8) as u32;
             // "3.8.1" literal at 0x641C60 + suffix from version table
@@ -817,12 +809,12 @@ unsafe fn write_replay_log(gi: *const GameInfo, log_file: &mut File) -> Result<(
         // For each team: "Color: "TeamName" [CPU X.XX]\n" or similar
 
         let color_names: [*const u8; 6] = [
-            wa_load_string(0x20),
-            wa_load_string(0x21),
-            wa_load_string(0x22),
-            wa_load_string(0x23),
-            wa_load_string(0x24),
-            wa_load_string(0x25),
+            wa_load_string(res::COLOUR_RED) as *const u8,
+            wa_load_string(res::COLOUR_BLUE) as *const u8,
+            wa_load_string(res::COLOUR_GREEN) as *const u8,
+            wa_load_string(res::COLOUR_YELLOW) as *const u8,
+            wa_load_string(res::COLOUR_MAGENTA) as *const u8,
+            wa_load_string(res::COLOUR_CYAN) as *const u8,
         ];
 
         // Find max color name length and max team name length for alignment
@@ -895,7 +887,7 @@ unsafe fn write_replay_log(gi: *const GameInfo, log_file: &mut File) -> Result<(
                 let abs_type = -(team_type as i32) as u32;
                 let whole = abs_type / 20;
                 let frac = (abs_type % 20) * 5;
-                let cpu_label = wa_load_string(0x6ED);
+                let cpu_label = wa_load_string(res::LOG_CPU) as *const u8;
                 let _ = write!(s, " [");
                 push_cstr(&mut s, cpu_label);
                 let _ = write!(s, " {whole}.{frac:02}]");

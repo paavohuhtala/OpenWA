@@ -456,8 +456,6 @@ pub mod va {
         fn VECTOR_NORMALIZE_SIMPLE = 0x0057_5590;
         /// VectorNormalize (overflow-safe version, used for game_version >= 0x99)
         fn VECTOR_NORMALIZE_OVERFLOW = 0x0057_55D0;
-        /// Load a string resource by ID. cdecl(resource_id) -> *const c_char.
-        fn/Cdecl LOAD_STRING_RESOURCE = 0x0059_3180;
     }
 
     // =========================================================================
@@ -1101,6 +1099,17 @@ pub mod va {
         /// Phase-label resource ID table indexed by `wrapper.game_end_phase`
         /// (0..9 → resource IDs 0x704..0x70D). Read by end-of-round banner.
         global G_PHASE_LABEL_RES_TABLE = 0x006A_70E0;
+        /// Primary localization data record (`*mut LocalizationData`). When
+        /// non-null, its per-entry offset is tried first by `LoadStringResource`.
+        global G_LOCALIZATION_DATA_PRIMARY = 0x007A_0EDC;
+        /// Secondary (fallback) localization data record (`*mut LocalizationData`).
+        /// Consulted before the primary record — matches the original code's
+        /// check order in `WA__LoadStringResource` (0x593180).
+        global G_LOCALIZATION_DATA_SECONDARY = 0x007A_0EE0;
+        /// Default string table: array of `*const c_char`, length
+        /// `StringRes::COUNT`. Used when neither localization record overrides
+        /// a given entry.
+        global G_LOCALIZATION_KEY_TABLE = 0x0069_7708;
         /// BSS byte latched to 1 on first DispatchFrame pass. Gates a
         /// clamp that inflates `remaining` up to `frame_duration` while
         /// the game hasn't started yet. Purpose not fully confirmed; read

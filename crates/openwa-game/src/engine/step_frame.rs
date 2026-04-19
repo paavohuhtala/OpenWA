@@ -42,6 +42,7 @@ use crate::input::keyboard::DDKeyboard;
 use crate::rebase::rb;
 use crate::render::display::palette::Palette;
 use crate::task::{CTask, CTaskTurnGame};
+use crate::wa::string_resource::{StringRes, res, wa_load_string};
 
 // ─── Runtime addresses (resolved at DLL load) ──────────────────────────────
 
@@ -55,7 +56,6 @@ static mut CLEAR_WORM_BUFFERS_ADDR: u32 = 0;
 static mut ADVANCE_WORM_FRAME_ADDR: u32 = 0;
 static mut CLASSIFY_INPUT_MSG_ADDR: u32 = 0;
 static mut DISPATCH_INPUT_MSG_ADDR: u32 = 0;
-static mut WA_LOAD_STRING_ADDR: u32 = 0;
 
 /// Initialize bridge addresses. Called once at DLL load.
 pub unsafe fn init_step_frame_addrs() {
@@ -70,7 +70,6 @@ pub unsafe fn init_step_frame_addrs() {
         ADVANCE_WORM_FRAME_ADDR = rb(va::DDGAMEWRAPPER_ADVANCE_WORM_FRAME);
         CLASSIFY_INPUT_MSG_ADDR = rb(va::BUFFER_OBJECT_CLASSIFY_INPUT_MSG);
         DISPATCH_INPUT_MSG_ADDR = rb(va::DDGAMEWRAPPER_DISPATCH_INPUT_MSG);
-        WA_LOAD_STRING_ADDR = rb(va::WA_LOAD_STRING);
     }
 }
 
@@ -197,15 +196,6 @@ unsafe extern "stdcall" fn bridge_dispatch_input_msg(
     );
 }
 
-/// `WA__LoadStringResource` (0x00593180). Stdcall(resource_id) → pointer.
-unsafe fn wa_load_string(id: u32) -> *const c_char {
-    unsafe {
-        let func: unsafe extern "stdcall" fn(u32) -> *const c_char =
-            core::mem::transmute(WA_LOAD_STRING_ADDR as usize);
-        func(id)
-    }
-}
-
 #[inline(always)]
 unsafe fn headless_stream(gi: *const GameInfo) -> *mut c_void {
     unsafe { (*gi).headless_log_stream }
@@ -214,10 +204,11 @@ unsafe fn headless_stream(gi: *const GameInfo) -> *mut c_void {
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
 #[inline(always)]
-unsafe fn phase_label_resource(phase: u32) -> u32 {
+unsafe fn phase_label_resource(phase: u32) -> StringRes {
     unsafe {
         let table = rb(va::G_PHASE_LABEL_RES_TABLE) as *const u32;
-        *table.add(phase as usize)
+        let id = *table.add(phase as usize);
+        StringRes::from_offset(id).expect("phase label offset out of range")
     }
 }
 
@@ -457,7 +448,7 @@ unsafe fn log_end_of_round(
         // Original emits the banner bullets via direct `fprintf` — never
         // recoded, so bytes 0x95 land on disk literally. Use the raw path.
         out.write_raw_bytes(b"\x95\x95\x95 ");
-        out.write_cstr(wa_load_string(0x70e)); // "Game"
+        out.write_cstr(wa_load_string(res::LOG_GAMEENDS));
         out.write_bytes(b" - ");
         out.write_cstr(wa_load_string(phase_label_resource(
             (*wrapper).game_end_phase,
@@ -529,17 +520,17 @@ unsafe fn log_end_of_round(
             }
         }
 
-        // Header: `\n<stats_header>\n` (resource 0x71D, "Team time totals:").
+        // Header: `\n<stats_header>\n` (LOG_TEAM_TIMES, "Team time totals:").
         out.write_byte(b'\n');
-        out.write_cstr(wa_load_string(0x71d));
+        out.write_cstr(wa_load_string(res::LOG_TEAM_TIMES));
         out.write_byte(b'\n');
 
         if speech_count > 0 {
             // Labels shared across rows (resolved once).
-            let lbl_71e = wa_load_string(0x71e);
-            let lbl_71f = wa_load_string(0x71f);
-            let lbl_720 = wa_load_string(0x720);
-            let lbl_721 = wa_load_string(0x721);
+            let lbl_turn = wa_load_string(res::LOG_TEAM_TIME_TURN);
+            let lbl_retreat = wa_load_string(res::LOG_TEAM_TIME_RETREAT);
+            let lbl_total = wa_load_string(res::LOG_TEAM_TIME_TOTAL);
+            let lbl_count = wa_load_string(res::LOG_TEAM_TURN_COUNT);
 
             for i in 0..speech_count as u32 {
                 let team_idx_plus_1 = i + 1;
@@ -562,22 +553,22 @@ unsafe fn log_end_of_round(
                 let time_used = *(dd_base.add((ebp - 0x18) as usize) as *const i32);
                 let turn_count_u = *(dd_base.add((ebp + 0x18) as usize) as *const u32);
 
-                // Row format: `<lbl_71e> <ta>, <lbl_71f> <tb>, <lbl_720> <tc>, <lbl_721> <n>\n`
+                // Row format: `<turn> <ta>, <retreat> <tb>, <total> <tc>, <count> <n>\n`
                 // — localized labels interleaved with timestamps and the
                 // turn count. Slot order matches the original disasm.
-                out.write_cstr(lbl_71e);
+                out.write_cstr(lbl_turn);
                 out.write_byte(b' ');
                 out.write_timestamp_frames(time_used as u32);
                 out.write_bytes(b", ");
-                out.write_cstr(lbl_71f);
+                out.write_cstr(lbl_retreat);
                 out.write_byte(b' ');
                 out.write_timestamp_frames(time_total as u32);
                 out.write_bytes(b", ");
-                out.write_cstr(lbl_720);
+                out.write_cstr(lbl_total);
                 out.write_byte(b' ');
                 out.write_timestamp_frames(time_total.wrapping_add(time_used) as u32);
                 out.write_bytes(b", ");
-                out.write_cstr(lbl_721);
+                out.write_cstr(lbl_count);
                 out.write_byte(b' ');
                 out.write_u32(turn_count_u);
                 out.write_byte(b'\n');
@@ -586,14 +577,14 @@ unsafe fn log_end_of_round(
 
         out.write_byte(b'\n');
 
-        // ── End-of-round turn count (resource 0x722: "Turn count:"). ─
-        let turn_count = (*ddgame).round_turn_count;
-        if turn_count != 0 {
-            out.write_cstr(wa_load_string(0x722));
+        // ── End-of-round jetpack fuel total (English: "Total Jet Pack fuel used: N"). ─
+        let jetpack_fuel = (*ddgame).round_jetpack_fuel_total;
+        if jetpack_fuel != 0 {
+            out.write_cstr(wa_load_string(res::LOG_JETPACK_FUEL_TOTAL));
             out.write_byte(b' ');
             // Original uses `%d` but the value is a u32 counter (never
             // negative in practice); emit as unsigned.
-            out.write_u32(turn_count);
+            out.write_u32(jetpack_fuel);
             out.write_bytes(b"\n\n");
         }
     }

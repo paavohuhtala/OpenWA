@@ -468,7 +468,7 @@ pub struct DDGame {
     /// two-column form makes recording-vs-sim drift visible at a glance.
     pub recorded_frame_counter: i32,
     /// 0x7EF4: HUD status message string pointer. Set when object pool overflows
-    /// (loaded via string resource 0x70F). Read by HUD rendering for warning display.
+    /// (loaded via string resource LOG_CRASH_TOO_MANY_OBJECTS). Read by HUD rendering for warning display.
     pub hud_status_text: *const core::ffi::c_char,
     /// 0x7EF8: Headful/interactive mode flag (u32, 0 = headless, 1 = headful).
     /// Computed in the DDGame constructor as `game_info.headless_mode == 0`.
@@ -486,11 +486,12 @@ pub struct DDGame {
     /// 0x8140: Number of entries currently in the sound queue (0–16).
     pub sound_queue_count: i32,
 
-    /// 0x8144: Round turn count. When nonzero at end-of-round headless-log
-    /// time, StepFrame emits the `"%s %d\n\n"` turn-count footer after the
-    /// per-team stats block. Printed via `%d` (signed format), but the
-    /// stored value is used as a u32 counter.
-    pub round_turn_count: u32,
+    /// 0x8144: Round-wide total jetpack fuel used. When nonzero at
+    /// end-of-round headless-log time, StepFrame emits the
+    /// `"LOG_JETPACK_FUEL_TOTAL %d\n\n"` footer (English: "Total Jet Pack
+    /// fuel used: N") after the per-team stats block. Printed via `%d`
+    /// (signed format) but the stored value is used as a u32 counter.
+    pub round_jetpack_fuel_total: u32,
     /// 0x8148: Unknown (set to 1 by InitTurnState).
     pub _field_8148: u32,
     /// 0x814C-0x814F: Unknown
@@ -653,22 +654,19 @@ impl DDGame {
 
     /// Show the "too many objects" warning on the HUD.
     ///
-    /// Sets `hud_status_code = 6` and loads string resource 0x70F into
+    /// Sets `hud_status_code = 6` and loads `LOG_CRASH_TOO_MANY_OBJECTS` into
     /// `hud_status_text`. Only writes if `game_info.game_version < 60`.
     ///
     /// # Safety
     /// `self.game_info` must be valid.
     pub unsafe fn show_pool_overflow_warning(&mut self) {
         unsafe {
-            use crate::address::va;
-            use crate::rebase::rb;
+            use crate::wa::string_resource::{res, wa_load_string};
 
             let game_version = (*self.game_info).game_version;
             if game_version < 0x3C {
                 self.hud_status_code = 6;
-                let load_string: unsafe extern "cdecl" fn(u32) -> *const core::ffi::c_char =
-                    core::mem::transmute(rb(va::LOAD_STRING_RESOURCE));
-                self.hud_status_text = load_string(0x70F);
+                self.hud_status_text = wa_load_string(res::LOG_CRASH_TOO_MANY_OBJECTS);
             }
         }
     }
