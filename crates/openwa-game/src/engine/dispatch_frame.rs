@@ -623,9 +623,6 @@ pub unsafe fn dispatch_frame(wrapper: *mut DDGameWrapper, time: u64, freq: u64) 
                         frame_time = remaining;
                     }
                 }
-                let ft_lo = frame_time as u32;
-                let ft_hi = (frame_time >> 32) as u32;
-
                 let session = get_game_session();
 
                 if (*session).flag_5c == 0 || (*ddgame).network_ecx != 0 {
@@ -646,8 +643,7 @@ pub unsafe fn dispatch_frame(wrapper: *mut DDGameWrapper, time: u64, freq: u64) 
                             wrapper,
                             &mut frame_step_counter,
                             &mut remaining,
-                            ft_lo,
-                            ft_hi,
+                            frame_time,
                             game_speed_target,
                             saved_game_speed,
                         ) {
@@ -668,8 +664,7 @@ pub unsafe fn dispatch_frame(wrapper: *mut DDGameWrapper, time: u64, freq: u64) 
                             wrapper,
                             &mut frame_step_counter,
                             &mut remaining,
-                            ft_lo,
-                            ft_hi,
+                            frame_time,
                             game_speed_target,
                             saved_game_speed,
                         ) {
@@ -697,8 +692,7 @@ pub unsafe fn dispatch_frame(wrapper: *mut DDGameWrapper, time: u64, freq: u64) 
                     wrapper,
                     &mut frame_step_counter,
                     &mut remaining,
-                    frame_duration as u32,
-                    (frame_duration >> 32) as u32,
+                    frame_duration,
                     game_speed_target,
                     saved_game_speed,
                 ) {

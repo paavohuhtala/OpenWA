@@ -211,11 +211,6 @@ unsafe fn headless_stream(gi: *const GameInfo) -> *mut c_void {
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
 #[inline(always)]
-fn combine(lo: u32, hi: u32) -> u64 {
-    (hi as u64) << 32 | lo as u64
-}
-
-#[inline(always)]
 unsafe fn phase_label_resource(phase: u32) -> u32 {
     unsafe {
         let table = rb(va::G_PHASE_LABEL_RES_TABLE) as *const u32;
@@ -235,9 +230,8 @@ unsafe fn phase_label_resource(phase: u32) -> u32 {
 pub unsafe fn step_frame(
     wrapper: *mut DDGameWrapper,
     input_poll_count: &mut u32,
-    remaining: *mut u64,
-    frame_duration_lo: u32,
-    frame_duration_hi: u32,
+    remaining: &mut u64,
+    frame_duration: u64,
     game_speed_target: i32,
     game_speed: i32,
 ) -> bool {
@@ -330,9 +324,7 @@ pub unsafe fn step_frame(
         if sentinel_match_2 && (*wrapper).frame_delay_counter >= 0 {
             *remaining = 0;
         } else if game_info.sound_mute == 0 && game_info.sound_start_frame <= frame_counter {
-            let rem = *remaining;
-            let sub = combine(frame_duration_lo, frame_duration_hi);
-            *remaining = rem.wrapping_sub(sub);
+            *remaining = remaining.wrapping_sub(frame_duration);
         }
 
         // ── Block G: headful-mode keyboard/palette no-op slots ────────
