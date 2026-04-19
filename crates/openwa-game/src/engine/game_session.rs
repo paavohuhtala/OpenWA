@@ -90,14 +90,10 @@ pub struct GameSession {
     /// Used for input state tracking.
     pub input_active_flag: u32,
     pub _unknown_08c: [u8; 4],
-    /// 0x090: `QueryPerformanceFrequency` result low DWORD (0 if QPC unavailable)
-    pub timer_freq_lo: u32,
-    /// 0x094: high DWORD
-    pub timer_freq_hi: u32,
-    /// 0x098: QPC counter accumulator low DWORD
-    pub timer_counter_lo: u32,
-    /// 0x09C: high DWORD
-    pub timer_counter_hi: u32,
+    /// 0x090: `QueryPerformanceFrequency` result (0 if QPC unavailable).
+    pub timer_freq: u64,
+    /// 0x098: QPC counter accumulator.
+    pub timer_counter: u64,
     /// 0x0A0: `DDGameWrapper*` — the main game object wrapper (→ `DDGame` at `+0x488`)
     pub ddgame_wrapper: *mut DDGameWrapper,
     /// 0x0A4: `DDKeyboard*` — 0x33C bytes, vtable `DDKeyboard_vtable` (0x66AEC8)

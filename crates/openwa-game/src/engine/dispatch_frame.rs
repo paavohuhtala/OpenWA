@@ -211,12 +211,8 @@ pub unsafe fn is_replay_mode(wrapper: *mut DDGameWrapper) -> bool {
     unsafe { bridge_is_replay_mode(wrapper) != 0 }
 }
 
-pub unsafe fn should_continue_frame_loop(
-    wrapper: *mut DDGameWrapper,
-    elapsed_lo: u32,
-    elapsed_hi: u32,
-) -> bool {
-    unsafe { bridge_should_continue(wrapper, elapsed_lo, elapsed_hi) != 0 }
+pub unsafe fn should_continue_frame_loop(wrapper: *mut DDGameWrapper, elapsed: u64) -> bool {
+    unsafe { bridge_should_continue(wrapper, elapsed as u32, (elapsed >> 32) as u32) != 0 }
 }
 
 pub unsafe fn is_frame_paused(wrapper: *mut DDGameWrapper) -> bool {
@@ -264,17 +260,16 @@ unsafe fn calc_timing_ratio(wrapper: *mut DDGameWrapper, ratio: i32) {
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
 /// Read the current time using the same method as the GameSession timer.
-/// Returns (time_lo, time_hi) matching the convention of AdvanceFrame's params.
-unsafe fn read_current_time() -> (u32, u32) {
+unsafe fn read_current_time() -> u64 {
     unsafe {
         let session = get_game_session();
-        if (*session).timer_freq_lo == 0 && (*session).timer_freq_hi == 0 {
+        if (*session).timer_freq == 0 {
             let tick = windows_sys::Win32::System::SystemInformation::GetTickCount();
-            (tick.wrapping_mul(1000), 0)
+            tick.wrapping_mul(1000) as u64
         } else {
             let mut qpc: i64 = 0;
             windows_sys::Win32::System::Performance::QueryPerformanceCounter(&mut qpc);
-            (qpc as u32, (qpc >> 32) as u32)
+            qpc as u64
         }
     }
 }
@@ -282,16 +277,6 @@ unsafe fn read_current_time() -> (u32, u32) {
 #[inline(always)]
 fn combine(lo: u32, hi: u32) -> u64 {
     (hi as u64) << 32 | lo as u64
-}
-
-#[inline(always)]
-fn split(v: u64) -> (u32, u32) {
-    (v as u32, (v >> 32) as u32)
-}
-
-#[inline(always)]
-fn time_sub(a_lo: u32, a_hi: u32, b_lo: u32, b_hi: u32) -> u64 {
-    combine(a_lo, a_hi).wrapping_sub(combine(b_lo, b_hi))
 }
 
 /// Signed 32-bit division matching WA's FUN_005d8786.
@@ -305,14 +290,8 @@ fn wa_div(dividend_lo: i32, divisor: i32) -> (i32, i32) {
 /// Subtract a sign-extended i32 remainder from a 64-bit timestamp.
 /// Matches the CDQ + SUB + SBB pattern used after FUN_005d8786 in DispatchFrame.
 #[inline(always)]
-fn time_sub_i32(time_lo: u32, time_hi: u32, remainder: i32) -> (u32, u32) {
-    let rem_u32 = remainder as u32;
-    let sign_hi = (remainder >> 31) as u32;
-    let lo = time_lo.wrapping_sub(rem_u32);
-    let hi = time_hi
-        .wrapping_sub(sign_hi)
-        .wrapping_sub(if time_lo < rem_u32 { 1 } else { 0 });
-    (lo, hi)
+fn time_sub_i32(time: u64, remainder: i32) -> u64 {
+    time.wrapping_sub(remainder as i64 as u64)
 }
 
 // ─── Main dispatch function ────────────────────────────────────────────────
@@ -325,15 +304,8 @@ fn time_sub_i32(time_lo: u32, time_hi: u32, remainder: i32) -> (u32, u32) {
 ///
 /// # Safety
 /// Must be called from within WA.exe with valid pointers.
-pub unsafe fn dispatch_frame(
-    wrapper: *mut DDGameWrapper,
-    time_lo: u32,
-    time_hi: u32,
-    freq_lo: u32,
-    freq_hi: u32,
-) {
+pub unsafe fn dispatch_frame(wrapper: *mut DDGameWrapper, time: u64, freq: u64) {
     unsafe {
-        let freq = combine(freq_lo, freq_hi);
         let mut frame_step_counter: u32 = 0;
 
         let frame_interval = freq / 50;
@@ -357,22 +329,15 @@ pub unsafe fn dispatch_frame(
         let mut used_normal_path = false;
 
         if is_headful {
-            if (*wrapper).pause_detect_lo == 0 && (*wrapper).pause_detect_hi == 0 {
-                (*wrapper).pause_detect_lo = time_lo;
-                (*wrapper).pause_detect_hi = time_hi;
-                (*wrapper).pause_secondary_lo = time_lo;
-                (*wrapper).pause_secondary_hi = time_hi;
+            if (*wrapper).pause_detect == 0 {
+                (*wrapper).pause_detect = time;
+                (*wrapper).pause_secondary = time;
             }
 
             let is_replay = is_replay_mode(wrapper);
 
             if !is_replay || saved_frame_delay >= 0 {
-                let delta = time_sub(
-                    time_lo,
-                    time_hi,
-                    (*wrapper).pause_detect_lo,
-                    (*wrapper).pause_detect_hi,
-                );
+                let delta = time.wrapping_sub((*wrapper).pause_detect);
                 used_normal_path = true;
 
                 let quarter_freq = freq / 4;
@@ -388,15 +353,12 @@ pub unsafe fn dispatch_frame(
                     };
                     let (ratio, remainder) = wa_div(delta as i32, divisor);
                     calc_timing_ratio(wrapper, ratio);
-                    let (pd_lo, pd_hi) = time_sub_i32(time_lo, time_hi, remainder);
-                    (*wrapper).pause_detect_lo = pd_lo;
-                    (*wrapper).pause_detect_hi = pd_hi;
-                    handle_secondary_pause(wrapper, time_lo, time_hi, freq);
+                    (*wrapper).pause_detect = time_sub_i32(time, remainder);
+                    handle_secondary_pause(wrapper, time, freq);
                 } else {
                     // Delta out of range — resync pause detection.
-                    (*wrapper).pause_detect_lo = time_lo;
-                    (*wrapper).pause_detect_hi = time_hi;
-                    handle_secondary_pause(wrapper, time_lo, time_hi, freq);
+                    (*wrapper).pause_detect = time;
+                    handle_secondary_pause(wrapper, time, freq);
                 }
             } else {
                 // Replay mode with negative frame delay: derive elapsed from the
@@ -405,48 +367,35 @@ pub unsafe fn dispatch_frame(
                 elapsed = freq / (gi.replay_ticks as u64);
                 let (ratio, remainder) = wa_div(elapsed as i32, frame_interval as i32);
                 calc_timing_ratio(wrapper, ratio);
-                let (pd_lo, pd_hi) = time_sub_i32(time_lo, time_hi, remainder);
-                (*wrapper).pause_detect_lo = pd_lo;
-                (*wrapper).pause_detect_hi = pd_hi;
+                (*wrapper).pause_detect = time_sub_i32(time, remainder);
 
                 if (*wrapper).timing_jitter_state == 2 {
                     (*wrapper).timing_jitter_state = 1;
-                    (*wrapper).pause_secondary_lo = time_lo;
-                    (*wrapper).pause_secondary_hi = time_hi;
+                    (*wrapper).pause_secondary = time;
                 } else {
                     let half_freq = (freq as i32) / 2;
                     let (sec_ratio, sec_remainder) = wa_div(elapsed as i32, half_freq);
                     (*wrapper).timing_jitter_state ^= sec_ratio & 1;
-                    let (sp_lo, sp_hi) = time_sub_i32(time_lo, time_hi, sec_remainder);
-                    (*wrapper).pause_secondary_lo = sp_lo;
-                    (*wrapper).pause_secondary_hi = sp_hi;
+                    (*wrapper).pause_secondary = time_sub_i32(time, sec_remainder);
                 }
             }
 
-            if (*wrapper).initial_ref_lo == 0 && (*wrapper).initial_ref_hi == 0 {
-                (*wrapper).initial_ref_lo = time_lo;
-                (*wrapper).initial_ref_hi = time_hi;
+            if (*wrapper).initial_ref == 0 {
+                (*wrapper).initial_ref = time;
             }
 
             if used_normal_path {
-                let init_delta = time_sub(
-                    time_lo,
-                    time_hi,
-                    (*wrapper).initial_ref_lo,
-                    (*wrapper).initial_ref_hi,
-                );
+                let init_delta = time.wrapping_sub((*wrapper).initial_ref);
                 if (init_delta as i64) >= 0 {
                     elapsed = init_delta;
-                    (*wrapper).initial_ref_lo = time_lo;
-                    (*wrapper).initial_ref_hi = time_hi;
+                    (*wrapper).initial_ref = time;
                 } else {
                     elapsed = 0;
                     // Original intentionally does NOT update initial_ref when
                     // the delta is negative.
                 }
             } else {
-                (*wrapper).initial_ref_lo = time_lo;
-                (*wrapper).initial_ref_hi = time_hi;
+                (*wrapper).initial_ref = time;
             }
 
             // FPU section: the original x87 code uses 80-bit precision; f64 is
@@ -513,8 +462,8 @@ pub unsafe fn dispatch_frame(
                 wrapper,
                 elapsed as u32,
                 (elapsed >> 32) as u32,
-                freq_lo,
-                freq_hi,
+                freq as u32,
+                (freq >> 32) as u32,
             );
 
             // DSSound::update_channels (slot 1).
@@ -545,17 +494,11 @@ pub unsafe fn dispatch_frame(
         }
         // end of is_headful block
 
-        if (*wrapper).timing_ref_lo == 0 && (*wrapper).timing_ref_hi == 0 {
-            (*wrapper).timing_ref_lo = time_lo;
-            (*wrapper).timing_ref_hi = time_hi;
+        if (*wrapper).timing_ref == 0 {
+            (*wrapper).timing_ref = time;
         }
 
-        let ref_delta = time_sub(
-            time_lo,
-            time_hi,
-            (*wrapper).timing_ref_lo,
-            (*wrapper).timing_ref_hi,
-        ) as i64;
+        let ref_delta = time.wrapping_sub((*wrapper).timing_ref) as i64;
 
         let mut remaining: u64 = if ref_delta < 0 {
             0
@@ -583,16 +526,17 @@ pub unsafe fn dispatch_frame(
             }
         }
 
-        let (now_lo, now_hi) = read_current_time();
-        let loop_elapsed = time_sub(
-            now_lo,
-            now_hi,
-            (*wrapper).last_frame_time_lo,
-            (*wrapper).last_frame_time_hi,
-        );
+        let now = read_current_time();
+        let loop_elapsed = now.wrapping_sub((*wrapper).last_frame_time);
 
         if (*ddgame).network_ecx != 0 {
-            bridge_process_network_frame(wrapper, time_lo, time_hi, freq_lo, freq_hi);
+            bridge_process_network_frame(
+                wrapper,
+                time as u32,
+                (time >> 32) as u32,
+                freq as u32,
+                (freq >> 32) as u32,
+            );
         }
 
         // Clamp `remaining` for replay/network catch-up. The latch at
@@ -662,9 +606,7 @@ pub unsafe fn dispatch_frame(
                     break;
                 }
 
-                let accum_a = combine((*wrapper).frame_accum_a_lo, (*wrapper).frame_accum_a_hi);
-                let accum_b = combine((*wrapper).frame_accum_b_lo, (*wrapper).frame_accum_b_hi);
-                let max_accum = accum_a.max(accum_b);
+                let max_accum = (*wrapper).frame_accum_a.max((*wrapper).frame_accum_b);
 
                 // Matches original unsigned SUB/SBB: wraps on underflow, and the
                 // follow-up compare against `remaining` depends on wrap.
@@ -681,38 +623,25 @@ pub unsafe fn dispatch_frame(
                         frame_time = remaining;
                     }
                 }
-                let (ft_lo, ft_hi) = split(frame_time);
+                let ft_lo = frame_time as u32;
+                let ft_hi = (frame_time >> 32) as u32;
 
                 let session = get_game_session();
 
                 if (*session).flag_5c == 0 || (*ddgame).network_ecx != 0 {
-                    let accum_b_new =
-                        combine((*wrapper).frame_accum_b_lo, (*wrapper).frame_accum_b_hi)
-                            .wrapping_add(frame_time);
-                    (*wrapper).frame_accum_b_lo = accum_b_new as u32;
-                    (*wrapper).frame_accum_b_hi = (accum_b_new >> 32) as u32;
-
-                    if accum_b_new == frame_duration {
-                        (*wrapper).frame_accum_b_lo = 0;
-                        (*wrapper).frame_accum_b_hi = 0;
+                    (*wrapper).frame_accum_b = (*wrapper).frame_accum_b.wrapping_add(frame_time);
+                    if (*wrapper).frame_accum_b == frame_duration {
+                        (*wrapper).frame_accum_b = 0;
                         bridge_reset_frame_state(wrapper);
                     }
                 }
 
                 if is_frame_paused(wrapper) {
-                    let accum_a_new =
-                        combine((*wrapper).frame_accum_a_lo, (*wrapper).frame_accum_a_hi)
-                            .wrapping_add(frame_time);
-                    (*wrapper).frame_accum_a_lo = accum_a_new as u32;
-                    (*wrapper).frame_accum_a_hi = (accum_a_new >> 32) as u32;
-                    (*wrapper).frame_accum_c_lo = 0;
-                    (*wrapper).frame_accum_c_hi = 0;
+                    (*wrapper).frame_accum_a = (*wrapper).frame_accum_a.wrapping_add(frame_time);
+                    (*wrapper).frame_accum_c = 0;
 
-                    if combine((*wrapper).frame_accum_a_lo, (*wrapper).frame_accum_a_hi)
-                        == frame_duration
-                    {
-                        (*wrapper).frame_accum_a_lo = 0;
-                        (*wrapper).frame_accum_a_hi = 0;
+                    if (*wrapper).frame_accum_a == frame_duration {
+                        (*wrapper).frame_accum_a = 0;
                         if !crate::engine::step_frame::step_frame(
                             wrapper,
                             &mut frame_step_counter,
@@ -731,16 +660,10 @@ pub unsafe fn dispatch_frame(
                         }
                     }
                 } else {
-                    let accum_c_new =
-                        combine((*wrapper).frame_accum_c_lo, (*wrapper).frame_accum_c_hi)
-                            .wrapping_add(frame_time);
-                    (*wrapper).frame_accum_c_lo = accum_c_new as u32;
-                    (*wrapper).frame_accum_c_hi = (accum_c_new >> 32) as u32;
+                    (*wrapper).frame_accum_c = (*wrapper).frame_accum_c.wrapping_add(frame_time);
 
-                    if accum_c_new >= frame_duration {
-                        let excess = accum_c_new - frame_duration;
-                        (*wrapper).frame_accum_c_lo = excess as u32;
-                        (*wrapper).frame_accum_c_hi = (excess >> 32) as u32;
+                    if (*wrapper).frame_accum_c >= frame_duration {
+                        (*wrapper).frame_accum_c -= frame_duration;
                         if !crate::engine::step_frame::step_frame(
                             wrapper,
                             &mut frame_step_counter,
@@ -783,11 +706,7 @@ pub unsafe fn dispatch_frame(
                 }
             }
 
-            if !should_continue_frame_loop(
-                wrapper,
-                loop_elapsed as u32,
-                (loop_elapsed >> 32) as u32,
-            ) {
+            if !should_continue_frame_loop(wrapper, loop_elapsed) {
                 break;
             }
         }
@@ -805,15 +724,15 @@ pub unsafe fn dispatch_frame(
 
             if replay_ticks == 0 {
                 if gi.sound_mute == 0 && gi.sound_start_frame <= (*ddgame).frame_counter {
-                    let accum_a = combine((*wrapper).frame_accum_a_lo, (*wrapper).frame_accum_a_hi);
-                    let speed_a = accum_a
+                    let speed_a = (*wrapper)
+                        .frame_accum_a
                         .wrapping_mul(0x10000)
                         .checked_div(frame_duration)
                         .unwrap_or(0) as i32;
                     (*ddgame).render_interp_a = Fixed::from_raw(speed_a);
 
-                    let accum_b = combine((*wrapper).frame_accum_b_lo, (*wrapper).frame_accum_b_hi);
-                    let speed_b = accum_b
+                    let speed_b = (*wrapper)
+                        .frame_accum_b
                         .wrapping_mul(0x10000)
                         .checked_div(frame_duration)
                         .unwrap_or(0) as i32;
@@ -828,12 +747,9 @@ pub unsafe fn dispatch_frame(
                     }
 
                     if (*wrapper).frame_delay_counter >= 0 {
-                        (*wrapper).frame_accum_a_lo = 0;
-                        (*wrapper).frame_accum_a_hi = 0;
-                        (*wrapper).frame_accum_b_lo = 0;
-                        (*wrapper).frame_accum_b_hi = 0;
-                        (*wrapper).frame_accum_c_lo = 0;
-                        (*wrapper).frame_accum_c_hi = 0;
+                        (*wrapper).frame_accum_a = 0;
+                        (*wrapper).frame_accum_b = 0;
+                        (*wrapper).frame_accum_c = 0;
                     }
 
                     let new_target = (*ddgame).game_speed_target.to_raw();
@@ -842,12 +758,9 @@ pub unsafe fn dispatch_frame(
                     {
                         if saved_frame_delay >= 0 && (*wrapper).frame_delay_counter < 0 {
                             // Speed change while frame delay was active → reset.
-                            (*wrapper).frame_accum_a_lo = 0;
-                            (*wrapper).frame_accum_a_hi = 0;
-                            (*wrapper).frame_accum_b_lo = 0;
-                            (*wrapper).frame_accum_b_hi = 0;
-                            (*wrapper).frame_accum_c_lo = 0;
-                            (*wrapper).frame_accum_c_hi = 0;
+                            (*wrapper).frame_accum_a = 0;
+                            (*wrapper).frame_accum_b = 0;
+                            (*wrapper).frame_accum_c = 0;
                             (*ddgame).render_interp_a = Fixed::ZERO;
                             (*ddgame).render_interp_b = Fixed::ZERO;
                         } else {
@@ -857,28 +770,22 @@ pub unsafe fn dispatch_frame(
                                 / (new_target as i64))
                                 as u64;
 
-                            let scaled_a = (((*ddgame).render_interp_a.to_raw() as i64)
+                            (*wrapper).frame_accum_a = (((*ddgame).render_interp_a.to_raw() as i64)
                                 .wrapping_mul(scale as i64)
-                                >> 16) as u64;
-                            (*wrapper).frame_accum_a_lo = scaled_a as u32;
-                            (*wrapper).frame_accum_a_hi = (scaled_a >> 32) as u32;
+                                >> 16)
+                                as u64;
 
-                            let scaled_b = (((*ddgame).render_interp_b.to_raw() as i64)
+                            (*wrapper).frame_accum_b = (((*ddgame).render_interp_b.to_raw() as i64)
                                 .wrapping_mul(scale as i64)
-                                >> 16) as u64;
-                            (*wrapper).frame_accum_b_lo = scaled_b as u32;
-                            (*wrapper).frame_accum_b_hi = (scaled_b >> 32) as u32;
+                                >> 16)
+                                as u64;
 
-                            // Rescale accum_c (full 64-bit, not just lo dword).
-                            let accum_c =
-                                combine((*wrapper).frame_accum_c_lo, (*wrapper).frame_accum_c_hi);
-                            if accum_c != 0 {
-                                let scaled_c = accum_c
+                            if (*wrapper).frame_accum_c != 0 {
+                                (*wrapper).frame_accum_c = (*wrapper)
+                                    .frame_accum_c
                                     .wrapping_mul(scale)
                                     .checked_div(frame_duration)
                                     .unwrap_or(0);
-                                (*wrapper).frame_accum_c_lo = scaled_c as u32;
-                                (*wrapper).frame_accum_c_hi = (scaled_c >> 32) as u32;
                             }
                         }
                     }
@@ -887,22 +794,14 @@ pub unsafe fn dispatch_frame(
                     (*ddgame).render_interp_a = Fixed::ZERO;
                     (*ddgame).render_interp_b = Fixed::ZERO;
                 }
-                (*wrapper).timing_ref_lo = time_lo;
-                (*wrapper).timing_ref_hi = time_hi;
+                (*wrapper).timing_ref = time;
             } else {
                 // Replay mode — subtract remaining from reference.
-                let (rem_lo, rem_hi) = split(remaining);
-                (*wrapper).timing_ref_lo = time_lo.wrapping_sub(rem_lo);
-                (*wrapper).timing_ref_hi = (time_hi as i64)
-                    .wrapping_sub((rem_hi as i32 >> 31) as i64)
-                    .wrapping_sub(if time_lo < rem_lo { 1 } else { 0 })
-                    as u32;
+                (*wrapper).timing_ref = time.wrapping_sub(remaining);
             }
         }
 
-        let (now_lo, now_hi) = read_current_time();
-        (*wrapper).last_frame_time_lo = now_lo;
-        (*wrapper).last_frame_time_hi = now_hi;
+        (*wrapper).last_frame_time = read_current_time();
 
         // Headless log output: format the current frame counter as "HH:MM:SS.CC\n"
         // and write to CRT stdout. ExitProcess(-1) on write failure.
@@ -993,38 +892,24 @@ pub unsafe fn dispatch_frame(
 /// resets `timing_jitter_state` or XORs it with the low bit of
 /// `sec_delta / (freq/2)`. The `CDQ+SUB+SBB` pattern after the IDIV is
 /// modelled by `time_sub_i32`.
-unsafe fn handle_secondary_pause(
-    wrapper: *mut DDGameWrapper,
-    time_lo: u32,
-    time_hi: u32,
-    freq: u64,
-) {
+unsafe fn handle_secondary_pause(wrapper: *mut DDGameWrapper, time: u64, freq: u64) {
     unsafe {
-        let sec_delta = time_sub(
-            time_lo,
-            time_hi,
-            (*wrapper).pause_secondary_lo,
-            (*wrapper).pause_secondary_hi,
-        );
+        let sec_delta = time.wrapping_sub((*wrapper).pause_secondary);
 
         if (sec_delta as i64) >= 0 && sec_delta <= freq.wrapping_mul(2) {
             if (*wrapper).timing_jitter_state == 2 {
                 (*wrapper).timing_jitter_state = 1;
-                (*wrapper).pause_secondary_lo = time_lo;
-                (*wrapper).pause_secondary_hi = time_hi;
+                (*wrapper).pause_secondary = time;
             } else {
                 let half_freq = (freq as i32) / 2;
                 let (sec_ratio, sec_remainder) = wa_div(sec_delta as i32, half_freq);
                 (*wrapper).timing_jitter_state ^= sec_ratio & 1;
-                let (sp_lo, sp_hi) = time_sub_i32(time_lo, time_hi, sec_remainder);
-                (*wrapper).pause_secondary_lo = sp_lo;
-                (*wrapper).pause_secondary_hi = sp_hi;
+                (*wrapper).pause_secondary = time_sub_i32(time, sec_remainder);
             }
             return;
         }
         // Delta negative or too large — reset.
         (*wrapper).timing_jitter_state = 1;
-        (*wrapper).pause_secondary_lo = time_lo;
-        (*wrapper).pause_secondary_hi = time_hi;
+        (*wrapper).pause_secondary = time;
     }
 }

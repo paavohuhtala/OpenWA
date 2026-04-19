@@ -974,20 +974,13 @@ pub unsafe fn init_game_state(wrapper: *mut DDGameWrapper) {
         }
 
         // ===== Zero frame timing state (0x98-0xD4) =====
-        (*wrapper).timing_ref_lo = 0;
-        (*wrapper).timing_ref_hi = 0;
-        (*wrapper).last_frame_time_lo = 0;
-        (*wrapper).last_frame_time_hi = 0;
-        (*wrapper).frame_accum_a_lo = 0;
-        (*wrapper).frame_accum_a_hi = 0;
-        (*wrapper).frame_accum_b_lo = 0;
-        (*wrapper).frame_accum_b_hi = 0;
-        (*wrapper).frame_accum_c_lo = 0;
-        (*wrapper).frame_accum_c_hi = 0;
-        (*wrapper).initial_ref_lo = 0;
-        (*wrapper).initial_ref_hi = 0;
-        (*wrapper).pause_detect_lo = 0;
-        (*wrapper).pause_detect_hi = 0;
+        (*wrapper).timing_ref = 0;
+        (*wrapper).last_frame_time = 0;
+        (*wrapper).frame_accum_a = 0;
+        (*wrapper).frame_accum_b = 0;
+        (*wrapper).frame_accum_c = 0;
+        (*wrapper).initial_ref = 0;
+        (*wrapper).pause_detect = 0;
 
         // ===== Replay/network mode flag =====
         {

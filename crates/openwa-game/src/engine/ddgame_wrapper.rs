@@ -115,38 +115,22 @@ pub struct DDGameWrapper {
     // ===== 0x094-0x0F3: Frame timing state (used by DispatchFrame) =====
     /// 0x094: Unknown gap
     pub _unknown_094: u32,
-    /// 0x098: Reference timestamp lo — set to current time, used for delta calculation
-    pub timing_ref_lo: u32,
-    /// 0x09C: Reference timestamp hi
-    pub timing_ref_hi: u32,
-    /// 0x0A0: Last frame timestamp lo — stored at end of DispatchFrame
-    pub last_frame_time_lo: u32,
-    /// 0x0A4: Last frame timestamp hi
-    pub last_frame_time_hi: u32,
-    /// 0x0A8: Frame accumulator A lo — paused frame time
-    pub frame_accum_a_lo: u32,
-    /// 0x0AC: Frame accumulator A hi
-    pub frame_accum_a_hi: u32,
-    /// 0x0B0: Frame accumulator B lo — running frame time
-    pub frame_accum_b_lo: u32,
-    /// 0x0B4: Frame accumulator B hi
-    pub frame_accum_b_hi: u32,
-    /// 0x0B8: Frame accumulator C lo — sub-frame remainder
-    pub frame_accum_c_lo: u32,
-    /// 0x0BC: Frame accumulator C hi
-    pub frame_accum_c_hi: u32,
-    /// 0x0C0: Initial reference timestamp lo
-    pub initial_ref_lo: u32,
-    /// 0x0C4: Initial reference timestamp hi
-    pub initial_ref_hi: u32,
-    /// 0x0C8: Pause detection timestamp lo
-    pub pause_detect_lo: u32,
-    /// 0x0CC: Pause detection timestamp hi
-    pub pause_detect_hi: u32,
-    /// 0x0D0: Secondary pause timestamp lo
-    pub pause_secondary_lo: u32,
-    /// 0x0D4: Secondary pause timestamp hi
-    pub pause_secondary_hi: u32,
+    /// 0x098: Reference timestamp (QPC ticks) — used for delta calculation.
+    pub timing_ref: u64,
+    /// 0x0A0: Last-frame timestamp (QPC ticks) — stored at end of DispatchFrame.
+    pub last_frame_time: u64,
+    /// 0x0A8: Frame accumulator A — paused frame time (QPC ticks).
+    pub frame_accum_a: u64,
+    /// 0x0B0: Frame accumulator B — running frame time (QPC ticks).
+    pub frame_accum_b: u64,
+    /// 0x0B8: Frame accumulator C — sub-frame remainder (QPC ticks).
+    pub frame_accum_c: u64,
+    /// 0x0C0: Initial reference timestamp (QPC ticks).
+    pub initial_ref: u64,
+    /// 0x0C8: Pause detection timestamp (QPC ticks).
+    pub pause_detect: u64,
+    /// 0x0D0: Secondary pause timestamp (QPC ticks).
+    pub pause_secondary: u64,
     /// 0x0D8-0x0DF: Unknown
     pub _unknown_0d8: [u8; 8],
     /// 0x0E0: State flag (zeroed by InitGameState)

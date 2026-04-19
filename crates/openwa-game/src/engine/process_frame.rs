@@ -39,43 +39,31 @@ pub mod game_state {
 pub unsafe fn advance_frame() -> u32 {
     unsafe {
         let session = get_game_session();
-        let freq_lo = (*session).timer_freq_lo;
-        let freq_hi = (*session).timer_freq_hi;
-        let counter =
-            ((*session).timer_counter_hi as u64) << 32 | (*session).timer_counter_lo as u64;
+        let freq = (*session).timer_freq;
+        let counter = (*session).timer_counter;
 
-        let (time, new_counter, call_freq_lo, call_freq_hi);
+        let (time, new_counter, call_freq);
 
-        if freq_lo == 0 && freq_hi == 0 {
+        if freq == 0 {
             // No QueryPerformanceCounter — use GetTickCount
             let tick = GetTickCount();
             new_counter = counter.wrapping_mul(2).wrapping_add((tick & 1) as u64);
             time = tick as u64 * 1000;
-            call_freq_lo = 1_000_000u32;
-            call_freq_hi = 0u32;
+            call_freq = 1_000_000u64;
         } else {
             // Use QueryPerformanceCounter
             let mut qpc: i64 = 0;
             QueryPerformanceCounter(&mut qpc);
             new_counter = counter.wrapping_mul(4).wrapping_add((qpc as u64) & 3);
             time = qpc as u64;
-            call_freq_lo = freq_lo;
-            call_freq_hi = freq_hi;
+            call_freq = freq;
         };
 
-        // Store updated accumulator
-        (*session).timer_counter_lo = new_counter as u32;
-        (*session).timer_counter_hi = (new_counter >> 32) as u32;
+        (*session).timer_counter = new_counter;
 
         // Dispatch frame timing via Rust port
         let wrapper = (*session).ddgame_wrapper;
-        crate::engine::dispatch_frame::dispatch_frame(
-            wrapper,
-            time as u32,
-            (time >> 32) as u32,
-            call_freq_lo,
-            call_freq_hi,
-        );
+        crate::engine::dispatch_frame::dispatch_frame(wrapper, time, call_freq);
 
         // Return game state (vtable slot 9)
         DDGameWrapper::get_game_state_raw(wrapper)
