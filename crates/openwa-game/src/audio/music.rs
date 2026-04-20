@@ -17,32 +17,32 @@ type Ptr32 = u32;
 
 define_addresses! {
     class "Music" {
-        ctor MUSIC_CONSTRUCTOR = 0x0058_BC10;
+        ctor MUSIC_CONSTRUCTOR = 0x0058BC10;
     }
     /// Music destructor (called from scalar deleting dtor).
-    fn MUSIC_DESTRUCTOR = 0x0058_BC80;
+    fn MUSIC_DESTRUCTOR = 0x0058BC80;
     /// Music::PlayTrack internal — maps track ID to filename, calls StreamingAudio::Open.
-    fn/Usercall MUSIC_PLAY_TRACK = 0x0058_BD20;
+    fn/Usercall MUSIC_PLAY_TRACK = 0x0058BD20;
     /// Music volume dB lookup table (65 entries, i32).
-    data MUSIC_VOLUME_DB_TABLE = 0x006A_F960;
+    data MUSIC_VOLUME_DB_TABLE = 0x006AF960;
     /// StreamingAudio::Init (zero-init base object).
-    fn/Usercall STREAMING_AUDIO_INIT = 0x0047_07B0;
+    fn/Usercall STREAMING_AUDIO_INIT = 0x004707B0;
     /// StreamingAudio::Open — opens WAV, configures buffer, starts playback.
-    fn/Usercall STREAMING_AUDIO_OPEN = 0x0057_4B30;
+    fn/Usercall STREAMING_AUDIO_OPEN = 0x00574B30;
     /// StreamingAudio::Stop — kills timer, releases DS buffer, closes mmio.
-    fn/Usercall STREAMING_AUDIO_STOP = 0x0057_4CA0;
+    fn/Usercall STREAMING_AUDIO_STOP = 0x00574CA0;
     /// StreamingAudio::InitPlayback — core setup (timer caps, DS buffer, timer).
-    fn/Stdcall STREAMING_AUDIO_INIT_PLAYBACK = 0x0057_4D10;
+    fn/Stdcall STREAMING_AUDIO_INIT_PLAYBACK = 0x00574D10;
     /// StreamingAudio::OpenWAV — parse RIFF/WAVE via mmio.
-    fn/Usercall STREAMING_AUDIO_OPEN_WAV = 0x0057_4F80;
+    fn/Usercall STREAMING_AUDIO_OPEN_WAV = 0x00574F80;
     /// StreamingAudio::FillAndStart — initial buffer fill + DS Play + timeSetEvent.
-    fn/Usercall STREAMING_AUDIO_FILL_AND_START = 0x0057_51B0;
+    fn/Usercall STREAMING_AUDIO_FILL_AND_START = 0x005751B0;
     /// StreamingAudio::Reset — kill timer, stop buffer, seek back.
-    fn/Usercall STREAMING_AUDIO_RESET = 0x0057_52D0;
+    fn/Usercall STREAMING_AUDIO_RESET = 0x005752D0;
     /// StreamingAudio::TimerCallback — periodic buffer refill (stdcall, RET 0x14).
-    fn/Stdcall STREAMING_AUDIO_TIMER_CALLBACK = 0x0057_53A0;
+    fn/Stdcall STREAMING_AUDIO_TIMER_CALLBACK = 0x005753A0;
     /// StreamingAudio::ReadChunk — read clamped WAV data from mmio.
-    fn STREAMING_AUDIO_READ_CHUNK = 0x0057_5370;
+    fn STREAMING_AUDIO_READ_CHUNK = 0x00575370;
 }
 
 /// Music object — playlist controller + embedded streaming engine.
@@ -193,7 +193,7 @@ const _: () = assert!(core::mem::size_of::<MmckInfo>() == 20);
 /// Slot order verified by reading vtable data from binary:
 ///   +0x00: 0x58BC60  +0x04: 0x58BEE0  +0x08: 0x58BF40
 ///   +0x0C: 0x58BE70  +0x10: 0x58BE90  +0x14: 0x58BCE0
-#[openwa_game::vtable(size = 6, va = 0x0066_B3E0, class = "Music")]
+#[openwa_game::vtable(size = 6, va = 0x0066B3E0, class = "Music")]
 pub struct MusicVtable {
     /// scalar_deleting_dtor(flags) — 0x58BC60
     pub scalar_deleting_dtor: fn(this: *mut Music, flags: u32),

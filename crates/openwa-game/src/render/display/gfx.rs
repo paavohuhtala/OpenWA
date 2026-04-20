@@ -7,28 +7,28 @@ crate::define_addresses! {
     class "DisplayGfx" {
         /// `DisplayGfx::Destructor` (vtable slot 0 thunk, 0x569CE0) — thiscall.
         /// Calls `DestructorImpl` then `_free(this)` if `flags & 1`.
-        fn/Thiscall DISPLAY_GFX_DESTRUCTOR = 0x0056_9CE0;
+        fn/Thiscall DISPLAY_GFX_DESTRUCTOR = 0x00569CE0;
         /// `DisplayGfx::DestructorImpl` (0x56A010) — fastcall(ECX=this).
         /// The actual cleanup body. Wrapped in C++ SEH; rebinds vtable to
         /// the most-derived DisplayGfx vtable (standard MSVC pattern), then
         /// frees layer sprites, tile bitmap set, CBitmap vec, layers, hook
         /// vec, embedded BitGrid, and chains to `DisplayBase::Destructor`.
-        fn/Fastcall DISPLAY_GFX_DESTRUCTOR_IMPL = 0x0056_A010;
+        fn/Fastcall DISPLAY_GFX_DESTRUCTOR_IMPL = 0x0056A010;
         /// `DisplayGfx::FreeLayerSpriteTable` (0x56A280) — fastcall(ECX=this).
         /// Iterates `sprite_table[1..0x3FF]` at `+0x3DD4` and frees each
         /// `LayerSprite` + its `frame_array`.
-        fn/Fastcall DISPLAY_GFX_FREE_LAYER_SPRITE_TABLE = 0x0056_A280;
+        fn/Fastcall DISPLAY_GFX_FREE_LAYER_SPRITE_TABLE = 0x0056A280;
         /// `DisplayGfx::DispatchFramePostProcessHooks` (0x56CDB0) — per-frame
         /// poll/dispatch over the FramePostProcessHook* vector at `+0x24DF8`.
         /// Called from `RenderFrame_Maybe` (0x56E06C) which is still bridged.
-        fn/Thiscall DISPLAY_GFX_DISPATCH_FRAME_POST_PROCESS_HOOKS = 0x0056_CDB0;
+        fn/Thiscall DISPLAY_GFX_DISPATCH_FRAME_POST_PROCESS_HOOKS = 0x0056CDB0;
     }
 
     class "TileBitmapSet" {
         /// `TileBitmapSet::Destructor` (0x569BC0) — fastcall(ECX=this).
         /// Iterates `bitmap_ptrs[0..count]`, calls `vtable[0](1)` on each,
         /// frees `bitmap_ptrs`.
-        fn/Fastcall TILE_BITMAP_SET_DESTRUCTOR = 0x0056_9BC0;
+        fn/Fastcall TILE_BITMAP_SET_DESTRUCTOR = 0x00569BC0;
     }
 
     class "DisplayBase" {
@@ -36,7 +36,7 @@ crate::define_addresses! {
         /// Parent class destructor; rebinds vtable to DisplayBase
         /// (`0x6645F8`) and tears down sprite cache, palette slots, etc.
         /// Chained from `DisplayGfx::DestructorImpl` as the final step.
-        fn/Thiscall DISPLAY_BASE_DESTRUCTOR_IMPL = 0x0052_2F60;
+        fn/Thiscall DISPLAY_BASE_DESTRUCTOR_IMPL = 0x00522F60;
     }
 }
 

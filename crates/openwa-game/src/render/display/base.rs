@@ -107,7 +107,7 @@ const _: () = assert!(core::mem::size_of::<DisplayBase>() == 0x3560);
 ///
 /// In headless mode, most slots are no-op stubs. The primary vtable (0x6645F8)
 /// has _purecall for the drawing slots; the headless overlay replaces them.
-#[openwa_game::vtable(size = 32, va = 0x0066_45F8, class = "DisplayBase")]
+#[openwa_game::vtable(size = 32, va = 0x006645F8, class = "DisplayBase")]
 pub struct DisplayBaseVtable {
     /// destructor
     pub destructor: fn(this: *mut DisplayBase, flags: u8) -> *mut DisplayBase,
@@ -248,7 +248,7 @@ pub struct SpriteCacheVtable {
 }
 
 /// Ghidra address of the SpriteCache vtable.
-const SPRITE_CACHE_VTABLE: u32 = 0x0066_4188;
+const SPRITE_CACHE_VTABLE: u32 = 0x00664188;
 
 // ── Construction ──────────────────────────────────────────────────────────
 
@@ -280,7 +280,7 @@ impl DisplayBase {
             }
 
             // Sentinel value — terminates palette_slot_alloc scan
-            (*this).slot_table_sentinel = 0xFFFF_FFFF;
+            (*this).slot_table_sentinel = 0xFFFFFFFF;
 
             // Create sprite cache: 0x28 SpriteCache → 0x3C FrameCache → 0x80020 buffer.
             //

@@ -16,7 +16,7 @@ use openwa_core::img::{
 };
 
 crate::define_addresses! {
-    global G_SPRITE_PALETTE_BYTES = 0x007A_0870;
+    global G_SPRITE_PALETTE_BYTES = 0x007A0870;
 }
 
 pub enum DecodedBitGrid {

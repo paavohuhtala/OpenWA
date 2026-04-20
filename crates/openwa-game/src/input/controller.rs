@@ -1,4 +1,4 @@
-#[openwa_game::vtable(size = 1, va = 0x0066_B3FC, class = "InputCtrl")]
+#[openwa_game::vtable(size = 1, va = 0x0066B3FC, class = "InputCtrl")]
 pub struct InputCtrlVtable {
     /// Destructor(this, flags) — scalar deleting destructor
     #[slot(0)]

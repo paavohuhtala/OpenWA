@@ -120,7 +120,7 @@ fn is_likely_pointer(val: u32, delta: u32) -> bool {
 pub unsafe fn hash_region_canonical(ptr: *const u8, len: usize) -> u32 {
     unsafe {
         let delta = rb(va::IMAGE_BASE).wrapping_sub(va::IMAGE_BASE);
-        let mut h: u32 = 0xFFFF_FFFF;
+        let mut h: u32 = 0xFFFFFFFF;
         for i in (0..len).step_by(4) {
             let val = if i + 4 <= len {
                 *(ptr.add(i) as *const u32)

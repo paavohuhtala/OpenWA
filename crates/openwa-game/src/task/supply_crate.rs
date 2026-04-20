@@ -5,12 +5,12 @@ use crate::FieldRegistry;
 crate::define_addresses! {
     class "CTaskCrate" {
         /// CTaskCrate vtable - weapon/health/utility crate
-        vtable CTASK_CRATE_VTABLE = 0x0066_4298;
-        ctor CTASK_CRATE_CTOR = 0x0050_2490;
+        vtable CTASK_CRATE_VTABLE = 0x00664298;
+        ctor CTASK_CRATE_CTOR = 0x00502490;
     }
 }
 
-#[openwa_game::vtable(size = 12, va = 0x0066_4298, class = "CTaskCrate")]
+#[openwa_game::vtable(size = 12, va = 0x00664298, class = "CTaskCrate")]
 pub struct CTaskCrateVTable {
     /// HandleMessage — processes crate messages (collection, parachute, etc.).
     /// thiscall + 4 stack params, RET 0x10.

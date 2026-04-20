@@ -5,8 +5,8 @@ use openwa_core::fixed::Fixed;
 crate::define_addresses! {
     class "CTaskTeam" {
         /// CTaskTeam vtable - per-team task
-        vtable CTASK_TEAM_VTABLE = 0x0066_9EE4;
-        ctor CTASK_TEAM_CTOR = 0x0055_5BB0;
+        vtable CTASK_TEAM_VTABLE = 0x00669EE4;
+        ctor CTASK_TEAM_CTOR = 0x00555BB0;
     }
 }
 
@@ -14,7 +14,7 @@ crate::define_addresses! {
 ///
 /// Vtable at Ghidra 0x669EE4. Slot 2 (HandleMessage) is the main team message
 /// dispatcher (1701 instructions, handles weapon fire, surrender, worm selection, etc.)
-#[openwa_game::vtable(size = 12, va = 0x0066_9EE4, class = "CTaskTeam")]
+#[openwa_game::vtable(size = 12, va = 0x00669EE4, class = "CTaskTeam")]
 pub struct CTaskTeamVTable {
     /// WriteReplayState — serializes team state to replay stream.
     /// thiscall + 1 stack param (stream), RET 0x4.
@@ -278,7 +278,7 @@ pub unsafe extern "stdcall" fn create_weather_filter(parent: *mut CTask) {
         // Height tenth: level_height / 10 with MSVC magic-number divide
         let height_tenth = {
             let h = level_height as i64;
-            let raw = ((h * 0x6666_6667) >> 34) as i32;
+            let raw = ((h * 0x66666667) >> 34) as i32;
             raw + ((raw as u32 >> 31) as i32) // round toward zero
         };
 

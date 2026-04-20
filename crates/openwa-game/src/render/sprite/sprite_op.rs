@@ -27,7 +27,7 @@ impl SpriteOp {
     /// Transform/rendering flag bits (high 16 bits).
     #[inline]
     pub fn flags(self) -> SpriteFlags {
-        SpriteFlags::from_bits_truncate(self.0 & 0xFFFF_0000)
+        SpriteFlags::from_bits_truncate(self.0 & 0xFFFF0000)
     }
 
     /// Construct from sprite index only (no flags).
@@ -70,30 +70,30 @@ bitflags::bitflags! {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub struct SpriteFlags: u32 {
         /// Tiled rendering mode.
-        const TILED           = 0x0001_0000;
+        const TILED           = 0x00010000;
         /// Additional orientation bit.
-        const ORIENTATION     = 0x0002_0000;
+        const ORIENTATION     = 0x00020000;
         /// Extra horizontal mirror.
-        const MIRROR_X        = 0x0004_0000;
+        const MIRROR_X        = 0x00040000;
         /// Extra vertical mirror.
-        const MIRROR_Y        = 0x0008_0000;
+        const MIRROR_Y        = 0x00080000;
         /// Stippled palette adjustment.
-        const STIPPLED_PAL    = 0x0010_0000;
+        const STIPPLED_PAL    = 0x00100000;
         /// Additive blend mode.
-        const ADDITIVE        = 0x0020_0000;
+        const ADDITIVE        = 0x00200000;
         /// Shadow clear mode.
-        const SHADOW_CLEAR    = 0x0040_0000;
+        const SHADOW_CLEAR    = 0x00400000;
         /// Invert palette values.
-        const INVERT_PALETTE  = 0x0080_0000;
+        const INVERT_PALETTE  = 0x00800000;
         /// Palette ×4 adjustment.
-        const PALETTE_X4      = 0x0100_0000;
+        const PALETTE_X4      = 0x01000000;
         /// Palette transform (color cycling).
-        const PALETTE_XFORM   = 0x0200_0000;
+        const PALETTE_XFORM   = 0x02000000;
         /// Color blend mode.
-        const COLOR_BLEND     = 0x0400_0000;
+        const COLOR_BLEND     = 0x04000000;
         /// Stippled rendering mode 0.
-        const STIPPLED_0      = 0x0800_0000;
+        const STIPPLED_0      = 0x08000000;
         /// Stippled rendering mode 1.
-        const STIPPLED_1      = 0x1000_0000;
+        const STIPPLED_1      = 0x10000000;
     }
 }

@@ -1,5 +1,5 @@
 /// DDKeyboard vtable (0x66AEC8, 8 slots).
-#[openwa_game::vtable(size = 8, va = 0x0066_AEC8, class = "DDKeyboard")]
+#[openwa_game::vtable(size = 8, va = 0x0066AEC8, class = "DDKeyboard")]
 pub struct DDKeyboardVtable {
     /// scalar deleting destructor (0x571B10).
     #[slot(0)]

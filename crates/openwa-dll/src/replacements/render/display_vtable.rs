@@ -23,7 +23,7 @@ use crate::hook;
 use crate::log_line;
 
 /// The _purecall function address (calls abort).
-const PURECALL: u32 = 0x005D_4E16;
+const PURECALL: u32 = 0x005D4E16;
 
 /// Number of slots in the DisplayBase vtable.
 const VTABLE_SLOTS: usize = 32;

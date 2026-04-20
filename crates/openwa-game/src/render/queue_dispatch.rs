@@ -133,7 +133,7 @@ fn clip_sub_saturate(in_val: Fixed, cam: Fixed) -> Fixed {
 #[inline]
 fn perspective_scale(projected_z: i32) -> Fixed {
     // Equivalent to the WA `FixedDiv16_16` call: `(0x100_0000 << 16) / projected_z`.
-    Fixed::from_raw(0x0100_0000) / Fixed::from_raw(projected_z)
+    Fixed::from_raw(0x01000000) / Fixed::from_raw(projected_z)
 }
 
 // =============================================================================
@@ -159,7 +159,7 @@ pub fn rq_clip_coordinates(
     let delta_x = clip_sub_saturate(x_in, clip.cam_x);
     let delta_y = clip_sub_saturate(y_in, clip.cam_y);
 
-    let projected_z = ref_z.wrapping_add(0x0100_0000);
+    let projected_z = ref_z.wrapping_add(0x01000000);
     if projected_z < 1 {
         return false;
     }
@@ -192,7 +192,7 @@ pub fn rq_clip_coordinates_with_ref(
     out_y: &mut Fixed,
     out_scale: &mut Fixed,
 ) -> bool {
-    let projected_z = ref_z.wrapping_add(0x0100_0000);
+    let projected_z = ref_z.wrapping_add(0x01000000);
     if projected_z < 1 {
         return false;
     }
@@ -240,7 +240,7 @@ fn sub_saturate(in_val: Fixed, cam: Fixed) -> Fixed {
 /// stack[0] = *out_x, stack[1] = *out_y)`. The Ghidra decompile lost the
 /// ECX input (annotated `unaff_EDI` for the context and `in_EAX` for `y`,
 /// silently dropping `x`); verified from the prologue disassembly at
-/// 0x542B1A which masks ECX with `0xFFFF_0000`.
+/// 0x542B1A which masks ECX with `0xFFFF0000`.
 pub fn rq_translate_coordinates(
     clip: &ClipContext,
     x_in: Fixed,
@@ -394,10 +394,10 @@ unsafe fn dispatch_case_0_fill_rect(display: *mut DisplayGfx, clip: &ClipContext
         if read_field(cmd, 4) == i32::MIN {
             y1 = Fixed(i32::MIN);
         }
-        if read_field(cmd, 5) == 0x7FFF_0000 {
+        if read_field(cmd, 5) == 0x7FFF0000 {
             x2 = Fixed(i32::MAX);
         }
-        if read_field(cmd, 6) == 0x7FFF_0000 {
+        if read_field(cmd, 6) == 0x7FFF0000 {
             y2 = Fixed(i32::MAX);
         }
 
@@ -1005,10 +1005,10 @@ unsafe fn dispatch_typed(display: *mut DisplayGfx, clip: &ClipContext, msg: &Ren
                 if y1.0 == i32::MIN {
                     oy1 = Fixed(i32::MIN);
                 }
-                if x2.0 == 0x7FFF_0000 {
+                if x2.0 == 0x7FFF0000 {
                     ox2 = Fixed(i32::MAX);
                 }
-                if y2.0 == 0x7FFF_0000 {
+                if y2.0 == 0x7FFF0000 {
                     oy2 = Fixed(i32::MAX);
                 }
                 DisplayGfx::fill_rect_raw(
@@ -1254,7 +1254,7 @@ mod tests {
     #[test]
     fn perspective_scale_at_zero_z() {
         // 0x100_0000 / 0x100_0000 = 0x10000 (Fixed16 1.0)
-        assert_eq!(perspective_scale(0x0100_0000), Fixed::ONE);
+        assert_eq!(perspective_scale(0x01000000), Fixed::ONE);
     }
 
     #[test]
@@ -1270,7 +1270,7 @@ mod tests {
     fn clip_sub_saturate_underflow_clamps_to_min() {
         // x_in negative, cam positive, delta wraps positive → MIN
         assert_eq!(
-            clip_sub_saturate(Fixed(i32::MIN), Fixed::from_raw(0x4000_0000)),
+            clip_sub_saturate(Fixed(i32::MIN), Fixed::from_raw(0x40000000)),
             Fixed(i32::MIN)
         );
     }
@@ -1280,7 +1280,7 @@ mod tests {
         // x_in positive, cam negative, delta wraps negative → MAX
         assert_eq!(
             clip_sub_saturate(
-                Fixed::from_raw(0x4000_0000),
+                Fixed::from_raw(0x40000000),
                 Fixed::from_raw(i32::MIN + 0x10000)
             ),
             Fixed(i32::MAX)

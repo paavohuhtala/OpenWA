@@ -346,7 +346,7 @@ impl GameInfo {
     }
     /// Set terrain_flag (high byte of game_speed_config at 0xD98B).
     pub fn set_terrain_flag(&mut self, val: u8) {
-        self.game_speed_config = (self.game_speed_config & 0x00FF_FFFF) | ((val as i32) << 24);
+        self.game_speed_config = (self.game_speed_config & 0x00FFFFFF) | ((val as i32) << 24);
     }
 }
 

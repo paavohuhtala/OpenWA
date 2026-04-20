@@ -84,7 +84,7 @@ impl ChannelDescriptor {
     }
 }
 
-#[vtable(size = 24, va = 0x0066_AF20, class = "DSSound")]
+#[vtable(size = 24, va = 0x0066AF20, class = "DSSound")]
 pub struct DSSoundVtable {
     pub destructor: fn(this: *mut DSSound, flags: u8) -> *mut DSSound,
     /// update_channels — iterates 8 descs, releases finished buffers
@@ -483,7 +483,7 @@ pub unsafe extern "thiscall" fn destructor(this: *mut DSSound, flags: u8) -> *mu
         }
 
         // Set secondary vtable (base class destructor pattern).
-        snd.vtable = rb(0x0066_AF58) as *const DSSoundVtable;
+        snd.vtable = rb(0x0066AF58) as *const DSSoundVtable;
 
         if flags & 1 != 0 {
             crate::wa_alloc::wa_free(this as *mut u8);
@@ -704,7 +704,7 @@ pub unsafe extern "thiscall" fn sub_destructor(this: *mut DSSound, flags: u8) ->
     unsafe {
         use crate::rebase::rb;
         // Set secondary vtable (base class vtable for destructor chain).
-        (*this).vtable = rb(0x0066_AF58) as *const DSSoundVtable;
+        (*this).vtable = rb(0x0066AF58) as *const DSSoundVtable;
         if flags & 1 != 0 {
             crate::wa_alloc::wa_free(this as *mut u8);
         }

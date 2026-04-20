@@ -46,7 +46,7 @@ use openwa_core::fixed::Fixed;
 /// Coordinate conventions:
 /// - Methods that add `camera * 0x10000` take Fixed (16.16) coordinates.
 /// - Methods that add `camera` directly take pixel-integer coordinates.
-#[vtable(size = 38, va = 0x0066_A218, class = "DisplayGfx")]
+#[vtable(size = 38, va = 0x0066A218, class = "DisplayGfx")]
 pub struct DisplayGfxVtable {
     /// scalar deleting destructor (original at 0x569CE0, RET 0x4).
     ///
@@ -802,7 +802,7 @@ pub const MAX_FONT_ID: i32 = 31;
 
 /// Sentinel bit on the `id` parameter of `load_sprite` / `load_sprite_by_layer`
 /// meaning "already loaded — return success without doing any work".
-const SPRITE_LOAD_ALREADY_DONE: u32 = 0x0080_0000;
+const SPRITE_LOAD_ALREADY_DONE: u32 = 0x00800000;
 
 /// Check if a sprite ID is in the valid range `[1, 0x3FF]`. Note that
 /// the slot 33 dispatcher uses a slightly tighter bound (`1..=0x3FE`)
@@ -1581,7 +1581,7 @@ pub unsafe extern "thiscall" fn update_palette(
         if commit != 0 {
             palette_commit(this);
             (*this).palette_dirty_min = 0x100;
-            (*this).palette_dirty_max = 0xFFFF_FFFF;
+            (*this).palette_dirty_max = 0xFFFFFFFF;
         }
     }
 }
@@ -1592,7 +1592,7 @@ unsafe fn palette_commit(gfx: *mut DisplayGfx) {
     unsafe {
         let dirty_min = (*gfx).palette_dirty_min;
         let dirty_max = (*gfx).palette_dirty_max;
-        palette_commit_bridge(gfx, dirty_min, dirty_max, crate::rebase::rb(0x0056_CD20));
+        palette_commit_bridge(gfx, dirty_min, dirty_max, crate::rebase::rb(0x0056CD20));
     }
 }
 
@@ -2896,9 +2896,9 @@ pub unsafe fn draw_tiled_bitmap_impl(
         // `AND EAX, 0x8000003f` + sign-extend dance for signed mod 0x40.
         let col_x: i32 = {
             let dest_x_u = dest_x as u32;
-            let masked = dest_x_u & 0x8000_003f;
+            let masked = dest_x_u & 0x8000003f;
             let mut v = if (masked as i32) < 0 {
-                (((masked.wrapping_sub(1)) | 0xffff_ffc0).wrapping_add(1)) as i32
+                (((masked.wrapping_sub(1)) | 0xffffffc0).wrapping_add(1)) as i32
             } else {
                 masked as i32
             };

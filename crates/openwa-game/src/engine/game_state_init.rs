@@ -29,7 +29,7 @@ pub unsafe fn sprite_gfx_table_init(base: *mut u8, count: u32) {
             // Index table: base + i*4 = i
             *((base as *mut u32).add(i as usize)) = i;
             // Lookup table: base + 0x2000 + i*4 = 0xFFFFFFFF
-            *((base.add(0x2000) as *mut u32).add(i as usize)) = 0xFFFF_FFFF;
+            *((base.add(0x2000) as *mut u32).add(i as usize)) = 0xFFFFFFFF;
         }
         *(base.add(0x3000) as *mut u32) = count;
         *(base.add(0x3004) as *mut u32) = 0;
@@ -132,7 +132,7 @@ pub unsafe fn init_team_scoring(wrapper: *mut DDGameWrapper) {
         if mode_flag < 0 {
             // Training/replay mode: set all flags to -2 (0xFFFFFFFE)
             for i in 0..num_teams as usize {
-                (*wrapper).team_activity_flags[i] = 0xFFFF_FFFE;
+                (*wrapper).team_activity_flags[i] = 0xFFFFFFFE;
             }
 
             // For each active team slot in GameInfo, clear the flag to 0
@@ -152,7 +152,7 @@ pub unsafe fn init_team_scoring(wrapper: *mut DDGameWrapper) {
         } else {
             // Normal mode: set all flags to -1 (0xFFFFFFFF)
             for i in 0..num_teams as usize {
-                (*wrapper).team_activity_flags[i] = 0xFFFF_FFFF;
+                (*wrapper).team_activity_flags[i] = 0xFFFFFFFF;
             }
 
             // Set starting team's flag to 1
@@ -417,13 +417,13 @@ pub unsafe fn init_turn_state(wrapper: *mut DDGameWrapper) {
         let ddgame = ddgame_from_wrapper(wrapper);
         let game_info = (*ddgame).game_info;
 
-        (*wrapper)._field_458 = 0xFFFF_FFFF;
+        (*wrapper)._field_458 = 0xFFFFFFFF;
         (*wrapper)._field_450 = 0;
         (*wrapper)._field_454 = 0;
 
         // DDGame+0x72E0/E4 = -1, DDGame+0x72E8 = 0
-        (*ddgame)._unknown_72e0 = 0xFFFF_FFFF;
-        (*ddgame).render_slot_count = 0xFFFF_FFFF;
+        (*ddgame)._unknown_72e0 = 0xFFFFFFFF;
+        (*ddgame).render_slot_count = 0xFFFFFFFF;
         (*ddgame)._unknown_72e8 = 0;
 
         // Zero render entry table first u32 at DDGame+0x73B0, stride 0x14, while offset < 0x118
@@ -990,12 +990,12 @@ pub unsafe fn init_game_state(wrapper: *mut DDGameWrapper) {
             {
                 0u32
             } else {
-                0xFFFF_FFFFu32
+                0xFFFFFFFFu32
             };
             (*ddgame).recorded_frame_counter = result as i32;
         }
 
-        (*wrapper)._field_4b0 = 0xFFFF_FFFF;
+        (*wrapper)._field_4b0 = 0xFFFFFFFF;
         (*wrapper)._field_4ac = 0;
         (*wrapper)._field_0e0 = 0;
 
@@ -1451,8 +1451,8 @@ unsafe fn init_game_state_level_bounds(ddgame: *mut DDGame, game_info: *const Ga
         let is_cavern = (*ddgame).level_width_raw as i32;
         if is_cavern == 0 {
             // Open-air level
-            (*ddgame).level_bound_min_x = Fixed(0xF802_0000u32 as i32);
-            (*ddgame).level_bound_min_y = Fixed(0xF802_0000u32 as i32);
+            (*ddgame).level_bound_min_x = Fixed(0xF8020000u32 as i32);
+            (*ddgame).level_bound_min_y = Fixed(0xF8020000u32 as i32);
             let level_width = (*ddgame).level_width as i32;
             (*ddgame).level_bound_max_x = Fixed((level_width + 0x7FE) * 0x10000);
         } else {
@@ -1553,7 +1553,7 @@ unsafe fn init_game_state_team_names(ddgame: *mut DDGame, game_info: *mut GameIn
                 let name_byte = *(gi_raw.add(0x450 + i * 3000));
                 if name_byte >= 0x80 {
                     // CPU team detected — set team color to -1
-                    (*ddgame).team_color = 0xFFFF_FFFF;
+                    (*ddgame).team_color = 0xFFFFFFFF;
                     break;
                 }
             }
@@ -1627,7 +1627,7 @@ unsafe fn init_game_state_water_level(ddgame: *mut DDGame, game_info: *mut GameI
 
         // Clamp for newer versions
         if game_version > 0x11E && (max_y >> 16) + 0x28 > 0x7FFF {
-            (*ddgame).level_bound_max_y = Fixed(0x7FD7_0000u32 as i32);
+            (*ddgame).level_bound_max_y = Fixed(0x7FD70000u32 as i32);
         }
 
         // Derived water fields
@@ -1820,7 +1820,7 @@ unsafe fn init_game_state_tracking_arrays(ddgame: *mut DDGame, game_info: *const
 
         let is_headful = (*ddgame).is_headful != 0;
         if !is_headful {
-            (*ddgame).game_speed_target = Fixed(0x1000_0000);
+            (*ddgame).game_speed_target = Fixed(0x10000000);
         } else {
             (*ddgame).game_speed_target = Fixed((*game_info).game_speed_config);
         }
@@ -1888,7 +1888,7 @@ unsafe fn init_game_state_tracking_arrays(ddgame: *mut DDGame, game_info: *const
                     *(obj32.add(8)) = *(obj32.add(7)); // end = start
                 }
 
-                *(obj32.add(10)) = 0xFFFF_FFFF; // +0x28 = -1
+                *(obj32.add(10)) = 0xFFFFFFFF; // +0x28 = -1
             }
         }
     }

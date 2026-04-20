@@ -79,7 +79,7 @@ impl GfxDir {
     }
 }
 
-#[vtable(size = 4, va = 0x0066_B280, class = "GfxDir")]
+#[vtable(size = 4, va = 0x0066B280, class = "GfxDir")]
 pub struct GfxDirVtable {
     /// Slot 0 (0x58BBD0): Read `size` bytes into `buf`. Returns bytes read.
     pub read: fn(this: *mut GfxDir, buf: *mut u8, size: u32) -> u32,
@@ -413,7 +413,7 @@ pub unsafe extern "thiscall" fn gfx_dir_load_cached(
 unsafe fn gfx_dir_cleanup(gfx: *mut GfxDir) {
     unsafe {
         // Set vtable to the "cleaned up" vtable (0x66A1B0)
-        (*gfx).vtable = rb(0x0066_A1B0) as *const GfxDirVtable;
+        (*gfx).vtable = rb(0x0066A1B0) as *const GfxDirVtable;
 
         if (*gfx).loaded != 0 {
             // Walk in-use slots, invalidate cache entries
@@ -426,7 +426,7 @@ unsafe fn gfx_dir_cleanup(gfx: *mut GfxDir) {
                     (*slot.stream_ptr).gfx_dir = core::ptr::null_mut();
                 }
                 // Mark slot index as invalid (-1)
-                (*slot.stream_ptr).slot_index = 0xFFFF_FFFF;
+                (*slot.stream_ptr).slot_index = 0xFFFFFFFF;
             }
 
             if (*gfx).fallback_alloc != 0 {
@@ -569,7 +569,7 @@ pub struct GfxDirStream {
 ///
 /// Provides a sequential read interface over cached resource data within
 /// a `.dir` archive. The stream reads from a cache slot in the parent GfxDir.
-#[vtable(size = 6, va = 0x0066_A1C0, class = "GfxDirStream")]
+#[vtable(size = 6, va = 0x0066A1C0, class = "GfxDirStream")]
 pub struct GfxDirStreamVtable {
     /// Slot 0 (0x5661E0): Destructor — releases cache slot, optionally frees.
     pub destructor: fn(this: *mut GfxDirStream, flags: u32),
@@ -677,7 +677,7 @@ pub unsafe extern "thiscall" fn gfx_dir_stream_seek(this: *mut GfxDirStream, off
 pub unsafe extern "thiscall" fn gfx_dir_stream_get_total_size(this: *mut GfxDirStream) -> u32 {
     unsafe {
         if (*this).gfx_dir.is_null() {
-            return 0xFFFF_FFFF; // -1 as u32, matching original
+            return 0xFFFFFFFF; // -1 as u32, matching original
         }
         let slot = GfxDirStream::cache_slot(this);
         if slot.is_null() || (*slot).stream_ptr.is_null() {
@@ -800,7 +800,7 @@ pub unsafe extern "thiscall" fn gfx_dir_stream_destructor(this: *mut GfxDirStrea
         }
 
         // Reset vtable to the "released" vtable (0x66A198)
-        (*this).vtable = rb(0x0066_A198) as *const GfxDirStreamVtable;
+        (*this).vtable = rb(0x0066A198) as *const GfxDirStreamVtable;
 
         if (flags & 1) != 0 {
             crate::wa_alloc::wa_free(this as *mut u8);

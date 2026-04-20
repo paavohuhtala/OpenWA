@@ -29,7 +29,7 @@ crate::define_addresses! {
     class "FramePostProcessHook" {
         /// `FramePostProcessHook::Destructor` (0x569BF0) — trivial:
         /// rebinds vtable to base + frees if `flags & 1`.
-        fn/Thiscall FRAME_POST_PROCESS_HOOK_DESTRUCTOR = 0x0056_9BF0;
+        fn/Thiscall FRAME_POST_PROCESS_HOOK_DESTRUCTOR = 0x00569BF0;
     }
 
     class "ScreenshotHook" {
@@ -37,14 +37,14 @@ crate::define_addresses! {
         /// `GetCaptureRequest` + `CaptureToPng`. Has the same shape as
         /// `FramePostProcessHookVtable` (no Rust struct of its own,
         /// since `ScreenshotHook` adds no instance fields).
-        vtable SCREENSHOT_HOOK_VTABLE = 0x0066_A2C4;
+        vtable SCREENSHOT_HOOK_VTABLE = 0x0066A2C4;
         /// `ScreenshotHook::GetCaptureRequest` (0x56D170) — vtable[1].
         /// Returns 2 if `g_DDGame->screenshot_pending` is set, else 0.
-        fn/Thiscall SCREENSHOT_HOOK_GET_CAPTURE_REQUEST = 0x0056_D170;
+        fn/Thiscall SCREENSHOT_HOOK_GET_CAPTURE_REQUEST = 0x0056D170;
         /// `ScreenshotHook::CaptureToPng` (0x56D180) — vtable[2].
         /// Formats `"%s%06d.png"` and writes the rendered layer_0 surface
         /// to disk via `FUN_0056C6F0`.
-        fn/Thiscall SCREENSHOT_HOOK_CAPTURE_TO_PNG = 0x0056_D180;
+        fn/Thiscall SCREENSHOT_HOOK_CAPTURE_TO_PNG = 0x0056D180;
     }
 }
 
@@ -75,7 +75,7 @@ const _: () = assert!(core::mem::size_of::<FramePostProcessHook>() == 4);
 ///
 /// Slots 1 and 2 are `_purecall` (pure virtual) on the abstract base vtable;
 /// only the concrete `ScreenshotHook` vtable provides real implementations.
-#[openwa_game::vtable(size = 3, va = 0x0066_A2B8, class = "FramePostProcessHook")]
+#[openwa_game::vtable(size = 3, va = 0x0066A2B8, class = "FramePostProcessHook")]
 pub struct FramePostProcessHookVtable {
     /// scalar deleting destructor (0x569BF0 on the base vtable).
     /// Calls return value is `*mut FramePostProcessHook` per the MSVC ABI.

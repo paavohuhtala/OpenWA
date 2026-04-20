@@ -163,7 +163,7 @@ pub unsafe fn play_fanfare(team_type: u32, has_custom_path: bool) {
 
         let mut path = CString::<MAX_PATH>::new();
         if has_custom_path {
-            let custom_path = CStr::from_ptr(rb(0x0088_E282) as *const i8)
+            let custom_path = CStr::from_ptr(rb(0x0088E282) as *const i8)
                 .to_str()
                 .unwrap_or(".");
             let _ = path.extend_from_bytes(custom_path.as_bytes());
@@ -198,7 +198,7 @@ pub unsafe fn play_fanfare(team_type: u32, has_custom_path: bool) {
 unsafe fn find_current_team_index(name_ptr: u32) -> u32 {
     unsafe {
         let name = name_ptr as *const u8;
-        let base = rb(0x0087_7FFC) as *const u8;
+        let base = rb(0x00877FFC) as *const u8;
 
         for i in 0u32..6 {
             let entry = base.add(i as usize * 0xD7B);
@@ -237,24 +237,24 @@ unsafe fn c_str_eq(a: *const u8, b: *const u8) -> bool {
 /// Returns 1 on success, 0 if team not found.
 pub unsafe fn play_fanfare_current_team(eax_index: u32) -> u32 {
     unsafe {
-        let default_team_type = *(rb(0x0088_DFAC) as *const u32);
+        let default_team_type = *(rb(0x0088DFAC) as *const u32);
 
         let team_index = find_current_team_index(eax_index);
         if team_index == -1i32 as u32 {
             return 0;
         }
 
-        let custom_types_active = *(rb(0x0087_D0DE) as *const u8);
+        let custom_types_active = *(rb(0x0087D0DE) as *const u8);
         let team_type = if custom_types_active != 0 {
-            let team_data = rb(0x0087_7FFC) as *const u8;
+            let team_data = rb(0x00877FFC) as *const u8;
             let team_type_byte = *team_data.add(team_index as usize * 0xD7B) as i8;
-            let team_types_array = rb(0x0087_7A54) as *const u32;
+            let team_types_array = rb(0x00877A54) as *const u32;
             *team_types_array.add(team_type_byte as usize * 0x1E)
         } else {
             default_team_type
         };
 
-        let team_data_2 = rb(0x0087_8093) as *const u8;
+        let team_data_2 = rb(0x00878093) as *const u8;
         let has_custom_path = *team_data_2.add(team_index as usize * 0xD7B) != 0;
 
         play_fanfare(team_type, has_custom_path);

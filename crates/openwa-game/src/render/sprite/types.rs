@@ -343,7 +343,7 @@ const _: () = assert!(core::mem::offset_of!(SpriteBankFrame, data_value) == 0x0A
 /// Sprite vtable (0x66418C, 8 slots).
 ///
 /// Slots 6-7 are CTask common stubs (0x5613D0).
-#[openwa_game::vtable(size = 8, va = 0x0066_418C, class = "Sprite")]
+#[openwa_game::vtable(size = 8, va = 0x0066418C, class = "Sprite")]
 pub struct SpriteVtable {
     /// destructor (0x4FAA80)
     pub destructor: fn(this: *mut Sprite, flags: u32),
@@ -370,7 +370,7 @@ pub struct SpriteVtable {
 }
 
 /// SpriteBank vtable (0x664180, 2 slots).
-#[openwa_game::vtable(size = 2, va = 0x0066_4180, class = "SpriteBank")]
+#[openwa_game::vtable(size = 2, va = 0x00664180, class = "SpriteBank")]
 pub struct SpriteBankVtable {
     /// destructor (0x4F94E0)
     pub destructor: fn(this: *mut SpriteBank, flags: u32),
@@ -497,41 +497,41 @@ crate::define_addresses! {
     class "CBitmap" {
         /// Vtable shared by [`CBitmap`] (12 bytes) and [`LayerSpriteFrame`]
         /// (0x14 bytes). Set by the CBitmap constructor at 0x573C30.
-        vtable CBITMAP_VTABLE_MAYBE = 0x0064_3F64;
+        vtable CBITMAP_VTABLE_MAYBE = 0x00643F64;
     }
 
     class "Sprite" {
         /// ConstructSprite — usercall EAX=sprite_ptr, ECX=context_ptr
-        ctor/Usercall CONSTRUCT_SPRITE = 0x004F_AA30;
+        ctor/Usercall CONSTRUCT_SPRITE = 0x004FAA30;
         /// Sprite destructor — thiscall, vtable slot 0
-        fn/Thiscall DESTROY_SPRITE = 0x004F_AA80;
+        fn/Thiscall DESTROY_SPRITE = 0x004FAA80;
         /// LoadSpriteFromVfs
-        fn/Usercall LOAD_SPRITE_FROM_VFS = 0x004F_AAF0;
+        fn/Usercall LOAD_SPRITE_FROM_VFS = 0x004FAAF0;
         /// ProcessSprite — parses .spr binary format
-        fn/Usercall PROCESS_SPRITE = 0x004F_AB80;
+        fn/Usercall PROCESS_SPRITE = 0x004FAB80;
         /// Sprite__GetInfo — usercall EAX=Sprite*, ESI=out_data, ECX=out_width, stack=out_flags
-        fn/Usercall SPRITE_GET_INFO = 0x004F_AEC0;
+        fn/Usercall SPRITE_GET_INFO = 0x004FAEC0;
     }
 
     class "SpriteBank" {
         /// SpriteBank__GetInfo — usercall EAX=layer, ECX=bank*, ESI=out_width, 2 stack params
-        fn/Usercall SPRITE_BANK_GET_INFO = 0x004F_98C0;
+        fn/Usercall SPRITE_BANK_GET_INFO = 0x004F98C0;
         /// SpriteBank__Init — usercall, initializes from VFS resource
-        fn/Usercall SPRITE_BANK_INIT = 0x004F_95A0;
+        fn/Usercall SPRITE_BANK_INIT = 0x004F95A0;
     }
 
     class "DisplayGfx_Sprite" {
         /// Load sprite from VFS by name — usercall(EDI=sprite, ECX=gfx) + stack(id, name), RET 0x8
-        fn/Usercall LOAD_SPRITE_BY_NAME = 0x0057_33B0;
+        fn/Usercall LOAD_SPRITE_BY_NAME = 0x005733B0;
         /// Free sprite object (with sub-object cleanup) — usercall(EDI=sprite), plain RET
-        fn/Usercall FREE_SPRITE_OBJECT = 0x0056_A2F0;
+        fn/Usercall FREE_SPRITE_OBJECT = 0x0056A2F0;
         /// `Sprite__GetFrameForBlit` — usercall on Sprite* (ESI=sprite).
         /// Looks up an animation frame in a Sprite, lazily decompresses its
         /// surface, and returns the frame metadata. Called by
         /// `DisplayGfx::GetSpriteFrameForBlit` (slot 33) for sprite_ptrs IDs.
-        fn/Usercall SPRITE_GET_FRAME_FOR_BLIT = 0x004F_AD30;
+        fn/Usercall SPRITE_GET_FRAME_FOR_BLIT = 0x004FAD30;
         /// `SpriteBank__GetFrameForBlit` — usercall on SpriteBank* (ESI=bank).
         /// Same as above but for SpriteBank-backed sprite IDs (sprite_banks).
-        fn/Usercall SPRITE_BANK_GET_FRAME_FOR_BLIT = 0x004F_9710;
+        fn/Usercall SPRITE_BANK_GET_FRAME_FOR_BLIT = 0x004F9710;
     }
 }

@@ -13,7 +13,7 @@ pub const SPEECH_NAME_ENTRY_SIZE: usize = 0x40;
 /// Maximum number of speech name entries.
 pub const SPEECH_NAME_TABLE_LEN: usize = 360;
 
-#[openwa_game::vtable(size = 10, va = 0x0066_A30C, class = "DDGameWrapper")]
+#[openwa_game::vtable(size = 10, va = 0x0066A30C, class = "DDGameWrapper")]
 pub struct DDGameWrapperVtable {
     /// Scalar deleting destructor (0x5713C0).
     #[slot(0)]

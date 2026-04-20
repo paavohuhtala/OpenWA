@@ -16,12 +16,12 @@ pub mod va {
     //   .rsrc:  0x008C5000 - 0x00954FFF (resources)
     //   .reloc: 0x00955000 - 0x00983FFF (relocations)
 
-    pub const IMAGE_BASE: u32 = 0x0040_0000;
-    pub const TEXT_START: u32 = 0x0040_1000;
-    pub const TEXT_END: u32 = 0x0061_9FFF;
-    pub const RDATA_START: u32 = 0x0061_A000;
-    pub const DATA_START: u32 = 0x0069_4000;
-    pub const DATA_END: u32 = 0x008C_5000; // .rsrc starts here; .data/.bss ends just before
+    pub const IMAGE_BASE: u32 = 0x00400000;
+    pub const TEXT_START: u32 = 0x00401000;
+    pub const TEXT_END: u32 = 0x00619FFF;
+    pub const RDATA_START: u32 = 0x0061A000;
+    pub const DATA_START: u32 = 0x00694000;
+    pub const DATA_END: u32 = 0x008C5000; // .rsrc starts here; .data/.bss ends just before
 
     // =========================================================================
     // Class definitions (vtable + constructor + vtable methods)
@@ -111,140 +111,140 @@ pub mod va {
     crate::define_addresses! {
         class "DDGameWrapper" {
             /// DDGameWrapper vtable
-            vtable DDGAME_WRAPPER_VTABLE = 0x0066_A30C;
+            vtable DDGAME_WRAPPER_VTABLE = 0x0066A30C;
             /// DDGameWrapper constructor
-            ctor/Stdcall CONSTRUCT_DD_GAME_WRAPPER = 0x0056_DEF0;
+            ctor/Stdcall CONSTRUCT_DD_GAME_WRAPPER = 0x0056DEF0;
             /// DDGameWrapper::InitReplay — usercall(EAX=game_info, ESI=this), plain RET
-            fn/Usercall DDGAMEWRAPPER_INIT_REPLAY = 0x0056_F860;
+            fn/Usercall DDGAMEWRAPPER_INIT_REPLAY = 0x0056F860;
             /// DDGameWrapper__LoadingProgressTick
-            fn/Stdcall DDGAME_WRAPPER_LOADING_PROGRESS_TICK = 0x0057_17A0;
+            fn/Stdcall DDGAME_WRAPPER_LOADING_PROGRESS_TICK = 0x005717A0;
             /// DDGameWrapper__LoadSpeechWAV
-            fn/Usercall DDGAMEWRAPPER_LOAD_SPEECH_WAV = 0x0057_1530;
+            fn/Usercall DDGAMEWRAPPER_LOAD_SPEECH_WAV = 0x00571530;
             /// DDGameWrapper__DispatchFrame — main frame timing/simulation dispatch (stdcall, 5 params)
-            fn/Stdcall DDGAMEWRAPPER_DISPATCH_FRAME = 0x0052_9160;
+            fn/Stdcall DDGAMEWRAPPER_DISPATCH_FRAME = 0x00529160;
             /// DDGameWrapper__StepFrame — core single-frame step (usercall EAX=this, 5 stack params, RET 0x14)
-            fn/Usercall DDGAMEWRAPPER_STEP_FRAME = 0x0052_9F30;
+            fn/Usercall DDGAMEWRAPPER_STEP_FRAME = 0x00529F30;
             /// DDGameWrapper__ShouldContinueFrameLoop — check elapsed time for frame catch-up (usercall EAX=this, 2 stack params, plain RET)
-            fn/Usercall DDGAMEWRAPPER_SHOULD_CONTINUE = 0x0052_A840;
+            fn/Usercall DDGAMEWRAPPER_SHOULD_CONTINUE = 0x0052A840;
             /// DDGameWrapper__ResetFrameState (usercall EAX=this, no stack params, plain RET)
-            fn/Usercall DDGAMEWRAPPER_RESET_FRAME_STATE = 0x0052_A910;
+            fn/Usercall DDGAMEWRAPPER_RESET_FRAME_STATE = 0x0052A910;
             /// DDGameWrapper__UpdateFrameTiming (usercall EAX=this, 4 stack params, RET 0x10)
-            fn/Usercall DDGAMEWRAPPER_UPDATE_FRAME_TIMING = 0x0052_A9C0;
+            fn/Usercall DDGAMEWRAPPER_UPDATE_FRAME_TIMING = 0x0052A9C0;
             /// DDGameWrapper__AdvanceFrameCounters (usercall EAX=this, 5 stack params, RET 0x14)
-            fn/Usercall DDGAMEWRAPPER_ADVANCE_FRAME_COUNTERS = 0x0052_AAA0;
+            fn/Usercall DDGAMEWRAPPER_ADVANCE_FRAME_COUNTERS = 0x0052AAA0;
             /// DDGameWrapper__CalcTimingRatio (usercall EAX=this, 1 stack param, RET 0x4)
-            fn/Usercall DDGAMEWRAPPER_CALC_TIMING_RATIO = 0x0052_ABF0;
+            fn/Usercall DDGAMEWRAPPER_CALC_TIMING_RATIO = 0x0052ABF0;
             /// DDGameWrapper__InitFrameDelay (usercall EAX=this, no stack params, plain RET)
-            fn/Usercall DDGAMEWRAPPER_INIT_FRAME_DELAY = 0x0052_CAF0;
+            fn/Usercall DDGAMEWRAPPER_INIT_FRAME_DELAY = 0x0052CAF0;
             /// DDGameWrapper__NetworkUpdate (usercall EAX=this, no stack params, plain RET)
-            fn/Usercall DDGAMEWRAPPER_NETWORK_UPDATE = 0x0052_DB90;
+            fn/Usercall DDGAMEWRAPPER_NETWORK_UPDATE = 0x0052DB90;
             /// DDGameWrapper__IsFramePaused (usercall EAX=this, no stack params, plain RET)
-            fn/Usercall DDGAMEWRAPPER_IS_FRAME_PAUSED = 0x0053_4880;
+            fn/Usercall DDGAMEWRAPPER_IS_FRAME_PAUSED = 0x00534880;
             /// DDGameWrapper__StepRenderScaleFade — smooth DDGame::render_scale toward
             /// a target (0x10000 or 0) driven by wrapper._field_464's sign, returns
             /// the post-step _field_464 value. Thiscall, ECX=wrapper, plain RET.
-            fn/Thiscall DDGAMEWRAPPER_STEP_RENDER_SCALE_FADE = 0x0053_44B0;
+            fn/Thiscall DDGAMEWRAPPER_STEP_RENDER_SCALE_FADE = 0x005344B0;
             /// DDGameWrapper__SetupFrameParams (usercall EAX=this, 3 stack params, RET 0xC)
-            fn/Usercall DDGAMEWRAPPER_SETUP_FRAME_PARAMS = 0x0053_4CA0;
+            fn/Usercall DDGAMEWRAPPER_SETUP_FRAME_PARAMS = 0x00534CA0;
             /// DDGameWrapper__ProcessNetworkFrame (usercall EAX=this, 4 stack params, RET 0x10)
-            fn/Usercall DDGAMEWRAPPER_PROCESS_NETWORK_FRAME = 0x0053_DF00;
+            fn/Usercall DDGAMEWRAPPER_PROCESS_NETWORK_FRAME = 0x0053DF00;
             /// DDGameWrapper__IsReplayMode (usercall EAX=this, no stack params, plain RET)
-            fn/Usercall DDGAMEWRAPPER_IS_REPLAY_MODE = 0x0053_7060;
+            fn/Usercall DDGAMEWRAPPER_IS_REPLAY_MODE = 0x00537060;
             /// DDGameWrapper__PollInput — stdcall(wrapper), plain RET. Polls keyboard/input each step.
-            fn/Stdcall DDGAMEWRAPPER_POLL_INPUT = 0x0053_4910;
+            fn/Stdcall DDGAMEWRAPPER_POLL_INPUT = 0x00534910;
             // --- StepFrame sub-calls: end-game state-machine handlers ---
             /// DDGameWrapper__BeginNetworkGameEnd — network-mode entry (Block A
             /// non-zero `network_ecx` path). Transitions `game_state` to 3.
             /// Usercall(EAX=wrapper), no stack args, plain RET.
-            fn/Usercall DDGAMEWRAPPER_BEGIN_NETWORK_GAME_END = 0x0053_6270;
+            fn/Usercall DDGAMEWRAPPER_BEGIN_NETWORK_GAME_END = 0x00536270;
             /// DDGameWrapper__OnGameState2. Usercall(EDI=ESI=wrapper), plain RET.
-            fn/Usercall DDGAMEWRAPPER_ON_GAME_STATE_2 = 0x0053_6470;
+            fn/Usercall DDGAMEWRAPPER_ON_GAME_STATE_2 = 0x00536470;
             /// DDGameWrapper__OnGameState3. Usercall(EDI=ESI=wrapper), plain RET.
-            fn/Usercall DDGAMEWRAPPER_ON_GAME_STATE_3 = 0x0053_6320;
+            fn/Usercall DDGAMEWRAPPER_ON_GAME_STATE_3 = 0x00536320;
             /// DDGameWrapper__OnGameState4. Usercall(ESI=wrapper), plain RET.
             /// Increments `game_end_speed` by 0x51E per call; transitions to
             /// `game_state = 5` (EXIT) once the high word reaches 1 (~50 frames).
-            fn/Usercall DDGAMEWRAPPER_ON_GAME_STATE_4 = 0x0053_65A0;
+            fn/Usercall DDGAMEWRAPPER_ON_GAME_STATE_4 = 0x005365A0;
             /// DDGameWrapper__ClearWormBuffers — stdcall(task_turn_game, i32), RET 0x8.
-            fn/Stdcall DDGAMEWRAPPER_CLEAR_WORM_BUFFERS = 0x0055_C300;
+            fn/Stdcall DDGAMEWRAPPER_CLEAR_WORM_BUFFERS = 0x0055C300;
             /// DDGameWrapper__AdvanceWormFrame — stdcall(task_turn_game), RET 0x4.
-            fn/Stdcall DDGAMEWRAPPER_ADVANCE_WORM_FRAME = 0x0055_C590;
+            fn/Stdcall DDGAMEWRAPPER_ADVANCE_WORM_FRAME = 0x0055C590;
             /// BufferObject__ClassifyInputMsg — thiscall(ECX=render_buffer_a).
             /// Returns packed u64 (EDX:EAX): EAX=keep-going flag, EDX=msg subtype.
-            fn/Thiscall BUFFER_OBJECT_CLASSIFY_INPUT_MSG = 0x0054_1100;
+            fn/Thiscall BUFFER_OBJECT_CLASSIFY_INPUT_MSG = 0x00541100;
             /// DDGameWrapper__DispatchInputMsg — usercall(EAX=local_buf) +
             /// stdcall(wrapper, msg_type, payload_size), RET 0xC.
-            fn/Stdcall DDGAMEWRAPPER_DISPATCH_INPUT_MSG = 0x0053_0F80;
+            fn/Stdcall DDGAMEWRAPPER_DISPATCH_INPUT_MSG = 0x00530F80;
         }
 
         class "DDGame" {
             /// DDGame constructor
-            ctor/Stdcall CONSTRUCT_DD_GAME = 0x0056_E220;
+            ctor/Stdcall CONSTRUCT_DD_GAME = 0x0056E220;
             /// DDGame::InitGameState — stdcall(this=DDGameWrapper*), RET 0x4
-            fn/Stdcall DDGAME_INIT_GAME_STATE = 0x0052_6500;
+            fn/Stdcall DDGAME_INIT_GAME_STATE = 0x00526500;
             /// DDGame__InitFields
-            fn DDGAME_INIT_FIELDS = 0x0052_6120;
+            fn DDGAME_INIT_FIELDS = 0x00526120;
             /// DDGame__InitRenderIndices — usercall(ESI=ddgame), plain RET
-            fn/Usercall DDGAME_INIT_RENDER_INDICES = 0x0052_6080;
+            fn/Usercall DDGAME_INIT_RENDER_INDICES = 0x00526080;
             /// DDGame__InitVersionFlags — stdcall(ddgame_wrapper)
-            fn/Stdcall DDGAME_INIT_VERSION_FLAGS = 0x0052_5BE0;
+            fn/Stdcall DDGAME_INIT_VERSION_FLAGS = 0x00525BE0;
             /// DDGame__LoadFonts — loads .fnt font resources into the display.
-            fn/Usercall DDGAME_LOAD_FONTS = 0x0057_0F30;
+            fn/Usercall DDGAME_LOAD_FONTS = 0x00570F30;
             /// DDGameWrapper__LoadFontExtension — loads .fex font extension for a font slot.
-            fn/Stdcall DDGAME_WRAPPER_LOAD_FONT_EXTENSION = 0x0057_0E80;
+            fn/Stdcall DDGAME_WRAPPER_LOAD_FONT_EXTENSION = 0x00570E80;
             /// DDGame__LoadHudAndWeaponSprites
-            fn/Thiscall DDGAME_LOAD_HUD_AND_WEAPON_SPRITES = 0x0053_D0E0;
+            fn/Thiscall DDGAME_LOAD_HUD_AND_WEAPON_SPRITES = 0x0053D0E0;
             /// DDGame__InitPaletteGradientSprites
-            fn/Stdcall DDGAME_INIT_PALETTE_GRADIENT_SPRITES = 0x0057_06D0;
+            fn/Stdcall DDGAME_INIT_PALETTE_GRADIENT_SPRITES = 0x005706D0;
             /// DDGame__InitFeatureFlags
-            fn/Stdcall DDGAME_INIT_FEATURE_FLAGS = 0x0052_4700;
+            fn/Stdcall DDGAME_INIT_FEATURE_FLAGS = 0x00524700;
             /// DDGame__InitDisplayFinal_Maybe
-            fn DDGAME_INIT_DISPLAY_FINAL = 0x0056_A830;
+            fn DDGAME_INIT_DISPLAY_FINAL = 0x0056A830;
             /// DDGame__IsSuperWeapon
-            fn/Usercall IS_SUPER_WEAPON = 0x0056_5960;
+            fn/Usercall IS_SUPER_WEAPON = 0x00565960;
             /// DDGame__CheckWeaponAvail
-            fn/Fastcall CHECK_WEAPON_AVAIL = 0x0053_FFC0;
+            fn/Fastcall CHECK_WEAPON_AVAIL = 0x0053FFC0;
         }
 
         class "PCLandscape" {
             /// PCLandscape vtable
-            vtable PC_LANDSCAPE_VTABLE = 0x0066_B208;
+            vtable PC_LANDSCAPE_VTABLE = 0x0066B208;
             /// PCLandscape constructor (0xB44-byte object)
-            ctor/Stdcall PC_LANDSCAPE_CONSTRUCTOR = 0x0057_ACB0;
+            ctor/Stdcall PC_LANDSCAPE_CONSTRUCTOR = 0x0057ACB0;
             /// Applies explosion crater to terrain (vtable slot 2)
-            fn PC_LANDSCAPE_APPLY_EXPLOSION = 0x0057_C820;
+            fn PC_LANDSCAPE_APPLY_EXPLOSION = 0x0057C820;
             /// Draws 8px checkered borders at landscape edges (vtable slot 6)
-            fn PC_LANDSCAPE_DRAW_BORDERS = 0x0057_D7F0;
+            fn PC_LANDSCAPE_DRAW_BORDERS = 0x0057D7F0;
             /// Redraws a single terrain row (vtable slot 8)
-            fn PC_LANDSCAPE_REDRAW_ROW = 0x0057_CF60;
+            fn PC_LANDSCAPE_REDRAW_ROW = 0x0057CF60;
             /// Clips and merges dirty rectangles for terrain redraw
-            fn PC_LANDSCAPE_CLIP_AND_MERGE = 0x0057_D2B0;
+            fn PC_LANDSCAPE_CLIP_AND_MERGE = 0x0057D2B0;
         }
 
         class "LandscapeShader" {
             /// LandscapeShader vtable
-            vtable LANDSCAPE_SHADER_VTABLE = 0x0066_B1DC;
+            vtable LANDSCAPE_SHADER_VTABLE = 0x0066B1DC;
         }
 
         class "DSSound" {
             // Vtable now defined via #[vtable(...)] in audio/dssound.rs
             /// DSSound constructor — usercall(EAX=this), plain RET
-            ctor/Usercall CONSTRUCT_DS_SOUND = 0x0057_3D50;
+            ctor/Usercall CONSTRUCT_DS_SOUND = 0x00573D50;
             /// DSSound init buffers — usercall(EAX=dssound), plain RET
-            fn/Usercall DSSOUND_INIT_BUFFERS = 0x0057_3E50;
+            fn/Usercall DSSOUND_INIT_BUFFERS = 0x00573E50;
             /// Loads all SFX WAVs
-            fn/Stdcall DSSOUND_LOAD_EFFECT_WAVS = 0x0057_14B0;
+            fn/Stdcall DSSOUND_LOAD_EFFECT_WAVS = 0x005714B0;
             /// Loads all speech banks
-            fn/Usercall DSSOUND_LOAD_ALL_SPEECH_BANKS = 0x0057_1A70;
+            fn/Usercall DSSOUND_LOAD_ALL_SPEECH_BANKS = 0x00571A70;
             /// Loads one speech bank
-            fn/Usercall DSSOUND_LOAD_SPEECH_BANK = 0x0057_1660;
+            fn/Usercall DSSOUND_LOAD_SPEECH_BANK = 0x00571660;
         }
 
         class "DDKeyboard" {
             /// DDKeyboard vtable (0x33C-byte keyboard object)
-            vtable DDKEYBOARD_VTABLE = 0x0066_AEC8;
+            vtable DDKEYBOARD_VTABLE = 0x0066AEC8;
             /// DDKeyboard::PollKeyboardState
-            fn/Stdcall DDKEYBOARD_POLL_KEYBOARD_STATE = 0x0057_2290;
+            fn/Stdcall DDKEYBOARD_POLL_KEYBOARD_STATE = 0x00572290;
         }
 
         // Palette vtable is now defined via #[derive(Vtable)] in display/palette.rs
@@ -252,72 +252,72 @@ pub mod va {
         class "DisplayBase" {
             // Primary vtable now defined via #[vtable(...)] in display/base.rs
             /// DisplayBase headless vtable
-            vtable DISPLAY_BASE_HEADLESS_VTABLE = 0x0066_A0F8;
+            vtable DISPLAY_BASE_HEADLESS_VTABLE = 0x0066A0F8;
             /// DisplayBase constructor (0x3560-byte object)
-            ctor/Stdcall DISPLAY_BASE_CTOR = 0x0052_2DB0;
+            ctor/Stdcall DISPLAY_BASE_CTOR = 0x00522DB0;
         }
 
         class "InputCtrl" {
             // Vtable now defined via #[vtable(...)] in input/controller.rs
             /// Input controller initializer
-            fn/Usercall INPUT_CTRL_INIT = 0x0058_C0D0;
+            fn/Usercall INPUT_CTRL_INIT = 0x0058C0D0;
         }
 
         // BitGrid vtables and init are now in display::bitgrid via define_addresses! + #[vtable].
 
         class "OpenGLCPU" {
             /// OpenGLCPU vtable (0x48-byte object)
-            vtable OPENGL_CPU_VTABLE = 0x0067_74C0;
+            vtable OPENGL_CPU_VTABLE = 0x006774C0;
             /// OpenGLCPU constructor
-            ctor CONSTRUCT_OPENGL_CPU = 0x005A_0850;
+            ctor CONSTRUCT_OPENGL_CPU = 0x005A0850;
         }
 
         class "WaterEffect" {
             /// WaterEffect vtable (0xBC-byte object)
-            vtable WATER_EFFECT_VTABLE = 0x0066_B268;
+            vtable WATER_EFFECT_VTABLE = 0x0066B268;
         }
 
         class "GfxHandler" {
             /// GfxHandler vtable
-            vtable GFX_DIR_VTABLE = 0x0066_B280;
+            vtable GFX_DIR_VTABLE = 0x0066B280;
             /// GfxHandler load sprites
-            fn GFX_DIR_LOAD_SPRITES = 0x0057_0B50;
+            fn GFX_DIR_LOAD_SPRITES = 0x00570B50;
             /// GfxDir load directory
-            fn GFX_DIR_LOAD_DIR = 0x0056_63E0;
+            fn GFX_DIR_LOAD_DIR = 0x005663E0;
             /// GfxDir find entry
-            fn GFX_DIR_FIND_ENTRY = 0x0056_6520;
+            fn GFX_DIR_FIND_ENTRY = 0x00566520;
             /// GfxDir load image
-            fn GFX_DIR_LOAD_IMAGE = 0x0056_66D0;
+            fn GFX_DIR_LOAD_IMAGE = 0x005666D0;
         }
 
         class "GfxDirStream" {
             /// GfxDirStream vtable (6 slots)
-            vtable GFX_DIR_STREAM_VTABLE = 0x0066_A1C0;
+            vtable GFX_DIR_STREAM_VTABLE = 0x0066A1C0;
         }
 
         class "DisplayBase" {
             /// DisplayBase__AllocPaletteSlots — usercall EAX=count, 1 stack(this)
-            fn/Usercall DISPLAY_BASE_ALLOC_PALETTE_SLOTS = 0x0052_3190;
+            fn/Usercall DISPLAY_BASE_ALLOC_PALETTE_SLOTS = 0x00523190;
         }
 
         class "DisplayGfx" {
             /// DisplayGfx constructor
-            ctor/Stdcall DISPLAYGFX_CTOR = 0x0056_9C10;
+            ctor/Stdcall DISPLAYGFX_CTOR = 0x00569C10;
             /// IMG__DecodeCached: decode cached raw image buffer into DisplayBitGrid
-            fn/Stdcall IMG_DECODE_CACHED = 0x004F_5E80;
+            fn/Stdcall IMG_DECODE_CACHED = 0x004F5E80;
             /// DisplayGfx construct full (5 params)
-            fn/Stdcall DISPLAYGFX_CONSTRUCT_FULL = 0x0056_3FC0;
+            fn/Stdcall DISPLAYGFX_CONSTRUCT_FULL = 0x00563FC0;
             /// DisplayGfx init team palette display objects
-            fn/Stdcall DISPLAY_GFX_INIT_TEAM_PALETTE_DISPLAY = 0x0057_03E0;
+            fn/Stdcall DISPLAY_GFX_INIT_TEAM_PALETTE_DISPLAY = 0x005703E0;
             /// DisplayGfx__LoadSpriteEx (vtable slot 30) — thiscall
-            fn/Thiscall DISPLAY_GFX_LOAD_SPRITE_EX = 0x0052_3310;
+            fn/Thiscall DISPLAY_GFX_LOAD_SPRITE_EX = 0x00523310;
             /// `DisplayGfx__DrawTiledBitmap` (vtable slot 11) — thiscall.
             /// Tile-cached bitmap draw: lazily allocates 0x400-row tile
             /// surfaces from a sprite source descriptor, populates them, and
             /// blits the visible tiles to the display. Reachable today via
             /// `RenderDrawingQueue` case 0xD; needs porting if/when slot is
             /// replaced.
-            fn/Thiscall DISPLAY_GFX_DRAW_TILED_BITMAP = 0x0056_B8C0;
+            fn/Thiscall DISPLAY_GFX_DRAW_TILED_BITMAP = 0x0056B8C0;
         }
 
         class "Font" {
@@ -325,25 +325,25 @@ pub mod va {
             /// 5 stack(pen_x, pen_y, msg, out_pen_x, font_id_high), RET 0x14.
             /// Glyph rasterizer for in-game .fnt fonts (NOT the frontend MFC font system).
             /// Ported as `display::vtable::font_draw_text_impl`; address kept for registry.
-            fn/Usercall FONT_OBJ_DRAW_TEXT = 0x004F_A4E0;
+            fn/Usercall FONT_OBJ_DRAW_TEXT = 0x004FA4E0;
             /// Font object: set param — usercall(ECX=p4, EDX=font_obj) + 2 stack(p3, p5), RET 0x8.
             /// Ported as `display::vtable::font_set_param_impl`; address kept for registry.
-            fn/Usercall FONT_OBJ_SET_PARAM = 0x004F_A720;
+            fn/Usercall FONT_OBJ_SET_PARAM = 0x004FA720;
             /// Font object: get metric — usercall(AL=char, EDX=out1, EDI=out2) + 1 stack(font_obj), RET 0x4.
             /// Ported as `display::vtable::font_get_metric_impl`; address kept for registry.
-            fn/Usercall FONT_OBJ_GET_METRIC = 0x004F_A780;
+            fn/Usercall FONT_OBJ_GET_METRIC = 0x004FA780;
             /// Font object: get info — usercall(EAX=font_obj, EDX=out2, EDI=out1), plain RET.
             /// Ported as `display::vtable::font_get_info_impl`; address kept for registry.
-            fn/Usercall FONT_OBJ_GET_INFO = 0x004F_A7D0;
+            fn/Usercall FONT_OBJ_GET_INFO = 0x004FA7D0;
             /// Font object: "set palette" — usercall(ESI=font_obj) + 1 stack(palette_value), RET 0x4.
             /// Misnamed in the original — actually extends `digiwht.fnt` with
             /// derived `'.'` and `';'` glyphs at runtime. Ported as
             /// `display::vtable::font_set_palette_impl`; address kept for registry.
-            fn/Usercall FONT_OBJ_SET_PALETTE = 0x004F_9F20;
+            fn/Usercall FONT_OBJ_SET_PALETTE = 0x004F9F20;
         }
 
         /// "sprite" type-tag string in .rdata — returned by Sprite/SpriteBank GetInfo
-        global STR_SPRITE = 0x0066_4170;
+        global STR_SPRITE = 0x00664170;
 
     }
 
@@ -367,57 +367,57 @@ pub mod va {
 
     crate::define_addresses! {
         /// Loads .WAgame replay file, validates magic 0x4157
-        fn/Stdcall REPLAY_LOADER = 0x0046_2DF0;
+        fn/Stdcall REPLAY_LOADER = 0x00462DF0;
         /// Parses "MM:SS.FF" time string → frame number
-        fn PARSE_REPLAY_POSITION = 0x004E_3490;
+        fn PARSE_REPLAY_POSITION = 0x004E3490;
         /// Read length-prefixed string
-        fn/Usercall REPLAY_READ_PREFIXED_STRING = 0x0046_1340;
+        fn/Usercall REPLAY_READ_PREFIXED_STRING = 0x00461340;
         /// Read byte with range validation
-        fn/Usercall REPLAY_READ_BYTE_VALIDATED = 0x0046_14D0;
+        fn/Usercall REPLAY_READ_BYTE_VALIDATED = 0x004614D0;
         /// Read byte with signed range validation
-        fn/Usercall REPLAY_READ_BYTE_RANGE = 0x0046_1540;
+        fn/Usercall REPLAY_READ_BYTE_RANGE = 0x00461540;
         /// Read u16 with range validation
-        fn/Usercall REPLAY_READ_U16_VALIDATED = 0x0046_15B0;
+        fn/Usercall REPLAY_READ_U16_VALIDATED = 0x004615B0;
         /// Read worm name
-        fn/Usercall REPLAY_READ_WORM_NAME = 0x0046_1620;
+        fn/Usercall REPLAY_READ_WORM_NAME = 0x00461620;
         /// Validate team type byte range
-        fn/Fastcall REPLAY_VALIDATE_TEAM_TYPE = 0x0046_1690;
+        fn/Fastcall REPLAY_VALIDATE_TEAM_TYPE = 0x00461690;
         /// Post-process team color assignments
-        fn/Stdcall REPLAY_PROCESS_TEAM_COLORS = 0x0046_6460;
+        fn/Stdcall REPLAY_PROCESS_TEAM_COLORS = 0x00466460;
         /// Apply scheme default values
-        fn REPLAY_PROCESS_SCHEME_DEFAULTS = 0x0046_70F0;
+        fn REPLAY_PROCESS_SCHEME_DEFAULTS = 0x004670F0;
         /// Process replay feature flags
-        fn REPLAY_PROCESS_FLAGS = 0x0046_7280;
+        fn REPLAY_PROCESS_FLAGS = 0x00467280;
         /// Register observer team entry
-        fn/Stdcall REPLAY_REGISTER_OBSERVER = 0x0046_7BC0;
+        fn/Stdcall REPLAY_REGISTER_OBSERVER = 0x00467BC0;
         /// Process alliance/team setup
-        fn REPLAY_PROCESS_ALLIANCE = 0x0046_8890;
+        fn REPLAY_PROCESS_ALLIANCE = 0x00468890;
         /// Validate team configuration
-        fn/Stdcall REPLAY_VALIDATE_TEAM_SETUP = 0x0046_5E10;
+        fn/Stdcall REPLAY_VALIDATE_TEAM_SETUP = 0x00465E10;
         /// Routes game messages through the task handler tree
-        fn GAME_MESSAGE_ROUTER = 0x0055_3BD0;
+        fn GAME_MESSAGE_ROUTER = 0x00553BD0;
         /// Per-frame turn timer
-        fn/Stdcall TURN_MANAGER_PROCESS_FRAME = 0x0055_FDA0;
+        fn/Stdcall TURN_MANAGER_PROCESS_FRAME = 0x0055FDA0;
         /// Control task HandleMessage
-        fn CONTROL_TASK_HANDLE_MESSAGE = 0x0054_51F0;
+        fn CONTROL_TASK_HANDLE_MESSAGE = 0x005451F0;
         /// End-of-frame message queue / hurry processing
-        fn GAME_FRAME_MESSAGE_PROCESSOR = 0x0053_1960;
+        fn GAME_FRAME_MESSAGE_PROCESSOR = 0x00531960;
         /// End-of-frame checksum computation (__thiscall, ECX=ctrl, stack=wrapper*)
-        fn/Thiscall GAME_FRAME_CHECKSUM_PROCESSOR = 0x0053_29C0;
+        fn/Thiscall GAME_FRAME_CHECKSUM_PROCESSOR = 0x005329C0;
         /// Game state serialization for checksum (called by checksum processor)
-        fn SERIALIZE_GAME_STATE = 0x0053_2330;
+        fn SERIALIZE_GAME_STATE = 0x00532330;
         /// Game state checksum: ROL-3-ADD hash (__fastcall)
-        fn/Fastcall COMPUTE_STATE_CHECKSUM = 0x0054_6140;
+        fn/Fastcall COMPUTE_STATE_CHECKSUM = 0x00546140;
         /// Multi-segment checksum variant
-        fn COMPUTE_STATE_CHECKSUM_MULTI = 0x0054_6170;
+        fn COMPUTE_STATE_CHECKSUM_MULTI = 0x00546170;
         /// Main frame loop
-        fn GAME_FRAME_DISPATCHER = 0x0053_1D00;
+        fn GAME_FRAME_DISPATCHER = 0x00531D00;
         /// Sends game packet if network buffer allows
-        fn SEND_GAME_PACKET_CONDITIONAL = 0x0053_1880;
+        fn SEND_GAME_PACKET_CONDITIONAL = 0x00531880;
         /// Process replay state — large function (1032 lines)
-        fn/Stdcall REPLAY_PROCESS_STATE = 0x0045_D640;
+        fn/Stdcall REPLAY_PROCESS_STATE = 0x0045D640;
         /// Cleanup observer array
-        fn/Usercall REPLAY_CLEANUP_OBSERVERS = 0x0053_EE00;
+        fn/Usercall REPLAY_CLEANUP_OBSERVERS = 0x0053EE00;
     }
 
     // =========================================================================
@@ -426,40 +426,40 @@ pub mod va {
 
     crate::define_addresses! {
         /// Game PRNG: rng = (rng + frame_counter) * 0x19660D + 0x3C6EF35F
-        fn/Fastcall ADVANCE_GAME_RNG = 0x0053_F320;
+        fn/Fastcall ADVANCE_GAME_RNG = 0x0053F320;
         /// Terrain hit → debris particles → RNG
-        fn GENERATE_DEBRIS_PARTICLES = 0x0054_6F70;
-        fn CREATE_EXPLOSION = 0x0054_8080;
-        fn SPECIAL_IMPACT = 0x0051_93D0;
-        fn SPAWN_OBJECT = 0x0056_1CF0;
-        fn WEAPON_RELEASE = 0x0051_C3D0;
-        fn WORM_START_FIRING = 0x0051_B7F0;
-        fn FIRE_WEAPON = 0x0051_EE60;
-        fn CREATE_WEAPON_PROJECTILE = 0x0051_E0F0;
+        fn GENERATE_DEBRIS_PARTICLES = 0x00546F70;
+        fn CREATE_EXPLOSION = 0x00548080;
+        fn SPECIAL_IMPACT = 0x005193D0;
+        fn SPAWN_OBJECT = 0x00561CF0;
+        fn WEAPON_RELEASE = 0x0051C3D0;
+        fn WORM_START_FIRING = 0x0051B7F0;
+        fn FIRE_WEAPON = 0x0051EE60;
+        fn CREATE_WEAPON_PROJECTILE = 0x0051E0F0;
         /// stdcall(worm, fire_params, local_struct), RET 0xC
-        fn PROJECTILE_FIRE = 0x0051_DFB0;
+        fn PROJECTILE_FIRE = 0x0051DFB0;
         /// Strike weapons (AirStrike, NapalmStrike, MineStrike, MoleSquadron, MailStrike).
         /// stdcall(worm, &subtype_34, local_struct), RET 0xC.
         /// Spawns CTaskAirStrike or similar. NOT for grenades — grenades use CWP.
-        fn STRIKE_FIRE = 0x0051_E2C0;
+        fn STRIKE_FIRE = 0x0051E2C0;
         /// usercall(ECX=local_struct, EDX=worm, [ESP+4]=fire_params), RET 0x4
-        fn PLACED_EXPLOSIVE = 0x0051_EC80;
+        fn PLACED_EXPLOSIVE = 0x0051EC80;
         /// Spawns CTaskArrow (Shotgun, Longbow). Allocates 0x168 bytes.
         /// thiscall(ECX=worm, fire_params, local_struct), RET 0x8.
-        fn CREATE_ARROW = 0x0051_ED90;
+        fn CREATE_ARROW = 0x0051ED90;
         /// stdcall(worm, fire_params, local_struct), RET 0xC
-        fn ROPE_TYPE1_FIRE = 0x0051_E1C0;
+        fn ROPE_TYPE1_FIRE = 0x0051E1C0;
         /// stdcall(worm, fire_params, local_struct), RET 0xC
-        fn ROPE_TYPE3_FIRE = 0x0051_E240;
+        fn ROPE_TYPE3_FIRE = 0x0051E240;
         /// Called by ProjectileFire per shot.
         /// usercall(EDI=spawn_data, stack=[worm, fire_params]), RET 0x8.
-        fn PROJECTILE_FIRE_SINGLE = 0x0051_DCF0;
+        fn PROJECTILE_FIRE_SINGLE = 0x0051DCF0;
         /// Sin lookup table (1024 entries of Fixed16.16). cos = sin + 256 entries.
-        global SIN_TABLE = 0x006A_1860;
+        global SIN_TABLE = 0x006A1860;
         /// VectorNormalize (simple version, used for game_version < 0x99)
-        fn VECTOR_NORMALIZE_SIMPLE = 0x0057_5590;
+        fn VECTOR_NORMALIZE_SIMPLE = 0x00575590;
         /// VectorNormalize (overflow-safe version, used for game_version >= 0x99)
-        fn VECTOR_NORMALIZE_OVERFLOW = 0x0057_55D0;
+        fn VECTOR_NORMALIZE_OVERFLOW = 0x005755D0;
     }
 
     // =========================================================================
@@ -469,19 +469,19 @@ pub mod va {
     crate::define_addresses! {
         /// PlayWormSound: usercall(EDI=worm) + stack(sound_handle_id, volume), RET 0x8.
         /// Stops current streaming sound at worm+0x3B0, then starts a new one.
-        fn PLAY_WORM_SOUND = 0x0051_50D0;
+        fn PLAY_WORM_SOUND = 0x005150D0;
         /// StopWormSound: usercall(ESI=worm), plain RET.
         /// Stops streaming sound at worm+0x3B0 and clears the handle.
-        fn STOP_WORM_SOUND = 0x0051_5180;
+        fn STOP_WORM_SOUND = 0x00515180;
         /// SpawnEffect: complex usercall, RET 0x1C.
         /// Builds a 0x408-byte struct from params, SharedData lookup, HandleMessage(0x56).
-        fn SPAWN_EFFECT = 0x0054_7C30;
-        fn INIT_WEAPON_TABLE = 0x0053_CAB0;
-        fn COUNT_ALIVE_WORMS = 0x0052_25A0;
-        fn GET_AMMO = 0x0052_25E0;
-        fn ADD_AMMO = 0x0052_2640;
+        fn SPAWN_EFFECT = 0x00547C30;
+        fn INIT_WEAPON_TABLE = 0x0053CAB0;
+        fn COUNT_ALIVE_WORMS = 0x005225A0;
+        fn GET_AMMO = 0x005225E0;
+        fn ADD_AMMO = 0x00522640;
         /// Not the main ammo decrement path
-        fn SUBTRACT_AMMO = 0x0052_2680;
+        fn SUBTRACT_AMMO = 0x00522680;
     }
 
     // =========================================================================
@@ -490,21 +490,21 @@ pub mod va {
 
     crate::define_addresses! {
         /// Counts teams by alliance membership
-        fn/Usercall COUNT_TEAMS_BY_ALLIANCE = 0x0052_2030;
+        fn/Usercall COUNT_TEAMS_BY_ALLIANCE = 0x00522030;
         /// Sums health of all worms on a team
-        fn/Fastcall GET_TEAM_TOTAL_HEALTH = 0x0052_24D0;
+        fn/Fastcall GET_TEAM_TOTAL_HEALTH = 0x005224D0;
         /// Checks if a worm is in a "special" state
-        fn/Usercall IS_WORM_IN_SPECIAL_STATE = 0x0052_26B0;
+        fn/Usercall IS_WORM_IN_SPECIAL_STATE = 0x005226B0;
         /// Reads worm X,Y position into output pointers
-        fn/Usercall GET_WORM_POSITION = 0x0052_2700;
+        fn/Usercall GET_WORM_POSITION = 0x00522700;
         /// Checks if any worm has state 0x64
-        fn/Usercall CHECK_WORM_STATE_0X64 = 0x0052_28D0;
+        fn/Usercall CHECK_WORM_STATE_0X64 = 0x005228D0;
         /// Per-team version of CheckWormState0x64
-        fn/Usercall CHECK_TEAM_WORM_STATE_0X64 = 0x0052_2930;
+        fn/Usercall CHECK_TEAM_WORM_STATE_0X64 = 0x00522930;
         /// Scans all teams for any worm with state 0x8b
-        fn/Usercall CHECK_ANY_WORM_STATE_0X8B = 0x0052_2970;
+        fn/Usercall CHECK_ANY_WORM_STATE_0X8B = 0x00522970;
         /// Sets the active worm for a team
-        fn/Usercall SET_ACTIVE_WORM_MAYBE = 0x0052_2500;
+        fn/Usercall SET_ACTIVE_WORM_MAYBE = 0x00522500;
     }
 
     // =========================================================================
@@ -514,19 +514,19 @@ pub mod va {
     crate::define_addresses! {
         class "GameSession" {
             /// GameSession constructor
-            ctor/Usercall GAME_SESSION_CONSTRUCTOR = 0x0058_BFA0;
+            ctor/Usercall GAME_SESSION_CONSTRUCTOR = 0x0058BFA0;
             /// GameSession__Run
-            fn/Usercall GAME_SESSION_RUN = 0x0057_2F50;
+            fn/Usercall GAME_SESSION_RUN = 0x00572F50;
             /// GameSession__ProcessFrame — per-frame processing (desktop check, engine tick, render)
-            fn/Cdecl GAME_SESSION_PROCESS_FRAME = 0x0057_2C80;
+            fn/Cdecl GAME_SESSION_PROCESS_FRAME = 0x00572C80;
             /// GameSession__AdvanceFrame — frame timing + engine vtable dispatch
-            fn/Cdecl GAME_SESSION_ADVANCE_FRAME = 0x0056_DDC0;
+            fn/Cdecl GAME_SESSION_ADVANCE_FRAME = 0x0056DDC0;
         }
 
         /// GameEngine__InitHardware
-        fn/Thiscall GAME_ENGINE_INIT_HARDWARE = 0x0056_D350;
+        fn/Thiscall GAME_ENGINE_INIT_HARDWARE = 0x0056D350;
         /// GameEngine__Shutdown
-        fn/Stdcall GAME_ENGINE_SHUTDOWN = 0x0056_DCD0;
+        fn/Stdcall GAME_ENGINE_SHUTDOWN = 0x0056DCD0;
     }
 
     // =========================================================================
@@ -535,96 +535,96 @@ pub mod va {
 
     crate::define_addresses! {
         /// DisplayGfx::Init
-        fn/Usercall DISPLAY_GFX_INIT = 0x0056_9D00;
+        fn/Usercall DISPLAY_GFX_INIT = 0x00569D00;
         /// DisplayGfx vtable slot 19 — blit sprite
-        fn/Thiscall DISPLAY_GFX_BLIT_SPRITE = 0x0056_B080;
+        fn/Thiscall DISPLAY_GFX_BLIT_SPRITE = 0x0056B080;
         /// DisplayGfx flush render lock — releases lock, plain RET
-        fn DISPLAY_GFX_FLUSH_RENDER_LOCK = 0x0056_A330;
+        fn DISPLAY_GFX_FLUSH_RENDER_LOCK = 0x0056A330;
         /// Streaming audio constructor
-        fn/Stdcall STREAMING_AUDIO_CTOR = 0x0058_BC10;
+        fn/Stdcall STREAMING_AUDIO_CTOR = 0x0058BC10;
         /// DDNetGameWrapper constructor
-        fn/Stdcall DDNETGAME_WRAPPER_CTOR = 0x0056_D1F0;
+        fn/Stdcall DDNETGAME_WRAPPER_CTOR = 0x0056D1F0;
         /// Timer object constructor
-        fn/Usercall GAME_ENGINE_TIMER_CTOR = 0x0053_E950;
-        fn CONSTRUCT_FRAME_BUFFER = 0x005A_2430;
-        fn BLIT_SCREEN = 0x005A_2020;
-        fn RQ_RENDER_DRAWING_QUEUE = 0x0054_2350;
-        fn DRAW_LANDSCAPE = 0x005A_2790;
+        fn/Usercall GAME_ENGINE_TIMER_CTOR = 0x0053E950;
+        fn CONSTRUCT_FRAME_BUFFER = 0x005A2430;
+        fn BLIT_SCREEN = 0x005A2020;
+        fn RQ_RENDER_DRAWING_QUEUE = 0x00542350;
+        fn DRAW_LANDSCAPE = 0x005A2790;
         /// `RQ_EnqueueTiledBitmap` — formerly mis-labelled `RQ_DrawPixel`.
         /// Enqueues a tile-cached bitmap draw command (type 0xD), dispatched
         /// by `RenderDrawingQueue` into `DisplayGfx::draw_tiled_bitmap`.
-        fn RQ_ENQUEUE_TILED_BITMAP = 0x0054_1D60;
-        fn RQ_DRAW_LINE_STRIP = 0x0054_1DD0;
-        fn RQ_DRAW_POLYGON = 0x0054_1E50;
-        fn RQ_DRAW_CROSSHAIR = 0x0054_1ED0;
-        fn RQ_DRAW_RECT = 0x0054_1F40;
-        fn RQ_DRAW_SPRITE_GLOBAL = 0x0054_1FE0;
-        fn RQ_DRAW_SPRITE_LOCAL = 0x0054_2060;
-        fn RQ_DRAW_SPRITE_OFFSET = 0x0054_20E0;
-        fn RQ_DRAW_BITMAP_GLOBAL = 0x0054_2170;
-        fn RQ_DRAW_TEXTBOX_LOCAL = 0x0054_2200;
-        fn RQ_DRAW_CLIPPED_SPRITE_MAYBE = 0x0054_22A0;
-        fn RQ_CLIP_COORDINATES = 0x0054_2BA0;
-        fn RQ_GET_CAMERA_OFFSET_MAYBE = 0x0054_2B10;
-        fn RQ_CLIP_WITH_REF_OFFSET_MAYBE = 0x0054_2C70;
-        fn RQ_TRANSFORM_WITH_ZOOM_MAYBE = 0x0054_2D50;
-        fn RQ_SMOOTH_INTERPOLATE_MAYBE = 0x0054_2E60;
-        fn RQ_UPDATE_CLIP_BOUNDS_MAYBE = 0x0054_2F10;
-        fn RQ_SATURATE_CLIP_BOUNDS_MAYBE = 0x0054_2F70;
-        fn RENDER_FRAME_MAYBE = 0x0056_E040;
-        fn GAME_RENDER_MAYBE = 0x0053_3DC0;
-        fn RENDER_TERRAIN_MAYBE = 0x0053_5000;
-        fn RENDER_HUD_MAYBE = 0x0053_4F20;
-        fn RENDER_TURN_STATUS_MAYBE = 0x0053_4E00;
-        fn PALETTE_MANAGE_MAYBE = 0x0053_3C80;
-        fn PALETTE_ANIMATE_MAYBE = 0x0053_3A80;
-        fn LOAD_SPRITE = 0x0052_3400;
-        fn OPENGL_INIT = 0x0059_F000;
+        fn RQ_ENQUEUE_TILED_BITMAP = 0x00541D60;
+        fn RQ_DRAW_LINE_STRIP = 0x00541DD0;
+        fn RQ_DRAW_POLYGON = 0x00541E50;
+        fn RQ_DRAW_CROSSHAIR = 0x00541ED0;
+        fn RQ_DRAW_RECT = 0x00541F40;
+        fn RQ_DRAW_SPRITE_GLOBAL = 0x00541FE0;
+        fn RQ_DRAW_SPRITE_LOCAL = 0x00542060;
+        fn RQ_DRAW_SPRITE_OFFSET = 0x005420E0;
+        fn RQ_DRAW_BITMAP_GLOBAL = 0x00542170;
+        fn RQ_DRAW_TEXTBOX_LOCAL = 0x00542200;
+        fn RQ_DRAW_CLIPPED_SPRITE_MAYBE = 0x005422A0;
+        fn RQ_CLIP_COORDINATES = 0x00542BA0;
+        fn RQ_GET_CAMERA_OFFSET_MAYBE = 0x00542B10;
+        fn RQ_CLIP_WITH_REF_OFFSET_MAYBE = 0x00542C70;
+        fn RQ_TRANSFORM_WITH_ZOOM_MAYBE = 0x00542D50;
+        fn RQ_SMOOTH_INTERPOLATE_MAYBE = 0x00542E60;
+        fn RQ_UPDATE_CLIP_BOUNDS_MAYBE = 0x00542F10;
+        fn RQ_SATURATE_CLIP_BOUNDS_MAYBE = 0x00542F70;
+        fn RENDER_FRAME_MAYBE = 0x0056E040;
+        fn GAME_RENDER_MAYBE = 0x00533DC0;
+        fn RENDER_TERRAIN_MAYBE = 0x00535000;
+        fn RENDER_HUD_MAYBE = 0x00534F20;
+        fn RENDER_TURN_STATUS_MAYBE = 0x00534E00;
+        fn PALETTE_MANAGE_MAYBE = 0x00533C80;
+        fn PALETTE_ANIMATE_MAYBE = 0x00533A80;
+        fn LOAD_SPRITE = 0x00523400;
+        fn OPENGL_INIT = 0x0059F000;
         /// IMG__LoadFromDir: look up + decode IMG resource from a .dir archive
-        fn IMG_LOAD_FROM_DIR = 0x004F_6300;
+        fn IMG_LOAD_FROM_DIR = 0x004F6300;
         /// SpriteGfxTable__Init
-        fn/Fastcall SPRITE_GFX_TABLE_INIT = 0x0054_1620;
+        fn/Fastcall SPRITE_GFX_TABLE_INIT = 0x00541620;
         /// RingBuffer__Init
-        fn/Usercall RING_BUFFER_INIT = 0x0054_1060;
+        fn/Usercall RING_BUFFER_INIT = 0x00541060;
         /// CGameTask__InitTeamScoring
-        fn/Fastcall INIT_TEAM_SCORING = 0x0052_8510;
+        fn/Fastcall INIT_TEAM_SCORING = 0x00528510;
         /// CGameTask__InitAllianceData
-        fn/Usercall INIT_ALLIANCE_DATA = 0x0052_62D0;
+        fn/Usercall INIT_ALLIANCE_DATA = 0x005262D0;
         /// CGameTask__InitTurnState
-        fn/Usercall INIT_TURN_STATE = 0x0052_8690;
+        fn/Usercall INIT_TURN_STATE = 0x00528690;
         /// CGameTask__InitLandscapeFlags
-        fn/Usercall INIT_LANDSCAPE_FLAGS = 0x0052_8480;
+        fn/Usercall INIT_LANDSCAPE_FLAGS = 0x00528480;
         /// HudPanel constructor
-        fn/Stdcall HUD_PANEL_CONSTRUCTOR = 0x0052_4070;
+        fn/Stdcall HUD_PANEL_CONSTRUCTOR = 0x00524070;
         /// DDGame__InitTeamsFromSetup
-        fn/Stdcall INIT_TEAMS_FROM_SETUP = 0x0052_20B0;
+        fn/Stdcall INIT_TEAMS_FROM_SETUP = 0x005220B0;
         /// TeamManager constructor
-        fn/Stdcall TEAM_MANAGER_CONSTRUCTOR = 0x0056_3D40;
+        fn/Stdcall TEAM_MANAGER_CONSTRUCTOR = 0x00563D40;
         /// CTaskGameState constructor
-        fn/Stdcall GAME_STATE_CONSTRUCTOR = 0x0053_2330;
+        fn/Stdcall GAME_STATE_CONSTRUCTOR = 0x00532330;
         /// DisplayGfx::ConstructTextbox
-        fn/Stdcall CONSTRUCT_TEXTBOX = 0x004F_AF00;
+        fn/Stdcall CONSTRUCT_TEXTBOX = 0x004FAF00;
         /// DDGame__InitWeaponPanel
-        fn/Stdcall INIT_WEAPON_PANEL = 0x0056_7770;
+        fn/Stdcall INIT_WEAPON_PANEL = 0x00567770;
         /// Buffer object constructor
-        fn/Stdcall BUFFER_OBJECT_CONSTRUCTOR = 0x0054_5FD0;
+        fn/Stdcall BUFFER_OBJECT_CONSTRUCTOR = 0x00545FD0;
         /// GameStateStream sub-init
-        fn/Stdcall GAME_STATE_STREAM_INIT = 0x004F_B490;
+        fn/Stdcall GAME_STATE_STREAM_INIT = 0x004FB490;
         /// Display object constructor
-        fn/Stdcall DISPLAY_OBJECT_CONSTRUCTOR = 0x0054_0440;
+        fn/Stdcall DISPLAY_OBJECT_CONSTRUCTOR = 0x00540440;
         /// SpriteRegion constructor (0x9C-byte)
-        fn/Stdcall SPRITE_REGION_CONSTRUCTOR = 0x0057_DB20;
-        fn FUN_570A90 = 0x0057_0A90;
-        fn FUN_570E20 = 0x0057_0E20;
+        fn/Stdcall SPRITE_REGION_CONSTRUCTOR = 0x0057DB20;
+        fn FUN_570A90 = 0x00570A90;
+        fn FUN_570E20 = 0x00570E20;
         /// IMG_Decode
-        fn/Stdcall IMG_DECODE = 0x004F_5F80;
+        fn/Stdcall IMG_DECODE = 0x004F5F80;
         /// DrawBungeeTrail
-        fn/Stdcall DRAW_BUNGEE_TRAIL = 0x0050_0720;
+        fn/Stdcall DRAW_BUNGEE_TRAIL = 0x00500720;
         /// DrawCrosshairLine
-        fn/Usercall DRAW_CROSSHAIR_LINE = 0x0051_97D0;
-        fn DESTRUCT_PC_LANDSCAPE = 0x0057_B540;
-        fn REDRAW_LAND_REGION = 0x0057_CC10;
-        fn WRITE_LAND_RAW = 0x0057_C300;
+        fn/Usercall DRAW_CROSSHAIR_LINE = 0x005197D0;
+        fn DESTRUCT_PC_LANDSCAPE = 0x0057B540;
+        fn REDRAW_LAND_REGION = 0x0057CC10;
+        fn WRITE_LAND_RAW = 0x0057C300;
     }
 
     // =========================================================================
@@ -633,38 +633,38 @@ pub mod va {
 
     crate::define_addresses! {
         /// DirectSoundCreate IAT thunk
-        fn/Stdcall DIRECTSOUND_CREATE = 0x005B_493E;
-        fn PLAY_SOUND_LOCAL = 0x004F_DFE0;
-        fn PLAY_SOUND_GLOBAL = 0x0054_6E20;
+        fn/Stdcall DIRECTSOUND_CREATE = 0x005B493E;
+        fn PLAY_SOUND_LOCAL = 0x004FDFE0;
+        fn PLAY_SOUND_GLOBAL = 0x00546E20;
         /// IsSoundSuppressed
-        fn/Fastcall IS_SOUND_SUPPRESSED = 0x0052_61E0;
+        fn/Fastcall IS_SOUND_SUPPRESSED = 0x005261E0;
         /// DispatchGlobalSound
-        fn/Fastcall DISPATCH_GLOBAL_SOUND = 0x0052_6270;
+        fn/Fastcall DISPATCH_GLOBAL_SOUND = 0x00526270;
         /// RecordActiveSound
-        fn/Usercall RECORD_ACTIVE_SOUND = 0x0054_6260;
+        fn/Usercall RECORD_ACTIVE_SOUND = 0x00546260;
         /// CTaskWorm::PlaySound2 (FUN_00515020): usercall(EDI=worm) + stdcall(sound_id, volume, flags).
         /// Stop+play on secondary sound handle (+0x3B4). 23 callers in WA.
-        fn/Usercall WORM_PLAY_SOUND_2 = 0x0051_5020;
+        fn/Usercall WORM_PLAY_SOUND_2 = 0x00515020;
         /// LoadAndPlayStreamingPositional (0x546BB0): usercall(EAX=task) + stack(volume, sound_id, flags, x, y).
         /// Like LoadAndPlayStreaming but with explicit position. Only caller is PlayWormSound2.
-        fn/Usercall LOAD_AND_PLAY_STREAMING_POSITIONAL = 0x0054_6BB0;
+        fn/Usercall LOAD_AND_PLAY_STREAMING_POSITIONAL = 0x00546BB0;
         /// LoadAndPlayStreaming: usercall(EAX=task, ESI=&sound_emitter) + stack(sound_id, flags, volume).
         /// Checks game conditions, then starts a streaming sound. Returns handle | 0x40000000.
-        fn/Usercall LOAD_AND_PLAY_STREAMING = 0x0054_6C20;
+        fn/Usercall LOAD_AND_PLAY_STREAMING = 0x00546C20;
         /// ComputeDistanceParams
-        fn/Fastcall COMPUTE_DISTANCE_PARAMS = 0x0054_6300;
+        fn/Fastcall COMPUTE_DISTANCE_PARAMS = 0x00546300;
         /// DispatchLocalSound
-        fn/Usercall DISPATCH_LOCAL_SOUND = 0x0054_6360;
+        fn/Usercall DISPATCH_LOCAL_SOUND = 0x00546360;
         /// PlayLocalNoEmitter
-        fn/Thiscall PLAY_LOCAL_NO_EMITTER = 0x0054_6430;
+        fn/Thiscall PLAY_LOCAL_NO_EMITTER = 0x00546430;
         /// PlayLocalWithEmitter
-        fn/Usercall PLAY_LOCAL_WITH_EMITTER = 0x0054_63F0;
+        fn/Usercall PLAY_LOCAL_WITH_EMITTER = 0x005463F0;
         /// PlaySoundPooled_Direct
-        fn/Fastcall PLAY_SOUND_POOLED_DIRECT = 0x0054_6B50;
+        fn/Fastcall PLAY_SOUND_POOLED_DIRECT = 0x00546B50;
         /// Distance3D_Attenuation
-        fn/Usercall DISTANCE_3D_ATTENUATION = 0x0054_30F0;
+        fn/Usercall DISTANCE_3D_ATTENUATION = 0x005430F0;
         /// ActiveSoundTable::stop_sound — stops an active streaming sound by handle.
-        fn ACTIVE_SOUND_TABLE_STOP_SOUND = 0x0054_6490;
+        fn ACTIVE_SOUND_TABLE_STOP_SOUND = 0x00546490;
     }
 
     // =========================================================================
@@ -673,29 +673,29 @@ pub mod va {
 
     crate::define_addresses! {
         /// Speech line table in .rdata
-        data SPEECH_LINE_TABLE = 0x006A_F770;
+        data SPEECH_LINE_TABLE = 0x006AF770;
         /// WAV Player: load and play
-        fn/Usercall WAV_PLAYER_LOAD_AND_PLAY = 0x0059_9B40;
+        fn/Usercall WAV_PLAYER_LOAD_AND_PLAY = 0x00599B40;
         /// WAV Player: play
-        fn/Usercall WAV_PLAYER_PLAY = 0x0059_96E0;
+        fn/Usercall WAV_PLAYER_PLAY = 0x005996E0;
         /// WAV Player: stop
-        fn/Usercall WAV_PLAYER_STOP = 0x0059_9670;
+        fn/Usercall WAV_PLAYER_STOP = 0x00599670;
         /// FeSfx WavPlayer global instance
-        global FESFX_WAV_PLAYER = 0x006A_C888;
+        global FESFX_WAV_PLAYER = 0x006AC888;
         /// Fanfare WavPlayer global instance
-        global FANFARE_WAV_PLAYER = 0x006A_C890;
+        global FANFARE_WAV_PLAYER = 0x006AC890;
         /// WA data path string buffer
-        global WA_DATA_PATH = 0x0088_E282;
+        global WA_DATA_PATH = 0x0088E282;
         /// Team config fanfare name lookup
-        fn/Usercall GET_TEAM_CONFIG_NAME = 0x004A_62A0;
+        fn/Usercall GET_TEAM_CONFIG_NAME = 0x004A62A0;
         /// Builds fanfare path, plays via WavPlayer
-        fn/Stdcall PLAY_FANFARE_DEFAULT = 0x004D_7500;
+        fn/Stdcall PLAY_FANFARE_DEFAULT = 0x004D7500;
         /// Loads fanfare WAV with fallback
-        fn/Thiscall PLAY_FANFARE = 0x004D_7630;
+        fn/Thiscall PLAY_FANFARE = 0x004D7630;
         /// Gets current team, calls PlayFanfare
-        fn/Usercall PLAY_FANFARE_CURRENT_TEAM = 0x004D_78E0;
+        fn/Usercall PLAY_FANFARE_CURRENT_TEAM = 0x004D78E0;
         /// Builds fesfx path, plays via WavPlayer
-        fn/Stdcall PLAY_FE_SFX = 0x004D_7960;
+        fn/Stdcall PLAY_FE_SFX = 0x004D7960;
     }
 
     // =========================================================================
@@ -704,15 +704,15 @@ pub mod va {
 
     crate::define_addresses! {
         /// AfxCtxMessageBoxA
-        fn/Cdecl AFXCTX_MESSAGEBOX_A = 0x005C_2055;
+        fn/Cdecl AFXCTX_MESSAGEBOX_A = 0x005C2055;
         /// CWormsApp::DoMessageBox
-        fn/Thiscall CWORMSAPP_DO_MESSAGEBOX = 0x004E_B730;
+        fn/Thiscall CWORMSAPP_DO_MESSAGEBOX = 0x004EB730;
         /// ATL::CSimpleStringT::operator=
-        fn/Thiscall CSTRING_OPERATOR_ASSIGN = 0x0040_1D20;
+        fn/Thiscall CSTRING_OPERATOR_ASSIGN = 0x00401D20;
         /// String resource lookup + assign
-        fn/Stdcall CSTRING_ASSIGN_RESOURCE = 0x004A_39F0;
+        fn/Stdcall CSTRING_ASSIGN_RESOURCE = 0x004A39F0;
         /// CSimpleStringT::SetString
-        fn/Thiscall CSTRING_SET_STRING = 0x0040_1EA0;
+        fn/Thiscall CSTRING_SET_STRING = 0x00401EA0;
     }
 
     // =========================================================================
@@ -720,8 +720,8 @@ pub mod va {
     // =========================================================================
 
     crate::define_addresses! {
-        fn SHOW_CHAT_MESSAGE = 0x0052_ACB0;
-        fn ON_CHAT_INPUT = 0x0052_B730;
+        fn SHOW_CHAT_MESSAGE = 0x0052ACB0;
+        fn ON_CHAT_INPUT = 0x0052B730;
     }
 
     // =========================================================================
@@ -730,50 +730,50 @@ pub mod va {
 
     crate::define_addresses! {
         /// Main navigation loop (CWinApp::Run override)
-        fn FRONTEND_MAIN_NAVIGATION_LOOP = 0x004E_6440;
-        fn/Usercall FRONTEND_CHANGE_SCREEN = 0x0044_7A20;
+        fn FRONTEND_MAIN_NAVIGATION_LOOP = 0x004E6440;
+        fn/Usercall FRONTEND_CHANGE_SCREEN = 0x00447A20;
         /// Wraps DoModal: palette transition + custom DoModal
-        fn FRONTEND_DO_MODAL_WRAPPER = 0x0044_7960;
-        fn FRONTEND_FRAME_CONSTRUCTOR = 0x004E_CCA0;
-        fn FRONTEND_DIALOG_CONSTRUCTOR = 0x0044_6BA0;
-        fn FRONTEND_PALETTE_ANIMATION = 0x0042_2180;
-        fn FRONTEND_LOAD_TRANSITION_PAL = 0x0044_7AA0;
-        fn FRONTEND_PRE_TRANSITION_CLEANUP = 0x004E_4AE0;
-        fn FRONTEND_POST_SCREEN_CLEANUP = 0x004E_B450;
-        fn FRONTEND_ON_INITIAL_LOAD = 0x0042_9830;
-        fn FRONTEND_LAUNCH_SINGLE_PLAYER = 0x0044_1D80;
-        fn FRONTEND_ON_MULTIPLAYER = 0x0044_E850;
-        fn FRONTEND_ON_NETWORK = 0x0044_EC10;
-        fn FRONTEND_ON_MINIMIZE = 0x0048_6A10;
-        fn FRONTEND_ON_OPTIONS_ACCEPT = 0x0048_DAB0;
-        fn FRONTEND_ON_START_GAME = 0x004F_14A0;
-        fn CDIALOG_DO_MODAL_CUSTOM = 0x0040_FD60;
-        fn CDIALOG_CUSTOM_MSG_PUMP = 0x0040_FBE0;
-        fn FRONTEND_DIALOG_ON_IDLE = 0x0040_FF90;
-        fn FRONTEND_DIALOG_PAINT_CONTROL_TREE = 0x0040_BF60;
-        fn FRONTEND_DIALOG_RENDER_BACKGROUND = 0x0040_4250;
-        fn SURFACE_BLIT = 0x0040_3BF0;
-        fn FRONTEND_DEATHMATCH_CTOR = 0x0044_0F40;
-        fn FRONTEND_LOCAL_MP_CTOR = 0x0049_C420;
-        fn FRONTEND_TRAINING_CTOR = 0x004E_0880;
-        fn FRONTEND_MISSIONS_CTOR = 0x0049_9190;
+        fn FRONTEND_DO_MODAL_WRAPPER = 0x00447960;
+        fn FRONTEND_FRAME_CONSTRUCTOR = 0x004ECCA0;
+        fn FRONTEND_DIALOG_CONSTRUCTOR = 0x00446BA0;
+        fn FRONTEND_PALETTE_ANIMATION = 0x00422180;
+        fn FRONTEND_LOAD_TRANSITION_PAL = 0x00447AA0;
+        fn FRONTEND_PRE_TRANSITION_CLEANUP = 0x004E4AE0;
+        fn FRONTEND_POST_SCREEN_CLEANUP = 0x004EB450;
+        fn FRONTEND_ON_INITIAL_LOAD = 0x00429830;
+        fn FRONTEND_LAUNCH_SINGLE_PLAYER = 0x00441D80;
+        fn FRONTEND_ON_MULTIPLAYER = 0x0044E850;
+        fn FRONTEND_ON_NETWORK = 0x0044EC10;
+        fn FRONTEND_ON_MINIMIZE = 0x00486A10;
+        fn FRONTEND_ON_OPTIONS_ACCEPT = 0x0048DAB0;
+        fn FRONTEND_ON_START_GAME = 0x004F14A0;
+        fn CDIALOG_DO_MODAL_CUSTOM = 0x0040FD60;
+        fn CDIALOG_CUSTOM_MSG_PUMP = 0x0040FBE0;
+        fn FRONTEND_DIALOG_ON_IDLE = 0x0040FF90;
+        fn FRONTEND_DIALOG_PAINT_CONTROL_TREE = 0x0040BF60;
+        fn FRONTEND_DIALOG_RENDER_BACKGROUND = 0x00404250;
+        fn SURFACE_BLIT = 0x00403BF0;
+        fn FRONTEND_DEATHMATCH_CTOR = 0x00440F40;
+        fn FRONTEND_LOCAL_MP_CTOR = 0x0049C420;
+        fn FRONTEND_TRAINING_CTOR = 0x004E0880;
+        fn FRONTEND_MISSIONS_CTOR = 0x00499190;
         /// File-existence check via _findfirst (fastcall, ECX=filename)
-        fn/Fastcall FILE_EXISTS_CHECK = 0x004D_FA30;
-        fn FRONTEND_POST_INIT_CTOR = 0x004C_91B0;
-        fn FRONTEND_MAIN_MENU_CTOR = 0x0048_66C0;
-        fn FRONTEND_SINGLE_PLAYER_CTOR = 0x004D_69F0;
-        fn FRONTEND_CAMPAIGN_A_CTOR = 0x004A_2B70;
-        fn FRONTEND_CAMPAIGN_B_CTOR = 0x004A_24D0;
-        fn FRONTEND_ADV_SETTINGS_CTOR = 0x0042_79E0;
-        fn FRONTEND_INTRO_MOVIE_CTOR = 0x0047_0870;
-        fn FRONTEND_NETWORK_HOST_CTOR = 0x004A_DCA0;
-        fn FRONTEND_NETWORK_ONLINE_CTOR = 0x004A_CBC0;
-        fn FRONTEND_NETWORK_PROVIDER_CTOR = 0x004A_7990;
-        fn FRONTEND_NETWORK_SETTINGS_CTOR = 0x004C_23C0;
-        fn FRONTEND_LAN_CTOR = 0x0048_0A80;
-        fn FRONTEND_WORMNET_CTOR = 0x0047_2400;
-        fn FRONTEND_LOBBY_HOST_CTOR = 0x004B_0160;
-        fn FRONTEND_LOBBY_GAME_START_CTOR = 0x004B_DBE0;
+        fn/Fastcall FILE_EXISTS_CHECK = 0x004DFA30;
+        fn FRONTEND_POST_INIT_CTOR = 0x004C91B0;
+        fn FRONTEND_MAIN_MENU_CTOR = 0x004866C0;
+        fn FRONTEND_SINGLE_PLAYER_CTOR = 0x004D69F0;
+        fn FRONTEND_CAMPAIGN_A_CTOR = 0x004A2B70;
+        fn FRONTEND_CAMPAIGN_B_CTOR = 0x004A24D0;
+        fn FRONTEND_ADV_SETTINGS_CTOR = 0x004279E0;
+        fn FRONTEND_INTRO_MOVIE_CTOR = 0x00470870;
+        fn FRONTEND_NETWORK_HOST_CTOR = 0x004ADCA0;
+        fn FRONTEND_NETWORK_ONLINE_CTOR = 0x004ACBC0;
+        fn FRONTEND_NETWORK_PROVIDER_CTOR = 0x004A7990;
+        fn FRONTEND_NETWORK_SETTINGS_CTOR = 0x004C23C0;
+        fn FRONTEND_LAN_CTOR = 0x00480A80;
+        fn FRONTEND_WORMNET_CTOR = 0x00472400;
+        fn FRONTEND_LOBBY_HOST_CTOR = 0x004B0160;
+        fn FRONTEND_LOBBY_GAME_START_CTOR = 0x004BDBE0;
     }
 
     // =========================================================================
@@ -782,31 +782,31 @@ pub mod va {
 
     crate::define_addresses! {
         /// Reads .wsc file into scheme struct
-        fn/Stdcall SCHEME_READ_FILE = 0x004D_3890;
+        fn/Stdcall SCHEME_READ_FILE = 0x004D3890;
         /// Checks if scheme file exists
-        fn/Stdcall SCHEME_FILE_EXISTS = 0x004D_4CD0;
+        fn/Stdcall SCHEME_FILE_EXISTS = 0x004D4CD0;
         /// Saves scheme struct to .wsc file
-        fn/Thiscall SCHEME_SAVE_FILE = 0x004D_44F0;
+        fn/Thiscall SCHEME_SAVE_FILE = 0x004D44F0;
         /// Variant file-exists check for numbered schemes
-        fn SCHEME_FILE_EXISTS_NUMBERED = 0x004D_4E00;
+        fn SCHEME_FILE_EXISTS_NUMBERED = 0x004D4E00;
         /// Version detection
-        fn SCHEME_DETECT_VERSION = 0x004D_4480;
+        fn SCHEME_DETECT_VERSION = 0x004D4480;
         /// Extracts built-in schemes from PE resources
-        fn SCHEME_EXTRACT_BUILTINS = 0x004D_5720;
+        fn SCHEME_EXTRACT_BUILTINS = 0x004D5720;
         /// Copies payload data + V3 defaults into scheme struct
-        fn/Fastcall SCHEME_INIT_FROM_DATA = 0x004D_5020;
+        fn/Fastcall SCHEME_INIT_FROM_DATA = 0x004D5020;
         /// Validates weapon ammo counts
-        fn SCHEME_CHECK_WEAPON_LIMITS = 0x004D_50E0;
+        fn SCHEME_CHECK_WEAPON_LIMITS = 0x004D50E0;
         /// Validates V3 extended options
-        fn SCHEME_VALIDATE_EXTENDED_OPTIONS = 0x004D_5110;
+        fn SCHEME_VALIDATE_EXTENDED_OPTIONS = 0x004D5110;
         /// Scans User\Schemes\ directory
-        fn SCHEME_SCAN_DIRECTORY = 0x004D_54E0;
+        fn SCHEME_SCAN_DIRECTORY = 0x004D54E0;
         /// Slot 13 feature check
-        fn SCHEME_SLOT13_CHECK = 0x004D_A4C0;
+        fn SCHEME_SLOT13_CHECK = 0x004DA4C0;
         /// Load built-in scheme by ID
-        fn/Stdcall SCHEME_LOAD_BUILTIN = 0x004D_4840;
+        fn/Stdcall SCHEME_LOAD_BUILTIN = 0x004D4840;
         /// Validate extended scheme options
-        fn/Cdecl SCHEME_VALIDATE_EXTENDED = 0x004D_5110;
+        fn/Cdecl SCHEME_VALIDATE_EXTENDED = 0x004D5110;
     }
 
     // =========================================================================
@@ -815,19 +815,19 @@ pub mod va {
 
     crate::define_addresses! {
         /// Theme file size check
-        fn/Cdecl THEME_GET_FILE_SIZE = 0x0044_BA80;
+        fn/Cdecl THEME_GET_FILE_SIZE = 0x0044BA80;
         /// Theme file load
-        fn/Stdcall THEME_LOAD = 0x0044_BB20;
+        fn/Stdcall THEME_LOAD = 0x0044BB20;
         /// Theme file save
-        fn/Stdcall THEME_SAVE = 0x0044_BBC0;
+        fn/Stdcall THEME_SAVE = 0x0044BBC0;
         /// Recursive registry key deletion
-        fn/Stdcall REGISTRY_DELETE_KEY_RECURSIVE = 0x004E_4D10;
+        fn/Stdcall REGISTRY_DELETE_KEY_RECURSIVE = 0x004E4D10;
         /// Registry cleanup
-        fn/Stdcall REGISTRY_CLEAN_ALL = 0x004C_90D0;
+        fn/Stdcall REGISTRY_CLEAN_ALL = 0x004C90D0;
         /// Loads game options from registry
-        fn/Stdcall GAMEINFO_LOAD_OPTIONS = 0x0046_0AC0;
+        fn/Stdcall GAMEINFO_LOAD_OPTIONS = 0x00460AC0;
         /// Reads CrashReportURL from Options
-        fn/Cdecl OPTIONS_GET_CRASH_REPORT_URL = 0x005A_63F0;
+        fn/Cdecl OPTIONS_GET_CRASH_REPORT_URL = 0x005A63F0;
     }
 
     // =========================================================================
@@ -835,18 +835,18 @@ pub mod va {
     // =========================================================================
 
     crate::define_addresses! {
-        fn LOBBY_HOST_COMMANDS = 0x004B_9B00;
-        fn LOBBY_CLIENT_COMMANDS = 0x004A_ABB0;
+        fn LOBBY_HOST_COMMANDS = 0x004B9B00;
+        fn LOBBY_CLIENT_COMMANDS = 0x004AABB0;
         /// Allocates space in packet queue
-        fn/Usercall SEND_GAME_PACKET_WRAPPED = 0x0054_1130;
-        fn LOBBY_DISPLAY_MESSAGE = 0x0049_3CB0;
-        fn LOBBY_SEND_GREENTEXT = 0x004A_A990;
-        fn LOBBY_PRINT_USED_VERSION = 0x004B_7E20;
-        fn LOBBY_ON_DISCONNECT = 0x004B_AE40;
-        fn LOBBY_ON_GAME_END = 0x004B_AEC0;
-        fn LOBBY_ON_MESSAGE = 0x004B_D400;
-        fn LOBBY_DIALOG_CONSTRUCTOR = 0x004C_D9A0;
-        fn NETWORK_IS_AVAILABLE = 0x004D_4920;
+        fn/Usercall SEND_GAME_PACKET_WRAPPED = 0x00541130;
+        fn LOBBY_DISPLAY_MESSAGE = 0x00493CB0;
+        fn LOBBY_SEND_GREENTEXT = 0x004AA990;
+        fn LOBBY_PRINT_USED_VERSION = 0x004B7E20;
+        fn LOBBY_ON_DISCONNECT = 0x004BAE40;
+        fn LOBBY_ON_GAME_END = 0x004BAEC0;
+        fn LOBBY_ON_MESSAGE = 0x004BD400;
+        fn LOBBY_DIALOG_CONSTRUCTOR = 0x004CD9A0;
+        fn NETWORK_IS_AVAILABLE = 0x004D4920;
     }
 
     // =========================================================================
@@ -855,29 +855,29 @@ pub mod va {
 
     crate::define_addresses! {
         /// WA internal malloc — cdecl(size) → *mut u8
-        fn/Cdecl WA_MALLOC = 0x005C_0AE3;
-        fn WA_MALLOC_MEMSET = 0x0053_E910;
-        fn/Cdecl WA_FREE = 0x005D_0D2B;
+        fn/Cdecl WA_MALLOC = 0x005C0AE3;
+        fn WA_MALLOC_MEMSET = 0x0053E910;
+        fn/Cdecl WA_FREE = 0x005D0D2B;
         /// WA's CRT _fopen
-        fn/Cdecl WA_FOPEN = 0x005D_3271;
+        fn/Cdecl WA_FOPEN = 0x005D3271;
         /// WA's CRT fread
-        fn/Cdecl WA_FREAD = 0x005D_4531;
+        fn/Cdecl WA_FREAD = 0x005D4531;
         /// WA's CRT fseek
-        fn/Cdecl WA_FSEEK = 0x005D_38A4;
+        fn/Cdecl WA_FSEEK = 0x005D38A4;
         /// WA's CRT fclose
-        fn/Cdecl WA_FCLOSE = 0x005D_399B;
+        fn/Cdecl WA_FCLOSE = 0x005D399B;
         /// WA's CRT _fileno
-        fn/Cdecl WA_FILENO = 0x005D_5155;
+        fn/Cdecl WA_FILENO = 0x005D5155;
         /// WA's CRT _get_osfhandle
-        fn/Cdecl WA_GET_OSFHANDLE = 0x005D_7273;
+        fn/Cdecl WA_GET_OSFHANDLE = 0x005D7273;
         /// WA's CRT srand
-        fn/Cdecl WA_SRAND = 0x005D_293E;
+        fn/Cdecl WA_SRAND = 0x005D293E;
         /// WA's CRT rand
-        fn/Cdecl WA_RAND = 0x005D_294B;
+        fn/Cdecl WA_RAND = 0x005D294B;
         /// WA's CRT _gmtime64
-        fn/Cdecl WA_GMTIME64 = 0x005D_34C0;
+        fn/Cdecl WA_GMTIME64 = 0x005D34C0;
         /// WA's CRT malloc (raw)
-        fn/Cdecl WA_CRT_MALLOC = 0x005C_0AB8;
+        fn/Cdecl WA_CRT_MALLOC = 0x005C0AB8;
     }
 
     // =========================================================================
@@ -885,12 +885,12 @@ pub mod va {
     // =========================================================================
 
     crate::define_addresses! {
-        fn FONT_LOAD_FONTS = 0x0041_4680;
-        fn FONT_RENDER_GLYPHS = 0x0041_43D0;
-        fn FONT_DRAW_TEXT = 0x0042_7830;
-        fn/Thiscall DISPLAY_GFX_DRAW_TEXT_ON_BITMAP = 0x0052_36B0;
-        fn/Thiscall DISPLAY_GFX_CONSTRUCT_TEXTBOX = 0x004F_AF00;
-        fn/Stdcall SET_TEXTBOX_TEXT = 0x004F_B070;
+        fn FONT_LOAD_FONTS = 0x00414680;
+        fn FONT_RENDER_GLYPHS = 0x004143D0;
+        fn FONT_DRAW_TEXT = 0x00427830;
+        fn/Thiscall DISPLAY_GFX_DRAW_TEXT_ON_BITMAP = 0x005236B0;
+        fn/Thiscall DISPLAY_GFX_CONSTRUCT_TEXTBOX = 0x004FAF00;
+        fn/Stdcall SET_TEXTBOX_TEXT = 0x004FB070;
     }
 
     // =========================================================================
@@ -899,13 +899,13 @@ pub mod va {
 
     crate::define_addresses! {
         /// MapView constructor
-        fn/Stdcall MAP_VIEW_CONSTRUCTOR = 0x0044_7E80;
+        fn/Stdcall MAP_VIEW_CONSTRUCTOR = 0x00447E80;
         /// MapView load terrain file
-        fn/Stdcall MAP_VIEW_LOAD = 0x0044_A9A0;
+        fn/Stdcall MAP_VIEW_LOAD = 0x0044A9A0;
         /// MapView copy info to game state
-        fn/Usercall MAP_VIEW_COPY_INFO = 0x0044_9B60;
+        fn/Usercall MAP_VIEW_COPY_INFO = 0x00449B60;
         /// Load string resource by ID
-        fn/Stdcall WA_LOAD_STRING = 0x0059_3180;
+        fn/Stdcall WA_LOAD_STRING = 0x00593180;
     }
 
     // =========================================================================
@@ -913,13 +913,13 @@ pub mod va {
     // =========================================================================
 
     crate::define_addresses! {
-        string STR_CDROM_SPR = 0x0066_A3A8;
-        string STR_COLOURS_IMG = 0x0066_A3B4;
-        string STR_MASKS_IMG = 0x0066_A3C0;
+        string STR_CDROM_SPR = 0x0066A3A8;
+        string STR_COLOURS_IMG = 0x0066A3B4;
+        string STR_MASKS_IMG = 0x0066A3C0;
         /// Empty base path for sprite resource loading
-        string SPRITE_RESOURCE_BASE_PATH = 0x0064_3F2B;
+        string SPRITE_RESOURCE_BASE_PATH = 0x00643F2B;
         /// "3.8.1" literal string
-        string STR_VERSION_381 = 0x0064_1C60;
+        string STR_VERSION_381 = 0x00641C60;
     }
 
     // =========================================================================
@@ -927,19 +927,19 @@ pub mod va {
     // =========================================================================
 
     crate::define_addresses! {
-        data SPRITE_RESOURCE_TABLE_1 = 0x006A_D2C0;
-        data SPRITE_RESOURCE_TABLE_2 = 0x006A_F048;
-        data WATER_RESOURCE_TABLE = 0x006A_F060;
+        data SPRITE_RESOURCE_TABLE_1 = 0x006AD2C0;
+        data SPRITE_RESOURCE_TABLE_2 = 0x006AF048;
+        data WATER_RESOURCE_TABLE = 0x006AF060;
         /// V3 extended options defaults (110 bytes)
-        data SCHEME_V3_DEFAULTS = 0x0064_9AB8;
+        data SCHEME_V3_DEFAULTS = 0x00649AB8;
         /// Per-weapon max ammo table (39 bytes)
-        data SCHEME_WEAPON_AMMO_LIMITS = 0x006A_D130;
+        data SCHEME_WEAPON_AMMO_LIMITS = 0x006AD130;
         /// Version string table
-        data VERSION_STRING_TABLE = 0x006A_B480;
+        data VERSION_STRING_TABLE = 0x006AB480;
         /// Version suffix table
-        data VERSION_SUFFIX_TABLE = 0x0069_9814;
+        data VERSION_SUFFIX_TABLE = 0x00699814;
         /// "data\land.dat" string constant
-        string G_LAND_DAT_STRING = 0x0064_DA58;
+        string G_LAND_DAT_STRING = 0x0064DA58;
     }
 
     // =========================================================================
@@ -947,46 +947,46 @@ pub mod va {
     // =========================================================================
 
     crate::define_addresses! {
-        global G_SPRITE_VERSION_FLAG = 0x006A_F050;
-        global G_DISPLAY_MODE_FLAG = 0x0088_E485;
-        global G_CURRENT_SCREEN = 0x006B_3504;
-        global G_CHAR_WIDTH_TABLE = 0x006B_2DD9;
-        global G_FRONTEND_FRAME = 0x006B_3908;
-        global G_FRONTEND_HWND = 0x006B_390C;
-        global G_SKIP_TO_MAIN_MENU = 0x007A_083D;
-        global G_AUTO_NETWORK_FLAG = 0x007A_083F;
+        global G_SPRITE_VERSION_FLAG = 0x006AF050;
+        global G_DISPLAY_MODE_FLAG = 0x0088E485;
+        global G_CURRENT_SCREEN = 0x006B3504;
+        global G_CHAR_WIDTH_TABLE = 0x006B2DD9;
+        global G_FRONTEND_FRAME = 0x006B3908;
+        global G_FRONTEND_HWND = 0x006B390C;
+        global G_SKIP_TO_MAIN_MENU = 0x007A083D;
+        global G_AUTO_NETWORK_FLAG = 0x007A083F;
         /// Input-hook mode flag (u32). Nonzero = an input hook is active; StepFrame
         /// gates PollInput on `ddgame.team_arena.active_worm_count <= active_team_count`
         /// only in that mode (otherwise always polls).
-        global G_INPUT_HOOK_MODE = 0x007A_0860;
-        global G_RENDER_CONTEXT = 0x0079_D6D4;
+        global G_INPUT_HOOK_MODE = 0x007A0860;
+        global G_RENDER_CONTEXT = 0x0079D6D4;
         /// Stipple checkerboard parity — toggled (XOR 1) each render frame in GameRender.
         /// Used by DisplayGfx__BlitStippled to alternate the checkerboard pattern.
-        global G_STIPPLE_PARITY = 0x007A_087C;
-        global G_FONT_ARRAY = 0x007A_0F58;
-        global G_MAIN_MENU_ACTIVE = 0x007C_0A20;
-        global G_CWINAPP = 0x007C_03D0;
-        global G_NETWORK_MODE = 0x007C_0D40;
-        global G_NETWORK_SUBTYPE = 0x007C_0D68;
+        global G_STIPPLE_PARITY = 0x007A087C;
+        global G_FONT_ARRAY = 0x007A0F58;
+        global G_MAIN_MENU_ACTIVE = 0x007C0A20;
+        global G_CWINAPP = 0x007C03D0;
+        global G_NETWORK_MODE = 0x007C0D40;
+        global G_NETWORK_SUBTYPE = 0x007C0D68;
         /// Game session context pointer
-        global G_GAME_SESSION = 0x007A_0884;
-        global G_FULLSCREEN_FLAG = 0x007A_084C;
-        global G_SUPPRESS_CURSOR = 0x0088_E485;
-        global IAT_MAP_WINDOW_POINTS = 0x0061_A588;
-        global G_SPRITE_DATA_BYTES = 0x007A_0864;
-        global G_SPRITE_FRAME_COUNT = 0x007A_0868;
-        global G_SPRITE_PIXEL_AREA = 0x007A_086C;
-        global G_SPRITE_PALETTE_BYTES = 0x007A_0870;
-        global G_GAME_INFO = 0x0077_49A0;
-        global G_FRAME_BUFFER_PTR = 0x007A_0EEC;
-        global G_FRAME_BUFFER_WIDTH = 0x007A_0EF0;
-        global G_FRAME_BUFFER_HEIGHT = 0x007A_0EF4;
-        global G_CRASH_REPORT_URL = 0x0079_FFD8;
-        global G_VERSION_BYTE = 0x0069_7702;
+        global G_GAME_SESSION = 0x007A0884;
+        global G_FULLSCREEN_FLAG = 0x007A084C;
+        global G_SUPPRESS_CURSOR = 0x0088E485;
+        global IAT_MAP_WINDOW_POINTS = 0x0061A588;
+        global G_SPRITE_DATA_BYTES = 0x007A0864;
+        global G_SPRITE_FRAME_COUNT = 0x007A0868;
+        global G_SPRITE_PIXEL_AREA = 0x007A086C;
+        global G_SPRITE_PALETTE_BYTES = 0x007A0870;
+        global G_GAME_INFO = 0x007749A0;
+        global G_FRAME_BUFFER_PTR = 0x007A0EEC;
+        global G_FRAME_BUFFER_WIDTH = 0x007A0EF0;
+        global G_FRAME_BUFFER_HEIGHT = 0x007A0EF4;
+        global G_CRASH_REPORT_URL = 0x0079FFD8;
+        global G_VERSION_BYTE = 0x00697702;
         /// In-game-loop flag — set to 1 during message pump in GameSession__PumpMessages
-        global G_IN_GAME_LOOP = 0x006B_39BC;
+        global G_IN_GAME_LOOP = 0x006B39BC;
         /// Desktop check threshold — ProcessFrame skips desktop check when <= 1
-        global G_DESKTOP_CHECK_LEVEL = 0x006B_3920;
+        global G_DESKTOP_CHECK_LEVEL = 0x006B3920;
     }
 
     // =========================================================================
@@ -995,11 +995,11 @@ pub mod va {
 
     crate::define_addresses! {
         /// Sine lookup table — 1024 entries of i32 (fixed-point 16.16)
-        data G_SIN_TABLE = 0x006A_1860;
+        data G_SIN_TABLE = 0x006A1860;
         /// Cosine lookup table — 1024 entries of i32 (fixed-point 16.16)
-        data G_COS_TABLE = 0x006A_1C60;
+        data G_COS_TABLE = 0x006A1C60;
         /// Global vertex scratch buffer
-        global G_VERTEX_SCRATCH_BUFFER = 0x008B_1470;
+        global G_VERTEX_SCRATCH_BUFFER = 0x008B1470;
     }
 
     // =========================================================================
@@ -1007,40 +1007,40 @@ pub mod va {
     // =========================================================================
 
     crate::define_addresses! {
-        global G_REPLAY_STATE = 0x0087_D3F8;
-        global G_TEAM_HEADER_DATA = 0x0087_79E4;
-        global G_TEAM_SECONDARY_DATA = 0x0087_D438;
-        global G_REPLAY_GAME_ID = 0x0088_AF50;
-        global G_REPLAY_SUB_FORMAT = 0x0088_AF54;
-        global G_REPLAY_VERSION_ID = 0x0088_ABB0;
-        global G_REPLAY_SCHEME_PRESENT = 0x0088_AE0C;
-        global G_ARTCLASS_COUNTER = 0x0088_C790;
-        global G_RANDOM_SEED = 0x0088_D0B4;
-        global G_SAVED_RANDOM_SEED = 0x0088_ABAC;
-        global G_REPLAY_FILENAME = 0x0088_AF58;
-        global G_DATA_DIR = 0x0088_E078;
-        global G_LOG_FILE_PTR = 0x0088_C370;
-        global G_OBSERVER_ARRAY = 0x0088_C35C;
-        global G_OBSERVER_COUNT = 0x0088_AF4C;
-        global G_RECORDING_TIMESTAMP_FLAG = 0x0088_C36C;
-        global G_REPLAY_VER_FLAG_A = 0x0088_AF42;
-        global G_REPLAY_VER_FLAG_B = 0x0088_AF43;
-        global G_REPLAY_GAME_MODE = 0x0088_AF44;
-        global G_SCHEME_HEADER = 0x0088_DAD4;
-        global G_SCHEME_DEST = 0x0088_DACC;
-        global G_SCHEME_DATA = 0x0088_DAE0;
-        global G_SCHEME_OPTIONS = 0x0088_DBB8;
-        global G_SCHEME_V3_DATA = 0x0088_DC04;
-        global G_HOST_PLAYER = 0x0087_79E0;
-        global G_PLAYER_ARRAY = 0x0087_79E4;
-        global G_PLAYER_COUNT = 0x0087_D0DE;
-        global G_TEAM_DATA = 0x0087_7FFC;
-        global G_TEAM_COUNT = 0x0087_D0E0;
-        global G_REPLAY_NAME = 0x0087_D0E1;
-        global G_MAP_BYTE_1 = 0x0087_250C;
-        global G_MAP_BYTE_2 = 0x0087_2508;
-        global G_MAP_SEED = 0x0087_D430;
-        global G_WORM_NAMES = 0x0087_8097;
+        global G_REPLAY_STATE = 0x0087D3F8;
+        global G_TEAM_HEADER_DATA = 0x008779E4;
+        global G_TEAM_SECONDARY_DATA = 0x0087D438;
+        global G_REPLAY_GAME_ID = 0x0088AF50;
+        global G_REPLAY_SUB_FORMAT = 0x0088AF54;
+        global G_REPLAY_VERSION_ID = 0x0088ABB0;
+        global G_REPLAY_SCHEME_PRESENT = 0x0088AE0C;
+        global G_ARTCLASS_COUNTER = 0x0088C790;
+        global G_RANDOM_SEED = 0x0088D0B4;
+        global G_SAVED_RANDOM_SEED = 0x0088ABAC;
+        global G_REPLAY_FILENAME = 0x0088AF58;
+        global G_DATA_DIR = 0x0088E078;
+        global G_LOG_FILE_PTR = 0x0088C370;
+        global G_OBSERVER_ARRAY = 0x0088C35C;
+        global G_OBSERVER_COUNT = 0x0088AF4C;
+        global G_RECORDING_TIMESTAMP_FLAG = 0x0088C36C;
+        global G_REPLAY_VER_FLAG_A = 0x0088AF42;
+        global G_REPLAY_VER_FLAG_B = 0x0088AF43;
+        global G_REPLAY_GAME_MODE = 0x0088AF44;
+        global G_SCHEME_HEADER = 0x0088DAD4;
+        global G_SCHEME_DEST = 0x0088DACC;
+        global G_SCHEME_DATA = 0x0088DAE0;
+        global G_SCHEME_OPTIONS = 0x0088DBB8;
+        global G_SCHEME_V3_DATA = 0x0088DC04;
+        global G_HOST_PLAYER = 0x008779E0;
+        global G_PLAYER_ARRAY = 0x008779E4;
+        global G_PLAYER_COUNT = 0x0087D0DE;
+        global G_TEAM_DATA = 0x00877FFC;
+        global G_TEAM_COUNT = 0x0087D0E0;
+        global G_REPLAY_NAME = 0x0087D0E1;
+        global G_MAP_BYTE_1 = 0x0087250C;
+        global G_MAP_BYTE_2 = 0x00872508;
+        global G_MAP_SEED = 0x0087D430;
+        global G_WORM_NAMES = 0x00878097;
     }
 
     // =========================================================================
@@ -1048,9 +1048,9 @@ pub mod va {
     // =========================================================================
 
     crate::define_addresses! {
-        global SCHEME_ACTIVE_WEAPON_DATA = 0x0088_DB05;
-        global SCHEME_SLOT_FLAGS = 0x006B_329C;
-        global SCHEME_MODIFIER_GUARD = 0x0088_E460;
+        global SCHEME_ACTIVE_WEAPON_DATA = 0x0088DB05;
+        global SCHEME_SLOT_FLAGS = 0x006B329C;
+        global SCHEME_MODIFIER_GUARD = 0x0088E460;
     }
 
     // =========================================================================
@@ -1058,67 +1058,67 @@ pub mod va {
     // =========================================================================
 
     crate::define_addresses! {
-        global G_BASE_DIR = 0x0088_E282;
-        global G_GAMEINFO_BLOCK_F485 = 0x0088_DFF3;
-        global G_CONFIG_BYTE_F3A0 = 0x007C_0D38;
-        global G_CONFIG_DWORDS_F3B4 = 0x0088_E39C;
-        global G_CONFIG_GUARD = 0x0088_C374;
-        global G_CONFIG_DWORDS_F3F4 = 0x0088_E3B8;
-        global G_CONFIG_DWORD_DAE8 = 0x0088_E390;
-        global G_CONFIG_DWORDS_F3D4 = 0x0088_E3B0;
-        global G_CONFIG_DWORDS_F3C4 = 0x0088_E400;
-        global G_CONFIG_DWORD_F3E4 = 0x0088_E44C;
-        global G_STREAMS_DIR = 0x0088_AE18;
-        global G_STREAM_INDICES = 0x0088_AE9C;
-        global G_STREAM_INDICES_END = 0x0088_AEDC;
-        global G_STREAM_FLAG = 0x0088_E394;
-        global G_STREAM_VOLUME = 0x0088_AEDD;
+        global G_BASE_DIR = 0x0088E282;
+        global G_GAMEINFO_BLOCK_F485 = 0x0088DFF3;
+        global G_CONFIG_BYTE_F3A0 = 0x007C0D38;
+        global G_CONFIG_DWORDS_F3B4 = 0x0088E39C;
+        global G_CONFIG_GUARD = 0x0088C374;
+        global G_CONFIG_DWORDS_F3F4 = 0x0088E3B8;
+        global G_CONFIG_DWORD_DAE8 = 0x0088E390;
+        global G_CONFIG_DWORDS_F3D4 = 0x0088E3B0;
+        global G_CONFIG_DWORDS_F3C4 = 0x0088E400;
+        global G_CONFIG_DWORD_F3E4 = 0x0088E44C;
+        global G_STREAMS_DIR = 0x0088AE18;
+        global G_STREAM_INDICES = 0x0088AE9C;
+        global G_STREAM_INDICES_END = 0x0088AEDC;
+        global G_STREAM_FLAG = 0x0088E394;
+        global G_STREAM_VOLUME = 0x0088AEDD;
 
         // DispatchFrame unported callees.
         /// ActiveSoundTable__Update — stdcall(self), iterates streaming entries
         /// and drops finished ones. Called each DispatchFrame tick.
-        fn/Stdcall ACTIVE_SOUND_TABLE_UPDATE = 0x0054_64E0;
+        fn/Stdcall ACTIVE_SOUND_TABLE_UPDATE = 0x005464E0;
         /// MSVC CRT `__iob_func` — returns the three-entry `FILE` array.
         /// `iob_func()+0x20` is `stdout`.
-        fn/Cdecl CRT_IOB_FUNC = 0x005D_4E40;
+        fn/Cdecl CRT_IOB_FUNC = 0x005D4E40;
         /// IAT slot for `fputs` — dereference to get the live import pointer.
-        global CRT_FPUTS_IAT = 0x0064_9468;
+        global CRT_FPUTS_IAT = 0x00649468;
         /// MSVC CRT `_ferror(FILE*)`.
-        fn/Cdecl CRT_FERROR = 0x005D_5126;
+        fn/Cdecl CRT_FERROR = 0x005D5126;
         /// IAT slot for `putc` — dereference to get the live import pointer.
-        global CRT_PUTC_IAT = 0x0064_92D4;
+        global CRT_PUTC_IAT = 0x006492D4;
         /// Codepage__BuildLut — usercall(EAX=codepage) → returns a
         /// 256-byte translation-table pointer in EAX. Different codepages
         /// are cached at different globals (0x7A0ED0/D4/…). Called from
         /// the end-of-round log recoder after `GetACP()`.
-        fn/Usercall CODEPAGE_BUILD_LUT = 0x0059_2280;
+        fn/Usercall CODEPAGE_BUILD_LUT = 0x00592280;
         /// Cached codepage LUT pointer. Lazily initialised on first use
         /// (zero → call `Codepage__BuildLut`, store result here).
-        global G_CODEPAGE_LUT = 0x007A_0ED8;
+        global G_CODEPAGE_LUT = 0x007A0ED8;
         /// Byte flag: when nonzero, log output passes through the
         /// codepage LUT (`LUT[byte + 0x100]`) before being written to the
         /// stream. When zero, bytes are emitted verbatim. Read by
         /// `LogOutput` on construction.
-        global G_CODEPAGE_RECODE_FLAG = 0x006B_39C2;
+        global G_CODEPAGE_RECODE_FLAG = 0x006B39C2;
         /// Phase-label resource ID table indexed by `wrapper.game_end_phase`
         /// (0..9 → resource IDs 0x704..0x70D). Read by end-of-round banner.
-        global G_PHASE_LABEL_RES_TABLE = 0x006A_70E0;
+        global G_PHASE_LABEL_RES_TABLE = 0x006A70E0;
         /// Primary localization data record (`*mut LocalizationData`). When
         /// non-null, its per-entry offset is tried first by `LoadStringResource`.
-        global G_LOCALIZATION_DATA_PRIMARY = 0x007A_0EDC;
+        global G_LOCALIZATION_DATA_PRIMARY = 0x007A0EDC;
         /// Secondary (fallback) localization data record (`*mut LocalizationData`).
         /// Consulted before the primary record — matches the original code's
         /// check order in `WA__LoadStringResource` (0x593180).
-        global G_LOCALIZATION_DATA_SECONDARY = 0x007A_0EE0;
+        global G_LOCALIZATION_DATA_SECONDARY = 0x007A0EE0;
         /// Default string table: array of `*const c_char`, length
         /// `StringRes::COUNT`. Used when neither localization record overrides
         /// a given entry.
-        global G_LOCALIZATION_KEY_TABLE = 0x0069_7708;
+        global G_LOCALIZATION_KEY_TABLE = 0x00697708;
         /// BSS byte latched to 1 on first DispatchFrame pass. Gates a
         /// clamp that inflates `remaining` up to `frame_duration` while
         /// the game hasn't started yet. Purpose not fully confirmed; read
         /// once, written once per frame.
-        global G_DISPATCH_FRAME_LATCH = 0x008A_CE34;
+        global G_DISPATCH_FRAME_LATCH = 0x008ACE34;
     }
 
     // =========================================================================

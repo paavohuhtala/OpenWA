@@ -25,7 +25,7 @@
 //!
 //! | Offset | Size | Field                                   |
 //! |--------|------|-----------------------------------------|
-//! | 0      | 4    | Magic `"IMG\x1A"` (`0x1A47_4D49`)        |
+//! | 0      | 4    | Magic `"IMG\x1A"` (`0x1A474D49`)        |
 //! | 4      | 4    | `data_size` — total bytes in IMG payload |
 //! | 8      | 2    | `flags`                                  |
 //!
@@ -63,7 +63,7 @@
 use crate::sprite_lzss::sprite_lzss_decode_slice;
 
 /// IMG file magic: `"IMG\x1A"` as little-endian `u32`.
-pub const IMG_MAGIC: u32 = 0x1A47_4D49;
+pub const IMG_MAGIC: u32 = 0x1A474D49;
 
 const FLAG_HAS_PALETTE: u16 = 0x8000;
 const FLAG_LZSS_COMPRESSED: u16 = 0x4000;

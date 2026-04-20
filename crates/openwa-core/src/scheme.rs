@@ -897,9 +897,9 @@ impl ExtendedOptions {
         && is_bool(b[0x2E])                                              // girder_radius_assist
         && b[0x31] != 0                                                  // petrol_touch_decay nonzero
         && read_u16_le(b, 0x32) != 0                                    // max_flamelet_count nonzero
-        && (read_i32_le(b, 0x34) as u32) < 0x8000_0000                  // max_projectile_speed > 0
-        && (read_i32_le(b, 0x38) as u32) < 0x8000_0000                  // max_rope_speed > 0
-        && (read_i32_le(b, 0x3C) as u32) < 0x8000_0000                  // max_jet_pack_speed > 0
+        && (read_i32_le(b, 0x34) as u32) < 0x80000000                  // max_projectile_speed > 0
+        && (read_i32_le(b, 0x38) as u32) < 0x80000000                  // max_rope_speed > 0
+        && (read_i32_le(b, 0x3C) as u32) < 0x80000000                  // max_jet_pack_speed > 0
         && (read_i32_le(b, 0x40) as u32).wrapping_sub(0x1000) < 0x7F_F001 // game_engine_speed
         && is_tristate(b[0x44])                                          // indian_rope_glitch
         && is_tristate(b[0x45])                                          // herd_doubling_glitch
@@ -915,7 +915,7 @@ impl ExtendedOptions {
         && read_u32_le(b, 0x55) < 0x1_0001                              // rw_wind_influence
         && is_bool(b[0x59])                                              // rw_wind_influence_worms
         && b[0x5A] < 4                                                   // rw_gravity_type
-        && (read_i32_le(b, 0x5B) as u32).wrapping_add(0x4000_0000) < 0x8000_0001 // rw_gravity_strength
+        && (read_i32_le(b, 0x5B) as u32).wrapping_add(0x40000000) < 0x80000001 // rw_gravity_strength
         && is_bool(b[0x60])                                              // rw_crate_shower
         && is_bool(b[0x61])                                              // rw_anti_sink
         && is_bool(b[0x62])                                              // rw_remember_weapons

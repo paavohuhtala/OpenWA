@@ -126,16 +126,16 @@ pub unsafe fn blit_sprite(
         // uses the overflow quadrant (bits 16-17 of the scaled value) to
         // select an orientation+blend combo. The low 16 bits become the
         // new palette value.
-        let mut orient_local: u32 = 0x0000_0001; // blend=1 (ColorTable/transparency), orientation=0 (Normal)
+        let mut orient_local: u32 = 0x00000001; // blend=1 (ColorTable/transparency), orientation=0 (Normal)
         if flags.contains(SpriteFlags::PALETTE_X4) {
             let scaled = pal.wrapping_mul(4).wrapping_add(0x8000);
             pal = scaled & 0xFFFF;
             let quad = ((scaled as i32) >> 16) & 3;
             orient_local = match quad {
-                0 => 0x0008_0001, // MirrorXY + ColorTable
-                1 => 0x000C_0001, // Rotate90MirrorXY + ColorTable
-                2 => 0x0004_0001, // Rotate90 + ColorTable
-                _ => 0x0000_0001, // Normal + ColorTable
+                0 => 0x00080001, // MirrorXY + ColorTable
+                1 => 0x000C0001, // Rotate90MirrorXY + ColorTable
+                2 => 0x00040001, // Rotate90 + ColorTable
+                _ => 0x00000001, // Normal + ColorTable
             };
         }
 
@@ -223,10 +223,10 @@ pub unsafe fn blit_sprite(
         // Extra orientation flags from high_flags
         // ---------------------------------------------------------------
         if flags.contains(SpriteFlags::MIRROR_X) {
-            orient_local |= 0x0001_0000;
+            orient_local |= 0x00010000;
         }
         if flags.contains(SpriteFlags::MIRROR_Y) {
-            orient_local |= 0x0002_0000;
+            orient_local |= 0x00020000;
         }
 
         // ---------------------------------------------------------------

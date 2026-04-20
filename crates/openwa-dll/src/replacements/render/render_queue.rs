@@ -28,7 +28,7 @@ unsafe extern "cdecl" fn enqueue_tiled_bitmap_impl(
         let _ = (*queue).push_typed(
             0x1B_0000,
             RenderMessage::TiledBitmap {
-                x: Fixed(0xFF00_0000u32 as i32),
+                x: Fixed(0xFF000000u32 as i32),
                 y,
                 source,
                 flags: flags as u8,

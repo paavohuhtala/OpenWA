@@ -2082,10 +2082,10 @@ mod tests {
 
     #[test]
     fn snap_tiled_transparent() {
-        run_tiled_snapshot_test("tiled_transparent", 0x0000_0001, 77);
+        run_tiled_snapshot_test("tiled_transparent", 0x00000001, 77);
     }
     #[test]
     fn snap_tiled_copy() {
-        run_tiled_snapshot_test("tiled_copy", 0x0000_0000, 0);
+        run_tiled_snapshot_test("tiled_copy", 0x00000000, 0);
     }
 }

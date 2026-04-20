@@ -42,7 +42,7 @@ const SUPER_WEAPONS_SIZE: usize = SCHEME_PAYLOAD_V2 - SCHEME_PAYLOAD_V1; // 0x4C
 const PAYLOAD_EXTENDED: usize = SCHEME_PAYLOAD_V2; // 0x124
 
 /// Unassigned scheme index sentinel value.
-const SCHEME_INDEX_UNASSIGNED: u32 = 0xFFFF_FFFF;
+const SCHEME_INDEX_UNASSIGNED: u32 = 0xFFFFFFFF;
 /// Number of numbered scheme slots (1-13).
 const SCHEME_SLOT_COUNT: u32 = 13;
 /// PE resource ID base for built-in scheme data.

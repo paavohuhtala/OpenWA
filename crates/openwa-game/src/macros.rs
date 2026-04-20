@@ -7,10 +7,10 @@
 /// define_addresses! {
 ///     class "CTask" {
 ///         /// CTask vtable - 7 virtual method pointers
-///         vtable CTASK_VTABLE = 0x0066_9F8C;
+///         vtable CTASK_VTABLE = 0x00669F8C;
 ///         /// CTask constructor
-///         ctor/Stdcall CTASK_CONSTRUCTOR = 0x0056_25A0;
-///         vmethod CTASK_VT0_INIT = 0x0056_2710;
+///         ctor/Stdcall CTASK_CONSTRUCTOR = 0x005625A0;
+///         vmethod CTASK_VT0_INIT = 0x00562710;
 ///     }
 /// }
 /// ```
@@ -19,8 +19,8 @@
 /// ```ignore
 /// define_addresses! {
 ///     /// Game PRNG
-///     fn/Fastcall ADVANCE_GAME_RNG = 0x0053_F320;
-///     global G_GAME_SESSION = 0x007A_0884;
+///     fn/Fastcall ADVANCE_GAME_RNG = 0x0053F320;
+///     global G_GAME_SESSION = 0x007A0884;
 /// }
 /// ```
 ///

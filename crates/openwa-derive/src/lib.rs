@@ -49,7 +49,7 @@ use syn::{Data, DeriveInput, Fields, Lit, Meta, parse_macro_input};
 ///
 /// ```ignore
 /// #[derive(Vtable)]
-/// #[vtable(size = 5, va = 0x0066_A2E4, class = "Palette")]
+/// #[vtable(size = 5, va = 0x0066A2E4, class = "Palette")]
 /// pub struct PaletteVtable {
 ///     #[slot(2)]
 ///     pub set_mode: unsafe extern "thiscall" fn(*mut Palette, u32),

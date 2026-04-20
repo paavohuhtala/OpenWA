@@ -5,85 +5,85 @@ use crate::game::class_type::ClassType;
 crate::define_addresses! {
     class "CTask" {
         /// CTask vtable - 7 virtual method pointers
-        vtable CTASK_VTABLE = 0x0066_9F8C;
+        vtable CTASK_VTABLE = 0x00669F8C;
         /// CTask constructor - initializes base task fields and children list
-        ctor/Stdcall CTASK_CONSTRUCTOR = 0x0056_25A0;
+        ctor/Stdcall CTASK_CONSTRUCTOR = 0x005625A0;
         /// CTask::vtable0 - initialization/unknown
-        vmethod CTASK_VT0_INIT = 0x0056_2710;
+        vmethod CTASK_VT0_INIT = 0x00562710;
         /// CTask::Free - destructor/deallocation
-        vmethod CTASK_VT1_FREE = 0x0056_2620;
+        vmethod CTASK_VT1_FREE = 0x00562620;
         /// CTask::HandleMessage - message dispatch
-        vmethod CTASK_VT2_HANDLE_MESSAGE = 0x0056_2F30;
+        vmethod CTASK_VT2_HANDLE_MESSAGE = 0x00562F30;
         /// CTask::vtable3 - unknown
-        vmethod CTASK_VT3 = 0x0056_13D0;
+        vmethod CTASK_VT3 = 0x005613D0;
         /// CTask::vtable5 - unknown
-        vmethod CTASK_VT5 = 0x0056_2FA0;
+        vmethod CTASK_VT5 = 0x00562FA0;
         /// CTask::vtable6 - unknown
-        vmethod CTASK_VT6 = 0x0056_3000;
+        vmethod CTASK_VT6 = 0x00563000;
         /// CTask::ProcessFrame
-        vmethod CTASK_VT7_PROCESS_FRAME = 0x0056_3210;
+        vmethod CTASK_VT7_PROCESS_FRAME = 0x00563210;
     }
 
     class "CTaskLand" {
         /// CTaskLand vtable - landscape/terrain task
-        vtable CTASK_LAND_VTABLE = 0x0066_4388;
-        ctor CTASK_LAND_CTOR = 0x0050_5440;
+        vtable CTASK_LAND_VTABLE = 0x00664388;
+        ctor CTASK_LAND_CTOR = 0x00505440;
     }
 
     class "CTaskDirt" {
         /// CTaskDirt vtable - dirt/particle system (1 per game)
-        vtable CTASK_DIRT_VTABLE = 0x0066_9D74;
-        ctor CTASK_DIRT_CTOR = 0x0054_EDC0;
+        vtable CTASK_DIRT_VTABLE = 0x00669D74;
+        ctor CTASK_DIRT_CTOR = 0x0054EDC0;
     }
 
     class "CTaskSpriteAnim" {
         /// CTaskSpriteAnim vtable - sprite animation manager (1 per game)
-        vtable CTASK_SPRITE_ANIM_VTABLE = 0x0066_9D00;
-        ctor CTASK_SPRITE_ANIM_CTOR = 0x0054_66C0;
+        vtable CTASK_SPRITE_ANIM_VTABLE = 0x00669D00;
+        ctor CTASK_SPRITE_ANIM_CTOR = 0x005466C0;
     }
 
     class "CTaskCPU" {
         /// CTaskCPU vtable - AI/CPU bot controller
-        vtable CTASK_CPU_VTABLE = 0x0066_9D54;
-        ctor CTASK_CPU_CTOR = 0x0054_85D0;
+        vtable CTASK_CPU_VTABLE = 0x00669D54;
+        ctor CTASK_CPU_CTOR = 0x005485D0;
     }
 
     class "CTaskSeaBubble" {
         /// CTaskSeaBubble vtable - water bubble particle
-        vtable CTASK_SEA_BUBBLE_VTABLE = 0x0066_9E88;
-        ctor CTASK_SEABUBBLE_CTOR = 0x0055_4FE0;
+        vtable CTASK_SEA_BUBBLE_VTABLE = 0x00669E88;
+        ctor CTASK_SEABUBBLE_CTOR = 0x00554FE0;
     }
 
     // Entity constructors without known vtables
     class "CTaskAirstrike" {
-        ctor CTASK_AIRSTRIKE_CTOR = 0x0055_53C0;
+        ctor CTASK_AIRSTRIKE_CTOR = 0x005553C0;
     }
     class "CTaskArrow" {
-        ctor CTASK_ARROW_CTOR = 0x004F_E130;
+        ctor CTASK_ARROW_CTOR = 0x004FE130;
     }
     class "CTaskCanister" {
-        ctor CTASK_CANISTER_CTOR = 0x0050_1A80;
+        ctor CTASK_CANISTER_CTOR = 0x00501A80;
     }
     class "CTaskCross" {
-        ctor CTASK_CROSS_CTOR = 0x0050_45C0;
+        ctor CTASK_CROSS_CTOR = 0x005045C0;
     }
     class "CTaskFireball" {
-        ctor CTASK_FIREBALL_CTOR = 0x0055_0890;
+        ctor CTASK_FIREBALL_CTOR = 0x00550890;
     }
     class "CTaskFlame" {
-        ctor CTASK_FLAME_CTOR = 0x0054_F0F0;
+        ctor CTASK_FLAME_CTOR = 0x0054F0F0;
     }
     class "CTaskGas" {
-        ctor CTASK_GAS_CTOR = 0x0055_4750;
+        ctor CTASK_GAS_CTOR = 0x00554750;
     }
     class "CTaskOldWorm" {
-        ctor CTASK_OLDWORM_CTOR = 0x0051_FEB0;
+        ctor CTASK_OLDWORM_CTOR = 0x0051FEB0;
     }
     class "CTaskScoreBubble" {
-        ctor CTASK_SCOREBUBBLE_CTOR = 0x0055_4CA0;
+        ctor CTASK_SCOREBUBBLE_CTOR = 0x00554CA0;
     }
     class "CTaskSmoke" {
-        ctor CTASK_SMOKE_CTOR = 0x0055_51D0;
+        ctor CTASK_SMOKE_CTOR = 0x005551D0;
     }
 }
 
@@ -106,7 +106,7 @@ crate::define_addresses! {
 ///  5    0x14    ProcessChildren      flags: u32
 ///  6    0x18    ProcessFrame         (no params)
 /// ```
-#[openwa_game::vtable(size = 7, va = 0x0066_9F8C, class = "CTask")]
+#[openwa_game::vtable(size = 7, va = 0x00669F8C, class = "CTask")]
 pub struct CTaskVtable {
     /// WriteReplayState — serializes task state to replay stream.
     #[slot(0)]

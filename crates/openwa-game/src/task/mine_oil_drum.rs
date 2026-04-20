@@ -5,21 +5,21 @@ use crate::FieldRegistry;
 crate::define_addresses! {
     class "CTaskMine" {
         /// CTaskMine vtable - mine entity
-        vtable CTASK_MINE_VTABLE = 0x0066_43E8;
-        ctor CTASK_MINE_CTOR = 0x0050_6660;
+        vtable CTASK_MINE_VTABLE = 0x006643E8;
+        ctor CTASK_MINE_CTOR = 0x00506660;
     }
 
     class "CTaskOilDrum" {
         /// CTaskOilDrum vtable - oil drum entity
-        vtable CTASK_OILDRUM_VTABLE = 0x0066_4338;
-        ctor CTASK_OILDRUM_CTOR = 0x0050_4AF0;
+        vtable CTASK_OILDRUM_VTABLE = 0x00664338;
+        ctor CTASK_OILDRUM_CTOR = 0x00504AF0;
     }
 }
 
 /// CTaskMine vtable — 12 slots. Extends CGameTask vtable with mine behavior.
 ///
 /// Vtable at Ghidra 0x6643E8.
-#[openwa_game::vtable(size = 12, va = 0x0066_43E8, class = "CTaskMine")]
+#[openwa_game::vtable(size = 12, va = 0x006643E8, class = "CTaskMine")]
 pub struct CTaskMineVTable {
     /// HandleMessage — processes mine messages (arm, trigger, detonate).
     /// thiscall + 4 stack params, RET 0x10.
@@ -35,7 +35,7 @@ pub struct CTaskMineVTable {
 /// CTaskOilDrum vtable — 12 slots. Extends CGameTask vtable with oil drum behavior.
 ///
 /// Vtable at Ghidra 0x664338.
-#[openwa_game::vtable(size = 12, va = 0x0066_4338, class = "CTaskOilDrum")]
+#[openwa_game::vtable(size = 12, va = 0x00664338, class = "CTaskOilDrum")]
 pub struct CTaskOilDrumVTable {
     /// HandleMessage — processes oil drum messages.
     /// thiscall + 4 stack params, RET 0x10.

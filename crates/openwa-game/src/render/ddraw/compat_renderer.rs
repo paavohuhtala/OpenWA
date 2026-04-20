@@ -5,11 +5,11 @@ use core::ffi::c_void;
 
 crate::define_addresses! {
     class "DDraw8Renderer" {
-        vtable DDRAW8_RENDERER_VTABLE = 0x0067_67F8;
+        vtable DDRAW8_RENDERER_VTABLE = 0x006767F8;
     }
 }
 
-#[openwa_game::vtable(size = 37, va = 0x0067_6A90, class = "CompatRenderer")]
+#[openwa_game::vtable(size = 37, va = 0x00676A90, class = "CompatRenderer")]
 pub struct CompatRendererVtable {
     // =====================================================================
     // Primary display management (slots 0-24)

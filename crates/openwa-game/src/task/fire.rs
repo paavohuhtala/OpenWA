@@ -5,15 +5,15 @@ use openwa_core::fixed::Fixed;
 crate::define_addresses! {
     class "CTaskFire" {
         /// CTaskFire vtable - fire/flame entity (0xD8 bytes)
-        vtable CTASK_FIRE_VTABLE = 0x0066_9DD8;
-        ctor CTASK_FIRE_CTOR = 0x0054_F4C0;
+        vtable CTASK_FIRE_VTABLE = 0x00669DD8;
+        ctor CTASK_FIRE_CTOR = 0x0054F4C0;
     }
 }
 
 /// CTaskFire vtable — 12 slots. Extends CTask base (8 slots) with fire behavior.
 ///
 /// Vtable at Ghidra 0x669DD8.
-#[openwa_game::vtable(size = 12, va = 0x0066_9DD8, class = "CTaskFire")]
+#[openwa_game::vtable(size = 12, va = 0x00669DD8, class = "CTaskFire")]
 pub struct CTaskFireVTable {
     /// HandleMessage — processes fire messages.
     /// thiscall + 4 stack params, RET 0x10.

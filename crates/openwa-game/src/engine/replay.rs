@@ -24,7 +24,7 @@ pub const REPLAY_MAGIC: u16 = 0x4157;
 /// Maximum supported replay version.
 pub const REPLAY_MAX_VERSION: u16 = 0x13;
 /// XOR key for game ID integrity check.
-pub const REPLAY_XOR_KEY: u32 = 0xEF5B_5C49;
+pub const REPLAY_XOR_KEY: u32 = 0xEF5B5C49;
 
 /// Per-team data in the replay global buffer (stride 0xD7B = 3,451 bytes).
 ///

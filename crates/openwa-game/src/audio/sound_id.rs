@@ -33,6 +33,6 @@ impl SoundId {
     /// Return a copy with the loop flag cleared.
     #[inline]
     pub fn without_loop(self) -> Self {
-        Self(self.0 & 0xFFFE_FFFF)
+        Self(self.0 & 0xFFFEFFFF)
     }
 }

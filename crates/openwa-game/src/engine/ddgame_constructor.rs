@@ -222,7 +222,7 @@ unsafe fn load_effect_wavs(wrapper: *mut DDGameWrapper) {
             name_ptr: *const std::ffi::c_char,
         }
 
-        let table = rb(0x006A_F378) as *const SfxEntry;
+        let table = rb(0x006AF378) as *const SfxEntry;
         let sound = (*wrapper).sound;
         if sound.is_null() {
             return;

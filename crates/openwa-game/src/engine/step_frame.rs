@@ -199,7 +199,7 @@ unsafe fn on_round_ending_countdown(wrapper: *mut DDGameWrapper) {
         }
 
         let speed = (*wrapper).game_end_speed;
-        if (speed & 0xffff_0000) < 0x10000 {
+        if (speed & 0xffff0000) < 0x10000 {
             (*wrapper).game_end_speed = speed.wrapping_add(0x51e);
         } else {
             (*wrapper).game_state = game_state::EXIT;

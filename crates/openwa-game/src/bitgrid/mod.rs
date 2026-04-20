@@ -45,19 +45,19 @@ use crate::wa_alloc::{wa_malloc, wa_malloc_struct_zeroed};
 crate::define_addresses! {
     class "BitGrid" {
         /// BitGrid::init (0x4F6370) — allocates buffer, sets base vtable
-        fn BIT_GRID_INIT = 0x004F_6370;
+        fn BIT_GRID_INIT = 0x004F6370;
         /// Core sprite blit (0x4F6910) — ESI=dst BitGrid, 9 stack params
-        fn/Usercall BLIT_SPRITE_RECT = 0x004F_6910;
+        fn/Usercall BLIT_SPRITE_RECT = 0x004F6910;
         /// Clipped line draw on 8bpp BitGrid (0x4F7500)
-        fn DRAW_LINE_CLIPPED = 0x004F_7500;
+        fn DRAW_LINE_CLIPPED = 0x004F7500;
         /// Two-color line draw on 8bpp BitGrid (0x4F7A60)
-        fn DRAW_LINE_TWO_COLOR = 0x004F_7A60;
+        fn DRAW_LINE_TWO_COLOR = 0x004F7A60;
         /// `DisplayBitGrid::SetExternalBuffer` (FUN_004F6470) — fastcall
         /// `(ECX=height, EDX=width, stack=(bitgrid, data, row_stride))`.
         /// Updates an external-buffer bitgrid's data pointer + dimensions
         /// + clip rect. Only known caller is `SpriteBank__GetFrameForBlit`,
         /// which is itself unreachable in shipping WA — see slot 33.
-        fn/Fastcall DISPLAY_BIT_GRID_SET_EXTERNAL_BUFFER = 0x004F_6470;
+        fn/Fastcall DISPLAY_BIT_GRID_SET_EXTERNAL_BUFFER = 0x004F6470;
     }
 }
 
@@ -157,7 +157,7 @@ impl BitGrid {
 /// Bit-level operations. Used as a passive data container (gradient images)
 /// and as the initial vtable set by `BitGrid::init` before callers specialize.
 /// Slots 6-7 are stubs (get/put pixel not supported in base form).
-#[openwa_game::vtable(size = 8, va = 0x0066_40EC, class = "BitGridBase")]
+#[openwa_game::vtable(size = 8, va = 0x006640EC, class = "BitGridBase")]
 pub struct BitGridBaseVtable {
     /// fill rectangle — bit-level fill (0x4F6760, RET 0x14)
     #[slot(0)]
@@ -217,7 +217,7 @@ pub type CollisionBitGrid = BitGrid<*const BitGridCollisionVtable>;
 /// Bit-level spatial query operations. Shares fill_hline/fill_vline
 /// implementations with the base vtable, but has distinct get/put methods
 /// for bit-level access including unchecked variants.
-#[openwa_game::vtable(size = 8, va = 0x0066_4118, class = "BitGridCollision")]
+#[openwa_game::vtable(size = 8, va = 0x00664118, class = "BitGridCollision")]
 pub struct BitGridCollisionVtable {
     /// fill rectangle — bit-level fill (0x4F8F90, RET 0x14)
     #[slot(0)]
@@ -289,7 +289,7 @@ pub type DisplayBitGrid = BitGrid<*const BitGridDisplayVtable>;
 /// - Layer 0 at DisplayGfx+0x3D9C
 /// - Layer 1 at DisplayGfx+0x3DA0
 /// - Layer 2 at DisplayGfx+0x3DA4
-#[openwa_game::vtable(size = 8, va = 0x0066_4144, class = "BitGridDisplay")]
+#[openwa_game::vtable(size = 8, va = 0x00664144, class = "BitGridDisplay")]
 pub struct BitGridDisplayVtable {
     /// fill rectangle — memset rows [y1..y2) from x1 to x2 with color (0x4F9090, RET 0x14)
     #[slot(0)]

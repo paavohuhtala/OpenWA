@@ -31,7 +31,7 @@ crate::define_addresses! {
         /// [`frame_cache_allocate`]; only callers were
         /// `Sprite__GetFrameForBlit` and `SpriteBank__GetFrameForBlit`,
         /// both bypassed by the slot 33 vtable_replace.
-        fn/Usercall FRAME_CACHE_ALLOCATE = 0x004F_A950;
+        fn/Usercall FRAME_CACHE_ALLOCATE = 0x004FA950;
     }
 }
 

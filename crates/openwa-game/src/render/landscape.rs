@@ -109,7 +109,7 @@ pub struct DirtyRect {
 const _: () = assert!(core::mem::size_of::<DirtyRect>() == 8);
 
 /// PCLandscape vtable (32 slots at 0x66B208).
-#[openwa_game::vtable(size = 32, va = 0x0066_B208, class = "PCLandscape")]
+#[openwa_game::vtable(size = 32, va = 0x0066B208, class = "PCLandscape")]
 pub struct PCLandscapeVtable {
     /// destructor (0x57B540, RET 0x4)
     #[slot(0)]

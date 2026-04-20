@@ -7,15 +7,15 @@ use openwa_core::fixed::Fixed;
 crate::define_addresses! {
     class "CTaskMissile" {
         /// CTaskMissile vtable - projectile entity
-        vtable CTASK_MISSILE_VTABLE = 0x0066_4438;
-        ctor CTASK_MISSILE_CTOR = 0x0050_7D10;
+        vtable CTASK_MISSILE_VTABLE = 0x00664438;
+        ctor CTASK_MISSILE_CTOR = 0x00507D10;
     }
 }
 
 /// CTaskMissile vtable — 12 slots. Extends CGameTask vtable with missile behavior.
 ///
 /// Vtable at Ghidra 0x664438.
-#[openwa_game::vtable(size = 12, va = 0x0066_4438, class = "CTaskMissile")]
+#[openwa_game::vtable(size = 12, va = 0x00664438, class = "CTaskMissile")]
 pub struct CTaskMissileVTable {
     /// HandleMessage — processes missile messages.
     /// thiscall + 4 stack params, RET 0x10.

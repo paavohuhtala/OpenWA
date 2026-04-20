@@ -5,19 +5,19 @@
 crate::define_addresses! {
     class "CWormsApp" {
         /// CWormsApp__FlipSurface — dispatches to renderer backend vtable[1]
-        fn/Fastcall CWORMSAPP_FLIP_SURFACE = 0x005A_2700;
+        fn/Fastcall CWORMSAPP_FLIP_SURFACE = 0x005A2700;
         /// ConstructFrameBuffer — allocates software framebuffer, inits renderer
-        fn/Fastcall CONSTRUCT_FRAME_BUFFER_THISCALL = 0x005A_2430;
+        fn/Fastcall CONSTRUCT_FRAME_BUFFER_THISCALL = 0x005A2430;
         /// CWormsApp__ReleaseFrameBuffer
-        fn/Fastcall CWORMSAPP_RELEASE_FRAME_BUFFER = 0x005A_24A0;
+        fn/Fastcall CWORMSAPP_RELEASE_FRAME_BUFFER = 0x005A24A0;
         /// CWormsApp__FillRect — lock surface, memset rows, unlock
-        fn/Fastcall CWORMSAPP_FILL_RECT = 0x005A_25C0;
+        fn/Fastcall CWORMSAPP_FILL_RECT = 0x005A25C0;
         /// CWormsApp__BlitToFrameBuffer — optimized blit from surface to framebuffer
-        fn/Fastcall CWORMSAPP_BLIT_TO_FRAME_BUFFER = 0x005A_2A40;
+        fn/Fastcall CWORMSAPP_BLIT_TO_FRAME_BUFFER = 0x005A2A40;
         /// CWormsApp__DrawLandscape — blit with clipping and transparency
-        fn/Fastcall CWORMSAPP_DRAW_LANDSCAPE = 0x005A_2790;
+        fn/Fastcall CWORMSAPP_DRAW_LANDSCAPE = 0x005A2790;
         /// ClearFrameBuffer — memset(framebuffer, 0, w*h)
-        fn CWORMSAPP_CLEAR_FRAME_BUFFER = 0x005A_23F0;
+        fn CWORMSAPP_CLEAR_FRAME_BUFFER = 0x005A23F0;
     }
 }
 
@@ -52,7 +52,7 @@ pub struct FastcallResult {
 /// - **Blitting** (19, 23, 24): FillRect, DrawLandscape, BlitToFrameBuffer
 /// - **Surface management** (12, 13, 22): Renderer queries and surface allocation
 /// - **Stub** (14): Returns 0
-#[openwa_game::vtable(size = 25, va = 0x0066_2EC8, class = "RenderContext")]
+#[openwa_game::vtable(size = 25, va = 0x00662EC8, class = "RenderContext")]
 pub struct RenderContextVtable {
     /// renderer thunk -> backend vtable[0] (init/create) (0x4E3420, RET 0x8)
     #[slot(0)]

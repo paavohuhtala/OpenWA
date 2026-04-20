@@ -5,16 +5,16 @@ use openwa_core::fixed::Fixed;
 crate::define_addresses! {
     class "CGameTask" {
         /// CGameTask vtable - extends CTask vtable with 12 more methods
-        vtable CGAMETASK_VTABLE = 0x0066_41F8;
+        vtable CGAMETASK_VTABLE = 0x006641F8;
         // Sound emitter vtable now defined via #[vtable(...)] on SoundEmitterVTable
         /// CGameTask constructor - calls CTask ctor, sets physics defaults
-        ctor/Stdcall CGAMETASK_CONSTRUCTOR = 0x004F_ED50;
+        ctor/Stdcall CGAMETASK_CONSTRUCTOR = 0x004FED50;
         /// CGameTask::vtable0 override
-        vmethod CGAMETASK_VT0 = 0x004F_F1C0;
+        vmethod CGAMETASK_VT0 = 0x004FF1C0;
         /// CGameTask::Free override
-        vmethod CGAMETASK_VT1_FREE = 0x004F_EF10;
+        vmethod CGAMETASK_VT1_FREE = 0x004FEF10;
         /// CGameTask::HandleMessage override
-        vmethod CGAMETASK_VT2_HANDLE_MESSAGE = 0x004F_F280;
+        vmethod CGAMETASK_VT2_HANDLE_MESSAGE = 0x004FF280;
     }
 }
 
@@ -86,7 +86,7 @@ const _: () = assert!(core::mem::size_of::<SoundEmitter>() == 0x14);
 ///
 /// Slots [0]-[4] are the sound emitter's own interface.
 /// Slots [5]-[11] are inherited CTask base methods.
-#[openwa_game::vtable(size = 12, va = 0x0066_9CF8, class = "SoundEmitter")]
+#[openwa_game::vtable(size = 12, va = 0x00669CF8, class = "SoundEmitter")]
 pub struct SoundEmitterVTable {
     /// GetPosition(this, out_x, out_y) — reads pos_x/pos_y via owner
     #[slot(0)]

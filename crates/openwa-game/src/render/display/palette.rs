@@ -2,7 +2,7 @@
 ///
 /// Slots 2-4 are called by GameEngine__InitHardware after DDGameWrapper construction.
 /// Slots 0-1 are unknown.
-#[openwa_game::vtable(size = 5, va = 0x0066_A2E4, class = "Palette")]
+#[openwa_game::vtable(size = 5, va = 0x0066A2E4, class = "Palette")]
 pub struct PaletteVtable {
     /// set_mode(this, mode) — called with mode=7 during hardware init
     #[slot(2)]
@@ -45,7 +45,7 @@ impl Palette {
     pub unsafe fn new(vtable_addr: u32) -> Self {
         Self {
             vtable: vtable_addr as *const PaletteVtable,
-            _field_004: 0xFFFF_FFFF,
+            _field_004: 0xFFFFFFFF,
             _unknown_008: [0; 0x20],
         }
     }

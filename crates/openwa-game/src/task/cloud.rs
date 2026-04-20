@@ -6,16 +6,16 @@ use openwa_core::fixed::Fixed;
 crate::define_addresses! {
     class "CTaskCloud" {
         /// CTaskCloud vtable - cloud/airstrike entity
-        vtable CTASK_CLOUD_VTABLE = 0x0066_9D38;
+        vtable CTASK_CLOUD_VTABLE = 0x00669D38;
         /// CTaskCloud constructor (usercall: ESI=this, EAX=parent, EDI=render_y,
         /// stack: cloud_type, layer_depth, pos_x, vel_x). RET 0x10.
-        ctor CTASK_CLOUD_CTOR = 0x0054_82E0;
+        ctor CTASK_CLOUD_CTOR = 0x005482E0;
         /// CTaskCloud::WriteReplayState — serializes cloud state to replay stream.
         /// thiscall + 1 stack param (stream ptr), RET 0x4.
-        vmethod CTASK_CLOUD_WRITE_REPLAY_STATE = 0x0054_8430;
+        vmethod CTASK_CLOUD_WRITE_REPLAY_STATE = 0x00548430;
         /// CTaskCloud::ReadReplayState — deserializes cloud state from replay stream.
         /// usercall (ESI=stream, EDI=this). Not a vtable method.
-        fn CTASK_CLOUD_READ_REPLAY_STATE = 0x0054_8370;
+        fn CTASK_CLOUD_READ_REPLAY_STATE = 0x00548370;
     }
 }
 
@@ -24,7 +24,7 @@ crate::define_addresses! {
 /// Vtable at Ghidra 0x669D38. Size verified by gap to next vtable (CTaskCPU at 0x669D54).
 /// CTaskCloud does NOT override ProcessFrame (slot 6) — all update logic is in
 /// HandleMessage, responding to the FrameFinish message.
-#[openwa_game::vtable(size = 7, va = 0x0066_9D38, class = "CTaskCloud")]
+#[openwa_game::vtable(size = 7, va = 0x00669D38, class = "CTaskCloud")]
 pub struct CTaskCloudVTable {
     /// WriteReplayState — serializes cloud state to replay stream.
     /// thiscall + 1 stack param (stream ptr), RET 0x4.

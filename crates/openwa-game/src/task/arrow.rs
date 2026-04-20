@@ -5,14 +5,14 @@ use crate::FieldRegistry;
 crate::define_addresses! {
     class "CTaskArrow" {
         /// CTaskArrow vtable — projectile entity for Shotgun/Longbow
-        vtable CTASK_ARROW_VTABLE = 0x0066_4198;
+        vtable CTASK_ARROW_VTABLE = 0x00664198;
     }
 }
 
 /// CTaskArrow vtable — 12 slots. Extends CGameTask vtable with arrow behavior.
 ///
 /// Vtable at Ghidra 0x664198.
-#[openwa_game::vtable(size = 12, va = 0x0066_4198, class = "CTaskArrow")]
+#[openwa_game::vtable(size = 12, va = 0x00664198, class = "CTaskArrow")]
 pub struct CTaskArrowVTable {
     /// HandleMessage — processes arrow messages.
     /// thiscall + 4 stack params, RET 0x10.

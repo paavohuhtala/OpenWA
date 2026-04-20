@@ -34,10 +34,10 @@ const fn decode_table(bytes: &[u8; TABLE_LEN * 4]) -> [i32; TABLE_LEN] {
     out
 }
 
-/// Byte-for-byte copy of WA.exe's sine table at `G_SIN_TABLE` (0x006A_1860).
+/// Byte-for-byte copy of WA.exe's sine table at `G_SIN_TABLE` (0x006A1860).
 pub const SIN_TABLE: [i32; TABLE_LEN] = decode_table(include_bytes!("trig_tables/sin_table.bin"));
 
-/// Byte-for-byte copy of WA.exe's cosine table at `G_COS_TABLE` (0x006A_1C60).
+/// Byte-for-byte copy of WA.exe's cosine table at `G_COS_TABLE` (0x006A1C60).
 pub const COS_TABLE: [i32; TABLE_LEN] = decode_table(include_bytes!("trig_tables/cos_table.bin"));
 
 /// Interpolated lookup from a 1025-entry fixed-point trig table.
@@ -77,14 +77,14 @@ mod tests {
 
     #[test]
     fn cos_zero_is_one() {
-        assert_eq!(COS_TABLE[0], 0x0001_0000);
+        assert_eq!(COS_TABLE[0], 0x00010000);
         assert_eq!(cos(0), Fixed::ONE);
     }
 
     #[test]
     fn sin_quarter_period_is_one() {
         // 1024 entries per period, so quarter-period = entry 256.
-        assert_eq!(SIN_TABLE[256], 0x0001_0000);
+        assert_eq!(SIN_TABLE[256], 0x00010000);
     }
 
     #[test]

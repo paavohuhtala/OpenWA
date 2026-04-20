@@ -41,10 +41,10 @@ impl PaletteContext {
     /// Map an RGB color to a palette index (PaletteContext__MapColor, 0x5412B0).
     /// Returns existing index if already mapped, otherwise allocates a new one.
     fn map_color(&mut self, rgb: u32) -> Option<u8> {
-        let masked = rgb & 0x00FF_FFFF;
+        let masked = rgb & 0x00FFFFFF;
         for i in 0..self.used_count {
             let idx = self.used_list[i] as usize;
-            if idx != 0 && (self.colors[idx] & 0x00FF_FFFF) == masked {
+            if idx != 0 && (self.colors[idx] & 0x00FFFFFF) == masked {
                 return Some(idx as u8);
             }
         }

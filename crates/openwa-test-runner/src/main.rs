@@ -15,7 +15,7 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant};
 
-const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 // ─── Configuration ──────────────────────────────────────────────────────────
 

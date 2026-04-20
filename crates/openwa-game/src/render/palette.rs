@@ -104,7 +104,7 @@ pub unsafe fn palette_map_color(ctx: *mut PaletteContext, rgb: u32) -> u32 {
         // Cache miss — allocate a free slot
         let free_count = *(p.add(0x504) as *const i16);
         if free_count <= 0 {
-            return 0xFFFF_FFFF;
+            return 0xFFFFFFFF;
         }
 
         let new_free_count = free_count - 1;
@@ -276,10 +276,10 @@ pub unsafe fn remap_pixels_through_lut(
 crate::define_addresses! {
     class "PaletteContext" {
         /// PaletteContext__Init — usercall EAX=ctx* (no stack params)
-        fn/Usercall PALETTE_CONTEXT_INIT = 0x0054_11A0;
+        fn/Usercall PALETTE_CONTEXT_INIT = 0x005411A0;
         /// PaletteContext__InitRange — usercall ESI=ctx*, 2 stack params (range_min, range_max)
-        fn/Usercall PALETTE_CONTEXT_INIT_RANGE = 0x0054_1170;
+        fn/Usercall PALETTE_CONTEXT_INIT_RANGE = 0x00541170;
         /// PaletteContext__MapColor — thiscall(palette_ctx, rgb_u32), returns nearest palette index
-        fn/Thiscall PALETTE_CONTEXT_MAP_COLOR = 0x0054_12B0;
+        fn/Thiscall PALETTE_CONTEXT_MAP_COLOR = 0x005412B0;
     }
 }

@@ -36,7 +36,7 @@ pub struct MapView {
 const _: () = assert!(core::mem::size_of::<MapView>() == 0x29628);
 
 /// MapView vtable (partial — only known slots).
-#[openwa_game::vtable(size = 2, va = 0x0064_FC60, class = "MapView")]
+#[openwa_game::vtable(size = 2, va = 0x0064FC60, class = "MapView")]
 pub struct MapViewVtable {
     /// Destructor — thiscall(this, free_flag). Frees the object if flag & 1.
     #[slot(1)]

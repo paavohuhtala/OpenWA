@@ -184,7 +184,7 @@ pub unsafe fn play_worm_sound_2(
         // 2. Start new sound
         // Check if worm is extremely high (CGameTask.pos_y, fixed-point).
         let worm_y = (*worm).base.pos_y.0;
-        let new_handle = if worm_y < -0x270F_FFFF && sound_id.0 == 0x36 {
+        let new_handle = if worm_y < -0x270FFFFF && sound_id.0 == 0x36 {
             // Special teleport case: play at weapon target position
             load_and_play_streaming_positional(
                 worm as *mut CTask,
@@ -234,7 +234,7 @@ pub unsafe fn dispatch_global_sound(
         let gi = &*g.game_info;
 
         if gi.sound_mute != 0 || g.frame_counter < gi.sound_start_frame {
-            return 0xFFFF_FFFF;
+            return 0xFFFFFFFF;
         }
 
         let dssound = g.sound;

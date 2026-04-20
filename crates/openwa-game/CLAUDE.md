@@ -17,11 +17,11 @@ Defines known WA.exe addresses with metadata (kind, calling convention, class na
 ```rust
 crate::define_addresses! {
     class "CTaskWorm" {
-        vtable CTASK_WORM_VTABLE = 0x0066_44C8;
-        ctor CTASK_WORM_CONSTRUCTOR = 0x0050_BFB0;
+        vtable CTASK_WORM_VTABLE = 0x006644C8;
+        ctor CTASK_WORM_CONSTRUCTOR = 0x0050BFB0;
     }
-    fn/Fastcall ADVANCE_GAME_RNG = 0x0053_F320;
-    global G_GAME_SESSION = 0x007A_0884;
+    fn/Fastcall ADVANCE_GAME_RNG = 0x0053F320;
+    global G_GAME_SESSION = 0x007A0884;
 }
 ```
 
@@ -66,7 +66,7 @@ pub worm_name: [u8; 0x11],  // Displays as "Ainsley" instead of raw hex
 Defines typed vtable structs from sparse slot definitions. The macro generates the full `#[repr(C)]` struct with `usize` gap-fillers, registry metadata, a companion `bind_!` macro, and optional address constants.
 
 ```rust
-#[openwa_game::vtable(size = 38, va = 0x0066_A218, class = "DisplayGfx")]
+#[openwa_game::vtable(size = 38, va = 0x0066A218, class = "DisplayGfx")]
 pub struct DisplayVtable {
     /// set layer color
     #[slot(4)]

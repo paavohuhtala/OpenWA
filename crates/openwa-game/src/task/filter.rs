@@ -4,25 +4,25 @@ use crate::FieldRegistry;
 crate::define_addresses! {
     class "CTaskFilter" {
         /// CTaskFilter vtable - role unclear; 4 instances in a 2-team 3-worm game
-        vtable CTASK_FILTER_VTABLE = 0x0066_9DAC;
+        vtable CTASK_FILTER_VTABLE = 0x00669DAC;
         /// CTaskFilter constructor (usercall: ECX=init_val_1c, stdcall params: this, parent).
         /// RET 0x8. Returns constructed pointer in EAX.
-        ctor CTASK_FILTER_CTOR = 0x0054_F3D0;
+        ctor CTASK_FILTER_CTOR = 0x0054F3D0;
         /// CTaskFilter::Subscribe — sets subscription_table[msg_id] = 1.
         /// thiscall + 1 stack param (msg_id), RET 0x4.
-        vmethod CTASK_FILTER_SUBSCRIBE = 0x0054_F370;
+        vmethod CTASK_FILTER_SUBSCRIBE = 0x0054F370;
     }
 
     /// CTaskTeam__CreateWeatherFilter — creates a CTaskFilter + spawns CTaskCloud children.
     /// stdcall, 1 stack param (parent task), RET 0x4.
-    fn/Stdcall CTASK_TEAM_CREATE_WEATHER_FILTER = 0x0055_2960;
+    fn/Stdcall CTASK_TEAM_CREATE_WEATHER_FILTER = 0x00552960;
 }
 
 /// CTaskFilter vtable — 12 slots. Extends CTask base (7 slots) with filter behavior.
 ///
 /// Vtable at Ghidra 0x669DAC. Slot 2 (HandleMessage) checks the subscription
 /// table before forwarding messages to children.
-#[openwa_game::vtable(size = 12, va = 0x0066_9DAC, class = "CTaskFilter")]
+#[openwa_game::vtable(size = 12, va = 0x00669DAC, class = "CTaskFilter")]
 pub struct CTaskFilterVTable {
     /// HandleMessage — checks subscription table, forwards matching messages.
     /// thiscall + 4 stack params, RET 0x10.

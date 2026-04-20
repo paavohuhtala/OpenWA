@@ -27,11 +27,11 @@ use crate::rebase::rb;
 crate::define_addresses! {
     /// IDirectSound* for the WavPlayer subsystem (separate from DSSound).
     /// Null before DirectSound init.
-    global G_WAV_DIRECT_SOUND = 0x0079_D654;
+    global G_WAV_DIRECT_SOUND = 0x0079D654;
     /// Master volume for WavPlayer playback (0-100).
-    global G_WAV_MASTER_VOLUME = 0x0069_7704;
+    global G_WAV_MASTER_VOLUME = 0x00697704;
     /// Success sentinel: a result pointer equal to this address means "no error".
-    global G_WAV_RESULT_SUCCESS = 0x008A_C8A0;
+    global G_WAV_RESULT_SUCCESS = 0x008AC8A0;
 }
 
 /// Volume-to-dB attenuation table (65 entries of i16, indices 0-64).

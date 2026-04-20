@@ -10,17 +10,17 @@
 //! use openwa_game::registry;
 //!
 //! // Look up a Ghidra VA
-//! if let Some(resolved) = registry::lookup_va(0x0056_25A0) {
+//! if let Some(resolved) = registry::lookup_va(0x005625A0) {
 //!     println!("{}", resolved.entry.name); // "CTASK_CONSTRUCTOR"
 //! }
 //!
 //! // Identify a vtable
-//! if let Some(class) = registry::vtable_class_name(0x0066_9F8C) {
+//! if let Some(class) = registry::vtable_class_name(0x00669F8C) {
 //!     println!("{}", class); // "CTask"
 //! }
 //!
 //! // Format for debug output
-//! println!("{}", registry::format_va(0x0056_25A4)); // "CTASK_CONSTRUCTOR+0x4 (0x5625A4)"
+//! println!("{}", registry::format_va(0x005625A4)); // "CTASK_CONSTRUCTOR+0x4 (0x5625A4)"
 //! ```
 
 use std::sync::OnceLock;
@@ -507,23 +507,23 @@ mod tests {
     define_addresses! {
         class "TestClass" {
             /// A test vtable
-            vtable TEST_VTABLE = 0x0066_0000;
-            ctor/Stdcall TEST_CTOR = 0x0050_0000;
-            vmethod TEST_VMETHOD = 0x0050_1000;
+            vtable TEST_VTABLE = 0x00660000;
+            ctor/Stdcall TEST_CTOR = 0x00500000;
+            vmethod TEST_VMETHOD = 0x00501000;
         }
 
         /// A standalone function
-        fn/Fastcall TEST_FUNC = 0x0053_0000;
-        global TEST_GLOBAL = 0x007A_0000;
+        fn/Fastcall TEST_FUNC = 0x00530000;
+        global TEST_GLOBAL = 0x007A0000;
     }
 
     #[test]
     fn macro_generates_constants() {
-        assert_eq!(TEST_VTABLE, 0x0066_0000);
-        assert_eq!(TEST_CTOR, 0x0050_0000);
-        assert_eq!(TEST_FUNC, 0x0053_0000);
-        assert_eq!(TEST_GLOBAL, 0x007A_0000);
-        assert_eq!(TEST_VMETHOD, 0x0050_1000);
+        assert_eq!(TEST_VTABLE, 0x00660000);
+        assert_eq!(TEST_CTOR, 0x00500000);
+        assert_eq!(TEST_FUNC, 0x00530000);
+        assert_eq!(TEST_GLOBAL, 0x007A0000);
+        assert_eq!(TEST_VMETHOD, 0x00501000);
     }
 
     #[test]
@@ -535,7 +535,7 @@ mod tests {
 
     #[test]
     fn exact_lookup() {
-        let entry = lookup_va_exact(0x0066_0000);
+        let entry = lookup_va_exact(0x00660000);
         assert!(entry.is_some(), "TEST_VTABLE not found");
         let entry = entry.unwrap();
         assert_eq!(entry.name, "TEST_VTABLE");
@@ -545,7 +545,7 @@ mod tests {
 
     #[test]
     fn near_lookup() {
-        let resolved = lookup_va(0x0066_0004);
+        let resolved = lookup_va(0x00660004);
         assert!(resolved.is_some());
         let resolved = resolved.unwrap();
         assert_eq!(resolved.entry.name, "TEST_VTABLE");
@@ -554,20 +554,20 @@ mod tests {
 
     #[test]
     fn vtable_class_name_lookup() {
-        assert_eq!(vtable_class_name(0x0066_0000), Some("TestClass"));
+        assert_eq!(vtable_class_name(0x00660000), Some("TestClass"));
         // Constructor should not match vtable lookup
-        assert_eq!(vtable_class_name(0x0050_0000), None);
+        assert_eq!(vtable_class_name(0x00500000), None);
     }
 
     #[test]
     fn format_va_display() {
-        let s = format_va(0x0066_0000);
+        let s = format_va(0x00660000);
         assert!(s.contains("TEST_VTABLE"), "got: {s}");
 
-        let s = format_va(0x0066_0004);
+        let s = format_va(0x00660004);
         assert!(s.contains("TEST_VTABLE+0x4"), "got: {s}");
 
-        let s = format_va(0x0000_1234);
+        let s = format_va(0x00001234);
         assert_eq!(s, "0x00001234");
     }
 
@@ -747,7 +747,7 @@ mod tests {
 
         assert_eq!(info.struct_name, "PaletteVtable");
         assert_eq!(info.class_name, "Palette");
-        assert_eq!(info.ghidra_va, 0x0066_A2E4);
+        assert_eq!(info.ghidra_va, 0x0066A2E4);
         assert_eq!(info.slot_count, 5);
         assert_eq!(info.slots.len(), 3); // set_mode, init, reset
 
@@ -766,10 +766,10 @@ mod tests {
         use crate::address::va;
 
         // The vtable macro should have generated PALETTE_VTABLE const
-        assert_eq!(va::PALETTE_VTABLE, 0x0066_A2E4);
+        assert_eq!(va::PALETTE_VTABLE, 0x0066A2E4);
 
         // And an AddrEntry in the registry
-        let entry = lookup_va_exact(0x0066_A2E4);
+        let entry = lookup_va_exact(0x0066A2E4);
         assert!(entry.is_some(), "PALETTE_VTABLE addr entry not found");
         let entry = entry.unwrap();
         assert_eq!(entry.kind, AddrKind::Vtable);

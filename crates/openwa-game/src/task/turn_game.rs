@@ -5,15 +5,15 @@ use openwa_core::fixed::Fixed;
 crate::define_addresses! {
     class "CTaskTurnGame" {
         /// CTaskTurnGame vtable - global turn flow manager (1 per game)
-        vtable CTASK_TURN_GAME_VTABLE = 0x0066_9F70;
+        vtable CTASK_TURN_GAME_VTABLE = 0x00669F70;
         /// CTaskTurnGame constructor
-        ctor/Stdcall CTASK_TURNGAME_CTOR = 0x0055_B280;
+        ctor/Stdcall CTASK_TURNGAME_CTOR = 0x0055B280;
         /// TurnGame message dispatcher
-        fn/Thiscall TURNGAME_HANDLE_MESSAGE = 0x0055_DC00;
+        fn/Thiscall TURNGAME_HANDLE_MESSAGE = 0x0055DC00;
         /// TurnGame hurry handler
-        fn/Usercall TURNGAME_HURRY_HANDLER = 0x0055_E5F0;
+        fn/Usercall TURNGAME_HURRY_HANDLER = 0x0055E5F0;
         /// TurnGame auto select teams
-        fn TURNGAME_AUTO_SELECT_TEAMS = 0x0056_11E0;
+        fn TURNGAME_AUTO_SELECT_TEAMS = 0x005611E0;
     }
 }
 
@@ -93,7 +93,7 @@ const _: () = assert!(core::mem::size_of::<TurnGameCtx>() == 0xAC);
 ///
 /// Vtable at Ghidra 0x669F70. Slot 2 (HandleMessage) is the main turn-flow
 /// dispatcher (30+ message types).
-#[openwa_game::vtable(size = 12, va = 0x0066_9F70, class = "CTaskTurnGame")]
+#[openwa_game::vtable(size = 12, va = 0x00669F70, class = "CTaskTurnGame")]
 pub struct CTaskTurnGameVTable {
     /// HandleMessage — processes messages for turn flow control
     /// thiscall + 4 stack params, RET 0x10.
