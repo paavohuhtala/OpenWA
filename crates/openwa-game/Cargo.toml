@@ -10,7 +10,7 @@ openwa-core = { path = "../openwa-core" }
 bitflags = "2"
 heapless = "0.9"
 hound = "3"
-inventory = "0.3.22"
+inventory = "0.3.24"
 openwa-derive = { path = "../openwa-derive" }
 openwa-debug-proto = { path = "../openwa-debug-proto" }
 
@@ -24,7 +24,7 @@ openwa-config = { path = "../openwa-config" }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = { version = "0.62", features = ["Win32_Media_Audio_DirectSound"] }
-windows-sys = { version = "0.59", features = [
+windows-sys = { version = "0.61", features = [
     "Win32_Foundation",
     "Win32_System_Memory",
     "Win32_System_Performance",
