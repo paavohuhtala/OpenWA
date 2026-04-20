@@ -1110,15 +1110,6 @@ unsafe fn dispatch_frame_rust(wrapper: *mut DDGameWrapper, time: u64, freq: u64)
                         .unwrap_or(0) as i32;
                     (*ddgame).render_interp_b = Fixed::from_raw(speed_b);
 
-                    // Intentional deviation from vanilla: when interpolation
-                    // should be suppressed (vanilla IsFramePaused true), clamp
-                    // the scales to 0 to prevent deterministic backwards render
-                    // stutter during pause.
-                    if !should_interpolate(wrapper) {
-                        (*ddgame).render_interp_a = Fixed::ZERO;
-                        (*ddgame).render_interp_b = Fixed::ZERO;
-                    }
-
                     if (*wrapper).frame_delay_counter >= 0 {
                         (*wrapper).frame_accum_a = 0;
                         (*wrapper).frame_accum_b = 0;
