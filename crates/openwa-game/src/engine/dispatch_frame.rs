@@ -347,9 +347,9 @@ unsafe fn step_render_scale_fade(wrapper: *mut DDGameWrapper) -> i32 {
 
         let mut scale = (*ddgame).render_scale;
         if scale < target {
-            scale = scale + FADE_STEP;
+            scale += FADE_STEP;
         } else if scale > target {
-            scale = scale - FADE_STEP;
+            scale -= FADE_STEP;
         }
         scale = scale.clamp(Fixed::ZERO, Fixed::ONE);
         (*ddgame).render_scale = scale;
