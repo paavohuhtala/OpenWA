@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+dirs = "6"
 eframe = "0.34.1"
 egui_extras = "0.34.1"
 openwa-core = { version = "0.1.0", path = "../openwa-core" }

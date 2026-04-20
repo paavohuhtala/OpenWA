@@ -94,7 +94,7 @@ pub fn pal_decode(raw: &[u8]) -> Result<DecodedPal, PalDecodeError> {
 
     let mut cur = Cursor::new(raw);
 
-    let mut read_tag = |cur: &mut Cursor<&[u8]>| -> Result<u32, PalDecodeError> {
+    let read_tag = |cur: &mut Cursor<&[u8]>| -> Result<u32, PalDecodeError> {
         let mut tag = [0u8; 4];
         cur.read_exact(&mut tag)
             .map_err(|_| PalDecodeError::TooShort)?;

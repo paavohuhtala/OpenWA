@@ -1,8 +1,11 @@
+use std::path::{Path, PathBuf};
+
 use eframe::egui;
 
 mod archive_viewer;
 mod image_viewer;
 mod palette_viewer;
+mod recent;
 mod viewer;
 
 use archive_viewer::{ArchiveViewer, PendingOpen, PendingOpenKind};
@@ -54,6 +57,7 @@ struct AssetViewer {
     windows: Vec<ViewerWindow>,
     next_id: u64,
     error: Option<String>,
+    recent: Vec<PathBuf>,
 }
 
 impl AssetViewer {
@@ -62,6 +66,7 @@ impl AssetViewer {
             windows: Vec::new(),
             next_id: 0,
             error: None,
+            recent: recent::load(),
         }
     }
 
@@ -72,24 +77,30 @@ impl AssetViewer {
     }
 
     fn open_file(&mut self, ctx: &egui::Context) {
-        let path = rfd::FileDialog::new()
+        let Some(path) = rfd::FileDialog::new()
             .add_filter("All supported", &["img", "pal", "dir"])
             .add_filter("IMG images", &["img"])
             .add_filter("PAL palettes", &["pal"])
             .add_filter("DIR archives", &["dir"])
             .add_filter("All files", &["*"])
-            .pick_file();
+            .pick_file()
+        else {
+            return;
+        };
+        self.open_path(ctx, &path);
+    }
 
-        let Some(path) = path else { return };
-
+    /// Open `path` by extension, creating the appropriate viewer window(s).
+    /// On success, records the path in the recent-files list.
+    fn open_path(&mut self, ctx: &egui::Context, path: &Path) {
         let ext = path
             .extension()
             .and_then(|e| e.to_str())
             .unwrap_or("")
             .to_ascii_lowercase();
 
-        match ext.as_str() {
-            "img" => match ImageViewer::open(ctx, path.clone()) {
+        let result: Result<(), String> = match ext.as_str() {
+            "img" => match ImageViewer::open(ctx, path.to_path_buf()) {
                 Ok((viewer, palette_colors)) => {
                     let id = self.alloc_id();
                     self.windows.push(ViewerWindow {
@@ -98,7 +109,8 @@ impl AssetViewer {
                         viewer: ViewerType::Image(viewer),
                     });
                     if !palette_colors.is_empty() {
-                        let pal_viewer = PaletteViewer::from_colors(path.clone(), palette_colors);
+                        let pal_viewer =
+                            PaletteViewer::from_colors(path.to_path_buf(), palette_colors);
                         let id = self.alloc_id();
                         self.windows.push(ViewerWindow {
                             id,
@@ -106,35 +118,35 @@ impl AssetViewer {
                             viewer: ViewerType::Palette(pal_viewer),
                         });
                     }
-                    self.error = None;
+                    Ok(())
                 }
-                Err(e) => self.error = Some(e),
+                Err(e) => Err(e),
             },
-            "pal" => match PaletteViewer::open(path) {
-                Ok(viewer) => {
-                    let id = self.alloc_id();
-                    self.windows.push(ViewerWindow {
-                        id,
-                        open: true,
-                        viewer: ViewerType::Palette(viewer),
-                    });
-                    self.error = None;
-                }
-                Err(e) => self.error = Some(e),
-            },
-            "dir" => match ArchiveViewer::open(path) {
-                Ok(viewer) => {
-                    let id = self.alloc_id();
-                    self.windows.push(ViewerWindow {
-                        id,
-                        open: true,
-                        viewer: ViewerType::Archive(viewer),
-                    });
-                    self.error = None;
-                }
-                Err(e) => self.error = Some(e),
-            },
-            _ => self.error = Some(format!("Unsupported file extension: .{ext}")),
+            "pal" => PaletteViewer::open(path.to_path_buf()).map(|viewer| {
+                let id = self.alloc_id();
+                self.windows.push(ViewerWindow {
+                    id,
+                    open: true,
+                    viewer: ViewerType::Palette(viewer),
+                });
+            }),
+            "dir" => ArchiveViewer::open(path.to_path_buf()).map(|viewer| {
+                let id = self.alloc_id();
+                self.windows.push(ViewerWindow {
+                    id,
+                    open: true,
+                    viewer: ViewerType::Archive(viewer),
+                });
+            }),
+            _ => Err(format!("Unsupported file extension: .{ext}")),
+        };
+
+        match result {
+            Ok(()) => {
+                self.error = None;
+                recent::push(&mut self.recent, path);
+            }
+            Err(e) => self.error = Some(e),
         }
     }
 
@@ -190,6 +202,8 @@ impl eframe::App for AssetViewer {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
 
+        let mut pending_open: Option<PathBuf> = None;
+        let mut clear_recent = false;
         egui::Panel::top("menu_bar").show_inside(ui, |ui| {
             egui::MenuBar::new().ui(ui, |ui| {
                 ui.menu_button("File", |ui| {
@@ -197,9 +211,39 @@ impl eframe::App for AssetViewer {
                         ui.close();
                         self.open_file(&ctx);
                     }
+                    ui.menu_button("Recent files", |ui| {
+                        ui.set_min_width(320.0);
+                        if self.recent.is_empty() {
+                            ui.add_enabled(false, egui::Button::new("(none)"));
+                        } else {
+                            for path in &self.recent {
+                                let full = path.to_string_lossy();
+                                let label = path
+                                    .file_name()
+                                    .map(|n| n.to_string_lossy().into_owned())
+                                    .unwrap_or_else(|| full.clone().into_owned());
+                                let btn = ui.button(label).on_hover_text(full.as_ref());
+                                if btn.clicked() {
+                                    pending_open = Some(path.clone());
+                                    ui.close();
+                                }
+                            }
+                            ui.separator();
+                            if ui.button("Clear").clicked() {
+                                clear_recent = true;
+                                ui.close();
+                            }
+                        }
+                    });
                 });
             });
         });
+        if let Some(path) = pending_open {
+            self.open_path(&ctx, &path);
+        }
+        if clear_recent {
+            recent::clear(&mut self.recent);
+        }
 
         // Show each viewer in its own egui::Window.
         for win in &mut self.windows {
