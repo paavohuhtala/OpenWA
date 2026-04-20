@@ -33,8 +33,7 @@ static mut ADVANCE_FRAME_COUNTERS_ADDR: u32 = 0;
 static mut CALC_TIMING_RATIO_ADDR: u32 = 0;
 static mut INIT_FRAME_DELAY_ADDR: u32 = 0;
 static mut NETWORK_UPDATE_ADDR: u32 = 0;
-static mut IS_FRAME_PAUSED_ONLINE_ADDR: u32 = 0;
-static mut IS_FRAME_PAUSED_OFFLINE_ADDR: u32 = 0;
+static mut IS_FRAME_PAUSED_ADDR: u32 = 0;
 static mut SETUP_FRAME_PARAMS_ADDR: u32 = 0;
 static mut PROCESS_NETWORK_FRAME_ADDR: u32 = 0;
 
@@ -46,8 +45,7 @@ pub unsafe fn init_dispatch_addrs() {
         CALC_TIMING_RATIO_ADDR = rb(va::DDGAMEWRAPPER_CALC_TIMING_RATIO);
         INIT_FRAME_DELAY_ADDR = rb(va::DDGAMEWRAPPER_INIT_FRAME_DELAY);
         NETWORK_UPDATE_ADDR = rb(va::DDGAMEWRAPPER_NETWORK_UPDATE);
-        IS_FRAME_PAUSED_ONLINE_ADDR = rb(va::DDGAMEWRAPPER_IS_FRAME_PAUSED_ONLINE);
-        IS_FRAME_PAUSED_OFFLINE_ADDR = rb(va::DDGAMEWRAPPER_IS_FRAME_PAUSED_OFFLINE);
+        IS_FRAME_PAUSED_ADDR = rb(va::DDGAMEWRAPPER_IS_FRAME_PAUSED);
         SETUP_FRAME_PARAMS_ADDR = rb(va::DDGAMEWRAPPER_SETUP_FRAME_PARAMS);
         PROCESS_NETWORK_FRAME_ADDR = rb(va::DDGAMEWRAPPER_PROCESS_NETWORK_FRAME);
         crate::engine::step_frame::init_step_frame_addrs();
@@ -92,35 +90,7 @@ macro_rules! bridge_eax_this_stdcall {
 }
 
 bridge_eax_this!(bridge_init_frame_delay, INIT_FRAME_DELAY_ADDR, ());
-
-/// Bridge for `FUN_0052dc70` — usercall ESI=this, no stack params, returns
-/// bool in AL. The online branch of `IsFramePaused`; taken when
-/// `DDGame::net_session != null`.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_is_frame_paused_online(_this: *mut DDGameWrapper) -> u8 {
-    core::arch::naked_asm!(
-        "push esi",
-        "mov esi, [esp+8]",
-        "call [{addr}]",
-        "pop esi",
-        "ret 4",
-        addr = sym IS_FRAME_PAUSED_ONLINE_ADDR,
-    );
-}
-
-/// Bridge for `FUN_0052f770` — usercall EDI=this, no stack params, returns
-/// bool in AL. The offline branch of `IsFramePaused`.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_is_frame_paused_offline(_this: *mut DDGameWrapper) -> u8 {
-    core::arch::naked_asm!(
-        "push edi",
-        "mov edi, [esp+8]",
-        "call [{addr}]",
-        "pop edi",
-        "ret 4",
-        addr = sym IS_FRAME_PAUSED_OFFLINE_ADDR,
-    );
-}
+bridge_eax_this!(bridge_is_frame_paused, IS_FRAME_PAUSED_ADDR, u32);
 
 bridge_eax_this_stdcall!(bridge_setup_frame_params, SETUP_FRAME_PARAMS_ADDR, (i32, i32, i32) -> ());
 
@@ -282,50 +252,8 @@ pub unsafe fn should_continue_frame_loop(wrapper: *mut DDGameWrapper, elapsed: u
     }
 }
 
-/// Rust port of `DDGameWrapper::IsFramePaused` (0x00534880).
-///
-/// Returns `false` whenever the wrapper is in a paused-style phase
-/// (`game_end_phase ∈ {1,2,6,7,9}`) or `render_scale_fade_request != 0`.
-/// Otherwise dispatches to one of two bridged sub-checks:
-///
-/// - **Online** (`ddgame.net_session != null`): delegates to
-///   `bridge_is_frame_paused_online` (usercall ESI=this).
-/// - **Offline**: short-circuits to `false` when `_field_434 != 0` or
-///   `g_GameSession.flag_5c != 0`, or when all three of
-///   `replay_flag_b != 0`, `_field_410 != 0`, and `game_info.input_state_f918 == 0`
-///   hold. Otherwise delegates to `bridge_is_frame_paused_offline`
-///   (usercall EDI=this).
 pub unsafe fn is_frame_paused(wrapper: *mut DDGameWrapper) -> bool {
-    unsafe {
-        let phase = (*wrapper).game_end_phase;
-        if matches!(phase, 1 | 2 | 6 | 7 | 9) {
-            return false;
-        }
-        if (*wrapper).render_scale_fade_request != 0 {
-            return false;
-        }
-
-        let ddgame = (*wrapper).ddgame;
-        if !(*ddgame).net_session.is_null() {
-            return bridge_is_frame_paused_online(wrapper) != 0;
-        }
-
-        if (*wrapper)._field_434 != 0 {
-            return false;
-        }
-        if (*get_game_session()).flag_5c != 0 {
-            return false;
-        }
-
-        let all_offline_gates = (*wrapper).replay_flag_b != 0
-            && (*wrapper)._field_410 != 0
-            && (*(*ddgame).game_info).input_state_f918 == 0;
-        if all_offline_gates {
-            return false;
-        }
-
-        bridge_is_frame_paused_offline(wrapper) != 0
-    }
+    unsafe { bridge_is_frame_paused(wrapper) != 0 }
 }
 
 /// Rust port of `DDGameWrapper::StepRenderScaleFade` (0x005344B0).
