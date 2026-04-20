@@ -2,8 +2,7 @@
 //! and `DDGameWrapper__AdvanceFrameCounters` (0x52AAA0).
 //!
 //! Installed only when `OPENWA_DISPATCH_TRACE=1` is set. Logs every call's
-//! `this` + stack params to a dedicated file so the Rust port can be compared
-//! against the original (`OPENWA_DISPATCH_ORIGINAL=1`) per-call.
+//! `this` + stack params to a dedicated file for offline analysis.
 //!
 //! Both targets are `__usercall` + `stdcall`; we install a naked passthrough
 //! that preserves full register context, calls a small cdecl logger, then
@@ -135,14 +134,7 @@ pub fn install() -> Result<(), String> {
         .map_err(|e| format!("Failed to create dispatch trace log {path}: {e}"))?;
     *TRACE_LOG.lock().unwrap() = Some(std::io::BufWriter::new(file));
 
-    let mode = if std::env::var("OPENWA_DISPATCH_ORIGINAL").is_ok() {
-        "original"
-    } else {
-        "rust"
-    };
-    let _ = log_line(&format!(
-        "[DispatchTrace] Logging AFC/SFP params to {path} (dispatch_frame mode: {mode})"
-    ));
+    let _ = log_line(&format!("[DispatchTrace] Logging AFC/SFP params to {path}"));
 
     unsafe {
         let afc = hook::install(

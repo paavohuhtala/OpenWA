@@ -31,28 +31,6 @@ pub struct InterpSample {
     pub accum_c: u64,
     /// `DDGameWrapper::frame_delay_counter` at exit.
     pub frame_delay_counter: i32,
-    /// True if this dispatch was routed through vanilla 0x529160
-    /// (`OPENWA_DISPATCH_ORIGINAL=1`).
-    pub via_original: bool,
-    /// Per-branch counters accumulated across all `should_interpolate`
-    /// invocations during this dispatch. Index meaning:
-    ///   0 — phase ∈ {1,2,6,7,9} (→ interpolate true)
-    ///   1 — fade_request != 0 (→ interpolate true)
-    ///   2 — online bridge
-    ///   3 — _field_434 != 0 (→ interpolate true)
-    ///   4 — flag_5c != 0 (→ interpolate true)
-    ///   5 — all-three offline gates (→ interpolate true)
-    ///   6 — offline bridge (fell all the way through)
-    pub path_hits: [u16; 7],
-    /// The value should_interpolate returned on its last invocation
-    /// during this dispatch. `true` = interpolate, `false` = paused.
-    pub last_result: bool,
-    /// How many times offline-bridge AL byte was zero this dispatch.
-    pub offline_zero: u16,
-    /// How many times offline-bridge AL byte was nonzero this dispatch.
-    pub offline_nonzero: u16,
-    /// Last raw EAX value returned by the offline bridge (dirty upper bits).
-    pub offline_last_raw: u32,
 }
 
 static HISTORY: Mutex<VecDeque<InterpSample>> = Mutex::new(VecDeque::new());

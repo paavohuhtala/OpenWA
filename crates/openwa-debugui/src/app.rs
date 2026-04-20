@@ -901,9 +901,8 @@ impl DebugApp {
             }
             ui.separator();
             if let Some(last) = samples.last() {
-                let mode = if last.via_original { "vanilla" } else { "rust" };
                 ui.label(format!(
-                    "mode={mode}  fc={}  fdc={}",
+                    "fc={}  fdc={}",
                     last.frame_counter, last.frame_delay_counter
                 ));
             }
@@ -931,62 +930,6 @@ impl DebugApp {
                 ui.separator();
                 ui.label(format!("accum_c = {:>12}", last.accum_c));
             });
-            // Sum path_hits over the last ~600 dispatches so short bursts of
-            // one path (e.g. a single paused frame) stay visible. At 240 Hz
-            // render that's ~2.5 seconds — short enough to follow live edits
-            // but long enough to average out single-frame noise.
-            let window = 600usize.min(samples.len());
-            let mut totals = [0u32; 7];
-            for s in &samples[samples.len() - window..] {
-                for (t, h) in totals.iter_mut().zip(s.path_hits.iter()) {
-                    *t += *h as u32;
-                }
-            }
-            let sum: u32 = totals.iter().sum();
-            ui.label(format!(
-                "should_interpolate branches (last {window} dispatches, total calls={sum}):"
-            ));
-            let names = [
-                "phase∈{1,2,6,7,9}",
-                "fade_req!=0",
-                "→online",
-                "field_434!=0",
-                "flag_5c!=0",
-                "offline-gates-true",
-                "→offline-bridge",
-            ];
-            for (name, n) in names.iter().zip(totals.iter()) {
-                let pct = if sum > 0 {
-                    100.0 * (*n as f32) / (sum as f32)
-                } else {
-                    0.0
-                };
-                ui.label(format!("  {name:<20} {n:>6}  ({pct:5.1}%)"));
-            }
-            ui.label(format!(
-                "last_result = {} ({})",
-                last.last_result,
-                if last.last_result {
-                    "interpolate (accum_c path)"
-                } else {
-                    "paused (accum_a path)"
-                }
-            ));
-
-            // Offline-bridge return-value histogram (last 60 dispatches).
-            let (mut oz, mut onz) = (0u32, 0u32);
-            for s in &samples[samples.len() - window..] {
-                oz += s.offline_zero as u32;
-                onz += s.offline_nonzero as u32;
-            }
-            let otot = oz + onz;
-            ui.label(format!(
-                "offline bridge AL (last {window} dispatches): zero={oz} nonzero={onz} (total={otot})"
-            ));
-            ui.label(format!(
-                "last raw EAX from offline bridge = 0x{:08X}",
-                last.offline_last_raw
-            ));
         } else {
             ui.label("no samples yet — start a game to populate");
         }
@@ -994,8 +937,8 @@ impl DebugApp {
         ui.separator();
 
         // Plot: render_interp_a/b as float fractions (raw / 0x10000) against
-        // dispatch_index. Oscillation appears as sawtooth — flat-then-jump in
-        // vanilla, visibly bouncy in rust.
+        // dispatch_index. Oscillation appears as a stair-stepped sawtooth 0→1
+        // cycle during gameplay.
         let points_a: PlotPoints = samples
             .iter()
             .map(|s| [s.dispatch_index as f64, s.interp_a_raw as f64 / 65536.0])
