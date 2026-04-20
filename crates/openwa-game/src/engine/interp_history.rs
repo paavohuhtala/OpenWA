@@ -34,6 +34,19 @@ pub struct InterpSample {
     /// True if this dispatch was routed through vanilla 0x529160
     /// (`OPENWA_DISPATCH_ORIGINAL=1`).
     pub via_original: bool,
+    /// Per-branch counters accumulated across all `should_interpolate`
+    /// invocations during this dispatch. Index meaning:
+    ///   0 — phase ∈ {1,2,6,7,9} (→ interpolate true)
+    ///   1 — fade_request != 0 (→ interpolate true)
+    ///   2 — online bridge
+    ///   3 — _field_434 != 0 (→ interpolate true)
+    ///   4 — flag_5c != 0 (→ interpolate true)
+    ///   5 — all-three offline gates (→ interpolate true)
+    ///   6 — offline bridge (fell all the way through)
+    pub path_hits: [u16; 7],
+    /// The value should_interpolate returned on its last invocation
+    /// during this dispatch. `true` = interpolate, `false` = paused.
+    pub last_result: bool,
 }
 
 static HISTORY: Mutex<VecDeque<InterpSample>> = Mutex::new(VecDeque::new());

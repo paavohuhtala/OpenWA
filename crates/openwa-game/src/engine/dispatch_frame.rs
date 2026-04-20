@@ -113,7 +113,7 @@ macro_rules! bridge_eax_this_stdcall {
 bridge_eax_this!(bridge_init_frame_delay, INIT_FRAME_DELAY_ADDR, ());
 
 /// Bridge for `FUN_0052dc70` — usercall ESI=this, no stack params, returns
-/// bool in AL. The online branch of vanilla `IsFramePaused`; taken when
+/// bool in AL. The online branch of `ShouldInterpolate`; taken when
 /// `DDGame::net_session != null`.
 #[unsafe(naked)]
 unsafe extern "stdcall" fn bridge_should_interpolate_online(_this: *mut DDGameWrapper) -> u8 {
@@ -128,7 +128,7 @@ unsafe extern "stdcall" fn bridge_should_interpolate_online(_this: *mut DDGameWr
 }
 
 /// Bridge for `FUN_0052f770` — usercall EDI=this, no stack params, returns
-/// bool in AL. The offline branch of vanilla `IsFramePaused`.
+/// bool in AL. The offline branch of `ShouldInterpolate`.
 #[unsafe(naked)]
 unsafe extern "stdcall" fn bridge_should_interpolate_offline(_this: *mut DDGameWrapper) -> u8 {
     core::arch::naked_asm!(
@@ -325,8 +325,10 @@ pub unsafe fn should_continue_frame_loop(wrapper: *mut DDGameWrapper, elapsed: u
     }
 }
 
-/// Rust port of vanilla `DDGameWrapper::IsFramePaused` (0x00534880), renamed
-/// to `should_interpolate` with inverted semantics for readability.
+/// Rust port of `DDGameWrapper::ShouldInterpolate` (0x00534880).
+/// Returns with inverted semantics vs the disasm: WA's function returns
+/// nonzero in AL when interp is SUPPRESSED; we return `true` when it's
+/// computed (accum_c path).
 ///
 /// Returns `true` whenever render interpolation should be computed and the
 /// main-loop `frame_accum_c` path should be taken. Returns `false` when the
@@ -341,25 +343,57 @@ pub unsafe fn should_continue_frame_loop(wrapper: *mut DDGameWrapper, elapsed: u
 ///   `g_GameSession.flag_5c != 0`, or all three of `replay_flag_b != 0`,
 ///   `_field_410 != 0`, `game_info.input_state_f918 == 0` hold. Otherwise
 ///   delegates to `bridge_should_interpolate_offline` (usercall EDI=this).
+/// Per-dispatch counters for each `should_interpolate` branch. Read and
+/// reset once per dispatch_frame call so the debug UI can attribute the
+/// main-loop branch taken to the right classifier path.
+pub(crate) static SI_PATH_HITS: [core::sync::atomic::AtomicU16; 7] = [
+    core::sync::atomic::AtomicU16::new(0),
+    core::sync::atomic::AtomicU16::new(0),
+    core::sync::atomic::AtomicU16::new(0),
+    core::sync::atomic::AtomicU16::new(0),
+    core::sync::atomic::AtomicU16::new(0),
+    core::sync::atomic::AtomicU16::new(0),
+    core::sync::atomic::AtomicU16::new(0),
+];
+pub(crate) static SI_LAST_RESULT: AtomicBool = AtomicBool::new(false);
+
+#[inline]
+fn bump_path(idx: usize) {
+    SI_PATH_HITS[idx].fetch_add(1, Ordering::Relaxed);
+}
+
 pub unsafe fn should_interpolate(wrapper: *mut DDGameWrapper) -> bool {
+    unsafe {
+        let result = should_interpolate_inner(wrapper);
+        SI_LAST_RESULT.store(result, Ordering::Relaxed);
+        result
+    }
+}
+
+unsafe fn should_interpolate_inner(wrapper: *mut DDGameWrapper) -> bool {
     unsafe {
         let phase = (*wrapper).game_end_phase;
         if matches!(phase, 1 | 2 | 6 | 7 | 9) {
+            bump_path(0);
             return true;
         }
         if (*wrapper).render_scale_fade_request != 0 {
+            bump_path(1);
             return true;
         }
 
         let ddgame = (*wrapper).ddgame;
         if !(*ddgame).net_session.is_null() {
+            bump_path(2);
             return bridge_should_interpolate_online(wrapper) == 0;
         }
 
         if (*wrapper)._field_434 != 0 {
+            bump_path(3);
             return true;
         }
         if (*get_game_session()).flag_5c != 0 {
+            bump_path(4);
             return true;
         }
 
@@ -367,9 +401,11 @@ pub unsafe fn should_interpolate(wrapper: *mut DDGameWrapper) -> bool {
             && (*wrapper)._field_410 != 0
             && (*(*ddgame).game_info).input_state_f918 == 0;
         if all_offline_gates {
+            bump_path(5);
             return true;
         }
 
+        bump_path(6);
         bridge_should_interpolate_offline(wrapper) == 0
     }
 }
@@ -587,10 +623,16 @@ pub unsafe fn dispatch_frame(wrapper: *mut DDGameWrapper, time: u64, freq: u64) 
         }
 
         // Always record a post-dispatch snapshot for the debug UI. Cheap —
-        // one mutex lock + small struct copy per dispatch.
+        // one mutex lock + small struct copy per dispatch. Also captures and
+        // resets the per-branch counters from should_interpolate so each
+        // sample shows which classifier paths fired during this dispatch.
         {
             use crate::engine::interp_history::{InterpSample, push as push_sample};
             let ddgame = (*wrapper).ddgame;
+            let mut path_hits = [0u16; 7];
+            for (i, slot) in SI_PATH_HITS.iter().enumerate() {
+                path_hits[i] = slot.swap(0, Ordering::Relaxed);
+            }
             push_sample(InterpSample {
                 dispatch_index: 0, // filled in by push()
                 frame_counter: (*ddgame).frame_counter,
@@ -601,6 +643,8 @@ pub unsafe fn dispatch_frame(wrapper: *mut DDGameWrapper, time: u64, freq: u64) 
                 accum_c: (*wrapper).frame_accum_c,
                 frame_delay_counter: (*wrapper).frame_delay_counter,
                 via_original: USE_ORIGINAL_DISPATCH.load(Ordering::Relaxed),
+                path_hits,
+                last_result: SI_LAST_RESULT.load(Ordering::Relaxed),
             });
         }
     }

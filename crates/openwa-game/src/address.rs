@@ -138,19 +138,20 @@ pub mod va {
             fn/Usercall DDGAMEWRAPPER_INIT_FRAME_DELAY = 0x0052CAF0;
             /// DDGameWrapper__NetworkUpdate (usercall EAX=this, no stack params, plain RET)
             fn/Usercall DDGAMEWRAPPER_NETWORK_UPDATE = 0x0052DB90;
-            /// DDGameWrapper__ShouldInterpolate (vanilla `IsFramePaused`, 0x00534880).
-            /// Usercall EAX=this, no stack params, plain RET. Semantically controls
-            /// which accumulator branch `DispatchFrame` takes and whether render
-            /// interpolation is effectively disabled. Vanilla returns `!should_interpolate`
-            /// (i.e. `true` when interpolation is suppressed) — our Rust port
-            /// `engine::dispatch_frame::should_interpolate` inverts that for readability.
-            /// Kept here for stack-trace symbolication.
+            /// DDGameWrapper__ShouldInterpolate (0x00534880, previously guessed
+            /// as "IsFramePaused" — that name had incorrect semantics).
+            /// Usercall EAX=this, no stack params, plain RET. Returns nonzero in
+            /// AL when the main-loop should take the `frame_accum_a` branch and
+            /// render interpolation should be suppressed; zero when interp is
+            /// computed. Our Rust port `engine::dispatch_frame::should_interpolate`
+            /// inverts the return for readability. Kept here for stack-trace
+            /// symbolication.
             fn/Usercall DDGAMEWRAPPER_SHOULD_INTERPOLATE = 0x00534880;
-            /// Online branch of `ShouldInterpolate` (vanilla FUN_0052DC70).
+            /// Online branch of `ShouldInterpolate` (FUN_0052DC70).
             /// Usercall ESI=this, no stack params, plain RET. Still bridged; called
             /// when `DDGame::net_session != null`.
             fn/Usercall DDGAMEWRAPPER_SHOULD_INTERPOLATE_ONLINE = 0x0052DC70;
-            /// Offline branch of `ShouldInterpolate` (vanilla FUN_0052F770).
+            /// Offline branch of `ShouldInterpolate` (FUN_0052F770).
             /// Usercall EDI=this, no stack params, plain RET. Still bridged.
             fn/Usercall DDGAMEWRAPPER_SHOULD_INTERPOLATE_OFFLINE = 0x0052F770;
             /// DDGameWrapper__StepRenderScaleFade — smooth DDGame::render_scale toward

@@ -931,6 +931,45 @@ impl DebugApp {
                 ui.separator();
                 ui.label(format!("accum_c = {:>12}", last.accum_c));
             });
+            // Sum path_hits over the last ~60 dispatches so short bursts of
+            // one path (e.g. a single paused frame) stay visible.
+            let window = 60usize.min(samples.len());
+            let mut totals = [0u32; 7];
+            for s in &samples[samples.len() - window..] {
+                for (t, h) in totals.iter_mut().zip(s.path_hits.iter()) {
+                    *t += *h as u32;
+                }
+            }
+            let sum: u32 = totals.iter().sum();
+            ui.label(format!(
+                "should_interpolate branches (last {window} dispatches, total calls={sum}):"
+            ));
+            let names = [
+                "phase∈{1,2,6,7,9}",
+                "fade_req!=0",
+                "→online",
+                "field_434!=0",
+                "flag_5c!=0",
+                "offline-gates-true",
+                "→offline-bridge",
+            ];
+            for (name, n) in names.iter().zip(totals.iter()) {
+                let pct = if sum > 0 {
+                    100.0 * (*n as f32) / (sum as f32)
+                } else {
+                    0.0
+                };
+                ui.label(format!("  {name:<20} {n:>6}  ({pct:5.1}%)"));
+            }
+            ui.label(format!(
+                "last_result = {} ({})",
+                last.last_result,
+                if last.last_result {
+                    "interpolate (accum_c path)"
+                } else {
+                    "paused (accum_a path)"
+                }
+            ));
         } else {
             ui.label("no samples yet — start a game to populate");
         }
