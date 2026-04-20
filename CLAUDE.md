@@ -8,7 +8,7 @@ The original WA.exe is a 32-bit x86 Windows PE binary built with MSVC 2005 + MFC
 
 ## Crate Architecture
 
-- **`openwa-core`** — Cross-platform, idiomatic Rust fundamentals. No WA.exe memory references, no Ghidra addresses, no Windows APIs. Currently hosts: `fixed` (16.16 `Fixed` + 48.16 `Fixed64` newtypes), `log` (file-logging helper), `rng` (WA's LCG PRNG), `scheme` (.wsc parser), `sprite_lzss` (LZSS decompressor), `trig` (sin/cos tables copied byte-for-byte from WA.exe .rdata plus interpolation helpers), `weapon` (Weapon/FireType/FireMethod/SpecialFireSubtype enums). New portable modules migrate here from `openwa-game` as they're confirmed platform-independent. See `crates/openwa-core/CLAUDE.md` for the charter.
+- **`openwa-core`** — Cross-platform, idiomatic Rust fundamentals. No WA.exe memory references, no Ghidra addresses, no Windows APIs. Currently hosts: `dir` (.dir sprite archive parser), `fixed` (16.16 `Fixed` + 48.16 `Fixed64` newtypes), `img` (.img tagged + headerless decoder), `log` (file-logging helper), `pal` (RIFF .pal palette parser), `rng` (WA's LCG PRNG), `scheme` (.wsc parser), `sprite_lzss` (LZSS decompressor), `trig` (sin/cos extracted from WA.exe, plus interpolation helpers), `weapon` (Weapon/FireType/FireMethod/SpecialFireSubtype enums). New portable modules migrate here from `openwa-game` as they're confirmed platform-independent. See `crates/openwa-core/CLAUDE.md` for the charter.
 - **`openwa-game`** — WA.exe-specific code (`i686-pc-windows-msvc` only). Types, addresses, parsers, ASLR rebasing, typed WA function wrappers, **and game logic**. The source of truth for all reverse-engineered type layouts, known addresses, and Rust reimplementations of WA functions. Contains `registry` (structured address database + field registries), `rebase` (ASLR delta), `wa_call` (calling convention helpers), `wa/` (typed handle wrappers), and game logic modules (`game/weapon_fire.rs`, `game/weapon_release.rs`, `audio/sound_ops.rs`, `engine/team_ops.rs`).
 - **`openwa-derive`** — Proc macro crate. Provides `#[derive(FieldRegistry)]` for struct field maps and `#[vtable(...)]` for typed vtable definitions with introspection, calling wrappers, and replacement support.
 - **`openwa-dll`** — Injected DLL (`openwa.dll`): thin hook installation shims (trampolines, `usercall_trampoline!`, `install()`) that wire core's game logic into WA.exe via MinHook. Logs to `OpenWA.log`. Runs registry-driven startup checks automatically at load.
@@ -17,6 +17,7 @@ The original WA.exe is a 32-bit x86 Windows PE binary built with MSVC 2005 + MFC
 - **`openwa-debugui`** — In-process egui debug window (entity census, struct inspector, cheats). Enabled via `OPENWA_DEBUG_UI=1` + `debug-ui` cargo feature.
 - **`openwa-debug-cli`** — CLI tool for live memory inspection (`openwa-debug` binary). Connects to the debug server in the DLL.
 - **`openwa-debug-proto`** — Shared protocol types (Request/Response enums, MessagePack framing) between CLI and server.
+- **`openwa-asset-viewer`** — Standalone egui application (`openwa-asset-viewer` binary) for browsing WA's on-disk asset files (`.img` / `.pal` / `.dir`). Consumes `openwa-core` parsers only; does not depend on `openwa-game`. See `crates/openwa-asset-viewer/CLAUDE.md`.
 
 ## Build & Test
 
