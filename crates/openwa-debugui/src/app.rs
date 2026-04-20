@@ -970,6 +970,21 @@ impl DebugApp {
                     "paused (accum_a path)"
                 }
             ));
+
+            // Offline-bridge return-value histogram (last 60 dispatches).
+            let (mut oz, mut onz) = (0u32, 0u32);
+            for s in &samples[samples.len() - window..] {
+                oz += s.offline_zero as u32;
+                onz += s.offline_nonzero as u32;
+            }
+            let otot = oz + onz;
+            ui.label(format!(
+                "offline bridge AL (last {window} dispatches): zero={oz} nonzero={onz} (total={otot})"
+            ));
+            ui.label(format!(
+                "last raw EAX from offline bridge = 0x{:08X}",
+                last.offline_last_raw
+            ));
         } else {
             ui.label("no samples yet — start a game to populate");
         }

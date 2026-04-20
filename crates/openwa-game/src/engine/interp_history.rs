@@ -47,6 +47,12 @@ pub struct InterpSample {
     /// The value should_interpolate returned on its last invocation
     /// during this dispatch. `true` = interpolate, `false` = paused.
     pub last_result: bool,
+    /// How many times offline-bridge AL byte was zero this dispatch.
+    pub offline_zero: u16,
+    /// How many times offline-bridge AL byte was nonzero this dispatch.
+    pub offline_nonzero: u16,
+    /// Last raw EAX value returned by the offline bridge (dirty upper bits).
+    pub offline_last_raw: u32,
 }
 
 static HISTORY: Mutex<VecDeque<InterpSample>> = Mutex::new(VecDeque::new());

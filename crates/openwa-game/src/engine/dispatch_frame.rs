@@ -128,9 +128,11 @@ unsafe extern "stdcall" fn bridge_should_interpolate_online(_this: *mut DDGameWr
 }
 
 /// Bridge for `FUN_0052f770` — usercall EDI=this, no stack params, returns
-/// bool in AL. The offline branch of `ShouldInterpolate`.
+/// bool in AL. The offline branch of `ShouldInterpolate`. The u32 return
+/// preserves the full dirty EAX so callers can diagnose upper-bit leaks;
+/// they must mask to AL (`& 0xFF`) before interpreting.
 #[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_should_interpolate_offline(_this: *mut DDGameWrapper) -> u8 {
+unsafe extern "stdcall" fn bridge_should_interpolate_offline_raw(_this: *mut DDGameWrapper) -> u32 {
     core::arch::naked_asm!(
         "push edi",
         "mov edi, [esp+8]",
@@ -139,6 +141,20 @@ unsafe extern "stdcall" fn bridge_should_interpolate_offline(_this: *mut DDGameW
         "ret 4",
         addr = sym SHOULD_INTERPOLATE_OFFLINE_ADDR,
     );
+}
+
+/// AL-masked wrapper — returns the semantic "paused" bit.
+unsafe fn bridge_should_interpolate_offline(wrapper: *mut DDGameWrapper) -> u8 {
+    unsafe {
+        let raw = bridge_should_interpolate_offline_raw(wrapper);
+        SI_OFFLINE_LAST_RAW.store(raw, Ordering::Relaxed);
+        if raw & 0xFF != 0 {
+            SI_OFFLINE_NONZERO.fetch_add(1, Ordering::Relaxed);
+        } else {
+            SI_OFFLINE_ZERO.fetch_add(1, Ordering::Relaxed);
+        }
+        (raw & 0xFF) as u8
+    }
 }
 
 bridge_eax_this_stdcall!(bridge_setup_frame_params, SETUP_FRAME_PARAMS_ADDR, (i32, i32, i32) -> ());
@@ -356,6 +372,15 @@ pub(crate) static SI_PATH_HITS: [core::sync::atomic::AtomicU16; 7] = [
     core::sync::atomic::AtomicU16::new(0),
 ];
 pub(crate) static SI_LAST_RESULT: AtomicBool = AtomicBool::new(false);
+
+/// Per-dispatch histogram of the offline bridge's AL byte. Reset on snapshot.
+pub(crate) static SI_OFFLINE_ZERO: core::sync::atomic::AtomicU16 =
+    core::sync::atomic::AtomicU16::new(0);
+pub(crate) static SI_OFFLINE_NONZERO: core::sync::atomic::AtomicU16 =
+    core::sync::atomic::AtomicU16::new(0);
+/// Last raw (unmasked) EAX value seen from the offline bridge.
+pub(crate) static SI_OFFLINE_LAST_RAW: core::sync::atomic::AtomicU32 =
+    core::sync::atomic::AtomicU32::new(0);
 
 #[inline]
 fn bump_path(idx: usize) {
@@ -645,6 +670,9 @@ pub unsafe fn dispatch_frame(wrapper: *mut DDGameWrapper, time: u64, freq: u64) 
                 via_original: USE_ORIGINAL_DISPATCH.load(Ordering::Relaxed),
                 path_hits,
                 last_result: SI_LAST_RESULT.load(Ordering::Relaxed),
+                offline_zero: SI_OFFLINE_ZERO.swap(0, Ordering::Relaxed),
+                offline_nonzero: SI_OFFLINE_NONZERO.swap(0, Ordering::Relaxed),
+                offline_last_raw: SI_OFFLINE_LAST_RAW.load(Ordering::Relaxed),
             });
         }
     }
