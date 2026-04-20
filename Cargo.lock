@@ -554,17 +554,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "egui_plot"
-version = "0.28.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7acc4fe778c41b91d57e04c1a2cf5765b3dc977f9f8384d2bb2eb4254855365"
-dependencies = [
- "ahash",
- "egui",
- "emath",
-]
-
-[[package]]
 name = "emath"
 version = "0.28.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1538,7 +1527,6 @@ name = "openwa-debugui"
 version = "0.1.0"
 dependencies = [
  "eframe",
- "egui_plot",
  "openwa-core",
  "openwa-game",
  "winit",

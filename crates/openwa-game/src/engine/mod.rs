@@ -10,7 +10,6 @@ pub mod game_session;
 pub mod game_state;
 pub mod game_state_init;
 pub mod game_timer;
-pub mod interp_history;
 pub mod log_sink;
 pub mod net_bridge;
 pub mod net_session;

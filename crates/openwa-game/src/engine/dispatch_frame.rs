@@ -1046,22 +1046,6 @@ pub unsafe fn dispatch_frame(wrapper: *mut DDGameWrapper, time: u64, freq: u64) 
                 (*wrapper).game_end_phase = 1;
             }
         }
-
-        // Post-dispatch snapshot for the debug UI live plot.
-        {
-            use crate::engine::interp_history::{InterpSample, push as push_sample};
-            let ddgame = (*wrapper).ddgame;
-            push_sample(InterpSample {
-                dispatch_index: 0, // filled in by push()
-                frame_counter: (*ddgame).frame_counter,
-                interp_a_raw: (*ddgame).render_interp_a.to_raw(),
-                interp_b_raw: (*ddgame).render_interp_b.to_raw(),
-                accum_a: (*wrapper).frame_accum_a,
-                accum_b: (*wrapper).frame_accum_b,
-                accum_c: (*wrapper).frame_accum_c,
-                frame_delay_counter: (*wrapper).frame_delay_counter,
-            });
-        }
     }
 }
 
