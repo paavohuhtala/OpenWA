@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use eframe::egui;
 use openwa_core::img::{self, DecodedImg};
 
+use crate::palette_grid;
 use crate::viewer::Viewer;
 
 #[allow(dead_code)]
@@ -11,17 +12,14 @@ pub struct ImageViewer {
     path: PathBuf,
     decoded: DecodedImg,
     texture: egui::TextureHandle,
+    palette_colors: Vec<[u8; 3]>,
     /// `None` means "fit to window". `Some(scale)` is a manual zoom level.
     zoom: Option<f32>,
 }
 
 impl ImageViewer {
-    /// Opens an IMG file. Returns the viewer and the embedded palette colors
-    /// (empty if the image has no palette).
-    pub fn open(
-        ctx: &egui::Context,
-        path: std::path::PathBuf,
-    ) -> Result<(Self, Vec<[u8; 3]>), String> {
+    /// Opens an IMG file.
+    pub fn open(ctx: &egui::Context, path: std::path::PathBuf) -> Result<Self, String> {
         let data = std::fs::read(&path).map_err(|e| format!("Failed to read file: {e}"))?;
         let title = format!(
             "Image: {}",
@@ -37,7 +35,7 @@ impl ImageViewer {
         title: String,
         path: PathBuf,
         data: &[u8],
-    ) -> Result<(Self, Vec<[u8; 3]>), String> {
+    ) -> Result<Self, String> {
         let mut palette_colors = Vec::new();
         let decoded = img::img_decode(data, false, |rgb| {
             let r = (rgb & 0xFF) as u8;
@@ -51,16 +49,14 @@ impl ImageViewer {
 
         let texture = create_texture(ctx, &decoded, &palette_colors);
 
-        Ok((
-            Self {
-                title,
-                path,
-                decoded,
-                texture,
-                zoom: None,
-            },
+        Ok(Self {
+            title,
+            path,
+            decoded,
+            texture,
             palette_colors,
-        ))
+            zoom: None,
+        })
     }
 }
 
@@ -70,9 +66,6 @@ impl Viewer for ImageViewer {
     }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
-        let img_w = self.decoded.width as f32;
-        let img_h = self.decoded.height as f32;
-
         ui.horizontal(|ui| {
             ui.label(format!(
                 "{}×{}, {}bpp",
@@ -95,13 +88,40 @@ impl Viewer for ImageViewer {
         });
         ui.separator();
 
+        // Palette section anchored to the bottom of the window, so the image
+        // area grows/shrinks with the window. Collapsed by default — when
+        // collapsed the panel shrinks to just the header row.
+        if !self.palette_colors.is_empty() {
+            let panel_id = ui.id().with("palette_panel");
+            egui::Panel::bottom(panel_id)
+                .resizable(false)
+                .show_inside(ui, |ui| {
+                    egui::CollapsingHeader::new(format!(
+                        "Palette ({} colors)",
+                        self.palette_colors.len()
+                    ))
+                    .default_open(false)
+                    .show(ui, |ui| {
+                        palette_grid::show(ui, &self.palette_colors);
+                    });
+                });
+        }
+
+        egui::CentralPanel::default().show_inside(ui, |ui| {
+            self.show_image(ui);
+        });
+    }
+}
+
+impl ImageViewer {
+    fn show_image(&mut self, ui: &mut egui::Ui) {
+        let img_w = self.decoded.width as f32;
+        let img_h = self.decoded.height as f32;
         let avail = ui.available_size();
 
-        // Compute the effective scale.
         let scale = match self.zoom {
             Some(z) => z,
             None => {
-                // Fit: scale so the image fills the available space.
                 let sx = avail.x / img_w;
                 let sy = avail.y / img_h;
                 sx.min(sy).max(0.01)
@@ -123,7 +143,6 @@ impl Viewer for ImageViewer {
             response
         });
 
-        // Scroll-wheel zoom: zoom toward the cursor position.
         let scroll = ui.input(|i| i.smooth_scroll_delta.y);
         if scroll != 0.0 && ui.rect_contains_pointer(response.inner_rect) {
             let old_scale = scale;

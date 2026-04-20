@@ -4,6 +4,7 @@ use eframe::egui;
 
 mod archive_viewer;
 mod image_viewer;
+mod palette_grid;
 mod palette_viewer;
 mod recent;
 mod viewer;
@@ -100,28 +101,14 @@ impl AssetViewer {
             .to_ascii_lowercase();
 
         let result: Result<(), String> = match ext.as_str() {
-            "img" => match ImageViewer::open(ctx, path.to_path_buf()) {
-                Ok((viewer, palette_colors)) => {
-                    let id = self.alloc_id();
-                    self.windows.push(ViewerWindow {
-                        id,
-                        open: true,
-                        viewer: ViewerType::Image(viewer),
-                    });
-                    if !palette_colors.is_empty() {
-                        let pal_viewer =
-                            PaletteViewer::from_colors(path.to_path_buf(), palette_colors);
-                        let id = self.alloc_id();
-                        self.windows.push(ViewerWindow {
-                            id,
-                            open: true,
-                            viewer: ViewerType::Palette(pal_viewer),
-                        });
-                    }
-                    Ok(())
-                }
-                Err(e) => Err(e),
-            },
+            "img" => ImageViewer::open(ctx, path.to_path_buf()).map(|viewer| {
+                let id = self.alloc_id();
+                self.windows.push(ViewerWindow {
+                    id,
+                    open: true,
+                    viewer: ViewerType::Image(viewer),
+                });
+            }),
             "pal" => PaletteViewer::open(path.to_path_buf()).map(|viewer| {
                 let id = self.alloc_id();
                 self.windows.push(ViewerWindow {
@@ -154,29 +141,14 @@ impl AssetViewer {
         let dummy_path = std::path::PathBuf::from(&req.title);
         match req.kind {
             PendingOpenKind::Image => {
-                match ImageViewer::open_bytes(
-                    ctx,
-                    req.title.clone(),
-                    dummy_path.clone(),
-                    &req.bytes,
-                ) {
-                    Ok((viewer, palette_colors)) => {
+                match ImageViewer::open_bytes(ctx, req.title.clone(), dummy_path, &req.bytes) {
+                    Ok(viewer) => {
                         let id = self.alloc_id();
                         self.windows.push(ViewerWindow {
                             id,
                             open: true,
                             viewer: ViewerType::Image(viewer),
                         });
-                        if !palette_colors.is_empty() {
-                            let pal_viewer =
-                                PaletteViewer::from_colors(dummy_path.clone(), palette_colors);
-                            let id = self.alloc_id();
-                            self.windows.push(ViewerWindow {
-                                id,
-                                open: true,
-                                viewer: ViewerType::Palette(pal_viewer),
-                            });
-                        }
                     }
                     Err(e) => self.error = Some(e),
                 }
