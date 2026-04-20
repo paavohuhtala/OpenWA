@@ -7,8 +7,8 @@ description = "Immediate-mode debug UI for OpenWA (egui floating window)"
 [dependencies]
 openwa-core = { path = "../openwa-core" }
 openwa-game = { path = "../openwa-game" }
-eframe = { version = "0.28", default-features = false, features = [
+eframe = { version = "0.34.1", default-features = false, features = [
     "glow",
     "default_fonts",
 ] }
-winit = "0.29"
+winit = "0.30"

@@ -207,7 +207,8 @@ impl DebugApp {
 }
 
 impl eframe::App for DebugApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, root_ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        let ctx = root_ui.ctx().clone();
         // Repaint at ~30 fps so the display stays live.
         ctx.request_repaint_after(std::time::Duration::from_millis(33));
 
@@ -227,12 +228,12 @@ impl eframe::App for DebugApp {
         }
         self.nav_history.retain(|a| live_addrs.contains(a));
 
-        egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
-            egui::menu::bar(ui, |ui| {
+        egui::Panel::top("toolbar").show_inside(root_ui, |ui| {
+            egui::MenuBar::new().ui(ui, |ui| {
                 ui.menu_button("Cheats", |ui| {
                     if ui.button("Unlock all weapons").clicked() {
                         unsafe { cheat_unlock_all_weapons() };
-                        ui.close_menu();
+                        ui.close();
                     }
                 });
             });
@@ -241,10 +242,10 @@ impl eframe::App for DebugApp {
             });
         });
 
-        egui::SidePanel::right("inspector_panel")
-            .min_width(260.0)
-            .default_width(300.0)
-            .show(ctx, |ui| {
+        egui::Panel::right("inspector_panel")
+            .min_size(260.0)
+            .default_size(300.0)
+            .show_inside(root_ui, |ui| {
                 let mut navigate_to: Option<u32> = None;
                 let mut go_back = false;
                 self.show_inspector(ui, &mut navigate_to, &mut go_back);
@@ -256,14 +257,14 @@ impl eframe::App for DebugApp {
                 }
             });
 
-        egui::TopBottomPanel::bottom("log_panel")
-            .min_height(140.0)
-            .default_height(160.0)
-            .show(ctx, |ui| {
+        egui::Panel::bottom("log_panel")
+            .min_size(140.0)
+            .default_size(160.0)
+            .show_inside(root_ui, |ui| {
                 self.show_log(ui);
             });
 
-        egui::CentralPanel::default().show(ctx, |ui| {
+        egui::CentralPanel::default().show_inside(root_ui, |ui| {
             let mut navigate_to: Option<u32> = None;
             self.show_census(ui, &live_entities, &mut navigate_to);
             if let Some(addr) = navigate_to {
@@ -387,7 +388,7 @@ unsafe fn show_game_task_raw_fields(
             let header = format!("{} (0x{:03X}..0x{:03X})", section_name, start, end);
             let default_open = false;
             egui::CollapsingHeader::new(header)
-                .id_source(format!("{}_{}_{:03X}", type_name, addr, start))
+                .id_salt(format!("{}_{}_{:03X}", type_name, addr, start))
                 .default_open(default_open)
                 .show(ui, |ui| {
                     egui::Grid::new(format!("raw_{}_{}_{:03X}", type_name, addr, start))
@@ -549,7 +550,7 @@ impl DebugApp {
                                         child_name, child_addr, grandchild_count
                                     );
                                     egui::CollapsingHeader::new(&header_label)
-                                        .id_source(child_addr)
+                                        .id_salt(child_addr)
                                         .default_open(false)
                                         .show(ui, |ui| {
                                             // Link to inspect this child in detail
