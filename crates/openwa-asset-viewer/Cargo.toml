@@ -5,5 +5,6 @@ edition = "2024"
 
 [dependencies]
 eframe = "0.34.1"
+egui_extras = "0.34.1"
 openwa-core = { version = "0.1.0", path = "../openwa-core" }
 rfd = "0.17.2"

@@ -23,9 +23,23 @@ impl ImageViewer {
         path: std::path::PathBuf,
     ) -> Result<(Self, Vec<[u8; 3]>), String> {
         let data = std::fs::read(&path).map_err(|e| format!("Failed to read file: {e}"))?;
+        let title = format!(
+            "Image: {}",
+            path.file_name().unwrap_or_default().to_string_lossy()
+        );
+        Self::open_bytes(ctx, title, path, &data)
+    }
 
+    /// Decode an IMG blob — e.g. one extracted from a `.dir` archive — and
+    /// build a viewer around it.
+    pub fn open_bytes(
+        ctx: &egui::Context,
+        title: String,
+        path: PathBuf,
+        data: &[u8],
+    ) -> Result<(Self, Vec<[u8; 3]>), String> {
         let mut palette_colors = Vec::new();
-        let decoded = img::img_decode(&data, false, |rgb| {
+        let decoded = img::img_decode(data, false, |rgb| {
             let r = (rgb & 0xFF) as u8;
             let g = ((rgb >> 8) & 0xFF) as u8;
             let b = ((rgb >> 16) & 0xFF) as u8;
@@ -39,10 +53,7 @@ impl ImageViewer {
 
         Ok((
             Self {
-                title: format!(
-                    "Image: {}",
-                    path.file_name().unwrap_or_default().to_string_lossy()
-                ),
+                title,
                 path,
                 decoded,
                 texture,

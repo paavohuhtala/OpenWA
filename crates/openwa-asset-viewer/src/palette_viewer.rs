@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use eframe::egui;
+use openwa_core::pal;
 
 use crate::viewer::Viewer;
 
@@ -15,9 +16,29 @@ pub struct PaletteViewer {
 }
 
 impl PaletteViewer {
-    /// Open a standalone `.pal` file. Assumes raw RGB triplets.
-    pub fn open(_path: std::path::PathBuf) -> Result<Self, String> {
-        Err("Standalone palette files not yet supported.".to_string())
+    /// Open a standalone `.pal` file (Microsoft RIFF PAL format).
+    pub fn open(path: std::path::PathBuf) -> Result<Self, String> {
+        let data = std::fs::read(&path).map_err(|e| format!("Failed to read file: {e}"))?;
+        let title = format!(
+            "Palette: {}",
+            path.file_name().unwrap_or_default().to_string_lossy()
+        );
+        Self::open_bytes(title, path, &data)
+    }
+
+    /// Decode a `.pal` blob extracted from e.g. a `.dir` archive.
+    pub fn open_bytes(title: String, path: PathBuf, data: &[u8]) -> Result<Self, String> {
+        let decoded = pal::pal_decode(data).map_err(|e| format!("PAL decode error: {e:?}"))?;
+        let colors = decoded
+            .entries
+            .into_iter()
+            .map(|e| [e.r, e.g, e.b])
+            .collect();
+        Ok(Self {
+            title,
+            path,
+            colors,
+        })
     }
 
     /// Create from an already-extracted palette (e.g. embedded in an IMG).

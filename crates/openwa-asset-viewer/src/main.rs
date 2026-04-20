@@ -5,7 +5,7 @@ mod image_viewer;
 mod palette_viewer;
 mod viewer;
 
-use archive_viewer::ArchiveViewer;
+use archive_viewer::{ArchiveViewer, PendingOpen, PendingOpenKind};
 use image_viewer::ImageViewer;
 use palette_viewer::PaletteViewer;
 
@@ -137,6 +137,53 @@ impl AssetViewer {
             _ => self.error = Some(format!("Unsupported file extension: .{ext}")),
         }
     }
+
+    fn spawn_from_pending(&mut self, ctx: &egui::Context, req: PendingOpen) {
+        let dummy_path = std::path::PathBuf::from(&req.title);
+        match req.kind {
+            PendingOpenKind::Image => {
+                match ImageViewer::open_bytes(
+                    ctx,
+                    req.title.clone(),
+                    dummy_path.clone(),
+                    &req.bytes,
+                ) {
+                    Ok((viewer, palette_colors)) => {
+                        let id = self.alloc_id();
+                        self.windows.push(ViewerWindow {
+                            id,
+                            open: true,
+                            viewer: ViewerType::Image(viewer),
+                        });
+                        if !palette_colors.is_empty() {
+                            let pal_viewer =
+                                PaletteViewer::from_colors(dummy_path.clone(), palette_colors);
+                            let id = self.alloc_id();
+                            self.windows.push(ViewerWindow {
+                                id,
+                                open: true,
+                                viewer: ViewerType::Palette(pal_viewer),
+                            });
+                        }
+                    }
+                    Err(e) => self.error = Some(e),
+                }
+            }
+            PendingOpenKind::Palette => {
+                match PaletteViewer::open_bytes(req.title.clone(), dummy_path, &req.bytes) {
+                    Ok(viewer) => {
+                        let id = self.alloc_id();
+                        self.windows.push(ViewerWindow {
+                            id,
+                            open: true,
+                            viewer: ViewerType::Palette(viewer),
+                        });
+                    }
+                    Err(e) => self.error = Some(e),
+                }
+            }
+        }
+    }
 }
 
 impl eframe::App for AssetViewer {
@@ -163,6 +210,18 @@ impl eframe::App for AssetViewer {
                 .resizable(true)
                 .default_size([400.0, 300.0])
                 .show(&ctx, |ui| win.viewer.ui(ui));
+        }
+
+        // Drain any pending-open requests from archive viewers and spawn
+        // them as new windows.
+        let mut pending: Vec<PendingOpen> = Vec::new();
+        for win in &mut self.windows {
+            if let ViewerType::Archive(v) = &mut win.viewer {
+                pending.extend(v.take_pending_opens());
+            }
+        }
+        for req in pending {
+            self.spawn_from_pending(&ctx, req);
         }
 
         // Remove closed windows.

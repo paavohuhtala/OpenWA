@@ -5,6 +5,7 @@ edition = "2024"
 description = "Cross-platform fundamentals for Worms Armageddon reverse engineering — idiomatic Rust types, pure math, and file-format parsers. No WA.exe memory layouts, no Ghidra addresses, no Windows APIs."
 
 [dependencies]
+byteorder = "1.5"
 
 [dev-dependencies]
 openwa-config = { path = "../openwa-config" }

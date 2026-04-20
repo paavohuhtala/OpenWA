@@ -8,9 +8,11 @@
 //! Modules migrate here from `openwa-game` one at a time. See the root
 //! `CLAUDE.md` for the current charter.
 
+pub mod dir;
 pub mod fixed;
 pub mod img;
 pub mod log;
+pub mod pal;
 pub mod rng;
 pub mod scheme;
 pub mod sprite_lzss;
