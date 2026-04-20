@@ -7,10 +7,10 @@
 use std::collections::VecDeque;
 use std::sync::Mutex;
 
-/// Number of dispatch samples retained. At ~60 Hz render rate that's
-/// roughly five seconds of history — enough to see multi-second
-/// oscillation patterns.
-pub const HISTORY_LEN: usize = 300;
+/// Number of dispatch samples retained. Sized for high-refresh-rate
+/// monitors: at 240 Hz that's ~10 seconds of history; at 60 Hz it's
+/// ~40 seconds. Enough to see multi-second oscillation patterns.
+pub const HISTORY_LEN: usize = 2400;
 
 /// One dispatch_frame's post-exit state snapshot.
 #[derive(Clone, Copy, Debug, Default)]

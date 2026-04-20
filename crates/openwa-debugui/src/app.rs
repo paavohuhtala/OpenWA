@@ -931,9 +931,11 @@ impl DebugApp {
                 ui.separator();
                 ui.label(format!("accum_c = {:>12}", last.accum_c));
             });
-            // Sum path_hits over the last ~60 dispatches so short bursts of
-            // one path (e.g. a single paused frame) stay visible.
-            let window = 60usize.min(samples.len());
+            // Sum path_hits over the last ~600 dispatches so short bursts of
+            // one path (e.g. a single paused frame) stay visible. At 240 Hz
+            // render that's ~2.5 seconds — short enough to follow live edits
+            // but long enough to average out single-frame noise.
+            let window = 600usize.min(samples.len());
             let mut totals = [0u32; 7];
             for s in &samples[samples.len() - window..] {
                 for (t, h) in totals.iter_mut().zip(s.path_hits.iter()) {
