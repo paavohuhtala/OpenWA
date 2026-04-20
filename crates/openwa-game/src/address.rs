@@ -141,8 +141,9 @@ pub mod va {
             /// DDGameWrapper__IsFramePaused (usercall EAX=this, no stack params, plain RET)
             fn/Usercall DDGAMEWRAPPER_IS_FRAME_PAUSED = 0x00534880;
             /// DDGameWrapper__StepRenderScaleFade — smooth DDGame::render_scale toward
-            /// a target (0x10000 or 0) driven by wrapper._field_464's sign, returns
-            /// the post-step _field_464 value. Thiscall, ECX=wrapper, plain RET.
+            /// a target (0x10000 or 0) driven by wrapper.render_scale_fade_request's
+            /// sign. Fully ported in `engine::dispatch_frame::step_render_scale_fade`;
+            /// kept here for stack-trace symbolication.
             fn/Thiscall DDGAMEWRAPPER_STEP_RENDER_SCALE_FADE = 0x005344B0;
             /// DDGameWrapper__SetupFrameParams (usercall EAX=this, 3 stack params, RET 0xC)
             fn/Usercall DDGAMEWRAPPER_SETUP_FRAME_PARAMS = 0x00534CA0;

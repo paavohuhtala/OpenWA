@@ -267,8 +267,11 @@ pub struct DDGameWrapper {
     pub timing_jitter_state: i32,
     /// 0x460: Zeroed
     pub _field_460: i32,
-    /// 0x464: Zeroed
-    pub _field_464: i32,
+    /// 0x464: Render-scale fade request/direction. Tri-state i32 driving
+    /// `step_render_scale_fade`: `< 0` fades `DDGame::render_scale` toward
+    /// `Fixed::ONE` (fade-in), `> 0` fades toward `Fixed::ZERO` (fade-out),
+    /// `0` is idle. Latches back to 0 when the target is reached.
+    pub render_scale_fade_request: i32,
     /// 0x468: Sentinel -1
     pub _field_468: i32,
     /// 0x46C: Sentinel -1

@@ -256,15 +256,37 @@ pub unsafe fn is_frame_paused(wrapper: *mut DDGameWrapper) -> bool {
     unsafe { bridge_is_frame_paused(wrapper) != 0 }
 }
 
-/// Bridge for `DDGameWrapper::StepRenderScaleFade` (0x005344B0), a thiscall
-/// that smooths `DDGame::render_scale` toward a target driven by the sign of
-/// `wrapper._field_464`. Returns the post-step `_field_464` value. Small
-/// enough to port inline in a follow-up.
-unsafe extern "thiscall" fn bridge_step_render_scale_fade(wrapper: *mut DDGameWrapper) -> i32 {
+/// Rust port of `DDGameWrapper::StepRenderScaleFade` (0x005344B0).
+///
+/// Steps `DDGame::render_scale` one frame toward a target selected by the
+/// sign of `wrapper.render_scale_fade_request`:
+/// - `< 0` → fade in (target `Fixed::ONE`), latch cleared to 0 once reached.
+/// - `> 0` / `0` → fade out (target `Fixed::ZERO`), latch cleared once reached.
+///
+/// Step size is `0x0F5C` per frame (~0.06 in 16.16), clamped to `[0, 1.0]`.
+/// Returns the post-update latch value; `0` means the fade has settled.
+unsafe fn step_render_scale_fade(wrapper: *mut DDGameWrapper) -> i32 {
+    const FADE_STEP: Fixed = Fixed::from_raw(0x0F5C);
+
     unsafe {
-        let func: unsafe extern "thiscall" fn(*mut DDGameWrapper) -> i32 =
-            core::mem::transmute(rb(va::DDGAMEWRAPPER_STEP_RENDER_SCALE_FADE) as usize);
-        func(wrapper)
+        let ddgame = (*wrapper).ddgame;
+        let request = (*wrapper).render_scale_fade_request;
+        let target = if request < 0 { Fixed::ONE } else { Fixed::ZERO };
+
+        let mut scale = (*ddgame).render_scale;
+        if scale < target {
+            scale = scale + FADE_STEP;
+        } else if scale > target {
+            scale = scale - FADE_STEP;
+        }
+        scale = scale.clamp(Fixed::ZERO, Fixed::ONE);
+        (*ddgame).render_scale = scale;
+
+        if (request < 0 && scale == Fixed::ONE) || (request > 0 && scale == Fixed::ZERO) {
+            (*wrapper).render_scale_fade_request = 0;
+        }
+
+        (*wrapper).render_scale_fade_request
     }
 }
 
@@ -312,7 +334,7 @@ pub unsafe fn reset_frame_state(wrapper: *mut DDGameWrapper) {
             }
         }
 
-        if bridge_step_render_scale_fade(wrapper) == 0 {
+        if step_render_scale_fade(wrapper) == 0 {
             (*ddgame)._field_77d4 = (*ddgame)._field_77d4.wrapping_add(1);
         }
     }

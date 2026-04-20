@@ -793,7 +793,7 @@ pub unsafe fn init_game_state(wrapper: *mut DDGameWrapper) {
         // ===== Game speed/timing fields =====
         (*wrapper).net_end_countdown = 500;
         (*wrapper).timing_jitter_state = 0;
-        (*wrapper)._field_464 = 0;
+        (*wrapper).render_scale_fade_request = 0;
         (*wrapper)._field_460 = 0;
         (*wrapper)._field_478 = 0;
         (*wrapper)._field_418 = 0;
