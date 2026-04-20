@@ -11,4 +11,5 @@ eframe = { version = "0.28", default-features = false, features = [
     "glow",
     "default_fonts",
 ] }
+egui_plot = "0.28"
 winit = "0.29"

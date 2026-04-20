@@ -1,5 +1,7 @@
 use eframe::egui;
+use egui_plot::{Legend, Line, Plot, PlotPoints};
 use openwa_game::address::va;
+use openwa_game::engine::interp_history;
 use openwa_game::engine::{DDGame, game_session};
 use openwa_game::rebase::rb;
 use openwa_game::registry;
@@ -174,6 +176,8 @@ pub struct DebugApp {
     log_auto_scroll: bool,
     /// Show transient entities (sea bubbles, etc.) in the census.
     show_transient: bool,
+    /// Show the floating interp history window.
+    show_interp_window: bool,
 }
 
 impl Default for DebugApp {
@@ -183,6 +187,7 @@ impl Default for DebugApp {
             nav_history: Vec::new(),
             log_auto_scroll: true,
             show_transient: false,
+            show_interp_window: true,
         }
     }
 }
@@ -238,8 +243,18 @@ impl eframe::App for DebugApp {
             });
             ui.horizontal(|ui| {
                 ui.checkbox(&mut self.show_transient, "Show transient");
+                ui.checkbox(&mut self.show_interp_window, "Interp");
             });
         });
+
+        if self.show_interp_window {
+            let mut open = self.show_interp_window;
+            egui::Window::new("dispatch_frame interp history")
+                .open(&mut open)
+                .default_size([620.0, 360.0])
+                .show(ctx, |ui| self.show_interp(ui));
+            self.show_interp_window = open;
+        }
 
         egui::SidePanel::right("inspector_panel")
             .min_width(260.0)
@@ -863,6 +878,85 @@ impl DebugApp {
                     };
                     ui.colored_label(color, text);
                 }
+            });
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Panel: Interp history (render interpolation debug)
+// ---------------------------------------------------------------------------
+
+impl DebugApp {
+    fn show_interp(&mut self, ui: &mut egui::Ui) {
+        let samples = interp_history::snapshot();
+
+        ui.horizontal(|ui| {
+            ui.label(format!(
+                "samples: {}/{}",
+                samples.len(),
+                interp_history::HISTORY_LEN
+            ));
+            if ui.button("Clear").clicked() {
+                interp_history::clear();
+            }
+            ui.separator();
+            if let Some(last) = samples.last() {
+                let mode = if last.via_original { "vanilla" } else { "rust" };
+                ui.label(format!(
+                    "mode={mode}  fc={}  fdc={}",
+                    last.frame_counter, last.frame_delay_counter
+                ));
+            }
+        });
+        ui.separator();
+
+        if let Some(last) = samples.last() {
+            let ia = last.interp_a_raw as f32 / 65536.0;
+            let ib = last.interp_b_raw as f32 / 65536.0;
+            ui.horizontal(|ui| {
+                ui.label(format!(
+                    "interp_a = 0x{:08X} ({:.4})",
+                    last.interp_a_raw as u32, ia
+                ));
+                ui.separator();
+                ui.label(format!(
+                    "interp_b = 0x{:08X} ({:.4})",
+                    last.interp_b_raw as u32, ib
+                ));
+            });
+            ui.horizontal(|ui| {
+                ui.label(format!("accum_a = {:>12}", last.accum_a));
+                ui.separator();
+                ui.label(format!("accum_b = {:>12}", last.accum_b));
+                ui.separator();
+                ui.label(format!("accum_c = {:>12}", last.accum_c));
+            });
+        } else {
+            ui.label("no samples yet — start a game to populate");
+        }
+
+        ui.separator();
+
+        // Plot: render_interp_a/b as float fractions (raw / 0x10000) against
+        // dispatch_index. Oscillation appears as sawtooth — flat-then-jump in
+        // vanilla, visibly bouncy in rust.
+        let points_a: PlotPoints = samples
+            .iter()
+            .map(|s| [s.dispatch_index as f64, s.interp_a_raw as f64 / 65536.0])
+            .collect();
+        let points_b: PlotPoints = samples
+            .iter()
+            .map(|s| [s.dispatch_index as f64, s.interp_b_raw as f64 / 65536.0])
+            .collect();
+
+        Plot::new("interp_plot")
+            .height(220.0)
+            .legend(Legend::default())
+            .y_axis_label("interp (16.16 as fraction)")
+            .x_axis_label("dispatch #")
+            .show(ui, |plot_ui| {
+                plot_ui.line(Line::new(points_a).name("interp_a"));
+                plot_ui.line(Line::new(points_b).name("interp_b"));
             });
     }
 }

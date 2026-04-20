@@ -5,6 +5,8 @@
 //! advance, dispatches them via `StepFrame`, and handles post-frame timing,
 //! headless log output, and game-end detection.
 
+use core::sync::atomic::{AtomicBool, Ordering};
+
 use openwa_core::fixed::{Fixed, Fixed64};
 use windows_sys::Win32::System::Threading::ExitProcess;
 
@@ -37,6 +39,22 @@ static mut SHOULD_INTERPOLATE_ONLINE_ADDR: u32 = 0;
 static mut SHOULD_INTERPOLATE_OFFLINE_ADDR: u32 = 0;
 static mut SETUP_FRAME_PARAMS_ADDR: u32 = 0;
 static mut PROCESS_NETWORK_FRAME_ADDR: u32 = 0;
+static mut ORIGINAL_DISPATCH_FRAME_ADDR: u32 = 0;
+
+/// When true, `dispatch_frame` bridges straight to vanilla `DDGameWrapper__DispatchFrame`
+/// instead of running the Rust body. Enabled by setting `OPENWA_DISPATCH_ORIGINAL=1`.
+/// Used for A/B comparison of interp/accum state while investigating stutter.
+static USE_ORIGINAL_DISPATCH: AtomicBool = AtomicBool::new(false);
+
+/// Returns true if the OPENWA_DISPATCH_ORIGINAL bridge is active.
+pub fn using_original_dispatch() -> bool {
+    USE_ORIGINAL_DISPATCH.load(Ordering::Relaxed)
+}
+
+/// Set at DLL load based on the `OPENWA_DISPATCH_ORIGINAL` env var.
+pub fn set_use_original_dispatch(enabled: bool) {
+    USE_ORIGINAL_DISPATCH.store(enabled, Ordering::Relaxed);
+}
 
 /// Initialize all bridge addresses. Must be called once at DLL load.
 pub unsafe fn init_dispatch_addrs() {
@@ -50,6 +68,7 @@ pub unsafe fn init_dispatch_addrs() {
         SHOULD_INTERPOLATE_OFFLINE_ADDR = rb(va::DDGAMEWRAPPER_SHOULD_INTERPOLATE_OFFLINE);
         SETUP_FRAME_PARAMS_ADDR = rb(va::DDGAMEWRAPPER_SETUP_FRAME_PARAMS);
         PROCESS_NETWORK_FRAME_ADDR = rb(va::DDGAMEWRAPPER_PROCESS_NETWORK_FRAME);
+        ORIGINAL_DISPATCH_FRAME_ADDR = rb(va::DDGAMEWRAPPER_DISPATCH_FRAME);
         crate::engine::step_frame::init_step_frame_addrs();
         crate::engine::log_sink::init_log_sink_addrs();
     }
@@ -123,6 +142,30 @@ unsafe extern "stdcall" fn bridge_should_interpolate_offline(_this: *mut DDGameW
 }
 
 bridge_eax_this_stdcall!(bridge_setup_frame_params, SETUP_FRAME_PARAMS_ADDR, (i32, i32, i32) -> ());
+
+/// Bridge to vanilla `DDGameWrapper__DispatchFrame` (0x529160).
+/// Pure stdcall: 5 stack params (this, time_lo, time_hi, freq_lo, freq_hi), RET 0x14.
+/// Vanilla loads `this` from `[ESP+0x5C]` inside its prologue; EAX is not used
+/// as an implicit param despite being clobbered by the leading `__aulldiv`.
+///
+/// Since our signature already matches vanilla's stdcall layout byte-for-byte,
+/// a tail-jump is enough: vanilla's `RET 0x14` returns directly to our caller
+/// and cleans all 5 args.
+///
+/// Used when `OPENWA_DISPATCH_ORIGINAL=1` is set.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_vanilla_dispatch_frame(
+    _this: *mut DDGameWrapper,
+    _time_lo: u32,
+    _time_hi: u32,
+    _freq_lo: u32,
+    _freq_hi: u32,
+) {
+    core::arch::naked_asm!(
+        "jmp dword ptr [{addr}]",
+        addr = sym ORIGINAL_DISPATCH_FRAME_ADDR,
+    );
+}
 
 // ESI=this: ESI is LLVM-reserved on x86, so we can't pass it as an asm
 // operand. Naked bridges save/restore ESI manually and re-push params from
@@ -470,6 +513,41 @@ fn time_sub_i32(time: u64, remainder: i32) -> u64 {
     time.wrapping_sub(remainder as i64 as u64)
 }
 
+// ─── Interp-trace logging ──────────────────────────────────────────────────
+//
+// Enable with `OPENWA_INTERP_LOG=1`. Logs a line per dispatch at entry and
+// exit capturing frame_counter, render_interp_a/b, and the three accumulators.
+// Used to A/B compare Rust vs `OPENWA_DISPATCH_ORIGINAL=1` runs.
+
+static INTERP_LOG_ENABLED: AtomicBool = AtomicBool::new(false);
+
+pub fn set_interp_log_enabled(enabled: bool) {
+    INTERP_LOG_ENABLED.store(enabled, Ordering::Relaxed);
+}
+
+#[inline(never)]
+unsafe fn log_interp_snapshot(wrapper: *mut DDGameWrapper, phase: &str, time: u64) {
+    unsafe {
+        let ddgame = (*wrapper).ddgame;
+        let fc = (*ddgame).frame_counter;
+        let ia = (*ddgame).render_interp_a.to_raw();
+        let ib = (*ddgame).render_interp_b.to_raw();
+        let aa = (*wrapper).frame_accum_a;
+        let ab = (*wrapper).frame_accum_b;
+        let ac = (*wrapper).frame_accum_c;
+        let fdc = (*wrapper).frame_delay_counter;
+        let mode = if using_original_dispatch() {
+            "ORIG"
+        } else {
+            "RUST"
+        };
+        let _ = openwa_core::log::log_line(&format!(
+            "[interp] {mode} {phase} fc={fc:>6} ia=0x{ia:08X} ib=0x{ib:08X} \
+             aa={aa:>10} ab={ab:>10} ac={ac:>10} fdc={fdc:>3} t=0x{time:016X}"
+        ));
+    }
+}
+
 // ─── Main dispatch function ────────────────────────────────────────────────
 
 /// Rust port of `DDGameWrapper__DispatchFrame` (0x529160).
@@ -478,9 +556,60 @@ fn time_sub_i32(time: u64, remainder: i32) -> u64 {
 /// dispatches them via `StepFrame`, and handles post-frame timing updates,
 /// headless log output, and game-end detection.
 ///
+/// When `OPENWA_DISPATCH_ORIGINAL=1` is set, bridges straight to vanilla
+/// 0x529160 instead of running the Rust body. When `OPENWA_INTERP_LOG=1`,
+/// writes a before/after snapshot of interp/accum state to the OpenWA log
+/// for A/B diffing.
+///
 /// # Safety
 /// Must be called from within WA.exe with valid pointers.
 pub unsafe fn dispatch_frame(wrapper: *mut DDGameWrapper, time: u64, freq: u64) {
+    unsafe {
+        let log = INTERP_LOG_ENABLED.load(Ordering::Relaxed);
+        if log {
+            log_interp_snapshot(wrapper, "ENTRY", time);
+        }
+
+        if USE_ORIGINAL_DISPATCH.load(Ordering::Relaxed) {
+            bridge_vanilla_dispatch_frame(
+                wrapper,
+                time as u32,
+                (time >> 32) as u32,
+                freq as u32,
+                (freq >> 32) as u32,
+            );
+        } else {
+            dispatch_frame_rust(wrapper, time, freq);
+        }
+
+        if log {
+            log_interp_snapshot(wrapper, "EXIT ", time);
+        }
+
+        // Always record a post-dispatch snapshot for the debug UI. Cheap —
+        // one mutex lock + small struct copy per dispatch.
+        {
+            use crate::engine::interp_history::{InterpSample, push as push_sample};
+            let ddgame = (*wrapper).ddgame;
+            push_sample(InterpSample {
+                dispatch_index: 0, // filled in by push()
+                frame_counter: (*ddgame).frame_counter,
+                interp_a_raw: (*ddgame).render_interp_a.to_raw(),
+                interp_b_raw: (*ddgame).render_interp_b.to_raw(),
+                accum_a: (*wrapper).frame_accum_a,
+                accum_b: (*wrapper).frame_accum_b,
+                accum_c: (*wrapper).frame_accum_c,
+                frame_delay_counter: (*wrapper).frame_delay_counter,
+                via_original: USE_ORIGINAL_DISPATCH.load(Ordering::Relaxed),
+            });
+        }
+    }
+}
+
+/// The Rust-native body of `dispatch_frame`. Kept as a separate function so
+/// the public entry can dispatch between this and the vanilla bridge without
+/// disturbing the many internal return paths.
+unsafe fn dispatch_frame_rust(wrapper: *mut DDGameWrapper, time: u64, freq: u64) {
     unsafe {
         let mut frame_step_counter: u32 = 0;
 
