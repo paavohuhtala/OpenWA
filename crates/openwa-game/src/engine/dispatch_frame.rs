@@ -33,8 +33,8 @@ static mut ADVANCE_FRAME_COUNTERS_ADDR: u32 = 0;
 static mut CALC_TIMING_RATIO_ADDR: u32 = 0;
 static mut INIT_FRAME_DELAY_ADDR: u32 = 0;
 static mut NETWORK_UPDATE_ADDR: u32 = 0;
-static mut SHOULD_INTERPOLATE_ONLINE_ADDR: u32 = 0;
-static mut SHOULD_INTERPOLATE_OFFLINE_ADDR: u32 = 0;
+static mut PEER_INPUT_QUEUE_SCAN_ADDR: u32 = 0;
+static mut SHOULD_INTERPOLATE_OFFLINE_TAIL_ADDR: u32 = 0;
 static mut SETUP_FRAME_PARAMS_ADDR: u32 = 0;
 static mut PROCESS_NETWORK_FRAME_ADDR: u32 = 0;
 
@@ -46,8 +46,9 @@ pub unsafe fn init_dispatch_addrs() {
         CALC_TIMING_RATIO_ADDR = rb(va::DDGAMEWRAPPER_CALC_TIMING_RATIO);
         INIT_FRAME_DELAY_ADDR = rb(va::DDGAMEWRAPPER_INIT_FRAME_DELAY);
         NETWORK_UPDATE_ADDR = rb(va::DDGAMEWRAPPER_NETWORK_UPDATE);
-        SHOULD_INTERPOLATE_ONLINE_ADDR = rb(va::DDGAMEWRAPPER_SHOULD_INTERPOLATE_ONLINE);
-        SHOULD_INTERPOLATE_OFFLINE_ADDR = rb(va::DDGAMEWRAPPER_SHOULD_INTERPOLATE_OFFLINE);
+        PEER_INPUT_QUEUE_SCAN_ADDR = rb(va::DDGAMEWRAPPER_PEER_INPUT_QUEUE_SCAN);
+        SHOULD_INTERPOLATE_OFFLINE_TAIL_ADDR =
+            rb(va::DDGAMEWRAPPER_SHOULD_INTERPOLATE_OFFLINE_TAIL);
         SETUP_FRAME_PARAMS_ADDR = rb(va::DDGAMEWRAPPER_SETUP_FRAME_PARAMS);
         PROCESS_NETWORK_FRAME_ADDR = rb(va::DDGAMEWRAPPER_PROCESS_NETWORK_FRAME);
         crate::engine::step_frame::init_step_frame_addrs();
@@ -93,33 +94,32 @@ macro_rules! bridge_eax_this_stdcall {
 
 bridge_eax_this!(bridge_init_frame_delay, INIT_FRAME_DELAY_ADDR, ());
 
-/// Bridge for `FUN_0052dc70` — usercall ESI=this, no stack params, returns
-/// bool in AL. The online branch of `ShouldInterpolate`; taken when
-/// `DDGame::net_session != null`.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_should_interpolate_online(_this: *mut DDGameWrapper) -> u8 {
-    core::arch::naked_asm!(
-        "push esi",
-        "mov esi, [esp+8]",
-        "call [{addr}]",
-        "pop esi",
-        "ret 4",
-        addr = sym SHOULD_INTERPOLATE_ONLINE_ADDR,
-    );
-}
+// Bridge for `DDGameWrapper__PeerInputQueueScan_Maybe` (0x0052E880).
+// Usercall EAX=this + 1 stdcall stack param (peer_idx), RET 0x4. Returns
+// nonzero in AL if any non-trivial message type is pending in the per-peer
+// input queue.
+//
+// Still bridged — its own callee `NetSession__PeerInputQueuePop_Maybe`
+// (0x0053E300) would require further bridging, and this whole code path is
+// network-only, so headless replay tests don't exercise it.
+bridge_eax_this_stdcall!(
+    bridge_peer_input_queue_scan,
+    PEER_INPUT_QUEUE_SCAN_ADDR,
+    (u32) -> u8
+);
 
-/// Bridge for `FUN_0052f770` — usercall EDI=this, no stack params, returns
-/// bool in AL. The offline branch of `ShouldInterpolate`.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_should_interpolate_offline(_this: *mut DDGameWrapper) -> u8 {
-    core::arch::naked_asm!(
-        "push edi",
-        "mov edi, [esp+8]",
-        "call [{addr}]",
-        "pop edi",
-        "ret 4",
-        addr = sym SHOULD_INTERPOLATE_OFFLINE_ADDR,
-    );
+/// Bridge for `DDGameWrapper__ShouldInterpolate_OfflineTail_Maybe` (0x0052F9C0).
+/// Plain stdcall(wrapper), RET 0x4. Tail callee of the offline
+/// `ShouldInterpolate` branch, still bridged (205 instructions, 51 basic
+/// blocks — too much for an incidental port).
+///
+/// Returns nonzero in AL when the final path decides interp must be suppressed.
+unsafe fn bridge_should_interpolate_offline_tail(wrapper: *mut DDGameWrapper) -> u8 {
+    unsafe {
+        let func: unsafe extern "stdcall" fn(*mut DDGameWrapper) -> u8 =
+            core::mem::transmute(SHOULD_INTERPOLATE_OFFLINE_TAIL_ADDR as usize);
+        func(wrapper)
+    }
 }
 
 bridge_eax_this_stdcall!(bridge_setup_frame_params, SETUP_FRAME_PARAMS_ADDR, (i32, i32, i32) -> ());
@@ -295,11 +295,15 @@ pub unsafe fn should_continue_frame_loop(wrapper: *mut DDGameWrapper, elapsed: u
 ///
 /// Dispatch:
 /// - **Online** (`ddgame.net_session != null`): delegates to
-///   `bridge_should_interpolate_online` (usercall ESI=this).
+///   `should_interpolate_online` (pure Rust; the inner peer-input-queue
+///   scan `DDGameWrapper__PeerInputQueueScan_Maybe` (0x0052E880) remains
+///   bridged).
 /// - **Offline**: short-circuits to `true` (interpolate) when `_field_434 != 0`,
 ///   `g_GameSession.flag_5c != 0`, or all three of `replay_flag_b != 0`,
 ///   `_field_410 != 0`, `game_info.input_state_f918 == 0` hold. Otherwise
-///   delegates to `bridge_should_interpolate_offline` (usercall EDI=this).
+///   delegates to `should_interpolate_offline` (pure Rust; the deep tail
+///   `DDGameWrapper__ShouldInterpolate_OfflineTail_Maybe` (0x0052F9C0)
+///   remains bridged).
 pub unsafe fn should_interpolate(wrapper: *mut DDGameWrapper) -> bool {
     unsafe {
         let phase = (*wrapper).game_end_phase;
@@ -312,7 +316,7 @@ pub unsafe fn should_interpolate(wrapper: *mut DDGameWrapper) -> bool {
 
         let ddgame = (*wrapper).ddgame;
         if !(*ddgame).net_session.is_null() {
-            return bridge_should_interpolate_online(wrapper) == 0;
+            return should_interpolate_online(wrapper);
         }
 
         if (*wrapper)._field_434 != 0 {
@@ -329,7 +333,176 @@ pub unsafe fn should_interpolate(wrapper: *mut DDGameWrapper) -> bool {
             return true;
         }
 
-        bridge_should_interpolate_offline(wrapper) == 0
+        should_interpolate_offline(wrapper)
+    }
+}
+
+/// Rust port of `DDGameWrapper__ShouldInterpolate_OfflineCheck` (0x0052F770)
+/// — offline branch of `ShouldInterpolate`, only caller is the outer
+/// `should_interpolate`. The native WA semantics (return nonzero in AL to
+/// SUPPRESS interpolation) are inverted here so this function follows the
+/// same convention as `should_interpolate`: `true` = compute interp.
+///
+/// Gates, in order:
+/// 1. `ddgame.fast_forward_request != 0` → suppress.
+/// 2. `game_info.replay_config_flag == 0` → suppress.
+/// 3. `team_arena.active_team_count != 0` AND
+///    `ddgame._field_7dbc[team_arena.last_active_alliance] == 0` → suppress.
+/// 4. `wrapper._field_49c <= 0xC` (version gate) → suppress.
+/// 5. Per-team sweep over `game_info.num_teams`: if any team has both its
+///    `_field_7dbc[i]` flag set and its `team_starting_marker[i] == 0`,
+///    compute interp (early return).
+/// 6. Fall through to `DDGameWrapper__ShouldInterpolate_OfflineTail_Maybe`
+///    (0x0052F9C0, still bridged).
+///
+/// Note: step 3 uses byte-level pointer arithmetic from the `ddgame` base to
+/// match the original's unchecked read — `last_active_alliance` can be `-1`
+/// (sentinel), which would read just before `_field_7dbc` (land in the last
+/// byte of `_field_7d88`). Safe Rust array indexing would panic instead.
+unsafe fn should_interpolate_offline(wrapper: *mut DDGameWrapper) -> bool {
+    unsafe {
+        let ddgame = (*wrapper).ddgame;
+
+        if (*ddgame).fast_forward_request != 0 {
+            return false;
+        }
+
+        let gi = (*ddgame).game_info;
+        let replay_cfg = (*gi).replay_config_flag;
+        if replay_cfg == 0 {
+            return false;
+        }
+
+        let arena = &(*ddgame).team_arena;
+        let alliance_gate_open = arena.active_team_count == 0 || {
+            let flag_ptr =
+                (ddgame as *const u8).offset(0x7dbc + arena.last_active_alliance as isize);
+            *flag_ptr != 0
+        };
+        if !alliance_gate_open {
+            return false;
+        }
+
+        if (*wrapper)._field_49c <= 0xc {
+            return false;
+        }
+
+        let team_count = (*gi).num_teams;
+        for i in 0..team_count as usize {
+            if (*ddgame)._field_7dbc[i] != 0 && (*wrapper).team_starting_marker[i] == 0 {
+                return true;
+            }
+        }
+
+        bridge_should_interpolate_offline_tail(wrapper) == 0
+    }
+}
+
+// ─── Online ShouldInterpolate branch ───────────────────────────────────────
+// `DDGameWrapper__ShouldInterpolate_OnlineCheck` (0x0052DC70) + its
+// three gate helpers (`_OnlineGate_ScoringB/ScoringA/StartingMarker_Maybe`
+// at 0x0052D830 / 0x0052D920 / 0x0052DB60).
+//
+// Only reached when `ddgame.net_session != null`. Offline headless replay
+// tests do NOT exercise this code path — it's a mechanical disasm
+// transcription with no runtime verification. Every register convention
+// and field offset below is pinned to the ASM at the matching VA; if any
+// hooks into this path seem off, re-check the disassembly against the
+// corresponding function before assuming the Rust is wrong.
+//
+// Shared iteration shape for D830/D920: "count = (self_peer_idx == 0) ?
+// peer_count : 1". Semantics suspected to be "server iterates all peers;
+// client only checks peer 0 (the server)" — unconfirmed.
+
+/// Port of `DDGameWrapper__ShouldInterpolate_OnlineGate_ScoringB_Maybe`
+/// (0x0052D830). Usercall EAX=this, plain RET. Returns `false` if any
+/// scoring peer (per `team_scoring_b[i] > 1`) has `peer_score(i) > 70`,
+/// else `true`.
+unsafe fn online_gate_d830(wrapper: *mut DDGameWrapper) -> bool {
+    unsafe {
+        let net = (*(*wrapper).ddgame).net_session;
+        let count = if (*net).self_peer_idx == 0 {
+            (*net).peer_count
+        } else {
+            1
+        };
+        for i in 0..count {
+            if (*wrapper).team_scoring_b[i as usize] > 1 {
+                let score = ((*(*net).vtable).peer_score)(net, i as u32);
+                if score > 0x46 {
+                    return false;
+                }
+            }
+        }
+        true
+    }
+}
+
+/// Port of `DDGameWrapper__ShouldInterpolate_OnlineGate_ScoringA_Maybe`
+/// (0x0052D920). Usercall EAX=this, plain RET. Returns `false` if any peer
+/// i has `peer_pending_maybe(i) != 0` AND `team_scoring_a[i] > 0`, else
+/// `true`.
+unsafe fn online_gate_d920(wrapper: *mut DDGameWrapper) -> bool {
+    unsafe {
+        let net = (*(*wrapper).ddgame).net_session;
+        let count = if (*net).self_peer_idx == 0 {
+            (*net).peer_count
+        } else {
+            1
+        };
+        for i in 0..count {
+            let pending = ((*(*net).vtable).peer_pending_maybe)(net, i as u32);
+            if pending != 0 && (*wrapper).team_scoring_a[i as usize] > 0 {
+                return false;
+            }
+        }
+        true
+    }
+}
+
+/// Port of `DDGameWrapper__ShouldInterpolate_OnlineGate_StartingMarker_Maybe`
+/// (0x0052DB60). Usercall EAX=this, plain RET. Returns `true` iff every
+/// entry `team_starting_marker[0..net.peer_count]` is non-zero.
+unsafe fn online_gate_db60(wrapper: *mut DDGameWrapper) -> bool {
+    unsafe {
+        let net = (*(*wrapper).ddgame).net_session;
+        let count = (*net).peer_count;
+        let mut zero_count = 0;
+        for i in 0..count as usize {
+            if (*wrapper).team_starting_marker[i] == 0 {
+                zero_count += 1;
+            }
+        }
+        zero_count == 0
+    }
+}
+
+/// Rust port of `DDGameWrapper__ShouldInterpolate_OnlineCheck` (0x0052DC70)
+/// — online branch of `ShouldInterpolate`, only caller is the outer
+/// `should_interpolate`. WA semantics inverted for readability: returns
+/// `true` if interpolation should be computed.
+///
+/// Dispatch:
+/// 1. All three gates D830/D920/DB60 must pass; otherwise interp is computed
+///    (early `return true`).
+/// 2. If `ddgame.team_arena.enemy_team_count == 0` → suppress (WA returned 1).
+/// 3. Otherwise delegate to `DDGameWrapper__PeerInputQueueScan_Maybe`
+///    (0x0052E880, still bridged) passing `team_arena.last_active_alliance`
+///    as peer_idx; that function returns nonzero iff any non-skipped
+///    message is pending, which WA propagates as "suppress interp".
+unsafe fn should_interpolate_online(wrapper: *mut DDGameWrapper) -> bool {
+    unsafe {
+        if !online_gate_d830(wrapper) || !online_gate_d920(wrapper) || !online_gate_db60(wrapper) {
+            return true;
+        }
+
+        let arena = &(*(*wrapper).ddgame).team_arena;
+        if arena.enemy_team_count == 0 {
+            return false;
+        }
+
+        let peer_idx = arena.last_active_alliance as u32;
+        bridge_peer_input_queue_scan(wrapper, peer_idx) == 0
     }
 }
 
@@ -455,9 +628,139 @@ unsafe fn calc_timing_ratio(wrapper: *mut DDGameWrapper, ratio: i32) {
     }
 }
 
+/// Rust port of `FixedSlewToward` (0x00534BC0).
+///
+/// Slews `*state` toward `target` with step size
+/// `max(min_step, |target - *state| * rate)`, clamped to the gap so it
+/// never overshoots. `rate` is a Fixed fraction: `ONE` closes the full
+/// gap in one call, `HALF` closes half, `ZERO` falls back to `min_step`.
+///
+/// `force_set` overwrites `*state` with `target` before the slew, which
+/// then degenerates to a snap. Returns `true` iff `*state == target` on
+/// entry.
+#[allow(dead_code)]
+pub(crate) unsafe fn fixed_slew_toward(
+    state: *mut Fixed,
+    target: Fixed,
+    min_step: Fixed,
+    rate: Fixed,
+    force_set: bool,
+) -> bool {
+    unsafe {
+        if force_set {
+            *state = target;
+        }
+        let prev = *state;
+        let already_settled = prev == target;
+        let delta = target - prev;
+        let step = delta.mul_raw(rate).abs().max(min_step);
+
+        if delta.abs() > step {
+            let signed_step = if target < prev { -step } else { step };
+            *state = prev + signed_step;
+        } else {
+            *state = target;
+        }
+
+        already_settled
+    }
+}
+
+#[cfg(test)]
+mod fixed_slew_tests {
+    use super::fixed_slew_toward;
+    use openwa_core::fixed::Fixed;
+
+    #[test]
+    fn already_settled_returns_true_and_leaves_state() {
+        let mut s = Fixed::from_raw(100);
+        let already = unsafe {
+            fixed_slew_toward(
+                &mut s,
+                Fixed::from_raw(100),
+                Fixed::from_raw(1),
+                Fixed::ONE,
+                false,
+            )
+        };
+        assert!(already);
+        assert_eq!(s, Fixed::from_raw(100));
+    }
+
+    #[test]
+    fn full_rate_snaps_to_target_in_one_call() {
+        // rate = ONE (1.0) → step = |delta|, then clamped to |delta| → snap.
+        let mut s = Fixed::ZERO;
+        let already = unsafe {
+            fixed_slew_toward(&mut s, Fixed::from_raw(100), Fixed::ZERO, Fixed::ONE, false)
+        };
+        assert!(!already);
+        assert_eq!(s, Fixed::from_raw(100));
+    }
+
+    #[test]
+    fn half_rate_takes_multiple_steps() {
+        // rate = HALF (0.5). On each call, step = |delta|/2.
+        // delta=100 → step=50 → new=50; delta=50 → step=25 → new=75; ...
+        let mut s = Fixed::ZERO;
+        let target = Fixed::from_raw(100);
+        unsafe {
+            let settled1 = fixed_slew_toward(&mut s, target, Fixed::ZERO, Fixed::HALF, false);
+            assert!(!settled1);
+            assert_eq!(s, Fixed::from_raw(50));
+            let settled2 = fixed_slew_toward(&mut s, target, Fixed::ZERO, Fixed::HALF, false);
+            assert!(!settled2);
+            assert_eq!(s, Fixed::from_raw(75));
+        }
+    }
+
+    #[test]
+    fn min_step_floor_wins_when_rate_too_small() {
+        // rate = ZERO → scaled = 0, so step falls back to min_step.
+        let mut s = Fixed::ZERO;
+        unsafe {
+            fixed_slew_toward(
+                &mut s,
+                Fixed::from_raw(100),
+                Fixed::from_raw(5),
+                Fixed::ZERO,
+                false,
+            );
+        }
+        assert_eq!(s, Fixed::from_raw(5));
+    }
+
+    #[test]
+    fn backward_slew_moves_down() {
+        let mut s = Fixed::from_raw(100);
+        unsafe {
+            fixed_slew_toward(&mut s, Fixed::ZERO, Fixed::from_raw(10), Fixed::ZERO, false);
+        }
+        assert_eq!(s, Fixed::from_raw(90));
+    }
+
+    #[test]
+    fn force_set_snaps_and_reports_settled() {
+        let mut s = Fixed::from_raw(42);
+        let settled = unsafe {
+            fixed_slew_toward(
+                &mut s,
+                Fixed::from_raw(100),
+                Fixed::from_raw(5),
+                Fixed::HALF,
+                true,
+            )
+        };
+        // force_set overwrites first, so prev == target on entry to the
+        // "already settled" check → returns true, state == target.
+        assert!(settled);
+        assert_eq!(s, Fixed::from_raw(100));
+    }
+}
+
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
-/// Signed 32-bit division matching WA's FUN_005d8786.
+/// Signed 32-bit division matching WA's `Crt__SignedDivMod_Maybe` (0x005D8786).
 /// Returns (quotient, remainder) using only the low 32 bits of the dividend.
 /// The original uses x86 IDIV which produces both values.
 #[inline(always)]
@@ -466,7 +769,8 @@ fn wa_div(dividend_lo: i32, divisor: i32) -> (i32, i32) {
 }
 
 /// Subtract a sign-extended i32 remainder from a 64-bit timestamp.
-/// Matches the CDQ + SUB + SBB pattern used after FUN_005d8786 in DispatchFrame.
+/// Matches the CDQ + SUB + SBB pattern used after `Crt__SignedDivMod_Maybe`
+/// (0x005D8786) in DispatchFrame.
 #[inline(always)]
 fn time_sub_i32(time: u64, remainder: i32) -> u64 {
     time.wrapping_sub(remainder as i64 as u64)

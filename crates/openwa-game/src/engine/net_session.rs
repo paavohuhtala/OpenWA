@@ -8,7 +8,7 @@ use crate::FieldRegistry;
 
 /// Partial vtable for `NetSession`. Observed slots are the per-peer query
 /// API used during end-of-round peer synchronisation.
-#[openwa_game::vtable(size = 8, class = "NetSession")]
+#[openwa_game::vtable(size = 10, class = "NetSession")]
 pub struct NetSessionVTable {
     /// slot 4 (+0x10): per-peer score / remaining-timeout. Caller takes
     /// `max()` over all active peers to decide whether to keep waiting.
@@ -20,6 +20,13 @@ pub struct NetSessionVTable {
     /// slot 6 (+0x18): is peer `idx` still active/participating?
     #[slot(6)]
     pub peer_active: fn(this: *mut NetSession, idx: u32) -> u32,
+    /// slot 9 (+0x24): per-peer "pending / not-yet-ready" query used by the
+    /// online `ShouldInterpolate` branch (`FUN_0052D920`). Caller treats a
+    /// non-zero return combined with `team_scoring_a[idx] > 0` as "this peer
+    /// still hasn't caught up" and suppresses interp. Exact semantics
+    /// (vs. slot 6's `peer_active`) are unconfirmed — name is a guess.
+    #[slot(9)]
+    pub peer_pending_maybe: fn(this: *mut NetSession, idx: u32) -> u32,
 }
 
 /// Partial layout of the object at `DDGame::network_ecx`.

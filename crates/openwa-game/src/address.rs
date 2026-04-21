@@ -138,27 +138,18 @@ pub mod va {
             fn/Usercall DDGAMEWRAPPER_INIT_FRAME_DELAY = 0x0052CAF0;
             /// DDGameWrapper__NetworkUpdate (usercall EAX=this, no stack params, plain RET)
             fn/Usercall DDGAMEWRAPPER_NETWORK_UPDATE = 0x0052DB90;
-            /// DDGameWrapper__ShouldInterpolate (0x00534880, previously guessed
-            /// as "IsFramePaused" — that name had incorrect semantics).
-            /// Usercall EAX=this, no stack params, plain RET. Returns nonzero in
-            /// AL when the main-loop should take the `frame_accum_a` branch and
-            /// render interpolation should be suppressed; zero when interp is
-            /// computed. Our Rust port `engine::dispatch_frame::should_interpolate`
-            /// inverts the return for readability. Kept here for stack-trace
-            /// symbolication.
-            fn/Usercall DDGAMEWRAPPER_SHOULD_INTERPOLATE = 0x00534880;
-            /// Online branch of `ShouldInterpolate` (FUN_0052DC70).
-            /// Usercall ESI=this, no stack params, plain RET. Still bridged; called
-            /// when `DDGame::net_session != null`.
-            fn/Usercall DDGAMEWRAPPER_SHOULD_INTERPOLATE_ONLINE = 0x0052DC70;
-            /// Offline branch of `ShouldInterpolate` (FUN_0052F770).
-            /// Usercall EDI=this, no stack params, plain RET. Still bridged.
-            fn/Usercall DDGAMEWRAPPER_SHOULD_INTERPOLATE_OFFLINE = 0x0052F770;
-            /// DDGameWrapper__StepRenderScaleFade — smooth DDGame::render_scale toward
-            /// a target (0x10000 or 0) driven by wrapper.render_scale_fade_request's
-            /// sign. Fully ported in `engine::dispatch_frame::step_render_scale_fade`;
-            /// kept here for stack-trace symbolication.
-            fn/Thiscall DDGAMEWRAPPER_STEP_RENDER_SCALE_FADE = 0x005344B0;
+            /// Helper called from the online `ShouldInterpolate` path
+            /// (FUN_0052E880). Scans the per-peer input-message queue for any
+            /// "gameplay-relevant" message type. Usercall EAX=this +
+            /// 1 stdcall stack param (peer_idx), RET 0x4. Still bridged;
+            /// its own callee (`FUN_0053e300` input-queue-pop helper) is
+            /// also online-only and would require additional bridging.
+            fn/Usercall DDGAMEWRAPPER_PEER_INPUT_QUEUE_SCAN = 0x0052E880;
+            /// Tail callee of `ShouldInterpolate_OfflineCheck` (FUN_0052F9C0).
+            /// Stdcall(wrapper), RET 0x4. Large (~205 instructions, 51 basic
+            /// blocks); still bridged as a plain stdcall call from the
+            /// offline-branch Rust port.
+            fn/Stdcall DDGAMEWRAPPER_SHOULD_INTERPOLATE_OFFLINE_TAIL = 0x0052F9C0;
             /// DDGameWrapper__SetupFrameParams (usercall EAX=this, 3 stack params, RET 0xC)
             fn/Usercall DDGAMEWRAPPER_SETUP_FRAME_PARAMS = 0x00534CA0;
             /// DDGameWrapper__ProcessNetworkFrame (usercall EAX=this, 4 stack params, RET 0x10)
