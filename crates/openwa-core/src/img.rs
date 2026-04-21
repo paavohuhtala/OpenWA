@@ -60,7 +60,7 @@
 //! `(width / 4) * 4` bytes per row — trailing `width % 4` pixels are
 //! left as-is (matches the original's DWORD-granularity loop).
 
-use crate::sprite_lzss::sprite_lzss_decode_slice;
+use crate::lzss_decode::lzss_decode_slice;
 
 /// IMG file magic: `"IMG\x1A"` as little-endian `u32`.
 pub const IMG_MAGIC: u32 = 0x1A474D49;
@@ -240,7 +240,7 @@ pub fn img_decode(
         // applies `lut` inline, so no separate remap pass.
         let remaining = (data_size as usize).saturating_sub(cur.pos());
         let src = cur.take(remaining)?;
-        sprite_lzss_decode_slice(&mut pixels, src, &lut);
+        lzss_decode_slice(&mut pixels, src, &lut);
     } else {
         // Raw rows. Packed tight on disk, copied into stride-aligned buffer.
         let bytes_per_row = (width * bpp as u32).div_ceil(8);

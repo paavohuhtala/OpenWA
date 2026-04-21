@@ -357,7 +357,7 @@ use super::line_draw;
 use crate::bitgrid::{BitGrid, DisplayBitGrid};
 use crate::render::palette::PaletteContext;
 use crate::render::sprite::{Sprite, SpriteBank, SpriteVtable, frame_cache::frame_cache_allocate};
-use openwa_core::sprite_lzss::sprite_lzss_decode;
+use openwa_core::lzss_decode::lzss_decode;
 
 /// Port of DisplayGfx::GetDimensions (slot 1, 0x56A460).
 pub unsafe extern "thiscall" fn get_dimensions(
@@ -1037,7 +1037,7 @@ unsafe fn sprite_get_frame_for_blit(
                 let src = (*sprite)
                     .bitmap_data_ptr
                     .add((*entry).compressed_offset as usize);
-                sprite_lzss_decode(decoded, src, (*sprite).palette_data_ptr);
+                lzss_decode(decoded, src, (*sprite).palette_data_ptr);
             }
 
             let pixel_offset = (bitmap_offset & 0xFF_FFFF) as usize;

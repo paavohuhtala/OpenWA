@@ -7,11 +7,13 @@ mod image_viewer;
 mod palette_grid;
 mod palette_viewer;
 mod recent;
+mod sprite_viewer;
 mod viewer;
 
 use archive_viewer::{ArchiveViewer, PendingOpen, PendingOpenKind};
 use image_viewer::ImageViewer;
 use palette_viewer::PaletteViewer;
+use sprite_viewer::SpriteViewer;
 
 use crate::viewer::Viewer;
 
@@ -27,6 +29,7 @@ fn main() {
 enum ViewerType {
     Image(ImageViewer),
     Palette(PaletteViewer),
+    Sprite(SpriteViewer),
     Archive(ArchiveViewer),
 }
 
@@ -35,6 +38,7 @@ impl Viewer for ViewerType {
         match self {
             ViewerType::Image(v) => v.title(),
             ViewerType::Palette(v) => v.title(),
+            ViewerType::Sprite(v) => v.title(),
             ViewerType::Archive(v) => v.title(),
         }
     }
@@ -43,6 +47,7 @@ impl Viewer for ViewerType {
         match self {
             ViewerType::Image(v) => v.ui(ui),
             ViewerType::Palette(v) => v.ui(ui),
+            ViewerType::Sprite(v) => v.ui(ui),
             ViewerType::Archive(v) => v.ui(ui),
         }
     }
@@ -79,9 +84,10 @@ impl AssetViewer {
 
     fn open_file(&mut self, ctx: &egui::Context) {
         let Some(path) = rfd::FileDialog::new()
-            .add_filter("All supported", &["img", "pal", "dir"])
+            .add_filter("All supported", &["img", "pal", "spr", "dir"])
             .add_filter("IMG images", &["img"])
             .add_filter("PAL palettes", &["pal"])
+            .add_filter("SPR sprites", &["spr"])
             .add_filter("DIR archives", &["dir"])
             .add_filter("All files", &["*"])
             .pick_file()
@@ -115,6 +121,14 @@ impl AssetViewer {
                     id,
                     open: true,
                     viewer: ViewerType::Palette(viewer),
+                });
+            }),
+            "spr" => SpriteViewer::open(ctx, path.to_path_buf()).map(|viewer| {
+                let id = self.alloc_id();
+                self.windows.push(ViewerWindow {
+                    id,
+                    open: true,
+                    viewer: ViewerType::Sprite(viewer),
                 });
             }),
             "dir" => ArchiveViewer::open(path.to_path_buf()).map(|viewer| {
@@ -161,6 +175,19 @@ impl AssetViewer {
                             id,
                             open: true,
                             viewer: ViewerType::Palette(viewer),
+                        });
+                    }
+                    Err(e) => self.error = Some(e),
+                }
+            }
+            PendingOpenKind::Sprite => {
+                match SpriteViewer::open_bytes(ctx, req.title.clone(), dummy_path, &req.bytes) {
+                    Ok(viewer) => {
+                        let id = self.alloc_id();
+                        self.windows.push(ViewerWindow {
+                            id,
+                            open: true,
+                            viewer: ViewerType::Sprite(viewer),
                         });
                     }
                     Err(e) => self.error = Some(e),

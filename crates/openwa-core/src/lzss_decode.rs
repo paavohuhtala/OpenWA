@@ -1,7 +1,7 @@
 //! LZSS-style decompressor with palette LUT remapping for sprite subframes.
 //!
-//! Pure-Rust port of `Sprite_LZSS_Decode` (0x5B29E0). Used by
-//! [`Sprite__GetFrameForBlit`](super::sprite) and `SpriteBank__GetFrameForBlit`
+//! Pure-Rust port of `LZSS_Decode` (0x5B29E0). Used by
+//! [`_GetFrameForBlit`](super::sprite) and `SpriteBank__GetFrameForBlit`
 //! to lazily decompress sprite subframe pixel data into a `FrameCache`
 //! payload.
 //!
@@ -42,7 +42,7 @@
 //! `Sprite::palette_data_ptr` (`+0x68`); for sprite banks it's the inline
 //! `SpriteBank::palette_lut` (`+0x30`). Entry 0 is always `0` (transparent
 //! index); entries `1..=palette_count` are mapped runtime palette indices.
-//! See `feedback_layer_sprite_palette.md` for the off-by-one rationale.
+//! See `feedback_layer_palette.md` for the off-by-one rationale.
 //!
 //! ## Buffer requirements
 //!
@@ -69,63 +69,17 @@
 /// - `lut` must point at a 256-byte palette translation table.
 /// - Back-references at `dst - distance - 1` (short) or `dst - distance`
 ///   (long) must lie within the already-decoded portion of `dst`.
-pub unsafe fn sprite_lzss_decode(mut dst: *mut u8, mut src: *const u8, lut: *const u8) {
+pub unsafe fn lzss_decode(dst: *mut u8, src: *const u8, lut: *const u8) {
     unsafe {
-        loop {
-            // ── Literal run ──────────────────────────────────────────────
-            let b: u8 = loop {
-                let b = *src;
-                if b & 0x80 != 0 {
-                    break b;
-                }
-                *dst = *lut.add(b as usize);
-                src = src.add(1);
-                dst = dst.add(1);
-            };
-
-            // ── Control word ─────────────────────────────────────────────
-            // CX = src[0]<<8 | src[1]; distance = CX & 0x7FF.
-            let distance = (((b as u32) << 8) | (*src.add(1) as u32)) & 0x7FF;
-            let nibble = ((b as u32) >> 3) & 0xF;
-
-            if nibble != 0 {
-                // ── Short back-ref ───────────────────────────────────────
-                // Asm uses ECX = -distance - 1 for the entire run; copies
-                // happen as `*EDI = [ECX + EDI]` followed by `INC EDI`,
-                // which means each successive write reads one position later.
-                // The total length is `nibble + 2` bytes (range 3..=17).
-                //
-                // The original asm structure does 3 unconditional copies and
-                // then `(nibble - 1)` more in a loop. Equivalent to a flat
-                // loop of `nibble + 2` iterations.
-                let copy_offset = (distance as usize).wrapping_add(1);
-                let total = (nibble as usize) + 2;
-                for _ in 0..total {
-                    *dst = *dst.sub(copy_offset);
-                    dst = dst.add(1);
-                }
-                src = src.add(2);
-            } else {
-                // ── Terminator or long back-ref ──────────────────────────
-                if distance == 0 {
-                    return;
-                }
-                // Long back-ref uses ECX = -distance (NOT decremented — the
-                // asm's `JZ extended` jumps OVER the `DEC ECX`). Length is
-                // `src[2] + 18` (range 18..=273).
-                let len = (*src.add(2) as usize) + 18;
-                let copy_offset = distance as usize;
-                for _ in 0..len {
-                    *dst = *dst.sub(copy_offset);
-                    dst = dst.add(1);
-                }
-                src = src.add(3);
-            }
-        }
+        let (src_len, dst_len) = scan_stream_lengths(src);
+        let dst_slice = core::slice::from_raw_parts_mut(dst, dst_len);
+        let src_slice = core::slice::from_raw_parts(src, src_len);
+        let lut_ref = &*(lut as *const [u8; 256]);
+        lzss_decode_slice(dst_slice, src_slice, lut_ref);
     }
 }
 
-/// Safe slice-based wrapper around [`sprite_lzss_decode`].
+/// Safe slice-based wrapper around [`lzss_decode`].
 ///
 /// Caller sizes `dst` to the expected decompressed payload length. `src`
 /// must hold a well-formed LZSS stream (the decoder reads until it sees
@@ -133,17 +87,124 @@ pub unsafe fn sprite_lzss_decode(mut dst: *mut u8, mut src: *const u8, lut: *con
 /// `lut` is a 256-byte palette translation table.
 ///
 /// Back-reference bounds are still the caller's responsibility (see the
-/// `sprite_lzss_decode` safety section) — this wrapper does not add
+/// `lzss_decode` safety section) — this wrapper does not add
 /// per-byte checks, it only localizes the raw-pointer call.
-pub fn sprite_lzss_decode_slice(dst: &mut [u8], src: &[u8], lut: &[u8; 256]) {
+pub fn lzss_decode_slice(dst: &mut [u8], src: &[u8], lut: &[u8; 256]) {
+    let mut src_pos: usize = 0;
+    let mut dst_pos: usize = 0;
+
+    loop {
+        let b: u8 = loop {
+            let b = src
+                .get(src_pos)
+                .copied()
+                .expect("lzss_decode_slice: source stream ended before control byte");
+            if b & 0x80 != 0 {
+                break b;
+            }
+
+            let out = dst
+                .get_mut(dst_pos)
+                .expect("lzss_decode_slice: output overflow in literal run");
+            *out = lut[b as usize];
+            src_pos += 1;
+            dst_pos += 1;
+        };
+
+        let b1 = *src
+            .get(src_pos + 1)
+            .expect("lzss_decode_slice: truncated control word");
+        let distance = (((b as u32) << 8) | (b1 as u32)) & 0x7FF;
+        let nibble = ((b as u32) >> 3) & 0xF;
+
+        if nibble != 0 {
+            let copy_offset = (distance as usize) + 1;
+            let total = (nibble as usize) + 2;
+            for _ in 0..total {
+                assert!(
+                    copy_offset <= dst_pos,
+                    "lzss_decode_slice: short back-ref before output start"
+                );
+                let v = dst[dst_pos - copy_offset];
+                let out = dst
+                    .get_mut(dst_pos)
+                    .expect("lzss_decode_slice: output overflow in short back-ref");
+                *out = v;
+                dst_pos += 1;
+            }
+            src_pos += 2;
+        } else {
+            if distance == 0 {
+                return;
+            }
+            let len = (*src
+                .get(src_pos + 2)
+                .expect("lzss_decode_slice: truncated long back-ref")
+                as usize)
+                + 18;
+            let copy_offset = distance as usize;
+            for _ in 0..len {
+                assert!(
+                    copy_offset <= dst_pos,
+                    "lzss_decode_slice: long back-ref before output start"
+                );
+                let v = dst[dst_pos - copy_offset];
+                let out = dst
+                    .get_mut(dst_pos)
+                    .expect("lzss_decode_slice: output overflow in long back-ref");
+                *out = v;
+                dst_pos += 1;
+            }
+            src_pos += 3;
+        }
+    }
+}
+
+/// Scan the stream to compute the exact number of source bytes consumed and
+/// destination bytes produced, stopping at the terminator control word.
+///
+/// # Safety
+///
+/// `src` must point at a valid, readable LZSS stream terminated by a
+/// zero-length zero-distance control word.
+unsafe fn scan_stream_lengths(mut src: *const u8) -> (usize, usize) {
     unsafe {
-        sprite_lzss_decode(dst.as_mut_ptr(), src.as_ptr(), lut.as_ptr());
+        let mut src_len: usize = 0;
+        let mut dst_len: usize = 0;
+
+        loop {
+            let b: u8 = loop {
+                let b = *src;
+                if b & 0x80 != 0 {
+                    break b;
+                }
+                dst_len += 1;
+                src = src.add(1);
+                src_len += 1;
+            };
+
+            let distance = (((b as u32) << 8) | (*src.add(1) as u32)) & 0x7FF;
+            let nibble = ((b as u32) >> 3) & 0xF;
+
+            if nibble != 0 {
+                dst_len += (nibble as usize) + 2;
+                src = src.add(2);
+                src_len += 2;
+            } else if distance == 0 {
+                src_len += 2;
+                return (src_len, dst_len);
+            } else {
+                dst_len += (*src.add(2) as usize) + 18;
+                src = src.add(3);
+                src_len += 3;
+            }
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{sprite_lzss_decode, sprite_lzss_decode_slice};
+    use super::{lzss_decode, lzss_decode_slice};
 
     /// Identity LUT — `lut[i] == i`.
     fn id_lut() -> [u8; 256] {
@@ -160,7 +221,7 @@ mod tests {
         let lut = id_lut();
         let src: Vec<u8> = vec![0x01, 0x02, 0x03, 0x80, 0x00];
         let mut dst = vec![0u8; 3];
-        sprite_lzss_decode_slice(&mut dst, &src, &lut);
+        lzss_decode_slice(&mut dst, &src, &lut);
         assert_eq!(dst, vec![0x01, 0x02, 0x03]);
     }
 
@@ -178,7 +239,7 @@ mod tests {
 
         let mut dst = vec![0u8; 16];
         unsafe {
-            sprite_lzss_decode(dst.as_mut_ptr(), src.as_ptr(), lut.as_ptr());
+            lzss_decode(dst.as_mut_ptr(), src.as_ptr(), lut.as_ptr());
         }
         let expected: Vec<u8> = (1..=16u8).collect();
         assert_eq!(dst, expected);
@@ -194,7 +255,7 @@ mod tests {
         let src: Vec<u8> = vec![0x05, 0x10, 0x80, 0x00];
         let mut dst = vec![0u8; 2];
         unsafe {
-            sprite_lzss_decode(dst.as_mut_ptr(), src.as_ptr(), lut.as_ptr());
+            lzss_decode(dst.as_mut_ptr(), src.as_ptr(), lut.as_ptr());
         }
         assert_eq!(dst, vec![0xAA, 0xBB]);
     }
@@ -214,7 +275,7 @@ mod tests {
         let src: Vec<u8> = vec![b'A', b'B', b'C', 0x88, 0x02, 0x80, 0x00];
         let mut dst = vec![0u8; 6];
         unsafe {
-            sprite_lzss_decode(dst.as_mut_ptr(), src.as_ptr(), lut.as_ptr());
+            lzss_decode(dst.as_mut_ptr(), src.as_ptr(), lut.as_ptr());
         }
         assert_eq!(&dst, b"ABCABC");
     }
@@ -236,7 +297,7 @@ mod tests {
 
         let mut dst = vec![0u8; 34];
         unsafe {
-            sprite_lzss_decode(dst.as_mut_ptr(), src.as_ptr(), lut.as_ptr());
+            lzss_decode(dst.as_mut_ptr(), src.as_ptr(), lut.as_ptr());
         }
         let expected: Vec<u8> = (1..=17u8).chain(1..=17u8).collect();
         assert_eq!(dst, expected);
@@ -262,7 +323,7 @@ mod tests {
 
         let mut dst = vec![0u8; 38];
         unsafe {
-            sprite_lzss_decode(dst.as_mut_ptr(), src.as_ptr(), lut.as_ptr());
+            lzss_decode(dst.as_mut_ptr(), src.as_ptr(), lut.as_ptr());
         }
         let expected: Vec<u8> = (1..=20u8).chain(1..=18u8).collect();
         assert_eq!(dst, expected);
@@ -296,7 +357,7 @@ mod tests {
         ];
         let mut dst = vec![0u8; 4];
         unsafe {
-            sprite_lzss_decode(dst.as_mut_ptr(), src.as_ptr(), lut.as_ptr());
+            lzss_decode(dst.as_mut_ptr(), src.as_ptr(), lut.as_ptr());
         }
         assert_eq!(dst, vec![42, 42, 42, 42]);
     }

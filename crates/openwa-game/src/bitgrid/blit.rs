@@ -4,8 +4,8 @@
 //! `PixelGrid`/`BlitSource` abstractions in `render::display::sprite_blit`.
 
 use crate::bitgrid::DisplayBitGrid;
-use crate::render::display::line_draw::PixelGridMut;
-use crate::render::display::sprite_blit::{
+use openwa_core::pixel_grid::PixelGridMut;
+use openwa_core::sprite::{
     BlitBlend, BlitOrientation, BlitSource, blit_sprite_rect, blit_stippled, blit_tiled,
 };
 
@@ -114,7 +114,7 @@ pub unsafe fn blit_impl(
             let src_aligned = (adj_src_x & 7) == 0;
 
             if left_aligned && right_aligned && src_aligned && color_table.is_null() && flags < 4 {
-                crate::render::display::sprite_blit::blit_1bit_aligned(
+                openwa_core::sprite::blit_1bit_aligned(
                     dst_data,
                     (*dst).row_stride,
                     src_data,
@@ -139,7 +139,7 @@ pub unsafe fn blit_impl(
         };
 
         // Generic per-pixel fallback — handles all remaining cases
-        crate::render::display::sprite_blit::blit_generic_perpixel(
+        openwa_core::sprite::blit_generic_perpixel(
             dst_data,
             (*dst).row_stride,
             dst_cpp,
