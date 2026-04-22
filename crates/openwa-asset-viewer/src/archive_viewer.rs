@@ -129,24 +129,21 @@ impl Viewer for ArchiveViewer {
                         ui.monospace(format!("{}", entry.data_size));
                     });
                     row.col(|ui| {
-                        if let Some(kind) = known_kind(&entry.name) {
-                            if ui.button("Open").clicked() {
-                                let start = entry.data_offset as usize;
-                                let end = start + entry.data_size as usize;
-                                if let Some(slice) = self.data.get(start..end) {
-                                    self.pending_opens.push(PendingOpen {
-                                        title: format!(
-                                            "{}: {}",
-                                            self.path
-                                                .file_name()
-                                                .unwrap_or_default()
-                                                .to_string_lossy(),
-                                            entry.name,
-                                        ),
-                                        bytes: slice.to_vec(),
-                                        kind,
-                                    });
-                                }
+                        if let Some(kind) = known_kind(&entry.name)
+                            && ui.button("Open").clicked()
+                        {
+                            let start = entry.data_offset as usize;
+                            let end = start + entry.data_size as usize;
+                            if let Some(slice) = self.data.get(start..end) {
+                                self.pending_opens.push(PendingOpen {
+                                    title: format!(
+                                        "{}: {}",
+                                        self.path.file_name().unwrap_or_default().to_string_lossy(),
+                                        entry.name,
+                                    ),
+                                    bytes: slice.to_vec(),
+                                    kind,
+                                });
                             }
                         }
                     });
