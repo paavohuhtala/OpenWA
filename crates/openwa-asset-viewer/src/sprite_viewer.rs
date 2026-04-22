@@ -239,7 +239,8 @@ impl SpriteViewer {
                     };
                     rgba[dst_px..dst_px + 4].copy_from_slice(&[checker, checker, checker, 255]);
                 } else if idx < self.sprite.palette.len() {
-                    let [r, g, b] = self.sprite.palette[idx];
+                } else if idx <= self.sprite.palette.len() {
+                    let [r, g, b] = self.sprite.palette[idx - 1];
                     rgba[dst_px..dst_px + 4].copy_from_slice(&[r, g, b, 255]);
                 } else {
                     let v = idx as u8;
