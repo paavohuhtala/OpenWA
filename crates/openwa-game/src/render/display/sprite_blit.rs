@@ -1425,16 +1425,16 @@ mod tests {
         let mut pixels: Vec<u8> = frame.buffer.to_vec();
         let mut palette = palette;
 
-        if let Some(ti) = transparent_idx {
-            if ti != 0 {
-                // Swap palette entries 0 and ti, remap all pixels
-                palette.swap(0, ti as usize);
-                for p in &mut pixels {
-                    if *p == 0 {
-                        *p = ti;
-                    } else if *p == ti {
-                        *p = 0;
-                    }
+        if let Some(ti) = transparent_idx
+            && ti != 0
+        {
+            // Swap palette entries 0 and ti, remap all pixels
+            palette.swap(0, ti as usize);
+            for p in &mut pixels {
+                if *p == 0 {
+                    *p = ti;
+                } else if *p == ti {
+                    *p = 0;
                 }
             }
         }

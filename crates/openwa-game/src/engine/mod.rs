@@ -5,6 +5,7 @@ pub mod ddgame_constructor;
 pub mod ddgame_load_fonts;
 pub mod ddgame_wrapper;
 pub mod dispatch_frame;
+pub mod fixed_slew;
 pub mod game_info;
 pub mod game_session;
 pub mod game_state;

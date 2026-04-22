@@ -539,7 +539,7 @@ mod tests {
         buf[0x12..0x14].copy_from_slice(&4u16.to_le_bytes());
         buf.extend_from_slice(&2u16.to_le_bytes());
         // Hmm wait — height overlaps aligned_offset. Rebuild cleanly.
-        let mut buf = vec![0u8; 0x14];
+        let mut buf = [0u8; 0x14];
         buf[0x0A..0x0C].copy_from_slice(&2u16.to_le_bytes());
         buf[0x0C..0x0F].copy_from_slice(&[10, 0, 0]);
         buf[0x0F..0x12].copy_from_slice(&[20, 0, 0]);
