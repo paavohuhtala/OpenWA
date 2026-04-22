@@ -25,6 +25,7 @@ pub struct PendingOpen {
 pub enum PendingOpenKind {
     Image,
     Palette,
+    Sprite,
 }
 
 pub struct ArchiveViewer {
@@ -74,6 +75,8 @@ fn known_kind(name: &str) -> Option<PendingOpenKind> {
         Some(PendingOpenKind::Image)
     } else if lower.ends_with(".pal") {
         Some(PendingOpenKind::Palette)
+    } else if lower.ends_with(".spr") {
+        Some(PendingOpenKind::Sprite)
     } else {
         None
     }

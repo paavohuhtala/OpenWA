@@ -4,8 +4,7 @@
 //! This module provides both a clean Rust parser (`ParsedSprite`) for tooling
 //! and shared metadata extraction (`parse_spr_header`) used by hook
 //! replacements in openwa-dll.
-
-use crate::render::SpriteFrame;
+pub use super::types::SpriteFrame;
 
 /// Errors from `.spr` parsing.
 #[derive(Debug)]
