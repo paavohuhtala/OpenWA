@@ -1,7 +1,7 @@
 //! LZSS-style decompressor with palette LUT remapping for sprite subframes.
 //!
 //! Pure-Rust port of `LZSS_Decode` (0x5B29E0). Used by
-//! [`_GetFrameForBlit`](super::sprite) and `SpriteBank__GetFrameForBlit`
+//! [`Sprite__GetFrameForBlit`](super::sprite) and `SpriteBank__GetFrameForBlit`
 //! to lazily decompress sprite subframe pixel data into a `FrameCache`
 //! payload.
 //!
