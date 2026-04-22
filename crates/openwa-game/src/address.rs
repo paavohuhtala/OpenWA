@@ -130,8 +130,6 @@ pub mod va {
             fn/Usercall DDGAMEWRAPPER_RESET_FRAME_STATE = 0x0052A910;
             /// DDGameWrapper__UpdateFrameTiming (usercall EAX=this, 4 stack params, RET 0x10)
             fn/Usercall DDGAMEWRAPPER_UPDATE_FRAME_TIMING = 0x0052A9C0;
-            /// DDGameWrapper__AdvanceFrameCounters (usercall EAX=this, 5 stack params, RET 0x14)
-            fn/Usercall DDGAMEWRAPPER_ADVANCE_FRAME_COUNTERS = 0x0052AAA0;
             /// DDGameWrapper__CalcTimingRatio (usercall EAX=this, 1 stack param, RET 0x4)
             fn/Usercall DDGAMEWRAPPER_CALC_TIMING_RATIO = 0x0052ABF0;
             /// DDGameWrapper__InitFrameDelay (usercall EAX=this, no stack params, plain RET)

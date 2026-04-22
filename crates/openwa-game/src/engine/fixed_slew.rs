@@ -10,7 +10,6 @@ use openwa_core::fixed::Fixed;
 /// `force_set` overwrites `*state` with `target` before the slew, which
 /// then degenerates to a snap. Returns `true` iff `*state == target` on
 /// entry.
-#[allow(dead_code)]
 pub(crate) unsafe fn fixed_slew_toward(
     state: *mut Fixed,
     target: Fixed,

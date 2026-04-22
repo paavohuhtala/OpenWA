@@ -101,6 +101,16 @@ impl Fixed {
 
     /// Half a pixel (0.5 in Fixed).
     pub const HALF: Self = Self(0x8000);
+
+    #[inline]
+    pub const fn wrapping_add(self, rhs: Self) -> Self {
+        Self(self.0.wrapping_add(rhs.0))
+    }
+
+    #[inline]
+    pub const fn wrapping_sub(self, rhs: Self) -> Self {
+        Self(self.0.wrapping_sub(rhs.0))
+    }
 }
 
 impl Add for Fixed {

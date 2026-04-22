@@ -379,8 +379,12 @@ pub struct DDGame {
     pub map_boundary_height: u32,
     /// 0x77D4: Unknown (zeroed by InitTurnState).
     pub _field_77d4: u32,
-    /// 0x77D8: Unknown (zeroed by InitTurnState).
-    pub _field_77d8: u32,
+    /// 0x77D8: Fixed accumulator of scaled-frame time — companion to the
+    /// integer-frame counter at `_field_77d4`, with sub-frame precision.
+    /// [`crate::engine::dispatch_frame::advance_frame_counters`] adds
+    /// `advance_ratio` each frame (= 1.0 when one frame of wall-clock time
+    /// has elapsed at the target game speed). Zeroed by InitTurnState.
+    pub scaled_frame_accum: Fixed,
     /// 0x77DC: Unknown (zeroed by InitTurnState).
     pub _field_77dc: u32,
     /// 0x77E0: Unknown (zeroed by InitTurnState).

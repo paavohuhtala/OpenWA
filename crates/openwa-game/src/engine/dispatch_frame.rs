@@ -14,6 +14,7 @@ use crate::audio::dssound::DSSound;
 use crate::engine::clock::read_current_time;
 use crate::engine::ddgame::DDGame;
 use crate::engine::ddgame_wrapper::DDGameWrapper;
+use crate::engine::fixed_slew::fixed_slew_toward;
 use crate::engine::game_session::get_game_session;
 use crate::engine::game_state;
 use crate::input::keyboard::DDKeyboard;
@@ -29,7 +30,6 @@ use crate::task::{CTask, CTaskTurnGame};
 // the remaining stdcall params.
 
 static mut UPDATE_FRAME_TIMING_ADDR: u32 = 0;
-static mut ADVANCE_FRAME_COUNTERS_ADDR: u32 = 0;
 static mut CALC_TIMING_RATIO_ADDR: u32 = 0;
 static mut INIT_FRAME_DELAY_ADDR: u32 = 0;
 static mut NETWORK_UPDATE_ADDR: u32 = 0;
@@ -42,7 +42,6 @@ static mut PROCESS_NETWORK_FRAME_ADDR: u32 = 0;
 pub unsafe fn init_dispatch_addrs() {
     unsafe {
         UPDATE_FRAME_TIMING_ADDR = rb(va::DDGAMEWRAPPER_UPDATE_FRAME_TIMING);
-        ADVANCE_FRAME_COUNTERS_ADDR = rb(va::DDGAMEWRAPPER_ADVANCE_FRAME_COUNTERS);
         CALC_TIMING_RATIO_ADDR = rb(va::DDGAMEWRAPPER_CALC_TIMING_RATIO);
         INIT_FRAME_DELAY_ADDR = rb(va::DDGAMEWRAPPER_INIT_FRAME_DELAY);
         NETWORK_UPDATE_ADDR = rb(va::DDGAMEWRAPPER_NETWORK_UPDATE);
@@ -122,7 +121,7 @@ unsafe fn bridge_should_interpolate_offline_tail(wrapper: *mut DDGameWrapper) ->
     }
 }
 
-bridge_eax_this_stdcall!(bridge_setup_frame_params, SETUP_FRAME_PARAMS_ADDR, (i32, i32, i32) -> ());
+bridge_eax_this_stdcall!(bridge_setup_frame_params, SETUP_FRAME_PARAMS_ADDR, (Fixed, Fixed, Fixed) -> ());
 
 // ESI=this: ESI is LLVM-reserved on x86, so we can't pass it as an asm
 // operand. Naked bridges save/restore ESI manually and re-push params from
@@ -141,32 +140,6 @@ unsafe fn bridge_network_update(wrapper: *mut DDGameWrapper) {
             out("eax") _, out("ecx") _, out("edx") _,
         );
     }
-}
-
-/// Bridge for DDGameWrapper__AdvanceFrameCounters (0x52AAA0).
-/// Usercall: ESI=this, 5 stdcall params, RET 0x14.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_advance_frame_counters(
-    _this: *mut DDGameWrapper,
-    _p1: i32,
-    _p2: i32,
-    _p3: i32,
-    _p4: i32,
-    _p5: u32,
-) {
-    core::arch::naked_asm!(
-        "push esi",
-        "mov esi, [esp+8]",
-        "push dword ptr [esp+0x1C]",
-        "push dword ptr [esp+0x1C]",
-        "push dword ptr [esp+0x1C]",
-        "push dword ptr [esp+0x1C]",
-        "push dword ptr [esp+0x1C]",
-        "call [{addr}]",
-        "pop esi",
-        "ret 24",
-        addr = sym ADVANCE_FRAME_COUNTERS_ADDR,
-    );
 }
 
 /// Bridge for DDGameWrapper__UpdateFrameTiming (0x52A9C0).
@@ -506,6 +479,103 @@ unsafe fn should_interpolate_online(wrapper: *mut DDGameWrapper) -> bool {
     }
 }
 
+/// Rust port of `DDGameWrapper__AdvanceFrameCounters` (0x0052AAA0).
+///
+/// Steps three Fixed slew states toward targets derived from wrapper flags,
+/// then bumps `ddgame.scaled_frame_accum` by `advance_ratio` and decays the
+/// `_field_450` countdown by the same amount (clamped at 0).
+///
+/// Slews (all via [`fixed_slew_toward`]):
+/// - **Slot A** — state `_field_3fc`, target `Fixed::ONE` if `_field_40c != 0`
+///   else `Fixed::ZERO`. `min_step = min_step_a`, `rate = rate_a`. The
+///   `force_set` flag is driven by `game_info._field_f398` (sound-suppression
+///   latch). When the slew reports already-settled, sets
+///   `wrapper.game_mode_flag = 1`.
+/// - **Slot B** — state `_field_454`, target `Fixed::ONE` when
+///   `_field_40c == 0 && _field_414 == 0 && _field_450 != 0`, else `Fixed::ZERO`.
+///   `min_step = min_step_b`, `rate = rate_b`, no force_set. Note this uses
+///   the *updated* `_field_450` after the countdown above — intentional per the
+///   original ordering.
+/// - **Slot C** — state `_field_27c`, target `Fixed::ONE` when
+///   `_field_278 >= 0x65`, else `Fixed::ZERO`. Same `min_step_b` / `rate_b`.
+///
+/// Note: ASM at `0x0052AAA0` loads EDI from `[ESI+0x40c]` on entry purely to
+/// compute slot A's target; the register is overwritten again at `0x0052AB40`
+/// (MOV EDI,[ESP+0x1C]) before FixedSlewToward would see it, so this port
+/// has no implicit-EDI concern.
+unsafe fn advance_frame_counters(
+    wrapper: *mut DDGameWrapper,
+    min_step_a: Fixed,
+    rate_a: Fixed,
+    min_step_b: Fixed,
+    rate_b: Fixed,
+    advance_ratio: Fixed,
+) {
+    unsafe {
+        let ddgame = (*wrapper).ddgame;
+        let gi = &*(*ddgame).game_info;
+
+        // Slot A slew.
+        let target_a = if (*wrapper)._field_40c != 0 {
+            Fixed::ONE
+        } else {
+            Fixed::ZERO
+        };
+        if fixed_slew_toward(
+            &mut (*wrapper)._field_3fc,
+            target_a,
+            min_step_a,
+            rate_a,
+            gi._field_f398 != 0,
+        ) {
+            (*wrapper).game_mode_flag = 1;
+        }
+
+        // Running frame counter + countdown.
+        (*ddgame).scaled_frame_accum = (*ddgame).scaled_frame_accum.wrapping_add(advance_ratio);
+
+        if (*wrapper)._field_450 != Fixed::ZERO {
+            let next = (*wrapper)._field_450.wrapping_sub(advance_ratio);
+            (*wrapper)._field_450 = if next < Fixed::ZERO {
+                Fixed::ZERO
+            } else {
+                next
+            };
+        }
+
+        // Slot B slew — uses the *updated* _field_450.
+        let target_b = if (*wrapper)._field_40c == 0
+            && (*wrapper)._field_414 == 0
+            && (*wrapper)._field_450 != Fixed::ZERO
+        {
+            Fixed::ONE
+        } else {
+            Fixed::ZERO
+        };
+        let _ = fixed_slew_toward(
+            &mut (*wrapper)._field_454,
+            target_b,
+            min_step_b,
+            rate_b,
+            false,
+        );
+
+        // Slot C slew.
+        let target_c = if (*wrapper)._field_278 >= 0x65 {
+            Fixed::ONE
+        } else {
+            Fixed::ZERO
+        };
+        let _ = fixed_slew_toward(
+            &mut (*wrapper)._field_27c,
+            target_c,
+            min_step_b,
+            rate_b,
+            false,
+        );
+    }
+}
+
 /// Rust port of `DDGameWrapper::StepRenderScaleFade` (0x005344B0).
 ///
 /// Steps `DDGame::render_scale` one frame toward a target selected by the
@@ -790,16 +860,16 @@ pub unsafe fn dispatch_frame(wrapper: *mut DDGameWrapper, time: u64, freq: u64) 
             let freq_f = freq as f64;
 
             // fps_scaled ≈ fps_product / 2 (before clamping).
-            let mut fps_scaled = (elapsed_f * 3.75 * 65536.0 / freq_f) as i32;
-            if fps_scaled > 0x1333 && used_normal_path {
-                fps_scaled = 0x1333;
+            let mut fps_scaled = Fixed::from_raw((elapsed_f * 3.75 * 65536.0 / freq_f) as i32);
+            if fps_scaled > Fixed::from_raw(0x1333) && used_normal_path {
+                fps_scaled = Fixed::from_raw(0x1333);
             }
-            let mut fps_product = (elapsed_f * 7.5 * 65536.0 / freq_f) as i32;
-            if fps_product > 0x2666 && used_normal_path {
-                fps_product = 0x2666;
+            let mut fps_product = Fixed::from_raw((elapsed_f * 7.5 * 65536.0 / freq_f) as i32);
+            if fps_product > Fixed::from_raw(0x2666) && used_normal_path {
+                fps_product = Fixed::from_raw(0x2666);
             }
-            let fixed_render_scale =
-                0x10000 - (65536.0 * (elapsed_f * RENDER_DECAY / freq_f).exp()) as i32;
+            let fixed_render_scale = Fixed::ONE
+                - Fixed::from_raw((65536.0 * (elapsed_f * RENDER_DECAY / freq_f).exp()) as i32);
 
             // Minimize request: keyboard slot 3 polls the "minimize" action.
             let keyboard: *mut DDKeyboard = (*ddgame).keyboard;
@@ -816,11 +886,12 @@ pub unsafe fn dispatch_frame(wrapper: *mut DDGameWrapper, time: u64, freq: u64) 
             let frame_fixed = elapsed.wrapping_mul(0x10000);
             if used_normal_path && frame_duration < frame_interval {
                 let fd50_f = (frame_duration as f64) * 50.0;
-                let new_fps_product = (65536.0 * elapsed_f * 7.5 / fd50_f) as i32;
-                let new_render_scale =
-                    0x10000 - (65536.0 * (elapsed_f * RENDER_DECAY / fd50_f).exp()) as i32;
-                let advance_ratio = frame_fixed.checked_div(frame_duration).unwrap_or(0) as u32;
-                bridge_advance_frame_counters(
+                let new_fps_product = Fixed::from_raw((65536.0 * elapsed_f * 7.5 / fd50_f) as i32);
+                let new_render_scale = Fixed::ONE
+                    - Fixed::from_raw((65536.0 * (elapsed_f * RENDER_DECAY / fd50_f).exp()) as i32);
+                let advance_ratio =
+                    Fixed::from_raw(frame_fixed.checked_div(frame_duration).unwrap_or(0) as i32);
+                advance_frame_counters(
                     wrapper,
                     fps_scaled,
                     fixed_render_scale,
@@ -829,8 +900,9 @@ pub unsafe fn dispatch_frame(wrapper: *mut DDGameWrapper, time: u64, freq: u64) 
                     advance_ratio,
                 );
             } else {
-                let advance_ratio = frame_fixed.checked_div(frame_interval).unwrap_or(0) as u32;
-                bridge_advance_frame_counters(
+                let advance_ratio =
+                    Fixed::from_raw(frame_fixed.checked_div(frame_interval).unwrap_or(0) as i32);
+                advance_frame_counters(
                     wrapper,
                     fps_scaled,
                     fixed_render_scale,

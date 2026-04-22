@@ -1,3 +1,5 @@
+use openwa_core::fixed::Fixed;
+
 use crate::FieldRegistry;
 use crate::asset::gfx_dir::GfxDir;
 use crate::audio::dssound::DSSound;
@@ -182,9 +184,12 @@ pub struct DDGameWrapper {
     // ===== 0x274-0x487: Game state fields =====
     /// 0x274: Initial state checksum (computed at end of InitGameState)
     pub initial_checksum: u32,
-    /// 0x278-0x27F: Zeroed
+    /// 0x278: Threshold value read by [`advance_frame_counters`] — slot C
+    /// slews `_field_27c` toward `Fixed::ONE` when this exceeds 100, else
+    /// toward `Fixed::ZERO`.
     pub _field_278: u32,
-    pub _field_27c: u32,
+    /// 0x27C: Slew state C (Fixed 16.16). See [`advance_frame_counters`].
+    pub _field_27c: Fixed,
     /// 0x280-0x29C: Team render order indices (resolution-dependent, 8 entries)
     pub team_render_indices: [i32; 8],
     /// 0x2A0: Worm selection count
@@ -221,8 +226,8 @@ pub struct DDGameWrapper {
     pub _field_3f4: i32,
     /// 0x3F8: Sentinel -1
     pub _field_3f8: i32,
-    /// 0x3FC: Zeroed
-    pub _field_3fc: i32,
+    /// 0x3FC: Slew state A (Fixed 16.16). See [`advance_frame_counters`].
+    pub _field_3fc: Fixed,
     /// 0x400: Game turn timer (max_team_render_index << 5)
     pub turn_timer_max: i32,
     /// 0x404: Zeroed
@@ -259,9 +264,13 @@ pub struct DDGameWrapper {
     pub _field_448: i32,
     /// 0x44C: Zeroed
     pub _field_44c: i32,
-    /// 0x450-0x45B: Turn state fields (written by init_turn_state)
-    pub _field_450: u32,
-    pub _field_454: u32,
+    /// 0x450-0x45B: Turn state fields (written by init_turn_state).
+    ///
+    /// `_field_450` is a Fixed countdown that [`advance_frame_counters`]
+    /// decays by `advance_ratio` each frame (clamped at zero); `_field_454`
+    /// is slew state B driven by the same fn.
+    pub _field_450: Fixed,
+    pub _field_454: Fixed,
     pub _field_458: u32,
     /// 0x45C: Timing jitter state — values 0/1/2, used by DispatchFrame pause detection
     pub timing_jitter_state: i32,

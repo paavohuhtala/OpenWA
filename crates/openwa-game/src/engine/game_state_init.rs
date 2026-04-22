@@ -418,8 +418,8 @@ pub unsafe fn init_turn_state(wrapper: *mut DDGameWrapper) {
         let game_info = (*ddgame).game_info;
 
         (*wrapper)._field_458 = 0xFFFFFFFF;
-        (*wrapper)._field_450 = 0;
-        (*wrapper)._field_454 = 0;
+        (*wrapper)._field_450 = Fixed::ZERO;
+        (*wrapper)._field_454 = Fixed::ZERO;
 
         // DDGame+0x72E0/E4 = -1, DDGame+0x72E8 = 0
         (*ddgame)._unknown_72e0 = 0xFFFFFFFF;
@@ -474,7 +474,7 @@ pub unsafe fn init_turn_state(wrapper: *mut DDGameWrapper) {
         (*ddgame)._field_7d84 = 0;
         (*ddgame)._field_7e4c = 0;
         (*ddgame)._field_77d4 = 0;
-        (*ddgame)._field_77d8 = 0;
+        (*ddgame).scaled_frame_accum = Fixed::ZERO;
 
         // Per-team loop
         let num_teams = (*game_info).num_teams as i32;
@@ -735,8 +735,8 @@ pub unsafe fn init_game_state(wrapper: *mut DDGameWrapper) {
         (*wrapper).sync_checksum_a = 0;
         (*wrapper).checksum_valid = 0;
         (*wrapper)._field_278 = 0;
-        (*wrapper)._field_27c = 0;
-        (*wrapper)._field_3fc = 0;
+        (*wrapper)._field_27c = Fixed::ZERO;
+        (*wrapper)._field_3fc = Fixed::ZERO;
         (*wrapper)._field_3f4 = -1;
         (*wrapper)._field_3f8 = -1;
 
