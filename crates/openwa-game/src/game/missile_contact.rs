@@ -14,11 +14,13 @@
 //!
 //! Bridges out to WA.exe for: `CGameTask::vt8`, `PlayImpactSound_Maybe`,
 //! `CTaskMissile::HomingTargetCheck_Maybe`, `CTaskMissile::ImpactSpecialFx_Maybe`,
-//! `CreateExplosion` + its damage-jitter helper `FUN_00547CB0`, and the slot-14
-//! terminator on self. RNG advances use the Rust `DDGame::advance_rng` method.
+//! the `CreateExplosion` damage-jitter helper `FUN_00547CB0`, and the slot-14
+//! terminator on self. `CreateExplosion` itself is the pure-Rust
+//! `game::create_explosion`. RNG advances use the Rust `DDGame::advance_rng`.
 
 use openwa_core::fixed::Fixed;
 
+use crate::game::create_explosion::create_explosion;
 use crate::rebase::rb;
 use crate::task::CTask;
 use crate::task::missile::{CTaskMissile, MissileType};
@@ -30,7 +32,6 @@ const VA_HOMING_TARGET_CHECK: u32 = 0x005018F0;
 const VA_CGAME_TASK_VT8: u32 = 0x004FFED0;
 const VA_IMPACT_SPECIAL_FX: u32 = 0x00509BA0;
 const VA_EXPLOSION_DAMAGE_JITTER: u32 = 0x00547CB0;
-const VA_CREATE_EXPLOSION: u32 = 0x00548080;
 
 /// CGameTask subclass-data offsets (inside `CGameTask::subclass_data[0..0x54]`)
 /// that CTaskMissile::OnContact touches directly. These live in the base class's
@@ -208,12 +209,11 @@ pub unsafe extern "thiscall" fn missile_on_contact(
             create_explosion(
                 pos_x,
                 pos_y,
-                this as *mut c_void,
+                this as *mut CTask,
                 (*this).explosion_id,
                 damage,
                 0,
                 (*this).spawn_params.owner_id,
-                rb(VA_CREATE_EXPLOSION),
             );
         }
 
@@ -354,42 +354,6 @@ unsafe extern "C" fn explosion_damage_jitter(
         "mov ebx, [esp+24]", // addr
         "push [esp+20]",     // pct
         "push [esp+20]",     // this (shifted +4)
-        "call ebx",
-        "pop esi",
-        "pop ebx",
-        "ret",
-    );
-}
-
-/// Bridge: `CreateExplosion` (0x00548080) — usercall:
-/// EAX = pos_x, ECX = pos_y, ESI = this, stack = [explosion_id, damage, 0, owner_id].
-/// In the WA caller, the last two stack args are leftovers from the preceding
-/// `FUN_00547CB0` call (which cleans only 8 of its 16 pushed bytes); we pass
-/// them explicitly since our bridges don't share stack state.
-/// Function is `RET 0x10` (stdcall cleans 4 args).
-#[unsafe(naked)]
-unsafe extern "C" fn create_explosion(
-    _pos_x: Fixed,
-    _pos_y: Fixed,
-    _this: *mut c_void,
-    _explosion_id: u32,
-    _damage: u32,
-    _zero: u32,
-    _owner_id: u32,
-    _addr: u32,
-) {
-    core::arch::naked_asm!(
-        "push ebx",
-        "push esi",
-        // Stack: 2 saves(8) + ret(4) = 12 to first arg
-        "mov eax, [esp+12]", // pos_x
-        "mov ecx, [esp+16]", // pos_y
-        "mov esi, [esp+20]", // this
-        "mov ebx, [esp+40]", // addr
-        "push [esp+36]",     // owner_id
-        "push [esp+36]",     // zero (shifted +4)
-        "push [esp+36]",     // damage (shifted +8)
-        "push [esp+36]",     // explosion_id (shifted +12)
         "call ebx",
         "pop esi",
         "pop ebx",

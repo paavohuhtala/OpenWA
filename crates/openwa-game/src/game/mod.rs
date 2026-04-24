@@ -1,4 +1,5 @@
 pub mod class_type;
+pub mod create_explosion;
 pub mod frontend;
 pub mod message;
 pub mod missile_contact;

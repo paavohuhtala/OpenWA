@@ -1,5 +1,6 @@
 mod bitgrid;
 mod config;
+mod create_explosion;
 mod ddgame_init;
 pub(crate) mod debug_utils;
 pub(crate) mod file_isolation;
@@ -68,6 +69,7 @@ pub fn install_all() -> Result<(), String> {
     string_resource::install()?;
     task::install()?;
     weapon_release::install()?;
+    create_explosion::install()?;
     main_loop::install()?;
     Ok(())
 }
