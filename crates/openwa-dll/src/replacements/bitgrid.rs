@@ -146,14 +146,14 @@ pub unsafe fn capture_line_snapshots() {
 
         // Polygon fill tests — call WA's polygon pipeline directly
         let clip_x: unsafe extern "thiscall" fn(*mut DisplayBitGrid, *const i32, i32) -> i32 =
-            core::mem::transmute(rb(0x004F_7BA0) as usize);
+            core::mem::transmute(rb(0x004F7BA0) as usize);
         let clip_y: unsafe extern "thiscall" fn(*mut DisplayBitGrid, i32) -> i32 =
-            core::mem::transmute(rb(0x004F_7D00) as usize);
+            core::mem::transmute(rb(0x004F7D00) as usize);
         let rasterize: unsafe extern "stdcall" fn(*mut DisplayBitGrid, i32, u32) =
-            core::mem::transmute(rb(0x004F_7E90) as usize);
+            core::mem::transmute(rb(0x004F7E90) as usize);
 
         // Helper: write vertices to the global vertex buffer (0x8B1370) and call pipeline
-        let vert_buf = rb(0x008B_1370) as *mut i32;
+        let vert_buf = rb(0x008B1370) as *mut i32;
 
         macro_rules! polygon_snap {
             ($name:expr_2021, $verts:expr_2021, $color:expr_2021) => {{
@@ -372,17 +372,17 @@ pub unsafe fn capture_blit_snapshots() {
             #[allow(clippy::type_complexity)]
             let test_cases: &[(&str, i32, i32, i32, i32, i32, i32, u32, u8)] = &[
                 // Basic orientations (blend mode 0 = direct copy)
-                ("identity", 16, 16, sw, sh, 0, 0, 0x0000_0000, 0),
-                ("mirror_x", 16, 16, sw, sh, 0, 0, 0x0001_0000, 0),
-                ("mirror_y", 16, 16, sw, sh, 0, 0, 0x0002_0000, 0),
-                ("mirror_xy", 16, 16, sw, sh, 0, 0, 0x0003_0000, 0),
-                ("rotate90", 16, 16, sh, sw, 0, 0, 0x0004_0000, 0),
+                ("identity", 16, 16, sw, sh, 0, 0, 0x00000000, 0),
+                ("mirror_x", 16, 16, sw, sh, 0, 0, 0x00010000, 0),
+                ("mirror_y", 16, 16, sw, sh, 0, 0, 0x00020000, 0),
+                ("mirror_xy", 16, 16, sw, sh, 0, 0, 0x00030000, 0),
+                ("rotate90", 16, 16, sh, sw, 0, 0, 0x00040000, 0),
                 // Clipped (negative offset, only bottom-right visible)
-                ("clipped", -16, -16, sw, sh, 0, 0, 0x0000_0000, 0),
+                ("clipped", -16, -16, sw, sh, 0, 0, 0x00000000, 0),
                 // Color-table blend (mode 1) with identity table — tests transparency
-                ("colortable", 16, 16, sw, sh, 0, 0, 0x0000_0001, 77),
+                ("colortable", 16, 16, sw, sh, 0, 0, 0x00000001, 77),
                 // Color-table + mirror_x
-                ("colortable_mx", 16, 16, sw, sh, 0, 0, 0x0001_0001, 77),
+                ("colortable_mx", 16, 16, sw, sh, 0, 0, 0x00010001, 77),
                 // Source sub-rect
                 (
                     "subrect",
@@ -392,13 +392,13 @@ pub unsafe fn capture_blit_snapshots() {
                     sh / 2,
                     sw / 4,
                     sh / 4,
-                    0x0000_0000,
+                    0x00000000,
                     0,
                 ),
                 // Additive mask (mode 2) — writes only where both src and dst are non-zero
-                ("additive", 16, 16, sw, sh, 0, 0, 0x0000_0002, 77),
+                ("additive", 16, 16, sw, sh, 0, 0, 0x00000002, 77),
                 // Subtractive mask (mode 3) — writes only where src != 0 and dst == 0
-                ("subtractive", 16, 16, sw, sh, 0, 0, 0x0000_0003, 0),
+                ("subtractive", 16, 16, sw, sh, 0, 0, 0x00000003, 0),
             ];
 
             // Use the original (unhooked) blit function for ground-truth captures.
@@ -592,7 +592,7 @@ pub unsafe fn capture_stippled_tiled_snapshots() {
                     ("stippled_mode1_par1", 16, 16, sw, sh, 0, 0, 1, 1, 77),
                 ];
 
-                let blit_stippled_addr = rb(0x0056_AEF0);
+                let blit_stippled_addr = rb(0x0056AEF0);
 
                 for &(suffix, dx, dy, w, h, sx, sy, mode, parity, bg) in test_cases {
                     core::ptr::write_bytes(dst_data, bg, dst_size);
@@ -649,7 +649,7 @@ pub unsafe fn capture_stippled_tiled_snapshots() {
 
                 // Tile modes: blend mode 1 (color table / transparency, no color table = skip zero)
                 // with orient = Normal (0)
-                let flags: u32 = 0x0000_0001; // blend=1 (color_table transparency), orient=Normal
+                let flags: u32 = 0x00000001; // blend=1 (color_table transparency), orient=Normal
 
                 // Test: tile sprite across the full width, starting from x=0
                 // Clip rect = full destination
@@ -706,7 +706,7 @@ pub unsafe fn capture_stippled_tiled_snapshots() {
                         0,
                         0,
                         core::ptr::null(),
-                        0x0000_0000, // copy mode
+                        0x00000000, // copy mode
                         blit_target,
                     );
                     x += sw;
