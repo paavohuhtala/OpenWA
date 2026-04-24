@@ -455,21 +455,22 @@ pub unsafe fn spawn_effect(
     scale: Fixed,
 ) {
     unsafe {
-        // Build the message buffer matching the original stack layout.
-        // The original pushes ESI (worm ptr) then uses LEA to include it at offset 0.
+        // Build the 0x408-byte message buffer. ESI (worm/task) is NOT stored
+        // in the buffer — it's passed to SharedData__Lookup as the task
+        // context and used as the sender for HandleMessage(0x56). The first
+        // data slot at [0x00] holds EAX (`constant`), not the task ptr.
         let mut buf = [0u8; 0x408];
-        write_u32(&mut buf, 0x00, worm as u32);
-        write_u32(&mut buf, 0x04, constant);
-        write_u32(&mut buf, 0x08, speed_x.0 as u32);
-        write_u32(&mut buf, 0x0C, speed_y.0 as u32);
-        write_u32(&mut buf, 0x10, rng_scaled as u32);
-        write_u32(&mut buf, 0x14, rng_offset as u32);
-        // [0x18] = 0 (already zeroed)
-        write_u32(&mut buf, 0x1C, palette);
-        write_u32(&mut buf, 0x20, state_flag);
-        // [0x24] = 0 (already zeroed)
-        write_u32(&mut buf, 0x28, size.0 as u32);
-        write_u32(&mut buf, 0x2C, scale.0 as u32);
+        write_u32(&mut buf, 0x00, constant);
+        write_u32(&mut buf, 0x04, speed_x.0 as u32);
+        write_u32(&mut buf, 0x08, speed_y.0 as u32);
+        write_u32(&mut buf, 0x0C, rng_scaled as u32);
+        write_u32(&mut buf, 0x10, rng_offset as u32);
+        // [0x14] = 0 (already zeroed)
+        write_u32(&mut buf, 0x18, palette);
+        write_u32(&mut buf, 0x1C, state_flag);
+        // [0x20] = 0 (already zeroed)
+        write_u32(&mut buf, 0x24, size.0 as u32);
+        write_u32(&mut buf, 0x28, scale.0 as u32);
 
         // SharedData lookup for entity type 0x1A (CTaskSpriteAnim)
         let table = SharedDataTable::from_task(worm as *const CTask);
