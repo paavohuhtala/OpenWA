@@ -10,8 +10,8 @@ mod game_state_hooks;
 mod gfx_dir;
 mod hardware_init;
 mod headless;
+mod main_loop;
 mod music;
-mod process_frame;
 mod render;
 mod replay;
 mod replay_test;
@@ -68,6 +68,6 @@ pub fn install_all() -> Result<(), String> {
     string_resource::install()?;
     task::install()?;
     weapon_release::install()?;
-    process_frame::install()?;
+    main_loop::install()?;
     Ok(())
 }

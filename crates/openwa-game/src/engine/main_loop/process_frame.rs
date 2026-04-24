@@ -7,10 +7,10 @@
 //! `advance_frame` handles timer reads, accumulator updates, and
 //! dispatches the frame timing to `DDGameWrapper__DispatchFrame`.
 
+use super::dispatch_frame::dispatch_frame;
 use crate::address::va;
 use crate::engine::clock::{effective_timer_freq, read_current_time};
 use crate::engine::ddgame_wrapper::DDGameWrapper;
-use crate::engine::dispatch_frame::dispatch_frame;
 use crate::engine::game_session::{GameSession, get_game_session};
 use crate::engine::game_state;
 use crate::rebase::rb;

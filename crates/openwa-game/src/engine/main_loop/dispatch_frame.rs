@@ -8,13 +8,13 @@
 use openwa_core::fixed::{Fixed, Fixed64};
 use windows_sys::Win32::System::Threading::ExitProcess;
 
+use super::fixed_slew::fixed_slew_toward;
 use crate::address::va;
 use crate::audio::active_sound::ActiveSoundTable;
 use crate::audio::dssound::DSSound;
 use crate::engine::clock::read_current_time;
 use crate::engine::ddgame::DDGame;
 use crate::engine::ddgame_wrapper::DDGameWrapper;
-use crate::engine::fixed_slew::fixed_slew_toward;
 use crate::engine::game_session::get_game_session;
 use crate::engine::game_state;
 use crate::input::keyboard::DDKeyboard;
@@ -50,7 +50,7 @@ pub unsafe fn init_dispatch_addrs() {
             rb(va::DDGAMEWRAPPER_SHOULD_INTERPOLATE_OFFLINE_TAIL);
         SETUP_FRAME_PARAMS_ADDR = rb(va::DDGAMEWRAPPER_SETUP_FRAME_PARAMS);
         PROCESS_NETWORK_FRAME_ADDR = rb(va::DDGAMEWRAPPER_PROCESS_NETWORK_FRAME);
-        crate::engine::step_frame::init_step_frame_addrs();
+        super::step_frame::init_step_frame_addrs();
         crate::engine::log_sink::init_log_sink_addrs();
     }
 }
@@ -1094,7 +1094,7 @@ pub unsafe fn dispatch_frame(wrapper: *mut DDGameWrapper, time: u64, freq: u64) 
 
                     if (*wrapper).frame_accum_a == frame_duration {
                         (*wrapper).frame_accum_a = 0;
-                        if !crate::engine::step_frame::step_frame(
+                        if !super::step_frame::step_frame(
                             wrapper,
                             &mut frame_step_counter,
                             &mut remaining,
@@ -1115,7 +1115,7 @@ pub unsafe fn dispatch_frame(wrapper: *mut DDGameWrapper, time: u64, freq: u64) 
 
                     if (*wrapper).frame_accum_c >= frame_duration {
                         (*wrapper).frame_accum_c -= frame_duration;
-                        if !crate::engine::step_frame::step_frame(
+                        if !super::step_frame::step_frame(
                             wrapper,
                             &mut frame_step_counter,
                             &mut remaining,
@@ -1143,7 +1143,7 @@ pub unsafe fn dispatch_frame(wrapper: *mut DDGameWrapper, time: u64, freq: u64) 
                 if (*session).flag_5c == 0 || !(*ddgame).net_session.is_null() {
                     reset_frame_state(wrapper);
                 }
-                if !crate::engine::step_frame::step_frame(
+                if !super::step_frame::step_frame(
                     wrapper,
                     &mut frame_step_counter,
                     &mut remaining,

@@ -30,10 +30,10 @@ use core::ffi::{c_char, c_void};
 
 use openwa_core::fixed::{Fixed, Fixed64};
 
+use super::dispatch_frame::is_replay_mode;
 use crate::address::va;
 use crate::engine::ddgame::DDGame;
 use crate::engine::ddgame_wrapper::DDGameWrapper;
-use crate::engine::dispatch_frame::is_replay_mode;
 use crate::engine::game_info::GameInfo;
 use crate::engine::game_session::get_game_session;
 use crate::engine::game_state;
