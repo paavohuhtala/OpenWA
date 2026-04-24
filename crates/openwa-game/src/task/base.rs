@@ -292,6 +292,25 @@ impl CTask {
         unsafe { (*this).ddgame }
     }
 
+    /// Read the dword at object offset +0x30 — the collision system's
+    /// "contact face" scratch slot.
+    ///
+    /// Right before dispatching slot 8 (`OnContact`) on a CGameTask, the
+    /// physics/collision dispatcher writes the face index of the contact
+    /// (0..31) into this slot on the *contacted* object. The callee reads the
+    /// low 5 bits and uses `1 << face_idx` to test against per-object face
+    /// masks.
+    ///
+    /// This slot overlaps `CGameTask::subclass_data[0..4]`, which several
+    /// subclasses repurpose as durable storage (worm weapon-fire type,
+    /// turn_game/team secondary vtable pointer, cloud parallax depth). Outside
+    /// of OnContact dispatch, the value here is whatever the subclass wrote,
+    /// not a face index — only read this during contact dispatch.
+    #[inline(always)]
+    pub unsafe fn contact_face_slot_raw(this: *const CTask) -> u32 {
+        unsafe { *((this as *const u8).add(0x30) as *const u32) }
+    }
+
     /// Broadcast a message to all children — raw-pointer version.
     ///
     /// Pure Rust port of CTask::HandleMessage (0x562F30).

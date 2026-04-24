@@ -1,6 +1,7 @@
 pub mod class_type;
 pub mod frontend;
 pub mod message;
+pub mod missile_contact;
 pub mod weapon;
 pub mod weapon_fire;
 pub mod weapon_release;

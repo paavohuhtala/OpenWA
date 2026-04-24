@@ -9,23 +9,43 @@ crate::define_addresses! {
         /// CTaskMissile vtable - projectile entity
         vtable CTASK_MISSILE_VTABLE = 0x00664438;
         ctor CTASK_MISSILE_CTOR = 0x00507D10;
+        /// OnContact — vtable slot 8. Missile-type dispatched contact-impact handler.
+        vmethod CTASK_MISSILE_ON_CONTACT = 0x00508C90;
     }
 }
 
-/// CTaskMissile vtable — 12 slots. Extends CGameTask vtable with missile behavior.
+/// CTaskMissile vtable — 20 slots. Extends CGameTask vtable with missile behavior.
 ///
 /// Vtable at Ghidra 0x664438.
-#[openwa_game::vtable(size = 12, va = 0x00664438, class = "CTaskMissile")]
+///
+/// Slot layout notes:
+/// - Slots 0–6 inherit from CTask/CGameTask (slot 6 `process_frame` is the generic
+///   children dispatcher `CTask::vt6_ProcessFrame` at 0x00563000; CTaskMissile does
+///   not override it).
+/// - Slot 7 thunks to `CGameTask::vt7` (0x004FF720) — 2-body elastic collision
+///   resolver. Inherited.
+/// - Slot 8 is CTaskMissile-specific: [`on_contact`](CTaskMissileVTable::on_contact).
+#[openwa_game::vtable(size = 20, va = 0x00664438, class = "CTaskMissile")]
 pub struct CTaskMissileVTable {
     /// HandleMessage — processes missile messages.
     /// thiscall + 4 stack params, RET 0x10.
     #[slot(2)]
     pub handle_message:
         fn(this: *mut CTaskMissile, sender: *mut CTask, msg_type: u32, size: u32, data: *const u8),
-    /// ProcessFrame — per-frame missile update (physics, homing, detonation).
-    /// thiscall + 1 stack param (flags), RET 0x4.
-    #[slot(7)]
-    pub process_frame: fn(this: *mut CTaskMissile, flags: u32),
+    /// OnContact — invoked when this missile contacts another entity (terrain,
+    /// worm, object). Dispatches by [`missile_type`](CTaskMissile::missile_type)
+    /// (Standard/Homing/Sheep/Cluster). Calls
+    /// `PlayImpactSound_Maybe` + `CGameTask::vt8` (base OnContact) + conditionally
+    /// `CreateExplosion`, `ImpactSpecialFx_Maybe`, and self.slot14 terminator.
+    /// thiscall + 2 stack params (other, self_side_flags), RET 0x8. Returns 1 in EAX.
+    #[slot(8)]
+    pub on_contact: fn(this: *mut CTaskMissile, other: *mut CTask, self_side_flags: u32) -> u32,
+    /// SetTerminateFlag — writes `flag` to `CGameTask+0x44`. Generic CGameTask
+    /// subclass terminator shared across task types (inherited slot, not a
+    /// CTaskMissile override). Thiscall(this, flag), RET 0x4.
+    /// Target: `CGameTask::SetTerminateFlag_Maybe` at 0x004FE060.
+    #[slot(14)]
+    pub set_terminate_flag: fn(this: *mut CTaskMissile, flag: u32),
 }
 
 /// Projectile / missile entity task.
@@ -98,45 +118,134 @@ pub struct CTaskMissile {
     pub weapon_data: [u32; 0x5E],
 
     // ---- 0x2D4–0x37B: render/physics parameters (42 DWORDs) ----
-    /// 0x2D4–0x37B: Per-projectile render and physics parameters (42 DWORDs).
+    //
+    // This region is a shifted copy of weapon_data:
+    //   if spawn_params[8] == 0 (single shot):   [N] = weapon_data[N+3]
+    //   if spawn_params[8]  > 0 (cluster pellet): [N] = weapon_data[N+52]
+    //
+    // The constructor copies 42 DWORDs from the appropriate source range; dynamic
+    // physics values update some entries during flight. Each entry listed below is
+    // named by its semantic role (deduced from CTaskMissile::OnContact + constructor
+    // analysis). Untouched entries remain in padding arrays.
+    /// 0x2D4 — render_data[0]. Contact-face mask tested against `other->+0x30`
+    /// (the face of the contacted entity). If `(1 << other_face) & mask != 0`,
+    /// the sheep bailout path fires / the contact is rejected.
+    pub contact_face_mask: u32,
+    /// 0x2D8..0x2EB — render_data[1..6] (untouched by known code paths).
+    pub _render_data_01_05: [u32; 5],
+    /// 0x2EC — render_data[6]. Compared against `0x40` before `ImpactSpecialFx`
+    /// (fire-particle spawn). Exact role still unclear — possibly a weapon-fx flag
+    /// or a cluster-origin marker.
+    pub fire_particle_trigger: u32,
+    /// 0x2F0..0x32F — render_data[7..0x16] (untouched by known code paths).
     ///
-    /// This is NOT a separate data block — it is a shifted copy of weapon_data:
-    ///   if spawn_params[8] == 0 (single shot):   render_data[N] = weapon_data[N+3]
-    ///   if spawn_params[8]  > 0 (cluster pellet): render_data[N] = weapon_data[N+52]
-    ///
-    /// The constructor copies 42 DWORDs from the appropriate source range
-    /// into this region (param_1[0xB5..0xDE]). Dynamic physics values update
-    /// some entries during flight (e.g. render_data[0x29] @ 0x37C).
-    ///
-    /// Key indices (relative to render_data, = weapon_data[N+3] for single shots):
+    /// Constructor-known uses in this range:
     ///   [0x0C] gravity_pct  → (value << 16) / 100 → CGameTask+0x58 (gravity_factor)
     ///   [0x0D] bounce_pct   → (value << 16) / 100 → CGameTask+0x5C (bounce_factor)
     ///   [0x0F] friction_pct → (value << 16) / 100 → CGameTask+0x60 (friction_factor)
     ///   [0x11] = 9000 for bazooka (→ also copied to post-render field at 0x37C)
-    ///   [0x17] missile_type — type discriminator (see MissileType)
+    pub _render_data_07_16: [u32; 16],
+    /// 0x330 — render_data[0x17]. Missile type discriminator
+    /// (see [`MissileType`]). 2=Standard, 3=Homing, 4=Sheep, 5=Cluster.
+    ///
+    /// SAFETY: stored as the typed `#[repr(u32)]` enum. The constructor and
+    /// scheme-data loaders are only ever observed to write 1..=5; if WA's
+    /// memory ever holds a raw value outside this range, reading this field
+    /// is UB. Guard by construction via the scheme validator if that ever
+    /// becomes a concern.
+    pub missile_type: MissileType,
+    /// 0x334..0x33F — render_data[0x18..0x1A] (untouched by known code paths).
+    ///
+    /// Constructor-known uses:
     ///   [0x18] = 4194304 → Fixed16.16 = 64.0 (sprite/render size)
     ///   [0x19] render_timer — 1 for bazooka, 30 for grenade (3s fuse timer)
-    pub render_data: [u32; 0x2A],
+    pub _render_data_18_1a: [u32; 3],
+    /// 0x340 — render_data[0x1B]. Sound ID played on impact (via
+    /// `PlayImpactSound_Maybe` at 0x004FF020). Passed as first arg alongside the
+    /// half-speed magnitude scaled by 0.4.
+    pub impact_sound_id: u32,
+    /// 0x344 — render_data[0x1C]. Ricochet-eligible side mask tested against the
+    /// incoming `self_side_flags` arg. If `(1 << self_side) & mask != 0` and type is
+    /// Standard/Cluster, the ricochet countdown branch fires.
+    pub ricochet_side_mask: u32,
+    /// 0x348 — render_data[0x1D]. Ricochet-roll threshold (0..100).
+    /// On ricochet-eligible contact with counter remaining,
+    /// `(AdvanceGameRNG() & 0x3FF) % 100 < ricochet_chance_pct` → mirror X velocity.
+    pub ricochet_chance_pct: u32,
+    /// 0x34C — render_data[0x1E] (untouched by known code paths).
+    pub _render_data_1e: u32,
+    /// 0x350 — render_data[0x1F]. Explosion ID (passed as 2nd stack arg to
+    /// `CreateExplosion` on Standard/Cluster contact).
+    pub explosion_id: u32,
+    /// 0x354 — render_data[0x20]. Explosion damage base value (implicit ESI arg
+    /// to `FUN_00547CB0` damage-jitter helper). Nonzero gate for `CreateExplosion`.
+    pub explosion_damage: u32,
+    /// 0x358 — render_data[0x21]. Explosion damage scaling percentage (2nd stack
+    /// arg to `FUN_00547CB0`, used as `(ESI * param) / 100` before RNG jitter).
+    pub explosion_damage_pct: u32,
+    /// 0x35C — render_data[0x22]. Ricochet-remaining counter. Decremented on each
+    /// ricochet-eligible contact; when it reaches 0, the missile invokes the
+    /// slot-14 terminator (`CGameTask::SetTerminateFlag`) instead of bouncing.
+    pub ricochet_counter: u32,
+    /// 0x360..0x37B — render_data[0x23..0x29] (untouched by known code paths).
+    /// `[0x29]` (= 0x37C offset equivalent inside post_render) is referenced in
+    /// constructor comments as "updates during flight".
+    pub _render_data_23_29: [u32; 7],
 
     // ---- 0x37C–0x41B: post-render physics and state ----
-    /// 0x37C–0x39F: Post-render dynamic state. render_data[0x11] is copied to
-    /// [0x37C] by the constructor; physics updates the values each frame.
-    pub _unknown_37c: [u8; 0x24],
-    /// 0x3A0: Fixed16.16 launch speed magnitude (computed from initial velocity).
-    /// Observed as 0 for bazooka — may only be populated for specific types.
-    pub launch_speed_raw: Fixed,
+    /// 0x37C — remaining fuse timer (in frames) until detonation / sheep expiry.
+    /// Initialised by the constructor from `render_data[0x11]` (= 9000 for bazooka,
+    /// 30 for grenade @ 10fps = 3s). Counted down each frame by the physics update;
+    /// when it reaches 0 the missile detonates / the sheep self-destructs.
+    pub fuse_timer: i32,
+    /// 0x380..0x393: Further post-render dynamic state (unknown).
+    pub _post_render_state_0: [u8; 0x14],
+    /// 0x394 — `param_1[0xE5]` in OnContact. Contact-phase flag. Value `2`
+    /// disables the normal contact path (routes to the terminator / sheep bailout
+    /// block). Probably set by HandleMessage when the missile has already been
+    /// flagged for detonation or disarm.
+    pub contact_phase: u32,
+    /// 0x398: unused so far by OnContact. One dword of post-render state.
+    pub _post_render_state_1: u32,
+    /// 0x39C — speed-X stash. Written on the terminator / sheep-bailout exit
+    /// path (`[+0x39C] = speed_x`). Consumers (cluster spawn, splatter effects)
+    /// read this to access the missile's terminal velocity after it has been
+    /// marked for destruction.
+    pub terminate_stash_speed_x: Fixed,
+    /// 0x3A0 — speed-Y stash (mirror of [`terminate_stash_speed_x`]).
+    ///
+    /// Earlier analysis guessed this was a launch-speed magnitude; that turned
+    /// out to be a constructor-only initialisation that OnContact subsequently
+    /// overwrites with current velocity. Observed as `0` for bazooka (which
+    /// detonates on contact without reaching the terminator block).
+    pub terminate_stash_speed_y: Fixed,
     /// 0x3A4: Unknown
     pub _unknown_3a4: u32,
     /// 0x3A8: Homing mode enabled flag (nonzero = active homing).
     /// param_1[0xEA] in constructor. Set to 1 when missile_type == 3 and conditions
     /// are met (target acquired).
     pub homing_enabled: u32,
-    /// 0x3AC–0x3BF: Unknown homing state fields
-    pub _unknown_3ac: [u8; 0x14],
-    /// 0x3C0–0x3C7: Unknown
-    pub _unknown_3c0: [u8; 8],
+    /// 0x3AC — sheep bailout re-arm countdown. Set to `0xA` on first sheep
+    /// contact; bail setup skipped until it counts back down to 0 (decrement
+    /// performed elsewhere — not in OnContact).
+    pub sheep_bailout_counter: u32,
+    /// 0x3B0 — sheep bailout lock. If nonzero on sheep contact, the bailout is
+    /// rejected and the terminator runs immediately. Probably a one-shot latch.
+    pub sheep_bailout_locked: u32,
+    /// 0x3B4 — sheep action flag. Zeroed on first sheep bailout arm. Used by
+    /// sheep-state logic elsewhere to know the bailout stash is live.
+    pub sheep_action_flag: u32,
+    /// 0x3B8 — sheep bailout X-position stash (pre-contact pos_x).
+    pub sheep_stash_pos_x: Fixed,
+    /// 0x3BC — sheep bailout Y-position stash (pre-contact pos_y).
+    pub sheep_stash_pos_y: Fixed,
+    /// 0x3C0 — sheep bailout X-velocity stash (pre-contact speed_x).
+    pub sheep_stash_speed_x: Fixed,
+    /// 0x3C4 — sheep bailout Y-velocity stash (pre-contact speed_y).
+    pub sheep_stash_speed_y: Fixed,
     /// 0x3C8: Horizontal direction sign (+1 or -1, determines facing/travel dir).
-    /// param_1[0xF2] in constructor. Set to -1 for homing/sheep if initial_speed_x < 0.
+    /// param_1[0xF2] in constructor; also rewritten in the homing contact branch
+    /// based on `sign(speed_x)` after a RNG roll passes.
     pub direction: i32,
     /// 0x3CC–0x40B: Unknown trailing state.
     /// Allocation size is 0x40C; constructor zeros bytes 0x00–0x3EB.
@@ -145,24 +254,37 @@ pub struct CTaskMissile {
 
 const _: () = assert!(core::mem::size_of::<CTaskMissile>() == 0x40C);
 
+// Explicit offset sanity checks for fields touched by CTaskMissile::OnContact.
+const _: () = {
+    use core::mem::offset_of;
+    assert!(offset_of!(CTaskMissile, contact_face_mask) == 0x2D4);
+    assert!(offset_of!(CTaskMissile, fire_particle_trigger) == 0x2EC);
+    assert!(offset_of!(CTaskMissile, missile_type) == 0x330);
+    assert!(offset_of!(CTaskMissile, impact_sound_id) == 0x340);
+    assert!(offset_of!(CTaskMissile, ricochet_side_mask) == 0x344);
+    assert!(offset_of!(CTaskMissile, ricochet_chance_pct) == 0x348);
+    assert!(offset_of!(CTaskMissile, explosion_id) == 0x350);
+    assert!(offset_of!(CTaskMissile, explosion_damage) == 0x354);
+    assert!(offset_of!(CTaskMissile, explosion_damage_pct) == 0x358);
+    assert!(offset_of!(CTaskMissile, ricochet_counter) == 0x35C);
+    assert!(offset_of!(CTaskMissile, contact_phase) == 0x394);
+    assert!(offset_of!(CTaskMissile, terminate_stash_speed_x) == 0x39C);
+    assert!(offset_of!(CTaskMissile, terminate_stash_speed_y) == 0x3A0);
+    assert!(offset_of!(CTaskMissile, homing_enabled) == 0x3A8);
+    assert!(offset_of!(CTaskMissile, sheep_bailout_counter) == 0x3AC);
+    assert!(offset_of!(CTaskMissile, sheep_bailout_locked) == 0x3B0);
+    assert!(offset_of!(CTaskMissile, sheep_action_flag) == 0x3B4);
+    assert!(offset_of!(CTaskMissile, sheep_stash_pos_x) == 0x3B8);
+    assert!(offset_of!(CTaskMissile, sheep_stash_pos_y) == 0x3BC);
+    assert!(offset_of!(CTaskMissile, sheep_stash_speed_x) == 0x3C0);
+    assert!(offset_of!(CTaskMissile, sheep_stash_speed_y) == 0x3C4);
+    assert!(offset_of!(CTaskMissile, direction) == 0x3C8);
+};
+
 // Generate typed vtable method wrappers: handle_message(), process_frame().
 bind_CTaskMissileVTable!(CTaskMissile, base.base.vtable);
 
 impl CTaskMissile {
-    /// Missile type from `render_data[0x17]` (= weapon_data[0x1A] for single shots).
-    ///
-    /// Governs constructor and movement behaviour (homing, sheep walk,
-    /// cluster splitting, etc.).
-    pub fn missile_type(&self) -> MissileType {
-        match self.render_data[0x17] {
-            2 => MissileType::Standard,
-            3 => MissileType::Homing,
-            4 => MissileType::Sheep,
-            5 => MissileType::Cluster,
-            n => MissileType::Unknown(n),
-        }
-    }
-
     /// Spawn X as Fixed16.16.
     pub fn spawn_x(&self) -> Fixed {
         self.spawn_params.spawn_x
@@ -189,18 +311,36 @@ impl CTaskMissile {
 /// The constructor switches on this value to set up physics, homing,
 /// direction, and clustering behaviour. Corresponds to weapon_data[0x1A]
 /// for single-shot projectiles.
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MissileType {
-    /// Standard trajectory projectile (bazooka, mortar, grenade, etc.). Value = 2.
-    Standard,
-    /// Homing missile — tracks nearest worm. Value = 3.
-    Homing,
-    /// Sheep / animal projectile — walks on terrain. Value = 4.
-    Sheep,
-    /// Cluster projectile — spawns sub-pellets on detonation. Value = 5.
-    Cluster,
-    /// Unknown type code (value 1 never observed; any other unrecognised value).
-    Unknown(u32),
+    /// Never observed in the wild; included as a slot in case the scheme data
+    /// ever emits it. No known constructor branch handles value 1.
+    Unknown1 = 1,
+    /// Standard trajectory projectile (bazooka, mortar, grenade, etc.).
+    Standard = 2,
+    /// Homing missile — tracks nearest worm.
+    Homing = 3,
+    /// Sheep / animal projectile — walks on terrain.
+    Sheep = 4,
+    /// Cluster projectile — spawns sub-pellets on detonation.
+    Cluster = 5,
+}
+
+impl MissileType {
+    /// Map a raw `render_data[0x17]` value to a typed [`MissileType`].
+    /// Returns `None` for out-of-range values (0, 6+); callers should treat
+    /// such cases as "no typed branch applies".
+    pub const fn from_raw(raw: u32) -> Option<Self> {
+        Some(match raw {
+            1 => Self::Unknown1,
+            2 => Self::Standard,
+            3 => Self::Homing,
+            4 => Self::Sheep,
+            5 => Self::Cluster,
+            _ => return None,
+        })
+    }
 }
 
 // ── Snapshot impl ──────────────────────────────────────────
@@ -254,35 +394,47 @@ impl crate::snapshot::Snapshot for CTaskMissile {
             writeln!(w)?;
 
             write_indent(w, i)?;
-            write!(w, "render_data =")?;
-            for (j, v) in self.render_data.iter().enumerate() {
-                if j % 16 == 0 {
-                    writeln!(w)?;
-                    write_indent(w, i + 1)?;
-                }
-                write!(w, " {:08X}", v)?;
-            }
-            writeln!(w)?;
-
+            writeln!(
+                w,
+                "render: type={:?} contact_mask=0x{:08X} fx_trigger=0x{:X} snd={} ricochet(mask=0x{:08X} %={}, ctr={}) explosion(id={}, dmg={}, dmg%={})",
+                self.missile_type,
+                self.contact_face_mask,
+                self.fire_particle_trigger,
+                self.impact_sound_id,
+                self.ricochet_side_mask,
+                self.ricochet_chance_pct,
+                self.ricochet_counter,
+                self.explosion_id,
+                self.explosion_damage,
+                self.explosion_damage_pct,
+            )?;
             write_indent(w, i)?;
-            writeln!(w, "launch_speed_raw = {}", self.launch_speed_raw)?;
+            writeln!(
+                w,
+                "contact_phase = {} terminate_stash = ({}, {}) direction = {} homing = {}",
+                self.contact_phase,
+                self.terminate_stash_speed_x,
+                self.terminate_stash_speed_y,
+                self.direction,
+                self.homing_enabled,
+            )?;
             write_indent(w, i)?;
-            writeln!(w, "homing_enabled = {}", self.homing_enabled)?;
-            write_indent(w, i)?;
-            writeln!(w, "direction = {}", self.direction)?;
+            writeln!(
+                w,
+                "sheep(counter={} locked={} action={} stash_pos=({}, {}) stash_speed=({}, {}))",
+                self.sheep_bailout_counter,
+                self.sheep_bailout_locked,
+                self.sheep_action_flag,
+                self.sheep_stash_pos_x,
+                self.sheep_stash_pos_y,
+                self.sheep_stash_speed_x,
+                self.sheep_stash_speed_y,
+            )?;
 
             // Unknown regions
             write_indent(w, i)?;
             writeln!(w, "_unknown_fc ({} bytes):", self._unknown_fc.len())?;
             write_raw_region(w, self._unknown_fc.as_ptr(), self._unknown_fc.len(), i + 1)?;
-            write_indent(w, i)?;
-            writeln!(w, "_unknown_37c ({} bytes):", self._unknown_37c.len())?;
-            write_raw_region(
-                w,
-                self._unknown_37c.as_ptr(),
-                self._unknown_37c.len(),
-                i + 1,
-            )?;
             write_indent(w, i)?;
             writeln!(w, "_unknown_3cc ({} bytes):", self._unknown_3cc.len())?;
             write_raw_region(

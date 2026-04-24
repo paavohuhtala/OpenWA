@@ -818,10 +818,7 @@ impl DebugApp {
                         let m = &*(addr as *const CTaskMissile);
                         ui.label(format!(
                             "Missile: type={:?}  slot={}  homing={}  dir={}",
-                            m.missile_type(),
-                            m.slot_id,
-                            m.homing_enabled,
-                            m.direction
+                            m.missile_type, m.slot_id, m.homing_enabled, m.direction
                         ));
                         ui.separator();
 
