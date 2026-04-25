@@ -170,10 +170,15 @@ fn discover_tests(replays_dir: &Path, filter: Option<&str>) -> Vec<TestCase> {
 // ─── WA.exe location ────────────────────────────────────────────────────────
 
 fn find_wa_exe(override_path: Option<&Path>) -> Option<PathBuf> {
-    if let Some(p) = override_path
-        && p.exists()
-    {
-        return Some(p.to_path_buf());
+    if let Some(p) = override_path {
+        if p.is_dir() {
+            let exe = p.join("WA.exe");
+            return exe.exists().then_some(exe);
+        }
+        if p.exists() {
+            return Some(p.to_path_buf());
+        }
+        return None;
     }
     openwa_config::find_wa_dir().map(|d| d.join("WA.exe"))
 }
