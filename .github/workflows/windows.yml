@@ -52,3 +52,53 @@ jobs:
             target/i686-pc-windows-msvc/release/*.dll
             target/i686-pc-windows-msvc/release/*.exe
           if-no-files-found: ignore
+
+  replay-tests:
+    name: Replay Tests
+    needs: build
+    runs-on: windows-latest
+    environment: replay-test
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: openwa-release-windows
+          path: target/i686-pc-windows-msvc/release
+
+      - name: Download game data from Scaleway
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.SCW_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.SCW_SECRET_KEY }}
+          AWS_DEFAULT_REGION: fr-par
+        shell: pwsh
+        run: |
+          aws s3 cp s3://openwa-test-data/WA381_minimal.7z WA381_minimal.7z `
+            --endpoint-url https://s3.fr-par.scw.cloud
+          7z x WA381_minimal.7z -o"${env:RUNNER_TEMP}" -y
+
+      - name: Run replay tests (primary suite)
+        shell: pwsh
+        run: |
+          & .\target\i686-pc-windows-msvc\release\openwa-test.exe `
+            --no-build `
+            --wa-path "${env:RUNNER_TEMP}\WA381_minimal"
+
+      - name: Run replay tests (worms2d suite)
+        shell: pwsh
+        run: |
+          & .\target\i686-pc-windows-msvc\release\openwa-test.exe `
+            --no-build `
+            --wa-path "${env:RUNNER_TEMP}\WA381_minimal" `
+            -d testdata\replays\worms2d `
+            -j 16
+
+      - name: Upload replay test logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: replay-test-logs
+          path: testdata/runs/
+          if-no-files-found: ignore
