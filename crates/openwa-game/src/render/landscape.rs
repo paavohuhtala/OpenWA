@@ -1,4 +1,7 @@
-use crate::{asset::gfx_dir::GfxDir, engine::ddgame::DDGame};
+use crate::{
+    asset::gfx_dir::GfxDir,
+    engine::{ddgame::DDGame, ddgame_wrapper::DDGameWrapper},
+};
 
 /// PCLandscape — terrain/landscape subsystem (0xB40 bytes).
 ///
@@ -142,3 +145,36 @@ pub struct PCLandscapeVtable {
 }
 
 bind_PCLandscapeVtable!(PCLandscape, vtable);
+
+/// Pure Rust implementation of CGameTask__InitLandscapeFlags (0x528480).
+///
+/// Convention: usercall(EAX=wrapper), plain RET.
+///
+/// Checks game_info.landscape_scheme_flag and dispatches landscape vtable slot 6
+/// (init_borders) with appropriate parameters, then updates DDGame.level_width_raw.
+pub unsafe fn init_landscape_flags(wrapper: *mut DDGameWrapper) {
+    unsafe {
+        let ddgame = (*wrapper).ddgame;
+        let game_info = (*ddgame).game_info;
+
+        let scheme_flag = (*game_info).landscape_scheme_flag;
+
+        let field_7318 = (*ddgame).gfx_color_table[3];
+        let field_730c = (*ddgame).gfx_color_table[0];
+        let field_734c = (*ddgame)._field_734c;
+        let field_7340 = (*ddgame)._field_7340;
+
+        let landscape = (*ddgame).landscape;
+
+        if scheme_flag != 0 {
+            PCLandscape::init_borders_raw(
+                landscape, 1, 1, 1, 1, field_7318, field_730c, field_734c, field_7340,
+            );
+            (*ddgame).level_width_raw = 1;
+        } else if (*ddgame).level_width_raw != 0 {
+            PCLandscape::init_borders_raw(
+                landscape, 0, 0, 1, 0, field_7318, field_730c, field_734c, field_7340,
+            );
+        }
+    }
+}

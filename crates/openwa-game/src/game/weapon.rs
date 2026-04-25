@@ -2,7 +2,11 @@ use core::ffi::c_char;
 
 use openwa_core::fixed::Fixed;
 
-pub use openwa_core::weapon::{FireMethod, FireType, KnownWeaponId, SpecialFireSubtype};
+pub use openwa_core::weapon::{
+    FireMethod, FireType, KnownWeaponId, SpecialFireSubtype, WeaponId, is_super_weapon,
+};
+
+use crate::engine::ddgame::DDGame;
 
 // ============================================================
 // WeaponSpawnData — launch parameters passed to CTaskMissile ctor
@@ -209,3 +213,89 @@ pub struct WeaponTable {
     pub entries: [WeaponEntry; 71],
 }
 const _: () = assert!(core::mem::size_of::<WeaponTable>() == 71 * 0x1D0);
+
+// ============================================================
+// Weapon availability query (DDGame state-driven)
+// ============================================================
+
+/// Pure Rust implementation of DDGame__CheckWeaponAvail (0x53FFC0).
+///
+/// Convention: fastcall(ECX=ddgame) + unaff_ESI=weapon_index, plain RET. Returns i32.
+///
+/// Checks whether a weapon (1..0x46) is available given current game state.
+pub unsafe fn check_weapon_avail(ddgame: *mut DDGame, weapon: WeaponId) -> i32 {
+    unsafe {
+        let gi = (*ddgame).game_info;
+        let game_version = (*gi).game_version;
+        let num_teams = (*gi).num_teams;
+
+        // Step 1: Special per-weapon disabling rules
+        match weapon {
+            w if (w.is(KnownWeaponId::Earthquake)
+                || w.is(KnownWeaponId::NuclearTest)
+                || w.is(KnownWeaponId::Armageddon))
+                && (*gi).net_config_2 != 0
+                && (*gi).net_weapon_exception == 0 =>
+            {
+                return 0;
+            }
+            w if w.is(KnownWeaponId::Donkey) && (*gi).donkey_disabled != 0 => {
+                return 0;
+            }
+            w if w.is(KnownWeaponId::Invisibility) => {
+                if (*gi).invisibility_mode == 0 {
+                    if (*ddgame).net_session.is_null() {
+                        return 0;
+                    }
+                } else if (num_teams as u32) < 2 {
+                    return 0;
+                }
+            }
+            w if w.is(KnownWeaponId::DoubleTurnTime)
+                && game_version > 0xD1
+                && (*gi).double_turn_time_threshold > 0x7FFF =>
+            {
+                return 0;
+            }
+            _ => {}
+        }
+
+        // Step 2: Branch on weapon defined flag (nonzero = weapon exists in table).
+        let weapon_table = (*ddgame).weapon_table;
+        let defined = (*weapon_table).entries[weapon.0 as usize].defined;
+
+        if (*ddgame).level_width_raw == 0 || defined != 0 {
+            // Main path: check super weapon flag
+            let super_result = is_super_weapon(weapon, (*ddgame).version_flag_3 != 0);
+            if super_result && (*gi).super_weapon_allowed == 0 {
+                // (game_version < 0x2A) - 1: if < 0x2A → 0, else → -1
+                return (game_version < 0x2A) as i32 - 1;
+            }
+
+            if (*ddgame).supersheep_restricted == 0 {
+                return 1;
+            }
+
+            // SuperSheep (24) when aquasheep_is_supersheep is set, else AquaSheep (25).
+            // Mirrors WA's `Weapon::AquaSheep - (aquasheep_is_supersheep != 0)` arithmetic.
+            let restricted_id = if (*gi).aquasheep_is_supersheep != 0 {
+                KnownWeaponId::SuperSheep
+            } else {
+                KnownWeaponId::AquaSheep
+            };
+
+            if weapon != restricted_id.into() {
+                return 1;
+            }
+
+            return 0;
+        }
+
+        // Else branch: level_width_raw != 0 AND weapon_entry == 0
+        if game_version > 0x29 && (*gi).weapon_version_gate != 0 {
+            return -2;
+        }
+
+        0
+    }
+}

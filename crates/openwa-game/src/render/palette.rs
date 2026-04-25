@@ -69,6 +69,22 @@ pub unsafe fn palette_context_init(ctx: *mut PaletteContext) {
     }
 }
 
+/// Allocate a zero-filled `PaletteContext` and run `palette_context_init` over
+/// the default index range (1..=0xFF).
+pub unsafe fn allocate_palette_context() -> *mut PaletteContext {
+    unsafe {
+        let ctx = crate::wa_alloc::wa_malloc_struct_zeroed::<PaletteContext>();
+        if ctx.is_null() {
+            return core::ptr::null_mut();
+        }
+        (*ctx).dirty_range_min = 1;
+        (*ctx).dirty_range_max = 0xFF;
+        palette_context_init(ctx);
+        (*ctx).dirty = 0;
+        ctx
+    }
+}
+
 /// Map an RGB color to the nearest display palette index.
 ///
 /// Rust port of `PaletteContext__MapColor` (0x5412B0). Operates on a raw

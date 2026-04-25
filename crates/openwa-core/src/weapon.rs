@@ -126,6 +126,24 @@ impl TryFrom<u32> for KnownWeaponId {
     }
 }
 
+/// DDGame__IsSuperWeapon (0x565960). True for "super weapon" IDs.
+///
+/// `select_worm_is_super_weapon` is the runtime mode flag (DDGame.version_flag_3
+/// at +0x7E3F): when set, SelectWorm counts as a super weapon too.
+pub fn is_super_weapon(weapon: WeaponId, select_worm_is_super_weapon: bool) -> bool {
+    let Ok(weapon) = KnownWeaponId::try_from(weapon.0) else {
+        return false;
+    };
+    use KnownWeaponId::*;
+    match weapon {
+        Earthquake | SuicideBomber | MailStrike | MineStrike | MoleSquadron | GirderPack
+        | ScalesOfJustice | SuperBanana | SalvationArmy | MbBomb | MingVase | SheepStrike
+        | CarpetBomb | Donkey | NuclearTest | Armageddon | Freeze | MagicBullet => true,
+        SelectWorm => select_worm_is_super_weapon,
+        _ => false,
+    }
+}
+
 /// Top-level weapon fire type (WeaponEntry+0x30).
 ///
 /// Determines which sub-function handles the weapon fire in FireWeapon dispatch.

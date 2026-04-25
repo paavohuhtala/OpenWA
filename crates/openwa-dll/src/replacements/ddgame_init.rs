@@ -19,13 +19,15 @@ use openwa_game::asset::gfx_dir::{
     GfxDir, gfx_dir_find_entry, gfx_dir_load_dir, img_load_from_dir,
 };
 use openwa_game::bitgrid::BitGrid;
-use openwa_game::engine::game_state_init::{
-    check_weapon_avail, init_alliance_data, init_landscape_flags, init_team_scoring,
-    init_turn_state, is_super_weapon, ring_buffer_init, sprite_gfx_table_init,
-};
+use openwa_game::engine::game_state_init::init_turn_state;
+use openwa_game::engine::ring_buffer::ring_buffer_init;
+use openwa_game::engine::team_init::{init_alliance_data, init_team_scoring};
 use openwa_game::engine::{
     DDGame, DDGameWrapper, ddgame_init_fields, ddgame_init_render_indices, display_layer_color_init,
 };
+use openwa_game::game::{check_weapon_avail, is_super_weapon};
+use openwa_game::render::landscape::init_landscape_flags;
+use openwa_game::render::sprite::sprite_gfx_table_init;
 
 // ─── DDGame__InitFields (0x526120) ──────────────────────────────────────────
 
@@ -357,7 +359,7 @@ extern "cdecl" fn impl_is_super_weapon(
     weapon_id: WeaponId,
     select_worm_is_super_weapon: u32,
 ) -> u32 {
-    unsafe { is_super_weapon(weapon_id, select_worm_is_super_weapon != 0) as u32 }
+    is_super_weapon(weapon_id, select_worm_is_super_weapon != 0) as u32
 }
 
 #[unsafe(naked)]

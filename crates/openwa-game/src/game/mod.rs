@@ -19,4 +19,4 @@ pub use openwa_core::scheme::{
     SchemeFileError, SchemeOptions, SchemeVersion, WEAPON_ENTRY_SIZE, WEAPONS_TOTAL_COUNT,
     WEAPONS_V1_COUNT, WEAPONS_V1_OFFSET, WEAPONS_V2_COUNT, WEAPONS_V2_OFFSET, WeaponSettings,
 };
-pub use weapon::{KnownWeaponId, WeaponEntry, WeaponTable};
+pub use weapon::{KnownWeaponId, WeaponEntry, WeaponTable, check_weapon_avail, is_super_weapon};

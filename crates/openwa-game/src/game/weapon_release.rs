@@ -4,8 +4,8 @@
 //! SpawnEffect (0x547C30). Called from hook trampolines in openwa-dll.
 
 use crate::audio::{KnownSoundId, SoundId};
-use crate::game::KnownWeaponId;
 use crate::game::message::WeaponReleasedMessage;
+use crate::game::{KnownWeaponId, is_super_weapon};
 use crate::task::turn_game::CTaskTurnGame;
 use crate::task::worm::{CTaskWorm, WormState};
 use crate::task::{CGameTask, CTask, SharedDataTable, Task};
@@ -16,33 +16,6 @@ use crate::audio::sound_ops as sound;
 use crate::game::weapon_fire::{self, WeaponReleaseContext};
 
 // ── Weapon category classifiers (pure Rust) ─────────────────
-
-/// IsSuperWeapon (0x565960): returns true for "super weapon" IDs.
-/// For SelectWorm, returns the DDGame+0x7E3F version flag (mode-dependent).
-pub fn is_super_weapon(weapon: KnownWeaponId, ddgame_7e3f: u8) -> bool {
-    use KnownWeaponId::*;
-    matches!(
-        weapon,
-        Earthquake
-            | SuicideBomber
-            | MailStrike
-            | MineStrike
-            | MoleSquadron
-            | GirderPack
-            | ScalesOfJustice
-            | SuperBanana
-            | SalvationArmy
-            | MbBomb
-            | MingVase
-            | SheepStrike
-            | CarpetBomb
-            | Donkey
-            | NuclearTest
-            | Armageddon
-            | Freeze
-            | MagicBullet
-    ) || (weapon == KnownWeaponId::SelectWorm && ddgame_7e3f != 0)
-}
 
 /// FUN_005658C0: weapon category A — homing/animal/special projectile weapons.
 pub fn is_weapon_category_a(weapon: KnownWeaponId) -> bool {
@@ -234,7 +207,7 @@ pub unsafe fn weapon_release(
         let team_id = (*worm).team_index;
         let worm_id = (*worm).worm_index;
 
-        if is_super_weapon(weapon, g.version_flag_3) {
+        if is_super_weapon(weapon.into(), g.version_flag_3 != 0) {
             *g.weapon_stat_counter(team_id, worm_id, 0x40D8) += 1;
         }
 
