@@ -1,6 +1,7 @@
 pub mod class_type;
 pub mod create_explosion;
 pub mod frontend;
+pub mod game_task_message;
 pub mod message;
 pub mod missile_contact;
 pub mod weapon;

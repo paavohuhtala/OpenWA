@@ -12,8 +12,8 @@
 use crate::address::va;
 use crate::audio::{KnownSoundId, SoundId};
 use crate::engine::{GAME_PHASE_NORMAL_MIN, GAME_PHASE_SUDDEN_DEATH, TeamArena};
-use crate::game::Weapon;
 use crate::game::weapon::{WeaponEntry, WeaponFireParams, WeaponSpawnData};
+use crate::game::{TaskMessage, Weapon};
 use crate::task::CTask;
 use crate::task::turn_game::CTaskTurnGame;
 use crate::task::worm::{CTaskWorm, WormState};
@@ -413,7 +413,7 @@ unsafe fn fire_surrender(worm: *mut CTaskWorm) {
         CTaskTurnGame::handle_message_raw(
             team,
             worm as *mut crate::task::CTask,
-            0x2B,
+            TaskMessage::Surrender,
             4,
             buf.as_ptr(),
         );
@@ -427,7 +427,7 @@ unsafe fn fire_surrender(worm: *mut CTaskWorm) {
 ///
 /// The 0x40C-byte local buffer is passed as data pointer; team_index is written
 /// at buf+0x00 to identify which team fired.
-unsafe fn fire_send_team_message(worm: *mut CTaskWorm, msg_type: u32) {
+unsafe fn fire_send_team_message(worm: *mut CTaskWorm, msg_type: TaskMessage) {
     unsafe {
         let team = lookup_turn_game(worm);
         if team.is_null() {
@@ -465,7 +465,8 @@ unsafe fn fire_select_worm(worm: *mut CTaskWorm) {
         CTaskTurnGame::handle_message_raw(
             team,
             worm as *mut crate::task::CTask,
-            0x5D,
+            // TODO: Wait, what?
+            TaskMessage::EarthquakeOrSelectWorm,
             0x408,
             buf.as_ptr(),
         );
@@ -504,7 +505,7 @@ unsafe fn fire_skip_go(worm: *const CTaskWorm, entry: *const WeaponEntry) {
 /// WormEntry.turn_action_counter_Maybe by 14 (0x0E).
 unsafe fn fire_freeze(worm: *mut CTaskWorm) {
     unsafe {
-        fire_send_team_message(worm, 0x29);
+        fire_send_team_message(worm, TaskMessage::Freeze);
 
         let ddgame = CTask::ddgame_raw(worm as *const CTask);
         let arena = &raw mut (*ddgame).team_arena;
@@ -542,7 +543,7 @@ unsafe fn fire_mail_mine_mole(worm: *mut CTaskWorm) {
             CTaskWorm::set_state_raw(worm, WormState::Idle);
         }
 
-        fire_send_team_message(worm, 0x28);
+        fire_send_team_message(worm, TaskMessage::SkipGoOrMailMineMole);
 
         let arena = &raw mut (*ddgame).team_arena;
         let team_index = (*worm).team_index as usize;
@@ -621,7 +622,6 @@ unsafe fn fire_nuclear_test(worm: *mut CTaskWorm) {
         let entry = &*(*worm).active_weapon_entry;
         let team = lookup_turn_game(worm);
 
-        // Message 0x59 (RaiseWater): buf[0]=fire_method, buf[4]=8
         if !team.is_null() {
             let mut buf = [0u8; 0x40C];
             buf[0..4].copy_from_slice(&entry.fire_method.to_ne_bytes());
@@ -629,13 +629,12 @@ unsafe fn fire_nuclear_test(worm: *mut CTaskWorm) {
             CTaskTurnGame::handle_message_raw(
                 team,
                 worm as *mut crate::task::CTask,
-                0x59,
+                TaskMessage::RaiseWater,
                 0x408,
                 buf.as_ptr(),
             );
         }
 
-        // Message 0x5A (NukeBlast): buf[0]=8
         let team = lookup_turn_game(worm);
         if !team.is_null() {
             let mut buf = [0u8; 0x40C];
@@ -643,13 +642,12 @@ unsafe fn fire_nuclear_test(worm: *mut CTaskWorm) {
             CTaskTurnGame::handle_message_raw(
                 team,
                 worm as *mut crate::task::CTask,
-                0x5A,
+                TaskMessage::NukeBlast,
                 0x408,
                 buf.as_ptr(),
             );
         }
 
-        // PlaySoundGlobal(IndianAnthem, 8, 0x10000, 0x10000)
         sound::queue_sound(
             ddgame,
             KnownSoundId::IndianAnthem.into(),
@@ -668,7 +666,7 @@ unsafe fn fire_nuclear_test(worm: *mut CTaskWorm) {
             CTaskTurnGame::handle_message_raw(
                 team,
                 worm as *mut crate::task::CTask,
-                0x51,
+                TaskMessage::PoisonWorm,
                 0x408,
                 buf.as_ptr(),
             );

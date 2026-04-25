@@ -8,6 +8,7 @@ mod frame_hook;
 mod frontend;
 mod game_session;
 mod game_state_hooks;
+mod game_task_message;
 mod gfx_dir;
 mod hardware_init;
 mod headless;
@@ -70,6 +71,7 @@ pub fn install_all() -> Result<(), String> {
     task::install()?;
     weapon_release::install()?;
     create_explosion::install()?;
+    game_task_message::install()?;
     main_loop::install()?;
     Ok(())
 }

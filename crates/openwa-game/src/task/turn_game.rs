@@ -1,5 +1,5 @@
 use super::base::{CTask, SharedDataTable};
-use crate::FieldRegistry;
+use crate::{FieldRegistry, game::TaskMessage};
 use openwa_core::fixed::Fixed;
 
 crate::define_addresses! {
@@ -98,8 +98,13 @@ pub struct CTaskTurnGameVTable {
     /// HandleMessage — processes messages for turn flow control
     /// thiscall + 4 stack params, RET 0x10.
     #[slot(2)]
-    pub handle_message:
-        fn(this: *mut CTaskTurnGame, sender: *mut CTask, msg_type: u32, size: u32, data: *const u8),
+    pub handle_message: fn(
+        this: *mut CTaskTurnGame,
+        sender: *mut CTask,
+        msg_type: TaskMessage,
+        size: u32,
+        data: *const u8,
+    ),
     /// HUD/scoreboard data query — responds to query-style messages such as
     /// msg 0x7D3 (end-of-round data snapshot).
     /// thiscall + 3 stack params (msg, size, buf), RET 0xC.

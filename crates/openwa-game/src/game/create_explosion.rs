@@ -67,7 +67,7 @@ unsafe fn dispatch(sender: *mut CTask, msg: &ExplosionMessage) {
         CTaskTurnGame::handle_message_raw(
             turn_game,
             sender,
-            TaskMessage::Explosion as u32,
+            TaskMessage::Explosion,
             core::mem::size_of::<ExplosionMessage>() as u32,
             msg as *const ExplosionMessage as *const u8,
         );

@@ -53,8 +53,21 @@ pub struct CGameTask<V: super::base::Vtable = *const core::ffi::c_void> {
     pub speed_x: Fixed,
     /// 0x94: Y velocity in fixed-point
     pub speed_y: Fixed,
-    /// 0x98-0xE7: Unknown gameplay fields
-    pub _unknown_98: [u8; 0x50],
+    /// 0x98-0xD3: Unknown gameplay fields
+    pub _unknown_98: [u8; 0x3C],
+    /// 0xD4: Per-entity damage accumulator. `CGameTask::HandleMessage`
+    /// (msg=0x1c, Explosion) adds the falloff-adjusted damage from each
+    /// blast into this slot.
+    pub damage_accum: i32,
+    /// 0xD8-0xDF: Unknown gameplay fields
+    pub _unknown_d8: [u8; 0x8],
+    /// 0xE0: Owned sound-emitter handle, or 0 when no sound is held.
+    /// `CGameTask::HandleMessage` (msg=0x02, FrameFinish) polls the sound
+    /// subsystem each frame and clears this slot once the sound has
+    /// finished playing.
+    pub sound_handle: u32,
+    /// 0xE4: Unknown
+    pub _unknown_e4: u32,
     /// 0xE8: Embedded sound emitter sub-object (MSVC multiple inheritance).
     pub sound_emitter: SoundEmitter,
 }
