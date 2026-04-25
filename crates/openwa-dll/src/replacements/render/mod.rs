@@ -5,10 +5,12 @@
 //! - `display_vtable`: DisplayGfx vtable patches and stubs
 
 mod display_vtable;
+mod landscape;
 mod render_queue;
 
 pub fn install() -> Result<(), String> {
     render_queue::install()?;
     display_vtable::install()?;
+    landscape::install()?;
     Ok(())
 }

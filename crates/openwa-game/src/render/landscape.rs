@@ -1,7 +1,17 @@
+use core::arch::naked_asm;
+
 use crate::{
     asset::gfx_dir::GfxDir,
+    bitgrid::DisplayBitGrid,
     engine::{ddgame::DDGame, ddgame_wrapper::DDGameWrapper},
+    rebase::rb,
 };
+
+crate::define_addresses! {
+    /// `Landscape__FlushDirtyRects` (usercall, EDI=this, plain RET).
+    /// Drains all queued dirty rects through `Landscape+0x900->vtable[39]`.
+    fn/Usercall LANDSCAPE_FLUSH_DIRTY_RECTS = 0x0057CBA0;
+}
 
 /// Landscape — terrain/landscape subsystem (0xB40 bytes).
 ///
@@ -11,7 +21,7 @@ use crate::{
 /// water effects, and level graphics. Loads `Water.dir` and `Level.dir`.
 ///
 /// ## Rendering pipeline
-/// - Terrain is stored as multiple pixel layers (DisplayGfx objects)
+/// - Terrain is stored as multiple 8bpp pixel layers (`DisplayBitGrid`)
 /// - Collision uses a 1-bit-per-pixel packed bitmap at +0x0D0
 /// - Dirty rects queued via `RedrawLandRegion` (up to 256, 8 bytes each)
 /// - `DrawLandscape` (0x5A2790) blits landscape pixels to framebuffer
@@ -47,7 +57,11 @@ pub struct Landscape {
     pub dirty_rects: [DirtyRect; 256],
     /// 0x8D4: Number of dirty rects queued (max 256, overflows call flush)
     pub dirty_rect_count: u32,
-    /// 0x8D8: Dirty flag — set to 1 when any rect is queued
+    /// 0x8D8: "Incremental dirty pending" flag.
+    /// `RedrawLandRegion` (0x57CC10) sets this to 1 after queueing a small
+    /// region. `Landscape::init_borders` (0x57D7F0) clears it to 0 after
+    /// queueing the full-screen rect — the full redraw supersedes any
+    /// incremental tracking, so there's nothing for the renderer to chase.
     pub dirty_flag: u8,
     /// 0x8D9-0x8EB: Unknown
     pub _unknown_8d9: [u8; 0x13],
@@ -63,22 +77,30 @@ pub struct Landscape {
     pub _unknown_900: *mut u8,
     /// 0x904: Initialized flag (param_1[0x241], set to 1)
     pub initialized: u32,
-    /// 0x908: Terrain layer 0 — DisplayGfx* (collision visual / background)
-    pub layer_0: *mut u8,
-    /// 0x90C: Terrain layer 1 — DisplayGfx*
-    pub layer_1: *mut u8,
-    /// 0x910: Terrain layer 2 — DisplayGfx* (main terrain image).
-    /// Pixel data at `*(layer_2 + 8)`, width at `*(layer_2 + 0x14)`,
-    /// height at `*(layer_2 + 0x18)`, stride at `*(layer_2 + 0x10)`.
-    pub layer_terrain: *mut u8,
-    /// 0x914: Terrain layer 3 — DisplayGfx* (edge/shading layer)
-    pub layer_edges: *mut u8,
+    /// 0x908: Terrain layer 0 — written by the landscape image loader
+    /// (`SoundEmitter__Constructor_Maybe` at the top of the Landscape ctor —
+    /// name appears mislabeled in Ghidra; it returns 8bpp BitGrid layers).
+    pub layer_0: *mut DisplayBitGrid,
+    /// 0x90C: Terrain layer 1 — `wa_malloc(0x4C) + BitGrid::init(8)` with
+    /// the DisplayGfx (BitGridDisplay) vtable.
+    pub layer_1: *mut DisplayBitGrid,
+    /// 0x910: Main terrain image (8bpp). The Landscape ctor reads width and
+    /// height from this layer directly into `DDGame.level_width / level_height`.
+    pub layer_terrain: *mut DisplayBitGrid,
+    /// 0x914: Edge / collision-mask layer. `Landscape::init_borders` stamps
+    /// `1` into every border-region pixel here.
+    pub layer_edges: *mut DisplayBitGrid,
     /// 0x918-0x91B: Unknown
     pub _unknown_918: [u8; 4],
-    /// 0x91C: Terrain layer 4 — DisplayGfx* (shadow/overlay)
-    pub layer_shadow: *mut u8,
-    /// 0x920: Terrain layer 5 — DisplayGfx*
-    pub layer_5: *mut u8,
+    /// 0x91C: Shader / overlay layer. The vtable can be `LandscapeShader`
+    /// (offline path — slot 5 is a no-op stub) or `BitGridDisplay`
+    /// (online path) depending on the value of `DDGame+0x2C` at constructor
+    /// time. Both share the BitGrid base layout, so a `DisplayBitGrid` typing
+    /// works for either via `put_pixel_clipped_raw` dispatch.
+    pub layer_shadow: *mut DisplayBitGrid,
+    /// 0x920: Secondary shader / overlay layer — same conditional construction
+    /// as `layer_shadow`.
+    pub layer_5: *mut DisplayBitGrid,
     /// 0x924: Level directory path (char buffer, ~0x100 bytes)
     pub level_dir_path: [u8; 0x100],
     /// 0xA24: Theme/data directory path (char buffer, 0x100 bytes)
@@ -123,18 +145,26 @@ pub struct LandscapeVtable {
     /// apply explosion crater (0x57C820, RET 0xC) — terrain destruction
     #[slot(2)]
     pub apply_explosion: fn(this: *mut Landscape, p1: u32, p2: u32, p3: u32),
-    /// init landscape borders and layers (0x57D7F0, RET 0x20)
+    /// Stamp the indestructible-borders pattern onto the terrain layers.
+    /// (0x57D7F0, RET 0x20)
+    ///
+    /// For each enabled side, paints an 8-pixel-wide diagonal-stripe brick
+    /// pattern across all three landscape layers (`+0x910` terrain, `+0x914`
+    /// edges, `+0x91C` shader/shadow). The selector is uniform across all 4
+    /// sides: `((x - y + 4) >> 3) & 1` — sel=0 picks the "_a" colors,
+    /// sel=1 picks the "_b" colors. The edges layer is stamped with the
+    /// constant `1`. After painting, appends a full-screen dirty rect.
     #[slot(6)]
     pub init_borders: fn(
         this: *mut Landscape,
-        p1: u32,
-        p2: u32,
-        p3: u32,
-        p4: u32,
-        p5: u32,
-        p6: u32,
-        p7: u32,
-        p8: u32,
+        left: u32,
+        right: u32,
+        top: u32,
+        bottom: u32,
+        terrain_color_b: u32,
+        terrain_color_a: u32,
+        shader_color_b: u32,
+        shader_color_a: u32,
     ),
     /// redraw single row (0x57CF60, RET 0x4)
     #[slot(8)]
@@ -163,22 +193,160 @@ pub unsafe fn init_landscape_borders(wrapper: *mut DDGameWrapper) {
 
         let scheme_flag = (*game_info).landscape_scheme_flag;
 
-        let field_7318 = (*ddgame).gfx_color_table[3];
-        let field_730c = (*ddgame).gfx_color_table[0];
-        let field_734c = (*ddgame)._field_734c;
-        let field_7340 = (*ddgame)._field_7340;
+        let terrain_color_b = (*ddgame).gfx_color_table[3];
+        let terrain_color_a = (*ddgame).gfx_color_table[0];
+        let shader_color_b = (*ddgame).border_shader_color_b;
+        let shader_color_a = (*ddgame).border_shader_color_a;
 
         let landscape = (*ddgame).landscape;
 
         if scheme_flag != 0 {
             Landscape::init_borders_raw(
-                landscape, 1, 1, 1, 1, field_7318, field_730c, field_734c, field_7340,
+                landscape,
+                1,
+                1,
+                1,
+                1,
+                terrain_color_b,
+                terrain_color_a,
+                shader_color_b,
+                shader_color_a,
             );
             (*ddgame).is_cavern = 1;
         } else if (*ddgame).is_cavern != 0 {
             Landscape::init_borders_raw(
-                landscape, 0, 0, 1, 0, field_7318, field_730c, field_734c, field_7340,
+                landscape,
+                0,
+                0,
+                1,
+                0,
+                terrain_color_b,
+                terrain_color_a,
+                shader_color_b,
+                shader_color_a,
             );
         }
+    }
+}
+
+/// Bridge to WA's `Landscape__FlushDirtyRects` (0x57CBA0). Usercall: EDI = this,
+/// plain RET, no other args. Drains the dirty-rect queue through
+/// `landscape+0x900->vtable[39]`, then resets `dirty_rect_count` to 0.
+///
+/// Wraps a naked cdecl trampoline that loads `this` into EDI and calls the
+/// rebased target address (passed as a parameter per the project's bridge rule).
+unsafe fn flush_dirty_rects(this: *mut Landscape) {
+    unsafe {
+        flush_dirty_rects_trampoline(this, rb(LANDSCAPE_FLUSH_DIRTY_RECTS));
+    }
+}
+
+#[unsafe(naked)]
+unsafe extern "cdecl" fn flush_dirty_rects_trampoline(_this: *mut Landscape, _addr: u32) {
+    naked_asm!(
+        "push edi",
+        "mov edi, [esp + 8]",  // this
+        "mov eax, [esp + 12]", // target
+        "call eax",
+        "pop edi",
+        "ret",
+    );
+}
+
+/// Pure Rust implementation of `Landscape::init_borders` (0x57D7F0, vtable
+/// slot 6). See [`LandscapeVtable::init_borders`] for semantics.
+///
+/// Calling convention: thiscall (ECX = this) + 8 stack args, RET 0x20.
+pub unsafe extern "thiscall" fn landscape_init_borders_impl(
+    this: *mut Landscape,
+    left: u32,
+    right: u32,
+    top: u32,
+    bottom: u32,
+    terrain_color_b: u32,
+    terrain_color_a: u32,
+    shader_color_b: u32,
+    shader_color_a: u32,
+) {
+    unsafe {
+        let layer_terrain = (*this).layer_terrain;
+        let layer_edges = (*this).layer_edges;
+        let layer_shader = (*this).layer_shadow;
+
+        let width = (*layer_terrain).width as i32;
+        let height = (*layer_terrain).height as i32;
+
+        let terrain_pair = [terrain_color_a as u8, terrain_color_b as u8];
+        let shader_pair = [shader_color_a as u8, shader_color_b as u8];
+
+        // The diagonal stripe selector is uniform across all 4 border regions:
+        // sel = ((x - y + 4) >> 3) & 1. (WA stores the same value as a per-row
+        // counter that decrements in sync with y; both forms are equivalent.)
+        let stamp = |x: i32, y: i32| {
+            let sel = (((x - y + 4) >> 3) & 1) as usize;
+            DisplayBitGrid::put_pixel_clipped_raw(layer_edges, x, y, 1);
+            DisplayBitGrid::put_pixel_clipped_raw(layer_terrain, x, y, terrain_pair[sel]);
+            DisplayBitGrid::put_pixel_clipped_raw(layer_shader, x, y, shader_pair[sel]);
+        };
+
+        if left != 0 {
+            (*this).visible_left = 8;
+            for y in 0..height {
+                for x in 0..8i32 {
+                    stamp(x, y);
+                }
+            }
+        }
+
+        if right != 0 {
+            let x_start = width - 8;
+            (*this).visible_right = x_start as u32;
+            if x_start < width {
+                for y in 0..height {
+                    for x in x_start..width {
+                        stamp(x, y);
+                    }
+                }
+            }
+        }
+
+        if top != 0 {
+            (*this).visible_top = 8;
+            for y in 0..8i32 {
+                for x in 0..width {
+                    stamp(x, y);
+                }
+            }
+        }
+
+        if bottom != 0 {
+            let y_start = height - 8;
+            (*this).visible_bottom = y_start as u32;
+            if y_start < height {
+                for y in y_start..height {
+                    for x in 0..width {
+                        stamp(x, y);
+                    }
+                }
+            }
+        }
+
+        push_dirty_rect(this, 0, 0, width as u16, height as u16);
+        // Full-screen rect supersedes any pending incremental work — see the
+        // `dirty_flag` field comment.
+        (*this).dirty_flag = 0;
+    }
+}
+
+/// Append a dirty rect to the Landscape's queue, draining first if it's
+/// already at capacity. Caller is responsible for `dirty_flag` semantics.
+unsafe fn push_dirty_rect(this: *mut Landscape, x1: u16, y1: u16, x2: u16, y2: u16) {
+    unsafe {
+        if (*this).dirty_rect_count >= 256 {
+            flush_dirty_rects(this);
+        }
+        let idx = (*this).dirty_rect_count as usize;
+        (*this).dirty_rects[idx] = DirtyRect { x1, y1, x2, y2 };
+        (*this).dirty_rect_count += 1;
     }
 }

@@ -265,12 +265,19 @@ pub struct DDGame {
     pub fill_pixel: u32,
     /// 0x733C-0x733F: Unknown
     pub _unknown_733c: [u8; 4],
-    /// 0x7340: Landscape dimension param (passed to Landscape vtable slot 6).
-    pub _field_7340: u32,
+    /// 0x7340: Border shader-layer color A (sel=0 in the diagonal stripe).
+    /// Paired with `gfx_color_table[0]` (terrain layer) when `Landscape::init_borders`
+    /// (0x57D7F0) draws the indestructible-borders pattern. The shader-layer slot 5
+    /// dispatch is a no-op for the LandscapeShader-vtable variant of the layer at
+    /// `Landscape+0x91C`, so this value only ends up on screen in the
+    /// DisplayGfx/BitGrid path.
+    pub border_shader_color_a: u32,
     /// 0x7344-0x734B: Unknown
     pub _unknown_7344: [u8; 8],
-    /// 0x734C: Landscape dimension param (passed to Landscape vtable slot 6).
-    pub _field_734c: u32,
+    /// 0x734C: Border shader-layer color B (sel=1 in the diagonal stripe).
+    /// Paired with `gfx_color_table[3]` (terrain layer) when `Landscape::init_borders`
+    /// draws borders. See `border_shader_color_a` for the dispatch caveat.
+    pub border_shader_color_b: u32,
     /// 0x7350-0x736F: Unknown
     pub _unknown_7350: [u8; 0x7370 - 0x7350],
     /// 0x7370: Current team color index. Set from GameInfo+0xD924;
