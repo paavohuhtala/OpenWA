@@ -1,49 +1,42 @@
-//! `WorldEntity::HandleMessage` port — vtable slot 2 at 0x004FF280.
-//!
-//! Three explicit cases, default broadcasts to children:
-//! - **0x02 (FrameFinish)**: release the entity's sound-emitter handle if
-//!   still active.
-//! - **0x1c (Explosion)**: clamp health to ≥0, run the per-entity damage
-//!   calc, accumulate into `damage_accum`, and on `caller_flag` report a
-//!   damage percentage to `WorldRootEntity` via msg `0x1d`.
-//! - **0x4b**: clamp health to ≥0, then dispatch self vtable slot 17 with
-//!   `(data[+0xC], data[+0x10], 0)`.
+//! `WorldEntity::HandleMessage` and its three downstream helpers. The
+//! handler has three explicit cases; default broadcasts to children:
+//! - **0x02 (FrameFinish)**: release the entity's owned sound handle if
+//!   the slot it points at has finished playing.
+//! - **0x1c (Explosion)**: clamp health to ≥0, run distance-falloff damage,
+//!   accumulate, optionally report to `WorldRootEntity` for kill attribution.
+//! - **0x4b (SpecialImpact)**: clamp health to ≥0, apply impulse via slot 17.
 //! - default: `BaseEntity::broadcast_message_raw`.
 //!
-//! Bridges out for the FPU-heavy `WorldEntity::ComputeExplosionDamage` and the
-//! two sound-emitter helpers; everything else is direct Rust.
+//! The three sound/damage helpers are also exposed for direct hooking so
+//! WA's other callers (six for `IsSoundHandleExpired`, one for
+//! `ReleaseSoundHandle`) land in our Rust ports too.
 
 use openwa_core::fixed::Fixed;
 
-use crate::game::message::{ExplosionMessage, ExplosionReportMessage, TaskMessage};
-use crate::rebase::rb;
+use crate::audio::DSSound;
+use crate::game::message::{
+    ExplosionMessage, ExplosionReportMessage, SpecialImpactMessage, TaskMessage,
+};
 use crate::task::{BaseEntity, WorldEntity, WorldRootEntity};
 
-/// Bridge: `WorldEntity::ComputeExplosionDamage` (0x004FF390) — distance
-/// falloff damage. Usercall: EDI = this (WorldEntity), stack = [explosion_id,
-/// damage, pos_x, pos_y]. Returns the actual damage applied to this entity.
-const VA_COMPUTE_EXPLOSION_DAMAGE: u32 = 0x004FF390;
-/// Bridge: `WorldEntity::IsSoundHandleExpired` (0x00546CD0) — usercall
-/// (ECX=this, EAX=handle); returns non-zero if the slot the handle refers
-/// to has been reclaimed (sound finished or handle stale).
-const VA_IS_SOUND_HANDLE_EXPIRED: u32 = 0x00546CD0;
-/// Bridge: `WorldEntity::ReleaseSoundHandle` (0x00546D20) — fastcall(ECX=this,
-/// EDX=handle); stops + releases the entity's owned sound handle.
-const VA_RELEASE_SOUND_HANDLE: u32 = 0x00546D20;
+crate::define_addresses! {
+    class "WorldEntity" {
+        fn/Usercall WORLD_ENTITY_IS_SOUND_HANDLE_EXPIRED = 0x00546CD0;
+        fn/Fastcall WORLD_ENTITY_RELEASE_SOUND_HANDLE = 0x00546D20;
+        fn/Usercall WORLD_ENTITY_COMPUTE_EXPLOSION_DAMAGE = 0x004FF390;
+    }
+}
 
-/// Byte offset on WorldEntity of the entity's health (signed i32).
-///
-/// Lives inside `subclass_data`, which is genuinely polymorphic. Subclasses
-/// that delegate damage handling to `WorldEntity::HandleMessage` (mines, oil
-/// drums, the gravestone CrossEntity, score bubbles, etc.) interpret this
-/// slot as HP and rely on the clamp at the head of msg=0x1c / msg=0x4b.
-/// Subclasses that override HandleMessage outright — most importantly
-/// `WormEntity` — never reach this codepath; WormEntity reuses the same slot
-/// as `set_action_field_raw` (an air-strike scratch flag), with worm HP
-/// living at `WormEntity+0x178/0x17C` instead.
+/// Health slot inside `subclass_data` — genuinely polymorphic.
+/// Subclasses that delegate to `WorldEntity::HandleMessage` (mines, oil
+/// drums, the gravestone CrossEntity, score bubbles, …) treat +0x48 as HP
+/// and rely on the clamp at the head of msg=0x1c / msg=0x4b. Subclasses
+/// that override HandleMessage outright — `WormEntity` — never reach this
+/// path; WormEntity reuses +0x48 as an air-strike scratch flag, with HP at
+/// `WormEntity+0x178/0x17C`.
 const OFFSET_HEALTH: usize = 0x48;
 
-/// `WorldEntity::HandleMessage` — pure-Rust port of 0x004FF280 (vtable slot 2).
+/// `WorldEntity::HandleMessage` (0x004FF280, vtable slot 2).
 pub unsafe extern "thiscall" fn cgametask_handle_message(
     this: *mut WorldEntity,
     sender: *mut BaseEntity,
@@ -54,8 +47,10 @@ pub unsafe extern "thiscall" fn cgametask_handle_message(
     unsafe {
         match msg_type {
             TaskMessage::FrameFinish => clear_owned_sound_handle(this),
-            TaskMessage::Explosion => apply_explosion_damage(this, data),
-            TaskMessage::SpecialImpact => dispatch_special_impact(this, data),
+            TaskMessage::Explosion => apply_explosion_damage(this, data as *const ExplosionMessage),
+            TaskMessage::SpecialImpact => {
+                dispatch_special_impact(this, data as *const SpecialImpactMessage)
+            }
             _ => BaseEntity::broadcast_message_raw(
                 this as *mut BaseEntity,
                 sender,
@@ -67,8 +62,6 @@ pub unsafe extern "thiscall" fn cgametask_handle_message(
     }
 }
 
-/// Clamp the entity's health to ≥0. Shared prologue of msg=0x1c and
-/// msg=0x4b in WA's original.
 #[inline]
 unsafe fn clamp_health(this: *mut WorldEntity) {
     unsafe {
@@ -79,45 +72,78 @@ unsafe fn clamp_health(this: *mut WorldEntity) {
     }
 }
 
-/// FrameFinish (msg=0x02): if our owned sound has finished playing, ask the
-/// sound subsystem to free the slot and forget the handle. Sounds that are
-/// still playing keep their handle for the next frame's poll.
 unsafe fn clear_owned_sound_handle(this: *mut WorldEntity) {
     unsafe {
         let handle = (*this).sound_handle;
         if handle == 0 {
             return;
         }
-        if is_sound_handle_expired(this, handle, rb(VA_IS_SOUND_HANDLE_EXPIRED)) == 0 {
+        if sound_handle_expired(this, handle) == 0 {
             return;
         }
-        release_sound_handle(this, handle, rb(VA_RELEASE_SOUND_HANDLE));
+        release_sound_handle(this, handle);
         (*this).sound_handle = 0;
     }
 }
 
-unsafe fn apply_explosion_damage(this: *mut WorldEntity, data: *const u8) {
+/// `WorldEntity::IsSoundHandleExpired` (0x00546CD0).
+///
+/// Bit 30 (`0x40000000`) of the handle distinguishes positional/local sounds
+/// (active-sound table, indexed by `handle & 0x3f`) from globally-mixed
+/// sounds. Returns 0 when sound is disabled so the caller keeps the slot
+/// parked indefinitely.
+pub unsafe fn sound_handle_expired(this: *const WorldEntity, handle: u32) -> u32 {
+    unsafe {
+        let world = (*(this as *const BaseEntity)).world;
+        let sound = (*world).sound;
+        if sound.is_null() {
+            return 0;
+        }
+        if (handle & 0x40000000) != 0 {
+            let cleaned = handle & 0xbfffffff;
+            let table = (*world).active_sounds;
+            let entry = &(*table).entries[(cleaned & 0x3f) as usize];
+            return (entry.sequence as u32 != cleaned || entry.channel_handle == 0) as u32;
+        }
+        DSSound::is_channel_finished_raw(sound, handle as i32) as u32
+    }
+}
+
+/// `WorldEntity::ReleaseSoundHandle` (0x00546D20).
+pub unsafe extern "fastcall" fn release_sound_handle(this: *mut WorldEntity, handle: u32) -> u32 {
+    unsafe {
+        let world = (*(this as *const BaseEntity)).world;
+        let sound = (*world).sound;
+        if sound.is_null() || (handle as i32) < 0 {
+            return 0;
+        }
+        if (handle & 0x40000000) != 0 {
+            let cleaned = (handle & 0xbfffffff) as i32;
+            return (*(*world).active_sounds).stop_sound(cleaned) as u32;
+        }
+        DSSound::stop_channel_raw(sound, handle as i32)
+    }
+}
+
+unsafe fn apply_explosion_damage(this: *mut WorldEntity, msg: *const ExplosionMessage) {
     unsafe {
         clamp_health(this);
 
-        let msg = &*(data as *const ExplosionMessage);
         let dmg = compute_explosion_damage(
             this,
-            msg.explosion_id,
-            msg.damage,
-            msg.pos_x,
-            msg.pos_y,
-            rb(VA_COMPUTE_EXPLOSION_DAMAGE),
+            (*msg).explosion_id,
+            (*msg).damage,
+            (*msg).pos_x,
+            (*msg).pos_y,
         );
 
         (*this).damage_accum = (*this).damage_accum.wrapping_add(dmg);
 
-        if msg.caller_flag == 0 {
+        if (*msg).caller_flag == 0 {
             return;
         }
 
-        // Report damage percentage to WorldRootEntity for score / kill attribution.
-        let damage_percent = (dmg as i32).wrapping_mul(100) / msg.damage as i32;
+        let damage_percent = dmg.wrapping_mul(100) / (*msg).damage as i32;
         let world_root = WorldRootEntity::from_shared_data(this as *const BaseEntity);
         if world_root.is_null() {
             return;
@@ -130,88 +156,80 @@ unsafe fn apply_explosion_damage(this: *mut WorldEntity, data: *const u8) {
     }
 }
 
-unsafe fn dispatch_special_impact(this: *mut WorldEntity, data: *const u8) {
+/// `WorldEntity::ComputeExplosionDamage` (0x004FF390).
+pub unsafe fn compute_explosion_damage(
+    this: *mut WorldEntity,
+    strength: u32,
+    damage: u32,
+    pos_x: Fixed,
+    pos_y: Fixed,
+) -> i32 {
     unsafe {
-        clamp_health(this);
+        let world = (*(this as *const BaseEntity)).world;
+        let radius_factor = (*world)._field_5f0 as i32;
+        let threshold = radius_factor
+            .wrapping_mul(damage as i32)
+            .wrapping_add(2)
+            .wrapping_shl(17);
+        if threshold == 0 {
+            return 0;
+        }
 
-        let arg1 = (data.add(0x0c) as *const u32).read();
-        let arg2 = (data.add(0x10) as *const u32).read();
+        let mut delta = [
+            (*this).pos_x.0.wrapping_sub(pos_x.0),
+            (*this).pos_y.0.wrapping_sub(pos_y.0),
+        ];
 
-        // Vtable slot 17 (byte offset +0x44). thiscall(this, arg1, arg2, 0).
-        // Subclasses install their own slot 17, so we dispatch through self.
-        let vtable = *(this as *const *const usize);
-        let slot17: unsafe extern "thiscall" fn(*mut WorldEntity, u32, u32, u32) =
-            core::mem::transmute(*vtable.add(17));
-        slot17(this, arg1, arg2, 0);
+        // VECTOR_NORMALIZE_{SIMPLE,OVERFLOW} chosen by game version in
+        // InitGameState; both return the magnitude and write the unit
+        // vector back into `delta`.
+        let normalize: unsafe extern "stdcall" fn(*mut [i32; 2]) -> u32 =
+            core::mem::transmute((*world).vector_normalize_fn);
+        let mag = normalize(&mut delta) as i32;
+        if mag > threshold {
+            return 0;
+        }
+
+        let ratio = Fixed(threshold - mag) / Fixed(threshold);
+        let scaled_dmg = ((damage as i32 as i64).wrapping_mul(ratio.0 as i64) >> 16) as i32;
+        if scaled_dmg == 0 {
+            return 0;
+        }
+
+        let recv_scale_raw = (*this)._field_cc.0;
+        let knock_x = Fixed(compute_knockback_axis(
+            scaled_dmg,
+            delta[0],
+            recv_scale_raw,
+            strength as i32,
+        ));
+        let knock_y = Fixed(compute_knockback_axis(
+            scaled_dmg,
+            delta[1],
+            recv_scale_raw,
+            strength as i32,
+        ));
+
+        WorldEntity::add_impulse_raw(this, knock_x, knock_y, 0);
+
+        scaled_dmg
     }
 }
 
-// ============================================================================
-// WA.exe bridges — naked-asm trampolines for non-standard calling conventions.
-// ============================================================================
-
-/// Bridge: `WorldEntity::ComputeExplosionDamage` — usercall(EDI=this,
-/// stack=[explosion_id, damage, pos_x, pos_y]), RET 0x10. Returns the
-/// actual damage applied to `this` after distance falloff.
-#[unsafe(naked)]
-unsafe extern "C" fn compute_explosion_damage(
-    _this: *mut WorldEntity,
-    _explosion_id: u32,
-    _damage: u32,
-    _pos_x: Fixed,
-    _pos_y: Fixed,
-    _addr: u32,
-) -> i32 {
-    core::arch::naked_asm!(
-        "push ebx",
-        "push edi",
-        // Stack: 2 saves(8) + ret(4) = 12 to first arg.
-        "mov edi, [esp+12]", // this -> EDI
-        "mov ebx, [esp+32]", // addr
-        "push [esp+28]",     // pos_y
-        "push [esp+28]",     // pos_x (shifted)
-        "push [esp+28]",     // damage
-        "push [esp+28]",     // explosion_id
-        "call ebx",
-        "pop edi",
-        "pop ebx",
-        "ret",
-    );
+/// Wrapping 32-bit IMULs + signed `/5` and `/100` mirror MSVC's
+/// strength-reduced sequence at 0x004FF40C..0x004FF483 — required for
+/// bit-identical overflow behaviour with WA.
+#[inline]
+fn compute_knockback_axis(scaled_dmg: i32, delta: i32, recv_scale_raw: i32, strength: i32) -> i32 {
+    let step1 = scaled_dmg.wrapping_mul(delta) / 5;
+    let step2 = (((step1 as i64) * (recv_scale_raw as i64)) >> 16) as i32;
+    step2.wrapping_mul(strength) / 100
 }
 
-/// Bridge: `WorldEntity::IsSoundHandleExpired` — usercall(ECX=this,
-/// EAX=handle). Returns nonzero if the handle refers to a slot whose sound
-/// has finished playing (so the owner can drop its reference).
-#[unsafe(naked)]
-unsafe extern "C" fn is_sound_handle_expired(
-    _this: *mut WorldEntity,
-    _handle: u32,
-    _addr: u32,
-) -> u32 {
-    core::arch::naked_asm!(
-        "push ebx",
-        // Stack: 1 save(4) + ret(4) = 8 to first arg.
-        "mov ecx, [esp+8]",  // this -> ECX
-        "mov eax, [esp+12]", // handle -> EAX
-        "mov ebx, [esp+16]", // addr
-        "call ebx",
-        "pop ebx",
-        "ret",
-    );
-}
-
-/// Bridge: `WorldEntity::ReleaseSoundHandle` — thiscall(this, handle).
-/// Stops the named handle and releases its slot.
-#[unsafe(naked)]
-unsafe extern "C" fn release_sound_handle(_this: *mut WorldEntity, _handle: u32, _addr: u32) {
-    core::arch::naked_asm!(
-        "push ebx",
-        // Stack: 1 save(4) + ret(4) = 8 to first arg.
-        "mov ecx, [esp+8]",
-        "mov edx, [esp+12]",
-        "mov ebx, [esp+16]",
-        "call ebx",
-        "pop ebx",
-        "ret",
-    );
+unsafe fn dispatch_special_impact(this: *mut WorldEntity, msg: *const SpecialImpactMessage) {
+    unsafe {
+        clamp_health(this);
+        let msg = &*msg;
+        WorldEntity::add_impulse_raw(this, msg.impulse_x, msg.impulse_y, 0);
+    }
 }

@@ -185,6 +185,38 @@ impl TaskMessageData for ExplosionMessage {
     const MESSAGE_TYPE: TaskMessage = TaskMessage::Explosion;
 }
 
+/// Payload for [`TaskMessage::SpecialImpact`]. Built by `SpecialImpact`
+/// (0x005193D0) — drill/prod/baseball-bat-style weapons broadcast it to
+/// every receiver inside an axis-aligned box around the hit. WA reports
+/// `0x408` for the size (oversized scratch frame) but only this 0x1C
+/// prefix is populated.
+///
+/// The base `WorldEntity::HandleMessage` only reads `impulse_x` /
+/// `impulse_y`; subclass overrides (notably `WormEntity`) consume
+/// `damage` and `source_team_index` for kill attribution.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Zeroable, Pod)]
+pub struct SpecialImpactMessage {
+    /// Same "real vs. cosmetic" discriminator role as
+    /// [`ExplosionMessage::flag`] — empirically.
+    pub flag: u32,
+    pub pos_x: Fixed,
+    pub pos_y: Fixed,
+    /// Sign is flipped on the source worm itself so the recoil mirrors
+    /// the hit direction; forwarded as-is to every other target.
+    pub impulse_x: Fixed,
+    pub impulse_y: Fixed,
+    /// Already attenuated by the sender's distance-falloff math.
+    pub damage: i32,
+    pub source_team_index: u32,
+}
+
+const _: () = assert!(core::mem::size_of::<SpecialImpactMessage>() == 0x1C);
+
+impl TaskMessageData for SpecialImpactMessage {
+    const MESSAGE_TYPE: TaskMessage = TaskMessage::SpecialImpact;
+}
+
 /// Empty payload for [`TaskMessage::UpdateNonCritical`]. Broadcast at the
 /// head of `reset_frame_state` once per frame.
 #[repr(C)]

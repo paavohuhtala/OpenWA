@@ -28,6 +28,10 @@ pub mod va {
     // =========================================================================
 
     // Re-exported from task modules
+    pub use crate::game::game_task_message::{
+        WORLD_ENTITY_COMPUTE_EXPLOSION_DAMAGE, WORLD_ENTITY_IS_SOUND_HANDLE_EXPIRED,
+        WORLD_ENTITY_RELEASE_SOUND_HANDLE,
+    };
     pub use crate::task::base::{
         AIRSTRIKE_ENTITY_CTOR, ARROW_ENTITY_CTOR, BASE_ENTITY_CONSTRUCTOR, BASE_ENTITY_VT0_INIT,
         BASE_ENTITY_VT1_FREE, BASE_ENTITY_VT2_HANDLE_MESSAGE, BASE_ENTITY_VT3, BASE_ENTITY_VT5,
