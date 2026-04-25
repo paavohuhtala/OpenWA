@@ -1126,6 +1126,19 @@ pub mod va {
     }
 
     // =========================================================================
+    // Steamworks SDK bootstrap
+    // =========================================================================
+
+    crate::define_addresses! {
+        /// Steamworks SDK bootstrap wrapper. Calls `SteamAPI_Init`,
+        /// `SteamAPI_RestartAppIfNecessary(217200)`, `BIsSubscribedApp`, and
+        /// `SetOverlayNotificationPosition(1)`. Returns 1 on success, 0 on
+        /// failure (Steam not running, app not owned, or restart triggered) —
+        /// in which case `Frontend__MainNavigationLoop` exits silently.
+        fn/Cdecl STEAM_BOOTSTRAP = 0x00598D40;
+    }
+
+    // =========================================================================
     // DDGame struct offsets (not VAs — kept as manual constants)
     // =========================================================================
 

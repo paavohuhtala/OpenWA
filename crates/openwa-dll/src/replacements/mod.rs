@@ -21,6 +21,7 @@ mod scheme;
 mod sound;
 mod speech;
 mod sprite;
+mod steam;
 mod string_resource;
 mod task;
 mod team;
@@ -38,6 +39,7 @@ pub fn write_gameplay_report() {
 pub fn install_all() -> Result<(), String> {
     // Infrastructure hooks — always installed
     headless::install()?;
+    steam::install()?;
     file_isolation::install()?;
     frame_hook::install()?;
     trace_desync::install()?;
