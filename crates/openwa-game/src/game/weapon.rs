@@ -2,7 +2,7 @@ use core::ffi::c_char;
 
 use openwa_core::fixed::Fixed;
 
-pub use openwa_core::weapon::{FireMethod, FireType, SpecialFireSubtype, Weapon};
+pub use openwa_core::weapon::{FireMethod, FireType, KnownWeaponId, SpecialFireSubtype};
 
 // ============================================================
 // WeaponSpawnData — launch parameters passed to CTaskMissile ctor

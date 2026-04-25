@@ -122,15 +122,13 @@ use crate::render::sprite::sprite_op::SpriteOp;
 pub unsafe extern "thiscall" fn cloud_handle_message(
     this: *mut CTaskCloud,
     sender: *mut CTask,
-    msg_type: u32,
+    msg_type: TaskMessage,
     size: u32,
     data: *const u8,
 ) {
     unsafe {
-        let msg = TaskMessage::try_from(msg_type);
-
-        match msg {
-            Ok(TaskMessage::FrameFinish) => {
+        match msg_type {
+            TaskMessage::FrameFinish => {
                 // Advance Y position
                 (*this).anim_phase = Fixed((*this).anim_phase.0 + (*this).phase_speed.0);
 
@@ -163,7 +161,7 @@ pub unsafe extern "thiscall" fn cloud_handle_message(
                 }
             }
 
-            Ok(TaskMessage::RenderScene) => {
+            TaskMessage::RenderScene => {
                 let ddgame = CTask::ddgame_raw(this as *const CTask);
 
                 // Only render when rendering phase == 5 (in-game rendering active)
@@ -195,7 +193,7 @@ pub unsafe extern "thiscall" fn cloud_handle_message(
                 }
             }
 
-            Ok(TaskMessage::SetWind) if !data.is_null() => {
+            TaskMessage::SetWind if !data.is_null() => {
                 (*this).wind_target = Fixed(*(data as *const i32));
             }
 

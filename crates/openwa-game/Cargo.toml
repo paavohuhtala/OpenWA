@@ -13,6 +13,7 @@ hound = "3"
 inventory = "0.3.24"
 openwa-derive = { path = "../openwa-derive" }
 openwa-debug-proto = { path = "../openwa-debug-proto" }
+bytemuck = { version = "1.25.0", features = ["derive"] }
 
 [dev-dependencies]
 gif = "0.14"

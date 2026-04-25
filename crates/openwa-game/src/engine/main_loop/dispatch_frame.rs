@@ -17,10 +17,11 @@ use crate::engine::ddgame::DDGame;
 use crate::engine::ddgame_wrapper::DDGameWrapper;
 use crate::engine::game_session::get_game_session;
 use crate::engine::game_state;
+use crate::game::message::{TurnEndMaybeMessage, UpdateNonCriticalMessage};
 use crate::input::keyboard::DDKeyboard;
 use crate::rebase::rb;
 use crate::render::display::gfx::DisplayGfx;
-use crate::task::{CTask, CTaskTurnGame};
+use crate::task::CTaskTurnGame;
 
 // ─── Runtime addresses ─────────────────────────────────────────────────────
 //
@@ -630,7 +631,7 @@ fn is_paused_phase(v: i32) -> bool {
 pub unsafe fn reset_frame_state(wrapper: *mut DDGameWrapper) {
     unsafe {
         let task = (*wrapper).task_turn_game;
-        CTaskTurnGame::handle_message_raw(task, task as *mut CTask, 5, 0, core::ptr::null());
+        CTaskTurnGame::handle_typed_message_raw(task, task, UpdateNonCriticalMessage);
 
         let ddgame = (*wrapper).ddgame;
 
@@ -1311,12 +1312,10 @@ pub unsafe fn dispatch_frame(wrapper: *mut DDGameWrapper, time: u64, freq: u64) 
                     // Broadcast game-end message via CTaskTurnGame::HandleMessage (vtable[2]).
                     // Original (0x529F00): ECX=task, stack = [sender=task, msg=0x75, size=0, data=0].
                     let task = (*wrapper).task_turn_game;
-                    crate::task::CTaskTurnGame::handle_message_raw(
+                    crate::task::CTaskTurnGame::handle_typed_message_raw(
                         task,
-                        task as *mut crate::task::CTask,
-                        0x75,
-                        0,
-                        core::ptr::null(),
+                        task,
+                        TurnEndMaybeMessage,
                     );
                 }
                 (*wrapper).game_end_phase = 1;

@@ -1,3 +1,4 @@
+use bytemuck::{Pod, Zeroable};
 use core::ops::{Add, Div, Mul, Neg, Sub};
 use std::ops::{AddAssign, SubAssign};
 
@@ -5,7 +6,7 @@ use std::ops::{AddAssign, SubAssign};
 ///
 /// The game uses `0x10000` (65536) to represent `1.0`.
 /// For example, a position of `0x30000` means 3.0 world units.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default, Zeroable, Pod)]
 #[repr(transparent)]
 pub struct Fixed(pub i32);
 

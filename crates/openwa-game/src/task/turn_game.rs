@@ -1,5 +1,10 @@
 use super::base::{CTask, SharedDataTable};
-use crate::{FieldRegistry, game::TaskMessage};
+use crate::{
+    FieldRegistry,
+    game::{TaskMessage, message::TaskMessageData},
+    task::Task,
+};
+use bytemuck::bytes_of;
 use openwa_core::fixed::Fixed;
 
 crate::define_addresses! {
@@ -235,6 +240,24 @@ impl CTaskTurnGame {
         unsafe {
             let (esi, edi) = Self::SHARED_DATA_KEY;
             SharedDataTable::from_task(task).lookup(esi, edi) as *mut CTaskTurnGame
+        }
+    }
+
+    pub unsafe fn handle_typed_message_raw<TSender: Task, TMessage: TaskMessageData>(
+        this: *mut Self,
+        sender: *mut TSender,
+        message: TMessage,
+    ) {
+        let buf = bytes_of(&message);
+        let size = buf.len() as u32;
+        unsafe {
+            let sender = sender as *mut CTask;
+            let buf = if size > 0 {
+                buf.as_ptr()
+            } else {
+                core::ptr::null()
+            };
+            Self::handle_message_raw(this, sender, TMessage::MESSAGE_TYPE, size, buf);
         }
     }
 }

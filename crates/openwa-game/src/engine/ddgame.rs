@@ -428,7 +428,7 @@ pub struct DDGame {
     /// 0x7E30-0x7E3E: Unknown
     pub _unknown_7e30: [u8; 0x7E3F - 0x7E30],
     /// 0x7E3F: Version flag byte 3 (set by InitVersionFlags).
-    /// Passed to is_super_weapon as the version/mode parameter.
+    /// Controls whether Select Worm is considered a super weapon (in is_super_weapon).
     pub version_flag_3: u8,
     /// 0x7E40: Game logic version byte 4 (set by InitVersionFlags).
     /// Used in FireWeapon__MailMineMole to gate vtable call behavior by version.

@@ -4,7 +4,7 @@
 //! `openwa_game::game::game_task_message::cgametask_handle_message`.
 
 use openwa_game::address::va;
-use openwa_game::game::game_task_message as gtm;
+use openwa_game::game::{TaskMessage, game_task_message as gtm};
 use openwa_game::task::{CGameTask, CTask};
 
 use crate::hook::{self, usercall_trampoline};
@@ -17,7 +17,7 @@ usercall_trampoline!(fn trampoline_cgametask_handle_message;
 unsafe extern "cdecl" fn cgametask_handle_message_impl(
     this: *mut CGameTask,
     sender: *mut CTask,
-    msg_type: u32,
+    msg_type: TaskMessage,
     size: u32,
     data: *const u8,
 ) {

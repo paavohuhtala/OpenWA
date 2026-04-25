@@ -39,11 +39,12 @@ use crate::engine::game_session::get_game_session;
 use crate::engine::game_state;
 use crate::engine::log_sink::LogOutput;
 use crate::engine::net_session::NetSession;
+use crate::game::message::{TurnEndMaybeMessage, Unknown122Message};
 use crate::input::buffer_object::BufferObject;
 use crate::input::keyboard::DDKeyboard;
 use crate::rebase::rb;
 use crate::render::display::palette::Palette;
-use crate::task::{CTask, CTaskTurnGame};
+use crate::task::CTaskTurnGame;
 use crate::wa::string_resource::{StringRes, res, wa_load_string};
 
 // ─── Runtime addresses (resolved at DLL load) ──────────────────────────────
@@ -125,7 +126,7 @@ unsafe fn enter_round_ending(wrapper: *mut DDGameWrapper) {
         let gi = &*(*ddgame).game_info;
         if gi.game_version > 0x4c {
             let task = (*wrapper).task_turn_game;
-            CTaskTurnGame::handle_message_raw(task, task as *mut CTask, 0x75, 0, core::ptr::null());
+            CTaskTurnGame::handle_typed_message_raw(task, task, TurnEndMaybeMessage);
         }
     }
 }
@@ -294,13 +295,7 @@ pub unsafe fn step_frame(
                 (*wrapper).game_end_speed = 0;
                 if game_info.game_version >= 0x4d {
                     let task = (*wrapper).task_turn_game;
-                    CTaskTurnGame::handle_message_raw(
-                        task,
-                        task as *mut CTask,
-                        0x75,
-                        0,
-                        core::ptr::null(),
-                    );
+                    CTaskTurnGame::handle_typed_message_raw(task, task, TurnEndMaybeMessage);
                 }
             } else {
                 bridge_begin_network_game_end(wrapper);
@@ -349,13 +344,7 @@ pub unsafe fn step_frame(
             (*wrapper)._field_404 = 1;
             if (*ddgame).fast_forward_active == 0 {
                 let task = (*wrapper).task_turn_game;
-                CTaskTurnGame::handle_message_raw(
-                    task,
-                    task as *mut CTask,
-                    0x7a,
-                    0,
-                    core::ptr::null(),
-                );
+                CTaskTurnGame::handle_typed_message_raw(task, task, Unknown122Message);
             }
         }
 

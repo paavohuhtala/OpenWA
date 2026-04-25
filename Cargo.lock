@@ -2398,6 +2398,7 @@ dependencies = [
 name = "openwa-core"
 version = "0.1.0"
 dependencies = [
+ "bytemuck",
  "byteorder",
  "openwa-config",
 ]
@@ -2457,6 +2458,7 @@ name = "openwa-game"
 version = "0.1.0"
 dependencies = [
  "bitflags 2.11.1",
+ "bytemuck",
  "gif",
  "heapless",
  "hound",

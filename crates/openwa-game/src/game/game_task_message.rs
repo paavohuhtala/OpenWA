@@ -15,8 +15,7 @@
 
 use openwa_core::fixed::Fixed;
 
-use crate::game::create_explosion::ExplosionMessage;
-use crate::game::message::TaskMessage;
+use crate::game::message::{ExplosionMessage, ExplosionReportMessage, TaskMessage};
 use crate::rebase::rb;
 use crate::task::{CGameTask, CTask, CTaskTurnGame};
 
@@ -48,15 +47,15 @@ const OFFSET_HEALTH: usize = 0x48;
 pub unsafe extern "thiscall" fn cgametask_handle_message(
     this: *mut CGameTask,
     sender: *mut CTask,
-    msg_type: u32,
+    msg_type: TaskMessage,
     size: u32,
     data: *const u8,
 ) {
     unsafe {
         match msg_type {
-            x if x == TaskMessage::FrameFinish as u32 => clear_owned_sound_handle(this),
-            x if x == TaskMessage::Explosion as u32 => apply_explosion_damage(this, data),
-            0x4b => dispatch_msg_4b(this, data),
+            TaskMessage::FrameFinish => clear_owned_sound_handle(this),
+            TaskMessage::Explosion => apply_explosion_damage(this, data),
+            TaskMessage::SpecialImpact => dispatch_special_impact(this, data),
             _ => CTask::broadcast_message_raw(this as *mut CTask, sender, msg_type, size, data),
         }
     }
@@ -111,28 +110,21 @@ unsafe fn apply_explosion_damage(this: *mut CGameTask, data: *const u8) {
             return;
         }
 
-        // Report damage percentage to CTaskTurnGame via msg 0x1d. The original
-        // declares a 0x408-byte stack buffer and reports that size despite
-        // only writing the first 4 bytes; we follow suit since we haven't
-        // verified that the receiver tolerates a smaller report.
-        let pct = (dmg as i32).wrapping_mul(100) / msg.damage as i32;
+        // Report damage percentage to CTaskTurnGame for score / kill attribution.
+        let damage_percent = (dmg as i32).wrapping_mul(100) / msg.damage as i32;
         let turn_game = CTaskTurnGame::from_shared_data(this as *const CTask);
         if turn_game.is_null() {
             return;
         }
-        let mut report = [0u8; 0x408];
-        report[0..4].copy_from_slice(&pct.to_ne_bytes());
-        CTaskTurnGame::handle_message_raw(
+        CTaskTurnGame::handle_typed_message_raw(
             turn_game,
-            this as *mut CTask,
-            TaskMessage::ExplosionReport,
-            0x408,
-            report.as_ptr(),
+            this,
+            ExplosionReportMessage { damage_percent },
         );
     }
 }
 
-unsafe fn dispatch_msg_4b(this: *mut CGameTask, data: *const u8) {
+unsafe fn dispatch_special_impact(this: *mut CGameTask, data: *const u8) {
     unsafe {
         clamp_health(this);
 

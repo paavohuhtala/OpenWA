@@ -1,5 +1,6 @@
 use crate::FieldRegistry;
 use crate::engine::ddgame::DDGame;
+use crate::game::TaskMessage;
 use crate::game::class_type::ClassType;
 
 crate::define_addresses! {
@@ -117,7 +118,7 @@ pub struct CTaskVtable {
     /// HandleMessage — broadcasts message to all children (base implementation).
     #[slot(2)]
     pub handle_message:
-        fn(this: *mut CTask, sender: *mut CTask, msg_type: u32, size: u32, data: *const u8),
+        fn(this: *mut CTask, sender: *mut CTask, msg_type: TaskMessage, size: u32, data: *const u8),
     /// ProcessChildren — iterates children with flags. Base at 0x562FA0.
     #[slot(5)]
     pub process_children: fn(this: *mut CTask, flags: u32),
@@ -125,6 +126,8 @@ pub struct CTaskVtable {
     #[slot(6)]
     pub process_frame: fn(this: *const CTask),
 }
+
+bind_CTaskVtable!(CTask, vtable);
 
 /// Base task class in WA's entity hierarchy.
 ///
@@ -135,7 +138,7 @@ pub struct CTaskVtable {
 ///   0x1C: 0x563210 ProcessFrame
 #[derive(FieldRegistry)]
 #[repr(C)]
-pub struct CTask<V: Vtable = *const core::ffi::c_void> {
+pub struct CTask<V: Vtable = *const CTaskVtable> {
     /// 0x00: Pointer to virtual method table
     pub vtable: V,
     /// 0x04: Parent task in the hierarchy
@@ -229,7 +232,7 @@ pub unsafe trait Task {
     unsafe fn broadcast_message(
         &mut self,
         sender: *mut CTask,
-        msg_type: u32,
+        msg_type: TaskMessage,
         size: u32,
         data: *const u8,
     ) {
@@ -263,10 +266,7 @@ pub unsafe trait Task {
                     }
                 };
 
-                // Dispatch via CTaskVtable — every task's vtable starts with
-                // the same 8-slot base layout, so this cast is always valid.
-                let vt = &*((*child).vtable as *const CTaskVtable);
-                (vt.handle_message)(child, sender, msg_type, size, data);
+                CTask::handle_message_raw(child, sender, msg_type, size, data);
             }
         }
     }
@@ -319,7 +319,7 @@ impl CTask {
     pub unsafe fn broadcast_message_raw(
         task_ptr: *mut CTask,
         sender: *mut CTask,
-        msg_type: u32,
+        msg_type: TaskMessage,
         size: u32,
         data: *const u8,
     ) {
@@ -345,6 +345,25 @@ impl CTask {
                 let vt = &*((*child).vtable as *const CTaskVtable);
                 (vt.handle_message)(child, sender, msg_type, size, data);
             }
+        }
+    }
+
+    /// Typed wrapper around [`CTask::broadcast_message_raw`] — serialises a
+    /// `TaskMessageData` payload and uses its `MESSAGE_TYPE` for dispatch.
+    pub unsafe fn broadcast_typed_message_raw<TMessage: crate::game::message::TaskMessageData>(
+        task_ptr: *mut CTask,
+        sender: *mut CTask,
+        message: TMessage,
+    ) {
+        let buf = bytemuck::bytes_of(&message);
+        let size = buf.len() as u32;
+        unsafe {
+            let data = if size > 0 {
+                buf.as_ptr()
+            } else {
+                core::ptr::null()
+            };
+            Self::broadcast_message_raw(task_ptr, sender, TMessage::MESSAGE_TYPE, size, data);
         }
     }
 }

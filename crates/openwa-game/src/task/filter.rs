@@ -1,5 +1,5 @@
 use super::base::CTask;
-use crate::FieldRegistry;
+use crate::{FieldRegistry, game::TaskMessage};
 
 crate::define_addresses! {
     class "CTaskFilter" {
@@ -103,7 +103,7 @@ bind_CTaskFilterVTable!(CTaskFilter, base.vtable);
 pub unsafe extern "thiscall" fn filter_handle_message(
     this: *mut CTaskFilter,
     sender: *mut CTask,
-    msg_type: u32,
+    msg_type: TaskMessage,
     size: u32,
     data: *const u8,
 ) {
@@ -114,7 +114,6 @@ pub unsafe extern "thiscall" fn filter_handle_message(
             return; // message not subscribed — drop silently
         }
 
-        // Broadcast to children — raw-pointer version avoids noalias UB
         CTask::broadcast_message_raw(this as *mut CTask, sender, msg_type, size, data);
     }
 }

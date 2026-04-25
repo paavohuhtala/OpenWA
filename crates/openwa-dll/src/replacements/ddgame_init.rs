@@ -13,6 +13,7 @@
 
 use crate::hook;
 use core::ffi::c_char;
+use openwa_core::weapon::WeaponId;
 use openwa_game::address::va;
 use openwa_game::asset::gfx_dir::{
     GfxDir, gfx_dir_find_entry, gfx_dir_load_dir, img_load_from_dir,
@@ -325,8 +326,8 @@ hook::usercall_trampoline!(
 // Convention: fastcall(ECX=ddgame) + unaff_ESI=weapon_index, plain RET.
 // Returns i32 in EAX.
 
-extern "cdecl" fn impl_check_weapon_avail(ddgame: *mut DDGame, weapon_index: u32) -> i32 {
-    unsafe { check_weapon_avail(ddgame, weapon_index) }
+extern "cdecl" fn impl_check_weapon_avail(ddgame: *mut DDGame, weapon_id: WeaponId) -> i32 {
+    unsafe { check_weapon_avail(ddgame, weapon_id) }
 }
 
 hook::usercall_trampoline!(
@@ -352,8 +353,11 @@ hook::usercall_trampoline!(
 // Convention: usercall(EAX=weapon_index) + 1 stack param (param_1: u8), plain RET.
 // Returns u8 in AL.
 
-extern "cdecl" fn impl_is_super_weapon(weapon_index: u32, param_1: u32) -> u32 {
-    unsafe { is_super_weapon(weapon_index, param_1 as u8) as u32 }
+extern "cdecl" fn impl_is_super_weapon(
+    weapon_id: WeaponId,
+    select_worm_is_super_weapon: u32,
+) -> u32 {
+    unsafe { is_super_weapon(weapon_id, select_worm_is_super_weapon != 0) as u32 }
 }
 
 #[unsafe(naked)]

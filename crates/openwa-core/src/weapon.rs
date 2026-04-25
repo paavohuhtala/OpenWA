@@ -9,12 +9,34 @@
 //! because they contain `*const c_char` fields whose size is 32-bit on our
 //! target but would differ on other platforms.
 
+use bytemuck::{Pod, Zeroable};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Zeroable, Pod)]
+#[repr(C)]
+pub struct WeaponId(pub u32);
+
+impl WeaponId {
+    pub const fn is(self, known: KnownWeaponId) -> bool {
+        self.0 == known as u32
+    }
+
+    pub fn iter_known() -> impl Iterator<Item = Self> {
+        (1..KnownWeaponId::COUNT).map(Self)
+    }
+}
+
+impl From<KnownWeaponId> for WeaponId {
+    fn from(value: KnownWeaponId) -> Self {
+        Self(value as u32)
+    }
+}
+
 /// Weapon types. Contiguous range 0-70.
 ///
 /// Source: wkJellyWorm Constants.h
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd)]
 #[repr(u32)]
-pub enum Weapon {
+pub enum KnownWeaponId {
     None = 0,
     Bazooka = 1,
     HomingMissile = 2,
@@ -88,11 +110,11 @@ pub enum Weapon {
     CrateShower = 70,
 }
 
-impl Weapon {
+impl KnownWeaponId {
     pub const COUNT: u32 = 71;
 }
 
-impl TryFrom<u32> for Weapon {
+impl TryFrom<u32> for KnownWeaponId {
     type Error = u32;
 
     fn try_from(value: u32) -> Result<Self, Self::Error> {

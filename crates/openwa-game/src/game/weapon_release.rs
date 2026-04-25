@@ -4,7 +4,8 @@
 //! SpawnEffect (0x547C30). Called from hook trampolines in openwa-dll.
 
 use crate::audio::{KnownSoundId, SoundId};
-use crate::game::Weapon;
+use crate::game::KnownWeaponId;
+use crate::game::message::WeaponReleasedMessage;
 use crate::task::turn_game::CTaskTurnGame;
 use crate::task::worm::{CTaskWorm, WormState};
 use crate::task::{CGameTask, CTask, SharedDataTable, Task};
@@ -18,8 +19,8 @@ use crate::game::weapon_fire::{self, WeaponReleaseContext};
 
 /// IsSuperWeapon (0x565960): returns true for "super weapon" IDs.
 /// For SelectWorm, returns the DDGame+0x7E3F version flag (mode-dependent).
-pub fn is_super_weapon(weapon: Weapon, ddgame_7e3f: u8) -> bool {
-    use Weapon::*;
+pub fn is_super_weapon(weapon: KnownWeaponId, ddgame_7e3f: u8) -> bool {
+    use KnownWeaponId::*;
     matches!(
         weapon,
         Earthquake
@@ -40,12 +41,12 @@ pub fn is_super_weapon(weapon: Weapon, ddgame_7e3f: u8) -> bool {
             | Armageddon
             | Freeze
             | MagicBullet
-    ) || (weapon == Weapon::SelectWorm && ddgame_7e3f != 0)
+    ) || (weapon == KnownWeaponId::SelectWorm && ddgame_7e3f != 0)
 }
 
 /// FUN_005658C0: weapon category A — homing/animal/special projectile weapons.
-pub fn is_weapon_category_a(weapon: Weapon) -> bool {
-    use Weapon::*;
+pub fn is_weapon_category_a(weapon: KnownWeaponId) -> bool {
+    use KnownWeaponId::*;
     matches!(
         weapon,
         HomingPigeon
@@ -66,8 +67,8 @@ pub fn is_weapon_category_a(weapon: Weapon) -> bool {
 }
 
 /// FUN_00565920: weapon category B — fire/napalm weapons.
-pub fn is_weapon_category_b(weapon: Weapon) -> bool {
-    use Weapon::*;
+pub fn is_weapon_category_b(weapon: KnownWeaponId) -> bool {
+    use KnownWeaponId::*;
     matches!(
         weapon,
         NapalmStrike | FlameThrower | PetrolBomb | SheepStrike
@@ -203,29 +204,28 @@ pub unsafe fn weapon_release(
 
         // ── 6. Girder/GirderPack special ────────────────────────
         let weapon = w.selected_weapon;
-        if matches!(weapon, Weapon::Girder | Weapon::GirderPack) && w.weapon_param_3 == 0 {
+        if matches!(weapon, KnownWeaponId::Girder | KnownWeaponId::GirderPack)
+            && w.weapon_param_3 == 0
+        {
             (*worm).shot_data_1 = w.shot_data_2;
         }
 
         // ── 7. SharedData HandleMessage (msg 0x49) ──────────────
-        let mut msg_buf = [0u8; 0x408];
-        write_u32(&mut msg_buf, 0x00, w.team_index);
-        write_u32(&mut msg_buf, 0x04, w.worm_index);
-        write_u32(&mut msg_buf, 0x08, w.shot_data_1);
-        write_u32(&mut msg_buf, 0x0C, w.shot_data_2);
-        write_u32(&mut msg_buf, 0x10, w.fire_sync_frame_1 as u32);
-        write_u32(&mut msg_buf, 0x14, w.fire_sync_frame_2 as u32);
-        write_u32(&mut msg_buf, 0x18, if w._unknown_2cc != 0 { 1 } else { 0 });
-        write_u32(&mut msg_buf, 0x1C, weapon as u32);
-
         let team = weapon_fire::lookup_turn_game(worm);
         if !team.is_null() {
-            CTaskTurnGame::handle_message_raw(
+            CTaskTurnGame::handle_typed_message_raw(
                 team,
-                worm as *mut crate::task::CTask,
-                0x49,
-                0x408,
-                msg_buf.as_ptr(),
+                worm,
+                WeaponReleasedMessage {
+                    team_index: w.team_index,
+                    worm_index: w.worm_index,
+                    shot_data_1: w.shot_data_1,
+                    shot_data_2: w.shot_data_2,
+                    fire_sync_frame_1: w.fire_sync_frame_1,
+                    fire_sync_frame_2: w.fire_sync_frame_2,
+                    unknown_flag: if w._unknown_2cc != 0 { 1 } else { 0 },
+                    weapon: weapon.into(),
+                },
             );
         }
 
@@ -239,7 +239,7 @@ pub unsafe fn weapon_release(
         }
 
         // Powerup/utility weapons (JetPack..=CrateShower)
-        if (Weapon::JetPack..=Weapon::CrateShower).contains(&weapon) {
+        if (KnownWeaponId::JetPack..=KnownWeaponId::CrateShower).contains(&weapon) {
             *g.weapon_stat_counter(team_id, worm_id, 0x40D4) += 1;
         }
 

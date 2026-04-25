@@ -1,7 +1,7 @@
 use super::base::CTask;
 use super::game_task::CGameTask;
 use crate::FieldRegistry;
-use crate::game::Weapon;
+use crate::game::KnownWeaponId;
 use crate::game::weapon::WeaponEntry;
 use openwa_core::fixed::Fixed;
 
@@ -294,7 +294,7 @@ pub struct CTaskWorm {
     /// 0x168–0x16F: Unknown
     pub _unknown_168: [u8; 0x170 - 0x168],
     /// 0x170: Currently selected weapon ID.
-    pub selected_weapon: Weapon,
+    pub selected_weapon: KnownWeaponId,
     /// 0x174–0x177: Unknown
     pub _unknown_174: [u8; 4],
     /// 0x178: Display health (animated toward target). Used for health bar interpolation.

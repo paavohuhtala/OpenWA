@@ -136,7 +136,7 @@ impl CTaskTeam {
     /// `this` must be a valid CTaskTeam pointer with valid ddgame.
     pub unsafe fn on_surrender_fire(this: *mut Self, sender: *mut CTask, msg_team_index: u32) {
         unsafe {
-            use crate::game::TaskMessage;
+            use crate::game::message::{DetonateWeaponMessage, SurrenderMessage};
 
             let team_index = (*this).team_index;
 
@@ -145,21 +145,18 @@ impl CTaskTeam {
                 return;
             }
 
-            // Serialize the message to raw bytes for broadcast to WA children
-            let mut buf = [0u8; 8];
-            buf[0..4].copy_from_slice(&msg_team_index.to_ne_bytes());
             let task_ptr = this as *mut CTask;
 
             // 2. If game_version > 0xF4: broadcast DetonateWeapon (0x2A) to children first
             let ddgame = CTask::ddgame_raw(this as *const CTask);
             let game_version = (*(*ddgame).game_info).game_version;
             if game_version > 0xF4 {
-                CTask::broadcast_message_raw(
+                CTask::broadcast_typed_message_raw(
                     task_ptr,
                     sender,
-                    TaskMessage::DetonateWeapon as u32,
-                    4,
-                    buf.as_ptr(),
+                    DetonateWeaponMessage {
+                        team_index: msg_team_index,
+                    },
                 );
             }
 
@@ -170,12 +167,12 @@ impl CTaskTeam {
             *flag_ptr = 1;
 
             // 4. Broadcast original message (0x2B) to children
-            CTask::broadcast_message_raw(
+            CTask::broadcast_typed_message_raw(
                 task_ptr,
                 sender,
-                TaskMessage::Surrender as u32,
-                4,
-                buf.as_ptr(),
+                SurrenderMessage {
+                    team_index: msg_team_index,
+                },
             );
         }
     }
