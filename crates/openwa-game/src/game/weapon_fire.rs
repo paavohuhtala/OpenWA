@@ -955,7 +955,7 @@ unsafe fn fire_girder(worm: *mut CTaskWorm) {
 
         // If girder has a sprite, apply the visual overlay and update counters
         if girder_sprite != 0 {
-            // Call PCLandscape vtable[5] to create girder overlay
+            // Call Landscape vtable[5] to create girder overlay
             let landscape = (*ddgame).landscape as *mut u8;
             let landscape_vt = *(landscape as *const *const usize);
             let girder_visual: unsafe extern "thiscall" fn(*mut u8, i32, i32, *mut u8, *mut u8) =

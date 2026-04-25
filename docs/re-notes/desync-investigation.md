@@ -26,24 +26,24 @@ Several hypotheses were investigated and ruled out:
 
 1. **Landscape bitmap differences** — dumped 1.3MB terrain collision bitmaps from both runs: byte-identical at construction AND at the divergence frame.
 
-2. **Entity tree ordering** — full entity snapshot comparison showed ~490 diff lines. Seemed like proof of different entity ordering. But the same comparison at a *known-good* frame also showed ~490 diffs, and the bots replay (which passes) showed ~480 diffs. The snapshot tool's pointer canonicalization heuristic (`is_likely_pointer` using `can_read()`) was producing false positives. **Lesson: always validate your diff tool against a known baseline.**
+2. **Entity tree ordering** — full entity snapshot comparison showed ~490 diff lines. Seemed like proof of different entity ordering. But the same comparison at a _known-good_ frame also showed ~490 diffs, and the bots replay (which passes) showed ~480 diffs. The snapshot tool's pointer canonicalization heuristic (`is_likely_pointer` using `can_read()`) was producing false positives. **Lesson: always validate your diff tool against a known baseline.**
 
 3. **PaletteContext buffer** — the original constructor creates a PaletteContext on the stack and reuses it; our code creates a fresh one. Tried matching the initialization: no effect. The cached GfxDir path was taken, bypassing the PaletteContext entirely.
 
-4. **PCLandscape constructor parameters** — verified via x86 disassembly that `param_5 = game_info + 0xDAAC` (not raw game_info). Our code was already correct.
+4. **Landscape constructor parameters** — verified via x86 disassembly that `param_5 = game_info + 0xDAAC` (not raw game_info). Our code was already correct.
 
 ## The Breakthrough: Sub-Object Diffing
 
-The key insight: DDGame's flat memory matching doesn't mean *everything* matches. The constructor calls WA functions that modify objects *outside* DDGame — particularly the **display object** (DDGameWrapper+0x4D0).
+The key insight: DDGame's flat memory matching doesn't mean _everything_ matches. The constructor calls WA functions that modify objects _outside_ DDGame — particularly the **display object** (DDGameWrapper+0x4D0).
 
 Dumping the display object (16KB) before and after construction revealed:
 
-| Offset | Before | After (orig) | After (rust) |
-|--------|--------|-------------|-------------|
-| +0x09C0 | 0 | **3** | 0 |
-| +0x353C | 0 | **1** | 0 |
+| Offset  | Before | After (orig) | After (rust) |
+| ------- | ------ | ------------ | ------------ |
+| +0x09C0 | 0      | **3**        | 0            |
+| +0x353C | 0      | **1**        | 0            |
 
-The display started identical and diverged *during* the constructor.
+The display started identical and diverged _during_ the constructor.
 
 ## Hardware Watchpoints With Stack Traces
 
@@ -54,6 +54,7 @@ To find what wrote these display fields, we used x86 debug registers (DR0–DR3)
 3. On `STATUS_SINGLE_STEP` (write trap), log the value, EIP, and walk the EBP chain for a stack trace
 
 The watchpoint reported:
+
 ```
 display+0x353C = 0x00000001  eip=0x005234C0  stack=[...]
 display+0x09C0 = 0x00000003  eip=0x005234B8  stack=[...]
@@ -110,10 +111,10 @@ The RNG was **identical through frame 817** and diverged during frame 818. But `
 
 Arming DR0 on DDGame+0x45EC at frame 817 captured every RNG write with its EIP. Comparing the two runs:
 
-| Write # | Rust EIP | Orig EIP | Notes |
-|---------|----------|----------|-------|
-| 1–24 | 0x5470BB/DE | 0x5470BB/DE | Identical (GenerateDebrisParticles inlined) |
-| 25 | **0x6529960D** (hook) | **0x5470BB** (more debris!) | Divergence point |
+| Write # | Rust EIP              | Orig EIP                    | Notes                                       |
+| ------- | --------------------- | --------------------------- | ------------------------------------------- |
+| 1–24    | 0x5470BB/DE           | 0x5470BB/DE                 | Identical (GenerateDebrisParticles inlined) |
+| 25      | **0x6529960D** (hook) | **0x5470BB** (more debris!) | Divergence point                            |
 
 The original had **36 debris writes** (3 × GenerateDebrisParticles calls) while Rust had only **24** (2 calls). One terrain collision event was missing. Yet total debris writes across the game were identical (72 each) — just distributed differently across frames.
 
@@ -127,7 +128,7 @@ At this point, DDGame flat memory was verified **byte-for-byte identical** betwe
 
 ### Sub-object hashing: the breakthrough
 
-The key insight: DDGame contains **pointers** to heap-allocated sub-objects. Flat memory comparison only shows the pointer values (which differ between runs due to heap layout), not the *content* of what they point to.
+The key insight: DDGame contains **pointers** to heap-allocated sub-objects. Flat memory comparison only shows the pointer values (which differ between runs due to heap layout), not the _content_ of what they point to.
 
 A new tool — `hash_pointer_targets()` — walks every DWORD in DDGame, follows each heap pointer, and hashes the first 256 bytes of the target with pointer canonicalization (replacing pointer-looking values with 0).
 
@@ -135,10 +136,10 @@ The first run produced hundreds of hash differences due to an overly aggressive 
 
 **Arrow collision region** (SpriteRegion at DDGame+0x48C):
 
-| Offset | Rust | Original |
-|--------|------|----------|
-| +0x14 (this[5]) | **0** | **10** |
-| +0x18 (this[6]) | **20** | **10** |
+| Offset          | Rust   | Original |
+| --------------- | ------ | -------- |
+| +0x14 (this[5]) | **0**  | **10**   |
+| +0x18 (this[6]) | **20** | **10**   |
 
 Different collision box dimensions. The Rust constructor was creating origin-based collision boxes instead of centered boxes with 10px margins.
 
@@ -154,12 +155,14 @@ this[6] = p5 - p3    (y inset)
 ```
 
 The original computes a **centered** collision box:
+
 - ECX = `sprite_w / 2`, EDX = `sprite_h - margin_h`
 - p2 = `margin_w`, p3 = `margin_h` (where margin = max(0, dim/2 − 10))
 - p4 = `sprite_w - margin_w`, p5 = `sprite_h / 2`
 - p6 = **arrow sprite pointer**
 
 Our code passed:
+
 - ECX = **0**, EDX = `margin_h`
 - p2 = **0**, p3 = **0**
 - p4 = `margin_w`, p5 = `margin_h`
@@ -172,6 +175,7 @@ Six of eight parameters were wrong. The collision boxes were origin-based instea
 ### New test replays change everything
 
 Recording two additional replays proved crucial:
+
 - **longbow_water** — longbow fired at water (no terrain collision)
 - **longbow_alt_theme** — longbow on a different WA theme
 
@@ -179,12 +183,12 @@ Expected logs were generated from **unmodded WA.exe** (critical — our DLL's ho
 
 Results with the original constructor:
 
-| Replay | Status |
-|--------|--------|
-| longbow_water | **FAIL** |
+| Replay            | Status              |
+| ----------------- | ------------------- |
+| longbow_water     | **FAIL**            |
 | longbow_alt_theme | **FAIL** (Frame 0!) |
 
-Both failed with the *original* constructor! The desync wasn't constructor-specific — it was caused by **gameplay hooks**.
+Both failed with the _original_ constructor! The desync wasn't constructor-specific — it was caused by **gameplay hooks**.
 
 ### Binary search on hooks
 
@@ -198,10 +202,12 @@ Disabling hooks in groups narrowed the search:
 Two independent hook bugs:
 
 **ReplayLoader (replay.rs):**
+
 - Player array strides: Ghidra showed element indices (`i*0x3C` for `u16*`, `i*0x1E` for `u32*`) but code used them as byte offsets. Correct byte stride: `i*0x78`.
 - Non-zero `map_seed` path: per-team weapon config reads from stream were unimplemented. Fallback to original parser for `map_seed ≠ 0`.
 
 **FireWeapon (weapon.rs):**
+
 - Binary search within the type-4 dispatch: type 4 → subtypes 10+13 → subtype 13 (Napalm Strike).
 - `fire_send_team_message` wrote `team_index` to `buf[8..12]` but the original writes it to `buf[0..4]`. The HandleMessage handler reads `data[0]`, receiving 0 instead of the correct team index.
 - Root cause confirmed by disassembly of the original Napalm handler at 0x51E5C0: `MOV [ESP+4], EAX` where EAX = `worm+0xFC` (team_index) and `ESP+4` = `buffer[0]`.
@@ -219,12 +225,12 @@ The investigation produced several reusable tools:
 - **Sub-object hashing** (`snapshot.rs: hash_pointer_targets`) — follows heap pointers in a struct, hashes target content with pointer canonicalization. Integrated into the snapshot system.
 - **Per-frame RNG logging** via TurnManager hook
 - **`OPENWA_WATCH_DISPLAY=1`** / **`OPENWA_WATCH_FRAME=N`** — arm watchpoints on display or DDGame at specific frames
-- **Binary sub-object dumping** for display, GfxHandler, PCLandscape comparison
+- **Binary sub-object dumping** for display, GfxHandler, Landscape comparison
 - **A/B constructor toggle** (`OPENWA_USE_ORIG_CTOR=1`) — instant switching between Rust and original constructors
 
 ## Key Lessons
 
-1. **Identical struct memory ≠ identical behaviour.** DDGame flat memory was byte-identical, but *sub-objects pointed to by DDGame* had different content. The `hash_pointer_targets` tool was purpose-built to catch this.
+1. **Identical struct memory ≠ identical behaviour.** DDGame flat memory was byte-identical, but _sub-objects pointed to by DDGame_ had different content. The `hash_pointer_targets` tool was purpose-built to catch this.
 
 2. **Validate your diff tools.** Our snapshot comparison showed ~490 "differences" at known-good frames — pure noise from pointer canonicalization heuristics. And our dump code once read past a heap allocation into adjacent memory, producing false diffs. Always baseline.
 
@@ -238,6 +244,6 @@ The investigation produced several reusable tools:
 
 7. **Multiple test replays expose different bugs.** The original longbow replay only triggered the constructor bug. Adding longbow_water and longbow_alt_theme exposed hook bugs that were invisible with the original replay alone. Different weapons, themes, and targets exercise different code paths.
 
-8. **Ghidra element indexing is a trap.** The decompiler shows `(&DAT[i*0x3C])` for a `u16*` array — the `0x3C` is an *element* index, not a byte offset. The actual byte offset is `i * 0x3C * sizeof(u16) = i * 0x78`. This caused player data corruption for index 1+.
+8. **Ghidra element indexing is a trap.** The decompiler shows `(&DAT[i*0x3C])` for a `u16*` array — the `0x3C` is an _element_ index, not a byte offset. The actual byte offset is `i * 0x3C * sizeof(u16) = i * 0x78`. This caused player data corruption for index 1+.
 
 9. **Check the buffer layout against disassembly.** The Napalm Strike bug was a single wrong offset in a message buffer: `buf[8]` vs `buf[0]`. The original's disassembly (`MOV [ESP+4], EAX` at 0x51E5D2) unambiguously shows the write destination. When in doubt, read the assembly.

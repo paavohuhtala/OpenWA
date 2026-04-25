@@ -69,7 +69,7 @@ pub struct GameInfo {
 
     /// 0xD947-0xD94A: Unknown
     pub _unknown_d947: [u8; 4],
-    /// 0xD94B: Landscape scheme flag (nonzero enables terrain features via PCLandscape vtable slot 6).
+    /// 0xD94B: Landscape scheme flag (nonzero enables terrain features via Landscape vtable slot 6).
     pub landscape_scheme_flag: u8,
     /// 0xD94C: Donkey (weapon 0x36) disable flag.
     pub donkey_disabled: u8,
@@ -133,7 +133,7 @@ pub struct GameInfo {
     /// 0xDAA8: Turn percentage raw value (i32). Converted to fixed-point: `(val << 16) / 100`.
     pub turn_percentage_raw: i32,
 
-    /// 0xDAAC: Landscape data path (passed to PCLandscape constructor).
+    /// 0xDAAC: Landscape data path (passed to Landscape constructor).
     /// Points to a path string used for loading level terrain data.
     pub landscape_data_path: [u8; 0xDAE8 - 0xDAAC],
 

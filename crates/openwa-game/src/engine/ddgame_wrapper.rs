@@ -6,7 +6,7 @@ use crate::audio::dssound::DSSound;
 use crate::engine::ddgame::DDGame;
 use crate::engine::net_bridge::NetBridge;
 use crate::render::display::gfx::DisplayGfx;
-use crate::render::landscape::PCLandscape;
+use crate::render::landscape::Landscape;
 use crate::render::palette::PaletteContext;
 use crate::task::CTaskTurnGame;
 
@@ -335,8 +335,8 @@ pub struct DDGameWrapper {
     pub secondary_gfx_dir: *mut GfxDir,
     /// 0x4C8: Graphics mode flag (DWORD index 0x132)
     pub gfx_mode: u32,
-    /// 0x4CC: PCLandscape object pointer (DWORD index 0x133)
-    pub landscape: *mut PCLandscape,
+    /// 0x4CC: Landscape object pointer (DWORD index 0x133)
+    pub landscape: *mut Landscape,
     /// 0x4D0: DisplayGfx pointer (param2 of constructor)
     pub display: *mut DisplayGfx,
     /// 0x4D4: DSSound pointer (param3 of constructor)

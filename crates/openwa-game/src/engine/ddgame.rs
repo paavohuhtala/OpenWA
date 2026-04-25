@@ -12,7 +12,7 @@ use crate::input::keyboard::DDKeyboard;
 use crate::render::RenderEntry;
 use crate::render::display::gfx::DisplayGfx;
 use crate::render::display::palette::Palette;
-use crate::render::landscape::PCLandscape;
+use crate::render::landscape::Landscape;
 use crate::render::queue::RenderQueue;
 use crate::render::turn_order::TurnOrderWidget;
 use openwa_core::fixed::{Fixed, Fixed64};
@@ -55,8 +55,8 @@ pub struct DDGame {
     /// When non-null, drives end-of-round peer synchronisation via its
     /// vtable (see `engine::net_session`).
     pub net_session: *mut crate::engine::net_session::NetSession,
-    /// 0x020: PCLandscape pointer (copied from DDGameWrapper[0x133])
-    pub landscape: *mut PCLandscape,
+    /// 0x020: Landscape pointer (copied from DDGameWrapper[0x133])
+    pub landscape: *mut Landscape,
     /// 0x024: GameInfo pointer (passed as param_10 to constructor).
     pub game_info: *mut GameInfo,
     /// 0x028: Network game object (param_9 to DDGameWrapper constructor).
@@ -85,7 +85,7 @@ pub struct DDGame {
     /// 0x384-0x467: Additional sprite/image object slots.
     /// Same vtable 0x664144 as sprite_cache. ~20 entries populated at runtime.
     pub sprite_cache_2: [*mut u8; 57],
-    /// 0x468: Landscape property from PCLandscape vtable[0xB] (thiscall getter).
+    /// 0x468: Landscape property from Landscape vtable[0xB] (thiscall getter).
     /// Set during DDGame construction if landscape is non-null.
     pub landscape_property: u32,
     /// 0x46C-0x488: 8 SpriteRegion pointers (0x9C bytes each, vtable 0x66B268)
@@ -265,11 +265,11 @@ pub struct DDGame {
     pub fill_pixel: u32,
     /// 0x733C-0x733F: Unknown
     pub _unknown_733c: [u8; 4],
-    /// 0x7340: Landscape dimension param (passed to PCLandscape vtable slot 6).
+    /// 0x7340: Landscape dimension param (passed to Landscape vtable slot 6).
     pub _field_7340: u32,
     /// 0x7344-0x734B: Unknown
     pub _unknown_7344: [u8; 8],
-    /// 0x734C: Landscape dimension param (passed to PCLandscape vtable slot 6).
+    /// 0x734C: Landscape dimension param (passed to Landscape vtable slot 6).
     pub _field_734c: u32,
     /// 0x7350-0x736F: Unknown
     pub _unknown_7350: [u8; 0x7370 - 0x7350],
@@ -328,9 +328,9 @@ pub struct DDGame {
     /// Used for team-to-slot mapping (render order, turn order, display order).
     /// Initialized as identity permutations [0..15] with count=16.
     pub team_index_maps: [TeamIndexMap; 3],
-    /// 0x777C: Level width output (written by PCLandscape constructor param 10).
+    /// 0x777C: Level width output (written by Landscape constructor param 10).
     pub level_width_raw: u32,
-    /// 0x7780: Level height output (written by PCLandscape constructor param 11).
+    /// 0x7780: Level height output (written by Landscape constructor param 11).
     pub level_height_raw: u32,
     /// 0x7784: Unknown (zeroed by InitTurnState).
     pub _field_7784: u32,
@@ -366,9 +366,9 @@ pub struct DDGame {
     /// Read by InitGameState for resolution-dependent layout.
     pub screen_height_pixels: i32,
 
-    /// 0x77C0: Level width in pixels (set by PCLandscape constructor).
+    /// 0x77C0: Level width in pixels (set by Landscape constructor).
     pub level_width: u32,
-    /// 0x77C4: Level height in pixels (set by PCLandscape constructor).
+    /// 0x77C4: Level height in pixels (set by Landscape constructor).
     pub level_height: u32,
     /// 0x77C8: Total pixels (width × height).
     pub level_total_pixels: u32,

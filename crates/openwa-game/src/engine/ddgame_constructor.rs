@@ -27,7 +27,7 @@ use crate::rebase::rb;
 use crate::render::display::gfx::DisplayGfx;
 use crate::render::display::gradient::compute_complex_gradient;
 use crate::render::display::palette::Palette;
-use crate::render::landscape::PCLandscape;
+use crate::render::landscape::Landscape;
 use crate::wa_alloc::{wa_malloc, wa_malloc_zeroed};
 use openwa_core::fixed::Fixed;
 
@@ -251,13 +251,13 @@ unsafe fn load_effect_wavs(wrapper: *mut DDGameWrapper) {
     }
 }
 
-/// PCLandscape__Constructor (0x57ACB0): construct landscape object (0xB44 bytes, 11 params).
+/// Landscape__Constructor (0x57ACB0): construct landscape object (0xB44 bytes, 11 params).
 ///
 /// param_5 is `game_info + 0xDAAC` (landscape data path region within GameInfo).
 /// The SoundEmitter sub-constructor reads paths, water settings, etc. from this
 /// pointer with negative offsets back into GameInfo.
 #[cfg(target_arch = "x86")]
-unsafe fn wa_pc_landscape_ctor(
+unsafe fn wa_landscape_ctor(
     this: *mut u8,
     ddgame: *mut DDGame,
     gfx_resource: *mut crate::bitgrid::BitGrid,
@@ -283,7 +283,7 @@ unsafe fn wa_pc_landscape_ctor(
             *mut u32,
             *mut u32,
             *mut u32,
-        ) -> *mut u8 = core::mem::transmute(rb(va::PC_LANDSCAPE_CONSTRUCTOR) as usize);
+        ) -> *mut u8 = core::mem::transmute(rb(va::LANDSCAPE_CONSTRUCTOR) as usize);
         f(
             this,
             ddgame,
@@ -686,7 +686,7 @@ unsafe fn init_graphics_and_resources(
             let _ = std::fs::write(format!("gfx_resource_{}.bin", tag), gr_data);
         }
 
-        // ── PCLandscape (alloc 0xB44, stdcall 11 params) ──
+        // ── Landscape (alloc 0xB44, stdcall 11 params) ──
         // Temporary output buffers for landscape coordinate data (used later for coord_list).
         // These were stack locals in the original code (aiStack_978, iStack_11f9).
         let mut landscape_coords_buf = [0u32; 0x400]; // coord output: pairs of (x, y)
@@ -696,7 +696,7 @@ unsafe fn init_graphics_and_resources(
         let landscape = {
             let alloc = wa_malloc_zeroed(0xB44);
             if !alloc.is_null() {
-                let result = wa_pc_landscape_ctor(
+                let result = wa_landscape_ctor(
                     alloc,
                     ddgame,
                     gfx_resource,
@@ -709,8 +709,8 @@ unsafe fn init_graphics_and_resources(
                     &raw mut (*ddgame).level_width_raw,
                     &raw mut (*ddgame).level_height_raw,
                 );
-                (*wrapper).landscape = result as *mut PCLandscape;
-                (*ddgame).landscape = result as *mut PCLandscape;
+                (*wrapper).landscape = result as *mut Landscape;
+                (*ddgame).landscape = result as *mut Landscape;
                 result
             } else {
                 (*wrapper).landscape = core::ptr::null_mut();
@@ -754,7 +754,7 @@ unsafe fn init_graphics_and_resources(
             }
         }
 
-        // ── Landscape property at DDGame+0x468 (PCLandscape vtable[0xB]) ──
+        // ── Landscape property at DDGame+0x468 (Landscape vtable[0xB]) ──
         if !landscape.is_null() {
             let land_vt = *(landscape as *const *const u32);
             let get_val: unsafe extern "thiscall" fn(*mut u8) -> u32 =
@@ -869,7 +869,7 @@ unsafe fn init_graphics_and_resources(
             (*cl).data = data;
             (*ddgame).coord_list = cl;
 
-            // Populate coord_list from PCLandscape's coordinate output.
+            // Populate coord_list from Landscape's coordinate output.
             // landscape_temp[0] = coordinate count, landscape_coords_buf = pairs of (x, y).
             // Original packs as: coord = x * 0x10000 + y (Fixed-point).
             // Duplicates are skipped.

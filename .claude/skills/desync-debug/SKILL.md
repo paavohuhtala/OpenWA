@@ -30,7 +30,7 @@ Replay desyncs (checksum mismatches) can be caused by any code difference -- con
 
 0. **Start with `trace-desync`**: Run `.\trace-desync.ps1 testdata/replays/<replay>.WAgame` to automatically find the exact frame where baseline and hooked runs diverge.
 1. **WA uses a single shared RNG** (DDGame+0x45EC, `AdvanceGameRNG` at 0x53F320) for both gameplay AND visual effects. There is no separate "visual RNG." Even purely decorative things like particle sprites affect the game RNG and will cause desyncs in headless mode if handled differently. A secondary effect RNG exists at DDGame+0x45F0 (`advance_effect_rng()`, simpler LCG without frame_counter) -- used by WeaponRelease visual effects. Uses `team_health_ratio[0]` (unused index-0 slot).
-2. **DDGame flat memory matching is NOT sufficient.** Constructors and hooks have side effects on sub-objects (display, GfxHandler, PCLandscape). Compare all objects pointed to by DDGame AND DDGameWrapper.
+2. **DDGame flat memory matching is NOT sufficient.** Constructors and hooks have side effects on sub-objects (display, GfxHandler, Landscape). Compare all objects pointed to by DDGame AND DDGameWrapper.
 3. **Use hardware watchpoints** (see "Hardware Watchpoints" in CLAUDE.md) to find what writes a specific field.
 4. **Per-frame RNG logging** (DDGame+0x45EC) pinpoints the exact frame where simulation diverges. Binary search on frames, not code.
 5. **Always validate diff methodology** against a known-good frame first. The snapshot system's pointer canonicalization produces false positives.

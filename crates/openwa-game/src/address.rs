@@ -210,19 +210,19 @@ pub mod va {
             fn/Fastcall CHECK_WEAPON_AVAIL = 0x0053FFC0;
         }
 
-        class "PCLandscape" {
-            /// PCLandscape vtable
-            vtable PC_LANDSCAPE_VTABLE = 0x0066B208;
-            /// PCLandscape constructor (0xB44-byte object)
-            ctor/Stdcall PC_LANDSCAPE_CONSTRUCTOR = 0x0057ACB0;
+        class "Landscape" {
+            /// Landscape vtable
+            vtable LANDSCAPE_VTABLE = 0x0066B208;
+            /// Landscape constructor (0xB44-byte object)
+            ctor/Stdcall LANDSCAPE_CONSTRUCTOR = 0x0057ACB0;
             /// Applies explosion crater to terrain (vtable slot 2)
-            fn PC_LANDSCAPE_APPLY_EXPLOSION = 0x0057C820;
+            fn LANDSCAPE_APPLY_EXPLOSION = 0x0057C820;
             /// Draws 8px checkered borders at landscape edges (vtable slot 6)
-            fn PC_LANDSCAPE_DRAW_BORDERS = 0x0057D7F0;
+            fn LANDSCAPE_DRAW_BORDERS = 0x0057D7F0;
             /// Redraws a single terrain row (vtable slot 8)
-            fn PC_LANDSCAPE_REDRAW_ROW = 0x0057CF60;
+            fn LANDSCAPE_REDRAW_ROW = 0x0057CF60;
             /// Clips and merges dirty rectangles for terrain redraw
-            fn PC_LANDSCAPE_CLIP_AND_MERGE = 0x0057D2B0;
+            fn LANDSCAPE_CLIP_AND_MERGE = 0x0057D2B0;
         }
 
         class "LandscapeShader" {
@@ -358,8 +358,8 @@ pub mod va {
     pub const CGAMETASK_VTABLE2: u32 = CGAMETASK_SOUND_EMITTER_VT;
     /// Alias for callers using the old name.
     pub const CONSTRUCT_DISPLAY_GFX: u32 = DISPLAY_GFX_INIT;
-    /// Duplicate: same as PC_LANDSCAPE_CONSTRUCTOR.
-    pub const CONSTRUCT_PC_LANDSCAPE: u32 = PC_LANDSCAPE_CONSTRUCTOR;
+    /// Duplicate: same as LANDSCAPE_CONSTRUCTOR.
+    pub const CONSTRUCT_LANDSCAPE: u32 = LANDSCAPE_CONSTRUCTOR;
     /// Duplicate: same as SPRITE_REGION_CONSTRUCTOR.
     pub const CONSTRUCT_SPRITE_REGION: u32 = SPRITE_REGION_CONSTRUCTOR;
     /// Duplicate: same as CTASK_TURNGAME_CTOR.
@@ -626,7 +626,7 @@ pub mod va {
         fn/Stdcall DRAW_BUNGEE_TRAIL = 0x00500720;
         /// DrawCrosshairLine
         fn/Usercall DRAW_CROSSHAIR_LINE = 0x005197D0;
-        fn DESTRUCT_PC_LANDSCAPE = 0x0057B540;
+        fn DESTRUCT_LANDSCAPE = 0x0057B540;
         fn REDRAW_LAND_REGION = 0x0057CC10;
         fn WRITE_LAND_RAW = 0x0057C300;
     }
@@ -1148,7 +1148,7 @@ pub mod va {
         /// Offset to game global state pointer
         pub const GAME_GLOBAL: u32 = 0x488;
         /// Offset to PC_Landscape pointer
-        pub const PC_LANDSCAPE: u32 = 0x4CC;
+        pub const LANDSCAPE: u32 = 0x4CC;
         /// Offset to weapon table pointer
         pub const WEAPON_TABLE: u32 = 0x510;
         /// Offset to RenderQueue pointer

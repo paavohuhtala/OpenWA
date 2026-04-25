@@ -50,7 +50,7 @@ pub unsafe fn capture() -> String {
 
         // ── Sub-object hashes (pointer-independent) ──
         // Hashes the first 256 bytes of every heap object pointed to by DDGame
-        // and PCLandscape. Differences here indicate sub-object state mismatches
+        // and Landscape. Differences here indicate sub-object state mismatches
         // that flat DDGame comparisons miss.
         let _ = writeln!(out, "[SubObjectHashes]");
         let _ = hash_pointer_targets(&mut out, ddgame as *const u8, 0x550, 256, "ddgame");

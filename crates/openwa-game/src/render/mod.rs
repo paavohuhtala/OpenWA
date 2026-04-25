@@ -17,7 +17,7 @@ pub use display::{
     FastcallResult, FrameCache, FrameCacheEntry, Palette, PaletteVtable, RenderContext,
     SpriteCache,
 };
-pub use landscape::{DirtyRect, PCLandscape};
+pub use landscape::{DirtyRect, Landscape};
 pub use message::{COMMAND_TYPE_TYPED, RenderMessage, TypedRenderCmd};
 pub use opengl::OpenGLState;
 pub use queue::RenderQueue;

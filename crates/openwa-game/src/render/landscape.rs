@@ -3,9 +3,9 @@ use crate::{
     engine::{ddgame::DDGame, ddgame_wrapper::DDGameWrapper},
 };
 
-/// PCLandscape — terrain/landscape subsystem (0xB40 bytes).
+/// Landscape — terrain/landscape subsystem (0xB40 bytes).
 ///
-/// Created by `PCLandscape__Constructor` (0x57ACB0). Vtable: 0x66B208 (32 slots).
+/// Created by `Landscape__Constructor` (0x57ACB0). Vtable: 0x66B208 (32 slots).
 ///
 /// Manages terrain pixel data (8-bit indexed/paletted), collision bitmap,
 /// water effects, and level graphics. Loads `Water.dir` and `Level.dir`.
@@ -25,9 +25,9 @@ use crate::{
 ///
 /// Ghidra uses DWORD-indexed offsets (param_1[N] = byte offset N*4).
 #[repr(C)]
-pub struct PCLandscape {
+pub struct Landscape {
     /// 0x000: Vtable pointer (0x66B208)
-    pub vtable: *const PCLandscapeVtable,
+    pub vtable: *const LandscapeVtable,
     /// 0x004: Parent DDGame pointer (param_1[1])
     pub ddgame: *mut DDGame,
     /// 0x008-0x0CB: Pre-rendered crater sprites for 15 explosion sizes.
@@ -96,9 +96,9 @@ pub struct PCLandscape {
     pub control_flag: u32,
 }
 
-const _: () = assert!(core::mem::size_of::<PCLandscape>() == 0xB40);
+const _: () = assert!(core::mem::size_of::<Landscape>() == 0xB40);
 
-/// A dirty rectangle entry in the PCLandscape dirty rect queue.
+/// A dirty rectangle entry in the Landscape dirty rect queue.
 /// Coordinates are in landscape pixel space.
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -111,22 +111,22 @@ pub struct DirtyRect {
 
 const _: () = assert!(core::mem::size_of::<DirtyRect>() == 8);
 
-/// PCLandscape vtable (32 slots at 0x66B208).
-#[openwa_game::vtable(size = 32, va = 0x0066B208, class = "PCLandscape")]
-pub struct PCLandscapeVtable {
+/// Landscape vtable (32 slots at 0x66B208).
+#[openwa_game::vtable(size = 32, va = 0x0066B208, class = "Landscape")]
+pub struct LandscapeVtable {
     /// destructor (0x57B540, RET 0x4)
     #[slot(0)]
-    pub destructor: fn(this: *mut PCLandscape, flags: u32) -> *mut PCLandscape,
+    pub destructor: fn(this: *mut Landscape, flags: u32) -> *mut Landscape,
     /// set control flag at +0xB3C (0x57BD10, RET 0x4)
     #[slot(1)]
-    pub set_control_flag: fn(this: *mut PCLandscape, flag: u32),
+    pub set_control_flag: fn(this: *mut Landscape, flag: u32),
     /// apply explosion crater (0x57C820, RET 0xC) — terrain destruction
     #[slot(2)]
-    pub apply_explosion: fn(this: *mut PCLandscape, p1: u32, p2: u32, p3: u32),
+    pub apply_explosion: fn(this: *mut Landscape, p1: u32, p2: u32, p3: u32),
     /// init landscape borders and layers (0x57D7F0, RET 0x20)
     #[slot(6)]
     pub init_borders: fn(
-        this: *mut PCLandscape,
+        this: *mut Landscape,
         p1: u32,
         p2: u32,
         p3: u32,
@@ -138,13 +138,13 @@ pub struct PCLandscapeVtable {
     ),
     /// redraw single row (0x57CF60, RET 0x4)
     #[slot(8)]
-    pub redraw_row: fn(this: *mut PCLandscape, row: u32),
+    pub redraw_row: fn(this: *mut Landscape, row: u32),
     /// get frame checksum component (0x57D540, plain RET)
     #[slot(18)]
-    pub get_frame_checksum: fn(this: *mut PCLandscape) -> u32,
+    pub get_frame_checksum: fn(this: *mut Landscape) -> u32,
 }
 
-bind_PCLandscapeVtable!(PCLandscape, vtable);
+bind_LandscapeVtable!(Landscape, vtable);
 
 /// Pure Rust implementation of CGameTask__InitLandscapeFlags (0x528480).
 ///
@@ -167,12 +167,12 @@ pub unsafe fn init_landscape_flags(wrapper: *mut DDGameWrapper) {
         let landscape = (*ddgame).landscape;
 
         if scheme_flag != 0 {
-            PCLandscape::init_borders_raw(
+            Landscape::init_borders_raw(
                 landscape, 1, 1, 1, 1, field_7318, field_730c, field_734c, field_7340,
             );
             (*ddgame).level_width_raw = 1;
         } else if (*ddgame).level_width_raw != 0 {
-            PCLandscape::init_borders_raw(
+            Landscape::init_borders_raw(
                 landscape, 0, 0, 1, 0, field_7318, field_730c, field_734c, field_7340,
             );
         }

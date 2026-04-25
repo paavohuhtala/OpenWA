@@ -16,7 +16,7 @@ use crate::engine::ring_buffer::{allocate_ring_buffer_init, allocate_ring_buffer
 use crate::engine::team_init::{init_alliance_data, init_team_color_from_names, init_team_scoring};
 use crate::game::weapon::check_weapon_avail;
 use crate::render::display::gfx::DisplayGfx;
-use crate::render::landscape::{PCLandscape, init_landscape_flags};
+use crate::render::landscape::{Landscape, init_landscape_flags};
 use crate::render::palette::allocate_palette_context;
 use crate::render::sprite::sprite_gfx_table_init;
 use crate::wa_call::{call_ctor_with_ecx, call_usercall_esi_stack1};
@@ -149,7 +149,7 @@ pub unsafe fn init_turn_state(wrapper: *mut DDGameWrapper) {
         let landscape = (*ddgame4).landscape;
         if !landscape.is_null() {
             let param = (*(*ddgame4).game_info).donkey_disabled as u32;
-            PCLandscape::set_control_flag_raw(landscape, param);
+            Landscape::set_control_flag_raw(landscape, param);
         }
     }
 }
@@ -631,7 +631,7 @@ pub unsafe fn init_game_state(wrapper: *mut DDGameWrapper) {
 
             // Get frame counter via landscape vtable
             let landscape = (*ddgame).landscape;
-            let frame = PCLandscape::get_frame_checksum_raw(landscape);
+            let frame = Landscape::get_frame_checksum_raw(landscape);
 
             (*wrapper).initial_checksum = frame.wrapping_add(hash);
         }
