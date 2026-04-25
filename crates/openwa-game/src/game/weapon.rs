@@ -264,7 +264,7 @@ pub unsafe fn check_weapon_avail(ddgame: *mut DDGame, weapon: WeaponId) -> i32 {
         let weapon_table = (*ddgame).weapon_table;
         let defined = (*weapon_table).entries[weapon.0 as usize].defined;
 
-        if (*ddgame).level_width_raw == 0 || defined != 0 {
+        if (*ddgame).is_cavern == 0 || defined != 0 {
             // Main path: check super weapon flag
             let super_result = is_super_weapon(weapon, (*ddgame).version_flag_3 != 0);
             if super_result && (*gi).super_weapon_allowed == 0 {
@@ -291,7 +291,7 @@ pub unsafe fn check_weapon_avail(ddgame: *mut DDGame, weapon: WeaponId) -> i32 {
             return 0;
         }
 
-        // Else branch: level_width_raw != 0 AND weapon_entry == 0
+        // Else branch: is_cavern != 0 AND weapon_entry == 0
         if game_version > 0x29 && (*gi).weapon_version_gate != 0 {
             return -2;
         }

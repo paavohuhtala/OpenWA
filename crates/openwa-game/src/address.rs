@@ -596,8 +596,8 @@ pub mod va {
         fn/Usercall INIT_ALLIANCE_DATA = 0x005262D0;
         /// CGameTask__InitTurnState
         fn/Usercall INIT_TURN_STATE = 0x00528690;
-        /// CGameTask__InitLandscapeFlags
-        fn/Usercall INIT_LANDSCAPE_FLAGS = 0x00528480;
+        /// InitLandscapeBorders — applies the scheme cavern flag to the landscape.
+        fn/Usercall INIT_LANDSCAPE_BORDERS = 0x00528480;
         /// HudPanel constructor
         fn/Stdcall HUD_PANEL_CONSTRUCTOR = 0x00524070;
         /// DDGame__InitTeamsFromSetup

@@ -216,7 +216,7 @@ unsafe extern "cdecl" fn call_filter_ctor(
 /// Creates a CTaskFilter subscribed to messages {1, 2, 3, 0x54}, then spawns
 /// CTaskCloud children with deterministic LCG randomization.
 ///
-/// Cloud count: 32 if `level_width_raw == 0`, else 10.
+/// Cloud count: 32 outside caverns, 10 inside (`is_cavern != 0`).
 ///
 /// Called from CTaskTeam constructor. stdcall with 1 param (parent task).
 ///
@@ -248,7 +248,7 @@ pub unsafe extern "stdcall" fn create_weather_filter(parent: *mut CTask) {
         let level_height = (*ddgame).level_height as i32;
 
         // 4. Determine cloud count and weather modifier
-        let (cloud_count, weather_mod): (i32, i32) = if (*ddgame).level_width_raw != 0 {
+        let (cloud_count, weather_mod): (i32, i32) = if (*ddgame).is_cavern != 0 {
             (10, 0)
         } else {
             (32, -256)

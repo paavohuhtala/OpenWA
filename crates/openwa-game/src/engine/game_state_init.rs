@@ -16,7 +16,7 @@ use crate::engine::ring_buffer::{allocate_ring_buffer_init, allocate_ring_buffer
 use crate::engine::team_init::{init_alliance_data, init_team_color_from_names, init_team_scoring};
 use crate::game::weapon::check_weapon_avail;
 use crate::render::display::gfx::DisplayGfx;
-use crate::render::landscape::{Landscape, init_landscape_flags};
+use crate::render::landscape::{Landscape, init_landscape_borders};
 use crate::render::palette::allocate_palette_context;
 use crate::render::sprite::sprite_gfx_table_init;
 use crate::wa_call::{call_ctor_with_ecx, call_usercall_esi_stack1};
@@ -464,8 +464,8 @@ pub unsafe fn init_game_state(wrapper: *mut DDGameWrapper) {
         (*wrapper)._field_40c = 0;
         (*wrapper)._field_410 = 0;
 
-        // ===== Landscape flags =====
-        init_landscape_flags(wrapper);
+        // ===== Landscape borders (cavern flag) =====
+        init_landscape_borders(wrapper);
 
         // ===== Level bounds and camera initialization =====
         init_game_state_level_bounds(ddgame, game_info);
@@ -879,7 +879,7 @@ unsafe fn init_game_state_level_bounds(ddgame: *mut DDGame, game_info: *const Ga
         (*ddgame)._field_7794 = 0;
         (*ddgame)._field_7798 = 0;
 
-        let is_cavern = (*ddgame).level_width_raw as i32;
+        let is_cavern = (*ddgame).is_cavern as i32;
         if is_cavern == 0 {
             // Open-air level
             (*ddgame).level_bound_min_x = Fixed(0xF8020000u32 as i32);

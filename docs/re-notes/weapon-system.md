@@ -184,7 +184,7 @@ in `openwa-game/src/engine/game_state_init.rs`.
 **General availability path:**
 
 1. Check weapon table entry: name1 non-null = weapon defined
-2. If `level_width_raw == 0` OR weapon defined: check super weapon rules
+2. If `is_cavern == 0` OR weapon defined: check super weapon rules
 3. `IsSuperWeapon` (0x565960): if super and `super_weapon_allowed == 0`, disable (unless game_version < 0x2A)
 4. `supersheep_restricted` (DDGame+0x7E25): gates SuperSheep/AquaSheep check
 5. `aquasheep_is_supersheep` (GameInfo+0xD956): when set, AquaSheep slot becomes SuperSheep

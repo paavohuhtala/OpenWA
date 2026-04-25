@@ -328,8 +328,12 @@ pub struct DDGame {
     /// Used for team-to-slot mapping (render order, turn order, display order).
     /// Initialized as identity permutations [0..15] with count=16.
     pub team_index_maps: [TeamIndexMap; 3],
-    /// 0x777C: Level width output (written by Landscape constructor param 10).
-    pub level_width_raw: u32,
+    /// 0x777C: Cavern / indestructible-borders flag.
+    /// Written by the Landscape constructor (param 10) and toggled by
+    /// `init_landscape_borders` (0x528480) when the scheme's cavern byte changes.
+    /// Used as a boolean elsewhere: nonzero means cavern level (fewer clouds,
+    /// different level bounds, alternate super-weapon rules).
+    pub is_cavern: u32,
     /// 0x7780: Level height output (written by Landscape constructor param 11).
     pub level_height_raw: u32,
     /// 0x7784: Unknown (zeroed by InitTurnState).
@@ -856,8 +860,8 @@ impl crate::snapshot::Snapshot for DDGame {
         write_indent(w, i)?;
         writeln!(
             w,
-            "level_size_raw = {}x{}",
-            self.level_width_raw, self.level_height_raw
+            "is_cavern = {}, level_height_raw = {}",
+            self.is_cavern, self.level_height_raw
         )?;
         write_indent(w, i)?;
         writeln!(

@@ -706,7 +706,7 @@ unsafe fn init_graphics_and_resources(
                     (*wrapper).gfx_mode,
                     landscape_temp.as_mut_ptr(),
                     landscape_coords_buf.as_mut_ptr(),
-                    &raw mut (*ddgame).level_width_raw,
+                    &raw mut (*ddgame).is_cavern,
                     &raw mut (*ddgame).level_height_raw,
                 );
                 (*wrapper).landscape = result as *mut Landscape;

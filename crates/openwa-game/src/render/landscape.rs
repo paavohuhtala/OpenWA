@@ -146,13 +146,17 @@ pub struct LandscapeVtable {
 
 bind_LandscapeVtable!(Landscape, vtable);
 
-/// Pure Rust implementation of CGameTask__InitLandscapeFlags (0x528480).
+/// Pure Rust implementation of `InitLandscapeBorders` (0x00528480).
 ///
-/// Convention: usercall(EAX=wrapper), plain RET.
+/// Applies the scheme's cavern / indestructible-borders flag to the landscape.
+/// Convention: usercall(EAX = `this`), plain RET. `this` is a CTaskTurnGame
+/// (`DDGameWrapper`); the body only touches `this->ddgame` (+0x488).
 ///
-/// Checks game_info.landscape_scheme_flag and dispatches landscape vtable slot 6
-/// (init_borders) with appropriate parameters, then updates DDGame.level_width_raw.
-pub unsafe fn init_landscape_flags(wrapper: *mut DDGameWrapper) {
+/// If the scheme byte at `GameInfo+0xD94B` is set, dispatches
+/// `Landscape::init_borders(1,1,1,1, colors)` and flips `ddgame.is_cavern` on.
+/// Otherwise, if `is_cavern` was previously set, dispatches
+/// `init_borders(0,0,1,0, colors)` to tear down the borders.
+pub unsafe fn init_landscape_borders(wrapper: *mut DDGameWrapper) {
     unsafe {
         let ddgame = (*wrapper).ddgame;
         let game_info = (*ddgame).game_info;
@@ -170,8 +174,8 @@ pub unsafe fn init_landscape_flags(wrapper: *mut DDGameWrapper) {
             Landscape::init_borders_raw(
                 landscape, 1, 1, 1, 1, field_7318, field_730c, field_734c, field_7340,
             );
-            (*ddgame).level_width_raw = 1;
-        } else if (*ddgame).level_width_raw != 0 {
+            (*ddgame).is_cavern = 1;
+        } else if (*ddgame).is_cavern != 0 {
             Landscape::init_borders_raw(
                 landscape, 0, 0, 1, 0, field_7318, field_730c, field_734c, field_7340,
             );

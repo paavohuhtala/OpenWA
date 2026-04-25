@@ -26,7 +26,7 @@ use openwa_game::engine::{
     DDGame, DDGameWrapper, ddgame_init_fields, ddgame_init_render_indices, display_layer_color_init,
 };
 use openwa_game::game::{check_weapon_avail, is_super_weapon};
-use openwa_game::render::landscape::init_landscape_flags;
+use openwa_game::render::landscape::init_landscape_borders;
 use openwa_game::render::sprite::sprite_gfx_table_init;
 
 // ─── DDGame__InitFields (0x526120) ──────────────────────────────────────────
@@ -252,9 +252,9 @@ pub fn install() -> Result<(), String> {
         )?;
 
         hook::install(
-            "CGameTask__InitLandscapeFlags",
-            va::INIT_LANDSCAPE_FLAGS,
-            init_landscape_flags_trampoline as *const (),
+            "InitLandscapeBorders",
+            va::INIT_LANDSCAPE_BORDERS,
+            init_landscape_borders_trampoline as *const (),
         )?;
 
         hook::install(
@@ -338,16 +338,16 @@ hook::usercall_trampoline!(
     regs = [ecx, esi]
 );
 
-// ─── CGameTask__InitLandscapeFlags (0x528480) ───────────────────────────────
+// ─── InitLandscapeBorders (0x528480) ────────────────────────────────────────
 // Convention: usercall(EAX=wrapper), plain RET.
 
-extern "cdecl" fn impl_init_landscape_flags(wrapper: *mut DDGameWrapper) {
-    unsafe { init_landscape_flags(wrapper) }
+extern "cdecl" fn impl_init_landscape_borders(wrapper: *mut DDGameWrapper) {
+    unsafe { init_landscape_borders(wrapper) }
 }
 
 hook::usercall_trampoline!(
-    fn init_landscape_flags_trampoline;
-    impl_fn = impl_init_landscape_flags;
+    fn init_landscape_borders_trampoline;
+    impl_fn = impl_init_landscape_borders;
     reg = eax
 );
 

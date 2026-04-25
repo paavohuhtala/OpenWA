@@ -69,7 +69,8 @@ pub struct CTaskFilterVTable {
 /// - `FUN_00552190`: subscribes to messages 0, 1, 2, 3, 5, 0x15, 0x17, 0x1C, 0x2C–0x2E, 0x4B,
 ///   and optionally 0x0E (if `GameInfo+0xD778 < -1`)
 /// - `CTaskTeam__CreateWeatherFilter` (0x552960): subscribes to 1, 2, 3, 0x54, then
-///   spawns `CTaskCloud` children using randomised positions (only if `DDGame+0x777C == 0`)
+///   spawns `CTaskCloud` children using randomised positions (only outside caverns, i.e.
+///   `DDGame.is_cavern == 0`)
 #[derive(FieldRegistry)]
 #[repr(C)]
 pub struct CTaskFilter {
