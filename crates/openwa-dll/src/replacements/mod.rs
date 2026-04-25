@@ -1,7 +1,6 @@
 mod bitgrid;
 mod config;
 mod create_explosion;
-mod world_init;
 pub(crate) mod debug_utils;
 pub(crate) mod file_isolation;
 mod frame_hook;
@@ -28,6 +27,7 @@ mod team;
 mod trace_desync;
 mod weapon;
 mod weapon_release;
+mod world_init;
 
 /// Write gameplay milestone report and clean up. Called from DLL_PROCESS_DETACH.
 pub fn write_gameplay_report() {

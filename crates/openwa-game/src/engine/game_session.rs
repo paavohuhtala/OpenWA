@@ -1,8 +1,8 @@
 use crate::FieldRegistry;
 use crate::audio::dssound::DSSound;
 use crate::audio::music::Music;
-use crate::engine::runtime::GameRuntime;
 use crate::engine::game_info::GameInfo;
+use crate::engine::runtime::GameRuntime;
 use crate::input::keyboard::DDKeyboard;
 use crate::render::display::palette::Palette;
 

@@ -5,9 +5,9 @@
 //! - `WorldEntity__InitAllianceData` (0x5262D0)
 //! - the team-name CPU-marker check baked into `GameWorld__InitGameState`
 
-use crate::engine::world::GameWorld;
-use crate::engine::runtime::GameRuntime;
 use crate::engine::game_info::GameInfo;
+use crate::engine::runtime::GameRuntime;
+use crate::engine::world::GameWorld;
 
 /// Maximum number of teams (13 slots: 6 real + sentinels/padding).
 const MAX_TEAMS: usize = 13;

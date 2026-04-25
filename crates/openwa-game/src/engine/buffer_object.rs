@@ -5,8 +5,8 @@
 //! - `[0..5]`:  primary buffer header   (data, capacity, head, tail, world ptr)
 //! - `[5..10]`: secondary buffer header (same shape)
 
-use crate::engine::world::GameWorld;
 use crate::engine::game_info::GameInfo;
+use crate::engine::world::GameWorld;
 use crate::wa_alloc::wa_malloc_zeroed;
 
 /// Allocate a BufferObject (0x48 bytes) with both sub-buffer sizes computed

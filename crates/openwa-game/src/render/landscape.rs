@@ -3,7 +3,7 @@ use core::arch::naked_asm;
 use crate::{
     asset::gfx_dir::GfxDir,
     bitgrid::DisplayBitGrid,
-    engine::{world::GameWorld, runtime::GameRuntime},
+    engine::{runtime::GameRuntime, world::GameWorld},
     rebase::rb,
 };
 

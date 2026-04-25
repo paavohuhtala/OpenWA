@@ -13,10 +13,10 @@ use crate::address::va;
 use crate::audio::active_sound::ActiveSoundTable;
 use crate::audio::dssound::DSSound;
 use crate::engine::clock::read_current_time;
-use crate::engine::world::GameWorld;
-use crate::engine::runtime::GameRuntime;
 use crate::engine::game_session::get_game_session;
 use crate::engine::game_state;
+use crate::engine::runtime::GameRuntime;
+use crate::engine::world::GameWorld;
 use crate::game::message::{TurnEndMaybeMessage, UpdateNonCriticalMessage};
 use crate::input::keyboard::DDKeyboard;
 use crate::rebase::rb;
@@ -47,8 +47,7 @@ pub unsafe fn init_dispatch_addrs() {
         INIT_FRAME_DELAY_ADDR = rb(va::GAME_RUNTIME_INIT_FRAME_DELAY);
         NETWORK_UPDATE_ADDR = rb(va::GAME_RUNTIME_NETWORK_UPDATE);
         PEER_INPUT_QUEUE_SCAN_ADDR = rb(va::GAME_RUNTIME_PEER_INPUT_QUEUE_SCAN);
-        SHOULD_INTERPOLATE_OFFLINE_TAIL_ADDR =
-            rb(va::GAME_RUNTIME_SHOULD_INTERPOLATE_OFFLINE_TAIL);
+        SHOULD_INTERPOLATE_OFFLINE_TAIL_ADDR = rb(va::GAME_RUNTIME_SHOULD_INTERPOLATE_OFFLINE_TAIL);
         SETUP_FRAME_PARAMS_ADDR = rb(va::GAME_RUNTIME_SETUP_FRAME_PARAMS);
         PROCESS_NETWORK_FRAME_ADDR = rb(va::GAME_RUNTIME_PROCESS_NETWORK_FRAME);
         super::step_frame::init_step_frame_addrs();
