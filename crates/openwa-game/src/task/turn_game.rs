@@ -1,4 +1,4 @@
-use super::base::CTask;
+use super::base::{CTask, SharedDataTable};
 use crate::FieldRegistry;
 use openwa_core::fixed::Fixed;
 
@@ -211,6 +211,28 @@ pub struct CTaskTurnGame {
 }
 
 const _: () = assert!(core::mem::size_of::<CTaskTurnGame>() == 0x2E0);
+
+impl CTaskTurnGame {
+    /// SharedData key under which `CTaskTurnGame` registers itself.
+    ///
+    /// As the root of the in-game world, every other task in the same game
+    /// tree can locate it via `(0, 0x14)`. Use [`Self::from_shared_data`]
+    /// instead of looking up the raw key.
+    pub const SHARED_DATA_KEY: (u32, u32) = (0, 0x14);
+
+    /// Resolve the per-game `CTaskTurnGame` instance from any task in the
+    /// same game tree. Returns null if the table has no entry (during
+    /// startup/shutdown windows).
+    ///
+    /// # Safety
+    /// `task` must be a valid task pointer with an initialised `shared_data`.
+    pub unsafe fn from_shared_data(task: *const CTask) -> *mut CTaskTurnGame {
+        unsafe {
+            let (esi, edi) = Self::SHARED_DATA_KEY;
+            SharedDataTable::from_task(task).lookup(esi, edi) as *mut CTaskTurnGame
+        }
+    }
+}
 
 // Generate typed vtable method wrappers: handle_message(), process_frame(), etc.
 bind_CTaskTurnGameVTable!(CTaskTurnGame, base.vtable);

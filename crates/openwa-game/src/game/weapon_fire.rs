@@ -385,17 +385,11 @@ pub fn can_fire_subtype16(state: u32) -> bool {
 
 // ── Pure Rust fire handlers (no bridge needed) ──────────────
 
-/// Look up the CTaskTurnGame entity for a worm via SharedData.
-///
-/// The entity at key (0, 0x14) is a CTaskTurnGame (inherits CTaskTeam).
-/// Returns null if not found.
+/// Convenience wrapper over [`crate::task::CTaskTurnGame::from_shared_data`]
+/// for the common worm call sites.
+#[inline]
 pub unsafe fn lookup_turn_game(worm: *const CTaskWorm) -> *mut crate::task::CTaskTurnGame {
-    unsafe {
-        use crate::task::SharedDataTable;
-
-        let table = SharedDataTable::from_task(worm as *const CTask);
-        table.lookup(0, 0x14) as *mut crate::task::CTaskTurnGame
-    }
+    unsafe { crate::task::CTaskTurnGame::from_shared_data(worm as *const CTask) }
 }
 
 /// Surrender (subtype 13) — sends message 0x2B (TaskMessage::Surrender) to

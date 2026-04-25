@@ -1,21 +1,21 @@
 //! CreateExplosion — pure-Rust port of 0x00548080.
 //!
+//! Sends `TaskMessage::Explosion` to the per-game `CTaskTurnGame` root, which
+//! broadcasts to its children. Every `CGameTask` child then runs the damage
+//! calculation in its own `HandleMessage`.
+//!
 //! Deviation from WA: the original reserves a 0x408-byte stack buffer (only
 //! the first 0x1C are ever populated) and reports that size to HandleMessage.
-//! We pass an `ExplosionMessage` directly and report `size_of` — verified
-//! that `CTaskCross::HandleMessage` does not depend on the oversized report.
+//! We pass an `ExplosionMessage` directly and report `size_of` — verified that
+//! the receiver does not depend on the oversized report.
 
 use openwa_core::fixed::Fixed;
 
 use crate::game::message::TaskMessage;
-use crate::task::{CTask, SharedDataTable};
-use core::ffi::c_void;
+use crate::task::{CTask, CTaskTurnGame};
 
-/// SharedData key for the explosion manager (CTaskCross).
-const EXPLOSION_MANAGER_KEY_EDI: u32 = 0x14;
-
-/// Payload for `TaskMessage::Explosion` (0x1c), consumed by
-/// `CTaskCross::HandleMessage` (vtable slot 2).
+/// Payload for `TaskMessage::Explosion` (0x1c), consumed by every
+/// `CGameTask::HandleMessage` reached through the broadcast.
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
 pub struct ExplosionMessage {
@@ -60,18 +60,13 @@ pub unsafe fn create_explosion(
 
 unsafe fn dispatch(sender: *mut CTask, msg: &ExplosionMessage) {
     unsafe {
-        let table = SharedDataTable::from_task(sender as *const CTask);
-        let entity = table.lookup(0, EXPLOSION_MANAGER_KEY_EDI);
-        if entity.is_null() {
+        let turn_game = CTaskTurnGame::from_shared_data(sender);
+        if turn_game.is_null() {
             return;
         }
-
-        let vtable = *(entity as *const *const usize);
-        let handle_msg: unsafe extern "thiscall" fn(*mut u8, *mut c_void, u32, u32, *const u8) =
-            core::mem::transmute(*vtable.add(2));
-        handle_msg(
-            entity,
-            sender as *mut c_void,
+        CTaskTurnGame::handle_message_raw(
+            turn_game,
+            sender,
             TaskMessage::Explosion as u32,
             core::mem::size_of::<ExplosionMessage>() as u32,
             msg as *const ExplosionMessage as *const u8,
