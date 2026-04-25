@@ -4,24 +4,24 @@ Comprehensive reference for the Worms Armageddon 3.8.1 weapon system internals.
 
 ## Overview
 
-The weapon system spans multiple subsystems: a **weapon table** defining all 71 weapons, an **ammo/delay tracker** per team/alliance, a **firing dispatch** that routes weapon activation to type-specific handlers, **CTaskMissile** objects for in-flight projectiles, and an **explosion system** for terrain damage.
+The weapon system spans multiple subsystems: a **weapon table** defining all 71 weapons, an **ammo/delay tracker** per team/alliance, a **firing dispatch** that routes weapon activation to type-specific handlers, **MissileEntity** objects for in-flight projectiles, and an **explosion system** for terrain damage.
 
 ### Object Relationships
 
 ```mermaid
 graph TD
-    DDGame["DDGame (0x98B8 bytes)"]
-    WT["WeaponTable<br/>DDGame+0x510"]
-    TAS["TeamArenaState<br/>DDGame+0x4628"]
-    WP["WeaponPanel<br/>DDGame+0x548"]
-    CTW["CTaskWorm<br/>(per-live-worm task)"]
-    CTM["CTaskMissile<br/>(per-projectile task)"]
+    GameWorld["GameWorld (0x98B8 bytes)"]
+    WT["WeaponTable<br/>GameWorld+0x510"]
+    TAS["TeamArenaState<br/>GameWorld+0x4628"]
+    WP["WeaponPanel<br/>GameWorld+0x548"]
+    CTW["WormEntity<br/>(per-live-worm task)"]
+    CTM["MissileEntity<br/>(per-projectile task)"]
     EXP["CreateExplosion"]
     LAND["Landscape"]
 
-    DDGame --> WT
-    DDGame --> TAS
-    DDGame --> WP
+    GameWorld --> WT
+    GameWorld --> TAS
+    GameWorld --> WP
     CTW -->|"FireWeapon"| CTM
     CTW -->|"GetAmmo/SubtractAmmo"| TAS
     CTM -->|"impact"| EXP
@@ -35,11 +35,11 @@ graph TD
 ```mermaid
 sequenceDiagram
     participant P as Player Input
-    participant W as CTaskWorm
+    participant W as WormEntity
     participant FR as WeaponRelease
     participant FW as FireWeapon
     participant CW as CreateWeaponProjectile
-    participant M as CTaskMissile
+    participant M as MissileEntity
     participant E as CreateExplosion
     participant L as Landscape
 
@@ -47,7 +47,7 @@ sequenceDiagram
     W->>FR: WeaponRelease(0x51C3D0)<br/>position, angle
     FR->>FW: FireWeapon(0x51EE60)<br/>weapon type dispatch
     FW->>CW: CreateWeaponProjectile(0x51E0F0)
-    CW->>M: CTaskMissile__Constructor(0x507D10)<br/>allocate 0x40C bytes
+    CW->>M: MissileEntity__Constructor(0x507D10)<br/>allocate 0x40C bytes
     loop Every frame
         M->>M: PhysicsUpdate(0x508C90)<br/>gravity, wind, collision
     end
@@ -57,10 +57,10 @@ sequenceDiagram
 
 ## WeaponEntry & WeaponTable
 
-### WeaponTable (DDGame+0x510)
+### WeaponTable (GameWorld+0x510)
 
-Allocated by `InitWeaponTable` (0x53CAB0, stdcall(wrapper), RET 0x4). Called once
-during `CTaskGameState__vmethod_7` at game start.
+Allocated by `InitWeaponTable` (0x53CAB0, stdcall(runtime), RET 0x4). Called once
+during `GameStateEntity__vmethod_7` at game start.
 
 ```
 +0x00   [WeaponEntry; 71]   entries     Standard weapons (0..70)
@@ -116,7 +116,7 @@ Defined in `openwa-game/src/game/weapon.rs`. Key weapon IDs:
 
 ## Ammunition & Delay System
 
-### Storage: TeamArenaState (DDGame+0x4628)
+### Storage: TeamArenaState (GameWorld+0x4628)
 
 Ammo and delay are stored in a flat array indexed by alliance and weapon ID.
 
@@ -142,7 +142,7 @@ Alliance ID is read from the team's sentinel worm field at offset +0x80
 | GetAmmo         | 0x5225E0 | usercall   | EAX=team_index, ESI=arena_base, EDX=weapon_id → EAX=ammo    |
 | AddAmmo         | 0x522640 | usercall   | EAX=team_index, EDX=amount, stack(base, weapon_id), RET 0x8 |
 | SubtractAmmo    | 0x522680 | usercall   | EAX=team_index, ECX=arena_base, stack(weapon_id), RET 0x4   |
-| SubtractAmmo_v2 | 0x558E80 | fastcall   | ECX=param1, EDX=CTaskTeam\*                                 |
+| SubtractAmmo_v2 | 0x558E80 | fastcall   | ECX=param1, EDX=TeamEntity\*                                |
 | CountAliveWorms | 0x5225A0 | usercall   | EAX=team_index, ECX=arena_base → EAX=count                  |
 
 **GetAmmo special rules:**
@@ -154,22 +154,22 @@ Alliance ID is read from the team's sentinel worm field at offset +0x80
 
 **SubtractAmmo call sites (verified):**
 
-- `CTaskWorm__HandleMessage` (0x512C27): subtracts Teleport (0x28) ammo
-- `CTaskTeam_vt2__vmethod_2` (0x558443): subtracts the team's selected weapon
+- `WormEntity__HandleMessage` (0x512C27): subtracts Teleport (0x28) ammo
+- `TeamEntity_vt2__vmethod_2` (0x558443): subtracts the team's selected weapon
 - `FUN_0055f8c0` (3 sites): subtracts DamageX2 (0x43), CrateSpy (0x44), and others
 
 Our hook reportedly never triggered — this was because the test replay (bots)
 doesn't use Teleport, DamageX2, or CrateSpy. The hook implementation is correct.
 
-The second variant at 0x558E80 (fastcall) has 3 xrefs from `CTaskTeam_vt2__vmethod_2`.
+The second variant at 0x558E80 (fastcall) has 3 xrefs from `TeamEntity_vt2__vmethod_2`.
 
 **Port status:** All 4 functions ported in `replacements/weapon.rs`.
 
 ## Weapon Availability
 
-### DDGame\_\_CheckWeaponAvail (0x53FFC0)
+### GameWorld\_\_CheckWeaponAvail (0x53FFC0)
 
-Convention: fastcall(DDGame), ESI=weapon_id. Ported as `check_weapon_avail`
+Convention: fastcall(GameWorld), ESI=weapon_id. Ported as `check_weapon_avail`
 in `openwa-game/src/engine/game_state_init.rs`.
 
 **Per-weapon disable rules:**
@@ -186,10 +186,10 @@ in `openwa-game/src/engine/game_state_init.rs`.
 1. Check weapon table entry: name1 non-null = weapon defined
 2. If `is_cavern == 0` OR weapon defined: check super weapon rules
 3. `IsSuperWeapon` (0x565960): if super and `super_weapon_allowed == 0`, disable (unless game_version < 0x2A)
-4. `supersheep_restricted` (DDGame+0x7E25): gates SuperSheep/AquaSheep check
+4. `supersheep_restricted` (GameWorld+0x7E25): gates SuperSheep/AquaSheep check
 5. `aquasheep_is_supersheep` (GameInfo+0xD956): when set, AquaSheep slot becomes SuperSheep
 
-### DDGame\_\_IsSuperWeapon (0x565960)
+### GameWorld\_\_IsSuperWeapon (0x565960)
 
 Convention: fastcall(weapon_id). Returns 1 for super weapons:
 
@@ -204,7 +204,7 @@ Convention: thiscall. `in_EAX` = weapon context structure where:
 - +0x38: subtype for type 1 and type 2
 - +0x3C: parameters base (passed to sub-functions)
 
-`param_2` = DDGameWrapper pointer. Sets `param_2[0xF] = 1` on completion.
+`param_2` = GameRuntime pointer. Sets `param_2[0xF] = 1` on completion.
 
 ### Type 1: Projectile Weapons
 
@@ -255,9 +255,9 @@ Convention: thiscall. `in_EAX` = weapon context structure where:
 | 23      | vtable[0xE](0x78)            | (indirect) | Magic Bullet                       |
 | 24      | FireWeapon\_\_Special_Type24 | 0x51EA60   | Low Gravity / Fast Walk            |
 
-## CTaskMissile (0x40C bytes)
+## MissileEntity (0x40C bytes)
 
-Extends CGameTask (0xFC base). Represents an in-flight projectile.
+Extends WorldEntity (0xFC base). Represents an in-flight projectile.
 
 ```
 Constructor:  0x507D10 (stdcall, 4 params)
@@ -269,7 +269,7 @@ Allocation:   0x40C bytes via wa_malloc
 ### Structure Layout
 
 ```
-+0x000  CGameTask base          (0xFC bytes)
++0x000  WorldEntity base          (0xFC bytes)
         +0x084  speed_x         Fixed16.16 horizontal velocity
         +0x088  speed_y         Fixed16.16 vertical velocity
         +0x090  pos_x           Fixed16.16 world X
@@ -320,22 +320,22 @@ Allocation:   0x40C bytes via wa_malloc
 
 ### Missile Count Limit
 
-DDGame+0x72A4 tracks active missile count. `CreateWeaponProjectile` checks:
+GameWorld+0x72A4 tracks active missile count. `CreateWeaponProjectile` checks:
 
 - If count + 7 < 0x2BD (701): create missile normally
-- If exceeded and game_version < 0x3C: set error code 6 at DDGame+0x4624, load
-  string resource 0x70F as error message at DDGame+0x7EF4
+- If exceeded and game_version < 0x3C: set error code 6 at GameWorld+0x4624, load
+  string resource 0x70F as error message at GameWorld+0x7EF4
 - Otherwise: silently fail
 
 ## Projectile Creation (0x51E0F0)
 
 `CreateWeaponProjectile`: thiscall(this=context, param_2=missile_params, param_3=launch_params).
 
-1. Read DDGame via `this+0x2C` (CTask.ddgame field)
-2. Check missile count limit (DDGame+0x72A4 + 7 < 0x2BD)
+1. Read GameWorld via `this+0x2C` (BaseEntity.world field)
+2. Check missile count limit (GameWorld+0x72A4 + 7 < 0x2BD)
 3. Call `FUN_004FDF90(this)` — pool slot allocator
 4. `wa_malloc(0x40C)` + `memset(0, 0x3EC)`
-5. `CTaskMissile__Constructor(slot, missile_params, launch_params)`
+5. `MissileEntity__Constructor(slot, missile_params, launch_params)`
 6. Return allocated missile pointer
 
 ## Explosion & Terrain Damage
@@ -351,20 +351,20 @@ damage, terrain removal) lives in the explosion task's ProcessFrame.
 
 ## Weapon Panel UI
 
-| Function                        | Address  | Description                                                                                    |
-| ------------------------------- | -------- | ---------------------------------------------------------------------------------------------- |
-| DDGame\_\_InitWeaponPanel_Maybe | 0x567770 | Initialize panel structures and availability grid                                              |
-| PrepareWeaponPanel              | 0x568220 | Main panel renderer (~2000 lines). Iterates weapons by row, checks availability, renders tiles |
-| WeaponPanelDrawTile             | 0x567AA0 | Render individual weapon tile                                                                  |
-| WeaponPanelDescription          | 0x567F80 | Show ammo/delay info on hover                                                                  |
-| WeaponPanelCheckClick           | 0x5690B0 | Handle weapon selection clicks                                                                 |
+| Function                           | Address  | Description                                                                                    |
+| ---------------------------------- | -------- | ---------------------------------------------------------------------------------------------- |
+| GameWorld\_\_InitWeaponPanel_Maybe | 0x567770 | Initialize panel structures and availability grid                                              |
+| PrepareWeaponPanel                 | 0x568220 | Main panel renderer (~2000 lines). Iterates weapons by row, checks availability, renders tiles |
+| WeaponPanelDrawTile                | 0x567AA0 | Render individual weapon tile                                                                  |
+| WeaponPanelDescription             | 0x567F80 | Show ammo/delay info on hover                                                                  |
+| WeaponPanelCheckClick              | 0x5690B0 | Handle weapon selection clicks                                                                 |
 
 **Panel geometry:** 5 columns × 13 rows. Each tile is 29px wide.
 Custom weapons (wkJellyWorm): dynamic columns up to 256 weapons.
 
 ## Weapon Crate System
 
-- `CTaskCrate__Constructor` (0x502490): creates a weapon crate in the game world
+- `CrateEntity__Constructor` (0x502490): creates a weapon crate in the game world
 - Crate probability per weapon defined in scheme (`WeaponSettings.crate_probability`, 0-100%)
 - Crate drops award random weapons weighted by probability
 
@@ -397,12 +397,12 @@ weapon table and ammo arrays at game start.
 
 ### Weapon Table & Initialization
 
-| Function                          | Address  | Convention                | Port Status          |
-| --------------------------------- | -------- | ------------------------- | -------------------- |
-| InitWeaponTable                   | 0x53CAB0 | stdcall(wrapper), RET 0x4 | Hooked (passthrough) |
-| DDGame\_\_CheckWeaponAvail        | 0x53FFC0 | fastcall(DDGame)          | **Ported**           |
-| DDGame\_\_IsSuperWeapon           | 0x565960 | fastcall(weapon_id)       | **Ported**           |
-| DDGame\_\_LoadHudAndWeaponSprites | 0x53D0E0 | stdcall(wrapper, ...)     | Bridge call          |
+| Function                             | Address  | Convention                | Port Status          |
+| ------------------------------------ | -------- | ------------------------- | -------------------- |
+| InitWeaponTable                      | 0x53CAB0 | stdcall(runtime), RET 0x4 | Hooked (passthrough) |
+| GameWorld\_\_CheckWeaponAvail        | 0x53FFC0 | fastcall(GameWorld)       | **Ported**           |
+| GameWorld\_\_IsSuperWeapon           | 0x565960 | fastcall(weapon_id)       | **Ported**           |
+| GameWorld\_\_LoadHudAndWeaponSprites | 0x53D0E0 | stdcall(wrapper, ...)     | Bridge call          |
 
 ### Ammo System
 
@@ -416,16 +416,16 @@ weapon table and ammo arrays at game start.
 
 ### Firing & Projectiles
 
-| Function                      | Address  | Convention                        | Port Status |
-| ----------------------------- | -------- | --------------------------------- | ----------- |
-| WeaponRelease                 | 0x51C3D0 | thiscall(CTaskWorm\*, ...)        | Unported    |
-| FireWeapon                    | 0x51EE60 | thiscall, EAX=weapon_ctx          | Unported    |
-| CreateWeaponProjectile        | 0x51E0F0 | thiscall(context, params, launch) | Unported    |
-| CTaskMissile\_\_Constructor   | 0x507D10 | stdcall, 4 params                 | Unported    |
-| CTaskMissile\_\_PhysicsUpdate | 0x508C90 | (unknown)                         | Unported    |
-| CTaskMissile\_\_HandleMessage | 0x50B400 | thiscall                          | Unported    |
-| CreateExplosion               | 0x548080 | usercall(ESI=context)             | Unported    |
-| Landscape_ApplyExplosion      | 0x57C820 | (unknown)                         | Unported    |
+| Function                       | Address  | Convention                        | Port Status |
+| ------------------------------ | -------- | --------------------------------- | ----------- |
+| WeaponRelease                  | 0x51C3D0 | thiscall(WormEntity\*, ...)       | Unported    |
+| FireWeapon                     | 0x51EE60 | thiscall, EAX=weapon_ctx          | Unported    |
+| CreateWeaponProjectile         | 0x51E0F0 | thiscall(context, params, launch) | Unported    |
+| MissileEntity\_\_Constructor   | 0x507D10 | stdcall, 4 params                 | Unported    |
+| MissileEntity\_\_PhysicsUpdate | 0x508C90 | (unknown)                         | Unported    |
+| MissileEntity\_\_HandleMessage | 0x50B400 | thiscall                          | Unported    |
+| CreateExplosion                | 0x548080 | usercall(ESI=context)             | Unported    |
+| Landscape_ApplyExplosion       | 0x57C820 | (unknown)                         | Unported    |
 
 ### Fire Dispatch Targets
 
@@ -446,13 +446,13 @@ weapon table and ammo arrays at game start.
 
 ### Weapon Panel
 
-| Function                        | Address  | Convention | Port Status |
-| ------------------------------- | -------- | ---------- | ----------- |
-| DDGame\_\_InitWeaponPanel_Maybe | 0x567770 | thiscall   | Unported    |
-| PrepareWeaponPanel              | 0x568220 | cdecl      | Unported    |
-| WeaponPanelDrawTile             | 0x567AA0 | (unknown)  | Unported    |
-| WeaponPanelDescription          | 0x567F80 | (unknown)  | Unported    |
-| WeaponPanelCheckClick           | 0x5690B0 | (unknown)  | Unported    |
+| Function                           | Address  | Convention | Port Status |
+| ---------------------------------- | -------- | ---------- | ----------- |
+| GameWorld\_\_InitWeaponPanel_Maybe | 0x567770 | thiscall   | Unported    |
+| PrepareWeaponPanel                 | 0x568220 | cdecl      | Unported    |
+| WeaponPanelDrawTile                | 0x567AA0 | (unknown)  | Unported    |
+| WeaponPanelDescription             | 0x567F80 | (unknown)  | Unported    |
+| WeaponPanelCheckClick              | 0x5690B0 | (unknown)  | Unported    |
 
 ### Scheme
 
@@ -476,7 +476,7 @@ weapon table and ammo arrays at game start.
 
 1. **InitWeaponTable internals** — populate WeaponEntry fields from scheme data
 2. **SubtractAmmo investigation** — verify hook triggers, check v2 variant
-3. **Weapon panel init** — DDGame\_\_InitWeaponPanel_Maybe (self-contained)
+3. **Weapon panel init** — GameWorld\_\_InitWeaponPanel_Maybe (self-contained)
 
 ### Medium Term
 
@@ -486,7 +486,7 @@ weapon table and ammo arrays at game start.
 
 ### Long Term
 
-7. **CTaskMissile physics** — gravity, wind, collision, homing AI
+7. **MissileEntity physics** — gravity, wind, collision, homing AI
 8. **Individual weapon behaviors** — each Fire\_\_\* handler
 9. **Explosion system** — terrain damage, damage calculation
 10. **Weapon panel rendering** — PrepareWeaponPanel (~2000 lines)

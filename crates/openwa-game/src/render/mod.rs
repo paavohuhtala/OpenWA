@@ -30,7 +30,7 @@ pub use turn_order::{
 
 /// Render table entry (0x14 = 20 bytes).
 ///
-/// 14 entries live at DDGame+0x73B0 (stride 0x14). Only the first u32
+/// 14 entries live at GameWorld+0x73B0 (stride 0x14). Only the first u32
 /// is zeroed during construction; the rest is uninitialized/unknown.
 #[repr(C)]
 #[derive(Clone, Copy)]

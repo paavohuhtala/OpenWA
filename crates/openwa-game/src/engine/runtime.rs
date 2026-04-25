@@ -3,45 +3,45 @@ use openwa_core::fixed::Fixed;
 use crate::FieldRegistry;
 use crate::asset::gfx_dir::GfxDir;
 use crate::audio::dssound::DSSound;
-use crate::engine::ddgame::DDGame;
+use crate::engine::world::GameWorld;
 use crate::engine::net_bridge::NetBridge;
 use crate::render::display::gfx::DisplayGfx;
 use crate::render::landscape::Landscape;
 use crate::render::palette::PaletteContext;
-use crate::task::CTaskTurnGame;
+use crate::task::WorldRootEntity;
 
 /// Speech name table entry size (0x40 = 64 bytes, null-terminated C string).
 pub const SPEECH_NAME_ENTRY_SIZE: usize = 0x40;
 /// Maximum number of speech name entries.
 pub const SPEECH_NAME_TABLE_LEN: usize = 360;
 
-#[openwa_game::vtable(size = 10, va = 0x0066A30C, class = "DDGameWrapper")]
-pub struct DDGameWrapperVtable {
+#[openwa_game::vtable(size = 10, va = 0x0066A30C, class = "GameRuntime")]
+pub struct GameRuntimeVtable {
     /// Scalar deleting destructor (0x5713C0).
     #[slot(0)]
-    pub destructor: fn(this: *mut DDGameWrapper, flags: u32) -> *mut DDGameWrapper,
+    pub destructor: fn(this: *mut GameRuntime, flags: u32) -> *mut GameRuntime,
     /// Send-game-state hook (0x56FAF0 base = `DDNetGameWrapper__SendGameState`).
     /// Called by StepFrame's end-of-game headless log before draining the
     /// input queue: thiscall(this=wrapper, buf=render_buffer_a, 0, 0).
     /// In non-network wrappers the base impl is a no-op path; the net
     /// subclass overrides to flush queued network state.
     #[slot(2)]
-    pub send_game_state: fn(this: *mut DDGameWrapper, buf: *mut u8, a: u32, b: u32),
+    pub send_game_state: fn(this: *mut GameRuntime, buf: *mut u8, a: u32, b: u32),
     /// Render frame (0x56E040) — called each frame from `GameSession__ProcessFrame`.
     #[slot(7)]
-    pub render_frame: fn(this: *mut DDGameWrapper),
+    pub render_frame: fn(this: *mut GameRuntime),
     /// Get game state (0x528A20) — returns `self.game_state` (+0x484).
     /// See [`crate::engine::game_state`] for known return values.
     #[slot(9)]
-    pub get_game_state: fn(this: *mut DDGameWrapper) -> u32,
+    pub get_game_state: fn(this: *mut GameRuntime) -> u32,
 }
 
-bind_DDGameWrapperVtable!(DDGameWrapper, vtable);
+bind_GameRuntimeVtable!(GameRuntime, vtable);
 
-/// DDGameWrapper — large wrapper around DDGame.
+/// GameRuntime — large wrapper around GameWorld.
 ///
-/// Created by DDGameWrapper__Constructor (0x56DEF0).
-/// Holds the DDGame pointer, graphics handlers, landscape, and display state.
+/// Created by GameRuntime__Constructor (0x56DEF0).
+/// Holds the GameWorld pointer, graphics handlers, landscape, and display state.
 ///
 /// Vtable: 0x66A30C
 ///
@@ -53,17 +53,17 @@ bind_DDGameWrapperVtable!(DDGameWrapper, vtable);
 /// (team arrays at 0x054/0x128/0x22C, alliance data at 0x350/0x3AC, etc.).
 #[derive(FieldRegistry)]
 #[repr(C)]
-pub struct DDGameWrapper {
+pub struct GameRuntime {
     // ===== 0x000: Vtable =====
     /// 0x000: Vtable pointer (0x66A30C)
-    pub vtable: *const DDGameWrapperVtable,
+    pub vtable: *const GameRuntimeVtable,
     /// 0x004: Unknown (4 bytes gap)
     pub _unknown_004: u32,
 
     // ===== 0x008-0x050: Sub-object pointers (allocated by InitGameState) =====
-    /// 0x008: CTaskTurnGame (or CTaskGameState for online games — same vtable shape at slot 2).
+    /// 0x008: WorldRootEntity (or GameStateEntity for online games — same vtable shape at slot 2).
     /// DispatchFrame/StepFrame broadcast game-end messages through `handle_message` (vtable slot 2).
-    pub task_turn_game: *mut CTaskTurnGame,
+    pub world_root: *mut WorldRootEntity,
     /// 0x00C: Main serialization BufferObject
     pub main_buffer: *mut u8,
     /// 0x010: Unknown pointer
@@ -101,8 +101,8 @@ pub struct DDGameWrapper {
     /// 0x050: RingBuffer C (capacity 0x1000)
     pub ring_buffer_c: *mut u8,
 
-    // ===== 0x054-0x087: Per-team CTask pointers =====
-    /// 0x054: Per-team CTask pointers (13 slots). Zeroed by InitGameState.
+    // ===== 0x054-0x087: Per-team BaseEntity pointers =====
+    /// 0x054: Per-team BaseEntity pointers (13 slots). Zeroed by InitGameState.
     /// Sub-fields +0x08..+0x18 cleared if non-null during InitTeamScoring.
     pub team_task_ptrs: [*mut u8; 13],
 
@@ -277,7 +277,7 @@ pub struct DDGameWrapper {
     /// 0x460: Zeroed
     pub _field_460: i32,
     /// 0x464: Render-scale fade request/direction. Tri-state i32 driving
-    /// `step_render_scale_fade`: `< 0` fades `DDGame::render_scale` toward
+    /// `step_render_scale_fade`: `< 0` fades `GameWorld::render_scale` toward
     /// `Fixed::ONE` (fade-in), `> 0` fades toward `Fixed::ZERO` (fade-out),
     /// `0` is idle. Latches back to 0 when the target is reached.
     pub render_scale_fade_request: i32,
@@ -301,8 +301,8 @@ pub struct DDGameWrapper {
     pub game_state: u32,
 
     // ===== 0x488-0x4BF: Core pointers and flags =====
-    /// 0x488: Pointer to DDGame allocation (DWORD index 0x122)
-    pub ddgame: *mut DDGame,
+    /// 0x488: Pointer to GameWorld allocation (DWORD index 0x122)
+    pub world: *mut GameWorld,
     /// 0x48C: Network bridge object (0x2C bytes). Only set for online games (game_version == -2).
     pub net_bridge: *mut NetBridge,
     /// 0x490: Replay flag A (from game_info)
@@ -352,7 +352,7 @@ pub struct DDGameWrapper {
     /// 0x4E4-0x14E7: Unknown fields
     pub _unknown_4e4: [u8; 0x14E8 - 0x4E4],
     /// 0x14E8: Speech name table — 360 entries of 0x40-byte C strings.
-    /// Used by DDGameWrapper__LoadSpeechWAV to deduplicate loaded WAVs.
+    /// Used by GameRuntime__LoadSpeechWAV to deduplicate loaded WAVs.
     pub speech_name_table: [[u8; SPEECH_NAME_ENTRY_SIZE]; SPEECH_NAME_TABLE_LEN],
     /// 0x6EE8: Number of entries used in speech_name_table.
     pub speech_name_count: u32,
@@ -362,4 +362,4 @@ pub struct DDGameWrapper {
     pub _unknown_6ef0: [u8; 0x20],
 }
 
-const _: () = assert!(core::mem::size_of::<DDGameWrapper>() == 0x6F10);
+const _: () = assert!(core::mem::size_of::<GameRuntime>() == 0x6F10);

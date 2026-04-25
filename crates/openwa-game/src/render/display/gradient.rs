@@ -2,7 +2,7 @@
 //!
 //! NOTE: This code path is UNTESTED — it only triggers on maps with
 //! non-standard dimensions (sky_height >= 0x61 or level_height != 0x2B8).
-//! The algorithm is ported from the DDGame constructor decompilation but
+//! The algorithm is ported from the GameWorld constructor decompilation but
 //! may have subtle color differences due to the tangled decompiler output.
 
 use crate::address::va;
@@ -10,7 +10,7 @@ use crate::address::va;
 use crate::asset::gfx_dir::GfxDir;
 use crate::asset::gfx_dir::call_gfx_find_and_load;
 use crate::bitgrid::{BitGrid, BitGridBaseVtable};
-use crate::engine::ddgame::DDGame;
+use crate::engine::world::GameWorld;
 use crate::rebase::rb;
 #[cfg(target_arch = "x86")]
 use crate::wa_alloc::wa_malloc_struct_zeroed;
@@ -105,11 +105,11 @@ impl PaletteContext {
 /// gradient image (64 columns × (level_height + 0xDC) rows).
 ///
 /// NOTE: This code path is untested — no replay or map available that
-/// triggers it. The algorithm follows the DDGame constructor decompilation
+/// triggers it. The algorithm follows the GameWorld constructor decompilation
 /// but may have subtle differences in color output.
 #[cfg(target_arch = "x86")]
 pub(crate) unsafe fn compute_complex_gradient(
-    ddgame: *mut DDGame,
+    world: *mut GameWorld,
     land_dir: *mut GfxDir,
     layer3_ctx: *mut crate::render::palette::PaletteContext,
     sky_height: i16,
@@ -148,7 +148,7 @@ pub(crate) unsafe fn compute_complex_gradient(
 
         // Step 3: If heights match, also set gradient_image_2
         if target_rows == gradient_height {
-            (*ddgame).gradient_image_2 =
+            (*world).gradient_image_2 =
                 call_gfx_find_and_load(land_dir, c"gradient.img", layer3_ctx)
                     .map(|d| d.as_bitgrid_ptr())
                     .unwrap_or(core::ptr::null_mut());
@@ -199,7 +199,7 @@ pub(crate) unsafe fn compute_complex_gradient(
         let mut fallback = palette.color_fp(initial_idx);
 
         // Step 6: Create the gradient image buffer
-        let total_height = (*ddgame).level_height as i32 + 0xDC;
+        let total_height = (*world).level_height as i32 + 0xDC;
         if total_height <= 0 {
             return;
         }
@@ -250,7 +250,7 @@ pub(crate) unsafe fn compute_complex_gradient(
         }
 
         // Step 8: Wrap pixel data in a BitGrid-compatible object
-        // (shares vtable 0x6640EC; CTaskLand reads .height to decide whether to render)
+        // (shares vtable 0x6640EC; LandEntity reads .height to decide whether to render)
         let gfx_obj = wa_malloc_struct_zeroed::<BitGrid>();
         if gfx_obj.is_null() {
             wa_free(data);
@@ -261,6 +261,6 @@ pub(crate) unsafe fn compute_complex_gradient(
         (*gfx_obj).row_stride = stride;
         (*gfx_obj).width = 0;
         (*gfx_obj).height = total_height as u32;
-        (*ddgame).gradient_image = gfx_obj;
+        (*world).gradient_image = gfx_obj;
     }
 }

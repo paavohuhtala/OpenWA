@@ -5,12 +5,12 @@
 /// **Class blocks** — group vtable, constructor, and vtable methods under a class name:
 /// ```ignore
 /// define_addresses! {
-///     class "CTask" {
-///         /// CTask vtable - 7 virtual method pointers
-///         vtable CTASK_VTABLE = 0x00669F8C;
-///         /// CTask constructor
-///         ctor/Stdcall CTASK_CONSTRUCTOR = 0x005625A0;
-///         vmethod CTASK_VT0_INIT = 0x00562710;
+///     class "BaseEntity" {
+///         /// BaseEntity vtable - 7 virtual method pointers
+///         vtable BASE_ENTITY_VTABLE = 0x00669F8C;
+///         /// BaseEntity constructor
+///         ctor/Stdcall BASE_ENTITY_CONSTRUCTOR = 0x005625A0;
+///         vmethod BASE_ENTITY_VT0_INIT = 0x00562710;
 ///     }
 /// }
 /// ```

@@ -1,67 +1,70 @@
-use super::base::CTask;
+use super::base::BaseEntity;
 use crate::FieldRegistry;
 use openwa_core::fixed::Fixed;
 
 crate::define_addresses! {
-    class "CTaskTeam" {
-        /// CTaskTeam vtable - per-team task
-        vtable CTASK_TEAM_VTABLE = 0x00669EE4;
-        ctor CTASK_TEAM_CTOR = 0x00555BB0;
+    class "TeamEntity" {
+        ctor TEAM_ENTITY_CTOR = 0x00555BB0;
     }
 }
 
-/// CTaskTeam vtable — 12 slots. Extends CTask base (8 slots) with team-specific behavior.
+/// TeamEntity vtable — 12 slots. Extends BaseEntity base (8 slots) with team-specific behavior.
 ///
 /// Vtable at Ghidra 0x669EE4. Slot 2 (HandleMessage) is the main team message
 /// dispatcher (1701 instructions, handles weapon fire, surrender, worm selection, etc.)
-#[openwa_game::vtable(size = 12, va = 0x00669EE4, class = "CTaskTeam")]
-pub struct CTaskTeamVTable {
+#[openwa_game::vtable(size = 12, va = 0x00669EE4, class = "TeamEntity")]
+pub struct TeamEntityVtable {
     /// WriteReplayState — serializes team state to replay stream.
     /// thiscall + 1 stack param (stream), RET 0x4.
     #[slot(0)]
-    pub write_replay_state: fn(this: *mut CTaskTeam, stream: *mut u8),
+    pub write_replay_state: fn(this: *mut TeamEntity, stream: *mut u8),
     /// Free — destructor. thiscall + 1 stack param (flags), RET 0x4.
     #[slot(1)]
-    pub free: fn(this: *mut CTaskTeam, flags: u8) -> *mut CTaskTeam,
+    pub free: fn(this: *mut TeamEntity, flags: u8) -> *mut TeamEntity,
     /// HandleMessage — processes messages sent to this team (weapon fire,
     /// surrender, worm selection, napalm strike, etc.)
     /// thiscall + 4 stack params, RET 0x10.
     #[slot(2)]
-    pub handle_message:
-        fn(this: *mut CTaskTeam, sender: *mut CTask, msg_type: u32, size: u32, data: *const u8),
+    pub handle_message: fn(
+        this: *mut TeamEntity,
+        sender: *mut BaseEntity,
+        msg_type: u32,
+        size: u32,
+        data: *const u8,
+    ),
     /// GetEntityData — returns team data by query code.
     /// thiscall + 3 stack params, RET 0xC.
     #[slot(3)]
-    pub get_entity_data: fn(this: *mut CTaskTeam, query: u32, param: u32, out: *mut u32) -> u32,
-    // Slots 4-6: inherited CTask methods
+    pub get_entity_data: fn(this: *mut TeamEntity, query: u32, param: u32, out: *mut u32) -> u32,
+    // Slots 4-6: inherited BaseEntity methods
     /// ProcessFrame — per-frame team update.
     /// thiscall + 1 stack param (flags), RET 0x4.
     #[slot(7)]
-    pub process_frame: fn(this: *mut CTaskTeam, flags: u32),
+    pub process_frame: fn(this: *mut TeamEntity, flags: u32),
 }
 
-/// Per-team state-tracker task — one instance per team, child of CTaskTurnGame.
+/// Per-team state-tracker task — one instance per team, child of WorldRootEntity.
 ///
 /// Tracks per-team data: which team number it represents, how many worms were
 /// spawned, and a weapon/item slot table.  Registered in the SharedData hash
 /// table with type code 0x15 (21).
 ///
-/// Inheritance: extends CTask directly (CTask base at +0x00).
+/// Inheritance: extends BaseEntity directly (BaseEntity base at +0x00).
 /// class_type = 10.  Allocation: 0x460 bytes via `operator new` (0x5C0AB8).
-/// Constructor: `CTaskTeam__Constructor` (0x555BB0).
-/// Primary vtable: `CTaskTeam__vtable2` (0x00669EE4).
+/// Constructor: `TeamEntity__Constructor` (0x555BB0).
+/// Primary vtable: `TeamEntity__vtable2` (0x00669EE4).
 /// Secondary interface vtable: 0x00669F00 (at object +0x30).
 ///
 /// Key constructor logic (0x555BB0):
 ///   - `team_index` at +0x38: 1-based team number (passed as param_3)
 ///   - `_item_slots[0..99]` at +0x88: up to 100 weapon/item IDs loaded from scheme
-///   - `worm_count` at +0x218: number of CTaskWorm children constructed (1-indexed)
+///   - `worm_count` at +0x218: number of WormEntity children constructed (1-indexed)
 ///   - SharedData node (0x30 bytes) registered with key = (team_index, type=0x15)
 #[derive(FieldRegistry)]
 #[repr(C)]
-pub struct CTaskTeam {
-    /// 0x00–0x2F: CTask base with typed CTaskTeamVTable vtable pointer.
-    pub base: CTask<*const CTaskTeamVTable>,
+pub struct TeamEntity {
+    /// 0x00–0x2F: BaseEntity base with typed TeamEntityVtable vtable pointer.
+    pub base: BaseEntity<*const TeamEntityVtable>,
     /// 0x30: Secondary interface vtable pointer (Ghidra 0x00669F00)
     pub _secondary_vtable: u32,
     /// 0x34: Unknown — observed to hold the same value as `team_index` in all runs.
@@ -89,7 +92,7 @@ pub struct CTaskTeam {
     /// 0x88–0x217: Unknown region (100 DWORDs).  Observed non-zero values at the start
     /// (+0x88 = team_index, +0x8C/+0x90 = 3) in a 2-worm bot game; purpose unclear.
     pub _unknown_88: [u32; 100],
-    /// 0x218: Number of CTaskWorm children constructed for this team.
+    /// 0x218: Number of WormEntity children constructed for this team.
     pub worm_count: u32,
     /// 0x21C–0x3EB: Unknown.
     pub _unknown_21c: [u8; 0x1D0],
@@ -111,30 +114,30 @@ pub struct CTaskTeam {
     pub _unknown_414: [u8; 0x4C],
 }
 
-const _: () = assert!(core::mem::size_of::<CTaskTeam>() == 0x460);
+const _: () = assert!(core::mem::size_of::<TeamEntity>() == 0x460);
 
 // Generate typed vtable method wrappers: handle_message(), write_replay_state(), etc.
-bind_CTaskTeamVTable!(CTaskTeam, base.vtable);
+bind_TeamEntityVtable!(TeamEntity, base.vtable);
 
 // ── Typed message handlers ──────────────────────────────────
 
-impl CTaskTeam {
-    /// Handle message 0x2B (Surrender) at the CTaskTeam level — ported from
-    /// CTaskTeam::HandleMessage (0x557310) case 0x2B.
+impl TeamEntity {
+    /// Handle message 0x2B (Surrender) at the TeamEntity level — ported from
+    /// TeamEntity::HandleMessage (0x557310) case 0x2B.
     ///
-    /// **Important:** This is only the CTaskTeam layer. The entity at SharedData
-    /// key (0, 0x14) is actually a CTaskTurnGame (inherits CTaskTeam).
-    /// CTaskTurnGame::HandleMessage (0x55DC00) wraps this with:
+    /// **Important:** This is only the TeamEntity layer. The entity at SharedData
+    /// key (0, 0x14) is actually a WorldRootEntity (inherits TeamEntity).
+    /// WorldRootEntity::HandleMessage (0x55DC00) wraps this with:
     ///   - End-turn logic (FUN_0055C300) if the active team surrenders
     ///   - Surrender sound playback
     ///
-    /// To port message 0x2B fully, CTaskTurnGame::HandleMessage case 0x2B must
+    /// To port message 0x2B fully, WorldRootEntity::HandleMessage case 0x2B must
     /// also be ported. Until then, use vtable dispatch (handle_message_raw) on the
-    /// CTaskTurnGame to hit the TurnGame override.
+    /// WorldRootEntity to hit the WorldRoot override.
     ///
     /// # Safety
-    /// `this` must be a valid CTaskTeam pointer with valid ddgame.
-    pub unsafe fn on_surrender_fire(this: *mut Self, sender: *mut CTask, msg_team_index: u32) {
+    /// `this` must be a valid TeamEntity pointer with valid world.
+    pub unsafe fn on_surrender_fire(this: *mut Self, sender: *mut BaseEntity, msg_team_index: u32) {
         unsafe {
             use crate::game::message::{DetonateWeaponMessage, SurrenderMessage};
 
@@ -145,13 +148,16 @@ impl CTaskTeam {
                 return;
             }
 
-            let task_ptr = this as *mut CTask;
+            let task_ptr = this as *mut BaseEntity;
 
             // 2. If game_version > 0xF4: broadcast DetonateWeapon (0x2A) to children first
-            let ddgame = CTask::ddgame_raw(this as *const CTask);
-            let game_version = (*(*ddgame).game_info).game_version;
+            let world = {
+                let this = this as *const BaseEntity;
+                (*this).world
+            };
+            let game_version = (*(*world).game_info).game_version;
             if game_version > 0xF4 {
-                CTask::broadcast_typed_message_raw(
+                BaseEntity::broadcast_typed_message_raw(
                     task_ptr,
                     sender,
                     DetonateWeaponMessage {
@@ -161,13 +167,12 @@ impl CTaskTeam {
             }
 
             // 3. Set per-team napalm flag
-            // Original: *(ddgame + team_index * 0x51C + 0x4618) = 1
-            let flag_ptr =
-                (ddgame as *mut u8).add(team_index as usize * 0x51C + 0x4618) as *mut u32;
+            // Original: *(world + team_index * 0x51C + 0x4618) = 1
+            let flag_ptr = (world as *mut u8).add(team_index as usize * 0x51C + 0x4618) as *mut u32;
             *flag_ptr = 1;
 
             // 4. Broadcast original message (0x2B) to children
-            CTask::broadcast_typed_message_raw(
+            BaseEntity::broadcast_typed_message_raw(
                 task_ptr,
                 sender,
                 SurrenderMessage {
@@ -179,28 +184,28 @@ impl CTaskTeam {
 }
 
 // ---------------------------------------------------------------------------
-// CTaskTeam__CreateWeatherFilter (0x552960) — cloud spawning factory
+// TeamEntity__CreateWeatherFilter (0x552960) — cloud spawning factory
 // ---------------------------------------------------------------------------
 
 use crate::address::va;
-use crate::engine::ddgame::DDGame;
+use crate::engine::world::GameWorld;
 use crate::rebase::rb;
-use crate::task::cloud::{CTaskCloud, CloudType};
-use crate::task::filter::CTaskFilter;
+use crate::task::cloud::{CloudEntity, CloudType};
+use crate::task::filter::FilterEntity;
 use crate::wa_alloc::wa_malloc_struct_zeroed;
 use openwa_core::rng::wa_lcg;
 
-/// Bridge: call CTaskFilter constructor (usercall: ECX=0x1B, stdcall params: this, parent).
+/// Bridge: call FilterEntity constructor (usercall: ECX=0x1B, stdcall params: this, parent).
 /// Returns constructed pointer in EAX.
 ///
 /// # Safety
-/// `this` must point to a zeroed 0xB4-byte allocation. `parent` must be a valid CTask.
+/// `this` must point to a zeroed 0xB4-byte allocation. `parent` must be a valid BaseEntity.
 #[unsafe(naked)]
 unsafe extern "cdecl" fn call_filter_ctor(
     _this: *mut u8,
     _parent: *mut u8,
     _addr: u32,
-) -> *mut CTaskFilter {
+) -> *mut FilterEntity {
     core::arch::naked_asm!(
         "mov ecx, 0x1b",     // init_val_1c register param
         "mov eax, [esp+12]", // addr (3rd cdecl param)
@@ -211,25 +216,25 @@ unsafe extern "cdecl" fn call_filter_ctor(
     )
 }
 
-/// Pure Rust port of CTaskTeam__CreateWeatherFilter (0x552960).
+/// Pure Rust port of TeamEntity__CreateWeatherFilter (0x552960).
 ///
-/// Creates a CTaskFilter subscribed to messages {1, 2, 3, 0x54}, then spawns
-/// CTaskCloud children with deterministic LCG randomization.
+/// Creates a FilterEntity subscribed to messages {1, 2, 3, 0x54}, then spawns
+/// CloudEntity children with deterministic LCG randomization.
 ///
 /// Cloud count: 32 outside caverns, 10 inside (`is_cavern != 0`).
 ///
-/// Called from CTaskTeam constructor. stdcall with 1 param (parent task).
+/// Called from TeamEntity constructor. stdcall with 1 param (parent task).
 ///
 /// # Safety
-/// `parent` must be a valid CTask pointer (typically a CTaskTeam child).
-pub unsafe extern "stdcall" fn create_weather_filter(parent: *mut CTask) {
+/// `parent` must be a valid BaseEntity pointer (typically a TeamEntity child).
+pub unsafe extern "stdcall" fn create_weather_filter(parent: *mut BaseEntity) {
     unsafe {
-        // 1. Allocate and construct CTaskFilter
-        let filter_ptr = wa_malloc_struct_zeroed::<CTaskFilter>();
+        // 1. Allocate and construct FilterEntity
+        let filter_ptr = wa_malloc_struct_zeroed::<FilterEntity>();
         let filter = call_filter_ctor(
             filter_ptr as *mut u8,
             parent as *mut u8,
-            rb(va::CTASK_FILTER_CTOR),
+            rb(va::FILTER_ENTITY_CTOR),
         );
         // ownership transfers to the task tree
 
@@ -239,16 +244,16 @@ pub unsafe extern "stdcall" fn create_weather_filter(parent: *mut CTask) {
         (*filter).subscription_table[3] = 1;
         (*filter).subscription_table[0x54] = 1;
 
-        // 3. Read level geometry from DDGame
-        let ddgame = (*parent).ddgame;
-        let level_right = (*ddgame).level_bound_max_x.0;
-        let level_left = (*ddgame).level_bound_min_x.0;
+        // 3. Read level geometry from GameWorld
+        let world = (*parent).world;
+        let level_right = (*world).level_bound_max_x.0;
+        let level_left = (*world).level_bound_min_x.0;
         let level_width_int = (level_right - level_left) >> 16; // integer pixels
-        let level_min_x_int = (*ddgame).level_bound_min_x.0 >> 16; // integer part (signed)
-        let level_height = (*ddgame).level_height as i32;
+        let level_min_x_int = (*world).level_bound_min_x.0 >> 16; // integer part (signed)
+        let level_height = (*world).level_height as i32;
 
         // 4. Determine cloud count and weather modifier
-        let (cloud_count, weather_mod): (i32, i32) = if (*ddgame).is_cavern != 0 {
+        let (cloud_count, weather_mod): (i32, i32) = if (*world).is_cavern != 0 {
             (10, 0)
         } else {
             (32, -256)
@@ -279,8 +284,8 @@ pub unsafe extern "stdcall" fn create_weather_filter(parent: *mut CTask) {
             raw + ((raw as u32 >> 31) as i32) // round toward zero
         };
 
-        let ctask_ctor: unsafe extern "stdcall" fn(*mut u8, *mut u8, *mut DDGame) =
-            core::mem::transmute(rb(va::CTASK_CONSTRUCTOR) as usize);
+        let ctask_ctor: unsafe extern "stdcall" fn(*mut u8, *mut u8, *mut GameWorld) =
+            core::mem::transmute(rb(va::BASE_ENTITY_CONSTRUCTOR) as usize);
 
         for i in 0..cloud_count {
             // X position: random within level bounds
@@ -311,10 +316,10 @@ pub unsafe extern "stdcall" fn create_weather_filter(parent: *mut CTask) {
                 _ => CloudType::Small,
             };
 
-            // Allocate cloud, construct CTask base, then init cloud fields
-            let cloud_ptr = wa_malloc_struct_zeroed::<CTaskCloud>();
-            ctask_ctor(cloud_ptr as *mut u8, filter as *mut u8, ddgame);
-            CTaskCloud::init(
+            // Allocate cloud, construct BaseEntity base, then init cloud fields
+            let cloud_ptr = wa_malloc_struct_zeroed::<CloudEntity>();
+            ctask_ctor(cloud_ptr as *mut u8, filter as *mut u8, world);
+            CloudEntity::init(
                 cloud_ptr,
                 cloud_type,
                 Fixed(layer_depth),

@@ -659,7 +659,7 @@ fn mod_255_signed(value: i32) -> i32 {
 ///
 /// **The function name is misleading** — despite "SetPalette", this routine
 /// extends the font with two new derived glyphs rather than recoloring an
-/// existing palette. It is called once during `DDGame__LoadFonts` for the
+/// existing palette. It is called once during `GameWorld__LoadFonts` for the
 /// digital seven-segment font (`digiwht.fnt`, slot 28), which doesn't ship
 /// with `'.'` or `';'` glyphs and needs them generated at runtime.
 ///

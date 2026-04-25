@@ -1,5 +1,5 @@
 //! Main loop hooks: `GameSession__ProcessFrame` replacement + traps on
-//! `DDGameWrapper__DispatchFrame` and `DDGameWrapper__StepFrame`.
+//! `GameRuntime__DispatchFrame` and `GameRuntime__StepFrame`.
 //!
 //! ProcessFrame is fully replaced in Rust; its only downstream WA callees
 //! (DispatchFrame, and StepFrame via DispatchFrame) are now unreachable.
@@ -24,10 +24,10 @@ pub fn install() -> Result<(), String> {
             hook_process_frame as *const (),
         )?;
         hook::install_trap!(
-            "DDGameWrapper__DispatchFrame",
-            va::DDGAMEWRAPPER_DISPATCH_FRAME
+            "GameRuntime__DispatchFrame",
+            va::GAME_RUNTIME_DISPATCH_FRAME
         );
-        hook::install_trap!("DDGameWrapper__StepFrame", va::DDGAMEWRAPPER_STEP_FRAME);
+        hook::install_trap!("GameRuntime__StepFrame", va::GAME_RUNTIME_STEP_FRAME);
     }
     Ok(())
 }

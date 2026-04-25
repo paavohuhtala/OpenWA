@@ -29,7 +29,7 @@ pub struct CompatRendererVtable {
     /// enum display modes — IDirectDraw2::EnumDisplayModes (0x59D560)
     #[slot(4)]
     pub enum_display_modes: fn(this: *mut CompatRenderer, p2: u32, p3: u32),
-    // Slot 5: stub (CGameTask__vt19)
+    // Slot 5: stub (WorldEntity__vt19)
     /// set display mode + create surfaces — the main initialization (0x59D6D0)
     ///
     /// Calls IDirectDraw2::SetDisplayMode, creates primary surface with back buffer

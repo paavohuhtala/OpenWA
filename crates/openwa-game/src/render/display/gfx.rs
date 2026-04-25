@@ -198,11 +198,11 @@ pub struct DisplayGfx {
     // =========================================================================
     /// 0x4DF4: Additive color mixing LUT (256 × 256 = 0x10000 bytes).
     /// Maps (color_a, color_b) → blended palette index using additive saturation.
-    /// Built by DDGame__InitDisplayFinal (0x56A830).
+    /// Built by GameWorld__InitDisplayFinal (0x56A830).
     pub color_add_table: [u8; 0x10000],
     /// 0x14DF4: Gamma-corrected blend LUT (256 × 256 = 0x10000 bytes).
     /// Uses gamma-space blending via sqrt approximation.
-    /// Built by DDGame__InitDisplayFinal (0x56A830).
+    /// Built by GameWorld__InitDisplayFinal (0x56A830).
     pub color_blend_table: [u8; 0x10000],
 
     // =========================================================================

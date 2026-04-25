@@ -1,6 +1,6 @@
 //! Game state snapshot capture.
 //!
-//! Walks DDGame, the team arena, and the entity tree to produce a
+//! Walks GameWorld, the team arena, and the entity tree to produce a
 //! canonicalized text dump suitable for cross-run diffing.
 
 use core::fmt::Write;
@@ -11,7 +11,7 @@ use openwa_game::field_format::{self, FormatContext};
 use openwa_game::rebase::rb;
 use openwa_game::registry::StructFields;
 use openwa_game::snapshot::{Snapshot, hash_pointer_targets, write_raw_region};
-use openwa_game::task::{CTask, CTaskBfsIter, CTaskMissile, CTaskWorm};
+use openwa_game::task::{BaseEntity, BaseEntityBfsIter, MissileEntity, WormEntity};
 
 /// Capture a full game state snapshot as text.
 ///
@@ -30,40 +30,40 @@ pub unsafe fn capture() -> String {
             let _ = writeln!(out, "ERROR: g_GameSession is null");
             return out;
         }
-        let wrapper = (*session).ddgame_wrapper;
-        if wrapper.is_null() {
-            let _ = writeln!(out, "ERROR: DDGameWrapper is null");
+        let runtime = (*session).game_runtime;
+        if runtime.is_null() {
+            let _ = writeln!(out, "ERROR: GameRuntime is null");
             return out;
         }
-        let ddgame = (*wrapper).ddgame;
-        if ddgame.is_null() {
-            let _ = writeln!(out, "ERROR: DDGame is null");
+        let world = (*runtime).world;
+        if world.is_null() {
+            let _ = writeln!(out, "ERROR: GameWorld is null");
             return out;
         }
 
-        let _ = writeln!(out, "=== Frame {} ===\n", (*ddgame).frame_counter);
+        let _ = writeln!(out, "=== Frame {} ===\n", (*world).frame_counter);
 
-        // ── DDGame ──
-        let _ = writeln!(out, "[DDGame]");
-        let _ = (*ddgame).write_snapshot(&mut out, 1);
+        // ── GameWorld ──
+        let _ = writeln!(out, "[GameWorld]");
+        let _ = (*world).write_snapshot(&mut out, 1);
         let _ = writeln!(out);
 
         // ── Sub-object hashes (pointer-independent) ──
-        // Hashes the first 256 bytes of every heap object pointed to by DDGame
+        // Hashes the first 256 bytes of every heap object pointed to by GameWorld
         // and Landscape. Differences here indicate sub-object state mismatches
-        // that flat DDGame comparisons miss.
+        // that flat GameWorld comparisons miss.
         let _ = writeln!(out, "[SubObjectHashes]");
-        let _ = hash_pointer_targets(&mut out, ddgame as *const u8, 0x550, 256, "ddgame");
-        let landscape = (*ddgame).landscape as *const u8;
+        let _ = hash_pointer_targets(&mut out, world as *const u8, 0x550, 256, "world");
+        let landscape = (*world).landscape as *const u8;
         if !landscape.is_null() {
             let _ = hash_pointer_targets(&mut out, landscape, 0xB44, 256, "landscape");
         }
         let _ = writeln!(out);
 
         // ── Team blocks + worm entries ──
-        let team_count = (*ddgame).team_arena.team_count as usize;
+        let team_count = (*world).team_arena.team_count as usize;
         let _ = writeln!(out, "[Teams] count={}", team_count);
-        let arena = &raw mut (*ddgame).team_arena;
+        let arena = &raw mut (*world).team_arena;
         let blocks = TeamArena::blocks_mut(arena);
         for t in 0..team_count {
             let header = TeamArena::team_header_mut(arena, t);
@@ -97,10 +97,10 @@ pub unsafe fn capture() -> String {
         let _ = writeln!(out);
 
         // ── Entity tree ──
-        // CTaskTurnGame is the root of the entity tree. Find it by checking
-        // CTaskLand's parent chain or the shared data table.
-        // CTaskTurnGame vtable = 0x669F70.
-        let task_land = (*ddgame).task_land;
+        // WorldRootEntity is the root of the entity tree. Find it by checking
+        // LandEntity's parent chain or the shared data table.
+        // WorldRootEntity vtable = 0x669F70.
+        let task_land = (*world).task_land;
         if task_land.is_null() {
             let _ = writeln!(out, "[Entities] task_land=null");
             return out;
@@ -108,11 +108,11 @@ pub unsafe fn capture() -> String {
 
         let delta = rb(va::IMAGE_BASE).wrapping_sub(va::IMAGE_BASE);
 
-        // Walk parent chain from CTaskLand to find CTaskTurnGame (root of entity tree).
+        // Walk parent chain from LandEntity to find WorldRootEntity (root of entity tree).
         // Safety limit to prevent infinite loops on corrupt parent chains.
-        let mut root = task_land as *const CTask;
+        let mut root = task_land as *const BaseEntity;
         for _ in 0..10 {
-            let parent = (*root).parent as *const CTask;
+            let parent = (*root).parent as *const BaseEntity;
             if parent.is_null() || parent == root {
                 break;
             }
@@ -124,10 +124,10 @@ pub unsafe fn capture() -> String {
             (*(root as *const u32)).wrapping_sub(delta)
         );
 
-        let iter = CTaskBfsIter::new(root);
+        let iter = BaseEntityBfsIter::new(root);
 
         // Census + detailed dump
-        let entities: Vec<*const CTask> = iter.collect();
+        let entities: Vec<*const BaseEntity> = iter.collect();
         let _ = writeln!(out, "[Entities] {} total", entities.len());
 
         // Census by type
@@ -151,12 +151,12 @@ pub unsafe fn capture() -> String {
             let _ = writeln!(out, "  [{}] class_type={:?}", name, class_type);
 
             match vt {
-                x if x == va::CTASK_WORM_VTABLE => {
-                    let worm = task as *const CTaskWorm;
+                x if x == va::WORM_ENTITY_VTABLE => {
+                    let worm = task as *const WormEntity;
                     let _ = (*worm).write_snapshot(&mut out, 2);
                 }
-                x if x == va::CTASK_MISSILE_VTABLE => {
-                    let missile = task as *const CTaskMissile;
+                x if x == va::MISSILE_ENTITY_VTABLE => {
+                    let missile = task as *const MissileEntity;
                     let _ = (*missile).write_snapshot(&mut out, 2);
                 }
                 _ => {
@@ -194,7 +194,7 @@ fn vtable_name(ghidra_vt: u32) -> &'static str {
 ///
 /// Produces output like:
 /// ```text
-///     +0x0000  vtable           [4]  0x0066A30C (DDGameWrapper vtable)
+///     +0x0000  vtable           [4]  0x0066A30C (GameRuntime vtable)
 ///     +0x0004  parent           [4]  null
 /// ```
 unsafe fn write_registry_fields(

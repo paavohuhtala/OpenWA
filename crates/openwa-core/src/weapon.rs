@@ -126,9 +126,9 @@ impl TryFrom<u32> for KnownWeaponId {
     }
 }
 
-/// DDGame__IsSuperWeapon (0x565960). True for "super weapon" IDs.
+/// GameWorld__IsSuperWeapon (0x565960). True for "super weapon" IDs.
 ///
-/// `select_worm_is_super_weapon` is the runtime mode flag (DDGame.version_flag_3
+/// `select_worm_is_super_weapon` is the runtime mode flag (GameWorld.version_flag_3
 /// at +0x7E3F): when set, SelectWorm counts as a super weapon too.
 pub fn is_super_weapon(weapon: WeaponId, select_worm_is_super_weapon: bool) -> bool {
     let Ok(weapon) = KnownWeaponId::try_from(weapon.0) else {
@@ -187,9 +187,9 @@ pub enum FireMethod {
     PlacedExplosive = 1,
     /// ProjectileFire: stdcall, fires projectile with spread/rotation.
     ProjectileFire = 2,
-    /// CreateWeaponProjectile: thiscall, allocates CTaskMissile.
+    /// CreateWeaponProjectile: thiscall, allocates MissileEntity.
     CreateWeaponProjectile = 3,
-    /// CreateArrow: thiscall, allocates CTaskArrow (Shotgun, Longbow).
+    /// CreateArrow: thiscall, allocates ArrowEntity (Shotgun, Longbow).
     CreateArrow = 4,
 }
 
@@ -217,7 +217,7 @@ pub enum SpecialFireSubtype {
     FirePunch = 1,
     /// BaseballBat weapon (id=35, sub34=2). Handler calls PneumaticDrill/SpecialImpact logic.
     BaseballBat = 2,
-    /// DragonBall weapon (id=17, sub34=3). Handler allocates CTaskGirder.
+    /// DragonBall weapon (id=17, sub34=3). Handler allocates GirderEntity.
     DragonBall = 3,
     /// Kamikaze weapon (id=18, sub34=4).
     Kamikaze = 4,

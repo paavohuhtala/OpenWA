@@ -1,25 +1,25 @@
-use crate::engine::ddgame::DDGame;
+use crate::engine::world::GameWorld;
 use crate::task::SoundEmitter;
 use openwa_core::fixed::Fixed;
 
 /// Active sound tracking table — manages positional (local) sound playback.
 ///
-/// Allocated conditionally in DDGame__Constructor when sound is available
+/// Allocated conditionally in GameWorld__Constructor when sound is available
 /// (`game_info+0xF914 == 0` and `DSSound != NULL`), right after
 /// `DSSound_LoadEffectWAVs` and `DSSound_LoadAllSpeechBanks`.
 ///
-/// Stored at DDGame+0x00C. Tracks up to 64 active positional sounds
+/// Stored at GameWorld+0x00C. Tracks up to 64 active positional sounds
 /// with world coordinates and volume for 3D audio mixing.
 ///
-/// Layout: 64 entries (0x18 bytes each) + count + DDGame back-pointer.
+/// Layout: 64 entries (0x18 bytes each) + count + GameWorld back-pointer.
 #[repr(C)]
 pub struct ActiveSoundTable {
     /// 0x000-0x5FF: 64 sound entries (entry 0 is unused/reserved).
     pub entries: [ActiveSoundEntry; 64],
     /// 0x600: Running counter — incremented on each insert, masked to index (& 0x3F).
     pub counter: u32,
-    /// 0x604: Back-pointer to owning DDGame.
-    pub ddgame: *mut DDGame,
+    /// 0x604: Back-pointer to owning GameWorld.
+    pub world: *mut GameWorld,
 }
 
 const _: () = assert!(core::mem::size_of::<ActiveSoundTable>() == 0x608);
@@ -64,9 +64,9 @@ impl ActiveSoundTable {
                 return false;
             }
 
-            // Stop the DSSound channel via the DDGame's sound system
-            let ddgame = &*self.ddgame;
-            let sound = ddgame.sound;
+            // Stop the DSSound channel via the GameWorld's sound system
+            let world = &*self.world;
+            let sound = world.sound;
             if !sound.is_null() {
                 ((*(*sound).vtable).stop_channel)(sound, entry.channel_handle as i32);
             }

@@ -1,12 +1,12 @@
-//! DDGame__LoadFonts (0x570F30) and DDGameWrapper__LoadFontExtension (0x570E80).
+//! GameWorld__LoadFonts (0x570F30) and GameRuntime__LoadFontExtension (0x570E80).
 //!
 //! Loads 28 bitmap fonts (.fnt) and 23 font extensions (.fex) into the display,
-//! then sets the font palette. Called from DDGame__Constructor during loading.
+//! then sets the font palette. Called from GameWorld__Constructor during loading.
 
 use core::ffi::c_char;
 use heapless::CString;
 
-use crate::engine::ddgame_wrapper::DDGameWrapper;
+use crate::engine::runtime::GameRuntime;
 use crate::render::display::gfx::DisplayGfx;
 
 /// Total number of font slots loaded (1-based, so slots 1..=28).
@@ -71,7 +71,7 @@ const FONT_COLOR_INDEX: [u32; 29] = [
 ];
 
 /// Color index → gfx_color_table index (0-based).
-/// Original data at 0x6A91D4 (1-based offsets from DDGame+0x7308, converted to 0-based).
+/// Original data at 0x6A91D4 (1-based offsets from GameWorld+0x7308, converted to 0-based).
 const COLOR_TABLE_INDEX: [usize; 10] = [0, 1, 2, 3, 4, 5, 8, 6, 9, 10];
 
 /// Size category → .fex path prefix.
@@ -88,10 +88,10 @@ const FONT_EXT_CHAR_MAP: [u8; 61] = [
 
 /// Load a font extension (.fex) for the given font slot.
 ///
-/// Port of DDGameWrapper__LoadFontExtension (0x570E80, stdcall, RET 0x8).
+/// Port of GameRuntime__LoadFontExtension (0x570E80, stdcall, RET 0x8).
 /// Formats the .fex path from the font's size category, copies the character map,
 /// resolves the palette value, and calls DisplayGfx::load_font_extension.
-unsafe fn load_font_extension(wrapper: *mut DDGameWrapper, font_id: u32) {
+unsafe fn load_font_extension(runtime: *mut GameRuntime, font_id: u32) {
     unsafe {
         let size_category = FONT_SIZE_CATEGORY[font_id as usize];
         let prefix = SIZE_PREFIXES[size_category as usize];
@@ -108,10 +108,10 @@ unsafe fn load_font_extension(wrapper: *mut DDGameWrapper, font_id: u32) {
         // Resolve palette value: font_id → color_index → gfx_color_table entry
         let color_index = FONT_COLOR_INDEX[font_id as usize];
         let table_index = COLOR_TABLE_INDEX[color_index as usize];
-        let ddgame = (*wrapper).ddgame;
-        let palette_value = (*ddgame).gfx_color_table[table_index];
+        let world = (*runtime).world;
+        let palette_value = (*world).gfx_color_table[table_index];
 
-        let display = (*wrapper).display;
+        let display = (*runtime).display;
         DisplayGfx::load_font_extension_raw(
             display,
             font_id as i32,
@@ -125,15 +125,15 @@ unsafe fn load_font_extension(wrapper: *mut DDGameWrapper, font_id: u32) {
 
 /// Load all bitmap fonts and font extensions.
 ///
-/// Port of DDGame__LoadFonts (0x570F30, usercall ESI=DDGameWrapper).
+/// Port of GameWorld__LoadFonts (0x570F30, usercall ESI=GameRuntime).
 ///
 /// Phase 1: Loads 28 .fnt bitmap fonts via DisplayGfx::load_font.
 /// Phase 2: Loads .fex font extensions for font slots 1-23.
 /// Phase 3: Sets the font palette via DisplayGfx::set_font_palette.
-pub unsafe fn load_fonts(wrapper: *mut DDGameWrapper) {
+pub unsafe fn load_fonts(runtime: *mut GameRuntime) {
     unsafe {
-        let display = (*wrapper).display;
-        let gfx_dir = (*wrapper).primary_gfx_dir;
+        let display = (*runtime).display;
+        let gfx_dir = (*runtime).primary_gfx_dir;
 
         // Phase 1: Load all 28 .fnt font files
         for font_id in 1..=FONT_COUNT {
@@ -149,12 +149,12 @@ pub unsafe fn load_fonts(wrapper: *mut DDGameWrapper) {
 
         // Phase 2: Load font extensions for slots 1-23
         for font_id in 1..=FONT_EXT_COUNT {
-            load_font_extension(wrapper, font_id);
+            load_font_extension(runtime, font_id);
         }
 
         // Phase 3: Set font palette — passes font count and gfx_color_table[7].
-        let ddgame = (*wrapper).ddgame;
-        let palette_value = (*ddgame).gfx_color_table[7];
+        let world = (*runtime).world;
+        let palette_value = (*world).gfx_color_table[7];
         DisplayGfx::set_font_palette_raw(display, FONT_COUNT, palette_value);
     }
 }

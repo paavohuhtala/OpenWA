@@ -1,4 +1,4 @@
-//! GameStateStream — DDGame's serialization sub-stream (DDGame.game_state_stream).
+//! GameStateStream — GameWorld's serialization sub-stream (GameWorld.game_state_stream).
 //!
 //! Holds a 0x100-capacity primary buffer plus 32 × 0x100-capacity sub-streams.
 

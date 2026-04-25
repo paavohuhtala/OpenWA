@@ -155,7 +155,7 @@ pub struct RenderContextVtable {
         this: *mut RenderContext,
         result: *mut FastcallResult,
     ) -> *mut FastcallResult,
-    /// stub — returns 0 (CGameTask__vt18, 0x545780)
+    /// stub — returns 0 (WorldEntity__vt18, 0x545780)
     #[slot(14)]
     pub stub_ret_zero: unsafe extern "fastcall" fn(
         this: *mut RenderContext,

@@ -342,7 +342,7 @@ const _: () = assert!(core::mem::offset_of!(SpriteBankFrame, data_value) == 0x0A
 
 /// Sprite vtable (0x66418C, 8 slots).
 ///
-/// Slots 6-7 are CTask common stubs (0x5613D0).
+/// Slots 6-7 are BaseEntity common stubs (0x5613D0).
 #[openwa_game::vtable(size = 8, va = 0x0066418C, class = "Sprite")]
 pub struct SpriteVtable {
     /// destructor (0x4FAA80)
@@ -363,9 +363,9 @@ pub struct SpriteVtable {
     pub slot_4: fn(this: *mut Sprite),
     /// unknown (0x4FE9C0)
     pub slot_5: fn(this: *mut Sprite),
-    /// CTask common stub (0x5613D0)
+    /// BaseEntity common stub (0x5613D0)
     pub slot_6: fn(this: *mut Sprite),
-    /// CTask common stub (0x5613D0)
+    /// BaseEntity common stub (0x5613D0)
     pub slot_7: fn(this: *mut Sprite),
 }
 

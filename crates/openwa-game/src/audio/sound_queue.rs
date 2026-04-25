@@ -1,10 +1,10 @@
 // ============================================================
-// Sound queue entry — 16 entries at DDGame + 0x7F00
+// Sound queue entry — 16 entries at GameWorld + 0x7F00
 // ============================================================
 
 /// Sound queue entry (0x24 = 36 bytes, stride between consecutive entries).
 ///
-/// DDGame maintains a 16-slot sound queue at offset 0x7F00. PlaySoundGlobal
+/// GameWorld maintains a 16-slot sound queue at offset 0x7F00. PlaySoundGlobal
 /// appends entries; PlaySoundLocal additionally marks entries as local and
 /// stores position via the task's secondary vtable.
 #[repr(C)]

@@ -16,16 +16,17 @@ Find a pattern: repeated stride arithmetic, consistent base+offset reads/writes,
 - Grep for the stride/offset pattern across the codebase to find all access sites
 - Note the allocation size (from `wa_malloc`, `wa_malloc_zeroed`, or CRT malloc calls)
 - Check Ghidra for vtable assignments, constructor calls, and inheritance (xrefs to the constructor show all callers and usage contexts)
-- Determine: is this a new struct, or does it belong in an existing one (e.g., fields in DDGame, GameInfo)?
+- Determine: is this a new struct, or does it belong in an existing one (e.g., fields in GameWorld, GameInfo)?
 
 ### 2. Map the field layout
 
 For each offset accessed in the code, record:
 
 | Offset | Size | Type | Name | How used |
-|--------|------|------|------|----------|
+| ------ | ---- | ---- | ---- | -------- |
 
 Compute offsets relative to the struct base. Verify with:
+
 - Allocation size = total struct size
 - `RET imm16` on the constructor confirms param count
 - Ghidra decompilation of the constructor shows field initialization order
@@ -69,11 +70,11 @@ Compute offsets relative to the struct base. Verify with:
 
 ## Naming conventions
 
-- Struct names: `PascalCase`, matching WA class names where known (e.g., `DDGame`, `CTaskWorm`, `MapView`)
+- Struct names: `PascalCase`, matching WA class names where known (e.g., `GameWorld`, `WormEntity`, `MapView`)
 - Unknown fields: `_unknown_XXXX` where XXXX is the hex offset
 - Vtable structs: `FooVtable` companion to `Foo`
 - Address constants: `STRUCT_NAME_FUNCTION` (e.g., `MAP_VIEW_CONSTRUCTOR`)
-- Module placement: `engine/` for core game objects, `frontend/` for UI/CWnd-derived, `task/` for CTask hierarchy, `audio/` for sound, `display/` for graphics
+- Module placement: `engine/` for core game objects, `frontend/` for UI/CWnd-derived, `task/` for BaseEntity hierarchy, `audio/` for sound, `display/` for graphics
 
 ## When NOT to create a struct
 

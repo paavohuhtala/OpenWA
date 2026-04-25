@@ -9,26 +9,21 @@
 
 use crate::render::SpriteOp;
 use crate::render::message::RenderMessage;
-use crate::task::BungeeTrailTask;
+use crate::task::BungeeTrailEntity;
 use openwa_core::fixed::Fixed;
 use openwa_core::trig::{cos, sin};
 
-/// Draw bungee trail for the given task.
-///
-/// # Safety
-///
-/// `task_ptr` must point to a valid `BungeeTrailTask`. ASLR rebase must be
-/// initialized.
-pub unsafe fn draw_bungee_trail(task: *const BungeeTrailTask, style: u32, fill: u32) {
+/// Draw bungee trail for the given entity.
+pub unsafe fn draw_bungee_trail(entity: *const BungeeTrailEntity, style: u32, fill: u32) {
     unsafe {
-        let task = &*task;
+        let task = &*entity;
 
         if task.trail_visible == 0 {
             return;
         }
 
-        let ddgame = &*task.base.ddgame;
-        let rq = &mut *ddgame.render_queue;
+        let world = &*task.base.world;
+        let rq = &mut *world.render_queue;
 
         let seg_data = task.segment_data;
         if seg_data.is_null() {

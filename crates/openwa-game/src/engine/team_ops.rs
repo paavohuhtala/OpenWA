@@ -1,7 +1,7 @@
 //! Team and worm state accessor functions.
 //!
 //! Pure Rust reimplementations of WA.exe functions that access the TeamArena
-//! area (DDGame + 0x4628). Called from hook trampolines in openwa-dll.
+//! area (GameWorld + 0x4628). Called from hook trampolines in openwa-dll.
 //!
 //! Original WA functions:
 //! - CountTeamsByAlliance (0x522030)
@@ -86,7 +86,7 @@ pub unsafe fn is_worm_in_special_state(
 /// Read worm X,Y coordinates — port of 0x522700.
 ///
 /// Reads pos_x/pos_y from WormEntry._unknown_90[0..4] / [4..8].
-/// These values appear transient — actual worm positions live in CGameTask objects.
+/// These values appear transient — actual worm positions live in WorldEntity objects.
 pub unsafe fn get_worm_position(
     team_index: u32,
     worm_index: u32,

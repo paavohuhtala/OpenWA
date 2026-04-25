@@ -273,7 +273,7 @@ pub struct SpeechLineTableEntry {
 /// excluding the null terminator).
 pub const SPEECH_LINE_TABLE_COUNT: usize = 61;
 
-/// Speech slot table at DDGame+0x77E4.
+/// Speech slot table at GameWorld+0x77E4.
 ///
 /// Maps (team_index, speech_line_id) → DSSound buffer index.
 /// 0x5A0 bytes = 360 DWORDs. Buffer indices are offset by +0x7F (127)

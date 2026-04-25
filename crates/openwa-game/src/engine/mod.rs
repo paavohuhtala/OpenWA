@@ -1,10 +1,10 @@
 pub mod buffer_object;
 pub mod clock;
 pub mod coord;
-pub mod ddgame;
-pub mod ddgame_constructor;
-pub mod ddgame_load_fonts;
-pub mod ddgame_wrapper;
+pub mod world;
+pub mod world_constructor;
+pub mod world_load_fonts;
+pub mod runtime;
 pub mod game_info;
 pub mod game_session;
 pub mod game_state;
@@ -23,12 +23,12 @@ pub mod team_init;
 pub mod team_ops;
 
 pub use coord::{CoordEntry, CoordList, CoordListEntry};
-pub use ddgame::DDGame;
-pub use ddgame_constructor::{
-    ON_DDGAME_ALLOC, create_ddgame, ddgame_init_fields, ddgame_init_render_indices,
-    display_layer_color_init, init_constructor_addrs,
+pub use world::GameWorld;
+pub use world_constructor::{
+    ON_GAME_WORLD_ALLOC, create_game_world, display_layer_color_init, game_world_init_fields,
+    game_world_init_render_indices, init_constructor_addrs,
 };
-pub use ddgame_wrapper::{DDGameWrapper, DDGameWrapperVtable};
+pub use runtime::{GameRuntime, GameRuntimeVtable};
 pub use game_info::GameInfo;
 pub use game_session::GameSession;
 pub use game_timer::GameTimer;

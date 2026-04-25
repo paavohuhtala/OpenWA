@@ -6,7 +6,7 @@
 use openwa_core::fixed::Fixed;
 use openwa_game::address::va;
 use openwa_game::game::create_explosion as ce;
-use openwa_game::task::CTask;
+use openwa_game::task::BaseEntity;
 
 use crate::hook;
 
@@ -41,7 +41,7 @@ unsafe extern "C" fn trampoline_create_explosion() {
 unsafe extern "cdecl" fn create_explosion_cdecl(
     pos_x: Fixed,
     pos_y: Fixed,
-    sender: *mut CTask,
+    sender: *mut BaseEntity,
     explosion_id: u32,
     damage: u32,
     caller_flag: u32,

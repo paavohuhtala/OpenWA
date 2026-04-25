@@ -155,8 +155,8 @@ pub unsafe fn hash_region_canonical(ptr: *const u8, len: usize) -> u32 {
 /// lines to the output.
 ///
 /// This is the tool that found the arrow collision region desync: sub-objects
-/// pointed to by DDGame had different non-pointer content between the Rust
-/// and original constructors, invisible to flat DDGame comparisons.
+/// pointed to by GameWorld had different non-pointer content between the Rust
+/// and original constructors, invisible to flat GameWorld comparisons.
 #[cfg(target_arch = "x86")]
 pub unsafe fn hash_pointer_targets(
     w: &mut dyn fmt::Write,

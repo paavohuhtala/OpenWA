@@ -1,4 +1,4 @@
-//! CTaskFilter vtable hooks.
+//! FilterEntity vtable hooks.
 //!
 //! Thin hook shim — game logic lives in `openwa_game::task::filter::filter_handle_message`.
 
@@ -9,7 +9,7 @@ use openwa_game::task::filter;
 pub fn install() -> Result<(), String> {
     use openwa_game::vtable_replace;
 
-    vtable_replace!(filter::CTaskFilterVTable, va::CTASK_FILTER_VTABLE, {
+    vtable_replace!(filter::FilterEntityVtable, va::FILTER_ENTITY_VTABLE, {
         handle_message => filter::filter_handle_message,
     })?;
 

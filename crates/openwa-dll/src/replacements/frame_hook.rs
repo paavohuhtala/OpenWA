@@ -24,13 +24,13 @@ pub fn frames_processed() -> u32 {
     FRAMES_PROCESSED.load(Ordering::Relaxed)
 }
 
-/// Hook for TurnManager_ProcessFrame (stdcall, 1 param = TurnGame*).
+/// Hook for TurnManager_ProcessFrame (stdcall, 1 param = WorldRoot*).
 unsafe extern "stdcall" fn hook_turn_manager(turngame: u32) {
     unsafe {
         // Check debug sync BEFORE processing the frame — allows pausing at frame boundary
-        let ddgame = game_session::get_ddgame();
-        if !ddgame.is_null() {
-            let game_frame = (*ddgame).frame_counter;
+        let world = game_session::get_game_world();
+        if !world.is_null() {
+            let game_frame = (*world).frame_counter;
             crate::debug_sync::on_frame_start(game_frame);
 
             // Hardware watchpoint: arm once at the watch frame
@@ -43,16 +43,16 @@ unsafe extern "stdcall" fn hook_turn_manager(turngame: u32) {
                 if game_frame >= target {
                     WATCH_ARMED.store(true, Ordering::Relaxed);
                     crate::debug_watchpoint::prepare();
-                    // Select watchpoint base: DDGame, DDGameWrapper, or Display
+                    // Select watchpoint base: GameWorld, GameRuntime, or Display
                     let watch_base = if std::env::var("OPENWA_WATCH_DISPLAY").is_ok() {
-                        let wrapper = game_session::get_wrapper();
-                        *(wrapper.byte_add(0x4D0) as *const *mut u8)
+                        let runtime = game_session::get_runtime();
+                        *(runtime.byte_add(0x4D0) as *const *mut u8)
                     } else if std::env::var("OPENWA_WATCH_WRAPPER").is_ok() {
-                        game_session::get_wrapper() as *mut u8
+                        game_session::get_runtime() as *mut u8
                     } else {
-                        ddgame as *mut u8
+                        world as *mut u8
                     };
-                    crate::debug_watchpoint::on_ddgame_alloc(watch_base);
+                    crate::debug_watchpoint::on_world_alloc(watch_base);
                 }
             }
         }

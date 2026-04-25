@@ -141,7 +141,7 @@ pub struct PointerIdentity {
     pub ghidra_value: u32,
     /// Memory segment classification.
     pub segment: PointerKind,
-    /// Human-readable name (e.g., "CTASK_CONSTRUCTOR" or "CTaskWorm*").
+    /// Human-readable name (e.g., "BASE_ENTITY_CONSTRUCTOR" or "WormEntity*").
     pub name: Option<String>,
     /// Class name if this is a vtable or an object with a known vtable.
     pub class_name: Option<&'static str>,

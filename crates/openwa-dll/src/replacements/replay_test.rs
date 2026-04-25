@@ -1,7 +1,7 @@
 //! Headful replay test support: fast-forward and gameplay milestone tracking.
 //!
 //! When `OPENWA_REPLAY_TEST=1`, enables:
-//! - **Fast-forward**: Sets DDGame+0x98B0 each frame so WA processes up to 50
+//! - **Fast-forward**: Sets GameWorld+0x98B0 each frame so WA processes up to 50
 //!   game frames per render cycle (same as spacebar during replay playback).
 //! - **Gameplay milestones**: Tracks match start/completion via alive team counting,
 //!   reported at DLL detach for machine-readable test validation.
@@ -13,7 +13,7 @@
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU32, Ordering};
 
 use crate::log_line;
-use openwa_game::engine::DDGame;
+use openwa_game::engine::GameWorld;
 use openwa_game::engine::TeamArena;
 use openwa_game::engine::game_session;
 
@@ -48,20 +48,20 @@ static ALIVE_AT_END: AtomicI32 = AtomicI32::new(-1);
 /// Handles fast-forward flag setting and periodic milestone checks.
 pub unsafe fn on_frame(frame: u32) {
     unsafe {
-        let ddgame = game_session::get_ddgame();
-        if ddgame.is_null() {
+        let world = game_session::get_game_world();
+        if world.is_null() {
             return;
         }
 
         // Re-set fast-forward each frame (WA clears it at turn boundaries)
         if FAST_FORWARD.load(Ordering::Relaxed) {
-            (*ddgame).fast_forward_active = 1;
+            (*world).fast_forward_active = 1;
         }
 
         // Milestone detection (check every 50 frames to reduce overhead).
         // Skip the first 100 frames to let game state fully initialize.
         if frame >= 100 && frame.is_multiple_of(50) {
-            check_milestones(ddgame, frame);
+            check_milestones(world, frame);
         }
     }
 }
@@ -69,9 +69,9 @@ pub unsafe fn on_frame(frame: u32) {
 /// Count how many teams have at least one alive worm.
 ///
 /// Returns (alive_team_count, total_team_count).
-unsafe fn count_alive_teams(ddgame: *const DDGame) -> (i32, i32) {
+unsafe fn count_alive_teams(world: *const GameWorld) -> (i32, i32) {
     unsafe {
-        let arena = &raw const (*ddgame).team_arena;
+        let arena = &raw const (*world).team_arena;
         let team_count = (*arena).team_count;
         if team_count <= 0 || team_count > 6 {
             return (0, 0);
@@ -95,13 +95,13 @@ unsafe fn count_alive_teams(ddgame: *const DDGame) -> (i32, i32) {
 }
 
 /// Check and update gameplay milestones.
-unsafe fn check_milestones(ddgame: *const DDGame, frame: u32) {
+unsafe fn check_milestones(world: *const GameWorld, frame: u32) {
     unsafe {
         if MATCH_COMPLETED.load(Ordering::Relaxed) {
             return;
         }
 
-        let (alive, _total) = count_alive_teams(ddgame);
+        let (alive, _total) = count_alive_teams(world);
 
         if !MATCH_STARTED.load(Ordering::Relaxed) {
             if alive >= 2 {
@@ -122,12 +122,12 @@ unsafe fn check_milestones(ddgame: *const DDGame, frame: u32) {
 pub fn write_gameplay_report() {
     use crate::log_line;
 
-    // Final milestone check if DDGame is still alive at detach time.
+    // Final milestone check if GameWorld is still alive at detach time.
     unsafe {
-        let ddgame = openwa_game::engine::game_session::get_ddgame();
-        if !ddgame.is_null() {
+        let world = openwa_game::engine::game_session::get_game_world();
+        if !world.is_null() {
             let frame = super::frame_hook::frames_processed();
-            check_milestones(ddgame, frame);
+            check_milestones(world, frame);
         }
     }
 
@@ -135,14 +135,14 @@ pub fn write_gameplay_report() {
     let started = MATCH_STARTED.load(Ordering::Relaxed);
     let mut completed = MATCH_COMPLETED.load(Ordering::Relaxed);
 
-    // If DDGame was already cleaned up (null at detach), that means
-    // DDGameWrapper::EndGame ran — the game session ended normally. If the
+    // If GameWorld was already cleaned up (null at detach), that means
+    // GameRuntime::EndGame ran — the game session ended normally. If the
     // match had started, this counts as completion. This handles cases like
     // Surrender where TeamArena health values don't reflect the game-over
     // state, so the per-frame alive-team check never triggers.
     if started && !completed {
-        let ddgame_null = unsafe { game_session::get_ddgame().is_null() };
-        if ddgame_null && frames > 0 {
+        let world_null = unsafe { game_session::get_game_world().is_null() };
+        if world_null && frames > 0 {
             completed = true;
             MATCH_COMPLETED.store(true, Ordering::Relaxed);
             COMPLETION_FRAME.store(frames, Ordering::Relaxed);

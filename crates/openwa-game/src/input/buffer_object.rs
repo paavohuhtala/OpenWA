@@ -1,5 +1,5 @@
 //! Partial layout of `BufferObject` — the ring/message buffer used by
-//! `DDGameWrapper` for input dispatch, serialization, and the state buffer.
+//! `GameRuntime` for input dispatch, serialization, and the state buffer.
 //!
 //! Full layout is unknown; only the fields touched by `classify_input_msg`
 //! (0x00541100) and `alloc_slot` (0x004F9330) are typed here. The rest is

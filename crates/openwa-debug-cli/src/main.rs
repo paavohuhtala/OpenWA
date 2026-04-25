@@ -462,12 +462,12 @@ enum ChainSegment {
 /// then add offset." For hex chains like `0x7A0884->0xA0->0x2C`, this works
 /// directly — the offset is added after the deref.
 ///
-/// For field-name chains like `ddgame->task_land`, the user intent is "go to
+/// For field-name chains like `world->task_land`, the user intent is "go to
 /// the task_land field (offset 0x54C) and follow that pointer." We translate
 /// this by folding the field offset into the PREVIOUS address/step:
 ///
-///   `ddgame->task_land`  → base=ddgame+0x54C, chain=[0]
-///   `wrapper->ddgame->rng_state` → base=wrapper+ddgame_off, chain=[rng_state_off]
+///   `world->task_land`  → base=world+0x54C, chain=[0]
+///   `wrapper->world->rng_state` → base=wrapper+world_off, chain=[rng_state_off]
 fn resolve_address_expr(s: &str, port: u16) -> AddressExpr {
     let (s, absolute) = if let Some(rest) = s.strip_prefix("abs:") {
         (rest, true)
@@ -623,9 +623,9 @@ fn print_usage() {
     eprintln!("  0x669F8C+0x10             Address + hex offset");
     eprintln!("  0x669F8C[16]              Address + decimal offset (bracket notation)");
     eprintln!("  0x7A0884->0xA0->0x2C      Pointer chain (deref at each ->)");
-    eprintln!("  ddgame                    Named alias (resolved via server)");
-    eprintln!("  ddgame->rng_state         Field name chain (deref + field lookup)");
-    eprintln!("  ddgame+rng_state          Named offset (no deref, just offset)");
+    eprintln!("  world                    Named alias (resolved via server)");
+    eprintln!("  world->rng_state         Field name chain (deref + field lookup)");
+    eprintln!("  world+rng_state          Named offset (no deref, just offset)");
     eprintln!();
     eprintln!("Options:");
     eprintln!("  --port <N>                Server port (default: 19840)");

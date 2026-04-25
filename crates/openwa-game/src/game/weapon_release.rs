@@ -6,9 +6,9 @@
 use crate::audio::{KnownSoundId, SoundId};
 use crate::game::message::WeaponReleasedMessage;
 use crate::game::{KnownWeaponId, is_super_weapon};
-use crate::task::turn_game::CTaskTurnGame;
-use crate::task::worm::{CTaskWorm, WormState};
-use crate::task::{CGameTask, CTask, SharedDataTable, Task};
+use crate::task::world_root::WorldRootEntity;
+use crate::task::worm::{WormEntity, WormState};
+use crate::task::{BaseEntity, Entity, SharedDataTable, WorldEntity};
 use openwa_core::fixed::Fixed;
 use openwa_core::log::log_line;
 
@@ -51,7 +51,7 @@ pub fn is_weapon_category_b(weapon: KnownWeaponId) -> bool {
 // ── Main implementation ─────────────────────────────────────
 
 pub unsafe fn weapon_release(
-    worm: *mut CTaskWorm,
+    worm: *mut WormEntity,
     spawn_x: u32,
     spawn_y: u32,
     aim_dir_x: Fixed,
@@ -77,7 +77,7 @@ pub unsafe fn weapon_release(
 
         // ── 1. Sync check ───────────────────────────────────────
         if w.fire_sync_frame_1 == w.fire_sync_frame_2 {
-            let g = &mut *w.ddgame();
+            let g = &mut *w.world();
             g.render_slot_count = 0x0E;
             for entry in &mut g.render_entries {
                 entry.active = 0;
@@ -156,7 +156,7 @@ pub unsafe fn weapon_release(
         }
 
         // ── 5. Network timing ───────────────────────────────────
-        let game_info = (*w.ddgame()).game_info as *const u8;
+        let game_info = (*w.world()).game_info as *const u8;
         let is_network = *game_info.add(0xD9D0);
         let fe_version = *game_info.add(0xD9B1);
 
@@ -184,9 +184,9 @@ pub unsafe fn weapon_release(
         }
 
         // ── 7. SharedData HandleMessage (msg 0x49) ──────────────
-        let team = weapon_fire::lookup_turn_game(worm);
+        let team = weapon_fire::lookup_world_root(worm);
         if !team.is_null() {
-            CTaskTurnGame::handle_typed_message_raw(
+            WorldRootEntity::handle_typed_message_raw(
                 team,
                 worm,
                 WeaponReleasedMessage {
@@ -203,7 +203,10 @@ pub unsafe fn weapon_release(
         }
 
         // ── 8. Weapon stat counters ─────────────────────────────
-        let g = &mut *CTask::ddgame_raw(worm as *const CTask);
+        let g = &mut *{
+            let this = worm as *const BaseEntity;
+            (*this).world
+        };
         let team_id = (*worm).team_index;
         let worm_id = (*worm).worm_index;
 
@@ -225,7 +228,7 @@ pub unsafe fn weapon_release(
         }
 
         // ── 9. Sound dispatch + 10. Visual effect ───────────────
-        let task = worm as *mut CGameTask;
+        let task = worm as *mut WorldEntity;
         let mut do_effect = false;
         let mut effect_state: u32 = 0x73;
 
@@ -303,7 +306,7 @@ pub unsafe fn weapon_release(
                 _ => {}
             },
             Ok(FireType::Rope) if (w._unknown_2cc == 0 || w._unknown_2c8 == 1) => {
-                let team_sound_raw = (*w.ddgame()).team_sound_id(team_id);
+                let team_sound_raw = (*w.world()).team_sound_id(team_id);
                 sound::play_sound_local(task, SoundId(team_sound_raw), 3, Fixed::ONE, Fixed::ONE);
             }
             // Type 3 (Strike): no sound
@@ -358,12 +361,15 @@ pub unsafe fn weapon_release(
 
         // ── 10. Visual effect (if triggered by sound dispatch) ──
         if do_effect {
-            let ddgame = &mut *CTask::ddgame_raw(worm as *const CTask);
-            let gfx_handler = ddgame.game_state_stream as *const u8;
+            let world = &mut *{
+                let this = worm as *const BaseEntity;
+                (*this).world
+            };
+            let gfx_handler = world.game_state_stream as *const u8;
             let palette = *(gfx_handler.add(0x22C) as *const u32);
 
-            let rng1 = ddgame.advance_effect_rng();
-            let rng2 = ddgame.advance_effect_rng();
+            let rng1 = world.advance_effect_rng();
+            let rng2 = world.advance_effect_rng();
 
             let rng2_offset = (rng2 & 0xFFFF) as i32 - 0x18000;
             let facing = (*worm).facing_direction_2;
@@ -410,13 +416,13 @@ fn write_u32(buf: &mut [u8], offset: usize, value: u32) {
 
 /// Spawn a visual effect on the sprite anim entity. Pure Rust port of FUN_00547C30.
 ///
-/// Builds a 0x408-byte message buffer from the params, looks up CTaskSpriteAnim
+/// Builds a 0x408-byte message buffer from the params, looks up SpriteAnimEntity
 /// via SharedData (entity type 0x1A), and sends HandleMessage(0x56).
 ///
 /// Called directly from `weapon_release` and via the hook trampoline
 /// for all other WA callers (17 call sites).
 pub unsafe fn spawn_effect(
-    worm: *mut CTaskWorm,
+    worm: *mut WormEntity,
     constant: u32,
     speed_x: Fixed,
     speed_y: Fixed,
@@ -445,8 +451,8 @@ pub unsafe fn spawn_effect(
         write_u32(&mut buf, 0x24, size.0 as u32);
         write_u32(&mut buf, 0x28, scale.0 as u32);
 
-        // SharedData lookup for entity type 0x1A (CTaskSpriteAnim)
-        let table = SharedDataTable::from_task(worm as *const CTask);
+        // SharedData lookup for entity type 0x1A (SpriteAnimEntity)
+        let table = SharedDataTable::from_task(worm as *const BaseEntity);
         let entity = table.lookup(0, 0x1A);
         if !entity.is_null() {
             let vtable = *(entity as *const *const usize);

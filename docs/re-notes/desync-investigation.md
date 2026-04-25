@@ -2,11 +2,11 @@
 
 ## Summary
 
-During the incremental Rust reimplementation of Worms Armageddon's DDGame constructor and gameplay hooks, a deterministic replay of a longbow match produced "Checksum Mismatch" errors. What appeared to be a single constructor bug turned out to be seven independent issues across three subsystems (constructor, replay loader, weapon dispatch), found over multiple debugging sessions using hardware watchpoints, sub-object hashing, binary search on hooks, and targeted test replays.
+During the incremental Rust reimplementation of Worms Armageddon's GameWorld constructor and gameplay hooks, a deterministic replay of a longbow match produced "Checksum Mismatch" errors. What appeared to be a single constructor bug turned out to be seven independent issues across three subsystems (constructor, replay loader, weapon dispatch), found over multiple debugging sessions using hardware watchpoints, sub-object hashing, binary search on hooks, and targeted test replays.
 
 ## Background
 
-OpenWA replaces WA functions with Rust reimplementations via DLL injection. The DDGame constructor (~900 lines of Rust replacing a ~19KB x86 function) initialises the entire game engine: display layers, terrain, sprites, sound, HUD, and entity systems. An A/B toggle (`OPENWA_USE_ORIG_CTOR=1`) switches between the Rust and original constructors for comparison.
+OpenWA replaces WA functions with Rust reimplementations via DLL injection. The GameWorld constructor (~900 lines of Rust replacing a ~19KB x86 function) initialises the entire game engine: display layers, terrain, sprites, sound, HUD, and entity systems. An A/B toggle (`OPENWA_USE_ORIG_CTOR=1`) switches between the Rust and original constructors for comparison.
 
 Replay testing works by running WA.exe with a recorded `.WAgame` file in headless mode (no graphics window), capturing the game log, and comparing against a known-good baseline. WA's built-in checksum system sends periodic state checksums during gameplay; mismatches indicate simulation divergence.
 
@@ -14,7 +14,7 @@ Replay testing works by running WA.exe with a recorded `.WAgame` file in headles
 
 - Rust constructor: **4 checksum mismatches** at frames 1350, 2186, 2249, 2775
 - Original constructor: all checksums pass
-- DDGame flat memory (39KB): **byte-for-byte identical** between both constructors
+- GameWorld flat memory (39KB): **byte-for-byte identical** between both constructors
 - Terrain collision bitmaps: identical
 - Entity tree: same 68 entities in same BFS order
 
@@ -34,7 +34,7 @@ Several hypotheses were investigated and ruled out:
 
 ## The Breakthrough: Sub-Object Diffing
 
-The key insight: DDGame's flat memory matching doesn't mean _everything_ matches. The constructor calls WA functions that modify objects _outside_ DDGame — particularly the **display object** (DDGameWrapper+0x4D0).
+The key insight: GameWorld's flat memory matching doesn't mean _everything_ matches. The constructor calls WA functions that modify objects _outside_ GameWorld — particularly the **display object** (GameRuntime+0x4D0).
 
 Dumping the display object (16KB) before and after construction revealed:
 
@@ -67,7 +67,7 @@ Both writes came from `LoadSprite` (0x523400) — a display vtable method (slot 
 Tracing back to our Rust constructor:
 
 ```rust
-if (*wrapper).gfx_mode != 0 {
+if (*runtime).gfx_mode != 0 {
     DDDisplay::load_sprite_by_layer(disp, 3, 0x26D, land_layer, "back.spr");
     DDDisplay::load_sprite(disp, 3, 0x26E, 0, land_layer, "debris.spr");
 }
@@ -75,7 +75,7 @@ if (*wrapper).gfx_mode != 0 {
 
 In headless mode (`gfx_mode = 0`), both sprites were skipped. But the original WA constructor loads them unconditionally — even without a graphics window. Sprite 0x26E is `debris.spr`, used by `GenerateDebrisParticles` (0x546F70) for particle effects.
 
-`GenerateDebrisParticles` reads terrain pixels and, when a hit is detected, updates the **game RNG** (DDGame+0x45EC) and creates particle entities. Without `debris.spr` loaded in the display, the sprite lookup returns different data, causing different RNG update patterns:
+`GenerateDebrisParticles` reads terrain pixels and, when a hit is detected, updates the **game RNG** (GameWorld+0x45EC) and creates particle entities. Without `debris.spr` loaded in the display, the sprite lookup returns different data, causing different RNG update patterns:
 
 - Original: 15,470 RNG writes (from frame 808 onward)
 - Rust (broken): 17,106 RNG writes
@@ -98,18 +98,18 @@ The display state differences (sprite layer counters) we found were real and wor
 
 ### Per-frame RNG tracking
 
-With the sprite fix applied but the desync persisting, the next step was tracking the game RNG (DDGame+0x45EC) at frame boundaries. A hook on `TurnManager_ProcessFrame` logged the RNG value before and after each frame:
+With the sprite fix applied but the desync persisting, the next step was tracking the game RNG (GameWorld+0x45EC) at frame boundaries. A hook on `TurnManager_ProcessFrame` logged the RNG value before and after each frame:
 
 ```
 game_f=817  rng=B714AF97  (identical in both runs)
 game_f=818  rng=BE0D887F  (Rust) vs ADB76793 (orig)
 ```
 
-The RNG was **identical through frame 817** and diverged during frame 818. But `AdvanceGameRNG` (0x53F320) turned out to be **mostly inlined** — hooking the function only caught rare non-inlined calls. The real tool was a hardware watchpoint on DDGame+0x45EC itself.
+The RNG was **identical through frame 817** and diverged during frame 818. But `AdvanceGameRNG` (0x53F320) turned out to be **mostly inlined** — hooking the function only caught rare non-inlined calls. The real tool was a hardware watchpoint on GameWorld+0x45EC itself.
 
 ### Hardware watchpoint on the RNG field
 
-Arming DR0 on DDGame+0x45EC at frame 817 captured every RNG write with its EIP. Comparing the two runs:
+Arming DR0 on GameWorld+0x45EC at frame 817 captured every RNG write with its EIP. Comparing the two runs:
 
 | Write # | Rust EIP              | Orig EIP                    | Notes                                       |
 | ------- | --------------------- | --------------------------- | ------------------------------------------- |
@@ -120,21 +120,21 @@ The original had **36 debris writes** (3 × GenerateDebrisParticles calls) while
 
 ### Caller frequency analysis
 
-Counting all 17K+ RNG write EIPs revealed the dominant divergence source: `AdvanceGameRNG_Low16` (0x507CE0) in `CTaskFire__HandleMessage` — 14,085 calls (Rust) vs 12,517 (orig). The 1,568 extra calls represented projectiles processing more frames due to the cascading RNG shift.
+Counting all 17K+ RNG write EIPs revealed the dominant divergence source: `AdvanceGameRNG_Low16` (0x507CE0) in `FireEntity__HandleMessage` — 14,085 calls (Rust) vs 12,517 (orig). The 1,568 extra calls represented projectiles processing more frames due to the cascading RNG shift.
 
 ## Phase 3: The Flat Memory Puzzle
 
-At this point, DDGame flat memory was verified **byte-for-byte identical** between constructors. Display, landscape, and wrapper non-pointer values all matched at frame 0. The desync was deterministic. What could differ?
+At this point, GameWorld flat memory was verified **byte-for-byte identical** between constructors. Display, landscape, and wrapper non-pointer values all matched at frame 0. The desync was deterministic. What could differ?
 
 ### Sub-object hashing: the breakthrough
 
-The key insight: DDGame contains **pointers** to heap-allocated sub-objects. Flat memory comparison only shows the pointer values (which differ between runs due to heap layout), not the _content_ of what they point to.
+The key insight: GameWorld contains **pointers** to heap-allocated sub-objects. Flat memory comparison only shows the pointer values (which differ between runs due to heap layout), not the _content_ of what they point to.
 
-A new tool — `hash_pointer_targets()` — walks every DWORD in DDGame, follows each heap pointer, and hashes the first 256 bytes of the target with pointer canonicalization (replacing pointer-looking values with 0).
+A new tool — `hash_pointer_targets()` — walks every DWORD in GameWorld, follows each heap pointer, and hashes the first 256 bytes of the target with pointer canonicalization (replacing pointer-looking values with 0).
 
 The first run produced hundreds of hash differences due to an overly aggressive pointer filter. After tuning to use the existing `is_likely_pointer` heuristic, a targeted raw dump of specific sub-objects revealed the smoking gun:
 
-**Arrow collision region** (SpriteRegion at DDGame+0x48C):
+**Arrow collision region** (SpriteRegion at GameWorld+0x48C):
 
 | Offset          | Rust   | Original |
 | --------------- | ------ | -------- |
@@ -214,7 +214,7 @@ Two independent hook bugs:
 
 ### Also fixed along the way
 
-- **DDGame allocation size**: 0x98B8 → 0x98D8 (original mallocs 0x98D8 but memsets only 0x98B8)
+- **GameWorld allocation size**: 0x98B8 → 0x98D8 (original mallocs 0x98D8 but memsets only 0x98B8)
 - **Wrong function after InitPaletteGradientSprites**: called `LoadingProgressTick` (0x5717A0) instead of `DisplayGfx__InitTeamPaletteDisplayObjects` (0x5703E0)
 
 ## Debugging Tools Built
@@ -224,13 +224,13 @@ The investigation produced several reusable tools:
 - **Hardware watchpoint system** (`debug_watchpoint.rs`) — x86 DR0–DR3 with VEH handler and EBP stack trace walking
 - **Sub-object hashing** (`snapshot.rs: hash_pointer_targets`) — follows heap pointers in a struct, hashes target content with pointer canonicalization. Integrated into the snapshot system.
 - **Per-frame RNG logging** via TurnManager hook
-- **`OPENWA_WATCH_DISPLAY=1`** / **`OPENWA_WATCH_FRAME=N`** — arm watchpoints on display or DDGame at specific frames
+- **`OPENWA_WATCH_DISPLAY=1`** / **`OPENWA_WATCH_FRAME=N`** — arm watchpoints on display or GameWorld at specific frames
 - **Binary sub-object dumping** for display, GfxHandler, Landscape comparison
 - **A/B constructor toggle** (`OPENWA_USE_ORIG_CTOR=1`) — instant switching between Rust and original constructors
 
 ## Key Lessons
 
-1. **Identical struct memory ≠ identical behaviour.** DDGame flat memory was byte-identical, but _sub-objects pointed to by DDGame_ had different content. The `hash_pointer_targets` tool was purpose-built to catch this.
+1. **Identical struct memory ≠ identical behaviour.** GameWorld flat memory was byte-identical, but _sub-objects pointed to by GameWorld_ had different content. The `hash_pointer_targets` tool was purpose-built to catch this.
 
 2. **Validate your diff tools.** Our snapshot comparison showed ~490 "differences" at known-good frames — pure noise from pointer canonicalization heuristics. And our dump code once read past a heap allocation into adjacent memory, producing false diffs. Always baseline.
 

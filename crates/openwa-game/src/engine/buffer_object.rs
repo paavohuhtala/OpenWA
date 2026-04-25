@@ -1,11 +1,11 @@
-//! BufferObject — dual-buffer container used by DDGameWrapper for state
+//! BufferObject — dual-buffer container used by GameRuntime for state
 //! serialization (`main_buffer`, `state_buffer`).
 //!
 //! WA's representation is 18 × u32 (0x48 bytes) with two parallel sub-buffers:
-//! - `[0..5]`:  primary buffer header   (data, capacity, head, tail, ddgame ptr)
+//! - `[0..5]`:  primary buffer header   (data, capacity, head, tail, world ptr)
 //! - `[5..10]`: secondary buffer header (same shape)
 
-use crate::engine::ddgame::DDGame;
+use crate::engine::world::GameWorld;
 use crate::engine::game_info::GameInfo;
 use crate::wa_alloc::wa_malloc_zeroed;
 
@@ -14,7 +14,7 @@ use crate::wa_alloc::wa_malloc_zeroed;
 ///
 /// Pure Rust port of BufferObject__Constructor (0x545FD0). The original is
 /// a usercall with the secondary buffer's capacity passed implicitly in EDI.
-pub unsafe fn allocate_buffer_object(ddgame: *mut DDGame, game_info: *const GameInfo) -> *mut u8 {
+pub unsafe fn allocate_buffer_object(world: *mut GameWorld, game_info: *const GameInfo) -> *mut u8 {
     unsafe {
         let mem = wa_malloc_zeroed(0x48) as *mut u32;
         if mem.is_null() {
@@ -30,7 +30,7 @@ pub unsafe fn allocate_buffer_object(ddgame: *mut DDGame, game_info: *const Game
 
         *mem.add(0) = buf1 as u32;
         *mem.add(1) = buf1_capacity;
-        *mem.add(4) = ddgame as u32;
+        *mem.add(4) = world as u32;
 
         // Secondary buffer (capacity originally carried in EDI)
         let gi_raw = game_info as *const u8;
@@ -47,7 +47,7 @@ pub unsafe fn allocate_buffer_object(ddgame: *mut DDGame, game_info: *const Game
 
         *mem.add(5) = buf2 as u32;
         *mem.add(6) = buf2_capacity;
-        *mem.add(9) = ddgame as u32;
+        *mem.add(9) = world as u32;
 
         mem as *mut u8
     }

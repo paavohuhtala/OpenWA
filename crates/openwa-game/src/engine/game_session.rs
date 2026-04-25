@@ -1,7 +1,7 @@
 use crate::FieldRegistry;
 use crate::audio::dssound::DSSound;
 use crate::audio::music::Music;
-use crate::engine::ddgame_wrapper::DDGameWrapper;
+use crate::engine::runtime::GameRuntime;
 use crate::engine::game_info::GameInfo;
 use crate::input::keyboard::DDKeyboard;
 use crate::render::display::palette::Palette;
@@ -97,8 +97,8 @@ pub struct GameSession {
     pub timer_freq: u64,
     /// 0x098: QPC counter accumulator.
     pub timer_counter: u64,
-    /// 0x0A0: `DDGameWrapper*` — the main game object wrapper (→ `DDGame` at `+0x488`)
-    pub ddgame_wrapper: *mut DDGameWrapper,
+    /// 0x0A0: `GameRuntime*` — the main game object wrapper (→ `GameWorld` at `+0x488`)
+    pub game_runtime: *mut GameRuntime,
     /// 0x0A4: `DDKeyboard*` — 0x33C bytes, vtable `DDKeyboard_vtable` (0x66AEC8)
     pub keyboard: *mut DDKeyboard,
     /// 0x0A8: `DSSound*` — 0xBE0 bytes, vtable `DSSound_vtable` (0x66AF20)
@@ -127,7 +127,7 @@ const _: () = assert!(core::mem::size_of::<GameSession>() == 0x120);
 #[cfg(target_arch = "x86")]
 use crate::address::va;
 #[cfg(target_arch = "x86")]
-use crate::engine::ddgame::DDGame;
+use crate::engine::world::GameWorld;
 #[cfg(target_arch = "x86")]
 use crate::rebase::rb;
 
@@ -140,33 +140,33 @@ pub unsafe fn get_game_session() -> *mut GameSession {
     unsafe { *(rb(va::G_GAME_SESSION) as *const *mut GameSession) }
 }
 
-/// Get the DDGameWrapper pointer from the global game session.
+/// Get the GameRuntime pointer from the global game session.
 ///
 /// Returns null if the session or wrapper hasn't been initialized yet.
 #[cfg(target_arch = "x86")]
 #[inline]
-pub unsafe fn get_wrapper() -> *mut DDGameWrapper {
+pub unsafe fn get_runtime() -> *mut GameRuntime {
     unsafe {
         let session: *mut GameSession = get_game_session();
         if session.is_null() {
             return core::ptr::null_mut();
         }
-        (*session).ddgame_wrapper
+        (*session).game_runtime
     }
 }
 
-/// Get the DDGame pointer from the global game session.
+/// Get the GameWorld pointer from the global game session.
 ///
-/// Follows the chain: G_GAME_SESSION → GameSession.ddgame_wrapper → DDGameWrapper.ddgame.
+/// Follows the chain: G_GAME_SESSION → GameSession.runtime → GameRuntime.world.
 /// Returns null if any link in the chain is uninitialized.
 #[cfg(target_arch = "x86")]
 #[inline]
-pub unsafe fn get_ddgame() -> *mut DDGame {
+pub unsafe fn get_game_world() -> *mut GameWorld {
     unsafe {
-        let wrapper = get_wrapper();
-        if wrapper.is_null() {
+        let runtime = get_runtime();
+        if runtime.is_null() {
             return core::ptr::null_mut();
         }
-        (*wrapper).ddgame
+        (*runtime).world
     }
 }

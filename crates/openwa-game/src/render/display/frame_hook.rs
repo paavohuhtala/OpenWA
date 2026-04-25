@@ -9,7 +9,7 @@
 //!
 //! The only concrete subclass shipped in WA is `ScreenshotHook` (vtable
 //! 0x66A2C4) which writes the rendered `layer_0` `DisplayBitGrid` as a
-//! numbered PNG when `g_DDGame->screenshot_pending` is set.
+//! numbered PNG when `g_GameWorld->screenshot_pending` is set.
 //!
 //! ## Lifetime
 //!
@@ -39,7 +39,7 @@ crate::define_addresses! {
         /// since `ScreenshotHook` adds no instance fields).
         vtable SCREENSHOT_HOOK_VTABLE = 0x0066A2C4;
         /// `ScreenshotHook::GetCaptureRequest` (0x56D170) — vtable[1].
-        /// Returns 2 if `g_DDGame->screenshot_pending` is set, else 0.
+        /// Returns 2 if `g_GameWorld->screenshot_pending` is set, else 0.
         fn/Thiscall SCREENSHOT_HOOK_GET_CAPTURE_REQUEST = 0x0056D170;
         /// `ScreenshotHook::CaptureToPng` (0x56D180) — vtable[2].
         /// Formats `"%s%06d.png"` and writes the rendered layer_0 surface
@@ -51,7 +51,7 @@ crate::define_addresses! {
 /// `FramePostProcessHook` — abstract polymorphic class (just a vtable ptr).
 ///
 /// All instance state lives in the concrete subclass — for `ScreenshotHook`
-/// the "state" is `g_DDGame->screenshot_pending` and the running PNG counter
+/// the "state" is `g_GameWorld->screenshot_pending` and the running PNG counter
 /// in globals, not fields on the object itself.
 #[repr(C)]
 pub struct FramePostProcessHook {
@@ -99,6 +99,6 @@ bind_FramePostProcessHookVtable!(FramePostProcessHook, vtable);
 ///
 /// Layout matches `FramePostProcessHook` exactly (no instance fields). The
 /// vtable at 0x66A2C4 differs only in slots 1 and 2: `GetCaptureRequest`
-/// reads `g_DDGame->screenshot_pending`, and `CaptureToPng` writes the
+/// reads `g_GameWorld->screenshot_pending`, and `CaptureToPng` writes the
 /// rendered surface to a numbered `.png` file.
 pub type ScreenshotHook = FramePostProcessHook;

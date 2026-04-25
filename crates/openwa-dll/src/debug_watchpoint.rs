@@ -1,6 +1,6 @@
-//! Hardware watchpoint debugger for DDGame constructor field investigation.
+//! Hardware watchpoint debugger for GameWorld constructor field investigation.
 //!
-//! Uses x86 debug registers (DR0–DR3) to watch DDGame offsets for writes.
+//! Uses x86 debug registers (DR0–DR3) to watch GameWorld offsets for writes.
 //! A Vectored Exception Handler logs the exact instruction address (as Ghidra VA)
 //! of every write to the watched offsets.
 //!
@@ -11,7 +11,7 @@
 //! ## How it works
 //!
 //! 1. `prepare()` registers a first-chance VEH.
-//! 2. `on_ddgame_alloc()` is called right after DDGame's `wa_malloc`. It stores
+//! 2. `on_world_alloc()` is called right after GameWorld's `wa_malloc`. It stores
 //!    the base address, sets state to `Arming`, and executes `int3`.
 //! 3. The VEH catches `EXCEPTION_BREAKPOINT`, writes the target addresses into
 //!    DR0–DR3 and the enable/condition bits into DR7 (write-only, 4-byte),
@@ -32,11 +32,11 @@ use windows_sys::Win32::System::Diagnostics::Debug::{
 
 /// Offsets to watch. Hardware limit: 4 watchpoints (DR0–DR3).
 /// Change these to investigate different fields.
-/// NOTE: The base pointer is set by `on_ddgame_alloc()` — can be DDGame or DDGameWrapper.
+/// NOTE: The base pointer is set by `on_world_alloc()` — can be GameWorld or GameRuntime.
 const WATCH_OFFSETS: [(u32, &str); 1] = [(0x3A40, "display+0x3A40")];
 
-/// DDGame base address (set when allocation is reported).
-static DDGAME_BASE: AtomicU32 = AtomicU32::new(0);
+/// GameWorld base address (set when allocation is reported).
+static GAME_WORLD_BASE: AtomicU32 = AtomicU32::new(0);
 
 /// VEH handle for cleanup.
 static mut VEH_HANDLE: *mut core::ffi::c_void = core::ptr::null_mut();
@@ -82,7 +82,7 @@ unsafe extern "system" fn veh_handler(info: *mut EXCEPTION_POINTERS) -> i32 {
                 // Save original debug registers so we can restore them later
                 SAVED_DR = [ctx.Dr0, ctx.Dr1, ctx.Dr2, ctx.Dr3, ctx.Dr6, ctx.Dr7];
 
-                let base = DDGAME_BASE.load(Ordering::Relaxed);
+                let base = GAME_WORLD_BASE.load(Ordering::Relaxed);
                 let dr_regs = [&mut ctx.Dr0, &mut ctx.Dr1, &mut ctx.Dr2, &mut ctx.Dr3];
                 for (i, dr) in dr_regs.into_iter().enumerate() {
                     if i < WATCH_OFFSETS.len() {
@@ -118,7 +118,7 @@ unsafe extern "system" fn veh_handler(info: *mut EXCEPTION_POINTERS) -> i32 {
                 let delta = rb(va::IMAGE_BASE).wrapping_sub(va::IMAGE_BASE);
                 let wa_base = rb(va::IMAGE_BASE);
 
-                let base = DDGAME_BASE.load(Ordering::Relaxed);
+                let base = GAME_WORLD_BASE.load(Ordering::Relaxed);
                 for (i, &(offset, name)) in WATCH_OFFSETS.iter().enumerate() {
                     if dr6 & (1 << i) != 0 {
                         let val = *((base + offset) as *const u32);
@@ -195,9 +195,9 @@ fn dr7_for_count(n: usize) -> u32 {
 
 // ─── wa_malloc hook (for original constructor instrumentation) ───────────────
 
-/// Size of DDGame allocation — the original allocates 0x98D8 (0x98B8 + 0x20
+/// Size of GameWorld allocation — the original allocates 0x98D8 (0x98B8 + 0x20
 /// overhead from alloca_probe/SEH), then memsets 0x98B8 of it.
-const DDGAME_ALLOC_SIZE: u32 = 0x98D8;
+const GAME_WORLD_ALLOC_SIZE: u32 = 0x98D8;
 
 /// Original wa_malloc trampoline (set by minhook).
 unsafe extern "cdecl" fn malloc_trampoline_stub(_: u32) -> *mut u8 {
@@ -205,16 +205,16 @@ unsafe extern "cdecl" fn malloc_trampoline_stub(_: u32) -> *mut u8 {
 }
 static mut MALLOC_TRAMPOLINE: unsafe extern "cdecl" fn(u32) -> *mut u8 = malloc_trampoline_stub;
 
-/// Hooked wa_malloc — intercepts the DDGame allocation to arm watchpoints.
+/// Hooked wa_malloc — intercepts the GameWorld allocation to arm watchpoints.
 unsafe extern "cdecl" fn malloc_hook(size: u32) -> *mut u8 {
     unsafe {
         let result = MALLOC_TRAMPOLINE(size);
-        if size == DDGAME_ALLOC_SIZE && !result.is_null() {
+        if size == GAME_WORLD_ALLOC_SIZE && !result.is_null() {
             let _ = log_line(&format!(
                 "[Watchpoint] Intercepted wa_malloc(0x{:X}) = 0x{:08X}",
                 size, result as u32,
             ));
-            on_ddgame_alloc(result);
+            on_world_alloc(result);
         }
         result
     }
@@ -223,7 +223,7 @@ unsafe extern "cdecl" fn malloc_hook(size: u32) -> *mut u8 {
 /// Whether the wa_malloc hook is currently installed.
 static mut MALLOC_HOOKED: bool = false;
 
-/// Install a minhook on wa_malloc (0x5C0AE3) to intercept the DDGame allocation.
+/// Install a minhook on wa_malloc (0x5C0AE3) to intercept the GameWorld allocation.
 unsafe fn hook_wa_malloc() {
     unsafe {
         use minhook::MinHook;
@@ -236,7 +236,7 @@ unsafe fn hook_wa_malloc() {
                     let _ = log_line(&format!("[Watchpoint] MH_EnableHook failed: {:?}", e));
                 } else {
                     MALLOC_HOOKED = true;
-                    let _ = log_line("[Watchpoint] wa_malloc hooked for DDGame interception");
+                    let _ = log_line("[Watchpoint] wa_malloc hooked for GameWorld interception");
                 }
             }
             Err(e) => {
@@ -263,15 +263,15 @@ unsafe fn unhook_wa_malloc() {
 
 // ─── Public API ─────────────────────────────────────────────────────────────
 
-/// Register the VEH. Call before `create_ddgame`.
+/// Register the VEH. Call before `create_world`.
 pub unsafe fn prepare() {
     unsafe {
         VEH_HANDLE = AddVectoredExceptionHandler(1, Some(veh_handler));
-        let _ = log_line("[Watchpoint] VEH installed, awaiting DDGame allocation");
+        let _ = log_line("[Watchpoint] VEH installed, awaiting GameWorld allocation");
     }
 }
 
-/// Register the VEH and hook wa_malloc to intercept the DDGame allocation.
+/// Register the VEH and hook wa_malloc to intercept the GameWorld allocation.
 /// Use this when instrumenting the **original** WA constructor.
 pub unsafe fn prepare_with_malloc_hook() {
     unsafe {
@@ -281,17 +281,17 @@ pub unsafe fn prepare_with_malloc_hook() {
     }
 }
 
-/// Called right after DDGame `wa_malloc`. Arms the watchpoints via INT3 → VEH.
+/// Called right after GameWorld `wa_malloc`. Arms the watchpoints via INT3 → VEH.
 ///
 /// When this function returns, all 4 hardware watchpoints are live on the
 /// current thread.
-pub unsafe fn on_ddgame_alloc(ddgame: *mut u8) {
+pub unsafe fn on_world_alloc(world: *mut u8) {
     unsafe {
-        let base = ddgame as u32;
-        DDGAME_BASE.store(base, Ordering::Relaxed);
+        let base = world as u32;
+        GAME_WORLD_BASE.store(base, Ordering::Relaxed);
 
         let _ = log_line(&format!(
-            "[Watchpoint] DDGame at 0x{:08X}, arming watchpoints on: {}",
+            "[Watchpoint] GameWorld at 0x{:08X}, arming watchpoints on: {}",
             base,
             WATCH_OFFSETS
                 .iter()

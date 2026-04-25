@@ -36,7 +36,7 @@
 //!
 //! ALWAYS:
 //!   session+0x28 = (GameInfo.home_lock != 0) ? 1 : 0
-//!   DDGameWrapper (0x6F10) → session+0xA0  [via game_session::construct_ddgame_wrapper]
+//!   GameRuntime (0x6F10) → session+0xA0  [via game_session::construct_runtime]
 //!   Palette vtable[4/3/2] calls + DDKeyboard poll (normal mode only)
 //!   DDNetGameWrapper (0x2C, stdcall ctor) → session+0xC0
 //! ```
@@ -47,7 +47,7 @@ use crate::log_line;
 use openwa_game::address::va;
 use openwa_game::audio::{DSSound, Music};
 use openwa_game::engine::game_session::get_game_session;
-use openwa_game::engine::{DDGameWrapper, DDNetGameWrapper, GameInfo, GameTimer};
+use openwa_game::engine::{DDNetGameWrapper, GameInfo, GameRuntime, GameTimer};
 use openwa_game::input::{DDKeyboard, InputCtrl, InputCtrlVtable};
 use openwa_game::rebase::rb;
 use openwa_game::render::{DisplayBase, DisplayGfx, Palette};
@@ -408,11 +408,11 @@ unsafe extern "cdecl" fn impl_init_hardware(
         (*session).init_flag = 1;
         (*session).fullscreen_flag = (gi.home_lock != 0) as u32;
 
-        // ── DDGameWrapper (ALWAYS) ────────────────────────────────────────────────
-        let _ = crate::log_line("[hardware_init] Creating DDGameWrapper");
-        let wrapper = game_session::construct_ddgame_wrapper(
+        // ── GameRuntime (ALWAYS) ────────────────────────────────────────────────
+        let _ = crate::log_line("[hardware_init] Creating GameRuntime");
+        let runtime = game_session::construct_runtime(
             game_info,
-            wa_malloc_struct_zeroed::<DDGameWrapper>(),
+            wa_malloc_struct_zeroed::<GameRuntime>(),
             (*session).display as *mut DisplayGfx,
             (*session).sound,
             (*session).keyboard as *mut u8,
@@ -420,8 +420,8 @@ unsafe extern "cdecl" fn impl_init_hardware(
             (*session).streaming_audio as *mut u8,
             (*session).input_ctrl,
         );
-        (*session).ddgame_wrapper = wrapper;
-        let _ = crate::log_line("[hardware_init] DDGameWrapper created OK");
+        (*session).game_runtime = runtime;
+        let _ = crate::log_line("[hardware_init] GameRuntime created OK");
 
         // ── Palette vtable[4/3/2] + keyboard poll (normal mode only) ─────────────
         if !headless {

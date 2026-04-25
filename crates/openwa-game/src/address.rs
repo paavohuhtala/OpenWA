@@ -29,38 +29,39 @@ pub mod va {
 
     // Re-exported from task modules
     pub use crate::task::base::{
-        CTASK_AIRSTRIKE_CTOR, CTASK_ARROW_CTOR, CTASK_CANISTER_CTOR, CTASK_CONSTRUCTOR,
-        CTASK_CPU_CTOR, CTASK_CPU_VTABLE, CTASK_CROSS_CTOR, CTASK_DIRT_CTOR, CTASK_DIRT_VTABLE,
-        CTASK_FIREBALL_CTOR, CTASK_FLAME_CTOR, CTASK_GAS_CTOR, CTASK_LAND_CTOR, CTASK_LAND_VTABLE,
-        CTASK_OLDWORM_CTOR, CTASK_SCOREBUBBLE_CTOR, CTASK_SEA_BUBBLE_VTABLE, CTASK_SEABUBBLE_CTOR,
-        CTASK_SMOKE_CTOR, CTASK_SPRITE_ANIM_CTOR, CTASK_SPRITE_ANIM_VTABLE, CTASK_VT0_INIT,
-        CTASK_VT1_FREE, CTASK_VT2_HANDLE_MESSAGE, CTASK_VT3, CTASK_VT5, CTASK_VT6,
-        CTASK_VT7_PROCESS_FRAME, CTASK_VTABLE,
+        AIRSTRIKE_ENTITY_CTOR, ARROW_ENTITY_CTOR, BASE_ENTITY_CONSTRUCTOR, BASE_ENTITY_VT0_INIT,
+        BASE_ENTITY_VT1_FREE, BASE_ENTITY_VT2_HANDLE_MESSAGE, BASE_ENTITY_VT3, BASE_ENTITY_VT5,
+        BASE_ENTITY_VT6, BASE_ENTITY_VT7_PROCESS_FRAME, BASE_ENTITY_VTABLE, CANISTER_ENTITY_CTOR,
+        CPU_ENTITY_CTOR, CPU_ENTITY_VTABLE, CROSS_ENTITY_CTOR, DIRT_ENTITY_CTOR,
+        DIRT_ENTITY_VTABLE, FIREBALL_ENTITY_CTOR, FLAME_ENTITY_CTOR, GAS_ENTITY_CTOR,
+        LAND_ENTITY_CTOR, LAND_ENTITY_VTABLE, OLDWORM_ENTITY_CTOR, SCOREBUBBLE_ENTITY_CTOR,
+        SEA_BUBBLE_ENTITY_VTABLE, SEABUBBLE_ENTITY_CTOR, SMOKE_ENTITY_CTOR,
+        SPRITE_ANIM_ENTITY_CTOR, SPRITE_ANIM_ENTITY_VTABLE,
     };
     pub use crate::task::cloud::{
-        CTASK_CLOUD_CTOR, CTASK_CLOUD_READ_REPLAY_STATE, CTASK_CLOUD_VTABLE,
-        CTASK_CLOUD_WRITE_REPLAY_STATE,
+        CLOUD_ENTITY_CTOR, CLOUD_ENTITY_READ_REPLAY_STATE, CLOUD_ENTITY_VTABLE,
+        CLOUD_ENTITY_WRITE_REPLAY_STATE,
     };
     pub use crate::task::filter::{
-        CTASK_FILTER_CTOR, CTASK_FILTER_SUBSCRIBE, CTASK_FILTER_VTABLE,
-        CTASK_TEAM_CREATE_WEATHER_FILTER,
+        FILTER_ENTITY_CTOR, FILTER_ENTITY_SUBSCRIBE, FILTER_ENTITY_VTABLE,
+        TEAM_ENTITY_CREATE_WEATHER_FILTER,
     };
-    pub use crate::task::fire::{CTASK_FIRE_CTOR, CTASK_FIRE_VTABLE};
+    pub use crate::task::fire::{FIRE_ENTITY_CTOR, FIRE_ENTITY_VTABLE};
     pub use crate::task::game_task::{
         CGAMETASK_CONSTRUCTOR, CGAMETASK_SOUND_EMITTER_VT, CGAMETASK_VT0, CGAMETASK_VT1_FREE,
         CGAMETASK_VT2_HANDLE_MESSAGE, CGAMETASK_VTABLE,
     };
     pub use crate::task::mine_oil_drum::{
-        CTASK_MINE_CTOR, CTASK_MINE_VTABLE, CTASK_OILDRUM_CTOR, CTASK_OILDRUM_VTABLE,
+        MINE_ENTITY_CTOR, MINE_ENTITY_VTABLE, OILDRUM_ENTITY_CTOR, OILDRUM_ENTITY_VTABLE,
     };
-    pub use crate::task::missile::{CTASK_MISSILE_CTOR, CTASK_MISSILE_VTABLE};
-    pub use crate::task::supply_crate::{CTASK_CRATE_CTOR, CTASK_CRATE_VTABLE};
-    pub use crate::task::team::{CTASK_TEAM_CTOR, CTASK_TEAM_VTABLE};
-    pub use crate::task::turn_game::{
-        CTASK_TURN_GAME_VTABLE, CTASK_TURNGAME_CTOR, TURNGAME_AUTO_SELECT_TEAMS,
-        TURNGAME_HANDLE_MESSAGE, TURNGAME_HURRY_HANDLER,
+    pub use crate::task::missile::{MISSILE_ENTITY_CTOR, MISSILE_ENTITY_VTABLE};
+    pub use crate::task::supply_crate::{CRATE_ENTITY_CTOR, CRATE_ENTITY_VTABLE};
+    pub use crate::task::team::{TEAM_ENTITY_CTOR, TEAM_ENTITY_VTABLE};
+    pub use crate::task::world_root::{
+        WORLD_ROOT_AUTO_SELECT_TEAMS, WORLD_ROOT_ENTITY_CTOR, WORLD_ROOT_ENTITY_VTABLE,
+        WORLD_ROOT_HANDLE_MESSAGE, WORLD_ROOT_HURRY_HANDLER,
     };
-    pub use crate::task::worm::{CTASK_WORM_CONSTRUCTOR, CTASK_WORM_VTABLE};
+    pub use crate::task::worm::{WORM_ENTITY_CONSTRUCTOR, WORM_ENTITY_VTABLE};
 
     // Re-exported from audio modules
     pub use crate::audio::dssound::DS_SOUND_VTABLE;
@@ -109,104 +110,104 @@ pub mod va {
     };
 
     crate::define_addresses! {
-        class "DDGameWrapper" {
-            /// DDGameWrapper vtable
-            vtable DDGAME_WRAPPER_VTABLE = 0x0066A30C;
-            /// DDGameWrapper constructor
+        class "GameRuntime" {
+            /// GameRuntime vtable
+            vtable GAME_RUNTIME_VTABLE = 0x0066A30C;
+            /// GameRuntime constructor
             ctor/Stdcall CONSTRUCT_DD_GAME_WRAPPER = 0x0056DEF0;
-            /// DDGameWrapper::InitReplay — usercall(EAX=game_info, ESI=this), plain RET
-            fn/Usercall DDGAMEWRAPPER_INIT_REPLAY = 0x0056F860;
-            /// DDGameWrapper__LoadingProgressTick
-            fn/Stdcall DDGAME_WRAPPER_LOADING_PROGRESS_TICK = 0x005717A0;
-            /// DDGameWrapper__LoadSpeechWAV
-            fn/Usercall DDGAMEWRAPPER_LOAD_SPEECH_WAV = 0x00571530;
-            /// DDGameWrapper__DispatchFrame — main frame timing/simulation dispatch (stdcall, 5 params)
-            fn/Stdcall DDGAMEWRAPPER_DISPATCH_FRAME = 0x00529160;
-            /// DDGameWrapper__StepFrame — core single-frame step (usercall EAX=this, 5 stack params, RET 0x14)
-            fn/Usercall DDGAMEWRAPPER_STEP_FRAME = 0x00529F30;
-            /// DDGameWrapper__ShouldContinueFrameLoop — check elapsed time for frame catch-up (usercall EAX=this, 2 stack params, plain RET)
-            fn/Usercall DDGAMEWRAPPER_SHOULD_CONTINUE = 0x0052A840;
-            /// DDGameWrapper__ResetFrameState (usercall EAX=this, no stack params, plain RET)
-            fn/Usercall DDGAMEWRAPPER_RESET_FRAME_STATE = 0x0052A910;
-            /// DDGameWrapper__UpdateFrameTiming (usercall EAX=this, 4 stack params, RET 0x10)
-            fn/Usercall DDGAMEWRAPPER_UPDATE_FRAME_TIMING = 0x0052A9C0;
-            /// DDGameWrapper__CalcTimingRatio (usercall EAX=this, 1 stack param, RET 0x4)
-            fn/Usercall DDGAMEWRAPPER_CALC_TIMING_RATIO = 0x0052ABF0;
-            /// DDGameWrapper__InitFrameDelay (usercall EAX=this, no stack params, plain RET)
-            fn/Usercall DDGAMEWRAPPER_INIT_FRAME_DELAY = 0x0052CAF0;
-            /// DDGameWrapper__NetworkUpdate (usercall EAX=this, no stack params, plain RET)
-            fn/Usercall DDGAMEWRAPPER_NETWORK_UPDATE = 0x0052DB90;
+            /// GameRuntime::InitReplay — usercall(EAX=game_info, ESI=this), plain RET
+            fn/Usercall GAME_RUNTIME_INIT_REPLAY = 0x0056F860;
+            /// GameRuntime__LoadingProgressTick
+            fn/Stdcall GAME_RUNTIME_LOADING_PROGRESS_TICK = 0x005717A0;
+            /// GameRuntime__LoadSpeechWAV
+            fn/Usercall GAME_RUNTIME_LOAD_SPEECH_WAV = 0x00571530;
+            /// GameRuntime__DispatchFrame — main frame timing/simulation dispatch (stdcall, 5 params)
+            fn/Stdcall GAME_RUNTIME_DISPATCH_FRAME = 0x00529160;
+            /// GameRuntime__StepFrame — core single-frame step (usercall EAX=this, 5 stack params, RET 0x14)
+            fn/Usercall GAME_RUNTIME_STEP_FRAME = 0x00529F30;
+            /// GameRuntime__ShouldContinueFrameLoop — check elapsed time for frame catch-up (usercall EAX=this, 2 stack params, plain RET)
+            fn/Usercall GAME_RUNTIME_SHOULD_CONTINUE = 0x0052A840;
+            /// GameRuntime__ResetFrameState (usercall EAX=this, no stack params, plain RET)
+            fn/Usercall GAME_RUNTIME_RESET_FRAME_STATE = 0x0052A910;
+            /// GameRuntime__UpdateFrameTiming (usercall EAX=this, 4 stack params, RET 0x10)
+            fn/Usercall GAME_RUNTIME_UPDATE_FRAME_TIMING = 0x0052A9C0;
+            /// GameRuntime__CalcTimingRatio (usercall EAX=this, 1 stack param, RET 0x4)
+            fn/Usercall GAME_RUNTIME_CALC_TIMING_RATIO = 0x0052ABF0;
+            /// GameRuntime__InitFrameDelay (usercall EAX=this, no stack params, plain RET)
+            fn/Usercall GAME_RUNTIME_INIT_FRAME_DELAY = 0x0052CAF0;
+            /// GameRuntime__NetworkUpdate (usercall EAX=this, no stack params, plain RET)
+            fn/Usercall GAME_RUNTIME_NETWORK_UPDATE = 0x0052DB90;
             /// Helper called from the online `ShouldInterpolate` path
             /// (FUN_0052E880). Scans the per-peer input-message queue for any
             /// "gameplay-relevant" message type. Usercall EAX=this +
             /// 1 stdcall stack param (peer_idx), RET 0x4. Still bridged;
             /// its own callee (`FUN_0053e300` input-queue-pop helper) is
             /// also online-only and would require additional bridging.
-            fn/Usercall DDGAMEWRAPPER_PEER_INPUT_QUEUE_SCAN = 0x0052E880;
+            fn/Usercall GAME_RUNTIME_PEER_INPUT_QUEUE_SCAN = 0x0052E880;
             /// Tail callee of `ShouldInterpolate_OfflineCheck` (FUN_0052F9C0).
-            /// Stdcall(wrapper), RET 0x4. Large (~205 instructions, 51 basic
+            /// Stdcall(runtime), RET 0x4. Large (~205 instructions, 51 basic
             /// blocks); still bridged as a plain stdcall call from the
             /// offline-branch Rust port.
-            fn/Stdcall DDGAMEWRAPPER_SHOULD_INTERPOLATE_OFFLINE_TAIL = 0x0052F9C0;
-            /// DDGameWrapper__SetupFrameParams (usercall EAX=this, 3 stack params, RET 0xC)
-            fn/Usercall DDGAMEWRAPPER_SETUP_FRAME_PARAMS = 0x00534CA0;
-            /// DDGameWrapper__ProcessNetworkFrame (usercall EAX=this, 4 stack params, RET 0x10)
-            fn/Usercall DDGAMEWRAPPER_PROCESS_NETWORK_FRAME = 0x0053DF00;
-            /// DDGameWrapper__IsReplayMode (usercall EAX=this, no stack params, plain RET)
-            fn/Usercall DDGAMEWRAPPER_IS_REPLAY_MODE = 0x00537060;
-            /// DDGameWrapper__PollInput — stdcall(wrapper), plain RET. Polls keyboard/input each step.
-            fn/Stdcall DDGAMEWRAPPER_POLL_INPUT = 0x00534910;
+            fn/Stdcall GAME_RUNTIME_SHOULD_INTERPOLATE_OFFLINE_TAIL = 0x0052F9C0;
+            /// GameRuntime__SetupFrameParams (usercall EAX=this, 3 stack params, RET 0xC)
+            fn/Usercall GAME_RUNTIME_SETUP_FRAME_PARAMS = 0x00534CA0;
+            /// GameRuntime__ProcessNetworkFrame (usercall EAX=this, 4 stack params, RET 0x10)
+            fn/Usercall GAME_RUNTIME_PROCESS_NETWORK_FRAME = 0x0053DF00;
+            /// GameRuntime__IsReplayMode (usercall EAX=this, no stack params, plain RET)
+            fn/Usercall GAME_RUNTIME_IS_REPLAY_MODE = 0x00537060;
+            /// GameRuntime__PollInput — stdcall(runtime), plain RET. Polls keyboard/input each step.
+            fn/Stdcall GAME_RUNTIME_POLL_INPUT = 0x00534910;
             // --- StepFrame sub-calls: end-game state-machine handlers ---
-            /// DDGameWrapper__BeginNetworkGameEnd — network-mode entry (Block A
+            /// GameRuntime__BeginNetworkGameEnd — network-mode entry (Block A
             /// non-zero `network_ecx` path). Transitions `game_state` to 3.
             /// Usercall(EAX=wrapper), no stack args, plain RET.
-            fn/Usercall DDGAMEWRAPPER_BEGIN_NETWORK_GAME_END = 0x00536270;
-            /// DDGameWrapper__OnGameState2. Usercall(EDI=ESI=wrapper), plain RET.
-            fn/Usercall DDGAMEWRAPPER_ON_GAME_STATE_2 = 0x00536470;
-            /// DDGameWrapper__OnGameState3. Usercall(EDI=ESI=wrapper), plain RET.
-            fn/Usercall DDGAMEWRAPPER_ON_GAME_STATE_3 = 0x00536320;
-            /// DDGameWrapper__OnGameState4. Usercall(ESI=wrapper), plain RET.
+            fn/Usercall GAME_RUNTIME_BEGIN_NETWORK_GAME_END = 0x00536270;
+            /// GameRuntime__OnGameState2. Usercall(EDI=ESI=wrapper), plain RET.
+            fn/Usercall GAME_RUNTIME_ON_GAME_STATE_2 = 0x00536470;
+            /// GameRuntime__OnGameState3. Usercall(EDI=ESI=wrapper), plain RET.
+            fn/Usercall GAME_RUNTIME_ON_GAME_STATE_3 = 0x00536320;
+            /// GameRuntime__OnGameState4. Usercall(ESI=wrapper), plain RET.
             /// Increments `game_end_speed` by 0x51E per call; transitions to
             /// `game_state = 5` (EXIT) once the high word reaches 1 (~50 frames).
-            fn/Usercall DDGAMEWRAPPER_ON_GAME_STATE_4 = 0x005365A0;
-            /// DDGameWrapper__ClearWormBuffers — stdcall(task_turn_game, i32), RET 0x8.
-            fn/Stdcall DDGAMEWRAPPER_CLEAR_WORM_BUFFERS = 0x0055C300;
-            /// DDGameWrapper__AdvanceWormFrame — stdcall(task_turn_game), RET 0x4.
-            fn/Stdcall DDGAMEWRAPPER_ADVANCE_WORM_FRAME = 0x0055C590;
+            fn/Usercall GAME_RUNTIME_ON_GAME_STATE_4 = 0x005365A0;
+            /// GameRuntime__ClearWormBuffers — stdcall(world_root, i32), RET 0x8.
+            fn/Stdcall GAME_RUNTIME_CLEAR_WORM_BUFFERS = 0x0055C300;
+            /// GameRuntime__AdvanceWormFrame — stdcall(world_root), RET 0x4.
+            fn/Stdcall GAME_RUNTIME_ADVANCE_WORM_FRAME = 0x0055C590;
             /// BufferObject__ClassifyInputMsg — thiscall(ECX=render_buffer_a).
             /// Returns packed u64 (EDX:EAX): EAX=keep-going flag, EDX=msg subtype.
             fn/Thiscall BUFFER_OBJECT_CLASSIFY_INPUT_MSG = 0x00541100;
-            /// DDGameWrapper__DispatchInputMsg — usercall(EAX=local_buf) +
+            /// GameRuntime__DispatchInputMsg — usercall(EAX=local_buf) +
             /// stdcall(wrapper, msg_type, payload_size), RET 0xC.
-            fn/Stdcall DDGAMEWRAPPER_DISPATCH_INPUT_MSG = 0x00530F80;
+            fn/Stdcall GAME_RUNTIME_DISPATCH_INPUT_MSG = 0x00530F80;
         }
 
-        class "DDGame" {
-            /// DDGame constructor
+        class "GameWorld" {
+            /// GameWorld constructor
             ctor/Stdcall CONSTRUCT_DD_GAME = 0x0056E220;
-            /// DDGame::InitGameState — stdcall(this=DDGameWrapper*), RET 0x4
-            fn/Stdcall DDGAME_INIT_GAME_STATE = 0x00526500;
-            /// DDGame__InitFields
-            fn DDGAME_INIT_FIELDS = 0x00526120;
-            /// DDGame__InitRenderIndices — usercall(ESI=ddgame), plain RET
-            fn/Usercall DDGAME_INIT_RENDER_INDICES = 0x00526080;
-            /// DDGame__InitVersionFlags — stdcall(ddgame_wrapper)
-            fn/Stdcall DDGAME_INIT_VERSION_FLAGS = 0x00525BE0;
-            /// DDGame__LoadFonts — loads .fnt font resources into the display.
-            fn/Usercall DDGAME_LOAD_FONTS = 0x00570F30;
-            /// DDGameWrapper__LoadFontExtension — loads .fex font extension for a font slot.
-            fn/Stdcall DDGAME_WRAPPER_LOAD_FONT_EXTENSION = 0x00570E80;
-            /// DDGame__LoadHudAndWeaponSprites
-            fn/Thiscall DDGAME_LOAD_HUD_AND_WEAPON_SPRITES = 0x0053D0E0;
-            /// DDGame__InitPaletteGradientSprites
-            fn/Stdcall DDGAME_INIT_PALETTE_GRADIENT_SPRITES = 0x005706D0;
-            /// DDGame__InitFeatureFlags
-            fn/Stdcall DDGAME_INIT_FEATURE_FLAGS = 0x00524700;
-            /// DDGame__InitDisplayFinal_Maybe
-            fn DDGAME_INIT_DISPLAY_FINAL = 0x0056A830;
-            /// DDGame__IsSuperWeapon
+            /// GameWorld::InitGameState — stdcall(this=GameRuntime*), RET 0x4
+            fn/Stdcall GAME_WORLD_INIT_GAME_STATE = 0x00526500;
+            /// GameWorld__InitFields
+            fn GAME_WORLD_INIT_FIELDS = 0x00526120;
+            /// GameWorld__InitRenderIndices — usercall(ESI=world), plain RET
+            fn/Usercall GAME_WORLD_INIT_RENDER_INDICES = 0x00526080;
+            /// GameWorld__InitVersionFlags — stdcall(runtime)
+            fn/Stdcall GAME_WORLD_INIT_VERSION_FLAGS = 0x00525BE0;
+            /// GameWorld__LoadFonts — loads .fnt font resources into the display.
+            fn/Usercall GAME_WORLD_LOAD_FONTS = 0x00570F30;
+            /// GameRuntime__LoadFontExtension — loads .fex font extension for a font slot.
+            fn/Stdcall GAME_RUNTIME_LOAD_FONT_EXTENSION = 0x00570E80;
+            /// GameWorld__LoadHudAndWeaponSprites
+            fn/Thiscall GAME_WORLD_LOAD_HUD_AND_WEAPON_SPRITES = 0x0053D0E0;
+            /// GameWorld__InitPaletteGradientSprites
+            fn/Stdcall GAME_WORLD_INIT_PALETTE_GRADIENT_SPRITES = 0x005706D0;
+            /// GameWorld__InitFeatureFlags
+            fn/Stdcall GAME_WORLD_INIT_FEATURE_FLAGS = 0x00524700;
+            /// GameWorld__InitDisplayFinal_Maybe
+            fn GAME_WORLD_INIT_DISPLAY_FINAL = 0x0056A830;
+            /// GameWorld__IsSuperWeapon
             fn/Usercall IS_SUPER_WEAPON = 0x00565960;
-            /// DDGame__CheckWeaponAvail
+            /// GameWorld__CheckWeaponAvail
             fn/Fastcall CHECK_WEAPON_AVAIL = 0x0053FFC0;
         }
 
@@ -352,8 +353,8 @@ pub mod va {
     }
 
     // Backward-compat aliases (not registered separately — same address)
-    /// CTask::vtable4 (same implementation as vt3 in base)
-    pub const CTASK_VT4: u32 = CTASK_VT3;
+    /// BaseEntity::vtable4 (same implementation as vt3 in base)
+    pub const BASE_ENTITY_VT4: u32 = BASE_ENTITY_VT3;
     /// Alias for backward compatibility with validation code.
     pub const CGAMETASK_VTABLE2: u32 = CGAMETASK_SOUND_EMITTER_VT;
     /// Alias for callers using the old name.
@@ -362,8 +363,8 @@ pub mod va {
     pub const CONSTRUCT_LANDSCAPE: u32 = LANDSCAPE_CONSTRUCTOR;
     /// Duplicate: same as SPRITE_REGION_CONSTRUCTOR.
     pub const CONSTRUCT_SPRITE_REGION: u32 = SPRITE_REGION_CONSTRUCTOR;
-    /// Duplicate: same as CTASK_TURNGAME_CTOR.
-    pub const TURN_GAME_CONSTRUCTOR: u32 = CTASK_TURNGAME_CTOR;
+    /// Duplicate: same as WORLD_ROOT_ENTITY_CTOR.
+    pub const WORLD_ROOT_CONSTRUCTOR: u32 = WORLD_ROOT_ENTITY_CTOR;
 
     // =========================================================================
     // Replay / turn management
@@ -444,11 +445,11 @@ pub mod va {
         fn PROJECTILE_FIRE = 0x0051DFB0;
         /// Strike weapons (AirStrike, NapalmStrike, MineStrike, MoleSquadron, MailStrike).
         /// stdcall(worm, &subtype_34, local_struct), RET 0xC.
-        /// Spawns CTaskAirStrike or similar. NOT for grenades — grenades use CWP.
+        /// Spawns AirStrikeEntity or similar. NOT for grenades — grenades use CWP.
         fn STRIKE_FIRE = 0x0051E2C0;
         /// usercall(ECX=local_struct, EDX=worm, [ESP+4]=fire_params), RET 0x4
         fn PLACED_EXPLOSIVE = 0x0051EC80;
-        /// Spawns CTaskArrow (Shotgun, Longbow). Allocates 0x168 bytes.
+        /// Spawns ArrowEntity (Shotgun, Longbow). Allocates 0x168 bytes.
         /// thiscall(ECX=worm, fire_params, local_struct), RET 0x8.
         fn CREATE_ARROW = 0x0051ED90;
         /// stdcall(worm, fire_params, local_struct), RET 0xC
@@ -590,25 +591,25 @@ pub mod va {
         fn/Fastcall SPRITE_GFX_TABLE_INIT = 0x00541620;
         /// RingBuffer__Init
         fn/Usercall RING_BUFFER_INIT = 0x00541060;
-        /// CGameTask__InitTeamScoring
+        /// WorldEntity__InitTeamScoring
         fn/Fastcall INIT_TEAM_SCORING = 0x00528510;
-        /// CGameTask__InitAllianceData
+        /// WorldEntity__InitAllianceData
         fn/Usercall INIT_ALLIANCE_DATA = 0x005262D0;
-        /// CGameTask__InitTurnState
+        /// WorldEntity__InitTurnState
         fn/Usercall INIT_TURN_STATE = 0x00528690;
         /// InitLandscapeBorders — applies the scheme cavern flag to the landscape.
         fn/Usercall INIT_LANDSCAPE_BORDERS = 0x00528480;
         /// HudPanel constructor
         fn/Stdcall HUD_PANEL_CONSTRUCTOR = 0x00524070;
-        /// DDGame__InitTeamsFromSetup
+        /// GameWorld__InitTeamsFromSetup
         fn/Stdcall INIT_TEAMS_FROM_SETUP = 0x005220B0;
         /// TeamManager constructor
         fn/Stdcall TEAM_MANAGER_CONSTRUCTOR = 0x00563D40;
-        /// CTaskGameState constructor
+        /// GameStateEntity constructor
         fn/Stdcall GAME_STATE_CONSTRUCTOR = 0x00532330;
         /// DisplayGfx::ConstructTextbox
         fn/Stdcall CONSTRUCT_TEXTBOX = 0x004FAF00;
-        /// DDGame__InitWeaponPanel
+        /// GameWorld__InitWeaponPanel
         fn/Stdcall INIT_WEAPON_PANEL = 0x00567770;
         /// Buffer object constructor
         fn/Stdcall BUFFER_OBJECT_CONSTRUCTOR = 0x00545FD0;
@@ -646,7 +647,7 @@ pub mod va {
         fn/Fastcall DISPATCH_GLOBAL_SOUND = 0x00526270;
         /// RecordActiveSound
         fn/Usercall RECORD_ACTIVE_SOUND = 0x00546260;
-        /// CTaskWorm::PlaySound2 (FUN_00515020): usercall(EDI=worm) + stdcall(sound_id, volume, flags).
+        /// WormEntity::PlaySound2 (FUN_00515020): usercall(EDI=worm) + stdcall(sound_id, volume, flags).
         /// Stop+play on secondary sound handle (+0x3B4). 23 callers in WA.
         fn/Usercall WORM_PLAY_SOUND_2 = 0x00515020;
         /// LoadAndPlayStreamingPositional (0x546BB0): usercall(EAX=task) + stack(volume, sound_id, flags, x, y).
@@ -960,7 +961,7 @@ pub mod va {
         global G_SKIP_TO_MAIN_MENU = 0x007A083D;
         global G_AUTO_NETWORK_FLAG = 0x007A083F;
         /// Input-hook mode flag (u32). Nonzero = an input hook is active; StepFrame
-        /// gates PollInput on `ddgame.team_arena.active_worm_count <= active_team_count`
+        /// gates PollInput on `world.team_arena.active_worm_count <= active_team_count`
         /// only in that mode (otherwise always polls).
         global G_INPUT_HOOK_MODE = 0x007A0860;
         global G_RENDER_CONTEXT = 0x0079D6D4;
@@ -1139,12 +1140,12 @@ pub mod va {
     }
 
     // =========================================================================
-    // DDGame struct offsets (not VAs — kept as manual constants)
+    // GameWorld struct offsets (not VAs — kept as manual constants)
     // =========================================================================
 
-    pub mod ddgame_offsets {
-        /// Offset to TurnGame object pointer
-        pub const TURN_GAME: u32 = 0x08;
+    pub mod world_offsets {
+        /// Offset to WorldRoot object pointer
+        pub const WORLD_ROOT: u32 = 0x08;
         /// Offset to game global state pointer
         pub const GAME_GLOBAL: u32 = 0x488;
         /// Offset to PC_Landscape pointer

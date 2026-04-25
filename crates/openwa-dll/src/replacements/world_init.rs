@@ -1,12 +1,12 @@
-//! Rust replacements for DDGame constructor sub-functions.
+//! Rust replacements for GameWorld constructor sub-functions.
 //!
 //! Each function is hooked individually so it works regardless of whether the
-//! DDGame constructor itself is Rust or the original WA code.
+//! GameWorld constructor itself is Rust or the original WA code.
 //!
 //! ## Ported functions
 //!
-//! - `DDGame__InitFields` (0x526120): usercall(EDI=ddgame), plain RET → EAX=ddgame
-//! - `DDGame__InitRenderIndices` (0x526080): usercall(ESI=base), plain RET → EAX=base
+//! - `GameWorld__InitFields` (0x526120): usercall(EDI=world), plain RET → EAX=world
+//! - `GameWorld__InitRenderIndices` (0x526080): usercall(ESI=base), plain RET → EAX=base
 //! - `BitGrid__Init` (0x4F6370): usercall(ESI,ECX,EDI) + 1 stack, RET 0x4
 //! - `IMG__LoadFromDir` (0x4F6300): usercall(ECX,EAX) + 1 stack, RET 0x4
 //! - `FUN_570E20` (display layer init): usercall(ESI=wrapper), plain RET
@@ -23,13 +23,14 @@ use openwa_game::engine::game_state_init::init_turn_state;
 use openwa_game::engine::ring_buffer::ring_buffer_init;
 use openwa_game::engine::team_init::{init_alliance_data, init_team_scoring};
 use openwa_game::engine::{
-    DDGame, DDGameWrapper, ddgame_init_fields, ddgame_init_render_indices, display_layer_color_init,
+    GameRuntime, GameWorld, display_layer_color_init, game_world_init_fields,
+    game_world_init_render_indices,
 };
 use openwa_game::game::{check_weapon_avail, is_super_weapon};
 use openwa_game::render::landscape::init_landscape_borders;
 use openwa_game::render::sprite::sprite_gfx_table_init;
 
-// ─── DDGame__InitFields (0x526120) ──────────────────────────────────────────
+// ─── GameWorld__InitFields (0x526120) ──────────────────────────────────────────
 
 hook::usercall_trampoline!(
     fn init_fields_trampoline;
@@ -37,12 +38,12 @@ hook::usercall_trampoline!(
     reg = edi
 );
 
-extern "cdecl" fn impl_init_fields(ddgame: *mut DDGame) -> *mut DDGame {
-    unsafe { ddgame_init_fields(ddgame) }
-    ddgame // Original: MOV EAX, EDI; RET
+extern "cdecl" fn impl_init_fields(world: *mut GameWorld) -> *mut GameWorld {
+    unsafe { game_world_init_fields(world) }
+    world // Original: MOV EAX, EDI; RET
 }
 
-// ─── DDGame__InitRenderIndices (0x526080) ───────────────────────────────────
+// ─── GameWorld__InitRenderIndices (0x526080) ───────────────────────────────────
 
 hook::usercall_trampoline!(
     fn init_render_indices_trampoline;
@@ -51,9 +52,9 @@ hook::usercall_trampoline!(
 );
 
 extern "cdecl" fn impl_init_render_indices(base: u32) -> u32 {
-    // ESI = ddgame + 0x72D8; recover the DDGame pointer
-    let ddgame = (base - 0x72D8) as *mut DDGame;
-    unsafe { ddgame_init_render_indices(ddgame) }
+    // ESI = world + 0x72D8; recover the GameWorld pointer
+    let world = (base - 0x72D8) as *mut GameWorld;
+    unsafe { game_world_init_render_indices(world) }
     base // Original: MOV EAX, ESI; RET
 }
 
@@ -93,9 +94,9 @@ hook::usercall_trampoline!(
     reg = esi
 );
 
-extern "cdecl" fn impl_display_layer_init(wrapper: *mut DDGameWrapper) -> *mut DDGameWrapper {
-    unsafe { display_layer_color_init(wrapper) }
-    wrapper
+extern "cdecl" fn impl_display_layer_init(runtime: *mut GameRuntime) -> *mut GameRuntime {
+    unsafe { display_layer_color_init(runtime) }
+    runtime
 }
 
 // ─── IMG__LoadFromDir (0x4F6300) ───────────────────────────────────
@@ -174,14 +175,14 @@ extern "cdecl" fn impl_load_dir(handler: u32) -> u32 {
 pub fn install() -> Result<(), String> {
     unsafe {
         hook::install(
-            "DDGame__InitFields",
-            va::DDGAME_INIT_FIELDS,
+            "GameWorld__InitFields",
+            va::GAME_WORLD_INIT_FIELDS,
             init_fields_trampoline as *const (),
         )?;
 
         hook::install(
-            "DDGame__InitRenderIndices",
-            va::DDGAME_INIT_RENDER_INDICES,
+            "GameWorld__InitRenderIndices",
+            va::GAME_WORLD_INIT_RENDER_INDICES,
             init_render_indices_trampoline as *const (),
         )?;
 
@@ -228,25 +229,25 @@ pub fn install() -> Result<(), String> {
         )?;
 
         hook::install(
-            "CGameTask__InitTeamScoring",
+            "WorldEntity__InitTeamScoring",
             va::INIT_TEAM_SCORING,
             init_team_scoring_trampoline as *const (),
         )?;
 
         hook::install(
-            "CGameTask__InitAllianceData",
+            "WorldEntity__InitAllianceData",
             va::INIT_ALLIANCE_DATA,
             init_alliance_data_trampoline as *const (),
         )?;
 
         hook::install(
-            "CGameTask__InitTurnState",
+            "WorldEntity__InitTurnState",
             va::INIT_TURN_STATE,
             init_turn_state_trampoline as *const (),
         )?;
 
         hook::install(
-            "DDGame__CheckWeaponAvail",
+            "GameWorld__CheckWeaponAvail",
             va::CHECK_WEAPON_AVAIL,
             check_weapon_avail_trampoline as *const (),
         )?;
@@ -258,7 +259,7 @@ pub fn install() -> Result<(), String> {
         )?;
 
         hook::install(
-            "DDGame__IsSuperWeapon",
+            "GameWorld__IsSuperWeapon",
             va::IS_SUPER_WEAPON,
             is_super_weapon_trampoline as *const (),
         )?;
@@ -289,20 +290,20 @@ hook::usercall_trampoline!(
     regs = [esi, eax]
 );
 
-// ─── CGameTask__InitTeamScoring (0x528510) ──────────────────────────────────
+// ─── WorldEntity__InitTeamScoring (0x528510) ──────────────────────────────────
 // Convention: fastcall(ECX=wrapper), plain RET.
 
-unsafe extern "fastcall" fn init_team_scoring_trampoline(wrapper: *mut DDGameWrapper, _edx: u32) {
+unsafe extern "fastcall" fn init_team_scoring_trampoline(runtime: *mut GameRuntime, _edx: u32) {
     unsafe {
-        init_team_scoring(wrapper);
+        init_team_scoring(runtime);
     }
 }
 
-// ─── CGameTask__InitAllianceData (0x5262D0) ─────────────────────────────────
+// ─── WorldEntity__InitAllianceData (0x5262D0) ─────────────────────────────────
 // Convention: usercall(EAX=wrapper), plain RET.
 
-extern "cdecl" fn impl_init_alliance_data(wrapper: *mut DDGameWrapper) {
-    unsafe { init_alliance_data(wrapper) }
+extern "cdecl" fn impl_init_alliance_data(runtime: *mut GameRuntime) {
+    unsafe { init_alliance_data(runtime) }
 }
 
 hook::usercall_trampoline!(
@@ -311,11 +312,11 @@ hook::usercall_trampoline!(
     reg = eax
 );
 
-// ─── CGameTask__InitTurnState (0x528690) ────────────────────────────────────
+// ─── WorldEntity__InitTurnState (0x528690) ────────────────────────────────────
 // Convention: usercall(EAX=wrapper), plain RET.
 
-extern "cdecl" fn impl_init_turn_state(wrapper: *mut DDGameWrapper) {
-    unsafe { init_turn_state(wrapper) }
+extern "cdecl" fn impl_init_turn_state(runtime: *mut GameRuntime) {
+    unsafe { init_turn_state(runtime) }
 }
 
 hook::usercall_trampoline!(
@@ -324,12 +325,12 @@ hook::usercall_trampoline!(
     reg = eax
 );
 
-// ─── DDGame__CheckWeaponAvail (0x53FFC0) ────────────────────────────────────
-// Convention: fastcall(ECX=ddgame) + unaff_ESI=weapon_index, plain RET.
+// ─── GameWorld__CheckWeaponAvail (0x53FFC0) ────────────────────────────────────
+// Convention: fastcall(ECX=world) + unaff_ESI=weapon_index, plain RET.
 // Returns i32 in EAX.
 
-extern "cdecl" fn impl_check_weapon_avail(ddgame: *mut DDGame, weapon_id: WeaponId) -> i32 {
-    unsafe { check_weapon_avail(ddgame, weapon_id) }
+extern "cdecl" fn impl_check_weapon_avail(world: *mut GameWorld, weapon_id: WeaponId) -> i32 {
+    unsafe { check_weapon_avail(world, weapon_id) }
 }
 
 hook::usercall_trampoline!(
@@ -341,8 +342,8 @@ hook::usercall_trampoline!(
 // ─── InitLandscapeBorders (0x528480) ────────────────────────────────────────
 // Convention: usercall(EAX=wrapper), plain RET.
 
-extern "cdecl" fn impl_init_landscape_borders(wrapper: *mut DDGameWrapper) {
-    unsafe { init_landscape_borders(wrapper) }
+extern "cdecl" fn impl_init_landscape_borders(runtime: *mut GameRuntime) {
+    unsafe { init_landscape_borders(runtime) }
 }
 
 hook::usercall_trampoline!(
@@ -351,7 +352,7 @@ hook::usercall_trampoline!(
     reg = eax
 );
 
-// ─── DDGame__IsSuperWeapon (0x565960) ───────────────────────────────────────
+// ─── GameWorld__IsSuperWeapon (0x565960) ───────────────────────────────────────
 // Convention: usercall(EAX=weapon_index) + 1 stack param (param_1: u8), plain RET.
 // Returns u8 in AL.
 

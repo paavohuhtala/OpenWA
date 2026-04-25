@@ -1,98 +1,96 @@
 use crate::FieldRegistry;
-use crate::engine::ddgame::DDGame;
+use crate::engine::world::GameWorld;
 use crate::game::TaskMessage;
 use crate::game::class_type::ClassType;
 
 crate::define_addresses! {
-    class "CTask" {
-        /// CTask vtable - 7 virtual method pointers
-        vtable CTASK_VTABLE = 0x00669F8C;
-        /// CTask constructor - initializes base task fields and children list
-        ctor/Stdcall CTASK_CONSTRUCTOR = 0x005625A0;
-        /// CTask::vtable0 - initialization/unknown
-        vmethod CTASK_VT0_INIT = 0x00562710;
-        /// CTask::Free - destructor/deallocation
-        vmethod CTASK_VT1_FREE = 0x00562620;
-        /// CTask::HandleMessage - message dispatch
-        vmethod CTASK_VT2_HANDLE_MESSAGE = 0x00562F30;
-        /// CTask::vtable3 - unknown
-        vmethod CTASK_VT3 = 0x005613D0;
-        /// CTask::vtable5 - unknown
-        vmethod CTASK_VT5 = 0x00562FA0;
-        /// CTask::vtable6 - unknown
-        vmethod CTASK_VT6 = 0x00563000;
-        /// CTask::ProcessFrame
-        vmethod CTASK_VT7_PROCESS_FRAME = 0x00563210;
+    class "BaseEntity" {
+        /// BaseEntity constructor - initializes base task fields and children list
+        ctor/Stdcall BASE_ENTITY_CONSTRUCTOR = 0x005625A0;
+        /// BaseEntity::vtable0 - initialization/unknown
+        vmethod BASE_ENTITY_VT0_INIT = 0x00562710;
+        /// BaseEntity::Free - destructor/deallocation
+        vmethod BASE_ENTITY_VT1_FREE = 0x00562620;
+        /// BaseEntity::HandleMessage - message dispatch
+        vmethod BASE_ENTITY_VT2_HANDLE_MESSAGE = 0x00562F30;
+        /// BaseEntity::vtable3 - unknown
+        vmethod BASE_ENTITY_VT3 = 0x005613D0;
+        /// BaseEntity::vtable5 - unknown
+        vmethod BASE_ENTITY_VT5 = 0x00562FA0;
+        /// BaseEntity::vtable6 - unknown
+        vmethod BASE_ENTITY_VT6 = 0x00563000;
+        /// BaseEntity::ProcessFrame
+        vmethod BASE_ENTITY_VT7_PROCESS_FRAME = 0x00563210;
     }
 
-    class "CTaskLand" {
-        /// CTaskLand vtable - landscape/terrain task
-        vtable CTASK_LAND_VTABLE = 0x00664388;
-        ctor CTASK_LAND_CTOR = 0x00505440;
+    class "LandEntity" {
+        /// LandEntity vtable - landscape/terrain task
+        vtable LAND_ENTITY_VTABLE = 0x00664388;
+        ctor LAND_ENTITY_CTOR = 0x00505440;
     }
 
-    class "CTaskDirt" {
-        /// CTaskDirt vtable - dirt/particle system (1 per game)
-        vtable CTASK_DIRT_VTABLE = 0x00669D74;
-        ctor CTASK_DIRT_CTOR = 0x0054EDC0;
+    class "DirtEntity" {
+        /// DirtEntity vtable - dirt/particle system (1 per game)
+        vtable DIRT_ENTITY_VTABLE = 0x00669D74;
+        ctor DIRT_ENTITY_CTOR = 0x0054EDC0;
     }
 
-    class "CTaskSpriteAnim" {
-        /// CTaskSpriteAnim vtable - sprite animation manager (1 per game)
-        vtable CTASK_SPRITE_ANIM_VTABLE = 0x00669D00;
-        ctor CTASK_SPRITE_ANIM_CTOR = 0x005466C0;
+    class "SpriteAnimEntity" {
+        /// SpriteAnimEntity vtable - sprite animation manager (1 per game)
+        vtable SPRITE_ANIM_ENTITY_VTABLE = 0x00669D00;
+        ctor SPRITE_ANIM_ENTITY_CTOR = 0x005466C0;
     }
 
-    class "CTaskCPU" {
-        /// CTaskCPU vtable - AI/CPU bot controller
-        vtable CTASK_CPU_VTABLE = 0x00669D54;
-        ctor CTASK_CPU_CTOR = 0x005485D0;
+    class "CPUEntity" {
+        /// CPUEntity vtable - AI/CPU bot controller
+        vtable CPU_ENTITY_VTABLE = 0x00669D54;
+        ctor CPU_ENTITY_CTOR = 0x005485D0;
     }
 
-    class "CTaskSeaBubble" {
-        /// CTaskSeaBubble vtable - water bubble particle
-        vtable CTASK_SEA_BUBBLE_VTABLE = 0x00669E88;
-        ctor CTASK_SEABUBBLE_CTOR = 0x00554FE0;
+    class "SeaBubbleEntity" {
+        /// SeaBubbleEntity vtable - water bubble particle
+        vtable SEA_BUBBLE_ENTITY_VTABLE = 0x00669E88;
+        ctor SEABUBBLE_ENTITY_CTOR = 0x00554FE0;
     }
 
     // Entity constructors without known vtables
-    class "CTaskAirstrike" {
-        ctor CTASK_AIRSTRIKE_CTOR = 0x005553C0;
+    class "AirstrikeEntity" {
+        ctor AIRSTRIKE_ENTITY_CTOR = 0x005553C0;
     }
-    class "CTaskArrow" {
-        ctor CTASK_ARROW_CTOR = 0x004FE130;
+    class "ArrowEntity" {
+        ctor ARROW_ENTITY_CTOR = 0x004FE130;
     }
-    class "CTaskCanister" {
-        ctor CTASK_CANISTER_CTOR = 0x00501A80;
+    class "CanisterEntity" {
+        ctor CANISTER_ENTITY_CTOR = 0x00501A80;
     }
-    class "CTaskCross" {
-        ctor CTASK_CROSS_CTOR = 0x005045C0;
+    class "CrossEntity" {
+        ctor CROSS_ENTITY_CTOR = 0x005045C0;
     }
-    class "CTaskFireball" {
-        ctor CTASK_FIREBALL_CTOR = 0x00550890;
+    class "FireballEntity" {
+        ctor FIREBALL_ENTITY_CTOR = 0x00550890;
     }
-    class "CTaskFlame" {
-        ctor CTASK_FLAME_CTOR = 0x0054F0F0;
+    class "FlameEntity" {
+        ctor FLAME_ENTITY_CTOR = 0x0054F0F0;
     }
-    class "CTaskGas" {
-        ctor CTASK_GAS_CTOR = 0x00554750;
+    class "GasEntity" {
+        ctor GAS_ENTITY_CTOR = 0x00554750;
     }
-    class "CTaskOldWorm" {
-        ctor CTASK_OLDWORM_CTOR = 0x0051FEB0;
+    class "OldWarmEntity" {
+        ctor OLDWORM_ENTITY_CTOR = 0x0051FEB0;
     }
-    class "CTaskScoreBubble" {
-        ctor CTASK_SCOREBUBBLE_CTOR = 0x00554CA0;
+    class "ScoreBubbleEntity" {
+        ctor SCOREBUBBLE_ENTITY_CTOR = 0x00554CA0;
     }
-    class "CTaskSmoke" {
-        ctor CTASK_SMOKE_CTOR = 0x005551D0;
+    class "SmokeEntity" {
+        ctor SMOKE_ENTITY_CTOR = 0x005551D0;
     }
 }
 
-/// CTask base vtable — 7 slots shared by all task types.
+/// BaseEntity base vtable — 7 slots shared by all task types.
 ///
-/// Every CTask subclass vtable starts with these 7 slots. Subclasses override
+/// Every BaseEntity subclass vtable starts with these 7 slots. Subclasses override
 /// individual slots and extend with additional class-specific methods.
-/// CGameTask adds slots 7+ beyond this base.
+/// WorldEntity adds slots 7+ beyond this base.
 ///
 /// Source: wkJellyWorm/src/entities/CTask.h (vtNum = 7), confirmed via Ghidra.
 ///
@@ -100,45 +98,50 @@ crate::define_addresses! {
 /// Slot  Offset  Name                 Params (thiscall, ECX=this)
 /// ----  ------  -------------------  ----------------------------
 ///  0    0x00    WriteReplayState     stream: *mut u8
-///  1    0x04    Free                 flags: u8 → *mut CTask
+///  1    0x04    Free                 flags: u8 → *mut BaseEntity
 ///  2    0x08    HandleMessage        sender, msg_type, size, data
 ///  3    0x0C    (unknown, stub)      3 params, returns 0
 ///  4    0x10    (unknown, stub)      3 params, returns 0 (same fn as slot 3)
 ///  5    0x14    ProcessChildren      flags: u32
 ///  6    0x18    ProcessFrame         (no params)
 /// ```
-#[openwa_game::vtable(size = 7, va = 0x00669F8C, class = "CTask")]
-pub struct CTaskVtable {
+#[openwa_game::vtable(size = 7, va = 0x00669F8C, class = "BaseEntity")]
+pub struct BaseEntityVtable {
     /// WriteReplayState — serializes task state to replay stream.
     #[slot(0)]
-    pub write_replay_state: fn(this: *mut CTask, stream: *mut u8),
+    pub write_replay_state: fn(this: *mut BaseEntity, stream: *mut u8),
     /// Free — scalar deleting destructor. Calls destructor, then `_free` if flags & 1.
     #[slot(1)]
-    pub free: fn(this: *mut CTask, flags: u8) -> *mut CTask,
+    pub free: fn(this: *mut BaseEntity, flags: u8) -> *mut BaseEntity,
     /// HandleMessage — broadcasts message to all children (base implementation).
     #[slot(2)]
-    pub handle_message:
-        fn(this: *mut CTask, sender: *mut CTask, msg_type: TaskMessage, size: u32, data: *const u8),
+    pub handle_message: fn(
+        this: *mut BaseEntity,
+        sender: *mut BaseEntity,
+        msg_type: TaskMessage,
+        size: u32,
+        data: *const u8,
+    ),
     /// ProcessChildren — iterates children with flags. Base at 0x562FA0.
     #[slot(5)]
-    pub process_children: fn(this: *mut CTask, flags: u32),
+    pub process_children: fn(this: *mut BaseEntity, flags: u32),
     /// ProcessFrame — per-frame update. Base iterates children. At 0x563000.
     #[slot(6)]
-    pub process_frame: fn(this: *const CTask),
+    pub process_frame: fn(this: *const BaseEntity),
 }
 
-bind_CTaskVtable!(CTask, vtable);
+bind_BaseEntityVtable!(BaseEntity, vtable);
 
 /// Base task class in WA's entity hierarchy.
 ///
-/// All game objects inherit from CTask. Tasks form a tree via parent/children
+/// All game objects inherit from BaseEntity. Tasks form a tree via parent/children
 /// pointers and communicate through the TaskMessage system.
 ///
 /// Source: wkJellyWorm CTask.h, Ghidra decompilation of 0x5625A0 + 0x562520
 ///   0x1C: 0x563210 ProcessFrame
 #[derive(FieldRegistry)]
 #[repr(C)]
-pub struct CTask<V: Vtable = *const CTaskVtable> {
+pub struct BaseEntity<V: Vtable = *const BaseEntityVtable> {
     /// 0x00: Pointer to virtual method table
     pub vtable: V,
     /// 0x04: Parent task in the hierarchy
@@ -155,8 +158,8 @@ pub struct CTask<V: Vtable = *const CTaskVtable> {
     pub children_watermark: u32,
     /// 0x14: Pointer to children data array (sparse, allocated 0x60 bytes initially,
     /// reallocated to `children_capacity * 8 + 0x20` bytes on overflow).
-    /// Non-null entries are valid CTask pointers (any subclass).
-    pub children_data: *mut *mut CTask,
+    /// Non-null entries are valid BaseEntity pointers (any subclass).
+    pub children_data: *mut *mut BaseEntity,
     /// 0x18: Children hash list pointer (set to 0 in constructor)
     pub children_hash: *mut u8,
     /// 0x1C: Unknown (set to 0 by parent-linking helper FUN_00562520)
@@ -169,15 +172,15 @@ pub struct CTask<V: Vtable = *const CTaskVtable> {
     pub shared_data: *mut u8,
     /// 0x28: 1 if this task owns shared_data (root), 0 if inherited from parent
     pub owns_shared_data: u32,
-    /// 0x2C: DDGame pointer (3rd param to CTask::Constructor, stored at this+0x2C)
-    pub ddgame: *mut DDGame,
+    /// 0x2C: GameWorld pointer (3rd param to BaseEntity::Constructor, stored at this+0x2C)
+    pub world: *mut GameWorld,
 }
 
-const _: () = assert!(core::mem::size_of::<CTask>() == 0x30);
+const _: () = assert!(core::mem::size_of::<BaseEntity>() == 0x30);
 
-/// Marker trait for types that can be used as vtable pointers in `CTask<V>`.
+/// Marker trait for types that can be used as vtable pointers in `BaseEntity<V>`.
 ///
-/// Implemented automatically by the `#[vtable]` proc macro for `*const MyVTable`.
+/// Implemented automatically by the `#[vtable]` proc macro for `*const MyVtable`.
 /// Also implemented for `*const c_void` (the default/untyped case).
 ///
 /// # Safety
@@ -187,51 +190,51 @@ pub unsafe trait Vtable: 'static {}
 // Default vtable type (untyped)
 unsafe impl Vtable for *const core::ffi::c_void {}
 
-/// Trait for all task types in the CTask hierarchy.
+/// Trait for all task types in the BaseEntity hierarchy.
 ///
-/// Provides safe access to the underlying CTask fields regardless of
+/// Provides safe access to the underlying BaseEntity fields regardless of
 /// inheritance depth. Avoids repetitive `.base.base` chains.
 ///
 /// # Safety
-/// Implementors must be `#[repr(C)]` structs where a `CTask` (with any
+/// Implementors must be `#[repr(C)]` structs where a `BaseEntity` (with any
 /// vtable type parameter) is at offset 0.
-pub unsafe trait Task {
-    /// Get a shared reference to the underlying CTask (default vtable type).
-    fn task(&self) -> &CTask {
-        unsafe { &*(self as *const Self as *const CTask) }
+pub unsafe trait Entity {
+    /// Get a shared reference to the underlying BaseEntity (default vtable type).
+    fn task(&self) -> &BaseEntity {
+        unsafe { &*(self as *const Self as *const BaseEntity) }
     }
 
-    /// Get a mutable reference to the underlying CTask.
-    fn task_mut(&mut self) -> &mut CTask {
-        unsafe { &mut *(self as *mut Self as *mut CTask) }
+    /// Get a mutable reference to the underlying BaseEntity.
+    fn task_mut(&mut self) -> &mut BaseEntity {
+        unsafe { &mut *(self as *mut Self as *mut BaseEntity) }
     }
 
-    /// Get a raw const pointer to the CTask base.
-    fn as_task_ptr(&self) -> *const CTask {
-        self as *const Self as *const CTask
+    /// Get a raw const pointer to the BaseEntity base.
+    fn as_task_ptr(&self) -> *const BaseEntity {
+        self as *const Self as *const BaseEntity
     }
 
-    /// Get a raw mutable pointer to the CTask base.
-    fn as_task_ptr_mut(&mut self) -> *mut CTask {
-        self as *mut Self as *mut CTask
+    /// Get a raw mutable pointer to the BaseEntity base.
+    fn as_task_ptr_mut(&mut self) -> *mut BaseEntity {
+        self as *mut Self as *mut BaseEntity
     }
 
-    /// Get the DDGame pointer from the CTask base.
-    fn ddgame(&self) -> *mut DDGame {
-        self.task().ddgame
+    /// Get the GameWorld pointer from the BaseEntity base.
+    fn world(&self) -> *mut GameWorld {
+        self.task().world
     }
 
-    /// Broadcast a message to all children — pure Rust port of CTask::HandleMessage (0x562F30).
+    /// Broadcast a message to all children — pure Rust port of BaseEntity::HandleMessage (0x562F30).
     ///
     /// Iterates the sparse children array (`children_data[0..children_watermark]`),
     /// skips null entries, and calls each child's `HandleMessage` (vtable slot 2).
     /// This is how messages propagate down the task tree.
     ///
     /// # Safety
-    /// All non-null children must be valid CTask pointers with valid vtables.
+    /// All non-null children must be valid BaseEntity pointers with valid vtables.
     unsafe fn broadcast_message(
         &mut self,
-        sender: *mut CTask,
+        sender: *mut BaseEntity,
         msg_type: TaskMessage,
         size: u32,
         data: *const u8,
@@ -240,7 +243,7 @@ pub unsafe trait Task {
             let task_ptr = self.as_task_ptr_mut();
 
             // Scan for non-null children and dispatch HandleMessage.
-            // Mirrors WA's CTask::HandleMessage at 0x562F30 exactly:
+            // Mirrors WA's BaseEntity::HandleMessage at 0x562F30 exactly:
             // scan → dispatch → re-read watermark → scan next → ...
             //
             // IMPORTANT: read_volatile is required for watermark and children_data
@@ -266,59 +269,51 @@ pub unsafe trait Task {
                     }
                 };
 
-                CTask::handle_message_raw(child, sender, msg_type, size, data);
+                BaseEntity::handle_message_raw(child, sender, msg_type, size, data);
             }
         }
     }
 }
 
-// Blanket impl for any CTask<V>
-unsafe impl<V: Vtable> Task for CTask<V> {}
+// Blanket impl for any BaseEntity<V>
+unsafe impl<V: Vtable> Entity for BaseEntity<V> {}
 
 // ---------------------------------------------------------------------------
 // Raw-pointer associated functions — no &self/&mut self, no noalias UB.
 //
 // Use these instead of Task trait methods when operating on WA-owned objects
-// through raw pointers. Any type whose first field is CTask (at offset 0)
-// can be cast to *mut CTask and used with these functions.
+// through raw pointers. Any type whose first field is BaseEntity (at offset 0)
+// can be cast to *mut BaseEntity and used with these functions.
 // ---------------------------------------------------------------------------
 
-impl CTask {
-    /// Get the DDGame pointer from a raw CTask pointer.
-    ///
-    /// Reads the `ddgame` field (offset 0x2C) without creating a Rust reference.
-    #[inline(always)]
-    pub unsafe fn ddgame_raw(this: *const CTask) -> *mut DDGame {
-        unsafe { (*this).ddgame }
-    }
-
+impl BaseEntity {
     /// Read the dword at object offset +0x30 — the collision system's
     /// "contact face" scratch slot.
     ///
-    /// Right before dispatching slot 8 (`OnContact`) on a CGameTask, the
+    /// Right before dispatching slot 8 (`OnContact`) on a WorldEntity, the
     /// physics/collision dispatcher writes the face index of the contact
     /// (0..31) into this slot on the *contacted* object. The callee reads the
     /// low 5 bits and uses `1 << face_idx` to test against per-object face
     /// masks.
     ///
-    /// This slot overlaps `CGameTask::subclass_data[0..4]`, which several
+    /// This slot overlaps `WorldEntity::subclass_data[0..4]`, which several
     /// subclasses repurpose as durable storage (worm weapon-fire type,
-    /// turn_game/team secondary vtable pointer, cloud parallax depth). Outside
+    /// world_root/team secondary vtable pointer, cloud parallax depth). Outside
     /// of OnContact dispatch, the value here is whatever the subclass wrote,
     /// not a face index — only read this during contact dispatch.
     #[inline(always)]
-    pub unsafe fn contact_face_slot_raw(this: *const CTask) -> u32 {
+    pub unsafe fn contact_face_slot_raw(this: *const BaseEntity) -> u32 {
         unsafe { *((this as *const u8).add(0x30) as *const u32) }
     }
 
     /// Broadcast a message to all children — raw-pointer version.
     ///
-    /// Pure Rust port of CTask::HandleMessage (0x562F30).
-    /// Identical to `Task::broadcast_message` but takes `*mut CTask` instead
+    /// Pure Rust port of BaseEntity::HandleMessage (0x562F30).
+    /// Identical to `Task::broadcast_message` but takes `*mut BaseEntity` instead
     /// of `&mut self`, avoiding noalias UB.
     pub unsafe fn broadcast_message_raw(
-        task_ptr: *mut CTask,
-        sender: *mut CTask,
+        task_ptr: *mut BaseEntity,
+        sender: *mut BaseEntity,
         msg_type: TaskMessage,
         size: u32,
         data: *const u8,
@@ -342,17 +337,17 @@ impl CTask {
                     }
                 };
 
-                let vt = &*((*child).vtable as *const CTaskVtable);
+                let vt = &*((*child).vtable as *const BaseEntityVtable);
                 (vt.handle_message)(child, sender, msg_type, size, data);
             }
         }
     }
 
-    /// Typed wrapper around [`CTask::broadcast_message_raw`] — serialises a
+    /// Typed wrapper around [`BaseEntity::broadcast_message_raw`] — serialises a
     /// `TaskMessageData` payload and uses its `MESSAGE_TYPE` for dispatch.
     pub unsafe fn broadcast_typed_message_raw<TMessage: crate::game::message::TaskMessageData>(
-        task_ptr: *mut CTask,
-        sender: *mut CTask,
+        task_ptr: *mut BaseEntity,
+        sender: *mut BaseEntity,
         message: TMessage,
     ) {
         let buf = bytemuck::bytes_of(&message);
@@ -372,11 +367,11 @@ impl CTask {
 // Shared-data entity registry
 // ---------------------------------------------------------------------------
 
-/// A 0x30-byte node in CTask's shared-data entity hash table.
+/// A 0x30-byte node in BaseEntity's shared-data entity hash table.
 ///
 /// Inserted by `SharedData__Insert` (0x5406A0, called from task constructors).
-/// All game task types (CTaskWorm, CTaskLand, projectiles, …) share the same
-/// 256-bucket table at `CTask.shared_data`. Use the vtable pointer at
+/// All game task types (WormEntity, LandEntity, projectiles, …) share the same
+/// 256-bucket table at `BaseEntity.shared_data`. Use the vtable pointer at
 /// `entity[0]` to identify the object type.
 ///
 /// Hash function (from Ghidra decompilation of `SharedData__Insert`):
@@ -387,7 +382,7 @@ impl CTask {
 /// In practice (small positive key values), this reduces to:
 /// `bucket = (key_esi * 0x11 + key_edi) & 0xff`
 ///
-/// Runtime observation: for `CTaskWorm`, `key_esi` encodes a compound worm
+/// Runtime observation: for `WormEntity`, `key_esi` encodes a compound worm
 /// identity (e.g. `0x11` = team 1, worm 1) and `key_edi` is a small integer.
 /// Companion remove function: `SharedData__Remove` (0x540700).
 #[repr(C)]
@@ -406,7 +401,7 @@ pub struct SharedDataNode {
 
 const _: () = assert!(core::mem::size_of::<SharedDataNode>() == 0x30);
 
-/// View of the 256-bucket entity hash table at `CTask.shared_data`.
+/// View of the 256-bucket entity hash table at `BaseEntity.shared_data`.
 ///
 /// Root tasks own 0x420 bytes of shared data:
 /// - `0x000..0x3FF`: 256 × `*mut SharedDataNode` bucket heads
@@ -423,7 +418,7 @@ pub struct SharedDataTable {
 }
 
 impl SharedDataTable {
-    /// Construct from a raw `CTask.shared_data` pointer.
+    /// Construct from a raw `BaseEntity.shared_data` pointer.
     ///
     /// # Safety
     /// `ptr` must point to a valid shared-data region of at least 256 × 4 = 1024 bytes.
@@ -433,11 +428,11 @@ impl SharedDataTable {
         }
     }
 
-    /// Construct from a `CTask` pointer (reads `task.shared_data`).
+    /// Construct from a `BaseEntity` pointer (reads `task.shared_data`).
     ///
     /// # Safety
-    /// `task` must be a valid, aligned `CTask` pointer.
-    pub unsafe fn from_task(task: *const CTask) -> Self {
+    /// `task` must be a valid, aligned `BaseEntity` pointer.
+    pub unsafe fn from_task(task: *const BaseEntity) -> Self {
         unsafe { Self::from_ptr((*task).shared_data) }
     }
 
@@ -487,46 +482,46 @@ impl SharedDataTable {
     }
 }
 
-/// Breadth-first iterator over the CTask tree.
+/// Breadth-first iterator over the BaseEntity tree.
 ///
 /// Visits every node reachable from `root` by following `children_data`
 /// arrays. Null slots in the sparse children array are skipped automatically.
 ///
-/// Yields raw `*const CTask` pointers. The caller is responsible for casting
+/// Yields raw `*const BaseEntity` pointers. The caller is responsible for casting
 /// to the correct derived type (e.g., by checking the vtable pointer at `[0]`).
 ///
 /// # Example
 /// ```ignore
-/// let iter = unsafe { CTaskBfsIter::new(root_ptr) };
+/// let iter = unsafe { BaseEntityBfsIter::new(root_ptr) };
 /// for task in iter {
-///     if unsafe { *(task as *const u32) } == rb(va::CTASK_MISSILE_VTABLE) {
-///         let m = unsafe { &*(task as *const CTaskMissile) };
+///     if unsafe { *(task as *const u32) } == rb(va::MISSILE_ENTITY_VTABLE) {
+///         let m = unsafe { &*(task as *const MissileEntity) };
 ///         // ...
 ///     }
 /// }
 /// ```
-pub struct CTaskBfsIter {
-    queue: std::collections::VecDeque<*const CTask>,
+pub struct BaseEntityBfsIter {
+    queue: std::collections::VecDeque<*const BaseEntity>,
 }
 
-impl CTaskBfsIter {
+impl BaseEntityBfsIter {
     /// Create a new BFS iterator rooted at `root`.
     ///
     /// # Safety
-    /// `root` must be a valid, aligned `*const CTask`. All reachable
-    /// `children_data` entries must be either null or valid `*const CTask`.
-    pub unsafe fn new(root: *const CTask) -> Self {
+    /// `root` must be a valid, aligned `*const BaseEntity`. All reachable
+    /// `children_data` entries must be either null or valid `*const BaseEntity`.
+    pub unsafe fn new(root: *const BaseEntity) -> Self {
         let mut queue = std::collections::VecDeque::new();
         queue.push_back(root);
         Self { queue }
     }
 }
 
-impl Iterator for CTaskBfsIter {
-    type Item = *const CTask;
+impl Iterator for BaseEntityBfsIter {
+    type Item = *const BaseEntity;
 
     fn next(&mut self) -> Option<Self::Item> {
-        // SAFETY: caller of CTaskBfsIter::new() guarantees node validity.
+        // SAFETY: caller of BaseEntityBfsIter::new() guarantees node validity.
         unsafe {
             let node = self.queue.pop_front()?;
             let watermark = (*node).children_watermark as usize;
@@ -535,7 +530,7 @@ impl Iterator for CTaskBfsIter {
                 for i in 0..watermark {
                     let child_ptr = *data.add(i);
                     if child_ptr != 0 {
-                        self.queue.push_back(child_ptr as *const CTask);
+                        self.queue.push_back(child_ptr as *const BaseEntity);
                     }
                 }
             }

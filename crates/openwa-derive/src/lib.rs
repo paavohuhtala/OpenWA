@@ -10,14 +10,14 @@
 //! ```ignore
 //! #[derive(FieldRegistry)]
 //! #[repr(C)]
-//! pub struct DDGame {
+//! pub struct GameWorld {
 //!     /// DDKeyboard pointer
 //!     pub keyboard: *mut DDKeyboard,
 //!     pub _unknown_04: [u8; 4],
 //!     /// Game PRNG state
 //!     pub rng_state: u32,
 //! }
-//! // Generates: DDGame::field_registry() -> &'static StructFields
+//! // Generates: GameWorld::field_registry() -> &'static StructFields
 //! // with entries for "keyboard" and "rng_state" (skips _unknown_04)
 //! ```
 
@@ -312,7 +312,7 @@ fn vtable_impl(
 
         #va_items
 
-        // Mark *const ThisVtable as a valid vtable pointer type for CTask<V>.
+        // Mark *const ThisVtable as a valid vtable pointer type for BaseEntity<V>.
         unsafe impl openwa_game::task::Vtable for *const #struct_name {}
 
         /// Bind this vtable's known methods as wrapper methods on a class struct.
@@ -549,7 +549,7 @@ fn to_screaming_snake(name: &str) -> String {
     let mut result = String::new();
     for (i, ch) in name.chars().enumerate() {
         if ch.is_uppercase() && i > 0 {
-            // Don't insert underscore between consecutive uppercase (e.g., "DDGame" → "DD_GAME")
+            // Don't insert underscore between consecutive uppercase (e.g., "GameWorld" → "DD_GAME")
             let prev = name.chars().nth(i - 1).unwrap_or('_');
             if prev.is_lowercase() || prev.is_numeric() {
                 result.push('_');
@@ -577,7 +577,7 @@ pub fn derive_field_registry(input: TokenStream) -> TokenStream {
     let struct_name_str = struct_name.to_string();
 
     // Build a map of generic type params → their defaults (e.g., V → *const c_void).
-    // This allows the derive to work on generic structs like CTask<V = *const c_void>
+    // This allows the derive to work on generic structs like BaseEntity<V = *const c_void>
     // by substituting generic params with concrete defaults in size_of expressions.
     let generic_defaults: std::collections::HashMap<String, syn::Type> = input
         .generics
@@ -626,7 +626,7 @@ pub fn derive_field_registry(input: TokenStream) -> TokenStream {
         let doc = extract_doc_comment(&field.attrs);
         let field_ty = &field.ty;
 
-        // Substitute generic type params (e.g., `V` or `CTask<V>`) with their
+        // Substitute generic type params (e.g., `V` or `BaseEntity<V>`) with their
         // defaults for size_of. offset_of uses the bare struct name which
         // Rust resolves with defaults applied.
         let size_ty = substitute_generics(field_ty, &generic_defaults);
@@ -761,8 +761,8 @@ fn value_kind_token(variant: &str) -> proc_macro2::TokenStream {
 
 /// Recursively substitute generic type parameters with their defaults.
 ///
-/// For example, given `CTask<V>` with defaults `{V → *const c_void}`,
-/// produces `CTask<*const c_void>`. Handles nested generics and all
+/// For example, given `BaseEntity<V>` with defaults `{V → *const c_void}`,
+/// produces `BaseEntity<*const c_void>`. Handles nested generics and all
 /// common type forms (paths, pointers, arrays, etc.).
 fn substitute_generics(
     ty: &syn::Type,
@@ -783,7 +783,7 @@ fn substitute_generics(
                     return default.clone();
                 }
             }
-            // Recursively substitute within generic arguments (e.g., CTask<V>)
+            // Recursively substitute within generic arguments (e.g., BaseEntity<V>)
             let mut tp = tp.clone();
             for seg in &mut tp.path.segments {
                 if let syn::PathArguments::AngleBracketed(ref mut args) = seg.arguments {

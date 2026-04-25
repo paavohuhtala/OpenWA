@@ -203,7 +203,7 @@ impl SubAssign for Fixed {
 /// Wide sibling of [`Fixed`] — same 16 fractional bits, but 48 integer bits.
 ///
 /// Used for accumulators that need to grow past `Fixed`'s ±32k integer
-/// range without losing Fixed precision: `DDGame::replay_frame_accum`
+/// range without losing Fixed precision: `GameWorld::replay_frame_accum`
 /// adds `Fixed::ONE` every replay tick and would saturate the 32-bit
 /// form within ~18 minutes at 50 fps.
 ///

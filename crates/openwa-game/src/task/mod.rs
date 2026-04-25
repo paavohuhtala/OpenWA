@@ -10,37 +10,38 @@ mod overlays;
 pub mod supply_crate;
 pub mod team;
 pub mod team_message;
-pub mod turn_game;
+pub mod world_root;
 pub mod worm;
 
-pub use arrow::{CTaskArrow, CTaskArrowVTable};
+pub use arrow::{ArrowEntity, ArrowEntityVtable};
 pub use base::{
-    CTask, CTaskBfsIter, CTaskVtable, SharedDataIter, SharedDataNode, SharedDataTable, Task, Vtable,
+    BaseEntity, BaseEntityBfsIter, BaseEntityVtable, Entity, SharedDataIter, SharedDataNode,
+    SharedDataTable, Vtable,
 };
-pub use cloud::{CTaskCloud, CTaskCloudVTable, CloudType};
-pub use filter::{CTaskFilter, CTaskFilterVTable};
-pub use fire::{CTaskFire, CTaskFireVTable};
-pub use game_task::{CGameTask, SoundEmitter, SoundEmitterVTable};
-pub use mine_oil_drum::{CTaskMine, CTaskMineVTable, CTaskOilDrum, CTaskOilDrumVTable};
-pub use missile::{CTaskMissile, CTaskMissileVTable, MissileType};
-pub use overlays::{BungeeTrailTask, WeaponAimTask};
-pub use supply_crate::{CTaskCrate, CTaskCrateVTable};
-pub use team::{CTaskTeam, CTaskTeamVTable};
+pub use cloud::{CloudEntity, CloudEntityVtable, CloudType};
+pub use filter::{FilterEntity, FilterEntityVtable};
+pub use fire::{FireEntity, FireEntityVtable};
+pub use game_task::{SoundEmitter, SoundEmitterVtable, WorldEntity};
+pub use mine_oil_drum::{MineEntity, MineEntityVtable, OilDrumEntity, OilDrumEntityVtable};
+pub use missile::{MissileEntity, MissileEntityVtable, MissileType};
+pub use overlays::{BungeeTrailEntity, WeaponAimEntity};
+pub use supply_crate::{CrateEntity, CrateEntityVtable};
+pub use team::{TeamEntity, TeamEntityVtable};
 pub use team_message::TeamMessage;
-pub use turn_game::{CTaskTurnGame, CTaskTurnGameVTable, TurnGameCtx};
-pub use worm::{CTaskWorm, CTaskWormVTable, WormState};
+pub use world_root::{MatchCtx, WorldRootEntity, WorldRootEntityVtable};
+pub use worm::{WormEntity, WormEntityVtable, WormState};
 
-// Task trait impls — safe access to CTask base regardless of inheritance depth.
-// CTask<V> impl is in base.rs (blanket impl).
-unsafe impl<V: Vtable> Task for CGameTask<V> {}
-unsafe impl Task for CTaskTeam {}
-unsafe impl Task for CTaskTurnGame {}
-unsafe impl Task for CTaskFilter {}
-unsafe impl Task for CTaskCloud {}
-unsafe impl Task for CTaskFire {}
-unsafe impl Task for CTaskWorm {}
-unsafe impl Task for CTaskMissile {}
-unsafe impl Task for CTaskArrow {}
-unsafe impl Task for CTaskMine {}
-unsafe impl Task for CTaskOilDrum {}
-unsafe impl Task for CTaskCrate {}
+// Task trait impls — safe access to BaseEntity base regardless of inheritance depth.
+// BaseEntity<V> impl is in base.rs (blanket impl).
+unsafe impl<V: Vtable> Entity for WorldEntity<V> {}
+unsafe impl Entity for TeamEntity {}
+unsafe impl Entity for WorldRootEntity {}
+unsafe impl Entity for FilterEntity {}
+unsafe impl Entity for CloudEntity {}
+unsafe impl Entity for FireEntity {}
+unsafe impl Entity for WormEntity {}
+unsafe impl Entity for MissileEntity {}
+unsafe impl Entity for ArrowEntity {}
+unsafe impl Entity for MineEntity {}
+unsafe impl Entity for OilDrumEntity {}
+unsafe impl Entity for CrateEntity {}

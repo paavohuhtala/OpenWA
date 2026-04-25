@@ -10,7 +10,7 @@
 //! - PlayFanfare_CurrentTeam (0x4D78E0)
 //! - FindCurrentTeamIndex (0x46A7D0)
 //! - GetTeamConfigName (0x4A62A0)
-//! - DDGameWrapper__LoadSpeechWAV (0x571530)
+//! - GameRuntime__LoadSpeechWAV (0x571530)
 //! - DSSound_LoadSpeechBank (0x571660)
 //! - DSSound_LoadAllSpeechBanks (0x571A70)
 
@@ -21,8 +21,8 @@ use heapless::CString;
 use crate::address::va::{self, game_info_offsets};
 use crate::audio::wav_player::{self, WavPlayer};
 use crate::audio::{SpeechLineTableEntry, SpeechSlotTable};
-use crate::engine::DDGameWrapper;
-use crate::engine::ddgame_wrapper::SPEECH_NAME_ENTRY_SIZE;
+use crate::engine::GameRuntime;
+use crate::engine::runtime::SPEECH_NAME_ENTRY_SIZE;
 use crate::rebase::rb;
 
 /// Windows MAX_PATH (260 bytes including nul terminator).
@@ -264,26 +264,26 @@ pub unsafe fn play_fanfare_current_team(eax_index: u32) -> u32 {
 }
 
 // ============================================================
-// DDGameWrapper__LoadSpeechWAV — port of 0x571530
+// GameRuntime__LoadSpeechWAV — port of 0x571530
 // ============================================================
 
 /// Search speech name table for existing WAV, reuse slot if found.
 /// Otherwise load new WAV via DSSound vtable. Returns 1 on success, 0 on failure.
 pub unsafe fn load_speech_wav(
-    ddgw: *mut DDGameWrapper,
+    runtime: *mut GameRuntime,
     team_index: u32,
     line_id: u32,
     wav_path: *const c_char,
     full_path: *const c_char,
 ) -> u32 {
     unsafe {
-        let wrapper = &mut *ddgw;
-        let count = wrapper.speech_name_count as usize;
+        let runtime = &mut *runtime;
+        let count = runtime.speech_name_count as usize;
         let search_name = core::ffi::CStr::from_ptr(wav_path).to_bytes();
 
         let mut found_idx: Option<usize> = None;
         for i in 0..count {
-            let entry = &wrapper.speech_name_table[i];
+            let entry = &runtime.speech_name_table[i];
             let entry_len = entry.iter().position(|&b| b == 0).unwrap_or(entry.len());
             if entry[..entry_len] == *search_name {
                 found_idx = Some(i);
@@ -291,8 +291,8 @@ pub unsafe fn load_speech_wav(
             }
         }
 
-        let ddgame = &mut *wrapper.ddgame;
-        let slot_table = &mut ddgame.speech_slot_table;
+        let world = &mut *runtime.world;
+        let slot_table = &mut world.speech_slot_table;
 
         if let Some(idx) = found_idx {
             slot_table.set(
@@ -305,17 +305,17 @@ pub unsafe fn load_speech_wav(
 
         let slot_idx = count as u32 + SpeechSlotTable::BUFFER_OFFSET;
         let result =
-            crate::audio::dssound::load_wav(wrapper.sound, slot_idx as i32, full_path as *const u8);
+            crate::audio::dssound::load_wav(runtime.sound, slot_idx as i32, full_path as *const u8);
 
         if result != 0 {
             slot_table.set(team_index as usize, line_id, slot_idx);
 
-            let dest = &mut wrapper.speech_name_table[count];
+            let dest = &mut runtime.speech_name_table[count];
             let copy_len = search_name.len().min(SPEECH_NAME_ENTRY_SIZE - 1);
             dest[..copy_len].copy_from_slice(&search_name[..copy_len]);
             dest[copy_len] = 0;
 
-            wrapper.speech_name_count = (count + 1) as u32;
+            runtime.speech_name_count = (count + 1) as u32;
             return 1;
         }
 
@@ -344,7 +344,7 @@ unsafe fn cstr_bytes<'a>(ptr: *const u8) -> &'a [u8] {
 /// Iterate speech line table, build WAV paths, load each into DSSound.
 /// Falls back to default speech dir on failure.
 pub unsafe fn load_speech_bank(
-    ddgw: *const DDGameWrapper,
+    ddgw: *const GameRuntime,
     team_index: u32,
     speech_base_path: *const u8,
     speech_dir: *const u8,
@@ -374,7 +374,7 @@ pub unsafe fn load_speech_bank(
             let _ = full_path.extend_from_bytes(wav_path.as_bytes());
 
             let result = load_speech_wav(
-                ddgw as *mut DDGameWrapper,
+                ddgw as *mut GameRuntime,
                 team_index,
                 entry.id,
                 wav_path.as_ptr(),
@@ -384,7 +384,7 @@ pub unsafe fn load_speech_bank(
             if result == 0 {
                 let next_entry = &*table_base.add(i + 1);
                 if next_entry.name_ptr.is_null() || next_entry.id != entry.id {
-                    let game_info = (*(*ddgw).ddgame).game_info as *const u8;
+                    let game_info = (*(*ddgw).world).game_info as *const u8;
                     let default_dir = game_info.add(game_info_offsets::DEFAULT_SPEECH_DIR as usize);
                     let default_base =
                         game_info.add(game_info_offsets::DEFAULT_SPEECH_BASE_PATH as usize);
@@ -401,7 +401,7 @@ pub unsafe fn load_speech_bank(
                     let _ = full_path2.extend_from_bytes(wav_path2.as_bytes());
 
                     load_speech_wav(
-                        ddgw as *mut DDGameWrapper,
+                        ddgw as *mut GameRuntime,
                         team_index,
                         entry.id,
                         wav_path2.as_ptr(),
@@ -428,16 +428,16 @@ pub unsafe fn load_speech_bank(
 // ============================================================
 
 /// Clear speech slot table, then load speech bank for each team.
-pub unsafe fn load_all_speech_banks(ddgw: *const DDGameWrapper) {
+pub unsafe fn load_all_speech_banks(ddgw: *const GameRuntime) {
     unsafe {
-        let ddgame = &mut *(*ddgw).ddgame;
+        let world = &mut *(*ddgw).world;
 
-        ddgame.speech_slot_table.clear();
+        world.speech_slot_table.clear();
 
-        let game_info = &*ddgame.game_info;
+        let game_info = &*world.game_info;
         let team_count = game_info.speech_team_count as u32;
 
-        let gi = ddgame.game_info as *const u8;
+        let gi = world.game_info as *const u8;
         for i in 0..team_count {
             let team_offset = (i * game_info_offsets::SPEECH_TEAM_STRIDE) as usize;
             let base_path = gi.add(game_info_offsets::SPEECH_BASE_PATH as usize + team_offset);

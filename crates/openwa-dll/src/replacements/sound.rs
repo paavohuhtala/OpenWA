@@ -4,9 +4,9 @@
 //! This file contains hook entry points, trampolines, and installation.
 //!
 //! Hooks:
-//! - PlaySoundGlobal (0x546E20): __thiscall, ECX=CTask*, 4 stack params, RET 0x10
+//! - PlaySoundGlobal (0x546E20): __thiscall, ECX=BaseEntity*, 4 stack params, RET 0x10
 //! - PlaySoundLocal (0x4FDFE0): __usercall, EAX+ECX+EDI + 2 stack params, RET 0x8
-//! - IsSoundSuppressed (0x5261E0): __thiscall, ECX=DDGame*
+//! - IsSoundSuppressed (0x5261E0): __thiscall, ECX=GameWorld*
 //! - DispatchGlobalSound (0x526270): __fastcall + 4 stack, RET 0x10
 //! - PlaySoundPooled_Direct (0x546B50): __fastcall + 3 stack, RET 0xC
 //! - WormPlaySound2 (0x515020): __usercall(EDI=worm) + 3 stack, RET 0xC
@@ -17,9 +17,9 @@ use openwa_core::fixed::Fixed;
 use openwa_game::address::va;
 use openwa_game::audio::sound_ops;
 use openwa_game::audio::{KnownSoundId, SoundId};
-use openwa_game::engine::{DDGame, DDGameWrapper};
-use openwa_game::task::worm::CTaskWorm;
-use openwa_game::task::{CGameTask, CTask};
+use openwa_game::engine::{GameRuntime, GameWorld};
+use openwa_game::task::worm::WormEntity;
+use openwa_game::task::{BaseEntity, WorldEntity};
 
 use crate::hook;
 use crate::log_line;
@@ -27,10 +27,10 @@ use crate::log_line;
 /// Whether sound logging is enabled (checked once at init).
 static SOUND_LOG_ENABLED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
-// ── PlaySoundGlobal (0x546E20): thiscall(ECX=CTask*, 4 stack, RET 0x10) ──
+// ── PlaySoundGlobal (0x546E20): thiscall(ECX=BaseEntity*, 4 stack, RET 0x10) ──
 
 unsafe extern "thiscall" fn hook_play_sound_global(
-    this: *const CGameTask,
+    this: *const WorldEntity,
     sound_id: SoundId,
     flags: u32,
     volume: Fixed,
@@ -47,7 +47,7 @@ unsafe extern "thiscall" fn hook_play_sound_global(
             ));
         }
 
-        sound_ops::queue_sound((*this).base.ddgame, sound_id, flags, volume, pitch).is_some() as u32
+        sound_ops::queue_sound((*this).base.world, sound_id, flags, volume, pitch).is_some() as u32
     }
 }
 
@@ -59,7 +59,7 @@ hook::usercall_trampoline!(fn trampoline_play_sound_local; impl_fn = play_sound_
 unsafe extern "cdecl" fn play_sound_local_impl(
     pitch: Fixed,
     volume: Fixed,
-    task: *mut CGameTask,
+    task: *mut WorldEntity,
     sound_id: SoundId,
     flags: u32,
 ) -> u32 {
@@ -88,7 +88,7 @@ hook::usercall_trampoline!(
 );
 
 unsafe extern "cdecl" fn play_worm_sound_2_cdecl(
-    worm: *mut CTaskWorm,
+    worm: *mut WormEntity,
     sound_id: SoundId,
     volume: Fixed,
     flags: u32,
@@ -98,30 +98,30 @@ unsafe extern "cdecl" fn play_worm_sound_2_cdecl(
     }
 }
 
-// ── IsSoundSuppressed (0x5261E0): thiscall(ECX=DDGame*) ──
+// ── IsSoundSuppressed (0x5261E0): thiscall(ECX=GameWorld*) ──
 
-unsafe extern "thiscall" fn hook_is_sound_suppressed(ddgame: *mut DDGame) -> u32 {
-    unsafe { sound_ops::is_sound_suppressed(ddgame) as u32 }
+unsafe extern "thiscall" fn hook_is_sound_suppressed(world: *mut GameWorld) -> u32 {
+    unsafe { sound_ops::is_sound_suppressed(world) as u32 }
 }
 
 // ── DispatchGlobalSound (0x526270): fastcall(ECX=unused, EDX=wrapper) + 4 stack ──
 
 unsafe extern "fastcall" fn hook_dispatch_global_sound(
     _ecx: u32,
-    ddgame_wrapper: *const DDGameWrapper,
+    runtime: *const GameRuntime,
     slot: SoundId,
     priority: i32,
     frequency: Fixed,
     volume: Fixed,
 ) -> u32 {
-    unsafe { sound_ops::dispatch_global_sound(ddgame_wrapper, slot, priority, frequency, volume) }
+    unsafe { sound_ops::dispatch_global_sound(runtime, slot, priority, frequency, volume) }
 }
 
 // ── PlaySoundPooled_Direct (0x546B50): fastcall(ECX=unused, EDX=task) + 3 stack ──
 
 unsafe extern "fastcall" fn hook_play_sound_pooled_direct(
     _ecx: u32,
-    task: *const CTask,
+    task: *const BaseEntity,
     slot: SoundId,
     priority: i32,
     volume: Fixed,
@@ -138,7 +138,7 @@ hook::usercall_trampoline!(
 );
 
 unsafe extern "cdecl" fn play_worm_sound_cdecl(
-    worm: *mut CTaskWorm,
+    worm: *mut WormEntity,
     sound_id: SoundId,
     volume: Fixed,
 ) {
@@ -155,7 +155,7 @@ hook::usercall_trampoline!(
     reg = esi
 );
 
-unsafe extern "cdecl" fn stop_worm_sound_cdecl(worm: *mut CTaskWorm) {
+unsafe extern "cdecl" fn stop_worm_sound_cdecl(worm: *mut WormEntity) {
     unsafe {
         sound_ops::stop_worm_sound(worm);
     }
@@ -170,7 +170,7 @@ hook::usercall_trampoline!(
 );
 
 unsafe extern "cdecl" fn load_and_play_streaming_cdecl(
-    task: *mut CGameTask,
+    task: *mut WorldEntity,
     sound_id: SoundId,
     flags: u32,
     volume: Fixed,
@@ -216,7 +216,7 @@ pub fn install() -> Result<(), String> {
         // Patch DSSound vtable: replace all 24 slots with Rust implementations.
         patch_dssound_vtable()?;
 
-        // Hook CTaskWorm::PlaySound2 (FUN_00515020) — 23 callers in WA
+        // Hook WormEntity::PlaySound2 (FUN_00515020) — 23 callers in WA
         let _ = hook::install(
             "WormPlaySound2",
             va::WORM_PLAY_SOUND_2,
@@ -246,7 +246,7 @@ pub fn install() -> Result<(), String> {
         // through unported paths (PlayLocalNoEmitter, PlayLocalWithEmitter) that are
         // exercised in headful mode. Cannot trap until those entry points are also hooked.
 
-        // Hook LoadAndPlayStreaming — has many WA callers (CTaskMissile, etc.)
+        // Hook LoadAndPlayStreaming — has many WA callers (MissileEntity, etc.)
         let _ = hook::install(
             "LoadAndPlayStreaming",
             va::LOAD_AND_PLAY_STREAMING,

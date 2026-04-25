@@ -40,7 +40,7 @@ use openwa_core::fixed::Fixed;
 
 /// Display vtable (0x66A218, 38 slots).
 ///
-/// Slots 2, 3, 25, 29 are stubs (CGameTask no-ops).
+/// Slots 2, 3, 25, 29 are stubs (WorldEntity no-ops).
 /// All other slots are standard thiscall.
 ///
 /// Coordinate conventions:
@@ -152,7 +152,7 @@ pub struct DisplayGfxVtable {
     /// Three-phase tile-cached landscape blit (allocate / populate /
     /// display). `source` is a [`TiledBitmapSource`] descriptor. Reachable
     /// at runtime via `RenderDrawingQueue` case 0xD; only known producer is
-    /// `CTaskLand::RenderLandscape`. Ported impl at [`draw_tiled_bitmap_impl`].
+    /// `LandEntity::RenderLandscape`. Ported impl at [`draw_tiled_bitmap_impl`].
     #[slot(11)]
     pub draw_tiled_bitmap:
         fn(this: *mut DisplayGfx, dest_x: i32, dest_y: i32, source: *const TiledBitmapSource),
@@ -256,7 +256,7 @@ pub struct DisplayGfxVtable {
     /// update palette from PaletteContext (0x56A610, RET 0x8)
     #[slot(24)]
     pub update_palette: fn(this: *mut DisplayGfx, palette_ctx: *mut PaletteContext, commit: i32),
-    // Slot 25: stub (CGameTask__vt19)
+    // Slot 25: stub (WorldEntity__vt19)
     /// flush pending render state (0x56A580, plain RET)
     ///
     /// No stack params. Releases renderer lock and
@@ -274,7 +274,7 @@ pub struct DisplayGfxVtable {
     /// Fixed-point input; internally `>> 16` to pixel integers, clamped to display dimensions.
     #[slot(28)]
     pub set_clip_rect: fn(this: *mut DisplayGfx, x1: Fixed, y1: Fixed, x2: Fixed, y2: Fixed),
-    // Slot 29: stub (CGameTask__vt18)
+    // Slot 29: stub (WorldEntity__vt18)
     /// load sprite with extended params (0x523310, RET 0x18)
     ///
     /// Allocates 0x17C sprite object, calls DisplayGfx constructor.
@@ -381,14 +381,14 @@ use crate::rebase::rb;
 /// but that's a no-op whose result is discarded — we just clear the flag.
 pub unsafe extern "thiscall" fn flush_render(this: *mut DisplayGfx) {
     unsafe {
-        let wrapper = *(rb(va::G_RENDER_CONTEXT) as *const *mut RenderContext);
+        let ctx = *(rb(va::G_RENDER_CONTEXT) as *const *mut RenderContext);
 
         if (*this).render_lock != 0 {
             (*this).render_lock = 0;
         }
 
         let mut buf = FastcallResult::default();
-        RenderContext::get_renderer_surface_raw(wrapper, &mut buf);
+        RenderContext::get_renderer_surface_raw(ctx, &mut buf);
     }
 }
 
@@ -466,10 +466,10 @@ pub unsafe extern "thiscall" fn set_clip_rect(
 unsafe fn flush_render_lock(gfx: *mut DisplayGfx) {
     unsafe {
         if (*gfx).render_lock != 0 {
-            let wrapper = *(rb(va::G_RENDER_CONTEXT) as *const *mut RenderContext);
+            let ctx = *(rb(va::G_RENDER_CONTEXT) as *const *mut RenderContext);
             let data = (*(*gfx).layer_0).data;
             let mut buf = FastcallResult::default();
-            RenderContext::unlock_surface_write_raw(wrapper, &mut buf, data);
+            RenderContext::unlock_surface_write_raw(ctx, &mut buf, data);
             (*gfx).render_lock = 0;
         }
     }
@@ -482,17 +482,17 @@ pub unsafe fn acquire_render_lock(gfx: *mut DisplayGfx) {
             return; // already locked
         }
 
-        let wrapper = *(rb(va::G_RENDER_CONTEXT) as *const *mut RenderContext);
+        let ctx = *(rb(va::G_RENDER_CONTEXT) as *const *mut RenderContext);
         let mut buf = FastcallResult::default();
 
         let mut dims: [u32; 2] = [0; 2];
-        RenderContext::get_framebuffer_dims_raw(wrapper, &mut buf, dims.as_mut_ptr());
+        RenderContext::get_framebuffer_dims_raw(ctx, &mut buf, dims.as_mut_ptr());
         let fb_width = dims[0];
         let fb_height = dims[1];
 
         let mut data_ptr: *mut u8 = core::ptr::null_mut();
         let mut stride: u32 = 0;
-        RenderContext::lock_surface_write_raw(wrapper, &mut buf, &mut data_ptr, &mut stride);
+        RenderContext::lock_surface_write_raw(ctx, &mut buf, &mut data_ptr, &mut stride);
 
         let layer = (*gfx).layer_0;
         if (*layer).external_buffer != 0 {
@@ -569,17 +569,9 @@ pub unsafe extern "thiscall" fn fill_rect(
 
         flush_render_lock(this);
 
-        let wrapper = *(rb(va::G_RENDER_CONTEXT) as *const *mut RenderContext);
+        let ctx = *(rb(va::G_RENDER_CONTEXT) as *const *mut RenderContext);
         let mut buf = FastcallResult::default();
-        RenderContext::fill_rect_raw(
-            wrapper,
-            &mut buf,
-            left,
-            top,
-            right - left,
-            bottom - top,
-            color,
-        );
+        RenderContext::fill_rect_raw(ctx, &mut buf, left, top, right - left, bottom - top, color);
     }
 }
 
@@ -2549,17 +2541,17 @@ unsafe fn cbitmap_blit_via_wrapper(
     flags: u32,
 ) {
     unsafe {
-        let wrapper = *(rb(va::G_RENDER_CONTEXT) as *const *mut RenderContext);
+        let ctx = *(rb(va::G_RENDER_CONTEXT) as *const *mut RenderContext);
 
         if (*cbm).surface.is_null() {
             let mut buf = FastcallResult::default();
-            let ret = RenderContext::alloc_surface_raw(wrapper, &mut buf);
+            let ret = RenderContext::alloc_surface_raw(ctx, &mut buf);
             (*cbm).surface = ret as *mut Surface;
         }
 
         let mut buf = FastcallResult::default();
         RenderContext::draw_landscape_raw(
-            wrapper,
+            ctx,
             &mut buf,
             (*cbm).surface as *mut u8,
             dst_x,
@@ -2770,7 +2762,7 @@ pub unsafe fn draw_tiled_bitmap_impl(
                 (*this).bitmap_capacity = vec_buf.add(max_tiles);
 
                 let cbitmap_vt = rb(va::CBITMAP_VTABLE_MAYBE) as *const core::ffi::c_void;
-                let wrapper = *(rb(va::G_RENDER_CONTEXT) as *const *mut RenderContext);
+                let ctx = *(rb(va::G_RENDER_CONTEXT) as *const *mut RenderContext);
 
                 let mut accum = 0i32;
                 let mut remaining = total_height;
@@ -2787,7 +2779,7 @@ pub unsafe fn draw_tiled_bitmap_impl(
 
                     if (*cbm).surface.is_null() {
                         let mut buf = FastcallResult::default();
-                        let s = RenderContext::alloc_surface_raw(wrapper, &mut buf);
+                        let s = RenderContext::alloc_surface_raw(ctx, &mut buf);
                         (*cbm).surface = s as *mut Surface;
                     }
 
@@ -2798,7 +2790,7 @@ pub unsafe fn draw_tiled_bitmap_impl(
                     if init_buf.value != 0 {
                         if (*cbm).surface.is_null() {
                             let mut buf = FastcallResult::default();
-                            let s = RenderContext::alloc_surface_raw(wrapper, &mut buf);
+                            let s = RenderContext::alloc_surface_raw(ctx, &mut buf);
                             (*cbm).surface = s as *mut Surface;
                         }
                         let mut init_buf2 = FastcallResult::default();
@@ -2842,9 +2834,9 @@ pub unsafe fn draw_tiled_bitmap_impl(
                 // Paranoid lazy-alloc — should already be non-null from
                 // phase 1, but the original repeats the check.
                 if (*cbm).surface.is_null() {
-                    let wrapper = *(rb(va::G_RENDER_CONTEXT) as *const *mut RenderContext);
+                    let ctx = *(rb(va::G_RENDER_CONTEXT) as *const *mut RenderContext);
                     let mut buf = FastcallResult::default();
-                    let s = RenderContext::alloc_surface_raw(wrapper, &mut buf);
+                    let s = RenderContext::alloc_surface_raw(ctx, &mut buf);
                     (*cbm).surface = s as *mut Surface;
                 }
 

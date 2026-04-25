@@ -1,41 +1,39 @@
-use super::base::{CTask, SharedDataTable};
+use super::base::{BaseEntity, SharedDataTable};
 use crate::{
     FieldRegistry,
     game::{TaskMessage, message::TaskMessageData},
-    task::Task,
+    task::Entity,
 };
 use bytemuck::bytes_of;
 use openwa_core::fixed::Fixed;
 
 crate::define_addresses! {
-    class "CTaskTurnGame" {
-        /// CTaskTurnGame vtable - global turn flow manager (1 per game)
-        vtable CTASK_TURN_GAME_VTABLE = 0x00669F70;
-        /// CTaskTurnGame constructor
-        ctor/Stdcall CTASK_TURNGAME_CTOR = 0x0055B280;
-        /// TurnGame message dispatcher
-        fn/Thiscall TURNGAME_HANDLE_MESSAGE = 0x0055DC00;
-        /// TurnGame hurry handler
-        fn/Usercall TURNGAME_HURRY_HANDLER = 0x0055E5F0;
-        /// TurnGame auto select teams
-        fn TURNGAME_AUTO_SELECT_TEAMS = 0x005611E0;
+    class "WorldRootEntity" {
+        /// WorldRootEntity constructor
+        ctor/Stdcall WORLD_ROOT_ENTITY_CTOR = 0x0055B280;
+        /// WorldRoot message dispatcher
+        fn/Thiscall WORLD_ROOT_HANDLE_MESSAGE = 0x0055DC00;
+        /// WorldRoot hurry handler
+        fn/Usercall WORLD_ROOT_HURRY_HANDLER = 0x0055E5F0;
+        /// WorldRoot auto select teams
+        fn WORLD_ROOT_AUTO_SELECT_TEAMS = 0x005611E0;
     }
 }
 
-/// Embedded intermediate game-context sub-object within `CTaskTurnGame`.
+/// Embedded intermediate game-context sub-object within `WorldRootEntity`.
 ///
-/// This is the memory region at `CTaskTurnGame+0x30..+0xDB` (0xAC bytes).
-/// It is initialised by `CTaskTeam__Constructor_Maybe` (0x550EB0), which:
-///   1. Calls `CTask::Constructor(this, nullptr, ddgame)`
+/// This is the memory region at `WorldRootEntity+0x30..+0xDB` (0xAC bytes).
+/// It is initialised by `TeamEntity__Constructor_Maybe` (0x550EB0), which:
+///   1. Calls `BaseEntity::Constructor(this, nullptr, world)`
 ///   2. Sets the primary vtable to 0x669E34 and class_type to 5
 ///   3. Sets a **secondary interface vtable** pointer (Ghidra 0x669C44) at +0x30
-///      inside the object (i.e. `TurnGameCtx` base +0x00)
-///   4. Copies `landscape_height = DDGame+0x5E0` as Fixed16.16 to both
+///      inside the object (i.e. `MatchCtx` base +0x00)
+///   4. Copies `landscape_height = GameWorld+0x5E0` as Fixed16.16 to both
 ///      `land_height` and `land_height_2`
 ///   5. Writes -1 sentinels to `_sentinel_18`, `_sentinel_28`, `_sentinel_38`
 ///   6. Writes `team_count = *(byte*)(GameInfo+0x44C)` to `team_count`
 ///
-/// `CTaskTurnGame__Constructor` (0x55B2A0) then overrides the primary vtable
+/// `WorldRootEntity__Constructor` (0x55B2A0) then overrides the primary vtable
 /// to 0x669F70 and class_type to 6 but **leaves this sub-object intact**.
 ///
 /// The three -1 sentinels at offsets 0x18 / 0x28 / 0x38 are evenly spaced
@@ -48,15 +46,15 @@ crate::define_addresses! {
 /// are heap pointers.
 #[derive(FieldRegistry)]
 #[repr(C)]
-pub struct TurnGameCtx {
-    /// +0x00 (= CTaskTurnGame+0x30): Secondary interface vtable pointer.
+pub struct MatchCtx {
+    /// +0x00 (= WorldRootEntity+0x30): Secondary interface vtable pointer.
     /// Ghidra: 0x00669C44.  Set by both constructors; always 0x669C44 at runtime.
     pub _secondary_vtable: u32,
     /// +0x04: Unknown — not set by constructors (remains 0).
     pub _unknown_04: u32,
     /// +0x08–0x0F: Unknown — explicitly zeroed by constructor.
     pub _unknown_08: [u32; 2],
-    /// +0x10: Landscape height as Fixed16.16.  `DDGame+0x5E0 << 16`.
+    /// +0x10: Landscape height as Fixed16.16.  `GameWorld+0x5E0 << 16`.
     pub land_height: Fixed,
     /// +0x14: Landscape height duplicate — same value as `land_height`.
     pub land_height_2: Fixed,
@@ -84,7 +82,7 @@ pub struct TurnGameCtx {
     /// be a pool slot index or a pre-computed game-state token.
     pub _slot_d0: u32,
     /// +0xA4: `DisplayGfx` textbox handle — created by `DisplayGfx__ConstructTextbox`
-    /// with params `(buf, -1280, 2)` if `DDGame+0x7EF8 != 0` (display active).
+    /// with params `(buf, -1280, 2)` if `GameWorld+0x7EF8 != 0` (display active).
     /// Likely the HUD timer textbox.  NULL when display is disabled.
     pub _hud_textbox_a: u32,
     /// +0xA8: `DisplayGfx` textbox handle — created with params `(buf, 8, 4)`.
@@ -92,20 +90,20 @@ pub struct TurnGameCtx {
     pub _hud_textbox_b: u32,
 }
 
-const _: () = assert!(core::mem::size_of::<TurnGameCtx>() == 0xAC);
+const _: () = assert!(core::mem::size_of::<MatchCtx>() == 0xAC);
 
-/// CTaskTurnGame vtable — 12 slots. Extends CTask base (8 slots) with turn-game behavior.
+/// WorldRootEntity vtable — 12 slots. Extends BaseEntity base (8 slots) with turn-game behavior.
 ///
 /// Vtable at Ghidra 0x669F70. Slot 2 (HandleMessage) is the main turn-flow
 /// dispatcher (30+ message types).
-#[openwa_game::vtable(size = 12, va = 0x00669F70, class = "CTaskTurnGame")]
-pub struct CTaskTurnGameVTable {
+#[openwa_game::vtable(size = 12, va = 0x00669F70, class = "WorldRootEntity")]
+pub struct WorldRootEntityVtable {
     /// HandleMessage — processes messages for turn flow control
     /// thiscall + 4 stack params, RET 0x10.
     #[slot(2)]
     pub handle_message: fn(
-        this: *mut CTaskTurnGame,
-        sender: *mut CTask,
+        this: *mut WorldRootEntity,
+        sender: *mut BaseEntity,
         msg_type: TaskMessage,
         size: u32,
         data: *const u8,
@@ -114,23 +112,23 @@ pub struct CTaskTurnGameVTable {
     /// msg 0x7D3 (end-of-round data snapshot).
     /// thiscall + 3 stack params (msg, size, buf), RET 0xC.
     #[slot(3)]
-    pub hud_data_query: fn(this: *mut CTaskTurnGame, msg: u32, size: u32, buf: *mut u8),
+    pub hud_data_query: fn(this: *mut WorldRootEntity, msg: u32, size: u32, buf: *mut u8),
     /// ProcessFrame — per-frame turn update.
     /// thiscall + 1 stack param (flags), RET 0x4.
     #[slot(7)]
-    pub process_frame: fn(this: *mut CTaskTurnGame, flags: u32),
+    pub process_frame: fn(this: *mut WorldRootEntity, flags: u32),
 }
 
 /// Root turn-controller task — one instance per game, parent of the entire entity tree.
 ///
 /// Every worm, team, projectile, and environment task is a child (direct or indirect)
-/// of this node.  `CTaskTurnGame` drives the turn loop: it processes 50 game frames
-/// per second via `CTaskTurnGame__TurnManager_ProcessFrame` (0x55FDA0), which is
+/// of this node.  `WorldRootEntity` drives the turn loop: it processes 50 game frames
+/// per second via `WorldRootEntity__TurnManager_ProcessFrame` (0x55FDA0), which is
 /// called from HandleMessage case 2 (FrameFinish).
 ///
-/// Inheritance: CTask → CTaskTeam → CTaskTurnGame.  Class type 6.
-/// Constructor: `CTaskTurnGame__Constructor` (0x55B2B1).
-/// vtable: `CTaskTurnGame__vtable` (0x00669F70), 20 slots.
+/// Inheritance: BaseEntity → TeamEntity → WorldRootEntity.  Class type 6.
+/// Constructor: `WorldRootEntity__Constructor` (0x55B2B1).
+/// vtable: `WorldRootEntity__vtable` (0x00669F70), 20 slots.
 /// Total size: 0x2E0 bytes.
 ///
 /// Key vtable slots:
@@ -142,28 +140,28 @@ pub struct CTaskTurnGameVTable {
 /// All timers decrement by 20 ms per frame (= 1000 ms / 50 fps).
 #[derive(FieldRegistry)]
 #[repr(C)]
-pub struct CTaskTurnGame {
-    /// 0x00-0x2F: CTask base (vtable, parent, children, shared_data, ddgame, …)
-    pub base: CTask<*const CTaskTurnGameVTable>,
-    /// 0x30–0xDB: Embedded `TurnGameCtx` sub-object (0xAC bytes).
-    /// See [`TurnGameCtx`] for field details.
-    pub game_ctx: TurnGameCtx,
+pub struct WorldRootEntity {
+    /// 0x00-0x2F: BaseEntity base (vtable, parent, children, shared_data, world, …)
+    pub base: BaseEntity<*const WorldRootEntityVtable>,
+    /// 0x30–0xDB: Embedded `MatchCtx` sub-object (0xAC bytes).
+    /// See [`MatchCtx`] for field details.
+    pub game_ctx: MatchCtx,
 
-    // ---- CTaskTurnGame-specific fields (0xDC onwards) ----
+    // ---- WorldRootEntity-specific fields (0xDC onwards) ----
     pub _unknown_dc: u32,
     pub _unknown_e0: u32,
-    /// 0xE4: turn-seed: ~(DDGame+0x45EC % 9000), used for random initialisation.
+    /// 0xE4: turn-seed: ~(GameWorld+0x45EC % 9000), used for random initialisation.
     pub _turn_seed: u32,
-    /// 0xE8: number of teams in this game (copy of DDGame+0x44C).
+    /// 0xE8: number of teams in this game (copy of GameWorld+0x44C).
     pub num_teams: u32,
     pub _unknown_ec: [u8; 0x1C],
     /// 0x108: "worm active" flag — non-zero while the current worm is shooting or
     /// moving.  While non-zero, `turn_timer` is paused.
-    /// A copy is also written to DDGame+0x7234 at construction.
+    /// A copy is also written to GameWorld+0x7234 at construction.
     pub worm_active: u32,
     pub _unknown_10c: [u8; 0x20],
     /// 0x12C: active team index, **1-based** (0 = no active team).
-    /// Used to index per-team sound tables in DDGame (stride 0xF0 at DDGame+0x774C).
+    /// Used to index per-team sound tables in GameWorld (stride 0xF0 at GameWorld+0x774C).
     pub current_team: u32,
     /// 0x130: active worm index within the current team, **0-based** (stride 0x9C).
     pub current_worm: u32,
@@ -220,30 +218,30 @@ pub struct CTaskTurnGame {
     pub _timer_scale: u32,
 }
 
-const _: () = assert!(core::mem::size_of::<CTaskTurnGame>() == 0x2E0);
+const _: () = assert!(core::mem::size_of::<WorldRootEntity>() == 0x2E0);
 
-impl CTaskTurnGame {
-    /// SharedData key under which `CTaskTurnGame` registers itself.
+impl WorldRootEntity {
+    /// SharedData key under which `WorldRootEntity` registers itself.
     ///
     /// As the root of the in-game world, every other task in the same game
     /// tree can locate it via `(0, 0x14)`. Use [`Self::from_shared_data`]
     /// instead of looking up the raw key.
     pub const SHARED_DATA_KEY: (u32, u32) = (0, 0x14);
 
-    /// Resolve the per-game `CTaskTurnGame` instance from any task in the
+    /// Resolve the per-game `WorldRootEntity` instance from any task in the
     /// same game tree. Returns null if the table has no entry (during
     /// startup/shutdown windows).
     ///
     /// # Safety
     /// `task` must be a valid task pointer with an initialised `shared_data`.
-    pub unsafe fn from_shared_data(task: *const CTask) -> *mut CTaskTurnGame {
+    pub unsafe fn from_shared_data(task: *const BaseEntity) -> *mut WorldRootEntity {
         unsafe {
             let (esi, edi) = Self::SHARED_DATA_KEY;
-            SharedDataTable::from_task(task).lookup(esi, edi) as *mut CTaskTurnGame
+            SharedDataTable::from_task(task).lookup(esi, edi) as *mut WorldRootEntity
         }
     }
 
-    pub unsafe fn handle_typed_message_raw<TSender: Task, TMessage: TaskMessageData>(
+    pub unsafe fn handle_typed_message_raw<TSender: Entity, TMessage: TaskMessageData>(
         this: *mut Self,
         sender: *mut TSender,
         message: TMessage,
@@ -251,7 +249,7 @@ impl CTaskTurnGame {
         let buf = bytes_of(&message);
         let size = buf.len() as u32;
         unsafe {
-            let sender = sender as *mut CTask;
+            let sender = sender as *mut BaseEntity;
             let buf = if size > 0 {
                 buf.as_ptr()
             } else {
@@ -263,4 +261,4 @@ impl CTaskTurnGame {
 }
 
 // Generate typed vtable method wrappers: handle_message(), process_frame(), etc.
-bind_CTaskTurnGameVTable!(CTaskTurnGame, base.vtable);
+bind_WorldRootEntityVtable!(WorldRootEntity, base.vtable);

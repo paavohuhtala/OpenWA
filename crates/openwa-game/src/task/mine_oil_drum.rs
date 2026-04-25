@@ -1,56 +1,64 @@
-use super::base::CTask;
-use super::game_task::CGameTask;
+use super::base::BaseEntity;
+use super::game_task::WorldEntity;
 use crate::FieldRegistry;
 
 crate::define_addresses! {
-    class "CTaskMine" {
-        /// CTaskMine vtable - mine entity
-        vtable CTASK_MINE_VTABLE = 0x006643E8;
-        ctor CTASK_MINE_CTOR = 0x00506660;
+    class "MineEntity" {
+        ctor MINE_ENTITY_CTOR = 0x00506660;
     }
 
-    class "CTaskOilDrum" {
-        /// CTaskOilDrum vtable - oil drum entity
-        vtable CTASK_OILDRUM_VTABLE = 0x00664338;
-        ctor CTASK_OILDRUM_CTOR = 0x00504AF0;
+    class "OilDrumEntity" {
+        /// OilDrumEntity vtable - oil drum entity
+        vtable OILDRUM_ENTITY_VTABLE = 0x00664338;
+        ctor OILDRUM_ENTITY_CTOR = 0x00504AF0;
     }
 }
 
-/// CTaskMine vtable — 12 slots. Extends CGameTask vtable with mine behavior.
+/// MineEntity vtable — 12 slots. Extends WorldEntity vtable with mine behavior.
 ///
 /// Vtable at Ghidra 0x6643E8.
-#[openwa_game::vtable(size = 12, va = 0x006643E8, class = "CTaskMine")]
-pub struct CTaskMineVTable {
+#[openwa_game::vtable(size = 12, va = 0x006643E8, class = "MineEntity")]
+pub struct MineEntityVtable {
     /// HandleMessage — processes mine messages (arm, trigger, detonate).
     /// thiscall + 4 stack params, RET 0x10.
     #[slot(2)]
-    pub handle_message:
-        fn(this: *mut CTaskMine, sender: *mut CTask, msg_type: u32, size: u32, data: *const u8),
+    pub handle_message: fn(
+        this: *mut MineEntity,
+        sender: *mut BaseEntity,
+        msg_type: u32,
+        size: u32,
+        data: *const u8,
+    ),
     /// ProcessFrame — per-frame mine update.
     /// thiscall + 1 stack param (flags), RET 0x4.
     #[slot(7)]
-    pub process_frame: fn(this: *mut CTaskMine, flags: u32),
+    pub process_frame: fn(this: *mut MineEntity, flags: u32),
 }
 
-/// CTaskOilDrum vtable — 12 slots. Extends CGameTask vtable with oil drum behavior.
+/// OilDrumEntity vtable — 12 slots. Extends WorldEntity vtable with oil drum behavior.
 ///
 /// Vtable at Ghidra 0x664338.
-#[openwa_game::vtable(size = 12, va = 0x00664338, class = "CTaskOilDrum")]
-pub struct CTaskOilDrumVTable {
+#[openwa_game::vtable(size = 12, va = 0x00664338, class = "OilDrumEntity")]
+pub struct OilDrumEntityVtable {
     /// HandleMessage — processes oil drum messages.
     /// thiscall + 4 stack params, RET 0x10.
     #[slot(2)]
-    pub handle_message:
-        fn(this: *mut CTaskOilDrum, sender: *mut CTask, msg_type: u32, size: u32, data: *const u8),
+    pub handle_message: fn(
+        this: *mut OilDrumEntity,
+        sender: *mut BaseEntity,
+        msg_type: u32,
+        size: u32,
+        data: *const u8,
+    ),
     /// ProcessFrame — per-frame oil drum update.
     /// thiscall + 1 stack param (flags), RET 0x4.
     #[slot(7)]
-    pub process_frame: fn(this: *mut CTaskOilDrum, flags: u32),
+    pub process_frame: fn(this: *mut OilDrumEntity, flags: u32),
 }
 
 /// Land mine entity task.
 ///
-/// Extends CGameTask (0xFC bytes). Mines sit on the terrain and arm after
+/// Extends WorldEntity (0xFC bytes). Mines sit on the terrain and arm after
 /// placement; they detonate on contact once armed.
 ///
 /// Constructor: 0x506660 (stdcall).
@@ -60,12 +68,12 @@ pub struct CTaskOilDrumVTable {
 ///         0x5072E0 (HandleMessage, msg 2/0x15/0x1C/0x4B branches).
 #[derive(FieldRegistry)]
 #[repr(C)]
-pub struct CTaskMine {
-    /// 0x00–0xFB: CGameTask base (pos at 0x84/0x88, speed at 0x90/0x94)
-    pub base: CGameTask<*const CTaskMineVTable>,
+pub struct MineEntity {
+    /// 0x00–0xFB: WorldEntity base (pos at 0x84/0x88, speed at 0x90/0x94)
+    pub base: WorldEntity<*const MineEntityVtable>,
     /// 0xFC–0x10F: Unknown mine flags
     pub _unknown_fc: [u8; 0x14],
-    /// 0x110: Object pool slot index (assigned from DDGame+0x3600 pool)
+    /// 0x110: Object pool slot index (assigned from GameWorld+0x3600 pool)
     pub slot_id: u32,
     /// 0x114: Unknown
     pub _unknown_114: u32,
@@ -82,14 +90,14 @@ pub struct CTaskMine {
     pub owner_team: i32,
 }
 
-const _: () = assert!(core::mem::size_of::<CTaskMine>() == 0x128);
+const _: () = assert!(core::mem::size_of::<MineEntity>() == 0x128);
 
 // Generate typed vtable method wrappers: handle_message(), process_frame().
-bind_CTaskMineVTable!(CTaskMine, base.base.vtable);
+bind_MineEntityVtable!(MineEntity, base.base.vtable);
 
 /// Exploding oil drum entity task.
 ///
-/// Extends CGameTask (0xFC bytes). Oil drums roll on terrain and explode
+/// Extends WorldEntity (0xFC bytes). Oil drums roll on terrain and explode
 /// when hit enough times (health decrements per impact).
 ///
 /// Constructor: 0x504AF0 (thiscall).
@@ -99,9 +107,9 @@ bind_CTaskMineVTable!(CTaskMine, base.base.vtable);
 ///         0x5050B0 (HandleMessage, msg 2/0x1C branches).
 #[derive(FieldRegistry)]
 #[repr(C)]
-pub struct CTaskOilDrum {
-    /// 0x00–0xFB: CGameTask base (pos at 0x84/0x88, speed at 0x90/0x94)
-    pub base: CGameTask<*const CTaskOilDrumVTable>,
+pub struct OilDrumEntity {
+    /// 0x00–0xFB: WorldEntity base (pos at 0x84/0x88, speed at 0x90/0x94)
+    pub base: WorldEntity<*const OilDrumEntityVtable>,
     /// 0xFC: Triggered flag — set to 1 on first impact, starts smoke/fire
     pub triggered: u32,
     /// 0x100: Object pool slot index
@@ -114,19 +122,19 @@ pub struct CTaskOilDrum {
     pub roll_counter: u32,
 }
 
-const _: () = assert!(core::mem::size_of::<CTaskOilDrum>() == 0x110);
+const _: () = assert!(core::mem::size_of::<OilDrumEntity>() == 0x110);
 
 // Generate typed vtable method wrappers: handle_message(), process_frame().
-bind_CTaskOilDrumVTable!(CTaskOilDrum, base.base.vtable);
+bind_OilDrumEntityVtable!(OilDrumEntity, base.base.vtable);
 
-impl CTaskOilDrum {
-    /// Returns true if the drum is on fire (flag at CGameTask+0xB0, inside _unknown_98).
+impl OilDrumEntity {
+    /// Returns true if the drum is on fire (flag at WorldEntity+0xB0, inside _unknown_98).
     ///
     /// # Safety
-    /// `self` must be a valid, fully-constructed CTaskOilDrum.
+    /// `self` must be a valid, fully-constructed OilDrumEntity.
     pub unsafe fn on_fire(&self) -> bool {
         unsafe {
-            let ptr = (self as *const CTaskOilDrum as *const u8).add(0xB0);
+            let ptr = (self as *const OilDrumEntity as *const u8).add(0xB0);
             *(ptr as *const u32) != 0
         }
     }

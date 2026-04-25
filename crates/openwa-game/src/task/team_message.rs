@@ -1,4 +1,4 @@
-//! Typed messages for CTaskTeam.
+//! Typed messages for TeamEntity.
 //!
 //! Replaces the raw `(msg_type: u32, size: u32, data: *const u8)` interface
 //! for messages where both sender and receiver are implemented in Rust.
@@ -6,7 +6,7 @@
 
 use crate::game::TaskMessage;
 
-/// Typed messages handled by CTaskTeam in Rust.
+/// Typed messages handled by TeamEntity in Rust.
 ///
 /// Each variant corresponds to a specific `TaskMessage` value and carries
 /// its payload as typed fields instead of a raw byte buffer.
@@ -14,7 +14,7 @@ use crate::game::TaskMessage;
 pub enum TeamMessage {
     /// 0x2B (TaskMessage::Surrender): Sent by the Surrender weapon (subtype 13).
     /// Sets a per-team flag and optionally broadcasts DetonateWeapon.
-    /// Handled by CTaskTurnGame::HandleMessage which also triggers end-turn logic.
+    /// Handled by WorldRootEntity::HandleMessage which also triggers end-turn logic.
     Surrender {
         /// Team index (1-based) identifying which team fired.
         team_index: u32,

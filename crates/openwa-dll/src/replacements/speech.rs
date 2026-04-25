@@ -10,15 +10,15 @@
 //! - PlayFeSfx (0x4D7960): stdcall(sfx_name), RET 0x4 — REPLACED
 //! - PlayFanfare_Default (0x4D7500): stdcall(team_type), RET 0x4 — REPLACED
 //! - PlayFanfare_CurrentTeam (0x4D78E0): usercall(EAX=index), plain RET — REPLACED
-//! - DSSound_LoadSpeechBank (0x571660): usercall(EAX=DDGameWrapper) + 3 stack, RET 0xC — REPLACED
-//! - DSSound_LoadAllSpeechBanks (0x571A70): usercall(ESI=DDGameWrapper), plain RET — REPLACED
+//! - DSSound_LoadSpeechBank (0x571660): usercall(EAX=GameRuntime) + 3 stack, RET 0xC — REPLACED
+//! - DSSound_LoadAllSpeechBanks (0x571A70): usercall(ESI=GameRuntime), plain RET — REPLACED
 
 use std::ffi::{CStr, c_char};
 
 use openwa_game::address::va;
 use openwa_game::audio::wav_player::WavPlayer;
 use openwa_game::audio::{speech_ops, wav_player};
-use openwa_game::engine::DDGameWrapper;
+use openwa_game::engine::GameRuntime;
 use openwa_game::rebase::rb;
 
 use crate::hook::{self, usercall_trampoline};
@@ -165,7 +165,7 @@ usercall_trampoline!(fn trampoline_load_speech_bank; impl_fn = load_speech_bank_
     reg = eax; stack_params = 3; ret_bytes = "0xC");
 
 unsafe extern "cdecl" fn load_speech_bank_impl(
-    ddgw: *const DDGameWrapper,
+    ddgw: *const GameRuntime,
     team_index: u32,
     speech_base_path: *const u8,
     speech_dir: *const u8,
@@ -192,7 +192,7 @@ unsafe extern "cdecl" fn load_speech_bank_impl(
 usercall_trampoline!(fn trampoline_load_all_speech_banks;
     impl_fn = load_all_speech_banks_impl; reg = esi);
 
-unsafe extern "cdecl" fn load_all_speech_banks_impl(ddgw: *const DDGameWrapper) {
+unsafe extern "cdecl" fn load_all_speech_banks_impl(ddgw: *const GameRuntime) {
     unsafe {
         let _ = log_line(&format!(
             "[Speech] LoadAllSpeechBanks: ddgw=0x{:08X}",

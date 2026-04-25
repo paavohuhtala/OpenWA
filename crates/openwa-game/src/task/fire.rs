@@ -1,47 +1,50 @@
-use super::base::CTask;
+use super::base::BaseEntity;
 use crate::FieldRegistry;
 use openwa_core::fixed::Fixed;
 
 crate::define_addresses! {
-    class "CTaskFire" {
-        /// CTaskFire vtable - fire/flame entity (0xD8 bytes)
-        vtable CTASK_FIRE_VTABLE = 0x00669DD8;
-        ctor CTASK_FIRE_CTOR = 0x0054F4C0;
+    class "FireEntity" {
+        ctor FIRE_ENTITY_CTOR = 0x0054F4C0;
     }
 }
 
-/// CTaskFire vtable — 12 slots. Extends CTask base (8 slots) with fire behavior.
+/// FireEntity vtable — 12 slots. Extends BaseEntity base (8 slots) with fire behavior.
 ///
 /// Vtable at Ghidra 0x669DD8.
-#[openwa_game::vtable(size = 12, va = 0x00669DD8, class = "CTaskFire")]
-pub struct CTaskFireVTable {
+#[openwa_game::vtable(size = 12, va = 0x00669DD8, class = "FireEntity")]
+pub struct FireEntityVtable {
     /// HandleMessage — processes fire messages.
     /// thiscall + 4 stack params, RET 0x10.
     #[slot(2)]
-    pub handle_message:
-        fn(this: *mut CTaskFire, sender: *mut CTask, msg_type: u32, size: u32, data: *const u8),
+    pub handle_message: fn(
+        this: *mut FireEntity,
+        sender: *mut BaseEntity,
+        msg_type: u32,
+        size: u32,
+        data: *const u8,
+    ),
     /// ProcessFrame — per-frame fire update (countdown, spread, damage).
     /// thiscall + 1 stack param (flags), RET 0x4.
     #[slot(7)]
-    pub process_frame: fn(this: *mut CTaskFire, flags: u32),
+    pub process_frame: fn(this: *mut FireEntity, flags: u32),
 }
 
 /// Fire/flame entity task.
 ///
-/// Extends CTask (not CGameTask) — no physics body.
+/// Extends BaseEntity (not WorldEntity) — no physics body.
 /// class_type = 0x18. Allocated 0xD8 bytes.
-/// Constructor: CTaskFire__Constructor (0x54F4C0).
-/// vtable: CTaskFire__vtable (0x00669DD8).
+/// Constructor: FireEntity__Constructor (0x54F4C0).
+/// vtable: FireEntity__vtable (0x00669DD8).
 ///
-/// One CTaskFire is spawned per flame sprite.  The `timer` field starts
+/// One FireEntity is spawned per flame sprite.  The `timer` field starts
 /// at 0xFFFF and counts down each frame; when it reaches zero the fire
 /// dies.  `lifetime` at +0xB1 is a signed byte: 0xFF (= -1i8) means alive,
 /// 0 means the task is being destroyed.
 #[derive(FieldRegistry)]
 #[repr(C)]
-pub struct CTaskFire {
-    /// 0x00-0x2F: CTask base
-    pub base: CTask<*const CTaskFireVTable>,
+pub struct FireEntity {
+    /// 0x00-0x2F: BaseEntity base
+    pub base: BaseEntity<*const FireEntityVtable>,
     /// 0x30: spread counter (incremented while fire is spreading)
     pub spread_counter: i32,
     /// 0x34: frame countdown; starts at 0xFFFF, decrements each ProcessFrame
@@ -70,7 +73,7 @@ pub struct CTaskFire {
     pub _unknown_b2: [u8; 0x26],
 }
 
-const _: () = assert!(core::mem::size_of::<CTaskFire>() == 0xD8);
+const _: () = assert!(core::mem::size_of::<FireEntity>() == 0xD8);
 
 // Generate typed vtable method wrappers: handle_message(), process_frame().
-bind_CTaskFireVTable!(CTaskFire, base.vtable);
+bind_FireEntityVtable!(FireEntity, base.vtable);

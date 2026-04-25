@@ -1,4 +1,4 @@
-//! SpriteGfxTable — sprite allocation table embedded inside DDGame.
+//! SpriteGfxTable — sprite allocation table embedded inside GameWorld.
 //!
 //! Two parallel u32 arrays plus a 3-DWORD trailer:
 //! - `[0..count]` at `+0x0000`: identity permutation (slot index)

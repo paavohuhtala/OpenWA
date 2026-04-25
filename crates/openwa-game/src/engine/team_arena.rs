@@ -1,20 +1,20 @@
 // ============================================================
-// Team arena state — sub-struct at DDGame + 0x4628
+// Team arena state — sub-struct at GameWorld + 0x4628
 // ============================================================
 //
-// Extracted from ddgame.rs: team/worm data structures, TeamArena,
-// and related helper structs used as DDGame fields.
+// Extracted from world.rs: team/worm data structures, TeamArena,
+// and related helper structs used as GameWorld fields.
 
 use core::ffi::CStr;
 
 use crate::snapshot::Snapshot;
 
-use super::ddgame::offsets;
+use super::world::offsets;
 
 /// Team index permutation map (0x64 = 100 bytes).
 ///
 /// Used for mapping team indices to rendering/turn slots. Three instances
-/// live in DDGame at offsets 0x7650, 0x76B4, 0x7718 (stride 0x64).
+/// live in GameWorld at offsets 0x7650, 0x76B4, 0x7718 (stride 0x64).
 /// Initialized as identity permutations [0,1,2,...,15] with count=16.
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -135,7 +135,7 @@ pub union TeamSlot0 {
     pub team: core::mem::ManuallyDrop<TeamHeader>,
 }
 
-/// Full per-team data block (0x51C bytes, 7 blocks in DDGame).
+/// Full per-team data block (0x51C bytes, 7 blocks in GameWorld).
 ///
 /// Each block starts with a `TeamSlot0` union (0x9C bytes) that serves
 /// dual purpose: its high offsets hold team metadata (`TeamHeader`),
@@ -178,7 +178,7 @@ pub struct WeaponSlots {
 }
 const _: () = assert!(core::mem::size_of::<WeaponSlots>() == 852 * 4);
 
-/// Team arena state area within DDGame (at DDGame + 0x4628).
+/// Team arena state area within GameWorld (at GameWorld + 0x4628).
 ///
 /// Contains per-team entries and an interleaved ammo/delay table.
 /// Used by GetAmmo (0x5225E0), AddAmmo (0x522640), SubtractAmmo (0x522680).
@@ -293,7 +293,7 @@ impl TeamArena {
 
     /// Get pointer to the TeamBlock array base.
     ///
-    /// The TeamBlock array lives 0x598 bytes before TeamArena in DDGame memory.
+    /// The TeamBlock array lives 0x598 bytes before TeamArena in GameWorld memory.
     #[inline]
     pub unsafe fn blocks_mut(this: *mut Self) -> *mut TeamBlock {
         unsafe { (this as *mut u8).sub(offsets::ARENA_TO_BLOCKS) as *mut TeamBlock }
@@ -301,7 +301,7 @@ impl TeamArena {
 
     /// Get pointer to the TeamBlock array base (read-only).
     ///
-    /// The TeamBlock array lives 0x598 bytes before TeamArena in DDGame memory.
+    /// The TeamBlock array lives 0x598 bytes before TeamArena in GameWorld memory.
     #[inline]
     pub unsafe fn blocks(this: *const Self) -> *const TeamBlock {
         unsafe { (this as *const u8).sub(offsets::ARENA_TO_BLOCKS) as *const TeamBlock }

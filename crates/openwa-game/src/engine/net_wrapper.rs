@@ -5,7 +5,7 @@ use crate::wa_alloc::wa_malloc_struct_zeroed;
 /// Constructor: DDNetGameWrapper__Constructor (0x56D1F0), stdcall(this) → DDNetGameWrapper*.
 /// Size: 0x2C bytes.
 ///
-/// Created by GameEngine__InitHardware (always, after DDGameWrapper).
+/// Created by GameEngine__InitHardware (always, after GameRuntime).
 /// Stored at GameSession+0xC0.
 ///
 /// OPAQUE: Internal layout not yet mapped.

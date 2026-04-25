@@ -1,75 +1,79 @@
-use super::base::CTask;
-use super::game_task::CGameTask;
+use super::base::BaseEntity;
+use super::game_task::WorldEntity;
 use crate::FieldRegistry;
 use crate::game::weapon::WeaponSpawnData;
 use openwa_core::fixed::Fixed;
 
 crate::define_addresses! {
-    class "CTaskMissile" {
-        /// CTaskMissile vtable - projectile entity
-        vtable CTASK_MISSILE_VTABLE = 0x00664438;
-        ctor CTASK_MISSILE_CTOR = 0x00507D10;
+    class "MissileEntity" {
+        ctor MISSILE_ENTITY_CTOR = 0x00507D10;
         /// OnContact — vtable slot 8. Missile-type dispatched contact-impact handler.
-        vmethod CTASK_MISSILE_ON_CONTACT = 0x00508C90;
+        vmethod MISSILE_ENTITY_ON_CONTACT = 0x00508C90;
     }
 }
 
-/// CTaskMissile vtable — 20 slots. Extends CGameTask vtable with missile behavior.
+/// MissileEntity vtable — 20 slots. Extends WorldEntity vtable with missile behavior.
 ///
 /// Vtable at Ghidra 0x664438.
 ///
 /// Slot layout notes:
-/// - Slots 0–6 inherit from CTask/CGameTask (slot 6 `process_frame` is the generic
-///   children dispatcher `CTask::vt6_ProcessFrame` at 0x00563000; CTaskMissile does
+/// - Slots 0–6 inherit from BaseEntity/WorldEntity (slot 6 `process_frame` is the generic
+///   children dispatcher `BaseEntity::vt6_ProcessFrame` at 0x00563000; MissileEntity does
 ///   not override it).
-/// - Slot 7 thunks to `CGameTask::vt7` (0x004FF720) — 2-body elastic collision
+/// - Slot 7 thunks to `WorldEntity::vt7` (0x004FF720) — 2-body elastic collision
 ///   resolver. Inherited.
-/// - Slot 8 is CTaskMissile-specific: [`on_contact`](CTaskMissileVTable::on_contact).
-#[openwa_game::vtable(size = 20, va = 0x00664438, class = "CTaskMissile")]
-pub struct CTaskMissileVTable {
+/// - Slot 8 is MissileEntity-specific: [`on_contact`](MissileEntityVtable::on_contact).
+#[openwa_game::vtable(size = 20, va = 0x00664438, class = "MissileEntity")]
+pub struct MissileEntityVtable {
     /// HandleMessage — processes missile messages.
     /// thiscall + 4 stack params, RET 0x10.
     #[slot(2)]
-    pub handle_message:
-        fn(this: *mut CTaskMissile, sender: *mut CTask, msg_type: u32, size: u32, data: *const u8),
+    pub handle_message: fn(
+        this: *mut MissileEntity,
+        sender: *mut BaseEntity,
+        msg_type: u32,
+        size: u32,
+        data: *const u8,
+    ),
     /// OnContact — invoked when this missile contacts another entity (terrain,
-    /// worm, object). Dispatches by [`missile_type`](CTaskMissile::missile_type)
+    /// worm, object). Dispatches by [`missile_type`](MissileEntity::missile_type)
     /// (Standard/Homing/Sheep/Cluster). Calls
-    /// `PlayImpactSound_Maybe` + `CGameTask::vt8` (base OnContact) + conditionally
+    /// `PlayImpactSound_Maybe` + `WorldEntity::vt8` (base OnContact) + conditionally
     /// `CreateExplosion`, `ImpactSpecialFx_Maybe`, and self.slot14 terminator.
     /// thiscall + 2 stack params (other, self_side_flags), RET 0x8. Returns 1 in EAX.
     #[slot(8)]
-    pub on_contact: fn(this: *mut CTaskMissile, other: *mut CTask, self_side_flags: u32) -> u32,
-    /// SetTerminateFlag — writes `flag` to `CGameTask+0x44`. Generic CGameTask
+    pub on_contact:
+        fn(this: *mut MissileEntity, other: *mut BaseEntity, self_side_flags: u32) -> u32,
+    /// SetTerminateFlag — writes `flag` to `WorldEntity+0x44`. Generic WorldEntity
     /// subclass terminator shared across task types (inherited slot, not a
-    /// CTaskMissile override). Thiscall(this, flag), RET 0x4.
-    /// Target: `CGameTask::SetTerminateFlag_Maybe` at 0x004FE060.
+    /// MissileEntity override). Thiscall(this, flag), RET 0x4.
+    /// Target: `WorldEntity::SetTerminateFlag_Maybe` at 0x004FE060.
     #[slot(14)]
-    pub set_terminate_flag: fn(this: *mut CTaskMissile, flag: u32),
+    pub set_terminate_flag: fn(this: *mut MissileEntity, flag: u32),
 }
 
 /// Projectile / missile entity task.
 ///
-/// Extends CGameTask (0xFC bytes). One instance per airborne projectile
+/// Extends WorldEntity (0xFC bytes). One instance per airborne projectile
 /// (rockets, grenades, mortar shells, homing missiles, sheep, etc.).
 ///
-/// Inheritance: CTask → CGameTask → CTaskMissile. class_type = 0x0B (11).
-/// Constructor: `CTaskMissile__Constructor` (0x507D10, stdcall, 4 params).
-/// Vtable: `CTaskMissile__vtable` (0x00664438).
+/// Inheritance: BaseEntity → WorldEntity → MissileEntity. class_type = 0x0B (11).
+/// Constructor: `MissileEntity__Constructor` (0x507D10, stdcall, 4 params).
+/// Vtable: `MissileEntity__vtable` (0x00664438).
 ///
 /// Constructor params:
 ///   param_1 = this
-///   param_2 = parent task pointer (passed to CGameTask ctor)
+///   param_2 = parent task pointer (passed to WorldEntity ctor)
 ///   param_3 = scheme weapon data (94 DWORDs from WGT blob)
 ///   param_4 = spawn data (11 DWORDs: position, velocity, owner, pellet index)
 ///
 /// Source: Ghidra decompilation of 0x507D10 (constructor) and
-///         wkJellyWorm CTaskMissile.h (field layout reference).
+///         wkJellyWorm MissileEntity.h (field layout reference).
 #[derive(FieldRegistry)]
 #[repr(C)]
-pub struct CTaskMissile {
-    /// 0x00–0xFB: CGameTask base (pos at 0x84/0x88, speed at 0x90/0x94).
-    pub base: CGameTask<*const CTaskMissileVTable>,
+pub struct MissileEntity {
+    /// 0x00–0xFB: WorldEntity base (pos at 0x84/0x88, speed at 0x90/0x94).
+    pub base: WorldEntity<*const MissileEntityVtable>,
 
     // ---- 0xFC–0x12F: missile init fields ----
     /// 0xFC–0x10F: Unknown missile flags and state
@@ -89,7 +93,7 @@ pub struct CTaskMissile {
     /// 0x128: Position-derived launch seed. Computed by constructor as:
     /// `((spawn_x + spawn_y) / 256 / 20) + 0x10000`. param_1[0x4A].
     pub launch_seed: u32,
-    /// 0x12C: Object pool slot index (assigned from DDGame+0x3600 pool).
+    /// 0x12C: Object pool slot index (assigned from GameWorld+0x3600 pool).
     /// param_1[0x4B].
     pub slot_id: u32,
 
@@ -108,9 +112,9 @@ pub struct CTaskMissile {
     /// Runtime-observed for bazooka:
     ///   [0x03] = 137342 → Fixed16.16 ≈ 2.10 (some radius/size)
     ///   [0x05] = 100, [0x06] = 50, [0x09] = 48
-    ///   [0x0F] gravity_pct  — 100 → gravity_factor = 1.0  (→ CGameTask+0x58 via render_data)
-    ///   [0x10] bounce_pct   — 100 → bounce_factor  = 1.0  (→ CGameTask+0x5C via render_data)
-    ///   [0x12] friction_pct — 100 → friction_factor = 1.0 (→ CGameTask+0x60 via render_data)
+    ///   [0x0F] gravity_pct  — 100 → gravity_factor = 1.0  (→ WorldEntity+0x58 via render_data)
+    ///   [0x10] bounce_pct   — 100 → bounce_factor  = 1.0  (→ WorldEntity+0x5C via render_data)
+    ///   [0x12] friction_pct — 100 → friction_factor = 1.0 (→ WorldEntity+0x60 via render_data)
     ///   [0x14] = 9000
     ///   [0x1A] missile_type — discriminator (2=Standard, 3=Homing, 4=Sheep, 5=Cluster)
     ///   [0x1B] = 4194304 → Fixed16.16 = 64.0
@@ -125,7 +129,7 @@ pub struct CTaskMissile {
     //
     // The constructor copies 42 DWORDs from the appropriate source range; dynamic
     // physics values update some entries during flight. Each entry listed below is
-    // named by its semantic role (deduced from CTaskMissile::OnContact + constructor
+    // named by its semantic role (deduced from MissileEntity::OnContact + constructor
     // analysis). Untouched entries remain in padding arrays.
     /// 0x2D4 — render_data[0]. Contact-face mask tested against `other->+0x30`
     /// (the face of the contacted entity). If `(1 << other_face) & mask != 0`,
@@ -140,9 +144,9 @@ pub struct CTaskMissile {
     /// 0x2F0..0x32F — render_data[7..0x16] (untouched by known code paths).
     ///
     /// Constructor-known uses in this range:
-    ///   [0x0C] gravity_pct  → (value << 16) / 100 → CGameTask+0x58 (gravity_factor)
-    ///   [0x0D] bounce_pct   → (value << 16) / 100 → CGameTask+0x5C (bounce_factor)
-    ///   [0x0F] friction_pct → (value << 16) / 100 → CGameTask+0x60 (friction_factor)
+    ///   [0x0C] gravity_pct  → (value << 16) / 100 → WorldEntity+0x58 (gravity_factor)
+    ///   [0x0D] bounce_pct   → (value << 16) / 100 → WorldEntity+0x5C (bounce_factor)
+    ///   [0x0F] friction_pct → (value << 16) / 100 → WorldEntity+0x60 (friction_factor)
     ///   [0x11] = 9000 for bazooka (→ also copied to post-render field at 0x37C)
     pub _render_data_07_16: [u32; 16],
     /// 0x330 — render_data[0x17]. Missile type discriminator
@@ -185,7 +189,7 @@ pub struct CTaskMissile {
     pub explosion_damage_pct: u32,
     /// 0x35C — render_data[0x22]. Ricochet-remaining counter. Decremented on each
     /// ricochet-eligible contact; when it reaches 0, the missile invokes the
-    /// slot-14 terminator (`CGameTask::SetTerminateFlag`) instead of bouncing.
+    /// slot-14 terminator (`WorldEntity::SetTerminateFlag`) instead of bouncing.
     pub ricochet_counter: u32,
     /// 0x360..0x37B — render_data[0x23..0x29] (untouched by known code paths).
     /// `[0x29]` (= 0x37C offset equivalent inside post_render) is referenced in
@@ -252,39 +256,39 @@ pub struct CTaskMissile {
     pub _unknown_3cc: [u8; 0x40],
 }
 
-const _: () = assert!(core::mem::size_of::<CTaskMissile>() == 0x40C);
+const _: () = assert!(core::mem::size_of::<MissileEntity>() == 0x40C);
 
-// Explicit offset sanity checks for fields touched by CTaskMissile::OnContact.
+// Explicit offset sanity checks for fields touched by MissileEntity::OnContact.
 const _: () = {
     use core::mem::offset_of;
-    assert!(offset_of!(CTaskMissile, contact_face_mask) == 0x2D4);
-    assert!(offset_of!(CTaskMissile, fire_particle_trigger) == 0x2EC);
-    assert!(offset_of!(CTaskMissile, missile_type) == 0x330);
-    assert!(offset_of!(CTaskMissile, impact_sound_id) == 0x340);
-    assert!(offset_of!(CTaskMissile, ricochet_side_mask) == 0x344);
-    assert!(offset_of!(CTaskMissile, ricochet_chance_pct) == 0x348);
-    assert!(offset_of!(CTaskMissile, explosion_id) == 0x350);
-    assert!(offset_of!(CTaskMissile, explosion_damage) == 0x354);
-    assert!(offset_of!(CTaskMissile, explosion_damage_pct) == 0x358);
-    assert!(offset_of!(CTaskMissile, ricochet_counter) == 0x35C);
-    assert!(offset_of!(CTaskMissile, contact_phase) == 0x394);
-    assert!(offset_of!(CTaskMissile, terminate_stash_speed_x) == 0x39C);
-    assert!(offset_of!(CTaskMissile, terminate_stash_speed_y) == 0x3A0);
-    assert!(offset_of!(CTaskMissile, homing_enabled) == 0x3A8);
-    assert!(offset_of!(CTaskMissile, sheep_bailout_counter) == 0x3AC);
-    assert!(offset_of!(CTaskMissile, sheep_bailout_locked) == 0x3B0);
-    assert!(offset_of!(CTaskMissile, sheep_action_flag) == 0x3B4);
-    assert!(offset_of!(CTaskMissile, sheep_stash_pos_x) == 0x3B8);
-    assert!(offset_of!(CTaskMissile, sheep_stash_pos_y) == 0x3BC);
-    assert!(offset_of!(CTaskMissile, sheep_stash_speed_x) == 0x3C0);
-    assert!(offset_of!(CTaskMissile, sheep_stash_speed_y) == 0x3C4);
-    assert!(offset_of!(CTaskMissile, direction) == 0x3C8);
+    assert!(offset_of!(MissileEntity, contact_face_mask) == 0x2D4);
+    assert!(offset_of!(MissileEntity, fire_particle_trigger) == 0x2EC);
+    assert!(offset_of!(MissileEntity, missile_type) == 0x330);
+    assert!(offset_of!(MissileEntity, impact_sound_id) == 0x340);
+    assert!(offset_of!(MissileEntity, ricochet_side_mask) == 0x344);
+    assert!(offset_of!(MissileEntity, ricochet_chance_pct) == 0x348);
+    assert!(offset_of!(MissileEntity, explosion_id) == 0x350);
+    assert!(offset_of!(MissileEntity, explosion_damage) == 0x354);
+    assert!(offset_of!(MissileEntity, explosion_damage_pct) == 0x358);
+    assert!(offset_of!(MissileEntity, ricochet_counter) == 0x35C);
+    assert!(offset_of!(MissileEntity, contact_phase) == 0x394);
+    assert!(offset_of!(MissileEntity, terminate_stash_speed_x) == 0x39C);
+    assert!(offset_of!(MissileEntity, terminate_stash_speed_y) == 0x3A0);
+    assert!(offset_of!(MissileEntity, homing_enabled) == 0x3A8);
+    assert!(offset_of!(MissileEntity, sheep_bailout_counter) == 0x3AC);
+    assert!(offset_of!(MissileEntity, sheep_bailout_locked) == 0x3B0);
+    assert!(offset_of!(MissileEntity, sheep_action_flag) == 0x3B4);
+    assert!(offset_of!(MissileEntity, sheep_stash_pos_x) == 0x3B8);
+    assert!(offset_of!(MissileEntity, sheep_stash_pos_y) == 0x3BC);
+    assert!(offset_of!(MissileEntity, sheep_stash_speed_x) == 0x3C0);
+    assert!(offset_of!(MissileEntity, sheep_stash_speed_y) == 0x3C4);
+    assert!(offset_of!(MissileEntity, direction) == 0x3C8);
 };
 
 // Generate typed vtable method wrappers: handle_message(), process_frame().
-bind_CTaskMissileVTable!(CTaskMissile, base.base.vtable);
+bind_MissileEntityVtable!(MissileEntity, base.base.vtable);
 
-impl CTaskMissile {
+impl MissileEntity {
     /// Spawn X as Fixed16.16.
     pub fn spawn_x(&self) -> Fixed {
         self.spawn_params.spawn_x
@@ -346,7 +350,7 @@ impl MissileType {
 // ── Snapshot impl ──────────────────────────────────────────
 
 #[cfg(target_arch = "x86")]
-impl crate::snapshot::Snapshot for CTaskMissile {
+impl crate::snapshot::Snapshot for MissileEntity {
     unsafe fn write_snapshot(
         &self,
         w: &mut dyn core::fmt::Write,
@@ -355,7 +359,7 @@ impl crate::snapshot::Snapshot for CTaskMissile {
         unsafe {
             use crate::snapshot::{write_indent, write_raw_region};
             let i = indent;
-            let b = &self.base; // CGameTask
+            let b = &self.base; // WorldEntity
 
             write_indent(w, i)?;
             writeln!(w, "pos = ({}, {})", b.pos_x, b.pos_y)?;

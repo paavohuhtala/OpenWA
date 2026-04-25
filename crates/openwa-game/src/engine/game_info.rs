@@ -26,7 +26,7 @@ pub struct GameInfo {
 
     /// 0xD778: Game version/mode. Compared against various thresholds:
     /// -2 = network game, -3..0 = different game modes, 8+ = new versions.
-    /// Used by DDGame constructor for conditional initialization.
+    /// Used by GameWorld constructor for conditional initialization.
     pub game_version: i32,
 
     /// 0xD77C-0xD787: Unknown
@@ -37,7 +37,7 @@ pub struct GameInfo {
     pub scoring_param_b: u16,
     /// 0xD78C-0xD923: Unknown
     pub _unknown_d78c: [u8; 0xD924 - 0xD78C],
-    /// 0xD924: Starting team color index (u8). Copied to DDGame.team_color at init.
+    /// 0xD924: Starting team color index (u8). Copied to GameWorld.team_color at init.
     pub team_color_source: u8,
     /// 0xD925-0xD931: Unknown
     pub _unknown_d925: [u8; 0xD932 - 0xD925],
@@ -75,13 +75,13 @@ pub struct GameInfo {
     pub donkey_disabled: u8,
     /// 0xD94D-0xD954: Unknown
     pub _unknown_d94d: [u8; 0xD955 - 0xD94D],
-    /// 0xD955: Terrain drop config byte A. Copied to DDGame.terrain_pct_a.
+    /// 0xD955: Terrain drop config byte A. Copied to GameWorld.terrain_pct_a.
     pub terrain_cfg_a: u8,
     /// 0xD956: When set, the AquaSheep slot is treated as SuperSheep instead.
     pub aquasheep_is_supersheep: u8,
-    /// 0xD957: Terrain drop config byte C. Copied to DDGame.terrain_pct_c.
+    /// 0xD957: Terrain drop config byte C. Copied to GameWorld.terrain_pct_c.
     pub terrain_cfg_c: u8,
-    /// 0xD958: Terrain drop config byte B. Copied to DDGame.terrain_pct_b.
+    /// 0xD958: Terrain drop config byte B. Copied to GameWorld.terrain_pct_b.
     pub terrain_cfg_b: u8,
     /// 0xD959: Version-gated weapon restriction. If nonzero and game_version > 0x29,
     /// returns -2 for unavailable weapons.
@@ -101,9 +101,9 @@ pub struct GameInfo {
     pub game_speed_config: i32,
     /// 0xD98C-0xD98F: Unknown
     pub _unknown_d98c: [u8; 0xD990 - 0xD98C],
-    /// 0xD990: Team slot allocation count (u32). Used to size DDGame+0x514 array.
+    /// 0xD990: Team slot allocation count (u32). Used to size GameWorld+0x514 array.
     pub team_slot_count: u32,
-    /// 0xD994: Object slot allocation count (u32). Used to size DDGame+0x518 array
+    /// 0xD994: Object slot allocation count (u32). Used to size GameWorld+0x518 array
     /// and buffer object allocation.
     pub object_slot_count: u32,
     /// 0xD998-0xD9A1: Unknown
@@ -194,7 +194,7 @@ pub struct GameInfo {
     pub _field_f340: u32,
 
     /// 0xF344: Sound start frame threshold (i32). Sound is suppressed when
-    /// DDGame.frame_counter < this value. Checked by IsSoundSuppressed and
+    /// GameWorld.frame_counter < this value. Checked by IsSoundSuppressed and
     /// DispatchGlobalSound.
     pub sound_start_frame: i32,
 
@@ -207,17 +207,17 @@ pub struct GameInfo {
     /// 0xF34C: State field (i32). Set to -1 by InitGameState.
     pub _field_f34c: i32,
     /// 0xF350: Replay end frame (i32). In replay mode, DispatchFrame triggers
-    /// game-over once `DDGame.frame_counter` passes this value.
+    /// game-over once `GameWorld.frame_counter` passes this value.
     pub replay_end_frame: i32,
     /// 0xF354-0xF360: Unknown
     pub _unknown_f354: [u8; 0xF361 - 0xF354],
-    /// 0xF361: Render phase config byte. Copied to DDGame.render_phase at init.
+    /// 0xF361: Render phase config byte. Copied to GameWorld.render_phase at init.
     pub render_phase_cfg: u8,
-    /// 0xF362: Unknown byte copied to DDGame+0x7788 during turn state init.
+    /// 0xF362: Unknown byte copied to GameWorld+0x7788 during turn state init.
     pub _field_f362: u8,
-    /// 0xF363: Config byte. Copied to DDGame._field_7644 at init.
+    /// 0xF363: Config byte. Copied to GameWorld._field_7644 at init.
     pub _field_f363: u8,
-    /// 0xF364: Config byte. Copied to DDGame._field_7648 at init.
+    /// 0xF364: Config byte. Copied to GameWorld._field_7648 at init.
     pub _field_f364: u8,
     /// 0xF365: Terrain config flag (u8). Bool-ified to wrapper+0x414.
     pub _field_f365: u8,
@@ -278,7 +278,7 @@ pub struct GameInfo {
     ///
     /// Roles: `(home_lock != 0)` sets `GameSession.fullscreen_flag` during
     /// `InitHardware`, and `DispatchFrame` compares it against
-    /// `DDGame._field_77d4 / 50` to trigger `game_state = 4` (headless exit)
+    /// `GameWorld._field_77d4 / 50` to trigger `game_state = 4` (headless exit)
     /// after the matching number of turn seconds.
     pub home_lock: u8,
     /// 0xF3B1: Unknown

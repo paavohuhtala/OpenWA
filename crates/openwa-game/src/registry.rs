@@ -11,16 +11,16 @@
 //!
 //! // Look up a Ghidra VA
 //! if let Some(resolved) = registry::lookup_va(0x005625A0) {
-//!     println!("{}", resolved.entry.name); // "CTASK_CONSTRUCTOR"
+//!     println!("{}", resolved.entry.name); // "BASE_ENTITY_CONSTRUCTOR"
 //! }
 //!
 //! // Identify a vtable
 //! if let Some(class) = registry::vtable_class_name(0x00669F8C) {
-//!     println!("{}", class); // "CTask"
+//!     println!("{}", class); // "BaseEntity"
 //! }
 //!
 //! // Format for debug output
-//! println!("{}", registry::format_va(0x005625A4)); // "CTASK_CONSTRUCTOR+0x4 (0x5625A4)"
+//! println!("{}", registry::format_va(0x005625A4)); // "BASE_ENTITY_CONSTRUCTOR+0x4 (0x5625A4)"
 //! ```
 
 use std::sync::OnceLock;
@@ -62,13 +62,13 @@ pub enum CallingConv {
 pub struct AddrEntry {
     /// Ghidra virtual address (image base 0x400000).
     pub va: u32,
-    /// Constant name (e.g., "CTASK_CONSTRUCTOR").
+    /// Constant name (e.g., "BASE_ENTITY_CONSTRUCTOR").
     pub name: &'static str,
     /// What kind of address this is.
     pub kind: AddrKind,
     /// Calling convention (for functions/constructors).
     pub calling_conv: Option<CallingConv>,
-    /// Owning class name (e.g., "CTask"), if part of a class block.
+    /// Owning class name (e.g., "BaseEntity"), if part of a class block.
     pub class_name: Option<&'static str>,
     /// Brief description from doc comment.
     pub doc: &'static str,
@@ -144,8 +144,8 @@ pub fn vtable_class_name(ghidra_vtable: u32) -> Option<&'static str> {
 
 /// Format a Ghidra VA as a human-readable string.
 ///
-/// - Exact match: `"CTASK_CONSTRUCTOR (0x5625A0)"`
-/// - Near match: `"CTASK_CONSTRUCTOR+0x4 (0x5625A4)"`
+/// - Exact match: `"BASE_ENTITY_CONSTRUCTOR (0x5625A0)"`
+/// - Near match: `"BASE_ENTITY_CONSTRUCTOR+0x4 (0x5625A4)"`
 /// - Unknown: `"0x005625A4"`
 pub fn format_va(ghidra_va: u32) -> String {
     match lookup_va(ghidra_va) {
@@ -225,7 +225,7 @@ pub struct FieldEntry {
 /// Field map for a struct, enabling offset → name lookups.
 #[derive(Debug)]
 pub struct StructFields {
-    /// Struct/class name (e.g., "DDGame").
+    /// Struct/class name (e.g., "GameWorld").
     pub struct_name: &'static str,
     /// Fields sorted by offset.
     pub fields: &'static [FieldEntry],
@@ -309,15 +309,15 @@ pub fn all_struct_fields() -> impl Iterator<Item = &'static StructFields> {
 
 /// Look up a field at `offset` using inheritance-aware search.
 ///
-/// For CTask-derived entities, the inheritance chain is:
-/// entity-specific fields → CGameTask → CTask.
+/// For BaseEntity-derived entities, the inheritance chain is:
+/// entity-specific fields → WorldEntity → BaseEntity.
 /// This function tries each registry in order, returning the first match.
 ///
-/// `struct_name` is the leaf class name (e.g., "CTaskWorm").
+/// `struct_name` is the leaf class name (e.g., "WormEntity").
 pub fn field_at_inherited(struct_name: &str, offset: u32) -> Option<&'static FieldEntry> {
-    // Inheritance chain for CTask hierarchy. Could be generalized later
+    // Inheritance chain for BaseEntity hierarchy. Could be generalized later
     // but this covers all current game entity types.
-    const CTASK_CHAIN: &[&str] = &["CGameTask", "CTask"];
+    const ENTITY_INHERITANCE_CHAIN: &[&str] = &["WorldEntity", "BaseEntity"];
 
     // Try the leaf struct first
     if let Some(fields) = struct_fields_for(struct_name)
@@ -327,7 +327,7 @@ pub fn field_at_inherited(struct_name: &str, offset: u32) -> Option<&'static Fie
     }
 
     // Walk the inheritance chain
-    for &parent in CTASK_CHAIN {
+    for &parent in ENTITY_INHERITANCE_CHAIN {
         if let Some(fields) = struct_fields_for(parent)
             && let Some(entry) = fields.field_at(offset)
         {
@@ -425,7 +425,7 @@ pub struct LiveObject {
     pub ptr: u32,
     /// Object size in bytes (0 if unknown).
     pub size: u32,
-    /// Class/struct name (e.g., "DDGame").
+    /// Class/struct name (e.g., "GameWorld").
     pub class_name: &'static str,
     /// Field registry for this struct (if available).
     pub fields: Option<&'static StructFields>,
@@ -624,19 +624,19 @@ mod tests {
     }
 
     #[test]
-    fn derive_field_registry_ctask() {
-        use crate::task::CTask;
+    fn derive_field_registry_base_entity() {
+        use crate::task::BaseEntity;
 
-        let reg = CTask::field_registry();
-        assert_eq!(reg.struct_name, "CTask");
+        let reg = BaseEntity::field_registry();
+        assert_eq!(reg.struct_name, "BaseEntity");
 
-        // CTask has known fields at known offsets
+        // BaseEntity has known fields at known offsets
         let vtable = reg.field_at(0x00).expect("vtable field at 0x00");
         assert_eq!(vtable.name, "vtable");
         assert_eq!(vtable.size, 4);
 
-        let ddgame = reg.field_at(0x2C).expect("ddgame field at 0x2C");
-        assert_eq!(ddgame.name, "ddgame");
+        let world = reg.field_at(0x2C).expect("world field at 0x2C");
+        assert_eq!(world.name, "world");
 
         // _unknown_1c should be skipped
         assert!(
@@ -646,13 +646,13 @@ mod tests {
     }
 
     #[test]
-    fn derive_field_registry_ddgame() {
-        use crate::engine::DDGame;
+    fn derive_field_registry_game_world() {
+        use crate::engine::GameWorld;
 
-        let reg = DDGame::field_registry();
-        assert_eq!(reg.struct_name, "DDGame");
+        let reg = GameWorld::field_registry();
+        assert_eq!(reg.struct_name, "GameWorld");
 
-        // DDGame has keyboard at 0x00
+        // GameWorld has keyboard at 0x00
         let keyboard = reg.field_at(0x00).expect("keyboard at 0x00");
         assert_eq!(keyboard.name, "keyboard");
 
@@ -660,10 +660,10 @@ mod tests {
         let gi = reg.field_at(0x24).expect("game_info at 0x24");
         assert_eq!(gi.name, "game_info");
 
-        // Should have many fields (DDGame is huge)
+        // Should have many fields (GameWorld is huge)
         assert!(
             reg.fields.len() > 20,
-            "DDGame should have >20 named fields, got {}",
+            "GameWorld should have >20 named fields, got {}",
             reg.fields.len()
         );
 
@@ -681,16 +681,16 @@ mod tests {
         let reg = GameSession::field_registry();
         assert_eq!(reg.struct_name, "GameSession");
 
-        // ddgame_wrapper at 0xA0
-        let wrapper = reg.field_at(0xA0).expect("ddgame_wrapper at 0xA0");
-        assert_eq!(wrapper.name, "ddgame_wrapper");
+        // game_runtime at 0xA0
+        let runtime = reg.field_at(0xA0).expect("game_runtime at 0xA0");
+        assert_eq!(runtime.name, "game_runtime");
     }
 
     #[test]
     fn derive_preserves_doc_comments() {
-        use crate::task::CTask;
+        use crate::task::BaseEntity;
 
-        let reg = CTask::field_registry();
+        let reg = BaseEntity::field_registry();
         let vtable = reg.field_at(0x00).unwrap();
         // Doc comment should be non-empty (we have "0x00: Pointer to virtual method table")
         assert!(
@@ -703,12 +703,12 @@ mod tests {
     #[test]
     fn struct_fields_for_lookup() {
         // Global registry should find structs by name
-        let ddgame = struct_fields_for("DDGame");
-        assert!(ddgame.is_some(), "DDGame not found in struct registry");
-        assert_eq!(ddgame.unwrap().struct_name, "DDGame");
+        let world = struct_fields_for("GameWorld");
+        assert!(world.is_some(), "GameWorld not found in struct registry");
+        assert_eq!(world.unwrap().struct_name, "GameWorld");
 
-        let ctask = struct_fields_for("CTask");
-        assert!(ctask.is_some(), "CTask not found in struct registry");
+        let ctask = struct_fields_for("BaseEntity");
+        assert!(ctask.is_some(), "BaseEntity not found in struct registry");
 
         let session = struct_fields_for("GameSession");
         assert!(
@@ -724,18 +724,15 @@ mod tests {
     fn struct_fields_for_vtable_lookup() {
         use crate::address::va;
 
-        // DDGameWrapper vtable → "DDGameWrapper" → DDGameWrapper fields
-        let fields = struct_fields_for_vtable(va::DDGAME_WRAPPER_VTABLE);
-        assert!(
-            fields.is_some(),
-            "DDGameWrapper fields not found via vtable"
-        );
-        assert_eq!(fields.unwrap().struct_name, "DDGameWrapper");
+        // GameRuntime vtable → "GameRuntime" → GameRuntime fields
+        let fields = struct_fields_for_vtable(va::GAME_RUNTIME_VTABLE);
+        assert!(fields.is_some(), "GameRuntime fields not found via vtable");
+        assert_eq!(fields.unwrap().struct_name, "GameRuntime");
 
-        // CTask vtable → "CTask" → CTask fields
-        let fields = struct_fields_for_vtable(va::CTASK_VTABLE);
-        assert!(fields.is_some(), "CTask fields not found via vtable");
-        assert_eq!(fields.unwrap().struct_name, "CTask");
+        // BaseEntity vtable → "BaseEntity" → BaseEntity fields
+        let fields = struct_fields_for_vtable(va::BASE_ENTITY_VTABLE);
+        assert!(fields.is_some(), "BaseEntity fields not found via vtable");
+        assert_eq!(fields.unwrap().struct_name, "BaseEntity");
     }
 
     #[test]

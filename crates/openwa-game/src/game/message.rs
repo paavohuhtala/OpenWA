@@ -159,7 +159,7 @@ pub trait TaskMessageData: Pod {
 }
 
 /// Payload for [`TaskMessage::Explosion`]. Built by `create_explosion`
-/// and consumed by every `CGameTask::HandleMessage` reached through the
+/// and consumed by every `WorldEntity::HandleMessage` reached through the
 /// broadcast.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Zeroable, Pod)]
@@ -196,7 +196,7 @@ impl TaskMessageData for UpdateNonCriticalMessage {
 }
 
 /// Empty payload for [`TaskMessage::TurnEndMaybe`] (msg 0x75). Sent to
-/// `CTaskTurnGame` at multiple end-of-round transitions.
+/// `WorldRootEntity` at multiple end-of-round transitions.
 #[repr(C)]
 #[derive(Clone, Copy, Zeroable, Pod, Debug)]
 pub struct TurnEndMaybeMessage;
@@ -215,7 +215,7 @@ impl TaskMessageData for Unknown122Message {
     const MESSAGE_TYPE: TaskMessage = TaskMessage::Unknown122;
 }
 
-/// Damage report sent up to `CTaskTurnGame` when an entity has its
+/// Damage report sent up to `WorldRootEntity` when an entity has its
 /// `caller_flag` set on an incoming `ExplosionMessage`. The recipient logs
 /// the hit for score / kill attribution.
 #[repr(C)]
@@ -231,7 +231,7 @@ impl TaskMessageData for ExplosionReportMessage {
 }
 
 /// Payload for [`TaskMessage::DetonateWeapon`] (broadcast by
-/// `CTaskTeam::HandleMessage` to its children when the team surrenders, on
+/// `TeamEntity::HandleMessage` to its children when the team surrenders, on
 /// game versions > 0xF4).
 #[repr(C)]
 #[derive(Clone, Copy, Zeroable, Pod, Debug)]
@@ -244,7 +244,7 @@ impl TaskMessageData for DetonateWeaponMessage {
 }
 
 /// Payload for [`TaskMessage::Surrender`] (sent by the Surrender weapon
-/// (subtype 13) and by `CTaskTeam::HandleMessage` when broadcasting end of
+/// (subtype 13) and by `TeamEntity::HandleMessage` when broadcasting end of
 /// turn).
 #[repr(C)]
 #[derive(Clone, Copy, Zeroable, Pod, Debug)]

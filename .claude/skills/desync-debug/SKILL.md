@@ -29,10 +29,10 @@ Output reports the first divergent frame or confirms all checksums match. Per-fr
 Replay desyncs (checksum mismatches) can be caused by any code difference -- constructor side effects, hooked function behaviour, missing state, wrong calling conventions, etc. Key methodology:
 
 0. **Start with `trace-desync`**: Run `.\trace-desync.ps1 testdata/replays/<replay>.WAgame` to automatically find the exact frame where baseline and hooked runs diverge.
-1. **WA uses a single shared RNG** (DDGame+0x45EC, `AdvanceGameRNG` at 0x53F320) for both gameplay AND visual effects. There is no separate "visual RNG." Even purely decorative things like particle sprites affect the game RNG and will cause desyncs in headless mode if handled differently. A secondary effect RNG exists at DDGame+0x45F0 (`advance_effect_rng()`, simpler LCG without frame_counter) -- used by WeaponRelease visual effects. Uses `team_health_ratio[0]` (unused index-0 slot).
-2. **DDGame flat memory matching is NOT sufficient.** Constructors and hooks have side effects on sub-objects (display, GfxHandler, Landscape). Compare all objects pointed to by DDGame AND DDGameWrapper.
+1. **WA uses a single shared RNG** (GameWorld+0x45EC, `AdvanceGameRNG` at 0x53F320) for both gameplay AND visual effects. There is no separate "visual RNG." Even purely decorative things like particle sprites affect the game RNG and will cause desyncs in headless mode if handled differently. A secondary effect RNG exists at GameWorld+0x45F0 (`advance_effect_rng()`, simpler LCG without frame_counter) -- used by WeaponRelease visual effects. Uses `team_health_ratio[0]` (unused index-0 slot).
+2. **GameWorld flat memory matching is NOT sufficient.** Constructors and hooks have side effects on sub-objects (display, GfxHandler, Landscape). Compare all objects pointed to by GameWorld AND GameRuntime.
 3. **Use hardware watchpoints** (see "Hardware Watchpoints" in CLAUDE.md) to find what writes a specific field.
-4. **Per-frame RNG logging** (DDGame+0x45EC) pinpoints the exact frame where simulation diverges. Binary search on frames, not code.
+4. **Per-frame RNG logging** (GameWorld+0x45EC) pinpoints the exact frame where simulation diverges. Binary search on frames, not code.
 5. **Always validate diff methodology** against a known-good frame first. The snapshot system's pointer canonicalization produces false positives.
 
 See `docs/re-notes/desync-investigation.md` for a detailed case study.

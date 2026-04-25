@@ -1,6 +1,6 @@
 /// Vtable for Palette (0x66A2E4).
 ///
-/// Slots 2-4 are called by GameEngine__InitHardware after DDGameWrapper construction.
+/// Slots 2-4 are called by GameEngine__InitHardware after GameRuntime construction.
 /// Slots 0-1 are unknown.
 #[openwa_game::vtable(size = 5, va = 0x0066A2E4, class = "Palette")]
 pub struct PaletteVtable {
@@ -18,7 +18,7 @@ pub struct PaletteVtable {
 /// Palette — palette management object.
 ///
 /// Vtable: 0x66A2E4.
-/// Passed as "palette" parameter to DDGame__Constructor, stored at DDGame+0x010.
+/// Passed as "palette" parameter to GameWorld__Constructor, stored at GameWorld+0x010.
 /// Size: 0x28 bytes.
 ///
 /// PARTIAL: Only vtable and first init field known.

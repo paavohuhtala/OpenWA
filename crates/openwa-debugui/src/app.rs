@@ -1,10 +1,10 @@
 use eframe::egui;
 use openwa_game::address::va;
-use openwa_game::engine::{DDGame, game_session};
+use openwa_game::engine::{GameWorld, game_session};
 use openwa_game::rebase::rb;
 use openwa_game::registry;
 use openwa_game::task::{
-    CTask, CTaskCloud, CTaskFire, CTaskTeam, CTaskTurnGame, CTaskWorm, TurnGameCtx,
+    BaseEntity, CloudEntity, FireEntity, MatchCtx, TeamEntity, WorldRootEntity, WormEntity,
 };
 
 use crate::log;
@@ -15,7 +15,7 @@ use crate::log;
 
 /// Vtables of entities that are created/destroyed every frame (particles,
 /// bubbles, etc.). Filtered from the census by default to reduce noise.
-const TRANSIENT_VTABLES: &[u32] = &[va::CTASK_SEA_BUBBLE_VTABLE];
+const TRANSIENT_VTABLES: &[u32] = &[va::SEA_BUBBLE_ENTITY_VTABLE];
 
 fn vtable_name(runtime_vtable: u32) -> Option<&'static str> {
     let delta = rb(va::IMAGE_BASE).wrapping_sub(va::IMAGE_BASE);
@@ -24,7 +24,7 @@ fn vtable_name(runtime_vtable: u32) -> Option<&'static str> {
 }
 
 /// Returns a display name for the entity at `addr`.
-/// Tries the known-vtable map first; falls back to CTask.class_type.
+/// Tries the known-vtable map first; falls back to BaseEntity.class_type.
 unsafe fn entity_type_name(addr: u32) -> String {
     unsafe {
         if addr == 0 {
@@ -34,7 +34,7 @@ unsafe fn entity_type_name(addr: u32) -> String {
         if let Some(name) = vtable_name(vtable) {
             return name.to_owned();
         }
-        let task = addr as *const CTask;
+        let task = addr as *const BaseEntity;
         format!("{:?}", (*task).class_type)
     }
 }
@@ -53,10 +53,18 @@ unsafe fn entity_label(addr: u32) -> String {
 // Game-memory helpers (all unsafe — call from the UI update function only)
 // ---------------------------------------------------------------------------
 
-/// Returns a pointer to DDGame, or None if not in-game.
-unsafe fn get_ddgame() -> Option<*const DDGame> {
+/// Returns a pointer to GameWorld, or None if not in-game.
+unsafe fn get_game_world() -> Option<*const GameWorld> {
     unsafe {
-        let ptr = game_session::get_ddgame();
+        let ptr = game_session::get_game_world();
+        if ptr.is_null() { None } else { Some(ptr) }
+    }
+}
+
+/// Returns a pointer to GameWorld, or None if not in-game.
+unsafe fn get_game_world_mut() -> Option<*mut GameWorld> {
+    unsafe {
+        let ptr = game_session::get_game_world();
         if ptr.is_null() { None } else { Some(ptr) }
     }
 }
@@ -64,12 +72,11 @@ unsafe fn get_ddgame() -> Option<*const DDGame> {
 /// Unlock all weapons: set ammo to unlimited (-1) and delays to 0 for all teams.
 unsafe fn cheat_unlock_all_weapons() {
     unsafe {
-        let Some(ddgame) = get_ddgame() else {
+        let Some(world) = get_game_world_mut() else {
             log::push("[Cheats] Not in game");
             return;
         };
-        let ddgame = ddgame as *mut DDGame;
-        let arena = &mut (*ddgame).team_arena;
+        let arena = &mut (*world).team_arena;
         for team in &mut arena.weapon_slots.teams {
             for ammo in &mut team.ammo {
                 *ammo = -1; // unlimited
@@ -82,13 +89,13 @@ unsafe fn cheat_unlock_all_weapons() {
     }
 }
 
-/// Read child task pointers from a CTask's children array.
+/// Read child task pointers from a BaseEntity's children array.
 ///
 /// The array is **sparse**: slots are nulled when a child is removed rather than
 /// compacted. `children_watermark` is the insertion counter (loop upper bound used
-/// by CTask::HandleMessage), not the live-child count. We return all slots up to
+/// by BaseEntity::HandleMessage), not the live-child count. We return all slots up to
 /// that bound so the caller can filter nulls and display the live set.
-unsafe fn read_children(task: *const CTask) -> Vec<u32> {
+unsafe fn read_children(task: *const BaseEntity) -> Vec<u32> {
     unsafe {
         let slots = (*task).children_watermark as usize;
         let data = (*task).children_data as *const u32;
@@ -108,15 +115,15 @@ unsafe fn read_children(task: *const CTask) -> Vec<u32> {
 /// Walk up parent pointers from `start` to find the root task (no parent).
 /// Returns None if task_land is null or the chain doesn't terminate within
 /// MAX_DEPTH steps (guard against corrupt/circular pointers).
-unsafe fn find_root_task(ddgame: *const DDGame) -> Option<u32> {
+unsafe fn find_root_task(world: *const GameWorld) -> Option<u32> {
     unsafe {
-        let task_land = (*ddgame).task_land as u32;
+        let task_land = (*world).task_land as u32;
         if task_land == 0 {
             return None;
         }
         let mut current = task_land;
         for _ in 0..64 {
-            let parent = (*(current as *const CTask)).parent as u32;
+            let parent = (*(current as *const BaseEntity)).parent as u32;
             if parent == 0 {
                 return Some(current);
             }
@@ -139,7 +146,7 @@ unsafe fn collect_task_tree(root: u32) -> Vec<(u32, u32)> {
             }
             let vtable = *(addr as *const u32);
             out.push((vtable, addr));
-            for child in read_children(addr as *const CTask) {
+            for child in read_children(addr as *const BaseEntity) {
                 if child != 0 {
                     stack.push(child);
                 }
@@ -151,10 +158,10 @@ unsafe fn collect_task_tree(root: u32) -> Vec<(u32, u32)> {
 
 unsafe fn collect_live_entities() -> Vec<(u32, u32)> {
     unsafe {
-        let Some(ddgame) = get_ddgame() else {
+        let Some(world) = get_game_world() else {
             return Vec::new();
         };
-        let Some(root) = find_root_task(ddgame) else {
+        let Some(root) = find_root_task(world) else {
             return Vec::new();
         };
         collect_task_tree(root)
@@ -340,14 +347,14 @@ impl DebugApp {
 }
 
 // ---------------------------------------------------------------------------
-// Raw field viewer for CGameTask-derived types
+// Raw field viewer for WorldEntity-derived types
 // ---------------------------------------------------------------------------
 
-/// CGameTask field labels for the base class region (0x00..0xFC).
-/// Display all DWORDs of a CGameTask-derived entity with labelled fields.
+/// WorldEntity field labels for the base class region (0x00..0xFC).
+/// Display all DWORDs of a WorldEntity-derived entity with labelled fields.
 ///
 /// Field names are resolved from the global registry via inheritance-aware
-/// lookup (entity → CGameTask → CTask). No hardcoded label tables needed.
+/// lookup (entity → WorldEntity → BaseEntity). No hardcoded label tables needed.
 unsafe fn show_game_task_raw_fields(
     ui: &mut egui::Ui,
     addr: u32,
@@ -358,13 +365,13 @@ unsafe fn show_game_task_raw_fields(
         let base = addr as *const u32;
         let delta = rb(va::IMAGE_BASE).wrapping_sub(va::IMAGE_BASE);
 
-        // Sections: CTask base, CGameTask unknowns, pos/speed, more unknowns, emitter,
+        // Sections: BaseEntity base, WorldEntity unknowns, pos/speed, more unknowns, emitter,
         // then type-specific in 0x80-byte chunks to keep each section manageable.
         let mut sections: Vec<(usize, usize, String)> = vec![
-            (0x000, 0x030, "CTask base".into()),
-            (0x030, 0x084, "CGameTask +0x30".into()),
+            (0x000, 0x030, "BaseEntity base".into()),
+            (0x030, 0x084, "WorldEntity +0x30".into()),
             (0x084, 0x098, "pos / speed / angle".into()),
-            (0x098, 0x0E8, "CGameTask +0x98".into()),
+            (0x098, 0x0E8, "WorldEntity +0x98".into()),
             (0x0E8, 0x0FC, "SoundEmitter".into()),
         ];
         // Split type-specific region into chunks of 0x80 bytes
@@ -485,10 +492,10 @@ impl DebugApp {
                     ui.label(format!("Vtable: {:#010X}", vtable));
                     ui.separator();
 
-                    let task = addr as *const CTask;
+                    let task = addr as *const BaseEntity;
 
-                    // --- CTask base ---
-                    egui::CollapsingHeader::new("CTask base")
+                    // --- BaseEntity base ---
+                    egui::CollapsingHeader::new("BaseEntity base")
                         .default_open(true)
                         .show(ui, |ui| {
                             egui::Grid::new("ctask_grid").striped(true).show(ui, |ui| {
@@ -538,7 +545,7 @@ impl DebugApp {
                                 let child_name = entity_type_name(child_addr);
 
                                 // Expand inline if the child itself has children
-                                let child_task = child_addr as *const CTask;
+                                let child_task = child_addr as *const BaseEntity;
                                 let grandchildren = read_children(child_task);
                                 let grandchild_count =
                                     grandchildren.iter().filter(|&&a| a != 0).count();
@@ -579,25 +586,25 @@ impl DebugApp {
                         });
                     }
 
-                    // --- CTaskMine-specific fields ---
-                    if name == "CTaskMine" {
-                        show_game_task_raw_fields(ui, addr, "CTaskMine", 0x128);
+                    // --- MineEntity-specific fields ---
+                    if name == "MineEntity" {
+                        show_game_task_raw_fields(ui, addr, "MineEntity", 0x128);
                     }
 
-                    // --- CTaskOilDrum-specific fields ---
-                    if name == "CTaskOilDrum" {
-                        show_game_task_raw_fields(ui, addr, "CTaskOilDrum", 0x110);
+                    // --- OilDrumEntity-specific fields ---
+                    if name == "OilDrumEntity" {
+                        show_game_task_raw_fields(ui, addr, "OilDrumEntity", 0x110);
                     }
 
-                    // --- CTaskCrate-specific fields ---
-                    if name == "CTaskCrate" {
-                        show_game_task_raw_fields(ui, addr, "CTaskCrate", 0x4B0);
+                    // --- CrateEntity-specific fields ---
+                    if name == "CrateEntity" {
+                        show_game_task_raw_fields(ui, addr, "CrateEntity", 0x4B0);
                     }
 
-                    // --- CTaskCloud-specific fields ---
-                    if name == "CTaskCloud" {
-                        let cloud = addr as *const CTaskCloud;
-                        egui::CollapsingHeader::new("CTaskCloud")
+                    // --- CloudEntity-specific fields ---
+                    if name == "CloudEntity" {
+                        let cloud = addr as *const CloudEntity;
+                        egui::CollapsingHeader::new("CloudEntity")
                             .default_open(true)
                             .show(ui, |ui| {
                                 egui::Grid::new("cloud_grid").striped(true).show(ui, |ui| {
@@ -629,10 +636,10 @@ impl DebugApp {
                             });
                     }
 
-                    // --- CTaskTurnGame-specific fields ---
-                    if name == "CTaskTurnGame" {
-                        let tg = addr as *const CTaskTurnGame;
-                        egui::CollapsingHeader::new("CTaskTurnGame")
+                    // --- WorldRootEntity-specific fields ---
+                    if name == "WorldRootEntity" {
+                        let tg = addr as *const WorldRootEntity;
+                        egui::CollapsingHeader::new("WorldRootEntity")
                             .default_open(true)
                             .show(ui, |ui| {
                                 egui::Grid::new("tg_grid").striped(true).show(ui, |ui| {
@@ -681,8 +688,8 @@ impl DebugApp {
                                 });
                             });
 
-                        let ctx = &(*tg).game_ctx as *const TurnGameCtx;
-                        egui::CollapsingHeader::new("TurnGameCtx (+0x30)")
+                        let ctx = &(*tg).game_ctx as *const MatchCtx;
+                        egui::CollapsingHeader::new("MatchCtx (+0x30)")
                             .default_open(false)
                             .show(ui, |ui| {
                                 egui::Grid::new("ctx_grid").striped(true).show(ui, |ui| {
@@ -727,10 +734,10 @@ impl DebugApp {
                             });
                     }
 
-                    // --- CTaskTeam-specific fields ---
-                    if name == "CTaskTeam" {
-                        let team = addr as *const CTaskTeam;
-                        egui::CollapsingHeader::new("CTaskTeam")
+                    // --- TeamEntity-specific fields ---
+                    if name == "TeamEntity" {
+                        let team = addr as *const TeamEntity;
+                        egui::CollapsingHeader::new("TeamEntity")
                             .default_open(true)
                             .show(ui, |ui| {
                                 egui::Grid::new("team_grid").striped(true).show(ui, |ui| {
@@ -756,10 +763,10 @@ impl DebugApp {
                             });
                     }
 
-                    // --- CTaskFire-specific fields ---
-                    if name == "CTaskFire" {
-                        let fire = addr as *const CTaskFire;
-                        egui::CollapsingHeader::new("CTaskFire")
+                    // --- FireEntity-specific fields ---
+                    if name == "FireEntity" {
+                        let fire = addr as *const FireEntity;
+                        egui::CollapsingHeader::new("FireEntity")
                             .default_open(true)
                             .show(ui, |ui| {
                                 egui::Grid::new("fire_grid").striped(true).show(ui, |ui| {
@@ -788,12 +795,12 @@ impl DebugApp {
                             });
                     }
 
-                    // --- CTaskWorm-specific fields ---
-                    if name == "CTaskWorm"
+                    // --- WormEntity-specific fields ---
+                    if name == "WormEntity"
                         || (*task).class_type == openwa_game::game::ClassType::Worm
                     {
                         // Summary header with key info
-                        let worm = addr as *const CTaskWorm;
+                        let worm = addr as *const WormEntity;
                         let name_bytes = &(*worm).worm_name;
                         let nul = name_bytes
                             .iter()
@@ -809,20 +816,20 @@ impl DebugApp {
                         ));
                         ui.separator();
 
-                        show_game_task_raw_fields(ui, addr, "CTaskWorm", 0x3FC);
+                        show_game_task_raw_fields(ui, addr, "WormEntity", 0x3FC);
                     }
 
-                    // --- CTaskMissile-specific fields ---
-                    if name == "CTaskMissile" {
-                        use openwa_game::task::CTaskMissile;
-                        let m = &*(addr as *const CTaskMissile);
+                    // --- MissileEntity-specific fields ---
+                    if name == "MissileEntity" {
+                        use openwa_game::task::MissileEntity;
+                        let m = &*(addr as *const MissileEntity);
                         ui.label(format!(
                             "Missile: type={:?}  slot={}  homing={}  dir={}",
                             m.missile_type, m.slot_id, m.homing_enabled, m.direction
                         ));
                         ui.separator();
 
-                        show_game_task_raw_fields(ui, addr, "CTaskMissile", 0x41C);
+                        show_game_task_raw_fields(ui, addr, "MissileEntity", 0x41C);
                     }
                 }
             });

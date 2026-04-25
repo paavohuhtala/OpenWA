@@ -5,12 +5,12 @@
 //! `process_frame` handles desktop availability checks, keyboard state,
 //! frame advance, render dispatch, and minimize requests.
 //! `advance_frame` handles timer reads, accumulator updates, and
-//! dispatches the frame timing to `DDGameWrapper__DispatchFrame`.
+//! dispatches the frame timing to `GameRuntime__DispatchFrame`.
 
 use super::dispatch_frame::dispatch_frame;
 use crate::address::va;
 use crate::engine::clock::{effective_timer_freq, read_current_time};
-use crate::engine::ddgame_wrapper::DDGameWrapper;
+use crate::engine::runtime::GameRuntime;
 use crate::engine::game_session::{GameSession, get_game_session};
 use crate::engine::game_state;
 use crate::rebase::rb;
@@ -21,8 +21,8 @@ use crate::render::display::gfx::DisplayGfx;
 /// Reads the current timer, stirs a few bits of it into
 /// `GameSession::timer_counter` (an entropy accumulator used
 /// elsewhere), dispatches frame timing to
-/// `DDGameWrapper::DispatchFrame` (0x529160), and returns the game
-/// state from `DDGameWrapper::get_game_state`.
+/// `GameRuntime::DispatchFrame` (0x529160), and returns the game
+/// state from `GameRuntime::get_game_state`.
 ///
 /// # Safety
 /// Must be called from within the WA.exe process with a valid `g_GameSession`.
@@ -46,11 +46,11 @@ pub unsafe fn advance_frame() -> u32 {
                 .wrapping_add(time & 3)
         };
 
-        let wrapper = (*session).ddgame_wrapper;
-        dispatch_frame(wrapper, time, effective_timer_freq());
+        let runtime = (*session).game_runtime;
+        dispatch_frame(runtime, time, effective_timer_freq());
 
         // Return game state (vtable slot 9)
-        DDGameWrapper::get_game_state_raw(wrapper)
+        GameRuntime::get_game_state_raw(runtime)
     }
 }
 
@@ -144,9 +144,9 @@ pub unsafe fn process_frame() {
             (*session).frame_state = -1;
         }
 
-        // Call DDGameWrapper::render_frame (vtable slot 7)
-        let wrapper = (*session).ddgame_wrapper;
-        DDGameWrapper::render_frame_raw(wrapper);
+        // Call GameRuntime::render_frame (vtable slot 7)
+        let runtime = (*session).game_runtime;
+        GameRuntime::render_frame_raw(runtime);
 
         // Re-read session after render
         let session = get_game_session();

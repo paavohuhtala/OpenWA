@@ -1,48 +1,51 @@
-use super::base::CTask;
+use super::base::BaseEntity;
 use crate::FieldRegistry;
 use crate::game::class_type::ClassType;
 use openwa_core::fixed::Fixed;
 
 crate::define_addresses! {
-    class "CTaskCloud" {
-        /// CTaskCloud vtable - cloud/airstrike entity
-        vtable CTASK_CLOUD_VTABLE = 0x00669D38;
-        /// CTaskCloud constructor (usercall: ESI=this, EAX=parent, EDI=render_y,
+    class "CloudEntity" {
+        /// CloudEntity constructor (usercall: ESI=this, EAX=parent, EDI=render_y,
         /// stack: cloud_type, layer_depth, pos_x, vel_x). RET 0x10.
-        ctor CTASK_CLOUD_CTOR = 0x005482E0;
-        /// CTaskCloud::WriteReplayState — serializes cloud state to replay stream.
+        ctor CLOUD_ENTITY_CTOR = 0x005482E0;
+        /// CloudEntity::WriteReplayState — serializes cloud state to replay stream.
         /// thiscall + 1 stack param (stream ptr), RET 0x4.
-        vmethod CTASK_CLOUD_WRITE_REPLAY_STATE = 0x00548430;
-        /// CTaskCloud::ReadReplayState — deserializes cloud state from replay stream.
+        vmethod CLOUD_ENTITY_WRITE_REPLAY_STATE = 0x00548430;
+        /// CloudEntity::ReadReplayState — deserializes cloud state from replay stream.
         /// usercall (ESI=stream, EDI=this). Not a vtable method.
-        fn CTASK_CLOUD_READ_REPLAY_STATE = 0x00548370;
+        fn CLOUD_ENTITY_READ_REPLAY_STATE = 0x00548370;
     }
 }
 
-/// CTaskCloud vtable — 7 slots. Same layout as CTask base; overrides slots 0 and 2.
+/// CloudEntity vtable — 7 slots. Same layout as BaseEntity base; overrides slots 0 and 2.
 ///
-/// Vtable at Ghidra 0x669D38. Size verified by gap to next vtable (CTaskCPU at 0x669D54).
-/// CTaskCloud does NOT override ProcessFrame (slot 6) — all update logic is in
+/// Vtable at Ghidra 0x669D38. Size verified by gap to next vtable (CPUEntity at 0x669D54).
+/// CloudEntity does NOT override ProcessFrame (slot 6) — all update logic is in
 /// HandleMessage, responding to the FrameFinish message.
-#[openwa_game::vtable(size = 7, va = 0x00669D38, class = "CTaskCloud")]
-pub struct CTaskCloudVTable {
+#[openwa_game::vtable(size = 7, va = 0x00669D38, class = "CloudEntity")]
+pub struct CloudEntityVtable {
     /// WriteReplayState — serializes cloud state to replay stream.
     /// thiscall + 1 stack param (stream ptr), RET 0x4.
     #[slot(0)]
-    pub write_replay_state: fn(this: *mut CTaskCloud, stream: *mut u8),
+    pub write_replay_state: fn(this: *mut CloudEntity, stream: *mut u8),
     /// HandleMessage — processes cloud messages (wind updates, render).
     /// thiscall + 4 stack params, RET 0x10.
     #[slot(2)]
-    pub handle_message:
-        fn(this: *mut CTaskCloud, sender: *mut CTask, msg_type: u32, size: u32, data: *const u8),
+    pub handle_message: fn(
+        this: *mut CloudEntity,
+        sender: *mut BaseEntity,
+        msg_type: u32,
+        size: u32,
+        data: *const u8,
+    ),
 }
 
 /// Airstrike / weather cloud task.
 ///
-/// Extends CTask directly (not CGameTask). Clouds drift horizontally with wind,
+/// Extends BaseEntity directly (not WorldEntity). Clouds drift horizontally with wind,
 /// scroll on a parallax layer, and render as a single sprite.
 ///
-/// Allocation: 0x74 bytes (operator new in CTaskTeam__CreateWeatherFilter 0x552960).
+/// Allocation: 0x74 bytes (operator new in TeamEntity__CreateWeatherFilter 0x552960).
 /// Constructor: 0x5482E0 (usercall ESI=this, EAX=parent, EDI=render_y).
 /// Vtable: 0x669D38. Class type byte: 0x17 (ClassType::Cloud).
 ///
@@ -61,9 +64,9 @@ pub struct CTaskCloudVTable {
 ///         0x548430 (WriteReplayState), 0x548370 (ReadReplayState).
 #[derive(FieldRegistry)]
 #[repr(C)]
-pub struct CTaskCloud {
-    /// 0x00–0x2F: CTask base
-    pub base: CTask<*const CTaskCloudVTable>,
+pub struct CloudEntity {
+    /// 0x00–0x2F: BaseEntity base
+    pub base: BaseEntity<*const CloudEntityVtable>,
     /// 0x30: Parallax scroll layer depth (Fixed; starts at 0x190000 = 25.0,
     /// decrements by 1 each cloud spawned in a batch)
     pub layer_depth: Fixed,
@@ -102,26 +105,26 @@ pub struct CTaskCloud {
     pub _unknown_54: [u8; 0x20],
 }
 
-const _: () = assert!(core::mem::size_of::<CTaskCloud>() == 0x74);
+const _: () = assert!(core::mem::size_of::<CloudEntity>() == 0x74);
 
 // Generate typed vtable method wrappers: write_replay_state(), handle_message().
-bind_CTaskCloudVTable!(CTaskCloud, base.vtable);
+bind_CloudEntityVtable!(CloudEntity, base.vtable);
 
 use crate::game::TaskMessage;
 use crate::render::message::RenderMessage;
 use crate::render::sprite::sprite_op::SpriteOp;
 
-/// CTaskCloud::HandleMessage replacement — pure game logic.
+/// CloudEntity::HandleMessage replacement — pure game logic.
 ///
 /// Handles three message types:
 /// - FrameFinish: per-frame position update (parallax scroll with wind drift)
 /// - RenderScene: draw sprite at computed position
 /// - SetWind: set wind target from message data
 ///
-/// Always calls base CTask::HandleMessage at the end (broadcast to children).
+/// Always calls base BaseEntity::HandleMessage at the end (broadcast to children).
 pub unsafe extern "thiscall" fn cloud_handle_message(
-    this: *mut CTaskCloud,
-    sender: *mut CTask,
+    this: *mut CloudEntity,
+    sender: *mut BaseEntity,
     msg_type: TaskMessage,
     size: u32,
     data: *const u8,
@@ -137,10 +140,13 @@ pub unsafe extern "thiscall" fn cloud_handle_message(
                 (*this).pos_x = Fixed((*this).pos_x.0 + (*this).vel_x.0 + wind * 10);
 
                 // Wrap X at landscape bounds (with 128.0 Fixed padding)
-                let ddgame = CTask::ddgame_raw(this as *const CTask);
+                let world = {
+                    let this = this as *const BaseEntity;
+                    (*this).world
+                };
                 let padding = Fixed::from_int(128);
-                let level_left = (*ddgame).level_bound_min_x - padding;
-                let level_right = (*ddgame).level_bound_max_x + padding;
+                let level_left = (*world).level_bound_min_x - padding;
+                let level_right = (*world).level_bound_max_x + padding;
 
                 if (*this).pos_x < level_left {
                     (*this).pos_x = level_right;
@@ -162,20 +168,23 @@ pub unsafe extern "thiscall" fn cloud_handle_message(
             }
 
             TaskMessage::RenderScene => {
-                let ddgame = CTask::ddgame_raw(this as *const CTask);
+                let world = {
+                    let this = this as *const BaseEntity;
+                    (*this).world
+                };
 
                 // Only render when rendering phase == 5 (in-game rendering active)
-                if (*ddgame).render_phase == 5 {
+                if (*world).render_phase == 5 {
                     // Sub-frame parallax X offset: interpolate this frame's scroll
                     // using the render_interp_a ratio so clouds scroll smoothly
                     // between the 50Hz simulation steps.
                     let scroll_speed = (*this).vel_x.0 + (*this).wind_accel.0 * 10;
                     let parallax_x = ((scroll_speed as i64
-                        * (*ddgame).render_interp_a.to_raw() as i64)
+                        * (*world).render_interp_a.to_raw() as i64)
                         >> 16) as i32;
                     let x = parallax_x + (*this).pos_x.0;
 
-                    let rq = &mut *(*ddgame).render_queue;
+                    let rq = &mut *(*world).render_queue;
                     // Original (0x548527..0x54852f) loads `[ESI+0x44]` (render_y)
                     // into EAX as the usercall Y register, and pushes `anim_phase`
                     // (`[ESI+0x34]`) as the trailing stack arg that becomes
@@ -201,7 +210,7 @@ pub unsafe extern "thiscall" fn cloud_handle_message(
         }
 
         // Broadcast to children — raw-pointer version avoids noalias UB
-        CTask::broadcast_message_raw(this as *mut CTask, sender, msg_type, size, data);
+        BaseEntity::broadcast_message_raw(this as *mut BaseEntity, sender, msg_type, size, data);
     }
 }
 
@@ -217,21 +226,21 @@ pub enum CloudType {
     Small = 2,
 }
 
-impl CTaskCloud {
-    /// Initialize CTaskCloud fields on an already-constructed CTask base.
+impl CloudEntity {
+    /// Initialize CloudEntity fields on an already-constructed BaseEntity base.
     ///
     /// Pure Rust equivalent of the original constructor at 0x5482E0.
     /// The caller must have already:
     /// 1. Allocated 0x74 bytes (e.g. via `wa_malloc(0x74)`)
     /// 2. Zeroed the first 0x54 bytes (matches original `_memset(ptr, 0, 0x54)`)
-    /// 3. Called `CTask::Constructor` (0x5625A0) to set up the base task
+    /// 3. Called `BaseEntity::Constructor` (0x5625A0) to set up the base task
     ///
     /// This function then sets the vtable, class type, and all cloud-specific fields.
     ///
     /// # Safety
-    /// `this` must point to a valid, allocated CTaskCloud with CTask base initialized.
+    /// `this` must point to a valid, allocated CloudEntity with BaseEntity base initialized.
     pub unsafe fn init(
-        this: *mut CTaskCloud,
+        this: *mut CloudEntity,
         cloud_type: CloudType,
         layer_depth: Fixed,
         pos_x: Fixed,
@@ -241,8 +250,8 @@ impl CTaskCloud {
         unsafe {
             use crate::rebase::rb;
 
-            // Set vtable pointer to the CTaskCloud vtable (rebased for ASLR)
-            (*this).base.vtable = rb(CTASK_CLOUD_VTABLE) as *const CTaskCloudVTable;
+            // Set vtable pointer to the CloudEntity vtable (rebased for ASLR)
+            (*this).base.vtable = rb(CLOUD_ENTITY_VTABLE) as *const CloudEntityVtable;
             (*this).base.class_type = ClassType::Cloud;
 
             // Position: x is the initial horizontal position. The original computes

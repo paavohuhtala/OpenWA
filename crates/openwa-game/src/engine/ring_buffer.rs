@@ -1,4 +1,4 @@
-//! Ring buffer primitives used by DDGameWrapper sub-objects.
+//! Ring buffer primitives used by GameRuntime sub-objects.
 //!
 //! WA represents these as an opaque 7-DWORD struct:
 //! - `[0]`: data pointer

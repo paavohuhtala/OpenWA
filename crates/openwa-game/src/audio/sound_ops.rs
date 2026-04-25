@@ -15,28 +15,28 @@
 
 use crate::audio::SoundQueueEntry;
 use crate::audio::{SoundId, play_sound, play_sound_pooled};
-use crate::engine::{DDGame, DDGameWrapper};
-use crate::task::worm::CTaskWorm;
-use crate::task::{CGameTask, CTask, SoundEmitter};
+use crate::engine::{GameRuntime, GameWorld};
+use crate::task::worm::WormEntity;
+use crate::task::{BaseEntity, SoundEmitter, WorldEntity};
 use openwa_core::fixed::Fixed;
 
 // ============================================================
 // Sound queue insertion
 // ============================================================
 
-/// Insert a sound into DDGame's 16-slot queue.
+/// Insert a sound into GameWorld's 16-slot queue.
 ///
 /// Returns a pointer to the new entry, or None if the queue is full
 /// or sound is disabled.
 pub unsafe fn queue_sound(
-    ddgame: *mut DDGame,
+    world: *mut GameWorld,
     sound_id: SoundId,
     flags: u32,
     volume: Fixed,
     pitch: Fixed,
 ) -> Option<*mut SoundQueueEntry> {
     unsafe {
-        let g = &mut *ddgame;
+        let g = &mut *world;
         if g.sound_queue_count >= 16 || g.sound.is_null() {
             return None;
         }
@@ -67,7 +67,7 @@ pub unsafe fn queue_sound(
 /// Queues the sound, marks it as local, records the emitter position, and
 /// increments the task's local sound count. Returns true on success.
 pub unsafe fn play_sound_local(
-    task: *mut CGameTask,
+    task: *mut WorldEntity,
     sound_id: impl Into<SoundId>,
     flags: u32,
     volume: Fixed,
@@ -75,8 +75,8 @@ pub unsafe fn play_sound_local(
 ) -> bool {
     unsafe {
         let gt = &*task;
-        let ddgame = gt.base.ddgame;
-        let entry = match queue_sound(ddgame, sound_id.into(), flags, volume, pitch) {
+        let world = gt.base.world;
+        let entry = match queue_sound(world, sound_id.into(), flags, volume, pitch) {
             Some(e) => e,
             None => return false,
         };
@@ -93,7 +93,7 @@ pub unsafe fn play_sound_local(
 }
 
 // ============================================================
-// Worm sound functions (streaming sound handle at CTaskWorm+0x3B0)
+// Worm sound functions (streaming sound handle at WormEntity+0x3B0)
 // ============================================================
 
 /// Stop the worm's active streaming sound. Port of FUN_00515180.
@@ -101,17 +101,20 @@ pub unsafe fn play_sound_local(
 /// Reads the sound handle from `worm.sound_handle`, dispatches to either
 /// DSSound::stop_channel (regular) or ActiveSoundTable::stop_sound (streaming,
 /// handle has bit 30 set), then clears the handle.
-pub unsafe fn stop_worm_sound(worm: *mut CTaskWorm) {
+pub unsafe fn stop_worm_sound(worm: *mut WormEntity) {
     unsafe {
         let handle = (*worm).sound_handle;
         if handle != 0 {
-            let ddgame = CTask::ddgame_raw(worm as *const CTask);
-            let sound = (*ddgame).sound;
+            let world = {
+                let this = worm as *const BaseEntity;
+                (*this).world
+            };
+            let sound = (*world).sound;
             if !sound.is_null() && (handle as i32) >= 0 {
                 if handle & 0x40000000 != 0 {
                     // Streaming sound — stop via ActiveSoundTable
-                    if !(*ddgame).active_sounds.is_null() {
-                        (*(*ddgame).active_sounds).stop_sound(handle & !0x40000000);
+                    if !(*world).active_sounds.is_null() {
+                        (*(*world).active_sounds).stop_sound(handle & !0x40000000);
                     }
                 } else {
                     // Regular DSSound channel
@@ -129,39 +132,42 @@ pub unsafe fn stop_worm_sound(worm: *mut CTaskWorm) {
 /// Stops the current sound (same logic as [`stop_worm_sound`] but with
 /// reversed condition order matching the original), then calls the WA
 /// streaming load-and-play function (FUN_00546c20) and stores the new handle.
-pub unsafe fn play_worm_sound(worm: *mut CTaskWorm, sound_id: SoundId, volume: Fixed) {
+pub unsafe fn play_worm_sound(worm: *mut WormEntity, sound_id: SoundId, volume: Fixed) {
     unsafe {
         let handle = (*worm).sound_handle;
         if handle != 0 {
-            let ddgame = CTask::ddgame_raw(worm as *const CTask);
-            let sound = (*ddgame).sound;
+            let world = {
+                let this = worm as *const BaseEntity;
+                (*this).world
+            };
+            let sound = (*world).sound;
             if !sound.is_null() && (handle as i32) >= 0 {
                 if handle & 0x40000000 == 0 {
                     // Regular DSSound channel — stop via vtable
                     ((*(*sound).vtable).stop_channel)(sound, handle as i32);
                 } else {
                     // Streaming sound — stop via ActiveSoundTable
-                    if !(*ddgame).active_sounds.is_null() {
-                        (*(*ddgame).active_sounds).stop_sound(handle & !0x40000000);
+                    if !(*world).active_sounds.is_null() {
+                        (*(*world).active_sounds).stop_sound(handle & !0x40000000);
                     }
                 }
             }
         }
         // Start new streaming sound — fully ported, no WA bridge needed
         // FUN_005150D0 hardcodes flags=3
-        let new_handle = load_and_play_streaming(worm as *mut CGameTask, sound_id, 3, volume);
+        let new_handle = load_and_play_streaming(worm as *mut WorldEntity, sound_id, 3, volume);
         (*worm).sound_handle = new_handle;
     }
 }
 
-/// Stop+play on the secondary sound handle (CTaskWorm+0x3B4).
+/// Stop+play on the secondary sound handle (WormEntity+0x3B4).
 /// Port of FUN_00515020 (23 callers in WA).
 ///
 /// Stops any active sound on `sound_handle_2`, then plays a new streaming
 /// sound. Has a special case for sound 0x36 (Teleport) when the worm's Y
 /// position is extremely high — plays at weapon target position instead.
 pub unsafe fn play_worm_sound_2(
-    worm: *mut CTaskWorm,
+    worm: *mut WormEntity,
     sound_id: SoundId,
     volume: Fixed,
     flags: u32,
@@ -170,24 +176,27 @@ pub unsafe fn play_worm_sound_2(
         // 1. Stop current sound on handle_2
         let handle = (*worm).sound_handle_2;
         if handle != 0 {
-            let ddgame = CTask::ddgame_raw(worm as *const CTask);
-            let sound = (*ddgame).sound;
+            let world = {
+                let this = worm as *const BaseEntity;
+                (*this).world
+            };
+            let sound = (*world).sound;
             if !sound.is_null() && (handle as i32) >= 0 {
                 if handle & 0x40000000 == 0 {
                     ((*(*sound).vtable).stop_channel)(sound, handle as i32);
-                } else if !(*ddgame).active_sounds.is_null() {
-                    (*(*ddgame).active_sounds).stop_sound(handle & !0x40000000);
+                } else if !(*world).active_sounds.is_null() {
+                    (*(*world).active_sounds).stop_sound(handle & !0x40000000);
                 }
             }
         }
 
         // 2. Start new sound
-        // Check if worm is extremely high (CGameTask.pos_y, fixed-point).
+        // Check if worm is extremely high (WorldEntity.pos_y, fixed-point).
         let worm_y = (*worm).base.pos_y.0;
         let new_handle = if worm_y < -0x270FFFFF && sound_id.0 == 0x36 {
             // Special teleport case: play at weapon target position
             load_and_play_streaming_positional(
-                worm as *mut CTask,
+                worm as *mut BaseEntity,
                 sound_id,
                 flags,
                 volume,
@@ -196,7 +205,7 @@ pub unsafe fn play_worm_sound_2(
             )
         } else {
             // Normal case: play streaming sound — fully ported
-            load_and_play_streaming(worm as *mut CGameTask, sound_id, flags, volume)
+            load_and_play_streaming(worm as *mut WorldEntity, sound_id, flags, volume)
         };
 
         (*worm).sound_handle_2 = new_handle;
@@ -210,9 +219,9 @@ pub unsafe fn play_worm_sound_2(
 /// Check if sound playback is suppressed — port of IsSoundSuppressed (0x5261E0).
 ///
 /// Returns true if sound is muted or current frame is before sound start.
-pub unsafe fn is_sound_suppressed(ddgame: *const DDGame) -> bool {
+pub unsafe fn is_sound_suppressed(world: *const GameWorld) -> bool {
     unsafe {
-        let g = &*ddgame;
+        let g = &*world;
         let gi = &*g.game_info;
         gi.sound_mute != 0 || g.frame_counter < gi.sound_start_frame
     }
@@ -223,14 +232,14 @@ pub unsafe fn is_sound_suppressed(ddgame: *const DDGame) -> bool {
 /// Checks sound suppression, then calls DSSound play_sound.
 /// Returns 0xFFFFFFFF if suppressed, 0 if no DSSound, otherwise the channel handle.
 pub unsafe fn dispatch_global_sound(
-    ddgame_wrapper: *const DDGameWrapper,
+    runtime: *const GameRuntime,
     slot: SoundId,
     priority: i32,
     frequency: Fixed,
     volume: Fixed,
 ) -> u32 {
     unsafe {
-        let g = &*(*ddgame_wrapper).ddgame;
+        let g = &*(*runtime).world;
         let gi = &*g.game_info;
 
         if gi.sound_mute != 0 || g.frame_counter < gi.sound_start_frame {
@@ -250,13 +259,13 @@ pub unsafe fn dispatch_global_sound(
 ///
 /// Bypasses queue, checks suppression + fast-forward, calls DSSound play_sound_pooled.
 pub unsafe fn play_sound_pooled_direct(
-    task: *const CTask,
+    task: *const BaseEntity,
     slot: SoundId,
     priority: i32,
     volume: Fixed,
 ) -> i32 {
     unsafe {
-        let g = &*(*task).ddgame;
+        let g = &*(*task).world;
         let gi = &*g.game_info;
 
         if gi.sound_mute != 0 || g.frame_counter < gi.sound_start_frame {
@@ -376,13 +385,13 @@ fn distance_3d_attenuation(
 /// Compute distance-based volume and pan for a local sound — port of
 /// ComputeDistanceParams (0x546300).
 ///
-/// Reads the attenuation factor from GameInfo and the level width from DDGame.
+/// Reads the attenuation factor from GameInfo and the level width from GameWorld.
 /// If attenuation is disabled (factor == 0), returns full volume and center pan.
 ///
 /// Convention: fastcall(ECX=&out_pan, EDX=&out_volume, stack=[table, x, y]), RET 0xC.
-unsafe fn compute_distance_params(ddgame: *const DDGame, x: Fixed, y: Fixed) -> (Fixed, Fixed) {
+unsafe fn compute_distance_params(world: *const GameWorld, x: Fixed, y: Fixed) -> (Fixed, Fixed) {
     unsafe {
-        let gi = &*(*ddgame).game_info;
+        let gi = &*(*world).game_info;
         let attenuation = gi.sound_attenuation;
 
         if attenuation == 0 {
@@ -390,8 +399,8 @@ unsafe fn compute_distance_params(ddgame: *const DDGame, x: Fixed, y: Fixed) -> 
             return (Fixed::ONE, Fixed::ZERO);
         }
 
-        let level_width_fixed = Fixed((*ddgame).level_width_sound << 16);
-        let (lx, ly) = (*ddgame).listener_pos();
+        let level_width_fixed = Fixed((*world).level_width_sound << 16);
+        let (lx, ly) = (*world).listener_pos();
 
         distance_3d_attenuation(Fixed(lx), Fixed(ly), x, y, level_width_fixed, attenuation)
     }
@@ -461,13 +470,13 @@ unsafe fn dispatch_local_sound(
     unsafe {
         let volume = volume.min(Fixed::ONE);
 
-        let ddgame = (*table).ddgame;
-        let (volume_atten, pan) = compute_distance_params(ddgame, pos.0, pos.1);
+        let world = (*table).world;
+        let (volume_atten, pan) = compute_distance_params(world, pos.0, pos.1);
 
         let scaled_volume = volume * volume_atten;
 
         // Call DSSound::play_sound_pooled (vtable slot 4)
-        let sound = (*ddgame).sound;
+        let sound = (*world).sound;
         let sound_vt = &*(*sound).vtable;
         let handle =
             (sound_vt.play_sound_pooled)(sound, sound_slot, flags, Fixed::ONE, scaled_volume, pan);
@@ -486,27 +495,30 @@ unsafe fn dispatch_local_sound(
 /// then dispatches as a local sound. Returns handle | 0x40000000 on success,
 /// 0 on failure, -1 (0xFFFFFFFF) if suppressed.
 ///
-/// Takes any CGameTask (needs sound_emitter for position). Multiple WA callers
-/// pass various task types (CTaskWorm, CTaskMissile, etc.).
+/// Takes any WorldEntity (needs sound_emitter for position). Multiple WA callers
+/// pass various task types (WormEntity, MissileEntity, etc.).
 pub unsafe fn load_and_play_streaming(
-    task: *mut CGameTask,
+    task: *mut WorldEntity,
     sound_id: SoundId,
     flags: u32,
     volume: Fixed,
 ) -> i32 {
     unsafe {
-        let ddgame = CTask::ddgame_raw(task as *const CTask);
-        let gi = &*(*ddgame).game_info;
+        let world = {
+            let this = task as *const BaseEntity;
+            (*this).world
+        };
+        let gi = &*(*world).game_info;
 
         // Suppression checks (matching 0x546C20 exactly)
-        if gi.sound_mute != 0 || (*ddgame).frame_counter < gi.sound_start_frame {
+        if gi.sound_mute != 0 || (*world).frame_counter < gi.sound_start_frame {
             return -1;
         }
-        if (*ddgame).fast_forward_active != 0 {
+        if (*world).fast_forward_active != 0 {
             return -1;
         }
 
-        let sound = (*ddgame).sound;
+        let sound = (*world).sound;
         if sound.is_null() {
             return 0;
         }
@@ -518,7 +530,7 @@ pub unsafe fn load_and_play_streaming(
         ((*emitter.vtable).get_position)(emitter, &mut pos_x, &mut pos_y);
 
         // Dispatch as local sound
-        let table = (*ddgame).active_sounds;
+        let table = (*world).active_sounds;
         if table.is_null() {
             return 0;
         }
@@ -542,10 +554,10 @@ pub unsafe fn load_and_play_streaming(
 /// LoadAndPlayStreamingPositional (0x546BB0).
 ///
 /// Same as `load_and_play_streaming` but uses explicit (x, y) coordinates
-/// instead of reading from the emitter. Only needs CTask (reads ddgame at +0x2C).
+/// instead of reading from the emitter. Only needs BaseEntity (reads world at +0x2C).
 /// Only caller in WA is PlayWormSound2 (0x515020).
 pub unsafe fn load_and_play_streaming_positional(
-    task: *mut CTask,
+    task: *mut BaseEntity,
     sound_id: SoundId,
     flags: u32,
     volume: Fixed,
@@ -553,23 +565,26 @@ pub unsafe fn load_and_play_streaming_positional(
     y: Fixed,
 ) -> i32 {
     unsafe {
-        let ddgame = CTask::ddgame_raw(task as *const CTask);
-        let gi = &*(*ddgame).game_info;
+        let world = {
+            let this = task as *const BaseEntity;
+            (*this).world
+        };
+        let gi = &*(*world).game_info;
 
         // Suppression checks (matching 0x546BB0 exactly)
-        if gi.sound_mute != 0 || (*ddgame).frame_counter < gi.sound_start_frame {
+        if gi.sound_mute != 0 || (*world).frame_counter < gi.sound_start_frame {
             return -1;
         }
-        if (*ddgame).fast_forward_active != 0 {
+        if (*world).fast_forward_active != 0 {
             return -1;
         }
 
-        let sound = (*ddgame).sound;
+        let sound = (*world).sound;
         if sound.is_null() {
             return 0;
         }
 
-        let table = (*ddgame).active_sounds;
+        let table = (*world).active_sounds;
         if table.is_null() {
             return 0;
         }

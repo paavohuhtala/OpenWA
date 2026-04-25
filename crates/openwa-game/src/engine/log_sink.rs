@@ -173,7 +173,7 @@ impl LogOutput {
         unsafe { self.write_bytes(&b) };
     }
 
-    /// `HH:MM:SS.CC` at 50 fps. Matches `DDGameWrapper__WriteHeadlessLog`
+    /// `HH:MM:SS.CC` at 50 fps. Matches `GameRuntime__WriteHeadlessLog`
     /// (0x0053F0A0). Caller guarantees `frame >= 0`.
     pub unsafe fn write_timestamp_frames(&mut self, frame: u32) {
         let (h, rem) = (frame / 180_000, frame % 180_000);

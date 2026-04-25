@@ -6,7 +6,7 @@
 //! | Vtable     | Type                | Role                         |
 //! |------------|---------------------|------------------------------|
 //! | 0x6640EC   | `BitGrid`           | Base — set by `init`, passive data container |
-//! | 0x664118   | `CollisionBitGrid`  | Collision grid (DDGame+0x380), bit-level spatial queries |
+//! | 0x664118   | `CollisionBitGrid`  | Collision grid (GameWorld+0x380), bit-level spatial queries |
 //! | 0x664144   | `DisplayBitGrid`    | Display layers and sprite pixel buffers, 8bpp byte-level ops |
 //!
 //! All three vtables share the same 8-slot interface:
@@ -208,7 +208,7 @@ impl BitGrid {
 
 /// Typed alias for collision BitGrids (vtable 0x664118).
 ///
-/// Used at DDGame+0x380 for terrain collision/spatial queries.
+/// Used at GameWorld+0x380 for terrain collision/spatial queries.
 /// Bit-level operations — one bit per cell.
 pub type CollisionBitGrid = BitGrid<*const BitGridCollisionVtable>;
 

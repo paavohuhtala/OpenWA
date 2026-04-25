@@ -75,8 +75,8 @@ Source: wkJellyWorm `Sprites.h::SpriteFrame`.
 | 3 | 0x4FE550 | Unknown |
 | 4 | 0x4FE2F0 | Unknown |
 | 5 | 0x4FE9C0 | Unknown |
-| 6 | 0x5613D0 | CTask common stub |
-| 7 | 0x5613D0 | CTask common stub |
+| 6 | 0x5613D0 | BaseEntity common stub |
+| 7 | 0x5613D0 | BaseEntity common stub |
 
 ## Key Functions
 

@@ -1,13 +1,13 @@
-//! DDGame constructor — replaces DDGame__Constructor (0x56E220)
+//! GameWorld constructor — replaces GameWorld__Constructor (0x56E220)
 //!
-//! Despite being named DDGame__Constructor, the original function
-//! receives DDGameWrapper* as `this` and creates DDGame internally.
-//! It populates fields on BOTH the wrapper and the inner DDGame.
-//! The Rust entry point is DDGameWrapper::create_game() in
-//! ddgame_wrapper.rs; the bulk of the logic lives here because
-//! it primarily initializes DDGame fields.
+//! Despite being named GameWorld__Constructor, the original function
+//! receives GameRuntime* as `this` and creates GameWorld internally.
+//! It populates fields on BOTH the wrapper and the inner GameWorld.
+//! The Rust entry point is GameRuntime::create_game() in
+//! runtime.rs; the bulk of the logic lives here because
+//! it primarily initializes GameWorld fields.
 
-use super::ddgame::DDGame;
+use super::world::GameWorld;
 use crate::address::va;
 use crate::asset::gfx_dir::{
     GfxDir, GfxDirVtable, call_gfx_find_and_load, call_gfx_load_and_wrap, gfx_dir_load_dir,
@@ -19,7 +19,7 @@ use crate::audio::dssound::DSSound;
 use crate::audio::music::Music;
 use crate::bitgrid::{BitGrid, BitGridBaseVtable, CollisionBitGrid, DisplayBitGrid};
 use crate::engine::coord::{CoordList, CoordListEntry};
-use crate::engine::ddgame_wrapper::DDGameWrapper;
+use crate::engine::runtime::GameRuntime;
 use crate::engine::game_info::GameInfo;
 use crate::engine::net_bridge::NetBridge;
 use crate::input::keyboard::DDKeyboard;
@@ -32,21 +32,21 @@ use crate::wa_alloc::{wa_malloc, wa_malloc_zeroed};
 use openwa_core::fixed::Fixed;
 
 // ============================================================
-// Pure Rust implementations of DDGame sub-functions
+// Pure Rust implementations of GameWorld sub-functions
 // ============================================================
-// These are called both by create_ddgame() and by MinHook
-// trampolines in openwa-dll/replacements/ddgame_init.rs.
+// These are called both by create_world() and by MinHook
+// trampolines in openwa-dll/replacements/world_init.rs.
 
-/// Pure Rust implementation of DDGame__InitFields (0x526120).
+/// Pure Rust implementation of GameWorld__InitFields (0x526120).
 ///
 /// Zeroes stride-0x194 table entries, calls init_render_indices,
 /// then zeroes coordination/sound entries at 0x8Cxx and 0x98xx.
 ///
 /// # Safety
-/// `ddgame` must point to a valid, zero-filled DDGame allocation (0x98D8 bytes).
-pub unsafe fn ddgame_init_fields(ddgame: *mut DDGame) {
+/// `world` must point to a valid, zero-filled GameWorld allocation (0x98D8 bytes).
+pub unsafe fn game_world_init_fields(world: *mut GameWorld) {
     unsafe {
-        let base = ddgame as *mut u8;
+        let base = world as *mut u8;
 
         // Zero the stride-0x194 table (10 entries starting at 0x379C).
         // These offsets are deep in the unknown 0x2E00-0x45EB region and don't
@@ -67,45 +67,45 @@ pub unsafe fn ddgame_init_fields(ddgame: *mut DDGame) {
         }
 
         // init_field_64d8 = TeamArena.team_count (arena+0x1EB0)
-        (*ddgame).team_arena.team_count = 0;
+        (*world).team_arena.team_count = 0;
         // init_field_72a4 = weapon_slots flat[754] = alliance 5, ammo[44]
-        (*ddgame).team_arena.weapon_slots.teams[5].ammo[44] = 0;
+        (*world).team_arena.weapon_slots.teams[5].ammo[44] = 0;
 
-        // InitRenderIndices — original sets ESI = ddgame + 0x72D8, now uses typed DDGame ptr
-        ddgame_init_render_indices(ddgame);
+        // InitRenderIndices — original sets ESI = world + 0x72D8, now uses typed GameWorld ptr
+        game_world_init_render_indices(world);
 
         // Zero x and y of each screen coordinate entry (4 entries each)
-        for entry in &mut (*ddgame).viewport_coords {
+        for entry in &mut (*world).viewport_coords {
             entry.center_x = Fixed(0);
             entry.center_y = Fixed(0);
         }
-        for entry in &mut (*ddgame).screen_coords_2 {
+        for entry in &mut (*world).screen_coords_2 {
             entry.center_x = Fixed(0);
             entry.center_y = Fixed(0);
         }
     }
 }
 
-/// Pure Rust implementation of DDGame__InitRenderIndices (0x526080).
+/// Pure Rust implementation of GameWorld__InitRenderIndices (0x526080).
 ///
 /// Convention: usercall(ESI=base_ptr), plain RET.
 /// Initialize render state flag, render entry table, and team index maps.
 ///
-/// Original: called with ESI = ddgame + 0x72D8, but now uses typed DDGame fields.
+/// Original: called with ESI = world + 0x72D8, but now uses typed GameWorld fields.
 ///
 /// # Safety
-/// `ddgame` must point to a valid DDGame allocation.
-pub unsafe fn ddgame_init_render_indices(ddgame: *mut DDGame) {
+/// `world` must point to a valid GameWorld allocation.
+pub unsafe fn game_world_init_render_indices(world: *mut GameWorld) {
     unsafe {
-        (*ddgame).render_state_flag = 0;
+        (*world).render_state_flag = 0;
 
         // Zero the active flag of each render entry (eh_vector_constructor_iterator).
-        for entry in &mut (*ddgame).render_entries {
+        for entry in &mut (*world).render_entries {
             entry.active = 0;
         }
 
         // Initialize all three team index maps as identity permutations.
-        for map in &mut (*ddgame).team_index_maps {
+        for map in &mut (*world).team_index_maps {
             for i in 0..16i16 {
                 map.entries[i as usize] = i;
             }
@@ -123,17 +123,15 @@ pub unsafe fn ddgame_init_render_indices(ddgame: *mut DDGame) {
 /// Layer 1 color depends on gfx_mode and game_version.
 /// Layer 2 = 0x20, Layer 3 = 0x70.
 ///
-/// # Safety
-/// `wrapper` must be a valid DDGameWrapper with initialized display and ddgame.
 #[cfg(target_arch = "x86")]
-pub unsafe fn display_layer_color_init(wrapper: *mut DDGameWrapper) {
+pub unsafe fn display_layer_color_init(runtime: *mut GameRuntime) {
     unsafe {
-        let ddgame = (*wrapper).ddgame;
-        let game_info = (*ddgame).game_info;
+        let world = (*runtime).world;
+        let game_info = (*world).game_info;
         let game_version = (*game_info).game_version;
 
-        // wrapper+0x4C8 is gfx_mode (at DDGameWrapper.gfx_mode)
-        let layer1_color = if (*wrapper).gfx_mode == 0 {
+        // wrapper+0x4C8 is gfx_mode (at GameRuntime.gfx_mode)
+        let layer1_color = if (*runtime).gfx_mode == 0 {
             // (game_version > -2) - 1: yields 0 if true, -1 if false
             // Then + 0x69: yields 0x69 or 0x68
             if game_version > -2 { 0x69i32 } else { 0x68i32 }
@@ -141,7 +139,7 @@ pub unsafe fn display_layer_color_init(wrapper: *mut DDGameWrapper) {
             5 + 0x69 // = 0x6E
         };
 
-        let display = (*wrapper).display;
+        let display = (*runtime).display;
         (*display).set_layer_color(1, layer1_color);
         (*display).set_layer_color(2, 0x20);
         (*display).set_layer_color(3, 0x70);
@@ -156,7 +154,7 @@ pub fn init_constructor_addrs() {
         FUN_570A90_ADDR = rb(va::FUN_570A90);
 
         LOAD_SPEECH_BANKS_ADDR = rb(va::DSSOUND_LOAD_ALL_SPEECH_BANKS);
-        LOADING_PROGRESS_TICK_ADDR = rb(va::DDGAME_WRAPPER_LOADING_PROGRESS_TICK);
+        LOADING_PROGRESS_TICK_ADDR = rb(va::GAME_RUNTIME_LOADING_PROGRESS_TICK);
         GFX_LOAD_SPRITES_ADDR = rb(va::GFX_DIR_LOAD_SPRITES);
     }
 }
@@ -165,13 +163,13 @@ pub fn init_constructor_addrs() {
 // Each wraps a single WA function with a typed Rust signature.
 // Replace with pure Rust implementations as functions are ported.
 
-/// DDGame__InitVersionFlags (0x525BE0): sets DDGame+0x7E2E/0x7E2F/0x7E3F.
+/// GameWorld__InitVersionFlags (0x525BE0): sets GameWorld+0x7E2E/0x7E2F/0x7E3F.
 #[cfg(target_arch = "x86")]
-unsafe fn wa_init_version_flags(wrapper: *mut DDGameWrapper) {
+unsafe fn wa_init_version_flags(runtime: *mut GameRuntime) {
     unsafe {
-        let f: unsafe extern "stdcall" fn(*mut DDGameWrapper) =
-            core::mem::transmute(rb(va::DDGAME_INIT_VERSION_FLAGS) as usize);
-        f(wrapper);
+        let f: unsafe extern "stdcall" fn(*mut GameRuntime) =
+            core::mem::transmute(rb(va::GAME_WORLD_INIT_VERSION_FLAGS) as usize);
+        f(runtime);
     }
 }
 
@@ -183,7 +181,7 @@ unsafe fn wa_init_version_flags(wrapper: *mut DDGameWrapper) {
 #[cfg(target_arch = "x86")]
 #[unsafe(naked)]
 unsafe extern "C" fn wa_load_sprites(
-    _wrapper: *mut DDGameWrapper,
+    _runtime: *mut GameRuntime,
     _sprite_data: *mut u8,
     _display_flags: u32,
     _param4: u32,
@@ -210,7 +208,7 @@ static mut GFX_LOAD_SPRITES_ADDR: u32 = 0;
 /// Iterates the sound effect name table at 0x6AF378 (pairs of [slot_id, name_ptr],
 /// null-terminated). For each entry, builds "data\wav\Effects\{name}.wav" and calls
 /// DSSound::load_wav (vtable slot 12, already Rust).
-unsafe fn load_effect_wavs(wrapper: *mut DDGameWrapper) {
+unsafe fn load_effect_wavs(runtime: *mut GameRuntime) {
     unsafe {
         use crate::audio::dssound::load_wav;
         use std::ffi::CStr;
@@ -223,7 +221,7 @@ unsafe fn load_effect_wavs(wrapper: *mut DDGameWrapper) {
         }
 
         let table = rb(0x006AF378) as *const SfxEntry;
-        let sound = (*wrapper).sound;
+        let sound = (*runtime).sound;
         if sound.is_null() {
             return;
         }
@@ -244,7 +242,7 @@ unsafe fn load_effect_wavs(wrapper: *mut DDGameWrapper) {
             load_wav(sound, entry.slot_id, path.as_ptr());
 
             // Update loading progress bar
-            call_usercall_ecx(wrapper, LOADING_PROGRESS_TICK_ADDR);
+            call_usercall_ecx(runtime, LOADING_PROGRESS_TICK_ADDR);
 
             i += 1;
         }
@@ -259,7 +257,7 @@ unsafe fn load_effect_wavs(wrapper: *mut DDGameWrapper) {
 #[cfg(target_arch = "x86")]
 unsafe fn wa_landscape_ctor(
     this: *mut u8,
-    ddgame: *mut DDGame,
+    world: *mut GameWorld,
     gfx_resource: *mut crate::bitgrid::BitGrid,
     display: *mut DisplayGfx,
     landscape_data: *const u8,
@@ -273,7 +271,7 @@ unsafe fn wa_landscape_ctor(
     unsafe {
         let f: unsafe extern "stdcall" fn(
             *mut u8,
-            *mut DDGame,
+            *mut GameWorld,
             *mut crate::bitgrid::BitGrid,
             *mut DisplayGfx,
             *const u8,
@@ -286,7 +284,7 @@ unsafe fn wa_landscape_ctor(
         ) -> *mut u8 = core::mem::transmute(rb(va::LANDSCAPE_CONSTRUCTOR) as usize);
         f(
             this,
-            ddgame,
+            world,
             gfx_resource,
             display,
             landscape_data,
@@ -309,54 +307,51 @@ unsafe fn wa_displaygfx_ctor(
     unsafe { crate::asset::img::img_decode_cached(palette_ctx, raw_image) as *mut BitGrid }
 }
 
-/// DDGame__InitDisplayFinal (0x56A830): finalize display for non-headless mode.
+/// GameWorld__InitDisplayFinal (0x56A830): finalize display for non-headless mode.
 #[cfg(target_arch = "x86")]
 unsafe fn wa_init_display_final(display: *mut DisplayGfx) {
     unsafe {
         let f: unsafe extern "stdcall" fn(*mut DisplayGfx) =
-            core::mem::transmute(rb(va::DDGAME_INIT_DISPLAY_FINAL) as usize);
+            core::mem::transmute(rb(va::GAME_WORLD_INIT_DISPLAY_FINAL) as usize);
         f(display);
     }
 }
 
-/// DDGame__LoadHudAndWeaponSprites (0x53D0E0): load weapon icons and HUD sprites.
-/// thiscall(ECX=gfx_dir) + 2 stack(ddgame, secondary_gfx_dir), RET 0x8.
+/// GameWorld__LoadHudAndWeaponSprites (0x53D0E0): load weapon icons and HUD sprites.
+/// thiscall(ECX=gfx_dir) + 2 stack(world, secondary_gfx_dir), RET 0x8.
 #[cfg(target_arch = "x86")]
-unsafe fn wa_load_hud_sprites(gfx_dir: *mut GfxDir, ddgame: *mut DDGame, secondary: *mut GfxDir) {
+unsafe fn wa_load_hud_sprites(gfx_dir: *mut GfxDir, world: *mut GameWorld, secondary: *mut GfxDir) {
     unsafe {
-        let f: unsafe extern "thiscall" fn(*mut GfxDir, *mut DDGame, *mut GfxDir) =
-            core::mem::transmute(rb(va::DDGAME_LOAD_HUD_AND_WEAPON_SPRITES) as usize);
-        f(gfx_dir, ddgame, secondary);
+        let f: unsafe extern "thiscall" fn(*mut GfxDir, *mut GameWorld, *mut GfxDir) =
+            core::mem::transmute(rb(va::GAME_WORLD_LOAD_HUD_AND_WEAPON_SPRITES) as usize);
+        f(gfx_dir, world, secondary);
     }
 }
 
-/// DDGame__InitPaletteGradientSprites (0x5706D0): creates DisplayGfx palette
-/// gradient objects for each team. stdcall(wrapper), RET 0x4.
+/// GameWorld__InitPaletteGradientSprites (0x5706D0): creates DisplayGfx palette
+/// gradient objects for each team. stdcall(runtime), RET 0x4.
 #[cfg(target_arch = "x86")]
-unsafe fn wa_init_palette_gradient_sprites(wrapper: *mut DDGameWrapper) {
+unsafe fn wa_init_palette_gradient_sprites(runtime: *mut GameRuntime) {
     unsafe {
-        let f: unsafe extern "stdcall" fn(*mut DDGameWrapper) =
-            core::mem::transmute(rb(va::DDGAME_INIT_PALETTE_GRADIENT_SPRITES) as usize);
-        f(wrapper);
+        let f: unsafe extern "stdcall" fn(*mut GameRuntime) =
+            core::mem::transmute(rb(va::GAME_WORLD_INIT_PALETTE_GRADIENT_SPRITES) as usize);
+        f(runtime);
     }
 }
 
-/// Optional callback invoked right after DDGame allocation (before any field
+/// Optional callback invoked right after GameWorld allocation (before any field
 /// initialization). Used by the hardware watchpoint debugger to arm DR0–DR3.
-pub static mut ON_DDGAME_ALLOC: Option<unsafe fn(*mut u8)> = None;
+pub static mut ON_GAME_WORLD_ALLOC: Option<unsafe fn(*mut u8)> = None;
 
-/// Create and initialize DDGame, matching DDGame__Constructor (0x56E220).
+/// Create and initialize GameWorld, matching GameWorld__Constructor (0x56E220).
 ///
 /// Allocates 0x98D8 bytes from WA's heap, initializes all fields, and creates
-/// sub-objects. Populates fields on both `wrapper` (DDGameWrapper) and the
-/// returned DDGame.
+/// sub-objects. Populates fields on both `wrapper` (GameRuntime) and the
+/// returned GameWorld.
 ///
-/// # Safety
-/// All pointer params must be valid WA objects. `wrapper` must be a
-/// partially-initialized DDGameWrapper (vtable, display, sound set).
 #[cfg(target_arch = "x86")]
-pub unsafe fn create_ddgame(
-    wrapper: *mut DDGameWrapper,
+pub unsafe fn create_game_world(
+    runtime: *mut GameRuntime,
     keyboard: *mut DDKeyboard,
     display: *mut DisplayGfx,
     sound: *mut DSSound,
@@ -366,40 +361,42 @@ pub unsafe fn create_ddgame(
     net_game: *mut u8, // from GameSession
     game_info: *mut GameInfo,
     net_session: *mut crate::engine::net_session::NetSession, // implicit ECX from caller
-) -> *mut DDGame {
+) -> *mut GameWorld {
     unsafe {
         // ── 1. Allocate and zero-fill ──
         // Original: malloc(0x98D8), memset(ptr, 0, 0x98B8) — last 0x20 bytes not zeroed.
         // We zero the full 0x98D8 for safety (strictly more initialization than original).
-        let ddgame = wa_malloc_zeroed(0x98D8) as *mut DDGame;
-        if ddgame.is_null() {
+
+        use crate::wa_alloc::wa_malloc_struct_zeroed;
+        let world = wa_malloc_struct_zeroed::<GameWorld>();
+        if world.is_null() {
             return core::ptr::null_mut();
         }
 
         // Notify watchpoint debugger (if active) so it can arm DR0–DR3.
-        if let Some(cb) = ON_DDGAME_ALLOC {
-            cb(ddgame as *mut u8);
+        if let Some(cb) = ON_GAME_WORLD_ALLOC {
+            cb(world as *mut u8);
         }
 
         // ── 2. InitFields — pure Rust (replaces usercall bridge) ──
-        ddgame_init_fields(ddgame);
+        game_world_init_fields(world);
 
-        // ── 3-4. Store params BEFORE exposing DDGame via wrapper ──
-        // Critical: game_info must be set before wrapper->ddgame, because the
+        // ── 3-4. Store params BEFORE exposing GameWorld via wrapper ──
+        // Critical: game_info must be set before wrapper->world, because the
         // message pump (triggered by audio loading) can cause game tasks to
-        // read ddgame->game_info. If game_info is null, they crash.
-        (*ddgame).display = display;
-        (*ddgame).sound = sound;
-        (*ddgame).keyboard = keyboard;
-        (*ddgame).palette = palette;
-        (*ddgame).music = music;
-        (*ddgame).timer_obj = param7;
-        (*ddgame).net_session = net_session;
-        (*ddgame).game_info = game_info;
-        (*ddgame).net_game = net_game;
+        // read world->game_info. If game_info is null, they crash.
+        (*world).display = display;
+        (*world).sound = sound;
+        (*world).keyboard = keyboard;
+        (*world).palette = palette;
+        (*world).music = music;
+        (*world).timer_obj = param7;
+        (*world).net_session = net_session;
+        (*world).game_info = game_info;
+        (*world).net_game = net_game;
 
         // Now safe to expose — all fields that concurrent readers check are set.
-        (*wrapper).ddgame = ddgame;
+        (*runtime).world = world;
 
         // ── 5. Set g_GameInfo global ──
         *(rb(va::G_GAME_INFO) as *mut *mut GameInfo) = game_info;
@@ -408,32 +405,31 @@ pub unsafe fn create_ddgame(
         let is_headless = (*game_info).headless_mode != 0;
         // is_headful gates every interactive-only subsystem: loading progress
         // bar, message pump, sound, per-frame keyboard/palette polling, etc.
-        (*ddgame).is_headful = if is_headless { 0 } else { 1 };
-        (*ddgame).field_7efc = 1;
+        (*world).is_headful = if is_headless { 0 } else { 1 };
+        (*world).field_7efc = 1;
 
         // ── 7. Network bridge (online games only) ──
-        (*wrapper).net_bridge = core::ptr::null_mut();
+        (*runtime).net_bridge = core::ptr::null_mut();
 
         if (*game_info).game_version == -2 {
-            let bridge =
-                wa_malloc_zeroed(core::mem::size_of::<NetBridge>() as u32) as *mut NetBridge;
-            (*bridge).ddgame = ddgame;
+            let bridge = wa_malloc_struct_zeroed::<NetBridge>();
+            (*bridge).world = world;
             (*bridge).net_config_1 = (*game_info).net_config_1;
             (*bridge).net_config_2 = (*game_info).net_config_2;
-            (*wrapper).net_bridge = bridge;
+            (*runtime).net_bridge = bridge;
             if !net_session.is_null() {
                 *((net_session as *mut u8).add(0x18) as *mut *mut NetBridge) = bridge;
             }
         }
 
-        // ── 9. InitVersionFlags — sets DDGame+0x7E2E/0x7E2F/0x7E3F ──
-        wa_init_version_flags(wrapper);
+        // ── 9. InitVersionFlags — sets GameWorld+0x7E2E/0x7E2F/0x7E3F ──
+        wa_init_version_flags(runtime);
 
         // ── 10. GfxHandler, landscape, sprites, audio, resources ──
-        init_graphics_and_resources(wrapper, game_info, net_game, display, is_headless);
+        init_graphics_and_resources(runtime, game_info, net_game, display, is_headless);
 
-        let _ = openwa_core::log::log_line("[DDGame] create_ddgame complete");
-        ddgame
+        let _ = openwa_core::log::log_line("[GameWorld] create_world complete");
+        world
     }
 }
 
@@ -442,14 +438,14 @@ pub unsafe fn create_ddgame(
 /// Second half of the constructor — initializes graphics, audio, landscape, and sprites.
 #[cfg(target_arch = "x86")]
 unsafe fn init_graphics_and_resources(
-    wrapper: *mut DDGameWrapper,
+    runtime: *mut GameRuntime,
     game_info: *mut GameInfo,
     _net_game: *mut u8,
     _display: *mut DisplayGfx,
     is_headless: bool,
 ) {
     unsafe {
-        let ddgame = (*wrapper).ddgame;
+        let world = (*runtime).world;
         use core::ffi::c_char;
         let fopen: unsafe extern "cdecl" fn(*const c_char, *const c_char) -> *mut u8 =
             core::mem::transmute(rb(va::WA_FOPEN) as usize);
@@ -457,8 +453,8 @@ unsafe fn init_graphics_and_resources(
 
         // ── GfxDir #1 (primary) ──
         let gfx1 = GfxDir::alloc(gfx_dir_vtable);
-        (*wrapper).primary_gfx_dir = gfx1;
-        (*wrapper).secondary_gfx_dir = core::ptr::null_mut();
+        (*runtime).primary_gfx_dir = gfx1;
+        (*runtime).secondary_gfx_dir = core::ptr::null_mut();
 
         // Build path list (order depends on headless + display_flags)
         let headless = (*game_info).headless_mode as i32;
@@ -500,12 +496,12 @@ unsafe fn init_graphics_and_resources(
                 break;
             }
             if i == 2 {
-                panic!("DDGame: couldn't open any Gfx.dir");
+                panic!("GameWorld: couldn't open any Gfx.dir");
             }
         }
 
         let headless_offset = if headless != 0 { 1u32 } else { 0u32 };
-        (*wrapper).gfx_mode = if gfx_loaded_idx.wrapping_sub(headless_offset) < 2 {
+        (*runtime).gfx_mode = if gfx_loaded_idx.wrapping_sub(headless_offset) < 2 {
             1
         } else {
             0
@@ -513,14 +509,14 @@ unsafe fn init_graphics_and_resources(
 
         // ── GfxDir #2 (conditional — supplemental sprites for certain game versions) ──
         let game_version = (*game_info).game_version;
-        let threshold = if (*wrapper).gfx_mode != 0 { 33 } else { -2i32 };
+        let threshold = if (*runtime).gfx_mode != 0 { 33 } else { -2i32 };
         if game_version < threshold {
             let c_digit = if game_version > -3 { b'2' } else { b'1' };
             let mut gfx_c_path = *b"data\\Gfx\\GfxC_3_0.dir\0";
             gfx_c_path[14] = c_digit;
 
             let gfx2 = GfxDir::alloc(gfx_dir_vtable);
-            (*wrapper).secondary_gfx_dir = gfx2;
+            (*runtime).secondary_gfx_dir = gfx2;
 
             let fp = fopen(gfx_c_path.as_ptr().cast(), c"rb".as_ptr());
             (*gfx2).file_handle = fp;
@@ -528,7 +524,7 @@ unsafe fn init_graphics_and_resources(
                 let fp2 = fopen(c"data\\Gfx\\Gfx.dir".as_ptr(), c"rb".as_ptr());
                 (*gfx2).file_handle = fp2;
                 if fp2.is_null() || gfx_dir_load_dir(gfx2 as *mut u8) == 0 {
-                    panic!("DDGame: couldn't open secondary Gfx.dir");
+                    panic!("GameWorld: couldn't open secondary Gfx.dir");
                 }
             }
         }
@@ -536,10 +532,10 @@ unsafe fn init_graphics_and_resources(
         // ── Display palette setup (non-headless) ──
         if !is_headless {
             if *(rb(va::G_DISPLAY_MODE_FLAG) as *const c_char) == 0 {
-                call_usercall_eax(wrapper, FUN_570A90_ADDR);
+                call_usercall_eax(runtime, FUN_570A90_ADDR);
             }
-            let disp = (*wrapper).display;
-            let gfx_dir = (*wrapper).primary_gfx_dir;
+            let disp = (*runtime).display;
+            let gfx_dir = (*runtime).primary_gfx_dir;
             (*disp).set_layer_color(1, 0xFE);
             (*disp).load_sprite(1, 1, 0, gfx_dir, rb(va::STR_CDROM_SPR) as *const c_char);
             (*disp).set_layer_visibility(1, -100);
@@ -562,20 +558,20 @@ unsafe fn init_graphics_and_resources(
 
         // ── FUN_00570E20: usercall(ESI=wrapper), plain RET ──
         // Runs for all modes — headless vtable[4] is 0x5231E0 (same as headful).
-        display_layer_color_init(wrapper);
+        display_layer_color_init(runtime);
 
         // ── Display vtable slot 5 (offset 0x14) ──
         // Original: CALL EAX (vtable[5]), saves return value in ESI for use as
         // the `output` parameter in the color-entries IMG__LoadFromDir call below.
-        let layer_ctx = (*(*ddgame).display).set_active_layer(1);
+        let layer_ctx = (*(*world).display).set_active_layer(1);
 
-        // ── GfxDir color entries DDGame+0x730C..0x732C ──
+        // ── GfxDir color entries GameWorld+0x730C..0x732C ──
         // Original logic: if gfx_mode!=0, try IMG__LoadFromDir for colours.img.
         // If gfx_mode==0 OR resource creation fails, fall back to LoadSprites.
         // The fallback's 4th param is primary_gfx_dir when gfx_mode==0, or 0 on resource fail.
-        if (*wrapper).gfx_mode != 0 {
+        if (*runtime).gfx_mode != 0 {
             let res = img_load_from_dir(
-                (*wrapper).primary_gfx_dir,
+                (*runtime).primary_gfx_dir,
                 rb(va::STR_COLOURS_IMG) as *const core::ffi::c_char,
                 layer_ctx,
             );
@@ -584,7 +580,7 @@ unsafe fn init_graphics_and_resources(
                 let get_color: unsafe extern "thiscall" fn(*mut BitGrid, u32, u32) -> u32 =
                     core::mem::transmute(*rvt.add(4));
                 for i in 0..9u32 {
-                    (*ddgame).gfx_color_table[i as usize] = get_color(res, i, 0);
+                    (*world).gfx_color_table[i as usize] = get_color(res, i, 0);
                 }
                 let release: unsafe extern "thiscall" fn(*mut BitGrid, u8) =
                     core::mem::transmute(*rvt.add(3));
@@ -592,8 +588,8 @@ unsafe fn init_graphics_and_resources(
             } else {
                 // Resource creation failed — fallback with param4=0
                 wa_load_sprites(
-                    wrapper,
-                    (*ddgame).gfx_sprite_data.as_mut_ptr(),
+                    runtime,
+                    (*world).gfx_sprite_data.as_mut_ptr(),
                     (*game_info).display_flags,
                     0,
                     layer_ctx,
@@ -602,58 +598,58 @@ unsafe fn init_graphics_and_resources(
         } else {
             // gfx_mode==0 (headless): fallback LoadSprites with param4=primary_gfx_dir
             wa_load_sprites(
-                wrapper,
-                (*ddgame).gfx_sprite_data.as_mut_ptr(),
+                runtime,
+                (*world).gfx_sprite_data.as_mut_ptr(),
                 (*game_info).display_flags,
-                (*wrapper).primary_gfx_dir as u32,
+                (*runtime).primary_gfx_dir as u32,
                 layer_ctx,
             );
         }
 
-        // ── Secondary PaletteContext (DDGame+0x2C, conditional on secondary GfxDir) ──
-        if !(*wrapper).secondary_gfx_dir.is_null() {
+        // ── Secondary PaletteContext (GameWorld+0x2C, conditional on secondary GfxDir) ──
+        if !(*runtime).secondary_gfx_dir.is_null() {
             let palette_ctx =
                 wa_malloc_zeroed(0x70C) as *mut crate::render::palette::PaletteContext;
             (*palette_ctx).dirty_range_min = 1;
             (*palette_ctx).dirty_range_max = 0x5A;
             crate::render::palette::palette_context_init(palette_ctx);
             (*palette_ctx).dirty = 0;
-            (*ddgame).secondary_palette_ctx = palette_ctx;
+            (*world).secondary_palette_ctx = palette_ctx;
             // param4=0 so the ESI-dependent block is skipped; layer_ctx doesn't matter
             wa_load_sprites(
-                wrapper,
-                (*ddgame).gfx_sprite_data.as_mut_ptr(),
+                runtime,
+                (*world).gfx_sprite_data.as_mut_ptr(),
                 (*game_info).display_flags,
                 0,
                 core::ptr::null_mut(),
             );
         }
 
-        // ── DDGameWrapper field inits ──
-        (*wrapper).loading_progress = 0;
+        // ── GameRuntime field inits ──
+        (*runtime).loading_progress = 0;
         if is_headless {
-            (*wrapper).loading_total = 0x2AD;
+            (*runtime).loading_total = 0x2AD;
         } else {
             let team_count = (*game_info).speech_team_count as u32;
-            (*wrapper).loading_total = team_count * 0x38 + 0x7E + 0x2AD;
+            (*runtime).loading_total = team_count * 0x38 + 0x7E + 0x2AD;
         }
-        (*wrapper).loading_last_pct = 0xFFFFFF9C; // -100: forces first progress bar update
-        (*wrapper).speech_name_count = 0;
+        (*runtime).loading_last_pct = 0xFFFFFF9C; // -100: forces first progress bar update
+        (*runtime).speech_name_count = 0;
 
         // ── Audio init (non-headless + sound available) ──
         if !is_headless {
-            crate::engine::ddgame_load_fonts::load_fonts(wrapper);
-            if !(*ddgame).sound.is_null() {
-                load_effect_wavs(wrapper);
+            crate::engine::world_load_fonts::load_fonts(runtime);
+            if !(*world).sound.is_null() {
+                load_effect_wavs(runtime);
                 // DSSound_LoadAllSpeechBanks: the original is hooked to our Rust
                 // replacement (speech.rs), so the usercall bridge calls our code.
-                call_usercall_esi(wrapper, LOAD_SPEECH_BANKS_ADDR);
+                call_usercall_esi(runtime, LOAD_SPEECH_BANKS_ADDR);
                 // Allocate ActiveSoundTable (0x608 bytes)
                 let ast = wa_malloc(0x608) as *mut ActiveSoundTable;
                 core::ptr::write_bytes(ast as *mut u8, 0, 0x600);
-                (*ast).ddgame = ddgame;
+                (*ast).world = world;
                 (*ast).counter = 0;
-                (*ddgame).active_sounds = ast;
+                (*world).active_sounds = ast;
             }
         }
 
@@ -664,7 +660,7 @@ unsafe fn init_graphics_and_resources(
         // We replicate this initialization here. Size 0x900 matches the stack allocation.
         let gfx_resource: *mut crate::bitgrid::BitGrid;
         {
-            let gfx_dir = (*wrapper).primary_gfx_dir;
+            let gfx_dir = (*runtime).primary_gfx_dir;
             let palette_ctx =
                 wa_malloc_zeroed(0x900) as *mut crate::render::palette::PaletteContext;
             (*palette_ctx).dirty_range_min = 1;
@@ -698,35 +694,35 @@ unsafe fn init_graphics_and_resources(
             if !alloc.is_null() {
                 let result = wa_landscape_ctor(
                     alloc,
-                    ddgame,
+                    world,
                     gfx_resource,
-                    (*wrapper).display,
+                    (*runtime).display,
                     (*game_info).landscape_data_path.as_ptr(),
                     landscape_byte_buf.as_mut_ptr(),
-                    (*wrapper).gfx_mode,
+                    (*runtime).gfx_mode,
                     landscape_temp.as_mut_ptr(),
                     landscape_coords_buf.as_mut_ptr(),
-                    &raw mut (*ddgame).is_cavern,
-                    &raw mut (*ddgame).level_height_raw,
+                    &raw mut (*world).is_cavern,
+                    &raw mut (*world).level_height_raw,
                 );
-                (*wrapper).landscape = result as *mut Landscape;
-                (*ddgame).landscape = result as *mut Landscape;
+                (*runtime).landscape = result as *mut Landscape;
+                (*world).landscape = result as *mut Landscape;
                 result
             } else {
-                (*wrapper).landscape = core::ptr::null_mut();
-                (*ddgame).landscape = core::ptr::null_mut();
+                (*runtime).landscape = core::ptr::null_mut();
+                (*world).landscape = core::ptr::null_mut();
                 core::ptr::null_mut()
             }
         };
 
-        // ── Collision BitGrid at DDGame+0x380 ──
+        // ── Collision BitGrid at GameWorld+0x380 ──
         {
-            let width = (*ddgame).level_width;
-            let height = (*ddgame).level_height;
-            (*ddgame).collision_grid = CollisionBitGrid::alloc(1, width, height);
+            let width = (*world).level_width;
+            let height = (*world).level_height;
+            (*world).collision_grid = CollisionBitGrid::alloc(1, width, height);
         }
 
-        // ── 8× SpriteRegion at DDGame+0x46C..0x488 ──
+        // ── 8× SpriteRegion at GameWorld+0x46C..0x488 ──
         // SpriteRegion__Constructor: fastcall(ECX, EDX) + 6 stack(this, p2, p3, p4, p5, p6), RET 0x18
         {
             // (array_index, ECX, EDX, p2, p3, p4, p5, p6=gfx_resource)
@@ -750,16 +746,16 @@ unsafe fn init_graphics_and_resources(
                 } else {
                     core::ptr::null_mut()
                 };
-                (*ddgame).sprite_regions[idx] = result;
+                (*world).sprite_regions[idx] = result;
             }
         }
 
-        // ── Landscape property at DDGame+0x468 (Landscape vtable[0xB]) ──
+        // ── Landscape property at GameWorld+0x468 (Landscape vtable[0xB]) ──
         if !landscape.is_null() {
             let land_vt = *(landscape as *const *const u32);
             let get_val: unsafe extern "thiscall" fn(*mut u8) -> u32 =
                 core::mem::transmute(*land_vt.add(0xB));
-            (*ddgame).landscape_property = get_val(landscape);
+            (*world).landscape_property = get_val(landscape);
         }
 
         // NOTE: gfx_resource is NOT released here — arrow SpriteRegions need it.
@@ -767,7 +763,7 @@ unsafe fn init_graphics_and_resources(
 
         // ── Arrow sprites + collision regions (32 iterations) ──
         {
-            let gfx_dir = (*wrapper).primary_gfx_dir;
+            let gfx_dir = (*runtime).primary_gfx_dir;
 
             for i in 0u32..32 {
                 // Format "arrow%02u.img\0" into stack buffer
@@ -775,7 +771,7 @@ unsafe fn init_graphics_and_resources(
                 name_buf[5] = b'0' + (i / 10) as u8;
                 name_buf[6] = b'0' + (i % 10) as u8;
 
-                let layer_ctx = (*(*ddgame).display).set_active_layer(1);
+                let layer_ctx = (*(*world).display).set_active_layer(1);
 
                 let entry = gfx_dir_find_entry(name_buf.as_ptr().cast(), gfx_dir);
 
@@ -796,11 +792,11 @@ unsafe fn init_graphics_and_resources(
                     call_gfx_load_and_wrap(gfx_dir, name_buf.as_ptr().cast(), layer_ctx)
                 };
 
-                // Store arrow sprite at DDGame+0x38+i*4
+                // Store arrow sprite at GameWorld+0x38+i*4
                 let sprite = decoded
                     .map(|d| d.as_bitgrid_ptr())
                     .unwrap_or(core::ptr::null_mut());
-                (*ddgame).arrow_sprites[i as usize] = sprite;
+                (*world).arrow_sprites[i as usize] = sprite;
 
                 // Calculate collision region dimensions from sprite.
                 // The original creates a CENTERED collision box with 10px margin:
@@ -829,17 +825,17 @@ unsafe fn init_graphics_and_resources(
                     } else {
                         core::ptr::null_mut()
                     };
-                    (*ddgame).arrow_collision_regions[i as usize] = region;
+                    (*world).arrow_collision_regions[i as usize] = region;
                 }
 
                 // Arrow GfxDir (conditional on secondary gfxdir)
-                if !(*ddgame).secondary_palette_ctx.is_null() {
+                if !(*world).secondary_palette_ctx.is_null() {
                     let wa_img_load_from_dir: unsafe extern "thiscall" fn(
                         *mut GfxDir,
                         *mut u8,
                     )
                         -> *mut u8 = core::mem::transmute(rb(va::IMG_LOAD_FROM_DIR) as usize);
-                    (*ddgame).arrow_gfxdirs[i as usize] =
+                    (*world).arrow_gfxdirs[i as usize] =
                         wa_img_load_from_dir(gfx_dir, core::ptr::null_mut());
                 }
             }
@@ -854,10 +850,10 @@ unsafe fn init_graphics_and_resources(
             release(gfx_resource, 1);
         }
 
-        // ── Display BitGrid at DDGame+0x138 ──
-        (*ddgame).display_bitgrid = DisplayBitGrid::alloc(8, 0x100, 0x1E0);
+        // ── Display BitGrid at GameWorld+0x138 ──
+        (*world).display_bitgrid = DisplayBitGrid::alloc(8, 0x100, 0x1E0);
 
-        // ── CoordList at DDGame+0x50C (capacity 600, 0x12C0 buffer) ──
+        // ── CoordList at GameWorld+0x50C (capacity 600, 0x12C0 buffer) ──
         {
             use crate::wa_alloc::wa_malloc_struct_zeroed;
 
@@ -867,7 +863,7 @@ unsafe fn init_graphics_and_resources(
             let data = wa_malloc_zeroed(600 * core::mem::size_of::<CoordListEntry>() as u32)
                 as *mut CoordListEntry;
             (*cl).data = data;
-            (*ddgame).coord_list = cl;
+            (*world).coord_list = cl;
 
             // Populate coord_list from Landscape's coordinate output.
             // landscape_temp[0] = coordinate count, landscape_coords_buf = pairs of (x, y).
@@ -901,21 +897,21 @@ unsafe fn init_graphics_and_resources(
         // Temporary landscape buffers (stack arrays) are dropped automatically here.
 
         // ── Loading progress ticks (2 of 4 — before load_resource_list) ──
-        call_usercall_ecx(wrapper, LOADING_PROGRESS_TICK_ADDR);
-        call_usercall_ecx(wrapper, LOADING_PROGRESS_TICK_ADDR);
+        call_usercall_ecx(runtime, LOADING_PROGRESS_TICK_ADDR);
+        call_usercall_ecx(runtime, LOADING_PROGRESS_TICK_ADDR);
 
-        // ── Sprite resource loading via DDGameWrapper vtable[0] ──
+        // ── Sprite resource loading via GameRuntime vtable[0] ──
         // DDNetGameWrapper__LoadResourceList: thiscall(ECX=wrapper) +
         // 5 stack params (layer, gfx_dir, base_path, data_table, table_size)
         {
-            let landscape_ptr = (*wrapper).landscape;
+            let landscape_ptr = (*runtime).landscape;
             let water_dir = (*landscape_ptr).water_gfx_dir;
             let land_dir = (*landscape_ptr).level_gfx_dir;
-            let gfx_dir = (*wrapper).primary_gfx_dir;
+            let gfx_dir = (*runtime).primary_gfx_dir;
 
-            let wrapper_vt = *(wrapper as *const *const u32);
+            let wrapper_vt = *(runtime as *const *const u32);
             let load_resource_list: unsafe extern "thiscall" fn(
-                *mut DDGameWrapper,
+                *mut GameRuntime,
                 u32,
                 *mut GfxDir,
                 *const u8,
@@ -924,7 +920,7 @@ unsafe fn init_graphics_and_resources(
             ) = core::mem::transmute(*wrapper_vt);
             // Load resources for layer 1 (main sprites)
             load_resource_list(
-                wrapper,
+                runtime,
                 1,
                 gfx_dir,
                 rb(va::SPRITE_RESOURCE_BASE_PATH) as *const u8, // base path
@@ -932,12 +928,12 @@ unsafe fn init_graphics_and_resources(
                 0x1D88, // table size
             );
             // Set global flag based on game version
-            let gv = (*(*ddgame).game_info).game_version;
+            let gv = (*(*world).game_info).game_version;
             *(rb(va::G_SPRITE_VERSION_FLAG) as *mut u32) = if gv < 8 { 0 } else { 0x10 };
 
             // Load resources for layer 1 with different table
             load_resource_list(
-                wrapper,
+                runtime,
                 1,
                 gfx_dir,
                 rb(va::SPRITE_RESOURCE_BASE_PATH) as *const u8,
@@ -947,7 +943,7 @@ unsafe fn init_graphics_and_resources(
 
             // Load resources for layer 2 (water)
             load_resource_list(
-                wrapper,
+                runtime,
                 2,
                 water_dir,
                 rb(va::SPRITE_RESOURCE_BASE_PATH) as *const u8,
@@ -955,17 +951,17 @@ unsafe fn init_graphics_and_resources(
                 0x2F4,
             );
 
-            let disp = (*wrapper).display;
+            let disp = (*runtime).display;
             (*disp).set_active_layer(3);
 
             // back.spr and debris.spr must be loaded unconditionally — they're used by
             // GenerateDebrisParticles (0x546F70) for particle effects, which affects
-            // the game RNG (DDGame+0x45EC). The original constructor loads them even
+            // the game RNG (GameWorld+0x45EC). The original constructor loads them even
             // in headless mode. Skipping them causes replay desync.
             (*disp).load_sprite_by_layer(3, 0x26D, land_dir, c"back.spr".as_ptr().cast());
             // debris.spr must be loaded unconditionally — it's used by
             // GenerateDebrisParticles (0x546F70) for particle effects, which
-            // affects the game RNG (DDGame+0x45EC). Skipping it in headless
+            // affects the game RNG (GameWorld+0x45EC). Skipping it in headless
             // mode causes desync (longbow replay checksum mismatch at frame 1350).
             (*disp).load_sprite(3, 0x26E, 0, land_dir, c"debris.spr".as_ptr());
 
@@ -976,26 +972,26 @@ unsafe fn init_graphics_and_resources(
                 c"layer\\layer.spr|layer.spr".as_ptr().cast(),
             );
 
-            (*ddgame).gradient_image_2 = core::ptr::null_mut();
+            (*world).gradient_image_2 = core::ptr::null_mut();
 
             // ── Gradient image (0x030) ──
-            let level_height = (*ddgame).level_height as i32;
+            let level_height = (*world).level_height as i32;
             let layer3_ctx = (*disp).set_active_layer(3);
             let s_var1 = (*layer3_ctx).cache_count;
 
             if s_var1 < 0x61 && level_height == 0x2B8 {
                 // Simple gradient: load gradient.img directly
-                (*ddgame).gradient_image =
+                (*world).gradient_image =
                     call_gfx_find_and_load(land_dir, c"gradient.img", layer3_ctx)
                         .map(|d| d.as_bitgrid_ptr())
                         .unwrap_or(core::ptr::null_mut());
             } else {
-                compute_complex_gradient(ddgame, land_dir, layer3_ctx, s_var1);
+                compute_complex_gradient(world, land_dir, layer3_ctx, s_var1);
             }
 
             // ── Fill image → fill_pixel (0x7338) ──
             {
-                let layer2_ctx = (*(*ddgame).display).set_active_layer(2);
+                let layer2_ctx = (*(*world).display).set_active_layer(2);
                 let fill_sprite = call_gfx_find_and_load(water_dir, c"fill.img", layer2_ctx);
                 if let Some(decoded) = fill_sprite {
                     let ptr = decoded.as_bitgrid_ptr();
@@ -1003,7 +999,7 @@ unsafe fn init_graphics_and_resources(
                     let fill_vt = *(ptr as *const *const u32);
                     let get_pixel: unsafe extern "thiscall" fn(*mut BitGrid, i32, i32) -> u32 =
                         core::mem::transmute(*fill_vt.add(4));
-                    (*ddgame).fill_pixel = get_pixel(ptr, 0, 0);
+                    (*world).fill_pixel = get_pixel(ptr, 0, 0);
                     // Release: vtable[3](this, flags=1)
                     let release: unsafe extern "thiscall" fn(*mut BitGrid, u8) =
                         core::mem::transmute(*fill_vt.add(3));
@@ -1011,59 +1007,59 @@ unsafe fn init_graphics_and_resources(
                 }
             }
 
-            // ── DDGame__LoadHudAndWeaponSprites (0x53D0E0) ──
-            wa_load_hud_sprites(gfx_dir, ddgame, (*wrapper).secondary_gfx_dir);
+            // ── GameWorld__LoadHudAndWeaponSprites (0x53D0E0) ──
+            wa_load_hud_sprites(gfx_dir, world, (*runtime).secondary_gfx_dir);
 
-            // ── DDGame__InitPaletteGradientSprites (0x5706D0) ──
-            // Creates DisplayGfx objects at DDGame+0x41C.. for each team's palette
-            // gradient data from GameInfo. stdcall(wrapper), RET 0x4.
-            wa_init_palette_gradient_sprites(wrapper);
+            // ── GameWorld__InitPaletteGradientSprites (0x5706D0) ──
+            // Creates DisplayGfx objects at GameWorld+0x41C.. for each team's palette
+            // gradient data from GameInfo. stdcall(runtime), RET 0x4.
+            wa_init_palette_gradient_sprites(runtime);
 
             // ── DisplayGfx__InitTeamPaletteDisplayObjects (0x5703E0) ──
-            // Creates team palette gradient display objects. Reads DDGame+0x7338
+            // Creates team palette gradient display objects. Reads GameWorld+0x7338
             // (fill_pixel), creates BitGrid+DisplayGfx per team.
-            // stdcall(wrapper), RET 0x4.
-            let init_team_palette_display: unsafe extern "stdcall" fn(*mut DDGameWrapper) =
+            // stdcall(runtime), RET 0x4.
+            let init_team_palette_display: unsafe extern "stdcall" fn(*mut GameRuntime) =
                 core::mem::transmute(rb(va::DISPLAY_GFX_INIT_TEAM_PALETTE_DISPLAY));
-            init_team_palette_display(wrapper);
+            init_team_palette_display(runtime);
         }
-        // ── Gradient image stub (DDGame+0x30) ──
-        // Minimal stub: [6]=0 (zero-width) so CTaskLand skips the gradient column loop.
-        if (*ddgame).gradient_image.is_null() {
+        // ── Gradient image stub (GameWorld+0x30) ──
+        // Minimal stub: [6]=0 (zero-width) so LandEntity skips the gradient column loop.
+        if (*world).gradient_image.is_null() {
             use crate::wa_alloc::wa_malloc_struct_zeroed;
 
             let obj = wa_malloc_struct_zeroed::<BitGrid>();
             if !obj.is_null() {
                 (*obj).vtable = rb(va::BIT_GRID_BASE_VTABLE) as *const BitGridBaseVtable;
-                // height = 0 → CTaskLand skips the gradient column loop
-                (*ddgame).gradient_image = obj;
+                // height = 0 → LandEntity skips the gradient column loop
+                (*world).gradient_image = obj;
             }
         }
 
         // ── Release primary GfxHandler (vtable[3] = release, param 1 = free) ──
-        let primary_gfx_dir = (*wrapper).primary_gfx_dir;
+        let primary_gfx_dir = (*runtime).primary_gfx_dir;
         if !primary_gfx_dir.is_null() {
             GfxDir::release_raw(primary_gfx_dir, 1);
         }
 
         if !is_headless {
-            wa_init_display_final((*wrapper).display);
+            wa_init_display_final((*runtime).display);
         }
 
         // ── FUN_00570A90 (second call, conditional) ──
         if *(rb(va::G_DISPLAY_MODE_FLAG) as *const core::ffi::c_char) == 0 {
-            call_usercall_eax(wrapper, FUN_570A90_ADDR);
+            call_usercall_eax(runtime, FUN_570A90_ADDR);
         }
 
         // ── Final display layer visibility ──
         {
-            let disp = (*wrapper).display;
+            let disp = (*runtime).display;
             (*disp).set_layer_visibility(1, 0);
             (*disp).set_layer_visibility(2, 0);
             (*disp).set_layer_visibility(3, 1);
         }
 
-        let _ = openwa_core::log::log_line("[DDGame] init_graphics_and_resources DONE");
+        let _ = openwa_core::log::log_line("[GameWorld] init_graphics_and_resources DONE");
     }
 }
 
@@ -1076,7 +1072,7 @@ static mut LOADING_PROGRESS_TICK_ADDR: u32 = 0;
 /// Bridge: usercall(ESI=wrapper), plain RET. Used by FUN_570E20, LoadSpeechBanks.
 #[cfg(target_arch = "x86")]
 #[unsafe(naked)]
-unsafe extern "C" fn call_usercall_esi(_wrapper: *mut DDGameWrapper, _addr: u32) {
+unsafe extern "C" fn call_usercall_esi(_runtime: *mut GameRuntime, _addr: u32) {
     core::arch::naked_asm!(
         "pushl %esi",
         "movl 8(%esp), %esi",  // ESI = wrapper
@@ -1091,7 +1087,7 @@ unsafe extern "C" fn call_usercall_esi(_wrapper: *mut DDGameWrapper, _addr: u32)
 /// Bridge: usercall(EAX=wrapper), plain RET. Used by FUN_570A90.
 #[cfg(target_arch = "x86")]
 #[unsafe(naked)]
-unsafe extern "C" fn call_usercall_eax(_wrapper: *mut DDGameWrapper, _addr: u32) {
+unsafe extern "C" fn call_usercall_eax(_runtime: *mut GameRuntime, _addr: u32) {
     core::arch::naked_asm!(
         "movl 4(%esp), %eax", // EAX = wrapper
         "movl 8(%esp), %ecx", // ECX = target address (temp)
@@ -1103,11 +1099,10 @@ unsafe extern "C" fn call_usercall_eax(_wrapper: *mut DDGameWrapper, _addr: u32)
 
 /// Bridge: usercall(ECX=wrapper), plain RET. Used by FUN_5717A0.
 #[cfg(target_arch = "x86")]
-unsafe fn call_usercall_ecx(wrapper: *mut DDGameWrapper, addr: u32) {
+unsafe fn call_usercall_ecx(runtime: *mut GameRuntime, addr: u32) {
     unsafe {
-        let f: unsafe extern "thiscall" fn(*mut DDGameWrapper) =
-            core::mem::transmute(addr as usize);
-        f(wrapper);
+        let f: unsafe extern "thiscall" fn(*mut GameRuntime) = core::mem::transmute(addr as usize);
+        f(runtime);
     }
 }
 

@@ -3,14 +3,14 @@
 //! Ported from WA.exe `DrawCrosshairLine` (0x5197D0).
 //! Draws:
 //!   1. Compute direction from angle at task+0x264
-//!   2. Compute line length from DDGame scale + task offset
+//!   2. Compute line length from GameWorld scale + task offset
 //!   3. Endpoint = start + direction * length (with overflow clamping)
 //!   4. DrawPolygon (2 vertices) for the line
 //!   5. Conditionally DrawSpriteLocal at endpoint (crosshair sprite)
 
 use crate::render::SpriteOp;
 use crate::render::message::RenderMessage;
-use crate::task::WeaponAimTask;
+use crate::task::WeaponAimEntity;
 use openwa_core::fixed::Fixed;
 use openwa_core::trig::{cos, sin};
 
@@ -20,7 +20,7 @@ use openwa_core::trig::{cos, sin};
 ///
 /// `task_ptr` must point to a valid `WeaponAimTask`. ASLR rebase must be
 /// initialized.
-pub unsafe fn draw_crosshair_line(task: *const WeaponAimTask) {
+pub unsafe fn draw_crosshair_line(task: *const WeaponAimEntity) {
     unsafe {
         let gt = &(*task).game_task;
 
@@ -28,8 +28,8 @@ pub unsafe fn draw_crosshair_line(task: *const WeaponAimTask) {
             return;
         }
 
-        let ddgame = &*gt.base.ddgame;
-        let rq = &mut *ddgame.render_queue;
+        let world = &*gt.base.world;
+        let rq = &mut *world.render_queue;
 
         let start_x = gt.pos_x.0;
         let start_y = gt.pos_y.0;
@@ -42,7 +42,7 @@ pub unsafe fn draw_crosshair_line(task: *const WeaponAimTask) {
 
         // Smooth aim-range animation: interpolate 20 units/tick by the sub-frame
         // progress ratio, then add the crosshair's standing aim offset.
-        let scale = ddgame.render_interp_a.mul_raw(Fixed(0x14_0000)).0 + (*task).aim_range_offset;
+        let scale = world.render_interp_a.mul_raw(Fixed(0x14_0000)).0 + (*task).aim_range_offset;
 
         // Endpoint = start + direction * scale
         let mut endpoint_x = Fixed(sin_interp.0)
@@ -58,7 +58,7 @@ pub unsafe fn draw_crosshair_line(task: *const WeaponAimTask) {
         let mut overflowed = false;
         let mut clamp_factor = 0i32;
 
-        let threshold = (*ddgame.game_info).game_version;
+        let threshold = (*world.game_info).game_version;
 
         if threshold > 0x11E {
             // Check X overflow: sin > 0 but endpoint wrapped below start
@@ -81,8 +81,8 @@ pub unsafe fn draw_crosshair_line(task: *const WeaponAimTask) {
         }
 
         // Enqueue polygon line (2 vertices)
-        let poly_param_1 = ddgame.gfx_color_table[8]; // crosshair line style
-        let poly_param_2 = ddgame.gfx_color_table[6]; // crosshair line color
+        let poly_param_1 = world.gfx_color_table[8]; // crosshair line style
+        let poly_param_2 = world.gfx_color_table[6]; // crosshair line color
         let verts: [[i32; 3]; 2] = [[start_x, start_y, 0], [endpoint_x, endpoint_y, 0]];
         let byte_len = 2 * core::mem::size_of::<[i32; 3]>();
         if let Some(vert_ptr) = rq.alloc_aux(byte_len) {

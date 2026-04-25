@@ -28,7 +28,7 @@ When a register param (e.g., EAX) must be set for the target function, load the 
 
 1. **Infrastructure hooks** (always installed): `headless`, `file_isolation`, `frame_hook`, `trace_desync`
 2. **Baseline mode** (`OPENWA_TRACE_BASELINE=1`): returns early after infrastructure, skipping all gameplay hooks. Used by trace-desync for a "nearly vanilla" reference run.
-3. **Gameplay hooks** (normal mode): all remaining subsystems — display, game_session, frontend, scheme, config, weapon, team, render, sprite, sound, speech, ddgame_init, replay, task, weapon_release, etc.
+3. **Gameplay hooks** (normal mode): all remaining subsystems — display, game_session, frontend, scheme, config, weapon, team, render, sprite, sound, speech, world_init, replay, task, weapon_release, etc.
 
 All hooks use `queue_enable_hook` + single `apply_queued()` call for batched MinHook enables (avoids repeated MH_EnableHook overhead).
 

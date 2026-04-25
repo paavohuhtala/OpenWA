@@ -1,7 +1,7 @@
 mod bitgrid;
 mod config;
 mod create_explosion;
-mod ddgame_init;
+mod world_init;
 pub(crate) mod debug_utils;
 pub(crate) mod file_isolation;
 mod frame_hook;
@@ -65,7 +65,7 @@ pub fn install_all() -> Result<(), String> {
     sound::install()?;
     speech::install()?;
     music::install()?;
-    ddgame_init::install()?;
+    world_init::install()?;
     gfx_dir::install()?;
     game_state_hooks::install()?;
     replay::install()?;

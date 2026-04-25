@@ -1,7 +1,7 @@
 //! CreateExplosion — pure-Rust port of 0x00548080.
 //!
-//! Sends `TaskMessage::Explosion` to the per-game `CTaskTurnGame` root, which
-//! broadcasts to its children. Every `CGameTask` child then runs the damage
+//! Sends `TaskMessage::Explosion` to the per-game `WorldRootEntity` root, which
+//! broadcasts to its children. Every `WorldEntity` child then runs the damage
 //! calculation in its own `HandleMessage`.
 //!
 //! Deviation from WA: the original reserves a 0x408-byte stack buffer (only
@@ -12,24 +12,24 @@
 use openwa_core::fixed::Fixed;
 
 use crate::game::message::ExplosionMessage;
-use crate::task::{CTask, CTaskTurnGame};
+use crate::task::{BaseEntity, WorldRootEntity};
 
 pub unsafe fn create_explosion(
     pos_x: Fixed,
     pos_y: Fixed,
-    sender: *mut CTask,
+    sender: *mut BaseEntity,
     explosion_id: u32,
     damage: u32,
     caller_flag: u32,
     owner_id: u32,
 ) {
     unsafe {
-        let turn_game = CTaskTurnGame::from_shared_data(sender);
-        if turn_game.is_null() {
+        let world_root = WorldRootEntity::from_shared_data(sender);
+        if world_root.is_null() {
             return;
         }
-        CTaskTurnGame::handle_typed_message_raw(
-            turn_game,
+        WorldRootEntity::handle_typed_message_raw(
+            world_root,
             sender,
             ExplosionMessage {
                 flag: 1,

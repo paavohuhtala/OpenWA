@@ -1,4 +1,4 @@
-//! Typed stub for `DDGame::network_ecx` — the per-game network session
+//! Typed stub for `GameWorld::network_ecx` — the per-game network session
 //! manager. Only the vtable slots used by the end-game state machine
 //! (`OnGameState3`, `OnNetworkEndAwaitPeers`) are pinned down; the rest of
 //! the layout is unknown. The vtable address is not yet in the registry
@@ -9,7 +9,7 @@ use crate::FieldRegistry;
 /// Partial vtable for `NetSession`. Observed slots are the per-peer query
 /// API used during end-of-round peer synchronisation.
 #[openwa_game::vtable(size = 10, class = "NetSession")]
-pub struct NetSessionVTable {
+pub struct NetSessionVtable {
     /// slot 4 (+0x10): per-peer score / remaining-timeout. Caller takes
     /// `max()` over all active peers to decide whether to keep waiting.
     #[slot(4)]
@@ -29,12 +29,12 @@ pub struct NetSessionVTable {
     pub peer_pending_maybe: fn(this: *mut NetSession, idx: u32) -> u32,
 }
 
-/// Partial layout of the object at `DDGame::network_ecx`.
+/// Partial layout of the object at `GameWorld::network_ecx`.
 #[derive(FieldRegistry)]
 #[repr(C)]
 pub struct NetSession {
     /// +0x00: Vtable pointer.
-    pub vtable: *const NetSessionVTable,
+    pub vtable: *const NetSessionVtable,
     /// +0x04: Unknown.
     pub _field_04: u32,
     /// +0x08: Number of peers in the session (loop bound for per-peer sweeps).

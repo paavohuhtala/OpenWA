@@ -3,7 +3,7 @@ use core::arch::naked_asm;
 use crate::{
     asset::gfx_dir::GfxDir,
     bitgrid::DisplayBitGrid,
-    engine::{ddgame::DDGame, ddgame_wrapper::DDGameWrapper},
+    engine::{world::GameWorld, runtime::GameRuntime},
     rebase::rb,
 };
 
@@ -28,18 +28,18 @@ crate::define_addresses! {
 ///   (memcpy for opaque, per-pixel color-key for transparent)
 /// - `WriteLandRaw` (0x57C300) modifies terrain across all layers + collision
 ///
-/// ## Key dimensions (stored in DDGame, set by constructor)
-/// - DDGame+0x77C0: level width
-/// - DDGame+0x77C4: level height
-/// - DDGame+0x77C8: width × height (total pixels)
+/// ## Key dimensions (stored in GameWorld, set by constructor)
+/// - GameWorld+0x77C0: level width
+/// - GameWorld+0x77C4: level height
+/// - GameWorld+0x77C8: width × height (total pixels)
 ///
 /// Ghidra uses DWORD-indexed offsets (param_1[N] = byte offset N*4).
 #[repr(C)]
 pub struct Landscape {
     /// 0x000: Vtable pointer (0x66B208)
     pub vtable: *const LandscapeVtable,
-    /// 0x004: Parent DDGame pointer (param_1[1])
-    pub ddgame: *mut DDGame,
+    /// 0x004: Parent GameWorld pointer (param_1[1])
+    pub world: *mut GameWorld,
     /// 0x008-0x0CB: Pre-rendered crater sprites for 15 explosion sizes.
     /// param_1[2..17]: crater image ptrs, param_1[18..33]: secondary ptrs.
     /// Indexed by `explosion_size * 15 / 100`.
@@ -73,7 +73,7 @@ pub struct Landscape {
     pub _unknown_8f4: u32,
     /// 0x8F8-0x8FF: Unknown
     pub _unknown_8f8: [u8; 8],
-    /// 0x900: Unknown (NOT DDGame — runtime value 0x13300048 doesn't match DDGame ptr)
+    /// 0x900: Unknown (NOT GameWorld — runtime value 0x13300048 doesn't match GameWorld ptr)
     pub _unknown_900: *mut u8,
     /// 0x904: Initialized flag (param_1[0x241], set to 1)
     pub initialized: u32,
@@ -85,7 +85,7 @@ pub struct Landscape {
     /// the DisplayGfx (BitGridDisplay) vtable.
     pub layer_1: *mut DisplayBitGrid,
     /// 0x910: Main terrain image (8bpp). The Landscape ctor reads width and
-    /// height from this layer directly into `DDGame.level_width / level_height`.
+    /// height from this layer directly into `GameWorld.level_width / level_height`.
     pub layer_terrain: *mut DisplayBitGrid,
     /// 0x914: Edge / collision-mask layer. `Landscape::init_borders` stamps
     /// `1` into every border-region pixel here.
@@ -94,7 +94,7 @@ pub struct Landscape {
     pub _unknown_918: [u8; 4],
     /// 0x91C: Shader / overlay layer. The vtable can be `LandscapeShader`
     /// (offline path — slot 5 is a no-op stub) or `BitGridDisplay`
-    /// (online path) depending on the value of `DDGame+0x2C` at constructor
+    /// (online path) depending on the value of `GameWorld+0x2C` at constructor
     /// time. Both share the BitGrid base layout, so a `DisplayBitGrid` typing
     /// works for either via `put_pixel_clipped_raw` dispatch.
     pub layer_shadow: *mut DisplayBitGrid,
@@ -179,26 +179,26 @@ bind_LandscapeVtable!(Landscape, vtable);
 /// Pure Rust implementation of `InitLandscapeBorders` (0x00528480).
 ///
 /// Applies the scheme's cavern / indestructible-borders flag to the landscape.
-/// Convention: usercall(EAX = `this`), plain RET. `this` is a CTaskTurnGame
-/// (`DDGameWrapper`); the body only touches `this->ddgame` (+0x488).
+/// Convention: usercall(EAX = `this`), plain RET. `this` is a WorldRootEntity
+/// (`GameRuntime`); the body only touches `this->world` (+0x488).
 ///
 /// If the scheme byte at `GameInfo+0xD94B` is set, dispatches
-/// `Landscape::init_borders(1,1,1,1, colors)` and flips `ddgame.is_cavern` on.
+/// `Landscape::init_borders(1,1,1,1, colors)` and flips `world.is_cavern` on.
 /// Otherwise, if `is_cavern` was previously set, dispatches
 /// `init_borders(0,0,1,0, colors)` to tear down the borders.
-pub unsafe fn init_landscape_borders(wrapper: *mut DDGameWrapper) {
+pub unsafe fn init_landscape_borders(runtime: *mut GameRuntime) {
     unsafe {
-        let ddgame = (*wrapper).ddgame;
-        let game_info = (*ddgame).game_info;
+        let world = (*runtime).world;
+        let game_info = (*world).game_info;
 
         let scheme_flag = (*game_info).landscape_scheme_flag;
 
-        let terrain_color_b = (*ddgame).gfx_color_table[3];
-        let terrain_color_a = (*ddgame).gfx_color_table[0];
-        let shader_color_b = (*ddgame).border_shader_color_b;
-        let shader_color_a = (*ddgame).border_shader_color_a;
+        let terrain_color_b = (*world).gfx_color_table[3];
+        let terrain_color_a = (*world).gfx_color_table[0];
+        let shader_color_b = (*world).border_shader_color_b;
+        let shader_color_a = (*world).border_shader_color_a;
 
-        let landscape = (*ddgame).landscape;
+        let landscape = (*world).landscape;
 
         if scheme_flag != 0 {
             Landscape::init_borders_raw(
@@ -212,8 +212,8 @@ pub unsafe fn init_landscape_borders(wrapper: *mut DDGameWrapper) {
                 shader_color_b,
                 shader_color_a,
             );
-            (*ddgame).is_cavern = 1;
-        } else if (*ddgame).is_cavern != 0 {
+            (*world).is_cavern = 1;
+        } else if (*world).is_cavern != 0 {
             Landscape::init_borders_raw(
                 landscape,
                 0,

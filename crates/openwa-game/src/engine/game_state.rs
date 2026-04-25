@@ -1,4 +1,4 @@
-//! `DDGameWrapper::game_state` (offset 0x484) — the main game-loop
+//! `GameRuntime::game_state` (offset 0x484) — the main game-loop
 //! state variable.
 //!
 //! Read via vtable slot `get_game_state` (0x528A20) by

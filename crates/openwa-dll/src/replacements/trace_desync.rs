@@ -3,7 +3,7 @@
 //! When `OPENWA_TRACE_DESYNC=1`, hooks GameFrameChecksumProcessor (0x5329C0)
 //! to capture WA's own network sync checksums after each frame.
 //!
-//! The checksum processor is `__thiscall` (ECX=controller, stack=DDGameWrapper*),
+//! The checksum processor is `__thiscall` (ECX=controller, stack=GameRuntime*),
 //! calls SerializeGameState + ComputeStateChecksum, and stores results at
 //! wrapper+0x268 (checksum_a) and wrapper+0x26c (checksum_b).
 //!
@@ -17,7 +17,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use crate::hook;
 use crate::log_line;
 use openwa_game::address::va;
-use openwa_game::engine::DDGameWrapper;
+use openwa_game::engine::GameRuntime;
 
 /// Trampoline to the original GameFrameChecksumProcessor.
 static ORIG_CHECKSUM_PROCESSOR: AtomicU32 = AtomicU32::new(0);
@@ -28,27 +28,27 @@ static HASH_LOG: Mutex<Option<std::io::BufWriter<std::fs::File>>> = Mutex::new(N
 
 /// Passthrough hook for GameFrameChecksumProcessor (0x5329C0).
 ///
-/// `__thiscall`: ECX = controller object, stack param = DDGameWrapper*.
+/// `__thiscall`: ECX = controller object, stack param = GameRuntime*.
 /// After calling the original, reads the computed checksums and logs them.
-unsafe extern "thiscall" fn hook_checksum_processor(ctrl: u32, wrapper: *mut DDGameWrapper) {
+unsafe extern "thiscall" fn hook_checksum_processor(ctrl: u32, runtime: *mut GameRuntime) {
     unsafe {
         // Call original
-        let orig: unsafe extern "thiscall" fn(u32, *mut DDGameWrapper) =
+        let orig: unsafe extern "thiscall" fn(u32, *mut GameRuntime) =
             core::mem::transmute(ORIG_CHECKSUM_PROCESSOR.load(Ordering::Relaxed));
-        orig(ctrl, wrapper);
+        orig(ctrl, runtime);
 
         // Read checksums written by the original function
-        if wrapper.is_null() {
+        if runtime.is_null() {
             return;
         }
-        let ddgame = (*wrapper).ddgame;
-        if ddgame.is_null() {
+        let world = (*runtime).world;
+        if world.is_null() {
             return;
         }
 
-        let frame = (*ddgame).frame_counter;
-        let checksum_a = (*wrapper).sync_checksum_a;
-        let checksum_b = (*wrapper).sync_checksum_b;
+        let frame = (*world).frame_counter;
+        let checksum_a = (*runtime).sync_checksum_a;
+        let checksum_b = (*runtime).sync_checksum_b;
 
         if let Ok(mut guard) = HASH_LOG.lock()
             && let Some(writer) = guard.as_mut()

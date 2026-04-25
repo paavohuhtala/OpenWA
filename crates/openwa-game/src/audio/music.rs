@@ -1,7 +1,7 @@
 /// Music — music playback object (0x354 bytes).
 ///
 /// Combines a playlist controller with an embedded [`StreamingAudio`] engine.
-/// Created by `GameEngine::InitHardware`, stored at `DDGame+0x014`.
+/// Created by `GameEngine::InitHardware`, stored at `GameWorld+0x014`.
 ///
 /// Constructor: 0x58BC10, usercall(ESI=this) + stack(IDirectSound*, path), RET 0x8.
 /// Vtable: 0x66B3E0 (6 slots).

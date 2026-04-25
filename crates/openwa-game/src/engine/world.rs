@@ -17,23 +17,23 @@ use crate::render::queue::RenderQueue;
 use crate::render::turn_order::TurnOrderWidget;
 use openwa_core::fixed::{Fixed, Fixed64};
 
-/// DDGame — the main game engine object.
+/// GameWorld — the main game engine object.
 ///
 /// This is a massive ~39KB struct (0x98D8 bytes) that owns all major subsystems:
 /// display, landscape, sound, graphics handlers, and task state machines.
 ///
-/// Allocated in DDGame__Constructor (0x56E220).
-/// The DDGame pointer is stored at DDGameWrapper+0x488 (DWORD index 0x122).
+/// Allocated in GameWorld__Constructor (0x56E220).
+/// The GameWorld pointer is stored at GameRuntime+0x488 (DWORD index 0x122).
 ///
 /// PARTIAL: Fields up to 0x54C are densely mapped from the constructor.
 /// Beyond that, only scattered fields are known — use the `offsets` module.
 ///
-/// Note on offsets: The constructor accesses DDGame fields via
+/// Note on offsets: The constructor accesses GameWorld fields via
 /// `*(param_2[0x122] + byte_offset)` — these are byte offsets, NOT DWORD-indexed.
-/// DWORD indexing only applies to param_2 (DDGameWrapper) itself.
+/// DWORD indexing only applies to param_2 (GameRuntime) itself.
 #[derive(FieldRegistry)]
 #[repr(C)]
-pub struct DDGame {
+pub struct GameWorld {
     /// 0x000: DDKeyboard pointer (vtable 0x66AEC8). Constructor param "keyboard".
     pub keyboard: *mut DDKeyboard,
     /// 0x004: DisplayGfx pointer (vtable 0x66A218). Constructor param "display".
@@ -55,11 +55,11 @@ pub struct DDGame {
     /// When non-null, drives end-of-round peer synchronisation via its
     /// vtable (see `engine::net_session`).
     pub net_session: *mut crate::engine::net_session::NetSession,
-    /// 0x020: Landscape pointer (copied from DDGameWrapper[0x133])
+    /// 0x020: Landscape pointer (copied from GameRuntime[0x133])
     pub landscape: *mut Landscape,
     /// 0x024: GameInfo pointer (passed as param_10 to constructor).
     pub game_info: *mut GameInfo,
-    /// 0x028: Network game object (param_9 to DDGameWrapper constructor).
+    /// 0x028: Network game object (param_9 to GameRuntime constructor).
     pub net_game: *mut u8,
     /// 0x02C: Secondary PaletteContext (0x70C bytes, conditional on secondary GfxDir)
     pub secondary_palette_ctx: *mut crate::render::palette::PaletteContext,
@@ -76,7 +76,7 @@ pub struct DDGame {
     pub display_bitgrid: *mut DisplayBitGrid,
     /// 0x13C-0x37F: Sprite/image BitGrid cache (145 pointer slots).
     /// All populated entries have vtable 0x664144 (same class as `display_bitgrid`).
-    /// Not initialized in DDGame__Constructor — filled during gameplay with
+    /// Not initialized in GameWorld__Constructor — filled during gameplay with
     /// weapon sprites, effect images, cursor graphics, etc.
     pub sprite_cache: [*mut u8; 145],
     /// 0x380: Collision BitGrid pointer (vtable 0x664118, 0x2C bytes).
@@ -86,7 +86,7 @@ pub struct DDGame {
     /// Same vtable 0x664144 as sprite_cache. ~20 entries populated at runtime.
     pub sprite_cache_2: [*mut u8; 57],
     /// 0x468: Landscape property from Landscape vtable[0xB] (thiscall getter).
-    /// Set during DDGame construction if landscape is non-null.
+    /// Set during GameWorld construction if landscape is non-null.
     pub landscape_property: u32,
     /// 0x46C-0x488: 8 SpriteRegion pointers (0x9C bytes each, vtable 0x66B268)
     /// Created by SpriteRegion__Constructor (0x57DB20).
@@ -109,7 +109,7 @@ pub struct DDGame {
     /// 0x524: RenderQueue pointer (passed as `this` to all Draw* functions)
     pub render_queue: *mut RenderQueue,
     /// 0x528: Game state stream object (vtable 0x664194, vt[0]=0x4FB5C0).
-    /// Created in DDGame_InitGameState_Maybe (0x526690), constructor 0x4FB5F0.
+    /// Created in GameWorld_InitGameState_Maybe (0x526690), constructor 0x4FB5F0.
     /// Reads from replay/packet data stream.
     pub game_state_stream: *mut u8,
     /// 0x52C: Unknown pointer
@@ -130,7 +130,7 @@ pub struct DDGame {
     pub _unknown_544: *mut u8,
     /// 0x548: Weapon panel pointer
     pub weapon_panel: *mut u8,
-    /// 0x54C: CTaskLand pointer (set by CTaskLand__InitLandscape at 0x5056F0).
+    /// 0x54C: LandEntity pointer (set by LandEntity__InitLandscape at 0x5056F0).
     /// The landscape/terrain task. Vtable at 0x664388.
     pub task_land: *mut u8,
     /// 0x550-0x5C3: Unknown.
@@ -220,9 +220,9 @@ pub struct DDGame {
     pub team_arena: TeamArena,
     /// 0x7270-0x72A3: Unknown
     pub _unknown_7270: [u8; 0x72A4 - 0x7270],
-    /// 0x72A4: Object pool counter. Incremented by +7 per CTaskMissile, +2 per CTaskArrow.
+    /// 0x72A4: Object pool counter. Incremented by +7 per MissileEntity, +2 per ArrowEntity.
     /// Checked before spawning: `pool_count + N <= 700` or overflow warning shown.
-    /// Written by CTaskArrow ctor at DDGame+0x4628+0x2C7C.
+    /// Written by ArrowEntity ctor at GameWorld+0x4628+0x2C7C.
     pub object_pool_count: i32,
     /// 0x72A8-0x72D7: Unknown
     pub _unknown_72a8: [u8; 0x72D8 - 0x72A8],
@@ -327,7 +327,7 @@ pub struct DDGame {
     pub _field_7644: u32,
     /// 0x7648: Unknown config (from GameInfo+0xF364).
     pub _field_7648: u32,
-    /// 0x764C: Rendering phase. Checked by CTaskCloud::HandleMessage:
+    /// 0x764C: Rendering phase. Checked by CloudEntity::HandleMessage:
     /// clouds only render when this == 5 (in-game rendering active).
     pub render_phase: i32,
 
@@ -402,7 +402,7 @@ pub struct DDGame {
     pub _field_77e0: u32,
 
     /// 0x77E4: Speech slot table. Maps (team, speech_line_id) → DSSound buffer index.
-    /// Cleared by DSSound_LoadAllSpeechBanks (0x571A70), filled by DDGameWrapper__LoadSpeechWAV (0x571530).
+    /// Cleared by DSSound_LoadAllSpeechBanks (0x571A70), filled by GameRuntime__LoadSpeechWAV (0x571530).
     pub speech_slot_table: SpeechSlotTable,
 
     /// 0x7D84: Unknown (zeroed by InitTurnState).
@@ -472,7 +472,7 @@ pub struct DDGame {
     pub _unknown_7ed0: [u8; 0x7EF0 - 0x7ED0],
     /// 0x7EF0: Recording-side frame counter — `-1` during replay playback.
     ///
-    /// `DDGame::InitGameState` sets this to `-1` when a replay is being
+    /// `GameWorld::InitGameState` sets this to `-1` when a replay is being
     /// played back (nothing is being recorded), otherwise `0`. Outside
     /// replay playback, `DDNetGameWrapper::SendGameState` (0x0056FAF0)
     /// increments it once per game frame whose state was handed to the
@@ -488,7 +488,7 @@ pub struct DDGame {
     /// (loaded via string resource LOG_CRASH_TOO_MANY_OBJECTS). Read by HUD rendering for warning display.
     pub hud_status_text: *const core::ffi::c_char,
     /// 0x7EF8: Headful/interactive mode flag (u32, 0 = headless, 1 = headful).
-    /// Computed in the DDGame constructor as `game_info.headless_mode == 0`.
+    /// Computed in the GameWorld constructor as `game_info.headless_mode == 0`.
     /// Read throughout the engine to gate interactive-mode-only work:
     /// loading progress bar, message pumps, sound, input keyboard/palette
     /// frame polls, rendering-related init. Not strictly "is sound enabled"
@@ -519,7 +519,7 @@ pub struct DDGame {
     /// simulation tick elapsed in wall time — effectively a sub-frame
     /// progress ratio. Consumers multiply it by per-object velocities to
     /// interpolate smooth render positions between the 50Hz simulation
-    /// ticks (`CTaskCloud`'s parallax scroll, crosshair aim-range animation,
+    /// ticks (`CloudEntity`'s parallax scroll, crosshair aim-range animation,
     /// worm render-position offset, etc.).
     ///
     /// Clamped to 0 while the game is paused. In replay mode holds a
@@ -600,13 +600,13 @@ pub struct DDGame {
     pub _unknown_98b4: [u8; 0x98D8 - 0x98B4],
 }
 
-const _: () = assert!(core::mem::size_of::<DDGame>() == 0x98D8);
+const _: () = assert!(core::mem::size_of::<GameWorld>() == 0x98D8);
 
 // ============================================================
-// DDGame methods
+// GameWorld methods
 // ============================================================
 
-impl DDGame {
+impl GameWorld {
     /// Advance the game RNG and return the new state.
     ///
     /// Formula: `rng = (frame_counter + rng) * 0x19660D + 0x3C6EF35F`
@@ -620,7 +620,7 @@ impl DDGame {
         rng
     }
 
-    /// Advance the secondary effect RNG at DDGame+0x45F0 and return the new state.
+    /// Advance the secondary effect RNG at GameWorld+0x45F0 and return the new state.
     ///
     /// Formula: `rng = rng * 0x19660D + 0x3C6EF35F` (simpler than [`advance_rng`] — no
     /// frame_counter). Uses `team_health_ratio[0]`, the unused index-0 slot of the
@@ -632,7 +632,7 @@ impl DDGame {
         rng
     }
 
-    /// Read a per-team sound ID from the team sound table at DDGame+0x7768.
+    /// Read a per-team sound ID from the team sound table at GameWorld+0x7768.
     ///
     /// The table has stride 0xF0 per team (240-byte per-team config blocks).
     /// The u32 at the base of each block is a sound ID used for type-2 (rope)
@@ -642,14 +642,14 @@ impl DDGame {
     /// `team_id` must be a valid team index (0–5).
     pub unsafe fn team_sound_id(&self, team_id: u32) -> u32 {
         unsafe {
-            let base = (self as *const DDGame as *const u8).add(0x7768);
+            let base = (self as *const GameWorld as *const u8).add(0x7768);
             *(base.add((team_id as usize) * 0xF0) as *const u32)
         }
     }
 
     /// Get a mutable pointer to a per-team/per-worm weapon stat counter.
     ///
-    /// Four counters exist at DDGame base offsets 0x40CC, 0x40D0, 0x40D4, 0x40D8,
+    /// Four counters exist at GameWorld base offsets 0x40CC, 0x40D0, 0x40D4, 0x40D8,
     /// indexed by `team_id * 0x51C + worm_id * 0x9C` (same stride as FullTeamBlock
     /// and WormEntry). These track weapon usage stats during gameplay.
     ///
@@ -662,7 +662,7 @@ impl DDGame {
         base_offset: usize,
     ) -> *mut i32 {
         unsafe {
-            (self as *mut DDGame as *mut u8)
+            (self as *mut GameWorld as *mut u8)
                 .add(base_offset)
                 .add((team_id as usize) * 0x51C)
                 .add((worm_id as usize) * 0x9C) as *mut i32
@@ -688,7 +688,7 @@ impl DDGame {
         }
     }
 
-    /// Listener position for 3D audio — stored at DDGame+0x8CEC (viewport_coords[3]).
+    /// Listener position for 3D audio — stored at GameWorld+0x8CEC (viewport_coords[3]).
     ///
     /// Returns `(x, y)` as raw i32 values (fixed-point 16.16).
     /// Used by ComputeDistanceParams / Distance3D_Attenuation.
@@ -700,14 +700,14 @@ impl DDGame {
     }
 }
 
-// DDGame constructor code (create_ddgame, init helpers, usercall bridges)
-// has been moved to ddgame_constructor.rs.
+// GameWorld constructor code (create_world, init helpers, usercall bridges)
+// has been moved to world_constructor.rs.
 
 // BitGrid__Init lives in crate::bitgrid
-// Re-exported via ddgame_constructor.rs
-/// Well-known byte offsets into DDGame, for use with raw pointer access.
+// Re-exported via world_constructor.rs
+/// Well-known byte offsets into GameWorld, for use with raw pointer access.
 ///
-/// The DDGame pointer is at DDGameWrapper+0x488 (DWORD index 0x122).
+/// The GameWorld pointer is at GameRuntime+0x488 (DWORD index 0x122).
 pub mod offsets {
     // === Header / init params (0x000-0x02C) ===
     pub const LANDSCAPE: usize = 0x020;
@@ -732,14 +732,14 @@ pub mod offsets {
     pub const WEAPON_TABLE: usize = 0x510;
     pub const WEAPON_PANEL: usize = 0x548;
 
-    // === Team weapon state (DDGame + 0x4628) ===
-    /// Base of TeamArena sub-struct within DDGame.
-    /// Callers pass DDGame + TEAM_ARENA_STATE as base pointer to
+    // === Team weapon state (GameWorld + 0x4628) ===
+    /// Base of TeamArena sub-struct within GameWorld.
+    /// Callers pass GameWorld + TEAM_ARENA_STATE as base pointer to
     /// GetAmmo/AddAmmo/SubtractAmmo.
     pub const TEAM_ARENA_STATE: usize = 0x4628;
 
     // === Team block array (7 × TeamBlock, stride 0x51C) ===
-    /// Start of team block array within DDGame (7 blocks, stride 0x51C).
+    /// Start of team block array within GameWorld (7 blocks, stride 0x51C).
     /// Derived: entry_ptr(team=0) - 0x598 = 0x4628 - 0x598 = 0x4090.
     /// Runtime-confirmed: block[0] is zeroed preamble, blocks[1-6] hold team data.
     pub const TEAM_BLOCKS: usize = 0x4090;
@@ -747,7 +747,7 @@ pub mod offsets {
     /// Byte offset from TeamArena base back to TeamBlock array start.
     /// `blocks_ptr = (tws_base as *const c_char).sub(ARENA_TO_BLOCKS) as *const TeamBlock`
     ///
-    /// entry_ptr(0) = DDGame+0x4628 = TEAM_BLOCKS + 0x598.
+    /// entry_ptr(0) = GameWorld+0x4628 = TEAM_BLOCKS + 0x598.
     /// 0x598 = sizeof(TeamBlock) + 0x7C = one block + offset into TeamHeader.
     pub const ARENA_TO_BLOCKS: usize = 0x598;
 
@@ -759,7 +759,7 @@ pub mod offsets {
     pub const GAME_STATE_STREAM: usize = 0x528;
     pub const TURN_ORDER_WIDGET: usize = 0x530;
     pub const HUD_PANEL: usize = 0x534;
-    /// CTaskLand pointer (landscape/terrain task, vtable 0x664388).
+    /// LandEntity pointer (landscape/terrain task, vtable 0x664388).
     pub const TASK_LAND: usize = 0x54C;
 
     // === Per-team health ratio (turn order health bar) ===
@@ -806,15 +806,15 @@ pub mod offsets {
     /// Fast-forward request flag.
     pub const FAST_FORWARD_REQUEST: usize = 0x98AC;
 
-    // === Speech slot table (DDGame + 0x77E4) ===
+    // === Speech slot table (GameWorld + 0x77E4) ===
     /// Speech slot table: maps (team, speech_line_id) → DSSound buffer index.
     pub const SPEECH_SLOT_TABLE: usize = 0x77E4;
 
-    // === Fast-forward (DDGame + 0x98B0) ===
+    // === Fast-forward (GameWorld + 0x98B0) ===
     /// Fast-forward active flag (u32, 1 = active).
     pub const FAST_FORWARD_ACTIVE: usize = 0x98B0;
 
-    // === Sound queue (DDGame + 0x7F00) ===
+    // === Sound queue (GameWorld + 0x7F00) ===
     /// DSSound pointer (null = sound disabled).
     pub const SOUND: usize = 0x0008;
     /// Sound queue base (16 × SoundQueueEntry, stride 0x24).
@@ -826,7 +826,7 @@ pub mod offsets {
 // ── Snapshot impls ──────────────────────────────────────────
 
 #[cfg(target_arch = "x86")]
-impl crate::snapshot::Snapshot for DDGame {
+impl crate::snapshot::Snapshot for GameWorld {
     unsafe fn write_snapshot(
         &self,
         w: &mut dyn core::fmt::Write,

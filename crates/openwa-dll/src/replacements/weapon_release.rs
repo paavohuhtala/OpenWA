@@ -6,7 +6,7 @@
 use openwa_core::fixed::Fixed;
 use openwa_game::address::va;
 use openwa_game::game::weapon_release as wr;
-use openwa_game::task::worm::CTaskWorm;
+use openwa_game::task::worm::WormEntity;
 
 use crate::hook::{self, usercall_trampoline};
 
@@ -16,7 +16,7 @@ usercall_trampoline!(fn trampoline_weapon_release; impl_fn = weapon_release_impl
     reg = eax; stack_params = 4; ret_bytes = "0x10");
 
 unsafe extern "cdecl" fn weapon_release_impl(
-    worm: *mut CTaskWorm,
+    worm: *mut WormEntity,
     spawn_x: u32,
     spawn_y: u32,
     aim_dir_x: Fixed,
@@ -58,7 +58,7 @@ unsafe extern "C" fn trampoline_spawn_effect() {
 }
 
 unsafe extern "cdecl" fn spawn_effect_cdecl(
-    worm: *mut CTaskWorm,
+    worm: *mut WormEntity,
     constant: u32,
     speed_x: Fixed,
     speed_y: Fixed,

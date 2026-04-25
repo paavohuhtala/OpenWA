@@ -1,9 +1,9 @@
-use crate::engine::ddgame::DDGame;
+use crate::engine::world::GameWorld;
 
-/// NetBridge — lightweight adapter between DDGame and the network layer (0x2C bytes).
+/// NetBridge — lightweight adapter between GameWorld and the network layer (0x2C bytes).
 ///
 /// Only created for online games (`game_version == -2`). Allocated during
-/// `DDGame__Constructor` and stored at `DDGameWrapper+0x48C`.
+/// `GameWorld__Constructor` and stored at `GameRuntime+0x48C`.
 /// Also linked into the network context object (constructor param 7, via ECX)
 /// at offset +0x18.
 ///
@@ -12,8 +12,8 @@ use crate::engine::ddgame::DDGame;
 /// `GameSession+0xC0`.
 #[repr(C)]
 pub struct NetBridge {
-    /// 0x00: Back-pointer to the owning DDGame instance.
-    pub ddgame: *mut DDGame,
+    /// 0x00: Back-pointer to the owning GameWorld instance.
+    pub world: *mut GameWorld,
     /// 0x04-0x27: Unknown (zero-filled on construction).
     pub _unknown_04: [u8; 0x24],
     /// 0x28: Network config byte 1 (from GameInfo+0xD944).

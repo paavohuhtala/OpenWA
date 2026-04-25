@@ -3,24 +3,24 @@
 ## Overview
 
 WA.exe initializes the engine through a chain of constructor calls that build
-the DDGame monolith and its subsystems. The top-level entry is
-`ConstructDDGameWrapper` which allocates DDGame and wires up all subsystems.
+the GameWorld monolith and its subsystems. The top-level entry is
+`ConstructGameRuntime` which allocates GameWorld and wires up all subsystems.
 
 ## Call Chain
 
 ```
 WinMain / CRT startup (0x5D8B6C)
-  └─ ConstructDDGameWrapper (0x56DEF0)
-       ├─ Allocates DDGameWrapper (vtable 0x66A30C)
-       ├─ DDGame__Constructor (0x56E220)
-       │    ├─ Allocates 0x98B8 bytes for DDGame
+  └─ ConstructGameRuntime (0x56DEF0)
+       ├─ Allocates GameRuntime (vtable 0x66A30C)
+       ├─ GameWorld__Constructor (0x56E220)
+       │    ├─ Allocates 0x98B8 bytes for GameWorld
        │    ├─ DDDisplay__Init (0x569D00)
        │    │    └─ Sets display mode, dimensions, palette, HWND
        │    ├─ GfxHandler x2 (vtable 0x66B280, 0x19C bytes each)
        │    ├─ Task state machines x5 (vtable 0x664118)
-       │    └─ Game state pointer at DDGame+0x24
+       │    └─ Game state pointer at GameWorld+0x24
        ├─ Landscape__Constructor (0x57ACB0)
-       │    ├─ vtable 0x66B208, parent = DDGame
+       │    ├─ vtable 0x66B208, parent = GameWorld
        │    ├─ Allocates terrain buffer (0x60000 bytes) at +0x8E8
        │    ├─ Creates WaterEffect object (vtable 0x66B268) at +0xC8
        │    ├─ Creates LandscapeShader (vtable 0x66B1DC) at +0x93C
@@ -35,23 +35,23 @@ WinMain / CRT startup (0x5D8B6C)
             └─ OpenGL__Init (0x59F000) stores HDC/HGLRC in DDDisplay
 ```
 
-## DDGameWrapper Layout
+## GameRuntime Layout
 
-DDGameWrapper is a thin wrapper (~0x500 bytes) around DDGame:
+GameRuntime is a thin wrapper (~0x500 bytes) around GameWorld:
 
-| Offset | Field            | Notes                          |
-| ------ | ---------------- | ------------------------------ |
-| 0x000  | vtable           | 0x66A30C                       |
-| 0x488  | DDGame ptr       | Allocated 0x98B8-byte object   |
-| 0x48C  | DDGame secondary | Optional 0x2C-byte struct      |
-| 0x4C0  | GfxHandler 0     | 0x19C bytes, vtable 0x66B280   |
-| 0x4C4  | GfxHandler 1     | Optional                       |
-| 0x4C8  | GfxMode          | Graphics mode flag             |
-| 0x4CC  | Landscape        | Pointer to landscape subsystem |
+| Offset | Field               | Notes                          |
+| ------ | ------------------- | ------------------------------ |
+| 0x000  | vtable              | 0x66A30C                       |
+| 0x488  | GameWorld ptr       | Allocated 0x98B8-byte object   |
+| 0x48C  | GameWorld secondary | Optional 0x2C-byte struct      |
+| 0x4C0  | GfxHandler 0        | 0x19C bytes, vtable 0x66B280   |
+| 0x4C4  | GfxHandler 1        | Optional                       |
+| 0x4C8  | GfxMode             | Graphics mode flag             |
+| 0x4CC  | Landscape           | Pointer to landscape subsystem |
 
-## DDGame Key Offsets
+## GameWorld Key Offsets
 
-DDGame is a ~39KB (0x98B8 bytes) monolithic object. Known landmark fields:
+GameWorld is a ~39KB (0x98B8 bytes) monolithic object. Known landmark fields:
 
 | Offset | Field            | Notes                           |
 | ------ | ---------------- | ------------------------------- |

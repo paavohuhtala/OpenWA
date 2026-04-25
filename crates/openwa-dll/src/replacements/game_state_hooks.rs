@@ -1,4 +1,4 @@
-//! Passthrough hooks for DDGame__InitGameState sub-functions.
+//! Passthrough hooks for GameWorld__InitGameState sub-functions.
 //!
 //! These sub-constructors are called from the Rust port of InitGameState
 //! via transmute bridges. Passthrough hooks remain for logging. Functions
@@ -30,7 +30,7 @@ unsafe extern "stdcall" fn hook_hud_panel(this: u32) -> u32 {
     }
 }
 
-// InitWeaponTable (0x53CAB0): stdcall(wrapper), RET 0x4
+// InitWeaponTable (0x53CAB0): stdcall(runtime), RET 0x4
 unsafe extern "stdcall" fn hook_init_weapon_table(wrapper: u32) -> u32 {
     unsafe {
         let _ = log_line(&format!(
@@ -42,7 +42,7 @@ unsafe extern "stdcall" fn hook_init_weapon_table(wrapper: u32) -> u32 {
     }
 }
 
-// DDGame__InitTeamsFromSetup (0x5220B0): stdcall(team_arena, setup_data), RET 0x8
+// GameWorld__InitTeamsFromSetup (0x5220B0): stdcall(team_arena, setup_data), RET 0x8
 unsafe extern "stdcall" fn hook_init_teams(team_arena: u32, setup_data: u32) -> u32 {
     unsafe {
         let _ = log_line(&format!(
@@ -66,7 +66,7 @@ unsafe extern "stdcall" fn hook_team_manager(this: u32, wrapper: u32) -> u32 {
     }
 }
 
-// CTaskGameState__Constructor / SerializeGameState (0x532330): stdcall(this, param), RET 0x8
+// GameStateEntity__Constructor / SerializeGameState (0x532330): stdcall(this, param), RET 0x8
 unsafe extern "stdcall" fn hook_game_state(this: u32, param: u32) -> u32 {
     unsafe {
         let orig: unsafe extern "stdcall" fn(u32, u32) -> u32 =
@@ -93,7 +93,7 @@ pub fn install() -> Result<(), String> {
         )? as *const ();
 
         INIT_TEAMS_ORIG = hook::install(
-            "DDGame__InitTeamsFromSetup",
+            "GameWorld__InitTeamsFromSetup",
             va::INIT_TEAMS_FROM_SETUP,
             hook_init_teams as *const (),
         )? as *const ();
@@ -105,7 +105,7 @@ pub fn install() -> Result<(), String> {
         )? as *const ();
 
         GAME_STATE_ORIG = hook::install(
-            "CTaskGameState__Constructor",
+            "GameStateEntity__Constructor",
             va::GAME_STATE_CONSTRUCTOR,
             hook_game_state as *const (),
         )? as *const ();
@@ -113,11 +113,11 @@ pub fn install() -> Result<(), String> {
         // Usercall functions (ECX/EDX/ESI carry implicit params) are NOT hooked.
         // Passthrough hooks would drop register values. These are called directly
         // from the Rust InitGameState port via typed transmute/fastcall bridges:
-        //   - CTaskTurnGame__Constructor (ECX=DDGame)
+        //   - WorldRootEntity__Constructor (ECX=GameWorld)
         //   - DisplayGfx__ConstructFull (fastcall: ECX+EDX)
         //   - DisplayGfx__ConstructTextbox (thiscall: ECX=display)
         //   - DisplayObject__Constructor (fastcall: ECX+EDX)
-        //   - DDGame__InitWeaponPanel (usercall: ESI=this)
+        //   - GameWorld__InitWeaponPanel (usercall: ESI=this)
         //   - BufferObject__Constructor, GameStateStream__Init (pure stdcall,
         //     but hooks removed since only caller is Rust)
     }

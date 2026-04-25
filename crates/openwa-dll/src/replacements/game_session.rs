@@ -1,45 +1,45 @@
-//! Full Rust replacement for `DDGameWrapper__Constructor` (0x56DEF0).
+//! Full Rust replacement for `GameRuntime__Constructor` (0x56DEF0).
 //!
 //! ## Status: FULLY CONVERTED
 //!
-//! All callers are Rust (`construct_ddgame_wrapper` from `impl_init_hardware`).
+//! All callers are Rust (`construct_runtime` from `impl_init_hardware`).
 //! The original WA function is trapped — panics if called.
 //!
 //! ## Sub-call conventions
 //!
-//! - `DDGameWrapper__InitReplay` (0x56F860): usercall(EAX=game_info, ESI=this),
+//! - `GameRuntime__InitReplay` (0x56F860): usercall(EAX=game_info, ESI=this),
 //!   plain RET (no stack args). Bridged via `call_init_replay`.
-//! - `DDGame__Constructor` (0x56E220): fully replaced by `create_ddgame()` in openwa-game.
-//! - `DDGame__InitGameState` (0x526500): ported to Rust in `init_game_state()`.
+//! - `GameWorld__Constructor` (0x56E220): fully replaced by `create_world()` in openwa-game.
+//! - `GameWorld__InitGameState` (0x526500): ported to Rust in `init_game_state()`.
 
 use crate::hook;
 use crate::log_line;
 use openwa_game::address::va;
 use openwa_game::audio::DSSound;
-use openwa_game::engine::DDGameWrapperVtable;
-use openwa_game::engine::create_ddgame;
+use openwa_game::engine::GameRuntimeVtable;
+use openwa_game::engine::create_game_world;
 use openwa_game::engine::game_session::get_game_session;
 use openwa_game::engine::init_constructor_addrs;
-use openwa_game::engine::{DDGameWrapper, GameInfo};
+use openwa_game::engine::{GameInfo, GameRuntime};
 use openwa_game::rebase::rb;
 use openwa_game::render::{DisplayGfx, Palette};
 
 /// Implicit EDI = game_info pointer, captured from EDI on entry.
 static mut GAME_INFO: *mut GameInfo = core::ptr::null_mut();
 
-/// Runtime address of `DDGameWrapper__InitReplay` (set at install time).
+/// Runtime address of `GameRuntime__InitReplay` (set at install time).
 static mut INIT_REPLAY_ADDR: u32 = 0;
 
-// ─── Bridge: DDGameWrapper__InitReplay ───────────────────────────────────────
+// ─── Bridge: GameRuntime__InitReplay ───────────────────────────────────────
 //
 // Convention: usercall(EAX=game_info, ESI=this), plain RET (no stack params).
 #[unsafe(naked)]
-unsafe extern "stdcall" fn call_init_replay(_game_info: *mut GameInfo, _this: *mut DDGameWrapper) {
+unsafe extern "stdcall" fn call_init_replay(_game_info: *mut GameInfo, _this: *mut GameRuntime) {
     core::arch::naked_asm!(
         "pushl %esi",
         "movl 8(%esp), %eax",    // EAX = game_info
         "movl 0xC(%esp), %esi",  // ESI = this
-        "calll *({fn})",         // call DDGameWrapper__InitReplay; plain RET
+        "calll *({fn})",         // call GameRuntime__InitReplay; plain RET
         "popl %esi",
         "retl $8",               // stdcall cleanup: 2 × u32 = 8
         fn = sym INIT_REPLAY_ADDR,
@@ -47,10 +47,10 @@ unsafe extern "stdcall" fn call_init_replay(_game_info: *mut GameInfo, _this: *m
     );
 }
 
-/// Temp: bridge to original DDGame__Constructor for comparison.
+/// Temp: bridge to original GameWorld__Constructor for comparison.
 #[unsafe(naked)]
-unsafe extern "C" fn call_original_ddgame_ctor(
-    _wrapper: *mut DDGameWrapper,
+unsafe extern "C" fn call_original_world_ctor(
+    _runtime: *mut GameRuntime,
     _display: *mut DisplayGfx,
     _sound: *mut DSSound,
     _keyboard: *mut u8,
@@ -74,29 +74,29 @@ unsafe extern "C" fn call_original_ddgame_ctor(
         "push [esp+36]",
         "call [{addr}]",
         "ret",
-        addr = sym DDGAME_CTOR_ADDR,
+        addr = sym GAME_WORLD_CTOR_ADDR,
     );
 }
-static mut DDGAME_CTOR_ADDR: u32 = 0;
+static mut GAME_WORLD_CTOR_ADDR: u32 = 0;
 
-/// Called by `impl_init_hardware` to construct the DDGameWrapper in-place.
-pub(crate) unsafe fn construct_ddgame_wrapper(
+/// Called by `impl_init_hardware` to construct the GameRuntime in-place.
+pub(crate) unsafe fn construct_runtime(
     game_info: *mut GameInfo,
-    this: *mut DDGameWrapper,
+    this: *mut GameRuntime,
     display: *mut DisplayGfx,
     sound: *mut DSSound,
     keyboard: *mut u8,
     palette: *mut Palette,
     streaming_audio: *mut u8,
     input_ctrl: *mut u8,
-) -> *mut DDGameWrapper {
+) -> *mut GameRuntime {
     unsafe {
         GAME_INFO = game_info;
 
-        // Initialize DDGameWrapper fields (order matches original decompile).
-        (*this).ddgame = core::ptr::null_mut();
+        // Initialize GameRuntime fields (order matches original decompile).
+        (*this).world = core::ptr::null_mut();
         (*this).landscape = core::ptr::null_mut();
-        (*this).vtable = rb(va::DDGAME_WRAPPER_VTABLE) as *const DDGameWrapperVtable;
+        (*this).vtable = rb(va::GAME_RUNTIME_VTABLE) as *const GameRuntimeVtable;
         (*this).sound = sound;
         (*this).display = display;
 
@@ -127,13 +127,13 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
         // Arm display watchpoint during construction if requested
         if std::env::var("OPENWA_WATCH_DISPLAY").is_ok() {
             crate::debug_watchpoint::prepare();
-            crate::debug_watchpoint::on_ddgame_alloc(display as *mut u8);
+            crate::debug_watchpoint::on_world_alloc(display as *mut u8);
         }
 
         // Use env var to switch between original and Rust constructor
         let use_original = std::env::var("OPENWA_USE_ORIG_CTOR").is_ok();
         if use_original {
-            call_original_ddgame_ctor(
+            call_original_world_ctor(
                 this,
                 display,
                 sound,
@@ -146,7 +146,7 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
                 input_ctrl,
             );
         } else {
-            create_ddgame(
+            create_game_world(
                 this,
                 keyboard as *mut openwa_game::input::DDKeyboard,
                 display,
@@ -165,29 +165,29 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
             crate::debug_watchpoint::teardown();
         }
 
-        // Initialize DDGame's game-state fields (Rust port).
+        // Initialize GameWorld's game-state fields (Rust port).
         openwa_game::engine::game_state_init::init_game_state(this);
 
         let _ = log_line(&format!(
-            "[GameSession] DDGameWrapper::Constructor done: wrapper=0x{:08X}  ddgame=0x{:08X}",
+            "[GameSession] GameRuntime::Constructor done: wrapper=0x{:08X}  world=0x{:08X}",
             this as u32,
-            (*this).ddgame as u32,
+            (*this).world as u32,
         ));
 
         // Register live objects for pointer identification in debug tools.
         use openwa_game::registry::{self, LiveObject};
         registry::register_live_object(LiveObject {
             ptr: this as u32,
-            size: core::mem::size_of::<DDGameWrapper>() as u32,
-            class_name: "DDGameWrapper",
-            fields: registry::struct_fields_for("DDGameWrapper"),
+            size: core::mem::size_of::<GameRuntime>() as u32,
+            class_name: "GameRuntime",
+            fields: registry::struct_fields_for("GameRuntime"),
         });
-        if !(*this).ddgame.is_null() {
+        if !(*this).world.is_null() {
             registry::register_live_object(LiveObject {
-                ptr: (*this).ddgame as u32,
-                size: 0x98D8, // DDGame size
-                class_name: "DDGame",
-                fields: registry::struct_fields_for("DDGame"),
+                ptr: (*this).world as u32,
+                size: 0x98D8, // GameWorld size
+                class_name: "GameWorld",
+                fields: registry::struct_fields_for("GameWorld"),
             });
         }
 
@@ -197,11 +197,11 @@ pub(crate) unsafe fn construct_ddgame_wrapper(
 
 pub fn install() -> Result<(), String> {
     unsafe {
-        INIT_REPLAY_ADDR = rb(va::DDGAMEWRAPPER_INIT_REPLAY);
-        DDGAME_CTOR_ADDR = rb(0x56E220);
+        INIT_REPLAY_ADDR = rb(va::GAME_RUNTIME_INIT_REPLAY);
+        GAME_WORLD_CTOR_ADDR = rb(0x56E220);
         init_constructor_addrs();
-        hook::install_trap!("DDGameWrapper__Constructor", va::CONSTRUCT_DD_GAME_WRAPPER);
-        hook::install_trap!("DDGame__InitGameState", va::DDGAME_INIT_GAME_STATE);
+        hook::install_trap!("GameRuntime__Constructor", va::CONSTRUCT_DD_GAME_WRAPPER);
+        hook::install_trap!("GameWorld__InitGameState", va::GAME_WORLD_INIT_GAME_STATE);
     }
     Ok(())
 }

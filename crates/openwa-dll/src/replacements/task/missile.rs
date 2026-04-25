@@ -1,4 +1,4 @@
-//! CTaskMissile vtable hooks.
+//! MissileEntity vtable hooks.
 //!
 //! Thin hook shim — game logic lives in `openwa_game::game::missile_contact`.
 
@@ -10,7 +10,7 @@ use openwa_game::task::missile;
 pub fn install() -> Result<(), String> {
     use openwa_game::vtable_replace;
 
-    vtable_replace!(missile::CTaskMissileVTable, va::CTASK_MISSILE_VTABLE, {
+    vtable_replace!(missile::MissileEntityVtable, va::MISSILE_ENTITY_VTABLE, {
         on_contact => missile_contact::missile_on_contact,
     })?;
 

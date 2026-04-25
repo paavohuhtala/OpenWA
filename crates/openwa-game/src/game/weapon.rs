@@ -6,19 +6,19 @@ pub use openwa_core::weapon::{
     FireMethod, FireType, KnownWeaponId, SpecialFireSubtype, WeaponId, is_super_weapon,
 };
 
-use crate::engine::ddgame::DDGame;
+use crate::engine::world::GameWorld;
 
 // ============================================================
-// WeaponSpawnData — launch parameters passed to CTaskMissile ctor
+// WeaponSpawnData — launch parameters passed to MissileEntity ctor
 // ============================================================
 
 /// Spawn parameters for a weapon projectile (0x2C = 44 bytes, 11 DWORDs).
 ///
 /// Built on the stack by fire sub-functions (ProjectileFire, GrenadeFire, etc.)
-/// and passed as param_4 to CTaskMissile::Constructor. Copied verbatim into
-/// CTaskMissile at offset 0x130 (spawn_params field).
+/// and passed as param_4 to MissileEntity::Constructor. Copied verbatim into
+/// MissileEntity at offset 0x130 (spawn_params field).
 ///
-/// Source: runtime inspection via debug CLI + CTaskMissile constructor decompilation.
+/// Source: runtime inspection via debug CLI + MissileEntity constructor decompilation.
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub struct WeaponSpawnData {
@@ -30,9 +30,9 @@ pub struct WeaponSpawnData {
     pub spawn_x: Fixed,
     /// [3] Fixed16.16 Y position at launch.
     pub spawn_y: Fixed,
-    /// [4] Fixed16.16 horizontal velocity. Copied to CGameTask.speed_x.
+    /// [4] Fixed16.16 horizontal velocity. Copied to WorldEntity.speed_x.
     pub initial_speed_x: Fixed,
-    /// [5] Fixed16.16 vertical velocity. Copied to CGameTask.speed_y.
+    /// [5] Fixed16.16 vertical velocity. Copied to WorldEntity.speed_y.
     pub initial_speed_y: Fixed,
     /// [6] Fixed16.16 aim cursor X at time of fire.
     pub cursor_x: Fixed,
@@ -69,7 +69,7 @@ pub struct WeaponEntry {
     /// Runtime-observed: 1 for Bazooka/Grenade/Shotgun, 0 for AirStrike/HomingMissile/Teleport.
     pub requires_aiming: i32,
     /// +0x10: Weapon defined flag. Nonzero = weapon exists in table.
-    /// Checked by DDGame__CheckWeaponAvail to determine if weapon is valid.
+    /// Checked by GameWorld__CheckWeaponAvail to determine if weapon is valid.
     pub defined: i32,
     /// +0x14: Shot count per use (1 for most, 2 for Shotgun/Longbow, 5 for GirderPack).
     pub shot_count: i32,
@@ -104,14 +104,14 @@ const _: () = assert!(core::mem::size_of::<WeaponEntry>() == 0x1D0);
 /// Weapon fire parameters — embedded at WeaponEntry+0x3C (0x194 = 404 bytes, 101 DWORDs).
 ///
 /// Pointer to this struct is passed to all fire dispatch sub-functions.
-/// The first 94 DWORDs (0x178 bytes) are copied verbatim into CTaskMissile.weapon_data
-/// by CTaskMissile__Constructor. The remaining 7 DWORDs are WeaponEntry-only metadata.
+/// The first 94 DWORDs (0x178 bytes) are copied verbatim into MissileEntity.weapon_data
+/// by MissileEntity__Constructor. The remaining 7 DWORDs are WeaponEntry-only metadata.
 ///
-/// For single-shot projectiles, CTaskMissile.render_data[N] = weapon_data[N+3].
+/// For single-shot projectiles, MissileEntity.render_data[N] = weapon_data[N+3].
 /// For cluster sub-pellets, render_data[N] = weapon_data[N+52].
 ///
 /// Field names confirmed by cross-referencing live memory dumps (debug CLI),
-/// CTaskMissile constructor decompilation, and render_data physics usage.
+/// MissileEntity constructor decompilation, and render_data physics usage.
 #[repr(C)]
 pub struct WeaponFireParams {
     /// [0] +0x3C: Polymorphic.
@@ -157,19 +157,19 @@ pub struct WeaponFireParams {
     /// [12] +0x6C: Trail effect (Bazooka=50, Mortar=50, most weapons=0).
     pub trail_effect: i32,
     /// [13] +0x70: Gravity percentage (100=normal, 0=no gravity).
-    /// → render_data[0x0C] → CGameTask.gravity_factor.
+    /// → render_data[0x0C] → WorldEntity.gravity_factor.
     pub gravity_pct: i32,
     /// [14] +0x74: Wind influence (Bazooka=50, AquaSheep=200).
     pub wind_influence: i32,
     /// [15] +0x78: Bounce percentage (100=normal elastic, 0=no bounce).
-    /// → render_data[0x0D] → CGameTask.bounce_factor.
+    /// → render_data[0x0D] → WorldEntity.bounce_factor.
     pub bounce_pct: i32,
     /// [16] +0x7C: Unknown (Bazooka=100, most=0).
     pub _fp_16: i32,
     /// [17] +0x80: Unknown (AirStrike=10, MoleSquadron=50).
     pub _fp_17: i32,
     /// [18] +0x84: Friction percentage (100=normal, 0=no friction).
-    /// → render_data[0x0F] → CGameTask.friction_factor.
+    /// → render_data[0x0F] → WorldEntity.friction_factor.
     pub friction_pct: i32,
     /// [19] +0x88: Explosion delay/fuse timer (Grenade=5000, Dynamite=5000).
     pub explosion_delay: i32,
@@ -179,7 +179,7 @@ pub struct WeaponFireParams {
     pub _fp_21_25: [i32; 5],
     /// [26] +0xA4: Missile type discriminator.
     /// 0=None, 1=Homing, 2=Standard, 3=Sheep, 5=SheepLauncher/Cluster.
-    /// → render_data[0x17] → CTaskMissile behavior dispatch.
+    /// → render_data[0x17] → MissileEntity behavior dispatch.
     pub missile_type: i32,
     /// [27] +0xA8: Render size. Bazooka=64.0, Grenade≈66.1.
     pub render_size: Fixed,
@@ -196,7 +196,7 @@ pub struct WeaponFireParams {
     /// [52-93] +0x10C-0x1B0: Cluster sub-pellet parameters (mirrors primary [0-41]).
     /// When pellet_index > 0, render_data copies from here instead.
     pub cluster_params: [i32; 42],
-    /// [94-100] +0x1B0-0x1CC: WeaponEntry-only metadata (NOT copied to CTaskMissile).
+    /// [94-100] +0x1B0-0x1CC: WeaponEntry-only metadata (NOT copied to MissileEntity).
     /// [94]+0x1C8: Power percentage (Bazooka=100, Shotgun=10, NinjaRope=100).
     /// [95]+0x1CC: Unknown (Bazooka=100, Grenade=70, Shotgun=20).
     pub entry_metadata: [i32; 7],
@@ -205,7 +205,7 @@ const _: () = assert!(core::mem::size_of::<WeaponFireParams>() == 0x1D0 - 0x3C);
 
 /// Weapon table — flat array of 71 entries, no header.
 ///
-/// Allocated by `InitWeaponTable` (0x53CAB0), stored at DDGame+0x510.
+/// Allocated by `InitWeaponTable` (0x53CAB0), stored at GameWorld+0x510.
 /// Total size: 71 × 0x1D0 = 0x80B0 bytes.
 #[repr(C)]
 pub struct WeaponTable {
@@ -215,17 +215,17 @@ pub struct WeaponTable {
 const _: () = assert!(core::mem::size_of::<WeaponTable>() == 71 * 0x1D0);
 
 // ============================================================
-// Weapon availability query (DDGame state-driven)
+// Weapon availability query (GameWorld state-driven)
 // ============================================================
 
-/// Pure Rust implementation of DDGame__CheckWeaponAvail (0x53FFC0).
+/// Pure Rust implementation of GameWorld__CheckWeaponAvail (0x53FFC0).
 ///
-/// Convention: fastcall(ECX=ddgame) + unaff_ESI=weapon_index, plain RET. Returns i32.
+/// Convention: fastcall(ECX=world) + unaff_ESI=weapon_index, plain RET. Returns i32.
 ///
 /// Checks whether a weapon (1..0x46) is available given current game state.
-pub unsafe fn check_weapon_avail(ddgame: *mut DDGame, weapon: WeaponId) -> i32 {
+pub unsafe fn check_weapon_avail(world: *mut GameWorld, weapon: WeaponId) -> i32 {
     unsafe {
-        let gi = (*ddgame).game_info;
+        let gi = (*world).game_info;
         let game_version = (*gi).game_version;
         let num_teams = (*gi).num_teams;
 
@@ -244,7 +244,7 @@ pub unsafe fn check_weapon_avail(ddgame: *mut DDGame, weapon: WeaponId) -> i32 {
             }
             w if w.is(KnownWeaponId::Invisibility) => {
                 if (*gi).invisibility_mode == 0 {
-                    if (*ddgame).net_session.is_null() {
+                    if (*world).net_session.is_null() {
                         return 0;
                     }
                 } else if (num_teams as u32) < 2 {
@@ -261,18 +261,18 @@ pub unsafe fn check_weapon_avail(ddgame: *mut DDGame, weapon: WeaponId) -> i32 {
         }
 
         // Step 2: Branch on weapon defined flag (nonzero = weapon exists in table).
-        let weapon_table = (*ddgame).weapon_table;
+        let weapon_table = (*world).weapon_table;
         let defined = (*weapon_table).entries[weapon.0 as usize].defined;
 
-        if (*ddgame).is_cavern == 0 || defined != 0 {
+        if (*world).is_cavern == 0 || defined != 0 {
             // Main path: check super weapon flag
-            let super_result = is_super_weapon(weapon, (*ddgame).version_flag_3 != 0);
+            let super_result = is_super_weapon(weapon, (*world).version_flag_3 != 0);
             if super_result && (*gi).super_weapon_allowed == 0 {
                 // (game_version < 0x2A) - 1: if < 0x2A → 0, else → -1
                 return (game_version < 0x2A) as i32 - 1;
             }
 
-            if (*ddgame).supersheep_restricted == 0 {
+            if (*world).supersheep_restricted == 0 {
                 return 1;
             }
 

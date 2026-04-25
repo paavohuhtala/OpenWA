@@ -16,20 +16,20 @@ Defines known WA.exe addresses with metadata (kind, calling convention, class na
 
 ```rust
 crate::define_addresses! {
-    class "CTaskWorm" {
-        vtable CTASK_WORM_VTABLE = 0x006644C8;
-        ctor CTASK_WORM_CONSTRUCTOR = 0x0050BFB0;
+    class "WormEntity" {
+        vtable WORM_ENTITY_VTABLE = 0x006644C8;
+        ctor WORM_ENTITY_CONSTRUCTOR = 0x0050BFB0;
     }
     fn/Fastcall ADVANCE_GAME_RNG = 0x0053F320;
     global G_GAME_SESSION = 0x007A0884;
 }
 ```
 
-**Distributed definitions**: Each module defines its own addresses via `define_addresses!`. `address.rs` re-exports them into `mod va` for backward compatibility (`va::CTASK_WORM_VTABLE` still works). When adding new addresses, place the `define_addresses!` block in the home module, then add a `pub use` re-export in `address.rs`.
+**Distributed definitions**: Each module defines its own addresses via `define_addresses!`. `address.rs` re-exports them into `mod va` for backward compatibility (`va::WORM_ENTITY_VTABLE` still works). When adding new addresses, place the `define_addresses!` block in the home module, then add a `pub use` re-export in `address.rs`.
 
 ### `#[derive(FieldRegistry)]`
 
-Auto-generates a field map for `#[repr(C)]` structs using `offset_of!()`. Fields prefixed `_unknown`/`_pad` are skipped. Applied to all key structs (DDGame, CTask, CTaskWorm, etc.). Enables runtime offset -> field name lookups.
+Auto-generates a field map for `#[repr(C)]` structs using `offset_of!()`. Fields prefixed `_unknown`/`_pad` are skipped. Applied to all key structs (GameWorld, BaseEntity, WormEntity, etc.). Enables runtime offset -> field name lookups.
 
 Each field gets a `ValueKind` for typed formatting, auto-inferred from the Rust type:
 
@@ -41,9 +41,9 @@ Each field gets a `ValueKind` for typed formatting, auto-inferred from the Rust 
 ```rust
 #[derive(FieldRegistry)]
 #[repr(C)]
-pub struct CTask { ... }
-// Generates: CTask::field_registry() -> &'static StructFields
-// Also registers in global inventory for struct_fields_for("CTask")
+pub struct BaseEntity { ... }
+// Generates: BaseEntity::field_registry() -> &'static StructFields
+// Also registers in global inventory for struct_fields_for("BaseEntity")
 
 // String fields use #[field(kind = "...")] override:
 #[field(kind = "CString")]
@@ -55,8 +55,8 @@ pub worm_name: [u8; 0x11],  // Displays as "Ainsley" instead of raw hex
 - `lookup_va(ghidra_va)` -- find address entry by VA (exact or nearest-below)
 - `vtable_class_name(ghidra_vtable)` -- vtable address -> class name
 - `format_va(ghidra_va)` -- human-readable name string
-- `struct_fields_for("DDGame")` / `struct_fields_for_vtable(va)` -- get field map
-- `field_at_inherited("CTaskWorm", offset)` -- inheritance-aware field lookup (walks CTaskWorm -> CGameTask -> CTask)
+- `struct_fields_for("GameWorld")` / `struct_fields_for_vtable(va)` -- get field map
+- `field_at_inherited("WormEntity", offset)` -- inheritance-aware field lookup (walks WormEntity -> WorldEntity -> BaseEntity)
 - `identify_pointer(value, delta)` -> `PointerIdentity` -- full pointer identification (static addresses, live objects, vtable-based object detection)
 - `register_live_object()` / `identify_live_pointer()` -- track heap objects for field-level pointer resolution
 - `vtable_info_for("PaletteVtable")` -- vtable slot metadata (name, index, doc)

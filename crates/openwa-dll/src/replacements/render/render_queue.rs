@@ -9,7 +9,7 @@ use openwa_game::render::display::vtable::TiledBitmapSource;
 use openwa_game::render::message::RenderMessage;
 use openwa_game::render::queue::RenderQueue;
 use openwa_game::render::queue_dispatch::{ClipContext, render_drawing_queue};
-use openwa_game::task::{BungeeTrailTask, WeaponAimTask};
+use openwa_game::task::{BungeeTrailEntity, WeaponAimEntity};
 
 use crate::hook::{self, usercall_trampoline};
 
@@ -300,7 +300,7 @@ unsafe extern "cdecl" fn draw_textbox_local_impl(
 // DrawBungeeTrail (0x500720)
 
 unsafe extern "stdcall" fn draw_bungee_trail_impl(
-    task: *const BungeeTrailTask,
+    task: *const BungeeTrailEntity,
     style: u32,
     fill: u32,
 ) {
@@ -314,7 +314,7 @@ unsafe extern "stdcall" fn draw_bungee_trail_impl(
 usercall_trampoline!(fn trampoline_draw_crosshair_line; impl_fn = draw_crosshair_line_impl;
     reg = edi);
 
-unsafe extern "cdecl" fn draw_crosshair_line_impl(task: *const WeaponAimTask) {
+unsafe extern "cdecl" fn draw_crosshair_line_impl(task: *const WeaponAimEntity) {
     unsafe {
         openwa_game::render::crosshair_line::draw_crosshair_line(task);
     }

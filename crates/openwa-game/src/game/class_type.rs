@@ -1,6 +1,6 @@
 /// Task/entity classification type.
 ///
-/// Stored at offset 0x20 in CTask. Used to identify the concrete type
+/// Stored at offset 0x20 in BaseEntity. Used to identify the concrete type
 /// of a task in the task hierarchy.
 ///
 /// Source: wkJellyWorm Constants.h
@@ -13,7 +13,7 @@ pub enum ClassType {
     GameCollisionTask = 3,
     Control = 4,
     Game = 5,
-    TurnGame = 6,
+    WorldRoot = 6,
     Filter = 7,
     Mine = 8,
     Canister = 9,

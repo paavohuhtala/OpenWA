@@ -1,20 +1,21 @@
-use super::base::CTask;
-use super::game_task::{CGameTask, SoundEmitter};
+use super::base::BaseEntity;
+use super::game_task::{SoundEmitter, WorldEntity};
 use crate::FieldRegistry;
 use openwa_core::fixed::Fixed;
 
+// TODO: There is no such thing as bungee trail - so what is this?
 /// Bungee trail rendering task fields.
 ///
 /// Used by DrawBungeeTrail (0x500720). Fields at 0xBC-0xE4 overlap with
-/// CGameTask's `_unknown_98` region — different task types may use these
+/// WorldEntity's `_unknown_98` region — different task types may use these
 /// offsets for different purposes.
 ///
 /// Cast a task pointer to this type when you know it's a bungee trail task.
 #[derive(FieldRegistry)]
 #[repr(C)]
-pub struct BungeeTrailTask {
-    /// 0x00-0x2F: CTask base
-    pub base: CTask,
+pub struct BungeeTrailEntity {
+    /// 0x00-0x2F: BaseEntity base
+    pub base: BaseEntity,
     /// 0x30-0x83: Unknown
     pub _unknown_30: [u8; 0x54],
     /// 0x84: X position in fixed-point
@@ -41,19 +42,19 @@ pub struct BungeeTrailTask {
     pub sound_emitter: SoundEmitter,
 }
 
-const _: () = assert!(core::mem::size_of::<BungeeTrailTask>() == 0xFC);
+const _: () = assert!(core::mem::size_of::<BungeeTrailEntity>() == 0xFC);
 
 /// Weapon aiming task fields.
 ///
 /// Used by DrawCrosshairLine (0x5197D0). Fields at 0x258+ are in the derived
-/// class region beyond CGameTask (0xFC). The exact class name is unknown.
+/// class region beyond WorldEntity (0xFC). The exact class name is unknown.
 ///
 /// Cast a task pointer to this type when you know it's a worm/weapon aiming task.
 #[derive(FieldRegistry)]
 #[repr(C)]
-pub struct WeaponAimTask {
-    /// 0x00-0xFB: CGameTask base
-    pub game_task: CGameTask,
+pub struct WeaponAimEntity {
+    /// 0x00-0xFB: WorldEntity base
+    pub game_task: WorldEntity,
     /// 0xFC-0x257: Unknown derived fields
     pub _unknown_fc: [u8; 0x258 - 0xFC],
     /// 0x258: Aiming active flag (nonzero = crosshair visible)
@@ -64,6 +65,6 @@ pub struct WeaponAimTask {
     pub aim_angle: u32,
     /// 0x268-0x323: Unknown
     pub _unknown_268: [u8; 0x324 - 0x268],
-    /// 0x324: Aim range offset (added to DDGame crosshair scale)
+    /// 0x324: Aim range offset (added to GameWorld crosshair scale)
     pub aim_range_offset: i32,
 }

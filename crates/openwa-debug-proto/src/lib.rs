@@ -45,7 +45,7 @@ pub struct LiveObjectInfo {
     pub field_count: u32,
 }
 
-/// Result of resolving a named alias (e.g., "ddgame") to an address.
+/// Result of resolving a named alias (e.g., "world") to an address.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResolvedAlias {
     pub runtime_addr: u32,
@@ -104,7 +104,7 @@ pub enum Request {
     },
     /// List all tracked live objects.
     ListObjects,
-    /// Resolve a named alias (e.g., "ddgame") to a runtime address.
+    /// Resolve a named alias (e.g., "world") to a runtime address.
     ResolveAlias {
         name: String,
     },

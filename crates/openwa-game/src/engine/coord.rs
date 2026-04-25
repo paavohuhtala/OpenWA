@@ -1,8 +1,8 @@
 // ============================================================
-// Coordinate types — DDGame sub-structs for screen and terrain coords
+// Coordinate types — GameWorld sub-structs for screen and terrain coords
 // ============================================================
 
-/// Coordinate entry used in DDGame viewport/camera tables (stride 0x10).
+/// Coordinate entry used in GameWorld viewport/camera tables (stride 0x10).
 ///
 /// Each entry tracks a camera center position as two pairs of Fixed16.16
 /// coordinates (current and target). InitGameState initializes all four
@@ -40,7 +40,7 @@ const _: () = assert!(core::mem::size_of::<CoordListEntry>() == 8);
 
 /// Dynamic coordinate array header (12 bytes).
 ///
-/// Allocated at DDGame+0x50C during `init_graphics_and_resources`.
+/// Allocated at GameWorld+0x50C during `init_graphics_and_resources`.
 /// Data buffer is a separate allocation of `capacity * 8` bytes.
 /// Used for terrain coordinate lookups (spawning, aiming, collision).
 #[repr(C)]

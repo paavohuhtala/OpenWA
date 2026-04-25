@@ -8,7 +8,7 @@
 //! All inherit from an animated item list base class (vtable 0x669C90) that
 //! provides sin-table interpolated sliding transitions between items.
 
-use crate::engine::ddgame::DDGame;
+use crate::engine::world::GameWorld;
 
 /// Animated item list — base class for the turn order hierarchy.
 ///
@@ -45,12 +45,12 @@ pub struct AnimatedItemList {
 
 const _: () = assert!(core::mem::size_of::<AnimatedItemList>() == 0x2C);
 
-/// Turn order widget — top-level UI component at DDGame+0x530.
+/// Turn order widget — top-level UI component at GameWorld+0x530.
 ///
 /// Groups teams by alliance. Each alliance gets a [`TurnOrderAllianceGroup`].
 /// Inherits animated sliding from [`AnimatedItemList`].
 ///
-/// Vtable: 0x66A088. Constructor: 0x563D40 (stdcall, params: this, DDGame*).
+/// Vtable: 0x66A088. Constructor: 0x563D40 (stdcall, params: this, GameWorld*).
 /// Destructor: 0x563E90. Size: 0x4C bytes.
 #[repr(C)]
 pub struct TurnOrderWidget {
@@ -60,8 +60,8 @@ pub struct TurnOrderWidget {
     pub alliance_count: i32,
     /// 0x30-0x44: Alliance group pointers (up to 6).
     pub alliance_groups: [*mut TurnOrderAllianceGroup; 6],
-    /// 0x48: DDGame pointer (back-reference).
-    pub ddgame: *mut DDGame,
+    /// 0x48: GameWorld pointer (back-reference).
+    pub world: *mut GameWorld,
 }
 
 const _: () = assert!(core::mem::size_of::<TurnOrderWidget>() == 0x4C);
@@ -78,8 +78,8 @@ pub struct TurnOrderAllianceGroup {
     pub vtable: u32,
     /// 0x04: Alliance ID.
     pub alliance_id: i32,
-    /// 0x08: DDGame pointer.
-    pub ddgame: *mut DDGame,
+    /// 0x08: GameWorld pointer.
+    pub world: *mut GameWorld,
     /// 0x0C: Inner team list (AnimatedItemList holding TurnOrderTeamEntry items).
     pub team_list: *mut AnimatedItemList,
     /// 0x10-0x2F: Unknown (zeroed, not set by constructor).
@@ -91,7 +91,7 @@ const _: () = assert!(core::mem::size_of::<TurnOrderAllianceGroup>() == 0x30);
 /// Turn order team entry — per-team banner with health bar.
 ///
 /// Renders the team banner, name text, and health bar in the turn order panel.
-/// The health bar width comes from DDGame.team_health_ratio[team_index]:
+/// The health bar width comes from GameWorld.team_health_ratio[team_index]:
 /// `bar_pixels = ratio * 100 >> 16 + 4`.
 ///
 /// Vtable: 0x669FA8. Constructor: 0x5630B0. Render: 0x563620. Size: 0x24 bytes.
@@ -103,8 +103,8 @@ pub struct TurnOrderTeamEntry {
     pub team_index: i32,
     /// 0x08: Color/style index (from game_info per-team data).
     pub color_index: i32,
-    /// 0x0C: DDGame pointer (back-reference for accessing health ratios etc).
-    pub ddgame: *mut DDGame,
+    /// 0x0C: GameWorld pointer (back-reference for accessing health ratios etc).
+    pub world: *mut GameWorld,
     /// 0x10: Textbox object pointer (DisplayGfx text renderer, 0x158 bytes).
     /// NULL when sound is disabled (headless mode).
     pub textbox: *mut u8,

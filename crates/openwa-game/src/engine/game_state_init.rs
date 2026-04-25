@@ -1,4 +1,4 @@
-//! Pure Rust implementations of DDGame__InitGameState sub-functions,
+//! Pure Rust implementations of GameWorld__InitGameState sub-functions,
 //! and the top-level InitGameState itself.
 //!
 //! Each sub-function is hooked individually so it works regardless of whether
@@ -7,8 +7,8 @@
 use crate::audio::dssound::DSSound;
 use crate::bitgrid::DisplayBitGrid;
 use crate::engine::buffer_object::allocate_buffer_object;
-use crate::engine::ddgame::DDGame;
-use crate::engine::ddgame_wrapper::DDGameWrapper;
+use crate::engine::world::GameWorld;
+use crate::engine::runtime::GameRuntime;
 use crate::engine::game_info::GameInfo;
 use crate::engine::game_state;
 use crate::engine::game_state_stream::game_state_stream_init;
@@ -23,47 +23,47 @@ use crate::wa_call::{call_ctor_with_ecx, call_usercall_esi_stack1};
 use openwa_core::fixed::Fixed;
 use openwa_core::weapon::WeaponId;
 
-/// Helper: read the DDGame pointer from a DDGameWrapper pointer.
+/// Helper: read the GameWorld pointer from a GameRuntime pointer.
 #[inline]
-unsafe fn ddgame_from_wrapper(wrapper: *mut DDGameWrapper) -> *mut DDGame {
-    unsafe { (*wrapper).ddgame }
+unsafe fn world_from_runtime(runtime: *mut GameRuntime) -> *mut GameWorld {
+    unsafe { (*runtime).world }
 }
 
-/// Bridge to DDGame__InitFeatureFlags (0x524700): stdcall(wrapper), RET 0x4.
-unsafe fn wa_init_feature_flags(wrapper: *mut DDGameWrapper) {
+/// Bridge to GameWorld__InitFeatureFlags (0x524700): stdcall(runtime), RET 0x4.
+unsafe fn wa_init_feature_flags(runtime: *mut GameRuntime) {
     unsafe {
-        let f: unsafe extern "stdcall" fn(*mut DDGameWrapper) = core::mem::transmute(
-            crate::rebase::rb(crate::address::va::DDGAME_INIT_FEATURE_FLAGS) as usize,
+        let f: unsafe extern "stdcall" fn(*mut GameRuntime) = core::mem::transmute(
+            crate::rebase::rb(crate::address::va::GAME_WORLD_INIT_FEATURE_FLAGS) as usize,
         );
-        f(wrapper);
+        f(runtime);
     }
 }
 
-/// Pure Rust implementation of CGameTask__InitTurnState (0x528690).
+/// Pure Rust implementation of WorldEntity__InitTurnState (0x528690).
 ///
 /// Convention: usercall(EAX=wrapper), plain RET.
 ///
-/// Initializes turn-related state fields in both the DDGameWrapper and DDGame
+/// Initializes turn-related state fields in both the GameRuntime and GameWorld
 /// structs. Zeroes camera state, timing fields, per-team flags, and calls
-/// DDGame__InitFeatureFlags. Also dispatches a vtable call on the landscape
+/// GameWorld__InitFeatureFlags. Also dispatches a vtable call on the landscape
 /// object.
-pub unsafe fn init_turn_state(wrapper: *mut DDGameWrapper) {
+pub unsafe fn init_turn_state(runtime: *mut GameRuntime) {
     unsafe {
-        let ddgame = ddgame_from_wrapper(wrapper);
-        let game_info = (*ddgame).game_info;
+        let world = world_from_runtime(runtime);
+        let game_info = (*world).game_info;
 
-        (*wrapper)._field_458 = 0xFFFFFFFF;
-        (*wrapper)._field_450 = Fixed::ZERO;
-        (*wrapper)._field_454 = Fixed::ZERO;
+        (*runtime)._field_458 = 0xFFFFFFFF;
+        (*runtime)._field_450 = Fixed::ZERO;
+        (*runtime)._field_454 = Fixed::ZERO;
 
-        // DDGame+0x72E0/E4 = -1, DDGame+0x72E8 = 0
-        (*ddgame)._unknown_72e0 = 0xFFFFFFFF;
-        (*ddgame).render_slot_count = 0xFFFFFFFF;
-        (*ddgame)._unknown_72e8 = 0;
+        // GameWorld+0x72E0/E4 = -1, GameWorld+0x72E8 = 0
+        (*world)._unknown_72e0 = 0xFFFFFFFF;
+        (*world).render_slot_count = 0xFFFFFFFF;
+        (*world)._unknown_72e8 = 0;
 
-        // Zero render entry table first u32 at DDGame+0x73B0, stride 0x14, while offset < 0x118
+        // Zero render entry table first u32 at GameWorld+0x73B0, stride 0x14, while offset < 0x118
         {
-            let base = core::ptr::addr_of_mut!((*ddgame).render_entries) as *mut u8;
+            let base = core::ptr::addr_of_mut!((*world).render_entries) as *mut u8;
             let mut off = 0u32;
             while off < 0x118 {
                 *(base.add(off as usize) as *mut u32) = 0;
@@ -71,118 +71,118 @@ pub unsafe fn init_turn_state(wrapper: *mut DDGameWrapper) {
             }
         }
 
-        // More DDGame field zeroing
-        (*ddgame).render_state_flag = 0;
-        (*ddgame)._field_72f4 = 0;
-        (*ddgame)._field_72f8 = 0;
-        (*ddgame)._field_72fc = 0;
-        (*ddgame)._field_7300 = 0;
-        (*ddgame)._field_7304 = 0;
+        // More GameWorld field zeroing
+        (*world).render_state_flag = 0;
+        (*world)._field_72f4 = 0;
+        (*world)._field_72f8 = 0;
+        (*world)._field_72fc = 0;
+        (*world)._field_7300 = 0;
+        (*world)._field_7304 = 0;
 
-        // DDGame.rng_state_1/2 = game_info.rng_seed (RNG seed from scheme)
+        // GameWorld.rng_state_1/2 = game_info.rng_seed (RNG seed from scheme)
         let rng_seed = (*game_info).rng_seed;
-        (*ddgame).rng_state_1 = rng_seed;
-        (*ddgame).rng_state_2 = rng_seed; // duplicate
+        (*world).rng_state_1 = rng_seed;
+        (*world).rng_state_2 = rng_seed; // duplicate
 
-        (*ddgame)._field_7378 = 0;
-        (*ddgame)._field_7374 = 0;
-        (*ddgame)._field_737c = 0;
-        (*ddgame)._field_77dc = 0;
-        (*ddgame)._field_77e0 = 0;
-        (*ddgame)._field_7784 = 0;
+        (*world)._field_7378 = 0;
+        (*world)._field_7374 = 0;
+        (*world)._field_737c = 0;
+        (*world)._field_77dc = 0;
+        (*world)._field_77e0 = 0;
+        (*world)._field_7784 = 0;
 
-        // DDGame._field_7788 = game_info._field_f362 (byte → u32)
-        (*ddgame)._field_7788 = (*game_info)._field_f362 as u32;
-        (*ddgame)._field_778c = Fixed::ONE;
-        (*ddgame)._field_7790 = 0;
+        // GameWorld._field_7788 = game_info._field_f362 (byte → u32)
+        (*world)._field_7788 = (*game_info)._field_f362 as u32;
+        (*world)._field_778c = Fixed::ONE;
+        (*world)._field_7790 = 0;
 
         // Camera center: (level_width << 16) / 2, (level_height << 16) / 2
-        let level_width = (*ddgame).level_width as i32;
-        let level_height = (*ddgame).level_height as i32;
+        let level_width = (*world).level_width as i32;
+        let level_height = (*world).level_height as i32;
         let cx = (level_width << 16) / 2;
         let cy = (level_height << 16) / 2;
-        (*ddgame).viewport_width = cx;
-        (*ddgame).viewport_width_2 = cx; // duplicate
-        (*ddgame).viewport_height = cy;
-        (*ddgame).viewport_height_2 = cy; // duplicate
+        (*world).viewport_width = cx;
+        (*world).viewport_width_2 = cx; // duplicate
+        (*world).viewport_height = cy;
+        (*world).viewport_height_2 = cy; // duplicate
 
-        (*ddgame)._field_7d84 = 0;
-        (*ddgame)._field_7e4c = 0;
-        (*ddgame)._field_77d4 = 0;
-        (*ddgame).scaled_frame_accum = Fixed::ZERO;
+        (*world)._field_7d84 = 0;
+        (*world)._field_7e4c = 0;
+        (*world)._field_77d4 = 0;
+        (*world).scaled_frame_accum = Fixed::ZERO;
 
         // Per-team loop
         let num_teams = (*game_info).num_teams as i32;
         if num_teams > 0 {
             for i in 0..num_teams as usize {
-                (*ddgame)._field_7d88[i] = 0;
-                (*ddgame)._field_7dbc[i] = 1;
-                (*ddgame)._field_7dc9[i] = 1;
-                (*ddgame)._field_7dd6[i] = 0;
-                (*ddgame).net_peer_ready_flags[i] = 0;
-                (*ddgame)._field_7df0[i] = 0;
+                (*world)._field_7d88[i] = 0;
+                (*world)._field_7dbc[i] = 1;
+                (*world)._field_7dc9[i] = 1;
+                (*world)._field_7dd6[i] = 0;
+                (*world).net_peer_ready_flags[i] = 0;
+                (*world)._field_7df0[i] = 0;
             }
         }
 
-        (*ddgame)._field_7e03 = 0;
-        (*ddgame)._field_7e04 = 0;
+        (*world)._field_7e03 = 0;
+        (*world)._field_7e04 = 0;
 
-        // Call DDGame__InitFeatureFlags (600-line feature flag init, bridged)
-        wa_init_feature_flags(wrapper);
+        // Call GameWorld__InitFeatureFlags (600-line feature flag init, bridged)
+        wa_init_feature_flags(runtime);
 
         // Post-feature-flag field writes
-        (*ddgame)._field_7e41 = 0;
-        (*ddgame)._fields_7e50 = [0u32; 8];
-        (*ddgame)._fields_7e88 = [0u32; 5];
-        (*ddgame).field_7ea0 = 0;
-        (*ddgame).field_7ea4 = 0;
+        (*world)._field_7e41 = 0;
+        (*world)._fields_7e50 = [0u32; 8];
+        (*world)._fields_7e88 = [0u32; 5];
+        (*world).field_7ea0 = 0;
+        (*world).field_7ea4 = 0;
 
-        (*ddgame)._field_8148 = 1;
+        (*world)._field_8148 = 1;
 
-        let ddgame2 = ddgame_from_wrapper(wrapper);
-        (*ddgame2).replay_speed_accum = openwa_core::fixed::Fixed64::ZERO;
-        let ddgame3 = ddgame_from_wrapper(wrapper);
-        (*ddgame3).replay_frame_accum = openwa_core::fixed::Fixed64::ZERO;
+        let world2 = world_from_runtime(runtime);
+        (*world2).replay_speed_accum = openwa_core::fixed::Fixed64::ZERO;
+        let world3 = world_from_runtime(runtime);
+        (*world3).replay_frame_accum = openwa_core::fixed::Fixed64::ZERO;
 
         // Landscape vtable slot 1: set control flag (donkey_disabled)
-        let ddgame4 = ddgame_from_wrapper(wrapper);
-        let landscape = (*ddgame4).landscape;
+        let world4 = world_from_runtime(runtime);
+        let landscape = (*world4).landscape;
         if !landscape.is_null() {
-            let param = (*(*ddgame4).game_info).donkey_disabled as u32;
+            let param = (*(*world4).game_info).donkey_disabled as u32;
             Landscape::set_control_flag_raw(landscape, param);
         }
     }
 }
 
 // =============================================================================
-// Top-level DDGame__InitGameState (0x526500) — Rust port
+// Top-level GameWorld__InitGameState (0x526500) — Rust port
 // =============================================================================
 
-/// Pure Rust implementation of DDGame__InitGameState (0x526500).
+/// Pure Rust implementation of GameWorld__InitGameState (0x526500).
 ///
-/// Convention: stdcall(this=DDGameWrapper*), RET 0x4.
+/// Convention: stdcall(this=GameRuntime*), RET 0x4.
 ///
-/// Called once per game session from the DDGameWrapper constructor to initialize
+/// Called once per game session from the GameRuntime constructor to initialize
 /// all game state: sub-objects, display layers, team configuration, weapon tables,
 /// turn logic, and the initial state serialization/checksum.
-pub unsafe fn init_game_state(wrapper: *mut DDGameWrapper) {
+pub unsafe fn init_game_state(runtime: *mut GameRuntime) {
     unsafe {
         use crate::address::va;
         use crate::rebase::rb;
         use crate::wa_alloc::{wa_malloc, wa_malloc_zeroed};
 
-        let ddgame = (*wrapper).ddgame;
+        let world = (*runtime).world;
 
         // ===== Copy replay mode flags from GameInfo =====
-        let game_info = (*ddgame).game_info;
-        (*wrapper).replay_flag_a = (*game_info).invisibility_mode as u8;
-        (*wrapper).replay_flag_b = ((*game_info).invisibility_mode >> 8) as u8;
+        let game_info = (*world).game_info;
+        (*runtime).replay_flag_a = (*game_info).invisibility_mode as u8;
+        (*runtime).replay_flag_b = ((*game_info).invisibility_mode >> 8) as u8;
 
         // ===== SpriteGfxTable__Init =====
         {
             let game_version = (*game_info).game_version;
             let count: u32 = if game_version >= 0x3C { 0x400 } else { 0x100 };
-            let table_ptr = core::ptr::addr_of_mut!((*ddgame)._unknown_600) as *mut u8;
+            let table_ptr = core::ptr::addr_of_mut!((*world)._unknown_600) as *mut u8;
             sprite_gfx_table_init(table_ptr, count);
         }
 
@@ -196,13 +196,13 @@ pub unsafe fn init_game_state(wrapper: *mut DDGameWrapper) {
                     core::mem::transmute(rb(va::HUD_PANEL_CONSTRUCTOR) as usize);
                 ctor(mem)
             };
-            (*ddgame).hud_panel = result;
+            (*world).hud_panel = result;
         }
 
         // ===== Allocate weapon table buffer (0x80D0 bytes) =====
         {
             let mem = wa_malloc_zeroed(0x80D0);
-            (*ddgame).weapon_table = mem as *mut crate::game::weapon::WeaponTable;
+            (*world).weapon_table = mem as *mut crate::game::weapon::WeaponTable;
         }
 
         // ===== Allocate unknown 0x2C object =====
@@ -216,7 +216,7 @@ pub unsafe fn init_game_state(wrapper: *mut DDGameWrapper) {
                 *(mem.add(0x20) as *mut u32) = 0;
                 *(mem.add(0x24) as *mut u32) = 0;
             }
-            (*ddgame)._unknown_51c = mem;
+            (*world)._unknown_51c = mem;
         }
 
         // ===== Allocate RenderQueue (0x12028 bytes) =====
@@ -226,7 +226,7 @@ pub unsafe fn init_game_state(wrapper: *mut DDGameWrapper) {
                 *mem.add(0x4001) = 0; // mem[0x10004] = 0
                 *mem = 0x10000; // mem[0] = 0x10000
             }
-            (*ddgame).render_queue = mem as *mut crate::render::queue::RenderQueue;
+            (*world).render_queue = mem as *mut crate::render::queue::RenderQueue;
         }
 
         // ===== Allocate GameStateStream (0x264 bytes) =====
@@ -236,53 +236,53 @@ pub unsafe fn init_game_state(wrapper: *mut DDGameWrapper) {
                 *mem = rb(0x664194); // GameStateStream vtable
                 game_state_stream_init(mem.add(1));
                 *mem.add(1) = 0;
-                *mem.add(0x90) = ddgame as u32; // DDGame ptr backref
+                *mem.add(0x90) = world as u32; // GameWorld ptr backref
                 *mem.add(0x8B) = 0;
                 *mem.add(0x8C) = 0;
             }
-            (*ddgame).game_state_stream = mem as *mut u8;
+            (*world).game_state_stream = mem as *mut u8;
         }
 
         // ===== Allocate unknown 0x4A74 object =====
         {
             let mem = wa_malloc_zeroed(0x4A74);
             if !mem.is_null() {
-                *(mem.add(0x4A50) as *mut u32) = ddgame as u32;
+                *(mem.add(0x4A50) as *mut u32) = world as u32;
             }
-            (*ddgame)._unknown_52c = mem;
+            (*world)._unknown_52c = mem;
         }
 
         // Get display dimensions
         DisplayGfx::get_dimensions_raw(
-            (*ddgame).display,
-            core::ptr::addr_of_mut!((*ddgame).level_width_sound) as *mut u32,
-            core::ptr::addr_of_mut!((*ddgame).screen_height_pixels) as *mut u32,
+            (*world).display,
+            core::ptr::addr_of_mut!((*world).level_width_sound) as *mut u32,
+            core::ptr::addr_of_mut!((*world).screen_height_pixels) as *mut u32,
         );
-        (*ddgame)._field_77b0 = 0;
+        (*world)._field_77b0 = 0;
 
         // ===== Allocate BufferObject (main_buffer at wrapper+0x0C) =====
-        (*wrapper).main_buffer = allocate_buffer_object(ddgame, game_info);
+        (*runtime).main_buffer = allocate_buffer_object(world, game_info);
 
         // ===== Allocate RingBuffer A (wrapper+0x3C, capacity 0x2000) =====
-        (*wrapper).ring_buffer_a = allocate_ring_buffer_raw(0x3C, 0x2000);
+        (*runtime).ring_buffer_a = allocate_ring_buffer_raw(0x3C, 0x2000);
 
         // ===== Allocate RingBuffer B (wrapper+0x28, capacity 0x2000) =====
-        (*wrapper).ring_buffer_b = allocate_ring_buffer_raw(0x3C, 0x2000);
+        (*runtime).ring_buffer_b = allocate_ring_buffer_raw(0x3C, 0x2000);
 
         // ===== Allocate render buffer A (wrapper+0x40, capacity 0x10000) =====
-        (*wrapper).render_buffer_a = allocate_ring_buffer_raw(0x48, 0x10000);
+        (*runtime).render_buffer_a = allocate_ring_buffer_raw(0x48, 0x10000);
 
         // ===== Allocate render buffer B (wrapper+0x14, capacity 0x10000) =====
-        (*wrapper).render_buffer_b = allocate_ring_buffer_raw(0x48, 0x10000);
+        (*runtime).render_buffer_b = allocate_ring_buffer_raw(0x48, 0x10000);
 
         // ===== wrapper+0x44: network ring buffer (conditional) =====
-        (*wrapper).network_ring_buffer = core::ptr::null_mut();
-        if !(*ddgame).net_session.is_null() {
-            (*wrapper).network_ring_buffer = allocate_ring_buffer_init();
+        (*runtime).network_ring_buffer = core::ptr::null_mut();
+        if !(*world).net_session.is_null() {
+            (*runtime).network_ring_buffer = allocate_ring_buffer_init();
         }
 
         // ===== Allocate state buffer (wrapper+0x48) =====
-        (*wrapper).state_buffer = allocate_buffer_object(ddgame, game_info);
+        (*runtime).state_buffer = allocate_buffer_object(world, game_info);
 
         // ===== Allocate statistics object (0xB94 bytes, wrapper+0x4C) =====
         {
@@ -297,29 +297,29 @@ pub unsafe fn init_game_state(wrapper: *mut DDGameWrapper) {
                 *(mem.add(0xB84) as *mut u32) = 0;
                 *(mem.add(0xB88) as *mut u32) = 0;
             }
-            (*wrapper).statistics = mem;
+            (*runtime).statistics = mem;
         }
 
         // ===== Allocate ring buffer C (wrapper+0x50, capacity 0x1000) =====
-        (*wrapper).ring_buffer_c = allocate_ring_buffer_raw(0x3C, 0x1000);
+        (*runtime).ring_buffer_c = allocate_ring_buffer_raw(0x3C, 0x1000);
 
         // ===== Zero out scalar fields =====
-        (*wrapper)._field_494 = 0;
-        (*wrapper)._field_498 = 0;
-        (*wrapper)._field_493 = 0;
+        (*runtime)._field_494 = 0;
+        (*runtime)._field_498 = 0;
+        (*runtime)._field_493 = 0;
 
         // Zero team task pointers (13 entries)
-        (*wrapper).team_task_ptrs = [core::ptr::null_mut(); 13];
+        (*runtime).team_task_ptrs = [core::ptr::null_mut(); 13];
 
         // ===== Allocate 3 PaletteContexts (0x72C bytes each) =====
-        (*wrapper).palette_ctx_a = allocate_palette_context();
-        (*wrapper).palette_ctx_b = allocate_palette_context();
-        (*wrapper).palette_ctx_c = allocate_palette_context();
+        (*runtime).palette_ctx_a = allocate_palette_context();
+        (*runtime).palette_ctx_b = allocate_palette_context();
+        (*runtime).palette_ctx_c = allocate_palette_context();
 
         // ===== Select vector normalize function based on game version =====
         {
             let game_version = (*game_info).game_version;
-            (*ddgame).vector_normalize_fn = if game_version < 0x99 {
+            (*world).vector_normalize_fn = if game_version < 0x99 {
                 rb(va::VECTOR_NORMALIZE_SIMPLE)
             } else {
                 rb(va::VECTOR_NORMALIZE_OVERFLOW)
@@ -327,55 +327,55 @@ pub unsafe fn init_game_state(wrapper: *mut DDGameWrapper) {
         }
 
         // ===== Initialize sentinel fields =====
-        (*wrapper)._field_468 = -1;
-        (*wrapper)._field_46c = -1;
-        (*wrapper)._field_470 = -1;
-        (*wrapper).game_state = game_state::RUNNING;
-        (*wrapper).game_end_speed = 0;
-        (*wrapper)._field_264 = 0;
-        (*wrapper).sync_checksum_a = 0;
-        (*wrapper).checksum_valid = 0;
-        (*wrapper)._field_278 = 0;
-        (*wrapper)._field_27c = Fixed::ZERO;
-        (*wrapper)._field_3fc = Fixed::ZERO;
-        (*wrapper)._field_3f4 = -1;
-        (*wrapper)._field_3f8 = -1;
+        (*runtime)._field_468 = -1;
+        (*runtime)._field_46c = -1;
+        (*runtime)._field_470 = -1;
+        (*runtime).game_state = game_state::RUNNING;
+        (*runtime).game_end_speed = 0;
+        (*runtime)._field_264 = 0;
+        (*runtime).sync_checksum_a = 0;
+        (*runtime).checksum_valid = 0;
+        (*runtime)._field_278 = 0;
+        (*runtime)._field_27c = Fixed::ZERO;
+        (*runtime)._field_3fc = Fixed::ZERO;
+        (*runtime)._field_3f4 = -1;
+        (*runtime)._field_3f8 = -1;
 
         // ===== Resolution-dependent team render indices =====
         {
-            let screen_height = (*ddgame).screen_height_pixels;
+            let screen_height = (*world).screen_height_pixels;
             if screen_height < 0x2D0 {
                 // < 720px: smaller layout
-                (*wrapper).max_team_render_index = 0xC;
-                (*wrapper).team_render_indices = [8, 7, 5, 2, 4, 3, 1, 6];
+                (*runtime).max_team_render_index = 0xC;
+                (*runtime).team_render_indices = [8, 7, 5, 2, 4, 3, 1, 6];
             } else {
                 // >= 720px: larger layout
-                (*wrapper).max_team_render_index = 0x10;
-                (*wrapper).team_render_indices = [0x10, 0xF, 0xD, 10, 0xC, 0xB, 9, 0xE];
+                (*runtime).max_team_render_index = 0x10;
+                (*runtime).team_render_indices = [0x10, 0xF, 0xD, 10, 0xC, 0xB, 9, 0xE];
             }
 
-            (*wrapper).team_count_config = if screen_height < 600 { 7 } else { 10 };
+            (*runtime).team_count_config = if screen_height < 600 { 7 } else { 10 };
         }
 
         // ===== Game mode and sentinel arrays =====
-        (*wrapper).game_mode_flag = 1;
+        (*runtime).game_mode_flag = 1;
 
         // Fill team slot mapping with -1 sentinels
-        (*wrapper).team_to_slot_a = [-1i32; 8];
-        (*wrapper).slot_to_team = [-1i32; 16];
-        (*wrapper)._field_3ec = -1;
+        (*runtime).team_to_slot_a = [-1i32; 8];
+        (*runtime).slot_to_team = [-1i32; 16];
+        (*runtime)._field_3ec = -1;
 
         // ===== Team-to-slot mapping (conditional on network/replay mode) =====
-        if !(*ddgame).net_session.is_null() || (*wrapper).replay_flag_a != 0 {
+        if !(*world).net_session.is_null() || (*runtime).replay_flag_a != 0 {
             let team_count = (*game_info).num_teams as i32;
             let exclude_team = (*game_info).starting_team_index as i32;
             let mut slot_idx = 0usize;
             // slot_to_team[0..12] overlaps the reverse mapping area (0x3BC = slot_to_team[4])
-            let pivar7_base = core::ptr::addr_of_mut!((*wrapper).slot_to_team[4]) as *mut i32;
+            let pivar7_base = core::ptr::addr_of_mut!((*runtime).slot_to_team[4]) as *mut i32;
             for team_id in 0..team_count {
                 if team_id != exclude_team {
                     *pivar7_base.add(team_id as usize) = slot_idx as i32;
-                    (*wrapper).team_to_slot_a[slot_idx] = team_id;
+                    (*runtime).team_to_slot_a[slot_idx] = team_id;
                     slot_idx += 1;
                 } else {
                     *pivar7_base.add(team_id as usize) = -1;
@@ -384,37 +384,37 @@ pub unsafe fn init_game_state(wrapper: *mut DDGameWrapper) {
         }
 
         // ===== Game logic initialization =====
-        (*wrapper).game_end_phase = 0;
-        (*wrapper).init_flag = 1;
+        (*runtime).game_end_phase = 0;
+        (*runtime).init_flag = 1;
 
         // Already-ported sub-functions
-        init_team_scoring(wrapper);
-        init_alliance_data(wrapper);
+        init_team_scoring(runtime);
+        init_alliance_data(runtime);
 
         // ===== Game speed/timing fields =====
-        (*wrapper).net_end_countdown = 500;
-        (*wrapper).timing_jitter_state = 0;
-        (*wrapper).render_scale_fade_request = 0;
-        (*wrapper)._field_460 = 0;
-        (*wrapper)._field_478 = 0;
-        (*wrapper)._field_418 = 0;
+        (*runtime).net_end_countdown = 500;
+        (*runtime).timing_jitter_state = 0;
+        (*runtime).render_scale_fade_request = 0;
+        (*runtime)._field_460 = 0;
+        (*runtime)._field_478 = 0;
+        (*runtime)._field_418 = 0;
 
         // Turn percentage: (game_info.turn_percentage << 16) / 100
         let turn_pct_raw = (*game_info).turn_percentage_raw;
-        (*wrapper).turn_percentage = (turn_pct_raw << 16) / 100;
+        (*runtime).turn_percentage = (turn_pct_raw << 16) / 100;
 
         // ===== Display setup (headful only) =====
-        let is_headful = (*ddgame).is_headful != 0;
+        let is_headful = (*world).is_headful != 0;
 
         if is_headful {
-            init_game_state_display(wrapper, ddgame, game_info);
+            init_game_state_display(runtime, world, game_info);
         }
 
         // ===== Worm selection count and terrain config =====
         {
             let mut val = (*game_info).worm_select_cfg_a;
-            let min_teams = (*wrapper).min_active_teams;
-            let team_count_cfg = (*wrapper).team_count_config;
+            let min_teams = (*runtime).min_active_teams;
+            let team_count_cfg = (*runtime).team_count_config;
 
             if val == 0 {
                 val = team_count_cfg;
@@ -423,7 +423,7 @@ pub unsafe fn init_game_state(wrapper: *mut DDGameWrapper) {
             } else if val > 0x20 {
                 val = 0x20;
             }
-            (*wrapper).worm_select_count = val;
+            (*runtime).worm_select_count = val;
 
             val = (*game_info).worm_select_cfg_b;
             if val == -1 {
@@ -433,92 +433,92 @@ pub unsafe fn init_game_state(wrapper: *mut DDGameWrapper) {
             } else if val > 0x20 {
                 val = 0x20;
             }
-            (*wrapper).worm_select_count_alt = val;
+            (*runtime).worm_select_count_alt = val;
 
-            (*wrapper)._field_414 = ((*game_info)._field_f365 != 0) as u32;
+            (*runtime)._field_414 = ((*game_info)._field_f365 != 0) as u32;
 
             if is_headful {
-                // DDGame+0x000 = keyboard ptr; keyboard+0x10 = config field
-                let keyboard = (*ddgame).keyboard as *mut u8;
+                // GameWorld+0x000 = keyboard ptr; keyboard+0x10 = config field
+                let keyboard = (*world).keyboard as *mut u8;
                 *(keyboard.add(0x10) as *mut u32) = ((*game_info)._field_f370 != 0) as u32;
             }
         }
 
         // Ensure worm_select_count >= worm_select_count_alt
-        if (*wrapper).worm_select_count < (*wrapper).worm_select_count_alt {
-            (*wrapper).worm_select_count = (*wrapper).worm_select_count_alt;
+        if (*runtime).worm_select_count < (*runtime).worm_select_count_alt {
+            (*runtime).worm_select_count = (*runtime).worm_select_count_alt;
         }
 
         // ===== Zero state fields =====
-        (*wrapper)._field_434 = 0;
-        (*wrapper)._field_438 = -1;
-        (*wrapper)._field_43c = -1;
-        (*wrapper)._field_440 = 0;
-        (*wrapper)._field_444 = 0;
-        (*wrapper)._field_424 = 0;
-        (*wrapper)._field_428 = 0;
-        (*wrapper)._field_448 = 0;
-        (*wrapper)._field_44c = 0;
-        (*wrapper)._field_42c = 0;
-        (*wrapper)._field_430 = 0;
-        (*wrapper)._field_40c = 0;
-        (*wrapper)._field_410 = 0;
+        (*runtime)._field_434 = 0;
+        (*runtime)._field_438 = -1;
+        (*runtime)._field_43c = -1;
+        (*runtime)._field_440 = 0;
+        (*runtime)._field_444 = 0;
+        (*runtime)._field_424 = 0;
+        (*runtime)._field_428 = 0;
+        (*runtime)._field_448 = 0;
+        (*runtime)._field_44c = 0;
+        (*runtime)._field_42c = 0;
+        (*runtime)._field_430 = 0;
+        (*runtime)._field_40c = 0;
+        (*runtime)._field_410 = 0;
 
         // ===== Landscape borders (cavern flag) =====
-        init_landscape_borders(wrapper);
+        init_landscape_borders(runtime);
 
         // ===== Level bounds and camera initialization =====
-        init_game_state_level_bounds(ddgame, game_info);
+        init_game_state_level_bounds(world, game_info);
 
         // ===== Display objects for HUD (headful only) =====
         if is_headful {
-            init_game_state_hud_objects(ddgame, game_info);
+            init_game_state_hud_objects(world, game_info);
         }
 
         // ===== Team name validation =====
-        init_team_color_from_names(ddgame, game_info);
+        init_team_color_from_names(world, game_info);
 
         // ===== Weapon and team initialization =====
-        (*ddgame).hud_status_code = 0;
-        (*ddgame).hud_status_text = core::ptr::null();
+        (*world).hud_status_code = 0;
+        (*world).hud_status_text = core::ptr::null();
 
         // InitWeaponTable
         {
-            let f: unsafe extern "stdcall" fn(*mut DDGameWrapper) =
+            let f: unsafe extern "stdcall" fn(*mut GameRuntime) =
                 core::mem::transmute(rb(va::INIT_WEAPON_TABLE) as usize);
-            f(wrapper);
+            f(runtime);
         }
 
-        // DDGame__InitTeamsFromSetup
+        // GameWorld__InitTeamsFromSetup
         {
-            let team_arena = core::ptr::addr_of_mut!((*ddgame).team_arena) as u32;
-            let gi_ptr = (*ddgame).game_info as u32;
+            let team_arena = core::ptr::addr_of_mut!((*world).team_arena) as u32;
+            let gi_ptr = (*world).game_info as u32;
             let f: unsafe extern "stdcall" fn(u32, u32) =
                 core::mem::transmute(rb(va::INIT_TEAMS_FROM_SETUP) as usize);
             f(team_arena, gi_ptr);
         }
 
         // ===== Version-dependent stack/render config =====
-        init_game_state_version_config(ddgame, game_info);
+        init_game_state_version_config(world, game_info);
 
         // ===== Water level and wind =====
-        init_game_state_water_level(ddgame, game_info);
+        init_game_state_water_level(world, game_info);
 
         // ===== Random bag initialization =====
-        init_game_state_random_bags(ddgame, game_info);
+        init_game_state_random_bags(world, game_info);
 
         // ===== Turn state =====
-        init_turn_state(wrapper);
+        init_turn_state(runtime);
 
         // ===== Weapon availability loop =====
-        init_game_state_weapon_avail(ddgame, game_info);
+        init_game_state_weapon_avail(world, game_info);
 
         // ===== Team/object tracking arrays =====
-        init_game_state_tracking_arrays(ddgame, game_info);
+        init_game_state_tracking_arrays(world, game_info);
 
         // ===== Statistics counters =====
         {
-            let base = core::ptr::addr_of_mut!((*ddgame)._unknown_9890) as *mut u32;
+            let base = core::ptr::addr_of_mut!((*world)._unknown_9890) as *mut u32;
             for i in 0..10usize {
                 *base.add(i) = 0;
             }
@@ -532,108 +532,108 @@ pub unsafe fn init_game_state(wrapper: *mut DDGameWrapper) {
             } else {
                 let ctor: unsafe extern "stdcall" fn(*mut u8, u32) -> *mut u8 =
                     core::mem::transmute(rb(va::TEAM_MANAGER_CONSTRUCTOR) as usize);
-                ctor(mem, ddgame as u32)
+                ctor(mem, world as u32)
             };
-            (*ddgame).turn_order_widget = result as *mut _;
+            (*world).turn_order_widget = result as *mut _;
         }
 
         // ===== Network sync callback =====
-        let sound = (*ddgame).sound;
+        let sound = (*world).sound;
         if !sound.is_null() {
             DSSound::update_channels_raw(sound);
         }
 
-        // ===== CTaskTurnGame constructor =====
+        // ===== WorldRootEntity constructor =====
         {
             let game_version = (*game_info).game_version;
-            let gi_ptr = (*ddgame).game_info as u32;
+            let gi_ptr = (*world).game_info as u32;
             if game_version == -2 {
                 // Online game: ECX = *net_bridge (dereferenced!) for the constructor
                 let mem = wa_malloc_zeroed(0x324);
                 if mem.is_null() {
-                    (*wrapper).task_turn_game = core::ptr::null_mut::<crate::task::CTaskTurnGame>();
+                    (*runtime).world_root = core::ptr::null_mut::<crate::task::WorldRootEntity>();
                 } else {
-                    let net_bridge = (*wrapper).net_bridge;
+                    let net_bridge = (*runtime).net_bridge;
                     let ecx_val = *(net_bridge as *const u32); // deref net_bridge to get ECX
-                    call_ctor_with_ecx(mem, gi_ptr, ecx_val, rb(va::CTASK_TURNGAME_CTOR));
+                    call_ctor_with_ecx(mem, gi_ptr, ecx_val, rb(va::WORLD_ROOT_ENTITY_CTOR));
                     *(mem.add(0x300) as *mut u32) = net_bridge as u32;
                     // Override vtables for online mode
                     *(mem as *mut u32) = rb(0x669C28);
                     *(mem.add(0x30) as *mut u32) = rb(0x669C44);
-                    (*wrapper).task_turn_game = mem as *mut crate::task::CTaskTurnGame;
+                    (*runtime).world_root = mem as *mut crate::task::WorldRootEntity;
                 }
             } else {
-                // Normal game: ECX must = DDGame for the constructor
+                // Normal game: ECX must = GameWorld for the constructor
                 let mem = wa_malloc_zeroed(0x320);
                 let result = if mem.is_null() {
                     core::ptr::null_mut()
                 } else {
-                    call_ctor_with_ecx(mem, gi_ptr, ddgame as u32, rb(va::CTASK_TURNGAME_CTOR))
+                    call_ctor_with_ecx(mem, gi_ptr, world as u32, rb(va::WORLD_ROOT_ENTITY_CTOR))
                 };
-                (*wrapper).task_turn_game = result as *mut crate::task::CTaskTurnGame;
+                (*runtime).world_root = result as *mut crate::task::WorldRootEntity;
             }
         }
 
         // ===== Zero frame timing state (0x98-0xD4) =====
-        (*wrapper).timing_ref = 0;
-        (*wrapper).last_frame_time = 0;
-        (*wrapper).frame_accum_a = 0;
-        (*wrapper).frame_accum_b = 0;
-        (*wrapper).frame_accum_c = 0;
-        (*wrapper).initial_ref = 0;
-        (*wrapper).pause_detect = 0;
+        (*runtime).timing_ref = 0;
+        (*runtime).last_frame_time = 0;
+        (*runtime).frame_accum_a = 0;
+        (*runtime).frame_accum_b = 0;
+        (*runtime).frame_accum_c = 0;
+        (*runtime).initial_ref = 0;
+        (*runtime).pause_detect = 0;
 
         // ===== Replay/network mode flag =====
         {
-            let replay_a = (*wrapper).replay_flag_a;
+            let replay_a = (*runtime).replay_flag_a;
             let result = if replay_a == 0
-                || ((*game_info).replay_config_flag != 0 && (*wrapper)._field_49c > 0xC)
+                || ((*game_info).replay_config_flag != 0 && (*runtime)._field_49c > 0xC)
             {
                 0u32
             } else {
                 0xFFFFFFFFu32
             };
-            (*ddgame).recorded_frame_counter = result as i32;
+            (*world).recorded_frame_counter = result as i32;
         }
 
-        (*wrapper)._field_4b0 = 0xFFFFFFFF;
-        (*wrapper)._field_4ac = 0;
-        (*wrapper)._field_0e0 = 0;
+        (*runtime)._field_4b0 = 0xFFFFFFFF;
+        (*runtime)._field_4ac = 0;
+        (*runtime)._field_0e0 = 0;
 
         // 0xEC: (game_info.f340 != 0) - 1 (i.e., 0 if nonzero, 0xFFFFFFFF if zero)
-        (*wrapper).frame_delay_counter = (((*game_info)._field_f340 != 0) as i32).wrapping_sub(1);
+        (*runtime).frame_delay_counter = (((*game_info)._field_f340 != 0) as i32).wrapping_sub(1);
 
         (*game_info)._field_f34c = -1;
-        (*wrapper).game_state = game_state::INITIALIZED;
+        (*runtime).game_state = game_state::INITIALIZED;
 
         // ===== Serialize initial game state =====
         {
-            let serialize: unsafe extern "stdcall" fn(*mut DDGameWrapper, *mut u8) =
+            let serialize: unsafe extern "stdcall" fn(*mut GameRuntime, *mut u8) =
                 core::mem::transmute(rb(va::SERIALIZE_GAME_STATE) as usize);
-            serialize(wrapper, (*wrapper).state_buffer);
+            serialize(runtime, (*runtime).state_buffer);
         }
 
         // ===== Copy game state to statistics buffer =====
         {
-            let src = core::ptr::addr_of!((*ddgame)._unknown_8168) as *const u32;
-            let dst = (*wrapper).statistics as *mut u32;
+            let src = core::ptr::addr_of!((*world)._unknown_8168) as *const u32;
+            let dst = (*runtime).statistics as *mut u32;
             core::ptr::copy_nonoverlapping(src, dst, 0x2E5);
         }
 
         // ===== Compute initial checksum =====
         {
-            let buf_ptr = *((*wrapper).state_buffer as *const *const u8);
-            let buf_len = *((*wrapper).state_buffer.add(0x0C) as *const u32); // field[3]
+            let buf_ptr = *((*runtime).state_buffer as *const *const u8);
+            let buf_len = *((*runtime).state_buffer.add(0x0C) as *const u32); // field[3]
             let mut hash = 0u32;
             for i in 0..buf_len as usize {
                 hash = hash.rotate_left(3).wrapping_add(*buf_ptr.add(i) as u32);
             }
 
             // Get frame counter via landscape vtable
-            let landscape = (*ddgame).landscape;
+            let landscape = (*world).landscape;
             let frame = Landscape::get_frame_checksum_raw(landscape);
 
-            (*wrapper).initial_checksum = frame.wrapping_add(hash);
+            (*runtime).initial_checksum = frame.wrapping_add(hash);
         }
 
         // ===== Weapon panel (headful only) =====
@@ -642,10 +642,10 @@ pub unsafe fn init_game_state(wrapper: *mut DDGameWrapper) {
             let result = if mem.is_null() {
                 core::ptr::null_mut()
             } else {
-                // usercall: ESI=this(mem), stack=(DDGame), RET 0x4
-                call_usercall_esi_stack1(mem, ddgame as u32, rb(va::INIT_WEAPON_PANEL))
+                // usercall: ESI=this(mem), stack=(GameWorld), RET 0x4
+                call_usercall_esi_stack1(mem, world as u32, rb(va::INIT_WEAPON_PANEL))
             };
-            (*ddgame).weapon_panel = result;
+            (*world).weapon_panel = result;
         }
     }
 }
@@ -658,8 +658,8 @@ pub unsafe fn init_game_state(wrapper: *mut DDGameWrapper) {
 ///
 /// Creates DisplayGfx layers, camera objects, and the main display surface.
 unsafe fn init_game_state_display(
-    wrapper: *mut DDGameWrapper,
-    ddgame: *mut DDGame,
+    runtime: *mut GameRuntime,
+    world: *mut GameWorld,
     game_info: *const GameInfo,
 ) {
     unsafe {
@@ -667,11 +667,11 @@ unsafe fn init_game_state_display(
         use crate::rebase::rb;
         use crate::wa_alloc::wa_malloc_zeroed;
 
-        let max_team_render = (*wrapper).max_team_render_index;
+        let max_team_render = (*runtime).max_team_render_index;
 
         let mut display_width: u32 = 0;
         let mut display_height: u32 = 0;
-        DisplayGfx::get_dimensions_raw((*ddgame).display, &mut display_width, &mut display_height);
+        DisplayGfx::get_dimensions_raw((*world).display, &mut display_width, &mut display_height);
 
         // Screen height for HUD: 0x12C (300) if wide layout, 0x8C (140) if narrow
         let screen_height: i32 = if max_team_render != 0xC {
@@ -679,17 +679,17 @@ unsafe fn init_game_state_display(
         } else {
             0x8C // 140
         };
-        (*wrapper).screen_height_hud = screen_height;
+        (*runtime).screen_height_hud = screen_height;
 
         // Count active teams from slot_to_team array
         let team_count = (*game_info).num_teams as u32;
-        let count_active = |wrapper: *mut DDGameWrapper, base: u32| -> u32 {
+        let count_active = |runtime: *mut GameRuntime, base: u32| -> u32 {
             let mut n = base;
-            if (*wrapper).slot_to_team[0] >= 0 {
+            if (*runtime).slot_to_team[0] >= 0 {
                 let mut idx = 1;
                 loop {
                     n += 1;
-                    if (*wrapper).slot_to_team[idx] < 0 {
+                    if (*runtime).slot_to_team[idx] < 0 {
                         break;
                     }
                     idx += 1;
@@ -697,37 +697,37 @@ unsafe fn init_game_state_display(
             }
             n
         };
-        let active_count = count_active(wrapper, team_count);
+        let active_count = count_active(runtime, team_count);
 
         // min_teams: (int)(active_count - 1) < 2 ? 1 : active_count - 1
         let min_teams: i32 = if (active_count.wrapping_sub(1) as i32) < 2 {
             1
         } else {
-            count_active(wrapper, team_count) as i32 - 1
+            count_active(runtime, team_count) as i32 - 1
         };
-        (*wrapper).min_active_teams = min_teams;
+        (*runtime).min_active_teams = min_teams;
 
         // screen_offset = display_width - screen_height
-        (*wrapper).screen_offset = display_width as i32 - screen_height;
+        (*runtime).screen_offset = display_width as i32 - screen_height;
         let screen_offset = display_width as i32 - screen_height;
 
         // ===== Layer 1 (wrapper+0x18): BitGrid(8, max_team*64+2, screen_offset-7) =====
         {
             let height = max_team_render * 64 + 2;
             let width = screen_offset - 7;
-            (*wrapper).display_gfx_a = create_display_gfx_layer_sized(height as u32, width as u32);
+            (*runtime).display_gfx_a = create_display_gfx_layer_sized(height as u32, width as u32);
         }
 
         // ===== Layer 2 (wrapper+0x1C): BitGrid(8, max_team*33+6, display_width) =====
         {
             let height = max_team_render * 33 + 6;
-            (*wrapper).display_gfx_b = create_display_gfx_layer_sized(height as u32, display_width);
+            (*runtime).display_gfx_b = create_display_gfx_layer_sized(height as u32, display_width);
         }
 
         // ===== Layer 3 (wrapper+0x20): BitGrid(8, (min_teams+1)*max_team+1, screen_height) =====
         {
             let height = (min_teams + 1) * max_team_render + 1;
-            (*wrapper).display_gfx_c =
+            (*runtime).display_gfx_c =
                 create_display_gfx_layer_sized(height as u32, screen_height as u32);
         }
 
@@ -740,11 +740,11 @@ unsafe fn init_game_state_display(
                 core::ptr::null_mut()
             } else {
                 {
-                    let p_display = (*ddgame).display as u32;
-                    let p_team = (*wrapper).team_render_indices[0] as u32;
+                    let p_display = (*world).display as u32;
+                    let p_team = (*runtime).team_render_indices[0] as u32;
                     let p_offset = screen_offset - 3;
-                    let p_render = (*ddgame).gfx_color_table[8]; // [8] = 0x732C
-                    let p_ecx = (*ddgame).gfx_color_table[7]; // [7] = 0x7328
+                    let p_render = (*world).gfx_color_table[8]; // [8] = 0x732C
+                    let p_ecx = (*world).gfx_color_table[7]; // [7] = 0x7328
                     let p_edx = max_team_render as u32;
                     let target = rb(va::DISPLAYGFX_CONSTRUCT_FULL);
                     let f: unsafe extern "fastcall" fn(
@@ -759,31 +759,31 @@ unsafe fn init_game_state_display(
                     f(p_ecx, p_edx, mem, p_display, p_team, p_offset, p_render)
                 }
             };
-            (*wrapper).display_gfx_main = result;
+            (*runtime).display_gfx_main = result;
         }
 
         // Turn timer
         {
             let timer_val = max_team_render << 5;
-            (*wrapper).turn_timer_max = timer_val;
-            (*wrapper).turn_timer_current = timer_val;
-            (*wrapper)._field_404 = 0;
+            (*runtime).turn_timer_max = timer_val;
+            (*runtime).turn_timer_current = timer_val;
+            (*runtime)._field_404 = 0;
         }
 
         // Dirty rect / clipping calls on layers A, B, C
-        fill_display_layer((*wrapper).display_gfx_a as *mut DisplayBitGrid, ddgame);
-        fill_display_layer((*wrapper).display_gfx_b as *mut DisplayBitGrid, ddgame);
-        fill_display_layer((*wrapper).display_gfx_c as *mut DisplayBitGrid, ddgame);
+        fill_display_layer((*runtime).display_gfx_a as *mut DisplayBitGrid, world);
+        fill_display_layer((*runtime).display_gfx_b as *mut DisplayBitGrid, world);
+        fill_display_layer((*runtime).display_gfx_c as *mut DisplayBitGrid, world);
 
         // ===== Layer 4 (wrapper+0x2C): BitGrid(8, 0x100, 0x154) — constant =====
-        (*wrapper).display_gfx_d = create_display_gfx_layer_sized(0x100, 0x154);
+        (*runtime).display_gfx_d = create_display_gfx_layer_sized(0x100, 0x154);
 
         // ===== Layer 5 (wrapper+0x34): BitGrid(8, 0x30, 0xC0) — constant =====
-        (*wrapper).display_gfx_e = create_display_gfx_layer_sized(0x30, 0xC0);
+        (*runtime).display_gfx_e = create_display_gfx_layer_sized(0x30, 0xC0);
 
         // Create 2 camera objects (wrapper+0x30, +0x38)
-        (*wrapper).camera_a = create_camera_object(wrapper, ddgame, 0x2C);
-        (*wrapper).camera_b = create_camera_object(wrapper, ddgame, 0x34);
+        (*runtime).camera_a = create_camera_object(runtime, world, 0x2C);
+        (*runtime).camera_b = create_camera_object(runtime, world, 0x34);
     }
 }
 
@@ -808,7 +808,7 @@ unsafe fn create_display_gfx_layer_sized(height: u32, width: u32) -> *mut u8 {
 }
 
 /// Fill a DisplayBitGrid layer with its background color, respecting clip bounds.
-unsafe fn fill_display_layer(gfx: *mut DisplayBitGrid, ddgame: *mut DDGame) {
+unsafe fn fill_display_layer(gfx: *mut DisplayBitGrid, world: *mut GameWorld) {
     unsafe {
         if gfx.is_null() {
             return;
@@ -834,15 +834,15 @@ unsafe fn fill_display_layer(gfx: *mut DisplayBitGrid, ddgame: *mut DDGame) {
         let x2 = clip_right.min(width);
         let y2 = clip_bottom.min(height);
 
-        let color = (*ddgame).gfx_color_table[7] as u8;
+        let color = (*world).gfx_color_table[7] as u8;
         DisplayBitGrid::fill_rect_raw(gfx, x1, y1, x2, y2, color);
     }
 }
 
 /// Create a camera/display object (0x3D4 bytes).
 unsafe fn create_camera_object(
-    wrapper: *mut DDGameWrapper,
-    ddgame: *mut DDGame,
+    runtime: *mut GameRuntime,
+    world: *mut GameWorld,
     display_gfx_offset: usize,
 ) -> *mut u8 {
     unsafe {
@@ -853,12 +853,12 @@ unsafe fn create_camera_object(
             return core::ptr::null_mut();
         }
 
-        let w = wrapper as *const u8;
+        let w = runtime as *const u8;
         let display_gfx = *(w.add(display_gfx_offset) as *const *const u8);
 
-        *mem.add(1) = (*ddgame).display as i32;
-        *mem.add(3) = (*ddgame).gfx_color_table[0] as i32;
-        *mem.add(2) = (*ddgame).gfx_color_table[7] as i32;
+        *mem.add(1) = (*world).display as i32;
+        *mem.add(3) = (*world).gfx_color_table[0] as i32;
+        *mem.add(2) = (*world).gfx_color_table[7] as i32;
         *mem = display_gfx as i32;
 
         let w_val = *(display_gfx.add(0x14) as *const i32);
@@ -874,37 +874,37 @@ unsafe fn create_camera_object(
 }
 
 /// Initialize level bounds and camera center positions.
-unsafe fn init_game_state_level_bounds(ddgame: *mut DDGame, game_info: *const GameInfo) {
+unsafe fn init_game_state_level_bounds(world: *mut GameWorld, game_info: *const GameInfo) {
     unsafe {
-        (*ddgame)._field_7794 = 0;
-        (*ddgame)._field_7798 = 0;
+        (*world)._field_7794 = 0;
+        (*world)._field_7798 = 0;
 
-        let is_cavern = (*ddgame).is_cavern as i32;
+        let is_cavern = (*world).is_cavern as i32;
         if is_cavern == 0 {
             // Open-air level
-            (*ddgame).level_bound_min_x = Fixed(0xF8020000u32 as i32);
-            (*ddgame).level_bound_min_y = Fixed(0xF8020000u32 as i32);
-            let level_width = (*ddgame).level_width as i32;
-            (*ddgame).level_bound_max_x = Fixed((level_width + 0x7FE) * 0x10000);
+            (*world).level_bound_min_x = Fixed(0xF8020000u32 as i32);
+            (*world).level_bound_min_y = Fixed(0xF8020000u32 as i32);
+            let level_width = (*world).level_width as i32;
+            (*world).level_bound_max_x = Fixed((level_width + 0x7FE) * 0x10000);
         } else {
             // Cavern level
             let game_version = (*game_info).game_version;
             let bound = if game_version >= -1 { 0x20000i32 } else { 0i32 };
-            (*ddgame).level_bound_min_x = Fixed(bound);
-            (*ddgame).level_bound_min_y = Fixed(0x20000);
-            let level_width = (*ddgame).level_width;
-            (*ddgame).level_bound_max_x =
+            (*world).level_bound_min_x = Fixed(bound);
+            (*world).level_bound_min_y = Fixed(0x20000);
+            let level_width = (*world).level_width;
+            (*world).level_bound_max_x =
                 Fixed((level_width.wrapping_mul(0x10000)).wrapping_sub(bound as u32) as i32);
         }
 
         // Camera center initialization (4 viewports)
         // Each iteration writes to viewport_coords[i+1] (entries 1..5).
-        let level_w = (*ddgame).level_width as i32;
-        let level_h = (*ddgame).level_height as i32;
+        let level_w = (*world).level_width as i32;
+        let level_h = (*world).level_height as i32;
         let cx = Fixed((level_w << 16) / 2);
         let cy = Fixed((level_h << 16) / 2);
         for i in 0..4 {
-            let entry = &mut (*ddgame).viewport_coords[i + 1];
+            let entry = &mut (*world).viewport_coords[i + 1];
             entry.center_x = cx;
             entry.center_y = cy;
             entry.center_x_target = cx;
@@ -912,27 +912,27 @@ unsafe fn init_game_state_level_bounds(ddgame: *mut DDGame, game_info: *const Ga
         }
 
         // Map dimension fields
-        (*ddgame).map_boundary_width = 0x30D4;
-        (*ddgame).map_boundary_height = (*ddgame).level_height;
+        (*world).map_boundary_width = 0x30D4;
+        (*world).map_boundary_height = (*world).level_height;
 
         let game_version = (*game_info).game_version;
         if game_version > 0x32 {
-            let level_w = (*ddgame).level_width as i32;
-            (*ddgame).map_boundary_width = (level_w + 0x2954) as u32;
-            (*ddgame).map_boundary_height = 0x2B8;
+            let level_w = (*world).level_width as i32;
+            (*world).map_boundary_width = (level_w + 0x2954) as u32;
+            (*world).map_boundary_height = 0x2B8;
         }
     }
 }
 
 /// Create HUD display objects (headful only, conditional on is_headful).
-unsafe fn init_game_state_hud_objects(ddgame: *mut DDGame, _game_info: *const GameInfo) {
+unsafe fn init_game_state_hud_objects(world: *mut GameWorld, _game_info: *const GameInfo) {
     unsafe {
         use crate::address::va;
         use crate::rebase::rb;
         use crate::wa_alloc::wa_malloc_zeroed;
 
         // DisplayObject for HUD background
-        // usercall: ECX=gfx_color_table[6], EDX=gfx_color_table[7], stdcall stack=(this, DDGame+0x33C)
+        // usercall: ECX=gfx_color_table[6], EDX=gfx_color_table[7], stdcall stack=(this, GameWorld+0x33C)
         {
             let mem = wa_malloc_zeroed(0x58) as *mut u32;
             let result = if mem.is_null() {
@@ -941,17 +941,17 @@ unsafe fn init_game_state_hud_objects(ddgame: *mut DDGame, _game_info: *const Ga
                 let ctor: unsafe extern "fastcall" fn(u32, u32, *mut u32, u32) -> *mut u8 =
                     core::mem::transmute(rb(va::DISPLAY_OBJECT_CONSTRUCTOR) as usize);
                 ctor(
-                    (*ddgame).gfx_color_table[6], // ECX
-                    (*ddgame).gfx_color_table[7], // EDX
+                    (*world).gfx_color_table[6], // ECX
+                    (*world).gfx_color_table[7], // EDX
                     mem,
-                    core::ptr::addr_of!((*ddgame).sprite_cache[128]) as u32,
+                    core::ptr::addr_of!((*world).sprite_cache[128]) as u32,
                 )
             };
-            (*ddgame)._unknown_540 = result;
+            (*world)._unknown_540 = result;
         }
 
         // DisplayGfx textbox for HUD text
-        // thiscall: ECX=DDGame.display, stack=(this, 0x13, 2)
+        // thiscall: ECX=GameWorld.display, stack=(this, 0x13, 2)
         {
             let mem = wa_malloc_zeroed(0x158) as *mut u32;
             let result = if mem.is_null() {
@@ -963,68 +963,68 @@ unsafe fn init_game_state_hud_objects(ddgame: *mut DDGame, _game_info: *const Ga
                     u32,
                     u32,
                 ) -> *mut u8 = core::mem::transmute(rb(va::CONSTRUCT_TEXTBOX) as usize);
-                ctor((*ddgame).display, mem, 0x13, 2)
+                ctor((*world).display, mem, 0x13, 2)
             };
-            (*ddgame)._unknown_544 = result;
+            (*world)._unknown_544 = result;
         }
     }
 }
 
 /// Version-dependent configuration (stack size, rendering constants).
-unsafe fn init_game_state_version_config(ddgame: *mut DDGame, game_info: *const GameInfo) {
+unsafe fn init_game_state_version_config(world: *mut GameWorld, game_info: *const GameInfo) {
     unsafe {
         let game_version = (*game_info).game_version;
 
         // Stack height: game_version < -1 → 0x700, >= -1 → 0x800
-        (*ddgame).stack_height = if game_version < -1 { 0x700 } else { 0x800 };
+        (*world).stack_height = if game_version < -1 { 0x700 } else { 0x800 };
 
         // Copy RNG seed
         let rng_seed = (*game_info).rng_seed;
-        (*ddgame).game_rng = rng_seed;
-        (*ddgame).team_health_ratio[0] = rng_seed as i32;
+        (*world).game_rng = rng_seed;
+        (*world).team_health_ratio[0] = rng_seed as i32;
 
         // Zero various fields
-        (*ddgame).frame_counter = 0;
-        (*ddgame)._field_5d4 = 0;
-        (*ddgame)._field_5d8 = 0;
-        (*ddgame)._field_5dc = 0;
-        (*ddgame)._field_7e4c = 0;
-        (*ddgame)._field_5d0 = 0;
+        (*world).frame_counter = 0;
+        (*world)._field_5d4 = 0;
+        (*world)._field_5d8 = 0;
+        (*world)._field_5dc = 0;
+        (*world)._field_7e4c = 0;
+        (*world)._field_5d0 = 0;
 
         // Zero counter arrays (6 entries each × 3 blocks starting at turn_time_limit)
         {
-            let base = core::ptr::addr_of_mut!((*ddgame).turn_time_limit) as *mut u32;
+            let base = core::ptr::addr_of_mut!((*world).turn_time_limit) as *mut u32;
             for i in 0..18usize {
                 *base.add(i) = 0;
             }
         }
 
         // Zero more fields
-        (*ddgame)._field_45e0 = 0;
-        (*ddgame)._field_45e4 = 0;
-        (*ddgame)._field_45e8 = 0;
+        (*world)._field_45e0 = 0;
+        (*world)._field_45e4 = 0;
+        (*world)._field_45e8 = 0;
     }
 }
 
 /// Water level and boundary calculations.
-unsafe fn init_game_state_water_level(ddgame: *mut DDGame, game_info: *mut GameInfo) {
+unsafe fn init_game_state_water_level(world: *mut GameWorld, game_info: *mut GameInfo) {
     unsafe {
         // Water level: (100 - level_height_raw) * level_height / 100
         // level_height_raw appears to encode a water height percentage here
-        let height_raw = (*ddgame).level_height_raw as i32;
-        let level_height = (*ddgame).level_height as i32;
+        let height_raw = (*world).level_height_raw as i32;
+        let level_height = (*world).level_height as i32;
         let water_level = ((100 - height_raw) * level_height) / 100;
-        (*ddgame).water_level = water_level;
+        (*world).water_level = water_level;
 
         // Clamp to 0 for newer versions
         let game_version = (*game_info).game_version;
         if water_level < 0 && game_version > 0x179 {
-            (*ddgame).water_level = 0;
+            (*world).water_level = 0;
         }
 
         // Max Y boundary
-        let water_val = (*ddgame).water_level;
-        let min_y = (*ddgame).level_bound_min_y.0;
+        let water_val = (*world).water_level;
+        let min_y = (*world).level_bound_min_y.0;
         let max_y_candidate = (water_val + 0xA0) * 0x10000;
         let min_y_plus = min_y + 0x300_0000;
         let max_y = if max_y_candidate > min_y_plus {
@@ -1032,48 +1032,49 @@ unsafe fn init_game_state_water_level(ddgame: *mut DDGame, game_info: *mut GameI
         } else {
             min_y_plus
         };
-        (*ddgame).level_bound_max_y = Fixed(max_y);
+        (*world).level_bound_max_y = Fixed(max_y);
 
         // Clamp for newer versions
         if game_version > 0x11E && (max_y >> 16) + 0x28 > 0x7FFF {
-            (*ddgame).level_bound_max_y = Fixed(0x7FD70000u32 as i32);
+            (*world).level_bound_max_y = Fixed(0x7FD70000u32 as i32);
         }
 
         // Derived water fields
-        (*ddgame).water_kill_y = (*ddgame).level_bound_max_y.to_int() + 0x28;
-        (*ddgame)._field_5f8 = 0;
-        (*ddgame).water_level_initial = (*ddgame).water_level;
-        (*ddgame)._field_5ec = 0;
+        (*world).water_kill_y = (*world).level_bound_max_y.to_int() + 0x28;
+        (*world)._field_5f8 = 0;
+        (*world).water_level_initial = (*world).water_level;
+        (*world)._field_5ec = 0;
 
         // Terrain type percentages
-        (*ddgame).terrain_pct_a = (*game_info).terrain_cfg_a as u32;
-        (*ddgame).terrain_pct_b = (*game_info).terrain_cfg_b as u32;
-        (*ddgame).terrain_pct_c = (*game_info).terrain_cfg_c as u32;
+        (*world).terrain_pct_a = (*game_info).terrain_cfg_a as u32;
+        (*world).terrain_pct_b = (*game_info).terrain_cfg_b as u32;
+        (*world).terrain_pct_c = (*game_info).terrain_cfg_c as u32;
 
         // Game state flags
-        (*ddgame)._field_5f0 = 1;
-        (*ddgame)._field_5f4 = 100;
-        (*ddgame)._field_5fc = 0;
+        (*world)._field_5f0 = 1;
+        (*world)._field_5f4 = 100;
+        (*world)._field_5fc = 0;
     }
 }
 
 /// Random bag initialization (land, mine, barrel, weapon).
-unsafe fn init_game_state_random_bags(ddgame: *mut DDGame, game_info: *mut GameInfo) {
+unsafe fn init_game_state_random_bags(world: *mut GameWorld, game_info: *mut GameInfo) {
     unsafe {
-        let ddgame_raw = ddgame as *mut u8;
-        // Random bag at DDGame+0x360C (5 zeroes + 1 one)
+        // TODO: Get rid of this
+        let world_raw = world as *mut u8;
+        // Random bag at GameWorld+0x360C (5 zeroes + 1 one)
         {
-            let write_idx_ptr = ddgame_raw.add(0x379C) as *mut i32;
+            let write_idx_ptr = world_raw.add(0x379C) as *mut i32;
             let mut write_idx = *write_idx_ptr;
             if write_idx + 5 < 0x65 {
                 for _ in 0..5 {
-                    *(ddgame_raw.add(0x360C) as *mut u32).add(write_idx as usize) = 0;
+                    *(world_raw.add(0x360C) as *mut u32).add(write_idx as usize) = 0;
                     write_idx += 1;
                 }
                 *write_idx_ptr = write_idx;
             }
             if write_idx + 1 < 0x65 {
-                *(ddgame_raw.add(0x360C) as *mut u32).add(write_idx as usize) = 1;
+                *(world_raw.add(0x360C) as *mut u32).add(write_idx as usize) = 1;
                 *write_idx_ptr = write_idx + 1;
             }
         }
@@ -1115,16 +1116,16 @@ unsafe fn init_game_state_random_bags(ddgame: *mut DDGame, game_info: *mut GameI
             }
         }
 
-        // Fill terrain type random bags at DDGame+0x3F84
+        // Fill terrain type random bags at GameWorld+0x3F84
         {
-            let write_idx_ptr = ddgame_raw.add(0x4114) as *mut i32;
+            let write_idx_ptr = world_raw.add(0x4114) as *mut i32;
 
             // Land entries (type 1)
             let count = (*game_info).drop_pct_land as u32;
             let mut idx = *write_idx_ptr;
             if (idx as u32 + count) < 0x65 {
                 for _ in 0..count {
-                    *(ddgame_raw.add(0x3F84) as *mut u32).add(idx as usize) = 1;
+                    *(world_raw.add(0x3F84) as *mut u32).add(idx as usize) = 1;
                     idx += 1;
                 }
                 *write_idx_ptr = idx;
@@ -1135,7 +1136,7 @@ unsafe fn init_game_state_random_bags(ddgame: *mut DDGame, game_info: *mut GameI
             idx = *write_idx_ptr;
             if (idx as u32 + count) < 0x65 {
                 for _ in 0..count {
-                    *(ddgame_raw.add(0x3F84) as *mut u32).add(idx as usize) = 2;
+                    *(world_raw.add(0x3F84) as *mut u32).add(idx as usize) = 2;
                     idx += 1;
                 }
                 *write_idx_ptr = idx;
@@ -1146,7 +1147,7 @@ unsafe fn init_game_state_random_bags(ddgame: *mut DDGame, game_info: *mut GameI
             idx = *write_idx_ptr;
             if (idx as u32 + count) < 0x65 {
                 for _ in 0..count {
-                    *(ddgame_raw.add(0x3F84) as *mut u32).add(idx as usize) = 4;
+                    *(world_raw.add(0x3F84) as *mut u32).add(idx as usize) = 4;
                     idx += 1;
                 }
                 *write_idx_ptr = idx;
@@ -1157,35 +1158,35 @@ unsafe fn init_game_state_random_bags(ddgame: *mut DDGame, game_info: *mut GameI
             idx = *write_idx_ptr;
             if (idx as u32 + count) < 0x65 {
                 for _ in 0..count {
-                    *(ddgame_raw.add(0x3F84) as *mut u32).add(idx as usize) = 0;
+                    *(world_raw.add(0x3F84) as *mut u32).add(idx as usize) = 0;
                     idx += 1;
                 }
                 *write_idx_ptr = idx;
             }
         }
 
-        // Random bag at DDGame+0x3934 (entries 0, 1)
+        // Random bag at GameWorld+0x3934 (entries 0, 1)
         {
-            let write_idx_ptr = ddgame_raw.add(0x3AC4) as *mut i32;
+            let write_idx_ptr = world_raw.add(0x3AC4) as *mut i32;
             let mut idx = *write_idx_ptr;
             if idx + 1 < 0x65 {
-                *(ddgame_raw.add(0x3934) as *mut u32).add(idx as usize) = 0;
+                *(world_raw.add(0x3934) as *mut u32).add(idx as usize) = 0;
                 idx += 1;
                 *write_idx_ptr = idx;
             }
             if idx + 1 < 0x65 {
-                *(ddgame_raw.add(0x3934) as *mut u32).add(idx as usize) = 1;
+                *(world_raw.add(0x3934) as *mut u32).add(idx as usize) = 1;
                 *write_idx_ptr = idx + 1;
             }
         }
 
-        // Random bag at DDGame+0x42AC (entries 0..3)
+        // Random bag at GameWorld+0x42AC (entries 0..3)
         {
-            let write_idx_ptr = ddgame_raw.add(0x443C) as *mut i32;
+            let write_idx_ptr = world_raw.add(0x443C) as *mut i32;
             for val in 0..4i32 {
                 let idx = *write_idx_ptr;
                 if idx + 1 < 0x65 {
-                    *(ddgame_raw.add(0x42AC) as *mut i32).add(idx as usize) = val;
+                    *(world_raw.add(0x42AC) as *mut i32).add(idx as usize) = val;
                     *write_idx_ptr = idx + 1;
                 }
             }
@@ -1194,13 +1195,13 @@ unsafe fn init_game_state_random_bags(ddgame: *mut DDGame, game_info: *mut GameI
 }
 
 /// Weapon availability loop using already-ported check_weapon_avail.
-unsafe fn init_game_state_weapon_avail(ddgame: *mut DDGame, game_info: *const GameInfo) {
+unsafe fn init_game_state_weapon_avail(world: *mut GameWorld, game_info: *const GameInfo) {
     unsafe {
-        let ddgame_raw = ddgame as *mut u8;
+        let world_raw = world as *mut u8;
         let game_version = (*game_info).game_version;
 
         for weapon_id in WeaponId::iter_known() {
-            let avail = check_weapon_avail(ddgame, weapon_id);
+            let avail = check_weapon_avail(world, weapon_id);
             let is_avail = if game_version < 0x4D {
                 avail != 0
             } else {
@@ -1208,10 +1209,10 @@ unsafe fn init_game_state_weapon_avail(ddgame: *mut DDGame, game_info: *const Ga
             };
 
             if is_avail {
-                let write_idx_ptr = ddgame_raw.add(0x3DEC) as *mut i32;
+                let write_idx_ptr = world_raw.add(0x3DEC) as *mut i32;
                 let idx = *write_idx_ptr;
                 if idx + 1 < 0x65 {
-                    *(ddgame_raw.add(0x3C5C) as *mut u32).add(idx as usize) = weapon_id.0;
+                    *(world_raw.add(0x3C5C) as *mut u32).add(idx as usize) = weapon_id.0;
                     *write_idx_ptr = idx + 1;
                 }
             }
@@ -1220,48 +1221,48 @@ unsafe fn init_game_state_weapon_avail(ddgame: *mut DDGame, game_info: *const Ga
 }
 
 /// Allocate team/object tracking arrays and initialize the 0x51C object.
-unsafe fn init_game_state_tracking_arrays(ddgame: *mut DDGame, game_info: *const GameInfo) {
+unsafe fn init_game_state_tracking_arrays(world: *mut GameWorld, game_info: *const GameInfo) {
     unsafe {
         use crate::wa_alloc::wa_malloc;
 
         // Game speed
-        (*ddgame).game_speed = Fixed::ONE;
+        (*world).game_speed = Fixed::ONE;
 
-        let is_headful = (*ddgame).is_headful != 0;
+        let is_headful = (*world).is_headful != 0;
         if !is_headful {
-            (*ddgame).game_speed_target = Fixed(0x10000000);
+            (*world).game_speed_target = Fixed(0x10000000);
         } else {
-            (*ddgame).game_speed_target = Fixed((*game_info).game_speed_config);
+            (*world).game_speed_target = Fixed((*game_info).game_speed_config);
         }
 
         // Network speed callback
-        let sound = (*ddgame).sound;
+        let sound = (*world).sound;
         if !sound.is_null() {
             DSSound::set_frequency_scale_raw(
                 sound,
-                (*ddgame).game_speed.0 as u32,
-                (*ddgame).game_speed_target.0,
+                (*world).game_speed.0 as u32,
+                (*world).game_speed_target.0,
             );
         }
 
         // Misc fields
-        (*ddgame).sound_queue_count = 0;
-        (*ddgame).render_phase = (*game_info).render_phase_cfg as i32;
-        (*ddgame)._field_7640 = 0;
-        (*ddgame)._field_7644 = (*game_info)._field_f363 as u32;
-        (*ddgame)._field_7648 = (*game_info)._field_f364 as u32;
+        (*world).sound_queue_count = 0;
+        (*world).render_phase = (*game_info).render_phase_cfg as i32;
+        (*world)._field_7640 = 0;
+        (*world)._field_7644 = (*game_info)._field_f363 as u32;
+        (*world)._field_7648 = (*game_info)._field_f364 as u32;
 
         // Render state
-        (*ddgame)._field_7390 = 0;
-        (*ddgame).render_scale = Fixed::ONE;
-        (*ddgame)._field_7398 = 0;
+        (*world)._field_7390 = 0;
+        (*world).render_scale = Fixed::ONE;
+        (*world)._field_7398 = 0;
 
-        // Allocate team tracking arrays (DDGame+0x514, DDGame+0x518)
+        // Allocate team tracking arrays (GameWorld+0x514, GameWorld+0x518)
         {
             let count_a = (*game_info).team_slot_count;
             let size = count_a.wrapping_mul(4);
             let arr = wa_malloc(size);
-            (*ddgame)._unknown_514 = arr;
+            (*world)._unknown_514 = arr;
             for i in 0..count_a as usize {
                 *(arr as *mut u32).add(i) = 0;
             }
@@ -1270,7 +1271,7 @@ unsafe fn init_game_state_tracking_arrays(ddgame: *mut DDGame, game_info: *const
             let count_b = (*game_info).object_slot_count;
             let size = count_b.wrapping_mul(4);
             let arr = wa_malloc(size);
-            (*ddgame)._unknown_518 = arr;
+            (*world)._unknown_518 = arr;
             for i in 0..count_b as usize {
                 *(arr as *mut u32).add(i) = 0;
             }
@@ -1278,7 +1279,7 @@ unsafe fn init_game_state_tracking_arrays(ddgame: *mut DDGame, game_info: *const
 
         // Initialize the 0x51C object (vector-like structure)
         {
-            let obj = (*ddgame)._unknown_51c;
+            let obj = (*world)._unknown_51c;
             if !obj.is_null() {
                 *(obj as *mut u32) = 0; // first field = 0
                 // The vector operations (FUN_005370c0, etc.) are complex.

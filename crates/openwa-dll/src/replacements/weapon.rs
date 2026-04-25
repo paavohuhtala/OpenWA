@@ -15,7 +15,7 @@ use core::sync::atomic::{AtomicU32, Ordering};
 use openwa_core::log::log_line;
 use openwa_game::game::weapon::WeaponFireParams;
 use openwa_game::game::weapon_fire;
-use openwa_game::task::worm::CTaskWorm;
+use openwa_game::task::worm::WormEntity;
 use openwa_game::{address::va, engine::TeamArena};
 
 use crate::hook::{self, usercall_trampoline};
@@ -81,7 +81,7 @@ static ORIG_PLACED_EXPLOSIVE: AtomicU32 = AtomicU32::new(0);
 // ── CreateWeaponProjectile (0x51E0F0): thiscall(ECX=worm, fire_params, local_struct) ──
 
 unsafe extern "thiscall" fn hook_create_weapon_projectile(
-    worm: *mut CTaskWorm,
+    worm: *mut WormEntity,
     fire_params: *const WeaponFireParams,
     local_struct: *const u8,
 ) {
@@ -93,7 +93,7 @@ unsafe extern "thiscall" fn hook_create_weapon_projectile(
 // ── ProjectileFire (0x51DFB0): stdcall(worm, fire_params, local_struct) ──
 
 unsafe extern "stdcall" fn hook_projectile_fire(
-    worm: *mut CTaskWorm,
+    worm: *mut WormEntity,
     fire_params: *const WeaponFireParams,
     local_struct: *const openwa_game::game::weapon::WeaponSpawnData,
 ) {
@@ -105,7 +105,7 @@ unsafe extern "stdcall" fn hook_projectile_fire(
 // ── CreateArrow (0x51ED90): thiscall(ECX=worm, fire_params, local_struct) ──
 
 unsafe extern "thiscall" fn hook_create_arrow(
-    worm: *mut CTaskWorm,
+    worm: *mut WormEntity,
     fire_params: *const WeaponFireParams,
     local_struct: *const u8,
 ) {

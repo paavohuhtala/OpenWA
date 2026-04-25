@@ -19,18 +19,18 @@
 - Entry point: 0x005D8B6C (CRT startup)
 - Export: SetHostingProxyAddressAndPort @ 0x0058E380
 
-## DDGame structure access
+## GameWorld structure access
 
 The main game state is a 0x98B8-byte (39KB) monolithic object allocated by
-`DDGame__Constructor` (0x56E220). It is wrapped by DDGameWrapper (0x56DEF0).
+`GameWorld__Constructor` (0x56E220). It is wrapped by GameRuntime (0x56DEF0).
 
-### DDGameWrapper offsets (from wrapper base)
+### GameRuntime offsets (from wrapper base)
 
-- +0x488 → DDGame pointer (the allocated 0x98B8-byte object)
+- +0x488 → GameWorld pointer (the allocated 0x98B8-byte object)
 - +0x4C0 → GfxHandler 0 (vtable 0x66B280)
 - +0x4CC → Landscape pointer
 
-### DDGame offsets (from DDGame base)
+### GameWorld offsets (from GameWorld base)
 
 - +0x0024 → Game state pointer
 - +0x0028 → Constructor param
@@ -45,26 +45,26 @@ The main game state is a 0x98B8-byte (39KB) monolithic object allocated by
 
 ### WormKit-convention offsets (DWORD-indexed)
 
-These offsets are from the DDGameWrapper base, as used by WormKit mods:
+These offsets are from the GameRuntime base, as used by WormKit mods:
 
-- DDGame+0x08 → TurnGame object
-- DDGame+0x488 → Game global state
-- DDGame+0x4CC → PC_Landscape
-- DDGame+0x510 → Weapon table
-- DDGame+0x548 → Weapon panel
+- GameWorld+0x08 → WorldRoot object
+- GameWorld+0x488 → Game global state
+- GameWorld+0x4CC → PC_Landscape
+- GameWorld+0x510 → Weapon table
+- GameWorld+0x548 → Weapon panel
 
 ## Subsystem vtables
 
 | Address  | Object           | Size   | Notes                     |
 | -------- | ---------------- | ------ | ------------------------- |
-| 0x66A30C | DDGameWrapper    | ~0x500 | Top-level wrapper         |
+| 0x66A30C | GameRuntime      | ~0x500 | Top-level wrapper         |
 | 0x66B280 | GfxHandler       | 0x19C  | 2 instances               |
 | 0x664144 | DisplayGfx       | —      |                           |
 | 0x66B208 | Landscape        | 0xB40  | Terrain, water, level     |
 | 0x66B1DC | LandscapeShader  | —      | Used by Landscape         |
 | 0x66B268 | WaterEffect      | 0xBC   | Created by Landscape      |
 | 0x66AF20 | DSSound          | ~0xBD0 | DirectSound, 500 channels |
-| 0x664118 | TaskStateMachine | —      | 5 instances in DDGame     |
+| 0x664118 | TaskStateMachine | —      | 5 instances in GameWorld  |
 | 0x6774C0 | OpenGLCPU        | 0x48   | Optional, conditional     |
 
 ## Fixed-point convention
@@ -74,5 +74,5 @@ All coordinates, velocities, and physics values use 16.16 fixed-point:
 - `0x10000` = 1.0
 - `0x20000` = 2.0
 - `0xCCCC` ≈ 0.8
-- Positions stored as Fixed at CGameTask offsets 0x84 (X) and 0x88 (Y)
-- Velocities stored as Fixed at CGameTask offsets 0x90 (X) and 0x94 (Y)
+- Positions stored as Fixed at WorldEntity offsets 0x84 (X) and 0x88 (Y)
+- Velocities stored as Fixed at WorldEntity offsets 0x90 (X) and 0x94 (Y)

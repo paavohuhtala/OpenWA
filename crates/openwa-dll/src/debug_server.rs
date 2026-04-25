@@ -358,12 +358,12 @@ fn handle_resolve_alias(name: &str) -> Response {
 fn handle_resolve_field(class_name: &str, field_name: &str) -> Response {
     use openwa_game::registry;
 
-    // Search the class and its CTask inheritance chain for a field by name.
+    // Search the class and its BaseEntity inheritance chain for a field by name.
     // Mirrors the inheritance chain in registry::field_at_inherited.
-    const CTASK_CHAIN: &[&str] = &["CGameTask", "CTask"];
+    const ENTITY_INHERITANCE_CHAIN: &[&str] = &["WorldEntity", "BaseEntity"];
 
     let search_chain: Vec<&str> = std::iter::once(class_name)
-        .chain(CTASK_CHAIN.iter().copied())
+        .chain(ENTITY_INHERITANCE_CHAIN.iter().copied())
         .collect();
 
     for &name in &search_chain {

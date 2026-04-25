@@ -19,9 +19,9 @@ use crate::game::message::{
     TaskMessageData,
 };
 use crate::game::weapon::{WeaponEntry, WeaponFireParams, WeaponSpawnData};
-use crate::task::CTask;
-use crate::task::turn_game::CTaskTurnGame;
-use crate::task::worm::{CTaskWorm, WormState};
+use crate::task::BaseEntity;
+use crate::task::world_root::WorldRootEntity;
+use crate::task::worm::{WormEntity, WormState};
 use openwa_core::fixed::Fixed;
 use openwa_core::log::log_line;
 
@@ -154,7 +154,7 @@ pub unsafe fn count_alive_worms(team_index: u32, arena: *const TeamArena) -> u32
 pub unsafe fn fire_weapon(
     entry: *const WeaponEntry,
     ctx: *const WeaponReleaseContext,
-    worm: *mut CTaskWorm,
+    worm: *mut WormEntity,
 ) {
     unsafe {
         use crate::rebase::rb;
@@ -173,7 +173,7 @@ pub unsafe fn fire_weapon(
             fire_method
         ));
 
-        CTaskWorm::set_fire_complete_raw(worm, 0);
+        WormEntity::set_fire_complete_raw(worm, 0);
 
         use crate::game::weapon::{FireMethod, FireType};
         match FireType::try_from(fire_type) {
@@ -215,7 +215,7 @@ pub unsafe fn fire_weapon(
             _ => {}
         }
 
-        CTaskWorm::set_fire_complete_raw(worm, 1);
+        WormEntity::set_fire_complete_raw(worm, 1);
     }
 }
 
@@ -228,7 +228,7 @@ pub unsafe fn fire_weapon(
 /// Args: (worm, fire_params, ctx, addr).
 #[unsafe(naked)]
 unsafe extern "C" fn call_fire_placed_explosive(
-    _worm: *mut CTaskWorm,
+    _worm: *mut WormEntity,
     _fire_params: *const WeaponFireParams,
     _ctx: *const WeaponReleaseContext,
     _addr: u32,
@@ -254,7 +254,7 @@ unsafe extern "C" fn call_fire_placed_explosive(
 /// Bridge: Projectile/Rope/Grenade — stdcall(worm, fire_params, local_struct), RET 0xC.
 #[unsafe(naked)]
 unsafe extern "C" fn call_fire_stdcall3(
-    _worm: *mut CTaskWorm,
+    _worm: *mut WormEntity,
     _fire_params: *const WeaponFireParams,
     _ctx: *const WeaponReleaseContext,
     _addr: u32,
@@ -280,7 +280,7 @@ unsafe extern "C" fn call_fire_stdcall3(
 /// Bridge: CreateWeaponProjectile — thiscall(ECX=worm, fire_params, local_struct), RET 0x8.
 #[unsafe(naked)]
 unsafe extern "C" fn call_fire_thiscall2(
-    _worm: *mut CTaskWorm,
+    _worm: *mut WormEntity,
     _fire_params: *const WeaponFireParams,
     _ctx: *const WeaponReleaseContext,
     _addr: u32,
@@ -308,7 +308,7 @@ unsafe extern "C" fn call_fire_thiscall2(
 #[unsafe(naked)]
 #[allow(dead_code)]
 unsafe extern "C" fn call_fire_stdcall2(
-    _worm: *mut CTaskWorm,
+    _worm: *mut WormEntity,
     _fire_params: *const WeaponFireParams,
     _ctx: *const WeaponReleaseContext,
     _addr: u32,
@@ -338,7 +338,7 @@ unsafe extern "C" fn call_fire_stdcall2(
 pub unsafe fn fire_weapon_special(
     subtype: i32,
     entry: *const WeaponEntry,
-    worm: *mut CTaskWorm,
+    worm: *mut WormEntity,
     ctx: *const WeaponReleaseContext,
 ) {
     unsafe {
@@ -348,16 +348,16 @@ pub unsafe fn fire_weapon_special(
         let params_38_ptr = &raw const (*entry).fire_method as *const WeaponFireParams;
 
         match S::try_from(subtype) {
-            Ok(S::FirePunch) => CTaskWorm::set_state_raw(worm, WormState::FirePunch),
+            Ok(S::FirePunch) => WormEntity::set_state_raw(worm, WormState::FirePunch),
             Ok(S::BaseballBat) => fire_drill(worm, ctx as *const u8),
             Ok(S::DragonBall) => fire_dragon_ball(worm, params_38_ptr, ctx as *const u8),
-            Ok(S::Kamikaze) => CTaskWorm::set_state_raw(worm, WormState::Kamikaze),
-            Ok(S::SuicideBomber) => CTaskWorm::set_state_raw(worm, WormState::SuicideBomber),
-            Ok(S::Unknown6) => CTaskWorm::set_state_raw(worm, WormState::Unknown_0x70),
-            Ok(S::PneumaticDrill) => CTaskWorm::set_state_raw(worm, WormState::PneumaticDrill),
+            Ok(S::Kamikaze) => WormEntity::set_state_raw(worm, WormState::Kamikaze),
+            Ok(S::SuicideBomber) => WormEntity::set_state_raw(worm, WormState::SuicideBomber),
+            Ok(S::Unknown6) => WormEntity::set_state_raw(worm, WormState::Unknown_0x70),
+            Ok(S::PneumaticDrill) => WormEntity::set_state_raw(worm, WormState::PneumaticDrill),
             Ok(S::Prod) => fire_prod(worm, ctx as *const u8),
             Ok(S::Teleport) => fire_teleport(worm),
-            Ok(S::Blowtorch) => CTaskWorm::set_state_raw(worm, WormState::Blowtorch),
+            Ok(S::Blowtorch) => WormEntity::set_state_raw(worm, WormState::Blowtorch),
             Ok(S::Parachute) => {} // TODO: parachute handler
             Ok(S::Surrender) => fire_surrender(worm),
             Ok(S::MailMineMole) => fire_mail_mine_mole(worm),
@@ -365,16 +365,16 @@ pub unsafe fn fire_weapon_special(
                 if can_fire_subtype16((*worm).state()) {
                     fire_nuclear_test(worm);
                 } else {
-                    CTaskWorm::set_state_raw(worm, WormState::TeleportCancelled_Maybe);
+                    WormEntity::set_state_raw(worm, WormState::TeleportCancelled_Maybe);
                 }
             }
             Ok(S::Girder) => fire_girder(worm),
-            Ok(S::Unknown18) => CTaskWorm::set_state_raw(worm, WormState::Unknown_0x72),
+            Ok(S::Unknown18) => WormEntity::set_state_raw(worm, WormState::Unknown_0x72),
             Ok(S::SkipGo) => fire_skip_go(worm, entry),
             Ok(S::Freeze) => fire_freeze(worm),
             Ok(S::SelectWorm) => fire_select_worm(worm),
             Ok(S::ScalesOfJustice) => fire_scales_of_justice(worm),
-            Ok(S::JetPack) => CTaskWorm::set_state_raw(worm, WormState::WeaponAimed_Maybe),
+            Ok(S::JetPack) => WormEntity::set_state_raw(worm, WormState::WeaponAimed_Maybe),
             Ok(S::Armageddon) => fire_armageddon(worm),
             _ => {}
         }
@@ -390,34 +390,34 @@ pub fn can_fire_subtype16(state: u32) -> bool {
 
 // ── Pure Rust fire handlers (no bridge needed) ──────────────
 
-/// Convenience wrapper over [`crate::task::CTaskTurnGame::from_shared_data`]
+/// Convenience wrapper over [`crate::task::WorldRootEntity::from_shared_data`]
 /// for the common worm call sites.
 #[inline]
-pub unsafe fn lookup_turn_game(worm: *const CTaskWorm) -> *mut crate::task::CTaskTurnGame {
-    unsafe { crate::task::CTaskTurnGame::from_shared_data(worm as *const CTask) }
+pub unsafe fn lookup_world_root(worm: *const WormEntity) -> *mut crate::task::WorldRootEntity {
+    unsafe { crate::task::WorldRootEntity::from_shared_data(worm as *const BaseEntity) }
 }
 
-/// Send a typed message to `CTaskTurnGame` for the worm's game tree, if the
+/// Send a typed message to `WorldRootEntity` for the worm's game tree, if the
 /// SharedData lookup succeeds.
-unsafe fn send_to_turn_game<M: TaskMessageData>(worm: *mut CTaskWorm, msg: M) {
+unsafe fn send_to_world_root<M: TaskMessageData>(worm: *mut WormEntity, msg: M) {
     unsafe {
-        let team = lookup_turn_game(worm);
+        let team = lookup_world_root(worm);
         if team.is_null() {
             return;
         }
-        CTaskTurnGame::handle_typed_message_raw(team, worm, msg);
+        WorldRootEntity::handle_typed_message_raw(team, worm, msg);
     }
 }
 
 /// Surrender (subtype 13) — dispatches `TaskMessage::Surrender` to
-/// CTaskTurnGame.
+/// WorldRootEntity.
 ///
-/// TurnGame::HandleMessage (0x55DC00) delegates to CTaskTeam (0x557310) for
+/// WorldRoot::HandleMessage (0x55DC00) delegates to TeamEntity (0x557310) for
 /// the broadcast, then handles end-turn logic and surrender sound.
 #[inline(never)]
-unsafe fn fire_surrender(worm: *mut CTaskWorm) {
+unsafe fn fire_surrender(worm: *mut WormEntity) {
     unsafe {
-        send_to_turn_game(
+        send_to_world_root(
             worm,
             SurrenderMessage {
                 team_index: (*worm).team_index,
@@ -427,9 +427,9 @@ unsafe fn fire_surrender(worm: *mut CTaskWorm) {
 }
 
 /// Select Worm (subtype 21) — pure Rust replacement for 0x51EBE0.
-unsafe fn fire_select_worm(worm: *mut CTaskWorm) {
+unsafe fn fire_select_worm(worm: *mut WormEntity) {
     unsafe {
-        send_to_turn_game(
+        send_to_world_root(
             worm,
             SelectWormMessage {
                 unknown1: 8,
@@ -444,16 +444,19 @@ unsafe fn fire_select_worm(worm: *mut CTaskWorm) {
 /// Toggles a bit in the team's `TeamHeader.turn_action_flags` (+0x7C).
 /// Bit position comes from weapon entry's fire_params.
 /// In game_version > 0x1C: toggles (set/clear). Otherwise: always sets.
-unsafe fn fire_skip_go(worm: *const CTaskWorm, entry: *const WeaponEntry) {
+unsafe fn fire_skip_go(worm: *const WormEntity, entry: *const WeaponEntry) {
     unsafe {
-        let ddgame = CTask::ddgame_raw(worm as *const CTask);
-        let game_version = (*(*ddgame).game_info).game_version;
+        let world = {
+            let this = worm as *const BaseEntity;
+            (*this).world
+        };
+        let game_version = (*(*world).game_info).game_version;
         let team_index = (*worm).team_index as usize;
 
         let bit_index = ((*entry).fire_params.shot_count & 0x1F) as u32;
         let bit = 1u32 << bit_index;
 
-        let arena = &raw mut (*ddgame).team_arena;
+        let arena = &raw mut (*world).team_arena;
         let header = TeamArena::team_header_mut(arena, team_index);
         let flags = (*header).turn_action_flags;
 
@@ -467,19 +470,22 @@ unsafe fn fire_skip_go(worm: *const CTaskWorm, entry: *const WeaponEntry) {
 
 /// Freeze weapon (subtype 20) — pure Rust replacement for 0x51E600.
 ///
-/// Sends `TaskMessage::Freeze` to CTaskTurnGame, then increments
+/// Sends `TaskMessage::Freeze` to WorldRootEntity, then increments
 /// `WormEntry.turn_action_counter_Maybe` by 14 (0x0E).
-unsafe fn fire_freeze(worm: *mut CTaskWorm) {
+unsafe fn fire_freeze(worm: *mut WormEntity) {
     unsafe {
-        send_to_turn_game(
+        send_to_world_root(
             worm,
             FreezeMessage {
                 team_index: (*worm).team_index,
             },
         );
 
-        let ddgame = CTask::ddgame_raw(worm as *const CTask);
-        let arena = &raw mut (*ddgame).team_arena;
+        let world = {
+            let this = worm as *const BaseEntity;
+            (*this).world
+        };
+        let arena = &raw mut (*world).team_arena;
         let team_index = (*worm).team_index as usize;
         let worm_index = (*worm).worm_index as usize;
         let entry = TeamArena::team_worm_mut(arena, team_index, worm_index);
@@ -490,7 +496,7 @@ unsafe fn fire_freeze(worm: *mut CTaskWorm) {
 /// Mail/Mine/Mole (subtype 14) — pure Rust replacement for 0x51E670.
 ///
 /// Conditionally calls worm->vtable[0xE](0x65) based on game version and worm state,
-/// then sends message 0x28 to CTaskTurnGame, then increments
+/// then sends message 0x28 to WorldRootEntity, then increments
 /// WormEntry.turn_action_counter_Maybe by 7.
 ///
 /// Version check logic (from disassembly at 0x51E670):
@@ -499,10 +505,13 @@ unsafe fn fire_freeze(worm: *mut CTaskWorm) {
 /// - version >= 5 && worm state == 0x7D: call vtable
 /// - version >= 5 && worm state == 0x78 && version < 8: call vtable
 /// - otherwise: skip
-unsafe fn fire_mail_mine_mole(worm: *mut CTaskWorm) {
+unsafe fn fire_mail_mine_mole(worm: *mut WormEntity) {
     unsafe {
-        let ddgame = CTask::ddgame_raw(worm as *const CTask);
-        let version = (*ddgame).version_flag_4;
+        let world = {
+            let this = worm as *const BaseEntity;
+            (*this).world
+        };
+        let version = (*world).version_flag_4;
         let worm_state = (*worm).state();
 
         let should_call_vtable = version < 2
@@ -511,17 +520,17 @@ unsafe fn fire_mail_mine_mole(worm: *mut CTaskWorm) {
                     || (worm_state == WormState::WeaponAimed_Maybe as u32 && version < 8)));
 
         if should_call_vtable {
-            CTaskWorm::set_state_raw(worm, WormState::Idle);
+            WormEntity::set_state_raw(worm, WormState::Idle);
         }
 
-        send_to_turn_game(
+        send_to_world_root(
             worm,
             SkipGoOrMailMineMoleMessage {
                 team_index: (*worm).team_index,
             },
         );
 
-        let arena = &raw mut (*ddgame).team_arena;
+        let arena = &raw mut (*world).team_arena;
         let team_index = (*worm).team_index as usize;
         let worm_index = (*worm).worm_index as usize;
         let entry = TeamArena::team_worm_mut(arena, team_index, worm_index);
@@ -531,18 +540,18 @@ unsafe fn fire_mail_mine_mole(worm: *mut CTaskWorm) {
 
 /// Teleport (subtype 10) — pure Rust port of 0x51E710.
 ///
-/// If CTaskWorm+0x208 == 0: set state to AirStrikePending_Maybe.
+/// If WormEntity+0x208 == 0: set state to AirStrikePending_Maybe.
 /// Otherwise: play teleport sound (via play_worm_sound_2), spawn visual
 /// effect, update position, compute new state, clear action fields.
 ///
 /// Convention: usercall(EAX=worm, ESI=worm, EDI=worm), plain RET.
-unsafe fn fire_teleport(worm: *mut CTaskWorm) {
+unsafe fn fire_teleport(worm: *mut WormEntity) {
     unsafe {
         use crate::audio::sound_ops as sound;
         use crate::rebase::rb;
 
         if (*worm)._unknown_208 == 0 {
-            CTaskWorm::set_state_raw(worm, WormState::AirStrikePending_Maybe);
+            WormEntity::set_state_raw(worm, WormState::AirStrikePending_Maybe);
             return;
         }
 
@@ -555,23 +564,26 @@ unsafe fn fire_teleport(worm: *mut CTaskWorm) {
         call_spawn_effect(fire_x, fire_y, rb(0x547C30));
 
         // Temporarily swap fire_subtype_1 (+0x34) with _unknown_190, call position update, restore
-        let saved_subtype1 = CTaskWorm::fire_subtype_1(worm);
-        CTaskWorm::set_fire_subtype_1_raw(worm, (*worm)._unknown_190);
+        let saved_subtype1 = WormEntity::fire_subtype_1(worm);
+        WormEntity::set_fire_subtype_1_raw(worm, (*worm)._unknown_190);
         call_position_update(worm, fire_x, fire_y, rb(0x4FE070));
-        CTaskWorm::set_fire_subtype_1_raw(worm, saved_subtype1);
+        WormEntity::set_fire_subtype_1_raw(worm, saved_subtype1);
 
         // Compute new state: version < 455 → Idle (0x65), else → 0x8B
-        let ddgame = CTask::ddgame_raw(worm as *const CTask);
-        let game_version = (*(*ddgame).game_info).game_version;
+        let world = {
+            let this = worm as *const BaseEntity;
+            (*this).world
+        };
+        let game_version = (*(*world).game_info).game_version;
         let new_state = if game_version < 0x1C7 {
             WormState::Idle
         } else {
             WormState::Unknown_0x8B
         };
-        CTaskWorm::set_state_raw(worm, new_state);
+        WormEntity::set_state_raw(worm, new_state);
 
         // Clear action fields
-        CTaskWorm::set_action_field_raw(worm, 0);
+        WormEntity::set_action_field_raw(worm, 0);
         (*worm)._unknown_208 = 0;
         (*worm)._unknown_198 = 0;
         (*worm)._unknown_19c = 0;
@@ -580,29 +592,32 @@ unsafe fn fire_teleport(worm: *mut CTaskWorm) {
         // FUN_0050D450: usercall(ESI=worm), cleanup/landing check
         call_worm_landing_check(worm, rb(0x50D450));
 
-        // Debug log block (ddgame+0x8144) omitted — only writes to debug file
+        // Debug log block (world+0x8144) omitted — only writes to debug file
     }
 }
 
 /// Nuclear Test (subtype 16) — pure Rust port of 0x51EB00.
 ///
-/// Sends three messages to CTaskTurnGame: RaiseWater (0x59), NukeBlast (0x5A),
+/// Sends three messages to WorldRootEntity: RaiseWater (0x59), NukeBlast (0x5A),
 /// PoisonWorm (0x51), and plays two sounds. Gated by can_fire_subtype16.
 ///
 /// Convention: usercall(EAX=worm_state, ESI=worm, EDI=worm), plain RET.
-unsafe fn fire_nuclear_test(worm: *mut CTaskWorm) {
+unsafe fn fire_nuclear_test(worm: *mut WormEntity) {
     unsafe {
         use crate::audio::sound_ops as sound;
 
-        let ddgame = CTask::ddgame_raw(worm as *const CTask);
+        let world = {
+            let this = worm as *const BaseEntity;
+            (*this).world
+        };
         let entry = &*(*worm).active_weapon_entry;
-        let game = lookup_turn_game(worm);
+        let game = lookup_world_root(worm);
 
         if game.is_null() {
             return;
         }
 
-        CTaskTurnGame::handle_typed_message_raw(
+        WorldRootEntity::handle_typed_message_raw(
             game,
             worm,
             RaiseWaterMessage {
@@ -611,17 +626,17 @@ unsafe fn fire_nuclear_test(worm: *mut CTaskWorm) {
             },
         );
 
-        CTaskTurnGame::handle_typed_message_raw(game, worm, NukeBlastMessage { unknown1: 8 });
+        WorldRootEntity::handle_typed_message_raw(game, worm, NukeBlastMessage { unknown1: 8 });
 
         sound::queue_sound(
-            ddgame,
+            world,
             KnownSoundId::IndianAnthem.into(),
             8,
             Fixed::ONE,
             Fixed::ONE,
         );
 
-        CTaskTurnGame::handle_typed_message_raw(
+        WorldRootEntity::handle_typed_message_raw(
             game,
             worm,
             PoisonWormMessage {
@@ -633,7 +648,7 @@ unsafe fn fire_nuclear_test(worm: *mut CTaskWorm) {
 
         // PlaySoundGlobal(NukeFlash, 5, 0x10000, 0x10000)
         sound::queue_sound(
-            ddgame,
+            world,
             KnownSoundId::NukeFlash.into(),
             5,
             Fixed::ONE,
@@ -666,7 +681,7 @@ unsafe extern "C" fn call_spawn_effect(_x: i32, _y: i32, _addr: u32) {
 
 /// Bridge: FUN_004FE070 — usercall(ESI=worm, EDI=y) + stdcall(x). Plain RET.
 #[unsafe(naked)]
-unsafe extern "C" fn call_position_update(_worm: *mut CTaskWorm, _x: i32, _y: i32, _addr: u32) {
+unsafe extern "C" fn call_position_update(_worm: *mut WormEntity, _x: i32, _y: i32, _addr: u32) {
     core::arch::naked_asm!(
         "push ebx",
         "push esi",
@@ -686,7 +701,7 @@ unsafe extern "C" fn call_position_update(_worm: *mut CTaskWorm, _x: i32, _y: i3
 
 /// Bridge: FUN_0050D450 — usercall(ESI=worm). Plain RET.
 #[unsafe(naked)]
-unsafe extern "C" fn call_worm_landing_check(_worm: *mut CTaskWorm, _addr: u32) {
+unsafe extern "C" fn call_worm_landing_check(_worm: *mut WormEntity, _addr: u32) {
     core::arch::naked_asm!(
         "push esi",
         "mov esi, [esp+8]", // worm (1 save + ret = 8)
@@ -698,23 +713,26 @@ unsafe extern "C" fn call_worm_landing_check(_worm: *mut CTaskWorm, _addr: u32) 
 
 /// Scales of Justice (subtype 22) — pure Rust port of 0x51EC30.
 ///
-/// Sends message 0x5E to CTaskTurnGame, then plays a sound.
+/// Sends message 0x5E to WorldRootEntity, then plays a sound.
 /// Convention: usercall(EAX=entry, ESI=worm, EDI=worm), plain RET.
-unsafe fn fire_scales_of_justice(worm: *mut CTaskWorm) {
+unsafe fn fire_scales_of_justice(worm: *mut WormEntity) {
     unsafe {
         use crate::rebase::rb;
 
-        // Send message 0x5E to CTaskTurnGame
-        let game = lookup_turn_game(worm);
+        // Send message 0x5E to WorldRootEntity
+        let game = lookup_world_root(worm);
         if !game.is_null() {
-            CTaskTurnGame::handle_typed_message_raw(game, worm, ScalesOfJusticeMessage);
+            WorldRootEntity::handle_typed_message_raw(game, worm, ScalesOfJusticeMessage);
         }
 
         // Play jet pack sound:
         // FUN_0053EC70: usercall(EDI=0x6CB) + stdcall(timer_obj)
         // FUN_005480F0: usercall(EAX=-21) + stdcall(worm, result, 0x17, &worm_name)
-        let ddgame = CTask::ddgame_raw(worm as *const CTask);
-        let sound_val = call_get_sound_val((*ddgame).timer_obj, rb(0x53EC70));
+        let world = {
+            let this = worm as *const BaseEntity;
+            (*this).world
+        };
+        let sound_val = call_get_sound_val((*world).timer_obj, rb(0x53EC70));
         call_play_sound_usercall(
             worm,
             sound_val,
@@ -745,7 +763,7 @@ unsafe extern "C" fn call_get_sound_val(_timer_obj: *mut u8, _addr: u32) -> u32 
 /// Bridge: usercall(EAX=-21) + stdcall(4 params). Plain RET (callee doesn't clean).
 #[unsafe(naked)]
 unsafe extern "C" fn call_play_sound_usercall(
-    _worm: *mut CTaskWorm,
+    _worm: *mut WormEntity,
     _sound_val: u32,
     _param3: u32,
     _name: *const u8,
@@ -768,15 +786,15 @@ unsafe extern "C" fn call_play_sound_usercall(
 
 /// Armageddon (subtype 24) — pure Rust port of 0x51EA60.
 ///
-/// Sends message 0x5B to CTaskTurnGame with weapon/team info, then conditionally
+/// Sends message 0x5B to WorldRootEntity with weapon/team info, then conditionally
 /// sets a gravity center point via FUN_00547E70.
 /// Convention: usercall(EAX=entry, ESI=worm, EDI=worm), plain RET.
 ///
-unsafe fn fire_armageddon(worm: *mut CTaskWorm) {
+unsafe fn fire_armageddon(worm: *mut WormEntity) {
     unsafe {
         use crate::rebase::rb;
 
-        // Send message 0x5B (Armageddon) to CTaskTurnGame with weapon info buffer.
+        // Send message 0x5B (Armageddon) to WorldRootEntity with weapon info buffer.
         //
         // The original allocates a 0x410-byte stack buffer, writes fields at offsets
         // 0x04/0x08/0x0C/0x10 from the buffer base, then passes (buffer_base + 4)
@@ -784,9 +802,9 @@ unsafe fn fire_armageddon(worm: *mut CTaskWorm) {
         // was cleaned by the SharedData lookup). So HandleMessage sees:
         //   data[0x00] = 100 (0x64), data[0x04] = 166 (0xA6),
         //   data[0x08] = weapon_id,  data[0x0C] = team_index
-        let team = lookup_turn_game(worm);
+        let team = lookup_world_root(worm);
         if !team.is_null() {
-            CTaskTurnGame::handle_typed_message_raw(
+            WorldRootEntity::handle_typed_message_raw(
                 team,
                 worm,
                 ArmageddonMessage {
@@ -798,15 +816,18 @@ unsafe fn fire_armageddon(worm: *mut CTaskWorm) {
             );
         }
 
-        // Re-read DDGame AFTER HandleMessage — the original does this (MOV EAX,[ESI+0x2C]
+        // Re-read GameWorld AFTER HandleMessage — the original does this (MOV EAX,[ESI+0x2C]
         // at 0x51EAB0 is after the CALL), and HandleMessage may modify game state.
-        let ddgame = CTask::ddgame_raw(worm as *const CTask);
-        let game_version = (*(*ddgame).game_info).game_version;
+        let world = {
+            let this = worm as *const BaseEntity;
+            (*this).world
+        };
+        let game_version = (*(*world).game_info).game_version;
 
         // If old game version or worm state 0x69, set gravity center
         if game_version < 0x50 || (*worm).is_in_state(WormState::Unknown_0x69) {
-            let level_w = (*ddgame).level_width as i32;
-            let level_h = (*ddgame).level_height as i32;
+            let level_w = (*world).level_width as i32;
+            let level_h = (*world).level_height as i32;
             // SHL 16; CDQ; SUB EAX,EDX; SAR 1 — round-toward-zero divide by 2
             let half_x = ((level_w << 16) + (if level_w < 0 { 1 } else { 0 })) >> 1;
             let half_y = ((level_h << 16) + (if level_h < 0 { 1 } else { 0 })) >> 1;
@@ -819,7 +840,7 @@ unsafe fn fire_armageddon(worm: *mut CTaskWorm) {
 /// Bridge: usercall(ECX=half_x, EDX=half_y) + stdcall(worm), RET 0x4.
 #[unsafe(naked)]
 unsafe extern "C" fn call_set_gravity_center(
-    _worm: *mut CTaskWorm,
+    _worm: *mut WormEntity,
     _half_x: i32,
     _half_y: i32,
     _addr: u32,
@@ -839,13 +860,13 @@ unsafe extern "C" fn call_set_gravity_center(
 
 /// DragonBall (type 4 subtype 3) — pure Rust port of 0x51E350.
 ///
-/// Allocates a CTaskGirder (0xA4 bytes), copies 7 DWORDs from fire_params
+/// Allocates a GirderEntity (0xA4 bytes), copies 7 DWORDs from fire_params
 /// as constructor arguments, and calls the constructor. The constructor handles
 /// actually placing the girder on the landscape.
 ///
 /// Convention: stdcall(worm, fire_params, local_struct), RET 0xC.
 unsafe fn fire_dragon_ball(
-    worm: *mut CTaskWorm,
+    worm: *mut WormEntity,
     fire_params: *const WeaponFireParams,
     local_struct: *const u8,
 ) {
@@ -855,17 +876,17 @@ unsafe fn fire_dragon_ball(
         use crate::wa_alloc::wa_malloc;
 
         // Look up parent task via SharedData (same key as CreateWeaponProjectile)
-        let table = SharedDataTable::from_task(worm as *const CTask);
+        let table = SharedDataTable::from_task(worm as *const BaseEntity);
         let parent = table.lookup(0, 0x19);
 
-        // Allocate CTaskGirder (0xA4 bytes), zero first 0x84
+        // Allocate GirderEntity (0xA4 bytes), zero first 0x84
         let buffer = wa_malloc(0xA4);
         if buffer.is_null() {
             return;
         }
         core::ptr::write_bytes(buffer, 0, 0x84);
 
-        // CTaskGirder::Constructor — usercall(EAX=parent) +
+        // GirderEntity::Constructor — usercall(EAX=parent) +
         // stdcall(this, 7×fire_param DWORDs, local_struct), RET 0x24.
         // Copy 7 DWORDs from fire_params onto the stack via the naked bridge.
         call_girder_ctor(
@@ -878,7 +899,7 @@ unsafe fn fire_dragon_ball(
     }
 }
 
-/// Bridge: CTaskGirder::Constructor — usercall(EAX=parent) +
+/// Bridge: GirderEntity::Constructor — usercall(EAX=parent) +
 /// stdcall(this, 7 DWORDs from fire_params, local_struct), RET 0x24.
 ///
 /// The original copies 7 DWORDs from fire_params onto the stack via REP MOVSD.
@@ -922,17 +943,20 @@ unsafe extern "C" fn call_girder_ctor(
 ///
 /// Plays a sound, optionally creates a visual overlay on the
 /// landscape and increments worm counters. The visual/counter path only runs
-/// when CTaskWorm+0x2EC (weapon_param_3) is nonzero.
+/// when WormEntity+0x2EC (weapon_param_3) is nonzero.
 ///
 /// Convention: usercall(EAX=worm, ESI=worm, EDI=worm), plain RET.
-unsafe fn fire_girder(worm: *mut CTaskWorm) {
+unsafe fn fire_girder(worm: *mut WormEntity) {
     unsafe {
         use crate::audio::sound_ops as sound;
 
-        let ddgame = CTask::ddgame_raw(worm as *const CTask);
-        let game_version = (*(*ddgame).game_info).game_version;
+        let world = {
+            let this = worm as *const BaseEntity;
+            (*this).world
+        };
+        let game_version = (*(*world).game_info).game_version;
 
-        // Read girder position and sprite index from CTaskWorm fields
+        // Read girder position and sprite index from WormEntity fields
         let girder_x = (*worm).weapon_param_1;
         let girder_y = (*worm).weapon_param_2;
         let girder_sprite = (*worm).weapon_param_3;
@@ -945,8 +969,7 @@ unsafe fn fire_girder(worm: *mut CTaskWorm) {
         };
 
         // Queue sound and set position to the girder location (local sound)
-        if let Some(entry) =
-            sound::queue_sound(ddgame, SoundId(sound_id), 3, Fixed::ONE, Fixed::ONE)
+        if let Some(entry) = sound::queue_sound(world, SoundId(sound_id), 3, Fixed::ONE, Fixed::ONE)
         {
             (*entry).is_local = 1;
             (*entry).pos_x = girder_x as u32;
@@ -956,16 +979,16 @@ unsafe fn fire_girder(worm: *mut CTaskWorm) {
         // If girder has a sprite, apply the visual overlay and update counters
         if girder_sprite != 0 {
             // Call Landscape vtable[5] to create girder overlay
-            let landscape = (*ddgame).landscape as *mut u8;
+            let landscape = (*world).landscape as *mut u8;
             let landscape_vt = *(landscape as *const *const usize);
             let girder_visual: unsafe extern "thiscall" fn(*mut u8, i32, i32, *mut u8, *mut u8) =
                 core::mem::transmute(*landscape_vt.add(5));
-            let sprite1 = (*ddgame).sprite_cache_2[girder_sprite as usize];
-            let sprite2 = (*ddgame).sprite_cache_2[19 + girder_sprite as usize];
+            let sprite1 = (*world).sprite_cache_2[girder_sprite as usize];
+            let sprite2 = (*world).sprite_cache_2[19 + girder_sprite as usize];
             girder_visual(landscape, girder_x >> 16, girder_y >> 16, sprite1, sprite2);
 
             // Increment WormEntry counters
-            let arena = &raw mut (*ddgame).team_arena;
+            let arena = &raw mut (*world).team_arena;
             let team_index = (*worm).team_index as usize;
             let worm_index = (*worm).worm_index as usize;
             let entry = TeamArena::team_worm_mut(arena, team_index, worm_index);
@@ -984,7 +1007,7 @@ unsafe fn fire_girder(worm: *mut CTaskWorm) {
 /// a directional area from the worm's position.
 #[allow(clippy::too_many_arguments)]
 unsafe fn call_special_impact(
-    worm: *mut CTaskWorm,
+    worm: *mut WormEntity,
     x: i32,
     y: i32,
     radius_x: i32,
@@ -1001,7 +1024,7 @@ unsafe fn call_special_impact(
     unsafe {
         use crate::rebase::rb;
         type SpecialImpactFn = unsafe extern "stdcall" fn(
-            *mut CTaskWorm,
+            *mut WormEntity,
             i32,
             i32,
             i32,
@@ -1055,10 +1078,13 @@ fn special_impact_version_flags(base: u32, version: u8) -> u32 {
 /// Calls SpecialImpact with facing-offset position and scaled direction.
 /// The original is usercall(ECX=local_struct, ESI=worm) — the old bridge
 /// did not set ECX, so this port also fixes a latent bug.
-unsafe fn fire_drill(worm: *mut CTaskWorm, local_struct: *const u8) {
+unsafe fn fire_drill(worm: *mut WormEntity, local_struct: *const u8) {
     unsafe {
-        let ddgame = CTask::ddgame_raw(worm as *const CTask);
-        let version = (*ddgame).version_flag_4;
+        let world = {
+            let this = worm as *const BaseEntity;
+            (*this).world
+        };
+        let version = (*world).version_flag_4;
         let entry = &*(*worm).active_weapon_entry;
         let shot_count = entry.fire_params.shot_count;
         let weapon_type = entry.fire_method;
@@ -1095,12 +1121,15 @@ unsafe fn fire_drill(worm: *mut CTaskWorm, local_struct: *const u8) {
 ///
 /// Like Drill but with trig interpolation on the spread angle.
 /// Convention: usercall(EDI=worm) + 1 stack param (local_struct), RET 0x4.
-unsafe fn fire_prod(worm: *mut CTaskWorm, local_struct: *const u8) {
+unsafe fn fire_prod(worm: *mut WormEntity, local_struct: *const u8) {
     unsafe {
         use crate::rebase::rb;
 
-        let ddgame = CTask::ddgame_raw(worm as *const CTask);
-        let version = (*ddgame).version_flag_4;
+        let world = {
+            let this = worm as *const BaseEntity;
+            (*this).world
+        };
+        let version = (*world).version_flag_4;
         let entry = &*(*worm).active_weapon_entry;
         let shot_count = entry.fire_params.shot_count;
         let spread = entry.fire_params.spread;
@@ -1164,7 +1193,7 @@ unsafe fn fire_prod(worm: *mut CTaskWorm, local_struct: *const u8) {
 #[unsafe(naked)]
 unsafe extern "C" fn call_projectile_fire_single(
     _spawn_data: *const WeaponSpawnData,
-    _worm: *mut CTaskWorm,
+    _worm: *mut WormEntity,
     _fire_params: *const WeaponFireParams,
     _addr: u32,
 ) {
@@ -1185,7 +1214,7 @@ unsafe extern "C" fn call_projectile_fire_single(
     );
 }
 
-/// Bridge: CTaskMissile::Constructor — thiscall(ECX=this, parent, fire_params, spawn_data), RET 0xC.
+/// Bridge: MissileEntity::Constructor — thiscall(ECX=this, parent, fire_params, spawn_data), RET 0xC.
 /// Args: (this, parent, fire_params, spawn_data, ctor_addr).
 #[unsafe(naked)]
 unsafe extern "C" fn call_missile_ctor(
@@ -1217,10 +1246,10 @@ unsafe extern "C" fn call_missile_ctor(
 
 /// Rust implementation of CreateWeaponProjectile.
 ///
-/// Original: 0x51E0F0. Allocates CTaskMissile (0x40C bytes), looks up
-/// parent CTaskTurnGame via SharedData, calls the original constructor.
+/// Original: 0x51E0F0. Allocates MissileEntity (0x40C bytes), looks up
+/// parent WorldRootEntity via SharedData, calls the original constructor.
 pub unsafe fn create_weapon_projectile(
-    worm: *mut CTaskWorm,
+    worm: *mut WormEntity,
     fire_params: *const WeaponFireParams,
     local_struct: *const u8,
 ) {
@@ -1229,19 +1258,22 @@ pub unsafe fn create_weapon_projectile(
         use crate::task::SharedDataTable;
         use crate::wa_alloc::wa_malloc;
 
-        let ddgame = &mut *CTask::ddgame_raw(worm as *const CTask);
+        let world = &mut *{
+            let this = worm as *const BaseEntity;
+            (*this).world
+        };
 
         // Pool capacity check: pool_count + 7 must be <= 700
-        if ddgame.object_pool_count + 7 > 700 {
-            ddgame.show_pool_overflow_warning();
+        if world.object_pool_count + 7 > 700 {
+            world.show_pool_overflow_warning();
             return;
         }
 
-        // Look up parent CTaskTurnGame via SharedData (key_esi=0, key_edi=0x19)
-        let table = SharedDataTable::from_task(worm as *const CTask);
+        // Look up parent WorldRootEntity via SharedData (key_esi=0, key_edi=0x19)
+        let table = SharedDataTable::from_task(worm as *const BaseEntity);
         let parent = table.lookup(0, 0x19);
 
-        // Allocate CTaskMissile (0x40C bytes)
+        // Allocate MissileEntity (0x40C bytes)
         let buffer = wa_malloc(0x40C);
         if buffer.is_null() {
             return;
@@ -1250,14 +1282,14 @@ pub unsafe fn create_weapon_projectile(
         // Zero bytes 0x00..0x3EC (the original only zeros 0x3EC of 0x40C)
         core::ptr::write_bytes(buffer, 0, 0x3EC);
 
-        // Call original CTaskMissile::Constructor
+        // Call original MissileEntity::Constructor
         // thiscall(ECX=buffer, parent, fire_params, local_struct), RET 0xC
         call_missile_ctor(
             buffer,
             parent,
             fire_params,
             local_struct,
-            rb(va::CTASK_MISSILE_CTOR),
+            rb(va::MISSILE_ENTITY_CTOR),
         );
 
         let _ = log_line(&format!(
@@ -1279,7 +1311,7 @@ pub unsafe fn create_weapon_projectile(
 ///    e. Write rotated velocity into local spawn data
 ///    f. Call ProjectileFire_Single(loop_counter, fire_params) with EDI=spawn_data
 pub unsafe fn projectile_fire(
-    worm: *mut CTaskWorm,
+    worm: *mut WormEntity,
     fire_params: *const WeaponFireParams,
     local_struct: *const WeaponSpawnData,
 ) {
@@ -1304,11 +1336,14 @@ pub unsafe fn projectile_fire(
         let sin_table = rb(va::SIN_TABLE) as *const i32;
         let cos_table = sin_table.add(256); // cos = sin offset by 256 entries (quarter turn)
 
-        let ddgame = &mut *CTask::ddgame_raw(worm as *const CTask);
+        let world = &mut *{
+            let this = worm as *const BaseEntity;
+            (*this).world
+        };
 
         for _i in 0..shot_count {
             // Advance game RNG (same LCG as ADVANCE_GAME_RNG at 0x53F320)
-            let rng = ddgame.advance_rng();
+            let rng = world.advance_rng();
 
             // Compute spread angle: ((rng_low16 - 0x8000) * spread_param) / 360
             // _fp_04 field is polymorphic — for ProjectileFire it holds spread angle
@@ -1368,10 +1403,10 @@ fn fixed_mul(a: i32, b: i32) -> i32 {
 
 /// Rust implementation of CreateArrow (0x51ED90).
 ///
-/// Allocates a CTaskArrow (0x168 bytes), calls the original stdcall constructor.
+/// Allocates a ArrowEntity (0x168 bytes), calls the original stdcall constructor.
 /// Used by Shotgun and Longbow.
 pub unsafe fn create_arrow(
-    worm: *mut CTaskWorm,
+    worm: *mut WormEntity,
     fire_params: *const WeaponFireParams,
     local_struct: *const u8,
 ) {
@@ -1380,28 +1415,31 @@ pub unsafe fn create_arrow(
         use crate::task::SharedDataTable;
         use crate::wa_alloc::wa_malloc;
 
-        let ddgame = &mut *CTask::ddgame_raw(worm as *const CTask);
+        let world = &mut *{
+            let this = worm as *const BaseEntity;
+            (*this).world
+        };
 
         // Pool capacity check: pool_count + 2 must be <= 700
-        if ddgame.object_pool_count + 2 > 700 {
-            ddgame.show_pool_overflow_warning();
+        if world.object_pool_count + 2 > 700 {
+            world.show_pool_overflow_warning();
             return;
         }
 
-        // Look up parent CTaskTurnGame via SharedData (key 0, 0x19)
-        let table = SharedDataTable::from_task(worm as *const CTask);
+        // Look up parent WorldRootEntity via SharedData (key 0, 0x19)
+        let table = SharedDataTable::from_task(worm as *const BaseEntity);
         let parent = table.lookup(0, 0x19);
 
-        // Allocate CTaskArrow (0x168 bytes)
+        // Allocate ArrowEntity (0x168 bytes)
         let buffer = wa_malloc(0x168);
         if buffer.is_null() {
             return;
         }
         core::ptr::write_bytes(buffer, 0, 0x148);
 
-        // CTaskArrow::Constructor — stdcall(this, parent, fire_params, local_struct), RET 0x10
+        // ArrowEntity::Constructor — stdcall(this, parent, fire_params, local_struct), RET 0x10
         let ctor: unsafe extern "stdcall" fn(*mut u8, *mut u8, *const WeaponFireParams, *const u8) =
-            core::mem::transmute(rb(va::CTASK_ARROW_CTOR));
+            core::mem::transmute(rb(va::ARROW_ENTITY_CTOR));
         ctor(buffer, parent as *mut u8, fire_params, local_struct);
 
         let _ = log_line(&format!(

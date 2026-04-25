@@ -1,31 +1,34 @@
-use super::base::CTask;
-use super::game_task::CGameTask;
+use super::base::BaseEntity;
+use super::game_task::WorldEntity;
 use crate::FieldRegistry;
 
 crate::define_addresses! {
-    class "CTaskCrate" {
-        /// CTaskCrate vtable - weapon/health/utility crate
-        vtable CTASK_CRATE_VTABLE = 0x00664298;
-        ctor CTASK_CRATE_CTOR = 0x00502490;
+    class "CrateEntity" {
+        ctor CRATE_ENTITY_CTOR = 0x00502490;
     }
 }
 
-#[openwa_game::vtable(size = 12, va = 0x00664298, class = "CTaskCrate")]
-pub struct CTaskCrateVTable {
+#[openwa_game::vtable(size = 12, va = 0x00664298, class = "CrateEntity")]
+pub struct CrateEntityVtable {
     /// HandleMessage — processes crate messages (collection, parachute, etc.).
     /// thiscall + 4 stack params, RET 0x10.
     #[slot(2)]
-    pub handle_message:
-        fn(this: *mut CTaskCrate, sender: *mut CTask, msg_type: u32, size: u32, data: *const u8),
+    pub handle_message: fn(
+        this: *mut CrateEntity,
+        sender: *mut BaseEntity,
+        msg_type: u32,
+        size: u32,
+        data: *const u8,
+    ),
     /// ProcessFrame — per-frame crate update.
     /// thiscall + 1 stack param (flags), RET 0x4.
     #[slot(7)]
-    pub process_frame: fn(this: *mut CTaskCrate, flags: u32),
+    pub process_frame: fn(this: *mut CrateEntity, flags: u32),
 }
 
 /// Weapon/health/utility crate entity task.
 ///
-/// Extends CGameTask (0xFC bytes). Crates fall from the sky with a parachute,
+/// Extends WorldEntity (0xFC bytes). Crates fall from the sky with a parachute,
 /// land on terrain, and are collected by worms on contact. Can contain weapons,
 /// health, or utility items depending on crate type.
 ///
@@ -35,15 +38,15 @@ pub struct CTaskCrateVTable {
 /// The constructor copies 0xE5 DWORDs (0x394 bytes) of scheme/crate data from
 /// param_3 into offset 0x110, making the crate carry its full configuration.
 ///
-/// Source: Ghidra decompilation of 0x502490, wkJellyWorm CTaskCrate.h
+/// Source: Ghidra decompilation of 0x502490, wkJellyWorm CrateEntity.h
 #[derive(FieldRegistry)]
 #[repr(C)]
-pub struct CTaskCrate {
-    /// 0x00–0xFB: CGameTask base (pos at 0x84/0x88, speed at 0x90/0x94)
-    pub base: CGameTask<*const CTaskCrateVTable>,
+pub struct CrateEntity {
+    /// 0x00–0xFB: WorldEntity base (pos at 0x84/0x88, speed at 0x90/0x94)
+    pub base: WorldEntity<*const CrateEntityVtable>,
     /// 0xFC: Unknown (zeroed by constructor)
     pub _unknown_fc: u32,
-    /// 0x100: Object pool slot index (assigned from DDGame+0x3600 pool)
+    /// 0x100: Object pool slot index (assigned from GameWorld+0x3600 pool)
     pub slot_id: u32,
     /// 0x104: Unknown (zeroed by constructor)
     pub _unknown_104: u32,
@@ -64,13 +67,13 @@ pub struct CTaskCrate {
     pub scheme_data: [u32; 0xE5],
     /// 0x4A4: Unknown (zeroed by constructor)
     pub _unknown_4a4: u32,
-    /// 0x4A8: Sequence/reference index (-1 = none; set conditionally from DDGame+0x51C)
+    /// 0x4A8: Sequence/reference index (-1 = none; set conditionally from GameWorld+0x51C)
     pub sequence_ref: i32,
     /// 0x4AC: Unknown (zeroed by constructor as param_1[299])
     pub _unknown_4ac: u32,
 }
 
-const _: () = assert!(core::mem::size_of::<CTaskCrate>() == 0x4B0);
+const _: () = assert!(core::mem::size_of::<CrateEntity>() == 0x4B0);
 
 // Generate typed vtable method wrappers: handle_message(), process_frame().
-bind_CTaskCrateVTable!(CTaskCrate, base.base.vtable);
+bind_CrateEntityVtable!(CrateEntity, base.base.vtable);

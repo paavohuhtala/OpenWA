@@ -1,4 +1,4 @@
-//! CTaskMissile::OnContact port (vtable slot 8, 0x00508C90).
+//! MissileEntity::OnContact port (vtable slot 8, 0x00508C90).
 //!
 //! Called when a missile contacts another entity (terrain, worm, object).
 //! Dispatches per missile type:
@@ -9,21 +9,21 @@
 //!   or side-match, terminate via slot-14.
 //!
 //! All paths reaching the generic "impact" tail play an impact sound, call
-//! `CGameTask::OnContact` (base impl) to transfer damage/forces to `other`, and
+//! `WorldEntity::OnContact` (base impl) to transfer damage/forces to `other`, and
 //! conditionally spawn explosions or fire-particle effects.
 //!
-//! Bridges out to WA.exe for: `CGameTask::vt8`, `PlayImpactSound_Maybe`,
-//! `CTaskMissile::HomingTargetCheck_Maybe`, `CTaskMissile::ImpactSpecialFx_Maybe`,
+//! Bridges out to WA.exe for: `WorldEntity::vt8`, `PlayImpactSound_Maybe`,
+//! `MissileEntity::HomingTargetCheck_Maybe`, `MissileEntity::ImpactSpecialFx_Maybe`,
 //! the `CreateExplosion` damage-jitter helper `FUN_00547CB0`, and the slot-14
 //! terminator on self. `CreateExplosion` itself is the pure-Rust
-//! `game::create_explosion`. RNG advances use the Rust `DDGame::advance_rng`.
+//! `game::create_explosion`. RNG advances use the Rust `GameWorld::advance_rng`.
 
 use openwa_core::fixed::Fixed;
 
 use crate::game::create_explosion::create_explosion;
 use crate::rebase::rb;
-use crate::task::CTask;
-use crate::task::missile::{CTaskMissile, MissileType};
+use crate::task::BaseEntity;
+use crate::task::missile::{MissileEntity, MissileType};
 use core::ffi::c_void;
 
 // Ghidra VAs for the WA helpers we bridge to.
@@ -33,31 +33,31 @@ const VA_CGAME_TASK_VT8: u32 = 0x004FFED0;
 const VA_IMPACT_SPECIAL_FX: u32 = 0x00509BA0;
 const VA_EXPLOSION_DAMAGE_JITTER: u32 = 0x00547CB0;
 
-/// CGameTask subclass-data offsets (inside `CGameTask::subclass_data[0..0x54]`)
-/// that CTaskMissile::OnContact touches directly. These live in the base class's
-/// opaque region rather than in `CTaskMissile`'s own fields. The terminate-flag
+/// WorldEntity subclass-data offsets (inside `WorldEntity::subclass_data[0..0x54]`)
+/// that MissileEntity::OnContact touches directly. These live in the base class's
+/// opaque region rather than in `MissileEntity`'s own fields. The terminate-flag
 /// field (+0x44) is written only by slot-14 dispatch, so we do not touch it
 /// directly here.
 const OFFSET_ACTION_FLAG: usize = 0x3C;
 const OFFSET_SHEEP_STATE_FLAG: usize = 0x48;
 
-/// Read/write a u32 field in the CTaskMissile struct by absolute byte offset.
+/// Read/write a u32 field in the MissileEntity struct by absolute byte offset.
 #[inline]
-unsafe fn field_u32_mut(this: *mut CTaskMissile, byte_offset: usize) -> *mut u32 {
+unsafe fn field_u32_mut(this: *mut MissileEntity, byte_offset: usize) -> *mut u32 {
     unsafe { (this as *mut u8).add(byte_offset) as *mut u32 }
 }
 
-/// `CTaskMissile::OnContact` — pure-Rust port of 0x00508C90 (vtable slot 8).
+/// `MissileEntity::OnContact` — pure-Rust port of 0x00508C90 (vtable slot 8).
 ///
 /// Argument layout mirrors the original:
 /// - `this` — missile.
-/// - `other` — the entity we contacted (any CTask subclass).
+/// - `other` — the entity we contacted (any BaseEntity subclass).
 /// - `self_side_flags` — index (0..31) of the missile-local side/face that hit.
 ///   The caller (physics/collision) supplies this; `other->+0x30` supplies the
 ///   mirror-image face index on `other`'s side.
 pub unsafe extern "thiscall" fn missile_on_contact(
-    this: *mut CTaskMissile,
-    other: *mut CTask,
+    this: *mut MissileEntity,
+    other: *mut BaseEntity,
     self_side_flags: u32,
 ) -> u32 {
     unsafe {
@@ -74,7 +74,7 @@ pub unsafe extern "thiscall" fn missile_on_contact(
 
         // Read other's contact face (low 5 bits used as a shift count via
         // `SHL reg, CL` which implicitly masks CL with 0x1F).
-        let other_face_idx = CTask::contact_face_slot_raw(other) & 0x1F;
+        let other_face_idx = BaseEntity::contact_face_slot_raw(other) & 0x1F;
         let other_face_bit = 1u32 << other_face_idx;
 
         let missile_type = (*this).missile_type;
@@ -149,12 +149,15 @@ pub unsafe extern "thiscall" fn missile_on_contact(
                 (*this).ricochet_counter = new_counter;
                 if (new_counter as i32) < 1 {
                     *field_u32_mut(this, OFFSET_ACTION_FLAG) = 0;
-                    CTaskMissile::set_terminate_flag_raw(this, 1);
+                    MissileEntity::set_terminate_flag_raw(this, 1);
                     return 1;
                 }
             }
-            let ddgame = CTask::ddgame_raw(this as *const CTask);
-            let rng = (*ddgame).advance_rng();
+            let world = {
+                let this = this as *const BaseEntity;
+                (*this).world
+            };
+            let rng = (*world).advance_rng();
             if ((rng & 0x3FF) % 100) < (*this).ricochet_chance_pct {
                 // WA trick: NEG speed_x; if result signed (original speed_x > 0),
                 // subtract |speed_y|, else add |speed_y|. speed_y is preserved.
@@ -170,7 +173,7 @@ pub unsafe extern "thiscall" fn missile_on_contact(
         }
 
         // ---------------------------------------------------------------
-        // 6. Impact tail: impact sound + base CGameTask::OnContact + optional
+        // 6. Impact tail: impact sound + base WorldEntity::OnContact + optional
         //    explosion / fire-particle spawn.
         // ---------------------------------------------------------------
         let post_speed_x = (*this).base.speed_x.0;
@@ -209,7 +212,7 @@ pub unsafe extern "thiscall" fn missile_on_contact(
             create_explosion(
                 pos_x,
                 pos_y,
-                this as *mut CTask,
+                this as *mut BaseEntity,
                 (*this).explosion_id,
                 damage,
                 0,
@@ -222,8 +225,11 @@ pub unsafe extern "thiscall" fn missile_on_contact(
         //    side is left/right (2 or 4), set direction from sign of speed_x.
         // ---------------------------------------------------------------
         if missile_type == MissileType::Homing {
-            let ddgame = CTask::ddgame_raw(this as *const CTask);
-            let rng = (*ddgame).advance_rng();
+            let world = {
+                let this = this as *const BaseEntity;
+                (*this).world
+            };
+            let rng = (*world).advance_rng();
             if (rng & 0xF0000000) == 0 && (self_side_flags == 4 || self_side_flags == 2) {
                 (*this).direction = if post_speed_x >= 0 { 1 } else { -1 };
             }
@@ -236,10 +242,10 @@ pub unsafe extern "thiscall" fn missile_on_contact(
 /// pre-terminator speed so downstream code (cluster spawn, splatter, etc.) can
 /// read the missile's terminal velocity.
 #[inline]
-unsafe fn terminator_bailout_stash(this: *mut CTaskMissile, speed_x: Fixed, speed_y: Fixed) {
+unsafe fn terminator_bailout_stash(this: *mut MissileEntity, speed_x: Fixed, speed_y: Fixed) {
     unsafe {
         *field_u32_mut(this, OFFSET_ACTION_FLAG) = 0;
-        CTaskMissile::set_terminate_flag_raw(this, 1);
+        MissileEntity::set_terminate_flag_raw(this, 1);
         (*this).terminate_stash_speed_x = speed_x;
         (*this).terminate_stash_speed_y = speed_y;
     }
@@ -251,7 +257,7 @@ unsafe fn terminator_bailout_stash(this: *mut CTaskMissile, speed_x: Fixed, spee
 
 /// Bridge: `PlayImpactSound_Maybe` (0x004FF020) — usercall: EDI = this,
 /// stack = [sound_id, mag]. The target reads `[EDI+0xE0]` as the emitter
-/// pointer and `[EDI+0x2C]` as the ddgame pointer.
+/// pointer and `[EDI+0x2C]` as the world pointer.
 #[unsafe(naked)]
 unsafe extern "C" fn play_impact_sound(_this: *mut c_void, _sound_id: u32, _mag: u32, _addr: u32) {
     core::arch::naked_asm!(
@@ -269,11 +275,11 @@ unsafe extern "C" fn play_impact_sound(_this: *mut c_void, _sound_id: u32, _mag:
     );
 }
 
-/// Bridge: `CGameTask::vt8` (0x004FFED0) — plain thiscall(this, other, side_flags).
+/// Bridge: `WorldEntity::vt8` (0x004FFED0) — plain thiscall(this, other, side_flags).
 #[unsafe(naked)]
 unsafe extern "C" fn cgametask_on_contact_base(
-    _this: *mut CTaskMissile,
-    _other: *mut CTask,
+    _this: *mut MissileEntity,
+    _other: *mut BaseEntity,
     _side_flags: u32,
     _addr: u32,
 ) {
@@ -290,7 +296,7 @@ unsafe extern "C" fn cgametask_on_contact_base(
     );
 }
 
-/// Bridge: `CTaskMissile::HomingTargetCheck_Maybe` (0x005018F0) — usercall:
+/// Bridge: `MissileEntity::HomingTargetCheck_Maybe` (0x005018F0) — usercall:
 /// ECX = pos_x, EAX = pos_y + 1.0 (Fixed), stack = [this]. Returns EAX.
 #[unsafe(naked)]
 unsafe extern "C" fn homing_target_check(
@@ -312,7 +318,7 @@ unsafe extern "C" fn homing_target_check(
     );
 }
 
-/// Bridge: `CTaskMissile::ImpactSpecialFx_Maybe` (0x00509BA0) — usercall:
+/// Bridge: `MissileEntity::ImpactSpecialFx_Maybe` (0x00509BA0) — usercall:
 /// EDI = this, stack = [pos_x, pos_y].
 #[unsafe(naked)]
 unsafe extern "C" fn impact_special_fx(
