@@ -5,8 +5,6 @@
 //! advance, dispatches them via `StepFrame`, and handles post-frame timing,
 //! headless log output, and game-end detection.
 
-use core::arch::naked_asm;
-
 use openwa_core::fixed::{Fixed, Fixed64};
 use windows_sys::Win32::System::Threading::ExitProcess;
 
@@ -44,7 +42,6 @@ static mut SHOULD_INTERPOLATE_OFFLINE_TAIL_ADDR: u32 = 0;
 static mut SETUP_FRAME_PARAMS_ADDR: u32 = 0;
 static mut PROCESS_NETWORK_FRAME_ADDR: u32 = 0;
 static mut HUD_DRAW_TEAM_LABELS_ADDR: u32 = 0;
-static mut TEAM_INDEX_MAP_REMOVE_HANDLE_ADDR: u32 = 0;
 
 /// Initialize all bridge addresses. Must be called once at DLL load.
 pub unsafe fn init_dispatch_addrs() {
@@ -56,7 +53,6 @@ pub unsafe fn init_dispatch_addrs() {
         SETUP_FRAME_PARAMS_ADDR = rb(va::GAME_RUNTIME_SETUP_FRAME_PARAMS);
         PROCESS_NETWORK_FRAME_ADDR = rb(va::GAME_RUNTIME_PROCESS_NETWORK_FRAME);
         HUD_DRAW_TEAM_LABELS_ADDR = rb(va::HUD_DRAW_TEAM_LABELS_MAYBE);
-        TEAM_INDEX_MAP_REMOVE_HANDLE_ADDR = rb(va::TEAM_INDEX_MAP_REMOVE_HANDLE);
         super::step_frame::init_step_frame_addrs();
         crate::engine::log_sink::init_log_sink_addrs();
     }
@@ -136,25 +132,6 @@ bridge_eax_this_stdcall!(bridge_setup_frame_params, SETUP_FRAME_PARAMS_ADDR, (Fi
 // LLVM otherwise optimizes into garbage in release builds).
 
 bridge_eax_this!(bridge_hud_draw_team_labels, HUD_DRAW_TEAM_LABELS_ADDR, ());
-
-/// Bridge for `TeamIndexMap__RemoveHandle_Maybe` (0x00526000). Usercall
-/// EAX=`*mut TeamIndexMap`, EDI=`*mut i32` handle. No stack params, plain RET.
-/// Used by `frame_tail_update` to deregister a stored handle from a map.
-#[unsafe(naked)]
-unsafe extern "cdecl" fn bridge_team_index_map_remove_handle(
-    _map: *mut TeamIndexMap,
-    _handle: *mut i32,
-) {
-    naked_asm!(
-        "push edi",
-        "mov eax, [esp + 8]",
-        "mov edi, [esp + 12]",
-        "call [{addr}]",
-        "pop edi",
-        "ret",
-        addr = sym TEAM_INDEX_MAP_REMOVE_HANDLE_ADDR,
-    );
-}
 
 /// Bridge for GameRuntime__ProcessNetworkFrame (0x53DF00).
 /// Usercall: ESI=this, 4 stdcall params, RET 0x10.
@@ -701,7 +678,7 @@ unsafe fn frame_tail_update(runtime: *mut GameRuntime) {
 
         // Deregister handle from team_index_maps[0] (world + 0x7650).
         if (*runtime)._field_3f4 >= 0 {
-            bridge_team_index_map_remove_handle(
+            TeamIndexMap::remove_handle(
                 &mut (*world).team_index_maps[0],
                 &mut (*runtime)._field_3f4,
             );
@@ -710,7 +687,7 @@ unsafe fn frame_tail_update(runtime: *mut GameRuntime) {
 
         // Deregister handle from team_index_maps[2] (world + 0x7718).
         if (*runtime)._field_3f8 >= 0 {
-            bridge_team_index_map_remove_handle(
+            TeamIndexMap::remove_handle(
                 &mut (*world).team_index_maps[2],
                 &mut (*runtime)._field_3f8,
             );

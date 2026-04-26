@@ -150,9 +150,10 @@ pub mod va {
             fn/Usercall HUD_DRAW_TEAM_LABELS_MAYBE = 0x005332B0;
             /// `TeamIndexMap__RemoveHandle_Maybe` (0x00526000). Usercall
             /// EAX=`*mut TeamIndexMap`, EDI=`*mut i32` (handle ptr), plain
-            /// RET. Removes the value at `*EDI` from the map's active list,
-            /// then sets `*EDI = -1`. Used to deregister handles from
-            /// `GameWorld::team_index_maps[0/2]` in `frame_tail_update`.
+            /// RET. Ported to Rust as `TeamIndexMap::remove_handle`; address
+            /// kept for cross-reference and `install_trap!` of the WA-side
+            /// callers that still reach the original (TeamEntity ctor /
+            /// HandleMessage / WorldRootEntity destructor — 17 call sites).
             fn/Usercall TEAM_INDEX_MAP_REMOVE_HANDLE = 0x00526000;
             /// Helper called from the online `ShouldInterpolate` path
             /// (FUN_0052E880). Scans the per-peer input-message queue for any

@@ -15,20 +15,103 @@ use super::world::offsets;
 ///
 /// Used for mapping team indices to rendering/turn slots. Three instances
 /// live in GameWorld at offsets 0x7650, 0x76B4, 0x7718 (stride 0x64).
-/// Initialized as identity permutations [0,1,2,...,15] with count=16.
+///
+/// Layout: a free-pool stack of 16 `i16` indices plus a pair of parallel
+/// arrays storing the currently-active handles. `RemoveHandle` (0x00526000,
+/// see [`Self::remove_handle`]) searches `active_list`, compacts both
+/// parallel arrays leftward, pushes the freed handle onto the `entries`
+/// stack, and decrements `active_count`. The constructor at [`world_constructor`]
+/// fills `entries[i] = i` (identity), `count = 16`, `active_count = 0`; the
+/// active list and its companion array start uninitialised (heap-zeroed
+/// from `wa_malloc_struct_zeroed`).
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct TeamIndexMap {
-    /// 16 team index entries (identity permutation on init).
+    /// 0x00: Free-pool stack — 16 `i16` slots holding currently-unused
+    /// indices. `RemoveHandle` pushes the freed handle here at `[count]`.
+    /// Constructor fills with identity `[0..15]`.
     pub entries: [i16; 16],
-    /// Number of active entries (initialized to 16).
+    /// 0x20: Free-pool top-of-stack pointer. Initial: `16` (full pool).
+    /// Increments on each successful `RemoveHandle`; decremented elsewhere
+    /// by the (still-bridged) `AddHandle` companion when a handle is taken.
     pub count: u16,
-    /// Gap — unknown purpose, not initialized by constructor.
-    pub _gap: [u8; 64],
-    /// Terminator (initialized to 0).
-    pub terminator: u16,
+    /// 0x22: Parallel companion array shifted in lockstep with
+    /// `active_list`. Purpose unconfirmed (likely a metadata slot tied to
+    /// each active handle). Heap-zeroed initially; populated on add.
+    pub parallel_array: [i16; 16],
+    /// 0x42: Active handle list — searched by `RemoveHandle` for the
+    /// caller's `*handle_ptr` value. Compacted leftward when an entry is
+    /// removed.
+    pub active_list: [i16; 16],
+    /// 0x62: Active count — number of currently-valid entries in
+    /// `active_list` / `parallel_array`. Initial: `0`. Decrements on each
+    /// successful `RemoveHandle`.
+    pub active_count: u16,
 }
 const _: () = assert!(core::mem::size_of::<TeamIndexMap>() == 0x64);
+const _: () = assert!(core::mem::offset_of!(TeamIndexMap, count) == 0x20);
+const _: () = assert!(core::mem::offset_of!(TeamIndexMap, parallel_array) == 0x22);
+const _: () = assert!(core::mem::offset_of!(TeamIndexMap, active_list) == 0x42);
+const _: () = assert!(core::mem::offset_of!(TeamIndexMap, active_count) == 0x62);
+
+impl TeamIndexMap {
+    /// Rust port of `TeamIndexMap__RemoveHandle_Maybe` (0x00526000).
+    ///
+    /// Convention: usercall `EAX = *mut TeamIndexMap, EDI = *mut i32`,
+    /// plain `RET`. Removes `*handle_ptr` from `active_list` if present;
+    /// when found:
+    ///
+    /// 1. Push the freed handle onto `entries[count]`, increment `count`.
+    /// 2. Compact `active_list` and `parallel_array` leftward starting at
+    ///    the found index (closing the gap; trailing slot left stale).
+    /// 3. Set `*handle_ptr = -1`.
+    /// 4. Decrement `active_count`.
+    ///
+    /// No-op if `active_count == 0` or the handle is not present in the
+    /// active list. The shift uses `i16` reads as in WA — the value at
+    /// `*handle_ptr` is sign-extended to `i32` before the comparison, so
+    /// negative handle values match correctly.
+    ///
+    /// # Safety
+    /// `handle_ptr` must point to a valid `i32`. The map must be a valid
+    /// `TeamIndexMap` instance.
+    pub unsafe fn remove_handle(this: *mut TeamIndexMap, handle_ptr: *mut i32) {
+        unsafe {
+            let active_count = (*this).active_count as i32;
+            if active_count <= 0 {
+                return;
+            }
+
+            let handle = *handle_ptr;
+            // Search active_list[0..active_count] for the handle.
+            let mut found_idx: Option<usize> = None;
+            for i in 0..active_count as usize {
+                if (*this).active_list[i] as i32 == handle {
+                    found_idx = Some(i);
+                    break;
+                }
+            }
+            let Some(found_idx) = found_idx else {
+                return;
+            };
+
+            // Push handle onto the free pool at entries[count].
+            let count = (*this).count as usize;
+            (*this).entries[count] = handle as i16;
+            (*this).count = (count as u16).wrapping_add(1);
+
+            // Compact both parallel arrays leftward from found_idx.
+            let last = (active_count - 1) as usize;
+            for i in found_idx..last {
+                (*this).parallel_array[i] = (*this).parallel_array[i + 1];
+                (*this).active_list[i] = (*this).active_list[i + 1];
+            }
+
+            *handle_ptr = -1;
+            (*this).active_count = (*this).active_count.wrapping_sub(1);
+        }
+    }
+}
 
 // ============================================================
 // Per-worm and per-team block structs

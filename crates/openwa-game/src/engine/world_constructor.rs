@@ -104,13 +104,14 @@ pub unsafe fn game_world_init_render_indices(world: *mut GameWorld) {
             entry.active = 0;
         }
 
-        // Initialize all three team index maps as identity permutations.
+        // Initialize all three team index maps: free pool full (identity
+        // [0..15], count=16), active list empty (active_count=0).
         for map in &mut (*world).team_index_maps {
             for i in 0..16i16 {
                 map.entries[i as usize] = i;
             }
             map.count = 0x10;
-            map.terminator = 0;
+            map.active_count = 0;
         }
     }
 }

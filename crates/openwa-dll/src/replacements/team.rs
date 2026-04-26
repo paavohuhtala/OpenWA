@@ -4,7 +4,10 @@
 //! This file contains only usercall trampolines and hook installation.
 
 use openwa_game::engine::team_ops;
-use openwa_game::{address::va, engine::TeamArena};
+use openwa_game::{
+    address::va,
+    engine::{TeamArena, TeamIndexMap},
+};
 
 use crate::hook::{self, usercall_trampoline};
 
@@ -88,6 +91,21 @@ unsafe extern "cdecl" fn check_any_worm_state_0x8b_impl(arena: *mut TeamArena) -
 usercall_trampoline!(fn trampoline_check_any_worm_state_0x8b; impl_fn = check_any_worm_state_0x8b_impl;
     reg = eax);
 
+// ── TeamIndexMap__RemoveHandle (0x00526000): usercall(EAX=map, EDI=handle_ptr) ──
+
+unsafe extern "cdecl" fn team_index_map_remove_handle_impl(
+    map: *mut TeamIndexMap,
+    handle: *mut i32,
+) {
+    unsafe {
+        TeamIndexMap::remove_handle(map, handle);
+    }
+}
+
+usercall_trampoline!(fn trampoline_team_index_map_remove_handle;
+    impl_fn = team_index_map_remove_handle_impl;
+    regs = [eax, edi]);
+
 // ── SetActiveWorm_Maybe (0x522500): usercall(EAX=base, EDX=team_idx, ESI=worm) ──
 
 unsafe extern "cdecl" fn set_active_worm_impl(
@@ -146,6 +164,11 @@ pub fn install() -> Result<(), String> {
             "SetActiveWorm_Maybe",
             va::SET_ACTIVE_WORM_MAYBE,
             trampoline_set_active_worm as *const (),
+        )?;
+        let _ = hook::install(
+            "TeamIndexMap__RemoveHandle",
+            va::TEAM_INDEX_MAP_REMOVE_HANDLE,
+            trampoline_team_index_map_remove_handle as *const (),
         )?;
     }
     Ok(())
