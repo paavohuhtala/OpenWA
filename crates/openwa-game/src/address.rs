@@ -167,8 +167,35 @@ pub mod va {
             /// blocks); still bridged as a plain stdcall call from the
             /// offline-branch Rust port.
             fn/Stdcall GAME_RUNTIME_SHOULD_INTERPOLATE_OFFLINE_TAIL = 0x0052F9C0;
-            /// GameRuntime__SetupFrameParams (usercall EAX=this, 3 stack params, RET 0xC)
+            /// GameRuntime__SetupFrameParams (usercall EAX=this, 3 stack
+            /// params, RET 0xC). Ported to Rust as
+            /// `engine::dispatch_frame::setup_frame_params`; address kept
+            /// for cross-reference and the WA-side hook install.
             fn/Usercall GAME_RUNTIME_SETUP_FRAME_PARAMS = 0x00534CA0;
+            /// `setup_frame_params` callees — the four helpers driving the
+            /// HUD slew state machine (state value at `runtime._field_434`).
+            /// All four have only `setup_frame_params` (or each other) as
+            /// callers, plain RET, no stack params; semantics not yet
+            /// reverse-engineered.
+            ///
+            /// `FUN_00534C30` (usercall ESI=this, returns u8): "should this
+            /// HUD state remain active?" gate that runs the slot-3
+            /// `HudDataQuery` (msg 0x7D3) and inspects several flags.
+            fn/Usercall GAME_RUNTIME_HUD_GATE_MAYBE = 0x00534C30;
+            /// `FUN_005351B0` (usercall EAX=this): state-0 helper, run when
+            /// `runtime._field_434 == 0`.
+            fn/Usercall GAME_RUNTIME_HUD_STATE_ZERO_MAYBE = 0x005351B0;
+            /// `FUN_00535B10` (usercall EDI=this): state-1 helper, run when
+            /// `runtime._field_434 == 1`.
+            fn/Usercall GAME_RUNTIME_HUD_STATE_ONE_MAYBE = 0x00535B10;
+            /// `FUN_00535FC0` (usercall EDI=this): state-2 helper, run when
+            /// `runtime._field_434 == 2`.
+            fn/Usercall GAME_RUNTIME_HUD_STATE_TWO_MAYBE = 0x00535FC0;
+            /// `TeamIndexMap__PopHandle_Maybe` (0x00525F50). Thiscall
+            /// `ECX = *mut TeamIndexMap, [ESP+4] = key: i32`, RET 0x4.
+            /// Companion to `RemoveHandle`; ported to Rust as
+            /// `TeamIndexMap::pop_handle`.
+            fn/Thiscall TEAM_INDEX_MAP_POP_HANDLE = 0x00525F50;
             /// GameRuntime__ProcessNetworkFrame (usercall EAX=this, 4 stack params, RET 0x10)
             fn/Usercall GAME_RUNTIME_PROCESS_NETWORK_FRAME = 0x0053DF00;
             /// GameRuntime__IsReplayMode (usercall EAX=this, no stack params, plain RET)

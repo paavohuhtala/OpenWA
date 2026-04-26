@@ -111,6 +111,68 @@ impl TeamIndexMap {
             (*this).active_count = (*this).active_count.wrapping_sub(1);
         }
     }
+
+    /// Rust port of `TeamIndexMap__PopHandle_Maybe` (0x00525F50).
+    ///
+    /// Convention: thiscall `ECX = *mut TeamIndexMap`, 1 stack arg `key: i32`,
+    /// `RET 0x4`, returns the popped handle in EAX (or `-1` if the free pool
+    /// is empty).
+    ///
+    /// Pops one index off the free-pool stack (`entries[--count]`) and
+    /// inserts it into the active set, keeping `parallel_array` sorted in
+    /// non-increasing order of `key`. The new entry is placed at the first
+    /// position `i` where `parallel_array[i] <= key` (or appended if no
+    /// such position exists), shifting everything after rightward in both
+    /// `parallel_array` and `active_list`.
+    ///
+    /// Returns `-1` when the pool is exhausted (`count == 0`); otherwise
+    /// returns the freshly popped handle (the same value now stored in
+    /// `active_list[i]`).
+    ///
+    /// # Safety
+    /// `this` must point to a valid `TeamIndexMap`.
+    pub unsafe fn pop_handle(this: *mut TeamIndexMap, key: i32) -> i32 {
+        unsafe {
+            let count = (*this).count;
+            if count == 0 {
+                return -1;
+            }
+
+            // Pop from the free pool.
+            let new_count = count - 1;
+            (*this).count = new_count;
+            let handle = (*this).entries[new_count as usize] as i32;
+
+            // Find insertion position: first slot where parallel_array[i] <= key.
+            let active_count = (*this).active_count as i32;
+            let mut insert_at: i32 = 0;
+            if active_count > 0 {
+                while ((*this).parallel_array[insert_at as usize] as i32) > key {
+                    insert_at += 1;
+                    if insert_at >= active_count {
+                        break;
+                    }
+                }
+            }
+
+            // Shift entries [insert_at..active_count] one slot to the right.
+            if active_count > insert_at {
+                let mut i = active_count as usize;
+                while i > insert_at as usize {
+                    (*this).parallel_array[i] = (*this).parallel_array[i - 1];
+                    (*this).active_list[i] = (*this).active_list[i - 1];
+                    i -= 1;
+                }
+            }
+
+            // Insert.
+            (*this).parallel_array[insert_at as usize] = key as i16;
+            (*this).active_list[insert_at as usize] = handle as i16;
+            (*this).active_count = (*this).active_count.wrapping_add(1);
+
+            handle
+        }
+    }
 }
 
 // ============================================================

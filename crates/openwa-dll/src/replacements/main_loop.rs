@@ -28,6 +28,10 @@ pub fn install() -> Result<(), String> {
             va::GAME_RUNTIME_DISPATCH_FRAME
         );
         hook::install_trap!("GameRuntime__StepFrame", va::GAME_RUNTIME_STEP_FRAME);
+        hook::install_trap!(
+            "GameRuntime__SetupFrameParams",
+            va::GAME_RUNTIME_SETUP_FRAME_PARAMS
+        );
     }
     Ok(())
 }

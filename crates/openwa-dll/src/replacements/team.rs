@@ -106,6 +106,16 @@ usercall_trampoline!(fn trampoline_team_index_map_remove_handle;
     impl_fn = team_index_map_remove_handle_impl;
     regs = [eax, edi]);
 
+// ── TeamIndexMap__PopHandle (0x00525F50): thiscall(ECX=map), 1 stack arg ──
+
+unsafe extern "cdecl" fn team_index_map_pop_handle_impl(map: *mut TeamIndexMap, key: i32) -> i32 {
+    unsafe { TeamIndexMap::pop_handle(map, key) }
+}
+
+usercall_trampoline!(fn trampoline_team_index_map_pop_handle;
+    impl_fn = team_index_map_pop_handle_impl;
+    reg = ecx; stack_params = 1; ret_bytes = "0x4"; preserve_ecx);
+
 // ── SetActiveWorm_Maybe (0x522500): usercall(EAX=base, EDX=team_idx, ESI=worm) ──
 
 unsafe extern "cdecl" fn set_active_worm_impl(
@@ -169,6 +179,11 @@ pub fn install() -> Result<(), String> {
             "TeamIndexMap__RemoveHandle",
             va::TEAM_INDEX_MAP_REMOVE_HANDLE,
             trampoline_team_index_map_remove_handle as *const (),
+        )?;
+        let _ = hook::install(
+            "TeamIndexMap__PopHandle",
+            va::TEAM_INDEX_MAP_POP_HANDLE,
+            trampoline_team_index_map_pop_handle as *const (),
         )?;
     }
     Ok(())

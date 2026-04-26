@@ -39,9 +39,12 @@ static mut CALC_TIMING_RATIO_ADDR: u32 = 0;
 static mut INIT_FRAME_DELAY_ADDR: u32 = 0;
 static mut PEER_INPUT_QUEUE_SCAN_ADDR: u32 = 0;
 static mut SHOULD_INTERPOLATE_OFFLINE_TAIL_ADDR: u32 = 0;
-static mut SETUP_FRAME_PARAMS_ADDR: u32 = 0;
 static mut PROCESS_NETWORK_FRAME_ADDR: u32 = 0;
 static mut HUD_DRAW_TEAM_LABELS_ADDR: u32 = 0;
+static mut SETUP_HUD_GATE_ADDR: u32 = 0;
+static mut SETUP_HUD_STATE_ZERO_ADDR: u32 = 0;
+static mut SETUP_HUD_STATE_ONE_ADDR: u32 = 0;
+static mut SETUP_HUD_STATE_TWO_ADDR: u32 = 0;
 
 /// Initialize all bridge addresses. Must be called once at DLL load.
 pub unsafe fn init_dispatch_addrs() {
@@ -50,9 +53,12 @@ pub unsafe fn init_dispatch_addrs() {
         INIT_FRAME_DELAY_ADDR = rb(va::GAME_RUNTIME_INIT_FRAME_DELAY);
         PEER_INPUT_QUEUE_SCAN_ADDR = rb(va::GAME_RUNTIME_PEER_INPUT_QUEUE_SCAN);
         SHOULD_INTERPOLATE_OFFLINE_TAIL_ADDR = rb(va::GAME_RUNTIME_SHOULD_INTERPOLATE_OFFLINE_TAIL);
-        SETUP_FRAME_PARAMS_ADDR = rb(va::GAME_RUNTIME_SETUP_FRAME_PARAMS);
         PROCESS_NETWORK_FRAME_ADDR = rb(va::GAME_RUNTIME_PROCESS_NETWORK_FRAME);
         HUD_DRAW_TEAM_LABELS_ADDR = rb(va::HUD_DRAW_TEAM_LABELS_MAYBE);
+        SETUP_HUD_GATE_ADDR = rb(va::GAME_RUNTIME_HUD_GATE_MAYBE);
+        SETUP_HUD_STATE_ZERO_ADDR = rb(va::GAME_RUNTIME_HUD_STATE_ZERO_MAYBE);
+        SETUP_HUD_STATE_ONE_ADDR = rb(va::GAME_RUNTIME_HUD_STATE_ONE_MAYBE);
+        SETUP_HUD_STATE_TWO_ADDR = rb(va::GAME_RUNTIME_HUD_STATE_TWO_MAYBE);
         super::step_frame::init_step_frame_addrs();
         crate::engine::log_sink::init_log_sink_addrs();
     }
@@ -124,14 +130,56 @@ unsafe fn bridge_should_interpolate_offline_tail(runtime: *mut GameRuntime) -> u
     }
 }
 
-bridge_eax_this_stdcall!(bridge_setup_frame_params, SETUP_FRAME_PARAMS_ADDR, (Fixed, Fixed, Fixed) -> ());
-
 // ESI=this: ESI is LLVM-reserved on x86, so we can't pass it as an asm
 // operand. Naked bridges save/restore ESI manually and re-push params from
 // the incoming stack instead of routing through a Rust-side array (which
 // LLVM otherwise optimizes into garbage in release builds).
 
 bridge_eax_this!(bridge_hud_draw_team_labels, HUD_DRAW_TEAM_LABELS_ADDR, ());
+
+// `setup_frame_params` callees — bridges for the four still-bridged HUD
+// state-machine helpers.
+
+bridge_eax_this!(bridge_hud_state_zero, SETUP_HUD_STATE_ZERO_ADDR, ());
+
+/// Bridge for `FUN_00534C30` — usercall ESI=this, plain RET, returns u8.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_hud_gate(_this: *mut GameRuntime) -> u8 {
+    core::arch::naked_asm!(
+        "push esi",
+        "mov esi, [esp+8]",
+        "call [{addr}]",
+        "pop esi",
+        "ret 4",
+        addr = sym SETUP_HUD_GATE_ADDR,
+    );
+}
+
+/// Bridge for `FUN_00535B10` — usercall EDI=this, plain RET.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_hud_state_one(_this: *mut GameRuntime) {
+    core::arch::naked_asm!(
+        "push edi",
+        "mov edi, [esp+8]",
+        "call [{addr}]",
+        "pop edi",
+        "ret 4",
+        addr = sym SETUP_HUD_STATE_ONE_ADDR,
+    );
+}
+
+/// Bridge for `FUN_00535FC0` — usercall EDI=this, plain RET.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_hud_state_two(_this: *mut GameRuntime) {
+    core::arch::naked_asm!(
+        "push edi",
+        "mov edi, [esp+8]",
+        "call [{addr}]",
+        "pop edi",
+        "ret 4",
+        addr = sym SETUP_HUD_STATE_TWO_ADDR,
+    );
+}
 
 /// Bridge for GameRuntime__ProcessNetworkFrame (0x53DF00).
 /// Usercall: ESI=this, 4 stdcall params, RET 0x10.
@@ -539,6 +587,117 @@ unsafe fn advance_frame_counters(
             min_step_b,
             rate_b,
             false,
+        );
+    }
+}
+
+/// Rust port of `GameRuntime::SetupFrameParams` (0x00534CA0).
+///
+/// Drives a small HUD slew state machine each headful render frame:
+///
+/// 1. Run [`bridge_hud_gate`] (still-bridged `FUN_00534C30`). When it
+///    returns 0 *and* the state at `runtime._field_434` is non-zero, force
+///    the state back to `0` (i.e. the gate detected that the active state
+///    is no longer applicable).
+/// 2. Dispatch on `runtime._field_434`:
+///    - `0` → `hud_state_zero`; clear both slew targets.
+///    - `1` → `hud_state_one`; set target slot 1 to `ONE`, slot 2 to `ZERO`.
+///    - `2` → `hud_state_two`; set both targets to `ONE`.
+///    - any other value → no-op for the helper + targets (the original
+///      neither calls a helper nor updates targets).
+/// 3. Manage the two TeamIndexMap handles (`runtime._field_438` for map[0]
+///    at `world+0x7650`, `_field_43c` for map[2] at `world+0x7718`):
+///    when `_field_434 == 0`, deregister any non-negative handle; when
+///    non-zero, lazily allocate a slot if `_handle == -1`. (The original
+///    function checks the value AFTER the optional reset in step 1, so
+///    state-transition-to-0 deregisters in the same call.)
+/// 4. Slew slot 1 (`_field_424` toward `_field_428`) and slot 2
+///    (`_field_42c` toward `_field_430`) one frame, both with rate
+///    = `fixed_render_scale` and `force_set` driven by
+///    `game_info._field_f398` (sound-suppression latch reused as a
+///    snap flag). Slot 1 uses `fps_scaled` as `min_step`; slot 2 uses
+///    `fps_product`.
+///
+/// Slot-allocator key passed to `TeamIndexMap::pop_handle` is `6` (matches
+/// the original `PUSH 0x6` at the call sites). Handles are reset to `-1`
+/// AFTER deregistration in the original; we follow the same pattern via
+/// [`TeamIndexMap::remove_handle`], which already nulls `*handle_ptr`.
+unsafe fn setup_frame_params(
+    runtime: *mut GameRuntime,
+    fps_scaled: Fixed,
+    fps_product: Fixed,
+    fixed_render_scale: Fixed,
+) {
+    unsafe {
+        // Step 1: gate check + optional reset.
+        if bridge_hud_gate(runtime) == 0 && (*runtime)._field_434 != 0 {
+            (*runtime)._field_434 = 0;
+        }
+
+        // Step 2: state dispatch.
+        let world = (*runtime).world;
+        match (*runtime)._field_434 {
+            0 => {
+                bridge_hud_state_zero(runtime);
+                (*runtime)._field_428 = 0;
+                (*runtime)._field_430 = 0;
+            }
+            1 => {
+                bridge_hud_state_one(runtime);
+                (*runtime)._field_428 = 0x10000;
+                (*runtime)._field_430 = 0;
+            }
+            2 => {
+                bridge_hud_state_two(runtime);
+                (*runtime)._field_428 = 0x10000;
+                (*runtime)._field_430 = 0x10000;
+            }
+            // Any other value: no helper, no target update — original
+            // skips both via `JNZ LAB_00534D17` after the third compare.
+            _ => {}
+        }
+
+        // Step 3: handle management.
+        if (*runtime)._field_434 == 0 {
+            if (*runtime)._field_438 >= 0 {
+                TeamIndexMap::remove_handle(
+                    &mut (*world).team_index_maps[0],
+                    &mut (*runtime)._field_438,
+                );
+            }
+            if (*runtime)._field_43c >= 0 {
+                TeamIndexMap::remove_handle(
+                    &mut (*world).team_index_maps[2],
+                    &mut (*runtime)._field_43c,
+                );
+            }
+        } else {
+            if (*runtime)._field_438 < 0 {
+                (*runtime)._field_438 =
+                    TeamIndexMap::pop_handle(&mut (*world).team_index_maps[0], 6);
+            }
+            if (*runtime)._field_43c < 0 {
+                (*runtime)._field_43c =
+                    TeamIndexMap::pop_handle(&mut (*world).team_index_maps[2], 6);
+            }
+        }
+
+        // Step 4: slew states.
+        let force_set = (*(*world).game_info)._field_f398 != 0;
+
+        let _ = fixed_slew_toward(
+            &mut (*runtime)._field_424 as *mut i32 as *mut Fixed,
+            Fixed::from_raw((*runtime)._field_428),
+            fps_scaled,
+            fixed_render_scale,
+            force_set,
+        );
+        let _ = fixed_slew_toward(
+            &mut (*runtime)._field_42c as *mut i32 as *mut Fixed,
+            Fixed::from_raw((*runtime)._field_430),
+            fps_product,
+            fixed_render_scale,
+            force_set,
         );
     }
 }
@@ -986,7 +1145,7 @@ pub unsafe fn dispatch_frame(runtime: *mut GameRuntime, time: u64, freq: u64) {
                 (*session).minimize_request = 1;
             }
 
-            bridge_setup_frame_params(runtime, fps_scaled, fps_product, fixed_render_scale);
+            setup_frame_params(runtime, fps_scaled, fps_product, fixed_render_scale);
 
             // AdvanceFrameCounters: two branches differ only in how the product
             // and render-scale are computed when the game is running slower than
