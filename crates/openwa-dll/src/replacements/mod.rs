@@ -11,6 +11,7 @@ mod game_task_message;
 mod gfx_dir;
 mod hardware_init;
 mod headless;
+mod keyboard;
 mod main_loop;
 mod music;
 mod render;
@@ -55,6 +56,7 @@ pub fn install_all() -> Result<(), String> {
     bitgrid::install()?;
     game_session::install()?;
     hardware_init::install()?;
+    keyboard::install()?;
     frontend::install()?;
     scheme::install()?;
     config::install()?;
