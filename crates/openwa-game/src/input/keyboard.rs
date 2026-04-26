@@ -1,4 +1,5 @@
 use crate::address::va;
+use crate::engine::game_session::get_game_session;
 use crate::rebase::rb;
 use crate::wa_alloc::wa_free;
 
@@ -171,5 +172,85 @@ pub unsafe extern "thiscall" fn keyboard_read_input_ring_buffer(this: *mut Keybo
         let value = (*this).ring_buffer[tail as usize];
         (*this).ring_tail = (tail + 1) & 0xFF;
         value
+    }
+}
+
+/// Port of `Keyboard__AlertUser` (0x572320).
+///
+/// `__thiscall(this=ECX, flash=stack[u8], beep_kind=stack[i32])`, `RET 0x8`.
+/// Notifies the user when WA isn't the foreground window: optional MessageBeep
+/// + optional window flash. No-op when the foreground is already the in-game
+/// window or the menu window.
+pub unsafe extern "thiscall" fn keyboard_alert_user(
+    _this: *mut Keyboard,
+    flash: u8,
+    beep_kind: i32,
+) {
+    unsafe {
+        use windows_sys::Win32::Foundation::HWND;
+        use windows_sys::Win32::System::Diagnostics::Debug::MessageBeep;
+        use windows_sys::Win32::UI::WindowsAndMessaging::{
+            FLASHW_TIMERNOFG, FLASHW_TRAY, FLASHWINFO, FlashWindow, GetForegroundWindow,
+            MB_ICONINFORMATION, MB_ICONWARNING,
+        };
+
+        let foreground = GetForegroundWindow();
+        let session = get_game_session();
+        if !session.is_null() && foreground as u32 == (*session).hwnd {
+            return;
+        }
+        let frontend_hwnd = *(rb(va::G_FRONTEND_HWND) as *const HWND);
+        if foreground == frontend_hwnd {
+            return;
+        }
+
+        match beep_kind {
+            1 => {
+                MessageBeep(MB_ICONINFORMATION);
+            }
+            2 => {
+                MessageBeep(MB_ICONWARNING);
+            }
+            _ => {}
+        }
+
+        if flash == 0 {
+            return;
+        }
+
+        // WA resolves `FlashWindowEx` at startup via `GetProcAddress` and stores
+        // it at G_FLASH_WINDOW_EX_FN; calling through that slot honors WormKit
+        // overrides and matches the original behavior on Win9x (slot null →
+        // FlashWindow fallback path).
+        let flash_ex_ptr = *(rb(va::G_FLASH_WINDOW_EX_FN) as *const usize);
+        if flash_ex_ptr == 0 {
+            FlashWindow(frontend_hwnd, 1);
+            *(rb(va::G_WINDOW_FLASHING) as *mut u32) = 1;
+        } else {
+            let flash_ex: unsafe extern "system" fn(*const FLASHWINFO) -> i32 =
+                core::mem::transmute(flash_ex_ptr);
+            let info = FLASHWINFO {
+                cbSize: core::mem::size_of::<FLASHWINFO>() as u32,
+                hwnd: frontend_hwnd,
+                dwFlags: FLASHW_TRAY | FLASHW_TIMERNOFG,
+                uCount: 15,
+                dwTimeout: 0,
+            };
+            flash_ex(&info);
+        }
+    }
+}
+
+/// Port of `Keyboard__VFunc7` (0x5723D0).
+///
+/// `__thiscall(this=ECX)`, plain `RET`. Convenience helper that calls vtable
+/// slot 8 (`AlertUser`) on `this` with `flash = (*game_info_input_ptr == 0)`
+/// and `beep_kind = 1`. Effectively: "flash + info-beep when the input-state
+/// slot at `GameInfo+0xF918` is currently zero."
+pub unsafe extern "thiscall" fn keyboard_vfunc7(this: *mut Keyboard) {
+    unsafe {
+        let input_state_ptr = (*this).game_info_input_ptr as *const u32;
+        let flash = (*input_state_ptr == 0) as u8;
+        ((*(*this).vtable).alert_user)(this, flash, 1);
     }
 }

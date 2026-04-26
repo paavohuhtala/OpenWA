@@ -12,8 +12,10 @@ pub fn install() -> Result<(), String> {
     vtable_replace!(keyboard::KeyboardVtable, va::KEYBOARD_VTABLE, {
         destructor             => keyboard::keyboard_destructor,
         read_input_ring_buffer => keyboard::keyboard_read_input_ring_buffer,
+        alert_user             => keyboard::keyboard_alert_user,
+        vfunc7                 => keyboard::keyboard_vfunc7,
     })?;
 
-    let _ = log_line("[Keyboard] Destructor + ReadInputRingBuffer hooked");
+    let _ = log_line("[Keyboard] Destructor + ReadInputRingBuffer + AlertUser + VFunc7 hooked");
     Ok(())
 }

@@ -980,6 +980,15 @@ pub mod va {
         global G_CHAR_WIDTH_TABLE = 0x006B2DD9;
         global G_FRONTEND_FRAME = 0x006B3908;
         global G_FRONTEND_HWND = 0x006B390C;
+        /// `FlashWindowEx` function pointer — populated at startup via
+        /// `GetProcAddress(user32, "FlashWindowEx")`. Null on legacy systems
+        /// where the API isn't available; callers fall back to `FlashWindow`.
+        global G_FLASH_WINDOW_EX_FN = 0x007A0840;
+        /// Set to 1 when the `FlashWindow`-fallback path actually flashed the
+        /// window (so OnSYSCOMMAND-restore can call `FlashWindow(false)` to
+        /// stop the flash). Unused on the `FlashWindowEx` path because that
+        /// API auto-stops on focus.
+        global G_WINDOW_FLASHING = 0x007A0844;
         global G_SKIP_TO_MAIN_MENU = 0x007A083D;
         global G_AUTO_NETWORK_FLAG = 0x007A083F;
         /// Input-hook mode flag (u32). Nonzero = an input hook is active; StepFrame
