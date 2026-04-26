@@ -129,6 +129,23 @@ pub enum TaskMessage {
     FrameNumberWinsock = 114,
     TurnEndMaybe = 117,
     Unknown122 = 122,
+    /// 0x82 (130) — broadcast by `GameRuntime::BroadcastFrameTiming` (0x0052A9C0)
+    /// last of three. Payload is 24 bytes: `(elapsed_qpc: u64, freq_qpc: u64,
+    /// replay_check_flag: u8, /* 3 bytes uninit in WA */, /* 4 bytes uninit in WA */)`.
+    /// `replay_check_flag = (frame_delay_counter >= 0 && IsReplayMode())`.
+    /// Receivers fall through `WorldRootEntity::HandleMessage`'s default case,
+    /// so the message is broadcast to all child entities; no specific handler
+    /// has been identified yet.
+    Unknown130 = 130,
+    /// 0x83 (131) — broadcast by `GameRuntime::BroadcastFrameTiming` (0x0052A9C0)
+    /// conditionally (when `world.0x98AC == 0 && replay_flag_a == 0`).
+    /// Payload is 12 bytes: `(render_buffer_a_ptr_or_null: u32, fps_scaled: i32,
+    /// frame_delay_counter: i32)`.
+    Unknown131 = 131,
+    /// 0x84 (132) — broadcast by `GameRuntime::BroadcastFrameTiming` (0x0052A9C0)
+    /// first of three. Payload is 4 bytes: `(fps_scaled: i32)` (raw 16.16 Fixed
+    /// integer, capped at 0x1333 in normal-path frames).
+    Unknown132 = 132,
 }
 
 impl TryFrom<u32> for TaskMessage {
@@ -145,7 +162,8 @@ impl TryFrom<u32> for TaskMessage {
             | 88..=94
             | 96..=114
             | 117
-            | 122 => {
+            | 122
+            | 130..=132 => {
                 // SAFETY: all matched values correspond to valid variants
                 Ok(unsafe { core::mem::transmute(value) })
             }
@@ -245,6 +263,69 @@ pub struct Unknown122Message;
 
 impl TaskMessageData for Unknown122Message {
     const MESSAGE_TYPE: TaskMessage = TaskMessage::Unknown122;
+}
+
+/// Payload for [`TaskMessage::Unknown130`] (msg 0x82). Last of three
+/// messages broadcast by `GameRuntime::BroadcastFrameTiming` (0x0052A9C0).
+/// Carries the QPC time delta and frequency for the just-completed render
+/// frame plus a replay-mode flag. WA leaves the trailing 8 bytes
+/// uninitialised; we zero them.
+#[repr(C)]
+#[derive(Clone, Copy, Zeroable, Pod, Debug)]
+pub struct Unknown130Message {
+    /// QPC ticks since the last render-frame timing reference.
+    pub elapsed: u64,
+    /// QPC frequency (ticks per second).
+    pub freq: u64,
+    /// Low byte = `(frame_delay_counter >= 0 && IsReplayMode())`. Upper 3
+    /// bytes are stale stack in WA — we always set them to zero.
+    pub replay_check_flag: u32,
+    /// 4 bytes WA leaves uninit (msg size is 0x18 = 24 bytes total). We
+    /// zero them.
+    pub _pad: u32,
+}
+
+const _: () = assert!(core::mem::size_of::<Unknown130Message>() == 0x18);
+
+impl TaskMessageData for Unknown130Message {
+    const MESSAGE_TYPE: TaskMessage = TaskMessage::Unknown130;
+}
+
+/// Payload for [`TaskMessage::Unknown131`] (msg 0x83). Conditional middle
+/// message broadcast by `GameRuntime::BroadcastFrameTiming` (0x0052A9C0) when
+/// `world.[0x98AC] == 0 && replay_flag_a == 0`.
+#[repr(C)]
+#[derive(Clone, Copy, Zeroable, Pod, Debug)]
+pub struct Unknown131Message {
+    /// `runtime.render_buffer_a` if `frame_delay_counter > 0`, else null.
+    /// Stored as `u32` rather than `*mut u8` to keep the struct `Pod`.
+    pub render_buffer: u32,
+    /// Same value as [`Unknown132Message::fps_scaled`].
+    pub fps_scaled: i32,
+    /// Current `runtime.frame_delay_counter` (-1 = inactive, ≥0 = ticking).
+    pub frame_delay: i32,
+}
+
+const _: () = assert!(core::mem::size_of::<Unknown131Message>() == 0xC);
+
+impl TaskMessageData for Unknown131Message {
+    const MESSAGE_TYPE: TaskMessage = TaskMessage::Unknown131;
+}
+
+/// Payload for [`TaskMessage::Unknown132`] (msg 0x84). First of three
+/// messages broadcast by `GameRuntime::BroadcastFrameTiming` (0x0052A9C0).
+#[repr(C)]
+#[derive(Clone, Copy, Zeroable, Pod, Debug)]
+pub struct Unknown132Message {
+    /// Raw 16.16 Fixed integer, capped at 0x1333 in normal-path frames —
+    /// same value passed to `setup_frame_params`.
+    pub fps_scaled: i32,
+}
+
+const _: () = assert!(core::mem::size_of::<Unknown132Message>() == 0x4);
+
+impl TaskMessageData for Unknown132Message {
+    const MESSAGE_TYPE: TaskMessage = TaskMessage::Unknown132;
 }
 
 /// Damage report sent up to `WorldRootEntity` when an entity has its

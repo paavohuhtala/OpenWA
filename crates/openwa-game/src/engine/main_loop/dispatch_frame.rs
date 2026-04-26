@@ -5,6 +5,8 @@
 //! advance, dispatches them via `StepFrame`, and handles post-frame timing,
 //! headless log output, and game-end detection.
 
+use core::arch::naked_asm;
+
 use openwa_core::fixed::{Fixed, Fixed64};
 use windows_sys::Win32::System::Threading::ExitProcess;
 
@@ -16,10 +18,14 @@ use crate::engine::clock::read_current_time;
 use crate::engine::game_session::get_game_session;
 use crate::engine::game_state;
 use crate::engine::runtime::GameRuntime;
+use crate::engine::team_arena::TeamIndexMap;
 use crate::engine::world::GameWorld;
-use crate::game::message::{TurnEndMaybeMessage, UpdateNonCriticalMessage};
+use crate::game::message::{
+    TurnEndMaybeMessage, Unknown130Message, Unknown131Message, Unknown132Message,
+    UpdateNonCriticalMessage,
+};
 use crate::input::hooks::InputHookMode;
-use crate::input::keyboard::{Keyboard, KeyboardAction};
+use crate::input::keyboard::{Keyboard, KeyboardAction, keyboard_read_input_ring_buffer};
 use crate::rebase::rb;
 use crate::render::display::gfx::DisplayGfx;
 use crate::task::WorldRootEntity;
@@ -31,26 +37,26 @@ use crate::task::WorldRootEntity;
 // register, then `JMP`/`CALL` the target. `RET imm16` on each target cleans
 // the remaining stdcall params.
 
-static mut UPDATE_FRAME_TIMING_ADDR: u32 = 0;
 static mut CALC_TIMING_RATIO_ADDR: u32 = 0;
 static mut INIT_FRAME_DELAY_ADDR: u32 = 0;
-static mut NETWORK_UPDATE_ADDR: u32 = 0;
 static mut PEER_INPUT_QUEUE_SCAN_ADDR: u32 = 0;
 static mut SHOULD_INTERPOLATE_OFFLINE_TAIL_ADDR: u32 = 0;
 static mut SETUP_FRAME_PARAMS_ADDR: u32 = 0;
 static mut PROCESS_NETWORK_FRAME_ADDR: u32 = 0;
+static mut HUD_DRAW_TEAM_LABELS_ADDR: u32 = 0;
+static mut TEAM_INDEX_MAP_REMOVE_HANDLE_ADDR: u32 = 0;
 
 /// Initialize all bridge addresses. Must be called once at DLL load.
 pub unsafe fn init_dispatch_addrs() {
     unsafe {
-        UPDATE_FRAME_TIMING_ADDR = rb(va::GAME_RUNTIME_UPDATE_FRAME_TIMING);
         CALC_TIMING_RATIO_ADDR = rb(va::GAME_RUNTIME_CALC_TIMING_RATIO);
         INIT_FRAME_DELAY_ADDR = rb(va::GAME_RUNTIME_INIT_FRAME_DELAY);
-        NETWORK_UPDATE_ADDR = rb(va::GAME_RUNTIME_NETWORK_UPDATE);
         PEER_INPUT_QUEUE_SCAN_ADDR = rb(va::GAME_RUNTIME_PEER_INPUT_QUEUE_SCAN);
         SHOULD_INTERPOLATE_OFFLINE_TAIL_ADDR = rb(va::GAME_RUNTIME_SHOULD_INTERPOLATE_OFFLINE_TAIL);
         SETUP_FRAME_PARAMS_ADDR = rb(va::GAME_RUNTIME_SETUP_FRAME_PARAMS);
         PROCESS_NETWORK_FRAME_ADDR = rb(va::GAME_RUNTIME_PROCESS_NETWORK_FRAME);
+        HUD_DRAW_TEAM_LABELS_ADDR = rb(va::HUD_DRAW_TEAM_LABELS_MAYBE);
+        TEAM_INDEX_MAP_REMOVE_HANDLE_ADDR = rb(va::TEAM_INDEX_MAP_REMOVE_HANDLE);
         super::step_frame::init_step_frame_addrs();
         crate::engine::log_sink::init_log_sink_addrs();
     }
@@ -129,41 +135,24 @@ bridge_eax_this_stdcall!(bridge_setup_frame_params, SETUP_FRAME_PARAMS_ADDR, (Fi
 // the incoming stack instead of routing through a Rust-side array (which
 // LLVM otherwise optimizes into garbage in release builds).
 
-unsafe fn bridge_network_update(runtime: *mut GameRuntime) {
-    unsafe {
-        core::arch::asm!(
-            "push esi",
-            "mov esi, {this}",
-            "call [{addr}]",
-            "pop esi",
-            this = in(reg) runtime,
-            addr = sym NETWORK_UPDATE_ADDR,
-            out("eax") _, out("ecx") _, out("edx") _,
-        );
-    }
-}
+bridge_eax_this!(bridge_hud_draw_team_labels, HUD_DRAW_TEAM_LABELS_ADDR, ());
 
-/// Bridge for GameRuntime__UpdateFrameTiming (0x52A9C0).
-/// Usercall: ESI=this, 4 stdcall params, RET 0x10.
+/// Bridge for `TeamIndexMap__RemoveHandle_Maybe` (0x00526000). Usercall
+/// EAX=`*mut TeamIndexMap`, EDI=`*mut i32` handle. No stack params, plain RET.
+/// Used by `frame_tail_update` to deregister a stored handle from a map.
 #[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_update_frame_timing(
-    _this: *mut GameRuntime,
-    _p1: u32,
-    _p2: u32,
-    _p3: u32,
-    _p4: u32,
+unsafe extern "cdecl" fn bridge_team_index_map_remove_handle(
+    _map: *mut TeamIndexMap,
+    _handle: *mut i32,
 ) {
-    core::arch::naked_asm!(
-        "push esi",
-        "mov esi, [esp+8]",
-        "push dword ptr [esp+0x18]",
-        "push dword ptr [esp+0x18]",
-        "push dword ptr [esp+0x18]",
-        "push dword ptr [esp+0x18]",
+    naked_asm!(
+        "push edi",
+        "mov eax, [esp + 8]",
+        "mov edi, [esp + 12]",
         "call [{addr}]",
-        "pop esi",
-        "ret 20",
-        addr = sym UPDATE_FRAME_TIMING_ADDR,
+        "pop edi",
+        "ret",
+        addr = sym TEAM_INDEX_MAP_REMOVE_HANDLE_ADDR,
     );
 }
 
@@ -660,6 +649,79 @@ pub unsafe fn reset_frame_state(runtime: *mut GameRuntime) {
     }
 }
 
+/// Rust port of `GameRuntime__FrameTailUpdate` (0x0052DB90).
+///
+/// Headful post-frame tail. Runs at the end of `dispatch_frame` when
+/// `is_headful != 0`. Two unrelated concerns:
+///
+/// 1. **Periodic HUD label refresh.** When `display_gfx_c != null` and either
+///    every 150 frames (`active_gameplay_frames % 150 == 0`) or while
+///    `game_mode_flag` is latched, redraws team labels via
+///    `Hud__DrawTeamLabels_Maybe` and clears `game_mode_flag`.
+/// 2. **Offline replay PageUp handler.** When offline (`net_session == null`)
+///    and a replay is loaded (`replay_flag_a != 0`) and the just-press latch
+///    on `KeyboardAction::A5F` (PageUp) fires, drain the keyboard ring buffer
+///    and reset the replay control state: zero `_field_410`, `_field_40c`
+///    and `_field_450`; deregister the two stored handles
+///    (`_field_3f4`, `_field_3f8`) from `team_index_maps[0]` and
+///    `team_index_maps[2]` and reset them to `-1`.
+unsafe fn frame_tail_update(runtime: *mut GameRuntime) {
+    unsafe {
+        let world = (*runtime).world;
+
+        // Block 1 — periodic HUD label refresh.
+        if (*runtime).display_gfx_c as usize != 0 {
+            let frames = (*world)._field_77d4;
+            // WA uses signed IDIV with a divisor of 0x96 (150) to compute
+            // `frames % 150`. Reproduce that with i32 arithmetic.
+            let modulo_zero = (frames as i32) % 0x96 == 0;
+            if modulo_zero || (*runtime).game_mode_flag != 0 {
+                bridge_hud_draw_team_labels(runtime);
+                (*runtime).game_mode_flag = 0;
+            }
+        }
+
+        // Block 2 — offline replay PageUp handler.
+        if !(*world).net_session.is_null() {
+            return;
+        }
+        if (*runtime).replay_flag_a == 0 {
+            return;
+        }
+
+        let keyboard: *mut Keyboard = (*world).keyboard;
+        if !KeyboardAction::A5F.is_pressed(keyboard) {
+            return;
+        }
+
+        // Drain the keyboard input ring buffer.
+        while keyboard_read_input_ring_buffer(keyboard) != 0 {}
+
+        (*runtime)._field_410 = 0;
+
+        // Deregister handle from team_index_maps[0] (world + 0x7650).
+        if (*runtime)._field_3f4 >= 0 {
+            bridge_team_index_map_remove_handle(
+                &mut (*world).team_index_maps[0],
+                &mut (*runtime)._field_3f4,
+            );
+        }
+        (*runtime)._field_3f4 = -1;
+
+        // Deregister handle from team_index_maps[2] (world + 0x7718).
+        if (*runtime)._field_3f8 >= 0 {
+            bridge_team_index_map_remove_handle(
+                &mut (*world).team_index_maps[2],
+                &mut (*runtime)._field_3f8,
+            );
+        }
+        (*runtime)._field_3f8 = -1;
+
+        (*runtime)._field_40c = 0;
+        (*runtime)._field_450 = Fixed::ZERO;
+    }
+}
+
 // ─── Port of GameRuntime__CalcTimingRatio (0x52ABF0) ─────────────────────
 //
 // Adjusts `wrapper.turn_timer_max` (progress) toward `wrapper.turn_timer_current`
@@ -695,6 +757,75 @@ unsafe fn calc_timing_ratio(runtime: *mut GameRuntime, ratio: i32) {
                 (*runtime)._field_404 = 1;
             }
         }
+    }
+}
+
+/// Rust port of `GameRuntime__BroadcastFrameTiming` (0x0052A9C0).
+///
+/// Headful-only post-tick broadcaster. Issues up to three messages on the
+/// `world_root` HandleMessage slot, then calls `init_frame_delay`. Ordering
+/// is `0x84 → (0x83 conditionally) → 0x82 → init_frame_delay`. None of these
+/// messages have an identified specific handler — `WorldRootEntity::HandleMessage`
+/// (0x0055DC00) falls through its switch's default for them, broadcasting
+/// each to every child entity.
+///
+/// Implicit register parameter in WA: `EDI = fps_scaled` (raw 16.16 integer,
+/// possibly capped at 0x1333 — same value passed to `setup_frame_params`).
+/// Caller must supply it explicitly here.
+unsafe fn broadcast_frame_timing(
+    runtime: *mut GameRuntime,
+    elapsed: u64,
+    freq: u64,
+    fps_scaled: i32,
+) {
+    unsafe {
+        let world_root = (*runtime).world_root;
+        let world = (*runtime).world;
+
+        // ── Msg 0x84.
+        WorldRootEntity::handle_typed_message_raw(
+            world_root,
+            world_root,
+            Unknown132Message { fps_scaled },
+        );
+
+        // ── Msg 0x83: conditional on world.fast_forward_request == 0
+        // && replay_flag_a == 0.
+        let frame_delay = (*runtime).frame_delay_counter;
+        if (*world).fast_forward_request == 0 && (*runtime).replay_flag_a == 0 {
+            WorldRootEntity::handle_typed_message_raw(
+                world_root,
+                world_root,
+                Unknown131Message {
+                    render_buffer: if frame_delay > 0 {
+                        (*runtime).render_buffer_a as u32
+                    } else {
+                        0
+                    },
+                    fps_scaled,
+                    frame_delay,
+                },
+            );
+        }
+
+        // ── Msg 0x82.
+        let replay_check_flag = if frame_delay >= 0 && is_replay_mode(runtime) {
+            1u32
+        } else {
+            0
+        };
+        WorldRootEntity::handle_typed_message_raw(
+            world_root,
+            world_root,
+            Unknown130Message {
+                elapsed,
+                freq,
+                replay_check_flag,
+                _pad: 0,
+            },
+        );
+
+        bridge_init_frame_delay(runtime);
     }
 }
 
@@ -912,13 +1043,7 @@ pub unsafe fn dispatch_frame(runtime: *mut GameRuntime, time: u64, freq: u64) {
                 );
             }
 
-            bridge_update_frame_timing(
-                runtime,
-                elapsed as u32,
-                (elapsed >> 32) as u32,
-                freq as u32,
-                (freq >> 32) as u32,
-            );
+            broadcast_frame_timing(runtime, elapsed, freq, fps_scaled.to_raw());
 
             // DSSound::update_channels (slot 1).
             let sound: *mut DSSound = (*world).sound;
@@ -1286,7 +1411,7 @@ pub unsafe fn dispatch_frame(runtime: *mut GameRuntime, time: u64, freq: u64) {
         }
 
         if (*(*runtime).world).is_headful != 0 {
-            bridge_network_update(runtime);
+            frame_tail_update(runtime);
         }
 
         // Game-end detection via HomeLock.

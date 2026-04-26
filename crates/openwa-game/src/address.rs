@@ -134,14 +134,26 @@ pub mod va {
             fn/Usercall GAME_RUNTIME_SHOULD_CONTINUE = 0x0052A840;
             /// GameRuntime__ResetFrameState (usercall EAX=this, no stack params, plain RET)
             fn/Usercall GAME_RUNTIME_RESET_FRAME_STATE = 0x0052A910;
-            /// GameRuntime__UpdateFrameTiming (usercall EAX=this, 4 stack params, RET 0x10)
-            fn/Usercall GAME_RUNTIME_UPDATE_FRAME_TIMING = 0x0052A9C0;
+            /// GameRuntime__BroadcastFrameTiming — usercall ESI=this + EDI=fps_scaled,
+            /// 4 stdcall stack params (elapsed_lo, elapsed_hi, freq_lo, freq_hi), RET 0x10.
+            /// Ported to Rust as `engine::dispatch_frame::broadcast_frame_timing`;
+            /// address kept for cross-reference only.
+            fn/Usercall GAME_RUNTIME_BROADCAST_FRAME_TIMING = 0x0052A9C0;
             /// GameRuntime__CalcTimingRatio (usercall EAX=this, 1 stack param, RET 0x4)
             fn/Usercall GAME_RUNTIME_CALC_TIMING_RATIO = 0x0052ABF0;
             /// GameRuntime__InitFrameDelay (usercall EAX=this, no stack params, plain RET)
             fn/Usercall GAME_RUNTIME_INIT_FRAME_DELAY = 0x0052CAF0;
-            /// GameRuntime__NetworkUpdate (usercall EAX=this, no stack params, plain RET)
-            fn/Usercall GAME_RUNTIME_NETWORK_UPDATE = 0x0052DB90;
+            /// `Hud__DrawTeamLabels_Maybe` (0x005332B0). Usercall EAX=this,
+            /// no stack params, plain RET. Big HUD-label drawing routine
+            /// (DrawText into `display_gfx_c`); called from
+            /// `frame_tail_update` once every 150 frames or when latched.
+            fn/Usercall HUD_DRAW_TEAM_LABELS_MAYBE = 0x005332B0;
+            /// `TeamIndexMap__RemoveHandle_Maybe` (0x00526000). Usercall
+            /// EAX=`*mut TeamIndexMap`, EDI=`*mut i32` (handle ptr), plain
+            /// RET. Removes the value at `*EDI` from the map's active list,
+            /// then sets `*EDI = -1`. Used to deregister handles from
+            /// `GameWorld::team_index_maps[0/2]` in `frame_tail_update`.
+            fn/Usercall TEAM_INDEX_MAP_REMOVE_HANDLE = 0x00526000;
             /// Helper called from the online `ShouldInterpolate` path
             /// (FUN_0052E880). Scans the per-peer input-message queue for any
             /// "gameplay-relevant" message type. Usercall EAX=this +
