@@ -250,11 +250,11 @@ pub mod va {
             fn/Usercall DSSOUND_LOAD_SPEECH_BANK = 0x00571660;
         }
 
-        class "DDKeyboard" {
-            /// DDKeyboard vtable (0x33C-byte keyboard object)
-            vtable DDKEYBOARD_VTABLE = 0x0066AEC8;
-            /// DDKeyboard::PollKeyboardState
-            fn/Stdcall DDKEYBOARD_POLL_KEYBOARD_STATE = 0x00572290;
+        class "Keyboard" {
+            /// Keyboard vtable (0x33C-byte keyboard object)
+            vtable KEYBOARD_VTABLE = 0x0066AEC8;
+            /// Keyboard::PollState
+            fn/Stdcall KEYBOARD_POLL_STATE = 0x00572290;
         }
 
         // Palette vtable is now defined via #[derive(Vtable)] in display/palette.rs

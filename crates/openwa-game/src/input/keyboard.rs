@@ -1,39 +1,39 @@
-/// DDKeyboard vtable (0x66AEC8). At least 17 slots in memory; only the
-/// ones we actually call are typed below — the rest stay as `usize` gaps.
-#[openwa_game::vtable(size = 9, va = 0x0066AEC8, class = "DDKeyboard")]
-pub struct DDKeyboardVtable {
+/// Keyboard vtable (0x66AEC8). 19 slots in memory; only the ones we
+/// actually call are typed below — the rest stay as `usize` gaps.
+#[openwa_game::vtable(size = 9, va = 0x0066AEC8, class = "Keyboard")]
+pub struct KeyboardVtable {
     /// scalar deleting destructor (0x571B10).
     #[slot(0)]
-    pub destructor: fn(this: *mut DDKeyboard, flags: u32) -> *mut DDKeyboard,
-    /// DDKeyboard::IsActionPressed (0x572210) — returns the edge-triggered state
+    pub destructor: fn(this: *mut Keyboard, flags: u32) -> *mut Keyboard,
+    /// Keyboard::IsActionPressed (0x572210) — returns the edge-triggered state
     /// for the action code. Wraps `CheckAction`, which compares `key_state`
     /// against `prev_state`.
     #[slot(1)]
-    pub is_action_pressed: fn(this: *mut DDKeyboard, code: u32) -> i32,
-    /// DDKeyboard::IsActionActive2 (0x572250) — level-triggered; returns
+    pub is_action_pressed: fn(this: *mut Keyboard, code: u32) -> i32,
+    /// Keyboard::IsActionActive2 (0x572250) — level-triggered; returns
     /// nonzero while the bound key/combo is held.
     #[slot(3)]
-    pub is_action_active: fn(this: *mut DDKeyboard, code: u32) -> i32,
+    pub is_action_active: fn(this: *mut Keyboard, code: u32) -> i32,
     /// Slot 6: shared `WorldEntity__vt19` ret stub (0x4AA060). No-op on the
     /// stock vtable; kept as a hook point (WormKit etc. may override).
     /// Called each frame from StepFrame when `GameWorld.is_headful != 0`.
     #[slot(6)]
-    pub slot_06_noop: fn(this: *mut DDKeyboard),
-    /// Slot 8: DDKeyboard::AlertUser (0x572320). Notifies the user when
+    pub slot_06_noop: fn(this: *mut Keyboard),
+    /// Slot 8: Keyboard::AlertUser (0x572320). Notifies the user when
     /// the game window is not foreground — `MessageBeep(beep_kind)` plus
     /// `FlashWindow(g_FrontendHwnd)` if `flash != 0`. Called from the
     /// post-loop cleanup in `GameSession::Run` (1, 2).
     #[slot(8)]
-    pub alert_user: fn(this: *mut DDKeyboard, flash: u8, beep_kind: i32),
+    pub alert_user: fn(this: *mut Keyboard, flash: u8, beep_kind: i32),
 }
 
-bind_DDKeyboardVtable!(DDKeyboard, vtable);
+bind_KeyboardVtable!(Keyboard, vtable);
 
-/// DDKeyboard — keyboard input subsystem.
+/// Keyboard — keyboard input subsystem.
 ///
 /// Vtable: 0x66AEC8.
-/// Destructor: DDKeyboard__Destructor (0x571B10).
-/// PollKeyboardState (0x572290): drains WM_KEY messages, calls GetKeyboardState,
+/// Destructor: Keyboard__Destructor (0x571B10).
+/// PollState (0x572290): drains WM_KEY messages, calls GetKeyboardState,
 /// normalizes to both `key_state` (+0x11C) and `prev_state` (+0x21C) buffers.
 ///
 /// Size: 0x33C bytes.
@@ -45,9 +45,9 @@ bind_DDKeyboardVtable!(DDKeyboard, vtable);
 ///   - prev_state zeroed (0x100 bytes)
 ///   - _field_014 = 0, _field_018 = 0
 #[repr(C)]
-pub struct DDKeyboard {
+pub struct Keyboard {
     /// 0x000: Vtable pointer (0x66AEC8)
-    pub vtable: *const DDKeyboardVtable,
+    pub vtable: *const KeyboardVtable,
     /// 0x004: Pointer into GameInfo+0xF918 (shared input state location).
     /// Stores the ADDRESS of GameInfo+0xF918, not its value.
     pub game_info_input_ptr: u32,
@@ -62,7 +62,7 @@ pub struct DDKeyboard {
     /// 0x01C-0x11B: Unknown
     pub _unknown_01c: [u8; 0x100],
     /// 0x11C: Current key state buffer (256 bytes).
-    /// Populated by PollKeyboardState via GetKeyboardState.
+    /// Populated by PollState via GetKeyboardState.
     pub key_state: [u8; 256],
     /// 0x21C: Previous key state buffer (256 bytes).
     /// Copied from key_state at start of each poll cycle.
@@ -71,19 +71,19 @@ pub struct DDKeyboard {
     pub _unknown_31c: [u8; 0x20],
 }
 
-const _: () = assert!(core::mem::size_of::<DDKeyboard>() == 0x33C);
+const _: () = assert!(core::mem::size_of::<Keyboard>() == 0x33C);
 
-impl DDKeyboard {
+impl Keyboard {
     /// Clear both key state buffers.
     ///
-    /// Port of DDKeyboard__ClearKeyStates (0x5722F0, usercall EAX=this, plain RET).
+    /// Port of Keyboard__ClearKeyStates (0x5722F0, usercall EAX=this, plain RET).
     /// Zeroes `key_state` (+0x11C) and `prev_state` (+0x21C), each 256 bytes.
     pub fn clear_key_states(&mut self) {
         self.key_state.fill(0);
         self.prev_state.fill(0);
     }
 
-    /// Poll keyboard state via WA's PollKeyboardState (0x572290).
+    /// Poll keyboard state via WA's Keyboard__PollState (0x572290).
     ///
     /// # Safety
     /// Must be called from within the WA.exe process.
@@ -92,12 +92,12 @@ impl DDKeyboard {
             use crate::address::va;
             use crate::rebase::rb;
             let poll_fn: unsafe extern "stdcall" fn(*mut Self) =
-                core::mem::transmute(rb(va::DDKEYBOARD_POLL_KEYBOARD_STATE) as usize);
+                core::mem::transmute(rb(va::KEYBOARD_POLL_STATE) as usize);
             poll_fn(self);
         }
     }
 
-    /// Create a new DDKeyboard with inline construction (no native C++ ctor).
+    /// Create a new Keyboard with inline construction (no native C++ ctor).
     ///
     /// All fields are zero-initialized, then known fields are set.
     ///
@@ -106,7 +106,7 @@ impl DDKeyboard {
     /// `input_ptr` must be the address of `GameInfo.input_state_f918`.
     pub unsafe fn new(vtable_addr: u32, input_ptr: u32) -> Self {
         Self {
-            vtable: vtable_addr as *const DDKeyboardVtable,
+            vtable: vtable_addr as *const KeyboardVtable,
             game_info_input_ptr: input_ptr,
             _field_008: 1,
             _unknown_00c: [0; 8],

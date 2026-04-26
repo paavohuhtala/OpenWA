@@ -150,7 +150,7 @@ pub(crate) unsafe fn construct_runtime(
         } else {
             create_game_world(
                 this,
-                keyboard as *mut openwa_game::input::DDKeyboard,
+                keyboard as *mut openwa_game::input::Keyboard,
                 display,
                 sound,
                 palette,

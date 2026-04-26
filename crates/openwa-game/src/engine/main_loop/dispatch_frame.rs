@@ -19,7 +19,7 @@ use crate::engine::runtime::GameRuntime;
 use crate::engine::world::GameWorld;
 use crate::frontend::input_hooks::InputHookMode;
 use crate::game::message::{TurnEndMaybeMessage, UpdateNonCriticalMessage};
-use crate::input::keyboard::DDKeyboard;
+use crate::input::keyboard::Keyboard;
 use crate::rebase::rb;
 use crate::render::display::gfx::DisplayGfx;
 use crate::task::WorldRootEntity;
@@ -872,7 +872,7 @@ pub unsafe fn dispatch_frame(runtime: *mut GameRuntime, time: u64, freq: u64) {
                 - Fixed::from_raw((65536.0 * (elapsed_f * RENDER_DECAY / freq_f).exp()) as i32);
 
             // Minimize request: keyboard slot 3 polls the "minimize" action.
-            let keyboard: *mut DDKeyboard = (*world).keyboard;
+            let keyboard: *mut Keyboard = (*world).keyboard;
             if ((*(*keyboard).vtable).is_action_active)(keyboard, 0x36) != 0 {
                 let session = get_game_session();
                 (*session).minimize_request = 1;

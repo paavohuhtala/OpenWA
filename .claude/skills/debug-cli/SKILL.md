@@ -75,7 +75,7 @@ openwa-debug inspect GameRuntime "gamesession->runtime"  # Multi-step chain
 
 ```
 GameWorld at ghidra:0x00XXXXXX (runtime:0xYYYYYYYY)
-  +0x0000  keyboard             [ 4]  0x040ACA40 (DDKeyboard*)
+  +0x0000  keyboard             [ 4]  0x040ACA40 (Keyboard*)
   +0x0084  pos_x                [ 4]  388.4320 (0x01846E96)
   +0x02F0  worm_name            [17]  "Ainsley"
   +0x054C  task_land            [ 4]  0x1DB27938 (LandEntity*)

@@ -5,7 +5,7 @@ use crate::audio::dssound::DSSound;
 use crate::audio::music::Music;
 use crate::engine::game_info::GameInfo;
 use crate::engine::runtime::GameRuntime;
-use crate::input::keyboard::DDKeyboard;
+use crate::input::keyboard::Keyboard;
 use crate::render::display::palette::Palette;
 
 /// `GameSession` vtable (`PTR_FUN_0066b3f8`, 1 slot — scalar deleting dtor).
@@ -118,8 +118,8 @@ pub struct GameSession {
     pub timer_counter: u64,
     /// 0x0A0: `GameRuntime*` — the main game object wrapper (→ `GameWorld` at `+0x488`)
     pub game_runtime: *mut GameRuntime,
-    /// 0x0A4: `DDKeyboard*` — 0x33C bytes, vtable `DDKeyboard_vtable` (0x66AEC8)
-    pub keyboard: *mut DDKeyboard,
+    /// 0x0A4: `Keyboard*` — 0x33C bytes, vtable `Keyboard_vtable` (0x66AEC8)
+    pub keyboard: *mut Keyboard,
     /// 0x0A8: `DSSound*` — 0xBE0 bytes, vtable `DSSound_vtable` (0x66AF20)
     pub sound: *mut DSSound,
     /// 0x0AC: Polymorphic display — `DisplayGfx*` (normal) or `DisplayBase*` (headless).

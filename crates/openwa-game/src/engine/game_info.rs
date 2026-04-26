@@ -332,8 +332,8 @@ pub struct GameInfo {
     /// If nonzero, InitHardware creates a GameStats stub instead of display hardware.
     pub headless_mode: u32,
 
-    /// 0xF918: Input state field — DDKeyboard+0x4 stores a pointer TO this address.
-    /// The game reads/writes through DDKeyboard's pointer, so this must stay in place.
+    /// 0xF918: Input state field — Keyboard+0x4 stores a pointer TO this address.
+    /// The game reads/writes through Keyboard's pointer, so this must stay in place.
     pub input_state_f918: u32,
 }
 

@@ -11,8 +11,8 @@
 //! #[derive(FieldRegistry)]
 //! #[repr(C)]
 //! pub struct GameWorld {
-//!     /// DDKeyboard pointer
-//!     pub keyboard: *mut DDKeyboard,
+//!     /// Keyboard pointer
+//!     pub keyboard: *mut Keyboard,
 //!     pub _unknown_04: [u8; 4],
 //!     /// Game PRNG state
 //!     pub rng_state: u32,

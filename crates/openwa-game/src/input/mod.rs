@@ -4,4 +4,4 @@ pub mod keyboard;
 
 pub use buffer_object::{BufferMsgNode, BufferObject};
 pub use controller::{InputCtrl, InputCtrlVtable};
-pub use keyboard::DDKeyboard;
+pub use keyboard::Keyboard;

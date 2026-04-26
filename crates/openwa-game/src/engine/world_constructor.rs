@@ -22,7 +22,7 @@ use crate::engine::coord::{CoordList, CoordListEntry};
 use crate::engine::game_info::GameInfo;
 use crate::engine::net_bridge::NetBridge;
 use crate::engine::runtime::GameRuntime;
-use crate::input::keyboard::DDKeyboard;
+use crate::input::keyboard::Keyboard;
 use crate::rebase::rb;
 use crate::render::display::gfx::DisplayGfx;
 use crate::render::display::gradient::compute_complex_gradient;
@@ -352,7 +352,7 @@ pub static mut ON_GAME_WORLD_ALLOC: Option<unsafe fn(*mut u8)> = None;
 #[cfg(target_arch = "x86")]
 pub unsafe fn create_game_world(
     runtime: *mut GameRuntime,
-    keyboard: *mut DDKeyboard,
+    keyboard: *mut Keyboard,
     display: *mut DisplayGfx,
     sound: *mut DSSound,
     palette: *mut Palette,

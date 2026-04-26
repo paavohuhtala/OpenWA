@@ -42,7 +42,7 @@ use crate::engine::world::GameWorld;
 use crate::frontend::input_hooks::InputHookMode;
 use crate::game::message::{TurnEndMaybeMessage, Unknown122Message};
 use crate::input::buffer_object::BufferObject;
-use crate::input::keyboard::DDKeyboard;
+use crate::input::keyboard::Keyboard;
 use crate::rebase::rb;
 use crate::render::display::palette::Palette;
 use crate::task::WorldRootEntity;
@@ -363,7 +363,7 @@ pub unsafe fn step_frame(
         // ── Block G: headful-mode keyboard/palette no-op slots ────────
         if (*world).is_headful != 0 {
             let keyboard = (*world).keyboard;
-            DDKeyboard::slot_06_noop_raw(keyboard);
+            Keyboard::slot_06_noop_raw(keyboard);
             let palette = (*world).palette;
             Palette::reset_raw(palette);
         }

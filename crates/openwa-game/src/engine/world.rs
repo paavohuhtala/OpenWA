@@ -8,7 +8,7 @@ use crate::bitgrid::{BitGrid, CollisionBitGrid, DisplayBitGrid};
 use crate::engine::game_info::GameInfo;
 use crate::engine::{CoordEntry, CoordList, TeamArena, TeamIndexMap};
 use crate::game::weapon::WeaponTable;
-use crate::input::keyboard::DDKeyboard;
+use crate::input::keyboard::Keyboard;
 use crate::render::RenderEntry;
 use crate::render::display::gfx::DisplayGfx;
 use crate::render::display::palette::Palette;
@@ -34,8 +34,8 @@ use openwa_core::fixed::{Fixed, Fixed64};
 #[derive(FieldRegistry)]
 #[repr(C)]
 pub struct GameWorld {
-    /// 0x000: DDKeyboard pointer (vtable 0x66AEC8). Constructor param "keyboard".
-    pub keyboard: *mut DDKeyboard,
+    /// 0x000: Keyboard pointer (vtable 0x66AEC8). Constructor param "keyboard".
+    pub keyboard: *mut Keyboard,
     /// 0x004: DisplayGfx pointer (vtable 0x66A218). Constructor param "display".
     pub display: *mut DisplayGfx,
     /// 0x008: DSSound pointer (vtable 0x66AF20). Constructor param "sound".
@@ -457,7 +457,7 @@ pub struct GameWorld {
     /// 0x7E88-0x7E9B: Unknown fields (all zeroed by InitTurnState).
     pub _fields_7e88: [u32; 5],
     /// 0x7E9C: Last keyboard poll result. Written each frame by DispatchFrame
-    /// from `DDKeyboard::vtable[1](0xd)` when `wrapper._field_410 == 0`.
+    /// from `Keyboard::vtable[1](0xd)` when `wrapper._field_410 == 0`.
     pub kb_poll_result: u32,
 
     /// 0x7EA0: Flag/counter (value 4 at runtime — likely team count).

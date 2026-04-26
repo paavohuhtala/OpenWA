@@ -25,7 +25,7 @@
 //!   DisplayGfx (0x24E28, stdcall ctor) → session+0xAC
 //!   DisplayGfx::Init retry loop (configured → 1024×768 → 800×600 → 640×480)
 //!   screen center / cursor setup
-//!   DDKeyboard (0x33C, inline) → session+0xA4
+//!   Keyboard (0x33C, inline) → session+0xA4
 //!   Palette (0x28, inline) → session+0xB0
 //!   DSSound (0xBE0, usercall ctor + DirectSoundCreate + coop level) → session+0xA8
 //!   IF GameInfo.speech_enabled != 0 AND DSSound OK: streaming audio → session+0xB4
@@ -37,7 +37,7 @@
 //! ALWAYS:
 //!   session+0x28 = (GameInfo.home_lock != 0) ? 1 : 0
 //!   GameRuntime (0x6F10) → session+0xA0  [via game_session::construct_runtime]
-//!   Palette vtable[4/3/2] calls + DDKeyboard poll (normal mode only)
+//!   Palette vtable[4/3/2] calls + Keyboard poll (normal mode only)
 //!   DDNetGameWrapper (0x2C, stdcall ctor) → session+0xC0
 //! ```
 
@@ -48,7 +48,7 @@ use openwa_game::address::va;
 use openwa_game::audio::{DSSound, Music};
 use openwa_game::engine::game_session::get_game_session;
 use openwa_game::engine::{DDNetGameWrapper, GameInfo, GameRuntime, GameTimer};
-use openwa_game::input::{DDKeyboard, InputCtrl, InputCtrlVtable};
+use openwa_game::input::{InputCtrl, InputCtrlVtable, Keyboard};
 use openwa_game::rebase::rb;
 use openwa_game::render::{DisplayBase, DisplayGfx, Palette};
 use openwa_game::wa_alloc::{wa_malloc_struct, wa_malloc_struct_zeroed};
@@ -364,14 +364,11 @@ unsafe extern "cdecl" fn impl_init_hardware(
                 }
             }
 
-            // ── DDKeyboard (inline construction) ──────────────────────────────────
-            let kb = wa_malloc_struct::<DDKeyboard>();
+            // ── Keyboard (inline construction) ────────────────────────────────────
+            let kb = wa_malloc_struct::<Keyboard>();
             core::ptr::write(
                 kb,
-                DDKeyboard::new(
-                    rb(va::DDKEYBOARD_VTABLE),
-                    &raw mut gi.input_state_f918 as u32,
-                ),
+                Keyboard::new(rb(va::KEYBOARD_VTABLE), &raw mut gi.input_state_f918 as u32),
             );
             (*session).keyboard = kb;
 
