@@ -110,6 +110,20 @@ pub fn install() -> Result<(), String> {
             "Frontend::ForegroundIdleProc",
             va::FRONTEND_FOREGROUND_IDLE_PROC
         );
+
+        // Frontend::GetMessageProc (0x004ED160) — ported in Rust.
+        // SetWindowsHookExA is registered with the Rust function directly,
+        // so the WA-side address is no longer reachable (only static xref
+        // was Frontend::InstallInputHooks itself). Trap as a safety net.
+        hook::install_trap!("Frontend::GetMessageProc", va::FRONTEND_GET_MESSAGE_PROC);
+
+        // Frontend::PumpModalOrSessionFrame (0x004ED050) — inlined into the
+        // Rust GetMessageProc port. Only static xref was the just-trapped
+        // GetMessageProc itself, so this is also unreachable.
+        hook::install_trap!(
+            "Frontend::PumpModalOrSessionFrame",
+            va::FRONTEND_PUMP_MODAL_OR_SESSION_FRAME
+        );
     }
 
     Ok(())

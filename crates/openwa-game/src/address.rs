@@ -596,6 +596,19 @@ pub mod va {
         /// address is trapped as a safety net (only static xref was
         /// `Frontend::InstallInputHooks` itself).
         fn/Stdcall FRONTEND_FOREGROUND_IDLE_PROC = 0x004ED0D0;
+        /// Frontend__GetMessageProc — WH_GETMESSAGE hook proc.
+        /// Synthesises `mouse_event` calls to let the engine drain
+        /// `WM_MOUSEWHEEL` / `WM_MBUTTON*` bursts while a modal-dialog
+        /// input grab is active. Now ported in Rust; trapped as a safety
+        /// net since the only static xref was `Frontend::InstallInputHooks`.
+        fn/Stdcall FRONTEND_GET_MESSAGE_PROC = 0x004ED160;
+        /// Frontend__PumpModalOrSessionFrame — per-callback frame helper
+        /// for `Frontend::GetMessageProc`. Calls `GameSession::ProcessFrame`
+        /// when a session is initialised; otherwise drains the top modal
+        /// dialog's WM_TIMER queue and ticks its transition method.
+        /// Now inlined into the Rust port; only static xref was the
+        /// just-ported GetMessageProc, so trap as safety net.
+        fn/Cdecl FRONTEND_PUMP_MODAL_OR_SESSION_FRAME = 0x004ED050;
         /// Palette__LogChange — appends a "Palette set by 0x%lX %s" line to
         /// `palette.log` with the foreground process name (Toolhelp32). Bridged
         /// from `GameSession::WindowProc` WM_PALETTECHANGED handler.
