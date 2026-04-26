@@ -261,6 +261,8 @@ pub mod va {
             fn/Usercall KEYBOARD_CHECK_ACTION = 0x00571BA0;
             /// Keyboard::CheckKeyState — usercall(EAX=key, EDX=mode, [ESP+4]=this) -> bool
             fn/Usercall KEYBOARD_CHECK_KEY_STATE = 0x00571B50;
+            /// Keyboard::ClearKeyStates — usercall(EAX=this) -> void, plain RET
+            fn/Usercall KEYBOARD_CLEAR_KEY_STATES = 0x005722F0;
         }
 
         // AcquireInput's bridged callees (kept WA-side for this round; no
@@ -571,6 +573,11 @@ pub mod va {
         /// `g_InputHookMode != 0` (no-op in normal play). Called twice per
         /// `pump_messages` iteration.
         fn/Cdecl FRONTEND_UNHOOK_INPUT_HOOKS = 0x004ED590;
+        /// Frontend__InstallInputHooks — installs the WH_GETMESSAGE +
+        /// WH_FOREGROUNDIDLE thread-local hooks on the calling thread when
+        /// entering a modal-dialog input mode. Takes no parameters; the
+        /// caller writes `g_InputHookMode` immediately before the call.
+        fn/Cdecl FRONTEND_INSTALL_INPUT_HOOKS = 0x004ED3C0;
     }
 
     // =========================================================================
@@ -1019,10 +1026,23 @@ pub mod va {
         global G_INPUT_HOOK_MODE = 0x007A0860;
         /// `HHOOK` returned by `SetWindowsHookExA(WH_GETMESSAGE, ...)` in
         /// `Frontend::InstallInputHooks`; consumed by `unhook_input_hooks`.
-        global G_KEYBOARD_HOOK = 0x006B39B8;
+        /// Despite the historical "keyboard" naming this hook actually
+        /// filters mouse messages — the proc at 0x004ED160 inspects
+        /// `WM_MOUSEWHEEL`/`WM_MBUTTON*`/`WM_NCLBUTTONDOWN`/`WM_NCRBUTTONDOWN`.
+        global G_FRONTEND_MSG_HOOK = 0x006B39B8;
         /// `HHOOK` returned by `SetWindowsHookExA(WH_FOREGROUNDIDLE, ...)` in
         /// `Frontend::InstallInputHooks`; consumed by `unhook_input_hooks`.
-        global G_MOUSE_HOOK = 0x006B32AC;
+        /// Despite the historical "mouse" naming this hook fires on
+        /// foreground idle — the proc at 0x004ED0D0 just posts WM_USER+0x3FFC
+        /// to the frontend frame to keep its animation alive.
+        global G_FRONTEND_IDLE_HOOK = 0x006B32AC;
+        /// OS-version sub-field paired with `G_DESKTOP_CHECK_LEVEL`. When
+        /// the level is 2 (NT 6+), this byte must be `>= 10` for
+        /// `Frontend::InstallInputHooks` to enable the modern (`WM_MBUTTON*`)
+        /// mouse-message filter range; otherwise the legacy (`WM_MOUSEWHEEL`)
+        /// range is used. Likely the OSVERSIONINFO minor/build field captured
+        /// during early startup.
+        global G_OS_VERSION_SUB = 0x006B3914;
         /// 1-byte flag (semantics unclear). Cleared on entering input modes
         /// 1 and 2; written by the WH_GETMESSAGE hook callback. Read by
         /// `unhook_input_hooks` to gate the residual mouse-event flush.

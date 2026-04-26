@@ -1,22 +1,40 @@
 //! Frontend input-hook lifecycle helpers.
 //!
-//! WA installs a `WH_GETMESSAGE` keyboard hook and a `WH_FOREGROUNDIDLE`
-//! mouse hook (`Frontend::InstallInputHooks`, 0x004ED3C0) when entering
-//! a modal-dialog input mode. `Frontend::UnhookInputHooks` (0x004ED590)
-//! tears them down again. The Rust port lives here.
+//! WA installs a `WH_GETMESSAGE` mouse-message filter hook plus a
+//! `WH_FOREGROUNDIDLE` frame-ping hook on the calling thread
+//! (`Frontend::InstallInputHooks`, 0x004ED3C0) when entering a modal-dialog
+//! input mode. `Frontend::UnhookInputHooks` (0x004ED590) tears them down
+//! again. Both Rust ports live here. The hook procs themselves
+//! (`FUN_004ED160` / `FUN_004ED0D0`) stay in WA — they're GUI-only paths
+//! that aren't exercised by replay tests.
 
 use core::ptr;
 
-use windows_sys::Win32::Foundation::HWND;
+use windows_sys::Win32::Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, WPARAM};
 use windows_sys::Win32::Media::timeEndPeriod;
+use windows_sys::Win32::System::Threading::GetCurrentThreadId;
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::GetFocus;
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    HHOOK, KillTimer, MSG, PM_NOYIELD, PM_REMOVE, PeekMessageA, SendMessageA, UnhookWindowsHookEx,
-    WM_MBUTTONDBLCLK, WM_MBUTTONDOWN, WM_MOUSEWHEEL,
+    HHOOK, HOOKPROC, KillTimer, MSG, PM_NOYIELD, PM_REMOVE, PeekMessageA, SendMessageA,
+    SetWindowsHookExA, UnhookWindowsHookEx, WH_FOREGROUNDIDLE, WH_GETMESSAGE, WM_MBUTTONDBLCLK,
+    WM_MBUTTONDOWN, WM_MOUSEWHEEL,
 };
 
 use crate::address::va;
 use crate::rebase::rb;
+
+/// Address of the WH_GETMESSAGE hook proc inside WA.exe (`FUN_004ED160`).
+/// Filters mouse messages — synthesizes `mouse_event` calls for
+/// `WM_NCLBUTTONDOWN`/`WM_NCRBUTTONDOWN` and drains `WM_MOUSEWHEEL` /
+/// `WM_MBUTTON*` queued bursts. Calls `GameSession::ProcessFrame` if a
+/// session exists; deferred from porting (GUI-only path).
+const FRONTEND_GET_MESSAGE_PROC_VA: u32 = 0x004ED160;
+
+/// Address of the WH_FOREGROUNDIDLE hook proc inside WA.exe (`FUN_004ED0D0`).
+/// Posts `WM_USER + 0x3FFC` to the frontend frame's HWND when the foreground
+/// thread idles; keeps the animated frontend redrawing. Trivial; deferred
+/// from porting alongside the WH_GETMESSAGE proc.
+const FRONTEND_FOREGROUND_IDLE_PROC_VA: u32 = 0x004ED0D0;
 
 /// State of the frontend's modal-dialog input grab (`g_InputHookMode`).
 ///
@@ -97,11 +115,11 @@ pub unsafe extern "cdecl" fn unhook_input_hooks() {
             return;
         }
 
-        let kbd = *(rb(va::G_KEYBOARD_HOOK) as *const HHOOK);
+        let kbd = *(rb(va::G_FRONTEND_MSG_HOOK) as *const HHOOK);
         if !kbd.is_null() {
             UnhookWindowsHookEx(kbd);
         }
-        let mouse = *(rb(va::G_MOUSE_HOOK) as *const HHOOK);
+        let mouse = *(rb(va::G_FRONTEND_IDLE_HOOK) as *const HHOOK);
         if !mouse.is_null() {
             UnhookWindowsHookEx(mouse);
         }
@@ -130,5 +148,56 @@ pub unsafe extern "cdecl" fn unhook_input_hooks() {
         InputHookMode::clear();
         let focus = GetFocus();
         SendMessageA(focus, WM_FRONTEND_INPUT_RELEASED, 1, 0);
+    }
+}
+
+/// Rust port of `Frontend::InstallInputHooks` (0x004ED3C0).
+///
+/// Installs two thread-local Win32 hooks on the calling thread:
+///  - `WH_GETMESSAGE` (proc at `FRONTEND_GET_MESSAGE_PROC_VA`) — stored in
+///    `g_FrontendMsgHook`. Filters mouse messages.
+///  - `WH_FOREGROUNDIDLE` (proc at `FRONTEND_FOREGROUND_IDLE_PROC_VA`) —
+///    stored in `g_FrontendIdleHook`. Pings the frontend frame on idle.
+///
+/// Also picks the `g_input_hook_filter_select` byte from the OS-version
+/// pair (`g_DesktopCheckLevel` + `g_OsVersionSub`) — `1` on modern NT 6+
+/// (uses `WM_MBUTTON*` range), `0` on legacy NT4/9x (uses `WM_MOUSEWHEEL`).
+///
+/// Does NOT touch `g_InputHookMode`; the callers (mode-1 / mode-2 entry
+/// helpers at 0x004ED420 / 0x004ED4F0) write the mode immediately before
+/// invoking us.
+///
+/// Callers (both still WA-side):
+///  - `enter_blocking_input_mode` (0x004ED420, mode 1 entry)
+///  - `enter_animated_input_mode` (0x004ED4F0, mode 2 entry — tail JMP)
+pub unsafe extern "cdecl" fn install_input_hooks() {
+    unsafe {
+        // OS-version gate: `WM_MBUTTON*` filter range on NT6+, `WM_MOUSEWHEEL`
+        // otherwise. The compare in WA is `level <= 1 || (level == 2 && sub >= 10)`.
+        let level = *(rb(va::G_DESKTOP_CHECK_LEVEL) as *const u32);
+        let sub = *(rb(va::G_OS_VERSION_SUB) as *const u32);
+        let filter_select: u8 = if level < 2 || (level == 2 && sub >= 10) {
+            1
+        } else {
+            0
+        };
+        *(rb(va::G_INPUT_HOOK_FILTER_SELECT_MAYBE) as *mut u8) = filter_select;
+
+        let msg_proc: HOOKPROC = Some(core::mem::transmute::<
+            usize,
+            unsafe extern "system" fn(i32, WPARAM, LPARAM) -> LRESULT,
+        >(rb(FRONTEND_GET_MESSAGE_PROC_VA) as usize));
+        let idle_proc: HOOKPROC = Some(core::mem::transmute::<
+            usize,
+            unsafe extern "system" fn(i32, WPARAM, LPARAM) -> LRESULT,
+        >(rb(FRONTEND_FOREGROUND_IDLE_PROC_VA) as usize));
+
+        let tid = GetCurrentThreadId();
+        let msg_hook = SetWindowsHookExA(WH_GETMESSAGE, msg_proc, 0 as HINSTANCE, tid);
+        *(rb(va::G_FRONTEND_MSG_HOOK) as *mut HHOOK) = msg_hook;
+
+        let tid = GetCurrentThreadId();
+        let idle_hook = SetWindowsHookExA(WH_FOREGROUNDIDLE, idle_proc, 0 as HINSTANCE, tid);
+        *(rb(va::G_FRONTEND_IDLE_HOOK) as *mut HHOOK) = idle_hook;
     }
 }

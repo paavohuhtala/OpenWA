@@ -106,7 +106,16 @@ impl Keyboard {
         self.key_state.fill(0);
         self.prev_state.fill(0);
     }
+}
 
+/// cdecl-callable impl behind the EAX-passing usercall hook for
+/// `Keyboard__ClearKeyStates` (0x005722F0). The trampoline that captures
+/// `this` from EAX lives in `replacements/keyboard.rs`.
+pub unsafe extern "cdecl" fn keyboard_clear_key_states_impl(this: *mut Keyboard) {
+    unsafe { (*this).clear_key_states() }
+}
+
+impl Keyboard {
     /// Poll keyboard state — wrapper around the now-Rust `keyboard_poll_state`
     /// (the implementation that's also installed as the WA-side replacement).
     ///

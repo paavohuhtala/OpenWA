@@ -90,6 +90,16 @@ pub fn install() -> Result<(), String> {
             va::FRONTEND_UNHOOK_INPUT_HOOKS,
             openwa_game::frontend::input_hooks::unhook_input_hooks as *const (),
         )?;
+
+        // Frontend::InstallInputHooks (0x004ED3C0) — full replacement; reached
+        // from the mode-1/mode-2 entry helpers (0x004ED420 / 0x004ED4F0) when
+        // the user opens a window/system menu or otherwise triggers Win32
+        // modal UI mid-game.
+        crate::hook::install(
+            "Frontend::InstallInputHooks",
+            va::FRONTEND_INSTALL_INPUT_HOOKS,
+            openwa_game::frontend::input_hooks::install_input_hooks as *const (),
+        )?;
     }
 
     Ok(())
