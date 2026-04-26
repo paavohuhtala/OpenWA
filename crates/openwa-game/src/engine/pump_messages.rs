@@ -14,10 +14,11 @@ use crate::rebase::rb;
 
 /// Rust port of `GameSession::PumpMessages` (0x00572E30).
 ///
-/// Suppresses keyboard (0x100..=0x109), mouse (0x200..=0x20E) and 0x311
-/// messages destined for non-frontend windows when `g_InputHookMode == 0`
-/// — these would otherwise leak to background MFC dialogs. `WM_QUIT`
-/// always dispatches and additionally sets `exit_flag = flag_40 = 1`.
+/// Suppresses keyboard (`WM_KEYFIRST..=WM_KEYLAST`), mouse
+/// (`WM_MOUSEFIRST..=WM_MOUSELAST`) and `WM_PALETTECHANGED` messages
+/// destined for non-frontend windows when `g_InputHookMode == 0` — these
+/// would otherwise leak to background MFC dialogs. `WM_QUIT` always
+/// dispatches and additionally sets `exit_flag = flag_40 = 1`.
 ///
 /// After dispatching, recenters the cursor to `(screen_center_x,
 /// screen_center_y)` once per iteration in normal play (gameplay clamps
@@ -35,7 +36,8 @@ use crate::rebase::rb;
 ///    full-replacement hook installed on the WA address.
 pub unsafe extern "cdecl" fn pump_messages() {
     use windows_sys::Win32::UI::WindowsAndMessaging::{
-        DispatchMessageA, MSG, PM_REMOVE, PeekMessageA, SetCursorPos, TranslateMessage, WM_QUIT,
+        DispatchMessageA, MSG, PM_REMOVE, PeekMessageA, SetCursorPos, TranslateMessage,
+        WM_KEYFIRST, WM_KEYLAST, WM_MOUSEFIRST, WM_MOUSELAST, WM_PALETTECHANGED, WM_QUIT,
     };
 
     unsafe {
@@ -56,11 +58,13 @@ pub unsafe extern "cdecl" fn pump_messages() {
             } else if *(rb(va::G_INPUT_HOOK_MODE) as *const u32) != 0 {
                 true
             } else {
-                let m = msg.message;
-                let is_keyboard = m.wrapping_sub(0x100) <= 9;
-                let is_mouse = m.wrapping_sub(0x200) <= 0xE;
-                let is_311 = m == 0x311;
-                (!is_keyboard && !is_mouse && !is_311) || msg.hwnd == frontend_hwnd
+                let is_input_or_palette = matches!(
+                    msg.message,
+                    WM_KEYFIRST..=WM_KEYLAST
+                        | WM_MOUSEFIRST..=WM_MOUSELAST
+                        | WM_PALETTECHANGED
+                );
+                !is_input_or_palette || msg.hwnd == frontend_hwnd
             };
 
             if dispatch {
