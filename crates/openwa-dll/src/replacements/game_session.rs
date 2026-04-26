@@ -129,7 +129,7 @@ pub(crate) unsafe fn construct_runtime(
         // Arm display watchpoint during construction if requested
         if std::env::var("OPENWA_WATCH_DISPLAY").is_ok() {
             crate::debug_watchpoint::prepare();
-            crate::debug_watchpoint::on_world_alloc(display as *mut u8);
+            crate::debug_watchpoint::on_base_known(display as *mut u8);
         }
 
         // Use env var to switch between original and Rust constructor

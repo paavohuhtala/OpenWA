@@ -43,8 +43,10 @@ unsafe extern "stdcall" fn hook_turn_manager(turngame: u32) {
                 if game_frame >= target {
                     WATCH_ARMED.store(true, Ordering::Relaxed);
                     crate::debug_watchpoint::prepare();
-                    // Select watchpoint base: GameWorld, GameRuntime, or Display
-                    let watch_base = if std::env::var("OPENWA_WATCH_DISPLAY").is_ok() {
+                    // Select watchpoint base: GameSession, Display, GameRuntime, or GameWorld
+                    let watch_base = if std::env::var("OPENWA_WATCH_SESSION").is_ok() {
+                        game_session::get_game_session() as *mut u8
+                    } else if std::env::var("OPENWA_WATCH_DISPLAY").is_ok() {
                         let runtime = game_session::get_runtime();
                         *(runtime.byte_add(0x4D0) as *const *mut u8)
                     } else if std::env::var("OPENWA_WATCH_WRAPPER").is_ok() {
@@ -52,7 +54,7 @@ unsafe extern "stdcall" fn hook_turn_manager(turngame: u32) {
                     } else {
                         world as *mut u8
                     };
-                    crate::debug_watchpoint::on_world_alloc(watch_base);
+                    crate::debug_watchpoint::on_base_known(watch_base);
                 }
             }
         }

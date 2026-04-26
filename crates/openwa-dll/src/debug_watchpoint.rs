@@ -1,24 +1,31 @@
-//! Hardware watchpoint debugger for GameWorld constructor field investigation.
+//! Hardware watchpoint debugger for runtime field-access investigation.
 //!
-//! Uses x86 debug registers (DR0–DR3) to watch GameWorld offsets for writes.
-//! A Vectored Exception Handler logs the exact instruction address (as Ghidra VA)
-//! of every write to the watched offsets.
+//! Uses x86 debug registers (DR0–DR3) to watch up to 4 offsets relative to a
+//! base pointer (a heap object — typically GameWorld, GameRuntime, GameSession,
+//! or Display). A Vectored Exception Handler logs the exact instruction address
+//! (as Ghidra VA) and a stack trace of every access to the watched offsets.
 //!
-//! Currently dormant — activate by wiring calls in `game_session.rs`. No external debugger needed — the DLL
-//! instruments itself by triggering INT3 exceptions whose VEH handler sets
-//! the debug registers directly in the thread context.
+//! `WATCH_OFFSETS` and the DR7 condition (write-only vs. read+write) are
+//! compile-time constants — edit them per investigation. Activate by setting
+//! `OPENWA_WATCH_FRAME=N` plus one of `OPENWA_WATCH_SESSION` /
+//! `OPENWA_WATCH_WRAPPER` / `OPENWA_WATCH_DISPLAY` (or no flag for GameWorld).
+//! No external debugger needed — the DLL instruments itself by triggering INT3
+//! exceptions whose VEH handler sets the debug registers directly in the
+//! thread context.
 //!
 //! ## How it works
 //!
 //! 1. `prepare()` registers a first-chance VEH.
-//! 2. `on_world_alloc()` is called right after GameWorld's `wa_malloc`. It stores
+//! 2. `on_base_known()` is called once the base pointer is available. It stores
 //!    the base address, sets state to `Arming`, and executes `int3`.
 //! 3. The VEH catches `EXCEPTION_BREAKPOINT`, writes the target addresses into
-//!    DR0–DR3 and the enable/condition bits into DR7 (write-only, 4-byte),
-//!    advances EIP past the `int3`, and returns `EXCEPTION_CONTINUE_EXECUTION`.
-//!    The CPU loads the modified context — watchpoints are now live.
-//! 4. When a watched address is written, the CPU raises `STATUS_SINGLE_STEP`.
-//!    The VEH logs the writer's instruction address as a Ghidra VA.
+//!    DR0–DR3 and the enable/condition bits into DR7 (4-byte length, condition
+//!    per `dr7_for_count`), advances EIP past the `int3`, and returns
+//!    `EXCEPTION_CONTINUE_EXECUTION`. The CPU loads the modified context —
+//!    watchpoints are now live.
+//! 4. When a watched address is accessed, the CPU raises `STATUS_SINGLE_STEP`.
+//!    The VEH logs the accessor's instruction address as a Ghidra VA plus an
+//!    EBP-walked stack trace.
 //! 5. `teardown()` fires another `int3` whose handler clears all DR registers,
 //!    then removes the VEH.
 
@@ -31,12 +38,25 @@ use windows_sys::Win32::System::Diagnostics::Debug::{
 };
 
 /// Offsets to watch. Hardware limit: 4 watchpoints (DR0–DR3).
-/// Change these to investigate different fields.
-/// NOTE: The base pointer is set by `on_world_alloc()` — can be GameWorld or GameRuntime.
-const WATCH_OFFSETS: [(u32, &str); 1] = [(0x3A40, "display+0x3A40")];
+/// Empty by default — fill per investigation.
+///
+/// The base pointer is set by `on_base_known()` — meaning depends on the
+/// caller (GameSession / GameWorld / GameRuntime / Display, selected via
+/// `OPENWA_WATCH_SESSION` / `OPENWA_WATCH_DISPLAY` / `OPENWA_WATCH_WRAPPER`,
+/// or no env var for GameWorld).
+///
+/// Example (mouse-field consumer hunt, 2026-04-26):
+/// ```ignore
+/// const WATCH_OFFSETS: [(u32, &str); 3] = [
+///     (0x78, "session+0x78 mouse_delta_x"),
+///     (0x7C, "session+0x7C mouse_delta_y"),
+///     (0x88, "session+0x88 mouse_button_state"),
+/// ];
+/// ```
+const WATCH_OFFSETS: [(u32, &str); 0] = [];
 
-/// GameWorld base address (set when allocation is reported).
-static GAME_WORLD_BASE: AtomicU32 = AtomicU32::new(0);
+/// Watched-object base address (set when allocation is reported).
+static WATCH_BASE: AtomicU32 = AtomicU32::new(0);
 
 /// VEH handle for cleanup.
 static mut VEH_HANDLE: *mut core::ffi::c_void = core::ptr::null_mut();
@@ -82,7 +102,7 @@ unsafe extern "system" fn veh_handler(info: *mut EXCEPTION_POINTERS) -> i32 {
                 // Save original debug registers so we can restore them later
                 SAVED_DR = [ctx.Dr0, ctx.Dr1, ctx.Dr2, ctx.Dr3, ctx.Dr6, ctx.Dr7];
 
-                let base = GAME_WORLD_BASE.load(Ordering::Relaxed);
+                let base = WATCH_BASE.load(Ordering::Relaxed);
                 let dr_regs = [&mut ctx.Dr0, &mut ctx.Dr1, &mut ctx.Dr2, &mut ctx.Dr3];
                 for (i, dr) in dr_regs.into_iter().enumerate() {
                     if i < WATCH_OFFSETS.len() {
@@ -118,10 +138,11 @@ unsafe extern "system" fn veh_handler(info: *mut EXCEPTION_POINTERS) -> i32 {
                 let delta = rb(va::IMAGE_BASE).wrapping_sub(va::IMAGE_BASE);
                 let wa_base = rb(va::IMAGE_BASE);
 
-                let base = GAME_WORLD_BASE.load(Ordering::Relaxed);
-                for (i, &(offset, name)) in WATCH_OFFSETS.iter().enumerate() {
+                for (i, &(_offset, name)) in WATCH_OFFSETS.iter().enumerate() {
                     if dr6 & (1 << i) != 0 {
-                        let val = *((base + offset) as *const u32);
+                        // Do NOT read the watched memory here — with read+write
+                        // watchpoints, that re-triggers the VEH and infinitely
+                        // recurses. The EIP + stack trace identifies the reader.
                         let ghidra_eip = eip.wrapping_sub(delta);
 
                         // Walk EBP chain for stack trace
@@ -158,9 +179,8 @@ unsafe extern "system" fn veh_handler(info: *mut EXCEPTION_POINTERS) -> i32 {
                         }
 
                         let _ = log_line(&format!(
-                            "[Watchpoint] {} = 0x{:08X}  eip={} stack=[{}]",
+                            "[Watchpoint] {}  eip={} stack=[{}]",
                             name,
-                            val,
                             openwa_game::registry::format_va(ghidra_eip),
                             trace,
                         ));
@@ -181,7 +201,8 @@ unsafe extern "system" fn veh_handler(info: *mut EXCEPTION_POINTERS) -> i32 {
 ///
 /// Per breakpoint `i` (0–3):
 /// - Bit `2*i`: local enable (L0–L3)
-/// - Bits `16 + 4*i`: condition = 01 (write only)
+/// - Bits `16 + 4*i`: condition = 01 (write only) — flip to `0b11` for
+///   read-or-write tracking when hunting consumers (much spammier).
 /// - Bits `18 + 4*i`: length = 11 (4 bytes)
 fn dr7_for_count(n: usize) -> u32 {
     let mut dr7 = 0u32;
@@ -214,7 +235,7 @@ unsafe extern "cdecl" fn malloc_hook(size: u32) -> *mut u8 {
                 "[Watchpoint] Intercepted wa_malloc(0x{:X}) = 0x{:08X}",
                 size, result as u32,
             ));
-            on_world_alloc(result);
+            on_base_known(result);
         }
         result
     }
@@ -281,17 +302,18 @@ pub unsafe fn prepare_with_malloc_hook() {
     }
 }
 
-/// Called right after GameWorld `wa_malloc`. Arms the watchpoints via INT3 → VEH.
+/// Called once the watched object's base address is known. Arms the
+/// watchpoints via INT3 → VEH.
 ///
-/// When this function returns, all 4 hardware watchpoints are live on the
-/// current thread.
-pub unsafe fn on_world_alloc(world: *mut u8) {
+/// When this function returns, all configured hardware watchpoints are live
+/// on the current thread.
+pub unsafe fn on_base_known(base_ptr: *mut u8) {
     unsafe {
-        let base = world as u32;
-        GAME_WORLD_BASE.store(base, Ordering::Relaxed);
+        let base = base_ptr as u32;
+        WATCH_BASE.store(base, Ordering::Relaxed);
 
         let _ = log_line(&format!(
-            "[Watchpoint] GameWorld at 0x{:08X}, arming watchpoints on: {}",
+            "[Watchpoint] base at 0x{:08X}, arming watchpoints on: {}",
             base,
             WATCH_OFFSETS
                 .iter()

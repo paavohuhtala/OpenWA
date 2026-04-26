@@ -110,11 +110,15 @@ pub struct GameSession {
     pub cursor_initial: POINT,
     /// 0x078: Mouse delta X accumulator (since last gameplay consumer poll).
     /// WM_MOUSEMOVE adds `(new_screen_x - cursor_x)` here. Zeroed by the
-    /// constructor / `Run` startup / mouse release path. Consumer not yet
-    /// found in the disassembly; likely accessed via a chained pointer from
-    /// gameplay code (camera/aim?). Watch for the read site at runtime.
+    /// constructor / `Run` startup / mouse release path. Consumed by
+    /// `DDNetGameWrapper::Mouse__ConsumeDeltaAndButtons` (vtable slot 3,
+    /// 0x0056D2E0), which copies the delta into a caller buffer without
+    /// clearing — pair with `Mouse__ClearDeltas` (vtable slot 5, 0x0056D340)
+    /// for read-then-zero. The wrapper bridges local mouse input into the
+    /// per-frame network game state (`SendGameState`).
     pub mouse_delta_x: i32,
-    /// 0x07C: Mouse delta Y accumulator (companion to `mouse_delta_x`).
+    /// 0x07C: Mouse delta Y accumulator (companion to `mouse_delta_x`,
+    /// same producer/consumer pair).
     pub mouse_delta_y: i32,
     /// 0x080: cursor center X — set to `screen_center_x`, used for `SetCursorPos`
     pub cursor_x: i32,
@@ -126,6 +130,12 @@ pub struct GameSession {
     /// `MK_LBUTTON|MK_RBUTTON|MK_MBUTTON` flags in wParam (so a fast
     /// click+release between two MOVE events can be lost). Cleared by the
     /// release-input + headless pre-loop paths.
+    ///
+    /// Consumed by `DDNetGameWrapper::Mouse__ConsumeDeltaAndButtons` (vtable
+    /// slot 3, 0x0056D2E0) as a debounced click detector: the wrapper holds a
+    /// per-button "armed" latch in its own `[this+4]` field, ANDs that latch
+    /// with the current bitmask to report fresh clicks, then re-arms any bit
+    /// that's currently unpressed. So a held button only registers once.
     pub mouse_button_state: u32,
     pub _unknown_08c: [u8; 4],
     /// 0x090: `QueryPerformanceFrequency` result (ticks per second),
