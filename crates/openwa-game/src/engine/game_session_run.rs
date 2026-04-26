@@ -72,10 +72,10 @@ pub unsafe extern "stdcall" fn on_headless_pre_loop(param_1: u32) {
             return;
         }
 
-        let saved_flag_2c = (*session).flag_2c;
+        let saved_mouse_acquired = (*session).mouse_acquired;
         let keyboard = (*session).keyboard;
-        (*session).flag_2c = 0;
-        (*session).input_active_flag = 0;
+        (*session).mouse_acquired = 0;
+        (*session).mouse_button_state = 0;
         // WA dereferences `keyboard` unconditionally; mirror that exactly.
         (*keyboard).clear_key_states();
 
@@ -98,7 +98,7 @@ pub unsafe extern "stdcall" fn on_headless_pre_loop(param_1: u32) {
         let mut buf: FastcallResult = core::mem::zeroed();
         RenderContext::renderer_slot8_raw(ctx, &mut buf);
 
-        if saved_flag_2c != 0 {
+        if saved_mouse_acquired != 0 {
             SetCursorPos((*session).cursor_initial.x, (*session).cursor_initial.y);
         }
     }
@@ -179,7 +179,7 @@ pub unsafe fn run_game_session(
             (*game_info).info_transparency,
         ]);
         GetCursorPos(&mut (*session).cursor_initial);
-        (*session).flag_2c = 1;
+        (*session).mouse_acquired = 1;
 
         // ── Optional pre-init message drain (UI / cursor housekeeping) ──────
         let mut do_pre_init_drain = false;
@@ -195,8 +195,8 @@ pub unsafe fn run_game_session(
             // WA explicitly re-zeroes these two slots here; the constructor
             // also zeroes them, so this is redundant defensive code — kept
             // for fidelity.
-            (*session)._field_078 = 0;
-            (*session)._field_07c = 0;
+            (*session).mouse_delta_x = 0;
+            (*session).mouse_delta_y = 0;
             drain_pending_messages();
         }
 

@@ -5,7 +5,7 @@
 use crate::hook;
 use openwa_core::log::log_line;
 use openwa_game::address::va;
-use openwa_game::input::keyboard;
+use openwa_game::input::{keyboard, mouse};
 
 // usercall(EAX=this) trampoline for Keyboard::ClearKeyStates. Captures `this`
 // from EAX and forwards it to the cdecl impl in openwa_game.
@@ -58,10 +58,27 @@ pub fn install() -> Result<(), String> {
             va::KEYBOARD_CLEAR_KEY_STATES,
             keyboard_clear_key_states as *const (),
         )?;
+
+        // Mouse helpers — all `__cdecl void()`, full-replacement hooks.
+        hook::install(
+            "Mouse__PollAndAcquire",
+            va::MOUSE_POLL_AND_ACQUIRE,
+            mouse::mouse_poll_and_acquire as *const (),
+        )?;
+        hook::install(
+            "Mouse__ReleaseAndCenter",
+            va::MOUSE_RELEASE_AND_CENTER,
+            mouse::mouse_release_and_center as *const (),
+        )?;
+        hook::install(
+            "Cursor__ClipAndRecenter",
+            va::CURSOR_CLIP_AND_RECENTER,
+            mouse::cursor_clip_and_recenter as *const (),
+        )?;
     }
 
     let _ = log_line(
-        "[Keyboard] Destructor + IsAction* + ReadInputRingBuffer + AlertUser + VFunc7 + PollState + AcquireInput + ClearKeyStates hooked; CheckAction trapped",
+        "[Keyboard] Destructor + IsAction* + ReadInputRingBuffer + AlertUser + VFunc7 + PollState + AcquireInput + ClearKeyStates hooked; CheckAction trapped\n[Mouse] PollAndAcquire + ReleaseAndCenter + Cursor::ClipAndRecenter hooked",
     );
     Ok(())
 }

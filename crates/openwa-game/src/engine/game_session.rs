@@ -52,10 +52,19 @@ pub struct GameSession {
     pub _unknown_010: [u8; 0x14],
     /// 0x024: Always set to 1 by GameEngine__InitHardware.
     pub init_flag: u32,
-    /// 0x028: Fullscreen flag — `(GameInfo.home_lock != 0) as u32`.
-    pub fullscreen_flag: u32,
-    /// 0x02C: set to 1 on init (role TBD)
-    pub flag_2c: u32,
+    /// 0x028: Home-lock-active flag — `(GameInfo.home_lock != 0) as u32`.
+    /// When set, the engine WindowProc *ignores* keyboard/mouse input and
+    /// instead sets `exit_flag = 1` on any input message — i.e. attended
+    /// "watcher" mode that aborts on any user interaction. The fullscreen
+    /// state lives elsewhere in the global `g_FullscreenFlag` (0x88E484);
+    /// this field was historically misnamed `fullscreen_flag`.
+    pub home_lock_active: u32,
+    /// 0x02C: Mouse acquired flag — set to 1 on init and by
+    /// `Mouse::PollAndAcquire` (0x00572620); cleared by
+    /// `Mouse::ReleaseAndCenter` (0x005725B0) and the headless pre-loop.
+    /// WindowProc gates all WM_MOUSE* processing on this; click-without-acquire
+    /// re-routes through `Mouse::PollAndAcquire` to re-grab the cursor.
+    pub mouse_acquired: u32,
     /// 0x030: set to 1 when desktop is unavailable (`OpenInputDesktop` returns null)
     pub desktop_lost: u32,
     /// 0x034: checked in `GameSession__ProcessFrame` for non-engine frame path
@@ -90,24 +99,34 @@ pub struct GameSession {
     /// 0x068: minimize request — when nonzero, posts `WM_SYSCOMMAND SC_MINIMIZE`
     /// to `g_FrontendHwnd` and clears itself.
     pub minimize_request: u32,
-    pub _unknown_06c: [u8; 4],
+    /// 0x06C: Cursor recenter request. Read by the engine WindowProc's
+    /// WM_MOUSEMOVE handler — when nonzero, calls `SetCursorPos` to the
+    /// screen center and clears the flag. Set to `1` by `Keyboard::AcquireInput`
+    /// on focus regain so the very next mouse-move snaps the cursor back
+    /// to center (preventing a spurious cursor jump on alt-tab).
+    pub cursor_recenter_request: u32,
     /// 0x070: cursor position at session start (a Win32 `POINT`,
     /// populated in one shot by `GetCursorPos` in `GameSession::Run`).
     pub cursor_initial: POINT,
-    /// 0x078: input/message-pump scratch slot. Zeroed by the constructor
-    /// and again in `GameSession::Run` before the pre-init message drain.
-    /// Purpose unknown — kept named so the port can write through a field
-    /// instead of pointer arithmetic.
-    pub _field_078: u32,
-    /// 0x07C: companion to `_field_078` (zeroed in the same places).
-    pub _field_07c: u32,
+    /// 0x078: Mouse delta X accumulator (since last gameplay consumer poll).
+    /// WM_MOUSEMOVE adds `(new_screen_x - cursor_x)` here. Zeroed by the
+    /// constructor / `Run` startup / mouse release path. Consumer not yet
+    /// found in the disassembly; likely accessed via a chained pointer from
+    /// gameplay code (camera/aim?). Watch for the read site at runtime.
+    pub mouse_delta_x: i32,
+    /// 0x07C: Mouse delta Y accumulator (companion to `mouse_delta_x`).
+    pub mouse_delta_y: i32,
     /// 0x080: cursor center X — set to `screen_center_x`, used for `SetCursorPos`
     pub cursor_x: i32,
     /// 0x084: cursor center Y
     pub cursor_y: i32,
-    /// 0x088: cleared when desktop is lost and keyboard object exists.
-    /// Used for input state tracking.
-    pub input_active_flag: u32,
+    /// 0x088: Mouse button state bitmask. Bit 0 = LMB, bit 1 = RMB, bit 2 = MMB.
+    /// WM_LBUTTONDOWN/RBUTTONDOWN/MBUTTONDOWN OR in the bit; corresponding
+    /// UP messages clear it; WM_MOUSEMOVE *replaces* the low 3 bits from the
+    /// `MK_LBUTTON|MK_RBUTTON|MK_MBUTTON` flags in wParam (so a fast
+    /// click+release between two MOVE events can be lost). Cleared by the
+    /// release-input + headless pre-loop paths.
+    pub mouse_button_state: u32,
     pub _unknown_08c: [u8; 4],
     /// 0x090: `QueryPerformanceFrequency` result (ticks per second),
     /// or `0` to request the synthetic-clock path (`GetTickCount`

@@ -342,7 +342,7 @@ pub unsafe extern "cdecl" fn keyboard_acquire_input_impl(esi_flag: u32, param_1:
             GetCursorPos(&raw mut (*session).cursor_initial);
         }
 
-        (*session).flag_2c = esi_flag;
+        (*session).mouse_acquired = esi_flag;
 
         // Bridge: FrontendDialog::UpdateCursor(g_InGameFrontendDialog) — stdcall.
         let update_cursor: unsafe extern "stdcall" fn(u32) =
@@ -350,15 +350,11 @@ pub unsafe extern "cdecl" fn keyboard_acquire_input_impl(esi_flag: u32, param_1:
         update_cursor(rb(va::G_INGAME_FRONTEND_DIALOG));
 
         if esi_flag != 0 {
-            // Bridge: Cursor__ClipAndRecenter_Maybe — no args.
-            let clip_recenter: unsafe extern "cdecl" fn() =
-                core::mem::transmute(rb(va::CURSOR_CLIP_AND_RECENTER) as usize);
-            clip_recenter();
+            crate::input::mouse::cursor_clip_and_recenter();
         }
 
         (*session).flag_60 = 1;
-        // _unknown_06c is at offset 0x6C (we don't have a typed field — write raw).
-        *((session as *mut u8).add(0x6C) as *mut u32) = esi_flag;
+        (*session).cursor_recenter_request = esi_flag;
 
         if param_1 == 0 {
             // g_RenderContext->vtable[10] (renderer_restore_dims) — fastcall

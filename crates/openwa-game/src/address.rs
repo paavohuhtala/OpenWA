@@ -269,9 +269,15 @@ pub mod va {
         // dedicated class blocks yet — these are scattered single-callees).
         // (FRONTEND_DIALOG_UPDATE_CURSOR is already declared in the
         // GameSession bridge block below.)
-        /// Cursor__ClipAndRecenter_Maybe — clip cursor to monitor +
-        /// SetCursorPos(GameSession.screen_center). Plain RET, no args.
+        /// Cursor::ClipAndRecenter — clip cursor to monitor + SetCursorPos
+        /// to GameSession.screen_center. Plain RET, no args.
+        /// Now Rust — kept for the trap install in `replacements/mouse.rs`.
         fn/Cdecl CURSOR_CLIP_AND_RECENTER = 0x00573180;
+        /// Mouse::PollAndAcquire — full re-grab of mouse + keyboard input
+        /// after focus regain. Plain RET, no args.
+        fn/Cdecl MOUSE_POLL_AND_ACQUIRE = 0x00572620;
+        /// Mouse::ReleaseAndCenter — Alt+G ungrab handler. Plain RET, no args.
+        fn/Cdecl MOUSE_RELEASE_AND_CENTER = 0x005725B0;
         /// Display__RestoreSurfaces_Maybe — stdcall(display_ptr) -> u32,
         /// RET 0x4. Recreates lost DDraw surfaces after focus regain.
         fn/Stdcall DISPLAY_RESTORE_SURFACES = 0x0056CA80;
@@ -1068,6 +1074,14 @@ pub mod va {
         /// Game session context pointer
         global G_GAME_SESSION = 0x007A0884;
         global G_FULLSCREEN_FLAG = 0x007A084C;
+        /// Frontend "use full-screen rect for cursor clip" flag. Read by
+        /// `Cursor::ClipAndRecenter` to decide whether to clip the cursor to
+        /// the full monitor (when nonzero) or the work-area (when zero —
+        /// respects the Windows taskbar). Toggled by Frontend::LaunchGameSession
+        /// and the SC_RESTORE branch of OnSYSCOMMAND. Likely set during the
+        /// in-game session and cleared on return to frontend, but the exact
+        /// semantics need a separate RE pass — kept `_Maybe`.
+        global G_POST_GAME_RESTORE_FLAG_MAYBE = 0x007A0850;
         global G_SUPPRESS_CURSOR = 0x0088E485;
         global IAT_MAP_WINDOW_POINTS = 0x0061A588;
         global G_SPRITE_DATA_BYTES = 0x007A0864;

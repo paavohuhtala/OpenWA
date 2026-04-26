@@ -403,7 +403,7 @@ unsafe extern "cdecl" fn impl_init_hardware(
 
         // ── Session flags ─────────────────────────────────────────────────────────
         (*session).init_flag = 1;
-        (*session).fullscreen_flag = (gi.home_lock != 0) as u32;
+        (*session).home_lock_active = (gi.home_lock != 0) as u32;
 
         // ── GameRuntime (ALWAYS) ────────────────────────────────────────────────
         let _ = crate::log_line("[hardware_init] Creating GameRuntime");

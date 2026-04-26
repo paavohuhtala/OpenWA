@@ -285,7 +285,7 @@ pub struct GameInfo {
     /// zero-initialised and never modified, so the wider read is bit-for-bit
     /// equivalent to a byte read. Consumers should use this `u8` field.
     ///
-    /// Roles: `(home_lock != 0)` sets `GameSession.fullscreen_flag` during
+    /// Roles: `(home_lock != 0)` sets `GameSession.home_lock_active` during
     /// `InitHardware`, and `DispatchFrame` compares it against
     /// `GameWorld._field_77d4 / 50` to trigger `game_state = 4` (headless exit)
     /// after the matching number of turn seconds.

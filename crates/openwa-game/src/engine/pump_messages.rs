@@ -73,7 +73,7 @@ pub unsafe extern "cdecl" fn pump_messages() {
                 if !cfg.is_null()
                     && (*cfg).headless_mode == 0
                     && *(rb(va::G_DISPLAY_MODE_FLAG) as *const u8) == 0
-                    && (*session).flag_2c != 0
+                    && (*session).mouse_acquired != 0
                 {
                     let cx = (*session).screen_center_x;
                     let cy = (*session).screen_center_y;

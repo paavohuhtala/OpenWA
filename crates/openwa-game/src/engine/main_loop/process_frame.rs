@@ -76,7 +76,7 @@ pub unsafe fn process_frame() {
                 // Desktop unavailable (e.g. locked screen)
                 if (*session).desktop_lost == 0 {
                     (*session).desktop_lost = 1;
-                    (*session).input_active_flag = 0;
+                    (*session).mouse_button_state = 0;
                     let keyboard = (*session).keyboard;
                     if !keyboard.is_null() {
                         (*keyboard).clear_key_states();
