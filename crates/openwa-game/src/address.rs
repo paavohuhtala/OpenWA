@@ -80,6 +80,7 @@ pub mod va {
         BLIT_SPRITE_RECT, BitGridBaseVtable, BitGridCollisionVtable, BitGridDisplayVtable,
         DISPLAY_BIT_GRID_SET_EXTERNAL_BUFFER, DRAW_LINE_CLIPPED, DRAW_LINE_TWO_COLOR,
     };
+    pub use crate::engine::game_session::{GAME_SESSION_VTABLE, GameSessionVtable};
     pub use crate::frontend::map_view::MAP_VIEW_VTABLE;
     pub use crate::input::controller::INPUT_CTRL_VTABLE;
     pub use crate::render::ddraw::compat_renderer::{
@@ -522,7 +523,8 @@ pub mod va {
 
     crate::define_addresses! {
         class "GameSession" {
-            /// GameSession constructor
+            /// GameSession constructor — replaced by Rust `construct_session`,
+            /// trapped (only WA-side caller is `GameSession__Run`, also replaced).
             ctor/Usercall GAME_SESSION_CONSTRUCTOR = 0x0058BFA0;
             /// GameSession__Run
             fn/Usercall GAME_SESSION_RUN = 0x00572F50;
@@ -535,6 +537,8 @@ pub mod va {
             /// GameSession__OnHeadlessPreLoop_Maybe — clears keyboard/cursor
             /// state, hides frontend, flushes display, primes flag_5c=1.
             /// Called once before the main loop when `g_DisplayModeFlag != 0`.
+            /// Replaced by Rust `on_headless_pre_loop` (full hook — two
+            /// remaining WA-side callers in the SYSCOMMAND minimize path).
             fn/Stdcall GAME_SESSION_ON_HEADLESS_PRE_LOOP = 0x00572430;
         }
 

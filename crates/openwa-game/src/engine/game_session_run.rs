@@ -1,4 +1,4 @@
-//! Rust port of `GameSession::Run` (0x00572F50).
+//! Rust port of `GameSession::Run` (0x00572F50) plus its in-process helpers.
 //!
 //! Top-level main-loop driver. Allocates the `GameSession`, runs hardware
 //! init, pumps Win32 messages, drives `ProcessFrame` until exit, then runs
@@ -6,10 +6,9 @@
 //! `RET 0x10`.
 //!
 //! Sub-callees still bridged to WA:
-//!  - `GameSession::Constructor` (0x0058BFA0, usercall EAX=this)
 //!  - `GameSession::PumpMessages` (0x00572E30, cdecl)
-//!  - `GameSession::OnHeadlessPreLoop_Maybe` (0x00572430, stdcall 1 arg)
-//!  - `FrontendDialog::UpdateCursor` (0x0040D250, stdcall 1 arg)
+//!  - `FrontendDialog::UpdateCursor` (0x0040D250, stdcall 1 arg) — also
+//!    invoked indirectly from `on_headless_pre_loop`.
 //!  - `GameEngine::Shutdown` (0x0056DCD0, stdcall 1 arg)
 //!
 //! `GameEngine::InitHardware` (0x0056D350) and `GameSession::ProcessFrame`
@@ -18,27 +17,89 @@
 
 use core::mem::transmute;
 
+use windows_sys::Win32::Foundation::HWND;
+
 use crate::address::va;
 use crate::engine::game_info::GameInfo;
-use crate::engine::game_session::GameSession;
+use crate::engine::game_session::{GameSession, GameSessionVtable, get_game_session};
 use crate::engine::main_loop::process_frame::process_frame;
 use crate::rebase::rb;
+use crate::render::display::context::{FastcallResult, RenderContext};
 use crate::wa_alloc::wa_malloc_struct_zeroed;
 
-// ─── Bridges ─────────────────────────────────────────────────────────────────
+// ─── Pure-Rust helpers ───────────────────────────────────────────────────────
 
-/// Bridge to `GameSession::Constructor` — `__usercall(EAX=this)`, plain RET.
-/// Returns `this` in EAX.
-#[unsafe(naked)]
-unsafe extern "C" fn call_session_ctor(_this: *mut GameSession, _target: u32) -> *mut GameSession {
-    core::arch::naked_asm!(
-        // [ret@0] [this@4] [target@8]
-        "movl 4(%esp), %eax",
-        "movl 8(%esp), %ecx",
-        "calll *%ecx",
-        "retl",
-        options(att_syntax),
-    );
+/// Rust port of `GameSession::Constructor` (0x0058BFA0). Convention
+/// is `__usercall(EAX=this)`. The original zeroes ~32 contiguous u32 fields
+/// covering offsets 0x10..=0xC4; we rely on `wa_malloc_struct_zeroed` for
+/// those, leaving only the three non-zero writes (vtable, screen-center
+/// sentinel, gate flag).
+pub unsafe fn construct_session(this: *mut GameSession) {
+    unsafe {
+        (*this).vtable = rb(va::GAME_SESSION_VTABLE) as *const GameSessionVtable;
+        (*this).screen_center_x = i32::MIN;
+        (*this).flag_60 = 1;
+    }
+}
+
+/// Rust port of `GameSession::OnHeadlessPreLoop_Maybe` (0x00572430).
+///
+/// Called once before the main loop enters when `g_DisplayModeFlag != 0`,
+/// and from two WA-side SYSCOMMAND minimize paths (`FUN_004ed701`,
+/// `Unknown__OnSYSCOMMAND`). Idempotent — bails immediately when
+/// `flag_5c` is already set.
+///
+/// Behaviour:
+///  - clear `flag_2c` and `input_active_flag`
+///  - zero the keyboard's current and previous key-state buffers
+///  - if fullscreen, release the cursor clip
+///  - reapply the in-game frontend cursor
+///  - mark `flag_5c = 1` so this only runs once
+///  - if `param_1 != 0`, minimize the frontend window
+///  - kick the renderer's slot-8 thunk (full-screen flush / mode reset)
+///  - if `flag_2c` had been set, restore the cursor to its session-start
+///    position (`cursor_initial`)
+pub unsafe extern "stdcall" fn on_headless_pre_loop(param_1: u32) {
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        ClipCursor, SW_MINIMIZE, SetCursorPos, ShowWindow,
+    };
+
+    unsafe {
+        let session = get_game_session();
+        if (*session).flag_5c != 0 {
+            return;
+        }
+
+        let saved_flag_2c = (*session).flag_2c;
+        let keyboard = (*session).keyboard;
+        (*session).flag_2c = 0;
+        (*session).input_active_flag = 0;
+        // WA dereferences `keyboard` unconditionally; mirror that exactly.
+        (*keyboard).clear_key_states();
+
+        if *(rb(va::G_FULLSCREEN_FLAG) as *const u32) != 0 {
+            ClipCursor(core::ptr::null());
+        }
+
+        let update_cursor: unsafe extern "stdcall" fn(u32) =
+            transmute(rb(va::FRONTEND_DIALOG_UPDATE_CURSOR));
+        update_cursor(rb(va::G_INGAME_FRONTEND_DIALOG));
+
+        (*session).flag_5c = 1;
+
+        if param_1 != 0 {
+            let h_wnd = *(rb(va::G_FRONTEND_HWND) as *const HWND);
+            ShowWindow(h_wnd, SW_MINIMIZE);
+        }
+
+        let ctx = *(rb(va::G_RENDER_CONTEXT) as *const *mut RenderContext);
+        let mut buf: FastcallResult = core::mem::zeroed();
+        RenderContext::renderer_slot8_raw(ctx, &mut buf);
+
+        if saved_flag_2c != 0 {
+            SetCursorPos((*session).cursor_initial.x, (*session).cursor_initial.y);
+        }
+    }
 }
 
 /// Drain pending non-`WM_CHAR` messages (`while wParam != 0`).
@@ -64,14 +125,11 @@ unsafe fn drain_pending_messages() {
     }
 }
 
-/// Call the GameSession destructor (vtable slot 0) with `flags=1` so the
-/// scalar deleting destructor frees the heap allocation.
+/// Call the GameSession scalar deleting destructor with `flags=1` so it
+/// frees the heap allocation after running the C++ destructor body.
 unsafe fn delete_session(session: *mut GameSession) {
     unsafe {
-        let vtable = (*session).vtable as *const u32;
-        let dtor = *vtable;
-        let f: unsafe extern "thiscall" fn(*mut GameSession, u32) = transmute(dtor);
-        f(session, 1);
+        GameSession::destructor_raw(session, 1);
     }
 }
 
@@ -102,10 +160,7 @@ pub unsafe fn run_game_session(
         // ── Allocate + construct GameSession ────────────────────────────────
         let session = wa_malloc_struct_zeroed::<GameSession>();
         if !session.is_null() {
-            call_session_ctor(
-                session as *mut GameSession,
-                rb(va::GAME_SESSION_CONSTRUCTOR),
-            );
+            construct_session(session);
         }
 
         (*session).hwnd = h_wnd as u32;
@@ -163,9 +218,7 @@ pub unsafe fn run_game_session(
 
         // ── Headless display-mode hook (rare path) ──────────────────────────
         if *(rb(va::G_DISPLAY_MODE_FLAG) as *const u8) != 0 {
-            let on_headless: unsafe extern "stdcall" fn(u32) =
-                transmute(rb(va::GAME_SESSION_ON_HEADLESS_PRE_LOOP));
-            on_headless(0);
+            on_headless_pre_loop(0);
         }
 
         // ── Second pre-loop message drain ───────────────────────────────────

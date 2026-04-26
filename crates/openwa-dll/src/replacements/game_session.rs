@@ -19,7 +19,7 @@ use openwa_game::audio::DSSound;
 use openwa_game::engine::GameRuntimeVtable;
 use openwa_game::engine::create_game_world;
 use openwa_game::engine::game_session::get_game_session;
-use openwa_game::engine::game_session_run::run_game_session;
+use openwa_game::engine::game_session_run::{on_headless_pre_loop, run_game_session};
 use openwa_game::engine::init_constructor_addrs;
 use openwa_game::engine::{GameInfo, GameRuntime};
 use openwa_game::rebase::rb;
@@ -228,10 +228,21 @@ pub fn install() -> Result<(), String> {
         init_constructor_addrs();
         hook::install_trap!("GameRuntime__Constructor", va::CONSTRUCT_DD_GAME_WRAPPER);
         hook::install_trap!("GameWorld__InitGameState", va::GAME_WORLD_INIT_GAME_STATE);
+        // GameSession::Constructor — only WA-side caller is GameSession::Run
+        // (fully replaced); inlined as `construct_session` in Rust.
+        hook::install_trap!("GameSession::Constructor", va::GAME_SESSION_CONSTRUCTOR);
         hook::install(
             "GameSession::Run",
             va::GAME_SESSION_RUN,
             trampoline_game_session_run as *const (),
+        )?;
+        // GameSession::OnHeadlessPreLoop_Maybe — full replacement; two
+        // remaining WA-side callers in the SYSCOMMAND minimize path still
+        // dispatch through this address.
+        hook::install(
+            "GameSession::OnHeadlessPreLoop_Maybe",
+            va::GAME_SESSION_ON_HEADLESS_PRE_LOOP,
+            on_headless_pre_loop as *const (),
         )?;
     }
     Ok(())

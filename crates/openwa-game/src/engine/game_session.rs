@@ -8,6 +8,18 @@ use crate::engine::runtime::GameRuntime;
 use crate::input::keyboard::DDKeyboard;
 use crate::render::display::palette::Palette;
 
+/// `GameSession` vtable (`PTR_FUN_0066b3f8`, 1 slot — scalar deleting dtor).
+///
+/// Followed immediately at 0x0066B3FC by `INPUT_CTRL_VTABLE`, confirming the
+/// 1-slot size.
+#[openwa_game::vtable(size = 1, va = 0x0066B3F8, class = "GameSession")]
+pub struct GameSessionVtable {
+    /// scalar deleting destructor (0x0058C040, RET 0x4) — `flags & 1` frees
+    /// the heap allocation after running the C++ destructor body.
+    #[slot(0)]
+    pub destructor: fn(this: *mut GameSession, flags: u32) -> *mut GameSession,
+}
+
 /// Top-level game session context, allocated once per game run.
 ///
 /// `G_GAME_SESSION` (0x7A0884) stores a pointer to this struct. Created by
@@ -30,8 +42,8 @@ use crate::render::display::palette::Palette;
 #[derive(FieldRegistry)]
 #[repr(C)]
 pub struct GameSession {
-    /// 0x000: vtable pointer (class `GameSession`, `PTR_FUN_0066b3f8`)
-    pub vtable: *mut u8,
+    /// 0x000: vtable pointer (`PTR_FUN_0066b3f8` — single scalar deleting dtor slot)
+    pub vtable: *const GameSessionVtable,
     pub _unknown_004: [u8; 4],
     /// 0x008: main window HWND, stored from `hWnd` in `GameSession__Run`
     pub hwnd: u32,
@@ -128,6 +140,8 @@ pub struct GameSession {
 }
 
 const _: () = assert!(core::mem::size_of::<GameSession>() == 0x120);
+
+bind_GameSessionVtable!(GameSession, vtable);
 
 // ─── Runtime accessors (DLL-injected context only) ──────────────────────
 
