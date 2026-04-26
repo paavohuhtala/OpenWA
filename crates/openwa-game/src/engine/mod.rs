@@ -20,6 +20,7 @@ pub mod runtime;
 pub mod team_arena;
 pub mod team_init;
 pub mod team_ops;
+pub mod window_proc;
 pub mod world;
 pub mod world_constructor;
 pub mod world_load_fonts;

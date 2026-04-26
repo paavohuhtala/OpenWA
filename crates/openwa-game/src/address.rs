@@ -567,6 +567,12 @@ pub mod va {
             /// Replaced by Rust `on_headless_pre_loop` (full hook — two
             /// remaining WA-side callers in the SYSCOMMAND minimize path).
             fn/Stdcall GAME_SESSION_ON_HEADLESS_PRE_LOOP = 0x00572430;
+            /// GameSession__WindowProc — engine-mode WNDPROC installed via
+            /// `SetWindowLongA` over the original MFC WNDPROC (cached at
+            /// `G_MFC_WNDPROC`). Handles in-game keyboard/mouse/palette
+            /// messages; falls through to the cached MFC WNDPROC for
+            /// anything else.
+            fn/Stdcall GAME_SESSION_WINDOW_PROC = 0x00572660;
         }
 
         /// GameEngine__InitHardware
@@ -590,6 +596,23 @@ pub mod va {
         /// address is trapped as a safety net (only static xref was
         /// `Frontend::InstallInputHooks` itself).
         fn/Stdcall FRONTEND_FOREGROUND_IDLE_PROC = 0x004ED0D0;
+        /// Palette__LogChange — appends a "Palette set by 0x%lX %s" line to
+        /// `palette.log` with the foreground process name (Toolhelp32). Bridged
+        /// from `GameSession::WindowProc` WM_PALETTECHANGED handler.
+        fn/Cdecl PALETTE_LOG_CHANGE = 0x00598B50;
+        /// Palette__RealizeFromSystem — diffs the system palette against the
+        /// game's reference and re-realises with `_memcpy`. Bridged from
+        /// `GameSession::WindowProc` WM_PALETTECHANGED + Shift+Pause handlers.
+        fn/Cdecl PALETTE_REALIZE_FROM_SYSTEM = 0x005A1110;
+        /// Screenshot__SavePng — writes the current backbuffer as a PNG to
+        /// `User\Capture\screenNNNN.png`. Bridged from `GameSession::WindowProc`
+        /// VK_PAUSE (no-modifier) handler. Returns nonzero on success.
+        fn/Cdecl SCREENSHOT_SAVE_PNG = 0x0056C6F0;
+        /// Map__SavePngCapture — writes the current level map as a PNG to
+        /// `User\SavedLevels\Capture\mapNNNNN.png`. Bridged from
+        /// `GameSession::WindowProc` Alt+Pause handler. Argument is the
+        /// `GameRuntime*` (GameSession+0xA0).
+        fn/Cdecl MAP_SAVE_PNG_CAPTURE = 0x00536810;
     }
 
     // =========================================================================
