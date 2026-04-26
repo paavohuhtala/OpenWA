@@ -71,7 +71,11 @@ pub struct GameSession {
     pub flag_34: u32,
     /// 0x038: back-pointer to the `GameInfo` config struct (ESI from `GameSession__Run`)
     pub config_ptr: *mut GameInfo,
-    /// 0x03C: nonzero = exit the game main loop (checked each frame in `GameSession__Run`)
+    /// 0x03C: nonzero = exit the game main loop (checked each frame in
+    /// `GameSession__Run`). `GameSession::WindowProc` sets it to 1 on:
+    ///  - any keyboard/mouse message while `home_lock_active` is set
+    ///    (watcher-mode "abort on user interaction")
+    ///  - Alt+F4 with no Ctrl held (frontend-exit signal)
     pub exit_flag: u32,
     /// 0x040: game-end status/result code
     pub flag_40: u32,
@@ -88,8 +92,16 @@ pub struct GameSession {
     pub screen_center_x: i32,
     /// 0x058: display center Y = `display_height / 2`
     pub screen_center_y: i32,
-    /// 0x05C: checked in post-loop cleanup — nonzero triggers keyboard vtable call.
-    /// Constructor initializes to 0; `GameSession__ProcessFrame` reads it.
+    /// 0x05C: "engine suspended" flag — set when the game enters a
+    /// minimized / headless-like state (no rendering, no engine tick, no
+    /// palette work). Initialised to 0 by the constructor; set to 1 by
+    /// `GameSession::OnHeadlessPreLoop_Maybe` (headless startup +
+    /// SYSCOMMAND minimize paths); cleared by the keyboard re-acquire path
+    /// when the window is restored. Readers gate gameplay/render work:
+    ///  - `GameSession::ProcessFrame` skips the engine frame advance
+    ///  - `dispatch_frame` skips render work
+    ///  - `GameSession::WindowProc` WM_PALETTECHANGED skips palette work
+    ///  - `GameSession::Run` post-loop alert path checks it
     pub flag_5c: u32,
     /// 0x060: gate flag for engine frame advance in `GameSession__ProcessFrame`.
     /// Constructor initializes to 1.
@@ -120,9 +132,14 @@ pub struct GameSession {
     /// 0x07C: Mouse delta Y accumulator (companion to `mouse_delta_x`,
     /// same producer/consumer pair).
     pub mouse_delta_y: i32,
-    /// 0x080: cursor center X — set to `screen_center_x`, used for `SetCursorPos`
+    /// 0x080: Last cursor position (screen coords) seen by
+    /// `GameSession::WindowProc`'s WM_MOUSEMOVE handler — used to compute
+    /// `(new - prev)` deltas added to `mouse_delta_x/_y`. Initialised to
+    /// `screen_center_x` by `GameEngine::InitHardware` (so the first move
+    /// after startup measures from the cursor-recenter target), then
+    /// overwritten on every WM_MOUSEMOVE.
     pub cursor_x: i32,
-    /// 0x084: cursor center Y
+    /// 0x084: Last cursor Y (companion to `cursor_x`).
     pub cursor_y: i32,
     /// 0x088: Mouse button state bitmask. Bit 0 = LMB, bit 1 = RMB, bit 2 = MMB.
     /// WM_LBUTTONDOWN/RBUTTONDOWN/MBUTTONDOWN OR in the bit; corresponding

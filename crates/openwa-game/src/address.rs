@@ -1065,6 +1065,15 @@ pub mod va {
         ///  - flag != 0: `WM_MBUTTONDOWN ..= WM_MBUTTONDBLCLK`
         ///  - flag == 0: `WM_MOUSEWHEEL` only
         global G_INPUT_HOOK_FILTER_SELECT_MAYBE = 0x006B39C0;
+        /// Cached pointer to the original MFC `WindowProcA` for the engine's
+        /// game window. Stored by `FUN_004ECD40` immediately before
+        /// `SetWindowLongA(..., GWL_WNDPROC, GameSession::WindowProc)` swaps
+        /// the WNDPROC. Read by `GameSession::WindowProc`'s outer-guard
+        /// fall-through to chain via `CallWindowProcA` for any message it
+        /// doesn't handle (i.e. anything outside the keyboard / mouse /
+        /// WM_PALETTECHANGED filter, or while `g_InputHookMode != 0` /
+        /// `g_InGameLoop == 0`).
+        global G_MFC_WNDPROC = 0x006B39C4;
         global G_RENDER_CONTEXT = 0x0079D6D4;
         /// Stipple checkerboard parity — toggled (XOR 1) each render frame in GameRender.
         /// Used by DisplayGfx__BlitStippled to alternate the checkerboard pattern.

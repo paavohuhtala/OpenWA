@@ -76,9 +76,10 @@ pub struct Keyboard {
     /// while CTRL is held. Cleared on any frame where HOME is not pressed or
     /// CTRL is released.
     pub home_ctrl_latch: u32,
-    /// 0x014: ASCII ring-buffer head (write index, mod 0x100). Producer
-    /// (likely the WM_CHAR handler) advances this; ReadInputRingBuffer is
-    /// the consumer.
+    /// 0x014: ASCII ring-buffer head (write index, mod 0x100). Advanced by
+    /// `GameSession::WindowProc`'s WM_CHAR (0x102) case; consumed by
+    /// `Keyboard::ReadInputRingBuffer` (vtable slot 5). Drops when full
+    /// (`new_head == ring_tail`) and on null bytes.
     pub ring_head: u32,
     /// 0x018: ASCII ring-buffer tail (read index, mod 0x100).
     pub ring_tail: u32,
