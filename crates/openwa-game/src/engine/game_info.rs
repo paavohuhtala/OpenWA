@@ -246,8 +246,9 @@ pub struct GameInfo {
     /// `sound_start_frame` and `sound_mute` by DispatchFrame to decide whether
     /// timing ratio updates advance normally or snap to target.
     pub _field_f398: i32,
-    /// 0xF39C-0xF39F: Unknown
-    pub _unknown_f39c: [u8; 0xF3A0 - 0xF39C],
+    /// 0xF39C: Read as a `u32` and copied verbatim into
+    /// `GameSession.display_param_1` by `GameSession::Run`. Purpose unknown.
+    pub _field_f39c: u32,
 
     // --- Cluster 2: game options (populated by LoadOptions) ---
     /// 0xF3A0: Unknown config byte (from global 0x7C0D38)

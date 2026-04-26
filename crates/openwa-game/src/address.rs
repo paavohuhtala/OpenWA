@@ -530,12 +530,20 @@ pub mod va {
             fn/Cdecl GAME_SESSION_PROCESS_FRAME = 0x00572C80;
             /// GameSession__AdvanceFrame — frame timing + engine vtable dispatch
             fn/Cdecl GAME_SESSION_ADVANCE_FRAME = 0x0056DDC0;
+            /// GameSession__PumpMessages — pumps Win32 messages between frames
+            fn/Cdecl GAME_SESSION_PUMP_MESSAGES = 0x00572E30;
+            /// GameSession__OnHeadlessPreLoop_Maybe — clears keyboard/cursor
+            /// state, hides frontend, flushes display, primes flag_5c=1.
+            /// Called once before the main loop when `g_DisplayModeFlag != 0`.
+            fn/Stdcall GAME_SESSION_ON_HEADLESS_PRE_LOOP = 0x00572430;
         }
 
         /// GameEngine__InitHardware
         fn/Thiscall GAME_ENGINE_INIT_HARDWARE = 0x0056D350;
         /// GameEngine__Shutdown
         fn/Stdcall GAME_ENGINE_SHUTDOWN = 0x0056DCD0;
+        /// FrontendDialog__UpdateCursor — reapplies the frontend mouse cursor.
+        fn/Stdcall FRONTEND_DIALOG_UPDATE_CURSOR = 0x0040D250;
     }
 
     // =========================================================================
@@ -974,6 +982,9 @@ pub mod va {
         global G_STIPPLE_PARITY = 0x007A087C;
         global G_FONT_ARRAY = 0x007A0F58;
         global G_MAIN_MENU_ACTIVE = 0x007C0A20;
+        /// Static `FrontendDialog` instance used for the in-game cursor state
+        /// tracking — passed as `param_1` to `FrontendDialog::UpdateCursor`.
+        global G_INGAME_FRONTEND_DIALOG = 0x007C0534;
         global G_CWINAPP = 0x007C03D0;
         global G_NETWORK_MODE = 0x007C0D40;
         global G_NETWORK_SUBTYPE = 0x007C0D68;

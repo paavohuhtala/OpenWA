@@ -1,5 +1,6 @@
-/// DDKeyboard vtable (0x66AEC8, 8 slots).
-#[openwa_game::vtable(size = 8, va = 0x0066AEC8, class = "DDKeyboard")]
+/// DDKeyboard vtable (0x66AEC8). At least 17 slots in memory; only the
+/// ones we actually call are typed below — the rest stay as `usize` gaps.
+#[openwa_game::vtable(size = 9, va = 0x0066AEC8, class = "DDKeyboard")]
 pub struct DDKeyboardVtable {
     /// scalar deleting destructor (0x571B10).
     #[slot(0)]
@@ -18,6 +19,12 @@ pub struct DDKeyboardVtable {
     /// Called each frame from StepFrame when `GameWorld.is_headful != 0`.
     #[slot(6)]
     pub slot_06_noop: fn(this: *mut DDKeyboard),
+    /// Slot 8: DDKeyboard::AlertUser (0x572320). Notifies the user when
+    /// the game window is not foreground — `MessageBeep(beep_kind)` plus
+    /// `FlashWindow(g_FrontendHwnd)` if `flash != 0`. Called from the
+    /// post-loop cleanup in `GameSession::Run` (1, 2).
+    #[slot(8)]
+    pub alert_user: fn(this: *mut DDKeyboard, flash: u8, beep_kind: i32),
 }
 
 bind_DDKeyboardVtable!(DDKeyboard, vtable);

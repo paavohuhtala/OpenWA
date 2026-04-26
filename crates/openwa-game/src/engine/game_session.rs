@@ -1,3 +1,5 @@
+use windows_sys::Win32::Foundation::POINT;
+
 use crate::FieldRegistry;
 use crate::audio::dssound::DSSound;
 use crate::audio::music::Music;
@@ -77,11 +79,16 @@ pub struct GameSession {
     /// to `g_FrontendHwnd` and clears itself.
     pub minimize_request: u32,
     pub _unknown_06c: [u8; 4],
-    /// 0x070: cursor X at session start (from `GetCursorPos`)
-    pub cursor_initial_x: i32,
-    /// 0x074: cursor Y at session start
-    pub cursor_initial_y: i32,
-    pub _unknown_078: [u8; 8],
+    /// 0x070: cursor position at session start (a Win32 `POINT`,
+    /// populated in one shot by `GetCursorPos` in `GameSession::Run`).
+    pub cursor_initial: POINT,
+    /// 0x078: input/message-pump scratch slot. Zeroed by the constructor
+    /// and again in `GameSession::Run` before the pre-init message drain.
+    /// Purpose unknown — kept named so the port can write through a field
+    /// instead of pointer arithmetic.
+    pub _field_078: u32,
+    /// 0x07C: companion to `_field_078` (zeroed in the same places).
+    pub _field_07c: u32,
     /// 0x080: cursor center X — set to `screen_center_x`, used for `SetCursorPos`
     pub cursor_x: i32,
     /// 0x084: cursor center Y

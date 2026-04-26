@@ -3,6 +3,7 @@ pub mod clock;
 pub mod coord;
 pub mod game_info;
 pub mod game_session;
+pub mod game_session_run;
 pub mod game_state;
 pub mod game_state_init;
 pub mod game_state_stream;

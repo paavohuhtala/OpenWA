@@ -12,13 +12,14 @@
 //! - `GameWorld__Constructor` (0x56E220): fully replaced by `create_world()` in openwa-game.
 //! - `GameWorld__InitGameState` (0x526500): ported to Rust in `init_game_state()`.
 
-use crate::hook;
+use crate::hook::{self, usercall_trampoline};
 use crate::log_line;
 use openwa_game::address::va;
 use openwa_game::audio::DSSound;
 use openwa_game::engine::GameRuntimeVtable;
 use openwa_game::engine::create_game_world;
 use openwa_game::engine::game_session::get_game_session;
+use openwa_game::engine::game_session_run::run_game_session;
 use openwa_game::engine::init_constructor_addrs;
 use openwa_game::engine::{GameInfo, GameRuntime};
 use openwa_game::rebase::rb;
@@ -195,6 +196,31 @@ pub(crate) unsafe fn construct_runtime(
     }
 }
 
+// ─── GameSession::Run hook ──────────────────────────────────────────────────
+//
+// __usercall(ESI=GameInfo, stack: arg1..arg4), RET 0x10. Returns 0/1 in EAX.
+usercall_trampoline!(fn trampoline_game_session_run;
+    impl_fn = run_game_session_impl;
+    reg = esi; stack_params = 4; ret_bytes = "0x10");
+
+unsafe extern "cdecl" fn run_game_session_impl(
+    game_info: *mut GameInfo,
+    arg1_module_state: u32,
+    state_buf: *mut u8,
+    display_p3: u32,
+    display_p4: u32,
+) -> u32 {
+    unsafe {
+        run_game_session(
+            game_info,
+            arg1_module_state,
+            state_buf,
+            display_p3,
+            display_p4,
+        )
+    }
+}
+
 pub fn install() -> Result<(), String> {
     unsafe {
         INIT_REPLAY_ADDR = rb(va::GAME_RUNTIME_INIT_REPLAY);
@@ -202,6 +228,11 @@ pub fn install() -> Result<(), String> {
         init_constructor_addrs();
         hook::install_trap!("GameRuntime__Constructor", va::CONSTRUCT_DD_GAME_WRAPPER);
         hook::install_trap!("GameWorld__InitGameState", va::GAME_WORLD_INIT_GAME_STATE);
+        hook::install(
+            "GameSession::Run",
+            va::GAME_SESSION_RUN,
+            trampoline_game_session_run as *const (),
+        )?;
     }
     Ok(())
 }
