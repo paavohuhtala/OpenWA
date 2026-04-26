@@ -584,6 +584,12 @@ pub mod va {
         /// entering a modal-dialog input mode. Takes no parameters; the
         /// caller writes `g_InputHookMode` immediately before the call.
         fn/Cdecl FRONTEND_INSTALL_INPUT_HOOKS = 0x004ED3C0;
+        /// Frontend__ForegroundIdleProc — WH_FOREGROUNDIDLE hook proc.
+        /// Posts `WM_USER+0x3FFC` to the frontend frame's HWND while
+        /// `g_InputHookMode == Animated`. Now ported in Rust; the WA
+        /// address is trapped as a safety net (only static xref was
+        /// `Frontend::InstallInputHooks` itself).
+        fn/Stdcall FRONTEND_FOREGROUND_IDLE_PROC = 0x004ED0D0;
     }
 
     // =========================================================================

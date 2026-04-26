@@ -5,6 +5,7 @@
 
 use std::sync::atomic::{AtomicU32, Ordering};
 
+use crate::hook;
 use crate::log_line;
 use openwa_game::address::va;
 use openwa_game::game::ScreenId;
@@ -100,6 +101,15 @@ pub fn install() -> Result<(), String> {
             va::FRONTEND_INSTALL_INPUT_HOOKS,
             openwa_game::frontend::input_hooks::install_input_hooks as *const (),
         )?;
+
+        // Frontend::ForegroundIdleProc (0x004ED0D0) — now ported in Rust.
+        // SetWindowsHookExA is registered with the Rust function directly,
+        // so the WA-side address is no longer reachable (only static xref
+        // was Frontend::InstallInputHooks itself). Trap as a safety net.
+        hook::install_trap!(
+            "Frontend::ForegroundIdleProc",
+            va::FRONTEND_FOREGROUND_IDLE_PROC
+        );
     }
 
     Ok(())

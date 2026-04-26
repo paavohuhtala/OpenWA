@@ -4,9 +4,10 @@
 //! `WH_FOREGROUNDIDLE` frame-ping hook on the calling thread
 //! (`Frontend::InstallInputHooks`, 0x004ED3C0) when entering a modal-dialog
 //! input mode. `Frontend::UnhookInputHooks` (0x004ED590) tears them down
-//! again. Both Rust ports live here. The hook procs themselves
-//! (`FUN_004ED160` / `FUN_004ED0D0`) stay in WA — they're GUI-only paths
-//! that aren't exercised by replay tests.
+//! again. Install/unhook lifecycle plus the WH_FOREGROUNDIDLE proc are
+//! Rust. The WH_GETMESSAGE proc (`FUN_004ED160`) is still WA — GUI-only
+//! mouse-message synthesis path, deferred until `GameSession::WindowProc`
+//! is ported.
 
 use core::ptr;
 
@@ -15,9 +16,9 @@ use windows_sys::Win32::Media::timeEndPeriod;
 use windows_sys::Win32::System::Threading::GetCurrentThreadId;
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::GetFocus;
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    HHOOK, HOOKPROC, KillTimer, MSG, PM_NOYIELD, PM_REMOVE, PeekMessageA, SendMessageA,
-    SetWindowsHookExA, UnhookWindowsHookEx, WH_FOREGROUNDIDLE, WH_GETMESSAGE, WM_MBUTTONDBLCLK,
-    WM_MBUTTONDOWN, WM_MOUSEWHEEL,
+    CallNextHookEx, HHOOK, HOOKPROC, KillTimer, MSG, PM_NOYIELD, PM_REMOVE, PeekMessageA,
+    PostMessageA, SendMessageA, SetWindowsHookExA, UnhookWindowsHookEx, WH_FOREGROUNDIDLE,
+    WH_GETMESSAGE, WM_MBUTTONDBLCLK, WM_MBUTTONDOWN, WM_MOUSEWHEEL,
 };
 
 use crate::address::va;
@@ -29,12 +30,6 @@ use crate::rebase::rb;
 /// `WM_MBUTTON*` queued bursts. Calls `GameSession::ProcessFrame` if a
 /// session exists; deferred from porting (GUI-only path).
 const FRONTEND_GET_MESSAGE_PROC_VA: u32 = 0x004ED160;
-
-/// Address of the WH_FOREGROUNDIDLE hook proc inside WA.exe (`FUN_004ED0D0`).
-/// Posts `WM_USER + 0x3FFC` to the frontend frame's HWND when the foreground
-/// thread idles; keeps the animated frontend redrawing. Trivial; deferred
-/// from porting alongside the WH_GETMESSAGE proc.
-const FRONTEND_FOREGROUND_IDLE_PROC_VA: u32 = 0x004ED0D0;
 
 /// State of the frontend's modal-dialog input grab (`g_InputHookMode`).
 ///
@@ -87,6 +82,12 @@ const FRONTEND_INPUT_TIMER_ID: usize = 0x4E424C4B;
 /// `g_InputHookMode` is reset to 0 — notifies whoever is interested that
 /// the input grab has been released.
 const WM_FRONTEND_INPUT_RELEASED: u32 = 0xBFFB;
+
+/// Private app-defined message (`0xBFFC`) posted to the frontend frame's
+/// HWND each time the foreground thread idles in
+/// [`InputHookMode::Animated`] — keeps the animated frontend redrawing
+/// while no Win32 input is being processed.
+const WM_FRONTEND_ANIMATE_TICK: u32 = 0xBFFC;
 
 /// Rust port of `Frontend::UnhookInputHooks` (0x004ED590).
 ///
@@ -187,17 +188,50 @@ pub unsafe extern "cdecl" fn install_input_hooks() {
             usize,
             unsafe extern "system" fn(i32, WPARAM, LPARAM) -> LRESULT,
         >(rb(FRONTEND_GET_MESSAGE_PROC_VA) as usize));
-        let idle_proc: HOOKPROC = Some(core::mem::transmute::<
-            usize,
-            unsafe extern "system" fn(i32, WPARAM, LPARAM) -> LRESULT,
-        >(rb(FRONTEND_FOREGROUND_IDLE_PROC_VA) as usize));
 
         let tid = GetCurrentThreadId();
         let msg_hook = SetWindowsHookExA(WH_GETMESSAGE, msg_proc, 0 as HINSTANCE, tid);
         *(rb(va::G_FRONTEND_MSG_HOOK) as *mut HHOOK) = msg_hook;
 
         let tid = GetCurrentThreadId();
-        let idle_hook = SetWindowsHookExA(WH_FOREGROUNDIDLE, idle_proc, 0 as HINSTANCE, tid);
+        let idle_hook = SetWindowsHookExA(
+            WH_FOREGROUNDIDLE,
+            Some(foreground_idle_proc),
+            0 as HINSTANCE,
+            tid,
+        );
         *(rb(va::G_FRONTEND_IDLE_HOOK) as *mut HHOOK) = idle_hook;
+    }
+}
+
+/// Rust port of `Frontend::ForegroundIdleProc` (0x004ED0D0).
+///
+/// Win32 `WH_FOREGROUNDIDLE` hook proc — fires on the calling thread when
+/// the message-pump goes idle. While in [`InputHookMode::Animated`], posts
+/// a `WM_FRONTEND_ANIMATE_TICK` ping to the frontend frame's HWND so its
+/// transition animation keeps redrawing even when no input is arriving.
+/// Otherwise just chains via `CallNextHookEx`.
+///
+/// `g_input_hook_flag_2dd7_Maybe != 0` suppresses the ping — the
+/// WH_GETMESSAGE proc sets that flag while it's already pumping a
+/// synthetic mouse event, so we don't double-pulse the animation.
+///
+/// Registered by [`install_input_hooks`]; the WA-side address
+/// (`va::FRONTEND_FOREGROUND_IDLE_PROC`) is install-trapped as a safety
+/// net since no other code references it.
+pub unsafe extern "system" fn foreground_idle_proc(
+    code: i32,
+    wparam: WPARAM,
+    lparam: LPARAM,
+) -> LRESULT {
+    unsafe {
+        let frame = *(rb(va::G_FRONTEND_FRAME) as *const *const u8);
+        let suppress = *(rb(va::G_INPUT_HOOK_FLAG_2DD7_MAYBE) as *const u8);
+        if !frame.is_null() && InputHookMode::get() == InputHookMode::Animated && suppress == 0 {
+            let hwnd = *(frame.add(0x20) as *const HWND);
+            PostMessageA(hwnd, WM_FRONTEND_ANIMATE_TICK, 1, 0);
+        }
+        let idle_hook = *(rb(va::G_FRONTEND_IDLE_HOOK) as *const HHOOK);
+        CallNextHookEx(idle_hook, code, wparam, lparam)
     }
 }
