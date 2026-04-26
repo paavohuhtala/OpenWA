@@ -21,6 +21,7 @@ use openwa_game::engine::create_game_world;
 use openwa_game::engine::game_session::get_game_session;
 use openwa_game::engine::game_session_run::{on_headless_pre_loop, run_game_session};
 use openwa_game::engine::init_constructor_addrs;
+use openwa_game::engine::pump_messages::pump_messages;
 use openwa_game::engine::{GameInfo, GameRuntime};
 use openwa_game::rebase::rb;
 use openwa_game::render::{DisplayGfx, Palette};
@@ -243,6 +244,13 @@ pub fn install() -> Result<(), String> {
             "GameSession::OnHeadlessPreLoop_Maybe",
             va::GAME_SESSION_ON_HEADLESS_PRE_LOOP,
             on_headless_pre_loop as *const (),
+        )?;
+        // GameSession::PumpMessages — full replacement; second WA-side
+        // caller is `GameRuntime::LoadingProgressTick`.
+        hook::install(
+            "GameSession::PumpMessages",
+            va::GAME_SESSION_PUMP_MESSAGES,
+            pump_messages as *const (),
         )?;
     }
     Ok(())

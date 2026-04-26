@@ -6,7 +6,8 @@
 //! `RET 0x10`.
 //!
 //! Sub-callees still bridged to WA:
-//!  - `GameSession::PumpMessages` (0x00572E30, cdecl)
+//!  - `Frontend::UnhookInputHooks` (0x004ED590, cdecl) — invoked from
+//!    `pump_messages`.
 //!  - `FrontendDialog::UpdateCursor` (0x0040D250, stdcall 1 arg) — also
 //!    invoked indirectly from `on_headless_pre_loop`.
 //!  - `GameEngine::Shutdown` (0x0056DCD0, stdcall 1 arg)
@@ -23,6 +24,7 @@ use crate::address::va;
 use crate::engine::game_info::GameInfo;
 use crate::engine::game_session::{GameSession, GameSessionVtable, get_game_session};
 use crate::engine::main_loop::process_frame::process_frame;
+use crate::engine::pump_messages::pump_messages;
 use crate::rebase::rb;
 use crate::render::display::context::{FastcallResult, RenderContext};
 use crate::wa_alloc::wa_malloc_struct_zeroed;
@@ -230,10 +232,9 @@ pub unsafe fn run_game_session(
         let session = *(rb(va::G_GAME_SESSION) as *const *mut GameSession);
         (*session).config_ptr = game_info;
 
-        let pump: unsafe extern "cdecl" fn() = transmute(rb(va::GAME_SESSION_PUMP_MESSAGES));
         #[allow(clippy::while_immutable_condition)]
         while (*session).exit_flag == 0 {
-            pump();
+            pump_messages();
             process_frame();
         }
 

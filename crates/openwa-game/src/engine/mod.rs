@@ -13,6 +13,7 @@ pub mod main_loop;
 pub mod net_bridge;
 pub mod net_session;
 pub mod net_wrapper;
+pub mod pump_messages;
 pub mod replay;
 pub mod ring_buffer;
 pub mod runtime;

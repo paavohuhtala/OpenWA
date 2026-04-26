@@ -532,7 +532,9 @@ pub mod va {
             fn/Cdecl GAME_SESSION_PROCESS_FRAME = 0x00572C80;
             /// GameSession__AdvanceFrame — frame timing + engine vtable dispatch
             fn/Cdecl GAME_SESSION_ADVANCE_FRAME = 0x0056DDC0;
-            /// GameSession__PumpMessages — pumps Win32 messages between frames
+            /// GameSession__PumpMessages — pumps Win32 messages between frames.
+            /// Replaced by Rust `pump_messages` (full hook — also called
+            /// from `GameRuntime::LoadingProgressTick` on the WA side).
             fn/Cdecl GAME_SESSION_PUMP_MESSAGES = 0x00572E30;
             /// GameSession__OnHeadlessPreLoop_Maybe — clears keyboard/cursor
             /// state, hides frontend, flushes display, primes flag_5c=1.
@@ -548,6 +550,10 @@ pub mod va {
         fn/Stdcall GAME_ENGINE_SHUTDOWN = 0x0056DCD0;
         /// FrontendDialog__UpdateCursor — reapplies the frontend mouse cursor.
         fn/Stdcall FRONTEND_DIALOG_UPDATE_CURSOR = 0x0040D250;
+        /// Frontend__UnhookInputHooks — releases keyboard/mouse hooks if
+        /// `g_InputHookMode != 0` (no-op in normal play). Called twice per
+        /// `pump_messages` iteration.
+        fn/Cdecl FRONTEND_UNHOOK_INPUT_HOOKS = 0x004ED590;
     }
 
     // =========================================================================
