@@ -6,7 +6,7 @@
 
 use crate::audio::dssound::DSSound;
 use crate::bitgrid::DisplayBitGrid;
-use crate::engine::buffer_object::allocate_buffer_object;
+use crate::engine::dual_buffer_object::allocate_dual_buffer_object;
 use crate::engine::game_info::GameInfo;
 use crate::engine::game_state;
 use crate::engine::game_state_stream::game_state_stream_init;
@@ -260,8 +260,8 @@ pub unsafe fn init_game_state(runtime: *mut GameRuntime) {
         );
         (*world)._field_77b0 = 0;
 
-        // ===== Allocate BufferObject (main_buffer at wrapper+0x0C) =====
-        (*runtime).main_buffer = allocate_buffer_object(world, game_info);
+        // ===== Allocate DualBufferObject (main_buffer at wrapper+0x0C) =====
+        (*runtime).main_buffer = allocate_dual_buffer_object(world, game_info);
 
         // ===== Allocate RingBuffer A (wrapper+0x3C, capacity 0x2000) =====
         (*runtime).ring_buffer_a = allocate_ring_buffer_raw(0x3C, 0x2000);
@@ -282,7 +282,7 @@ pub unsafe fn init_game_state(runtime: *mut GameRuntime) {
         }
 
         // ===== Allocate state buffer (wrapper+0x48) =====
-        (*runtime).state_buffer = allocate_buffer_object(world, game_info);
+        (*runtime).state_buffer = allocate_dual_buffer_object(world, game_info);
 
         // ===== Allocate statistics object (0xB94 bytes, wrapper+0x4C) =====
         {

@@ -32,6 +32,7 @@ use openwa_core::fixed::{Fixed, Fixed64};
 
 use super::dispatch_frame::is_replay_mode;
 use crate::address::va;
+use crate::engine::buffer_object::BufferObject;
 use crate::engine::game_info::GameInfo;
 use crate::engine::game_session::get_game_session;
 use crate::engine::game_state;
@@ -39,9 +40,8 @@ use crate::engine::log_sink::LogOutput;
 use crate::engine::net_session::NetSession;
 use crate::engine::runtime::GameRuntime;
 use crate::engine::world::GameWorld;
-use crate::frontend::input_hooks::InputHookMode;
 use crate::game::message::{TurnEndMaybeMessage, Unknown122Message};
-use crate::input::buffer_object::BufferObject;
+use crate::input::hooks::InputHookMode;
 use crate::input::keyboard::Keyboard;
 use crate::rebase::rb;
 use crate::render::display::palette::Palette;

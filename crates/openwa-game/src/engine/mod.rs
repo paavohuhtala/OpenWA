@@ -1,6 +1,7 @@
 pub mod buffer_object;
 pub mod clock;
 pub mod coord;
+pub mod dual_buffer_object;
 pub mod game_info;
 pub mod game_session;
 pub mod game_session_run;

@@ -1,54 +1,133 @@
-//! BufferObject — dual-buffer container used by GameRuntime for state
-//! serialization (`main_buffer`, `state_buffer`).
+//! Partial layout of `BufferObject` — the ring/message buffer used by
+//! `GameRuntime` for input dispatch, serialization, and the state buffer.
 //!
-//! WA's representation is 18 × u32 (0x48 bytes) with two parallel sub-buffers:
-//! - `[0..5]`:  primary buffer header   (data, capacity, head, tail, world ptr)
-//! - `[5..10]`: secondary buffer header (same shape)
+//! Full layout is unknown; only the fields touched by `classify_input_msg`
+//! (0x00541100) and `alloc_slot` (0x004F9330) are typed here. The rest is
+//! left as opaque padding so the struct is not yet sized.
 
-use crate::engine::game_info::GameInfo;
-use crate::engine::world::GameWorld;
-use crate::wa_alloc::wa_malloc_zeroed;
+use crate::FieldRegistry;
 
-/// Allocate a BufferObject (0x48 bytes) with both sub-buffer sizes computed
-/// from `GameInfo`.
+/// A single message node in `BufferObject::queue_head`.
 ///
-/// Pure Rust port of BufferObject__Constructor (0x545FD0). The original is
-/// a usercall with the secondary buffer's capacity passed implicitly in EDI.
-pub unsafe fn allocate_buffer_object(world: *mut GameWorld, game_info: *const GameInfo) -> *mut u8 {
-    unsafe {
-        let mem = wa_malloc_zeroed(0x48) as *mut u32;
-        if mem.is_null() {
-            return core::ptr::null_mut();
+/// Node layout (header + inline payload):
+/// - `+0x00` `size` — `4 + payload_bytes` (4 accounts for `msg_type` being
+///   counted as part of the "body" by the classifier).
+/// - `+0x04` `next` — linked-list forward pointer (null = tail).
+/// - `+0x08` `msg_type` — discriminator, written by the caller.
+/// - `+0x0C` payload, `size - 4` bytes, written by the caller.
+///
+/// The allocator returns a pointer to `msg_type` so callers can write
+/// `[msg_type, ...payload]` contiguously.
+#[repr(C)]
+pub struct BufferMsgNode {
+    pub size: u32,
+    pub next: *mut BufferMsgNode,
+    pub msg_type: u32,
+    // payload follows inline
+}
+
+/// Partial view of `BufferObject` — only the ring/queue fields used by
+/// `classify_input_msg` and `alloc_slot` are typed.
+#[derive(FieldRegistry)]
+#[repr(C)]
+pub struct BufferObject {
+    /// 0x00: Start pointer of the backing ring (raw bytes).
+    pub ring_start: *mut u8,
+    /// 0x04: Total capacity of the backing ring, in bytes.
+    pub capacity: u32,
+    /// 0x08: Write cursor (offset from `ring_start`). Advanced by every
+    /// successful `alloc_slot`. When the queue fully drains, `read_offset`
+    /// re-syncs to this value.
+    pub tail_offset: u32,
+    /// 0x0C: Read cursor (offset from `ring_start`).
+    pub read_offset: u32,
+    /// 0x10: Last-allocated (tail) message node — linked forward from the
+    /// previous tail on the next `alloc_slot`. Null when queue is empty.
+    pub tail_node: *mut BufferMsgNode,
+    /// 0x14: Head of the pending-message linked list. Null when empty.
+    pub queue_head: *mut BufferMsgNode,
+    /// 0x18: Number of pending messages in the queue.
+    pub queue_count: i32,
+    // Trailing fields unknown.
+}
+
+impl BufferObject {
+    /// Rust port of `BufferObject__ClassifyInputMsg` (0x00541100).
+    ///
+    /// Pops the head node off `queue_head` and updates `read_offset` so
+    /// subsequent reads resolve to the node's payload. When the queue
+    /// fully drains, `read_offset` re-syncs to `tail_offset` — effectively
+    /// resetting the ring.
+    ///
+    /// The original is a thiscall returning `u32`=1 always.
+    #[inline]
+    pub unsafe fn classify_input_msg_raw(this: *mut BufferObject) -> bool {
+        unsafe {
+            let head = (*this).queue_head;
+            if head.is_null() {
+                return true;
+            }
+            let next = (*head).next;
+            (*this).queue_head = next;
+            (*this).queue_count = (*this).queue_count.wrapping_sub(1);
+            if next.is_null() {
+                (*this).read_offset = (*this).tail_offset;
+            } else {
+                (*this).read_offset = (next as u32).wrapping_sub((*this).ring_start as u32);
+            }
+            true
         }
+    }
 
-        // Primary buffer
-        let num_teams = (*game_info).num_teams_alloc as u32;
-        let num_objects = (*game_info).object_slot_count;
-        let buf1_capacity = num_teams * 0x450 + 0x4F178 + num_objects * 0x70;
+    /// Rust port of `BufferObject__AllocSlot` (0x004F9330).
+    ///
+    /// Reserves space at `tail_offset` for a message with a `body_size`-byte
+    /// body (`body_size = 4 msg_type + payload_bytes`). Returns a pointer
+    /// to the `msg_type` slot for the caller to write `[msg_type; payload]`
+    /// contiguously, or null if the ring would overrun the read cursor.
+    ///
+    /// The slot occupies `(body_size + 11) & ~3` bytes of ring space —
+    /// node header (8 bytes: `size`, `next`) + body, padded up to 4-byte
+    /// alignment. `size` is stored verbatim as the caller's `body_size`.
+    ///
+    /// Wraps when the tail would exceed `capacity`, provided the wrap
+    /// target (offset 0) plus `slot_bytes` doesn't overrun the read cursor.
+    pub unsafe fn alloc_slot_raw(this: *mut BufferObject, body_size: u32) -> *mut u32 {
+        unsafe {
+            let mut tail = (*this).tail_offset;
+            let head = (*this).read_offset;
+            let slot_bytes = body_size.wrapping_add(11) & !3;
 
-        let buf1 = wa_malloc_zeroed(((buf1_capacity + 3) & !3) + 0x20);
+            if tail < head {
+                // Read cursor is ahead of write — must not cross it.
+                if head <= tail.wrapping_add(slot_bytes) {
+                    return core::ptr::null_mut();
+                }
+            } else if (*this).capacity <= tail.wrapping_add(slot_bytes) {
+                // Past end of ring — try wrapping to 0. Rejected if doing
+                // so would still overrun the read cursor.
+                if head <= slot_bytes {
+                    return core::ptr::null_mut();
+                }
+                tail = 0;
+            }
 
-        *mem.add(0) = buf1 as u32;
-        *mem.add(1) = buf1_capacity;
-        *mem.add(4) = world as u32;
+            let slot = (*this).ring_start.add(tail as usize) as *mut BufferMsgNode;
+            (*slot).size = body_size;
+            (*slot).next = core::ptr::null_mut();
 
-        // Secondary buffer (capacity originally carried in EDI)
-        let gi_raw = game_info as *const u8;
-        let field_d9b4 = *gi_raw.add(0xD9B4);
-        let field_d9b1 = *gi_raw.add(0xD9B1) as i8;
-        let extra = if field_d9b4 != 0 && ((field_d9b1 as i32 - 2) as u32) >= 0x21 {
-            0x190u32
-        } else {
-            0
-        };
-        let buf2_capacity = extra + 0x2DC;
+            let prev_tail = (*this).tail_node;
+            if !prev_tail.is_null() {
+                (*prev_tail).next = slot;
+            }
+            (*this).tail_node = slot;
+            if (*this).queue_head.is_null() {
+                (*this).queue_head = slot;
+            }
+            (*this).queue_count = (*this).queue_count.wrapping_add(1);
+            (*this).tail_offset = tail.wrapping_add(slot_bytes);
 
-        let buf2 = wa_malloc_zeroed(((buf2_capacity + 3) & !3) + 0x20);
-
-        *mem.add(5) = buf2 as u32;
-        *mem.add(6) = buf2_capacity;
-        *mem.add(9) = world as u32;
-
-        mem as *mut u8
+            &raw mut (*slot).msg_type
+        }
     }
 }

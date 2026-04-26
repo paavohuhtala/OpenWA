@@ -89,7 +89,7 @@ pub fn install() -> Result<(), String> {
         crate::hook::install(
             "Frontend::UnhookInputHooks",
             va::FRONTEND_UNHOOK_INPUT_HOOKS,
-            openwa_game::frontend::input_hooks::unhook_input_hooks as *const (),
+            openwa_game::input::hooks::unhook_input_hooks as *const (),
         )?;
 
         // Frontend::InstallInputHooks (0x004ED3C0) — full replacement; reached
@@ -99,7 +99,7 @@ pub fn install() -> Result<(), String> {
         crate::hook::install(
             "Frontend::InstallInputHooks",
             va::FRONTEND_INSTALL_INPUT_HOOKS,
-            openwa_game::frontend::input_hooks::install_input_hooks as *const (),
+            openwa_game::input::hooks::install_input_hooks as *const (),
         )?;
 
         // Frontend::ForegroundIdleProc (0x004ED0D0) — now ported in Rust.

@@ -8,7 +8,7 @@ use windows_sys::Win32::Foundation::HWND;
 
 use crate::address::va;
 use crate::engine::game_session::get_game_session;
-use crate::frontend::input_hooks::{InputHookMode, unhook_input_hooks};
+use crate::input::hooks::{InputHookMode, unhook_input_hooks};
 use crate::rebase::rb;
 
 /// Rust port of `GameSession::PumpMessages` (0x00572E30).
