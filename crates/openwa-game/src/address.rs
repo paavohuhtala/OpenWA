@@ -257,6 +257,10 @@ pub mod va {
             fn/Stdcall KEYBOARD_POLL_STATE = 0x00572290;
             /// Keyboard::AcquireInput — usercall(ESI=flag, [ESP+4]=p1)
             fn/Usercall KEYBOARD_ACQUIRE_INPUT = 0x00572500;
+            /// Keyboard::CheckAction — usercall(EAX=action, ESI=this, EDI=mode) -> u32
+            fn/Usercall KEYBOARD_CHECK_ACTION = 0x00571BA0;
+            /// Keyboard::CheckKeyState — usercall(EAX=key, EDX=mode, [ESP+4]=this) -> bool
+            fn/Usercall KEYBOARD_CHECK_KEY_STATE = 0x00571B50;
         }
 
         // AcquireInput's bridged callees (kept WA-side for this round; no

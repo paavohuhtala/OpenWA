@@ -235,8 +235,16 @@ pub struct GameInfo {
     /// 0xF374: Display flags passed to DisplayGfx::Init.
     pub display_flags: u32,
 
-    /// 0xF378-0xF38B: Unknown
-    pub _unknown_f378: [u8; 0xF38C - 0xF378],
+    /// 0xF378-0xF383: Unknown
+    pub _unknown_f378: [u8; 0xF384 - 0xF378],
+    /// 0xF384: Input-detection flags consumed by `Keyboard::CheckAction` case
+    /// 0x42 (tilde / backtick equivalence). Bit 0 CLEAR enables the
+    /// scancode-based probe (`MapVirtualKeyA(0x29, MAPVK_VSC_TO_VK)`); bit 1
+    /// CLEAR enables the layout-based probe (`VkKeyScanA('`')`). Polarity is
+    /// "feature disabled when bit set" — WA's only consumer.
+    pub _field_f384: u32,
+    /// 0xF388-0xF38B: Unknown
+    pub _unknown_f388: [u8; 0xF38C - 0xF388],
     /// 0xF38C: Sound distance attenuation factor (i32). When nonzero, enables 3D
     /// positional audio via Distance3D_Attenuation. Zero = all sounds at full volume.
     pub sound_attenuation: i32,

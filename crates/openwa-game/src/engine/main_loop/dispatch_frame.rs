@@ -19,7 +19,7 @@ use crate::engine::runtime::GameRuntime;
 use crate::engine::world::GameWorld;
 use crate::frontend::input_hooks::InputHookMode;
 use crate::game::message::{TurnEndMaybeMessage, UpdateNonCriticalMessage};
-use crate::input::keyboard::Keyboard;
+use crate::input::keyboard::{Keyboard, KeyboardAction};
 use crate::rebase::rb;
 use crate::render::display::gfx::DisplayGfx;
 use crate::task::WorldRootEntity;
@@ -871,9 +871,9 @@ pub unsafe fn dispatch_frame(runtime: *mut GameRuntime, time: u64, freq: u64) {
             let fixed_render_scale = Fixed::ONE
                 - Fixed::from_raw((65536.0 * (elapsed_f * RENDER_DECAY / freq_f).exp()) as i32);
 
-            // Minimize request: keyboard slot 3 polls the "minimize" action.
+            // Minimize request: keyboard polls the "consume Shift+Esc" action.
             let keyboard: *mut Keyboard = (*world).keyboard;
-            if ((*(*keyboard).vtable).is_action_active)(keyboard, 0x36) != 0 {
+            if KeyboardAction::Minimize.is_active(keyboard) {
                 let session = get_game_session();
                 (*session).minimize_request = 1;
             }
@@ -940,10 +940,9 @@ pub unsafe fn dispatch_frame(runtime: *mut GameRuntime, time: u64, freq: u64) {
             ((*(*display).base.vtable).slot_02_noop)(display);
 
             if (*runtime)._field_410 == 0 {
-                // Keyboard slot 1: edge-triggered action poll; result is cached
-                // on GameWorld for downstream HUD/input code.
-                let result = ((*(*keyboard).vtable).is_action_pressed)(keyboard, 0xd);
-                (*world).kb_poll_result = result as u32;
+                // Edge-triggered HOME-with-CTRL-sticky action poll; result is
+                // cached on GameWorld for downstream HUD/input code.
+                (*world).kb_poll_result = KeyboardAction::A0D.is_pressed(keyboard) as u32;
             }
         }
         // end of is_headful block
