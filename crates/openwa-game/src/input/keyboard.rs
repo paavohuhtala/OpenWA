@@ -100,16 +100,13 @@ impl Keyboard {
         self.prev_state.fill(0);
     }
 
-    /// Poll keyboard state via WA's `Keyboard__PollState` (0x572290).
+    /// Poll keyboard state — wrapper around the now-Rust `keyboard_poll_state`
+    /// (the implementation that's also installed as the WA-side replacement).
     ///
     /// # Safety
     /// Must be called from within the WA.exe process.
     pub unsafe fn poll(&mut self) {
-        unsafe {
-            let poll_fn: unsafe extern "stdcall" fn(*mut Self) =
-                core::mem::transmute(rb(va::KEYBOARD_POLL_STATE) as usize);
-            poll_fn(self);
-        }
+        unsafe { keyboard_poll_state(self) }
     }
 
     /// Create a new Keyboard with inline construction (no native C++ ctor).
@@ -241,6 +238,51 @@ pub unsafe extern "thiscall" fn keyboard_alert_user(
     }
 }
 
+/// Port of `Keyboard__PollState` (0x00572290).
+///
+/// `__stdcall(this)`, `RET 0x4`. Drains all pending keyboard messages from
+/// the queue (`PeekMessageA` over `WM_KEYFIRST..=WM_KEYLAST + 1` with
+/// `PM_REMOVE`), snapshots the global key state into `key_state[256]`, then
+/// normalizes: each byte's high bit (Win32's "key down" indicator) becomes
+/// `1`, anything else `0`. The same normalized value is also written to
+/// `prev_state[256]` — `CheckKeyState` interprets a nonzero `prev_state` as
+/// "edge already fired" and uses this as its baseline for the next poll
+/// cycle.
+pub unsafe extern "stdcall" fn keyboard_poll_state(this: *mut Keyboard) {
+    unsafe {
+        use windows_sys::Win32::UI::Input::KeyboardAndMouse::GetKeyboardState;
+        use windows_sys::Win32::UI::WindowsAndMessaging::{
+            MSG, PM_REMOVE, PeekMessageA, WM_KEYFIRST, WM_KEYLAST,
+        };
+
+        // `GetKeyboardState` reports key-down via the byte's high bit. Win32
+        // doesn't ship a name for the bit; 0x80 is canonical.
+        const KEY_DOWN_BIT: u8 = 0x80;
+
+        // Drain `WM_KEYFIRST..=WM_KEYLAST + 1` with `PM_REMOVE`. WA reaches
+        // one past `WM_KEYLAST` (0x108) — preserved verbatim; Win32 treats
+        // the extra slot as a no-op since no message ID maps to 0x109.
+        let mut msg: MSG = core::mem::zeroed();
+        while PeekMessageA(
+            &mut msg,
+            core::ptr::null_mut(),
+            WM_KEYFIRST,
+            WM_KEYLAST + 1,
+            PM_REMOVE,
+        ) != 0
+        {}
+
+        GetKeyboardState((*this).key_state.as_mut_ptr());
+
+        for i in 0..(*this).key_state.len() {
+            let pressed = (*this).key_state[i] & KEY_DOWN_BIT != 0;
+            let byte = pressed as u8;
+            (*this).key_state[i] = byte;
+            (*this).prev_state[i] = byte;
+        }
+    }
+}
+
 /// Port of `Keyboard__VFunc7` (0x5723D0).
 ///
 /// `__thiscall(this=ECX)`, plain `RET`. Convenience helper that calls vtable
@@ -253,4 +295,110 @@ pub unsafe extern "thiscall" fn keyboard_vfunc7(this: *mut Keyboard) {
         let flash = (*input_state_ptr == 0) as u8;
         ((*(*this).vtable).alert_user)(this, flash, 1);
     }
+}
+
+/// Port of `Keyboard__AcquireInput` (0x00572500).
+///
+/// `__usercall(ESI=esi_flag, [ESP+4]=param_1) -> void, RET 0x4`. Operates on
+/// the *global* `g_GameSession` — does NOT take `this` despite living on the
+/// Keyboard class (name is historical). Called from the OnSYSCOMMAND focus-
+/// restore path; re-acquires input ownership after the WA window regains
+/// foreground.
+///
+/// `esi_flag` selects the "full re-acquire" branch (cursor recapture + focus);
+/// `param_1` selects whether to also restore renderer dimensions.
+///
+/// Caller is `keyboard_acquire_input_trampoline` — a naked shim that captures
+/// ESI before calling this cdecl impl.
+pub unsafe extern "cdecl" fn keyboard_acquire_input_impl(esi_flag: u32, param_1: u32) {
+    unsafe {
+        use windows_sys::Win32::Foundation::HWND;
+        use windows_sys::Win32::UI::Input::KeyboardAndMouse::SetFocus;
+        use windows_sys::Win32::UI::WindowsAndMessaging::GetCursorPos;
+
+        let session = get_game_session();
+        if session.is_null() || (*session).flag_5c == 0 {
+            return;
+        }
+
+        if esi_flag != 0 {
+            GetCursorPos(&raw mut (*session).cursor_initial);
+        }
+
+        (*session).flag_2c = esi_flag;
+
+        // Bridge: FrontendDialog::UpdateCursor(g_InGameFrontendDialog) — stdcall.
+        let update_cursor: unsafe extern "stdcall" fn(u32) =
+            core::mem::transmute(rb(va::FRONTEND_DIALOG_UPDATE_CURSOR) as usize);
+        update_cursor(rb(va::G_INGAME_FRONTEND_DIALOG));
+
+        if esi_flag != 0 {
+            // Bridge: Cursor__ClipAndRecenter_Maybe — no args.
+            let clip_recenter: unsafe extern "cdecl" fn() =
+                core::mem::transmute(rb(va::CURSOR_CLIP_AND_RECENTER) as usize);
+            clip_recenter();
+        }
+
+        (*session).flag_60 = 1;
+        // _unknown_06c is at offset 0x6C (we don't have a typed field — write raw).
+        *((session as *mut u8).add(0x6C) as *mut u32) = esi_flag;
+
+        if param_1 == 0 {
+            // g_RenderContext->vtable[10] (renderer_restore_dims) — fastcall
+            // returning a FastcallResult. The decompile uses `LEA EDX, [ESP+0x4]`
+            // for the result-buffer pointer; we pass a stack local instead.
+            use crate::render::display::FastcallResult;
+            use crate::render::display::context::RenderContext;
+            let ctx = *(rb(va::G_RENDER_CONTEXT) as *const *mut RenderContext);
+            if !ctx.is_null() {
+                let mut result: FastcallResult = core::mem::zeroed();
+                ((*(*ctx).vtable).renderer_restore_dims)(ctx, &mut result);
+            }
+        }
+
+        // Now-Rust call: poll the keyboard.
+        let kb = (*session).keyboard;
+        if !kb.is_null() {
+            keyboard_poll_state(kb);
+        }
+
+        let display = (*session).display;
+        if display.is_null() {
+            return;
+        }
+
+        // Bridge: Display__RestoreSurfaces_Maybe(display) -> u32, stdcall.
+        let restore_surfaces: unsafe extern "stdcall" fn(*mut u8) -> u32 =
+            core::mem::transmute(rb(va::DISPLAY_RESTORE_SURFACES) as usize);
+        if restore_surfaces(display) == 0 {
+            return;
+        }
+
+        if esi_flag != 0 {
+            let frontend_hwnd = *(rb(va::G_FRONTEND_HWND) as *const HWND);
+            SetFocus(frontend_hwnd);
+        }
+
+        (*session).flag_5c = 0;
+    }
+}
+
+/// Naked trampoline matching WA's `__usercall(ESI=esi_flag, [ESP+4]=param_1)`.
+/// Captures ESI, forwards both args to `keyboard_acquire_input_impl`, returns
+/// via `RET 0x4` to clean the caller's single stack arg.
+#[unsafe(naked)]
+pub unsafe extern "C" fn keyboard_acquire_input() {
+    core::arch::naked_asm!(
+        // Entry: [esp+0]=ret_addr, [esp+4]=param_1, ESI=esi_flag.
+        "pushl %esi",                  // [esp+0]=esi, [esp+4]=ret, [esp+8]=p1
+        "movl 8(%esp), %eax",          // EAX = param_1 (preserve caller's stack)
+        "pushl %eax",                  // arg2 = param_1
+        "pushl %esi",                  // arg1 = esi_flag
+        "calll {impl_fn}",
+        "addl $8, %esp",               // clean cdecl args
+        "popl %esi",                   // restore caller's ESI
+        "retl $4",                     // stdcall-style: clean caller's 1 stack arg
+        impl_fn = sym keyboard_acquire_input_impl,
+        options(att_syntax),
+    );
 }

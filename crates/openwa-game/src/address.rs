@@ -255,7 +255,20 @@ pub mod va {
             vtable KEYBOARD_VTABLE = 0x0066AEC8;
             /// Keyboard::PollState
             fn/Stdcall KEYBOARD_POLL_STATE = 0x00572290;
+            /// Keyboard::AcquireInput — usercall(ESI=flag, [ESP+4]=p1)
+            fn/Usercall KEYBOARD_ACQUIRE_INPUT = 0x00572500;
         }
+
+        // AcquireInput's bridged callees (kept WA-side for this round; no
+        // dedicated class blocks yet — these are scattered single-callees).
+        // (FRONTEND_DIALOG_UPDATE_CURSOR is already declared in the
+        // GameSession bridge block below.)
+        /// Cursor__ClipAndRecenter_Maybe — clip cursor to monitor +
+        /// SetCursorPos(GameSession.screen_center). Plain RET, no args.
+        fn/Cdecl CURSOR_CLIP_AND_RECENTER = 0x00573180;
+        /// Display__RestoreSurfaces_Maybe — stdcall(display_ptr) -> u32,
+        /// RET 0x4. Recreates lost DDraw surfaces after focus regain.
+        fn/Stdcall DISPLAY_RESTORE_SURFACES = 0x0056CA80;
 
         // Palette vtable is now defined via #[derive(Vtable)] in display/palette.rs
 
