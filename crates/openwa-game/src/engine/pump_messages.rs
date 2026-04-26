@@ -4,12 +4,11 @@
 //! `run_game_session` and (via the full-replacement hook) by
 //! `GameRuntime::LoadingProgressTick` in WA.
 
-use core::mem::transmute;
-
 use windows_sys::Win32::Foundation::HWND;
 
 use crate::address::va;
 use crate::engine::game_session::get_game_session;
+use crate::frontend::input_hooks::{InputHookMode, unhook_input_hooks};
 use crate::rebase::rb;
 
 /// Rust port of `GameSession::PumpMessages` (0x00572E30).
@@ -43,19 +42,18 @@ pub unsafe extern "cdecl" fn pump_messages() {
     unsafe {
         *(rb(va::G_IN_GAME_LOOP) as *mut u32) = 1;
 
-        let unhook: unsafe extern "cdecl" fn() = transmute(rb(va::FRONTEND_UNHOOK_INPUT_HOOKS));
         let frontend_hwnd = *(rb(va::G_FRONTEND_HWND) as *const HWND);
 
         let mut msg: MSG = core::mem::zeroed();
         while PeekMessageA(&mut msg, core::ptr::null_mut(), 0, 0, PM_REMOVE) != 0 {
-            unhook();
+            unhook_input_hooks();
 
             let session = get_game_session();
             let dispatch = if msg.message == WM_QUIT {
                 (*session).exit_flag = 1;
                 (*session).flag_40 = 1;
                 true
-            } else if *(rb(va::G_INPUT_HOOK_MODE) as *const u32) != 0 {
+            } else if InputHookMode::get() != InputHookMode::Off {
                 true
             } else {
                 let is_input_or_palette = matches!(
@@ -88,6 +86,6 @@ pub unsafe extern "cdecl" fn pump_messages() {
             }
         }
 
-        unhook();
+        unhook_input_hooks();
     }
 }

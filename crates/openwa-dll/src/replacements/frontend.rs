@@ -82,6 +82,14 @@ pub fn install() -> Result<(), String> {
             trampoline as *const (),
         )?;
         ORIG_FRONTEND_CHANGE_SCREEN.store(trampoline_ptr as u32, Ordering::Relaxed);
+
+        // Frontend::UnhookInputHooks (0x004ED590) — full replacement;
+        // multiple WA-side callers in the modal-dialog input-grab path.
+        crate::hook::install(
+            "Frontend::UnhookInputHooks",
+            va::FRONTEND_UNHOOK_INPUT_HOOKS,
+            openwa_game::frontend::input_hooks::unhook_input_hooks as *const (),
+        )?;
     }
 
     Ok(())

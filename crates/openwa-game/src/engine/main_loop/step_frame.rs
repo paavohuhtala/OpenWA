@@ -39,6 +39,7 @@ use crate::engine::log_sink::LogOutput;
 use crate::engine::net_session::NetSession;
 use crate::engine::runtime::GameRuntime;
 use crate::engine::world::GameWorld;
+use crate::frontend::input_hooks::InputHookMode;
 use crate::game::message::{TurnEndMaybeMessage, Unknown122Message};
 use crate::input::buffer_object::BufferObject;
 use crate::input::keyboard::DDKeyboard;
@@ -50,7 +51,6 @@ use crate::wa::string_resource::{StringRes, res, wa_load_string};
 // ─── Runtime addresses (resolved at DLL load) ──────────────────────────────
 
 static mut POLL_INPUT_ADDR: u32 = 0;
-static mut INPUT_HOOK_MODE_ADDR: u32 = 0;
 static mut BEGIN_NETWORK_GAME_END_ADDR: u32 = 0;
 static mut CLEAR_WORM_BUFFERS_ADDR: u32 = 0;
 static mut ADVANCE_WORM_FRAME_ADDR: u32 = 0;
@@ -60,7 +60,6 @@ static mut DISPATCH_INPUT_MSG_ADDR: u32 = 0;
 pub unsafe fn init_step_frame_addrs() {
     unsafe {
         POLL_INPUT_ADDR = rb(va::GAME_RUNTIME_POLL_INPUT);
-        INPUT_HOOK_MODE_ADDR = rb(va::G_INPUT_HOOK_MODE);
         BEGIN_NETWORK_GAME_END_ADDR = rb(va::GAME_RUNTIME_BEGIN_NETWORK_GAME_END);
         CLEAR_WORM_BUFFERS_ADDR = rb(va::GAME_RUNTIME_CLEAR_WORM_BUFFERS);
         ADVANCE_WORM_FRAME_ADDR = rb(va::GAME_RUNTIME_ADVANCE_WORM_FRAME);
@@ -307,9 +306,10 @@ pub unsafe fn step_frame(
         let phase_for_skip = (*runtime).game_end_phase;
         let skip_input = matches!(phase_for_skip, 1 | 2 | 6 | 7 | 9);
         if !skip_input {
-            let hook_mode = *(INPUT_HOOK_MODE_ADDR as *const u32);
+            let hook_mode = InputHookMode::get();
             let arena = &(*world).team_arena;
-            if hook_mode == 0 || arena.active_worm_count <= arena.active_team_count {
+            if hook_mode == InputHookMode::Off || arena.active_worm_count <= arena.active_team_count
+            {
                 bridge_poll_input(runtime);
                 *input_poll_count = input_poll_count.wrapping_add(1);
             }

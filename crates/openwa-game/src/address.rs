@@ -985,7 +985,28 @@ pub mod va {
         /// Input-hook mode flag (u32). Nonzero = an input hook is active; StepFrame
         /// gates PollInput on `world.team_arena.active_worm_count <= active_team_count`
         /// only in that mode (otherwise always polls).
+        ///
+        /// Mode states (set by `Frontend::InstallInputHooks` family):
+        ///  - 0 = no hooks
+        ///  - 1 = blocking input grab (keyboard/mouse hooks installed)
+        ///  - 2 = timer-driven mode (mode 1 + a frontend-frame timer)
         global G_INPUT_HOOK_MODE = 0x007A0860;
+        /// `HHOOK` returned by `SetWindowsHookExA(WH_GETMESSAGE, ...)` in
+        /// `Frontend::InstallInputHooks`; consumed by `unhook_input_hooks`.
+        global G_KEYBOARD_HOOK = 0x006B39B8;
+        /// `HHOOK` returned by `SetWindowsHookExA(WH_FOREGROUNDIDLE, ...)` in
+        /// `Frontend::InstallInputHooks`; consumed by `unhook_input_hooks`.
+        global G_MOUSE_HOOK = 0x006B32AC;
+        /// 1-byte flag (semantics unclear). Cleared on entering input modes
+        /// 1 and 2; written by the WH_GETMESSAGE hook callback. Read by
+        /// `unhook_input_hooks` to gate the residual mouse-event flush.
+        global G_INPUT_HOOK_FLAG_2DD7_MAYBE = 0x006B2DD7;
+        /// 1-byte flag set by `Frontend::InstallInputHooks` based on
+        /// `g_DesktopCheckLevel`. Selects the `PeekMessageA` filter range
+        /// used to drain stale mouse events when leaving input-hook mode:
+        ///  - flag != 0: `WM_MBUTTONDOWN ..= WM_MBUTTONDBLCLK`
+        ///  - flag == 0: `WM_MOUSEWHEEL` only
+        global G_INPUT_HOOK_FILTER_SELECT_MAYBE = 0x006B39C0;
         global G_RENDER_CONTEXT = 0x0079D6D4;
         /// Stipple checkerboard parity — toggled (XOR 1) each render frame in GameRender.
         /// Used by DisplayGfx__BlitStippled to alternate the checkerboard pattern.

@@ -17,6 +17,7 @@ use crate::engine::game_session::get_game_session;
 use crate::engine::game_state;
 use crate::engine::runtime::GameRuntime;
 use crate::engine::world::GameWorld;
+use crate::frontend::input_hooks::InputHookMode;
 use crate::game::message::{TurnEndMaybeMessage, UpdateNonCriticalMessage};
 use crate::input::keyboard::DDKeyboard;
 use crate::rebase::rb;
@@ -646,8 +647,7 @@ pub unsafe fn reset_frame_state(runtime: *mut GameRuntime) {
 
         // Input-hook gate: when hooked, wait until the arena's worm-count
         // catches up with the team-count before counting the frame.
-        let hook_mode = *(rb(va::G_INPUT_HOOK_MODE) as *const u32);
-        if hook_mode != 0 {
+        if InputHookMode::get() != InputHookMode::Off {
             let arena = &(*world).team_arena;
             if arena.active_worm_count > arena.active_team_count {
                 return;
