@@ -453,8 +453,8 @@ pub unsafe fn init_game_state(runtime: *mut GameRuntime) {
         (*runtime).esc_menu_state = 0;
         (*runtime)._field_438 = -1;
         (*runtime)._field_43c = -1;
-        (*runtime)._field_440 = 0;
-        (*runtime)._field_444 = 0;
+        (*runtime).menu_panel_width = 0;
+        (*runtime).menu_panel_height = 0;
         (*runtime)._field_424 = 0;
         (*runtime)._field_428 = 0;
         (*runtime)._field_448 = 0;

@@ -260,10 +260,13 @@ pub struct GameRuntime {
     pub _field_438: i32,
     /// 0x43C: Sentinel -1
     pub _field_43c: i32,
-    /// 0x440: Zeroed
-    pub _field_440: i32,
-    /// 0x444: Zeroed
-    pub _field_444: i32,
+    /// 0x440: ESC-menu panel content width — written near the end of
+    /// `GameRuntime::OpenEscMenu` from the hud_data_query (msg 0x7D3)
+    /// response. Zero-init.
+    pub menu_panel_width: i32,
+    /// 0x444: ESC-menu panel content height — total y-offset accumulated
+    /// during item layout in `GameRuntime::OpenEscMenu`, plus 2. Zero-init.
+    pub menu_panel_height: i32,
     /// 0x448: Zeroed
     pub _field_448: i32,
     /// 0x44C: Zeroed
