@@ -172,29 +172,38 @@ pub mod va {
             /// `engine::dispatch_frame::setup_frame_params`; address kept
             /// for cross-reference and the WA-side hook install.
             fn/Usercall GAME_RUNTIME_SETUP_FRAME_PARAMS = 0x00534CA0;
-            /// `setup_frame_params` callees — the four helpers driving the
-            /// HUD slew state machine (state value at `runtime._field_434`).
-            /// All four have only `setup_frame_params` (or each other) as
-            /// callers, plain RET, no stack params; semantics not yet
-            /// reverse-engineered.
+            /// `setup_frame_params` callees — helpers driving the ESC-menu
+            /// state machine (`runtime.esc_menu_state`).
             ///
             /// `GameRuntime::IsHudActive` (usercall ESI=this, returns u8):
-            /// "should this HUD state remain active?" predicate that runs
-            /// the slot-3 `HudDataQuery` (msg 0x7D3) and inspects several
-            /// flags. Ported to Rust as
+            /// "should the ESC menu stay open / be allowed to open?"
+            /// predicate. Runs the slot-3 `HudDataQuery` (msg 0x7D3) and
+            /// inspects end-of-round flags. Ported as
             /// `engine::main_loop::dispatch_frame::is_hud_active`; address
-            /// kept for the WA-side hook install (still called by
-            /// FUN_005351B0).
+            /// kept for the WA-side hook (still called by `OpenEscMenu`
+            /// = FUN_00535200).
             fn/Usercall GAME_RUNTIME_IS_HUD_ACTIVE = 0x00534C30;
-            /// `FUN_005351B0` (usercall EAX=this): state-0 helper, run when
-            /// `runtime._field_434 == 0`.
-            fn/Usercall GAME_RUNTIME_HUD_STATE_ZERO_MAYBE = 0x005351B0;
-            /// `FUN_00535B10` (usercall EDI=this): state-1 helper, run when
-            /// `runtime._field_434 == 1`.
-            fn/Usercall GAME_RUNTIME_HUD_STATE_ONE_MAYBE = 0x00535B10;
-            /// `FUN_00535FC0` (usercall EDI=this): state-2 helper, run when
-            /// `runtime._field_434 == 2`.
-            fn/Usercall GAME_RUNTIME_HUD_STATE_TWO_MAYBE = 0x00535FC0;
+            /// `GameRuntime::EscMenu_TickClosed` (usercall EAX=this):
+            /// per-frame tick while the ESC menu is closed
+            /// (`esc_menu_state == 0`); polls for ESC keypress to open
+            /// the menu. Ported as
+            /// `engine::main_loop::dispatch_frame::esc_menu_tick_closed`;
+            /// address kept for `install_trap!` (no WA-side caller now).
+            fn/Usercall GAME_RUNTIME_ESC_MENU_TICK_CLOSED = 0x005351B0;
+            /// `GameRuntime::OpenEscMenu` (stdcall(this), RET 0x4):
+            /// builds the in-game ESC menu (header scoreboard,
+            /// leaderboard rows, action buttons + volume slider) into
+            /// `runtime._field_30`, then sets `esc_menu_state = 1`.
+            /// 628 instructions / cyclo 69 / 30 calls. Still bridged.
+            fn/Stdcall GAME_RUNTIME_OPEN_ESC_MENU = 0x00535200;
+            /// `GameRuntime::EscMenu_TickState1` (usercall EDI=this):
+            /// per-frame tick while the menu is open; handles arrow nav
+            /// + Enter to activate items.
+            fn/Usercall GAME_RUNTIME_ESC_MENU_STATE_1_TICK = 0x00535B10;
+            /// `GameRuntime::EscMenu_TickState2` (usercall EDI=this):
+            /// per-frame tick for `esc_menu_state == 2` (confirm /
+            /// network-end-of-game flow; calls `BeginNetworkGameEnd`).
+            fn/Usercall GAME_RUNTIME_ESC_MENU_STATE_2_TICK = 0x00535FC0;
             /// `TeamIndexMap__PopHandle_Maybe` (0x00525F50). Thiscall
             /// `ECX = *mut TeamIndexMap, [ESP+4] = key: i32`, RET 0x4.
             /// Companion to `RemoveHandle`; ported to Rust as

@@ -12,6 +12,8 @@ use super::fixed_slew::fixed_slew_toward;
 use crate::address::va;
 use crate::audio::active_sound::ActiveSoundTable;
 use crate::audio::dssound::DSSound;
+use crate::audio::known_sound_id::KnownSoundId;
+use crate::audio::sound_ops::dispatch_global_sound;
 use crate::engine::clock::read_current_time;
 use crate::engine::game_session::get_game_session;
 use crate::engine::game_state;
@@ -41,9 +43,9 @@ static mut PEER_INPUT_QUEUE_SCAN_ADDR: u32 = 0;
 static mut SHOULD_INTERPOLATE_OFFLINE_TAIL_ADDR: u32 = 0;
 static mut PROCESS_NETWORK_FRAME_ADDR: u32 = 0;
 static mut HUD_DRAW_TEAM_LABELS_ADDR: u32 = 0;
-static mut SETUP_HUD_STATE_ZERO_ADDR: u32 = 0;
-static mut SETUP_HUD_STATE_ONE_ADDR: u32 = 0;
-static mut SETUP_HUD_STATE_TWO_ADDR: u32 = 0;
+static mut OPEN_ESC_MENU_ADDR: u32 = 0;
+static mut ESC_MENU_STATE_1_TICK_ADDR: u32 = 0;
+static mut ESC_MENU_STATE_2_TICK_ADDR: u32 = 0;
 
 /// Initialize all bridge addresses. Must be called once at DLL load.
 pub unsafe fn init_dispatch_addrs() {
@@ -54,9 +56,9 @@ pub unsafe fn init_dispatch_addrs() {
         SHOULD_INTERPOLATE_OFFLINE_TAIL_ADDR = rb(va::GAME_RUNTIME_SHOULD_INTERPOLATE_OFFLINE_TAIL);
         PROCESS_NETWORK_FRAME_ADDR = rb(va::GAME_RUNTIME_PROCESS_NETWORK_FRAME);
         HUD_DRAW_TEAM_LABELS_ADDR = rb(va::HUD_DRAW_TEAM_LABELS_MAYBE);
-        SETUP_HUD_STATE_ZERO_ADDR = rb(va::GAME_RUNTIME_HUD_STATE_ZERO_MAYBE);
-        SETUP_HUD_STATE_ONE_ADDR = rb(va::GAME_RUNTIME_HUD_STATE_ONE_MAYBE);
-        SETUP_HUD_STATE_TWO_ADDR = rb(va::GAME_RUNTIME_HUD_STATE_TWO_MAYBE);
+        OPEN_ESC_MENU_ADDR = rb(va::GAME_RUNTIME_OPEN_ESC_MENU);
+        ESC_MENU_STATE_1_TICK_ADDR = rb(va::GAME_RUNTIME_ESC_MENU_STATE_1_TICK);
+        ESC_MENU_STATE_2_TICK_ADDR = rb(va::GAME_RUNTIME_ESC_MENU_STATE_2_TICK);
         super::step_frame::init_step_frame_addrs();
         crate::engine::log_sink::init_log_sink_addrs();
     }
@@ -135,34 +137,51 @@ unsafe fn bridge_should_interpolate_offline_tail(runtime: *mut GameRuntime) -> u
 
 bridge_eax_this!(bridge_hud_draw_team_labels, HUD_DRAW_TEAM_LABELS_ADDR, ());
 
-// `setup_frame_params` callees — bridges for the four still-bridged HUD
+// `setup_frame_params` callees — bridges for the still-bridged ESC-menu
 // state-machine helpers.
 
-bridge_eax_this!(bridge_hud_state_zero, SETUP_HUD_STATE_ZERO_ADDR, ());
+/// Bridge for `GameRuntime__OpenEscMenu` (0x00535200) — builds the in-game
+/// ESC menu (scoreboard header, leaderboard rows, action buttons +
+/// volume slider) into `runtime._field_30`, then sets `esc_menu_state = 1`.
+/// Plain `__stdcall(this)`, RET 0x4. 628 instructions, 30 calls — too big
+/// for an incidental port.
+unsafe fn bridge_open_esc_menu(runtime: *mut GameRuntime) {
+    unsafe {
+        let func: unsafe extern "stdcall" fn(*mut GameRuntime) =
+            core::mem::transmute(OPEN_ESC_MENU_ADDR as usize);
+        func(runtime)
+    }
+}
 
-/// Bridge for `FUN_00535B10` — usercall EDI=this, plain RET.
+/// Bridge for `GameRuntime__EscMenu_TickState1` (0x00535B10) —
+/// per-frame tick of the ESC-menu state machine while open
+/// (`esc_menu_state == 1`). Handles arrow-key nav + Enter to activate
+/// a menu item. Usercall EDI=this, plain RET. ~159 instructions.
 #[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_hud_state_one(_this: *mut GameRuntime) {
+unsafe extern "stdcall" fn bridge_esc_menu_state_1_tick(_this: *mut GameRuntime) {
     core::arch::naked_asm!(
         "push edi",
         "mov edi, [esp+8]",
         "call [{addr}]",
         "pop edi",
         "ret 4",
-        addr = sym SETUP_HUD_STATE_ONE_ADDR,
+        addr = sym ESC_MENU_STATE_1_TICK_ADDR,
     );
 }
 
-/// Bridge for `FUN_00535FC0` — usercall EDI=this, plain RET.
+/// Bridge for `GameRuntime__EscMenu_TickState2` (0x00535FC0) — per-frame
+/// tick while `esc_menu_state == 2` (confirm / network-end-of-game flow;
+/// calls `BeginNetworkGameEnd`). Usercall EDI=this, plain RET. ~176
+/// instructions.
 #[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_hud_state_two(_this: *mut GameRuntime) {
+unsafe extern "stdcall" fn bridge_esc_menu_state_2_tick(_this: *mut GameRuntime) {
     core::arch::naked_asm!(
         "push edi",
         "mov edi, [esp+8]",
         "call [{addr}]",
         "pop edi",
         "ret 4",
-        addr = sym SETUP_HUD_STATE_TWO_ADDR,
+        addr = sym ESC_MENU_STATE_2_TICK_ADDR,
     );
 }
 
@@ -196,7 +215,7 @@ unsafe extern "stdcall" fn bridge_process_network_frame(
 ///
 /// A replay is "running" when the game info has a non-zero `replay_ticks`,
 /// the wrapper's `game_state` is either `INITIALIZED` or `ROUND_ENDING`,
-/// two unnamed flag fields (`_field_424` / `_field_434`) are zero, the
+/// two unnamed flag fields (`_field_424` / `esc_menu_state`) are zero, the
 /// session's `flag_5c` is zero, and the simulation has reached the replay's
 /// recorded end frame (`frame_counter >= replay_end_frame`).
 pub unsafe fn is_replay_mode(runtime: *mut GameRuntime) -> bool {
@@ -210,7 +229,7 @@ pub unsafe fn is_replay_mode(runtime: *mut GameRuntime) -> bool {
         if gs != game_state::INITIALIZED && gs != game_state::ROUND_ENDING {
             return false;
         }
-        if (*runtime)._field_434 != 0 || (*runtime)._field_424 != 0 {
+        if (*runtime).esc_menu_state != 0 || (*runtime)._field_424 != 0 {
             return false;
         }
         if (*get_game_session()).flag_5c != 0 {
@@ -271,7 +290,7 @@ pub unsafe fn should_continue_frame_loop(runtime: *mut GameRuntime, elapsed: u64
 ///   `should_interpolate_online` (pure Rust; the inner peer-input-queue
 ///   scan `GameRuntime__PeerInputQueueScan_Maybe` (0x0052E880) remains
 ///   bridged).
-/// - **Offline**: short-circuits to `true` (interpolate) when `_field_434 != 0`,
+/// - **Offline**: short-circuits to `true` (interpolate) when `esc_menu_state != 0`,
 ///   `g_GameSession.flag_5c != 0`, or all three of `replay_flag_b != 0`,
 ///   `_field_410 != 0`, `game_info.input_state_f918 == 0` hold. Otherwise
 ///   delegates to `should_interpolate_offline` (pure Rust; the deep tail
@@ -292,7 +311,7 @@ pub unsafe fn should_interpolate(runtime: *mut GameRuntime) -> bool {
             return should_interpolate_online(runtime);
         }
 
-        if (*runtime)._field_434 != 0 {
+        if (*runtime).esc_menu_state != 0 {
             return true;
         }
         if (*get_game_session()).flag_5c != 0 {
@@ -626,24 +645,61 @@ pub unsafe fn is_hud_active(runtime: *mut GameRuntime) -> bool {
     }
 }
 
+/// Rust port of `GameRuntime::EscMenu_TickClosed` (0x005351B0).
+///
+/// Per-frame tick of the ESC-menu state machine while it is **closed**
+/// (`runtime.esc_menu_state == 0`). Runs from [`setup_frame_params`] each
+/// headful frame. Polls the keyboard for the just-pressed edge of
+/// `KeyboardAction::Escape`:
+///
+/// - If Escape isn't pressed this frame → no-op.
+/// - If Escape is pressed and [`is_hud_active`] returns `true` → call
+///   [`bridge_open_esc_menu`] (`FUN_00535200`), which builds the menu
+///   contents into `runtime._field_30` and transitions `esc_menu_state`
+///   to `1` (open / awaiting nav input).
+/// - If Escape is pressed but the HUD is *not* active (replay tail,
+///   end-of-round, fast-forward, etc.) → reject with
+///   [`KnownSoundId::WarningBeep`] at `runtime.ui_volume`.
+pub unsafe fn esc_menu_tick_closed(runtime: *mut GameRuntime) {
+    unsafe {
+        let world = (*runtime).world;
+        let keyboard = (*world).keyboard;
+        if !KeyboardAction::Escape.is_active2(keyboard) {
+            return;
+        }
+        if is_hud_active(runtime) {
+            bridge_open_esc_menu(runtime);
+        } else {
+            dispatch_global_sound(
+                runtime,
+                KnownSoundId::WarningBeep.into(),
+                8,
+                Fixed::ONE,
+                (*runtime).ui_volume,
+            );
+        }
+    }
+}
+
 /// Rust port of `GameRuntime::SetupFrameParams` (0x00534CA0).
 ///
-/// Drives a small HUD slew state machine each headful render frame:
+/// Drives the ESC-menu state machine + slew animation each headful frame:
 ///
 /// 1. Run [`is_hud_active`] (Rust port of `GameRuntime::IsHudActive`,
-///    0x00534C30). When it returns `false` *and* the state at
-///    `runtime._field_434` is non-zero, force the state back to `0`
-///    (i.e. the gate detected that the active state is no longer
-///    applicable).
-/// 2. Dispatch on `runtime._field_434`:
-///    - `0` → `hud_state_zero`; clear both slew targets.
-///    - `1` → `hud_state_one`; set target slot 1 to `ONE`, slot 2 to `ZERO`.
-///    - `2` → `hud_state_two`; set both targets to `ONE`.
+///    0x00534C30). When it returns `false` *and* `esc_menu_state` is
+///    non-zero, force the state back to `0` — the menu can't stay open
+///    once the game enters replay tail / fast-forward / round-end.
+/// 2. Dispatch on `runtime.esc_menu_state`:
+///    - `0` (closed) → [`esc_menu_tick_closed`]; both slew targets → 0.
+///    - `1` (open) → `bridge_esc_menu_state_1`; slew target slot 1 → 1.0,
+///      slot 2 → 0 (slot 1 = menu visible, slot 2 = confirm overlay hidden).
+///    - `2` (confirm/end-of-game) → `bridge_esc_menu_state_2`; both
+///      slew targets → 1.0 (semantics TBD; calls `BeginNetworkGameEnd`).
 ///    - any other value → no-op for the helper + targets (the original
 ///      neither calls a helper nor updates targets).
 /// 3. Manage the two TeamIndexMap handles (`runtime._field_438` for map[0]
 ///    at `world+0x7650`, `_field_43c` for map[2] at `world+0x7718`):
-///    when `_field_434 == 0`, deregister any non-negative handle; when
+///    when `esc_menu_state == 0`, deregister any non-negative handle; when
 ///    non-zero, lazily allocate a slot if `_handle == -1`. (The original
 ///    function checks the value AFTER the optional reset in step 1, so
 ///    state-transition-to-0 deregisters in the same call.)
@@ -666,25 +722,25 @@ unsafe fn setup_frame_params(
 ) {
     unsafe {
         // Step 1: gate check + optional reset.
-        if !is_hud_active(runtime) && (*runtime)._field_434 != 0 {
-            (*runtime)._field_434 = 0;
+        if !is_hud_active(runtime) && (*runtime).esc_menu_state != 0 {
+            (*runtime).esc_menu_state = 0;
         }
 
         // Step 2: state dispatch.
         let world = (*runtime).world;
-        match (*runtime)._field_434 {
+        match (*runtime).esc_menu_state {
             0 => {
-                bridge_hud_state_zero(runtime);
+                esc_menu_tick_closed(runtime);
                 (*runtime)._field_428 = 0;
                 (*runtime)._field_430 = 0;
             }
             1 => {
-                bridge_hud_state_one(runtime);
+                bridge_esc_menu_state_1_tick(runtime);
                 (*runtime)._field_428 = 0x10000;
                 (*runtime)._field_430 = 0;
             }
             2 => {
-                bridge_hud_state_two(runtime);
+                bridge_esc_menu_state_2_tick(runtime);
                 (*runtime)._field_428 = 0x10000;
                 (*runtime)._field_430 = 0x10000;
             }
@@ -694,7 +750,7 @@ unsafe fn setup_frame_params(
         }
 
         // Step 3: handle management.
-        if (*runtime)._field_434 == 0 {
+        if (*runtime).esc_menu_state == 0 {
             if (*runtime)._field_438 >= 0 {
                 TeamIndexMap::remove_handle(
                     &mut (*world).team_index_maps[0],

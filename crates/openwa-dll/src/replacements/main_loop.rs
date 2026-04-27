@@ -45,6 +45,10 @@ pub fn install() -> Result<(), String> {
             "GameRuntime__SetupFrameParams",
             va::GAME_RUNTIME_SETUP_FRAME_PARAMS
         );
+        hook::install_trap!(
+            "GameRuntime__EscMenu_TickClosed",
+            va::GAME_RUNTIME_ESC_MENU_TICK_CLOSED
+        );
     }
     Ok(())
 }

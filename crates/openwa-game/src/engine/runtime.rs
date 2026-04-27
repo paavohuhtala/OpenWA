@@ -240,7 +240,7 @@ pub struct GameRuntime {
     /// 0x414: Config bool (from game_info)
     pub _field_414: u32,
     /// 0x418: Zeroed
-    pub _field_418: i32,
+    pub ui_volume: Fixed,
     /// 0x41C: Unknown
     pub _unknown_41c: u32,
     /// 0x420: Turn percentage (from game_info, fixed-point)
@@ -250,8 +250,12 @@ pub struct GameRuntime {
     pub _field_428: i32,
     pub _field_42c: i32,
     pub _field_430: i32,
-    /// 0x434: Zeroed
-    pub _field_434: i32,
+    /// 0x434: ESC-menu state machine.
+    /// 0 = closed (bare HUD); 1 = open (built by `OpenEscMenu`, awaiting
+    /// nav input); 2 = confirm / network-end-of-game flow (calls
+    /// `BeginNetworkGameEnd`). Driven by `setup_frame_params` each
+    /// headful frame.
+    pub esc_menu_state: i32,
     /// 0x438: Sentinel -1
     pub _field_438: i32,
     /// 0x43C: Sentinel -1

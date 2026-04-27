@@ -576,7 +576,7 @@ pub enum KeyboardAction {
     /// 0x22 — VK_RIGHT (simple, alias of 0x07)
     A22 = 0x22,
     /// 0x23 — VK_ESCAPE (simple)
-    A23 = 0x23,
+    Escape = 0x23,
     /// 0x24 — default (return 0)
     A24 = 0x24,
     /// 0x25 — VK_INSERT (simple)
@@ -815,7 +815,7 @@ pub unsafe fn keyboard_check_action(this: *mut Keyboard, action: KeyboardAction,
             A0C | A30 => simple(VK_T),
             A0F | A14 => simple(VK_HOME),
             A15 => simple(VK_END),
-            A23 => simple(VK_ESCAPE),
+            Escape => simple(VK_ESCAPE),
             A25 => simple(VK_INSERT),
             A2D | A2E | A34 => simple(VK_MENU_VK),
             A2F => simple(VK_R),

@@ -397,7 +397,7 @@ pub unsafe fn init_game_state(runtime: *mut GameRuntime) {
         (*runtime).render_scale_fade_request = 0;
         (*runtime)._field_460 = 0;
         (*runtime)._field_478 = 0;
-        (*runtime)._field_418 = 0;
+        (*runtime).ui_volume = Fixed::ZERO;
 
         // Turn percentage: (game_info.turn_percentage << 16) / 100
         let turn_pct_raw = (*game_info).turn_percentage_raw;
@@ -450,7 +450,7 @@ pub unsafe fn init_game_state(runtime: *mut GameRuntime) {
         }
 
         // ===== Zero state fields =====
-        (*runtime)._field_434 = 0;
+        (*runtime).esc_menu_state = 0;
         (*runtime)._field_438 = -1;
         (*runtime)._field_43c = -1;
         (*runtime)._field_440 = 0;
