@@ -3,6 +3,8 @@ use openwa_core::fixed::Fixed;
 use crate::FieldRegistry;
 use crate::asset::gfx_dir::GfxDir;
 use crate::audio::dssound::DSSound;
+use crate::bitgrid::DisplayBitGrid;
+use crate::engine::menu_panel::MenuPanel;
 use crate::engine::net_bridge::NetBridge;
 use crate::engine::world::GameWorld;
 use crate::render::display::gfx::DisplayGfx;
@@ -80,14 +82,23 @@ pub struct GameRuntime {
     pub display_gfx_main: *mut u8,
     /// 0x028: RingBuffer B (capacity 0x2000)
     pub ring_buffer_b: *mut u8,
-    /// 0x02C: DisplayGfx D
-    pub display_gfx_d: *mut u8,
-    /// 0x030: Camera object A (0x3D4 bytes)
-    pub camera_a: *mut u8,
-    /// 0x034: DisplayGfx E
-    pub display_gfx_e: *mut u8,
-    /// 0x038: Camera object B (0x3D4 bytes)
-    pub camera_b: *mut u8,
+    /// 0x02C: BitGrid layer D (8bpp 256x340) — render target for
+    /// `menu_panel_a`. Doubles as the ESC-menu drawing canvas: vtable slots
+    /// 1/2/5 (`fill_hline`/`fill_vline`/`put_pixel_clipped`) are dispatched
+    /// against this layer during menu paint.
+    pub display_gfx_d: *mut DisplayBitGrid,
+    /// 0x030: Menu/viewport widget A (0x3D4 bytes). Allocated by
+    /// `create_camera_object` paired with [`Self::display_gfx_d`]. Acts as
+    /// the in-round game viewport (cursor = camera target) and, when the
+    /// ESC menu is open, as the menu's item-list panel (cursor = active
+    /// selection, items array at +0x30).
+    pub menu_panel_a: *mut MenuPanel,
+    /// 0x034: BitGrid layer E (8bpp 48x192) — render target for
+    /// `menu_panel_b`.
+    pub display_gfx_e: *mut DisplayBitGrid,
+    /// 0x038: Menu/viewport widget B (0x3D4 bytes). Paired with
+    /// [`Self::display_gfx_e`].
+    pub menu_panel_b: *mut MenuPanel,
     /// 0x03C: RingBuffer A (capacity 0x2000)
     pub ring_buffer_a: *mut u8,
     /// 0x040: Render BufferObject A (capacity 0x10000)

@@ -193,9 +193,15 @@ pub mod va {
             /// `GameRuntime::OpenEscMenu` (stdcall(this), RET 0x4):
             /// builds the in-game ESC menu (header scoreboard,
             /// leaderboard rows, action buttons + volume slider) into
-            /// `runtime._field_30`, then sets `esc_menu_state = 1`.
+            /// `runtime.menu_panel_a`, then sets `esc_menu_state = 1`.
             /// 628 instructions / cyclo 69 / 30 calls. Still bridged.
             fn/Stdcall GAME_RUNTIME_OPEN_ESC_MENU = 0x00535200;
+            /// `MenuPanel::AppendItem` (usercall(EAX=x, ESI=panel),
+            /// 6 stack params, RET 0x18). Appends one item (button or
+            /// slider) to a `MenuPanel`'s items array; called 5× from
+            /// `OpenEscMenu` and once from `FUN_00535cf0`. Ported as
+            /// `engine::menu_panel::append_item_impl`.
+            fn/Usercall MENU_PANEL_APPEND_ITEM = 0x005408F0;
             /// `GameRuntime::EscMenu_TickState1` (usercall EDI=this):
             /// per-frame tick while the menu is open; handles arrow nav
             /// + Enter to activate items.

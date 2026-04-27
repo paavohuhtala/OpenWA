@@ -11,6 +11,7 @@ pub mod game_state_stream;
 pub mod game_timer;
 pub mod log_sink;
 pub mod main_loop;
+pub mod menu_panel;
 pub mod net_bridge;
 pub mod net_session;
 pub mod net_wrapper;

@@ -10,6 +10,7 @@ use crate::engine::dual_buffer_object::allocate_dual_buffer_object;
 use crate::engine::game_info::GameInfo;
 use crate::engine::game_state;
 use crate::engine::game_state_stream::game_state_stream_init;
+use crate::engine::menu_panel::MenuPanel;
 use crate::engine::ring_buffer::{allocate_ring_buffer_init, allocate_ring_buffer_raw};
 use crate::engine::runtime::GameRuntime;
 use crate::engine::team_init::{init_alliance_data, init_team_color_from_names, init_team_scoring};
@@ -776,14 +777,17 @@ unsafe fn init_game_state_display(
         fill_display_layer((*runtime).display_gfx_c as *mut DisplayBitGrid, world);
 
         // ===== Layer 4 (wrapper+0x2C): BitGrid(8, 0x100, 0x154) — constant =====
-        (*runtime).display_gfx_d = create_display_gfx_layer_sized(0x100, 0x154);
+        (*runtime).display_gfx_d =
+            create_display_gfx_layer_sized(0x100, 0x154) as *mut DisplayBitGrid;
 
         // ===== Layer 5 (wrapper+0x34): BitGrid(8, 0x30, 0xC0) — constant =====
-        (*runtime).display_gfx_e = create_display_gfx_layer_sized(0x30, 0xC0);
+        (*runtime).display_gfx_e =
+            create_display_gfx_layer_sized(0x30, 0xC0) as *mut DisplayBitGrid;
 
-        // Create 2 camera objects (wrapper+0x30, +0x38)
-        (*runtime).camera_a = create_camera_object(runtime, world, 0x2C);
-        (*runtime).camera_b = create_camera_object(runtime, world, 0x34);
+        // Create 2 menu/viewport widgets (wrapper+0x30, +0x38), each paired
+        // with the BitGrid layer immediately preceding it.
+        (*runtime).menu_panel_a = create_menu_panel(runtime, world, 0x2C);
+        (*runtime).menu_panel_b = create_menu_panel(runtime, world, 0x34);
     }
 }
 
@@ -839,37 +843,40 @@ unsafe fn fill_display_layer(gfx: *mut DisplayBitGrid, world: *mut GameWorld) {
     }
 }
 
-/// Create a camera/display object (0x3D4 bytes).
-unsafe fn create_camera_object(
+/// Create a [`MenuPanel`] (0x3D4 bytes) bound to the BitGrid layer at
+/// `runtime + display_gfx_offset`.
+unsafe fn create_menu_panel(
     runtime: *mut GameRuntime,
     world: *mut GameWorld,
     display_gfx_offset: usize,
-) -> *mut u8 {
+) -> *mut MenuPanel {
     unsafe {
+        use crate::engine::menu_panel::MenuPanel;
         use crate::wa_alloc::wa_malloc_zeroed;
 
-        let mem = wa_malloc_zeroed(0x3D4) as *mut i32;
-        if mem.is_null() {
+        let panel = wa_malloc_zeroed(0x3D4) as *mut MenuPanel;
+        if panel.is_null() {
             return core::ptr::null_mut();
         }
 
-        let w = runtime as *const u8;
-        let display_gfx = *(w.add(display_gfx_offset) as *const *const u8);
+        let display_gfx = *((runtime as *const u8).add(display_gfx_offset)
+            as *const *mut crate::render::display::gfx::DisplayGfx);
 
-        *mem.add(1) = (*world).display as i32;
-        *mem.add(3) = (*world).gfx_color_table[0] as i32;
-        *mem.add(2) = (*world).gfx_color_table[7] as i32;
-        *mem = display_gfx as i32;
+        (*panel).display_a = display_gfx;
+        (*panel).display_b = (*world).display;
+        (*panel).color_low = (*world).gfx_color_table[7] as i32;
+        (*panel).color_high = (*world).gfx_color_table[0] as i32;
 
-        let w_val = *(display_gfx.add(0x14) as *const i32);
-        let h_val = *(display_gfx.add(0x18) as *const i32);
+        let layer = display_gfx as *const u8;
+        let w = *(layer.add(0x14) as *const i32);
+        let h = *(layer.add(0x18) as *const i32);
 
-        *mem.add(9) = w_val;
-        *mem.add(4) = w_val / 2;
-        *mem.add(10) = h_val;
-        *mem.add(5) = h_val / 2;
+        (*panel).cursor_x = w / 2;
+        (*panel).cursor_y = h / 2;
+        (*panel).clip_right = w;
+        (*panel).clip_bottom = h;
 
-        mem as *mut u8
+        panel
     }
 }
 

@@ -23,6 +23,14 @@ unsafe extern "cdecl" fn is_hud_active_impl(runtime: *mut GameRuntime) -> u32 {
 hook::usercall_trampoline!(fn trampoline_is_hud_active;
     impl_fn = is_hud_active_impl; reg = esi);
 
+// `MenuPanel::AppendItem` (0x005408F0) — usercall(EAX=x, ESI=panel) +
+// 6 stack params + RET 0x18. Trampoline forwards to the cdecl impl with
+// signature `(eax_x, esi_panel, kind, label, y, centered, slider_value_ptr,
+// slider_aux) -> u32`.
+hook::usercall_trampoline!(fn trampoline_menu_panel_append_item;
+    impl_fn = openwa_game::engine::menu_panel::append_item_impl;
+    regs = [eax, esi]; stack_params = 6; ret_bytes = "0x18");
+
 pub fn install() -> Result<(), String> {
     unsafe {
         openwa_game::engine::main_loop::dispatch_frame::init_dispatch_addrs();
@@ -35,6 +43,11 @@ pub fn install() -> Result<(), String> {
             "GameRuntime__IsHudActive",
             va::GAME_RUNTIME_IS_HUD_ACTIVE,
             trampoline_is_hud_active as *const (),
+        )?;
+        hook::install(
+            "MenuPanel__AppendItem",
+            va::MENU_PANEL_APPEND_ITEM,
+            trampoline_menu_panel_append_item as *const (),
         )?;
         hook::install_trap!(
             "GameRuntime__DispatchFrame",
