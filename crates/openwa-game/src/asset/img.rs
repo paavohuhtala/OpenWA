@@ -45,7 +45,6 @@ impl DecodedBitGrid {
 ///
 /// # Safety
 /// All pointers must be valid WA objects. Must be called from within WA.exe.
-#[cfg(target_arch = "x86")]
 pub unsafe fn img_decode(
     palette_ctx: *mut PaletteContext,
     stream: *mut GfxDirStream,
@@ -135,7 +134,6 @@ pub unsafe fn img_decode(
 /// the bytes the header describes (10-byte prefix + palette + width/height
 /// + aligned pixel block).
 /// `palette_ctx` must be a valid PaletteContext pointer (from the caller).
-#[cfg(target_arch = "x86")]
 pub unsafe fn img_decode_cached(
     palette_ctx: *mut PaletteContext,
     raw_image: *mut u8,

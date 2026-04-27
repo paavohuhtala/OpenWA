@@ -52,7 +52,6 @@ pub fn fmt_ptr32(val: u32) -> &'static str {
 ///
 /// # Safety
 /// `base` must point to `size` readable bytes.
-#[cfg(target_arch = "x86")]
 pub unsafe fn write_raw_region(
     w: &mut dyn fmt::Write,
     base: *const u8,
@@ -92,7 +91,6 @@ pub unsafe fn write_raw_region(
 }
 
 /// Heuristic: is this value likely a heap/code/data pointer?
-#[cfg(target_arch = "x86")]
 fn is_likely_pointer(val: u32, delta: u32) -> bool {
     if val < 0x10000 {
         return false;
@@ -116,7 +114,6 @@ fn is_likely_pointer(val: u32, delta: u32) -> bool {
 /// Uses [`is_likely_pointer`] to detect pointer-sized values and exclude them,
 /// producing a pointer-independent fingerprint. Useful for A/B comparison of
 /// objects across runs with different heap layouts.
-#[cfg(target_arch = "x86")]
 pub unsafe fn hash_region_canonical(ptr: *const u8, len: usize) -> u32 {
     unsafe {
         let delta = rb(va::IMAGE_BASE).wrapping_sub(va::IMAGE_BASE);
@@ -157,7 +154,6 @@ pub unsafe fn hash_region_canonical(ptr: *const u8, len: usize) -> u32 {
 /// This is the tool that found the arrow collision region desync: sub-objects
 /// pointed to by GameWorld had different non-pointer content between the Rust
 /// and original constructors, invisible to flat GameWorld comparisons.
-#[cfg(target_arch = "x86")]
 pub unsafe fn hash_pointer_targets(
     w: &mut dyn fmt::Write,
     base: *const u8,

@@ -6,13 +6,11 @@
 //! may have subtle color differences due to the tangled decompiler output.
 
 use crate::address::va;
-#[cfg(target_arch = "x86")]
 use crate::asset::gfx_dir::GfxDir;
 use crate::asset::gfx_dir::call_gfx_find_and_load;
 use crate::bitgrid::{BitGrid, BitGridBaseVtable};
 use crate::engine::world::GameWorld;
 use crate::rebase::rb;
-#[cfg(target_arch = "x86")]
 use crate::wa_alloc::wa_malloc_struct_zeroed;
 use crate::wa_alloc::{wa_free, wa_malloc};
 
@@ -107,7 +105,6 @@ impl PaletteContext {
 /// NOTE: This code path is untested — no replay or map available that
 /// triggers it. The algorithm follows the GameWorld constructor decompilation
 /// but may have subtle differences in color output.
-#[cfg(target_arch = "x86")]
 pub(crate) unsafe fn compute_complex_gradient(
     world: *mut GameWorld,
     land_dir: *mut GfxDir,

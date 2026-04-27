@@ -17,7 +17,6 @@ use openwa_game::task::{BaseEntity, BaseEntityBfsIter, MissileEntity, WormEntity
 ///
 /// # Safety
 /// Must be called from the DLL while the game is paused (frame breakpoint).
-#[cfg(target_arch = "x86")]
 pub unsafe fn capture() -> String {
     unsafe {
         use openwa_game::engine::TeamArena;

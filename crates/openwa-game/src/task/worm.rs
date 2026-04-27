@@ -482,7 +482,6 @@ impl WormEntity {
 
 // ── Snapshot impl ──────────────────────────────────────────
 
-#[cfg(target_arch = "x86")]
 impl crate::snapshot::Snapshot for WormEntity {
     unsafe fn write_snapshot(
         &self,

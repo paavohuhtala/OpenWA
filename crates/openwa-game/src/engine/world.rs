@@ -717,7 +717,6 @@ pub mod offsets {
 
 // ── Snapshot impls ──────────────────────────────────────────
 
-#[cfg(target_arch = "x86")]
 impl crate::snapshot::Snapshot for GameWorld {
     unsafe fn write_snapshot(
         &self,

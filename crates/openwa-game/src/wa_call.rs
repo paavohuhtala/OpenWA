@@ -54,7 +54,6 @@ pub unsafe fn stdcall_2(ghidra_addr: u32, arg1: u32, arg2: u32) {
 ///
 /// Used to invoke MSVC constructors that read an additional context pointer
 /// from ECX on top of the normal stdcall stack args.
-#[cfg(target_arch = "x86")]
 #[unsafe(naked)]
 pub unsafe extern "C" fn call_ctor_with_ecx(
     _this: *mut u8,
@@ -75,7 +74,6 @@ pub unsafe extern "C" fn call_ctor_with_ecx(
 }
 
 /// Bridge: usercall(ESI=ptr) with one stack arg, plain RET 0x4.
-#[cfg(target_arch = "x86")]
 #[unsafe(naked)]
 pub unsafe extern "C" fn call_usercall_esi_stack1(
     _ptr: *mut u8,

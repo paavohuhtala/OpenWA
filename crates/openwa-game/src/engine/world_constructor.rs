@@ -21,6 +21,7 @@ use crate::bitgrid::{BitGrid, BitGridBaseVtable, CollisionBitGrid, DisplayBitGri
 use crate::engine::coord::{CoordList, CoordListEntry};
 use crate::engine::game_info::GameInfo;
 use crate::engine::net_bridge::NetBridge;
+use crate::engine::net_session::NetSession;
 use crate::engine::runtime::GameRuntime;
 use crate::input::keyboard::Keyboard;
 use crate::rebase::rb;
@@ -28,6 +29,7 @@ use crate::render::display::gfx::DisplayGfx;
 use crate::render::display::gradient::compute_complex_gradient;
 use crate::render::display::palette::Palette;
 use crate::render::landscape::Landscape;
+use crate::wa::localized_template::LocalizedTemplate;
 use crate::wa_alloc::{wa_malloc, wa_malloc_zeroed};
 use openwa_core::fixed::Fixed;
 
@@ -124,7 +126,6 @@ pub unsafe fn game_world_init_render_indices(world: *mut GameWorld) {
 /// Layer 1 color depends on gfx_mode and game_version.
 /// Layer 2 = 0x20, Layer 3 = 0x70.
 ///
-#[cfg(target_arch = "x86")]
 pub unsafe fn display_layer_color_init(runtime: *mut GameRuntime) {
     unsafe {
         let world = (*runtime).world;
@@ -165,7 +166,6 @@ pub fn init_constructor_addrs() {
 // Replace with pure Rust implementations as functions are ported.
 
 /// GameWorld__InitVersionFlags (0x525BE0): sets GameWorld+0x7E2E/0x7E2F/0x7E3F.
-#[cfg(target_arch = "x86")]
 unsafe fn wa_init_version_flags(runtime: *mut GameRuntime) {
     unsafe {
         let f: unsafe extern "stdcall" fn(*mut GameRuntime) =
@@ -179,7 +179,6 @@ unsafe fn wa_init_version_flags(runtime: *mut GameRuntime) {
 /// ESI must hold the display layer context (from DisplayGfx::set_active_layer).
 /// The function uses ESI for LoadSpriteFromVfs and IMG__LoadFromDir
 /// when param4 (gfx_dir) is non-null.
-#[cfg(target_arch = "x86")]
 #[unsafe(naked)]
 unsafe extern "C" fn wa_load_sprites(
     _runtime: *mut GameRuntime,
@@ -255,7 +254,6 @@ unsafe fn load_effect_wavs(runtime: *mut GameRuntime) {
 /// param_5 is `game_info + 0xDAAC` (landscape data path region within GameInfo).
 /// The SoundEmitter sub-constructor reads paths, water settings, etc. from this
 /// pointer with negative offsets back into GameInfo.
-#[cfg(target_arch = "x86")]
 unsafe fn wa_landscape_ctor(
     this: *mut u8,
     world: *mut GameWorld,
@@ -300,7 +298,6 @@ unsafe fn wa_landscape_ctor(
 }
 
 /// Decode a cached raw image buffer into a BitGrid (0x4F5E80).
-#[cfg(target_arch = "x86")]
 unsafe fn wa_displaygfx_ctor(
     palette_ctx: *mut crate::render::palette::PaletteContext,
     raw_image: *mut u8,
@@ -309,7 +306,6 @@ unsafe fn wa_displaygfx_ctor(
 }
 
 /// GameWorld__InitDisplayFinal (0x56A830): finalize display for non-headless mode.
-#[cfg(target_arch = "x86")]
 unsafe fn wa_init_display_final(display: *mut DisplayGfx) {
     unsafe {
         let f: unsafe extern "stdcall" fn(*mut DisplayGfx) =
@@ -320,7 +316,6 @@ unsafe fn wa_init_display_final(display: *mut DisplayGfx) {
 
 /// GameWorld__LoadHudAndWeaponSprites (0x53D0E0): load weapon icons and HUD sprites.
 /// thiscall(ECX=gfx_dir) + 2 stack(world, secondary_gfx_dir), RET 0x8.
-#[cfg(target_arch = "x86")]
 unsafe fn wa_load_hud_sprites(gfx_dir: *mut GfxDir, world: *mut GameWorld, secondary: *mut GfxDir) {
     unsafe {
         let f: unsafe extern "thiscall" fn(*mut GfxDir, *mut GameWorld, *mut GfxDir) =
@@ -331,7 +326,6 @@ unsafe fn wa_load_hud_sprites(gfx_dir: *mut GfxDir, world: *mut GameWorld, secon
 
 /// GameWorld__InitPaletteGradientSprites (0x5706D0): creates DisplayGfx palette
 /// gradient objects for each team. stdcall(runtime), RET 0x4.
-#[cfg(target_arch = "x86")]
 unsafe fn wa_init_palette_gradient_sprites(runtime: *mut GameRuntime) {
     unsafe {
         let f: unsafe extern "stdcall" fn(*mut GameRuntime) =
@@ -350,7 +344,6 @@ pub static mut ON_GAME_WORLD_ALLOC: Option<unsafe fn(*mut u8)> = None;
 /// sub-objects. Populates fields on both `wrapper` (GameRuntime) and the
 /// returned GameWorld.
 ///
-#[cfg(target_arch = "x86")]
 pub unsafe fn create_game_world(
     runtime: *mut GameRuntime,
     keyboard: *mut Keyboard,
@@ -358,10 +351,10 @@ pub unsafe fn create_game_world(
     sound: *mut DSSound,
     palette: *mut Palette,
     music: *mut Music,
-    localized_template: *mut crate::wa::localized_template::LocalizedTemplate,
+    localized_template: *mut LocalizedTemplate,
     net_game: *mut u8, // from GameSession
     game_info: *mut GameInfo,
-    net_session: *mut crate::engine::net_session::NetSession, // implicit ECX from caller
+    net_session: *mut NetSession,
 ) -> *mut GameWorld {
     unsafe {
         // ── 1. Allocate and zero-fill ──
@@ -437,7 +430,6 @@ pub unsafe fn create_game_world(
 /// Second half of the constructor: GfxHandler, landscape, sprites, audio, resources.
 ///
 /// Second half of the constructor — initializes graphics, audio, landscape, and sprites.
-#[cfg(target_arch = "x86")]
 unsafe fn init_graphics_and_resources(
     runtime: *mut GameRuntime,
     game_info: *mut GameInfo,
@@ -1071,7 +1063,6 @@ static mut LOAD_SPEECH_BANKS_ADDR: u32 = 0;
 static mut LOADING_PROGRESS_TICK_ADDR: u32 = 0;
 
 /// Bridge: usercall(ESI=wrapper), plain RET. Used by FUN_570E20, LoadSpeechBanks.
-#[cfg(target_arch = "x86")]
 #[unsafe(naked)]
 unsafe extern "C" fn call_usercall_esi(_runtime: *mut GameRuntime, _addr: u32) {
     core::arch::naked_asm!(
@@ -1086,7 +1077,6 @@ unsafe extern "C" fn call_usercall_esi(_runtime: *mut GameRuntime, _addr: u32) {
 }
 
 /// Bridge: usercall(EAX=wrapper), plain RET. Used by FUN_570A90.
-#[cfg(target_arch = "x86")]
 #[unsafe(naked)]
 unsafe extern "C" fn call_usercall_eax(_runtime: *mut GameRuntime, _addr: u32) {
     core::arch::naked_asm!(
@@ -1099,7 +1089,6 @@ unsafe extern "C" fn call_usercall_eax(_runtime: *mut GameRuntime, _addr: u32) {
 }
 
 /// Bridge: usercall(ECX=wrapper), plain RET. Used by FUN_5717A0.
-#[cfg(target_arch = "x86")]
 unsafe fn call_usercall_ecx(runtime: *mut GameRuntime, addr: u32) {
     unsafe {
         let f: unsafe extern "thiscall" fn(*mut GameRuntime) = core::mem::transmute(addr as usize);
@@ -1109,10 +1098,8 @@ unsafe fn call_usercall_ecx(runtime: *mut GameRuntime, addr: u32) {
 
 /// Bridge to SpriteRegion__Constructor (0x57DB20).
 /// Convention: fastcall(ECX, EDX) + 6 stack params, RET 0x18.
-#[cfg(target_arch = "x86")]
 static mut SPRITE_REGION_CTOR_ADDR: u32 = 0;
 
-#[cfg(target_arch = "x86")]
 #[unsafe(naked)]
 unsafe extern "C" fn call_sprite_region_ctor(
     _this: *mut u8,

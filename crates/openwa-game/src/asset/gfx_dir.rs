@@ -4,18 +4,15 @@
 //! `Gfx0.dir`). It provides name→resource lookup via a 1024-bucket hash table
 //! and delegates file I/O and caching to vtable methods.
 
-#[cfg(target_arch = "x86")]
 use core::ffi::{CStr, c_char};
 
 use openwa_game::vtable;
 
 use crate::address::va;
-#[cfg(target_arch = "x86")]
 use crate::asset::img::DecodedBitGrid;
 use crate::bitgrid::BitGrid;
 use crate::rebase::rb;
 use crate::wa_alloc::{wa_malloc, wa_malloc_struct_zeroed};
-#[cfg(target_arch = "x86")]
 use crate::{asset, render::palette::PaletteContext};
 
 /// Cache slot within a GfxDir (0x10 bytes).
@@ -150,7 +147,6 @@ unsafe fn gfx_dir_hash(name: *const u8) -> u32 {
 /// # Safety
 /// `gfx_dir` must be a valid GfxHandler with initialized hash table at +0x04.
 /// `name` must be a valid null-terminated C string.
-#[cfg(target_arch = "x86")]
 pub unsafe fn gfx_dir_find_entry(name: *const c_char, gfx_dir: *const GfxDir) -> *mut GfxDirEntry {
     unsafe {
         let mut current_name = name as *const u8;
@@ -274,7 +270,6 @@ unsafe fn gfx_dir_reset(handler: *mut u8) {
 ///
 /// # Safety
 /// `handler` must be a valid GfxHandler with file handle at +0x198.
-#[cfg(target_arch = "x86")]
 pub unsafe fn gfx_dir_load_dir(handler: *mut u8) -> i32 {
     unsafe {
         gfx_dir_reset(handler);
@@ -372,7 +367,6 @@ pub unsafe fn gfx_dir_load_dir(handler: *mut u8) -> i32 {
 /// Pure Rust implementation of GfxHandler__Read (vtable slot 0, 0x58BBD0).
 ///
 /// `fread(buf, 1, size, self->file_handle)`. Returns `size` on success, 0 on error.
-#[cfg(target_arch = "x86")]
 pub unsafe extern "thiscall" fn gfx_dir_read(this: *mut GfxDir, buf: *mut u8, size: u32) -> u32 {
     unsafe {
         let fread: unsafe extern "cdecl" fn(*mut u8, u32, u32, *mut u8) -> u32 =
@@ -385,7 +379,6 @@ pub unsafe extern "thiscall" fn gfx_dir_read(this: *mut GfxDir, buf: *mut u8, si
 /// Pure Rust implementation of GfxHandler__Seek (vtable slot 1, 0x58BBB0).
 ///
 /// `fseek(self->file_handle, offset, SEEK_SET)`. Returns 1 on success, 0 on failure.
-#[cfg(target_arch = "x86")]
 pub unsafe extern "thiscall" fn gfx_dir_seek(this: *mut GfxDir, offset: u32) -> u32 {
     unsafe {
         let fseek: unsafe extern "cdecl" fn(*mut u8, i32, i32) -> i32 =
@@ -409,7 +402,6 @@ pub unsafe extern "thiscall" fn gfx_dir_load_cached(
 ///
 /// Resets vtable to the "cleaned up" vtable (0x66A1B0), invalidates all
 /// active cache slots, and frees the bucket array if it was malloc'd.
-#[cfg(target_arch = "x86")]
 unsafe fn gfx_dir_cleanup(gfx: *mut GfxDir) {
     unsafe {
         // Set vtable to the "cleaned up" vtable (0x66A1B0)
@@ -439,7 +431,6 @@ unsafe fn gfx_dir_cleanup(gfx: *mut GfxDir) {
 /// Pure Rust implementation of GfxHandler__Release (vtable slot 3, 0x58BB70).
 ///
 /// Resets vtable, closes the file handle, runs cleanup, and optionally frees self.
-#[cfg(target_arch = "x86")]
 pub unsafe extern "thiscall" fn gfx_dir_release(this: *mut GfxDir, flags: u32) {
     unsafe {
         // Reset vtable to base GfxHandler vtable
@@ -469,7 +460,6 @@ pub unsafe extern "thiscall" fn gfx_dir_release(this: *mut GfxDir, flags: u32) {
 ///
 /// # Safety
 /// All pointers must be valid WA objects.
-#[cfg(target_arch = "x86")]
 pub unsafe fn img_load_from_dir(
     gfx_dir: *mut GfxDir,
     name: *const c_char,
@@ -505,7 +495,6 @@ pub unsafe fn img_load_from_dir(
 }
 
 /// Helper: find entry in GfxDir and load image, or load directly.
-#[cfg(target_arch = "x86")]
 pub(crate) unsafe fn call_gfx_find_and_load(
     gfx_dir: *mut GfxDir,
     name: &CStr,
@@ -532,7 +521,6 @@ pub(crate) unsafe fn call_gfx_find_and_load(
 }
 
 /// Helper: load image via GfxDir__LoadImage + IMG_Decode.
-#[cfg(target_arch = "x86")]
 pub(crate) unsafe fn call_gfx_load_and_wrap(
     gfx_dir: *mut GfxDir,
     name: *const c_char,
@@ -739,7 +727,6 @@ pub unsafe fn gfx_dir_release_slot(gfx: *mut GfxDir, stream: *mut GfxDirStream) 
 ///
 /// Reads data from the parent GfxDir's file through its vtable, advancing
 /// the cache slot's current read position.
-#[cfg(target_arch = "x86")]
 unsafe fn gfx_dir_stream_read_inner(
     gfx: *mut GfxDir,
     slot_idx: u32,
@@ -787,7 +774,6 @@ unsafe fn gfx_dir_stream_read_inner(
 /// Pure Rust implementation of GfxDirStream destructor (vtable slot 0, 0x5661E0).
 ///
 /// Releases the cache slot and optionally frees the stream object.
-#[cfg(target_arch = "x86")]
 pub unsafe extern "thiscall" fn gfx_dir_stream_destructor(this: *mut GfxDirStream, flags: u32) {
     unsafe {
         // Set vtable to GfxDirStream vtable (matches original behavior)
@@ -812,7 +798,6 @@ pub unsafe extern "thiscall" fn gfx_dir_stream_destructor(this: *mut GfxDirStrea
 ///
 /// Reads `size` bytes from the stream into `dest` by delegating to the
 /// parent GfxDir's file I/O vtable methods.
-#[cfg(target_arch = "x86")]
 pub unsafe extern "thiscall" fn gfx_dir_stream_read(
     this: *mut GfxDirStream,
     dest: *mut u8,
@@ -834,7 +819,6 @@ pub unsafe extern "thiscall" fn gfx_dir_stream_read(
 /// Looks up `name` in the GfxDir's hash table, allocates a cache slot,
 /// creates a GfxDirStream for sequential reading, and returns it.
 /// Returns null if no free slots or name not found.
-#[cfg(target_arch = "x86")]
 pub unsafe fn gfx_dir_load_image(gfx_dir: *mut GfxDir, name: *const c_char) -> *mut GfxDirStream {
     unsafe {
         // Check if there are free cache slots

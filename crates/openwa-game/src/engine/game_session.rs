@@ -194,17 +194,13 @@ bind_GameSessionVtable!(GameSession, vtable);
 
 // ─── Runtime accessors (DLL-injected context only) ──────────────────────
 
-#[cfg(target_arch = "x86")]
 use crate::address::va;
-#[cfg(target_arch = "x86")]
 use crate::engine::world::GameWorld;
-#[cfg(target_arch = "x86")]
 use crate::rebase::rb;
 
 /// Get a pointer to the global `GameSession` struct from `G_GAME_SESSION`.
 ///
 /// Can be null if called before the game session is initialized.
-#[cfg(target_arch = "x86")]
 #[inline]
 pub unsafe fn get_game_session() -> *mut GameSession {
     unsafe { *(rb(va::G_GAME_SESSION) as *const *mut GameSession) }
@@ -213,7 +209,6 @@ pub unsafe fn get_game_session() -> *mut GameSession {
 /// Get the GameRuntime pointer from the global game session.
 ///
 /// Returns null if the session or wrapper hasn't been initialized yet.
-#[cfg(target_arch = "x86")]
 #[inline]
 pub unsafe fn get_runtime() -> *mut GameRuntime {
     unsafe {
@@ -229,7 +224,6 @@ pub unsafe fn get_runtime() -> *mut GameRuntime {
 ///
 /// Follows the chain: G_GAME_SESSION → GameSession.runtime → GameRuntime.world.
 /// Returns null if any link in the chain is uninitialized.
-#[cfg(target_arch = "x86")]
 #[inline]
 pub unsafe fn get_game_world() -> *mut GameWorld {
     unsafe {
