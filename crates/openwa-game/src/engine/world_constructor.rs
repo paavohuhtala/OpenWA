@@ -358,7 +358,7 @@ pub unsafe fn create_game_world(
     sound: *mut DSSound,
     palette: *mut Palette,
     music: *mut Music,
-    param7: *mut u8,   // timer object (0x1F4 observed)
+    localized_template: *mut crate::wa::localized_template::LocalizedTemplate,
     net_game: *mut u8, // from GameSession
     game_info: *mut GameInfo,
     net_session: *mut crate::engine::net_session::NetSession, // implicit ECX from caller
@@ -391,7 +391,7 @@ pub unsafe fn create_game_world(
         (*world).keyboard = keyboard;
         (*world).palette = palette;
         (*world).music = music;
-        (*world).timer_obj = param7;
+        (*world).localized_template = localized_template;
         (*world).net_session = net_session;
         (*world).game_info = game_info;
         (*world).net_game = net_game;

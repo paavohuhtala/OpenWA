@@ -178,8 +178,11 @@ pub struct GameSession {
     pub streaming_audio: *mut Music,
     /// 0x0B8: input controller — 0x1800 bytes; null if `param_4 == 0` at init
     pub input_ctrl: *mut u8,
-    /// 0x0BC: timing object — 0x30 bytes (`FUN_0053e950`)
-    pub timer_obj: *mut u8,
+    /// 0x0BC: Localized-template resolver — 0x30 bytes
+    /// (constructed by `LocalizedTemplate__Constructor` at 0x0053E950).
+    /// Copied into [`GameWorld`](crate::engine::GameWorld)`+0x18` on world
+    /// construction. See [`LocalizedTemplate`](crate::wa::localized_template::LocalizedTemplate).
+    pub localized_template: *mut crate::wa::localized_template::LocalizedTemplate,
     /// 0x0C0: `DDNetGameWrapper*` — 0x2C bytes
     pub net_game: *mut u8,
     pub _unknown_0c4: [u8; 0x5C],

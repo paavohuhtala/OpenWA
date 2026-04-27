@@ -702,8 +702,9 @@ pub mod va {
         fn/Stdcall STREAMING_AUDIO_CTOR = 0x0058BC10;
         /// DDNetGameWrapper constructor
         fn/Stdcall DDNETGAME_WRAPPER_CTOR = 0x0056D1F0;
-        /// Timer object constructor
-        fn/Usercall GAME_ENGINE_TIMER_CTOR = 0x0053E950;
+        /// `LocalizedTemplate__Constructor` — usercall(ESI=this, EAX=wa_version_threshold).
+        /// See [`crate::wa::localized_template::LocalizedTemplate`].
+        fn/Usercall LOCALIZED_TEMPLATE_CTOR = 0x0053E950;
         fn CONSTRUCT_FRAME_BUFFER = 0x005A2430;
         fn BLIT_SCREEN = 0x005A2020;
         fn RQ_RENDER_DRAWING_QUEUE = 0x00542350;

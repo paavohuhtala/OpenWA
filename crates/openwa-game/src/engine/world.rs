@@ -15,6 +15,7 @@ use crate::render::display::palette::Palette;
 use crate::render::landscape::Landscape;
 use crate::render::queue::RenderQueue;
 use crate::render::turn_order::TurnOrderWidget;
+use crate::wa::localized_template::LocalizedTemplate;
 use openwa_core::fixed::{Fixed, Fixed64};
 
 /// GameWorld — the main game engine object.
@@ -49,9 +50,10 @@ pub struct GameWorld {
     pub palette: *mut Palette,
     /// 0x014: Music object pointer (vtable 0x66B3E0). Constructor param "music".
     pub music: *mut Music,
-    /// 0x018: Timer object pointer (0x30 bytes, from GameSession+0xBC).
-    /// TODO: This is NOT a timer, it's related to string resources / localization.
-    pub timer_obj: *mut u8,
+    /// 0x018: Localized-template resolver (from GameSession+0xBC). Wraps
+    /// WA's localization tables with a per-token cache + escape-code
+    /// post-processor. See [`LocalizedTemplate`](crate::wa::localized_template::LocalizedTemplate).
+    pub localized_template: *mut LocalizedTemplate,
     /// 0x01C: Per-game network session object. NULL for offline play.
     /// When non-null, drives end-of-round peer synchronisation via its
     /// vtable (see `engine::net_session`).
@@ -701,127 +703,16 @@ impl GameWorld {
     }
 }
 
-// GameWorld constructor code (create_world, init helpers, usercall bridges)
-// has been moved to world_constructor.rs.
-
-// BitGrid__Init lives in crate::bitgrid
-// Re-exported via world_constructor.rs
 /// Well-known byte offsets into GameWorld, for use with raw pointer access.
 ///
 /// The GameWorld pointer is at GameRuntime+0x488 (DWORD index 0x122).
 pub mod offsets {
-    // === Header / init params (0x000-0x02C) ===
-    pub const LANDSCAPE: usize = 0x020;
-    pub const GAME_INFO: usize = 0x024;
-    pub const SECONDARY_GFXDIR: usize = 0x02C;
-    pub const GRADIENT_IMAGE: usize = 0x030;
-
-    // === Sprite arrays (0x038-0x138) ===
-    pub const ARROW_SPRITES: usize = 0x038;
-    pub const ARROW_GFXDIRS: usize = 0x0B8;
-    pub const DISPLAY_GFX: usize = 0x138;
-
-    // === Task/state machines (0x380-0x488) ===
-    pub const TASK_STATE_MACHINE: usize = 0x380;
-    pub const SPRITE_REGIONS: usize = 0x46C;
-
-    // === Arrow collision (0x48C-0x50C) ===
-    pub const ARROW_COLLISION_REGIONS: usize = 0x48C;
-    pub const COORD_LIST: usize = 0x50C;
-
-    // === WormKit-documented offsets ===
-    pub const WEAPON_TABLE: usize = 0x510;
-    pub const WEAPON_PANEL: usize = 0x548;
-
-    // === Team weapon state (GameWorld + 0x4628) ===
-    /// Base of TeamArena sub-struct within GameWorld.
-    /// Callers pass GameWorld + TEAM_ARENA_STATE as base pointer to
-    /// GetAmmo/AddAmmo/SubtractAmmo.
-    pub const TEAM_ARENA_STATE: usize = 0x4628;
-
-    // === Team block array (7 × TeamBlock, stride 0x51C) ===
-    /// Start of team block array within GameWorld (7 blocks, stride 0x51C).
-    /// Derived: entry_ptr(team=0) - 0x598 = 0x4628 - 0x598 = 0x4090.
-    /// Runtime-confirmed: block[0] is zeroed preamble, blocks[1-6] hold team data.
-    pub const TEAM_BLOCKS: usize = 0x4090;
-
     /// Byte offset from TeamArena base back to TeamBlock array start.
     /// `blocks_ptr = (tws_base as *const c_char).sub(ARENA_TO_BLOCKS) as *const TeamBlock`
     ///
     /// entry_ptr(0) = GameWorld+0x4628 = TEAM_BLOCKS + 0x598.
     /// 0x598 = sizeof(TeamBlock) + 0x7C = one block + offset into TeamHeader.
     pub const ARENA_TO_BLOCKS: usize = 0x598;
-
-    // === FUN_00526120 init offsets (stride 0x194, 10 entries) ===
-    pub const INIT_TABLE_BASE: usize = 0x379C;
-    pub const INIT_TABLE_STRIDE: usize = 0x194;
-
-    // === Game objects (0x528-0x54C) ===
-    pub const GAME_STATE_STREAM: usize = 0x528;
-    pub const TURN_ORDER_WIDGET: usize = 0x530;
-    pub const HUD_PANEL: usize = 0x534;
-    /// LandEntity pointer (landscape/terrain task, vtable 0x664388).
-    pub const TASK_LAND: usize = 0x54C;
-
-    // === Per-team health ratio (turn order health bar) ===
-    /// Per-team health ratio array (6 × i32, 1-indexed by team).
-    /// 0x10000 = 100%. Rendered as `value * 100 >> 16` pixel width.
-    pub const TEAM_HEALTH_RATIO: usize = 0x45F0;
-    /// Per-team health ratio 2 (6 × i32, 1-indexed by team).
-    pub const TEAM_HEALTH_RATIO_2: usize = 0x4608;
-
-    // === RNG (0x72EC) ===
-    pub const RNG_STATE_1: usize = 0x72EC;
-    pub const RNG_STATE_2: usize = 0x72F0;
-
-    // === Sparse fields in upper region ===
-    pub const GFX_COLOR_ENTRIES: usize = 0x730C;
-
-    // === Camera/viewport (0x7380-0x73AC) ===
-    pub const VIEWPORT_WIDTH: usize = 0x7380;
-    pub const VIEWPORT_HEIGHT: usize = 0x7384;
-    pub const CAMERA_X: usize = 0x73A0;
-    pub const CAMERA_Y: usize = 0x73A4;
-    pub const CAMERA_TARGET_X: usize = 0x73A8;
-    pub const CAMERA_TARGET_Y: usize = 0x73AC;
-
-    // === Game speed (0x72D8) ===
-    pub const GAME_SPEED: usize = 0x72D8;
-    pub const GAME_SPEED_TARGET: usize = 0x72DC;
-
-    // === Level bounds (0x779C-0x77A8) ===
-    pub const LEVEL_BOUND_MIN_X: usize = 0x779C;
-    pub const LEVEL_BOUND_MAX_X: usize = 0x77A0;
-    pub const LEVEL_BOUND_MIN_Y: usize = 0x77A4;
-    pub const LEVEL_BOUND_MAX_Y: usize = 0x77A8;
-    pub const TURN_TIME_LIMIT: usize = 0x7EA8;
-    pub const IS_HEADFUL: usize = 0x7EF8;
-    /// Sub-frame render interpolation factor (0..0x10000).
-    /// Written by `DispatchFrame`, consumed by per-object render code
-    /// (clouds, crosshair, worms) as a Fixed multiplier.
-    pub const RENDER_INTERP_A: usize = 0x8150;
-    /// Turn status text (null-terminated ASCII, shown during gameplay).
-    pub const TURN_STATUS_TEXT: usize = 0x818C;
-    /// Checkpoint active flag.
-    pub const CHECKPOINT_ACTIVE: usize = 0x98A4;
-    /// Fast-forward request flag.
-    pub const FAST_FORWARD_REQUEST: usize = 0x98AC;
-
-    // === Speech slot table (GameWorld + 0x77E4) ===
-    /// Speech slot table: maps (team, speech_line_id) → DSSound buffer index.
-    pub const SPEECH_SLOT_TABLE: usize = 0x77E4;
-
-    // === Fast-forward (GameWorld + 0x98B0) ===
-    /// Fast-forward active flag (u32, 1 = active).
-    pub const FAST_FORWARD_ACTIVE: usize = 0x98B0;
-
-    // === Sound queue (GameWorld + 0x7F00) ===
-    /// DSSound pointer (null = sound disabled).
-    pub const SOUND: usize = 0x0008;
-    /// Sound queue base (16 × SoundQueueEntry, stride 0x24).
-    pub const SOUND_QUEUE: usize = 0x7F00;
-    /// Sound queue count (i32, 0–16).
-    pub const SOUND_QUEUE_COUNT: usize = 0x8140;
 }
 
 // ── Snapshot impls ──────────────────────────────────────────

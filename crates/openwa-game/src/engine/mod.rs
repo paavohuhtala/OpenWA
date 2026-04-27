@@ -8,7 +8,6 @@ pub mod game_session_run;
 pub mod game_state;
 pub mod game_state_init;
 pub mod game_state_stream;
-pub mod game_timer;
 pub mod log_sink;
 pub mod main_loop;
 pub mod menu_panel;
@@ -30,7 +29,6 @@ pub mod world_load_fonts;
 pub use coord::{CoordEntry, CoordList, CoordListEntry};
 pub use game_info::GameInfo;
 pub use game_session::GameSession;
-pub use game_timer::GameTimer;
 pub use net_wrapper::DDNetGameWrapper;
 pub use runtime::{GameRuntime, GameRuntimeVtable};
 pub use team_arena::{

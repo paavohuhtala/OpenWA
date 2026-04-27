@@ -15,7 +15,7 @@
 use crate::hook::{self, usercall_trampoline};
 use crate::log_line;
 use openwa_game::address::va;
-use openwa_game::audio::DSSound;
+use openwa_game::audio::{DSSound, Music};
 use openwa_game::engine::GameRuntimeVtable;
 use openwa_game::engine::create_game_world;
 use openwa_game::engine::game_session::get_game_session;
@@ -24,8 +24,10 @@ use openwa_game::engine::init_constructor_addrs;
 use openwa_game::engine::pump_messages::pump_messages;
 use openwa_game::engine::window_proc::{engine_wnd_proc, init_window_proc_addrs};
 use openwa_game::engine::{GameInfo, GameRuntime};
+use openwa_game::input::Keyboard;
 use openwa_game::rebase::rb;
 use openwa_game::render::{DisplayGfx, Palette};
+use openwa_game::wa::localized_template::LocalizedTemplate;
 
 /// Implicit EDI = game_info pointer, captured from EDI on entry.
 static mut GAME_INFO: *mut GameInfo = core::ptr::null_mut();
@@ -56,10 +58,10 @@ unsafe extern "C" fn call_original_world_ctor(
     _runtime: *mut GameRuntime,
     _display: *mut DisplayGfx,
     _sound: *mut DSSound,
-    _keyboard: *mut u8,
+    _keyboard: *mut Keyboard,
     _palette: *mut Palette,
-    _music: *mut u8,
-    _timer: *mut u8,
+    _music: *mut Music,
+    _localized_template: *mut LocalizedTemplate,
     _net_game: *mut u8,
     _game_info: *mut GameInfo,
     _input_ctrl: *mut u8,
@@ -88,9 +90,9 @@ pub(crate) unsafe fn construct_runtime(
     this: *mut GameRuntime,
     display: *mut DisplayGfx,
     sound: *mut DSSound,
-    keyboard: *mut u8,
+    keyboard: *mut Keyboard,
     palette: *mut Palette,
-    streaming_audio: *mut u8,
+    music: *mut Music,
     input_ctrl: *mut u8,
 ) -> *mut GameRuntime {
     unsafe {
@@ -106,9 +108,9 @@ pub(crate) unsafe fn construct_runtime(
         // Initialize replay subsystem.  usercall(EAX=game_info, ESI=this), plain RET.
         call_init_replay(game_info, this);
 
-        // Read timer_obj and net_game from the live game session struct.
+        // Read localized_template and net_game from the live game session struct.
         let session = get_game_session();
-        let timer_obj = (*session).timer_obj;
+        let localized_template = (*session).localized_template;
         let net_game = (*session).net_game;
 
         // Register GameSession as a live object.
@@ -123,8 +125,8 @@ pub(crate) unsafe fn construct_runtime(
         }
 
         let _ = log_line(&format!(
-            "[GameSession] display=0x{:08X}, net_game=0x{:08X}, timer=0x{:08X}, game_info(EDI)=0x{:08X}",
-            display as u32, net_game as u32, timer_obj as u32, game_info as u32,
+            "[GameSession] display=0x{:08X}, net_game=0x{:08X}, localized_template=0x{:08X}, game_info(EDI)=0x{:08X}",
+            display as u32, net_game as u32, localized_template as u32, game_info as u32,
         ));
 
         // Arm display watchpoint during construction if requested
@@ -142,8 +144,8 @@ pub(crate) unsafe fn construct_runtime(
                 sound,
                 keyboard,
                 palette,
-                streaming_audio,
-                timer_obj,
+                music,
+                localized_template,
                 net_game,
                 game_info,
                 input_ctrl,
@@ -151,12 +153,12 @@ pub(crate) unsafe fn construct_runtime(
         } else {
             create_game_world(
                 this,
-                keyboard as *mut openwa_game::input::Keyboard,
+                keyboard,
                 display,
                 sound,
                 palette,
-                streaming_audio as *mut openwa_game::audio::Music,
-                timer_obj,
+                music,
+                localized_template,
                 net_game,
                 game_info,
                 input_ctrl as *mut openwa_game::engine::net_session::NetSession,

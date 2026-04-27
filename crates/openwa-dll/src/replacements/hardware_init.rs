@@ -16,7 +16,7 @@
 //!
 //! ```text
 //! ALWAYS:
-//!   timer (0x30 bytes, FUN_0053E950 usercall ESI=this EAX=d778_val) → session+0xBC
+//!   LocalizedTemplate (0x30 bytes, FUN_0053E950 usercall ESI=this EAX=d778_val) → session+0xBC
 //!
 //! IF param4 != 0:
 //!   input ctrl (0x1800 bytes, inline vtable, FUN_0058C0D0 usercall ESI=this) → session+0xB8
@@ -47,10 +47,11 @@ use crate::log_line;
 use openwa_game::address::va;
 use openwa_game::audio::{DSSound, Music};
 use openwa_game::engine::game_session::get_game_session;
-use openwa_game::engine::{DDNetGameWrapper, GameInfo, GameRuntime, GameTimer};
+use openwa_game::engine::{DDNetGameWrapper, GameInfo, GameRuntime};
 use openwa_game::input::{InputCtrl, InputCtrlVtable, Keyboard};
 use openwa_game::rebase::rb;
 use openwa_game::render::{DisplayBase, DisplayGfx, Palette};
+use openwa_game::wa::localized_template::LocalizedTemplate;
 use openwa_game::wa_alloc::{wa_malloc_struct, wa_malloc_struct_zeroed};
 
 // ─── Entry trampoline state ───────────────────────────────────────────────────
@@ -61,7 +62,7 @@ static mut SAVED_RET: u32 = 0;
 // ─── Bridge-state statics ─────────────────────────────────────────────────────
 
 /// Function addresses, set in `install()`.
-static mut TIMER_CTOR_ADDR: u32 = 0;
+static mut LOCALIZED_TEMPLATE_CTOR_ADDR: u32 = 0;
 static mut INPUT_CTRL_INIT_ADDR: u32 = 0;
 static mut STREAM_CTOR_ADDR: u32 = 0;
 static mut DISPLAY_GFX_INIT_ADDR: u32 = 0;
@@ -80,23 +81,24 @@ static mut INPUT_CTRL_SAVED_ESI: u32 = 0;
 // so the callee sees its actual stack args at [esp+4] / [esp+8] etc. (not
 // displaced by an extra return address).
 
-/// Timer constructor: `usercall(ESI=timer_ptr, EAX=crosshair_threshold)`, plain RET.
+/// `LocalizedTemplate__Constructor` (0x0053E950):
+/// `usercall(ESI=this, EAX=wa_version_threshold)`, plain RET.
 /// Returns whatever EAX holds after the call.
 #[unsafe(naked)]
-unsafe extern "cdecl" fn call_timer_ctor(
-    _timer_ptr: *mut GameTimer,
-    _crosshair_threshold: u32,
+unsafe extern "cdecl" fn call_localized_template_ctor(
+    _this: *mut LocalizedTemplate,
+    _wa_version_threshold: u32,
 ) -> u32 {
     core::arch::naked_asm!(
-        // [esp+0]=bridge_ret, [esp+4]=timer_ptr, [esp+8]=crosshair_threshold
+        // [esp+0]=bridge_ret, [esp+4]=this, [esp+8]=wa_version_threshold
         "pushl %esi",
-        // [esp+0]=old_esi, [esp+4]=bridge_ret, [esp+8]=timer_ptr, [esp+c]=d778_val
-        "movl 8(%esp), %esi",    // ESI = timer_ptr
-        "movl 0xc(%esp), %eax",  // EAX = crosshair_threshold
+        // [esp+0]=old_esi, [esp+4]=bridge_ret, [esp+8]=this, [esp+c]=wa_version
+        "movl 8(%esp), %esi",    // ESI = this
+        "movl 0xc(%esp), %eax",  // EAX = wa_version_threshold
         "calll *({fn})",          // FUN_0053E950: plain RET (no stack args)
         "popl %esi",
         "retl",                   // cdecl; caller cleans 2 × u32
-        fn = sym TIMER_CTOR_ADDR,
+        fn = sym LOCALIZED_TEMPLATE_CTOR_ADDR,
         options(att_syntax),
     );
 }
@@ -282,10 +284,10 @@ unsafe extern "cdecl" fn impl_init_hardware(
             }
         }
 
-        // ── Timer object (ALWAYS) ─────────────────────────────────────────────────
-        let timer = wa_malloc_struct_zeroed::<GameTimer>();
-        call_timer_ctor(timer, crosshair_threshold);
-        (*session).timer_obj = timer as *mut u8;
+        // ── LocalizedTemplate (ALWAYS) ────────────────────────────────────────────
+        let localized_template = wa_malloc_struct_zeroed::<LocalizedTemplate>();
+        call_localized_template_ctor(localized_template, crosshair_threshold);
+        (*session).localized_template = localized_template;
 
         let headless = gi.headless_mode != 0;
 
@@ -412,9 +414,9 @@ unsafe extern "cdecl" fn impl_init_hardware(
             wa_malloc_struct_zeroed::<GameRuntime>(),
             (*session).display as *mut DisplayGfx,
             (*session).sound,
-            (*session).keyboard as *mut u8,
+            (*session).keyboard,
             (*session).palette,
-            (*session).streaming_audio as *mut u8,
+            (*session).streaming_audio,
             (*session).input_ctrl,
         );
         (*session).game_runtime = runtime;
@@ -475,7 +477,7 @@ unsafe extern "C" fn hook_init_hardware() {
 
 pub fn install() -> Result<(), String> {
     unsafe {
-        TIMER_CTOR_ADDR = rb(va::GAME_ENGINE_TIMER_CTOR);
+        LOCALIZED_TEMPLATE_CTOR_ADDR = rb(va::LOCALIZED_TEMPLATE_CTOR);
         INPUT_CTRL_INIT_ADDR = rb(va::INPUT_CTRL_INIT);
         STREAM_CTOR_ADDR = rb(va::STREAMING_AUDIO_CTOR);
         DISPLAY_GFX_INIT_ADDR = rb(va::DISPLAY_GFX_INIT);

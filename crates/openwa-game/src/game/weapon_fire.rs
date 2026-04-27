@@ -22,6 +22,7 @@ use crate::game::weapon::{WeaponEntry, WeaponFireParams, WeaponSpawnData};
 use crate::task::BaseEntity;
 use crate::task::world_root::WorldRootEntity;
 use crate::task::worm::{WormEntity, WormState};
+use crate::wa::localized_template::LocalizedTemplate;
 use openwa_core::fixed::Fixed;
 use openwa_core::log::log_line;
 
@@ -726,13 +727,15 @@ unsafe fn fire_scales_of_justice(worm: *mut WormEntity) {
         }
 
         // Play jet pack sound:
-        // FUN_0053EC70: usercall(EDI=0x6CB) + stdcall(timer_obj)
+        // FUN_0053EC70: LocalizedTemplate__ResolveSplitArray —
+        //   usercall(EDI=0x6CB) + stdcall(this) → `*const *const c_char` array
+        //   used here as a randomized speech-bank pick.
         // FUN_005480F0: usercall(EAX=-21) + stdcall(worm, result, 0x17, &worm_name)
         let world = {
             let this = worm as *const BaseEntity;
             (*this).world
         };
-        let sound_val = call_get_sound_val((*world).timer_obj, rb(0x53EC70));
+        let sound_val = call_resolve_split_array((*world).localized_template, rb(0x53EC70));
         call_play_sound_usercall(
             worm,
             sound_val,
@@ -743,16 +746,18 @@ unsafe fn fire_scales_of_justice(worm: *mut WormEntity) {
     }
 }
 
-/// Bridge: FUN_0053EC70 — usercall(EDI=0x6CB) + stdcall(timer_obj). Returns EAX.
+/// Bridge: FUN_0053EC70 (`LocalizedTemplate__ResolveSplitArray`) —
+/// usercall(EDI=0x6CB) + stdcall(this). Returns EAX (the resolved
+/// `*const *const c_char` array, here reinterpreted as a sound-pick value).
 #[unsafe(naked)]
-unsafe extern "C" fn call_get_sound_val(_timer_obj: *mut u8, _addr: u32) -> u32 {
+unsafe extern "C" fn call_resolve_split_array(_this: *mut LocalizedTemplate, _addr: u32) -> u32 {
     core::arch::naked_asm!(
         "push ebx",
         "push edi",
         // Stack: 2 saves(8) + ret(4) = 12 to first arg
         "mov edi, 0x6CB",
         "mov ebx, [esp+16]", // addr
-        "push [esp+12]",     // timer_obj
+        "push [esp+12]",     // this
         "call ebx",
         "pop edi",
         "pop ebx",
