@@ -435,7 +435,7 @@ pub unsafe fn load_all_speech_banks(ddgw: *const GameRuntime) {
         world.speech_slot_table.clear();
 
         let game_info = &*world.game_info;
-        let team_count = game_info.speech_team_count as u32;
+        let team_count = game_info.team_record_count as u32;
 
         let gi = world.game_info as *const u8;
         for i in 0..team_count {

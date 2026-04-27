@@ -52,7 +52,7 @@ pub unsafe fn init_team_scoring(runtime: *mut GameRuntime) {
                 (*runtime).team_activity_flags[i] = 0xFFFFFFFE;
             }
 
-            let alliance_team_count = (*game_info).speech_team_count as i32;
+            let alliance_team_count = (*game_info).team_record_count as i32;
             if alliance_team_count > 0 {
                 let mut offset: usize = 0;
                 for _ in 0..alliance_team_count {
@@ -102,7 +102,7 @@ pub unsafe fn init_alliance_data(runtime: *mut GameRuntime) {
         let world = (*runtime).world;
         let game_info = (*world).game_info;
         let num_teams = (*game_info).num_teams as i32;
-        let alliance_team_count = (*game_info).speech_team_count as i32;
+        let alliance_team_count = (*game_info).team_record_count as i32;
 
         if num_teams != 0 && alliance_team_count > 0 {
             let mut offset: usize = 0;
@@ -191,7 +191,7 @@ pub unsafe fn init_team_color_from_names(world: *mut GameWorld, game_info: *mut 
     unsafe {
         (*world).team_color = (*game_info).team_color_source as u32;
 
-        let team_count = (*game_info).speech_team_count;
+        let team_count = (*game_info).team_record_count;
         let gi_raw = game_info as *const u8;
         if team_count != 0 {
             for i in 0..team_count as usize {

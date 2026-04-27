@@ -25,14 +25,16 @@ use crate::address::va;
 use crate::audio::known_sound_id::KnownSoundId;
 use crate::audio::sound_ops::dispatch_global_sound;
 use crate::bitgrid::{BitGridDisplayVtable, DisplayBitGrid};
-use crate::engine::game_info::GameInfo;
 use crate::engine::menu_panel::{MenuPanel, append_item_impl};
 use crate::engine::runtime::GameRuntime;
+use crate::engine::team_arena::TeamArena;
+use crate::engine::world::GameWorld;
 use crate::input::keyboard::KeyboardAction;
 use crate::rebase::rb;
 use crate::render::display::font::TextMeasurement;
 use crate::render::display::gfx::DisplayGfx;
 use crate::render::display::vtable::{draw_text_on_bitmap, measure_text};
+use crate::wa::localized_template::LocalizedTemplate;
 use crate::wa::string_resource::{StringRes, res};
 
 // ─── Bridged WA addresses ──────────────────────────────────────────────────
@@ -97,15 +99,15 @@ pub unsafe extern "stdcall" fn bridge_state_2_tick(_this: *mut GameRuntime) {
     );
 }
 
-/// Bridge for `FUN_0053EA30` — string-token lookup. Returns a pointer to
-/// the localized template (with `%d`/`%s` placeholders intact) for the
-/// given token id, drawn from the gfx-dir's string-table. The function
-/// is `__stdcall`; we declare it as such so the call-site cleanup matches.
-unsafe fn bridge_token_lookup(table: *const i32, token: StringRes) -> *const c_char {
+/// Bridge for `LocalizedTemplate__Resolve` (FUN_0053EA30, stdcall RET 8).
+/// Returns a pointer to the resolved template string (with WA's escape
+/// codes processed and the result cached on the [`LocalizedTemplate`])
+/// for the given token id.
+unsafe fn bridge_token_lookup(template: *mut LocalizedTemplate, token: StringRes) -> *const c_char {
     unsafe {
-        let func: unsafe extern "stdcall" fn(*const i32, u32) -> *const c_char =
+        let func: unsafe extern "stdcall" fn(*mut LocalizedTemplate, u32) -> *const c_char =
             core::mem::transmute(STRING_TOKEN_LOOKUP_ADDR as usize);
-        func(table, token.as_offset())
+        func(template, token.as_offset())
     }
 }
 
@@ -274,37 +276,6 @@ pub struct LeaderboardEntry {
 /// Maximum number of entries in the ESC-menu leaderboard.
 pub const LEADERBOARD_MAX: usize = 16;
 
-// Per-team stride within GameInfo (0xBB8 = 3000 bytes).
-const TEAM_STRIDE: usize = 0xBB8;
-// Per-worm stride within a team's worm array (0x9C = 156 bytes).
-const WORM_STRIDE: usize = 0x9C;
-
-// GameInfo offsets used by the leaderboard sort (relative to team_off).
-// `team_off = team_idx * TEAM_STRIDE`.
-const OFF_TEAM_COUNT: usize = 0x44C; // u8, total team-slot count
-const OFF_TEAM_SCORED: usize = 0x452; // u8 per team, == 0 means include
-const OFF_TEAM_COLOR: usize = 0x451; // u8 per team, font palette idx
-const OFF_TEAM_WINS: usize = 0x455; // u8 per team
-const OFF_TEAM_NAME: usize = 0x456; // null-terminated C string
-const OFF_TEAM_WORMS: usize = 0x4188; // worm array base, stride 0x9C
-const OFF_TEAM_WORM_GATE: usize = 0x4618; // i32 per team, == 0 means count HP
-const OFF_TEAM_WORM_COUNT: usize = 0x4624; // i32 per team
-
-// GameInfo singleton/UI offsets.
-const OFF_GLOBAL_NO_SD: usize = 0xD941; // u8, != 0 → "Force Sudden Death" hidden
-const OFF_GLOBAL_NO_DRAW: usize = 0xD947; // u8, != 0 → "Draw This Round" hidden
-const OFF_GLOBAL_NO_SD2: usize = 0xD948; // u8, second SD-eligibility gate
-const OFF_GLOBAL_NO_LEADERBOARD: usize = 0xD949; // u8, != 0 → header+leaderboard hidden
-const OFF_GLOBAL_WIN_TARGET: usize = 0xD94F; // u8, the N in "First Team to N Wins"
-
-// GameWorld offsets the ESC-menu code reads beyond what's in the typed
-// struct.
-const OFF_WORLD_DDWA_FLAG: usize = 0x1C; // i32, "is online" gate (gates Force SD/Draw inclusion)
-const OFF_WORLD_TOKEN_TABLE: usize = 0x18; // *const i32, the gfx-dir's string-table base
-const OFF_WORLD_BORDER_COLOR: usize = 0x7324; // u32, palette idx — matches `gfx_color_table[6]`
-const OFF_WORLD_BG_COLOR: usize = 0x7328; // u32, ESC-menu background color
-const OFF_WORLD_SLIDER_AUX: usize = 0x7324; // alias of border color (used as slider's aux render obj)
-
 // Item kinds passed as arg1 to `MenuPanel::AppendItem`. Stored at item +0x00
 // and read by the menu render code as the icon/sprite selector.
 const KIND_FORCE_SUDDEN_DEATH: i32 = 0;
@@ -316,21 +287,22 @@ const KIND_VOLUME_SLIDER: i32 = 4;
 /// Rust port of the `GameRuntime::OpenEscMenu` leaderboard-sort block
 /// (0x53538D..0x5354A6 in the WA function body).
 ///
-/// Walks GameInfo's per-team records, computes a composite score
-/// `wins * 10000 + sum_of_alive_worm_HPs` for each team where
-/// `gameinfo[+0x452 + team_off] == 0`, and returns the entries sorted
-/// **descending** by score (winner first → top of menu). Worm HPs are
-/// summed only when the team's per-team gate at `+0x4618 + team_off` is
-/// zero.
+/// Walks each populated team and computes a composite score
+/// `wins * 10000 + sum_of_alive_worm_HPs`. Static team setup (wins
+/// counter, "scored" flag) is read from
+/// [`GameInfo::team_records`](crate::engine::game_info::GameInfo::team_records);
+/// runtime worm HPs and the per-team eliminated gate come from
+/// [`GameWorld::team_arena`](crate::engine::GameWorld::team_arena)
+/// (1-based, slot 0 is the sentinel).
 ///
 /// Sort algorithm matches WA's: a quasi-selection-sort that walks each
 /// position `i` from 0 and swaps with any `j > i` whose score is larger.
 /// Stable for equal scores (only swaps on strict less-than).
 ///
-/// Returns the populated entries plus the count (≤ 16).
-pub unsafe fn sort_teams(
-    game_info: *const GameInfo,
-) -> ([LeaderboardEntry; LEADERBOARD_MAX], usize) {
+/// Returns the populated entries (newest at the front), the count (≤ 16),
+/// and stores each team's 0-based index in [`LeaderboardEntry::team_idx`]
+/// so callers can reach back into `team_records[team_idx]` for color/name.
+pub unsafe fn sort_teams(world: *const GameWorld) -> ([LeaderboardEntry; LEADERBOARD_MAX], usize) {
     unsafe {
         let mut out = [LeaderboardEntry {
             team_idx: 0,
@@ -338,37 +310,35 @@ pub unsafe fn sort_teams(
         }; LEADERBOARD_MAX];
         let mut len: usize = 0;
 
-        let base = game_info as *const u8;
-        let team_count = *base.add(OFF_TEAM_COUNT) as usize;
+        let game_info = (*world).game_info;
+        let arena: *const TeamArena = &(*world).team_arena;
+        let team_count = (*game_info).team_record_count as usize;
         if team_count == 0 {
             return (out, 0);
         }
 
-        for team_idx in 0..team_count {
-            let team_off = team_idx * TEAM_STRIDE;
-            // Skip teams whose +0x452 byte is non-zero (not scored).
-            if *base.add(team_off + OFF_TEAM_SCORED) != 0 {
+        for team_idx_1b in 1..=team_count {
+            let record = &(*game_info).team_records[team_idx_1b - 1];
+            // Skip teams whose eliminated_flag is non-zero (not scored).
+            if record.eliminated_flag != 0 {
                 continue;
             }
 
-            // Sum live worm HPs only when the team-level gate is zero.
+            // Sum live worm HPs only when the team's runtime header gate is zero.
+            let header = TeamArena::team_header(arena, team_idx_1b);
             let mut hp_sum: i32 = 0;
-            let gate = *(base.add(team_off + OFF_TEAM_WORM_GATE) as *const i32);
-            if gate == 0 {
-                let worm_count = *(base.add(team_off + OFF_TEAM_WORM_COUNT) as *const i32);
-                if worm_count > 0 {
-                    let worms_base = base.add(team_off + OFF_TEAM_WORMS);
-                    for w in 0..worm_count as usize {
-                        let hp = *(worms_base.add(w * WORM_STRIDE) as *const i32);
-                        hp_sum = hp_sum.wrapping_add(hp);
-                    }
+            if (*header).eliminated == 0 {
+                let worm_count = (*header).worm_count;
+                for w in 1..=worm_count as usize {
+                    let worm = TeamArena::team_worm(arena, team_idx_1b, w);
+                    hp_sum = hp_sum.wrapping_add((*worm).health);
                 }
             }
 
-            let wins = *base.add(team_off + OFF_TEAM_WINS) as i32;
+            let wins = record.wins_count as i32;
             let score = wins.wrapping_mul(10_000).wrapping_add(hp_sum);
             out[len] = LeaderboardEntry {
-                team_idx: team_idx as u8,
+                team_idx: (team_idx_1b - 1) as u8,
                 score,
             };
             len += 1;
@@ -462,8 +432,13 @@ pub unsafe fn open_esc_menu(runtime: *mut GameRuntime) {
         let canvas: *mut DisplayBitGrid = (*runtime).display_gfx_d;
         let panel: *mut MenuPanel = (*runtime).menu_panel_a;
         let game_info = (*world).game_info;
-        let world_u8 = world as *const u8;
-        let token_table = *(world_u8.add(OFF_WORLD_TOKEN_TABLE) as *const *const i32);
+        let template = (*world).localized_template;
+        let border_color = (*world).gfx_color_table[6] as u8;
+        let bg_color = (*world).gfx_color_table[7] as u8;
+        // The volume slider's "aux render obj" is the same palette index
+        // used for the panel border (gfx_color_table[6]); WA reads it as
+        // a `*mut u8` and passes it through to `MenuPanel::AppendItem`.
+        let slider_aux = (*world).gfx_color_table[6] as *mut u8;
 
         // ─── Block A: hud_data_query ───
         // 916 bytes / 4 = 229 i32s. Two flag DWORDs early in the
@@ -489,7 +464,6 @@ pub unsafe fn open_esc_menu(runtime: *mut GameRuntime) {
         let canvas_w = (*canvas).width as i32;
         let canvas_h = (*canvas).height as i32;
         let panel_width = canvas_w;
-        let bg_color = *(world_u8.add(OFF_WORLD_BG_COLOR) as *const u32) as u8;
         clipped_fill_rect(canvas, 0, 0, canvas_w, canvas_h, bg_color);
 
         // ─── Block C: Empty-string baseline measurement ───
@@ -505,16 +479,15 @@ pub unsafe fn open_esc_menu(runtime: *mut GameRuntime) {
         let mut y: i32 = 2;
 
         // ─── Block D: Conditional leaderboard ───
-        let no_leaderboard = *((game_info as *const u8).add(OFF_GLOBAL_NO_LEADERBOARD)) != 0;
-        let border_color = *(world_u8.add(OFF_WORLD_BORDER_COLOR) as *const u32) as u8;
+        let no_leaderboard = (*game_info).scheme_no_leaderboard != 0;
 
         if !no_leaderboard {
             // D1 — "First Team to N Wins" header.
-            let win_target = *((game_info as *const u8).add(OFF_GLOBAL_WIN_TARGET)) as u32;
-            let template = bridge_token_lookup(token_table, res::GAME_ROUNDS_TO_WIN);
+            let win_target = (*game_info).scheme_first_to_n_wins as u32;
+            let header_template = bridge_token_lookup(template, res::GAME_ROUNDS_TO_WIN);
             // WA pushes (template, 1, 1, win_target) — only the third
             // vararg (win_target) actually substitutes into the `%d`.
-            let header_str = bridge_sprintf_rotating_3(template, 1, 1, win_target);
+            let header_str = bridge_sprintf_rotating_3(header_template, 1, 1, win_target);
 
             let TextMeasurement {
                 total_advance: hdr_w,
@@ -540,13 +513,12 @@ pub unsafe fn open_esc_menu(runtime: *mut GameRuntime) {
             y = line_height + 5;
 
             // D3 — Sort + render leaderboard rows.
-            let (entries, num_entries) = sort_teams(game_info);
+            let (entries, num_entries) = sort_teams(world);
             for entry in entries.iter().take(num_entries) {
-                let team_off = entry.team_idx as usize * TEAM_STRIDE;
-                let team_color = *(game_info as *const u8).add(team_off + OFF_TEAM_COLOR) as i32;
-                let wins = *(game_info as *const u8).add(team_off + OFF_TEAM_WINS) as u32;
-                let name_ptr =
-                    (game_info as *const u8).add(team_off + OFF_TEAM_NAME) as *const c_char;
+                let record = &(*game_info).team_records[entry.team_idx as usize];
+                let team_color = record.font_palette_idx as i32;
+                let wins = record.wins_count as u32;
+                let name_ptr = record.name.as_ptr() as *const c_char;
 
                 // Team-color font slot is 9..16 in WA's font table.
                 let team_font = team_color + 9;
@@ -638,7 +610,7 @@ pub unsafe fn open_esc_menu(runtime: *mut GameRuntime) {
         // (the volume value pointer) to enter the wide-row override.
 
         let centered_x = panel_width / 2;
-        let label = bridge_token_lookup(token_table, res::GAME_MINIMISE_GAME);
+        let label = bridge_token_lookup(template, res::GAME_MINIMISE_GAME);
         append_item_impl(
             centered_x,
             panel,
@@ -651,19 +623,21 @@ pub unsafe fn open_esc_menu(runtime: *mut GameRuntime) {
         );
         y += line_height + 1;
 
-        let world_field_1c = *(world_u8.add(OFF_WORLD_DDWA_FLAG) as *const i32);
+        // `world.net_session != null` means this is an online game; in
+        // that case the Force-SD / Draw-Round actions are hidden because
+        // ending the round is a host-only decision.
+        let is_online = !(*world).net_session.is_null();
         let replay_flag_a = (*runtime).replay_flag_a;
         let runtime_field_478 = (*runtime)._field_478;
-        let no_sd_a = *((game_info as *const u8).add(OFF_GLOBAL_NO_SD));
-        let no_sd_b = *((game_info as *const u8).add(OFF_GLOBAL_NO_SD2));
-        let no_draw = *((game_info as *const u8).add(OFF_GLOBAL_NO_DRAW));
+        let no_sd_a = (*game_info).scheme_no_sd;
+        let no_sd_b = (*game_info).scheme_sd_secondary_lockout;
+        let no_draw = (*game_info).scheme_no_draw;
 
-        let common_show_action_buttons =
-            world_field_1c == 0 && buf_flag_84 == 0 && replay_flag_a == 0;
+        let common_show_action_buttons = !is_online && buf_flag_84 == 0 && replay_flag_a == 0;
 
         if common_show_action_buttons {
             if buf_flag_8c == 0 && runtime_field_478 == 0 && no_sd_a == 0 && no_sd_b == 0 {
-                let label = bridge_token_lookup(token_table, res::GAME_SUDDEN_DEATH);
+                let label = bridge_token_lookup(template, res::GAME_SUDDEN_DEATH);
                 append_item_impl(
                     centered_x,
                     panel,
@@ -677,7 +651,7 @@ pub unsafe fn open_esc_menu(runtime: *mut GameRuntime) {
                 y += line_height + 1;
             }
             if no_draw == 0 {
-                let label = bridge_token_lookup(token_table, res::GAME_DRAW_ROUND);
+                let label = bridge_token_lookup(template, res::GAME_DRAW_ROUND);
                 append_item_impl(
                     centered_x,
                     panel,
@@ -692,7 +666,7 @@ pub unsafe fn open_esc_menu(runtime: *mut GameRuntime) {
             }
         }
 
-        let label = bridge_token_lookup(token_table, res::GAME_QUIT_GAME);
+        let label = bridge_token_lookup(template, res::GAME_QUIT_GAME);
         append_item_impl(
             centered_x,
             panel,
@@ -705,9 +679,8 @@ pub unsafe fn open_esc_menu(runtime: *mut GameRuntime) {
         );
         y += line_height + 1;
 
-        let label = bridge_token_lookup(token_table, res::GAME_VOLUME);
+        let label = bridge_token_lookup(template, res::GAME_VOLUME);
         let volume_ptr = (runtime as *mut u8).add(0x420);
-        let slider_aux = *(world_u8.add(OFF_WORLD_SLIDER_AUX) as *const u32) as *mut u8;
         // WA passes EAX = 6 to AppendItem here, but the slider call uses
         // `centered = 0`, so the EAX/x value isn't shifted by half-width
         // — `6` becomes the literal pen_x. (For all other items EAX is
@@ -815,129 +788,6 @@ pub unsafe fn tick_closed(runtime: *mut GameRuntime) {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    /// Builds a zeroed buffer big enough for `team_count` GameInfo team slots
-    /// plus the highest offset the sort touches.
-    fn synth_game_info(team_count: u8) -> Vec<u8> {
-        // Largest offset accessed for team 15: 15*0xBB8 + 0x4188 + 15*0x9C + 4 ≈ 0xFF60.
-        let mut buf = vec![0u8; 0x10_000];
-        buf[OFF_TEAM_COUNT] = team_count;
-        buf
-    }
-
-    fn set_u8(buf: &mut [u8], off: usize, v: u8) {
-        buf[off] = v;
-    }
-
-    fn set_i32(buf: &mut [u8], off: usize, v: i32) {
-        buf[off..off + 4].copy_from_slice(&v.to_le_bytes());
-    }
-
-    fn set_team_record(
-        buf: &mut [u8],
-        team_idx: usize,
-        scored_zero: bool,
-        wins: u8,
-        gate_zero: bool,
-        worm_hps: &[i32],
-    ) {
-        let team_off = team_idx * TEAM_STRIDE;
-        set_u8(
-            buf,
-            team_off + OFF_TEAM_SCORED,
-            if scored_zero { 0 } else { 1 },
-        );
-        set_u8(buf, team_off + OFF_TEAM_WINS, wins);
-        set_i32(
-            buf,
-            team_off + OFF_TEAM_WORM_GATE,
-            if gate_zero { 0 } else { 1 },
-        );
-        set_i32(buf, team_off + OFF_TEAM_WORM_COUNT, worm_hps.len() as i32);
-        for (i, &hp) in worm_hps.iter().enumerate() {
-            set_i32(buf, team_off + OFF_TEAM_WORMS + i * WORM_STRIDE, hp);
-        }
-    }
-
-    #[test]
-    fn empty_team_count_returns_zero_entries() {
-        let buf = synth_game_info(0);
-        unsafe {
-            let (_, len) = sort_teams(buf.as_ptr() as *const GameInfo);
-            assert_eq!(len, 0);
-        }
-    }
-
-    #[test]
-    fn skips_teams_with_nonzero_scored_byte() {
-        let mut buf = synth_game_info(3);
-        set_team_record(&mut buf, 0, false, 5, true, &[100, 100]); // skipped
-        set_team_record(&mut buf, 1, true, 2, true, &[50]);
-        set_team_record(&mut buf, 2, true, 0, true, &[80, 80]);
-        unsafe {
-            let (entries, len) = sort_teams(buf.as_ptr() as *const GameInfo);
-            assert_eq!(len, 2);
-            assert_eq!(entries[0].team_idx, 1); // wins*10000 + 50 = 20050
-            assert_eq!(entries[0].score, 20_050);
-            assert_eq!(entries[1].team_idx, 2); // 0*10000 + 160 = 160
-            assert_eq!(entries[1].score, 160);
-        }
-    }
-
-    #[test]
-    fn descending_by_composite_score() {
-        let mut buf = synth_game_info(4);
-        // wins dominates ties: 3 > 2 > 1 > 0
-        set_team_record(&mut buf, 0, true, 1, true, &[42]); // 10042
-        set_team_record(&mut buf, 1, true, 3, true, &[7]); // 30007
-        set_team_record(&mut buf, 2, true, 2, true, &[300]); // 20300
-        set_team_record(&mut buf, 3, true, 0, true, &[9999]); // 9999
-        unsafe {
-            let (entries, len) = sort_teams(buf.as_ptr() as *const GameInfo);
-            assert_eq!(len, 4);
-            assert_eq!(entries[0].team_idx, 1);
-            assert_eq!(entries[0].score, 30_007);
-            assert_eq!(entries[1].team_idx, 2);
-            assert_eq!(entries[1].score, 20_300);
-            assert_eq!(entries[2].team_idx, 0);
-            assert_eq!(entries[2].score, 10_042);
-            assert_eq!(entries[3].team_idx, 3);
-            assert_eq!(entries[3].score, 9_999);
-        }
-    }
-
-    #[test]
-    fn worm_gate_nonzero_zeros_hp_contribution() {
-        let mut buf = synth_game_info(2);
-        // Team 0: gate non-zero → HP ignored, score = wins*10000
-        set_team_record(&mut buf, 0, true, 5, false, &[1000, 1000, 1000]);
-        // Team 1: gate zero → HP counts, score = 4*10000 + 50
-        set_team_record(&mut buf, 1, true, 4, true, &[50]);
-        unsafe {
-            let (entries, len) = sort_teams(buf.as_ptr() as *const GameInfo);
-            assert_eq!(len, 2);
-            assert_eq!(entries[0].team_idx, 0);
-            assert_eq!(entries[0].score, 50_000);
-            assert_eq!(entries[1].team_idx, 1);
-            assert_eq!(entries[1].score, 40_050);
-        }
-    }
-
-    #[test]
-    fn equal_scores_preserve_input_order() {
-        let mut buf = synth_game_info(3);
-        // All three teams produce score = 100. Original order: 0, 1, 2.
-        set_team_record(&mut buf, 0, true, 0, true, &[100]);
-        set_team_record(&mut buf, 1, true, 0, true, &[100]);
-        set_team_record(&mut buf, 2, true, 0, true, &[100]);
-        unsafe {
-            let (entries, len) = sort_teams(buf.as_ptr() as *const GameInfo);
-            assert_eq!(len, 3);
-            assert_eq!(entries[0].team_idx, 0);
-            assert_eq!(entries[1].team_idx, 1);
-            assert_eq!(entries[2].team_idx, 2);
-        }
-    }
 
     #[test]
     fn format_decimal_writes_null_terminated() {

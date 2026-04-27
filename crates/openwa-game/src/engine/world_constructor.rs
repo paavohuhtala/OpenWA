@@ -631,7 +631,7 @@ unsafe fn init_graphics_and_resources(
         if is_headless {
             (*runtime).loading_total = 0x2AD;
         } else {
-            let team_count = (*game_info).speech_team_count as u32;
+            let team_count = (*game_info).team_record_count as u32;
             (*runtime).loading_total = team_count * 0x38 + 0x7E + 0x2AD;
         }
         (*runtime).loading_last_pct = 0xFFFFFF9C; // -100: forces first progress bar update

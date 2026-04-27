@@ -518,7 +518,7 @@ unsafe fn log_end_of_round(
             return;
         }
         let num_teams = game_info.num_teams;
-        let speech_count = game_info.speech_team_count;
+        let speech_count = game_info.team_record_count;
 
         // Per-team label widths feed the column-alignment padding emitted
         // after each team label. Width formula is expanded literally from

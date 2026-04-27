@@ -1,3 +1,50 @@
+/// Per-team scalar configuration record, stored as a 6-element array
+/// inside [`GameInfo`] starting at offset `0x450` (stride `0xBB8`,
+/// 0-based).
+///
+/// Holds **static** team setup (color, name, win count, eliminated flag,
+/// speech bank id). The **mutable** runtime worm state — current HPs,
+/// worm count, etc. — lives in
+/// [`GameWorld::team_arena`](crate::engine::GameWorld::team_arena),
+/// indexed 1-based.
+///
+/// PARTIAL: only the first ~7 bytes of each 3000-byte record are mapped.
+/// The remainder probably holds turn-time overrides, weapon ammo
+/// overrides, hat / grave bitmap indices, AI level, and per-team profile
+/// data.
+#[repr(C)]
+pub struct GameInfoTeamRecord {
+    /// 0x000: Speech bank index (`-1` = no bank). Read by
+    /// `GameRuntime__WriteLogTeamLabel` as an index into the speech-bank
+    /// table at `gameinfo + bank_id * 0x50 + 4`. Also re-read by
+    /// `WorldEntity__InitAllianceData` as the team's alliance group.
+    pub speech_bank_id: i8,
+    /// 0x001: Font palette index — selects the team's scoreboard text
+    /// color (slot 9..16 in WA's font table). Equivalently, the alliance
+    /// id used by `WorldEntity__InitAllianceData`.
+    pub font_palette_idx: u8,
+    /// 0x002: Eliminated flag. `0` = include in leaderboard / scoring;
+    /// non-zero = team eliminated for scoring purposes.
+    pub eliminated_flag: u8,
+    /// 0x003: Turn-order index (used by queue-sequence matching in
+    /// `FUN_0055C920`). Confidence: medium.
+    pub turn_order_idx: u8,
+    pub _unknown_004: u8,
+    /// 0x005: Round wins counter (u8). Sort key for the ESC-menu
+    /// leaderboard.
+    pub wins_count: u8,
+    /// 0x006: Team name, null-terminated ASCII. WA's "%d" sprintf path
+    /// for the leaderboard treats this as up to 14 bytes + NUL.
+    pub name: [u8; 0x10],
+    pub _rest: [u8; 0xBB8 - 0x16],
+}
+
+const _: () = assert!(core::mem::size_of::<GameInfoTeamRecord>() == 0xBB8);
+
+/// Number of `GameInfoTeamRecord` slots in the array at `GameInfo+0x450`.
+/// WA classic supports up to 6 active teams; the array has 6 slots.
+pub const MAX_TEAM_RECORDS: usize = 6;
+
 /// GameInfo — large game configuration/session struct.
 ///
 /// Created by `GameInfo__InitSession` (0x4608E0), populated by
@@ -14,13 +61,20 @@ pub struct GameInfo {
     /// 0x0001-0x044B: Unknown
     pub _unknown_0001: [u8; 0x44C - 1],
 
-    // --- Speech configuration ---
-    /// 0x044C: Number of teams with speech banks loaded (byte).
-    /// Used by DSSound_LoadAllSpeechBanks to iterate teams.
-    pub speech_team_count: u8,
+    /// 0x044C: Count of populated `team_records` entries (≤
+    /// [`MAX_TEAM_RECORDS`]). Used as the iteration bound by every team
+    /// loop — the speech-bank loader, alliance/scoring init, the ESC
+    /// menu leaderboard, and the headless log writer all read this byte.
+    /// (Previously misnamed `speech_team_count`; speech-bank loading is
+    /// just one of several consumers.)
+    pub team_record_count: u8,
 
-    /// 0x044D-0xD773: Unknown
-    pub _unknown_044d: [u8; 0xD774 - 0x44D],
+    /// 0x044D-0x044F: Unknown
+    pub _unknown_044d: [u8; 3],
+    /// 0x0450-0x4A9F: Per-team scalar configuration records (stride 0xBB8).
+    pub team_records: [GameInfoTeamRecord; MAX_TEAM_RECORDS],
+    /// 0x4AA0-0xD773: Unknown
+    pub _unknown_4aa0: [u8; 0xD774 - 0x4AA0],
     /// 0xD774: Initial RNG seed from scheme options.
     pub rng_seed: u32,
 
@@ -57,8 +111,16 @@ pub struct GameInfo {
     /// 0xD93C: Super weapon allowed flag. If 0, super weapons are
     /// disabled (except when game_version < 0x2A).
     pub super_weapon_allowed: u8,
-    /// 0xD93D-0xD943: Unknown
-    pub _unknown_d93d: [u8; 0xD944 - 0xD93D],
+    /// 0xD93D-0xD940: Unknown
+    pub _unknown_d93d: [u8; 4],
+    /// 0xD941: Sudden-death disable flag. Initialized from the round-time
+    /// scheme byte (`(scheme[..] * 5) / 100`); when zero, the ESC menu
+    /// shows the "Force Sudden Death" item (gated together with
+    /// [`scheme_sd_secondary_lockout`](Self::scheme_sd_secondary_lockout))
+    /// and `WorldRoot+0x55` is set to 1 if the round time is also zero.
+    pub scheme_no_sd: u8,
+    /// 0xD942-0xD943: Unknown
+    pub _unknown_d942: [u8; 2],
 
     /// 0xD944: Network config byte 1 (copied to network object+0x28).
     pub net_config_1: u8,
@@ -67,14 +129,32 @@ pub struct GameInfo {
     /// 0xD946: Network config byte 2 (copied to network object+0x29).
     pub net_config_2: u8,
 
-    /// 0xD947-0xD94A: Unknown
-    pub _unknown_d947: [u8; 4],
+    /// 0xD947: "Draw allowed" flag (`scheme[..] * 0x14`). When zero, the
+    /// ESC menu shows the "Draw This Round" item.
+    pub scheme_no_draw: u8,
+    /// 0xD948: Secondary sudden-death eligibility lockout. Default-init
+    /// to `1`; later overridden by lobby/scheme post-processing. Paired
+    /// with [`scheme_no_sd`](Self::scheme_no_sd) — the ESC menu shows
+    /// "Force Sudden Death" only when **both** are zero.
+    pub scheme_sd_secondary_lockout: u8,
+    /// 0xD949: "Leaderboard hidden" flag. Default-init to `1`; later
+    /// overridden by lobby/scheme post-processing. When non-zero the ESC
+    /// menu suppresses the "First Team to N Wins" header and the
+    /// per-team scoreboard rows.
+    pub scheme_no_leaderboard: u8,
+    /// 0xD94A: Unknown
+    pub _unknown_d94a: u8,
     /// 0xD94B: Landscape scheme flag (nonzero enables terrain features via Landscape vtable slot 6).
     pub landscape_scheme_flag: u8,
     /// 0xD94C: Donkey (weapon 0x36) disable flag.
     pub donkey_disabled: u8,
-    /// 0xD94D-0xD954: Unknown
-    pub _unknown_d94d: [u8; 0xD955 - 0xD94D],
+    /// 0xD94D-0xD94E: Unknown
+    pub _unknown_d94d: [u8; 2],
+    /// 0xD94F: The `N` literal in the ESC menu's "First Team to N Wins"
+    /// header — the wins-to-victory threshold.
+    pub scheme_first_to_n_wins: u8,
+    /// 0xD950-0xD954: Unknown
+    pub _unknown_d950: [u8; 5],
     /// 0xD955: Terrain drop config byte A. Copied to GameWorld.terrain_pct_a.
     pub terrain_cfg_a: u8,
     /// 0xD956: When set, the AquaSheep slot is treated as SuperSheep instead.
@@ -346,6 +426,12 @@ pub struct GameInfo {
 }
 
 const _: () = assert!(core::mem::size_of::<GameInfo>() == 0xF91C);
+const _: () = assert!(core::mem::offset_of!(GameInfo, team_records) == 0x450);
+const _: () = assert!(core::mem::offset_of!(GameInfo, scheme_no_sd) == 0xD941);
+const _: () = assert!(core::mem::offset_of!(GameInfo, scheme_no_draw) == 0xD947);
+const _: () = assert!(core::mem::offset_of!(GameInfo, scheme_sd_secondary_lockout) == 0xD948);
+const _: () = assert!(core::mem::offset_of!(GameInfo, scheme_no_leaderboard) == 0xD949);
+const _: () = assert!(core::mem::offset_of!(GameInfo, scheme_first_to_n_wins) == 0xD94F);
 
 impl GameInfo {
     /// Access terrain_flag at offset 0xD98B (high byte of game_speed_config).
