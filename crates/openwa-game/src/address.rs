@@ -178,10 +178,14 @@ pub mod va {
             /// callers, plain RET, no stack params; semantics not yet
             /// reverse-engineered.
             ///
-            /// `FUN_00534C30` (usercall ESI=this, returns u8): "should this
-            /// HUD state remain active?" gate that runs the slot-3
-            /// `HudDataQuery` (msg 0x7D3) and inspects several flags.
-            fn/Usercall GAME_RUNTIME_HUD_GATE_MAYBE = 0x00534C30;
+            /// `GameRuntime::IsHudActive` (usercall ESI=this, returns u8):
+            /// "should this HUD state remain active?" predicate that runs
+            /// the slot-3 `HudDataQuery` (msg 0x7D3) and inspects several
+            /// flags. Ported to Rust as
+            /// `engine::main_loop::dispatch_frame::is_hud_active`; address
+            /// kept for the WA-side hook install (still called by
+            /// FUN_005351B0).
+            fn/Usercall GAME_RUNTIME_IS_HUD_ACTIVE = 0x00534C30;
             /// `FUN_005351B0` (usercall EAX=this): state-0 helper, run when
             /// `runtime._field_434 == 0`.
             fn/Usercall GAME_RUNTIME_HUD_STATE_ZERO_MAYBE = 0x005351B0;

@@ -41,7 +41,6 @@ static mut PEER_INPUT_QUEUE_SCAN_ADDR: u32 = 0;
 static mut SHOULD_INTERPOLATE_OFFLINE_TAIL_ADDR: u32 = 0;
 static mut PROCESS_NETWORK_FRAME_ADDR: u32 = 0;
 static mut HUD_DRAW_TEAM_LABELS_ADDR: u32 = 0;
-static mut SETUP_HUD_GATE_ADDR: u32 = 0;
 static mut SETUP_HUD_STATE_ZERO_ADDR: u32 = 0;
 static mut SETUP_HUD_STATE_ONE_ADDR: u32 = 0;
 static mut SETUP_HUD_STATE_TWO_ADDR: u32 = 0;
@@ -55,7 +54,6 @@ pub unsafe fn init_dispatch_addrs() {
         SHOULD_INTERPOLATE_OFFLINE_TAIL_ADDR = rb(va::GAME_RUNTIME_SHOULD_INTERPOLATE_OFFLINE_TAIL);
         PROCESS_NETWORK_FRAME_ADDR = rb(va::GAME_RUNTIME_PROCESS_NETWORK_FRAME);
         HUD_DRAW_TEAM_LABELS_ADDR = rb(va::HUD_DRAW_TEAM_LABELS_MAYBE);
-        SETUP_HUD_GATE_ADDR = rb(va::GAME_RUNTIME_HUD_GATE_MAYBE);
         SETUP_HUD_STATE_ZERO_ADDR = rb(va::GAME_RUNTIME_HUD_STATE_ZERO_MAYBE);
         SETUP_HUD_STATE_ONE_ADDR = rb(va::GAME_RUNTIME_HUD_STATE_ONE_MAYBE);
         SETUP_HUD_STATE_TWO_ADDR = rb(va::GAME_RUNTIME_HUD_STATE_TWO_MAYBE);
@@ -141,19 +139,6 @@ bridge_eax_this!(bridge_hud_draw_team_labels, HUD_DRAW_TEAM_LABELS_ADDR, ());
 // state-machine helpers.
 
 bridge_eax_this!(bridge_hud_state_zero, SETUP_HUD_STATE_ZERO_ADDR, ());
-
-/// Bridge for `FUN_00534C30` — usercall ESI=this, plain RET, returns u8.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_hud_gate(_this: *mut GameRuntime) -> u8 {
-    core::arch::naked_asm!(
-        "push esi",
-        "mov esi, [esp+8]",
-        "call [{addr}]",
-        "pop esi",
-        "ret 4",
-        addr = sym SETUP_HUD_GATE_ADDR,
-    );
-}
 
 /// Bridge for `FUN_00535B10` — usercall EDI=this, plain RET.
 #[unsafe(naked)]
@@ -591,14 +576,65 @@ unsafe fn advance_frame_counters(
     }
 }
 
+/// Rust port of `GameRuntime::IsHudActive` (0x00534C30).
+///
+/// Predicate: "should the HUD slew state stay active?" Calls
+/// [`WorldRootEntity::hud_data_query`] (vtable slot 3) with msg `0x7D3` to
+/// fill a 916-byte (`0x394`) scratch buffer with the end-of-round HUD
+/// snapshot, then inspects two early DWORDs of that buffer plus several
+/// state flags on `runtime` and `world`.
+///
+/// Returns `true` only when the game is in pure-running mode:
+/// - `game_end_phase == 0` (game-over animation not active)
+/// - and either `replay_flag_a != 0` (replay short-circuits the buffer
+///   and per-runtime flag checks — see WA's `JNZ 0x534C7D` after testing
+///   `[ESI+0x490]`), or all of:
+///   - `runtime._field_460 == 0` (unknown gate latch)
+///   - `world.fast_forward_request == 0`
+///   - `buf[1] == 0` and `buf[2] == 0` (DWORDs at offsets +4/+8 of the
+///     0x7D3 response — `buf[0]` is intentionally ignored by WA)
+///
+/// Called from [`setup_frame_params`] and from the still-bridged
+/// state-zero helper `FUN_005351B0`. Hooked at the WA address via
+/// `usercall_trampoline!(reg = esi)` so the latter caller routes through
+/// this Rust port.
+pub unsafe fn is_hud_active(runtime: *mut GameRuntime) -> bool {
+    unsafe {
+        let mut buf: [u32; 0xE5] = [0; 0xE5];
+        let task = (*runtime).world_root;
+        ((*(*task).base.vtable).hud_data_query)(task, 0x7D3, 0x394, buf.as_mut_ptr() as *mut u8);
+
+        if (*runtime).game_end_phase != 0 {
+            return false;
+        }
+        if (*runtime).replay_flag_a != 0 {
+            return true;
+        }
+        if (*runtime)._field_460 != 0 {
+            return false;
+        }
+        if (*(*runtime).world).fast_forward_request != 0 {
+            return false;
+        }
+        if buf[1] != 0 {
+            return false;
+        }
+        if buf[2] != 0 {
+            return false;
+        }
+        true
+    }
+}
+
 /// Rust port of `GameRuntime::SetupFrameParams` (0x00534CA0).
 ///
 /// Drives a small HUD slew state machine each headful render frame:
 ///
-/// 1. Run [`bridge_hud_gate`] (still-bridged `FUN_00534C30`). When it
-///    returns 0 *and* the state at `runtime._field_434` is non-zero, force
-///    the state back to `0` (i.e. the gate detected that the active state
-///    is no longer applicable).
+/// 1. Run [`is_hud_active`] (Rust port of `GameRuntime::IsHudActive`,
+///    0x00534C30). When it returns `false` *and* the state at
+///    `runtime._field_434` is non-zero, force the state back to `0`
+///    (i.e. the gate detected that the active state is no longer
+///    applicable).
 /// 2. Dispatch on `runtime._field_434`:
 ///    - `0` → `hud_state_zero`; clear both slew targets.
 ///    - `1` → `hud_state_one`; set target slot 1 to `ONE`, slot 2 to `ZERO`.
@@ -630,7 +666,7 @@ unsafe fn setup_frame_params(
 ) {
     unsafe {
         // Step 1: gate check + optional reset.
-        if bridge_hud_gate(runtime) == 0 && (*runtime)._field_434 != 0 {
+        if !is_hud_active(runtime) && (*runtime)._field_434 != 0 {
             (*runtime)._field_434 = 0;
         }
 
