@@ -50,6 +50,7 @@ pub struct GameWorld {
     /// 0x014: Music object pointer (vtable 0x66B3E0). Constructor param "music".
     pub music: *mut Music,
     /// 0x018: Timer object pointer (0x30 bytes, from GameSession+0xBC).
+    /// TODO: This is NOT a timer, it's related to string resources / localization.
     pub timer_obj: *mut u8,
     /// 0x01C: Per-game network session object. NULL for offline play.
     /// When non-null, drives end-of-round peer synchronisation via its

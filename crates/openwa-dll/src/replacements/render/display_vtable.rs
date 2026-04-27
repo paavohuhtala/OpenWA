@@ -206,7 +206,7 @@ pub fn install() -> Result<(), String> {
             draw_tiled_bitmap          => display_vtable_impl::draw_tiled_bitmap,
             get_font_info              => display_vtable_impl::get_font_info,
             get_font_metric            => display_vtable_impl::get_font_metric,
-            set_font_param             => display_vtable_impl::set_font_param,
+            measure_text               => display_vtable_impl::measure_text_bridge,
             draw_polyline              => display_vtable_impl::draw_polyline,
             draw_line                  => display_vtable_impl::draw_line,
             draw_line_clipped          => display_vtable_impl::draw_line_clipped,

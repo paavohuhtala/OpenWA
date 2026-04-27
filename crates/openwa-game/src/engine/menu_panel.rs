@@ -16,22 +16,24 @@
 //! Reset to ESC-menu state by `GameRuntime::OpenEscMenu` (0x00535200): zeroes
 //! the rect-low fields, clamps the cursor to viewport, zeroes the item count.
 
+use std::ffi::c_char;
+
 use crate::FieldRegistry;
+use crate::render::display::font::TextMeasurement;
 use crate::render::display::gfx::DisplayGfx;
-use crate::render::display::vtable::set_font_param;
-use openwa_core::fixed::Fixed;
+use crate::render::display::vtable::measure_text;
 
 /// One row in [`MenuPanel::items`]. Stride 0x38 = 14 ints. Populated by
 /// `MenuPanel::AppendItem` (0x005408F0).
 ///
 /// Two distinct uses:
-/// - **Action button** (`slider_value_ptr` is null): a centered text label
-///   wrapped in a default clip-rect (`x-3..x+width+1`, `y..y+height+1`).
-///   `kind` is the icon/sprite code (0/1/2/3 in WA's ESC menu).
-/// - **Slider** (`slider_value_ptr` non-null): a wide-clip-rect row whose
-///   value is read from / written through `slider_value_ptr`. `slider_aux`
-///   holds an auxiliary object (in WA's ESC menu, `world._field_7324`) used
-///   for the inline slider rendering.
+/// - **Plain action button** (`render_ctx` is null): a centered text
+///   label wrapped in a default clip-rect (`x-3..x+width+1`,
+///   `y..y+height+1`). `kind` is the icon/sprite code.
+/// - **Wide button or slider** (`render_ctx` non-null): a wide-clip-rect
+///   row spanning most of the panel. WA's ESC menu uses this both for
+///   the volume slider (`render_ctx = &runtime.ui_volume`) and for
+///   "Minimize Game" (`render_ctx = world.display`).
 #[derive(FieldRegistry)]
 #[repr(C)]
 pub struct MenuItem {
@@ -40,7 +42,7 @@ pub struct MenuItem {
     /// slider.
     pub kind: i32,
     /// 0x04: Label string pointer (null-terminated C string).
-    pub label: *const u8,
+    pub label: *const c_char,
     /// 0x08: Item x-position (top-left of the text).
     pub x: i32,
     /// 0x0C: Item y-position.
@@ -62,13 +64,20 @@ pub struct MenuItem {
     pub neighbor_prev: i32,
     /// 0x2C: Neighbor link — next item (-1 sentinel).
     pub neighbor_next: i32,
-    /// 0x30: Slider value pointer. Null for action buttons; non-null for
-    /// sliders (in WA's ESC menu this points at `runtime.ui_volume`).
-    pub slider_value_ptr: *mut Fixed,
-    /// 0x34: Slider auxiliary object — secondary display target / formatter
-    /// used during slider rendering. Set only when `slider_value_ptr` is
-    /// non-null.
-    pub slider_aux: *mut u8,
+    /// 0x30: Auxiliary render-context pointer — overloaded.
+    ///   * Slider items: points at the slider's value (`Fixed*`).
+    ///   * "Minimize Game"-style buttons: points at `world.display` —
+    ///     the menu's render code reads it to query renderer state when
+    ///     painting the highlight box.
+    ///   * Plain action buttons (Force SD / Draw / Quit): null.
+    /// `MenuPanel::AppendItem` (0x005408F0) treats null vs non-null as
+    /// the gate that selects the wider "slider" clip-rect override.
+    pub render_ctx: *mut u8,
+    /// 0x34: Auxiliary render data — set only when `render_ctx` is
+    /// non-null. For sliders this is the slider's secondary render target;
+    /// for the "Minimize Game" first-button case, the same display pointer
+    /// passed through `render_ctx`.
+    pub render_aux: *mut u8,
 }
 
 const _: () = assert!(core::mem::size_of::<MenuItem>() == 0x38);
@@ -148,11 +157,11 @@ const NEIGHBOR_SENTINEL: i32 = -1;
 ///
 /// Layout details:
 /// - The label is measured against `panel.display_b` via
-///   [`set_font_param`] (slot 10): the function returns
-///   `(text_advance, font_max_width)`. WA's font is square so
+///   [`measure_text`] (slot 10): the function returns
+///   `(total_advance, font_max_width)`. WA's font is square so
 ///   `font_max_width` doubles as the cell height.
 /// - When `centered != 0`, the input `x` is taken as the desired *center*
-///   of the label and is shifted left by `text_advance / 2`.
+///   of the label and is shifted left by `total_advance / 2`.
 /// - Default clip rect surrounds the text by 3px on the left and 1px on
 ///   the right/bottom (matches WA's selection-highlight box).
 /// - When `slider_value_ptr` is non-null the item is a slider: the clip
@@ -170,11 +179,11 @@ pub unsafe extern "cdecl" fn append_item_impl(
     x: i32,
     panel: *mut MenuPanel,
     kind: i32,
-    label: *const u8,
+    label: *const c_char,
     y: i32,
     centered: u32,
-    slider_value_ptr: *mut Fixed,
-    slider_aux: *mut u8,
+    render_ctx: *mut u8,
+    render_aux: *mut u8,
 ) -> u32 {
     unsafe {
         let count = (*panel).item_count;
@@ -182,24 +191,19 @@ pub unsafe extern "cdecl" fn append_item_impl(
             return 0;
         }
 
-        // Measure the label via `display_b`. set_font_param's p3/p4/p5 are
+        // Measure the label via `display_b`. measure_text's p3/p4/p5 are
         // (input_string, &out_total_advance, &out_font_max_width).
         let display_b = (*panel).display_b;
-        let mut text_advance: i32 = 0;
-        let mut font_size: i32 = 0;
-        let measured = set_font_param(
-            display_b,
-            0xF,
-            label as u32,
-            &mut text_advance as *mut i32 as u32,
-            &mut font_size as *mut i32 as u32,
-        );
-        if measured == 0 {
+        let Some(TextMeasurement {
+            total_advance,
+            line_height,
+        }) = measure_text(display_b, 0xF, label)
+        else {
             return 0;
-        }
+        };
 
         let x_final = if centered != 0 {
-            x - text_advance / 2
+            x - total_advance / 2
         } else {
             x
         };
@@ -211,29 +215,30 @@ pub unsafe extern "cdecl" fn append_item_impl(
         (*item_ptr).y = y;
         (*item_ptr).clip_left = x_final - 3;
         (*item_ptr).clip_top = y;
-        (*item_ptr).clip_right = x_final + text_advance + 1;
-        (*item_ptr).clip_bottom = y + font_size + 1;
+        (*item_ptr).clip_right = x_final + total_advance + 1;
+        (*item_ptr).clip_bottom = y + line_height + 1;
         (*item_ptr).color_a = DEFAULT_COLOR_A;
         (*item_ptr).color_b = DEFAULT_COLOR_B;
         (*item_ptr).neighbor_prev = NEIGHBOR_SENTINEL;
         (*item_ptr).neighbor_next = NEIGHBOR_SENTINEL;
-        (*item_ptr).slider_value_ptr = slider_value_ptr;
+        (*item_ptr).render_ctx = render_ctx;
 
-        if !slider_value_ptr.is_null() {
-            // Slider override. Clip rect spans from "just after the label"
-            // out to near the right edge of `display_a`, and `slider_aux`
-            // is stored as the slider's auxiliary render object.
+        if !render_ctx.is_null() {
+            // Wide-row override (slider, or "Minimize Game"-style first
+            // button). Clip rect spans from "just after the label" out to
+            // near the right edge of `display_a`, and `render_aux` is
+            // stored as the auxiliary render object.
             let display_a = (*panel).display_a;
             let display_w = *((display_a as *const u8).add(0x14) as *const i32);
-            let new_clip_left = x_final + text_advance + 1;
+            let new_clip_left = x_final + total_advance + 1;
             (*item_ptr).clip_left = new_clip_left;
             (*item_ptr).clip_top = y + 1;
             // Faithful to WA's expression — algebraically equals
             // `display_w - 5`, but kept literal in case operand ordering
             // matters under signed-overflow edge cases.
-            (*item_ptr).clip_right = display_w - new_clip_left + text_advance + x_final - 4;
-            (*item_ptr).clip_bottom = y + font_size;
-            (*item_ptr).slider_aux = slider_aux;
+            (*item_ptr).clip_right = display_w - new_clip_left + total_advance + x_final - 4;
+            (*item_ptr).clip_bottom = y + line_height;
+            (*item_ptr).render_aux = render_aux;
         }
 
         (*panel).item_count = count + 1;

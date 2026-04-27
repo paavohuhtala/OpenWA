@@ -62,6 +62,11 @@ pub fn install() -> Result<(), String> {
             "GameRuntime__EscMenu_TickClosed",
             va::GAME_RUNTIME_ESC_MENU_TICK_CLOSED
         );
+        // `GameRuntime::OpenEscMenu` (0x00535200) — fully ported in Rust
+        // (`engine::main_loop::esc_menu::open_esc_menu`). The only WA-side
+        // caller was `EscMenu_TickClosed`, also Rust now. Trap as a safety
+        // net.
+        hook::install_trap!("GameRuntime__OpenEscMenu", va::GAME_RUNTIME_OPEN_ESC_MENU);
     }
     Ok(())
 }

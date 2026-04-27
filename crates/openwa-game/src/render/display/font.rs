@@ -337,25 +337,28 @@ pub unsafe fn font_get_metric_impl(
     }
 }
 
-/// Pure-Rust port of `Font__SetParam` (0x4FA720).
+#[derive(Default)]
+pub struct TextMeasurement {
+    pub total_advance: i32,
+    pub line_height: i32,
+}
+
+/// Pure-Rust port of `Font__MeasureText` (0x4FA720).
 ///
 /// Walks the null-terminated byte string `text`, accumulating each
 /// codepoint's advance metric (`width_div_5` for unmapped codepoints,
 /// `glyph.width + 1` for mapped ones) into `*out_total`. Always writes the
 /// font's max width to `*out_width`.
 ///
-/// # Safety
-/// `font_obj` must be a valid `*const FontObject`. `text` must be a valid
-/// null-terminated byte string. Output pointers must be writable.
-pub unsafe fn font_set_param_impl(
+pub unsafe fn font_measure_text_impl(
     font_obj: *const Font,
-    text: *const u8,
-    out_total: *mut i32,
-    out_width: *mut i32,
-) {
+    text: *const c_char,
+) -> TextMeasurement {
     unsafe {
-        *out_width = (*font_obj).width as i16 as i32;
-        *out_total = 0;
+        let mut measurement = TextMeasurement {
+            total_advance: 0,
+            line_height: (*font_obj).width as i32,
+        };
         let mut p = text;
         loop {
             let ch = *p;
@@ -368,9 +371,10 @@ pub unsafe fn font_set_param_impl(
             } else {
                 glyph_advance_metric(font_obj, glyph_idx)
             };
-            *out_total += advance;
+            measurement.total_advance += advance;
             p = p.add(1);
         }
+        measurement
     }
 }
 

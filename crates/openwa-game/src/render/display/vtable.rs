@@ -5,8 +5,8 @@ use openwa_game::vtable;
 use crate::asset::gfx_dir::GfxDir;
 use crate::render::SpriteCache;
 use crate::render::display::font::{
-    Font, font_extend, font_get_info_impl, font_get_metric_impl, font_load_from_gfx,
-    font_set_palette_impl, font_set_param_impl,
+    Font, TextMeasurement, font_extend, font_get_info_impl, font_get_metric_impl,
+    font_load_from_gfx, font_measure_text_impl, font_set_palette_impl,
 };
 use crate::render::display::layer::Layer;
 use crate::render::display::line_draw::Vertex;
@@ -146,7 +146,7 @@ pub struct DisplayGfxVtable {
     ) -> u32,
     /// set font rendering parameter (0x523710, RET 0x10)
     #[slot(10)]
-    pub set_font_param: fn(this: *mut DisplayGfx, font_id: i32, p3: u32, p4: u32, p5: u32) -> u32,
+    pub measure_text: fn(this: *mut DisplayGfx, font_id: i32, p3: u32, p4: u32, p5: u32) -> u32,
     /// `DisplayGfx::DrawTiledBitmap` (0x56B8C0, RET 0xC).
     ///
     /// Three-phase tile-cached landscape blit (allocate / populate /
@@ -2155,27 +2155,43 @@ pub unsafe extern "thiscall" fn get_font_metric(
     }
 }
 
-/// Port of `DisplayGfx::SetFontParam` (slot 10, 0x523710).
+/// Port of `DisplayGfx::MeasureText` (slot 10, 0x523710).
 ///
 /// Per the original's register shuffle: `p3` = input string, `p4` =
 /// output total advance, `p5` = output font max width.
-pub unsafe extern "thiscall" fn set_font_param(
-    this: *mut DisplayGfx,
+pub unsafe fn measure_text(
+    this: *const DisplayGfx,
     font_id: i32,
-    p3: u32,
-    p4: u32,
-    p5: u32,
-) -> u32 {
+    text: *const c_char,
+) -> Option<TextMeasurement> {
     unsafe {
         if !is_valid_font_id(font_id) {
-            return 0;
+            return None;
         }
-        let font_obj = (*this).base.font_table[font_id as usize] as *const Font;
+        let font_obj = (*this).base.font_table[font_id as usize].cast_const();
         if font_obj.is_null() {
-            return 0;
+            return None;
         }
-        font_set_param_impl(font_obj, p3 as *const u8, p4 as *mut i32, p5 as *mut i32);
-        1
+        Some(font_measure_text_impl(font_obj, text))
+    }
+}
+
+pub unsafe extern "thiscall" fn measure_text_bridge(
+    this: *const DisplayGfx,
+    font_id: i32,
+    text: *const c_char,
+    out_total: *mut i32,
+    out_line_height: *mut i32,
+) -> u32 {
+    unsafe {
+        match measure_text(this, font_id, text) {
+            Some(measurement) => {
+                *out_total = measurement.total_advance;
+                *out_line_height = measurement.line_height;
+                1
+            }
+            None => 0,
+        }
     }
 }
 
@@ -2246,7 +2262,7 @@ pub unsafe fn font_blit_glyph(
 /// (the wrapper does `SAR EAX, 0x10`). Bit 1 selects right-aligned mode.
 pub unsafe fn font_draw_text_impl(
     font_obj: *const Font,
-    bitmap: *const BitGrid,
+    bitmap: *const DisplayBitGrid,
     pen_x: i32,
     pen_y: i32,
     msg: *const c_char,
@@ -2387,7 +2403,7 @@ pub unsafe fn font_draw_text_impl(
 pub unsafe extern "thiscall" fn draw_text_on_bitmap(
     this: *mut DisplayGfx,
     font_id: i32,
-    bitmap: *mut BitGrid,
+    bitmap: *const DisplayBitGrid,
     pen_x: i32,
     pen_y: i32,
     msg: *const c_char,
@@ -2406,7 +2422,7 @@ pub unsafe extern "thiscall" fn draw_text_on_bitmap(
         let font_id_high = (font_id as i32) >> 16;
         font_draw_text_impl(
             font_obj,
-            bitmap as *const BitGrid,
+            bitmap,
             pen_x,
             pen_y,
             msg,

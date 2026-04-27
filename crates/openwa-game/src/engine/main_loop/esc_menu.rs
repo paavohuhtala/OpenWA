@@ -3,8 +3,9 @@
 //! The ESC menu is the in-round overlay shown by pressing Escape — a
 //! scoreboard ("First Team to N Wins" header + per-team leaderboard) plus
 //! action buttons (Minimize Game, Force Sudden Death, Draw This Round, Quit
-//! The Game) and a volume slider. Lives at `runtime._field_30` (the
-//! [`MenuPanel`-shaped] item list) with the canvas at `runtime._field_2c`.
+//! The Game) and a volume slider. Lives at `runtime.menu_panel_a` (the
+//! [`MenuPanel`] item list) with the canvas at `runtime.display_gfx_d` (a
+//! [`DisplayBitGrid`]).
 //!
 //! State at `runtime.esc_menu_state` (i32):
 //!  - **0** — closed. [`tick_closed`] polls for Escape to open.
@@ -13,51 +14,58 @@
 //!  - **2** — confirm / network-end-of-game flow. Driven WA-side by
 //!    `EscMenu_TickState2` (still bridged via [`bridge_state_2_tick`]).
 //!
-//! [`MenuPanel`-shaped]: a 16-item list with stride 0x38 starting at
-//! `panel + 0x30`, count at `+0x3B0`, scroll-region rect at `+0x1C..+0x28`.
+//! [`MenuPanel`]: crate::engine::menu_panel::MenuPanel
+//! [`DisplayBitGrid`]: crate::bitgrid::DisplayBitGrid
+
+use core::ffi::c_char;
 
 use openwa_core::fixed::Fixed;
 
 use crate::address::va;
 use crate::audio::known_sound_id::KnownSoundId;
 use crate::audio::sound_ops::dispatch_global_sound;
+use crate::bitgrid::{BitGridDisplayVtable, DisplayBitGrid};
 use crate::engine::game_info::GameInfo;
+use crate::engine::menu_panel::{MenuPanel, append_item_impl};
 use crate::engine::runtime::GameRuntime;
 use crate::input::keyboard::KeyboardAction;
 use crate::rebase::rb;
+use crate::render::display::font::TextMeasurement;
+use crate::render::display::gfx::DisplayGfx;
+use crate::render::display::vtable::{draw_text_on_bitmap, measure_text};
+use crate::wa::string_resource::{StringRes, res};
 
 // ─── Bridged WA addresses ──────────────────────────────────────────────────
 
-static mut OPEN_ESC_MENU_ADDR: u32 = 0;
 static mut STATE_1_TICK_ADDR: u32 = 0;
 static mut STATE_2_TICK_ADDR: u32 = 0;
+static mut STRING_TOKEN_LOOKUP_ADDR: u32 = 0;
+static mut SPRINTF_ROTATING_ADDR: u32 = 0;
+
+// String token table lookup — `FUN_0053EA30(table, token) -> *const c_char`,
+// `__stdcall`, RET 8. Resolves a localized template string from the
+// gfx-dir's string table (with WA's own escape-code post-processing).
+const STRING_TOKEN_LOOKUP_VA: u32 = 0x0053EA30;
+// Rotating-buffer sprintf — `FUN_005978A0(format, ...) -> *const c_char`,
+// `__cdecl`, varargs (caller cleans). Writes to one of 8 16-KiB rotating
+// scratch buffers and returns a pointer to it. WA only ever calls this
+// with up to 3 varargs in the ESC-menu path.
+const SPRINTF_ROTATING_VA: u32 = 0x005978A0;
 
 /// Initialize the ESC-menu bridge addresses. Called from
 /// `dispatch_frame::init_dispatch_addrs` at DLL load.
 pub unsafe fn init_addrs() {
     unsafe {
-        OPEN_ESC_MENU_ADDR = rb(va::GAME_RUNTIME_OPEN_ESC_MENU);
         STATE_1_TICK_ADDR = rb(va::GAME_RUNTIME_ESC_MENU_STATE_1_TICK);
         STATE_2_TICK_ADDR = rb(va::GAME_RUNTIME_ESC_MENU_STATE_2_TICK);
+        STRING_TOKEN_LOOKUP_ADDR = rb(STRING_TOKEN_LOOKUP_VA);
+        SPRINTF_ROTATING_ADDR = rb(SPRINTF_ROTATING_VA);
     }
 }
 
-// ─── Bridges ───────────────────────────────────────────────────────────────
+// ─── Bridges (still WA-side) ───────────────────────────────────────────────
 
-/// Bridge for `GameRuntime__OpenEscMenu` (0x00535200) — builds the in-game
-/// ESC menu (scoreboard header, leaderboard rows, action buttons + volume
-/// slider) into `runtime._field_30`, then sets `esc_menu_state = 1`.
-/// Plain `__stdcall(this)`, RET 0x4. 628 instructions, 30 calls — too big
-/// for an incidental port.
-pub unsafe fn bridge_open_esc_menu(runtime: *mut GameRuntime) {
-    unsafe {
-        let func: unsafe extern "stdcall" fn(*mut GameRuntime) =
-            core::mem::transmute(OPEN_ESC_MENU_ADDR as usize);
-        func(runtime)
-    }
-}
-
-/// Bridge for `GameRuntime__EscMenu_TickState1` (0x00535B10) — per-frame
+/// Bridge for `GameRuntime::EscMenu_TickState1` (0x00535B10) — per-frame
 /// tick while the menu is open (`esc_menu_state == 1`); handles arrow-key
 /// nav + Enter to activate a menu item. Usercall EDI=this, plain RET.
 /// ~159 instructions.
@@ -73,7 +81,7 @@ pub unsafe extern "stdcall" fn bridge_state_1_tick(_this: *mut GameRuntime) {
     );
 }
 
-/// Bridge for `GameRuntime__EscMenu_TickState2` (0x00535FC0) — per-frame
+/// Bridge for `GameRuntime::EscMenu_TickState2` (0x00535FC0) — per-frame
 /// tick while `esc_menu_state == 2` (confirm / network-end-of-game flow;
 /// calls `BeginNetworkGameEnd`). Usercall EDI=this, plain RET. ~176
 /// instructions.
@@ -87,6 +95,123 @@ pub unsafe extern "stdcall" fn bridge_state_2_tick(_this: *mut GameRuntime) {
         "ret 4",
         addr = sym STATE_2_TICK_ADDR,
     );
+}
+
+/// Bridge for `FUN_0053EA30` — string-token lookup. Returns a pointer to
+/// the localized template (with `%d`/`%s` placeholders intact) for the
+/// given token id, drawn from the gfx-dir's string-table. The function
+/// is `__stdcall`; we declare it as such so the call-site cleanup matches.
+unsafe fn bridge_token_lookup(table: *const i32, token: StringRes) -> *const c_char {
+    unsafe {
+        let func: unsafe extern "stdcall" fn(*const i32, u32) -> *const c_char =
+            core::mem::transmute(STRING_TOKEN_LOOKUP_ADDR as usize);
+        func(table, token.as_offset())
+    }
+}
+
+/// Bridge for `FUN_005978A0` — sprintf into one of 8 16-KiB rotating
+/// scratch buffers. The OpenEscMenu path always passes 3 varargs (the
+/// "First Team to %d Wins" template ignores the first two but WA pushes
+/// them anyway).
+unsafe fn bridge_sprintf_rotating_3(
+    format: *const c_char,
+    a1: u32,
+    a2: u32,
+    a3: u32,
+) -> *const c_char {
+    unsafe {
+        let func: unsafe extern "cdecl" fn(*const c_char, u32, u32, u32) -> *const c_char =
+            core::mem::transmute(SPRINTF_ROTATING_ADDR as usize);
+        func(format, a1, a2, a3)
+    }
+}
+
+// ─── Inline-ported clipping helpers ────────────────────────────────────────
+//
+// `FUN_004F66E0` and `FUN_004F67F0` are short clip-and-call wrappers on
+// top of the BitGridDisplay vtable's slot 0 / slot 1. The other two tail
+// patterns (slot 2 fill_vline, slot 5 put_pixel_clipped) aren't extracted
+// in the WA binary but use the same shape inline. All four are inlined
+// here as plain Rust to avoid a usercall trampoline per call.
+//
+// The clip-rect on a `DisplayBitGrid` lives at fields +0x1C/+0x20/+0x24/+0x28
+// (`clip_left`/`clip_top`/`clip_right`/`clip_bottom`).
+
+/// Rust port of `FUN_004F66E0` — clipped fill_rect on a `DisplayBitGrid`.
+unsafe fn clipped_fill_rect(
+    bg: *mut DisplayBitGrid,
+    x1: i32,
+    y1: i32,
+    x2: i32,
+    y2: i32,
+    color: u8,
+) {
+    unsafe {
+        if x1 >= x2 || y1 >= y2 {
+            return;
+        }
+        let cl = (*bg).clip_left as i32;
+        let ct = (*bg).clip_top as i32;
+        let cr = (*bg).clip_right as i32;
+        let cb = (*bg).clip_bottom as i32;
+        if x1 >= cr || y1 >= cb || x2 <= cl || y2 <= ct {
+            return;
+        }
+        let x1 = x1.max(cl);
+        let y1 = y1.max(ct);
+        let x2 = x2.min(cr);
+        let y2 = y2.min(cb);
+        DisplayBitGrid::fill_rect_raw(bg, x1, y1, x2, y2, color);
+    }
+}
+
+/// Rust port of `FUN_004F67F0` — clipped fill_hline on a `DisplayBitGrid`.
+unsafe fn clipped_fill_hline(bg: *mut DisplayBitGrid, x1: i32, x2: i32, y: i32, color: u8) {
+    unsafe {
+        if x1 >= x2 {
+            return;
+        }
+        let cl = (*bg).clip_left as i32;
+        let ct = (*bg).clip_top as i32;
+        let cr = (*bg).clip_right as i32;
+        let cb = (*bg).clip_bottom as i32;
+        if y < ct || y >= cb || x1 >= cr || x2 <= cl {
+            return;
+        }
+        let x1 = x1.max(cl);
+        let x2 = x2.min(cr);
+        DisplayBitGrid::fill_hline_raw(bg, x1, x2, y, color);
+    }
+}
+
+/// Inline-replicates the slot-2 (`fill_vline`) clip-and-call pattern from
+/// the `OpenEscMenu` border-drawing tail block. Mirrors `clipped_fill_hline`
+/// but with x/y swapped.
+unsafe fn clipped_fill_vline(bg: *mut DisplayBitGrid, x: i32, y1: i32, y2: i32, color: u8) {
+    unsafe {
+        if y1 >= y2 {
+            return;
+        }
+        let cl = (*bg).clip_left as i32;
+        let ct = (*bg).clip_top as i32;
+        let cr = (*bg).clip_right as i32;
+        let cb = (*bg).clip_bottom as i32;
+        if x < cl || x >= cr || y1 >= cb || y2 <= ct {
+            return;
+        }
+        let y1 = y1.max(ct);
+        let y2 = y2.min(cb);
+        DisplayBitGrid::fill_vline_raw(bg, x, y1, y2, color);
+    }
+}
+
+/// Slot-5 (`put_pixel_clipped`) wrapper — slot 5 already does the clip
+/// internally; this is just a typed dispatch.
+unsafe fn put_pixel_clipped(bg: *mut DisplayBitGrid, x: i32, y: i32, color: u8) {
+    unsafe {
+        let vt: *const BitGridDisplayVtable = (*bg).vtable;
+        ((*vt).put_pixel_clipped)(bg, x, y, color);
+    }
 }
 
 // ─── Rust ports ────────────────────────────────────────────────────────────
@@ -108,11 +233,6 @@ pub unsafe extern "stdcall" fn bridge_state_2_tick(_this: *mut GameRuntime) {
 ///   - `world.fast_forward_request == 0`
 ///   - `buf[1] == 0` and `buf[2] == 0` (DWORDs at offsets +4/+8 of the
 ///     0x7D3 response — `buf[0]` is intentionally ignored by WA)
-///
-/// Called from [`super::dispatch_frame::setup_frame_params`] and from
-/// [`tick_closed`]. Hooked at the WA address via
-/// `usercall_trampoline!(reg = esi)` so the still-WA-side caller
-/// `OpenEscMenu` routes through this Rust port.
 pub unsafe fn is_hud_active(runtime: *mut GameRuntime) -> bool {
     unsafe {
         let mut buf: [u32; 0xE5] = [0; 0xE5];
@@ -163,10 +283,35 @@ const WORM_STRIDE: usize = 0x9C;
 // `team_off = team_idx * TEAM_STRIDE`.
 const OFF_TEAM_COUNT: usize = 0x44C; // u8, total team-slot count
 const OFF_TEAM_SCORED: usize = 0x452; // u8 per team, == 0 means include
+const OFF_TEAM_COLOR: usize = 0x451; // u8 per team, font palette idx
 const OFF_TEAM_WINS: usize = 0x455; // u8 per team
+const OFF_TEAM_NAME: usize = 0x456; // null-terminated C string
 const OFF_TEAM_WORMS: usize = 0x4188; // worm array base, stride 0x9C
 const OFF_TEAM_WORM_GATE: usize = 0x4618; // i32 per team, == 0 means count HP
 const OFF_TEAM_WORM_COUNT: usize = 0x4624; // i32 per team
+
+// GameInfo singleton/UI offsets.
+const OFF_GLOBAL_NO_SD: usize = 0xD941; // u8, != 0 → "Force Sudden Death" hidden
+const OFF_GLOBAL_NO_DRAW: usize = 0xD947; // u8, != 0 → "Draw This Round" hidden
+const OFF_GLOBAL_NO_SD2: usize = 0xD948; // u8, second SD-eligibility gate
+const OFF_GLOBAL_NO_LEADERBOARD: usize = 0xD949; // u8, != 0 → header+leaderboard hidden
+const OFF_GLOBAL_WIN_TARGET: usize = 0xD94F; // u8, the N in "First Team to N Wins"
+
+// GameWorld offsets the ESC-menu code reads beyond what's in the typed
+// struct.
+const OFF_WORLD_DDWA_FLAG: usize = 0x1C; // i32, "is online" gate (gates Force SD/Draw inclusion)
+const OFF_WORLD_TOKEN_TABLE: usize = 0x18; // *const i32, the gfx-dir's string-table base
+const OFF_WORLD_BORDER_COLOR: usize = 0x7324; // u32, palette idx — matches `gfx_color_table[6]`
+const OFF_WORLD_BG_COLOR: usize = 0x7328; // u32, ESC-menu background color
+const OFF_WORLD_SLIDER_AUX: usize = 0x7324; // alias of border color (used as slider's aux render obj)
+
+// Item kinds passed as arg1 to `MenuPanel::AppendItem`. Stored at item +0x00
+// and read by the menu render code as the icon/sprite selector.
+const KIND_FORCE_SUDDEN_DEATH: i32 = 0;
+const KIND_DRAW_THIS_ROUND: i32 = 1;
+const KIND_QUIT_THE_GAME: i32 = 2;
+const KIND_MINIMIZE_GAME: i32 = 3;
+const KIND_VOLUME_SLIDER: i32 = 4;
 
 /// Rust port of the `GameRuntime::OpenEscMenu` leaderboard-sort block
 /// (0x53538D..0x5354A6 in the WA function body).
@@ -248,6 +393,391 @@ pub unsafe fn sort_teams(
     }
 }
 
+// Format a small unsigned integer as decimal into a stack buffer with
+// trailing NUL. Returns the byte length (NOT including NUL). Replaces
+// the `_sprintf(buf, "%d", n)` call WA uses for the leaderboard win
+// counts; n is at most a u8 so 4 digits + NUL is plenty.
+fn format_decimal(buf: &mut [u8; 16], n: u32) -> usize {
+    use core::fmt::Write;
+    struct B<'a>(&'a mut [u8; 16], usize);
+    impl<'a> Write for B<'a> {
+        fn write_str(&mut self, s: &str) -> core::fmt::Result {
+            for &b in s.as_bytes() {
+                if self.1 >= self.0.len() - 1 {
+                    return Err(core::fmt::Error);
+                }
+                self.0[self.1] = b;
+                self.1 += 1;
+            }
+            Ok(())
+        }
+    }
+    let mut w = B(buf, 0);
+    let _ = write!(w, "{n}");
+    let len = w.1;
+    buf[len] = 0;
+    len
+}
+
+/// Rust port of `GameRuntime::OpenEscMenu` (0x00535200).
+///
+/// Builds the in-game ESC menu into `runtime.menu_panel_a`:
+/// 1. `world_root.hud_data_query(0x7D3, 0x394 buffer)` — fetches a HUD
+///    snapshot. Three flag DWORDs (`buf[33]`, `buf[35]`) gate the
+///    inclusion of Force-SD / Draw / Quit items below.
+/// 2. Background fill on the canvas (`runtime.display_gfx_d`,
+///    `world.gfx_color_table[7]`).
+/// 3. Empty-string measurement for the line-height baseline.
+/// 4. **If `gameinfo[0xD949] == 0`** (leaderboard shown): paint
+///    "First Team to N Wins" header centered, two horizontal separator
+///    lines, then for each scored team: team name + win count drawn
+///    with the team-color font.
+/// 5. Reset the panel widget — clear flag/scroll-region fields, clamp
+///    cursor to viewport, set `item_count = 0`.
+/// 6. Append menu items via [`append_item_impl`]:
+///    * "Minimize Game" (always)
+///    * "Force Sudden Death" — only when `world.field_1c == 0`,
+///      `buf[33] == 0`, `runtime.replay_flag_a == 0`, `buf[35] == 0`,
+///      `runtime._field_478 == 0`, `gameinfo[0xD941] == 0`,
+///      `gameinfo[0xD948] == 0`.
+///    * "Draw This Round" — when the first 3 of those plus
+///      `gameinfo[0xD947] == 0`.
+///    * "Quit The Game" (always).
+///    * Volume slider (always; bound to `&runtime.ui_volume`).
+/// 7. Draw the panel border — 4 horizontal edges, 4 vertical edges,
+///    then 4 corner pixels.
+/// 8. Final state: store `menu_panel_width` / `menu_panel_height`,
+///    re-clamp the panel's clip rect/cursor to those dims, and set
+///    `esc_menu_state = 1`.
+///
+/// `__stdcall(this)`, RET 0x4 originally; the WA address has no
+/// remaining xrefs once this port is wired in (the only caller was
+/// `EscMenu_TickClosed`, which is also Rust). Trapped in
+/// `replacements/main_loop.rs` as a safety net.
+pub unsafe fn open_esc_menu(runtime: *mut GameRuntime) {
+    unsafe {
+        let world = (*runtime).world;
+        let world_root = (*runtime).world_root;
+        let display: *mut DisplayGfx = (*world).display;
+        let canvas: *mut DisplayBitGrid = (*runtime).display_gfx_d;
+        let panel: *mut MenuPanel = (*runtime).menu_panel_a;
+        let game_info = (*world).game_info;
+        let world_u8 = world as *const u8;
+        let token_table = *(world_u8.add(OFF_WORLD_TOKEN_TABLE) as *const *const i32);
+
+        // ─── Block A: hud_data_query ───
+        // 916 bytes / 4 = 229 i32s. Two flag DWORDs early in the
+        // response (`buf[1]`, `buf[3]` — same DWORDs `is_hud_active`
+        // inspects) gate the inclusion of Force-SD / Draw / Quit
+        // below.
+        let mut hud_buf: [u32; 0xE5] = [0; 0xE5];
+        ((*(*world_root).base.vtable).hud_data_query)(
+            world_root,
+            0x7D3,
+            0x394,
+            hud_buf.as_mut_ptr() as *mut u8,
+        );
+        let buf_flag_84 = hud_buf[1];
+        let buf_flag_8c = hud_buf[3];
+
+        // ─── Block B: Background fill + panel-width derivation ───
+        // The "panel width" used everywhere downstream IS the canvas's
+        // pixel width — `runtime.menu_panel_width` is just a copy of
+        // `display_gfx_d.width`. WA reads `[EDI+0x14]` (canvas.width)
+        // into a local at function entry and re-uses it as the panel
+        // width throughout.
+        let canvas_w = (*canvas).width as i32;
+        let canvas_h = (*canvas).height as i32;
+        let panel_width = canvas_w;
+        let bg_color = *(world_u8.add(OFF_WORLD_BG_COLOR) as *const u32) as u8;
+        clipped_fill_rect(canvas, 0, 0, canvas_w, canvas_h, bg_color);
+
+        // ─── Block C: Empty-string baseline measurement ───
+        // WA passes the literal at 0x643F2B which is the empty string `""`
+        // (NUL-terminated). The slot-10 wrapper writes `text_advance` (= 0
+        // for an empty string) and `font_max_width` (= the font cell size
+        // — used as the line height since WA's font is square).
+        static EMPTY: [i8; 1] = [0];
+        let TextMeasurement { line_height, .. } =
+            measure_text(display, 0xF, EMPTY.as_ptr()).unwrap_or_default();
+
+        // Running y position for items. WA initializes EBP=2 here.
+        let mut y: i32 = 2;
+
+        // ─── Block D: Conditional leaderboard ───
+        let no_leaderboard = *((game_info as *const u8).add(OFF_GLOBAL_NO_LEADERBOARD)) != 0;
+        let border_color = *(world_u8.add(OFF_WORLD_BORDER_COLOR) as *const u32) as u8;
+
+        if !no_leaderboard {
+            // D1 — "First Team to N Wins" header.
+            let win_target = *((game_info as *const u8).add(OFF_GLOBAL_WIN_TARGET)) as u32;
+            let template = bridge_token_lookup(token_table, res::GAME_ROUNDS_TO_WIN);
+            // WA pushes (template, 1, 1, win_target) — only the third
+            // vararg (win_target) actually substitutes into the `%d`.
+            let header_str = bridge_sprintf_rotating_3(template, 1, 1, win_target);
+
+            let TextMeasurement {
+                total_advance: hdr_w,
+                ..
+            } = measure_text(display, 0xF, header_str).unwrap_or_default();
+            let header_x = (panel_width - hdr_w) / 2;
+            let mut tmp_pen_x: i32 = 0;
+            let mut tmp_width: i32 = 0;
+            draw_text_on_bitmap(
+                display,
+                0xF,
+                canvas,
+                header_x,
+                2,
+                header_str,
+                &mut tmp_pen_x,
+                &mut tmp_width,
+            );
+
+            // D2 — Two horizontal separator lines below the header.
+            clipped_fill_hline(canvas, 0, panel_width, line_height + 3, border_color);
+            clipped_fill_hline(canvas, 0, panel_width, line_height + 4, border_color);
+            y = line_height + 5;
+
+            // D3 — Sort + render leaderboard rows.
+            let (entries, num_entries) = sort_teams(game_info);
+            for entry in entries.iter().take(num_entries) {
+                let team_off = entry.team_idx as usize * TEAM_STRIDE;
+                let team_color = *(game_info as *const u8).add(team_off + OFF_TEAM_COLOR) as i32;
+                let wins = *(game_info as *const u8).add(team_off + OFF_TEAM_WINS) as u32;
+                let name_ptr =
+                    (game_info as *const u8).add(team_off + OFF_TEAM_NAME) as *const c_char;
+
+                // Team-color font slot is 9..16 in WA's font table.
+                let team_font = team_color + 9;
+
+                let TextMeasurement {
+                    total_advance: name_w,
+                    ..
+                } = measure_text(display, 0xF, name_ptr).unwrap_or_default();
+                let name_x = (panel_width - name_w) / 2 - 0x10;
+                draw_text_on_bitmap(
+                    display,
+                    team_font,
+                    canvas,
+                    name_x,
+                    y,
+                    name_ptr,
+                    &mut tmp_pen_x,
+                    &mut tmp_width,
+                );
+
+                let mut wins_buf: [u8; 16] = [0; 16];
+                let _ = format_decimal(&mut wins_buf, wins);
+                let wins_str = wins_buf.as_ptr() as *const c_char;
+                let TextMeasurement {
+                    total_advance: wins_w,
+                    ..
+                } = measure_text(display, 0xF, wins_str).unwrap_or_default();
+
+                // Wins are drawn near the *right* edge of the panel,
+                // not centered. WA's formula at 0053559a-0053559d:
+                // `pen_x = panel_width - wins_w/2 - 0x14`. Drawing them
+                // centered (like the name) would overlap the name text.
+                let wins_x = panel_width - wins_w / 2 - 0x14;
+                draw_text_on_bitmap(
+                    display,
+                    team_font,
+                    canvas,
+                    wins_x,
+                    y,
+                    wins_str,
+                    &mut tmp_pen_x,
+                    &mut tmp_width,
+                );
+
+                y += line_height + 1;
+            }
+
+            // Two post-leaderboard horizontal separators (mirroring the
+            // two pre-leaderboard separators above the rows).
+            clipped_fill_hline(canvas, 0, panel_width, y, border_color);
+            y += 1;
+            clipped_fill_hline(canvas, 0, panel_width, y, border_color);
+            y += 1;
+        }
+
+        // Unconditional `ADD EBP, 0x2` at the top of WA's panel-reset
+        // block (00535663) — runs in both leaderboard and skip paths.
+        y += 2;
+
+        // ─── Block E: Panel reset ───
+        // Reads `panel.display_a`'s width/height to clamp the cursor;
+        // then zeroes the scroll-region rect / item count.
+        let panel_disp_a = (*panel).display_a as *const u8;
+        let pa_w = *(panel_disp_a.add(0x14) as *const i32);
+        let pa_h = *(panel_disp_a.add(0x18) as *const i32);
+        (*panel)._field_18 = 0;
+        (*panel).clip_left = 0;
+        (*panel).clip_top = 0;
+        (*panel).clip_right = pa_w;
+        (*panel).clip_bottom = pa_h;
+        if (*panel).cursor_x < 0 {
+            (*panel).cursor_x = 0;
+        }
+        if (*panel).cursor_y < 0 {
+            (*panel).cursor_y = 0;
+        }
+        if pa_w < (*panel).cursor_x {
+            (*panel).cursor_x = pa_w;
+        }
+        if pa_h < (*panel).cursor_y {
+            (*panel).cursor_y = pa_h;
+        }
+        (*panel)._field_2c = 0;
+        (*panel).item_count = 0;
+
+        // ─── Block F: Action buttons + slider ───
+        // All four button items pass `render_ctx = null` (plain centered
+        // button). Only the volume slider passes a non-null `render_ctx`
+        // (the volume value pointer) to enter the wide-row override.
+
+        let centered_x = panel_width / 2;
+        let label = bridge_token_lookup(token_table, res::GAME_MINIMISE_GAME);
+        append_item_impl(
+            centered_x,
+            panel,
+            KIND_MINIMIZE_GAME,
+            label,
+            y,
+            1,
+            core::ptr::null_mut(),
+            core::ptr::null_mut(),
+        );
+        y += line_height + 1;
+
+        let world_field_1c = *(world_u8.add(OFF_WORLD_DDWA_FLAG) as *const i32);
+        let replay_flag_a = (*runtime).replay_flag_a;
+        let runtime_field_478 = (*runtime)._field_478;
+        let no_sd_a = *((game_info as *const u8).add(OFF_GLOBAL_NO_SD));
+        let no_sd_b = *((game_info as *const u8).add(OFF_GLOBAL_NO_SD2));
+        let no_draw = *((game_info as *const u8).add(OFF_GLOBAL_NO_DRAW));
+
+        let common_show_action_buttons =
+            world_field_1c == 0 && buf_flag_84 == 0 && replay_flag_a == 0;
+
+        if common_show_action_buttons {
+            if buf_flag_8c == 0 && runtime_field_478 == 0 && no_sd_a == 0 && no_sd_b == 0 {
+                let label = bridge_token_lookup(token_table, res::GAME_SUDDEN_DEATH);
+                append_item_impl(
+                    centered_x,
+                    panel,
+                    KIND_FORCE_SUDDEN_DEATH,
+                    label,
+                    y,
+                    1,
+                    core::ptr::null_mut(),
+                    core::ptr::null_mut(),
+                );
+                y += line_height + 1;
+            }
+            if no_draw == 0 {
+                let label = bridge_token_lookup(token_table, res::GAME_DRAW_ROUND);
+                append_item_impl(
+                    centered_x,
+                    panel,
+                    KIND_DRAW_THIS_ROUND,
+                    label,
+                    y,
+                    1,
+                    core::ptr::null_mut(),
+                    core::ptr::null_mut(),
+                );
+                y += line_height + 1;
+            }
+        }
+
+        let label = bridge_token_lookup(token_table, res::GAME_QUIT_GAME);
+        append_item_impl(
+            centered_x,
+            panel,
+            KIND_QUIT_THE_GAME,
+            label,
+            y,
+            1,
+            core::ptr::null_mut(),
+            core::ptr::null_mut(),
+        );
+        y += line_height + 1;
+
+        let label = bridge_token_lookup(token_table, res::GAME_VOLUME);
+        let volume_ptr = (runtime as *mut u8).add(0x420);
+        let slider_aux = *(world_u8.add(OFF_WORLD_SLIDER_AUX) as *const u32) as *mut u8;
+        // WA passes EAX = 6 to AppendItem here, but the slider call uses
+        // `centered = 0`, so the EAX/x value isn't shifted by half-width
+        // — `6` becomes the literal pen_x. (For all other items EAX is
+        // panel_width/2 with `centered = 1`, which gets shifted to a
+        // centered position.)
+        append_item_impl(
+            6,
+            panel,
+            KIND_VOLUME_SLIDER,
+            label,
+            y,
+            0,
+            volume_ptr,
+            slider_aux,
+        );
+        let final_y = line_height + 3 + y;
+
+        // ─── Block G: Border drawing ───
+        // 4 horizontal edges + 4 vertical edges + 4 corner pixels.
+        let pw_minus_1 = panel_width - 1;
+
+        // Horizontal edges: top double + bottom double.
+        clipped_fill_hline(canvas, 1, pw_minus_1, 0, border_color);
+        clipped_fill_hline(canvas, 0, panel_width, 1, border_color);
+        clipped_fill_hline(canvas, 0, panel_width, final_y, border_color);
+        clipped_fill_hline(canvas, 1, pw_minus_1, final_y + 1, border_color);
+
+        // Vertical edges: left double + right double.
+        clipped_fill_vline(canvas, 0, 1, final_y, border_color);
+        clipped_fill_vline(canvas, 1, 0, final_y + 1, border_color);
+        clipped_fill_vline(canvas, pw_minus_1, 0, final_y + 1, border_color);
+        clipped_fill_vline(canvas, panel_width, 1, final_y, border_color);
+
+        // ─── Block H: Final state writes ───
+        (*runtime).menu_panel_width = panel_width;
+        (*runtime).menu_panel_height = final_y + 2;
+
+        // 4 corner pixels (top-left, bottom-left, top-right, bottom-right)
+        // drawn with color 0 to round off the border.
+        put_pixel_clipped(canvas, 0, 0, 0);
+        put_pixel_clipped(canvas, 0, final_y + 1, 0);
+        put_pixel_clipped(canvas, pw_minus_1, 0, 0);
+        put_pixel_clipped(canvas, pw_minus_1, final_y + 1, 0);
+
+        // Outer-rect clamp: re-fill the panel's clip rect with the
+        // computed menu dimensions (replacing the display-wide rect set
+        // in Block E), then clamp cursor.
+        let mp_w = (*runtime).menu_panel_width;
+        let mp_h = (*runtime).menu_panel_height;
+        (*panel).clip_left = 0;
+        (*panel).clip_top = 0;
+        (*panel).clip_right = mp_w;
+        (*panel).clip_bottom = mp_h;
+        if (*panel).cursor_x < 0 {
+            (*panel).cursor_x = 0;
+        }
+        if (*panel).cursor_y < 0 {
+            (*panel).cursor_y = 0;
+        }
+        if mp_w < (*panel).cursor_x {
+            (*panel).cursor_x = mp_w;
+        }
+        if mp_h < (*panel).cursor_y {
+            (*panel).cursor_y = mp_h;
+        }
+
+        (*runtime).esc_menu_state = 1;
+    }
+}
+
 /// Rust port of `GameRuntime::EscMenu_TickClosed` (0x005351B0).
 ///
 /// Per-frame tick while the ESC menu is **closed**
@@ -256,8 +786,8 @@ pub unsafe fn sort_teams(
 ///
 /// - If Escape isn't pressed this frame → no-op.
 /// - If Escape is pressed and [`is_hud_active`] returns `true` → call
-///   [`bridge_open_esc_menu`], which builds the menu contents into
-///   `runtime._field_30` and transitions `esc_menu_state` to `1`.
+///   [`open_esc_menu`], which builds the menu contents into
+///   `runtime.menu_panel_a` and transitions `esc_menu_state` to `1`.
 /// - If Escape is pressed but the HUD is *not* active (replay tail,
 ///   end-of-round, fast-forward, etc.) → reject with
 ///   [`KnownSoundId::WarningBeep`] at `runtime.ui_volume`.
@@ -269,7 +799,7 @@ pub unsafe fn tick_closed(runtime: *mut GameRuntime) {
             return;
         }
         if is_hud_active(runtime) {
-            bridge_open_esc_menu(runtime);
+            open_esc_menu(runtime);
         } else {
             dispatch_global_sound(
                 runtime,
@@ -407,5 +937,19 @@ mod tests {
             assert_eq!(entries[1].team_idx, 1);
             assert_eq!(entries[2].team_idx, 2);
         }
+    }
+
+    #[test]
+    fn format_decimal_writes_null_terminated() {
+        let mut buf = [0u8; 16];
+        let len = format_decimal(&mut buf, 42);
+        assert_eq!(len, 2);
+        assert_eq!(&buf[..3], b"42\0");
+        let len = format_decimal(&mut buf, 0);
+        assert_eq!(len, 1);
+        assert_eq!(&buf[..2], b"0\0");
+        let len = format_decimal(&mut buf, 9999);
+        assert_eq!(len, 4);
+        assert_eq!(&buf[..5], b"9999\0");
     }
 }
