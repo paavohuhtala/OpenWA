@@ -17,7 +17,7 @@ unsafe extern "C" fn hook_process_frame() {
 }
 
 unsafe extern "cdecl" fn is_hud_active_impl(runtime: *mut GameRuntime) -> u32 {
-    unsafe { openwa_game::engine::main_loop::dispatch_frame::is_hud_active(runtime) as u32 }
+    unsafe { openwa_game::engine::main_loop::esc_menu::is_hud_active(runtime) as u32 }
 }
 
 hook::usercall_trampoline!(fn trampoline_is_hud_active;
