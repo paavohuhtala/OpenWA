@@ -14,8 +14,7 @@ pub mod turn_order;
 pub use ddraw::CompatRenderer;
 pub use display::{
     DisplayBase, DisplayBaseVtable, DisplayGfx, DisplayGfxVtable, DrawScaledSpriteResult,
-    FastcallResult, FrameCache, FrameCacheEntry, Palette, PaletteVtable, RenderContext,
-    SpriteCache,
+    FastcallResult, FrameCache, FrameCacheEntry, RenderContext, SpriteCache,
 };
 pub use landscape::{DirtyRect, Landscape};
 pub use message::{COMMAND_TYPE_TYPED, RenderMessage, TypedRenderCmd};

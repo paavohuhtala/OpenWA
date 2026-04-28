@@ -1,14 +1,19 @@
-//! Mouse input — small standalone helpers.
+//! Mouse input — cursor management helpers + the [`MouseInput`] adapter.
 //!
-//! There is no Mouse class in WA.exe. Mouse state lives directly on
-//! `GameSession` (see `cursor_initial`, `cursor_x/_y`, `mouse_delta_x/_y`,
-//! `mouse_button_state`, `mouse_acquired`, `cursor_recenter_request`), and
-//! all mouse-message handling happens inline in `GameSession::WindowProc`
-//! (`0x00572660`, not yet ported). The two free functions ported here plus
-//! `cursor_clip_and_recenter` are the only standalone helpers worth a
-//! dedicated module.
+//! Most mouse state lives directly on `GameSession` (see `cursor_initial`,
+//! `cursor_x/_y`, `mouse_delta_x/_y`, `mouse_button_state`, `mouse_acquired`,
+//! `cursor_recenter_request`); all mouse-message handling happens inline in
+//! `GameSession::WindowProc` (`0x00572660`, not yet ported). The
+//! cursor-management helpers below (`mouse_poll_and_acquire`,
+//! `mouse_release_and_center`, `cursor_clip_and_recenter`) are headful-only
+//! — replay tests cannot exercise them.
 //!
-//! Headful path only — replay tests cannot exercise any of these.
+//! [`MouseInput`] is a separate small adapter object with its own vtable
+//! (0x0066A2E4). Allocated by `GameEngine__InitHardware` and stored at
+//! `GameSession+0xB0` / `GameWorld+0x10`. Despite the historical "Palette"
+//! name on its vtable, it has nothing to do with graphics — it forwards
+//! the raw `g_GameSession.mouse_*` fields to consumers (e.g. the ESC
+//! menu's `EscMenu_TickState1`) with per-button debounce.
 
 use core::mem::transmute;
 
@@ -199,4 +204,103 @@ const _: () = {
     assert!(core::mem::offset_of!(GameSession, cursor_initial) == 0x70);
     assert!(core::mem::offset_of!(GameSession, screen_center_x) == 0x54);
     assert!(core::mem::offset_of!(GameSession, screen_center_y) == 0x58);
+    assert!(core::mem::offset_of!(GameSession, mouse_delta_x) == 0x78);
+    assert!(core::mem::offset_of!(GameSession, mouse_delta_y) == 0x7C);
 };
+
+// ─── MouseInput adapter ────────────────────────────────────────────────────
+
+/// Vtable for [`MouseInput`] (0x0066A2E4 — historically labelled
+/// `Palette_vtable_Maybe` in Ghidra).
+///
+/// Slot 0 is a base-class destructor; slots 1–3 are the mouse-input API;
+/// slot 4 is the shared `WorldEntity__vt19` no-op stub (kept for layout
+/// fidelity with the original 5-slot vtable).
+#[openwa_game::vtable(size = 5, va = 0x0066A2E4, class = "MouseInput")]
+pub struct MouseInputVtable {
+    /// Slot 0 — scalar deleting destructor (0x0056D2C0). Writes the base
+    /// `&PTR_FUN_0066A2F8` vtable into `*this`, then `_free` if `flags & 1`.
+    #[slot(0)]
+    pub destructor: fn(this: *mut MouseInput, flags: u32) -> *mut MouseInput,
+    /// Slot 1 — `Mouse__ConsumeDeltaAndButtons` (0x0056D2E0). Outputs the
+    /// raw cursor deltas + a debounced button bitmask:
+    ///
+    /// ```text
+    /// *out_dx = g_GameSession.mouse_delta_x       (+0x78)
+    /// *out_dy = g_GameSession.mouse_delta_y       (+0x7C)
+    /// let buttons = g_GameSession.mouse_button_state  (+0x88)
+    /// *out_buttons = self.button_armed_latch & buttons
+    /// self.button_armed_latch = self.button_armed_latch | !buttons
+    /// ```
+    ///
+    /// A held button only registers once until the next release re-arms its
+    /// bit. Does NOT clear the deltas — pair with [`Self::clear_deltas`].
+    #[slot(1)]
+    pub consume_delta_and_buttons:
+        fn(this: *mut MouseInput, out_dx: *mut i32, out_dy: *mut i32, out_buttons: *mut u32),
+    /// Slot 2 — `Mouse__AckButtonMask` (0x0056D320). AND-only ack helper:
+    ///
+    /// ```text
+    /// self.button_armed_latch &= ~(g_GameSession.mouse_button_state & mask)
+    /// ```
+    ///
+    /// Clears bits in the latch corresponding to currently-held buttons.
+    /// Used to consume a pending click without polling deltas.
+    #[slot(2)]
+    pub ack_button_mask: fn(this: *mut MouseInput, mask: u32),
+    /// Slot 3 — `Mouse__ClearDeltas` (0x0056D340). Zeroes
+    /// `g_GameSession.mouse_delta_x` / `mouse_delta_y` (does NOT touch the
+    /// latch). Standalone reset path.
+    #[slot(3)]
+    pub clear_deltas: fn(this: *mut MouseInput),
+    /// Slot 4 — `WorldEntity__vt19` (0x004AA060). Generic base-class
+    /// no-op stub shared with several other vtables; kept for layout
+    /// fidelity. Called by `GameEngine__InitHardware` immediately after
+    /// allocation but has no observable effect.
+    #[slot(4)]
+    pub slot_04_noop: fn(this: *mut MouseInput),
+}
+
+/// `MouseInput` — 0x28-byte mouse-input adapter object.
+///
+/// Allocated by `GameEngine__InitHardware` (0x0056D350) as a 0x28-byte
+/// heap object initialised with `button_armed_latch = -1` (= all bits
+/// armed, so the very first press of any button registers). Stored at
+/// `GameSession+0xB0` and forwarded to `GameWorld+0x10`.
+///
+/// Most of the body is unused in WA — only the vtable pointer and the
+/// [`Self::button_armed_latch`] field are accessed by the four `Mouse__*`
+/// methods.
+#[repr(C)]
+pub struct MouseInput {
+    /// 0x000: Vtable pointer (0x0066A2E4).
+    pub vtable: *const MouseInputVtable,
+    /// 0x004: Per-button "armed" latch. A bit set means "the next press of
+    /// this button counts"; cleared when [`MouseInputVtable::consume_delta_and_buttons`]
+    /// or [`MouseInputVtable::ack_button_mask`] consumes a press; re-armed
+    /// when the button is released. Initialised to `0xFFFFFFFF` (all bits
+    /// armed) by `GameEngine__InitHardware`.
+    pub button_armed_latch: u32,
+    /// 0x008-0x027: Trailing storage. Allocated 0x28 bytes but the four
+    /// known methods never read past `+0x4` — kept opaque for fidelity.
+    pub _unknown_008: [u8; 0x20],
+}
+
+const _: () = assert!(core::mem::size_of::<MouseInput>() == 0x28);
+
+bind_MouseInputVtable!(MouseInput, vtable);
+
+impl MouseInput {
+    /// Inline construction matching `GameEngine__InitHardware`'s setup:
+    /// vtable + `button_armed_latch = -1` + zero-init trailing bytes.
+    ///
+    /// # Safety
+    /// `vtable_addr` must be a valid rebased vtable pointer.
+    pub unsafe fn new(vtable_addr: u32) -> Self {
+        Self {
+            vtable: vtable_addr as *const MouseInputVtable,
+            button_armed_latch: 0xFFFFFFFF,
+            _unknown_008: [0; 0x20],
+        }
+    }
+}

@@ -6,3 +6,4 @@ pub mod mouse;
 pub use controller::{InputCtrl, InputCtrlVtable};
 pub use hooks::InputHookMode;
 pub use keyboard::Keyboard;
+pub use mouse::{MouseInput, MouseInputVtable};

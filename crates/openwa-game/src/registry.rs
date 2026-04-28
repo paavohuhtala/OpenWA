@@ -356,9 +356,9 @@ pub struct VtableSlotEntry {
 /// Metadata for a vtable struct.
 #[derive(Debug)]
 pub struct VtableInfo {
-    /// Vtable struct name (e.g., "PaletteVtable").
+    /// Vtable struct name (e.g., "MouseInputVtable").
     pub struct_name: &'static str,
-    /// Owning C++ class name (e.g., "Palette"), if specified.
+    /// Owning C++ class name (e.g., "MouseInput"), if specified.
     pub class_name: &'static str,
     /// Ghidra VA of the vtable in .rdata (0 if not specified).
     pub ghidra_va: u32,
@@ -736,48 +736,51 @@ mod tests {
     }
 
     #[test]
-    fn vtable_registry_palette() {
-        // PaletteVtable should be registered via #[vtable(...)] attribute
-        let info = vtable_info_for("PaletteVtable");
-        assert!(info.is_some(), "PaletteVtable not found in vtable registry");
+    fn vtable_registry_mouse_input() {
+        // MouseInputVtable should be registered via #[vtable(...)] attribute
+        let info = vtable_info_for("MouseInputVtable");
+        assert!(
+            info.is_some(),
+            "MouseInputVtable not found in vtable registry"
+        );
         let info = info.unwrap();
 
-        assert_eq!(info.struct_name, "PaletteVtable");
-        assert_eq!(info.class_name, "Palette");
+        assert_eq!(info.struct_name, "MouseInputVtable");
+        assert_eq!(info.class_name, "MouseInput");
         assert_eq!(info.ghidra_va, 0x0066A2E4);
         assert_eq!(info.slot_count, 5);
-        assert_eq!(info.slots.len(), 3); // set_mode, init, reset
+        assert_eq!(info.slots.len(), 5);
 
         // Check individual slots
-        let set_mode = info.slot_by_name("set_mode");
-        assert!(set_mode.is_some(), "set_mode not found");
-        assert_eq!(set_mode.unwrap().index, 2);
+        let consume = info.slot_by_name("consume_delta_and_buttons");
+        assert!(consume.is_some(), "consume_delta_and_buttons not found");
+        assert_eq!(consume.unwrap().index, 1);
 
-        let init = info.slot_by_index(3);
-        assert!(init.is_some(), "slot 3 not found");
-        assert_eq!(init.unwrap().name, "init");
+        let ack = info.slot_by_index(2);
+        assert!(ack.is_some(), "slot 2 not found");
+        assert_eq!(ack.unwrap().name, "ack_button_mask");
     }
 
     #[test]
     fn vtable_generates_addr_entry() {
         use crate::address::va;
 
-        // The vtable macro should have generated PALETTE_VTABLE const
-        assert_eq!(va::PALETTE_VTABLE, 0x0066A2E4);
+        // The vtable macro should have generated MOUSE_INPUT_VTABLE const
+        assert_eq!(va::MOUSE_INPUT_VTABLE, 0x0066A2E4);
 
         // And an AddrEntry in the registry
         let entry = lookup_va_exact(0x0066A2E4);
-        assert!(entry.is_some(), "PALETTE_VTABLE addr entry not found");
+        assert!(entry.is_some(), "MOUSE_INPUT_VTABLE addr entry not found");
         let entry = entry.unwrap();
         assert_eq!(entry.kind, AddrKind::Vtable);
-        assert_eq!(entry.class_name, Some("Palette"));
+        assert_eq!(entry.class_name, Some("MouseInput"));
     }
 
     #[test]
     fn vtable_size_assertion() {
-        // PaletteVtable should be 5 * 4 = 20 bytes
+        // MouseInputVtable should be 5 * 4 = 20 bytes
         assert_eq!(
-            core::mem::size_of::<crate::render::display::palette::PaletteVtable>(),
+            core::mem::size_of::<crate::input::mouse::MouseInputVtable>(),
             5 * core::mem::size_of::<usize>()
         );
     }

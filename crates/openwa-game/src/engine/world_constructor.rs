@@ -24,10 +24,10 @@ use crate::engine::net_bridge::NetBridge;
 use crate::engine::net_session::NetSession;
 use crate::engine::runtime::GameRuntime;
 use crate::input::keyboard::Keyboard;
+use crate::input::mouse::MouseInput;
 use crate::rebase::rb;
 use crate::render::display::gfx::DisplayGfx;
 use crate::render::display::gradient::compute_complex_gradient;
-use crate::render::display::palette::Palette;
 use crate::render::landscape::Landscape;
 use crate::wa::localized_template::LocalizedTemplate;
 use crate::wa_alloc::{wa_malloc, wa_malloc_zeroed};
@@ -349,7 +349,7 @@ pub unsafe fn create_game_world(
     keyboard: *mut Keyboard,
     display: *mut DisplayGfx,
     sound: *mut DSSound,
-    palette: *mut Palette,
+    mouse_input: *mut MouseInput,
     music: *mut Music,
     localized_template: *mut LocalizedTemplate,
     net_game: *mut u8, // from GameSession
@@ -382,7 +382,7 @@ pub unsafe fn create_game_world(
         (*world).display = display;
         (*world).sound = sound;
         (*world).keyboard = keyboard;
-        (*world).palette = palette;
+        (*world).mouse_input = mouse_input;
         (*world).music = music;
         (*world).localized_template = localized_template;
         (*world).net_session = net_session;

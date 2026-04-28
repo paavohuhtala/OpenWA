@@ -24,9 +24,9 @@ use openwa_game::engine::init_constructor_addrs;
 use openwa_game::engine::pump_messages::pump_messages;
 use openwa_game::engine::window_proc::{engine_wnd_proc, init_window_proc_addrs};
 use openwa_game::engine::{GameInfo, GameRuntime};
-use openwa_game::input::Keyboard;
+use openwa_game::input::{Keyboard, MouseInput};
 use openwa_game::rebase::rb;
-use openwa_game::render::{DisplayGfx, Palette};
+use openwa_game::render::DisplayGfx;
 use openwa_game::wa::localized_template::LocalizedTemplate;
 
 /// Implicit EDI = game_info pointer, captured from EDI on entry.
@@ -59,7 +59,7 @@ unsafe extern "C" fn call_original_world_ctor(
     _display: *mut DisplayGfx,
     _sound: *mut DSSound,
     _keyboard: *mut Keyboard,
-    _palette: *mut Palette,
+    _mouse_input: *mut MouseInput,
     _music: *mut Music,
     _localized_template: *mut LocalizedTemplate,
     _net_game: *mut u8,
@@ -91,7 +91,7 @@ pub(crate) unsafe fn construct_runtime(
     display: *mut DisplayGfx,
     sound: *mut DSSound,
     keyboard: *mut Keyboard,
-    palette: *mut Palette,
+    mouse_input: *mut MouseInput,
     music: *mut Music,
     input_ctrl: *mut u8,
 ) -> *mut GameRuntime {
@@ -143,7 +143,7 @@ pub(crate) unsafe fn construct_runtime(
                 display,
                 sound,
                 keyboard,
-                palette,
+                mouse_input,
                 music,
                 localized_template,
                 net_game,
@@ -156,7 +156,7 @@ pub(crate) unsafe fn construct_runtime(
                 keyboard,
                 display,
                 sound,
-                palette,
+                mouse_input,
                 music,
                 localized_template,
                 net_game,

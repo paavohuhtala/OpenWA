@@ -9,9 +9,9 @@ use crate::engine::game_info::GameInfo;
 use crate::engine::{CoordEntry, CoordList, TeamArena, TeamIndexMap};
 use crate::game::weapon::WeaponTable;
 use crate::input::keyboard::Keyboard;
+use crate::input::mouse::MouseInput;
 use crate::render::RenderEntry;
 use crate::render::display::gfx::DisplayGfx;
-use crate::render::display::palette::Palette;
 use crate::render::landscape::Landscape;
 use crate::render::queue::RenderQueue;
 use crate::render::turn_order::TurnOrderWidget;
@@ -46,8 +46,14 @@ pub struct GameWorld {
     /// Tracks up to 64 positional sounds with world coordinates for 3D audio mixing.
     /// NULL when `game_info+0xF914 != 0` (headless/server) or `sound == NULL`.
     pub active_sounds: *mut ActiveSoundTable,
-    /// 0x010: Palette object pointer (vtable 0x66A2E4). Constructor param "palette".
-    pub palette: *mut Palette,
+    /// 0x010: [`MouseInput`] adapter (vtable 0x66A2E4). Forwarded from
+    /// `GameSession.mouse_input`; despite the historical "palette" name on
+    /// its vtable + GameRuntime constructor parameter, this is a small
+    /// mouse-input wrapper that reads `g_GameSession.mouse_delta_*`/
+    /// `mouse_button_state` and debounces button presses through a
+    /// per-instance [`button_armed_latch`](MouseInput::button_armed_latch).
+    /// The actual graphics palette lives in [`PaletteContext`](crate::render::palette::PaletteContext).
+    pub mouse_input: *mut MouseInput,
     /// 0x014: Music object pointer (vtable 0x66B3E0). Constructor param "music".
     pub music: *mut Music,
     /// 0x018: Localized-template resolver (from GameSession+0xBC). Wraps

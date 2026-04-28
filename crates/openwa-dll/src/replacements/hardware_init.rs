@@ -26,7 +26,7 @@
 //!   DisplayGfx::Init retry loop (configured → 1024×768 → 800×600 → 640×480)
 //!   screen center / cursor setup
 //!   Keyboard (0x33C, inline) → session+0xA4
-//!   Palette (0x28, inline) → session+0xB0
+//!   MouseInput (0x28, inline) → session+0xB0
 //!   DSSound (0xBE0, usercall ctor + DirectSoundCreate + coop level) → session+0xA8
 //!   IF GameInfo.speech_enabled != 0 AND DSSound OK: streaming audio → session+0xB4
 //!
@@ -37,7 +37,7 @@
 //! ALWAYS:
 //!   session+0x28 = (GameInfo.home_lock != 0) ? 1 : 0
 //!   GameRuntime (0x6F10) → session+0xA0  [via game_session::construct_runtime]
-//!   Palette vtable[4/3/2] calls + Keyboard poll (normal mode only)
+//!   MouseInput vtable[4/3/2] calls + Keyboard poll (normal mode only)
 //!   DDNetGameWrapper (0x2C, stdcall ctor) → session+0xC0
 //! ```
 
@@ -48,9 +48,10 @@ use openwa_game::address::va;
 use openwa_game::audio::{DSSound, Music};
 use openwa_game::engine::game_session::get_game_session;
 use openwa_game::engine::{DDNetGameWrapper, GameInfo, GameRuntime};
+use openwa_game::input::MouseInput;
 use openwa_game::input::{InputCtrl, InputCtrlVtable, Keyboard};
 use openwa_game::rebase::rb;
-use openwa_game::render::{DisplayBase, DisplayGfx, Palette};
+use openwa_game::render::{DisplayBase, DisplayGfx};
 use openwa_game::wa::localized_template::LocalizedTemplate;
 use openwa_game::wa_alloc::{wa_malloc_struct, wa_malloc_struct_zeroed};
 
@@ -374,10 +375,12 @@ unsafe extern "cdecl" fn impl_init_hardware(
             );
             (*session).keyboard = kb;
 
-            // ── Palette (inline construction) ─────────────────────────────────────
-            let pal = wa_malloc_struct::<Palette>();
-            core::ptr::write(pal, Palette::new(rb(va::PALETTE_VTABLE)));
-            (*session).palette = pal;
+            // ── MouseInput (inline construction) ──────────────────────────────────
+            // Allocated as the misnamed "palette" param historically;
+            // actually a small mouse-input wrapper. See `input::mouse::MouseInput`.
+            let mi = wa_malloc_struct::<MouseInput>();
+            core::ptr::write(mi, MouseInput::new(rb(va::MOUSE_INPUT_VTABLE)));
+            (*session).mouse_input = mi;
 
             // ── DSSound ───────────────────────────────────────────────────────────
             (*session).sound = create_dssound(hwnd);
@@ -399,7 +402,7 @@ unsafe extern "cdecl" fn impl_init_hardware(
             (*session).display = DisplayBase::new_headless() as *mut u8;
             (*session).keyboard = core::ptr::null_mut();
             (*session).sound = core::ptr::null_mut();
-            (*session).palette = core::ptr::null_mut();
+            (*session).mouse_input = core::ptr::null_mut();
             (*session).streaming_audio = core::ptr::null_mut();
         }
 
@@ -415,20 +418,23 @@ unsafe extern "cdecl" fn impl_init_hardware(
             (*session).display as *mut DisplayGfx,
             (*session).sound,
             (*session).keyboard,
-            (*session).palette,
+            (*session).mouse_input,
             (*session).streaming_audio,
             (*session).input_ctrl,
         );
         (*session).game_runtime = runtime;
         let _ = crate::log_line("[hardware_init] GameRuntime created OK");
 
-        // ── Palette vtable[4/3/2] + keyboard poll (normal mode only) ─────────────
+        // ── MouseInput init (vtable[4/3/2]) + keyboard poll (normal mode only) ──
+        // Slot 4 is a no-op stub (kept for fidelity); slot 3 zeros mouse
+        // deltas; slot 2 with mask 0x7 disarms LMB/RMB/MMB latch bits that
+        // happen to be down at startup so the very first real press registers.
         if !headless {
-            let pal = (*session).palette;
-            if !pal.is_null() {
-                (*pal).reset();
-                (*pal).init();
-                (*pal).set_mode(7);
+            let mi = (*session).mouse_input;
+            if !mi.is_null() {
+                (*mi).slot_04_noop();
+                (*mi).clear_deltas();
+                (*mi).ack_button_mask(7);
             }
 
             let kb = (*session).keyboard;

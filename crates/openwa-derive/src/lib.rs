@@ -49,14 +49,14 @@ use syn::{Data, DeriveInput, Fields, Lit, Meta, parse_macro_input};
 ///
 /// ```ignore
 /// #[derive(Vtable)]
-/// #[vtable(size = 5, va = 0x0066A2E4, class = "Palette")]
-/// pub struct PaletteVtable {
+/// #[vtable(size = 5, va = 0x0066A2E4, class = "MouseInput")]
+/// pub struct MouseInputVtable {
 ///     #[slot(2)]
-///     pub set_mode: unsafe extern "thiscall" fn(*mut Palette, u32),
+///     pub ack_button_mask: unsafe extern "thiscall" fn(*mut MouseInput, u32),
 ///     #[slot(3)]
-///     pub init: unsafe extern "thiscall" fn(*mut Palette),
+///     pub clear_deltas: unsafe extern "thiscall" fn(*mut MouseInput),
 ///     #[slot(4)]
-///     pub reset: unsafe extern "thiscall" fn(*mut Palette),
+///     pub slot_04_noop: unsafe extern "thiscall" fn(*mut MouseInput),
 /// }
 /// ```
 /// Attribute macro that transforms a sparse vtable definition into a full

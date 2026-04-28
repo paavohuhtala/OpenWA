@@ -43,8 +43,8 @@ use crate::engine::world::GameWorld;
 use crate::game::message::{TurnEndMaybeMessage, Unknown122Message};
 use crate::input::hooks::InputHookMode;
 use crate::input::keyboard::Keyboard;
+use crate::input::mouse::MouseInput;
 use crate::rebase::rb;
-use crate::render::display::palette::Palette;
 use crate::task::WorldRootEntity;
 use crate::wa::string_resource::{StringRes, res, wa_load_string};
 
@@ -360,12 +360,12 @@ pub unsafe fn step_frame(
             *remaining = remaining.wrapping_sub(frame_duration);
         }
 
-        // ── Block G: headful-mode keyboard/palette no-op slots ────────
+        // ── Block G: headful-mode keyboard/mouse no-op slots ──────────
         if (*world).is_headful != 0 {
             let keyboard = (*world).keyboard;
             Keyboard::slot_06_noop_raw(keyboard);
-            let palette = (*world).palette;
-            Palette::reset_raw(palette);
+            let mouse_input = (*world).mouse_input;
+            MouseInput::slot_04_noop_raw(mouse_input);
         }
 
         // ── Block H: end-of-round body ────────────────────────────────

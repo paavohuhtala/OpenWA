@@ -83,6 +83,7 @@ pub mod va {
     pub use crate::engine::game_session::{GAME_SESSION_VTABLE, GameSessionVtable};
     pub use crate::frontend::map_view::MAP_VIEW_VTABLE;
     pub use crate::input::controller::INPUT_CTRL_VTABLE;
+    pub use crate::input::mouse::MOUSE_INPUT_VTABLE;
     pub use crate::render::ddraw::compat_renderer::{
         COMPAT_RENDERER_VTABLE, CompatRendererVtable, DDRAW8_RENDERER_VTABLE,
     };
@@ -98,7 +99,6 @@ pub mod va {
         DISPLAY_GFX_DISPATCH_FRAME_POST_PROCESS_HOOKS, DISPLAY_GFX_FREE_LAYER_SPRITE_TABLE,
         TILE_BITMAP_SET_DESTRUCTOR,
     };
-    pub use crate::render::display::palette::PALETTE_VTABLE;
     pub use crate::render::display::vtable::DISPLAY_GFX_VTABLE;
     pub use crate::task::game_task::SOUND_EMITTER_VTABLE;
 
@@ -341,7 +341,8 @@ pub mod va {
         /// RET 0x4. Recreates lost DDraw surfaces after focus regain.
         fn/Stdcall DISPLAY_RESTORE_SURFACES = 0x0056CA80;
 
-        // Palette vtable is now defined via #[derive(Vtable)] in display/palette.rs
+        // MouseInput vtable (formerly misnamed "Palette") is now defined via
+        // #[vtable(...)] in input/mouse.rs.
 
         class "DisplayBase" {
             // Primary vtable now defined via #[vtable(...)] in display/base.rs

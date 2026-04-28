@@ -6,7 +6,7 @@ use crate::audio::music::Music;
 use crate::engine::game_info::GameInfo;
 use crate::engine::runtime::GameRuntime;
 use crate::input::keyboard::Keyboard;
-use crate::render::display::palette::Palette;
+use crate::input::mouse::MouseInput;
 
 /// `GameSession` vtable (`PTR_FUN_0066b3f8`, 1 slot — scalar deleting dtor).
 ///
@@ -123,11 +123,12 @@ pub struct GameSession {
     /// 0x078: Mouse delta X accumulator (since last gameplay consumer poll).
     /// WM_MOUSEMOVE adds `(new_screen_x - cursor_x)` here. Zeroed by the
     /// constructor / `Run` startup / mouse release path. Consumed by
-    /// `DDNetGameWrapper::Mouse__ConsumeDeltaAndButtons` (vtable slot 3,
-    /// 0x0056D2E0), which copies the delta into a caller buffer without
-    /// clearing — pair with `Mouse__ClearDeltas` (vtable slot 5, 0x0056D340)
-    /// for read-then-zero. The wrapper bridges local mouse input into the
-    /// per-frame network game state (`SendGameState`).
+    /// [`MouseInput`](crate::input::mouse::MouseInput)'s
+    /// [`consume_delta_and_buttons`](crate::input::mouse::MouseInputVtable::consume_delta_and_buttons)
+    /// (vtable slot 1, 0x0056D2E0), which copies the delta into a caller
+    /// buffer without clearing — pair with
+    /// [`clear_deltas`](crate::input::mouse::MouseInputVtable::clear_deltas)
+    /// (vtable slot 3, 0x0056D340) for read-then-zero.
     pub mouse_delta_x: i32,
     /// 0x07C: Mouse delta Y accumulator (companion to `mouse_delta_x`,
     /// same producer/consumer pair).
@@ -148,11 +149,14 @@ pub struct GameSession {
     /// click+release between two MOVE events can be lost). Cleared by the
     /// release-input + headless pre-loop paths.
     ///
-    /// Consumed by `DDNetGameWrapper::Mouse__ConsumeDeltaAndButtons` (vtable
-    /// slot 3, 0x0056D2E0) as a debounced click detector: the wrapper holds a
-    /// per-button "armed" latch in its own `[this+4]` field, ANDs that latch
-    /// with the current bitmask to report fresh clicks, then re-arms any bit
-    /// that's currently unpressed. So a held button only registers once.
+    /// Consumed by [`MouseInput`](crate::input::mouse::MouseInput)'s
+    /// [`consume_delta_and_buttons`](crate::input::mouse::MouseInputVtable::consume_delta_and_buttons)
+    /// (vtable slot 1, 0x0056D2E0) as a debounced click detector: the
+    /// adapter holds a per-button "armed" latch in
+    /// [`button_armed_latch`](crate::input::mouse::MouseInput::button_armed_latch),
+    /// ANDs that latch with the current bitmask to report fresh clicks,
+    /// then re-arms any bit that's currently unpressed. So a held button
+    /// only registers once.
     pub mouse_button_state: u32,
     pub _unknown_08c: [u8; 4],
     /// 0x090: `QueryPerformanceFrequency` result (ticks per second),
@@ -171,8 +175,11 @@ pub struct GameSession {
     /// 0x0AC: Polymorphic display — `DisplayGfx*` (normal) or `DisplayBase*` (headless).
     /// Stays `*mut u8` because the concrete type depends on mode.
     pub display: *mut u8,
-    /// 0x0B0: `Palette*` — 0x28 bytes, vtable `Palette_vtable_Maybe`
-    pub palette: *mut Palette,
+    /// 0x0B0: [`MouseInput`]* — 0x28 bytes, vtable 0x0066A2E4
+    /// (historically labelled `Palette_vtable_Maybe` in Ghidra, but this is
+    /// the small mouse-input adapter, not the graphics palette). Forwarded
+    /// to [`GameWorld::mouse_input`](crate::engine::world::GameWorld).
+    pub mouse_input: *mut MouseInput,
     /// 0x0B4: Music object — 0x354 bytes (constructor 0x58BC10, vtable 0x66B3E0).
     /// Combines playlist controller + embedded streaming audio engine.
     pub streaming_audio: *mut Music,
@@ -182,7 +189,7 @@ pub struct GameSession {
     /// (constructed by `LocalizedTemplate__Constructor` at 0x0053E950).
     /// Copied into [`GameWorld`](crate::engine::GameWorld)`+0x18` on world
     /// construction. See [`LocalizedTemplate`](crate::wa::localized_template::LocalizedTemplate).
-    pub localized_template: *mut crate::wa::localized_template::LocalizedTemplate,
+    pub localized_template: *mut LocalizedTemplate,
     /// 0x0C0: `DDNetGameWrapper*` — 0x2C bytes
     pub net_game: *mut u8,
     pub _unknown_0c4: [u8; 0x5C],
@@ -197,6 +204,7 @@ bind_GameSessionVtable!(GameSession, vtable);
 use crate::address::va;
 use crate::engine::world::GameWorld;
 use crate::rebase::rb;
+use crate::wa::localized_template::LocalizedTemplate;
 
 /// Get a pointer to the global `GameSession` struct from `G_GAME_SESSION`.
 ///
