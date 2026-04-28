@@ -551,7 +551,7 @@ unsafe fn advance_frame_counters(
 ///    once the game enters replay tail / fast-forward / round-end.
 /// 2. Dispatch on `runtime.esc_menu_state`:
 ///    - `0` (closed) → [`esc_menu::tick_closed`]; both slew targets → 0.
-///    - `1` (open) → [`esc_menu::bridge_state_1_tick`]; slew target slot 1
+///    - `1` (open) → [`esc_menu::tick_open`] (Rust port); slew target slot 1
 ///      → 1.0, slot 2 → 0 (slot 1 = menu visible, slot 2 = confirm overlay
 ///      hidden).
 ///    - `2` (confirm/end-of-game) → [`esc_menu::bridge_state_2_tick`];
@@ -596,7 +596,7 @@ unsafe fn setup_frame_params(
                 (*runtime)._field_430 = 0;
             }
             1 => {
-                esc_menu::bridge_state_1_tick(runtime);
+                esc_menu::tick_open(runtime);
                 (*runtime)._field_428 = 0x10000;
                 (*runtime)._field_430 = 0;
             }

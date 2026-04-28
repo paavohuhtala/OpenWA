@@ -9,8 +9,8 @@
 //!
 //! State at `runtime.esc_menu_state` (i32):
 //!  - **0** — closed. [`tick_closed`] polls for Escape to open.
-//!  - **1** — open / accepting nav input. Driven WA-side by
-//!    `EscMenu_TickState1` (still bridged via [`bridge_state_1_tick`]).
+//!  - **1** — open / mouse-driven cursor + LMB activation. Handled by
+//!    [`tick_open`] (Rust port of `EscMenu_TickState1`).
 //!  - **2** — confirm / network-end-of-game flow. Driven WA-side by
 //!    `EscMenu_TickState2` (still bridged via [`bridge_state_2_tick`]).
 //!
@@ -23,9 +23,13 @@ use openwa_core::fixed::Fixed;
 
 use crate::address::va;
 use crate::audio::known_sound_id::KnownSoundId;
+use crate::audio::sound_id::SoundId;
 use crate::audio::sound_ops::dispatch_global_sound;
 use crate::bitgrid::{BitGridDisplayVtable, DisplayBitGrid};
-use crate::engine::menu_panel::{MenuPanel, append_item_impl};
+use crate::engine::game_session::get_game_session;
+use crate::engine::menu_panel::{
+    ActivateOutcome, MenuPanel, activate_at_cursor, append_item_impl, set_cursor_at,
+};
 use crate::engine::runtime::GameRuntime;
 use crate::engine::team_arena::TeamArena;
 use crate::engine::world::GameWorld;
@@ -39,10 +43,23 @@ use crate::wa::string_resource::{StringRes, res};
 
 // ─── Bridged WA addresses ──────────────────────────────────────────────────
 
-static mut STATE_1_TICK_ADDR: u32 = 0;
 static mut STATE_2_TICK_ADDR: u32 = 0;
+static mut APPLY_VOLUME_SETTINGS_ADDR: u32 = 0;
+static mut OPEN_CONFIRM_DIALOG_ADDR: u32 = 0;
 static mut STRING_TOKEN_LOOKUP_ADDR: u32 = 0;
 static mut SPRINTF_ROTATING_ADDR: u32 = 0;
+
+// `GameRuntime::ApplyVolumeSettings` (0x00534B40) — usercall(EAX=this),
+// plain RET. Copies `runtime+0x420` (live volume slider) into
+// [`GameRuntime::ui_volume`], then pushes the scaled value to DSSound and
+// Music via vtable calls. Bridged because typed wrappers for those two
+// vtable slots aren't yet defined.
+const APPLY_VOLUME_SETTINGS_VA: u32 = 0x00534B40;
+// `GameRuntime::OpenEscMenuConfirmDialog` (0x00535CF0) — stdcall(this),
+// RET 0x4. Builds the Yes/No dialog into `runtime.menu_panel_b` and
+// transitions `esc_menu_state` to 2. Bridged because it's a sibling of
+// `OpenEscMenu` (~260 inst, lots of vtable calls); not yet ported.
+const OPEN_CONFIRM_DIALOG_VA: u32 = 0x00535CF0;
 
 // String token table lookup — `FUN_0053EA30(table, token) -> *const c_char`,
 // `__stdcall`, RET 8. Resolves a localized template string from the
@@ -58,30 +75,15 @@ const SPRINTF_ROTATING_VA: u32 = 0x005978A0;
 /// `dispatch_frame::init_dispatch_addrs` at DLL load.
 pub unsafe fn init_addrs() {
     unsafe {
-        STATE_1_TICK_ADDR = rb(va::GAME_RUNTIME_ESC_MENU_STATE_1_TICK);
         STATE_2_TICK_ADDR = rb(va::GAME_RUNTIME_ESC_MENU_STATE_2_TICK);
+        APPLY_VOLUME_SETTINGS_ADDR = rb(APPLY_VOLUME_SETTINGS_VA);
+        OPEN_CONFIRM_DIALOG_ADDR = rb(OPEN_CONFIRM_DIALOG_VA);
         STRING_TOKEN_LOOKUP_ADDR = rb(STRING_TOKEN_LOOKUP_VA);
         SPRINTF_ROTATING_ADDR = rb(SPRINTF_ROTATING_VA);
     }
 }
 
 // ─── Bridges (still WA-side) ───────────────────────────────────────────────
-
-/// Bridge for `GameRuntime::EscMenu_TickState1` (0x00535B10) — per-frame
-/// tick while the menu is open (`esc_menu_state == 1`); handles arrow-key
-/// nav + Enter to activate a menu item. Usercall EDI=this, plain RET.
-/// ~159 instructions.
-#[unsafe(naked)]
-pub unsafe extern "stdcall" fn bridge_state_1_tick(_this: *mut GameRuntime) {
-    core::arch::naked_asm!(
-        "push edi",
-        "mov edi, [esp+8]",
-        "call [{addr}]",
-        "pop edi",
-        "ret 4",
-        addr = sym STATE_1_TICK_ADDR,
-    );
-}
 
 /// Bridge for `GameRuntime::EscMenu_TickState2` (0x00535FC0) — per-frame
 /// tick while `esc_menu_state == 2` (confirm / network-end-of-game flow;
@@ -98,6 +100,44 @@ pub unsafe extern "stdcall" fn bridge_state_2_tick(_this: *mut GameRuntime) {
         addr = sym STATE_2_TICK_ADDR,
     );
 }
+
+/// Bridge for `GameRuntime::ApplyVolumeSettings` (0x00534B40). Usercall
+/// EAX=this, plain RET. Reads `runtime+0x420` (the live volume slider
+/// value) → writes [`GameRuntime::ui_volume`] → pushes the effective
+/// value (clamped by the game-end fade and the engine-suspended flag) to
+/// `DSSound::SetMasterVolume` and `Music::SetVolume`.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_apply_volume_settings(_this: *mut GameRuntime) {
+    core::arch::naked_asm!(
+        "mov eax, [esp+4]",
+        "call [{addr}]",
+        "ret 4",
+        addr = sym APPLY_VOLUME_SETTINGS_ADDR,
+    );
+}
+
+/// Bridge for `GameRuntime::OpenEscMenuConfirmDialog` (0x00535CF0).
+/// Stdcall(this), RET 0x4. Builds the Yes/No confirmation panel in
+/// `menu_panel_b` and sets `runtime.esc_menu_state = 2`.
+unsafe fn bridge_open_confirm_dialog(this: *mut GameRuntime) {
+    unsafe {
+        let func: unsafe extern "stdcall" fn(*mut GameRuntime) =
+            core::mem::transmute(OPEN_CONFIRM_DIALOG_ADDR as usize);
+        func(this);
+    }
+}
+
+// ─── UI sound IDs ──────────────────────────────────────────────────────────
+//
+// Both ESC-menu UI sounds set the "raw volume" flag (bit 17, 0x20000) so
+// the slider's value is heard at exactly the chosen level — without master
+// volume re-scaling — giving immediate feedback while the user drags. See
+// [`SoundId::is_raw_volume`].
+
+/// "Click" / "select" UI sound — raw_volume + [`KnownSoundId::CursorSelect`].
+const UI_CLICK_SOUND: SoundId = SoundId(0x20000 | KnownSoundId::CursorSelect as u32);
+/// "Miss" / "rejected" UI sound — raw_volume + [`KnownSoundId::WarningBeep`].
+const UI_MISS_SOUND: SoundId = SoundId(0x20000 | KnownSoundId::WarningBeep as u32);
 
 /// Bridge for `LocalizedTemplate__Resolve` (FUN_0053EA30, stdcall RET 8).
 /// Returns a pointer to the resolved template string (with WA's escape
@@ -260,6 +300,158 @@ pub unsafe fn is_hud_active(runtime: *mut GameRuntime) -> bool {
             return false;
         }
         true
+    }
+}
+
+/// Predicate: are we at slot 0 of `world.team_index_maps[map_idx]`'s
+/// active list? Returns `true` only when `runtime_handle` is found AND
+/// it's the first element (slot 0). Used by [`tick_open`] to gate the
+/// menu on input focus — the ESC menu only accepts mouse/keyboard input
+/// while the player owns slots 0 of both map[0] (frame-input subscribers)
+/// and map[2] (UI-input subscribers).
+unsafe fn handle_at_input_focus(world: *const GameWorld, map_idx: usize, handle: i32) -> bool {
+    unsafe {
+        let map = &(*world).team_index_maps[map_idx];
+        let count = map.active_count as usize;
+        if count == 0 {
+            return false;
+        }
+        let target = handle as i16;
+        // WA's exact loop: the first match wins. If found at index != 0,
+        // we don't own focus (some other subscriber is ahead of us).
+        for (i, &slot) in map.active_list.iter().take(count).enumerate() {
+            if slot as i32 == handle as i32 {
+                return i == 0;
+            }
+            // (target var silences "unused if no match" — compiler can prove it.)
+            let _ = target;
+        }
+        false
+    }
+}
+
+/// Rust port of `GameRuntime::EscMenu_TickState1` (0x00535B10) — the
+/// per-frame mouse-driven input handler while the menu is open
+/// (`esc_menu_state == 1`). Despite the "TickState1" Ghidra name, this
+/// function only handles mouse input + Escape: there is no arrow-key
+/// navigation in the ESC menu — the cursor IS the screen mouse cursor.
+///
+/// Sequence:
+/// 1. Bail early unless we own input focus on both `team_index_maps[0]`
+///    and `team_index_maps[2]` (handles
+///    [`runtime._field_438`](GameRuntime::_field_438) /
+///    [`_field_43c`](GameRuntime::_field_43c) at slot 0).
+/// 2. If [`KeyboardAction::Escape`] is just-pressed
+///    ([`is_active2`](KeyboardAction::is_active2)) → close the menu
+///    (`esc_menu_state = 0`).
+/// 3. Poll mouse via
+///    [`MouseInput::consume_delta_and_buttons`](crate::input::mouse::MouseInputVtable::consume_delta_and_buttons)
+///    → cursor delta + debounced LMB press.
+/// 4. Move cursor: [`set_cursor_at`]`(panel, cursor + delta)`.
+/// 5. If LMB not pressed → release the slider drag lock and return.
+/// 6. Otherwise [`activate_at_cursor`]:
+///    * [`Slider`](ActivateOutcome::Slider) → if the volume slider value
+///      changed, [`bridge_apply_volume_settings`] + click sound.
+///    * [`Miss`](ActivateOutcome::Miss) → ack mouse latch + miss sound.
+///    * [`Button`](ActivateOutcome::Button) `kind == 3` (Minimize Game)
+///      → set `g_GameSession.minimize_request = 1`; close menu only when
+///      online (`world.net_session != null`) — offline keeps the menu
+///      open behind the minimised window.
+///    * Other button kinds (Force-SD / Draw / Quit) → click sound +
+///      [`bridge_open_confirm_dialog`] (transitions to state 2).
+pub unsafe fn tick_open(runtime: *mut GameRuntime) {
+    unsafe {
+        let world = (*runtime).world;
+
+        // Step 1: input-focus gate.
+        if !handle_at_input_focus(world, 0, (*runtime)._field_438) {
+            return;
+        }
+        if !handle_at_input_focus(world, 2, (*runtime)._field_43c) {
+            return;
+        }
+
+        // Step 2: Escape closes the menu.
+        let keyboard = (*world).keyboard;
+        if KeyboardAction::Escape.is_active2(keyboard) {
+            (*runtime).esc_menu_state = 0;
+            return;
+        }
+
+        // Step 3: poll mouse — read deltas + button latch, then zero the
+        // delta accumulator so the next frame's read measures fresh
+        // movement only. (`Mouse__ConsumeDeltaAndButtons` reads but does
+        // not clear; vanilla TickState1 always pairs it with a slot-3
+        // `clear_deltas` call in this exact sequence.)
+        let mouse_input = (*world).mouse_input;
+        let mut dx: i32 = 0;
+        let mut dy: i32 = 0;
+        let mut buttons: u32 = 0;
+        ((*(*mouse_input).vtable).consume_delta_and_buttons)(
+            mouse_input,
+            &mut dx,
+            &mut dy,
+            &mut buttons,
+        );
+        ((*(*mouse_input).vtable).clear_deltas)(mouse_input);
+
+        // Step 4: move cursor.
+        let panel = (*runtime).menu_panel_a;
+        let new_x = (*panel).cursor_x + dx;
+        let new_y = (*panel).cursor_y + dy;
+        set_cursor_at(panel, new_x, new_y);
+
+        // Step 5: LMB not pressed → release drag lock + return.
+        if buttons & 1 == 0 {
+            (*panel).slider_lock = 0;
+            return;
+        }
+
+        // Step 6: dispatch by activation outcome.
+        match activate_at_cursor(panel) {
+            ActivateOutcome::Slider(_) => {
+                // Volume slider value lives at runtime+0x420 (currently
+                // misnamed `turn_percentage`); apply it if it differs
+                // from the previously-applied `ui_volume`.
+                if (*runtime).turn_percentage != (*runtime).ui_volume.to_raw() {
+                    bridge_apply_volume_settings(runtime);
+                    dispatch_global_sound(
+                        runtime,
+                        UI_CLICK_SOUND,
+                        8,
+                        Fixed::ONE,
+                        (*runtime).ui_volume,
+                    );
+                }
+            }
+            ActivateOutcome::Miss => {
+                // Re-arm LMB+RMB latch bits so the next click registers.
+                ((*(*mouse_input).vtable).ack_button_mask)(mouse_input, 3);
+                dispatch_global_sound(runtime, UI_MISS_SOUND, 8, Fixed::ONE, (*runtime).ui_volume);
+            }
+            ActivateOutcome::Button(kind) => {
+                ((*(*mouse_input).vtable).ack_button_mask)(mouse_input, 3);
+                if kind == 3 {
+                    // Minimize Game: post the SC_MINIMIZE request.
+                    (*get_game_session()).minimize_request = 1;
+                    // Online: close menu (don't block input under the
+                    // minimised window). Offline: leave it open.
+                    if !(*world).net_session.is_null() {
+                        (*runtime).esc_menu_state = 0;
+                    }
+                } else {
+                    // Force-SD / Draw / Quit: confirm via state 2.
+                    dispatch_global_sound(
+                        runtime,
+                        UI_CLICK_SOUND,
+                        8,
+                        Fixed::ONE,
+                        (*runtime).ui_volume,
+                    );
+                    bridge_open_confirm_dialog(runtime);
+                }
+            }
+        }
     }
 }
 

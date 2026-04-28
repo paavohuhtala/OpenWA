@@ -67,6 +67,14 @@ pub fn install() -> Result<(), String> {
         // caller was `EscMenu_TickClosed`, also Rust now. Trap as a safety
         // net.
         hook::install_trap!("GameRuntime__OpenEscMenu", va::GAME_RUNTIME_OPEN_ESC_MENU);
+        // `GameRuntime::EscMenu_TickState1` (0x00535B10) — Rust port at
+        // `esc_menu::tick_open`. Dispatched directly from Rust
+        // `setup_frame_params`; trap to catch any regression that lands a
+        // WA-side caller back here.
+        hook::install_trap!(
+            "GameRuntime__EscMenu_TickState1",
+            va::GAME_RUNTIME_ESC_MENU_STATE_1_TICK
+        );
     }
     Ok(())
 }

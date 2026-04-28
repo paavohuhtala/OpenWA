@@ -255,3 +255,119 @@ pub unsafe extern "cdecl" fn append_item_impl(
         1
     }
 }
+
+/// Outcome of [`activate_at_cursor`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ActivateOutcome {
+    /// No item under the cursor — caller should play the "miss" sound and
+    /// re-arm the mouse latch.
+    Miss,
+    /// A button (`render_ctx == null`) was activated; carries `item.kind`.
+    Button(i32),
+    /// A slider (`render_ctx != null`) was adjusted; carries the item
+    /// index. The slider's value (`*item.render_ctx`) was updated and
+    /// `panel.slider_lock` is now sticky to this index until LMB releases.
+    Slider(i32),
+}
+
+/// Rust port of `MenuPanel::SetCursorAt` (0x005407D0).
+///
+/// Sets the cursor to `(x, y)`, clamped to the panel's clip rect, and marks
+/// [`MenuPanel::cursor_active`] = 1 so the next render draws the highlight
+/// box. WA's ABI is `__usercall(EAX=panel, EDX=x, ESI=y)` — Rust callers
+/// just use a normal function signature.
+pub unsafe fn set_cursor_at(panel: *mut MenuPanel, x: i32, y: i32) {
+    unsafe {
+        (*panel).cursor_x = x;
+        (*panel).cursor_y = y;
+        (*panel).cursor_active = 1;
+        if x < (*panel).clip_left {
+            (*panel).cursor_x = (*panel).clip_left;
+        }
+        if y < (*panel).clip_top {
+            (*panel).cursor_y = (*panel).clip_top;
+        }
+        if (*panel).clip_right < (*panel).cursor_x {
+            (*panel).cursor_x = (*panel).clip_right;
+        }
+        if (*panel).clip_bottom < (*panel).cursor_y {
+            (*panel).cursor_y = (*panel).clip_bottom;
+        }
+    }
+}
+
+/// Rust port of `MenuPanel::HitTestCursor` (0x005408B0).
+///
+/// Finds the item whose clip rect contains `(panel.cursor_x, panel.cursor_y)`,
+/// returning its index (0-based) or `-1` if none. When
+/// [`MenuPanel::slider_lock`] is non-zero, returns it directly without
+/// scanning — this is what makes mid-drag cursor straying outside the
+/// slider's row still hit the same item.
+///
+/// WA's ABI is `__thiscall(ECX=panel)` with EDI=cursor_x and ESI=cursor_y
+/// inherited from the caller; the Rust port reads them off `panel`
+/// directly.
+pub unsafe fn hit_test_cursor(panel: *mut MenuPanel) -> i32 {
+    unsafe {
+        let lock = (*panel).slider_lock;
+        if lock != 0 {
+            return lock;
+        }
+        let item_count = (*panel).item_count;
+        if item_count <= 0 {
+            return -1;
+        }
+        let cx = (*panel).cursor_x;
+        let cy = (*panel).cursor_y;
+        for i in 0..item_count as usize {
+            let item = &(*panel).items[i];
+            if cx >= item.clip_left
+                && cy >= item.clip_top
+                && cx <= item.clip_right
+                && cy <= item.clip_bottom
+            {
+                return i as i32;
+            }
+        }
+        -1
+    }
+}
+
+/// Rust port of `MenuPanel::ActivateAtCursor` (0x00540810).
+///
+/// Resolves the cursor's current target via [`hit_test_cursor`] and either
+/// reports the activated button's `kind` or advances the slider value:
+///
+/// - **No hit** → returns [`ActivateOutcome::Miss`].
+/// - **Slider** (`item.render_ctx` is non-null): maps `cursor_x` to the
+///   slider's `0..0x10000` Fixed range using
+///   `((cursor_x - clip_left - 3) << 16) / (clip_right - clip_left - 5)`,
+///   clamps to `[0, 0x10000]`, writes through `*render_ctx`, marks the
+///   item dirty (`neighbor_prev = -1`), and locks the panel's
+///   [`slider_lock`](MenuPanel::slider_lock) to this index for drag
+///   stickiness. Returns [`ActivateOutcome::Slider`] with the index.
+/// - **Button** (`item.render_ctx` is null): returns
+///   [`ActivateOutcome::Button`] carrying `item.kind`.
+///
+/// WA's ABI is `__cdecl(panel, *out_kind) -> i32` returning `0`/`1`/`-idx`;
+/// the Rust port returns a typed enum instead.
+pub unsafe fn activate_at_cursor(panel: *mut MenuPanel) -> ActivateOutcome {
+    unsafe {
+        let idx = hit_test_cursor(panel);
+        if idx < 0 {
+            return ActivateOutcome::Miss;
+        }
+        let item: *mut MenuItem = (*panel).items.as_mut_ptr().add(idx as usize);
+        if (*item).render_ctx.is_null() {
+            return ActivateOutcome::Button((*item).kind);
+        }
+        // Slider: map cursor_x onto 0..0x10000.
+        let denom = ((*item).clip_right - (*item).clip_left - 5) as i64;
+        let raw = ((((*panel).cursor_x - (*item).clip_left - 3) as i64) << 16) / denom;
+        let value = raw.clamp(0, 0x10000) as i32;
+        *((*item).render_ctx as *mut i32) = value;
+        (*item).neighbor_prev = -1;
+        (*panel).slider_lock = idx;
+        ActivateOutcome::Slider(idx)
+    }
+}
