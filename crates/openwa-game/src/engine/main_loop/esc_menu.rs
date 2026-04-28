@@ -584,7 +584,7 @@ pub unsafe fn open_esc_menu(runtime: *mut GameRuntime) {
         let panel_disp_a = (*panel).display_a as *const u8;
         let pa_w = *(panel_disp_a.add(0x14) as *const i32);
         let pa_h = *(panel_disp_a.add(0x18) as *const i32);
-        (*panel)._field_18 = 0;
+        (*panel).cursor_active = 0;
         (*panel).clip_left = 0;
         (*panel).clip_top = 0;
         (*panel).clip_right = pa_w;
@@ -601,7 +601,7 @@ pub unsafe fn open_esc_menu(runtime: *mut GameRuntime) {
         if pa_h < (*panel).cursor_y {
             (*panel).cursor_y = pa_h;
         }
-        (*panel)._field_2c = 0;
+        (*panel).slider_lock = 0;
         (*panel).item_count = 0;
 
         // ─── Block F: Action buttons + slider ───

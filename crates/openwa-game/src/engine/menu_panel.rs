@@ -116,8 +116,12 @@ pub struct MenuPanel {
     pub cursor_x: i32,
     /// 0x14: Cursor / camera target — y.
     pub cursor_y: i32,
-    /// 0x18: Reserved (zeroed by `OpenEscMenu` panel reset).
-    pub _field_18: i32,
+    /// 0x18: Cursor-active flag — set to `1` by [`MenuPanel::SetCursorAt`]
+    /// (any cursor move enables the highlight); cleared to `0` by
+    /// `OpenEscMenu`'s reset block and `OpenEscMenuConfirmDialog`. The
+    /// menu render code reads this to decide whether to draw the
+    /// hover/selection box around the item under the cursor.
+    pub cursor_active: i32,
     /// 0x1C: Visible region — left (zeroed by `OpenEscMenu`).
     pub clip_left: i32,
     /// 0x20: Visible region — top.
@@ -126,8 +130,14 @@ pub struct MenuPanel {
     pub clip_right: i32,
     /// 0x28: Visible region — bottom. Init = `display_a.height`.
     pub clip_bottom: i32,
-    /// 0x2C: Reserved (zeroed by `OpenEscMenu`).
-    pub _field_2c: i32,
+    /// 0x2C: Slider drag lock — when non-zero, holds the index of the
+    /// slider item currently being dragged. While set,
+    /// [`MenuPanel::HitTestCursor`] short-circuits to this index instead
+    /// of testing the cursor against each item's clip rect, making
+    /// continuous drag feel sticky even if the cursor strays outside the
+    /// slider's row. `EscMenu_TickState1` clears it when LMB is released
+    /// (debounced output is 0); `OpenEscMenu` resets it to 0 each open.
+    pub slider_lock: i32,
     /// 0x30: Item array (stride 0x38, capacity 16).
     pub items: [MenuItem; MENU_PANEL_CAPACITY],
     /// 0x3B0: Live item count. Reset to 0 by `OpenEscMenu`; bumped by each
