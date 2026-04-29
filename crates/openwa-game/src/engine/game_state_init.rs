@@ -133,7 +133,10 @@ pub unsafe fn init_turn_state(runtime: *mut GameRuntime) {
 
         // Post-feature-flag field writes
         (*world)._field_7e41 = 0;
-        (*world)._fields_7e50 = [0u32; 8];
+        (*world)._fields_7e50 = [0u32; 5];
+        (*world)._field_7e64 = 0;
+        (*world).render_skip_gate = 0;
+        (*world)._field_7e6c = 0;
         (*world)._fields_7e88 = [0u32; 5];
         (*world).field_7ea0 = 0;
         (*world).field_7ea4 = 0;

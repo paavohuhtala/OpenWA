@@ -383,8 +383,13 @@ pub struct GameWorld {
     /// `GameRender_Maybe` as `(level_bound_max_y - min_y) >> 16` (rounded
     /// down to an even number), clamped to the display dimensions.
     pub viewport_pixel_height: i32,
-    /// 0x77B4: Unknown
-    pub _unknown_77b4: u32,
+    /// 0x77B4: Previous frame's [`Self::viewport_pixel_height`]. Saved at
+    /// the top of `GameRender_Maybe` (0x00533DC0) before the new height is
+    /// computed, then read by downstream draw code that needs to compare
+    /// last frame's bar height against this frame's. Initialized to zero;
+    /// the first frame copies `viewport_pixel_height` into here so the
+    /// second frame sees a non-zero "previous" value.
+    pub viewport_pixel_height_prev: i32,
     /// 0x77B8: Level width for 3D sound distance computation (pixels, not fixed-point).
     /// Read by ComputeDistanceParams, shifted left 16 before passing to Distance3D_Attenuation.
     pub level_width_sound: i32,
@@ -465,8 +470,18 @@ pub struct GameWorld {
     pub _unknown_7e42: [u8; 10],
     /// 0x7E4C: Unknown (zeroed by InitTurnState).
     pub _field_7e4c: u32,
-    /// 0x7E50-0x7E6F: Unknown fields (all zeroed by InitTurnState).
-    pub _fields_7e50: [u32; 8],
+    /// 0x7E50-0x7E63: Unknown fields (all zeroed by InitTurnState).
+    pub _fields_7e50: [u32; 5],
+    /// 0x7E64: Unknown (zeroed by InitTurnState).
+    pub _field_7e64: u32,
+    /// 0x7E68: "Skip render" gate. When non-zero, `GameRender_Maybe`
+    /// (0x00533DC0) early-exits at the very top — entire per-frame render
+    /// pipeline (queue dispatch + tail funcs) is bypassed. Writers TBD;
+    /// candidates include the dialog/end-of-round freeze and the
+    /// host-side network-game-end "wait for peers" state.
+    pub render_skip_gate: u32,
+    /// 0x7E6C: Unknown (zeroed by InitTurnState).
+    pub _field_7e6c: u32,
     /// 0x7E70: Per-team scoring flags (6 entries, written by InitAllianceData).
     pub team_scoring_flags: [u32; 6],
     /// 0x7E88-0x7E9B: Unknown fields (all zeroed by InitTurnState).

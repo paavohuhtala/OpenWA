@@ -52,6 +52,7 @@
 //!   0x542B1A (`AND ECX, 0xFFFF0000`). Same shape as `RQ_ClipCoordinates`
 //!   but without the perspective scale.
 
+use crate::engine::CoordEntry;
 use crate::render::display::gfx::DisplayGfx;
 use crate::render::message::{COMMAND_TYPE_TYPED, RenderMessage, TypedRenderCmd};
 use crate::render::queue::RenderQueue;
@@ -134,6 +135,55 @@ fn clip_sub_saturate(in_val: Fixed, cam: Fixed) -> Fixed {
 fn perspective_scale(projected_z: i32) -> Fixed {
     // Equivalent to the WA `FixedDiv16_16` call: `(0x100_0000 << 16) / projected_z`.
     Fixed::from_raw(0x01000000) / Fixed::from_raw(projected_z)
+}
+
+// =============================================================================
+// ClipContext::ClampCameraToBounds (0x542F10) — keep camera within scrollable area
+// =============================================================================
+
+/// Rust port of `ClipContext::ClampCameraToBounds` (0x00542F10, was misnamed
+/// `RQ_UpdateClipBounds_Maybe`).
+///
+/// Clamps `entry.center_x` / `entry.center_y` to the level bounds shrunk by
+/// half the viewport on each side — the standard "camera can't show
+/// off-level area" math. Applied per frame in `GameRender_Maybe` against
+/// `GameWorld::viewport_coords[0..3]` after the viewport pixel size is
+/// computed (and clamped to the display).
+///
+/// The half-viewport conversions use round-toward-zero `>> 16 then / 2`
+/// rather than `<< 15` to match WA's `(SHL 0x10; CDQ; SUB; SAR 1)` idiom
+/// — Rust's signed `/2` already rounds toward zero, so plain division
+/// produces bit-identical results.
+///
+/// Only one WA-side caller (`GameRender_Maybe` 0x00533DC0); re-callable
+/// from Rust against any [`CoordEntry`] in the same family
+/// (`viewport_coords[]`, `screen_coords_2[]`).
+pub fn clamp_camera_to_bounds(
+    entry: &mut CoordEntry,
+    viewport_w_px: i32,
+    viewport_h_px: i32,
+    min_x: Fixed,
+    min_y: Fixed,
+    max_x: Fixed,
+    max_y: Fixed,
+) {
+    let half_vw = (viewport_w_px << 16) / 2;
+    let half_vh = (viewport_h_px << 16) / 2;
+    let min_x_eff = Fixed::from_raw(min_x.to_raw().wrapping_add(half_vw));
+    let max_x_eff = Fixed::from_raw(max_x.to_raw().wrapping_sub(half_vw));
+    let min_y_eff = Fixed::from_raw(min_y.to_raw().wrapping_add(half_vh));
+    let max_y_eff = Fixed::from_raw(max_y.to_raw().wrapping_sub(half_vh));
+
+    if entry.center_x < min_x_eff {
+        entry.center_x = min_x_eff;
+    } else if entry.center_x > max_x_eff {
+        entry.center_x = max_x_eff;
+    }
+    if entry.center_y < min_y_eff {
+        entry.center_y = min_y_eff;
+    } else if entry.center_y > max_y_eff {
+        entry.center_y = max_y_eff;
+    }
 }
 
 // =============================================================================
@@ -1346,5 +1396,81 @@ mod tests {
         );
         assert_eq!(ox, Fixed::from_int(20));
         assert_eq!(oy, Fixed::from_int(30));
+    }
+
+    fn entry(cx: i32, cy: i32) -> CoordEntry {
+        CoordEntry {
+            center_x: Fixed::from_int(cx),
+            center_y: Fixed::from_int(cy),
+            center_x_target: Fixed::ZERO,
+            center_y_target: Fixed::ZERO,
+        }
+    }
+
+    /// Camera centered well inside the level → no change.
+    #[test]
+    fn clamp_camera_in_range_unchanged() {
+        let mut e = entry(500, 400);
+        clamp_camera_to_bounds(
+            &mut e,
+            200,
+            150,
+            Fixed::from_int(0),
+            Fixed::from_int(0),
+            Fixed::from_int(1000),
+            Fixed::from_int(800),
+        );
+        assert_eq!(e.center_x, Fixed::from_int(500));
+        assert_eq!(e.center_y, Fixed::from_int(400));
+    }
+
+    /// Camera too far left → clamped up to (min_x + viewport_w/2).
+    #[test]
+    fn clamp_camera_left_edge() {
+        let mut e = entry(0, 400);
+        clamp_camera_to_bounds(
+            &mut e,
+            200,
+            150,
+            Fixed::from_int(0),
+            Fixed::from_int(0),
+            Fixed::from_int(1000),
+            Fixed::from_int(800),
+        );
+        // half_vw = 100 in pixel units
+        assert_eq!(e.center_x, Fixed::from_int(100));
+    }
+
+    /// Camera too far right → clamped down to (max_x - viewport_w/2).
+    #[test]
+    fn clamp_camera_right_edge() {
+        let mut e = entry(2000, 400);
+        clamp_camera_to_bounds(
+            &mut e,
+            200,
+            150,
+            Fixed::from_int(0),
+            Fixed::from_int(0),
+            Fixed::from_int(1000),
+            Fixed::from_int(800),
+        );
+        assert_eq!(e.center_x, Fixed::from_int(900));
+    }
+
+    /// Y axis clamps independently and uses viewport_h.
+    #[test]
+    fn clamp_camera_y_axis() {
+        let mut e = entry(500, 0);
+        clamp_camera_to_bounds(
+            &mut e,
+            200,
+            150,
+            Fixed::from_int(0),
+            Fixed::from_int(0),
+            Fixed::from_int(1000),
+            Fixed::from_int(800),
+        );
+        // half_vh = 75 in pixel units
+        assert_eq!(e.center_y, Fixed::from_int(75));
     }
 }
