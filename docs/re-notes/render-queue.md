@@ -50,6 +50,8 @@ These types exist in the dequeue switch but have no standalone enqueue function 
 
 ## DDDisplay Drawing Vtable
 
+> **Note:** The "DDDisplay vtable" described in this section is the same vtable as [`DisplayGfxVtable`](../../crates/openwa-game/src/render/display/vtable.rs) at 0x66A218 — there is no separate DDDisplay class. The dequeue function receives `world.display` (= `world+4`, also reachable as `runtime.display` at runtime+0x4D0) and dispatches through its 38-slot vtable. The original method-name mappings below (PutPixel, DrawSprite, etc.) were inferred before the full DisplayGfxVtable was reverse-engineered and have NOT been re-audited against the current slot definitions; some don't obviously line up (e.g., type 0xD "PutPixel" → slot 11 which is now `draw_tiled_bitmap`). Use the table as a starting hint; trust `DisplayGfxVtable` for the canonical signatures.
+
 The dequeue function dispatches draw calls through a DDDisplay vtable. Slot offsets:
 
 | Offset | Method            | Used by types |
@@ -67,6 +69,8 @@ The dequeue function dispatches draw calls through a DDDisplay vtable. Slot offs
 | 0x54   | (unknown)         | 3             |
 | 0x58   | DrawClippedSprite | 0xE           |
 
+Verified slot meanings for `RenderEscMenuOverlay` (0x00535000): slot 19 (offset 0x4C) = `blit_sprite` (sprite ID 0x20 + palette 0xa000 for cursor highlight); slot 20 (offset 0x50) = `draw_scaled_sprite` (takes the ESC-menu BitGrid canvas).
+
 ## Helper Functions
 
 | Address  | Name                        | Purpose                                                     |
@@ -83,13 +87,16 @@ The dequeue function dispatches draw calls through a DDDisplay vtable. Slot offs
 
 | Address  | Name                   | Role                                                                         |
 | -------- | ---------------------- | ---------------------------------------------------------------------------- |
-| 0x56E040 | RenderFrame_Maybe      | Top-level render frame dispatcher                                            |
-| 0x533DC0 | GameRender_Maybe       | Core game render: resets queue, processes scene, calls RQ_RenderDrawingQueue |
-| 0x535000 | RenderTerrain_Maybe    | Terrain/landscape viewport rendering                                         |
-| 0x534F20 | RenderHUD_Maybe        | HUD/timer display                                                            |
-| 0x534E00 | RenderTurnStatus_Maybe | Turn state/status text                                                       |
-| 0x533C80 | PaletteManage_Maybe    | Palette/color management                                                     |
-| 0x533A80 | PaletteAnimate_Maybe   | Palette animation/cycling (3 color palettes)                                 |
+| 0x56E040 | RenderFrame_Maybe                  | Top-level render frame dispatcher                                                  |
+| 0x533DC0 | GameRender_Maybe                   | Core game render: resets queue, broadcasts msg 3 to entity tree, runs RQ, then 5 tail funcs |
+| 0x535000 | GameRuntime__RenderEscMenuOverlay  | Per-frame ESC-menu overlay (was mislabeled `RenderTerrain_Maybe`). Blits panel_a/_b canvases via `display.draw_scaled_sprite` (slot 20) when their respective anim values are non-zero, plus a cursor-highlight sprite via `blit_sprite` (slot 19) on the active state |
+| 0x540B00 | MenuPanel__Render                  | Incremental redraw of a panel's canvas (only items whose hover state changed are repainted). Returns `panel.display_a` (DisplayBitGrid*) for the caller to blit |
+| 0x534F20 | RenderHUD_Maybe                    | "GAME OVER" textbox (gate: game_state == 1)                                        |
+| 0x534E00 | RenderTurnStatus_Maybe             | Turn state/status text (gate: game_state == 2 or 3)                                |
+| 0x533C80 | PaletteManage_Maybe                | Palette/color management                                                            |
+| 0x533A80 | PaletteAnimate_Maybe               | Palette animation/cycling (3 color palettes)                                       |
+
+Note: the actual terrain is rendered via the world entity tree (LandEntity etc.) responding to message 3 broadcast inside `GameRender_Maybe`, not in any tail function. The five tail funcs are all overlay/HUD layers drawn on top of the queue-rendered scene.
 
 ## Higher-Level Drawing Functions
 

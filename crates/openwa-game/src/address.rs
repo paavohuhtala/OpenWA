@@ -750,7 +750,15 @@ pub mod va {
         fn RQ_SATURATE_CLIP_BOUNDS_MAYBE = 0x00542F70;
         fn RENDER_FRAME_MAYBE = 0x0056E040;
         fn GAME_RENDER_MAYBE = 0x00533DC0;
-        fn RENDER_TERRAIN_MAYBE = 0x00535000;
+        /// `GameRuntime::RenderEscMenuOverlay` — per-frame ESC-menu blit
+        /// (was misnamed `RenderTerrain_Maybe`; the actual terrain renders
+        /// via the world entity tree's message-3 handlers, not in any tail
+        /// render function). usercall(EAX = GameRuntime*).
+        fn/Usercall GAME_RUNTIME_RENDER_ESC_MENU_OVERLAY = 0x00535000;
+        /// `MenuPanel::Render` — per-frame incremental redraw of a panel's
+        /// canvas; returns `panel.display_a` (DisplayBitGrid*) for caller to
+        /// blit. usercall(EDI = MenuPanel*).
+        fn/Usercall MENU_PANEL_RENDER = 0x00540B00;
         fn RENDER_HUD_MAYBE = 0x00534F20;
         fn RENDER_TURN_STATUS_MAYBE = 0x00534E00;
         fn PALETTE_MANAGE_MAYBE = 0x00533C80;

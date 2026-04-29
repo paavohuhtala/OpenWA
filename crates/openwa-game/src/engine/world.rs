@@ -373,10 +373,16 @@ pub struct GameWorld {
     pub level_bound_min_y: Fixed,
     /// 0x77A8: Level bound max Y (Fixed16.16).
     pub level_bound_max_y: Fixed,
-    /// 0x77AC-0x77AF: Unknown
-    pub _unknown_77ac: u32,
-    /// 0x77B0: Unknown (zeroed by InitGameState).
-    pub _field_77b0: u32,
+    /// 0x77AC: Viewport pixel width — derived each frame in
+    /// `GameRender_Maybe` (0x533DC0) as `(level_bound_max_x - min_x) >> 16`,
+    /// clamped to the display dimensions. Read by
+    /// `GameRuntime::RenderEscMenuOverlay` (0x00535000) to center the ESC
+    /// menu against the rendered viewport.
+    pub viewport_pixel_width: i32,
+    /// 0x77B0: Viewport pixel height — derived each frame in
+    /// `GameRender_Maybe` as `(level_bound_max_y - min_y) >> 16` (rounded
+    /// down to an even number), clamped to the display dimensions.
+    pub viewport_pixel_height: i32,
     /// 0x77B4: Unknown
     pub _unknown_77b4: u32,
     /// 0x77B8: Level width for 3D sound distance computation (pixels, not fixed-point).

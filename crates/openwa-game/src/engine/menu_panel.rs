@@ -19,6 +19,7 @@
 use std::ffi::c_char;
 
 use crate::FieldRegistry;
+use crate::bitgrid::DisplayBitGrid;
 use crate::render::display::font::TextMeasurement;
 use crate::render::display::gfx::DisplayGfx;
 use crate::render::display::vtable::measure_text;
@@ -59,11 +60,20 @@ pub struct MenuItem {
     pub color_a: i32,
     /// 0x24: Secondary color index (0x0F default).
     pub color_b: i32,
-    /// 0x28: Neighbor link — previous item (-1 sentinel; populated later by
-    /// the ESC menu's nav-link layout pass).
-    pub neighbor_prev: i32,
-    /// 0x2C: Neighbor link — next item (-1 sentinel).
-    pub neighbor_next: i32,
+    /// 0x28: Highlight state currently committed on the canvas. Tri-valued:
+    /// `-1` = "dirty / never drawn" (forces a repaint on the next
+    /// [`MenuPanel::Render`] pass), `0` = currently drawn as un-highlighted,
+    /// `1` = currently drawn as highlighted (with border).
+    /// [`append_item_impl`] inits this to `-1` (so the first render frame
+    /// always paints the item); [`activate_at_cursor`] resets it to `-1` after
+    /// a slider value change to force a redraw with the new value.
+    pub was_highlighted: i32,
+    /// 0x2C: This-frame hit-test result, populated by `MenuPanel::Render`'s
+    /// hit-test pass (0x00540B00). `0` = cursor not over this item, `1` =
+    /// cursor over (or `slider_lock` points here). When this differs from
+    /// [`Self::was_highlighted`], the render pass repaints the item label
+    /// + border in the new state, then commits `was = is`.
+    pub is_highlighted: i32,
     /// 0x30: Auxiliary render-context pointer — overloaded.
     ///   * Slider items: points at the slider's value (`Fixed*`).
     ///   * "Minimize Game"-style buttons: points at `world.display` —
@@ -99,12 +109,16 @@ pub const MENU_PANEL_CAPACITY: usize = 16;
 #[derive(FieldRegistry)]
 #[repr(C)]
 pub struct MenuPanel {
-    /// 0x00: Primary display target — the BitGrid layer this panel renders
-    /// into. For `menu_panel_a` this is `runtime.display_gfx_d`; for
-    /// `menu_panel_b`, `runtime.display_gfx_e`.
-    pub display_a: *mut DisplayGfx,
-    /// 0x04: Secondary display target — `world.display`, used for text
-    /// measurement during item layout.
+    /// 0x00: Primary render target — the [`DisplayBitGrid`] canvas this
+    /// panel paints into. For `menu_panel_a` this is `runtime.display_gfx_d`;
+    /// for `menu_panel_b`, `runtime.display_gfx_e`. `MenuPanel::Render`
+    /// (0x00540B00) returns this pointer so the caller can blit the canvas
+    /// to screen via `world.display.draw_scaled_sprite` (DisplayGfx slot 20).
+    pub display_a: *mut DisplayBitGrid,
+    /// 0x04: `world.display` (the global [`DisplayGfx`]). Used for text
+    /// measurement (slot 10 `measure_text`) during item layout, and for
+    /// rasterizing labels onto [`Self::display_a`] (slot 7
+    /// `draw_text_on_bitmap`).
     pub display_b: *mut DisplayGfx,
     /// 0x08: Color index, low — `world.gfx_color_table[7]`.
     pub color_low: i32,
@@ -154,8 +168,9 @@ const _: () = assert!(core::mem::size_of::<MenuPanel>() == 0x3D4);
 const DEFAULT_COLOR_A: i32 = 0x10;
 /// Default secondary color for newly-appended items (item +0x24).
 const DEFAULT_COLOR_B: i32 = 0x0F;
-/// Sentinel for unlinked neighbor pointers (items +0x28 / +0x2C).
-const NEIGHBOR_SENTINEL: i32 = -1;
+/// "Dirty / never drawn" sentinel for `MenuItem.was_highlighted` — forces
+/// a repaint on the next render frame.
+const HIGHLIGHT_DIRTY: i32 = -1;
 
 /// Rust port of `MenuPanel::AppendItem` (0x005408F0). Plain-Rust
 /// implementation of the body — the WA-side usercall ABI is bridged via
@@ -181,10 +196,11 @@ const NEIGHBOR_SENTINEL: i32 = -1;
 ///
 /// # Safety
 ///
-/// `panel` must point at a valid `MenuPanel` whose `display_a` and
-/// `display_b` are valid `DisplayGfx` allocations with their vtables
-/// initialized. `label` must be a valid C string for the duration of the
-/// menu. `slider_value_ptr` is null for buttons; non-null for sliders.
+/// `panel` must point at a valid `MenuPanel` whose `display_a` (a
+/// [`DisplayBitGrid`]) and `display_b` (a [`DisplayGfx`]) are valid
+/// allocations with their vtables initialized. `label` must be a valid C
+/// string for the duration of the menu. `slider_value_ptr` is null for
+/// buttons; non-null for sliders.
 pub unsafe extern "cdecl" fn append_item_impl(
     x: i32,
     panel: *mut MenuPanel,
@@ -229,8 +245,8 @@ pub unsafe extern "cdecl" fn append_item_impl(
         (*item_ptr).clip_bottom = y + line_height + 1;
         (*item_ptr).color_a = DEFAULT_COLOR_A;
         (*item_ptr).color_b = DEFAULT_COLOR_B;
-        (*item_ptr).neighbor_prev = NEIGHBOR_SENTINEL;
-        (*item_ptr).neighbor_next = NEIGHBOR_SENTINEL;
+        (*item_ptr).was_highlighted = HIGHLIGHT_DIRTY;
+        (*item_ptr).is_highlighted = HIGHLIGHT_DIRTY;
         (*item_ptr).render_ctx = render_ctx;
 
         if !render_ctx.is_null() {
@@ -239,7 +255,7 @@ pub unsafe extern "cdecl" fn append_item_impl(
             // near the right edge of `display_a`, and `render_aux` is
             // stored as the auxiliary render object.
             let display_a = (*panel).display_a;
-            let display_w = *((display_a as *const u8).add(0x14) as *const i32);
+            let display_w = (*display_a).width as i32;
             let new_clip_left = x_final + total_advance + 1;
             (*item_ptr).clip_left = new_clip_left;
             (*item_ptr).clip_top = y + 1;
@@ -374,7 +390,7 @@ pub unsafe fn center_cursor_on_first_kind_zero(panel: *mut MenuPanel) {
 ///   slider's `0..0x10000` Fixed range using
 ///   `((cursor_x - clip_left - 3) << 16) / (clip_right - clip_left - 5)`,
 ///   clamps to `[0, 0x10000]`, writes through `*render_ctx`, marks the
-///   item dirty (`neighbor_prev = -1`), and locks the panel's
+///   item dirty (`was_highlighted = -1`), and locks the panel's
 ///   [`slider_lock`](MenuPanel::slider_lock) to this index for drag
 ///   stickiness. Returns [`ActivateOutcome::Slider`] with the index.
 /// - **Button** (`item.render_ctx` is null): returns
@@ -397,7 +413,7 @@ pub unsafe fn activate_at_cursor(panel: *mut MenuPanel) -> ActivateOutcome {
         let raw = ((((*panel).cursor_x - (*item).clip_left - 3) as i64) << 16) / denom;
         let value = raw.clamp(0, 0x10000) as i32;
         *((*item).render_ctx as *mut i32) = value;
-        (*item).neighbor_prev = -1;
+        (*item).was_highlighted = -1;
         (*panel).slider_lock = idx;
         ActivateOutcome::Slider(idx)
     }

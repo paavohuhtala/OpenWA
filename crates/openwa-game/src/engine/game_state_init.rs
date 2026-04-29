@@ -259,7 +259,7 @@ pub unsafe fn init_game_state(runtime: *mut GameRuntime) {
             core::ptr::addr_of_mut!((*world).level_width_sound) as *mut u32,
             core::ptr::addr_of_mut!((*world).screen_height_pixels) as *mut u32,
         );
-        (*world)._field_77b0 = 0;
+        (*world).viewport_pixel_height = 0;
 
         // ===== Allocate DualBufferObject (main_buffer at wrapper+0x0C) =====
         (*runtime).main_buffer = allocate_dual_buffer_object(world, game_info);
@@ -859,17 +859,16 @@ unsafe fn create_menu_panel(
             return core::ptr::null_mut();
         }
 
-        let display_gfx = *((runtime as *const u8).add(display_gfx_offset)
-            as *const *mut crate::render::display::gfx::DisplayGfx);
+        let display_bitgrid =
+            *((runtime as *const u8).add(display_gfx_offset) as *const *mut DisplayBitGrid);
 
-        (*panel).display_a = display_gfx;
+        (*panel).display_a = display_bitgrid;
         (*panel).display_b = (*world).display;
         (*panel).color_low = (*world).gfx_color_table[7] as i32;
         (*panel).color_high = (*world).gfx_color_table[0] as i32;
 
-        let layer = display_gfx as *const u8;
-        let w = *(layer.add(0x14) as *const i32);
-        let h = *(layer.add(0x18) as *const i32);
+        let w = (*display_bitgrid).width as i32;
+        let h = (*display_bitgrid).height as i32;
 
         (*panel).cursor_x = w / 2;
         (*panel).cursor_y = h / 2;

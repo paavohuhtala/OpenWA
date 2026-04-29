@@ -40,6 +40,7 @@ use crate::rebase::rb;
 use crate::render::display::font::TextMeasurement;
 use crate::render::display::gfx::DisplayGfx;
 use crate::render::display::vtable::{draw_text_on_bitmap, measure_text};
+use crate::render::sprite::sprite_op::SpriteOp;
 use crate::task::WorldRootEntity;
 use crate::wa::localized_template::LocalizedTemplate;
 use crate::wa::string_resource::{StringRes, res};
@@ -51,6 +52,7 @@ static mut STRING_TOKEN_LOOKUP_ADDR: u32 = 0;
 static mut SPRINTF_ROTATING_ADDR: u32 = 0;
 static mut BEGIN_ROUND_END_ADDR: u32 = 0;
 static mut BEGIN_NETWORK_GAME_END_ADDR: u32 = 0;
+static mut MENU_PANEL_RENDER_ADDR: u32 = 0;
 
 // `GameRuntime::ApplyVolumeSettings` (0x00534B40) — usercall(EAX=this),
 // plain RET. Copies [`GameRuntime::sound_volume`] (the slider's live value)
@@ -77,6 +79,7 @@ pub unsafe fn init_addrs() {
         SPRINTF_ROTATING_ADDR = rb(SPRINTF_ROTATING_VA);
         BEGIN_ROUND_END_ADDR = rb(va::GAME_RUNTIME_BEGIN_ROUND_END);
         BEGIN_NETWORK_GAME_END_ADDR = rb(va::GAME_RUNTIME_BEGIN_NETWORK_GAME_END);
+        MENU_PANEL_RENDER_ADDR = rb(va::MENU_PANEL_RENDER);
     }
 }
 
@@ -129,6 +132,22 @@ unsafe extern "stdcall" fn bridge_begin_network_game_end(_this: *mut GameRuntime
         "push ecx",
         "jmp dword ptr [{addr}]",
         addr = sym BEGIN_NETWORK_GAME_END_ADDR,
+    );
+}
+
+/// Bridge for `MenuPanel::Render` (0x00540B00). Usercall(EDI = panel),
+/// plain RET, returns the panel's [`DisplayBitGrid`] canvas in EAX.
+/// Saves/restores EDI per the C callee-save ABI; the WA target itself
+/// preserves it.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_menu_panel_render(_panel: *mut MenuPanel) -> *mut DisplayBitGrid {
+    core::arch::naked_asm!(
+        "push edi",
+        "mov edi, dword ptr [esp+8]",
+        "call dword ptr [{addr}]",
+        "pop edi",
+        "ret 4",
+        addr = sym MENU_PANEL_RENDER_ADDR,
     );
 }
 
@@ -900,9 +919,9 @@ pub unsafe fn open_esc_menu(runtime: *mut GameRuntime) {
         // ─── Block E: Panel reset ───
         // Reads `panel.display_a`'s width/height to clamp the cursor;
         // then zeroes the scroll-region rect / item count.
-        let panel_disp_a = (*panel).display_a as *const u8;
-        let pa_w = *(panel_disp_a.add(0x14) as *const i32);
-        let pa_h = *(panel_disp_a.add(0x18) as *const i32);
+        let panel_disp_a = (*panel).display_a;
+        let pa_w = (*panel_disp_a).width as i32;
+        let pa_h = (*panel_disp_a).height as i32;
         (*panel).cursor_active = 0;
         (*panel).clip_left = 0;
         (*panel).clip_top = 0;
@@ -1152,9 +1171,9 @@ pub unsafe fn open_confirm_dialog(runtime: *mut GameRuntime) {
         clipped_fill_hline(canvas, 0, canvas_w, line_height + 4, border_color);
 
         // ─── Block D: panel reset ───
-        let panel_disp_a = (*panel).display_a as *const u8;
-        let pa_w = *(panel_disp_a.add(0x14) as *const i32);
-        let pa_h = *(panel_disp_a.add(0x18) as *const i32);
+        let panel_disp_a = (*panel).display_a;
+        let pa_w = (*panel_disp_a).width as i32;
+        let pa_h = (*panel_disp_a).height as i32;
         (*panel).cursor_active = 0;
         (*panel).clip_left = 0;
         (*panel).clip_top = 0;
@@ -1276,6 +1295,153 @@ pub unsafe fn tick_closed(runtime: *mut GameRuntime) {
                 Fixed::ONE,
                 (*runtime).ui_volume,
             );
+        }
+    }
+}
+
+// ─── Per-frame render overlay ──────────────────────────────────────────────
+
+/// Cursor-highlight sprite ID used by both ESC-menu render branches.
+const CURSOR_HIGHLIGHT_SPRITE_ID: u16 = 0x20;
+/// Palette value passed alongside the cursor sprite.
+const CURSOR_HIGHLIGHT_PALETTE: u32 = 0xa000;
+/// Flag bits passed to `draw_scaled_sprite` when blitting a panel canvas.
+/// Bit 20 selects the Copy/opaque blend mode.
+const PANEL_BLIT_FLAGS: u32 = 0x100000;
+/// Base Y offset shared by both panels. Branch 2 blits the main menu
+/// here directly; branch 1 builds the confirm dialog's Y by adding a
+/// vertical-center delta + slide-in anim term to this base.
+/// `-64.0` in Fixed16.16 — matches WA's `0xFFC00000` literal.
+const PANEL_BASE_Y: Fixed = Fixed::from_int(-64);
+/// Cursor offset *within* a panel before the panel position is added,
+/// in pixels. WA uses `+10` on both axes in branch 1 (confirm) and on
+/// the X axis of branch 2 (main menu).
+const CURSOR_OFFSET_IN_PANEL: i32 = 10;
+
+/// Rust port of `GameRuntime::RenderEscMenuOverlay` (0x00535000) — the
+/// per-frame ESC-menu blit, called from `GameRender_Maybe` (0x533DC0) as
+/// one of the tail render funcs.
+///
+/// Two independent gates animated separately:
+///
+/// 1. **Confirm dialog** — fires when [`GameRuntime::confirm_anim`] is
+///    non-zero. Calls [`bridge_menu_panel_render`] on `menu_panel_b` to
+///    redraw its canvas, then `display.draw_scaled_sprite` to blit the
+///    canvas to screen at `(x_anchor, y_pos)`. Y position eases the dialog
+///    down from above as `confirm_anim` slews `0 → 1.0`. When
+///    `esc_menu_state == 2` the cursor-highlight sprite (id `0x20`,
+///    palette `0xa000`) is drawn on top via `display.blit_sprite`.
+/// 2. **Main menu** — fires when [`GameRuntime::esc_menu_anim`] is
+///    non-zero. Same pattern with `menu_panel_a` at a fixed `y = -64.0`,
+///    plus cursor highlight when `esc_menu_state == 1`. The cursor's Y
+///    folds the panel's `-64` offset into a `-54` constant (`+10 - 64`).
+///
+/// `x_anchor` is shared between both branches: it slides the panel from
+/// off-screen-left to centered (against `world.viewport_pixel_width`) as
+/// `esc_menu_anim` slews. State 2 has `esc_menu_anim` at `1.0` too, so the
+/// confirm dialog is anchored at the same X as the main menu underneath.
+pub unsafe fn render_overlay(runtime: *mut GameRuntime) {
+    unsafe {
+        let world = (*runtime).world;
+        let display = (*world).display;
+
+        let viewport_w = (*world).viewport_pixel_width;
+        let menu_panel_w = (*runtime).menu_panel_width;
+        let esc_anim = (*runtime).esc_menu_anim;
+
+        // X anchor (iVar5/EBX in the disasm) — Fixed. When
+        // `esc_menu_anim == 1.0` (fully open) the panel is centered
+        // horizontally with an 8px nudge. While slewing in, `slide_in`
+        // shifts the panel off-screen to the left by `(menu_panel_w + 8)`
+        // pixels at anim 0, fading to zero at anim 1.0. `Fixed * i32` is
+        // `Fixed(raw * int)` — exactly WA's `(W+8) * (0x10000 - anim)`.
+        let centered_x = Fixed::from_int(menu_panel_w / 2 - viewport_w / 2 + 8);
+        let slide_in = (Fixed::ONE - esc_anim) * (menu_panel_w + 8);
+        let x_anchor = centered_x - slide_in;
+
+        // ─── Branch 1: confirm dialog ─────────────────────────────────
+        let confirm_anim = (*runtime).confirm_anim;
+        if confirm_anim != Fixed::ZERO {
+            let confirm_w = (*runtime).confirm_panel_width;
+            let confirm_h = (*runtime).confirm_panel_height;
+            let menu_h = (*runtime).menu_panel_height;
+            let panel_b = (*runtime).menu_panel_b;
+
+            // Y position. WA: `((menu_h - confirm_h) << 16) / 2 +
+            // (confirm_h + 8) * anim - 0x400000`. Re-expressed as Fixed:
+            // vertical-center delta + anim slide-down + base panel Y.
+            let center_delta = Fixed::from_int(menu_h - confirm_h) / 2;
+            let slide_down = confirm_anim * (confirm_h + 8);
+            let y_pos = center_delta + slide_down + PANEL_BASE_Y;
+
+            let canvas = bridge_menu_panel_render(panel_b);
+
+            DisplayGfx::draw_scaled_sprite_raw(
+                display,
+                x_anchor,
+                y_pos,
+                canvas,
+                0,
+                0,
+                confirm_w,
+                confirm_h,
+                PANEL_BLIT_FLAGS,
+            );
+
+            if (*runtime).esc_menu_state == 2 {
+                let cx = (*panel_b).cursor_x;
+                let cy = (*panel_b).cursor_y;
+                let cursor_x =
+                    Fixed::from_int(cx - confirm_w / 2 + CURSOR_OFFSET_IN_PANEL) + x_anchor;
+                let cursor_y = Fixed::from_int(cy - confirm_h / 2 + CURSOR_OFFSET_IN_PANEL) + y_pos;
+                DisplayGfx::blit_sprite_raw(
+                    display,
+                    cursor_x,
+                    cursor_y,
+                    SpriteOp::from_index(CURSOR_HIGHLIGHT_SPRITE_ID),
+                    CURSOR_HIGHLIGHT_PALETTE,
+                );
+            }
+        }
+
+        // ─── Branch 2: main ESC menu ──────────────────────────────────
+        if esc_anim != Fixed::ZERO {
+            let menu_h = (*runtime).menu_panel_height;
+            let panel_a = (*runtime).menu_panel_a;
+            let menu_w = (*runtime).menu_panel_width;
+
+            let canvas = bridge_menu_panel_render(panel_a);
+
+            DisplayGfx::draw_scaled_sprite_raw(
+                display,
+                x_anchor,
+                PANEL_BASE_Y,
+                canvas,
+                0,
+                0,
+                menu_w,
+                menu_h,
+                PANEL_BLIT_FLAGS,
+            );
+
+            if (*runtime).esc_menu_state == 1 {
+                let cx = (*panel_a).cursor_x;
+                let cy = (*panel_a).cursor_y;
+                let cursor_x = Fixed::from_int(cx - menu_w / 2 + CURSOR_OFFSET_IN_PANEL) + x_anchor;
+                // The disasm shows `(cy - menu_h/2 - 54) << 16`: WA's
+                // compiler folded `+10 - 64` into `-54` because the panel
+                // Y is the constant `PANEL_BASE_Y`. Re-expanded here to
+                // mirror branch 1's `cursor_in_panel + panel_y` shape.
+                let cursor_y =
+                    Fixed::from_int(cy - menu_h / 2 + CURSOR_OFFSET_IN_PANEL) + PANEL_BASE_Y;
+                DisplayGfx::blit_sprite_raw(
+                    display,
+                    cursor_x,
+                    cursor_y,
+                    SpriteOp::from_index(CURSOR_HIGHLIGHT_SPRITE_ID),
+                    CURSOR_HIGHLIGHT_PALETTE,
+                );
+            }
         }
     }
 }
