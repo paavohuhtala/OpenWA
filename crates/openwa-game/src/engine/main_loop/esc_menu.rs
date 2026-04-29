@@ -25,7 +25,7 @@ use crate::address::va;
 use crate::audio::known_sound_id::KnownSoundId;
 use crate::audio::sound_id::SoundId;
 use crate::audio::sound_ops::dispatch_global_sound;
-use crate::bitgrid::{BitGridDisplayVtable, DisplayBitGrid};
+use crate::bitgrid::DisplayBitGrid;
 use crate::engine::game_session::get_game_session;
 use crate::engine::menu_panel::{
     ActivateOutcome, MenuPanel, activate_at_cursor, append_item_impl, set_cursor_at,
@@ -34,10 +34,12 @@ use crate::engine::runtime::GameRuntime;
 use crate::engine::team_arena::TeamArena;
 use crate::engine::world::GameWorld;
 use crate::input::keyboard::KeyboardAction;
+use crate::input::mouse::MouseInput;
 use crate::rebase::rb;
 use crate::render::display::font::TextMeasurement;
 use crate::render::display::gfx::DisplayGfx;
 use crate::render::display::vtable::{draw_text_on_bitmap, measure_text};
+use crate::task::WorldRootEntity;
 use crate::wa::localized_template::LocalizedTemplate;
 use crate::wa::string_resource::{StringRes, res};
 
@@ -51,9 +53,9 @@ static mut BEGIN_ROUND_END_ADDR: u32 = 0;
 static mut BEGIN_NETWORK_GAME_END_ADDR: u32 = 0;
 
 // `GameRuntime::ApplyVolumeSettings` (0x00534B40) — usercall(EAX=this),
-// plain RET. Copies `runtime+0x420` (live volume slider) into
-// [`GameRuntime::ui_volume`], then pushes the scaled value to DSSound and
-// Music via vtable calls. Bridged because typed wrappers for those two
+// plain RET. Copies [`GameRuntime::sound_volume`] (the slider's live value)
+// into [`GameRuntime::ui_volume`], then pushes the scaled value to DSSound
+// and Music via vtable calls. Bridged because typed wrappers for those two
 // vtable slots aren't yet defined.
 const APPLY_VOLUME_SETTINGS_VA: u32 = 0x00534B40;
 // `GameRuntime::OpenEscMenuConfirmDialog` (0x00535CF0) — stdcall(this),
@@ -88,10 +90,10 @@ pub unsafe fn init_addrs() {
 // ─── Bridges (still WA-side) ───────────────────────────────────────────────
 
 /// Bridge for `GameRuntime::ApplyVolumeSettings` (0x00534B40). Usercall
-/// EAX=this, plain RET. Reads `runtime+0x420` (the live volume slider
-/// value) → writes [`GameRuntime::ui_volume`] → pushes the effective
-/// value (clamped by the game-end fade and the engine-suspended flag) to
-/// `DSSound::SetMasterVolume` and `Music::SetVolume`.
+/// EAX=this, plain RET. Reads [`GameRuntime::sound_volume`] (the live
+/// slider value) → writes [`GameRuntime::ui_volume`] → pushes the
+/// effective value (clamped by the game-end fade and the engine-suspended
+/// flag) to `DSSound::SetMasterVolume` and `Music::SetVolume`.
 #[unsafe(naked)]
 unsafe extern "stdcall" fn bridge_apply_volume_settings(_this: *mut GameRuntime) {
     core::arch::naked_asm!(
@@ -156,9 +158,9 @@ unsafe extern "stdcall" fn bridge_begin_network_game_end(_this: *mut GameRuntime
 // [`SoundId::is_raw_volume`].
 
 /// "Click" / "select" UI sound — raw_volume + [`KnownSoundId::CursorSelect`].
-const UI_CLICK_SOUND: SoundId = SoundId(0x20000 | KnownSoundId::CursorSelect as u32);
+const UI_CLICK_SOUND: SoundId = SoundId::from_known(KnownSoundId::CursorSelect).with_raw_volume();
 /// "Miss" / "rejected" UI sound — raw_volume + [`KnownSoundId::WarningBeep`].
-const UI_MISS_SOUND: SoundId = SoundId(0x20000 | KnownSoundId::WarningBeep as u32);
+const UI_MISS_SOUND: SoundId = SoundId::from_known(KnownSoundId::WarningBeep).with_raw_volume();
 
 /// Bridge for `LocalizedTemplate__Resolve` (FUN_0053EA30, stdcall RET 8).
 /// Returns a pointer to the resolved template string (with WA's escape
@@ -268,15 +270,6 @@ unsafe fn clipped_fill_vline(bg: *mut DisplayBitGrid, x: i32, y1: i32, y2: i32, 
     }
 }
 
-/// Slot-5 (`put_pixel_clipped`) wrapper — slot 5 already does the clip
-/// internally; this is just a typed dispatch.
-unsafe fn put_pixel_clipped(bg: *mut DisplayBitGrid, x: i32, y: i32, color: u8) {
-    unsafe {
-        let vt: *const BitGridDisplayVtable = (*bg).vtable;
-        ((*vt).put_pixel_clipped)(bg, x, y, color);
-    }
-}
-
 // ─── Rust ports ────────────────────────────────────────────────────────────
 
 /// Rust port of `GameRuntime::IsHudActive` (0x00534C30).
@@ -300,7 +293,7 @@ pub unsafe fn is_hud_active(runtime: *mut GameRuntime) -> bool {
     unsafe {
         let mut buf: [u32; 0xE5] = [0; 0xE5];
         let task = (*runtime).world_root;
-        ((*(*task).base.vtable).hud_data_query)(task, 0x7D3, 0x394, buf.as_mut_ptr() as *mut u8);
+        WorldRootEntity::hud_data_query_raw(task, 0x7D3, 0x394, buf.as_mut_ptr() as *mut u8);
 
         if (*runtime).game_end_phase != 0 {
             return false;
@@ -408,13 +401,8 @@ pub unsafe fn tick_open(runtime: *mut GameRuntime) {
         let mut dx: i32 = 0;
         let mut dy: i32 = 0;
         let mut buttons: u32 = 0;
-        ((*(*mouse_input).vtable).consume_delta_and_buttons)(
-            mouse_input,
-            &mut dx,
-            &mut dy,
-            &mut buttons,
-        );
-        ((*(*mouse_input).vtable).clear_deltas)(mouse_input);
+        MouseInput::consume_delta_and_buttons_raw(mouse_input, &mut dx, &mut dy, &mut buttons);
+        MouseInput::clear_deltas_raw(mouse_input);
 
         // Step 4: move cursor.
         let panel = (*runtime).menu_panel_a;
@@ -431,10 +419,9 @@ pub unsafe fn tick_open(runtime: *mut GameRuntime) {
         // Step 6: dispatch by activation outcome.
         match activate_at_cursor(panel) {
             ActivateOutcome::Slider(_) => {
-                // Volume slider value lives at runtime+0x420 (currently
-                // misnamed `turn_percentage`); apply it if it differs
-                // from the previously-applied `ui_volume`.
-                if (*runtime).turn_percentage != (*runtime).ui_volume.to_raw() {
+                // Apply the slider's new sound volume only if it differs
+                // from the last-applied snapshot (`ui_volume`).
+                if (*runtime).sound_volume != (*runtime).ui_volume {
                     bridge_apply_volume_settings(runtime);
                     dispatch_global_sound(
                         runtime,
@@ -447,11 +434,11 @@ pub unsafe fn tick_open(runtime: *mut GameRuntime) {
             }
             ActivateOutcome::Miss => {
                 // Re-arm LMB+RMB latch bits so the next click registers.
-                ((*(*mouse_input).vtable).ack_button_mask)(mouse_input, 3);
+                MouseInput::ack_button_mask_raw(mouse_input, 3);
                 dispatch_global_sound(runtime, UI_MISS_SOUND, 8, Fixed::ONE, (*runtime).ui_volume);
             }
             ActivateOutcome::Button(kind) => {
-                ((*(*mouse_input).vtable).ack_button_mask)(mouse_input, 3);
+                MouseInput::ack_button_mask_raw(mouse_input, 3);
                 if kind == 3 {
                     // Minimize Game: post the SC_MINIMIZE request.
                     (*get_game_session()).minimize_request = 1;
@@ -536,14 +523,9 @@ pub unsafe fn tick_confirm(runtime: *mut GameRuntime) {
         let mut dx: i32 = 0;
         let mut dy: i32 = 0;
         let mut buttons: u32 = 0;
-        ((*(*mouse_input).vtable).consume_delta_and_buttons)(
-            mouse_input,
-            &mut dx,
-            &mut dy,
-            &mut buttons,
-        );
-        ((*(*mouse_input).vtable).ack_button_mask)(mouse_input, 3);
-        ((*(*mouse_input).vtable).clear_deltas)(mouse_input);
+        MouseInput::consume_delta_and_buttons_raw(mouse_input, &mut dx, &mut dy, &mut buttons);
+        MouseInput::ack_button_mask_raw(mouse_input, 3);
+        MouseInput::clear_deltas_raw(mouse_input);
 
         // Step 4: move panel-B's cursor.
         let panel_b = (*runtime).menu_panel_b;
@@ -796,7 +778,7 @@ pub unsafe fn open_esc_menu(runtime: *mut GameRuntime) {
         // inspects) gate the inclusion of Force-SD / Draw / Quit
         // below.
         let mut hud_buf: [u32; 0xE5] = [0; 0xE5];
-        ((*(*world_root).base.vtable).hud_data_query)(
+        WorldRootEntity::hud_data_query_raw(
             world_root,
             0x7D3,
             0x394,
@@ -1030,7 +1012,7 @@ pub unsafe fn open_esc_menu(runtime: *mut GameRuntime) {
         y += line_height + 1;
 
         let label = bridge_token_lookup(template, res::GAME_VOLUME);
-        let volume_ptr = (runtime as *mut u8).add(0x420);
+        let volume_ptr = &raw mut (*runtime).sound_volume as *mut u8;
         // WA passes EAX = 6 to AppendItem here, but the slider call uses
         // `centered = 0`, so the EAX/x value isn't shifted by half-width
         // — `6` becomes the literal pen_x. (For all other items EAX is
@@ -1070,10 +1052,10 @@ pub unsafe fn open_esc_menu(runtime: *mut GameRuntime) {
 
         // 4 corner pixels (top-left, bottom-left, top-right, bottom-right)
         // drawn with color 0 to round off the border.
-        put_pixel_clipped(canvas, 0, 0, 0);
-        put_pixel_clipped(canvas, 0, final_y + 1, 0);
-        put_pixel_clipped(canvas, pw_minus_1, 0, 0);
-        put_pixel_clipped(canvas, pw_minus_1, final_y + 1, 0);
+        DisplayBitGrid::put_pixel_clipped_raw(canvas, 0, 0, 0);
+        DisplayBitGrid::put_pixel_clipped_raw(canvas, 0, final_y + 1, 0);
+        DisplayBitGrid::put_pixel_clipped_raw(canvas, pw_minus_1, 0, 0);
+        DisplayBitGrid::put_pixel_clipped_raw(canvas, pw_minus_1, final_y + 1, 0);
 
         // Outer-rect clamp: re-fill the panel's clip rect with the
         // computed menu dimensions (replacing the display-wide rect set

@@ -208,10 +208,19 @@ pub struct GameInfo {
     /// If nonzero, streaming audio subsystem is created in InitHardware.
     pub speech_enabled: u8,
 
-    /// 0xDAA5-0xDAA7: Unknown
-    pub _unknown_daa5: [u8; 0xDAA8 - 0xDAA5],
-    /// 0xDAA8: Turn percentage raw value (i32). Converted to fixed-point: `(val << 16) / 100`.
-    pub turn_percentage_raw: i32,
+    /// 0xDAA5: Music master volume percentage (u8, 0..100). Read by
+    /// `ApplyVolumeSettings` and used as a multiplier when scaling the
+    /// live sound-volume Fixed value down for `Music::SetVolume` —
+    /// `music_set = (music_volume_percent * sound_volume_fixed) / 100`.
+    /// Sourced from the global config / options screen.
+    pub music_volume_percent: u8,
+    /// 0xDAA6-0xDAA7: Unknown
+    pub _unknown_daa6: [u8; 2],
+    /// 0xDAA8: Initial sound volume percentage (i32, 0..100). Used only
+    /// at `init_game_state` to seed [`GameRuntime::sound_volume`] via the
+    /// percent→Fixed conversion `(val << 16) / 100`. Sourced from the
+    /// global config / options screen.
+    pub sound_volume_percent: i32,
 
     /// 0xDAAC: Landscape data path (passed to Landscape constructor).
     /// Points to a path string used for loading level terrain data.

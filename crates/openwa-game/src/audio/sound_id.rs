@@ -1,3 +1,5 @@
+use crate::audio::KnownSoundId;
+
 /// Packed sound ID + playback flags, passed as a single u32.
 ///
 /// Layout:
@@ -12,27 +14,41 @@
 pub struct SoundId(pub u32);
 
 impl SoundId {
+    pub const fn from_known(id: KnownSoundId) -> Self {
+        Self(id as u32)
+    }
+
     /// Sound slot index (low 16 bits). 0 = invalid/empty.
     #[inline]
-    pub fn index(self) -> usize {
+    pub const fn index(self) -> usize {
         (self.0 & 0xFFFF) as usize
     }
 
     /// Whether the sound should loop continuously (bit 16).
     #[inline]
-    pub fn is_looping(self) -> bool {
+    pub const fn is_looping(self) -> bool {
         self.0 & 0x10000 != 0
     }
 
     /// Whether volume should be used directly, skipping master volume scaling (bit 17).
     #[inline]
-    pub fn is_raw_volume(self) -> bool {
+    pub const fn is_raw_volume(self) -> bool {
         self.0 & 0x20000 != 0
     }
 
     /// Return a copy with the loop flag cleared.
     #[inline]
-    pub fn without_loop(self) -> Self {
+    pub const fn without_loop(self) -> Self {
         Self(self.0 & 0xFFFEFFFF)
+    }
+
+    #[inline]
+    pub const fn looped(self) -> Self {
+        Self(self.0 | 0x10000)
+    }
+
+    #[inline]
+    pub const fn with_raw_volume(self) -> Self {
+        Self(self.0 | 0x20000)
     }
 }

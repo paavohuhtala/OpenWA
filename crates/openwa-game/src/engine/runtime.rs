@@ -254,8 +254,18 @@ pub struct GameRuntime {
     pub ui_volume: Fixed,
     /// 0x41C: Unknown
     pub _unknown_41c: u32,
-    /// 0x420: Turn percentage (from game_info, fixed-point)
-    pub turn_percentage: i32,
+    /// 0x420: Live sound volume — the slider's "desired" value (Fixed,
+    /// 0..1.0). Initialized at `init_game_state` from
+    /// [`GameInfo::sound_volume_percent`] via the percent→Fixed
+    /// conversion `(percent << 16) / 100`. While the ESC menu is open
+    /// the volume slider's `render_ctx` points here, so dragging the
+    /// slider writes a fresh `0..0x10000` value each frame.
+    /// `ApplyVolumeSettings` (0x00534B40) reads this and propagates it
+    /// downstream: copies it to [`Self::ui_volume`] (the "last applied"
+    /// snapshot used for click/miss SFX), clamps it by the game-end
+    /// fade and the engine-suspended flag, then pushes the result to
+    /// `DSSound::SetMasterVolume` and `Music::SetVolume`.
+    pub sound_volume: Fixed,
     /// 0x424-0x44F: State fields (mix of zeroes and values)
     pub esc_menu_anim: Fixed,
     pub esc_menu_anim_target: Fixed,

@@ -400,9 +400,9 @@ pub unsafe fn init_game_state(runtime: *mut GameRuntime) {
         (*runtime)._field_478 = 0;
         (*runtime).ui_volume = Fixed::ZERO;
 
-        // Turn percentage: (game_info.turn_percentage << 16) / 100
-        let turn_pct_raw = (*game_info).turn_percentage_raw;
-        (*runtime).turn_percentage = (turn_pct_raw << 16) / 100;
+        // Initial sound volume: percent (0..100) → Fixed (0..1.0).
+        let pct = (*game_info).sound_volume_percent;
+        (*runtime).sound_volume = Fixed::from_raw((pct << 16) / 100);
 
         // ===== Display setup (headful only) =====
         let is_headful = (*world).is_headful != 0;
