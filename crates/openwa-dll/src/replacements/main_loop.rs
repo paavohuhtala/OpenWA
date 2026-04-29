@@ -75,6 +75,12 @@ pub fn install() -> Result<(), String> {
             "GameRuntime__EscMenu_TickState1",
             va::GAME_RUNTIME_ESC_MENU_STATE_1_TICK
         );
+        // `GameRuntime::EscMenu_TickState2` (0x00535FC0) — Rust port at
+        // `esc_menu::tick_confirm`. Same dispatch path as state 1.
+        hook::install_trap!(
+            "GameRuntime__EscMenu_TickState2",
+            va::GAME_RUNTIME_ESC_MENU_STATE_2_TICK
+        );
     }
     Ok(())
 }

@@ -11,8 +11,8 @@
 //!  - **0** — closed. [`tick_closed`] polls for Escape to open.
 //!  - **1** — open / mouse-driven cursor + LMB activation. Handled by
 //!    [`tick_open`] (Rust port of `EscMenu_TickState1`).
-//!  - **2** — confirm / network-end-of-game flow. Driven WA-side by
-//!    `EscMenu_TickState2` (still bridged via [`bridge_state_2_tick`]).
+//!  - **2** — confirm dialog (Yes/No) covering the original menu. Handled
+//!    by [`tick_confirm`] (Rust port of `EscMenu_TickState2`).
 //!
 //! [`MenuPanel`]: crate::engine::menu_panel::MenuPanel
 //! [`DisplayBitGrid`]: crate::bitgrid::DisplayBitGrid
@@ -43,11 +43,12 @@ use crate::wa::string_resource::{StringRes, res};
 
 // ─── Bridged WA addresses ──────────────────────────────────────────────────
 
-static mut STATE_2_TICK_ADDR: u32 = 0;
 static mut APPLY_VOLUME_SETTINGS_ADDR: u32 = 0;
 static mut OPEN_CONFIRM_DIALOG_ADDR: u32 = 0;
 static mut STRING_TOKEN_LOOKUP_ADDR: u32 = 0;
 static mut SPRINTF_ROTATING_ADDR: u32 = 0;
+static mut BEGIN_ROUND_END_ADDR: u32 = 0;
+static mut BEGIN_NETWORK_GAME_END_ADDR: u32 = 0;
 
 // `GameRuntime::ApplyVolumeSettings` (0x00534B40) — usercall(EAX=this),
 // plain RET. Copies `runtime+0x420` (live volume slider) into
@@ -75,31 +76,16 @@ const SPRINTF_ROTATING_VA: u32 = 0x005978A0;
 /// `dispatch_frame::init_dispatch_addrs` at DLL load.
 pub unsafe fn init_addrs() {
     unsafe {
-        STATE_2_TICK_ADDR = rb(va::GAME_RUNTIME_ESC_MENU_STATE_2_TICK);
         APPLY_VOLUME_SETTINGS_ADDR = rb(APPLY_VOLUME_SETTINGS_VA);
         OPEN_CONFIRM_DIALOG_ADDR = rb(OPEN_CONFIRM_DIALOG_VA);
         STRING_TOKEN_LOOKUP_ADDR = rb(STRING_TOKEN_LOOKUP_VA);
         SPRINTF_ROTATING_ADDR = rb(SPRINTF_ROTATING_VA);
+        BEGIN_ROUND_END_ADDR = rb(va::GAME_RUNTIME_BEGIN_ROUND_END);
+        BEGIN_NETWORK_GAME_END_ADDR = rb(va::GAME_RUNTIME_BEGIN_NETWORK_GAME_END);
     }
 }
 
 // ─── Bridges (still WA-side) ───────────────────────────────────────────────
-
-/// Bridge for `GameRuntime::EscMenu_TickState2` (0x00535FC0) — per-frame
-/// tick while `esc_menu_state == 2` (confirm / network-end-of-game flow;
-/// calls `BeginNetworkGameEnd`). Usercall EDI=this, plain RET. ~176
-/// instructions.
-#[unsafe(naked)]
-pub unsafe extern "stdcall" fn bridge_state_2_tick(_this: *mut GameRuntime) {
-    core::arch::naked_asm!(
-        "push edi",
-        "mov edi, [esp+8]",
-        "call [{addr}]",
-        "pop edi",
-        "ret 4",
-        addr = sym STATE_2_TICK_ADDR,
-    );
-}
 
 /// Bridge for `GameRuntime::ApplyVolumeSettings` (0x00534B40). Usercall
 /// EAX=this, plain RET. Reads `runtime+0x420` (the live volume slider
@@ -125,6 +111,41 @@ unsafe fn bridge_open_confirm_dialog(this: *mut GameRuntime) {
             core::mem::transmute(OPEN_CONFIRM_DIALOG_ADDR as usize);
         func(this);
     }
+}
+
+/// Bridge for `GameRuntime::BeginRoundEnd` (0x00536550). Usercall
+/// `(EAX=this, [ESP+4]=skip_frame_delay)`, RET 0x4. Transitions runtime
+/// to `game_state = ROUND_ENDING` (4), zeroes the game-end fade fields,
+/// optionally clears the frame-delay counter (-1) when `skip_frame_delay
+/// != 0`, and broadcasts msg `0x75` through `world_root.handle_message`
+/// when `world.game_info[+0xD778] > 0x4C`. Tail-call shape: pop ret-addr
+/// + the `this` arg, push ret-addr back, jmp to target. Target's RET 0x4
+/// cleans `skip_frame_delay`.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_begin_round_end(_this: *mut GameRuntime, _skip_frame_delay: u32) {
+    core::arch::naked_asm!(
+        "pop ecx",
+        "pop eax",
+        "push ecx",
+        "jmp dword ptr [{addr}]",
+        addr = sym BEGIN_ROUND_END_ADDR,
+    );
+}
+
+/// Bridge for `GameRuntime::BeginNetworkGameEnd` (0x00536270). Usercall
+/// `(EAX=this)`, plain RET. Network-mode round-end entry: writes initial
+/// peer-score sentinels (1000) into `runtime` per active peer, transitions
+/// `game_state = NETWORK_END_AWAIT_PEERS` (3), enqueues a message in the
+/// network ring buffer, and forwards through `net_session.handle_message`.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_begin_network_game_end(_this: *mut GameRuntime) {
+    core::arch::naked_asm!(
+        "pop ecx",
+        "pop eax",
+        "push ecx",
+        "jmp dword ptr [{addr}]",
+        addr = sym BEGIN_NETWORK_GAME_END_ADDR,
+    );
 }
 
 // ─── UI sound IDs ──────────────────────────────────────────────────────────
@@ -451,6 +472,143 @@ pub unsafe fn tick_open(runtime: *mut GameRuntime) {
                     bridge_open_confirm_dialog(runtime);
                 }
             }
+        }
+    }
+}
+
+/// Rust port of `GameRuntime::EscMenu_TickState2` (0x00535FC0) — the
+/// per-frame input handler while the confirm dialog is up
+/// (`esc_menu_state == 2`). The dialog itself was built into
+/// [`menu_panel_b`](GameRuntime::menu_panel_b) by
+/// `OpenEscMenuConfirmDialog`; it's a Yes (kind=2) / No (kind=1) overlay
+/// covering the original menu.
+///
+/// Sequence (largely a sibling of [`tick_open`]):
+/// 1. Same input-focus gate as state 1 (slot 0 of `team_index_maps[0]`
+///    and `[2]`).
+/// 2. If [`KeyboardAction::Escape`] is just-pressed → bounce back to
+///    state 1 (cancel the confirm).
+/// 3. Mouse poll on `world.mouse_input`: `consume_delta_and_buttons` +
+///    **unconditional** `ack_button_mask(3)` + `clear_deltas`. Unlike
+///    state 1, the LMB+RMB latch is acked every frame here — there's no
+///    drag-lock to preserve in the confirm dialog.
+/// 4. Move the **panel-B** cursor by the delta: [`set_cursor_at`]`(panel_b,
+///    cursor + delta)`.
+/// 5. Bail unless LMB is pressed.
+/// 6. [`activate_at_cursor`] on `panel_b`:
+///    * [`Miss`](ActivateOutcome::Miss) → miss sound; return (state stays 2).
+///    * Hit → click sound. If the resulting kind is `1` (the No button)
+///      → bounce back to state 1.
+/// 7. Otherwise re-run [`activate_at_cursor`] on **`panel_a`** to
+///    recover the original action under the cursor — this works because
+///    `OpenEscMenuConfirmDialog` parks `panel_a.slider_lock` at the
+///    item index that was clicked, so `hit_test_cursor` short-circuits
+///    to that item regardless of where on the dialog the user clicked.
+///    The kind from that item drives the action:
+///    * `0` (Force SD): `runtime._field_478 = 1`. Closes the menu.
+///    * `1` (Draw): [`bridge_begin_round_end`]`(runtime, 1)`;
+///      `runtime.game_end_phase = 2`. Closes the menu.
+///    * `2` (Quit): `runtime.game_end_phase = 1`. If offline →
+///      [`bridge_begin_round_end`]; if online →
+///      [`bridge_begin_network_game_end`]. Closes the menu.
+///    * Anything else / Miss → state stays 2 (waiting for another click).
+pub unsafe fn tick_confirm(runtime: *mut GameRuntime) {
+    unsafe {
+        let world = (*runtime).world;
+
+        // Step 1: input-focus gate (same as state 1).
+        if !handle_at_input_focus(world, 0, (*runtime)._field_438) {
+            return;
+        }
+        if !handle_at_input_focus(world, 2, (*runtime)._field_43c) {
+            return;
+        }
+
+        // Step 2: Escape cancels — drop back to state 1.
+        let keyboard = (*world).keyboard;
+        if KeyboardAction::Escape.is_active2(keyboard) {
+            (*runtime).esc_menu_state = 1;
+            return;
+        }
+
+        // Step 3: poll mouse — consume + unconditional ack(3) + clear.
+        let mouse_input = (*world).mouse_input;
+        let mut dx: i32 = 0;
+        let mut dy: i32 = 0;
+        let mut buttons: u32 = 0;
+        ((*(*mouse_input).vtable).consume_delta_and_buttons)(
+            mouse_input,
+            &mut dx,
+            &mut dy,
+            &mut buttons,
+        );
+        ((*(*mouse_input).vtable).ack_button_mask)(mouse_input, 3);
+        ((*(*mouse_input).vtable).clear_deltas)(mouse_input);
+
+        // Step 4: move panel-B's cursor.
+        let panel_b = (*runtime).menu_panel_b;
+        let new_x = (*panel_b).cursor_x + dx;
+        let new_y = (*panel_b).cursor_y + dy;
+        set_cursor_at(panel_b, new_x, new_y);
+
+        // Step 5: bail unless LMB is pressed.
+        if buttons & 1 == 0 {
+            return;
+        }
+
+        // Step 6: activate on panel_b. Miss → miss sound + return.
+        // Yes/No buttons return Button(kind); we map Slider(idx) to its
+        // index so it threads through the same kind-value paths WA uses
+        // (out_kind = idx for sliders), even though the confirm dialog
+        // never builds a slider in practice.
+        let kind_b = match activate_at_cursor(panel_b) {
+            ActivateOutcome::Miss => {
+                dispatch_global_sound(runtime, UI_MISS_SOUND, 8, Fixed::ONE, (*runtime).ui_volume);
+                return;
+            }
+            ActivateOutcome::Button(k) => k,
+            ActivateOutcome::Slider(idx) => idx,
+        };
+        dispatch_global_sound(runtime, UI_CLICK_SOUND, 8, Fixed::ONE, (*runtime).ui_volume);
+
+        // No button (kind=1) → bounce back to the open menu.
+        if kind_b == 1 {
+            (*runtime).esc_menu_state = 1;
+            return;
+        }
+
+        // Step 7: recover the original menu_panel_a action via slider_lock.
+        let panel_a = (*runtime).menu_panel_a;
+        let kind_a = match activate_at_cursor(panel_a) {
+            ActivateOutcome::Miss => return,
+            ActivateOutcome::Button(k) => k,
+            ActivateOutcome::Slider(idx) => idx,
+        };
+
+        match kind_a {
+            // Force Sudden Death confirmed.
+            0 => {
+                (*runtime)._field_478 = 1;
+                (*runtime).esc_menu_state = 0;
+            }
+            // Draw This Round confirmed.
+            1 => {
+                bridge_begin_round_end(runtime, 1);
+                (*runtime).game_end_phase = 2;
+                (*runtime).esc_menu_state = 0;
+            }
+            // Quit The Game confirmed.
+            2 => {
+                (*runtime).game_end_phase = 1;
+                if (*world).net_session.is_null() {
+                    bridge_begin_round_end(runtime, 1);
+                } else {
+                    bridge_begin_network_game_end(runtime);
+                }
+                (*runtime).esc_menu_state = 0;
+            }
+            // Unknown kind / no original click recoverable: stay in state 2.
+            _ => {}
         }
     }
 }

@@ -456,12 +456,12 @@ pub unsafe fn init_game_state(runtime: *mut GameRuntime) {
         (*runtime)._field_43c = -1;
         (*runtime).menu_panel_width = 0;
         (*runtime).menu_panel_height = 0;
-        (*runtime)._field_424 = 0;
-        (*runtime)._field_428 = 0;
+        (*runtime).esc_menu_anim = Fixed::ZERO;
+        (*runtime).esc_menu_anim_target = Fixed::ZERO;
         (*runtime)._field_448 = 0;
         (*runtime)._field_44c = 0;
-        (*runtime)._field_42c = 0;
-        (*runtime)._field_430 = 0;
+        (*runtime).confirm_anim = Fixed::ZERO;
+        (*runtime).confirm_anim_target = Fixed::ZERO;
         (*runtime)._field_40c = 0;
         (*runtime)._field_410 = 0;
 

@@ -257,10 +257,10 @@ pub struct GameRuntime {
     /// 0x420: Turn percentage (from game_info, fixed-point)
     pub turn_percentage: i32,
     /// 0x424-0x44F: State fields (mix of zeroes and values)
-    pub _field_424: i32,
-    pub _field_428: i32,
-    pub _field_42c: i32,
-    pub _field_430: i32,
+    pub esc_menu_anim: Fixed,
+    pub esc_menu_anim_target: Fixed,
+    pub confirm_anim: Fixed,
+    pub confirm_anim_target: Fixed,
     /// 0x434: ESC-menu state machine.
     /// 0 = closed (bare HUD); 1 = open (built by `OpenEscMenu`, awaiting
     /// nav input); 2 = confirm / network-end-of-game flow (calls

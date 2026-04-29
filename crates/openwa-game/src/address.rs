@@ -226,6 +226,13 @@ pub mod va {
             /// non-zero `network_ecx` path). Transitions `game_state` to 3.
             /// Usercall(EAX=wrapper), no stack args, plain RET.
             fn/Usercall GAME_RUNTIME_BEGIN_NETWORK_GAME_END = 0x00536270;
+            /// GameRuntime__BeginRoundEnd — local round-end entry (Draw / offline
+            /// Quit confirm in `EscMenu_TickState2`). Transitions `game_state`
+            /// to 4 (ROUND_ENDING), zeroes the game-end fade fields, optionally
+            /// clears `frame_delay_counter` to -1, and broadcasts msg 0x75 via
+            /// `world_root.handle_message` if `world.game_info[+0xD778] > 0x4C`.
+            /// Usercall(EAX=this, [ESP+4]=skip_frame_delay), RET 0x4.
+            fn/Usercall GAME_RUNTIME_BEGIN_ROUND_END = 0x00536550;
             /// GameRuntime__OnGameState2. Usercall(EDI=ESI=wrapper), plain RET.
             fn/Usercall GAME_RUNTIME_ON_GAME_STATE_2 = 0x00536470;
             /// GameRuntime__OnGameState3. Usercall(EDI=ESI=wrapper), plain RET.

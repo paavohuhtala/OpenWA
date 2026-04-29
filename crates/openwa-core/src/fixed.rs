@@ -112,6 +112,33 @@ impl Fixed {
     pub const fn wrapping_sub(self, rhs: Self) -> Self {
         Self(self.0.wrapping_sub(rhs.0))
     }
+
+    /// Move `self` toward `target` by one step, without overshooting.
+    ///
+    /// The step size is `max(|target - self| * rate, min_step)`, then clamped
+    /// to the remaining distance so the result never crosses past `target`.
+    /// `rate` controls the eased fall-off: `Fixed::ONE` snaps in one call,
+    /// `Fixed::HALF` halves the gap each call. `min_step` is a constant-step
+    /// floor that prevents the asymptotic creep an unbounded ease would
+    /// produce — the animation always reaches the target in finite time.
+    ///
+    /// Returns `true` iff `self == target` on entry (i.e. nothing was
+    /// already pending). Mirrors WA's `FixedSlewToward` (0x00534BC0).
+    pub fn smooth_move_towards(&mut self, target: Fixed, min_step: Fixed, rate: Fixed) -> bool {
+        let prev = *self;
+        let already_settled = prev == target;
+        let delta = target - prev;
+        let step = delta.mul_raw(rate).abs().max(min_step);
+
+        *self = if delta.abs() > step {
+            let signed_step = if target < prev { -step } else { step };
+            prev + signed_step
+        } else {
+            target
+        };
+
+        already_settled
+    }
 }
 
 impl Add for Fixed {
@@ -292,5 +319,54 @@ impl core::fmt::Debug for Fixed64 {
             self.0 as f64 / Self::SCALE as f64,
             self.0
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Fixed;
+
+    #[test]
+    fn smooth_move_towards_already_settled() {
+        let mut s = Fixed::from_raw(100);
+        let already = s.smooth_move_towards(Fixed::from_raw(100), Fixed::from_raw(1), Fixed::ONE);
+        assert!(already);
+        assert_eq!(s, Fixed::from_raw(100));
+    }
+
+    #[test]
+    fn smooth_move_towards_full_rate_snaps() {
+        // rate = ONE → step = |delta|, clamped to |delta| → snap.
+        let mut s = Fixed::ZERO;
+        let already = s.smooth_move_towards(Fixed::from_raw(100), Fixed::ZERO, Fixed::ONE);
+        assert!(!already);
+        assert_eq!(s, Fixed::from_raw(100));
+    }
+
+    #[test]
+    fn smooth_move_towards_half_rate_takes_multiple_steps() {
+        let mut s = Fixed::ZERO;
+        let target = Fixed::from_raw(100);
+        let settled1 = s.smooth_move_towards(target, Fixed::ZERO, Fixed::HALF);
+        assert!(!settled1);
+        assert_eq!(s, Fixed::from_raw(50));
+        let settled2 = s.smooth_move_towards(target, Fixed::ZERO, Fixed::HALF);
+        assert!(!settled2);
+        assert_eq!(s, Fixed::from_raw(75));
+    }
+
+    #[test]
+    fn smooth_move_towards_min_step_floor_wins_when_rate_too_small() {
+        // rate = ZERO → scaled = 0, so step falls back to min_step.
+        let mut s = Fixed::ZERO;
+        s.smooth_move_towards(Fixed::from_raw(100), Fixed::from_raw(5), Fixed::ZERO);
+        assert_eq!(s, Fixed::from_raw(5));
+    }
+
+    #[test]
+    fn smooth_move_towards_backward_moves_down() {
+        let mut s = Fixed::from_raw(100);
+        s.smooth_move_towards(Fixed::ZERO, Fixed::from_raw(10), Fixed::ZERO);
+        assert_eq!(s, Fixed::from_raw(90));
     }
 }

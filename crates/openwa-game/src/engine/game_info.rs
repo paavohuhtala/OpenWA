@@ -330,9 +330,21 @@ pub struct GameInfo {
     pub sound_attenuation: i32,
     /// 0xF390-0xF397: Unknown
     pub _unknown_f390: [u8; 0xF398 - 0xF390],
-    /// 0xF398: Sound suppression flag (i32). Checked together with
-    /// `sound_start_frame` and `sound_mute` by DispatchFrame to decide whether
-    /// timing ratio updates advance normally or snap to target.
+    /// 0xF398: "Snap animations" / non-advancing-frame latch (i32). When
+    /// non-zero, three different easers in `DispatchFrame` collapse to
+    /// their target values instead of stepping one tick:
+    /// - The timer ratio smoother snaps `turn_timer_max` to
+    ///   `turn_timer_current` (also gates `sound_started`).
+    /// - Slot A animation (`_field_3fc`) snaps to its target.
+    /// - Both ESC-menu animations (`esc_menu_anim` / `confirm_anim`) snap
+    ///   to their targets.
+    ///
+    /// Likely set during pause/seek/resume frames where simulation time
+    /// isn't advancing smoothly — collapsing in-progress eases avoids
+    /// visible animation glitches and time-aligned audio firing on a
+    /// frame that doesn't represent real elapsed time. The original
+    /// "sound suppression" interpretation describes one downstream effect
+    /// (sound is gated by the same flag) but not the field's purpose.
     pub _field_f398: i32,
     /// 0xF39C: Read as a `u32` and copied verbatim into
     /// `GameSession.display_param_1` by `GameSession::Run`. Purpose unknown.

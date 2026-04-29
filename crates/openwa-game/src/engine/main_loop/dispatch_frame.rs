@@ -9,7 +9,6 @@ use openwa_core::fixed::{Fixed, Fixed64};
 use windows_sys::Win32::System::Threading::ExitProcess;
 
 use super::esc_menu;
-use super::fixed_slew::fixed_slew_toward;
 use crate::address::va;
 use crate::audio::active_sound::ActiveSoundTable;
 use crate::audio::dssound::DSSound;
@@ -175,7 +174,7 @@ pub unsafe fn is_replay_mode(runtime: *mut GameRuntime) -> bool {
         if gs != game_state::INITIALIZED && gs != game_state::ROUND_ENDING {
             return false;
         }
-        if (*runtime).esc_menu_state != 0 || (*runtime)._field_424 != 0 {
+        if (*runtime).esc_menu_state != 0 || (*runtime).esc_menu_anim != Fixed::ZERO {
             return false;
         }
         if (*get_game_session()).flag_5c != 0 {
@@ -450,12 +449,13 @@ unsafe fn should_interpolate_online(runtime: *mut GameRuntime) -> bool {
 /// then bumps `world.scaled_frame_accum` by `advance_ratio` and decays the
 /// `_field_450` countdown by the same amount (clamped at 0).
 ///
-/// Slews (all via [`fixed_slew_toward`]):
+/// Slews (all via [`Fixed::smooth_move_towards`]):
 /// - **Slot A** — state `_field_3fc`, target `Fixed::ONE` if `_field_40c != 0`
-///   else `Fixed::ZERO`. `min_step = min_step_a`, `rate = rate_a`. The
-///   `force_set` flag is driven by `game_info._field_f398` (sound-suppression
-///   latch). When the slew reports already-settled, sets
-///   `wrapper.game_mode_flag = 1`.
+///   else `Fixed::ZERO`. `min_step = min_step_a`, `rate = rate_a`. When
+///   `game_info._field_f398` (the "snap animations" / non-advancing-frame
+///   latch) is set, snaps the state to the target before the slew so the
+///   animation is forced complete in this frame. When the slew reports
+///   already-settled, sets `wrapper.game_mode_flag = 1`.
 /// - **Slot B** — state `_field_454`, target `Fixed::ONE` when
 ///   `_field_40c == 0 && _field_414 == 0 && _field_450 != 0`, else `Fixed::ZERO`.
 ///   `min_step = min_step_b`, `rate = rate_b`, no force_set. Note this uses
@@ -486,13 +486,13 @@ unsafe fn advance_frame_counters(
         } else {
             Fixed::ZERO
         };
-        if fixed_slew_toward(
-            &mut (*runtime)._field_3fc,
-            target_a,
-            min_step_a,
-            rate_a,
-            gi._field_f398 != 0,
-        ) {
+        if gi._field_f398 != 0 {
+            (*runtime)._field_3fc = target_a;
+        }
+        if (*runtime)
+            ._field_3fc
+            .smooth_move_towards(target_a, min_step_a, rate_a)
+        {
             (*runtime).game_mode_flag = 1;
         }
 
@@ -517,13 +517,9 @@ unsafe fn advance_frame_counters(
         } else {
             Fixed::ZERO
         };
-        let _ = fixed_slew_toward(
-            &mut (*runtime)._field_454,
-            target_b,
-            min_step_b,
-            rate_b,
-            false,
-        );
+        let _ = (*runtime)
+            ._field_454
+            .smooth_move_towards(target_b, min_step_b, rate_b);
 
         // Slot C slew.
         let target_c = if (*runtime)._field_278 >= 0x65 {
@@ -531,13 +527,9 @@ unsafe fn advance_frame_counters(
         } else {
             Fixed::ZERO
         };
-        let _ = fixed_slew_toward(
-            &mut (*runtime)._field_27c,
-            target_c,
-            min_step_b,
-            rate_b,
-            false,
-        );
+        let _ = (*runtime)
+            ._field_27c
+            .smooth_move_towards(target_c, min_step_b, rate_b);
     }
 }
 
@@ -554,7 +546,7 @@ unsafe fn advance_frame_counters(
 ///    - `1` (open) → [`esc_menu::tick_open`] (Rust port); slew target slot 1
 ///      → 1.0, slot 2 → 0 (slot 1 = menu visible, slot 2 = confirm overlay
 ///      hidden).
-///    - `2` (confirm/end-of-game) → [`esc_menu::bridge_state_2_tick`];
+///    - `2` (confirm/end-of-game) → [`esc_menu::tick_confirm`] (Rust port);
 ///      both slew targets → 1.0 (semantics TBD; calls `BeginNetworkGameEnd`).
 ///    - any other value → no-op for the helper + targets (the original
 ///      neither calls a helper nor updates targets).
@@ -564,12 +556,13 @@ unsafe fn advance_frame_counters(
 ///    non-zero, lazily allocate a slot if `_handle == -1`. (The original
 ///    function checks the value AFTER the optional reset in step 1, so
 ///    state-transition-to-0 deregisters in the same call.)
-/// 4. Slew slot 1 (`_field_424` toward `_field_428`) and slot 2
-///    (`_field_42c` toward `_field_430`) one frame, both with rate
-///    = `fixed_render_scale` and `force_set` driven by
-///    `game_info._field_f398` (sound-suppression latch reused as a
-///    snap flag). Slot 1 uses `fps_scaled` as `min_step`; slot 2 uses
-///    `fps_product`.
+/// 4. Slew the ESC-menu and confirm-panel animations one frame each,
+///    both with rate = `fixed_render_scale`. Slot 1 (`esc_menu_anim`
+///    toward `esc_menu_anim_target`) uses `fps_scaled` as `min_step`;
+///    slot 2 (`confirm_anim` toward `confirm_anim_target`) uses
+///    `fps_product`. When `game_info._field_f398` (the "snap animations"
+///    / non-advancing-frame latch) is set, both states are first snapped
+///    to their targets so the slew is a no-op for that frame.
 ///
 /// Slot-allocator key passed to `TeamIndexMap::pop_handle` is `6` (matches
 /// the original `PUSH 0x6` at the call sites). Handles are reset to `-1`
@@ -592,18 +585,18 @@ unsafe fn setup_frame_params(
         match (*runtime).esc_menu_state {
             0 => {
                 esc_menu::tick_closed(runtime);
-                (*runtime)._field_428 = 0;
-                (*runtime)._field_430 = 0;
+                (*runtime).esc_menu_anim_target = Fixed::ZERO;
+                (*runtime).confirm_anim_target = Fixed::ZERO;
             }
             1 => {
                 esc_menu::tick_open(runtime);
-                (*runtime)._field_428 = 0x10000;
-                (*runtime)._field_430 = 0;
+                (*runtime).esc_menu_anim_target = Fixed::ONE;
+                (*runtime).confirm_anim_target = Fixed::ZERO;
             }
             2 => {
-                esc_menu::bridge_state_2_tick(runtime);
-                (*runtime)._field_428 = 0x10000;
-                (*runtime)._field_430 = 0x10000;
+                esc_menu::tick_confirm(runtime);
+                (*runtime).esc_menu_anim_target = Fixed::ONE;
+                (*runtime).confirm_anim_target = Fixed::ONE;
             }
             // Any other value: no helper, no target update — original
             // skips both via `JNZ LAB_00534D17` after the third compare.
@@ -635,22 +628,23 @@ unsafe fn setup_frame_params(
             }
         }
 
-        // Step 4: slew states.
+        // Step 4: slew states. When the snap latch is set, force both
+        // animations to their targets in one frame; otherwise step one
+        // tick toward each.
         let force_set = (*(*world).game_info)._field_f398 != 0;
-
-        let _ = fixed_slew_toward(
-            &mut (*runtime)._field_424 as *mut i32 as *mut Fixed,
-            Fixed::from_raw((*runtime)._field_428),
+        if force_set {
+            (*runtime).esc_menu_anim = (*runtime).esc_menu_anim_target;
+            (*runtime).confirm_anim = (*runtime).confirm_anim_target;
+        }
+        let _ = (*runtime).esc_menu_anim.smooth_move_towards(
+            (*runtime).esc_menu_anim_target,
             fps_scaled,
             fixed_render_scale,
-            force_set,
         );
-        let _ = fixed_slew_toward(
-            &mut (*runtime)._field_42c as *mut i32 as *mut Fixed,
-            Fixed::from_raw((*runtime)._field_430),
+        let _ = (*runtime).confirm_anim.smooth_move_towards(
+            (*runtime).confirm_anim_target,
             fps_product,
             fixed_render_scale,
-            force_set,
         );
     }
 }
