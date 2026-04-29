@@ -749,7 +749,19 @@ pub mod va {
         fn RQ_UPDATE_CLIP_BOUNDS_MAYBE = 0x00542F10;
         fn RQ_SATURATE_CLIP_BOUNDS_MAYBE = 0x00542F70;
         fn RENDER_FRAME_MAYBE = 0x0056E040;
-        fn GAME_RENDER_MAYBE = 0x00533DC0;
+        /// `GameRender_Maybe` — per-frame render dispatcher.
+        /// usercall(ECX = GameRuntime*), no stack args, plain RET.
+        /// Ported in `engine::main_loop::render_frame::game_render`.
+        fn/Thiscall GAME_RENDER_MAYBE = 0x00533DC0;
+        /// `GameRuntime::DrawAwayOverlay_Maybe` — headful "GAME AWAY"/
+        /// "GAME OVER" overlay. usercall(EDI = runtime, [stack]=top_y).
+        /// RET 0x4. Bridged from render_frame.
+        fn/Usercall GAME_RUNTIME_DRAW_AWAY_OVERLAY = 0x005336E0;
+        /// `ClipContext::ClampCameraToBounds` — per-frame "keep camera
+        /// within scrollable area" clamp. usercall(EAX=viewport_w,
+        /// ECX=max_y, stack=ctx,vh,min_x,min_y,max_x). RET 0x14.
+        /// Ported in `render::queue_dispatch::clamp_camera_to_bounds`.
+        fn/Usercall CLIP_CONTEXT_CLAMP_CAMERA_TO_BOUNDS = 0x00542F10;
         /// `GameRuntime::RenderEscMenuOverlay` — per-frame ESC-menu blit
         /// (was misnamed `RenderTerrain_Maybe`; the actual terrain renders
         /// via the world entity tree's message-3 handlers, not in any tail

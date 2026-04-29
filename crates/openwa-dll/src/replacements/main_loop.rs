@@ -34,6 +34,17 @@ unsafe extern "cdecl" fn render_esc_menu_overlay_impl(runtime: *mut GameRuntime)
 hook::usercall_trampoline!(fn trampoline_render_esc_menu_overlay;
     impl_fn = render_esc_menu_overlay_impl; reg = eax);
 
+unsafe extern "cdecl" fn game_render_impl(runtime: *mut GameRuntime) {
+    unsafe { openwa_game::engine::main_loop::render_frame::game_render(runtime) }
+}
+
+// `GameRender_Maybe` (0x00533DC0) — usercall(ECX = this), plain RET.
+// Top-level per-frame render dispatcher. Called from `RenderFrame_Maybe`
+// (0x0056E040, still bridged). Rust impl in
+// `engine::main_loop::render_frame::game_render`.
+hook::usercall_trampoline!(fn trampoline_game_render;
+    impl_fn = game_render_impl; reg = ecx);
+
 // `MenuPanel::AppendItem` (0x005408F0) — usercall(EAX=x, ESI=panel) +
 // 6 stack params + RET 0x18. Trampoline forwards to the cdecl impl with
 // signature `(eax_x, esi_panel, kind, label, y, centered, slider_value_ptr,
@@ -64,6 +75,11 @@ pub fn install() -> Result<(), String> {
             "GameRuntime__RenderEscMenuOverlay",
             va::GAME_RUNTIME_RENDER_ESC_MENU_OVERLAY,
             trampoline_render_esc_menu_overlay as *const (),
+        )?;
+        hook::install(
+            "GameRender_Maybe",
+            va::GAME_RENDER_MAYBE,
+            trampoline_game_render as *const (),
         )?;
         hook::install_trap!(
             "GameRuntime__DispatchFrame",
