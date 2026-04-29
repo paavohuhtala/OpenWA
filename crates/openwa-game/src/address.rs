@@ -210,6 +210,16 @@ pub mod va {
             /// per-frame tick for `esc_menu_state == 2` (confirm /
             /// network-end-of-game flow; calls `BeginNetworkGameEnd`).
             fn/Usercall GAME_RUNTIME_ESC_MENU_STATE_2_TICK = 0x00535FC0;
+            /// `GameRuntime::OpenEscMenuConfirmDialog` (stdcall(this),
+            /// RET 0x4). Builds the Yes/No confirm overlay into
+            /// `runtime.menu_panel_b` and sets `esc_menu_state = 2`.
+            /// Ported as `esc_menu::open_confirm_dialog`.
+            fn/Stdcall GAME_RUNTIME_OPEN_ESC_MENU_CONFIRM_DIALOG = 0x00535CF0;
+            /// `MenuPanel::CenterCursorOnFirstKindZero` (usercall(ESI=panel),
+            /// plain RET). Walks `panel.items` and parks the cursor at
+            /// the center of any item whose `kind == 0` (last one wins).
+            /// Ported as `engine::menu_panel::center_cursor_on_first_kind_zero`.
+            fn/Usercall MENU_PANEL_CENTER_CURSOR_ON_KIND_ZERO = 0x00540780;
             /// `TeamIndexMap__PopHandle_Maybe` (0x00525F50). Thiscall
             /// `ECX = *mut TeamIndexMap, [ESP+4] = key: i32`, RET 0x4.
             /// Companion to `RemoveHandle`; ported to Rust as

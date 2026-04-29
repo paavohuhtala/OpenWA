@@ -28,7 +28,8 @@ use crate::audio::sound_ops::dispatch_global_sound;
 use crate::bitgrid::DisplayBitGrid;
 use crate::engine::game_session::get_game_session;
 use crate::engine::menu_panel::{
-    ActivateOutcome, MenuPanel, activate_at_cursor, append_item_impl, set_cursor_at,
+    ActivateOutcome, MenuPanel, activate_at_cursor, append_item_impl,
+    center_cursor_on_first_kind_zero, set_cursor_at,
 };
 use crate::engine::runtime::GameRuntime;
 use crate::engine::team_arena::TeamArena;
@@ -46,7 +47,6 @@ use crate::wa::string_resource::{StringRes, res};
 // ─── Bridged WA addresses ──────────────────────────────────────────────────
 
 static mut APPLY_VOLUME_SETTINGS_ADDR: u32 = 0;
-static mut OPEN_CONFIRM_DIALOG_ADDR: u32 = 0;
 static mut STRING_TOKEN_LOOKUP_ADDR: u32 = 0;
 static mut SPRINTF_ROTATING_ADDR: u32 = 0;
 static mut BEGIN_ROUND_END_ADDR: u32 = 0;
@@ -58,12 +58,6 @@ static mut BEGIN_NETWORK_GAME_END_ADDR: u32 = 0;
 // and Music via vtable calls. Bridged because typed wrappers for those two
 // vtable slots aren't yet defined.
 const APPLY_VOLUME_SETTINGS_VA: u32 = 0x00534B40;
-// `GameRuntime::OpenEscMenuConfirmDialog` (0x00535CF0) — stdcall(this),
-// RET 0x4. Builds the Yes/No dialog into `runtime.menu_panel_b` and
-// transitions `esc_menu_state` to 2. Bridged because it's a sibling of
-// `OpenEscMenu` (~260 inst, lots of vtable calls); not yet ported.
-const OPEN_CONFIRM_DIALOG_VA: u32 = 0x00535CF0;
-
 // String token table lookup — `FUN_0053EA30(table, token) -> *const c_char`,
 // `__stdcall`, RET 8. Resolves a localized template string from the
 // gfx-dir's string table (with WA's own escape-code post-processing).
@@ -79,7 +73,6 @@ const SPRINTF_ROTATING_VA: u32 = 0x005978A0;
 pub unsafe fn init_addrs() {
     unsafe {
         APPLY_VOLUME_SETTINGS_ADDR = rb(APPLY_VOLUME_SETTINGS_VA);
-        OPEN_CONFIRM_DIALOG_ADDR = rb(OPEN_CONFIRM_DIALOG_VA);
         STRING_TOKEN_LOOKUP_ADDR = rb(STRING_TOKEN_LOOKUP_VA);
         SPRINTF_ROTATING_ADDR = rb(SPRINTF_ROTATING_VA);
         BEGIN_ROUND_END_ADDR = rb(va::GAME_RUNTIME_BEGIN_ROUND_END);
@@ -102,17 +95,6 @@ unsafe extern "stdcall" fn bridge_apply_volume_settings(_this: *mut GameRuntime)
         "ret 4",
         addr = sym APPLY_VOLUME_SETTINGS_ADDR,
     );
-}
-
-/// Bridge for `GameRuntime::OpenEscMenuConfirmDialog` (0x00535CF0).
-/// Stdcall(this), RET 0x4. Builds the Yes/No confirmation panel in
-/// `menu_panel_b` and sets `runtime.esc_menu_state = 2`.
-unsafe fn bridge_open_confirm_dialog(this: *mut GameRuntime) {
-    unsafe {
-        let func: unsafe extern "stdcall" fn(*mut GameRuntime) =
-            core::mem::transmute(OPEN_CONFIRM_DIALOG_ADDR as usize);
-        func(this);
-    }
 }
 
 /// Bridge for `GameRuntime::BeginRoundEnd` (0x00536550). Usercall
@@ -372,7 +354,7 @@ unsafe fn handle_at_input_focus(world: *const GameWorld, map_idx: usize, handle:
 ///      online (`world.net_session != null`) — offline keeps the menu
 ///      open behind the minimised window.
 ///    * Other button kinds (Force-SD / Draw / Quit) → click sound +
-///      [`bridge_open_confirm_dialog`] (transitions to state 2).
+///      [`open_confirm_dialog`] (transitions to state 2).
 pub unsafe fn tick_open(runtime: *mut GameRuntime) {
     unsafe {
         let world = (*runtime).world;
@@ -456,7 +438,7 @@ pub unsafe fn tick_open(runtime: *mut GameRuntime) {
                         Fixed::ONE,
                         (*runtime).ui_volume,
                     );
-                    bridge_open_confirm_dialog(runtime);
+                    open_confirm_dialog(runtime);
                 }
             }
         }
@@ -487,10 +469,15 @@ pub unsafe fn tick_open(runtime: *mut GameRuntime) {
 ///    * Hit → click sound. If the resulting kind is `1` (the No button)
 ///      → bounce back to state 1.
 /// 7. Otherwise re-run [`activate_at_cursor`] on **`panel_a`** to
-///    recover the original action under the cursor — this works because
-///    `OpenEscMenuConfirmDialog` parks `panel_a.slider_lock` at the
-///    item index that was clicked, so `hit_test_cursor` short-circuits
-///    to that item regardless of where on the dialog the user clicked.
+///    recover the original action under the cursor. The mechanism is
+///    "cursor-position memory": neither `tick_confirm` nor
+///    `OpenEscMenuConfirmDialog` touches `panel_a.cursor_x/_y`, so it
+///    still sits where the user clicked Force-SD / Draw / Quit in
+///    state 1. `hit_test_cursor` re-runs on those preserved
+///    coordinates and returns the originally-clicked item's kind.
+///    `panel_a.slider_lock` is reliably 0 here — it's cleared on LMB
+///    release in `tick_open`, so the only way to enter state 2 (a fresh
+///    button click) guarantees the lock is already cleared.
 ///    The kind from that item drives the action:
 ///    * `0` (Force SD): `runtime._field_478 = 1`. Closes the menu.
 ///    * `1` (Draw): [`bridge_begin_round_end`]`(runtime, 1)`;
@@ -1080,6 +1067,182 @@ pub unsafe fn open_esc_menu(runtime: *mut GameRuntime) {
         }
 
         (*runtime).esc_menu_state = 1;
+    }
+}
+
+/// Rust port of `GameRuntime::OpenEscMenuConfirmDialog` (0x00535CF0).
+///
+/// Builds the Yes/No confirm overlay into `runtime.menu_panel_b` (with
+/// `runtime.display_gfx_e` as its drawing canvas) and transitions
+/// `esc_menu_state` to `2`. Called from [`tick_open`] when the user
+/// clicks Force-SD / Draw / Quit.
+///
+/// Body shape (largely a smaller sibling of [`open_esc_menu`]):
+/// 1. Background fill on the canvas with `gfx_color_table[7]`.
+/// 2. Resolve the dialog title (token [`res::GAME_CONFIRM`]), measure,
+///    draw centered at `((canvas_w - title_advance) / 2, 2)`.
+/// 3. Two horizontal separators at `y = line_height + 3` and `+ 4`,
+///    color `gfx_color_table[3]` (note: different from `OpenEscMenu`,
+///    which uses index `[6]`).
+/// 4. Reset `menu_panel_b` — clip rect to the canvas dims, cursor
+///    centered to the canvas (different from `OpenEscMenu`'s reset
+///    which clamps the existing cursor instead),
+///    `cursor_active = 0`, `slider_lock = 0`, `item_count = 0`.
+/// 5. Append the two buttons **side-by-side horizontally** at
+///    `y = line_height + 7`:
+///    - **Yes** (token [`res::GAME_YES`], kind=`0`) at `x = canvas_w/2 - 0x20`
+///    - **No** (token [`res::GAME_NO`], kind=`1`) at `x = canvas_w/2 + 0x20`
+/// 6. Park the cursor on the first kind=0 item (= Yes) via
+///    [`center_cursor_on_first_kind_zero`] — Yes is the default selection.
+/// 7. Border drawing — 4 hlines (thin top/bottom inset by 1px + wide
+///    top/bottom) + 4 vlines + 4 corner pixels at color `0`. Same shape
+///    as `OpenEscMenu`'s border. Final body height = `2*line_height + 12`.
+/// 8. Final state writes:
+///    - [`runtime.confirm_panel_width`](GameRuntime::confirm_panel_width)
+///      = canvas_w
+///    - [`runtime.confirm_panel_height`](GameRuntime::confirm_panel_height)
+///      = `2*line_height + 12`
+///    - Re-clamp the panel's clip rect + cursor to those dims.
+///    - `esc_menu_state = 2`.
+///
+/// `__stdcall(this)`, RET 0x4 originally; the WA address has no
+/// remaining xrefs once this port is wired in (the only caller was
+/// `EscMenu_TickState1`, also Rust). Trapped in
+/// `replacements/main_loop.rs` as a safety net.
+pub unsafe fn open_confirm_dialog(runtime: *mut GameRuntime) {
+    unsafe {
+        let world = (*runtime).world;
+        let display: *mut DisplayGfx = (*world).display;
+        let canvas: *mut DisplayBitGrid = (*runtime).display_gfx_e;
+        let panel: *mut MenuPanel = (*runtime).menu_panel_b;
+        let template = (*world).localized_template;
+        let bg_color = (*world).gfx_color_table[7] as u8;
+        let border_color = (*world).gfx_color_table[3] as u8;
+        let canvas_w = (*canvas).width as i32;
+        let canvas_h = (*canvas).height as i32;
+
+        // ─── Block A: background fill ───
+        clipped_fill_rect(canvas, 0, 0, canvas_w, canvas_h, bg_color);
+
+        // ─── Block B: title ───
+        // WA resolves the GAME_CONFIRM token twice — once for measure,
+        // once for draw. Resolve caches the result on the
+        // `LocalizedTemplate`, so the second call is a hash lookup; we
+        // collapse it to a single Rust call without changing semantics.
+        let title_str = bridge_token_lookup(template, res::GAME_CONFIRM);
+        let TextMeasurement {
+            total_advance: title_advance,
+            line_height,
+        } = measure_text(display, 0xF, title_str).unwrap_or_default();
+        let mut tmp_pen: i32 = 0;
+        let mut tmp_w: i32 = 0;
+        draw_text_on_bitmap(
+            display,
+            0xF,
+            canvas,
+            (canvas_w - title_advance) / 2,
+            2,
+            title_str,
+            &mut tmp_pen,
+            &mut tmp_w,
+        );
+
+        // ─── Block C: separators below title ───
+        clipped_fill_hline(canvas, 0, canvas_w, line_height + 3, border_color);
+        clipped_fill_hline(canvas, 0, canvas_w, line_height + 4, border_color);
+
+        // ─── Block D: panel reset ───
+        let panel_disp_a = (*panel).display_a as *const u8;
+        let pa_w = *(panel_disp_a.add(0x14) as *const i32);
+        let pa_h = *(panel_disp_a.add(0x18) as *const i32);
+        (*panel).cursor_active = 0;
+        (*panel).clip_left = 0;
+        (*panel).clip_top = 0;
+        (*panel).clip_right = pa_w;
+        (*panel).clip_bottom = pa_h;
+        (*panel).cursor_x = pa_w / 2;
+        (*panel).cursor_y = pa_h / 2;
+        (*panel).slider_lock = 0;
+        (*panel).item_count = 0;
+
+        // ─── Block E: Yes / No buttons ───
+        let button_y = line_height + 7;
+        let center_x = canvas_w / 2;
+
+        let label_yes = bridge_token_lookup(template, res::GAME_YES);
+        append_item_impl(
+            center_x - 0x20,
+            panel,
+            0, // kind = Yes
+            label_yes,
+            button_y,
+            1,
+            core::ptr::null_mut(),
+            core::ptr::null_mut(),
+        );
+
+        let label_no = bridge_token_lookup(template, res::GAME_NO);
+        append_item_impl(
+            center_x + 0x20,
+            panel,
+            1, // kind = No
+            label_no,
+            button_y,
+            1,
+            core::ptr::null_mut(),
+            core::ptr::null_mut(),
+        );
+
+        // ─── Block F: park cursor on Yes ───
+        center_cursor_on_first_kind_zero(panel);
+
+        // ─── Block G: border drawing ───
+        let body_height = button_y + line_height + 3;
+        let pw_minus_1 = canvas_w - 1;
+
+        // 4 horizontal edges (thin outer, wide inner — same shape as
+        // OpenEscMenu's border).
+        clipped_fill_hline(canvas, 1, pw_minus_1, 0, border_color);
+        clipped_fill_hline(canvas, 0, canvas_w, 1, border_color);
+        clipped_fill_hline(canvas, 0, canvas_w, body_height, border_color);
+        clipped_fill_hline(canvas, 1, pw_minus_1, body_height + 1, border_color);
+
+        // 4 vertical edges.
+        clipped_fill_vline(canvas, 0, 1, body_height, border_color);
+        clipped_fill_vline(canvas, 1, 0, body_height + 1, border_color);
+        clipped_fill_vline(canvas, pw_minus_1, 0, body_height + 1, border_color);
+        clipped_fill_vline(canvas, canvas_w, 1, body_height, border_color);
+
+        // 4 corner pixels @ color 0 to round off the border.
+        DisplayBitGrid::put_pixel_clipped_raw(canvas, 0, 0, 0);
+        DisplayBitGrid::put_pixel_clipped_raw(canvas, 0, body_height + 1, 0);
+        DisplayBitGrid::put_pixel_clipped_raw(canvas, pw_minus_1, 0, 0);
+        DisplayBitGrid::put_pixel_clipped_raw(canvas, pw_minus_1, body_height + 1, 0);
+
+        // ─── Block H: final state writes ───
+        (*runtime).confirm_panel_width = canvas_w;
+        (*runtime).confirm_panel_height = body_height + 2;
+
+        let cp_w = (*runtime).confirm_panel_width;
+        let cp_h = (*runtime).confirm_panel_height;
+        (*panel).clip_left = 0;
+        (*panel).clip_top = 0;
+        (*panel).clip_right = cp_w;
+        (*panel).clip_bottom = cp_h;
+        if (*panel).cursor_x < 0 {
+            (*panel).cursor_x = 0;
+        }
+        if (*panel).cursor_y < 0 {
+            (*panel).cursor_y = 0;
+        }
+        if cp_w < (*panel).cursor_x {
+            (*panel).cursor_x = cp_w;
+        }
+        if cp_h < (*panel).cursor_y {
+            (*panel).cursor_y = cp_h;
+        }
+
+        (*runtime).esc_menu_state = 2;
     }
 }
 

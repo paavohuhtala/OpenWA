@@ -288,10 +288,15 @@ pub struct GameRuntime {
     /// 0x444: ESC-menu panel content height — total y-offset accumulated
     /// during item layout in `GameRuntime::OpenEscMenu`, plus 2. Zero-init.
     pub menu_panel_height: i32,
-    /// 0x448: Zeroed
-    pub _field_448: i32,
-    /// 0x44C: Zeroed
-    pub _field_44c: i32,
+    /// 0x448: Confirm-dialog panel width — copied from
+    /// `display_gfx_e.width` by `OpenEscMenuConfirmDialog`. The
+    /// `menu_panel_b` analogue of [`Self::menu_panel_width`]. Zero-init.
+    pub confirm_panel_width: i32,
+    /// 0x44C: Confirm-dialog panel height — `2 * line_height + 12` (two
+    /// line_height rows for title + button row, plus 12 px of padding
+    /// and border). Set by `OpenEscMenuConfirmDialog`. The `menu_panel_b`
+    /// analogue of [`Self::menu_panel_height`]. Zero-init.
+    pub confirm_panel_height: i32,
     /// 0x450-0x45B: Turn state fields (written by init_turn_state).
     ///
     /// `_field_450` is a Fixed countdown that [`advance_frame_counters`]

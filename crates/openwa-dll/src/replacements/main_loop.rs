@@ -81,6 +81,21 @@ pub fn install() -> Result<(), String> {
             "GameRuntime__EscMenu_TickState2",
             va::GAME_RUNTIME_ESC_MENU_STATE_2_TICK
         );
+        // `GameRuntime::OpenEscMenuConfirmDialog` (0x00535CF0) — Rust
+        // port at `esc_menu::open_confirm_dialog`. The only WA-side
+        // caller was `EscMenu_TickState1` (now also Rust). Trap as a
+        // safety net.
+        hook::install_trap!(
+            "GameRuntime__OpenEscMenuConfirmDialog",
+            va::GAME_RUNTIME_OPEN_ESC_MENU_CONFIRM_DIALOG
+        );
+        // `MenuPanel::CenterCursorOnFirstKindZero` (0x00540780) — Rust
+        // port at `engine::menu_panel::center_cursor_on_first_kind_zero`.
+        // Only WA-side caller was `OpenEscMenuConfirmDialog`.
+        hook::install_trap!(
+            "MenuPanel__CenterCursorOnFirstKindZero",
+            va::MENU_PANEL_CENTER_CURSOR_ON_KIND_ZERO
+        );
     }
     Ok(())
 }

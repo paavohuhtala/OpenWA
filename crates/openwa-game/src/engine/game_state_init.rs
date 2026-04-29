@@ -458,8 +458,8 @@ pub unsafe fn init_game_state(runtime: *mut GameRuntime) {
         (*runtime).menu_panel_height = 0;
         (*runtime).esc_menu_anim = Fixed::ZERO;
         (*runtime).esc_menu_anim_target = Fixed::ZERO;
-        (*runtime)._field_448 = 0;
-        (*runtime)._field_44c = 0;
+        (*runtime).confirm_panel_width = 0;
+        (*runtime).confirm_panel_height = 0;
         (*runtime).confirm_anim = Fixed::ZERO;
         (*runtime).confirm_anim_target = Fixed::ZERO;
         (*runtime)._field_40c = 0;

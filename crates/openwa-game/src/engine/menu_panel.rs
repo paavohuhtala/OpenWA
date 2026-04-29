@@ -333,6 +333,37 @@ pub unsafe fn hit_test_cursor(panel: *mut MenuPanel) -> i32 {
     }
 }
 
+/// Rust port of `MenuPanel::CenterCursorOnFirstKindZero` (0x00540780).
+///
+/// Walks the items array and, for any item whose `kind == 0`, sets
+/// the panel cursor to the center of that item's clip rect and marks
+/// `cursor_active = 1`. If multiple items have `kind == 0`, the **last**
+/// one wins (the loop overwrites).
+///
+/// Used by `OpenEscMenuConfirmDialog` to default-park the cursor on the
+/// "Yes" button (which is appended with `kind = 0`) when the confirm
+/// overlay opens. Also called for the same purpose from the network
+/// game-end flow.
+///
+/// WA's ABI is `__usercall(ESI=panel)`, plain RET; the Rust port takes
+/// a normal pointer arg.
+pub unsafe fn center_cursor_on_first_kind_zero(panel: *mut MenuPanel) {
+    unsafe {
+        let count = (*panel).item_count;
+        if count <= 0 {
+            return;
+        }
+        for i in 0..count as usize {
+            let item = &(*panel).items[i];
+            if item.kind == 0 {
+                (*panel).cursor_x = (item.clip_left + item.clip_right) / 2;
+                (*panel).cursor_y = (item.clip_top + item.clip_bottom) / 2;
+                (*panel).cursor_active = 1;
+            }
+        }
+    }
+}
+
 /// Rust port of `MenuPanel::ActivateAtCursor` (0x00540810).
 ///
 /// Resolves the cursor's current target via [`hit_test_cursor`] and either
