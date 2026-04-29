@@ -51,6 +51,8 @@ pub unsafe fn init_dispatch_addrs() {
         SHOULD_INTERPOLATE_OFFLINE_TAIL_ADDR = rb(va::GAME_RUNTIME_SHOULD_INTERPOLATE_OFFLINE_TAIL);
         PROCESS_NETWORK_FRAME_ADDR = rb(va::GAME_RUNTIME_PROCESS_NETWORK_FRAME);
         HUD_DRAW_TEAM_LABELS_ADDR = rb(va::HUD_DRAW_TEAM_LABELS_MAYBE);
+        crate::wa::localized_template::init_addrs();
+        crate::wa::sprintf_rotating::init_addrs();
         super::esc_menu::init_addrs();
         super::render_frame::init_addrs();
         super::step_frame::init_step_frame_addrs();
@@ -401,7 +403,7 @@ unsafe fn online_gate_d920(runtime: *mut GameRuntime) -> bool {
 /// Port of `GameRuntime__ShouldInterpolate_OnlineGate_StartingMarker_Maybe`
 /// (0x0052DB60). Usercall EAX=this, plain RET. Returns `true` iff every
 /// entry `team_starting_marker[0..net.peer_count]` is non-zero.
-unsafe fn online_gate_db60(runtime: *mut GameRuntime) -> bool {
+pub(super) unsafe fn online_gate_db60(runtime: *mut GameRuntime) -> bool {
     unsafe {
         let net = (*(*runtime).world).net_session;
         let count = (*net).peer_count;
@@ -728,7 +730,7 @@ pub unsafe fn reset_frame_state(runtime: *mut GameRuntime) {
         }
 
         if step_render_scale_fade(runtime) == 0 {
-            (*world)._field_77d4 = (*world)._field_77d4.wrapping_add(1);
+            (*world).frame = (*world).frame.wrapping_add(1);
         }
     }
 }
@@ -755,7 +757,7 @@ unsafe fn frame_tail_update(runtime: *mut GameRuntime) {
 
         // Block 1 — periodic HUD label refresh.
         if (*runtime).display_gfx_c as usize != 0 {
-            let frames = (*world)._field_77d4;
+            let frames = (*world).frame;
             // WA uses signed IDIV with a divisor of 0x96 (150) to compute
             // `frames % 150`. Reproduce that with i32 arithmetic.
             let modulo_zero = (frames as i32) % 0x96 == 0;
@@ -1508,7 +1510,7 @@ pub unsafe fn dispatch_frame(runtime: *mut GameRuntime, time: u64, freq: u64) {
             let gi = &*(*world).game_info;
             let home_lock = gi.home_lock as i32;
             if home_lock != 0
-                && home_lock < (*world)._field_77d4 as i32 / 50
+                && home_lock < (*world).frame as i32 / 50
                 && (*runtime).game_end_phase == 0
             {
                 (*runtime).game_state = game_state::ROUND_ENDING;

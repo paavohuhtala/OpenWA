@@ -24,37 +24,43 @@
 //! Headful-only paths (sections L+M, the viewport-frame letterbox block) are
 //! gated on `g_GameSession.frame_state >= 0`.
 
+use core::ffi::c_char;
+
 use openwa_core::fixed::Fixed;
 use openwa_core::trig;
 
 use crate::address::va;
+use crate::bitgrid::DisplayBitGrid;
 use crate::engine::game_session::get_game_session;
+use crate::engine::net_session::NetSession;
 use crate::engine::runtime::GameRuntime;
 use crate::engine::world::GameWorld;
 use crate::game::message::TaskMessage;
 use crate::rebase::rb;
 use crate::render::display::gfx::DisplayGfx;
+use crate::render::palette::PaletteContext;
 use crate::render::queue_dispatch::{ClipContext, clamp_camera_to_bounds, render_drawing_queue};
 use crate::render::sprite::sprite_op::SpriteOp;
 use crate::task::base::BaseEntity;
+use crate::wa::localized_template::{LocalizedTemplate, resolve};
+use crate::wa::sprintf_rotating::sprintf_3 as sprintf_rotating_3;
+use crate::wa::string_resource::{StringRes, res};
 
 // ─── Bridged WA helpers ────────────────────────────────────────────────────
 
 static mut DRAW_AWAY_OVERLAY_ADDR: u32 = 0;
-static mut RENDER_HUD_ADDR: u32 = 0;
-static mut RENDER_TURN_STATUS_ADDR: u32 = 0;
-static mut PALETTE_MANAGE_ADDR: u32 = 0;
-static mut PALETTE_ANIMATE_ADDR: u32 = 0;
+static mut SET_TEXTBOX_TEXT_ADDR: u32 = 0;
+static mut PALETTE_ROTATE_HUES_ADDR: u32 = 0;
+static mut PALETTE_BLEND_TOWARD_ADDR: u32 = 0;
 
 /// Initialize the bridge addresses. Called from
 /// `dispatch_frame::init_dispatch_addrs` at DLL load.
 pub unsafe fn init_addrs() {
     unsafe {
         DRAW_AWAY_OVERLAY_ADDR = rb(va::GAME_RUNTIME_DRAW_AWAY_OVERLAY);
-        RENDER_HUD_ADDR = rb(va::RENDER_HUD_MAYBE);
-        RENDER_TURN_STATUS_ADDR = rb(va::RENDER_TURN_STATUS_MAYBE);
-        PALETTE_MANAGE_ADDR = rb(va::PALETTE_MANAGE_MAYBE);
-        PALETTE_ANIMATE_ADDR = rb(va::PALETTE_ANIMATE_MAYBE);
+        SET_TEXTBOX_TEXT_ADDR = rb(va::SET_TEXTBOX_TEXT);
+        PALETTE_ROTATE_HUES_ADDR = rb(va::PALETTE_CONTEXT_ROTATE_HUES);
+        PALETTE_BLEND_TOWARD_ADDR = rb(va::PALETTE_CONTEXT_BLEND_TOWARD_COLOR);
     }
 }
 
@@ -75,48 +81,78 @@ unsafe extern "stdcall" fn bridge_draw_away_overlay(_runtime: *mut GameRuntime, 
     );
 }
 
-/// Bridge for `RenderHUD_Maybe` (0x00534F20). Usercall: `EAX = runtime`,
-/// no stack args, plain RET. Draws the "GAME OVER" textbox when
-/// `runtime.game_state == 1`.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_render_hud(_runtime: *mut GameRuntime) {
-    core::arch::naked_asm!(
-        "mov eax, dword ptr [esp+4]",
-        "call dword ptr [{addr}]",
-        "ret 4",
-        addr = sym RENDER_HUD_ADDR,
-    );
+/// Bridge for `SetTextboxText` (0x004FB070, stdcall RET 0x20). Renders
+/// `text` into the textbox object's bitmap with two-tone shadow colors and
+/// a per-call scale, returning the [`DisplayBitGrid`] canvas pointer plus
+/// the pixel `(width, height)` consumed by the rendered text. Bridged
+/// because the textbox-rendering code is large (~360 inst) and depends on
+/// MFC font metrics; not worth porting incidentally.
+unsafe fn set_textbox_text(
+    textbox: *mut u8,
+    text: *const c_char,
+    color: u32,
+    color_shadow_lo: u32,
+    color_shadow_hi: u32,
+    out_w: *mut i32,
+    out_h: *mut i32,
+    scale: Fixed,
+) -> *mut DisplayBitGrid {
+    unsafe {
+        let func: unsafe extern "stdcall" fn(
+            *mut u8,
+            *const c_char,
+            u32,
+            u32,
+            u32,
+            *mut i32,
+            *mut i32,
+            Fixed,
+        ) -> *mut DisplayBitGrid = core::mem::transmute(SET_TEXTBOX_TEXT_ADDR as usize);
+        func(
+            textbox,
+            text,
+            color,
+            color_shadow_lo,
+            color_shadow_hi,
+            out_w,
+            out_h,
+            scale,
+        )
+    }
 }
 
-/// Bridge for `RenderTurnStatus_Maybe` (0x00534E00). Usercall:
-/// `EAX = runtime`, no stack args, plain RET. Draws the turn-status text
-/// when `runtime.game_state` is 2 or 3.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_render_turn_status(_runtime: *mut GameRuntime) {
-    core::arch::naked_asm!(
-        "mov eax, dword ptr [esp+4]",
-        "call dword ptr [{addr}]",
-        "ret 4",
-        addr = sym RENDER_TURN_STATUS_ADDR,
-    );
+/// Bridge for `PaletteContext::RotateHues_Maybe` (0x005415A0, stdcall
+/// RET 0x8). Walks `[dirty_range_min..=dirty_range_max]` of `ctx.rgb_table`,
+/// converts each entry RGB→HLS, adds `frame_group` to the hue (mod 240),
+/// converts back. Calls Win32 GDI's `ColorRGBToHLS`/`ColorHLSToRGB`.
+unsafe fn palette_rotate_hues(ctx: *mut PaletteContext, frame_group: i32) {
+    unsafe {
+        let func: unsafe extern "stdcall" fn(*mut PaletteContext, i32) =
+            core::mem::transmute(PALETTE_ROTATE_HUES_ADDR as usize);
+        func(ctx, frame_group);
+    }
 }
 
-/// Bridge for `PaletteManage_Maybe` (0x00533C80). Stdcall RET 0x4 (one
-/// stack arg = runtime).
+/// Bridge for `PaletteContext::BlendTowardColor_Maybe` (0x005414F0).
+/// Usercall(EAX = `alpha` clamped to `0..=0x10000`, [stack] = `ctx`,
+/// `target_rgb`), RET 0x8. For each entry in
+/// `[dirty_range_min..=dirty_range_max]`, lerps `ctx.rgb_table[i]` toward
+/// `target_rgb` per channel by `alpha / 0x10000`.
 #[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_palette_manage(_runtime: *mut GameRuntime) {
+unsafe extern "stdcall" fn palette_blend_toward(
+    _ctx: *mut PaletteContext,
+    _target_rgb: u32,
+    _alpha: i32,
+) {
     core::arch::naked_asm!(
-        "jmp dword ptr [{addr}]",
-        addr = sym PALETTE_MANAGE_ADDR,
-    );
-}
-
-/// Bridge for `PaletteAnimate_Maybe` (0x00533A80). Stdcall RET 0x4.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_palette_animate(_runtime: *mut GameRuntime) {
-    core::arch::naked_asm!(
-        "jmp dword ptr [{addr}]",
-        addr = sym PALETTE_ANIMATE_ADDR,
+        "mov eax, dword ptr [esp+0xC]",   // alpha
+        "mov ecx, dword ptr [esp+0x8]",   // target_rgb
+        "mov edx, dword ptr [esp+0x4]",   // ctx
+        "push ecx",
+        "push edx",
+        "call dword ptr [{addr}]",         // RET 0x8 cleans the 2 pushes
+        "ret 0xC",
+        addr = sym PALETTE_BLEND_TOWARD_ADDR,
     );
 }
 
@@ -248,10 +284,10 @@ pub unsafe fn game_render(runtime: *mut GameRuntime) {
 
         // ─── Section N: tail render funcs ─────────────────────────────────
         crate::engine::main_loop::esc_menu::render_overlay(runtime);
-        bridge_render_hud(runtime);
-        bridge_render_turn_status(runtime);
-        bridge_palette_manage(runtime);
-        bridge_palette_animate(runtime);
+        render_hud(runtime);
+        render_turn_status(runtime);
+        palette_manage(runtime);
+        palette_animate(runtime);
     }
 }
 
@@ -301,7 +337,7 @@ unsafe fn build_view_shake_clip(world: *mut GameWorld) -> ClipContext {
 
         // 7/50 factor matches WA's `LEA EDX,[EAX*8 + 0]; SUB EDX,EAX;
         // IMUL ...0x51eb851f...` (i32 mul-by-7 + reciprocal divide-by-50).
-        let frame_t = ((*world)._field_77d4 as i32)
+        let frame_t = ((*world).frame as i32)
             .wrapping_shl(16)
             .wrapping_add((*world).render_interp_b.to_raw());
         let t = frame_t.wrapping_mul(7) / 50;
@@ -311,8 +347,8 @@ unsafe fn build_view_shake_clip(world: *mut GameWorld) -> ClipContext {
         let sin_lerp = trig::sin(angle);
         let cos_lerp = trig::cos(angle);
 
-        let amp_x = Fixed::from_raw((*world)._field_7794 as i32);
-        let amp_y = Fixed::from_raw((*world)._field_7798 as i32);
+        let amp_x = (*world).shake_intensity_x;
+        let amp_y = (*world).shake_intensity_y;
 
         clip.cam_x += cos_lerp.mul_raw(amp_x);
         clip.cam_y += sin_lerp.mul_raw(amp_y);
@@ -548,5 +584,244 @@ unsafe fn draw_viewport_frame(
             Fixed::from_int(viewport_w + h_margin),
             Fixed::from_int(viewport_h + v_margin),
         );
+    }
+}
+
+// ─── Section N tail funcs (ported) ─────────────────────────────────────────
+
+/// Two-tone "blink" color for `RenderHUD` / `RenderTurnStatus`. WA's
+/// shape is `(-(uint)((tick / 25 & 1) != 0) & 0xFFFFFFFA) + 6`, which
+/// simplifies to: `0` on every other 25-frame group, `6` otherwise.
+fn blink_color(tick: i32) -> u32 {
+    if (tick / 25) & 1 != 0 { 0 } else { 6 }
+}
+
+/// Rust port of `RenderHUD_Maybe` (0x00534F20). Usercall(EAX = runtime),
+/// plain RET. Network-only path: skips unless `game_state == 1`,
+/// `world.net_session != null`, and the online-starting-marker gate
+/// returns false (i.e. peers haven't all signalled their presence yet).
+/// Renders the localized `GAME_PLEASE_WAIT` template centered horizontally
+/// at `y = 0x40 - viewport_h/2` (Fixed pixels).
+unsafe fn render_hud(runtime: *mut GameRuntime) {
+    unsafe {
+        if (*runtime).game_state != 1 {
+            return;
+        }
+        let world = (*runtime).world;
+        if (*world).net_session.is_null() {
+            return;
+        }
+        if super::dispatch_frame::online_gate_db60(runtime) {
+            return;
+        }
+
+        draw_textbox_overlay(runtime, world, res::GAME_PLEASE_WAIT, None);
+    }
+}
+
+/// Rust port of `RenderTurnStatus_Maybe` (0x00534E00). Usercall(EAX =
+/// runtime), plain RET. Network-only path during the end-of-round
+/// handshake: skips unless `game_state` is `2` or `3`,
+/// `world.net_session != null`, and either `runtime.net_end_countdown != 0`
+/// or `net_session.end_handshake_busy_maybe()` returns zero. Renders
+/// `GAME_PLAYER_WAIT` formatted with `net_end_countdown / 50` (the
+/// remaining seconds) as a varargs param.
+unsafe fn render_turn_status(runtime: *mut GameRuntime) {
+    unsafe {
+        let state = (*runtime).game_state;
+        if state != 2 && state != 3 {
+            return;
+        }
+        let world = (*runtime).world;
+        let net_session = (*world).net_session;
+        if net_session.is_null() {
+            return;
+        }
+        let countdown = (*runtime).net_end_countdown;
+        if countdown == 0 {
+            // Countdown expired: poll the predicate and bail out if busy.
+            let busy = NetSession::end_handshake_busy_maybe_raw(net_session);
+            if busy != 0 {
+                return;
+            }
+        }
+
+        // `net_end_countdown / 50` — seconds remaining, formatted into the
+        // template via the rotating sprintf scratch buffer.
+        let seconds = countdown / 50;
+        draw_textbox_overlay(runtime, world, res::GAME_PLAYER_WAIT, Some(seconds));
+    }
+}
+
+/// Shared body of [`render_hud`] / [`render_turn_status`]: resolves the
+/// localized template, optionally formats it with `format_arg`, lays it
+/// out via [`set_textbox_text`], and blits the resulting bitmap centered
+/// horizontally on the playfield.
+unsafe fn draw_textbox_overlay(
+    _runtime: *mut GameRuntime,
+    world: *mut GameWorld,
+    token_id: StringRes,
+    format_arg: Option<i32>,
+) {
+    unsafe {
+        let template: *mut LocalizedTemplate = (*world).localized_template;
+        let mut text = resolve(template, token_id);
+        if let Some(arg) = format_arg {
+            // WA pushes 3 varargs even when the format string consumes one.
+            text = sprintf_rotating_3(text, 1, 0, arg as u32);
+        }
+
+        let tick = (*world).frame as i32;
+        let color = blink_color(tick);
+        let textbox = (*world).textbox;
+        let shadow_lo = (*world).gfx_color_table[7];
+        let shadow_hi = (*world).gfx_color_table[6];
+        let mut text_w: i32 = 0;
+        let mut text_h: i32 = 0;
+        let sprite = set_textbox_text(
+            textbox,
+            text,
+            color,
+            shadow_lo,
+            shadow_hi,
+            &mut text_w,
+            &mut text_h,
+            Fixed::ONE,
+        );
+
+        let display = (*world).display;
+        let y = Fixed::from_int(0x40 - (*world).viewport_pixel_height / 2);
+        DisplayGfx::draw_scaled_sprite_raw(
+            display,
+            Fixed::ZERO,
+            y,
+            sprite,
+            0,
+            0,
+            text_w,
+            text_h,
+            0x100000,
+        );
+    }
+}
+
+/// Global byte at `0x007A085E` — master enable for [`palette_manage`].
+/// Set by gameplay code (e.g. on round start); cleared on hardware
+/// palette failure. WA's original [`palette_manage`] body was wrapped in
+/// MSVC SEH that cleared this byte on `0xC06D007E/F` C++ exceptions
+/// thrown by the WA implementations of `set_active_layer` /
+/// `update_palette` — both ported to safe Rust now, so the SEH guard is
+/// dropped from this port.
+const G_PALETTE_ANIM_ENABLED_VA: u32 = 0x007A085E;
+/// Global counter at `0x0077499C` — incremented every frame inside
+/// [`palette_manage`]; the body fires once every 50 increments.
+const G_PALETTE_ANIM_TICK_VA: u32 = 0x0077499C;
+
+/// Rust port of `PaletteManage_Maybe` (0x00533C80). Stdcall(runtime),
+/// RET 0x4. Once the global tick counter at [`G_PALETTE_ANIM_TICK_VA`]
+/// crosses a 50-frame boundary, copies layer-2's palette state into
+/// `runtime.palette_ctx_b`, applies a frame-group hue rotation via
+/// [`palette_rotate_hues`], then commits the result through the display
+/// vtable's `update_palette`.
+///
+/// The original SEH guard around the rotate+commit is omitted — see
+/// [`G_PALETTE_ANIM_ENABLED_VA`] for the rationale.
+unsafe fn palette_manage(runtime: *mut GameRuntime) {
+    unsafe {
+        let enabled_ptr = rb(G_PALETTE_ANIM_ENABLED_VA) as *mut u8;
+        if *enabled_ptr == 0 {
+            return;
+        }
+        let tick_ptr = rb(G_PALETTE_ANIM_TICK_VA) as *mut u32;
+        let tick = (*tick_ptr).wrapping_add(1);
+        *tick_ptr = tick;
+        // Original body: `if (tick == (tick/50)*50)`. With wrapping
+        // semantics that's exactly `tick % 50 == 0`.
+        if !tick.is_multiple_of(50) {
+            return;
+        }
+
+        let world = (*runtime).world;
+        let display = (*world).display;
+        let layer_palette = DisplayGfx::set_active_layer_raw(display, 2);
+        let dst = (*runtime).palette_ctx_b;
+        // 0x1C3 dwords = 0x70C bytes = `size_of::<PaletteContext>()`.
+        core::ptr::copy_nonoverlapping(layer_palette as *const u32, dst as *mut u32, 0x1C3);
+
+        let frame_group = (tick / 50) as i32;
+        palette_rotate_hues(dst, frame_group);
+        DisplayGfx::update_palette_raw(display, dst, 1);
+    }
+}
+
+/// Rust port of `PaletteAnimate_Maybe` (0x00533A80). Stdcall(runtime),
+/// RET 0x4. Recomputes the three layer palettes (a/b/c) when any of the
+/// three cached fade inputs has changed since the last frame, then commits
+/// them. Drives the screen fade-to-black at game-end and during pause.
+///
+/// Cached state on `GameRuntime`:
+/// - `_field_468` ← `world._field_7390` (per-frame UI fade-in alpha?)
+/// - `_field_46c` ← `max(world.render_scale, runtime.game_end_speed)`
+///   (the larger of the live render-scale and the game-end fade)
+/// - `_field_470` ← `world._field_7398` (per-frame world fade alpha?)
+///
+/// On a cache miss, for each layer (1 → ctx_a, 2 → ctx_b, 3 → ctx_c):
+/// 1. Copy the layer's palette state from `display.set_active_layer(N)`
+///    into the runtime-owned [`PaletteContext`].
+/// 2. Apply 2-3 [`palette_blend_toward`] calls toward the target color
+///    `0` (black) with per-layer alphas.
+/// 3. Commit via `update_palette`. Layer 3's commit pushes to the DDraw
+///    surface (`commit = 1`); layers 1-2 only update internal state.
+unsafe fn palette_animate(runtime: *mut GameRuntime) {
+    unsafe {
+        let world = (*runtime).world;
+        let render_scale = (*world).render_scale.to_raw();
+        let game_end_speed = (*runtime).game_end_speed as i32;
+        let clamp = render_scale.max(game_end_speed);
+
+        let cur_a = (*world)._field_7390 as i32;
+        let cur_c = (*world)._field_7398 as i32;
+        if (*runtime)._field_468 == cur_a
+            && (*runtime)._field_46c == clamp
+            && (*runtime)._field_470 == cur_c
+        {
+            return;
+        }
+
+        let display = (*world).display;
+        const PALETTE_CTX_DWORDS: usize = 0x1C3;
+        const TARGET_BLACK: u32 = 0;
+
+        // ── Layer 1 → palette_ctx_a ─────────────────────────────────────
+        let ctx_a = (*runtime).palette_ctx_a;
+        let src1 = DisplayGfx::set_active_layer_raw(display, 1);
+        core::ptr::copy_nonoverlapping(src1 as *const u32, ctx_a as *mut u32, PALETTE_CTX_DWORDS);
+        palette_blend_toward(ctx_a, TARGET_BLACK, cur_c);
+        palette_blend_toward(ctx_a, TARGET_BLACK, clamp);
+
+        // ── Layer 2 → palette_ctx_b ─────────────────────────────────────
+        let ctx_b = (*runtime).palette_ctx_b;
+        let src2 = DisplayGfx::set_active_layer_raw(display, 2);
+        core::ptr::copy_nonoverlapping(src2 as *const u32, ctx_b as *mut u32, PALETTE_CTX_DWORDS);
+        palette_blend_toward(ctx_b, TARGET_BLACK, cur_a);
+        palette_blend_toward(ctx_b, TARGET_BLACK, cur_c);
+        palette_blend_toward(ctx_b, TARGET_BLACK, clamp);
+
+        // ── Layer 3 → palette_ctx_c ─────────────────────────────────────
+        let ctx_c = (*runtime).palette_ctx_c;
+        let src3 = DisplayGfx::set_active_layer_raw(display, 3);
+        core::ptr::copy_nonoverlapping(src3 as *const u32, ctx_c as *mut u32, PALETTE_CTX_DWORDS);
+        palette_blend_toward(ctx_c, TARGET_BLACK, cur_c);
+        palette_blend_toward(ctx_c, TARGET_BLACK, clamp);
+
+        // ── Commit (only the last call pushes to DDraw) ────────────────
+        DisplayGfx::update_palette_raw(display, ctx_a, 0);
+        DisplayGfx::update_palette_raw(display, ctx_b, 0);
+        DisplayGfx::update_palette_raw(display, ctx_c, 1);
+
+        // ── Update cache ────────────────────────────────────────────────
+        (*runtime)._field_468 = cur_a;
+        (*runtime)._field_46c = clamp;
+        (*runtime)._field_470 = cur_c;
     }
 }

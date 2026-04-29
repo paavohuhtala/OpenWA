@@ -723,6 +723,17 @@ pub mod va {
         /// `LocalizedTemplate__Constructor` — usercall(ESI=this, EAX=wa_version_threshold).
         /// See [`crate::wa::localized_template::LocalizedTemplate`].
         fn/Usercall LOCALIZED_TEMPLATE_CTOR = 0x0053E950;
+        /// `LocalizedTemplate__Resolve` — stdcall(template, token) -> *const c_char.
+        /// Resolves a localized template string from the gfx-dir's string
+        /// table, applies WA's escape-code post-processor, and caches the
+        /// result on the [`LocalizedTemplate`]. RET 0x8.
+        ///
+        /// [`LocalizedTemplate`]: crate::wa::localized_template::LocalizedTemplate
+        fn/Stdcall LOCALIZED_TEMPLATE_RESOLVE = 0x0053EA30;
+        /// `sprintf` into one of 8 rotating 16-KiB scratch buffers. cdecl,
+        /// varargs (caller cleans). Returns a pointer to the formatted string
+        /// in the next rotating buffer slot.
+        fn SPRINTF_ROTATING_BUFFER = 0x005978A0;
         fn CONSTRUCT_FRAME_BUFFER = 0x005A2430;
         fn BLIT_SCREEN = 0x005A2020;
         fn RQ_RENDER_DRAWING_QUEUE = 0x00542350;
@@ -771,10 +782,40 @@ pub mod va {
         /// canvas; returns `panel.display_a` (DisplayBitGrid*) for caller to
         /// blit. usercall(EDI = MenuPanel*).
         fn/Usercall MENU_PANEL_RENDER = 0x00540B00;
-        fn RENDER_HUD_MAYBE = 0x00534F20;
-        fn RENDER_TURN_STATUS_MAYBE = 0x00534E00;
-        fn PALETTE_MANAGE_MAYBE = 0x00533C80;
-        fn PALETTE_ANIMATE_MAYBE = 0x00533A80;
+        /// `RenderHUD_Maybe` (0x00534F20) — usercall(EAX=runtime), plain RET.
+        /// Network-only "PLEASE WAIT" textbox shown during `game_state == 1`
+        /// while peers haven't yet acknowledged the round end. Ported in
+        /// `engine::main_loop::render_frame::render_hud`; no live xrefs after
+        /// the port (only caller was `GameRender_Maybe`, also Rust now).
+        fn/Usercall RENDER_HUD_MAYBE = 0x00534F20;
+        /// `RenderTurnStatus_Maybe` (0x00534E00) — usercall(EAX=runtime),
+        /// plain RET. Network-only "PLEASE WAIT %d SEC" textbox shown during
+        /// `game_state in {2,3}`. Ported in
+        /// `engine::main_loop::render_frame::render_turn_status`.
+        fn/Usercall RENDER_TURN_STATUS_MAYBE = 0x00534E00;
+        /// `PaletteManage_Maybe` (0x00533C80) — stdcall(runtime), RET 0x4.
+        /// Once every 50 frames, copies layer-2 palette state into
+        /// `runtime.palette_ctx_b`, applies a hue rotation, and commits it
+        /// via `update_palette`. Ported in
+        /// `engine::main_loop::render_frame::palette_manage`.
+        fn/Stdcall PALETTE_MANAGE_MAYBE = 0x00533C80;
+        /// `PaletteAnimate_Maybe` (0x00533A80) — stdcall(runtime), RET 0x4.
+        /// Recomputes all 3 layer palettes (a/b/c) when the cached fade
+        /// state changes; blends each toward black with per-layer alphas.
+        /// Ported in `engine::main_loop::render_frame::palette_animate`.
+        fn/Stdcall PALETTE_ANIMATE_MAYBE = 0x00533A80;
+        /// `PaletteContext::RotateHues_Maybe` (0x005415A0) — stdcall(ctx,
+        /// frame_group), RET 0x8. Walks `[dirty_range_min..=dirty_range_max]`
+        /// of `ctx.rgb_table`; for each entry, converts RGB to HLS, adds
+        /// `frame_group` to the hue (mod 240), converts back. Used by
+        /// [`PALETTE_MANAGE_MAYBE`] for the per-50-frame palette animation.
+        fn/Stdcall PALETTE_CONTEXT_ROTATE_HUES = 0x005415A0;
+        /// `PaletteContext::BlendTowardColor_Maybe` (0x005414F0) — usercall
+        /// (EAX = alpha (Fixed 0..0x10000), [stack] = ctx, target_rgb),
+        /// RET 0x8. For each entry in `[dirty_range_min..=dirty_range_max]`,
+        /// linearly blends `ctx.rgb_table[i]` toward `target_rgb` by `alpha`.
+        /// Used by [`PALETTE_ANIMATE_MAYBE`] for fade-to-black animations.
+        fn/Usercall PALETTE_CONTEXT_BLEND_TOWARD_COLOR = 0x005414F0;
         fn LOAD_SPRITE = 0x00523400;
         fn OPENGL_INIT = 0x0059F000;
         /// IMG__LoadFromDir: look up + decode IMG resource from a .dir archive

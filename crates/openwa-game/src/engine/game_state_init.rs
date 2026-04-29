@@ -109,7 +109,7 @@ pub unsafe fn init_turn_state(runtime: *mut GameRuntime) {
 
         (*world)._field_7d84 = 0;
         (*world)._field_7e4c = 0;
-        (*world)._field_77d4 = 0;
+        (*world).frame = 0;
         (*world).scaled_frame_accum = Fixed::ZERO;
 
         // Per-team loop
@@ -885,8 +885,8 @@ unsafe fn create_menu_panel(
 /// Initialize level bounds and camera center positions.
 unsafe fn init_game_state_level_bounds(world: *mut GameWorld, game_info: *const GameInfo) {
     unsafe {
-        (*world)._field_7794 = 0;
-        (*world)._field_7798 = 0;
+        (*world).shake_intensity_x = Fixed::ZERO;
+        (*world).shake_intensity_y = Fixed::ZERO;
 
         let is_cavern = (*world).is_cavern as i32;
         if is_cavern == 0 {
@@ -974,7 +974,7 @@ unsafe fn init_game_state_hud_objects(world: *mut GameWorld, _game_info: *const 
                 ) -> *mut u8 = core::mem::transmute(rb(va::CONSTRUCT_TEXTBOX) as usize);
                 ctor((*world).display, mem, 0x13, 2)
             };
-            (*world)._unknown_544 = result;
+            (*world).textbox = result;
         }
     }
 }

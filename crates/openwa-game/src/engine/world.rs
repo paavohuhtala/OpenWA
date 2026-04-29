@@ -135,8 +135,8 @@ pub struct GameWorld {
     pub _unknown_538: [u8; 8],
     /// 0x540: Unknown pointer
     pub _unknown_540: *mut u8,
-    /// 0x544: Unknown pointer (*=0x1BC at runtime)
-    pub _unknown_544: *mut u8,
+    /// 0x544: Textbox object pointer, details unknown
+    pub textbox: *mut u8,
     /// 0x548: Weapon panel pointer
     pub weapon_panel: *mut u8,
     /// 0x54C: LandEntity pointer (set by LandEntity__InitLandscape at 0x5056F0).
@@ -360,10 +360,10 @@ pub struct GameWorld {
     pub _field_778c: Fixed,
     /// 0x7790: Unknown (zeroed by InitTurnState).
     pub _field_7790: u32,
-    /// 0x7794: Unknown (zeroed by InitGameState level bounds).
-    pub _field_7794: u32,
-    /// 0x7798: Unknown (zeroed by InitGameState level bounds).
-    pub _field_7798: u32,
+    /// 0x7794: Shake intensity X (Fixed-point, zeroed by InitGameState level bounds).
+    pub shake_intensity_x: Fixed,
+    /// 0x7798: Shake intensity Y (Fixed-point, zeroed by InitGameState level bounds).
+    pub shake_intensity_y: Fixed,
 
     /// 0x779C: Level bound min X (Fixed16.16, negative = off-screen left).
     pub level_bound_min_x: Fixed,
@@ -408,8 +408,8 @@ pub struct GameWorld {
     pub map_boundary_width: u32,
     /// 0x77D0: Map boundary height. Default = level_height; updated to 0x2B8 for version > 0x32.
     pub map_boundary_height: u32,
-    /// 0x77D4: Unknown (zeroed by InitTurnState).
-    pub _field_77d4: u32,
+    /// 0x77D4: Frame counter
+    pub frame: u32,
     /// 0x77D8: Fixed accumulator of scaled-frame time — companion to the
     /// integer-frame counter at `_field_77d4`, with sub-frame precision.
     /// [`crate::engine::dispatch_frame::advance_frame_counters`] adds

@@ -8,7 +8,7 @@ use crate::FieldRegistry;
 
 /// Partial vtable for `NetSession`. Observed slots are the per-peer query
 /// API used during end-of-round peer synchronisation.
-#[openwa_game::vtable(size = 10, class = "NetSession")]
+#[openwa_game::vtable(size = 11, class = "NetSession")]
 pub struct NetSessionVtable {
     /// slot 4 (+0x10): per-peer score / remaining-timeout. Caller takes
     /// `max()` over all active peers to decide whether to keep waiting.
@@ -27,6 +27,14 @@ pub struct NetSessionVtable {
     /// (vs. slot 6's `peer_active`) are unconfirmed — name is a guess.
     #[slot(9)]
     pub peer_pending_maybe: fn(this: *mut NetSession, idx: u32) -> u32,
+    /// slot 10 (+0x28): "still busy with end-of-round handshake" predicate.
+    /// Polled by `RenderTurnStatus` in network mode when the
+    /// `net_end_countdown` countdown has reached zero — a non-zero return
+    /// suppresses the on-screen "PLEASE WAIT" textbox once the timeout has
+    /// expired and the predicate signals real work in flight. Exact wire
+    /// semantics unconfirmed; name is provisional.
+    #[slot(10)]
+    pub end_handshake_busy_maybe: fn(this: *mut NetSession) -> u32,
 }
 
 /// Partial layout of the object at `GameWorld::network_ecx`.
@@ -43,6 +51,8 @@ pub struct NetSession {
     pub self_peer_idx: i32,
     // Trailing fields unknown.
 }
+
+bind_NetSessionVtable!(NetSession, vtable);
 
 impl NetSession {
     /// Rust port of `FUN_0053e720`.

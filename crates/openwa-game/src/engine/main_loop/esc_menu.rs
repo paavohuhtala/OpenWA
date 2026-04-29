@@ -42,14 +42,11 @@ use crate::render::display::gfx::DisplayGfx;
 use crate::render::display::vtable::{draw_text_on_bitmap, measure_text};
 use crate::render::sprite::sprite_op::SpriteOp;
 use crate::task::WorldRootEntity;
-use crate::wa::localized_template::LocalizedTemplate;
-use crate::wa::string_resource::{StringRes, res};
+use crate::wa::string_resource::res;
 
 // ─── Bridged WA addresses ──────────────────────────────────────────────────
 
 static mut APPLY_VOLUME_SETTINGS_ADDR: u32 = 0;
-static mut STRING_TOKEN_LOOKUP_ADDR: u32 = 0;
-static mut SPRINTF_ROTATING_ADDR: u32 = 0;
 static mut BEGIN_ROUND_END_ADDR: u32 = 0;
 static mut BEGIN_NETWORK_GAME_END_ADDR: u32 = 0;
 static mut MENU_PANEL_RENDER_ADDR: u32 = 0;
@@ -60,23 +57,12 @@ static mut MENU_PANEL_RENDER_ADDR: u32 = 0;
 // and Music via vtable calls. Bridged because typed wrappers for those two
 // vtable slots aren't yet defined.
 const APPLY_VOLUME_SETTINGS_VA: u32 = 0x00534B40;
-// String token table lookup — `FUN_0053EA30(table, token) -> *const c_char`,
-// `__stdcall`, RET 8. Resolves a localized template string from the
-// gfx-dir's string table (with WA's own escape-code post-processing).
-const STRING_TOKEN_LOOKUP_VA: u32 = 0x0053EA30;
-// Rotating-buffer sprintf — `FUN_005978A0(format, ...) -> *const c_char`,
-// `__cdecl`, varargs (caller cleans). Writes to one of 8 16-KiB rotating
-// scratch buffers and returns a pointer to it. WA only ever calls this
-// with up to 3 varargs in the ESC-menu path.
-const SPRINTF_ROTATING_VA: u32 = 0x005978A0;
 
 /// Initialize the ESC-menu bridge addresses. Called from
 /// `dispatch_frame::init_dispatch_addrs` at DLL load.
 pub unsafe fn init_addrs() {
     unsafe {
         APPLY_VOLUME_SETTINGS_ADDR = rb(APPLY_VOLUME_SETTINGS_VA);
-        STRING_TOKEN_LOOKUP_ADDR = rb(STRING_TOKEN_LOOKUP_VA);
-        SPRINTF_ROTATING_ADDR = rb(SPRINTF_ROTATING_VA);
         BEGIN_ROUND_END_ADDR = rb(va::GAME_RUNTIME_BEGIN_ROUND_END);
         BEGIN_NETWORK_GAME_END_ADDR = rb(va::GAME_RUNTIME_BEGIN_NETWORK_GAME_END);
         MENU_PANEL_RENDER_ADDR = rb(va::MENU_PANEL_RENDER);
@@ -163,34 +149,8 @@ const UI_CLICK_SOUND: SoundId = SoundId::from_known(KnownSoundId::CursorSelect).
 /// "Miss" / "rejected" UI sound — raw_volume + [`KnownSoundId::WarningBeep`].
 const UI_MISS_SOUND: SoundId = SoundId::from_known(KnownSoundId::WarningBeep).with_raw_volume();
 
-/// Bridge for `LocalizedTemplate__Resolve` (FUN_0053EA30, stdcall RET 8).
-/// Returns a pointer to the resolved template string (with WA's escape
-/// codes processed and the result cached on the [`LocalizedTemplate`])
-/// for the given token id.
-unsafe fn bridge_token_lookup(template: *mut LocalizedTemplate, token: StringRes) -> *const c_char {
-    unsafe {
-        let func: unsafe extern "stdcall" fn(*mut LocalizedTemplate, u32) -> *const c_char =
-            core::mem::transmute(STRING_TOKEN_LOOKUP_ADDR as usize);
-        func(template, token.as_offset())
-    }
-}
-
-/// Bridge for `FUN_005978A0` — sprintf into one of 8 16-KiB rotating
-/// scratch buffers. The OpenEscMenu path always passes 3 varargs (the
-/// "First Team to %d Wins" template ignores the first two but WA pushes
-/// them anyway).
-unsafe fn bridge_sprintf_rotating_3(
-    format: *const c_char,
-    a1: u32,
-    a2: u32,
-    a3: u32,
-) -> *const c_char {
-    unsafe {
-        let func: unsafe extern "cdecl" fn(*const c_char, u32, u32, u32) -> *const c_char =
-            core::mem::transmute(SPRINTF_ROTATING_ADDR as usize);
-        func(format, a1, a2, a3)
-    }
-}
+use crate::wa::localized_template::resolve as bridge_token_lookup;
+use crate::wa::sprintf_rotating::sprintf_3 as bridge_sprintf_rotating_3;
 
 // ─── Inline-ported clipping helpers ────────────────────────────────────────
 //

@@ -26,6 +26,37 @@
 use core::ffi::c_char;
 
 use crate::FieldRegistry;
+use crate::address::va;
+use crate::rebase::rb;
+use crate::wa::string_resource::StringRes;
+
+static mut RESOLVE_ADDR: u32 = 0;
+
+/// Initialize the `LocalizedTemplate__Resolve` bridge address. Called from
+/// `dispatch_frame::init_dispatch_addrs` at DLL load.
+pub unsafe fn init_addrs() {
+    unsafe {
+        RESOLVE_ADDR = rb(va::LOCALIZED_TEMPLATE_RESOLVE);
+    }
+}
+
+/// Bridge for `LocalizedTemplate__Resolve` (0x0053EA30, stdcall RET 8).
+/// Returns a pointer to the resolved template string (with WA's escape
+/// codes processed and the result cached on the [`LocalizedTemplate`])
+/// for the given token id.
+pub unsafe fn resolve(template: *mut LocalizedTemplate, token: StringRes) -> *const c_char {
+    unsafe { resolve_raw(template, token.as_offset()) }
+}
+
+/// Raw-id variant of [`resolve`], used by callers that pass numeric tokens
+/// directly (e.g. ports of WA functions that hard-code resource ids).
+pub unsafe fn resolve_raw(template: *mut LocalizedTemplate, token_id: u32) -> *const c_char {
+    unsafe {
+        let func: unsafe extern "stdcall" fn(*mut LocalizedTemplate, u32) -> *const c_char =
+            core::mem::transmute(RESOLVE_ADDR as usize);
+        func(template, token_id)
+    }
+}
 
 /// Owned 0x30-byte cache header. The two cache arrays are each
 /// `wa_malloc(0x20E0)` — 2104 slots, indexed by `StringRes::as_offset()`.

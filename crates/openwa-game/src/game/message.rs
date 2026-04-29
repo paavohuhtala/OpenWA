@@ -479,3 +479,11 @@ pub struct WeaponReleasedMessage {
 impl TaskMessageData for WeaponReleasedMessage {
     const MESSAGE_TYPE: TaskMessage = TaskMessage::WeaponReleased;
 }
+
+#[repr(C)]
+#[derive(Clone, Copy, Zeroable, Pod)]
+pub struct RenderSceneMessage;
+
+impl TaskMessageData for RenderSceneMessage {
+    const MESSAGE_TYPE: TaskMessage = TaskMessage::RenderScene;
+}
