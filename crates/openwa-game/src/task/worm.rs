@@ -478,6 +478,84 @@ impl WormEntity {
     }
 
     // vtable() method is now provided by bind_WormEntityVtable! macro above.
+
+    /// Pure Rust port of `WormEntity::LandingCheck_Maybe` (WA 0x0050D450,
+    /// `__usercall(ESI=this)`, plain RET).
+    ///
+    /// Examines the worm's position and state and records a landing-event
+    /// bbox at one of the per-kind slots in [`crate::engine::GameWorld::render_entries`].
+    /// The kind id (1, 2, 3, 4, 9, 11) classifies the event:
+    ///
+    /// | Kind | Branch                                                  |
+    /// |------|---------------------------------------------------------|
+    /// | 1    | dead/dying worm, GameInfo per-team byte == starting team|
+    /// | 11   | dead/dying worm, fast-forward set OR byte mismatch      |
+    /// | 9    | state == [`WormState::Unknown_0x85`]                    |
+    /// | 2    | worm is moving ([`crate::task::WorldEntity::is_moving_raw`])  |
+    /// | 4    | inside the level scroll bbox (+0x779C / +0x77A0 / +0x77A4) |
+    /// | 3    | otherwise                                               |
+    ///
+    /// Off-screen-above (`y < -0x270F0000` ≈ `y < -9999.0` Fixed) and
+    /// underwater-kill (`y >> 16 >= world.water_kill_y`) gate the entire
+    /// dispatch — both early-out without recording anything.
+    pub unsafe fn landing_check_raw(this: *mut WormEntity) {
+        unsafe {
+            use crate::engine::world::GameWorld;
+            use crate::task::base::BaseEntity;
+            use crate::task::game_task::WorldEntity;
+
+            let pos_x = (*this).base.pos_x.0;
+            let pos_y = (*this).base.pos_y.0;
+
+            // Off-screen-above sanity gate.
+            if pos_y < -0x270F0000_i32 {
+                return;
+            }
+
+            let world = (*(this as *const BaseEntity)).world;
+            // Underwater-kill gate.
+            if (pos_y >> 16) >= (*world).water_kill_y {
+                return;
+            }
+
+            let kind: u32 = if (*this)._unknown_104 != 0 {
+                // Dying / out-of-play worm path.
+                if (*world).fast_forward_request != 0 {
+                    11
+                } else {
+                    // Compare WA's per-team byte against `starting_team_index`:
+                    //   byte at GameInfo + team_index * 0xBB8 - 0x768
+                    // For team_index == 1 this hits `team_records[0].speech_bank_id`
+                    // (the alliance group); higher indices step through the per-team
+                    // records. The team_index == 0 case would read before the struct,
+                    // so `_unknown_104` presumably never gates that case in practice.
+                    // Faithful to WA's address arithmetic; semantics deserve more RE.
+                    let game_info = (*world).game_info as *const u8;
+                    let team_index = (*this).team_index as i32;
+                    let alliance_byte = *game_info.offset((team_index * 0xBB8 - 0x768) as isize);
+                    let starting_team = (*(*world).game_info).starting_team_index as u8;
+                    if alliance_byte == starting_team {
+                        1
+                    } else {
+                        11
+                    }
+                }
+            } else if (*this).state() == WormState::Unknown_0x85 as u32 {
+                9
+            } else if WorldEntity::is_moving_raw(&raw const (*this).base as *const WorldEntity) {
+                2
+            } else if (*world).level_bound_min_x.0 <= pos_x
+                && pos_x <= (*world).level_bound_max_x.0
+                && (*world).level_bound_min_y.0 <= pos_y
+            {
+                4
+            } else {
+                3
+            };
+
+            GameWorld::record_landing_event_raw(world, kind, pos_x, pos_y);
+        }
+    }
 }
 
 // ── Snapshot impl ──────────────────────────────────────────

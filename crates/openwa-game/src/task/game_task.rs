@@ -108,6 +108,27 @@ impl WorldEntity {
             ((*vt).add_impulse)(this, impulse_x, impulse_y, dz)
         }
     }
+
+    /// Pure Rust port of `FUN_004FB580` — "is this entity in motion?".
+    ///
+    /// Returns `true` iff any of `speed_x` (+0x90), `speed_y` (+0x94), or the
+    /// three unknown gameplay scalars at +0xB0/+0xB4/+0xB8 are non-zero.
+    /// The +0xBx triplet lives in [`Self::_unknown_98`]; semantics are not yet
+    /// nailed down (likely the spin/torque components paired with `pos_z`/
+    /// `speed_z`), but together with `speed_x/_y` they form the canonical
+    /// "this body is still moving" predicate WA uses across `WormEntity`,
+    /// `MineEntity`, `MissileEntity`, `OilDrumEntity`, etc. (16 callers).
+    #[inline]
+    pub unsafe fn is_moving_raw(this: *const WorldEntity) -> bool {
+        unsafe {
+            let base = this as *const u8;
+            *(base.add(0x90) as *const i32) != 0
+                || *(base.add(0x94) as *const i32) != 0
+                || *(base.add(0xB0) as *const i32) != 0
+                || *(base.add(0xB4) as *const i32) != 0
+                || *(base.add(0xB8) as *const i32) != 0
+        }
+    }
 }
 
 /// Sound emitter sub-object embedded in WorldEntity via MSVC multiple inheritance.

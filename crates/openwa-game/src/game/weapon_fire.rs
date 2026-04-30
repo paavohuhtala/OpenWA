@@ -193,15 +193,11 @@ pub unsafe fn fire_weapon(
                 _ => {}
             },
             Ok(FireType::Rope) => match FireMethod::try_from(fire_method) {
-                Ok(FireMethod::PlacedExplosive) => {
-                    call_fire_stdcall3(worm, fire_params, ctx, rb(0x51E1C0))
-                } // RopeType1
+                Ok(FireMethod::PlacedExplosive) => fire_rope_type_1(worm, fire_params, ctx),
                 Ok(FireMethod::ProjectileFire) => {
                     create_weapon_projectile(worm, fire_params, ctx as *const u8)
                 }
-                Ok(FireMethod::CreateWeaponProjectile) => {
-                    call_fire_stdcall3(worm, fire_params, ctx, rb(0x51E240))
-                } // RopeType3
+                Ok(FireMethod::CreateWeaponProjectile) => fire_rope_type_3(worm, fire_params, ctx),
                 _ => {}
             },
             Ok(FireType::Strike) => {
@@ -563,8 +559,10 @@ unsafe fn fire_teleport(worm: *mut WormEntity) {
         (*worm)._unknown_19c = 0;
         (*worm).facing_direction_inv = 0;
 
-        // FUN_0050D450: usercall(ESI=worm), cleanup/landing check
-        call_worm_landing_check(worm, rb(0x50D450));
+        // Post-teleport landing check — records a "kind 3 / 4" event-bbox
+        // entry into world.render_entries based on whether the new position
+        // is inside the level scroll bbox.
+        WormEntity::landing_check_raw(worm);
 
         // Debug log block (world+0x8144) omitted — only writes to debug file
     }
@@ -669,18 +667,6 @@ unsafe extern "C" fn call_position_update(_worm: *mut WormEntity, _x: i32, _y: i
         "pop edi",
         "pop esi",
         "pop ebx",
-        "ret",
-    );
-}
-
-/// Bridge: FUN_0050D450 — usercall(ESI=worm). Plain RET.
-#[unsafe(naked)]
-unsafe extern "C" fn call_worm_landing_check(_worm: *mut WormEntity, _addr: u32) {
-    core::arch::naked_asm!(
-        "push esi",
-        "mov esi, [esp+8]", // worm (1 save + ret = 8)
-        "call [esp+12]",    // addr (8 + 4 = 12)
-        "pop esi",
         "ret",
     );
 }
@@ -1184,6 +1170,82 @@ unsafe extern "C" fn call_missile_ctor(
 }
 
 // ── Object creation functions ───────────────────────────────
+
+/// Rope variant 1 fire — Rust port of `FireWeapon__RopeType1` (WA 0x0051E1C0,
+/// `__stdcall(worm, fire_params, local_struct)`, RET 0xC).
+///
+/// Looks up the parent task via SharedData, allocates a `MineEntity` (0x1BC
+/// bytes), zeroes the first 0x19C, and forwards to `MineEntity::Constructor`
+/// with the trailing `(0, 1)` tag. WA's MSVC SEH wrapper around the same body
+/// is dropped — neither `wa_malloc` (returns null on failure) nor the C++
+/// constructor throws in offline play.
+unsafe fn fire_rope_type_1(
+    worm: *mut WormEntity,
+    fire_params: *const WeaponFireParams,
+    local_struct: *const WeaponReleaseContext,
+) {
+    unsafe {
+        use crate::rebase::rb;
+        use crate::task::SharedDataTable;
+        use crate::wa_alloc::wa_malloc;
+
+        let table = SharedDataTable::from_task(worm as *const BaseEntity);
+        let parent = table.lookup(0, 0x19);
+
+        let buffer = wa_malloc(0x1BC);
+        if buffer.is_null() {
+            return;
+        }
+        core::ptr::write_bytes(buffer, 0, 0x19C);
+
+        type Ctor = unsafe extern "stdcall" fn(
+            *mut u8,
+            *mut u8,
+            *const WeaponFireParams,
+            *const WeaponReleaseContext,
+            u32,
+            u32,
+        );
+        let ctor: Ctor = core::mem::transmute(rb(va::MINE_ENTITY_CTOR));
+        ctor(buffer, parent, fire_params, local_struct, 0, 1);
+    }
+}
+
+/// Rope variant 3 fire — Rust port of `FireWeapon__RopeType3` (WA 0x0051E240,
+/// `__stdcall(worm, fire_params, local_struct)`, RET 0xC).
+///
+/// Mirror of [`fire_rope_type_1`] for the canister payload: 0x17C-byte alloc,
+/// zero the first 0x15C, hand off to `CanisterEntity::Constructor`. Same
+/// SEH-elision rationale.
+unsafe fn fire_rope_type_3(
+    worm: *mut WormEntity,
+    fire_params: *const WeaponFireParams,
+    local_struct: *const WeaponReleaseContext,
+) {
+    unsafe {
+        use crate::rebase::rb;
+        use crate::task::SharedDataTable;
+        use crate::wa_alloc::wa_malloc;
+
+        let table = SharedDataTable::from_task(worm as *const BaseEntity);
+        let parent = table.lookup(0, 0x19);
+
+        let buffer = wa_malloc(0x17C);
+        if buffer.is_null() {
+            return;
+        }
+        core::ptr::write_bytes(buffer, 0, 0x15C);
+
+        type Ctor = unsafe extern "stdcall" fn(
+            *mut u8,
+            *mut u8,
+            *const WeaponFireParams,
+            *const WeaponReleaseContext,
+        );
+        let ctor: Ctor = core::mem::transmute(rb(va::CANISTER_ENTITY_CTOR));
+        ctor(buffer, parent, fire_params, local_struct);
+    }
+}
 
 /// Rust implementation of CreateWeaponProjectile.
 ///

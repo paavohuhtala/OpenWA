@@ -654,6 +654,48 @@ impl GameWorld {
         rng
     }
 
+    /// Record a landing-event point in the per-kind bbox slot at
+    /// [`render_entries`](Self::render_entries)`[idx]`. Pure Rust port of WA
+    /// 0x00547D10 (`fastcall(ECX=x, EDX=y, [ESP+4]=task, [ESP+8]=idx)`,
+    /// RET 0x8).
+    ///
+    /// Behavior:
+    /// - Gated on `_field_45e8 == 0` — no-op when the gate is set.
+    /// - On first hit (`active == 0`): initializes the slot to a single-point
+    ///   bbox `(x, y)` and arms `active = 1`.
+    /// - On subsequent hits: expands `min_x/_y` / `max_x/_y` to include `(x, y)`.
+    ///
+    /// Slot index is the event kind (1, 2, 3, 4, 9, 11 — see
+    /// [`WormEntity::landing_check_raw`](crate::task::WormEntity::landing_check_raw)).
+    pub unsafe fn record_landing_event_raw(this: *mut GameWorld, idx: u32, x: i32, y: i32) {
+        unsafe {
+            if (*this)._field_45e8 != 0 {
+                return;
+            }
+            let entry = (*this).render_entries.as_mut_ptr().add(idx as usize);
+            if (*entry).active == 0 {
+                (*entry).active = 1;
+                (*entry).min_x = x;
+                (*entry).max_x = x;
+                (*entry).min_y = y;
+                (*entry).max_y = y;
+                return;
+            }
+            if x < (*entry).min_x {
+                (*entry).min_x = x;
+            }
+            if x > (*entry).max_x {
+                (*entry).max_x = x;
+            }
+            if y < (*entry).min_y {
+                (*entry).min_y = y;
+            }
+            if y > (*entry).max_y {
+                (*entry).max_y = y;
+            }
+        }
+    }
+
     /// Reset the effect-event point at +0x73A0..+0x73AC to `(x, y)` and arm the
     /// gate flag at +0x739C. Pure Rust port of WA 0x547E70 (was bridged as
     /// `set_gravity_center`; the misnamed "gravity" interpretation is wrong).
