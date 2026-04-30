@@ -150,17 +150,28 @@ pub fn is_super_weapon(weapon: WeaponId, select_worm_is_super_weapon: bool) -> b
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(i32)]
 pub enum FireType {
-    /// Projectile weapons (Bazooka, Grenade, Shotgun, etc.).
-    /// Sub-dispatched by `fire_method`.
+    /// Aim-and-fire projectile weapons (Bazooka, Grenade, Shotgun, Longbow,
+    /// Mortar, ClusterBomb, BananaBomb, the hitscan guns, …). Sub-dispatched
+    /// by `fire_method`.
     Projectile = 1,
-    /// Rope-based weapons (Ninja Rope, Bungee).
-    /// Sub-dispatched by `fire_method`.
-    Rope = 2,
-    /// Strike weapons (Air Strike, Napalm Strike, Mail Strike, etc.).
-    /// Uses `special_subtype` as parameter data (not a subtype selector).
+    /// Weapons that drop a self-driven object at the worm's position rather
+    /// than firing along an aim line: Mine, Dynamite, Sheep / SuperSheep /
+    /// AquaSheep, MoleBomb, MadCow, OldWoman, MingVase, Skunk, SalvationArmy.
+    ///
+    /// Historically named `Rope` here and in WA's RE notes — that's wrong:
+    /// Ninja Rope and Bungee are [`Self::Special`] (subtypes 6 and 7), not
+    /// type-2. Confirmed empirically against the vanilla weapon-table dump
+    /// (`crate::game::weapon_data` in openwa-game). Sub-dispatched by
+    /// `fire_method`.
+    Placed = 2,
+    /// Strike weapons (Air Strike, Napalm Strike, Mail Strike, MineStrike,
+    /// MoleSquadron, MbBomb, SheepStrike, CarpetBomb, Donkey). Uses
+    /// `special_subtype` as parameter data (not a subtype selector).
+    /// Sometimes labelled "grenade" in older WeaponEntry doc / `analyze_weapon_table.py` —
+    /// also wrong; "strike" is the family name.
     Strike = 3,
-    /// Special weapons (melee, utility, powerups).
-    /// Sub-dispatched by `special_subtype`.
+    /// Special weapons — melee, utility, powerups, and the actual rope-style
+    /// weapons (NinjaRope, Bungee). Sub-dispatched by `special_subtype`.
     Special = 4,
 }
 
@@ -169,7 +180,7 @@ impl TryFrom<i32> for FireType {
     fn try_from(v: i32) -> Result<Self, i32> {
         match v {
             1 => Ok(Self::Projectile),
-            2 => Ok(Self::Rope),
+            2 => Ok(Self::Placed),
             3 => Ok(Self::Strike),
             4 => Ok(Self::Special),
             _ => Err(v),
@@ -177,9 +188,9 @@ impl TryFrom<i32> for FireType {
     }
 }
 
-/// Fire method for projectile (type 1) and rope (type 2) weapons (WeaponEntry+0x38).
-///
-/// Selects which sub-function creates the projectile or rope entity.
+/// Fire method for [`FireType::Projectile`] and [`FireType::Placed`] weapons
+/// (WeaponEntry+0x38). Selects which sub-function spawns the projectile /
+/// placed-object entity.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(i32)]
 pub enum FireMethod {

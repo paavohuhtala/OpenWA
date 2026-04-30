@@ -127,7 +127,7 @@ pub unsafe fn weapon_release(
                 }
                 _ => {}
             },
-            Ok(FireType::Rope) => {
+            Ok(FireType::Placed) => {
                 offset_x = aim_dir_x * scale * 24;
                 offset_y = aim_dir_y * scale * 24;
                 // Special Y adjustment for state 0x79
@@ -305,7 +305,7 @@ pub unsafe fn weapon_release(
                 }
                 _ => {}
             },
-            Ok(FireType::Rope) if (w._unknown_2cc == 0 || w._unknown_2c8 == 1) => {
+            Ok(FireType::Placed) if (w._unknown_2cc == 0 || w._unknown_2c8 == 1) => {
                 let team_sound_raw = (*w.world()).team_sound_id(team_id);
                 sound::play_sound_local(task, SoundId(team_sound_raw), 3, Fixed::ONE, Fixed::ONE);
             }

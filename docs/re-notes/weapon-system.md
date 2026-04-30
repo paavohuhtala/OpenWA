@@ -206,54 +206,55 @@ Convention: thiscall. `in_EAX` = weapon context structure where:
 
 `param_2` = GameRuntime pointer. Sets `param_2[0xF] = 1` on completion.
 
+> NOTE: An older revision of this section labelled type 2 as "Rope" and
+> type 3 as "Thrown" / "Grenade". Both names were wrong. The roster below
+> is verified against a live `weapon_table.bin` dump (see
+> `crates/openwa-game/src/game/weapon_data.rs`).
+
 ### Type 1: Projectile Weapons
 
-| Subtype | Function                      | Address  | Weapons                        |
-| ------- | ----------------------------- | -------- | ------------------------------ |
-| 1       | FireWeapon\_\_PlacedExplosive | 0x51EC80 | Dynamite, Mine, Petrol Bomb    |
-| 2       | FireWeapon\_\_Projectile      | 0x51DFB0 | Bazooka, Mortar, Longbow       |
-| 3       | CreateWeaponProjectile        | 0x51E0F0 | Homing Missile, Homing Pigeon  |
-| 4       | FireWeapon\_\_Shotgun         | 0x51ED90 | Shotgun, Handgun, Uzi, Minigun |
+Aim-and-fire weapons. Sub-dispatched by `fire_method`:
 
-### Type 2: Rope Weapons
+| `fire_method` | Function                | Address  | Spawned entity   | Stock weapons                                                                                                                |
+| ------------- | ----------------------- | -------- | ---------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| 1             | FireWeapon\_\_PlacedExplosive | 0x51EC80 | FireEntity       | (FlameThrower)                                                                                                              |
+| 2             | FireWeapon\_\_Projectile      | 0x51DFB0 | (multi-shot fan) | Shotgun, Handgun, Uzi, Minigun, PetrolBomb                                                                                   |
+| 3             | CreateWeaponProjectile        | 0x51E0F0 | MissileEntity    | Bazooka, HomingMissile, Mortar, HomingPigeon, SheepLauncher, Grenade, ClusterBomb, BananaBomb, SuperBanana, HolyGrenade, MagicBullet |
+| 4             | CreateArrow                   | 0x51ED90 | ArrowEntity      | Longbow                                                                                                                      |
 
-| Subtype | Function                | Address  | Weapons                      |
-| ------- | ----------------------- | -------- | ---------------------------- |
-| 1       | FireWeapon\_\_RopeType1 | 0x51E1C0 | Ninja Rope (attach)          |
-| 2       | CreateWeaponProjectile  | 0x51E0F0 | Ninja Rope (projectile mode) |
-| 3       | FireWeapon\_\_RopeType3 | 0x51E240 | Bungee                       |
+### Type 2: Placed Weapons (formerly "Rope")
 
-### Type 3: Thrown Weapons
+Weapons that drop a self-driven object at the worm's position rather than
+firing along an aim line.
 
-| Subtype | Function                    | Address  | Weapons                                          |
-| ------- | --------------------------- | -------- | ------------------------------------------------ |
-| (all)   | FireWeapon\_\_GrenadeMortar | 0x51E2C0 | Grenade, Cluster Bomb, Banana Bomb, Holy Grenade |
+| `fire_method` | Function                | Address  | Spawned entity      | Stock weapons                                                                  |
+| ------------- | ----------------------- | -------- | ------------------- | ------------------------------------------------------------------------------ |
+| 1             | FireWeapon\_\_RopeType1 | 0x51E1C0 | MineEntity          | Mine                                                                           |
+| 2             | CreateWeaponProjectile  | 0x51E0F0 | MissileEntity (shared) | Dynamite, Sheep, SuperSheep, AquaSheep, MoleBomb, SalvationArmy, Skunk, MingVase, MadCow, OldWoman |
+| 3             | FireWeapon\_\_RopeType3 | 0x51E240 | CanisterEntity      | (none — dead code under stock data)                                             |
+
+The ported Rust helpers are `fire_mine` and `fire_canister` in
+`game::weapon_fire`; method 2 reuses `create_weapon_projectile`.
+
+### Type 3: Strike Weapons (formerly "Thrown" / "Grenade")
+
+Top-down attack weapons. All sub-methods funnel through
+`FireWeapon__Grenade` (0x51E2C0) → `AirStrikeEntity` constructor; the
+`special_subtype` field carries the strike-pattern parameter.
+
+| Stock weapons                                                                                  |
+| ---------------------------------------------------------------------------------------------- |
+| AirStrike, NapalmStrike, MailStrike, MineStrike, MoleSquadron, MbBomb, SheepStrike, CarpetBomb, Donkey |
 
 ### Type 4: Special Weapons
 
-| Subtype | Function                     | Address    | Description                        |
-| ------- | ---------------------------- | ---------- | ---------------------------------- |
-| 1       | vtable[0xE](0x6C)            | (indirect) | Blowtorch                          |
-| 2       | FireWeapon\_\_Special_Type2  | 0x51E3E0   | Pneumatic Drill                    |
-| 3       | FireWeapon\_\_Special_Type3  | 0x51E350   | Girder                             |
-| 4       | vtable[0xE](0x6D)            | (indirect) | Baseball Bat                       |
-| 5       | vtable[0xE](0x75)            | (indirect) | Fire Punch                         |
-| 6       | vtable[0xE](0x70)            | (indirect) | Dragon Ball                        |
-| 8       | vtable[0xE](0x6E)            | (indirect) | Kamikaze                           |
-| 9       | FireWeapon\_\_Special_Type9  | 0x51E480   | Prod                               |
-| 10      | FireWeapon\_\_Special_Type10 | 0x51E710   | Air Strike                         |
-| 11      | vtable[0xE](0x71)            | (indirect) | Scales of Justice                  |
-| 13      | FireWeapon\_\_Special_Type13 | 0x51E5C0   | Napalm Strike                      |
-| 14      | FireWeapon\_\_Special_Type14 | 0x51E670   | Mail/Mine/Mole Strike              |
-| 16      | FUN_0051EB00 (conditional)   | 0x51EB00   | Teleport (checks FUN_516930 first) |
-| 17      | FireWeapon\_\_Special_Type17 | 0x51E920   | Freeze                             |
-| 18      | vtable[0xE](0x72)            | (indirect) | Suicide Bomber                     |
-| 19      | FireWeapon\_\_Special_Type19 | 0x51E8C0   | Skip Go                            |
-| 20      | FireWeapon\_\_Special_Type20 | 0x51E600   | Surrender                          |
-| 21      | FireWeapon\_\_Special_Type21 | 0x51EBE0   | Select Worm                        |
-| 22      | FireWeapon\_\_Special_Type22 | 0x51EC30   | Jet Pack                           |
-| 23      | vtable[0xE](0x78)            | (indirect) | Magic Bullet                       |
-| 24      | FireWeapon\_\_Special_Type24 | 0x51EA60   | Low Gravity / Fast Walk            |
+`special_subtype` selects the [`SpecialFireSubtype`] handler. The actual
+rope-style weapons (NinjaRope, Bungee) live here, *not* in Type 2. See
+`crates/openwa-core/src/weapon.rs::SpecialFireSubtype` for the canonical
+mapping (FirePunch=1, BaseballBat=2, DragonBall=3, …, NinjaRope=6,
+Bungee=7, Teleport=10, Girder=17, SkipGo=19, Freeze=20, ScalesOfJustice=22,
+JetPack=23, Armageddon=24, …); the matching ports live in
+`game::weapon_fire::fire_weapon_special`.
 
 ## MissileEntity (0x40C bytes)
 
@@ -429,20 +430,16 @@ weapon table and ammo arrays at game start.
 
 ### Fire Dispatch Targets
 
-| Function                      | Address  | Weapon Category        |
-| ----------------------------- | -------- | ---------------------- |
-| FireWeapon\_\_Projectile      | 0x51DFB0 | Bazooka-class          |
-| FireWeapon\_\_PlacedExplosive | 0x51EC80 | Dynamite/Mine/Petrol   |
-| FireWeapon\_\_Shotgun         | 0x51ED90 | Shotgun/Handgun/Uzi    |
-| FireWeapon\_\_RopeType1       | 0x51E1C0 | Ninja Rope attach      |
-| FireWeapon\_\_RopeType3       | 0x51E240 | Bungee                 |
-| FireWeapon\_\_GrenadeMortar   | 0x51E2C0 | Grenade/Cluster/Banana |
-| FireWeapon\_\_Special_Type2   | 0x51E3E0 | Pneumatic Drill        |
-| FireWeapon\_\_Special_Type3   | 0x51E350 | Girder                 |
-| FireWeapon\_\_Special_Type9   | 0x51E480 | Prod                   |
-| FireWeapon\_\_Special_Type10  | 0x51E710 | Air Strike             |
-| FireWeapon\_\_Special_Type13  | 0x51E5C0 | Napalm Strike          |
-| FireWeapon\_\_Special_Type14  | 0x51E670 | Mail/Mine/Mole Strike  |
+| Function                      | Address  | Type/Method        | Stock weapons reaching it                                                                                       |
+| ----------------------------- | -------- | ------------------ | --------------------------------------------------------------------------------------------------------------- |
+| FireWeapon\_\_PlacedExplosive | 0x51EC80 | Projectile / 1     | FlameThrower                                                                                                    |
+| FireWeapon\_\_Projectile      | 0x51DFB0 | Projectile / 2     | Shotgun, Handgun, Uzi, Minigun, PetrolBomb                                                                      |
+| CreateWeaponProjectile        | 0x51E0F0 | Projectile / 3, Placed / 2 | Bazooka, Mortar, Grenade, …, plus Dynamite, Sheep family, MoleBomb, …                                  |
+| CreateArrow                   | 0x51ED90 | Projectile / 4     | Longbow                                                                                                         |
+| FireWeapon\_\_RopeType1       | 0x51E1C0 | Placed / 1         | Mine                                                                                                            |
+| FireWeapon\_\_RopeType3       | 0x51E240 | Placed / 3         | (none under stock data — dead arm)                                                                               |
+| FireWeapon\_\_Grenade         | 0x51E2C0 | Strike (all)       | AirStrike, NapalmStrike, MailStrike, MineStrike, MoleSquadron, MbBomb, SheepStrike, CarpetBomb, Donkey            |
+| FireWeapon\_\_Special_*       | (varies) | Special            | See `crate::game::weapon_fire::fire_weapon_special` and [`SpecialFireSubtype`].                                  |
 
 ### Weapon Panel
 

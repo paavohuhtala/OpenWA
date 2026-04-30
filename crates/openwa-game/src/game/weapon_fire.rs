@@ -190,12 +190,17 @@ pub unsafe fn fire_weapon(
                 Ok(FireMethod::CreateArrow) => create_arrow(worm, fire_params, ctx as *const u8),
                 _ => {}
             },
-            Ok(FireType::Rope) => match FireMethod::try_from(fire_method) {
-                Ok(FireMethod::PlacedExplosive) => fire_rope_type_1(worm, fire_params, ctx),
+            Ok(FireType::Placed) => match FireMethod::try_from(fire_method) {
+                // method=1: Mine — the only weapon hitting this path under stock data.
+                Ok(FireMethod::PlacedExplosive) => fire_mine(worm, fire_params, ctx),
+                // method=2: Dynamite, Sheep family, MoleBomb, MadCow, OldWoman, MingVase,
+                // Skunk, SalvationArmy — all spawn a generic MissileEntity.
                 Ok(FireMethod::ProjectileFire) => {
                     create_weapon_projectile(worm, fire_params, ctx as *const u8)
                 }
-                Ok(FireMethod::CreateWeaponProjectile) => fire_rope_type_3(worm, fire_params, ctx),
+                // method=3: dead code under stock data (no vanilla weapon hits this);
+                // kept reachable for custom schemes / mods.
+                Ok(FireMethod::CreateWeaponProjectile) => fire_canister(worm, fire_params, ctx),
                 _ => {}
             },
             Ok(FireType::Strike) => {
@@ -1203,15 +1208,20 @@ unsafe extern "C" fn call_missile_ctor(
 
 // ── Object creation functions ───────────────────────────────
 
-/// Rope variant 1 fire — Rust port of `FireWeapon__RopeType1` (WA 0x0051E1C0,
-/// `__stdcall(worm, fire_params, local_struct)`, RET 0xC).
+/// `FireType::Placed` + `FireMethod::PlacedExplosive` — spawn a `MineEntity`.
+///
+/// Rust port of `FireWeapon__RopeType1` (WA 0x0051E1C0,
+/// `__stdcall(worm, fire_params, local_struct)`, RET 0xC). The "rope" name on
+/// the WA side is misleading: Mine (id 22) is the only stock weapon that
+/// reaches this dispatch arm; Ninja Rope and Bungee are FireType=4
+/// (`Special`).
 ///
 /// Looks up the parent task via SharedData, allocates a `MineEntity` (0x1BC
 /// bytes), zeroes the first 0x19C, and forwards to `MineEntity::Constructor`
 /// with the trailing `(0, 1)` tag. WA's MSVC SEH wrapper around the same body
 /// is dropped — neither `wa_malloc` (returns null on failure) nor the C++
 /// constructor throws in offline play.
-unsafe fn fire_rope_type_1(
+unsafe fn fire_mine(
     worm: *mut WormEntity,
     fire_params: *const WeaponFireParams,
     local_struct: *const WeaponReleaseContext,
@@ -1243,13 +1253,17 @@ unsafe fn fire_rope_type_1(
     }
 }
 
-/// Rope variant 3 fire — Rust port of `FireWeapon__RopeType3` (WA 0x0051E240,
-/// `__stdcall(worm, fire_params, local_struct)`, RET 0xC).
+/// `FireType::Placed` + `FireMethod::CreateWeaponProjectile` — spawn a
+/// `CanisterEntity`. **Dead code under stock weapon data**: empirically no
+/// vanilla weapon reaches this arm (asserted in `vanilla_data_tests`). Kept
+/// reachable for custom schemes / mods that may use it.
 ///
-/// Mirror of [`fire_rope_type_1`] for the canister payload: 0x17C-byte alloc,
-/// zero the first 0x15C, hand off to `CanisterEntity::Constructor`. Same
-/// SEH-elision rationale.
-unsafe fn fire_rope_type_3(
+/// Rust port of `FireWeapon__RopeType3` (WA 0x0051E240,
+/// `__stdcall(worm, fire_params, local_struct)`, RET 0xC). Mirror of
+/// [`fire_mine`] for the canister payload: 0x17C-byte alloc, zero the first
+/// 0x15C, hand off to `CanisterEntity::Constructor`. Same SEH-elision
+/// rationale.
+unsafe fn fire_canister(
     worm: *mut WormEntity,
     fire_params: *const WeaponFireParams,
     local_struct: *const WeaponReleaseContext,

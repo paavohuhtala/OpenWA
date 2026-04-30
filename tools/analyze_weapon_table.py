@@ -33,7 +33,12 @@ WEAPON_NAMES = [
     "CrateShower",
 ]
 
-FIRE_TYPE_NAMES = {0: "none", 1: "projectile", 2: "rope", 3: "grenade", 4: "special"}
+# fire_type categories. Note: type 2 was historically labelled "rope" (and
+# type 3 "grenade") in older RE notes — those names are misleading. The real
+# rope-style weapons (NinjaRope, Bungee) live in type 4 (special); type 2 is
+# the "placed at the worm's feet" bucket (Mine, Dynamite, Sheep, …); type 3
+# is air-strikes.
+FIRE_TYPE_NAMES = {0: "none", 1: "projectile", 2: "placed", 3: "strike", 4: "special"}
 
 # Known WeaponEntry fields (offset -> name)
 KNOWN_FIELDS = {

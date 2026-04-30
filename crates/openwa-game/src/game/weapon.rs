@@ -88,12 +88,18 @@ pub struct WeaponEntry {
     pub enabled: i32,
     /// +0x2C-0x2F: Unknown.
     pub _unknown_2c: [u8; 4],
-    /// +0x30: Weapon fire type (1=projectile, 2=rope, 3=grenade, 4=special).
-    /// Read by FireWeapon to dispatch to the correct handler.
+    /// +0x30: Weapon fire type. Values map to [`FireType`]:
+    /// 1=Projectile, 2=Placed, 3=Strike, 4=Special.
+    ///
+    /// Type 2 was historically labelled "rope" in WA RE notes — that's wrong.
+    /// Real rope-style weapons (NinjaRope, Bungee) live in Special. See
+    /// [`FireType::Placed`] for the actual roster.
     pub fire_type: i32,
-    /// +0x34: Fire subtype for weapon types 3 (grenade/mortar) and 4 (special).
+    /// +0x34: Fire subtype for `FireType::Strike` (parameter data) and
+    /// `FireType::Special` (selects the [`SpecialFireSubtype`] handler).
     pub special_subtype: i32,
-    /// +0x38: Fire subtype for weapon types 1 (projectile) and 2 (rope).
+    /// +0x38: Fire method index for `FireType::Projectile` and
+    /// `FireType::Placed` (selects the [`FireMethod`] sub-dispatch).
     pub fire_method: i32,
     /// +0x3C: Fire parameters sub-structure. Pointer to this field is passed
     /// to fire sub-functions (PlacedExplosive, Projectile, CreateWeaponProjectile, etc.).
@@ -343,44 +349,49 @@ mod vanilla_data_tests {
     }
 
     #[test]
-    fn mine_uses_fire_type_2_method_1() {
-        // Confirms the "rope" naming smell: Mine has fire_type=2 / fire_method=1
-        // (the sole sub-method into MineEntity::Constructor).
+    fn mine_uses_placed_method_1() {
+        // Mine is the canonical FireType::Placed / FireMethod::PlacedExplosive
+        // weapon — and the only stock weapon that hits the MineEntity::Constructor
+        // dispatch arm. Confirms the rename from the historical (wrong) "rope"
+        // label still resolves to fire_type=2 / fire_method=1 in the data.
         let e = entry(KnownWeaponId::Mine);
-        assert_eq!(e.fire_type, 2);
-        assert_eq!(e.fire_method, 1);
+        assert_eq!(e.fire_type, FireType::Placed as i32);
+        assert_eq!(e.fire_method, FireMethod::PlacedExplosive as i32);
     }
 
     #[test]
-    fn airstrike_is_strike_type_3() {
+    fn airstrike_is_strike_type() {
         // fire_type=3 is the air-strike family, despite the WeaponEntry doc
         // historically labelling it "grenade".
         let e = entry(KnownWeaponId::AirStrike);
-        assert_eq!(e.fire_type, 3);
+        assert_eq!(e.fire_type, FireType::Strike as i32);
     }
 
     #[test]
-    fn ninja_rope_lives_in_special_not_rope() {
-        // The actual rope-style weapons (NinjaRope, Bungee) are FireType=4
-        // (Special), not FireType=2 — that's the misnomer pointed out by the
-        // user. NinjaRope is special_subtype=6.
+    fn rope_style_weapons_live_in_special() {
+        // The actual rope-style weapons (NinjaRope, Bungee) are FireType::Special,
+        // not FireType::Placed — i.e. the historical "Rope" name on the type-2
+        // bucket was misdirection. NinjaRope is special_subtype=6, Bungee=7.
         let rope = entry(KnownWeaponId::NinjaRope);
         let bungee = entry(KnownWeaponId::Bungee);
-        assert_eq!(rope.fire_type, 4);
+        assert_eq!(rope.fire_type, FireType::Special as i32);
         assert_eq!(rope.special_subtype, 6);
-        assert_eq!(bungee.fire_type, 4);
+        assert_eq!(bungee.fire_type, FireType::Special as i32);
         assert_eq!(bungee.special_subtype, 7);
     }
 
     #[test]
-    fn no_vanilla_weapon_uses_fire_type_2_method_3() {
-        // `fire_rope_type_3` (CanisterEntity ctor at 0x501A80) is unreachable
-        // from any vanilla weapon — confirmed empirically here so future
-        // changes that consolidate the dispatch can rely on it.
+    fn no_vanilla_weapon_uses_placed_method_3() {
+        // `fire_canister` (CanisterEntity ctor at 0x501A80) is unreachable from
+        // any vanilla weapon — confirmed empirically here so future changes
+        // that consolidate the dispatch can rely on it. Custom schemes / mods
+        // may still hit this arm, so the helper stays in place.
+        let placed = FireType::Placed as i32;
+        let create_proj = FireMethod::CreateWeaponProjectile as i32;
         for (i, e) in VANILLA_WEAPON_DATA.iter().enumerate() {
             assert!(
-                !(e.fire_type == 2 && e.fire_method == 3),
-                "weapon id {i} unexpectedly uses fire_type=2/fire_method=3",
+                !(e.fire_type == placed && e.fire_method == create_proj),
+                "weapon id {i} unexpectedly uses fire_type=Placed/fire_method=CreateWeaponProjectile",
             );
         }
     }
