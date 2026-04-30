@@ -101,6 +101,15 @@ pub struct WeaponEntry {
 }
 const _: () = assert!(core::mem::size_of::<WeaponEntry>() == 0x1D0);
 
+// SAFETY: `WeaponEntry` contains two `*const c_char` fields (`name1`, `name2`)
+// which makes it `!Send + !Sync` by default. WA is single-threaded for game
+// logic, and the only thread-shared use of `WeaponEntry` is the read-only
+// static fixture in [`crate::game::weapon_data`] where both pointers are
+// nulled. No actual cross-thread sharing of WA-mutated WeaponEntry instances
+// occurs.
+unsafe impl Send for WeaponEntry {}
+unsafe impl Sync for WeaponEntry {}
+
 /// Weapon fire parameters — embedded at WeaponEntry+0x3C (0x194 = 404 bytes, 101 DWORDs).
 ///
 /// Pointer to this struct is passed to all fire dispatch sub-functions.
@@ -297,5 +306,82 @@ pub unsafe fn check_weapon_avail(world: *mut GameWorld, weapon: WeaponId) -> i32
         }
 
         0
+    }
+}
+
+#[cfg(test)]
+mod vanilla_data_tests {
+    //! Spot-checks against [`crate::game::weapon_data::VANILLA_WEAPON_DATA`].
+    //! Confirms the python generator (`tools/generate_weapon_data.py`) lined
+    //! the dump up correctly with the `WeaponEntry` / `WeaponFireParams` field
+    //! plan. Picks one weapon from each `fire_type` plus a couple of the
+    //! "interesting" ones whose values were referenced when documenting the
+    //! struct.
+    use super::*;
+    use crate::game::weapon_data::VANILLA_WEAPON_DATA;
+
+    fn entry(id: KnownWeaponId) -> &'static WeaponEntry {
+        &VANILLA_WEAPON_DATA[id as usize]
+    }
+
+    #[test]
+    fn bazooka_fire_dispatch_matches_doc() {
+        // Bazooka is the canonical projectile weapon — its values are quoted in
+        // every WeaponFireParams field doc.
+        let e = entry(KnownWeaponId::Bazooka);
+        assert_eq!(e.fire_type, 1, "Bazooka fire_type=1 (Projectile)");
+        assert_eq!(
+            e.fire_method, 3,
+            "Bazooka fire_method=3 (CreateWeaponProjectile)"
+        );
+        assert_eq!(e.fire_params.shot_count, 2);
+        assert_eq!(e.fire_params.collision_radius.0, 0x2187E); // ≈ 2.10
+        assert_eq!(e.fire_params.sprite_id, 48);
+        assert_eq!(e.fire_params._fp_11, 131);
+        assert_eq!(e.fire_params.fuse_timer, 9000);
+        assert_eq!(e.fire_params.missile_type, 2);
+    }
+
+    #[test]
+    fn mine_uses_fire_type_2_method_1() {
+        // Confirms the "rope" naming smell: Mine has fire_type=2 / fire_method=1
+        // (the sole sub-method into MineEntity::Constructor).
+        let e = entry(KnownWeaponId::Mine);
+        assert_eq!(e.fire_type, 2);
+        assert_eq!(e.fire_method, 1);
+    }
+
+    #[test]
+    fn airstrike_is_strike_type_3() {
+        // fire_type=3 is the air-strike family, despite the WeaponEntry doc
+        // historically labelling it "grenade".
+        let e = entry(KnownWeaponId::AirStrike);
+        assert_eq!(e.fire_type, 3);
+    }
+
+    #[test]
+    fn ninja_rope_lives_in_special_not_rope() {
+        // The actual rope-style weapons (NinjaRope, Bungee) are FireType=4
+        // (Special), not FireType=2 — that's the misnomer pointed out by the
+        // user. NinjaRope is special_subtype=6.
+        let rope = entry(KnownWeaponId::NinjaRope);
+        let bungee = entry(KnownWeaponId::Bungee);
+        assert_eq!(rope.fire_type, 4);
+        assert_eq!(rope.special_subtype, 6);
+        assert_eq!(bungee.fire_type, 4);
+        assert_eq!(bungee.special_subtype, 7);
+    }
+
+    #[test]
+    fn no_vanilla_weapon_uses_fire_type_2_method_3() {
+        // `fire_rope_type_3` (CanisterEntity ctor at 0x501A80) is unreachable
+        // from any vanilla weapon — confirmed empirically here so future
+        // changes that consolidate the dispatch can rely on it.
+        for (i, e) in VANILLA_WEAPON_DATA.iter().enumerate() {
+            assert!(
+                !(e.fire_type == 2 && e.fire_method == 3),
+                "weapon id {i} unexpectedly uses fire_type=2/fire_method=3",
+            );
+        }
     }
 }

@@ -5,6 +5,7 @@ pub mod game_task_message;
 pub mod message;
 pub mod missile_contact;
 pub mod weapon;
+pub mod weapon_data;
 pub mod weapon_fire;
 pub mod weapon_release;
 
