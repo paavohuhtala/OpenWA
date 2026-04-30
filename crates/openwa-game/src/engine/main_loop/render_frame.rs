@@ -18,8 +18,9 @@
 //!     added to `viewport_coords[3].center_x/_y` to build the stack
 //!     ClipContext for queue dispatch.
 //! 11. **Dispatch the queue** + post-RQ overlay sprites + letterbox frame
-//!     + `RenderEscMenuOverlay` + `RenderHUD` + `RenderTurnStatus` +
-//!     palette tail funcs (last 5 still bridged).
+//!     + `RenderEscMenuOverlay` + the two network-only wait textboxes
+//!     (`render_waiting_for_peers_textbox`,
+//!     `render_network_end_wait_textbox`) + palette tail funcs.
 //!
 //! Headful-only paths (sections L+M, the viewport-frame letterbox block) are
 //! gated on `g_GameSession.frame_state >= 0`.
@@ -32,6 +33,7 @@ use openwa_core::trig;
 use crate::address::va;
 use crate::bitgrid::DisplayBitGrid;
 use crate::engine::game_session::get_game_session;
+use crate::engine::game_state;
 use crate::engine::net_session::NetSession;
 use crate::engine::runtime::GameRuntime;
 use crate::engine::world::GameWorld;
@@ -284,8 +286,8 @@ pub unsafe fn game_render(runtime: *mut GameRuntime) {
 
         // ─── Section N: tail render funcs ─────────────────────────────────
         crate::engine::main_loop::esc_menu::render_overlay(runtime);
-        render_hud(runtime);
-        render_turn_status(runtime);
+        render_waiting_for_peers_textbox(runtime);
+        render_network_end_wait_textbox(runtime);
         palette_manage(runtime);
         palette_animate(runtime);
     }
@@ -300,7 +302,7 @@ unsafe fn compute_bar_height(runtime: *mut GameRuntime) -> i32 {
             return 0;
         }
         let max_idx = (*runtime).max_team_render_index;
-        let initial = if (*runtime)._field_414 == 0 {
+        let initial = if (*runtime).hud_team_bar_extended == 0 {
             0
         } else {
             ((*runtime).worm_select_count_alt + 1) * max_idx + 6
@@ -308,7 +310,7 @@ unsafe fn compute_bar_height(runtime: *mut GameRuntime) -> i32 {
         let target = ((*runtime).worm_select_count + 1) * max_idx;
         // (target - initial + 6) * slew >> 16, then + initial, rounded to even.
         // Faithful to WA's `(((field_2a0+1)*field_2b0 - bar_initial) + 6) * field_3fc >> 16`.
-        let delta = (target - initial + 6).wrapping_mul((*runtime)._field_3fc.to_raw()) >> 16;
+        let delta = (target - initial + 6).wrapping_mul((*runtime).chat_box_anim.to_raw()) >> 16;
         (delta + initial) & !1
     }
 }
@@ -376,7 +378,8 @@ unsafe fn draw_post_rq_overlay(runtime: *mut GameRuntime, world: *mut GameWorld)
         // The X expression is unusual (mixes `<< 10` and `<< 6`); kept
         // verbatim from WA. Yields a Fixed16.16 X position in the camera
         // frame after `_field_27c`'s sub-pixel adjustment.
-        let x_raw = ((viewport_w / 2 + 0x20) << 10).wrapping_sub((*runtime)._field_27c.to_raw());
+        let x_raw =
+            ((viewport_w / 2 + 0x20) << 10).wrapping_sub((*runtime).connection_issue_anim.to_raw());
         let x = Fixed::from_raw(x_raw << 6);
 
         DisplayGfx::blit_sprite_raw(
@@ -397,9 +400,9 @@ unsafe fn draw_post_rq_overlay(runtime: *mut GameRuntime, world: *mut GameWorld)
 /// vertically-easing Y based on `_field_454`.
 unsafe fn update_turn_indicator(runtime: *mut GameRuntime, world: *mut GameWorld) {
     unsafe {
-        let field_454_raw = (*runtime)._field_454.to_raw();
+        let anim = (*runtime).message_indicator_anim;
 
-        if field_454_raw == 0 {
+        if anim == Fixed::ZERO {
             (*runtime)._field_458 = if (*world).field_7ea0 > 0 { 1 } else { -1 } as u32;
         }
 
@@ -407,7 +410,7 @@ unsafe fn update_turn_indicator(runtime: *mut GameRuntime, world: *mut GameWorld
         // `game_info._field_f37c` lives in the unmapped middle of GameInfo;
         // accessed here via a raw byte offset until the field is broken out.
         let field_f37c = *((game_info as *const u8).add(0xF37C) as *const i32);
-        if field_f37c != 0 || field_454_raw <= 0 {
+        if field_f37c != 0 || anim <= Fixed::ZERO {
             return;
         }
 
@@ -417,7 +420,8 @@ unsafe fn update_turn_indicator(runtime: *mut GameRuntime, world: *mut GameWorld
         let palette = ((*world).scaled_frame_accum.to_raw() / 50) as u32;
 
         // y = field_454 * 0x46 - ((vh/2 + 0x23) << 16)
-        let y_raw = field_454_raw
+        let y_raw = anim
+            .to_raw()
             .wrapping_mul(0x46)
             .wrapping_sub((viewport_h / 2 + 0x23) << 16);
         // x = (vw/2 - 0x23) * sign(_field_458) << 16
@@ -589,20 +593,32 @@ unsafe fn draw_viewport_frame(
 
 // ─── Section N tail funcs (ported) ─────────────────────────────────────────
 
-/// Two-tone "blink" color for `RenderHUD` / `RenderTurnStatus`. WA's
+/// Two-tone "blink" color for the two network wait textboxes
+/// ([`render_waiting_for_peers_textbox`] /
+/// [`render_network_end_wait_textbox`]). WA's
 /// shape is `(-(uint)((tick / 25 & 1) != 0) & 0xFFFFFFFA) + 6`, which
 /// simplifies to: `0` on every other 25-frame group, `6` otherwise.
 fn blink_color(tick: i32) -> u32 {
     if (tick / 25) & 1 != 0 { 0 } else { 6 }
 }
 
-/// Rust port of `RenderHUD_Maybe` (0x00534F20). Usercall(EAX = runtime),
-/// plain RET. Network-only path: skips unless `game_state == 1`,
-/// `world.net_session != null`, and the online-starting-marker gate
-/// returns false (i.e. peers haven't all signalled their presence yet).
-/// Renders the localized `GAME_PLEASE_WAIT` template centered horizontally
-/// at `y = 0x40 - viewport_h/2` (Fixed pixels).
-unsafe fn render_hud(runtime: *mut GameRuntime) {
+/// Rust port of `GameRuntime__RenderWaitingForPeersTextbox` (0x00534F20).
+/// Usercall(EAX = runtime), plain RET.
+///
+/// Despite the original `RenderHUD_Maybe` name (since corrected in Ghidra),
+/// this function does NOT render the in-game HUD — it draws exactly one
+/// localized textbox (`GAME_PLEASE_WAIT`), centered horizontally at
+/// `y = 0x40 - viewport_h/2` (Fixed pixels), and only during the very
+/// specific pre-round window when:
+/// - we're in network play (`world.net_session != null`),
+/// - the round is in `game_state == 1` (running), AND
+/// - [`super::dispatch_frame::all_peer_teams_have_joined`] still returns
+///   `false` — i.e. at least one peer's team hasn't had its starting
+///   marker set yet.
+///
+/// Once all peers have joined, this function silently returns and the
+/// textbox disappears.
+unsafe fn render_waiting_for_peers_textbox(runtime: *mut GameRuntime) {
     unsafe {
         if (*runtime).game_state != 1 {
             return;
@@ -611,7 +627,7 @@ unsafe fn render_hud(runtime: *mut GameRuntime) {
         if (*world).net_session.is_null() {
             return;
         }
-        if super::dispatch_frame::online_gate_db60(runtime) {
+        if super::dispatch_frame::all_peer_teams_have_joined(runtime) {
             return;
         }
 
@@ -619,17 +635,37 @@ unsafe fn render_hud(runtime: *mut GameRuntime) {
     }
 }
 
-/// Rust port of `RenderTurnStatus_Maybe` (0x00534E00). Usercall(EAX =
-/// runtime), plain RET. Network-only path during the end-of-round
-/// handshake: skips unless `game_state` is `2` or `3`,
-/// `world.net_session != null`, and either `runtime.net_end_countdown != 0`
-/// or `net_session.end_handshake_busy_maybe()` returns zero. Renders
-/// `GAME_PLAYER_WAIT` formatted with `net_end_countdown / 50` (the
-/// remaining seconds) as a varargs param.
-unsafe fn render_turn_status(runtime: *mut GameRuntime) {
+/// Rust port of `GameRuntime__RenderNetworkEndWaitTextbox` (0x00534E00).
+/// Usercall(EAX = runtime), plain RET.
+///
+/// Despite the original `RenderTurnStatus_Maybe` name (since corrected in
+/// Ghidra), this function does NOT render any kind of turn status — it
+/// draws exactly one localized textbox (`GAME_PLAYER_WAIT`,
+/// `"PLEASE WAIT %d SEC"`) during the network end-of-round handshake.
+///
+/// Fires when:
+/// - `game_state` is [`game_state::NETWORK_END_STARTED`] (3) or
+///   [`game_state::NETWORK_END_AWAITING_PEERS`] (2),
+/// - `world.net_session != null`, AND
+/// - either `runtime.net_end_countdown != 0` (still in the timeout
+///   window), OR the countdown has reached zero AND
+///   [`NetSession::end_handshake_busy_maybe`] reports the handshake is no
+///   longer busy (the textbox stays as "PLEASE WAIT 0 SEC" while we
+///   linger waiting for state transition; if the predicate signals
+///   actual work in flight after the countdown expires we suppress the
+///   textbox).
+///
+/// The countdown shown is `net_end_countdown / 50` (frames → seconds),
+/// formatted into the template via the rotating sprintf scratch buffer.
+///
+/// Companion of [`render_waiting_for_peers_textbox`] (the *pre*-round
+/// wait); this one handles the *post*-round wait.
+unsafe fn render_network_end_wait_textbox(runtime: *mut GameRuntime) {
     unsafe {
         let state = (*runtime).game_state;
-        if state != 2 && state != 3 {
+        if state != game_state::NETWORK_END_AWAITING_PEERS
+            && state != game_state::NETWORK_END_STARTED
+        {
             return;
         }
         let world = (*runtime).world;
@@ -653,7 +689,8 @@ unsafe fn render_turn_status(runtime: *mut GameRuntime) {
     }
 }
 
-/// Shared body of [`render_hud`] / [`render_turn_status`]: resolves the
+/// Shared body of [`render_waiting_for_peers_textbox`] /
+/// [`render_network_end_wait_textbox`]: resolves the
 /// localized template, optionally formats it with `format_arg`, lays it
 /// out via [`set_textbox_text`], and blits the resulting bitmap centered
 /// horizontally on the playfield.

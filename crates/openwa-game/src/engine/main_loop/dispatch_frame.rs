@@ -354,11 +354,20 @@ unsafe fn should_interpolate_offline(runtime: *mut GameRuntime) -> bool {
 // peer_count : 1". Semantics suspected to be "server iterates all peers;
 // client only checks peer 0 (the server)" — unconfirmed.
 
-/// Port of `GameRuntime__ShouldInterpolate_OnlineGate_ScoringB_Maybe`
-/// (0x0052D830). Usercall EAX=this, plain RET. Returns `false` if any
-/// scoring peer (per `team_scoring_b[i] > 1`) has `peer_score(i) > 70`,
-/// else `true`.
-unsafe fn online_gate_d830(runtime: *mut GameRuntime) -> bool {
+/// Port of `GameRuntime__PeerLagWithinThreshold_Maybe` (0x0052D830).
+/// Usercall EAX=this, plain RET.
+///
+/// Returns `true` when no peer with active scoring (per
+/// `team_scoring_b[i] > 1`) has its lag score (`peer_score(i)`, NetSession
+/// vtable slot 4 — documented as "per-peer score / remaining-timeout")
+/// exceeding 0x46 (= 70). False signals that at least one scoring peer is
+/// laggy enough that visual interpolation should be suppressed.
+///
+/// Iterates `[0..net.peer_count]` only when this client is the host
+/// (`self_peer_idx == 0`); otherwise checks just peer 0 (presumed: the
+/// server, since that's the only peer a non-host directly cares about
+/// for lag — unconfirmed).
+unsafe fn peer_lag_within_threshold(runtime: *mut GameRuntime) -> bool {
     unsafe {
         let net = (*(*runtime).world).net_session;
         let count = if (*net).self_peer_idx == 0 {
@@ -378,11 +387,18 @@ unsafe fn online_gate_d830(runtime: *mut GameRuntime) -> bool {
     }
 }
 
-/// Port of `GameRuntime__ShouldInterpolate_OnlineGate_ScoringA_Maybe`
-/// (0x0052D920). Usercall EAX=this, plain RET. Returns `false` if any peer
-/// i has `peer_pending_maybe(i) != 0` AND `team_scoring_a[i] > 0`, else
-/// `true`.
-unsafe fn online_gate_d920(runtime: *mut GameRuntime) -> bool {
+/// Port of `GameRuntime__PeerInputsCaughtUp_Maybe` (0x0052D920).
+/// Usercall EAX=this, plain RET.
+///
+/// Returns `true` when no peer with active scoring (per
+/// `team_scoring_a[i] > 0`) still has unprocessed input pending
+/// (`peer_pending_maybe(i) != 0`, NetSession vtable slot 9). False signals
+/// that at least one scoring peer hasn't caught up and visual
+/// interpolation should be suppressed.
+///
+/// Same host-vs-client peer-iteration shape as
+/// [`peer_lag_within_threshold`].
+unsafe fn peer_inputs_caught_up(runtime: *mut GameRuntime) -> bool {
     unsafe {
         let net = (*(*runtime).world).net_session;
         let count = if (*net).self_peer_idx == 0 {
@@ -400,10 +416,21 @@ unsafe fn online_gate_d920(runtime: *mut GameRuntime) -> bool {
     }
 }
 
-/// Port of `GameRuntime__ShouldInterpolate_OnlineGate_StartingMarker_Maybe`
-/// (0x0052DB60). Usercall EAX=this, plain RET. Returns `true` iff every
-/// entry `team_starting_marker[0..net.peer_count]` is non-zero.
-pub(super) unsafe fn online_gate_db60(runtime: *mut GameRuntime) -> bool {
+/// Port of `GameRuntime__AllPeerTeamsHaveJoined` (0x0052DB60).
+/// Usercall EAX=this, plain RET.
+///
+/// Returns `true` once every entry `team_starting_marker[0..net.peer_count]`
+/// is non-zero — i.e. every peer's team has had its starting marker set.
+/// `team_starting_marker[i]` is initialized to 0 except for the starting
+/// team (set to 1 by [`crate::engine::team_init::init_team_scoring`]); the
+/// other entries flip to 1 elsewhere as each peer's team joins / takes
+/// its first turn (writer not yet identified). Used to:
+/// - gate online interpolation
+///   ([`should_interpolate_online`]); and
+/// - dismiss the network "PLEASE WAIT" textbox in
+///   [`crate::engine::main_loop::render_frame::render_hud`] (the textbox
+///   is shown while this returns false).
+pub(super) unsafe fn all_peer_teams_have_joined(runtime: *mut GameRuntime) -> bool {
     unsafe {
         let net = (*(*runtime).world).net_session;
         let count = (*net).peer_count;
@@ -423,8 +450,11 @@ pub(super) unsafe fn online_gate_db60(runtime: *mut GameRuntime) -> bool {
 /// `true` if interpolation should be computed.
 ///
 /// Dispatch:
-/// 1. All three gates D830/D920/DB60 must pass; otherwise interp is computed
-///    (early `return true`).
+/// 1. All three readiness gates ([`peer_lag_within_threshold`],
+///    [`peer_inputs_caught_up`], [`all_peer_teams_have_joined`]) must pass;
+///    otherwise interp is computed (early `return true`). Each gate
+///    returns `false` to signal "this peer-state aspect isn't stable
+///    enough — visually freezing is preferable to a desync glitch."
 /// 2. If `world.team_arena.enemy_team_count == 0` → suppress (WA returned 1).
 /// 3. Otherwise delegate to `GameRuntime__PeerInputQueueScan_Maybe`
 ///    (0x0052E880, still bridged) passing `team_arena.last_active_alliance`
@@ -432,7 +462,10 @@ pub(super) unsafe fn online_gate_db60(runtime: *mut GameRuntime) -> bool {
 ///    message is pending, which WA propagates as "suppress interp".
 unsafe fn should_interpolate_online(runtime: *mut GameRuntime) -> bool {
     unsafe {
-        if !online_gate_d830(runtime) || !online_gate_d920(runtime) || !online_gate_db60(runtime) {
+        if !peer_lag_within_threshold(runtime)
+            || !peer_inputs_caught_up(runtime)
+            || !all_peer_teams_have_joined(runtime)
+        {
             return true;
         }
 
@@ -446,131 +479,93 @@ unsafe fn should_interpolate_online(runtime: *mut GameRuntime) -> bool {
     }
 }
 
-/// Rust port of `GameRuntime__AdvanceFrameCounters` (0x0052AAA0).
+/// Rust port of `GameRuntime__UpdateNetworkHudAnimations` (0x0052AAA0).
 ///
-/// Steps three Fixed slew states toward targets derived from wrapper flags,
-/// then bumps `world.scaled_frame_accum` by `advance_ratio` and decays the
-/// `_field_450` countdown by the same amount (clamped at 0).
-///
-/// Slews (all via [`Fixed::smooth_move_towards`]):
-/// - **Slot A** — state `_field_3fc`, target `Fixed::ONE` if `_field_40c != 0`
-///   else `Fixed::ZERO`. `min_step = min_step_a`, `rate = rate_a`. When
-///   `game_info._field_f398` (the "snap animations" / non-advancing-frame
-///   latch) is set, snaps the state to the target before the slew so the
-///   animation is forced complete in this frame. When the slew reports
-///   already-settled, sets `wrapper.game_mode_flag = 1`.
-/// - **Slot B** — state `_field_454`, target `Fixed::ONE` when
-///   `_field_40c == 0 && _field_414 == 0 && _field_450 != 0`, else `Fixed::ZERO`.
-///   `min_step = min_step_b`, `rate = rate_b`, no force_set. Note this uses
-///   the *updated* `_field_450` after the countdown above — intentional per the
-///   original ordering.
-/// - **Slot C** — state `_field_27c`, target `Fixed::ONE` when
-///   `_field_278 >= 0x65`, else `Fixed::ZERO`. Same `min_step_b` / `rate_b`.
-///
-/// Note: ASM at `0x0052AAA0` loads EDI from `[ESI+0x40c]` on entry purely to
-/// compute slot A's target; the register is overwritten again at `0x0052AB40`
-/// (MOV EDI,[ESP+0x1C]) before FixedSlewToward would see it, so this port
-/// has no implicit-EDI concern.
-unsafe fn advance_frame_counters(
+/// Despite the original "AdvanceFrameCounters" name (since corrected in
+/// Ghidra), this function's primary job is to drive the slide/fade
+/// animations of the network-related HUD elements: the chat box, the
+/// "new message" indicator, and the connection-issue indicator. The
+/// only frame-counter work it does is a single `wrapping_add` of
+/// `advance_ratio` into `world.scaled_frame_accum` — incidental to the
+/// animation logic that surrounds it.
+unsafe fn update_network_hud_animations(
     runtime: *mut GameRuntime,
-    min_step_a: Fixed,
-    rate_a: Fixed,
-    min_step_b: Fixed,
-    rate_b: Fixed,
+    chat_box_min_step: Fixed,
+    chat_box_rate: Fixed,
+    ui_anim_min_step: Fixed,
+    ui_anim_rate: Fixed,
     advance_ratio: Fixed,
 ) {
     unsafe {
         let world = (*runtime).world;
         let gi = &*(*world).game_info;
 
-        // Slot A slew.
-        let target_a = if (*runtime)._field_40c != 0 {
+        let chat_box_target = if (*runtime).chat_box_open != 0 {
             Fixed::ONE
         } else {
             Fixed::ZERO
         };
         if gi._field_f398 != 0 {
-            (*runtime)._field_3fc = target_a;
+            (*runtime).chat_box_anim = chat_box_target;
         }
-        if (*runtime)
-            ._field_3fc
-            .smooth_move_towards(target_a, min_step_a, rate_a)
-        {
+        if (*runtime).chat_box_anim.smooth_move_towards(
+            chat_box_target,
+            chat_box_min_step,
+            chat_box_rate,
+        ) {
             (*runtime).game_mode_flag = 1;
         }
 
-        // Running frame counter + countdown.
+        // Sub-frame accumulator bump (the function's only frame-counter
+        // side effect — incidental to the surrounding HUD animation work).
         (*world).scaled_frame_accum = (*world).scaled_frame_accum.wrapping_add(advance_ratio);
 
-        if (*runtime)._field_450 != Fixed::ZERO {
-            let next = (*runtime)._field_450.wrapping_sub(advance_ratio);
-            (*runtime)._field_450 = if next < Fixed::ZERO {
+        // Decay the message-indicator hold timer toward zero.
+        if (*runtime).message_indicator_timer != Fixed::ZERO {
+            let next = (*runtime)
+                .message_indicator_timer
+                .wrapping_sub(advance_ratio);
+            (*runtime).message_indicator_timer = if next < Fixed::ZERO {
                 Fixed::ZERO
             } else {
                 next
             };
         }
 
-        // Slot B slew — uses the *updated* _field_450.
-        let target_b = if (*runtime)._field_40c == 0
-            && (*runtime)._field_414 == 0
-            && (*runtime)._field_450 != Fixed::ZERO
+        // Message indicator visibility / animation. Hidden whenever the
+        // chat box is open, the extended team-bar HUD layout is active
+        // (shares screen space), or the hold timer has expired.
+        let message_indicator_target = if (*runtime).chat_box_open == 0
+            && (*runtime).hud_team_bar_extended == 0
+            && (*runtime).message_indicator_timer != Fixed::ZERO
         {
             Fixed::ONE
         } else {
             Fixed::ZERO
         };
-        let _ = (*runtime)
-            ._field_454
-            .smooth_move_towards(target_b, min_step_b, rate_b);
+        (*runtime).message_indicator_anim.smooth_move_towards(
+            message_indicator_target,
+            ui_anim_min_step,
+            ui_anim_rate,
+        );
 
-        // Slot C slew.
-        let target_c = if (*runtime)._field_278 >= 0x65 {
+        // Connection issue indicator visibility / animation
+        let connection_issue_target = if (*runtime).connection_issue_threshold >= 0x65 {
             Fixed::ONE
         } else {
             Fixed::ZERO
         };
-        let _ = (*runtime)
-            ._field_27c
-            .smooth_move_towards(target_c, min_step_b, rate_b);
+        (*runtime).connection_issue_anim.smooth_move_towards(
+            connection_issue_target,
+            ui_anim_min_step,
+            ui_anim_rate,
+        );
     }
 }
 
 /// Rust port of `GameRuntime::SetupFrameParams` (0x00534CA0).
 ///
-/// Drives the ESC-menu state machine + slew animation each headful frame:
-///
-/// 1. Run [`esc_menu::is_hud_active`] (Rust port of `GameRuntime::IsHudActive`,
-///    0x00534C30). When it returns `false` *and* `esc_menu_state` is
-///    non-zero, force the state back to `0` — the menu can't stay open
-///    once the game enters replay tail / fast-forward / round-end.
-/// 2. Dispatch on `runtime.esc_menu_state`:
-///    - `0` (closed) → [`esc_menu::tick_closed`]; both slew targets → 0.
-///    - `1` (open) → [`esc_menu::tick_open`] (Rust port); slew target slot 1
-///      → 1.0, slot 2 → 0 (slot 1 = menu visible, slot 2 = confirm overlay
-///      hidden).
-///    - `2` (confirm/end-of-game) → [`esc_menu::tick_confirm`] (Rust port);
-///      both slew targets → 1.0 (semantics TBD; calls `BeginNetworkGameEnd`).
-///    - any other value → no-op for the helper + targets (the original
-///      neither calls a helper nor updates targets).
-/// 3. Manage the two TeamIndexMap handles (`runtime._field_438` for map[0]
-///    at `world+0x7650`, `_field_43c` for map[2] at `world+0x7718`):
-///    when `esc_menu_state == 0`, deregister any non-negative handle; when
-///    non-zero, lazily allocate a slot if `_handle == -1`. (The original
-///    function checks the value AFTER the optional reset in step 1, so
-///    state-transition-to-0 deregisters in the same call.)
-/// 4. Slew the ESC-menu and confirm-panel animations one frame each,
-///    both with rate = `fixed_render_scale`. Slot 1 (`esc_menu_anim`
-///    toward `esc_menu_anim_target`) uses `fps_scaled` as `min_step`;
-///    slot 2 (`confirm_anim` toward `confirm_anim_target`) uses
-///    `fps_product`. When `game_info._field_f398` (the "snap animations"
-///    / non-advancing-frame latch) is set, both states are first snapped
-///    to their targets so the slew is a no-op for that frame.
-///
-/// Slot-allocator key passed to `TeamIndexMap::pop_handle` is `6` (matches
-/// the original `PUSH 0x6` at the call sites). Handles are reset to `-1`
-/// AFTER deregistration in the original; we follow the same pattern via
-/// [`TeamIndexMap::remove_handle`], which already nulls `*handle_ptr`.
+/// Drives the ESC-menu state machine + animation each frame.
 unsafe fn setup_frame_params(
     runtime: *mut GameRuntime,
     fps_scaled: Fixed,
@@ -601,8 +596,6 @@ unsafe fn setup_frame_params(
                 (*runtime).esc_menu_anim_target = Fixed::ONE;
                 (*runtime).confirm_anim_target = Fixed::ONE;
             }
-            // Any other value: no helper, no target update — original
-            // skips both via `JNZ LAB_00534D17` after the third compare.
             _ => {}
         }
 
@@ -631,9 +624,7 @@ unsafe fn setup_frame_params(
             }
         }
 
-        // Step 4: slew states. When the snap latch is set, force both
-        // animations to their targets in one frame; otherwise step one
-        // tick toward each.
+        // Apply menu interpolations
         let force_set = (*(*world).game_info)._field_f398 != 0;
         if force_set {
             (*runtime).esc_menu_anim = (*runtime).esc_menu_anim_target;
@@ -747,8 +738,8 @@ pub unsafe fn reset_frame_state(runtime: *mut GameRuntime) {
 /// 2. **Offline replay PageUp handler.** When offline (`net_session == null`)
 ///    and a replay is loaded (`replay_flag_a != 0`) and the just-press latch
 ///    on `KeyboardAction::A5F` (PageUp) fires, drain the keyboard ring buffer
-///    and reset the replay control state: zero `_field_410`, `_field_40c`
-///    and `_field_450`; deregister the two stored handles
+///    and reset the replay control state: zero `_field_410`, `chat_box_open`
+///    and `message_indicator_timer`; deregister the two stored handles
 ///    (`_field_3f4`, `_field_3f8`) from `team_index_maps[0]` and
 ///    `team_index_maps[2]` and reset them to `-1`.
 unsafe fn frame_tail_update(runtime: *mut GameRuntime) {
@@ -803,8 +794,8 @@ unsafe fn frame_tail_update(runtime: *mut GameRuntime) {
         }
         (*runtime)._field_3f8 = -1;
 
-        (*runtime)._field_40c = 0;
-        (*runtime)._field_450 = Fixed::ZERO;
+        (*runtime).chat_box_open = 0;
+        (*runtime).message_indicator_timer = Fixed::ZERO;
     }
 }
 
@@ -1097,9 +1088,9 @@ pub unsafe fn dispatch_frame(runtime: *mut GameRuntime, time: u64, freq: u64) {
 
             setup_frame_params(runtime, fps_scaled, fps_product, fixed_render_scale);
 
-            // AdvanceFrameCounters: two branches differ only in how the product
-            // and render-scale are computed when the game is running slower than
-            // the target speed.
+            // update_network_hud_animations: two branches differ only in how the
+            // product and render-scale are computed when the game is running
+            // slower than the target speed.
             let frame_fixed = elapsed.wrapping_mul(0x10000);
             if used_normal_path && frame_duration < frame_interval {
                 let fd50_f = (frame_duration as f64) * 50.0;
@@ -1108,7 +1099,7 @@ pub unsafe fn dispatch_frame(runtime: *mut GameRuntime, time: u64, freq: u64) {
                     - Fixed::from_raw((65536.0 * (elapsed_f * RENDER_DECAY / fd50_f).exp()) as i32);
                 let advance_ratio =
                     Fixed::from_raw(frame_fixed.checked_div(frame_duration).unwrap_or(0) as i32);
-                advance_frame_counters(
+                update_network_hud_animations(
                     runtime,
                     fps_scaled,
                     fixed_render_scale,
@@ -1119,7 +1110,7 @@ pub unsafe fn dispatch_frame(runtime: *mut GameRuntime, time: u64, freq: u64) {
             } else {
                 let advance_ratio =
                     Fixed::from_raw(frame_fixed.checked_div(frame_interval).unwrap_or(0) as i32);
-                advance_frame_counters(
+                update_network_hud_animations(
                     runtime,
                     fps_scaled,
                     fixed_render_scale,

@@ -782,17 +782,24 @@ pub mod va {
         /// canvas; returns `panel.display_a` (DisplayBitGrid*) for caller to
         /// blit. usercall(EDI = MenuPanel*).
         fn/Usercall MENU_PANEL_RENDER = 0x00540B00;
-        /// `RenderHUD_Maybe` (0x00534F20) — usercall(EAX=runtime), plain RET.
-        /// Network-only "PLEASE WAIT" textbox shown during `game_state == 1`
-        /// while peers haven't yet acknowledged the round end. Ported in
-        /// `engine::main_loop::render_frame::render_hud`; no live xrefs after
-        /// the port (only caller was `GameRender_Maybe`, also Rust now).
-        fn/Usercall RENDER_HUD_MAYBE = 0x00534F20;
-        /// `RenderTurnStatus_Maybe` (0x00534E00) — usercall(EAX=runtime),
-        /// plain RET. Network-only "PLEASE WAIT %d SEC" textbox shown during
-        /// `game_state in {2,3}`. Ported in
-        /// `engine::main_loop::render_frame::render_turn_status`.
-        fn/Usercall RENDER_TURN_STATUS_MAYBE = 0x00534E00;
+        /// `GameRuntime__RenderWaitingForPeersTextbox` (0x00534F20) —
+        /// usercall(EAX=runtime), plain RET. Renders the network "PLEASE
+        /// WAIT" textbox during the pre-round window when `game_state == 1`,
+        /// `world.net_session != null`, and not all peer teams have joined
+        /// yet (per `all_peer_teams_have_joined`). Ported in
+        /// `engine::main_loop::render_frame::render_waiting_for_peers_textbox`;
+        /// no live xrefs after the port (only caller was `GameRender_Maybe`,
+        /// also Rust now). The original Ghidra name `RenderHUD_Maybe` was
+        /// grossly misleading — the function only draws this one textbox.
+        fn/Usercall RENDER_WAITING_FOR_PEERS_TEXTBOX = 0x00534F20;
+        /// `GameRuntime__RenderNetworkEndWaitTextbox` (0x00534E00) —
+        /// usercall(EAX=runtime), plain RET. Renders the "PLEASE WAIT %d SEC"
+        /// textbox during the network end-of-round handshake (`game_state`
+        /// in `{NETWORK_END_AWAITING_PEERS, NETWORK_END_STARTED}`). Ported in
+        /// `engine::main_loop::render_frame::render_network_end_wait_textbox`.
+        /// The original Ghidra name `RenderTurnStatus_Maybe` was misleading —
+        /// the function only draws this one textbox.
+        fn/Usercall RENDER_NETWORK_END_WAIT_TEXTBOX = 0x00534E00;
         /// `PaletteManage_Maybe` (0x00533C80) — stdcall(runtime), RET 0x4.
         /// Once every 50 frames, copies layer-2 palette state into
         /// `runtime.palette_ctx_b`, applies a hue rotation, and commits it

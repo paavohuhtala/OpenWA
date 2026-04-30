@@ -54,8 +54,8 @@ pub unsafe fn init_turn_state(runtime: *mut GameRuntime) {
         let game_info = (*world).game_info;
 
         (*runtime)._field_458 = 0xFFFFFFFF;
-        (*runtime)._field_450 = Fixed::ZERO;
-        (*runtime)._field_454 = Fixed::ZERO;
+        (*runtime).message_indicator_timer = Fixed::ZERO;
+        (*runtime).message_indicator_anim = Fixed::ZERO;
 
         // GameWorld+0x72E0/E4 = -1, GameWorld+0x72E8 = 0
         (*world)._unknown_72e0 = 0xFFFFFFFF;
@@ -339,9 +339,9 @@ pub unsafe fn init_game_state(runtime: *mut GameRuntime) {
         (*runtime)._field_264 = 0;
         (*runtime).sync_checksum_a = 0;
         (*runtime).checksum_valid = 0;
-        (*runtime)._field_278 = 0;
-        (*runtime)._field_27c = Fixed::ZERO;
-        (*runtime)._field_3fc = Fixed::ZERO;
+        (*runtime).connection_issue_threshold = 0;
+        (*runtime).connection_issue_anim = Fixed::ZERO;
+        (*runtime).chat_box_anim = Fixed::ZERO;
         (*runtime)._field_3f4 = -1;
         (*runtime)._field_3f8 = -1;
 
@@ -439,7 +439,7 @@ pub unsafe fn init_game_state(runtime: *mut GameRuntime) {
             }
             (*runtime).worm_select_count_alt = val;
 
-            (*runtime)._field_414 = ((*game_info)._field_f365 != 0) as u32;
+            (*runtime).hud_team_bar_extended = ((*game_info)._field_f365 != 0) as u32;
 
             if is_headful {
                 // GameWorld+0x000 = keyboard ptr; keyboard+0x10 = config field
@@ -465,7 +465,7 @@ pub unsafe fn init_game_state(runtime: *mut GameRuntime) {
         (*runtime).confirm_panel_height = 0;
         (*runtime).confirm_anim = Fixed::ZERO;
         (*runtime).confirm_anim_target = Fixed::ZERO;
-        (*runtime)._field_40c = 0;
+        (*runtime).chat_box_open = 0;
         (*runtime)._field_410 = 0;
 
         // ===== Landscape borders (cavern flag) =====

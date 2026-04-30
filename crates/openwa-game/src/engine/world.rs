@@ -411,10 +411,12 @@ pub struct GameWorld {
     /// 0x77D4: Frame counter
     pub frame: u32,
     /// 0x77D8: Fixed accumulator of scaled-frame time — companion to the
-    /// integer-frame counter at `_field_77d4`, with sub-frame precision.
-    /// [`crate::engine::dispatch_frame::advance_frame_counters`] adds
-    /// `advance_ratio` each frame (= 1.0 when one frame of wall-clock time
-    /// has elapsed at the target game speed). Zeroed by InitTurnState.
+    /// integer frame counter at [`Self::frame`], with sub-frame precision.
+    /// [`crate::engine::main_loop::dispatch_frame::update_network_hud_animations`]
+    /// adds `advance_ratio` each frame (= 1.0 when one frame of wall-clock
+    /// time has elapsed at the target game speed) — that bump is the
+    /// only frame-counter side effect of an otherwise HUD-animation
+    /// function. Zeroed by InitTurnState.
     pub scaled_frame_accum: Fixed,
     /// 0x77DC: Unknown (zeroed by InitTurnState).
     pub _field_77dc: u32,

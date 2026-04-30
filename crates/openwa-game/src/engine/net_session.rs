@@ -28,11 +28,12 @@ pub struct NetSessionVtable {
     #[slot(9)]
     pub peer_pending_maybe: fn(this: *mut NetSession, idx: u32) -> u32,
     /// slot 10 (+0x28): "still busy with end-of-round handshake" predicate.
-    /// Polled by `RenderTurnStatus` in network mode when the
-    /// `net_end_countdown` countdown has reached zero — a non-zero return
-    /// suppresses the on-screen "PLEASE WAIT" textbox once the timeout has
-    /// expired and the predicate signals real work in flight. Exact wire
-    /// semantics unconfirmed; name is provisional.
+    /// Polled by `render_network_end_wait_textbox` (formerly named
+    /// `RenderTurnStatus`) in network mode when the `net_end_countdown`
+    /// countdown has reached zero — a non-zero return suppresses the
+    /// on-screen "PLEASE WAIT" textbox once the timeout has expired and
+    /// the predicate signals real work in flight. Exact wire semantics
+    /// unconfirmed; name is provisional.
     #[slot(10)]
     pub end_handshake_busy_maybe: fn(this: *mut NetSession) -> u32,
 }

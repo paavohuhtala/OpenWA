@@ -195,12 +195,13 @@ pub struct GameRuntime {
     // ===== 0x274-0x487: Game state fields =====
     /// 0x274: Initial state checksum (computed at end of InitGameState)
     pub initial_checksum: u32,
-    /// 0x278: Threshold value read by [`advance_frame_counters`] — slot C
-    /// slews `_field_27c` toward `Fixed::ONE` when this exceeds 100, else
-    /// toward `Fixed::ZERO`.
-    pub _field_278: u32,
-    /// 0x27C: Slew state C (Fixed 16.16). See [`advance_frame_counters`].
-    pub _field_27c: Fixed,
+    /// 0x278: Threshold used in the computation of the connection issue UI element visiblity.
+    /// The element is shown when this value is 101 or higher, and hidden otherwise.
+    /// This could be the number of frames without receiving a network message, but this is unconfirmed.
+    pub connection_issue_threshold: u32,
+    /// 0x27C: Controls the visibility of the connection issue UI element.
+    /// 0 = hidden, 1 = fully visible, values in between = sliding in from the top.
+    pub connection_issue_anim: Fixed,
     /// 0x280-0x29C: Team render order indices (resolution-dependent, 8 entries)
     pub team_render_indices: [i32; 8],
     /// 0x2A0: Worm selection count
@@ -237,19 +238,33 @@ pub struct GameRuntime {
     pub _field_3f4: i32,
     /// 0x3F8: Sentinel -1
     pub _field_3f8: i32,
-    /// 0x3FC: Slew state A (Fixed 16.16). See [`advance_frame_counters`].
-    pub _field_3fc: Fixed,
+    /// 0x3FC: Chat-box slide-in animation (Fixed 16.16). Driven by
+    /// [`crate::engine::main_loop::dispatch_frame::update_network_hud_animations`]:
+    /// target = 1.0 when `chat_box_open` is set, 0.0 otherwise. Snapped
+    /// to target each frame the `game_info._field_f398` "snap animations"
+    /// latch is set.
+    pub chat_box_anim: Fixed,
     /// 0x400: Game turn timer (max_team_render_index << 5)
     pub turn_timer_max: i32,
     /// 0x404: Zeroed
     pub _field_404: i32,
     /// 0x408: Game turn timer copy
     pub turn_timer_current: i32,
-    /// 0x40C-0x413: Zeroed
-    pub _field_40c: i32,
+    /// 0x40C: 0 = chat box closed, 1 = open.
+    pub chat_box_open: i32,
     pub _field_410: i32,
-    /// 0x414: Config bool (from game_info)
-    pub _field_414: u32,
+    /// 0x414: HUD team-bar extended-mode flag. Bool-ified at game-state
+    /// init from `game_info._field_f365`. Two effects each frame:
+    /// 1. Letterbox/team-bar height computation in
+    ///    [`crate::engine::main_loop::render_frame::compute_bar_height`]
+    ///    switches from the compact baseline (initial = 0) to the
+    ///    extended layout (`(worm_select_count_alt + 1) * max_team_render_index + 6`).
+    /// 2. Suppresses the "unseen chat messages" indicator in
+    ///    [`crate::engine::main_loop::dispatch_frame::update_network_hud_animations`]
+    ///    — the extended bar shares screen space with the indicator's
+    ///    slide-in region, so the indicator is forced to its 0.0 target
+    ///    while this flag is set.
+    pub hud_team_bar_extended: u32,
     /// 0x418: Zeroed
     pub ui_volume: Fixed,
     /// 0x41C: Unknown
@@ -297,13 +312,19 @@ pub struct GameRuntime {
     /// and border). Set by `OpenEscMenuConfirmDialog`. The `menu_panel_b`
     /// analogue of [`Self::menu_panel_height`]. Zero-init.
     pub confirm_panel_height: i32,
-    /// 0x450-0x45B: Turn state fields (written by init_turn_state).
-    ///
-    /// `_field_450` is a Fixed countdown that [`advance_frame_counters`]
-    /// decays by `advance_ratio` each frame (clamped at zero); `_field_454`
-    /// is slew state B driven by the same fn.
-    pub _field_450: Fixed,
-    pub _field_454: Fixed,
+    /// 0x450: Message-indicator hold timer (Fixed seconds). When non-zero
+    /// (and [`Self::hud_team_bar_extended`] / [`Self::chat_box_open`] are
+    /// both clear), the "unseen chat messages" indicator's target is 1.0
+    /// — i.e. it slides into view and stays visible.
+    /// [`crate::engine::main_loop::dispatch_frame::update_network_hud_animations`]
+    /// decays it by `advance_ratio` each frame, clamped at zero. Once it
+    /// reaches zero the indicator slides back out. Initialized to zero by
+    /// `init_game_state`. The setter (presumably the chat-message-received
+    /// path) is not yet identified.
+    pub message_indicator_timer: Fixed,
+    /// 0x454: Controls the visibility of the "unseen chat messages" (ringing phone) indicator UI element.
+    /// 0 = hidden, 1 = fully visible, values in between = sliding in from the top.
+    pub message_indicator_anim: Fixed,
     pub _field_458: u32,
     /// 0x45C: Timing jitter state — values 0/1/2, used by DispatchFrame pause detection
     pub timing_jitter_state: i32,

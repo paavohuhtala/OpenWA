@@ -308,7 +308,11 @@ pub struct GameInfo {
     pub _field_f363: u8,
     /// 0xF364: Config byte. Copied to GameWorld._field_7648 at init.
     pub _field_f364: u8,
-    /// 0xF365: Terrain config flag (u8). Bool-ified to wrapper+0x414.
+    /// 0xF365: HUD team-bar extended-mode config (u8 bool). Source for
+    /// [`crate::engine::runtime::GameRuntime::hud_team_bar_extended`] —
+    /// bool-ified into the runtime field at game-state init. When set,
+    /// the in-game HUD uses the tall team-bar layout and suppresses
+    /// the "unseen chat messages" indicator.
     pub _field_f365: u8,
     /// 0xF366-0xF367: Unknown
     pub _unknown_f366: [u8; 0xF368 - 0xF366],
