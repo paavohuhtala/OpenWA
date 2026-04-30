@@ -105,8 +105,8 @@ unsafe fn peer_sync_keep_waiting(runtime: *mut GameRuntime, net: *mut NetSession
             (*runtime).net_end_countdown = cd - 1;
         }
 
-        let stalled = ((*(*net).vtable).sync_in_progress)(net) != 0
-            || NetSession::max_peer_score_raw(net) != 0;
+        let stalled =
+            NetSession::sync_in_progress_raw(net) != 0 || NetSession::max_peer_score_raw(net) != 0;
 
         stalled && (*runtime).net_end_countdown != 0
     }
@@ -120,7 +120,7 @@ unsafe fn enter_round_ending(runtime: *mut GameRuntime) {
         let world = (*runtime).world;
         (*runtime).game_state = game_state::ROUND_ENDING;
         (*runtime).game_end_clear = 0;
-        (*runtime).game_end_speed = 0;
+        (*runtime).game_end_speed = Fixed::ZERO;
 
         let gi = &*(*world).game_info;
         if gi.game_version > 0x4c {
@@ -162,10 +162,9 @@ unsafe fn on_network_end_await_peers(runtime: *mut GameRuntime) {
         // Per-peer ready sweep — only runs while countdown hasn't expired.
         // (Once `net_end_countdown == 0` the transition is forced regardless.)
         if (*runtime).net_end_countdown != 0 {
-            let gi_base = (*world).game_info as *const u8;
-            let peer_count = *gi_base as u32; // game_info[0] byte = peer count
+            let peer_count = (*(*world).game_info).num_teams as u32;
             for i in 0..peer_count {
-                let active = ((*(*net).vtable).peer_active)(net, i) != 0;
+                let active = NetSession::peer_active_raw(net, i) != 0;
                 if active && (*world).net_peer_ready_flags[i as usize] == 0 {
                     return;
                 }
@@ -187,10 +186,9 @@ unsafe fn on_network_end_await_peers(runtime: *mut GameRuntime) {
 ///     part reaches 1.0; once it does, transition to `EXIT`.
 unsafe fn on_round_ending_countdown(runtime: *mut GameRuntime) {
     unsafe {
-        let mut buf: [core::mem::MaybeUninit<u8>; 0x394] =
-            [core::mem::MaybeUninit::uninit(); 0x394];
+        let mut buf = [0u8; 0x394];
         let task = (*runtime).world_root;
-        ((*(*task).base.vtable).hud_data_query)(task, 0x7d3, 0x394, buf.as_mut_ptr() as *mut u8);
+        WorldRootEntity::hud_data_query_raw(task, 0x7d3, 0x394, buf.as_mut_ptr());
 
         if (*runtime).game_end_clear != 0 {
             let next = (*runtime).game_end_clear.wrapping_sub(1);
@@ -199,8 +197,8 @@ unsafe fn on_round_ending_countdown(runtime: *mut GameRuntime) {
         }
 
         let speed = (*runtime).game_end_speed;
-        if (speed & 0xffff0000) < 0x10000 {
-            (*runtime).game_end_speed = speed.wrapping_add(0x51e);
+        if ((speed.0 as u32) & 0xffff0000) < 0x10000 {
+            (*runtime).game_end_speed = speed.wrapping_add(Fixed(0x51e));
         } else {
             (*runtime).game_state = game_state::EXIT;
         }
@@ -291,7 +289,7 @@ pub unsafe fn step_frame(
             if (*world).net_session.is_null() {
                 (*runtime).game_state = game_state::ROUND_ENDING;
                 (*runtime).game_end_clear = 0;
-                (*runtime).game_end_speed = 0;
+                (*runtime).game_end_speed = Fixed::ZERO;
                 if game_info.game_version >= 0x4d {
                     let task = (*runtime).world_root;
                     WorldRootEntity::handle_typed_message_raw(task, task, TurnEndMaybeMessage);

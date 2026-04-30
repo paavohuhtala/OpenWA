@@ -813,7 +813,7 @@ unsafe fn palette_animate(runtime: *mut GameRuntime) {
     unsafe {
         let world = (*runtime).world;
         let render_scale = (*world).render_scale.to_raw();
-        let game_end_speed = (*runtime).game_end_speed as i32;
+        let game_end_speed = (*runtime).game_end_speed.0;
         let clamp = render_scale.max(game_end_speed);
 
         let cur_a = (*world)._field_7390 as i32;

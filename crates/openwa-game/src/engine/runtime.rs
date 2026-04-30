@@ -347,8 +347,8 @@ pub struct GameRuntime {
     pub _field_478: u32,
     /// 0x47C: Cleared on game end
     pub game_end_clear: u32,
-    /// 0x480: Set to 0x10000 on game end
-    pub game_end_speed: u32,
+    /// 0x480: Set to `Fixed::ONE` on game end
+    pub game_end_speed: Fixed,
     /// 0x484: Main game-loop state. Read via vtable slot 9 each frame.
     /// See [`crate::engine::game_state`] for the constants and the
     /// transition graph (RUNNING → INITIALIZED → round-end path → EXIT).

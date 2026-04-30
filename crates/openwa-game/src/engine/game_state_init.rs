@@ -335,7 +335,7 @@ pub unsafe fn init_game_state(runtime: *mut GameRuntime) {
         (*runtime)._field_46c = -1;
         (*runtime)._field_470 = -1;
         (*runtime).game_state = game_state::RUNNING;
-        (*runtime).game_end_speed = 0;
+        (*runtime).game_end_speed = Fixed::ZERO;
         (*runtime)._field_264 = 0;
         (*runtime).sync_checksum_a = 0;
         (*runtime).checksum_valid = 0;

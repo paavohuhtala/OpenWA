@@ -1246,7 +1246,7 @@ pub unsafe fn dispatch_frame(runtime: *mut GameRuntime, time: u64, freq: u64) {
                     && (*runtime).game_end_phase != 1
                 {
                     (*runtime).game_end_phase = 1;
-                    (*runtime).game_end_speed = 0x10000;
+                    (*runtime).game_end_speed = Fixed::ONE;
                     (*runtime).game_state = game_state::EXIT;
                 }
             }
@@ -1506,7 +1506,7 @@ pub unsafe fn dispatch_frame(runtime: *mut GameRuntime, time: u64, freq: u64) {
             {
                 (*runtime).game_state = game_state::ROUND_ENDING;
                 (*runtime).game_end_clear = 0;
-                (*runtime).game_end_speed = 0;
+                (*runtime).game_end_speed = Fixed::ZERO;
 
                 if gi.game_version > 0x4c {
                     // Broadcast game-end message via WorldRootEntity::HandleMessage (vtable[2]).
