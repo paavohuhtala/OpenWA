@@ -556,7 +556,6 @@ unsafe fn fire_mail_mine_mole(worm: *mut WormEntity) {
 unsafe fn fire_teleport(worm: *mut WormEntity) {
     unsafe {
         use crate::audio::sound_ops as sound;
-        use crate::rebase::rb;
 
         if (*worm)._unknown_208 == 0 {
             WormEntity::set_state_raw(worm, WormState::AirStrikePending_Maybe);
@@ -592,10 +591,16 @@ unsafe fn fire_teleport(worm: *mut WormEntity) {
             WorldRootEntity::handle_typed_message_raw(team, worm, msg);
         }
 
-        // Temporarily swap fire_subtype_1 (+0x34) with _unknown_190, call position update, restore
+        // Temporarily swap fire_subtype_1 (+0x34) with _unknown_190, call
+        // try_move_position (which forwards +0x34 to the collision helper),
+        // restore.
         let saved_subtype1 = WormEntity::fire_subtype_1(worm);
         WormEntity::set_fire_subtype_1_raw(worm, (*worm)._unknown_190);
-        call_position_update(worm, fire_x, fire_y, rb(0x4FE070));
+        crate::task::WorldEntity::try_move_position_raw(
+            worm as *mut crate::task::WorldEntity,
+            fire_x,
+            fire_y,
+        );
         WormEntity::set_fire_subtype_1_raw(worm, saved_subtype1);
 
         // Compute new state: version < 455 → Idle (0x65), else → 0x8B
@@ -686,26 +691,6 @@ unsafe fn fire_nuclear_test(worm: *mut WormEntity) {
             Fixed::ONE,
         );
     }
-}
-
-/// Bridge: FUN_004FE070 — usercall(ESI=worm, EDI=y) + stdcall(x). Plain RET.
-#[unsafe(naked)]
-unsafe extern "C" fn call_position_update(_worm: *mut WormEntity, _x: i32, _y: i32, _addr: u32) {
-    core::arch::naked_asm!(
-        "push ebx",
-        "push esi",
-        "push edi",
-        // Stack: 3 saves(12) + ret(4) = 16 to first arg
-        "mov esi, [esp+16]", // worm
-        "mov edi, [esp+24]", // y
-        "mov ebx, [esp+28]", // addr
-        "push [esp+20]",     // x
-        "call ebx",
-        "pop edi",
-        "pop esi",
-        "pop ebx",
-        "ret",
-    );
 }
 
 /// Scales of Justice (subtype 22) — pure Rust port of 0x51EC30.

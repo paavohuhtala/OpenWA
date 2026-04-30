@@ -10,6 +10,15 @@ crate::define_addresses! {
         vmethod CGAMETASK_VT0 = 0x004FF1C0;
         vmethod CGAMETASK_VT1_FREE = 0x004FEF10;
         vmethod CGAMETASK_VT2_HANDLE_MESSAGE = 0x004FF280;
+        /// `WorldEntity__TryMovePosition` (free function). 50+ direct
+        /// callers across every WorldEntity subclass. Usercall:
+        /// `ESI=this, EDI=y, [ESP+4]=x`, RET 0x4. Ported as
+        /// [`WorldEntity::try_move_position_raw`].
+        fn TRY_MOVE_POSITION = 0x004FE070;
+        /// Movement validity / collision-response check used by
+        /// `try_move_position`. Stdcall, 6 args, RET 0x18. Returns nonzero
+        /// to reject the move (caller leaves position unchanged).
+        fn/Stdcall CHECK_MOVE_COLLISION = 0x004FB9D0;
     }
 }
 
@@ -106,6 +115,54 @@ impl WorldEntity {
         unsafe {
             let vt = *(this as *const *const WorldEntityVtable);
             ((*vt).add_impulse)(this, impulse_x, impulse_y, dz)
+        }
+    }
+
+    /// Pure Rust port of `WorldEntity__TryMovePosition` (0x004FE070).
+    ///
+    /// Asks the collision/move-validity helper at
+    /// [`CHECK_MOVE_COLLISION`] (0x004FB9D0) whether the entity may move to
+    /// `(x, y)`. On accept (helper returns 0), commits the new position by
+    /// writing `pos_x`/`pos_y` and clamping the +0xAC counter to 0 if it was
+    /// positive, then returns 1. On reject, leaves the entity unchanged and
+    /// returns 0.
+    ///
+    /// The helper is `__stdcall` with 6 args (RET 0x18); both `+0x34` (the
+    /// first dword of `subclass_data`) and `+0xDC` (inside `_unknown_d8`) are
+    /// passed verbatim — both are subclass-polymorphic. WA itself called this
+    /// with `__usercall(ESI=this, EDI=y, [ESP+4]=x)`; the Rust port takes
+    /// plain args and lets the stdcall ABI handle register loading.
+    ///
+    /// Used by every `WorldEntity` subclass — constructors call it to do the
+    /// initial placement check, and movement code re-uses it to commit each
+    /// step.
+    #[inline]
+    pub unsafe fn try_move_position_raw(this: *mut WorldEntity, x: i32, y: i32) -> u32 {
+        unsafe {
+            use crate::rebase::rb;
+
+            let world = (*(this as *const BaseEntity)).world;
+            let game_state_stream = (*world).game_state_stream;
+
+            let base = this as *const u8;
+            let p_dc = *(base.add(0xDC) as *const u32);
+            let p_34 = *(base.add(0x34) as *const u32);
+
+            type Helper =
+                unsafe extern "stdcall" fn(*mut u8, *mut WorldEntity, i32, i32, u32, u32) -> u32;
+            let helper: Helper = core::mem::transmute(rb(CHECK_MOVE_COLLISION));
+            if helper(game_state_stream, this, x, y, p_dc, p_34) != 0 {
+                return 0;
+            }
+
+            (*this).pos_x = Fixed(x);
+            (*this).pos_y = Fixed(y);
+
+            let p_ac = base.add(0xAC) as *mut i32;
+            if *p_ac > 0 {
+                *p_ac = 0;
+            }
+            1
         }
     }
 
