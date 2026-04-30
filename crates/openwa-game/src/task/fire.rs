@@ -1,5 +1,6 @@
 use super::base::BaseEntity;
 use crate::FieldRegistry;
+use crate::address::va;
 use openwa_core::fixed::Fixed;
 
 crate::define_addresses! {
@@ -77,3 +78,68 @@ const _: () = assert!(core::mem::size_of::<FireEntity>() == 0xD8);
 
 // Generate typed vtable method wrappers: handle_message(), process_frame().
 bind_FireEntityVtable!(FireEntity, base.vtable);
+
+/// 12-dword (0x30 bytes) init payload for [`FireEntity::Constructor`].
+///
+/// Populated on the caller's stack and passed by reference. The first four
+/// dwords mirror the WeaponReleaseContext spawn fields; the middle three are
+/// fixed flags/discriminators (`{0, 4, 1}` for the PlacedExplosive caller —
+/// other callers may use different values); the trailing four come from the
+/// active `WeaponFireParams` plus the worm's `team_index`. Field semantics
+/// past the first four are speculative — the FireEntity ctor at 0x0054F4C0
+/// would need RE'ing to confirm.
+#[repr(C)]
+pub struct FireEntityInit {
+    /// 0x00: Spawn X (typically `ctx.spawn_x`).
+    pub spawn_x: Fixed,
+    /// 0x04: Spawn Y (typically `ctx.spawn_y`).
+    pub spawn_y: Fixed,
+    /// 0x08: Spawn offset X (typically `ctx.spawn_offset_x`).
+    pub spawn_offset_x: Fixed,
+    /// 0x0C: Spawn offset Y.
+    pub spawn_offset_y: Fixed,
+    /// 0x10: Zero in PlacedExplosive caller.
+    pub _flag_10: u32,
+    /// 0x14: Discriminator (= 4 in PlacedExplosive caller).
+    pub kind: u32,
+    /// 0x18: One in PlacedExplosive caller.
+    pub _flag_18: u32,
+    /// 0x1C: Sourced from `WeaponFireParams.collision_radius`.
+    pub fp_collision_radius: Fixed,
+    /// 0x20: Sourced from `WeaponFireParams._fp_02`.
+    pub fp_02: i32,
+    /// 0x24: Sourced from `WeaponFireParams.spread`.
+    pub fp_spread: i32,
+    /// 0x28: Sourced from `WeaponFireParams._fp_04`.
+    pub fp_04: i32,
+    /// 0x2C: Owner team index (`worm.team_index`).
+    pub team_index: u32,
+}
+
+const _: () = assert!(core::mem::size_of::<FireEntityInit>() == 0x30);
+
+/// Typed wrapper for `FireEntity::Constructor` (WA 0x0054F4C0,
+/// `__stdcall(this, parent, init, flags) -> *mut FireEntity`, RET 0x10).
+///
+/// `this` must be a freshly-allocated FireEntity buffer (0xD8 bytes); the
+/// constructor zero-fills the first 0xB8 bytes itself only when called from
+/// some sites — `FireWeapon__PlacedExplosive` does the memset before this
+/// call, so callers that go through here should follow the same pattern.
+#[inline]
+pub unsafe fn fire_entity_construct(
+    this: *mut FireEntity,
+    parent: *mut u8,
+    init: *const FireEntityInit,
+    flags: u32,
+) -> *mut FireEntity {
+    unsafe {
+        type Ctor = unsafe extern "stdcall" fn(
+            *mut FireEntity,
+            *mut u8,
+            *const FireEntityInit,
+            u32,
+        ) -> *mut FireEntity;
+        let ctor: Ctor = core::mem::transmute(crate::rebase::rb(va::FIRE_ENTITY_CTOR));
+        ctor(this, parent, init, flags)
+    }
+}

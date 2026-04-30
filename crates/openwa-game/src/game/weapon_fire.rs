@@ -180,9 +180,7 @@ pub unsafe fn fire_weapon(
         use crate::game::weapon::{FireMethod, FireType};
         match FireType::try_from(fire_type) {
             Ok(FireType::Projectile) => match FireMethod::try_from(fire_method) {
-                Ok(FireMethod::PlacedExplosive) => {
-                    call_fire_placed_explosive(worm, fire_params, ctx, rb(0x51EC80))
-                }
+                Ok(FireMethod::PlacedExplosive) => fire_placed_explosive(worm, fire_params, ctx),
                 Ok(FireMethod::ProjectileFire) => {
                     projectile_fire(worm, fire_params, ctx as *const WeaponSpawnData)
                 }
@@ -220,31 +218,66 @@ pub unsafe fn fire_weapon(
 // This preserves LLVM's callee-saved registers while providing
 // the usercall context that sub-functions expect.
 
-/// Bridge: PlacedExplosive — usercall(ECX=local_struct, EDX=worm, [ESP+4]=fire_params), RET 0x4.
-/// Args: (worm, fire_params, ctx, addr).
-#[unsafe(naked)]
-unsafe extern "C" fn call_fire_placed_explosive(
-    _worm: *mut WormEntity,
-    _fire_params: *const WeaponFireParams,
-    _ctx: *const WeaponReleaseContext,
-    _addr: u32,
+/// PlacedExplosive fire — Rust port of `FireWeapon__PlacedExplosive` (WA
+/// 0x0051EC80, `__usercall(ECX=ctx, EDX=worm, [ESP+4]=fire_params)`, RET 0x4).
+///
+/// Plays the placement SFX (suppressed when the worm already has an active
+/// streaming sound), looks up the parent task, and constructs a `FireEntity`
+/// with the standard 12-dword [`FireEntityInit`] payload. WA's MSVC SEH
+/// wrapper around the body is dropped — neither `wa_malloc` nor the C++
+/// constructor throws in offline play.
+unsafe fn fire_placed_explosive(
+    worm: *mut WormEntity,
+    fire_params: *const WeaponFireParams,
+    ctx: *const WeaponReleaseContext,
 ) {
-    core::arch::naked_asm!(
-        "push ebx",
-        "push esi",
-        "push edi",
-        // Set up usercall registers
-        // Stack: 3 saves(12) + ret(4) = 16 to first arg
-        "mov edx, [esp+16]", // EDX = worm
-        "mov ecx, [esp+24]", // ECX = local_struct
-        "mov ebx, [esp+28]", // addr
-        "push [esp+20]",     // fire_params (stack param)
-        "call ebx",
-        "pop edi",
-        "pop esi",
-        "pop ebx",
-        "ret",
-    );
+    unsafe {
+        use crate::audio::{SoundId, sound_ops};
+        use crate::task::SharedDataTable;
+        use crate::task::fire::{FireEntity, FireEntityInit, fire_entity_construct};
+        use crate::wa_alloc::wa_malloc_struct_zeroed;
+
+        // Suppress the placement SFX if the worm already has a streaming
+        // sound playing (avoids overlap on rapid placements).
+        if (*worm).sound_handle == 0 {
+            sound_ops::play_worm_sound_2(worm, SoundId(0x16), Fixed::ONE, 3);
+            sound_ops::play_worm_sound(worm, SoundId(0x10017), Fixed::ONE);
+        }
+
+        let table = SharedDataTable::from_task(worm as *const BaseEntity);
+        let parent = table.lookup(0, 0x17);
+
+        let fp = &*fire_params;
+        let c = &*ctx;
+        let init = FireEntityInit {
+            spawn_x: Fixed(c.spawn_x as i32),
+            spawn_y: Fixed(c.spawn_y as i32),
+            spawn_offset_x: Fixed(c.spawn_offset_x),
+            spawn_offset_y: Fixed(c.spawn_offset_y),
+            _flag_10: 0,
+            kind: 4,
+            _flag_18: 1,
+            fp_collision_radius: fp.collision_radius,
+            fp_02: fp._fp_02,
+            fp_spread: fp.spread,
+            fp_04: fp._fp_04,
+            team_index: (*worm).team_index,
+        };
+
+        let buffer = wa_malloc_struct_zeroed::<FireEntity>();
+        if buffer.is_null() {
+            return;
+        }
+        let result = fire_entity_construct(buffer, parent, &init, 0);
+
+        // Original sets `result+0xB4 = 1` after ctor. That's `_flags_b0` in
+        // FireEntity (single-byte flag at +0xB4 per the layout); we replicate
+        // the write directly via byte access since the field is part of the
+        // bag-of-flags region.
+        if !result.is_null() {
+            *(result as *mut u8).add(0xB4) = 1;
+        }
+    }
 }
 
 /// Bridge: Projectile/Rope/Grenade — stdcall(worm, fire_params, local_struct), RET 0xC.
@@ -528,10 +561,31 @@ unsafe fn fire_teleport(worm: *mut WormEntity) {
         // Play teleport sound (0x36) on secondary sound handle
         sound::play_worm_sound_2(worm, SoundId(0x36), Fixed::ONE, 3);
 
-        // Spawn visual effect: usercall(EAX=0x80000, ECX=x) + stdcall(y, 0, 0, 0, 600, 0x10000, 0x1999)
+        // Spawn the teleport visual effect — sends a typed CreateAnimation
+        // (msg 0x56) to WorldRootEntity. Pure-Rust port of WA 0x00547C30
+        // (`SpawnEffect_Maybe`); see `CreateAnimationMessage` for the payload
+        // shape. The 0x408-byte buffer matches WA's HandleMessage call exactly.
         let fire_x = (*worm).weapon_param_1;
         let fire_y = (*worm).weapon_param_2;
-        call_spawn_effect(fire_x, fire_y, rb(0x547C30));
+        let team = lookup_world_root(worm);
+        if !team.is_null() {
+            use crate::game::message::CreateAnimationMessage;
+            let msg = CreateAnimationMessage {
+                anim_kind: 0x80000,
+                x: Fixed(fire_x),
+                y: Fixed(fire_y),
+                _field_0c: 0,
+                _field_10: 0,
+                _pad_14: 0,
+                _zero_18: 0,
+                _pad_1c: 0,
+                _field_20: 600,
+                _zero_24: 0,
+                _field_28: 0x1999,
+                _trailing: [0; 0x408 - 0x2C],
+            };
+            WorldRootEntity::handle_typed_message_raw(team, worm, msg);
+        }
 
         // Temporarily swap fire_subtype_1 (+0x34) with _unknown_190, call position update, restore
         let saved_subtype1 = WormEntity::fire_subtype_1(worm);
@@ -627,28 +681,6 @@ unsafe fn fire_nuclear_test(worm: *mut WormEntity) {
             Fixed::ONE,
         );
     }
-}
-
-/// Bridge: FUN_00547C30 — usercall(EAX=0x80000, ECX=x) + stdcall(y, 0,0,0, 600, 0x10000, 0x1999).
-#[unsafe(naked)]
-unsafe extern "C" fn call_spawn_effect(_x: i32, _y: i32, _addr: u32) {
-    core::arch::naked_asm!(
-        "push ebx",
-        // Stack: 1 save(4) + ret(4) = 8 to first arg
-        "mov ecx, [esp+8]",  // x
-        "mov ebx, [esp+16]", // addr
-        "push 0x1999",
-        "push 0x10000",
-        "push 0x258", // 600
-        "push 0",
-        "push 0",
-        "push 0",
-        "push [esp+36]", // y (8 + 4 + 6*4 = 36)
-        "mov eax, 0x80000",
-        "call ebx",
-        "pop ebx",
-        "ret",
-    );
 }
 
 /// Bridge: FUN_004FE070 — usercall(ESI=worm, EDI=y) + stdcall(x). Plain RET.

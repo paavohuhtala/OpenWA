@@ -419,6 +419,56 @@ impl TaskMessageData for PoisonWormMessage {
     const MESSAGE_TYPE: TaskMessage = TaskMessage::PoisonWorm;
 }
 
+/// Payload for [`TaskMessage::CreateAnimation`] (msg 0x56).
+///
+/// Constructed by `SpawnEffect_Maybe` (WA 0x00547C30) on a 0x408-byte stack
+/// scratch buffer and forwarded to `WorldRootEntity::HandleMessage`. WA only
+/// writes 11 dwords (the prefix below); the remaining 988 bytes are
+/// uninitialized stack memory. We zero-fill the trailing region so the
+/// payload is well-defined while keeping the on-wire size at 0x408 to match
+/// the original `HandleMessage(this, sender, 0x56, 0x408, ...)` call shape.
+///
+/// Field semantics past `y` are best-effort: the only known caller
+/// (`fire_teleport`) passes `(0x80000, x, y, 0, 0, _, 0, _, 600, 0, 0x1999)`.
+/// The `0x80000` constant in slot 0 looks like an animation kind / flag,
+/// `600` like a lifetime in ticks, and `0x1999` like a fixed-point fraction
+/// (≈0.0999). Receiver code at WorldRoot::HandleMessage(msg=0x56) hasn't been
+/// RE'd yet — refine field names when it is.
+#[repr(C)]
+#[derive(Clone, Copy, Zeroable, Pod)]
+pub struct CreateAnimationMessage {
+    /// 0x00: Animation kind / flags (caller passes 0x80000 in EAX usercall).
+    pub anim_kind: u32,
+    /// 0x04: Spawn X (Fixed16.16) — caller passes via ECX.
+    pub x: Fixed,
+    /// 0x08: Spawn Y (Fixed16.16).
+    pub y: Fixed,
+    /// 0x0C: Caller field (`0` from teleport).
+    pub _field_0c: u32,
+    /// 0x10: Caller field (`0` from teleport).
+    pub _field_10: u32,
+    /// 0x14: Uninitialized in WA — zero-filled here.
+    pub _pad_14: u32,
+    /// 0x18: Forced to `0` by WA after writing the caller's arg4.
+    pub _zero_18: u32,
+    /// 0x1C: Uninitialized in WA — zero-filled here.
+    pub _pad_1c: u32,
+    /// 0x20: Caller field (`600` from teleport — likely lifetime in ticks).
+    pub _field_20: u32,
+    /// 0x24: Forced to `0` by WA after writing the caller's arg6.
+    pub _zero_24: u32,
+    /// 0x28: Caller field (`0x1999` from teleport — likely Fixed fraction).
+    pub _field_28: u32,
+    /// 0x2C..0x408: Trailing scratch left uninitialized by WA. We zero it.
+    pub _trailing: [u8; 0x408 - 0x2C],
+}
+
+const _: () = assert!(core::mem::size_of::<CreateAnimationMessage>() == 0x408);
+
+impl TaskMessageData for CreateAnimationMessage {
+    const MESSAGE_TYPE: TaskMessage = TaskMessage::CreateAnimation;
+}
+
 #[repr(C)]
 #[derive(Clone, Copy, Zeroable, Pod)]
 pub struct RaiseWaterMessage {
