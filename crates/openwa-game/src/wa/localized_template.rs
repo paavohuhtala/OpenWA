@@ -58,6 +58,96 @@ pub unsafe fn resolve_raw(template: *mut LocalizedTemplate, token_id: u32) -> *c
     }
 }
 
+/// Typed entry point for [`resolve_split_array_raw`]. Prefer this in
+/// hand-written callers; pass `res::*` constants from [`crate::wa::string_resource`].
+pub unsafe fn resolve_split_array(
+    template: *mut LocalizedTemplate,
+    token: StringRes,
+) -> *mut *mut c_char {
+    unsafe { resolve_split_array_raw(template, token.as_offset()) }
+}
+
+/// Resolve `token_id` into a NULL-terminated array of C-string pointers,
+/// memoized in the per-template [`LocalizedTemplate::split_array_cache`].
+///
+/// Pure Rust port of WA 0x0053EC70 (`LocalizedTemplate__ResolveSplitArray`,
+/// `__usercall(EDI=token_id) + stdcall(this)`, RET 0x4).
+///
+/// On a cache miss this calls [`resolve_raw`] to materialize the post-processed
+/// template string, **mutates that cached string in place** by replacing each
+/// `\x1A` separator with `\0`, and allocates an `(n+1)`-slot pointer array via
+/// [`wa_malloc`](crate::wa_alloc::wa_malloc) where each slot points into the
+/// shared template buffer. The trailing slot is `NULL`.
+///
+/// Subsequent calls return the cached array unchanged.
+///
+/// Raw-id form parallels [`resolve_raw`] for callers that want to pass numeric
+/// tokens (e.g. WA-port shims). Prefer [`resolve_split_array`].
+pub unsafe fn resolve_split_array_raw(
+    template: *mut LocalizedTemplate,
+    token_id: u32,
+) -> *mut *mut c_char {
+    unsafe {
+        use crate::wa_alloc::wa_malloc;
+
+        let slot = (*template).split_array_cache.add(token_id as usize);
+        if !(*slot).is_null() {
+            return *slot;
+        }
+
+        // [`resolve_raw`] hands out `*const c_char` for read-only consumers, but the
+        // underlying buffer is `wa_malloc`'d heap memory cached on `*template` and is
+        // already shared with WA's own `ResolveSplitArray`, which mutates `\x1A`
+        // separators to `\0` here exactly as we do. The const→mut conversion is
+        // intentional aliasing of a writable buffer, not constness laundering.
+        let s = resolve_raw(template, token_id).cast_mut();
+
+        // Walk to end-of-string.
+        let mut end = s;
+        while *end != 0 {
+            end = end.add(1);
+        }
+        // Trim trailing \x1A separators.
+        while end > s && *end.sub(1) == 0x1A {
+            end = end.sub(1);
+        }
+        *end = 0;
+
+        // Count segments: 1 + number of remaining \x1A separators.
+        let mut count: usize = 1;
+        let mut p = s;
+        while *p != 0 {
+            if *p == 0x1A {
+                count += 1;
+            }
+            p = p.add(1);
+        }
+
+        // Allocate (count + 1) pointer slots; the last is the NULL terminator.
+        let bytes = ((count + 1) * core::mem::size_of::<*mut c_char>()) as u32;
+        let arr = wa_malloc(bytes) as *mut *mut c_char;
+        if arr.is_null() {
+            return core::ptr::null_mut();
+        }
+
+        *arr = s;
+        let mut idx: usize = 1;
+        let mut p = s;
+        while *p != 0 {
+            if *p == 0x1A {
+                *p = 0;
+                *arr.add(idx) = p.add(1);
+                idx += 1;
+            }
+            p = p.add(1);
+        }
+        *arr.add(idx) = core::ptr::null_mut();
+
+        *slot = arr;
+        arr
+    }
+}
+
 /// Owned 0x30-byte cache header. The two cache arrays are each
 /// `wa_malloc(0x20E0)` — 2104 slots, indexed by `StringRes::as_offset()`.
 ///

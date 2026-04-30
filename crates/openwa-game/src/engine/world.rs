@@ -316,13 +316,15 @@ pub struct GameWorld {
     /// 0x739C: Render state flag (zeroed by InitRenderIndices).
     pub render_state_flag: u32,
 
-    /// 0x73A0: Camera X position (Fixed-point, e.g. 393.0).
+    /// 0x73A0: Effect-event point — written by [`GameWorld::register_event_point_raw`]
+    /// (WA 0x547E70). Despite the original "min" / "max" / "expand bbox" code shape,
+    /// the entry path always resets `+0x73A0..+0x73AC` to a single `(x, y)` point.
     pub camera_x: i32,
-    /// 0x73A4: Camera Y position (Fixed-point, e.g. 532.0).
+    /// 0x73A4: see [`Self::camera_x`].
     pub camera_y: i32,
-    /// 0x73A8: Camera target X (Fixed-point, duplicate/interpolation target).
+    /// 0x73A8: see [`Self::camera_x`].
     pub camera_target_x: i32,
-    /// 0x73AC: Camera target Y (Fixed-point).
+    /// 0x73AC: see [`Self::camera_x`].
     pub camera_target_y: i32,
 
     /// 0x73B0: Render entry table (14 entries × 0x14 bytes).
@@ -650,6 +652,27 @@ impl GameWorld {
         let rng = openwa_core::rng::wa_lcg((self.frame_counter as u32).wrapping_add(self.game_rng));
         self.game_rng = rng;
         rng
+    }
+
+    /// Reset the effect-event point at +0x73A0..+0x73AC to `(x, y)` and arm the
+    /// gate flag at +0x739C. Pure Rust port of WA 0x547E70 (was bridged as
+    /// `set_gravity_center`; the misnamed "gravity" interpretation is wrong).
+    ///
+    /// The WA function disassembles into a "reset bbox / expand bbox" pattern,
+    /// but the entry path unconditionally zeros the gate before checking it,
+    /// so the JNZ at 0x00547E8E is never taken — the "expand" branch is dead
+    /// code. Faithful port: always reset to single point + arm gate.
+    ///
+    /// `_raw` form per the project's noalias rule: callers commonly pass a
+    /// pointer obtained from a WA bridge call, so we can't claim `&mut self`.
+    pub unsafe fn register_event_point_raw(this: *mut GameWorld, x: i32, y: i32) {
+        unsafe {
+            (*this).camera_x = x;
+            (*this).camera_target_x = x;
+            (*this).camera_y = y;
+            (*this).camera_target_y = y;
+            (*this).render_state_flag = 1;
+        }
     }
 
     /// Advance the secondary effect RNG at GameWorld+0x45F0 and return the new state.

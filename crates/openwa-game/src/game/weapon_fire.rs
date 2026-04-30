@@ -22,7 +22,8 @@ use crate::game::weapon::{WeaponEntry, WeaponFireParams, WeaponSpawnData};
 use crate::task::BaseEntity;
 use crate::task::world_root::WorldRootEntity;
 use crate::task::worm::{WormEntity, WormState};
-use crate::wa::localized_template::LocalizedTemplate;
+use crate::wa::localized_template;
+use core::ffi::c_char;
 use openwa_core::fixed::Fixed;
 use openwa_core::log::log_line;
 
@@ -183,14 +184,12 @@ pub unsafe fn fire_weapon(
                     call_fire_placed_explosive(worm, fire_params, ctx, rb(0x51EC80))
                 }
                 Ok(FireMethod::ProjectileFire) => {
-                    call_fire_stdcall3(worm, fire_params, ctx, rb(0x51DFB0))
+                    projectile_fire(worm, fire_params, ctx as *const WeaponSpawnData)
                 }
                 Ok(FireMethod::CreateWeaponProjectile) => {
-                    call_fire_thiscall2(worm, fire_params, ctx, rb(0x51E0F0))
+                    create_weapon_projectile(worm, fire_params, ctx as *const u8)
                 }
-                Ok(FireMethod::CreateArrow) => {
-                    call_fire_thiscall2(worm, fire_params, ctx, rb(0x51ED90))
-                }
+                Ok(FireMethod::CreateArrow) => create_arrow(worm, fire_params, ctx as *const u8),
                 _ => {}
             },
             Ok(FireType::Rope) => match FireMethod::try_from(fire_method) {
@@ -198,7 +197,7 @@ pub unsafe fn fire_weapon(
                     call_fire_stdcall3(worm, fire_params, ctx, rb(0x51E1C0))
                 } // RopeType1
                 Ok(FireMethod::ProjectileFire) => {
-                    call_fire_thiscall2(worm, fire_params, ctx, rb(0x51E0F0))
+                    create_weapon_projectile(worm, fire_params, ctx as *const u8)
                 }
                 Ok(FireMethod::CreateWeaponProjectile) => {
                     call_fire_stdcall3(worm, fire_params, ctx, rb(0x51E240))
@@ -270,32 +269,6 @@ unsafe extern "C" fn call_fire_stdcall3(
         "push [esp+24]",     // local_struct
         "push [esp+24]",     // params (shifted +4)
         "push [esp+24]",     // worm (shifted +8)
-        "call ebx",
-        "pop edi",
-        "pop esi",
-        "pop ebx",
-        "ret",
-    );
-}
-
-/// Bridge: CreateWeaponProjectile — thiscall(ECX=worm, fire_params, local_struct), RET 0x8.
-#[unsafe(naked)]
-unsafe extern "C" fn call_fire_thiscall2(
-    _worm: *mut WormEntity,
-    _fire_params: *const WeaponFireParams,
-    _ctx: *const WeaponReleaseContext,
-    _addr: u32,
-) {
-    core::arch::naked_asm!(
-        "push ebx",
-        "push esi",
-        "push edi",
-        "mov esi, [esp+16]", // worm
-        "mov edi, [esp+16]",
-        "mov ecx, [esp+16]", // ECX = worm (this)
-        "mov ebx, [esp+28]", // addr
-        "push [esp+24]",     // local_struct
-        "push [esp+24]",     // params (shifted +4)
         "call ebx",
         "pop edi",
         "pop esi",
@@ -727,51 +700,35 @@ unsafe fn fire_scales_of_justice(worm: *mut WormEntity) {
         }
 
         // Play jet pack sound:
-        // FUN_0053EC70: LocalizedTemplate__ResolveSplitArray —
-        //   usercall(EDI=0x6CB) + stdcall(this) → `*const *const c_char` array
-        //   used here as a randomized speech-bank pick.
-        // FUN_005480F0: usercall(EAX=-21) + stdcall(worm, result, 0x17, &worm_name)
+        // - LocalizedTemplate::ResolveSplitArray (token 0x6CB) — pure Rust now,
+        //   returns a NULL-terminated `*mut *mut c_char` speech-bank array.
+        // - FUN_005480F0: usercall(EAX=-21) + stdcall(worm, array, 0x17, &worm_name)
+        //   randomly picks one entry and plays it.
         let world = {
             let this = worm as *const BaseEntity;
             (*this).world
         };
-        let sound_val = call_resolve_split_array((*world).localized_template, rb(0x53EC70));
+        let array = localized_template::resolve_split_array(
+            (*world).localized_template,
+            crate::wa::string_resource::res::GAME_SCALES_OF_JUSTICE_COMMENTS,
+        );
         call_play_sound_usercall(
             worm,
-            sound_val,
+            array,
             0x17,
-            (*worm).worm_name.as_ptr(),
+            (*worm).worm_name.as_ptr() as *const c_char,
             rb(0x5480F0),
         );
     }
-}
-
-/// Bridge: FUN_0053EC70 (`LocalizedTemplate__ResolveSplitArray`) —
-/// usercall(EDI=0x6CB) + stdcall(this). Returns EAX (the resolved
-/// `*const *const c_char` array, here reinterpreted as a sound-pick value).
-#[unsafe(naked)]
-unsafe extern "C" fn call_resolve_split_array(_this: *mut LocalizedTemplate, _addr: u32) -> u32 {
-    core::arch::naked_asm!(
-        "push ebx",
-        "push edi",
-        // Stack: 2 saves(8) + ret(4) = 12 to first arg
-        "mov edi, 0x6CB",
-        "mov ebx, [esp+16]", // addr
-        "push [esp+12]",     // this
-        "call ebx",
-        "pop edi",
-        "pop ebx",
-        "ret",
-    );
 }
 
 /// Bridge: usercall(EAX=-21) + stdcall(4 params). Plain RET (callee doesn't clean).
 #[unsafe(naked)]
 unsafe extern "C" fn call_play_sound_usercall(
     _worm: *mut WormEntity,
-    _sound_val: u32,
+    _array: *mut *mut c_char,
     _param3: u32,
-    _name: *const u8,
+    _name: *const c_char,
     _addr: u32,
 ) {
     core::arch::naked_asm!(
@@ -797,8 +754,6 @@ unsafe extern "C" fn call_play_sound_usercall(
 ///
 unsafe fn fire_armageddon(worm: *mut WormEntity) {
     unsafe {
-        use crate::rebase::rb;
-
         // Send message 0x5B (Armageddon) to WorldRootEntity with weapon info buffer.
         //
         // The original allocates a 0x410-byte stack buffer, writes fields at offsets
@@ -829,7 +784,9 @@ unsafe fn fire_armageddon(worm: *mut WormEntity) {
         };
         let game_version = (*(*world).game_info).game_version;
 
-        // If old game version or worm state 0x69, set gravity center
+        // If old game version or worm state 0x69, register an effect-event
+        // point at the level center (formerly bridged as "set_gravity_center" —
+        // see GameWorld::register_event_point_raw for the actual semantics).
         if game_version < 0x50 || (*worm).is_in_state(WormState::Unknown_0x69) {
             let level_w = (*world).level_width as i32;
             let level_h = (*world).level_height as i32;
@@ -837,30 +794,9 @@ unsafe fn fire_armageddon(worm: *mut WormEntity) {
             let half_x = ((level_w << 16) + (if level_w < 0 { 1 } else { 0 })) >> 1;
             let half_y = ((level_h << 16) + (if level_h < 0 { 1 } else { 0 })) >> 1;
 
-            call_set_gravity_center(worm, half_x, half_y, rb(0x547E70));
+            crate::engine::world::GameWorld::register_event_point_raw(world, half_x, half_y);
         }
     }
-}
-
-/// Bridge: usercall(ECX=half_x, EDX=half_y) + stdcall(worm), RET 0x4.
-#[unsafe(naked)]
-unsafe extern "C" fn call_set_gravity_center(
-    _worm: *mut WormEntity,
-    _half_x: i32,
-    _half_y: i32,
-    _addr: u32,
-) {
-    core::arch::naked_asm!(
-        "push ebx",
-        // Stack: 1 save(4) + ret(4) = 8 to first arg
-        "mov ecx, [esp+12]", // half_x
-        "mov edx, [esp+16]", // half_y
-        "mov ebx, [esp+20]", // addr
-        "push [esp+8]",      // worm (shifted by 0 extra pushes before this)
-        "call ebx",          // RET 0x4 cleans worm
-        "pop ebx",
-        "ret",
-    );
 }
 
 /// DragonBall (type 4 subtype 3) — pure Rust port of 0x51E350.
