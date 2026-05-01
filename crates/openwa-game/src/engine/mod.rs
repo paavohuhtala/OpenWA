@@ -19,6 +19,7 @@ pub mod pump_messages;
 pub mod replay;
 pub mod ring_buffer;
 pub mod runtime;
+pub mod shutdown;
 pub mod team_arena;
 pub mod team_init;
 pub mod team_ops;
