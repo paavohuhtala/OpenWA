@@ -44,8 +44,8 @@ const _: () = assert!(core::mem::size_of::<GameInfoTeamRecord>() == 0xBB8);
 /// Per-team **input** configuration record stored as a 6-element array in
 /// [`GameInfo`] at offset 0x004 (stride 0x50, 0-based).
 ///
-/// Layout is currently opaque — `InputCtrl::Init` just memcpys it into
-/// `InputCtrl::team_records[i].config_data`. The downstream consumer
+/// Layout is currently opaque — `NetInputCtrl::Init` just memcpys it into
+/// `NetInputCtrl::team_records[i].config_data`. The downstream consumer
 /// (input dispatch / replay capture / AI driver) is what interprets the
 /// fields.
 ///
@@ -79,9 +79,9 @@ pub struct GameInfo {
     pub _unknown_0001: [u8; 3],
 
     /// 0x0004-0x01E3: Per-team input config records (stride 0x50, max 6).
-    /// `InputCtrl::Init` (0x0058C0D0) memcpys `num_teams` of these verbatim
-    /// into `InputCtrl::team_records[i].config_data`. Layout of each record
-    /// is opaque to `InputCtrl::Init`; the downstream consumer (input
+    /// `NetInputCtrl::Init` (0x0058C0D0) memcpys `num_teams` of these verbatim
+    /// into `NetInputCtrl::team_records[i].config_data`. Layout of each record
+    /// is opaque to `NetInputCtrl::Init`; the downstream consumer (input
     /// dispatch / replay capture) interprets them.
     pub team_input_configs: [TeamInputConfig; MAX_TEAM_RECORDS],
 

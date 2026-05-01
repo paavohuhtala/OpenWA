@@ -35,7 +35,7 @@ unsafe fn vcall0(this: u32, slot: usize) {
 /// decompile exactly:
 ///
 /// 1. Clear `session.init_flag`.
-/// 2. If `input_ctrl != 0`: call `SHUTDOWN_INPUT_CTRL_HELPER_MAYBE` (cdecl, 0 args).
+/// 2. If `net_input_ctrl != 0`: call `SHUTDOWN_NET_INPUT_CTRL_HELPER_MAYBE` (cdecl, 0 args).
 /// 3. If `streaming_audio != 0`: `streaming_audio.vtable[5](this)` (Music::stop_and_cleanup).
 /// 4. `game_runtime.vtable[8](this, state_buf)` — slot 8 (`SaveReplayState_Maybe`,
 ///    0x528A30) — **no null check on `game_runtime`** in the original.
@@ -45,7 +45,7 @@ unsafe fn vcall0(this: u32, slot: usize) {
 /// 8. If `mouse_input != 0`: `mouse_input.vtable[0](this, 1)`.
 /// 9. If `net_game != 0`: `net_game.vtable[0](this, 1)`.
 /// 10. If `streaming_audio != 0`: `streaming_audio.vtable[0](this, 1)` — scalar deleting dtor.
-/// 11. If `input_ctrl != 0`: `input_ctrl.vtable[0](this, 1)`.
+/// 11. If `net_input_ctrl != 0`: `net_input_ctrl.vtable[0](this, 1)`.
 /// 12. If `sound != 0`: `sound.vtable[0](this, 1)` — DSSound destructor.
 /// 13. If `localized_template != 0`: `LOCALIZED_TEMPLATE_DTOR_BODY_MAYBE` + `wa_free`.
 pub unsafe extern "stdcall" fn shutdown(state_buf: *mut u8) {
@@ -58,18 +58,18 @@ pub unsafe extern "stdcall" fn shutdown(state_buf: *mut u8) {
         let display = (*session).display as u32;
         let mouse_input = (*session).mouse_input as u32;
         let music = (*session).streaming_audio as u32;
-        let input_ctrl = (*session).input_ctrl as u32;
+        let net_input_ctrl = (*session).net_input_ctrl as u32;
         let net_game = (*session).net_game as u32;
         let localized_template = (*session).localized_template as u32;
 
         (*session).init_flag = 0;
 
-        if input_ctrl != 0 {
+        if net_input_ctrl != 0 {
             // Usercall(EDI=g_GameSession). The function reads `[EDI+0xB8]`
-            // (input_ctrl) on entry; passing the session pointer matches WA.
+            // (net_input_ctrl) on entry; passing the session pointer matches WA.
             crate::wa_call::call_usercall_edi(
                 session as u32,
-                rb(va::SHUTDOWN_INPUT_CTRL_HELPER_MAYBE),
+                rb(va::SHUTDOWN_NET_INPUT_CTRL_HELPER_MAYBE),
             );
         }
 
@@ -98,8 +98,8 @@ pub unsafe extern "stdcall" fn shutdown(state_buf: *mut u8) {
         if music != 0 {
             vcall1(music, 0, 1);
         }
-        if input_ctrl != 0 {
-            vcall1(input_ctrl, 0, 1);
+        if net_input_ctrl != 0 {
+            vcall1(net_input_ctrl, 0, 1);
         }
         if sound != 0 {
             vcall1(sound, 0, 1);

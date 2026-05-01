@@ -24,16 +24,16 @@ unsafe extern "cdecl" fn run_game_session_impl(
     game_info: *mut GameInfo,
     arg1_module_state: u32,
     state_buf: *mut u8,
-    controlled_displays: *const *mut u8,
-    controlled_display_count: u32,
+    peer_connections: *const *mut openwa_game::input::PeerState,
+    peer_connection_count: u32,
 ) -> u32 {
     unsafe {
         run_game_session(
             game_info,
             arg1_module_state,
             state_buf,
-            controlled_displays,
-            controlled_display_count,
+            peer_connections,
+            peer_connection_count,
         )
     }
 }

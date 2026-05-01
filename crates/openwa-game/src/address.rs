@@ -82,7 +82,7 @@ pub mod va {
     };
     pub use crate::engine::game_session::{GAME_SESSION_VTABLE, GameSessionVtable};
     pub use crate::frontend::map_view::MAP_VIEW_VTABLE;
-    pub use crate::input::controller::INPUT_CTRL_VTABLE;
+    pub use crate::input::controller::NET_INPUT_CTRL_VTABLE;
     pub use crate::input::mouse::MOUSE_INPUT_VTABLE;
     pub use crate::render::ddraw::compat_renderer::{
         COMPAT_RENDERER_VTABLE, CompatRendererVtable, DDRAW8_RENDERER_VTABLE,
@@ -369,15 +369,15 @@ pub mod va {
             ctor/Stdcall DISPLAY_BASE_CTOR = 0x00522DB0;
         }
 
-        class "InputCtrl" {
+        class "NetInputCtrl" {
             // Vtable now defined via #[vtable(...)] in input/controller.rs
-            /// Input controller initializer — ported as `init_input_ctrl` in
+            /// Input controller initializer — ported as `init_net_input_ctrl` in
             /// [`crate::input::controller`]; the WA address is trapped.
-            fn/Usercall INPUT_CTRL_INIT = 0x0058C0D0;
+            fn/Usercall NET_INPUT_CTRL_INIT = 0x0058C0D0;
             /// Inner team-buffer allocator + per-team config copier called by
-            /// `InputCtrl::Init`. Bridged from Rust as `call_init_team_inputs`
+            /// `NetInputCtrl::Init`. Bridged from Rust as `call_init_team_inputs`
             /// (usercall: ECX=game_version + 4 stack args).
-            fn/Usercall INPUT_CTRL_INIT_TEAM_INPUTS = 0x0053DD50;
+            fn/Usercall NET_INPUT_CTRL_INIT_TEAM_INPUTS = 0x0053DD50;
         }
 
         // BitGrid vtables and init are now in display::bitgrid via define_addresses! + #[vtable].
@@ -661,10 +661,10 @@ pub mod va {
         fn/Thiscall GAME_ENGINE_INIT_HARDWARE = 0x0056D350;
         /// GameEngine__Shutdown
         fn/Stdcall GAME_ENGINE_SHUTDOWN = 0x0056DCD0;
-        /// Helper called by `GameEngine::Shutdown` when `session.input_ctrl != 0`.
+        /// Helper called by `GameEngine::Shutdown` when `session.net_input_ctrl != 0`.
         /// `__usercall(EDI=g_GameSession)`, plain RET — reads `[EDI+0xB8]`
-        /// (input_ctrl) on entry. Runs once at the top of shutdown.
-        fn/Usercall SHUTDOWN_INPUT_CTRL_HELPER_MAYBE = 0x0056DC10;
+        /// (net_input_ctrl) on entry. Runs once at the top of shutdown.
+        fn/Usercall SHUTDOWN_NET_INPUT_CTRL_HELPER_MAYBE = 0x0056DC10;
         /// Helper called by `GameEngine::Shutdown` on the localized-template
         /// just before `wa_free`. `__usercall(EDI=this)`, plain RET — reads
         /// `[EDI+4]` on entry. Destructor body for `LocalizedTemplate`.

@@ -13,7 +13,7 @@ use crate::engine::game_session::get_game_session;
 use crate::engine::runtime::GameRuntime;
 use crate::engine::world_constructor::create_game_world;
 use crate::engine::{DDNetGameWrapper, GameRuntimeVtable};
-use crate::input::{InputCtrl, InputCtrlVtable, Keyboard, MouseInput, init_input_ctrl};
+use crate::input::{Keyboard, MouseInput, NetInputCtrl, NetInputCtrlVtable, init_net_input_ctrl};
 use crate::rebase::rb;
 use crate::render::{DisplayBase, DisplayGfx};
 use crate::wa::localized_template::LocalizedTemplate;
@@ -185,7 +185,7 @@ pub unsafe fn construct_runtime(
     keyboard: *mut Keyboard,
     mouse_input: *mut MouseInput,
     music: *mut Music,
-    input_ctrl: *mut u8,
+    net_input_ctrl: *mut u8,
 ) -> *mut GameRuntime {
     unsafe {
         (*this).world = core::ptr::null_mut();
@@ -225,7 +225,7 @@ pub unsafe fn construct_runtime(
             localized_template,
             net_game,
             game_info,
-            input_ctrl as *mut crate::engine::net_session::NetSession,
+            net_input_ctrl as *mut crate::engine::net_session::NetSession,
         );
 
         crate::engine::game_state_init::init_game_state(this);
@@ -261,32 +261,30 @@ pub unsafe fn construct_runtime(
 pub unsafe fn init_hardware(
     game_info: *mut GameInfo,
     hwnd: HWND,
-    controlled_displays: *const *mut u8,
-    controlled_display_count: u32,
+    peer_connections: *const *mut crate::input::PeerState,
+    peer_connection_count: u32,
 ) -> u32 {
     unsafe {
-        let _ = log_line("[hardware_init] GameEngine::InitHardware");
+        let _ = log_line(&format!(
+            "[hardware_init] GameEngine::InitHardware: peer_connections=0x{:08X} count={}",
+            peer_connections as u32, peer_connection_count,
+        ));
         let session = get_game_session();
         let gi = &mut *game_info;
         let game_version = gi.game_version as u32;
 
-        if controlled_display_count == 0 {
-            (*session).input_ctrl = core::ptr::null_mut();
+        if peer_connection_count == 0 {
+            (*session).net_input_ctrl = core::ptr::null_mut();
         } else {
-            let ctrl = wa_malloc_struct_zeroed::<InputCtrl>();
+            let ctrl = wa_malloc_struct_zeroed::<NetInputCtrl>();
             (*ctrl).field_d74 = 0x3F9;
-            (*ctrl).vtable = rb(va::INPUT_CTRL_VTABLE) as *const InputCtrlVtable;
-            (*session).input_ctrl = ctrl as *mut u8;
+            (*ctrl).vtable = rb(va::NET_INPUT_CTRL_VTABLE) as *const NetInputCtrlVtable;
+            (*session).net_input_ctrl = ctrl as *mut u8;
 
-            let ok = init_input_ctrl(
-                ctrl,
-                game_info,
-                controlled_displays,
-                controlled_display_count,
-            );
+            let ok = init_net_input_ctrl(ctrl, game_info, peer_connections, peer_connection_count);
             if ok == 0 {
                 (*ctrl).destroy(1);
-                (*session).input_ctrl = core::ptr::null_mut();
+                (*session).net_input_ctrl = core::ptr::null_mut();
                 return 0;
             }
         }
@@ -412,7 +410,7 @@ pub unsafe fn init_hardware(
             (*session).keyboard,
             (*session).mouse_input,
             (*session).streaming_audio,
-            (*session).input_ctrl,
+            (*session).net_input_ctrl,
         );
         (*session).game_runtime = runtime;
 

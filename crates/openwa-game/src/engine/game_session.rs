@@ -10,7 +10,7 @@ use crate::input::mouse::MouseInput;
 
 /// `GameSession` vtable (`PTR_FUN_0066b3f8`, 1 slot — scalar deleting dtor).
 ///
-/// Followed immediately at 0x0066B3FC by `INPUT_CTRL_VTABLE`, confirming the
+/// Followed immediately at 0x0066B3FC by `NET_INPUT_CTRL_VTABLE`, confirming the
 /// 1-slot size.
 #[openwa_game::vtable(size = 1, va = 0x0066B3F8, class = "GameSession")]
 pub struct GameSessionVtable {
@@ -184,7 +184,7 @@ pub struct GameSession {
     /// Combines playlist controller + embedded streaming audio engine.
     pub streaming_audio: *mut Music,
     /// 0x0B8: input controller — 0x1800 bytes; null if `param_4 == 0` at init
-    pub input_ctrl: *mut u8,
+    pub net_input_ctrl: *mut u8,
     /// 0x0BC: Localized-template resolver — 0x30 bytes
     /// (constructed by `LocalizedTemplate__Constructor` at 0x0053E950).
     /// Copied into [`GameWorld`](crate::engine::GameWorld)`+0x18` on world

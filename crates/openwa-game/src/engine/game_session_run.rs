@@ -142,8 +142,8 @@ pub unsafe fn run_game_session(
     game_info: *mut GameInfo,
     arg1_module_state: u32,
     state_buf: *mut u8,
-    controlled_displays: *const *mut u8,
-    controlled_display_count: u32,
+    peer_connections: *const *mut crate::input::PeerState,
+    peer_connection_count: u32,
 ) -> u32 {
     use windows_sys::Win32::Graphics::Gdi::ValidateRect;
     use windows_sys::Win32::Media::{timeBeginPeriod, timeEndPeriod};
@@ -200,12 +200,7 @@ pub unsafe fn run_game_session(
         }
 
         // ── Hardware init (replaced in Rust; direct call) ──────────────────
-        let ok = init_hardware(
-            game_info,
-            hwnd,
-            controlled_displays,
-            controlled_display_count,
-        );
+        let ok = init_hardware(game_info, hwnd, peer_connections, peer_connection_count);
 
         if ok == 0 {
             // Init failure path — tear down what we have and return 0.
