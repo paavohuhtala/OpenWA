@@ -4,7 +4,7 @@ use openwa_game::vtable;
 use windows::Win32::Media::Audio::DirectSound::IDirectSoundBuffer;
 use windows_sys::Win32::Foundation::HWND;
 
-use crate::audio::sound_id::SoundId;
+use crate::{audio::sound_id::SoundId, wa_alloc::wa_free};
 
 /// Volume-to-dB attenuation table (64 entries of i16).
 /// Copied from WA.exe .rdata at 0x6A6A60.
@@ -441,72 +441,66 @@ pub unsafe extern "thiscall" fn set_channel_volume(
 
 /// Slot 0: destructor — releases all COM objects and frees memory.
 ///
-/// **SEH wrapping**: the COM-release sequence is wrapped in [`try_seh`]
-/// because `IDirectSoundBuffer::Release` on the primary buffer is unstable
-/// on some configs (driver / refcount quirk; matches a known WA fragility).
-/// Stock WA's destructor at 0x00573DD0 wraps the same body in
-/// `__try/__except (EXCEPTION_EXECUTE_HANDLER)` for the same reason. Without
-/// SEH, an AV during shutdown propagates upward and terminates the process —
-/// observed as "exiting from a match closes the game" ~30-50% of the time.
-/// On caught AV, partial state is left (acceptable: process is shutting
-/// down or restarting the GameSession either way).
+/// **Release order deviates from WA**: we Stop the primary buffer (the
+/// mixer) FIRST so it stops reading any secondary-buffer data, then release
+/// the 8 active duplicates, then the 500 templates. Duplicates created by
+/// `DuplicateSoundBuffer` share data with their template; releasing a
+/// template while the mixer is still mid-mix on a live duplicate AVs the
+/// mixer thread, which no main-thread SEH can catch.
 pub unsafe extern "thiscall" fn destructor(this: *mut DSSound, flags: u8) -> *mut DSSound {
     unsafe {
         use crate::address::va;
         use crate::rebase::rb;
+        use windows::Win32::Media::Audio::DirectSound::IDirectSound;
         let snd = &mut *this;
 
         // Set primary vtable (destructor chain pattern).
         snd.vtable = rb(va::DS_SOUND_VTABLE) as *const DSSoundVtable;
 
-        // Release sequence — wrapped in SEH to swallow AVs from buggy COM
-        // Releases. Mirrors stock WA's `__try/__except` at 0x00573DD0.
-        let result = crate::seh::try_seh(|| {
-            // Release all 8 channel descriptor buffers (Stop + Release).
-            for desc in &mut snd.channel_descs {
-                if let Some(buf) = desc.take_buffer() {
-                    let _ = buf.Stop();
-                    // Release on drop
-                }
-            }
-
-            // Release all 500 channel slot template buffers.
-            for slot in &mut snd.channel_slots {
-                if *slot != 0 {
-                    let buf: IDirectSoundBuffer = core::mem::transmute_copy(slot);
-                    drop(buf);
-                    *slot = 0;
-                }
-            }
-
-            // Release primary buffer.
-            if snd.primary_buffer != 0 {
-                let buf: IDirectSoundBuffer = core::mem::transmute_copy(&snd.primary_buffer);
-                let _ = buf.Stop();
-                drop(buf);
-                snd.primary_buffer = 0;
-            }
-
-            // Release IDirectSound.
-            if snd.direct_sound != 0 {
-                use windows::Win32::Media::Audio::DirectSound::IDirectSound;
-                let ds: IDirectSound = core::mem::transmute_copy(&snd.direct_sound);
-                drop(ds);
-                snd.direct_sound = 0;
-            }
-        });
-        if result.is_err() {
-            let _ = openwa_core::log::log_line(
-                "[DSSound::dtor] SEH caught AV during COM release; partial state left",
-            );
+        // Stop the primary buffer first — halts the DirectSound mixer thread
+        // before we release any buffer it might still be reading from.
+        if snd.primary_buffer != 0 {
+            let primary: &IDirectSoundBuffer =
+                &*(&snd.primary_buffer as *const Ptr32 as *const IDirectSoundBuffer);
+            let _ = primary.Stop();
         }
 
-        // Set secondary vtable (base class destructor pattern). Always runs,
-        // including the SEH-caught path, to match WA's epilog.
+        // Release all 8 channel descriptor buffers (Stop + Release).
+        for desc in &mut snd.channel_descs {
+            if let Some(buf) = desc.take_buffer() {
+                let _ = buf.Stop();
+                // Release on drop
+            }
+        }
+
+        // Release all 500 channel slot template buffers.
+        for slot in &mut snd.channel_slots {
+            if *slot != 0 {
+                let buf: IDirectSoundBuffer = core::mem::transmute_copy(slot);
+                drop(buf);
+                *slot = 0;
+            }
+        }
+
+        // Release primary buffer.
+        if snd.primary_buffer != 0 {
+            let buf: IDirectSoundBuffer = core::mem::transmute_copy(&snd.primary_buffer);
+            drop(buf);
+            snd.primary_buffer = 0;
+        }
+
+        // Release IDirectSound.
+        if snd.direct_sound != 0 {
+            let ds: IDirectSound = core::mem::transmute_copy(&snd.direct_sound);
+            drop(ds);
+            snd.direct_sound = 0;
+        }
+
+        // Set secondary vtable (base class destructor pattern).
         snd.vtable = rb(0x0066AF58) as *const DSSoundVtable;
 
         if flags & 1 != 0 {
-            crate::wa_alloc::wa_free(this as *mut u8);
+            wa_free(this as *mut u8);
         }
         this
     }
@@ -726,7 +720,7 @@ pub unsafe extern "thiscall" fn sub_destructor(this: *mut DSSound, flags: u8) ->
         // Set secondary vtable (base class vtable for destructor chain).
         (*this).vtable = rb(0x0066AF58) as *const DSSoundVtable;
         if flags & 1 != 0 {
-            crate::wa_alloc::wa_free(this as *mut u8);
+            wa_free(this as *mut u8);
         }
         this
     }
