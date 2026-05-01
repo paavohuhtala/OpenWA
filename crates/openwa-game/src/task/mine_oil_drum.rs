@@ -128,14 +128,12 @@ const _: () = assert!(core::mem::size_of::<OilDrumEntity>() == 0x110);
 bind_OilDrumEntityVtable!(OilDrumEntity, base.base.vtable);
 
 impl OilDrumEntity {
-    /// Returns true if the drum is on fire (flag at WorldEntity+0xB0, inside _unknown_98).
+    /// Returns true if the drum is on fire (subclass overload of
+    /// `WorldEntity::_field_b0`).
     ///
     /// # Safety
     /// `self` must be a valid, fully-constructed OilDrumEntity.
     pub unsafe fn on_fire(&self) -> bool {
-        unsafe {
-            let ptr = (self as *const OilDrumEntity as *const u8).add(0xB0);
-            *(ptr as *const u32) != 0
-        }
+        self.base._field_b0 != 0
     }
 }

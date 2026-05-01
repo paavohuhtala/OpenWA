@@ -57,8 +57,28 @@ pub struct WorldEntity<V: super::base::Vtable = *const core::ffi::c_void> {
     pub speed_x: Fixed,
     /// 0x94: Y velocity in fixed-point
     pub speed_y: Fixed,
-    /// 0x98-0xCB: Unknown gameplay fields.
-    pub _unknown_98: [u8; 0x34],
+    /// 0x98-0xAB: Unknown gameplay fields.
+    pub _unknown_98: [u8; 0x14],
+    /// 0xAC: Counter-like field. `try_move_position` clamps it to 0
+    /// whenever a position commit succeeds and the slot was positive, so
+    /// it accumulates while moves stall and resets on a successful step.
+    /// Canonical name from WA's C++ source not yet identified.
+    pub _field_ac: i32,
+    /// 0xB0: Read by `is_moving_raw` (FUN_004FB580): any non-zero
+    /// contributes to the "this body is still in motion" predicate.
+    /// `OilDrumEntity::on_fire` reads the same slot as a non-zero flag —
+    /// both readers see the same field; the canonical purpose (likely a
+    /// state/timer such as "burning frames remaining" or a torque
+    /// component) is not yet identified.
+    pub _field_b0: i32,
+    /// 0xB4: Contributes to `is_moving_raw` alongside `_field_b0` and
+    /// `_field_b8`. Purpose not yet identified.
+    pub _field_b4: i32,
+    /// 0xB8: Contributes to `is_moving_raw` alongside `_field_b0` and
+    /// `_field_b4`. Purpose not yet identified.
+    pub _field_b8: i32,
+    /// 0xBC-0xCB: Unknown gameplay fields.
+    pub _unknown_bc: [u8; 0x10],
     /// 0xCC: Per-entity scale (Fixed16.16) applied to received explosion
     /// knockback impulses. Initialised to `1.0` (`0x10000`) by
     /// `WorldEntity::Constructor` (0x004FED50, dword index `0x33`); read by
@@ -72,8 +92,13 @@ pub struct WorldEntity<V: super::base::Vtable = *const core::ffi::c_void> {
     /// (msg=0x1c, Explosion) adds the falloff-adjusted damage from each
     /// blast into this slot.
     pub damage_accum: i32,
-    /// 0xD8-0xDF: Unknown gameplay fields
-    pub _unknown_d8: [u8; 0x8],
+    /// 0xD8-0xDB: Unknown gameplay fields.
+    pub _unknown_d8: [u8; 0x4],
+    /// 0xDC: Input to the collision/move-validity helper at
+    /// [`CHECK_MOVE_COLLISION`]; passed verbatim by `try_move_position`.
+    /// Likely a size/radius, layer mask, or flags word — purpose not yet
+    /// identified.
+    pub _field_dc: u32,
     /// 0xE0: Owned sound-emitter handle, or 0 when no sound is held.
     /// `WorldEntity::HandleMessage` (msg=0x02, FrameFinish) polls the sound
     /// subsystem each frame and clears this slot once the sound has
@@ -123,15 +148,16 @@ impl WorldEntity {
     /// Asks the collision/move-validity helper at
     /// [`CHECK_MOVE_COLLISION`] (0x004FB9D0) whether the entity may move to
     /// `(x, y)`. On accept (helper returns 0), commits the new position by
-    /// writing `pos_x`/`pos_y` and clamping the +0xAC counter to 0 if it was
+    /// writing `pos_x`/`pos_y` and clamping `_field_ac` to 0 if it was
     /// positive, then returns 1. On reject, leaves the entity unchanged and
     /// returns 0.
     ///
-    /// The helper is `__stdcall` with 6 args (RET 0x18); both `+0x34` (the
-    /// first dword of `subclass_data`) and `+0xDC` (inside `_unknown_d8`) are
-    /// passed verbatim — both are subclass-polymorphic. WA itself called this
-    /// with `__usercall(ESI=this, EDI=y, [ESP+4]=x)`; the Rust port takes
-    /// plain args and lets the stdcall ABI handle register loading.
+    /// The helper is `__stdcall` with 6 args (RET 0x18); the dword at
+    /// `subclass_data[4..8]` (+0x34) and `_field_dc` (+0xDC) are passed
+    /// verbatim — canonical names from WA's C++ source not yet known.
+    /// WA itself called this with `__usercall(ESI=this, EDI=y, [ESP+4]=x)`;
+    /// the Rust port takes plain args and lets the stdcall ABI handle
+    /// register loading.
     ///
     /// Used by every `WorldEntity` subclass — constructors call it to do the
     /// initial placement check, and movement code re-uses it to commit each
@@ -144,9 +170,9 @@ impl WorldEntity {
             let world = (*(this as *const BaseEntity)).world;
             let game_state_stream = (*world).game_state_stream;
 
-            let base = this as *const u8;
-            let p_dc = *(base.add(0xDC) as *const u32);
-            let p_34 = *(base.add(0x34) as *const u32);
+            let p_dc = (*this)._field_dc;
+            // +0x34: second dword of `subclass_data` (which starts at +0x30).
+            let p_34 = *((*this).subclass_data.as_ptr().add(4) as *const u32);
 
             type Helper =
                 unsafe extern "stdcall" fn(*mut u8, *mut WorldEntity, i32, i32, u32, u32) -> u32;
@@ -158,9 +184,8 @@ impl WorldEntity {
             (*this).pos_x = Fixed(x);
             (*this).pos_y = Fixed(y);
 
-            let p_ac = base.add(0xAC) as *mut i32;
-            if *p_ac > 0 {
-                *p_ac = 0;
+            if (*this)._field_ac > 0 {
+                (*this)._field_ac = 0;
             }
             1
         }
@@ -169,21 +194,19 @@ impl WorldEntity {
     /// Pure Rust port of `FUN_004FB580` — "is this entity in motion?".
     ///
     /// Returns `true` iff any of `speed_x` (+0x90), `speed_y` (+0x94), or the
-    /// three unknown gameplay scalars at +0xB0/+0xB4/+0xB8 are non-zero.
-    /// The +0xBx triplet lives in [`Self::_unknown_98`]; semantics are not yet
-    /// nailed down (likely the spin/torque components paired with `pos_z`/
-    /// `speed_z`), but together with `speed_x/_y` they form the canonical
-    /// "this body is still moving" predicate WA uses across `WormEntity`,
-    /// `MineEntity`, `MissileEntity`, `OilDrumEntity`, etc. (16 callers).
+    /// three subclass-polymorphic scalars `_field_b0`/`_field_b4`/`_field_b8`
+    /// are non-zero. Together with `speed_x`/`speed_y` they form the
+    /// canonical "this body is still moving" predicate WA uses across
+    /// `WormEntity`, `MineEntity`, `MissileEntity`, `OilDrumEntity`, etc.
+    /// (16 callers).
     #[inline]
     pub unsafe fn is_moving_raw(this: *const WorldEntity) -> bool {
         unsafe {
-            let base = this as *const u8;
-            *(base.add(0x90) as *const i32) != 0
-                || *(base.add(0x94) as *const i32) != 0
-                || *(base.add(0xB0) as *const i32) != 0
-                || *(base.add(0xB4) as *const i32) != 0
-                || *(base.add(0xB8) as *const i32) != 0
+            (*this).speed_x.to_raw() != 0
+                || (*this).speed_y.to_raw() != 0
+                || (*this)._field_b0 != 0
+                || (*this)._field_b4 != 0
+                || (*this)._field_b8 != 0
         }
     }
 }
