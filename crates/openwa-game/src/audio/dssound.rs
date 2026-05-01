@@ -440,50 +440,69 @@ pub unsafe extern "thiscall" fn set_channel_volume(
 }
 
 /// Slot 0: destructor — releases all COM objects and frees memory.
+///
+/// **SEH wrapping**: the COM-release sequence is wrapped in [`try_seh`]
+/// because `IDirectSoundBuffer::Release` on the primary buffer is unstable
+/// on some configs (driver / refcount quirk; matches a known WA fragility).
+/// Stock WA's destructor at 0x00573DD0 wraps the same body in
+/// `__try/__except (EXCEPTION_EXECUTE_HANDLER)` for the same reason. Without
+/// SEH, an AV during shutdown propagates upward and terminates the process —
+/// observed as "exiting from a match closes the game" ~30-50% of the time.
+/// On caught AV, partial state is left (acceptable: process is shutting
+/// down or restarting the GameSession either way).
 pub unsafe extern "thiscall" fn destructor(this: *mut DSSound, flags: u8) -> *mut DSSound {
     unsafe {
-        let snd = &mut *this;
-
-        // Reset vtable to primary (destructor chain pattern).
         use crate::address::va;
         use crate::rebase::rb;
+        let snd = &mut *this;
+
+        // Set primary vtable (destructor chain pattern).
         snd.vtable = rb(va::DS_SOUND_VTABLE) as *const DSSoundVtable;
 
-        // Release all 8 channel descriptor buffers (Stop + Release).
-        for desc in &mut snd.channel_descs {
-            if let Some(buf) = desc.take_buffer() {
+        // Release sequence — wrapped in SEH to swallow AVs from buggy COM
+        // Releases. Mirrors stock WA's `__try/__except` at 0x00573DD0.
+        let result = crate::seh::try_seh(|| {
+            // Release all 8 channel descriptor buffers (Stop + Release).
+            for desc in &mut snd.channel_descs {
+                if let Some(buf) = desc.take_buffer() {
+                    let _ = buf.Stop();
+                    // Release on drop
+                }
+            }
+
+            // Release all 500 channel slot template buffers.
+            for slot in &mut snd.channel_slots {
+                if *slot != 0 {
+                    let buf: IDirectSoundBuffer = core::mem::transmute_copy(slot);
+                    drop(buf);
+                    *slot = 0;
+                }
+            }
+
+            // Release primary buffer.
+            if snd.primary_buffer != 0 {
+                let buf: IDirectSoundBuffer = core::mem::transmute_copy(&snd.primary_buffer);
                 let _ = buf.Stop();
-                // Release on drop
-            }
-        }
-
-        // Release all 500 channel slot buffers.
-        for slot in &mut snd.channel_slots {
-            if *slot != 0 {
-                let buf: IDirectSoundBuffer = core::mem::transmute_copy(slot);
-                // Release on drop (no Stop needed — these are template buffers)
                 drop(buf);
-                *slot = 0;
+                snd.primary_buffer = 0;
             }
+
+            // Release IDirectSound.
+            if snd.direct_sound != 0 {
+                use windows::Win32::Media::Audio::DirectSound::IDirectSound;
+                let ds: IDirectSound = core::mem::transmute_copy(&snd.direct_sound);
+                drop(ds);
+                snd.direct_sound = 0;
+            }
+        });
+        if result.is_err() {
+            let _ = openwa_core::log::log_line(
+                "[DSSound::dtor] SEH caught AV during COM release; partial state left",
+            );
         }
 
-        // Release primary buffer (Stop + Release).
-        if snd.primary_buffer != 0 {
-            let buf: IDirectSoundBuffer = core::mem::transmute_copy(&snd.primary_buffer);
-            let _ = buf.Stop();
-            drop(buf);
-            snd.primary_buffer = 0;
-        }
-
-        // Release IDirectSound.
-        if snd.direct_sound != 0 {
-            use windows::Win32::Media::Audio::DirectSound::IDirectSound;
-            let ds: IDirectSound = core::mem::transmute_copy(&snd.direct_sound);
-            drop(ds);
-            snd.direct_sound = 0;
-        }
-
-        // Set secondary vtable (base class destructor pattern).
+        // Set secondary vtable (base class destructor pattern). Always runs,
+        // including the SEH-caught path, to match WA's epilog.
         snd.vtable = rb(0x0066AF58) as *const DSSoundVtable;
 
         if flags & 1 != 0 {

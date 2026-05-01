@@ -119,7 +119,7 @@ pub mod va {
             /// GameRuntime vtable
             vtable GAME_RUNTIME_VTABLE = 0x0066A30C;
             /// GameRuntime constructor
-            ctor/Stdcall CONSTRUCT_DD_GAME_WRAPPER = 0x0056DEF0;
+            ctor/Stdcall CONSTRUCT_GAME_RUNTIME = 0x0056DEF0;
             /// GameRuntime::InitReplay — usercall(EAX=game_info, ESI=this), plain RET
             fn/Usercall GAME_RUNTIME_INIT_REPLAY = 0x0056F860;
             /// GameRuntime__LoadingProgressTick
@@ -265,7 +265,7 @@ pub mod va {
 
         class "GameWorld" {
             /// GameWorld constructor
-            ctor/Stdcall CONSTRUCT_DD_GAME = 0x0056E220;
+            ctor/Stdcall CONSTRUCT_GAME_WORLD = 0x0056E220;
             /// GameWorld::InitGameState — stdcall(this=GameRuntime*), RET 0x4
             fn/Stdcall GAME_WORLD_INIT_GAME_STATE = 0x00526500;
             /// GameWorld__InitFields
@@ -656,6 +656,14 @@ pub mod va {
         fn/Thiscall GAME_ENGINE_INIT_HARDWARE = 0x0056D350;
         /// GameEngine__Shutdown
         fn/Stdcall GAME_ENGINE_SHUTDOWN = 0x0056DCD0;
+        /// Helper called by `GameEngine::Shutdown` when `session.input_ctrl != 0`.
+        /// `__usercall(EDI=g_GameSession)`, plain RET — reads `[EDI+0xB8]`
+        /// (input_ctrl) on entry. Runs once at the top of shutdown.
+        fn/Usercall SHUTDOWN_INPUT_CTRL_HELPER_MAYBE = 0x0056DC10;
+        /// Helper called by `GameEngine::Shutdown` on the localized-template
+        /// just before `wa_free`. `__usercall(EDI=this)`, plain RET — reads
+        /// `[EDI+4]` on entry. Destructor body for `LocalizedTemplate`.
+        fn/Usercall LOCALIZED_TEMPLATE_DTOR_BODY_MAYBE = 0x0053E9D0;
         /// FrontendDialog__UpdateCursor — reapplies the frontend mouse cursor.
         fn/Stdcall FRONTEND_DIALOG_UPDATE_CURSOR = 0x0040D250;
         /// Frontend__UnhookInputHooks — releases keyboard/mouse hooks if
@@ -958,6 +966,16 @@ pub mod va {
         fn/Stdcall CSTRING_ASSIGN_RESOURCE = 0x004A39F0;
         /// CSimpleStringT::SetString
         fn/Thiscall CSTRING_SET_STRING = 0x00401EA0;
+        /// CWnd::ShowWindow(this, nShow)
+        fn/Thiscall CWND_SHOW_WINDOW = 0x005C643E;
+        /// CWnd::MoveWindow(this, x, y, w, h, repaint)
+        fn/Thiscall CWND_MOVE_WINDOW = 0x005C6400;
+        /// CWnd::SetFocus(this)
+        fn/Thiscall CWND_SET_FOCUS = 0x005C649B;
+        /// CWnd::FromHandle(hwnd) — static, stdcall(hwnd) returns CWnd*
+        fn/Stdcall CWND_FROM_HANDLE = 0x005C353F;
+        /// AfxGetModuleState() — cdecl, returns AFX_MODULE_STATE*
+        fn/Cdecl AFX_GET_MODULE_STATE = 0x005C83F1;
     }
 
     // =========================================================================
@@ -987,6 +1005,48 @@ pub mod va {
         fn FRONTEND_POST_SCREEN_CLEANUP = 0x004EB450;
         fn FRONTEND_ON_INITIAL_LOAD = 0x00429830;
         fn FRONTEND_LAUNCH_SINGLE_PLAYER = 0x00441D80;
+        /// Frontend funnel into `GameSession::Run`. Pre/post-game audio +
+        /// display + mouse housekeeping wraps the actual game-session call.
+        /// Stdcall 4 args (game_world, dialog, p3, p4), RET 0x10.
+        fn/Stdcall FRONTEND_LAUNCH_GAME_SESSION = 0x004EC540;
+        // ── LaunchGameSession callees (audio cluster, pre-game stop) ──
+        /// Usercall(EAX=wav_handle, ESI=&out_local). Audio pre-game state
+        /// snapshot; writes to *out_local.
+        fn WAV_PLAYER_CHECK_OR_BIND_MAYBE = 0x005997C0;
+        /// Stdcall(0). Audio pre-game wav-bank release.
+        fn WAV_BANK_RELEASE_ALL_MAYBE = 0x0059A1D0;
+        /// Usercall(EDI=&out_local). Audio pre-game stop active channels.
+        fn WAV_ACTIVE_CHANNELS_STOP_MAYBE = 0x00599610;
+        /// Usercall(ESI=&out_local). Audio post-game DSound channel acquire.
+        fn DSOUND_CHANNEL_ACQUIRE_MAYBE = 0x00599360;
+        /// Stdcall(0). Audio post-game wav-bank reload.
+        fn WAV_BANK_LOAD_ALL_MAYBE = 0x0059A140;
+        // ── LaunchGameSession callees (mouse / frontend siblings) ──
+        /// Stdcall(1 arg=0). Mouse-cursor recenter on window before game.
+        fn MOUSE_CURSOR_RECENTER_ON_WINDOW_MAYBE = 0x004EC0D0;
+        /// Stdcall(0). DInput mouse acquire on post-game restore (gated by
+        /// `G_POST_GAME_RESTORE_FLAG_MAYBE`).
+        fn DINPUT_MOUSE_ACQUIRE_MAYBE = 0x004EC050;
+        /// Stdcall(0). Mouse cursor snap to screen center on post-game.
+        fn MOUSE_CURSOR_SNAP_TO_SCREEN_CENTER_MAYBE = 0x004EC470;
+        /// Stdcall(1 arg=game_world). Mouse mode enter windowed on post-game.
+        fn MOUSE_MODE_ENTER_WINDOWED_MAYBE = 0x004EBE00;
+        /// Thiscall(this=game_world+0xa4) + 1 stack arg (same value), RET 0x4.
+        /// Walks the render tree's children on post-game restore.
+        fn/Thiscall GAME_WORLD_RENDER_CHILDREN_MAYBE = 0x0040CAA0;
+        /// Usercall(ESI=game_world) + 1 stack arg, RET 0x4. Frontend handler
+        /// invoked on the alt-display post-game branch when
+        /// `game_world != g_GameWorldInstance`. Composes a localized
+        /// "graphics init failed" MessageBox via `Localization__FormatGLibError`
+        /// (FUN_0059B3C0), then offers a graphics-mode reset (tokens
+        /// 0x786..0x78A). Reads `*game_world` as a `GLibError*`.
+        fn FRONTEND_ON_GRAPHICS_INIT_ERROR_MAYBE = 0x004E47D0;
+        /// Usercall(EAX=wav_handle, ESI=&out_local). Audio pre-game
+        /// channel-prepare; only when game_world == G_MAIN_FRONTEND.
+        fn WAV_PLAYER_PREPARE_PLAY = 0x00599930;
+        /// Stdcall(1 arg=ring_buffer_addr=0x88DF98), RET 0x4.
+        fn STOP_ALL_WAV_PLAYERS_2 = 0x004E31E0;
+        // (`WAV_PLAYER_PLAY` is already declared in the audio block above.)
         fn FRONTEND_ON_MULTIPLAYER = 0x0044E850;
         fn FRONTEND_ON_NETWORK = 0x0044EC10;
         fn FRONTEND_ON_MINIMIZE = 0x00486A10;
@@ -1279,6 +1339,56 @@ pub mod va {
         /// in-game session and cleared on return to frontend, but the exact
         /// semantics need a separate RE pass — kept `_Maybe`.
         global G_POST_GAME_RESTORE_FLAG_MAYBE = 0x007A0850;
+        /// `g_ConsoleMode`. Nonzero when the engine is running in console /
+        /// non-UI mode; gates the entire pre/post-game frontend housekeeping
+        /// in `Frontend::LaunchGameSession`.
+        global G_CONSOLE_MODE = 0x0088CD4C;
+        /// 1-byte flag set to 1 right before the `GameSession::Run` call in
+        /// `Frontend::LaunchGameSession`, cleared on return. Distinct from
+        /// `G_IN_GAME_LOOP` (which tracks the inner main-loop). Read by the
+        /// frontend to know "game session is currently active".
+        global G_IN_GAME_SESSION_FLAG = 0x007A083E;
+        /// Module-static state buffer (0x1900 bytes) passed as the second
+        /// arg to `GameSession::Run`. `GameEngine::Shutdown` is given the
+        /// same buffer to write back to. Stable across all frontend launch
+        /// helpers — they all share this single global instance.
+        global G_GAME_SESSION_STATE_BUFFER = 0x008728D4;
+        /// 1-byte flag two bytes before `G_FRONTEND_IDLE_HOOK`. Cleared once
+        /// in `Frontend::LaunchGameSession` between teardown and `Run`. Use
+        /// unknown — possibly an idle-tick suppression latch.
+        global G_FRONTEND_TICK_LATCH_MAYBE = 0x006B32AA;
+        /// u32 cleared right after `GameSession::Run` returns. Likely a
+        /// pending-input or session-active follow-up flag.
+        global G_PENDING_INPUT_FLAG_MAYBE = 0x0088C77C;
+        /// u32 cleared on the headful-fullscreen ExitProcess fallback path
+        /// in `Frontend::LaunchGameSession`. Use unknown.
+        global G_FULLSCREEN_RESTORE_FLAG_MAYBE = 0x006A9644;
+        /// Pointer to the main-menu frontend instance; compared against
+        /// `param_1` in `Frontend::LaunchGameSession` to gate
+        /// `WavPlayer_PreparePlay`.
+        global G_MAIN_FRONTEND = 0x007C028C;
+        /// Pointer to the singleton `GameWorld` (CFrontend) instance —
+        /// "DDGame" is WA's old codename for the same object. Compared
+        /// against `param_1` in `Frontend::LaunchGameSession` to gate the
+        /// post-game graphics-init-error MessageBox + ExitProcess(1)
+        /// fallback. Initialized once at startup; never written elsewhere.
+        global G_GAME_WORLD_INSTANCE = 0x007C03CC;
+        /// Pointer-to-pointer table whose `+0x128` slot holds the wav
+        /// player handle used by `Frontend::LaunchGameSession` for
+        /// pre/post-game audio save/restore.
+        global G_AUDIO_HANDLE_TABLE_PTR = 0x006AC748;
+        /// `StopAllWavPlayers_2` argument in `Frontend::LaunchGameSession` —
+        /// 16-slot wav-player ring-buffer base.
+        global G_WAV_PLAYER_RING_BASE_MAYBE = 0x0088DF98;
+        // ── IAT slots used by Frontend::LaunchGameSession ──
+        /// `user32!SetActiveWindow` IAT slot.
+        global IAT_SET_ACTIVE_WINDOW = 0x0061A5C8;
+        /// `user32!SetFocus` IAT slot.
+        global IAT_SET_FOCUS = 0x0061A5C0;
+        /// `kernel32!ExitProcess` IAT slot.
+        global IAT_EXIT_PROCESS = 0x0061A350;
+        /// `user32!ClipCursor` IAT slot.
+        global IAT_CLIP_CURSOR = 0x0061A668;
         global G_SUPPRESS_CURSOR = 0x0088E485;
         global IAT_MAP_WINDOW_POINTS = 0x0061A588;
         global G_SPRITE_DATA_BYTES = 0x007A0864;

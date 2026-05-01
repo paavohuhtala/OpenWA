@@ -426,7 +426,7 @@ pub unsafe fn log_stack_trace(name: &str, ebp: u32) {
 /// the function name baked into the panic message, plus a stack trace.
 ///
 /// ```ignore
-/// install_trap!("GameRuntime__Constructor", va::CONSTRUCT_DD_GAME_WRAPPER);
+/// install_trap!("GameRuntime__Constructor", va::CONSTRUCT_GAME_RUNTIME);
 /// ```
 macro_rules! install_trap {
     ($name:literal, $addr:expr_2021) => {{

@@ -550,13 +550,22 @@ impl StreamingAudio {
             // Set up the global pointer for the timer callback
             STREAMING_AUDIO_PTR.store(self as *mut Self as u32, Ordering::Release);
 
-            // Start periodic timer using timeSetEvent
+            // Start periodic timer using timeSetEvent.
+            // TIME_PERIODIC (0x01) | TIME_KILL_SYNCHRONOUS (0x100) — the
+            // synchronous-kill flag makes `timeKillEvent` block until any
+            // in-flight callback returns. Without it `stop()` races with the
+            // callback: the callback can be mid-`timer_tick()` while we tear
+            // down the DS buffer / close the file / zero fields, corrupting
+            // memory. Original WA code masked this with `Sleep(1)`; the flag
+            // is the deterministic fix.
+            const TIME_PERIODIC: u32 = 0x01;
+            const TIME_KILL_SYNCHRONOUS: u32 = 0x100;
             let timer_id = time_set_event(
                 self.timer_delay_ms,
                 self.timer_resolution_ms,
                 streaming_timer_callback,
                 0,
-                1, // TIME_PERIODIC
+                TIME_PERIODIC | TIME_KILL_SYNCHRONOUS,
             );
             self.timer_id = timer_id;
 
@@ -567,14 +576,15 @@ impl StreamingAudio {
     /// Stop streaming playback and release resources. Port of FUN_00574CA0 + FUN_005752D0.
     pub unsafe fn stop(&mut self) {
         unsafe {
-            // Kill timer first
+            // Clear the global pointer first so any callback that hasn't yet
+            // loaded it sees 0 and bails. `timeKillEvent` then synchronously
+            // waits for any in-flight callback (TIME_KILL_SYNCHRONOUS flag
+            // set in `start()`).
+            STREAMING_AUDIO_PTR.store(0, Ordering::Release);
             if self.timer_id != 0 {
                 time_kill_event(self.timer_id);
                 self.timer_id = 0;
             }
-
-            // Clear the global pointer
-            STREAMING_AUDIO_PTR.store(0, Ordering::Release);
 
             // Stop and release DS buffer
             if self.is_initialized != 0 {
@@ -990,7 +1000,9 @@ impl Music {
     /// Destructor. Port of 0x58BC80.
     pub unsafe fn destructor(this: *mut Music) {
         unsafe {
-            // Original does Sleep(1) for thread safety — we rely on atomic ptr clearing in stop()
+            // Original does Sleep(1) after killing the timer to drain in-flight
+            // callbacks; our `streaming.stop()` uses TIME_KILL_SYNCHRONOUS for
+            // the same effect (deterministic instead of timing-based).
             (*this).streaming.stop();
         }
     }

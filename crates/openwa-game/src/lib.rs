@@ -42,6 +42,7 @@ pub mod field_format;
 pub mod mem;
 pub mod rebase;
 pub mod registry;
+pub mod seh;
 pub mod snapshot;
 pub mod task;
 pub mod trig;

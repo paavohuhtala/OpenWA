@@ -20,7 +20,7 @@ use windows_sys::Win32::Foundation::HWND;
 use crate::address::va;
 use crate::engine::game_info::GameInfo;
 use crate::engine::game_session::{GameSession, GameSessionVtable, get_game_session};
-use crate::engine::hardware_init::init_hardware;
+use crate::engine::hardware_init::{init_hardware, shutdown};
 use crate::engine::main_loop::process_frame::process_frame;
 use crate::engine::pump_messages::pump_messages;
 use crate::rebase::rb;
@@ -149,12 +149,12 @@ pub unsafe fn run_game_session(
     use windows_sys::Win32::UI::WindowsAndMessaging::GetCursorPos;
 
     unsafe {
-        let h_wnd = *(rb(va::G_FRONTEND_HWND) as *const *mut core::ffi::c_void);
+        let hwnd = *(rb(va::G_FRONTEND_HWND) as *const HWND);
         timeBeginPeriod(1);
 
         let headless = (*game_info).headless_mode;
         if headless == 0 {
-            ValidateRect(h_wnd, core::ptr::null());
+            ValidateRect(hwnd, core::ptr::null());
         }
 
         // ── Allocate + construct GameSession ────────────────────────────────
@@ -163,7 +163,7 @@ pub unsafe fn run_game_session(
             construct_session(session);
         }
 
-        (*session).hwnd = h_wnd as u32;
+        (*session).hwnd = hwnd;
         (*session).run_param_1 = arg1_module_state;
         (*session).display_param_1 = (*game_info)._field_f39c;
         *(rb(va::G_GAME_SESSION) as *mut *mut GameSession) = session;
@@ -199,7 +199,7 @@ pub unsafe fn run_game_session(
         }
 
         // ── Hardware init (replaced in Rust; direct call) ──────────────────
-        let ok = init_hardware(game_info, h_wnd, display_p3, display_p4);
+        let ok = init_hardware(game_info, hwnd, display_p3, display_p4);
 
         if ok == 0 {
             // Init failure path — tear down what we have and return 0.
@@ -245,8 +245,7 @@ pub unsafe fn run_game_session(
             }
         }
 
-        // ── Engine shutdown ─────────────────────────────────────────────────
-        let shutdown: unsafe extern "stdcall" fn(*mut u8) = transmute(rb(va::GAME_ENGINE_SHUTDOWN));
+        // ── Engine shutdown (Rust port; WA address is trapped) ──────────────
         shutdown(state_buf);
 
         let session = *(rb(va::G_GAME_SESSION) as *const *mut GameSession);

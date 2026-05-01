@@ -187,7 +187,7 @@ unsafe fn handle_palette_changed(hwnd: HWND, wparam: WPARAM) {
         }
         palette_log_change(hwnd);
         // Ignore self-realisation events.
-        if wparam as u32 == (*session).hwnd {
+        if wparam as HWND == (*session).hwnd {
             return;
         }
         // Skip while a foreground display-mode change is still in flight.

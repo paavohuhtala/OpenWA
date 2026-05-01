@@ -124,6 +124,15 @@ pub fn install() -> Result<(), String> {
             "Frontend::PumpModalOrSessionFrame",
             va::FRONTEND_PUMP_MODAL_OR_SESSION_FRAME
         );
+
+        // Frontend::LaunchGameSession (0x004EC540) — full replacement.
+        // 11 WA-side callers (frontend dialog handlers); the WA address
+        // must remain callable, so install as a hook rather than a trap.
+        crate::hook::install(
+            "Frontend::LaunchGameSession",
+            va::FRONTEND_LAUNCH_GAME_SESSION,
+            openwa_game::wa::frontend::launch_game_session as *const (),
+        )?;
     }
 
     Ok(())

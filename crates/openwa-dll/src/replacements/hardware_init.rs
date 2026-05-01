@@ -21,6 +21,10 @@ pub fn install() -> Result<(), String> {
         // Trap functions whose only caller was GameEngine__InitHardware (now Rust).
         hook::install_trap!("DSSound__Constructor", va::CONSTRUCT_DS_SOUND);
         hook::install_trap!("DSSOUND_INIT_BUFFERS", va::DSSOUND_INIT_BUFFERS);
+
+        // GameEngine::Shutdown is fully replaced in Rust (engine::hardware_init::shutdown).
+        // Only WA-side caller was `GameSession::Run`, also Rust now.
+        hook::install_trap!("GameEngine::Shutdown", va::GAME_ENGINE_SHUTDOWN);
     }
     Ok(())
 }

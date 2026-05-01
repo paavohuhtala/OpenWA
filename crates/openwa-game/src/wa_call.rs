@@ -92,3 +92,70 @@ pub unsafe extern "C" fn call_usercall_esi_stack1(
         options(att_syntax),
     );
 }
+
+/// Bridge: usercall(EAX=eax_val, ESI=esi_val), no stack args, plain RET.
+#[unsafe(naked)]
+pub unsafe extern "C" fn call_usercall_eax_esi(_eax_val: u32, _esi_val: u32, _target: u32) {
+    core::arch::naked_asm!(
+        // [ret@0] [eax_val@4] [esi_val@8] [target@12]
+        "pushl %esi",
+        "movl 8(%esp), %eax",  // EAX = eax_val
+        "movl 12(%esp), %esi", // ESI = esi_val
+        "movl 16(%esp), %ecx", // ECX (scratch) = target
+        "calll *%ecx",
+        "popl %esi",
+        "retl",
+        options(att_syntax),
+    );
+}
+
+/// Bridge: usercall(ESI=esi_val), no stack args, plain RET.
+#[unsafe(naked)]
+pub unsafe extern "C" fn call_usercall_esi(_esi_val: u32, _target: u32) {
+    core::arch::naked_asm!(
+        // [ret@0] [esi_val@4] [target@8]
+        "pushl %esi",
+        "movl 8(%esp), %esi",
+        "movl 12(%esp), %eax",
+        "calll *%eax",
+        "popl %esi",
+        "retl",
+        options(att_syntax),
+    );
+}
+
+/// Bridge: usercall(EDI=edi_val), no stack args, plain RET.
+#[unsafe(naked)]
+pub unsafe extern "C" fn call_usercall_edi(_edi_val: u32, _target: u32) {
+    core::arch::naked_asm!(
+        "pushl %edi",
+        "movl 8(%esp), %edi",
+        "movl 12(%esp), %eax",
+        "calll *%eax",
+        "popl %edi",
+        "retl",
+        options(att_syntax),
+    );
+}
+
+/// Bridge: usercall(EDI=edi_val) + 2 stack args, RET 0x8.
+#[unsafe(naked)]
+pub unsafe extern "C" fn call_usercall_edi_stack2(
+    _edi_val: u32,
+    _stack1: u32,
+    _stack2: u32,
+    _target: u32,
+) {
+    core::arch::naked_asm!(
+        // [ret@0] [edi@4] [s1@8] [s2@12] [target@16]
+        "pushl %edi",
+        "movl 8(%esp), %edi",  // EDI = edi_val
+        "movl 20(%esp), %eax", // EAX = target
+        "pushl 16(%esp)",      // push stack2
+        "pushl 16(%esp)",      // push stack1 (now displaced by 4)
+        "calll *%eax",         // stdcall RET 0x8 cleans both
+        "popl %edi",
+        "retl",
+        options(att_syntax),
+    );
+}

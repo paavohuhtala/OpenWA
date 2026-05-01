@@ -1,4 +1,4 @@
-use windows_sys::Win32::Foundation::POINT;
+use windows_sys::Win32::Foundation::{HWND, POINT};
 
 use crate::FieldRegistry;
 use crate::audio::dssound::DSSound;
@@ -46,7 +46,7 @@ pub struct GameSession {
     pub vtable: *const GameSessionVtable,
     pub _unknown_004: [u8; 4],
     /// 0x008: main window HWND, stored from `hWnd` in `GameSession__Run`
-    pub hwnd: u32,
+    pub hwnd: HWND,
     /// 0x00C: first param from `GameSession__Run` (passed through from `Frontend__LaunchGameSession`)
     pub run_param_1: u32,
     pub _unknown_010: [u8; 0x14],

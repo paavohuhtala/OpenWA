@@ -25,6 +25,7 @@ const VALID_PROLOGUES: &[u8] = &[
     0x57, // push edi
     0x64, // fs: prefix (SEH setup)
     0x66, // operand-size prefix
+    0x68, // push imm32 (e.g. AfxGetModuleState wrapper at 0x5C83F1)
     0x6A, // push imm8
     0x80, // cmp byte, imm8
     0x81, // sub esp, imm32

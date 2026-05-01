@@ -211,7 +211,7 @@ pub unsafe extern "thiscall" fn keyboard_alert_user(
 
         let foreground = GetForegroundWindow();
         let session = get_game_session();
-        if !session.is_null() && foreground as u32 == (*session).hwnd {
+        if !session.is_null() && foreground == (*session).hwnd {
             return;
         }
         let frontend_hwnd = *(rb(va::G_FRONTEND_HWND) as *const HWND);

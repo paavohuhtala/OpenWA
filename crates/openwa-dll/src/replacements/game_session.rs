@@ -41,7 +41,7 @@ unsafe extern "cdecl" fn run_game_session_impl(
 pub fn install() -> Result<(), String> {
     unsafe {
         init_constructor_addrs();
-        hook::install_trap!("GameRuntime__Constructor", va::CONSTRUCT_DD_GAME_WRAPPER);
+        hook::install_trap!("GameRuntime__Constructor", va::CONSTRUCT_GAME_RUNTIME);
         hook::install_trap!("GameWorld__InitGameState", va::GAME_WORLD_INIT_GAME_STATE);
         // GameSession::Constructor — only WA-side caller is GameSession::Run
         // (fully replaced); inlined as `construct_session` in Rust.
