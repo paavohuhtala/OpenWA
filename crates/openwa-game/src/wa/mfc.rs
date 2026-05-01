@@ -1,8 +1,58 @@
 //! MFC library function wrappers.
 
+use core::ffi::c_void;
+
 use crate::address::va;
 use crate::rebase::rb;
 use crate::wa_call;
+
+/// MFC `CWnd` (opaque). The only field we touch directly is `m_hWnd` at +0x20.
+///
+/// Use as `*mut CWnd` in function signatures; access `m_hWnd` via [`cwnd_hwnd`].
+#[repr(C)]
+pub struct CWnd {
+    /// vtable pointer
+    pub vtable: *const c_void,
+    _opaque: [u8; 0],
+}
+
+/// Read MFC `CWnd::m_hWnd` (offset +0x20 from the CWnd object) as a raw HWND value.
+#[inline]
+pub unsafe fn cwnd_hwnd(wnd: *const CWnd) -> u32 {
+    unsafe { *((wnd as *const u8).add(0x20) as *const u32) }
+}
+
+/// MFC `CWinApp` (concrete subclass `CWormsApp`) — singleton at `g_CWinApp`
+/// (`0x007C03D0`). Only the fields touched directly by the WA code we've
+/// ported are typed here; the rest of CWormsApp is opaque.
+///
+/// Note: the WA disassembly often "reaches" globals like `g_DisplayModeFlag`
+/// (0x0088E485) by adding `+0xCE0B5` to the `CWinApp*`. Those are scattered
+/// BSS globals that happen to live at `&g_CWinApp + huge_offset`, NOT real
+/// fields of this struct — treat them as named globals (e.g. `va::G_DISPLAY_MODE_FLAG`).
+#[repr(C)]
+pub struct CWinApp {
+    /// vtable pointer (CWormsApp::vtable)
+    pub vtable: *const c_void,
+    _unknown_04: [u8; 0xa0],
+    /// Embedded virtual sub-object at +0xa4. The launch path calls slot 13
+    /// (offset 0x34 in the vtable) on it before `GameSession::Run`, and
+    /// `GameWorldRenderChildren_Maybe(&self.subobj_a4)` after.
+    pub subobj_a4: AppSubObjA4,
+    _unknown_a8: [u8; 0xa8],
+    /// u32 zeroed on the headful-fullscreen ExitProcess fallback path in
+    /// `Frontend::LaunchGameSession`. Other readers in the binary; semantics
+    /// TBD.
+    pub field_150: u32,
+}
+
+/// Embedded virtual sub-object inside `CWinApp` at +0xa4. Constructor
+/// (`CWormsApp::Constructor` 0x004E3C04) sets its vtable to `PTR_FUN_00662d48`.
+#[repr(C)]
+pub struct AppSubObjA4 {
+    pub vtable: *const c_void,
+    _opaque: [u8; 0],
+}
 
 /// Zero-cost handle to a CWnd-derived MFC window (raw pointer as u32).
 #[derive(Clone, Copy)]

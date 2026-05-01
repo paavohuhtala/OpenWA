@@ -1253,7 +1253,26 @@ pub mod va {
 
     crate::define_addresses! {
         global G_SPRITE_VERSION_FLAG = 0x006AF050;
+        /// `g_DisplayModeFlag`: nonzero = headless / display-disabled mode.
+        /// MSVC reaches this in `Frontend::LaunchGameSession` as
+        /// `(CWinApp* + 0xCE0B5)` — base-relative addressing on `g_CWinApp`,
+        /// not a struct field. Other call sites use the absolute address.
         global G_DISPLAY_MODE_FLAG = 0x0088E485;
+        /// One byte before `g_DisplayModeFlag`. Set by `FUN_004EBB70` (alt-display
+        /// surface allocation). Read by `Frontend::LaunchGameSession` to gate
+        /// the post-game framebuffer reconstruct + ExitProcess fallback.
+        /// Same MSVC `(CWinApp* + 0xCE0B4)` base-relative addressing pattern.
+        global G_ALT_DISPLAY_SURFACE_ALLOCATED = 0x0088E484;
+        /// One byte after `g_DisplayModeFlag`. Snapshot of `g_DisplayModeFlag`
+        /// captured by `Frontend::LaunchGameSession` right before `GameSession::Run`.
+        /// Currently has no readers we've identified — stored but unused, possibly
+        /// for a feature WA never wired up.
+        global G_DISPLAY_MODE_FLAG_AT_GAME_START = 0x0088E486;
+        /// Two bytes after `g_DisplayModeFlag`. Re-entry latch: set to 1 around
+        /// the `MouseModeEnterWindowed` call in the post-game restore path, and
+        /// also on the headful-fullscreen ExitProcess fallback. Same base-relative
+        /// addressing pattern (`+0xCE0B7`).
+        global G_MOUSE_MODE_REENTRY_LATCH = 0x0088E487;
         global G_CURRENT_SCREEN = 0x006B3504;
         global G_CHAR_WIDTH_TABLE = 0x006B2DD9;
         global G_FRONTEND_FRAME = 0x006B3908;
@@ -1363,15 +1382,21 @@ pub mod va {
         /// u32 cleared on the headful-fullscreen ExitProcess fallback path
         /// in `Frontend::LaunchGameSession`. Use unknown.
         global G_FULLSCREEN_RESTORE_FLAG_MAYBE = 0x006A9644;
-        /// Pointer to the main-menu frontend instance; compared against
-        /// `param_1` in `Frontend::LaunchGameSession` to gate
-        /// `WavPlayer_PreparePlay`.
+        /// Zero-init pointer cell, never written anywhere in the binary. Read
+        /// by `Frontend::LaunchGameSession` and `FUN_004EBD50`. In the launch
+        /// path the comparison `app == g_MainFrontend` therefore always fails
+        /// (param is `&g_CWinApp`, this is null), making the gated
+        /// `WavPlayer_PreparePlay` call dead code we still emit for fidelity.
+        /// Possibly a stub from an early code path that was never finished.
         global G_MAIN_FRONTEND = 0x007C028C;
-        /// Pointer to the singleton `GameWorld` (CFrontend) instance —
-        /// "DDGame" is WA's old codename for the same object. Compared
-        /// against `param_1` in `Frontend::LaunchGameSession` to gate the
-        /// post-game graphics-init-error MessageBox + ExitProcess(1)
-        /// fallback. Initialized once at startup; never written elsewhere.
+        /// Zero-init pointer cell, never written anywhere in the binary —
+        /// "DDGame" is WA's old codename for it. Read by `Frontend::LaunchGameSession`,
+        /// `MouseModeEnterWindowed_Maybe`, `MouseCursorRecenterOnWindow_Maybe`,
+        /// and a few others. The launch-path comparison `app != g_GameWorldInstance`
+        /// is always true (param is `&g_CWinApp`, this is null), making the
+        /// `OnGraphicsInitError + ExitProcess(1)` branch unconditionally fatal
+        /// when reached — see the inline comment in `launch_game_session` for
+        /// why we skip that branch outright.
         global G_GAME_WORLD_INSTANCE = 0x007C03CC;
         /// Pointer-to-pointer table whose `+0x128` slot holds the wav
         /// player handle used by `Frontend::LaunchGameSession` for
@@ -1427,7 +1452,7 @@ pub mod va {
     crate::define_addresses! {
         global G_REPLAY_STATE = 0x0087D3F8;
         global G_TEAM_HEADER_DATA = 0x008779E4;
-        global G_TEAM_SECONDARY_DATA = 0x0087D438;
+        global G_GAME_INFO = 0x0087D438;
         global G_REPLAY_GAME_ID = 0x0088AF50;
         global G_REPLAY_SUB_FORMAT = 0x0088AF54;
         global G_REPLAY_VERSION_ID = 0x0088ABB0;
