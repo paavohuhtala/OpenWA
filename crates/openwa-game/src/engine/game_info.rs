@@ -41,8 +41,25 @@ pub struct GameInfoTeamRecord {
 
 const _: () = assert!(core::mem::size_of::<GameInfoTeamRecord>() == 0xBB8);
 
-/// Number of `GameInfoTeamRecord` slots in the array at `GameInfo+0x450`.
-/// WA classic supports up to 6 active teams; the array has 6 slots.
+/// Per-team **input** configuration record stored as a 6-element array in
+/// [`GameInfo`] at offset 0x004 (stride 0x50, 0-based).
+///
+/// Layout is currently opaque — `InputCtrl::Init` just memcpys it into
+/// `InputCtrl::team_records[i].config_data`. The downstream consumer
+/// (input dispatch / replay capture / AI driver) is what interprets the
+/// fields.
+///
+/// Distinct from [`GameInfoTeamRecord`] (the 0xBB8-byte gameplay/scoring
+/// record at offset 0x450).
+#[repr(C)]
+pub struct TeamInputConfig {
+    pub _opaque: [u8; 0x50],
+}
+
+const _: () = assert!(core::mem::size_of::<TeamInputConfig>() == 0x50);
+
+/// Number of per-team record slots — both [`GameInfoTeamRecord`] (at +0x450)
+/// and [`TeamInputConfig`] (at +0x004). WA classic supports up to 6 active teams.
 pub const MAX_TEAM_RECORDS: usize = 6;
 
 /// GameInfo — large game configuration/session struct.
@@ -58,8 +75,18 @@ pub const MAX_TEAM_RECORDS: usize = 6;
 pub struct GameInfo {
     /// 0x0000: Number of teams (byte, read as first byte of struct).
     pub num_teams: u8,
-    /// 0x0001-0x044B: Unknown
-    pub _unknown_0001: [u8; 0x44C - 1],
+    /// 0x0001-0x0003: Padding before [`team_input_configs`].
+    pub _unknown_0001: [u8; 3],
+
+    /// 0x0004-0x01E3: Per-team input config records (stride 0x50, max 6).
+    /// `InputCtrl::Init` (0x0058C0D0) memcpys `num_teams` of these verbatim
+    /// into `InputCtrl::team_records[i].config_data`. Layout of each record
+    /// is opaque to `InputCtrl::Init`; the downstream consumer (input
+    /// dispatch / replay capture) interprets them.
+    pub team_input_configs: [TeamInputConfig; MAX_TEAM_RECORDS],
+
+    /// 0x01E4-0x044B: Unknown
+    pub _unknown_01e4: [u8; 0x44C - 0x1E4],
 
     /// 0x044C: Count of populated `team_records` entries (≤
     /// [`MAX_TEAM_RECORDS`]). Used as the iteration bound by every team

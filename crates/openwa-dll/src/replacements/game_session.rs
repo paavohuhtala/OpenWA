@@ -24,16 +24,16 @@ unsafe extern "cdecl" fn run_game_session_impl(
     game_info: *mut GameInfo,
     arg1_module_state: u32,
     state_buf: *mut u8,
-    display_p3: u32,
-    display_p4: u32,
+    controlled_displays: *const *mut u8,
+    controlled_display_count: u32,
 ) -> u32 {
     unsafe {
         run_game_session(
             game_info,
             arg1_module_state,
             state_buf,
-            display_p3,
-            display_p4,
+            controlled_displays,
+            controlled_display_count,
         )
     }
 }

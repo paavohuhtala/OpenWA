@@ -959,7 +959,7 @@ pub unsafe fn keyboard_check_action(this: *mut Keyboard, action: KeyboardAction,
             // `(flags + 1) & 2 != 0` ⇔ "bits 0 and 1 differ". We replicate the
             // arithmetic literally rather than collapse the polarity.
             A42 => {
-                let game_info = *(rb(va::G_GAME_INFO) as *const *const GameInfo);
+                let game_info = *(rb(va::G_GAME_INFO_PTR) as *const *const GameInfo);
                 if game_info.is_null() {
                     return 0;
                 }

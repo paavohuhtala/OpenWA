@@ -199,7 +199,7 @@ unsafe fn replay_loader_play(gi: *mut GameInfo) -> Result<(), ReplayError> {
 
         // Clear global buffers
         ptr::write_bytes(rb(va::G_TEAM_HEADER_DATA) as *mut u8, 0, 0x5728);
-        ptr::write_bytes(rb(va::G_TEAM_SECONDARY_DATA) as *mut u8, 0, 0xD9DC);
+        ptr::write_bytes(rb(va::G_GAME_INFO) as *mut u8, 0, 0xD9DC);
 
         let _ = log_line(&format!(
             "[Replay] Header: ver={version} payload={payload_size} sub={first_dword}"

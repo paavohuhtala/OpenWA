@@ -392,8 +392,8 @@ pub unsafe fn create_game_world(
         // Now safe to expose — all fields that concurrent readers check are set.
         (*runtime).world = world;
 
-        // ── 5. Set g_GameInfo global ──
-        *(rb(va::G_GAME_INFO) as *mut *mut GameInfo) = game_info;
+        // ── 5. Set g_GameInfo pointer slot ──
+        *(rb(va::G_GAME_INFO_PTR) as *mut *mut GameInfo) = game_info;
 
         // ── 6. Sound available + always-1 flags ──
         let is_headless = (*game_info).headless_mode != 0;

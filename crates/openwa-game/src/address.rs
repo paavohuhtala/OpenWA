@@ -371,8 +371,13 @@ pub mod va {
 
         class "InputCtrl" {
             // Vtable now defined via #[vtable(...)] in input/controller.rs
-            /// Input controller initializer
+            /// Input controller initializer — ported as `init_input_ctrl` in
+            /// [`crate::input::controller`]; the WA address is trapped.
             fn/Usercall INPUT_CTRL_INIT = 0x0058C0D0;
+            /// Inner team-buffer allocator + per-team config copier called by
+            /// `InputCtrl::Init`. Bridged from Rust as `call_init_team_inputs`
+            /// (usercall: ECX=game_version + 4 stack args).
+            fn/Usercall INPUT_CTRL_INIT_TEAM_INPUTS = 0x0053DD50;
         }
 
         // BitGrid vtables and init are now in display::bitgrid via define_addresses! + #[vtable].
@@ -1420,7 +1425,11 @@ pub mod va {
         global G_SPRITE_FRAME_COUNT = 0x007A0868;
         global G_SPRITE_PIXEL_AREA = 0x007A086C;
         global G_SPRITE_PALETTE_BYTES = 0x007A0870;
-        global G_GAME_INFO = 0x007749A0;
+        /// Pointer slot holding `*mut GameInfo`. Distinct from the GameInfo
+        /// data block at `0x0087D438` (`G_GAME_INFO`) — this address holds
+        /// a 4-byte pointer cell that gets populated to point at the data
+        /// block by `GameWorld::Constructor` and read by various helpers.
+        global G_GAME_INFO_PTR = 0x007749A0;
         global G_FRAME_BUFFER_PTR = 0x007A0EEC;
         global G_FRAME_BUFFER_WIDTH = 0x007A0EF0;
         global G_FRAME_BUFFER_HEIGHT = 0x007A0EF4;

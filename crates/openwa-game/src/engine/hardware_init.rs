@@ -13,7 +13,7 @@ use crate::engine::game_session::get_game_session;
 use crate::engine::runtime::GameRuntime;
 use crate::engine::world_constructor::create_game_world;
 use crate::engine::{DDNetGameWrapper, GameRuntimeVtable};
-use crate::input::{InputCtrl, InputCtrlVtable, Keyboard, MouseInput};
+use crate::input::{InputCtrl, InputCtrlVtable, Keyboard, MouseInput, init_input_ctrl};
 use crate::rebase::rb;
 use crate::render::{DisplayBase, DisplayGfx};
 use crate::wa::localized_template::LocalizedTemplate;
@@ -25,17 +25,12 @@ use windows_sys::Win32::Foundation::HWND;
 // ─── Bridge-state statics ─────────────────────────────────────────────────────
 
 static mut LOCALIZED_TEMPLATE_CTOR_ADDR: u32 = 0;
-static mut INPUT_CTRL_INIT_ADDR: u32 = 0;
 static mut STREAM_CTOR_ADDR: u32 = 0;
 static mut DISPLAY_GFX_INIT_ADDR: u32 = 0;
 static mut INIT_REPLAY_ADDR: u32 = 0;
 
 /// Implicit ECX (height) for `call_display_gfx_init` — set per call.
 static mut DISPLAY_GFX_INIT_ECX: u32 = 0;
-
-/// Implicit ESI (input_ctrl) for `call_input_ctrl_init` — set per call.
-static mut INPUT_CTRL_ESI: u32 = 0;
-static mut INPUT_CTRL_SAVED_ESI: u32 = 0;
 
 static mut STREAM_CTOR_SAVED_RET: u32 = 0;
 static mut STREAM_CTOR_SAVED_ESI: u32 = 0;
@@ -57,30 +52,6 @@ unsafe extern "cdecl" fn call_localized_template_ctor(
         "popl %esi",
         "retl",
         fn = sym LOCALIZED_TEMPLATE_CTOR_ADDR,
-        options(att_syntax),
-    );
-}
-
-/// `FUN_0058C0D0`: `usercall(ESI=input_ctrl)` + 4 stack params, `RET 0x10`.
-/// Caller sets `INPUT_CTRL_ESI` before calling. Callee cleans the 4 args.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn call_input_ctrl_init(
-    _game_info_p4: *mut u8,
-    _param3: u32,
-    _param4: u32,
-    _crosshair_threshold: u32,
-) -> u32 {
-    core::arch::naked_asm!(
-        "movl %esi, {saved_esi}",
-        "movl {esi_val}, %esi",
-        "popl %ecx",
-        "calll *({fn})",
-        "pushl %ecx",
-        "movl {saved_esi}, %esi",
-        "retl",
-        saved_esi = sym INPUT_CTRL_SAVED_ESI,
-        esi_val = sym INPUT_CTRL_ESI,
-        fn = sym INPUT_CTRL_INIT_ADDR,
         options(att_syntax),
     );
 }
@@ -287,25 +258,32 @@ pub unsafe fn construct_runtime(
 
 // ─── Top-level init ───────────────────────────────────────────────────────────
 
-pub unsafe fn init_hardware(game_info: *mut GameInfo, hwnd: HWND, param3: u32, param4: u32) -> u32 {
+pub unsafe fn init_hardware(
+    game_info: *mut GameInfo,
+    hwnd: HWND,
+    controlled_displays: *const *mut u8,
+    controlled_display_count: u32,
+) -> u32 {
     unsafe {
         let _ = log_line("[hardware_init] GameEngine::InitHardware");
         let session = get_game_session();
         let gi = &mut *game_info;
-        let crosshair_threshold = gi.game_version as u32;
+        let game_version = gi.game_version as u32;
 
-        if param4 == 0 {
+        if controlled_display_count == 0 {
             (*session).input_ctrl = core::ptr::null_mut();
         } else {
             let ctrl = wa_malloc_struct_zeroed::<InputCtrl>();
-            (*ctrl)._field_d74 = 0x3F9;
+            (*ctrl).field_d74 = 0x3F9;
             (*ctrl).vtable = rb(va::INPUT_CTRL_VTABLE) as *const InputCtrlVtable;
             (*session).input_ctrl = ctrl as *mut u8;
 
-            // WA passes GameInfo+4 (skips the first DWORD of unknown padding).
-            let game_info_plus_4 = (game_info as *mut u8).add(4);
-            INPUT_CTRL_ESI = ctrl as u32;
-            let ok = call_input_ctrl_init(game_info_plus_4, param3, param4, crosshair_threshold);
+            let ok = init_input_ctrl(
+                ctrl,
+                game_info,
+                controlled_displays,
+                controlled_display_count,
+            );
             if ok == 0 {
                 (*ctrl).destroy(1);
                 (*session).input_ctrl = core::ptr::null_mut();
@@ -314,7 +292,7 @@ pub unsafe fn init_hardware(game_info: *mut GameInfo, hwnd: HWND, param3: u32, p
         }
 
         let localized_template = wa_malloc_struct_zeroed::<LocalizedTemplate>();
-        call_localized_template_ctor(localized_template, crosshair_threshold);
+        call_localized_template_ctor(localized_template, game_version);
         (*session).localized_template = localized_template;
 
         let headless = gi.headless_mode != 0;
@@ -465,9 +443,9 @@ pub unsafe fn init_hardware(game_info: *mut GameInfo, hwnd: HWND, param3: u32, p
 pub fn init_addrs() {
     unsafe {
         LOCALIZED_TEMPLATE_CTOR_ADDR = rb(va::LOCALIZED_TEMPLATE_CTOR);
-        INPUT_CTRL_INIT_ADDR = rb(va::INPUT_CTRL_INIT);
         STREAM_CTOR_ADDR = rb(va::STREAMING_AUDIO_CTOR);
         DISPLAY_GFX_INIT_ADDR = rb(va::DISPLAY_GFX_INIT);
         INIT_REPLAY_ADDR = rb(va::GAME_RUNTIME_INIT_REPLAY);
+        crate::input::controller::init_addrs();
     }
 }

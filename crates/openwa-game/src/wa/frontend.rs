@@ -126,8 +126,8 @@ unsafe fn iat_call_1(iat_addr: u32, arg: u32) -> u32 {
 pub unsafe extern "stdcall" fn launch_game_session(
     app: *mut CWinApp,
     dialog: *mut CWnd,
-    p3: u32,
-    p4: u32,
+    controlled_displays: *const *mut u8,
+    controlled_display_count: u32,
 ) {
     unsafe {
         // [ESP+0x18] in the original — a 4-byte scratch for the audio/mouse
@@ -221,7 +221,13 @@ pub unsafe extern "stdcall" fn launch_game_session(
         let module_arg = *(module_state.add(8) as *const u32);
         let game_info = rb(va::G_GAME_INFO) as *mut GameInfo;
         let state_buf = rb(va::G_GAME_SESSION_STATE_BUFFER) as *mut u8;
-        run_game_session(game_info, module_arg, state_buf, p3, p4);
+        run_game_session(
+            game_info,
+            module_arg,
+            state_buf,
+            controlled_displays,
+            controlled_display_count,
+        );
 
         // ── Post-game restore ──────────────────────────────────────────────
         let frame = *(rb(va::G_FRONTEND_FRAME) as *const *mut u8);
