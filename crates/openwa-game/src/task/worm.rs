@@ -295,8 +295,9 @@ pub struct WormEntity {
     pub _unknown_14c: [u8; 4],
     /// 0x150: Unknown (slot 9 in GetEntityData query 0x7D4 output)
     pub _unknown_150: u32,
-    /// 0x154: Unknown (rope-related; cleared in some SetState transitions)
-    pub _unknown_154: u32,
+    /// 0x154: Took-damage marker. Set to 1 by `WormDamaged` (msg 0x47) when
+    /// the team+worm pair matches this worm. Cleared in some SetState transitions.
+    pub took_damage_flag: u32,
     /// 0x158: Worm pool slot index in GameWorld (assigned from pool at construction)
     pub slot_id: u32,
     /// 0x15C–0x163: Unknown
@@ -376,23 +377,34 @@ pub struct WormEntity {
     pub _unknown_250: [u8; 0x268 - 0x250],
     /// 0x268: Show aiming cursor flag (nonzero = cursor visible).
     pub show_cursor: u32,
-    /// 0x26C–0x283: Unknown
-    pub _unknown_26c: [u8; 0x284 - 0x26C],
+    /// 0x26C–0x27F: Unknown
+    pub _unknown_26c: [u8; 0x14],
+    /// 0x280: Kill request kind. Set by `KillWorm` (msg 0x40): `1` = plain kill,
+    /// `2` = variant (msg 0x41). Consumed by `WormEntity::BehaviorTick` to
+    /// fire the kill `SetState(0x82|0x84)`.
+    pub kill_request: u32,
     /// 0x284: Shot/aim data 1 (slot 5 in GetEntityData query 0x7D4).
     /// For weapons 0x22/0x24 (Teleport/Freeze), copied from shot_data_2 on first fire.
     /// Sent in HandleMessage 0x49 buffer during WeaponRelease.
     pub shot_data_1: u32,
     /// 0x288: Shot/aim data 2 (slot 6 in GetEntityData query 0x7D4).
     pub shot_data_2: u32,
-    /// 0x28C–0x28F: Unknown
-    pub _unknown_28c: [u8; 4],
+    /// 0x28C: Per-turn "weapons enabled" flag. Set to 1 by msg
+    /// `EnableWeapons` (0x45); cleared by msg `DisableWeapons` (0x46) /
+    /// `DeactivateOnIdle`. Required non-zero for `ReleaseWeapon` to act.
+    pub weapons_enabled: u32,
     /// 0x290: Fire sync frame counter 1. Compared with fire_sync_frame_2
     /// in WeaponRelease; when equal, weapon slot table is reset.
     pub fire_sync_frame_1: i32,
     /// 0x294: Fire sync frame counter 2.
     pub fire_sync_frame_2: i32,
-    /// 0x298–0x2BB: Unknown
-    pub _unknown_298: [u8; 0x2BC - 0x298],
+    /// 0x298–0x2AF: Unknown
+    pub _unknown_298: [u8; 0x2B0 - 0x298],
+    /// 0x2B0: Damage-stack count (accumulated by case 0x4B). Cleared at
+    /// `TurnStarted` (msg 0x38).
+    pub damage_stack_count: u32,
+    /// 0x2B4–0x2BB: Unknown
+    pub _unknown_2b4: [u8; 0x2BC - 0x2B4],
     /// 0x2BC: Network client index. Compared against max client count
     /// (5 or 10 depending on FE version) to compute network delay.
     pub network_client_index: i32,
@@ -406,8 +418,10 @@ pub struct WormEntity {
     /// 0x2CC: Network flag. Nonzero = network mode active.
     /// Used in sound dispatch conditions and HandleMessage 0x49 buffer.
     pub _unknown_2cc: i32,
-    /// 0x2D0–0x2DF: Unknown
-    pub _unknown_2d0: [u8; 0x2E0 - 0x2D0],
+    /// 0x2D0–0x2DB: Unknown
+    pub _unknown_2d0: [u8; 0x2DC - 0x2D0],
+    /// 0x2DC: Cliff-fall flag. Cleared at `TurnStarted` (msg 0x38).
+    pub cliff_fall_flag: u32,
     /// 0x2E0: Weapon parameter 1. Polymorphic per weapon:
     /// - WeaponRelease: ammo_per_turn (copied to release context)
     /// - Air Strike: fire position X
@@ -438,20 +452,39 @@ pub struct WormEntity {
     /// Shown as the green poison damage number above the worm.
     #[field(kind = "CString")]
     pub poison_text: [u8; 0x09],
-    /// 0x324–0x333: Unknown
-    pub _unknown_324: [u8; 0x334 - 0x324],
+    /// 0x324–0x32F: Unknown
+    pub _unknown_324: [u8; 0x330 - 0x324],
+    /// 0x330: Remote-detonation crate triggered. Set to 1 by `DetonateCrate`
+    /// (msg 0x62).
+    pub detonate_crate_flag: u32,
     /// 0x334: Facing direction copy. -1 = left, +1 = right (same as +0x3DC).
     pub facing_direction_3: i32,
-    /// 0x338–0x367: Unknown
-    pub _unknown_338: [u8; 0x368 - 0x338],
+    /// 0x338: Facing-related flag. Cleared at `TurnStarted` (msg 0x38).
+    pub facing_flag: u8,
+    /// 0x339: Unknown
+    pub _unknown_339: u8,
+    /// 0x33A: Saved-aim flag. When set at `TurnStarted`, the aim angle is
+    /// snapped to the nearest quadrant and the flag is cleared.
+    pub saved_aim_flag: u8,
+    /// 0x33B–0x33F: Unknown
+    pub _unknown_33b: [u8; 5],
+    /// 0x340: Poison-tick accumulator. Cleared at `TurnStarted` (msg 0x38).
+    pub poison_tick_accum: u32,
+    /// 0x344–0x367: Unknown
+    pub _unknown_344: [u8; 0x368 - 0x344],
     /// 0x368: Animator / controller object (dispatched via vtable for state animations)
     pub animator: *mut u8,
     /// 0x36C: Active weapon entry pointer. Points to `&WeaponTable.entries[selected_weapon]`.
     /// Contains fire type (+0x30), subtypes (+0x34/+0x38), and completion flag (+0x3C).
     /// Used by WeaponRelease: `MOV EAX, [EDI+0x36C]` before calling FireWeapon.
     pub active_weapon_entry: *mut WeaponEntry,
-    /// 0x370–0x3AF: Unknown (rope anchor, weapon-specific data, etc.)
-    pub _unknown_370: [u8; 0x3B0 - 0x370],
+    /// 0x370–0x377: Unknown (rope anchor, weapon-specific data, etc.)
+    pub _unknown_370: [u8; 8],
+    /// 0x378–0x397: Aim-fade animation values (8 × Fixed 16.16, default 1.0 = 0x10000).
+    /// Reset to 1.0 by `WeaponFinished` (msg 0x49) for Bungee weapons.
+    pub aim_fade: [Fixed; 8],
+    /// 0x398–0x3AF: Unknown
+    pub _unknown_398: [u8; 0x3B0 - 0x398],
     /// 0x3B0: Streaming sound handle. Nonzero when a worm sound effect
     /// (e.g., weapon charge-up) is actively playing. PlayWormSound stores the
     /// new handle here; StopWormSound clears it.
@@ -639,11 +672,11 @@ impl crate::snapshot::Snapshot for WormEntity {
                 i + 1,
             )?;
             write_indent(w, i)?;
-            writeln!(w, "_unknown_28c ({} bytes):", self._unknown_28c.len())?;
+            writeln!(w, "_unknown_28c ({} bytes):", 4)?;
             write_raw_region(
                 w,
-                self._unknown_28c.as_ptr(),
-                self._unknown_28c.len(),
+                &self.weapons_enabled as *const u32 as *const u8,
+                4,
                 i + 1,
             )?;
             write_indent(w, i)?;
@@ -654,6 +687,7 @@ impl crate::snapshot::Snapshot for WormEntity {
                 self._unknown_370.len(),
                 i + 1,
             )?;
+            writeln!(w, "aim_fade: {:?}", self.aim_fade.map(|f| f.0))?;
 
             Ok(())
         }

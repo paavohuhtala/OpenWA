@@ -54,7 +54,7 @@ pub enum EntityMessage {
     // handling strike weapons that drop physics objects (mail, mine, mole)
     SkipGoOrMailMineMole = 40,
     Freeze = 41,
-    // gap: 42 unused
+    Unknown42 = 42,
     Surrender = 43,
     DetonateWeapon = 44,
     MoveWeaponLeft = 45,
@@ -77,6 +77,8 @@ pub enum EntityMessage {
     ApplyPoison = 62,
     SetWorm = 63,
     KillWorm = 64,
+    // How this differs from KillWorm is currently unknown
+    KillWorm2 = 65,
     // gap: 65-66 unused
     AdvanceWorm = 67,
     ShowDamage = 68,
@@ -511,6 +513,20 @@ pub struct ArmageddonMessage {
 
 impl EntityMessageData for ArmageddonMessage {
     const MESSAGE_TYPE: EntityMessage = EntityMessage::Armageddon;
+}
+
+/// Payload for [`EntityMessage::WormMoved`] (msg 0x47). Broadcast addressed
+/// by `[team_index, worm_index]`; receiving worms set their internal
+/// "moved" marker only when both indices match.
+#[repr(C)]
+#[derive(Clone, Copy, Zeroable, Pod, Debug)]
+pub struct WormMovedMessage {
+    pub team_index: u32,
+    pub worm_index: u32,
+}
+
+impl EntityMessageData for WormMovedMessage {
+    const MESSAGE_TYPE: EntityMessage = EntityMessage::WormMoved;
 }
 
 #[repr(C)]
