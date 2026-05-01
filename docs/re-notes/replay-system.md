@@ -52,7 +52,7 @@ Keyboard input
   -> Turn ends, next turn begins from replay data
 ```
 
-Packet 0x17 = TaskMessage_Hurry (value 23 from wkJellyWorm enum). In replay mode
+Packet 0x17 = EntityMessage_Hurry (value 23 from wkJellyWorm enum). In replay mode
 this is processed locally, not over the network. The deferred flag (0x7E41) bridges
 the gap between "input detected during ProcessInput" and "end-of-frame processing."
 
@@ -67,10 +67,10 @@ the gap between "input detected during ProcessInput" and "end-of-frame processin
 | 0x531D00 | GameFrameDispatcher       | Main frame loop. Message queue + GameFrameEndProcessor.                                                                                  |
 | 0x5451F0 | ControlTask_HandleMessage | Translates keyboard input (msg 0xC) -> game messages.                                                                                    |
 | 0x553BD0 | GameMessageRouter         | Routes messages through task handler tree.                                                                                               |
-| 0x55DC00 | WorldRoot_HandleMessage    | Message dispatcher. Case 2=FrameFinish, 4=ProcessInput.                                                                                  |
-| 0x55E5F0 | WorldRoot_HurryHandler     | Hurry logic. Normal: packet 0x17. Replay: deferred flag. \_\_usercall(ESI).                                                              |
+| 0x55DC00 | WorldRoot_HandleMessage   | Message dispatcher. Case 2=FrameFinish, 4=ProcessInput.                                                                                  |
+| 0x55E5F0 | WorldRoot_HurryHandler    | Hurry logic. Normal: packet 0x17. Replay: deferred flag. \_\_usercall(ESI).                                                              |
 | 0x55FDA0 | TurnManager_ProcessFrame  | Per-frame turn timer, decrements by 0x14 (20ms).                                                                                         |
-| 0x5611E0 | WorldRoot_AutoSelectTeams  | Iterates teams during ProcessInput, sends packet 0x2B.                                                                                   |
+| 0x5611E0 | WorldRoot_AutoSelectTeams | Iterates teams during ProcessInput, sends packet 0x2B.                                                                                   |
 
 ## Replay File Format
 

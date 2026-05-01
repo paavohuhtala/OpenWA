@@ -11,7 +11,7 @@ pub mod weapon_release;
 
 pub use class_type::ClassType;
 pub use frontend::ScreenId;
-pub use message::TaskMessage;
+pub use message::EntityMessage;
 pub use openwa_core::scheme;
 pub use openwa_core::scheme::{
     EXTENDED_OPTIONS_DEFAULTS, EXTENDED_OPTIONS_OFFSET, EXTENDED_OPTIONS_SIZE, ExtendedOptions,

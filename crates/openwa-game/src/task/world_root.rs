@@ -1,7 +1,7 @@
 use super::base::{BaseEntity, SharedDataTable};
 use crate::{
     FieldRegistry,
-    game::{TaskMessage, message::TaskMessageData},
+    game::{EntityMessage, message::EntityMessageData},
     task::Entity,
 };
 use bytemuck::bytes_of;
@@ -104,7 +104,7 @@ pub struct WorldRootEntityVtable {
     pub handle_message: fn(
         this: *mut WorldRootEntity,
         sender: *mut BaseEntity,
-        msg_type: TaskMessage,
+        msg_type: EntityMessage,
         size: u32,
         data: *const u8,
     ),
@@ -241,7 +241,7 @@ impl WorldRootEntity {
         }
     }
 
-    pub unsafe fn handle_typed_message_raw<TSender: Entity, TMessage: TaskMessageData>(
+    pub unsafe fn handle_typed_message_raw<TSender: Entity, TMessage: EntityMessageData>(
         this: *mut Self,
         sender: *mut TSender,
         message: TMessage,

@@ -1,6 +1,6 @@
 use crate::FieldRegistry;
 use crate::engine::world::GameWorld;
-use crate::game::TaskMessage;
+use crate::game::EntityMessage;
 use crate::game::class_type::ClassType;
 
 crate::define_addresses! {
@@ -118,7 +118,7 @@ pub struct BaseEntityVtable {
     pub handle_message: fn(
         this: *mut BaseEntity,
         sender: *mut BaseEntity,
-        msg_type: TaskMessage,
+        msg_type: EntityMessage,
         size: u32,
         data: *const u8,
     ),
@@ -135,7 +135,7 @@ bind_BaseEntityVtable!(BaseEntity, vtable);
 /// Base task class in WA's entity hierarchy.
 ///
 /// All game objects inherit from BaseEntity. Tasks form a tree via parent/children
-/// pointers and communicate through the TaskMessage system.
+/// pointers and communicate through the EntityMessage system.
 ///
 /// Source: wkJellyWorm CTask.h, Ghidra decompilation of 0x5625A0 + 0x562520
 ///   0x1C: 0x563210 ProcessFrame
@@ -235,7 +235,7 @@ pub unsafe trait Entity {
     unsafe fn broadcast_message(
         &mut self,
         sender: *mut BaseEntity,
-        msg_type: TaskMessage,
+        msg_type: EntityMessage,
         size: u32,
         data: *const u8,
     ) {
@@ -314,7 +314,7 @@ impl BaseEntity {
     pub unsafe fn broadcast_message_raw(
         task_ptr: *mut BaseEntity,
         sender: *mut BaseEntity,
-        msg_type: TaskMessage,
+        msg_type: EntityMessage,
         size: u32,
         data: *const u8,
     ) {
@@ -344,8 +344,8 @@ impl BaseEntity {
     }
 
     /// Typed wrapper around [`BaseEntity::broadcast_message_raw`] — serialises a
-    /// `TaskMessageData` payload and uses its `MESSAGE_TYPE` for dispatch.
-    pub unsafe fn broadcast_typed_message_raw<TMessage: crate::game::message::TaskMessageData>(
+    /// `EntityMessageData` payload and uses its `MESSAGE_TYPE` for dispatch.
+    pub unsafe fn broadcast_typed_message_raw<TMessage: crate::game::message::EntityMessageData>(
         task_ptr: *mut BaseEntity,
         sender: *mut BaseEntity,
         message: TMessage,

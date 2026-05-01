@@ -14,9 +14,9 @@ use crate::audio::{KnownSoundId, SoundId};
 use crate::engine::{GAME_PHASE_NORMAL_MIN, GAME_PHASE_SUDDEN_DEATH, TeamArena};
 use crate::game::KnownWeaponId;
 use crate::game::message::{
-    ArmageddonMessage, FreezeMessage, NukeBlastMessage, PoisonWormMessage, RaiseWaterMessage,
-    ScalesOfJusticeMessage, SelectWormMessage, SkipGoOrMailMineMoleMessage, SurrenderMessage,
-    TaskMessageData,
+    ArmageddonMessage, EntityMessageData, FreezeMessage, NukeBlastMessage, PoisonWormMessage,
+    RaiseWaterMessage, ScalesOfJusticeMessage, SelectWormMessage, SkipGoOrMailMineMoleMessage,
+    SurrenderMessage,
 };
 use crate::game::weapon::{WeaponEntry, WeaponFireParams, WeaponSpawnData};
 use crate::task::BaseEntity;
@@ -407,7 +407,7 @@ pub unsafe fn lookup_world_root(worm: *const WormEntity) -> *mut crate::task::Wo
 
 /// Send a typed message to `WorldRootEntity` for the worm's game tree, if the
 /// SharedData lookup succeeds.
-unsafe fn send_to_world_root<M: TaskMessageData>(worm: *mut WormEntity, msg: M) {
+unsafe fn send_to_world_root<M: EntityMessageData>(worm: *mut WormEntity, msg: M) {
     unsafe {
         let team = lookup_world_root(worm);
         if team.is_null() {
@@ -417,7 +417,7 @@ unsafe fn send_to_world_root<M: TaskMessageData>(worm: *mut WormEntity, msg: M) 
     }
 }
 
-/// Surrender (subtype 13) — dispatches `TaskMessage::Surrender` to
+/// Surrender (subtype 13) — dispatches `EntityMessage::Surrender` to
 /// WorldRootEntity.
 ///
 /// WorldRoot::HandleMessage (0x55DC00) delegates to TeamEntity (0x557310) for
@@ -478,7 +478,7 @@ unsafe fn fire_skip_go(worm: *const WormEntity, entry: *const WeaponEntry) {
 
 /// Freeze weapon (subtype 20) — pure Rust replacement for 0x51E600.
 ///
-/// Sends `TaskMessage::Freeze` to WorldRootEntity, then increments
+/// Sends `EntityMessage::Freeze` to WorldRootEntity, then increments
 /// `WormEntry.turn_action_counter_Maybe` by 14 (0x0E).
 unsafe fn fire_freeze(worm: *mut WormEntity) {
     unsafe {

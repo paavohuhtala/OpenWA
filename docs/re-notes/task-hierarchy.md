@@ -4,7 +4,7 @@
 
 WA uses a hierarchical task/entity system. All game objects inherit from `BaseEntity`,
 which forms a tree via parent/children pointers. Tasks communicate through a
-message passing system (see `TaskMessage` enum).
+message passing system (see `EntityMessage` enum).
 
 ## Class Hierarchy
 
@@ -61,28 +61,28 @@ the start of WorldEntity's extended vtable region, or the count was off by one.
 
 First 3 entries override BaseEntity:
 
-| Index | Offset | Address  | Name                   |
-| ----- | ------ | -------- | ---------------------- |
-| 0     | 0x00   | 0x4FF1C0 | vtable0 override       |
-| 1     | 0x04   | 0x4FEF10 | Free override          |
-| 2     | 0x08   | 0x4FF280 | HandleMessage override |
+| Index | Offset | Address  | Name                        |
+| ----- | ------ | -------- | --------------------------- |
+| 0     | 0x00   | 0x4FF1C0 | vtable0 override            |
+| 1     | 0x04   | 0x4FEF10 | Free override               |
+| 2     | 0x08   | 0x4FF280 | HandleMessage override      |
 | 3     | 0x0C   | 0x5613D0 | (inherited from BaseEntity) |
 | 4     | 0x10   | 0x5613D0 | (inherited from BaseEntity) |
 | 5     | 0x14   | 0x562FA0 | (inherited from BaseEntity) |
 | 6     | 0x18   | 0x563000 | (inherited from BaseEntity) |
-| 7     | 0x1C   | 0x4FF720 | WorldEntity-specific   |
-| 8     | 0x20   | 0x4FFED0 | WorldEntity-specific   |
-| 9     | 0x24   | 0x500070 | WorldEntity-specific   |
-| 10    | 0x28   | 0x500080 | WorldEntity-specific   |
-| 11    | 0x2C   | 0x5000E0 | WorldEntity-specific   |
-| 12    | 0x30   | 0x500380 | WorldEntity-specific   |
-| 13    | 0x34   | 0x500360 | WorldEntity-specific   |
-| 14    | 0x38   | 0x4FE060 | WorldEntity-specific   |
-| 15    | 0x3C   | 0x500CC0 | WorldEntity-specific   |
-| 16    | 0x40   | 0x592A50 | WorldEntity-specific   |
-| 17    | 0x44   | 0x500090 | WorldEntity-specific   |
-| 18    | 0x48   | 0x545780 | WorldEntity-specific   |
-| 19    | 0x4C   | 0x4AA060 | WorldEntity-specific   |
+| 7     | 0x1C   | 0x4FF720 | WorldEntity-specific        |
+| 8     | 0x20   | 0x4FFED0 | WorldEntity-specific        |
+| 9     | 0x24   | 0x500070 | WorldEntity-specific        |
+| 10    | 0x28   | 0x500080 | WorldEntity-specific        |
+| 11    | 0x2C   | 0x5000E0 | WorldEntity-specific        |
+| 12    | 0x30   | 0x500380 | WorldEntity-specific        |
+| 13    | 0x34   | 0x500360 | WorldEntity-specific        |
+| 14    | 0x38   | 0x4FE060 | WorldEntity-specific        |
+| 15    | 0x3C   | 0x500CC0 | WorldEntity-specific        |
+| 16    | 0x40   | 0x592A50 | WorldEntity-specific        |
+| 17    | 0x44   | 0x500090 | WorldEntity-specific        |
+| 18    | 0x48   | 0x545780 | WorldEntity-specific        |
+| 19    | 0x4C   | 0x4AA060 | WorldEntity-specific        |
 
 WorldEntity also has a secondary vtable at object offset 0xE8, pointing to 0x669CF8.
 

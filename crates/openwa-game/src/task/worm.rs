@@ -194,7 +194,7 @@ pub struct WormEntityVtable {
     /// Free — calls inner destructor, then `_free(this)` if flags & 1
     #[slot(1)]
     pub free: fn(this: *mut WormEntity, flags: u8) -> *mut WormEntity,
-    /// HandleMessage — processes all TaskMessages sent to this worm
+    /// HandleMessage — processes all EntityMessages sent to this worm
     #[slot(2)]
     pub handle_message: fn(
         this: *mut WormEntity,

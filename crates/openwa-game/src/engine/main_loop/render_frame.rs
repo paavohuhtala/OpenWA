@@ -37,7 +37,7 @@ use crate::engine::game_state;
 use crate::engine::net_session::NetSession;
 use crate::engine::runtime::GameRuntime;
 use crate::engine::world::GameWorld;
-use crate::game::message::TaskMessage;
+use crate::game::message::EntityMessage;
 use crate::rebase::rb;
 use crate::render::display::gfx::DisplayGfx;
 use crate::render::palette::PaletteContext;
@@ -258,7 +258,7 @@ pub unsafe fn game_render(runtime: *mut GameRuntime) {
         BaseEntity::handle_message_raw(
             world_root,
             core::ptr::null_mut(),
-            TaskMessage::RenderScene,
+            EntityMessage::RenderScene,
             0,
             core::ptr::null(),
         );

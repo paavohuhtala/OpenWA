@@ -1,5 +1,5 @@
 use super::base::BaseEntity;
-use crate::{FieldRegistry, game::TaskMessage};
+use crate::{FieldRegistry, game::EntityMessage};
 
 crate::define_addresses! {
     class "FilterEntity" {
@@ -107,7 +107,7 @@ bind_FilterEntityVtable!(FilterEntity, base.vtable);
 pub unsafe extern "thiscall" fn filter_handle_message(
     this: *mut FilterEntity,
     sender: *mut BaseEntity,
-    msg_type: TaskMessage,
+    msg_type: EntityMessage,
     size: u32,
     data: *const u8,
 ) {

@@ -4,7 +4,7 @@
 
 use openwa_core::fixed::Fixed;
 use openwa_game::address::va;
-use openwa_game::game::{TaskMessage, game_task_message as gtm};
+use openwa_game::game::{EntityMessage, game_task_message as gtm};
 use openwa_game::task::{BaseEntity, WorldEntity};
 
 use crate::hook::{self, usercall_trampoline};
@@ -16,7 +16,7 @@ usercall_trampoline!(fn trampoline_cgametask_handle_message;
 unsafe extern "cdecl" fn cgametask_handle_message_impl(
     this: *mut WorldEntity,
     sender: *mut BaseEntity,
-    msg_type: TaskMessage,
+    msg_type: EntityMessage,
     size: u32,
     data: *const u8,
 ) {

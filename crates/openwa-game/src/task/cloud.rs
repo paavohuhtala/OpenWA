@@ -110,7 +110,7 @@ const _: () = assert!(core::mem::size_of::<CloudEntity>() == 0x74);
 // Generate typed vtable method wrappers: write_replay_state(), handle_message().
 bind_CloudEntityVtable!(CloudEntity, base.vtable);
 
-use crate::game::TaskMessage;
+use crate::game::EntityMessage;
 use crate::render::message::RenderMessage;
 use crate::render::sprite::sprite_op::SpriteOp;
 
@@ -125,13 +125,13 @@ use crate::render::sprite::sprite_op::SpriteOp;
 pub unsafe extern "thiscall" fn cloud_handle_message(
     this: *mut CloudEntity,
     sender: *mut BaseEntity,
-    msg_type: TaskMessage,
+    msg_type: EntityMessage,
     size: u32,
     data: *const u8,
 ) {
     unsafe {
         match msg_type {
-            TaskMessage::FrameFinish => {
+            EntityMessage::FrameFinish => {
                 // Advance Y position
                 (*this).anim_phase = Fixed((*this).anim_phase.0 + (*this).phase_speed.0);
 
@@ -167,7 +167,7 @@ pub unsafe extern "thiscall" fn cloud_handle_message(
                 }
             }
 
-            TaskMessage::RenderScene => {
+            EntityMessage::RenderScene => {
                 let world = {
                     let this = this as *const BaseEntity;
                     (*this).world
@@ -202,7 +202,7 @@ pub unsafe extern "thiscall" fn cloud_handle_message(
                 }
             }
 
-            TaskMessage::SetWind if !data.is_null() => {
+            EntityMessage::SetWind if !data.is_null() => {
                 (*this).wind_target = Fixed(*(data as *const i32));
             }
 

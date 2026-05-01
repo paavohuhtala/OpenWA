@@ -2,15 +2,15 @@ use bytemuck::{Pod, Zeroable};
 use openwa_core::fixed::Fixed;
 use openwa_core::weapon::WeaponId;
 
-/// Inter-task message types for the game's event/message passing system.
+/// Inter-entity message types for the game's event/message passing system.
 ///
-/// Tasks communicate by sending these messages through the hierarchy.
+/// Entities communicate by sending these messages through the hierarchy.
 /// Note: there are gaps in the numbering (10, 24-25, 65-66, 82-83, 87, 95).
 ///
 /// Source: wkJellyWorm Constants.h
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(u32)]
-pub enum TaskMessage {
+pub enum EntityMessage {
     None = 0,
     FrameStart = 1,
     FrameFinish = 2,
@@ -148,7 +148,7 @@ pub enum TaskMessage {
     Unknown132 = 132,
 }
 
-impl TryFrom<u32> for TaskMessage {
+impl TryFrom<u32> for EntityMessage {
     type Error = u32;
 
     fn try_from(value: u32) -> Result<Self, Self::Error> {
@@ -172,11 +172,11 @@ impl TryFrom<u32> for TaskMessage {
     }
 }
 
-pub trait TaskMessageData: Pod {
-    const MESSAGE_TYPE: TaskMessage;
+pub trait EntityMessageData: Pod {
+    const MESSAGE_TYPE: EntityMessage;
 }
 
-/// Payload for [`TaskMessage::Explosion`]. Built by `create_explosion`
+/// Payload for [`EntityMessage::Explosion`]. Built by `create_explosion`
 /// and consumed by every `WorldEntity::HandleMessage` reached through the
 /// broadcast.
 #[repr(C)]
@@ -199,11 +199,11 @@ pub struct ExplosionMessage {
 // 7 dwords × 4 bytes = 28 = 0x1C. Matches WA's populated payload range.
 const _: () = assert!(core::mem::size_of::<ExplosionMessage>() == 0x1C);
 
-impl TaskMessageData for ExplosionMessage {
-    const MESSAGE_TYPE: TaskMessage = TaskMessage::Explosion;
+impl EntityMessageData for ExplosionMessage {
+    const MESSAGE_TYPE: EntityMessage = EntityMessage::Explosion;
 }
 
-/// Payload for [`TaskMessage::SpecialImpact`]. Built by `SpecialImpact`
+/// Payload for [`EntityMessage::SpecialImpact`]. Built by `SpecialImpact`
 /// (0x005193D0) — drill/prod/baseball-bat-style weapons broadcast it to
 /// every receiver inside an axis-aligned box around the hit. WA reports
 /// `0x408` for the size (oversized scratch frame) but only this 0x1C
@@ -231,41 +231,41 @@ pub struct SpecialImpactMessage {
 
 const _: () = assert!(core::mem::size_of::<SpecialImpactMessage>() == 0x1C);
 
-impl TaskMessageData for SpecialImpactMessage {
-    const MESSAGE_TYPE: TaskMessage = TaskMessage::SpecialImpact;
+impl EntityMessageData for SpecialImpactMessage {
+    const MESSAGE_TYPE: EntityMessage = EntityMessage::SpecialImpact;
 }
 
-/// Empty payload for [`TaskMessage::UpdateNonCritical`]. Broadcast at the
+/// Empty payload for [`EntityMessage::UpdateNonCritical`]. Broadcast at the
 /// head of `reset_frame_state` once per frame.
 #[repr(C)]
 #[derive(Clone, Copy, Zeroable, Pod, Debug)]
 pub struct UpdateNonCriticalMessage;
 
-impl TaskMessageData for UpdateNonCriticalMessage {
-    const MESSAGE_TYPE: TaskMessage = TaskMessage::UpdateNonCritical;
+impl EntityMessageData for UpdateNonCriticalMessage {
+    const MESSAGE_TYPE: EntityMessage = EntityMessage::UpdateNonCritical;
 }
 
-/// Empty payload for [`TaskMessage::TurnEndMaybe`] (msg 0x75). Sent to
+/// Empty payload for [`EntityMessage::TurnEndMaybe`] (msg 0x75). Sent to
 /// `WorldRootEntity` at multiple end-of-round transitions.
 #[repr(C)]
 #[derive(Clone, Copy, Zeroable, Pod, Debug)]
 pub struct TurnEndMaybeMessage;
 
-impl TaskMessageData for TurnEndMaybeMessage {
-    const MESSAGE_TYPE: TaskMessage = TaskMessage::TurnEndMaybe;
+impl EntityMessageData for TurnEndMaybeMessage {
+    const MESSAGE_TYPE: EntityMessage = EntityMessage::TurnEndMaybe;
 }
 
-/// Empty payload for [`TaskMessage::Unknown122`] (msg 0x7A). Sent from
+/// Empty payload for [`EntityMessage::Unknown122`] (msg 0x7A). Sent from
 /// `step_frame` when a sentinel field on `GameInfo` matches.
 #[repr(C)]
 #[derive(Clone, Copy, Zeroable, Pod, Debug)]
 pub struct Unknown122Message;
 
-impl TaskMessageData for Unknown122Message {
-    const MESSAGE_TYPE: TaskMessage = TaskMessage::Unknown122;
+impl EntityMessageData for Unknown122Message {
+    const MESSAGE_TYPE: EntityMessage = EntityMessage::Unknown122;
 }
 
-/// Payload for [`TaskMessage::Unknown130`] (msg 0x82). Last of three
+/// Payload for [`EntityMessage::Unknown130`] (msg 0x82). Last of three
 /// messages broadcast by `GameRuntime::BroadcastFrameTiming` (0x0052A9C0).
 /// Carries the QPC time delta and frequency for the just-completed render
 /// frame plus a replay-mode flag. WA leaves the trailing 8 bytes
@@ -287,11 +287,11 @@ pub struct Unknown130Message {
 
 const _: () = assert!(core::mem::size_of::<Unknown130Message>() == 0x18);
 
-impl TaskMessageData for Unknown130Message {
-    const MESSAGE_TYPE: TaskMessage = TaskMessage::Unknown130;
+impl EntityMessageData for Unknown130Message {
+    const MESSAGE_TYPE: EntityMessage = EntityMessage::Unknown130;
 }
 
-/// Payload for [`TaskMessage::Unknown131`] (msg 0x83). Conditional middle
+/// Payload for [`EntityMessage::Unknown131`] (msg 0x83). Conditional middle
 /// message broadcast by `GameRuntime::BroadcastFrameTiming` (0x0052A9C0) when
 /// `world.[0x98AC] == 0 && replay_flag_a == 0`.
 #[repr(C)]
@@ -308,11 +308,11 @@ pub struct Unknown131Message {
 
 const _: () = assert!(core::mem::size_of::<Unknown131Message>() == 0xC);
 
-impl TaskMessageData for Unknown131Message {
-    const MESSAGE_TYPE: TaskMessage = TaskMessage::Unknown131;
+impl EntityMessageData for Unknown131Message {
+    const MESSAGE_TYPE: EntityMessage = EntityMessage::Unknown131;
 }
 
-/// Payload for [`TaskMessage::Unknown132`] (msg 0x84). First of three
+/// Payload for [`EntityMessage::Unknown132`] (msg 0x84). First of three
 /// messages broadcast by `GameRuntime::BroadcastFrameTiming` (0x0052A9C0).
 #[repr(C)]
 #[derive(Clone, Copy, Zeroable, Pod, Debug)]
@@ -324,8 +324,8 @@ pub struct Unknown132Message {
 
 const _: () = assert!(core::mem::size_of::<Unknown132Message>() == 0x4);
 
-impl TaskMessageData for Unknown132Message {
-    const MESSAGE_TYPE: TaskMessage = TaskMessage::Unknown132;
+impl EntityMessageData for Unknown132Message {
+    const MESSAGE_TYPE: EntityMessage = EntityMessage::Unknown132;
 }
 
 /// Damage report sent up to `WorldRootEntity` when an entity has its
@@ -339,11 +339,11 @@ pub struct ExplosionReportMessage {
     pub damage_percent: i32,
 }
 
-impl TaskMessageData for ExplosionReportMessage {
-    const MESSAGE_TYPE: TaskMessage = TaskMessage::ExplosionReport;
+impl EntityMessageData for ExplosionReportMessage {
+    const MESSAGE_TYPE: EntityMessage = EntityMessage::ExplosionReport;
 }
 
-/// Payload for [`TaskMessage::DetonateWeapon`] (broadcast by
+/// Payload for [`EntityMessage::DetonateWeapon`] (broadcast by
 /// `TeamEntity::HandleMessage` to its children when the team surrenders, on
 /// game versions > 0xF4).
 #[repr(C)]
@@ -352,11 +352,11 @@ pub struct DetonateWeaponMessage {
     pub team_index: u32,
 }
 
-impl TaskMessageData for DetonateWeaponMessage {
-    const MESSAGE_TYPE: TaskMessage = TaskMessage::DetonateWeapon;
+impl EntityMessageData for DetonateWeaponMessage {
+    const MESSAGE_TYPE: EntityMessage = EntityMessage::DetonateWeapon;
 }
 
-/// Payload for [`TaskMessage::Surrender`] (sent by the Surrender weapon
+/// Payload for [`EntityMessage::Surrender`] (sent by the Surrender weapon
 /// (subtype 13) and by `TeamEntity::HandleMessage` when broadcasting end of
 /// turn).
 #[repr(C)]
@@ -365,22 +365,22 @@ pub struct SurrenderMessage {
     pub team_index: u32,
 }
 
-impl TaskMessageData for SurrenderMessage {
-    const MESSAGE_TYPE: TaskMessage = TaskMessage::Surrender;
+impl EntityMessageData for SurrenderMessage {
+    const MESSAGE_TYPE: EntityMessage = EntityMessage::Surrender;
 }
 
-/// Payload for [`TaskMessage::Freeze`] (sent by the Freeze weapon, subtype 20).
+/// Payload for [`EntityMessage::Freeze`] (sent by the Freeze weapon, subtype 20).
 #[repr(C)]
 #[derive(Clone, Copy, Zeroable, Pod, Debug)]
 pub struct FreezeMessage {
     pub team_index: u32,
 }
 
-impl TaskMessageData for FreezeMessage {
-    const MESSAGE_TYPE: TaskMessage = TaskMessage::Freeze;
+impl EntityMessageData for FreezeMessage {
+    const MESSAGE_TYPE: EntityMessage = EntityMessage::Freeze;
 }
 
-/// Payload for [`TaskMessage::SkipGoOrMailMineMole`] (sent by the
+/// Payload for [`EntityMessage::SkipGoOrMailMineMole`] (sent by the
 /// Mail/Mine/Mole weapon family, subtype 14).
 #[repr(C)]
 #[derive(Clone, Copy, Zeroable, Pod, Debug)]
@@ -388,11 +388,11 @@ pub struct SkipGoOrMailMineMoleMessage {
     pub team_index: u32,
 }
 
-impl TaskMessageData for SkipGoOrMailMineMoleMessage {
-    const MESSAGE_TYPE: TaskMessage = TaskMessage::SkipGoOrMailMineMole;
+impl EntityMessageData for SkipGoOrMailMineMoleMessage {
+    const MESSAGE_TYPE: EntityMessage = EntityMessage::SkipGoOrMailMineMole;
 }
 
-/// Payload for [`TaskMessage::EarthquakeOrSelectWorm`] (sent by the Select
+/// Payload for [`EntityMessage::EarthquakeOrSelectWorm`] (sent by the Select
 /// Worm weapon, subtype 21).
 #[repr(C)]
 #[derive(Clone, Copy, Zeroable, Pod, Debug)]
@@ -402,8 +402,8 @@ pub struct SelectWormMessage {
     pub team_index: u32,
 }
 
-impl TaskMessageData for SelectWormMessage {
-    const MESSAGE_TYPE: TaskMessage = TaskMessage::EarthquakeOrSelectWorm;
+impl EntityMessageData for SelectWormMessage {
+    const MESSAGE_TYPE: EntityMessage = EntityMessage::EarthquakeOrSelectWorm;
 }
 
 #[repr(C)]
@@ -415,11 +415,11 @@ pub struct PoisonWormMessage {
     pub team_index: u32,
 }
 
-impl TaskMessageData for PoisonWormMessage {
-    const MESSAGE_TYPE: TaskMessage = TaskMessage::PoisonWorm;
+impl EntityMessageData for PoisonWormMessage {
+    const MESSAGE_TYPE: EntityMessage = EntityMessage::PoisonWorm;
 }
 
-/// Payload for [`TaskMessage::CreateAnimation`] (msg 0x56).
+/// Payload for [`EntityMessage::CreateAnimation`] (msg 0x56).
 ///
 /// Constructed by `SpawnEffect_Maybe` (WA 0x00547C30) on a 0x408-byte stack
 /// scratch buffer and forwarded to `WorldRootEntity::HandleMessage`. WA only
@@ -465,8 +465,8 @@ pub struct CreateAnimationMessage {
 
 const _: () = assert!(core::mem::size_of::<CreateAnimationMessage>() == 0x408);
 
-impl TaskMessageData for CreateAnimationMessage {
-    const MESSAGE_TYPE: TaskMessage = TaskMessage::CreateAnimation;
+impl EntityMessageData for CreateAnimationMessage {
+    const MESSAGE_TYPE: EntityMessage = EntityMessage::CreateAnimation;
 }
 
 #[repr(C)]
@@ -477,8 +477,8 @@ pub struct RaiseWaterMessage {
     pub unknown1: i32,
 }
 
-impl TaskMessageData for RaiseWaterMessage {
-    const MESSAGE_TYPE: TaskMessage = TaskMessage::RaiseWater;
+impl EntityMessageData for RaiseWaterMessage {
+    const MESSAGE_TYPE: EntityMessage = EntityMessage::RaiseWater;
 }
 
 #[repr(C)]
@@ -488,16 +488,16 @@ pub struct NukeBlastMessage {
     pub unknown1: u32,
 }
 
-impl TaskMessageData for NukeBlastMessage {
-    const MESSAGE_TYPE: TaskMessage = TaskMessage::NukeBlast;
+impl EntityMessageData for NukeBlastMessage {
+    const MESSAGE_TYPE: EntityMessage = EntityMessage::NukeBlast;
 }
 
 #[repr(C)]
 #[derive(Clone, Copy, Zeroable, Pod)]
 pub struct ScalesOfJusticeMessage;
 
-impl TaskMessageData for ScalesOfJusticeMessage {
-    const MESSAGE_TYPE: TaskMessage = TaskMessage::ScalesOfJustice;
+impl EntityMessageData for ScalesOfJusticeMessage {
+    const MESSAGE_TYPE: EntityMessage = EntityMessage::ScalesOfJustice;
 }
 
 #[repr(C)]
@@ -509,8 +509,8 @@ pub struct ArmageddonMessage {
     pub team_index: u32,
 }
 
-impl TaskMessageData for ArmageddonMessage {
-    const MESSAGE_TYPE: TaskMessage = TaskMessage::Armageddon;
+impl EntityMessageData for ArmageddonMessage {
+    const MESSAGE_TYPE: EntityMessage = EntityMessage::Armageddon;
 }
 
 #[repr(C)]
@@ -526,14 +526,14 @@ pub struct WeaponReleasedMessage {
     pub weapon: WeaponId,
 }
 
-impl TaskMessageData for WeaponReleasedMessage {
-    const MESSAGE_TYPE: TaskMessage = TaskMessage::WeaponReleased;
+impl EntityMessageData for WeaponReleasedMessage {
+    const MESSAGE_TYPE: EntityMessage = EntityMessage::WeaponReleased;
 }
 
 #[repr(C)]
 #[derive(Clone, Copy, Zeroable, Pod)]
 pub struct RenderSceneMessage;
 
-impl TaskMessageData for RenderSceneMessage {
-    const MESSAGE_TYPE: TaskMessage = TaskMessage::RenderScene;
+impl EntityMessageData for RenderSceneMessage {
+    const MESSAGE_TYPE: EntityMessage = EntityMessage::RenderScene;
 }

@@ -1,6 +1,6 @@
 //! CreateExplosion — pure-Rust port of 0x00548080.
 //!
-//! Sends `TaskMessage::Explosion` to the per-game `WorldRootEntity` root, which
+//! Sends `EntityMessage::Explosion` to the per-game `WorldRootEntity` root, which
 //! broadcasts to its children. Every `WorldEntity` child then runs the damage
 //! calculation in its own `HandleMessage`.
 //!

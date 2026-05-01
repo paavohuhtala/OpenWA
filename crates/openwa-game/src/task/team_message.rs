@@ -4,15 +4,15 @@
 //! for messages where both sender and receiver are implemented in Rust.
 //! Messages not yet ported remain as raw vtable dispatches.
 
-use crate::game::TaskMessage;
+use crate::game::EntityMessage;
 
 /// Typed messages handled by TeamEntity in Rust.
 ///
-/// Each variant corresponds to a specific `TaskMessage` value and carries
+/// Each variant corresponds to a specific `EntityMessage` value and carries
 /// its payload as typed fields instead of a raw byte buffer.
 #[derive(Debug, Clone, Copy)]
 pub enum TeamMessage {
-    /// 0x2B (TaskMessage::Surrender): Sent by the Surrender weapon (subtype 13).
+    /// 0x2B (EntityMessage::Surrender): Sent by the Surrender weapon (subtype 13).
     /// Sets a per-team flag and optionally broadcasts DetonateWeapon.
     /// Handled by WorldRootEntity::HandleMessage which also triggers end-turn logic.
     Surrender {
@@ -32,8 +32,8 @@ impl TeamMessage {
     /// `data` must be valid for `size` bytes when `size > 0`.
     pub unsafe fn from_raw(msg_type: u32, _size: u32, data: *const u8) -> Option<Self> {
         unsafe {
-            match TaskMessage::try_from(msg_type) {
-                Ok(TaskMessage::Surrender) => {
+            match EntityMessage::try_from(msg_type) {
+                Ok(EntityMessage::Surrender) => {
                     if data.is_null() {
                         return None;
                     }
@@ -52,7 +52,7 @@ impl TeamMessage {
         match self {
             TeamMessage::Surrender { team_index } => {
                 buf[0..4].copy_from_slice(&team_index.to_ne_bytes());
-                (TaskMessage::Surrender as u32, 4)
+                (EntityMessage::Surrender as u32, 4)
             }
         }
     }

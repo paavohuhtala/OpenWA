@@ -15,7 +15,7 @@ use openwa_core::fixed::Fixed;
 
 use crate::audio::DSSound;
 use crate::game::message::{
-    ExplosionMessage, ExplosionReportMessage, SpecialImpactMessage, TaskMessage,
+    EntityMessage, ExplosionMessage, ExplosionReportMessage, SpecialImpactMessage,
 };
 use crate::task::{BaseEntity, WorldEntity, WorldRootEntity};
 
@@ -40,15 +40,17 @@ const OFFSET_HEALTH: usize = 0x48;
 pub unsafe extern "thiscall" fn cgametask_handle_message(
     this: *mut WorldEntity,
     sender: *mut BaseEntity,
-    msg_type: TaskMessage,
+    msg_type: EntityMessage,
     size: u32,
     data: *const u8,
 ) {
     unsafe {
         match msg_type {
-            TaskMessage::FrameFinish => clear_owned_sound_handle(this),
-            TaskMessage::Explosion => apply_explosion_damage(this, data as *const ExplosionMessage),
-            TaskMessage::SpecialImpact => {
+            EntityMessage::FrameFinish => clear_owned_sound_handle(this),
+            EntityMessage::Explosion => {
+                apply_explosion_damage(this, data as *const ExplosionMessage)
+            }
+            EntityMessage::SpecialImpact => {
                 dispatch_special_impact(this, data as *const SpecialImpactMessage)
             }
             _ => BaseEntity::broadcast_message_raw(

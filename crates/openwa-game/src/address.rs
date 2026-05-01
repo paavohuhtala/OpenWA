@@ -1462,7 +1462,7 @@ pub mod va {
 
         /// Deferred hurry flag. Set to 1 during replay instead of sending network
         /// packet. GameFrameEndProcessor (0x531960) reads this and converts it to
-        /// a local Hurry message (TaskMessage 0x17 = 23).
+        /// a local Hurry message (EntityMessage 0x17 = 23).
         pub const DEFERRED_HURRY_FLAG: u32 = 0x7E41;
     }
 

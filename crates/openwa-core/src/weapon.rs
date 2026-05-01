@@ -246,7 +246,7 @@ pub enum SpecialFireSubtype {
     Blowtorch = 11,
     /// Parachute weapon (id=39, sub34=12).
     Parachute = 12,
-    /// Surrender weapon (id=58, sub34=13). Sends message 0x2B (TaskMessage::Surrender).
+    /// Surrender weapon (id=58, sub34=13). Sends message 0x2B (EntityMessage::Surrender).
     Surrender = 13,
     MailMineMole = 14,
     // 15: unknown
@@ -257,7 +257,7 @@ pub enum SpecialFireSubtype {
     /// Unknown — no weapon observed using sub34=18 in replay tests.
     Unknown18 = 18,
     SkipGo = 19,
-    /// Freeze weapon (id=60, sub34=20). Sends message 0x29 (TaskMessage::Freeze).
+    /// Freeze weapon (id=60, sub34=20). Sends message 0x29 (EntityMessage::Freeze).
     Freeze = 20,
     SelectWorm = 21,
     /// ScalesOfJustice weapon (id=41, sub34=22).
