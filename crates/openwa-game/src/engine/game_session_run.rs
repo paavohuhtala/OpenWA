@@ -12,9 +12,6 @@
 //!    invoked indirectly from `on_headless_pre_loop`.
 //!  - `GameEngine::Shutdown` (0x0056DCD0, stdcall 1 arg)
 //!
-//! `GameEngine::InitHardware` (0x0056D350) and `GameSession::ProcessFrame`
-//! (0x00572C80) are already replaced in Rust — calls go through the hooked
-//! WA address (and resolve to the Rust impl via the trampoline).
 
 use core::mem::transmute;
 
@@ -23,6 +20,7 @@ use windows_sys::Win32::Foundation::HWND;
 use crate::address::va;
 use crate::engine::game_info::GameInfo;
 use crate::engine::game_session::{GameSession, GameSessionVtable, get_game_session};
+use crate::engine::hardware_init::init_hardware;
 use crate::engine::main_loop::process_frame::process_frame;
 use crate::engine::pump_messages::pump_messages;
 use crate::rebase::rb;
@@ -200,10 +198,8 @@ pub unsafe fn run_game_session(
             drain_pending_messages();
         }
 
-        // ── Hardware init (replaced in Rust; goes through hook trampoline) ──
-        let init_hw: unsafe extern "thiscall" fn(*mut GameInfo, u32, u32, u32) -> u32 =
-            transmute(rb(va::GAME_ENGINE_INIT_HARDWARE));
-        let ok = init_hw(game_info, h_wnd as u32, display_p3, display_p4);
+        // ── Hardware init (replaced in Rust; direct call) ──────────────────
+        let ok = init_hardware(game_info, h_wnd, display_p3, display_p4);
 
         if ok == 0 {
             // Init failure path — tear down what we have and return 0.

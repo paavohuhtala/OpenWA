@@ -8,6 +8,7 @@ pub mod game_session_run;
 pub mod game_state;
 pub mod game_state_init;
 pub mod game_state_stream;
+pub mod hardware_init;
 pub mod log_sink;
 pub mod main_loop;
 pub mod menu_panel;

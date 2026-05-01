@@ -2,6 +2,7 @@ use openwa_core::fixed::Fixed;
 
 use openwa_game::vtable;
 use windows::Win32::Media::Audio::DirectSound::IDirectSoundBuffer;
+use windows_sys::Win32::Foundation::HWND;
 
 use crate::audio::sound_id::SoundId;
 
@@ -154,7 +155,7 @@ pub struct DSSound {
     /// 0x000: Vtable pointer (0x66AF20)
     pub vtable: *const DSSoundVtable,
     /// 0x004: HWND (set after construction)
-    pub hwnd: Ptr32,
+    pub hwnd: HWND,
     /// 0x008: IDirectSound* (from DirectSoundCreate)
     pub direct_sound: Ptr32,
     /// 0x00C: Primary buffer caps/format output from init_buffers
@@ -967,7 +968,7 @@ impl DSSound {
     ///
     /// # Safety
     /// Must be called from within the WA.exe process (needs rebased vtable).
-    pub unsafe fn new(hwnd: u32) -> Self {
+    pub unsafe fn new(hwnd: HWND) -> Self {
         unsafe {
             use crate::address::va;
             use crate::rebase::rb;
