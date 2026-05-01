@@ -268,10 +268,17 @@ pub struct WormEntity {
     pub team_index: u32,
     /// 0x100: Worm index within team (0-based); 4th constructor param
     pub worm_index: u32,
-    /// 0x104: Unknown flag (checked in OnContactEntity)
-    pub _unknown_104: u32,
-    /// 0x108–0x10F: Unknown
-    pub _unknown_108: [u8; 8],
+    /// 0x104: This worm currently controls its team's turn.
+    /// Set to 1 by `StartTurn` (msg 0x34), cleared to 0 by `FinishTurn` (msg 0x37).
+    /// Gates many turn-only operations in `HandleMessage` (weapon select, fire,
+    /// movement, etc.). Also checked in `OnContactEntity` and the kill-event
+    /// dispatch in `vt_set_state` to take a dying-active-worm path.
+    pub turn_active: u32,
+    /// 0x108: Worm's turn is paused (e.g. weapon UI overlay open).
+    /// Set to 1 by `PauseTurn` (msg 0x35), cleared to 0 by `ResumeTurn` (msg 0x36).
+    pub turn_paused: u32,
+    /// 0x10C: Unknown
+    pub _unknown_10c: u32,
     /// 0x110–0x137: Ten u32s copied from spawn init_data (5th constructor param)
     pub spawn_params: [u32; 10],
     /// 0x138–0x143: Unknown
@@ -300,8 +307,11 @@ pub struct WormEntity {
     pub _unknown_168: [u8; 0x170 - 0x168],
     /// 0x170: Currently selected weapon ID.
     pub selected_weapon: KnownWeaponId,
-    /// 0x174–0x177: Unknown
-    pub _unknown_174: [u8; 4],
+    /// 0x174: Ammo count for the currently selected weapon.
+    /// Snapshotted by `SelectWeapon` (msg 0x33) via `GetAmmo()` and used to
+    /// gate firing (when 0, weapon cannot be fired) and to track minimum
+    /// ammo seen (`_field_b1`).
+    pub selected_weapon_ammo: i32,
     /// 0x178: Display health (animated toward target). Used for health bar interpolation.
     /// Stored as `00 00 XX 00` where XX is health — actual layout is u16 at +0x17A.
     pub display_health_raw: u32,
@@ -323,8 +333,29 @@ pub struct WormEntity {
     pub facing_direction_2: i32,
     /// 0x1AC: Inverted facing direction. +1 = left, -1 = right.
     pub facing_direction_inv: i32,
-    /// 0x1B0–0x1EB: Unknown
-    pub _unknown_1b0: [u8; 0x1EC - 0x1B0],
+    /// 0x1B0–0x1BF: Unknown
+    pub _unknown_1b0: [u8; 0x1C0 - 0x1B0],
+    /// 0x1C0: Worm is in retreat phase (post-fire timer until turn ends).
+    /// Set to 1 by `RetreatStarted` (msg 0x3C), cleared to 0 by `RetreatFinished` (msg 0x3D).
+    pub retreat_active: u32,
+    /// 0x1C4: Thinking (chevrons-over-head) animator state.
+    /// 1 = ramping up (set by `ThinkingShow`, msg 0x1A), 2 = ramping down
+    /// (set by `ThinkingHide`, msg 0x1B). Cleared to 0 once the value at
+    /// `thinking_anim` saturates.
+    pub thinking_state: u32,
+    /// 0x1C8: Thinking animator value (0..0x10000). Driven by `thinking_state`
+    /// in `WormEntity::BehaviorTick`: increments by `0x51E/frame` while ramping.
+    pub thinking_anim: u32,
+    /// 0x1CC: Snapshot of `pos_x` taken when `thinking_state` transitions 1→2
+    /// by `WormEntity__CommitCursorPos_Maybe` (also via msgs 0x1B / 0x37).
+    /// Used by `WormEntity__DrawCursorMarker_Maybe` to keep the chevrons sprite
+    /// anchored at the worm's old position while it fades out.
+    pub thinking_anim_pos_x: Fixed,
+    /// 0x1D0: Snapshot of `pos_y` (companion to `thinking_anim_pos_x`).
+    pub thinking_anim_pos_y: Fixed,
+    /// 0x1D4–0x1EB: Unknown (input-direction flags at +0x1D4..+0x1E0,
+    /// edge-triggered move/face requests from messages 0x1E..0x23)
+    pub _unknown_1d4: [u8; 0x1EC - 0x1D4],
     /// 0x1EC: Movement streak counter. Increases ~once per second while moving
     /// in one direction. Resets to 0 when movement resumes after a stop.
     /// Set to -1 when the worm is blocked (e.g. hits a wall).
@@ -518,8 +549,10 @@ impl WormEntity {
                 return;
             }
 
-            let kind: u32 = if (*this)._unknown_104 != 0 {
-                // Dying / out-of-play worm path.
+            let kind: u32 = if (*this).turn_active != 0 {
+                // Active worm dying mid-turn — different event kind than passive
+                // worm deaths (e.g. collateral damage). `turn_active` is set by
+                // `StartTurn` (msg 0x34) and cleared by `FinishTurn` (msg 0x37).
                 if (*world).fast_forward_request != 0 {
                     11
                 } else {
@@ -527,8 +560,7 @@ impl WormEntity {
                     //   byte at GameInfo + team_index * 0xBB8 - 0x768
                     // For team_index == 1 this hits `team_records[0].speech_bank_id`
                     // (the alliance group); higher indices step through the per-team
-                    // records. The team_index == 0 case would read before the struct,
-                    // so `_unknown_104` presumably never gates that case in practice.
+                    // records. The team_index == 0 case would read before the struct.
                     // Faithful to WA's address arithmetic; semantics deserve more RE.
                     let game_info = (*world).game_info as *const u8;
                     let team_index = (*this).team_index as i32;

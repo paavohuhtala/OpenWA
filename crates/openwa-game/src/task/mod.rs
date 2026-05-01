@@ -12,6 +12,7 @@ pub mod team;
 pub mod team_message;
 pub mod world_root;
 pub mod worm;
+pub mod worm_handle_message;
 
 pub use arrow::{ArrowEntity, ArrowEntityVtable};
 pub use base::{
