@@ -36,6 +36,7 @@ static mut WORM_COMMIT_PENDING_HEALTH_ADDR: u32 = 0;
 static mut WORM_CANCEL_ACTIVE_WEAPON_ADDR: u32 = 0;
 static mut WORM_APPLY_DAMAGE_ADDR: u32 = 0;
 static mut WORM_SELECT_WEAPON_ADDR: u32 = 0;
+static mut WORM_START_FIRING_ADDR: u32 = 0;
 
 pub unsafe fn init_addrs() {
     unsafe {
@@ -45,6 +46,7 @@ pub unsafe fn init_addrs() {
         WORM_CANCEL_ACTIVE_WEAPON_ADDR = rb(va::WORM_ENTITY_CANCEL_ACTIVE_WEAPON);
         WORM_APPLY_DAMAGE_ADDR = rb(va::WORM_ENTITY_APPLY_DAMAGE);
         WORM_SELECT_WEAPON_ADDR = rb(va::WORM_ENTITY_SELECT_WEAPON);
+        WORM_START_FIRING_ADDR = rb(va::WORM_ENTITY_START_FIRING);
     }
 }
 
@@ -123,6 +125,18 @@ unsafe extern "stdcall" fn bridge_apply_damage(_this: *mut WormEntity, _arg1: i3
         "pop esi",
         "ret 12",
         addr = sym WORM_APPLY_DAMAGE_ADDR,
+    );
+}
+
+/// `__usercall(EAX = this)`, plain RET, no stack args.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_start_firing(_this: *mut WormEntity) {
+    core::arch::naked_asm!(
+        "mov eax, dword ptr [esp+4]",
+        "mov edx, dword ptr [{addr}]",
+        "call edx",
+        "ret 4",
+        addr = sym WORM_START_FIRING_ADDR,
     );
 }
 
@@ -302,6 +316,10 @@ pub unsafe extern "thiscall" fn handle_message(
             }
             EntityMessage::Unknown129 => {
                 msg_unknown_129(this, data);
+                true
+            }
+            EntityMessage::FireWeapon => {
+                msg_fire_weapon(this);
                 true
             }
             _ => false,
@@ -730,6 +748,14 @@ unsafe fn msg_weapon_claim_control(this: *mut WormEntity) {
 /// Self-call into `WormEntity::GetEntityData` (vt[3]) with query 0x7D1.
 /// Payload: `[i32 _, i32 worm_index, i16 x, i16 y, ...]`. The two i16 coords
 /// are sign-extended into a `[i32; 2]` out-buffer that vt[3] reads/writes.
+/// `WormStartFiring` is bridged (551 inst, cyclo 108 — too large to port).
+unsafe fn msg_fire_weapon(this: *mut WormEntity) {
+    unsafe {
+        pre_switch_a(this);
+        bridge_start_firing(this);
+    }
+}
+
 unsafe fn msg_unknown_129(this: *mut WormEntity, data: *const u8) {
     unsafe {
         if data.is_null() {

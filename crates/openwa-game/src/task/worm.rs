@@ -179,6 +179,10 @@ crate::define_addresses! {
         /// `(EDI = this, [stack] = weapon_id, ammo_count)`, RET 0x8. Called
         /// from `HandleMessage` case 0x33 (SelectWeapon).
         fn/Usercall WORM_ENTITY_SELECT_WEAPON = 0x0051AE50;
+        /// `WormStartFiring`. Usercall `(EAX = this)`, plain RET, no stack
+        /// args. 551 instructions, cyclo 108 — too large to port; bridged
+        /// from `HandleMessage` case 0x26 (FireWeapon).
+        fn/Usercall WORM_ENTITY_START_FIRING = 0x0051B7F0;
     }
 
     class "EntityActivityQueue" {
