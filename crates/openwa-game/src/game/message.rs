@@ -515,6 +515,22 @@ impl EntityMessageData for ArmageddonMessage {
     const MESSAGE_TYPE: EntityMessage = EntityMessage::Armageddon;
 }
 
+/// Payload for [`EntityMessage::SelectWeapon`] (msg 0x33). Receivers compare
+/// `worm_index` against their own slot — the WA case body ignores `team_index`,
+/// so the broadcast is presumably already team-filtered upstream.
+#[repr(C)]
+#[derive(Clone, Copy, Zeroable, Pod, Debug)]
+pub struct SelectWeaponMessage {
+    pub team_index: u32,
+    pub worm_index: u32,
+    pub weapon_id: u32,
+    pub ammo_count: i32,
+}
+
+impl EntityMessageData for SelectWeaponMessage {
+    const MESSAGE_TYPE: EntityMessage = EntityMessage::SelectWeapon;
+}
+
 /// Payload for [`EntityMessage::WormMoved`] (msg 0x47). Broadcast addressed
 /// by `[team_index, worm_index]`; receiving worms set their internal
 /// "moved" marker only when both indices match.

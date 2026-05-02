@@ -160,6 +160,25 @@ crate::define_addresses! {
         /// also commits the cursor-marker pos and bumps a per-worm "first
         /// action of turn" counter. Called from `HandleMessage` Pre-switch A.
         fn/Usercall WORM_ENTITY_NOTIFY_MOVED = 0x0050F730;
+        /// `WormEntity::CommitPendingHealth_Maybe`. Usercall `(ESI = this)`,
+        /// plain RET, no stack args. Called from `HandleMessage` case 0x44
+        /// (ShowDamage); copies pending damage from `_field_188`/`_field_18C`
+        /// into the active health-display fields.
+        fn/Usercall WORM_ENTITY_COMMIT_PENDING_HEALTH = 0x00510830;
+        /// `WormEntity::CancelActiveWeapon_Maybe`. Usercall `(ESI = this)`,
+        /// plain RET, no stack args. Called from `HandleMessage` case 0x79
+        /// (WeaponClaimControl); ends the worm's active weapon if one is in
+        /// flight.
+        fn/Usercall WORM_ENTITY_CANCEL_ACTIVE_WEAPON = 0x0050E790;
+        /// `WormEntity::ApplyDamage_Maybe`. Usercall
+        /// `(ESI = this, [stack] = arg1, arg2)`, RET 0x8. Called from
+        /// `HandleMessage` case 0x42 (AdvanceWorm) with `(arg1=1, arg2=1)` —
+        /// applies the per-frame damage tick used by Drown/Strangle/etc.
+        fn/Usercall WORM_ENTITY_APPLY_DAMAGE = 0x0050F580;
+        /// `WormEntity::SelectWeapon_Maybe`. Usercall
+        /// `(EDI = this, [stack] = weapon_id, ammo_count)`, RET 0x8. Called
+        /// from `HandleMessage` case 0x33 (SelectWeapon).
+        fn/Usercall WORM_ENTITY_SELECT_WEAPON = 0x0051AE50;
     }
 
     class "EntityActivityQueue" {
@@ -301,8 +320,12 @@ pub struct WormEntity {
     pub _unknown_10c: u32,
     /// 0x110–0x137: Ten u32s copied from spawn init_data (5th constructor param)
     pub spawn_params: [u32; 10],
-    /// 0x138–0x143: Unknown
-    pub _unknown_138: [u8; 0x0C],
+    /// 0x138–0x13F: Unknown
+    pub _unknown_138: [u8; 8],
+    /// 0x140: Set to 1 by `TeamVictory` (msg 0x14). Companion of `_field_14c`;
+    /// both flags are written together as a "team has won this round" marker.
+    /// Reader TBD.
+    pub _field_140: u32,
     /// 0x144: Poison source bitmask — tracks which alliances have poisoned this worm.
     /// PoisonWorm handler (msg 0x51): `poison_source_mask |= alliance_bit`.
     /// Prevents double-poisoning from the same source.
@@ -311,8 +334,8 @@ pub struct WormEntity {
     /// PoisonWorm handler: `poison_damage += msg_data[0]`.
     /// ApplyPoison handler (msg 0x3E): subtracts this from health each turn.
     pub poison_damage: i32,
-    /// 0x14C–0x14F: Unknown
-    pub _unknown_14c: [u8; 4],
+    /// 0x14C: Set to 1 by `TeamVictory` (msg 0x14) — see `_field_140`.
+    pub _field_14c: u32,
     /// 0x150: Unknown (slot 9 in GetEntityData query 0x7D4 output)
     pub _unknown_150: u32,
     /// 0x154: Took-damage marker. Set to 1 by `WormDamaged` (msg 0x47) when

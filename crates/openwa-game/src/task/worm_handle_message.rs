@@ -29,7 +29,7 @@ use super::worm::{WormEntity, WormState};
 use crate::address::va;
 use crate::engine::EntityActivityQueue;
 use crate::engine::team_arena::TeamArena;
-use crate::game::message::{WeaponReleasedMessage, WormMovedMessage};
+use crate::game::message::{SelectWeaponMessage, WeaponReleasedMessage, WormMovedMessage};
 use crate::game::{EntityMessage, weapon_fire};
 use crate::rebase::rb;
 
@@ -47,12 +47,32 @@ static mut ENTITY_ACTIVITY_QUEUE_RESET_RANK_ADDR: u32 = 0;
 /// invoked from Pre-switch A.
 static mut WORM_NOTIFY_MOVED_ADDR: u32 = 0;
 
+/// Address of `WormEntity::CommitPendingHealth_Maybe` (0x00510830), the WA
+/// helper invoked from case 0x44 (ShowDamage).
+static mut WORM_COMMIT_PENDING_HEALTH_ADDR: u32 = 0;
+
+/// Address of `WormEntity::CancelActiveWeapon_Maybe` (0x0050E790), the WA
+/// helper invoked from case 0x79 (WeaponClaimControl).
+static mut WORM_CANCEL_ACTIVE_WEAPON_ADDR: u32 = 0;
+
+/// Address of `WormEntity::ApplyDamage_Maybe` (0x0050F580), the WA helper
+/// invoked from case 0x42 (AdvanceWorm).
+static mut WORM_APPLY_DAMAGE_ADDR: u32 = 0;
+
+/// Address of `WormEntity::SelectWeapon_Maybe` (0x0051AE50), the WA helper
+/// invoked from case 0x33 (SelectWeapon).
+static mut WORM_SELECT_WEAPON_ADDR: u32 = 0;
+
 /// Resolve runtime addresses for the bridges; called once from the DLL hook
 /// install path.
 pub unsafe fn init_addrs() {
     unsafe {
         ENTITY_ACTIVITY_QUEUE_RESET_RANK_ADDR = rb(va::ENTITY_ACTIVITY_QUEUE_RESET_RANK);
         WORM_NOTIFY_MOVED_ADDR = rb(va::WORM_ENTITY_NOTIFY_MOVED);
+        WORM_COMMIT_PENDING_HEALTH_ADDR = rb(va::WORM_ENTITY_COMMIT_PENDING_HEALTH);
+        WORM_CANCEL_ACTIVE_WEAPON_ADDR = rb(va::WORM_ENTITY_CANCEL_ACTIVE_WEAPON);
+        WORM_APPLY_DAMAGE_ADDR = rb(va::WORM_ENTITY_APPLY_DAMAGE);
+        WORM_SELECT_WEAPON_ADDR = rb(va::WORM_ENTITY_SELECT_WEAPON);
     }
 }
 
@@ -90,6 +110,71 @@ unsafe extern "stdcall" fn bridge_notify_moved(_this: *mut WormEntity) {
         "pop esi",
         "ret 4",
         addr = sym WORM_NOTIFY_MOVED_ADDR,
+    );
+}
+
+/// Bridge for `WormEntity::CommitPendingHealth_Maybe`
+/// (`__usercall(ESI = this)`, plain RET, no stack args).
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_commit_pending_health(_this: *mut WormEntity) {
+    core::arch::naked_asm!(
+        "push esi",
+        "mov esi, dword ptr [esp+8]",  // this (1 save + ret = 8)
+        "mov eax, dword ptr [{addr}]",
+        "call eax",
+        "pop esi",
+        "ret 4",
+        addr = sym WORM_COMMIT_PENDING_HEALTH_ADDR,
+    );
+}
+
+/// Bridge for `WormEntity::CancelActiveWeapon_Maybe`
+/// (`__usercall(ESI = this)`, plain RET, no stack args).
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_cancel_active_weapon(_this: *mut WormEntity) {
+    core::arch::naked_asm!(
+        "push esi",
+        "mov esi, dword ptr [esp+8]",  // this (1 save + ret = 8)
+        "mov eax, dword ptr [{addr}]",
+        "call eax",
+        "pop esi",
+        "ret 4",
+        addr = sym WORM_CANCEL_ACTIVE_WEAPON_ADDR,
+    );
+}
+
+/// Bridge for `WormEntity::ApplyDamage_Maybe`
+/// (`__usercall(ESI = this, [stack] = arg1, arg2)`, RET 0x8). The two stack
+/// args are the damage amount and a multiplier flag (case 0x42 passes `1, 1`).
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_apply_damage(_this: *mut WormEntity, _arg1: i32, _arg2: i32) {
+    core::arch::naked_asm!(
+        "push esi",
+        "mov esi, dword ptr [esp+8]",   // this (1 save + ret = 8)
+        "push dword ptr [esp+16]",      // arg2 (was [esp+16] before push)
+        "push dword ptr [esp+16]",      // arg1 (esp moved by 4 → arg1 now at +16)
+        "mov eax, dword ptr [{addr}]",
+        "call eax",                      // RET 0x8 cleans both stack args
+        "pop esi",
+        "ret 12",                        // we own the 3 stdcall stack args
+        addr = sym WORM_APPLY_DAMAGE_ADDR,
+    );
+}
+
+/// Bridge for `WormEntity::SelectWeapon_Maybe`
+/// (`__usercall(EDI = this, [stack] = weapon, ammo)`, RET 0x8).
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_select_weapon(_this: *mut WormEntity, _weapon: u32, _ammo: i32) {
+    core::arch::naked_asm!(
+        "push edi",
+        "mov edi, dword ptr [esp+8]",   // this
+        "push dword ptr [esp+16]",      // ammo
+        "push dword ptr [esp+16]",      // weapon (esp moved by 4)
+        "mov eax, dword ptr [{addr}]",
+        "call eax",
+        "pop edi",
+        "ret 12",
+        addr = sym WORM_SELECT_WEAPON_ADDR,
     );
 }
 
@@ -178,6 +263,7 @@ pub unsafe extern "thiscall" fn handle_message(
                 msg_face_right(this);
                 true
             }
+            EntityMessage::TeamVictory => msg_team_victory(this),
             EntityMessage::ThinkingShow => msg_thinking_show(this),
             EntityMessage::ThinkingHide => {
                 msg_thinking_hide(this);
@@ -240,6 +326,22 @@ pub unsafe extern "thiscall" fn handle_message(
             EntityMessage::TurnEndMaybe => msg_turn_end_maybe(this),
             EntityMessage::BringForward => {
                 msg_bring_forward(this);
+                true
+            }
+            EntityMessage::SelectWeapon => {
+                msg_select_weapon(this, data as *const SelectWeaponMessage);
+                true
+            }
+            EntityMessage::AdvanceWorm => {
+                msg_advance_worm(this);
+                true
+            }
+            EntityMessage::ShowDamage => {
+                msg_show_damage(this);
+                true
+            }
+            EntityMessage::WeaponClaimControl => {
+                msg_weapon_claim_control(this);
                 true
             }
             _ => false,
@@ -328,6 +430,43 @@ unsafe fn msg_face_right(this: *mut WormEntity) {
         pre_switch_a(this);
         pre_switch_b(this);
         (*this).facing_direction_2 = 1;
+    }
+}
+
+/// TeamVictory (0x14): set the two team-won flags, then — when the worm is
+/// not in the `Transitional` (0x64) state — drop into Idle and register an
+/// effect-event point at the worm's position.
+///
+/// SetState(Idle) is suppressed for two version-gated holdout states:
+/// `world.version_flag_4 >= 5` keeps state `0x7B`, and
+/// `world.version_flag_4 >= 9` keeps state `0x7C`. WA's exact predicate is
+/// `((vf4 < 5) || state != 0x7B) && ((vf4 < 9) || state != 0x7C)`.
+///
+/// When `state == Transitional` only the two flag stores happen and we fall
+/// through to the parent class.
+///
+/// Like cases 0x34/0x36, the WA call site loads `RegisterEventPoint`'s
+/// `(ECX, EDX) = (pos.x, pos.y)` from the function preamble's
+/// `local_82c/local_830` snapshot of `worm.base.pos_x/pos_y` — read them
+/// directly here.
+unsafe fn msg_team_victory(this: *mut WormEntity) -> bool {
+    unsafe {
+        (*this)._field_14c = 1;
+        (*this)._field_140 = 1;
+        let state = (*this).state();
+        if state == WormState::Transitional as u32 {
+            return false;
+        }
+        let world = (*(this as *const BaseEntity)).world;
+        let vf4 = (*world).version_flag_4;
+        let suppress = (vf4 >= 5 && state == 0x7B) || (vf4 >= 9 && state == 0x7C);
+        if !suppress {
+            WormEntity::set_state_raw(this, WormState::Idle);
+        }
+        let pos_x = (*this).base.pos_x.0;
+        let pos_y = (*this).base.pos_y.0;
+        crate::engine::world::GameWorld::register_event_point_raw(world, pos_x, pos_y);
+        true
     }
 }
 
@@ -605,5 +744,53 @@ unsafe fn msg_weapon_released(
         }
         (*this).aim_fade = [Fixed(0x10000); 8];
         true
+    }
+}
+
+/// SelectWeapon (0x33): if `data.worm_index` matches this worm and the
+/// network-mode flag (`_unknown_2cc`) is clear, snapshot the new weapon and
+/// ammo via `WormEntity::SelectWeapon_Maybe`. Pre-switch A fires beforehand
+/// only when both `data.ammo_count != 0` and `turn_active != 0`. Pre-switch B
+/// is not in the gate set for 0x33.
+///
+/// WA's case body is `if (data[1] == worm_index && _unknown_2cc == 0) { ... }`
+/// followed by `return;` regardless of the inner branch.
+unsafe fn msg_select_weapon(this: *mut WormEntity, message: *const SelectWeaponMessage) {
+    unsafe {
+        if message.is_null() {
+            return;
+        }
+        if (*message).ammo_count != 0 && (*this).turn_active != 0 {
+            pre_switch_a(this);
+        }
+        if (*message).worm_index == (*this).worm_index && (*this)._unknown_2cc == 0 {
+            bridge_select_weapon(this, (*message).weapon_id, (*message).ammo_count);
+        }
+    }
+}
+
+/// AdvanceWorm (0x42): tick the per-frame Drown/Strangle damage path via
+/// `WormEntity::ApplyDamage_Maybe(1, 1)`. No preamble — case is outside the
+/// pre-switch ranges.
+unsafe fn msg_advance_worm(this: *mut WormEntity) {
+    unsafe {
+        bridge_apply_damage(this, 1, 1);
+    }
+}
+
+/// ShowDamage (0x44): commit pending damage into the floating health label.
+/// Wraps `WormEntity::CommitPendingHealth_Maybe`. No preamble.
+unsafe fn msg_show_damage(this: *mut WormEntity) {
+    unsafe {
+        bridge_commit_pending_health(this);
+    }
+}
+
+/// WeaponClaimControl (0x79): cancel the worm's active weapon (used when a
+/// weapon-control event takes over input). Wraps
+/// `WormEntity::CancelActiveWeapon_Maybe`. No preamble.
+unsafe fn msg_weapon_claim_control(this: *mut WormEntity) {
+    unsafe {
+        bridge_cancel_active_weapon(this);
     }
 }
