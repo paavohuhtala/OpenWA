@@ -131,6 +131,12 @@ pub enum EntityMessage {
     FrameNumberWinsock = 114,
     TurnEndMaybe = 117,
     Unknown122 = 122,
+    /// 0x81 — sender unknown. Receivers query their own GetEntityData (vt[3])
+    /// with query 0x7D1 / sub-id 0x394, passing a packed (i16, i16) pair as
+    /// the out-buffer. WormEntity gates on its own slot match plus
+    /// `turn_active && !turn_paused`. Likely a coordinate hint sent during
+    /// active-turn input handling.
+    Unknown129 = 129,
     /// 0x82 (130) — broadcast by `GameRuntime::BroadcastFrameTiming` (0x0052A9C0)
     /// last of three. Payload is 24 bytes: `(elapsed_qpc: u64, freq_qpc: u64,
     /// replay_check_flag: u8, /* 3 bytes uninit in WA */, /* 4 bytes uninit in WA */)`.
@@ -165,7 +171,7 @@ impl TryFrom<u32> for EntityMessage {
             | 96..=114
             | 117
             | 122
-            | 130..=132 => {
+            | 129..=132 => {
                 // SAFETY: all matched values correspond to valid variants
                 Ok(unsafe { core::mem::transmute(value) })
             }

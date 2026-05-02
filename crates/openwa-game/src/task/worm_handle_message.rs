@@ -300,6 +300,10 @@ pub unsafe extern "thiscall" fn handle_message(
                 msg_weapon_claim_control(this);
                 true
             }
+            EntityMessage::Unknown129 => {
+                msg_unknown_129(this, data);
+                true
+            }
             _ => false,
         };
         if !handled {
@@ -720,5 +724,24 @@ unsafe fn msg_show_damage(this: *mut WormEntity) {
 unsafe fn msg_weapon_claim_control(this: *mut WormEntity) {
     unsafe {
         bridge_cancel_active_weapon(this);
+    }
+}
+
+/// Self-call into `WormEntity::GetEntityData` (vt[3]) with query 0x7D1.
+/// Payload: `[i32 _, i32 worm_index, i16 x, i16 y, ...]`. The two i16 coords
+/// are sign-extended into a `[i32; 2]` out-buffer that vt[3] reads/writes.
+unsafe fn msg_unknown_129(this: *mut WormEntity, data: *const u8) {
+    unsafe {
+        if data.is_null() {
+            return;
+        }
+        let worm_index = *(data.add(4) as *const u32);
+        if worm_index != (*this).worm_index || (*this).turn_active == 0 || (*this).turn_paused != 0
+        {
+            return;
+        }
+        let packed = *(data.add(8) as *const u32);
+        let mut out = [(packed as i16) as i32, ((packed >> 16) as i16) as i32];
+        WormEntity::get_entity_data_raw(this, 0x7D1, 0x394, out.as_mut_ptr() as *mut u32);
     }
 }
