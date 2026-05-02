@@ -189,15 +189,29 @@ crate::define_addresses! {
         /// the network flag is set; full teardown including SharedData
         /// notification and weapon-table fields.
         fn/Usercall WORM_ENTITY_CLEAR_WEAPON_STATE = 0x0050E710;
+        /// `WormEntity::BroadcastWeaponName_Maybe`. Thiscall
+        /// `(ECX = this, [stack] = name_str_ptr, flag)`, RET 0x8. Forwards
+        /// to `FUN_005480F0(this, name_str_ptr, *(this+0x10c)+0x11, this+0x2f0)`.
+        /// Called from `StartTurn` (msg 0x34) with the resolved
+        /// `LocalizedTemplate` token 0x69D and `flag = 1`.
+        fn/Thiscall WORM_ENTITY_BROADCAST_WEAPON_NAME = 0x0050D540;
+        /// `WormEntity::BroadcastWeaponSettings_Maybe`. Fastcall
+        /// `(ECX = this)`, plain RET, no stack args. Called from `StartTurn`
+        /// (msg 0x34) only when `selected_weapon != None`. Decodes the active
+        /// weapon's `WeaponSpawn` descriptor and broadcasts a settings string
+        /// via the same SharedData observer used by weapon-name announcements.
+        fn/Fastcall WORM_ENTITY_BROADCAST_WEAPON_SETTINGS = 0x00510600;
     }
 
     class "TeamArena" {
         /// `SetActiveWorm_Maybe`. Usercall
         /// `(EAX = team_arena_base /* world+0x4628 */, EDX = team_idx,
-        /// ESI = activate_flag)`, plain RET. Maintains the
+        /// ESI = activate_value)`, plain RET. Maintains the
         /// "currently-active worm" registry at `world+0x2C30..+0x2C44` and
-        /// toggles a per-team-block flag at `team_idx*0x51c - 8`. Called
-        /// with `flag=0` from `FinishTurn` and `flag=1` from `StartTurn`.
+        /// toggles a per-team-block flag at `team_idx*0x51c - 8`. ESI=0
+        /// deactivates; non-zero is stored as the active-worm marker (the
+        /// caller in `StartTurn` passes `worm_index` directly, in
+        /// `FinishTurn` passes 0).
         fn/Usercall TEAM_ARENA_SET_ACTIVE_WORM = 0x00522500;
     }
 
@@ -415,8 +429,11 @@ pub struct WormEntity {
     pub facing_direction_2: i32,
     /// 0x1AC: Inverted facing direction. +1 = left, -1 = right.
     pub facing_direction_inv: i32,
-    /// 0x1B0–0x1BF: Unknown
-    pub _unknown_1b0: [u8; 0x1C0 - 0x1B0],
+    /// 0x1B0–0x1BB: Unknown
+    pub _unknown_1b0: [u8; 0x1BC - 0x1B0],
+    /// 0x1BC: Cleared by `StartTurn` (msg 0x34). Semantics TBD; only known
+    /// writer is the turn-start initialization.
+    pub _field_1bc: u32,
     /// 0x1C0: Worm is in retreat phase (post-fire timer until turn ends).
     /// Set to 1 by `RetreatStarted` (msg 0x3C), cleared to 0 by `RetreatFinished` (msg 0x3D).
     pub retreat_active: u32,
@@ -532,8 +549,11 @@ pub struct WormEntity {
     /// - Air Strike: fire position Y
     /// - Freeze: freeze effect Y position
     pub weapon_param_2: i32,
-    /// 0x2E8–0x2EB: Unknown
-    pub _unknown_2e8: [u8; 4],
+    /// 0x2E8: Cursor/aim parameter, typed i32. StartTurn (msg 0x34) sets
+    /// to `-1` for `game_version < 0x103` (default cursor) and `0` for
+    /// later versions; SelectCursor (msg 0x32) overrides from the
+    /// incoming message payload at offset 12.
+    pub _field_2e8: i32,
     /// 0x2EC: Weapon parameter 3 / launch count.
     /// - Weapons 0x22/0x24: checked == 0 to copy shot_data_2 → shot_data_1
     /// - Freeze: freeze target entity ID

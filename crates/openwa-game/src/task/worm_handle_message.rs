@@ -40,6 +40,8 @@ static mut WORM_START_FIRING_ADDR: u32 = 0;
 static mut WORM_CLEAR_WEAPON_STATE_ADDR: u32 = 0;
 static mut TEAM_ARENA_SET_ACTIVE_WORM_ADDR: u32 = 0;
 static mut WORM_FINISH_TURN_CLEANUP_ADDR: u32 = 0;
+static mut WORM_BROADCAST_WEAPON_NAME_ADDR: u32 = 0;
+static mut WORM_BROADCAST_WEAPON_SETTINGS_ADDR: u32 = 0;
 
 pub unsafe fn init_addrs() {
     unsafe {
@@ -53,6 +55,8 @@ pub unsafe fn init_addrs() {
         WORM_CLEAR_WEAPON_STATE_ADDR = rb(va::WORM_ENTITY_CLEAR_WEAPON_STATE);
         TEAM_ARENA_SET_ACTIVE_WORM_ADDR = rb(va::TEAM_ARENA_SET_ACTIVE_WORM);
         WORM_FINISH_TURN_CLEANUP_ADDR = rb(va::WORM_FINISH_TURN_CLEANUP);
+        WORM_BROADCAST_WEAPON_NAME_ADDR = rb(va::WORM_ENTITY_BROADCAST_WEAPON_NAME);
+        WORM_BROADCAST_WEAPON_SETTINGS_ADDR = rb(va::WORM_ENTITY_BROADCAST_WEAPON_SETTINGS);
     }
 }
 
@@ -147,7 +151,6 @@ unsafe extern "stdcall" fn bridge_start_firing(_this: *mut WormEntity) {
 }
 
 /// `__usercall(ESI = this)`, plain RET, no stack args.
-#[allow(dead_code)]
 #[unsafe(naked)]
 unsafe extern "stdcall" fn bridge_clear_weapon_state(_this: *mut WormEntity) {
     core::arch::naked_asm!(
@@ -161,10 +164,10 @@ unsafe extern "stdcall" fn bridge_clear_weapon_state(_this: *mut WormEntity) {
     );
 }
 
-/// `__usercall(EAX = team_arena_base, EDX = team_idx, ESI = activate_flag)`,
+/// `__usercall(EAX = team_arena_base, EDX = team_idx, ESI = activate_value)`,
 /// plain RET, no stack args. Caller must pass `world + 0x4628` (the
 /// TeamArena base) as the first arg — WA reads it as a teams-array pointer.
-#[allow(dead_code)]
+/// `flag = 0` deactivates; non-zero is stored as the active-worm marker.
 #[unsafe(naked)]
 unsafe extern "stdcall" fn bridge_set_active_worm(
     _team_arena: *mut TeamArena,
@@ -186,7 +189,6 @@ unsafe extern "stdcall" fn bridge_set_active_worm(
 
 /// `__fastcall(ECX = entity_owning_world, EDX = arg)`, plain RET. Wraps
 /// the call as Rust stdcall(this, arg) for ergonomics.
-#[allow(dead_code)]
 #[unsafe(naked)]
 unsafe extern "stdcall" fn bridge_finish_turn_cleanup(_this: *mut BaseEntity, _arg: i32) {
     core::arch::naked_asm!(
@@ -216,20 +218,48 @@ unsafe extern "stdcall" fn bridge_select_weapon(_this: *mut WormEntity, _weapon:
     );
 }
 
+/// `__thiscall(ECX = this, [stack] = name_str_ptr, flag)`, RET 0x8.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_broadcast_weapon_name(
+    _this: *mut WormEntity,
+    _name_str: *const core::ffi::c_char,
+    _flag: i32,
+) {
+    core::arch::naked_asm!(
+        "mov ecx, dword ptr [esp+4]",
+        "push dword ptr [esp+12]",
+        "push dword ptr [esp+12]",
+        "mov eax, dword ptr [{addr}]",
+        "call eax",
+        "ret 12",
+        addr = sym WORM_BROADCAST_WEAPON_NAME_ADDR,
+    );
+}
+
+/// `__fastcall(ECX = this)`, plain RET, no stack args.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_broadcast_weapon_settings(_this: *mut WormEntity) {
+    core::arch::naked_asm!(
+        "mov ecx, dword ptr [esp+4]",
+        "mov eax, dword ptr [{addr}]",
+        "call eax",
+        "ret 4",
+        addr = sym WORM_BROADCAST_WEAPON_SETTINGS_ADDR,
+    );
+}
+
 /// Inlines `WormEntity::IsActionState_Maybe` (0x0050E800). The function is
 /// a 2-entry jumptable indexed by `byte[(state - 0x68) + 0x50e820]`: byte=0
 /// returns 1 (action), byte=1 returns 0. From the data table at 0x50e820,
 /// **action** states are `0x68..=0x72`, `0x74`, `0x75`, `0x8A`. Inverted
 /// from the function name's apparent intent — `0x73` and `0x76..=0x89`
 /// (the "weapon active / firing" states) all return 0.
-#[allow(dead_code)]
 fn is_action_state(state: u32) -> bool {
     matches!(state, 0x68..=0x72 | 0x74 | 0x75 | 0x8A)
 }
 
 /// Inlines `WormEntity::CanFireSubtype16` (0x00516930) — true for states
 /// `{0x78, 0x7B, 0x7C, 0x7D}` (jetpack, AimingAngle, RopeSwinging, PreFire).
-#[allow(dead_code)]
 fn can_fire_subtype_16(state: u32) -> bool {
     matches!(state, 0x78 | 0x7B | 0x7C | 0x7D)
 }
@@ -425,6 +455,7 @@ pub unsafe extern "thiscall" fn handle_message(
                 msg_fire_weapon(this);
                 true
             }
+            EntityMessage::StartTurn => msg_start_turn(this),
             EntityMessage::FinishTurn => {
                 msg_finish_turn(this);
                 true
@@ -684,6 +715,68 @@ unsafe fn msg_resume_turn(this: *mut WormEntity) {
 
 unsafe fn msg_disable_weapons(this: *mut WormEntity) {
     unsafe { deactivate_on_idle(this) }
+}
+
+/// StartTurn (0x34). Initializes per-turn state for the worm whose turn
+/// is starting. Returns `false` only when `world.game_info.game_version <
+/// -1` (the never-hit fall-through path); always `true` for valid games.
+unsafe fn msg_start_turn(this: *mut WormEntity) -> bool {
+    unsafe {
+        let world = (*(this as *const BaseEntity)).world;
+
+        if (*this).state() == 0x8B {
+            WormEntity::set_state_raw(this, WormState::Idle);
+        }
+
+        let pos_x = (*this).base.pos_x.0;
+        let pos_y = (*this).base.pos_y.0;
+        crate::engine::world::GameWorld::register_event_point_raw(world, pos_x, pos_y);
+
+        let queue = &raw mut (*world).entity_activity_queue;
+        bridge_reset_activity_rank(queue, (*this).activity_rank_slot as i32);
+
+        (*this)._field_1bc = 0;
+        (*this).shot_data_1 = 0;
+        (*this).shot_data_2 = 0;
+        (*this).aim_fade = [Fixed(0x10000); 8];
+        (*this).weapons_enabled = 1;
+        (*this).turn_active = 1;
+
+        let team_arena: *mut TeamArena = &raw mut (*world).team_arena;
+        bridge_set_active_worm(
+            team_arena,
+            (*this).team_index as i32,
+            (*this).worm_index as i32,
+        );
+
+        let template = (*world).localized_template;
+        let resolved = crate::wa::localized_template::resolve_split_array_raw(template, 0x69D)
+            as *const core::ffi::c_char;
+        bridge_broadcast_weapon_name(this, resolved, 1);
+
+        if (*this).selected_weapon != KnownWeaponId::None {
+            bridge_broadcast_weapon_settings(this);
+        }
+
+        (*this).stationary_frames = 0;
+        (*this).turn_start_field_5d8 = (*world)._field_5d8;
+
+        let game_version = (*(*world).game_info).game_version;
+        if game_version < -1 {
+            return false;
+        }
+        if game_version < 0x103 {
+            let level_w = (*world).level_width as i32;
+            let level_h = (*world).level_height as i32;
+            (*this).weapon_param_1 = (level_w << 16) / 2;
+            (*this).weapon_param_2 = (level_h << 16) / 2;
+            (*this)._field_2e8 = -1;
+            (*this).weapon_param_3 = 1;
+        } else {
+            (*this)._field_2e8 = 0;
+        }
+        true
+    }
 }
 
 /// FinishTurn (0x37). End-of-turn cleanup. Kicks the worm out of any
