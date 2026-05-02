@@ -217,10 +217,14 @@ pub struct WormEntry {
     pub _unknown_60: [u8; 0x18],
     /// 0x78: Worm name, null-terminated ASCII string (~20 bytes).
     pub name: [u8; 0x18],
-    /// 0x90-0x9B: Unknown. Used transiently by GetWormPosition (+0x90=x, +0x94=y).
-    /// Also observed as nonzero (1) on one poisoned worm but not another —
-    /// not reliably correlated with poison state. Needs further investigation.
-    pub _unknown_90: [u8; 0x0C],
+    /// 0x90-0x97: Used transiently by GetWormPosition (+0x90=x, +0x94=y).
+    pub _unknown_90: [u8; 0x08],
+    /// 0x98: Per-turn action-pending flag. Read by `WormEntity::HandleMessage`
+    /// cases 0x2 (BehaviorTick — clears it after acting), 0x1C/0x76 (damage
+    /// — checked on the *sender's* worm), and 0x2B (Surrender — gates the
+    /// drop-to-Idle). Set somewhere upstream when a worm performs an action
+    /// that needs a one-frame ack; semantics TBD.
+    pub _field_98: u32,
 }
 
 const _: () = assert!(core::mem::size_of::<WormEntry>() == 0x9C);

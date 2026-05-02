@@ -244,6 +244,7 @@ pub unsafe extern "thiscall" fn handle_message(
                 true
             }
             EntityMessage::Unknown42 => msg_unknown_42(this),
+            EntityMessage::Surrender => msg_surrender(this),
             EntityMessage::TurnStarted => {
                 msg_turn_started(this);
                 true
@@ -489,6 +490,26 @@ unsafe fn msg_freeze(this: *mut WormEntity) {
 unsafe fn msg_unknown_42(this: *mut WormEntity) -> bool {
     unsafe {
         if (*this).state() == WormState::Dead as u32 {
+            WormEntity::set_state_raw(this, WormState::Idle);
+            return true;
+        }
+        false
+    }
+}
+
+/// Surrender (0x2B): drop to Idle iff the per-worm action-pending flag is
+/// set or the worm is currently the active turn-holder. Otherwise no
+/// state change and no parent dispatch.
+unsafe fn msg_surrender(this: *mut WormEntity) -> bool {
+    unsafe {
+        let world = (*(this as *const BaseEntity)).world;
+        let arena: *const TeamArena = &raw const (*world).team_arena;
+        let entry = TeamArena::team_worm(
+            arena,
+            (*this).team_index as usize,
+            (*this).worm_index as usize,
+        );
+        if (*entry)._field_98 != 0 || (*this).state() == WormState::Active as u32 {
             WormEntity::set_state_raw(this, WormState::Idle);
             return true;
         }
