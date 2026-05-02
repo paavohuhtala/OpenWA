@@ -1584,11 +1584,6 @@ pub mod va {
         /// `StringRes::COUNT`. Used when neither localization record overrides
         /// a given entry.
         global G_LOCALIZATION_KEY_TABLE = 0x00697708;
-        /// Pointer (`*const c_char`) to the literal ASCII string "NONE" at
-        /// 0x006761B8. Used as the ultimate fallback for the entry-0 weapon
-        /// name in `InitWeaponNameStrings` when both localization records
-        /// lack the NONE entry (StringRes id 0x11).
-        global PTR_S_NONE = 0x0069774C;
         /// BSS byte latched to 1 on first DispatchFrame pass. Gates a
         /// clamp that inflates `remaining` up to `frame_duration` while
         /// the game hasn't started yet. Purpose not fully confirmed; read
