@@ -37,6 +37,9 @@ static mut WORM_CANCEL_ACTIVE_WEAPON_ADDR: u32 = 0;
 static mut WORM_APPLY_DAMAGE_ADDR: u32 = 0;
 static mut WORM_SELECT_WEAPON_ADDR: u32 = 0;
 static mut WORM_START_FIRING_ADDR: u32 = 0;
+static mut WORM_CLEAR_WEAPON_STATE_ADDR: u32 = 0;
+static mut TEAM_ARENA_SET_ACTIVE_WORM_ADDR: u32 = 0;
+static mut WORM_FINISH_TURN_CLEANUP_ADDR: u32 = 0;
 
 pub unsafe fn init_addrs() {
     unsafe {
@@ -47,6 +50,9 @@ pub unsafe fn init_addrs() {
         WORM_APPLY_DAMAGE_ADDR = rb(va::WORM_ENTITY_APPLY_DAMAGE);
         WORM_SELECT_WEAPON_ADDR = rb(va::WORM_ENTITY_SELECT_WEAPON);
         WORM_START_FIRING_ADDR = rb(va::WORM_ENTITY_START_FIRING);
+        WORM_CLEAR_WEAPON_STATE_ADDR = rb(va::WORM_ENTITY_CLEAR_WEAPON_STATE);
+        TEAM_ARENA_SET_ACTIVE_WORM_ADDR = rb(va::TEAM_ARENA_SET_ACTIVE_WORM);
+        WORM_FINISH_TURN_CLEANUP_ADDR = rb(va::WORM_FINISH_TURN_CLEANUP);
     }
 }
 
@@ -140,6 +146,59 @@ unsafe extern "stdcall" fn bridge_start_firing(_this: *mut WormEntity) {
     );
 }
 
+/// `__usercall(ESI = this)`, plain RET, no stack args.
+#[allow(dead_code)]
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_clear_weapon_state(_this: *mut WormEntity) {
+    core::arch::naked_asm!(
+        "push esi",
+        "mov esi, dword ptr [esp+8]",
+        "mov eax, dword ptr [{addr}]",
+        "call eax",
+        "pop esi",
+        "ret 4",
+        addr = sym WORM_CLEAR_WEAPON_STATE_ADDR,
+    );
+}
+
+/// `__usercall(EAX = team_arena_base, EDX = team_idx, ESI = activate_flag)`,
+/// plain RET, no stack args. Caller must pass `world + 0x4628` (the
+/// TeamArena base) as the first arg — WA reads it as a teams-array pointer.
+#[allow(dead_code)]
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_set_active_worm(
+    _team_arena: *mut TeamArena,
+    _team_idx: i32,
+    _flag: i32,
+) {
+    core::arch::naked_asm!(
+        "push esi",
+        "mov eax, dword ptr [esp+8]",
+        "mov edx, dword ptr [esp+12]",
+        "mov esi, dword ptr [esp+16]",
+        "mov ecx, dword ptr [{addr}]",
+        "call ecx",
+        "pop esi",
+        "ret 12",
+        addr = sym TEAM_ARENA_SET_ACTIVE_WORM_ADDR,
+    );
+}
+
+/// `__fastcall(ECX = entity_owning_world, EDX = arg)`, plain RET. Wraps
+/// the call as Rust stdcall(this, arg) for ergonomics.
+#[allow(dead_code)]
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_finish_turn_cleanup(_this: *mut BaseEntity, _arg: i32) {
+    core::arch::naked_asm!(
+        "mov ecx, dword ptr [esp+4]",
+        "mov edx, dword ptr [esp+8]",
+        "mov eax, dword ptr [{addr}]",
+        "call eax",
+        "ret 8",
+        addr = sym WORM_FINISH_TURN_CLEANUP_ADDR,
+    );
+}
+
 /// `__usercall(EDI = this, [stack] = weapon, ammo)`, RET 0x8. NB: this
 /// helper takes `this` in EDI, not ECX or ESI — only WA helper to do so.
 #[unsafe(naked)]
@@ -155,6 +214,46 @@ unsafe extern "stdcall" fn bridge_select_weapon(_this: *mut WormEntity, _weapon:
         "ret 12",
         addr = sym WORM_SELECT_WEAPON_ADDR,
     );
+}
+
+/// Inlines `WormEntity::IsActionState_Maybe` (0x0050E800) — table lookup in
+/// the range `(state - 0x68u) < 0x23`. Returns true for states `0x73`,
+/// `0x76..=0x89` (NOT `0x74`, `0x75`, `0x8A`).
+#[allow(dead_code)]
+fn is_action_state(state: u32) -> bool {
+    state == 0x73 || (0x76..=0x89).contains(&state)
+}
+
+/// Inlines `WormEntity::CanFireSubtype16` (0x00516930) — true for states
+/// `{0x78, 0x7B, 0x7C, 0x7D}` (jetpack, AimingAngle, RopeSwinging, PreFire).
+#[allow(dead_code)]
+fn can_fire_subtype_16(state: u32) -> bool {
+    matches!(state, 0x78 | 0x7B | 0x7C | 0x7D)
+}
+
+/// Inlines `WormEntity::DeactivateOnIdle_Maybe` (0x0050F7F0).
+unsafe fn deactivate_on_idle(this: *mut WormEntity) {
+    unsafe {
+        if (*this).state() == WormState::Active as u32 {
+            WormEntity::set_state_raw(this, WormState::Idle);
+        }
+        (*this).weapons_enabled = 0;
+    }
+}
+
+/// Inlines `WormEntity::BeginThinkingHide` (0x00510370). When the
+/// thinking animation is currently shown (state 1), transition it to the
+/// fading-out state (2) and snapshot the worm's position into the
+/// fade-out anchor — the chevrons sprite stays at this `(x, y)` while the
+/// rest of the worm continues to move.
+unsafe fn begin_thinking_hide(this: *mut WormEntity) {
+    unsafe {
+        if (*this).thinking_state == 1 {
+            (*this).thinking_state = 2;
+            (*this).thinking_anim_pos_x = (*this).base.pos_x;
+            (*this).thinking_anim_pos_y = (*this).base.pos_y;
+        }
+    }
 }
 
 /// Applies unconditionally for msgs `0x1E,0x1F,0x22,0x23,0x24,0x25,0x26`,
@@ -438,15 +537,8 @@ unsafe fn msg_thinking_show(this: *mut WormEntity) -> bool {
     }
 }
 
-/// Inlines `WormEntity__CommitCursorPos_Maybe` (0x00510370).
 unsafe fn msg_thinking_hide(this: *mut WormEntity) {
-    unsafe {
-        if (*this).thinking_state == 1 {
-            (*this).thinking_state = 2;
-            (*this).thinking_anim_pos_x = (*this).base.pos_x;
-            (*this).thinking_anim_pos_y = (*this).base.pos_y;
-        }
-    }
+    unsafe { begin_thinking_hide(this) }
 }
 
 unsafe fn msg_retreat_started(this: *mut WormEntity) {
@@ -583,13 +675,108 @@ unsafe fn msg_resume_turn(this: *mut WormEntity) {
     }
 }
 
-/// Inlines `WormEntity::DeactivateOnIdle_Maybe` (0x0050F7F0).
 unsafe fn msg_disable_weapons(this: *mut WormEntity) {
+    unsafe { deactivate_on_idle(this) }
+}
+
+/// FinishTurn (0x37) — **NOT YET DISPATCHED** (work in progress).
+///
+/// End-of-turn cleanup: kicks the worm out of any "action" state, tears
+/// down the active weapon, clears turn_active/paused, deactivates the
+/// worm in the team registry, then optionally settles into Idle/Hurt
+/// depending on motion + scheme version. The post-`CanFireSubtype16` gate
+/// has WA's `cStack_831` flag tracking "took the dying-state path"
+/// (game_version >= 0x1E7 AND health <= 0): alive worms in v3.5+ schemes
+/// (`version_flag_4 != 0`) skip the SetState when still moving, while
+/// pre-v3.5 or dying worms transition to Hurt.
+///
+/// **Open issue (2026-05-02):** when dispatched, this port causes ~390
+/// of 597 worms2d tests to fail with mission-time mismatches. Diagnostic
+/// logging in the time-accumulation block showed `prev=0` (the
+/// `_field_5a` snapshot from StartTurn) for the active worm in some
+/// missions where WA's expected behavior is `prev≈now-20`. Implies WA
+/// distinguishes between FinishTurn for the active turn-holder vs. for
+/// other worms — likely the case body is meant to run only for the
+/// active worm and the message is broadcast to everyone via the parent
+/// vtable[2]. Needs more RE before dispatching.
+#[allow(dead_code)]
+unsafe fn msg_finish_turn(this: *mut WormEntity) {
     unsafe {
-        if (*this).state() == WormState::Active as u32 {
+        let world = (*(this as *const BaseEntity)).world;
+
+        let state = (*this).state();
+        if (state.wrapping_sub(0x68) < 0x23) && is_action_state(state) {
             WormEntity::set_state_raw(this, WormState::Idle);
         }
-        (*this).weapons_enabled = 0;
+
+        if (*this).shot_data_1 == 0 && (*this)._unknown_2cc == 0 {
+            bridge_cancel_active_weapon(this);
+        } else {
+            bridge_clear_weapon_state(this);
+        }
+
+        (*this).shot_data_1 = u32::MAX; // -1 as i32
+        (*this).shot_data_2 = u32::MAX;
+
+        deactivate_on_idle(this);
+        begin_thinking_hide(this);
+
+        (*this).aim_fade[5] = Fixed(0x10000);
+        (*this).aim_fade[7] = Fixed(0x10000);
+        (*this).aim_fade[1] = Fixed(0);
+        (*this).aim_fade[3] = Fixed(0);
+        (*this).turn_paused = 0;
+        (*this).turn_active = 0;
+
+        let team_arena: *mut TeamArena = &raw mut (*world).team_arena;
+        bridge_set_active_worm(team_arena, (*this).team_index as i32, 0);
+
+        let state = (*this).state();
+        if can_fire_subtype_16(state) {
+            let game_version = (*(*world).game_info).game_version;
+            let arena: *const TeamArena = team_arena;
+            let entry = TeamArena::team_worm(
+                arena,
+                (*this).team_index as usize,
+                (*this).worm_index as usize,
+            );
+            let alive = game_version < 0x1E7 || (*entry).health > 0;
+            let dying = !alive;
+            let vf4 = (*world).version_flag_4;
+
+            let new_state = if alive && vf4 > 3 {
+                None
+            } else if !WorldEntity::is_moving_raw(this as *const WorldEntity) {
+                Some(WormState::Idle)
+            } else if !dying && vf4 != 0 {
+                None
+            } else {
+                Some(WormState::Hurt)
+            };
+            if let Some(s) = new_state {
+                WormEntity::set_state_raw(this, s);
+            }
+        }
+
+        bridge_finish_turn_cleanup(this as *mut BaseEntity, 0xE);
+
+        if (*world).version_flag_4 == 0 {
+            (*this)._field_250 = 0;
+        }
+        (*this)._field_258 = 0;
+        let now = (*world)._field_5d8;
+        (*this).turn_end_field_5d8 = now;
+        let arena_mut: *mut TeamArena = team_arena;
+        let entry_mut = TeamArena::team_worm_mut(
+            arena_mut,
+            (*this).team_index as usize,
+            (*this).worm_index as usize,
+        );
+        let delta = now.wrapping_sub((*this).turn_start_field_5d8);
+        let seconds = delta.wrapping_add(999) / 1000;
+        (*entry_mut).turn_action_counter_Maybe = (*entry_mut)
+            .turn_action_counter_Maybe
+            .wrapping_add(seconds as i32);
     }
 }
 

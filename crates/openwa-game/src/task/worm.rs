@@ -183,6 +183,31 @@ crate::define_addresses! {
         /// args. 551 instructions, cyclo 108 — too large to port; bridged
         /// from `HandleMessage` case 0x26 (FireWeapon).
         fn/Usercall WORM_ENTITY_START_FIRING = 0x0051B7F0;
+        /// `WormEntity::ClearWeaponState_Maybe`. Usercall `(ESI = this)`,
+        /// plain RET, no stack args. Sibling of `CancelActiveWeapon` —
+        /// called from `FinishTurn` (msg 0x37) when `shot_data_1 != 0` or
+        /// the network flag is set; full teardown including SharedData
+        /// notification and weapon-table fields.
+        fn/Usercall WORM_ENTITY_CLEAR_WEAPON_STATE = 0x0050E710;
+    }
+
+    class "TeamArena" {
+        /// `SetActiveWorm_Maybe`. Usercall
+        /// `(EAX = team_arena_base /* world+0x4628 */, EDX = team_idx,
+        /// ESI = activate_flag)`, plain RET. Maintains the
+        /// "currently-active worm" registry at `world+0x2C30..+0x2C44` and
+        /// toggles a per-team-block flag at `team_idx*0x51c - 8`. Called
+        /// with `flag=0` from `FinishTurn` and `flag=1` from `StartTurn`.
+        fn/Usercall TEAM_ARENA_SET_ACTIVE_WORM = 0x00522500;
+    }
+
+    class "GameRuntime" {
+        /// `FUN_00547D80` — fastcall `(ECX = entity_owning_world,
+        /// EDX = arg)`, plain RET. Used by `WormEntity::FinishTurn` with
+        /// `arg = 0xE`. Resets a 14×0x14-byte queue at `world+0x73B0..` and
+        /// clears `world+0x739C`; stores `EDX` into `world+0x72E4`. Likely
+        /// some pending-event clearing.
+        fn/Fastcall WORM_FINISH_TURN_CLEANUP = 0x00547D80;
     }
 
     class "EntityActivityQueue" {
@@ -354,8 +379,14 @@ pub struct WormEntity {
     pub _unknown_15c: [u8; 0x164 - 0x15C],
     /// 0x164: Frames the worm has stayed stationary (no movement). Resets on movement.
     pub stationary_frames: u32,
-    /// 0x168–0x16F: Unknown
-    pub _unknown_168: [u8; 0x170 - 0x168],
+    /// 0x168: Snapshot of `world._field_5d8` taken at `StartTurn` (msg 0x34).
+    /// `FinishTurn` (msg 0x37) computes a turn-duration delta against this and
+    /// accumulates `(now - this + 999) / 1000` into the per-worm
+    /// `WormEntry.turn_action_counter_Maybe` field at +0x4098.
+    pub turn_start_field_5d8: u32,
+    /// 0x16C: Mirror written by `FinishTurn`: `worm.turn_end_field_5d8 =
+    /// world._field_5d8`. Read alongside `turn_start_field_5d8` for the delta.
+    pub turn_end_field_5d8: u32,
     /// 0x170: Currently selected weapon ID.
     pub selected_weapon: KnownWeaponId,
     /// 0x174: Ammo count for the currently selected weapon.
@@ -398,7 +429,7 @@ pub struct WormEntity {
     /// in `WormEntity::BehaviorTick`: increments by `0x51E/frame` while ramping.
     pub thinking_anim: u32,
     /// 0x1CC: Snapshot of `pos_x` taken when `thinking_state` transitions 1→2
-    /// by `WormEntity__CommitCursorPos_Maybe` (also via msgs 0x1B / 0x37).
+    /// by `WormEntity__BeginThinkingHide` (called via msgs 0x1B / 0x37).
     /// Used by `WormEntity__DrawCursorMarker_Maybe` to keep the chevrons sprite
     /// anchored at the worm's old position while it fades out.
     pub thinking_anim_pos_x: Fixed,
@@ -435,8 +466,15 @@ pub struct WormEntity {
     pub landscape_scale: Fixed,
     /// 0x24C: Aim angle (fixed-point 16.16, range 0..0x10000 = 0..360 degrees).
     pub aim_angle: u32,
-    /// 0x250–0x267: Unknown
-    pub _unknown_250: [u8; 0x268 - 0x250],
+    /// 0x250: Cleared by `FinishTurn` (msg 0x37) only when
+    /// `world.version_flag_4 == 0` (pre-v3.5 schemes). Reader TBD.
+    pub _field_250: u32,
+    /// 0x254-0x257: Unknown
+    pub _unknown_254: [u8; 4],
+    /// 0x258: Cleared unconditionally by `FinishTurn` (msg 0x37). Reader TBD.
+    pub _field_258: u32,
+    /// 0x25C-0x267: Unknown
+    pub _unknown_25c: [u8; 0x0C],
     /// 0x268: Show aiming cursor flag (nonzero = cursor visible).
     pub show_cursor: u32,
     /// 0x26C–0x27F: Unknown
