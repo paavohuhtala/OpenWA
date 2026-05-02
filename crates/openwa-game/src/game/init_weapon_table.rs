@@ -16,8 +16,6 @@
 //! - 0x0053C130 — `InitWeaponNameStrings` (alloc + fill name1/name2)
 //! - 0x00537130 — assign each entry to its weapon-panel row/column
 
-use core::ffi::c_void;
-
 use crate::address::va;
 use crate::engine::game_info::GameInfo;
 use crate::engine::runtime::GameRuntime;
@@ -143,35 +141,70 @@ unsafe extern "stdcall" fn bridge_assign_panel_slots(_table: *mut WeaponTable) {
 
 // ─── Constants ─────────────────────────────────────────────────────────────
 
-/// Total weapon-table size in bytes: 71 × 0x1D0.
-const WEAPON_TABLE_BYTES: usize = 71 * 0x1D0;
-
-/// Backup region copied between [`WeaponTable`] (+0x29EC) and
-/// [`GameWorld`] (+0x74C8): 0x5E dwords = 0x178 bytes.
-const BACKUP_DWORDS: usize = 0x5E;
-
 /// Weapons that are unconditionally forced to `availability = 1` after
 /// the baseline pass — the WA case-switch labels with the +10 offset
 /// pre-applied. Mostly super weapons + Earthquake.
-const FORCE_AVAILABLE_WEAPONS: &[u32] = &[
+const FORCE_AVAILABLE_WEAPONS: &[usize] = &[
     10, 19, 29, 30, 31, 36, 41, 42, 45, 46, 49, 50, 51, 54, 55, 56, 60, 61,
 ];
 
 /// Weapon 59 is force-enabled only when [`GameWorld::version_flag_3`]
 /// is non-zero (mirrors the `case 0x31:` branch in WA).
-const FORCE_AVAILABLE_VERSION_GATED: u32 = 59;
+const FORCE_AVAILABLE_VERSION_GATED: usize = 59;
 
-/// Per-team scheme-ammo offsets cleared when `CheckWeaponAvail`
-/// returns 0 (weapon unavailable for non-cap reasons). Each offset is
-/// added to `game_info + 0xD150 + (weapon - 1) * 2`.
+/// Source weapon entry whose `fire_params` block (excluding
+/// `entry_metadata`) is mirrored into [`GameWorld::weapon_table_backup`].
+/// Specifically: `weapon_table.entries[23].fire_params[..0x5E]`, i.e.
+/// dwords 0..94, which is everything WA copies to MissileEntity.
+const BACKUP_SOURCE_ENTRY: usize = 23;
+
+/// Per-team scheme-ammo dword offsets cleared when `CheckWeaponAvail`
+/// returns 0. Layout: 6 teams × 2 slots, with each team's pair at
+/// `(team * 0x11E - 0x8E, team * 0x11E)` relative to the per-weapon
+/// base (`game_info + 0xD150 + (weapon - 1) * 2`).
 const ZERO_AMMO_OFFSETS: &[isize] = &[
     -0x8E, 0, 0x90, 0x11E, 0x1AE, 0x23C, 0x2CC, 0x35A, 0x3EA, 0x478, 0x508, 0x596,
 ];
 
-/// Per-team scheme-ammo offsets clamped to `0xFFFF` when
-/// `CheckWeaponAvail` returns -2 (cap-only mode), conditional on
-/// `game_version < 0x196` OR existing value < 0.
+/// Per-team scheme-ammo offsets clamped to `-1` when `CheckWeaponAvail`
+/// returns -2 (cap-only mode), conditional on `game_version < 0x196` OR
+/// existing value < 0. One slot per team, stride 0x11E.
 const CAP_AMMO_OFFSETS: &[isize] = &[0, 0x11E, 0x23C, 0x35A, 0x478, 0x596];
+
+// ─── Game-info accessors for the scheme-ammo region ────────────────────────
+//
+// The byte offsets below all live inside `GameInfo._unknown_4aa0` (a 0x82D4-byte
+// unmapped span). Splitting that into typed sub-fields would require a much
+// larger RE pass; for now we localize the byte arithmetic to these helpers so
+// the porting code stays readable.
+
+/// Team count for the per-team ammo-carry array (byte at GameInfo+0xD0BC).
+unsafe fn ammo_carry_team_count(game_info: *const GameInfo) -> u8 {
+    unsafe { *(game_info as *const u8).add(0xD0BC) }
+}
+
+/// Per-team ammo-carry pair `(src, dst)` at GameInfo+0xD0F0/+0xD0F2,
+/// stride 0x11E.
+unsafe fn ammo_carry_slot_pair(game_info: *mut GameInfo, team: usize) -> (*mut u16, *mut u16) {
+    unsafe {
+        let base = (game_info as *mut u8).add(0xD0F0 + team * 0x11E);
+        (base as *mut u16, base.add(2) as *mut u16)
+    }
+}
+
+/// Pointer into the per-weapon scheme-ammo array at
+/// `GameInfo + 0xD150 + (weapon - 1) * 2 + offset`. `weapon` is 1..71
+/// (weapon 0 has no scheme ammo).
+unsafe fn scheme_weapon_ammo_slot(
+    game_info: *mut GameInfo,
+    weapon: u32,
+    offset: isize,
+) -> *mut u16 {
+    unsafe {
+        let base = (game_info as *mut u8).offset(0xD150 + ((weapon - 1) as isize) * 2);
+        base.offset(offset) as *mut u16
+    }
+}
 
 // ─── Port ──────────────────────────────────────────────────────────────────
 
@@ -182,12 +215,9 @@ pub unsafe fn init_weapon_table(runtime: *mut GameRuntime) {
         let world = (*runtime).world;
         let game_info = (*world).game_info;
         let weapon_table = (*world).weapon_table;
-        let table_bytes = weapon_table as *mut u8;
-        let world_bytes = world as *mut u8;
-        let gi_bytes = game_info as *mut u8;
 
         // Zero entire table.
-        core::ptr::write_bytes(table_bytes, 0, WEAPON_TABLE_BYTES);
+        core::ptr::write_bytes(weapon_table, 0, 1);
 
         // Init each entry: panel_state=-1, availability=-1, enabled=1.
         for entry in (*weapon_table).entries.iter_mut() {
@@ -196,10 +226,10 @@ pub unsafe fn init_weapon_table(runtime: *mut GameRuntime) {
             entry.enabled = 1;
         }
 
-        // Special baseline writes.
+        // Force weapons 0, 57, 58 to availability=0 (unavailable).
         (*weapon_table).entries[0].availability = 0;
-        *(table_bytes.add(0x6774) as *mut u32) = 0;
-        *(table_bytes.add(0x6944) as *mut u32) = 0;
+        (*weapon_table).entries[57].availability = 0;
+        (*weapon_table).entries[58].availability = 0;
 
         // Power cap: per-version gating.
         let game_version = (*game_info).game_version;
@@ -211,11 +241,11 @@ pub unsafe fn init_weapon_table(runtime: *mut GameRuntime) {
         bridge_init_weapon_defaults_baseline(weapon_table, game_info, cap);
         bridge_init_weapon_defaults_extended(weapon_table, game_info);
 
-        // First backup (very-old schemes): copy weapon_table+0x29EC region
-        // to world+0x74C8 *before* the scheme overlay. Mirrors WA's two
-        // mutually exclusive backup blocks.
+        // First backup (very-old schemes): copy entry-23 fire_params region
+        // to world.weapon_table_backup *before* the scheme overlay. Mirrors
+        // WA's two mutually exclusive backup blocks.
         if game_version < -1 {
-            backup_weapon_table_region(table_bytes, world_bytes);
+            backup_weapon_table_region(weapon_table, world);
         }
 
         bridge_overlay_scheme_weapon_settings(world);
@@ -223,29 +253,29 @@ pub unsafe fn init_weapon_table(runtime: *mut GameRuntime) {
         bridge_assign_panel_slots(weapon_table);
 
         // Per-team ammo carry: D0F0 → D0F2.
-        per_team_ammo_carry(game_info, gi_bytes, game_version);
+        per_team_ammo_carry(game_info, game_version);
 
-        // Two-flag forced enable (writes are at raw table offsets, not
-        // structured WeaponEntry fields).
-        if *gi_bytes.add(0xD945) != 0 && *gi_bytes.add(0xD946) != 0 {
-            *(table_bytes.add(0x1404) as *mut u32) = 1;
-            *(table_bytes.add(0x1B44) as *mut u32) = 1;
+        // Two-flag forced shot_count override.
+        if (*game_info)._unknown_d945 != 0 && (*game_info).net_config_2 != 0 {
+            (*weapon_table).entries[11].shot_count = 1;
+            (*weapon_table).entries[15].shot_count = 1;
         }
 
         // Second backup (normal schemes, game_version >= -1).
         if game_version >= -1 {
-            backup_weapon_table_region(table_bytes, world_bytes);
+            backup_weapon_table_region(weapon_table, world);
         }
 
-        *(world_bytes.add(0x752C) as *mut u32) = 0;
-        *(world_bytes.add(0x74D4) as *mut u32) = 0x7E;
+        // Post-backup overrides: dwords 25 and 3 of the backup region.
+        (*world).weapon_table_backup[25] = 0;
+        (*world).weapon_table_backup[3] = 0x7E;
 
         // Force-availability=1 sweep over the super-weapon list.
         for &id in FORCE_AVAILABLE_WEAPONS {
-            (*weapon_table).entries[id as usize].availability = 1;
+            (*weapon_table).entries[id].availability = 1;
         }
         if (*world).version_flag_3 != 0 {
-            (*weapon_table).entries[FORCE_AVAILABLE_VERSION_GATED as usize].availability = 1;
+            (*weapon_table).entries[FORCE_AVAILABLE_VERSION_GATED].availability = 1;
         }
 
         // Final per-weapon `CheckWeaponAvail` sweep over weapons 1..71.
@@ -260,16 +290,14 @@ pub unsafe fn init_weapon_table(runtime: *mut GameRuntime) {
 
             if ret == 0 {
                 // Zero 12 per-team ammo slots in the scheme array.
-                let base = gi_bytes.offset(0xD150 + ((w - 1) as isize) * 2);
                 for &off in ZERO_AMMO_OFFSETS {
-                    *(base.offset(off) as *mut u16) = 0;
+                    *scheme_weapon_ammo_slot(game_info, w, off) = 0;
                 }
             } else if ret < -1 {
-                // ret == -2: clamp 6 slots to 0xFFFF (only when game
-                // version < 0x196 OR existing value < 0).
-                let base = gi_bytes.offset(0xD150 + ((w - 1) as isize) * 2);
+                // ret == -2: clamp 6 slots to -1 (only when game version
+                // < 0x196 OR existing value already < 0).
                 for &off in CAP_AMMO_OFFSETS {
-                    let p = base.offset(off) as *mut i16;
+                    let p = scheme_weapon_ammo_slot(game_info, w, off) as *mut i16;
                     if game_version < 0x196 || *p < 0 {
                         *p = -1;
                     }
@@ -280,36 +308,33 @@ pub unsafe fn init_weapon_table(runtime: *mut GameRuntime) {
     }
 }
 
-/// Copy [`WeaponTable`] (+0x29EC, 0x178 bytes) into [`GameWorld`] (+0x74C8).
-unsafe fn backup_weapon_table_region(table_bytes: *mut u8, world_bytes: *mut u8) {
+/// Copy 0x5E dwords from `weapon_table.entries[23].fire_params` (the
+/// weapon-23 fire-params header — everything except `entry_metadata`)
+/// into [`GameWorld::weapon_table_backup`].
+unsafe fn backup_weapon_table_region(weapon_table: *mut WeaponTable, world: *mut GameWorld) {
     unsafe {
-        core::ptr::copy_nonoverlapping(
-            table_bytes.add(0x29EC) as *const c_void,
-            world_bytes.add(0x74C8) as *mut c_void,
-            BACKUP_DWORDS * 4,
-        );
+        let src =
+            &(*weapon_table).entries[BACKUP_SOURCE_ENTRY].fire_params as *const _ as *const u32;
+        let dst = (*world).weapon_table_backup.as_mut_ptr();
+        core::ptr::copy_nonoverlapping(src, dst, (*world).weapon_table_backup.len());
     }
 }
 
 /// Per-team ammo carry: zero `D0F2` (or copy/add `D0F0 → D0F2`, then
-/// zero `D0F0`) for each active team. Stride is 0x11E bytes.
-unsafe fn per_team_ammo_carry(game_info: *mut GameInfo, gi_bytes: *mut u8, game_version: i32) {
+/// zero `D0F0`) for each active team.
+unsafe fn per_team_ammo_carry(game_info: *mut GameInfo, game_version: i32) {
     unsafe {
-        let team_count = *gi_bytes.add(0xD0BC);
-        if (*game_info).aquasheep_is_supersheep == 0 {
-            for t in 0..team_count {
-                let dst = gi_bytes.add(0xD0F2 + (t as usize) * 0x11E) as *mut u16;
+        let team_count = ammo_carry_team_count(game_info);
+        for t in 0..team_count as usize {
+            let (src, dst) = ammo_carry_slot_pair(game_info, t);
+            if (*game_info).aquasheep_is_supersheep == 0 {
                 *dst = 0;
-            }
-        } else {
-            for t in 0..team_count {
-                let src = gi_bytes.add(0xD0F0 + (t as usize) * 0x11E) as *mut u16;
-                let dst = gi_bytes.add(0xD0F2 + (t as usize) * 0x11E) as *mut u16;
-                if game_version < 10 {
-                    *dst = *src;
+            } else {
+                *dst = if game_version < 10 {
+                    *src
                 } else {
-                    *dst = (*dst).wrapping_add(*src);
-                }
+                    (*dst).wrapping_add(*src)
+                };
                 *src = 0;
             }
         }

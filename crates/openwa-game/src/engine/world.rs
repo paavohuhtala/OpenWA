@@ -333,8 +333,14 @@ pub struct GameWorld {
     /// 0x73B0: Render entry table (14 entries × 0x14 bytes).
     /// First u32 of each entry zeroed by InitRenderIndices.
     pub render_entries: [RenderEntry; 14],
-    /// 0x74C8-0x763F: Unknown
-    pub _unknown_74c8: [u8; 0x7640 - 0x74C8],
+    /// 0x74C8: 0x178-byte backup region populated by [`init_weapon_table`].
+    /// Holds a verbatim copy of `weapon_table+0x29EC` (a slice within
+    /// entry 23's `fire_params` block). Stored as 0x5E dwords because
+    /// WA's memcpy uses dword stride and two later writes (indices 3 and
+    /// 0x19) overwrite specific dwords in this region.
+    ///
+    /// [`init_weapon_table`]: crate::game::init_weapon_table::init_weapon_table
+    pub weapon_table_backup: [u32; 0x5E],
     /// 0x7640: Unknown (zeroed by InitGameState).
     pub _field_7640: u32,
     /// 0x7644: Unknown config (from GameInfo+0xF363).
