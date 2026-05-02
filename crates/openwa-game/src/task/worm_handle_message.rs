@@ -216,12 +216,15 @@ unsafe extern "stdcall" fn bridge_select_weapon(_this: *mut WormEntity, _weapon:
     );
 }
 
-/// Inlines `WormEntity::IsActionState_Maybe` (0x0050E800) — table lookup in
-/// the range `(state - 0x68u) < 0x23`. Returns true for states `0x73`,
-/// `0x76..=0x89` (NOT `0x74`, `0x75`, `0x8A`).
+/// Inlines `WormEntity::IsActionState_Maybe` (0x0050E800). The function is
+/// a 2-entry jumptable indexed by `byte[(state - 0x68) + 0x50e820]`: byte=0
+/// returns 1 (action), byte=1 returns 0. From the data table at 0x50e820,
+/// **action** states are `0x68..=0x72`, `0x74`, `0x75`, `0x8A`. Inverted
+/// from the function name's apparent intent — `0x73` and `0x76..=0x89`
+/// (the "weapon active / firing" states) all return 0.
 #[allow(dead_code)]
 fn is_action_state(state: u32) -> bool {
-    state == 0x73 || (0x76..=0x89).contains(&state)
+    matches!(state, 0x68..=0x72 | 0x74 | 0x75 | 0x8A)
 }
 
 /// Inlines `WormEntity::CanFireSubtype16` (0x00516930) — true for states
@@ -420,6 +423,10 @@ pub unsafe extern "thiscall" fn handle_message(
             }
             EntityMessage::FireWeapon => {
                 msg_fire_weapon(this);
+                true
+            }
+            EntityMessage::FinishTurn => {
+                msg_finish_turn(this);
                 true
             }
             _ => false,
@@ -679,27 +686,15 @@ unsafe fn msg_disable_weapons(this: *mut WormEntity) {
     unsafe { deactivate_on_idle(this) }
 }
 
-/// FinishTurn (0x37) — **NOT YET DISPATCHED** (work in progress).
-///
-/// End-of-turn cleanup: kicks the worm out of any "action" state, tears
-/// down the active weapon, clears turn_active/paused, deactivates the
-/// worm in the team registry, then optionally settles into Idle/Hurt
-/// depending on motion + scheme version. The post-`CanFireSubtype16` gate
-/// has WA's `cStack_831` flag tracking "took the dying-state path"
-/// (game_version >= 0x1E7 AND health <= 0): alive worms in v3.5+ schemes
-/// (`version_flag_4 != 0`) skip the SetState when still moving, while
-/// pre-v3.5 or dying worms transition to Hurt.
-///
-/// **Open issue (2026-05-02):** when dispatched, this port causes ~390
-/// of 597 worms2d tests to fail with mission-time mismatches. Diagnostic
-/// logging in the time-accumulation block showed `prev=0` (the
-/// `_field_5a` snapshot from StartTurn) for the active worm in some
-/// missions where WA's expected behavior is `prev≈now-20`. Implies WA
-/// distinguishes between FinishTurn for the active turn-holder vs. for
-/// other worms — likely the case body is meant to run only for the
-/// active worm and the message is broadcast to everyone via the parent
-/// vtable[2]. Needs more RE before dispatching.
-#[allow(dead_code)]
+/// FinishTurn (0x37). End-of-turn cleanup. Kicks the worm out of any
+/// "action" state, tears down the active weapon, clears
+/// turn_active/paused, deactivates the worm in the team registry, then
+/// optionally settles into Idle/Hurt depending on motion + scheme
+/// version. The post-`CanFireSubtype16` gate uses WA's `cStack_831` flag
+/// to track "took the dying-state path" (game_version >= 0x1E7 AND
+/// health <= 0): alive worms in v3.5+ schemes (`version_flag_4 != 0`)
+/// skip the SetState when still moving, while pre-v3.5 or dying worms
+/// transition to Hurt.
 unsafe fn msg_finish_turn(this: *mut WormEntity) {
     unsafe {
         let world = (*(this as *const BaseEntity)).world;
