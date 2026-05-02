@@ -614,10 +614,6 @@ pub mod va {
         /// settings byte-array at `game_info + 0xD78C..D923` and overlays
         /// them onto each WeaponEntry's WeaponFireParams sub-fields.
         fn OVERLAY_SCHEME_WEAPON_SETTINGS = 0x0053AD80;
-        /// `__usercall(ESI = weapon_table, EDI = localized_template)`, plain
-        /// RET. Allocates two 0x1C-byte string buffers per entry and fills
-        /// them with localized weapon names.
-        fn INIT_WEAPON_NAME_STRINGS = 0x0053C130;
         fn COUNT_ALIVE_WORMS = 0x005225A0;
         fn GET_AMMO = 0x005225E0;
         fn ADD_AMMO = 0x00522640;
@@ -1588,6 +1584,11 @@ pub mod va {
         /// `StringRes::COUNT`. Used when neither localization record overrides
         /// a given entry.
         global G_LOCALIZATION_KEY_TABLE = 0x00697708;
+        /// Pointer (`*const c_char`) to the literal ASCII string "NONE" at
+        /// 0x006761B8. Used as the ultimate fallback for the entry-0 weapon
+        /// name in `InitWeaponNameStrings` when both localization records
+        /// lack the NONE entry (StringRes id 0x11).
+        global PTR_S_NONE = 0x0069774C;
         /// BSS byte latched to 1 on first DispatchFrame pass. Gates a
         /// clamp that inflates `remaining` up to `frame_duration` while
         /// the game hasn't started yet. Purpose not fully confirmed; read

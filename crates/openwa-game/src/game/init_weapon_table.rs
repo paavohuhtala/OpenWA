@@ -6,19 +6,20 @@
 //! the fixture remains as a vanilla baseline for tests and tooling.
 //!
 //! The outer skeleton (memset, init/availability loops, scheme-version
-//! gating, post-helper fixups, panel-slot assignment, final
-//! `CheckWeaponAvail` sweep) is ported to Rust here. Four large helpers
-//! it calls remain bridged to WA and can be ported piecemeal:
+//! gating, post-helper fixups, panel-slot assignment, weapon-name
+//! population, final `CheckWeaponAvail` sweep) is ported to Rust here.
+//! Three large helpers it calls remain bridged to WA and can be ported
+//! piecemeal:
 //!
 //! - 0x00537320 — baseline weapon defaults (~1100 inst, unrolled writes)
 //! - 0x00539100 — extended weapon defaults (~1100 inst)
 //! - 0x0053AD80 — overlay scheme weapon-settings bytes onto entries
-//! - 0x0053C130 — `InitWeaponNameStrings` (alloc + fill name1/name2)
 
 use crate::address::va;
 use crate::engine::game_info::GameInfo;
 use crate::engine::runtime::GameRuntime;
 use crate::engine::world::GameWorld;
+use crate::game::init_weapon_names::init_weapon_name_strings;
 use crate::game::weapon::{WeaponTable, check_weapon_avail};
 use crate::rebase::rb;
 use openwa_core::weapon::WeaponId;
@@ -28,14 +29,12 @@ use openwa_core::weapon::WeaponId;
 static mut INIT_WEAPON_DEFAULTS_BASELINE_ADDR: u32 = 0;
 static mut INIT_WEAPON_DEFAULTS_EXTENDED_ADDR: u32 = 0;
 static mut OVERLAY_SCHEME_WEAPON_SETTINGS_ADDR: u32 = 0;
-static mut INIT_WEAPON_NAME_STRINGS_ADDR: u32 = 0;
 
 pub unsafe fn init_addrs() {
     unsafe {
         INIT_WEAPON_DEFAULTS_BASELINE_ADDR = rb(va::INIT_WEAPON_DEFAULTS_BASELINE);
         INIT_WEAPON_DEFAULTS_EXTENDED_ADDR = rb(va::INIT_WEAPON_DEFAULTS_EXTENDED);
         OVERLAY_SCHEME_WEAPON_SETTINGS_ADDR = rb(va::OVERLAY_SCHEME_WEAPON_SETTINGS);
-        INIT_WEAPON_NAME_STRINGS_ADDR = rb(va::INIT_WEAPON_NAME_STRINGS);
     }
 }
 
@@ -100,27 +99,6 @@ unsafe extern "stdcall" fn bridge_overlay_scheme_weapon_settings(_world: *mut Ga
         "pop edi",
         "ret 4",
         addr = sym OVERLAY_SCHEME_WEAPON_SETTINGS_ADDR,
-    );
-}
-
-/// `__usercall(ESI = weapon_table, EDI = localized_template)`, plain RET.
-/// Allocates two 0x1C-byte string buffers per entry (name1 at +0x00,
-/// name2 at +0x04) and fills them from the localization tables. The
-/// EDI input mirrors WA's call site, which loads it from
-/// [`GameWorld::localized_template`] (`world + 0x18`).
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_init_weapon_name_strings(_world: *mut GameWorld) {
-    core::arch::naked_asm!(
-        "push esi",
-        "push edi",
-        "mov ecx, [esp+12]",
-        "mov esi, [ecx+0x510]",
-        "mov edi, [ecx+0x18]",
-        "call dword ptr [{addr}]",
-        "pop edi",
-        "pop esi",
-        "ret 4",
-        addr = sym INIT_WEAPON_NAME_STRINGS_ADDR,
     );
 }
 
@@ -234,7 +212,7 @@ pub unsafe fn init_weapon_table(runtime: *mut GameRuntime) {
         }
 
         bridge_overlay_scheme_weapon_settings(world);
-        bridge_init_weapon_name_strings(world);
+        init_weapon_name_strings(world);
         assign_panel_slots(&mut *weapon_table);
 
         // Per-team ammo carry: D0F0 → D0F2.
