@@ -6,15 +6,14 @@
 //! the fixture remains as a vanilla baseline for tests and tooling.
 //!
 //! The outer skeleton (memset, init/availability loops, scheme-version
-//! gating, post-helper fixups, final `CheckWeaponAvail` sweep) is ported
-//! to Rust here. The five large helpers it calls remain bridged to WA
-//! and can be ported piecemeal:
+//! gating, post-helper fixups, panel-slot assignment, final
+//! `CheckWeaponAvail` sweep) is ported to Rust here. Four large helpers
+//! it calls remain bridged to WA and can be ported piecemeal:
 //!
 //! - 0x00537320 — baseline weapon defaults (~1100 inst, unrolled writes)
 //! - 0x00539100 — extended weapon defaults (~1100 inst)
 //! - 0x0053AD80 — overlay scheme weapon-settings bytes onto entries
 //! - 0x0053C130 — `InitWeaponNameStrings` (alloc + fill name1/name2)
-//! - 0x00537130 — assign each entry to its weapon-panel row/column
 
 use crate::address::va;
 use crate::engine::game_info::GameInfo;
@@ -30,7 +29,6 @@ static mut INIT_WEAPON_DEFAULTS_BASELINE_ADDR: u32 = 0;
 static mut INIT_WEAPON_DEFAULTS_EXTENDED_ADDR: u32 = 0;
 static mut OVERLAY_SCHEME_WEAPON_SETTINGS_ADDR: u32 = 0;
 static mut INIT_WEAPON_NAME_STRINGS_ADDR: u32 = 0;
-static mut ASSIGN_WEAPON_PANEL_SLOTS_ADDR: u32 = 0;
 
 pub unsafe fn init_addrs() {
     unsafe {
@@ -38,7 +36,6 @@ pub unsafe fn init_addrs() {
         INIT_WEAPON_DEFAULTS_EXTENDED_ADDR = rb(va::INIT_WEAPON_DEFAULTS_EXTENDED);
         OVERLAY_SCHEME_WEAPON_SETTINGS_ADDR = rb(va::OVERLAY_SCHEME_WEAPON_SETTINGS);
         INIT_WEAPON_NAME_STRINGS_ADDR = rb(va::INIT_WEAPON_NAME_STRINGS);
-        ASSIGN_WEAPON_PANEL_SLOTS_ADDR = rb(va::ASSIGN_WEAPON_PANEL_SLOTS);
     }
 }
 
@@ -124,18 +121,6 @@ unsafe extern "stdcall" fn bridge_init_weapon_name_strings(_world: *mut GameWorl
         "pop esi",
         "ret 4",
         addr = sym INIT_WEAPON_NAME_STRINGS_ADDR,
-    );
-}
-
-/// `__usercall(EAX = weapon_table)`, plain RET. Writes each entry's
-/// `panel_state` field (+0x08) to its weapon-panel row (1..0xC).
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_assign_panel_slots(_table: *mut WeaponTable) {
-    core::arch::naked_asm!(
-        "mov eax, [esp+4]",
-        "call dword ptr [{addr}]",
-        "ret 4",
-        addr = sym ASSIGN_WEAPON_PANEL_SLOTS_ADDR,
     );
 }
 
@@ -250,7 +235,7 @@ pub unsafe fn init_weapon_table(runtime: *mut GameRuntime) {
 
         bridge_overlay_scheme_weapon_settings(world);
         bridge_init_weapon_name_strings(world);
-        bridge_assign_panel_slots(weapon_table);
+        assign_panel_slots(&mut *weapon_table);
 
         // Per-team ammo carry: D0F0 → D0F2.
         per_team_ammo_carry(game_info, game_version);
@@ -317,6 +302,38 @@ unsafe fn backup_weapon_table_region(weapon_table: *mut WeaponTable, world: *mut
             &(*weapon_table).entries[BACKUP_SOURCE_ENTRY].fire_params as *const _ as *const u32;
         let dst = (*world).weapon_table_backup.as_mut_ptr();
         core::ptr::copy_nonoverlapping(src, dst, (*world).weapon_table_backup.len());
+    }
+}
+
+/// Pure Rust port of WA's panel-slot assignment helper (0x00537130,
+/// `__usercall(EAX = table)`). Writes each entry's `panel_state`:
+///
+/// - Panel 0 (utility/special): entry 0 + entries 62..=70
+/// - Panels 1..=4: 5 entries each, in sequence
+/// - Panel 5: 6 entries (21..=26 — the only oversized panel)
+/// - Panels 6..=12: 5 entries each, in sequence
+fn assign_panel_slots(table: &mut WeaponTable) {
+    table.entries[0].panel_state = 0;
+    for i in 62..=70 {
+        table.entries[i].panel_state = 0;
+    }
+    for (panel, range) in [
+        (1, 1..=5),
+        (2, 6..=10),
+        (3, 11..=15),
+        (4, 16..=20),
+        (5, 21..=26),
+        (6, 27..=31),
+        (7, 32..=36),
+        (8, 37..=41),
+        (9, 42..=46),
+        (10, 47..=51),
+        (11, 52..=56),
+        (12, 57..=61),
+    ] {
+        for i in range {
+            table.entries[i].panel_state = panel;
+        }
     }
 }
 

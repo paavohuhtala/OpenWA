@@ -618,9 +618,6 @@ pub mod va {
         /// RET. Allocates two 0x1C-byte string buffers per entry and fills
         /// them with localized weapon names.
         fn INIT_WEAPON_NAME_STRINGS = 0x0053C130;
-        /// `__usercall(EAX = weapon_table)`, plain RET. Writes each entry's
-        /// `panel_state` (+0x08) to its weapon-panel row index (1..0xC).
-        fn ASSIGN_WEAPON_PANEL_SLOTS = 0x00537130;
         fn COUNT_ALIVE_WORMS = 0x005225A0;
         fn GET_AMMO = 0x005225E0;
         fn ADD_AMMO = 0x00522640;
