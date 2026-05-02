@@ -11,6 +11,7 @@
 
 use crate::address::va;
 use crate::audio::{KnownSoundId, SoundId};
+use crate::engine::world::GameWorld;
 use crate::engine::{GAME_PHASE_NORMAL_MIN, GAME_PHASE_SUDDEN_DEATH, TeamArena};
 use crate::game::KnownWeaponId;
 use crate::game::message::{
@@ -802,7 +803,7 @@ unsafe fn fire_armageddon(worm: *mut WormEntity) {
             let half_x = ((level_w << 16) + (if level_w < 0 { 1 } else { 0 })) >> 1;
             let half_y = ((level_h << 16) + (if level_h < 0 { 1 } else { 0 })) >> 1;
 
-            crate::engine::world::GameWorld::register_event_point_raw(world, half_x, half_y);
+            GameWorld::register_event_point_raw(world, Fixed(half_x), Fixed(half_y));
         }
     }
 }

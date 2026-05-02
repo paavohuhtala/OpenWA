@@ -18,6 +18,7 @@ use super::worm::{WormEntity, WormState};
 use crate::address::va;
 use crate::engine::EntityActivityQueue;
 use crate::engine::team_arena::TeamArena;
+use crate::engine::world::GameWorld;
 use crate::game::message::{SelectWeaponMessage, WeaponReleasedMessage, WormMovedMessage};
 use crate::game::{EntityMessage, weapon_fire};
 use crate::rebase::rb;
@@ -556,9 +557,9 @@ unsafe fn msg_team_victory(this: *mut WormEntity) -> bool {
         if !suppress {
             WormEntity::set_state_raw(this, WormState::Idle);
         }
-        let pos_x = (*this).base.pos_x.0;
-        let pos_y = (*this).base.pos_y.0;
-        crate::engine::world::GameWorld::register_event_point_raw(world, pos_x, pos_y);
+        let pos_x = (*this).base.pos_x;
+        let pos_y = (*this).base.pos_y;
+        GameWorld::register_event_point_raw(world, pos_x, pos_y);
         true
     }
 }
@@ -703,9 +704,9 @@ unsafe fn msg_resume_turn(this: *mut WormEntity) {
     unsafe {
         let world = (*(this as *const BaseEntity)).world;
         if (*this).selected_weapon != KnownWeaponId::Teleport {
-            let pos_x = (*this).base.pos_x.0;
-            let pos_y = (*this).base.pos_y.0;
-            crate::engine::world::GameWorld::register_event_point_raw(world, pos_x, pos_y);
+            let pos_x = (*this).base.pos_x;
+            let pos_y = (*this).base.pos_y;
+            GameWorld::register_event_point_raw(world, pos_x, pos_y);
         }
         let queue = &raw mut (*world).entity_activity_queue;
         bridge_reset_activity_rank(queue, (*this).activity_rank_slot as i32);
@@ -728,9 +729,9 @@ unsafe fn msg_start_turn(this: *mut WormEntity) -> bool {
             WormEntity::set_state_raw(this, WormState::Idle);
         }
 
-        let pos_x = (*this).base.pos_x.0;
-        let pos_y = (*this).base.pos_y.0;
-        crate::engine::world::GameWorld::register_event_point_raw(world, pos_x, pos_y);
+        let pos_x = (*this).base.pos_x;
+        let pos_y = (*this).base.pos_y;
+        GameWorld::register_event_point_raw(world, pos_x, pos_y);
 
         let queue = &raw mut (*world).entity_activity_queue;
         bridge_reset_activity_rank(queue, (*this).activity_rank_slot as i32);
@@ -948,14 +949,14 @@ unsafe fn msg_turn_started(this: *mut WormEntity) {
         if (*this).saved_aim_flag != 0 {
             let aim = (*this).aim_angle;
             (*this).saved_aim_flag = 0;
-            (*this).aim_angle = if aim < 0x4000 {
-                0x8000
-            } else if aim <= 0x7FFF {
-                0
-            } else if aim <= 0xBFFF {
-                0x10000
+            (*this).aim_angle = if aim < Fixed(0x4000) {
+                Fixed(0x8000)
+            } else if aim <= Fixed(0x7FFF) {
+                Fixed(0)
+            } else if aim <= Fixed(0xBFFF) {
+                Fixed(0x10000)
             } else {
-                0x8000
+                Fixed(0x8000)
             };
         }
         (*this).poison_tick_accum = 0;

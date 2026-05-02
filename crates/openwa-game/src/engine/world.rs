@@ -322,13 +322,13 @@ pub struct GameWorld {
     /// 0x73A0: Effect-event point — written by [`GameWorld::register_event_point_raw`]
     /// (WA 0x547E70). Despite the original "min" / "max" / "expand bbox" code shape,
     /// the entry path always resets `+0x73A0..+0x73AC` to a single `(x, y)` point.
-    pub camera_x: i32,
+    pub camera_x: Fixed,
     /// 0x73A4: see [`Self::camera_x`].
-    pub camera_y: i32,
+    pub camera_y: Fixed,
     /// 0x73A8: see [`Self::camera_x`].
-    pub camera_target_x: i32,
+    pub camera_target_x: Fixed,
     /// 0x73AC: see [`Self::camera_x`].
-    pub camera_target_y: i32,
+    pub camera_target_y: Fixed,
 
     /// 0x73B0: Render entry table (14 entries × 0x14 bytes).
     /// First u32 of each entry zeroed by InitRenderIndices.
@@ -710,7 +710,7 @@ impl GameWorld {
     ///
     /// `_raw` form per the project's noalias rule: callers commonly pass a
     /// pointer obtained from a WA bridge call, so we can't claim `&mut self`.
-    pub unsafe fn register_event_point_raw(this: *mut GameWorld, x: i32, y: i32) {
+    pub unsafe fn register_event_point_raw(this: *mut GameWorld, x: Fixed, y: Fixed) {
         unsafe {
             (*this).camera_x = x;
             (*this).camera_target_x = x;
@@ -821,7 +821,6 @@ impl crate::snapshot::Snapshot for GameWorld {
         indent: usize,
     ) -> core::fmt::Result {
         use crate::snapshot::{fmt_ptr, write_indent};
-        use openwa_core::fixed::Fixed;
         let i = indent;
 
         write_indent(w, i)?;
@@ -837,18 +836,12 @@ impl crate::snapshot::Snapshot for GameWorld {
             self.rng_state_1, self.rng_state_2
         )?;
         write_indent(w, i)?;
-        writeln!(
-            w,
-            "camera = ({}, {})",
-            Fixed(self.camera_x),
-            Fixed(self.camera_y)
-        )?;
+        writeln!(w, "camera = ({}, {})", self.camera_x, self.camera_y)?;
         write_indent(w, i)?;
         writeln!(
             w,
             "camera_target = ({}, {})",
-            Fixed(self.camera_target_x),
-            Fixed(self.camera_target_y)
+            self.camera_target_x, self.camera_target_y
         )?;
         write_indent(w, i)?;
         writeln!(w, "level_size = {}x{}", self.level_width, self.level_height)?;

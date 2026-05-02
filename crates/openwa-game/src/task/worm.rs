@@ -482,7 +482,7 @@ pub struct WormEntity {
     /// Used by WeaponRelease to convert aim params to world-space projectile offsets.
     pub landscape_scale: Fixed,
     /// 0x24C: Aim angle (fixed-point 16.16, range 0..0x10000 = 0..360 degrees).
-    pub aim_angle: u32,
+    pub aim_angle: Fixed,
     /// 0x250: Cleared by `FinishTurn` (msg 0x37) only when
     /// `world.version_flag_4 == 0` (pre-v3.5 schemes). Reader TBD.
     pub _field_250: u32,
@@ -773,7 +773,7 @@ impl crate::snapshot::Snapshot for WormEntity {
             write_indent(w, i)?;
             writeln!(w, "facing = {}", self.facing_direction)?;
             write_indent(w, i)?;
-            writeln!(w, "aim_angle = 0x{:08X}", self.aim_angle)?;
+            writeln!(w, "aim_angle = {}", self.aim_angle)?;
 
             write_indent(w, i)?;
             write!(w, "spawn_params =")?;
