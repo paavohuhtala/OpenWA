@@ -28,6 +28,7 @@ pub mod va {
     // =========================================================================
 
     // Re-exported from task modules
+    pub use crate::engine::entity_activity_queue::ENTITY_ACTIVITY_QUEUE_INIT;
     pub use crate::game::game_task_message::{
         WORLD_ENTITY_COMPUTE_EXPLOSION_DAMAGE, WORLD_ENTITY_IS_SOUND_HANDLE_EXPIRED,
         WORLD_ENTITY_RELEASE_SOUND_HANDLE,
@@ -66,7 +67,7 @@ pub mod va {
         WORLD_ROOT_HANDLE_MESSAGE, WORLD_ROOT_HURRY_HANDLER,
     };
     pub use crate::task::worm::{
-        ANIM_QUEUE_RELEASE_SLOT, WORM_ENTITY_CONSTRUCTOR, WORM_ENTITY_NOTIFY_MOVED,
+        ENTITY_ACTIVITY_QUEUE_RESET_RANK, WORM_ENTITY_CONSTRUCTOR, WORM_ENTITY_NOTIFY_MOVED,
         WORM_ENTITY_VTABLE,
     };
 
@@ -843,8 +844,6 @@ pub mod va {
         fn OPENGL_INIT = 0x0059F000;
         /// IMG__LoadFromDir: look up + decode IMG resource from a .dir archive
         fn IMG_LOAD_FROM_DIR = 0x004F6300;
-        /// SpriteGfxTable__Init
-        fn/Fastcall SPRITE_GFX_TABLE_INIT = 0x00541620;
         /// RingBuffer__Init
         fn/Usercall RING_BUFFER_INIT = 0x00541060;
         /// WorldEntity__InitTeamScoring

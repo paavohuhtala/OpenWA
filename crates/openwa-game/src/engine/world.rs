@@ -6,7 +6,7 @@ use crate::audio::music::Music;
 use crate::audio::speech::SpeechSlotTable;
 use crate::bitgrid::{BitGrid, CollisionBitGrid, DisplayBitGrid};
 use crate::engine::game_info::GameInfo;
-use crate::engine::{CoordEntry, CoordList, TeamArena, TeamIndexMap};
+use crate::engine::{CoordEntry, CoordList, EntityActivityQueue, TeamArena, TeamIndexMap};
 use crate::game::weapon::WeaponTable;
 use crate::input::keyboard::Keyboard;
 use crate::input::mouse::MouseInput;
@@ -179,18 +179,21 @@ pub struct GameWorld {
     pub _field_5f8: u32,
     /// 0x5FC: Unknown (zeroed by InitGameState).
     pub _field_5fc: u32,
-    /// 0x600-0x25FF: Identity permutation [0,1,2,...,~2048] — SpriteGfxTable.
-    pub _unknown_600: [u8; 0x2600 - 0x600],
+    /// 0x600: EntityActivityQueue — most-recent-activity rank table over
+    /// every `WorldEntity` (Worm, OldWorm, Crate, Mine, OilDrum, etc.).
+    /// `init` (formerly misnamed `SpriteGfxTable__Init`) sets `free_pool`
+    /// to the identity permutation and `ages` to all-`0xFFFFFFFF`. Each
+    /// entity holds one slot for its lifetime; the rank gets reset to
+    /// "newest" at activity edges. Only known reader: `WormEntity::
+    /// BehaviorTick` water-death path (forwards `ages[slot]` as a stagger
+    /// delay to `ScoreBubbleEntity`'s ctor). Total size 0x300C.
+    pub entity_activity_queue: EntityActivityQueue,
 
-    /// 0x2600-0x2DFF: Block of 0xFFFFFFFF values at runtime (512 i32 entries).
-    /// May be unused slots in a parallel table to the 0x600 permutation.
-    pub _unknown_2600: [u8; 0x2E00 - 0x2600],
-
-    /// 0x2E00-0x45D3: Unknown (mostly zero at runtime).
+    /// 0x360C-0x45D3: Unknown (mostly zero at runtime).
     ///
     /// Contains FUN_00526120 zeroed offsets at stride 0x194:
     /// 0x379C, 0x3930, 0x3AC4, 0x3C58, 0x3DEC, 0x3F80, 0x4114, 0x42A8, 0x443C, 0x45D0
-    pub _unknown_2e00: [u8; 0x45D4 - 0x2E00],
+    pub _unknown_360c: [u8; 0x45D4 - 0x360C],
     /// 0x45D4: Terrain drop percentage A (from GameInfo+0xD955).
     pub terrain_pct_a: u32,
     /// 0x45D8: Terrain drop percentage B (from GameInfo+0xD958).

@@ -2,6 +2,7 @@ pub mod buffer_object;
 pub mod clock;
 pub mod coord;
 pub mod dual_buffer_object;
+pub mod entity_activity_queue;
 pub mod game_info;
 pub mod game_session;
 pub mod game_session_run;
@@ -29,6 +30,7 @@ pub mod world_constructor;
 pub mod world_load_fonts;
 
 pub use coord::{CoordEntry, CoordList, CoordListEntry};
+pub use entity_activity_queue::EntityActivityQueue;
 pub use game_info::GameInfo;
 pub use game_session::GameSession;
 pub use net_wrapper::DDNetGameWrapper;

@@ -27,6 +27,7 @@ use openwa_core::weapon::KnownWeaponId;
 use super::base::BaseEntity;
 use super::worm::{WormEntity, WormState};
 use crate::address::va;
+use crate::engine::EntityActivityQueue;
 use crate::engine::team_arena::TeamArena;
 use crate::game::message::{WeaponReleasedMessage, WormMovedMessage};
 use crate::game::{EntityMessage, weapon_fire};
@@ -37,9 +38,10 @@ use crate::rebase::rb;
 /// yet ported to Rust.
 pub static ORIGINAL_HANDLE_MESSAGE: AtomicU32 = AtomicU32::new(0);
 
-/// Address of `AnimQueue::ReleaseSlot_Maybe` resolved from `va::ANIM_QUEUE_RELEASE_SLOT`
-/// at `init_addrs()` time. Read by the naked trampoline.
-static mut ANIM_QUEUE_RELEASE_SLOT_ADDR: u32 = 0;
+/// Address of `EntityActivityQueue::ResetRank` resolved from
+/// `va::ENTITY_ACTIVITY_QUEUE_RESET_RANK` at `init_addrs()` time. Read by
+/// the naked trampoline.
+static mut ENTITY_ACTIVITY_QUEUE_RESET_RANK_ADDR: u32 = 0;
 
 /// Address of `WormEntity::NotifyMoved_Maybe` (0x0050F730), the WA helper
 /// invoked from Pre-switch A.
@@ -49,15 +51,21 @@ static mut WORM_NOTIFY_MOVED_ADDR: u32 = 0;
 /// install path.
 pub unsafe fn init_addrs() {
     unsafe {
-        ANIM_QUEUE_RELEASE_SLOT_ADDR = rb(va::ANIM_QUEUE_RELEASE_SLOT);
+        ENTITY_ACTIVITY_QUEUE_RESET_RANK_ADDR = rb(va::ENTITY_ACTIVITY_QUEUE_RESET_RANK);
         WORM_NOTIFY_MOVED_ADDR = rb(va::WORM_ENTITY_NOTIFY_MOVED);
     }
 }
 
-/// Bridge for `AnimQueue::ReleaseSlot_Maybe` (`__usercall(EAX = queue,
-/// [stack] = slot)`, RET 0x4). Caller passes `queue = world + 0x600`.
+/// Bridge for `EntityActivityQueue::ResetRank` (`__usercall(EAX = queue,
+/// [stack] = slot)`, RET 0x4). Despite the historical "release"-shaped name,
+/// this does NOT free the slot — it resets the calling entity's rank to
+/// "newest" and ages up all currently-younger slots. Caller passes the
+/// [`EntityActivityQueue`] embedded in `GameWorld` (offset `0x600`).
 #[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_anim_queue_release_slot(_queue: *mut u8, _slot: i32) {
+unsafe extern "stdcall" fn bridge_reset_activity_rank(
+    _queue: *mut EntityActivityQueue,
+    _slot: i32,
+) {
     core::arch::naked_asm!(
         "push ebx",
         "mov eax, dword ptr [esp+8]",  // queue (1 save + ret = 8)
@@ -66,7 +74,7 @@ unsafe extern "stdcall" fn bridge_anim_queue_release_slot(_queue: *mut u8, _slot
         "call ebx",                     // RET 0x4 cleans the slot push
         "pop ebx",
         "ret 8",                        // we own the 2 stdcall stack args
-        addr = sym ANIM_QUEUE_RELEASE_SLOT_ADDR,
+        addr = sym ENTITY_ACTIVITY_QUEUE_RESET_RANK_ADDR,
     );
 }
 
@@ -95,15 +103,15 @@ unsafe extern "stdcall" fn bridge_notify_moved(_this: *mut WormEntity) {
 /// Pre-switch A body — applies for messages
 /// `0x1E,0x1F,0x22,0x23,0x24,0x25,0x26` unconditionally and for `0x20/0x21`
 /// when `weapons_enabled != 0`, `0x2F-0x32` when `turn_active != 0`, and
-/// `0x33` when both `data[3] != 0` and `turn_active != 0`. Releases the
-/// worm's anim-queue slot, clears the per-frame stationary counter, fires
-/// `NotifyMoved`, then zeroes the four odd-indexed aim-fade values.
+/// `0x33` when both `data[3] != 0` and `turn_active != 0`. Resets the worm's
+/// activity-queue rank to "newest", clears the per-frame stationary counter,
+/// fires `NotifyMoved`, then zeroes the four odd-indexed aim-fade values.
 unsafe fn pre_switch_a(this: *mut WormEntity) {
     unsafe {
         let world = (*(this as *const BaseEntity)).world;
-        let queue = (world as *mut u8).add(0x600);
-        let slot = (*this).slot_id as i32;
-        bridge_anim_queue_release_slot(queue, slot);
+        let queue = &raw mut (*world).entity_activity_queue;
+        let slot = (*this).activity_rank_slot as i32;
+        bridge_reset_activity_rank(queue, slot);
         (*this).stationary_frames = 0;
         bridge_notify_moved(this);
         (*this).aim_fade[1] = Fixed(0);
@@ -400,19 +408,21 @@ unsafe fn msg_unknown_42(this: *mut WormEntity) -> bool {
     }
 }
 
-/// BringForward (0x58): release the worm's anim-queue slot. Single call,
-/// no preamble (msg outside `0x1E..=0x33`).
+/// BringForward (0x58): promote the worm to "newest" in the activity queue.
+/// Single call, no preamble (msg outside `0x1E..=0x33`). The message name
+/// matches what the function actually does — it brings this worm forward
+/// in the activity ranking.
 unsafe fn msg_bring_forward(this: *mut WormEntity) {
     unsafe {
         let world = (*(this as *const BaseEntity)).world;
-        let queue = (world as *mut u8).add(0x600);
-        bridge_anim_queue_release_slot(queue, (*this).slot_id as i32);
+        let queue = &raw mut (*world).entity_activity_queue;
+        bridge_reset_activity_rank(queue, (*this).activity_rank_slot as i32);
     }
 }
 
 /// ResumeTurn (0x36): unless the selected weapon is Teleport, register an
-/// effect-event point at the worm's position; release the worm's anim-queue
-/// slot; clear `turn_paused`. Counterpart of `PauseTurn` (msg 0x35).
+/// effect-event point at the worm's position; reset the worm's activity-queue
+/// rank; clear `turn_paused`. Counterpart of `PauseTurn` (msg 0x35).
 ///
 /// At the WA call site `RegisterEventPoint` is invoked as
 /// `(ECX = pos.x, EDX = pos.y, [stack] = this)` — the x/y are the saved
@@ -426,8 +436,8 @@ unsafe fn msg_resume_turn(this: *mut WormEntity) {
             let pos_y = (*this).base.pos_y.0;
             crate::engine::world::GameWorld::register_event_point_raw(world, pos_x, pos_y);
         }
-        let queue = (world as *mut u8).add(0x600);
-        bridge_anim_queue_release_slot(queue, (*this).slot_id as i32);
+        let queue = &raw mut (*world).entity_activity_queue;
+        bridge_reset_activity_rank(queue, (*this).activity_rank_slot as i32);
         (*this).turn_paused = 0;
     }
 }

@@ -46,8 +46,8 @@ pub struct CrateEntity {
     pub base: WorldEntity<*const CrateEntityVtable>,
     /// 0xFC: Unknown (zeroed by constructor)
     pub _unknown_fc: u32,
-    /// 0x100: Object pool slot index (assigned from GameWorld+0x3600 pool)
-    pub slot_id: u32,
+    /// 0x100: This crate's slot ID in `GameWorld.entity_activity_queue`.
+    pub activity_rank_slot: u32,
     /// 0x104: Unknown (zeroed by constructor)
     pub _unknown_104: u32,
     /// 0x108: Unknown (zeroed by constructor, also cleared for spawn_mode=1)

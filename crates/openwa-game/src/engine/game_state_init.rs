@@ -6,6 +6,7 @@
 
 use crate::audio::dssound::DSSound;
 use crate::bitgrid::DisplayBitGrid;
+use crate::engine::EntityActivityQueue;
 use crate::engine::dual_buffer_object::allocate_dual_buffer_object;
 use crate::engine::game_info::GameInfo;
 use crate::engine::game_state;
@@ -19,7 +20,6 @@ use crate::game::weapon::check_weapon_avail;
 use crate::render::display::gfx::DisplayGfx;
 use crate::render::landscape::{Landscape, init_landscape_borders};
 use crate::render::palette::allocate_palette_context;
-use crate::render::sprite::sprite_gfx_table_init;
 use crate::wa_call::{call_ctor_with_ecx, call_usercall_esi_stack1};
 use openwa_core::fixed::Fixed;
 use openwa_core::weapon::WeaponId;
@@ -182,12 +182,11 @@ pub unsafe fn init_game_state(runtime: *mut GameRuntime) {
         (*runtime).replay_flag_a = (*game_info).invisibility_mode as u8;
         (*runtime).replay_flag_b = ((*game_info).invisibility_mode >> 8) as u8;
 
-        // ===== SpriteGfxTable__Init =====
+        // ===== EntityActivityQueue::Init =====
         {
             let game_version = (*game_info).game_version;
-            let count: u32 = if game_version >= 0x3C { 0x400 } else { 0x100 };
-            let table_ptr = core::ptr::addr_of_mut!((*world)._unknown_600) as *mut u8;
-            sprite_gfx_table_init(table_ptr, count);
+            let capacity: u32 = if game_version >= 0x3C { 0x400 } else { 0x100 };
+            EntityActivityQueue::init(&raw mut (*world).entity_activity_queue, capacity);
         }
 
         // ===== Allocate HudPanel (0x940 bytes) =====

@@ -73,8 +73,8 @@ pub struct MineEntity {
     pub base: WorldEntity<*const MineEntityVtable>,
     /// 0xFC–0x10F: Unknown mine flags
     pub _unknown_fc: [u8; 0x14],
-    /// 0x110: Object pool slot index (assigned from GameWorld+0x3600 pool)
-    pub slot_id: u32,
+    /// 0x110: This mine's slot ID in `GameWorld.entity_activity_queue`.
+    pub activity_rank_slot: u32,
     /// 0x114: Unknown
     pub _unknown_114: u32,
     /// 0x118: Fuse timer (signed i32).
@@ -112,8 +112,8 @@ pub struct OilDrumEntity {
     pub base: WorldEntity<*const OilDrumEntityVtable>,
     /// 0xFC: Triggered flag — set to 1 on first impact, starts smoke/fire
     pub triggered: u32,
-    /// 0x100: Object pool slot index
-    pub slot_id: u32,
+    /// 0x100: This drum's slot ID in `GameWorld.entity_activity_queue`.
+    pub activity_rank_slot: u32,
     /// 0x104: Unknown
     pub _unknown_104: u32,
     /// 0x108: Health (starts at 0x32 = 50; decremented on damage)

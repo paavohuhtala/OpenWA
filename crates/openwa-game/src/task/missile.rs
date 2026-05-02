@@ -93,9 +93,9 @@ pub struct MissileEntity {
     /// 0x128: Position-derived launch seed. Computed by constructor as:
     /// `((spawn_x + spawn_y) / 256 / 20) + 0x10000`. param_1[0x4A].
     pub launch_seed: u32,
-    /// 0x12C: Object pool slot index (assigned from GameWorld+0x3600 pool).
-    /// param_1[0x4B].
-    pub slot_id: u32,
+    /// 0x12C: This missile's slot ID in `GameWorld.entity_activity_queue`
+    /// (param_1[0x4B]).
+    pub activity_rank_slot: u32,
 
     // ---- 0x130–0x15B: spawn data (11 DWORDs, from param_4) ----
     /// 0x130–0x15B: Spawn parameters copied from constructor param_4.
@@ -367,7 +367,7 @@ impl crate::snapshot::Snapshot for MissileEntity {
             write_indent(w, i)?;
             writeln!(w, "launch_seed = 0x{:08X}", self.launch_seed)?;
             write_indent(w, i)?;
-            writeln!(w, "slot_id = {}", self.slot_id)?;
+            writeln!(w, "activity_rank_slot = {}", self.activity_rank_slot)?;
 
             let sp = &self.spawn_params;
             write_indent(w, i)?;

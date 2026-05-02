@@ -23,12 +23,11 @@ use openwa_game::engine::game_state_init::init_turn_state;
 use openwa_game::engine::ring_buffer::ring_buffer_init;
 use openwa_game::engine::team_init::{init_alliance_data, init_team_scoring};
 use openwa_game::engine::{
-    GameRuntime, GameWorld, display_layer_color_init, game_world_init_fields,
+    EntityActivityQueue, GameRuntime, GameWorld, display_layer_color_init, game_world_init_fields,
     game_world_init_render_indices,
 };
 use openwa_game::game::{check_weapon_avail, is_super_weapon};
 use openwa_game::render::landscape::init_landscape_borders;
-use openwa_game::render::sprite::sprite_gfx_table_init;
 
 // ─── GameWorld__InitFields (0x526120) ──────────────────────────────────────────
 
@@ -217,9 +216,9 @@ pub fn install() -> Result<(), String> {
         )?;
 
         hook::install(
-            "SpriteGfxTable__Init",
-            va::SPRITE_GFX_TABLE_INIT,
-            sprite_gfx_table_init_trampoline as *const (),
+            "EntityActivityQueue__Init",
+            va::ENTITY_ACTIVITY_QUEUE_INIT,
+            entity_activity_queue_init_trampoline as *const (),
         )?;
 
         hook::install(
@@ -268,12 +267,16 @@ pub fn install() -> Result<(), String> {
     Ok(())
 }
 
-// ─── SpriteGfxTable__Init (0x541620) ────────────────────────────────────────
-// Convention: fastcall(ECX=base, EDX=count), plain RET.
+// ─── EntityActivityQueue__Init (0x541620) ───────────────────────────────────
+// Convention: fastcall(ECX=this, EDX=capacity), plain RET. Was misnamed
+// `SpriteGfxTable__Init` prior to identification of the queue's actual role.
 
-unsafe extern "fastcall" fn sprite_gfx_table_init_trampoline(base: u32, count: u32) {
+unsafe extern "fastcall" fn entity_activity_queue_init_trampoline(
+    this: *mut EntityActivityQueue,
+    capacity: u32,
+) {
     unsafe {
-        sprite_gfx_table_init(base as *mut u8, count);
+        EntityActivityQueue::init(this, capacity);
     }
 }
 

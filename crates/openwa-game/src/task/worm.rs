@@ -162,11 +162,18 @@ crate::define_addresses! {
         fn/Usercall WORM_ENTITY_NOTIFY_MOVED = 0x0050F730;
     }
 
-    class "AnimQueue" {
-        /// `AnimQueue::ReleaseSlot_Maybe` (0x00541790) — usercall
-        /// `(EAX = queue, [stack] = slot)`, RET 0x4. The queue lives at
-        /// `world + 0x600`. Negative `slot` = release-all.
-        fn/Usercall ANIM_QUEUE_RELEASE_SLOT = 0x00541790;
+    class "EntityActivityQueue" {
+        /// `EntityActivityQueue::ResetRank` (0x00541790) — usercall
+        /// `(EAX = queue, [stack] = slot)`, RET 0x4. Despite WA's "release"
+        /// shape, this does NOT free the slot: it zeroes `ages[slot]` and
+        /// "ages up" every younger slot, effectively promoting the calling
+        /// entity to "newest" in the activity ranking. The genuine free is
+        /// at 0x00541860 (`FreeSlotById`, called only from destructors).
+        /// The queue is the
+        /// [`EntityActivityQueue`](crate::engine::EntityActivityQueue)
+        /// embedded in `GameWorld` at offset `0x600`. Negative `slot` =
+        /// release-all (bumps every active slot's age, sets `count = 0`).
+        fn/Usercall ENTITY_ACTIVITY_QUEUE_RESET_RANK = 0x00541790;
     }
 }
 
@@ -311,8 +318,11 @@ pub struct WormEntity {
     /// 0x154: Took-damage marker. Set to 1 by `WormDamaged` (msg 0x47) when
     /// the team+worm pair matches this worm. Cleared in some SetState transitions.
     pub took_damage_flag: u32,
-    /// 0x158: Worm pool slot index in GameWorld (assigned from pool at construction)
-    pub slot_id: u32,
+    /// 0x158: This worm's slot ID in `GameWorld.entity_activity_queue`
+    /// (assigned at construction, freed at destruction). Read by
+    /// `BehaviorTick`'s water-death path as `ages[slot]` to derive the
+    /// stagger delay for the worm's score-bubble.
+    pub activity_rank_slot: u32,
     /// 0x15C–0x163: Unknown
     pub _unknown_15c: [u8; 0x164 - 0x15C],
     /// 0x164: Frames the worm has stayed stationary (no movement). Resets on movement.
@@ -672,7 +682,7 @@ impl crate::snapshot::Snapshot for WormEntity {
             write_indent(w, i)?;
             writeln!(w, "worm_index = {}", self.worm_index)?;
             write_indent(w, i)?;
-            writeln!(w, "slot_id = {}", self.slot_id)?;
+            writeln!(w, "activity_rank_slot = {}", self.activity_rank_slot)?;
             write_indent(w, i)?;
             writeln!(w, "selected_weapon = {:?}", self.selected_weapon)?;
             write_indent(w, i)?;
