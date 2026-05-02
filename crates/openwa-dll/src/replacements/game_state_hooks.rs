@@ -12,7 +12,6 @@ use openwa_game::address::va;
 // ─── Trampoline storage ─────────────────────────────────────────────────────
 
 static mut HUD_PANEL_ORIG: *const () = core::ptr::null();
-static mut INIT_WEAPON_TABLE_ORIG: *const () = core::ptr::null();
 static mut INIT_TEAMS_ORIG: *const () = core::ptr::null();
 static mut TEAM_MANAGER_ORIG: *const () = core::ptr::null();
 static mut GAME_STATE_ORIG: *const () = core::ptr::null();
@@ -27,18 +26,6 @@ unsafe extern "stdcall" fn hook_hud_panel(this: u32) -> u32 {
         ));
         let orig: unsafe extern "stdcall" fn(u32) -> u32 = core::mem::transmute(HUD_PANEL_ORIG);
         orig(this)
-    }
-}
-
-// InitWeaponTable (0x53CAB0): stdcall(runtime), RET 0x4
-unsafe extern "stdcall" fn hook_init_weapon_table(wrapper: u32) -> u32 {
-    unsafe {
-        let _ = log_line(&format!(
-            "[InitGameState] InitWeaponTable wrapper=0x{wrapper:08X}"
-        ));
-        let orig: unsafe extern "stdcall" fn(u32) -> u32 =
-            core::mem::transmute(INIT_WEAPON_TABLE_ORIG);
-        orig(wrapper)
     }
 }
 
@@ -84,12 +71,6 @@ pub fn install() -> Result<(), String> {
             "HudPanel__Constructor",
             va::HUD_PANEL_CONSTRUCTOR,
             hook_hud_panel as *const (),
-        )? as *const ();
-
-        INIT_WEAPON_TABLE_ORIG = hook::install(
-            "InitWeaponTable",
-            va::INIT_WEAPON_TABLE,
-            hook_init_weapon_table as *const (),
         )? as *const ();
 
         INIT_TEAMS_ORIG = hook::install(

@@ -16,6 +16,7 @@ use crate::engine::ring_buffer::{allocate_ring_buffer_init, allocate_ring_buffer
 use crate::engine::runtime::GameRuntime;
 use crate::engine::team_init::{init_alliance_data, init_team_color_from_names, init_team_scoring};
 use crate::engine::world::GameWorld;
+use crate::game::init_weapon_table::init_weapon_table;
 use crate::game::weapon::check_weapon_avail;
 use crate::render::display::gfx::DisplayGfx;
 use crate::render::landscape::{Landscape, init_landscape_borders};
@@ -485,12 +486,7 @@ pub unsafe fn init_game_state(runtime: *mut GameRuntime) {
         (*world).hud_status_code = 0;
         (*world).hud_status_text = core::ptr::null();
 
-        // InitWeaponTable
-        {
-            let f: unsafe extern "stdcall" fn(*mut GameRuntime) =
-                core::mem::transmute(rb(va::INIT_WEAPON_TABLE) as usize);
-            f(runtime);
-        }
+        init_weapon_table(runtime);
 
         // GameWorld__InitTeamsFromSetup
         {
