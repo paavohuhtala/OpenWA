@@ -5,20 +5,18 @@
 //! [`crate::game::weapon_data`] as the *runtime* source of weapon data —
 //! the fixture remains as a vanilla baseline for tests and tooling.
 //!
-//! The outer skeleton (memset, init/availability loops, scheme-version
-//! gating, post-helper fixups, panel-slot assignment, weapon-name
-//! population, final `CheckWeaponAvail` sweep) is ported to Rust here.
-//! Three large helpers it calls remain bridged to WA and can be ported
-//! piecemeal:
+//! The outer skeleton + the two large default-population functions
+//! (0x00537320 baseline, 0x00539100 extended; ported in
+//! [`super::init_weapon_defaults`]) are pure Rust. The remaining
+//! WA-side helper is the scheme-bytes overlay, which still bridges:
 //!
-//! - 0x00537320 — baseline weapon defaults (~1100 inst, unrolled writes)
-//! - 0x00539100 — extended weapon defaults (~1100 inst)
 //! - 0x0053AD80 — overlay scheme weapon-settings bytes onto entries
 
 use crate::address::va;
 use crate::engine::game_info::GameInfo;
 use crate::engine::runtime::GameRuntime;
 use crate::engine::world::GameWorld;
+use crate::game::init_weapon_defaults::populate_weapon_table_defaults;
 use crate::game::init_weapon_names::init_weapon_name_strings;
 use crate::game::weapon::{WeaponTable, check_weapon_avail};
 use crate::rebase::rb;
@@ -26,59 +24,15 @@ use openwa_core::weapon::WeaponId;
 
 // ─── Bridged WA addresses ──────────────────────────────────────────────────
 
-static mut INIT_WEAPON_DEFAULTS_BASELINE_ADDR: u32 = 0;
-static mut INIT_WEAPON_DEFAULTS_EXTENDED_ADDR: u32 = 0;
 static mut OVERLAY_SCHEME_WEAPON_SETTINGS_ADDR: u32 = 0;
 
 pub unsafe fn init_addrs() {
     unsafe {
-        INIT_WEAPON_DEFAULTS_BASELINE_ADDR = rb(va::INIT_WEAPON_DEFAULTS_BASELINE);
-        INIT_WEAPON_DEFAULTS_EXTENDED_ADDR = rb(va::INIT_WEAPON_DEFAULTS_EXTENDED);
         OVERLAY_SCHEME_WEAPON_SETTINGS_ADDR = rb(va::OVERLAY_SCHEME_WEAPON_SETTINGS);
     }
 }
 
 // ─── Helper bridges (still WA-side) ────────────────────────────────────────
-
-/// `__usercall(EAX = weapon_table, [stack] = game_info, [stack] = cap)`,
-/// `RET 0x8`. Massive unrolled assignment: writes baseline defaults
-/// (power, fuse, ammo, blast radius, etc.) into all 71 entries.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_init_weapon_defaults_baseline(
-    _table: *mut WeaponTable,
-    _game_info: *mut GameInfo,
-    _cap: u32,
-) {
-    // Stdcall pushes args right-to-left, so on entry:
-    //   [esp+0]=ret, [esp+4]=table, [esp+8]=gi, [esp+12]=cap
-    // Trampoline: pop the table slot (already in EAX), tail-jump to WA.
-    // WA's RET 0x8 cleans the remaining gi+cap.
-    core::arch::naked_asm!(
-        "mov eax, [esp+4]",
-        "pop ecx",
-        "pop edx",
-        "push ecx",
-        "jmp dword ptr [{addr}]",
-        addr = sym INIT_WEAPON_DEFAULTS_BASELINE_ADDR,
-    );
-}
-
-/// `__usercall(EAX = weapon_table, [stack] = game_info)`, `RET 0x4`.
-/// Companion to baseline defaults; covers the second half of the table.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_init_weapon_defaults_extended(
-    _table: *mut WeaponTable,
-    _game_info: *mut GameInfo,
-) {
-    core::arch::naked_asm!(
-        "mov eax, [esp+4]",
-        "pop ecx",
-        "pop edx",
-        "push ecx",
-        "jmp dword ptr [{addr}]",
-        addr = sym INIT_WEAPON_DEFAULTS_EXTENDED_ADDR,
-    );
-}
 
 /// `__usercall(EDI = weapon_table, [stack] = world)`, `RET 0x4`. Reads
 /// the per-weapon scheme settings at `game_info + 0xD78C..D923` and
@@ -201,8 +155,7 @@ pub unsafe fn init_weapon_table(runtime: *mut GameRuntime) {
         } else {
             0x7FFF
         };
-        bridge_init_weapon_defaults_baseline(weapon_table, game_info, cap);
-        bridge_init_weapon_defaults_extended(weapon_table, game_info);
+        populate_weapon_table_defaults(weapon_table, game_info, cap);
 
         // First backup (very-old schemes): copy entry-23 fire_params region
         // to world.weapon_table_backup *before* the scheme overlay. Mirrors

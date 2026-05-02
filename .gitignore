@@ -5,3 +5,5 @@ start-mcp.ps1
 docs/re-notes/decompiled/
 testdata/logs/
 testdata/runs/
+# Local-only Ghidra disasm dumps consumed by tools/port_init_weapon_defaults.py.
+tools/_*.asm

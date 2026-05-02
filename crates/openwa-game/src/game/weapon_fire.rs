@@ -264,9 +264,9 @@ unsafe fn fire_placed_explosive(
             kind: 4,
             _flag_18: 1,
             fp_collision_radius: fp.collision_radius,
-            fp_02: fp._fp_02,
+            fp_02: fp.unknown_0x44,
             fp_spread: fp.spread,
-            fp_04: fp._fp_04,
+            fp_04: fp.unknown_0x4c,
             team_index: (*worm).team_index,
         };
 
@@ -1383,7 +1383,7 @@ pub unsafe fn projectile_fire(
             // Compute spread angle: ((rng_low16 - 0x8000) * spread_param) / 360
             // _fp_04 field is polymorphic — for ProjectileFire it holds spread angle
             let rng_centered = (rng & 0xFFFF) as i32 - 0x8000;
-            let spread_param = params._fp_04;
+            let spread_param = params.unknown_0x4c;
             let angle = (rng_centered * spread_param) / 360;
 
             // Cos/sin table lookup with linear interpolation
