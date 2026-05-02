@@ -13,9 +13,10 @@
 //!   relevant state-active flag is set
 //! - Pre-switch B (msgs `0x1E..=0x25`): runs `LandingCheck`
 //!
-//! Messages handled by Rust **must not** be in those ranges unless we also
-//! port the preamble effects. Currently every message handled here is
-//! outside both ranges, so intercepting is behavior-preserving.
+//! Messages handled by Rust must call the relevant pre-switches explicitly
+//! before doing per-message work. Pre-switch A and B helpers below mirror
+//! WA's preambles 1:1; reusing them keeps newly-ported branches correct
+//! without taking on the full function.
 //!
 //! See `project_worm_handle_message_re.md` (memory) for the full RE state.
 
@@ -25,14 +26,99 @@ use openwa_core::weapon::KnownWeaponId;
 
 use super::base::BaseEntity;
 use super::worm::{WormEntity, WormState};
+use crate::address::va;
 use crate::engine::team_arena::TeamArena;
 use crate::game::message::{WeaponReleasedMessage, WormMovedMessage};
 use crate::game::{EntityMessage, weapon_fire};
+use crate::rebase::rb;
 
 /// Original WA `WormEntity::HandleMessage` (0x00510B40), populated by
 /// `vtable_replace!` at install time. Called for any message branch not
 /// yet ported to Rust.
 pub static ORIGINAL_HANDLE_MESSAGE: AtomicU32 = AtomicU32::new(0);
+
+/// Address of `AnimQueue::ReleaseSlot_Maybe` resolved from `va::ANIM_QUEUE_RELEASE_SLOT`
+/// at `init_addrs()` time. Read by the naked trampoline.
+static mut ANIM_QUEUE_RELEASE_SLOT_ADDR: u32 = 0;
+
+/// Address of `WormEntity::NotifyMoved_Maybe` (0x0050F730), the WA helper
+/// invoked from Pre-switch A.
+static mut WORM_NOTIFY_MOVED_ADDR: u32 = 0;
+
+/// Resolve runtime addresses for the bridges; called once from the DLL hook
+/// install path.
+pub unsafe fn init_addrs() {
+    unsafe {
+        ANIM_QUEUE_RELEASE_SLOT_ADDR = rb(va::ANIM_QUEUE_RELEASE_SLOT);
+        WORM_NOTIFY_MOVED_ADDR = rb(va::WORM_ENTITY_NOTIFY_MOVED);
+    }
+}
+
+/// Bridge for `AnimQueue::ReleaseSlot_Maybe` (`__usercall(EAX = queue,
+/// [stack] = slot)`, RET 0x4). Caller passes `queue = world + 0x600`.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_anim_queue_release_slot(_queue: *mut u8, _slot: i32) {
+    core::arch::naked_asm!(
+        "push ebx",
+        "mov eax, dword ptr [esp+8]",  // queue (1 save + ret = 8)
+        "push dword ptr [esp+12]",     // slot
+        "mov ebx, dword ptr [{addr}]",
+        "call ebx",                     // RET 0x4 cleans the slot push
+        "pop ebx",
+        "ret 8",                        // we own the 2 stdcall stack args
+        addr = sym ANIM_QUEUE_RELEASE_SLOT_ADDR,
+    );
+}
+
+/// Bridge for `WormEntity::NotifyMoved_Maybe` (`__usercall(ESI = this)`,
+/// plain RET, no stack args).
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_notify_moved(_this: *mut WormEntity) {
+    core::arch::naked_asm!(
+        "push esi",
+        "mov esi, dword ptr [esp+8]",  // this (1 save + ret = 8)
+        "mov eax, dword ptr [{addr}]",
+        "call eax",
+        "pop esi",
+        "ret 4",
+        addr = sym WORM_NOTIFY_MOVED_ADDR,
+    );
+}
+
+// ── Pre-switch helpers ────────────────────────────────────────────────
+//
+// WA's `HandleMessage` runs two preambles before its main switch. Both gate
+// only on `msg_type` (with a per-message conditional we encode at each
+// caller), so any Rust-side message handler in the relevant range must run
+// the preamble before its body to stay behavior-equivalent with WA.
+
+/// Pre-switch A body — applies for messages
+/// `0x1E,0x1F,0x22,0x23,0x24,0x25,0x26` unconditionally and for `0x20/0x21`
+/// when `weapons_enabled != 0`, `0x2F-0x32` when `turn_active != 0`, and
+/// `0x33` when both `data[3] != 0` and `turn_active != 0`. Releases the
+/// worm's anim-queue slot, clears the per-frame stationary counter, fires
+/// `NotifyMoved`, then zeroes the four odd-indexed aim-fade values.
+unsafe fn pre_switch_a(this: *mut WormEntity) {
+    unsafe {
+        let world = (*(this as *const BaseEntity)).world;
+        let queue = (world as *mut u8).add(0x600);
+        let slot = (*this).slot_id as i32;
+        bridge_anim_queue_release_slot(queue, slot);
+        (*this).stationary_frames = 0;
+        bridge_notify_moved(this);
+        (*this).aim_fade[1] = Fixed(0);
+        (*this).aim_fade[3] = Fixed(0);
+        (*this).aim_fade[5] = Fixed(0);
+        (*this).aim_fade[7] = Fixed(0);
+    }
+}
+
+/// Pre-switch B body — applies for messages `0x1E,0x1F,0x22,0x23,0x24,0x25`
+/// unconditionally and for `0x20/0x21` when `weapons_enabled != 0`. Pure
+/// Rust port of `WormEntity::LandingCheck_Maybe`.
+unsafe fn pre_switch_b(this: *mut WormEntity) {
+    unsafe { WormEntity::landing_check_raw(this) }
+}
 
 type HandleMessageFn = unsafe extern "thiscall" fn(
     this: *mut WormEntity,
@@ -60,6 +146,30 @@ pub unsafe extern "thiscall" fn handle_message(
         // fully); `false` when WA's body did `break;` (fall through to the
         // parent class via the saved original handler).
         let handled = match msg {
+            EntityMessage::MoveLeft => {
+                msg_move_left(this);
+                true
+            }
+            EntityMessage::MoveRight => {
+                msg_move_right(this);
+                true
+            }
+            EntityMessage::MoveUp => {
+                msg_move_up(this);
+                true
+            }
+            EntityMessage::MoveDown => {
+                msg_move_down(this);
+                true
+            }
+            EntityMessage::FaceLeft => {
+                msg_face_left(this);
+                true
+            }
+            EntityMessage::FaceRight => {
+                msg_face_right(this);
+                true
+            }
             EntityMessage::ThinkingShow => msg_thinking_show(this),
             EntityMessage::ThinkingHide => {
                 msg_thinking_hide(this);
@@ -103,6 +213,10 @@ pub unsafe extern "thiscall" fn handle_message(
                 msg_disable_weapons(this);
                 true
             }
+            EntityMessage::ResumeTurn => {
+                msg_resume_turn(this);
+                true
+            }
             EntityMessage::WormMoved => msg_worm_moved(this, data as *const WormMovedMessage),
             EntityMessage::WeaponReleased => {
                 msg_weapon_released(this, data as *const WeaponReleasedMessage)
@@ -116,6 +230,10 @@ pub unsafe extern "thiscall" fn handle_message(
                 true
             }
             EntityMessage::TurnEndMaybe => msg_turn_end_maybe(this),
+            EntityMessage::BringForward => {
+                msg_bring_forward(this);
+                true
+            }
             _ => false,
         };
         if !handled {
@@ -142,6 +260,68 @@ unsafe fn fall_through(
 }
 
 // ── Per-message handlers ──────────────────────────────────────────────
+
+/// MoveLeft (0x1E): pre-switches A and B run unconditionally, then set the
+/// edge-triggered "move left" input request.
+unsafe fn msg_move_left(this: *mut WormEntity) {
+    unsafe {
+        pre_switch_a(this);
+        pre_switch_b(this);
+        (*this).input_msg_move_left = 1;
+    }
+}
+
+/// MoveRight (0x1F): same shape as `MoveLeft`.
+unsafe fn msg_move_right(this: *mut WormEntity) {
+    unsafe {
+        pre_switch_a(this);
+        pre_switch_b(this);
+        (*this).input_msg_move_right = 1;
+    }
+}
+
+/// MoveUp (0x20): pre-switches A and B only run when `weapons_enabled != 0`
+/// (gated by WA's preamble jumptable). The body always sets the
+/// edge-triggered "move up" input request.
+unsafe fn msg_move_up(this: *mut WormEntity) {
+    unsafe {
+        if (*this).weapons_enabled != 0 {
+            pre_switch_a(this);
+            pre_switch_b(this);
+        }
+        (*this).input_msg_move_up = 1;
+    }
+}
+
+/// MoveDown (0x21): same shape as `MoveUp`.
+unsafe fn msg_move_down(this: *mut WormEntity) {
+    unsafe {
+        if (*this).weapons_enabled != 0 {
+            pre_switch_a(this);
+            pre_switch_b(this);
+        }
+        (*this).input_msg_move_down = 1;
+    }
+}
+
+/// FaceLeft (0x22): unconditional pre-switches, then sets the pending
+/// facing direction to -1.
+unsafe fn msg_face_left(this: *mut WormEntity) {
+    unsafe {
+        pre_switch_a(this);
+        pre_switch_b(this);
+        (*this).facing_direction_2 = -1;
+    }
+}
+
+/// FaceRight (0x23): mirror of `FaceLeft`, sets pending facing to +1.
+unsafe fn msg_face_right(this: *mut WormEntity) {
+    unsafe {
+        pre_switch_a(this);
+        pre_switch_b(this);
+        (*this).facing_direction_2 = 1;
+    }
+}
 
 unsafe fn msg_thinking_show(this: *mut WormEntity) -> bool {
     unsafe {
@@ -217,6 +397,38 @@ unsafe fn msg_unknown_42(this: *mut WormEntity) -> bool {
             return true;
         }
         false
+    }
+}
+
+/// BringForward (0x58): release the worm's anim-queue slot. Single call,
+/// no preamble (msg outside `0x1E..=0x33`).
+unsafe fn msg_bring_forward(this: *mut WormEntity) {
+    unsafe {
+        let world = (*(this as *const BaseEntity)).world;
+        let queue = (world as *mut u8).add(0x600);
+        bridge_anim_queue_release_slot(queue, (*this).slot_id as i32);
+    }
+}
+
+/// ResumeTurn (0x36): unless the selected weapon is Teleport, register an
+/// effect-event point at the worm's position; release the worm's anim-queue
+/// slot; clear `turn_paused`. Counterpart of `PauseTurn` (msg 0x35).
+///
+/// At the WA call site `RegisterEventPoint` is invoked as
+/// `(ECX = pos.x, EDX = pos.y, [stack] = this)` — the x/y are the saved
+/// `local_82c`/`local_830` snapshots from the function preamble (worm pos
+/// at +0x84/+0x88), not any local case-only computation.
+unsafe fn msg_resume_turn(this: *mut WormEntity) {
+    unsafe {
+        let world = (*(this as *const BaseEntity)).world;
+        if (*this).selected_weapon != KnownWeaponId::Teleport {
+            let pos_x = (*this).base.pos_x.0;
+            let pos_y = (*this).base.pos_y.0;
+            crate::engine::world::GameWorld::register_event_point_raw(world, pos_x, pos_y);
+        }
+        let queue = (world as *mut u8).add(0x600);
+        bridge_anim_queue_release_slot(queue, (*this).slot_id as i32);
+        (*this).turn_paused = 0;
     }
 }
 

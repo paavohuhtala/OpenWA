@@ -11,6 +11,8 @@ use openwa_game::task::{worm::WormEntityVtable, worm_handle_message};
 pub fn install() -> Result<(), String> {
     use openwa_game::vtable_replace;
 
+    unsafe { worm_handle_message::init_addrs() };
+
     vtable_replace!(WormEntityVtable, va::WORM_ENTITY_VTABLE, {
         handle_message [worm_handle_message::ORIGINAL_HANDLE_MESSAGE]
             => worm_handle_message::handle_message,

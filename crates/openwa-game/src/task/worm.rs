@@ -154,6 +154,19 @@ crate::define_addresses! {
         vtable WORM_ENTITY_VTABLE = 0x006644C8;
         /// WormEntity constructor
         ctor WORM_ENTITY_CONSTRUCTOR = 0x0050BFB0;
+        /// `WormEntity::NotifyMoved_Maybe` (was `BroadcastDamageEvent_Maybe`).
+        /// Usercall `(ESI = this)`, plain RET. Looks up the SharedData entity
+        /// at key `(esi=0, edi=0x14)` and sends it `WormMoved` (msg 0x47);
+        /// also commits the cursor-marker pos and bumps a per-worm "first
+        /// action of turn" counter. Called from `HandleMessage` Pre-switch A.
+        fn/Usercall WORM_ENTITY_NOTIFY_MOVED = 0x0050F730;
+    }
+
+    class "AnimQueue" {
+        /// `AnimQueue::ReleaseSlot_Maybe` (0x00541790) — usercall
+        /// `(EAX = queue, [stack] = slot)`, RET 0x4. The queue lives at
+        /// `world + 0x600`. Negative `slot` = release-all.
+        fn/Usercall ANIM_QUEUE_RELEASE_SLOT = 0x00541790;
     }
 }
 
@@ -354,9 +367,21 @@ pub struct WormEntity {
     pub thinking_anim_pos_x: Fixed,
     /// 0x1D0: Snapshot of `pos_y` (companion to `thinking_anim_pos_x`).
     pub thinking_anim_pos_y: Fixed,
-    /// 0x1D4–0x1EB: Unknown (input-direction flags at +0x1D4..+0x1E0,
-    /// edge-triggered move/face requests from messages 0x1E..0x23)
-    pub _unknown_1d4: [u8; 0x1EC - 0x1D4],
+    /// 0x1D4: Edge-triggered "move up" request. Set to 1 by `MoveUp` (msg
+    /// 0x20) when `weapons_enabled != 0`. Consumed and cleared by
+    /// `WormEntity::DrainInputBuffer` (0x005148E0).
+    pub input_msg_move_up: u32,
+    /// 0x1D8: Edge-triggered "move down" request. Set to 1 by `MoveDown`
+    /// (msg 0x21) when `weapons_enabled != 0`. Same drain as `move_up`.
+    pub input_msg_move_down: u32,
+    /// 0x1DC: Edge-triggered "move left" request. Set to 1 by `MoveLeft`
+    /// (msg 0x1E) unconditionally. Same drain as `move_up`.
+    pub input_msg_move_left: u32,
+    /// 0x1E0: Edge-triggered "move right" request. Set to 1 by `MoveRight`
+    /// (msg 0x1F) unconditionally. Same drain as `move_up`.
+    pub input_msg_move_right: u32,
+    /// 0x1E4–0x1EB: Unknown
+    pub _unknown_1e4: [u8; 0x1EC - 0x1E4],
     /// 0x1EC: Movement streak counter. Increases ~once per second while moving
     /// in one direction. Resets to 0 when movement resumes after a stop.
     /// Set to -1 when the worm is blocked (e.g. hits a wall).

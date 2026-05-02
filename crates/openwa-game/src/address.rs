@@ -65,7 +65,10 @@ pub mod va {
         WORLD_ROOT_AUTO_SELECT_TEAMS, WORLD_ROOT_ENTITY_CTOR, WORLD_ROOT_ENTITY_VTABLE,
         WORLD_ROOT_HANDLE_MESSAGE, WORLD_ROOT_HURRY_HANDLER,
     };
-    pub use crate::task::worm::{WORM_ENTITY_CONSTRUCTOR, WORM_ENTITY_VTABLE};
+    pub use crate::task::worm::{
+        ANIM_QUEUE_RELEASE_SLOT, WORM_ENTITY_CONSTRUCTOR, WORM_ENTITY_NOTIFY_MOVED,
+        WORM_ENTITY_VTABLE,
+    };
 
     // Re-exported from audio modules
     pub use crate::audio::dssound::DS_SOUND_VTABLE;
