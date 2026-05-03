@@ -14,7 +14,7 @@ use openwa_core::fixed::Fixed;
 use openwa_core::weapon::{FireType, KnownWeaponId};
 
 use super::base::BaseEntity;
-use super::game_entity::WorldEntity;
+use super::game_entity::{SoundEmitter, WorldEntity};
 use super::worm::{KnownWormState, WormEntity, WormState};
 use crate::address::va;
 use crate::audio::SoundId;
@@ -92,6 +92,38 @@ static mut WORM_HIT_TEST_ROPE_LINE_ADDR: u32 = 0;
 // stack, RET 0x4, returns u32 in EAX. The 645-line per-frame behaviour
 // driver; far too large to port in one slice.
 static mut WORM_BEHAVIOR_TICK_ADDR: u32 = 0;
+// WormEntity::TryFireWeapon_Maybe (0x0051B2B0) — usercall(ESI=this), no
+// stack args, plain RET, returns u32. Drives the normal fire path during
+// the case-0x24 firing-tick block.
+static mut WORM_TRY_FIRE_WEAPON_ADDR: u32 = 0;
+// WormEntity::TryFireWeaponSpecial_Maybe (0x0051B120) — same shape as
+// TryFireWeapon. Reached only on schemes with `_scheme_d964 > 1`.
+static mut WORM_TRY_FIRE_WEAPON_SPECIAL_ADDR: u32 = 0;
+// WormEntity::LogWeaponFire_Maybe (0x0051F970) — plain stdcall (this,
+// weapon_entry), RET 0x8. Records the just-fired weapon for replay/log.
+static mut WORM_LOG_WEAPON_FIRE_ADDR: u32 = 0;
+// WormEntity::FindClearSpawnLocation_Maybe (0x0051F510) — usercall(ESI=this)
+// + stdcall(out_x, out_y, flag), RET 0xC. Returns nonzero when the
+// teleport target is OK.
+static mut WORM_FIND_CLEAR_SPAWN_LOCATION_ADDR: u32 = 0;
+// WormEntity::IsSpawnAreaValid_Maybe (0x0051F350) — usercall(EAX=weapon_param_3)
+// + stdcall(this, x, y), RET 0xC. Returns nonzero when the girder spawn
+// region passes its overlap test.
+static mut WORM_IS_SPAWN_AREA_VALID_ADDR: u32 = 0;
+// WeaponSpawn::IsIndirect_Maybe (0x00565A80) — usercall(EAX=weapon_entry),
+// no stack args, plain RET, returns u32. Inspects the weapon's fire
+// type/method to decide whether the projectile is "indirect" (mortar/
+// homing-style).
+static mut WEAPON_SPAWN_IS_INDIRECT_ADDR: u32 = 0;
+// FUN_00546DB0 — thin wrapper around DispatchLocalSound that gates on
+// game_info f348/f344 and active_sounds, used by case-0x24 to emit the
+// "weapon-blocked" 0x78 sound. usercall(EAX=this), 4 stack args
+// (sound_id, channel, x, y), RET 0x10.
+static mut WORM_DISPATCH_BLOCKED_SOUND_ADDR: u32 = 0;
+// WA__LoadStringResource (0x00593180) — plain stdcall(resource_id),
+// RET 0x4, returns `*const c_char` (or null). Used to populate the
+// HUD status text when the weapon descriptor is null mid-fire.
+static mut WA_LOAD_STRING_RESOURCE_ADDR: u32 = 0;
 
 pub unsafe fn init_addrs() {
     unsafe {
@@ -117,6 +149,14 @@ pub unsafe fn init_addrs() {
         WORM_SPAWN_DAMAGE_PARTICLES_ADDR = rb(0x005108D0);
         WORM_HIT_TEST_ROPE_LINE_ADDR = rb(0x00501210);
         WORM_BEHAVIOR_TICK_ADDR = rb(0x00515650);
+        WORM_TRY_FIRE_WEAPON_ADDR = rb(0x0051B2B0);
+        WORM_TRY_FIRE_WEAPON_SPECIAL_ADDR = rb(0x0051B120);
+        WORM_LOG_WEAPON_FIRE_ADDR = rb(0x0051F970);
+        WORM_FIND_CLEAR_SPAWN_LOCATION_ADDR = rb(0x0051F510);
+        WORM_IS_SPAWN_AREA_VALID_ADDR = rb(0x0051F350);
+        WEAPON_SPAWN_IS_INDIRECT_ADDR = rb(0x00565A80);
+        WORM_DISPATCH_BLOCKED_SOUND_ADDR = rb(0x00546DB0);
+        WA_LOAD_STRING_RESOURCE_ADDR = rb(0x00593180);
     }
 }
 
@@ -125,6 +165,132 @@ unsafe fn bridge_behavior_tick(this: *mut WormEntity) -> u32 {
     type Fn = unsafe extern "stdcall" fn(*mut WormEntity) -> u32;
     let f: Fn = unsafe { core::mem::transmute(WORM_BEHAVIOR_TICK_ADDR as usize) };
     unsafe { f(this) }
+}
+
+#[inline]
+unsafe fn bridge_load_string_resource(resource_id: u32) -> *const c_char {
+    type Fn = unsafe extern "stdcall" fn(u32) -> *const c_char;
+    let f: Fn = unsafe { core::mem::transmute(WA_LOAD_STRING_RESOURCE_ADDR as usize) };
+    unsafe { f(resource_id) }
+}
+
+#[inline]
+unsafe fn bridge_log_weapon_fire(
+    this: *mut WormEntity,
+    entry: *mut crate::game::weapon::WeaponEntry,
+) {
+    type Fn = unsafe extern "stdcall" fn(*mut WormEntity, *mut crate::game::weapon::WeaponEntry);
+    let f: Fn = unsafe { core::mem::transmute(WORM_LOG_WEAPON_FIRE_ADDR as usize) };
+    unsafe { f(this, entry) }
+}
+
+/// `__usercall(ESI = this)`, no stack args, plain RET. Returns u32.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_try_fire_weapon(_this: *mut WormEntity) -> u32 {
+    core::arch::naked_asm!(
+        "push esi",
+        "mov esi, dword ptr [esp+8]",
+        "mov eax, dword ptr [{addr}]",
+        "call eax",
+        "pop esi",
+        "ret 4",
+        addr = sym WORM_TRY_FIRE_WEAPON_ADDR,
+    );
+}
+
+/// `__usercall(ESI = this)`, no stack args, plain RET. Returns u32.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_try_fire_weapon_special(_this: *mut WormEntity) -> u32 {
+    core::arch::naked_asm!(
+        "push esi",
+        "mov esi, dword ptr [esp+8]",
+        "mov eax, dword ptr [{addr}]",
+        "call eax",
+        "pop esi",
+        "ret 4",
+        addr = sym WORM_TRY_FIRE_WEAPON_SPECIAL_ADDR,
+    );
+}
+
+/// `__usercall(ESI = this) + stdcall(out_x, out_y, flag)`, RET 0xC.
+/// Returns nonzero when the teleport target is OK.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_find_clear_spawn_location(
+    _this: *mut WormEntity,
+    _out_x: *mut i32,
+    _out_y: *mut i32,
+    _flag: i32,
+) -> u32 {
+    core::arch::naked_asm!(
+        "push esi",
+        "mov esi, dword ptr [esp+8]",
+        "push dword ptr [esp+20]",
+        "push dword ptr [esp+20]",
+        "push dword ptr [esp+20]",
+        "mov eax, dword ptr [{addr}]",
+        "call eax",
+        "pop esi",
+        "ret 16",
+        addr = sym WORM_FIND_CLEAR_SPAWN_LOCATION_ADDR,
+    );
+}
+
+/// `__usercall(EAX = weapon_param_3) + stdcall(this, x, y)`, RET 0xC.
+/// Returns nonzero when the girder spawn region is valid.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_is_spawn_area_valid(
+    _weapon_param_3: i32,
+    _this: *mut WormEntity,
+    _x: i32,
+    _y: i32,
+) -> u32 {
+    core::arch::naked_asm!(
+        "mov eax, dword ptr [esp+4]",
+        "push dword ptr [esp+16]",
+        "push dword ptr [esp+16]",
+        "push dword ptr [esp+16]",
+        "mov ecx, dword ptr [{addr}]",
+        "call ecx",
+        "ret 16",
+        addr = sym WORM_IS_SPAWN_AREA_VALID_ADDR,
+    );
+}
+
+/// `__usercall(EAX = weapon_entry)`, no stack args, plain RET. Returns u32.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_weapon_spawn_is_indirect(
+    _entry: *mut crate::game::weapon::WeaponEntry,
+) -> u32 {
+    core::arch::naked_asm!(
+        "mov eax, dword ptr [esp+4]",
+        "mov ecx, dword ptr [{addr}]",
+        "jmp ecx",
+        addr = sym WEAPON_SPAWN_IS_INDIRECT_ADDR,
+    );
+}
+
+/// `__usercall(EAX = this)`, 4 stack args (sound_id, channel, x, y), RET 0x10.
+/// Thin wrapper around DispatchLocalSound that gates on the same sound-mute
+/// / sound_start_frame / active_sounds checks the firing-tick tail performs.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_dispatch_blocked_sound(
+    _this: *mut WormEntity,
+    _sound_id: u32,
+    _channel: u32,
+    _x: i32,
+    _y: i32,
+) -> u32 {
+    core::arch::naked_asm!(
+        "mov eax, dword ptr [esp+4]",
+        "push dword ptr [esp+20]",
+        "push dword ptr [esp+20]",
+        "push dword ptr [esp+20]",
+        "push dword ptr [esp+20]",
+        "mov ecx, dword ptr [{addr}]",
+        "call ecx",
+        "ret 20",
+        addr = sym WORM_DISPATCH_BLOCKED_SOUND_ADDR,
+    );
 }
 
 /// `__usercall(EAX = queue, [stack] = slot)`, RET 0x4. Resets the entity's
@@ -1486,12 +1652,6 @@ unsafe fn msg_jump_up(this: *mut WormEntity) {
 
 /// `0x24` (Jump). Mirror of `JumpUp` (msg 0x25) for the press edge.
 ///
-/// The `WeaponCharging` (0x73) sub-arm jumps to the firing-tick block at the
-/// function tail (`switchD_0051283d_caseD_73` in WA), which is not yet
-/// ported. Returning `false` from that one branch hands the entire case off
-/// to WA's saved original — the dispatcher then runs WA's pre-switches A+B
-/// plus the firing block in one shot, with no double-execution.
-///
 /// Calling-convention note: WA dispatches `vt[0x44]` (slot 17 = AddImpulse)
 /// in the `RopeSwinging` arm with literal `0` for `impulse_x`/`dz`; WA's
 /// signed read of `Fixed` velocity here matches our `Fixed::add_impulse_raw`.
@@ -1518,16 +1678,18 @@ unsafe fn msg_jump(this: *mut WormEntity) -> bool {
                     KnownWormState::PreFire_Maybe,
                 ]));
 
-        // 0x73 falls into the firing-tick block at the function tail and is
-        // not yet ported; hand it off to WA's saved original.
-        if !gate_blocks && state.is(KnownWormState::WeaponCharging_Maybe) {
-            return false;
-        }
-
         pre_switch_a(this);
         pre_switch_b(this);
 
         if gate_blocks {
+            return true;
+        }
+
+        // State 0x73 (WeaponCharging) jumps to the function-tail firing-tick
+        // block in WA — it's neither in the Idle group nor in the per-state
+        // arms below, so handle it explicitly here.
+        if state.is(KnownWormState::WeaponCharging_Maybe) {
+            firing_tick(this);
             return true;
         }
 
@@ -1598,6 +1760,159 @@ unsafe fn msg_jump(this: *mut WormEntity) -> bool {
             _ => {}
         }
         true
+    }
+}
+
+/// `switchD_0051283d_caseD_73` in WA — the per-frame firing-tick block at
+/// the function tail of `WormEntity::HandleMessage`, reached when the worm
+/// is in state `0x73 (WeaponCharging)` and the case-0x24 (Jump) message
+/// arrives.
+///
+/// Two paths share the trailing positional-sound emit:
+/// - **Short path** (`game_version >= 0x31 && _field_258 != 0`): just
+///   re-emits the 0x78 charging sound at the emitter's current position.
+/// - **Full path** (everything else): validates the active weapon, runs
+///   normal/special fire attempts, and on outright failure falls through
+///   to the same trailing sound emit.
+unsafe fn firing_tick(this: *mut WormEntity) {
+    unsafe {
+        let world = (*(this as *const BaseEntity)).world;
+        let game_info = (*world).game_info;
+
+        if (*game_info)._scheme_d964 == 0 {
+            return;
+        }
+
+        let game_version = (*game_info).game_version;
+        let mut emit_sound = false;
+
+        if game_version >= 0x31 && (*this)._field_258 != 0 {
+            // Short path: state 0x73 with a modern game_version + non-zero
+            // `_field_258` skips the fire attempt and just chirps.
+            emit_sound = true;
+        } else {
+            let saved_entry = (*this).active_weapon_entry;
+
+            if game_version > 0x180 {
+                if saved_entry.is_null() {
+                    if game_version < 0x1ce {
+                        // Show the "weapon descriptor missing" HUD message.
+                        (*world).hud_status_code = 6;
+                        (*world).hud_status_text = bridge_load_string_resource(0x710);
+                        return;
+                    }
+                    // Modern null-descriptor: fall through to sound emit.
+                    emit_sound = true;
+                } else {
+                    if (*this)._field_2e8 == 0 && bridge_weapon_spawn_is_indirect(saved_entry) != 0
+                    {
+                        bridge_dispatch_blocked_sound(
+                            this,
+                            0x78,
+                            8,
+                            (*this).weapon_param_1,
+                            (*this).weapon_param_2,
+                        );
+                        return;
+                    }
+
+                    if (*saved_entry).fire_type == 4 {
+                        match (*saved_entry).special_subtype {
+                            // Teleport — verify the destination is clear.
+                            10 => {
+                                let out_x: *mut i32 = &raw mut (*this).weapon_param_1;
+                                let out_y: *mut i32 = &raw mut (*this).weapon_param_2;
+                                if bridge_find_clear_spawn_location(this, out_x, out_y, 0) == 0 {
+                                    bridge_dispatch_blocked_sound(
+                                        this,
+                                        0x78,
+                                        8,
+                                        (*this).weapon_param_1,
+                                        (*this).weapon_param_2,
+                                    );
+                                    return;
+                                }
+                            }
+                            // Girder — verify the spawn area passes its
+                            // overlap test (gated on a non-zero `_param3`).
+                            17 => {
+                                let arg = (*this).weapon_param_3;
+                                if arg != 0 {
+                                    let pos_x_lo =
+                                        *((this as *const u8).add(0x2E2) as *const i16) as i32;
+                                    let pos_y_lo =
+                                        *((this as *const u8).add(0x2E6) as *const i16) as i32;
+                                    if bridge_is_spawn_area_valid(arg, this, pos_x_lo, pos_y_lo)
+                                        == 0
+                                    {
+                                        bridge_dispatch_blocked_sound(
+                                            this,
+                                            0x78,
+                                            8,
+                                            (*this).weapon_param_1,
+                                            (*this).weapon_param_2,
+                                        );
+                                        return;
+                                    }
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+
+            if !emit_sound {
+                if bridge_try_fire_weapon(this) != 0 {
+                    bridge_log_weapon_fire(this, saved_entry);
+                    return;
+                }
+
+                if (*game_info)._scheme_d964 > 1 && bridge_try_fire_weapon_special(this) != 0 {
+                    bridge_log_weapon_fire(this, saved_entry);
+                    let v = game_version.wrapping_sub(0x29);
+                    if (v as u32) < 0x2c {
+                        (*this)._field_250 = 0;
+                    }
+                    return;
+                }
+
+                emit_sound = true;
+            }
+        }
+
+        if !emit_sound {
+            return;
+        }
+
+        // Trailing positional-sound emit shared by both paths. Mirrors the
+        // gates inside `dispatch_local_sound`'s caller chain — bail when
+        // sound is muted, the start-frame threshold isn't met, or no
+        // active-sounds table is allocated.
+        if (*game_info).sound_mute != 0 {
+            return;
+        }
+        if (*world).frame_counter < (*game_info).sound_start_frame {
+            return;
+        }
+        let table = (*world).active_sounds;
+        if table.is_null() {
+            return;
+        }
+
+        let emitter = &raw const (*(this as *const WorldEntity)).sound_emitter;
+        let mut pos_x: u32 = 0;
+        let mut pos_y: u32 = 0;
+        ((*(*emitter).vtable).get_position)(emitter, &mut pos_x, &mut pos_y);
+
+        sound::dispatch_local_sound(
+            table,
+            Fixed::ONE,
+            SoundId(0x78),
+            8,
+            (Fixed(pos_x as i32), Fixed(pos_y as i32)),
+            emitter as *mut SoundEmitter as *mut u8,
+        );
     }
 }
 

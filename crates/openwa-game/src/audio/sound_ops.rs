@@ -459,7 +459,7 @@ unsafe fn record_active_sound(
 ///
 /// Convention: usercall(EAX=volume, EDI=active_sound_table) +
 ///   stdcall(sound_slot, flags, x, y, emitter), RET 0x14.
-unsafe fn dispatch_local_sound(
+pub(crate) unsafe fn dispatch_local_sound(
     table: *mut ActiveSoundTable,
     volume: Fixed,
     sound_slot: SoundId,

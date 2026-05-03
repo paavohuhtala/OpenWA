@@ -224,8 +224,17 @@ pub struct GameInfo {
     /// `friendly_fire_threshold`, applied when the sender and receiver have
     /// different `weapon_alliance` values. `> 2` blocks the damage.
     pub enemy_fire_threshold: u8,
-    /// 0xD95E-0xD967: Unknown
-    pub _unknown_d95e: [u8; 0xD968 - 0xD95E],
+    /// 0xD95E-0xD963: Unknown
+    pub _unknown_d95e: [u8; 0xD964 - 0xD95E],
+    /// 0xD964: Per-scheme firing-tick mode (u8). Read at the entry to the
+    /// case-0x24 firing-tick block (`switchD_0051283d_caseD_73`):
+    /// `0` = no firing tick (block returns immediately); `1` = run normal
+    /// fire only; `>= 2` = also try `TryFireWeaponSpecial` on fail. Likely
+    /// the "scheme allows firing" / "second-fire enabled" toggle. Writers
+    /// TBD; values appear to be 0/1/2 in practice.
+    pub _scheme_d964: u8,
+    /// 0xD965-0xD967: Unknown
+    pub _unknown_d965: [u8; 0xD968 - 0xD965],
     /// 0xD968: Extended team count (u16). Used for buffer allocation sizing.
     pub num_teams_alloc: u16,
     /// 0xD96A: Extended terrain drop percentage (u8, remainder after land/mine/barrel).
