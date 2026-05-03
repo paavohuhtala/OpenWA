@@ -679,7 +679,9 @@ pub unsafe extern "thiscall" fn handle_message(
             }
             EntityMessage::PoisonWorm => msg_poison_worm(this, data as *const PoisonWormMessage),
             EntityMessage::SpecialImpact => msg_special_impact(this, sender, size, data),
-            EntityMessage::Explosion => msg_explosion(this, sender, size, data),
+            EntityMessage::Explosion | EntityMessage::ProjectileImpact => {
+                msg_explosion(this, sender, msg, size, data)
+            }
             EntityMessage::DamageWorms => msg_damage_worms(this, data),
             EntityMessage::ApplyPoison => msg_apply_poison(this),
             EntityMessage::AdvanceWorm => {
@@ -1665,12 +1667,14 @@ unsafe fn msg_special_impact(
     }
 }
 
-/// Case 0x1C only — case 0x76 (the paired but distinct phantom message
-/// type at hex 0x76 = 118) is not in the `EntityMessage` enum, so it falls
-/// through to WA via the normal `try_from` Err path.
+/// Shared body for `0x1C Explosion` and `0x76 ProjectileImpact`. WA's
+/// `WormEntity::HandleMessage` switch falls both cases through to this
+/// code; we dispatch them together and pass the original `msg_type` to the
+/// parent so children of `WorldEntity::HandleMessage` see the right kind.
 unsafe fn msg_explosion(
     this: *mut WormEntity,
     sender: *mut BaseEntity,
+    msg_type: EntityMessage,
     size: u32,
     data: *const u8,
 ) -> bool {
@@ -1696,13 +1700,7 @@ unsafe fn msg_explosion(
 
         if state == WormState::Dead as u32 {
             let saved_speed_x = (*this).base.speed_x;
-            cgametask_handle_message(
-                this as *mut WorldEntity,
-                sender,
-                EntityMessage::Explosion,
-                size,
-                data,
-            );
+            cgametask_handle_message(this as *mut WorldEntity, sender, msg_type, size, data);
             (*this).base.damage_accum = 0;
             (*this).base.speed_x = if (*game_info).game_version < 499 {
                 Fixed(0)
@@ -1719,13 +1717,7 @@ unsafe fn msg_explosion(
             WormEntity::set_state_raw(this, WormState::Hurt);
         }
 
-        cgametask_handle_message(
-            this as *mut WorldEntity,
-            sender,
-            EntityMessage::Explosion,
-            size,
-            data,
-        );
+        cgametask_handle_message(this as *mut WorldEntity, sender, msg_type, size, data);
         let damage_accum = (*this).base.damage_accum;
         (*this).base.damage_accum = 0;
 

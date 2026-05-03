@@ -130,6 +130,14 @@ pub enum EntityMessage {
     BulletExplosion = 113,
     FrameNumberWinsock = 114,
     TurnEndMaybe = 117,
+    /// 0x76 (118) — broadcast by `FireWeapon::ProjectileFire_Single`
+    /// (0x0051DCF0) immediately before `SpecialImpact`. Routes through the
+    /// SharedData broadcaster (vtable+8 = HandleMessage). Payload is the
+    /// same 0x1C-byte shape as [`ExplosionMessage`] (`flag, pos_x, pos_y,
+    /// explosion_id, damage, caller_flag, owner_id`) — `WormEntity` and
+    /// `WorldEntity` handle it through the exact same case body as
+    /// [`Explosion`].
+    ProjectileImpact = 118,
     Unknown122 = 122,
     /// 0x81 — sender unknown. Receivers query their own GetEntityData (vt[3])
     /// with query 0x7D1 / sub-id 0x394, passing a packed (i16, i16) pair as
@@ -169,7 +177,7 @@ impl TryFrom<u32> for EntityMessage {
             | 84..=86
             | 88..=94
             | 96..=114
-            | 117
+            | 117..=118
             | 122
             | 129..=132 => {
                 // SAFETY: all matched values correspond to valid variants
