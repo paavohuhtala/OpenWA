@@ -124,6 +124,22 @@ static mut WORM_DISPATCH_BLOCKED_SOUND_ADDR: u32 = 0;
 // RET 0x4, returns `*const c_char` (or null). Used to populate the
 // HUD status text when the weapon descriptor is null mid-fire.
 static mut WA_LOAD_STRING_RESOURCE_ADDR: u32 = 0;
+// WormEntity::ApplyDragMods (0x004FF9F0) — usercall(EAX=this), no
+// stack args, plain RET. Bails when `class_type ∈ {0xF, 0x15, 0x1E}`;
+// otherwise rewrites `subclass_data[0x28]` and/or `subclass_data[0x2C]`
+// from the scheme's `_scheme_d9b8` / `_scheme_d9c0` dwords.
+static mut WORM_APPLY_DRAG_MODS_ADDR: u32 = 0;
+// WormEntity::ApplyWind (0x004FFAF0) — usercall(ESI=this), 4 stack
+// args (out_x_p, out_y_p, 0, 0), RET 0x10. Computes per-axis wind impulse
+// from the scheme's drag/wind dwords and the worm's distance from the
+// world center, writing into `*out_x_p` and `*out_y_p`.
+static mut WORM_APPLY_WIND_ADDR: u32 = 0;
+// WormEntity::AccumulateImpulse (0x004FFA60) — usercall(EAX=delta_x,
+// ECX=delta_y, ESI=this), no stack args, plain RET. Adds EAX into
+// `subclass_data[0x60-0x30 ..]` (i.e. WorldEntity speed_x at +0x90) and
+// ECX into +0x94 (speed_y), with a scaling step gated on scheme byte
+// `_scheme_d9b3`.
+static mut WORM_ACCUMULATE_IMPULSE_ADDR: u32 = 0;
 
 pub unsafe fn init_addrs() {
     unsafe {
@@ -157,6 +173,9 @@ pub unsafe fn init_addrs() {
         WEAPON_SPAWN_IS_INDIRECT_ADDR = rb(0x00565A80);
         WORM_DISPATCH_BLOCKED_SOUND_ADDR = rb(0x00546DB0);
         WA_LOAD_STRING_RESOURCE_ADDR = rb(0x00593180);
+        WORM_APPLY_DRAG_MODS_ADDR = rb(0x004FF9F0);
+        WORM_APPLY_WIND_ADDR = rb(0x004FFAF0);
+        WORM_ACCUMULATE_IMPULSE_ADDR = rb(0x004FFA60);
     }
 }
 
@@ -638,6 +657,66 @@ unsafe extern "stdcall" fn bridge_spawn_damage_particles(
     );
 }
 
+/// `__usercall(EAX = this)`, no stack args, plain RET. Rewrites
+/// `subclass_data[0x28]` / `subclass_data[0x2C]` from the scheme drag
+/// dwords; bails when `class_type ∈ {0xF, 0x15, 0x1E}`.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_apply_drag_mods(_this: *mut WormEntity) {
+    core::arch::naked_asm!(
+        "mov eax, dword ptr [esp+4]",
+        "mov edx, dword ptr [{addr}]",
+        "jmp edx",
+        addr = sym WORM_APPLY_DRAG_MODS_ADDR,
+    );
+}
+
+/// `__usercall(ESI = this) + stdcall(out_x_p, out_y_p, 0, 0)`, RET 0x10.
+/// Writes per-axis wind impulse into `*out_x_p` / `*out_y_p`.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_apply_wind(
+    _this: *mut WormEntity,
+    _out_x: *mut Fixed,
+    _out_y: *mut Fixed,
+    _zero1: u32,
+    _zero2: u32,
+) {
+    core::arch::naked_asm!(
+        "push esi",
+        "mov esi, dword ptr [esp+8]",
+        "push dword ptr [esp+24]",
+        "push dword ptr [esp+24]",
+        "push dword ptr [esp+24]",
+        "push dword ptr [esp+24]",
+        "mov eax, dword ptr [{addr}]",
+        "call eax",
+        "pop esi",
+        "ret 20",
+        addr = sym WORM_APPLY_WIND_ADDR,
+    );
+}
+
+/// `__usercall(EAX = delta_x, ECX = delta_y, ESI = this)`, no stack args,
+/// plain RET. Folds `delta_x` into `speed_x` (`+0x90`) and `delta_y` into
+/// `speed_y` (`+0x94`), with optional scheme-gated scaling.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_accumulate_impulse(
+    _this: *mut WormEntity,
+    _delta_x: Fixed,
+    _delta_y: Fixed,
+) {
+    core::arch::naked_asm!(
+        "push esi",
+        "mov esi, dword ptr [esp+8]",
+        "mov eax, dword ptr [esp+12]",
+        "mov ecx, dword ptr [esp+16]",
+        "mov edx, dword ptr [{addr}]",
+        "call edx",
+        "pop esi",
+        "ret 12",
+        addr = sym WORM_ACCUMULATE_IMPULSE_ADDR,
+    );
+}
+
 /// `__fastcall(ECX = this, EDX = pos_x, [stack] = rope_param, pos_y)`, RET 0x8.
 #[unsafe(naked)]
 unsafe extern "stdcall" fn bridge_hit_test_rope_line(
@@ -971,6 +1050,7 @@ pub unsafe extern "thiscall" fn handle_message(
                 true
             }
             EntityMessage::FrameFinish => msg_frame_finish(this, sender, size, data),
+            EntityMessage::FrameStart => msg_frame_start(this, sender, size, data),
             _ => false,
         };
         if !handled {
@@ -2675,6 +2755,85 @@ unsafe fn msg_frame_finish(
             (*world).advance_rng();
         }
 
+        true
+    }
+}
+
+/// Case `0x1 FrameStart` — two independent scheme-gated blocks, then the
+/// parent `WorldEntity::HandleMessage` dispatch. WA's case body falls
+/// through to `default:` which calls the parent, so we always return `true`
+/// after running the body + parent.
+unsafe fn msg_frame_start(
+    this: *mut WormEntity,
+    sender: *mut BaseEntity,
+    size: u32,
+    data: *const u8,
+) -> bool {
+    unsafe {
+        let world = (*(this as *const BaseEntity)).world;
+        let game_info = (*world).game_info;
+        let pos_x_snap = (*this).base.pos_x;
+        let pos_y_snap = (*this).base.pos_y;
+
+        // Block 1 — gated on `_scheme_d9ce`. Idle/Unknown_0x8B states get
+        // their pos snapshotted into `_field_344/348` (subject to a
+        // per-frame `_field_34c` counter override). Non-idle states with
+        // `_field_bc != 0` only clear the byte. Non-idle with
+        // `_field_bc == 0` skips the entire block.
+        if (*game_info)._scheme_d9ce != 0 {
+            let state = (*this).state();
+            let in_idle = state.is(KnownWormState::Idle) || state.is(KnownWormState::Unknown_0x8B);
+            if in_idle {
+                let counter = (*this)._field_34c as i8;
+                if counter < 1 || (*game_info)._scheme_d9b3 != 0 {
+                    (*this)._field_344 = pos_x_snap;
+                    (*this)._field_348 = pos_y_snap;
+                }
+                (*this)._field_34c = 0;
+            } else if (*this).base._field_bc != 0 {
+                (*this)._field_34c = 0;
+            }
+        }
+
+        // Block 2 (LAB_00511e45) — drag/wind/impulse fold. Gated on the
+        // three scheme drag/wind values, plus state != RopeSwinging. The
+        // `subclass_data[0x30] = ONE` write happens whenever the scheme/state
+        // gate passes, regardless of `_field_bc`; the helper trio only
+        // runs when `_field_bc != 0`.
+        let scheme_gate = (*game_info)._scheme_d9c5 != 0
+            || (*game_info)._scheme_d9c0 != 0
+            || (*game_info)._scheme_d9b8 != 0;
+        if scheme_gate && !(*this).state().is(KnownWormState::RopeSwinging) {
+            // `param_1[0x18] = 0x10000` — write Fixed::ONE into
+            // `subclass_data[0x30]` (i.e. WormEntity+0x60).
+            let one_slot = (this as *mut u8).add(0x60) as *mut Fixed;
+            *one_slot = Fixed::ONE;
+
+            if (*this).base._field_bc != 0 {
+                bridge_apply_drag_mods(this);
+                // ApplyWind writes the X-axis impulse into `*out_x` and the
+                // Y-axis impulse into `*out_y`; AccumulateImpulse then folds
+                // them into `speed_x` (+0x90) and `speed_y` (+0x94). WA's
+                // matching locals (local_83c / local_838) are pre-snapshotted
+                // from speed_y / speed_x in the prologue but ApplyWind never
+                // reads them — the slots are pure output buffers in this
+                // path, so zero-init is faithful.
+                let mut wind_dx = Fixed::ZERO;
+                let mut wind_dy = Fixed::ZERO;
+                bridge_apply_wind(this, &raw mut wind_dx, &raw mut wind_dy, 0, 0);
+                bridge_accumulate_impulse(this, wind_dx, wind_dy);
+            }
+        }
+
+        // Parent dispatch (WA's `default:` fall-through to
+        // `WorldEntity::HandleMessage`).
+        world_entity_handle_message(
+            this as *mut WorldEntity,
+            sender,
+            EntityMessage::FrameStart,
+            size,
+            data,
+        );
         true
     }
 }

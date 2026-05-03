@@ -285,8 +285,44 @@ pub struct GameInfo {
     /// SelectHerd handlers as a "scheme allows extended fuse/herd range"
     /// gate (compared against `0x1A`/`0x1F` thresholds).
     pub _scheme_d9b1: i8,
-    /// 0xD9B2-0xD9CE: Unknown
-    pub _unknown_d9b2: [u8; 0xD9CF - 0xD9B2],
+    /// 0xD9B2: Unknown
+    pub _unknown_d9b2: u8,
+    /// 0xD9B3: `WormEntity::HandleMessage` case 0x1 (`FrameStart`) save-pos
+    /// override. When non-zero, the per-frame "save pos to `_field_344/348`"
+    /// path runs even when [`WormEntity::_field_34c`] is `> 0` (which would
+    /// normally suppress the save in idle states).
+    pub _scheme_d9b3: u8,
+    /// 0xD9B4–0xD9B7: Unknown
+    pub _unknown_d9b4: [u8; 4],
+    /// 0xD9B8: First scheme drag/wind dword consulted by `FrameStart`
+    /// (msg 0x1) and `ApplyDragMods` (0x004FF9F0). Non-zero is used
+    /// to compute `subclass_data[0x28] = 0x10000 - dword` (a drag scaling
+    /// factor); also gates the impulse-block entry alongside `_scheme_d9c0`
+    /// and [`_scheme_d9c5`].
+    pub _scheme_d9b8: i32,
+    /// 0xD9BC–0xD9BF: Unknown (companion gate byte at 0xD9BC consulted
+    /// alongside [`_scheme_d9b8`] in `ApplyDragMods`).
+    pub _unknown_d9bc: [u8; 4],
+    /// 0xD9C0: Second scheme drag/wind dword consulted by `FrameStart`
+    /// (msg 0x1) and `ApplyDragMods`. Stored verbatim into
+    /// `subclass_data[0x2C]` when that slot is zero; also gates the
+    /// impulse-block entry.
+    pub _scheme_d9c0: i32,
+    /// 0xD9C4: Unknown (companion gate byte at 0xD9C4 in `ApplyDragMods`).
+    pub _unknown_d9c4: u8,
+    /// 0xD9C5: Master gate for the per-frame wind/impulse application.
+    /// Non-zero (along with the dword gates [`_scheme_d9c0`] / [`_scheme_d9b8`])
+    /// causes `FrameStart` to call `ApplyDragMods` + `ApplyWind` +
+    /// `AccumulateImpulse`. Also read by `ApplyWind` itself: a value
+    /// `< 2` short-circuits the wind computation and a value `>= 2` selects
+    /// between the two wind-formula branches.
+    pub _scheme_d9c5: u8,
+    /// 0xD9C6–0xD9CD: Unknown
+    pub _unknown_d9c6: [u8; 0xD9CE - 0xD9C6],
+    /// 0xD9CE: Master gate for the per-frame "save current pos to
+    /// `_field_344`/`_field_348`" path in `WormEntity::HandleMessage` case
+    /// 0x1 (`FrameStart`). Zero ⇒ skip the save block entirely.
+    pub _scheme_d9ce: u8,
     /// 0xD9CF: "Force all weapons aimed" scheme flag (u8). When non-zero,
     /// the tail of [`overlay_scheme_weapon_settings`] sets
     /// `requires_aiming = 1` on every weapon 1..71 — confirmed sole reader

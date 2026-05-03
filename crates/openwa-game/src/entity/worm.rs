@@ -727,8 +727,19 @@ pub struct WormEntity {
     pub _unknown_33b: [u8; 5],
     /// 0x340: Poison-tick accumulator. Cleared at `TurnStarted` (msg 0x38).
     pub poison_tick_accum: u32,
-    /// 0x344–0x367: Unknown
-    pub _unknown_344: [u8; 0x368 - 0x344],
+    /// 0x344: Last sampled X position from `FrameStart` (msg 0x1). Updated
+    /// when state ∈ {Idle (0x65), Active2 (0x8b)} and either
+    /// [`_field_34c`] is `<= 0` (signed) or scheme byte `0xD9B3` is non-zero.
+    pub _field_344: Fixed,
+    /// 0x348: Last sampled Y position; companion of [`_field_344`]. Updated
+    /// under the same `FrameStart` conditions.
+    pub _field_348: Fixed,
+    /// 0x34C: Signed-byte counter consulted by `FrameStart` (msg 0x1) before
+    /// it samples [`_field_344`]/[`_field_348`]. Always cleared to 0 by the
+    /// FrameStart save path. Writers TBD.
+    pub _field_34c: u8,
+    /// 0x34D–0x367: Unknown
+    pub _unknown_34d: [u8; 0x368 - 0x34D],
     /// 0x368: Animator / controller object (dispatched via vtable for state animations)
     pub animator: *mut u8,
     /// 0x36C: Active weapon entry pointer. Points to `&WeaponTable.entries[selected_weapon]`.
