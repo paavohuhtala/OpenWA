@@ -680,6 +680,8 @@ pub unsafe extern "thiscall" fn handle_message(
             EntityMessage::PoisonWorm => msg_poison_worm(this, data as *const PoisonWormMessage),
             EntityMessage::SpecialImpact => msg_special_impact(this, sender, size, data),
             EntityMessage::Explosion => msg_explosion(this, sender, size, data),
+            EntityMessage::DamageWorms => msg_damage_worms(this, data),
+            EntityMessage::ApplyPoison => msg_apply_poison(this),
             EntityMessage::AdvanceWorm => {
                 msg_advance_worm(this);
                 true
@@ -1777,6 +1779,85 @@ unsafe fn msg_explosion(
                 }
             }
         }
+        true
+    }
+}
+
+/// DamageWorms (0x3B). Two paths gated on the sign of the message's
+/// first i32. Positive: apply at most `msg_damage` HP but never kill —
+/// the worm is left at ≥ 1 HP. Negative: damage to exactly 1 HP
+/// (regardless of magnitude). Both end at the shared
+/// `apply_raw_damage_unchecked` tail.
+unsafe fn msg_damage_worms(this: *mut WormEntity, data: *const u8) -> bool {
+    unsafe {
+        if data.is_null() {
+            return false;
+        }
+        let world = (*(this as *const BaseEntity)).world;
+        let arena: *mut TeamArena = &raw mut (*world).team_arena;
+        let entry = TeamArena::team_worm_mut(
+            arena,
+            (*this).team_index as usize,
+            (*this).worm_index as usize,
+        );
+        let msg_damage = *(data as *const i32);
+        let old_health = (*entry).health;
+        let applied = if msg_damage >= 0 {
+            let clamped_new = old_health.wrapping_sub(msg_damage).max(1);
+            if old_health <= clamped_new {
+                return true;
+            }
+            old_health - clamped_new
+        } else {
+            old_health.wrapping_sub(1)
+        };
+        if (*world).terrain_pct_b != 0 {
+            return true;
+        }
+        apply_raw_damage_unchecked(this, entry, applied);
+        true
+    }
+}
+
+/// ApplyPoison (0x3E). Per-tick poison application using
+/// `(poison_tick_accum - poison_damage)` as the running delta — keeps
+/// the cumulative damage equal to `poison_damage` regardless of how
+/// many ApplyPoisons fire. Like 0x3B path A, the new health is floored
+/// at 1 (poison can't kill). The accumulator snapshot only updates on
+/// game versions > 0x187.
+unsafe fn msg_apply_poison(this: *mut WormEntity) -> bool {
+    unsafe {
+        if (*this).state() == WormState::Dead as u32 {
+            return true;
+        }
+        let poison_damage = (*this).poison_damage;
+        if poison_damage == 0 {
+            return true;
+        }
+        let world = (*(this as *const BaseEntity)).world;
+        let game_info = (*world).game_info;
+        let arena: *mut TeamArena = &raw mut (*world).team_arena;
+        let entry = TeamArena::team_worm_mut(
+            arena,
+            (*this).team_index as usize,
+            (*this).worm_index as usize,
+        );
+        let old_health = (*entry).health;
+        let candidate_new = ((*this).poison_tick_accum as i32)
+            .wrapping_sub(poison_damage)
+            .wrapping_add(old_health);
+        if (*game_info).game_version > 0x187 {
+            (*this).poison_tick_accum = poison_damage as u32;
+        }
+        let clamped_new = candidate_new.max(1);
+        if old_health <= clamped_new {
+            return true;
+        }
+        let applied = old_health - clamped_new;
+        if (*world).terrain_pct_b != 0 {
+            return true;
+        }
+        apply_raw_damage_unchecked(this, entry, applied);
         true
     }
 }
