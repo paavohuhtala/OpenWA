@@ -1,8 +1,5 @@
-//! GENERATED — do not edit by hand.
-//! Regenerate with:
-//!
-//!     python tools/generate_weapon_data.py <weapon_table.bin> \
-//!         crates/openwa-game/src/game/weapon_data.rs
+//! GENERATED — do not edit by hand. Regenerate via
+//! `tools/generate_weapon_data.py` with a captured weapon_table.bin.
 //!
 //! Vanilla WA.exe weapon-table snapshot, captured from a live game via the
 //! debug CLI. Mirrors what `InitWeaponTable` (0x0053CAB0) populates at
