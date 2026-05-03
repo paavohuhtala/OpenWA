@@ -445,6 +445,5 @@ pub fn init_addrs() {
         DISPLAY_GFX_INIT_ADDR = rb(va::DISPLAY_GFX_INIT);
         INIT_REPLAY_ADDR = rb(va::GAME_RUNTIME_INIT_REPLAY);
         crate::input::controller::init_addrs();
-        crate::game::init_weapon_table::init_addrs();
     }
 }

@@ -602,10 +602,6 @@ pub mod va {
         /// Builds a 0x408-byte struct from params, SharedData lookup, HandleMessage(0x56).
         fn SPAWN_EFFECT = 0x00547C30;
         fn INIT_WEAPON_TABLE = 0x0053CAB0;
-        /// `__stdcall(world)`, `RET 0x4`. Reads the per-weapon scheme
-        /// settings byte-array at `game_info + 0xD78C..D923` and overlays
-        /// them onto each WeaponEntry's WeaponFireParams sub-fields.
-        fn OVERLAY_SCHEME_WEAPON_SETTINGS = 0x0053AD80;
         fn COUNT_ALIVE_WORMS = 0x005225A0;
         fn GET_AMMO = 0x005225E0;
         fn ADD_AMMO = 0x00522640;

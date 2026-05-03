@@ -116,8 +116,15 @@ pub struct GameInfo {
     pub scoring_param_a: u16,
     /// 0xD78A: Scoring parameter B (multiplied by 50 for initial score).
     pub scoring_param_b: u16,
-    /// 0xD78C-0xD923: Unknown
-    pub _unknown_d78c: [u8; 0xD924 - 0xD78C],
+    /// 0xD78C-0xD923: Per-weapon scheme settings — 0x198 bytes of packed
+    /// per-weapon overlay data consumed by [`overlay_scheme_weapon_settings`]
+    /// (Rust port of WA 0x0053AD80). Each byte (or u16 / signed byte ×
+    /// 1000ms / byte ÷ 10000 cap) sources one field on a `WeaponEntry` or
+    /// its `WeaponFireParams`. Layout is irregular — the per-weapon shape
+    /// varies (utility weapons get short blocks, weapon 24/25 share bytes,
+    /// weapon 62 is rewritten twice) so consumers index by the offsets the
+    /// overlay function hard-codes rather than treating this as a struct.
+    pub weapon_scheme_bytes: [u8; 0xD924 - 0xD78C],
     /// 0xD924: Starting team color index (u8). Copied to GameWorld.team_color at init.
     pub team_color_source: u8,
     /// 0xD925-0xD931: Unknown
@@ -218,8 +225,16 @@ pub struct GameInfo {
     /// 0xD9A2: Network weapon exception flag. When net_config_2 != 0,
     /// weapons 10/0x37/0x38 are only disabled if this is also 0.
     pub net_weapon_exception: u8,
-    /// 0xD9A3-0xD9DB: Unknown
-    pub _unknown_d9a3: [u8; 0xD9DC - 0xD9A3],
+    /// 0xD9A3-0xD9CE: Unknown
+    pub _unknown_d9a3: [u8; 0xD9CF - 0xD9A3],
+    /// 0xD9CF: "Force all weapons aimed" scheme flag (u8). When non-zero,
+    /// the tail of [`overlay_scheme_weapon_settings`] sets
+    /// `requires_aiming = 1` on every weapon 1..71 — confirmed sole reader
+    /// (only immediate `0xD9CF` in WA.exe lives at 0x0053C0FF, inside that
+    /// final loop).
+    pub force_all_weapons_aim: u8,
+    /// 0xD9D0-0xD9DB: Unknown
+    pub _unknown_d9d0: [u8; 0xD9DC - 0xD9D0],
     /// 0xD9DC: Index of the starting team for this round.
     pub starting_team_index: i8,
     /// 0xD9DD: Game mode flag. Negative = training/replay mode. Also used as starting-team index for activity flags in normal mode.
