@@ -207,8 +207,13 @@ pub struct WormEntry {
     pub turn_action_counter_Maybe: i32,
     /// 0x0C: Active/alive flag (1 for alive worms in game, 0 otherwise).
     pub active_flag: i32,
-    /// 0x10-0x57: Unknown
-    pub _unknown_10: [u8; 0x48],
+    /// 0x10-0x53: Unknown
+    pub _unknown_10: [u8; 0x44],
+    /// 0x54: Damage-event score accumulator. Damage paths in
+    /// `WormEntity::HandleMessage` (cases 0x1C/0x76, 0x3B, 0x3E, 0x4B) add
+    /// the actually-applied damage (post health-clamp) here on every hit.
+    /// Reader TBD — likely scoreboard / kill-credit attribution.
+    pub damage_event_score: i32,
     /// 0x58: Max health (initial health value, typically 100).
     pub max_health: i32,
     /// 0x5C: Current health. Used by GetTeamTotalHealth.

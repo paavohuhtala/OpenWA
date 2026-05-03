@@ -753,6 +753,21 @@ impl GameWorld {
         }
     }
 
+    /// Read a per-team damage-grunt sound ID. Each team has three consecutive
+    /// sound IDs starting at offset 0x24 inside its per-team config block
+    /// (so absolute offset `0x778C + team * 0xF0 + slot * 4`). The damage
+    /// paths in `WormEntity::HandleMessage` (cases 0x1C/0x76 and 0x4B) pick
+    /// `slot = AdvanceGameRNG() % 3` for variation.
+    ///
+    /// # Safety
+    /// `team_id` must be a valid team index (0–5) and `slot` ∈ `0..=2`.
+    pub unsafe fn team_damage_grunt_id(&self, team_id: u32, slot: u32) -> u32 {
+        unsafe {
+            let base = (self as *const GameWorld as *const u8).add(0x778C);
+            *(base.add((team_id as usize) * 0xF0 + (slot as usize) * 4) as *const u32)
+        }
+    }
+
     /// Get a mutable pointer to a per-team/per-worm weapon stat counter.
     ///
     /// Four counters exist at GameWorld base offsets 0x40CC, 0x40D0, 0x40D4, 0x40D8,

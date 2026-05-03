@@ -57,8 +57,16 @@ pub struct WorldEntity<V: super::base::Vtable = *const core::ffi::c_void> {
     pub speed_x: Fixed,
     /// 0x94: Y velocity in fixed-point
     pub speed_y: Fixed,
-    /// 0x98-0xAB: Unknown gameplay fields.
-    pub _unknown_98: [u8; 0x14],
+    /// 0x98-0xA3: Unknown gameplay fields.
+    pub _unknown_98: [u8; 0x0C],
+    /// 0xA4: Damage-halving + state-pick suppressor read by WormEntity's
+    /// damage paths (cases 0x1C/0x76 and 0x4B in `HandleMessage`). When
+    /// nonzero the applied damage is halved (`new = damage / 2 + 1`) and
+    /// the velocity-based Hurt/HurtAlt state pick is skipped. Writers and
+    /// canonical name not yet identified.
+    pub _field_a4: u32,
+    /// 0xA8-0xAB: Unknown gameplay fields.
+    pub _unknown_a8: [u8; 4],
     /// 0xAC: Counter-like field. `try_move_position` clamps it to 0
     /// whenever a position commit succeeds and the slot was positive, so
     /// it accumulates while moves stall and resets on a successful step.

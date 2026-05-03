@@ -411,8 +411,15 @@ pub struct WormEntity {
     /// `BehaviorTick`'s water-death path as `ages[slot]` to derive the
     /// stagger delay for the worm's score-bubble.
     pub activity_rank_slot: u32,
-    /// 0x15C–0x163: Unknown
-    pub _unknown_15c: [u8; 0x164 - 0x15C],
+    /// 0x15C: Write-only mirror of `game_info+0xD926` (a per-scheme facing
+    /// byte). Damage paths (cases 0x1C/0x76, 0x4B, plus a few state-reset
+    /// branches inside case 0x24) copy that scheme byte here on every hit;
+    /// the reader is not yet identified.
+    pub _field_15c: u32,
+    /// 0x160: Sticky "already-took-this-event" lockout. Set to `1` near the
+    /// top of cases 0x1C/0x76 / 0x3B / 0x3E / 0x4B before applying damage,
+    /// blocks re-entry until something else clears it (TBD).
+    pub damage_lockout_flag: u32,
     /// 0x164: Frames the worm has stayed stationary (no movement). Resets on movement.
     pub stationary_frames: u32,
     /// 0x168: Snapshot of `world._field_5d8` taken at `StartTurn` (msg 0x34).
@@ -435,8 +442,19 @@ pub struct WormEntity {
     pub display_health_raw: u32,
     /// 0x17C: Target health (matches WormEntry.health). Same byte layout as display_health.
     pub target_health_raw: u32,
-    /// 0x180–0x18F: Unknown
-    pub _unknown_180: [u8; 0x190 - 0x180],
+    /// 0x180: Cleared by the damage paths (cases 0x1C/0x76, 0x3B, 0x3E, 0x4B)
+    /// only when `_field_184` is nonzero. Reader / paired-flag semantics TBD.
+    pub _field_180: u32,
+    /// 0x184: Read-only gate that controls whether `_field_180` is cleared
+    /// on a damage event. Writers TBD.
+    pub _field_184: u32,
+    /// 0x188: Damage-taken accumulator for the current turn. Cases 0x1C/0x76,
+    /// 0x3B, 0x3E, 0x4B add `applied_damage` here either pre- or post-clamp
+    /// depending on scheme byte `0xD94A` ("kaboom counter" / "true damage"
+    /// scheme toggle).
+    pub damage_taken_this_turn: i32,
+    /// 0x18C–0x18F: Unknown
+    pub _unknown_18c: [u8; 4],
     /// 0x190: Secondary position/mode field. Air strike temporarily swaps this with +0x34.
     pub _unknown_190: i32,
     /// 0x194–0x197: Unknown
@@ -493,13 +511,23 @@ pub struct WormEntity {
     /// in one direction. Resets to 0 when movement resumes after a stop.
     /// Set to -1 when the worm is blocked (e.g. hits a wall).
     pub movement_streak: i32,
-    /// 0x1F0–0x207: Unknown
-    pub _unknown_1f0: [u8; 0x208 - 0x1F0],
+    /// 0x1F0–0x203: Unknown
+    pub _unknown_1f0: [u8; 0x204 - 0x1F0],
+    /// 0x204: Per-event damage accumulator. Damage paths (0x1C/0x76, 0x4B)
+    /// add the message's `damage` field here on each hit. Distinct from
+    /// `damage_taken_this_turn` — likely a kill-credit or scoreboard total.
+    pub damage_event_accum: i32,
     /// 0x208: Action/mode flag. Checked in air strike (must be 0 to fire).
     /// Cleared after air strike completes.
     pub _unknown_208: i32,
-    /// 0x20C–0x247: Unknown
-    pub _unknown_20c: [u8; 0x248 - 0x20C],
+    /// 0x20C–0x217: Unknown
+    pub _unknown_20c: [u8; 0x218 - 0x20C],
+    /// 0x218: Set to Fixed(1.0) when SpecialImpact (msg 0x4B) is received
+    /// with `damage_kind == 1` (drowning). Probably a fade/animation
+    /// strength for the drown sprite — reader not yet pinned down.
+    pub drown_marker: Fixed,
+    /// 0x21C–0x247: Unknown
+    pub _unknown_21c: [u8; 0x248 - 0x21C],
     /// 0x248: Landscape scale factor for spawn offset calculation (Fixed 16.16).
     /// Used by WeaponRelease to convert aim params to world-space projectile offsets.
     pub landscape_scale: Fixed,
@@ -550,8 +578,12 @@ pub struct WormEntity {
     /// preceding Jump-cancel). Cleared together with `_field_29c` on the
     /// idle→0x77 transition.
     pub _field_2a0: i32,
-    /// 0x2A4–0x2AF: Unknown
-    pub _unknown_2a4: [u8; 0x2B0 - 0x2A4],
+    /// 0x2A4–0x2AB: Unknown
+    pub _unknown_2a4: [u8; 0x2AC - 0x2A4],
+    /// 0x2AC: Snapshot of `world._field_5cc` (the running frame counter)
+    /// taken when a damage-grunt sound plays. Cases 0x1C/0x76 and 0x4B
+    /// rate-limit the sound to fire at most once per 24 frames.
+    pub last_damage_sound_frame: i32,
     /// 0x2B0: Damage-stack count (accumulated by case 0x4B). Cleared at
     /// `TurnStarted` (msg 0x38).
     pub damage_stack_count: u32,
@@ -675,8 +707,12 @@ pub struct WormEntity {
     pub input_move_left: u32,
     /// 0x3F0: Input: move right key held (nonzero = worm walking right).
     pub input_move_right: u32,
-    /// 0x3F4–0x3FB: Unknown
-    pub _unknown_3f4: [u8; 0x3FC - 0x3F4],
+    /// 0x3F4–0x3F7: Unknown
+    pub _unknown_3f4: [u8; 4],
+    /// 0x3F8: Drowning damage running total. Case 0x4B's `damage_kind == 1`
+    /// branch adds the post-scale damage here on top of the regular health
+    /// decrement; reader TBD (probably feeds the kill-attribution system).
+    pub drown_damage_accum: i32,
 }
 
 const _: () = assert!(core::mem::size_of::<WormEntity>() == 0x3FC);

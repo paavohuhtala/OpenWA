@@ -17,7 +17,7 @@ use super::game_task::WorldEntity;
 use super::worm::{WormEntity, WormState};
 use crate::address::va;
 use crate::engine::EntityActivityQueue;
-use crate::engine::team_arena::TeamArena;
+use crate::engine::team_arena::{TeamArena, WormEntry};
 use crate::engine::world::GameWorld;
 use crate::game::game_task_message::cgametask_handle_message;
 use crate::game::message::{
@@ -64,6 +64,14 @@ static mut LOCALIZED_TEXT_RANDOM_PICK_ADDR: u32 = 0;
 // `[EDI+0xE0]`. Used by SpecialImpact (msg 0x4B) to play the corpse-hit
 // sound during the Dead-state branch.
 static mut WORM_PLAY_IMPACT_SOUND_ADDR: u32 = 0;
+// WormEntity::PlaySound_Maybe (0x00515020) — usercall(EDI = this), 3 stack
+// args (sound_id, vol, channel), RET 0xC. Stops the worm's currently-held
+// sound handle (at `this+0x3B4`) before starting the new one.
+static mut WORM_PLAY_SOUND_ADDR: u32 = 0;
+// WormEntity::SpawnDamageParticles_Maybe (0x005108D0) —
+// usercall(EAX = damage, ECX = this), 4 stack args (worm_x, worm_y, msg_x,
+// msg_y), RET 0x10. Bails out when damage <= 2.
+static mut WORM_SPAWN_DAMAGE_PARTICLES_ADDR: u32 = 0;
 
 pub unsafe fn init_addrs() {
     unsafe {
@@ -85,6 +93,8 @@ pub unsafe fn init_addrs() {
         BROADCAST_VIA_SHARED_DATA_ADDR = rb(0x00562EF0);
         LOCALIZED_TEXT_RANDOM_PICK_ADDR = rb(0x005480F0);
         WORM_PLAY_IMPACT_SOUND_ADDR = rb(0x004FF020);
+        WORM_PLAY_SOUND_ADDR = rb(0x00515020);
+        WORM_SPAWN_DAMAGE_PARTICLES_ADDR = rb(0x005108D0);
     }
 }
 
@@ -382,6 +392,54 @@ unsafe extern "stdcall" fn bridge_play_impact_sound(
         "pop edi",
         "ret 12",
         addr = sym WORM_PLAY_IMPACT_SOUND_ADDR,
+    );
+}
+
+/// `__usercall(EDI = this, [stack] = sound_id, vol, channel)`, RET 0xC.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_play_sound(
+    _this: *mut WormEntity,
+    _sound_id: u32,
+    _vol: u32,
+    _channel: u32,
+) {
+    core::arch::naked_asm!(
+        "push edi",
+        "mov edi, dword ptr [esp+8]",
+        "push dword ptr [esp+20]",
+        "push dword ptr [esp+20]",
+        "push dword ptr [esp+20]",
+        "mov eax, dword ptr [{addr}]",
+        "call eax",
+        "pop edi",
+        "ret 16",
+        addr = sym WORM_PLAY_SOUND_ADDR,
+    );
+}
+
+/// `__usercall(EAX = damage, ECX = this, [stack] = wx, wy, mx, my)`, RET 0x10.
+/// The native function bails out when `damage <= 2`, so callers can pass
+/// any damage value — the gate runs inside.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_spawn_damage_particles(
+    _this: *mut WormEntity,
+    _damage: i32,
+    _wx: Fixed,
+    _wy: Fixed,
+    _mx: Fixed,
+    _my: Fixed,
+) {
+    core::arch::naked_asm!(
+        "mov ecx, dword ptr [esp+4]",
+        "mov eax, dword ptr [esp+8]",
+        "push dword ptr [esp+24]",
+        "push dword ptr [esp+24]",
+        "push dword ptr [esp+24]",
+        "push dword ptr [esp+24]",
+        "mov edx, dword ptr [{addr}]",
+        "call edx",
+        "ret 24",
+        addr = sym WORM_SPAWN_DAMAGE_PARTICLES_ADDR,
     );
 }
 
@@ -1405,9 +1463,6 @@ unsafe fn msg_poison_worm(this: *mut WormEntity, message: *const PoisonWormMessa
     }
 }
 
-/// Partial port — only the Dead-state branch. Other states return `false`
-/// so WA handles the long damage path; the alliance gate is read-only, so
-/// re-running it there is harmless.
 unsafe fn msg_special_impact(
     this: *mut WormEntity,
     sender: *mut BaseEntity,
@@ -1421,17 +1476,49 @@ unsafe fn msg_special_impact(
         }
         let world = (*(this as *const BaseEntity)).world;
         let game_info = (*world).game_info;
+        let damage_kind = (*message).flag;
 
         if alliance_blocks_damage(world, (*message).source_team_index, (*this).team_index) {
             return true;
         }
 
-        if (*this).state() != WormState::Dead as u32 {
-            return false;
+        // Dead-state: bracket the parent dispatch with a save/restore of
+        // `speed_x` so the impulse the parent applies to a corpse is undone
+        // (modern schemes preserve the pre-impact speed; pre-499 schemes
+        // zero it out instead).
+        if (*this).state() == WormState::Dead as u32 {
+            let saved_speed_x = (*this).base.speed_x;
+            bridge_play_impact_sound(this, 0x6A, 0x10000);
+            cgametask_handle_message(
+                this as *mut WorldEntity,
+                sender,
+                EntityMessage::SpecialImpact,
+                size,
+                data,
+            );
+            (*this).base.speed_x = if (*game_info).game_version < 499 {
+                Fixed(0)
+            } else {
+                saved_speed_x
+            };
+            return true;
         }
 
-        let saved_speed_x = (*this).base.speed_x;
-        bridge_play_impact_sound(this, 0x6A, 0x10000);
+        if (*this).damage_lockout_flag != 0 {
+            return true;
+        }
+        (*this).damage_lockout_flag = 1;
+        if damage_kind == 6 {
+            (*this).cliff_fall_flag = 1;
+        }
+
+        // States that ignore impact damage entirely — the lockout was set
+        // above so subsequent SpecialImpacts this frame still no-op.
+        let state = (*this).state();
+        if matches!(state, 0x82 | 0x83 | 0x85 | 0x6D | 0x75) {
+            return true;
+        }
+
         cgametask_handle_message(
             this as *mut WorldEntity,
             sender,
@@ -1439,12 +1526,170 @@ unsafe fn msg_special_impact(
             size,
             data,
         );
-        (*this).base.speed_x = if (*game_info).game_version < 499 {
-            Fixed(0)
+
+        let msg_damage = (*message).damage;
+        if msg_damage != 0 {
+            (*this).damage_event_accum = (*this).damage_event_accum.wrapping_add(msg_damage);
+        }
+
+        // Entry-guard facing-fade copy: `_scheme_d95b` enables the writeback,
+        // gated additionally to skip damage_kind==10 in modern schemes.
+        if (*game_info)._scheme_d95b != 0 && ((*game_info).game_version < 0x90 || damage_kind != 10)
+        {
+            (*this)._field_15c = (*game_info)._scheme_d926 as u32;
+        }
+
+        // The kind 2/7 branch shrinks the working damage by the new stack
+        // count — the second chain-damage hit does ½ damage, the third ⅓,
+        // etc. Subsequent steps (early-out, halving, particle spawn, scale,
+        // drown accumulator) all use this post-divide value.
+        let mut working_damage = msg_damage;
+        match damage_kind {
+            0 | 4 | 5 | 6 | 8 => {
+                (*this)._field_15c = (*game_info)._scheme_d926 as u32;
+            }
+            1 => {
+                (*this).drown_marker = Fixed(0x10000);
+            }
+            2 | 7 => {
+                (*this).damage_stack_count = (*this).damage_stack_count.wrapping_add(1);
+                working_damage /= (*this).damage_stack_count as i32;
+            }
+            _ => {}
+        }
+
+        // Per-team rate-limited damage grunt: 24-frame cooldown.
+        if ((*world).frame_counter - (*this).last_damage_sound_frame) > 0x18 {
+            let rng = (*world).advance_rng();
+            let sound_id = (*world).team_damage_grunt_id((*this).team_index, (rng & 0xFF) % 3);
+            bridge_play_sound(this, sound_id, 0x10000, 3);
+            (*this).last_damage_sound_frame = (*world).frame_counter;
+        }
+
+        // Velocity-based Hurt/HurtAlt state pick — skipped when the
+        // damage-halving flag is active.
+        if (*this).base._field_a4 == 0 {
+            let new_state = match damage_kind {
+                1 => WormState::Drowning,
+                9 => WormState::Dead1,
+                _ => WormState::Hurt,
+            };
+            WormEntity::set_state_raw(this, new_state);
+        }
+
+        // The kind != 10 / working_damage == 0 combination is a no-op past
+        // this point; bail out to match WA's early-return.
+        if working_damage == 0 && damage_kind != 10 {
+            return true;
+        }
+
+        let damage_for_particles = if (*this).base._field_a4 != 0 {
+            working_damage / 2 + 1
         } else {
-            saved_speed_x
+            working_damage
         };
+        bridge_spawn_damage_particles(
+            this,
+            damage_for_particles,
+            (*this).base.pos_x,
+            (*this).base.pos_y,
+            (*message).pos_x,
+            (*message).pos_y,
+        );
+
+        let arena: *mut TeamArena = &raw mut (*world).team_arena;
+        let entry = TeamArena::team_worm_mut(
+            arena,
+            (*this).team_index as usize,
+            (*this).worm_index as usize,
+        );
+
+        if damage_kind != 10 {
+            if damage_kind == 1 {
+                (*this).drown_damage_accum = (*this)
+                    .drown_damage_accum
+                    .wrapping_add(damage_for_particles);
+            }
+            if (*world).terrain_pct_b != 0 {
+                return true;
+            }
+            let scaled = ((*world)._field_5f0 as i32).wrapping_mul(damage_for_particles);
+            apply_raw_damage_unchecked(this, entry, scaled);
+        } else {
+            // Percentage damage. The "health == 1 && msg.damage != 0"
+            // special-case still funnels through the same helper as the
+            // general path — WA spelled it out as separate code (one of
+            // those LAB_005126f5 / LAB_00511409 fall-throughs).
+            let entry_health = (*entry).health;
+            let damage_amount = if entry_health == 1 && msg_damage != 0 {
+                1
+            } else {
+                ((entry_health as i64).wrapping_mul(msg_damage as i64) / 100) as i32
+            };
+            if (*world).terrain_pct_b != 0 {
+                return true;
+            }
+            apply_raw_damage_unchecked(this, entry, damage_amount);
+        }
         true
+    }
+}
+
+/// Health-decrement + score broadcast tail shared by the damage paths
+/// (cases 0x1C/0x76, 0x3B, 0x3E, 0x4B). Caller must have already cleared
+/// the `world.terrain_pct_b` freeze gate. `raw_damage` is the pre-clamp
+/// damage to apply; the helper consults `_scheme_d94a` to decide whether
+/// `damage_taken_this_turn` accumulates the pre- or post-clamp value, and
+/// broadcasts msg 0x48 (Damaged) via the SharedData (0, 0x14) lookup once
+/// any health was actually subtracted.
+unsafe fn apply_raw_damage_unchecked(
+    this: *mut WormEntity,
+    entry: *mut WormEntry,
+    raw_damage: i32,
+) {
+    unsafe {
+        let world = (*(this as *const BaseEntity)).world;
+        let game_info = (*world).game_info;
+        if (*game_info)._scheme_d94a != 0 {
+            (*this).damage_taken_this_turn =
+                (*this).damage_taken_this_turn.wrapping_add(raw_damage);
+        }
+        if raw_damage < 1 {
+            return;
+        }
+        let old_health = (*entry).health;
+        if old_health < 1 {
+            return;
+        }
+        let new_health = (old_health.wrapping_sub(raw_damage)).max(0);
+        let applied = old_health - new_health;
+        if (*game_info)._scheme_d94a == 0 {
+            (*this).damage_taken_this_turn = (*this).damage_taken_this_turn.wrapping_add(applied);
+        }
+        (*entry).damage_event_score = (*entry).damage_event_score.wrapping_add(applied);
+        (*entry).health = new_health;
+        if (*this)._field_184 != 0 {
+            (*this)._field_180 = 0;
+        }
+        if applied == 0 {
+            return;
+        }
+        let is_not_kamikaze = if (*this).state() != 0x6D { 1i32 } else { 0i32 };
+        let payload: [i32; 5] = [
+            (*this).team_index as i32,
+            (*this).worm_index as i32,
+            applied,
+            is_not_kamikaze,
+            0,
+        ];
+        bridge_broadcast_via_shared_data(
+            this,
+            this as *mut BaseEntity,
+            0x14,
+            0x48,
+            0x408,
+            payload.as_ptr() as *const u8,
+        );
     }
 }
 

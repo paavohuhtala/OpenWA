@@ -127,8 +127,14 @@ pub struct GameInfo {
     pub weapon_scheme_bytes: [u8; 0xD924 - 0xD78C],
     /// 0xD924: Starting team color index (u8). Copied to GameWorld.team_color at init.
     pub team_color_source: u8,
-    /// 0xD925-0xD931: Unknown
-    pub _unknown_d925: [u8; 0xD932 - 0xD925],
+    /// 0xD925: Unknown
+    pub _unknown_d925: u8,
+    /// 0xD926: Per-scheme facing-fade byte. Mirrored into
+    /// `WormEntity._field_15c` by every damage-path branch (cases 0x1C/0x76,
+    /// 0x4B and a few state-reset arms of case 0x24); reader TBD.
+    pub _scheme_d926: u8,
+    /// 0xD927-0xD931: Unknown
+    pub _unknown_d927: [u8; 0xD932 - 0xD927],
     /// 0xD932: DoubleTurnTime availability threshold (u16).
     /// If game_version > 0xD1 and this > 0x7FFF, DoubleTurnTime is disabled.
     pub double_turn_time_threshold: u16,
@@ -176,8 +182,11 @@ pub struct GameInfo {
     /// menu suppresses the "First Team to N Wins" header and the
     /// per-team scoreboard rows.
     pub scheme_no_leaderboard: u8,
-    /// 0xD94A: Unknown
-    pub _unknown_d94a: u8,
+    /// 0xD94A: When zero, damage paths (cases 0x1C/0x76, 0x3B, 0x3E, 0x4B)
+    /// add the post-clamp applied damage to `damage_taken_this_turn`; when
+    /// nonzero they add the pre-clamp raw damage instead. Likely the
+    /// "kaboom counter" / "true damage" scheme toggle.
+    pub _scheme_d94a: u8,
     /// 0xD94B: Landscape scheme flag (nonzero enables terrain features via Landscape vtable slot 6).
     pub landscape_scheme_flag: u8,
     /// 0xD94C: Donkey (weapon 0x36) disable flag.
@@ -200,8 +209,12 @@ pub struct GameInfo {
     /// 0xD959: Version-gated weapon restriction. If nonzero and game_version > 0x29,
     /// returns -2 for unavailable weapons.
     pub weapon_version_gate: u8,
-    /// 0xD95A-0xD95B: Unknown
-    pub _unknown_d95a: [u8; 2],
+    /// 0xD95A: Unknown
+    pub _unknown_d95a: u8,
+    /// 0xD95B: Gates the writeback of `_scheme_d926` into the worm's
+    /// `_field_15c`. When zero, damage paths skip the facing-fade copy on
+    /// the entry guard (the per-damage-kind switch can still write it).
+    pub _scheme_d95b: u8,
     /// 0xD95C: Same-alliance damage threshold (u8). When the sender and the
     /// receiver share `weapon_alliance`, damage paths (msgs 0x1C/0x76 ApplyDamage,
     /// 0x4B SpecialImpact, 0x51 PoisonWorm) read this byte: values `> 2` block
