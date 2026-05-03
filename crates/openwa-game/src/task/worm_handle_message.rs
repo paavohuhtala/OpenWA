@@ -21,8 +21,8 @@ use crate::engine::team_arena::{TeamArena, WormEntry};
 use crate::engine::world::GameWorld;
 use crate::game::game_task_message::cgametask_handle_message;
 use crate::game::message::{
-    PoisonWormMessage, SelectArmingMessage, SelectCursorMessage, SelectWeaponMessage,
-    SpecialImpactMessage, WeaponReleasedMessage, WormMovedMessage,
+    ExplosionMessage, PoisonWormMessage, SelectArmingMessage, SelectCursorMessage,
+    SelectWeaponMessage, SpecialImpactMessage, WeaponReleasedMessage, WormMovedMessage,
 };
 use crate::game::{EntityMessage, weapon_fire};
 use crate::rebase::rb;
@@ -72,6 +72,12 @@ static mut WORM_PLAY_SOUND_ADDR: u32 = 0;
 // usercall(EAX = damage, ECX = this), 4 stack args (worm_x, worm_y, msg_x,
 // msg_y), RET 0x10. Bails out when damage <= 2.
 static mut WORM_SPAWN_DAMAGE_PARTICLES_ADDR: u32 = 0;
+// WormEntity::HitTestRopeLine_Maybe (0x00501210) — fastcall(ECX = this,
+// EDX = pos_x), 2 stack args (rope_param, pos_y), RET 0x8. Returns
+// nonzero when an active rope at `this+0xBC` intersects the explosion at
+// (pos_x, pos_y). The `rope_param` arg comes from the message's offset
+// 0x10 (treated as a pre-multiplier `(arg + 2) << 17`).
+static mut WORM_HIT_TEST_ROPE_LINE_ADDR: u32 = 0;
 
 pub unsafe fn init_addrs() {
     unsafe {
@@ -95,6 +101,7 @@ pub unsafe fn init_addrs() {
         WORM_PLAY_IMPACT_SOUND_ADDR = rb(0x004FF020);
         WORM_PLAY_SOUND_ADDR = rb(0x00515020);
         WORM_SPAWN_DAMAGE_PARTICLES_ADDR = rb(0x005108D0);
+        WORM_HIT_TEST_ROPE_LINE_ADDR = rb(0x00501210);
     }
 }
 
@@ -443,6 +450,26 @@ unsafe extern "stdcall" fn bridge_spawn_damage_particles(
     );
 }
 
+/// `__fastcall(ECX = this, EDX = pos_x, [stack] = rope_param, pos_y)`, RET 0x8.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_hit_test_rope_line(
+    _this: *mut WormEntity,
+    _pos_x: Fixed,
+    _rope_param: u32,
+    _pos_y: Fixed,
+) -> u32 {
+    core::arch::naked_asm!(
+        "mov ecx, dword ptr [esp+4]",
+        "mov edx, dword ptr [esp+8]",
+        "push dword ptr [esp+16]",
+        "push dword ptr [esp+16]",
+        "mov eax, dword ptr [{addr}]",
+        "call eax",
+        "ret 16",
+        addr = sym WORM_HIT_TEST_ROPE_LINE_ADDR,
+    );
+}
+
 /// Inlines `WormEntity::IsActionState_Maybe` (0x0050E800). The function is
 /// a 2-entry jumptable indexed by `byte[(state - 0x68) + 0x50e820]`: byte=0
 /// returns 1 (action), byte=1 returns 0. From the data table at 0x50e820,
@@ -652,6 +679,7 @@ pub unsafe extern "thiscall" fn handle_message(
             }
             EntityMessage::PoisonWorm => msg_poison_worm(this, data as *const PoisonWormMessage),
             EntityMessage::SpecialImpact => msg_special_impact(this, sender, size, data),
+            EntityMessage::Explosion => msg_explosion(this, sender, size, data),
             EntityMessage::AdvanceWorm => {
                 msg_advance_worm(this);
                 true
@@ -1630,6 +1658,124 @@ unsafe fn msg_special_impact(
                 return true;
             }
             apply_raw_damage_unchecked(this, entry, damage_amount);
+        }
+        true
+    }
+}
+
+/// Case 0x1C only — case 0x76 (the paired but distinct phantom message
+/// type at hex 0x76 = 118) is not in the `EntityMessage` enum, so it falls
+/// through to WA via the normal `try_from` Err path.
+unsafe fn msg_explosion(
+    this: *mut WormEntity,
+    sender: *mut BaseEntity,
+    size: u32,
+    data: *const u8,
+) -> bool {
+    unsafe {
+        let message = data as *const ExplosionMessage;
+        if message.is_null() {
+            return false;
+        }
+        let world = (*(this as *const BaseEntity)).world;
+        let game_info = (*world).game_info;
+
+        // The message's `owner_id` field is empirically a team_index for
+        // the alliance gate's purposes (matches WA `world + team * 0x51C +
+        // 0x462C`).
+        if alliance_blocks_damage(world, (*message).owner_id, (*this).team_index) {
+            return true;
+        }
+
+        let state = (*this).state();
+        if matches!(state, 0x82 | 0x83 | 0x85 | 0x6D | 0x75) {
+            return true;
+        }
+
+        if state == WormState::Dead as u32 {
+            let saved_speed_x = (*this).base.speed_x;
+            cgametask_handle_message(
+                this as *mut WorldEntity,
+                sender,
+                EntityMessage::Explosion,
+                size,
+                data,
+            );
+            (*this).base.damage_accum = 0;
+            (*this).base.speed_x = if (*game_info).game_version < 499 {
+                Fixed(0)
+            } else {
+                saved_speed_x
+            };
+            return true;
+        }
+
+        if (*game_info)._scheme_d95b != 0 {
+            (*this)._field_15c = (*game_info)._scheme_d926 as u32;
+        }
+        if (*game_info).game_version < 0xD9 && state == WormState::AirStrikePending_Maybe as u32 {
+            WormEntity::set_state_raw(this, WormState::Hurt);
+        }
+
+        cgametask_handle_message(
+            this as *mut WorldEntity,
+            sender,
+            EntityMessage::Explosion,
+            size,
+            data,
+        );
+        let damage_accum = (*this).base.damage_accum;
+        (*this).base.damage_accum = 0;
+
+        if bridge_hit_test_rope_line(this, (*message).pos_x, (*message).damage, (*message).pos_y)
+            != 0
+        {
+            WormEntity::set_state_raw(this, WormState::WeaponCharging_Maybe);
+        }
+
+        if damage_accum != 0 {
+            (*this).damage_event_accum = (*this).damage_event_accum.wrapping_add(damage_accum);
+            let halved = if (*this).base._field_a4 != 0 {
+                damage_accum / 2 + 1
+            } else {
+                damage_accum
+            };
+            bridge_spawn_damage_particles(
+                this,
+                halved,
+                (*this).base.pos_x,
+                (*this).base.pos_y,
+                (*message).pos_x,
+                (*message).pos_y,
+            );
+            if (*world).terrain_pct_b == 0 {
+                let scaled = ((*world)._field_5f0 as i32).wrapping_mul(halved);
+                let arena: *mut TeamArena = &raw mut (*world).team_arena;
+                let entry = TeamArena::team_worm_mut(
+                    arena,
+                    (*this).team_index as usize,
+                    (*this).worm_index as usize,
+                );
+                apply_raw_damage_unchecked(this, entry, scaled);
+            }
+            // Velocity-based Hurt/Dead1 state pick + facing direction set.
+            // Skipped when the damage-halve flag is active.
+            if (*this).base._field_a4 == 0 {
+                let vx = (*this).base.speed_x.0;
+                let vy = (*this).base.speed_y.0;
+                let mag = vx.wrapping_abs().wrapping_add(vy.wrapping_abs());
+                let new_state = if mag < 0x70000 {
+                    WormState::Hurt
+                } else {
+                    WormState::Dead1
+                };
+                WormEntity::set_state_raw(this, new_state);
+                if vx < -0x6666 {
+                    (*this).facing_direction_2 = -1;
+                } else if vx > 0x6666 {
+                    (*this).facing_direction_2 = 1;
+                }
+            }
         }
         true
     }
