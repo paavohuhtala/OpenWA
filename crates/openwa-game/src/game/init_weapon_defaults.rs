@@ -306,7 +306,8 @@ pub unsafe fn populate_weapon_table_defaults(
             sheep_launcher.fire_params.unknown_0xd0_0x10c[12] = 0;
             sheep_launcher.fire_params.unknown_0xd0_0x10c[13] = 0;
             sheep_launcher.fire_params.unknown_0xd0_0x10c[14] = 0;
-            sheep_launcher.fire_params.unknown_0xd0_0x10c[8] = if game_version >= 0x1F0 { 3 } else { 1 };
+            sheep_launcher.fire_params.unknown_0xd0_0x10c[8] =
+                if game_version >= 0x1F0 { 3 } else { 1 };
             sheep_launcher.fire_params.cluster_params[0] = 0;
             sheep_launcher.fire_params.cluster_params[1] = 0;
             sheep_launcher.fire_params.cluster_params[2] = 0x64;
@@ -504,7 +505,11 @@ pub unsafe fn populate_weapon_table_defaults(
             grenade.fire_params.unknown_0xc4_0xcc[2] = 0;
             grenade.fire_params.unknown_0xd0_0x10c[0] = 0;
             grenade.fire_params.unknown_0xd0_0x10c[8] = 0;
-            grenade.fire_params.render_size = if scheme_byte_d963 < 0x2 { Fixed(0x42185E) } else { Fixed(0x42187E) };
+            grenade.fire_params.render_size = if scheme_byte_d963 < 0x2 {
+                Fixed(0x42185E)
+            } else {
+                Fixed(0x42187E)
+            };
         }
 
         {
@@ -514,7 +519,11 @@ pub unsafe fn populate_weapon_table_defaults(
             cluster_bomb.requires_aiming = 1;
             cluster_bomb.defined = 1;
             cluster_bomb.shot_count = 1;
-            cluster_bomb.fire_params.render_size = if scheme_byte_d963 < 0x2 { Fixed(0x42185E) } else { Fixed(0x42187E) };
+            cluster_bomb.fire_params.render_size = if scheme_byte_d963 < 0x2 {
+                Fixed(0x42185E)
+            } else {
+                Fixed(0x42187E)
+            };
             cluster_bomb.fire_params.collision_radius = Fixed(0x0);
             cluster_bomb.fire_params.unknown_0x4c = 0;
             cluster_bomb.fire_params.unknown_0x50 = 0x64;
@@ -603,7 +612,11 @@ pub unsafe fn populate_weapon_table_defaults(
             banana_bomb.fire_params.unknown_0xd0_0x10c[9] = 0;
             banana_bomb.fire_params.collision_radius = Fixed(0x0);
             banana_bomb.fire_params.missile_type = 2;
-            banana_bomb.fire_params.render_size = if scheme_byte_d963 < 0x2 { Fixed(0x42185E) } else { Fixed(0x42187E) };
+            banana_bomb.fire_params.render_size = if scheme_byte_d963 < 0x2 {
+                Fixed(0x42185E)
+            } else {
+                Fixed(0x42187E)
+            };
             banana_bomb.fire_params.unknown_0x4c = 0;
             banana_bomb.fire_params.unknown_0x50 = 0x64;
             banana_bomb.fire_params.unknown_0x54 = 0x4B;
@@ -711,7 +724,11 @@ pub unsafe fn populate_weapon_table_defaults(
             holy_grenade.fire_params.unknown_0xd0_0x10c[8] = 0;
             holy_grenade.fire_params.explosion_delay = 0xBB8;
             holy_grenade.fire_params.fuse_timer = 0xBB8;
-            holy_grenade.fire_params.render_size = if scheme_byte_d963 < 0x2 { Fixed(0x4042185E) } else { Fixed(0x4042187E) };
+            holy_grenade.fire_params.render_size = if scheme_byte_d963 < 0x2 {
+                Fixed(0x4042185E)
+            } else {
+                Fixed(0x4042187E)
+            };
             holy_grenade.fire_params.homing_params[2] = 8;
         }
 
@@ -1023,7 +1040,11 @@ pub unsafe fn populate_weapon_table_defaults(
             dynamite.retreat_time = 0x1388;
             dynamite.fire_params.explosion_delay = 0x1388;
             dynamite.fire_params.fuse_timer = 0x1388;
-            dynamite.fire_params.render_size = if scheme_byte_d963 < 0x2 { Fixed(0x42185E) } else { Fixed(0x42187E) };
+            dynamite.fire_params.render_size = if scheme_byte_d963 < 0x2 {
+                Fixed(0x42185E)
+            } else {
+                Fixed(0x42187E)
+            };
         }
 
         {
@@ -1064,7 +1085,11 @@ pub unsafe fn populate_weapon_table_defaults(
             ming_vase.fire_params.missile_type = 2;
             ming_vase.fire_params.unknown_0x4c = 0x32;
             ming_vase.fire_params.wind_influence = 0x32;
-            ming_vase.fire_params.render_size = if scheme_byte_d963 < 0x2 { Fixed(0x42185E) } else { Fixed(0x42187E) };
+            ming_vase.fire_params.render_size = if scheme_byte_d963 < 0x2 {
+                Fixed(0x42185E)
+            } else {
+                Fixed(0x42187E)
+            };
             ming_vase.fire_params.spread = 5;
             ming_vase.fire_params.collision_radius = Fixed(0x0);
             ming_vase.fire_params.unknown_0x50 = 0x64;
@@ -2235,7 +2260,9 @@ pub unsafe fn populate_weapon_table_defaults(
             &raw mut entries[KnownWeaponId::AquaSheep as usize],
             1,
         );
-        entries[KnownWeaponId::AquaSheep as usize].fire_params.render_timer &= 0xFFBFFFFFu32 as i32;
+        entries[KnownWeaponId::AquaSheep as usize]
+            .fire_params
+            .render_timer &= 0xFFBFFFFFu32 as i32;
 
         {
             let aqua_sheep = &mut entries[KnownWeaponId::AquaSheep as usize];
@@ -2497,7 +2524,5 @@ pub unsafe fn populate_weapon_table_defaults(
             jet_pack.special_subtype = 0x17;
         }
         *(&raw mut entries[KnownWeaponId::JetPack as usize] as *mut u8).add(0x38) = 0x32;
-
     }
 }
-
