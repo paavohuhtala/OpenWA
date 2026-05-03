@@ -20,8 +20,8 @@ use crate::engine::EntityActivityQueue;
 use crate::engine::team_arena::TeamArena;
 use crate::engine::world::GameWorld;
 use crate::game::message::{
-    SelectArmingMessage, SelectCursorMessage, SelectWeaponMessage, WeaponReleasedMessage,
-    WormMovedMessage,
+    PoisonWormMessage, SelectArmingMessage, SelectCursorMessage, SelectWeaponMessage,
+    WeaponReleasedMessage, WormMovedMessage,
 };
 use crate::game::{EntityMessage, weapon_fire};
 use crate::rebase::rb;
@@ -49,6 +49,15 @@ static mut WORM_BROADCAST_WEAPON_SETTINGS_ADDR: u32 = 0;
 static mut WORM_SELECT_FUSE_ADDR: u32 = 0;
 static mut WORM_SELECT_BOUNCE_ADDR: u32 = 0;
 static mut WORM_SELECT_HERD_ADDR: u32 = 0;
+// FUN_00562EF0 — broadcasts a message via the SharedData parent observer.
+// `__usercall(EAX = lookup_task)` + 5 stack args (sender, key_edi, msg_id,
+// size, payload), RET 0x14. Caller must set ECX = key_esi (= 0 for the
+// WorldRoot dispatch used by case 0x51 PoisonWorm).
+static mut BROADCAST_VIA_SHARED_DATA_ADDR: u32 = 0;
+// FUN_005480F0 — picks a random non-null entry from a string-pointer array
+// and dispatches it through the SharedData random-text channel. Stdcall
+// (this, name_array, count_kind, worm_name_ptr), RET 0x10.
+static mut LOCALIZED_TEXT_RANDOM_PICK_ADDR: u32 = 0;
 
 pub unsafe fn init_addrs() {
     unsafe {
@@ -67,6 +76,8 @@ pub unsafe fn init_addrs() {
         WORM_SELECT_FUSE_ADDR = rb(va::WORM_ENTITY_SELECT_FUSE);
         WORM_SELECT_BOUNCE_ADDR = rb(va::WORM_ENTITY_SELECT_BOUNCE);
         WORM_SELECT_HERD_ADDR = rb(va::WORM_ENTITY_SELECT_HERD);
+        BROADCAST_VIA_SHARED_DATA_ADDR = rb(0x00562EF0);
+        LOCALIZED_TEXT_RANDOM_PICK_ADDR = rb(0x005480F0);
     }
 }
 
@@ -303,6 +314,50 @@ unsafe extern "stdcall" fn bridge_select_herd(_this: *mut WormEntity, _value: i3
     );
 }
 
+/// `__usercall(EAX = lookup_task, ECX = key_esi)` + stdcall stack args
+/// `(sender, key_edi, msg_id, size, payload)`, RET 0x14. The bridge sets
+/// `ECX = 0` since every WormEntity caller routes through the WorldRoot
+/// (key `(0, 0x14)`).
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_broadcast_via_shared_data(
+    _this: *mut WormEntity,
+    _sender: *mut BaseEntity,
+    _key_edi: u32,
+    _msg_id: u32,
+    _size: u32,
+    _payload: *const u8,
+) {
+    core::arch::naked_asm!(
+        "push ebx",
+        "mov eax, dword ptr [esp+8]",
+        "xor ecx, ecx",
+        "push dword ptr [esp+28]",
+        "push dword ptr [esp+28]",
+        "push dword ptr [esp+28]",
+        "push dword ptr [esp+28]",
+        "push dword ptr [esp+28]",
+        "mov ebx, dword ptr [{addr}]",
+        "call ebx",
+        "pop ebx",
+        "ret 24",
+        addr = sym BROADCAST_VIA_SHARED_DATA_ADDR,
+    );
+}
+
+/// Plain stdcall tail-jump — args fall through unchanged.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_localized_text_random_pick(
+    _this: *mut WormEntity,
+    _name_array: *const u32,
+    _kind: u32,
+    _worm_name_ptr: *const u8,
+) {
+    core::arch::naked_asm!(
+        "jmp dword ptr [{addr}]",
+        addr = sym LOCALIZED_TEXT_RANDOM_PICK_ADDR,
+    );
+}
+
 /// Inlines `WormEntity::IsActionState_Maybe` (0x0050E800). The function is
 /// a 2-entry jumptable indexed by `byte[(state - 0x68) + 0x50e820]`: byte=0
 /// returns 1 (action), byte=1 returns 0. From the data table at 0x50e820,
@@ -510,6 +565,7 @@ pub unsafe extern "thiscall" fn handle_message(
                 msg_select_cursor(this, data as *const SelectCursorMessage);
                 true
             }
+            EntityMessage::PoisonWorm => msg_poison_worm(this, data as *const PoisonWormMessage),
             EntityMessage::AdvanceWorm => {
                 msg_advance_worm(this);
                 true
@@ -1247,6 +1303,77 @@ unsafe fn msg_select_cursor(this: *mut WormEntity, message: *const SelectCursorM
         if ((*this).shot_data_1 as i32) == ((*this).shot_data_2 as i32).wrapping_sub(1) {
             WormEntity::landing_check_raw(this);
         }
+    }
+}
+
+/// PoisonWorm (0x51). Accumulates `damage` into `worm.poison_damage` once
+/// per `source_bit`. The alliance gate at `world + team_idx*0x51c + 0x462c`
+/// reads the per-team alliance group and selects the friendly-fire
+/// (game_info+0xD95C) or enemy-fire (game_info+0xD95D) scheme byte; values
+/// > 2 block the application. Returns `false` to fall through to the
+/// parent — the case body breaks out of WA's outer switch when its
+/// preconditions don't hold, matching dispatcher fall-through semantics.
+unsafe fn msg_poison_worm(this: *mut WormEntity, message: *const PoisonWormMessage) -> bool {
+    unsafe {
+        if message.is_null() {
+            return false;
+        }
+        let world = (*(this as *const BaseEntity)).world;
+        let game_info = (*world).game_info as *const u8;
+        let game_version = (*(*world).game_info).game_version;
+        let mut source_bit = (*message).source_bit as u32;
+        if game_version < 0x53 {
+            source_bit = 1;
+        }
+        if (source_bit & (*this).poison_source_mask) != 0
+            || (*this).state() == WormState::Dead as u32
+        {
+            return false;
+        }
+        let sender_team = (*message).sender_team_index;
+        if sender_team != 0 {
+            let world_bytes = world as *const u8;
+            let sender_alliance =
+                *(world_bytes.add((sender_team as usize) * 0x51C + 0x462C) as *const i32);
+            let my_alliance =
+                *(world_bytes.add(((*this).team_index as usize) * 0x51C + 0x462C) as *const i32);
+            let fire_byte = if sender_alliance == my_alliance {
+                *game_info.add(0xD95C)
+            } else {
+                *game_info.add(0xD95D)
+            };
+            if fire_byte > 2 {
+                return true; // WA's `return;` — handled, no parent dispatch
+            }
+        }
+        (*this).poison_damage = (*this).poison_damage.wrapping_add((*message).damage);
+        (*this).poison_source_mask |= source_bit;
+
+        let payload: [i32; 4] = [
+            (*this).team_index as i32,
+            (*this).worm_index as i32,
+            (*message).damage,
+            0,
+        ];
+        bridge_broadcast_via_shared_data(
+            this,
+            this as *mut BaseEntity,
+            0x14,
+            0x48,
+            0x408,
+            payload.as_ptr() as *const u8,
+        );
+
+        let template = (*world).localized_template;
+        let resolved =
+            crate::wa::localized_template::resolve_split_array_raw(template, 0x6CF) as *const u32;
+        bridge_localized_text_random_pick(
+            this,
+            resolved,
+            0x17,
+            &raw const (*this).worm_name as *const u8,
+        );
+        true
     }
 }
 

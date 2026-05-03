@@ -684,9 +684,9 @@ unsafe fn fire_nuclear_test(worm: *mut WormEntity) {
             game,
             worm,
             PoisonWormMessage {
-                unknown1: entry.fire_params.shot_count,
-                unknown2: 2,
-                team_index: (*worm).team_index,
+                damage: entry.fire_params.shot_count,
+                source_bit: 2,
+                sender_team_index: (*worm).team_index,
             },
         );
 

@@ -414,13 +414,21 @@ impl EntityMessageData for SelectWormMessage {
     const MESSAGE_TYPE: EntityMessage = EntityMessage::EarthquakeOrSelectWorm;
 }
 
+/// Payload for [`EntityMessage::PoisonWorm`] (msg 0x51). Recipients accumulate
+/// `damage` into `worm.poison_damage` if `(source_bit & worm.poison_source_mask)
+/// == 0`, then OR the bit in. The `sender_team_index` selects friendly-fire vs
+/// enemy-fire scheme bytes for the alliance gate.
 #[repr(C)]
 #[derive(Clone, Copy, Zeroable, Pod)]
 pub struct PoisonWormMessage {
-    pub unknown1: i32,
-    // 2 in fire_nuclear_test
-    pub unknown2: i32,
-    pub team_index: u32,
+    /// Damage delta added to `worm.poison_damage` on first hit per source.
+    pub damage: i32,
+    /// Per-source bit mask. WA's nuclear-test sender uses `2`. On
+    /// `game_version < 0x53` recipients force this to `1` regardless of the
+    /// sender's value.
+    pub source_bit: i32,
+    /// Sender's team index (0 = unattributed, skip alliance gate).
+    pub sender_team_index: u32,
 }
 
 impl EntityMessageData for PoisonWormMessage {
