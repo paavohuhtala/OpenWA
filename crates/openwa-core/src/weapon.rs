@@ -160,9 +160,8 @@ pub enum FireType {
     ///
     /// Historically named `Rope` here and in WA's RE notes — that's wrong:
     /// Ninja Rope and Bungee are [`Self::Special`] (subtypes 6 and 7), not
-    /// type-2. Confirmed empirically against the vanilla weapon-table dump
-    /// (`crate::game::weapon_data` in openwa-game). Sub-dispatched by
-    /// `fire_method`.
+    /// type-2. Confirmed empirically against a live weapon-table dump from
+    /// vanilla WA. Sub-dispatched by `fire_method`.
     Placed = 2,
     /// Strike weapons (Air Strike, Napalm Strike, Mail Strike, MineStrike,
     /// MoleSquadron, MbBomb, SheepStrike, CarpetBomb, Donkey). Uses

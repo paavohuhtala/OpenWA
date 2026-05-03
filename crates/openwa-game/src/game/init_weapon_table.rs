@@ -1,6 +1,5 @@
-//! Rust port of WA's `InitWeaponTable` (0x0053CAB0). Replaces the static
-//! [`crate::game::weapon_data`] fixture as the runtime source of weapon
-//! data — the fixture stays as a vanilla baseline for tests.
+//! Rust port of WA's `InitWeaponTable` (0x0053CAB0) — runtime source of
+//! weapon data populated into `GameWorld::weapon_table` at world init.
 
 use crate::engine::game_info::GameInfo;
 use crate::engine::runtime::GameRuntime;

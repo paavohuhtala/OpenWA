@@ -8,7 +8,6 @@ pub mod init_weapon_table;
 pub mod message;
 pub mod missile_contact;
 pub mod weapon;
-pub mod weapon_data;
 pub mod weapon_fire;
 pub mod weapon_release;
 

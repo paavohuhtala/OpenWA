@@ -109,10 +109,7 @@ const _: () = assert!(core::mem::size_of::<WeaponEntry>() == 0x1D0);
 
 // SAFETY: `WeaponEntry` contains two `*const c_char` fields (`name1`, `name2`)
 // which makes it `!Send + !Sync` by default. WA is single-threaded for game
-// logic, and the only thread-shared use of `WeaponEntry` is the read-only
-// static fixture in [`crate::game::weapon_data`] where both pointers are
-// nulled. No actual cross-thread sharing of WA-mutated WeaponEntry instances
-// occurs.
+// logic; no cross-thread sharing of `WeaponEntry` occurs.
 unsafe impl Send for WeaponEntry {}
 unsafe impl Sync for WeaponEntry {}
 
@@ -312,87 +309,5 @@ pub unsafe fn check_weapon_avail(world: *mut GameWorld, weapon: WeaponId) -> i32
         }
 
         0
-    }
-}
-
-#[cfg(test)]
-mod vanilla_data_tests {
-    //! Spot-checks against [`crate::game::weapon_data::VANILLA_WEAPON_DATA`].
-    //! Confirms the python generator (`tools/generate_weapon_data.py`) lined
-    //! the dump up correctly with the `WeaponEntry` / `WeaponFireParams` field
-    //! plan. Picks one weapon from each `fire_type` plus a couple of the
-    //! "interesting" ones whose values were referenced when documenting the
-    //! struct.
-    use super::*;
-    use crate::game::weapon_data::VANILLA_WEAPON_DATA;
-
-    fn entry(id: KnownWeaponId) -> &'static WeaponEntry {
-        &VANILLA_WEAPON_DATA[id as usize]
-    }
-
-    #[test]
-    fn bazooka_fire_dispatch_matches_doc() {
-        // Bazooka is the canonical projectile weapon — its values are quoted in
-        // every WeaponFireParams field doc.
-        let e = entry(KnownWeaponId::Bazooka);
-        assert_eq!(e.fire_type, 1, "Bazooka fire_type=1 (Projectile)");
-        assert_eq!(
-            e.fire_method, 3,
-            "Bazooka fire_method=3 (CreateWeaponProjectile)"
-        );
-        assert_eq!(e.fire_params.shot_count, 2);
-        assert_eq!(e.fire_params.collision_radius.0, 0x2187E); // ≈ 2.10
-        assert_eq!(e.fire_params.sprite_id, 48);
-        assert_eq!(e.fire_params.unknown_0x68, 131);
-        assert_eq!(e.fire_params.fuse_timer, 9000);
-        assert_eq!(e.fire_params.missile_type, 2);
-    }
-
-    #[test]
-    fn mine_uses_placed_method_1() {
-        // Mine is the canonical FireType::Placed / FireMethod::PlacedExplosive
-        // weapon — and the only stock weapon that hits the MineEntity::Constructor
-        // dispatch arm. Confirms the rename from the historical (wrong) "rope"
-        // label still resolves to fire_type=2 / fire_method=1 in the data.
-        let e = entry(KnownWeaponId::Mine);
-        assert_eq!(e.fire_type, FireType::Placed as i32);
-        assert_eq!(e.fire_method, FireMethod::PlacedExplosive as i32);
-    }
-
-    #[test]
-    fn airstrike_is_strike_type() {
-        // fire_type=3 is the air-strike family, despite the WeaponEntry doc
-        // historically labelling it "grenade".
-        let e = entry(KnownWeaponId::AirStrike);
-        assert_eq!(e.fire_type, FireType::Strike as i32);
-    }
-
-    #[test]
-    fn rope_style_weapons_live_in_special() {
-        // The actual rope-style weapons (NinjaRope, Bungee) are FireType::Special,
-        // not FireType::Placed — i.e. the historical "Rope" name on the type-2
-        // bucket was misdirection. NinjaRope is special_subtype=6, Bungee=7.
-        let rope = entry(KnownWeaponId::NinjaRope);
-        let bungee = entry(KnownWeaponId::Bungee);
-        assert_eq!(rope.fire_type, FireType::Special as i32);
-        assert_eq!(rope.special_subtype, 6);
-        assert_eq!(bungee.fire_type, FireType::Special as i32);
-        assert_eq!(bungee.special_subtype, 7);
-    }
-
-    #[test]
-    fn no_vanilla_weapon_uses_placed_method_3() {
-        // `fire_canister` (CanisterEntity ctor at 0x501A80) is unreachable from
-        // any vanilla weapon — confirmed empirically here so future changes
-        // that consolidate the dispatch can rely on it. Custom schemes / mods
-        // may still hit this arm, so the helper stays in place.
-        let placed = FireType::Placed as i32;
-        let create_proj = FireMethod::CreateWeaponProjectile as i32;
-        for (i, e) in VANILLA_WEAPON_DATA.iter().enumerate() {
-            assert!(
-                !(e.fire_type == placed && e.fire_method == create_proj),
-                "weapon id {i} unexpectedly uses fire_type=Placed/fire_method=CreateWeaponProjectile",
-            );
-        }
     }
 }
