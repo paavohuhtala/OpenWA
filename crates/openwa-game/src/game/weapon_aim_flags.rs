@@ -104,7 +104,7 @@ pub fn decode_weapon_aim_flags(entry: &WeaponEntry) -> WeaponAimFlags {
         return flags;
     };
 
-    let fire_params_ptr = &entry.fire_params as *const _ as *const u8;
+    let fire_params_ptr = (&raw const entry.fire_params).cast::<u8>();
 
     unsafe {
         match ft {
@@ -128,7 +128,7 @@ pub fn decode_weapon_aim_flags(entry: &WeaponEntry) -> WeaponAimFlags {
                 // pellet-config sub-block at fire_params+0x14).
                 if entry.fire_params.unknown_0x4c == 2 {
                     decode_inner(
-                        &entry.fire_params.unknown_0x50 as *const _ as *const u8,
+                        (&raw const entry.fire_params.unknown_0x50).cast::<u8>(),
                         &mut flags,
                     );
                 }
