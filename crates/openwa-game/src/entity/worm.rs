@@ -550,8 +550,13 @@ pub struct WormEntity {
     /// 0x1E0: Edge-triggered "move right" request. Set to 1 by `MoveRight`
     /// (msg 0x1F) unconditionally. Same drain as `move_up`.
     pub input_msg_move_right: u32,
-    /// 0x1E4–0x1EB: Unknown
-    pub _unknown_1e4: [u8; 0x1EC - 0x1E4],
+    /// 0x1E4–0x1E7: Unknown
+    pub _unknown_1e4: [u8; 4],
+    /// 0x1E8: Y-axis impulse magnitude consumed by `Jump` (msg 0x24) in the
+    /// `RopeSwinging` (0x7C) state — the case forwards this value as the
+    /// `impulse_y` argument to `WorldEntity::add_impulse` (vtable slot 17)
+    /// before transitioning to `WeaponCharging` (0x73). Writers TBD.
+    pub _field_1e8: i32,
     /// 0x1EC: Movement streak counter. Increases ~once per second while moving
     /// in one direction. Resets to 0 when movement resumes after a stop.
     /// Set to -1 when the worm is blocked (e.g. hits a wall).
@@ -586,7 +591,7 @@ pub struct WormEntity {
     /// 0x258: Cleared unconditionally by `FinishTurn` (msg 0x37). Reader TBD.
     pub _field_258: u32,
     /// 0x25C-0x267: Unknown
-    pub _unknown_25c: [u8; 0x0C],
+    pub _unknown_25c: [u8; 0xC],
     /// 0x268: Show aiming cursor flag (nonzero = cursor visible).
     pub show_cursor: u32,
     /// 0x26C–0x27F: Unknown

@@ -85,8 +85,15 @@ pub struct WorldEntity<V: super::base::Vtable = *const core::ffi::c_void> {
     /// 0xB8: Contributes to `is_moving_raw` alongside `_field_b0` and
     /// `_field_b4`. Purpose not yet identified.
     pub _field_b8: i32,
-    /// 0xBC-0xCB: Unknown gameplay fields.
-    pub _unknown_bc: [u8; 0x10],
+    /// 0xBC: Subclass-overloaded slot. For [`WormEntity`](crate::entity::worm::WormEntity)
+    /// it gates the `Jump` (msg 0x24) input-restriction path: when the
+    /// per-worm input-lock flag at +0x12A is non-zero, the gate fires only
+    /// while this slot is *also* zero. Other subclasses (e.g.
+    /// `BungeeTrailEntity`) reuse the same offset for unrelated state.
+    /// Writers / canonical name TBD.
+    pub _field_bc: u32,
+    /// 0xC0-0xCB: Unknown gameplay fields.
+    pub _unknown_c0: [u8; 0xC],
     /// 0xCC: Per-entity scale (Fixed16.16) applied to received explosion
     /// knockback impulses. Initialised to `1.0` (`0x10000`) by
     /// `WorldEntity::Constructor` (0x004FED50, dword index `0x33`); read by

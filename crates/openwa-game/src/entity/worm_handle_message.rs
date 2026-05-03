@@ -732,6 +732,7 @@ pub unsafe extern "thiscall" fn handle_message(
                 msg_select_weapon(this, data as *const SelectWeaponMessage);
                 true
             }
+            EntityMessage::Jump => msg_jump(this),
             EntityMessage::JumpUp => {
                 msg_jump_up(this);
                 true
@@ -1390,6 +1391,113 @@ unsafe fn msg_jump_up(this: *mut WormEntity) {
             (*this)._field_29c = 0;
             (*this)._field_2a0 = 0;
         }
+    }
+}
+
+/// `0x24` (Jump). Mirror of `JumpUp` (msg 0x25) for the press edge.
+///
+/// The `WeaponCharging` (0x73) sub-arm jumps to the firing-tick block at the
+/// function tail (`switchD_0051283d_caseD_73` in WA), which is not yet
+/// ported. Returning `false` from that one branch hands the entire case off
+/// to WA's saved original — the dispatcher then runs WA's pre-switches A+B
+/// plus the firing block in one shot, with no double-execution.
+///
+/// Calling-convention note: WA dispatches `vt[0x44]` (slot 17 = AddImpulse)
+/// in the `RopeSwinging` arm with literal `0` for `impulse_x`/`dz`; WA's
+/// signed read of `Fixed` velocity here matches our `Fixed::add_impulse_raw`.
+unsafe fn msg_jump(this: *mut WormEntity) -> bool {
+    unsafe {
+        let state = (*this).state();
+        let world = (*(this as *const BaseEntity)).world;
+        let game_info = (*world).game_info;
+        let game_version = (*game_info).game_version;
+
+        // Input-restriction gate (WA: per-worm input-lock byte at +0x12A
+        // AND the WorldEntity gate at +0xBC == 0). When tripped, only state
+        // 0x78 / 0x7D bypass it on game_version >= 0x1E.
+        let input_locked = *(this as *const u8).add(0x12A) != 0 && (*this).base._field_bc == 0;
+        let gate_blocks = input_locked
+            && (game_version < 0x1E
+                || !state.is_any_of(&[
+                    KnownWormState::WeaponAimed_Maybe,
+                    KnownWormState::PreFire_Maybe,
+                ]));
+
+        // 0x73 falls into the firing-tick block at the function tail and is
+        // not yet ported; 0x7B desyncs `shotgun_longbow_ninja` at frame 6618
+        // when the body runs after Rust pre-switches (cause not yet RE'd —
+        // see `project_msg_jump_07b_desync.md`). Both arms early-return
+        // `false` here so WA's saved original handles them in full.
+        if !gate_blocks
+            && state.is_any_of(&[
+                KnownWormState::WeaponCharging_Maybe,
+                KnownWormState::AimingAngle_Maybe,
+            ])
+        {
+            return false;
+        }
+
+        pre_switch_a(this);
+        pre_switch_b(this);
+
+        if gate_blocks {
+            return true;
+        }
+
+        let scheme_facing = (*game_info)._scheme_d926 as u32;
+
+        if state.is_any_of(&[
+            KnownWormState::Idle,
+            KnownWormState::IdleVariant_Maybe,
+            KnownWormState::Active,
+            KnownWormState::Unknown_0x88,
+            KnownWormState::Unknown_0x8B,
+        ]) {
+            (*this)._field_29c = 1;
+            (*this)._field_2a0 = 0;
+            WormEntity::set_state_raw(this, KnownWormState::WeaponSelected_Maybe);
+            return true;
+        }
+
+        match state.0 as u8 {
+            0x77 => {
+                (*this)._field_29c = -1;
+            }
+            0x78 => {
+                (*this)._field_15c = scheme_facing;
+                bridge_play_sound(this, 0x1B, Fixed::ONE, 3);
+                (*this).base.speed_x = Fixed(0);
+                let to_post_fire = (*game_info)._scheme_d96e == 0
+                    && WorldEntity::is_moving_raw(this as *const WorldEntity);
+                let new_state = if to_post_fire {
+                    KnownWormState::PostFire_Maybe
+                } else {
+                    KnownWormState::Idle
+                };
+                WormEntity::set_state_raw(this, new_state);
+            }
+            0x7C => {
+                (*this)._field_15c = scheme_facing;
+                WorldEntity::add_impulse_raw(
+                    this as *mut WorldEntity,
+                    Fixed(0),
+                    Fixed((*this)._field_1e8),
+                    0,
+                );
+                WormEntity::set_state_raw(this, KnownWormState::WeaponCharging_Maybe);
+            }
+            0x7D => {
+                (*this)._field_15c = scheme_facing;
+                let new_state = if WorldEntity::is_moving_raw(this as *const WorldEntity) {
+                    KnownWormState::PostFire_Maybe
+                } else {
+                    KnownWormState::Idle
+                };
+                WormEntity::set_state_raw(this, new_state);
+            }
+            _ => {}
+        }
+        true
     }
 }
 

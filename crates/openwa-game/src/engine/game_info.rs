@@ -232,8 +232,16 @@ pub struct GameInfo {
     pub ext_terrain_pct: u8,
     /// 0xD96B: Extended terrain drop type (u8). 0 = auto-fill remainder.
     pub ext_terrain_type: u8,
-    /// 0xD96C-0xD987: Unknown
-    pub _unknown_d96c: [u8; 0xD988 - 0xD96C],
+    /// 0xD96C-0xD96D: Unknown
+    pub _unknown_d96c: [u8; 2],
+    /// 0xD96E: Read by the `Jump` (msg 0x24) handler in the `WeaponAimed`
+    /// (0x78) state branch. When zero, the worm transitions to `PostFire`
+    /// (0x7E) if it is still moving; when non-zero, the moving-worm
+    /// transition is skipped and the worm always returns to `Idle` (0x65).
+    /// Likely a "skip post-fire animation" scheme toggle. Writers TBD.
+    pub _scheme_d96e: u8,
+    /// 0xD96F-0xD987: Unknown
+    pub _unknown_d96f: [u8; 0xD988 - 0xD96F],
     /// 0xD988: Game speed config (Fixed16.16). Read as i32 for headful game_speed_target.
     /// Note: high byte (0xD98B) overlaps with terrain_flag — use `terrain_flag` accessor.
     pub game_speed_config: i32,
