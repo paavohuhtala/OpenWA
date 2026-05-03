@@ -19,7 +19,9 @@ use crate::address::va;
 use crate::engine::EntityActivityQueue;
 use crate::engine::team_arena::TeamArena;
 use crate::engine::world::GameWorld;
-use crate::game::message::{SelectWeaponMessage, WeaponReleasedMessage, WormMovedMessage};
+use crate::game::message::{
+    SelectCursorMessage, SelectWeaponMessage, WeaponReleasedMessage, WormMovedMessage,
+};
 use crate::game::{EntityMessage, weapon_fire};
 use crate::rebase::rb;
 
@@ -434,6 +436,10 @@ pub unsafe extern "thiscall" fn handle_message(
             }
             EntityMessage::SelectWeapon => {
                 msg_select_weapon(this, data as *const SelectWeaponMessage);
+                true
+            }
+            EntityMessage::SelectCursor => {
+                msg_select_cursor(this, data as *const SelectCursorMessage);
                 true
             }
             EntityMessage::AdvanceWorm => {
@@ -1050,6 +1056,50 @@ unsafe fn msg_fire_weapon(this: *mut WormEntity) {
     unsafe {
         pre_switch_a(this);
         bridge_start_firing(this);
+    }
+}
+
+/// SelectCursor (0x32). Pre-switch A is conditional on `turn_active != 0`
+/// (matches WA's pre-switch gate for msgs `0x2F..=0x32`); the body itself
+/// also requires `worm_index` match and `_unknown_2cc == 0`. The
+/// `direction` sign + `button_id` range gates only apply on
+/// `game_version >= -1`.
+unsafe fn msg_select_cursor(this: *mut WormEntity, message: *const SelectCursorMessage) {
+    unsafe {
+        if (*this).turn_active != 0 {
+            pre_switch_a(this);
+        }
+        if message.is_null() {
+            return;
+        }
+        if (*message).worm_index != (*this).worm_index || (*this)._unknown_2cc != 0 {
+            return;
+        }
+        let world = (*(this as *const BaseEntity)).world;
+        let game_version = (*(*world).game_info).game_version;
+        if game_version >= -1 {
+            if (*message).direction.unsigned_abs() != 1 {
+                return;
+            }
+            let lower_bound = if game_version < 0x21
+                || ((*this).shot_data_2 as i32) < 1
+                || ((*this).shot_data_1 as i32) < 1
+            {
+                1
+            } else {
+                0
+            };
+            if (*message).button_id < lower_bound || (*message).button_id > 0x12 {
+                return;
+            }
+        }
+        (*this).weapon_param_1 = ((*message).coord_x as i32) << 16;
+        (*this).weapon_param_2 = ((*message).coord_y as i32) << 16;
+        (*this)._field_2e8 = (*message).direction;
+        (*this).weapon_param_3 = (*message).button_id;
+        if ((*this).shot_data_1 as i32) == ((*this).shot_data_2 as i32).wrapping_sub(1) {
+            WormEntity::landing_check_raw(this);
+        }
     }
 }
 

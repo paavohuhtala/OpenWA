@@ -537,6 +537,34 @@ impl EntityMessageData for SelectWeaponMessage {
     const MESSAGE_TYPE: EntityMessage = EntityMessage::SelectWeapon;
 }
 
+/// Payload for [`EntityMessage::SelectCursor`] (msg 0x32). Carries the screen
+/// pixel coordinates of the player's mouse-aim cursor plus a direction sign
+/// (`±1`) and a button id.
+#[repr(C)]
+#[derive(Clone, Copy, Zeroable, Pod, Debug)]
+pub struct SelectCursorMessage {
+    pub team_index: u32,
+    pub worm_index: u32,
+    /// Cursor X in pixels — promoted to 16.16 Fixed by `<< 16` on receive.
+    pub coord_x: i16,
+    /// Cursor Y in pixels — same promotion.
+    pub coord_y: i16,
+    /// Sign flag — receivers reject any value with `abs(direction) != 1`
+    /// when `game_version >= -1`.
+    pub direction: i32,
+    /// Mouse button id (0..=0x12). Lower bound is 1 unless the worm has
+    /// already shot at least once this turn (`shot_data_1 > 0 &&
+    /// shot_data_2 > 0`) and `game_version >= 0x21`, in which case 0 is
+    /// also accepted.
+    pub button_id: i32,
+}
+
+const _: () = assert!(core::mem::size_of::<SelectCursorMessage>() == 0x14);
+
+impl EntityMessageData for SelectCursorMessage {
+    const MESSAGE_TYPE: EntityMessage = EntityMessage::SelectCursor;
+}
+
 /// Payload for [`EntityMessage::WormMoved`] (msg 0x47). Broadcast addressed
 /// by `[team_index, worm_index]`; receiving worms set their internal
 /// "moved" marker only when both indices match.
