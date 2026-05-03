@@ -1,5 +1,5 @@
 use super::base::BaseEntity;
-use super::game_task::WorldEntity;
+use super::game_entity::WorldEntity;
 use crate::FieldRegistry;
 
 crate::define_addresses! {

@@ -1,5 +1,5 @@
 use super::base::BaseEntity;
-use super::game_task::WorldEntity;
+use super::game_entity::WorldEntity;
 use crate::FieldRegistry;
 use crate::game::KnownWeaponId;
 use crate::game::weapon::WeaponEntry;
@@ -374,7 +374,7 @@ pub struct WormEntityVtable {
     // Slot 19: Inherited (auto-filled)
 }
 
-/// Worm entity task — the primary playable character in WA.
+/// Worm entity entity — the primary playable character in WA.
 ///
 /// Extends WorldEntity (0xFC bytes) with worm identity, physics overrides, and
 /// per-worm state. Total size: 0x3FC bytes.
@@ -790,7 +790,7 @@ impl WormEntity {
     /// | 1    | dead/dying worm, GameInfo per-team byte == starting team|
     /// | 11   | dead/dying worm, fast-forward set OR byte mismatch      |
     /// | 9    | state == [`WormState::Unknown_0x85`]                    |
-    /// | 2    | worm is moving ([`crate::task::WorldEntity::is_moving_raw`])  |
+    /// | 2    | worm is moving ([`crate::entity::WorldEntity::is_moving_raw`])  |
     /// | 4    | inside the level scroll bbox (+0x779C / +0x77A0 / +0x77A4) |
     /// | 3    | otherwise                                               |
     ///
@@ -800,8 +800,8 @@ impl WormEntity {
     pub unsafe fn landing_check_raw(this: *mut WormEntity) {
         unsafe {
             use crate::engine::world::GameWorld;
-            use crate::task::base::BaseEntity;
-            use crate::task::game_task::WorldEntity;
+            use crate::entity::base::BaseEntity;
+            use crate::entity::game_entity::WorldEntity;
 
             let pos_x = (*this).base.pos_x.0;
             let pos_y = (*this).base.pos_y.0;

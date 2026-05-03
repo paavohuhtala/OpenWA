@@ -1,5 +1,5 @@
 use super::base::BaseEntity;
-use super::game_task::WorldEntity;
+use super::game_entity::WorldEntity;
 use crate::FieldRegistry;
 
 crate::define_addresses! {
@@ -56,7 +56,7 @@ pub struct OilDrumEntityVtable {
     pub process_frame: fn(this: *mut OilDrumEntity, flags: u32),
 }
 
-/// Land mine entity task.
+/// Land mine entity entity.
 ///
 /// Extends WorldEntity (0xFC bytes). Mines sit on the terrain and arm after
 /// placement; they detonate on contact once armed.
@@ -95,7 +95,7 @@ const _: () = assert!(core::mem::size_of::<MineEntity>() == 0x128);
 // Generate typed vtable method wrappers: handle_message(), process_frame().
 bind_MineEntityVtable!(MineEntity, base.base.vtable);
 
-/// Exploding oil drum entity task.
+/// Exploding oil drum entity entity.
 ///
 /// Extends WorldEntity (0xFC bytes). Oil drums roll on terrain and explode
 /// when hit enough times (health decrements per impact).

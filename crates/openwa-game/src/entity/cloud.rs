@@ -40,7 +40,7 @@ pub struct CloudEntityVtable {
     ),
 }
 
-/// Airstrike / weather cloud task.
+/// Airstrike / weather cloud entity.
 ///
 /// Extends BaseEntity directly (not WorldEntity). Clouds drift horizontally with wind,
 /// scroll on a parallax layer, and render as a single sprite.
@@ -233,7 +233,7 @@ impl CloudEntity {
     /// The caller must have already:
     /// 1. Allocated 0x74 bytes (e.g. via `wa_malloc(0x74)`)
     /// 2. Zeroed the first 0x54 bytes (matches original `_memset(ptr, 0, 0x54)`)
-    /// 3. Called `BaseEntity::Constructor` (0x5625A0) to set up the base task
+    /// 3. Called `BaseEntity::Constructor` (0x5625A0) to set up the base entity
     ///
     /// This function then sets the vtable, class type, and all cloud-specific fields.
     ///

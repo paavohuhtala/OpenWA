@@ -4,39 +4,39 @@
 //! Draws:
 //!   1. Sprite at trail start position
 //!   2. Series of vertices computed by accumulating angle + trig interpolation
-//!   3. Final vertex at task position (0x84/0x88)
+//!   3. Final vertex at entity position (0x84/0x88)
 //!   4. DrawPolygon (if fill != 0) or DrawLineStrip
 
+use crate::entity::BungeeTrailEntity;
 use crate::render::SpriteOp;
 use crate::render::message::RenderMessage;
-use crate::task::BungeeTrailEntity;
 use openwa_core::fixed::Fixed;
 use openwa_core::trig::{cos, sin};
 
 /// Draw bungee trail for the given entity.
 pub unsafe fn draw_bungee_trail(entity: *const BungeeTrailEntity, style: u32, fill: u32) {
     unsafe {
-        let task = &*entity;
+        let entity = &*entity;
 
-        if task.trail_visible == 0 {
+        if entity.trail_visible == 0 {
             return;
         }
 
-        let world = &*task.base.world;
+        let world = &*entity.base.world;
         let rq = &mut *world.render_queue;
 
-        let seg_data = task.segment_data;
+        let seg_data = entity.segment_data;
         if seg_data.is_null() {
             return;
         }
 
-        let segment_count = task.segment_count;
+        let segment_count = entity.segment_count;
         if segment_count <= 0 {
             return;
         }
 
-        let mut x = task.trail_start_x;
-        let mut y = task.trail_start_y;
+        let mut x = entity.trail_start_x;
+        let mut y = entity.trail_start_y;
 
         let first_angle = *(seg_data.add(4) as *const i32);
 
@@ -76,9 +76,9 @@ pub unsafe fn draw_bungee_trail(entity: *const BungeeTrailEntity, style: u32, fi
             y = y.wrapping_sub(cos_interp.0.wrapping_mul(8));
         }
 
-        // Final vertex = task position (target)
+        // Final vertex = entity position (target)
         if vert_count < MAX_VERTICES {
-            verts[vert_count] = [task.pos_x.0, task.pos_y.0, 0];
+            verts[vert_count] = [entity.pos_x.0, entity.pos_y.0, 0];
             vert_count += 1;
         }
 

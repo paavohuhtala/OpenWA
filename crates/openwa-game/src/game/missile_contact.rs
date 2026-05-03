@@ -20,10 +20,10 @@
 
 use openwa_core::fixed::Fixed;
 
+use crate::entity::BaseEntity;
+use crate::entity::missile::{MissileEntity, MissileType};
 use crate::game::create_explosion::create_explosion;
 use crate::rebase::rb;
-use crate::task::BaseEntity;
-use crate::task::missile::{MissileEntity, MissileType};
 use core::ffi::c_void;
 
 // Ghidra VAs for the WA helpers we bridge to.
@@ -192,7 +192,7 @@ pub unsafe extern "thiscall" fn missile_on_contact(
         }
 
         // Base-class OnContact: thiscall(this, other, side_flags).
-        cgametask_on_contact_base(this, other, self_side_flags, rb(VA_CGAME_TASK_VT8));
+        cgameentity_on_contact_base(this, other, self_side_flags, rb(VA_CGAME_TASK_VT8));
 
         if is_std_or_cluster
             && (ricochet_side_mask & self_side_bit) != 0
@@ -277,7 +277,7 @@ unsafe extern "C" fn play_impact_sound(_this: *mut c_void, _sound_id: u32, _mag:
 
 /// Bridge: `WorldEntity::vt8` (0x004FFED0) — plain thiscall(this, other, side_flags).
 #[unsafe(naked)]
-unsafe extern "C" fn cgametask_on_contact_base(
+unsafe extern "C" fn cgameentity_on_contact_base(
     _this: *mut MissileEntity,
     _other: *mut BaseEntity,
     _side_flags: u32,

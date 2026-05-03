@@ -34,6 +34,7 @@ use crate::engine::menu_panel::{
 use crate::engine::runtime::GameRuntime;
 use crate::engine::team_arena::TeamArena;
 use crate::engine::world::GameWorld;
+use crate::entity::WorldRootEntity;
 use crate::input::keyboard::KeyboardAction;
 use crate::input::mouse::MouseInput;
 use crate::rebase::rb;
@@ -41,7 +42,6 @@ use crate::render::display::font::TextMeasurement;
 use crate::render::display::gfx::DisplayGfx;
 use crate::render::display::vtable::{draw_text_on_bitmap, measure_text};
 use crate::render::sprite::sprite_op::SpriteOp;
-use crate::task::WorldRootEntity;
 use crate::wa::string_resource::res;
 
 // ─── Bridged WA addresses ──────────────────────────────────────────────────
@@ -253,8 +253,8 @@ unsafe fn clipped_fill_vline(bg: *mut DisplayBitGrid, x: i32, y1: i32, y2: i32, 
 pub unsafe fn is_hud_active(runtime: *mut GameRuntime) -> bool {
     unsafe {
         let mut buf: [u32; 0xE5] = [0; 0xE5];
-        let task = (*runtime).world_root;
-        WorldRootEntity::hud_data_query_raw(task, 0x7D3, 0x394, buf.as_mut_ptr() as *mut u8);
+        let entity = (*runtime).world_root;
+        WorldRootEntity::hud_data_query_raw(entity, 0x7D3, 0x394, buf.as_mut_ptr() as *mut u8);
 
         if (*runtime).game_end_phase != 0 {
             return false;

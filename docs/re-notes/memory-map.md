@@ -34,7 +34,7 @@ The main game state is a 0x98B8-byte (39KB) monolithic object allocated by
 
 - +0x0024 → Game state pointer
 - +0x0028 → Constructor param
-- +0x11B0 → Task state machine pointers (5 entries)
+- +0x11B0 → Entity state machine pointers (5 entries)
 - +0x3548 → Display mode
 - +0x354C → Display width
 - +0x3560 → Display center X
@@ -64,7 +64,7 @@ These offsets are from the GameRuntime base, as used by WormKit mods:
 | 0x66B1DC | LandscapeShader  | —      | Used by Landscape         |
 | 0x66B268 | WaterEffect      | 0xBC   | Created by Landscape      |
 | 0x66AF20 | DSSound          | ~0xBD0 | DirectSound, 500 channels |
-| 0x664118 | TaskStateMachine | —      | 5 instances in GameWorld  |
+| 0x664118 | EntityStateMachine | —      | 5 instances in GameWorld  |
 | 0x6774C0 | OpenGLCPU        | 0x48   | Optional, conditional     |
 
 ## Fixed-point convention

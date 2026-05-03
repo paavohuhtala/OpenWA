@@ -11,8 +11,8 @@
 
 use openwa_core::fixed::Fixed;
 
+use crate::entity::{BaseEntity, WorldRootEntity};
 use crate::game::message::ExplosionMessage;
-use crate::task::{BaseEntity, WorldRootEntity};
 
 pub unsafe fn create_explosion(
     pos_x: Fixed,

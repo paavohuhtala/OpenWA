@@ -1,5 +1,5 @@
 use super::base::BaseEntity;
-use super::game_task::WorldEntity;
+use super::game_entity::WorldEntity;
 use crate::FieldRegistry;
 use crate::game::weapon::WeaponSpawnData;
 use openwa_core::fixed::Fixed;
@@ -45,14 +45,14 @@ pub struct MissileEntityVtable {
     pub on_contact:
         fn(this: *mut MissileEntity, other: *mut BaseEntity, self_side_flags: u32) -> u32,
     /// SetTerminateFlag — writes `flag` to `WorldEntity+0x44`. Generic WorldEntity
-    /// subclass terminator shared across task types (inherited slot, not a
+    /// subclass terminator shared across entity types (inherited slot, not a
     /// MissileEntity override). Thiscall(this, flag), RET 0x4.
     /// Target: `WorldEntity::SetTerminateFlag_Maybe` at 0x004FE060.
     #[slot(14)]
     pub set_terminate_flag: fn(this: *mut MissileEntity, flag: u32),
 }
 
-/// Projectile / missile entity task.
+/// Projectile / missile entity entity.
 ///
 /// Extends WorldEntity (0xFC bytes). One instance per airborne projectile
 /// (rockets, grenades, mortar shells, homing missiles, sheep, etc.).
@@ -63,7 +63,7 @@ pub struct MissileEntityVtable {
 ///
 /// Constructor params:
 ///   param_1 = this
-///   param_2 = parent task pointer (passed to WorldEntity ctor)
+///   param_2 = parent entity pointer (passed to WorldEntity ctor)
 ///   param_3 = scheme weapon data (94 DWORDs from WGT blob)
 ///   param_4 = spawn data (11 DWORDs: position, velocity, owner, pellet index)
 ///

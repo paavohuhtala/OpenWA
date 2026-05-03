@@ -625,7 +625,7 @@ mod tests {
 
     #[test]
     fn derive_field_registry_base_entity() {
-        use crate::task::BaseEntity;
+        use crate::entity::BaseEntity;
 
         let reg = BaseEntity::field_registry();
         assert_eq!(reg.struct_name, "BaseEntity");
@@ -688,7 +688,7 @@ mod tests {
 
     #[test]
     fn derive_preserves_doc_comments() {
-        use crate::task::BaseEntity;
+        use crate::entity::BaseEntity;
 
         let reg = BaseEntity::field_registry();
         let vtable = reg.field_at(0x00).unwrap();

@@ -14,10 +14,10 @@
 use openwa_core::fixed::Fixed;
 
 use crate::audio::DSSound;
+use crate::entity::{BaseEntity, WorldEntity, WorldRootEntity};
 use crate::game::message::{
     EntityMessage, ExplosionMessage, ExplosionReportMessage, SpecialImpactMessage,
 };
-use crate::task::{BaseEntity, WorldEntity, WorldRootEntity};
 
 crate::define_addresses! {
     class "WorldEntity" {
@@ -37,7 +37,7 @@ crate::define_addresses! {
 const OFFSET_HEALTH: usize = 0x48;
 
 /// `WorldEntity::HandleMessage` (0x004FF280, vtable slot 2).
-pub unsafe extern "thiscall" fn cgametask_handle_message(
+pub unsafe extern "thiscall" fn cgameentity_handle_message(
     this: *mut WorldEntity,
     sender: *mut BaseEntity,
     msg_type: EntityMessage,

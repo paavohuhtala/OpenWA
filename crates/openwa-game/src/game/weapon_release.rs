@@ -4,11 +4,11 @@
 //! SpawnEffect (0x547C30). Called from hook trampolines in openwa-dll.
 
 use crate::audio::{KnownSoundId, SoundId};
+use crate::entity::world_root::WorldRootEntity;
+use crate::entity::worm::{KnownWormState, WormEntity};
+use crate::entity::{BaseEntity, Entity, SharedDataTable, WorldEntity};
 use crate::game::message::WeaponReleasedMessage;
 use crate::game::{KnownWeaponId, is_super_weapon};
-use crate::task::world_root::WorldRootEntity;
-use crate::task::worm::{KnownWormState, WormEntity};
-use crate::task::{BaseEntity, Entity, SharedDataTable, WorldEntity};
 use openwa_core::fixed::Fixed;
 use openwa_core::log::log_line;
 
@@ -235,7 +235,7 @@ pub unsafe fn weapon_release(
         }
 
         // ── 9. Sound dispatch + 10. Visual effect ───────────────
-        let task = worm as *mut WorldEntity;
+        let entity = worm as *mut WorldEntity;
         let mut do_effect = false;
         let mut effect_state: u32 = 0x73;
 
@@ -253,7 +253,7 @@ pub unsafe fn weapon_release(
                 }
                 2 => {
                     sound::play_sound_local(
-                        task,
+                        entity,
                         KnownSoundId::ThrowRelease,
                         3,
                         Fixed::ONE,
@@ -263,7 +263,7 @@ pub unsafe fn weapon_release(
                 }
                 3 | 7 | 0xB | 0xC => {
                     sound::play_sound_local(
-                        task,
+                        entity,
                         KnownSoundId::RocketRelease,
                         3,
                         Fixed::ONE,
@@ -280,7 +280,7 @@ pub unsafe fn weapon_release(
                 }
                 5 => {
                     sound::play_sound_local(
-                        task,
+                        entity,
                         KnownSoundId::ShotgunFire,
                         3,
                         Fixed::ONE,
@@ -291,7 +291,7 @@ pub unsafe fn weapon_release(
                 }
                 6 => {
                     sound::play_sound_local(
-                        task,
+                        entity,
                         KnownSoundId::HandgunFire,
                         3,
                         Fixed::ONE,
@@ -302,7 +302,7 @@ pub unsafe fn weapon_release(
                 }
                 10 => {
                     sound::play_sound_local(
-                        task,
+                        entity,
                         KnownSoundId::LongbowRelease,
                         3,
                         Fixed::ONE,
@@ -314,7 +314,7 @@ pub unsafe fn weapon_release(
             },
             Ok(FireType::Placed) if (w._unknown_2cc == 0 || w._unknown_2c8 == 1) => {
                 let team_sound_raw = (*w.world()).team_sound_id(team_id);
-                sound::play_sound_local(task, SoundId(team_sound_raw), 3, Fixed::ONE, Fixed::ONE);
+                sound::play_sound_local(entity, SoundId(team_sound_raw), 3, Fixed::ONE, Fixed::ONE);
             }
             // Type 3 (Strike): no sound
             Ok(FireType::Special) => {
@@ -322,7 +322,7 @@ pub unsafe fn weapon_release(
                 match S::try_from((*entry).special_subtype) {
                     Ok(S::BaseballBat) => {
                         sound::play_sound_local(
-                            task,
+                            entity,
                             KnownSoundId::BaseballBatRelease,
                             3,
                             Fixed::ONE,
@@ -331,7 +331,7 @@ pub unsafe fn weapon_release(
                     }
                     Ok(S::DragonBall) => {
                         sound::play_sound_local(
-                            task,
+                            entity,
                             SoundId((*entry).fire_method as u32),
                             3,
                             Fixed::ONE,
@@ -341,7 +341,7 @@ pub unsafe fn weapon_release(
                     Ok(S::Kamikaze) => {
                         // Sound ID from fire_params.spread (polymorphic use of field)
                         sound::play_sound_local(
-                            task,
+                            entity,
                             SoundId((*entry).fire_params.spread as u32),
                             3,
                             Fixed::ONE,
@@ -350,7 +350,7 @@ pub unsafe fn weapon_release(
                     }
                     Ok(S::Teleport) if w._unknown_208 == 0 => {
                         sound::play_sound_local(
-                            task,
+                            entity,
                             KnownSoundId::Teleport,
                             3,
                             Fixed::ONE,
@@ -441,10 +441,10 @@ pub unsafe fn spawn_effect(
     scale: Fixed,
 ) {
     unsafe {
-        // Build the 0x408-byte message buffer. ESI (worm/task) is NOT stored
-        // in the buffer — it's passed to SharedData__Lookup as the task
+        // Build the 0x408-byte message buffer. ESI (worm/entity) is NOT stored
+        // in the buffer — it's passed to SharedData__Lookup as the entity
         // context and used as the sender for HandleMessage(0x56). The first
-        // data slot at [0x00] holds EAX (`constant`), not the task ptr.
+        // data slot at [0x00] holds EAX (`constant`), not the entity ptr.
         let mut buf = [0u8; 0x408];
         write_u32(&mut buf, 0x00, constant);
         write_u32(&mut buf, 0x04, speed_x.0 as u32);

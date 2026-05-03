@@ -1,7 +1,7 @@
 pub mod class_type;
 pub mod create_explosion;
 pub mod frontend;
-pub mod game_task_message;
+pub mod game_entity_message;
 pub mod init_weapon_defaults;
 pub mod init_weapon_names;
 pub mod init_weapon_table;

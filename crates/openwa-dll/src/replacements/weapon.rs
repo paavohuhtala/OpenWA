@@ -13,9 +13,9 @@
 use core::sync::atomic::{AtomicU32, Ordering};
 
 use openwa_core::log::log_line;
+use openwa_game::entity::worm::WormEntity;
 use openwa_game::game::weapon::WeaponFireParams;
 use openwa_game::game::weapon_fire;
-use openwa_game::task::worm::WormEntity;
 use openwa_game::{address::va, engine::TeamArena};
 
 use crate::hook::{self, usercall_trampoline};

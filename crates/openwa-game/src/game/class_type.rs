@@ -1,16 +1,16 @@
-/// Task/entity classification type.
+/// Entity/entity classification type.
 ///
 /// Stored at offset 0x20 in BaseEntity. Used to identify the concrete type
-/// of a task in the task hierarchy.
+/// of a entity in the entity hierarchy.
 ///
 /// Source: wkJellyWorm Constants.h
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(u32)]
 pub enum ClassType {
     None = 0,
-    Task = 1,
-    GameTask = 2,
-    GameCollisionTask = 3,
+    Entity = 1,
+    GameEntity = 2,
+    GameCollisionEntity = 3,
     Control = 4,
     Game = 5,
     WorldRoot = 6,
@@ -33,7 +33,7 @@ pub enum ClassType {
     Cloud = 23,
     Fire = 24,
     Gas = 25,
-    /// Girder placement task. Previously "FireBall" in RE sources — renamed
+    /// Girder placement entity. Previously "FireBall" in RE sources — renamed
     /// after confirming the only creation site is FireWeapon__Girder (0x51E350).
     Girder = 26,
     SeaBubble = 27,

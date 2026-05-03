@@ -3,7 +3,7 @@ pub mod base;
 pub mod cloud;
 pub mod filter;
 pub mod fire;
-pub mod game_task;
+pub mod game_entity;
 pub mod mine_oil_drum;
 pub mod missile;
 mod overlays;
@@ -22,7 +22,7 @@ pub use base::{
 pub use cloud::{CloudEntity, CloudEntityVtable, CloudType};
 pub use filter::{FilterEntity, FilterEntityVtable};
 pub use fire::{FireEntity, FireEntityVtable};
-pub use game_task::{SoundEmitter, SoundEmitterVtable, WorldEntity};
+pub use game_entity::{SoundEmitter, SoundEmitterVtable, WorldEntity};
 pub use mine_oil_drum::{MineEntity, MineEntityVtable, OilDrumEntity, OilDrumEntityVtable};
 pub use missile::{MissileEntity, MissileEntityVtable, MissileType};
 pub use overlays::{BungeeTrailEntity, WeaponAimEntity};
@@ -32,7 +32,7 @@ pub use team_message::TeamMessage;
 pub use world_root::{MatchCtx, WorldRootEntity, WorldRootEntityVtable};
 pub use worm::{KnownWormState, WormEntity, WormEntityVtable};
 
-// Task trait impls — safe access to BaseEntity base regardless of inheritance depth.
+// Entity trait impls — safe access to BaseEntity base regardless of inheritance depth.
 // BaseEntity<V> impl is in base.rs (blanket impl).
 unsafe impl<V: Vtable> Entity for WorldEntity<V> {}
 unsafe impl Entity for TeamEntity {}

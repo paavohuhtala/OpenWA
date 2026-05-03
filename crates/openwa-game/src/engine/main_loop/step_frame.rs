@@ -40,12 +40,12 @@ use crate::engine::log_sink::LogOutput;
 use crate::engine::net_session::NetSession;
 use crate::engine::runtime::GameRuntime;
 use crate::engine::world::GameWorld;
+use crate::entity::WorldRootEntity;
 use crate::game::message::{TurnEndMaybeMessage, Unknown122Message};
 use crate::input::hooks::InputHookMode;
 use crate::input::keyboard::Keyboard;
 use crate::input::mouse::MouseInput;
 use crate::rebase::rb;
-use crate::task::WorldRootEntity;
 use crate::wa::string_resource::{StringRes, res, wa_load_string};
 
 // ─── Runtime addresses (resolved at DLL load) ──────────────────────────────
@@ -113,7 +113,7 @@ unsafe fn peer_sync_keep_waiting(runtime: *mut GameRuntime, net: *mut NetSession
 }
 
 /// Common tail: enter `ROUND_ENDING`, reset the round-end counters, and
-/// broadcast msg 0x75 to the turn-game task (new versions only).
+/// broadcast msg 0x75 to the turn-game entity (new versions only).
 #[inline]
 unsafe fn enter_round_ending(runtime: *mut GameRuntime) {
     unsafe {
@@ -124,8 +124,8 @@ unsafe fn enter_round_ending(runtime: *mut GameRuntime) {
 
         let gi = &*(*world).game_info;
         if gi.game_version > 0x4c {
-            let task = (*runtime).world_root;
-            WorldRootEntity::handle_typed_message_raw(task, task, TurnEndMaybeMessage);
+            let entity = (*runtime).world_root;
+            WorldRootEntity::handle_typed_message_raw(entity, entity, TurnEndMaybeMessage);
         }
     }
 }
@@ -187,8 +187,8 @@ unsafe fn on_network_end_await_peers(runtime: *mut GameRuntime) {
 unsafe fn on_round_ending_countdown(runtime: *mut GameRuntime) {
     unsafe {
         let mut buf = [0u8; 0x394];
-        let task = (*runtime).world_root;
-        WorldRootEntity::hud_data_query_raw(task, 0x7d3, 0x394, buf.as_mut_ptr());
+        let entity = (*runtime).world_root;
+        WorldRootEntity::hud_data_query_raw(entity, 0x7d3, 0x394, buf.as_mut_ptr());
 
         if (*runtime).game_end_clear != 0 {
             let next = (*runtime).game_end_clear.wrapping_sub(1);
@@ -205,21 +205,21 @@ unsafe fn on_round_ending_countdown(runtime: *mut GameRuntime) {
     }
 }
 
-/// `GameRuntime__ClearWormBuffers` (0x0055C300). Stdcall(task, flag), RET 0x8.
-unsafe extern "stdcall" fn bridge_clear_worm_buffers(task: *mut u8, flag: i32) {
+/// `GameRuntime__ClearWormBuffers` (0x0055C300). Stdcall(entity, flag), RET 0x8.
+unsafe extern "stdcall" fn bridge_clear_worm_buffers(entity: *mut u8, flag: i32) {
     unsafe {
         let func: unsafe extern "stdcall" fn(*mut u8, i32) =
             core::mem::transmute(CLEAR_WORM_BUFFERS_ADDR as usize);
-        func(task, flag);
+        func(entity, flag);
     }
 }
 
-/// `GameRuntime__AdvanceWormFrame` (0x0055C590). Stdcall(task), RET 0x4.
-unsafe extern "stdcall" fn bridge_advance_worm_frame(task: *mut u8) {
+/// `GameRuntime__AdvanceWormFrame` (0x0055C590). Stdcall(entity), RET 0x4.
+unsafe extern "stdcall" fn bridge_advance_worm_frame(entity: *mut u8) {
     unsafe {
         let func: unsafe extern "stdcall" fn(*mut u8) =
             core::mem::transmute(ADVANCE_WORM_FRAME_ADDR as usize);
-        func(task);
+        func(entity);
     }
 }
 
@@ -291,8 +291,8 @@ pub unsafe fn step_frame(
                 (*runtime).game_end_clear = 0;
                 (*runtime).game_end_speed = Fixed::ZERO;
                 if game_info.game_version >= 0x4d {
-                    let task = (*runtime).world_root;
-                    WorldRootEntity::handle_typed_message_raw(task, task, TurnEndMaybeMessage);
+                    let entity = (*runtime).world_root;
+                    WorldRootEntity::handle_typed_message_raw(entity, entity, TurnEndMaybeMessage);
                 }
             } else {
                 bridge_begin_network_game_end(runtime);
@@ -341,8 +341,8 @@ pub unsafe fn step_frame(
         if sentinel_match {
             (*runtime)._field_404 = 1;
             if (*world).fast_forward_active == 0 {
-                let task = (*runtime).world_root;
-                WorldRootEntity::handle_typed_message_raw(task, task, Unknown122Message);
+                let entity = (*runtime).world_root;
+                WorldRootEntity::handle_typed_message_raw(entity, entity, Unknown122Message);
             }
         }
 
@@ -371,9 +371,9 @@ pub unsafe fn step_frame(
         let fire_h =
             (*runtime).game_state == game_state::ROUND_ENDING || (*runtime).game_end_phase != 0;
         if fire_h {
-            let task = (*runtime).world_root;
-            bridge_clear_worm_buffers(task as *mut u8, -1);
-            bridge_advance_worm_frame(task as *mut u8);
+            let entity = (*runtime).world_root;
+            bridge_clear_worm_buffers(entity as *mut u8, -1);
+            bridge_advance_worm_frame(entity as *mut u8);
 
             if headless_stream(game_info_ptr).is_null() {
                 return step_frame_return(runtime, world, game_speed_target, game_speed);

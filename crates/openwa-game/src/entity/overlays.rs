@@ -1,16 +1,16 @@
 use super::base::BaseEntity;
-use super::game_task::{SoundEmitter, WorldEntity};
+use super::game_entity::{SoundEmitter, WorldEntity};
 use crate::FieldRegistry;
 use openwa_core::fixed::Fixed;
 
 // TODO: There is no such thing as bungee trail - so what is this?
-/// Bungee trail rendering task fields.
+/// Bungee trail rendering entity fields.
 ///
 /// Used by DrawBungeeTrail (0x500720). Fields at 0xBC-0xE4 overlap with
-/// WorldEntity's `_unknown_98` region — different task types may use these
+/// WorldEntity's `_unknown_98` region — different entity types may use these
 /// offsets for different purposes.
 ///
-/// Cast a task pointer to this type when you know it's a bungee trail task.
+/// Cast a entity pointer to this type when you know it's a bungee trail entity.
 #[derive(FieldRegistry)]
 #[repr(C)]
 pub struct BungeeTrailEntity {
@@ -44,17 +44,17 @@ pub struct BungeeTrailEntity {
 
 const _: () = assert!(core::mem::size_of::<BungeeTrailEntity>() == 0xFC);
 
-/// Weapon aiming task fields.
+/// Weapon aiming entity fields.
 ///
 /// Used by DrawCrosshairLine (0x5197D0). Fields at 0x258+ are in the derived
 /// class region beyond WorldEntity (0xFC). The exact class name is unknown.
 ///
-/// Cast a task pointer to this type when you know it's a worm/weapon aiming task.
+/// Cast a entity pointer to this type when you know it's a worm/weapon aiming entity.
 #[derive(FieldRegistry)]
 #[repr(C)]
 pub struct WeaponAimEntity {
     /// 0x00-0xFB: WorldEntity base
-    pub game_task: WorldEntity,
+    pub game_entity: WorldEntity,
     /// 0xFC-0x257: Unknown derived fields
     pub _unknown_fc: [u8; 0x258 - 0xFC],
     /// 0x258: Aiming active flag (nonzero = crosshair visible)

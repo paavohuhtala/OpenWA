@@ -13,6 +13,9 @@ use crate::address::va;
 use crate::audio::{KnownSoundId, SoundId};
 use crate::engine::world::GameWorld;
 use crate::engine::{GAME_PHASE_NORMAL_MIN, GAME_PHASE_SUDDEN_DEATH, TeamArena};
+use crate::entity::BaseEntity;
+use crate::entity::world_root::WorldRootEntity;
+use crate::entity::worm::{KnownWormState, WormEntity, WormState};
 use crate::game::KnownWeaponId;
 use crate::game::message::{
     ArmageddonMessage, EntityMessageData, FreezeMessage, NukeBlastMessage, PoisonWormMessage,
@@ -20,9 +23,6 @@ use crate::game::message::{
     SurrenderMessage,
 };
 use crate::game::weapon::{WeaponEntry, WeaponFireParams, WeaponSpawnData};
-use crate::task::BaseEntity;
-use crate::task::world_root::WorldRootEntity;
-use crate::task::worm::{KnownWormState, WormEntity, WormState};
 use crate::wa::localized_template;
 use core::ffi::c_char;
 use openwa_core::fixed::Fixed;
@@ -235,7 +235,7 @@ pub unsafe fn fire_weapon(
 /// 0x0051EC80, `__usercall(ECX=ctx, EDX=worm, [ESP+4]=fire_params)`, RET 0x4).
 ///
 /// Plays the placement SFX (suppressed when the worm already has an active
-/// streaming sound), looks up the parent task, and constructs a `FireEntity`
+/// streaming sound), looks up the parent entity, and constructs a `FireEntity`
 /// with the standard 12-dword [`FireEntityInit`] payload. WA's MSVC SEH
 /// wrapper around the body is dropped — neither `wa_malloc` nor the C++
 /// constructor throws in offline play.
@@ -246,8 +246,8 @@ unsafe fn fire_placed_explosive(
 ) {
     unsafe {
         use crate::audio::{SoundId, sound_ops};
-        use crate::task::SharedDataTable;
-        use crate::task::fire::{FireEntity, FireEntityInit, fire_entity_construct};
+        use crate::entity::SharedDataTable;
+        use crate::entity::fire::{FireEntity, FireEntityInit, fire_entity_construct};
         use crate::wa_alloc::wa_malloc_struct_zeroed;
 
         // Suppress the placement SFX if the worm already has a streaming
@@ -408,11 +408,11 @@ pub fn can_fire_subtype16(state: WormState) -> bool {
 
 // ── Pure Rust fire handlers (no bridge needed) ──────────────
 
-/// Convenience wrapper over [`crate::task::WorldRootEntity::from_shared_data`]
+/// Convenience wrapper over [`crate::entity::WorldRootEntity::from_shared_data`]
 /// for the common worm call sites.
 #[inline]
-pub unsafe fn lookup_world_root(worm: *const WormEntity) -> *mut crate::task::WorldRootEntity {
-    unsafe { crate::task::WorldRootEntity::from_shared_data(worm as *const BaseEntity) }
+pub unsafe fn lookup_world_root(worm: *const WormEntity) -> *mut crate::entity::WorldRootEntity {
+    unsafe { crate::entity::WorldRootEntity::from_shared_data(worm as *const BaseEntity) }
 }
 
 /// Send a typed message to `WorldRootEntity` for the worm's game tree, if the
@@ -606,8 +606,8 @@ unsafe fn fire_teleport(worm: *mut WormEntity) {
         // restore.
         let saved_subtype1 = WormEntity::fire_subtype_1(worm);
         WormEntity::set_fire_subtype_1_raw(worm, (*worm)._unknown_190);
-        crate::task::WorldEntity::try_move_position_raw(
-            worm as *mut crate::task::WorldEntity,
+        crate::entity::WorldEntity::try_move_position_raw(
+            worm as *mut crate::entity::WorldEntity,
             fire_x,
             fire_y,
         );
@@ -830,11 +830,11 @@ unsafe fn fire_dragon_ball(
     local_struct: *const u8,
 ) {
     unsafe {
+        use crate::entity::SharedDataTable;
         use crate::rebase::rb;
-        use crate::task::SharedDataTable;
         use crate::wa_alloc::wa_malloc;
 
-        // Look up parent task via SharedData (same key as CreateWeaponProjectile)
+        // Look up parent entity via SharedData (same key as CreateWeaponProjectile)
         let table = SharedDataTable::from_task(worm as *const BaseEntity);
         let parent = table.lookup(0, 0x19);
 
@@ -1211,7 +1211,7 @@ unsafe extern "C" fn call_missile_ctor(
 /// reaches this dispatch arm; Ninja Rope and Bungee are FireType=4
 /// (`Special`).
 ///
-/// Looks up the parent task via SharedData, allocates a `MineEntity` (0x1BC
+/// Looks up the parent entity via SharedData, allocates a `MineEntity` (0x1BC
 /// bytes), zeroes the first 0x19C, and forwards to `MineEntity::Constructor`
 /// with the trailing `(0, 1)` tag. WA's MSVC SEH wrapper around the same body
 /// is dropped — neither `wa_malloc` (returns null on failure) nor the C++
@@ -1222,8 +1222,8 @@ unsafe fn fire_mine(
     local_struct: *const WeaponReleaseContext,
 ) {
     unsafe {
+        use crate::entity::SharedDataTable;
         use crate::rebase::rb;
-        use crate::task::SharedDataTable;
         use crate::wa_alloc::wa_malloc;
 
         let table = SharedDataTable::from_task(worm as *const BaseEntity);
@@ -1264,8 +1264,8 @@ unsafe fn fire_canister(
     local_struct: *const WeaponReleaseContext,
 ) {
     unsafe {
+        use crate::entity::SharedDataTable;
         use crate::rebase::rb;
-        use crate::task::SharedDataTable;
         use crate::wa_alloc::wa_malloc;
 
         let table = SharedDataTable::from_task(worm as *const BaseEntity);
@@ -1298,8 +1298,8 @@ pub unsafe fn create_weapon_projectile(
     local_struct: *const u8,
 ) {
     unsafe {
+        use crate::entity::SharedDataTable;
         use crate::rebase::rb;
-        use crate::task::SharedDataTable;
         use crate::wa_alloc::wa_malloc;
 
         let world = &mut *{
@@ -1455,8 +1455,8 @@ pub unsafe fn create_arrow(
     local_struct: *const u8,
 ) {
     unsafe {
+        use crate::entity::SharedDataTable;
         use crate::rebase::rb;
-        use crate::task::SharedDataTable;
         use crate::wa_alloc::wa_malloc;
 
         let world = &mut *{

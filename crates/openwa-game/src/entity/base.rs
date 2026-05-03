@@ -5,7 +5,7 @@ use crate::game::class_type::ClassType;
 
 crate::define_addresses! {
     class "BaseEntity" {
-        /// BaseEntity constructor - initializes base task fields and children list
+        /// BaseEntity constructor - initializes base entity fields and children list
         ctor/Stdcall BASE_ENTITY_CONSTRUCTOR = 0x005625A0;
         /// BaseEntity::vtable0 - initialization/unknown
         vmethod BASE_ENTITY_VT0_INIT = 0x00562710;
@@ -24,7 +24,7 @@ crate::define_addresses! {
     }
 
     class "LandEntity" {
-        /// LandEntity vtable - landscape/terrain task
+        /// LandEntity vtable - landscape/terrain entity
         vtable LAND_ENTITY_VTABLE = 0x00664388;
         ctor LAND_ENTITY_CTOR = 0x00505440;
     }
@@ -86,7 +86,7 @@ crate::define_addresses! {
     }
 }
 
-/// BaseEntity base vtable — 7 slots shared by all task types.
+/// BaseEntity base vtable — 7 slots shared by all entity types.
 ///
 /// Every BaseEntity subclass vtable starts with these 7 slots. Subclasses override
 /// individual slots and extend with additional class-specific methods.
@@ -107,7 +107,7 @@ crate::define_addresses! {
 /// ```
 #[openwa_game::vtable(size = 7, va = 0x00669F8C, class = "BaseEntity")]
 pub struct BaseEntityVtable {
-    /// WriteReplayState — serializes task state to replay stream.
+    /// WriteReplayState — serializes entity state to replay stream.
     #[slot(0)]
     pub write_replay_state: fn(this: *mut BaseEntity, stream: *mut u8),
     /// Free — scalar deleting destructor. Calls destructor, then `_free` if flags & 1.
@@ -132,9 +132,9 @@ pub struct BaseEntityVtable {
 
 bind_BaseEntityVtable!(BaseEntity, vtable);
 
-/// Base task class in WA's entity hierarchy.
+/// Base entity class in WA's entity hierarchy.
 ///
-/// All game objects inherit from BaseEntity. Tasks form a tree via parent/children
+/// All game objects inherit from BaseEntity. Entities form a tree via parent/children
 /// pointers and communicate through the EntityMessage system.
 ///
 /// Source: wkJellyWorm CTask.h, Ghidra decompilation of 0x5625A0 + 0x562520
@@ -144,7 +144,7 @@ bind_BaseEntityVtable!(BaseEntity, vtable);
 pub struct BaseEntity<V: Vtable = *const BaseEntityVtable> {
     /// 0x00: Pointer to virtual method table
     pub vtable: V,
-    /// 0x04: Parent task in the hierarchy
+    /// 0x04: Parent entity in the hierarchy
     pub parent: *mut u8,
     /// 0x08: Children array capacity — starts at 0x10, doubles via realloc when full.
     pub children_capacity: u32,
@@ -164,13 +164,13 @@ pub struct BaseEntity<V: Vtable = *const BaseEntityVtable> {
     pub children_hash: *mut u8,
     /// 0x1C: Unknown (set to 0 by parent-linking helper FUN_00562520)
     pub _unknown_1c: u32,
-    /// 0x20: Task classification type (set to ClassType::Task by FUN_00562520,
+    /// 0x20: Entity classification type (set to ClassType::Entity by FUN_00562520,
     /// overridden by derived constructors)
     pub class_type: ClassType,
     /// 0x24: Shared data buffer pointer (inherited from parent, or allocated
-    /// 0x420 bytes for root tasks)
+    /// 0x420 bytes for root entities)
     pub shared_data: *mut u8,
-    /// 0x28: 1 if this task owns shared_data (root), 0 if inherited from parent
+    /// 0x28: 1 if this entity owns shared_data (root), 0 if inherited from parent
     pub owns_shared_data: u32,
     /// 0x2C: GameWorld pointer (3rd param to BaseEntity::Constructor, stored at this+0x2C)
     pub world: *mut GameWorld,
@@ -190,7 +190,7 @@ pub unsafe trait Vtable: 'static {}
 // Default vtable type (untyped)
 unsafe impl Vtable for *const core::ffi::c_void {}
 
-/// Trait for all task types in the BaseEntity hierarchy.
+/// Trait for all entity types in the BaseEntity hierarchy.
 ///
 /// Provides safe access to the underlying BaseEntity fields regardless of
 /// inheritance depth. Avoids repetitive `.base.base` chains.
@@ -200,35 +200,35 @@ unsafe impl Vtable for *const core::ffi::c_void {}
 /// vtable type parameter) is at offset 0.
 pub unsafe trait Entity {
     /// Get a shared reference to the underlying BaseEntity (default vtable type).
-    fn task(&self) -> &BaseEntity {
+    fn entity(&self) -> &BaseEntity {
         unsafe { &*(self as *const Self as *const BaseEntity) }
     }
 
     /// Get a mutable reference to the underlying BaseEntity.
-    fn task_mut(&mut self) -> &mut BaseEntity {
+    fn entity_mut(&mut self) -> &mut BaseEntity {
         unsafe { &mut *(self as *mut Self as *mut BaseEntity) }
     }
 
     /// Get a raw const pointer to the BaseEntity base.
-    fn as_task_ptr(&self) -> *const BaseEntity {
+    fn as_entity_ptr(&self) -> *const BaseEntity {
         self as *const Self as *const BaseEntity
     }
 
     /// Get a raw mutable pointer to the BaseEntity base.
-    fn as_task_ptr_mut(&mut self) -> *mut BaseEntity {
+    fn as_entity_ptr_mut(&mut self) -> *mut BaseEntity {
         self as *mut Self as *mut BaseEntity
     }
 
     /// Get the GameWorld pointer from the BaseEntity base.
     fn world(&self) -> *mut GameWorld {
-        self.task().world
+        self.entity().world
     }
 
     /// Broadcast a message to all children — pure Rust port of BaseEntity::HandleMessage (0x562F30).
     ///
     /// Iterates the sparse children array (`children_data[0..children_watermark]`),
     /// skips null entries, and calls each child's `HandleMessage` (vtable slot 2).
-    /// This is how messages propagate down the task tree.
+    /// This is how messages propagate down the entity tree.
     ///
     /// # Safety
     /// All non-null children must be valid BaseEntity pointers with valid vtables.
@@ -240,14 +240,14 @@ pub unsafe trait Entity {
         data: *const u8,
     ) {
         unsafe {
-            let task_ptr = self.as_task_ptr_mut();
+            let entity_ptr = self.as_entity_ptr_mut();
 
             // Scan for non-null children and dispatch HandleMessage.
             // Mirrors WA's BaseEntity::HandleMessage at 0x562F30 exactly:
             // scan → dispatch → re-read watermark → scan next → ...
             //
             // IMPORTANT: read_volatile is required for watermark and children_data
-            // because child handlers may modify this task's children array
+            // because child handlers may modify this entity's children array
             // (add/remove children, realloc the array). LLVM would otherwise cache
             // these reads across the virtual dispatch call.
             let mut i: usize = 0;
@@ -255,13 +255,13 @@ pub unsafe trait Entity {
                 // Scan for next non-null child
                 let child = loop {
                     let watermark = core::ptr::read_volatile(core::ptr::addr_of!(
-                        (*task_ptr).children_watermark
+                        (*entity_ptr).children_watermark
                     )) as usize;
                     if i >= watermark {
                         return;
                     }
                     let children =
-                        core::ptr::read_volatile(core::ptr::addr_of!((*task_ptr).children_data));
+                        core::ptr::read_volatile(core::ptr::addr_of!((*entity_ptr).children_data));
                     let c = *children.add(i);
                     i += 1;
                     if !c.is_null() {
@@ -281,7 +281,7 @@ unsafe impl<V: Vtable> Entity for BaseEntity<V> {}
 // ---------------------------------------------------------------------------
 // Raw-pointer associated functions — no &self/&mut self, no noalias UB.
 //
-// Use these instead of Task trait methods when operating on WA-owned objects
+// Use these instead of Entity trait methods when operating on WA-owned objects
 // through raw pointers. Any type whose first field is BaseEntity (at offset 0)
 // can be cast to *mut BaseEntity and used with these functions.
 // ---------------------------------------------------------------------------
@@ -309,10 +309,10 @@ impl BaseEntity {
     /// Broadcast a message to all children — raw-pointer version.
     ///
     /// Pure Rust port of BaseEntity::HandleMessage (0x562F30).
-    /// Identical to `Task::broadcast_message` but takes `*mut BaseEntity` instead
+    /// Identical to `Entity::broadcast_message` but takes `*mut BaseEntity` instead
     /// of `&mut self`, avoiding noalias UB.
     pub unsafe fn broadcast_message_raw(
-        task_ptr: *mut BaseEntity,
+        entity_ptr: *mut BaseEntity,
         sender: *mut BaseEntity,
         msg_type: EntityMessage,
         size: u32,
@@ -323,13 +323,13 @@ impl BaseEntity {
             loop {
                 let child = loop {
                     let watermark = core::ptr::read_volatile(core::ptr::addr_of!(
-                        (*task_ptr).children_watermark
+                        (*entity_ptr).children_watermark
                     )) as usize;
                     if i >= watermark {
                         return;
                     }
                     let children =
-                        core::ptr::read_volatile(core::ptr::addr_of!((*task_ptr).children_data));
+                        core::ptr::read_volatile(core::ptr::addr_of!((*entity_ptr).children_data));
                     let c = *children.add(i);
                     i += 1;
                     if !c.is_null() {
@@ -346,7 +346,7 @@ impl BaseEntity {
     /// Typed wrapper around [`BaseEntity::broadcast_message_raw`] — serialises a
     /// `EntityMessageData` payload and uses its `MESSAGE_TYPE` for dispatch.
     pub unsafe fn broadcast_typed_message_raw<TMessage: crate::game::message::EntityMessageData>(
-        task_ptr: *mut BaseEntity,
+        entity_ptr: *mut BaseEntity,
         sender: *mut BaseEntity,
         message: TMessage,
     ) {
@@ -358,7 +358,7 @@ impl BaseEntity {
             } else {
                 core::ptr::null()
             };
-            Self::broadcast_message_raw(task_ptr, sender, TMessage::MESSAGE_TYPE, size, data);
+            Self::broadcast_message_raw(entity_ptr, sender, TMessage::MESSAGE_TYPE, size, data);
         }
     }
 }
@@ -369,8 +369,8 @@ impl BaseEntity {
 
 /// A 0x30-byte node in BaseEntity's shared-data entity hash table.
 ///
-/// Inserted by `SharedData__Insert` (0x5406A0, called from task constructors).
-/// All game task types (WormEntity, LandEntity, projectiles, …) share the same
+/// Inserted by `SharedData__Insert` (0x5406A0, called from entity constructors).
+/// All game entity types (WormEntity, LandEntity, projectiles, …) share the same
 /// 256-bucket table at `BaseEntity.shared_data`. Use the vtable pointer at
 /// `entity[0]` to identify the object type.
 ///
@@ -403,12 +403,12 @@ const _: () = assert!(core::mem::size_of::<SharedDataNode>() == 0x30);
 
 /// View of the 256-bucket entity hash table at `BaseEntity.shared_data`.
 ///
-/// Root tasks own 0x420 bytes of shared data:
+/// Root entities own 0x420 bytes of shared data:
 /// - `0x000..0x3FF`: 256 × `*mut SharedDataNode` bucket heads
-/// - `0x400..0x41F`: Other root-task data (layout unknown)
+/// - `0x400..0x41F`: Other root-entity data (layout unknown)
 ///
-/// All tasks in the same game tree inherit the same `shared_data` pointer, so
-/// any task can be used to access the full table. Use [`SharedDataTable::iter`]
+/// All entities in the same game tree inherit the same `shared_data` pointer, so
+/// any entity can be used to access the full table. Use [`SharedDataTable::iter`]
 /// to walk all registered entities and filter by vtable address.
 ///
 /// Registered by `SharedData__Insert` (0x5406A0); removed by
@@ -428,12 +428,12 @@ impl SharedDataTable {
         }
     }
 
-    /// Construct from a `BaseEntity` pointer (reads `task.shared_data`).
+    /// Construct from a `BaseEntity` pointer (reads `entity.shared_data`).
     ///
     /// # Safety
-    /// `task` must be a valid, aligned `BaseEntity` pointer.
-    pub unsafe fn from_task(task: *const BaseEntity) -> Self {
-        unsafe { Self::from_ptr((*task).shared_data) }
+    /// `entity` must be a valid, aligned `BaseEntity` pointer.
+    pub unsafe fn from_task(entity: *const BaseEntity) -> Self {
+        unsafe { Self::from_ptr((*entity).shared_data) }
     }
 
     /// Compute the bucket index for a (key_esi, key_edi) pair.
@@ -451,7 +451,7 @@ impl SharedDataTable {
     /// Look up an entity by key pair. Returns the entity pointer, or null.
     ///
     /// Pure Rust equivalent of `FUN_004FDF90` (SharedData__Lookup).
-    /// fastcall(ECX=key_esi, EDX=key_edi, stack=task) in the original.
+    /// fastcall(ECX=key_esi, EDX=key_edi, stack=entity) in the original.
     ///
     /// # Safety
     /// The table and all linked nodes must be valid.
@@ -493,9 +493,9 @@ impl SharedDataTable {
 /// # Example
 /// ```ignore
 /// let iter = unsafe { BaseEntityBfsIter::new(root_ptr) };
-/// for task in iter {
-///     if unsafe { *(task as *const u32) } == rb(va::MISSILE_ENTITY_VTABLE) {
-///         let m = unsafe { &*(task as *const MissileEntity) };
+/// for entity in iter {
+///     if unsafe { *(entity as *const u32) } == rb(va::MISSILE_ENTITY_VTABLE) {
+///         let m = unsafe { &*(entity as *const MissileEntity) };
 ///         // ...
 ///     }
 /// }

@@ -17,7 +17,7 @@ WinMain / CRT startup (0x5D8B6C)
        │    ├─ DDDisplay__Init (0x569D00)
        │    │    └─ Sets display mode, dimensions, palette, HWND
        │    ├─ GfxHandler x2 (vtable 0x66B280, 0x19C bytes each)
-       │    ├─ Task state machines x5 (vtable 0x664118)
+       │    ├─ Entity state machines x5 (vtable 0x664118)
        │    └─ Game state pointer at GameWorld+0x24
        ├─ Landscape__Constructor (0x57ACB0)
        │    ├─ vtable 0x66B208, parent = GameWorld
@@ -57,7 +57,7 @@ GameWorld is a ~39KB (0x98B8 bytes) monolithic object. Known landmark fields:
 | ------ | ---------------- | ------------------------------- |
 | 0x0024 | game_state       | Global game state pointer       |
 | 0x0028 | param            | Constructor parameter           |
-| 0x11B0 | task_ptrs[5]     | 5 task state machine pointers   |
+| 0x11B0 | entity_ptrs[5]     | 5 entity state machine pointers   |
 | 0x3548 | display_mode     | Display mode pointer            |
 | 0x354C | display_width    | Screen width                    |
 | 0x3560 | display_center_x | Screen center X                 |

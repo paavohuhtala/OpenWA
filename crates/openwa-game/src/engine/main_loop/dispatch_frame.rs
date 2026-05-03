@@ -18,6 +18,7 @@ use crate::engine::game_state;
 use crate::engine::runtime::GameRuntime;
 use crate::engine::team_arena::TeamIndexMap;
 use crate::engine::world::GameWorld;
+use crate::entity::WorldRootEntity;
 use crate::game::message::{
     TurnEndMaybeMessage, Unknown130Message, Unknown131Message, Unknown132Message,
     UpdateNonCriticalMessage,
@@ -26,7 +27,6 @@ use crate::input::hooks::InputHookMode;
 use crate::input::keyboard::{Keyboard, KeyboardAction, keyboard_read_input_ring_buffer};
 use crate::rebase::rb;
 use crate::render::display::gfx::DisplayGfx;
-use crate::task::WorldRootEntity;
 
 // ─── Runtime addresses ─────────────────────────────────────────────────────
 //
@@ -696,8 +696,8 @@ fn is_paused_phase(v: i32) -> bool {
 /// frames" counter).
 pub unsafe fn reset_frame_state(runtime: *mut GameRuntime) {
     unsafe {
-        let task = (*runtime).world_root;
-        WorldRootEntity::handle_typed_message_raw(task, task, UpdateNonCriticalMessage);
+        let entity = (*runtime).world_root;
+        WorldRootEntity::handle_typed_message_raw(entity, entity, UpdateNonCriticalMessage);
 
         let world = (*runtime).world;
 
@@ -1510,11 +1510,11 @@ pub unsafe fn dispatch_frame(runtime: *mut GameRuntime, time: u64, freq: u64) {
 
                 if gi.game_version > 0x4c {
                     // Broadcast game-end message via WorldRootEntity::HandleMessage (vtable[2]).
-                    // Original (0x529F00): ECX=task, stack = [sender=task, msg=0x75, size=0, data=0].
-                    let task = (*runtime).world_root;
-                    crate::task::WorldRootEntity::handle_typed_message_raw(
-                        task,
-                        task,
+                    // Original (0x529F00): ECX=entity, stack = [sender=entity, msg=0x75, size=0, data=0].
+                    let entity = (*runtime).world_root;
+                    crate::entity::WorldRootEntity::handle_typed_message_raw(
+                        entity,
+                        entity,
                         TurnEndMaybeMessage,
                     );
                 }

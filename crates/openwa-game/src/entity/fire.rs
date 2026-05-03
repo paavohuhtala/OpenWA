@@ -30,7 +30,7 @@ pub struct FireEntityVtable {
     pub process_frame: fn(this: *mut FireEntity, flags: u32),
 }
 
-/// Fire/flame entity task.
+/// Fire/flame entity entity.
 ///
 /// Extends BaseEntity (not WorldEntity) — no physics body.
 /// class_type = 0x18. Allocated 0xD8 bytes.
@@ -40,7 +40,7 @@ pub struct FireEntityVtable {
 /// One FireEntity is spawned per flame sprite.  The `timer` field starts
 /// at 0xFFFF and counts down each frame; when it reaches zero the fire
 /// dies.  `lifetime` at +0xB1 is a signed byte: 0xFF (= -1i8) means alive,
-/// 0 means the task is being destroyed.
+/// 0 means the entity is being destroyed.
 #[derive(FieldRegistry)]
 #[repr(C)]
 pub struct FireEntity {

@@ -27,13 +27,9 @@ pub mod va {
     // Class definitions (vtable + constructor + vtable methods)
     // =========================================================================
 
-    // Re-exported from task modules
+    // Re-exported from entity modules
     pub use crate::engine::entity_activity_queue::ENTITY_ACTIVITY_QUEUE_INIT;
-    pub use crate::game::game_task_message::{
-        WORLD_ENTITY_COMPUTE_EXPLOSION_DAMAGE, WORLD_ENTITY_IS_SOUND_HANDLE_EXPIRED,
-        WORLD_ENTITY_RELEASE_SOUND_HANDLE,
-    };
-    pub use crate::task::base::{
+    pub use crate::entity::base::{
         AIRSTRIKE_ENTITY_CTOR, ARROW_ENTITY_CTOR, BASE_ENTITY_CONSTRUCTOR, BASE_ENTITY_VT0_INIT,
         BASE_ENTITY_VT1_FREE, BASE_ENTITY_VT2_HANDLE_MESSAGE, BASE_ENTITY_VT3, BASE_ENTITY_VT5,
         BASE_ENTITY_VT6, BASE_ENTITY_VT7_PROCESS_FRAME, BASE_ENTITY_VTABLE, CANISTER_ENTITY_CTOR,
@@ -43,30 +39,30 @@ pub mod va {
         SEA_BUBBLE_ENTITY_VTABLE, SEABUBBLE_ENTITY_CTOR, SMOKE_ENTITY_CTOR,
         SPRITE_ANIM_ENTITY_CTOR, SPRITE_ANIM_ENTITY_VTABLE,
     };
-    pub use crate::task::cloud::{
+    pub use crate::entity::cloud::{
         CLOUD_ENTITY_CTOR, CLOUD_ENTITY_READ_REPLAY_STATE, CLOUD_ENTITY_VTABLE,
         CLOUD_ENTITY_WRITE_REPLAY_STATE,
     };
-    pub use crate::task::filter::{
+    pub use crate::entity::filter::{
         FILTER_ENTITY_CTOR, FILTER_ENTITY_SUBSCRIBE, FILTER_ENTITY_VTABLE,
         TEAM_ENTITY_CREATE_WEATHER_FILTER,
     };
-    pub use crate::task::fire::{FIRE_ENTITY_CTOR, FIRE_ENTITY_VTABLE};
-    pub use crate::task::game_task::{
+    pub use crate::entity::fire::{FIRE_ENTITY_CTOR, FIRE_ENTITY_VTABLE};
+    pub use crate::entity::game_entity::{
         CGAMETASK_CONSTRUCTOR, CGAMETASK_SOUND_EMITTER_VT, CGAMETASK_VT0, CGAMETASK_VT1_FREE,
         CGAMETASK_VT2_HANDLE_MESSAGE, CGAMETASK_VTABLE, CHECK_MOVE_COLLISION, TRY_MOVE_POSITION,
     };
-    pub use crate::task::mine_oil_drum::{
+    pub use crate::entity::mine_oil_drum::{
         MINE_ENTITY_CTOR, MINE_ENTITY_VTABLE, OILDRUM_ENTITY_CTOR, OILDRUM_ENTITY_VTABLE,
     };
-    pub use crate::task::missile::{MISSILE_ENTITY_CTOR, MISSILE_ENTITY_VTABLE};
-    pub use crate::task::supply_crate::{CRATE_ENTITY_CTOR, CRATE_ENTITY_VTABLE};
-    pub use crate::task::team::{TEAM_ENTITY_CTOR, TEAM_ENTITY_VTABLE};
-    pub use crate::task::world_root::{
+    pub use crate::entity::missile::{MISSILE_ENTITY_CTOR, MISSILE_ENTITY_VTABLE};
+    pub use crate::entity::supply_crate::{CRATE_ENTITY_CTOR, CRATE_ENTITY_VTABLE};
+    pub use crate::entity::team::{TEAM_ENTITY_CTOR, TEAM_ENTITY_VTABLE};
+    pub use crate::entity::world_root::{
         WORLD_ROOT_AUTO_SELECT_TEAMS, WORLD_ROOT_ENTITY_CTOR, WORLD_ROOT_ENTITY_VTABLE,
         WORLD_ROOT_HANDLE_MESSAGE, WORLD_ROOT_HURRY_HANDLER,
     };
-    pub use crate::task::worm::{
+    pub use crate::entity::worm::{
         ENTITY_ACTIVITY_QUEUE_RESET_RANK, TEAM_ARENA_SET_ACTIVE_WORM, WORM_ENTITY_APPLY_DAMAGE,
         WORM_ENTITY_BROADCAST_WEAPON_NAME, WORM_ENTITY_BROADCAST_WEAPON_SETTINGS,
         WORM_ENTITY_CANCEL_ACTIVE_WEAPON, WORM_ENTITY_CLEAR_WEAPON_STATE,
@@ -74,6 +70,10 @@ pub mod va {
         WORM_ENTITY_SELECT_BOUNCE, WORM_ENTITY_SELECT_FUSE, WORM_ENTITY_SELECT_HERD,
         WORM_ENTITY_SELECT_WEAPON, WORM_ENTITY_START_FIRING, WORM_ENTITY_VTABLE,
         WORM_FINISH_TURN_CLEANUP,
+    };
+    pub use crate::game::game_entity_message::{
+        WORLD_ENTITY_COMPUTE_EXPLOSION_DAMAGE, WORLD_ENTITY_IS_SOUND_HANDLE_EXPIRED,
+        WORLD_ENTITY_RELEASE_SOUND_HANDLE,
     };
 
     // Re-exported from audio modules
@@ -90,6 +90,7 @@ pub mod va {
         DISPLAY_BIT_GRID_SET_EXTERNAL_BUFFER, DRAW_LINE_CLIPPED, DRAW_LINE_TWO_COLOR,
     };
     pub use crate::engine::game_session::{GAME_SESSION_VTABLE, GameSessionVtable};
+    pub use crate::entity::game_entity::SOUND_EMITTER_VTABLE;
     pub use crate::frontend::map_view::MAP_VIEW_VTABLE;
     pub use crate::input::controller::NET_INPUT_CTRL_VTABLE;
     pub use crate::input::mouse::MOUSE_INPUT_VTABLE;
@@ -109,7 +110,6 @@ pub mod va {
         TILE_BITMAP_SET_DESTRUCTOR,
     };
     pub use crate::render::display::vtable::DISPLAY_GFX_VTABLE;
-    pub use crate::task::game_task::SOUND_EMITTER_VTABLE;
 
     // Sprite, SpriteBank, PaletteContext — defined alongside their structs
     pub use crate::render::palette::{
@@ -520,11 +520,11 @@ pub mod va {
         fn REPLAY_PROCESS_ALLIANCE = 0x00468890;
         /// Validate team configuration
         fn/Stdcall REPLAY_VALIDATE_TEAM_SETUP = 0x00465E10;
-        /// Routes game messages through the task handler tree
+        /// Routes game messages through the entity handler tree
         fn GAME_MESSAGE_ROUTER = 0x00553BD0;
         /// Per-frame turn timer
         fn/Stdcall TURN_MANAGER_PROCESS_FRAME = 0x0055FDA0;
-        /// Control task HandleMessage
+        /// Control entity HandleMessage
         fn CONTROL_TASK_HANDLE_MESSAGE = 0x005451F0;
         /// End-of-frame message queue / hurry processing
         fn GAME_FRAME_MESSAGE_PROCESSOR = 0x00531960;
@@ -910,10 +910,10 @@ pub mod va {
         /// WormEntity::PlaySound2 (FUN_00515020): usercall(EDI=worm) + stdcall(sound_id, volume, flags).
         /// Stop+play on secondary sound handle (+0x3B4). 23 callers in WA.
         fn/Usercall WORM_PLAY_SOUND_2 = 0x00515020;
-        /// LoadAndPlayStreamingPositional (0x546BB0): usercall(EAX=task) + stack(volume, sound_id, flags, x, y).
+        /// LoadAndPlayStreamingPositional (0x546BB0): usercall(EAX=entity) + stack(volume, sound_id, flags, x, y).
         /// Like LoadAndPlayStreaming but with explicit position. Only caller is PlayWormSound2.
         fn/Usercall LOAD_AND_PLAY_STREAMING_POSITIONAL = 0x00546BB0;
-        /// LoadAndPlayStreaming: usercall(EAX=task, ESI=&sound_emitter) + stack(sound_id, flags, volume).
+        /// LoadAndPlayStreaming: usercall(EAX=entity, ESI=&sound_emitter) + stack(sound_id, flags, volume).
         /// Checks game conditions, then starts a streaming sound. Returns handle | 0x40000000.
         fn/Usercall LOAD_AND_PLAY_STREAMING = 0x00546C20;
         /// ComputeDistanceParams

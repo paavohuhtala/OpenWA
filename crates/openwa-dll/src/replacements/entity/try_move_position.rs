@@ -2,13 +2,13 @@
 //!
 //! Generic position-update primitive used by 50+ entity subclasses
 //! (constructors and movement code). Game logic lives in
-//! [`openwa_game::task::WorldEntity::try_move_position_raw`].
+//! [`openwa_game::entity::WorldEntity::try_move_position_raw`].
 //!
 //! Calling convention: `__usercall(ESI=this, EDI=y, [ESP+4]=x)`, RET 0x4.
 
 use crate::hook::{self, usercall_trampoline};
 use openwa_game::address::va;
-use openwa_game::task::WorldEntity;
+use openwa_game::entity::WorldEntity;
 
 unsafe extern "cdecl" fn try_move_position_impl(this: *mut WorldEntity, y: i32, x: i32) -> u32 {
     unsafe { WorldEntity::try_move_position_raw(this, x, y) }

@@ -68,7 +68,7 @@ The main goal is to create an accurate _re-implementation_ of the original WA, n
   - Replays and multiplayer work by recording and replaying player inputs, and the game state is never serialized or transmitted over the network.
   - Game logic must be 100% deterministic despite the presence of pseudo-random number generation, which is achieved by synchronizing the RNG state at the start of a match / replay, and by making sure the RNG is sampled in the same order on all machines.
 - To make determinism easier to achieve (and probably because of the game's Amiga/DOS heritage), WA almost never uses floating point math. Instead, it uses 16.16 signed fixed-point arithmetic (`struct Fixed` in OpenWA) for all game logic and most graphics code.
-- The game has a fairly standard entity / game object hierarchy. Entities are called "tasks" in OpenWA, a naming convention I inherited from WormKit / wkJellyWorm (and might change in the future). Tasks communicate using message passing; a large share of game logic is implemented in each task class's `handle_message` method.
+- The game has a fairly standard entity / game object hierarchy. WA itself (and the WormKit / wkJellyWorm RE notes that informed early naming) calls these "tasks", but OpenWA uses "entity" throughout. Entities communicate using message passing; a large share of game logic is implemented in each entity class's `handle_message` method.
 
 ## Technical approach
 

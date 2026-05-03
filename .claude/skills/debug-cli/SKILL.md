@@ -67,7 +67,7 @@ openwa-debug inspect <class_name> <addr>
 ```bash
 openwa-debug inspect GameWorld world                        # All 84 GameWorld fields
 openwa-debug inspect WormEntity "abs:0x1DB439F0"           # Worm at known address
-openwa-debug inspect WorldEntity "world->task_land"        # Follow pointer, show base class
+openwa-debug inspect WorldEntity "world->entity_land"        # Follow pointer, show base class
 openwa-debug inspect GameRuntime "gamesession->runtime"  # Multi-step chain
 ```
 
@@ -78,7 +78,7 @@ GameWorld at ghidra:0x00XXXXXX (runtime:0xYYYYYYYY)
   +0x0000  keyboard             [ 4]  0x040ACA40 (Keyboard*)
   +0x0084  pos_x                [ 4]  388.4320 (0x01846E96)
   +0x02F0  worm_name            [17]  "Ainsley"
-  +0x054C  task_land            [ 4]  0x1DB27938 (LandEntity*)
+  +0x054C  entity_land            [ 4]  0x1DB27938 (LandEntity*)
 ```
 
 Fields are formatted by their `ValueKind`: pointers resolved to class names, Fixed as float + raw hex, CString as quoted strings, scalars as decimal.
@@ -135,14 +135,14 @@ All address forms can be used with `read`, `inspect`, and any command that takes
 | `"0x7A0884->0xA0+0x10->0x0"`             | Chain with compound offset in segment               |
 | `world`                                 | Named alias (resolved via server, case-insensitive) |
 | `world+frame_counter`                   | Named alias + field offset (no deref)               |
-| `"world->task_land"`                    | Field-name chain: offset to field, then deref       |
+| `"world->entity_land"`                    | Field-name chain: offset to field, then deref       |
 | `"gamesession->runtime->display"` | Multi-step field chain                              |
 
 ### Symbolic Names
 
 Named live objects (`world`, `gamesession`, `runtime`) resolve to runtime addresses via the server. Field names in `+offset` or `->chain` segments resolve via FieldRegistry lookups, including BaseEntity inheritance chains.
 
-Field-name chain semantics differ from hex chains: `world->task_land` means "add task_land's offset (0x54C) to GameWorld base, then deref" (offset-then-deref). Hex chains like `0x7A0884->0xA0` mean "deref 0x7A0884, then add 0xA0" (deref-then-offset). This matches the natural user intent in each case.
+Field-name chain semantics differ from hex chains: `world->entity_land` means "add entity_land's offset (0x54C) to GameWorld base, then deref" (offset-then-deref). Hex chains like `0x7A0884->0xA0` mean "deref 0x7A0884, then add 0xA0" (deref-then-offset). This matches the natural user intent in each case.
 
 ### Pointer Chains
 
@@ -187,7 +187,7 @@ openwa-debug inspect GameWorld world
 openwa-debug inspect WormEntity "abs:0x1DB439F0"
 
 # Follow a pointer field and inspect the target:
-openwa-debug inspect WorldEntity "world->task_land"
+openwa-debug inspect WorldEntity "world->entity_land"
 
 # Read raw memory using symbolic names:
 openwa-debug read world 0x100
@@ -229,7 +229,7 @@ openwa-debug inspect GameWorld world
 openwa-debug inspect WormEntity "abs:0x1DFB4B10"
 
 # Follow pointer and inspect base class for position/speed
-openwa-debug inspect WorldEntity "world->task_land"
+openwa-debug inspect WorldEntity "world->entity_land"
 
 # GameRuntime from GameSession
 openwa-debug inspect GameRuntime "gamesession->runtime"

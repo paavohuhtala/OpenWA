@@ -313,7 +313,7 @@ fn vtable_impl(
         #va_items
 
         // Mark *const ThisVtable as a valid vtable pointer type for BaseEntity<V>.
-        unsafe impl openwa_game::task::Vtable for *const #struct_name {}
+        unsafe impl openwa_game::entity::Vtable for *const #struct_name {}
 
         /// Bind this vtable's known methods as wrapper methods on a class struct.
         ///

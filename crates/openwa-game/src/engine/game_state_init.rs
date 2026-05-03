@@ -312,8 +312,8 @@ pub unsafe fn init_game_state(runtime: *mut GameRuntime) {
         (*runtime)._field_498 = 0;
         (*runtime)._field_493 = 0;
 
-        // Zero team task pointers (13 entries)
-        (*runtime).team_task_ptrs = [core::ptr::null_mut(); 13];
+        // Zero team entity pointers (13 entries)
+        (*runtime).team_entity_ptrs = [core::ptr::null_mut(); 13];
 
         // ===== Allocate 3 PaletteContexts (0x72C bytes each) =====
         (*runtime).palette_ctx_a = allocate_palette_context();
@@ -550,7 +550,7 @@ pub unsafe fn init_game_state(runtime: *mut GameRuntime) {
                 // Online game: ECX = *net_bridge (dereferenced!) for the constructor
                 let mem = wa_malloc_zeroed(0x324);
                 if mem.is_null() {
-                    (*runtime).world_root = core::ptr::null_mut::<crate::task::WorldRootEntity>();
+                    (*runtime).world_root = core::ptr::null_mut::<crate::entity::WorldRootEntity>();
                 } else {
                     let net_bridge = (*runtime).net_bridge;
                     let ecx_val = *(net_bridge as *const u32); // deref net_bridge to get ECX
@@ -559,7 +559,7 @@ pub unsafe fn init_game_state(runtime: *mut GameRuntime) {
                     // Override vtables for online mode
                     *(mem as *mut u32) = rb(0x669C28);
                     *(mem.add(0x30) as *mut u32) = rb(0x669C44);
-                    (*runtime).world_root = mem as *mut crate::task::WorldRootEntity;
+                    (*runtime).world_root = mem as *mut crate::entity::WorldRootEntity;
                 }
             } else {
                 // Normal game: ECX must = GameWorld for the constructor
@@ -569,7 +569,7 @@ pub unsafe fn init_game_state(runtime: *mut GameRuntime) {
                 } else {
                     call_ctor_with_ecx(mem, gi_ptr, world as u32, rb(va::WORLD_ROOT_ENTITY_CTOR))
                 };
-                (*runtime).world_root = result as *mut crate::task::WorldRootEntity;
+                (*runtime).world_root = result as *mut crate::entity::WorldRootEntity;
             }
         }
 

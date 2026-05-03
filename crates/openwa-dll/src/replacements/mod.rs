@@ -2,12 +2,13 @@ mod bitgrid;
 mod config;
 mod create_explosion;
 pub(crate) mod debug_utils;
+mod entity;
 pub(crate) mod file_isolation;
 mod frame_hook;
 mod frontend;
+mod game_entity_message;
 mod game_session;
 mod game_state_hooks;
-mod game_task_message;
 mod gfx_dir;
 mod hardware_init;
 mod headless;
@@ -23,7 +24,6 @@ mod speech;
 mod sprite;
 mod steam;
 mod string_resource;
-mod task;
 mod team;
 mod trace_desync;
 mod weapon;
@@ -72,10 +72,10 @@ pub fn install_all() -> Result<(), String> {
     game_state_hooks::install()?;
     replay::install()?;
     string_resource::install()?;
-    task::install()?;
+    entity::install()?;
     weapon_release::install()?;
     create_explosion::install()?;
-    game_task_message::install()?;
+    game_entity_message::install()?;
     main_loop::install()?;
     Ok(())
 }

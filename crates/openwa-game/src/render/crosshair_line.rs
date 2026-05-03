@@ -2,29 +2,29 @@
 //!
 //! Ported from WA.exe `DrawCrosshairLine` (0x5197D0).
 //! Draws:
-//!   1. Compute direction from angle at task+0x264
-//!   2. Compute line length from GameWorld scale + task offset
+//!   1. Compute direction from angle at entity+0x264
+//!   2. Compute line length from GameWorld scale + entity offset
 //!   3. Endpoint = start + direction * length (with overflow clamping)
 //!   4. DrawPolygon (2 vertices) for the line
 //!   5. Conditionally DrawSpriteLocal at endpoint (crosshair sprite)
 
+use crate::entity::WeaponAimEntity;
 use crate::render::SpriteOp;
 use crate::render::message::RenderMessage;
-use crate::task::WeaponAimEntity;
 use openwa_core::fixed::Fixed;
 use openwa_core::trig::{cos, sin};
 
-/// Draw the weapon aiming crosshair line for the given task.
+/// Draw the weapon aiming crosshair line for the given entity.
 ///
 /// # Safety
 ///
-/// `task_ptr` must point to a valid `WeaponAimTask`. ASLR rebase must be
+/// `entity_ptr` must point to a valid `WeaponAimEntity`. ASLR rebase must be
 /// initialized.
-pub unsafe fn draw_crosshair_line(task: *const WeaponAimEntity) {
+pub unsafe fn draw_crosshair_line(entity: *const WeaponAimEntity) {
     unsafe {
-        let gt = &(*task).game_task;
+        let gt = &(*entity).game_entity;
 
-        if (*task).aim_active == 0 {
+        if (*entity).aim_active == 0 {
             return;
         }
 
@@ -34,7 +34,7 @@ pub unsafe fn draw_crosshair_line(task: *const WeaponAimEntity) {
         let start_x = gt.pos_x.0;
         let start_y = gt.pos_y.0;
 
-        let angle = (*task).aim_angle;
+        let angle = (*entity).aim_angle;
 
         // Trig interpolation
         let sin_interp = sin(angle);
@@ -42,7 +42,7 @@ pub unsafe fn draw_crosshair_line(task: *const WeaponAimEntity) {
 
         // Smooth aim-range animation: interpolate 20 units/tick by the sub-frame
         // progress ratio, then add the crosshair's standing aim offset.
-        let scale = world.render_interp_a.mul_raw(Fixed(0x14_0000)).0 + (*task).aim_range_offset;
+        let scale = world.render_interp_a.mul_raw(Fixed(0x14_0000)).0 + (*entity).aim_range_offset;
 
         // Endpoint = start + direction * scale
         let mut endpoint_x = Fixed(sin_interp.0)

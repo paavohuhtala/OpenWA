@@ -43,7 +43,7 @@ pub struct TeamEntityVtable {
     pub process_frame: fn(this: *mut TeamEntity, flags: u32),
 }
 
-/// Per-team state-tracker task — one instance per team, child of WorldRootEntity.
+/// Per-team state-tracker entity — one instance per team, child of WorldRootEntity.
 ///
 /// Tracks per-team data: which team number it represents, how many worms were
 /// spawned, and a weapon/item slot table.  Registered in the SharedData hash
@@ -148,7 +148,7 @@ impl TeamEntity {
                 return;
             }
 
-            let task_ptr = this as *mut BaseEntity;
+            let entity_ptr = this as *mut BaseEntity;
 
             // 2. If game_version > 0xF4: broadcast DetonateWeapon (0x2A) to children first
             let world = {
@@ -158,7 +158,7 @@ impl TeamEntity {
             let game_version = (*(*world).game_info).game_version;
             if game_version > 0xF4 {
                 BaseEntity::broadcast_typed_message_raw(
-                    task_ptr,
+                    entity_ptr,
                     sender,
                     DetonateWeaponMessage {
                         team_index: msg_team_index,
@@ -173,7 +173,7 @@ impl TeamEntity {
 
             // 4. Broadcast original message (0x2B) to children
             BaseEntity::broadcast_typed_message_raw(
-                task_ptr,
+                entity_ptr,
                 sender,
                 SurrenderMessage {
                     team_index: msg_team_index,
@@ -189,9 +189,9 @@ impl TeamEntity {
 
 use crate::address::va;
 use crate::engine::world::GameWorld;
+use crate::entity::cloud::{CloudEntity, CloudType};
+use crate::entity::filter::FilterEntity;
 use crate::rebase::rb;
-use crate::task::cloud::{CloudEntity, CloudType};
-use crate::task::filter::FilterEntity;
 use crate::wa_alloc::wa_malloc_struct_zeroed;
 use openwa_core::rng::wa_lcg;
 
@@ -223,7 +223,7 @@ unsafe extern "cdecl" fn call_filter_ctor(
 ///
 /// Cloud count: 32 outside caverns, 10 inside (`is_cavern != 0`).
 ///
-/// Called from TeamEntity constructor. stdcall with 1 param (parent task).
+/// Called from TeamEntity constructor. stdcall with 1 param (parent entity).
 ///
 /// # Safety
 /// `parent` must be a valid BaseEntity pointer (typically a TeamEntity child).
@@ -236,7 +236,7 @@ pub unsafe extern "stdcall" fn create_weather_filter(parent: *mut BaseEntity) {
             parent as *mut u8,
             rb(va::FILTER_ENTITY_CTOR),
         );
-        // ownership transfers to the task tree
+        // ownership transfers to the entity tree
 
         // 2. Subscribe to messages: FrameStart(1), FrameFinish(2), RenderScene(3), SetWind(0x54)
         (*filter).subscription_table[1] = 1;
@@ -327,7 +327,7 @@ pub unsafe extern "stdcall" fn create_weather_filter(parent: *mut BaseEntity) {
                 vel_x,
                 render_y,
             );
-            // ownership transfers to the task tree
+            // ownership transfers to the entity tree
 
             layer_depth -= 1;
             accum_3i += 3;

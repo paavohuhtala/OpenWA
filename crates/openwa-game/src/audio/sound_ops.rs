@@ -16,8 +16,8 @@
 use crate::audio::SoundQueueEntry;
 use crate::audio::{SoundId, play_sound, play_sound_pooled};
 use crate::engine::{GameRuntime, GameWorld};
-use crate::task::worm::WormEntity;
-use crate::task::{BaseEntity, SoundEmitter, WorldEntity};
+use crate::entity::worm::WormEntity;
+use crate::entity::{BaseEntity, SoundEmitter, WorldEntity};
 use openwa_core::fixed::Fixed;
 
 // ============================================================
@@ -62,19 +62,19 @@ pub unsafe fn queue_sound(
 // PlaySoundLocal — Rust-callable version
 // ============================================================
 
-/// Play a local sound on a task — port of PlaySoundLocal (0x4FDFE0).
+/// Play a local sound on a entity — port of PlaySoundLocal (0x4FDFE0).
 ///
 /// Queues the sound, marks it as local, records the emitter position, and
-/// increments the task's local sound count. Returns true on success.
+/// increments the entity's local sound count. Returns true on success.
 pub unsafe fn play_sound_local(
-    task: *mut WorldEntity,
+    entity: *mut WorldEntity,
     sound_id: impl Into<SoundId>,
     flags: u32,
     volume: Fixed,
     pitch: Fixed,
 ) -> bool {
     unsafe {
-        let gt = &*task;
+        let gt = &*entity;
         let world = gt.base.world;
         let entry = match queue_sound(world, sound_id.into(), flags, volume, pitch) {
             Some(e) => e,
@@ -87,7 +87,7 @@ pub unsafe fn play_sound_local(
         (*entry).secondary_vtable = emitter as *const _ as u32;
         ((*emitter.vtable).get_position)(emitter, &mut (*entry).pos_x, &mut (*entry).pos_y);
 
-        (*task).sound_emitter.local_sound_count += 1;
+        (*entity).sound_emitter.local_sound_count += 1;
         true
     }
 }
@@ -259,13 +259,13 @@ pub unsafe fn dispatch_global_sound(
 ///
 /// Bypasses queue, checks suppression + fast-forward, calls DSSound play_sound_pooled.
 pub unsafe fn play_sound_pooled_direct(
-    task: *const BaseEntity,
+    entity: *const BaseEntity,
     slot: SoundId,
     priority: i32,
     volume: Fixed,
 ) -> i32 {
     unsafe {
-        let g = &*(*task).world;
+        let g = &*(*entity).world;
         let gi = &*g.game_info;
 
         if gi.sound_mute != 0 || g.frame_counter < gi.sound_start_frame {
@@ -496,16 +496,16 @@ unsafe fn dispatch_local_sound(
 /// 0 on failure, -1 (0xFFFFFFFF) if suppressed.
 ///
 /// Takes any WorldEntity (needs sound_emitter for position). Multiple WA callers
-/// pass various task types (WormEntity, MissileEntity, etc.).
+/// pass various entity types (WormEntity, MissileEntity, etc.).
 pub unsafe fn load_and_play_streaming(
-    task: *mut WorldEntity,
+    entity: *mut WorldEntity,
     sound_id: SoundId,
     flags: u32,
     volume: Fixed,
 ) -> i32 {
     unsafe {
         let world = {
-            let this = task as *const BaseEntity;
+            let this = entity as *const BaseEntity;
             (*this).world
         };
         let gi = &*(*world).game_info;
@@ -524,7 +524,7 @@ pub unsafe fn load_and_play_streaming(
         }
 
         // Get emitter position via sound_emitter vtable[0] (GetPosition)
-        let emitter = &(*task).sound_emitter;
+        let emitter = &(*entity).sound_emitter;
         let mut pos_x: u32 = 0;
         let mut pos_y: u32 = 0;
         ((*emitter.vtable).get_position)(emitter, &mut pos_x, &mut pos_y);
@@ -557,7 +557,7 @@ pub unsafe fn load_and_play_streaming(
 /// instead of reading from the emitter. Only needs BaseEntity (reads world at +0x2C).
 /// Only caller in WA is PlayWormSound2 (0x515020).
 pub unsafe fn load_and_play_streaming_positional(
-    task: *mut BaseEntity,
+    entity: *mut BaseEntity,
     sound_id: SoundId,
     flags: u32,
     volume: Fixed,
@@ -566,7 +566,7 @@ pub unsafe fn load_and_play_streaming_positional(
 ) -> i32 {
     unsafe {
         let world = {
-            let this = task as *const BaseEntity;
+            let this = entity as *const BaseEntity;
             (*this).world
         };
         let gi = &*(*world).game_info;

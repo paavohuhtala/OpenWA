@@ -7,10 +7,10 @@ use crate::bitgrid::DisplayBitGrid;
 use crate::engine::menu_panel::MenuPanel;
 use crate::engine::net_bridge::NetBridge;
 use crate::engine::world::GameWorld;
+use crate::entity::WorldRootEntity;
 use crate::render::display::gfx::DisplayGfx;
 use crate::render::landscape::Landscape;
 use crate::render::palette::PaletteContext;
-use crate::task::WorldRootEntity;
 
 /// Speech name table entry size (0x40 = 64 bytes, null-terminated C string).
 pub const SPEECH_NAME_ENTRY_SIZE: usize = 0x40;
@@ -115,7 +115,7 @@ pub struct GameRuntime {
     // ===== 0x054-0x087: Per-team BaseEntity pointers =====
     /// 0x054: Per-team BaseEntity pointers (13 slots). Zeroed by InitGameState.
     /// Sub-fields +0x08..+0x18 cleared if non-null during InitTeamScoring.
-    pub team_task_ptrs: [*mut u8; 13],
+    pub team_entity_ptrs: [*mut u8; 13],
 
     // ===== 0x088-0x090: PaletteContext pointers =====
     /// 0x088: PaletteContext A (allocated 0x72C bytes)

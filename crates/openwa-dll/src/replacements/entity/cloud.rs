@@ -1,10 +1,10 @@
 //! CloudEntity vtable hooks and CreateWeatherFilter replacement.
 //!
-//! Thin hook shim — game logic lives in `openwa_game::task::cloud`.
+//! Thin hook shim — game logic lives in `openwa_game::entity::cloud`.
 
 use openwa_core::log::log_line;
 use openwa_game::address::va;
-use openwa_game::task::{cloud, team};
+use openwa_game::entity::{cloud, team};
 
 pub fn install() -> Result<(), String> {
     use openwa_game::vtable_replace;

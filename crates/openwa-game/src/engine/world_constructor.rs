@@ -377,7 +377,7 @@ pub unsafe fn create_game_world(
 
         // ── 3-4. Store params BEFORE exposing GameWorld via wrapper ──
         // Critical: game_info must be set before wrapper->world, because the
-        // message pump (triggered by audio loading) can cause game tasks to
+        // message pump (triggered by audio loading) can cause game entities to
         // read world->game_info. If game_info is null, they crash.
         (*world).display = display;
         (*world).sound = sound;

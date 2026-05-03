@@ -14,8 +14,8 @@ graph TD
     WT["WeaponTable<br/>GameWorld+0x510"]
     TAS["TeamArenaState<br/>GameWorld+0x4628"]
     WP["WeaponPanel<br/>GameWorld+0x548"]
-    CTW["WormEntity<br/>(per-live-worm task)"]
-    CTM["MissileEntity<br/>(per-projectile task)"]
+    CTW["WormEntity<br/>(per-live-worm entity)"]
+    CTM["MissileEntity<br/>(per-projectile entity)"]
     EXP["CreateExplosion"]
     LAND["Landscape"]
 
@@ -343,12 +343,12 @@ GameWorld+0x72A4 tracks active missile count. `CreateWeaponProjectile` checks:
 
 | Function                 | Address  | Convention            | Description                                                |
 | ------------------------ | -------- | --------------------- | ---------------------------------------------------------- |
-| CreateExplosion          | 0x548080 | usercall(ESI=context) | Spawns explosion task via pool allocator + vtable dispatch |
+| CreateExplosion          | 0x548080 | usercall(ESI=context) | Spawns explosion entity via pool allocator + vtable dispatch |
 | Landscape_ApplyExplosion | 0x57C820 | (unknown)             | Modifies terrain bitmap, creates crater                    |
 
 CreateExplosion is a thin wrapper: allocates via `FUN_004FDF90`, then calls
 `vtable[2]()` on the allocated object. The actual explosion logic (radius,
-damage, terrain removal) lives in the explosion task's ProcessFrame.
+damage, terrain removal) lives in the explosion entity's ProcessFrame.
 
 ## Weapon Panel UI
 

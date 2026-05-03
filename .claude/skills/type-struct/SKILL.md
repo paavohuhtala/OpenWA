@@ -34,7 +34,7 @@ Compute offsets relative to the struct base. Verify with:
 
 ### 3. Create the Rust struct
 
-- Place in the appropriate module (`engine/`, `frontend/`, `task/`, `audio/`, etc.)
+- Place in the appropriate module (`engine/`, `frontend/`, `entity/`, `audio/`, etc.)
 - Use `#[repr(C)]` for ABI compatibility
 - Add `const _: () = assert!(core::mem::size_of::<T>() == SIZE);` to verify total size
 - Name known fields descriptively; use `_unknown_XXXX: [u8; N]` for gaps
@@ -74,7 +74,7 @@ Compute offsets relative to the struct base. Verify with:
 - Unknown fields: `_unknown_XXXX` where XXXX is the hex offset
 - Vtable structs: `FooVtable` companion to `Foo`
 - Address constants: `STRUCT_NAME_FUNCTION` (e.g., `MAP_VIEW_CONSTRUCTOR`)
-- Module placement: `engine/` for core game objects, `frontend/` for UI/CWnd-derived, `task/` for BaseEntity hierarchy, `audio/` for sound, `display/` for graphics
+- Module placement: `engine/` for core game objects, `frontend/` for UI/CWnd-derived, `entity/` for BaseEntity hierarchy, `audio/` for sound, `display/` for graphics
 
 ## When NOT to create a struct
 

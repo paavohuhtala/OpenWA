@@ -7,11 +7,11 @@ use core::fmt::Write;
 
 use openwa_game::address::va;
 use openwa_game::engine::GameSession;
+use openwa_game::entity::{BaseEntity, BaseEntityBfsIter, MissileEntity, WormEntity};
 use openwa_game::field_format::{self, FormatContext};
 use openwa_game::rebase::rb;
 use openwa_game::registry::StructFields;
 use openwa_game::snapshot::{Snapshot, hash_pointer_targets, write_raw_region};
-use openwa_game::task::{BaseEntity, BaseEntityBfsIter, MissileEntity, WormEntity};
 
 /// Capture a full game state snapshot as text.
 ///
@@ -99,9 +99,9 @@ pub unsafe fn capture() -> String {
         // WorldRootEntity is the root of the entity tree. Find it by checking
         // LandEntity's parent chain or the shared data table.
         // WorldRootEntity vtable = 0x669F70.
-        let task_land = (*world).task_land;
-        if task_land.is_null() {
-            let _ = writeln!(out, "[Entities] task_land=null");
+        let entity_land = (*world).entity_land;
+        if entity_land.is_null() {
+            let _ = writeln!(out, "[Entities] entity_land=null");
             return out;
         }
 
@@ -109,7 +109,7 @@ pub unsafe fn capture() -> String {
 
         // Walk parent chain from LandEntity to find WorldRootEntity (root of entity tree).
         // Safety limit to prevent infinite loops on corrupt parent chains.
-        let mut root = task_land as *const BaseEntity;
+        let mut root = entity_land as *const BaseEntity;
         for _ in 0..10 {
             let parent = (*root).parent as *const BaseEntity;
             if parent.is_null() || parent == root {
@@ -131,8 +131,8 @@ pub unsafe fn capture() -> String {
 
         // Census by type
         let mut counts = std::collections::BTreeMap::<&str, usize>::new();
-        for &task in &entities {
-            let vt = (*(task as *const u32)).wrapping_sub(delta);
+        for &entity in &entities {
+            let vt = (*(entity as *const u32)).wrapping_sub(delta);
             let name = vtable_name(vt);
             *counts.entry(name).or_default() += 1;
         }
@@ -143,19 +143,19 @@ pub unsafe fn capture() -> String {
         let _ = writeln!(out, "\n");
 
         // Detail per entity
-        for &task in &entities {
-            let vt = (*(task as *const u32)).wrapping_sub(delta);
+        for &entity in &entities {
+            let vt = (*(entity as *const u32)).wrapping_sub(delta);
             let name = vtable_name(vt);
-            let class_type = (*task).class_type;
+            let class_type = (*entity).class_type;
             let _ = writeln!(out, "  [{}] class_type={:?}", name, class_type);
 
             match vt {
                 x if x == va::WORM_ENTITY_VTABLE => {
-                    let worm = task as *const WormEntity;
+                    let worm = entity as *const WormEntity;
                     let _ = (*worm).write_snapshot(&mut out, 2);
                 }
                 x if x == va::MISSILE_ENTITY_VTABLE => {
-                    let missile = task as *const MissileEntity;
+                    let missile = entity as *const MissileEntity;
                     let _ = (*missile).write_snapshot(&mut out, 2);
                 }
                 _ => {
@@ -165,16 +165,16 @@ pub unsafe fn capture() -> String {
                         if let Some(fields) = openwa_game::registry::struct_fields_for(class) {
                             let _ = write_registry_fields(
                                 &mut out,
-                                task as *const u8,
+                                entity as *const u8,
                                 fields,
                                 delta,
                                 2,
                             );
                         } else {
-                            let _ = write_raw_region(&mut out, task as *const u8, 0x100, 2);
+                            let _ = write_raw_region(&mut out, entity as *const u8, 0x100, 2);
                         }
                     } else {
-                        let _ = write_raw_region(&mut out, task as *const u8, 0x100, 2);
+                        let _ = write_raw_region(&mut out, entity as *const u8, 0x100, 2);
                     }
                 }
             }

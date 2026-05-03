@@ -25,7 +25,7 @@ crate::define_addresses! {
 pub const CGAMETASK_SOUND_EMITTER_VT: u32 = SOUND_EMITTER_VTABLE;
 pub const CGAMETASK_VTABLE: u32 = WORLD_ENTITY_VTABLE;
 
-/// Game task - extends BaseEntity with physics and gameplay data.
+/// Game entity - extends BaseEntity with physics and gameplay data.
 ///
 /// PARTIAL: Most fields between 0x30-0x83 and 0x98-0xE7 are unknown.
 /// Only position and velocity fields have been verified.

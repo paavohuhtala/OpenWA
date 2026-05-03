@@ -1,5 +1,5 @@
 use crate::engine::world::GameWorld;
-use crate::task::SoundEmitter;
+use crate::entity::SoundEmitter;
 use openwa_core::fixed::Fixed;
 
 /// Active sound tracking table — manages positional (local) sound playback.
@@ -32,7 +32,7 @@ const _: () = assert!(core::mem::size_of::<ActiveSoundTable>() == 0x608);
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ActiveSoundEntry {
-    /// 0x00: Pointer to the emitting task (or NULL if emitter finished).
+    /// 0x00: Pointer to the emitting entity (or NULL if emitter finished).
     pub emitter: *mut u8,
     /// 0x04: World X position (fixed-point 16.16).
     pub pos_x: Fixed,

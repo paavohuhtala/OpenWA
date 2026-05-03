@@ -4,8 +4,8 @@
 
 use openwa_core::log::log_line;
 use openwa_game::address::va;
+use openwa_game::entity::missile;
 use openwa_game::game::missile_contact;
-use openwa_game::task::missile;
 
 pub fn install() -> Result<(), String> {
     use openwa_game::vtable_replace;

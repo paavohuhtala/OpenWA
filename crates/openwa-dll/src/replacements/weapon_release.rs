@@ -5,8 +5,8 @@
 
 use openwa_core::fixed::Fixed;
 use openwa_game::address::va;
+use openwa_game::entity::worm::WormEntity;
 use openwa_game::game::weapon_release as wr;
-use openwa_game::task::worm::WormEntity;
 
 use crate::hook::{self, usercall_trampoline};
 

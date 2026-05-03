@@ -38,8 +38,8 @@
 pub mod blit;
 
 use crate::FieldRegistry;
+use crate::entity::base::Vtable;
 use crate::rebase::rb;
-use crate::task::base::Vtable;
 use crate::wa_alloc::{wa_malloc, wa_malloc_struct_zeroed};
 
 crate::define_addresses! {

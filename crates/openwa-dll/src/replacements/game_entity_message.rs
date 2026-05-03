@@ -1,19 +1,19 @@
 //! Hooks for `WorldEntity::HandleMessage` (0x004FF280) and its three
 //! formerly-bridged helpers. Logic lives in
-//! `openwa_game::game::game_task_message`.
+//! `openwa_game::game::game_entity_message`.
 
 use openwa_core::fixed::Fixed;
 use openwa_game::address::va;
-use openwa_game::game::{EntityMessage, game_task_message as gtm};
-use openwa_game::task::{BaseEntity, WorldEntity};
+use openwa_game::entity::{BaseEntity, WorldEntity};
+use openwa_game::game::{EntityMessage, game_entity_message as gtm};
 
 use crate::hook::{self, usercall_trampoline};
 
-usercall_trampoline!(fn trampoline_cgametask_handle_message;
-    impl_fn = cgametask_handle_message_impl;
+usercall_trampoline!(fn trampoline_cgameentity_handle_message;
+    impl_fn = cgameentity_handle_message_impl;
     reg = ecx; stack_params = 4; ret_bytes = "0x10");
 
-unsafe extern "cdecl" fn cgametask_handle_message_impl(
+unsafe extern "cdecl" fn cgameentity_handle_message_impl(
     this: *mut WorldEntity,
     sender: *mut BaseEntity,
     msg_type: EntityMessage,
@@ -21,7 +21,7 @@ unsafe extern "cdecl" fn cgametask_handle_message_impl(
     data: *const u8,
 ) {
     unsafe {
-        gtm::cgametask_handle_message(this, sender, msg_type, size, data);
+        gtm::cgameentity_handle_message(this, sender, msg_type, size, data);
     }
 }
 
@@ -69,7 +69,7 @@ pub fn install() -> Result<(), String> {
         hook::install(
             "WorldEntity::HandleMessage",
             va::CGAMETASK_VT2_HANDLE_MESSAGE,
-            trampoline_cgametask_handle_message as *const (),
+            trampoline_cgameentity_handle_message as *const (),
         )?;
         hook::install(
             "WorldEntity::IsSoundHandleExpired",

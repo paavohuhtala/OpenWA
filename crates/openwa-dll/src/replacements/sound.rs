@@ -18,8 +18,8 @@ use openwa_game::address::va;
 use openwa_game::audio::sound_ops;
 use openwa_game::audio::{KnownSoundId, SoundId};
 use openwa_game::engine::{GameRuntime, GameWorld};
-use openwa_game::task::worm::WormEntity;
-use openwa_game::task::{BaseEntity, WorldEntity};
+use openwa_game::entity::worm::WormEntity;
+use openwa_game::entity::{BaseEntity, WorldEntity};
 
 use crate::hook;
 use crate::log_line;
@@ -42,7 +42,7 @@ unsafe extern "thiscall" fn hook_play_sound_global(
                 .map(|s| format!("{s:?}"))
                 .unwrap_or_else(|v| format!("#{v}"));
             let _ = log_line(&format!(
-                "[Sound] Global: task=0x{this:08X?} id={sound_id:?}({sound_name}) \
+                "[Sound] Global: entity=0x{this:08X?} id={sound_id:?}({sound_name}) \
              p3={flags} p4={volume} p5={pitch}"
             ));
         }
@@ -51,7 +51,7 @@ unsafe extern "thiscall" fn hook_play_sound_global(
     }
 }
 
-// ── PlaySoundLocal (0x4FDFE0): usercall(EAX=pitch, ECX=volume, EDI=task, stack) ──
+// ── PlaySoundLocal (0x4FDFE0): usercall(EAX=pitch, ECX=volume, EDI=entity, stack) ──
 
 hook::usercall_trampoline!(fn trampoline_play_sound_local; impl_fn = play_sound_local_impl;
     regs = [eax, ecx, edi]; stack_params = 2; ret_bytes = "0x8");
@@ -59,7 +59,7 @@ hook::usercall_trampoline!(fn trampoline_play_sound_local; impl_fn = play_sound_
 unsafe extern "cdecl" fn play_sound_local_impl(
     pitch: Fixed,
     volume: Fixed,
-    task: *mut WorldEntity,
+    entity: *mut WorldEntity,
     sound_id: SoundId,
     flags: u32,
 ) -> u32 {
@@ -69,12 +69,12 @@ unsafe extern "cdecl" fn play_sound_local_impl(
                 .map(|s| format!("{s:?}"))
                 .unwrap_or_else(|v| format!("#{v}"));
             let _ = log_line(&format!(
-                "[Sound] Local: pitch={pitch} volume={volume} task=0x{task:08X?} \
+                "[Sound] Local: pitch={pitch} volume={volume} entity=0x{entity:08X?} \
              id={sound_id:?}({sound_name}) flags={flags}"
             ));
         }
 
-        sound_ops::play_sound_local(task, sound_id, flags, volume, pitch) as u32
+        sound_ops::play_sound_local(entity, sound_id, flags, volume, pitch) as u32
     }
 }
 
@@ -117,16 +117,16 @@ unsafe extern "fastcall" fn hook_dispatch_global_sound(
     unsafe { sound_ops::dispatch_global_sound(runtime, slot, priority, frequency, volume) }
 }
 
-// ── PlaySoundPooled_Direct (0x546B50): fastcall(ECX=unused, EDX=task) + 3 stack ──
+// ── PlaySoundPooled_Direct (0x546B50): fastcall(ECX=unused, EDX=entity) + 3 stack ──
 
 unsafe extern "fastcall" fn hook_play_sound_pooled_direct(
     _ecx: u32,
-    task: *const BaseEntity,
+    entity: *const BaseEntity,
     slot: SoundId,
     priority: i32,
     volume: Fixed,
 ) -> i32 {
-    unsafe { sound_ops::play_sound_pooled_direct(task, slot, priority, volume) }
+    unsafe { sound_ops::play_sound_pooled_direct(entity, slot, priority, volume) }
 }
 
 // ── PlayWormSound (0x5150D0): usercall(EDI=worm) + stack(sound_id, volume), RET 0x8 ──
@@ -161,7 +161,7 @@ unsafe extern "cdecl" fn stop_worm_sound_cdecl(worm: *mut WormEntity) {
     }
 }
 
-// ── LoadAndPlayStreaming (0x546C20): usercall(EAX=task, ESI=emitter) + stack(sound_id, flags, volume), RET 0xC ──
+// ── LoadAndPlayStreaming (0x546C20): usercall(EAX=entity, ESI=emitter) + stack(sound_id, flags, volume), RET 0xC ──
 
 hook::usercall_trampoline!(
     fn trampoline_load_and_play_streaming;
@@ -170,12 +170,12 @@ hook::usercall_trampoline!(
 );
 
 unsafe extern "cdecl" fn load_and_play_streaming_cdecl(
-    task: *mut WorldEntity,
+    entity: *mut WorldEntity,
     sound_id: SoundId,
     flags: u32,
     volume: Fixed,
 ) -> i32 {
-    unsafe { sound_ops::load_and_play_streaming(task, sound_id, flags, volume) }
+    unsafe { sound_ops::load_and_play_streaming(entity, sound_id, flags, volume) }
 }
 
 // ── Hook installation ──

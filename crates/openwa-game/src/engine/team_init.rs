@@ -20,7 +20,7 @@ const TEAM_ENTRY_STRIDE: usize = 3000;
 /// Convention: fastcall(ECX=wrapper), plain RET.
 ///
 /// Initializes 7 parallel u32 arrays (13 elements each) in WorldEntity, then
-/// sets the starting-team flag, initializes team task pointer flags based on
+/// sets the starting-team flag, initializes team entity pointer flags based on
 /// game mode (training vs normal), and zeros BaseEntity sub-object fields.
 pub unsafe fn init_team_scoring(runtime: *mut GameRuntime) {
     unsafe {
@@ -75,13 +75,13 @@ pub unsafe fn init_team_scoring(runtime: *mut GameRuntime) {
 
         if num_teams > 0 {
             for i in 0..num_teams as usize {
-                let task = (*runtime).team_task_ptrs[i];
-                if !task.is_null() {
-                    *(task.add(0x18) as *mut u32) = 0;
-                    *(task.add(0x14) as *mut u32) = 0;
-                    *(task.add(0x10) as *mut u32) = 0;
-                    *(task.add(0x0C) as *mut u32) = 0;
-                    *(task.add(0x08) as *mut u32) = 0;
+                let entity = (*runtime).team_entity_ptrs[i];
+                if !entity.is_null() {
+                    *(entity.add(0x18) as *mut u32) = 0;
+                    *(entity.add(0x14) as *mut u32) = 0;
+                    *(entity.add(0x10) as *mut u32) = 0;
+                    *(entity.add(0x0C) as *mut u32) = 0;
+                    *(entity.add(0x08) as *mut u32) = 0;
                 }
             }
         }

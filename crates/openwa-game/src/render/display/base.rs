@@ -23,12 +23,12 @@
 /// point to WA's vtable in .rdata and patch individual slots there in-place
 /// (via VirtualProtect in `display.rs`).
 use crate::{
+    entity::base::Vtable,
     render::{
         display::font::Font,
         palette::PaletteContext,
         sprite::{Sprite, SpriteBank},
     },
-    task::base::Vtable,
     wa_alloc::{wa_malloc_struct_zeroed, wa_malloc_zeroed},
 };
 

@@ -31,7 +31,7 @@ For each `impl_fn` function, match parameter types against the types used at the
 
 6. **Field shorthand** → when a parameter name matches a struct field name exactly, use shorthand: `field,` not `field: field,`.
 
-7. **Propagate to callees** — if the shim calls a core function that also takes `u32` for a now-typed parameter, update that function's signature too. Remove entry-point casts (e.g., `let task = &*(task_ptr as *const T)` → `let task = &*task`).
+7. **Propagate to callees** — if the shim calls a core function that also takes `u32` for a now-typed parameter, update that function's signature too. Remove entry-point casts (e.g., `let entity = &*(entity_ptr as *const T)` → `let entity = &*entity`).
 
 8. **Propagate to callers** — if the shim calls WA bridge functions or core helpers with casts (`x as u32`, `x as *mut _`), check whether those callees can also be retyped.
 
@@ -57,7 +57,7 @@ If a comment says something was misnamed, verify whether the old name still exis
 
 ## Naming consistency
 
-- Pointer-to-self parameters: use the struct's conventional short name (`queue`, `task`, `display`, etc.)
+- Pointer-to-self parameters: use the struct's conventional short name (`queue`, `entity`, `display`, etc.)
 - Coordinate pairs: `x`/`y`, or `x_pos`/`y_pos` if there's ambiguity with other x/y fields
 - Clip reference: `y_clip`
 

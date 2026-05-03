@@ -21,7 +21,7 @@ use openwa_core::fixed::{Fixed, Fixed64};
 /// GameWorld — the main game engine object.
 ///
 /// This is a massive ~39KB struct (0x98D8 bytes) that owns all major subsystems:
-/// display, landscape, sound, graphics handlers, and task state machines.
+/// display, landscape, sound, graphics handlers, and entity state machines.
 ///
 /// Allocated in GameWorld__Constructor (0x56E220).
 /// The GameWorld pointer is stored at GameRuntime+0x488 (DWORD index 0x122).
@@ -140,8 +140,8 @@ pub struct GameWorld {
     /// 0x548: Weapon panel pointer
     pub weapon_panel: *mut u8,
     /// 0x54C: LandEntity pointer (set by LandEntity__InitLandscape at 0x5056F0).
-    /// The landscape/terrain task. Vtable at 0x664388.
-    pub task_land: *mut u8,
+    /// The landscape/terrain entity. Vtable at 0x664388.
+    pub entity_land: *mut u8,
     /// 0x550-0x5C3: Unknown.
     pub _unknown_550: [u8; 0x5C4 - 0x550],
     /// 0x5C4: Vector normalize function pointer. Selected by game version in InitGameState:
@@ -665,7 +665,7 @@ impl GameWorld {
 
     /// Record a landing-event point in the per-kind bbox slot at
     /// [`render_entries`](Self::render_entries)`[idx]`. Pure Rust port of WA
-    /// 0x00547D10 (`fastcall(ECX=x, EDX=y, [ESP+4]=task, [ESP+8]=idx)`,
+    /// 0x00547D10 (`fastcall(ECX=x, EDX=y, [ESP+4]=entity, [ESP+8]=idx)`,
     /// RET 0x8).
     ///
     /// Behavior:
@@ -675,7 +675,7 @@ impl GameWorld {
     /// - On subsequent hits: expands `min_x/_y` / `max_x/_y` to include `(x, y)`.
     ///
     /// Slot index is the event kind (1, 2, 3, 4, 9, 11 — see
-    /// [`WormEntity::landing_check_raw`](crate::task::WormEntity::landing_check_raw)).
+    /// [`WormEntity::landing_check_raw`](crate::entity::WormEntity::landing_check_raw)).
     pub unsafe fn record_landing_event_raw(this: *mut GameWorld, idx: u32, x: i32, y: i32) {
         unsafe {
             if (*this)._field_45e8 != 0 {
@@ -897,7 +897,7 @@ impl crate::snapshot::Snapshot for GameWorld {
         write_indent(w, i)?;
         writeln!(w, "landscape = {}", fmt_ptr(self.landscape as *const u8))?;
         write_indent(w, i)?;
-        writeln!(w, "task_land = {}", fmt_ptr(self.task_land))?;
+        writeln!(w, "entity_land = {}", fmt_ptr(self.entity_land))?;
 
         // TeamArena summary
         write_indent(w, i)?;

@@ -13,13 +13,13 @@ use openwa_core::fixed::Fixed;
 use openwa_core::weapon::KnownWeaponId;
 
 use super::base::BaseEntity;
-use super::game_task::WorldEntity;
+use super::game_entity::WorldEntity;
 use super::worm::{KnownWormState, WormEntity, WormState};
 use crate::address::va;
 use crate::engine::EntityActivityQueue;
 use crate::engine::team_arena::{TeamArena, WormEntry};
 use crate::engine::world::GameWorld;
-use crate::game::game_task_message::cgametask_handle_message;
+use crate::game::game_entity_message::cgameentity_handle_message;
 use crate::game::message::{
     ExplosionMessage, PoisonWormMessage, SelectArmingMessage, SelectCursorMessage,
     SelectWeaponMessage, SpecialImpactMessage, WeaponReleasedMessage, WormMovedMessage,
@@ -1545,7 +1545,7 @@ unsafe fn msg_special_impact(
         if (*this).state().is(KnownWormState::Dead) {
             let saved_speed_x = (*this).base.speed_x;
             bridge_play_impact_sound(this, 0x6A, 0x10000);
-            cgametask_handle_message(
+            cgameentity_handle_message(
                 this as *mut WorldEntity,
                 sender,
                 EntityMessage::SpecialImpact,
@@ -1583,7 +1583,7 @@ unsafe fn msg_special_impact(
             return true;
         }
 
-        cgametask_handle_message(
+        cgameentity_handle_message(
             this as *mut WorldEntity,
             sender,
             EntityMessage::SpecialImpact,
@@ -1738,7 +1738,7 @@ unsafe fn msg_explosion(
 
         if state.is(KnownWormState::Dead) {
             let saved_speed_x = (*this).base.speed_x;
-            cgametask_handle_message(this as *mut WorldEntity, sender, msg_type, size, data);
+            cgameentity_handle_message(this as *mut WorldEntity, sender, msg_type, size, data);
             (*this).base.damage_accum = 0;
             (*this).base.speed_x = if (*game_info).game_version < 499 {
                 Fixed(0)
@@ -1755,7 +1755,7 @@ unsafe fn msg_explosion(
             WormEntity::set_state_raw(this, KnownWormState::Hurt);
         }
 
-        cgametask_handle_message(this as *mut WorldEntity, sender, msg_type, size, data);
+        cgameentity_handle_message(this as *mut WorldEntity, sender, msg_type, size, data);
         let damage_accum = (*this).base.damage_accum;
         (*this).base.damage_accum = 0;
 

@@ -1,16 +1,16 @@
 use eframe::egui;
 use openwa_game::address::va;
 use openwa_game::engine::{GameWorld, game_session};
-use openwa_game::rebase::rb;
-use openwa_game::registry;
-use openwa_game::task::{
+use openwa_game::entity::{
     BaseEntity, CloudEntity, FireEntity, MatchCtx, TeamEntity, WorldRootEntity, WormEntity,
 };
+use openwa_game::rebase::rb;
+use openwa_game::registry;
 
 use crate::log;
 
 // ---------------------------------------------------------------------------
-// Known task types for census display
+// Known entity types for census display
 // ---------------------------------------------------------------------------
 
 /// Vtables of entities that are created/destroyed every frame (particles,
@@ -34,12 +34,12 @@ unsafe fn entity_type_name(addr: u32) -> String {
         if let Some(name) = vtable_name(vtable) {
             return name.to_owned();
         }
-        let task = addr as *const BaseEntity;
-        format!("{:?}", (*task).class_type)
+        let entity = addr as *const BaseEntity;
+        format!("{:?}", (*entity).class_type)
     }
 }
 
-/// One-line label for a task: "TypeName @ 0xADDR"
+/// One-line label for a entity: "TypeName @ 0xADDR"
 unsafe fn entity_label(addr: u32) -> String {
     unsafe {
         if addr == 0 {
@@ -89,16 +89,16 @@ unsafe fn cheat_unlock_all_weapons() {
     }
 }
 
-/// Read child task pointers from a BaseEntity's children array.
+/// Read child entity pointers from a BaseEntity's children array.
 ///
 /// The array is **sparse**: slots are nulled when a child is removed rather than
 /// compacted. `children_watermark` is the insertion counter (loop upper bound used
 /// by BaseEntity::HandleMessage), not the live-child count. We return all slots up to
 /// that bound so the caller can filter nulls and display the live set.
-unsafe fn read_children(task: *const BaseEntity) -> Vec<u32> {
+unsafe fn read_children(entity: *const BaseEntity) -> Vec<u32> {
     unsafe {
-        let slots = (*task).children_watermark as usize;
-        let data = (*task).children_data as *const u32;
+        let slots = (*entity).children_watermark as usize;
+        let data = (*entity).children_data as *const u32;
         if data.is_null() || slots == 0 {
             return Vec::new();
         }
@@ -109,19 +109,19 @@ unsafe fn read_children(task: *const BaseEntity) -> Vec<u32> {
 }
 
 // ---------------------------------------------------------------------------
-// Live entity snapshot (built once per frame via full task-tree traversal)
+// Live entity snapshot (built once per frame via full entity-tree traversal)
 // ---------------------------------------------------------------------------
 
-/// Walk up parent pointers from `start` to find the root task (no parent).
-/// Returns None if task_land is null or the chain doesn't terminate within
+/// Walk up parent pointers from `start` to find the root entity (no parent).
+/// Returns None if entity_land is null or the chain doesn't terminate within
 /// MAX_DEPTH steps (guard against corrupt/circular pointers).
 unsafe fn find_root_task(world: *const GameWorld) -> Option<u32> {
     unsafe {
-        let task_land = (*world).task_land as u32;
-        if task_land == 0 {
+        let entity_land = (*world).entity_land as u32;
+        if entity_land == 0 {
             return None;
         }
-        let mut current = task_land;
+        let mut current = entity_land;
         for _ in 0..64 {
             let parent = (*(current as *const BaseEntity)).parent as u32;
             if parent == 0 {
@@ -133,7 +133,7 @@ unsafe fn find_root_task(world: *const GameWorld) -> Option<u32> {
     }
 }
 
-/// DFS the task tree from `root`, returning (vtable, addr) for every node.
+/// DFS the entity tree from `root`, returning (vtable, addr) for every node.
 /// A visited set prevents infinite loops from corrupt/circular pointers.
 unsafe fn collect_task_tree(root: u32) -> Vec<(u32, u32)> {
     unsafe {
@@ -355,7 +355,7 @@ impl DebugApp {
 ///
 /// Field names are resolved from the global registry via inheritance-aware
 /// lookup (entity → WorldEntity → BaseEntity). No hardcoded label tables needed.
-unsafe fn show_game_task_raw_fields(
+unsafe fn show_game_entity_raw_fields(
     ui: &mut egui::Ui,
     addr: u32,
     type_name: &str,
@@ -492,7 +492,7 @@ impl DebugApp {
                     ui.label(format!("Vtable: {:#010X}", vtable));
                     ui.separator();
 
-                    let task = addr as *const BaseEntity;
+                    let entity = addr as *const BaseEntity;
 
                     // --- BaseEntity base ---
                     egui::CollapsingHeader::new("BaseEntity base")
@@ -500,7 +500,7 @@ impl DebugApp {
                         .show(ui, |ui| {
                             egui::Grid::new("ctask_grid").striped(true).show(ui, |ui| {
                                 // Parent — clickable link
-                                let parent = (*task).parent as u32;
+                                let parent = (*entity).parent as u32;
                                 ui.label("parent");
                                 if parent != 0 {
                                     if ui.link(entity_label(parent)).clicked() {
@@ -515,21 +515,21 @@ impl DebugApp {
                                 ui.label("child slots");
                                 ui.label(format!(
                                     "{} watermark / {} cap",
-                                    (*task).children_watermark,
-                                    (*task).children_capacity
+                                    (*entity).children_watermark,
+                                    (*entity).children_capacity
                                 ));
                                 ui.end_row();
                                 ui.label("class_type");
-                                ui.label(format!("{:?}", (*task).class_type));
+                                ui.label(format!("{:?}", (*entity).class_type));
                                 ui.end_row();
                             });
                         });
 
                     // --- Children tree ---
                     // read_children returns all slots (sparse); filter nulls for live count.
-                    let children = read_children(task);
+                    let children = read_children(entity);
                     let live_count = children.iter().filter(|&&a| a != 0).count();
-                    let slot_count = (*task).children_watermark as usize;
+                    let slot_count = (*entity).children_watermark as usize;
                     if live_count > 0 || slot_count > 0 {
                         egui::CollapsingHeader::new(format!(
                             "Children ({} live / {} slots)",
@@ -588,17 +588,17 @@ impl DebugApp {
 
                     // --- MineEntity-specific fields ---
                     if name == "MineEntity" {
-                        show_game_task_raw_fields(ui, addr, "MineEntity", 0x128);
+                        show_game_entity_raw_fields(ui, addr, "MineEntity", 0x128);
                     }
 
                     // --- OilDrumEntity-specific fields ---
                     if name == "OilDrumEntity" {
-                        show_game_task_raw_fields(ui, addr, "OilDrumEntity", 0x110);
+                        show_game_entity_raw_fields(ui, addr, "OilDrumEntity", 0x110);
                     }
 
                     // --- CrateEntity-specific fields ---
                     if name == "CrateEntity" {
-                        show_game_task_raw_fields(ui, addr, "CrateEntity", 0x4B0);
+                        show_game_entity_raw_fields(ui, addr, "CrateEntity", 0x4B0);
                     }
 
                     // --- CloudEntity-specific fields ---
@@ -797,7 +797,7 @@ impl DebugApp {
 
                     // --- WormEntity-specific fields ---
                     if name == "WormEntity"
-                        || (*task).class_type == openwa_game::game::ClassType::Worm
+                        || (*entity).class_type == openwa_game::game::ClassType::Worm
                     {
                         // Summary header with key info
                         let worm = addr as *const WormEntity;
@@ -816,12 +816,12 @@ impl DebugApp {
                         ));
                         ui.separator();
 
-                        show_game_task_raw_fields(ui, addr, "WormEntity", 0x3FC);
+                        show_game_entity_raw_fields(ui, addr, "WormEntity", 0x3FC);
                     }
 
                     // --- MissileEntity-specific fields ---
                     if name == "MissileEntity" {
-                        use openwa_game::task::MissileEntity;
+                        use openwa_game::entity::MissileEntity;
                         let m = &*(addr as *const MissileEntity);
                         ui.label(format!(
                             "Missile: type={:?}  slot={}  homing={}  dir={}",
@@ -829,7 +829,7 @@ impl DebugApp {
                         ));
                         ui.separator();
 
-                        show_game_task_raw_fields(ui, addr, "MissileEntity", 0x41C);
+                        show_game_entity_raw_fields(ui, addr, "MissileEntity", 0x41C);
                     }
                 }
             });

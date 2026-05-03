@@ -1,5 +1,5 @@
 use super::base::BaseEntity;
-use super::game_task::WorldEntity;
+use super::game_entity::WorldEntity;
 use crate::FieldRegistry;
 
 crate::define_addresses! {
@@ -26,7 +26,7 @@ pub struct CrateEntityVtable {
     pub process_frame: fn(this: *mut CrateEntity, flags: u32),
 }
 
-/// Weapon/health/utility crate entity task.
+/// Weapon/health/utility crate entity entity.
 ///
 /// Extends WorldEntity (0xFC bytes). Crates fall from the sky with a parachute,
 /// land on terrain, and are collected by worms on contact. Can contain weapons,

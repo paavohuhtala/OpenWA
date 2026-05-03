@@ -1,8 +1,8 @@
 use super::base::{BaseEntity, SharedDataTable};
 use crate::{
     FieldRegistry,
+    entity::Entity,
     game::{EntityMessage, message::EntityMessageData},
-    task::Entity,
 };
 use bytemuck::bytes_of;
 use openwa_core::fixed::Fixed;
@@ -119,9 +119,9 @@ pub struct WorldRootEntityVtable {
     pub process_frame: fn(this: *mut WorldRootEntity, flags: u32),
 }
 
-/// Root turn-controller task — one instance per game, parent of the entire entity tree.
+/// Root turn-controller entity — one instance per game, parent of the entire entity tree.
 ///
-/// Every worm, team, projectile, and environment task is a child (direct or indirect)
+/// Every worm, team, projectile, and environment entity is a child (direct or indirect)
 /// of this node.  `WorldRootEntity` drives the turn loop: it processes 50 game frames
 /// per second via `WorldRootEntity__TurnManager_ProcessFrame` (0x55FDA0), which is
 /// called from HandleMessage case 2 (FrameFinish).
@@ -132,7 +132,7 @@ pub struct WorldRootEntityVtable {
 /// Total size: 0x2E0 bytes.
 ///
 /// Key vtable slots:
-///   [0] 0x55B5E0 — task-tree state snapshot serialiser
+///   [0] 0x55B5E0 — entity-tree state snapshot serialiser
 ///   [1] 0x55B540 — destructor / Free
 ///   [2] 0x55DC00 — HandleMessage (30+ message types)
 ///   [3] 0x5612E0 — HUD data query (responds to msg 0x7D3)
@@ -223,21 +223,21 @@ const _: () = assert!(core::mem::size_of::<WorldRootEntity>() == 0x2E0);
 impl WorldRootEntity {
     /// SharedData key under which `WorldRootEntity` registers itself.
     ///
-    /// As the root of the in-game world, every other task in the same game
+    /// As the root of the in-game world, every other entity in the same game
     /// tree can locate it via `(0, 0x14)`. Use [`Self::from_shared_data`]
     /// instead of looking up the raw key.
     pub const SHARED_DATA_KEY: (u32, u32) = (0, 0x14);
 
-    /// Resolve the per-game `WorldRootEntity` instance from any task in the
+    /// Resolve the per-game `WorldRootEntity` instance from any entity in the
     /// same game tree. Returns null if the table has no entry (during
     /// startup/shutdown windows).
     ///
     /// # Safety
-    /// `task` must be a valid task pointer with an initialised `shared_data`.
-    pub unsafe fn from_shared_data(task: *const BaseEntity) -> *mut WorldRootEntity {
+    /// `entity` must be a valid entity pointer with an initialised `shared_data`.
+    pub unsafe fn from_shared_data(entity: *const BaseEntity) -> *mut WorldRootEntity {
         unsafe {
             let (esi, edi) = Self::SHARED_DATA_KEY;
-            SharedDataTable::from_task(task).lookup(esi, edi) as *mut WorldRootEntity
+            SharedDataTable::from_task(entity).lookup(esi, edi) as *mut WorldRootEntity
         }
     }
 

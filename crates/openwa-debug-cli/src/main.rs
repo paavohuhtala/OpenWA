@@ -462,11 +462,11 @@ enum ChainSegment {
 /// then add offset." For hex chains like `0x7A0884->0xA0->0x2C`, this works
 /// directly — the offset is added after the deref.
 ///
-/// For field-name chains like `world->task_land`, the user intent is "go to
-/// the task_land field (offset 0x54C) and follow that pointer." We translate
+/// For field-name chains like `world->entity_land`, the user intent is "go to
+/// the entity_land field (offset 0x54C) and follow that pointer." We translate
 /// this by folding the field offset into the PREVIOUS address/step:
 ///
-///   `world->task_land`  → base=world+0x54C, chain=[0]
+///   `world->entity_land`  → base=world+0x54C, chain=[0]
 ///   `wrapper->world->rng_state` → base=wrapper+world_off, chain=[rng_state_off]
 fn resolve_address_expr(s: &str, port: u16) -> AddressExpr {
     let (s, absolute) = if let Some(rest) = s.strip_prefix("abs:") {

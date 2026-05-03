@@ -5,8 +5,8 @@
 
 use openwa_core::fixed::Fixed;
 use openwa_game::address::va;
+use openwa_game::entity::BaseEntity;
 use openwa_game::game::create_explosion as ce;
-use openwa_game::task::BaseEntity;
 
 use crate::hook;
 

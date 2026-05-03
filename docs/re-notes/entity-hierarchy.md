@@ -1,9 +1,9 @@
-# Task Hierarchy - Worms Armageddon 3.8.1
+# Entity Hierarchy - Worms Armageddon 3.8.1
 
 ## Overview
 
-WA uses a hierarchical task/entity system. All game objects inherit from `BaseEntity`,
-which forms a tree via parent/children pointers. Tasks communicate through a
+WA uses a hierarchical entity/entity system. All game objects inherit from `BaseEntity`,
+which forms a tree via parent/children pointers. Entities communicate through a
 message passing system (see `EntityMessage` enum).
 
 ## Class Hierarchy
@@ -38,7 +38,7 @@ BaseEntity (base)                    vtable: 0x669F8C    ctor: 0x5625A0
 └── SpriteAnimEntityation                             ctor: 0x5466C0
 ```
 
-Note: Not all tasks are confirmed to inherit from WorldEntity. The hierarchy
+Note: Not all entities are confirmed to inherit from WorldEntity. The hierarchy
 above needs further verification via Ghidra analysis of each constructor.
 
 ## BaseEntity vtable (0x669F8C)
@@ -109,7 +109,7 @@ Extends BaseEntity at offset 0x00. Key fields discovered from constructor:
 ```
 Offset  Size  Field
 0x00    0x30  BaseEntity base
-0x20    4     class_type (set to 3 = GameCollisionTask in ctor)
+0x20    4     class_type (set to 3 = GameCollisionEntity in ctor)
 0x2C    4     param_3 from ctor
 0x30    4     param_3 (weapon id?)
 0x38    4     param_4

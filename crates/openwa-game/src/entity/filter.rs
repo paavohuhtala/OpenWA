@@ -12,7 +12,7 @@ crate::define_addresses! {
     }
 
     /// TeamEntity__CreateWeatherFilter — creates a FilterEntity + spawns CloudEntity children.
-    /// stdcall, 1 stack param (parent task), RET 0x4.
+    /// stdcall, 1 stack param (parent entity), RET 0x4.
     fn/Stdcall TEAM_ENTITY_CREATE_WEATHER_FILTER = 0x00552960;
 }
 
@@ -42,14 +42,14 @@ pub struct FilterEntityVtable {
     pub subscribe: fn(this: *mut FilterEntity, msg_id: u32),
 }
 
-/// Message-subscription filter task — routes messages selectively to child tasks.
+/// Message-subscription filter entity — routes messages selectively to child entities.
 ///
 /// FilterEntity is a BaseEntity subclass that overrides HandleMessage to only forward
 /// messages whose type is marked in a 100-entry boolean subscription table. Each
 /// FilterEntity instance subscribes to a specific set of message IDs at construction
 /// time; all other messages are silently dropped before reaching the subtree.
 ///
-/// **Role in the task tree**: TeamEntity creates multiple FilterEntity children per
+/// **Role in the entity tree**: TeamEntity creates multiple FilterEntity children per
 /// team during construction. Each filter represents a different event-routing path
 /// (e.g., movement, UI, game-flow, weather). Messages from WorldRootEntity propagate
 /// down through these filters, which gate access to their subtrees.
@@ -58,7 +58,7 @@ pub struct FilterEntityVtable {
 ///
 /// **Constructor**: `FilterEntity__Constructor` (0x54F3D0, thiscall):
 /// - `init_val_1c`: stored at BaseEntity+0x1C (role unknown)
-/// - `parent_task`: parent in the task tree (determines shared_data)
+/// - `parent_task`: parent in the entity tree (determines shared_data)
 ///
 /// **Key vtable methods** (vtable at 0x669DAC):
 /// - [2] `FilterEntity__HandleMessage` (0x54F4A0): checks subscription table, forwards
@@ -82,7 +82,7 @@ pub struct FilterEntity {
     /// Notable base fields set by FilterEntity__Constructor:
     /// - BaseEntity+0x18 (`_unknown_18`): set to 0
     /// - BaseEntity+0x1C (`_unknown_1c`): set to `init_val_1c` constructor param
-    /// - BaseEntity+0x20 (`_unknown_20`): set to 7 (task type / mode constant)
+    /// - BaseEntity+0x20 (`_unknown_20`): set to 7 (entity type / mode constant)
     pub base: BaseEntity<*const FilterEntityVtable>,
     /// 0x30–0x93: Boolean subscription table, indexed by message type ID (0–99).
     ///
@@ -103,7 +103,7 @@ bind_FilterEntityVtable!(FilterEntity, base.vtable);
 ///
 /// Messages with `msg_type < 98` are only forwarded if
 /// `subscription_table[msg_type] != 0`. Messages >= 98 always pass through.
-/// Forwarding calls `broadcast_message` which propagates down to child tasks.
+/// Forwarding calls `broadcast_message` which propagates down to child entities.
 pub unsafe extern "thiscall" fn filter_handle_message(
     this: *mut FilterEntity,
     sender: *mut BaseEntity,

@@ -38,7 +38,7 @@ When spacebar is pressed during replay playback, this chain fires:
 
 ```
 Keyboard input
-  -> Control task (0x5451F0) translates keyboard action
+  -> Control entity (0x5451F0) translates keyboard action
   -> Sets WorldRoot+0x1F4 = 1 ("hurry requested")
   -> WorldRoot ProcessInput (msg 4)
      -> WorldRoot_HurryHandler (0x55E5F0)
@@ -66,7 +66,7 @@ the gap between "input detected during ProcessInput" and "end-of-frame processin
 | 0x531960 | GameFrameEndProcessor     | End-of-frame. Reads deferred hurry flag, sends Hurry message.                                                                            |
 | 0x531D00 | GameFrameDispatcher       | Main frame loop. Message queue + GameFrameEndProcessor.                                                                                  |
 | 0x5451F0 | ControlTask_HandleMessage | Translates keyboard input (msg 0xC) -> game messages.                                                                                    |
-| 0x553BD0 | GameMessageRouter         | Routes messages through task handler tree.                                                                                               |
+| 0x553BD0 | GameMessageRouter         | Routes messages through entity handler tree.                                                                                               |
 | 0x55DC00 | WorldRoot_HandleMessage   | Message dispatcher. Case 2=FrameFinish, 4=ProcessInput.                                                                                  |
 | 0x55E5F0 | WorldRoot_HurryHandler    | Hurry logic. Normal: packet 0x17. Replay: deferred flag. \_\_usercall(ESI).                                                              |
 | 0x55FDA0 | TurnManager_ProcessFrame  | Per-frame turn timer, decrements by 0x14 (20ms).                                                                                         |
