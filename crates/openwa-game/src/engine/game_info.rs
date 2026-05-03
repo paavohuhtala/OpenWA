@@ -200,8 +200,19 @@ pub struct GameInfo {
     /// 0xD959: Version-gated weapon restriction. If nonzero and game_version > 0x29,
     /// returns -2 for unavailable weapons.
     pub weapon_version_gate: u8,
-    /// 0xD95A-0xD967: Unknown
-    pub _unknown_d95a: [u8; 0xD968 - 0xD95A],
+    /// 0xD95A-0xD95B: Unknown
+    pub _unknown_d95a: [u8; 2],
+    /// 0xD95C: Same-alliance damage threshold (u8). When the sender and the
+    /// receiver share `weapon_alliance`, damage paths (msgs 0x1C/0x76 ApplyDamage,
+    /// 0x4B SpecialImpact, 0x51 PoisonWorm) read this byte: values `> 2` block
+    /// the damage entirely. Effectively the friendly-fire toggle.
+    pub friendly_fire_threshold: u8,
+    /// 0xD95D: Cross-alliance damage threshold (u8). Same comparison shape as
+    /// `friendly_fire_threshold`, applied when the sender and receiver have
+    /// different `weapon_alliance` values. `> 2` blocks the damage.
+    pub enemy_fire_threshold: u8,
+    /// 0xD95E-0xD967: Unknown
+    pub _unknown_d95e: [u8; 0xD968 - 0xD95E],
     /// 0xD968: Extended team count (u16). Used for buffer allocation sizing.
     pub num_teams_alloc: u16,
     /// 0xD96A: Extended terrain drop percentage (u8, remainder after land/mine/barrel).

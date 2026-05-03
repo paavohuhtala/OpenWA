@@ -19,9 +19,10 @@ use crate::address::va;
 use crate::engine::EntityActivityQueue;
 use crate::engine::team_arena::TeamArena;
 use crate::engine::world::GameWorld;
+use crate::game::game_task_message::cgametask_handle_message;
 use crate::game::message::{
     PoisonWormMessage, SelectArmingMessage, SelectCursorMessage, SelectWeaponMessage,
-    WeaponReleasedMessage, WormMovedMessage,
+    SpecialImpactMessage, WeaponReleasedMessage, WormMovedMessage,
 };
 use crate::game::{EntityMessage, weapon_fire};
 use crate::rebase::rb;
@@ -58,6 +59,11 @@ static mut BROADCAST_VIA_SHARED_DATA_ADDR: u32 = 0;
 // and dispatches it through the SharedData random-text channel. Stdcall
 // (this, name_array, count_kind, worm_name_ptr), RET 0x10.
 static mut LOCALIZED_TEXT_RANDOM_PICK_ADDR: u32 = 0;
+// PlayImpactSound_Maybe (0x004FF020) — usercall(EDI = this), 2 stack args
+// (sound_id, mag), RET 0x8. Reads the sound emitter pointer from
+// `[EDI+0xE0]`. Used by SpecialImpact (msg 0x4B) to play the corpse-hit
+// sound during the Dead-state branch.
+static mut WORM_PLAY_IMPACT_SOUND_ADDR: u32 = 0;
 
 pub unsafe fn init_addrs() {
     unsafe {
@@ -78,6 +84,7 @@ pub unsafe fn init_addrs() {
         WORM_SELECT_HERD_ADDR = rb(va::WORM_ENTITY_SELECT_HERD);
         BROADCAST_VIA_SHARED_DATA_ADDR = rb(0x00562EF0);
         LOCALIZED_TEXT_RANDOM_PICK_ADDR = rb(0x005480F0);
+        WORM_PLAY_IMPACT_SOUND_ADDR = rb(0x004FF020);
     }
 }
 
@@ -358,6 +365,26 @@ unsafe extern "stdcall" fn bridge_localized_text_random_pick(
     );
 }
 
+/// `__usercall(EDI = this, [stack] = sound_id, mag)`, RET 0x8.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_play_impact_sound(
+    _this: *mut WormEntity,
+    _sound_id: u32,
+    _mag: u32,
+) {
+    core::arch::naked_asm!(
+        "push edi",
+        "mov edi, dword ptr [esp+8]",
+        "push dword ptr [esp+16]",
+        "push dword ptr [esp+16]",
+        "mov eax, dword ptr [{addr}]",
+        "call eax",
+        "pop edi",
+        "ret 12",
+        addr = sym WORM_PLAY_IMPACT_SOUND_ADDR,
+    );
+}
+
 /// Inlines `WormEntity::IsActionState_Maybe` (0x0050E800). The function is
 /// a 2-entry jumptable indexed by `byte[(state - 0x68) + 0x50e820]`: byte=0
 /// returns 1 (action), byte=1 returns 0. From the data table at 0x50e820,
@@ -566,6 +593,7 @@ pub unsafe extern "thiscall" fn handle_message(
                 true
             }
             EntityMessage::PoisonWorm => msg_poison_worm(this, data as *const PoisonWormMessage),
+            EntityMessage::SpecialImpact => msg_special_impact(this, sender, size, data),
             EntityMessage::AdvanceWorm => {
                 msg_advance_worm(this);
                 true
@@ -1374,6 +1402,79 @@ unsafe fn msg_poison_worm(this: *mut WormEntity, message: *const PoisonWormMessa
             &raw const (*this).worm_name as *const u8,
         );
         true
+    }
+}
+
+/// Partial port — only the Dead-state branch. Other states return `false`
+/// so WA handles the long damage path; the alliance gate is read-only, so
+/// re-running it there is harmless.
+unsafe fn msg_special_impact(
+    this: *mut WormEntity,
+    sender: *mut BaseEntity,
+    size: u32,
+    data: *const u8,
+) -> bool {
+    unsafe {
+        let message = data as *const SpecialImpactMessage;
+        if message.is_null() {
+            return false;
+        }
+        let world = (*(this as *const BaseEntity)).world;
+        let game_info = (*world).game_info;
+
+        if alliance_blocks_damage(world, (*message).source_team_index, (*this).team_index) {
+            return true;
+        }
+
+        if (*this).state() != WormState::Dead as u32 {
+            return false;
+        }
+
+        let saved_speed_x = (*this).base.speed_x;
+        bridge_play_impact_sound(this, 0x6A, 0x10000);
+        cgametask_handle_message(
+            this as *mut WorldEntity,
+            sender,
+            EntityMessage::SpecialImpact,
+            size,
+            data,
+        );
+        (*this).base.speed_x = if (*game_info).game_version < 499 {
+            Fixed(0)
+        } else {
+            saved_speed_x
+        };
+        true
+    }
+}
+
+/// Friendly/enemy fire scheme gate shared by all damage paths (msgs
+/// 0x1C/0x76 ApplyDamage, 0x4B SpecialImpact, 0x51 PoisonWorm). A sender
+/// of `0` (no source team) never blocks. Otherwise the receiver compares
+/// its own `weapon_alliance` to the sender's: same-alliance reads
+/// `friendly_fire_threshold`, cross-alliance reads `enemy_fire_threshold`.
+/// Threshold values `> 2` block the damage.
+unsafe fn alliance_blocks_damage(
+    world: *const GameWorld,
+    sender_team: u32,
+    receiver_team: u32,
+) -> bool {
+    unsafe {
+        if sender_team == 0 {
+            return false;
+        }
+        let arena: *const TeamArena = &raw const (*world).team_arena;
+        let sender_alliance =
+            (*TeamArena::team_header(arena, sender_team as usize)).weapon_alliance;
+        let receiver_alliance =
+            (*TeamArena::team_header(arena, receiver_team as usize)).weapon_alliance;
+        let game_info = (*world).game_info;
+        let threshold = if sender_alliance == receiver_alliance {
+            (*game_info).friendly_fire_threshold
+        } else {
+            (*game_info).enemy_fire_threshold
+        };
+        threshold > 2
     }
 }
 
