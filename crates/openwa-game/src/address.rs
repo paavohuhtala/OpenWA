@@ -884,11 +884,13 @@ pub mod va {
         fn FUN_570E20 = 0x00570E20;
         /// IMG_Decode
         fn/Stdcall IMG_DECODE = 0x004F5F80;
-        /// `WormEntity::DrawTrail` (0x00500720). Renders the segmented
-        /// rope/grapple polyline anchored to a worm during ninja-rope,
-        /// bungee, and kamikaze use. Operates directly on a `WormEntity*`;
-        /// no separate "BungeeTrailEntity" class exists.
-        fn/Stdcall WORM_ENTITY_DRAW_TRAIL = 0x00500720;
+        /// `WormEntity::DrawAttachedRope` (0x00500720). Draws the segmented
+        /// rope polyline + anchor sprite for a worm currently attached to
+        /// a ninja rope or bungee. The unattached/in-flight rope is drawn
+        /// by a different (currently-unidentified) function. Operates
+        /// directly on a `WormEntity*`; no separate "BungeeTrailEntity"
+        /// class exists.
+        fn/Stdcall WORM_ENTITY_DRAW_ATTACHED_ROPE = 0x00500720;
         /// DrawCrosshairLine
         fn/Usercall DRAW_CROSSHAIR_LINE = 0x005197D0;
         fn DESTRUCT_LANDSCAPE = 0x0057B540;

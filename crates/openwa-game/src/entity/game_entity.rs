@@ -89,9 +89,9 @@ pub struct WorldEntity<V: super::base::Vtable = *const core::ffi::c_void> {
     /// it gates the `Jump` (msg 0x24) input-restriction path: when the
     /// per-worm input-lock flag at +0x12A is non-zero, the gate fires only
     /// while this slot is *also* zero. WormEntity also reuses this slot as
-    /// the "rope/grapple/kamikaze trail active" gate read by
-    /// [`render::worm::draw_worm_trail`](crate::render::worm::draw_worm_trail)
-    /// (set to 1 by `InitWormTrail` 0x005008D0). Writers / canonical name TBD.
+    /// the "attached-rope active" gate read by
+    /// [`render::worm::draw_attached_rope`](crate::render::worm::draw_attached_rope)
+    /// (set to 1 by `InitWormAttachedRope` 0x005008D0). Writers / canonical name TBD.
     pub _field_bc: u32,
     /// 0xC0-0xCB: Unknown gameplay fields.
     pub _unknown_c0: [u8; 0xC],

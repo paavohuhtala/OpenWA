@@ -88,6 +88,44 @@ static mut WORM_SPAWN_DAMAGE_PARTICLES_ADDR: u32 = 0;
 // (pos_x, pos_y). The `rope_param` arg comes from the message's offset
 // 0x10 (treated as a pre-multiplier `(arg + 2) << 17`).
 static mut WORM_HIT_TEST_ROPE_LINE_ADDR: u32 = 0;
+// WormEntity::StepRopePhysics_Maybe (0x005003D0) — usercall(stdcall this on
+// stack, AL = mode), RET 0x4. Per-frame rope-constraint solver step (NOT a
+// "snapshot" despite earlier naming). AL=0 runs full physics + segment
+// rewalk; AL=1 would zero +0x34 and skip — case 0x3 calls with AL=0.
+// Recomputes worm angle (+0x8C) from segment data and damps velocity
+// (+0x90/+0x94). The bridge zeroes AL explicitly before the call, matching
+// WA's `XOR AL,AL` at the case-0x3 call site.
+static mut WORM_STEP_ROPE_PHYSICS_ADDR: u32 = 0;
+// 0x00500630 — usercall(EAX = this), no stack args, plain RET. Paired with
+// StepRopePhysics in case 0x3's tail; semantics not yet fully nailed down.
+// Likely a complementary rope-step or post-render cleanup. Was previously
+// guessed as "RestoreKamikazeState" — that name was wrong.
+static mut WORM_ROPE_PHYSICS_TAIL_ADDR: u32 = 0;
+// DrainInputBuffer (0x005148E0) — usercall(EDI = this), no stack args,
+// plain RET. Consumes/clears the four `input_msg_move_*` edge-trigger
+// flags into pending-action state.
+static mut WORM_DRAIN_INPUT_BUFFER_ADDR: u32 = 0;
+// ScrollAimX (0x00513F90) — usercall(EAX = this), no stack args, plain RET.
+// Per-frame aim-X scroll for AimingAngle (state 0x7B).
+static mut WORM_SCROLL_AIM_X_ADDR: u32 = 0;
+// ScrollAimSmooth (0x00514050) — thiscall(ECX = this), no stack args,
+// plain RET. Per-frame smoothed aim scroll for RopeSwinging (state 0x7C).
+static mut WORM_SCROLL_AIM_SMOOTH_ADDR: u32 = 0;
+// Vec2_SignClampAndScale (0x00518B80) — usercall(ESI = &x, EDI = &y),
+// no stack args, plain RET. In-place: clamps each component to ±1.0 (16.16)
+// or 0; if both non-zero, scales by 3/5. Misnamed in Ghidra as
+// "NormalizeAndScale3Over5" — it's not a true normalize.
+static mut VEC2_SIGN_CLAMP_AND_SCALE_ADDR: u32 = 0;
+// Worm draw helpers (case 0x3 RenderScene).
+static mut WORM_DRAW_AIMING_ARROW_ADDR: u32 = 0;
+static mut WORM_DRAW_WORM_NAME_ADDR: u32 = 0;
+static mut WORM_DRAW_SPRITE_ADDR: u32 = 0;
+static mut WORM_DRAW_HEALTH_LABEL_ADDR: u32 = 0;
+static mut WORM_DRAW_OFF_MAP_MARKER_ADDR: u32 = 0;
+static mut WORM_DRAW_HUD_LABELS_ADDR: u32 = 0;
+static mut WORM_DRAW_AIM_CURSOR_ADDR: u32 = 0;
+static mut WORM_DRAW_TURN_INDICATOR_ADDR: u32 = 0;
+static mut WORM_DRAW_CURSOR_MARKER_ADDR: u32 = 0;
 // WormEntity::BehaviorTick_Maybe (0x00515650) — plain stdcall, this on
 // stack, RET 0x4, returns u32 in EAX. The 645-line per-frame behaviour
 // driver; far too large to port in one slice.
@@ -176,6 +214,21 @@ pub unsafe fn init_addrs() {
         WORM_APPLY_DRAG_MODS_ADDR = rb(0x004FF9F0);
         WORM_APPLY_WIND_ADDR = rb(0x004FFAF0);
         WORM_ACCUMULATE_IMPULSE_ADDR = rb(0x004FFA60);
+        WORM_STEP_ROPE_PHYSICS_ADDR = rb(0x005003D0);
+        WORM_ROPE_PHYSICS_TAIL_ADDR = rb(0x00500630);
+        WORM_DRAIN_INPUT_BUFFER_ADDR = rb(0x005148E0);
+        WORM_SCROLL_AIM_X_ADDR = rb(0x00513F90);
+        WORM_SCROLL_AIM_SMOOTH_ADDR = rb(0x00514050);
+        VEC2_SIGN_CLAMP_AND_SCALE_ADDR = rb(0x00518B80);
+        WORM_DRAW_AIMING_ARROW_ADDR = rb(0x00513A90);
+        WORM_DRAW_WORM_NAME_ADDR = rb(0x0050FB50);
+        WORM_DRAW_SPRITE_ADDR = rb(0x0050FCD0);
+        WORM_DRAW_HEALTH_LABEL_ADDR = rb(0x00510260);
+        WORM_DRAW_OFF_MAP_MARKER_ADDR = rb(0x0050F900);
+        WORM_DRAW_HUD_LABELS_ADDR = rb(0x0050FDC0);
+        WORM_DRAW_AIM_CURSOR_ADDR = rb(0x0051D680);
+        WORM_DRAW_TURN_INDICATOR_ADDR = rb(0x0050F810);
+        WORM_DRAW_CURSOR_MARKER_ADDR = rb(0x005103A0);
     }
 }
 
@@ -737,6 +790,211 @@ unsafe extern "stdcall" fn bridge_hit_test_rope_line(
     );
 }
 
+/// `__usercall(stdcall this on stack, AL = mode)`, RET 0x4. Per-frame rope
+/// physics step. Bridge zeroes AL explicitly before the call (matching
+/// WA's case-0x3 caller's `XOR AL,AL`).
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_step_rope_physics(_this: *mut WormEntity) {
+    core::arch::naked_asm!(
+        "xor al, al",
+        "push dword ptr [esp+4]",
+        "mov ecx, dword ptr [{addr}]",
+        "call ecx",
+        "ret 4",
+        addr = sym WORM_STEP_ROPE_PHYSICS_ADDR,
+    );
+}
+
+/// `__usercall(EAX = this)`, no stack args, plain RET. Tail companion to
+/// `bridge_step_rope_physics` in case 0x3.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_rope_physics_tail(_this: *mut WormEntity) {
+    core::arch::naked_asm!(
+        "mov eax, dword ptr [esp+4]",
+        "mov ecx, dword ptr [{addr}]",
+        "call ecx",
+        "ret 4",
+        addr = sym WORM_ROPE_PHYSICS_TAIL_ADDR,
+    );
+}
+
+/// `__usercall(EDI = this)`, no stack args, plain RET.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_drain_input_buffer(_this: *mut WormEntity) {
+    core::arch::naked_asm!(
+        "push edi",
+        "mov edi, dword ptr [esp+8]",
+        "mov eax, dword ptr [{addr}]",
+        "call eax",
+        "pop edi",
+        "ret 4",
+        addr = sym WORM_DRAIN_INPUT_BUFFER_ADDR,
+    );
+}
+
+/// `__usercall(EAX = this)`, no stack args, plain RET.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_scroll_aim_x(_this: *mut WormEntity) {
+    core::arch::naked_asm!(
+        "mov eax, dword ptr [esp+4]",
+        "mov ecx, dword ptr [{addr}]",
+        "call ecx",
+        "ret 4",
+        addr = sym WORM_SCROLL_AIM_X_ADDR,
+    );
+}
+
+/// `__thiscall(ECX = this)`, no stack args, plain RET.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_scroll_aim_smooth(_this: *mut WormEntity) {
+    core::arch::naked_asm!(
+        "mov ecx, dword ptr [esp+4]",
+        "mov eax, dword ptr [{addr}]",
+        "call eax",
+        "ret 4",
+        addr = sym WORM_SCROLL_AIM_SMOOTH_ADDR,
+    );
+}
+
+/// `__usercall(ESI = &x, EDI = &y)`, no stack args, plain RET. In-place
+/// clamp-to-unit-step then optional 3/5 scale.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_vec2_sign_clamp_and_scale(
+    _x_ptr: *mut Fixed,
+    _y_ptr: *mut Fixed,
+) {
+    core::arch::naked_asm!(
+        "push esi",
+        "push edi",
+        "mov esi, dword ptr [esp+12]",
+        "mov edi, dword ptr [esp+16]",
+        "mov eax, dword ptr [{addr}]",
+        "call eax",
+        "pop edi",
+        "pop esi",
+        "ret 8",
+        addr = sym VEC2_SIGN_CLAMP_AND_SCALE_ADDR,
+    );
+}
+
+/// `__usercall(ESI = this)`, no stack args, plain RET.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_draw_aiming_arrow(_this: *mut WormEntity) {
+    core::arch::naked_asm!(
+        "push esi",
+        "mov esi, dword ptr [esp+8]",
+        "mov eax, dword ptr [{addr}]",
+        "call eax",
+        "pop esi",
+        "ret 4",
+        addr = sym WORM_DRAW_AIMING_ARROW_ADDR,
+    );
+}
+
+/// `__usercall(ESI = this)`, no stack args, plain RET.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_draw_worm_name(_this: *mut WormEntity) {
+    core::arch::naked_asm!(
+        "push esi",
+        "mov esi, dword ptr [esp+8]",
+        "mov eax, dword ptr [{addr}]",
+        "call eax",
+        "pop esi",
+        "ret 4",
+        addr = sym WORM_DRAW_WORM_NAME_ADDR,
+    );
+}
+
+/// `__usercall(EAX = this)`, no stack args, plain RET.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_draw_sprite(_this: *mut WormEntity) {
+    core::arch::naked_asm!(
+        "mov eax, dword ptr [esp+4]",
+        "mov ecx, dword ptr [{addr}]",
+        "call ecx",
+        "ret 4",
+        addr = sym WORM_DRAW_SPRITE_ADDR,
+    );
+}
+
+/// `__usercall(ESI = this)`, no stack args, plain RET.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_draw_health_label(_this: *mut WormEntity) {
+    core::arch::naked_asm!(
+        "push esi",
+        "mov esi, dword ptr [esp+8]",
+        "mov eax, dword ptr [{addr}]",
+        "call eax",
+        "pop esi",
+        "ret 4",
+        addr = sym WORM_DRAW_HEALTH_LABEL_ADDR,
+    );
+}
+
+/// `__stdcall(this)`, 1 stack arg, RET 0x4.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_draw_off_map_marker(_this: *mut WormEntity) {
+    core::arch::naked_asm!(
+        "push dword ptr [esp+4]",
+        "mov eax, dword ptr [{addr}]",
+        "call eax",
+        "ret 4",
+        addr = sym WORM_DRAW_OFF_MAP_MARKER_ADDR,
+    );
+}
+
+/// `__usercall(ESI = this)`, no stack args, plain RET.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_draw_hud_labels(_this: *mut WormEntity) {
+    core::arch::naked_asm!(
+        "push esi",
+        "mov esi, dword ptr [esp+8]",
+        "mov eax, dword ptr [{addr}]",
+        "call eax",
+        "pop esi",
+        "ret 4",
+        addr = sym WORM_DRAW_HUD_LABELS_ADDR,
+    );
+}
+
+/// `__usercall(ESI = this)`, no stack args, plain RET.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_draw_aim_cursor(_this: *mut WormEntity) {
+    core::arch::naked_asm!(
+        "push esi",
+        "mov esi, dword ptr [esp+8]",
+        "mov eax, dword ptr [{addr}]",
+        "call eax",
+        "pop esi",
+        "ret 4",
+        addr = sym WORM_DRAW_AIM_CURSOR_ADDR,
+    );
+}
+
+/// `__thiscall(ECX = this)`, no stack args, plain RET.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_draw_turn_indicator(_this: *mut WormEntity) {
+    core::arch::naked_asm!(
+        "mov ecx, dword ptr [esp+4]",
+        "mov eax, dword ptr [{addr}]",
+        "call eax",
+        "ret 4",
+        addr = sym WORM_DRAW_TURN_INDICATOR_ADDR,
+    );
+}
+
+/// `__usercall(EAX = this)`, no stack args, plain RET.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_draw_cursor_marker(_this: *mut WormEntity) {
+    core::arch::naked_asm!(
+        "mov eax, dword ptr [esp+4]",
+        "mov ecx, dword ptr [{addr}]",
+        "call ecx",
+        "ret 4",
+        addr = sym WORM_DRAW_CURSOR_MARKER_ADDR,
+    );
+}
+
 /// 5% of remaining gap, with a constant-step floor of `0x20C` so the
 /// fade always reaches its target in finite time. Used by the two
 /// `EaseAimVec` helpers below.
@@ -1051,6 +1309,7 @@ pub unsafe extern "thiscall" fn handle_message(
             }
             EntityMessage::FrameFinish => msg_frame_finish(this, sender, size, data),
             EntityMessage::FrameStart => msg_frame_start(this, sender, size, data),
+            EntityMessage::RenderScene => msg_render_scene(this, sender, size, data),
             _ => false,
         };
         if !handled {
@@ -2831,6 +3090,194 @@ unsafe fn msg_frame_start(
             this as *mut WorldEntity,
             sender,
             EntityMessage::FrameStart,
+            size,
+            data,
+        );
+        true
+    }
+}
+
+// Globals used by case 0x3 (RenderScene) to hold the kamikaze pos/state
+// swap. WA reads/writes these as plain memory; we mirror that with rebased
+// pointers each frame. `KAMIKAZE_POS_SAVE_*_VA` are the Ghidra VAs.
+const KAMIKAZE_POS_SAVE_X_VA: u32 = 0x007742F4;
+const KAMIKAZE_POS_SAVE_Y_VA: u32 = 0x007742F8;
+const KAMIKAZE_AUX_SAVE_VA: u32 = 0x008C1EB8;
+const KAMIKAZE_CLIFF_FALL_SAVE_VA: u32 = 0x008C1EBC;
+
+#[inline]
+unsafe fn world_field_i32(world: *mut GameWorld, offset: usize) -> i32 {
+    unsafe { *((world as *const u8).add(offset) as *const i32) }
+}
+
+#[inline]
+unsafe fn world_field_byte(world: *mut GameWorld, offset: usize) -> u8 {
+    unsafe { *((world as *const u8).add(offset)) }
+}
+
+/// Case `0x3 RenderScene` — the per-frame draw pass for a worm. WA's case
+/// body has three sub-blocks (kamikaze prologue, draw block, kamikaze
+/// epilogue) and **always** calls the parent `WorldEntity::HandleMessage`
+/// before returning. Returns `true` so the dispatcher does not run
+/// `fall_through`.
+///
+/// Most of the work is rendering side-effects we cannot validate
+/// headlessly. The sim-relevant pieces are the kamikaze pos swap (the
+/// `TryMovePosition` call inside Block A), the `world.field_7ea0` directional
+/// nudge, the kamikaze state save/restore globals, and the parent
+/// dispatch.
+unsafe fn msg_render_scene(
+    this: *mut WormEntity,
+    sender: *mut BaseEntity,
+    size: u32,
+    data: *const u8,
+) -> bool {
+    unsafe {
+        let world = (*(this as *const BaseEntity)).world;
+        let state = (*this).state();
+        let action_field = i32::from_ne_bytes(
+            (&(*this).base.subclass_data)[0x18..0x1C]
+                .try_into()
+                .unwrap(),
+        );
+        let fire_complete = (*this).fire_complete();
+
+        let kamikaze_pos_save_x = rb(KAMIKAZE_POS_SAVE_X_VA) as *mut Fixed;
+        let kamikaze_pos_save_y = rb(KAMIKAZE_POS_SAVE_Y_VA) as *mut Fixed;
+        let kamikaze_aux_save = rb(KAMIKAZE_AUX_SAVE_VA) as *mut i32;
+        let kamikaze_cliff_fall_save = rb(KAMIKAZE_CLIFF_FALL_SAVE_VA) as *mut u32;
+
+        // Block A — kamikaze active path: action_field != 0 && state == 0x6D.
+        // Saves the worm's current pos into the global swap slots, then sign-
+        // clamps (speed_x, speed_y) and forwards to TryMovePosition with each
+        // axis biased by `speed_axis * (render_interp_a << 4)` (Q16 multiply).
+        // WA's call passes the X result on the stack and the Y result in EDI
+        // (the implicit usercall arg Ghidra's decomp hides).
+        let kamikaze_active = action_field != 0 && state.is(KnownWormState::SuicideBomber);
+        if kamikaze_active {
+            *kamikaze_pos_save_x = (*this).base.pos_x;
+            *kamikaze_pos_save_y = (*this).base.pos_y;
+
+            let mut clamped_x = (*this).base.speed_x;
+            let mut clamped_y = (*this).base.speed_y;
+            bridge_vec2_sign_clamp_and_scale(&raw mut clamped_x, &raw mut clamped_y);
+
+            let interp = world_field_i32(world, 0x8150);
+            let interp_q4 = (interp as i64) << 4;
+            let dx = ((clamped_x.0 as i64).wrapping_mul(interp_q4) >> 16) as i32;
+            let dy = ((clamped_y.0 as i64).wrapping_mul(interp_q4) >> 16) as i32;
+            let new_x = dx.wrapping_add((*this).base.pos_x.0);
+            let new_y = dy.wrapping_add((*this).base.pos_y.0);
+            WorldEntity::try_move_position_raw(this as *mut WorldEntity, new_x, new_y);
+        } else if fire_complete != 0 && action_field == 0 {
+            // Block B — non-kamikaze path that gates on the worm having
+            // just-completed firing. Save the kamikaze fields to the side
+            // buffers and (when the frame is non-paused) drive the per-state
+            // aim scroll for AimingAngle / RopeSwinging.
+            *kamikaze_cliff_fall_save = (*this).cliff_fall_flag;
+            bridge_step_rope_physics(this);
+            if world_field_i32(world, 0x8150) != 0 {
+                if state.is(KnownWormState::AimingAngle_Maybe) {
+                    bridge_drain_input_buffer(this);
+                    bridge_scroll_aim_x(this);
+                } else if state.is(KnownWormState::RopeSwinging) {
+                    *kamikaze_aux_save = (*this)._field_1e8;
+                    bridge_drain_input_buffer(this);
+                    bridge_scroll_aim_smooth(this);
+                }
+            }
+        }
+
+        // Block C — main draw pass. Skipped entirely when the worm is in
+        // the Dead state (0x64). Inside, an early `goto LAB_00511d57` skips
+        // the draw + nudge when `_field_140 == 0` AND the per-team alliance
+        // table has bit 3 set on the team's "spectator/hidden" byte.
+        let mut skip_draw = false;
+        if !state.is(KnownWormState::Dead) {
+            let team_idx = (*this).team_index as usize;
+
+            // Per-team skip-to-tail check (matches WA's `goto LAB_00511d57`).
+            if (*this)._field_140 == 0 {
+                let team_block_off = team_idx * 0x51c;
+                let table_a = world_field_i32(world, 0x7E6C + team_idx * 4);
+                let team_field_4618 = world_field_i32(world, 0x4618 + team_block_off);
+                let team_byte_4628 = world_field_byte(world, 0x4628 + team_block_off);
+                if table_a == 0 && team_field_4618 == 0 && (team_byte_4628 & 8) != 0 {
+                    skip_draw = true;
+                }
+            }
+
+            if !skip_draw {
+                // Camera-bias nudge: ±1 per frame (or ±100 when this worm
+                // holds the turn) into world.field_7ea0, signed by which
+                // side of the viewport midpoint the worm is on.
+                let step: i32 = if (*this).turn_active != 0 { 100 } else { 1 };
+                let midpoint_x = world_field_i32(world, 0x8CEC);
+                let nudge_slot = (world as *mut u8).add(0x7EA0) as *mut i32;
+                if (*this).base.pos_x.0 < midpoint_x {
+                    *nudge_slot = (*nudge_slot).wrapping_add(step);
+                } else {
+                    *nudge_slot = (*nudge_slot).wrapping_sub(step);
+                }
+
+                // Draw helpers — all rendering side-effects, bridged into WA.
+                bridge_draw_aiming_arrow(this);
+                bridge_draw_worm_name(this);
+                bridge_draw_sprite(this);
+                bridge_draw_health_label(this);
+                // DrawCrosshairLine has a Rust port; the worm pointer is the
+                // receiver (the "WeaponAimEntity" overlay is similarly
+                // synthetic — its offsets line up with WormEntity).
+                crate::render::crosshair_line::draw_crosshair_line(
+                    this as *const crate::entity::WeaponAimEntity,
+                );
+
+                // HUD/aim/rope sub-block: gated on `_field_b0 == 0`.
+                if (*this).base._field_b0 == 0 {
+                    if (*this)._unknown_208 == 0 {
+                        bridge_draw_off_map_marker(this);
+                    }
+                    bridge_draw_hud_labels(this);
+                    bridge_draw_aim_cursor(this);
+                    bridge_draw_turn_indicator(this);
+                    let rope_style = (*world).gfx_color_table[8];
+                    let rope_fill = (*world).gfx_color_table[6];
+                    crate::render::worm::draw_attached_rope(this, rope_style, rope_fill);
+                    bridge_draw_cursor_marker(this);
+                }
+            }
+        }
+
+        // Tail (LAB_00511d57). Two terminal arms — kamikaze tail and the
+        // non-kamikaze save/restore tail — both end with the parent
+        // dispatch + return. WA re-reads the gating fields here rather than
+        // using the prologue's snapshot, so we do too: helpers in the body
+        // (TryMovePosition collision callbacks in Block A,
+        // DrainInputBuffer / ScrollAim* in Block B) can mutate state.
+        let tail_state = (*this).state();
+        let tail_action_field = i32::from_ne_bytes(
+            (&(*this).base.subclass_data)[0x18..0x1C]
+                .try_into()
+                .unwrap(),
+        );
+        let tail_fire_complete = (*this).fire_complete();
+
+        if tail_action_field != 0 && tail_state.is(KnownWormState::SuicideBomber) {
+            let saved_x = (*kamikaze_pos_save_x).0;
+            let saved_y = (*kamikaze_pos_save_y).0;
+            WorldEntity::try_move_position_raw(this as *mut WorldEntity, saved_x, saved_y);
+        } else if tail_fire_complete != 0 && tail_action_field == 0 {
+            bridge_rope_physics_tail(this);
+            (*this).cliff_fall_flag = *kamikaze_cliff_fall_save;
+            if world_field_i32(world, 0x8150) != 0 && tail_state.is(KnownWormState::RopeSwinging) {
+                (*this)._field_1e8 = *kamikaze_aux_save;
+            }
+        }
+
+        world_entity_handle_message(
+            this as *mut WorldEntity,
+            sender,
+            EntityMessage::RenderScene,
             size,
             data,
         );

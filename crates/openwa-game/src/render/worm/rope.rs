@@ -1,13 +1,14 @@
-//! `WormEntity::DrawTrail` (0x00500720) — draws the segmented rope/grapple
-//! polyline anchored to a worm during ninja-rope, bungee, and kamikaze use.
+//! `WormEntity::DrawAttachedRope` (0x00500720) — draws the segmented rope
+//! anchored to a worm while the worm is attached. Both ninja rope and
+//! bungee use this: it's the polyline + anchor sprite drawn once a rope is
+//! attached. The unattached (in-flight) rope is rendered by a different,
+//! currently-unidentified function.
 //!
-//! The function is misnamed in Ghidra as "DrawBungeeTrail"; there is no
-//! separate `BungeeTrailEntity` class. The receiver is a `WormEntity` and the
-//! trail state lives in WorldEntity-base slots `+0xBC..+0xE4` that the
-//! ninja-rope (state 0x7C) and kamikaze paths share via snap/restore at
-//! 0x005003D0 / 0x00500630. Offsets used here:
+//! "BungeeTrail" was a Ghidra-side misnomer; there is no separate
+//! `BungeeTrailEntity` class. The receiver is a `WormEntity` and the rope
+//! state lives in WorldEntity-base slots `+0xBC..+0xE4`. Offsets used here:
 //!
-//! - `+0xBC` (`_field_bc`): trail-active gate (1 = render).
+//! - `+0xBC` (`_field_bc`): rope-attached gate (1 = render).
 //! - `+0xC0/+0xC4`: anchor (rope hook) coords.
 //! - `+0xD0`: segment count.
 //! - `+0xE4`: segment buffer (`wa_malloc(0x220)` — 0x40 × 8 bytes; angle at
@@ -30,7 +31,7 @@ unsafe fn read_ptr(this: *const WormEntity, offset: usize) -> *const u8 {
     unsafe { *((this as *const u8).add(offset) as *const *const u8) }
 }
 
-pub unsafe fn draw_worm_trail(this: *const WormEntity, style: u32, fill: u32) {
+pub unsafe fn draw_attached_rope(this: *const WormEntity, style: u32, fill: u32) {
     unsafe {
         if read_i32(this, 0xBC) == 0 {
             return;

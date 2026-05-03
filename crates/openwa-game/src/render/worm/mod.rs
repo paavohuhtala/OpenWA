@@ -1,8 +1,8 @@
-//! Per-worm rendering (HUD, sprite, aim cursor, rope/bungee trail, etc.).
+//! Per-worm rendering (HUD, sprite, aim cursor, attached-rope, etc.).
 //!
 //! These all run from `WormEntity::HandleMessage` case 0x3 (RenderScene)
 //! during the per-frame draw pass.
 
-pub mod trail;
+pub mod rope;
 
-pub use trail::draw_worm_trail;
+pub use rope::draw_attached_rope;

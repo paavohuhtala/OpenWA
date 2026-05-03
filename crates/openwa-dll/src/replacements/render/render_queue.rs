@@ -297,11 +297,11 @@ unsafe extern "cdecl" fn draw_textbox_local_impl(
     }
 }
 
-// WormEntity::DrawTrail (0x00500720)
+// WormEntity::DrawAttachedRope (0x00500720)
 
-unsafe extern "stdcall" fn draw_worm_trail_impl(this: *const WormEntity, style: u32, fill: u32) {
+unsafe extern "stdcall" fn draw_attached_rope_impl(this: *const WormEntity, style: u32, fill: u32) {
     unsafe {
-        openwa_game::render::worm::draw_worm_trail(this, style, fill);
+        openwa_game::render::worm::draw_attached_rope(this, style, fill);
     }
 }
 
@@ -395,9 +395,9 @@ pub fn install() -> Result<(), String> {
         )?;
 
         let _ = hook::install(
-            "WormEntity::DrawTrail",
-            va::WORM_ENTITY_DRAW_TRAIL,
-            draw_worm_trail_impl as *const (),
+            "WormEntity::DrawAttachedRope",
+            va::WORM_ENTITY_DRAW_ATTACHED_ROPE,
+            draw_attached_rope_impl as *const (),
         )?;
 
         let _ = hook::install(
