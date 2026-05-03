@@ -348,6 +348,15 @@ fn blit_color_table(
     }
 }
 
+/// Color-table blend blit — 90° rotated orientations (axes swapped).
+///
+/// Per the function's design (see `orientation_steps` / `adjust_source_for_clip`):
+/// the OUTER `src_x` advances per dest *row* and represents the source's
+/// *column index* (X axis), and the INNER `src_y` advances per dest *col*
+/// and represents the source's *row index* (Y axis). Row-major access is
+/// therefore `src_y * src_stride + src_x` — NOT the other way around, which
+/// silently wraps into adjacent rows when the source is taller than wide
+/// and panics outright when the wrap crosses the buffer end.
 fn blit_color_table_swapped(
     dst: &mut PixelGridMut<'_>,
     src: &BlitSource,
@@ -370,7 +379,7 @@ fn blit_color_table_swapped(
 
         let mut src_y = sy_start;
         for dx in 0..vis_w {
-            let pixel = src.data[src_x as usize * src_stride + src_y as usize];
+            let pixel = src.data[src_y as usize * src_stride + src_x as usize];
             if pixel != 0 {
                 dst.data[dst_row + dx as usize] = table[pixel as usize];
             }

@@ -1,0 +1,25 @@
+Game Started at 2026-05-03 20:27:14 GMT
+Game Engine Version: 3.8.1
+File Format Version: 3.7.3.0 - 3.8.1
+Exported with Version: 3.8.1 (Steam)
+
+Red:  "2-UP"
+Blue: "3-UP"
+
+[00:00:00.00] ••• 3-UP starts turn
+[00:00:08.96] ••• 3-UP uses Bungee
+[00:00:33.34] ••• 3-UP loses turn due to loss of control; time used: 31.32 sec turn, 0.00 sec retreat
+[00:00:43.52] ••• Damage dealt: 100 (1 kill) to 3-UP
+[00:00:43.54] ••• Game Ends - Round Finished
+
+Team time totals:
+2-UP: Turn: 00:00:00.00, Retreat: 00:00:00.00, Total: 00:00:00.00, Turn count: 0
+3-UP: Turn: 00:00:31.32, Retreat: 00:00:00.00, Total: 00:00:31.32, Turn count: 1
+
+End of round 1
+
+Round time: 0:00:43
+Total game time elapsed: 0:00:43
+
+2-UP wins the round.
+
