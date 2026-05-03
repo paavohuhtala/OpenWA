@@ -88,6 +88,10 @@ static mut WORM_SPAWN_DAMAGE_PARTICLES_ADDR: u32 = 0;
 // (pos_x, pos_y). The `rope_param` arg comes from the message's offset
 // 0x10 (treated as a pre-multiplier `(arg + 2) << 17`).
 static mut WORM_HIT_TEST_ROPE_LINE_ADDR: u32 = 0;
+// WormEntity::BehaviorTick_Maybe (0x00515650) — plain stdcall, this on
+// stack, RET 0x4, returns u32 in EAX. The 645-line per-frame behaviour
+// driver; far too large to port in one slice.
+static mut WORM_BEHAVIOR_TICK_ADDR: u32 = 0;
 
 pub unsafe fn init_addrs() {
     unsafe {
@@ -112,7 +116,15 @@ pub unsafe fn init_addrs() {
         WORM_PLAY_SOUND_ADDR = rb(0x00515020);
         WORM_SPAWN_DAMAGE_PARTICLES_ADDR = rb(0x005108D0);
         WORM_HIT_TEST_ROPE_LINE_ADDR = rb(0x00501210);
+        WORM_BEHAVIOR_TICK_ADDR = rb(0x00515650);
     }
+}
+
+#[inline]
+unsafe fn bridge_behavior_tick(this: *mut WormEntity) -> u32 {
+    type Fn = unsafe extern "stdcall" fn(*mut WormEntity) -> u32;
+    let f: Fn = unsafe { core::mem::transmute(WORM_BEHAVIOR_TICK_ADDR as usize) };
+    unsafe { f(this) }
 }
 
 /// `__usercall(EAX = queue, [stack] = slot)`, RET 0x4. Resets the entity's
@@ -792,6 +804,7 @@ pub unsafe extern "thiscall" fn handle_message(
                 msg_update_non_critical(this);
                 true
             }
+            EntityMessage::FrameFinish => msg_frame_finish(this, sender, size, data),
             _ => false,
         };
         if !handled {
@@ -2290,6 +2303,64 @@ unsafe fn msg_update_non_critical(this: *mut WormEntity) {
             (*this).aim_fade[1] = Fixed::ONE;
             (*this)._field_3a4 = (*world)._field_7640;
         }
+    }
+}
+
+/// Case `0x2 FrameFinish` — runs WA's parent dispatch then `BehaviorTick`,
+/// followed by two book-keeping checks. Bridges `BehaviorTick` (still in
+/// WA) and reuses the Rust port of `IsActionState_Maybe`. WA's switch ends
+/// in `break;` (no fall-through), so this returns `true` either way.
+unsafe fn msg_frame_finish(
+    this: *mut WormEntity,
+    sender: *mut BaseEntity,
+    size: u32,
+    data: *const u8,
+) -> bool {
+    unsafe {
+        // Parent dispatch first — WorldEntity::HandleMessage clears the
+        // owned sound handle for FrameFinish, then broadcasts to children.
+        world_entity_handle_message(
+            this as *mut WorldEntity,
+            sender,
+            EntityMessage::FrameFinish,
+            size,
+            data,
+        );
+
+        if bridge_behavior_tick(this) == 0 {
+            return true;
+        }
+
+        let world = (*(this as *const BaseEntity)).world;
+        let team_index = (*this).team_index;
+        let worm_index = (*this).worm_index;
+        let arena: *mut TeamArena = &raw mut (*world).team_arena;
+        let entry = TeamArena::team_worm_mut(arena, team_index as usize, worm_index as usize);
+
+        // Clear the per-turn action-pending flag on the worm entry when
+        // either the state is outside the action range `[0x68..=0x8A]` or
+        // `IsActionState` returns false, AND the entry slot is non-zero,
+        // AND the worm's `_field_258` / `_unknown_2cc` gates are zero.
+        let state = (*this).state();
+        let state_out_of_range = state.0.wrapping_sub(0x68) > 0x22;
+        if (state_out_of_range || !is_action_state(state))
+            && (*entry)._field_98 != 0
+            && (*this)._field_258 == 0
+            && (*this)._unknown_2cc == 0
+        {
+            (*entry)._field_98 = 0;
+        }
+
+        // Per-team turn-action bit 4 + game_version >= 0x54 ⇒ advance
+        // the global RNG (an extra LCG step that keeps the desync sync'd
+        // with the bit-4 path WA reaches via the early `return`).
+        let header = TeamArena::team_header(arena, team_index as usize);
+        let game_version = (*(*world).game_info).game_version;
+        if (*header).turn_action_flags & 4 != 0 && game_version > 0x53 {
+            (*world).advance_rng();
+        }
+
+        true
     }
 }
 
