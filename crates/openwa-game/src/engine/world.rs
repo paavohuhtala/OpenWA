@@ -768,6 +768,23 @@ impl GameWorld {
         }
     }
 
+    /// Read a per-team idle-sound ID for `WormEntity::HandleMessage` case
+    /// 0x5 (UpdateNonCritical). Two sound IDs sit in the same per-team
+    /// config block (stride 0xF0) at offsets 0x7714 (`parity == 1`) and
+    /// 0x7744 (`parity == 0`); WA picks between them with `(frame_counter
+    /// / 31) & 1`. Both reads use the team-block stride that backs
+    /// [`team_damage_grunt_id`].
+    ///
+    /// # Safety
+    /// `team_id` must be a valid team index (0–5).
+    pub unsafe fn team_idle_sound_id(&self, team_id: u32, parity: u32) -> u32 {
+        let off = if parity == 0 { 0x7744 } else { 0x7714 };
+        unsafe {
+            let base = (self as *const GameWorld as *const u8).add(off);
+            *(base.add((team_id as usize) * 0xF0) as *const u32)
+        }
+    }
+
     /// Get a mutable pointer to a per-team/per-worm weapon stat counter.
     ///
     /// Four counters exist at GameWorld base offsets 0x40CC, 0x40D0, 0x40D4, 0x40D8,

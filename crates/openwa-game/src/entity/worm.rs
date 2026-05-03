@@ -251,6 +251,34 @@ crate::define_addresses! {
         /// positive and below the cycled value), then broadcasts updated
         /// settings.
         fn/Usercall WORM_ENTITY_SELECT_HERD = 0x00510540;
+        /// `WormEntity::EaseAimVecA_Maybe`. Thiscall `(ECX = this)`, plain
+        /// RET, no stack args. One of three per-frame easing helpers called
+        /// from `HandleMessage` case 0x5 (UpdateNonCritical).
+        fn/Thiscall WORM_ENTITY_EASE_AIM_VEC_A = 0x0050E630;
+        /// `WormEntity::EaseAimVecB_Maybe`. Thiscall `(ECX = this)`, plain
+        /// RET, no stack args. Sibling of `EaseAimVecA`, called from case
+        /// 0x5 (UpdateNonCritical) immediately after `EaseAuxValue`.
+        fn/Thiscall WORM_ENTITY_EASE_AIM_VEC_B = 0x0050E500;
+        /// `WormEntity::EaseAuxValue_Maybe`. Usercall `(ESI = this)`, plain
+        /// RET, no stack args. Middle of the three case-0x5 easing helpers.
+        fn/Usercall WORM_ENTITY_EASE_AUX_VALUE = 0x0050FB10;
+        /// `WormEntity::CanIdleSound_Maybe`. Usercall `(EAX = this)`, plain
+        /// RET, returns `i32` in EAX (nonzero ⇒ idle sound permitted). Called
+        /// from case 0x5 (UpdateNonCritical) — gates the idle-sound emission
+        /// alongside `stationary_frames > 499`.
+        fn/Usercall WORM_ENTITY_CAN_IDLE_SOUND = 0x0050E5E0;
+    }
+
+    class "WeaponSpawn" {
+        /// `WeaponSpawn::DecodeDescriptor_Maybe`. Usercall
+        /// `(EAX = out_eax_ptr, EDX = out_edx_ptr)` + 7 stack args
+        /// `(descriptor, out2..out7)`, RET 0x1C. Decodes a weapon's spawn
+        /// descriptor at `weapon_table.entries[id].fire_params` (offset
+        /// 0x510 inside `GameWorld`, stride 0x1D0) and writes 9 output
+        /// flags/ints into the caller's stack slots. Case 0x5
+        /// (UpdateNonCritical) only inspects two of those outputs (arg3 +
+        /// arg4) — both being zero means "no aim sprite required".
+        fn/Usercall WEAPON_SPAWN_DECODE_DESCRIPTOR = 0x00565C10;
     }
 
     class "TeamArena" {
@@ -712,8 +740,21 @@ pub struct WormEntity {
     /// 0x378–0x397: Aim-fade animation values (8 × Fixed 16.16, default 1.0 = 0x10000).
     /// Reset to 1.0 by `WeaponFinished` (msg 0x49) for Bungee weapons.
     pub aim_fade: [Fixed; 8],
-    /// 0x398–0x3AF: Unknown
-    pub _unknown_398: [u8; 0x3B0 - 0x398],
+    /// 0x398–0x39F: Unknown
+    pub _unknown_398: [u8; 0x3A0 - 0x398],
+    /// 0x3A0: "No aim sprite required" flag, set by `HandleMessage` case
+    /// 0x5 (UpdateNonCritical) when either `selected_weapon == None` or
+    /// `WeaponSpawn::DecodeDescriptor`'s arg3 + arg4 outputs are both 0.
+    /// Reader semantics TBD — almost certainly drives the per-frame aim
+    /// indicator render path.
+    pub _field_3a0: u32,
+    /// 0x3A4: Last seen value of `world._field_7640`. Case 0x5
+    /// (UpdateNonCritical) early-returns once `turn_active != 0` and the
+    /// world value has changed; the new value is stored here and aim_fade
+    /// slots [1] / [7] are reset to 1.0.
+    pub _field_3a4: u32,
+    /// 0x3A8–0x3AF: Unknown
+    pub _unknown_3a8: [u8; 0x3B0 - 0x3A8],
     /// 0x3B0: Streaming sound handle. Nonzero when a worm sound effect
     /// (e.g., weapon charge-up) is actively playing. PlayWormSound stores the
     /// new handle here; StopWormSound clears it.

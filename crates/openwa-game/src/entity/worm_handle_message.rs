@@ -17,6 +17,8 @@ use super::base::BaseEntity;
 use super::game_entity::WorldEntity;
 use super::worm::{KnownWormState, WormEntity, WormState};
 use crate::address::va;
+use crate::audio::SoundId;
+use crate::audio::sound_ops as sound;
 use crate::engine::EntityActivityQueue;
 use crate::engine::team_arena::{TeamArena, WormEntry};
 use crate::engine::world::GameWorld;
@@ -86,6 +88,11 @@ static mut WORM_SPAWN_DAMAGE_PARTICLES_ADDR: u32 = 0;
 // (pos_x, pos_y). The `rope_param` arg comes from the message's offset
 // 0x10 (treated as a pre-multiplier `(arg + 2) << 17`).
 static mut WORM_HIT_TEST_ROPE_LINE_ADDR: u32 = 0;
+static mut WORM_EASE_AIM_VEC_A_ADDR: u32 = 0;
+static mut WORM_EASE_AIM_VEC_B_ADDR: u32 = 0;
+static mut WORM_EASE_AUX_VALUE_ADDR: u32 = 0;
+static mut WORM_CAN_IDLE_SOUND_ADDR: u32 = 0;
+static mut WEAPON_SPAWN_DECODE_DESCRIPTOR_ADDR: u32 = 0;
 
 pub unsafe fn init_addrs() {
     unsafe {
@@ -110,6 +117,11 @@ pub unsafe fn init_addrs() {
         WORM_PLAY_SOUND_ADDR = rb(0x00515020);
         WORM_SPAWN_DAMAGE_PARTICLES_ADDR = rb(0x005108D0);
         WORM_HIT_TEST_ROPE_LINE_ADDR = rb(0x00501210);
+        WORM_EASE_AIM_VEC_A_ADDR = rb(va::WORM_ENTITY_EASE_AIM_VEC_A);
+        WORM_EASE_AIM_VEC_B_ADDR = rb(va::WORM_ENTITY_EASE_AIM_VEC_B);
+        WORM_EASE_AUX_VALUE_ADDR = rb(va::WORM_ENTITY_EASE_AUX_VALUE);
+        WORM_CAN_IDLE_SOUND_ADDR = rb(va::WORM_ENTITY_CAN_IDLE_SOUND);
+        WEAPON_SPAWN_DECODE_DESCRIPTOR_ADDR = rb(va::WEAPON_SPAWN_DECODE_DESCRIPTOR);
     }
 }
 
@@ -478,6 +490,92 @@ unsafe extern "stdcall" fn bridge_hit_test_rope_line(
     );
 }
 
+/// `__thiscall(ECX = this)`, plain RET, no stack args.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_ease_aim_vec_a(_this: *mut WormEntity) {
+    core::arch::naked_asm!(
+        "mov ecx, dword ptr [esp+4]",
+        "mov eax, dword ptr [{addr}]",
+        "call eax",
+        "ret 4",
+        addr = sym WORM_EASE_AIM_VEC_A_ADDR,
+    );
+}
+
+/// `__thiscall(ECX = this)`, plain RET, no stack args.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_ease_aim_vec_b(_this: *mut WormEntity) {
+    core::arch::naked_asm!(
+        "mov ecx, dword ptr [esp+4]",
+        "mov eax, dword ptr [{addr}]",
+        "call eax",
+        "ret 4",
+        addr = sym WORM_EASE_AIM_VEC_B_ADDR,
+    );
+}
+
+/// `__usercall(ESI = this)`, plain RET, no stack args.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_ease_aux_value(_this: *mut WormEntity) {
+    core::arch::naked_asm!(
+        "push esi",
+        "mov esi, dword ptr [esp+8]",
+        "mov eax, dword ptr [{addr}]",
+        "call eax",
+        "pop esi",
+        "ret 4",
+        addr = sym WORM_EASE_AUX_VALUE_ADDR,
+    );
+}
+
+/// `__usercall(EAX = this)`, plain RET, returns `i32` in EAX (nonzero ⇒
+/// idle sound permitted).
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_can_idle_sound(_this: *mut WormEntity) -> i32 {
+    core::arch::naked_asm!(
+        "mov eax, dword ptr [esp+4]",
+        "mov edx, dword ptr [{addr}]",
+        "call edx",
+        "ret 4",
+        addr = sym WORM_CAN_IDLE_SOUND_ADDR,
+    );
+}
+
+/// `WeaponSpawn::DecodeDescriptor_Maybe` (0x00565C10) —
+/// `__usercall(EAX = out_a, EDX = out_b)` + 7 stack args
+/// `(descriptor, out2..out7)`, RET 0x1C. The function writes 9 outputs
+/// total (`out_a`, `out_b`, plus the 6 stack-passed out-pointers); case
+/// 0x5 only inspects `out3` and `out4` (the C decomp's `local_83c` /
+/// `local_830`).
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_decode_weapon_descriptor(
+    _out_a: *mut i32,
+    _out_b: *mut i32,
+    _descriptor: *const u8,
+    _out2: *mut i32,
+    _out3: *mut i32,
+    _out4: *mut i32,
+    _out5: *mut i32,
+    _out6: *mut i32,
+    _out7: *mut i32,
+) {
+    core::arch::naked_asm!(
+        "mov eax, dword ptr [esp+4]",
+        "mov edx, dword ptr [esp+8]",
+        "push dword ptr [esp+36]",
+        "push dword ptr [esp+36]",
+        "push dword ptr [esp+36]",
+        "push dword ptr [esp+36]",
+        "push dword ptr [esp+36]",
+        "push dword ptr [esp+36]",
+        "push dword ptr [esp+36]",
+        "mov ecx, dword ptr [{addr}]",
+        "call ecx",
+        "ret 36",
+        addr = sym WEAPON_SPAWN_DECODE_DESCRIPTOR_ADDR,
+    );
+}
+
 /// Inlines `WormEntity::IsActionState_Maybe` (0x0050E800). The function is
 /// a 2-entry jumptable indexed by `byte[(state - 0x68) + 0x50e820]`: byte=0
 /// returns 1 (action), byte=1 returns 0. From the data table at 0x50e820,
@@ -725,6 +823,10 @@ pub unsafe extern "thiscall" fn handle_message(
             EntityMessage::StartTurn => msg_start_turn(this),
             EntityMessage::FinishTurn => {
                 msg_finish_turn(this);
+                true
+            }
+            EntityMessage::UpdateNonCritical => {
+                msg_update_non_critical(this);
                 true
             }
             _ => false,
@@ -1973,6 +2075,87 @@ unsafe fn alliance_blocks_damage(
             (*game_info).enemy_fire_threshold
         };
         threshold > 2
+    }
+}
+
+/// UpdateNonCritical (0x5). Per-frame easing + idle-sound emission.
+/// Always handled (no parent dispatch). Two halves:
+///
+/// - Long-stationary worm (`stationary_frames > 499`) with a faded aim
+///   (`aim_fade[0] == 0 || aim_fade[4] == 0`) and `CanIdleSound != 0`:
+///   plays one of two team idle sounds (selection toggles every 31
+///   frames), resets the four aim_fade slots {1, 3, 5, 7} to 1.0, and
+///   sets `_field_3a0 = 1` either when no weapon is selected or when
+///   `WeaponSpawn::DecodeDescriptor` reports both `out3` / `out4` as 0.
+/// - Active turn (`turn_active != 0`) with `world._field_7640` having
+///   changed since the last visit: resets aim_fade[1] / aim_fade[7] and
+///   stores the new value into `_field_3a4`.
+unsafe fn msg_update_non_critical(this: *mut WormEntity) {
+    unsafe {
+        bridge_ease_aim_vec_a(this);
+        bridge_ease_aux_value(this);
+        bridge_ease_aim_vec_b(this);
+
+        let world = (*(this as *const BaseEntity)).world;
+
+        if bridge_can_idle_sound(this) != 0
+            && (*this).stationary_frames > 499
+            && ((*this).aim_fade[0] == Fixed::ZERO || (*this).aim_fade[4] == Fixed::ZERO)
+        {
+            if (*this).turn_paused == 0 && (*this).retreat_active == 0 {
+                let parity = ((*world).frame_counter / 31) & 1;
+                let sound_id = (*world).team_idle_sound_id((*this).team_index, parity as u32);
+                sound::play_sound_local(
+                    this as *mut WorldEntity,
+                    SoundId(sound_id),
+                    8,
+                    Fixed::ONE,
+                    Fixed::ONE,
+                );
+                (*this).stationary_frames = 0;
+            }
+            (*this).aim_fade[5] = Fixed::ONE;
+            (*this).aim_fade[7] = Fixed::ONE;
+            (*this).aim_fade[1] = Fixed::ONE;
+            (*this).aim_fade[3] = Fixed::ONE;
+
+            let no_aim_sprite = if (*this).selected_weapon == KnownWeaponId::None {
+                true
+            } else {
+                let weapon_table_base = (*world).weapon_table as *const u8;
+                let descriptor =
+                    weapon_table_base.add((*this).selected_weapon as usize * 0x1D0) as *const u8;
+                let mut out_a: i32 = 0;
+                let mut out_b: i32 = 0;
+                let mut out2: i32 = 0;
+                let mut out3: i32 = 0;
+                let mut out4: i32 = 0;
+                let mut out5: i32 = 0;
+                let mut out6: i32 = 0;
+                let mut out7: i32 = 0;
+                bridge_decode_weapon_descriptor(
+                    &raw mut out_a,
+                    &raw mut out_b,
+                    descriptor,
+                    &raw mut out2,
+                    &raw mut out3,
+                    &raw mut out4,
+                    &raw mut out5,
+                    &raw mut out6,
+                    &raw mut out7,
+                );
+                out3 == 0 && out4 == 0
+            };
+            if no_aim_sprite {
+                (*this)._field_3a0 = 1;
+            }
+        }
+
+        if (*this).turn_active != 0 && (*world)._field_7640 != (*this)._field_3a4 {
+            (*this).aim_fade[7] = Fixed::ONE;
+            (*this).aim_fade[1] = Fixed::ONE;
+            (*this)._field_3a4 = (*world)._field_7640;
+        }
     }
 }
 
