@@ -14,6 +14,7 @@ inventory = "0.3.24"
 openwa-derive = { path = "../openwa-derive" }
 openwa-debug-proto = { path = "../openwa-debug-proto" }
 bytemuck = { version = "1.25.0", features = ["derive", "min_const_generics"] }
+derive_more = { version = "2.1.1", features = ["try_from"] }
 
 [dev-dependencies]
 gif = "0.14"

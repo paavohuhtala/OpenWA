@@ -7,7 +7,7 @@ use crate::audio::{KnownSoundId, SoundId};
 use crate::game::message::WeaponReleasedMessage;
 use crate::game::{KnownWeaponId, is_super_weapon};
 use crate::task::world_root::WorldRootEntity;
-use crate::task::worm::{WormEntity, WormState};
+use crate::task::worm::{KnownWormState, WormEntity};
 use crate::task::{BaseEntity, Entity, SharedDataTable, WorldEntity};
 use openwa_core::fixed::Fixed;
 use openwa_core::log::log_line;
@@ -131,7 +131,7 @@ pub unsafe fn weapon_release(
                 offset_x = aim_dir_x * scale * 24;
                 offset_y = aim_dir_y * scale * 24;
                 // Special Y adjustment for state 0x79
-                if w.is_in_state(WormState::Unknown_0x79) {
+                if w.is_in_state(KnownWormState::Unknown_0x79) {
                     offset_y += w.base.speed_y;
                 }
             }

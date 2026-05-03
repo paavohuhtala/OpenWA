@@ -810,7 +810,7 @@ impl DebugApp {
                         ui.label(format!(
                             "Worm: \"{}\"  state={:#04X}  team={}  idx={}",
                             worm_name,
-                            (*worm).state(),
+                            (*worm).state().0,
                             (*worm).team_index,
                             (*worm).worm_index
                         ));

@@ -30,7 +30,7 @@ pub use supply_crate::{CrateEntity, CrateEntityVtable};
 pub use team::{TeamEntity, TeamEntityVtable};
 pub use team_message::TeamMessage;
 pub use world_root::{MatchCtx, WorldRootEntity, WorldRootEntityVtable};
-pub use worm::{WormEntity, WormEntityVtable, WormState};
+pub use worm::{KnownWormState, WormEntity, WormEntityVtable};
 
 // Task trait impls — safe access to BaseEntity base regardless of inheritance depth.
 // BaseEntity<V> impl is in base.rs (blanket impl).

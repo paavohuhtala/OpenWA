@@ -22,7 +22,7 @@ use crate::game::message::{
 use crate::game::weapon::{WeaponEntry, WeaponFireParams, WeaponSpawnData};
 use crate::task::BaseEntity;
 use crate::task::world_root::WorldRootEntity;
-use crate::task::worm::{WormEntity, WormState};
+use crate::task::worm::{KnownWormState, WormEntity, WormState};
 use crate::wa::localized_template;
 use core::ffi::c_char;
 use openwa_core::fixed::Fixed;
@@ -364,16 +364,18 @@ pub unsafe fn fire_weapon_special(
         let params_38_ptr = &raw const (*entry).fire_method as *const WeaponFireParams;
 
         match S::try_from(subtype) {
-            Ok(S::FirePunch) => WormEntity::set_state_raw(worm, WormState::FirePunch),
+            Ok(S::FirePunch) => WormEntity::set_state_raw(worm, KnownWormState::FirePunch),
             Ok(S::BaseballBat) => fire_drill(worm, ctx as *const u8),
             Ok(S::DragonBall) => fire_dragon_ball(worm, params_38_ptr, ctx as *const u8),
-            Ok(S::Kamikaze) => WormEntity::set_state_raw(worm, WormState::Kamikaze),
-            Ok(S::SuicideBomber) => WormEntity::set_state_raw(worm, WormState::SuicideBomber),
-            Ok(S::Unknown6) => WormEntity::set_state_raw(worm, WormState::Unknown_0x70),
-            Ok(S::PneumaticDrill) => WormEntity::set_state_raw(worm, WormState::PneumaticDrill),
+            Ok(S::Kamikaze) => WormEntity::set_state_raw(worm, KnownWormState::Kamikaze),
+            Ok(S::SuicideBomber) => WormEntity::set_state_raw(worm, KnownWormState::SuicideBomber),
+            Ok(S::Unknown6) => WormEntity::set_state_raw(worm, KnownWormState::Unknown_0x70),
+            Ok(S::PneumaticDrill) => {
+                WormEntity::set_state_raw(worm, KnownWormState::PneumaticDrill)
+            }
             Ok(S::Prod) => fire_prod(worm, ctx as *const u8),
             Ok(S::Teleport) => fire_teleport(worm),
-            Ok(S::Blowtorch) => WormEntity::set_state_raw(worm, WormState::Blowtorch),
+            Ok(S::Blowtorch) => WormEntity::set_state_raw(worm, KnownWormState::Blowtorch),
             Ok(S::Parachute) => {} // TODO: parachute handler
             Ok(S::Surrender) => fire_surrender(worm),
             Ok(S::MailMineMole) => fire_mail_mine_mole(worm),
@@ -381,16 +383,16 @@ pub unsafe fn fire_weapon_special(
                 if can_fire_subtype16((*worm).state()) {
                     fire_nuclear_test(worm);
                 } else {
-                    WormEntity::set_state_raw(worm, WormState::TeleportCancelled_Maybe);
+                    WormEntity::set_state_raw(worm, KnownWormState::TeleportCancelled_Maybe);
                 }
             }
             Ok(S::Girder) => fire_girder(worm),
-            Ok(S::Unknown18) => WormEntity::set_state_raw(worm, WormState::Unknown_0x72),
+            Ok(S::Unknown18) => WormEntity::set_state_raw(worm, KnownWormState::Unknown_0x72),
             Ok(S::SkipGo) => fire_skip_go(worm, entry),
             Ok(S::Freeze) => fire_freeze(worm),
             Ok(S::SelectWorm) => fire_select_worm(worm),
             Ok(S::ScalesOfJustice) => fire_scales_of_justice(worm),
-            Ok(S::JetPack) => WormEntity::set_state_raw(worm, WormState::WeaponAimed_Maybe),
+            Ok(S::JetPack) => WormEntity::set_state_raw(worm, KnownWormState::WeaponAimed_Maybe),
             Ok(S::Armageddon) => fire_armageddon(worm),
             _ => {}
         }
@@ -399,9 +401,9 @@ pub unsafe fn fire_weapon_special(
 
 /// Worm state validity check for subtype 16 — pure Rust port of 0x516930.
 /// Used by Nuclear Test to gate firing.
-pub fn can_fire_subtype16(state: u32) -> bool {
-    state == WormState::WeaponAimed_Maybe as u32
-        || (WormState::AimingAngle_Maybe as u32..=WormState::PreFire_Maybe as u32).contains(&state)
+pub fn can_fire_subtype16(state: WormState) -> bool {
+    state.is(KnownWormState::WeaponAimed_Maybe)
+        || state.is_between(KnownWormState::AimingAngle_Maybe..=KnownWormState::PreFire_Maybe)
 }
 
 // ── Pure Rust fire handlers (no bridge needed) ──────────────
@@ -532,11 +534,11 @@ unsafe fn fire_mail_mine_mole(worm: *mut WormEntity) {
 
         let should_call_vtable = version < 2
             || (version >= 5
-                && (worm_state == WormState::PreFire_Maybe as u32
-                    || (worm_state == WormState::WeaponAimed_Maybe as u32 && version < 8)));
+                && (worm_state.is(KnownWormState::PreFire_Maybe)
+                    || (worm_state.is(KnownWormState::WeaponAimed_Maybe) && version < 8)));
 
         if should_call_vtable {
-            WormEntity::set_state_raw(worm, WormState::Idle);
+            WormEntity::set_state_raw(worm, KnownWormState::Idle);
         }
 
         send_to_world_root(
@@ -566,7 +568,7 @@ unsafe fn fire_teleport(worm: *mut WormEntity) {
         use crate::audio::sound_ops as sound;
 
         if (*worm)._unknown_208 == 0 {
-            WormEntity::set_state_raw(worm, WormState::AirStrikePending_Maybe);
+            WormEntity::set_state_raw(worm, KnownWormState::AirStrikePending_Maybe);
             return;
         }
 
@@ -618,9 +620,9 @@ unsafe fn fire_teleport(worm: *mut WormEntity) {
         };
         let game_version = (*(*world).game_info).game_version;
         let new_state = if game_version < 0x1C7 {
-            WormState::Idle
+            KnownWormState::Idle
         } else {
-            WormState::Unknown_0x8B
+            KnownWormState::Unknown_0x8B
         };
         WormEntity::set_state_raw(worm, new_state);
 
@@ -803,7 +805,7 @@ unsafe fn fire_armageddon(worm: *mut WormEntity) {
         // If old game version or worm state 0x69, register an effect-event
         // point at the level center (formerly bridged as "set_gravity_center" —
         // see GameWorld::register_event_point_raw for the actual semantics).
-        if game_version < 0x50 || (*worm).is_in_state(WormState::Unknown_0x69) {
+        if game_version < 0x50 || (*worm).is_in_state(KnownWormState::Unknown_0x69) {
             let level_w = (*world).level_width as i32;
             let level_h = (*world).level_height as i32;
             // SHL 16; CDQ; SUB EAX,EDX; SAR 1 — round-toward-zero divide by 2

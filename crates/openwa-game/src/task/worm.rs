@@ -3,7 +3,36 @@ use super::game_task::WorldEntity;
 use crate::FieldRegistry;
 use crate::game::KnownWeaponId;
 use crate::game::weapon::WeaponEntry;
+use derive_more::TryFrom;
 use openwa_core::fixed::Fixed;
+
+#[repr(transparent)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct WormState(pub u32);
+
+impl WormState {
+    pub fn is(self, state: KnownWormState) -> bool {
+        self == WormState(state as u32)
+    }
+
+    pub fn is_between(self, range: std::ops::RangeInclusive<KnownWormState>) -> bool {
+        let Some(as_known) = KnownWormState::try_from(self.0 as u8).ok() else {
+            return false;
+        };
+
+        range.contains(&as_known)
+    }
+
+    pub fn is_any_of(self, states: &[KnownWormState]) -> bool {
+        states.iter().any(|&s| self.is(s))
+    }
+}
+
+impl From<KnownWormState> for WormState {
+    fn from(value: KnownWormState) -> Self {
+        WormState(value as u32)
+    }
+}
 
 /// Worm state machine states.
 ///
@@ -16,10 +45,11 @@ use openwa_core::fixed::Fixed;
 /// Names are best guesses from behavioral observation and disassembly.
 ///
 /// Source: WormEntity::HandleMessage (0x510B40) decompilation + weapon fire dispatch.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, TryFrom, PartialOrd, Ord)]
+#[try_from(repr)]
 #[repr(u8)]
 #[allow(non_camel_case_types)]
-pub enum WormState {
+pub enum KnownWormState {
     /// Transitional state checked by CheckWormState0x64 (0x5228D0).
     /// Appears briefly during turn transitions.
     Transitional = 0x64,
@@ -110,8 +140,6 @@ pub enum WormState {
     /// Grouped with idle states in HandleMessage switch cases.
     Unknown_0x8B = 0x8B,
 }
-
-impl WormState {}
 
 /// Raw-pointer methods for WormEntity.
 ///
@@ -332,7 +360,7 @@ pub struct WormEntityVtable {
     pub on_killed: fn(this: *mut WormEntity),
     /// SetState — worm state machine; handles all state transitions
     #[slot(14)]
-    pub set_state: fn(this: *mut WormEntity, state: WormState),
+    pub set_state: fn(this: *mut WormEntity, state: KnownWormState),
     /// CheckPendingAction — if field +0xBC is set, calls SetState(0x73)
     #[slot(15)]
     pub check_pending_action: fn(this: *mut WormEntity),
@@ -723,12 +751,14 @@ bind_WormEntityVtable!(WormEntity, base.base.vtable);
 impl WormEntity {
     /// Returns the worm's current state code (lives at offset +0x44, inside
     /// `base.subclass_data`). See [`WormState`] for known values.
-    pub fn state(&self) -> u32 {
-        u32::from_ne_bytes(self.base.subclass_data[0x14..0x18].try_into().unwrap())
+    pub fn state(&self) -> WormState {
+        WormState(u32::from_ne_bytes(
+            self.base.subclass_data[0x14..0x18].try_into().unwrap(),
+        ))
     }
 
-    pub fn is_in_state(&self, state: WormState) -> bool {
-        self.state() == state as u32
+    pub fn is_in_state(&self, state: KnownWormState) -> bool {
+        self.state() == WormState::from(state)
     }
 
     // Weapon fire dispatch state:
@@ -810,7 +840,7 @@ impl WormEntity {
                         11
                     }
                 }
-            } else if (*this).state() == WormState::Unknown_0x85 as u32 {
+            } else if (*this).state().is(KnownWormState::Unknown_0x85) {
                 9
             } else if WorldEntity::is_moving_raw(&raw const (*this).base as *const WorldEntity) {
                 2

@@ -14,7 +14,7 @@ use openwa_core::weapon::KnownWeaponId;
 
 use super::base::BaseEntity;
 use super::game_task::WorldEntity;
-use super::worm::{WormEntity, WormState};
+use super::worm::{KnownWormState, WormEntity, WormState};
 use crate::address::va;
 use crate::engine::EntityActivityQueue;
 use crate::engine::team_arena::{TeamArena, WormEntry};
@@ -476,21 +476,31 @@ unsafe extern "stdcall" fn bridge_hit_test_rope_line(
 /// **action** states are `0x68..=0x72`, `0x74`, `0x75`, `0x8A`. Inverted
 /// from the function name's apparent intent — `0x73` and `0x76..=0x89`
 /// (the "weapon active / firing" states) all return 0.
-fn is_action_state(state: u32) -> bool {
-    matches!(state, 0x68..=0x72 | 0x74 | 0x75 | 0x8A)
+fn is_action_state(state: WormState) -> bool {
+    state.is_between(KnownWormState::ActiveVariant_Maybe..=KnownWormState::Unknown_0x72)
+        || state.is_any_of(&[
+            KnownWormState::TeleportCancelled_Maybe,
+            KnownWormState::SuicideBomber,
+            KnownWormState::Unknown_0x8A,
+        ])
 }
 
 /// Inlines `WormEntity::CanFireSubtype16` (0x00516930) — true for states
 /// `{0x78, 0x7B, 0x7C, 0x7D}` (jetpack, AimingAngle, RopeSwinging, PreFire).
-fn can_fire_subtype_16(state: u32) -> bool {
-    matches!(state, 0x78 | 0x7B | 0x7C | 0x7D)
+fn can_fire_subtype_16(state: WormState) -> bool {
+    state.is_any_of(&[
+        KnownWormState::WeaponAimed_Maybe,
+        KnownWormState::AimingAngle_Maybe,
+        KnownWormState::RopeSwinging,
+        KnownWormState::PreFire_Maybe,
+    ])
 }
 
 /// Inlines `WormEntity::DeactivateOnIdle_Maybe` (0x0050F7F0).
 unsafe fn deactivate_on_idle(this: *mut WormEntity) {
     unsafe {
-        if (*this).state() == WormState::Active as u32 {
-            WormEntity::set_state_raw(this, WormState::Idle);
+        if (*this).state().is(KnownWormState::Active) {
+            WormEntity::set_state_raw(this, KnownWormState::Idle);
         }
         (*this).weapons_enabled = 0;
     }
@@ -795,14 +805,15 @@ unsafe fn msg_team_victory(this: *mut WormEntity) -> bool {
         (*this)._field_14c = 1;
         (*this)._field_140 = 1;
         let state = (*this).state();
-        if state == WormState::Transitional as u32 {
+        if state.is(KnownWormState::Transitional) {
             return false;
         }
         let world = (*(this as *const BaseEntity)).world;
         let vf4 = (*world).version_flag_4;
-        let suppress = (vf4 >= 5 && state == 0x7B) || (vf4 >= 9 && state == 0x7C);
+        let suppress = (vf4 >= 5 && state.is(KnownWormState::AimingAngle_Maybe))
+            || (vf4 >= 9 && state.is(KnownWormState::RopeSwinging));
         if !suppress {
-            WormEntity::set_state_raw(this, WormState::Idle);
+            WormEntity::set_state_raw(this, KnownWormState::Idle);
         }
         let pos_x = (*this).base.pos_x;
         let pos_y = (*this).base.pos_y;
@@ -861,14 +872,14 @@ unsafe fn msg_move_special(this: *mut WormEntity) {
 
 unsafe fn msg_freeze(this: *mut WormEntity) {
     unsafe {
-        WormEntity::set_state_raw(this, WormState::Dead);
+        WormEntity::set_state_raw(this, KnownWormState::Dead);
     }
 }
 
 unsafe fn msg_unknown_42(this: *mut WormEntity) -> bool {
     unsafe {
-        if (*this).state() == WormState::Dead as u32 {
-            WormEntity::set_state_raw(this, WormState::Idle);
+        if (*this).state().is(KnownWormState::Dead) {
+            WormEntity::set_state_raw(this, KnownWormState::Idle);
             return true;
         }
         false
@@ -884,8 +895,8 @@ unsafe fn msg_surrender(this: *mut WormEntity) -> bool {
             (*this).team_index as usize,
             (*this).worm_index as usize,
         );
-        if (*entry)._field_98 != 0 || (*this).state() == WormState::Active as u32 {
-            WormEntity::set_state_raw(this, WormState::Idle);
+        if (*entry)._field_98 != 0 || (*this).state().is(KnownWormState::Active) {
+            WormEntity::set_state_raw(this, KnownWormState::Idle);
             return true;
         }
         false
@@ -928,14 +939,19 @@ unsafe fn msg_pause_turn(this: *mut WormEntity) {
             return;
         }
         let state = (*this).state();
-        if !matches!(state, 0x78 | 0x7B | 0x7C | 0x7D) {
+        if !state.is_any_of(&[
+            KnownWormState::WeaponAimed_Maybe,
+            KnownWormState::AimingAngle_Maybe,
+            KnownWormState::RopeSwinging,
+            KnownWormState::PreFire_Maybe,
+        ]) {
             return;
         }
         let new_state =
             if game_version < 0x1E7 || WorldEntity::is_moving_raw(this as *const WorldEntity) {
-                WormState::PostFire_Maybe
+                KnownWormState::PostFire_Maybe
             } else {
-                WormState::Idle
+                KnownWormState::Idle
             };
         WormEntity::set_state_raw(this, new_state);
     }
@@ -965,8 +981,8 @@ unsafe fn msg_start_turn(this: *mut WormEntity) -> bool {
     unsafe {
         let world = (*(this as *const BaseEntity)).world;
 
-        if (*this).state() == 0x8B {
-            WormEntity::set_state_raw(this, WormState::Idle);
+        if (*this).state().is(KnownWormState::Unknown_0x8B) {
+            WormEntity::set_state_raw(this, KnownWormState::Idle);
         }
 
         let pos_x = (*this).base.pos_x;
@@ -1029,8 +1045,10 @@ unsafe fn msg_finish_turn(this: *mut WormEntity) {
         let world = (*(this as *const BaseEntity)).world;
 
         let state = (*this).state();
-        if (state.wrapping_sub(0x68) < 0x23) && is_action_state(state) {
-            WormEntity::set_state_raw(this, WormState::Idle);
+        if state.is_between(KnownWormState::ActiveVariant_Maybe..=KnownWormState::Unknown_0x8A)
+            && is_action_state(state)
+        {
+            WormEntity::set_state_raw(this, KnownWormState::Idle);
         }
 
         if (*this).shot_data_1 == 0 && (*this)._unknown_2cc == 0 {
@@ -1071,11 +1089,11 @@ unsafe fn msg_finish_turn(this: *mut WormEntity) {
             let new_state = if alive && vf4 > 3 {
                 None
             } else if !WorldEntity::is_moving_raw(this as *const WorldEntity) {
-                Some(WormState::Idle)
+                Some(KnownWormState::Idle)
             } else if !dying && vf4 != 0 {
                 None
             } else {
-                Some(WormState::Hurt)
+                Some(KnownWormState::Hurt)
             };
             if let Some(s) = new_state {
                 WormEntity::set_state_raw(this, s);
@@ -1166,8 +1184,8 @@ unsafe fn msg_release_weapon(this: *mut WormEntity) {
         if entry.is_null() {
             return;
         }
-        if (*entry).fire_type == 1 && (*this).state() == WormState::ActiveVariant_Maybe as u32 {
-            WormEntity::set_state_raw(this, WormState::Unknown_0x69);
+        if (*entry).fire_type == 1 && (*this).state().is(KnownWormState::ActiveVariant_Maybe) {
+            WormEntity::set_state_raw(this, KnownWormState::Unknown_0x69);
         }
     }
 }
@@ -1291,11 +1309,17 @@ unsafe fn msg_jump_up(this: *mut WormEntity) {
             return;
         }
         let state = (*this).state();
-        if state == 0x77 && (*this)._field_29c == 0 {
+        if state.is(KnownWormState::WeaponSelected_Maybe) && (*this)._field_29c == 0 {
             (*this)._field_2a0 = 1;
         }
-        if matches!(state, 0x65 | 0x66 | 0x67 | 0x88 | 0x8B) {
-            WormEntity::set_state_raw(this, WormState::WeaponSelected_Maybe);
+        if state.is_any_of(&[
+            KnownWormState::Idle,
+            KnownWormState::IdleVariant_Maybe,
+            KnownWormState::Active,
+            KnownWormState::Unknown_0x88,
+            KnownWormState::Unknown_0x8B,
+        ]) {
+            WormEntity::set_state_raw(this, KnownWormState::WeaponSelected_Maybe);
             (*this)._field_29c = 0;
             (*this)._field_2a0 = 0;
         }
@@ -1444,7 +1468,7 @@ unsafe fn msg_poison_worm(this: *mut WormEntity, message: *const PoisonWormMessa
             source_bit = 1;
         }
         if (source_bit & (*this).poison_source_mask) != 0
-            || (*this).state() == WormState::Dead as u32
+            || (*this).state().is(KnownWormState::Dead)
         {
             return false;
         }
@@ -1518,7 +1542,7 @@ unsafe fn msg_special_impact(
         // `speed_x` so the impulse the parent applies to a corpse is undone
         // (modern schemes preserve the pre-impact speed; pre-499 schemes
         // zero it out instead).
-        if (*this).state() == WormState::Dead as u32 {
+        if (*this).state().is(KnownWormState::Dead) {
             let saved_speed_x = (*this).base.speed_x;
             bridge_play_impact_sound(this, 0x6A, 0x10000);
             cgametask_handle_message(
@@ -1547,7 +1571,15 @@ unsafe fn msg_special_impact(
         // States that ignore impact damage entirely — the lockout was set
         // above so subsequent SpecialImpacts this frame still no-op.
         let state = (*this).state();
-        if matches!(state, 0x82 | 0x83 | 0x85 | 0x6D | 0x75) {
+
+        // TODO: This logic is duplicated at least twice, extract to a function when we understand it
+        if state.is_any_of(&[
+            KnownWormState::Dying1_Maybe,
+            KnownWormState::Dying2_Maybe,
+            KnownWormState::Unknown_0x85,
+            KnownWormState::Kamikaze,
+            KnownWormState::SuicideBomber,
+        ]) {
             return true;
         }
 
@@ -1602,9 +1634,9 @@ unsafe fn msg_special_impact(
         // damage-halving flag is active.
         if (*this).base._field_a4 == 0 {
             let new_state = match damage_kind {
-                1 => WormState::Drowning,
-                9 => WormState::Dead1,
-                _ => WormState::Hurt,
+                1 => KnownWormState::Drowning,
+                9 => KnownWormState::Dead1,
+                _ => KnownWormState::Hurt,
             };
             WormEntity::set_state_raw(this, new_state);
         }
@@ -1694,11 +1726,17 @@ unsafe fn msg_explosion(
         }
 
         let state = (*this).state();
-        if matches!(state, 0x82 | 0x83 | 0x85 | 0x6D | 0x75) {
+        if state.is_any_of(&[
+            KnownWormState::Dying1_Maybe,
+            KnownWormState::Dying2_Maybe,
+            KnownWormState::Unknown_0x85,
+            KnownWormState::Kamikaze,
+            KnownWormState::SuicideBomber,
+        ]) {
             return true;
         }
 
-        if state == WormState::Dead as u32 {
+        if state.is(KnownWormState::Dead) {
             let saved_speed_x = (*this).base.speed_x;
             cgametask_handle_message(this as *mut WorldEntity, sender, msg_type, size, data);
             (*this).base.damage_accum = 0;
@@ -1713,8 +1751,8 @@ unsafe fn msg_explosion(
         if (*game_info)._scheme_d95b != 0 {
             (*this)._field_15c = (*game_info)._scheme_d926 as u32;
         }
-        if (*game_info).game_version < 0xD9 && state == WormState::AirStrikePending_Maybe as u32 {
-            WormEntity::set_state_raw(this, WormState::Hurt);
+        if (*game_info).game_version < 0xD9 && state.is(KnownWormState::AirStrikePending_Maybe) {
+            WormEntity::set_state_raw(this, KnownWormState::Hurt);
         }
 
         cgametask_handle_message(this as *mut WorldEntity, sender, msg_type, size, data);
@@ -1724,7 +1762,7 @@ unsafe fn msg_explosion(
         if bridge_hit_test_rope_line(this, (*message).pos_x, (*message).damage, (*message).pos_y)
             != 0
         {
-            WormEntity::set_state_raw(this, WormState::WeaponCharging_Maybe);
+            WormEntity::set_state_raw(this, KnownWormState::WeaponCharging_Maybe);
         }
 
         if damage_accum != 0 {
@@ -1759,9 +1797,9 @@ unsafe fn msg_explosion(
                 let vy = (*this).base.speed_y.0;
                 let mag = vx.wrapping_abs().wrapping_add(vy.wrapping_abs());
                 let new_state = if mag < 0x70000 {
-                    WormState::Hurt
+                    KnownWormState::Hurt
                 } else {
-                    WormState::Dead1
+                    KnownWormState::Dead1
                 };
                 WormEntity::set_state_raw(this, new_state);
                 if vx < -0x6666 {
@@ -1819,7 +1857,7 @@ unsafe fn msg_damage_worms(this: *mut WormEntity, data: *const u8) -> bool {
 /// game versions > 0x187.
 unsafe fn msg_apply_poison(this: *mut WormEntity) -> bool {
     unsafe {
-        if (*this).state() == WormState::Dead as u32 {
+        if (*this).state() == KnownWormState::Dead.into() {
             return true;
         }
         let poison_damage = (*this).poison_damage;
@@ -1893,7 +1931,11 @@ unsafe fn apply_raw_damage_unchecked(
         if applied == 0 {
             return;
         }
-        let is_not_kamikaze = if (*this).state() != 0x6D { 1i32 } else { 0i32 };
+        let is_not_kamikaze = if !(*this).state().is(KnownWormState::Kamikaze) {
+            1i32
+        } else {
+            0i32
+        };
         let payload: [i32; 5] = [
             (*this).team_index as i32,
             (*this).worm_index as i32,
