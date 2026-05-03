@@ -675,3 +675,22 @@ impl Unknown129Message {
 impl EntityMessageData for Unknown129Message {
     const MESSAGE_TYPE: EntityMessage = EntityMessage::Unknown129;
 }
+
+/// Payload for [`EntityMessage::CrateCollected`] (msg 0x7). Broadcast when
+/// a worm picks up a crate. `WormEntity`'s handler only acts when
+/// `kind == 2` (antidote crate); other kinds (food, weapon, utility) are
+/// consumed by `TeamEntity` and other listeners.
+#[repr(C)]
+#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct CrateCollectedMessage {
+    /// Team index of the worm that picked up the crate.
+    pub sender_team: u32,
+    /// Worm index (within team) of the picker.
+    pub sender_worm: u32,
+    /// Crate kind. Only `2` (antidote) is consumed by `WormEntity`.
+    pub kind: u32,
+}
+
+impl EntityMessageData for CrateCollectedMessage {
+    const MESSAGE_TYPE: EntityMessage = EntityMessage::CrateCollected;
+}

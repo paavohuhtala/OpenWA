@@ -24,9 +24,9 @@ use crate::engine::team_arena::{TeamArena, WormEntry};
 use crate::engine::world::GameWorld;
 use crate::game::game_entity_message::world_entity_handle_message;
 use crate::game::message::{
-    DamageWormsMessage, ExplosionMessage, PoisonWormMessage, SelectArmingMessage,
-    SelectCursorMessage, SelectWeaponMessage, SpecialImpactMessage, Unknown129Message,
-    WeaponReleasedMessage, WormMovedMessage,
+    CrateCollectedMessage, DamageWormsMessage, ExplosionMessage, PoisonWormMessage,
+    SelectArmingMessage, SelectCursorMessage, SelectWeaponMessage, SpecialImpactMessage,
+    Unknown129Message, WeaponReleasedMessage, WormMovedMessage,
 };
 use crate::game::{EntityMessage, weapon_fire};
 use crate::rebase::rb;
@@ -658,6 +658,9 @@ pub unsafe extern "thiscall" fn handle_message(
                 msg_face_right(this);
                 true
             }
+            EntityMessage::CrateCollected => {
+                msg_crate_collected(this, data as *const CrateCollectedMessage)
+            }
             EntityMessage::TeamVictory => msg_team_victory(this),
             EntityMessage::ThinkingShow => msg_thinking_show(this),
             EntityMessage::ThinkingHide => {
@@ -870,6 +873,80 @@ unsafe fn msg_face_right(this: *mut WormEntity) {
 
 /// `vf4` gates pin states `0x7B`/`0x7C` from being kicked back to Idle on
 /// later WA versions.
+/// `0x7` (CrateCollected). Antidote-crate path: when the picked-up
+/// crate's `kind == 2` and the scheme's scope byte at `game_info+0xD9A4`
+/// matches sender → receiver (per-worm / per-team / per-alliance), clears
+/// the receiver's poison state and (game-version-gated) plays the cure
+/// animation/sound through the worm's animator object.
+unsafe fn msg_crate_collected(
+    this: *mut WormEntity,
+    message: *const CrateCollectedMessage,
+) -> bool {
+    unsafe {
+        if (*message).kind != 2 {
+            return true;
+        }
+        let world = (*(this as *const BaseEntity)).world;
+        let game_info = (*world).game_info;
+        let scope = (*game_info)._scheme_d9a4;
+
+        // Returns true if sender (per scope byte) matches receiver. Falls
+        // through (returns false) for any other scope value — WA's switch
+        // has no default arm so the entire body is skipped.
+        let benefits = match scope {
+            0 => {
+                (*message).sender_worm == (*this).worm_index
+                    && (*message).sender_team == (*this).team_index
+            }
+            1 => (*message).sender_team == (*this).team_index,
+            2 => {
+                // Compare alliance bytes: for team N, byte at
+                // `game_info + N*0xBB8 - 0x765` = `team_records[N-1].name[12]`
+                // approximately — WA reads the byte regardless of team
+                // index, so faithfully mirror the address arithmetic.
+                let game_info_b = game_info as *const u8;
+                let sender_alliance =
+                    *game_info_b.offset(((*message).sender_team as i32 * 0xBB8 - 0x765) as isize);
+                let receiver_alliance =
+                    *game_info_b.offset(((*this).team_index as i32 * 0xBB8 - 0x765) as isize);
+                sender_alliance == receiver_alliance
+            }
+            _ => return true,
+        };
+        if !benefits {
+            return true;
+        }
+
+        // Cure: gated on game_version >= 0x5F, and on game_version < 0x86
+        // OR worm_state ∈ {Idle, Unknown_0x8B}, play the animator's vt[5]
+        // (no args) + vt[7] (with sound id 0x80012D — likely the antidote
+        // chime / "purified" sound).
+        if (*this).poison_damage != 0 {
+            let game_version = (*game_info).game_version;
+            if game_version >= 0x5F {
+                let state = (*this).state().0;
+                let allowed = game_version < 0x86
+                    || state == KnownWormState::Idle as u32
+                    || state == KnownWormState::Unknown_0x8B as u32;
+                if allowed {
+                    let animator = (*this).animator;
+                    let vt = *(animator as *const *const usize);
+                    type Vt5Fn = unsafe extern "thiscall" fn(*mut u8);
+                    type Vt7Fn = unsafe extern "thiscall" fn(*mut u8, u32);
+                    let vt5: Vt5Fn = core::mem::transmute(*vt.add(5));
+                    vt5(animator);
+                    let vt7: Vt7Fn = core::mem::transmute(*vt.add(7));
+                    vt7(animator, 0x80012D);
+                }
+            }
+        }
+        (*this).poison_damage = 0;
+        (*this).poison_source_mask = 0;
+        (*this).poison_tick_accum = 0;
+        true
+    }
+}
+
 unsafe fn msg_team_victory(this: *mut WormEntity) -> bool {
     unsafe {
         (*this)._field_14c = 1;

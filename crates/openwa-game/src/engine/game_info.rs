@@ -257,8 +257,21 @@ pub struct GameInfo {
     /// 0xD9A2: Network weapon exception flag. When net_config_2 != 0,
     /// weapons 10/0x37/0x38 are only disabled if this is also 0.
     pub net_weapon_exception: u8,
-    /// 0xD9A3-0xD9B0: Unknown
-    pub _unknown_d9a3: [u8; 0xD9B1 - 0xD9A3],
+    /// 0xD9A3: Unknown
+    pub _unknown_d9a3: u8,
+    /// 0xD9A4: Antidote-crate scope selector (u8). Read by `WormEntity`'s
+    /// `CrateCollected` (msg 0x7) handler to decide who benefits when the
+    /// `kind == 2` (antidote) crate is picked up:
+    ///
+    /// | value | scope                                                             |
+    /// |-------|-------------------------------------------------------------------|
+    /// | 0     | only the collecting worm (`sender_worm == this.worm_index`)       |
+    /// | 1     | the collecting worm's team (`sender_team == this.team_index`)     |
+    /// | 2     | the collecting worm's alliance (compare bytes at `+team*0xBB8 - 0x765`) |
+    /// | else  | nothing (case is not in the switch — silently no-op)              |
+    pub _scheme_d9a4: u8,
+    /// 0xD9A5-0xD9B0: Unknown
+    pub _unknown_d9a5: [u8; 0xD9B1 - 0xD9A5],
     /// 0xD9B1: Scheme sub-version byte (signed). Read by SelectFuse /
     /// SelectHerd handlers as a "scheme allows extended fuse/herd range"
     /// gate (compared against `0x1A`/`0x1F` thresholds).
