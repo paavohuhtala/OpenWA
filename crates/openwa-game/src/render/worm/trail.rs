@@ -1,46 +1,59 @@
-//! Bungee trail rendering — draws the bungee drop trajectory path.
+//! `WormEntity::DrawTrail` (0x00500720) — draws the segmented rope/grapple
+//! polyline anchored to a worm during ninja-rope, bungee, and kamikaze use.
 //!
-//! Ported from WA.exe `DrawBungeeTrail` (0x500720).
-//! Draws:
-//!   1. Sprite at trail start position
-//!   2. Series of vertices computed by accumulating angle + trig interpolation
-//!   3. Final vertex at entity position (0x84/0x88)
-//!   4. DrawPolygon (if fill != 0) or DrawLineStrip
+//! The function is misnamed in Ghidra as "DrawBungeeTrail"; there is no
+//! separate `BungeeTrailEntity` class. The receiver is a `WormEntity` and the
+//! trail state lives in WorldEntity-base slots `+0xBC..+0xE4` that the
+//! ninja-rope (state 0x7C) and kamikaze paths share via snap/restore at
+//! 0x005003D0 / 0x00500630. Offsets used here:
+//!
+//! - `+0xBC` (`_field_bc`): trail-active gate (1 = render).
+//! - `+0xC0/+0xC4`: anchor (rope hook) coords.
+//! - `+0xD0`: segment count.
+//! - `+0xE4`: segment buffer (`wa_malloc(0x220)` — 0x40 × 8 bytes; angle at
+//!   `[buf+4+i*8]`).
+//! - `+0x84/+0x88`: worm position (rope's other endpoint).
 
-use crate::entity::BungeeTrailEntity;
+use crate::entity::WormEntity;
 use crate::render::SpriteOp;
 use crate::render::message::RenderMessage;
 use openwa_core::fixed::Fixed;
 use openwa_core::trig::{cos, sin};
 
-/// Draw bungee trail for the given entity.
-pub unsafe fn draw_bungee_trail(entity: *const BungeeTrailEntity, style: u32, fill: u32) {
-    unsafe {
-        let entity = &*entity;
+#[inline]
+unsafe fn read_i32(this: *const WormEntity, offset: usize) -> i32 {
+    unsafe { *((this as *const u8).add(offset) as *const i32) }
+}
 
-        if entity.trail_visible == 0 {
+#[inline]
+unsafe fn read_ptr(this: *const WormEntity, offset: usize) -> *const u8 {
+    unsafe { *((this as *const u8).add(offset) as *const *const u8) }
+}
+
+pub unsafe fn draw_worm_trail(this: *const WormEntity, style: u32, fill: u32) {
+    unsafe {
+        if read_i32(this, 0xBC) == 0 {
             return;
         }
 
-        let world = &*entity.base.world;
+        let world = &*(*this).base.base.world;
         let rq = &mut *world.render_queue;
 
-        let seg_data = entity.segment_data;
+        let seg_data = read_ptr(this, 0xE4);
         if seg_data.is_null() {
             return;
         }
 
-        let segment_count = entity.segment_count;
+        let segment_count = read_i32(this, 0xD0);
         if segment_count <= 0 {
             return;
         }
 
-        let mut x = entity.trail_start_x;
-        let mut y = entity.trail_start_y;
+        let mut x = read_i32(this, 0xC0);
+        let mut y = read_i32(this, 0xC4);
 
         let first_angle = *(seg_data.add(4) as *const i32);
 
-        // Enqueue start sprite (screen-space)
         let _ = rq.push_typed(
             0xDFFFF,
             RenderMessage::Sprite {
@@ -52,7 +65,6 @@ pub unsafe fn draw_bungee_trail(entity: *const BungeeTrailEntity, style: u32, fi
             },
         );
 
-        // Build vertex array from trail segments
         const MAX_VERTICES: usize = 256;
         let mut verts = [[0i32; 3]; MAX_VERTICES];
         let mut vert_count: usize = 0;
@@ -61,7 +73,6 @@ pub unsafe fn draw_bungee_trail(entity: *const BungeeTrailEntity, style: u32, fi
         for i in 0..segment_count {
             let seg_angle = *(seg_data.add(4 + i as usize * 8) as *const i32);
 
-            // Include vertex if: first segment, or segment has nonzero angle, or fill mode
             if (i == 0 || seg_angle != 0 || fill != 0) && vert_count < MAX_VERTICES {
                 verts[vert_count] = [x, y, 0];
                 vert_count += 1;
@@ -76,13 +87,13 @@ pub unsafe fn draw_bungee_trail(entity: *const BungeeTrailEntity, style: u32, fi
             y = y.wrapping_sub(cos_interp.0.wrapping_mul(8));
         }
 
-        // Final vertex = entity position (target)
         if vert_count < MAX_VERTICES {
-            verts[vert_count] = [entity.pos_x.0, entity.pos_y.0, 0];
+            let pos_x = (*this).base.pos_x.0;
+            let pos_y = (*this).base.pos_y.0;
+            verts[vert_count] = [pos_x, pos_y, 0];
             vert_count += 1;
         }
 
-        // Allocate vertex data in the arena and enqueue as polygon or line strip
         let byte_len = vert_count * core::mem::size_of::<[i32; 3]>();
         if let Some(vert_ptr) = rq.alloc_aux(byte_len) {
             core::ptr::copy_nonoverlapping(verts.as_ptr() as *const u8, vert_ptr, byte_len);

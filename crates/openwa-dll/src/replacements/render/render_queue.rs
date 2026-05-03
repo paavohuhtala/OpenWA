@@ -3,7 +3,7 @@
 use openwa_core::fixed::Fixed;
 use openwa_game::address::va;
 use openwa_game::bitgrid::DisplayBitGrid;
-use openwa_game::entity::{BungeeTrailEntity, WeaponAimEntity};
+use openwa_game::entity::{WeaponAimEntity, WormEntity};
 use openwa_game::render::SpriteOp;
 use openwa_game::render::display::DisplayGfx;
 use openwa_game::render::display::vtable::TiledBitmapSource;
@@ -297,15 +297,11 @@ unsafe extern "cdecl" fn draw_textbox_local_impl(
     }
 }
 
-// DrawBungeeTrail (0x500720)
+// WormEntity::DrawTrail (0x00500720)
 
-unsafe extern "stdcall" fn draw_bungee_trail_impl(
-    entity: *const BungeeTrailEntity,
-    style: u32,
-    fill: u32,
-) {
+unsafe extern "stdcall" fn draw_worm_trail_impl(this: *const WormEntity, style: u32, fill: u32) {
     unsafe {
-        openwa_game::render::bungee_trail::draw_bungee_trail(entity, style, fill);
+        openwa_game::render::worm::draw_worm_trail(this, style, fill);
     }
 }
 
@@ -399,9 +395,9 @@ pub fn install() -> Result<(), String> {
         )?;
 
         let _ = hook::install(
-            "DrawBungeeTrail",
-            va::DRAW_BUNGEE_TRAIL,
-            draw_bungee_trail_impl as *const (),
+            "WormEntity::DrawTrail",
+            va::WORM_ENTITY_DRAW_TRAIL,
+            draw_worm_trail_impl as *const (),
         )?;
 
         let _ = hook::install(

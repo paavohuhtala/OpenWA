@@ -25,7 +25,7 @@ pub use fire::{FireEntity, FireEntityVtable};
 pub use game_entity::{SoundEmitter, SoundEmitterVtable, WorldEntity};
 pub use mine_oil_drum::{MineEntity, MineEntityVtable, OilDrumEntity, OilDrumEntityVtable};
 pub use missile::{MissileEntity, MissileEntityVtable, MissileType};
-pub use overlays::{BungeeTrailEntity, WeaponAimEntity};
+pub use overlays::WeaponAimEntity;
 pub use supply_crate::{CrateEntity, CrateEntityVtable};
 pub use team::{TeamEntity, TeamEntityVtable};
 pub use team_message::TeamMessage;

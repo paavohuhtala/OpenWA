@@ -1,4 +1,3 @@
-pub mod bungee_trail;
 pub mod crosshair_line;
 pub mod ddraw;
 pub mod display;
@@ -10,6 +9,7 @@ pub mod queue;
 pub mod queue_dispatch;
 pub mod sprite;
 pub mod turn_order;
+pub mod worm;
 
 pub use ddraw::CompatRenderer;
 pub use display::{

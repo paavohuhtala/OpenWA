@@ -104,7 +104,7 @@ These are not RenderQueue enqueue methods but call them:
 
 | Address  | Name              | Notes                                            |
 | -------- | ----------------- | ------------------------------------------------ |
-| 0x500720 | DrawBungeeTrail   | Uses DrawSpriteLocal + DrawPolygon/DrawLineStrip |
+| 0x500720 | WormEntity::DrawTrail | Uses DrawSpriteLocal + DrawPolygon/DrawLineStrip — segmented rope/grapple/kamikaze polyline on a `WormEntity` |
 | 0x5197D0 | DrawCrosshairLine | Uses DrawPolygon + DrawSpriteLocal               |
 
 ## Dequeue Processing (0x542350)
