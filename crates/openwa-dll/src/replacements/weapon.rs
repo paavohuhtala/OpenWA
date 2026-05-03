@@ -15,6 +15,7 @@ use core::sync::atomic::{AtomicU32, Ordering};
 use openwa_core::log::log_line;
 use openwa_game::entity::worm::WormEntity;
 use openwa_game::game::weapon::WeaponFireParams;
+use openwa_game::game::weapon_aim_flags;
 use openwa_game::game::weapon_fire;
 use openwa_game::{address::va, engine::TeamArena};
 
@@ -180,6 +181,16 @@ unsafe extern "cdecl" fn log_placed_explosive(local_struct: u32, worm: u32, fire
     ));
 }
 
+// ── WeaponSpawn::DecodeDescriptor (0x00565C10) ──
+// usercall(EAX = out_a, EDX = out_b) + 7 stack args (entry, out_c..out_h),
+// RET 0x1C. The Rust impl [`weapon_aim_flags::decode_weapon_aim_flags_impl`]
+// has a matching cdecl signature; the trampoline forwards EAX/EDX as the
+// first two cdecl args and the 7 stack args fall through unchanged.
+
+usercall_trampoline!(fn trampoline_decode_weapon_aim_flags;
+    impl_fn = weapon_aim_flags::decode_weapon_aim_flags_impl;
+    regs = [eax, edx]; stack_params = 7; ret_bytes = "0x1c");
+
 // ── Hook installation ──
 
 pub fn install() -> Result<(), String> {
@@ -228,6 +239,12 @@ pub fn install() -> Result<(), String> {
             trampoline_placed_explosive as *const (),
         )?;
         ORIG_PLACED_EXPLOSIVE.store(t as u32, Ordering::Relaxed);
+
+        let _ = hook::install(
+            "WeaponSpawn__DecodeDescriptor",
+            va::WEAPON_SPAWN_DECODE_DESCRIPTOR,
+            trampoline_decode_weapon_aim_flags as *const (),
+        )?;
     }
 
     Ok(())

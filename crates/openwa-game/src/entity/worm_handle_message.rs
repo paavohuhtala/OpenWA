@@ -88,7 +88,6 @@ static mut WORM_SPAWN_DAMAGE_PARTICLES_ADDR: u32 = 0;
 // (pos_x, pos_y). The `rope_param` arg comes from the message's offset
 // 0x10 (treated as a pre-multiplier `(arg + 2) << 17`).
 static mut WORM_HIT_TEST_ROPE_LINE_ADDR: u32 = 0;
-static mut WEAPON_SPAWN_DECODE_DESCRIPTOR_ADDR: u32 = 0;
 
 pub unsafe fn init_addrs() {
     unsafe {
@@ -113,7 +112,6 @@ pub unsafe fn init_addrs() {
         WORM_PLAY_SOUND_ADDR = rb(0x00515020);
         WORM_SPAWN_DAMAGE_PARTICLES_ADDR = rb(0x005108D0);
         WORM_HIT_TEST_ROPE_LINE_ADDR = rb(0x00501210);
-        WEAPON_SPAWN_DECODE_DESCRIPTOR_ADDR = rb(va::WEAPON_SPAWN_DECODE_DESCRIPTOR);
     }
 }
 
@@ -535,41 +533,6 @@ unsafe fn ease_aux_value(this: *mut WormEntity) {
             (*this).aim_fade[7] = Fixed::ZERO;
         }
     }
-}
-
-/// `WeaponSpawn::DecodeDescriptor_Maybe` (0x00565C10) —
-/// `__usercall(EAX = out_a, EDX = out_b)` + 7 stack args
-/// `(descriptor, out2..out7)`, RET 0x1C. The function writes 9 outputs
-/// total (`out_a`, `out_b`, plus the 6 stack-passed out-pointers); case
-/// 0x5 only inspects `out3` and `out4` (the C decomp's `local_83c` /
-/// `local_830`).
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_decode_weapon_descriptor(
-    _out_a: *mut i32,
-    _out_b: *mut i32,
-    _descriptor: *const u8,
-    _out2: *mut i32,
-    _out3: *mut i32,
-    _out4: *mut i32,
-    _out5: *mut i32,
-    _out6: *mut i32,
-    _out7: *mut i32,
-) {
-    core::arch::naked_asm!(
-        "mov eax, dword ptr [esp+4]",
-        "mov edx, dword ptr [esp+8]",
-        "push dword ptr [esp+36]",
-        "push dword ptr [esp+36]",
-        "push dword ptr [esp+36]",
-        "push dword ptr [esp+36]",
-        "push dword ptr [esp+36]",
-        "push dword ptr [esp+36]",
-        "push dword ptr [esp+36]",
-        "mov ecx, dword ptr [{addr}]",
-        "call ecx",
-        "ret 36",
-        addr = sym WEAPON_SPAWN_DECODE_DESCRIPTOR_ADDR,
-    );
 }
 
 /// Inlines `WormEntity::IsActionState_Maybe` (0x0050E800). The function is
@@ -2118,29 +2081,9 @@ unsafe fn msg_update_non_critical(this: *mut WormEntity) {
             let no_aim_sprite = if (*this).selected_weapon == KnownWeaponId::None {
                 true
             } else {
-                let weapon_table_base = (*world).weapon_table as *const u8;
-                let descriptor =
-                    weapon_table_base.add((*this).selected_weapon as usize * 0x1D0) as *const u8;
-                let mut out_a: i32 = 0;
-                let mut out_b: i32 = 0;
-                let mut out2: i32 = 0;
-                let mut out3: i32 = 0;
-                let mut out4: i32 = 0;
-                let mut out5: i32 = 0;
-                let mut out6: i32 = 0;
-                let mut out7: i32 = 0;
-                bridge_decode_weapon_descriptor(
-                    &raw mut out_a,
-                    &raw mut out_b,
-                    descriptor,
-                    &raw mut out2,
-                    &raw mut out3,
-                    &raw mut out4,
-                    &raw mut out5,
-                    &raw mut out6,
-                    &raw mut out7,
-                );
-                out3 == 0 && out4 == 0
+                let entry = &(*(*world).weapon_table).entries[(*this).selected_weapon as usize];
+                let flags = crate::game::weapon_aim_flags::decode_weapon_aim_flags(entry);
+                !flags.flag_d && !flags.flag_e
             };
             if no_aim_sprite {
                 (*this)._field_3a0 = 1;
