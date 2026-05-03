@@ -214,6 +214,26 @@ pub struct WeaponFireParams {
     pub entry_metadata: [i32; 7],
 }
 const _: () = assert!(core::mem::size_of::<WeaponFireParams>() == 0x1D0 - 0x3C);
+const _: () = assert!(core::mem::align_of::<WeaponFireParams>() == 4);
+
+impl WeaponFireParams {
+    /// Number of `i32`-sized slots in [`WeaponFireParams`]. The struct
+    /// is `#[repr(C)]` and every field is either `i32`, [`Fixed`]
+    /// (transparent over `i32`), or `[i32; N]` — so the whole layout
+    /// is a flat array of 101 `i32`s.
+    pub const I32_SLOTS: usize = (0x1D0 - 0x3C) / 4;
+
+    /// View `WeaponFireParams` as a flat `&[i32; 101]`. Lets decoders
+    /// that walk the struct by 4-byte offsets (e.g.
+    /// [`crate::game::weapon_aim_flags`]) use safe slice indexing
+    /// instead of raw pointer arithmetic.
+    pub fn as_i32_slice(&self) -> &[i32; Self::I32_SLOTS] {
+        // SAFETY: `#[repr(C)]` + alignment 4 + size 101*4 + every field
+        // i32-layout-equivalent (asserted above), so reinterpreting as
+        // `[i32; 101]` is sound.
+        unsafe { &*(self as *const Self as *const [i32; Self::I32_SLOTS]) }
+    }
+}
 
 /// Weapon table — flat array of 71 entries, no header.
 ///

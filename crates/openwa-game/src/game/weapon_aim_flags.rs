@@ -51,45 +51,40 @@ pub struct WeaponAimFlags {
     pub flag_h: bool,
 }
 
-/// `__usercall(EAX = sub_region+0xC, ECX = &flags.flag_c)` + 3 stack
-/// args, RET 0xC. Mirrors WA `FUN_00565b40` (0x00565B40).
-unsafe fn decode_inner_inner(sub_region: *const u8, flags: &mut WeaponAimFlags) {
-    unsafe {
-        let read_i32 = |off: usize| *(sub_region.add(off) as *const i32);
-
-        if read_i32(0x44) == 0 {
-            flags.flag_c = true;
-        }
-        if read_i32(0x58) != 0 {
-            flags.flag_g = true;
-        }
-        match read_i32(0x5C) {
-            1 => flags.flag_d = true,
-            2 | 5 if read_i32(0x64) == 0 => flags.flag_b = true,
-            _ => {}
-        }
+/// Mirrors WA `FUN_00565b40` (0x00565B40). `block` is a sub-slice of
+/// the `&[i32]` view of [`WeaponFireParams`] — byte offsets used by
+/// the WA disassembly are converted to `i32` indices (`/4`) for safe
+/// slice indexing. Inspects four slots and conditionally sets four
+/// flags.
+fn decode_inner_inner(block: &[i32], flags: &mut WeaponAimFlags) {
+    if block[0x44 / 4] == 0 {
+        flags.flag_c = true;
+    }
+    if block[0x58 / 4] != 0 {
+        flags.flag_g = true;
+    }
+    match block[0x5C / 4] {
+        1 => flags.flag_d = true,
+        2 | 5 if block[0x64 / 4] == 0 => flags.flag_b = true,
+        _ => {}
     }
 }
 
 /// Mirrors WA `FUN_00565bb0` (0x00565BB0). Writes [`WeaponAimFlags::flag_a`]
-/// based on `sub_region[+0x4]`, runs [`decode_inner_inner`] over
-/// `sub_region+0xC`, then conditionally runs it again over
-/// `sub_region+0xD0` when the discriminant at `sub_region[+0xB4]` is 1
-/// or 3.
-unsafe fn decode_inner(sub_region: *const u8, flags: &mut WeaponAimFlags) {
-    unsafe {
-        let read_i32 = |off: usize| *(sub_region.add(off) as *const i32);
+/// based on `block[+0x4]`, runs [`decode_inner_inner`] starting at
+/// `block[+0xC]`, then conditionally runs it again starting at
+/// `block[+0xD0]` when the discriminant at `block[+0xB4]` is 1 or 3.
+fn decode_inner(block: &[i32], flags: &mut WeaponAimFlags) {
+    // i32 slot 1 == byte +0x4
+    if block[1] == 0 {
+        flags.flag_a = true;
+    }
 
-        if read_i32(0x4) == 0 {
-            flags.flag_a = true;
-        }
+    decode_inner_inner(&block[0xC / 4..], flags);
 
-        decode_inner_inner(sub_region.add(0xC), flags);
-
-        let sub_idx = read_i32(0xB4);
-        if sub_idx == 1 || sub_idx == 3 {
-            decode_inner_inner(sub_region.add(0xD0), flags);
-        }
+    let sub_idx = block[0xB4 / 4];
+    if sub_idx == 1 || sub_idx == 3 {
+        decode_inner_inner(&block[0xD0 / 4..], flags);
     }
 }
 
@@ -104,50 +99,45 @@ pub fn decode_weapon_aim_flags(entry: &WeaponEntry) -> WeaponAimFlags {
         return flags;
     };
 
-    let fire_params_ptr = (&raw const entry.fire_params).cast::<u8>();
+    let fp = entry.fire_params.as_i32_slice();
 
-    unsafe {
-        match ft {
-            FireType::Projectile => {
-                if entry.fire_method == 3 {
-                    decode_inner(fire_params_ptr, &mut flags);
-                }
+    match ft {
+        FireType::Projectile => {
+            if entry.fire_method == 3 {
+                decode_inner(fp, &mut flags);
             }
-            FireType::Placed => {
-                if entry.special_subtype != 0 {
-                    flags.flag_h = true;
-                }
-                if entry.fire_method == 2 {
-                    decode_inner(fire_params_ptr, &mut flags);
-                }
+        }
+        FireType::Placed => {
+            if entry.special_subtype != 0 {
+                flags.flag_h = true;
             }
-            FireType::Strike => {
-                // `fire_params.unknown_0x4c` is the discriminant the
-                // inner helper consumes — when it's 2, run the inner
-                // pass over the `&fire_params.unknown_0x50` region (the
-                // pellet-config sub-block at fire_params+0x14).
-                if entry.fire_params.unknown_0x4c == 2 {
-                    decode_inner(
-                        (&raw const entry.fire_params.unknown_0x50).cast::<u8>(),
-                        &mut flags,
-                    );
-                }
+            if entry.fire_method == 2 {
+                decode_inner(fp, &mut flags);
+            }
+        }
+        FireType::Strike => {
+            // `fire_params.unknown_0x4c` is the discriminant the
+            // inner helper consumes — when it's 2, run the inner
+            // pass over the `unknown_0x50` region (the pellet-config
+            // sub-block at fire_params+0x14, i.e. i32 slot 5).
+            if entry.fire_params.unknown_0x4c == 2 {
+                decode_inner(&fp[0x14 / 4..], &mut flags);
+            }
+            flags.flag_f = true;
+            if entry.fire_params.unknown_0x44 != 0 {
+                flags.flag_e = true;
+            } else {
+                flags.flag_d = true;
+            }
+        }
+        FireType::Special => {
+            // 24-entry LUT at WA `0x00565D48` — only subtypes
+            // Teleport (10) and Girder (17) hit the non-default
+            // (`flag_f = true; flag_d = true`) path.
+            let subtype = entry.special_subtype;
+            if subtype == 10 || subtype == 17 {
                 flags.flag_f = true;
-                if entry.fire_params.unknown_0x44 != 0 {
-                    flags.flag_e = true;
-                } else {
-                    flags.flag_d = true;
-                }
-            }
-            FireType::Special => {
-                // 24-entry LUT at WA `0x00565D48` — only subtypes
-                // Teleport (10) and Girder (17) hit the non-default
-                // (`flag_f = true; flag_d = true`) path.
-                let subtype = entry.special_subtype;
-                if subtype == 10 || subtype == 17 {
-                    flags.flag_f = true;
-                    flags.flag_d = true;
-                }
+                flags.flag_d = true;
             }
         }
     }
