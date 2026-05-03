@@ -490,6 +490,10 @@ pub unsafe extern "thiscall" fn handle_message(
                 msg_select_weapon(this, data as *const SelectWeaponMessage);
                 true
             }
+            EntityMessage::JumpUp => {
+                msg_jump_up(this);
+                true
+            }
             EntityMessage::SelectFuse => {
                 msg_select_fuse(this, data as *const SelectArmingMessage);
                 true
@@ -610,9 +614,8 @@ unsafe fn msg_face_right(this: *mut WormEntity) {
     }
 }
 
-/// In `Transitional` state the body only sets the flags and falls through
-/// to the parent class. The `vf4` checks pin two states (`0x7B`/`0x7C`)
-/// from being kicked back to Idle on later WA versions.
+/// `vf4` gates pin states `0x7B`/`0x7C` from being kicked back to Idle on
+/// later WA versions.
 unsafe fn msg_team_victory(this: *mut WormEntity) -> bool {
     unsafe {
         (*this)._field_14c = 1;
@@ -698,9 +701,6 @@ unsafe fn msg_unknown_42(this: *mut WormEntity) -> bool {
     }
 }
 
-/// Surrender (0x2B): drop to Idle iff the per-worm action-pending flag is
-/// set or the worm is currently the active turn-holder. Otherwise no
-/// state change and no parent dispatch.
 unsafe fn msg_surrender(this: *mut WormEntity) -> bool {
     unsafe {
         let world = (*(this as *const BaseEntity)).world;
@@ -726,11 +726,8 @@ unsafe fn msg_bring_forward(this: *mut WormEntity) {
     }
 }
 
-/// The state-set in `[0x78, 0x7B, 0x7C, 0x7D]` test inlines WA's
-/// `CanFireSubtype16` (0x00516930). The decomp's `extraout_ECX` reading
-/// `[ECX+0x24]` after that call is a Ghidra artifact: the helper only
-/// touches EAX, and the caller's ECX remained loaded with `world` — not
-/// "this returned via ECX". So `world.game_info` is read independently here.
+/// The decomp's `extraout_ECX` after `CanFireSubtype16` is a Ghidra artifact
+/// — the helper only touches EAX; the caller's ECX still holds `world`.
 unsafe fn msg_pause_turn(this: *mut WormEntity) {
     unsafe {
         let world = (*(this as *const BaseEntity)).world;
@@ -788,9 +785,8 @@ unsafe fn msg_disable_weapons(this: *mut WormEntity) {
     unsafe { deactivate_on_idle(this) }
 }
 
-/// StartTurn (0x34). Initializes per-turn state for the worm whose turn
-/// is starting. Returns `false` only when `world.game_info.game_version <
-/// -1` (the never-hit fall-through path); always `true` for valid games.
+/// Returns `false` only on `game_version < -1` — the never-hit
+/// fall-through path. Always `true` for valid games.
 unsafe fn msg_start_turn(this: *mut WormEntity) -> bool {
     unsafe {
         let world = (*(this as *const BaseEntity)).world;
@@ -850,15 +846,10 @@ unsafe fn msg_start_turn(this: *mut WormEntity) -> bool {
     }
 }
 
-/// FinishTurn (0x37). End-of-turn cleanup. Kicks the worm out of any
-/// "action" state, tears down the active weapon, clears
-/// turn_active/paused, deactivates the worm in the team registry, then
-/// optionally settles into Idle/Hurt depending on motion + scheme
-/// version. The post-`CanFireSubtype16` gate uses WA's `cStack_831` flag
-/// to track "took the dying-state path" (game_version >= 0x1E7 AND
-/// health <= 0): alive worms in v3.5+ schemes (`version_flag_4 != 0`)
-/// skip the SetState when still moving, while pre-v3.5 or dying worms
-/// transition to Hurt.
+/// The post-`CanFireSubtype16` gate uses WA's `cStack_831` flag to track
+/// "took the dying-state path" (`game_version >= 0x1E7 && health <= 0`):
+/// alive worms in v3.5+ schemes (`version_flag_4 != 0`) skip the SetState
+/// when still moving; pre-v3.5 or dying worms transition to Hurt.
 unsafe fn msg_finish_turn(this: *mut WormEntity) {
     unsafe {
         let world = (*(this as *const BaseEntity)).world;
@@ -939,8 +930,8 @@ unsafe fn msg_finish_turn(this: *mut WormEntity) {
     }
 }
 
-/// Falls through to the parent class on mismatch — non-matching worms
-/// still want WorldEntity's default WormMoved handling.
+/// Mismatched team/worm-index falls through so the parent's default
+/// WormMoved handling still runs.
 unsafe fn msg_worm_moved(this: *mut WormEntity, message: *const WormMovedMessage) -> bool {
     unsafe {
         if message.is_null() {
@@ -1047,8 +1038,6 @@ unsafe fn msg_turn_finished(this: *mut WormEntity) -> bool {
     }
 }
 
-/// Resets aim-fade animation when *this* worm releases a Bungee
-/// (fire_type=4 Special, subtype=15).
 unsafe fn msg_weapon_released(
     this: *mut WormEntity,
     message: *const WeaponReleasedMessage,
@@ -1077,9 +1066,6 @@ unsafe fn msg_weapon_released(
     }
 }
 
-/// Pre-switch A is conditional (see [`pre_switch_a`] doc); the inner if
-/// can no-op (mismatched worm_index or network mode) but the function
-/// still returns without parent dispatch.
 unsafe fn msg_select_weapon(this: *mut WormEntity, message: *const SelectWeaponMessage) {
     unsafe {
         if message.is_null() {
@@ -1112,9 +1098,6 @@ unsafe fn msg_weapon_claim_control(this: *mut WormEntity) {
     }
 }
 
-/// Self-call into `WormEntity::GetEntityData` (vt[3]) with query 0x7D1.
-/// Payload: `[i32 _, i32 worm_index, i16 x, i16 y, ...]`. The two i16 coords
-/// are sign-extended into a `[i32; 2]` out-buffer that vt[3] reads/writes.
 /// `WormStartFiring` is bridged (551 inst, cyclo 108 — too large to port).
 unsafe fn msg_fire_weapon(this: *mut WormEntity) {
     unsafe {
@@ -1123,13 +1106,28 @@ unsafe fn msg_fire_weapon(this: *mut WormEntity) {
     }
 }
 
-/// SelectFuse (0x2F). Pre-switch A applies when `turn_active != 0`. Body
-/// gates on `worm_index` match + `_unknown_2cc == 0`, then accepts a
-/// `data.value` from `[lo-1, hi-1]` where `(lo, hi) = (1, 5)` by default,
-/// `(1, 9)` when scheme byte `0xD9D0` is set and `0xD9B1 <= 0x1A`, or
-/// `(0, 9)` when scheme byte `0xD9D0` is set and `0xD9B1 > 0x1A`. The
-/// range check is bypassed when `game_version < -1`. The bridged helper
-/// reads the (possibly mutated) value through ESI=this/EDX=value.
+/// The byte at `WormEntity+0x12A` is a per-worm input-restriction flag set
+/// by the constructor from spawn init data byte 26 — semantics still TBD.
+unsafe fn msg_jump_up(this: *mut WormEntity) {
+    unsafe {
+        pre_switch_a(this);
+        pre_switch_b(this);
+        let restrict_jump = *(this as *const u8).add(0x12A);
+        if restrict_jump != 0 {
+            return;
+        }
+        let state = (*this).state();
+        if state == 0x77 && (*this)._field_29c == 0 {
+            (*this)._field_2a0 = 1;
+        }
+        if matches!(state, 0x65 | 0x66 | 0x67 | 0x88 | 0x8B) {
+            WormEntity::set_state_raw(this, WormState::WeaponSelected_Maybe);
+            (*this)._field_29c = 0;
+            (*this)._field_2a0 = 0;
+        }
+    }
+}
+
 unsafe fn msg_select_fuse(this: *mut WormEntity, message: *const SelectArmingMessage) {
     unsafe {
         if (*this).turn_active != 0 {
@@ -1168,10 +1166,6 @@ unsafe fn msg_select_fuse(this: *mut WormEntity, message: *const SelectArmingMes
     }
 }
 
-/// SelectHerd (0x30). Same gate shape as SelectFuse but with a simpler
-/// `value in [1, hi]` range — no `-1` mutation. `hi = 5` by default;
-/// `9 + (1 if scheme byte 0xD9B1 > 0x1A else 0)` when scheme byte 0xD9D0
-/// is set.
 unsafe fn msg_select_herd(this: *mut WormEntity, message: *const SelectArmingMessage) {
     unsafe {
         if (*this).turn_active != 0 {
@@ -1202,7 +1196,6 @@ unsafe fn msg_select_herd(this: *mut WormEntity, message: *const SelectArmingMes
     }
 }
 
-/// SelectBounce (0x31). No range check — pure pass-through to the bridge.
 unsafe fn msg_select_bounce(this: *mut WormEntity, message: *const SelectArmingMessage) {
     unsafe {
         if (*this).turn_active != 0 {
@@ -1218,11 +1211,6 @@ unsafe fn msg_select_bounce(this: *mut WormEntity, message: *const SelectArmingM
     }
 }
 
-/// SelectCursor (0x32). Pre-switch A is conditional on `turn_active != 0`
-/// (matches WA's pre-switch gate for msgs `0x2F..=0x32`); the body itself
-/// also requires `worm_index` match and `_unknown_2cc == 0`. The
-/// `direction` sign + `button_id` range gates only apply on
-/// `game_version >= -1`.
 unsafe fn msg_select_cursor(this: *mut WormEntity, message: *const SelectCursorMessage) {
     unsafe {
         if (*this).turn_active != 0 {

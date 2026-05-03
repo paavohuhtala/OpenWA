@@ -533,8 +533,21 @@ pub struct WormEntity {
     pub fire_sync_frame_1: i32,
     /// 0x294: Fire sync frame counter 2.
     pub fire_sync_frame_2: i32,
-    /// 0x298–0x2AF: Unknown
-    pub _unknown_298: [u8; 0x2B0 - 0x298],
+    /// 0x298: Unknown
+    pub _unknown_298: u32,
+    /// 0x29C: Jump-request marker. Set to `1` by `Jump` (msg 0x24) when the
+    /// worm transitions out of an idle state (0x65/0x66/0x67/0x88/0x8B) into
+    /// 0x77 (PreJump). Set to `-1` by `Jump` when already in 0x77 (jump-cancel
+    /// re-entry). Cleared by `JumpUp` (msg 0x25) on the same idle→0x77
+    /// transition.
+    pub _field_29c: i32,
+    /// 0x2A0: Jump-release marker. Set to `1` by `JumpUp` (msg 0x25) when
+    /// state==0x77 and `_field_29c == 0` (i.e. the JumpUp arrived without a
+    /// preceding Jump-cancel). Cleared together with `_field_29c` on the
+    /// idle→0x77 transition.
+    pub _field_2a0: i32,
+    /// 0x2A4–0x2AF: Unknown
+    pub _unknown_2a4: [u8; 0x2B0 - 0x2A4],
     /// 0x2B0: Damage-stack count (accumulated by case 0x4B). Cleared at
     /// `TurnStarted` (msg 0x38).
     pub damage_stack_count: u32,
