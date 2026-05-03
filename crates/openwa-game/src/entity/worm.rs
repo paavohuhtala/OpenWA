@@ -590,8 +590,14 @@ pub struct WormEntity {
     pub _unknown_254: [u8; 4],
     /// 0x258: Cleared unconditionally by `FinishTurn` (msg 0x37). Reader TBD.
     pub _field_258: u32,
-    /// 0x25C-0x267: Unknown
-    pub _unknown_25c: [u8; 0xC],
+    /// 0x25C-0x263: Unknown
+    pub _unknown_25c: [u8; 8],
+    /// 0x264: Aim parameter clamped to `[0x6666, 0x9999]` by `Jump` (msg
+    /// 0x24) in the `AimingAngle` (0x7B) state. Computed as
+    /// `(angle - 0x8000) & 0xFFFF` from the entry-snapshot of
+    /// `WorldEntity::angle` — i.e. the worm's aim angle's low 16 bits,
+    /// shifted by half a turn. Reader TBD.
+    pub _field_264: u32,
     /// 0x268: Show aiming cursor flag (nonzero = cursor visible).
     pub show_cursor: u32,
     /// 0x26C–0x27F: Unknown

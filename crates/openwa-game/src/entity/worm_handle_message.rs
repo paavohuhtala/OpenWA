@@ -1408,6 +1408,11 @@ unsafe fn msg_jump_up(this: *mut WormEntity) {
 unsafe fn msg_jump(this: *mut WormEntity) -> bool {
     unsafe {
         let state = (*this).state();
+        // WA snapshots `angle` at function entry into a stack slot the 0x7B
+        // arm later reloads — capture it here too. (Ghidra's decomp wrongly
+        // sourced this slot from `pos_x`; verified against the asm at
+        // 0x0051293F: `MOV EAX, [ESP+0x20]` reads the saved-angle slot.)
+        let angle_at_entry = (*this).base.angle.0;
         let world = (*(this as *const BaseEntity)).world;
         let game_info = (*world).game_info;
         let game_version = (*game_info).game_version;
@@ -1424,16 +1429,8 @@ unsafe fn msg_jump(this: *mut WormEntity) -> bool {
                 ]));
 
         // 0x73 falls into the firing-tick block at the function tail and is
-        // not yet ported; 0x7B desyncs `shotgun_longbow_ninja` at frame 6618
-        // when the body runs after Rust pre-switches (cause not yet RE'd —
-        // see `project_msg_jump_07b_desync.md`). Both arms early-return
-        // `false` here so WA's saved original handles them in full.
-        if !gate_blocks
-            && state.is_any_of(&[
-                KnownWormState::WeaponCharging_Maybe,
-                KnownWormState::AimingAngle_Maybe,
-            ])
-        {
+        // not yet ported; hand it off to WA's saved original.
+        if !gate_blocks && state.is(KnownWormState::WeaponCharging_Maybe) {
             return false;
         }
 
@@ -1475,6 +1472,19 @@ unsafe fn msg_jump(this: *mut WormEntity) -> bool {
                     KnownWormState::Idle
                 };
                 WormEntity::set_state_raw(this, new_state);
+            }
+            0x7B => {
+                (*this)._field_15c = scheme_facing;
+                WormEntity::set_state_raw(this, KnownWormState::WeaponCharging_Maybe);
+                let raw = angle_at_entry.wrapping_sub(0x8000) as u32 & 0xFFFF;
+                let clamped = if raw < 0x6666 {
+                    0x6666
+                } else if raw > 0x9999 {
+                    0x9999
+                } else {
+                    raw
+                };
+                (*this)._field_264 = clamped;
             }
             0x7C => {
                 (*this)._field_15c = scheme_facing;
