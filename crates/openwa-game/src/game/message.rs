@@ -632,3 +632,46 @@ pub struct RenderSceneMessage;
 impl EntityMessageData for RenderSceneMessage {
     const MESSAGE_TYPE: EntityMessage = EntityMessage::RenderScene;
 }
+
+/// Payload for [`EntityMessage::DamageWorms`] (msg 0x3B). Sent by various
+/// world events to subtract HP. Sign of `damage` selects the path:
+/// positive applies up to that many HP but never kills (floors at 1);
+/// negative damages to exactly 1 HP.
+#[repr(C)]
+#[derive(Clone, Copy, Zeroable, Pod, Debug)]
+pub struct DamageWormsMessage {
+    pub damage: i32,
+}
+
+impl EntityMessageData for DamageWormsMessage {
+    const MESSAGE_TYPE: EntityMessage = EntityMessage::DamageWorms;
+}
+
+/// Payload for [`EntityMessage::Unknown129`] (msg 0x81). Worm-targeted
+/// query carrying packed signed-i16 cursor coordinates; the receiving
+/// worm's `GetEntityData` query 0x7D1 is invoked with the unpacked pair
+/// at offset 0x394 in the receiving worm's data block.
+#[repr(C)]
+#[derive(Clone, Copy, Zeroable, Pod, Debug)]
+pub struct Unknown129Message {
+    pub team_index: u32,
+    pub worm_index: u32,
+    /// Packed `(coord_y << 16) | (coord_x & 0xFFFF)` as two signed i16s.
+    pub packed_coords: u32,
+}
+
+impl Unknown129Message {
+    #[inline]
+    pub fn coord_x(self) -> i32 {
+        (self.packed_coords as i16) as i32
+    }
+
+    #[inline]
+    pub fn coord_y(self) -> i32 {
+        ((self.packed_coords >> 16) as i16) as i32
+    }
+}
+
+impl EntityMessageData for Unknown129Message {
+    const MESSAGE_TYPE: EntityMessage = EntityMessage::Unknown129;
+}

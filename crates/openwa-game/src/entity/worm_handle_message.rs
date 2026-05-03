@@ -8,9 +8,10 @@
 //!
 //! See `project_worm_handle_message_re.md` (memory) for full RE state.
 
+use core::ffi::c_char;
 use core::sync::atomic::{AtomicU32, Ordering};
 use openwa_core::fixed::Fixed;
-use openwa_core::weapon::KnownWeaponId;
+use openwa_core::weapon::{FireType, KnownWeaponId};
 
 use super::base::BaseEntity;
 use super::game_entity::WorldEntity;
@@ -19,13 +20,20 @@ use crate::address::va;
 use crate::engine::EntityActivityQueue;
 use crate::engine::team_arena::{TeamArena, WormEntry};
 use crate::engine::world::GameWorld;
-use crate::game::game_entity_message::cgameentity_handle_message;
+use crate::game::game_entity_message::world_entity_handle_message;
 use crate::game::message::{
-    ExplosionMessage, PoisonWormMessage, SelectArmingMessage, SelectCursorMessage,
-    SelectWeaponMessage, SpecialImpactMessage, WeaponReleasedMessage, WormMovedMessage,
+    DamageWormsMessage, ExplosionMessage, PoisonWormMessage, SelectArmingMessage,
+    SelectCursorMessage, SelectWeaponMessage, SpecialImpactMessage, Unknown129Message,
+    WeaponReleasedMessage, WormMovedMessage,
 };
 use crate::game::{EntityMessage, weapon_fire};
 use crate::rebase::rb;
+
+/// Subtype on a [`FireType::Special`] weapon entry that triggers the
+/// WeaponReleased aim-fade reset (msg 0x49). Empirically the Bungee
+/// weapon — slot 15 has no [`openwa_core::weapon::SpecialFireSubtype`]
+/// variant yet, so we keep it as a named constant here.
+const BUNGEE_SPECIAL_SUBTYPE: i32 = 0xF;
 
 /// Saved original `WormEntity::HandleMessage` (0x00510B40), populated by
 /// `vtable_replace!` at install time.
@@ -372,9 +380,9 @@ unsafe extern "stdcall" fn bridge_broadcast_via_shared_data(
 #[unsafe(naked)]
 unsafe extern "stdcall" fn bridge_localized_text_random_pick(
     _this: *mut WormEntity,
-    _name_array: *const u32,
+    _name_array: *const *const c_char,
     _kind: u32,
-    _worm_name_ptr: *const u8,
+    _worm_name_ptr: *const c_char,
 ) {
     core::arch::naked_asm!(
         "jmp dword ptr [{addr}]",
@@ -387,7 +395,7 @@ unsafe extern "stdcall" fn bridge_localized_text_random_pick(
 unsafe extern "stdcall" fn bridge_play_impact_sound(
     _this: *mut WormEntity,
     _sound_id: u32,
-    _mag: u32,
+    _mag: Fixed,
 ) {
     core::arch::naked_asm!(
         "push edi",
@@ -407,7 +415,7 @@ unsafe extern "stdcall" fn bridge_play_impact_sound(
 unsafe extern "stdcall" fn bridge_play_sound(
     _this: *mut WormEntity,
     _sound_id: u32,
-    _vol: u32,
+    _vol: Fixed,
     _channel: u32,
 ) {
     core::arch::naked_asm!(
@@ -532,10 +540,10 @@ unsafe fn pre_switch_a(this: *mut WormEntity) {
         bridge_reset_activity_rank(queue, slot);
         (*this).stationary_frames = 0;
         bridge_notify_moved(this);
-        (*this).aim_fade[1] = Fixed(0);
-        (*this).aim_fade[3] = Fixed(0);
-        (*this).aim_fade[5] = Fixed(0);
-        (*this).aim_fade[7] = Fixed(0);
+        (*this).aim_fade[1] = Fixed::ZERO;
+        (*this).aim_fade[3] = Fixed::ZERO;
+        (*this).aim_fade[5] = Fixed::ZERO;
+        (*this).aim_fade[7] = Fixed::ZERO;
     }
 }
 
@@ -692,7 +700,7 @@ pub unsafe extern "thiscall" fn handle_message(
             EntityMessage::Explosion | EntityMessage::ProjectileImpact => {
                 msg_explosion(this, sender, msg, size, data)
             }
-            EntityMessage::DamageWorms => msg_damage_worms(this, data),
+            EntityMessage::DamageWorms => msg_damage_worms(this, data as *const DamageWormsMessage),
             EntityMessage::ApplyPoison => msg_apply_poison(this),
             EntityMessage::AdvanceWorm => {
                 msg_advance_worm(this);
@@ -707,7 +715,7 @@ pub unsafe extern "thiscall" fn handle_message(
                 true
             }
             EntityMessage::Unknown129 => {
-                msg_unknown_129(this, data);
+                msg_unknown_129(this, data as *const Unknown129Message);
                 true
             }
             EntityMessage::FireWeapon => {
@@ -995,7 +1003,7 @@ unsafe fn msg_start_turn(this: *mut WormEntity) -> bool {
         (*this)._field_1bc = 0;
         (*this).shot_data_1 = 0;
         (*this).shot_data_2 = 0;
-        (*this).aim_fade = [Fixed(0x10000); 8];
+        (*this).aim_fade = [Fixed::ONE; 8];
         (*this).weapons_enabled = 1;
         (*this).turn_active = 1;
 
@@ -1063,10 +1071,10 @@ unsafe fn msg_finish_turn(this: *mut WormEntity) {
         deactivate_on_idle(this);
         begin_thinking_hide(this);
 
-        (*this).aim_fade[5] = Fixed(0x10000);
-        (*this).aim_fade[7] = Fixed(0x10000);
-        (*this).aim_fade[1] = Fixed(0);
-        (*this).aim_fade[3] = Fixed(0);
+        (*this).aim_fade[5] = Fixed::ONE;
+        (*this).aim_fade[7] = Fixed::ONE;
+        (*this).aim_fade[1] = Fixed::ZERO;
+        (*this).aim_fade[3] = Fixed::ZERO;
         (*this).turn_paused = 0;
         (*this).turn_active = 0;
 
@@ -1205,9 +1213,9 @@ unsafe fn msg_turn_started(this: *mut WormEntity) {
             (*this).aim_angle = if aim < Fixed(0x4000) {
                 Fixed(0x8000)
             } else if aim <= Fixed(0x7FFF) {
-                Fixed(0)
+                Fixed::ZERO
             } else if aim <= Fixed(0xBFFF) {
-                Fixed(0x10000)
+                Fixed::ONE
             } else {
                 Fixed(0x8000)
             };
@@ -1244,16 +1252,14 @@ unsafe fn msg_weapon_released(
             return false;
         }
         let world = (*(this as *const BaseEntity)).world;
-        let entries = (*(*world).weapon_table).entries.as_ptr();
-        let entry = entries.add((*message).weapon.0 as usize);
-        if (*entry).fire_type != 4 {
+        let entry = &(*(*world).weapon_table).entries[(*message).weapon.0 as usize];
+        if entry.fire_type != FireType::Special as i32 {
             return false;
         }
-        let subtype = *((entry as *const u8).add(0x34) as *const i32);
-        if subtype != 0xF {
+        if entry.special_subtype != BUNGEE_SPECIAL_SUBTYPE {
             return false;
         }
-        (*this).aim_fade = [Fixed(0x10000); 8];
+        (*this).aim_fade = [Fixed::ONE; 8];
         true
     }
 }
@@ -1338,10 +1344,10 @@ unsafe fn msg_select_fuse(this: *mut WormEntity, message: *const SelectArmingMes
             return;
         }
         let world = (*(this as *const BaseEntity)).world;
-        let game_info = (*world).game_info as *const u8;
-        let scheme_d9d0 = *game_info.add(0xD9D0);
-        let scheme_d9b1 = *game_info.add(0xD9B1) as i8;
-        let game_version = (*(*world).game_info).game_version;
+        let game_info = (*world).game_info;
+        let scheme_d9d0 = (*game_info)._scheme_d9d0;
+        let scheme_d9b1 = (*game_info)._scheme_d9b1;
+        let game_version = (*game_info).game_version;
 
         let mut hi: i32 = 5;
         let mut lo: i32 = 1;
@@ -1376,10 +1382,10 @@ unsafe fn msg_select_herd(this: *mut WormEntity, message: *const SelectArmingMes
             return;
         }
         let world = (*(this as *const BaseEntity)).world;
-        let game_info = (*world).game_info as *const u8;
-        let scheme_d9d0 = *game_info.add(0xD9D0);
-        let scheme_d9b1 = *game_info.add(0xD9B1) as i8;
-        let game_version = (*(*world).game_info).game_version;
+        let game_info = (*world).game_info;
+        let scheme_d9d0 = (*game_info)._scheme_d9d0;
+        let scheme_d9b1 = (*game_info)._scheme_d9b1;
+        let game_version = (*game_info).game_version;
 
         let hi: i32 = if scheme_d9d0 != 0 {
             9 + i32::from(scheme_d9b1 > 0x1A)
@@ -1461,7 +1467,6 @@ unsafe fn msg_poison_worm(this: *mut WormEntity, message: *const PoisonWormMessa
             return false;
         }
         let world = (*(this as *const BaseEntity)).world;
-        let game_info = (*world).game_info as *const u8;
         let game_version = (*(*world).game_info).game_version;
         let mut source_bit = (*message).source_bit as u32;
         if game_version < 0x53 {
@@ -1472,21 +1477,8 @@ unsafe fn msg_poison_worm(this: *mut WormEntity, message: *const PoisonWormMessa
         {
             return false;
         }
-        let sender_team = (*message).sender_team_index;
-        if sender_team != 0 {
-            let world_bytes = world as *const u8;
-            let sender_alliance =
-                *(world_bytes.add((sender_team as usize) * 0x51C + 0x462C) as *const i32);
-            let my_alliance =
-                *(world_bytes.add(((*this).team_index as usize) * 0x51C + 0x462C) as *const i32);
-            let fire_byte = if sender_alliance == my_alliance {
-                *game_info.add(0xD95C)
-            } else {
-                *game_info.add(0xD95D)
-            };
-            if fire_byte > 2 {
-                return true; // WA's `return;` — handled, no parent dispatch
-            }
+        if alliance_blocks_damage(world, (*message).sender_team_index, (*this).team_index) {
+            return true; // WA's `return;` — handled, no parent dispatch
         }
         (*this).poison_damage = (*this).poison_damage.wrapping_add((*message).damage);
         (*this).poison_source_mask |= source_bit;
@@ -1507,13 +1499,13 @@ unsafe fn msg_poison_worm(this: *mut WormEntity, message: *const PoisonWormMessa
         );
 
         let template = (*world).localized_template;
-        let resolved =
-            crate::wa::localized_template::resolve_split_array_raw(template, 0x6CF) as *const u32;
+        let resolved = crate::wa::localized_template::resolve_split_array_raw(template, 0x6CF)
+            as *const *const c_char;
         bridge_localized_text_random_pick(
             this,
             resolved,
             0x17,
-            &raw const (*this).worm_name as *const u8,
+            &raw const (*this).worm_name as *const c_char,
         );
         true
     }
@@ -1544,8 +1536,8 @@ unsafe fn msg_special_impact(
         // zero it out instead).
         if (*this).state().is(KnownWormState::Dead) {
             let saved_speed_x = (*this).base.speed_x;
-            bridge_play_impact_sound(this, 0x6A, 0x10000);
-            cgameentity_handle_message(
+            bridge_play_impact_sound(this, 0x6A, Fixed::ONE);
+            world_entity_handle_message(
                 this as *mut WorldEntity,
                 sender,
                 EntityMessage::SpecialImpact,
@@ -1553,7 +1545,7 @@ unsafe fn msg_special_impact(
                 data,
             );
             (*this).base.speed_x = if (*game_info).game_version < 499 {
-                Fixed(0)
+                Fixed::ZERO
             } else {
                 saved_speed_x
             };
@@ -1583,7 +1575,7 @@ unsafe fn msg_special_impact(
             return true;
         }
 
-        cgameentity_handle_message(
+        world_entity_handle_message(
             this as *mut WorldEntity,
             sender,
             EntityMessage::SpecialImpact,
@@ -1613,7 +1605,7 @@ unsafe fn msg_special_impact(
                 (*this)._field_15c = (*game_info)._scheme_d926 as u32;
             }
             1 => {
-                (*this).drown_marker = Fixed(0x10000);
+                (*this).drown_marker = Fixed::ONE;
             }
             2 | 7 => {
                 (*this).damage_stack_count = (*this).damage_stack_count.wrapping_add(1);
@@ -1626,7 +1618,7 @@ unsafe fn msg_special_impact(
         if ((*world).frame_counter - (*this).last_damage_sound_frame) > 0x18 {
             let rng = (*world).advance_rng();
             let sound_id = (*world).team_damage_grunt_id((*this).team_index, (rng & 0xFF) % 3);
-            bridge_play_sound(this, sound_id, 0x10000, 3);
+            bridge_play_sound(this, sound_id, Fixed::ONE, 3);
             (*this).last_damage_sound_frame = (*world).frame_counter;
         }
 
@@ -1738,10 +1730,10 @@ unsafe fn msg_explosion(
 
         if state.is(KnownWormState::Dead) {
             let saved_speed_x = (*this).base.speed_x;
-            cgameentity_handle_message(this as *mut WorldEntity, sender, msg_type, size, data);
+            world_entity_handle_message(this as *mut WorldEntity, sender, msg_type, size, data);
             (*this).base.damage_accum = 0;
             (*this).base.speed_x = if (*game_info).game_version < 499 {
-                Fixed(0)
+                Fixed::ZERO
             } else {
                 saved_speed_x
             };
@@ -1755,7 +1747,7 @@ unsafe fn msg_explosion(
             WormEntity::set_state_raw(this, KnownWormState::Hurt);
         }
 
-        cgameentity_handle_message(this as *mut WorldEntity, sender, msg_type, size, data);
+        world_entity_handle_message(this as *mut WorldEntity, sender, msg_type, size, data);
         let damage_accum = (*this).base.damage_accum;
         (*this).base.damage_accum = 0;
 
@@ -1818,9 +1810,9 @@ unsafe fn msg_explosion(
 /// the worm is left at ≥ 1 HP. Negative: damage to exactly 1 HP
 /// (regardless of magnitude). Both end at the shared
 /// `apply_raw_damage_unchecked` tail.
-unsafe fn msg_damage_worms(this: *mut WormEntity, data: *const u8) -> bool {
+unsafe fn msg_damage_worms(this: *mut WormEntity, message: *const DamageWormsMessage) -> bool {
     unsafe {
-        if data.is_null() {
+        if message.is_null() {
             return false;
         }
         let world = (*(this as *const BaseEntity)).world;
@@ -1830,7 +1822,7 @@ unsafe fn msg_damage_worms(this: *mut WormEntity, data: *const u8) -> bool {
             (*this).team_index as usize,
             (*this).worm_index as usize,
         );
-        let msg_damage = *(data as *const i32);
+        let msg_damage = (*message).damage;
         let old_health = (*entry).health;
         let applied = if msg_damage >= 0 {
             let clamped_new = old_health.wrapping_sub(msg_damage).max(1);
@@ -1984,18 +1976,18 @@ unsafe fn alliance_blocks_damage(
     }
 }
 
-unsafe fn msg_unknown_129(this: *mut WormEntity, data: *const u8) {
+unsafe fn msg_unknown_129(this: *mut WormEntity, message: *const Unknown129Message) {
     unsafe {
-        if data.is_null() {
+        if message.is_null() {
             return;
         }
-        let worm_index = *(data.add(4) as *const u32);
-        if worm_index != (*this).worm_index || (*this).turn_active == 0 || (*this).turn_paused != 0
+        if (*message).worm_index != (*this).worm_index
+            || (*this).turn_active == 0
+            || (*this).turn_paused != 0
         {
             return;
         }
-        let packed = *(data.add(8) as *const u32);
-        let mut out = [(packed as i16) as i32, ((packed >> 16) as i16) as i32];
+        let mut out = [(*message).coord_x(), (*message).coord_y()];
         WormEntity::get_entity_data_raw(this, 0x7D1, 0x394, out.as_mut_ptr() as *mut u32);
     }
 }

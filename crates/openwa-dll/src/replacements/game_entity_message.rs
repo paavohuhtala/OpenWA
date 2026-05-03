@@ -21,7 +21,7 @@ unsafe extern "cdecl" fn cgameentity_handle_message_impl(
     data: *const u8,
 ) {
     unsafe {
-        gtm::cgameentity_handle_message(this, sender, msg_type, size, data);
+        gtm::world_entity_handle_message(this, sender, msg_type, size, data);
     }
 }
 

@@ -37,7 +37,7 @@ crate::define_addresses! {
 const OFFSET_HEALTH: usize = 0x48;
 
 /// `WorldEntity::HandleMessage` (0x004FF280, vtable slot 2).
-pub unsafe extern "thiscall" fn cgameentity_handle_message(
+pub unsafe extern "thiscall" fn world_entity_handle_message(
     this: *mut WorldEntity,
     sender: *mut BaseEntity,
     msg_type: EntityMessage,

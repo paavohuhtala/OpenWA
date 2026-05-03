@@ -249,16 +249,27 @@ pub struct GameInfo {
     /// 0xD9A2: Network weapon exception flag. When net_config_2 != 0,
     /// weapons 10/0x37/0x38 are only disabled if this is also 0.
     pub net_weapon_exception: u8,
-    /// 0xD9A3-0xD9CE: Unknown
-    pub _unknown_d9a3: [u8; 0xD9CF - 0xD9A3],
+    /// 0xD9A3-0xD9B0: Unknown
+    pub _unknown_d9a3: [u8; 0xD9B1 - 0xD9A3],
+    /// 0xD9B1: Scheme sub-version byte (signed). Read by SelectFuse /
+    /// SelectHerd handlers as a "scheme allows extended fuse/herd range"
+    /// gate (compared against `0x1A`/`0x1F` thresholds).
+    pub _scheme_d9b1: i8,
+    /// 0xD9B2-0xD9CE: Unknown
+    pub _unknown_d9b2: [u8; 0xD9CF - 0xD9B2],
     /// 0xD9CF: "Force all weapons aimed" scheme flag (u8). When non-zero,
     /// the tail of [`overlay_scheme_weapon_settings`] sets
     /// `requires_aiming = 1` on every weapon 1..71 — confirmed sole reader
     /// (only immediate `0xD9CF` in WA.exe lives at 0x0053C0FF, inside that
     /// final loop).
     pub force_all_weapons_aim: u8,
-    /// 0xD9D0-0xD9DB: Unknown
-    pub _unknown_d9d0: [u8; 0xD9DC - 0xD9D0],
+    /// 0xD9D0: Extended fuse / herd range scheme flag. When non-zero,
+    /// SelectFuse widens the accepted fuse range from `[1..=5]` to `[1..=9]`
+    /// (and `[0..=9]` if `_scheme_d9b1 > 0x1A`); SelectHerd similarly widens
+    /// the herd index cap.
+    pub _scheme_d9d0: u8,
+    /// 0xD9D1-0xD9DB: Unknown
+    pub _unknown_d9d1: [u8; 0xD9DC - 0xD9D1],
     /// 0xD9DC: Index of the starting team for this round.
     pub starting_team_index: i8,
     /// 0xD9DD: Game mode flag. Negative = training/replay mode. Also used as starting-team index for activity flags in normal mode.
