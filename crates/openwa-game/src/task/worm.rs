@@ -201,23 +201,27 @@ crate::define_addresses! {
         /// weapon's `WeaponSpawn` descriptor and broadcasts a settings string
         /// via the same SharedData observer used by weapon-name announcements.
         fn/Fastcall WORM_ENTITY_BROADCAST_WEAPON_SETTINGS = 0x00510600;
-        /// `WormEntity::SelectFuse_Maybe`. Usercall
+        /// `WormEntity::SelectFuse`. Usercall
         /// `(EDX = fuse_value, ESI = this)`, plain RET, no stack args. Called
-        /// from `HandleMessage` case 0x2F. Writes the fuse value into
-        /// `worm + 0x2BC` after decoding the active `WeaponSpawn`, then
-        /// broadcasts updated settings via `BroadcastWeaponSettings_Maybe`.
+        /// from `HandleMessage` case 0x2F. Writes
+        /// `worm.selected_fuse_value` (+0x2BC) after decoding the active
+        /// `WeaponSpawn`, then broadcasts updated settings via
+        /// `BroadcastWeaponSettings_Maybe`.
         fn/Usercall WORM_ENTITY_SELECT_FUSE = 0x00510430;
-        /// `WormEntity::SelectBounce_Maybe`. Usercall
+        /// `WormEntity::SelectBounce`. Usercall
         /// `(EAX = bounce_value, ESI = this)`, plain RET, no stack args.
-        /// Called from `HandleMessage` case 0x31. Writes into `worm + 0x2C0`
-        /// (XOR-toggling the previous value when the message carries `-1`),
-        /// then broadcasts updated settings.
+        /// Called from `HandleMessage` case 0x31. Writes
+        /// `worm.selected_bounce_flag` (+0x2C0), XOR-toggling the previous
+        /// value when the message carries `-1`, then broadcasts updated
+        /// settings.
         fn/Usercall WORM_ENTITY_SELECT_BOUNCE = 0x005104D0;
-        /// `WormEntity::SelectHerd_Maybe`. Usercall
+        /// `WormEntity::SelectHerd`. Usercall
         /// `(EAX = herd_value, ESI = this)`, plain RET, no stack args. Called
-        /// from `HandleMessage` case 0x30. Writes the herd-cycle counter into
-        /// `worm + 0x2C4` (cycling via `% iVar2` when the message carries
-        /// `-1`), then broadcasts updated settings.
+        /// from `HandleMessage` case 0x30. Writes
+        /// `worm.selected_herd_index` (+0x2C4), cycling `% iVar2` when the
+        /// message carries `-1` (capped to `selected_weapon_ammo` when
+        /// positive and below the cycled value), then broadcasts updated
+        /// settings.
         fn/Usercall WORM_ENTITY_SELECT_HERD = 0x00510540;
     }
 
@@ -553,13 +557,27 @@ pub struct WormEntity {
     pub damage_stack_count: u32,
     /// 0x2B4–0x2BB: Unknown
     pub _unknown_2b4: [u8; 0x2BC - 0x2B4],
-    /// 0x2BC: Network client index. Compared against max client count
-    /// (5 or 10 depending on FE version) to compute network delay.
-    pub network_client_index: i32,
-    /// 0x2C0: Difficulty level (0 = easier/30-frame delay, 1 = harder/60-frame delay).
-    pub difficulty_level: i32,
-    /// 0x2C4–0x2C7: Unknown
-    pub _unknown_2c4: [u8; 4],
+    /// 0x2BC: Per-worm selected fuse value, written by `SelectFuse_Maybe`
+    /// (msg 0x2F). Cycled in `[0, iVar3-1]` where `iVar3` is `5` offline /
+    /// `10` online (with `fe_version < 0x1B`). Read at fire time by
+    /// `WeaponRelease`, which forwards `(value + 1) * 1000` ms as the
+    /// fuse-timer slot of the [`WeaponReleaseContext`]. The range-checked
+    /// SelectFuse path also accepts the sentinel `0xFF` when scheme byte
+    /// 0xD9B1 > 0x1F and the message carried `-1` — empirically a
+    /// "remember last fuse" marker.
+    pub selected_fuse_value: i32,
+    /// 0x2C0: Per-worm selected bounce flag, written by
+    /// `SelectBounce_Maybe` (msg 0x31). Toggled (XOR 1) when the message
+    /// carries `-1`. Read at fire time by `WeaponRelease` to set the
+    /// bounce-settle delay slot of [`WeaponReleaseContext`] (`0` ⇒ 30
+    /// frames, `1` ⇒ 60 frames).
+    pub selected_bounce_flag: i32,
+    /// 0x2C4: Per-worm selected herd cycle index, written by
+    /// `SelectHerd_Maybe` (msg 0x30). Cycled `% iVar2` (5 / 9 / 10
+    /// depending on scheme bytes 0xD9D0 / 0xD9B1) when the message carries
+    /// `-1`. Capped to `selected_weapon_ammo` if the cap is positive and
+    /// less than the cycled value.
+    pub selected_herd_index: i32,
     /// 0x2C8: Network/sound condition flag. In type 2 (rope) sound dispatch,
     /// sound plays only when this is 0 OR when it equals 1.
     pub _unknown_2c8: i32,

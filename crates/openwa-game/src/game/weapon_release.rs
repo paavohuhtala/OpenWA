@@ -148,20 +148,27 @@ pub unsafe fn weapon_release(
         ctx.spawn_offset_x = offset_x.0;
         ctx.spawn_offset_y = offset_y.0;
 
-        // ── 4. Delay ────────────────────────────────────────────
-        if w.difficulty_level == 0 {
+        // ── 4. Bounce-settle delay ──────────────────────────────
+        // Worm's selected bounce flag (msg 0x31 SelectBounce) drives the
+        // post-spawn settling delay: 30 frames (no bounce) or 60 frames
+        // (bounce). Other values leave ctx.delay at 0.
+        if w.selected_bounce_flag == 0 {
             ctx.delay = 0x1E;
-        } else if w.difficulty_level == 1 {
+        } else if w.selected_bounce_flag == 1 {
             ctx.delay = 0x3C;
         }
 
-        // ── 5. Network timing ───────────────────────────────────
+        // ── 5. Fuse timer (ms) ──────────────────────────────────
+        // Worm's selected fuse value (msg 0x2F SelectFuse), bounded by
+        // scheme: range is [0..4] offline, [0..9] online (with `adjust=-1`
+        // for fe_version >= 0x1B unlocking a `-1` "no-fuse" sentinel).
+        // Forwarded to FireWeapon as `(value + 1) * 1000` ms.
         let game_info = (*w.world()).game_info as *const u8;
         let is_network = *game_info.add(0xD9D0);
         let fe_version = *game_info.add(0xD9B1);
 
         let mut adjust = 0i32;
-        let max_clients = if is_network == 0 {
+        let max_fuse = if is_network == 0 {
             5
         } else if fe_version < 0x1B {
             10
@@ -170,9 +177,9 @@ pub unsafe fn weapon_release(
             10
         };
 
-        let client_idx = w.network_client_index;
-        if ((client_idx - adjust) as u32) < ((max_clients - adjust) as u32) {
-            ctx.network_delay = (client_idx + 1) * 1000;
+        let fuse = w.selected_fuse_value;
+        if ((fuse - adjust) as u32) < ((max_fuse - adjust) as u32) {
+            ctx.network_delay = (fuse + 1) * 1000;
         }
 
         // ── 6. Girder/GirderPack special ────────────────────────

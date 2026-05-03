@@ -44,7 +44,14 @@ pub struct WeaponReleaseContext {
     pub ammo_per_turn: u32,
     pub ammo_per_slot: u32,
     pub _zero: u32,
+    /// Bounce-settle delay in frames, sourced from
+    /// `WormEntity::selected_bounce_flag`: 30 if 0, 60 if 1, else 0.
+    /// Consumed by native FireWeapon — exact post-spawn semantics TBD.
     pub delay: u32,
+    /// Fuse timer in milliseconds, sourced from
+    /// `WormEntity::selected_fuse_value`: `(value + 1) * 1000` when within
+    /// the scheme-bounded range. Consumed by native FireWeapon — receivers
+    /// known to be grenade-family weapons.
     pub network_delay: i32,
 }
 
