@@ -88,10 +88,6 @@ static mut WORM_SPAWN_DAMAGE_PARTICLES_ADDR: u32 = 0;
 // (pos_x, pos_y). The `rope_param` arg comes from the message's offset
 // 0x10 (treated as a pre-multiplier `(arg + 2) << 17`).
 static mut WORM_HIT_TEST_ROPE_LINE_ADDR: u32 = 0;
-static mut WORM_EASE_AIM_VEC_A_ADDR: u32 = 0;
-static mut WORM_EASE_AIM_VEC_B_ADDR: u32 = 0;
-static mut WORM_EASE_AUX_VALUE_ADDR: u32 = 0;
-static mut WORM_CAN_IDLE_SOUND_ADDR: u32 = 0;
 static mut WEAPON_SPAWN_DECODE_DESCRIPTOR_ADDR: u32 = 0;
 
 pub unsafe fn init_addrs() {
@@ -117,10 +113,6 @@ pub unsafe fn init_addrs() {
         WORM_PLAY_SOUND_ADDR = rb(0x00515020);
         WORM_SPAWN_DAMAGE_PARTICLES_ADDR = rb(0x005108D0);
         WORM_HIT_TEST_ROPE_LINE_ADDR = rb(0x00501210);
-        WORM_EASE_AIM_VEC_A_ADDR = rb(va::WORM_ENTITY_EASE_AIM_VEC_A);
-        WORM_EASE_AIM_VEC_B_ADDR = rb(va::WORM_ENTITY_EASE_AIM_VEC_B);
-        WORM_EASE_AUX_VALUE_ADDR = rb(va::WORM_ENTITY_EASE_AUX_VALUE);
-        WORM_CAN_IDLE_SOUND_ADDR = rb(va::WORM_ENTITY_CAN_IDLE_SOUND);
         WEAPON_SPAWN_DECODE_DESCRIPTOR_ADDR = rb(va::WEAPON_SPAWN_DECODE_DESCRIPTOR);
     }
 }
@@ -490,55 +482,59 @@ unsafe extern "stdcall" fn bridge_hit_test_rope_line(
     );
 }
 
-/// `__thiscall(ECX = this)`, plain RET, no stack args.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_ease_aim_vec_a(_this: *mut WormEntity) {
-    core::arch::naked_asm!(
-        "mov ecx, dword ptr [esp+4]",
-        "mov eax, dword ptr [{addr}]",
-        "call eax",
-        "ret 4",
-        addr = sym WORM_EASE_AIM_VEC_A_ADDR,
-    );
+/// 5% of remaining gap, with a constant-step floor of `0x20C` so the
+/// fade always reaches its target in finite time. Used by the two
+/// `EaseAimVec` helpers below.
+const AIM_FADE_RATE: Fixed = Fixed(0xCCC);
+const AIM_FADE_MIN_STEP: Fixed = Fixed(0x20C);
+
+/// 10% of remaining gap with the same fraction as a min-step floor —
+/// matches WA's `FUN_00546a90` (0x00546a90) being called with
+/// `EAX = 0x1999` from `EaseAuxValue`.
+const AUX_VALUE_RATE: Fixed = Fixed(0x1999);
+const AUX_VALUE_MIN_STEP: Fixed = Fixed(0x1999);
+
+/// Rust port of `WormEntity::EaseAimVecA_Maybe` (0x0050E630). Eases
+/// `aim_fade[4]` toward `aim_fade[5]` and `aim_fade[6]` toward
+/// `aim_fade[7]`. The inlined ease primitive in WA is bit-identical to
+/// [`Fixed::smooth_move_towards`].
+unsafe fn ease_aim_vec_a(this: *mut WormEntity) {
+    unsafe {
+        let target_5 = (*this).aim_fade[5];
+        (*this).aim_fade[4].smooth_move_towards(target_5, AIM_FADE_MIN_STEP, AIM_FADE_RATE);
+        let target_7 = (*this).aim_fade[7];
+        (*this).aim_fade[6].smooth_move_towards(target_7, AIM_FADE_MIN_STEP, AIM_FADE_RATE);
+    }
 }
 
-/// `__thiscall(ECX = this)`, plain RET, no stack args.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_ease_aim_vec_b(_this: *mut WormEntity) {
-    core::arch::naked_asm!(
-        "mov ecx, dword ptr [esp+4]",
-        "mov eax, dword ptr [{addr}]",
-        "call eax",
-        "ret 4",
-        addr = sym WORM_EASE_AIM_VEC_B_ADDR,
-    );
+/// Rust port of `WormEntity::EaseAimVecB_Maybe` (0x0050E500). Eases
+/// `aim_fade[0]` toward `aim_fade[1]` and `aim_fade[2]` toward
+/// `aim_fade[3]`.
+unsafe fn ease_aim_vec_b(this: *mut WormEntity) {
+    unsafe {
+        let target_1 = (*this).aim_fade[1];
+        (*this).aim_fade[0].smooth_move_towards(target_1, AIM_FADE_MIN_STEP, AIM_FADE_RATE);
+        let target_3 = (*this).aim_fade[3];
+        (*this).aim_fade[2].smooth_move_towards(target_3, AIM_FADE_MIN_STEP, AIM_FADE_RATE);
+    }
 }
 
-/// `__usercall(ESI = this)`, plain RET, no stack args.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_ease_aux_value(_this: *mut WormEntity) {
-    core::arch::naked_asm!(
-        "push esi",
-        "mov esi, dword ptr [esp+8]",
-        "mov eax, dword ptr [{addr}]",
-        "call eax",
-        "pop esi",
-        "ret 4",
-        addr = sym WORM_EASE_AUX_VALUE_ADDR,
-    );
-}
-
-/// `__usercall(EAX = this)`, plain RET, returns `i32` in EAX (nonzero ⇒
-/// idle sound permitted).
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_can_idle_sound(_this: *mut WormEntity) -> i32 {
-    core::arch::naked_asm!(
-        "mov eax, dword ptr [esp+4]",
-        "mov edx, dword ptr [{addr}]",
-        "call edx",
-        "ret 4",
-        addr = sym WORM_CAN_IDLE_SOUND_ADDR,
-    );
+/// Rust port of `WormEntity::EaseAuxValue_Maybe` (0x0050FB10). Eases
+/// `_field_398` toward `_field_39c` via WA's `FUN_00546a90` primitive,
+/// then — when the eased value is non-zero AND the worm holds the turn
+/// — suppresses `aim_fade[5]` and `aim_fade[7]` so the aim arrow stops
+/// re-targeting.
+unsafe fn ease_aux_value(this: *mut WormEntity) {
+    unsafe {
+        let target = (*this)._field_39c;
+        (*this)
+            ._field_398
+            .smooth_move_towards(target, AUX_VALUE_MIN_STEP, AUX_VALUE_RATE);
+        if (*this)._field_398 != Fixed::ZERO && (*this).turn_active != 0 {
+            (*this).aim_fade[5] = Fixed::ZERO;
+            (*this).aim_fade[7] = Fixed::ZERO;
+        }
+    }
 }
 
 /// `WeaponSpawn::DecodeDescriptor_Maybe` (0x00565C10) —
@@ -2092,13 +2088,13 @@ unsafe fn alliance_blocks_damage(
 ///   stores the new value into `_field_3a4`.
 unsafe fn msg_update_non_critical(this: *mut WormEntity) {
     unsafe {
-        bridge_ease_aim_vec_a(this);
-        bridge_ease_aux_value(this);
-        bridge_ease_aim_vec_b(this);
+        ease_aim_vec_a(this);
+        ease_aux_value(this);
+        ease_aim_vec_b(this);
 
         let world = (*(this as *const BaseEntity)).world;
 
-        if bridge_can_idle_sound(this) != 0
+        if super::worm::worm_can_idle_sound_impl(this) != 0
             && (*this).stationary_frames > 499
             && ((*this).aim_fade[0] == Fixed::ZERO || (*this).aim_fade[4] == Fixed::ZERO)
         {

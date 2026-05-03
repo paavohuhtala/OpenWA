@@ -251,17 +251,6 @@ crate::define_addresses! {
         /// positive and below the cycled value), then broadcasts updated
         /// settings.
         fn/Usercall WORM_ENTITY_SELECT_HERD = 0x00510540;
-        /// `WormEntity::EaseAimVecA_Maybe`. Thiscall `(ECX = this)`, plain
-        /// RET, no stack args. One of three per-frame easing helpers called
-        /// from `HandleMessage` case 0x5 (UpdateNonCritical).
-        fn/Thiscall WORM_ENTITY_EASE_AIM_VEC_A = 0x0050E630;
-        /// `WormEntity::EaseAimVecB_Maybe`. Thiscall `(ECX = this)`, plain
-        /// RET, no stack args. Sibling of `EaseAimVecA`, called from case
-        /// 0x5 (UpdateNonCritical) immediately after `EaseAuxValue`.
-        fn/Thiscall WORM_ENTITY_EASE_AIM_VEC_B = 0x0050E500;
-        /// `WormEntity::EaseAuxValue_Maybe`. Usercall `(ESI = this)`, plain
-        /// RET, no stack args. Middle of the three case-0x5 easing helpers.
-        fn/Usercall WORM_ENTITY_EASE_AUX_VALUE = 0x0050FB10;
         /// `WormEntity::CanIdleSound_Maybe`. Usercall `(EAX = this)`, plain
         /// RET, returns `i32` in EAX (nonzero ⇒ idle sound permitted). Called
         /// from case 0x5 (UpdateNonCritical) — gates the idle-sound emission
@@ -740,8 +729,15 @@ pub struct WormEntity {
     /// 0x378–0x397: Aim-fade animation values (8 × Fixed 16.16, default 1.0 = 0x10000).
     /// Reset to 1.0 by `WeaponFinished` (msg 0x49) for Bungee weapons.
     pub aim_fade: [Fixed; 8],
-    /// 0x398–0x39F: Unknown
-    pub _unknown_398: [u8; 0x3A0 - 0x398],
+    /// 0x398: Aux ease value (Fixed). Eased toward [`_field_39c`] in
+    /// `WormEntity::EaseAuxValue` (case 0x5, UpdateNonCritical) using the
+    /// generic 10%-step `linear_ease_with_min_step` primitive (min step =
+    /// `0x1999`). When the eased value is non-zero AND `turn_active != 0`,
+    /// case 0x5 zeros `aim_fade[5]` and `aim_fade[7]` to suppress the
+    /// aim-arrow targets.
+    pub _field_398: Fixed,
+    /// 0x39C: Target value the [`_field_398`] aux is eased toward.
+    pub _field_39c: Fixed,
     /// 0x3A0: "No aim sprite required" flag, set by `HandleMessage` case
     /// 0x5 (UpdateNonCritical) when either `selected_weapon == None` or
     /// `WeaponSpawn::DecodeDescriptor`'s arg3 + arg4 outputs are both 0.
@@ -785,6 +781,34 @@ pub struct WormEntity {
 }
 
 const _: () = assert!(core::mem::size_of::<WormEntity>() == 0x3FC);
+
+/// cdecl-callable impl behind the EAX-passing usercall hook for
+/// `WormEntity::CanIdleSound_Maybe` (0x0050E5E0). Returns `1` when the
+/// worm holds an unpaused turn, has no per-worm action-pending flag set
+/// on its [`WormEntry::_field_98`], AND is not currently in motion;
+/// returns `0` otherwise. Two callers — `WormEntity::HandleMessage`
+/// case 0x5 (UpdateNonCritical) and `WormEntity::BehaviorTick`.
+pub unsafe extern "cdecl" fn worm_can_idle_sound_impl(this: *mut WormEntity) -> i32 {
+    unsafe {
+        if (*this).turn_active == 0 || (*this).turn_paused != 0 {
+            return 0;
+        }
+        let world = (*(this as *const super::base::BaseEntity)).world;
+        let arena: *const crate::engine::team_arena::TeamArena = &raw const (*world).team_arena;
+        let entry = crate::engine::team_arena::TeamArena::team_worm(
+            arena,
+            (*this).team_index as usize,
+            (*this).worm_index as usize,
+        );
+        if (*entry)._field_98 != 0 {
+            return 0;
+        }
+        let is_moving = super::game_entity::WorldEntity::is_moving_raw(
+            this as *const super::game_entity::WorldEntity,
+        );
+        if is_moving { 0 } else { 1 }
+    }
+}
 
 // Generate typed vtable method wrappers: handle_message(), on_contact_entity(), etc.
 bind_WormEntityVtable!(WormEntity, base.base.vtable);
