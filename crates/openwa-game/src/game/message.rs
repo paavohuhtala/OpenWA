@@ -537,6 +537,19 @@ impl EntityMessageData for SelectWeaponMessage {
     const MESSAGE_TYPE: EntityMessage = EntityMessage::SelectWeapon;
 }
 
+/// Shared payload for the weapon-arming messages
+/// [`EntityMessage::SelectFuse`], [`EntityMessage::SelectHerd`], and
+/// [`EntityMessage::SelectBounce`] (msgs 0x2F/0x30/0x31). All three carry an
+/// integer value (fuse timer / herd cycle index / bounce flag respectively),
+/// and all three accept `-1` as a sentinel meaning "advance to next".
+#[repr(C)]
+#[derive(Clone, Copy, Zeroable, Pod, Debug)]
+pub struct SelectArmingMessage {
+    pub team_index: u32,
+    pub worm_index: u32,
+    pub value: i32,
+}
+
 /// Payload for [`EntityMessage::SelectCursor`] (msg 0x32). Carries the screen
 /// pixel coordinates of the player's mouse-aim cursor plus a direction sign
 /// (`±1`) and a button id.

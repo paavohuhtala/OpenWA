@@ -20,7 +20,8 @@ use crate::engine::EntityActivityQueue;
 use crate::engine::team_arena::TeamArena;
 use crate::engine::world::GameWorld;
 use crate::game::message::{
-    SelectCursorMessage, SelectWeaponMessage, WeaponReleasedMessage, WormMovedMessage,
+    SelectArmingMessage, SelectCursorMessage, SelectWeaponMessage, WeaponReleasedMessage,
+    WormMovedMessage,
 };
 use crate::game::{EntityMessage, weapon_fire};
 use crate::rebase::rb;
@@ -45,6 +46,9 @@ static mut TEAM_ARENA_SET_ACTIVE_WORM_ADDR: u32 = 0;
 static mut WORM_FINISH_TURN_CLEANUP_ADDR: u32 = 0;
 static mut WORM_BROADCAST_WEAPON_NAME_ADDR: u32 = 0;
 static mut WORM_BROADCAST_WEAPON_SETTINGS_ADDR: u32 = 0;
+static mut WORM_SELECT_FUSE_ADDR: u32 = 0;
+static mut WORM_SELECT_BOUNCE_ADDR: u32 = 0;
+static mut WORM_SELECT_HERD_ADDR: u32 = 0;
 
 pub unsafe fn init_addrs() {
     unsafe {
@@ -60,6 +64,9 @@ pub unsafe fn init_addrs() {
         WORM_FINISH_TURN_CLEANUP_ADDR = rb(va::WORM_FINISH_TURN_CLEANUP);
         WORM_BROADCAST_WEAPON_NAME_ADDR = rb(va::WORM_ENTITY_BROADCAST_WEAPON_NAME);
         WORM_BROADCAST_WEAPON_SETTINGS_ADDR = rb(va::WORM_ENTITY_BROADCAST_WEAPON_SETTINGS);
+        WORM_SELECT_FUSE_ADDR = rb(va::WORM_ENTITY_SELECT_FUSE);
+        WORM_SELECT_BOUNCE_ADDR = rb(va::WORM_ENTITY_SELECT_BOUNCE);
+        WORM_SELECT_HERD_ADDR = rb(va::WORM_ENTITY_SELECT_HERD);
     }
 }
 
@@ -251,6 +258,51 @@ unsafe extern "stdcall" fn bridge_broadcast_weapon_settings(_this: *mut WormEnti
     );
 }
 
+/// `__usercall(EDX = fuse_value, ESI = this)`, plain RET, no stack args.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_select_fuse(_this: *mut WormEntity, _value: i32) {
+    core::arch::naked_asm!(
+        "push esi",
+        "mov esi, dword ptr [esp+8]",
+        "mov edx, dword ptr [esp+12]",
+        "mov eax, dword ptr [{addr}]",
+        "call eax",
+        "pop esi",
+        "ret 8",
+        addr = sym WORM_SELECT_FUSE_ADDR,
+    );
+}
+
+/// `__usercall(EAX = bounce_value, ESI = this)`, plain RET, no stack args.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_select_bounce(_this: *mut WormEntity, _value: i32) {
+    core::arch::naked_asm!(
+        "push esi",
+        "mov esi, dword ptr [esp+8]",
+        "mov ecx, dword ptr [{addr}]",
+        "mov eax, dword ptr [esp+12]",
+        "call ecx",
+        "pop esi",
+        "ret 8",
+        addr = sym WORM_SELECT_BOUNCE_ADDR,
+    );
+}
+
+/// `__usercall(EAX = herd_value, ESI = this)`, plain RET, no stack args.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_select_herd(_this: *mut WormEntity, _value: i32) {
+    core::arch::naked_asm!(
+        "push esi",
+        "mov esi, dword ptr [esp+8]",
+        "mov ecx, dword ptr [{addr}]",
+        "mov eax, dword ptr [esp+12]",
+        "call ecx",
+        "pop esi",
+        "ret 8",
+        addr = sym WORM_SELECT_HERD_ADDR,
+    );
+}
+
 /// Inlines `WormEntity::IsActionState_Maybe` (0x0050E800). The function is
 /// a 2-entry jumptable indexed by `byte[(state - 0x68) + 0x50e820]`: byte=0
 /// returns 1 (action), byte=1 returns 0. From the data table at 0x50e820,
@@ -436,6 +488,18 @@ pub unsafe extern "thiscall" fn handle_message(
             }
             EntityMessage::SelectWeapon => {
                 msg_select_weapon(this, data as *const SelectWeaponMessage);
+                true
+            }
+            EntityMessage::SelectFuse => {
+                msg_select_fuse(this, data as *const SelectArmingMessage);
+                true
+            }
+            EntityMessage::SelectHerd => {
+                msg_select_herd(this, data as *const SelectArmingMessage);
+                true
+            }
+            EntityMessage::SelectBounce => {
+                msg_select_bounce(this, data as *const SelectArmingMessage);
                 true
             }
             EntityMessage::SelectCursor => {
@@ -1056,6 +1120,101 @@ unsafe fn msg_fire_weapon(this: *mut WormEntity) {
     unsafe {
         pre_switch_a(this);
         bridge_start_firing(this);
+    }
+}
+
+/// SelectFuse (0x2F). Pre-switch A applies when `turn_active != 0`. Body
+/// gates on `worm_index` match + `_unknown_2cc == 0`, then accepts a
+/// `data.value` from `[lo-1, hi-1]` where `(lo, hi) = (1, 5)` by default,
+/// `(1, 9)` when scheme byte `0xD9D0` is set and `0xD9B1 <= 0x1A`, or
+/// `(0, 9)` when scheme byte `0xD9D0` is set and `0xD9B1 > 0x1A`. The
+/// range check is bypassed when `game_version < -1`. The bridged helper
+/// reads the (possibly mutated) value through ESI=this/EDX=value.
+unsafe fn msg_select_fuse(this: *mut WormEntity, message: *const SelectArmingMessage) {
+    unsafe {
+        if (*this).turn_active != 0 {
+            pre_switch_a(this);
+        }
+        if message.is_null() {
+            return;
+        }
+        if (*message).worm_index != (*this).worm_index || (*this)._unknown_2cc != 0 {
+            return;
+        }
+        let world = (*(this as *const BaseEntity)).world;
+        let game_info = (*world).game_info as *const u8;
+        let scheme_d9d0 = *game_info.add(0xD9D0);
+        let scheme_d9b1 = *game_info.add(0xD9B1) as i8;
+        let game_version = (*(*world).game_info).game_version;
+
+        let mut hi: i32 = 5;
+        let mut lo: i32 = 1;
+        if scheme_d9d0 != 0 {
+            hi = 9;
+            if scheme_d9b1 > 0x1A {
+                lo = 0;
+            }
+        }
+        let mut value = (*message).value;
+        let in_range_unsigned =
+            (value.wrapping_sub(lo).wrapping_add(1) as u32) <= (hi.wrapping_sub(lo) as u32);
+        if !(game_version < -1 || in_range_unsigned) {
+            return;
+        }
+        if value == -1 && scheme_d9b1 > 0x1F {
+            value = 0xFF;
+        }
+        bridge_select_fuse(this, value);
+    }
+}
+
+/// SelectHerd (0x30). Same gate shape as SelectFuse but with a simpler
+/// `value in [1, hi]` range — no `-1` mutation. `hi = 5` by default;
+/// `9 + (1 if scheme byte 0xD9B1 > 0x1A else 0)` when scheme byte 0xD9D0
+/// is set.
+unsafe fn msg_select_herd(this: *mut WormEntity, message: *const SelectArmingMessage) {
+    unsafe {
+        if (*this).turn_active != 0 {
+            pre_switch_a(this);
+        }
+        if message.is_null() {
+            return;
+        }
+        if (*message).worm_index != (*this).worm_index || (*this)._unknown_2cc != 0 {
+            return;
+        }
+        let world = (*(this as *const BaseEntity)).world;
+        let game_info = (*world).game_info as *const u8;
+        let scheme_d9d0 = *game_info.add(0xD9D0);
+        let scheme_d9b1 = *game_info.add(0xD9B1) as i8;
+        let game_version = (*(*world).game_info).game_version;
+
+        let hi: i32 = if scheme_d9d0 != 0 {
+            9 + i32::from(scheme_d9b1 > 0x1A)
+        } else {
+            5
+        };
+        let in_range = ((*message).value.wrapping_sub(1) as u32) <= (hi - 1) as u32;
+        if !(game_version < -1 || in_range) {
+            return;
+        }
+        bridge_select_herd(this, (*message).value);
+    }
+}
+
+/// SelectBounce (0x31). No range check — pure pass-through to the bridge.
+unsafe fn msg_select_bounce(this: *mut WormEntity, message: *const SelectArmingMessage) {
+    unsafe {
+        if (*this).turn_active != 0 {
+            pre_switch_a(this);
+        }
+        if message.is_null() {
+            return;
+        }
+        if (*message).worm_index != (*this).worm_index || (*this)._unknown_2cc != 0 {
+            return;
+        }
+        bridge_select_bounce(this, (*message).value);
     }
 }
 

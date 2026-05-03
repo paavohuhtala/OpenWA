@@ -201,6 +201,24 @@ crate::define_addresses! {
         /// weapon's `WeaponSpawn` descriptor and broadcasts a settings string
         /// via the same SharedData observer used by weapon-name announcements.
         fn/Fastcall WORM_ENTITY_BROADCAST_WEAPON_SETTINGS = 0x00510600;
+        /// `WormEntity::SelectFuse_Maybe`. Usercall
+        /// `(EDX = fuse_value, ESI = this)`, plain RET, no stack args. Called
+        /// from `HandleMessage` case 0x2F. Writes the fuse value into
+        /// `worm + 0x2BC` after decoding the active `WeaponSpawn`, then
+        /// broadcasts updated settings via `BroadcastWeaponSettings_Maybe`.
+        fn/Usercall WORM_ENTITY_SELECT_FUSE = 0x00510430;
+        /// `WormEntity::SelectBounce_Maybe`. Usercall
+        /// `(EAX = bounce_value, ESI = this)`, plain RET, no stack args.
+        /// Called from `HandleMessage` case 0x31. Writes into `worm + 0x2C0`
+        /// (XOR-toggling the previous value when the message carries `-1`),
+        /// then broadcasts updated settings.
+        fn/Usercall WORM_ENTITY_SELECT_BOUNCE = 0x005104D0;
+        /// `WormEntity::SelectHerd_Maybe`. Usercall
+        /// `(EAX = herd_value, ESI = this)`, plain RET, no stack args. Called
+        /// from `HandleMessage` case 0x30. Writes the herd-cycle counter into
+        /// `worm + 0x2C4` (cycling via `% iVar2` when the message carries
+        /// `-1`), then broadcasts updated settings.
+        fn/Usercall WORM_ENTITY_SELECT_HERD = 0x00510540;
     }
 
     class "TeamArena" {
