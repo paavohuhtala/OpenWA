@@ -3,7 +3,6 @@
 //! Thin shim — game logic lives in `openwa_game::input::keyboard`.
 
 use crate::hook;
-use openwa_core::log::log_line;
 use openwa_game::address::va;
 use openwa_game::input::{keyboard, mouse};
 
@@ -77,8 +76,5 @@ pub fn install() -> Result<(), String> {
         )?;
     }
 
-    let _ = log_line(
-        "[Keyboard] Destructor + IsAction* + ReadInputRingBuffer + AlertUser + VFunc7 + PollState + AcquireInput + ClearKeyStates hooked; CheckAction trapped\n[Mouse] PollAndAcquire + ReleaseAndCenter + Cursor::ClipAndRecenter hooked",
-    );
     Ok(())
 }

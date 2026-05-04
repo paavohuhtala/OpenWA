@@ -9,7 +9,6 @@
 //! - GameInfo__LoadOptions (0x460AC0): game options from registry
 //! - Options__GetCrashReportURL (0x5A63F0): crash report URL from registry
 
-use crate::log_line;
 use openwa_game::rebase::rb;
 use openwa_game::{address::va, engine::GameInfo};
 
@@ -94,13 +93,7 @@ unsafe extern "stdcall" fn hook_delete_key_recursive(hkey: u32, subkey: u32) -> 
         let c_subkey = std::ffi::CStr::from_ptr(subkey as *const i8);
         let subkey_str = c_subkey.to_string_lossy();
 
-        let _ = log_line(&format!("[Config] DeleteKeyRecursive: {subkey_str}"));
-
-        let result =
-            openwa_game::wa::registry::delete_key_recursive(hkey as usize as HKEY, &subkey_str);
-
-        let _ = log_line(&format!("[Config] DeleteKeyRecursive result: {result}"));
-        result as i32
+        openwa_game::wa::registry::delete_key_recursive(hkey as usize as HKEY, &subkey_str) as i32
     }
 }
 
@@ -113,8 +106,6 @@ unsafe extern "stdcall" fn hook_delete_key_recursive(hkey: u32, subkey: u32) -> 
 unsafe extern "stdcall" fn hook_registry_clean_all(struct_ptr: u32) {
     unsafe {
         use windows_sys::Win32::System::Registry::HKEY_CURRENT_USER;
-
-        let _ = log_line("[Config] CleanAll: deleting registry sections");
 
         let sections = [
             "Software\\Team17SoftwareLTD\\WormsArmageddon\\Data",
@@ -134,8 +125,6 @@ unsafe extern "stdcall" fn hook_registry_clean_all(struct_ptr: u32) {
         WriteProfileSectionA(c"NetSettings".as_ptr().cast(), c"".as_ptr().cast());
 
         *((struct_ptr as usize + CLEAN_ALL_FLAG_OFFSET) as *mut u8) = 0;
-
-        let _ = log_line("[Config] CleanAll completed");
     }
 }
 
@@ -152,7 +141,6 @@ unsafe extern "stdcall" fn hook_load_options(game_info: *mut GameInfo) {
     unsafe {
         use openwa_game::wa::registry::read_profile_int;
 
-        let _ = log_line("[Config] LoadOptions: loading game options from registry");
         let gi = &mut *game_info;
 
         // Format speech path: "%s\\user\\speech"
@@ -278,8 +266,6 @@ unsafe extern "stdcall" fn hook_load_options(game_info: *mut GameInfo) {
         gi.camera_unlock_mouse_speed = mouse_speed * mouse_speed;
 
         gi._config_dword_f3e4 = *(rb(va::G_CONFIG_DWORD_F3E4) as *const u32);
-
-        let _ = log_line("[Config] LoadOptions completed (Rust)");
     }
 }
 

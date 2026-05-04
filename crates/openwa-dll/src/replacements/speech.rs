@@ -22,7 +22,6 @@ use openwa_game::engine::GameRuntime;
 use openwa_game::rebase::rb;
 
 use crate::hook::{self, usercall_trampoline};
-use crate::log_line;
 
 // ============================================================
 // WavPlayer hook trampolines (usercall → cdecl shims)
@@ -121,7 +120,6 @@ unsafe extern "stdcall" fn hook_play_fe_sfx(sfx_name: *const u8) {
         } else {
             "(null)"
         };
-        let _ = log_line(&format!("[Speech] PlayFeSfx: \"{}\"", name));
         speech_ops::play_fe_sfx(name);
     }
 }
@@ -132,10 +130,6 @@ unsafe extern "stdcall" fn hook_play_fe_sfx(sfx_name: *const u8) {
 
 unsafe extern "stdcall" fn hook_play_fanfare_default(team_type: u32) {
     unsafe {
-        let _ = log_line(&format!(
-            "[Speech] PlayFanfare_Default: team_type={}",
-            team_type
-        ));
         speech_ops::play_fanfare_default(team_type);
     }
 }
@@ -148,13 +142,7 @@ usercall_trampoline!(fn trampoline_play_fanfare_current_team;
     impl_fn = play_fanfare_current_team_impl; reg = eax);
 
 unsafe extern "cdecl" fn play_fanfare_current_team_impl(eax_index: u32) -> u32 {
-    unsafe {
-        let _ = log_line(&format!(
-            "[Speech] PlayFanfare_CurrentTeam: eax={}",
-            eax_index
-        ));
-        speech_ops::play_fanfare_current_team(eax_index)
-    }
+    unsafe { speech_ops::play_fanfare_current_team(eax_index) }
 }
 
 // ============================================================
@@ -171,16 +159,6 @@ unsafe extern "cdecl" fn load_speech_bank_impl(
     speech_dir: *const u8,
 ) {
     unsafe {
-        let path_str = CStr::from_ptr(speech_base_path as *const i8)
-            .to_str()
-            .unwrap_or("?");
-        let dir_str = CStr::from_ptr(speech_dir as *const i8)
-            .to_str()
-            .unwrap_or("?");
-        let _ = log_line(&format!(
-            "[Speech] LoadSpeechBank: team={} path=\"{}\" dir=\"{}\"",
-            team_index, path_str, dir_str
-        ));
         speech_ops::load_speech_bank(ddgw, team_index, speech_base_path, speech_dir);
     }
 }
@@ -194,10 +172,6 @@ usercall_trampoline!(fn trampoline_load_all_speech_banks;
 
 unsafe extern "cdecl" fn load_all_speech_banks_impl(ddgw: *const GameRuntime) {
     unsafe {
-        let _ = log_line(&format!(
-            "[Speech] LoadAllSpeechBanks: ddgw=0x{:08X}",
-            ddgw as u32
-        ));
         speech_ops::load_all_speech_banks(ddgw);
     }
 }

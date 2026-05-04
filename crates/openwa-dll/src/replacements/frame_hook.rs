@@ -9,7 +9,6 @@
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use crate::hook;
-use crate::log_line;
 use openwa_game::address::va;
 use openwa_game::engine::game_session;
 
@@ -79,8 +78,6 @@ unsafe extern "stdcall" fn hook_turn_manager(turngame: u32) {
 }
 
 pub fn install() -> Result<(), String> {
-    let _ = log_line("[FrameHook] Hooking TurnManager_ProcessFrame");
-
     unsafe {
         let trampoline = hook::install(
             "TurnManager_ProcessFrame",

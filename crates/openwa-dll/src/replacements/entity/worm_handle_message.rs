@@ -10,7 +10,6 @@
 //! ported impl.
 
 use crate::hook;
-use openwa_core::log::log_line;
 use openwa_game::address::va;
 use openwa_game::entity::{worm::WormEntityVtable, worm_handle_message};
 
@@ -42,9 +41,5 @@ pub fn install() -> Result<(), String> {
         )?;
     }
 
-    let _ = log_line(
-        "[Worm] HandleMessage vtable hooked (Rust dispatcher with WA fall-through for unported branches)",
-    );
-    let _ = log_line("[Worm] CanIdleSound replaced (Rust impl)");
     Ok(())
 }

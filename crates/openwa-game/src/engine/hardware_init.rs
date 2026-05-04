@@ -19,7 +19,6 @@ use crate::render::{DisplayBase, DisplayGfx};
 use crate::wa::localized_template::LocalizedTemplate;
 use crate::wa_alloc::{wa_malloc_struct, wa_malloc_struct_zeroed};
 
-use openwa_core::log::log_line;
 use windows_sys::Win32::Foundation::HWND;
 
 // ─── Bridge-state statics ─────────────────────────────────────────────────────
@@ -210,11 +209,6 @@ pub unsafe fn construct_runtime(
             });
         }
 
-        let _ = log_line(&format!(
-            "[GameSession] display=0x{:08X}, net_game=0x{:08X}, localized_template=0x{:08X}, game_info=0x{:08X}",
-            display as u32, net_game as u32, localized_template as u32, game_info as u32,
-        ));
-
         create_game_world(
             this,
             keyboard,
@@ -229,12 +223,6 @@ pub unsafe fn construct_runtime(
         );
 
         crate::engine::game_state_init::init_game_state(this);
-
-        let _ = log_line(&format!(
-            "[GameSession] GameRuntime::Constructor done: wrapper=0x{:08X}  world=0x{:08X}",
-            this as u32,
-            (*this).world as u32,
-        ));
 
         use crate::registry::{self, LiveObject};
         registry::register_live_object(LiveObject {
@@ -265,10 +253,6 @@ pub unsafe fn init_hardware(
     peer_connection_count: u32,
 ) -> u32 {
     unsafe {
-        let _ = log_line(&format!(
-            "[hardware_init] GameEngine::InitHardware: peer_connections=0x{:08X} count={}",
-            peer_connections as u32, peer_connection_count,
-        ));
         let session = get_game_session();
         let gi = &mut *game_info;
         let game_version = gi.game_version as u32;
@@ -433,7 +417,6 @@ pub unsafe fn init_hardware(
 
         (*session).net_game = DDNetGameWrapper::construct() as *mut u8;
 
-        let _ = log_line("[hardware_init] GameEngine::InitHardware done");
         1
     }
 }

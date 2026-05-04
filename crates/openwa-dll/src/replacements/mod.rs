@@ -8,7 +8,6 @@ mod frame_hook;
 mod frontend;
 mod game_entity_message;
 mod game_session;
-mod game_state_hooks;
 mod gfx_dir;
 mod hardware_init;
 mod headless;
@@ -69,7 +68,6 @@ pub fn install_all() -> Result<(), String> {
     music::install()?;
     world_init::install()?;
     gfx_dir::install()?;
-    game_state_hooks::install()?;
     replay::install()?;
     string_resource::install()?;
     entity::install()?;

@@ -984,8 +984,6 @@ unsafe extern "cdecl" fn call_original_blit_asm(
 }
 
 pub fn install() -> Result<(), String> {
-    let _ = log_line("[BitGrid] Hooking BitGrid__BlitSpriteRect");
-
     unsafe {
         let orig = crate::hook::install(
             "BitGrid__BlitSpriteRect",

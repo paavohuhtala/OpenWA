@@ -2,7 +2,6 @@
 //!
 //! Thin hook shim — game logic lives in `openwa_game::entity::cloud`.
 
-use openwa_core::log::log_line;
 use openwa_game::address::va;
 use openwa_game::entity::{cloud, team};
 
@@ -21,6 +20,5 @@ pub fn install() -> Result<(), String> {
         )?;
     }
 
-    let _ = log_line("[Cloud] HandleMessage + CreateWeatherFilter hooked");
     Ok(())
 }

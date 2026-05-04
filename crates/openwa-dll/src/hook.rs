@@ -452,7 +452,6 @@ use std::ffi::c_void;
 
 use minhook::MinHook;
 
-use crate::log_line;
 use openwa_game::rebase::rb;
 
 /// Install a MinHook inline hook on a WA.exe function.
@@ -477,11 +476,6 @@ pub unsafe fn install(
 
         MinHook::queue_enable_hook(target)
             .map_err(|e| format!("MinHook queue_enable_hook failed for {name}: {e}"))?;
-
-        let _ = log_line(&format!(
-            "  [REPLACE] {name}: target 0x{:08X}, trampoline 0x{:08X}",
-            target as u32, trampoline as u32
-        ));
 
         Ok(trampoline)
     }

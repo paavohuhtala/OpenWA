@@ -131,28 +131,8 @@ hook::usercall_trampoline!(
     stack_params = 1; ret_bytes = "0x4"
 );
 
-static FIND_ENTRY_LOG_COUNT: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(0);
-
 extern "cdecl" fn impl_find_entry(name: *const c_char, gfx_dir: *mut GfxDir) -> u32 {
-    let result = unsafe { gfx_dir_find_entry(name, gfx_dir) };
-
-    // Log first 20 lookups for debugging
-    let count = FIND_ENTRY_LOG_COUNT.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
-    if count < 20 {
-        let name_str = unsafe {
-            let p = name as *const u8;
-            let mut len = 0;
-            while *p.add(len) != 0 && len < 64 {
-                len += 1;
-            }
-            core::str::from_utf8_unchecked(core::slice::from_raw_parts(p, len))
-        };
-        let _ = crate::log_line(&format!(
-            "[FindEntry] #{count}: \"{name_str}\" -> 0x{:08X}",
-            result as u32
-        ));
-    }
-    result as u32
+    unsafe { gfx_dir_find_entry(name, gfx_dir) as u32 }
 }
 
 // ─── GfxHandler__LoadDir (0x5663E0) ──────────────────────────────────────────

@@ -422,7 +422,6 @@ pub unsafe fn create_game_world(
         // ── 10. GfxHandler, landscape, sprites, audio, resources ──
         init_graphics_and_resources(runtime, game_info, net_game, display, is_headless);
 
-        let _ = openwa_core::log::log_line("[GameWorld] create_world complete");
         world
     }
 }
@@ -1051,8 +1050,6 @@ unsafe fn init_graphics_and_resources(
             (*disp).set_layer_visibility(2, 0);
             (*disp).set_layer_visibility(3, 1);
         }
-
-        let _ = openwa_core::log::log_line("[GameWorld] init_graphics_and_resources DONE");
     }
 }
 

@@ -20,7 +20,6 @@ use openwa_game::vtable_replace;
 use openwa_game::wa_alloc::wa_free;
 
 use crate::hook;
-use crate::log_line;
 
 /// The _purecall function address (calls abort).
 const PURECALL: u32 = 0x005D4E16;
@@ -167,31 +166,23 @@ unsafe extern "thiscall" fn load_font_extension(
 }
 
 pub fn install() -> Result<(), String> {
-    let _ = log_line("[Display] Patching DisplayBase vtables");
-
     unsafe {
         let purecall_addr = rb(PURECALL);
         let noop_addr = noop_thiscall as *const () as u32;
 
         let primary = rb(va::DISPLAY_BASE_VTABLE) as *mut u32;
         patch_vtable(primary, VTABLE_SLOTS, |vt| {
-            let mut patched = 0u32;
             for i in 0..VTABLE_SLOTS {
                 let slot = vt.add(i);
                 if *slot == purecall_addr {
                     *slot = noop_addr;
-                    patched += 1;
                 }
             }
-            let _ = log_line(&format!(
-                "[Display]   Primary: patched {patched}/{VTABLE_SLOTS} _purecall -> no-op"
-            ));
         })?;
 
         let headless = rb(va::DISPLAY_BASE_HEADLESS_VTABLE) as *mut u32;
         patch_vtable(headless, VTABLE_SLOTS, |vt| {
             *vt = headless_destructor as *const () as u32;
-            let _ = log_line("[Display]   Headless: patched slot 0 (destructor) -> Rust");
         })?;
 
         LOAD_SPRITE_FROM_VFS_ADDR = rb(va::LOAD_SPRITE_FROM_VFS);
@@ -231,7 +222,6 @@ pub fn install() -> Result<(), String> {
             load_font                  => load_font,
             load_font_extension        => load_font_extension,
         })?;
-        let _ = log_line("[Display]   DisplayGfx: patched 32 methods -> Rust");
 
         // Slot 30: zero callers in WA.exe or Rust.
         hook::install_trap!("DisplayGfx__LoadSpriteEx", va::DISPLAY_GFX_LOAD_SPRITE_EX);

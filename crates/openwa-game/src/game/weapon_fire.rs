@@ -26,7 +26,6 @@ use crate::game::weapon::{WeaponEntry, WeaponFireParams, WeaponSpawnData};
 use crate::wa::localized_template;
 use core::ffi::c_char;
 use openwa_core::fixed::Fixed;
-use openwa_core::log::log_line;
 
 // ── WeaponReleaseContext ────────────────────────────────────
 
@@ -172,16 +171,6 @@ pub unsafe fn fire_weapon(
         let fire_type = (*entry).fire_type;
         let fire_method = (*entry).fire_method;
         let fire_params = &raw const (*entry).fire_params;
-        // Log weapon fire
-        let weapon = (*worm).selected_weapon;
-        let _ = log_line(&format!(
-            "[Weapon] FireWeapon: {:?} (id={}) type={} sub34={} sub38={}",
-            weapon,
-            weapon as u32,
-            fire_type,
-            (*entry).special_subtype,
-            fire_method
-        ));
 
         WormEntity::set_fire_complete_raw(worm, 0);
 
@@ -1335,11 +1324,6 @@ pub unsafe fn create_weapon_projectile(
             local_struct,
             rb(va::MISSILE_ENTITY_CTOR),
         );
-
-        let _ = log_line(&format!(
-            "[Weapon] CreateWeaponProjectile: worm=0x{:08X} missile=0x{:08X}",
-            worm as u32, buffer as u32,
-        ));
     }
 }
 
@@ -1429,11 +1413,6 @@ pub unsafe fn projectile_fire(
                 rb(va::PROJECTILE_FIRE_SINGLE),
             );
         }
-
-        let _ = log_line(&format!(
-            "[Weapon] ProjectileFire: worm=0x{:08X} shots={}",
-            worm as u32, shot_count,
-        ));
     }
 }
 
@@ -1485,10 +1464,5 @@ pub unsafe fn create_arrow(
         let ctor: unsafe extern "stdcall" fn(*mut u8, *mut u8, *const WeaponFireParams, *const u8) =
             core::mem::transmute(rb(va::ARROW_ENTITY_CTOR));
         ctor(buffer, parent as *mut u8, fire_params, local_struct);
-
-        let _ = log_line(&format!(
-            "[Weapon] CreateArrow: worm=0x{:08X} arrow=0x{:08X}",
-            worm as u32, buffer as u32,
-        ));
     }
 }

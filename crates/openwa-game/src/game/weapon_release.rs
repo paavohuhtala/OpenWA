@@ -10,7 +10,6 @@ use crate::entity::{BaseEntity, Entity, SharedDataTable, WorldEntity};
 use crate::game::message::WeaponReleasedMessage;
 use crate::game::{KnownWeaponId, is_super_weapon};
 use openwa_core::fixed::Fixed;
-use openwa_core::log::log_line;
 
 use crate::audio::sound_ops as sound;
 use crate::game::weapon_fire::{self, WeaponReleaseContext};
@@ -404,11 +403,6 @@ pub unsafe fn weapon_release(
         // ── 11. Call FireWeapon ──────────────────────────────────
         let entry = (*worm).active_weapon_entry;
         weapon_fire::fire_weapon(entry, &ctx, worm);
-
-        let _ = log_line(&format!(
-            "[WeaponRelease] worm=0x{:08X} weapon={:?} type={} sub34={} sub38={}",
-            worm as u32, weapon, fire_type, special_subtype, fire_method,
-        ));
     }
 }
 

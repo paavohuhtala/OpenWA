@@ -6,12 +6,10 @@
 //! those still read the globals directly and are not caught by this hook.
 
 use crate::hook;
-use crate::log_line;
 use openwa_game::address::va;
 use openwa_game::wa::string_resource::wa_load_string_detour;
 
 pub fn install() -> Result<(), String> {
-    let _ = log_line("[StringResource] Hooking WA__LoadStringResource");
     unsafe {
         let _ = hook::install(
             "WA__LoadStringResource",

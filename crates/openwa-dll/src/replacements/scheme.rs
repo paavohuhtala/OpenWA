@@ -581,8 +581,6 @@ unsafe extern "stdcall" fn hook_extract_builtins() {
                 }
             }
         }
-
-        let _ = log_line("[Scheme] ExtractBuiltins completed (Rust)");
     }
 }
 

@@ -8,11 +8,7 @@
 //! - CountAliveWorms (0x5225A0)
 //! - FireWeapon (0x51EE60): trapped (called directly from weapon_release)
 //! - CreateWeaponProjectile (0x51E0F0), ProjectileFire (0x51DFB0), CreateArrow (0x51ED90)
-//! - StrikeFire (0x51E2C0), PlacedExplosive (0x51EC80): passthrough (log + call original)
 
-use core::sync::atomic::{AtomicU32, Ordering};
-
-use openwa_core::log::log_line;
 use openwa_game::entity::worm::WormEntity;
 use openwa_game::game::weapon::WeaponFireParams;
 use openwa_game::game::weapon_aim_flags;
@@ -74,11 +70,6 @@ unsafe extern "cdecl" fn count_alive_worms_impl(team_index: u32, arena: *mut Tea
 usercall_trampoline!(fn trampoline_count_alive_worms; impl_fn = count_alive_worms_impl;
     regs = [eax, ecx]);
 
-// ── Passthrough hooks (log + call original) ──
-
-static ORIG_STRIKE_FIRE: AtomicU32 = AtomicU32::new(0);
-static ORIG_PLACED_EXPLOSIVE: AtomicU32 = AtomicU32::new(0);
-
 // ── CreateWeaponProjectile (0x51E0F0): thiscall(ECX=worm, fire_params, local_struct) ──
 
 unsafe extern "thiscall" fn hook_create_weapon_projectile(
@@ -113,72 +104,6 @@ unsafe extern "thiscall" fn hook_create_arrow(
     unsafe {
         weapon_fire::create_arrow(worm, fire_params, local_struct);
     }
-}
-
-// ── StrikeFire (0x51E2C0): passthrough (log + call original) ──
-
-#[unsafe(naked)]
-unsafe extern "C" fn trampoline_strike_fire() {
-    core::arch::naked_asm!(
-        "push eax",
-        "push ecx",
-        "push edx",
-        "push dword ptr [esp+24]",
-        "push dword ptr [esp+24]",
-        "push dword ptr [esp+24]",
-        "call {log_fn}",
-        "add esp, 12",
-        "pop edx",
-        "pop ecx",
-        "pop eax",
-        "jmp [{orig}]",
-        log_fn = sym log_strike_fire,
-        orig = sym ORIG_STRIKE_FIRE,
-    );
-}
-
-unsafe extern "cdecl" fn log_strike_fire(worm: u32, subtype_34_ptr: u32, local_struct: u32) {
-    let _ = log_line(&format!(
-        "[Weapon] StrikeFire: worm=0x{:08X} subtype_34=0x{:08X} local=0x{:08X}",
-        worm, subtype_34_ptr, local_struct,
-    ));
-}
-
-// ── PlacedExplosive (0x51EC80): passthrough (log + call original) ──
-
-#[unsafe(naked)]
-unsafe extern "C" fn trampoline_placed_explosive() {
-    core::arch::naked_asm!(
-        "push eax",
-        "push ecx",
-        "push edx",
-        "push ebx",
-        "push esi",
-        "push edi",
-        "push ebp",
-        "push dword ptr [esp+32]",
-        "push edx",
-        "push ecx",
-        "call {log_fn}",
-        "add esp, 12",
-        "pop ebp",
-        "pop edi",
-        "pop esi",
-        "pop ebx",
-        "pop edx",
-        "pop ecx",
-        "pop eax",
-        "jmp [{orig}]",
-        log_fn = sym log_placed_explosive,
-        orig = sym ORIG_PLACED_EXPLOSIVE,
-    );
-}
-
-unsafe extern "cdecl" fn log_placed_explosive(local_struct: u32, worm: u32, fire_params: u32) {
-    let _ = log_line(&format!(
-        "[Weapon] PlacedExplosive: worm=0x{:08X} local=0x{:08X} params=0x{:08X}",
-        worm, local_struct, fire_params,
-    ));
 }
 
 // ── WeaponSpawn::DecodeDescriptor (0x00565C10) ──
@@ -225,20 +150,6 @@ pub fn install() -> Result<(), String> {
             va::CREATE_ARROW,
             hook_create_arrow as *const (),
         )?;
-
-        // Passthrough hooks (log + call original)
-        let t = hook::install(
-            "StrikeFire",
-            va::STRIKE_FIRE,
-            trampoline_strike_fire as *const (),
-        )?;
-        ORIG_STRIKE_FIRE.store(t as u32, Ordering::Relaxed);
-        let t = hook::install(
-            "PlacedExplosive",
-            va::PLACED_EXPLOSIVE,
-            trampoline_placed_explosive as *const (),
-        )?;
-        ORIG_PLACED_EXPLOSIVE.store(t as u32, Ordering::Relaxed);
 
         let _ = hook::install(
             "WeaponSpawn__DecodeDescriptor",

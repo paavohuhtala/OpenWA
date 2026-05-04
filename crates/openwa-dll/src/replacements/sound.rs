@@ -294,6 +294,5 @@ unsafe fn patch_dssound_vtable() -> Result<(), &'static str> {
         returns_1_23        => dssound_returns_1,
     })?;
 
-    let _ = log_line("[Sound]   DSSound vtable: patched 24/24 slots with Rust");
     Ok(())
 }
