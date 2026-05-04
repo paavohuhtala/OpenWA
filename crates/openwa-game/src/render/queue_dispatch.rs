@@ -53,7 +53,9 @@
 //!   but without the perspective scale.
 
 use crate::engine::CoordEntry;
+use crate::render::display::blit_sprite::{blit_sprite, draw_scaled_sprite};
 use crate::render::display::gfx::DisplayGfx;
+use crate::render::display::vtable as display_vtable;
 use crate::render::message::{COMMAND_TYPE_TYPED, RenderMessage, TypedRenderCmd};
 use crate::render::queue::RenderQueue;
 use crate::render::sprite::sprite_op::SpriteOp;
@@ -392,10 +394,14 @@ pub unsafe fn render_drawing_queue(
 // `RenderDrawingQueue` (0x542350). Field offsets are the `puVar1[N]`
 // indices from the decompile (each step = 4 bytes).
 //
-// Vtable dispatch goes through the auto-generated `DisplayGfx::*_raw`
-// methods (from `bind_DisplayGfxVtable!(DisplayGfx, base.vtable)`),
-// which take a raw `*mut DisplayGfx` to avoid creating `&mut self` —
-// see the noalias rule in CLAUDE.md.
+// Method calls go directly to the Rust ports in
+// `crate::render::display::vtable` (and `display::blit_sprite` for
+// `blit_sprite` / `draw_scaled_sprite`). All targets are
+// `extern "thiscall" fn(this: *mut DisplayGfx, ..)` and the live
+// `DisplayGfx` vtable is patched to point at these same functions
+// (see `replacements/render/display_vtable.rs`), so the direct call
+// is observably equivalent to the vtable dispatch but avoids the
+// indirect-load and noalias hazard that comes with `&mut self`.
 
 #[inline]
 unsafe fn read_field(cmd: *const u32, idx: usize) -> i32 {
@@ -463,7 +469,7 @@ unsafe fn dispatch_case_0_fill_rect(display: *mut DisplayGfx, clip: &ClipContext
         }
 
         let color = *(cmd.add(2));
-        DisplayGfx::fill_rect_raw(
+        display_vtable::fill_rect(
             display,
             x1.to_int(),
             y1.to_int(),
@@ -490,9 +496,7 @@ unsafe fn dispatch_case_1_bitmap_global(display: *mut DisplayGfx, cmd: *const u3
         let src_w = read_field(cmd, 7);
         let src_h = read_field(cmd, 8);
         let flags = *(cmd.add(9));
-        DisplayGfx::draw_scaled_sprite_raw(
-            display, x, y, sprite, src_x, src_y, src_w, src_h, flags,
-        );
+        draw_scaled_sprite(display, x, y, sprite, src_x, src_y, src_w, src_h, flags);
     }
 }
 
@@ -563,9 +567,7 @@ unsafe fn dispatch_case_2_textbox_local(
         let src_w = read_field(cmd, 10);
         let src_h = read_field(cmd, 11);
         let flags = *(cmd.add(12));
-        DisplayGfx::draw_scaled_sprite_raw(
-            display, x1, y1, sprite, src_x, src_y, src_w, src_h, flags,
-        );
+        draw_scaled_sprite(display, x1, y1, sprite, src_x, src_y, src_w, src_h, flags);
     }
 }
 
@@ -597,7 +599,7 @@ unsafe fn dispatch_case_3_via_callback(
         let obj = read_field(cmd, 6) as *mut u8;
         let p5 = *(cmd.add(7));
         let p6 = *(cmd.add(8));
-        DisplayGfx::draw_via_callback_raw(display, x, y, obj, p5, p6);
+        display_vtable::draw_via_callback(display, x, y, obj, p5, p6);
     }
 }
 
@@ -610,7 +612,7 @@ unsafe fn dispatch_case_4_sprite_global(display: *mut DisplayGfx, cmd: *const u3
         let y = read_fixed(cmd, 3);
         let sprite = SpriteOp(*(cmd.add(4)));
         let palette = *(cmd.add(5));
-        DisplayGfx::blit_sprite_raw(display, x, y, sprite, palette);
+        blit_sprite(display, x, y, sprite, palette);
     }
 }
 
@@ -629,7 +631,7 @@ unsafe fn dispatch_case_5_sprite_local(
         rq_translate_coordinates(clip, read_fixed(cmd, 2), read_fixed(cmd, 3), &mut x, &mut y);
         let sprite = SpriteOp(*(cmd.add(4)));
         let palette = *(cmd.add(5));
-        DisplayGfx::blit_sprite_raw(display, x, y, sprite, palette);
+        blit_sprite(display, x, y, sprite, palette);
     }
 }
 
@@ -705,7 +707,7 @@ unsafe fn dispatch_case_6_sprite_offset(
 
         let sprite = SpriteOp(*(cmd.add(7)));
         let palette = *(cmd.add(8));
-        DisplayGfx::blit_sprite_raw(display, x, y, sprite, palette);
+        blit_sprite(display, x, y, sprite, palette);
     }
 }
 
@@ -720,7 +722,7 @@ unsafe fn dispatch_case_7_polyline(display: *mut DisplayGfx, cmd: *const u32) {
         let points = cmd.add(4) as *mut i32;
         let count = read_field(cmd, 2);
         let color = *(cmd.add(3));
-        DisplayGfx::draw_polyline_raw(display, points, count, color);
+        display_vtable::draw_polyline(display, points, count, color);
     }
 }
 
@@ -771,7 +773,7 @@ unsafe fn dispatch_case_8_line_strip(
             ) {
                 break;
             }
-            DisplayGfx::draw_line_clipped_raw(display, x1, y1, x2, y2, color);
+            display_vtable::draw_line_clipped(display, x1, y1, x2, y2, color);
             x1 = x2;
             y1 = y2;
             vert = vert.add(3);
@@ -820,7 +822,7 @@ unsafe fn dispatch_case_9_polygon(display: *mut DisplayGfx, clip: &ClipContext, 
             ) {
                 break;
             }
-            DisplayGfx::draw_line_raw(display, x1, y1, x2, y2, color1, color2);
+            display_vtable::draw_line(display, x1, y1, x2, y2, color1, color2);
             x1 = x2;
             y1 = y2;
             vert = vert.add(3);
@@ -854,7 +856,7 @@ unsafe fn dispatch_case_a_pixel_strip(
         let dy = read_fixed(cmd, 5);
         let count = read_field(cmd, 6);
         let color = *(cmd.add(7));
-        DisplayGfx::draw_pixel_strip_raw(display, x, y, dx, dy, count, color);
+        display_vtable::draw_pixel_strip(display, x, y, dx, dy, count, color);
     }
 }
 
@@ -881,7 +883,7 @@ unsafe fn dispatch_case_b_crosshair(display: *mut DisplayGfx, clip: &ClipContext
         }
         let color_fg = *(cmd.add(2));
         let color_bg = *(cmd.add(3));
-        DisplayGfx::draw_crosshair_raw(display, x.to_int(), y.to_int(), color_fg, color_bg);
+        display_vtable::draw_crosshair(display, x.to_int(), y.to_int(), color_fg, color_bg);
     }
 }
 
@@ -912,7 +914,7 @@ unsafe fn dispatch_case_c_outlined_pixel(
         }
         let color_fg = *(cmd.add(2));
         let color_bg = read_field(cmd, 3);
-        DisplayGfx::draw_outlined_pixel_raw(display, x.to_int(), y.to_int(), color_fg, color_bg);
+        display_vtable::draw_outlined_pixel(display, x.to_int(), y.to_int(), color_fg, color_bg);
     }
 }
 
@@ -946,7 +948,7 @@ unsafe fn dispatch_case_d_tiled_bitmap(
         let flag_byte = *(cmd.add(5)) as u8;
         let dest_x = if flag_byte != 0 { 0 } else { x.to_int() };
         let source = read_field(cmd, 4) as *const TiledBitmapSource;
-        DisplayGfx::draw_tiled_bitmap_raw(display, dest_x, y.to_int(), source);
+        display_vtable::draw_tiled_bitmap(display, dest_x, y.to_int(), source);
     }
 }
 
@@ -1011,7 +1013,7 @@ unsafe fn dispatch_case_e_tiled_terrain(
         }
         let count = read_field(cmd, 7);
         let flags = *(cmd.add(8));
-        DisplayGfx::draw_tiled_terrain_raw(display, x, y, count, flags);
+        display_vtable::draw_tiled_terrain(display, x, y, count, flags);
     }
 }
 
@@ -1034,9 +1036,9 @@ unsafe fn dispatch_typed(display: *mut DisplayGfx, clip: &ClipContext, msg: &Ren
                     let mut out_x = Fixed::ZERO;
                     let mut out_y = Fixed::ZERO;
                     rq_translate_coordinates(clip, x, y, &mut out_x, &mut out_y);
-                    DisplayGfx::blit_sprite_raw(display, out_x, out_y, sprite, palette);
+                    blit_sprite(display, out_x, out_y, sprite, palette);
                 } else {
-                    DisplayGfx::blit_sprite_raw(display, x, y, sprite, palette);
+                    blit_sprite(display, x, y, sprite, palette);
                 }
             }
 
@@ -1072,7 +1074,7 @@ unsafe fn dispatch_typed(display: *mut DisplayGfx, clip: &ClipContext, msg: &Ren
                 if y2.0 == 0x7FFF0000 {
                     oy2 = Fixed(i32::MAX);
                 }
-                DisplayGfx::fill_rect_raw(
+                display_vtable::fill_rect(
                     display,
                     ox1.to_int(),
                     oy1.to_int(),
@@ -1094,7 +1096,7 @@ unsafe fn dispatch_typed(display: *mut DisplayGfx, clip: &ClipContext, msg: &Ren
                 if !rq_clip_coordinates(clip, x, y, 0, &mut ox, &mut oy, &mut scale) {
                     return;
                 }
-                DisplayGfx::draw_crosshair_raw(
+                display_vtable::draw_crosshair(
                     display,
                     ox.to_int(),
                     oy.to_int(),
@@ -1116,7 +1118,7 @@ unsafe fn dispatch_typed(display: *mut DisplayGfx, clip: &ClipContext, msg: &Ren
                     return;
                 }
                 let dest_x = if flags & 1 != 0 { 0 } else { ox.to_int() };
-                DisplayGfx::draw_tiled_bitmap_raw(display, dest_x, oy.to_int(), source);
+                display_vtable::draw_tiled_bitmap(display, dest_x, oy.to_int(), source);
             }
 
             RenderMessage::TiledTerrain { x, y, count } => {
@@ -1126,7 +1128,7 @@ unsafe fn dispatch_typed(display: *mut DisplayGfx, clip: &ClipContext, msg: &Ren
                 if !rq_clip_coordinates(clip, x, y, 0, &mut ox, &mut oy, &mut scale) {
                     return;
                 }
-                DisplayGfx::draw_tiled_terrain_raw(display, ox, oy, count, 1);
+                display_vtable::draw_tiled_terrain(display, ox, oy, count, 1);
             }
 
             RenderMessage::SpriteOffset {
@@ -1175,7 +1177,7 @@ unsafe fn dispatch_typed(display: *mut DisplayGfx, clip: &ClipContext, msg: &Ren
                     }
                 }
 
-                DisplayGfx::blit_sprite_raw(display, ox, oy, sprite, palette);
+                blit_sprite(display, ox, oy, sprite, palette);
             }
 
             RenderMessage::BitmapGlobal {
@@ -1188,9 +1190,7 @@ unsafe fn dispatch_typed(display: *mut DisplayGfx, clip: &ClipContext, msg: &Ren
                 flags,
             } => {
                 // src_x is always 0 in all known producers.
-                DisplayGfx::draw_scaled_sprite_raw(
-                    display, x, y, bitmap, 0, src_y, src_w, src_h, flags,
-                );
+                draw_scaled_sprite(display, x, y, bitmap, 0, src_y, src_w, src_h, flags);
             }
 
             RenderMessage::TextboxLocal {
@@ -1210,9 +1210,7 @@ unsafe fn dispatch_typed(display: *mut DisplayGfx, clip: &ClipContext, msg: &Ren
                     return;
                 }
                 // src_x and src_y are always 0.
-                DisplayGfx::draw_scaled_sprite_raw(
-                    display, ox, oy, bitmap, 0, 0, src_w, src_h, flags,
-                );
+                draw_scaled_sprite(display, ox, oy, bitmap, 0, 0, src_w, src_h, flags);
             }
 
             RenderMessage::LineStrip {
@@ -1252,7 +1250,7 @@ unsafe fn dispatch_typed(display: *mut DisplayGfx, clip: &ClipContext, msg: &Ren
                     ) {
                         break;
                     }
-                    DisplayGfx::draw_line_clipped_raw(display, x1, y1, x2, y2, color);
+                    display_vtable::draw_line_clipped(display, x1, y1, x2, y2, color);
                     x1 = x2;
                     y1 = y2;
                 }
@@ -1296,7 +1294,7 @@ unsafe fn dispatch_typed(display: *mut DisplayGfx, clip: &ClipContext, msg: &Ren
                     ) {
                         break;
                     }
-                    DisplayGfx::draw_line_raw(display, x1, y1, x2, y2, color1, color2);
+                    display_vtable::draw_line(display, x1, y1, x2, y2, color1, color2);
                     x1 = x2;
                     y1 = y2;
                 }
