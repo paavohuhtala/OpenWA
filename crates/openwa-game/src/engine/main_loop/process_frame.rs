@@ -144,9 +144,13 @@ pub unsafe fn process_frame() {
             (*session).frame_state = -1;
         }
 
-        // Call GameRuntime::render_frame (vtable slot 7)
+        // GameRuntime::render_frame (vtable slot 7) — Rust port at
+        // `engine::main_loop::render_frame::render_frame`. Direct call
+        // bypasses the WA vtable; the only WA-side caller of vtable[7] is
+        // this function (now Rust), so the WA implementation at 0x0056E040
+        // is unreachable.
         let runtime = (*session).game_runtime;
-        GameRuntime::render_frame_raw(runtime);
+        super::render_frame::render_frame(runtime);
 
         // Re-read session after render
         let session = get_game_session();

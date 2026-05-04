@@ -1,29 +1,6 @@
-//! Per-frame render entry point.
-//!
-//! Rust port of `GameRender_Maybe` (0x00533DC0) — the top-level render
-//! coordinator called once per frame from `GameRuntime::render_frame`
-//! (vtable slot 7, still bridged at 0x0056E040).
-//!
-//! Sequence:
-//! 1. **Gate** on `world.render_skip_gate == 0` — early-exit if non-zero.
-//! 2. **Stipple parity** toggle (alternates 0/1 each frame for dithered blends).
-//! 3. **Display dimensions** — `display.get_dimensions()`.
-//! 4. **Viewport pixel size** from level bounds, height rounded to even.
-//! 5. **Letterbox bar height** — animated when `display_gfx_b` is non-null.
-//! 6. **Save & clamp viewport dims** to display, save previous height.
-//! 7. **Three [`clamp_camera_to_bounds`] calls** on `viewport_coords[0/1/3]`.
-//! 8. **Reset RenderQueue** + `world.field_7ea0`.
-//! 9. **Broadcast msg 3** to `world_root` — entities enqueue draw commands.
-//! 10. **View-shake math** — sin/cos lerp scaled by `_field_7794`/`_field_7798`,
-//!     added to `viewport_coords[3].center_x/_y` to build the stack
-//!     ClipContext for queue dispatch.
-//! 11. **Dispatch the queue** + post-RQ overlay sprites + letterbox frame
-//!     + `RenderEscMenuOverlay` + the two network-only wait textboxes
-//!     (`render_waiting_for_peers_textbox`,
-//!     `render_network_end_wait_textbox`) + palette tail funcs.
-//!
-//! Headful-only paths (sections L+M, the viewport-frame letterbox block) are
-//! gated on `g_GameSession.frame_state >= 0`.
+//! Per-frame render entry point. Rust ports of `GameRuntime::RenderFrame`
+//! (0x0056E040, vtable slot 7) and `GameRender` (0x00533DC0). Headful-only
+//! paths in `game_render` are gated on `g_GameSession.frame_state >= 0`.
 
 use core::ffi::c_char;
 
@@ -54,6 +31,7 @@ static mut DRAW_AWAY_OVERLAY_ADDR: u32 = 0;
 static mut SET_TEXTBOX_TEXT_ADDR: u32 = 0;
 static mut PALETTE_ROTATE_HUES_ADDR: u32 = 0;
 static mut PALETTE_BLEND_TOWARD_ADDR: u32 = 0;
+static mut DISPATCH_FRAME_POST_PROCESS_HOOKS_ADDR: u32 = 0;
 
 /// Initialize the bridge addresses. Called from
 /// `dispatch_frame::init_dispatch_addrs` at DLL load.
@@ -63,6 +41,36 @@ pub unsafe fn init_addrs() {
         SET_TEXTBOX_TEXT_ADDR = rb(va::SET_TEXTBOX_TEXT);
         PALETTE_ROTATE_HUES_ADDR = rb(va::PALETTE_CONTEXT_ROTATE_HUES);
         PALETTE_BLEND_TOWARD_ADDR = rb(va::PALETTE_CONTEXT_BLEND_TOWARD_COLOR);
+        DISPATCH_FRAME_POST_PROCESS_HOOKS_ADDR =
+            rb(va::DISPLAY_GFX_DISPATCH_FRAME_POST_PROCESS_HOOKS);
+    }
+}
+
+/// Bridge for `DisplayGfx::DispatchFramePostProcessHooks` (0x0056CDB0).
+unsafe fn dispatch_frame_post_process_hooks(display: *mut DisplayGfx) {
+    unsafe {
+        let func: unsafe extern "stdcall" fn(*mut DisplayGfx) =
+            core::mem::transmute(DISPATCH_FRAME_POST_PROCESS_HOOKS_ADDR as usize);
+        func(display);
+    }
+}
+
+// ─── Frame entry point ─────────────────────────────────────────────────────
+
+/// Rust port of `GameRuntime::RenderFrame` (0x0056E040, vtable slot 7).
+pub unsafe fn render_frame(runtime: *mut GameRuntime) {
+    unsafe {
+        game_render(runtime);
+
+        let landscape = (*runtime).landscape;
+        crate::render::landscape::flush_dirty_rects(landscape);
+
+        let session = get_game_session();
+        if (*session).frame_state >= 0 {
+            let display = (*session).display as *mut DisplayGfx;
+            dispatch_frame_post_process_hooks(display);
+            DisplayGfx::flush_render_raw(display);
+        }
     }
 }
 
@@ -172,7 +180,7 @@ const G_STIPPLE_PARITY_VA: u32 = 0x007A087C;
 
 // ─── Body ──────────────────────────────────────────────────────────────────
 
-/// Rust port of `GameRender_Maybe` (0x00533DC0). See module docs.
+/// Rust port of `GameRender` (0x00533DC0).
 pub unsafe fn game_render(runtime: *mut GameRuntime) {
     unsafe {
         let world = (*runtime).world;

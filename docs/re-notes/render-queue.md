@@ -87,8 +87,8 @@ Verified slot meanings for `RenderEscMenuOverlay` (0x00535000): slot 19 (offset 
 
 | Address  | Name                   | Role                                                                         |
 | -------- | ---------------------- | ---------------------------------------------------------------------------- |
-| 0x56E040 | RenderFrame_Maybe                  | Top-level render frame dispatcher                                                  |
-| 0x533DC0 | GameRender_Maybe                   | Core game render: resets queue, broadcasts msg 3 to entity tree, runs RQ, then 5 tail funcs |
+| 0x56E040 | GameRuntime__RenderFrame           | Top-level render frame dispatcher                                                  |
+| 0x533DC0 | GameRender                         | Core game render: resets queue, broadcasts msg 3 to entity tree, runs RQ, then 5 tail funcs |
 | 0x535000 | GameRuntime__RenderEscMenuOverlay  | Per-frame ESC-menu overlay (was mislabeled `RenderTerrain_Maybe`). Blits panel_a/_b canvases via `display.draw_scaled_sprite` (slot 20) when their respective anim values are non-zero, plus a cursor-highlight sprite via `blit_sprite` (slot 19) on the active state |
 | 0x540B00 | MenuPanel__Render                  | Incremental redraw of a panel's canvas (only items whose hover state changed are repainted). Returns `panel.display_a` (DisplayBitGrid*) for the caller to blit |
 | 0x534F20 | GameRuntime__RenderWaitingForPeersTextbox | Pre-round network "PLEASE WAIT" textbox (gate: game_state == 1, network play, not all peer teams have joined). Was misnamed `RenderHUD_Maybe`. |
@@ -96,7 +96,7 @@ Verified slot meanings for `RenderEscMenuOverlay` (0x00535000): slot 19 (offset 
 | 0x533C80 | PaletteManage_Maybe                | Palette/color management                                                            |
 | 0x533A80 | PaletteAnimate_Maybe               | Palette animation/cycling (3 color palettes)                                       |
 
-Note: the actual terrain is rendered via the world entity tree (LandEntity etc.) responding to message 3 broadcast inside `GameRender_Maybe`, not in any tail function. The five tail funcs are all overlay/HUD layers drawn on top of the queue-rendered scene.
+Note: the actual terrain is rendered via the world entity tree (LandEntity etc.) responding to message 3 broadcast inside `GameRender`, not in any tail function. The five tail funcs are all overlay/HUD layers drawn on top of the queue-rendered scene.
 
 ## Higher-Level Drawing Functions
 

@@ -786,11 +786,16 @@ pub mod va {
         fn RQ_SMOOTH_INTERPOLATE_MAYBE = 0x00542E60;
         fn RQ_UPDATE_CLIP_BOUNDS_MAYBE = 0x00542F10;
         fn RQ_SATURATE_CLIP_BOUNDS_MAYBE = 0x00542F70;
-        fn RENDER_FRAME_MAYBE = 0x0056E040;
-        /// `GameRender_Maybe` — per-frame render dispatcher.
+        /// `GameRuntime::RenderFrame` — vtable[7], called once per frame
+        /// from `GameSession::ProcessFrame`. Sequences `GameRender`,
+        /// `Landscape::FlushDirtyRects`, `DisplayGfx::DispatchFramePostProcessHooks`,
+        /// and the display's `flush_render`. Ported in
+        /// `engine::main_loop::render_frame::render_frame`.
+        fn/Thiscall RENDER_FRAME_MAYBE = 0x0056E040;
+        /// `GameRender` — per-frame render dispatcher.
         /// usercall(ECX = GameRuntime*), no stack args, plain RET.
         /// Ported in `engine::main_loop::render_frame::game_render`.
-        fn/Thiscall GAME_RENDER_MAYBE = 0x00533DC0;
+        fn/Thiscall GAME_RENDER = 0x00533DC0;
         /// `GameRuntime::DrawAwayOverlay_Maybe` — headful "GAME AWAY"/
         /// "GAME OVER" overlay. usercall(EDI = runtime, [stack]=top_y).
         /// RET 0x4. Bridged from render_frame.
@@ -815,7 +820,7 @@ pub mod va {
         /// `world.net_session != null`, and not all peer teams have joined
         /// yet (per `all_peer_teams_have_joined`). Ported in
         /// `engine::main_loop::render_frame::render_waiting_for_peers_textbox`;
-        /// no live xrefs after the port (only caller was `GameRender_Maybe`,
+        /// no live xrefs after the port (only caller was `GameRender`,
         /// also Rust now). The original Ghidra name `RenderHUD_Maybe` was
         /// grossly misleading — the function only draws this one textbox.
         fn/Usercall RENDER_WAITING_FOR_PEERS_TEXTBOX = 0x00534F20;

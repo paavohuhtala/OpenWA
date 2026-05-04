@@ -2,7 +2,7 @@
 //!
 //! This is the bridge between the producer-side `RenderQueue` (a buffer of
 //! enqueued draw commands) and the consumer-side `DisplayGfx` vtable. Once
-//! per frame, `GameRender_Maybe` (0x533DC0) sets up a [`ClipContext`] and
+//! per frame, `GameRender` (0x533DC0) sets up a [`ClipContext`] and
 //! invokes this function with `(EAX = render_queue, stack[0] = display_gfx,
 //! stack[1] = clip_ctx)`. The dispatcher then:
 //!
@@ -38,7 +38,7 @@
 //!
 //! `RenderDrawingQueue` is `__usercall(EAX = *mut RenderQueue,
 //! stack[0] = *mut DisplayGfx, stack[1] = *mut ClipContext)`, returning
-//! with `RET 0x8`. Verified from caller `GameRender_Maybe` at 0x5340af.
+//! with `RET 0x8`. Verified from caller `GameRender` at 0x5340af.
 //!
 //! ## Helper calling conventions (verified from disassembly)
 //!
@@ -62,17 +62,17 @@ use crate::render::sprite::sprite_op::SpriteOp;
 use openwa_core::fixed::Fixed;
 
 // =============================================================================
-// ClipContext — the 4-i32 anchor/pivot block GameRender_Maybe builds on stack
+// ClipContext — the 4-i32 anchor/pivot block GameRender builds on stack
 // =============================================================================
 
 /// Per-frame clip / camera context, built on the stack by
-/// `GameRender_Maybe` (0x533DC0) and passed as the second stack arg to
+/// `GameRender` (0x533DC0) and passed as the second stack arg to
 /// [`render_drawing_queue`].
 ///
 /// The first two fields are the camera anchor in fixed-16.16 coordinates;
 /// the second pair are pivot points for `RQ_ClipCoordinatesWithRef` (case 6
 /// with `flags & 4`). All four are sourced from `DisplayGfx + 0x8CEC..0x8CFC`
-/// at the start of `GameRender_Maybe` and adjusted in place by the
+/// at the start of `GameRender` and adjusted in place by the
 /// perspective-zoom math before being handed to the dispatcher.
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
@@ -85,7 +85,7 @@ pub struct ClipContext {
     /// Pivot X for the perspective-with-pivot path
     /// (`RQ_ClipCoordinatesWithRef`, case 6 with `cmd.flags & 4`).
     /// Stored as Fixed16 with the fractional bits guaranteed zero by
-    /// `GameRender_Maybe`'s setup math.
+    /// `GameRender`'s setup math.
     pub pivot_x: Fixed,
     /// Pivot Y — same as `pivot_x`.
     pub pivot_y: Fixed,
@@ -148,7 +148,7 @@ fn perspective_scale(projected_z: i32) -> Fixed {
 ///
 /// Clamps `entry.center_x` / `entry.center_y` to the level bounds shrunk by
 /// half the viewport on each side — the standard "camera can't show
-/// off-level area" math. Applied per frame in `GameRender_Maybe` against
+/// off-level area" math. Applied per frame in `GameRender` against
 /// `GameWorld::viewport_coords[0..3]` after the viewport pixel size is
 /// computed (and clamped to the display).
 ///
@@ -157,7 +157,7 @@ fn perspective_scale(projected_z: i32) -> Fixed {
 /// — Rust's signed `/2` already rounds toward zero, so plain division
 /// produces bit-identical results.
 ///
-/// Only one WA-side caller (`GameRender_Maybe` 0x00533DC0); re-callable
+/// Only one WA-side caller (`GameRender` 0x00533DC0); re-callable
 /// from Rust against any [`CoordEntry`] in the same family
 /// (`viewport_coords[]`, `screen_coords_2[]`).
 pub fn clamp_camera_to_bounds(

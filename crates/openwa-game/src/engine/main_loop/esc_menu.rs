@@ -1279,7 +1279,7 @@ const PANEL_BASE_Y: Fixed = Fixed::from_int(-64);
 const CURSOR_OFFSET_IN_PANEL: i32 = 10;
 
 /// Rust port of `GameRuntime::RenderEscMenuOverlay` (0x00535000) — the
-/// per-frame ESC-menu blit, called from `GameRender_Maybe` (0x533DC0) as
+/// per-frame ESC-menu blit, called from `GameRender` (0x533DC0) as
 /// one of the tail render funcs.
 ///
 /// Two independent gates animated separately:

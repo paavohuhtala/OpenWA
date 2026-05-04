@@ -46,7 +46,7 @@ use openwa_core::fixed::Fixed;
 /// Coordinate conventions:
 /// - Methods that add `camera * 0x10000` take Fixed (16.16) coordinates.
 /// - Methods that add `camera` directly take pixel-integer coordinates.
-#[vtable(size = 38, va = 0x0066A218, class = "DisplayGfx")]
+#[vtable(size = 40, va = 0x0066A218, class = "DisplayGfx")]
 pub struct DisplayGfxVtable {
     /// scalar deleting destructor (original at 0x569CE0, RET 0x4).
     ///
@@ -342,6 +342,18 @@ pub struct DisplayGfxVtable {
         gfx: *mut GfxDir,
         name: *const c_char,
     ) -> i32,
+    /// Commit a layer's dirty rectangle to the DDraw tile cache
+    /// (0x0056C330, RET 0x14). Walks the tile grid covering
+    /// `[x1..x2] × [y1..y2]`, allocates any missing DDraw surfaces via
+    /// `g_DisplayGfx`, and copies the layer's pixel data into each
+    /// affected tile. Currently gated on `layer == 1` — any other value
+    /// is a no-op.
+    ///
+    /// Sole non-test caller is `Landscape::flush_dirty_rects`, which drains
+    /// its queue of terrain-modification rects through this slot.
+    #[slot(39)]
+    pub commit_layer_rect:
+        fn(this: *mut DisplayGfx, layer: u32, x1: i32, y1: i32, x2: i32, y2: i32),
 }
 
 // Generate calling wrappers: DisplayGfx::set_layer_color(), etc.

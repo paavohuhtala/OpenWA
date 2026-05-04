@@ -18,10 +18,11 @@ crate::define_addresses! {
         /// Iterates `sprite_table[1..0x3FF]` at `+0x3DD4` and frees each
         /// `LayerSprite` + its `frame_array`.
         fn/Fastcall DISPLAY_GFX_FREE_LAYER_SPRITE_TABLE = 0x0056A280;
-        /// `DisplayGfx::DispatchFramePostProcessHooks` (0x56CDB0) — per-frame
-        /// poll/dispatch over the FramePostProcessHook* vector at `+0x24DF8`.
-        /// Called from `RenderFrame_Maybe` (0x56E06C) which is still bridged.
-        fn/Thiscall DISPLAY_GFX_DISPATCH_FRAME_POST_PROCESS_HOOKS = 0x0056CDB0;
+        /// `DisplayGfx::DispatchFramePostProcessHooks` (0x0056CDB0) —
+        /// stdcall(display), RET 0x4. Per-frame poll/dispatch over the
+        /// `FramePostProcessHook*` vector at `+0x24DF8`. Bridged from
+        /// `engine::main_loop::render_frame::render_frame`.
+        fn/Stdcall DISPLAY_GFX_DISPATCH_FRAME_POST_PROCESS_HOOKS = 0x0056CDB0;
     }
 
     class "TileBitmapSet" {

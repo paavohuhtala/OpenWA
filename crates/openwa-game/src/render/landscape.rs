@@ -1,17 +1,9 @@
-use core::arch::naked_asm;
-
 use crate::{
     asset::gfx_dir::GfxDir,
     bitgrid::DisplayBitGrid,
     engine::{runtime::GameRuntime, world::GameWorld},
-    rebase::rb,
+    render::display::gfx::DisplayGfx,
 };
-
-crate::define_addresses! {
-    /// `Landscape__FlushDirtyRects` (usercall, EDI=this, plain RET).
-    /// Drains all queued dirty rects through `Landscape+0x900->vtable[39]`.
-    fn/Usercall LANDSCAPE_FLUSH_DIRTY_RECTS = 0x0057CBA0;
-}
 
 /// Landscape — terrain/landscape subsystem (0xB40 bytes).
 ///
@@ -73,10 +65,17 @@ pub struct Landscape {
     pub _unknown_8f4: u32,
     /// 0x8F8-0x8FF: Unknown
     pub _unknown_8f8: [u8; 8],
-    /// 0x900: Unknown (NOT GameWorld — runtime value 0x13300048 doesn't match GameWorld ptr)
-    pub _unknown_900: *mut u8,
-    /// 0x904: Initialized flag (param_1[0x241], set to 1)
-    pub initialized: u32,
+    /// 0x900: DisplayGfx the landscape draws to. Set from `param_4` of
+    /// `Landscape__Constructor`; the constructor calls
+    /// `display->set_active_layer(3)` to obtain the resource handle stored
+    /// at `+0xCC`. Used by `flush_dirty_rects` to dispatch terrain-update
+    /// rects through `DisplayVtable::commit_layer_rect` (slot 39).
+    pub display: *mut crate::render::display::gfx::DisplayGfx,
+    /// 0x904: DisplayGfx layer index this landscape draws to (constant `1`
+    /// in shipping code — set by the constructor). Passed as the `layer`
+    /// argument to `commit_layer_rect`; that slot is a no-op for any value
+    /// other than 1.
+    pub display_layer: u32,
     /// 0x908: Terrain layer 0 — written by the landscape image loader
     /// (`SoundEmitter__Constructor_Maybe` at the top of the Landscape ctor —
     /// name appears mislabeled in Ghidra; it returns 8bpp BitGrid layers).
@@ -229,28 +228,33 @@ pub unsafe fn init_landscape_borders(runtime: *mut GameRuntime) {
     }
 }
 
-/// Bridge to WA's `Landscape__FlushDirtyRects` (0x57CBA0). Usercall: EDI = this,
-/// plain RET, no other args. Drains the dirty-rect queue through
-/// `landscape+0x900->vtable[39]`, then resets `dirty_rect_count` to 0.
+/// Rust port of `Landscape::FlushDirtyRects` (0x0057CBA0).
 ///
-/// Wraps a naked cdecl trampoline that loads `this` into EDI and calls the
-/// rebased target address (passed as a parameter per the project's bridge rule).
-unsafe fn flush_dirty_rects(this: *mut Landscape) {
+/// Drains the queued dirty rects by dispatching each through
+/// `display->vtable[39]` ([`DisplayVtable::commit_layer_rect`]), which
+/// pushes the layer's pixel data into the affected DDraw cache tiles.
+/// Resets `dirty_rect_count` to 0 on completion.
+pub(crate) unsafe fn flush_dirty_rects(this: *mut Landscape) {
     unsafe {
-        flush_dirty_rects_trampoline(this, rb(LANDSCAPE_FLUSH_DIRTY_RECTS));
+        let count = (*this).dirty_rect_count as usize;
+        if count == 0 {
+            return;
+        }
+        let display = (*this).display;
+        let layer = (*this).display_layer;
+        for i in 0..count {
+            let rect = (*this).dirty_rects[i];
+            DisplayGfx::commit_layer_rect_raw(
+                display,
+                layer,
+                rect.x1 as i32,
+                rect.y1 as i32,
+                rect.x2 as i32,
+                rect.y2 as i32,
+            );
+        }
+        (*this).dirty_rect_count = 0;
     }
-}
-
-#[unsafe(naked)]
-unsafe extern "cdecl" fn flush_dirty_rects_trampoline(_this: *mut Landscape, _addr: u32) {
-    naked_asm!(
-        "push edi",
-        "mov edi, [esp + 8]",  // this
-        "mov eax, [esp + 12]", // target
-        "call eax",
-        "pop edi",
-        "ret",
-    );
 }
 
 /// Pure Rust implementation of `Landscape::init_borders` (0x57D7F0, vtable

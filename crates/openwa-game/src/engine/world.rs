@@ -385,17 +385,17 @@ pub struct GameWorld {
     /// 0x77A8: Level bound max Y (Fixed16.16).
     pub level_bound_max_y: Fixed,
     /// 0x77AC: Viewport pixel width — derived each frame in
-    /// `GameRender_Maybe` (0x533DC0) as `(level_bound_max_x - min_x) >> 16`,
+    /// `GameRender` (0x533DC0) as `(level_bound_max_x - min_x) >> 16`,
     /// clamped to the display dimensions. Read by
     /// `GameRuntime::RenderEscMenuOverlay` (0x00535000) to center the ESC
     /// menu against the rendered viewport.
     pub viewport_pixel_width: i32,
     /// 0x77B0: Viewport pixel height — derived each frame in
-    /// `GameRender_Maybe` as `(level_bound_max_y - min_y) >> 16` (rounded
+    /// `GameRender` as `(level_bound_max_y - min_y) >> 16` (rounded
     /// down to an even number), clamped to the display dimensions.
     pub viewport_pixel_height: i32,
     /// 0x77B4: Previous frame's [`Self::viewport_pixel_height`]. Saved at
-    /// the top of `GameRender_Maybe` (0x00533DC0) before the new height is
+    /// the top of `GameRender` (0x00533DC0) before the new height is
     /// computed, then read by downstream draw code that needs to compare
     /// last frame's bar height against this frame's. Initialized to zero;
     /// the first frame copies `viewport_pixel_height` into here so the
@@ -487,7 +487,7 @@ pub struct GameWorld {
     pub _fields_7e50: [u32; 5],
     /// 0x7E64: Unknown (zeroed by InitTurnState).
     pub _field_7e64: u32,
-    /// 0x7E68: "Skip render" gate. When non-zero, `GameRender_Maybe`
+    /// 0x7E68: "Skip render" gate. When non-zero, `GameRender`
     /// (0x00533DC0) early-exits at the very top — entire per-frame render
     /// pipeline (queue dispatch + tail funcs) is bypassed. Writers TBD;
     /// candidates include the dialog/end-of-round freeze and the
