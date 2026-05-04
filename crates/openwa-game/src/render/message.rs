@@ -89,6 +89,13 @@ pub enum RenderMessage {
         flags: u8,
     },
 
+    /// Replaces legacy type 0xE (`DRAW_TILED_TERRAIN`).
+    ///
+    /// `mode` (cmd[2]), `ref_z` (cmd[5]) and `flags` (cmd[8]) are constants
+    /// (0/0/1) in the only known producer (`LandEntity::RenderLandscape` →
+    /// `RQ_EnqueueTiledTerrain` at 0x005422A0) — omitted here.
+    TiledTerrain { x: Fixed, y: Fixed, count: i32 },
+
     /// Replaces legacy type 6 (`DRAW_SPRITE_OFFSET`).
     ///
     /// `ref_z` (first Z reference) is always 0 in all known producers —

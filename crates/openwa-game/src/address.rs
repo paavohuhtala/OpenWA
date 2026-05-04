@@ -774,7 +774,11 @@ pub mod va {
         fn RQ_DRAW_SPRITE_OFFSET = 0x005420E0;
         fn RQ_DRAW_BITMAP_GLOBAL = 0x00542170;
         fn RQ_DRAW_TEXTBOX_LOCAL = 0x00542200;
-        fn RQ_DRAW_CLIPPED_SPRITE_MAYBE = 0x005422A0;
+        /// `RQ_EnqueueTiledTerrain` — formerly mis-labelled
+        /// `RQ_DrawClippedSprite_Maybe`. Enqueues a tile-cached terrain draw
+        /// command (type 0xE), dispatched by `RenderDrawingQueue` into
+        /// `DisplayGfx::draw_tiled_terrain`. Sole caller: `LandEntity::RenderLandscape`.
+        fn RQ_ENQUEUE_TILED_TERRAIN = 0x005422A0;
         fn RQ_CLIP_COORDINATES = 0x00542BA0;
         fn RQ_GET_CAMERA_OFFSET_MAYBE = 0x00542B10;
         fn RQ_CLIP_WITH_REF_OFFSET_MAYBE = 0x00542C70;

@@ -32,7 +32,7 @@
 //! | 0xB  | DRAW_CROSSHAIR     | 16 | `draw_crosshair`     |
 //! | 0xC  | DRAW_OUTLINED_PIXEL | 17 | `draw_outlined_pixel` |
 //! | 0xD  | DRAW_TILED_BITMAP  | 11 | `draw_tiled_bitmap`  |
-//! | 0xE  | (no Rust producer) | 22 | `draw_tiled_terrain` |
+//! | 0xE  | DRAW_TILED_TERRAIN | 22 | `draw_tiled_terrain` |
 //!
 //! ## Calling convention
 //!
@@ -1117,6 +1117,16 @@ unsafe fn dispatch_typed(display: *mut DisplayGfx, clip: &ClipContext, msg: &Ren
                 }
                 let dest_x = if flags & 1 != 0 { 0 } else { ox.to_int() };
                 DisplayGfx::draw_tiled_bitmap_raw(display, dest_x, oy.to_int(), source);
+            }
+
+            RenderMessage::TiledTerrain { x, y, count } => {
+                let mut ox = Fixed::ZERO;
+                let mut oy = Fixed::ZERO;
+                let mut scale = Fixed::ZERO;
+                if !rq_clip_coordinates(clip, x, y, 0, &mut ox, &mut oy, &mut scale) {
+                    return;
+                }
+                DisplayGfx::draw_tiled_terrain_raw(display, ox, oy, count, 1);
             }
 
             RenderMessage::SpriteOffset {

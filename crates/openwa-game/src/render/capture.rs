@@ -305,12 +305,13 @@ pub fn typed_variant_index(msg: &RenderMessage) -> usize {
         RenderMessage::TextboxLocal { .. } => 6,
         RenderMessage::LineStrip { .. } => 7,
         RenderMessage::Polygon { .. } => 8,
+        RenderMessage::TiledTerrain { .. } => 9,
     }
 }
 
 /// Display labels for [`RenderMessage`] variants, indexed by
 /// [`typed_variant_index`]. Order must stay in sync with the enum.
-pub const TYPED_VARIANT_NAMES: [&str; 9] = [
+pub const TYPED_VARIANT_NAMES: [&str; 10] = [
     "Sprite",
     "FillRect",
     "Crosshair",
@@ -320,6 +321,7 @@ pub const TYPED_VARIANT_NAMES: [&str; 9] = [
     "TextboxLocal",
     "LineStrip",
     "Polygon",
+    "TiledTerrain",
 ];
 
 /// Number of typed variants — re-exported so the debug UI can size its
@@ -531,6 +533,21 @@ fn decode_typed(msg: &RenderMessage) -> Vec<DecodedField> {
                 Some(*flags as u32),
                 format!("{:#04X}", flags),
             ),
+        ],
+        RenderMessage::TiledTerrain { x, y, count } => vec![
+            row(
+                None,
+                "x",
+                Some(x.to_raw() as u32),
+                format!("{:.2}", x.to_f32()),
+            ),
+            row(
+                None,
+                "y",
+                Some(y.to_raw() as u32),
+                format!("{:.2}", y.to_f32()),
+            ),
+            row(None, "count", Some(*count as u32), format!("{}", count)),
         ],
         RenderMessage::SpriteOffset {
             flags,
@@ -802,6 +819,9 @@ fn format_typed(msg: &RenderMessage) -> String {
             *source as usize,
             flags,
         ),
+        RenderMessage::TiledTerrain { x, y, count } => {
+            format!("pos=({:.1},{:.1}) count={}", x.to_f32(), y.to_f32(), count,)
+        }
         RenderMessage::SpriteOffset {
             flags,
             x,

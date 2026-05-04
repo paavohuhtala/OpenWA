@@ -37,6 +37,31 @@ unsafe extern "cdecl" fn enqueue_tiled_bitmap_impl(
     }
 }
 
+// EnqueueTiledTerrain (0x5422A0)
+// __usercall(ECX = queue, EAX = y, [stack0] = x, [stack1] = count), RET 0x8.
+// WA hardcodes layer = 0x180000, mode = 0, ref_z = 0, flags = 1.
+
+usercall_trampoline!(fn trampoline_enqueue_tiled_terrain; impl_fn = enqueue_tiled_terrain_impl;
+    regs = [eax, ecx]; stack_params = 2; ret_bytes = "0x8");
+
+unsafe extern "cdecl" fn enqueue_tiled_terrain_impl(
+    y: Fixed,
+    queue: *mut RenderQueue,
+    x: Fixed,
+    count: i32,
+) {
+    unsafe {
+        let _ = (*queue).push_typed(
+            0x18_0000,
+            RenderMessage::TiledTerrain {
+                x: x.floor(),
+                y: y.floor(),
+                count,
+            },
+        );
+    }
+}
+
 // DrawLineStrip (0x541DD0) — variable-size: vertex data via alloc_aux
 
 usercall_trampoline!(fn trampoline_draw_line_strip; impl_fn = draw_line_strip_impl;
@@ -338,6 +363,12 @@ pub fn install() -> Result<(), String> {
             "EnqueueTiledBitmap",
             va::RQ_ENQUEUE_TILED_BITMAP,
             trampoline_enqueue_tiled_bitmap as *const (),
+        )?;
+
+        let _ = hook::install(
+            "EnqueueTiledTerrain",
+            va::RQ_ENQUEUE_TILED_TERRAIN,
+            trampoline_enqueue_tiled_terrain as *const (),
         )?;
 
         let _ = hook::install(
