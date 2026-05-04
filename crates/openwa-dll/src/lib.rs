@@ -60,12 +60,64 @@ fn clear_log() -> std::io::Result<()> {
     Ok(())
 }
 
+/// `Write` adapter over an inherited Win32 pipe handle. Used as the secondary
+/// log sink: the launcher creates an anonymous pipe and passes the write end
+/// into us via `OPENWA_LOG_PIPE`, so log lines surface live on the launcher's
+/// stdout. Stdio inheritance from a console parent to a GUI-subsystem child
+/// is silently dropped by modern terminal hosts (conpty), so a dedicated pipe
+/// is the only reliable forwarding mechanism.
+struct PipeSink {
+    handle: *mut std::ffi::c_void,
+}
+
+unsafe impl Send for PipeSink {}
+
+impl std::io::Write for PipeSink {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let mut written: u32 = 0;
+        let ok = unsafe {
+            windows_sys::Win32::Storage::FileSystem::WriteFile(
+                self.handle,
+                buf.as_ptr(),
+                buf.len() as u32,
+                &mut written,
+                std::ptr::null_mut(),
+            )
+        };
+        if ok == 0 {
+            return Err(std::io::Error::last_os_error());
+        }
+        Ok(written as usize)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+fn install_log_pipe_sink() {
+    let Some(value) = std::env::var_os("OPENWA_LOG_PIPE") else {
+        return;
+    };
+    let Some(value) = value.to_str() else { return };
+    let Ok(handle_int) = value.parse::<usize>() else {
+        return;
+    };
+    if handle_int == 0 {
+        return;
+    }
+    openwa_core::log::set_secondary_sink(Box::new(PipeSink {
+        handle: handle_int as *mut std::ffi::c_void,
+    }));
+}
+
 // ---------------------------------------------------------------------------
 // Main entry
 // ---------------------------------------------------------------------------
 
 fn run() -> Result<(), String> {
     let _ = clear_log();
+    install_log_pipe_sink();
     // Install panic hook that writes to our log file
     std::panic::set_hook(Box::new(|info| {
         let _ = log_line(&format!("[PANIC] {info}"));

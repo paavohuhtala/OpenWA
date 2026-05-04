@@ -5,13 +5,18 @@ use std::mem;
 use std::path::{Path, PathBuf};
 use std::ptr;
 
-use windows_sys::Win32::Foundation::{CloseHandle, HMODULE};
+use windows_sys::Win32::Foundation::{
+    CloseHandle, HANDLE, HANDLE_FLAG_INHERIT, HMODULE, SetHandleInformation,
+};
+use windows_sys::Win32::Security::SECURITY_ATTRIBUTES;
+use windows_sys::Win32::Storage::FileSystem::ReadFile;
 use windows_sys::Win32::System::JobObjects::{
     AssignProcessToJobObject, CreateJobObjectA, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
     JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JobObjectExtendedLimitInformation,
     SetInformationJobObject,
 };
 use windows_sys::Win32::System::LibraryLoader::GetModuleFileNameA;
+use windows_sys::Win32::System::Pipes::CreatePipe;
 use windows_sys::Win32::System::Threading::{
     CREATE_NO_WINDOW, CREATE_SUSPENDED, CreateEventA, CreateProcessA, GetExitCodeProcess, INFINITE,
     PROCESS_INFORMATION, ResumeThread, STARTF_USESHOWWINDOW, STARTUPINFOA, TerminateProcess,
@@ -116,6 +121,20 @@ unsafe fn launch(
             si.wShowWindow = SW_SHOWMINIMIZED;
         }
 
+        // Anonymous pipe for forwarding the DLL's log lines to our stdout.
+        // Stdio inheritance from a console parent to a GUI-subsystem child
+        // doesn't work through conpty handles (modern Windows Terminal,
+        // VS Code's integrated terminal, etc. silently drop the writes), so
+        // we use a dedicated pipe instead. The DLL writes log lines through
+        // the inherited write end; we read on a thread and reprint on our
+        // own stdout, which the terminal reliably renders.
+        let (log_read, log_write) = create_log_pipe();
+        if !log_write.is_null() {
+            // Hand the write-end value to the DLL via env var; CreateProcess
+            // inherits the env we have set right now.
+            std::env::set_var("OPENWA_LOG_PIPE", format!("{}", log_write as usize));
+        }
+
         let mut pi: PROCESS_INFORMATION = mem::zeroed();
 
         let ok = CreateProcessA(
@@ -123,7 +142,7 @@ unsafe fn launch(
             cmdline_buf.as_mut_ptr(),
             ptr::null(),
             ptr::null(),
-            0, // bInheritHandles = FALSE
+            if log_write.is_null() { 0 } else { 1 }, // bInheritHandles
             CREATE_SUSPENDED | if headless { CREATE_NO_WINDOW } else { 0 },
             ptr::null(), // inherit environment
             wd_cstr.as_ptr().cast(),
@@ -132,7 +151,19 @@ unsafe fn launch(
         );
 
         if ok == 0 {
+            if !log_read.is_null() {
+                CloseHandle(log_read);
+                CloseHandle(log_write);
+            }
             return Err("CreateProcessA failed — is WA.exe path correct?".to_string());
+        }
+
+        // Hand the pipe over to the child: close our write-end copy so EOF on
+        // the read side fires when WA exits, and spawn a reader thread that
+        // reprints lines on our own stdout.
+        if !log_write.is_null() {
+            CloseHandle(log_write);
+            spawn_log_reader(log_read);
         }
 
         // Tie WA.exe's lifetime to ours via a job object with KILL_ON_JOB_CLOSE.
@@ -208,6 +239,62 @@ unsafe fn launch(
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/// Create the log-forwarding pipe. The write end is inheritable (so the child
+/// receives a copy via CreateProcess); the read end is explicitly NOT
+/// inheritable, keeping the launcher as the sole reader. Returns
+/// `(read, write)` or `(null, null)` if pipe creation fails.
+unsafe fn create_log_pipe() -> (HANDLE, HANDLE) {
+    unsafe {
+        let mut sa: SECURITY_ATTRIBUTES = mem::zeroed();
+        sa.nLength = mem::size_of::<SECURITY_ATTRIBUTES>() as u32;
+        sa.bInheritHandle = 1;
+        sa.lpSecurityDescriptor = ptr::null_mut();
+        let mut read_h: HANDLE = ptr::null_mut();
+        let mut write_h: HANDLE = ptr::null_mut();
+        if CreatePipe(&mut read_h, &mut write_h, &sa, 0) == 0 {
+            return (ptr::null_mut(), ptr::null_mut());
+        }
+        // Strip inherit on the read end: the child only needs the writer.
+        SetHandleInformation(read_h, HANDLE_FLAG_INHERIT, 0);
+        (read_h, write_h)
+    }
+}
+
+/// Spawn a thread that drains the read end of the log pipe to stdout.
+/// Terminates on EOF (all writers closed — i.e. WA.exe exited) or read error.
+fn spawn_log_reader(read_h: HANDLE) {
+    // HANDLE is `*mut c_void` and not `Send`. The kernel handle is global to
+    // the process, so passing the integer value across threads is sound.
+    let read_h = read_h as usize;
+    std::thread::spawn(move || {
+        use std::io::Write;
+        let read_h = read_h as HANDLE;
+        let mut buf = [0u8; 4096];
+        let stdout = std::io::stdout();
+        loop {
+            let mut bytes: u32 = 0;
+            let ok = unsafe {
+                ReadFile(
+                    read_h,
+                    buf.as_mut_ptr().cast(),
+                    buf.len() as u32,
+                    &mut bytes,
+                    ptr::null_mut(),
+                )
+            };
+            if ok == 0 || bytes == 0 {
+                break;
+            }
+            let mut lock = stdout.lock();
+            let _ = lock.write_all(&buf[..bytes as usize]);
+            let _ = lock.flush();
+        }
+        unsafe {
+            CloseHandle(read_h);
+        }
+    });
+}
 
 /// Create an unnamed job object with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`.
 /// Returns a null handle on failure; caller should treat that as "no auto-kill".
