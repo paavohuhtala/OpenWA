@@ -4,6 +4,7 @@
 //! builds the DLL + launcher, then runs each replay through WA.exe's `/getlog` mode
 //! and compares output byte-for-byte.
 
+use std::collections::HashMap;
 use std::env;
 use std::fmt::Write as FmtWrite;
 use std::fs;
@@ -11,6 +12,7 @@ use std::io::IsTerminal;
 use std::os::windows::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::OnceLock;
 use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -74,13 +76,70 @@ const TIMEOUT_SECS: u64 = 120;
 const REPLAYS_DIR: &str = "testdata/replays";
 const RUNS_DIR: &str = "testdata/runs";
 
+// ─── Output mode ────────────────────────────────────────────────────────────
+
+#[derive(Copy, Clone, PartialEq, Eq)]
+enum OutputMode {
+    /// Interactive terminal or CI: per-test PASS/FAIL lines, full summary.
+    Verbose,
+    /// Non-interactive non-CI (e.g. agent invocation, piped to a file):
+    /// final summary only, ~5 lines, with detail in failures.txt.
+    Compact,
+}
+
+fn output_mode() -> OutputMode {
+    static MODE: OnceLock<OutputMode> = OnceLock::new();
+    *MODE.get_or_init(|| {
+        // Treat any common CI marker as "verbose" — CI logs are non-interactive
+        // but humans read them, so the per-test trail is valuable.
+        let is_ci = env::var_os("CI").is_some()
+            || env::var_os("GITHUB_ACTIONS").is_some()
+            || env::var_os("BUILDKITE").is_some()
+            || env::var_os("GITLAB_CI").is_some();
+        if is_ci || std::io::stdout().is_terminal() {
+            OutputMode::Verbose
+        } else {
+            OutputMode::Compact
+        }
+    })
+}
+
+fn is_compact() -> bool {
+    output_mode() == OutputMode::Compact
+}
+
 // ─── Types ──────────────────────────────────────────────────────────────────
 
+#[derive(Clone)]
 struct TestCase {
     name: String,
     replay_path: PathBuf,
     expected_log: PathBuf,
     output_log: PathBuf,
+}
+
+/// Per-test metadata kept around after `tests` is consumed by the runner —
+/// used to build absolute log paths in failures.txt.
+#[derive(Clone)]
+struct TestMeta {
+    replay_path: PathBuf,
+    /// `None` for headful (no diff baseline) and baseline-generation modes.
+    expected_log: Option<PathBuf>,
+}
+
+fn collect_meta(tests: &[TestCase], with_expected: bool) -> HashMap<String, TestMeta> {
+    tests
+        .iter()
+        .map(|t| {
+            (
+                t.name.clone(),
+                TestMeta {
+                    replay_path: t.replay_path.clone(),
+                    expected_log: with_expected.then(|| t.expected_log.clone()),
+                },
+            )
+        })
+        .collect()
 }
 
 #[derive(Clone)]
@@ -531,6 +590,9 @@ fn red(text: &str) -> String {
 }
 
 fn print_result(result: &TestResult) {
+    if is_compact() {
+        return;
+    }
     let status = if result.passed {
         green("  PASS")
     } else if result.crashed.is_some() {
@@ -646,6 +708,180 @@ fn write_summary(results: &[TestResult], wall_time: Duration, path: &Path) {
     );
 
     let _ = fs::write(path, s);
+}
+
+// ─── Failure classification & compact reporting ────────────────────────────
+
+/// One-line classification suitable for compact output and failures.txt.
+fn classify_failure(r: &TestResult) -> String {
+    if let Some(c) = &r.crashed {
+        format!("CRASH 0x{:08X} ({})", c.exit_code, c.name)
+    } else if let Some(err) = &r.error {
+        // `error` is freeform (timeout, "Failed to launch: ...", etc.).
+        // Keep the first line so it fits on one terminal row.
+        let first = err.lines().next().unwrap_or("error").trim();
+        format!("FAIL ({first})")
+    } else {
+        // No crash, no error → a diff failure.
+        let n = r.diff_lines.len();
+        if n == 0 {
+            "FAIL (diff)".to_string()
+        } else {
+            format!("FAIL (diff, {n} line{})", if n == 1 { "" } else { "s" })
+        }
+    }
+}
+
+fn compact_failure_line(r: &TestResult) -> String {
+    format!(
+        "  {:<32} {} ({:.1}s)",
+        r.name,
+        classify_failure(r),
+        r.duration.as_secs_f64()
+    )
+}
+
+/// Compact summary: ≤5 lines, intended for non-interactive consumers (e.g. AI
+/// agents) who can read failures.txt for log paths and details.
+fn print_compact_summary(results: &[TestResult], wall_time: Duration, run_dir: &Path) {
+    let total = results.len();
+    let passed = results.iter().filter(|r| r.passed).count();
+    let crashed = results.iter().filter(|r| r.crashed.is_some()).count();
+    let failed = total - passed;
+    let wall = wall_time.as_secs_f64();
+
+    if failed == 0 {
+        println!("{passed}/{total} tests passed (wall {wall:.1}s)");
+    } else {
+        let crash_info = if crashed > 0 {
+            format!(", {crashed} crashed")
+        } else {
+            String::new()
+        };
+        println!("{passed}/{total} tests passed, {failed} failed{crash_info} (wall {wall:.1}s)");
+    }
+
+    let failures: Vec<&TestResult> = results.iter().filter(|r| !r.passed).collect();
+    if !failures.is_empty() {
+        if failures.len() <= 3 {
+            for r in &failures {
+                println!("{}", compact_failure_line(r));
+            }
+        } else {
+            println!(
+                "  {} failed test{}, see failures.txt for details",
+                failures.len(),
+                if failures.len() == 1 { "" } else { "s" }
+            );
+        }
+    }
+
+    println!(
+        "Run dir: {} (logs + summary.txt{})",
+        run_dir.display(),
+        if failures.is_empty() {
+            ""
+        } else {
+            " + failures.txt"
+        }
+    );
+}
+
+/// Write `failures.txt` to the run directory if any tests failed. Lists each
+/// failure with its classification, runtime, and absolute paths to every log
+/// produced for it (replay, expected, output, openwa, errorlog) — only if the
+/// file actually exists.
+fn write_failures_txt(
+    results: &[TestResult],
+    run_dir: &Path,
+    wall_time: Duration,
+    meta: &HashMap<String, TestMeta>,
+) {
+    let failures: Vec<&TestResult> = results.iter().filter(|r| !r.passed).collect();
+    if failures.is_empty() {
+        return;
+    }
+
+    let total = results.len();
+    let passed = total - failures.len();
+    let crashed = failures.iter().filter(|r| r.crashed.is_some()).count();
+
+    let mut s = String::new();
+    let _ = writeln!(s, "# Failed tests");
+    let _ = writeln!(s, "# Run dir:   {}", run_dir.display());
+    let _ = writeln!(
+        s,
+        "# Tests:     {total} total, {passed} passed, {} failed{}",
+        failures.len(),
+        if crashed > 0 {
+            format!(" ({crashed} crashed)")
+        } else {
+            String::new()
+        }
+    );
+    let _ = writeln!(s, "# Wall time: {:.1}s", wall_time.as_secs_f64());
+    let _ = writeln!(s);
+
+    for (i, r) in failures.iter().enumerate() {
+        let _ = writeln!(
+            s,
+            "[{}] {} — {} — {:.1}s",
+            i + 1,
+            r.name,
+            classify_failure(r),
+            r.duration.as_secs_f64()
+        );
+
+        let m = meta.get(&r.name);
+        if let Some(m) = m {
+            let _ = writeln!(s, "    replay:   {}", m.replay_path.display());
+            if let Some(exp) = &m.expected_log {
+                let _ = writeln!(s, "    expected: {}", exp.display());
+            }
+        }
+        let output_log = run_dir.join(format!("{}.log", r.name));
+        if output_log.exists() {
+            let _ = writeln!(s, "    output:   {}", output_log.display());
+        }
+        let openwa_log = run_dir.join(format!("{}.openwa.log", r.name));
+        if openwa_log.exists() {
+            let _ = writeln!(s, "    openwa:   {}", openwa_log.display());
+        }
+        let errorlog = run_dir.join(format!("{}.errorlog.txt", r.name));
+        if errorlog.exists() {
+            let _ = writeln!(s, "    errorlog: {}", errorlog.display());
+        }
+
+        if let Some(err) = &r.error {
+            let _ = writeln!(s, "    error:    {err}");
+        }
+
+        let _ = writeln!(s);
+    }
+
+    let _ = fs::write(run_dir.join("failures.txt"), s);
+}
+
+/// Combined end-of-run reporting: write summary.txt + failures.txt, then
+/// print the appropriate console summary for the current output mode.
+fn finalize_run(
+    results: &[TestResult],
+    wall_time: Duration,
+    run_dir: &Path,
+    meta: &HashMap<String, TestMeta>,
+    report_startup_checks: bool,
+) {
+    write_summary(results, wall_time, &run_dir.join("summary.txt"));
+    write_failures_txt(results, run_dir, wall_time, meta);
+    match output_mode() {
+        OutputMode::Verbose => {
+            print_summary(results, wall_time);
+            if report_startup_checks {
+                report_startup_check_failures(results, run_dir);
+            }
+        }
+        OutputMode::Compact => print_compact_summary(results, wall_time, run_dir),
+    }
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -1026,11 +1262,15 @@ fn run_headful(args: HeadfulArgs) {
     let _ = fs::create_dir_all(&run_dir);
     let run_dir = strip_unc(fs::canonicalize(&run_dir).unwrap_or(run_dir));
 
-    println!(
-        "Running {} headful test{}...\n",
-        tests.len(),
-        if tests.len() == 1 { "" } else { "s" }
-    );
+    if !is_compact() {
+        println!(
+            "Running {} headful test{}...\n",
+            tests.len(),
+            if tests.len() == 1 { "" } else { "s" }
+        );
+    }
+
+    let meta = collect_meta(&tests, false);
 
     let wall_start = Instant::now();
     let mut results = Vec::new();
@@ -1043,11 +1283,7 @@ fn run_headful(args: HeadfulArgs) {
 
     let wall_time = wall_start.elapsed();
 
-    print_summary(&results, wall_time);
-    write_summary(&results, wall_time, &run_dir.join("summary.txt"));
-
-    // Report startup check failures
-    report_startup_check_failures(&results, &run_dir);
+    finalize_run(&results, wall_time, &run_dir, &meta, true);
 
     cleanup_temp_files(&wa_exe);
 
@@ -1715,12 +1951,18 @@ fn run_generate_baseline(args: GenerateBaselineArgs) {
     let run_dir = strip_unc(fs::canonicalize(&run_dir).unwrap_or(run_dir));
 
     let jobs = args.jobs.max(1);
-    println!(
-        "Generating baselines for {} replay{} ({} concurrent, OPENWA_TRACE_BASELINE=1)...\n",
-        tests.len(),
-        if tests.len() == 1 { "" } else { "s" },
-        jobs
-    );
+    if !is_compact() {
+        println!(
+            "Generating baselines for {} replay{} ({} concurrent, OPENWA_TRACE_BASELINE=1)...\n",
+            tests.len(),
+            if tests.len() == 1 { "" } else { "s" },
+            jobs
+        );
+    }
+
+    // Baseline mode populates `expected_log` as the *destination* path, so it's
+    // not useful for diff investigation — pass with_expected=false.
+    let meta = collect_meta(&tests, false);
 
     let wall_start = Instant::now();
     let results = run_baseline_parallel(tests, jobs, &launcher, &wa_exe, &run_dir);
@@ -1729,13 +1971,11 @@ fn run_generate_baseline(args: GenerateBaselineArgs) {
     let generated = results.iter().filter(|r| r.passed).count();
     let failed = results.len() - generated;
 
-    print_summary(&results, wall_time);
-    write_summary(&results, wall_time, &run_dir.join("summary.txt"));
+    finalize_run(&results, wall_time, &run_dir, &meta, false);
 
-    println!(
-        "\nBaseline generation: {} generated, {} failed",
-        generated, failed
-    );
+    if !is_compact() {
+        println!("\nBaseline generation: {generated} generated, {failed} failed");
+    }
 
     cleanup_temp_files(&wa_exe);
 
@@ -1816,24 +2056,23 @@ fn main() {
     let run_dir = strip_unc(fs::canonicalize(&run_dir).unwrap_or(run_dir));
 
     let jobs = args.jobs.max(1);
-    println!(
-        "Running {} test{} ({} concurrent)...\n",
-        tests.len(),
-        if tests.len() == 1 { "" } else { "s" },
-        jobs
-    );
+    if !is_compact() {
+        println!(
+            "Running {} test{} ({} concurrent)...\n",
+            tests.len(),
+            if tests.len() == 1 { "" } else { "s" },
+            jobs
+        );
+    }
+
+    let meta = collect_meta(&tests, true);
 
     // Run
     let wall_start = Instant::now();
     let results = run_tests_parallel(tests, jobs, &launcher, &wa_exe, &run_dir);
     let wall_time = wall_start.elapsed();
 
-    // Summary
-    print_summary(&results, wall_time);
-    write_summary(&results, wall_time, &run_dir.join("summary.txt"));
-
-    // Report startup check failures from the DLL (once, from the first test's log)
-    report_startup_check_failures(&results, &run_dir);
+    finalize_run(&results, wall_time, &run_dir, &meta, true);
 
     // Clean up per-PID temp files from the game directory
     cleanup_temp_files(&wa_exe);
