@@ -25,6 +25,8 @@ image = { version = "0.25", default-features = false, features = [
 openwa-config = { path = "../openwa-config" }
 
 [target.'cfg(target_os = "windows")'.dependencies]
+softbuffer = "0.4"
+raw-window-handle = "0.6"
 windows = { version = "0.62", features = ["Win32_Media_Audio_DirectSound"] }
 windows-sys = { version = "0.61", features = [
     "Win32_Foundation",

@@ -34,6 +34,8 @@
 //! call site in `Frontend__MainNavigationLoop`).
 
 pub mod adapter;
+#[cfg(target_os = "windows")]
+pub mod softbuffer;
 
 use core::ffi::c_void;
 
