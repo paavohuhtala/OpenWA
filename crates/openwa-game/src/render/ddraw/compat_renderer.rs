@@ -7,6 +7,21 @@ crate::define_addresses! {
     class "DDraw8Renderer" {
         vtable DDRAW8_RENDERER_VTABLE = 0x006767F8;
     }
+
+    class "CompatRenderer" {
+        /// `CompatRenderer::Flip` (0x0059DB70) — `__fastcall(this, result)`.
+        /// Calls `IDirectDrawSurface::Flip` (slot 11 = offset +0x2C of the
+        /// primary surface's COM vtable, fetched from `this+0x2C`). Reached
+        /// per-frame via vtable dispatch — slot 13 of the runtime
+        /// CompatRenderer vtable, OR through the windowed-mode wrapper
+        /// `FUN_0059EB20` which itself ends with a tail call to this.
+        ///
+        /// MinHook target for the OpenWA softbuffer present override: when
+        /// `OPENWA_SOFTBUFFER=1`, the DLL replaces this with a Rust thunk
+        /// that uploads the current `g_FrameBufferPtr` pixels via
+        /// softbuffer instead of doing the DDraw flip.
+        fn/Fastcall COMPAT_RENDERER_FLIP = 0x0059DB70;
+    }
 }
 
 #[openwa_game::vtable(size = 37, va = 0x00676A90, class = "CompatRenderer")]

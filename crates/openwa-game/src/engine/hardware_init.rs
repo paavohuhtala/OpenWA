@@ -311,23 +311,23 @@ pub unsafe fn init_hardware(
                 return 0;
             }
 
-            // ── Optional softbuffer backend swap-in ───────────────────────
-            // Gated on `OPENWA_SOFTBUFFER=1`. Replaces WA's CompatRenderer /
-            // OpenGLCPU at `RenderContext+0x18` with our Rust-side adapter
-            // wrapping a `softbuffer` impl. WA's prior backend stays
-            // constructed (and its DDraw / GL resources stay live) but is
-            // no longer reached.
+            // ── Optional softbuffer backend construction ──────────────────
+            // Gated on `OPENWA_SOFTBUFFER=1`. Constructs the backend bound
+            // to the active HWND; the per-frame DDraw flip is intercepted
+            // by a MinHook installed in `openwa-dll/replacements/render/
+            // backend.rs` that forwards into this backend's `present`. We
+            // do NOT touch WA's `RenderContext+0x18`, so its CompatRenderer
+            // keeps doing all its other work undisturbed.
             if std::env::var_os("OPENWA_SOFTBUFFER").is_some_and(|v| v == "1") {
                 match crate::render::backend::install_softbuffer_backend() {
-                    Ok(prev) => {
-                        let _ = openwa_core::log::log_line(&format!(
-                            "[render-backend] swap-in succeeded; previous backend = {:p}",
-                            prev,
-                        ));
+                    Ok(()) => {
+                        let _ = openwa_core::log::log_line(
+                            "[render-backend] softbuffer construction OK",
+                        );
                     }
                     Err(e) => {
                         let _ = openwa_core::log::log_line(&format!(
-                            "[render-backend] swap-in failed: {:?}",
+                            "[render-backend] softbuffer construction failed: {:?}",
                             e,
                         ));
                     }

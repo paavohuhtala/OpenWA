@@ -40,7 +40,7 @@ pub mod softbuffer;
 #[cfg(target_os = "windows")]
 mod install;
 #[cfg(target_os = "windows")]
-pub use install::install_softbuffer_backend;
+pub use install::{install_softbuffer_backend, softbuffer_present_replacement};
 
 use core::ffi::c_void;
 

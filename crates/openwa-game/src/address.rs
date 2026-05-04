@@ -97,7 +97,7 @@ pub mod va {
     pub use crate::input::mouse::MOUSE_INPUT_VTABLE;
     pub use crate::render::backend::adapter::G_SUCCESS_RESULT;
     pub use crate::render::ddraw::compat_renderer::{
-        COMPAT_RENDERER_VTABLE, CompatRendererVtable, DDRAW8_RENDERER_VTABLE,
+        COMPAT_RENDERER_FLIP, COMPAT_RENDERER_VTABLE, CompatRendererVtable, DDRAW8_RENDERER_VTABLE,
     };
     pub use crate::render::display::base::DISPLAY_BASE_VTABLE;
     pub use crate::render::display::context::{
