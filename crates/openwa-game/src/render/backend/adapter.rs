@@ -36,7 +36,21 @@
 use core::ffi::c_void;
 use core::marker::PhantomData;
 
+use crate::rebase::rb;
+use crate::render::display::context::FastcallResult;
+
 use super::RenderBackend;
+
+crate::define_addresses! {
+    /// Global "success result" sentinel read by `RenderContext` and
+    /// `Surface` methods. Every successful fastcall writes the value at
+    /// this address into the caller's result buffer; downstream callers
+    /// compare `*result == g_SuccessResult` to detect success. Only
+    /// `[READ]` xrefs are visible in the binary — the value appears to
+    /// be statically zero, but reading it dynamically is robust against
+    /// any unknown initialization path.
+    global G_SUCCESS_RESULT = 0x008ACCD4;
+}
 
 /// Adapter object: lives on the heap, exposes a `CompatRenderer`-shaped
 /// vtable, and forwards live slots to the wrapped `RenderBackend` impl.
@@ -67,12 +81,14 @@ struct AdapterVtable {
 // All the no-op slots route here. The `*result` pointer arrives in EDX
 // (fastcall arg 2); we deliberately drop further stack args because they
 // vary by slot and we don't read them in the stub.
-unsafe extern "fastcall" fn stub_success(
-    _this: *mut c_void,
-    _result: *mut crate::render::display::context::FastcallResult,
-) {
-    // Intentionally empty — the WA success constant lives at
-    // `0x008accd4`; we'll plumb it through once the live slots land.
+unsafe extern "fastcall" fn stub_success(_this: *mut c_void, result: *mut FastcallResult) {
+    unsafe {
+        if result.is_null() {
+            return;
+        }
+        let success: u32 = *(rb(G_SUCCESS_RESULT) as *const u32);
+        (*result).value = success;
+    }
 }
 
 impl<B: RenderBackend> CompatBackendAdapter<B> {

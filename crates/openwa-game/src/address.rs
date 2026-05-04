@@ -95,11 +95,15 @@ pub mod va {
     pub use crate::frontend::map_view::MAP_VIEW_VTABLE;
     pub use crate::input::controller::NET_INPUT_CTRL_VTABLE;
     pub use crate::input::mouse::MOUSE_INPUT_VTABLE;
+    pub use crate::render::backend::adapter::G_SUCCESS_RESULT;
     pub use crate::render::ddraw::compat_renderer::{
         COMPAT_RENDERER_VTABLE, CompatRendererVtable, DDRAW8_RENDERER_VTABLE,
     };
     pub use crate::render::display::base::DISPLAY_BASE_VTABLE;
-    pub use crate::render::display::context::{RENDER_CONTEXT_VTABLE, RenderContextVtable};
+    pub use crate::render::display::context::{
+        RENDER_CONTEXT_VTABLE, RenderContextVtable, SURFACE_INIT, SURFACE_LOCK, SURFACE_UNLOCK,
+        SURFACE_VTABLE,
+    };
     pub use crate::render::display::frame_hook::{
         FRAME_POST_PROCESS_HOOK_DESTRUCTOR, FRAME_POST_PROCESS_HOOK_VTABLE,
         FramePostProcessHookVtable, SCREENSHOT_HOOK_CAPTURE_TO_PNG,
