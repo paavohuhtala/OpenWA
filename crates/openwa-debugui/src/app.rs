@@ -6,6 +6,7 @@ use openwa_game::entity::{
 };
 use openwa_game::rebase::rb;
 use openwa_game::registry;
+use openwa_game::render::capture::{self as render_capture, CapturedData, RenderCapture};
 
 use crate::log;
 
@@ -181,6 +182,31 @@ pub struct DebugApp {
     log_auto_scroll: bool,
     /// Show transient entities (sea bubbles, etc.) in the census.
     show_transient: bool,
+    /// Most recent render-queue capture, if any.
+    last_capture: Option<RenderCapture>,
+    /// Whether the render-capture floating window is open.
+    show_capture_window: bool,
+    /// Per-command-class checkbox state for the capture viewer's filter row.
+    /// Slots 0..=0xE are legacy `cmd_type` values; slot 0xF is unused
+    /// (kept to align with the legacy-type numbering); slots
+    /// `FILTER_TYPED_BASE..` cover each [`RenderMessage`] variant in
+    /// `TYPED_VARIANT_NAMES` order.
+    capture_type_filter: [bool; FILTER_SLOTS],
+    /// Index into `last_capture.commands` of the row currently shown in
+    /// the capture detail pane.
+    selected_capture_idx: Option<usize>,
+    /// Whether the dispatcher should run in step-through mode. Mirrors
+    /// `render_capture::is_step_mode`; the UI is the source of truth and
+    /// pushes changes via `set_step_mode`.
+    step_mode: bool,
+    /// Cap on commands dispatched per frame while step mode is on, in
+    /// dispatch order. Pushed to `render_capture::set_step_limit` whenever
+    /// the slider moves.
+    step_limit: u32,
+    /// Edge-detection state for the global F9 toggle. Set when F9 is held
+    /// and cleared when released, so each press fires exactly once even if
+    /// the user holds the key for multiple egui repaint cycles.
+    f9_was_down: bool,
 }
 
 impl Default for DebugApp {
@@ -190,8 +216,34 @@ impl Default for DebugApp {
             nav_history: Vec::new(),
             log_auto_scroll: true,
             show_transient: false,
+            last_capture: None,
+            show_capture_window: false,
+            capture_type_filter: [true; FILTER_SLOTS],
+            selected_capture_idx: None,
+            step_mode: false,
+            step_limit: u32::MAX,
+            f9_was_down: false,
         }
     }
+}
+
+/// Toggle Freeze + step via global keyboard state. Returns the new
+/// `step_mode` value when F9 transitioned from up→down this tick;
+/// `None` otherwise.
+///
+/// Uses `GetAsyncKeyState` (not egui's input event stream) so the hotkey
+/// works regardless of which window has OS focus — the user normally has
+/// the game window focused, not the debug-UI window.
+fn poll_f9_hotkey(was_down: &mut bool, current_step_mode: bool) -> Option<bool> {
+    use windows_sys::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_F9};
+    // High-order bit of the i16 return = currently held; low-order bit =
+    // pressed since last call (per-thread). We track the held bit
+    // ourselves so the edge fires once per press across egui repaints.
+    let raw = unsafe { GetAsyncKeyState(VK_F9 as i32) };
+    let is_down = (raw as u16 & 0x8000) != 0;
+    let just_pressed = is_down && !*was_down;
+    *was_down = is_down;
+    just_pressed.then_some(!current_step_mode)
 }
 
 impl DebugApp {
@@ -219,6 +271,65 @@ impl eframe::App for DebugApp {
         // Repaint at ~30 fps so the display stays live.
         ctx.request_repaint_after(std::time::Duration::from_millis(33));
 
+        // Global F9 hotkey for Freeze + step toggle. Polled here (not via
+        // egui input events) so it fires regardless of which window has
+        // OS focus.
+        if let Some(new_state) = poll_f9_hotkey(&mut self.f9_was_down, self.step_mode) {
+            let was_on = self.step_mode;
+            self.step_mode = new_state;
+            render_capture::set_step_mode(self.step_mode);
+            if self.step_mode && !was_on {
+                // Match the checkbox path: open the viewer and seed the
+                // step slider with the current capture's command count
+                // (or the cached one if none has landed yet).
+                self.show_capture_window = true;
+                if let Some(cap) = self.last_capture.as_ref() {
+                    self.step_limit = cap.commands.len() as u32;
+                    render_capture::set_step_limit(self.step_limit);
+                }
+            }
+            log::push(if self.step_mode {
+                "[render] F9 → freeze + step ON"
+            } else {
+                "[render] F9 → freeze + step OFF"
+            });
+        }
+
+        // Drain any pending render-queue capture into the dedicated viewer.
+        // In step mode this fires every frame; we treat it as a silent
+        // refresh — log noise only on the manual one-shot path so step
+        // mode doesn't flood the log panel.
+        if let Some(capture) = render_capture::take_capture() {
+            let new_len = capture.commands.len() as u32;
+            // If the queue size changed since the previous capture (most
+            // commonly: pause-unpause cycle, or a pre-pause/post-pause
+            // frame mismatch in step mode) snap the step slider back to
+            // the new max. The old step value would be meaningless
+            // against a different command list.
+            let queue_changed = self
+                .last_capture
+                .as_ref()
+                .is_some_and(|prev| prev.commands.len() as u32 != new_len);
+            if queue_changed && self.step_mode {
+                self.step_limit = new_len;
+                render_capture::set_step_limit(new_len);
+            }
+
+            if !self.step_mode {
+                log::push(format!(
+                    "[render] captured {} commands  cam=({:.1},{:.1})  pivot=({:.1},{:.1})",
+                    capture.commands.len(),
+                    capture.clip.cam_x.to_f32(),
+                    capture.clip.cam_y.to_f32(),
+                    capture.clip.pivot_x.to_f32(),
+                    capture.clip.pivot_y.to_f32(),
+                ));
+                self.show_capture_window = true;
+                self.selected_capture_idx = None;
+            }
+            self.last_capture = Some(capture);
+        }
+
         // Build the live entity snapshot for this frame and prune any stale
         // selections before rendering — prevents UAF crashes when an entity is
         // destroyed (match ended, worm died, etc.) while it is being inspected.
@@ -240,6 +351,29 @@ impl eframe::App for DebugApp {
                 ui.menu_button("Cheats", |ui| {
                     if ui.button("Unlock all weapons").clicked() {
                         unsafe { cheat_unlock_all_weapons() };
+                        ui.close();
+                    }
+                });
+                ui.menu_button("Render", |ui| {
+                    let pending = render_capture::is_pending();
+                    let label = if pending {
+                        "Capture armed — waiting…"
+                    } else {
+                        "Capture next frame"
+                    };
+                    if ui.add_enabled(!pending, egui::Button::new(label)).clicked() {
+                        render_capture::request_capture();
+                        log::push("[render] capture armed");
+                        ui.close();
+                    }
+                    if ui
+                        .add_enabled(
+                            self.last_capture.is_some(),
+                            egui::Button::new("Show last capture"),
+                        )
+                        .clicked()
+                    {
+                        self.show_capture_window = true;
                         ui.close();
                     }
                 });
@@ -278,6 +412,8 @@ impl eframe::App for DebugApp {
                 self.navigate_to(addr);
             }
         });
+
+        self.show_capture_window(&ctx);
     }
 }
 
@@ -870,4 +1006,458 @@ impl DebugApp {
                 }
             });
     }
+}
+
+// ---------------------------------------------------------------------------
+// Floating window: Render-queue capture viewer
+// ---------------------------------------------------------------------------
+//
+// Filter slot indexing scheme:
+//   slots 0..=0xE → legacy `cmd_type` values (one per dispatcher case)
+//   slot 0xF      → reserved/padding (no command maps here)
+//   slots 0x10+   → one per `RenderMessage` variant in TYPED_VARIANT_NAMES order
+const FILTER_TYPED_BASE: usize = 0x10;
+const FILTER_SLOTS: usize = FILTER_TYPED_BASE + render_capture::TYPED_VARIANT_COUNT;
+
+fn type_filter_slot(cmd: &render_capture::CapturedCommand) -> usize {
+    match &cmd.data {
+        CapturedData::Legacy(_) => {
+            if cmd.cmd_type <= 0xE {
+                cmd.cmd_type as usize
+            } else {
+                0xF
+            }
+        }
+        CapturedData::Typed(msg) => FILTER_TYPED_BASE + render_capture::typed_variant_index(msg),
+    }
+}
+
+fn type_filter_label(slot: usize) -> &'static str {
+    match slot {
+        0x0 => "FillRect",
+        0x1 => "BitmapGlobal",
+        0x2 => "TextboxLocal",
+        0x3 => "ViaCallback",
+        0x4 => "SpriteGlobal",
+        0x5 => "SpriteLocal",
+        0x6 => "SpriteOffset",
+        0x7 => "Polyline",
+        0x8 => "LineStrip",
+        0x9 => "Polygon",
+        0xA => "PixelStrip",
+        0xB => "Crosshair",
+        0xC => "OutlinedPixel",
+        0xD => "TiledBitmap",
+        0xE => "TiledTerrain",
+        0xF => "(reserved)",
+        s if (FILTER_TYPED_BASE..FILTER_SLOTS).contains(&s) => {
+            render_capture::TYPED_VARIANT_NAMES[s - FILTER_TYPED_BASE]
+        }
+        _ => "?",
+    }
+}
+
+impl DebugApp {
+    fn show_capture_window(&mut self, ctx: &egui::Context) {
+        let mut open = self.show_capture_window;
+        egui::Window::new("Render Capture")
+            .open(&mut open)
+            .default_size([960.0, 520.0])
+            .resizable(true)
+            .show(ctx, |ui| {
+                let Some(capture) = self.last_capture.as_ref() else {
+                    ui.colored_label(
+                        egui::Color32::GRAY,
+                        "No capture yet. Use Render → Capture next frame.",
+                    );
+                    return;
+                };
+
+                // Header line + per-type counts.
+                let mut counts = [0usize; FILTER_SLOTS];
+                for cmd in &capture.commands {
+                    counts[type_filter_slot(cmd)] += 1;
+                }
+                ui.label(format!(
+                    "{} commands  cam=({:.1},{:.1})  pivot=({:.1},{:.1})",
+                    capture.commands.len(),
+                    capture.clip.cam_x.to_f32(),
+                    capture.clip.cam_y.to_f32(),
+                    capture.clip.pivot_x.to_f32(),
+                    capture.clip.pivot_y.to_f32(),
+                ));
+
+                // Step-through controls: when on, the dispatcher captures
+                // every frame and runs only the first N commands. Slider
+                // max tracks the latest capture's command count so the
+                // user can scrub over the full frame.
+                ui.separator();
+                let step_max = capture.commands.len().max(1) as u32;
+                ui.horizontal(|ui| {
+                    let was_on = self.step_mode;
+                    let resp = ui
+                        .checkbox(&mut self.step_mode, "Freeze + step  (F9)")
+                        .on_hover_text(
+                            "Pauses the simulation and dispatches only the first N \
+                             commands per frame (slider). Without freeze the queue \
+                             contents shift every frame and indices drift.\n\n\
+                             Hotkey: F9 (works regardless of focused window)",
+                        );
+                    if resp.changed() {
+                        render_capture::set_step_mode(self.step_mode);
+                        if self.step_mode && !was_on {
+                            // Entering step mode → start with the full
+                            // frame visible; user scrubs back from there.
+                            self.step_limit = capture.commands.len() as u32;
+                            render_capture::set_step_limit(self.step_limit);
+                        }
+                    }
+                    ui.add_enabled_ui(self.step_mode, |ui| {
+                        // Clamp on the user side so a stale slider value
+                        // from a previous (longer) frame doesn't show as
+                        // out-of-range.
+                        if self.step_limit > step_max {
+                            self.step_limit = step_max;
+                            render_capture::set_step_limit(self.step_limit);
+                        }
+                        let resp = ui.add(
+                            egui::Slider::new(&mut self.step_limit, 0..=step_max)
+                                .text(format!("step / {}", step_max))
+                                .integer(),
+                        );
+                        if resp.changed() {
+                            render_capture::set_step_limit(self.step_limit);
+                        }
+                        if ui.small_button("⟸").clicked() && self.step_limit > 0 {
+                            self.step_limit -= 1;
+                            render_capture::set_step_limit(self.step_limit);
+                        }
+                        if ui.small_button("⟹").clicked() && self.step_limit < step_max {
+                            self.step_limit += 1;
+                            render_capture::set_step_limit(self.step_limit);
+                        }
+                    });
+
+                    // Keyboard shortcuts when the capture window has focus.
+                    // Skipped if any widget wants keyboard input (slider /
+                    // text edit) so we don't double-step against egui's
+                    // native arrow-key handling on focused widgets.
+                    if self.step_mode && !ctx.egui_wants_keyboard_input() {
+                        let mut new_val = self.step_limit;
+                        ctx.input(|i| {
+                            if i.key_pressed(egui::Key::ArrowLeft) && new_val > 0 {
+                                new_val -= 1;
+                            }
+                            if i.key_pressed(egui::Key::ArrowRight) && new_val < step_max {
+                                new_val += 1;
+                            }
+                            if i.key_pressed(egui::Key::PageDown) {
+                                new_val = new_val.saturating_sub(10);
+                            }
+                            if i.key_pressed(egui::Key::PageUp) {
+                                new_val = (new_val + 10).min(step_max);
+                            }
+                            if i.key_pressed(egui::Key::Home) {
+                                new_val = 0;
+                            }
+                            if i.key_pressed(egui::Key::End) {
+                                new_val = step_max;
+                            }
+                        });
+                        if new_val != self.step_limit {
+                            self.step_limit = new_val;
+                            render_capture::set_step_limit(new_val);
+                        }
+                    }
+                });
+
+                // Filter row: per-type checkbox with live count, only for
+                // types that occur in this capture (keeps the row compact).
+                ui.separator();
+                ui.horizontal_wrapped(|ui| {
+                    ui.label("Filter:");
+                    if ui.small_button("all").clicked() {
+                        self.capture_type_filter = [true; FILTER_SLOTS];
+                    }
+                    if ui.small_button("none").clicked() {
+                        self.capture_type_filter = [false; FILTER_SLOTS];
+                    }
+                    for (slot, &count) in counts.iter().enumerate() {
+                        if count == 0 {
+                            continue;
+                        }
+                        let label = format!("{} ({})", type_filter_label(slot), count);
+                        ui.checkbox(&mut self.capture_type_filter[slot], label);
+                    }
+                });
+                ui.separator();
+
+                // Pre-compute the visible-rows projection once; both panes
+                // need the count for selection bounds-checking.
+                let filter = self.capture_type_filter;
+                let visible: Vec<(usize, &_)> = capture
+                    .commands
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, cmd)| filter[type_filter_slot(cmd)])
+                    .collect();
+                ui.label(format!(
+                    "Showing {}/{} commands",
+                    visible.len(),
+                    capture.commands.len()
+                ));
+
+                // Two-pane layout: list on the left, detail on the right.
+                // The detail pane uses a SidePanel inside the window so the
+                // user can drag the splitter; min-width keeps the list usable.
+                let row_height = ui.text_style_height(&egui::TextStyle::Monospace);
+                let avail_h = ui.available_height().max(120.0);
+
+                // `selected_capture_idx` is borrowed disjointly from
+                // `last_capture` (the source of `capture`), so we hand the
+                // mutable reference to the helpers instead of going through
+                // `&mut self` — that would otherwise re-borrow the whole
+                // struct and conflict with the active immutable borrow.
+                let selected = &mut self.selected_capture_idx;
+                let step_mode = self.step_mode;
+                let step_limit = self.step_limit;
+
+                // Out-param: a "Step to here" click sets this; the outer
+                // function then enables step mode (if needed) and pushes
+                // the new step limit to the dispatcher.
+                let mut requested_step_limit: Option<u32> = None;
+
+                ui.horizontal_top(|ui| {
+                    let list_width = (ui.available_width() * 0.55).max(360.0);
+                    ui.allocate_ui_with_layout(
+                        egui::vec2(list_width, avail_h),
+                        egui::Layout::top_down(egui::Align::Min),
+                        |ui| {
+                            show_capture_list(
+                                ui,
+                                &visible,
+                                row_height,
+                                selected,
+                                step_mode,
+                                step_limit,
+                                &mut requested_step_limit,
+                            );
+                        },
+                    );
+                    ui.separator();
+                    ui.allocate_ui_with_layout(
+                        egui::vec2(ui.available_width(), avail_h),
+                        egui::Layout::top_down(egui::Align::Min),
+                        |ui| {
+                            show_capture_detail(
+                                ui,
+                                capture,
+                                selected,
+                                step_mode,
+                                &mut requested_step_limit,
+                            );
+                        },
+                    );
+                });
+
+                // Apply any "Step to here" request from the list/detail
+                // panes. Auto-enables step mode + freeze if not already
+                // on, since "step to here" without freeze is meaningless
+                // (the queue would shift before the user could see it).
+                if let Some(new_limit) = requested_step_limit {
+                    if !self.step_mode {
+                        self.step_mode = true;
+                        render_capture::set_step_mode(true);
+                    }
+                    self.step_limit = new_limit;
+                    render_capture::set_step_limit(new_limit);
+                }
+            });
+        if !open && self.show_capture_window {
+            // Window was just closed via the X — exit step mode so the
+            // game resumes full-frame rendering. No matching `disable` UI
+            // exists once the window is gone, so this is the only safe
+            // place to clear the flag.
+            if self.step_mode {
+                self.step_mode = false;
+                render_capture::set_step_mode(false);
+            }
+        }
+        self.show_capture_window = open;
+    }
+}
+
+fn show_capture_list(
+    ui: &mut egui::Ui,
+    visible: &[(usize, &render_capture::CapturedCommand)],
+    row_height: f32,
+    selected: &mut Option<usize>,
+    step_mode: bool,
+    step_limit: u32,
+    requested_step_limit: &mut Option<u32>,
+) {
+    let current = *selected;
+    egui::ScrollArea::vertical()
+        .id_salt("capture_list")
+        .auto_shrink([false, false])
+        .show_rows(ui, row_height, visible.len(), |ui, row_range| {
+            for row in row_range {
+                let (idx, cmd) = visible[row];
+                let mut color = match cmd.data {
+                    CapturedData::Typed(_) => egui::Color32::LIGHT_GREEN,
+                    CapturedData::Legacy(_) => egui::Color32::LIGHT_BLUE,
+                };
+                // Fade rows past the step boundary: in step mode these
+                // commands are not dispatched this frame, so they're
+                // visually deemphasised but still inspectable.
+                if step_mode && (idx as u32) >= step_limit {
+                    color = color.linear_multiply(0.35);
+                }
+                let line = format!("#{:>4}  {}", idx, render_capture::format_command(cmd));
+                let is_selected = current == Some(idx);
+                let resp = ui.selectable_label(
+                    is_selected,
+                    egui::RichText::new(line).monospace().color(color),
+                );
+                if resp.clicked() {
+                    *selected = Some(idx);
+                }
+                // Right-click → "Step to this command". Sets step_limit so
+                // this command is the last one dispatched (idx + 1 in
+                // the dispatcher's 0-based count semantics).
+                resp.context_menu(|ui| {
+                    if ui.button("Step to this command").clicked() {
+                        *requested_step_limit = Some(idx as u32 + 1);
+                        *selected = Some(idx);
+                        ui.close();
+                    }
+                    if ui.button("Step to just before").clicked() {
+                        *requested_step_limit = Some(idx as u32);
+                        *selected = Some(idx);
+                        ui.close();
+                    }
+                });
+            }
+        });
+}
+
+fn show_capture_detail(
+    ui: &mut egui::Ui,
+    capture: &render_capture::RenderCapture,
+    selected: &mut Option<usize>,
+    step_mode: bool,
+    requested_step_limit: &mut Option<u32>,
+) {
+    let Some(idx) = *selected else {
+        ui.colored_label(
+            egui::Color32::GRAY,
+            "Click a command on the left to inspect.",
+        );
+        return;
+    };
+    let Some(cmd) = capture.commands.get(idx) else {
+        *selected = None;
+        return;
+    };
+
+    ui.horizontal(|ui| {
+        ui.heading(format!("#{}", idx));
+        ui.label(egui::RichText::new(render_capture::captured_name(cmd)).strong());
+        ui.label(format!("layer {}", cmd.layer));
+        let kind = match &cmd.data {
+            CapturedData::Typed(_) => ("Typed", egui::Color32::LIGHT_GREEN),
+            CapturedData::Legacy(_) => ("Legacy", egui::Color32::LIGHT_BLUE),
+        };
+        ui.colored_label(kind.1, kind.0);
+        // Step-to-this-command shortcut. Available regardless of
+        // step_mode state (the outer applier auto-enables step mode if
+        // needed); the label changes to flag the auto-enable side
+        // effect when step mode is currently off.
+        let label = if step_mode {
+            "Step to this →"
+        } else {
+            "Freeze + step to this →"
+        };
+        if ui
+            .button(label)
+            .on_hover_text("Sets the step slider so this command is the last one dispatched.")
+            .clicked()
+        {
+            *requested_step_limit = Some(idx as u32 + 1);
+        }
+    });
+    ui.separator();
+
+    let rows = render_capture::decode_command(cmd);
+    let delta = rb(va::IMAGE_BASE).wrapping_sub(va::IMAGE_BASE);
+
+    egui::ScrollArea::vertical()
+        .id_salt("capture_detail")
+        .auto_shrink([false, false])
+        .show(ui, |ui| {
+            egui::Grid::new(format!("capture_fields_{}", idx))
+                .striped(true)
+                .num_columns(4)
+                .show(ui, |ui| {
+                    ui.strong("Offset");
+                    ui.strong("Field");
+                    ui.strong("Value");
+                    ui.strong("Points to");
+                    ui.end_row();
+
+                    for field in &rows {
+                        ui.label(match field.offset {
+                            Some(off) => format!("+0x{:03X}", off),
+                            None => "—".into(),
+                        });
+                        ui.label(&field.name);
+                        ui.label(egui::RichText::new(&field.value).monospace());
+                        // Pointer identification — only for raw u32s
+                        // that look pointer-shaped. The threshold of
+                        // 0x10000 matches the existing inspector's
+                        // heuristic for excluding small ints/flags.
+                        // SAFETY: identify_pointer reads game memory to
+                        // resolve vtables and registered live objects;
+                        // safe to call from the UI thread because it
+                        // never writes and tolerates dangling pointers
+                        // (returns None instead of dereferencing).
+                        let ptr_label = field.raw.filter(|&v| v >= 0x10000).and_then(|v| unsafe {
+                            openwa_game::mem::identify_pointer(v, delta).and_then(|id| id.name)
+                        });
+                        if let Some(label) = ptr_label {
+                            ui.colored_label(egui::Color32::LIGHT_BLUE, format!("→ {}", label));
+                        } else {
+                            ui.label("");
+                        }
+                        ui.end_row();
+                    }
+                });
+
+            if !cmd.vertices.is_empty() {
+                ui.separator();
+                egui::CollapsingHeader::new(format!("Vertices ({})", cmd.vertices.len()))
+                    .default_open(true)
+                    .show(ui, |ui| {
+                        egui::Grid::new(format!("capture_verts_{}", idx))
+                            .striped(true)
+                            .num_columns(4)
+                            .show(ui, |ui| {
+                                ui.strong("#");
+                                ui.strong("x");
+                                ui.strong("y");
+                                ui.strong("z");
+                                ui.end_row();
+                                for (i, v) in cmd.vertices.iter().enumerate() {
+                                    let x_f = v[0] as f32 / 65536.0;
+                                    let y_f = v[1] as f32 / 65536.0;
+                                    ui.label(format!("{}", i));
+                                    ui.label(format!("{:.2}", x_f));
+                                    ui.label(format!("{:.2}", y_f));
+                                    ui.label(format!("{:#X}", v[2]));
+                                    ui.end_row();
+                                }
+                            });
+                    });
+            }
+        });
 }

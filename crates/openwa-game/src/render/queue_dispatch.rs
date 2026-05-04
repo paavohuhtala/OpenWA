@@ -343,8 +343,19 @@ pub unsafe fn render_drawing_queue(
 
         let clip_ref: &ClipContext = &*clip;
 
+        crate::render::capture::try_capture(clip_ref, entries);
+
+        // Step-through debug mode (capture viewer): dispatch only the first
+        // N commands in dispatch order. Walking is `(0..count).rev()`, so
+        // "first N dispatched" maps to entries `[count - N .. count]`.
+        let dispatch_count = match crate::render::capture::step_dispatch_limit() {
+            Some(n) => (n as usize).min(count),
+            None => count,
+        };
+        let dispatch_start = count - dispatch_count;
+
         // Walk from the highest index downward.
-        for i in (0..count).rev() {
+        for i in (dispatch_start..count).rev() {
             let cmd = entries[i] as *const u32;
             let cmd_type = *cmd;
             match cmd_type {

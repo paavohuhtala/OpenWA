@@ -966,6 +966,20 @@ unsafe fn handle_secondary_pause(runtime: *mut GameRuntime, time: u64, freq: u64
 /// Must be called from within WA.exe with valid pointers.
 pub unsafe fn dispatch_frame(runtime: *mut GameRuntime, time: u64, freq: u64) {
     unsafe {
+        // Debug-UI freeze: skip the simulation tick entirely, but keep the
+        // timing anchors (`pause_detect`, `initial_ref`) up to date so the
+        // first unpaused frame doesn't see a giant accumulated delta and
+        // try to fast-forward through it. Render runs in a separate
+        // codepath (`process_frame` → `render_frame`), so the live game
+        // window keeps repainting the frozen state and the capture viewer
+        // gets a stable command list to scrub through.
+        if crate::render::capture::is_paused() {
+            (*runtime).pause_detect = time;
+            (*runtime).pause_secondary = time;
+            (*runtime).initial_ref = time;
+            return;
+        }
+
         let mut frame_step_counter: u32 = 0;
 
         let frame_interval = freq / 50;
