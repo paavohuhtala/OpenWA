@@ -119,24 +119,13 @@ pub unsafe fn blit_sprite(
             return;
         }
 
-        // ---------------------------------------------------------------
-        // Bit 24: palette ×4 adjust with orientation-dependent high bits
-        // ---------------------------------------------------------------
-        // The original ASM at 0x56B145 scales pal by 4, adds 0x8000, then
-        // uses the overflow quadrant (bits 16-17 of the scaled value) to
-        // select an orientation+blend combo. The low 16 bits become the
-        // new palette value.
-        let mut orient_local: u32 = 0x00000001; // blend=1 (ColorTable/transparency), orientation=0 (Normal)
+        // PALETTE_X4 (sprite_flags & 0x01000000): mask palette to (pal*4 + 0x8000) & 0xFFFF.
+        // Earlier ports also derived an orientation override from the overflow quadrant of
+        // the unmasked product, which gave bungee worms a 90° wrong rotation. WA's
+        // BlitSprite (0x56B080) discards the high bits — only the masked palette is used.
+        let mut orient_local: u32 = 0x00000001; // blend=1 (ColorTable), orientation=Normal
         if flags.contains(SpriteFlags::PALETTE_X4) {
-            let scaled = pal.wrapping_mul(4).wrapping_add(0x8000);
-            pal = scaled & 0xFFFF;
-            let quad = ((scaled as i32) >> 16) & 3;
-            orient_local = match quad {
-                0 => 0x00080001, // MirrorXY + ColorTable
-                1 => 0x000C0001, // Rotate90MirrorXY + ColorTable
-                2 => 0x00040001, // Rotate90 + ColorTable
-                _ => 0x00000001, // Normal + ColorTable
-            };
+            pal = pal.wrapping_mul(4).wrapping_add(0x8000) & 0xFFFF;
         }
 
         // ---------------------------------------------------------------
