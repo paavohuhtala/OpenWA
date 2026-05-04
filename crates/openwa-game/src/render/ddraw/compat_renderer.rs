@@ -95,7 +95,25 @@ pub struct CompatRendererVtable {
     pub blt_striped: fn(this: *mut CompatRenderer, surface: *mut u8, y_offset: i32),
 
     // =====================================================================
-    // Offscreen surface sub-object (slots 25-36, via second vtable at +0x04)
+    // Offscreen `IDirectDrawSurface`-style ops (slots 25-36) — **dead**.
+    //
+    // These slots live at offsets 0x64..0x90 of the same primary vtable
+    // (`0x00676A90`); they are NOT a separate sub-vtable despite the
+    // "second vtable at +0x04" pattern the original C++ apparently
+    // intended. The `offscreen_vtable` field at +0x04 of the
+    // `CompatRenderer` object is never assigned — the constructor at
+    // `0x0059D3D4` only writes the primary vtable pointer at +0x00, and
+    // no other code path stores to +0x04 either.
+    //
+    // Each of the 12 functions below has exactly one xref: the vtable
+    // entry itself (`[DATA]`). No code dispatches through them. They are
+    // vestigial C++ source the linker preserved, and are never reached
+    // at runtime in any render mode. Slots 25-36 can be ignored entirely
+    // when planning the softbuffer replacement.
+    //
+    // (`RenderContext::alloc_surface` hands out plain software Surfaces
+    // with vtable `0x00677570` — see `display::context::SurfaceVtable`.
+    // That is the *only* surface allocator in use.)
     // =====================================================================
     /// sub-object destructor — releases offscreen surface (0x59E7B0)
     #[slot(25)]
@@ -157,9 +175,13 @@ pub struct CompatRendererVtable {
 /// Selected for DIRECTDRAW8, DIRECTDRAW32, DIRECT3D_* display modes.
 #[repr(C)]
 pub struct CompatRenderer {
-    /// 0x00: Primary vtable pointer (0x676A90)
+    /// 0x00: Primary vtable pointer (`0x00676A90` —
+    /// [`CompatRendererVtable`]).
     pub vtable: *const CompatRendererVtable,
-    /// 0x04: Sub-object vtable pointer (offscreen surface ops, slots 25-36)
+    /// 0x04: Always null. Originally intended as a sub-object vtable
+    /// pointer for the `IDirectDrawSurface`-style ops at slots 25-36,
+    /// but the constructor never writes it and no code reads it. See
+    /// the section heading on those slots above.
     pub offscreen_vtable: *const c_void,
     /// 0x08: Unknown
     pub _unknown_08: u32,

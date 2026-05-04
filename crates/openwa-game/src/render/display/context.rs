@@ -19,6 +19,24 @@ crate::define_addresses! {
         /// ClearFrameBuffer — memset(framebuffer, 0, w*h)
         fn CWORMSAPP_CLEAR_FRAME_BUFFER = 0x005A23F0;
     }
+
+    class "Surface" {
+        /// `Surface` vtable (9 slots) — the software-framebuffer surface
+        /// vtable that `RenderContext::alloc_surface` (slot 22)
+        /// unconditionally installs in every render mode (DDraw / D3D /
+        /// OpenGL). See [`SurfaceVtable`].
+        vtable SURFACE_VTABLE = 0x00677570;
+        /// `Surface::Init` (slot 5, 0x005A2CD0) — `wa_malloc(width * height)`,
+        /// stores width/height/data on the Surface; ignores the `bpp`
+        /// stack arg.
+        fn/Fastcall SURFACE_INIT = 0x005A2CD0;
+        /// `Surface::Lock` (slot 3, 0x005A2C20) — returns the buffer
+        /// pointer + a stride equal to `width` (8bpp paletted).
+        fn/Fastcall SURFACE_LOCK = 0x005A2C20;
+        /// `Surface::Unlock` (slot 4, 0x005A2C10) — pure no-op apart from
+        /// the success-code write.
+        fn/Fastcall SURFACE_UNLOCK = 0x005A2C10;
+    }
 }
 
 /// Result buffer for RenderContext and CompatRenderer `__fastcall` vtable calls.
@@ -298,17 +316,25 @@ bind_RenderContextVtable!(RenderContext, vtable);
 // ---------------------------------------------------------------------------
 
 /// Vtable for `Surface` objects allocated by `RenderContext::alloc_surface`
-/// (slot 22). This is the rendering-backend surface interface — different
-/// backends (CompatRenderer / OpenGLCPU / DDraw) implement different vtables
-/// at the same slot positions.
+/// (slot 22). Despite the generic-sounding name, this is **not** a
+/// rendering-backend interface: `alloc_surface` (`0x005A2760`)
+/// unconditionally writes [`SURFACE_VTABLE`] (`0x00677570`) into the new
+/// Surface in every render mode. The underlying methods are a pure
+/// software wrapper — `init_surface` is `wa_malloc(w*h)`, `lock_surface`
+/// returns the buffer pointer, `unlock_surface` is a no-op. Sprite /
+/// CBitmap / tile surfaces are therefore software-backed in DDraw, D3D
+/// **and** OpenGL modes alike.
 ///
-/// Slots typed here are the ones used by `DisplayGfx::DrawTiledBitmap`
-/// (slot 11) and `LoadSpriteByName` (which already uses raw transmutes).
-/// The remaining slots are unmapped — extend as needed.
+/// `CompatRenderer` exposes a separate offscreen sub-vtable (slots 25-36
+/// of [`crate::render::ddraw::CompatRendererVtable`]) for hardware
+/// `IDirectDrawSurface` ops, but no Rust call site or non-vtable WA xref
+/// reaches it — see the section heading on those slots.
 ///
-/// All slots are `__fastcall(this, *FastcallResult, ...args)`. The
-/// `FastcallResult.value` field receives a non-zero failure code on
-/// `init_surface` failure (slot 11 retries with bpp=4 if bpp=8 fails).
+/// All slots are `__fastcall(this, *FastcallResult, ...args)`. Every
+/// known method writes a constant success code into `*result.value`; the
+/// "init failed → retry with bpp=4" pattern in `DisplayGfx::DrawTiledBitmap`
+/// is therefore defensive — the underlying impl never reports failure
+/// (and ignores the `bpp` arg entirely).
 #[openwa_game::vtable(size = 8, class = "Surface")]
 pub struct SurfaceVtable {
     /// lock surface for direct pixel access (slot 3).
@@ -332,10 +358,14 @@ pub struct SurfaceVtable {
         result: *mut FastcallResult,
         addr: *mut u8,
     ) -> *mut FastcallResult,
-    /// init/recreate surface storage (slot 5).
+    /// init/recreate surface storage (slot 5, `0x005A2CD0`).
     ///
-    /// `(width, height, bpp)`. Returns 0 in `*result.value` on success;
-    /// non-zero on failure.
+    /// Calls vtable[6] (release) on `this` first, then
+    /// `wa_malloc(width * height)` and stores the pointer at `+0x0C`,
+    /// width at `+0x04`, height at `+0x08`. Surfaces are 8bpp paletted
+    /// (one byte per pixel); the `bpp` stack arg is **ignored**. Always
+    /// writes a constant success code into `*result.value` — never
+    /// reports failure even if `wa_malloc` returns null.
     #[slot(5)]
     pub init_surface: unsafe extern "fastcall" fn(
         this: *mut Surface,
@@ -369,14 +399,26 @@ pub struct SurfaceVtable {
     ) -> *mut FastcallResult,
 }
 
-/// Backend-specific surface object created by
-/// `RenderContext::alloc_surface` (slot 22). Layout beyond the vtable
-/// pointer is opaque (varies by backend); we only access it through the
-/// `SurfaceVtable` slots.
+/// Software-framebuffer surface object created by
+/// `RenderContext::alloc_surface` (slot 22, `0x005A2760`) — same struct
+/// in every render mode. Total size 0x14 bytes (matches the
+/// `wa_malloc(0x14)` in the allocator).
 #[repr(C)]
 pub struct Surface {
-    /// 0x00: vtable pointer (one of several backend vtables)
+    /// 0x00: vtable pointer — always [`SURFACE_VTABLE`] (`0x00677570`).
     pub vtable: *const SurfaceVtable,
+    /// 0x04: pixel width — written by `init_surface`.
+    pub width: i32,
+    /// 0x08: pixel height — written by `init_surface`.
+    pub height: i32,
+    /// 0x0C: backing buffer (`wa_malloc(width * height)`, 8bpp paletted).
+    /// Null between `alloc_surface` and the first `init_surface` call.
+    pub data: *mut u8,
+    /// 0x10: color-key flag byte — written by `set_color_key` (slot 7);
+    /// `1` = color-key transparency enabled, `0` = opaque blit.
+    pub color_key_flag: u8,
 }
+
+const _: () = assert!(core::mem::size_of::<Surface>() == 0x14);
 
 bind_SurfaceVtable!(Surface, vtable);
