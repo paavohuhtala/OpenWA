@@ -37,6 +37,11 @@ pub mod adapter;
 #[cfg(target_os = "windows")]
 pub mod softbuffer;
 
+#[cfg(target_os = "windows")]
+mod install;
+#[cfg(target_os = "windows")]
+pub use install::install_softbuffer_backend;
+
 use core::ffi::c_void;
 
 /// Opaque window handle. Currently always an `HWND` on Win32; abstracted as

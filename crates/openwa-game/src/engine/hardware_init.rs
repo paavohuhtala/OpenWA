@@ -311,6 +311,29 @@ pub unsafe fn init_hardware(
                 return 0;
             }
 
+            // ── Optional softbuffer backend swap-in ───────────────────────
+            // Gated on `OPENWA_SOFTBUFFER=1`. Replaces WA's CompatRenderer /
+            // OpenGLCPU at `RenderContext+0x18` with our Rust-side adapter
+            // wrapping a `softbuffer` impl. WA's prior backend stays
+            // constructed (and its DDraw / GL resources stay live) but is
+            // no longer reached.
+            if std::env::var_os("OPENWA_SOFTBUFFER").is_some_and(|v| v == "1") {
+                match crate::render::backend::install_softbuffer_backend() {
+                    Ok(prev) => {
+                        let _ = openwa_core::log::log_line(&format!(
+                            "[render-backend] swap-in succeeded; previous backend = {:p}",
+                            prev,
+                        ));
+                    }
+                    Err(e) => {
+                        let _ = openwa_core::log::log_line(&format!(
+                            "[render-backend] swap-in failed: {:?}",
+                            e,
+                        ));
+                    }
+                }
+            }
+
             use windows_sys::Win32::UI::WindowsAndMessaging::{
                 GetSystemMetrics, SM_CXSCREEN, SM_CYSCREEN, SetCursorPos,
             };
