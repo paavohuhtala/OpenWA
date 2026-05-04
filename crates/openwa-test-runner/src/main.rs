@@ -17,6 +17,56 @@ use std::time::{Duration, Instant};
 
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
+/// Create a job object with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`, assign the
+/// current process to it, and leak the handle. Children inherit job membership
+/// by default, so all spawned launchers + WA.exes will be terminated when this
+/// process exits for any reason. Best-effort: warns on failure but doesn't abort.
+fn install_kill_on_exit_job() {
+    use std::mem;
+    use std::ptr;
+    use windows_sys::Win32::System::JobObjects::{
+        AssignProcessToJobObject, CreateJobObjectA, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+        JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JobObjectExtendedLimitInformation,
+        SetInformationJobObject,
+    };
+    use windows_sys::Win32::System::Threading::GetCurrentProcess;
+
+    unsafe {
+        let job = CreateJobObjectA(ptr::null(), ptr::null());
+        if job.is_null() {
+            eprintln!(
+                "openwa-test: warning: CreateJobObjectA failed; child cleanup on abort disabled"
+            );
+            return;
+        }
+        let mut info: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = mem::zeroed();
+        info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        if SetInformationJobObject(
+            job,
+            JobObjectExtendedLimitInformation,
+            &info as *const _ as *const _,
+            mem::size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
+        ) == 0
+        {
+            eprintln!(
+                "openwa-test: warning: SetInformationJobObject failed; child cleanup on abort disabled"
+            );
+            return;
+        }
+        if AssignProcessToJobObject(job, GetCurrentProcess()) == 0 {
+            eprintln!(
+                "openwa-test: warning: AssignProcessToJobObject failed; child cleanup on abort disabled"
+            );
+            return;
+        }
+        // Deliberately do not CloseHandle(job) — the handle must stay open for
+        // the lifetime of the process so the job stays alive. HANDLE is a raw
+        // pointer with no Drop, so just letting it go out of scope is correct;
+        // the kernel closes it on process exit, which is the trigger we want.
+        let _ = job;
+    }
+}
+
 // ─── Configuration ──────────────────────────────────────────────────────────
 
 const DEFAULT_JOBS: usize = 4;
@@ -1697,6 +1747,13 @@ fn run_generate_baseline(args: GenerateBaselineArgs) {
 // ─── Main ───────────────────────────────────────────────────────────────────
 
 fn main() {
+    // Tie all spawned launchers (and transitively WA.exe) to our lifetime via a
+    // job object with KILL_ON_JOB_CLOSE. If the test runner is aborted (Ctrl-C,
+    // panic, killed externally), the kernel closes the job and terminates every
+    // process in it. Children inherit job membership automatically; the launcher
+    // creates its own nested job, which is fine on Win 8+.
+    install_kill_on_exit_job();
+
     // Check for subcommands before normal arg parsing
     let argv: Vec<String> = env::args().skip(1).collect();
     match argv.first().map(|s| s.as_str()) {

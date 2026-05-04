@@ -6,6 +6,11 @@ use std::path::{Path, PathBuf};
 use std::ptr;
 
 use windows_sys::Win32::Foundation::{CloseHandle, HMODULE};
+use windows_sys::Win32::System::JobObjects::{
+    AssignProcessToJobObject, CreateJobObjectA, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+    JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JobObjectExtendedLimitInformation,
+    SetInformationJobObject,
+};
 use windows_sys::Win32::System::LibraryLoader::GetModuleFileNameA;
 use windows_sys::Win32::System::Threading::{
     CREATE_NO_WINDOW, CREATE_SUSPENDED, CreateEventA, CreateProcessA, GetExitCodeProcess, INFINITE,
@@ -130,6 +135,20 @@ unsafe fn launch(
             return Err("CreateProcessA failed — is WA.exe path correct?".to_string());
         }
 
+        // Tie WA.exe's lifetime to ours via a job object with KILL_ON_JOB_CLOSE.
+        // When the launcher exits (cleanly, crashes, or is killed), the kernel
+        // closes our last handle to the job and terminates everything in it.
+        // The job handle is intentionally leaked — it must outlive WA.exe.
+        let job = create_kill_on_close_job();
+        if !job.is_null() && AssignProcessToJobObject(job, pi.hProcess) == 0 {
+            eprintln!(
+                "openwa-launcher: warning: AssignProcessToJobObject failed (err {}); WA.exe will not be auto-killed on launcher exit",
+                windows_sys::Win32::Foundation::GetLastError()
+            );
+            CloseHandle(job);
+        }
+        // Otherwise keep the handle open for the rest of the process lifetime.
+
         let dll_str = dll_path.to_str().ok_or("DLL path is not valid UTF-8")?;
 
         // Create a named event that the DLL will signal after all hooks are
@@ -189,6 +208,30 @@ unsafe fn launch(
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/// Create an unnamed job object with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`.
+/// Returns a null handle on failure; caller should treat that as "no auto-kill".
+unsafe fn create_kill_on_close_job() -> windows_sys::Win32::Foundation::HANDLE {
+    unsafe {
+        let job = CreateJobObjectA(ptr::null(), ptr::null());
+        if job.is_null() {
+            return ptr::null_mut();
+        }
+        let mut info: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = mem::zeroed();
+        info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        let ok = SetInformationJobObject(
+            job,
+            JobObjectExtendedLimitInformation,
+            &info as *const _ as *const _,
+            mem::size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
+        );
+        if ok == 0 {
+            CloseHandle(job);
+            return ptr::null_mut();
+        }
+        job
+    }
+}
 
 fn launcher_dir() -> Result<PathBuf, String> {
     let mut buf = vec![0u8; 32768];
