@@ -69,6 +69,10 @@ pub unsafe fn render_frame(runtime: *mut GameRuntime) {
         if (*session).frame_state >= 0 {
             let display = (*session).display as *mut DisplayGfx;
             dispatch_frame_post_process_hooks(display);
+            // Arm the softbuffer present gate; otherwise the slot-12 hook
+            // passes through to WA's original (which is what we want for
+            // menu / loading screens, but not for gameplay frames).
+            crate::render::backend::mark_gameplay_render_pending();
             DisplayGfx::flush_render_raw(display);
         }
     }

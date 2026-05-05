@@ -9,18 +9,26 @@ crate::define_addresses! {
     }
 
     class "CompatRenderer" {
-        /// `CompatRenderer::Flip` (0x0059DB70) — `__fastcall(this, result)`.
-        /// Calls `IDirectDrawSurface::Flip` (slot 11 = offset +0x2C of the
-        /// primary surface's COM vtable, fetched from `this+0x2C`). Reached
-        /// per-frame via vtable dispatch — slot 13 of the runtime
-        /// CompatRenderer vtable, OR through the windowed-mode wrapper
-        /// `FUN_0059EB20` which itself ends with a tail call to this.
-        ///
-        /// MinHook target for the OpenWA softbuffer present override: when
-        /// `OPENWA_SOFTBUFFER=1`, the DLL replaces this with a Rust thunk
-        /// that uploads the current `g_FrameBufferPtr` pixels via
-        /// softbuffer instead of doing the DDraw flip.
+        /// `CompatRenderer::Flip` (0x0059DB70) — slot 13. Per-frame present
+        /// in fullscreen mode (calls `IDirectDrawSurface::Flip`); near-noop
+        /// in windowed mode where slot 12 / `Present_Windowed[_B]` does
+        /// the visible Blt.
         fn/Fastcall COMPAT_RENDERER_FLIP = 0x0059DB70;
+
+        /// `CompatRenderer::Present_Windowed` (0x0059EA00) — slot 12 of
+        /// vtable `0x00676B28`. ABI:
+        /// `fastcall(ECX=this, EDX=result, [esp]=fb_ptr) RET 0x4`.
+        /// Locks back buffer, copies fb_ptr into it, calls
+        /// `IDirectDrawSurface::Blt(back → primary)` with the HWND clipper.
+        fn/Fastcall COMPAT_RENDERER_PRESENT_WINDOWED = 0x0059EA00;
+
+        /// `CompatRenderer::Present_Windowed_B` (0x0059ED90) — slot 12 of
+        /// vtable `0x00676B90` (the variant Frontend assigns at
+        /// `0x004E8500`; this is the one in use during gameplay). Same ABI
+        /// as `Present_Windowed` plus an extra `BlitScreen` pass before
+        /// the DDraw Blt. **MinHook target for the softbuffer present**
+        /// (see `render::backend`).
+        fn/Fastcall COMPAT_RENDERER_PRESENT_WINDOWED_B = 0x0059ED90;
     }
 }
 

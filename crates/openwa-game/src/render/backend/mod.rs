@@ -34,13 +34,13 @@
 //! call site in `Frontend__MainNavigationLoop`).
 
 pub mod adapter;
-#[cfg(target_os = "windows")]
 pub mod softbuffer;
 
-#[cfg(target_os = "windows")]
 mod install;
-#[cfg(target_os = "windows")]
-pub use install::{install_softbuffer_backend, softbuffer_present_replacement};
+pub use install::{
+    PresentVariant, install_softbuffer_backend, mark_gameplay_render_pending,
+    set_passthrough_trampoline, softbuffer_present_replacement, softbuffer_present_replacement_b,
+};
 
 use core::ffi::c_void;
 

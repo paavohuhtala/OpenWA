@@ -1,19 +1,16 @@
-//! Softbuffer present hook installation.
+//! Softbuffer present hooks. Gated on `OPENWA_SOFTBUFFER=1`.
 //!
-//! When `OPENWA_SOFTBUFFER=1` is set, MinHooks `CompatRenderer::Flip`
-//! (`0x0059DB70`) with [`openwa_game::render::backend::softbuffer_present_replacement`]
-//! so per-frame DDraw flips are intercepted and the framebuffer is
-//! presented through softbuffer instead.
-//!
-//! The actual `SoftbufferBackend` is constructed lazily by
-//! `openwa_game::render::backend::install_softbuffer_backend()`, which is
-//! called from `engine::hardware_init` once `DisplayGfx__Init` has
-//! succeeded — see that path for HWND / framebuffer-size sourcing. Until
-//! the backend is up, the replacement is a no-op success (DDraw flip
-//! skipped, screen frozen).
+//! Hooks both slot-12 `Present_Windowed` variants because WA assigns
+//! either depending on the renderer-construction path; gameplay uses
+//! variant B in practice. Trampolines are stored back into the game
+//! crate so the detours can pass through to the original on menu /
+//! pre-match frames (see `openwa_game::render::backend`).
 
 use openwa_game::address::va;
-use openwa_game::render::backend::softbuffer_present_replacement;
+use openwa_game::render::backend::{
+    PresentVariant, set_passthrough_trampoline, softbuffer_present_replacement,
+    softbuffer_present_replacement_b,
+};
 
 use crate::hook;
 
@@ -22,11 +19,19 @@ pub fn install() -> Result<(), String> {
         return Ok(());
     }
     unsafe {
-        let _ = hook::install(
-            "CompatRenderer::Flip (softbuffer)",
-            va::COMPAT_RENDERER_FLIP,
+        let trampoline_a = hook::install(
+            "CompatRenderer::Present_Windowed (softbuffer)",
+            va::COMPAT_RENDERER_PRESENT_WINDOWED,
             softbuffer_present_replacement as *const (),
         )?;
+        set_passthrough_trampoline(PresentVariant::A, trampoline_a);
+
+        let trampoline_b = hook::install(
+            "CompatRenderer::Present_Windowed_B (softbuffer)",
+            va::COMPAT_RENDERER_PRESENT_WINDOWED_B,
+            softbuffer_present_replacement_b as *const (),
+        )?;
+        set_passthrough_trampoline(PresentVariant::B, trampoline_b);
     }
     Ok(())
 }

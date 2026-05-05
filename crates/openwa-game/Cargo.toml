@@ -15,6 +15,8 @@ openwa-derive = { path = "../openwa-derive" }
 openwa-debug-proto = { path = "../openwa-debug-proto" }
 bytemuck = { version = "1.25.0", features = ["derive", "min_const_generics"] }
 derive_more = { version = "2.1.1", features = ["try_from"] }
+softbuffer = "0.4"
+raw-window-handle = "0.6"
 
 [dev-dependencies]
 gif = "0.14"
@@ -25,8 +27,6 @@ image = { version = "0.25", default-features = false, features = [
 openwa-config = { path = "../openwa-config" }
 
 [target.'cfg(target_os = "windows")'.dependencies]
-softbuffer = "0.4"
-raw-window-handle = "0.6"
 windows = { version = "0.62", features = ["Win32_Media_Audio_DirectSound"] }
 windows-sys = { version = "0.61", features = [
     "Win32_Foundation",
