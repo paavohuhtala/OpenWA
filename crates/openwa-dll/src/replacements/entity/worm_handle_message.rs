@@ -4,7 +4,7 @@
 //! Replaces vtable slot 2 with the Rust dispatcher, saving WA's original
 //! function pointer so unported message branches fall through to it.
 //!
-//! Also installs the `WormEntity::CanIdleSound_Maybe` (0x0050E5E0)
+//! Also installs the `WormEntity__CanIdleSound` (0x0050E5E0)
 //! replacement since both Rust callers (the case 0x5 dispatch) and the
 //! WA-side caller in `WormEntity::BehaviorTick` need to land on the
 //! ported impl.
@@ -13,7 +13,7 @@ use crate::hook;
 use openwa_game::address::va;
 use openwa_game::entity::{worm::WormEntityVtable, worm_handle_message};
 
-// usercall(EAX=this) trampoline for `WormEntity::CanIdleSound_Maybe`.
+// usercall(EAX=this) trampoline for `WormEntity__CanIdleSound`.
 // Captures `this` from EAX and forwards it to the cdecl impl in
 // `openwa-game`. The impl returns `i32` in EAX, which the trampoline
 // preserves through the cdecl call.

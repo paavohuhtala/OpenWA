@@ -188,12 +188,12 @@ crate::define_addresses! {
         /// also commits the cursor-marker pos and bumps a per-worm "first
         /// action of turn" counter. Called from `HandleMessage` Pre-switch A.
         fn/Usercall WORM_ENTITY_NOTIFY_MOVED = 0x0050F730;
-        /// `WormEntity::CommitPendingHealth_Maybe`. Usercall `(ESI = this)`,
+        /// `WormEntity__CommitPendingHealth`. Usercall `(ESI = this)`,
         /// plain RET, no stack args. Called from `HandleMessage` case 0x44
         /// (ShowDamage); copies pending damage from `_field_188`/`_field_18C`
         /// into the active health-display fields.
         fn/Usercall WORM_ENTITY_COMMIT_PENDING_HEALTH = 0x00510830;
-        /// `WormEntity::CancelActiveWeapon_Maybe`. Usercall `(ESI = this)`,
+        /// `WormEntity__CancelActiveWeapon`. Usercall `(ESI = this)`,
         /// plain RET, no stack args. Called from `HandleMessage` case 0x79
         /// (WeaponClaimControl); ends the worm's active weapon if one is in
         /// flight.
@@ -211,7 +211,7 @@ crate::define_addresses! {
         /// args. 551 instructions, cyclo 108 — too large to port; bridged
         /// from `HandleMessage` case 0x26 (FireWeapon).
         fn/Usercall WORM_ENTITY_START_FIRING = 0x0051B7F0;
-        /// `WormEntity::ClearWeaponState_Maybe`. Usercall `(ESI = this)`,
+        /// `WormEntity__ClearWeaponState`. Usercall `(ESI = this)`,
         /// plain RET, no stack args. Sibling of `CancelActiveWeapon` —
         /// called from `FinishTurn` (msg 0x37) when `shot_data_1 != 0` or
         /// the network flag is set; full teardown including SharedData
@@ -251,7 +251,7 @@ crate::define_addresses! {
         /// positive and below the cycled value), then broadcasts updated
         /// settings.
         fn/Usercall WORM_ENTITY_SELECT_HERD = 0x00510540;
-        /// `WormEntity::CanIdleSound_Maybe`. Usercall `(EAX = this)`, plain
+        /// `WormEntity__CanIdleSound`. Usercall `(EAX = this)`, plain
         /// RET, returns `i32` in EAX (nonzero ⇒ idle sound permitted). Called
         /// from case 0x5 (UpdateNonCritical) — gates the idle-sound emission
         /// alongside `stationary_frames > 499`.
@@ -805,7 +805,7 @@ pub struct WormEntity {
 const _: () = assert!(core::mem::size_of::<WormEntity>() == 0x3FC);
 
 /// cdecl-callable impl behind the EAX-passing usercall hook for
-/// `WormEntity::CanIdleSound_Maybe` (0x0050E5E0). Returns `1` when the
+/// `WormEntity__CanIdleSound` (0x0050E5E0). Returns `1` when the
 /// worm holds an unpaused turn, has no per-worm action-pending flag set
 /// on its [`WormEntry::_field_98`], AND is not currently in motion;
 /// returns `0` otherwise. Two callers — `WormEntity::HandleMessage`
