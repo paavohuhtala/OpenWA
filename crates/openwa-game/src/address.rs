@@ -884,7 +884,7 @@ pub mod va {
         fn/Stdcall GAME_STATE_CONSTRUCTOR = 0x00532330;
         /// DisplayGfx::ConstructTextbox
         fn/Stdcall CONSTRUCT_TEXTBOX = 0x004FAF00;
-        /// GameWorld__InitWeaponPanel
+        /// WeaponPanelIcons__Constructor
         fn/Stdcall INIT_WEAPON_PANEL = 0x00567770;
         /// Buffer object constructor
         fn/Stdcall BUFFER_OBJECT_CONSTRUCTOR = 0x00545FD0;

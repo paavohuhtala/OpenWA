@@ -908,7 +908,7 @@ unsafe fn broadcast_frame_timing(
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
-/// Signed 32-bit division matching WA's `Crt__SignedDivMod_Maybe` (0x005D8786).
+/// Signed 32-bit division matching WA's `_ldiv` (MSVC CRT, 0x005D8786).
 /// Returns (quotient, remainder) using only the low 32 bits of the dividend.
 /// The original uses x86 IDIV which produces both values.
 #[inline(always)]
@@ -917,8 +917,8 @@ fn wa_div(dividend_lo: i32, divisor: i32) -> (i32, i32) {
 }
 
 /// Subtract a sign-extended i32 remainder from a 64-bit timestamp.
-/// Matches the CDQ + SUB + SBB pattern used after `Crt__SignedDivMod_Maybe`
-/// (0x005D8786) in DispatchFrame.
+/// Matches the CDQ + SUB + SBB pattern used after `_ldiv` (0x005D8786)
+/// in DispatchFrame.
 #[inline(always)]
 fn time_sub_i32(time: u64, remainder: i32) -> u64 {
     time.wrapping_sub(remainder as i64 as u64)

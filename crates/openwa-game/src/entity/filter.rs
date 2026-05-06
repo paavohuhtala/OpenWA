@@ -66,7 +66,7 @@ pub struct FilterEntityVtable {
 /// - [7] `FilterEntity__SubscribeAll` (0x54F390): sets all 100 entries to 1
 /// - [8] `FilterEntity__Subscribe` (0x54F370): sets `subscription_table[msg_id] = 1`
 ///
-/// **Four factory functions** (all called by `TeamEntity__Constructor_Maybe` 0x550E70):
+/// **Four factory functions** (all called by `GameRuntime__Constructor_0` 0x550E70):
 /// - `FUN_00552030`: subscribes to messages 0, 1, 3, 5
 /// - `FUN_005520D0`: subscribes to messages 0, 1, 2, 3, 0x15, 0x18, 0x1C
 /// - `FUN_00552190`: subscribes to messages 0, 1, 2, 3, 5, 0x15, 0x17, 0x1C, 0x2C–0x2E, 0x4B,

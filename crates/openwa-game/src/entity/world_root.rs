@@ -23,7 +23,8 @@ crate::define_addresses! {
 /// Embedded intermediate game-context sub-object within `WorldRootEntity`.
 ///
 /// This is the memory region at `WorldRootEntity+0x30..+0xDB` (0xAC bytes).
-/// It is initialised by `TeamEntity__Constructor_Maybe` (0x550EB0), which:
+/// It is initialised by `GameRuntime__Constructor_0` (0x550E70 entry; init
+/// body proper begins at 0x550EB0), which:
 ///   1. Calls `BaseEntity::Constructor(this, nullptr, world)`
 ///   2. Sets the primary vtable to 0x669E34 and class_type to 5
 ///   3. Sets a **secondary interface vtable** pointer (Ghidra 0x669C44) at +0x30

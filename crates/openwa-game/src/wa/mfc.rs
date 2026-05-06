@@ -37,7 +37,8 @@ pub struct CWinApp {
     _unknown_04: [u8; 0xa0],
     /// Embedded virtual sub-object at +0xa4. The launch path calls slot 13
     /// (offset 0x34 in the vtable) on it before `GameSession::Run`, and
-    /// `GameWorldRenderChildren_Maybe(&self.subobj_a4)` after.
+    /// `DXCtl__sub_40CAA0(&self.subobj_a4)` after — UI control "render"
+    /// callback (DXCtl is the MFC base for WA's DirectX-rendered widgets).
     pub subobj_a4: AppSubObjA4,
     _unknown_a8: [u8; 0xa8],
     /// u32 zeroed on the headful-fullscreen ExitProcess fallback path in

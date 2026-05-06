@@ -77,8 +77,8 @@ pub struct Landscape {
     /// other than 1.
     pub display_layer: u32,
     /// 0x908: Terrain layer 0 — written by the landscape image loader
-    /// (`SoundEmitter__Constructor_Maybe` at the top of the Landscape ctor —
-    /// name appears mislabeled in Ghidra; it returns 8bpp BitGrid layers).
+    /// (`LandscapeGenerator__sub_575BC0` at the top of the Landscape ctor;
+    /// returns 8bpp BitGrid layers).
     pub layer_0: *mut DisplayBitGrid,
     /// 0x90C: Terrain layer 1 — `wa_malloc(0x4C) + BitGrid::init(8)` with
     /// the DisplayGfx (BitGridDisplay) vtable.
