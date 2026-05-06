@@ -154,7 +154,9 @@ pub mod va {
             /// Ported to Rust as `engine::dispatch_frame::broadcast_frame_timing`;
             /// address kept for cross-reference only.
             fn/Usercall GAME_RUNTIME_BROADCAST_FRAME_TIMING = 0x0052A9C0;
-            /// GameRuntime__CalcTimingRatio (usercall EAX=this, 1 stack param, RET 0x4)
+            /// GameRuntime__CalcTimingRatio (usercall EAX=this, 1 stack param, RET 0x4).
+            /// Ported to Rust as `engine::dispatch_frame::calc_timing_ratio`;
+            /// address kept for cross-reference only.
             fn/Usercall GAME_RUNTIME_CALC_TIMING_RATIO = 0x0052ABF0;
             /// GameRuntime__InitFrameDelay (usercall EAX=this, no stack params, plain RET)
             fn/Usercall GAME_RUNTIME_INIT_FRAME_DELAY = 0x0052CAF0;
@@ -849,16 +851,14 @@ pub mod va {
         /// Ported in `engine::main_loop::render_frame::palette_animate`.
         fn/Stdcall PALETTE_ANIMATE = 0x00533A80;
         /// `PaletteContext__RotateHues` (0x005415A0) — stdcall(ctx,
-        /// frame_group), RET 0x8. Walks `[dirty_range_min..=dirty_range_max]`
-        /// of `ctx.rgb_table`; for each entry, converts RGB to HLS, adds
-        /// `frame_group` to the hue (mod 240), converts back. Used by
-        /// [`PALETTE_MANAGE`] for the per-50-frame palette animation.
+        /// frame_group), RET 0x8. Ported as
+        /// `render::palette::palette_rotate_hues`; address kept for
+        /// cross-reference only.
         fn/Stdcall PALETTE_CONTEXT_ROTATE_HUES = 0x005415A0;
         /// `PaletteContext__BlendTowardColor` (0x005414F0) — usercall
         /// (EAX = alpha (Fixed 0..0x10000), [stack] = ctx, target_rgb),
-        /// RET 0x8. For each entry in `[dirty_range_min..=dirty_range_max]`,
-        /// linearly blends `ctx.rgb_table[i]` toward `target_rgb` by `alpha`.
-        /// Used by [`PALETTE_ANIMATE`] for fade-to-black animations.
+        /// RET 0x8. Ported as `render::palette::palette_blend_toward_color`;
+        /// address kept for cross-reference only.
         fn/Usercall PALETTE_CONTEXT_BLEND_TOWARD_COLOR = 0x005414F0;
         fn LOAD_SPRITE = 0x00523400;
         fn OPENGL_INIT = 0x0059F000;

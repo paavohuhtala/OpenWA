@@ -58,6 +58,12 @@ impl Fixed {
     }
 
     #[inline]
+    pub fn clamp(self, min: Self, max: Self) -> Self {
+        debug_assert!(min <= max);
+        self.max(min).min(max)
+    }
+
+    #[inline]
     pub fn abs(self) -> Self {
         Self(self.0.abs())
     }

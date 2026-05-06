@@ -35,7 +35,6 @@ use crate::render::display::gfx::DisplayGfx;
 // register, then `JMP`/`CALL` the target. `RET imm16` on each target cleans
 // the remaining stdcall params.
 
-static mut CALC_TIMING_RATIO_ADDR: u32 = 0;
 static mut INIT_FRAME_DELAY_ADDR: u32 = 0;
 static mut PEER_INPUT_QUEUE_SCAN_ADDR: u32 = 0;
 static mut SHOULD_INTERPOLATE_OFFLINE_TAIL_ADDR: u32 = 0;
@@ -45,7 +44,6 @@ static mut HUD_DRAW_TEAM_LABELS_ADDR: u32 = 0;
 /// Initialize all bridge addresses. Must be called once at DLL load.
 pub unsafe fn init_dispatch_addrs() {
     unsafe {
-        CALC_TIMING_RATIO_ADDR = rb(va::GAME_RUNTIME_CALC_TIMING_RATIO);
         INIT_FRAME_DELAY_ADDR = rb(va::GAME_RUNTIME_INIT_FRAME_DELAY);
         PEER_INPUT_QUEUE_SCAN_ADDR = rb(va::GAME_RUNTIME_PEER_INPUT_QUEUE_SCAN);
         SHOULD_INTERPOLATE_OFFLINE_TAIL_ADDR = rb(va::GAME_RUNTIME_SHOULD_INTERPOLATE_OFFLINE_TAIL);

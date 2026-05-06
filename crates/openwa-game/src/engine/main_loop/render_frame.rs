@@ -18,7 +18,7 @@ use crate::entity::base::BaseEntity;
 use crate::game::message::EntityMessage;
 use crate::rebase::rb;
 use crate::render::display::gfx::DisplayGfx;
-use crate::render::palette::PaletteContext;
+use crate::render::palette::{palette_blend_toward_color, palette_rotate_hues};
 use crate::render::queue_dispatch::{ClipContext, clamp_camera_to_bounds, render_drawing_queue};
 use crate::render::sprite::sprite_op::SpriteOp;
 use crate::wa::localized_template::{LocalizedTemplate, resolve};
@@ -29,8 +29,6 @@ use crate::wa::string_resource::{StringRes, res};
 
 static mut DRAW_AWAY_OVERLAY_ADDR: u32 = 0;
 static mut SET_TEXTBOX_TEXT_ADDR: u32 = 0;
-static mut PALETTE_ROTATE_HUES_ADDR: u32 = 0;
-static mut PALETTE_BLEND_TOWARD_ADDR: u32 = 0;
 static mut DISPATCH_FRAME_POST_PROCESS_HOOKS_ADDR: u32 = 0;
 
 /// Initialize the bridge addresses. Called from
@@ -39,8 +37,6 @@ pub unsafe fn init_addrs() {
     unsafe {
         DRAW_AWAY_OVERLAY_ADDR = rb(va::GAME_RUNTIME_DRAW_AWAY_OVERLAY);
         SET_TEXTBOX_TEXT_ADDR = rb(va::SET_TEXTBOX_TEXT);
-        PALETTE_ROTATE_HUES_ADDR = rb(va::PALETTE_CONTEXT_ROTATE_HUES);
-        PALETTE_BLEND_TOWARD_ADDR = rb(va::PALETTE_CONTEXT_BLEND_TOWARD_COLOR);
         DISPATCH_FRAME_POST_PROCESS_HOOKS_ADDR =
             rb(va::DISPLAY_GFX_DISPATCH_FRAME_POST_PROCESS_HOOKS);
     }
@@ -133,41 +129,6 @@ unsafe fn set_textbox_text(
             scale,
         )
     }
-}
-
-/// Bridge for `PaletteContext__RotateHues` (0x005415A0, stdcall
-/// RET 0x8). Walks `[dirty_range_min..=dirty_range_max]` of `ctx.rgb_table`,
-/// converts each entry RGB→HLS, adds `frame_group` to the hue (mod 240),
-/// converts back. Calls Win32 GDI's `ColorRGBToHLS`/`ColorHLSToRGB`.
-unsafe fn palette_rotate_hues(ctx: *mut PaletteContext, frame_group: i32) {
-    unsafe {
-        let func: unsafe extern "stdcall" fn(*mut PaletteContext, i32) =
-            core::mem::transmute(PALETTE_ROTATE_HUES_ADDR as usize);
-        func(ctx, frame_group);
-    }
-}
-
-/// Bridge for `PaletteContext__BlendTowardColor` (0x005414F0).
-/// Usercall(EAX = `alpha` clamped to `0..=0x10000`, [stack] = `ctx`,
-/// `target_rgb`), RET 0x8. For each entry in
-/// `[dirty_range_min..=dirty_range_max]`, lerps `ctx.rgb_table[i]` toward
-/// `target_rgb` per channel by `alpha / 0x10000`.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn palette_blend_toward(
-    _ctx: *mut PaletteContext,
-    _target_rgb: u32,
-    _alpha: i32,
-) {
-    core::arch::naked_asm!(
-        "mov eax, dword ptr [esp+0xC]",   // alpha
-        "mov ecx, dword ptr [esp+0x8]",   // target_rgb
-        "mov edx, dword ptr [esp+0x4]",   // ctx
-        "push ecx",
-        "push edx",
-        "call dword ptr [{addr}]",         // RET 0x8 cleans the 2 pushes
-        "ret 0xC",
-        addr = sym PALETTE_BLEND_TOWARD_ADDR,
-    );
 }
 
 // ─── Constants ─────────────────────────────────────────────────────────────
@@ -817,7 +778,7 @@ unsafe fn palette_manage(runtime: *mut GameRuntime) {
 /// On a cache miss, for each layer (1 → ctx_a, 2 → ctx_b, 3 → ctx_c):
 /// 1. Copy the layer's palette state from `display.set_active_layer(N)`
 ///    into the runtime-owned [`PaletteContext`].
-/// 2. Apply 2-3 [`palette_blend_toward`] calls toward the target color
+/// 2. Apply 2-3 [`palette_blend_toward_color`] calls toward the target color
 ///    `0` (black) with per-layer alphas.
 /// 3. Commit via `update_palette`. Layer 3's commit pushes to the DDraw
 ///    surface (`commit = 1`); layers 1-2 only update internal state.
@@ -841,27 +802,31 @@ unsafe fn palette_animate(runtime: *mut GameRuntime) {
         const PALETTE_CTX_DWORDS: usize = 0x1C3;
         const TARGET_BLACK: u32 = 0;
 
+        let alpha_a = Fixed::from_raw(cur_a);
+        let alpha_c = Fixed::from_raw(cur_c);
+        let alpha_clamp = Fixed::from_raw(clamp);
+
         // ── Layer 1 → palette_ctx_a ─────────────────────────────────────
         let ctx_a = (*runtime).palette_ctx_a;
         let src1 = DisplayGfx::set_active_layer_raw(display, 1);
         core::ptr::copy_nonoverlapping(src1 as *const u32, ctx_a as *mut u32, PALETTE_CTX_DWORDS);
-        palette_blend_toward(ctx_a, TARGET_BLACK, cur_c);
-        palette_blend_toward(ctx_a, TARGET_BLACK, clamp);
+        palette_blend_toward_color(ctx_a, TARGET_BLACK, alpha_c);
+        palette_blend_toward_color(ctx_a, TARGET_BLACK, alpha_clamp);
 
         // ── Layer 2 → palette_ctx_b ─────────────────────────────────────
         let ctx_b = (*runtime).palette_ctx_b;
         let src2 = DisplayGfx::set_active_layer_raw(display, 2);
         core::ptr::copy_nonoverlapping(src2 as *const u32, ctx_b as *mut u32, PALETTE_CTX_DWORDS);
-        palette_blend_toward(ctx_b, TARGET_BLACK, cur_a);
-        palette_blend_toward(ctx_b, TARGET_BLACK, cur_c);
-        palette_blend_toward(ctx_b, TARGET_BLACK, clamp);
+        palette_blend_toward_color(ctx_b, TARGET_BLACK, alpha_a);
+        palette_blend_toward_color(ctx_b, TARGET_BLACK, alpha_c);
+        palette_blend_toward_color(ctx_b, TARGET_BLACK, alpha_clamp);
 
         // ── Layer 3 → palette_ctx_c ─────────────────────────────────────
         let ctx_c = (*runtime).palette_ctx_c;
         let src3 = DisplayGfx::set_active_layer_raw(display, 3);
         core::ptr::copy_nonoverlapping(src3 as *const u32, ctx_c as *mut u32, PALETTE_CTX_DWORDS);
-        palette_blend_toward(ctx_c, TARGET_BLACK, cur_c);
-        palette_blend_toward(ctx_c, TARGET_BLACK, clamp);
+        palette_blend_toward_color(ctx_c, TARGET_BLACK, alpha_c);
+        palette_blend_toward_color(ctx_c, TARGET_BLACK, alpha_clamp);
 
         // ── Commit (only the last call pushes to DDraw) ────────────────
         DisplayGfx::update_palette_raw(display, ctx_a, 0);

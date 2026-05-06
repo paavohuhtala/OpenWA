@@ -3,6 +3,8 @@
 //! WA's `PaletteContext` maintains a 256-entry palette with a free-slot
 //! allocator and a recently-mapped cache for fast repeated lookups.
 
+use openwa_core::fixed::Fixed;
+
 /// PaletteContext struct layout.
 ///
 /// Used by `PaletteContext__MapColor` (0x5412B0) and related functions.
@@ -285,6 +287,67 @@ pub unsafe fn remap_pixels_through_lut(
                 p = p.add(1);
             }
             row_ptr = row_ptr.add(pitch as usize);
+        }
+    }
+}
+
+/// Rust port of `PaletteContext__BlendTowardColor` (0x005414F0).
+///
+/// For each entry in `[dirty_range_min ..= dirty_range_max]`, lerps the
+/// stored RGB toward `target_rgb` per channel by `alpha`. `alpha` is
+/// clamped to `[0.0, 1.0]`.
+pub unsafe fn palette_blend_toward_color(ctx: *mut PaletteContext, target_rgb: u32, alpha: Fixed) {
+    unsafe {
+        let alpha = alpha.clamp(Fixed::ZERO, Fixed::ONE);
+        let min = (*ctx).dirty_range_min as i32;
+        let max = (*ctx).dirty_range_max as i32;
+        if min > max {
+            return;
+        }
+        let target = [
+            (target_rgb & 0xff) as i32,
+            ((target_rgb >> 8) & 0xff) as i32,
+            ((target_rgb >> 16) & 0xff) as i32,
+        ];
+        let table = (ctx as *mut u8).add(0x04);
+        for idx in min..=max {
+            let entry = table.add(idx as usize * 4);
+            for (ch, &t) in target.iter().enumerate() {
+                let cur = *entry.add(ch) as i32;
+                let step = (alpha * (t - cur)).to_int();
+                *entry.add(ch) = (cur as u8).wrapping_add(step as u8);
+            }
+        }
+    }
+}
+
+#[link(name = "shlwapi")]
+unsafe extern "system" {
+    fn ColorRGBToHLS(clrRGB: u32, pwHue: *mut u16, pwLuminance: *mut u16, pwSaturation: *mut u16);
+    fn ColorHLSToRGB(wHue: u16, wLuminance: u16, wSaturation: u16) -> u32;
+}
+
+/// Rust port of `PaletteContext__RotateHues` (0x005415A0).
+///
+/// For each entry in `[dirty_range_min ..= dirty_range_max]`, converts RGB
+/// to HLS via Win32 GDI, rotates the hue by `frame_group` (mod 240 — the
+/// Win32 HLS hue range), and writes the converted-back RGB.
+pub unsafe fn palette_rotate_hues(ctx: *mut PaletteContext, frame_group: i32) {
+    unsafe {
+        let min = (*ctx).dirty_range_min as i32;
+        let max = (*ctx).dirty_range_max as i32;
+        if min > max {
+            return;
+        }
+        let table = (ctx as *mut u8).add(0x04);
+        for idx in min..=max {
+            let entry = table.add(idx as usize * 4) as *mut u32;
+            let mut h: u16 = 0;
+            let mut l: u16 = 0;
+            let mut s: u16 = 0;
+            ColorRGBToHLS(*entry, &mut h, &mut l, &mut s);
+            let new_h = ((h as i32).wrapping_add(frame_group) % 0xf0) as u16;
+            *entry = ColorHLSToRGB(new_h, l, s);
         }
     }
 }
