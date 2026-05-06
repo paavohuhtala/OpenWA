@@ -78,8 +78,8 @@ pub struct MatchCtx {
     /// +0x68–0x9F: Unknown — all explicitly zeroed by `TurnGame__SetupHud_Maybe` during game
     /// setup. Purpose unknown; may be per-team or per-worm state slots.
     pub _unknown_68: [u32; 14],
-    /// +0xA0: Return value of `TeamIndexMap__PopHandle_Maybe(0)` stored here during game setup.
-    /// Observed value: 15. `TeamIndexMap__PopHandle_Maybe` is a slot-allocation helper; this may
+    /// +0xA0: Return value of `TeamIndexMap__PopHandle(0)` stored here during game setup.
+    /// Observed value: 15. `TeamIndexMap__PopHandle` is a slot-allocation helper; this may
     /// be a pool slot index or a pre-computed game-state token.
     pub _slot_d0: u32,
     /// +0xA4: `DisplayGfx` textbox handle — created by `DisplayGfx__ConstructTextbox`

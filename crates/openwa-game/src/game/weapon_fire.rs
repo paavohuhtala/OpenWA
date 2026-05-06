@@ -756,7 +756,7 @@ unsafe extern "C" fn call_play_sound_usercall(
 /// Armageddon (subtype 24) — pure Rust port of 0x51EA60.
 ///
 /// Sends message 0x5B to WorldRootEntity with weapon/team info, then conditionally
-/// sets a gravity center point via GameWorld__RegisterEventPoint_Maybe.
+/// sets a gravity center point via GameWorld__RegisterEventPoint.
 /// Convention: usercall(EAX=entry, ESI=worm, EDI=worm), plain RET.
 ///
 unsafe fn fire_armageddon(worm: *mut WormEntity) {

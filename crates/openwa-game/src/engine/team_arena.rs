@@ -55,7 +55,7 @@ const _: () = assert!(core::mem::offset_of!(TeamIndexMap, active_list) == 0x42);
 const _: () = assert!(core::mem::offset_of!(TeamIndexMap, active_count) == 0x62);
 
 impl TeamIndexMap {
-    /// Rust port of `TeamIndexMap__RemoveHandle_Maybe` (0x00526000).
+    /// Rust port of `TeamIndexMap__RemoveHandle` (0x00526000).
     ///
     /// Convention: usercall `EAX = *mut TeamIndexMap, EDI = *mut i32`,
     /// plain `RET`. Removes `*handle_ptr` from `active_list` if present;
@@ -112,7 +112,7 @@ impl TeamIndexMap {
         }
     }
 
-    /// Rust port of `TeamIndexMap__PopHandle_Maybe` (0x00525F50).
+    /// Rust port of `TeamIndexMap__PopHandle` (0x00525F50).
     ///
     /// Convention: thiscall `ECX = *mut TeamIndexMap`, 1 stack arg `key: i32`,
     /// `RET 0x4`, returns the popped handle in EAX (or `-1` if the free pool

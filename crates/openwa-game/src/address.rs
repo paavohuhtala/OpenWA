@@ -163,7 +163,7 @@ pub mod va {
             /// (DrawText into `display_gfx_c`); called from
             /// `frame_tail_update` once every 150 frames or when latched.
             fn/Usercall HUD_DRAW_TEAM_LABELS_MAYBE = 0x005332B0;
-            /// `TeamIndexMap__RemoveHandle_Maybe` (0x00526000). Usercall
+            /// `TeamIndexMap__RemoveHandle` (0x00526000). Usercall
             /// EAX=`*mut TeamIndexMap`, EDI=`*mut i32` (handle ptr), plain
             /// RET. Ported to Rust as `TeamIndexMap::remove_handle`; address
             /// kept for cross-reference and `install_trap!` of the WA-side
@@ -235,7 +235,7 @@ pub mod va {
             /// the center of any item whose `kind == 0` (last one wins).
             /// Ported as `engine::menu_panel::center_cursor_on_first_kind_zero`.
             fn/Usercall MENU_PANEL_CENTER_CURSOR_ON_KIND_ZERO = 0x00540780;
-            /// `TeamIndexMap__PopHandle_Maybe` (0x00525F50). Thiscall
+            /// `TeamIndexMap__PopHandle` (0x00525F50). Thiscall
             /// `ECX = *mut TeamIndexMap, [ESP+4] = key: i32`, RET 0x4.
             /// Companion to `RemoveHandle`; ported to Rust as
             /// `TeamIndexMap::pop_handle`.
