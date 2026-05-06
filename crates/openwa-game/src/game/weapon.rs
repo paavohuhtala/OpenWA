@@ -3,7 +3,8 @@ use core::ffi::c_char;
 use openwa_core::fixed::Fixed;
 
 pub use openwa_core::weapon::{
-    FireMethod, FireType, KnownWeaponId, SpecialFireSubtype, WeaponId, is_super_weapon,
+    FireMethod, FireType, KnownWeaponId, SpecialFireSubtype, WeaponId, is_animal, is_fire,
+    is_modifier, is_sheep, is_super_weapon, is_utility,
 };
 
 use crate::engine::world::GameWorld;

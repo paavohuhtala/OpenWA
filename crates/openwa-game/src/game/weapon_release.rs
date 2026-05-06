@@ -8,44 +8,11 @@ use crate::entity::world_root::WorldRootEntity;
 use crate::entity::worm::{KnownWormState, WormEntity};
 use crate::entity::{BaseEntity, Entity, SharedDataTable, WorldEntity};
 use crate::game::message::WeaponReleasedMessage;
-use crate::game::{KnownWeaponId, is_super_weapon};
+use crate::game::{KnownWeaponId, is_animal, is_fire, is_super_weapon, is_utility};
 use openwa_core::fixed::Fixed;
 
 use crate::audio::sound_ops as sound;
 use crate::game::weapon_fire::{self, WeaponReleaseContext};
-
-// ── Weapon category classifiers (pure Rust) ─────────────────
-
-/// Weapon__is_animal: weapon category A — homing/animal/special projectile weapons.
-pub fn is_weapon_category_a(weapon: KnownWeaponId) -> bool {
-    use KnownWeaponId::*;
-    matches!(
-        weapon,
-        HomingPigeon
-            | SheepLauncher
-            | Sheep
-            | SuperSheep
-            | AquaSheep
-            | MoleBomb
-            | MoleSquadron
-            | SalvationArmy
-            | MbBomb
-            | Skunk
-            | SheepStrike
-            | MadCow
-            | OldWoman
-            | Donkey
-    )
-}
-
-/// Weapon__is_fire: weapon category B — fire/napalm weapons.
-pub fn is_weapon_category_b(weapon: KnownWeaponId) -> bool {
-    use KnownWeaponId::*;
-    matches!(
-        weapon,
-        NapalmStrike | FlameThrower | PetrolBomb | SheepStrike
-    )
-}
 
 // ── Main implementation ─────────────────────────────────────
 
@@ -220,16 +187,15 @@ pub unsafe fn weapon_release(
             *g.weapon_stat_counter(team_id, worm_id, 0x40D8) += 1;
         }
 
-        // Powerup/utility weapons (JetPack..=CrateShower)
-        if (KnownWeaponId::JetPack..=KnownWeaponId::CrateShower).contains(&weapon) {
+        if is_utility(weapon.into()) {
             *g.weapon_stat_counter(team_id, worm_id, 0x40D4) += 1;
         }
 
-        if is_weapon_category_a(weapon) {
+        if is_animal(weapon.into()) {
             *g.weapon_stat_counter(team_id, worm_id, 0x40D0) += 1;
         }
 
-        if is_weapon_category_b(weapon) {
+        if is_fire(weapon.into()) {
             *g.weapon_stat_counter(team_id, worm_id, 0x40CC) += 1;
         }
 

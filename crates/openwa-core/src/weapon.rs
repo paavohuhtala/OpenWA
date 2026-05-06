@@ -126,7 +126,7 @@ impl TryFrom<u32> for KnownWeaponId {
     }
 }
 
-/// GameWorld__IsSuperWeapon (0x565960). True for "super weapon" IDs.
+/// Weapon__is_super_weapon (0x565960). True for "super weapon" IDs.
 ///
 /// `select_worm_is_super_weapon` is the runtime mode flag (GameWorld.version_flag_3
 /// at +0x7E3F): when set, SelectWorm counts as a super weapon too.
@@ -140,6 +140,78 @@ pub fn is_super_weapon(weapon: WeaponId, select_worm_is_super_weapon: bool) -> b
         | ScalesOfJustice | SuperBanana | SalvationArmy | MbBomb | MingVase | SheepStrike
         | CarpetBomb | Donkey | NuclearTest | Armageddon | Freeze | MagicBullet => true,
         SelectWorm => select_worm_is_super_weapon,
+        _ => false,
+    }
+}
+
+/// Weapon__is_animal (0x5658C0). True for creature/animal-themed projectiles
+/// (used by WeaponRelease for the +0x40D0 stat counter).
+pub fn is_animal(weapon: WeaponId) -> bool {
+    let Ok(weapon) = KnownWeaponId::try_from(weapon.0) else {
+        return false;
+    };
+    use KnownWeaponId::*;
+    matches!(
+        weapon,
+        HomingPigeon
+            | SheepLauncher
+            | Sheep
+            | SuperSheep
+            | AquaSheep
+            | MoleBomb
+            | MoleSquadron
+            | SalvationArmy
+            | MbBomb
+            | Skunk
+            | SheepStrike
+            | MadCow
+            | OldWoman
+            | Donkey
+    )
+}
+
+/// Weapon__is_fire (0x565920). True for fire/incendiary weapons (used by
+/// WeaponRelease for the +0x40CC stat counter).
+pub fn is_fire(weapon: WeaponId) -> bool {
+    let Ok(weapon) = KnownWeaponId::try_from(weapon.0) else {
+        return false;
+    };
+    use KnownWeaponId::*;
+    matches!(
+        weapon,
+        NapalmStrike | FlameThrower | PetrolBomb | SheepStrike
+    )
+}
+
+/// Weapon__is_utility (0x5659D0). True for the utility/powerup weapons —
+/// `JetPack..=CrateShower` (raw IDs 62..=70).
+pub fn is_utility(weapon: WeaponId) -> bool {
+    (KnownWeaponId::JetPack as u32..=KnownWeaponId::CrateShower as u32).contains(&weapon.0)
+}
+
+/// Weapon__is_modifier (0x5659F0). True for the post-collected utility
+/// modifiers — `DamageX2..=CrateShower` (raw IDs 67..=70). Used by
+/// `TeamEntity::HandleMessage` to gate modifier-pickup logic.
+pub fn is_modifier(weapon: WeaponId) -> bool {
+    (KnownWeaponId::DamageX2 as u32..=KnownWeaponId::CrateShower as u32).contains(&weapon.0)
+}
+
+/// Weapon__is_sheep (0x565A10). True for sheep-spawning weapons.
+///
+/// `Sheep`, `SuperSheep`, `AquaSheep`, and `SheepStrike` are unconditional;
+/// `SheepLauncher` qualifies only when `aux > 489`. The `aux` value is supplied
+/// by the caller and (per known call sites in `Task_Crate::detonate_0` and
+/// `Task_TurnGame::check_for_crate_drop_1`) is read from a per-task field —
+/// likely the scheme/weapon-count slot. The exact semantics of the threshold
+/// haven't been pinned down yet; preserve the literal until a caller is ported.
+pub fn is_sheep(weapon: WeaponId, aux: i32) -> bool {
+    let Ok(weapon) = KnownWeaponId::try_from(weapon.0) else {
+        return false;
+    };
+    use KnownWeaponId::*;
+    match weapon {
+        Sheep | SuperSheep | AquaSheep | SheepStrike => true,
+        SheepLauncher => aux > 0x1E9,
         _ => false,
     }
 }
