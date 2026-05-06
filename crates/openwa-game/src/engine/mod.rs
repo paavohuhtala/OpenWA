@@ -18,6 +18,7 @@ pub mod net_session;
 pub mod net_wrapper;
 pub mod pump_messages;
 pub mod replay;
+pub mod replay_loader;
 pub mod ring_buffer;
 pub mod runtime;
 pub mod shutdown;
