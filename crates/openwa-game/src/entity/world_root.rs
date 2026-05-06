@@ -34,7 +34,7 @@ crate::define_addresses! {
 ///   5. Writes -1 sentinels to `_sentinel_18`, `_sentinel_28`, `_sentinel_38`
 ///   6. Writes `team_count = *(byte*)(GameInfo+0x44C)` to `team_count`
 ///
-/// `WorldRootEntity__Constructor` (0x55B2A0) then overrides the primary vtable
+/// `WorldRootEntity__Constructor` (0x55B280) then overrides the primary vtable
 /// to 0x669F70 and class_type to 6 but **leaves this sub-object intact**.
 ///
 /// The three -1 sentinels at offsets 0x18 / 0x28 / 0x38 are evenly spaced
@@ -128,7 +128,7 @@ pub struct WorldRootEntityVtable {
 /// called from HandleMessage case 2 (FrameFinish).
 ///
 /// Inheritance: BaseEntity → TeamEntity → WorldRootEntity.  Class type 6.
-/// Constructor: `WorldRootEntity__Constructor` (0x55B2B1).
+/// Constructor: `WorldRootEntity__Constructor` (0x55B280).
 /// vtable: `WorldRootEntity__vtable` (0x00669F70), 20 slots.
 /// Total size: 0x2E0 bytes.
 ///
