@@ -37,7 +37,7 @@ unsafe fn vcall0(this: u32, slot: usize) {
 /// 1. Clear `session.init_flag`.
 /// 2. If `net_input_ctrl != 0`: call `SHUTDOWN_NET_INPUT_CTRL_HELPER_MAYBE` (cdecl, 0 args).
 /// 3. If `streaming_audio != 0`: `streaming_audio.vtable[5](this)` (Music::stop_and_cleanup).
-/// 4. `game_runtime.vtable[8](this, state_buf)` — slot 8 (`SaveReplayState_Maybe`,
+/// 4. `game_runtime.vtable[8](this, state_buf)` — slot 8 (`GameWorld__SaveReplayState`,
 ///    0x528A30) — **no null check on `game_runtime`** in the original.
 /// 5. If `game_runtime != 0`: `game_runtime.vtable[6](this, 1)` — `EndGame` (0x56DF90).
 /// 6. If `display != 0`: `display.vtable[0](this, 1)` — destructor.

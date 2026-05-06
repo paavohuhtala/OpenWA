@@ -259,7 +259,7 @@ crate::define_addresses! {
     }
 
     class "WeaponSpawn" {
-        /// `WeaponSpawn::DecodeDescriptor_Maybe`. Usercall
+        /// `WeaponSpawn__DecodeDescriptor`. Usercall
         /// `(EAX = out_eax_ptr, EDX = out_edx_ptr)` + 7 stack args
         /// `(descriptor, out2..out7)`, RET 0x1C. Decodes a weapon's spawn
         /// descriptor at `weapon_table.entries[id].fire_params` (offset
@@ -271,7 +271,7 @@ crate::define_addresses! {
     }
 
     class "TeamArena" {
-        /// `SetActiveWorm_Maybe`. Usercall
+        /// `SetActiveWorm`. Usercall
         /// `(EAX = team_arena_base /* world+0x4628 */, EDX = team_idx,
         /// ESI = activate_value)`, plain RET. Maintains the
         /// "currently-active worm" registry at `world+0x2C30..+0x2C44` and

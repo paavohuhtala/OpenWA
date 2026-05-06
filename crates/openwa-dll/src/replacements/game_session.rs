@@ -51,11 +51,11 @@ pub fn install() -> Result<(), String> {
             va::GAME_SESSION_RUN,
             trampoline_game_session_run as *const (),
         )?;
-        // GameSession::OnHeadlessPreLoop_Maybe — full replacement; two
+        // GameSession__OnHeadlessPreLoop — full replacement; two
         // remaining WA-side callers in the SYSCOMMAND minimize path still
         // dispatch through this address.
         hook::install(
-            "GameSession::OnHeadlessPreLoop_Maybe",
+            "GameSession__OnHeadlessPreLoop",
             va::GAME_SESSION_ON_HEADLESS_PRE_LOOP,
             on_headless_pre_loop as *const (),
         )?;

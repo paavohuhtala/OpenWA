@@ -61,7 +61,7 @@ pub struct NetInputCtrlTeamRecord {
 const _: () = assert!(core::mem::size_of::<NetInputCtrlTeamRecord>() == 0x68);
 
 /// Allocation wrapper for a heap-allocated input buffer (input ring or per-team).
-/// Created by `NetInputCtrl__InitTeamInputs_Maybe` (0x0053DD50). 0x3c bytes total.
+/// Created by `NetInputCtrl__InitTeamInputs` (0x0053DD50). 0x3c bytes total.
 #[repr(C)]
 pub struct InputBuffer {
     /// 0x00: Pointer to the heap buffer payload.
@@ -206,7 +206,7 @@ use crate::address::va;
 use crate::engine::game_info::GameInfo;
 use crate::rebase::rb;
 
-/// Address of `NetInputCtrl__InitTeamInputs_Maybe` (0x0053DD50), captured at
+/// Address of `NetInputCtrl__InitTeamInputs` (0x0053DD50), captured at
 /// startup. Set by [`init_addrs`].
 static mut INIT_TEAM_INPUTS_ADDR: u32 = 0;
 
@@ -218,7 +218,7 @@ pub fn init_addrs() {
     }
 }
 
-/// Bridge to `NetInputCtrl__InitTeamInputs_Maybe` (0x0053DD50).
+/// Bridge to `NetInputCtrl__InitTeamInputs` (0x0053DD50).
 ///
 /// WA convention: `__usercall(ECX = game_version)` + `stdcall(input_ctrl,
 /// team_configs, num_teams, starting_team_index)`, `RET 0x10`. Allocates the
@@ -243,7 +243,7 @@ unsafe extern "stdcall" fn call_init_team_inputs(
     //   [ESP+0x10]= arg4 starting_team_index
     //   [ESP+0x14]= arg5 game_version  (loaded into ECX)
     //
-    // NetInputCtrl__InitTeamInputs_Maybe expects 4 stack args + ECX register, RET 0x10.
+    // NetInputCtrl__InitTeamInputs expects 4 stack args + ECX register, RET 0x10.
     // We pop our_ret into EDX, set ECX from arg5, CALL the function (which
     // sees arg1..arg4 + its own pushed ret), then clean arg5 ourselves and
     // jump back to our_ret. Net effect: stdcall caller sees 5 args cleaned.

@@ -415,7 +415,7 @@ fn write_u32(buf: &mut [u8], offset: usize, value: u32) {
 
 // ── SpawnEffect (0x547C30) ──────────────────────────────────
 
-/// Spawn a visual effect on the sprite anim entity. Pure Rust port of SpawnEffect_Maybe.
+/// Spawn a visual effect on the sprite anim entity. Pure Rust port of SpawnEffect.
 ///
 /// Builds a 0x408-byte message buffer from the params, looks up SpriteAnimEntity
 /// via SharedData (entity type 0x1A), and sends HandleMessage(0x56).

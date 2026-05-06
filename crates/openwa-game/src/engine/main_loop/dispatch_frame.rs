@@ -98,12 +98,12 @@ macro_rules! bridge_eax_this_stdcall {
 
 bridge_eax_this!(bridge_init_frame_delay, INIT_FRAME_DELAY_ADDR, ());
 
-// Bridge for `GameRuntime__PeerInputQueueScan_Maybe` (0x0052E880).
+// Bridge for `GameRuntime__PeerInputQueueScan` (0x0052E880).
 // Usercall EAX=this + 1 stdcall stack param (peer_idx), RET 0x4. Returns
 // nonzero in AL if any non-trivial message type is pending in the per-peer
 // input queue.
 //
-// Still bridged — its own callee `NetSession__PeerInputQueuePop_Maybe`
+// Still bridged — its own callee `NetSession__PeerInputQueuePop`
 // (0x0053E300) would require further bridging, and this whole code path is
 // network-only, so headless replay tests don't exercise it.
 bridge_eax_this_stdcall!(
@@ -112,7 +112,7 @@ bridge_eax_this_stdcall!(
     (u32) -> u8
 );
 
-/// Bridge for `GameRuntime__ShouldInterpolate_OfflineTail_Maybe` (0x0052F9C0).
+/// Bridge for `GameRuntime__ShouldInterpolate_OfflineTail` (0x0052F9C0).
 /// Plain stdcall(runtime), RET 0x4. Tail callee of the offline
 /// `ShouldInterpolate` branch, still bridged (205 instructions, 51 basic
 /// blocks — too much for an incidental port).
@@ -236,13 +236,13 @@ pub unsafe fn should_continue_frame_loop(runtime: *mut GameRuntime, elapsed: u64
 /// Dispatch:
 /// - **Online** (`world.net_session != null`): delegates to
 ///   `should_interpolate_online` (pure Rust; the inner peer-input-queue
-///   scan `GameRuntime__PeerInputQueueScan_Maybe` (0x0052E880) remains
+///   scan `GameRuntime__PeerInputQueueScan` (0x0052E880) remains
 ///   bridged).
 /// - **Offline**: short-circuits to `true` (interpolate) when `esc_menu_state != 0`,
 ///   `g_GameSession.flag_5c != 0`, or all three of `replay_flag_b != 0`,
 ///   `_field_410 != 0`, `game_info.input_state_f918 == 0` hold. Otherwise
 ///   delegates to `should_interpolate_offline` (pure Rust; the deep tail
-///   `GameRuntime__ShouldInterpolate_OfflineTail_Maybe` (0x0052F9C0)
+///   `GameRuntime__ShouldInterpolate_OfflineTail` (0x0052F9C0)
 ///   remains bridged).
 pub unsafe fn should_interpolate(runtime: *mut GameRuntime) -> bool {
     unsafe {
@@ -292,7 +292,7 @@ pub unsafe fn should_interpolate(runtime: *mut GameRuntime) -> bool {
 /// 5. Per-team sweep over `game_info.num_teams`: if any team has both its
 ///    `_field_7dbc[i]` flag set and its `team_starting_marker[i] == 0`,
 ///    compute interp (early return).
-/// 6. Fall through to `GameRuntime__ShouldInterpolate_OfflineTail_Maybe`
+/// 6. Fall through to `GameRuntime__ShouldInterpolate_OfflineTail`
 ///    (0x0052F9C0, still bridged).
 ///
 /// Note: step 3 uses byte-level pointer arithmetic from the `world` base to
@@ -354,7 +354,7 @@ unsafe fn should_interpolate_offline(runtime: *mut GameRuntime) -> bool {
 // peer_count : 1". Semantics suspected to be "server iterates all peers;
 // client only checks peer 0 (the server)" — unconfirmed.
 
-/// Port of `GameRuntime__PeerLagWithinThreshold_Maybe` (0x0052D830).
+/// Port of `GameRuntime__PeerLagWithinThreshold` (0x0052D830).
 /// Usercall EAX=this, plain RET.
 ///
 /// Returns `true` when no peer with active scoring (per
@@ -387,7 +387,7 @@ unsafe fn peer_lag_within_threshold(runtime: *mut GameRuntime) -> bool {
     }
 }
 
-/// Port of `GameRuntime__PeerInputsCaughtUp_Maybe` (0x0052D920).
+/// Port of `GameRuntime__PeerInputsCaughtUp` (0x0052D920).
 /// Usercall EAX=this, plain RET.
 ///
 /// Returns `true` when no peer with active scoring (per
@@ -456,7 +456,7 @@ pub(super) unsafe fn all_peer_teams_have_joined(runtime: *mut GameRuntime) -> bo
 ///    returns `false` to signal "this peer-state aspect isn't stable
 ///    enough — visually freezing is preferable to a desync glitch."
 /// 2. If `world.team_arena.enemy_team_count == 0` → suppress (WA returned 1).
-/// 3. Otherwise delegate to `GameRuntime__PeerInputQueueScan_Maybe`
+/// 3. Otherwise delegate to `GameRuntime__PeerInputQueueScan`
 ///    (0x0052E880, still bridged) passing `team_arena.last_active_alliance`
 ///    as peer_idx; that function returns nonzero iff any non-skipped
 ///    message is pending, which WA propagates as "suppress interp".

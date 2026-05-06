@@ -69,7 +69,7 @@ static mut BROADCAST_VIA_SHARED_DATA_ADDR: u32 = 0;
 // and dispatches it through the SharedData random-text channel. Stdcall
 // (this, name_array, count_kind, worm_name_ptr), RET 0x10.
 static mut LOCALIZED_TEXT_RANDOM_PICK_ADDR: u32 = 0;
-// PlayImpactSound_Maybe (0x004FF020) — usercall(EDI = this), 2 stack args
+// PlayImpactSound (0x004FF020) — usercall(EDI = this), 2 stack args
 // (sound_id, mag), RET 0x8. Reads the sound emitter pointer from
 // `[EDI+0xE0]`. Used by SpecialImpact (msg 0x4B) to play the corpse-hit
 // sound during the Dead-state branch.

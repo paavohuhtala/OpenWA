@@ -11,7 +11,7 @@
 //! - CheckWormState0x64 (0x5228D0)
 //! - CheckTeamWormState0x64 (0x522930)
 //! - CheckAnyWormState0x8b (0x522970)
-//! - SetActiveWorm_Maybe (0x522500)
+//! - SetActiveWorm (0x522500)
 
 use crate::engine::team_arena::worm;
 

@@ -38,7 +38,7 @@ pub struct MissileEntityVtable {
     /// OnContact — invoked when this missile contacts another entity (terrain,
     /// worm, object). Dispatches by [`missile_type`](MissileEntity::missile_type)
     /// (Standard/Homing/Sheep/Cluster). Calls
-    /// `PlayImpactSound_Maybe` + `WorldEntity::vt8` (base OnContact) + conditionally
+    /// `PlayImpactSound` + `WorldEntity::vt8` (base OnContact) + conditionally
     /// `CreateExplosion`, `ImpactSpecialFx_Maybe`, and self.slot14 terminator.
     /// thiscall + 2 stack params (other, self_side_flags), RET 0x8. Returns 1 in EAX.
     #[slot(8)]
@@ -165,7 +165,7 @@ pub struct MissileEntity {
     ///   [0x19] render_timer — 1 for bazooka, 30 for grenade (3s fuse timer)
     pub _render_data_18_1a: [u32; 3],
     /// 0x340 — render_data[0x1B]. Sound ID played on impact (via
-    /// `PlayImpactSound_Maybe` at 0x004FF020). Passed as first arg alongside the
+    /// `PlayImpactSound` at 0x004FF020). Passed as first arg alongside the
     /// half-speed magnitude scaled by 0.4.
     pub impact_sound_id: u32,
     /// 0x344 — render_data[0x1C]. Ricochet-eligible side mask tested against the

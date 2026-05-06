@@ -566,7 +566,7 @@ unsafe fn fire_teleport(worm: *mut WormEntity) {
 
         // Spawn the teleport visual effect — sends a typed CreateAnimation
         // (msg 0x56) to WorldRootEntity. Pure-Rust port of WA 0x00547C30
-        // (`SpawnEffect_Maybe`); see `CreateAnimationMessage` for the payload
+        // (`SpawnEffect`); see `CreateAnimationMessage` for the payload
         // shape. The 0x408-byte buffer matches WA's HandleMessage call exactly.
         let fire_x = (*worm).weapon_param_1;
         let fire_y = (*worm).weapon_param_2;

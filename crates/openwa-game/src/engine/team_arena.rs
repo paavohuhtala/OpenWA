@@ -251,7 +251,7 @@ pub struct TeamHeader {
     pub _unknown_60: [u8; 0x0C],
     /// 0x6C: Team eliminated flag (nonzero = eliminated).
     pub eliminated: i32,
-    /// 0x70: Alliance ID used by CountTeamsByAlliance and SetActiveWorm_Maybe.
+    /// 0x70: Alliance ID used by CountTeamsByAlliance and SetActiveWorm.
     pub alliance: i32,
     /// 0x74: Active worm index (0 = none, N = worm N is active).
     pub active_worm: i32,
@@ -378,10 +378,10 @@ pub struct TeamArena {
     /// TODO: Convert this to GamePhase enum
     pub game_phase: i32,
 
-    // === Alliance tracking (set by CountTeamsByAlliance + SetActiveWorm_Maybe) ===
+    // === Alliance tracking (set by CountTeamsByAlliance + SetActiveWorm) ===
     /// 0x2C2C: Current alliance being evaluated
     pub current_alliance: i32,
-    /// 0x2C30: Count of teams with an active worm (set by SetActiveWorm_Maybe)
+    /// 0x2C30: Count of teams with an active worm (set by SetActiveWorm)
     pub active_worm_count: i32,
     /// 0x2C34: Count of active teams with valid alliance (>=0)
     pub active_team_count: i32,
@@ -389,9 +389,9 @@ pub struct TeamArena {
     pub same_alliance_count: i32,
     /// 0x2C3C: Count of teams not matching current_alliance
     pub enemy_team_count: i32,
-    /// 0x2C40: Last team index set active (written by SetActiveWorm_Maybe)
+    /// 0x2C40: Last team index set active (written by SetActiveWorm)
     pub last_active_team: i32,
-    /// 0x2C44: Alliance of last activated team (written by SetActiveWorm_Maybe)
+    /// 0x2C44: Alliance of last activated team (written by SetActiveWorm)
     pub last_active_alliance: i32,
 }
 

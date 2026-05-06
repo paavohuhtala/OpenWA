@@ -12,8 +12,8 @@
 //! `WorldEntity::OnContact` (base impl) to transfer damage/forces to `other`, and
 //! conditionally spawn explosions or fire-particle effects.
 //!
-//! Bridges out to WA.exe for: `WorldEntity::vt8`, `PlayImpactSound_Maybe`,
-//! `MissileEntity::HomingTargetCheck_Maybe`, `MissileEntity::ImpactSpecialFx_Maybe`,
+//! Bridges out to WA.exe for: `WorldEntity::vt8`, `PlayImpactSound`,
+//! `MissileEntity__HomingTargetCheck`, `MissileEntity__ImpactSpecialFx`,
 //! the `CreateExplosion` damage-jitter helper `GameTask__calc_damage`, and the slot-14
 //! terminator on self. `CreateExplosion` itself is the pure-Rust
 //! `game::create_explosion`. RNG advances use the Rust `GameWorld::advance_rng`.
@@ -255,7 +255,7 @@ unsafe fn terminator_bailout_stash(this: *mut MissileEntity, speed_x: Fixed, spe
 // WA.exe bridges — naked-asm trampolines for non-standard calling conventions.
 // ============================================================================
 
-/// Bridge: `PlayImpactSound_Maybe` (0x004FF020) — usercall: EDI = this,
+/// Bridge: `PlayImpactSound` (0x004FF020) — usercall: EDI = this,
 /// stack = [sound_id, mag]. The target reads `[EDI+0xE0]` as the emitter
 /// pointer and `[EDI+0x2C]` as the world pointer.
 #[unsafe(naked)]
@@ -296,7 +296,7 @@ unsafe extern "C" fn cgameentity_on_contact_base(
     );
 }
 
-/// Bridge: `MissileEntity::HomingTargetCheck_Maybe` (0x005018F0) — usercall:
+/// Bridge: `MissileEntity__HomingTargetCheck` (0x005018F0) — usercall:
 /// ECX = pos_x, EAX = pos_y + 1.0 (Fixed), stack = [this]. Returns EAX.
 #[unsafe(naked)]
 unsafe extern "C" fn homing_target_check(
@@ -318,7 +318,7 @@ unsafe extern "C" fn homing_target_check(
     );
 }
 
-/// Bridge: `MissileEntity::ImpactSpecialFx_Maybe` (0x00509BA0) — usercall:
+/// Bridge: `MissileEntity__ImpactSpecialFx` (0x00509BA0) — usercall:
 /// EDI = this, stack = [pos_x, pos_y].
 #[unsafe(naked)]
 unsafe extern "C" fn impact_special_fx(

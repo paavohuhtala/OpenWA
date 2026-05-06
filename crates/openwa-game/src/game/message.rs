@@ -445,7 +445,7 @@ impl EntityMessageData for PoisonWormMessage {
 
 /// Payload for [`EntityMessage::CreateAnimation`] (msg 0x56).
 ///
-/// Constructed by `SpawnEffect_Maybe` (WA 0x00547C30) on a 0x408-byte stack
+/// Constructed by `SpawnEffect` (WA 0x00547C30) on a 0x408-byte stack
 /// scratch buffer and forwarded to `WorldRootEntity::HandleMessage`. WA only
 /// writes 11 dwords (the prefix below); the remaining 988 bytes are
 /// uninitialized stack memory. We zero-fill the trailing region so the

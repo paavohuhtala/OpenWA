@@ -43,7 +43,7 @@ pub unsafe fn construct_session(this: *mut GameSession) {
     }
 }
 
-/// Rust port of `GameSession::OnHeadlessPreLoop_Maybe` (0x00572430).
+/// Rust port of `GameSession__OnHeadlessPreLoop` (0x00572430).
 ///
 /// Called once before the main loop enters when `g_DisplayModeFlag != 0`,
 /// and from two WA-side SYSCOMMAND minimize paths (`FUN_004ed701`,

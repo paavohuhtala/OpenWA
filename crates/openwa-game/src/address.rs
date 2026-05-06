@@ -171,13 +171,13 @@ pub mod va {
             /// HandleMessage / WorldRootEntity destructor — 17 call sites).
             fn/Usercall TEAM_INDEX_MAP_REMOVE_HANDLE = 0x00526000;
             /// Helper called from the online `ShouldInterpolate` path
-            /// (GameRuntime__PeerInputQueueScan_Maybe). Scans the per-peer input-message queue for any
+            /// (GameRuntime__PeerInputQueueScan). Scans the per-peer input-message queue for any
             /// "gameplay-relevant" message type. Usercall EAX=this +
             /// 1 stdcall stack param (peer_idx), RET 0x4. Still bridged;
-            /// its own callee (`NetSession__PeerInputQueuePop_Maybe` input-queue-pop helper) is
+            /// its own callee (`NetSession__PeerInputQueuePop` input-queue-pop helper) is
             /// also online-only and would require additional bridging.
             fn/Usercall GAME_RUNTIME_PEER_INPUT_QUEUE_SCAN = 0x0052E880;
-            /// Tail callee of `ShouldInterpolate_OfflineCheck` (GameRuntime__ShouldInterpolate_OfflineTail_Maybe).
+            /// Tail callee of `ShouldInterpolate_OfflineCheck` (GameRuntime__ShouldInterpolate_OfflineTail).
             /// Stdcall(runtime), RET 0x4. Large (~205 instructions, 51 basic
             /// blocks); still bridged as a plain stdcall call from the
             /// offline-branch Rust port.
@@ -299,7 +299,7 @@ pub mod va {
             fn/Stdcall GAME_WORLD_INIT_PALETTE_GRADIENT_SPRITES = 0x005706D0;
             /// GameWorld__InitFeatureFlags
             fn/Stdcall GAME_WORLD_INIT_FEATURE_FLAGS = 0x00524700;
-            /// GameWorld__InitDisplayFinal_Maybe
+            /// GameWorld__InitDisplayFinal
             fn GAME_WORLD_INIT_DISPLAY_FINAL = 0x0056A830;
             /// GameWorld__IsSuperWeapon
             fn/Usercall IS_SUPER_WEAPON = 0x00565960;
@@ -636,7 +636,7 @@ pub mod va {
         /// Scans all teams for any worm with state 0x8b
         fn/Usercall CHECK_ANY_WORM_STATE_0X8B = 0x00522970;
         /// Sets the active worm for a team
-        fn/Usercall SET_ACTIVE_WORM_MAYBE = 0x00522500;
+        fn/Usercall SET_ACTIVE_WORM = 0x00522500;
     }
 
     // =========================================================================
@@ -658,7 +658,7 @@ pub mod va {
             /// Replaced by Rust `pump_messages` (full hook — also called
             /// from `GameRuntime::LoadingProgressTick` on the WA side).
             fn/Cdecl GAME_SESSION_PUMP_MESSAGES = 0x00572E30;
-            /// GameSession__OnHeadlessPreLoop_Maybe — clears keyboard/cursor
+            /// GameSession__OnHeadlessPreLoop — clears keyboard/cursor
             /// state, hides frontend, flushes display, primes flag_5c=1.
             /// Called once before the main loop when `g_DisplayModeFlag != 0`.
             /// Replaced by Rust `on_headless_pre_loop` (full hook — two
@@ -801,7 +801,7 @@ pub mod va {
         /// usercall(ECX = GameRuntime*), no stack args, plain RET.
         /// Ported in `engine::main_loop::render_frame::game_render`.
         fn/Thiscall GAME_RENDER = 0x00533DC0;
-        /// `GameRuntime::DrawAwayOverlay_Maybe` — headful "GAME AWAY"/
+        /// `GameRuntime__DrawAwayOverlay` — headful "GAME AWAY"/
         /// "GAME OVER" overlay. usercall(EDI = runtime, [stack]=top_y).
         /// RET 0x4. Bridged from render_frame.
         fn/Usercall GAME_RUNTIME_DRAW_AWAY_OVERLAY = 0x005336E0;
@@ -837,28 +837,28 @@ pub mod va {
         /// The original Ghidra name `RenderTurnStatus_Maybe` was misleading —
         /// the function only draws this one textbox.
         fn/Usercall RENDER_NETWORK_END_WAIT_TEXTBOX = 0x00534E00;
-        /// `PaletteManage_Maybe` (0x00533C80) — stdcall(runtime), RET 0x4.
+        /// `PaletteManage` (0x00533C80) — stdcall(runtime), RET 0x4.
         /// Once every 50 frames, copies layer-2 palette state into
         /// `runtime.palette_ctx_b`, applies a hue rotation, and commits it
         /// via `update_palette`. Ported in
         /// `engine::main_loop::render_frame::palette_manage`.
-        fn/Stdcall PALETTE_MANAGE_MAYBE = 0x00533C80;
-        /// `PaletteAnimate_Maybe` (0x00533A80) — stdcall(runtime), RET 0x4.
+        fn/Stdcall PALETTE_MANAGE = 0x00533C80;
+        /// `PaletteAnimate` (0x00533A80) — stdcall(runtime), RET 0x4.
         /// Recomputes all 3 layer palettes (a/b/c) when the cached fade
         /// state changes; blends each toward black with per-layer alphas.
         /// Ported in `engine::main_loop::render_frame::palette_animate`.
-        fn/Stdcall PALETTE_ANIMATE_MAYBE = 0x00533A80;
-        /// `PaletteContext::RotateHues_Maybe` (0x005415A0) — stdcall(ctx,
+        fn/Stdcall PALETTE_ANIMATE = 0x00533A80;
+        /// `PaletteContext__RotateHues` (0x005415A0) — stdcall(ctx,
         /// frame_group), RET 0x8. Walks `[dirty_range_min..=dirty_range_max]`
         /// of `ctx.rgb_table`; for each entry, converts RGB to HLS, adds
         /// `frame_group` to the hue (mod 240), converts back. Used by
-        /// [`PALETTE_MANAGE_MAYBE`] for the per-50-frame palette animation.
+        /// [`PALETTE_MANAGE`] for the per-50-frame palette animation.
         fn/Stdcall PALETTE_CONTEXT_ROTATE_HUES = 0x005415A0;
-        /// `PaletteContext::BlendTowardColor_Maybe` (0x005414F0) — usercall
+        /// `PaletteContext__BlendTowardColor` (0x005414F0) — usercall
         /// (EAX = alpha (Fixed 0..0x10000), [stack] = ctx, target_rgb),
         /// RET 0x8. For each entry in `[dirty_range_min..=dirty_range_max]`,
         /// linearly blends `ctx.rgb_table[i]` toward `target_rgb` by `alpha`.
-        /// Used by [`PALETTE_ANIMATE_MAYBE`] for fade-to-black animations.
+        /// Used by [`PALETTE_ANIMATE`] for fade-to-black animations.
         fn/Usercall PALETTE_CONTEXT_BLEND_TOWARD_COLOR = 0x005414F0;
         fn LOAD_SPRITE = 0x00523400;
         fn OPENGL_INIT = 0x0059F000;

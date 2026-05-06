@@ -95,7 +95,7 @@ pub struct GameSession {
     /// 0x05C: "engine suspended" flag — set when the game enters a
     /// minimized / headless-like state (no rendering, no engine tick, no
     /// palette work). Initialised to 0 by the constructor; set to 1 by
-    /// `GameSession::OnHeadlessPreLoop_Maybe` (headless startup +
+    /// `GameSession__OnHeadlessPreLoop` (headless startup +
     /// SYSCOMMAND minimize paths); cleared by the keyboard re-acquire path
     /// when the window is restored. Readers gate gameplay/render work:
     ///  - `GameSession::ProcessFrame` skips the engine frame advance

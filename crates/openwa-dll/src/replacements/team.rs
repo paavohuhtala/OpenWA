@@ -116,7 +116,7 @@ usercall_trampoline!(fn trampoline_team_index_map_pop_handle;
     impl_fn = team_index_map_pop_handle_impl;
     reg = ecx; stack_params = 1; ret_bytes = "0x4"; preserve_ecx);
 
-// ── SetActiveWorm_Maybe (0x522500): usercall(EAX=base, EDX=team_idx, ESI=worm) ──
+// ── SetActiveWorm (0x522500): usercall(EAX=base, EDX=team_idx, ESI=worm) ──
 
 unsafe extern "cdecl" fn set_active_worm_impl(
     arena: *mut TeamArena,
@@ -171,8 +171,8 @@ pub fn install() -> Result<(), String> {
             trampoline_check_any_worm_state_0x8b as *const (),
         )?;
         let _ = hook::install(
-            "SetActiveWorm_Maybe",
-            va::SET_ACTIVE_WORM_MAYBE,
+            "SetActiveWorm",
+            va::SET_ACTIVE_WORM,
             trampoline_set_active_worm as *const (),
         )?;
         let _ = hook::install(

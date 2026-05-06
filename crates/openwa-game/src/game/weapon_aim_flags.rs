@@ -1,4 +1,4 @@
-//! Rust port of `WeaponSpawn::DecodeDescriptor_Maybe` (0x00565C10) and
+//! Rust port of `WeaponSpawn__DecodeDescriptor` (0x00565C10) and
 //! its two private helpers `Weapon__analyse_missile` (0x00565BB0) and `Weapon__analyse_missile_part`
 //! (0x00565B40). Reads a [`WeaponEntry`] and returns a [`WeaponAimFlags`]
 //! struct with up to 8 per-weapon UI/aim booleans.

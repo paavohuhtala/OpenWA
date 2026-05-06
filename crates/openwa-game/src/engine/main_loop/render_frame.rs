@@ -78,7 +78,7 @@ pub unsafe fn render_frame(runtime: *mut GameRuntime) {
     }
 }
 
-/// Bridge for `GameRuntime__DrawAwayOverlay_Maybe` (0x005336E0). Usercall:
+/// Bridge for `GameRuntime__DrawAwayOverlay` (0x005336E0). Usercall:
 /// `EDI = runtime`, `[stack] = top_y`, RET 0x4. Headful "GAME AWAY" /
 /// "GAME OVER" overlay drawer; too many WA-side dependencies to port
 /// incidentally.
@@ -135,7 +135,7 @@ unsafe fn set_textbox_text(
     }
 }
 
-/// Bridge for `PaletteContext::RotateHues_Maybe` (0x005415A0, stdcall
+/// Bridge for `PaletteContext__RotateHues` (0x005415A0, stdcall
 /// RET 0x8). Walks `[dirty_range_min..=dirty_range_max]` of `ctx.rgb_table`,
 /// converts each entry RGB→HLS, adds `frame_group` to the hue (mod 240),
 /// converts back. Calls Win32 GDI's `ColorRGBToHLS`/`ColorHLSToRGB`.
@@ -147,7 +147,7 @@ unsafe fn palette_rotate_hues(ctx: *mut PaletteContext, frame_group: i32) {
     }
 }
 
-/// Bridge for `PaletteContext::BlendTowardColor_Maybe` (0x005414F0).
+/// Bridge for `PaletteContext__BlendTowardColor` (0x005414F0).
 /// Usercall(EAX = `alpha` clamped to `0..=0x10000`, [stack] = `ctx`,
 /// `target_rgb`), RET 0x8. For each entry in
 /// `[dirty_range_min..=dirty_range_max]`, lerps `ctx.rgb_table[i]` toward
@@ -766,7 +766,7 @@ const G_PALETTE_ANIM_ENABLED_VA: u32 = 0x007A085E;
 /// [`palette_manage`]; the body fires once every 50 increments.
 const G_PALETTE_ANIM_TICK_VA: u32 = 0x0077499C;
 
-/// Rust port of `PaletteManage_Maybe` (0x00533C80). Stdcall(runtime),
+/// Rust port of `PaletteManage` (0x00533C80). Stdcall(runtime),
 /// RET 0x4. Once the global tick counter at [`G_PALETTE_ANIM_TICK_VA`]
 /// crosses a 50-frame boundary, copies layer-2's palette state into
 /// `runtime.palette_ctx_b`, applies a frame-group hue rotation via
@@ -803,7 +803,7 @@ unsafe fn palette_manage(runtime: *mut GameRuntime) {
     }
 }
 
-/// Rust port of `PaletteAnimate_Maybe` (0x00533A80). Stdcall(runtime),
+/// Rust port of `PaletteAnimate` (0x00533A80). Stdcall(runtime),
 /// RET 0x4. Recomputes the three layer palettes (a/b/c) when any of the
 /// three cached fade inputs has changed since the last frame, then commits
 /// them. Drives the screen fade-to-black at game-end and during pause.
