@@ -1,5 +1,6 @@
 pub mod buffer_object;
 pub mod clock;
+pub mod config_load;
 pub mod coord;
 pub mod dual_buffer_object;
 pub mod entity_activity_queue;
