@@ -929,7 +929,7 @@ pub mod va {
         fn/Fastcall DISPATCH_GLOBAL_SOUND = 0x00526270;
         /// RecordActiveSound
         fn/Usercall RECORD_ACTIVE_SOUND = 0x00546260;
-        /// WormEntity::PlaySound2 (WormEntity__PlaySound_Maybe): usercall(EDI=worm) + stdcall(sound_id, volume, flags).
+        /// WormEntity::PlaySound2 (WormEntity__PlaySound): usercall(EDI=worm) + stdcall(sound_id, volume, flags).
         /// Stop+play on secondary sound handle (+0x3B4). 23 callers in WA.
         fn/Usercall WORM_PLAY_SOUND_2 = 0x00515020;
         /// LoadAndPlayStreamingPositional (0x546BB0): usercall(EAX=entity) + stack(volume, sound_id, flags, x, y).

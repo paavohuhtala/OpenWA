@@ -107,10 +107,10 @@ pub enum KnownWormState {
     /// Transitions to 0x73 on fire.
     RopeSwinging = 0x7C,
     /// Pre-fire variant — MailMineMole version check uses this.
-    /// Transitions to 0x7E or 0x65 depending on WorldEntity__IsMoving_Maybe.
+    /// Transitions to 0x7E or 0x65 depending on WorldEntity__IsMoving.
     PreFire_Maybe = 0x7D,
     /// Post-fire / special movement — entered from 0x78 and 0x7D
-    /// when WorldEntity__IsMoving_Maybe returns nonzero.
+    /// when WorldEntity__IsMoving returns nonzero.
     PostFire_Maybe = 0x7E,
     /// Drowning — worm fell in water.
     Drowning = 0x7F,
@@ -182,7 +182,7 @@ crate::define_addresses! {
         vtable WORM_ENTITY_VTABLE = 0x006644C8;
         /// WormEntity constructor
         ctor WORM_ENTITY_CONSTRUCTOR = 0x0050BFB0;
-        /// `WormEntity::NotifyMoved_Maybe` (was `BroadcastDamageEvent_Maybe`).
+        /// `WormEntity::NotifyMoved` (was `BroadcastDamageEvent_Maybe`).
         /// Usercall `(ESI = this)`, plain RET. Looks up the SharedData entity
         /// at key `(esi=0, edi=0x14)` and sends it `WormMoved` (msg 0x47);
         /// also commits the cursor-marker pos and bumps a per-worm "first
@@ -198,12 +198,12 @@ crate::define_addresses! {
         /// (WeaponClaimControl); ends the worm's active weapon if one is in
         /// flight.
         fn/Usercall WORM_ENTITY_CANCEL_ACTIVE_WEAPON = 0x0050E790;
-        /// `WormEntity::ApplyDamage_Maybe`. Usercall
+        /// `WormEntity::ApplyDamage`. Usercall
         /// `(ESI = this, [stack] = arg1, arg2)`, RET 0x8. Called from
         /// `HandleMessage` case 0x42 (AdvanceWorm) with `(arg1=1, arg2=1)` —
         /// applies the per-frame damage tick used by Drown/Strangle/etc.
         fn/Usercall WORM_ENTITY_APPLY_DAMAGE = 0x0050F580;
-        /// `WormEntity::SelectWeapon_Maybe`. Usercall
+        /// `WormEntity::SelectWeapon`. Usercall
         /// `(EDI = this, [stack] = weapon_id, ammo_count)`, RET 0x8. Called
         /// from `HandleMessage` case 0x33 (SelectWeapon).
         fn/Usercall WORM_ENTITY_SELECT_WEAPON = 0x0051AE50;
@@ -217,13 +217,13 @@ crate::define_addresses! {
         /// the network flag is set; full teardown including SharedData
         /// notification and weapon-table fields.
         fn/Usercall WORM_ENTITY_CLEAR_WEAPON_STATE = 0x0050E710;
-        /// `WormEntity::BroadcastWeaponName_Maybe`. Thiscall
+        /// `WormEntity::BroadcastWeaponName`. Thiscall
         /// `(ECX = this, [stack] = name_str_ptr, flag)`, RET 0x8. Forwards
         /// to `GameTask__comment_public(this, name_str_ptr, *(this+0x10c)+0x11, this+0x2f0)`.
         /// Called from `StartTurn` (msg 0x34) with the resolved
         /// `LocalizedTemplate` token 0x69D and `flag = 1`.
         fn/Thiscall WORM_ENTITY_BROADCAST_WEAPON_NAME = 0x0050D540;
-        /// `WormEntity::BroadcastWeaponSettings_Maybe`. Fastcall
+        /// `WormEntity::BroadcastWeaponSettings`. Fastcall
         /// `(ECX = this)`, plain RET, no stack args. Called from `StartTurn`
         /// (msg 0x34) only when `selected_weapon != None`. Decodes the active
         /// weapon's `WeaponSpawn` descriptor and broadcasts a settings string
@@ -777,7 +777,7 @@ pub struct WormEntity {
     /// (e.g., weapon charge-up) is actively playing. PlayWormSound stores the
     /// new handle here; StopWormSound clears it.
     pub sound_handle: i32,
-    /// 0x3B4: Secondary sound handle, used by WormEntity__PlaySound_Maybe (teleport/weapon sounds).
+    /// 0x3B4: Secondary sound handle, used by WormEntity__PlaySound (teleport/weapon sounds).
     /// Same stop/play semantics as `sound_handle` but a separate channel.
     pub sound_handle_2: i32,
     /// 0x3B8–0x3DB: Unknown
@@ -865,7 +865,7 @@ impl WormEntity {
 
     // vtable() method is now provided by bind_WormEntityVtable! macro above.
 
-    /// Pure Rust port of `WormEntity::LandingCheck_Maybe` (WA 0x0050D450,
+    /// Pure Rust port of `WormEntity::LandingCheck` (WA 0x0050D450,
     /// `__usercall(ESI=this)`, plain RET).
     ///
     /// Examines the worm's position and state and records a landing-event

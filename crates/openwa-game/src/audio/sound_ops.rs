@@ -8,7 +8,7 @@
 //! - PlaySoundLocal (0x4FDFE0)
 //! - StopWormSound (Task_Worm__stop_fire_sound)
 //! - PlayWormSound (Task_Worm__fire_sound)
-//! - PlayWormSound2 (WormEntity__PlaySound_Maybe)
+//! - PlayWormSound2 (WormEntity__PlaySound)
 //! - IsSoundSuppressed (0x5261E0)
 //! - DispatchGlobalSound (0x526270)
 //! - PlaySoundPooled_Direct (0x546B50)
@@ -161,7 +161,7 @@ pub unsafe fn play_worm_sound(worm: *mut WormEntity, sound_id: SoundId, volume: 
 }
 
 /// Stop+play on the secondary sound handle (WormEntity+0x3B4).
-/// Port of WormEntity__PlaySound_Maybe (23 callers in WA).
+/// Port of WormEntity__PlaySound (23 callers in WA).
 ///
 /// Stops any active sound on `sound_handle_2`, then plays a new streaming
 /// sound. Has a special case for sound 0x36 (Teleport) when the worm's Y

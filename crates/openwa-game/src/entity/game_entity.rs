@@ -72,7 +72,7 @@ pub struct WorldEntity<V: super::base::Vtable = *const core::ffi::c_void> {
     /// it accumulates while moves stall and resets on a successful step.
     /// Canonical name from WA's C++ source not yet identified.
     pub _field_ac: i32,
-    /// 0xB0: Read by `is_moving_raw` (WorldEntity__IsMoving_Maybe): any non-zero
+    /// 0xB0: Read by `is_moving_raw` (WorldEntity__IsMoving): any non-zero
     /// contributes to the "this body is still in motion" predicate.
     /// `OilDrumEntity::on_fire` reads the same slot as a non-zero flag —
     /// both readers see the same field; the canonical purpose (likely a
@@ -207,7 +207,7 @@ impl WorldEntity {
         }
     }
 
-    /// Pure Rust port of `WorldEntity__IsMoving_Maybe` — "is this entity in motion?".
+    /// Pure Rust port of `WorldEntity__IsMoving` — "is this entity in motion?".
     ///
     /// Returns `true` iff any of `speed_x` (+0x90), `speed_y` (+0x94), or the
     /// three subclass-polymorphic scalars `_field_b0`/`_field_b4`/`_field_b8`

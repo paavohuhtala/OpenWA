@@ -216,7 +216,7 @@ pub fn install() -> Result<(), String> {
         // Patch DSSound vtable: replace all 24 slots with Rust implementations.
         patch_dssound_vtable()?;
 
-        // Hook WormEntity::PlaySound2 (WormEntity__PlaySound_Maybe) — 23 callers in WA
+        // Hook WormEntity::PlaySound2 (WormEntity__PlaySound) — 23 callers in WA
         let _ = hook::install(
             "WormPlaySound2",
             va::WORM_PLAY_SOUND_2,

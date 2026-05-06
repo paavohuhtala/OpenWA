@@ -74,15 +74,15 @@ static mut LOCALIZED_TEXT_RANDOM_PICK_ADDR: u32 = 0;
 // `[EDI+0xE0]`. Used by SpecialImpact (msg 0x4B) to play the corpse-hit
 // sound during the Dead-state branch.
 static mut WORM_PLAY_IMPACT_SOUND_ADDR: u32 = 0;
-// WormEntity::PlaySound_Maybe (0x00515020) — usercall(EDI = this), 3 stack
+// WormEntity::PlaySound (0x00515020) — usercall(EDI = this), 3 stack
 // args (sound_id, vol, channel), RET 0xC. Stops the worm's currently-held
 // sound handle (at `this+0x3B4`) before starting the new one.
 static mut WORM_PLAY_SOUND_ADDR: u32 = 0;
-// WormEntity::SpawnDamageParticles_Maybe (0x005108D0) —
+// WormEntity::SpawnDamageParticles (0x005108D0) —
 // usercall(EAX = damage, ECX = this), 4 stack args (worm_x, worm_y, msg_x,
 // msg_y), RET 0x10. Bails out when damage <= 2.
 static mut WORM_SPAWN_DAMAGE_PARTICLES_ADDR: u32 = 0;
-// WormEntity::HitTestRopeLine_Maybe (0x00501210) — fastcall(ECX = this,
+// WormEntity::HitTestRopeLine (0x00501210) — fastcall(ECX = this,
 // EDX = pos_x), 2 stack args (rope_param, pos_y), RET 0x8. Returns
 // nonzero when an active rope at `this+0xBC` intersects the explosion at
 // (pos_x, pos_y). The `rope_param` arg comes from the message's offset
@@ -126,7 +126,7 @@ static mut WORM_DRAW_HUD_LABELS_ADDR: u32 = 0;
 static mut WORM_DRAW_AIM_CURSOR_ADDR: u32 = 0;
 static mut WORM_DRAW_TURN_INDICATOR_ADDR: u32 = 0;
 static mut WORM_DRAW_CURSOR_MARKER_ADDR: u32 = 0;
-// WormEntity::BehaviorTick_Maybe (0x00515650) — plain stdcall, this on
+// WormEntity::BehaviorTick (0x00515650) — plain stdcall, this on
 // stack, RET 0x4, returns u32 in EAX. The 645-line per-frame behaviour
 // driver; far too large to port in one slice.
 static mut WORM_BEHAVIOR_TICK_ADDR: u32 = 0;
@@ -1050,7 +1050,7 @@ unsafe fn ease_aux_value(this: *mut WormEntity) {
     }
 }
 
-/// Inlines `WormEntity::IsActionState_Maybe` (0x0050E800). The function is
+/// Inlines `WormEntity::IsActionState` (0x0050E800). The function is
 /// a 2-entry jumptable indexed by `byte[(state - 0x68) + 0x50e820]`: byte=0
 /// returns 1 (action), byte=1 returns 0. From the data table at 0x50e820,
 /// **action** states are `0x68..=0x72`, `0x74`, `0x75`, `0x8A`. Inverted
@@ -1076,7 +1076,7 @@ fn can_fire_subtype_16(state: WormState) -> bool {
     ])
 }
 
-/// Inlines `WormEntity::DeactivateOnIdle_Maybe` (0x0050F7F0).
+/// Inlines `WormEntity::DeactivateOnIdle` (0x0050F7F0).
 unsafe fn deactivate_on_idle(this: *mut WormEntity) {
     unsafe {
         if (*this).state().is(KnownWormState::Active) {
@@ -1836,7 +1836,7 @@ unsafe fn msg_turn_end_maybe(this: *mut WormEntity) -> bool {
     }
 }
 
-/// Inlines `WormEntity::ReleaseWeapon_Maybe` (0x0051C010).
+/// Inlines `WormEntity::ReleaseWeapon` (0x0051C010).
 unsafe fn msg_release_weapon(this: *mut WormEntity) {
     unsafe {
         if (*this).selected_weapon == KnownWeaponId::None {
