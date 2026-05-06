@@ -130,25 +130,25 @@ static mut WORM_DRAW_CURSOR_MARKER_ADDR: u32 = 0;
 // stack, RET 0x4, returns u32 in EAX. The 645-line per-frame behaviour
 // driver; far too large to port in one slice.
 static mut WORM_BEHAVIOR_TICK_ADDR: u32 = 0;
-// WormEntity::TryFireWeapon_Maybe (0x0051B2B0) — usercall(ESI=this), no
+// WormEntity__TryFireWeapon (0x0051B2B0) — usercall(ESI=this), no
 // stack args, plain RET, returns u32. Drives the normal fire path during
 // the case-0x24 firing-tick block.
 static mut WORM_TRY_FIRE_WEAPON_ADDR: u32 = 0;
-// WormEntity::TryFireWeaponSpecial_Maybe (0x0051B120) — same shape as
+// WormEntity__TryFireWeaponSpecial (0x0051B120) — same shape as
 // TryFireWeapon. Reached only on schemes with `_scheme_d964 > 1`.
 static mut WORM_TRY_FIRE_WEAPON_SPECIAL_ADDR: u32 = 0;
-// WormEntity::LogWeaponFire_Maybe (0x0051F970) — plain stdcall (this,
+// WormEntity__LogWeaponFire (0x0051F970) — plain stdcall (this,
 // weapon_entry), RET 0x8. Records the just-fired weapon for replay/log.
 static mut WORM_LOG_WEAPON_FIRE_ADDR: u32 = 0;
-// WormEntity::FindClearSpawnLocation_Maybe (0x0051F510) — usercall(ESI=this)
+// WormEntity__FindClearSpawnLocation (0x0051F510) — usercall(ESI=this)
 // + stdcall(out_x, out_y, flag), RET 0xC. Returns nonzero when the
 // teleport target is OK.
 static mut WORM_FIND_CLEAR_SPAWN_LOCATION_ADDR: u32 = 0;
-// WormEntity::IsSpawnAreaValid_Maybe (0x0051F350) — usercall(EAX=weapon_param_3)
+// WormEntity__IsSpawnAreaValid (0x0051F350) — usercall(EAX=weapon_param_3)
 // + stdcall(this, x, y), RET 0xC. Returns nonzero when the girder spawn
 // region passes its overlap test.
 static mut WORM_IS_SPAWN_AREA_VALID_ADDR: u32 = 0;
-// WeaponSpawn::IsIndirect_Maybe (0x00565A80) — usercall(EAX=weapon_entry),
+// WeaponSpawn__IsIndirect (0x00565A80) — usercall(EAX=weapon_entry),
 // no stack args, plain RET, returns u32. Inspects the weapon's fire
 // type/method to decide whether the projectile is "indirect" (mortar/
 // homing-style).
@@ -1007,7 +1007,7 @@ const AIM_FADE_MIN_STEP: Fixed = Fixed(0x20C);
 const AUX_VALUE_RATE: Fixed = Fixed(0x1999);
 const AUX_VALUE_MIN_STEP: Fixed = Fixed(0x1999);
 
-/// Rust port of `WormEntity::EaseAimVecA_Maybe` (0x0050E630). Eases
+/// Rust port of `WormEntity__EaseAimVecA` (0x0050E630). Eases
 /// `aim_fade[4]` toward `aim_fade[5]` and `aim_fade[6]` toward
 /// `aim_fade[7]`. The inlined ease primitive in WA is bit-identical to
 /// [`Fixed::smooth_move_towards`].
@@ -1020,7 +1020,7 @@ unsafe fn ease_aim_vec_a(this: *mut WormEntity) {
     }
 }
 
-/// Rust port of `WormEntity::EaseAimVecB_Maybe` (0x0050E500). Eases
+/// Rust port of `WormEntity__EaseAimVecB` (0x0050E500). Eases
 /// `aim_fade[0]` toward `aim_fade[1]` and `aim_fade[2]` toward
 /// `aim_fade[3]`.
 unsafe fn ease_aim_vec_b(this: *mut WormEntity) {
@@ -1032,7 +1032,7 @@ unsafe fn ease_aim_vec_b(this: *mut WormEntity) {
     }
 }
 
-/// Rust port of `WormEntity::EaseAuxValue_Maybe` (0x0050FB10). Eases
+/// Rust port of `WormEntity__EaseAuxValue` (0x0050FB10). Eases
 /// `_field_398` toward `_field_39c` via WA's `GameTask__moveto` primitive,
 /// then — when the eased value is non-zero AND the worm holds the turn
 /// — suppresses `aim_fade[5]` and `aim_fade[7]` so the aim arrow stops
@@ -1855,7 +1855,7 @@ unsafe fn msg_release_weapon(this: *mut WormEntity) {
     }
 }
 
-/// Aim-snap inlines `WormEntity::QuantizeAimAngle_Maybe` (0x0051FD40):
+/// Aim-snap inlines `WormEntity__QuantizeAimAngle` (0x0051FD40):
 /// snaps to `{0, 0x8000, 0x10000}` based on which 0x4000-quadrant the angle
 /// falls in (the two end quadrants both go to 0x8000, not 0 — important).
 unsafe fn msg_turn_started(this: *mut WormEntity) {
