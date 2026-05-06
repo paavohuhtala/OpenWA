@@ -49,35 +49,17 @@ use crate::wa::string_resource::res;
 
 // ─── Bridged WA addresses ──────────────────────────────────────────────────
 
-static mut BEGIN_NETWORK_GAME_END_ADDR: u32 = 0;
 static mut MENU_PANEL_RENDER_ADDR: u32 = 0;
 
 /// Initialize the ESC-menu bridge addresses. Called from
 /// `dispatch_frame::init_dispatch_addrs` at DLL load.
 pub unsafe fn init_addrs() {
     unsafe {
-        BEGIN_NETWORK_GAME_END_ADDR = rb(va::GAME_RUNTIME_BEGIN_NETWORK_GAME_END);
         MENU_PANEL_RENDER_ADDR = rb(va::MENU_PANEL_RENDER);
     }
 }
 
 // ─── Bridges (still WA-side) ───────────────────────────────────────────────
-
-/// Bridge for `GameRuntime::BeginNetworkGameEnd` (0x00536270). Usercall
-/// `(EAX=this)`, plain RET. Network-mode round-end entry: writes initial
-/// peer-score sentinels (1000) into `runtime` per active peer, transitions
-/// `game_state = NETWORK_END_AWAIT_PEERS` (3), enqueues a message in the
-/// network ring buffer, and forwards through `net_session.handle_message`.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_begin_network_game_end(_this: *mut GameRuntime) {
-    core::arch::naked_asm!(
-        "pop ecx",
-        "pop eax",
-        "push ecx",
-        "jmp dword ptr [{addr}]",
-        addr = sym BEGIN_NETWORK_GAME_END_ADDR,
-    );
-}
 
 /// Bridge for `MenuPanel::Render` (0x00540B00). Usercall(EDI = panel),
 /// plain RET, returns the panel's [`DisplayBitGrid`] canvas in EAX.
@@ -482,7 +464,7 @@ pub unsafe fn tick_open(runtime: *mut GameRuntime) {
 ///      `runtime.game_end_phase = 2`. Closes the menu.
 ///    * `2` (Quit): `runtime.game_end_phase = 1`. If offline →
 ///      [`begin_round_end`]; if online →
-///      [`bridge_begin_network_game_end`]. Closes the menu.
+///      [`super::step_frame::begin_network_game_end`]. Closes the menu.
 ///    * Anything else / Miss → state stays 2 (waiting for another click).
 pub unsafe fn tick_confirm(runtime: *mut GameRuntime) {
     unsafe {
@@ -570,7 +552,7 @@ pub unsafe fn tick_confirm(runtime: *mut GameRuntime) {
                 if (*world).net_session.is_null() {
                     begin_round_end(runtime, true);
                 } else {
-                    bridge_begin_network_game_end(runtime);
+                    super::step_frame::begin_network_game_end(runtime);
                 }
                 (*runtime).esc_menu_state = 0;
             }

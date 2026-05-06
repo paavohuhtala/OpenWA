@@ -5,11 +5,53 @@
 //! because multiple transport-specific subclasses may share the slot shape.
 
 use crate::FieldRegistry;
+use crate::engine::buffer_object::BufferObject;
+use crate::rebase::rb;
+
+crate::define_addresses! {
+    /// `GameNet::send_block` (0x0053E380). Usercall(EAX=this), plain RET.
+    /// Flushes the outgoing buffer at `NetSession+0x20` to the wire.
+    /// Bridged because the implementation is large (~91 instructions of
+    /// transport-specific framing) and only one call site needs it from
+    /// Rust today.
+    fn/Usercall GAME_NET_SEND_BLOCK = 0x0053E380;
+}
+
+static mut GAME_NET_SEND_BLOCK_ADDR: u32 = 0;
+
+/// Initialize bridged-function addresses for this module. Called once at
+/// DLL load from `dispatch_frame::init_dispatch_addrs`.
+pub unsafe fn init_addrs() {
+    unsafe {
+        GAME_NET_SEND_BLOCK_ADDR = rb(GAME_NET_SEND_BLOCK);
+    }
+}
+
+/// Bridge for `GameNet::send_block` (0x0053E380). Usercall(EAX=this),
+/// plain RET. Tail-call shape: pop ret-addr + the `this` arg, push
+/// ret-addr back, jmp to target.
+#[unsafe(naked)]
+pub unsafe extern "stdcall" fn bridge_send_block(_this: *mut NetSession) {
+    core::arch::naked_asm!(
+        "pop ecx",
+        "pop eax",
+        "push ecx",
+        "jmp dword ptr [{addr}]",
+        addr = sym GAME_NET_SEND_BLOCK_ADDR,
+    );
+}
 
 /// Partial vtable for `NetSession`. Observed slots are the per-peer query
 /// API used during end-of-round peer synchronisation.
 #[openwa_game::vtable(size = 11, class = "NetSession")]
 pub struct NetSessionVtable {
+    /// slot 2 (+0x08): submit an outgoing message buffer for sending. Only
+    /// observed call site is `begin_network_game_end`, which builds a 12-byte
+    /// end-of-round message in `runtime.ring_buffer_a` and forwards it
+    /// through this slot. Exact wire semantics unconfirmed; the buffer is
+    /// freshly reset before the call so it contains exactly one message.
+    #[slot(2)]
+    pub submit_message_buffer: fn(this: *mut NetSession, buffer: *mut BufferObject),
     /// slot 4 (+0x10): per-peer score / remaining-timeout. Caller takes
     /// `max()` over all active peers to decide whether to keep waiting.
     #[slot(4)]
@@ -50,7 +92,14 @@ pub struct NetSession {
     pub peer_count: i32,
     /// +0x0C: Our own peer index — excluded from `max_peer_score_raw`.
     pub self_peer_idx: i32,
-    // Trailing fields unknown.
+    /// +0x10..+0x1B: Unknown.
+    pub _unknown_10: [u8; 0xc],
+    /// +0x1C: Reset to 100 by `begin_network_game_end` after submitting the
+    /// end-of-round message buffer. Likely a "frames since last outgoing
+    /// flush" countdown — semantics unconfirmed.
+    pub _field_1c: i32,
+    // Trailing fields unknown (GameNet::send_block reads +0x20 as another
+    // BufferObject pointer).
 }
 
 bind_NetSessionVtable!(NetSession, vtable);

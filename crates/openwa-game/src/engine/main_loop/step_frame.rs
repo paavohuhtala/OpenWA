@@ -37,7 +37,7 @@ use crate::engine::game_info::GameInfo;
 use crate::engine::game_session::get_game_session;
 use crate::engine::game_state;
 use crate::engine::log_sink::LogOutput;
-use crate::engine::net_session::NetSession;
+use crate::engine::net_session::{NetSession, bridge_send_block};
 use crate::engine::runtime::GameRuntime;
 use crate::engine::world::GameWorld;
 use crate::entity::WorldRootEntity;
@@ -51,7 +51,6 @@ use crate::wa::string_resource::{StringRes, res, wa_load_string};
 // ─── Runtime addresses (resolved at DLL load) ──────────────────────────────
 
 static mut POLL_INPUT_ADDR: u32 = 0;
-static mut BEGIN_NETWORK_GAME_END_ADDR: u32 = 0;
 static mut CLEAR_WORM_BUFFERS_ADDR: u32 = 0;
 static mut ADVANCE_WORM_FRAME_ADDR: u32 = 0;
 static mut DISPATCH_INPUT_MSG_ADDR: u32 = 0;
@@ -60,7 +59,6 @@ static mut DISPATCH_INPUT_MSG_ADDR: u32 = 0;
 pub unsafe fn init_step_frame_addrs() {
     unsafe {
         POLL_INPUT_ADDR = rb(va::GAME_RUNTIME_POLL_INPUT);
-        BEGIN_NETWORK_GAME_END_ADDR = rb(va::GAME_RUNTIME_BEGIN_NETWORK_GAME_END);
         CLEAR_WORM_BUFFERS_ADDR = rb(va::GAME_RUNTIME_CLEAR_WORM_BUFFERS);
         ADVANCE_WORM_FRAME_ADDR = rb(va::GAME_RUNTIME_ADVANCE_WORM_FRAME);
         DISPATCH_INPUT_MSG_ADDR = rb(va::GAME_RUNTIME_DISPATCH_INPUT_MSG);
@@ -78,18 +76,56 @@ unsafe extern "stdcall" fn bridge_poll_input(runtime: *mut GameRuntime) {
     }
 }
 
-/// `GameRuntime__BeginNetworkGameEnd` (0x00536270) — network-mode entry
-/// from Block A when `network_ecx != 0`. Usercall(EAX=wrapper), plain RET.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_begin_network_game_end(_runtime: *mut GameRuntime) {
-    core::arch::naked_asm!(
-        "popl %ecx",
-        "popl %eax",
-        "pushl %ecx",
-        "jmpl *({fn})",
-        fn = sym BEGIN_NETWORK_GAME_END_ADDR,
-        options(att_syntax),
-    );
+/// Rust port of `GameRuntime::BeginNetworkGameEnd` (0x00536270).
+///
+/// Network-mode round-end entry point. For each peer: writes the
+/// per-peer scoring sentinels `team_scoring_b[i] = team_scoring_c[i] = 1000`.
+/// Then transitions `game_state = NETWORK_END_STARTED` (3), resets
+/// `runtime.ring_buffer_a` (a [`BufferObject`]) to empty, allocates a
+/// 12-byte slot in it carrying `[msg_type=0x0D, starting_team_index, 1]`,
+/// forwards the buffer through `net_session.submit_message_buffer`, calls
+/// the still-bridged [`bridge_send_block`] to flush it on the wire, and
+/// finally resets `net_session._field_1c` to 100.
+///
+/// The `starting_team_index` byte read from `game_info+0xD9DC` is
+/// **sign-extended** (`MOVSX` in the original) before being written into
+/// the message body — preserving the WA quirk that the field is signed.
+///
+/// [`bridge_send_block`]: crate::engine::net_session::bridge_send_block
+pub(super) unsafe fn begin_network_game_end(runtime: *mut GameRuntime) {
+    unsafe {
+        let world = (*runtime).world;
+        let net = (*world).net_session;
+        let peer_count = (*net).peer_count;
+
+        for i in 0..peer_count as usize {
+            (*runtime).team_scoring_b[i] = 1000;
+            (*runtime).team_scoring_c[i] = 1000;
+        }
+
+        (*runtime).game_state = game_state::NETWORK_END_STARTED;
+
+        let buffer = (*runtime).ring_buffer_a as *mut BufferObject;
+        (*buffer).tail_offset = 0;
+        (*buffer).read_offset = 0;
+        (*buffer).tail_node = core::ptr::null_mut();
+        (*buffer).queue_head = core::ptr::null_mut();
+        (*buffer).queue_count = 0;
+
+        // Sign-extend matches WA's `MOVSX EBX, byte ptr [...0xD9DC]`.
+        let starting_team = *((*world).game_info as *const u8).add(0xD9DC) as i8 as i32 as u32;
+
+        let slot = BufferObject::alloc_slot_raw(buffer, 12);
+        if !slot.is_null() {
+            *slot = 0x0d;
+            *slot.add(1) = starting_team;
+            *slot.add(2) = 1;
+        }
+
+        ((*(*net).vtable).submit_message_buffer)(net, buffer);
+        bridge_send_block(net);
+        (*net)._field_1c = 100;
+    }
 }
 
 /// Shared prologue for `OnGameState3` / `OnNetworkEndAwaitPeers`:
@@ -295,7 +331,7 @@ pub unsafe fn step_frame(
                     WorldRootEntity::handle_typed_message_raw(entity, entity, TurnEndMaybeMessage);
                 }
             } else {
-                bridge_begin_network_game_end(runtime);
+                begin_network_game_end(runtime);
             }
         }
 

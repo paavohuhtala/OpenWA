@@ -55,6 +55,7 @@ pub unsafe fn init_dispatch_addrs() {
         super::render_frame::init_addrs();
         super::step_frame::init_step_frame_addrs();
         crate::engine::log_sink::init_log_sink_addrs();
+        crate::engine::net_session::init_addrs();
     }
 }
 
