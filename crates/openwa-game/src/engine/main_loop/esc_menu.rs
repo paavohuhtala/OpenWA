@@ -25,8 +25,10 @@ use crate::address::va;
 use crate::audio::known_sound_id::KnownSoundId;
 use crate::audio::sound_id::SoundId;
 use crate::audio::sound_ops::dispatch_global_sound;
+use crate::audio::{DSSound, Music};
 use crate::bitgrid::DisplayBitGrid;
 use crate::engine::game_session::get_game_session;
+use crate::engine::game_state;
 use crate::engine::menu_panel::{
     ActivateOutcome, MenuPanel, activate_at_cursor, append_item_impl,
     center_cursor_on_first_kind_zero, set_cursor_at,
@@ -35,6 +37,7 @@ use crate::engine::runtime::GameRuntime;
 use crate::engine::team_arena::TeamArena;
 use crate::engine::world::GameWorld;
 use crate::entity::WorldRootEntity;
+use crate::game::message::TurnEndMaybeMessage;
 use crate::input::keyboard::KeyboardAction;
 use crate::input::mouse::MouseInput;
 use crate::rebase::rb;
@@ -46,64 +49,19 @@ use crate::wa::string_resource::res;
 
 // ─── Bridged WA addresses ──────────────────────────────────────────────────
 
-static mut APPLY_VOLUME_SETTINGS_ADDR: u32 = 0;
-static mut BEGIN_ROUND_END_ADDR: u32 = 0;
 static mut BEGIN_NETWORK_GAME_END_ADDR: u32 = 0;
 static mut MENU_PANEL_RENDER_ADDR: u32 = 0;
-
-// `GameRuntime::ApplyVolumeSettings` (0x00534B40) — usercall(EAX=this),
-// plain RET. Copies [`GameRuntime::sound_volume`] (the slider's live value)
-// into [`GameRuntime::ui_volume`], then pushes the scaled value to DSSound
-// and Music via vtable calls. Bridged because typed wrappers for those two
-// vtable slots aren't yet defined.
-const APPLY_VOLUME_SETTINGS_VA: u32 = 0x00534B40;
 
 /// Initialize the ESC-menu bridge addresses. Called from
 /// `dispatch_frame::init_dispatch_addrs` at DLL load.
 pub unsafe fn init_addrs() {
     unsafe {
-        APPLY_VOLUME_SETTINGS_ADDR = rb(APPLY_VOLUME_SETTINGS_VA);
-        BEGIN_ROUND_END_ADDR = rb(va::GAME_RUNTIME_BEGIN_ROUND_END);
         BEGIN_NETWORK_GAME_END_ADDR = rb(va::GAME_RUNTIME_BEGIN_NETWORK_GAME_END);
         MENU_PANEL_RENDER_ADDR = rb(va::MENU_PANEL_RENDER);
     }
 }
 
 // ─── Bridges (still WA-side) ───────────────────────────────────────────────
-
-/// Bridge for `GameRuntime::ApplyVolumeSettings` (0x00534B40). Usercall
-/// EAX=this, plain RET. Reads [`GameRuntime::sound_volume`] (the live
-/// slider value) → writes [`GameRuntime::ui_volume`] → pushes the
-/// effective value (clamped by the game-end fade and the engine-suspended
-/// flag) to `DSSound::SetMasterVolume` and `Music::SetVolume`.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_apply_volume_settings(_this: *mut GameRuntime) {
-    core::arch::naked_asm!(
-        "mov eax, [esp+4]",
-        "call [{addr}]",
-        "ret 4",
-        addr = sym APPLY_VOLUME_SETTINGS_ADDR,
-    );
-}
-
-/// Bridge for `GameRuntime::BeginRoundEnd` (0x00536550). Usercall
-/// `(EAX=this, [ESP+4]=skip_frame_delay)`, RET 0x4. Transitions runtime
-/// to `game_state = ROUND_ENDING` (4), zeroes the game-end fade fields,
-/// optionally clears the frame-delay counter (-1) when `skip_frame_delay
-/// != 0`, and broadcasts msg `0x75` through `world_root.handle_message`
-/// when `world.game_info[+0xD778] > 0x4C`. Tail-call shape: pop ret-addr
-/// + the `this` arg, push ret-addr back, jmp to target. Target's RET 0x4
-/// cleans `skip_frame_delay`.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_begin_round_end(_this: *mut GameRuntime, _skip_frame_delay: u32) {
-    core::arch::naked_asm!(
-        "pop ecx",
-        "pop eax",
-        "push ecx",
-        "jmp dword ptr [{addr}]",
-        addr = sym BEGIN_ROUND_END_ADDR,
-    );
-}
 
 /// Bridge for `GameRuntime::BeginNetworkGameEnd` (0x00536270). Usercall
 /// `(EAX=this)`, plain RET. Network-mode round-end entry: writes initial
@@ -135,6 +93,67 @@ unsafe extern "stdcall" fn bridge_menu_panel_render(_panel: *mut MenuPanel) -> *
         "ret 4",
         addr = sym MENU_PANEL_RENDER_ADDR,
     );
+}
+
+// ─── Rust-ported helpers (formerly bridged) ────────────────────────────────
+
+/// Rust port of `GameRuntime::ApplyVolumeSettings` (0x00534B40).
+///
+/// Copies [`GameRuntime::sound_volume`] (the slider's live value) into
+/// [`GameRuntime::ui_volume`], then pushes the effective value (clamped
+/// by the game-end fade `1.0 - game_end_speed` and forced to zero when
+/// the engine is suspended via `g_GameSession.flag_5c`) to
+/// `DSSound::set_master_volume` and `Music::set_volume`. The music value
+/// is additionally scaled by `game_info.music_volume_percent / 100`.
+unsafe fn apply_volume_settings(runtime: *mut GameRuntime) {
+    unsafe {
+        let live = (*runtime).sound_volume;
+        let fade_clamp = Fixed::ONE - (*runtime).game_end_speed;
+        (*runtime).ui_volume = live;
+
+        let mut effective = if live < fade_clamp { live } else { fade_clamp };
+        if (*get_game_session()).flag_5c != 0 {
+            effective = Fixed::ZERO;
+        }
+
+        let world = (*runtime).world;
+        let sound = (*world).sound;
+        DSSound::set_master_volume_raw(sound, effective);
+
+        let music = (*world).music;
+        if !music.is_null() {
+            let pct = (*(*world).game_info).music_volume_percent as i32;
+            let scaled = pct * effective.to_raw() / 100;
+            Music::set_volume(music, Fixed::from_raw(scaled));
+        }
+    }
+}
+
+/// Rust port of `GameRuntime::BeginRoundEnd` (0x00536550).
+///
+/// Transitions runtime to `game_state = ROUND_ENDING`, zeroes the
+/// game-end fade fields, optionally clears the frame-delay counter
+/// (-1 = inactive) when `skip_frame_delay` is set, and broadcasts msg
+/// `0x75` through `world_root.handle_message` when
+/// `world.game_info.game_version > 0x4c`.
+///
+/// Only callers are the Draw / offline-Quit confirm branches in
+/// [`tick_confirm`].
+unsafe fn begin_round_end(runtime: *mut GameRuntime, skip_frame_delay: bool) {
+    unsafe {
+        (*runtime).game_state = game_state::ROUND_ENDING;
+        (*runtime).game_end_clear = 0;
+        (*runtime).game_end_speed = Fixed::ZERO;
+        if skip_frame_delay {
+            (*runtime).frame_delay_counter = -1;
+        }
+
+        let game_version = (*(*(*runtime).world).game_info).game_version;
+        if game_version > 0x4c {
+            let entity = (*runtime).world_root;
+            WorldRootEntity::handle_typed_message_raw(entity, entity, TurnEndMaybeMessage);
+        }
+    }
 }
 
 // ─── UI sound IDs ──────────────────────────────────────────────────────────
@@ -326,7 +345,7 @@ unsafe fn handle_at_input_focus(world: *const GameWorld, map_idx: usize, handle:
 /// 5. If LMB not pressed → release the slider drag lock and return.
 /// 6. Otherwise [`activate_at_cursor`]:
 ///    * [`Slider`](ActivateOutcome::Slider) → if the volume slider value
-///      changed, [`bridge_apply_volume_settings`] + click sound.
+///      changed, [`apply_volume_settings`] + click sound.
 ///    * [`Miss`](ActivateOutcome::Miss) → ack mouse latch + miss sound.
 ///    * [`Button`](ActivateOutcome::Button) `kind == 3` (Minimize Game)
 ///      → set `g_GameSession.minimize_request = 1`; close menu only when
@@ -383,7 +402,7 @@ pub unsafe fn tick_open(runtime: *mut GameRuntime) {
                 // Apply the slider's new sound volume only if it differs
                 // from the last-applied snapshot (`ui_volume`).
                 if (*runtime).sound_volume != (*runtime).ui_volume {
-                    bridge_apply_volume_settings(runtime);
+                    apply_volume_settings(runtime);
                     dispatch_global_sound(
                         runtime,
                         UI_CLICK_SOUND,
@@ -459,10 +478,10 @@ pub unsafe fn tick_open(runtime: *mut GameRuntime) {
 ///    button click) guarantees the lock is already cleared.
 ///    The kind from that item drives the action:
 ///    * `0` (Force SD): `runtime._field_478 = 1`. Closes the menu.
-///    * `1` (Draw): [`bridge_begin_round_end`]`(runtime, 1)`;
+///    * `1` (Draw): [`begin_round_end`]`(runtime, true)`;
 ///      `runtime.game_end_phase = 2`. Closes the menu.
 ///    * `2` (Quit): `runtime.game_end_phase = 1`. If offline →
-///      [`bridge_begin_round_end`]; if online →
+///      [`begin_round_end`]; if online →
 ///      [`bridge_begin_network_game_end`]. Closes the menu.
 ///    * Anything else / Miss → state stays 2 (waiting for another click).
 pub unsafe fn tick_confirm(runtime: *mut GameRuntime) {
@@ -541,7 +560,7 @@ pub unsafe fn tick_confirm(runtime: *mut GameRuntime) {
             }
             // Draw This Round confirmed.
             1 => {
-                bridge_begin_round_end(runtime, 1);
+                begin_round_end(runtime, true);
                 (*runtime).game_end_phase = 2;
                 (*runtime).esc_menu_state = 0;
             }
@@ -549,7 +568,7 @@ pub unsafe fn tick_confirm(runtime: *mut GameRuntime) {
             2 => {
                 (*runtime).game_end_phase = 1;
                 if (*world).net_session.is_null() {
-                    bridge_begin_round_end(runtime, 1);
+                    begin_round_end(runtime, true);
                 } else {
                     bridge_begin_network_game_end(runtime);
                 }
