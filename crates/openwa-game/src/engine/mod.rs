@@ -21,6 +21,7 @@ pub mod replay;
 pub mod replay_loader;
 pub mod ring_buffer;
 pub mod runtime;
+pub mod scheme_ops;
 pub mod shutdown;
 pub mod team_arena;
 pub mod team_init;
