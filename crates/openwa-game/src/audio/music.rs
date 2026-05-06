@@ -287,7 +287,7 @@ unsafe fn ds_from_field(field: *const Ptr32) -> &'static IDirectSound {
 }
 
 impl StreamingAudio {
-    /// Zero-initialize the streaming audio engine. Port of FUN_004707B0.
+    /// Zero-initialize the streaming audio engine. Port of StreamingAudio__Init.
     pub fn init(&mut self) {
         // Zero everything except keep the struct's memory layout intact
         unsafe {
@@ -299,7 +299,7 @@ impl StreamingAudio {
         }
     }
 
-    /// Open a WAV file and start streaming playback. Port of FUN_00574B30.
+    /// Open a WAV file and start streaming playback. Port of StreamingAudio__Open.
     ///
     /// `flags` is a combination of `streaming_flags` constants.
     /// `path` is the absolute path to the WAV file.
@@ -360,7 +360,7 @@ impl StreamingAudio {
     }
 
     /// Core playback setup: open WAV file, create DirectSound buffer, start timer.
-    /// Port of FUN_00574D10 + FUN_00574F80 + FUN_005751B0.
+    /// Port of StreamingAudio__InitPlayback + StreamingAudio__OpenWAV + StreamingAudio__FillAndStart.
     unsafe fn init_playback(&mut self) -> bool {
         unsafe {
             // Open the WAV file using hound
@@ -491,7 +491,7 @@ impl StreamingAudio {
     }
 
     /// Fill the buffer with initial data and start playback + timer.
-    /// Port of FUN_005751B0.
+    /// Port of StreamingAudio__FillAndStart.
     unsafe fn fill_and_start(&mut self) -> bool {
         unsafe {
             if self.is_initialized == 0 || self.ds_buffer == 0 {
@@ -573,7 +573,7 @@ impl StreamingAudio {
         }
     }
 
-    /// Stop streaming playback and release resources. Port of FUN_00574CA0 + FUN_005752D0.
+    /// Stop streaming playback and release resources. Port of StreamingAudio__Stop + StreamingAudio__Reset.
     pub unsafe fn stop(&mut self) {
         unsafe {
             // Clear the global pointer first so any callback that hasn't yet
@@ -664,7 +664,7 @@ impl StreamingAudio {
     }
 
     /// Timer callback handler — refills the DirectSound buffer.
-    /// Port of FUN_005753A0 (the heart of streaming).
+    /// Port of StreamingAudio__TimerCallback (the heart of streaming).
     unsafe fn timer_tick(&mut self) {
         unsafe {
             if self.is_initialized == 0 || self.ds_buffer == 0 {
@@ -901,7 +901,7 @@ impl Music {
         }
     }
 
-    /// Play a specific track by ID (1-13). Port of FUN_0058BD20.
+    /// Play a specific track by ID (1-13). Port of Music__PlayTrack.
     ///
     /// Maps the track ID to a WAV filename, builds the full path, and starts streaming.
     pub unsafe fn play_track(this: *mut Music, track_id: u32, do_loop: bool) {

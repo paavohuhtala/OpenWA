@@ -65,7 +65,7 @@ pub struct WavPlayer {
 /// Loaded WAV buffer (heap-allocated, owned by the WavPlayer system).
 ///
 /// The first two fields must match WA's layout because unhooked WA code
-/// (FUN_005999c0) reads `filename` directly from buffer+4.
+/// (WavPlayer_RestartFanfare_Maybe) reads `filename` directly from buffer+4.
 #[repr(C)]
 pub struct WavBuffer {
     /// Raw IDirectSoundBuffer COM pointer (stored as u32 for FFI).
@@ -169,7 +169,7 @@ pub unsafe fn wav_player_play(player: *mut WavPlayer, flags: u32) {
         // (NOT from a stack copy — that would create a dangling reference).
         let ds_buf = ds_buffer_from_field(&(*buf).ds_buffer);
 
-        // Rewind to start (port of FUN_00599930's SetCurrentPosition call)
+        // Rewind to start (port of WavPlayer_PreparePlay's SetCurrentPosition call)
         let _ = ds_buf.SetCurrentPosition(0);
 
         // Compute volume: (master_vol * 64) / 100, then look up in dB table

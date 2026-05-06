@@ -191,7 +191,7 @@ pub struct GameWorld {
 
     /// 0x360C-0x45D3: Unknown (mostly zero at runtime).
     ///
-    /// Contains FUN_00526120 zeroed offsets at stride 0x194:
+    /// Contains GameWorld__InitFields zeroed offsets at stride 0x194:
     /// 0x379C, 0x3930, 0x3AC4, 0x3C58, 0x3DEC, 0x3F80, 0x4114, 0x42A8, 0x443C, 0x45D0
     pub _unknown_360c: [u8; 0x45D4 - 0x360C],
     /// 0x45D4: Terrain drop percentage A (from GameInfo+0xD955).
@@ -630,9 +630,9 @@ pub struct GameWorld {
     pub fast_forward_request: u32,
 
     /// 0x98B0: Fast-forward active flag.
-    /// When set to 1, FUN_005307A0 processes up to 50 game frames per render
+    /// When set to 1, Game__process_logic processes up to 50 game frames per render
     /// cycle. Sound is suppressed and rendering is skipped. Cleared at turn
-    /// boundaries (FUN_00534540, FUN_0055BDD0), so must be re-set continuously.
+    /// boundaries (Game__sub_534540, Task_TurnGame__start_team), so must be re-set continuously.
     /// This is the same flag toggled by spacebar (key 0x35) during replay.
     pub fast_forward_active: u32,
 

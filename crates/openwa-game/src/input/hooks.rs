@@ -101,7 +101,7 @@ const WM_FRONTEND_ANIMATE_TICK: u32 = 0xBFFC;
 /// Callers (besides the Rust `pump_messages`):
 ///  - `CDialog::CustomMsgPump` (two sites)
 ///  - `CDialog::DoModal_Custom`
-///  - `FUN_0048DB10` (two sites)
+///  - `CMapEditor__sub_48DB10` (two sites)
 ///  - `FUN_004DF8F0` (two sites)
 ///
 /// All WA-side callers reach this implementation via the full-replacement

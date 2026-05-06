@@ -21,7 +21,7 @@ pub struct NetSessionVtable {
     #[slot(6)]
     pub peer_active: fn(this: *mut NetSession, idx: u32) -> u32,
     /// slot 9 (+0x24): per-peer "pending / not-yet-ready" query used by the
-    /// online `ShouldInterpolate` branch (`FUN_0052D920`). Caller treats a
+    /// online `ShouldInterpolate` branch (`GameRuntime__PeerInputsCaughtUp_Maybe`). Caller treats a
     /// non-zero return combined with `team_scoring_a[idx] > 0` as "this peer
     /// still hasn't caught up" and suppresses interp. Exact semantics
     /// (vs. slot 6's `peer_active`) are unconfirmed — name is a guess.
@@ -56,7 +56,7 @@ pub struct NetSession {
 bind_NetSessionVtable!(NetSession, vtable);
 
 impl NetSession {
-    /// Rust port of `FUN_0053e720`.
+    /// Rust port of `NetSession__MaxActivePeerScore`.
     ///
     /// Iterates peers `0..peer_count`, calling `peer_active(i)` to filter
     /// and `peer_score(i)` to score. Returns the max score across active

@@ -27,7 +27,7 @@ pub struct GameInfoTeamRecord {
     /// non-zero = team eliminated for scoring purposes.
     pub eliminated_flag: u8,
     /// 0x003: Turn-order index (used by queue-sequence matching in
-    /// `FUN_0055C920`). Confidence: medium.
+    /// `Task_TurnGame__initialise_turn_sequence`). Confidence: medium.
     pub turn_order_idx: u8,
     pub _unknown_004: u8,
     /// 0x005: Round wins counter (u8). Sort key for the ESC-menu

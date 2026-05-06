@@ -6,9 +6,9 @@
 //! Original WA functions:
 //! - PlaySoundGlobal queue insertion (0x546E20)
 //! - PlaySoundLocal (0x4FDFE0)
-//! - StopWormSound (FUN_00515180)
-//! - PlayWormSound (FUN_005150D0)
-//! - PlayWormSound2 (FUN_00515020)
+//! - StopWormSound (Task_Worm__stop_fire_sound)
+//! - PlayWormSound (Task_Worm__fire_sound)
+//! - PlayWormSound2 (WormEntity__PlaySound_Maybe)
 //! - IsSoundSuppressed (0x5261E0)
 //! - DispatchGlobalSound (0x526270)
 //! - PlaySoundPooled_Direct (0x546B50)
@@ -96,7 +96,7 @@ pub unsafe fn play_sound_local(
 // Worm sound functions (streaming sound handle at WormEntity+0x3B0)
 // ============================================================
 
-/// Stop the worm's active streaming sound. Port of FUN_00515180.
+/// Stop the worm's active streaming sound. Port of Task_Worm__stop_fire_sound.
 ///
 /// Reads the sound handle from `worm.sound_handle`, dispatches to either
 /// DSSound::stop_channel (regular) or ActiveSoundTable::stop_sound (streaming,
@@ -127,11 +127,11 @@ pub unsafe fn stop_worm_sound(worm: *mut WormEntity) {
 }
 
 /// Stop current worm sound, then start a new streaming sound.
-/// Port of FUN_005150D0.
+/// Port of Task_Worm__fire_sound.
 ///
 /// Stops the current sound (same logic as [`stop_worm_sound`] but with
 /// reversed condition order matching the original), then calls the WA
-/// streaming load-and-play function (FUN_00546c20) and stores the new handle.
+/// streaming load-and-play function (GameTask__sound_start_0) and stores the new handle.
 pub unsafe fn play_worm_sound(worm: *mut WormEntity, sound_id: SoundId, volume: Fixed) {
     unsafe {
         let handle = (*worm).sound_handle;
@@ -154,14 +154,14 @@ pub unsafe fn play_worm_sound(worm: *mut WormEntity, sound_id: SoundId, volume: 
             }
         }
         // Start new streaming sound — fully ported, no WA bridge needed
-        // FUN_005150D0 hardcodes flags=3
+        // Task_Worm__fire_sound hardcodes flags=3
         let new_handle = load_and_play_streaming(worm as *mut WorldEntity, sound_id, 3, volume);
         (*worm).sound_handle = new_handle;
     }
 }
 
 /// Stop+play on the secondary sound handle (WormEntity+0x3B4).
-/// Port of FUN_00515020 (23 callers in WA).
+/// Port of WormEntity__PlaySound_Maybe (23 callers in WA).
 ///
 /// Stops any active sound on `sound_handle_2`, then plays a new streaming
 /// sound. Has a special case for sound 0x36 (Teleport) when the worm's Y

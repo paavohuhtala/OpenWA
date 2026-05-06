@@ -128,7 +128,7 @@ impl TeamEntity {
     /// **Important:** This is only the TeamEntity layer. The entity at SharedData
     /// key (0, 0x14) is actually a WorldRootEntity (inherits TeamEntity).
     /// WorldRootEntity::HandleMessage (0x55DC00) wraps this with:
-    ///   - End-turn logic (FUN_0055C300) if the active team surrenders
+    ///   - End-turn logic (GameRuntime__ClearWormBuffers) if the active team surrenders
     ///   - Surrender sound playback
     ///
     /// To port message 0x2B fully, WorldRootEntity::HandleMessage case 0x2B must

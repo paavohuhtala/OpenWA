@@ -170,10 +170,10 @@ pub struct DSSound {
     pub channel_slots: [u32; 500],
     /// 0x8A4: Master volume (Fixed, init 0x10000 = 1.0)
     pub volume: Fixed,
-    /// 0x8A8-0x9A7: 64 buffer pool shadow entries (init all -1 by FUN_00574260).
+    /// 0x8A8-0x9A7: 64 buffer pool shadow entries (init all -1 by DD_Sound__reset_handles).
     /// Maps pool index → channel descriptor index (-1 = free).
     pub buffer_pool_shadow: [i32; 64],
-    /// 0x9A8-0xAA7: 64 buffer pool indices (init 0..63 by FUN_00574260).
+    /// 0x9A8-0xAA7: 64 buffer pool indices (init 0..63 by DD_Sound__reset_handles).
     /// Free-list stack of available pool indices.
     pub buffer_pool_free: [u32; 64],
     /// 0xAA8: Number of free entries in buffer_pool_free (init 0x40 = 64).
@@ -506,7 +506,7 @@ pub unsafe extern "thiscall" fn destructor(this: *mut DSSound, flags: u8) -> *mu
     }
 }
 
-/// Core play sound logic (replaces FUN_00574500).
+/// Core play sound logic (replaces DD_Sound__sub_574500).
 /// Returns channel descriptor index on success, -1 on failure.
 unsafe fn core_play_sound(
     snd: &mut DSSound,
@@ -610,7 +610,7 @@ unsafe fn core_play_sound(
     }
 }
 
-/// Channel allocator (replaces FUN_00574380).
+/// Channel allocator (replaces DD_Sound__sub_574380).
 /// Finds a free channel descriptor or evicts the lowest-priority one.
 /// Returns descriptor index (0..7) or -1 if none available.
 unsafe fn allocate_channel(snd: &mut DSSound, priority: i32) -> i32 {
@@ -975,7 +975,7 @@ pub unsafe extern "thiscall" fn load_wav(
 
 impl DSSound {
     /// Construct a DSSound with all fields initialized, matching the
-    /// original constructor (0x573D50) + helpers FUN_005742A0/FUN_00574260.
+    /// original constructor (0x573D50) + helpers DD_Sound__reset_channels/DD_Sound__reset_handles.
     ///
     /// Uses WA's vtable pointer for identity (same pattern as DisplayBase).
     ///

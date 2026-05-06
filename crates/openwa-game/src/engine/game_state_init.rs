@@ -1286,7 +1286,7 @@ unsafe fn init_game_state_tracking_arrays(world: *mut GameWorld, game_info: *con
             let obj = (*world)._unknown_51c;
             if !obj.is_null() {
                 *(obj as *mut u32) = 0; // first field = 0
-                // The vector operations (FUN_005370c0, etc.) are complex.
+                // The vector operations (StdVector__Erase_Maybe, etc.) are complex.
                 // Bridge to original via setting fields directly.
                 let obj32 = obj as *mut u32;
                 // Reset the internal vector state

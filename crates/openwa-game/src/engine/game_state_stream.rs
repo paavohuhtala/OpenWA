@@ -14,7 +14,7 @@ use crate::wa_alloc::wa_malloc_zeroed;
 /// - +0x20: main buffer (0x420 bytes, first 0x400 zeroed)
 /// - +0x24..+0x224: 32 sub-buffer elements (each 0x10 bytes)
 ///
-/// Each sub-buffer element (FUN_004fdc20):
+/// Each sub-buffer element (CollisionManager__sub_4FDC20):
 /// - 0: capacity (0x100)
 /// - 1/2: zeroed
 /// - 3: buffer (0x420 bytes, first 0x400 zeroed)

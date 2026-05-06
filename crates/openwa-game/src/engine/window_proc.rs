@@ -1,6 +1,6 @@
 //! Rust port of `GameSession::WindowProc` (0x00572660).
 //!
-//! Engine-mode `WNDPROC` installed by `FUN_004ECD40` via `SetWindowLongA`,
+//! Engine-mode `WNDPROC` installed by `CREW2App__sub_4ECD40` via `SetWindowLongA`,
 //! replacing the standard MFC `WindowProcA` for the game window. The
 //! original MFC WNDPROC is cached at [`va::G_MFC_WNDPROC`] for the
 //! outer-guard fall-through — anything we don't actively handle chains

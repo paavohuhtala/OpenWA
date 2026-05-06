@@ -154,7 +154,7 @@ use crate::wa::sprintf_rotating::sprintf_3 as bridge_sprintf_rotating_3;
 
 // ─── Inline-ported clipping helpers ────────────────────────────────────────
 //
-// `FUN_004F66E0` and `FUN_004F67F0` are short clip-and-call wrappers on
+// `BitmapImage__fill` and `BitmapImage__hline` are short clip-and-call wrappers on
 // top of the BitGridDisplay vtable's slot 0 / slot 1. The other two tail
 // patterns (slot 2 fill_vline, slot 5 put_pixel_clipped) aren't extracted
 // in the WA binary but use the same shape inline. All four are inlined
@@ -163,7 +163,7 @@ use crate::wa::sprintf_rotating::sprintf_3 as bridge_sprintf_rotating_3;
 // The clip-rect on a `DisplayBitGrid` lives at fields +0x1C/+0x20/+0x24/+0x28
 // (`clip_left`/`clip_top`/`clip_right`/`clip_bottom`).
 
-/// Rust port of `FUN_004F66E0` — clipped fill_rect on a `DisplayBitGrid`.
+/// Rust port of `BitmapImage__fill` — clipped fill_rect on a `DisplayBitGrid`.
 unsafe fn clipped_fill_rect(
     bg: *mut DisplayBitGrid,
     x1: i32,
@@ -191,7 +191,7 @@ unsafe fn clipped_fill_rect(
     }
 }
 
-/// Rust port of `FUN_004F67F0` — clipped fill_hline on a `DisplayBitGrid`.
+/// Rust port of `BitmapImage__hline` — clipped fill_hline on a `DisplayBitGrid`.
 unsafe fn clipped_fill_hline(bg: *mut DisplayBitGrid, x1: i32, x2: i32, y: i32, color: u8) {
     unsafe {
         if x1 >= x2 {

@@ -55,7 +55,7 @@ unsafe extern "cdecl" fn call_localized_template_ctor(
     );
 }
 
-/// `FUN_0058BC10`: `usercall(ESI=this)` + 2 stack params, `RET 0x8`.
+/// `Music__Constructor`: `usercall(ESI=this)` + 2 stack params, `RET 0x8`.
 /// Saves bridge_ret to a static across the call because ECX is the only
 /// scratch register left after loading ESI/EDX.
 #[unsafe(naked)]

@@ -1,5 +1,5 @@
 //! Rust port of `WeaponSpawn::DecodeDescriptor_Maybe` (0x00565C10) and
-//! its two private helpers `FUN_00565bb0` (0x00565BB0) and `FUN_00565b40`
+//! its two private helpers `Weapon__analyse_missile` (0x00565BB0) and `Weapon__analyse_missile_part`
 //! (0x00565B40). Reads a [`WeaponEntry`] and returns a [`WeaponAimFlags`]
 //! struct with up to 8 per-weapon UI/aim booleans.
 //!
@@ -51,7 +51,7 @@ pub struct WeaponAimFlags {
     pub flag_h: bool,
 }
 
-/// Mirrors WA `FUN_00565b40` (0x00565B40). `block` is a sub-slice of
+/// Mirrors WA `Weapon__analyse_missile_part` (0x00565B40). `block` is a sub-slice of
 /// the `&[i32]` view of [`WeaponFireParams`] — byte offsets used by
 /// the WA disassembly are converted to `i32` indices (`/4`) for safe
 /// slice indexing. Inspects four slots and conditionally sets four
@@ -70,7 +70,7 @@ fn decode_inner_inner(block: &[i32], flags: &mut WeaponAimFlags) {
     }
 }
 
-/// Mirrors WA `FUN_00565bb0` (0x00565BB0). Writes [`WeaponAimFlags::flag_a`]
+/// Mirrors WA `Weapon__analyse_missile` (0x00565BB0). Writes [`WeaponAimFlags::flag_a`]
 /// based on `block[+0x4]`, runs [`decode_inner_inner`] starting at
 /// `block[+0xC]`, then conditionally runs it again starting at
 /// `block[+0xD0]` when the discriminant at `block[+0xB4]` is 1 or 3.

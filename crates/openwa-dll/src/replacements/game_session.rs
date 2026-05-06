@@ -68,7 +68,7 @@ pub fn install() -> Result<(), String> {
         )?;
         // GameSession::WindowProc — full replacement of the engine-mode
         // WNDPROC. Windows dispatches it via the WNDPROC slot installed
-        // by `FUN_004ECD40` (which still runs in WA); MinHook on the
+        // by `CREW2App__sub_4ECD40` (which still runs in WA); MinHook on the
         // entry redirects the dispatch into the Rust impl.
         init_window_proc_addrs();
         hook::install(

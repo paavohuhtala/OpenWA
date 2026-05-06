@@ -110,7 +110,7 @@ impl GfxDirEntry {
     }
 }
 
-/// Hash function for GfxDir entry lookup (FUN_566390).
+/// Hash function for GfxDir entry lookup (FileArchive__hashcalc).
 ///
 /// 10-bit CRC-like hash over the global name buffer at 0x8ACF58.
 /// Operates on the already-lowercased name.
@@ -232,7 +232,7 @@ pub unsafe fn gfx_dir_find_entry(name: *const c_char, gfx_dir: *const GfxDir) ->
     }
 }
 
-/// Pure Rust implementation of FUN_5665F0 (GfxHandler reset).
+/// Pure Rust implementation of FileArchive__reset (GfxHandler reset).
 ///
 /// Convention: usercall(ESI=handler), plain RET. Called at start of LoadDir.
 unsafe fn gfx_dir_reset(handler: *mut u8) {
@@ -398,7 +398,7 @@ pub unsafe extern "thiscall" fn gfx_dir_load_cached(
     core::ptr::null_mut()
 }
 
-/// Pure Rust implementation of FUN_566330 (GfxDir cleanup).
+/// Pure Rust implementation of FileArchive__ctor0_FileArchive (GfxDir cleanup).
 ///
 /// Resets vtable to the "cleaned up" vtable (0x66A1B0), invalidates all
 /// active cache slots, and frees the bucket array if it was malloc'd.
@@ -675,7 +675,7 @@ pub unsafe extern "thiscall" fn gfx_dir_stream_get_total_size(this: *mut GfxDirS
     }
 }
 
-/// Pure Rust implementation of cache slot release (FUN_566640).
+/// Pure Rust implementation of cache slot release (FileArchive__sub_566640).
 ///
 /// Finds the stream's slot in the parent GfxDir's in-use list, removes it,
 /// and returns the slot index to the free list. Clears the slot's stream_ptr.
@@ -723,7 +723,7 @@ pub unsafe fn gfx_dir_release_slot(gfx: *mut GfxDir, stream: *mut GfxDirStream) 
     }
 }
 
-/// Pure Rust implementation of GfxDirStream read helper (FUN_566760).
+/// Pure Rust implementation of GfxDirStream read helper (FileArchive__get_pos).
 ///
 /// Reads data from the parent GfxDir's file through its vtable, advancing
 /// the cache slot's current read position.

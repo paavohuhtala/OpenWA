@@ -107,10 +107,10 @@ pub enum KnownWormState {
     /// Transitions to 0x73 on fire.
     RopeSwinging = 0x7C,
     /// Pre-fire variant — MailMineMole version check uses this.
-    /// Transitions to 0x7E or 0x65 depending on FUN_004fb580.
+    /// Transitions to 0x7E or 0x65 depending on WorldEntity__IsMoving_Maybe.
     PreFire_Maybe = 0x7D,
     /// Post-fire / special movement — entered from 0x78 and 0x7D
-    /// when FUN_004fb580 returns nonzero.
+    /// when WorldEntity__IsMoving_Maybe returns nonzero.
     PostFire_Maybe = 0x7E,
     /// Drowning — worm fell in water.
     Drowning = 0x7F,
@@ -219,7 +219,7 @@ crate::define_addresses! {
         fn/Usercall WORM_ENTITY_CLEAR_WEAPON_STATE = 0x0050E710;
         /// `WormEntity::BroadcastWeaponName_Maybe`. Thiscall
         /// `(ECX = this, [stack] = name_str_ptr, flag)`, RET 0x8. Forwards
-        /// to `FUN_005480F0(this, name_str_ptr, *(this+0x10c)+0x11, this+0x2f0)`.
+        /// to `GameTask__comment_public(this, name_str_ptr, *(this+0x10c)+0x11, this+0x2f0)`.
         /// Called from `StartTurn` (msg 0x34) with the resolved
         /// `LocalizedTemplate` token 0x69D and `flag = 1`.
         fn/Thiscall WORM_ENTITY_BROADCAST_WEAPON_NAME = 0x0050D540;
@@ -283,7 +283,7 @@ crate::define_addresses! {
     }
 
     class "GameRuntime" {
-        /// `FUN_00547D80` — fastcall `(ECX = entity_owning_world,
+        /// `GameTask__set_track` — fastcall `(ECX = entity_owning_world,
         /// EDX = arg)`, plain RET. Used by `WormEntity::FinishTurn` with
         /// `arg = 0xE`. Resets a 14×0x14-byte queue at `world+0x73B0..` and
         /// clears `world+0x739C`; stores `EDX` into `world+0x72E4`. Likely
@@ -777,7 +777,7 @@ pub struct WormEntity {
     /// (e.g., weapon charge-up) is actively playing. PlayWormSound stores the
     /// new handle here; StopWormSound clears it.
     pub sound_handle: i32,
-    /// 0x3B4: Secondary sound handle, used by FUN_00515020 (teleport/weapon sounds).
+    /// 0x3B4: Secondary sound handle, used by WormEntity__PlaySound_Maybe (teleport/weapon sounds).
     /// Same stop/play semantics as `sound_handle` but a separate channel.
     pub sound_handle_2: i32,
     /// 0x3B8–0x3DB: Unknown

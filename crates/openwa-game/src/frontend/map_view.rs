@@ -1,6 +1,6 @@
 /// MapView — CWnd-derived terrain/map preview and data window (0x29628 bytes).
 ///
-/// Inherits: CWnd → FUN_00425ff0 (vtable 0x64C348) → MapView (vtable 0x64FC60).
+/// Inherits: CWnd → CDXWnd__ctor_CDXWnd (vtable 0x64C348) → MapView (vtable 0x64FC60).
 /// Secondary vtable at offset +0x54 (0x64FD94).
 ///
 /// A general-purpose map class used across all game modes — not replay-specific.

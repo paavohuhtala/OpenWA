@@ -91,7 +91,7 @@ pub struct DisplayGfx {
     pub camera_y: i32,
     /// 0x3568: Unknown (set to 0 in InitDisplayFinal)
     pub _unknown_3568: u32,
-    /// 0x356C: Unknown (set from FUN_00541340 result in InitDisplayFinal)
+    /// 0x356C: Unknown (set from PaletteContext__FindNearestCached result in InitDisplayFinal)
     pub _unknown_356c: u32,
     /// 0x3570: Unknown (set to 0 in InitDisplayFinal)
     pub _unknown_3570: u32,
@@ -272,7 +272,7 @@ impl DisplayGfx {
 ///
 /// Each `bitmap_ptrs[i]` is a [`CBitmap`] — the same struct slot 11's
 /// `bitmap_vec` uses. WA's BlitBitmapClipped (`0x56A700`) and the inner
-/// FUN_00403c60 read `+0x4` (the `surface` field) on every entry; the
+/// CDXBitmap__sub_403C60 read `+0x4` (the `surface` field) on every entry; the
 /// vtable+surface+pad layout matches.
 #[repr(C)]
 pub struct TileBitmapSet {

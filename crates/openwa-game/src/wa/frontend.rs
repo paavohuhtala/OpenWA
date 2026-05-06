@@ -316,7 +316,7 @@ pub unsafe extern "stdcall" fn launch_game_session(
                 *(rb(va::G_MOUSE_MODE_REENTRY_LATCH) as *mut u8) = 0;
             }
 
-            // FUN_0040CAA0 — thiscall(this=&app->subobj_a4) + 1 stack arg
+            // DXCtl__sub_40CAA0 — thiscall(this=&app->subobj_a4) + 1 stack arg
             // (same value). Walks the render tree's children.
             let subobj = &raw mut (*app).subobj_a4 as u32;
             wa_call::thiscall_1(va::GAME_WORLD_RENDER_CHILDREN_MAYBE, subobj, subobj);

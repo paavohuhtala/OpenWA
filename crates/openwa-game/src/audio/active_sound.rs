@@ -49,7 +49,7 @@ pub struct ActiveSoundEntry {
 const _: () = assert!(core::mem::size_of::<ActiveSoundEntry>() == 0x18);
 
 impl ActiveSoundTable {
-    /// Stop an active streaming sound by handle. Port of FUN_00546490.
+    /// Stop an active streaming sound by handle. Port of GameTask__sound_stop.
     ///
     /// The `handle` should have the 0x40000000 bit already cleared (the caller
     /// strips it before calling). The low 6 bits index into the entry table.

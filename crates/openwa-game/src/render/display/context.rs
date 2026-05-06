@@ -266,7 +266,7 @@ pub struct RenderContextVtable {
     ///
     /// Used by `DisplayGfx::DrawTiledBitmap` (slot 11) and
     /// `DisplayGfx::DrawTiledTerrain` (slot 22) via the `CBitmap` blit
-    /// helper at `FUN_00403c60`.
+    /// helper at `CDXBitmap__sub_403C60`.
     #[slot(23)]
     pub draw_landscape: unsafe extern "fastcall" fn(
         this: *mut RenderContext,

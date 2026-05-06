@@ -1,6 +1,6 @@
 //! Sprite blitting algorithms for 8bpp BitGrid surfaces.
 //!
-//! Pure Rust port of WA's core blit pipeline (`FUN_004f6910`).
+//! Pure Rust port of WA's core blit pipeline (`BitGrid__BlitSpriteRect`).
 //!
 //! The blit function copies a rectangular region from a source surface to a
 //! destination surface with:
@@ -633,7 +633,7 @@ pub fn blit_1bit_aligned(
 
 /// Generic per-pixel blit fallback.
 ///
-/// Port of FUN_004f80c0 — handles all blend modes (0-5) for any cells_per_unit
+/// Port of BitmapImage__sub_4F80C0 — handles all blend modes (0-5) for any cells_per_unit
 /// by operating one pixel at a time. Slower than the specialized fast paths but
 /// handles unaligned 1-bit blits, oriented blits that fell through, and blend
 /// modes 4 (erase) and 5 (collision test).

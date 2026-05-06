@@ -124,7 +124,7 @@ pub unsafe fn check_worm_state_0x64(arena: *const TeamArena) -> u32 {
 
 /// Check if any worm on a specific team has state 0x64 — port of 0x522930.
 ///
-/// Per-team version. 1 xref (FUN_00556ad0).
+/// Per-team version. 1 xref (Task_Team__render_cursor).
 pub unsafe fn check_team_worm_state_0x64(arena: *const TeamArena, team_idx: u32) -> u32 {
     unsafe {
         let header = TeamArena::team_header(arena, team_idx as usize);
@@ -145,7 +145,7 @@ pub unsafe fn check_team_worm_state_0x64(arena: *const TeamArena, team_idx: u32)
 
 /// Scan all teams for state 0x8b — port of 0x522970.
 ///
-/// 1 xref (FUN_00557310).
+/// 1 xref (TeamEntity__HandleMessage).
 pub unsafe fn check_any_worm_state_0x8b(arena: *const TeamArena) -> u32 {
     unsafe {
         for i in 1..=(*arena).team_count as usize {

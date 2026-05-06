@@ -25,7 +25,7 @@ use crate::render::display::base::FrameCacheEntry;
 
 crate::define_addresses! {
     class "FrameCache" {
-        /// `FrameCache__Allocate` (FUN_004FA950) — usercall LRU
+        /// `FrameCache__Allocate` (FrameCache__Allocate) — usercall LRU
         /// allocator. `EAX = entry_size`, stack args
         /// `(context_ptr, owner, frame_idx)`. Ported to
         /// [`frame_cache_allocate`]; only callers were

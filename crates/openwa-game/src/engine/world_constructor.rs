@@ -118,7 +118,7 @@ pub unsafe fn game_world_init_render_indices(world: *mut GameWorld) {
     }
 }
 
-/// Pure Rust implementation of FUN_570E20 (display layer color init).
+/// Pure Rust implementation of `GameWorld__InitDisplayLayerColors` (0x00570E20).
 ///
 /// Convention: usercall(ESI=wrapper), plain RET.
 ///
@@ -153,7 +153,7 @@ pub unsafe fn display_layer_color_init(runtime: *mut GameRuntime) {
 pub fn init_constructor_addrs() {
     unsafe {
         SPRITE_REGION_CTOR_ADDR = rb(va::SPRITE_REGION_CONSTRUCTOR);
-        FUN_570A90_ADDR = rb(va::FUN_570A90);
+        DD_GAME_CLEAR_SCREENS_ADDR = rb(va::DD_GAME_CLEAR_SCREENS);
 
         LOAD_SPEECH_BANKS_ADDR = rb(va::DSSOUND_LOAD_ALL_SPEECH_BANKS);
         LOADING_PROGRESS_TICK_ADDR = rb(va::GAME_RUNTIME_LOADING_PROGRESS_TICK);
@@ -524,7 +524,7 @@ unsafe fn init_graphics_and_resources(
         // ── Display palette setup (non-headless) ──
         if !is_headless {
             if *(rb(va::G_DISPLAY_MODE_FLAG) as *const c_char) == 0 {
-                call_usercall_eax(runtime, FUN_570A90_ADDR);
+                call_usercall_eax(runtime, DD_GAME_CLEAR_SCREENS_ADDR);
             }
             let disp = (*runtime).display;
             let gfx_dir = (*runtime).primary_gfx_dir;
@@ -548,7 +548,7 @@ unsafe fn init_graphics_and_resources(
             }
         }
 
-        // ── FUN_00570E20: usercall(ESI=wrapper), plain RET ──
+        // ── GameWorld__InitDisplayLayerColors: usercall(ESI=wrapper), plain RET ──
         // Runs for all modes — headless vtable[4] is 0x5231E0 (same as headful).
         display_layer_color_init(runtime);
 
@@ -1038,9 +1038,9 @@ unsafe fn init_graphics_and_resources(
             wa_init_display_final((*runtime).display);
         }
 
-        // ── FUN_00570A90 (second call, conditional) ──
+        // ── DD_Game__clear_screens (0x00570A90, second call, conditional) ──
         if *(rb(va::G_DISPLAY_MODE_FLAG) as *const core::ffi::c_char) == 0 {
-            call_usercall_eax(runtime, FUN_570A90_ADDR);
+            call_usercall_eax(runtime, DD_GAME_CLEAR_SCREENS_ADDR);
         }
 
         // ── Final display layer visibility ──
@@ -1054,12 +1054,12 @@ unsafe fn init_graphics_and_resources(
 }
 
 // Statics for usercall bridge addresses
-static mut FUN_570A90_ADDR: u32 = 0;
+static mut DD_GAME_CLEAR_SCREENS_ADDR: u32 = 0;
 
 static mut LOAD_SPEECH_BANKS_ADDR: u32 = 0;
 static mut LOADING_PROGRESS_TICK_ADDR: u32 = 0;
 
-/// Bridge: usercall(ESI=wrapper), plain RET. Used by FUN_570E20, LoadSpeechBanks.
+/// Bridge: usercall(ESI=wrapper), plain RET. Used by GameWorld__InitDisplayLayerColors (0x00570E20), LoadSpeechBanks.
 #[unsafe(naked)]
 unsafe extern "C" fn call_usercall_esi(_runtime: *mut GameRuntime, _addr: u32) {
     core::arch::naked_asm!(
@@ -1073,7 +1073,7 @@ unsafe extern "C" fn call_usercall_esi(_runtime: *mut GameRuntime, _addr: u32) {
     );
 }
 
-/// Bridge: usercall(EAX=wrapper), plain RET. Used by FUN_570A90.
+/// Bridge: usercall(EAX=wrapper), plain RET. Used by DD_Game__clear_screens (0x00570A90).
 #[unsafe(naked)]
 unsafe extern "C" fn call_usercall_eax(_runtime: *mut GameRuntime, _addr: u32) {
     core::arch::naked_asm!(
@@ -1085,7 +1085,7 @@ unsafe extern "C" fn call_usercall_eax(_runtime: *mut GameRuntime, _addr: u32) {
     );
 }
 
-/// Bridge: usercall(ECX=wrapper), plain RET. Used by FUN_5717A0.
+/// Bridge: usercall(ECX=wrapper), plain RET. Used by GameRuntime__LoadingProgressTick.
 unsafe fn call_usercall_ecx(runtime: *mut GameRuntime, addr: u32) {
     unsafe {
         let f: unsafe extern "thiscall" fn(*mut GameRuntime) = core::mem::transmute(addr as usize);

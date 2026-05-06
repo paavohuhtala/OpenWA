@@ -171,13 +171,13 @@ pub mod va {
             /// HandleMessage / WorldRootEntity destructor — 17 call sites).
             fn/Usercall TEAM_INDEX_MAP_REMOVE_HANDLE = 0x00526000;
             /// Helper called from the online `ShouldInterpolate` path
-            /// (FUN_0052E880). Scans the per-peer input-message queue for any
+            /// (GameRuntime__PeerInputQueueScan_Maybe). Scans the per-peer input-message queue for any
             /// "gameplay-relevant" message type. Usercall EAX=this +
             /// 1 stdcall stack param (peer_idx), RET 0x4. Still bridged;
-            /// its own callee (`FUN_0053e300` input-queue-pop helper) is
+            /// its own callee (`NetSession__PeerInputQueuePop_Maybe` input-queue-pop helper) is
             /// also online-only and would require additional bridging.
             fn/Usercall GAME_RUNTIME_PEER_INPUT_QUEUE_SCAN = 0x0052E880;
-            /// Tail callee of `ShouldInterpolate_OfflineCheck` (FUN_0052F9C0).
+            /// Tail callee of `ShouldInterpolate_OfflineCheck` (GameRuntime__ShouldInterpolate_OfflineTail_Maybe).
             /// Stdcall(runtime), RET 0x4. Large (~205 instructions, 51 basic
             /// blocks); still bridged as a plain stdcall call from the
             /// offline-branch Rust port.
@@ -196,7 +196,7 @@ pub mod va {
             /// inspects end-of-round flags. Ported as
             /// `engine::main_loop::dispatch_frame::is_hud_active`; address
             /// kept for the WA-side hook (still called by `OpenEscMenu`
-            /// = FUN_00535200).
+            /// = GameRuntime__OpenEscMenu).
             fn/Usercall GAME_RUNTIME_IS_HUD_ACTIVE = 0x00534C30;
             /// `GameRuntime::EscMenu_TickClosed` (usercall EAX=this):
             /// per-frame tick while the ESC menu is closed
@@ -214,7 +214,7 @@ pub mod va {
             /// `MenuPanel::AppendItem` (usercall(EAX=x, ESI=panel),
             /// 6 stack params, RET 0x18). Appends one item (button or
             /// slider) to a `MenuPanel`'s items array; called 5× from
-            /// `OpenEscMenu` and once from `FUN_00535cf0`. Ported as
+            /// `OpenEscMenu` and once from `GameRuntime__OpenEscMenuConfirmDialog`. Ported as
             /// `engine::menu_panel::append_item_impl`.
             fn/Usercall MENU_PANEL_APPEND_ITEM = 0x005408F0;
             /// `GameRuntime::EscMenu_TickState1` (usercall EDI=this):
@@ -894,8 +894,10 @@ pub mod va {
         fn/Stdcall DISPLAY_OBJECT_CONSTRUCTOR = 0x00540440;
         /// SpriteRegion constructor (0x9C-byte)
         fn/Stdcall SPRITE_REGION_CONSTRUCTOR = 0x0057DB20;
-        fn FUN_570A90 = 0x00570A90;
-        fn FUN_570E20 = 0x00570E20;
+        /// `DD_Game__clear_screens` (per WA.txt). Usercall with `EAX = GameRuntime*`.
+        fn DD_GAME_CLEAR_SCREENS = 0x00570A90;
+        /// `GameWorld__InitDisplayLayerColors`. Usercall with `ESI = wrapper`.
+        fn GAME_WORLD_INIT_DISPLAY_LAYER_COLORS = 0x00570E20;
         /// IMG_Decode
         fn/Stdcall IMG_DECODE = 0x004F5F80;
         /// `WormEntity::DrawAttachedRope` (0x00500720). Draws the segmented
@@ -927,7 +929,7 @@ pub mod va {
         fn/Fastcall DISPATCH_GLOBAL_SOUND = 0x00526270;
         /// RecordActiveSound
         fn/Usercall RECORD_ACTIVE_SOUND = 0x00546260;
-        /// WormEntity::PlaySound2 (FUN_00515020): usercall(EDI=worm) + stdcall(sound_id, volume, flags).
+        /// WormEntity::PlaySound2 (WormEntity__PlaySound_Maybe): usercall(EDI=worm) + stdcall(sound_id, volume, flags).
         /// Stop+play on secondary sound handle (+0x3B4). 23 callers in WA.
         fn/Usercall WORM_PLAY_SOUND_2 = 0x00515020;
         /// LoadAndPlayStreamingPositional (0x546BB0): usercall(EAX=entity) + stack(volume, sound_id, flags, x, y).
@@ -1070,7 +1072,7 @@ pub mod va {
         /// invoked on the alt-display post-game branch when
         /// `game_world != g_GameWorldInstance`. Composes a localized
         /// "graphics init failed" MessageBox via `Localization__FormatGLibError`
-        /// (FUN_0059B3C0), then offers a graphics-mode reset (tokens
+        /// (Localization__FormatGLibError), then offers a graphics-mode reset (tokens
         /// 0x786..0x78A). Reads `*game_world` as a `GLibError*`.
         fn FRONTEND_ON_GRAPHICS_INIT_ERROR_MAYBE = 0x004E47D0;
         /// Usercall(EAX=wav_handle, ESI=&out_local). Audio pre-game
@@ -1290,7 +1292,7 @@ pub mod va {
         /// `(CWinApp* + 0xCE0B5)` — base-relative addressing on `g_CWinApp`,
         /// not a struct field. Other call sites use the absolute address.
         global G_DISPLAY_MODE_FLAG = 0x0088E485;
-        /// One byte before `g_DisplayModeFlag`. Set by `FUN_004EBB70` (alt-display
+        /// One byte before `g_DisplayModeFlag`. Set by `CREW2App__SwitchToDXMode` (alt-display
         /// surface allocation). Read by `Frontend::LaunchGameSession` to gate
         /// the post-game framebuffer reconstruct + ExitProcess fallback.
         /// Same MSVC `(CWinApp* + 0xCE0B4)` base-relative addressing pattern.
@@ -1359,7 +1361,7 @@ pub mod va {
         ///  - flag == 0: `WM_MOUSEWHEEL` only
         global G_INPUT_HOOK_FILTER_SELECT_MAYBE = 0x006B39C0;
         /// Cached pointer to the original MFC `WindowProcA` for the engine's
-        /// game window. Stored by `FUN_004ECD40` immediately before
+        /// game window. Stored by `CREW2App__sub_4ECD40` immediately before
         /// `SetWindowLongA(..., GWL_WNDPROC, GameSession::WindowProc)` swaps
         /// the WNDPROC. Read by `GameSession::WindowProc`'s outer-guard
         /// fall-through to chain via `CallWindowProcA` for any message it
@@ -1415,7 +1417,7 @@ pub mod va {
         /// in `Frontend::LaunchGameSession`. Use unknown.
         global G_FULLSCREEN_RESTORE_FLAG_MAYBE = 0x006A9644;
         /// Zero-init pointer cell, never written anywhere in the binary. Read
-        /// by `Frontend::LaunchGameSession` and `FUN_004EBD50`. In the launch
+        /// by `Frontend::LaunchGameSession` and `CREW2App__sub_4EBD50`. In the launch
         /// path the comparison `app == g_MainFrontend` therefore always fails
         /// (param is `&g_CWinApp`, this is null), making the gated
         /// `WavPlayer_PreparePlay` call dead code we still emit for fidelity.

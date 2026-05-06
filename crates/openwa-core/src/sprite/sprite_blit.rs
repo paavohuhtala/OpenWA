@@ -1,6 +1,6 @@
 //! Sprite blitting algorithms for 8bpp BitGrid-like surfaces.
 //!
-//! Pure Rust port of WA's core blit pipeline (`FUN_004f6910`).
+//! Pure Rust port of WA's core blit pipeline (`BitGrid__BlitSpriteRect`).
 #![allow(clippy::too_many_arguments)]
 use crate::pixel_grid::{PixelGrid, PixelGridMut};
 

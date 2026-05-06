@@ -14,7 +14,7 @@
 //!
 //! Bridges out to WA.exe for: `WorldEntity::vt8`, `PlayImpactSound_Maybe`,
 //! `MissileEntity::HomingTargetCheck_Maybe`, `MissileEntity::ImpactSpecialFx_Maybe`,
-//! the `CreateExplosion` damage-jitter helper `FUN_00547CB0`, and the slot-14
+//! the `CreateExplosion` damage-jitter helper `GameTask__calc_damage`, and the slot-14
 //! terminator on self. `CreateExplosion` itself is the pure-Rust
 //! `game::create_explosion`. RNG advances use the Rust `GameWorld::advance_rng`.
 
@@ -342,7 +342,7 @@ unsafe extern "C" fn impact_special_fx(
     );
 }
 
-/// Bridge: `FUN_00547CB0` (damage jitter) — usercall:
+/// Bridge: `GameTask__calc_damage` (damage jitter) — usercall:
 /// ESI = base damage, stack = [this, pct]. Returns EAX.
 /// Function is `RET 0x8` (stdcall cleans 2 args).
 #[unsafe(naked)]

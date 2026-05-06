@@ -9,7 +9,7 @@
 //! - `GameWorld__InitRenderIndices` (0x526080): usercall(ESI=base), plain RET → EAX=base
 //! - `BitGrid__Init` (0x4F6370): usercall(ESI,ECX,EDI) + 1 stack, RET 0x4
 //! - `IMG__LoadFromDir` (0x4F6300): usercall(ECX,EAX) + 1 stack, RET 0x4
-//! - `FUN_570E20` (display layer init): usercall(ESI=wrapper), plain RET
+//! - `GameWorld__InitDisplayLayerColors` (0x570E20): usercall(ESI=wrapper), plain RET
 
 use crate::hook;
 use core::ffi::c_char;
@@ -85,7 +85,7 @@ unsafe extern "C" fn bitgrid_init_trampoline() {
     );
 }
 
-// ─── FUN_570E20 (display layer color init) ──────────────────────────────────
+// ─── GameWorld__InitDisplayLayerColors (0x570E20) ───────────────────────────
 
 hook::usercall_trampoline!(
     fn display_layer_init_trampoline;
@@ -178,8 +178,8 @@ pub fn install() -> Result<(), String> {
         )?;
 
         hook::install(
-            "FUN_570E20_DisplayLayerInit",
-            va::FUN_570E20,
+            "GameWorld__InitDisplayLayerColors",
+            va::GAME_WORLD_INIT_DISPLAY_LAYER_COLORS,
             display_layer_init_trampoline as *const (),
         )?;
 

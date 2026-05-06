@@ -43,7 +43,7 @@ crate::define_addresses! {
         fn/Thiscall SCREENSHOT_HOOK_GET_CAPTURE_REQUEST = 0x0056D170;
         /// `ScreenshotHook::CaptureToPng` (0x56D180) — vtable[2].
         /// Formats `"%s%06d.png"` and writes the rendered layer_0 surface
-        /// to disk via `FUN_0056C6F0`.
+        /// to disk via `Screenshot__SavePng`.
         fn/Thiscall SCREENSHOT_HOOK_CAPTURE_TO_PNG = 0x0056D180;
     }
 }

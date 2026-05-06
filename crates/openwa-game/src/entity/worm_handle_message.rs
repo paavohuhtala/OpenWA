@@ -60,12 +60,12 @@ static mut WORM_BROADCAST_WEAPON_SETTINGS_ADDR: u32 = 0;
 static mut WORM_SELECT_FUSE_ADDR: u32 = 0;
 static mut WORM_SELECT_BOUNCE_ADDR: u32 = 0;
 static mut WORM_SELECT_HERD_ADDR: u32 = 0;
-// FUN_00562EF0 — broadcasts a message via the SharedData parent observer.
+// Task__deliver — broadcasts a message via the SharedData parent observer.
 // `__usercall(EAX = lookup_task)` + 5 stack args (sender, key_edi, msg_id,
 // size, payload), RET 0x14. Caller must set ECX = key_esi (= 0 for the
 // WorldRoot dispatch used by case 0x51 PoisonWorm).
 static mut BROADCAST_VIA_SHARED_DATA_ADDR: u32 = 0;
-// FUN_005480F0 — picks a random non-null entry from a string-pointer array
+// GameTask__comment_public — picks a random non-null entry from a string-pointer array
 // and dispatches it through the SharedData random-text channel. Stdcall
 // (this, name_array, count_kind, worm_name_ptr), RET 0x10.
 static mut LOCALIZED_TEXT_RANDOM_PICK_ADDR: u32 = 0;
@@ -153,7 +153,7 @@ static mut WORM_IS_SPAWN_AREA_VALID_ADDR: u32 = 0;
 // type/method to decide whether the projectile is "indirect" (mortar/
 // homing-style).
 static mut WEAPON_SPAWN_IS_INDIRECT_ADDR: u32 = 0;
-// FUN_00546DB0 — thin wrapper around DispatchLocalSound that gates on
+// GameTask__sub_546DB0 — thin wrapper around DispatchLocalSound that gates on
 // game_info f348/f344 and active_sounds, used by case-0x24 to emit the
 // "weapon-blocked" 0x78 sound. usercall(EAX=this), 4 stack args
 // (sound_id, channel, x, y), RET 0x10.
@@ -1002,7 +1002,7 @@ const AIM_FADE_RATE: Fixed = Fixed(0xCCC);
 const AIM_FADE_MIN_STEP: Fixed = Fixed(0x20C);
 
 /// 10% of remaining gap with the same fraction as a min-step floor —
-/// matches WA's `FUN_00546a90` (0x00546a90) being called with
+/// matches WA's `GameTask__moveto` (0x00546a90) being called with
 /// `EAX = 0x1999` from `EaseAuxValue`.
 const AUX_VALUE_RATE: Fixed = Fixed(0x1999);
 const AUX_VALUE_MIN_STEP: Fixed = Fixed(0x1999);
@@ -1033,7 +1033,7 @@ unsafe fn ease_aim_vec_b(this: *mut WormEntity) {
 }
 
 /// Rust port of `WormEntity::EaseAuxValue_Maybe` (0x0050FB10). Eases
-/// `_field_398` toward `_field_39c` via WA's `FUN_00546a90` primitive,
+/// `_field_398` toward `_field_39c` via WA's `GameTask__moveto` primitive,
 /// then — when the eased value is non-zero AND the worm holds the turn
 /// — suppresses `aim_fade[5]` and `aim_fade[7]` so the aim arrow stops
 /// re-targeting.

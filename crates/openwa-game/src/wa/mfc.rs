@@ -145,7 +145,7 @@ impl CStringRef {
 
     /// Assign a localized string resource by ID.
     /// Used when source CString is empty (e.g., resource 0x0E = default scheme name).
-    /// FUN_004A39F0: EDX=resource_id, stack param=dest CString object pointer.
+    /// CString__AssignResource: EDX=resource_id, stack param=dest CString object pointer.
     pub unsafe fn assign_resource(&mut self, resource_id: u32) {
         unsafe {
             let addr = rb(va::CSTRING_ASSIGN_RESOURCE);

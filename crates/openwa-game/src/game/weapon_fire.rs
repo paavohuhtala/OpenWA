@@ -709,7 +709,7 @@ unsafe fn fire_scales_of_justice(worm: *mut WormEntity) {
         // Play jet pack sound:
         // - LocalizedTemplate::ResolveSplitArray (token 0x6CB) — pure Rust now,
         //   returns a NULL-terminated `*mut *mut c_char` speech-bank array.
-        // - FUN_005480F0: usercall(EAX=-21) + stdcall(worm, array, 0x17, &worm_name)
+        // - GameTask__comment_public: usercall(EAX=-21) + stdcall(worm, array, 0x17, &worm_name)
         //   randomly picks one entry and plays it.
         let world = {
             let this = worm as *const BaseEntity;
@@ -756,7 +756,7 @@ unsafe extern "C" fn call_play_sound_usercall(
 /// Armageddon (subtype 24) — pure Rust port of 0x51EA60.
 ///
 /// Sends message 0x5B to WorldRootEntity with weapon/team info, then conditionally
-/// sets a gravity center point via FUN_00547E70.
+/// sets a gravity center point via GameWorld__RegisterEventPoint_Maybe.
 /// Convention: usercall(EAX=entry, ESI=worm, EDI=worm), plain RET.
 ///
 unsafe fn fire_armageddon(worm: *mut WormEntity) {

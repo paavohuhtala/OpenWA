@@ -67,9 +67,9 @@ pub struct FilterEntityVtable {
 /// - [8] `FilterEntity__Subscribe` (0x54F370): sets `subscription_table[msg_id] = 1`
 ///
 /// **Four factory functions** (all called by `GameRuntime__Constructor_0` 0x550E70):
-/// - `FUN_00552030`: subscribes to messages 0, 1, 3, 5
-/// - `FUN_005520D0`: subscribes to messages 0, 1, 2, 3, 0x15, 0x18, 0x1C
-/// - `FUN_00552190`: subscribes to messages 0, 1, 2, 3, 5, 0x15, 0x17, 0x1C, 0x2C–0x2E, 0x4B,
+/// - `TeamEntity__SpawnFilterEntity_Clouds`: subscribes to messages 0, 1, 3, 5
+/// - `TeamEntity__SpawnFilterEntity_Water`: subscribes to messages 0, 1, 2, 3, 0x15, 0x18, 0x1C
+/// - `TeamEntity__SpawnFilterEntity_Physics`: subscribes to messages 0, 1, 2, 3, 5, 0x15, 0x17, 0x1C, 0x2C–0x2E, 0x4B,
 ///   and optionally 0x0E (if `GameInfo+0xD778 < -1`)
 /// - `TeamEntity__CreateWeatherFilter` (0x552960): subscribes to 1, 2, 3, 0x54, then
 ///   spawns `CloudEntity` children using randomised positions (only outside caverns, i.e.

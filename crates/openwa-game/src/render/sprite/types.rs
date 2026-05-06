@@ -213,7 +213,7 @@ const _: () = assert!(core::mem::offset_of!(Sprite, raw_frame_header_ptr) == 0x6
 /// an index table that maps sprite IDs to frame indices.
 ///
 /// Created by LoadSpriteEx (0x523310): allocated 0x17C bytes, first 0x15C zeroed,
-/// then constructed and initialized via FUN_004f95a0.
+/// then constructed and initialized via SpriteBank__InitFromGfxDir.
 ///
 /// Used by GetSpriteInfo (0x523500) and GetSpriteFrameForBlit (0x5237C0,
 /// vtable slot 33) as the fallback path when sprite_ptrs[id] is null.
@@ -439,7 +439,7 @@ pub struct CBitmap {
     /// 0x00: Vtable pointer (= `0x643F64`).
     pub vtable: *const core::ffi::c_void,
     /// 0x04: Backend surface object pointer. Lazily allocated by
-    /// `cbitmap_blit_via_wrapper` (`FUN_00403c60`); zero until the first
+    /// `cbitmap_blit_via_wrapper` (`CDXBitmap__sub_403C60`); zero until the first
     /// `BlitBitmapClipped` call for this bitmap.
     pub surface: *mut crate::render::display::context::Surface,
     /// 0x08: Padding/reserved (zeroed by constructor).

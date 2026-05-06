@@ -1454,7 +1454,7 @@ pub unsafe extern "thiscall" fn set_layer_color(this: *mut DisplayGfx, layer: i3
     }
 }
 
-/// Palette slot allocator — port of FUN_00523190.
+/// Palette slot allocator — port of DisplayBase__AllocPaletteSlots.
 ///
 /// Scans the 257-entry table `slot_table_guard(0) + slot_table[1..=255] +
 /// slot_table_sentinel(-1)` for `count` consecutive available (non-zero)
@@ -1494,7 +1494,7 @@ unsafe fn palette_slot_alloc(base: &mut DisplayBase<*const DisplayGfxVtable>, co
 }
 
 /// Initialize a PaletteContext with a palette index range —
-/// port of FUN_00541170 + FUN_005411A0.
+/// port of PaletteContext__InitRange + PaletteContext__Init.
 unsafe fn palette_context_init(ctx: *mut PaletteContext, range_min: i16, range_max: i16) {
     unsafe {
         (*ctx).dirty_range_min = range_min;
@@ -1737,7 +1737,7 @@ pub unsafe fn load_sprite(
     }
 }
 
-/// Port of FUN_005733B0 (`LoadSpriteByName`; original is usercall
+/// Port of DisplayGfx__LoadSpriteByName (`LoadSpriteByName`; original is usercall
 /// `EDI=sprite, ECX=gfx_dir, stack=(palette_ctx, name), RET 0x8`).
 ///
 /// Reads the sprite header, palette, and frame pixel data from a `.dir`
@@ -1937,7 +1937,7 @@ pub unsafe fn load_sprite_by_name(
     }
 }
 
-/// Port of FUN_0056A2F0 (`FreeLayerSprite`; usercall EDI=sprite).
+/// Port of DisplayGfx__FreeLayerSprite (`FreeLayerSprite`; usercall EDI=sprite).
 pub unsafe fn free_layer_sprite(sprite: *mut LayerSprite) {
     unsafe {
         use crate::wa_alloc::wa_free;
@@ -2028,7 +2028,7 @@ pub unsafe fn load_sprite_by_layer(
 ///
 /// On load failure the partially-initialized font object is leaked, to
 /// match the original's call to an unported sprite-bank-style cleanup
-/// helper (`FUN_005230C0`).
+/// helper (`Display__sub_5230C0`).
 pub unsafe fn load_font(
     this: *mut DisplayGfx,
     layer: u32,
@@ -2223,7 +2223,7 @@ pub unsafe extern "thiscall" fn set_font_palette(
     }
 }
 
-/// Pure-Rust replacement for `FUN_004FA490` plus the 9 unrolled blit
+/// Pure-Rust replacement for `BitmapFont__blit` plus the 9 unrolled blit
 /// helpers at `0x4FA1E0..0x4FA470` (dispatch table at `0x6A9594`).
 ///
 /// The original splits a glyph into `min(remaining_width, 8)`-pixel
@@ -2483,7 +2483,7 @@ const _: () = assert!(core::mem::offset_of!(TiledBitmapSource, row_stride) == 0x
 const _: () = assert!(core::mem::offset_of!(TiledBitmapSource, bpp) == 0x14);
 const _: () = assert!(core::mem::offset_of!(TiledBitmapSource, source_height) == 0x18);
 
-/// Pure-Rust port of `FUN_005B2A5E` — 8bpp 64-byte row replicator.
+/// Pure-Rust port of `ASM__asm_gradient_copy8x64` — 8bpp 64-byte row replicator.
 ///
 /// For each of `row_count` rows: read 8 bytes from `src`, write them 8
 /// times consecutively to `dst` (= 64 bytes per row), advance `dst` by
@@ -2552,7 +2552,7 @@ unsafe fn blit_color_table_forward(
     }
 }
 
-/// Pure-Rust port of `FUN_00403C60` — the `CBitmap` blit-via-wrapper.
+/// Pure-Rust port of `CDXBitmap__sub_403C60` — the `CBitmap` blit-via-wrapper.
 ///
 /// Lazy-allocs `cbm.surface` via `alloc_surface` (slot 22) on first
 /// call, then dispatches the blit through `draw_landscape` (slot 23).
@@ -2746,7 +2746,7 @@ pub unsafe fn get_bitmap_sprite_info(
 /// **Tile-cache vector pre-reservation.** The original allocates and
 /// `vector::push_back`s each strip's `CBitmap*` into `bitmap_vec`
 /// (`+0x3580`) one at a time, growing the vector as needed. We sidestep
-/// porting `std::vector::push_back` (`FUN_00402e90`) by computing the
+/// porting `std::vector::push_back` (`CDXAnimatedButton__sub_402E90`) by computing the
 /// final entry count up front (`ceil(source_height / 0x400)`), allocating
 /// the entire backing buffer in one shot, then writing entries directly
 /// and bumping `bitmap_end`. This changes WA's heap allocation pattern

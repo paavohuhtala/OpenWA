@@ -182,10 +182,10 @@ pub struct MissileEntity {
     /// `CreateExplosion` on Standard/Cluster contact).
     pub explosion_id: u32,
     /// 0x354 — render_data[0x20]. Explosion damage base value (implicit ESI arg
-    /// to `FUN_00547CB0` damage-jitter helper). Nonzero gate for `CreateExplosion`.
+    /// to `GameTask__calc_damage` damage-jitter helper). Nonzero gate for `CreateExplosion`.
     pub explosion_damage: u32,
     /// 0x358 — render_data[0x21]. Explosion damage scaling percentage (2nd stack
-    /// arg to `FUN_00547CB0`, used as `(ESI * param) / 100` before RNG jitter).
+    /// arg to `GameTask__calc_damage`, used as `(ESI * param) / 100` before RNG jitter).
     pub explosion_damage_pct: u32,
     /// 0x35C — render_data[0x22]. Ricochet-remaining counter. Decremented on each
     /// ricochet-eligible contact; when it reaches 0, the missile invokes the

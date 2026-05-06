@@ -148,7 +148,7 @@ pub struct BaseEntity<V: Vtable = *const BaseEntityVtable> {
     pub parent: *mut u8,
     /// 0x08: Children array capacity — starts at 0x10, doubles via realloc when full.
     pub children_capacity: u32,
-    /// 0x0C: Set to 1 by `FUN_004fdce0` when a child slot is nulled (dirty flag).
+    /// 0x0C: Set to 1 by `BaseEntity__UnlinkChild` when a child slot is nulled (dirty flag).
     /// Zero at construction. Not decremented; purely a "child was removed" marker.
     pub children_dirty: u32,
     /// 0x10: Insert watermark — incremented on every child insertion, never decremented
@@ -162,9 +162,9 @@ pub struct BaseEntity<V: Vtable = *const BaseEntityVtable> {
     pub children_data: *mut *mut BaseEntity,
     /// 0x18: Children hash list pointer (set to 0 in constructor)
     pub children_hash: *mut u8,
-    /// 0x1C: Unknown (set to 0 by parent-linking helper FUN_00562520)
+    /// 0x1C: Unknown (set to 0 by parent-linking helper BaseEntity__LinkToParent)
     pub _unknown_1c: u32,
-    /// 0x20: Entity classification type (set to ClassType::Entity by FUN_00562520,
+    /// 0x20: Entity classification type (set to ClassType::Entity by BaseEntity__LinkToParent,
     /// overridden by derived constructors)
     pub class_type: ClassType,
     /// 0x24: Shared data buffer pointer (inherited from parent, or allocated
@@ -438,7 +438,7 @@ impl SharedDataTable {
 
     /// Compute the bucket index for a (key_esi, key_edi) pair.
     ///
-    /// Exact transcription of the hash in `FUN_005406a0`.
+    /// Exact transcription of the hash in `SharedData__Insert`.
     pub fn bucket_for(key_esi: u32, key_edi: u32) -> u32 {
         let mut h = key_esi.wrapping_mul(0x11).wrapping_add(key_edi) & 0x800000ff;
         if (h as i32) < 0 {
@@ -450,7 +450,7 @@ impl SharedDataTable {
 
     /// Look up an entity by key pair. Returns the entity pointer, or null.
     ///
-    /// Pure Rust equivalent of `FUN_004FDF90` (SharedData__Lookup).
+    /// Pure Rust equivalent of `SharedData__Lookup` (SharedData__Lookup).
     /// fastcall(ECX=key_esi, EDX=key_edi, stack=entity) in the original.
     ///
     /// # Safety

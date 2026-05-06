@@ -147,14 +147,14 @@ pub unsafe fn palette_map_color(ctx: *mut PaletteContext, rgb: u32) -> u32 {
 
 /// Look up an existing palette entry by slot index.
 ///
-/// Rust port of `FUN_00541200` (usercall: ECX=ctx, EAX=index, stack=out_rgb,
+/// Rust port of `PaletteContext__LookupEntry` (usercall: ECX=ctx, EAX=index, stack=out_rgb,
 /// RET 0x4). Validates that the index is within the context's `dirty_range_min`
 /// / `dirty_range_max` window AND that the slot is currently in use, then
 /// writes the slot's stored RGB to `out_rgb` and returns 1. On any validation
 /// failure, returns 0 without touching `out_rgb`.
 ///
 /// Note: despite the field names, `dirty_range_min/max` here behave as a
-/// generic "valid index range" — `FUN_00541200` is a pure lookup, not part
+/// generic "valid index range" — `PaletteContext__LookupEntry` is a pure lookup, not part
 /// of an update batch.
 ///
 /// # Safety
@@ -181,7 +181,7 @@ pub unsafe fn palette_context_lookup_entry(
 
 /// Find the closest palette index for an RGB color in the recently-mapped cache.
 ///
-/// Rust port of `FUN_00541340` (usercall: EDI=ctx, stack=rgb, stack=out_distance).
+/// Rust port of `PaletteContext__FindNearestCached` (usercall: EDI=ctx, stack=rgb, stack=out_distance).
 /// Walks `cache[0..cache_count]` and computes a perceptual distance
 /// `5*|dG| + 2*|dB| + 3*|dR|` against each cached slot's stored RGB.
 ///
@@ -257,7 +257,7 @@ pub unsafe fn palette_find_nearest_cached(
 
 /// Remap each pixel in a buffer through a 256-byte lookup table.
 ///
-/// Port of FUN_005b2beb (stdcall, RET 0x14). Used by `load_sprite_by_name`
+/// Port of RemapPixelsThroughLut (stdcall, RET 0x14). Used by `load_sprite_by_name`
 /// to apply the palette mapping to freshly-loaded sprite pixel data.
 ///
 /// Processes `width_dwords * 4` bytes per row, advancing by `pitch` bytes

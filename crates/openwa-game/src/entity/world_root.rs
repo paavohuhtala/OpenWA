@@ -42,7 +42,7 @@ crate::define_addresses! {
 /// Y-coordinates (initial -1 = "no water"), zone boundaries, or AI markers.
 ///
 /// The final 0x44 bytes (0x68–0xAB, `_unknown_68`) are not initialised by
-/// either constructor; they appear to be set by `FUN_005514d0` or similar
+/// either constructor; they appear to be set by `TurnGame__SetupHud_Maybe` or similar
 /// helpers called later. Observed runtime values: +0xA0 = 15, +0xA4/+0xA8
 /// are heap pointers.
 #[derive(FieldRegistry)]
@@ -75,11 +75,11 @@ pub struct MatchCtx {
     pub team_count: u32,
     /// +0x50–0x64: Unknown — explicitly zeroed by constructor (param_1[0x20..0x25]).
     pub _unknown_50: [u32; 6],
-    /// +0x68–0x9F: Unknown — all explicitly zeroed by `FUN_005514d0` during game
+    /// +0x68–0x9F: Unknown — all explicitly zeroed by `TurnGame__SetupHud_Maybe` during game
     /// setup. Purpose unknown; may be per-team or per-worm state slots.
     pub _unknown_68: [u32; 14],
-    /// +0xA0: Return value of `FUN_00525f50(0)` stored here during game setup.
-    /// Observed value: 15. `FUN_00525f50` is a slot-allocation helper; this may
+    /// +0xA0: Return value of `TeamIndexMap__PopHandle_Maybe(0)` stored here during game setup.
+    /// Observed value: 15. `TeamIndexMap__PopHandle_Maybe` is a slot-allocation helper; this may
     /// be a pool slot index or a pre-computed game-state token.
     pub _slot_d0: u32,
     /// +0xA4: `DisplayGfx` textbox handle — created by `DisplayGfx__ConstructTextbox`
@@ -205,7 +205,7 @@ pub struct WorldRootEntity {
     pub turn_timer_display: i32,
     /// 0x18C: per-turn countdown timer (ms) — this is what the HUD shows.
     /// Decrements 20 ms/frame every game frame.  When it reaches zero,
-    /// `FUN_0055f4f0` fires (turn ends / retreat begins).
+    /// `Task_TurnGame__play_tick` fires (turn ends / retreat begins).
     pub turn_timer: i32,
     pub _unknown_190: [u8; 0x8],
     /// 0x198: turn-timer visual pulse intensity (Fixed 16.16); grows as time runs low.

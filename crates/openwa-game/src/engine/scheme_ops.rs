@@ -464,7 +464,7 @@ pub unsafe fn extract_builtins() {
                 continue;
             }
 
-            // Slot 13: original has an obfuscated feature check (FUN_004DA4C0) using
+            // Slot 13: original has an obfuscated feature check (Scheme__Slot13Check) using
             // __usercall (implicit EAX/ECX). On Steam copies all slots are available,
             // so we skip the check.
 

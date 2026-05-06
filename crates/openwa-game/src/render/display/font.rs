@@ -14,7 +14,7 @@ use crate::render::palette::PaletteContext;
 /// `Font__GetInfo` / `Font__GetMetric` / `Font__DrawText` / `Font__SetPalette`
 /// to render bitmap text.
 ///
-/// Field semantics derived from `FUN_004f99d0` (the parser) and `Font__GetInfo`
+/// Field semantics derived from `Font__ParseData` (the parser) and `Font__GetInfo`
 /// (0x4fa7d0, which confirms width at +0, width_div_5 at +2, glyph count at +4,
 /// and glyph table at +8 with 12-byte entries whose byte +4 is a max metric).
 #[repr(C)]
@@ -101,7 +101,7 @@ pub struct FntHeader {
 
 const _: () = assert!(core::mem::size_of::<FntHeader>() == 0xC);
 
-/// Port of `FUN_004f99d0` — parses `.fnt` binary data into a `FontObject`.
+/// Port of `Font__ParseData` — parses `.fnt` binary data into a `FontObject`.
 ///
 /// Original convention: cdecl with 1 stack arg (buffer), `unaff_EDI = font_obj`.
 /// Ported as a plain Rust function.
@@ -201,7 +201,7 @@ pub unsafe fn font_parse_data(
     }
 }
 
-/// Port of `FUN_004f9940` — loads a font resource by name from a GfxDir and
+/// Port of `Font__LoadFromGfxDir` — loads a font resource by name from a GfxDir and
 /// feeds it into `font_parse_data`.
 ///
 /// Original convention: usercall with `EAX = gfx_dir`, `ECX = font_obj`,
@@ -378,7 +378,7 @@ pub unsafe fn font_measure_text_impl(
     }
 }
 
-/// Port of `FUN_004f9ad0` — extends an existing `FontObject` with new glyphs
+/// Port of `Font__Extend` — extends an existing `FontObject` with new glyphs
 /// loaded from a `.fex` (font extension) file.
 ///
 /// Original convention: usercall with `EAX = filename`, `ESI = font_obj`,

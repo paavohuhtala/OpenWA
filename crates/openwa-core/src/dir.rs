@@ -196,7 +196,7 @@ pub fn dir_decode(raw: &[u8]) -> Result<DirArchive<'_>, DirDecodeError> {
 
 /// 10-bit hash function used by `.dir` archives to index the bucket array.
 ///
-/// Port of `gfx_dir_hash` (WA `FUN_566390`). Names must be lowercased ASCII
+/// Port of `gfx_dir_hash` (WA `FileArchive__hashcalc`). Names must be lowercased ASCII
 /// by the caller — the on-disk entries are already stored lowercased, and
 /// the WA code lowercases lookup keys before hashing. Useful if a caller
 /// wants O(1) lookup; the `dir_decode` path above is linear and doesn't

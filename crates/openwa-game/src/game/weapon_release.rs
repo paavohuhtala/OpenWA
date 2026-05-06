@@ -16,7 +16,7 @@ use crate::game::weapon_fire::{self, WeaponReleaseContext};
 
 // ── Weapon category classifiers (pure Rust) ─────────────────
 
-/// FUN_005658C0: weapon category A — homing/animal/special projectile weapons.
+/// Weapon__is_animal: weapon category A — homing/animal/special projectile weapons.
 pub fn is_weapon_category_a(weapon: KnownWeaponId) -> bool {
     use KnownWeaponId::*;
     matches!(
@@ -38,7 +38,7 @@ pub fn is_weapon_category_a(weapon: KnownWeaponId) -> bool {
     )
 }
 
-/// FUN_00565920: weapon category B — fire/napalm weapons.
+/// Weapon__is_fire: weapon category B — fire/napalm weapons.
 pub fn is_weapon_category_b(weapon: KnownWeaponId) -> bool {
     use KnownWeaponId::*;
     matches!(
@@ -415,7 +415,7 @@ fn write_u32(buf: &mut [u8], offset: usize, value: u32) {
 
 // ── SpawnEffect (0x547C30) ──────────────────────────────────
 
-/// Spawn a visual effect on the sprite anim entity. Pure Rust port of FUN_00547C30.
+/// Spawn a visual effect on the sprite anim entity. Pure Rust port of SpawnEffect_Maybe.
 ///
 /// Builds a 0x408-byte message buffer from the params, looks up SpriteAnimEntity
 /// via SharedData (entity type 0x1A), and sends HandleMessage(0x56).

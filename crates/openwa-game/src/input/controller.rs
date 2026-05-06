@@ -15,14 +15,14 @@ pub struct NetInputCtrlVtable {
 /// Iterated by [`Network__DispatchPeerMessages`](https://internal.ghidra/0x004B5F30):
 /// when `status == 3` (active connected peer), the dispatcher invokes
 /// [`Network__ProcessPeerMessage`](https://internal.ghidra/0x004B6AF0) (or
-/// `FUN_004AC570` for the host-side variant) to read pending messages off
+/// `CNetHostCommonDlg__sub_4AC570` for the host-side variant) to read pending messages off
 /// this peer's network stream.
 ///
 /// Pointers to each *active* slot are gathered into the
 /// [`NetInputCtrl::peer_connections`] array (with `peer_connection_count`) by
 /// `Network__BuildPeerConnectionsArray` (0x00466F70) — that's the array
 /// passed to `LaunchGameSession`'s arg3/arg4 from the four lobby-launch
-/// callers (FUN_004aec50, FUN_004b77b0, FUN_004bd5d0, FUN_004c1720).
+/// callers (NetHostReturn__OnContinue, CNetworkHost__Go_0, NetJoinReturn__Go, CNetworkJoin__Go).
 ///
 /// Currently only the vtable is typed; full layout is opaque.
 #[repr(C)]
@@ -243,7 +243,7 @@ unsafe extern "stdcall" fn call_init_team_inputs(
     //   [ESP+0x10]= arg4 starting_team_index
     //   [ESP+0x14]= arg5 game_version  (loaded into ECX)
     //
-    // FUN_0053dd50 expects 4 stack args + ECX register, RET 0x10.
+    // NetInputCtrl__InitTeamInputs_Maybe expects 4 stack args + ECX register, RET 0x10.
     // We pop our_ret into EDX, set ECX from arg5, CALL the function (which
     // sees arg1..arg4 + its own pushed ret), then clean arg5 ourselves and
     // jump back to our_ret. Net effect: stdcall caller sees 5 args cleaned.

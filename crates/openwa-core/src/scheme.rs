@@ -527,7 +527,7 @@ pub const SCHEME_WEAPON_ORDER: [&str; 64] = [
 /// Many fields use fixed-point 16.16 format (`Fixed`), tri-state (0/1/0x80),
 /// or small enums. See field docs for valid ranges.
 ///
-/// Source: worms2d.info/Game_scheme_file, Ghidra FUN_004d5110 validation.
+/// Source: worms2d.info/Game_scheme_file, Ghidra Scheme__ValidateExtendedOptions validation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ExtendedOptions {
     /// Data version (currently 0). Offset +0x00.
