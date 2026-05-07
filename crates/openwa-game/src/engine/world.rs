@@ -5,6 +5,7 @@ use crate::audio::dssound::DSSound;
 use crate::audio::music::Music;
 use crate::audio::speech::SpeechSlotTable;
 use crate::bitgrid::{BitGrid, CollisionBitGrid, DisplayBitGrid};
+use crate::engine::fire_effect::FireEffect;
 use crate::engine::game_info::GameInfo;
 use crate::engine::{CoordEntry, CoordList, EntityActivityQueue, TeamArena, TeamIndexMap};
 use crate::game::weapon::WeaponTable;
@@ -128,11 +129,17 @@ pub struct GameWorld {
     /// animated sliding transitions (sin-table interpolation). Groups teams
     /// by alliance, creates per-team entries with textbox + DisplayGfx.
     pub turn_order_widget: *mut TurnOrderWidget,
-    /// 0x534: HUD panel object (vtable 0x664698, vt[0]=0x5241F0).
-    /// Constructor 0x524070. 104×28 px, 3 DisplayGfx layers, 2296-byte LUT.
-    pub hud_panel: *mut u8,
-    /// 0x538-0x53F: Unknown (zero in runtime dump)
-    pub _unknown_538: [u8; 8],
+    /// 0x534: Ranked-MP fire-effect overlay — see
+    /// [`crate::engine::fire_effect::FireEffect`].
+    pub fire_effect: *mut FireEffect,
+    /// 0x538: Fire-effect palette LUT for the **higher** rank-reward tier.
+    /// 256-byte palette in `data`; `TurnOrderTeamEntry__Render` selects this
+    /// when [`crate::engine::game_info::GameInfoTeamRecord::fire_effect_tier`]
+    /// is `>= 2`.
+    pub fire_palette_high: *mut DisplayBitGrid,
+    /// 0x53C: Fire-effect palette LUT for the **lower** rank-reward tier.
+    /// Selected when `fire_effect_tier == 1`.
+    pub fire_palette_low: *mut DisplayBitGrid,
     /// 0x540: Unknown pointer
     pub _unknown_540: *mut u8,
     /// 0x544: Textbox object pointer, details unknown

@@ -4,6 +4,7 @@ mod create_explosion;
 pub(crate) mod debug_utils;
 mod entity;
 pub(crate) mod file_isolation;
+mod fire_effect;
 mod frame_hook;
 mod frontend;
 mod game_entity_message;
@@ -71,6 +72,7 @@ pub fn install_all() -> Result<(), String> {
     replay::install()?;
     string_resource::install()?;
     entity::install()?;
+    fire_effect::install()?;
     weapon_release::install()?;
     create_explosion::install()?;
     game_entity_message::install()?;

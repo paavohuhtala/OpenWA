@@ -36,7 +36,20 @@ pub struct GameInfoTeamRecord {
     /// 0x006: Team name, null-terminated ASCII. WA's "%d" sprintf path
     /// for the leaderboard treats this as up to 14 bytes + NUL.
     pub name: [u8; 0x10],
-    pub _rest: [u8; 0xBB8 - 0x16],
+    pub _rest_016: [u8; 0xA70 - 0x16],
+    /// 0xA70: Per-team rank-reward tier driving the fire-effect overlay
+    /// rendered by `TurnOrderTeamEntry__Render` (0x00563620). `0` =
+    /// disabled, `1` = lower tier (uses
+    /// [`GameWorld::fire_palette_low`](crate::engine::world::GameWorld)),
+    /// `>= 2` = higher tier (uses `GameWorld::fire_palette_high`).
+    /// Populated in shipping WA by the ranked-MP handshake.
+    ///
+    /// Note: the gate code in `TurnOrderTeamEntry__Render` reads via
+    /// `game_info[team_index * 0xBB8 + 0x308]` where `team_index` is the
+    /// 1-based render-entry index, so for team `N` (0-based) the relevant
+    /// field is `team_records[N].fire_effect_tier`.
+    pub fire_effect_tier: u32,
+    pub _rest_a74: [u8; 0xBB8 - 0xA74],
 }
 
 const _: () = assert!(core::mem::size_of::<GameInfoTeamRecord>() == 0xBB8);

@@ -8,6 +8,7 @@ use crate::audio::dssound::DSSound;
 use crate::bitgrid::DisplayBitGrid;
 use crate::engine::EntityActivityQueue;
 use crate::engine::dual_buffer_object::allocate_dual_buffer_object;
+use crate::engine::fire_effect::FireEffect;
 use crate::engine::game_info::GameInfo;
 use crate::engine::game_state;
 use crate::engine::game_state_stream::game_state_stream_init;
@@ -190,18 +191,8 @@ pub unsafe fn init_game_state(runtime: *mut GameRuntime) {
             EntityActivityQueue::init(&raw mut (*world).entity_activity_queue, capacity);
         }
 
-        // ===== Allocate HudPanel (0x940 bytes) =====
-        {
-            let mem = wa_malloc_zeroed(0x940);
-            let result = if mem.is_null() {
-                core::ptr::null_mut()
-            } else {
-                let ctor: unsafe extern "stdcall" fn(*mut u8) -> *mut u8 =
-                    core::mem::transmute(rb(va::HUD_PANEL_CONSTRUCTOR) as usize);
-                ctor(mem)
-            };
-            (*world).hud_panel = result;
-        }
+        // ===== Allocate FireEffect (0x940 bytes) =====
+        (*world).fire_effect = FireEffect::alloc();
 
         // ===== Allocate weapon table buffer (0x80D0 bytes) =====
         {

@@ -90,6 +90,7 @@ pub mod va {
         BLIT_SPRITE_RECT, BitGridBaseVtable, BitGridCollisionVtable, BitGridDisplayVtable,
         DISPLAY_BIT_GRID_SET_EXTERNAL_BUFFER, DRAW_LINE_CLIPPED, DRAW_LINE_TWO_COLOR,
     };
+    pub use crate::engine::fire_effect::{FIRE_EFFECT_VTABLE, FireEffectVtable};
     pub use crate::engine::game_session::{GAME_SESSION_VTABLE, GameSessionVtable};
     pub use crate::entity::game_entity::SOUND_EMITTER_VTABLE;
     pub use crate::frontend::map_view::MAP_VIEW_VTABLE;
@@ -874,8 +875,6 @@ pub mod va {
         fn/Usercall INIT_TURN_STATE = 0x00528690;
         /// InitLandscapeBorders — applies the scheme cavern flag to the landscape.
         fn/Usercall INIT_LANDSCAPE_BORDERS = 0x00528480;
-        /// HudPanel constructor
-        fn/Stdcall HUD_PANEL_CONSTRUCTOR = 0x00524070;
         /// GameWorld__InitTeamsFromSetup
         fn/Stdcall INIT_TEAMS_FROM_SETUP = 0x005220B0;
         /// TeamManager constructor
