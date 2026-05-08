@@ -9,6 +9,7 @@
 use crate::hook::{self, usercall_trampoline};
 use openwa_game::address::va;
 use openwa_game::entity::WorldEntity;
+use openwa_game::entity::game_entity;
 
 unsafe extern "cdecl" fn try_move_position_impl(this: *mut WorldEntity, y: i32, x: i32) -> u32 {
     unsafe { WorldEntity::try_move_position_raw(this, x, y) }
@@ -19,6 +20,11 @@ usercall_trampoline!(fn trampoline_try_move_position; impl_fn = try_move_positio
 
 pub fn install() -> Result<(), String> {
     unsafe {
+        // `try_move_position_raw` (and its only caller of substance,
+        // `check_move_collision_raw`) need the
+        // `CollisionManager::update_intersections` bridge address.
+        game_entity::init_addrs();
+
         let _ = hook::install(
             "WorldEntity::TryMovePosition",
             va::TRY_MOVE_POSITION,

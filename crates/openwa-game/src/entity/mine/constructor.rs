@@ -14,7 +14,6 @@
 //!    that this slice doesn't touch.
 //!  * `EntityActivityQueue::ResetRank` (0x00541790) — usercall(EAX=queue,
 //!    [stack]=slot). Reused via `super::handle_message::bridge_reset_rank`.
-//!  * `WorldEntity::CheckMoveCollision` (0x004FB9D0) — stdcall, 6 args.
 //!  * `GameCollisionTask::gradient` (0x00500230) — usercall(EAX=this,
 //!    [stack]=x,y,kind,*out_grad), RET 0x10.
 //!  * `Math::fixa1tan16` (0x00575840) — usercall(EAX=arg).
@@ -77,10 +76,6 @@ crate::define_addresses! {
 // class_type, flag)`, RET 0x10. Large MFC-style initializer that this
 // slice doesn't touch.
 static WORLD_ENTITY_CTOR_ADDR: AtomicU32 = AtomicU32::new(0);
-// `WorldEntity::CheckMoveCollision` (0x004FB9D0) — `__stdcall`, 6 args,
-// RET 0x18. Same helper used by [`WorldEntity::try_move_position_raw`];
-// the ctor's drop loop calls it directly to probe without committing.
-static CHECK_MOVE_COLLISION_ADDR: AtomicU32 = AtomicU32::new(0);
 static FRAME_POST_PROCESS_HOOK_VEC_PUSH_BACK_ONE_ADDR: AtomicU32 = AtomicU32::new(0);
 static MATH_FIXA1TAN16_ADDR: AtomicU32 = AtomicU32::new(0);
 static GAME_COLLISION_TASK_GRADIENT_ADDR: AtomicU32 = AtomicU32::new(0);
@@ -88,10 +83,6 @@ static CONSTRUCT_TEXTBOX_ADDR: AtomicU32 = AtomicU32::new(0);
 
 pub unsafe fn init_addrs() {
     WORLD_ENTITY_CTOR_ADDR.store(rb(0x004FED50), Ordering::Relaxed);
-    CHECK_MOVE_COLLISION_ADDR.store(
-        rb(crate::entity::game_entity::CHECK_MOVE_COLLISION),
-        Ordering::Relaxed,
-    );
     FRAME_POST_PROCESS_HOOK_VEC_PUSH_BACK_ONE_ADDR.store(
         rb(FRAME_POST_PROCESS_HOOK_VEC_PUSH_BACK_ONE),
         Ordering::Relaxed,
@@ -119,25 +110,6 @@ unsafe fn world_entity_ctor(
     unsafe {
         let f: Fn = core::mem::transmute(WORLD_ENTITY_CTOR_ADDR.load(Ordering::Relaxed) as usize);
         f(this, parent, class_type, flag);
-    }
-}
-
-/// Direct call into [`CHECK_MOVE_COLLISION`](crate::entity::game_entity::CHECK_MOVE_COLLISION)
-/// matching the ctor's drop-loop signature (6 args, stdcall, RET 0x18).
-#[inline]
-unsafe fn check_move_collision(
-    game_state_stream: *mut u8,
-    this: *mut MineEntity,
-    x: i32,
-    y: i32,
-    field_dc: u32,
-    flags: u32,
-) -> u32 {
-    type Fn = unsafe extern "stdcall" fn(*mut u8, *mut MineEntity, i32, i32, u32, u32) -> u32;
-    unsafe {
-        let f: Fn =
-            core::mem::transmute(CHECK_MOVE_COLLISION_ADDR.load(Ordering::Relaxed) as usize);
-        f(game_state_stream, this, x, y, field_dc, flags)
     }
 }
 
@@ -412,12 +384,10 @@ pub unsafe fn mine_constructor(
         if level_gen_flag != 0 {
             let x = spawn_x;
             let mut y = spawn_y.wrapping_add(0x10000);
-            let game_state_stream = (*world).game_state_stream;
             while (y >> 16) < (*world).water_level {
-                let field_dc = (*this).base._field_dc;
-                let flags = read_subclass_dword(this, 0x4);
                 let collided =
-                    check_move_collision(game_state_stream, this, x, y, field_dc, flags) != 0;
+                    !WorldEntity::check_move_collision_raw(this as *mut WorldEntity, x, y)
+                        .is_null();
                 if collided {
                     break;
                 }
@@ -478,13 +448,5 @@ unsafe fn write_subclass_dword(this: *mut MineEntity, sub_offset: usize, value: 
     unsafe {
         let p = (*this).base.subclass_data.as_mut_ptr().add(sub_offset) as *mut u32;
         *p = value;
-    }
-}
-
-#[inline]
-unsafe fn read_subclass_dword(this: *mut MineEntity, sub_offset: usize) -> u32 {
-    unsafe {
-        let p = (*this).base.subclass_data.as_ptr().add(sub_offset) as *const u32;
-        *p
     }
 }

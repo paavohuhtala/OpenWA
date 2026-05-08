@@ -4,7 +4,7 @@
 /// of a entity in the entity hierarchy.
 ///
 /// Source: wkJellyWorm Constants.h
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(u32)]
 pub enum ClassType {
     None = 0,
