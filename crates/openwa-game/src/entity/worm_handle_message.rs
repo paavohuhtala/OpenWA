@@ -124,7 +124,6 @@ static mut WORM_DRAW_HEALTH_LABEL_ADDR: u32 = 0;
 static mut WORM_DRAW_OFF_MAP_MARKER_ADDR: u32 = 0;
 static mut WORM_DRAW_HUD_LABELS_ADDR: u32 = 0;
 static mut WORM_DRAW_AIM_CURSOR_ADDR: u32 = 0;
-static mut WORM_DRAW_TURN_INDICATOR_ADDR: u32 = 0;
 static mut WORM_DRAW_CURSOR_MARKER_ADDR: u32 = 0;
 // WormEntity::BehaviorTick (0x00515650) — plain stdcall, this on
 // stack, RET 0x4, returns u32 in EAX. The 645-line per-frame behaviour
@@ -227,7 +226,6 @@ pub unsafe fn init_addrs() {
         WORM_DRAW_OFF_MAP_MARKER_ADDR = rb(0x0050F900);
         WORM_DRAW_HUD_LABELS_ADDR = rb(0x0050FDC0);
         WORM_DRAW_AIM_CURSOR_ADDR = rb(0x0051D680);
-        WORM_DRAW_TURN_INDICATOR_ADDR = rb(0x0050F810);
         WORM_DRAW_CURSOR_MARKER_ADDR = rb(0x005103A0);
     }
 }
@@ -968,18 +966,6 @@ unsafe extern "stdcall" fn bridge_draw_aim_cursor(_this: *mut WormEntity) {
         "pop esi",
         "ret 4",
         addr = sym WORM_DRAW_AIM_CURSOR_ADDR,
-    );
-}
-
-/// `__thiscall(ECX = this)`, no stack args, plain RET.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_draw_turn_indicator(_this: *mut WormEntity) {
-    core::arch::naked_asm!(
-        "mov ecx, dword ptr [esp+4]",
-        "mov eax, dword ptr [{addr}]",
-        "call eax",
-        "ret 4",
-        addr = sym WORM_DRAW_TURN_INDICATOR_ADDR,
     );
 }
 
@@ -3209,7 +3195,7 @@ unsafe fn msg_render_scene(
                     }
                     bridge_draw_hud_labels(this);
                     bridge_draw_aim_cursor(this);
-                    bridge_draw_turn_indicator(this);
+                    crate::render::worm::draw_turn_indicator(this);
                     let rope_style = (*world).gfx_color_table[8];
                     let rope_fill = (*world).gfx_color_table[6];
                     crate::render::worm::draw_attached_rope(this, rope_style, rope_fill);

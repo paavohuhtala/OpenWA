@@ -4,5 +4,7 @@
 //! during the per-frame draw pass.
 
 pub mod rope;
+pub mod turn_indicator;
 
 pub use rope::draw_attached_rope;
+pub use turn_indicator::draw_turn_indicator;
