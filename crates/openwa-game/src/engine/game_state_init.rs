@@ -1252,14 +1252,15 @@ unsafe fn init_game_state_tracking_arrays(world: *mut GameWorld, game_info: *con
         (*world).render_scale = Fixed::ONE;
         (*world)._field_7398 = 0;
 
-        // Allocate team tracking arrays (GameWorld+0x514, GameWorld+0x518)
+        // Allocate the mine registry (GameWorld+0x514) + a parallel
+        // object array (GameWorld+0x518).
         {
-            let count_a = (*game_info).team_slot_count;
+            let count_a = (*game_info).mine_list_capacity;
             let size = count_a.wrapping_mul(4);
-            let arr = wa_malloc(size);
-            (*world)._unknown_514 = arr;
+            let arr = wa_malloc(size) as *mut *mut crate::entity::MineEntity;
+            (*world).mine_list = arr;
             for i in 0..count_a as usize {
-                *(arr as *mut u32).add(i) = 0;
+                *arr.add(i) = core::ptr::null_mut();
             }
         }
         {

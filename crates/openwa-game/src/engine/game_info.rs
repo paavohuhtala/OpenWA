@@ -290,8 +290,11 @@ pub struct GameInfo {
     pub game_speed_config: i32,
     /// 0xD98C-0xD98F: Unknown
     pub _unknown_d98c: [u8; 0xD990 - 0xD98C],
-    /// 0xD990: Team slot allocation count (u32). Used to size GameWorld+0x514 array.
-    pub team_slot_count: u32,
+    /// 0xD990: Capacity of the world's mine registry
+    /// (`GameWorld.mine_list`, allocated in `init_game_state`). Caps the
+    /// number of live mines per match — `MineEntity::InsertIntoMineList`
+    /// LRU-evicts the oldest mine when this many are already alive.
+    pub mine_list_capacity: u32,
     /// 0xD994: Object slot allocation count (u32). Used to size GameWorld+0x518 array
     /// and buffer object allocation.
     pub object_slot_count: u32,

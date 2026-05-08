@@ -238,7 +238,7 @@ pub(super) unsafe extern "stdcall" fn bridge_reset_rank(
 /// WA helper's deregistration order: re-establish the vtable slot,
 /// release this mine's two world-level slots (`world._unknown_514[mine_list_slot]`
 /// + the `EntityActivityQueue` rank), then in headful mode tear down the
-/// per-mine sub-object at `mine._field_198` (two refcounted children via
+/// per-mine textbox at `mine.textbox_handle` (two refcounted children via
 /// vtable slot 3, then `wa_free` of the sub-object itself), and finally
 /// chain into the parent `WorldEntity` destructor.
 unsafe fn destructor_1(this: *mut MineEntity) {
@@ -250,8 +250,7 @@ unsafe fn destructor_1(this: *mut MineEntity) {
 
         // Clear the world-level mine-registry slot.
         let world = (*(this as *const BaseEntity)).world;
-        let mine_table = (*world)._unknown_514 as *mut u32;
-        *mine_table.add((*this).mine_list_slot as usize) = 0;
+        *(*world).mine_list.add((*this).mine_list_slot as usize) = core::ptr::null_mut();
 
         // Release the EntityActivityQueue rank slot.
         let queue = core::ptr::addr_of_mut!((*world).entity_activity_queue);
@@ -259,7 +258,7 @@ unsafe fn destructor_1(this: *mut MineEntity) {
 
         // Headful-only sub-object teardown.
         if (*world).is_headful != 0 {
-            let sub = (*this)._field_198;
+            let sub = (*this).textbox_handle;
             if !sub.is_null() {
                 type Vt3Free = unsafe extern "thiscall" fn(*mut u8, u32);
                 for child_offset in [0xCusize, 0x10] {

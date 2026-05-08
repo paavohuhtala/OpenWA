@@ -108,8 +108,13 @@ pub struct GameWorld {
     pub coord_list: *mut CoordList,
     /// 0x510: Weapon table pointer (0x10 header + 71 × WeaponEntry).
     pub weapon_table: *mut WeaponTable,
-    /// 0x514: Unknown pointer (populated at runtime)
-    pub _unknown_514: *mut u8,
+    /// 0x514: Pointer to the world's mine registry — a flat array of
+    /// `[*mut MineEntity; mine_list_capacity]`, allocated and zeroed by
+    /// `init_game_state` from `game_info.mine_list_capacity` (0xD990).
+    /// `MineEntity::InsertIntoMineList` finds a free slot (or evicts the
+    /// LRU mine when full); the destructor zeros the owning slot. Indexed
+    /// via [`MineEntity::mine_list_slot`](crate::entity::MineEntity#mine_list_slot).
+    pub mine_list: *mut *mut crate::entity::MineEntity,
     /// 0x518: Unknown pointer (populated at runtime)
     pub _unknown_518: *mut u8,
     /// 0x51C: Unknown pointer (populated at runtime)

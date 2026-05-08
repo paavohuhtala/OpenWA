@@ -69,13 +69,15 @@ pub struct MineEntityVtable {
 pub struct MineEntity {
     /// 0x00–0xFB: WorldEntity base (pos at 0x84/0x88, speed at 0x90/0x94)
     pub base: WorldEntity<*const MineEntityVtable>,
-    /// 0xFC–0xFF: not yet identified (zeroed by ctor's WorldEntity init).
-    pub _unknown_fc: [u8; 0x4],
-    /// 0x100: This mine's slot index in the world-level mine registry at
-    /// `world._unknown_514` (a `[u32; ?]` array). The destructor zeros
-    /// `world._unknown_514[mine_list_slot]` to deregister. Written by
-    /// `MineEntity::InsertIntoMineList` (0x00506B70) at construction
-    /// time; canonical name TBD pending RE of that helper.
+    /// 0xFC: Frame the mine was inserted into the world's mine registry,
+    /// snapshotted from `GameWorld::frame_counter` (+0x5CC) by
+    /// `MineEntity::InsertIntoMineList`. Used as the LRU age key when the
+    /// registry is full and a placement has to evict an older mine.
+    pub inserted_frame: i32,
+    /// 0x100: This mine's slot index in
+    /// [`GameWorld::mine_list`](crate::engine::world::GameWorld#mine_list).
+    /// Set by `MineEntity::InsertIntoMineList`; the destructor zeros
+    /// `world.mine_list[mine_list_slot]` to deregister.
     pub mine_list_slot: u32,
     /// 0x104: Trigger-armed flag — set to 1 in ctor; cleared on
     /// `EntityMessage::GameOver` (msg 0x15). Tick body gates the
@@ -196,14 +198,15 @@ pub struct MineEntity {
     /// 0x194: ProjectilePlay tracking index — sentinel `0xFFFFFFFF` until
     /// the mine registers itself with the active replay/projectile-play log.
     pub _field_194: u32,
-    /// 0x198: Pointer to a per-mine headful-only sub-object (allocated by
-    /// `MineEntity::ConstructPointers` at 0x00506D20 only when
-    /// `world.is_headful != 0`; null otherwise). The sub-object holds two
-    /// further refcounted child objects at +0xC and +0x10, both released
-    /// via vtable slot 3 (`thiscall(this, flag=1)`) by the destructor
-    /// before the sub-object itself is freed. Likely render/sound state;
-    /// canonical name TBD.
-    pub _field_198: *mut u8,
+    /// 0x198: This mine's countdown / state textbox handle, allocated by
+    /// `MineEntity::ConstructPointers` via `DisplayGfx::ConstructTextbox`
+    /// only when `world.is_headful != 0`; null in headless mode. The
+    /// textbox object holds two refcounted child objects at +0xC and
+    /// +0x10, both released via vtable slot 3 (`thiscall(this, flag=1)`)
+    /// by the destructor before `wa_free`-ing the textbox itself.
+    /// `MineEntity::Render` reads this slot to paint the per-mine
+    /// countdown overlay.
+    pub textbox_handle: *mut u8,
     /// 0x19C–0x1BB: Heap allocator only zeroes the first 0x19C bytes;
     /// nothing in the constructor or HandleMessage reads or writes this
     /// range.

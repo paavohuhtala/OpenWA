@@ -196,7 +196,7 @@ pub unsafe fn mine_render(this: *mut MineEntity) {
         // SetTextboxText layout + blit.
         let mut text_w: i32 = 0;
         let mut text_h: i32 = 0;
-        let textbox = (*this)._field_198;
+        let textbox = (*this).textbox_handle;
         let shadow_lo = (*world).gfx_color_table[7];
         let shadow_hi = (*world).gfx_color_table[6];
         let bitmap = set_textbox_text(

@@ -15,15 +15,19 @@
 //!  * `EntityActivityQueue::ResetRank` (0x00541790) — usercall(EAX=queue,
 //!    [stack]=slot). Reused via `super::handle_message::bridge_reset_rank`.
 //!  * `WorldEntity::CheckMoveCollision` (0x004FB9D0) — stdcall, 6 args.
-//!    The acquire-slot operation is inlined.
 //!  * `GameCollisionTask::gradient` (0x00500230) — usercall(EAX=this,
 //!    [stack]=x,y,kind,*out_grad), RET 0x10.
 //!  * `Math::fixa1tan16` (0x00575840) — usercall(EAX=arg).
 //!  * `FramePostProcessHookVec::push_back_one` (0x00507C40) —
 //!    usercall(ESI=vec, [stack]=&value). Used to grow the projectile-play
 //!    log slot.
-//!  * `MineEntity::ConstructPointers` (0x00506D20) — usercall(EDI=this).
-//!  * `MineEntity::InsertIntoMineList` (0x00506B70) — usercall(EDI=this).
+//!  * `DisplayGfx::ConstructTextbox` (0x004FAF00, stdcall) — used by the
+//!    Rust port of `MineEntity::ConstructPointers` to allocate the
+//!    countdown textbox sub-object.
+//!  * [`spawn_effect`](crate::game::weapon_release::spawn_effect) is the
+//!    Rust port of WA's `SpawnEffect` (0x00547C30); used by
+//!    `MineEntity::InsertIntoMineList` to spit out a smoke puff when the
+//!    LRU mine gets evicted to make room.
 
 use core::sync::atomic::{AtomicU32, Ordering};
 
@@ -42,12 +46,12 @@ use openwa_core::fixed::Fixed;
 crate::define_addresses! {
     class "MineEntity" {
         /// `MineEntity::ConstructPointers` (0x00506D20) —
-        /// `__usercall(EDI = this)`, plain RET. Allocates the headful-only
-        /// per-mine sub-object pinned at `mine._field_198`.
+        /// `__usercall(EDI = this)`, plain RET. Ported pure-Rust as
+        /// [`construct_pointers`]; address kept for registry lookups.
         fn/Usercall MINE_CONSTRUCT_POINTERS = 0x00506D20;
         /// `MineEntity::InsertIntoMineList` (0x00506B70) —
-        /// `__usercall(EDI = this)`, plain RET. Records this mine in
-        /// `world._unknown_514[mine_list_slot]`.
+        /// `__usercall(EDI = this)`, plain RET. Ported pure-Rust as
+        /// [`insert_into_mine_list`]; address kept for registry lookups.
         fn/Usercall MINE_INSERT_INTO_LIST = 0x00506B70;
     }
     /// `FramePostProcessHookVec::push_back_one` (0x00507C40, was
@@ -79,8 +83,7 @@ static CHECK_MOVE_COLLISION_ADDR: AtomicU32 = AtomicU32::new(0);
 static FRAME_POST_PROCESS_HOOK_VEC_PUSH_BACK_ONE_ADDR: AtomicU32 = AtomicU32::new(0);
 static MATH_FIXA1TAN16_ADDR: AtomicU32 = AtomicU32::new(0);
 static GAME_COLLISION_TASK_GRADIENT_ADDR: AtomicU32 = AtomicU32::new(0);
-static MINE_CONSTRUCT_POINTERS_ADDR: AtomicU32 = AtomicU32::new(0);
-static MINE_INSERT_INTO_LIST_ADDR: AtomicU32 = AtomicU32::new(0);
+static CONSTRUCT_TEXTBOX_ADDR: AtomicU32 = AtomicU32::new(0);
 
 pub unsafe fn init_addrs() {
     WORLD_ENTITY_CTOR_ADDR.store(rb(0x004FED50), Ordering::Relaxed);
@@ -94,8 +97,7 @@ pub unsafe fn init_addrs() {
     );
     MATH_FIXA1TAN16_ADDR.store(rb(MATH_FIXA1TAN16), Ordering::Relaxed);
     GAME_COLLISION_TASK_GRADIENT_ADDR.store(rb(GAME_COLLISION_TASK_GRADIENT), Ordering::Relaxed);
-    MINE_CONSTRUCT_POINTERS_ADDR.store(rb(MINE_CONSTRUCT_POINTERS), Ordering::Relaxed);
-    MINE_INSERT_INTO_LIST_ADDR.store(rb(MINE_INSERT_INTO_LIST), Ordering::Relaxed);
+    CONSTRUCT_TEXTBOX_ADDR.store(rb(crate::address::va::CONSTRUCT_TEXTBOX), Ordering::Relaxed);
 }
 
 /// `WorldEntity::Constructor` (0x004FED50) — `__stdcall(this, parent,
@@ -193,34 +195,109 @@ unsafe extern "stdcall" fn bridge_vec_push_back_one(_vec: *mut u8, _value_ptr: *
     );
 }
 
-/// `MineEntity::ConstructPointers` (0x00506D20) —
-/// `__usercall(EDI = this)`, plain RET. EDI is callee-saved.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_construct_pointers(_this: *mut MineEntity) {
-    core::arch::naked_asm!(
-        "push edi",
-        "mov edi, dword ptr [esp+8]",
-        "mov ecx, dword ptr [{addr}]",
-        "call ecx",
-        "pop edi",
-        "ret 4",
-        addr = sym MINE_CONSTRUCT_POINTERS_ADDR,
-    );
+/// `DisplayGfx::ConstructTextbox` (0x004FAF00) — `__stdcall(this, anchor,
+/// kind)`, RET 0xC. Returns the textbox handle in EAX.
+#[inline]
+unsafe fn construct_textbox(this: *mut u8, anchor: i32, kind: i32) -> *mut u8 {
+    type Fn = unsafe extern "stdcall" fn(*mut u8, i32, i32) -> *mut u8;
+    unsafe {
+        let f: Fn = core::mem::transmute(CONSTRUCT_TEXTBOX_ADDR.load(Ordering::Relaxed) as usize);
+        f(this, anchor, kind)
+    }
 }
 
-/// `MineEntity::InsertIntoMineList` (0x00506B70) —
-/// `__usercall(EDI = this)`, plain RET. EDI is callee-saved.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_insert_into_mine_list(_this: *mut MineEntity) {
-    core::arch::naked_asm!(
-        "push edi",
-        "mov edi, dword ptr [esp+8]",
-        "mov ecx, dword ptr [{addr}]",
-        "call ecx",
-        "pop edi",
-        "ret 4",
-        addr = sym MINE_INSERT_INTO_LIST_ADDR,
-    );
+/// Pure-Rust port of `MineEntity::ConstructPointers` (0x00506D20). When
+/// running headful, allocates a 0x158-byte buffer for the per-mine
+/// countdown textbox and stores the resulting handle in
+/// [`MineEntity::textbox_handle`]. Headless: no-op.
+pub unsafe fn construct_pointers(this: *mut MineEntity) {
+    unsafe {
+        let world = (*(this as *const BaseEntity)).world;
+        if (*world).is_headful == 0 {
+            return;
+        }
+        let buf = crate::wa_alloc::wa_malloc(0x158);
+        if buf.is_null() {
+            (*this).textbox_handle = core::ptr::null_mut();
+            return;
+        }
+        // WA only zeroes the first 0x138 bytes; the trailing 0x20 bytes
+        // are scratch the textbox impl initialises lazily.
+        core::ptr::write_bytes(buf, 0, 0x138);
+        let game_info = (*world).game_info;
+        let f380 = *((game_info as *const u8).add(0xF380) as *const u32);
+        let kind = if f380 != 0 { 2 } else { 1 };
+        (*this).textbox_handle = construct_textbox(buf, 4, kind);
+    }
+}
+
+/// Pure-Rust port of `MineEntity::InsertIntoMineList` (0x00506B70).
+/// Records `this` in `world.mine_list[]`: takes the first free slot if
+/// any, else evicts the oldest (smallest [`inserted_frame`]) mine — that
+/// mine is freed via vtable slot 1 and a smoke puff is spawned at its
+/// position.
+///
+/// [`inserted_frame`]: MineEntity::inserted_frame
+pub unsafe fn insert_into_mine_list(this: *mut MineEntity) {
+    unsafe {
+        let world = (*(this as *const BaseEntity)).world;
+        let game_info = (*world).game_info;
+        let capacity = (*game_info).mine_list_capacity;
+        let table = (*world).mine_list;
+
+        // First pass: place into the first empty slot, if any.
+        for i in 0..capacity {
+            let slot_ptr = table.add(i as usize);
+            if (*slot_ptr).is_null() {
+                *slot_ptr = this;
+                (*this).inserted_frame = (*world).frame_counter;
+                (*this).mine_list_slot = i;
+                return;
+            }
+        }
+
+        // Full: find the LRU mine (smallest `inserted_frame`).
+        let mut best_idx: i32 = -1;
+        let mut best_age: i32 = 0;
+        for i in 0..capacity {
+            let victim_age = (**table.add(i as usize)).inserted_frame;
+            if best_idx < 0 || victim_age < best_age {
+                best_idx = i as i32;
+                best_age = victim_age;
+            }
+        }
+        let victim = *table.add(best_idx as usize);
+
+        // Spit out a smoke puff at the victim's position. WA's call
+        // passes `(team*0xBB8 - 0x767)` from game_info as a per-team
+        // smoke-effect offset byte; team values are >= 1 in practice
+        // (anonymous level-gen mines never reach the eviction branch
+        // because they're allocated before the list fills up).
+        let team = (*victim).placer_team_index;
+        let game_info_byte_offset = (team as isize).wrapping_mul(0xBB8).wrapping_sub(0x767);
+        let effect_byte = *((game_info as *const u8).offset(game_info_byte_offset));
+        let state_flag = (effect_byte as u32).wrapping_add(8);
+        crate::game::weapon_release::spawn_effect(
+            victim as *mut crate::entity::WormEntity,
+            0,
+            (*victim).base.pos_x,
+            (*victim).base.pos_y,
+            0,
+            0,
+            0,
+            state_flag,
+            Fixed(0x10000),
+            Fixed(0xCCC),
+        );
+
+        // Free the victim via vtable slot 1.
+        let vt = (*victim).base.base.vtable;
+        ((*vt).free)(victim, 1);
+
+        *table.add(best_idx as usize) = this;
+        (*this).mine_list_slot = best_idx as u32;
+        (*this).inserted_frame = (*world).frame_counter;
+    }
 }
 
 /// Pure-Rust port of `MineEntity::Constructor` (0x00506660, `__stdcall`,
@@ -393,8 +470,8 @@ pub unsafe fn mine_constructor(
             }
         }
 
-        bridge_construct_pointers(this);
-        bridge_insert_into_mine_list(this);
+        construct_pointers(this);
+        insert_into_mine_list(this);
 
         this
     }
