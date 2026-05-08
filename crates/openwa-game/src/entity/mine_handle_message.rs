@@ -58,8 +58,6 @@ static mut MINE_RENDER_ADDR: u32 = 0;
 static mut MINE_ROPE_PHYSICS_TAIL_ADDR: u32 = 0;
 
 // Tick-body bridges (slice m2 + m3):
-// `MineEntity::ScanForTrigger` (0x00507140) — usercall(EAX=this, [stack]=range), RET 0x4.
-static mut MINE_SCAN_FOR_TRIGGER_ADDR: u32 = 0;
 // `GameTask::ensure_recording` (0x00546B20) — usercall(EAX=this), plain RET.
 static mut MINE_ENSURE_RECORDING_ADDR: u32 = 0;
 // `GameTask::create_bubble_1` (0x005472C0) — usercall(EAX=pos_x, ECX=pos_y,
@@ -79,7 +77,6 @@ pub unsafe fn init_addrs() {
         MINE_STEP_ROPE_PHYSICS_ADDR = rb(0x005003D0);
         MINE_RENDER_ADDR = rb(0x00506EF0);
         MINE_ROPE_PHYSICS_TAIL_ADDR = rb(0x00500630);
-        MINE_SCAN_FOR_TRIGGER_ADDR = rb(0x00507140);
         MINE_ENSURE_RECORDING_ADDR = rb(0x00546B20);
         MINE_CREATE_BUBBLE_ADDR = rb(0x005472C0);
         RANDOM_BAG_DRAW_ADDR = rb(0x00541CC0);
@@ -121,24 +118,6 @@ unsafe extern "stdcall" fn bridge_rope_physics_tail(_this: *mut MineEntity) {
         "call ecx",
         "ret 4",
         addr = sym MINE_ROPE_PHYSICS_TAIL_ADDR,
-    );
-}
-
-/// `MineEntity::ScanForTrigger` (0x00507140) —
-/// `__usercall(EAX = this, [stack] = range)`, RET 0x4. Returns the first
-/// qualifying entity pointer in EAX, or `null` when no trigger is found.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_scan_for_trigger(
-    _this: *mut MineEntity,
-    _range: i32,
-) -> *mut BaseEntity {
-    core::arch::naked_asm!(
-        "mov eax, dword ptr [esp+4]",
-        "push dword ptr [esp+8]",
-        "mov ecx, dword ptr [{addr}]",
-        "call ecx",
-        "ret 8",
-        addr = sym MINE_SCAN_FOR_TRIGGER_ADDR,
     );
 }
 
@@ -233,6 +212,63 @@ unsafe extern "stdcall" fn bridge_reset_rank(_queue: *mut EntityActivityQueue, _
 #[inline]
 unsafe fn arm_delay(this: *const MineEntity) -> i32 {
     unsafe { (*this)._unknown_11c as i32 }
+}
+
+/// Pure-Rust port of `MineEntity::ScanForTrigger` (0x00507140). Walks the
+/// world's triggerable-entity list at `world.game_state_stream + 0x20/+0x24`
+/// and returns the first non-null entry that:
+///
+/// - has its `subclass_data[0]` low 5 bits set in the mine's
+///   `trigger_class_mask` (the "trigger-class index" — populated by some
+///   subclasses to opt into proximity triggers; **not** the BaseEntity
+///   `class_type` enum at +0x20), and
+/// - sits within `range` pixels of the mine in L1 distance
+///   (`|dx_pixels| + |dy_pixels|`, with `dx`/`dy` shifted right 16 to drop
+///   the fixed-point fraction before taking absolute value).
+///
+/// Returns `null` when the list is exhausted with no qualifying entry.
+unsafe fn scan_for_trigger(this: *mut MineEntity, range: i32) -> *mut BaseEntity {
+    unsafe {
+        let world = (*(this as *const BaseEntity)).world;
+        let stream = (*world).game_state_stream;
+        let count = *(stream.add(0x20) as *const i32);
+        let array = *(stream.add(0x24) as *const *mut *mut BaseEntity);
+
+        let trigger_mask = (*this).trigger_class_mask;
+        let this_x = (*this).base.pos_x.to_raw();
+        let this_y = (*this).base.pos_y.to_raw();
+
+        let mut idx: i32 = 0;
+        loop {
+            // Advance to the next non-null entry, exit when the list ends.
+            let entry = loop {
+                if idx >= count {
+                    return core::ptr::null_mut();
+                }
+                let e = *array.offset(idx as isize);
+                idx += 1;
+                if !e.is_null() {
+                    break e;
+                }
+            };
+
+            let class_byte = *((entry as *const u8).add(0x30) as *const u32);
+            if (trigger_mask & (1u32 << (class_byte & 0x1F))) == 0 {
+                continue;
+            }
+
+            let entry_x = *((entry as *const u8).add(0x84) as *const i32);
+            let entry_y = *((entry as *const u8).add(0x88) as *const i32);
+            let dx_pixels = (this_x.wrapping_sub(entry_x)) >> 16;
+            let dy_pixels = (this_y.wrapping_sub(entry_y)) >> 16;
+            let l1 = dx_pixels
+                .wrapping_abs()
+                .wrapping_add(dy_pixels.wrapping_abs());
+            if l1 <= range {
+                return entry;
+            }
+        }
+    }
 }
 
 /// Pure-Rust port of `MineEntity::Arm` (0x00506CA0). Latches the settling
@@ -640,7 +676,7 @@ unsafe fn msg_frame_finish_tick(
             // the trigger-armed flag was cleared by GameOver.
             if (*this).base._field_b0 == 0 && anim_ticked && (*this)._field_104 != 0 {
                 let trigger_range = (*this).trigger_range as i32;
-                let target = bridge_scan_for_trigger(this, trigger_range);
+                let target = scan_for_trigger(this, trigger_range);
                 if !target.is_null() {
                     let _ = bridge_ensure_recording(this);
                     let _ = play_sound_local(
@@ -726,7 +762,7 @@ unsafe fn msg_frame_finish_tick(
                     //   bag_value != 0       (bag-drawn value picked the dud slot)
                     //   is_not_dud == 0      (mine wasn't worm-placed)
                     let radius = (*this).damage.wrapping_mul(2).wrapping_add(10);
-                    let nearby = bridge_scan_for_trigger(this, radius);
+                    let nearby = scan_for_trigger(this, radius);
                     let duds_enabled = *((game_info as *const u8).add(0xD929)) != 0;
 
                     let is_dud = (*this)._field_108 == 0

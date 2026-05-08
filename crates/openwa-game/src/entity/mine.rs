@@ -87,11 +87,15 @@ pub struct MineEntity {
     pub _field_10c: u32,
     /// 0x110: This mine's slot ID in `GameWorld.entity_activity_queue`.
     pub activity_rank_slot: u32,
-    /// 0x114: Trigger class bitmask. `MineEntity::ScanForTrigger` uses
-    /// `(self.trigger_class_mask >> entity.class_type) & 1` to gate
-    /// proximity hits — only entities whose `class_type` byte (at
-    /// `+0x30`) is in this bitmask can trigger the mine. Sourced from
-    /// `WeaponFireParams[2]` for `FireType::Placed`.
+    /// 0x114: Trigger class bitmask. `MineEntity::ScanForTrigger` reads
+    /// the candidate entity's `subclass_data[0]` u32 (entity offset
+    /// `+0x30`), takes its low 5 bits as a "trigger-class index", and
+    /// gates the proximity hit on
+    /// `(trigger_class_mask >> trigger_class_index) & 1`. The index is
+    /// **not** the BaseEntity `class_type` enum (which lives at +0x20);
+    /// it's a separate per-subclass byte that triggerable entities write
+    /// into their `subclass_data[0]`. Sourced from `WeaponFireParams[2]`
+    /// for `FireType::Placed`.
     pub trigger_class_mask: u32,
     /// 0x118: Fuse timer (signed). Decrements 20/frame after the mine
     /// triggers; detonates at ≤ 0.
