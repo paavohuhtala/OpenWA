@@ -16,6 +16,7 @@ use crate::game::create_explosion::create_explosion;
 use crate::game::game_entity_message::{alliance_blocks_damage, world_entity_handle_message};
 use crate::game::message::{EntityMessage, ExplosionMessage, SpecialImpactMessage};
 use crate::rebase::rb;
+use crate::wa_alloc::wa_free;
 use openwa_core::fixed::Fixed;
 
 /// Subclass-data offset of MineEntity's "anim flag" slot (mine offset 0x74,
@@ -72,6 +73,14 @@ static mut MINE_RESET_RANK_ADDR: u32 = 0;
 // and consumed by `SmokeEntity::Constructor`).
 static mut MINE_CREATE_SMOKE_ADDR: u32 = 0;
 
+// Lifecycle bridges (slice m6a):
+// `EntityActivityQueue::FreeSlotById` (0x00541860) — usercall(EAX=queue, [stack]=slot), RET 0x4.
+static mut MINE_FREE_ACTIVITY_SLOT_ADDR: u32 = 0;
+// `WorldEntity::Destructor` (0x004FEF30) — thiscall(this), plain RET. Used
+// by `MineEntity::Destructor_1` as the parent destructor chain. Larger /
+// SEH-protected — kept bridged for now, port deferred.
+static mut MINE_CGAMETASK_DESTRUCTOR_ADDR: u32 = 0;
+
 pub unsafe fn init_addrs() {
     unsafe {
         MINE_STEP_ROPE_PHYSICS_ADDR = rb(0x005003D0);
@@ -82,6 +91,8 @@ pub unsafe fn init_addrs() {
         RANDOM_BAG_DRAW_ADDR = rb(0x00541CC0);
         MINE_RESET_RANK_ADDR = rb(0x00541790);
         MINE_CREATE_SMOKE_ADDR = rb(0x00547490);
+        MINE_FREE_ACTIVITY_SLOT_ADDR = rb(0x00541860);
+        MINE_CGAMETASK_DESTRUCTOR_ADDR = rb(0x004FEF30);
     }
 }
 
@@ -137,6 +148,30 @@ unsafe extern "stdcall" fn bridge_create_smoke(_this: *mut MineEntity, _descript
         "ret 8",
         addr = sym MINE_CREATE_SMOKE_ADDR,
     );
+}
+
+/// `EntityActivityQueue::FreeSlotById` (0x00541860) —
+/// `__usercall(EAX = queue, [stack] = slot)`, RET 0x4.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_free_activity_slot(_queue: *mut EntityActivityQueue, _slot: i32) {
+    core::arch::naked_asm!(
+        "mov eax, dword ptr [esp+4]",
+        "push dword ptr [esp+8]",
+        "mov ecx, dword ptr [{addr}]",
+        "call ecx",
+        "ret 8",
+        addr = sym MINE_FREE_ACTIVITY_SLOT_ADDR,
+    );
+}
+
+/// `WorldEntity::Destructor` (0x004FEF30) — `__thiscall(this)`, plain RET.
+/// Parent-class destructor chain. Kept bridged: it does its own SEH +
+/// children-list walk and is best ported in a dedicated WorldEntity slice.
+#[inline]
+unsafe fn bridge_cgametask_destructor(this: *mut MineEntity) {
+    type Fn = unsafe extern "thiscall" fn(*mut MineEntity);
+    let f: Fn = unsafe { core::mem::transmute(MINE_CGAMETASK_DESTRUCTOR_ADDR as usize) };
+    unsafe { f(this) }
 }
 
 /// `GameTask::ensure_recording` (0x00546B20) —
@@ -212,6 +247,66 @@ unsafe extern "stdcall" fn bridge_reset_rank(_queue: *mut EntityActivityQueue, _
 #[inline]
 unsafe fn arm_delay(this: *const MineEntity) -> i32 {
     unsafe { (*this)._unknown_11c as i32 }
+}
+
+/// Pure-Rust port of `MineEntity::Destructor_1` (0x00506AB0). Mirrors the
+/// WA helper's deregistration order: re-establish the vtable slot,
+/// release this mine's two world-level slots (`world._unknown_514[mine_list_slot]`
+/// + the `EntityActivityQueue` rank), then in headful mode tear down the
+/// per-mine sub-object at `mine._field_198` (two refcounted children via
+/// vtable slot 3, then `wa_free` of the sub-object itself), and finally
+/// chain into the parent `WorldEntity` destructor.
+unsafe fn destructor_1(this: *mut MineEntity) {
+    unsafe {
+        // Re-establish own vtable so the parent destructor's virtual
+        // dispatches resolve against MineEntity's slots, not whichever
+        // descendant's slots were active before destruction started.
+        (*this).base.base.vtable = rb(0x006643E8) as *const MineEntityVtable;
+
+        // Clear the world-level mine-registry slot.
+        let world = (*(this as *const BaseEntity)).world;
+        let mine_table = (*world)._unknown_514 as *mut u32;
+        *mine_table.add((*this).mine_list_slot as usize) = 0;
+
+        // Release the EntityActivityQueue rank slot.
+        let queue = (world as *mut u8).add(0x600) as *mut EntityActivityQueue;
+        bridge_free_activity_slot(queue, (*this).activity_rank_slot as i32);
+
+        // Headful-only sub-object teardown.
+        if (*world).is_headful != 0 {
+            let sub = (*this)._field_198;
+            if !sub.is_null() {
+                type Vt3Free = unsafe extern "thiscall" fn(*mut u8, u32);
+                for child_offset in [0xCusize, 0x10] {
+                    let child = *(sub.add(child_offset) as *const *mut u8);
+                    if !child.is_null() {
+                        let vt = *(child as *const *const u32);
+                        let f: Vt3Free = core::mem::transmute(*vt.add(3));
+                        f(child, 1);
+                    }
+                }
+                wa_free(sub);
+            }
+        }
+
+        // Parent destructor chain.
+        bridge_cgametask_destructor(this);
+    }
+}
+
+/// Pure-Rust port of `MineEntity::Free` (0x005069D0, vtable slot 1). Runs
+/// the destructor and, when bit 0 of `flags` is set, frees the heap
+/// allocation. Returns the `this` pointer in EAX (matches WA's calling
+/// convention — the `extern "thiscall"` signature handles ECX = this and
+/// the i8 stack arg).
+pub unsafe extern "thiscall" fn free(this: *mut MineEntity, flags: u8) -> *mut MineEntity {
+    unsafe {
+        destructor_1(this);
+        if (flags & 1) != 0 {
+            wa_free(this as *mut u8);
+        }
+        this
+    }
 }
 
 /// Pure-Rust port of `MineEntity::ScanForTrigger` (0x00507140). Walks the

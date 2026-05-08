@@ -15,6 +15,7 @@ pub fn install() -> Result<(), String> {
     vtable_replace!(MineEntityVtable, va::MINE_ENTITY_VTABLE, {
         handle_message [mine_handle_message::ORIGINAL_HANDLE_MESSAGE]
             => mine_handle_message::handle_message,
+        free => mine_handle_message::free,
     })?;
 
     Ok(())

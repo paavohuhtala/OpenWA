@@ -65,8 +65,14 @@ pub struct MineEntityVtable {
 pub struct MineEntity {
     /// 0x00–0xFB: WorldEntity base (pos at 0x84/0x88, speed at 0x90/0x94)
     pub base: WorldEntity<*const MineEntityVtable>,
-    /// 0xFC–0x103
-    pub _unknown_fc: [u8; 0x8],
+    /// 0xFC–0xFF: not yet identified (zeroed by ctor's WorldEntity init).
+    pub _unknown_fc: [u8; 0x4],
+    /// 0x100: This mine's slot index in the world-level mine registry at
+    /// `world._unknown_514` (a `[u32; ?]` array). The destructor zeros
+    /// `world._unknown_514[mine_list_slot]` to deregister. Written by
+    /// `MineEntity::InsertIntoMineList` (0x00506B70) at construction
+    /// time; canonical name TBD pending RE of that helper.
+    pub mine_list_slot: u32,
     /// 0x104: Trigger-armed flag — set to 1 in ctor; cleared on
     /// `EntityMessage::GameOver` (msg 0x15). Tick body gates the
     /// proximity-trigger check on this; once cleared, the mine becomes
@@ -172,10 +178,18 @@ pub struct MineEntity {
     /// 0x194: ProjectilePlay tracking index — sentinel `0xFFFFFFFF` until
     /// the mine registers itself with the active replay/projectile-play log.
     pub _field_194: u32,
-    /// 0x198–0x1BB: Heap allocator only zeroes the first 0x19C bytes;
+    /// 0x198: Pointer to a per-mine headful-only sub-object (allocated by
+    /// `MineEntity::ConstructPointers` at 0x00506D20 only when
+    /// `world.is_headful != 0`; null otherwise). The sub-object holds two
+    /// further refcounted child objects at +0xC and +0x10, both released
+    /// via vtable slot 3 (`thiscall(this, flag=1)`) by the destructor
+    /// before the sub-object itself is freed. Likely render/sound state;
+    /// canonical name TBD.
+    pub _field_198: *mut u8,
+    /// 0x19C–0x1BB: Heap allocator only zeroes the first 0x19C bytes;
     /// nothing in the constructor or HandleMessage reads or writes this
     /// range.
-    pub _unknown_198: [u8; 0x24],
+    pub _unknown_19c: [u8; 0x20],
 }
 
 const _: () = assert!(core::mem::size_of::<MineEntity>() == 0x1BC);
