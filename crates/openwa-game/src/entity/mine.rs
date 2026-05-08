@@ -1,6 +1,7 @@
 use super::base::BaseEntity;
 use super::game_entity::WorldEntity;
 use crate::FieldRegistry;
+use openwa_core::fixed::Fixed;
 
 crate::define_addresses! {
     class "MineEntity" {
@@ -8,11 +9,17 @@ crate::define_addresses! {
     }
 }
 
-/// MineEntity vtable — 12 slots. Extends WorldEntity vtable with mine behavior.
+/// MineEntity vtable — 32 slots. Extends WorldEntity's 20-slot vtable with
+/// 12 mine-specific overrides.
 ///
 /// Vtable at Ghidra 0x6643E8.
-#[openwa_game::vtable(size = 12, va = 0x006643E8, class = "MineEntity")]
+#[openwa_game::vtable(size = 32, va = 0x006643E8, class = "MineEntity")]
 pub struct MineEntityVtable {
+    /// `BaseEntity::Free` (0x005069D0 for MineEntity) — scalar deleting
+    /// destructor. Called by `HandleMessage` after a real detonation, after
+    /// an off-bottom drop, or from the dud-smoke-and-flee path's tail.
+    #[slot(1)]
+    pub free: fn(this: *mut MineEntity, flags: u8) -> *mut MineEntity,
     /// HandleMessage — processes mine messages (arm, trigger, detonate).
     /// thiscall + 4 stack params, RET 0x10.
     #[slot(2)]
@@ -27,6 +34,15 @@ pub struct MineEntityVtable {
     /// thiscall + 1 stack param (flags), RET 0x4.
     #[slot(7)]
     pub process_frame: fn(this: *mut MineEntity, flags: u32),
+    /// `MineEntity::RollFuseFromReplay` (0x00507B10) — rolls a fresh fuse
+    /// timer from the side-channel RNG when `fuse_timer < 0`. Called from
+    /// the tick body the moment a worm walks into trigger range, just
+    /// before the mine sets `_field_128 = 1` (triggered). For mines that
+    /// already have a non-negative fuse from `WeaponFireParams`, this is a
+    /// no-op. The new fuse is also recorded into the active replay log via
+    /// `_field_194` so playback reproduces the same number.
+    #[slot(19)]
+    pub roll_fuse_from_replay: fn(this: *mut MineEntity),
 }
 
 /// Land mine entity.
@@ -53,8 +69,19 @@ pub struct MineEntity {
     /// proximity-trigger check on this; once cleared, the mine becomes
     /// inert (even if a worm walks over it).
     pub _field_104: u32,
-    /// 0x108–0x10F
-    pub _unknown_108: [u8; 0x8],
+    /// 0x108: Persistence flag set by some external path; cleared by the
+    /// tick body's tail whenever `WorldEntity::IsMoving` reports false.
+    /// While non-zero it forces the dud-roll branch in B3c to skip the
+    /// scan/duration fairness checks and detonate immediately, regardless
+    /// of the bag draw or scheme `duds_enabled` byte. Writers and exact
+    /// purpose are not yet identified.
+    pub _field_108: u32,
+    /// 0x10C: Underwater init-once flag. The tick's bubble-emission tail
+    /// sets this to 1 the first frame the mine enters water and writes
+    /// `subclass_data[4] = 64.0` (its bobbing target depth or buoyancy
+    /// scalar). Subsequent underwater frames see the flag set and skip
+    /// the one-time write.
+    pub _field_10c: u32,
     /// 0x110: This mine's slot ID in `GameWorld.entity_activity_queue`.
     pub activity_rank_slot: u32,
     /// 0x114: Trigger class bitmask. `MineEntity::ScanForTrigger` uses
@@ -87,8 +114,33 @@ pub struct MineEntity {
     /// (msg 0x15); set in the tick body once a worm walks within trigger
     /// range and the fuse starts running.
     pub _field_128: u32,
-    /// 0x12C–0x143
-    pub _unknown_12c: [u8; 0x18],
+    /// 0x12C: Beep-tier index — `fuse_timer / 250`. The tick body plays
+    /// sound `0x59` (beep) once per tier change so the warning beep
+    /// accelerates as the fuse counts down.
+    pub beep_tier_index: i32,
+    /// 0x130: Splash-played latch. Set to 1 the first frame the mine is
+    /// "wet" (`WorldEntity._field_a4 != 0`) and `speed_y > 1.0`; the same
+    /// frame plays sound `0x39`. Cleared back to 0 when the mine leaves
+    /// water (`_field_a4 == 0`) so the next splash will play.
+    pub splash_played: u32,
+    /// 0x134: Currently unread by the constructor or HandleMessage —
+    /// candidate for further RE.
+    pub _field_134: u32,
+    /// 0x138: "Fled" latch. Set to 1 by the dud-smoke-and-flee branch in
+    /// B3c. Read by other systems but not by the tick body itself; the
+    /// canonical reader has not been identified.
+    pub fled: u32,
+    /// 0x13C: "Worm-placed" flag — set to 1 by `fire_mine` (the Mine /
+    /// MineStrike weapon paths). Pre-placed level-generation mines pass
+    /// 0 here. The tick's dud branch gates on this being 0, so worm-
+    /// placed mines never roll for dud at fuse end.
+    pub is_not_dud: u32,
+    /// 0x140: Underwater bubble-emission accumulator (Fixed 16.16). The
+    /// tick adds `0.25` (`0x4000`) per frame; whenever it reaches 1.0,
+    /// `GameTask::create_bubble_1` is called and the accumulator
+    /// decrements by 1.0. Active only while `WorldEntity._field_b0 != 0`
+    /// (mine is underwater).
+    pub bubble_phase: Fixed,
     /// 0x144: Placer's team index — initialized in the constructor from
     /// `WeaponReleaseContext.team_id` (the team of the worm that placed
     /// the mine). Pre-placed level-gen mines are anonymous (team 0); the
