@@ -650,6 +650,21 @@ const _: () = assert!(core::mem::offset_of!(GameInfo, scheme_no_leaderboard) == 
 const _: () = assert!(core::mem::offset_of!(GameInfo, scheme_first_to_n_wins) == 0xD94F);
 
 impl GameInfo {
+    /// 1-based team-record lookup. WA addresses these records as
+    /// `team_records[team_id - 1]`, with `team_id` in `[1, N]` (team 0 is
+    /// reserved / "anonymous"). Returns a raw pointer; callers must
+    /// guarantee `team_id >= 1`.
+    #[inline]
+    pub unsafe fn team_record_1based(
+        this: *const GameInfo,
+        team_id: i32,
+    ) -> *const GameInfoTeamRecord {
+        unsafe {
+            let records = (*this).team_records.as_ptr();
+            records.offset((team_id - 1) as isize)
+        }
+    }
+
     /// Access terrain_flag at offset 0xD98B (high byte of game_speed_config).
     /// Set from map object during replay loading: 0 = cavern terrain.
     pub fn terrain_flag(&self) -> u8 {

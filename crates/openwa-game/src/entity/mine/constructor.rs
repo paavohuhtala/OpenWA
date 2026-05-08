@@ -34,6 +34,7 @@ use core::sync::atomic::{AtomicU32, Ordering};
 use super::handle_message::bridge_reset_rank;
 use super::{MineEntity, MineEntityVtable};
 use crate::engine::EntityActivityQueue;
+use crate::engine::game_info::GameInfo;
 use crate::engine::world::GameWorld;
 use crate::entity::base::BaseEntity;
 use crate::entity::game_entity::WorldEntity;
@@ -268,15 +269,12 @@ pub unsafe fn insert_into_mine_list(this: *mut MineEntity) {
         }
         let victim = *table.add(best_idx as usize);
 
-        // Spit out a smoke puff at the victim's position. WA's call
-        // passes `(team*0xBB8 - 0x767)` from game_info as a per-team
-        // smoke-effect offset byte; team values are >= 1 in practice
-        // (anonymous level-gen mines never reach the eviction branch
-        // because they're allocated before the list fills up).
-        let team = (*victim).placer_team_index;
-        let game_info_byte_offset = (team as isize).wrapping_mul(0xBB8).wrapping_sub(0x767);
-        let effect_byte = *((game_info as *const u8).offset(game_info_byte_offset));
-        let state_flag = (effect_byte as u32).wrapping_add(8);
+        // Spit out a smoke puff at the victim's position, tinted by the
+        // placer team's font palette. Team ids are 1-based here; level-gen
+        // mines (team 0) can't reach this branch in practice because the
+        // registry hands out empty slots first.
+        let team_record = GameInfo::team_record_1based(game_info, (*victim).placer_team_index);
+        let state_flag = ((*team_record).font_palette_idx as u32).wrapping_add(8);
         crate::game::weapon_release::spawn_effect(
             victim as *mut crate::entity::WormEntity,
             0,
@@ -290,9 +288,7 @@ pub unsafe fn insert_into_mine_list(this: *mut MineEntity) {
             Fixed(0xCCC),
         );
 
-        // Free the victim via vtable slot 1.
-        let vt = (*victim).base.base.vtable;
-        ((*vt).free)(victim, 1);
+        MineEntity::free_raw(victim, 1);
 
         *table.add(best_idx as usize) = this;
         (*this).mine_list_slot = best_idx as u32;
