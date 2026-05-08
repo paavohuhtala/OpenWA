@@ -1212,7 +1212,8 @@ unsafe fn fire_mine(
 ) {
     unsafe {
         use crate::entity::SharedDataTable;
-        use crate::rebase::rb;
+        use crate::entity::mine::MineEntity;
+        use crate::entity::mine_constructor::mine_constructor;
         use crate::wa_alloc::wa_malloc;
 
         let table = SharedDataTable::from_task(worm as *const BaseEntity);
@@ -1224,16 +1225,14 @@ unsafe fn fire_mine(
         }
         core::ptr::write_bytes(buffer, 0, 0x19C);
 
-        type Ctor = unsafe extern "stdcall" fn(
-            *mut u8,
-            *mut u8,
-            *const WeaponFireParams,
-            *const WeaponReleaseContext,
-            u32,
-            u32,
+        mine_constructor(
+            buffer as *mut MineEntity,
+            parent as *mut BaseEntity,
+            fire_params,
+            local_struct,
+            0,
+            1,
         );
-        let ctor: Ctor = core::mem::transmute(rb(va::MINE_ENTITY_CTOR));
-        ctor(buffer, parent, fire_params, local_struct, 0, 1);
     }
 }
 

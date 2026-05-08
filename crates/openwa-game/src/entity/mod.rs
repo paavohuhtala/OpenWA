@@ -5,6 +5,7 @@ pub mod filter;
 pub mod fire;
 pub mod game_entity;
 pub mod mine;
+pub mod mine_constructor;
 pub mod mine_handle_message;
 pub mod mine_render;
 pub mod missile;

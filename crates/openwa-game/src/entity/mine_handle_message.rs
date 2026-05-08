@@ -220,7 +220,10 @@ unsafe extern "stdcall" fn bridge_random_bag_draw(_bag: *mut u8, _rng_value: u32
 /// `EntityActivityQueue::ResetRank` (0x00541790) —
 /// `__usercall(EAX = queue, [stack] = slot)`, RET 0x4.
 #[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_reset_rank(_queue: *mut EntityActivityQueue, _slot: i32) {
+pub(super) unsafe extern "stdcall" fn bridge_reset_rank(
+    _queue: *mut EntityActivityQueue,
+    _slot: i32,
+) {
     core::arch::naked_asm!(
         "mov eax, dword ptr [esp+4]",
         "push dword ptr [esp+8]",

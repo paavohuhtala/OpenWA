@@ -86,6 +86,27 @@ impl EntityActivityQueue {
             (*this).capacity = capacity;
         }
     }
+
+    /// Pop a free slot off the LIFO and append it to the active list with
+    /// rank = `count` (oldest-current). Returns the slot ID, or `-1` when
+    /// the pool is empty.
+    ///
+    /// Inlined into every `WorldEntity` subclass constructor in WA (no
+    /// dedicated function); pulled out here so the same shape is reused
+    /// once subclasses besides `MineEntity` get ported.
+    pub unsafe fn acquire(this: *mut EntityActivityQueue) -> i32 {
+        unsafe {
+            if (*this).pool_head == 0 {
+                return -1;
+            }
+            (*this).pool_head -= 1;
+            let id = (*this).free_pool[(*this).pool_head as usize];
+            (*this).ages[id as usize] = (*this).count;
+            (*this).active_ids[(*this).count as usize] = id;
+            (*this).count += 1;
+            id as i32
+        }
+    }
 }
 
 crate::define_addresses! {
