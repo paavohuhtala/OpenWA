@@ -57,20 +57,32 @@ pub struct MineEntity {
     pub _unknown_108: [u8; 0x8],
     /// 0x110: This mine's slot ID in `GameWorld.entity_activity_queue`.
     pub activity_rank_slot: u32,
-    /// 0x114
-    pub _unknown_114: u32,
+    /// 0x114: Trigger class bitmask. `MineEntity::ScanForTrigger` uses
+    /// `(self.trigger_class_mask >> entity.class_type) & 1` to gate
+    /// proximity hits — only entities whose `class_type` byte (at
+    /// `+0x30`) is in this bitmask can trigger the mine. Sourced from
+    /// `WeaponFireParams[2]` for `FireType::Placed`.
+    pub trigger_class_mask: u32,
     /// 0x118: Fuse timer (signed). Decrements 20/frame after the mine
-    /// arms; detonates at ≤ 0.
+    /// triggers; detonates at ≤ 0.
     pub fuse_timer: i32,
     /// 0x11C: Settle / arm-delay timer (signed; seeded from
     /// `WeaponFireParams[1]`). Negative = airborne (arms when speed is
     /// zero). Positive = ground-settle countdown decrementing 20/frame
-    /// (arms at ≤ 0). Zero = armed.
+    /// (arms at ≤ 0). Zero = armed-and-scanning.
     pub _unknown_11c: u32,
-    /// 0x120
-    pub _unknown_120: u32,
-    /// 0x124: Owner team index (`WeaponFireParams[6]`; -1 = no owner).
-    pub owner_team: i32,
+    /// 0x120: Trigger range in pixels (L1 distance — `|dx| + |dy|`).
+    /// Passed to `MineEntity::ScanForTrigger` once the mine is armed;
+    /// any qualifying entity within this radius triggers detonation.
+    /// Sourced from `WeaponFireParams[0]` for `FireType::Placed`.
+    pub trigger_range: u32,
+    /// 0x124: Sourced from `WeaponFireParams[6]` for `FireType::Placed`.
+    /// Earlier RE labelled this "owner_team" but `WeaponFireParams[6]`
+    /// is "blast radius" for missile-class weapons; the dud-roll path's
+    /// secondary scan at `value * 2 + 10` pixels is more consistent
+    /// with a radius-style scalar. Pending confirmation from slice m2's
+    /// readers.
+    pub _field_124: i32,
     /// 0x128: Triggered flag — cleared on `EntityMessage::GameOver`
     /// (msg 0x15); set in the tick body once a worm walks within trigger
     /// range and the fuse starts running.
