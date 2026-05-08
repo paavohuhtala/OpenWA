@@ -50,9 +50,6 @@ pub static ORIGINAL_HANDLE_MESSAGE: AtomicU32 = AtomicU32::new(0);
 // calls; the name is misleading — it operates on any WorldEntity subclass.
 // AL=0 runs the full step.
 static mut MINE_STEP_ROPE_PHYSICS_ADDR: u32 = 0;
-// `Task_Mine__render` (0x00506EF0) — stdcall(this), RET 0x4. Mine's
-// per-frame draw routine (sprite + arming-light + countdown text).
-static mut MINE_RENDER_ADDR: u32 = 0;
 // 0x00500630 — usercall(EAX = this), no stack args, plain RET. Tail
 // companion to `StepRopePhysics_Maybe`. Was previously guessed as
 // "RestoreKamikazeState" — that name was wrong.
@@ -84,7 +81,6 @@ static mut MINE_CGAMETASK_DESTRUCTOR_ADDR: u32 = 0;
 pub unsafe fn init_addrs() {
     unsafe {
         MINE_STEP_ROPE_PHYSICS_ADDR = rb(0x005003D0);
-        MINE_RENDER_ADDR = rb(0x00506EF0);
         MINE_ROPE_PHYSICS_TAIL_ADDR = rb(0x00500630);
         MINE_ENSURE_RECORDING_ADDR = rb(0x00546B20);
         MINE_CREATE_BUBBLE_ADDR = rb(0x005472C0);
@@ -109,14 +105,6 @@ unsafe extern "stdcall" fn bridge_step_rope_physics(_this: *mut MineEntity) {
         "ret 4",
         addr = sym MINE_STEP_ROPE_PHYSICS_ADDR,
     );
-}
-
-/// Plain stdcall(this), RET 0x4.
-#[inline]
-unsafe fn bridge_mine_render(this: *mut MineEntity) {
-    type Fn = unsafe extern "stdcall" fn(*mut MineEntity);
-    let f: Fn = unsafe { core::mem::transmute(MINE_RENDER_ADDR as usize) };
-    unsafe { f(this) }
 }
 
 /// `__usercall(EAX = this)`, no stack args, plain RET. Tail companion to
@@ -502,7 +490,7 @@ unsafe fn msg_render(this: *mut MineEntity, sender: *mut BaseEntity, size: u32, 
             data,
         );
         bridge_step_rope_physics(this);
-        bridge_mine_render(this);
+        super::mine_render::mine_render(this);
         bridge_rope_physics_tail(this);
     }
 }

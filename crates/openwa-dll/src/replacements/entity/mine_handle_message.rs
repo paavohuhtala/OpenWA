@@ -5,12 +5,13 @@
 //! function pointer so unported message branches fall through to it.
 
 use openwa_game::address::va;
-use openwa_game::entity::{mine::MineEntityVtable, mine_handle_message};
+use openwa_game::entity::{mine::MineEntityVtable, mine_handle_message, mine_render};
 
 pub fn install() -> Result<(), String> {
     use openwa_game::vtable_replace;
 
     unsafe { mine_handle_message::init_addrs() };
+    unsafe { mine_render::init_addrs() };
 
     vtable_replace!(MineEntityVtable, va::MINE_ENTITY_VTABLE, {
         handle_message [mine_handle_message::ORIGINAL_HANDLE_MESSAGE]
