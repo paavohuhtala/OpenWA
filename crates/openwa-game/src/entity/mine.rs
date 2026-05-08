@@ -35,12 +35,15 @@ pub struct MineEntityVtable {
     #[slot(7)]
     pub process_frame: fn(this: *mut MineEntity, flags: u32),
     /// `MineEntity::RollFuseFromReplay` (0x00507B10) — rolls a fresh fuse
-    /// timer from the side-channel RNG when `fuse_timer < 0`. Called from
-    /// the tick body the moment a worm walks into trigger range, just
-    /// before the mine sets `_field_128 = 1` (triggered). For mines that
-    /// already have a non-negative fuse from `WeaponFireParams`, this is a
-    /// no-op. The new fuse is also recorded into the active replay log via
+    /// timer from the gameplay RNG when `fuse_timer < 0`. Called from the
+    /// tick body the moment a worm walks into trigger range, just before
+    /// the mine sets `_field_128 = 1` (triggered). For mines that already
+    /// have a non-negative fuse from `WeaponFireParams`, this is a no-op.
+    /// The new fuse is also recorded into the active replay log via
     /// `_field_194` so playback reproduces the same number.
+    ///
+    /// Ported pure-Rust in slice m3 — the tick now calls the Rust impl
+    /// directly; this slot is retained for type/registry metadata.
     #[slot(19)]
     pub roll_fuse_from_replay: fn(this: *mut MineEntity),
 }
@@ -103,13 +106,13 @@ pub struct MineEntity {
     /// any qualifying entity within this radius triggers detonation.
     /// Sourced from `WeaponFireParams[0]` for `FireType::Placed`.
     pub trigger_range: u32,
-    /// 0x124: Sourced from `WeaponFireParams[6]` for `FireType::Placed`.
-    /// Earlier RE labelled this "owner_team" but `WeaponFireParams[6]`
-    /// is "blast radius" for missile-class weapons; the dud-roll path's
-    /// secondary scan at `value * 2 + 10` pixels is more consistent
-    /// with a radius-style scalar. Pending confirmation from slice m2's
-    /// readers.
-    pub _field_124: i32,
+    /// 0x124: Explosion damage at center, sourced from
+    /// `WeaponFireParams[6]` for `FireType::Placed`. Passed straight
+    /// through as `ExplosionMessage::damage` by `MineEntity::Detonate`
+    /// (0x00507110). The dud-roll secondary scan in the tick uses
+    /// `damage * 2 + 10` pixels as a "is anyone close enough to
+    /// actually take damage" gate.
+    pub damage: i32,
     /// 0x128: Triggered flag — cleared on `EntityMessage::GameOver`
     /// (msg 0x15); set in the tick body once a worm walks within trigger
     /// range and the fuse starts running.

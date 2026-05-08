@@ -12,6 +12,7 @@ use super::mine::{MineEntity, MineEntityVtable};
 use crate::audio::{SoundId, sound_ops::play_sound_local};
 use crate::engine::EntityActivityQueue;
 use crate::engine::world::GameWorld;
+use crate::game::create_explosion::create_explosion;
 use crate::game::game_entity_message::{alliance_blocks_damage, world_entity_handle_message};
 use crate::game::message::{EntityMessage, ExplosionMessage, SpecialImpactMessage};
 use crate::rebase::rb;
@@ -19,9 +20,15 @@ use openwa_core::fixed::Fixed;
 
 /// Subclass-data offset of MineEntity's "anim flag" slot (mine offset 0x74,
 /// inside `WorldEntity::subclass_data` which starts at 0x30 → index 0x44).
-/// Written by case 0x1C / 0x4B when the mine is still settling and the
-/// scheme is new enough; meaning is otherwise opaque.
+/// Written by `Arm`, by case 0x1C, and by case 0x4B when the mine is still
+/// settling and the scheme is new enough; meaning is otherwise opaque.
 const SUBCLASS_OFFSET_ANIM_FLAG: usize = 0x44;
+
+/// Subclass-data offset of a u32 flag at mine offset 0x40 (subclass_data
+/// index 0x10) that `MineEntity::Arm` sets to 1. This is **not** the
+/// end-of-tick detonation gate (which lives at mine + 0x44 / index 0x14);
+/// purpose is otherwise unknown — pending follow-up RE.
+const SUBCLASS_OFFSET_ARMED_MARKER: usize = 0x10;
 
 type HandleMessageFn = unsafe extern "thiscall" fn(
     this: *mut MineEntity,
@@ -50,15 +57,9 @@ static mut MINE_RENDER_ADDR: u32 = 0;
 // "RestoreKamikazeState" — that name was wrong.
 static mut MINE_ROPE_PHYSICS_TAIL_ADDR: u32 = 0;
 
-// Tick-body bridges (slice m2):
-// `MineEntity::Arm` (0x00506CA0) — usercall(EAX=this), plain RET.
-static mut MINE_ARM_ADDR: u32 = 0;
+// Tick-body bridges (slice m2 + m3):
 // `MineEntity::ScanForTrigger` (0x00507140) — usercall(EAX=this, [stack]=range), RET 0x4.
 static mut MINE_SCAN_FOR_TRIGGER_ADDR: u32 = 0;
-// `MineEntity::Detonate` (0x00507110) — usercall(EAX=this), plain RET.
-static mut MINE_DETONATE_ADDR: u32 = 0;
-// `MineEntity::EmitDudSmoke` (0x00507210) — usercall(EAX=pos_x, ECX=pos_y, ESI=this).
-static mut MINE_EMIT_DUD_SMOKE_ADDR: u32 = 0;
 // `GameTask::ensure_recording` (0x00546B20) — usercall(EAX=this), plain RET.
 static mut MINE_ENSURE_RECORDING_ADDR: u32 = 0;
 // `GameTask::create_bubble_1` (0x005472C0) — usercall(EAX=pos_x, ECX=pos_y,
@@ -68,20 +69,22 @@ static mut MINE_CREATE_BUBBLE_ADDR: u32 = 0;
 static mut RANDOM_BAG_DRAW_ADDR: u32 = 0;
 // `EntityActivityQueue::ResetRank` (0x00541790) — usercall(EAX=queue, [stack]=slot), RET 0x4.
 static mut MINE_RESET_RANK_ADDR: u32 = 0;
+// `GameTask::create_smoke_0` (0x00547490) — stdcall(this), RET 0x4. Reads
+// EDI as a pointer to a 7-u32 spawn descriptor (preserved across the call
+// and consumed by `SmokeEntity::Constructor`).
+static mut MINE_CREATE_SMOKE_ADDR: u32 = 0;
 
 pub unsafe fn init_addrs() {
     unsafe {
         MINE_STEP_ROPE_PHYSICS_ADDR = rb(0x005003D0);
         MINE_RENDER_ADDR = rb(0x00506EF0);
         MINE_ROPE_PHYSICS_TAIL_ADDR = rb(0x00500630);
-        MINE_ARM_ADDR = rb(0x00506CA0);
         MINE_SCAN_FOR_TRIGGER_ADDR = rb(0x00507140);
-        MINE_DETONATE_ADDR = rb(0x00507110);
-        MINE_EMIT_DUD_SMOKE_ADDR = rb(0x00507210);
         MINE_ENSURE_RECORDING_ADDR = rb(0x00546B20);
         MINE_CREATE_BUBBLE_ADDR = rb(0x005472C0);
         RANDOM_BAG_DRAW_ADDR = rb(0x00541CC0);
         MINE_RESET_RANK_ADDR = rb(0x00541790);
+        MINE_CREATE_SMOKE_ADDR = rb(0x00547490);
     }
 }
 
@@ -121,18 +124,6 @@ unsafe extern "stdcall" fn bridge_rope_physics_tail(_this: *mut MineEntity) {
     );
 }
 
-/// `MineEntity::Arm` (0x00506CA0) — `__usercall(EAX = this)`, plain RET.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_arm(_this: *mut MineEntity) {
-    core::arch::naked_asm!(
-        "mov eax, dword ptr [esp+4]",
-        "mov ecx, dword ptr [{addr}]",
-        "call ecx",
-        "ret 4",
-        addr = sym MINE_ARM_ADDR,
-    );
-}
-
 /// `MineEntity::ScanForTrigger` (0x00507140) —
 /// `__usercall(EAX = this, [stack] = range)`, RET 0x4. Returns the first
 /// qualifying entity pointer in EAX, or `null` when no trigger is found.
@@ -151,33 +142,21 @@ unsafe extern "stdcall" fn bridge_scan_for_trigger(
     );
 }
 
-/// `MineEntity::Detonate` (0x00507110) — `__usercall(EAX = this)`, plain RET.
+/// `GameTask::create_smoke_0` (0x00547490) — `__usercall(EDI = descriptor,
+/// [stack] = this)`, RET 0x4. EDI is callee-saved, so the trampoline
+/// saves it across the call. The descriptor is read by
+/// `SmokeEntity::Constructor` (chained inside `create_smoke_0`).
 #[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_detonate(_this: *mut MineEntity) {
+unsafe extern "stdcall" fn bridge_create_smoke(_this: *mut MineEntity, _descriptor: *const u32) {
     core::arch::naked_asm!(
-        "mov eax, dword ptr [esp+4]",
+        "push edi",
+        "mov edi, dword ptr [esp+12]", // descriptor
+        "push dword ptr [esp+8]",      // this (callee cleans via RET 4)
         "mov ecx, dword ptr [{addr}]",
         "call ecx",
-        "ret 4",
-        addr = sym MINE_DETONATE_ADDR,
-    );
-}
-
-/// `MineEntity::EmitDudSmoke` (0x00507210) — `__usercall(EAX = pos_x,
-/// ECX = pos_y, ESI = this)`, plain RET. ESI is callee-saved, so the
-/// trampoline saves it across the call.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_emit_dud_smoke(_this: *mut MineEntity, _pos_x: i32, _pos_y: i32) {
-    core::arch::naked_asm!(
-        "push esi",
-        "mov esi, dword ptr [esp+8]",  // this
-        "mov eax, dword ptr [esp+12]", // pos_x
-        "mov ecx, dword ptr [esp+16]", // pos_y
-        "mov edx, dword ptr [{addr}]",
-        "call edx",
-        "pop esi",
-        "ret 12",
-        addr = sym MINE_EMIT_DUD_SMOKE_ADDR,
+        "pop edi",
+        "ret 8",
+        addr = sym MINE_CREATE_SMOKE_ADDR,
     );
 }
 
@@ -254,6 +233,105 @@ unsafe extern "stdcall" fn bridge_reset_rank(_queue: *mut EntityActivityQueue, _
 #[inline]
 unsafe fn arm_delay(this: *const MineEntity) -> i32 {
     unsafe { (*this)._unknown_11c as i32 }
+}
+
+/// Pure-Rust port of `MineEntity::Arm` (0x00506CA0). Latches the settling
+/// anim flag from `game_info._field_d780`, sets the unidentified armed
+/// marker at subclass_data[0x10] = 1, and clears the arm-delay timer.
+unsafe fn arm(this: *mut MineEntity) {
+    unsafe {
+        let world = (*(this as *const BaseEntity)).world;
+        let game_info = (*world).game_info;
+        let anim_flag = (*game_info)._field_d780;
+
+        let subclass = (*this).base.subclass_data.as_mut_ptr();
+        *(subclass.add(SUBCLASS_OFFSET_ANIM_FLAG) as *mut u32) = anim_flag;
+        *(subclass.add(SUBCLASS_OFFSET_ARMED_MARKER) as *mut u32) = 1;
+        (*this)._unknown_11c = 0;
+    }
+}
+
+/// Pure-Rust port of `MineEntity::Detonate` (0x00507110). Sends a fixed
+/// `damage = 100` explosion through the world root with the mine as
+/// sender. WA's call site adjusts `pos_y` by `+0x100000` (16.0 in fixed
+/// point) so the blast originates above the mine sprite, not at its
+/// pixel position.
+unsafe fn detonate(this: *mut MineEntity) {
+    unsafe {
+        let pos_x = (*this).base.pos_x;
+        let pos_y = Fixed((*this).base.pos_y.to_raw().wrapping_add(0x100000));
+        create_explosion(
+            pos_x,
+            pos_y,
+            this as *mut BaseEntity,
+            100,
+            (*this).damage as u32,
+            0,
+            (*this).placer_team_index as u32,
+        );
+    }
+}
+
+/// Pure-Rust port of `MineEntity::EmitDudSmoke` (0x00507210). Spawns 10
+/// smoke particles in a small region around `(pos_x, pos_y)` via
+/// `GameTask::create_smoke_0`. Each particle gets its own random sub-pixel
+/// jitter and lifetime drawn from the secondary effect RNG; the spawn
+/// descriptor is shared across iterations and re-filled in place.
+unsafe fn emit_dud_smoke(this: *mut MineEntity, pos_x: i32, pos_y: i32) {
+    unsafe {
+        let world = (*(this as *const BaseEntity)).world;
+        let mut descriptor: [u32; 7] = [0x8FF00, pos_x as u32, pos_y as u32, 0, 0, 0x267, 0];
+        for _ in 0..10 {
+            let r1 = (*world).advance_effect_rng();
+            let r2 = (*world).advance_effect_rng();
+            let r3 = (*world).advance_effect_rng();
+            descriptor[3] = (r1 & 0xFFFF).wrapping_sub(0x8000);
+            descriptor[4] = (r2 & 0xFFFF).wrapping_sub(0x8000);
+            // Magic-number divide by 200 (matches WA: `MUL 0x51EB851F; SHR EDX, 6`).
+            descriptor[6] = ((r3 & 0xFFFF) / 200).wrapping_add(0x20C);
+            bridge_create_smoke(this, descriptor.as_ptr());
+        }
+    }
+}
+
+/// Pure-Rust port of `MineEntity::RollFuseFromReplay` (0x00507B10, vtable
+/// slot 19). When the fuse timer is still in its negative sentinel state,
+/// rolls a fresh value in `[0, 3000)` ms via the gameplay RNG and records
+/// it into the active replay/projectile-play log so playback reproduces
+/// the same number.
+unsafe fn roll_fuse_from_replay(this: *mut MineEntity) {
+    unsafe {
+        if (*this).fuse_timer >= 0 {
+            return;
+        }
+        let world = (*(this as *const BaseEntity)).world;
+        let rng = (*world).advance_rng();
+        let new_fuse = (rng % 3000) as i32;
+        (*this).fuse_timer = new_fuse;
+
+        let idx = (*this)._field_194;
+        if idx == u32::MAX {
+            return;
+        }
+        // `world._unknown_51c` is the projectile-play log struct; +0x1C is
+        // the data start pointer, +0x20 is the data end (capacity) pointer.
+        let log = (*world)._unknown_51c;
+        if log.is_null() {
+            return;
+        }
+        let start = *(log.add(0x1C) as *const *mut u32);
+        let end = *(log.add(0x20) as *const *mut u32);
+        let count = if start.is_null() {
+            0
+        } else {
+            end.offset_from(start) as usize
+        };
+        assert!(
+            !start.is_null() && (idx as usize) < count,
+            "MineEntity::RollFuseFromReplay: replay log index {idx} out of bounds (count={count})"
+        );
+        *start.add(idx as usize) = new_fuse as u32;
+    }
 }
 
 /// Anim-flag write performed by both case 0x1C and case 0x4B when the mine
@@ -545,7 +623,7 @@ unsafe fn msg_frame_finish_tick(
                 && speed_x == 0
                 && speed_y == 0
             {
-                bridge_arm(this);
+                arm(this);
             }
             // → fall through to block D
         } else if arm_delay_v > 0 {
@@ -553,7 +631,7 @@ unsafe fn msg_frame_finish_tick(
             let new_delay = arm_delay_v.wrapping_sub(0x14);
             (*this)._unknown_11c = new_delay as u32;
             if new_delay <= 0 {
-                bridge_arm(this);
+                arm(this);
             }
             // → fall through to block D
         } else if (*this)._field_128 == 0 {
@@ -605,12 +683,7 @@ unsafe fn msg_frame_finish_tick(
                         }
                     }
 
-                    // Self vt[19] — fuse-from-replay roll. Re-rolls
-                    // `fuse_timer` from the side-channel RNG when the
-                    // current value is negative (i.e. unset by the
-                    // weapon-fire path).
-                    let mvt = *(this as *const *const MineEntityVtable);
-                    ((*mvt).roll_fuse_from_replay)(this);
+                    roll_fuse_from_replay(this);
 
                     (*this)._field_128 = 1;
 
@@ -652,7 +725,7 @@ unsafe fn msg_frame_finish_tick(
                     //   game_info+0xD929 != 0     (scheme has duds enabled)
                     //   bag_value != 0       (bag-drawn value picked the dud slot)
                     //   is_not_dud == 0      (mine wasn't worm-placed)
-                    let radius = ((*this)._field_124 as i32).wrapping_mul(2).wrapping_add(10);
+                    let radius = (*this).damage.wrapping_mul(2).wrapping_add(10);
                     let nearby = bridge_scan_for_trigger(this, radius);
                     let duds_enabled = *((game_info as *const u8).add(0xD929)) != 0;
 
@@ -687,7 +760,7 @@ unsafe fn msg_frame_finish_tick(
                             Fixed::ONE,
                             Fixed(0x20000),
                         );
-                        bridge_emit_dud_smoke(this, pos_x, pos_y);
+                        emit_dud_smoke(this, pos_x, pos_y);
                     } else {
                         // Real detonate — skip block D entirely.
                         go_detonate_skip_tail = true;
@@ -698,7 +771,7 @@ unsafe fn msg_frame_finish_tick(
         }
 
         if go_detonate_skip_tail {
-            bridge_detonate(this);
+            detonate(this);
             // Free.
             let mvt = *(this as *const *const MineEntityVtable);
             ((*mvt).free)(this, 1);
@@ -780,7 +853,7 @@ unsafe fn msg_frame_finish_tick(
         if init_done_flag == 0 {
             return;
         }
-        bridge_detonate(this);
+        detonate(this);
         let mvt = *(this as *const *const MineEntityVtable);
         ((*mvt).free)(this, 1);
     }
