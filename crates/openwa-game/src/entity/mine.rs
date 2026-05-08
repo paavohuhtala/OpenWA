@@ -3,6 +3,10 @@ use super::game_entity::WorldEntity;
 use crate::FieldRegistry;
 use openwa_core::fixed::Fixed;
 
+pub mod constructor;
+pub mod handle_message;
+pub mod render;
+
 crate::define_addresses! {
     class "MineEntity" {
         ctor MINE_ENTITY_CTOR = 0x00506660;

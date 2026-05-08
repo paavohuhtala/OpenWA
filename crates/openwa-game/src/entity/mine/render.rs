@@ -6,18 +6,18 @@
 //!   2. A countdown / state textbox (only when the per-team text gate
 //!      passes), via `RenderMessage::TextboxLocal`.
 //!
-//! Originally bridged via `bridge_mine_render` in `mine_handle_message`.
+//! Originally bridged via `bridge_mine_render` in `super::handle_message`.
 
 use core::ffi::c_char;
 use core::fmt::Write as _;
 
 use heapless::String as HString;
 
-use super::base::BaseEntity;
-use super::mine::MineEntity;
+use super::MineEntity;
 use crate::address::va;
 use crate::bitgrid::DisplayBitGrid;
 use crate::engine::world::GameWorld;
+use crate::entity::base::BaseEntity;
 use crate::rebase::rb;
 use crate::render::message::RenderMessage;
 use crate::render::sprite::sprite_op::SpriteOp;

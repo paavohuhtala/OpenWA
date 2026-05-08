@@ -13,7 +13,7 @@
 //!  * `WorldEntity::Constructor` (0x004FED50) — large MFC-decorated init
 //!    that this slice doesn't touch.
 //!  * `EntityActivityQueue::ResetRank` (0x00541790) — usercall(EAX=queue,
-//!    [stack]=slot). Reused via `mine_handle_message::bridge_reset_rank`.
+//!    [stack]=slot). Reused via `super::handle_message::bridge_reset_rank`.
 //!  * `WorldEntity::CheckMoveCollision` (0x004FB9D0) — stdcall, 6 args.
 //!    The acquire-slot operation is inlined.
 //!  * `GameCollisionTask::gradient` (0x00500230) — usercall(EAX=this,
@@ -27,12 +27,12 @@
 
 use core::sync::atomic::{AtomicU32, Ordering};
 
-use super::base::BaseEntity;
-use super::game_entity::WorldEntity;
-use super::mine::MineEntity;
-use super::mine_handle_message::bridge_reset_rank;
+use super::handle_message::bridge_reset_rank;
+use super::{MineEntity, MineEntityVtable};
 use crate::engine::EntityActivityQueue;
 use crate::engine::world::GameWorld;
+use crate::entity::base::BaseEntity;
+use crate::entity::game_entity::WorldEntity;
 use crate::game::class_type::ClassType;
 use crate::game::weapon::WeaponFireParams;
 use crate::game::weapon_fire::WeaponReleaseContext;
@@ -102,13 +102,13 @@ pub unsafe fn init_addrs() {
 /// class_type, flag)`, RET 0x10.
 #[inline]
 unsafe fn world_entity_ctor(
-    this: *mut WorldEntity<*const super::mine::MineEntityVtable>,
+    this: *mut WorldEntity<*const MineEntityVtable>,
     parent: *mut BaseEntity,
     class_type: u32,
     flag: u32,
 ) {
     type Fn = unsafe extern "stdcall" fn(
-        *mut WorldEntity<*const super::mine::MineEntityVtable>,
+        *mut WorldEntity<*const MineEntityVtable>,
         *mut BaseEntity,
         u32,
         u32,
@@ -239,8 +239,7 @@ pub unsafe fn mine_constructor(
         world_entity_ctor(&raw mut (*this).base, parent, 10, 2);
         let world: *mut GameWorld = (*(this as *const BaseEntity)).world;
         (*(this as *mut BaseEntity)).class_type = ClassType::Mine;
-        (*this).base.base.vtable =
-            rb(super::mine::MINE_ENTITY_VTABLE) as *const super::mine::MineEntityVtable;
+        (*this).base.base.vtable = rb(super::MINE_ENTITY_VTABLE) as *const MineEntityVtable;
 
         // Block-copy 8 dwords of WeaponFireParams to mine + 0x170.
         core::ptr::copy_nonoverlapping(

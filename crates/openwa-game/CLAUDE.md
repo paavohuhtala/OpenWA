@@ -107,7 +107,7 @@ crate::render::dual_run::dual_run(
     "MineEntity::Render",
     world,
     || bridge_mine_render(this),         // WA original
-    || mine_render::mine_render(this),   // new Rust port
+    || mine::render::mine_render(this),  // new Rust port
 );
 ```
 

@@ -6,12 +6,12 @@
 
 use core::sync::atomic::{AtomicU32, Ordering};
 
-use super::base::BaseEntity;
-use super::game_entity::WorldEntity;
-use super::mine::{MineEntity, MineEntityVtable};
+use super::{MineEntity, MineEntityVtable};
 use crate::audio::{SoundId, sound_ops::play_sound_local};
 use crate::engine::EntityActivityQueue;
 use crate::engine::world::GameWorld;
+use crate::entity::base::BaseEntity;
+use crate::entity::game_entity::WorldEntity;
 use crate::game::create_explosion::create_explosion;
 use crate::game::game_entity_message::{alliance_blocks_damage, world_entity_handle_message};
 use crate::game::message::{EntityMessage, ExplosionMessage, SpecialImpactMessage};
@@ -487,7 +487,7 @@ unsafe fn msg_render(this: *mut MineEntity, sender: *mut BaseEntity, size: u32, 
             data,
         );
         bridge_step_rope_physics(this);
-        super::mine_render::mine_render(this);
+        super::render::mine_render(this);
         bridge_rope_physics_tail(this);
     }
 }

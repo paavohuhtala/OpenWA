@@ -1213,7 +1213,7 @@ unsafe fn fire_mine(
     unsafe {
         use crate::entity::SharedDataTable;
         use crate::entity::mine::MineEntity;
-        use crate::entity::mine_constructor::mine_constructor;
+        use crate::entity::mine::constructor::mine_constructor;
         use crate::wa_alloc::wa_malloc;
 
         let table = SharedDataTable::from_task(worm as *const BaseEntity);
