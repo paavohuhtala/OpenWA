@@ -40,7 +40,7 @@ pub const COMMAND_TYPE_TYPED: u32 = 0x100;
 /// Stored inline inside `RenderQueue._buffer` via [`TypedRenderCmd`].
 /// The buffer is reset by WA at the start of each frame, same as the
 /// legacy byte-format commands.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RenderMessage {
     /// Replaces legacy types 4 (`DRAW_SPRITE_GLOBAL`) and 5
     /// (`DRAW_SPRITE_LOCAL`).

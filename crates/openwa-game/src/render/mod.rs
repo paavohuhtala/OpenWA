@@ -3,6 +3,7 @@ pub mod capture;
 pub mod crosshair_line;
 pub mod ddraw;
 pub mod display;
+pub mod dual_run;
 pub mod landscape;
 pub mod message;
 pub mod opengl;

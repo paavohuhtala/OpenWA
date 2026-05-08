@@ -20,7 +20,7 @@ use crate::render::message::{COMMAND_TYPE_TYPED, RenderMessage, TypedRenderCmd};
 use crate::render::queue_dispatch::ClipContext;
 
 /// One captured render-queue command, in dispatch order.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CapturedCommand {
     pub cmd_type: u32,
     pub layer: i32,
@@ -32,7 +32,7 @@ pub struct CapturedCommand {
     pub vertices: Vec<[i32; 3]>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CapturedData {
     /// Legacy byte-format command — raw `u32` fields starting at `cmd[0]`.
     /// Length is determined by `cmd_type` via [`legacy_cmd_size_u32s`].
@@ -171,21 +171,42 @@ pub(crate) unsafe fn try_capture(clip: &ClipContext, sorted_entries: &[*mut u8])
 
     let mut commands = Vec::with_capacity(sorted_entries.len());
     for &ptr in sorted_entries.iter().rev() {
+        commands.push(unsafe { decode_one_command(ptr) });
+    }
+
+    *slot = Some(RenderCapture {
+        clip: *clip,
+        commands,
+    });
+}
+
+/// Decode a single command pointer into a [`CapturedCommand`]. The decode
+/// matches the legacy `cmd_type`-dispatched layout in `render_drawing_queue`
+/// for legacy commands, and the inline [`TypedRenderCmd`] layout for
+/// typed messages. Variable-length vertex tails (legacy types `8`/`9` and
+/// the matching typed variants) are read into [`CapturedCommand::vertices`].
+///
+/// # Safety
+///
+/// `ptr` must point to a valid command record in the queue's arena, with
+/// at least `legacy_cmd_size_u32s(cmd_type) * 4` bytes (or the full
+/// [`TypedRenderCmd`] for typed commands). For variable-length tails the
+/// `count` field must accurately describe the vertex array's length.
+pub unsafe fn decode_one_command(ptr: *mut u8) -> CapturedCommand {
+    unsafe {
         let cmd = ptr as *const u32;
-        let cmd_type = unsafe { *cmd };
-        let layer = unsafe { *(cmd.add(1) as *const i32) };
+        let cmd_type = *cmd;
+        let layer = *(cmd.add(1) as *const i32);
         let mut vertices = Vec::new();
         let data = if cmd_type == COMMAND_TYPE_TYPED {
-            let typed = unsafe { (*(ptr as *const TypedRenderCmd)).message };
-            // Capture vertex tails for variable-length typed messages so the
-            // detail viewer can decode them without holding live arena pointers.
+            let typed = (*(ptr as *const TypedRenderCmd)).message;
             match typed {
                 RenderMessage::LineStrip {
                     count, vertices: v, ..
                 }
                 | RenderMessage::Polygon {
                     count, vertices: v, ..
-                } => unsafe {
+                } => {
                     let n = count as usize;
                     if !v.is_null() && n > 0 {
                         vertices.reserve(n);
@@ -193,7 +214,7 @@ pub(crate) unsafe fn try_capture(clip: &ClipContext, sorted_entries: &[*mut u8])
                             vertices.push(*v.add(i));
                         }
                     }
-                },
+                }
                 _ => {}
             }
             CapturedData::Typed(typed)
@@ -201,40 +222,29 @@ pub(crate) unsafe fn try_capture(clip: &ClipContext, sorted_entries: &[*mut u8])
             let header = legacy_cmd_size_u32s(cmd_type);
             let mut buf = Vec::with_capacity(header);
             for i in 0..header {
-                buf.push(unsafe { *cmd.add(i) });
+                buf.push(*cmd.add(i));
             }
-            // Walk the vertex tail for legacy line-strip / polygon. Layout:
-            //   type 8: vertex i at cmd[4 + i*3 .. 4 + i*3 + 3], count at cmd[2]
-            //   type 9: vertex i at cmd[5 + i*3 .. 5 + i*3 + 3], count at cmd[2]
-            // The dispatcher stops walking on the first failed clip — we
-            // always capture all `count` triples so the viewer can show what
-            // the producer enqueued (clipping happens at dispatch time).
             if cmd_type == 8 || cmd_type == 9 {
-                let count = unsafe { *cmd.add(2) } as usize;
+                let count = *cmd.add(2) as usize;
                 let base = if cmd_type == 8 { 4 } else { 5 };
                 vertices.reserve(count);
                 for i in 0..count {
                     let off = base + i * 3;
-                    let x = unsafe { *cmd.add(off) } as i32;
-                    let y = unsafe { *cmd.add(off + 1) } as i32;
-                    let z = unsafe { *cmd.add(off + 2) } as i32;
+                    let x = *cmd.add(off) as i32;
+                    let y = *cmd.add(off + 1) as i32;
+                    let z = *cmd.add(off + 2) as i32;
                     vertices.push([x, y, z]);
                 }
             }
             CapturedData::Legacy(buf)
         };
-        commands.push(CapturedCommand {
+        CapturedCommand {
             cmd_type,
             layer,
             data,
             vertices,
-        });
+        }
     }
-
-    *slot = Some(RenderCapture {
-        clip: *clip,
-        commands,
-    });
 }
 
 /// Number of `u32` fields each legacy command type occupies, based on the
