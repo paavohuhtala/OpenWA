@@ -52,10 +52,9 @@ pub mod va {
         CGAMETASK_CONSTRUCTOR, CGAMETASK_SOUND_EMITTER_VT, CGAMETASK_VT0, CGAMETASK_VT1_FREE,
         CGAMETASK_VT2_HANDLE_MESSAGE, CGAMETASK_VTABLE, CHECK_MOVE_COLLISION, TRY_MOVE_POSITION,
     };
-    pub use crate::entity::mine_oil_drum::{
-        MINE_ENTITY_CTOR, MINE_ENTITY_VTABLE, OILDRUM_ENTITY_CTOR, OILDRUM_ENTITY_VTABLE,
-    };
+    pub use crate::entity::mine::{MINE_ENTITY_CTOR, MINE_ENTITY_VTABLE};
     pub use crate::entity::missile::{MISSILE_ENTITY_CTOR, MISSILE_ENTITY_VTABLE};
+    pub use crate::entity::oil_drum::{OILDRUM_ENTITY_CTOR, OILDRUM_ENTITY_VTABLE};
     pub use crate::entity::supply_crate::{CRATE_ENTITY_CTOR, CRATE_ENTITY_VTABLE};
     pub use crate::entity::team::{TEAM_ENTITY_CTOR, TEAM_ENTITY_VTABLE};
     pub use crate::entity::world_root::{

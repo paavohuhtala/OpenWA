@@ -123,8 +123,15 @@ pub struct GameInfo {
     /// Used by GameWorld constructor for conditional initialization.
     pub game_version: i32,
 
-    /// 0xD77C-0xD787: Unknown
-    pub _unknown_d77c: [u8; 0xD788 - 0xD77C],
+    /// 0xD77C-0xD77F: Unknown
+    pub _unknown_d77c: [u8; 0xD780 - 0xD77C],
+    /// 0xD780: Unknown — read by `MineEntity::HandleMessage` case 0x1C
+    /// (Explosion) when `game_version > 0x3C` and the mine's settle timer
+    /// is still positive; copied into the mine's `subclass_data[0x44]`
+    /// "anim flag" slot. Likely a per-scheme animation/lock parameter.
+    pub _field_d780: u32,
+    /// 0xD784-0xD787: Unknown
+    pub _unknown_d784: [u8; 0xD788 - 0xD784],
     /// 0xD788: Scoring parameter A (multiplied by 50 for initial score).
     pub scoring_param_a: u16,
     /// 0xD78A: Scoring parameter B (multiplied by 50 for initial score).

@@ -14,6 +14,8 @@
 use openwa_core::fixed::Fixed;
 
 use crate::audio::DSSound;
+use crate::engine::team_arena::TeamArena;
+use crate::engine::world::GameWorld;
 use crate::entity::{BaseEntity, WorldEntity, WorldRootEntity};
 use crate::game::message::{
     EntityMessage, ExplosionMessage, ExplosionReportMessage, SpecialImpactMessage,
@@ -24,6 +26,37 @@ crate::define_addresses! {
         fn/Usercall WORLD_ENTITY_IS_SOUND_HANDLE_EXPIRED = 0x00546CD0;
         fn/Fastcall WORLD_ENTITY_RELEASE_SOUND_HANDLE = 0x00546D20;
         fn/Usercall WORLD_ENTITY_COMPUTE_EXPLOSION_DAMAGE = 0x004FF390;
+    }
+}
+
+/// Friendly/enemy fire scheme gate shared by all damage paths
+/// (msgs 0x1C/0x76 ApplyDamage, 0x4B SpecialImpact, 0x51 PoisonWorm,
+/// MineEntity msgs 0x1C/0x4B). A sender of `0` (no source team) never
+/// blocks. Otherwise the receiver compares its own `weapon_alliance` to
+/// the sender's: same-alliance reads `friendly_fire_threshold`,
+/// cross-alliance reads `enemy_fire_threshold`. Threshold values `> 2`
+/// block the damage.
+pub unsafe fn alliance_blocks_damage(
+    world: *const GameWorld,
+    sender_team: u32,
+    receiver_team: u32,
+) -> bool {
+    unsafe {
+        if sender_team == 0 {
+            return false;
+        }
+        let arena: *const TeamArena = &raw const (*world).team_arena;
+        let sender_alliance =
+            (*TeamArena::team_header(arena, sender_team as usize)).weapon_alliance;
+        let receiver_alliance =
+            (*TeamArena::team_header(arena, receiver_team as usize)).weapon_alliance;
+        let game_info = (*world).game_info;
+        let threshold = if sender_alliance == receiver_alliance {
+            (*game_info).friendly_fire_threshold
+        } else {
+            (*game_info).enemy_fire_threshold
+        };
+        threshold > 2
     }
 }
 

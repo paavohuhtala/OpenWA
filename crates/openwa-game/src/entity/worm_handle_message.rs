@@ -22,7 +22,7 @@ use crate::audio::sound_ops as sound;
 use crate::engine::EntityActivityQueue;
 use crate::engine::team_arena::{TeamArena, WormEntry};
 use crate::engine::world::GameWorld;
-use crate::game::game_entity_message::world_entity_handle_message;
+use crate::game::game_entity_message::{alliance_blocks_damage, world_entity_handle_message};
 use crate::game::message::{
     CrateCollectedMessage, DamageWormsMessage, ExplosionMessage, PoisonWormMessage,
     SelectArmingMessage, SelectCursorMessage, SelectWeaponMessage, SpecialImpactMessage,
@@ -2866,36 +2866,6 @@ unsafe fn apply_raw_damage_unchecked(
             0x408,
             payload.as_ptr() as *const u8,
         );
-    }
-}
-
-/// Friendly/enemy fire scheme gate shared by all damage paths (msgs
-/// 0x1C/0x76 ApplyDamage, 0x4B SpecialImpact, 0x51 PoisonWorm). A sender
-/// of `0` (no source team) never blocks. Otherwise the receiver compares
-/// its own `weapon_alliance` to the sender's: same-alliance reads
-/// `friendly_fire_threshold`, cross-alliance reads `enemy_fire_threshold`.
-/// Threshold values `> 2` block the damage.
-unsafe fn alliance_blocks_damage(
-    world: *const GameWorld,
-    sender_team: u32,
-    receiver_team: u32,
-) -> bool {
-    unsafe {
-        if sender_team == 0 {
-            return false;
-        }
-        let arena: *const TeamArena = &raw const (*world).team_arena;
-        let sender_alliance =
-            (*TeamArena::team_header(arena, sender_team as usize)).weapon_alliance;
-        let receiver_alliance =
-            (*TeamArena::team_header(arena, receiver_team as usize)).weapon_alliance;
-        let game_info = (*world).game_info;
-        let threshold = if sender_alliance == receiver_alliance {
-            (*game_info).friendly_fire_threshold
-        } else {
-            (*game_info).enemy_fire_threshold
-        };
-        threshold > 2
     }
 }
 

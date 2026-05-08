@@ -1,5 +1,6 @@
 mod cloud;
 mod filter;
+mod mine_handle_message;
 mod missile;
 mod try_move_position;
 mod worm_handle_message;
@@ -7,6 +8,7 @@ mod worm_handle_message;
 pub fn install() -> Result<(), String> {
     cloud::install()?;
     filter::install()?;
+    mine_handle_message::install()?;
     missile::install()?;
     try_move_position::install()?;
     worm_handle_message::install()?;

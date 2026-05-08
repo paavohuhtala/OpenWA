@@ -724,7 +724,7 @@ impl DebugApp {
 
                     // --- MineEntity-specific fields ---
                     if name == "MineEntity" {
-                        show_game_entity_raw_fields(ui, addr, "MineEntity", 0x128);
+                        show_game_entity_raw_fields(ui, addr, "MineEntity", 0x1BC);
                     }
 
                     // --- OilDrumEntity-specific fields ---
