@@ -35,7 +35,7 @@ Two ways to run replay tests:
 
 ### Headless (`.\run-tests.ps1`)
 
-Pure CPU simulation, no rendering. Fast, runs in parallel (default 4 concurrent). Validates game logic — a log mismatch means the Rust code caused a desync. Spurious flakes from race conditions can occur; retry with `-j 1` to confirm.
+Pure CPU simulation, no rendering. Fast, runs in parallel (default 4 concurrent). Validates game logic — a log mismatch means the Rust code caused a desync.
 
 ### Headful (`.\replay-test.ps1` or `openwa-test headful`)
 

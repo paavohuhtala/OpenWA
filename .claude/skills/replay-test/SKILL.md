@@ -30,7 +30,6 @@ Running 7 tests (4 concurrent)...
 
 Options:
 - `.\run-tests.ps1 longbow` — filter by name
-- `.\run-tests.ps1 -j 1` — serial mode (for debugging)
 - `.\run-tests.ps1 --no-build` — skip internal DLL/launcher build (assumes already built)
 - `.\run-tests.ps1 -d testdata/replays/worms2d` — run the Worms 2D speedrun replay suite instead
 
@@ -98,13 +97,11 @@ All are set automatically by the test runner.
 ~598 replays from the [Worms 2D file archive](https://worms2d.info/files/replays/) in `testdata/replays/worms2d/`. These cover all 33 single-player campaign missions with diverse weapon usage, schemes, and game states.
 
 ```bash
-# Run the Worms 2D suite (use -j 1 or -j 2 to avoid concurrency flakes)
-openwa-test -d testdata/replays/worms2d -j 1
+# Run the Worms 2D suite (default concurrency — completes in ~30–45s)
+openwa-test -d testdata/replays/worms2d
 ```
 
-**Important:** At `-j 4` or higher, ~5-7% of tests flake with "Cannot play game file" errors due to WA.exe instances contending on shared resources not covered by file isolation hooks. Always use `-j 1` or `-j 2` for this suite. The full suite takes ~3-4 minutes at `-j 1`.
-
-**When to run:** The full Worms 2D suite is slow — use it only as final validation after complex features or refactoring, not for iterative development. The base `testdata/replays/` suite (15 tests, ~1-2s) should be run routinely.
+**When to run:** Use the full Worms 2D suite as final validation after complex features or refactoring; the base `testdata/replays/` suite (15 tests, ~1-2s) is fine for iterative development.
 
 ## Generating Baselines
 
