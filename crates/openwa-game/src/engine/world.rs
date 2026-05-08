@@ -168,8 +168,11 @@ pub struct GameWorld {
     pub _field_5d4: u32,
     /// 0x5D8: Unknown (zeroed by InitGameState).
     pub _field_5d8: u32,
-    /// 0x5DC: Unknown (zeroed by InitGameState).
-    pub _field_5dc: u32,
+    /// 0x5DC: World-level activity-watchdog timer. Refreshed by
+    /// `MineEntity`'s tick whenever the mine is moving / armed / triggered;
+    /// signed comparison gates the refresh on the existing value. Paired
+    /// with [`Self::_field_7e48`].
+    pub _field_5dc: i32,
     /// 0x5E0: Water level in pixels. Computed as `(100 - water_pct) * level_height / 100`.
     pub water_level: i32,
     /// 0x5E4: Water kill Y boundary (pixels). Derived from level_bound_max_y integer part + 0x28.
@@ -486,8 +489,14 @@ pub struct GameWorld {
     pub version_flag_4: u8,
     /// 0x7E41: Unknown byte (zeroed by InitTurnState).
     pub _field_7e41: u8,
-    /// 0x7E42-0x7E4B: Unknown
-    pub _unknown_7e42: [u8; 10],
+    /// 0x7E42-0x7E47: Unknown
+    pub _unknown_7e42: [u8; 6],
+    /// 0x7E48: Companion world-level activity-watchdog timer to
+    /// [`Self::_field_5dc`]. Refreshed by `MineEntity`'s tick whenever the
+    /// mine is moving / armed / triggered (and the existing timer hasn't
+    /// already decayed past `-mode`). Likely keeps a round's "is anything
+    /// happening" gate alive.
+    pub _field_7e48: i32,
     /// 0x7E4C: Unknown (zeroed by InitTurnState).
     pub _field_7e4c: u32,
     /// 0x7E50-0x7E63: Unknown fields (all zeroed by InitTurnState).

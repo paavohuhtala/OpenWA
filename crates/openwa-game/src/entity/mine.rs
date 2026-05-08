@@ -77,7 +77,7 @@ pub struct MineEntity {
     /// `EntityMessage::GameOver` (msg 0x15). Tick body gates the
     /// proximity-trigger check on this; once cleared, the mine becomes
     /// inert (even if a worm walks over it).
-    pub _field_104: u32,
+    pub trigger_armed_flag: u32,
     /// 0x108: Persistence flag set by some external path; cleared by the
     /// tick body's tail whenever `WorldEntity::IsMoving` reports false.
     /// While non-zero it forces the dud-roll branch in B3c to skip the
@@ -110,7 +110,7 @@ pub struct MineEntity {
     /// `WeaponFireParams[1]`). Negative = airborne (arms when speed is
     /// zero). Positive = ground-settle countdown decrementing 20/frame
     /// (arms at ≤ 0). Zero = armed-and-scanning.
-    pub _unknown_11c: u32,
+    pub arm_delay: i32,
     /// 0x120: Trigger range in pixels (L1 distance — `|dx| + |dy|`).
     /// Passed to `MineEntity::ScanForTrigger` once the mine is armed;
     /// any qualifying entity within this radius triggers detonation.
@@ -126,7 +126,7 @@ pub struct MineEntity {
     /// 0x128: Triggered flag — cleared on `EntityMessage::GameOver`
     /// (msg 0x15); set in the tick body once a worm walks within trigger
     /// range and the fuse starts running.
-    pub _field_128: u32,
+    pub triggered_flag: u32,
     /// 0x12C: Beep-tier index — `fuse_timer / 250`. The tick body plays
     /// sound `0x59` (beep) once per tier change so the warning beep
     /// accelerates as the fuse counts down.
@@ -167,11 +167,25 @@ pub struct MineEntity {
     /// damage broadcast — so a mine you (or an ally) detonated won't be
     /// damaged by your own blast under friendly-fire-off schemes.
     pub placer_team_index: i32,
-    /// 0x148–0x18F: Init-data tail. Ctor block-copies
-    /// `WeaponReleaseContext[1..=10]` to 0x148–0x16F and
-    /// `WeaponFireParams[0..=7]` to 0x170–0x18F. Surface as the tick body
-    /// references these in slice m2.
-    pub _unknown_148: [u8; 0x48],
+    /// 0x148–0x16B: Mirror of [`WeaponReleaseContext`] dwords `[1..=9]`
+    /// (`worm_id`, `spawn_x`, `spawn_y`, `spawn_offset_x/y`,
+    /// `ammo_per_turn`, `ammo_per_slot`, `_zero`, `delay`). Block-copied
+    /// by the constructor; not yet referenced by the tick body in Rust.
+    pub _unknown_148: [u8; 0x16C - 0x148],
+    /// 0x16C: Placement-time fuse value in milliseconds, mirrored from
+    /// [`WeaponReleaseContext::network_delay`]. Survives the per-frame
+    /// fuse-timer countdown so the mine's countdown textbox can display
+    /// the originally-selected fuse. Negative values mean "fuse rolled
+    /// from replay log" — render falls back to `?` or the recorded
+    /// value, gated by `_scheme_d934`.
+    pub init_fuse_ms: i32,
+    /// 0x170–0x18F: Mirror of [`WeaponFireParams`] dwords `[0..=7]`
+    /// (`shot_count`, `spread`, `unknown_0x44`, `collision_radius`,
+    /// `unknown_0x4c`, `unknown_0x50`, `unknown_0x54`, `unknown_0x58`).
+    /// `WeaponFireParams[0..2,6]` are also mirrored in dedicated fields
+    /// (`trigger_range`, `arm_delay`, `trigger_class_mask`, `damage`);
+    /// the rest of the block is unreferenced by the tick body in Rust.
+    pub _unknown_170: [u8; 0x190 - 0x170],
     /// 0x190: Animation phase counter; seeded from `(rng % 10) * 0x199A`
     /// and advanced each tick.
     pub _field_190: u32,

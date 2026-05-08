@@ -57,8 +57,15 @@ pub struct WorldEntity<V: super::base::Vtable = *const core::ffi::c_void> {
     pub speed_x: Fixed,
     /// 0x94: Y velocity in fixed-point
     pub speed_y: Fixed,
-    /// 0x98-0xA3: Unknown gameplay fields.
-    pub _unknown_98: [u8; 0x0C],
+    /// 0x98: Slot mutated by [`WorldEntityVtable::add_impulse`] (slot 17),
+    /// which adds the `dz` argument raw to this offset alongside dividing
+    /// the planar impulse into `speed_x`/`speed_y`. Interpreted as a Fixed
+    /// accumulator by [`MineEntity::Render`] (calc_sprite multiplies it by
+    /// [`GameWorld::render_interp_a`] and adds [`Self::angle`] to derive the
+    /// render-time angle). Subclass semantics may vary; canonical name TBD.
+    pub _field_98: Fixed,
+    /// 0x9C-0xA3: Unknown gameplay fields.
+    pub _unknown_9c: [u8; 8],
     /// 0xA4: Damage-halving + state-pick suppressor read by WormEntity's
     /// damage paths (cases 0x1C/0x76 and 0x4B in `HandleMessage`). When
     /// nonzero the applied damage is halved (`new = damage / 2 + 1`) and

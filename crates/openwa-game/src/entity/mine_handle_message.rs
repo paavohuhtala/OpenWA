@@ -231,12 +231,6 @@ unsafe extern "stdcall" fn bridge_reset_rank(_queue: *mut EntityActivityQueue, _
     );
 }
 
-/// Read MineEntity's settle/arm-delay timer at offset 0x11C.
-#[inline]
-unsafe fn arm_delay(this: *const MineEntity) -> i32 {
-    unsafe { (*this)._unknown_11c as i32 }
-}
-
 /// Pure-Rust port of `MineEntity::Destructor_1` (0x00506AB0). Mirrors the
 /// WA helper's deregistration order: re-establish the vtable slot,
 /// release this mine's two world-level slots (`world._unknown_514[mine_list_slot]`
@@ -257,7 +251,7 @@ unsafe fn destructor_1(this: *mut MineEntity) {
         *mine_table.add((*this).mine_list_slot as usize) = 0;
 
         // Release the EntityActivityQueue rank slot.
-        let queue = (world as *mut u8).add(0x600) as *mut EntityActivityQueue;
+        let queue = core::ptr::addr_of_mut!((*world).entity_activity_queue);
         bridge_free_activity_slot(queue, (*this).activity_rank_slot as i32);
 
         // Headful-only sub-object teardown.
@@ -366,7 +360,7 @@ unsafe fn arm(this: *mut MineEntity) {
         let subclass = (*this).base.subclass_data.as_mut_ptr();
         *(subclass.add(SUBCLASS_OFFSET_ANIM_FLAG) as *mut u32) = anim_flag;
         *(subclass.add(SUBCLASS_OFFSET_ARMED_MARKER) as *mut u32) = 1;
-        (*this)._unknown_11c = 0;
+        (*this).arm_delay = 0;
     }
 }
 
@@ -460,7 +454,7 @@ unsafe fn maybe_set_settling_anim_flag(this: *mut MineEntity) {
     unsafe {
         let world = (*(this as *const BaseEntity)).world;
         let game_info = (*world).game_info;
-        if (*game_info).game_version > 0x3C && arm_delay(this) > 0 {
+        if (*game_info).game_version > 0x3C && (*this).arm_delay > 0 {
             let dst = core::ptr::addr_of_mut!((*this).base.subclass_data[SUBCLASS_OFFSET_ANIM_FLAG])
                 as *mut u32;
             *dst = (*game_info)._field_d780;
@@ -473,8 +467,8 @@ unsafe fn maybe_set_settling_anim_flag(this: *mut MineEntity) {
 /// round end, not match end.
 unsafe fn msg_game_round_end(this: *mut MineEntity) {
     unsafe {
-        (*this)._field_104 = 0;
-        (*this)._field_128 = 0;
+        (*this).trigger_armed_flag = 0;
+        (*this).triggered_flag = 0;
     }
 }
 
@@ -667,22 +661,19 @@ unsafe fn step_anim_phase(this: *mut MineEntity, world: *mut GameWorld, game_ver
 
 /// Inline port of `GameTask::set_active` (0x00547ED0).
 ///
-/// Refreshes the two
-/// world-level "activity timers" at `world + 0x5DC` and `world + 0x7E48`
-/// to `mode`, but only when each timer has not already decayed past
-/// `-mode`. Used by the mine tick whenever the mine is moving / armed /
-/// triggered to keep the round's activity watchdogs alive.
+/// Refreshes the two world-level activity-watchdog timers
+/// ([`GameWorld::_field_5dc`] and [`GameWorld::_field_7e48`]) to `mode`,
+/// but only when each timer has not already decayed past `-mode`. Used
+/// by the mine tick whenever the mine is moving / armed / triggered to
+/// keep the round's activity watchdogs alive.
 #[inline]
 unsafe fn set_world_activity_timer(world: *mut GameWorld, mode: i32) {
     unsafe {
-        let world_bytes = world as *mut u8;
-        let timer_5dc = world_bytes.add(0x5DC) as *mut i32;
-        let timer_7e48 = world_bytes.add(0x7E48) as *mut i32;
-        if -mode <= *timer_5dc {
-            *timer_5dc = mode;
+        if -mode <= (*world)._field_5dc {
+            (*world)._field_5dc = mode;
         }
-        if -mode <= *timer_7e48 {
-            *timer_7e48 = mode;
+        if -mode <= (*world)._field_7e48 {
+            (*world)._field_7e48 = mode;
         }
     }
 }
@@ -734,7 +725,7 @@ unsafe fn msg_frame_finish_tick(
         // *not* a dud" path skips D and goes straight to detonate.
         let mut go_detonate_skip_tail = false;
 
-        let arm_delay_v = (*this)._unknown_11c as i32;
+        let arm_delay_v = (*this).arm_delay;
 
         if arm_delay_v < 0 {
             // B1 — airborne. Arm once the body comes to rest.
@@ -748,16 +739,16 @@ unsafe fn msg_frame_finish_tick(
         } else if arm_delay_v > 0 {
             // B2 — settling. Decrement 20/frame; arm when ≤ 0.
             let new_delay = arm_delay_v.wrapping_sub(0x14);
-            (*this)._unknown_11c = new_delay as u32;
+            (*this).arm_delay = new_delay;
             if new_delay <= 0 {
                 arm(this);
             }
             // → fall through to block D
-        } else if (*this)._field_128 == 0 {
+        } else if (*this).triggered_flag == 0 {
             // B3a — armed but not yet triggered.
             // Skip when underwater, when no anim tick this frame, or when
             // the trigger-armed flag was cleared by GameOver.
-            if (*this).base._field_b0 == 0 && anim_ticked && (*this)._field_104 != 0 {
+            if (*this).base._field_b0 == 0 && anim_ticked && (*this).trigger_armed_flag != 0 {
                 let trigger_range = (*this).trigger_range as i32;
                 let target = scan_for_trigger(this, trigger_range);
                 if !target.is_null() {
@@ -804,7 +795,7 @@ unsafe fn msg_frame_finish_tick(
 
                     roll_fuse_from_replay(this);
 
-                    (*this)._field_128 = 1;
+                    (*this).triggered_flag = 1;
 
                     // Fall through into the beep-tier seed at LAB_005076B8.
                     (*this).beep_tier_index = (*this).fuse_timer / 250;
@@ -835,22 +826,24 @@ unsafe fn msg_frame_finish_tick(
                     // B3c — fuse expired. Roll the dud bag and decide.
                     let mut bag_value: u32 = 0;
                     let rng = (*world).advance_rng();
+                    // `world+0x360C` is a [`RandomBag`]-shaped struct that
+                    // sits inside [`GameWorld::_unknown_360c`]; not yet
+                    // surfaced as a typed field.
                     let bag = (world as *mut u8).add(0x360C);
                     bridge_random_bag_draw(bag, rng, &mut bag_value);
 
                     // Dud branch all-of guards (any miss → real detonate):
-                    //   _field_108 == 0     (something else already steered toward boom)
-                    //   ScanForTrigger(_field_124*2 + 10) returns a hit  (a worm is right next to us)
-                    //   game_info+0xD929 != 0     (scheme has duds enabled)
+                    //   _field_108 == 0      (something else already steered toward boom)
+                    //   ScanForTrigger(damage*2 + 10) returns a hit  (a worm is right next to us)
+                    //   game_info.duds_enabled != 0   (scheme has duds enabled)
                     //   bag_value != 0       (bag-drawn value picked the dud slot)
                     //   is_not_dud == 0      (mine wasn't worm-placed)
                     let radius = (*this).damage.wrapping_mul(2).wrapping_add(10);
                     let nearby = scan_for_trigger(this, radius);
-                    let duds_enabled = *((game_info as *const u8).add(0xD929)) != 0;
 
                     let is_dud = (*this)._field_108 == 0
                         && !nearby.is_null()
-                        && duds_enabled
+                        && (*game_info).duds_enabled != 0
                         && bag_value != 0
                         && (*this).is_not_dud == 0;
 
@@ -858,7 +851,7 @@ unsafe fn msg_frame_finish_tick(
                         // Dud — clear fuse/triggered, mark as fled, play
                         // the dud sound + smoke, fall to block D.
                         (*this).fuse_timer = 0;
-                        (*this)._field_128 = 0;
+                        (*this).triggered_flag = 0;
 
                         // `trigger_range = (game_version < 0x1F) - 1` —
                         // repurposes the slot as a "post-dud marker" for
@@ -910,10 +903,10 @@ unsafe fn msg_frame_finish_tick(
         // state forces a "newest" promotion plus the world's activity
         // timer reset.
         let any_active = WorldEntity::is_moving_raw(this as *const WorldEntity)
-            || (*this)._field_128 != 0
-            || (*this)._unknown_11c != 0;
+            || (*this).triggered_flag != 0
+            || (*this).arm_delay != 0;
         if any_active {
-            let queue = (world as *mut u8).add(0x600) as *mut EntityActivityQueue;
+            let queue = core::ptr::addr_of_mut!((*world).entity_activity_queue);
             bridge_reset_rank(queue, (*this).activity_rank_slot as i32);
 
             // RecordLandingEvent: idx = 10 if underwater, else 5.

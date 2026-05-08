@@ -92,27 +92,20 @@ const QUESTION_TEXT_VA: u32 = 0x00661654;
 // ─── CalcSprite ────────────────────────────────────────────────────────────
 
 /// Rust port of `MineEntity::CalcSprite` (0x00506E60). Returns
-/// `(sprite_id, palette_value)`. The "palette" is the WA name for the
-/// `frame`/`palette` slot of the legacy `DrawSpriteLocal` command: a
-/// Fixed-shaped value derived from `mine.angle` and a world-level
-/// frame-scale factor. See [`mine_render`] for how it's threaded into
-/// the render-queue command.
-unsafe fn calc_sprite(this: *mut MineEntity) -> (u32, i32) {
+/// `(sprite_id, sub_frame_angle)`. The second slot fills the `palette`
+/// field of the legacy `DrawSpriteLocal` command — a Fixed-shaped
+/// sub-frame angle, interpolated from the mine's stored angle plus its
+/// per-frame angular accumulator scaled by [`GameWorld::render_interp_a`].
+unsafe fn calc_sprite(this: *mut MineEntity) -> (u32, Fixed) {
     unsafe {
         let world = (*(this as *const BaseEntity)).world;
-        // palette = (mine + 0x98) * world+0x8150 (Fixed × Fixed → Fixed)
-        //         + mine.angle (Fixed)
-        // The +0x98 slot lives inside `WorldEntity._unknown_98`; not yet
-        // surfaced as a typed field. Read raw.
-        let frame_field = *((this as *const u8).add(0x98) as *const i32);
-        let scale = (*world).render_interp_a.to_raw();
-        let mul = (frame_field as i64).wrapping_mul(scale as i64);
-        let mul_fixed = ((mul as u64 >> 16) as u32) | (((mul >> 32) as u32) << 16);
-        let mut palette = (mul_fixed as i32).wrapping_add((*this).base.angle.to_raw());
+        // Sub-frame angle = _field_98 * render_interp_a + angle (all Fixed).
+        let mut sub_frame_angle =
+            (*this).base._field_98.mul_raw((*world).render_interp_a) + (*this).base.angle;
 
-        // Default sprite is 0x2F. When triggered (`_field_128 != 0`) and
-        // `(fuse_timer * 4 / 1000) & 1 != 0`, swap to the flashing 0x2D.
-        let triggered = (*this)._field_128 != 0;
+        // Default sprite is 0x2F. When triggered and `(fuse_timer * 4 / 1000)
+        // & 1 != 0`, swap to the flashing 0x2D.
+        let triggered = (*this).triggered_flag != 0;
         let mut sprite = if triggered {
             let fuse = (*this).fuse_timer;
             let v = ((fuse as i64 * 4) / 1000) as i32;
@@ -121,44 +114,48 @@ unsafe fn calc_sprite(this: *mut MineEntity) -> (u32, i32) {
             0x2F
         };
 
-        // Drown gate — `_field_b0 != 0 || _field_a4 != 0` swaps to the
-        // underwater sprite via the WA lookup table.
-        let drown_a = (*this).base._field_b0;
-        let drown_b = (*this).base._field_a4 as i32;
-        if drown_a != 0 || drown_b != 0 {
+        // Drown gate — underwater (`_field_b0`) or wet (`_field_a4`) swaps
+        // to the underwater sprite via WA's lookup table.
+        let underwater = (*this).base._field_b0 != 0;
+        let wet = (*this).base._field_a4 != 0;
+        if underwater || wet {
             sprite = drown(sprite);
         }
-        // When `_field_b0` is set, palette is forced to 0 — anchors the
+        // Fully underwater forces sub-frame angle to 0 — anchors the
         // underwater sprite at the mine's screen y rather than offsetting
-        // by the angle/frame term.
-        if drown_a != 0 {
-            palette = 0;
+        // by the rotation term.
+        if underwater {
+            sub_frame_angle = Fixed::ZERO;
         }
 
-        (sprite, palette)
+        (sprite, sub_frame_angle)
     }
 }
 
 // ─── Render ────────────────────────────────────────────────────────────────
 
+/// Render-time anchor offset (18 pixels) used by both the body-sprite
+/// layer math and the textbox y-anchor.
+const MINE_TEXTBOX_Y_OFFSET: Fixed = Fixed::from_raw(0x00120000);
+
 /// Rust port of `MineEntity::Render` (0x00506EF0). stdcall(this), RET 0x4.
 pub unsafe fn mine_render(this: *mut MineEntity) {
     unsafe {
-        let (sprite_id, palette) = calc_sprite(this);
+        let (sprite_id, sub_frame_angle) = calc_sprite(this);
         let world = (*(this as *const BaseEntity)).world;
         let pos_x = (*this).base.pos_x;
         let pos_y = (*this).base.pos_y;
-        let triggered = (*this)._field_128 != 0;
+        let triggered = (*this).triggered_flag != 0;
         let activity_rank = (*this).activity_rank_slot as i32;
 
-        let primary_palette_idx = pick_palette_index(world, activity_rank);
+        let primary_render_rank = pick_render_rank(world, activity_rank);
 
         // Emit the body sprite.
         // WA: `EAX = (triggered ? 0xFFF80000 : 0) + 0x120000`. The triggered
         // branch overflows: `0xFFF80000 + 0x120000 = 0x000A0000` (mod 2^32).
         let sprite_op_flags: u32 = if triggered { 0x000A0000 } else { 0x00120000 };
         let layer = sprite_op_flags
-            .wrapping_add((primary_palette_idx as u32).wrapping_mul(2))
+            .wrapping_add((primary_render_rank as u32).wrapping_mul(2))
             .wrapping_add(1);
         let rq = (*world).render_queue;
         let _ = (*rq).push_typed(
@@ -168,7 +165,7 @@ pub unsafe fn mine_render(this: *mut MineEntity) {
                 x: pos_x.floor(),
                 y: pos_y.floor(),
                 sprite: SpriteOp(sprite_id),
-                palette: palette as u32,
+                palette: sub_frame_angle.to_raw() as u32,
             },
         );
 
@@ -181,14 +178,16 @@ pub unsafe fn mine_render(this: *mut MineEntity) {
             return;
         }
         let game_info = (*world).game_info;
-        let game_info_db08 = *((game_info as *const u8).add(0xDB08));
-        if game_info_db08 == 0 {
+        // Mine countdown textbox shows only during replay playback —
+        // gated on `replay_flag_a` (low byte of `replay_flags_packed`)
+        // specifically, not the whole u32.
+        if ((*game_info).replay_flags_packed as u8) == 0 {
             return;
         }
 
-        // Textbox uses the same palette-index lookup. Recompute (the WA
-        // function rereads it to avoid spilling the value across the gate).
-        let textbox_palette_idx = pick_palette_index(world, activity_rank);
+        // Textbox reuses the same render-rank lookup. Recompute (WA rereads
+        // it to avoid spilling the value across the gate).
+        let textbox_render_rank = pick_render_rank(world, activity_rank);
 
         // Pick the displayed text.
         let mut text_buf: HString<16> = HString::new();
@@ -208,15 +207,14 @@ pub unsafe fn mine_render(this: *mut MineEntity) {
             shadow_hi,
             &mut text_w,
             &mut text_h,
-            Fixed::from_raw(0x10000),
+            Fixed::ONE,
         );
 
-        // RQ_DrawTextboxLocal — the textbox is anchored 18 pixels (Fixed
-        // 0x120000) above the mine's pos_y.
-        let textbox_layer = (textbox_palette_idx as u32)
+        // RQ_DrawTextboxLocal — anchored 18 pixels above the mine's pos_y.
+        let textbox_layer = (textbox_render_rank as u32)
             .wrapping_mul(2)
             .wrapping_add(0xD0200);
-        let textbox_y = Fixed::from_raw(pos_y.to_raw().wrapping_sub(0x00120000));
+        let textbox_y = pos_y - MINE_TEXTBOX_Y_OFFSET;
         let _ = (*rq).push_typed(
             textbox_layer,
             RenderMessage::TextboxLocal {
@@ -231,23 +229,24 @@ pub unsafe fn mine_render(this: *mut MineEntity) {
     }
 }
 
-/// Look up the per-team palette index for a mine. When
-/// `activity_rank_slot < 0` (mine has no team yet — unplaced or anonymous
-/// pre-placed) the lookup falls back to one of two world-level slots
-/// chosen by a 0x100 threshold; otherwise it indexes the per-team
-/// palette table at `world+0x2600`.
-unsafe fn pick_palette_index(world: *const GameWorld, activity_rank_slot: i32) -> i32 {
+/// Pick the activity-queue render rank for a mine — the value used for
+/// sprite layer ordering so older mines render in front of newer ones.
+/// When `activity_rank_slot < 0` (mine has no slot yet — unplaced or
+/// anonymous pre-placed), the lookup falls back to the queue's `capacity`
+/// (when `> 0x100`) or `count`; otherwise it returns
+/// `entity_activity_queue.ages[slot]`.
+unsafe fn pick_render_rank(world: *const GameWorld, activity_rank_slot: i32) -> i32 {
     unsafe {
+        let queue = &(*world).entity_activity_queue;
         if activity_rank_slot < 0 {
-            let primary = *((world as *const u8).add(0x3608) as *const i32);
-            if primary > 0x100 {
-                primary
+            let capacity = queue.capacity as i32;
+            if capacity > 0x100 {
+                capacity
             } else {
-                *((world as *const u8).add(0x3604) as *const i32)
+                queue.count as i32
             }
         } else {
-            let table = (world as *const u8).add(0x2600) as *const i32;
-            *table.add(activity_rank_slot as usize)
+            queue.ages[activity_rank_slot as usize] as i32
         }
     }
 }
@@ -272,15 +271,9 @@ unsafe fn pick_textbox_text(
 
         let fuse = (*this).fuse_timer;
         let game_info = (*world).game_info;
-        // game_info+0xD934 — signed byte; bit-7 set means "use `?` for
-        // negative fuse" (no replay-recorded fuse hint).
-        let game_info_d934 = *((game_info as *const u8).add(0xD934)) as i8;
-        // mine + 0x16C lives inside `MineEntity._unknown_148` (the
-        // WeaponReleaseContext mirror block). Read as signed i32 at raw
-        // offset until the field is surfaced.
-        let field_16c = *((this as *const u8).add(0x16C) as *const i32);
-        let scheme_uses_recorded_fuse =
-            field_16c >= 0 && game_info_d934 >= 0 && (*this)._field_128 == 0;
+        let scheme_uses_recorded_fuse = (*this).init_fuse_ms >= 0
+            && (*game_info).mine_textbox_mode >= 0
+            && (*this).triggered_flag == 0;
 
         if fuse >= 0 && scheme_uses_recorded_fuse {
             // Plain seconds — `fuse / 1000`.

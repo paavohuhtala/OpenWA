@@ -181,8 +181,8 @@ pub unsafe fn init_game_state(runtime: *mut GameRuntime) {
 
         // ===== Copy replay mode flags from GameInfo =====
         let game_info = (*world).game_info;
-        (*runtime).replay_flag_a = (*game_info).invisibility_mode as u8;
-        (*runtime).replay_flag_b = ((*game_info).invisibility_mode >> 8) as u8;
+        (*runtime).replay_flag_a = (*game_info).replay_flags_packed as u8;
+        (*runtime).replay_flag_b = ((*game_info).replay_flags_packed >> 8) as u8;
 
         // ===== EntityActivityQueue::Init =====
         {

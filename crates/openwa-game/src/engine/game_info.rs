@@ -153,13 +153,27 @@ pub struct GameInfo {
     /// `WormEntity._field_15c` by every damage-path branch (cases 0x1C/0x76,
     /// 0x4B and a few state-reset arms of case 0x24); reader TBD.
     pub _scheme_d926: u8,
-    /// 0xD927-0xD931: Unknown
-    pub _unknown_d927: [u8; 0xD932 - 0xD927],
+    /// 0xD927-0xD928: Unknown
+    pub _unknown_d927: [u8; 2],
+    /// 0xD929: Duds-enabled scheme flag (u8). Read by
+    /// `MineEntity::HandleMessage`'s end-of-fuse path: when zero, the mine
+    /// always detonates on fuse expiry; non-zero allows the dud-bag roll
+    /// (combined with worm-placed flag, proximity scan, and bag draw) to
+    /// substitute a "dud" smoke + flee outcome.
+    pub duds_enabled: u8,
+    /// 0xD92A-0xD931: Unknown
+    pub _unknown_d92a: [u8; 0xD932 - 0xD92A],
     /// 0xD932: DoubleTurnTime availability threshold (u16).
     /// If game_version > 0xD1 and this > 0x7FFF, DoubleTurnTime is disabled.
     pub double_turn_time_threshold: u16,
-    /// 0xD934-0xD937: Unknown
-    pub _unknown_d934: [u8; 0xD938 - 0xD934],
+    /// 0xD934: Mine countdown-textbox display gate (signed byte).
+    /// `MineEntity::Render` consults this when picking the textbox text:
+    /// non-negative ⇒ show the recorded fuse value (or `fuse_timer / 1000`
+    /// when the live fuse is still positive); negative (high bit set) ⇒
+    /// fall through to the replay-recorded fuse, then to a static "?".
+    pub mine_textbox_mode: i8,
+    /// 0xD935-0xD937: Unknown
+    pub _unknown_d935: [u8; 3],
     /// 0xD938: Random crate drop percentage — land mines (u8, 0-100).
     pub drop_pct_land: u8,
     /// 0xD939: Random crate drop percentage — mines (u8, 0-100).
@@ -398,9 +412,20 @@ pub struct GameInfo {
     // --- Replay configuration (populated by ReplayLoader) ---
     /// 0xDAFA-0xDB07: Unknown
     pub _unknown_dafa: [u8; 0xDB08 - 0xDAFA],
-    /// 0xDB08: Invisibility (weapon 0x42) mode flag (u32). Controls team-count
-    /// vs network_ecx check for availability.
-    pub invisibility_mode: u32,
+    /// 0xDB08: Packed pair of replay-mode flags (u32). InitGameState
+    /// unpacks these into `GameRuntime::replay_flag_a` (low byte) and
+    /// `GameRuntime::replay_flag_b` (second byte); both are zero in
+    /// regular live matches and non-zero during replay playback. The
+    /// upper two bytes are not currently observed in use.
+    ///
+    /// Read sites that compare the *whole u32* to zero (e.g. the
+    /// invisibility-weapon availability gate at 0x52CA28 — "needs network
+    /// or replay") are testing whether *any* replay flag is set.
+    /// Read sites that compare just the low byte (e.g.
+    /// `MineEntity::Render`'s countdown-textbox gate) are testing
+    /// `replay_flag_a` specifically. Was previously misnamed
+    /// `invisibility_mode` after a single secondary use site.
+    pub replay_flags_packed: u32,
     /// 0xDB0C: Replay/network config flag (u8). Checked by InitGameState.
     pub replay_config_flag: u8,
     /// 0xDB0D-0xDB1B: Unknown

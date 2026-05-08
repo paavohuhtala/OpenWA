@@ -276,7 +276,7 @@ pub unsafe fn check_weapon_avail(world: *mut GameWorld, weapon: WeaponId) -> i32
                 return 0;
             }
             w if w.is(KnownWeaponId::Invisibility) => {
-                if (*gi).invisibility_mode == 0 {
+                if (*gi).replay_flags_packed == 0 {
                     if (*world).net_session.is_null() {
                         return 0;
                     }
