@@ -8,11 +8,13 @@ mod backend;
 mod display_vtable;
 mod landscape;
 mod render_queue;
+mod textbox;
 
 pub fn install() -> Result<(), String> {
     render_queue::install()?;
     display_vtable::install()?;
     landscape::install()?;
     backend::install()?;
+    textbox::install()?;
     Ok(())
 }

@@ -11,6 +11,7 @@ pub mod palette;
 pub mod queue;
 pub mod queue_dispatch;
 pub mod sprite;
+pub mod textbox;
 pub mod turn_order;
 pub mod worm;
 

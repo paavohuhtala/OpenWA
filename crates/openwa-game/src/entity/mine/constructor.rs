@@ -284,7 +284,7 @@ pub unsafe fn insert_into_mine_list(this: *mut MineEntity) {
             0,
             0,
             state_flag,
-            Fixed(0x10000),
+            Fixed::ONE,
             Fixed(0xCCC),
         );
 

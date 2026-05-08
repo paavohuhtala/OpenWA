@@ -14,24 +14,21 @@ use core::fmt::Write as _;
 use heapless::String as HString;
 
 use super::MineEntity;
-use crate::address::va;
-use crate::bitgrid::DisplayBitGrid;
 use crate::engine::world::GameWorld;
 use crate::entity::base::BaseEntity;
 use crate::rebase::rb;
 use crate::render::message::RenderMessage;
 use crate::render::sprite::sprite_op::SpriteOp;
+use crate::render::textbox::{Textbox, set_text as set_textbox_text};
 use openwa_core::fixed::Fixed;
 
 // ─── Bridges ───────────────────────────────────────────────────────────────
 
 static mut DROWN_ADDR: u32 = 0;
-static mut SET_TEXTBOX_TEXT_ADDR: u32 = 0;
 
 pub unsafe fn init_addrs() {
     unsafe {
         DROWN_ADDR = rb(0x00565D60);
-        SET_TEXTBOX_TEXT_ADDR = rb(va::SET_TEXTBOX_TEXT);
     }
 }
 
@@ -42,43 +39,6 @@ unsafe fn drown(sprite: u32) -> u32 {
     unsafe {
         let f: unsafe extern "fastcall" fn(u32) -> u32 = core::mem::transmute(DROWN_ADDR as usize);
         f(sprite)
-    }
-}
-
-/// `SetTextboxText` (0x004FB070) — stdcall, RET 0x20. Lays the text into
-/// the per-mine textbox object's bitmap and reports the consumed
-/// pixel size via `out_w` / `out_h`.
-unsafe fn set_textbox_text(
-    textbox: *mut u8,
-    text: *const c_char,
-    color: u32,
-    color_shadow_lo: u32,
-    color_shadow_hi: u32,
-    out_w: *mut i32,
-    out_h: *mut i32,
-    scale: Fixed,
-) -> *mut DisplayBitGrid {
-    unsafe {
-        let f: unsafe extern "stdcall" fn(
-            *mut u8,
-            *const c_char,
-            u32,
-            u32,
-            u32,
-            *mut i32,
-            *mut i32,
-            Fixed,
-        ) -> *mut DisplayBitGrid = core::mem::transmute(SET_TEXTBOX_TEXT_ADDR as usize);
-        f(
-            textbox,
-            text,
-            color,
-            color_shadow_lo,
-            color_shadow_hi,
-            out_w,
-            out_h,
-            scale,
-        )
     }
 }
 
@@ -193,18 +153,19 @@ pub unsafe fn mine_render(this: *mut MineEntity) {
         let mut text_buf: HString<16> = HString::new();
         let text_ptr = pick_textbox_text(this, world, &mut text_buf);
 
-        // SetTextboxText layout + blit.
+        // SetTextboxText layout + blit. The mine textbox is filled with
+        // `gfx_color_table[7]` and bordered with `gfx_color_table[6]`.
         let mut text_w: i32 = 0;
         let mut text_h: i32 = 0;
-        let textbox = (*this).textbox_handle;
-        let shadow_lo = (*world).gfx_color_table[7];
-        let shadow_hi = (*world).gfx_color_table[6];
+        let textbox = (*this).textbox_handle as *mut Textbox;
+        let fill_color = (*world).gfx_color_table[7];
+        let border_color = (*world).gfx_color_table[6];
         let bitmap = set_textbox_text(
             textbox,
             text_ptr,
             7,
-            shadow_lo,
-            shadow_hi,
+            fill_color,
+            border_color,
             &mut text_w,
             &mut text_h,
             Fixed::ONE,

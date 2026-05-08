@@ -2,13 +2,10 @@
 //! (0x0056E040, vtable slot 7) and `GameRender` (0x00533DC0). Headful-only
 //! paths in `game_render` are gated on `g_GameSession.frame_state >= 0`.
 
-use core::ffi::c_char;
-
 use openwa_core::fixed::Fixed;
 use openwa_core::trig;
 
 use crate::address::va;
-use crate::bitgrid::DisplayBitGrid;
 use crate::engine::game_session::get_game_session;
 use crate::engine::game_state;
 use crate::engine::net_session::NetSession;
@@ -28,7 +25,6 @@ use crate::wa::string_resource::{StringRes, res};
 // ─── Bridged WA helpers ────────────────────────────────────────────────────
 
 static mut DRAW_AWAY_OVERLAY_ADDR: u32 = 0;
-static mut SET_TEXTBOX_TEXT_ADDR: u32 = 0;
 static mut DISPATCH_FRAME_POST_PROCESS_HOOKS_ADDR: u32 = 0;
 
 /// Initialize the bridge addresses. Called from
@@ -36,7 +32,6 @@ static mut DISPATCH_FRAME_POST_PROCESS_HOOKS_ADDR: u32 = 0;
 pub unsafe fn init_addrs() {
     unsafe {
         DRAW_AWAY_OVERLAY_ADDR = rb(va::GAME_RUNTIME_DRAW_AWAY_OVERLAY);
-        SET_TEXTBOX_TEXT_ADDR = rb(va::SET_TEXTBOX_TEXT);
         DISPATCH_FRAME_POST_PROCESS_HOOKS_ADDR =
             rb(va::DISPLAY_GFX_DISPATCH_FRAME_POST_PROCESS_HOOKS);
     }
@@ -89,46 +84,6 @@ unsafe extern "stdcall" fn bridge_draw_away_overlay(_runtime: *mut GameRuntime, 
         "ret 8",
         addr = sym DRAW_AWAY_OVERLAY_ADDR,
     );
-}
-
-/// Bridge for `SetTextboxText` (0x004FB070, stdcall RET 0x20). Renders
-/// `text` into the textbox object's bitmap with two-tone shadow colors and
-/// a per-call scale, returning the [`DisplayBitGrid`] canvas pointer plus
-/// the pixel `(width, height)` consumed by the rendered text. Bridged
-/// because the textbox-rendering code is large (~360 inst) and depends on
-/// MFC font metrics; not worth porting incidentally.
-unsafe fn set_textbox_text(
-    textbox: *mut u8,
-    text: *const c_char,
-    color: u32,
-    color_shadow_lo: u32,
-    color_shadow_hi: u32,
-    out_w: *mut i32,
-    out_h: *mut i32,
-    scale: Fixed,
-) -> *mut DisplayBitGrid {
-    unsafe {
-        let func: unsafe extern "stdcall" fn(
-            *mut u8,
-            *const c_char,
-            u32,
-            u32,
-            u32,
-            *mut i32,
-            *mut i32,
-            Fixed,
-        ) -> *mut DisplayBitGrid = core::mem::transmute(SET_TEXTBOX_TEXT_ADDR as usize);
-        func(
-            textbox,
-            text,
-            color,
-            color_shadow_lo,
-            color_shadow_hi,
-            out_w,
-            out_h,
-            scale,
-        )
-    }
 }
 
 // ─── Constants ─────────────────────────────────────────────────────────────
@@ -682,18 +637,18 @@ unsafe fn draw_textbox_overlay(
         }
 
         let tick = (*world).frame as i32;
-        let color = blink_color(tick);
-        let textbox = (*world).textbox;
-        let shadow_lo = (*world).gfx_color_table[7];
-        let shadow_hi = (*world).gfx_color_table[6];
+        let font_index = blink_color(tick) as i32;
+        let textbox = (*world).textbox as *mut crate::render::textbox::Textbox;
+        let fill_color = (*world).gfx_color_table[7];
+        let border_color = (*world).gfx_color_table[6];
         let mut text_w: i32 = 0;
         let mut text_h: i32 = 0;
-        let sprite = set_textbox_text(
+        let sprite = crate::render::textbox::set_text(
             textbox,
             text,
-            color,
-            shadow_lo,
-            shadow_hi,
+            font_index,
+            fill_color,
+            border_color,
             &mut text_w,
             &mut text_h,
             Fixed::ONE,
