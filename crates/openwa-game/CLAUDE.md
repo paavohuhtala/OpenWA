@@ -94,3 +94,25 @@ vtable_replace!(DSSoundVtable, va::DS_SOUND_VTABLE, {
     load_wav                     => my_load_wav,     // pure replace
 })?;
 ```
+
+## Render-port validation: `render::dual_run`
+
+`render::dual_run::dual_run(label, world, wa_closure, rust_closure)` runs two render-queue producers back-to-back against the same `RenderQueue`, restoring the queue between them so each closure observes an identical pre-state. Logs a per-command diff to `OpenWA.log` when the two closures' emitted commands differ.
+
+Use during a port (the WA original must still be callable — keep the `rb()` bridge in place until the port is validated):
+
+```rust
+let world = (*(this as *const BaseEntity)).world;
+crate::render::dual_run::dual_run(
+    "MineEntity::Render",
+    world,
+    || bridge_mine_render(this),         // WA original
+    || mine_render::mine_render(this),   // new Rust port
+);
+```
+
+Iterate to zero diff, then flip the call site to Rust-only and remove the bridge. Headless replays don't fire `render_frame` (process_frame early-returns), so the dual-run only runs in **headful** mode — and only entity render handlers reachable from the msg-3 RenderScene broadcast can be validated this way.
+
+The same-process same-instant property means most pointers (entity / palette / sprite, plus aux-arena pointers like `TextboxLocal::bitmap`) compare bit-identical without canonicalization. The `entry_count`/`buffer_offset` snapshot is currently the *only* state restored between closures; if a port surfaces divergence from RNG, stipple parity, or other globals, add them to `QueueSnapshot` in `dual_run.rs` rather than working around it at the call site.
+
+Closures must be effectively pure (entity-state mutation, RNG advance, sound emission, etc. will silently desync the second run from the first). For render-scoped functions this is usually a non-issue.
