@@ -1,4 +1,4 @@
-//! `LocalizedTemplate` — per-game localized string resolver + cache.
+//! `LocalizedStringCache` — per-game localized string resolver + cache.
 //!
 //! Wraps WA's basic localization system (see [`super::string_resource`]) with
 //! two memoization tables and a small templating language. Constructed by
@@ -7,9 +7,9 @@
 //! [`GameWorld`](crate::engine::GameWorld) at `+0x18` by the GameWorld
 //! constructor.
 //!
-//! Resolved by `LocalizedTemplate__Resolve` (0x0053EA30,
+//! Resolved by `LocalizedStringCache__Resolve` (0x0053EA30,
 //! `__stdcall(this, token) -> *const c_char`) and
-//! `LocalizedTemplate__ResolveSplitArray` (0x0053EC70, returns
+//! `LocalizedStringCache__ResolveSplitArray` (0x0053EC70, returns
 //! `*const *const c_char` — the resolved string split on `\x1A`).
 //!
 //! The post-processing pass walks WA's escape codes:
@@ -32,45 +32,45 @@ use crate::wa::string_resource::StringRes;
 
 static mut RESOLVE_ADDR: u32 = 0;
 
-/// Initialize the `LocalizedTemplate__Resolve` bridge address. Called from
+/// Initialize the `LocalizedStringCache__Resolve` bridge address. Called from
 /// `dispatch_frame::init_dispatch_addrs` at DLL load.
 pub unsafe fn init_addrs() {
     unsafe {
-        RESOLVE_ADDR = rb(va::LOCALIZED_TEMPLATE_RESOLVE);
+        RESOLVE_ADDR = rb(va::LOCALIZED_STRING_CACHE_RESOLVE);
     }
 }
 
-/// Bridge for `LocalizedTemplate__Resolve` (0x0053EA30, stdcall RET 8).
+/// Bridge for `LocalizedStringCache__Resolve` (0x0053EA30, stdcall RET 8).
 /// Returns a pointer to the resolved template string (with WA's escape
-/// codes processed and the result cached on the [`LocalizedTemplate`])
+/// codes processed and the result cached on the [`LocalizedStringCache`])
 /// for the given token id.
-pub unsafe fn resolve(template: *mut LocalizedTemplate, token: StringRes) -> *const c_char {
-    unsafe { resolve_raw(template, token.as_offset()) }
+pub unsafe fn resolve(cache: *mut LocalizedStringCache, token: StringRes) -> *const c_char {
+    unsafe { resolve_raw(cache, token.as_offset()) }
 }
 
 /// Raw-id variant of [`resolve`], used by callers that pass numeric tokens
 /// directly (e.g. ports of WA functions that hard-code resource ids).
-pub unsafe fn resolve_raw(template: *mut LocalizedTemplate, token_id: u32) -> *const c_char {
+pub unsafe fn resolve_raw(cache: *mut LocalizedStringCache, token_id: u32) -> *const c_char {
     unsafe {
-        let func: unsafe extern "stdcall" fn(*mut LocalizedTemplate, u32) -> *const c_char =
+        let func: unsafe extern "stdcall" fn(*mut LocalizedStringCache, u32) -> *const c_char =
             core::mem::transmute(RESOLVE_ADDR as usize);
-        func(template, token_id)
+        func(cache, token_id)
     }
 }
 
 /// Typed entry point for [`resolve_split_array_raw`]. Prefer this in
 /// hand-written callers; pass `res::*` constants from [`crate::wa::string_resource`].
 pub unsafe fn resolve_split_array(
-    template: *mut LocalizedTemplate,
+    cache: *mut LocalizedStringCache,
     token: StringRes,
 ) -> *mut *mut c_char {
-    unsafe { resolve_split_array_raw(template, token.as_offset()) }
+    unsafe { resolve_split_array_raw(cache, token.as_offset()) }
 }
 
 /// Resolve `token_id` into a NULL-terminated array of C-string pointers,
-/// memoized in the per-template [`LocalizedTemplate::split_array_cache`].
+/// memoized in the per-cache [`LocalizedStringCache::split_array_cache`].
 ///
-/// Pure Rust port of WA 0x0053EC70 (`LocalizedTemplate__ResolveSplitArray`,
+/// Pure Rust port of WA 0x0053EC70 (`LocalizedStringCache__ResolveSplitArray`,
 /// `__usercall(EDI=token_id) + stdcall(this)`, RET 0x4).
 ///
 /// On a cache miss this calls [`resolve_raw`] to materialize the post-processed
@@ -84,23 +84,23 @@ pub unsafe fn resolve_split_array(
 /// Raw-id form parallels [`resolve_raw`] for callers that want to pass numeric
 /// tokens (e.g. WA-port shims). Prefer [`resolve_split_array`].
 pub unsafe fn resolve_split_array_raw(
-    template: *mut LocalizedTemplate,
+    cache: *mut LocalizedStringCache,
     token_id: u32,
 ) -> *mut *mut c_char {
     unsafe {
         use crate::wa_alloc::wa_malloc;
 
-        let slot = (*template).split_array_cache.add(token_id as usize);
+        let slot = (*cache).split_array_cache.add(token_id as usize);
         if !(*slot).is_null() {
             return *slot;
         }
 
         // [`resolve_raw`] hands out `*const c_char` for read-only consumers, but the
-        // underlying buffer is `wa_malloc`'d heap memory cached on `*template` and is
+        // underlying buffer is `wa_malloc`'d heap memory cached on `*cache` and is
         // already shared with WA's own `ResolveSplitArray`, which mutates `\x1A`
         // separators to `\0` here exactly as we do. The const→mut conversion is
         // intentional aliasing of a writable buffer, not constness laundering.
-        let s = resolve_raw(template, token_id).cast_mut();
+        let s = resolve_raw(cache, token_id).cast_mut();
 
         // Walk to end-of-string.
         let mut end = s;
@@ -151,14 +151,14 @@ pub unsafe fn resolve_split_array_raw(
 /// Owned 0x30-byte cache header. The two cache arrays are each
 /// `wa_malloc(0x20E0)` — 2104 slots, indexed by `StringRes::as_offset()`.
 ///
-/// Constructed by `LocalizedTemplate__Constructor` (0x0053E950),
+/// Constructed by `LocalizedStringCache__Constructor` (0x0053E950),
 /// `__usercall(EAX = wa_version_threshold, ESI = this) -> EAX = this`.
 ///
 /// Layout has no destructor in the binary; cached `__strdup` strings appear
 /// to leak by design.
 #[derive(FieldRegistry)]
 #[repr(C)]
-pub struct LocalizedTemplate {
+pub struct LocalizedStringCache {
     /// 0x00: Active WA version, sourced from `GameInfo+0xD778`. Compared
     /// against the hex operand of `\x1B<hex>,` to gate version-conditional
     /// template branches.
@@ -168,7 +168,7 @@ pub struct LocalizedTemplate {
     pub string_cache: *mut *mut c_char,
     /// 0x08: 2104-slot cache of `\x1A`-split arrays. Each populated slot is a
     /// NULL-terminated `*const c_char` array allocated by
-    /// `LocalizedTemplate__ResolveSplitArray`.
+    /// `LocalizedStringCache__ResolveSplitArray`.
     pub split_array_cache: *mut *mut *mut c_char,
     /// 0x0C: Default-branch override read by `\x1C0,...` template tokens.
     /// Zero-initialized; no writers found in the binary.
@@ -176,4 +176,4 @@ pub struct LocalizedTemplate {
     pub _pad_0d: [u8; 0x23],
 }
 
-const _: () = assert!(core::mem::size_of::<LocalizedTemplate>() == 0x30);
+const _: () = assert!(core::mem::size_of::<LocalizedStringCache>() == 0x30);

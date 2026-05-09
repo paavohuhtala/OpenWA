@@ -256,7 +256,7 @@ crate::define_addresses! {
         /// `(ECX = this, [stack] = name_str_ptr, flag)`, RET 0x8. Forwards
         /// to `GameTask__comment_public(this, name_str_ptr, *(this+0x10c)+0x11, this+0x2f0)`.
         /// Called from `StartTurn` (msg 0x34) with the resolved
-        /// `LocalizedTemplate` token 0x69D and `flag = 1`.
+        /// `LocalizedStringCache` token 0x69D and `flag = 1`.
         fn/Thiscall WORM_ENTITY_BROADCAST_WEAPON_NAME = 0x0050D540;
         /// `WormEntity::BroadcastWeaponSettings`. Fastcall
         /// `(ECX = this)`, plain RET, no stack args. Called from `StartTurn`

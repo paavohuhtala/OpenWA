@@ -185,11 +185,11 @@ pub struct GameSession {
     pub streaming_audio: *mut Music,
     /// 0x0B8: input controller — 0x1800 bytes; null if `param_4 == 0` at init
     pub net_input_ctrl: *mut u8,
-    /// 0x0BC: Localized-template resolver — 0x30 bytes
-    /// (constructed by `LocalizedTemplate__Constructor` at 0x0053E950).
+    /// 0x0BC: Localized-string cache + resolver — 0x30 bytes
+    /// (constructed by `LocalizedStringCache__Constructor` at 0x0053E950).
     /// Copied into [`GameWorld`](crate::engine::GameWorld)`+0x18` on world
-    /// construction. See [`LocalizedTemplate`](crate::wa::localized_template::LocalizedTemplate).
-    pub localized_template: *mut LocalizedTemplate,
+    /// construction. See [`LocalizedStringCache`](crate::wa::localized_string_cache::LocalizedStringCache).
+    pub localized_string_cache: *mut LocalizedStringCache,
     /// 0x0C0: `DDNetGameWrapper*` — 0x2C bytes
     pub net_game: *mut u8,
     pub _unknown_0c4: [u8; 0x5C],
@@ -204,7 +204,7 @@ bind_GameSessionVtable!(GameSession, vtable);
 use crate::address::va;
 use crate::engine::world::GameWorld;
 use crate::rebase::rb;
-use crate::wa::localized_template::LocalizedTemplate;
+use crate::wa::localized_string_cache::LocalizedStringCache;
 
 /// Get a pointer to the global `GameSession` struct from `G_GAME_SESSION`.
 ///

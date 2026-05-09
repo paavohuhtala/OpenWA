@@ -682,10 +682,10 @@ pub mod va {
         /// `__usercall(EDI=g_GameSession)`, plain RET — reads `[EDI+0xB8]`
         /// (net_input_ctrl) on entry. Runs once at the top of shutdown.
         fn/Usercall SHUTDOWN_NET_INPUT_CTRL_HELPER_MAYBE = 0x0056DC10;
-        /// Helper called by `GameEngine::Shutdown` on the localized-template
+        /// Helper called by `GameEngine::Shutdown` on the localized-string-cache
         /// just before `wa_free`. `__usercall(EDI=this)`, plain RET — reads
-        /// `[EDI+4]` on entry. Destructor body for `LocalizedTemplate`.
-        fn/Usercall LOCALIZED_TEMPLATE_DTOR_BODY_MAYBE = 0x0053E9D0;
+        /// `[EDI+4]` on entry. Destructor body for `LocalizedStringCache`.
+        fn/Usercall LOCALIZED_STRING_CACHE_DTOR_BODY_MAYBE = 0x0053E9D0;
         /// FrontendDialog__UpdateCursor — reapplies the frontend mouse cursor.
         fn/Stdcall FRONTEND_DIALOG_UPDATE_CURSOR = 0x0040D250;
         /// Frontend__UnhookInputHooks — releases keyboard/mouse hooks if
@@ -750,16 +750,16 @@ pub mod va {
         fn/Stdcall STREAMING_AUDIO_CTOR = 0x0058BC10;
         /// DDNetGameWrapper constructor
         fn/Stdcall DDNETGAME_WRAPPER_CTOR = 0x0056D1F0;
-        /// `LocalizedTemplate__Constructor` — usercall(ESI=this, EAX=wa_version_threshold).
-        /// See [`crate::wa::localized_template::LocalizedTemplate`].
-        fn/Usercall LOCALIZED_TEMPLATE_CTOR = 0x0053E950;
-        /// `LocalizedTemplate__Resolve` — stdcall(template, token) -> *const c_char.
+        /// `LocalizedStringCache__Constructor` — usercall(ESI=this, EAX=wa_version_threshold).
+        /// See [`crate::wa::localized_string_cache::LocalizedStringCache`].
+        fn/Usercall LOCALIZED_STRING_CACHE_CTOR = 0x0053E950;
+        /// `LocalizedStringCache__Resolve` — stdcall(cache, token) -> *const c_char.
         /// Resolves a localized template string from the gfx-dir's string
         /// table, applies WA's escape-code post-processor, and caches the
-        /// result on the [`LocalizedTemplate`]. RET 0x8.
+        /// result on the [`LocalizedStringCache`]. RET 0x8.
         ///
-        /// [`LocalizedTemplate`]: crate::wa::localized_template::LocalizedTemplate
-        fn/Stdcall LOCALIZED_TEMPLATE_RESOLVE = 0x0053EA30;
+        /// [`LocalizedStringCache`]: crate::wa::localized_string_cache::LocalizedStringCache
+        fn/Stdcall LOCALIZED_STRING_CACHE_RESOLVE = 0x0053EA30;
         /// `sprintf` into one of 8 rotating 16-KiB scratch buffers. cdecl,
         /// varargs (caller cleans). Returns a pointer to the formatted string
         /// in the next rotating buffer slot.

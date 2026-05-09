@@ -16,14 +16,14 @@ use crate::engine::{DDNetGameWrapper, GameRuntimeVtable};
 use crate::input::{Keyboard, MouseInput, NetInputCtrl, NetInputCtrlVtable, init_net_input_ctrl};
 use crate::rebase::rb;
 use crate::render::{DisplayBase, DisplayGfx};
-use crate::wa::localized_template::LocalizedTemplate;
+use crate::wa::localized_string_cache::LocalizedStringCache;
 use crate::wa_alloc::{wa_malloc_struct, wa_malloc_struct_zeroed};
 
 use windows_sys::Win32::Foundation::HWND;
 
 // ─── Bridge-state statics ─────────────────────────────────────────────────────
 
-static mut LOCALIZED_TEMPLATE_CTOR_ADDR: u32 = 0;
+static mut LOCALIZED_STRING_CACHE_CTOR_ADDR: u32 = 0;
 static mut STREAM_CTOR_ADDR: u32 = 0;
 static mut DISPLAY_GFX_INIT_ADDR: u32 = 0;
 static mut INIT_REPLAY_ADDR: u32 = 0;
@@ -36,11 +36,11 @@ static mut STREAM_CTOR_SAVED_ESI: u32 = 0;
 
 // ─── Bridges ─────────────────────────────────────────────────────────────────
 
-/// `LocalizedTemplate__Constructor` (0x0053E950):
+/// `LocalizedStringCache__Constructor` (0x0053E950):
 /// `usercall(ESI=this, EAX=wa_version_threshold)`, plain RET.
 #[unsafe(naked)]
-unsafe extern "cdecl" fn call_localized_template_ctor(
-    _this: *mut LocalizedTemplate,
+unsafe extern "cdecl" fn call_localized_string_cache_ctor(
+    _this: *mut LocalizedStringCache,
     _wa_version_threshold: u32,
 ) -> u32 {
     core::arch::naked_asm!(
@@ -50,7 +50,7 @@ unsafe extern "cdecl" fn call_localized_template_ctor(
         "calll *({fn})",
         "popl %esi",
         "retl",
-        fn = sym LOCALIZED_TEMPLATE_CTOR_ADDR,
+        fn = sym LOCALIZED_STRING_CACHE_CTOR_ADDR,
         options(att_syntax),
     );
 }
@@ -196,7 +196,7 @@ pub unsafe fn construct_runtime(
         call_init_replay(game_info, this);
 
         let session = get_game_session();
-        let localized_template = (*session).localized_template;
+        let localized_string_cache = (*session).localized_string_cache;
         let net_game = (*session).net_game;
 
         {
@@ -216,7 +216,7 @@ pub unsafe fn construct_runtime(
             sound,
             mouse_input,
             music,
-            localized_template,
+            localized_string_cache,
             net_game,
             game_info,
             net_input_ctrl as *mut crate::engine::net_session::NetSession,
@@ -273,9 +273,9 @@ pub unsafe fn init_hardware(
             }
         }
 
-        let localized_template = wa_malloc_struct_zeroed::<LocalizedTemplate>();
-        call_localized_template_ctor(localized_template, game_version);
-        (*session).localized_template = localized_template;
+        let localized_string_cache = wa_malloc_struct_zeroed::<LocalizedStringCache>();
+        call_localized_string_cache_ctor(localized_string_cache, game_version);
+        (*session).localized_string_cache = localized_string_cache;
 
         let headless = gi.headless_mode != 0;
 
@@ -446,7 +446,7 @@ pub unsafe fn init_hardware(
 
 pub fn init_addrs() {
     unsafe {
-        LOCALIZED_TEMPLATE_CTOR_ADDR = rb(va::LOCALIZED_TEMPLATE_CTOR);
+        LOCALIZED_STRING_CACHE_CTOR_ADDR = rb(va::LOCALIZED_STRING_CACHE_CTOR);
         STREAM_CTOR_ADDR = rb(va::STREAMING_AUDIO_CTOR);
         DISPLAY_GFX_INIT_ADDR = rb(va::DISPLAY_GFX_INIT);
         INIT_REPLAY_ADDR = rb(va::GAME_RUNTIME_INIT_REPLAY);

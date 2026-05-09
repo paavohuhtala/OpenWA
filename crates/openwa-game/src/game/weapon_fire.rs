@@ -23,7 +23,7 @@ use crate::game::message::{
     SurrenderMessage,
 };
 use crate::game::weapon::{WeaponEntry, WeaponFireParams, WeaponSpawnData};
-use crate::wa::localized_template;
+use crate::wa::localized_string_cache;
 use core::ffi::c_char;
 use openwa_core::fixed::Fixed;
 
@@ -707,7 +707,7 @@ unsafe fn fire_scales_of_justice(worm: *mut WormEntity) {
         }
 
         // Play jet pack sound:
-        // - LocalizedTemplate::ResolveSplitArray (token 0x6CB) — pure Rust now,
+        // - LocalizedStringCache::ResolveSplitArray (token 0x6CB) — pure Rust now,
         //   returns a NULL-terminated `*mut *mut c_char` speech-bank array.
         // - GameTask__comment_public: usercall(EAX=-21) + stdcall(worm, array, 0x17, &worm_name)
         //   randomly picks one entry and plays it.
@@ -715,8 +715,8 @@ unsafe fn fire_scales_of_justice(worm: *mut WormEntity) {
             let this = worm as *const BaseEntity;
             (*this).world
         };
-        let array = localized_template::resolve_split_array(
-            (*world).localized_template,
+        let array = localized_string_cache::resolve_split_array(
+            (*world).localized_string_cache,
             crate::wa::string_resource::res::GAME_SCALES_OF_JUSTICE_COMMENTS,
         );
         call_play_sound_usercall(

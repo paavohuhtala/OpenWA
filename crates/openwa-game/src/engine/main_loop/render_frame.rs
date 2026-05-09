@@ -18,7 +18,7 @@ use crate::render::display::gfx::DisplayGfx;
 use crate::render::palette::{palette_blend_toward_color, palette_rotate_hues};
 use crate::render::queue_dispatch::{ClipContext, clamp_camera_to_bounds, render_drawing_queue};
 use crate::render::sprite::sprite_op::SpriteOp;
-use crate::wa::localized_template::{LocalizedTemplate, resolve};
+use crate::wa::localized_string_cache::{LocalizedStringCache, resolve};
 use crate::wa::sprintf_rotating::sprintf_3 as sprintf_rotating_3;
 use crate::wa::string_resource::{StringRes, res};
 
@@ -629,8 +629,8 @@ unsafe fn draw_textbox_overlay(
     format_arg: Option<i32>,
 ) {
     unsafe {
-        let template: *mut LocalizedTemplate = (*world).localized_template;
-        let mut text = resolve(template, token_id);
+        let cache: *mut LocalizedStringCache = (*world).localized_string_cache;
+        let mut text = resolve(cache, token_id);
         if let Some(arg) = format_arg {
             // WA pushes 3 varargs even when the format string consumes one.
             text = sprintf_rotating_3(text, 1, 0, arg as u32);

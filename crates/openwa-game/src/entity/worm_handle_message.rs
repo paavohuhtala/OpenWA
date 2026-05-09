@@ -1632,8 +1632,8 @@ unsafe fn msg_start_turn(this: *mut WormEntity) -> bool {
             (*this).worm_index as i32,
         );
 
-        let template = (*world).localized_template;
-        let resolved = crate::wa::localized_template::resolve_split_array_raw(template, 0x69D)
+        let cache = (*world).localized_string_cache;
+        let resolved = crate::wa::localized_string_cache::resolve_split_array_raw(cache, 0x69D)
             as *const core::ffi::c_char;
         bridge_broadcast_weapon_name(this, resolved, 1);
 
@@ -2382,8 +2382,8 @@ unsafe fn msg_poison_worm(this: *mut WormEntity, message: *const PoisonWormMessa
             payload.as_ptr() as *const u8,
         );
 
-        let template = (*world).localized_template;
-        let resolved = crate::wa::localized_template::resolve_split_array_raw(template, 0x6CF)
+        let cache = (*world).localized_string_cache;
+        let resolved = crate::wa::localized_string_cache::resolve_split_array_raw(cache, 0x6CF)
             as *const *const c_char;
         bridge_localized_text_random_pick(
             this,

@@ -1,7 +1,7 @@
 //! Typed wrappers for calling WA.exe and library functions.
 
 pub mod frontend;
-pub mod localized_template;
+pub mod localized_string_cache;
 pub mod mfc;
 pub mod registry;
 pub mod resource;

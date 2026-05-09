@@ -8,11 +8,11 @@
 //! 2. Overwrite entry 0's pair with the localized `NONE` string.
 //! 3. For each weapon in [`WEAPON_NAMES`], resolve a
 //!    `(short_name, long_name)` pair through
-//!    [`resolve`](crate::wa::localized_template::resolve) and write
+//!    [`resolve`](crate::wa::localized_string_cache::resolve) and write
 //!    them into `name2` and `name1` respectively.
 
 use crate::engine::world::GameWorld;
-use crate::wa::localized_template::resolve;
+use crate::wa::localized_string_cache::resolve;
 use crate::wa::string_resource::{StringRes, res, wa_load_string};
 
 /// `(name2_token, name1_token)` per weapon for entries 1..=70. Each
@@ -93,11 +93,11 @@ const WEAPON_NAMES: [(StringRes, StringRes); 70] = [
 ];
 
 /// Pure Rust port of WA's `InitWeaponNameStrings` (0x0053C130,
-/// `__usercall(ESI = weapon_table, EDI = localized_template)`).
+/// `__usercall(ESI = weapon_table, EDI = localized_string_cache)`).
 pub unsafe fn init_weapon_name_strings(world: *mut GameWorld) {
     unsafe {
         let table = (*world).weapon_table;
-        let loc_ctx = (*world).localized_template;
+        let cache = (*world).localized_string_cache;
 
         let placeholder = wa_load_string(res::ERROR_L);
         for entry in (*table).entries.iter_mut() {
@@ -111,8 +111,8 @@ pub unsafe fn init_weapon_name_strings(world: *mut GameWorld) {
 
         for (i, &(short_name, long_name)) in WEAPON_NAMES.iter().enumerate() {
             let entry = &mut (*table).entries[i + 1];
-            entry.name2 = resolve(loc_ctx, short_name);
-            entry.name1 = resolve(loc_ctx, long_name);
+            entry.name2 = resolve(cache, short_name);
+            entry.name1 = resolve(cache, long_name);
         }
     }
 }

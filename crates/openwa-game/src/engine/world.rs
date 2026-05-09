@@ -16,7 +16,7 @@ use crate::render::display::gfx::DisplayGfx;
 use crate::render::landscape::Landscape;
 use crate::render::queue::RenderQueue;
 use crate::render::turn_order::TurnOrderWidget;
-use crate::wa::localized_template::LocalizedTemplate;
+use crate::wa::localized_string_cache::LocalizedStringCache;
 use openwa_core::fixed::{Fixed, Fixed64};
 
 /// GameWorld — the main game engine object.
@@ -57,10 +57,10 @@ pub struct GameWorld {
     pub mouse_input: *mut MouseInput,
     /// 0x014: Music object pointer (vtable 0x66B3E0). Constructor param "music".
     pub music: *mut Music,
-    /// 0x018: Localized-template resolver (from GameSession+0xBC). Wraps
+    /// 0x018: Localized-string cache + resolver (from GameSession+0xBC). Wraps
     /// WA's localization tables with a per-token cache + escape-code
-    /// post-processor. See [`LocalizedTemplate`](crate::wa::localized_template::LocalizedTemplate).
-    pub localized_template: *mut LocalizedTemplate,
+    /// post-processor. See [`LocalizedStringCache`](crate::wa::localized_string_cache::LocalizedStringCache).
+    pub localized_string_cache: *mut LocalizedStringCache,
     /// 0x01C: Per-game network session object. NULL for offline play.
     /// When non-null, drives end-of-round peer synchronisation via its
     /// vtable (see `engine::net_session`).

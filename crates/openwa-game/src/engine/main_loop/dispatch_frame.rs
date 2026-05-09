@@ -49,7 +49,7 @@ pub unsafe fn init_dispatch_addrs() {
         SHOULD_INTERPOLATE_OFFLINE_TAIL_ADDR = rb(va::GAME_RUNTIME_SHOULD_INTERPOLATE_OFFLINE_TAIL);
         PROCESS_NETWORK_FRAME_ADDR = rb(va::GAME_RUNTIME_PROCESS_NETWORK_FRAME);
         HUD_DRAW_TEAM_LABELS_ADDR = rb(va::HUD_DRAW_TEAM_LABELS_MAYBE);
-        crate::wa::localized_template::init_addrs();
+        crate::wa::localized_string_cache::init_addrs();
         crate::wa::sprintf_rotating::init_addrs();
         super::esc_menu::init_addrs();
         super::render_frame::init_addrs();

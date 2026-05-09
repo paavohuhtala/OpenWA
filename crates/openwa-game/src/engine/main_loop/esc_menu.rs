@@ -150,7 +150,7 @@ const UI_CLICK_SOUND: SoundId = SoundId::from_known(KnownSoundId::CursorSelect).
 /// "Miss" / "rejected" UI sound — raw_volume + [`KnownSoundId::WarningBeep`].
 const UI_MISS_SOUND: SoundId = SoundId::from_known(KnownSoundId::WarningBeep).with_raw_volume();
 
-use crate::wa::localized_template::resolve as bridge_token_lookup;
+use crate::wa::localized_string_cache::resolve as bridge_token_lookup;
 use crate::wa::sprintf_rotating::sprintf_3 as bridge_sprintf_rotating_3;
 
 // ─── Inline-ported clipping helpers ────────────────────────────────────────
@@ -731,7 +731,7 @@ pub unsafe fn open_esc_menu(runtime: *mut GameRuntime) {
         let canvas: *mut DisplayBitGrid = (*runtime).display_gfx_d;
         let panel: *mut MenuPanel = (*runtime).menu_panel_a;
         let game_info = (*world).game_info;
-        let template = (*world).localized_template;
+        let cache = (*world).localized_string_cache;
         let border_color = (*world).gfx_color_table[6] as u8;
         let bg_color = (*world).gfx_color_table[7] as u8;
         // The volume slider's "aux render obj" is the same palette index
@@ -783,8 +783,8 @@ pub unsafe fn open_esc_menu(runtime: *mut GameRuntime) {
         if !no_leaderboard {
             // D1 — "First Team to N Wins" header.
             let win_target = (*game_info).scheme_first_to_n_wins as u32;
-            let header_template = bridge_token_lookup(template, res::GAME_ROUNDS_TO_WIN);
-            // WA pushes (template, 1, 1, win_target) — only the third
+            let header_template = bridge_token_lookup(cache, res::GAME_ROUNDS_TO_WIN);
+            // WA pushes (header_template, 1, 1, win_target) — only the third
             // vararg (win_target) actually substitutes into the `%d`.
             let header_str = bridge_sprintf_rotating_3(header_template, 1, 1, win_target);
 
@@ -909,7 +909,7 @@ pub unsafe fn open_esc_menu(runtime: *mut GameRuntime) {
         // (the volume value pointer) to enter the wide-row override.
 
         let centered_x = panel_width / 2;
-        let label = bridge_token_lookup(template, res::GAME_MINIMISE_GAME);
+        let label = bridge_token_lookup(cache, res::GAME_MINIMISE_GAME);
         append_item_impl(
             centered_x,
             panel,
@@ -936,7 +936,7 @@ pub unsafe fn open_esc_menu(runtime: *mut GameRuntime) {
 
         if common_show_action_buttons {
             if buf_flag_8c == 0 && runtime_field_478 == 0 && no_sd_a == 0 && no_sd_b == 0 {
-                let label = bridge_token_lookup(template, res::GAME_SUDDEN_DEATH);
+                let label = bridge_token_lookup(cache, res::GAME_SUDDEN_DEATH);
                 append_item_impl(
                     centered_x,
                     panel,
@@ -950,7 +950,7 @@ pub unsafe fn open_esc_menu(runtime: *mut GameRuntime) {
                 y += line_height + 1;
             }
             if no_draw == 0 {
-                let label = bridge_token_lookup(template, res::GAME_DRAW_ROUND);
+                let label = bridge_token_lookup(cache, res::GAME_DRAW_ROUND);
                 append_item_impl(
                     centered_x,
                     panel,
@@ -965,7 +965,7 @@ pub unsafe fn open_esc_menu(runtime: *mut GameRuntime) {
             }
         }
 
-        let label = bridge_token_lookup(template, res::GAME_QUIT_GAME);
+        let label = bridge_token_lookup(cache, res::GAME_QUIT_GAME);
         append_item_impl(
             centered_x,
             panel,
@@ -978,7 +978,7 @@ pub unsafe fn open_esc_menu(runtime: *mut GameRuntime) {
         );
         y += line_height + 1;
 
-        let label = bridge_token_lookup(template, res::GAME_VOLUME);
+        let label = bridge_token_lookup(cache, res::GAME_VOLUME);
         let volume_ptr = &raw mut (*runtime).sound_volume as *mut u8;
         // WA passes EAX = 6 to AppendItem here, but the slider call uses
         // `centered = 0`, so the EAX/x value isn't shifted by half-width
@@ -1095,7 +1095,7 @@ pub unsafe fn open_confirm_dialog(runtime: *mut GameRuntime) {
         let display: *mut DisplayGfx = (*world).display;
         let canvas: *mut DisplayBitGrid = (*runtime).display_gfx_e;
         let panel: *mut MenuPanel = (*runtime).menu_panel_b;
-        let template = (*world).localized_template;
+        let cache = (*world).localized_string_cache;
         let bg_color = (*world).gfx_color_table[7] as u8;
         let border_color = (*world).gfx_color_table[3] as u8;
         let canvas_w = (*canvas).width as i32;
@@ -1107,9 +1107,9 @@ pub unsafe fn open_confirm_dialog(runtime: *mut GameRuntime) {
         // ─── Block B: title ───
         // WA resolves the GAME_CONFIRM token twice — once for measure,
         // once for draw. Resolve caches the result on the
-        // `LocalizedTemplate`, so the second call is a hash lookup; we
+        // `LocalizedStringCache`, so the second call is a hash lookup; we
         // collapse it to a single Rust call without changing semantics.
-        let title_str = bridge_token_lookup(template, res::GAME_CONFIRM);
+        let title_str = bridge_token_lookup(cache, res::GAME_CONFIRM);
         let TextMeasurement {
             total_advance: title_advance,
             line_height,
@@ -1149,7 +1149,7 @@ pub unsafe fn open_confirm_dialog(runtime: *mut GameRuntime) {
         let button_y = line_height + 7;
         let center_x = canvas_w / 2;
 
-        let label_yes = bridge_token_lookup(template, res::GAME_YES);
+        let label_yes = bridge_token_lookup(cache, res::GAME_YES);
         append_item_impl(
             center_x - 0x20,
             panel,
@@ -1161,7 +1161,7 @@ pub unsafe fn open_confirm_dialog(runtime: *mut GameRuntime) {
             core::ptr::null_mut(),
         );
 
-        let label_no = bridge_token_lookup(template, res::GAME_NO);
+        let label_no = bridge_token_lookup(cache, res::GAME_NO);
         append_item_impl(
             center_x + 0x20,
             panel,

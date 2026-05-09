@@ -47,7 +47,7 @@ unsafe fn vcall0(this: u32, slot: usize) {
 /// 10. If `streaming_audio != 0`: `streaming_audio.vtable[0](this, 1)` — scalar deleting dtor.
 /// 11. If `net_input_ctrl != 0`: `net_input_ctrl.vtable[0](this, 1)`.
 /// 12. If `sound != 0`: `sound.vtable[0](this, 1)` — DSSound destructor.
-/// 13. If `localized_template != 0`: `LOCALIZED_TEMPLATE_DTOR_BODY_MAYBE` + `wa_free`.
+/// 13. If `localized_string_cache != 0`: `LOCALIZED_STRING_CACHE_DTOR_BODY_MAYBE` + `wa_free`.
 pub unsafe extern "stdcall" fn shutdown(state_buf: *mut u8) {
     unsafe {
         let session = get_game_session();
@@ -60,7 +60,7 @@ pub unsafe extern "stdcall" fn shutdown(state_buf: *mut u8) {
         let music = (*session).streaming_audio as u32;
         let net_input_ctrl = (*session).net_input_ctrl as u32;
         let net_game = (*session).net_game as u32;
-        let localized_template = (*session).localized_template as u32;
+        let localized_string_cache = (*session).localized_string_cache as u32;
 
         (*session).init_flag = 0;
 
@@ -105,13 +105,13 @@ pub unsafe extern "stdcall" fn shutdown(state_buf: *mut u8) {
             vcall1(sound, 0, 1);
         }
 
-        if localized_template != 0 {
+        if localized_string_cache != 0 {
             // Usercall(EDI=this) — the function reads `[EDI+4]` immediately.
             crate::wa_call::call_usercall_edi(
-                localized_template,
-                rb(va::LOCALIZED_TEMPLATE_DTOR_BODY_MAYBE),
+                localized_string_cache,
+                rb(va::LOCALIZED_STRING_CACHE_DTOR_BODY_MAYBE),
             );
-            crate::wa_alloc::wa_free(localized_template as *mut u8);
+            crate::wa_alloc::wa_free(localized_string_cache as *mut u8);
         }
     }
 }

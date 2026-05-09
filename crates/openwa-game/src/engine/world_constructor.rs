@@ -29,7 +29,7 @@ use crate::rebase::rb;
 use crate::render::display::gfx::DisplayGfx;
 use crate::render::display::gradient::compute_complex_gradient;
 use crate::render::landscape::Landscape;
-use crate::wa::localized_template::LocalizedTemplate;
+use crate::wa::localized_string_cache::LocalizedStringCache;
 use crate::wa_alloc::{wa_malloc, wa_malloc_zeroed};
 use openwa_core::fixed::Fixed;
 
@@ -351,7 +351,7 @@ pub unsafe fn create_game_world(
     sound: *mut DSSound,
     mouse_input: *mut MouseInput,
     music: *mut Music,
-    localized_template: *mut LocalizedTemplate,
+    localized_string_cache: *mut LocalizedStringCache,
     net_game: *mut u8, // from GameSession
     game_info: *mut GameInfo,
     net_session: *mut NetSession,
@@ -384,7 +384,7 @@ pub unsafe fn create_game_world(
         (*world).keyboard = keyboard;
         (*world).mouse_input = mouse_input;
         (*world).music = music;
-        (*world).localized_template = localized_template;
+        (*world).localized_string_cache = localized_string_cache;
         (*world).net_session = net_session;
         (*world).game_info = game_info;
         (*world).net_game = net_game;
