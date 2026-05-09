@@ -1,11 +1,65 @@
 use super::base::BaseEntity;
-use super::game_entity::WorldEntity;
+use super::game_entity::{SubclassData, WorldEntity};
 use crate::FieldRegistry;
 use openwa_core::fixed::Fixed;
 
 pub mod constructor;
 pub mod handle_message;
 pub mod render;
+
+/// OilDrumEntity's typed view of [`WorldEntity::subclass_data`]
+/// (entity offsets +0x38..+0x84, 0x4C bytes total).
+///
+/// Touched by [`constructor::oil_drum_constructor`] (initial values) and
+/// the FrameFinish tail in [`handle_message`] (reads `terminate_flag` to
+/// gate detonation). The terminator slot itself is written through
+/// vtable slot 14 (`WorldEntity::SetTerminateFlag_Maybe`).
+#[repr(C)]
+pub struct OilDrumSubclassData {
+    /// Entity +0x38: Unknown.
+    pub _unknown_38: u32,
+    /// Entity +0x3C: Initialised to `1` by the constructor; readers
+    /// unidentified. Mirrors the same offset in `MineEntity`'s subclass
+    /// block (also written `1` by the mine ctor).
+    pub _field_3c: u32,
+    /// Entity +0x40: Unknown.
+    pub _unknown_40: u32,
+    /// Entity +0x44: Detonation-request flag. Written only by vtable
+    /// slot 14 (`WorldEntity::SetTerminateFlag_Maybe` at 0x004FE060) —
+    /// `HandleMessage` cases 0x1C / 0x4B request detonation by
+    /// dispatching there with `flag = 1`. Read by the FrameFinish tail
+    /// to gate the detonate-then-free path.
+    pub terminate_flag: u32,
+    /// Entity +0x48: Unknown.
+    pub _unknown_48: u32,
+    /// Entity +0x4C: Mass (Fixed 16.16). Initialised to `1.0` by the
+    /// constructor; consumed by `WorldEntityVtable::add_impulse` (slot
+    /// 17) which divides each axis of the impulse by mass before
+    /// accumulating into `speed_x`/`speed_y`.
+    pub mass: Fixed,
+    /// Entity +0x50..+0x5B: Unknown (three dwords).
+    pub _unknown_50: [u32; 3],
+    /// Entity +0x5C: Zeroed by the constructor; readers unidentified.
+    /// `WormEntity` reuses the same offset as `drag_mod_y`, but oil
+    /// drums never reach the WormEntity drag path.
+    pub _field_5c: u32,
+    /// Entity +0x60..+0x6B: Unknown (three dwords).
+    pub _unknown_60: [u32; 3],
+    /// Entity +0x6C: Zeroed by the constructor; readers unidentified.
+    /// Mirrors the same offset in `MineEntity`'s subclass block (which
+    /// the mine ctor sets to `0x9999`, suggesting an animation-phase
+    /// or color-cycle seed slot).
+    pub _field_6c: u32,
+    /// Entity +0x70: Initialised to `0x8000` by the constructor; readers
+    /// unidentified.
+    pub _field_70: u32,
+    /// Entity +0x74..+0x84: Unknown (4 dwords).
+    pub _unknown_74: [u32; 4],
+}
+
+const _: () = assert!(core::mem::size_of::<OilDrumSubclassData>() == 0x4C);
+
+unsafe impl SubclassData for OilDrumSubclassData {}
 
 crate::define_addresses! {
     class "OilDrumEntity" {
@@ -62,11 +116,10 @@ pub struct OilDrumEntityVtable {
 #[repr(C)]
 pub struct OilDrumEntity {
     /// 0x00–0xFB: WorldEntity base (pos at 0x84/0x88, speed at 0x90/0x94).
-    /// Detonation-request flag lives in `subclass_data[0xC]`
-    /// (entity offset 0x44) — written by vtable slot 14
-    /// (`WorldEntity::SetTerminateFlag_Maybe`); read by `HandleMessage`'s
-    /// FrameFinish tail to gate the explode-then-free path.
-    pub base: WorldEntity<*const OilDrumEntityVtable>,
+    /// Subclass-data overlay typed as [`OilDrumSubclassData`] — exposes
+    /// `terminate_flag` (entity +0x44) and `mass` (entity +0x4C) as
+    /// named fields.
+    pub base: WorldEntity<*const OilDrumEntityVtable, OilDrumSubclassData>,
     /// 0xFC: "Started rolling / venting" latch. Set to 1 the first frame
     /// the drum is wet (`WorldEntity._field_b0 != 0`); also set by the
     /// underwater-bubble emitter the first frame it fires (alongside the

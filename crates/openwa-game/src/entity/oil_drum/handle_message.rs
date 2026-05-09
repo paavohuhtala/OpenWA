@@ -359,12 +359,10 @@ unsafe fn msg_frame_finish_tick(
             return;
         }
 
-        // Otherwise: gate detonation on the SetTerminateFlag slot
-        // (subclass_data[0xC] = entity offset 0x44). Zero → no detonate
-        // requested → return without freeing. Non-zero → detonate, then
-        // free via vtable slot 1.
-        let detonate_flag = *((*this).base.subclass_data.as_ptr().add(0xC) as *const u32);
-        if detonate_flag == 0 {
+        // Gate detonation on the SetTerminateFlag slot. Zero → no
+        // detonate requested → return without freeing. Non-zero →
+        // detonate, then free via vtable slot 1.
+        if (*this).base.subclass_data.terminate_flag == 0 {
             return;
         }
         detonate(this);
@@ -490,13 +488,12 @@ unsafe fn msg_special_impact(this: *mut OilDrumEntity, data: *const u8) {
     }
 }
 
-/// Set the detonation-request flag (`subclass_data[0xC]`) and capture the
-/// source team. Equivalent to WA's `vtable[14](this, 1); this+0x110 = team`.
+/// Set the detonation-request flag and capture the source team.
+/// Equivalent to WA's `vtable[14](this, 1); this+0x110 = team`.
 #[inline]
 unsafe fn request_detonate(this: *mut OilDrumEntity, source_team: u32) {
     unsafe {
-        let dst = (*this).base.subclass_data.as_mut_ptr().add(0xC) as *mut u32;
-        *dst = 1;
+        (*this).base.subclass_data.terminate_flag = 1;
         (*this).source_team_index = source_team;
     }
 }

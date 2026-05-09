@@ -39,13 +39,13 @@ pub unsafe fn init_addrs() {
 
 #[inline]
 unsafe fn world_entity_ctor(
-    this: *mut WorldEntity<*const super::OilDrumEntityVtable>,
+    this: *mut WorldEntity<*const super::OilDrumEntityVtable, super::OilDrumSubclassData>,
     parent: *mut BaseEntity,
     class_type: u32,
     flag: u32,
 ) {
     type Fn = unsafe extern "stdcall" fn(
-        *mut WorldEntity<*const super::OilDrumEntityVtable>,
+        *mut WorldEntity<*const super::OilDrumEntityVtable, super::OilDrumSubclassData>,
         *mut BaseEntity,
         u32,
         u32,
@@ -102,14 +102,12 @@ pub unsafe fn oil_drum_constructor(
         let bit_10 = if scheme_byte >= 8 { 0x10u32 } else { 0 };
         (*this).base.bucket_mask = 0x0040180E | bit_20 | bit_10;
 
-        // subclass_data writes — exact field semantics not yet typed; the
-        // offsets mirror MineEntity's pattern (see mine/constructor.rs for
-        // some of the same offsets — animation/state seeds).
-        write_subclass_dword(this, 0x34, 0); // entity + 0x6C
-        write_subclass_dword(this, 0x38, 0x8000); // entity + 0x70
-        write_subclass_dword(this, 0x24, 0); // entity + 0x5C
-        write_subclass_dword(this, 0x14, 0x10000); // entity + 0x4C (mass)
-        write_subclass_dword(this, 0x4, 1); // entity + 0x3C
+        // Subclass-data initial values. Caller already zero-filled the
+        // whole 0x114; only the non-zero fields actually need writing.
+        let sub = &raw mut (*this).base.subclass_data;
+        (*sub)._field_3c = 1;
+        (*sub).mass = Fixed::ONE;
+        (*sub)._field_70 = 0x8000;
 
         // Pre-placed level-gen drums: drop one pixel at a time until
         // collision or the water surface, snapping `pos_x`/`pos_y` along
@@ -134,13 +132,5 @@ pub unsafe fn oil_drum_constructor(
         }
 
         this
-    }
-}
-
-#[inline]
-unsafe fn write_subclass_dword(this: *mut OilDrumEntity, sub_offset: usize, value: u32) {
-    unsafe {
-        let p = (*this).base.subclass_data.as_mut_ptr().add(sub_offset) as *mut u32;
-        *p = value;
     }
 }
