@@ -91,6 +91,15 @@ pub struct MissileEntityVtable {
     /// Target: `WorldEntity::SetTerminateFlag_Maybe` at 0x004FE060.
     #[slot(14)]
     pub set_terminate_flag: fn(this: *mut MissileEntity, flag: u32),
+    /// `WorldEntity::vt17` (0x00500090) — generic mass-scaled impulse adder.
+    /// Bails when `terminate_flag` (`+0x48`) is non-zero. Otherwise applies
+    /// `(dx, dy) / mass` (Fixed16.16) to `speed_x`/`speed_y`, and adds
+    /// `mode` to the third axis at `+0x98`. Returns `1` on success / `0` if
+    /// the bail fired. Inherited slot; the FrameFinish tick uses it to fold
+    /// per-axis wind/sway into the running velocity.
+    /// Thiscall(this, dx, dy, mode), RET 0xC.
+    #[slot(17)]
+    pub apply_impulse: fn(this: *mut MissileEntity, dx: i32, dy: i32, mode: i32) -> u32,
 }
 
 /// Projectile / missile entity entity.
@@ -127,12 +136,24 @@ pub struct MissileEntity {
     /// [`_render_data_07`] (single-shot) and [`_render_data_1a`] (cluster) on
     /// the value of this flag.
     pub is_cluster_pellet: u32,
-    /// 0x104–0x10F: Unknown.
-    pub _unknown_104: [u8; 0xC],
-    /// 0x110: Unknown
-    pub _unknown_110: u32,
-    /// 0x114: Unknown
-    pub _unknown_114: u32,
+    /// 0x104–0x10B: Unknown.
+    pub _unknown_104: [u8; 8],
+    /// 0x10C: Splash-sound one-shot latch read by the FrameFinish tick. Set
+    /// to `1` after firing the underwater-stash impact sound (sound id `0x39`
+    /// channel `5`) once `|speed_y|` crosses `0x10000`; cleared each frame
+    /// the missile is above water (`_field_a4 == 0`).
+    pub splash_sound_latched: u32,
+    /// 0x110: Underwater-entry one-shot latch. Set to `1` the first frame
+    /// the missile crosses `_field_b0 != 0`; the FrameFinish tail uses this
+    /// to gate the once-per-life "stop fuse sound + clear detonate response
+    /// + arm the underwater bucket mask" cleanup.
+    pub underwater_entry_latched: u32,
+    /// 0x114: Particle-emit phase accumulator. Each FrameFinish tick adds
+    /// `(piVar8[1] << 16) / 0x19` (above-water in render band) or
+    /// `(piVar8[3] << 16) / 200` (otherwise) to this slot, and consumes
+    /// units of `0x10000` to spawn `SpawnEffect` particles or
+    /// `GameTask::create_bubble_1` bubbles.
+    pub effect_emit_phase: u32,
     /// 0x118: Unknown — observed being set from scheme data at construction
     pub _unknown_118: u32,
     /// 0x11C: Unknown
@@ -298,8 +319,25 @@ pub struct MissileEntity {
     /// 30 for grenade @ 10fps = 3s). Counted down each frame by the physics update;
     /// when it reaches 0 the missile detonates / the sheep self-destructs.
     pub fuse_timer: i32,
-    /// 0x380..0x393: Further post-render dynamic state (unknown).
-    pub _post_render_state_0: [u8; 0x14],
+    /// 0x380 — post-fuse termination countdown. The frame `fuse_timer` reaches
+    /// `0` and this slot is also `0`, the missile invokes the slot-14
+    /// terminator (or `finish_super_animal` for active homing). When `> 0`,
+    /// the FrameFinish tick decrements it by `0x14` per frame (clamped at 0)
+    /// and emits a one-shot `impact_sound_id` via `PlaySoundLocal` channel
+    /// `4` the first frame the countdown is active. Set elsewhere; the tick
+    /// only consumes it.
+    pub post_fuse_terminate_timer: i32,
+    /// 0x384 — post-fuse sound one-shot latch. Cleared elsewhere; the tick
+    /// sets it to `1` after firing the post-fuse `impact_sound_id` so the
+    /// sound only plays once per countdown.
+    pub post_fuse_sound_latched: u32,
+    /// 0x388 — `RecordLandingEvent` gate. Reset to `0` after each
+    /// `record_landing_event_raw` call in the FrameFinish tail.
+    pub _field_388: u32,
+    /// 0x38C — Unknown.
+    pub _field_38c: u32,
+    /// 0x390 — Unknown.
+    pub _field_390: u32,
     /// 0x394 — `param_1[0xE5]` in OnContact. Contact-phase flag. Value `1`
     /// indicates the missile is in super-animal control mode (sheep-style
     /// steering active); value `2` disables the normal contact path (routes
@@ -407,6 +445,9 @@ const _: () = assert!(core::mem::size_of::<MissileEntity>() == 0x40C);
 const _: () = {
     use core::mem::offset_of;
     assert!(offset_of!(MissileEntity, is_cluster_pellet) == 0x100);
+    assert!(offset_of!(MissileEntity, splash_sound_latched) == 0x10C);
+    assert!(offset_of!(MissileEntity, underwater_entry_latched) == 0x110);
+    assert!(offset_of!(MissileEntity, effect_emit_phase) == 0x114);
     assert!(offset_of!(MissileEntity, _render_data_07) == 0x2F0);
     assert!(offset_of!(MissileEntity, explosion_response_flag) == 0x308);
     assert!(offset_of!(MissileEntity, contact_face_mask) == 0x2D4);
@@ -425,6 +466,11 @@ const _: () = {
     assert!(offset_of!(MissileEntity, detonate_response_mode) == 0x32C);
     assert!(offset_of!(MissileEntity, super_animal_eligible) == 0x36C);
     assert!(offset_of!(MissileEntity, fuse_timer) == 0x37C);
+    assert!(offset_of!(MissileEntity, post_fuse_terminate_timer) == 0x380);
+    assert!(offset_of!(MissileEntity, post_fuse_sound_latched) == 0x384);
+    assert!(offset_of!(MissileEntity, _field_388) == 0x388);
+    assert!(offset_of!(MissileEntity, _field_38c) == 0x38C);
+    assert!(offset_of!(MissileEntity, _field_390) == 0x390);
     assert!(offset_of!(MissileEntity, contact_phase) == 0x394);
     assert!(offset_of!(MissileEntity, super_animal_torque_accum) == 0x398);
     assert!(offset_of!(MissileEntity, terminate_stash_speed) == 0x39C);
@@ -477,6 +523,12 @@ impl MissileEntity {
 #[repr(u32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MissileType {
+    /// Inert / cleared. Written by `HandleMessage` case 0x2's inner
+    /// `Unknown1` sub-branch when the missile is underwater AND its
+    /// contact-face mask has bit 0x400000 set — those preconditions
+    /// disable any further `handle_homing` step. Subsequent frames
+    /// observe `Zero` and run the no-op default arm of the inner switch.
+    Zero = 0,
     /// Never observed in the wild; included as a slot in case the scheme data
     /// ever emits it. No known constructor branch handles value 1.
     Unknown1 = 1,
@@ -496,6 +548,7 @@ impl MissileType {
     /// such cases as "no typed branch applies".
     pub const fn from_raw(raw: u32) -> Option<Self> {
         Some(match raw {
+            0 => Self::Zero,
             1 => Self::Unknown1,
             2 => Self::Standard,
             3 => Self::Homing,
@@ -573,6 +626,12 @@ impl crate::snapshot::Snapshot for MissileEntity {
             write_indent(w, i)?;
             writeln!(
                 w,
+                "post_fuse(terminate_timer={} sound_latched={})",
+                self.post_fuse_terminate_timer, self.post_fuse_sound_latched,
+            )?;
+            write_indent(w, i)?;
+            writeln!(
+                w,
                 "contact_phase = {} terminate_stash_speed = ({}, {}) direction = {} homing = {}",
                 self.contact_phase,
                 self.terminate_stash_speed.x,
@@ -614,6 +673,12 @@ impl crate::snapshot::Snapshot for MissileEntity {
                 self._unknown_104.as_ptr(),
                 self._unknown_104.len(),
                 i + 1,
+            )?;
+            write_indent(w, i)?;
+            writeln!(
+                w,
+                "splash_sound_latched = {} underwater_entry_latched = {} effect_emit_phase = 0x{:08X}",
+                self.splash_sound_latched, self.underwater_entry_latched, self.effect_emit_phase,
             )?;
             write_indent(w, i)?;
             writeln!(w, "_unknown_3d0 ({} bytes):", self._unknown_3d0.len())?;
