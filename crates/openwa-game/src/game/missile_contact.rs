@@ -19,6 +19,7 @@
 //! `game::create_explosion`. RNG advances use the Rust `GameWorld::advance_rng`.
 
 use openwa_core::fixed::Fixed;
+use openwa_core::vec2::Vec2;
 
 use crate::entity::BaseEntity;
 use crate::entity::missile::{MissileEntity, MissileType};
@@ -85,10 +86,8 @@ pub unsafe extern "thiscall" fn missile_on_contact(
                 return 1;
             }
             if (*this).sheep_bailout_counter == 0 {
-                (*this).sheep_stash_pos_x = (*this).base.pos_x;
-                (*this).sheep_stash_pos_y = (*this).base.pos_y;
-                (*this).sheep_stash_speed_x = (*this).base.speed_x;
-                (*this).sheep_stash_speed_y = (*this).base.speed_y;
+                (*this).sheep_stash_pos = Vec2::new((*this).base.pos_x, (*this).base.pos_y);
+                (*this).sheep_stash_speed = Vec2::new((*this).base.speed_x, (*this).base.speed_y);
                 (*this).base.subclass_data.sheep_state_flag = 1;
                 (*this).sheep_action_flag = 0;
                 (*this).sheep_bailout_counter = 10;
@@ -240,8 +239,7 @@ unsafe fn terminator_bailout_stash(this: *mut MissileEntity, speed_x: Fixed, spe
     unsafe {
         (*this).base.subclass_data.action_flag = 0;
         MissileEntity::set_terminate_flag_raw(this, 1);
-        (*this).terminate_stash_speed_x = speed_x;
-        (*this).terminate_stash_speed_y = speed_y;
+        (*this).terminate_stash_speed = Vec2::new(speed_x, speed_y);
     }
 }
 

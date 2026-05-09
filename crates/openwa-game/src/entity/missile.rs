@@ -3,6 +3,9 @@ use super::game_entity::{SubclassData, WorldEntity};
 use crate::FieldRegistry;
 use crate::game::weapon::WeaponSpawnData;
 use openwa_core::fixed::Fixed;
+use openwa_core::vec2::Vec2;
+
+pub mod handle_message;
 
 /// MissileEntity's typed view of [`WorldEntity::subclass_data`]
 /// (entity offsets +0x38..+0x84, 0x4C bytes total).
@@ -108,8 +111,17 @@ pub struct MissileEntity {
     pub base: WorldEntity<*const MissileEntityVtable, MissileSubclassData>,
 
     // ---- 0xFC–0x12F: missile init fields ----
-    /// 0xFC–0x10F: Unknown missile flags and state
-    pub _unknown_fc: [u8; 0x14],
+    /// 0xFC–0xFF: Unknown.
+    pub _unknown_fc: [u8; 0x4],
+    /// 0x100: Cluster-pellet flag — non-zero when this missile was spawned
+    /// as the Nth sub-pellet of a cluster volley (`spawn_params.pellet_index
+    /// > 0`), zero for single-shot projectiles. The HandleMessage discriminator
+    /// view at the top of the function (`piVar8`) selects between
+    /// [`_render_data_07`] (single-shot) and [`_render_data_1a`] (cluster) on
+    /// the value of this flag.
+    pub is_cluster_pellet: u32,
+    /// 0x104–0x10F: Unknown.
+    pub _unknown_104: [u8; 0xC],
     /// 0x110: Unknown
     pub _unknown_110: u32,
     /// 0x114: Unknown
@@ -174,14 +186,22 @@ pub struct MissileEntity {
     /// (fire-particle spawn). Exact role still unclear — possibly a weapon-fx flag
     /// or a cluster-origin marker.
     pub fire_particle_trigger: u32,
-    /// 0x2F0..0x32F — render_data[7..0x16] (untouched by known code paths).
+    /// 0x2F0 — render_data[0x07]. Animation-rate kind discriminator
+    /// for single-shot missiles; HandleMessage's `piVar8[2]` view reads
+    /// this slot when [`is_cluster_pellet`](MissileEntity::is_cluster_pellet)
+    /// is zero. Observed values 3..=6 select different animation-phase
+    /// step formulas (case 2) and gate the speed-driven anim-phase update
+    /// (case 5). For cluster pellets the equivalent slot is
+    /// [`_render_data_1a`](MissileEntity::_render_data_1a) at 0x33C.
+    pub _render_data_07: u32,
+    /// 0x2F4..0x32F — render_data[0x08..0x16] (untouched by known code paths).
     ///
     /// Constructor-known uses in this range:
     ///   [0x0C] gravity_pct  → (value << 16) / 100 → WorldEntity+0x58 (gravity_factor)
     ///   [0x0D] bounce_pct   → (value << 16) / 100 → WorldEntity+0x5C (bounce_factor)
     ///   [0x0F] friction_pct → (value << 16) / 100 → WorldEntity+0x60 (friction_factor)
     ///   [0x11] = 9000 for bazooka (→ also copied to post-render field at 0x37C)
-    pub _render_data_07_16: [u32; 16],
+    pub _render_data_08_16: [u32; 15],
     /// 0x330 — render_data[0x17]. Missile type discriminator
     /// (see [`MissileType`]). 2=Standard, 3=Homing, 4=Sheep, 5=Cluster.
     ///
@@ -191,12 +211,19 @@ pub struct MissileEntity {
     /// is UB. Guard by construction via the scheme validator if that ever
     /// becomes a concern.
     pub missile_type: MissileType,
-    /// 0x334..0x33F — render_data[0x18..0x1A] (untouched by known code paths).
-    ///
-    /// Constructor-known uses:
-    ///   [0x18] = 4194304 → Fixed16.16 = 64.0 (sprite/render size)
-    ///   [0x19] render_timer — 1 for bazooka, 30 for grenade (3s fuse timer)
-    pub _render_data_18_1a: [u32; 3],
+    /// 0x334 — render_data[0x18]. Sprite/render size in Fixed 16.16
+    /// (4194304 = 64.0 for bazooka).
+    pub sprite_size: Fixed,
+    /// 0x338 — render_data[0x19]. Initial render/fuse timer in frames
+    /// (1 for bazooka, 30 for grenade @ 10fps = 3s).
+    pub render_timer: i32,
+    /// 0x33C — render_data[0x1A]. Animation-rate kind discriminator for
+    /// cluster-pellet missiles; HandleMessage's `piVar8[2]` view reads
+    /// this slot when [`is_cluster_pellet`](MissileEntity::is_cluster_pellet)
+    /// is non-zero. Same value-set semantics as
+    /// [`_render_data_07`](MissileEntity::_render_data_07) (the single-shot
+    /// counterpart at 0x2F0).
+    pub _render_data_1a: u32,
     /// 0x340 — render_data[0x1B]. Sound ID played on impact (via
     /// `PlayImpactSound` at 0x004FF020). Passed as first arg alongside the
     /// half-speed magnitude scaled by 0.4.
@@ -237,25 +264,28 @@ pub struct MissileEntity {
     pub fuse_timer: i32,
     /// 0x380..0x393: Further post-render dynamic state (unknown).
     pub _post_render_state_0: [u8; 0x14],
-    /// 0x394 — `param_1[0xE5]` in OnContact. Contact-phase flag. Value `2`
-    /// disables the normal contact path (routes to the terminator / sheep bailout
-    /// block). Probably set by HandleMessage when the missile has already been
-    /// flagged for detonation or disarm.
+    /// 0x394 — `param_1[0xE5]` in OnContact. Contact-phase flag. Value `1`
+    /// indicates the missile is in super-animal control mode (sheep-style
+    /// steering active); value `2` disables the normal contact path (routes
+    /// to the terminator / sheep bailout block).
     pub contact_phase: u32,
-    /// 0x398: unused so far by OnContact. One dword of post-render state.
-    pub _post_render_state_1: u32,
-    /// 0x39C — speed-X stash. Written on the terminator / sheep-bailout exit
-    /// path (`[+0x39C] = speed_x`). Consumers (cluster spawn, splatter effects)
-    /// read this to access the missile's terminal velocity after it has been
-    /// marked for destruction.
-    pub terminate_stash_speed_x: Fixed,
-    /// 0x3A0 — speed-Y stash (mirror of [`terminate_stash_speed_x`]).
+    /// 0x398 — Super-animal torque accumulator (running, unclamped).
+    /// On modern schemes (`game_version >= 0x1D`) the per-frame clamped
+    /// input from steering messages 0x2D / 0x2E lands in
+    /// [`super_animal_torque_input`](MissileEntity::super_animal_torque_input)
+    /// at 0x3CC and is added into this slot at the top of the FrameFinish
+    /// tick. On old schemes the steering messages write here directly
+    /// without clamping.
+    pub super_animal_torque_accum: u32,
+    /// 0x39C..0x3A4 — terminal-velocity stash. Written on the terminator /
+    /// sheep-bailout exit path (`stash = self.speed`). Consumers (cluster
+    /// spawn, splatter effects) read this to access the missile's terminal
+    /// velocity after it has been marked for destruction.
     ///
-    /// Earlier analysis guessed this was a launch-speed magnitude; that turned
-    /// out to be a constructor-only initialisation that OnContact subsequently
-    /// overwrites with current velocity. Observed as `0` for bazooka (which
-    /// detonates on contact without reaching the terminator block).
-    pub terminate_stash_speed_y: Fixed,
+    /// Earlier analysis guessed Y was a launch-speed magnitude; that turned
+    /// out to be a constructor-only initialisation OnContact subsequently
+    /// overwrites with current velocity.
+    pub terminate_stash_speed: Vec2,
     /// 0x3A4: Unknown
     pub _unknown_3a4: u32,
     /// 0x3A8: Homing mode enabled flag (nonzero = active homing).
@@ -272,31 +302,52 @@ pub struct MissileEntity {
     /// 0x3B4 — sheep action flag. Zeroed on first sheep bailout arm. Used by
     /// sheep-state logic elsewhere to know the bailout stash is live.
     pub sheep_action_flag: u32,
-    /// 0x3B8 — sheep bailout X-position stash (pre-contact pos_x).
-    pub sheep_stash_pos_x: Fixed,
-    /// 0x3BC — sheep bailout Y-position stash (pre-contact pos_y).
-    pub sheep_stash_pos_y: Fixed,
-    /// 0x3C0 — sheep bailout X-velocity stash (pre-contact speed_x).
-    pub sheep_stash_speed_x: Fixed,
-    /// 0x3C4 — sheep bailout Y-velocity stash (pre-contact speed_y).
-    pub sheep_stash_speed_y: Fixed,
+    /// 0x3B8..0x3C0 — sheep bailout position stash (pre-contact pos).
+    pub sheep_stash_pos: Vec2,
+    /// 0x3C0..0x3C8 — sheep bailout velocity stash (pre-contact speed).
+    pub sheep_stash_speed: Vec2,
     /// 0x3C8: Horizontal direction sign (+1 or -1, determines facing/travel dir).
     /// param_1[0xF2] in constructor; also rewritten in the homing contact branch
     /// based on `sign(speed_x)` after a RNG roll passes.
     pub direction: i32,
-    /// 0x3CC–0x40B: Unknown trailing state.
+    /// 0x3CC — Super-animal torque per-frame input (clamped to
+    /// `[-0x5B0, +0x5B0]`). Steering messages 0x2D (MoveWeaponLeft) and
+    /// 0x2E (MoveWeaponRight) add `±0x5B0` here on modern schemes
+    /// (`game_version >= 0x1D`), with re-clamping; the FrameFinish tick
+    /// then folds this into
+    /// [`super_animal_torque_accum`](MissileEntity::super_animal_torque_accum)
+    /// and zeros this slot.
+    pub super_animal_torque_input: i32,
+    /// 0x3D0..0x3E7: Unknown.
+    pub _unknown_3d0: [u8; 0x18],
+    /// 0x3E8 — Animation-phase accumulator. Updated each frame by the
+    /// FrameFinish tick body (case 2) and the lighter UpdateNonCritical
+    /// path (case 5) at rates that depend on the missile's discriminator
+    /// view ([`_render_data_07`] or [`_render_data_1a`]) and on the
+    /// missile's speed. Wraps mod 0x10000.
+    ///
+    /// [`_render_data_07`]: MissileEntity::_render_data_07
+    /// [`_render_data_1a`]: MissileEntity::_render_data_1a
+    pub animation_phase: u32,
+    /// 0x3EC..0x40B: Unknown trailing state.
     /// Allocation size is 0x40C; constructor zeros bytes 0x00–0x3EB.
-    pub _unknown_3cc: [u8; 0x40],
+    pub _unknown_3ec: [u8; 0x20],
 }
 
 const _: () = assert!(core::mem::size_of::<MissileEntity>() == 0x40C);
 
-// Explicit offset sanity checks for fields touched by MissileEntity::OnContact.
+// Explicit offset sanity checks for fields touched by MissileEntity::OnContact
+// and MissileEntity::HandleMessage.
 const _: () = {
     use core::mem::offset_of;
+    assert!(offset_of!(MissileEntity, is_cluster_pellet) == 0x100);
+    assert!(offset_of!(MissileEntity, _render_data_07) == 0x2F0);
     assert!(offset_of!(MissileEntity, contact_face_mask) == 0x2D4);
     assert!(offset_of!(MissileEntity, fire_particle_trigger) == 0x2EC);
     assert!(offset_of!(MissileEntity, missile_type) == 0x330);
+    assert!(offset_of!(MissileEntity, sprite_size) == 0x334);
+    assert!(offset_of!(MissileEntity, render_timer) == 0x338);
+    assert!(offset_of!(MissileEntity, _render_data_1a) == 0x33C);
     assert!(offset_of!(MissileEntity, impact_sound_id) == 0x340);
     assert!(offset_of!(MissileEntity, ricochet_side_mask) == 0x344);
     assert!(offset_of!(MissileEntity, ricochet_chance_pct) == 0x348);
@@ -304,18 +355,19 @@ const _: () = {
     assert!(offset_of!(MissileEntity, explosion_damage) == 0x354);
     assert!(offset_of!(MissileEntity, explosion_damage_pct) == 0x358);
     assert!(offset_of!(MissileEntity, ricochet_counter) == 0x35C);
+    assert!(offset_of!(MissileEntity, fuse_timer) == 0x37C);
     assert!(offset_of!(MissileEntity, contact_phase) == 0x394);
-    assert!(offset_of!(MissileEntity, terminate_stash_speed_x) == 0x39C);
-    assert!(offset_of!(MissileEntity, terminate_stash_speed_y) == 0x3A0);
+    assert!(offset_of!(MissileEntity, super_animal_torque_accum) == 0x398);
+    assert!(offset_of!(MissileEntity, terminate_stash_speed) == 0x39C);
     assert!(offset_of!(MissileEntity, homing_enabled) == 0x3A8);
     assert!(offset_of!(MissileEntity, sheep_bailout_counter) == 0x3AC);
     assert!(offset_of!(MissileEntity, sheep_bailout_locked) == 0x3B0);
     assert!(offset_of!(MissileEntity, sheep_action_flag) == 0x3B4);
-    assert!(offset_of!(MissileEntity, sheep_stash_pos_x) == 0x3B8);
-    assert!(offset_of!(MissileEntity, sheep_stash_pos_y) == 0x3BC);
-    assert!(offset_of!(MissileEntity, sheep_stash_speed_x) == 0x3C0);
-    assert!(offset_of!(MissileEntity, sheep_stash_speed_y) == 0x3C4);
+    assert!(offset_of!(MissileEntity, sheep_stash_pos) == 0x3B8);
+    assert!(offset_of!(MissileEntity, sheep_stash_speed) == 0x3C0);
     assert!(offset_of!(MissileEntity, direction) == 0x3C8);
+    assert!(offset_of!(MissileEntity, super_animal_torque_input) == 0x3CC);
+    assert!(offset_of!(MissileEntity, animation_phase) == 0x3E8);
 };
 
 // Generate typed vtable method wrappers: handle_message(), process_frame().
@@ -447,13 +499,23 @@ impl crate::snapshot::Snapshot for MissileEntity {
             write_indent(w, i)?;
             writeln!(
                 w,
-                "contact_phase = {} terminate_stash = ({}, {}) direction = {} homing = {}",
+                "contact_phase = {} terminate_stash_speed = ({}, {}) direction = {} homing = {}",
                 self.contact_phase,
-                self.terminate_stash_speed_x,
-                self.terminate_stash_speed_y,
+                self.terminate_stash_speed.x,
+                self.terminate_stash_speed.y,
                 self.direction,
                 self.homing_enabled,
             )?;
+            write_indent(w, i)?;
+            writeln!(
+                w,
+                "super_animal: torque_accum=0x{:08X} torque_input={} cluster_pellet={}",
+                self.super_animal_torque_accum,
+                self.super_animal_torque_input,
+                self.is_cluster_pellet,
+            )?;
+            write_indent(w, i)?;
+            writeln!(w, "animation_phase = 0x{:04X}", self.animation_phase)?;
             write_indent(w, i)?;
             writeln!(
                 w,
@@ -461,10 +523,10 @@ impl crate::snapshot::Snapshot for MissileEntity {
                 self.sheep_bailout_counter,
                 self.sheep_bailout_locked,
                 self.sheep_action_flag,
-                self.sheep_stash_pos_x,
-                self.sheep_stash_pos_y,
-                self.sheep_stash_speed_x,
-                self.sheep_stash_speed_y,
+                self.sheep_stash_pos.x,
+                self.sheep_stash_pos.y,
+                self.sheep_stash_speed.x,
+                self.sheep_stash_speed.y,
             )?;
 
             // Unknown regions
@@ -472,11 +534,27 @@ impl crate::snapshot::Snapshot for MissileEntity {
             writeln!(w, "_unknown_fc ({} bytes):", self._unknown_fc.len())?;
             write_raw_region(w, self._unknown_fc.as_ptr(), self._unknown_fc.len(), i + 1)?;
             write_indent(w, i)?;
-            writeln!(w, "_unknown_3cc ({} bytes):", self._unknown_3cc.len())?;
+            writeln!(w, "_unknown_104 ({} bytes):", self._unknown_104.len())?;
             write_raw_region(
                 w,
-                self._unknown_3cc.as_ptr(),
-                self._unknown_3cc.len(),
+                self._unknown_104.as_ptr(),
+                self._unknown_104.len(),
+                i + 1,
+            )?;
+            write_indent(w, i)?;
+            writeln!(w, "_unknown_3d0 ({} bytes):", self._unknown_3d0.len())?;
+            write_raw_region(
+                w,
+                self._unknown_3d0.as_ptr(),
+                self._unknown_3d0.len(),
+                i + 1,
+            )?;
+            write_indent(w, i)?;
+            writeln!(w, "_unknown_3ec ({} bytes):", self._unknown_3ec.len())?;
+            write_raw_region(
+                w,
+                self._unknown_3ec.as_ptr(),
+                self._unknown_3ec.len(),
                 i + 1,
             )?;
 
