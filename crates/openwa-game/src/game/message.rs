@@ -1,5 +1,6 @@
 use bytemuck::{Pod, Zeroable};
 use openwa_core::fixed::Fixed;
+use openwa_core::vec2::Vec2;
 use openwa_core::weapon::WeaponId;
 
 /// Inter-entity message types for the game's event/message passing system.
@@ -209,8 +210,7 @@ pub struct ExplosionMessage {
     /// unconfirmed — likely a "real vs. cosmetic" discriminator, since
     /// `SpawnEffect` populates the matching slot with its own constant.
     pub flag: u32,
-    pub pos_x: Fixed,
-    pub pos_y: Fixed,
+    pub pos: Vec2,
     pub explosion_id: u32,
     pub damage: u32,
     /// Caller-supplied flag of unknown purpose. Missile contact passes 0,

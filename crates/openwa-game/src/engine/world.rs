@@ -18,6 +18,7 @@ use crate::render::queue::RenderQueue;
 use crate::render::turn_order::TurnOrderWidget;
 use crate::wa::localized_string_cache::LocalizedStringCache;
 use openwa_core::fixed::{Fixed, Fixed64};
+use openwa_core::vec2::Vec2;
 
 /// GameWorld — the main game engine object.
 ///
@@ -976,5 +977,33 @@ impl crate::snapshot::Snapshot for GameWorld {
         }
 
         Ok(())
+    }
+}
+
+// ─── Vec2 extension: world-dispatched normalize ────────────────────────────
+
+/// Extension methods on [`Vec2`] that need access to WA-specific runtime
+/// state. Defined here (not in `openwa-core`) because they go through a
+/// version-gated function pointer stored on [`GameWorld`].
+pub trait Vec2WorldExt {
+    /// Normalize via [`GameWorld::vector_normalize_fn`]. Modifies `self`
+    /// to a unit vector and returns the original magnitude as [`Fixed`].
+    /// Zero-magnitude inputs are left unchanged and return [`Fixed::ZERO`].
+    ///
+    /// Two algorithms are dispatched based on scheme `game_version` (set
+    /// by `init_game_state`): the simple variant for `< 0x99` and an
+    /// overflow-safe variant for `>= 0x99` that saturates the magnitude
+    /// at `Fixed(0x7FFFFFFF)` when the i32 squared-length wraps.
+    unsafe fn normalize_via_world(&mut self, world: *const GameWorld) -> Fixed;
+}
+
+impl Vec2WorldExt for Vec2 {
+    #[inline]
+    unsafe fn normalize_via_world(&mut self, world: *const GameWorld) -> Fixed {
+        unsafe {
+            let f: unsafe extern "stdcall" fn(*mut Vec2) -> i32 =
+                core::mem::transmute((*world).vector_normalize_fn as usize);
+            Fixed::from_raw(f(self as *mut Vec2))
+        }
     }
 }

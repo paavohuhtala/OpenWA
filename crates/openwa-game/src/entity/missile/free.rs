@@ -29,12 +29,6 @@ static mut FREE_ACTIVITY_SLOT_ADDR: u32 = 0;
 // `WorldEntity::Destructor` (0x004FEF30) — `__thiscall(this)`, plain RET.
 // SEH-protected children-list walk; kept bridged.
 static mut CGAMETASK_DESTRUCTOR_ADDR: u32 = 0;
-// `Task_Missile::stop_fuse_sound` (0x00508C10) — `__usercall(ESI = this)`,
-// no stack args, plain RET. Releases the fuse-sound channel via the
-// world's sound subsystem.
-static mut STOP_FUSE_SOUND_ADDR: u32 = 0;
-// `Task_Missile::stop_dig_sound` (0x00508970) — same shape, slot 0x3E0.
-static mut STOP_DIG_SOUND_ADDR: u32 = 0;
 
 /// Saved original `MissileEntity::Free` (0x00508330), populated by
 /// `vtable_replace!` at install time.
@@ -44,8 +38,6 @@ pub unsafe fn init_addrs() {
     unsafe {
         FREE_ACTIVITY_SLOT_ADDR = rb(0x00541860);
         CGAMETASK_DESTRUCTOR_ADDR = rb(0x004FEF30);
-        STOP_FUSE_SOUND_ADDR = rb(0x00508C10);
-        STOP_DIG_SOUND_ADDR = rb(0x00508970);
     }
 }
 
@@ -66,35 +58,6 @@ unsafe fn bridge_cgametask_destructor(this: *mut MissileEntity) {
     type Fn = unsafe extern "thiscall" fn(*mut MissileEntity);
     let f: Fn = unsafe { core::mem::transmute(CGAMETASK_DESTRUCTOR_ADDR as usize) };
     unsafe { f(this) }
-}
-
-/// `__usercall(ESI = this)`, no stack args, plain RET. ESI is callee-saved
-/// per the x86 ABI, so the trampoline preserves it across the call.
-#[unsafe(naked)]
-pub(super) unsafe extern "stdcall" fn bridge_stop_fuse_sound(_this: *mut MissileEntity) {
-    core::arch::naked_asm!(
-        "push esi",
-        "mov esi, dword ptr [esp+8]",
-        "mov ecx, dword ptr [{addr}]",
-        "call ecx",
-        "pop esi",
-        "ret 4",
-        addr = sym STOP_FUSE_SOUND_ADDR,
-    );
-}
-
-/// Same shape as [`bridge_stop_fuse_sound`].
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_stop_dig_sound(_this: *mut MissileEntity) {
-    core::arch::naked_asm!(
-        "push esi",
-        "mov esi, dword ptr [esp+8]",
-        "mov ecx, dword ptr [{addr}]",
-        "call ecx",
-        "pop esi",
-        "ret 4",
-        addr = sym STOP_DIG_SOUND_ADDR,
-    );
 }
 
 /// Send `msg_id` (one of 0x4E/0x53/0x7C in this file) to the entity that
@@ -185,8 +148,8 @@ unsafe fn destructor_1(this: *mut MissileEntity) {
         let queue = core::ptr::addr_of_mut!((*world).entity_activity_queue);
         bridge_free_activity_slot(queue, (*this).activity_rank_slot as i32);
 
-        bridge_stop_fuse_sound(this);
-        bridge_stop_dig_sound(this);
+        super::sound::stop_fuse_sound(this);
+        super::sound::stop_dig_sound(this);
 
         if (*this).homing_enabled != 0 {
             broadcast_via_world_root(this, 0x53, owner_id);

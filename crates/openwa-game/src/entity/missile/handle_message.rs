@@ -12,7 +12,7 @@
 
 use core::sync::atomic::{AtomicU32, Ordering};
 
-use super::{MissileEntity, frame_finish};
+use super::{MissileEntity, frame_finish, sound};
 use crate::entity::base::BaseEntity;
 use crate::entity::game_entity::WorldEntity;
 use crate::game::game_entity_message::world_entity_handle_message;
@@ -35,12 +35,6 @@ pub static ORIGINAL_HANDLE_MESSAGE: AtomicU32 = AtomicU32::new(0);
 
 // Rebased bridge addresses, initialized by [`init_addrs`].
 //
-// `Task_Missile::start_fuse_sound` (0x00508B50) — `__usercall(EDI = this,
-// [stack] = sound_id)`, RET 4. Tries to start the fuse sound; if that
-// fails, stashes -sound_id as a deferred-retry sentinel.
-static mut START_FUSE_SOUND_ADDR: u32 = 0;
-// `Task_Missile::start_dig_sound` (0x00508930) — same shape, slot 0x3E0.
-static mut START_DIG_SOUND_ADDR: u32 = 0;
 // `Task_Missile::start_super_animal` (0x0050AF40) — `__usercall(EAX = this)`,
 // plain RET. Transitions a homing missile into super-animal control mode.
 static mut START_SUPER_ANIMAL_ADDR: u32 = 0;
@@ -56,56 +50,17 @@ static mut STEP_ROPE_PHYSICS_ADDR: u32 = 0;
 // plain RET. Inverse of the rope-physics setup: restores the kamikaze-owner
 // worm's pre-render state after the missile has been drawn.
 static mut RESTORE_KAMIKAZE_ADDR: u32 = 0;
-// `Task_Missile::render_indicator` (0x00508F90) — stdcall(this), RET 4.
-// Draws the optional homing-target / fuse-direction overlay (sprite + textbox).
-// Skipped when [`underwater_entry_latched`] is set (= the missile has already
-// crossed under water).
-static mut RENDER_INDICATOR_ADDR: u32 = 0;
 
 pub unsafe fn init_addrs() {
     unsafe {
-        START_FUSE_SOUND_ADDR = rb(0x00508B50);
-        START_DIG_SOUND_ADDR = rb(0x00508930);
         START_SUPER_ANIMAL_ADDR = rb(0x0050AF40);
         FINISH_SUPER_ANIMAL_ADDR = rb(0x0050B020);
         STEP_ROPE_PHYSICS_ADDR = rb(0x005003D0);
         RESTORE_KAMIKAZE_ADDR = rb(0x00500630);
-        RENDER_INDICATOR_ADDR = rb(0x00508F90);
     }
 }
 
 // ─── WA bridges ────────────────────────────────────────────────────────────
-
-/// `__usercall(EDI = this, [stack] = sound_id)`, RET 4. EDI is callee-saved
-/// per the x86 ABI, so the trampoline preserves it across the call.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_start_fuse_sound(_this: *mut MissileEntity, _sound_id: i32) {
-    core::arch::naked_asm!(
-        "push edi",
-        "mov edi, dword ptr [esp+8]",   // this  (ret(4) + edi(4) = 8)
-        "push dword ptr [esp+12]",      // sound_id (caller's stack arg)
-        "mov ecx, dword ptr [{addr}]",
-        "call ecx",
-        "pop edi",
-        "ret 8",
-        addr = sym START_FUSE_SOUND_ADDR,
-    );
-}
-
-/// Same shape as [`bridge_start_fuse_sound`].
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_start_dig_sound(_this: *mut MissileEntity, _sound_id: i32) {
-    core::arch::naked_asm!(
-        "push edi",
-        "mov edi, dword ptr [esp+8]",
-        "push dword ptr [esp+12]",
-        "mov ecx, dword ptr [{addr}]",
-        "call ecx",
-        "pop edi",
-        "ret 8",
-        addr = sym START_DIG_SOUND_ADDR,
-    );
-}
 
 /// `__usercall(EAX = this)`, plain RET. EAX is caller-saved.
 #[unsafe(naked)]
@@ -153,15 +108,6 @@ unsafe extern "stdcall" fn bridge_restore_kamikaze_state(_this: *mut MissileEnti
         "ret 4",
         addr = sym RESTORE_KAMIKAZE_ADDR,
     );
-}
-
-/// `Task_Missile::render_indicator` (0x00508F90) — stdcall(this), RET 4.
-unsafe fn bridge_render_indicator(this: *mut MissileEntity) {
-    unsafe {
-        let f: unsafe extern "stdcall" fn(*mut MissileEntity) =
-            core::mem::transmute(RENDER_INDICATOR_ADDR as usize);
-        f(this);
-    }
 }
 
 /// HandleMessage selects between two "discriminator" slots inside
@@ -420,23 +366,14 @@ unsafe fn msg_detonate_weapon(this: *mut MissileEntity, msg: &DetonateWeaponMess
 unsafe fn msg_sound_restore(this: *mut MissileEntity) {
     unsafe {
         let fuse_slot = (*this).fuse_sound_handle;
-        if is_deferred_sound_retry(fuse_slot) {
-            bridge_start_fuse_sound(this, fuse_slot.wrapping_neg());
+        if sound::is_deferred_sound_retry(fuse_slot) {
+            sound::start_fuse_sound(this, fuse_slot.wrapping_neg());
         }
         let dig_slot = (*this).dig_sound_handle;
-        if is_deferred_sound_retry(dig_slot) {
-            bridge_start_dig_sound(this, dig_slot.wrapping_neg());
+        if sound::is_deferred_sound_retry(dig_slot) {
+            sound::start_dig_sound(this, dig_slot.wrapping_neg());
         }
     }
-}
-
-/// Inline port of `Task_Missile::sub_508B90` / `sub_5088A0` (12-instruction
-/// predicates). Returns `true` when `slot` is a `-sound_id` retry sentinel
-/// stashed by a previously-failed `start_*_sound` call.
-#[inline]
-fn is_deferred_sound_retry(slot: i32) -> bool {
-    let neg = slot.wrapping_neg() as u32;
-    (neg as i32) >= 0 && (neg & 0x10000) != 0 && (neg & 0xFFFE_FFFF) < 0x7F
 }
 
 /// `0x03` RenderScene — per-frame draw dispatch.
@@ -491,7 +428,7 @@ unsafe fn msg_render_scene(
         super::render::missile_render(this);
 
         if (*this).underwater_entry_latched == 0 {
-            bridge_render_indicator(this);
+            super::render::render_indicator(this);
         }
 
         if kamikaze_proxy {

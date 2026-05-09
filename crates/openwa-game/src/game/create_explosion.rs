@@ -10,6 +10,7 @@
 //! that the receiver does not depend on the oversized report.
 
 use openwa_core::fixed::Fixed;
+use openwa_core::vec2::Vec2;
 
 use crate::entity::{BaseEntity, WorldRootEntity};
 use crate::game::message::ExplosionMessage;
@@ -33,8 +34,7 @@ pub unsafe fn create_explosion(
             sender,
             ExplosionMessage {
                 flag: 1,
-                pos_x,
-                pos_y,
+                pos: Vec2::new(pos_x, pos_y),
                 explosion_id,
                 damage,
                 caller_flag,

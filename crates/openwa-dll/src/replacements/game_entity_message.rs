@@ -3,6 +3,7 @@
 //! `openwa_game::game::game_entity_message`.
 
 use openwa_core::fixed::Fixed;
+use openwa_core::vec2::Vec2;
 use openwa_game::address::va;
 use openwa_game::entity::{BaseEntity, WorldEntity};
 use openwa_game::game::{EntityMessage, game_entity_message as gtm};
@@ -61,7 +62,7 @@ unsafe extern "cdecl" fn compute_explosion_damage_impl(
     pos_x: Fixed,
     pos_y: Fixed,
 ) -> i32 {
-    unsafe { gtm::compute_explosion_damage(this, strength, damage, pos_x, pos_y) }
+    unsafe { gtm::compute_explosion_damage(this, strength, damage, Vec2::new(pos_x, pos_y)) }
 }
 
 pub fn install() -> Result<(), String> {

@@ -12,10 +12,11 @@
 //! `ReleaseSoundHandle`) land in our Rust ports too.
 
 use openwa_core::fixed::Fixed;
+use openwa_core::vec2::Vec2;
 
 use crate::audio::DSSound;
 use crate::engine::team_arena::TeamArena;
-use crate::engine::world::GameWorld;
+use crate::engine::world::{GameWorld, Vec2WorldExt};
 use crate::entity::{BaseEntity, WorldEntity, WorldRootEntity};
 use crate::game::message::{
     EntityMessage, ExplosionMessage, ExplosionReportMessage, SpecialImpactMessage,
@@ -164,13 +165,7 @@ unsafe fn apply_explosion_damage(this: *mut WorldEntity, msg: *const ExplosionMe
     unsafe {
         clamp_health(this);
 
-        let dmg = compute_explosion_damage(
-            this,
-            (*msg).explosion_id,
-            (*msg).damage,
-            (*msg).pos_x,
-            (*msg).pos_y,
-        );
+        let dmg = compute_explosion_damage(this, (*msg).explosion_id, (*msg).damage, (*msg).pos);
 
         (*this).damage_accum = (*this).damage_accum.wrapping_add(dmg);
 
@@ -196,8 +191,7 @@ pub unsafe fn compute_explosion_damage(
     this: *mut WorldEntity,
     strength: u32,
     damage: u32,
-    pos_x: Fixed,
-    pos_y: Fixed,
+    pos: Vec2,
 ) -> i32 {
     unsafe {
         let world = (*(this as *const BaseEntity)).world;
@@ -210,17 +204,11 @@ pub unsafe fn compute_explosion_damage(
             return 0;
         }
 
-        let mut delta = [
-            (*this).pos_x.0.wrapping_sub(pos_x.0),
-            (*this).pos_y.0.wrapping_sub(pos_y.0),
-        ];
+        let mut delta = Vec2::new((*this).pos_x - pos.x, (*this).pos_y - pos.y);
 
-        // VECTOR_NORMALIZE_{SIMPLE,OVERFLOW} chosen by game version in
-        // InitGameState; both return the magnitude and write the unit
-        // vector back into `delta`.
-        let normalize: unsafe extern "stdcall" fn(*mut [i32; 2]) -> u32 =
-            core::mem::transmute((*world).vector_normalize_fn);
-        let mag = normalize(&mut delta) as i32;
+        // Version-gated normalize via `GameWorld::vector_normalize_fn` —
+        // returns the magnitude and writes the unit vector back into `delta`.
+        let mag = delta.normalize_via_world(world).to_raw();
         if mag > threshold {
             return 0;
         }
@@ -232,18 +220,10 @@ pub unsafe fn compute_explosion_damage(
         }
 
         let recv_scale_raw = (*this)._field_cc.0;
-        let knock_x = Fixed(compute_knockback_axis(
-            scaled_dmg,
-            delta[0],
-            recv_scale_raw,
-            strength as i32,
-        ));
-        let knock_y = Fixed(compute_knockback_axis(
-            scaled_dmg,
-            delta[1],
-            recv_scale_raw,
-            strength as i32,
-        ));
+        let knock_x =
+            compute_knockback_axis(scaled_dmg, delta.x.0, recv_scale_raw, strength as i32);
+        let knock_y =
+            compute_knockback_axis(scaled_dmg, delta.y.0, recv_scale_raw, strength as i32);
 
         WorldEntity::add_impulse_raw(this, knock_x, knock_y, 0);
 
@@ -255,10 +235,15 @@ pub unsafe fn compute_explosion_damage(
 /// strength-reduced sequence at 0x004FF40C..0x004FF483 — required for
 /// bit-identical overflow behaviour with WA.
 #[inline]
-fn compute_knockback_axis(scaled_dmg: i32, delta: i32, recv_scale_raw: i32, strength: i32) -> i32 {
+fn compute_knockback_axis(
+    scaled_dmg: i32,
+    delta: i32,
+    recv_scale_raw: i32,
+    strength: i32,
+) -> Fixed {
     let step1 = scaled_dmg.wrapping_mul(delta) / 5;
     let step2 = (((step1 as i64) * (recv_scale_raw as i64)) >> 16) as i32;
-    step2.wrapping_mul(strength) / 100
+    Fixed(step2.wrapping_mul(strength) / 100)
 }
 
 unsafe fn dispatch_special_impact(this: *mut WorldEntity, msg: *const SpecialImpactMessage) {

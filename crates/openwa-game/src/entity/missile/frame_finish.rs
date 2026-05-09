@@ -29,8 +29,6 @@ use crate::rebase::rb;
 
 static mut UPDATE_EFFECT_ADDR: u32 = 0;
 static mut CHECK_FOR_ALARMED_WORM_ADDR: u32 = 0;
-static mut CHECK_FUSE_SOUND_ADDR: u32 = 0;
-static mut CHECK_DIG_SOUND_ADDR: u32 = 0;
 static mut INNER_UNKNOWN1_TICK_ADDR: u32 = 0;
 static mut INNER_HOMING_TICK_ADDR: u32 = 0;
 static mut INNER_SHEEP_TICK_ADDR: u32 = 0;
@@ -44,8 +42,6 @@ pub unsafe fn init_addrs() {
     unsafe {
         UPDATE_EFFECT_ADDR = rb(0x0050B240);
         CHECK_FOR_ALARMED_WORM_ADDR = rb(0x0050B110);
-        CHECK_FUSE_SOUND_ADDR = rb(0x00508BC0);
-        CHECK_DIG_SOUND_ADDR = rb(0x005088D0);
         // Inner-tick dispatch verified against jump table at 0x0050BF88
         // (bytes feb95000 bfb95000 feb95000 efb95000 f8b95000 e4b95000)
         // and BN's case targets — Ghidra/brief had Homing/Sheep/Cluster mis-mapped.
@@ -91,32 +87,6 @@ unsafe extern "stdcall" fn bridge_check_for_alarmed_worm(
         "call ecx",                      // WA RET 0x8 cleans 2 stack args
         "ret 12",                        // clean Rust 3 args
         addr = sym CHECK_FOR_ALARMED_WORM_ADDR,
-    );
-}
-
-/// `__usercall(ESI = this)`, plain RET.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_check_fuse_sound(_this: *mut MissileEntity) {
-    core::arch::naked_asm!(
-        "push esi",
-        "mov esi, dword ptr [esp+8]",
-        "mov ecx, dword ptr [{addr}]",
-        "call ecx",
-        "pop esi",
-        "ret 4",
-        addr = sym CHECK_FUSE_SOUND_ADDR,
-    );
-}
-
-/// `__usercall(EAX = this)`, plain RET.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_check_dig_sound(_this: *mut MissileEntity) {
-    core::arch::naked_asm!(
-        "mov eax, dword ptr [esp+4]",
-        "mov ecx, dword ptr [{addr}]",
-        "call ecx",
-        "ret 4",
-        addr = sym CHECK_DIG_SOUND_ADDR,
     );
 }
 
@@ -456,7 +426,7 @@ pub unsafe extern "thiscall" fn tick(
                 (*this).fuse_timer = new_fuse;
                 if new_fuse <= 0 {
                     (*this).fuse_timer = 0;
-                    super::free::bridge_stop_fuse_sound(this);
+                    super::sound::stop_fuse_sound(this);
                 }
 
                 // ── A6c: alarm gate ────────────────────────────────────
@@ -682,8 +652,8 @@ unsafe fn in_flight_body(
         }
 
         // ── BLOCK A17: sound-handle pollers ────────────────────────────
-        bridge_check_fuse_sound(this);
-        bridge_check_dig_sound(this);
+        super::sound::check_fuse_sound(this);
+        super::sound::check_dig_sound(this);
 
         // ── BLOCK A18: underwater-entry latch ──────────────────────────
         // First frame underwater (`_field_b0 != 0` + latch zero):
@@ -694,7 +664,7 @@ unsafe fn in_flight_body(
         if (*this).base._field_b0 != 0 && (*this).underwater_entry_latched == 0 {
             (*this).detonate_response_mode = 0;
             (*this).base.bucket_mask = 0x400000;
-            super::free::bridge_stop_fuse_sound(this);
+            super::sound::stop_fuse_sound(this);
             (*this).underwater_entry_latched = 1;
         }
 

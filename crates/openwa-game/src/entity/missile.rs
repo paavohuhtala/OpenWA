@@ -9,6 +9,7 @@ pub mod frame_finish;
 pub mod free;
 pub mod handle_message;
 pub mod render;
+pub mod sound;
 
 /// MissileEntity's typed view of [`WorldEntity::subclass_data`]
 /// (entity offsets +0x38..+0x84, 0x4C bytes total).

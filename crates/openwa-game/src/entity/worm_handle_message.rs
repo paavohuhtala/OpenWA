@@ -2635,7 +2635,7 @@ unsafe fn msg_explosion(
         let damage_accum = (*this).base.damage_accum;
         (*this).base.damage_accum = 0;
 
-        if bridge_hit_test_rope_line(this, (*message).pos_x, (*message).damage, (*message).pos_y)
+        if bridge_hit_test_rope_line(this, (*message).pos.x, (*message).damage, (*message).pos.y)
             != 0
         {
             WormEntity::set_state_raw(this, KnownWormState::WeaponCharging_Maybe);
@@ -2653,8 +2653,8 @@ unsafe fn msg_explosion(
                 halved,
                 (*this).base.pos_x,
                 (*this).base.pos_y,
-                (*message).pos_x,
-                (*message).pos_y,
+                (*message).pos.x,
+                (*message).pos.y,
             );
             if (*world).terrain_pct_b == 0 {
                 let scaled = ((*world)._field_5f0 as i32).wrapping_mul(halved);

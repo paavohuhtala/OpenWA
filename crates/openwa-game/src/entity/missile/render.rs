@@ -21,13 +21,15 @@ use core::sync::atomic::{AtomicU32, Ordering};
 use heapless::String as HString;
 
 use super::{MissileEntity, MissileType};
-use crate::engine::world::GameWorld;
+use crate::engine::game_info::GameInfo;
+use crate::engine::world::{GameWorld, Vec2WorldExt};
 use crate::entity::base::BaseEntity;
 use crate::rebase::rb;
 use crate::render::message::RenderMessage;
 use crate::render::sprite::sprite_op::SpriteOp;
 use crate::render::textbox::{Textbox, set_text as set_textbox_text};
 use openwa_core::fixed::Fixed;
+use openwa_core::vec2::Vec2;
 
 // ─── Bridges ───────────────────────────────────────────────────────────────
 
@@ -40,6 +42,15 @@ pub unsafe fn init_addrs() {
         FIXA2TAN16_ADDR = rb(0x00575730);
     }
 }
+
+/// Off-screen-indicator inset from the level bounds: the indicator sprite
+/// is anchored 48 (Fixed) units inside the bound on each clamped axis.
+const INDICATOR_INSET: Fixed = Fixed::from_raw(0x00300000);
+
+/// Per-axis textbox displacement: scales the unit-vector velocity by 32
+/// (Fixed), pulling the indicator's distance textbox 32 units away from
+/// the arrow sprite in the opposite-of-velocity direction.
+const TEXTBOX_VELOCITY_SCALE: i32 = 32;
 
 /// `drown` (0x00565D60) — fastcall(ECX = sprite). Maps an in-air sprite
 /// ID to its underwater counterpart (low 16 bits substituted via a
@@ -458,6 +469,148 @@ pub unsafe fn missile_render(this: *mut MissileEntity) {
             pos_y_for_sprite,
             sprite_id,
             palette as u32,
+        );
+    }
+}
+
+// ─── Off-screen indicator ──────────────────────────────────────────────────
+
+/// Rust port of `Task_Missile::render_indicator` (0x00508F90). stdcall(this), RET 0x4.
+///
+/// Draws the homing-target / off-screen indicator: a team-coloured arrow
+/// sprite plus a distance-in-decameters textbox, both anchored at the
+/// edge of the level bounds (with a 48-unit inset). Skipped entirely when
+/// the missile is on-screen (within `[level_bound_min_x .. max_x]` on X
+/// AND `>= level_bound_min_y` on Y); the caller in case 3 (RenderScene)
+/// further skips this when [`underwater_entry_latched`] is set.
+///
+/// **Side effects:** none on the missile state. Two render-queue commands
+/// emitted (sprite + textbox); the textbox bitmap goes through
+/// [`set_textbox_text`] on [`MissileEntity::render_handle_b`].
+///
+/// [`underwater_entry_latched`]: MissileEntity::underwater_entry_latched
+pub unsafe fn render_indicator(this: *mut MissileEntity) {
+    unsafe {
+        let world = (*(this as *const BaseEntity)).world;
+        let pos_x = (*this).base.pos_x;
+        let pos_y = (*this).base.pos_y;
+
+        let bound_min_x = (*world).level_bound_min_x;
+        let bound_max_x = (*world).level_bound_max_x;
+        let bound_min_y = (*world).level_bound_min_y;
+
+        // Skip when the missile is on-screen. WA's gate uses signed Fixed
+        // comparisons on the raw values; the `>=` on max_x is intentionally
+        // strict (off-screen iff strictly greater than max).
+        let on_screen = pos_x >= bound_min_x && pos_x <= bound_max_x && pos_y >= bound_min_y;
+        if on_screen {
+            return;
+        }
+
+        let render_rank = pick_render_rank(world, (*this).activity_rank_slot as i32);
+
+        // Direction angle from velocity, encoded as `0x8000 - tan16(speed_x, -speed_y)`
+        // (the 180°-rotated atan2 — arrow points back at the missile from the
+        // edge of screen). When the missile is stationary, encode angle as 0.
+        let speed_x = (*this).base.speed_x;
+        let speed_y = (*this).base.speed_y;
+        let angle = if speed_x.to_raw() == 0 && speed_y.to_raw() == 0 {
+            0u32
+        } else {
+            let tan = bridge_fixa2tan16(speed_x.to_raw(), -speed_y.to_raw());
+            (0x8000_i32).wrapping_sub(tan as i32) as u32
+        };
+
+        // Clamp the indicator to `[min + INSET .. max - INSET]` on X and
+        // `>= min + INSET` on Y. WA does not clamp the upper Y bound — the
+        // indicator is allowed to drift below the screen.
+        let mut indicator_x = pos_x;
+        let lo_x = bound_min_x + INDICATOR_INSET;
+        let hi_x = bound_max_x - INDICATOR_INSET;
+        if indicator_x < lo_x {
+            indicator_x = lo_x;
+        }
+        if indicator_x > hi_x {
+            indicator_x = hi_x;
+        }
+        let mut indicator_y = pos_y;
+        let lo_y = bound_min_y + INDICATOR_INSET;
+        if indicator_y < lo_y {
+            indicator_y = lo_y;
+        }
+
+        let rq = (*world).render_queue;
+
+        // ── Team-coloured arrow sprite ──
+        // Skipped when the missile is unowned (e.g. some scripted-event
+        // projectiles whose `owner_id` is left at 0).
+        let owner_id = (*this).spawn_params.owner_id;
+        if owner_id != 0 {
+            let game_info = (*world).game_info;
+            // `team_records[owner_id - 1].font_palette_idx` — WA's idiom
+            // is `byte at game_info + owner_id*0xBB8 - 0x767`, equivalent
+            // to `team_records[N-1].byte[1]` (the alliance / team-color
+            // index used by the scoreboard font palette).
+            let team_record = GameInfo::team_record_1based(game_info, owner_id as i32);
+            let sprite_id = ((*team_record).font_palette_idx as u32).wrapping_add(0x20);
+            let sprite_layer = (render_rank as u32).wrapping_mul(4).wrapping_add(0x50001);
+            let _ = (*rq).push_typed(
+                sprite_layer,
+                RenderMessage::Sprite {
+                    local: true,
+                    x: indicator_x.floor(),
+                    y: indicator_y.floor(),
+                    sprite: SpriteOp(sprite_id),
+                    palette: angle,
+                },
+            );
+        }
+
+        // ── Distance textbox ──
+        // Two normalize calls: the first measures the missile-to-indicator
+        // distance (used as the displayed integer in decameters), the second
+        // converts the velocity into a unit vector that displaces the
+        // textbox `TEXTBOX_VELOCITY_SCALE` units away from the arrow in the
+        // opposite-of-velocity direction.
+        let mut delta = Vec2::new(pos_x - indicator_x, pos_y - indicator_y);
+        let distance = delta.normalize_via_world(world);
+        // `distance.to_int() / 10` = "decameters" — a 10:1 compression of
+        // the pixel-distance integer for a more compact two-digit readout.
+        let display_value = distance.to_int() / 10;
+
+        let mut text: HString<16> = HString::new();
+        let _ = write!(text, "{}\0", display_value);
+
+        let mut speed_unit = Vec2::new(speed_x, speed_y);
+        let _ = speed_unit.normalize_via_world(world);
+
+        let mut text_w: i32 = 0;
+        let mut text_h: i32 = 0;
+        let textbox = (*this).render_handle_b as *mut Textbox;
+        let bitmap = set_textbox_text(
+            textbox,
+            text.as_ptr() as *const c_char,
+            6,
+            (*world).gfx_color_table[7],
+            (*world).gfx_color_table[6],
+            &mut text_w,
+            &mut text_h,
+            Fixed::ONE,
+        );
+
+        let textbox_pos = Vec2::new(indicator_x, indicator_y) - speed_unit * TEXTBOX_VELOCITY_SCALE;
+
+        let textbox_layer = (render_rank as u32).wrapping_mul(4).wrapping_add(0xD0000);
+        let _ = (*rq).push_typed(
+            textbox_layer,
+            RenderMessage::TextboxLocal {
+                x: textbox_pos.x.floor(),
+                y: textbox_pos.y.floor(),
+                bitmap,
+                src_w: text_w,
+                src_h: text_h,
+                flags: 0,
+            },
         );
     }
 }
