@@ -338,8 +338,8 @@ pub unsafe fn mine_constructor(
 
         // Initial placement: probe `(spawn_x, spawn_y)`; commit on accept.
         let rc = release_ctx as *const u32;
-        let spawn_x = *rc.add(2) as i32;
-        let spawn_y = *rc.add(3) as i32;
+        let spawn_x = Fixed(*rc.add(2) as i32);
+        let spawn_y = Fixed(*rc.add(3) as i32);
         WorldEntity::try_move_position_raw(this as *mut WorldEntity, spawn_x, spawn_y);
 
         (*this).base.speed_y = Fixed(*rc.add(5) as i32);
@@ -355,7 +355,7 @@ pub unsafe fn mine_constructor(
         // Derived seed at subclass_data[0x1C] (mine offset 0x54): signed-
         // div-by-20 of `(spawn_x + spawn_y) >> 8` truncated to 16 bits,
         // plus 0xCCCC.
-        let sum: i32 = spawn_x.wrapping_add(spawn_y);
+        let sum: i32 = spawn_x.to_raw().wrapping_add(spawn_y.to_raw());
         let shifted = (sum >> 8) & 0xFFFF;
         let derived = shifted.wrapping_div(20).wrapping_add(0xCCCC) as u32;
         write_subclass_dword(this, 0x1C, derived);
@@ -383,8 +383,8 @@ pub unsafe fn mine_constructor(
         // collision or water level, snapping `pos_x`/`pos_y` along the way.
         if level_gen_flag != 0 {
             let x = spawn_x;
-            let mut y = spawn_y.wrapping_add(0x10000);
-            while (y >> 16) < (*world).water_level {
+            let mut y = spawn_y.wrapping_add(Fixed::ONE);
+            while y.to_int() < (*world).water_level {
                 let collided =
                     !WorldEntity::check_move_collision_raw(this as *mut WorldEntity, x, y)
                         .is_null();
@@ -394,14 +394,14 @@ pub unsafe fn mine_constructor(
                 if (*this).base._field_ac > 0 {
                     (*this).base._field_ac = 0;
                 }
-                (*this).base.pos_x = Fixed(x);
-                (*this).base.pos_y = Fixed(y);
-                y = y.wrapping_add(0x10000);
+                (*this).base.pos_x = x;
+                (*this).base.pos_y = y;
+                y = y.wrapping_add(Fixed::ONE);
             }
             // `gradient` overwrites bucket_mask internally; it restores
             // the pre-call value before returning.
             let mut out_grad: i32 = 0;
-            let r = bridge_gradient(this, x, y, 4, &raw mut out_grad);
+            let r = bridge_gradient(this, x.to_raw(), y.to_raw(), 4, &raw mut out_grad);
             if r != 0 {
                 (*this).base.angle = Fixed(bridge_fixa1tan16(out_grad));
             }

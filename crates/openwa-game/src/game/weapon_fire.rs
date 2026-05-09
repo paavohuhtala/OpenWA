@@ -597,8 +597,8 @@ unsafe fn fire_teleport(worm: *mut WormEntity) {
         (*worm).base.bucket_mask = (*worm)._unknown_190 as u32;
         crate::entity::WorldEntity::try_move_position_raw(
             worm as *mut crate::entity::WorldEntity,
-            fire_x,
-            fire_y,
+            Fixed(fire_x),
+            Fixed(fire_y),
         );
         (*worm).base.bucket_mask = saved_bucket_mask;
 

@@ -228,14 +228,14 @@ impl WorldEntity {
     /// initial placement check, and movement code re-uses it to commit each
     /// step.
     #[inline]
-    pub unsafe fn try_move_position_raw(this: *mut WorldEntity, x: i32, y: i32) -> u32 {
+    pub unsafe fn try_move_position_raw(this: *mut WorldEntity, x: Fixed, y: Fixed) -> u32 {
         unsafe {
             if !Self::check_move_collision_raw(this, x, y).is_null() {
                 return 0;
             }
 
-            (*this).pos_x = Fixed(x);
-            (*this).pos_y = Fixed(y);
+            (*this).pos_x = x;
+            (*this).pos_y = y;
 
             if (*this)._field_ac > 0 {
                 (*this)._field_ac = 0;
@@ -269,8 +269,8 @@ impl WorldEntity {
     ///      hit returns the offending entity immediately.
     pub unsafe fn check_move_collision_raw(
         this: *mut WorldEntity,
-        x: i32,
-        y: i32,
+        x: Fixed,
+        y: Fixed,
     ) -> *mut WorldEntity {
         unsafe {
             let world = (*(this as *const BaseEntity)).world;
@@ -372,7 +372,7 @@ impl WorldEntity {
                         let cavern = (*world).is_cavern != 0;
                         let class_is_worm =
                             (*(this as *const BaseEntity)).class_type == ClassType::Worm;
-                        let y_above_threshold = (((y as u32) & 0xFFFF_0000) as i32) < 0x110000;
+                        let y_above_threshold = y < Fixed::from_int(17);
                         if (landscape_flag || cavern)
                             && bucket_idx == 1
                             && class_is_worm
@@ -380,7 +380,7 @@ impl WorldEntity {
                         {
                             let level_width = (*world).level_width;
                             let x_in_bounds =
-                                ((x >> 16) as u32).wrapping_add(4) < level_width.wrapping_add(8);
+                                (x.to_int() as u32).wrapping_add(4) < level_width.wrapping_add(8);
                             if sd_water_byte > 1 || x_in_bounds {
                                 return other;
                             }
@@ -408,8 +408,8 @@ impl WorldEntity {
                     let other_y = (*other).pos_y.0;
                     if intersects(
                         helper,
-                        x >> 16,
-                        y >> 16,
+                        x.to_int(),
+                        y.to_int(),
                         other_helper,
                         other_x >> 16,
                         other_y >> 16,

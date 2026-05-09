@@ -3118,7 +3118,11 @@ unsafe fn msg_render_scene(
             let dy = ((clamped_y.0 as i64).wrapping_mul(interp_q4) >> 16) as i32;
             let new_x = dx.wrapping_add((*this).base.pos_x.0);
             let new_y = dy.wrapping_add((*this).base.pos_y.0);
-            WorldEntity::try_move_position_raw(this as *mut WorldEntity, new_x, new_y);
+            WorldEntity::try_move_position_raw(
+                this as *mut WorldEntity,
+                Fixed(new_x),
+                Fixed(new_y),
+            );
         } else if fire_complete != 0 && action_field == 0 {
             // Block B — non-kamikaze path that gates on the worm having
             // just-completed firing. Save the kamikaze fields to the side
@@ -3209,8 +3213,8 @@ unsafe fn msg_render_scene(
         let tail_fire_complete = (*this).fire_complete();
 
         if tail_action_field != 0 && tail_state.is(KnownWormState::SuicideBomber) {
-            let saved_x = (*kamikaze_pos_save_x).0;
-            let saved_y = (*kamikaze_pos_save_y).0;
+            let saved_x = *kamikaze_pos_save_x;
+            let saved_y = *kamikaze_pos_save_y;
             WorldEntity::try_move_position_raw(this as *mut WorldEntity, saved_x, saved_y);
         } else if tail_fire_complete != 0 && tail_action_field == 0 {
             bridge_rope_physics_tail(this);

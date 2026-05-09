@@ -63,8 +63,8 @@ unsafe fn world_entity_ctor(
 pub unsafe fn oil_drum_constructor(
     this: *mut OilDrumEntity,
     parent: *mut BaseEntity,
-    x: i32,
-    y: i32,
+    x: Fixed,
+    y: Fixed,
     level_gen_flag: u32,
 ) -> *mut OilDrumEntity {
     unsafe {
@@ -114,8 +114,8 @@ pub unsafe fn oil_drum_constructor(
         // the way. Worm-placed drums (level_gen_flag == 0) skip this; the
         // initial `try_move_position` above is enough.
         if level_gen_flag != 0 {
-            let mut y_step = y.wrapping_add(0x10000);
-            while (y_step >> 16) < (*world).water_level {
+            let mut y_step = y.wrapping_add(Fixed::ONE);
+            while y_step.to_int() < (*world).water_level {
                 let collided =
                     !WorldEntity::check_move_collision_raw(this as *mut WorldEntity, x, y_step)
                         .is_null();
@@ -125,9 +125,9 @@ pub unsafe fn oil_drum_constructor(
                 if (*this).base._field_ac > 0 {
                     (*this).base._field_ac = 0;
                 }
-                (*this).base.pos_x = Fixed(x);
-                (*this).base.pos_y = Fixed(y_step);
-                y_step = y_step.wrapping_add(0x10000);
+                (*this).base.pos_x = x;
+                (*this).base.pos_y = y_step;
+                y_step = y_step.wrapping_add(Fixed::ONE);
             }
         }
 
