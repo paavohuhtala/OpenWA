@@ -71,7 +71,7 @@ unsafe fn bridge_cgametask_destructor(this: *mut MissileEntity) {
 /// `__usercall(ESI = this)`, no stack args, plain RET. ESI is callee-saved
 /// per the x86 ABI, so the trampoline preserves it across the call.
 #[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_stop_fuse_sound(_this: *mut MissileEntity) {
+pub(super) unsafe extern "stdcall" fn bridge_stop_fuse_sound(_this: *mut MissileEntity) {
     core::arch::naked_asm!(
         "push esi",
         "mov esi, dword ptr [esp+8]",

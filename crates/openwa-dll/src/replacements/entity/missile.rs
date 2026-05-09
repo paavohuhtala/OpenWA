@@ -13,6 +13,7 @@ pub fn install() -> Result<(), String> {
     unsafe {
         missile::handle_message::init_addrs();
         missile::free::init_addrs();
+        missile::frame_finish::init_addrs();
     }
 
     vtable_replace!(missile::MissileEntityVtable, va::MISSILE_ENTITY_VTABLE, {

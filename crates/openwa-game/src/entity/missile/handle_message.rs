@@ -12,7 +12,7 @@
 
 use core::sync::atomic::{AtomicU32, Ordering};
 
-use super::MissileEntity;
+use super::{MissileEntity, frame_finish};
 use crate::entity::base::BaseEntity;
 use crate::entity::game_entity::WorldEntity;
 use crate::game::game_entity_message::world_entity_handle_message;
@@ -450,6 +450,10 @@ pub unsafe extern "thiscall" fn handle_message(
         };
 
         let handled = match msg {
+            EntityMessage::FrameFinish => {
+                frame_finish::tick(this, sender, msg_type, size, data);
+                true
+            }
             EntityMessage::UpdateNonCritical => {
                 msg_update_non_critical(this);
                 true

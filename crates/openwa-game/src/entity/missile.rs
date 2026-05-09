@@ -5,6 +5,7 @@ use crate::game::weapon::WeaponSpawnData;
 use openwa_core::fixed::Fixed;
 use openwa_core::vec2::Vec2;
 
+pub mod frame_finish;
 pub mod free;
 pub mod handle_message;
 
