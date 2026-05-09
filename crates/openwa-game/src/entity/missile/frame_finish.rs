@@ -1,26 +1,17 @@
 //! Port of `MissileEntity::HandleMessage` case 2 (FrameFinish, 0x02).
 //!
 //! Source: WA 0x0050B400 (HandleMessage), case-2 body spans 0x0050B656..0x0050BD16.
-//! Validated against Ghidra disasm + Binary Ninja decompile in
-//! `docs/re-notes/decompiled/0050b400.c`. Inner-tick dispatch table at
-//! `0x0050BF88` was read directly to fix mis-attributions in the prior brief
-//! (Ghidra labels `handle_homing` / `handle_animal` / `handle_digger` /
-//! `cluster_tick` are unreliable — used the address only).
-//!
-//! `OPENWA_MISSILE_FRAMEFINISH_TRACE=1` adds per-block state dumps to
-//! `OpenWA.log` (frame counter, missile pointer, key fields). Cheap localiser
-//! when smoke surfaces a desync.
+//! Inner-tick dispatch table at `0x0050BF88` was read directly to fix
+//! mis-attributions — Ghidra's `handle_homing` / `handle_animal` /
+//! `handle_digger` / `cluster_tick` labels are unreliable for this class; use
+//! the address.
 //!
 //! ## SpawnEffect bridge (anim_kind = 0x80000)
 //!
-//! WA's `SpawnEffect` (0x00547C30) writes a sparse, anim-kind-dependent
-//! buffer. `weapon_release::spawn_effect` was written for a different
-//! anim_kind and lays out palette/state_flag/size/scale at the wrong slots
-//! for case 2 — that was the desync root cause that backed out the prior
-//! port attempt. We bridge SpawnEffect directly here using the validated
-//! register/stack layout (see `bridge_spawn_effect` below).
-
-use core::sync::atomic::{AtomicBool, Ordering};
+//! `weapon_release::spawn_effect` writes a different anim_kind's permuted
+//! buffer layout (palette/state_flag/size/scale at the wrong slots for case
+//! 2). We bridge `SpawnEffect` (0x00547C30) directly with the case-2 layout
+//! — see `bridge_spawn_effect` below.
 
 use openwa_core::fixed::Fixed;
 
@@ -66,19 +57,7 @@ pub unsafe fn init_addrs() {
         CREATE_BUBBLE_ADDR = rb(0x005472C0);
         SPAWN_EFFECT_ADDR = rb(0x00547C30);
         ALARM_TABLE_ADDR = rb(0x006AD288);
-
-        TRACE.store(
-            std::env::var_os("OPENWA_MISSILE_FRAMEFINISH_TRACE").is_some_and(|v| v == "1"),
-            Ordering::Relaxed,
-        );
     }
-}
-
-static TRACE: AtomicBool = AtomicBool::new(false);
-
-#[inline]
-fn trace_on() -> bool {
-    TRACE.load(Ordering::Relaxed)
 }
 
 // ─── WA bridges ────────────────────────────────────────────────────────────
@@ -313,38 +292,6 @@ fn div_round_to_zero(a: i32, n: i32) -> i32 {
     a / n
 }
 
-fn trace_block(world: *const GameWorld, this: *const MissileEntity, label: &str) {
-    if !trace_on() {
-        return;
-    }
-    unsafe {
-        let _ = openwa_core::log::log_line(&format!(
-            "[FF-Rust frame={} ms={:p} {}] pos=({},{}) speed=({},{}) fuse={} pft={} pfsl={} eep=0x{:08X} ap=0x{:04X} ssl={} uel={} cph={} sat=0x{:08X} sti={} mtype={:?} bf={} af={} wd2={}",
-            (*world).frame_counter,
-            this,
-            label,
-            (*this).base.pos_x.to_raw(),
-            (*this).base.pos_y.to_raw(),
-            (*this).base.speed_x.to_raw(),
-            (*this).base.speed_y.to_raw(),
-            (*this).fuse_timer,
-            (*this).post_fuse_terminate_timer,
-            (*this).post_fuse_sound_latched,
-            (*this).effect_emit_phase,
-            (*this).animation_phase,
-            (*this).splash_sound_latched,
-            (*this).underwater_entry_latched,
-            (*this).contact_phase,
-            (*this).super_animal_torque_accum,
-            (*this).super_animal_torque_input,
-            (*this).missile_type,
-            (*this).base._field_b0,
-            (*this).base._field_a4,
-            (*this).weapon_data[2],
-        ));
-    }
-}
-
 // ─── Entry point ───────────────────────────────────────────────────────────
 
 /// Pure-Rust port of `MissileEntity::HandleMessage` case 2 (FrameFinish).
@@ -368,8 +315,6 @@ pub unsafe extern "thiscall" fn tick(
         let world = (*(this as *const BaseEntity)).world;
         let game_info = (*world).game_info;
         let game_version = (*game_info).game_version;
-
-        trace_block(world, this, "A0/start");
 
         // ── BLOCK A0: torque fold (modern schemes only) ─────────────────
         if game_version >= 0x1D {
@@ -400,8 +345,6 @@ pub unsafe extern "thiscall" fn tick(
         let pos_x_init = (*this).base.pos_x;
         let pos_y_init = (*this).base.pos_y;
         bridge_update_effect(this);
-
-        trace_block(world, this, "A2/post-update_effect");
 
         // ── BLOCK A3: animation_phase update by HandleMessage piVar8[2] ──
         // The HandleMessage prologue sets piVar8 to +0x2E8 (single) / +0x334
@@ -443,8 +386,6 @@ pub unsafe extern "thiscall" fn tick(
             let dy = div_round_to_zero(mass.wrapping_mul(dy_random), 100);
             WorldEntity::add_impulse_raw(this as *mut WorldEntity, Fixed(dx), Fixed(dy), 0);
         }
-
-        trace_block(world, this, "A4/post-sway");
 
         // ── BLOCK A5: speed_y_pre snapshot (POST-sway) ──────────────────
         // Used by the splash-sound gate near the end. MUST happen after the
@@ -543,8 +484,6 @@ pub unsafe extern "thiscall" fn tick(
             }
         }
 
-        trace_block(world, this, "A6/post-fuse");
-
         // ── BLOCK A7: pos_x out-of-water-X-bounds → vt[14] ──────────────
         // `if |pos_x_int - level_width/2| >= map_boundary_width then vt[14]`.
         // `level_width / 2` is the round-toward-zero half (`SAR EAX, 1` after
@@ -612,8 +551,6 @@ pub unsafe extern "thiscall" fn tick(
                 }
             }
 
-            trace_block(world, this, "A12/post-inner-tick");
-
             // ── BLOCK A13: cluster spawn cleanup ────────────────────────
             // When this missile has an owner_id, the detonate_response_mode
             // is set, AND the per-team game-info entry at
@@ -636,7 +573,6 @@ pub unsafe extern "thiscall" fn tick(
             if (*this).base.subclass_data.terminate_flag == 0 {
                 // ── In-flight body — runs until record_landing_event ─
                 in_flight_body(this, world, pos_x_init, pos_y_init, speed_y_pre);
-                trace_block(world, this, "A20/in-flight-return");
                 return;
             }
 
@@ -650,7 +586,6 @@ pub unsafe extern "thiscall" fn tick(
         // terminate_flag set). Calls set_active(0xC) and vt[1]Free(this, 1)
         // to actually destroy the missile.
         set_world_activity_timer(world, 0xC);
-        trace_block(world, this, "A21/pre-free");
         MissileEntity::free_raw(this, 1);
     }
 }
