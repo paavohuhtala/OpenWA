@@ -372,12 +372,12 @@ pub unsafe extern "thiscall" fn tick(
         // ── BLOCK A4: random sway via vt[17] (apply_impulse) ────────────
         // Gated on IsMoving + above-water (both _field_b0 and _field_a4 zero).
         // Two RNG advances per call; impulse magnitude scaled by mass at
-        // `_render_data_0e_15[0]` (+0x30C). Round-toward-zero division by 100.
+        // `_render_data_0e_0f[0]` (+0x30C). Round-toward-zero division by 100.
         if WorldEntity::is_moving_raw(this as *const WorldEntity)
             && (*this).base._field_b0 == 0
             && (*this).base._field_a4 == 0
         {
-            let mass = (*this)._render_data_0e_15[0] as i32;
+            let mass = (*this)._render_data_0e_0f[0] as i32;
             let rng_a = (*world).advance_rng();
             let dx_random = (((rng_a >> 8) & 0xFFFF) as i32).wrapping_sub(0x8000);
             let dx = div_round_to_zero(mass.wrapping_mul(dx_random), 100);
@@ -400,10 +400,10 @@ pub unsafe extern "thiscall" fn tick(
                 // ── A6a: fuse expired ──────────────────────────────────
                 let post_fuse_timer = (*this).post_fuse_terminate_timer;
                 if post_fuse_timer != 0 {
-                    // Decay path: gated by `_render_data_0e_15[5]` (+0x320)
+                    // Decay path: gated by `_render_data_12_15[1]` (+0x320)
                     // — when that gate is set, decay only when missile has
                     // come to rest (IsMoving == false).
-                    let gate = (*this)._render_data_0e_15[5];
+                    let gate = (*this)._render_data_12_15[1];
                     let still_moving = if gate != 0 {
                         WorldEntity::is_moving_raw(this as *const WorldEntity)
                     } else {
@@ -416,9 +416,9 @@ pub unsafe extern "thiscall" fn tick(
                             (*this).post_fuse_terminate_timer = 0;
                         }
                         if (*this).post_fuse_sound_latched == 0 {
-                            // PlaySoundLocal(this, sound_id=_render_data_0e_15[6],
+                            // PlaySoundLocal(this, sound_id=_render_data_12_15[2],
                             //                flags=4, volume=1.0, pitch=1.0)
-                            let sound_id = (*this)._render_data_0e_15[6];
+                            let sound_id = (*this)._render_data_12_15[2];
                             play_sound_local(
                                 this as *mut WorldEntity,
                                 SoundId(sound_id),
@@ -433,7 +433,7 @@ pub unsafe extern "thiscall" fn tick(
                     // post_fuse_timer == 0: terminate via super-animal finish
                     // OR vt[14].
                     if matches!((*this).missile_type, MissileType::Homing)
-                        && (*this).super_animal_eligible != 0
+                        && (*this).super_animal_walk_sprite != 0
                         && (*this).contact_phase == 1
                     {
                         super::handle_message::bridge_finish_super_animal(this);
@@ -461,7 +461,7 @@ pub unsafe extern "thiscall" fn tick(
                 {
                     // Alarm-table size depends on game_version + a
                     // version-gated `fire_particle_trigger` (+0x2EC) check.
-                    // NOT `_render_data_0e_15[3]` (+0x318) as one
+                    // NOT `fuse_timer_initial` (+0x318) as one
                     // earlier note suggested.
                     let mut alarm_table_size: u32 = 3;
                     if game_version >= 0x23 {
@@ -563,7 +563,7 @@ pub unsafe extern "thiscall" fn tick(
                     if (*this).fuse_timer > 0xBB8 {
                         (*this).fuse_timer = 0xBB8;
                     }
-                    (*this)._render_data_0e_15[2] = 0;
+                    (*this).textbox_visible_threshold = 0;
                     (*this).detonate_response_mode = 0;
                 }
             }

@@ -8,6 +8,7 @@ use openwa_core::vec2::Vec2;
 pub mod frame_finish;
 pub mod free;
 pub mod handle_message;
+pub mod render;
 
 /// MissileEntity's typed view of [`WorldEntity::subclass_data`]
 /// (entity offsets +0x38..+0x84, 0x4C bytes total).
@@ -234,14 +235,30 @@ pub struct MissileEntity {
     /// it can apply physics impulse / damage to this missile; when zero,
     /// the explosion is silently dropped.
     pub explosion_response_flag: u32,
-    /// 0x30C..0x32B — render_data[0x0E..0x15] (mostly untouched by known
+    /// 0x30C..0x313 — render_data[0x0E..0x10] (mostly untouched by known
     /// code paths).
     ///
     /// Constructor-known uses in this range:
     ///   [0x0D] bounce_pct   → (value << 16) / 100 → WorldEntity+0x5C (bounce_factor)
     ///   [0x0F] friction_pct → (value << 16) / 100 → WorldEntity+0x60 (friction_factor)
-    ///   [0x11] = 9000 for bazooka (→ also copied to post-render field at 0x37C)
-    pub _render_data_0e_15: [u32; 8],
+    pub _render_data_0e_0f: [u32; 2],
+    /// 0x314 — render_data[0x10]. Fuse-timer threshold below which the
+    /// per-missile countdown textbox becomes visible during normal
+    /// gameplay. The textbox is hidden when [`fuse_timer`] is `>=` this
+    /// value (replay-mode rendering ignores the gate and shows the
+    /// textbox for the whole fuse duration).
+    ///
+    /// [`fuse_timer`]: MissileEntity::fuse_timer
+    pub textbox_visible_threshold: i32,
+    /// 0x318 — render_data[0x11]. Initial fuse-timer value (= 9000 for
+    /// bazooka, copied into [`fuse_timer`] at 0x37C by the constructor).
+    /// Render reads it as the divisor for the case-0 animation-phase
+    /// ramp `0x10000 - (fuse_timer << 16) / fuse_timer_initial`.
+    ///
+    /// [`fuse_timer`]: MissileEntity::fuse_timer
+    pub fuse_timer_initial: i32,
+    /// 0x31C..0x32B — render_data[0x12..0x15] (untouched by known code paths).
+    pub _render_data_12_15: [u32; 4],
     /// 0x32C — render_data[0x16]. DetonateWeapon (msg 0x2C) response
     /// mode — controls how this missile reacts to the detonate-key /
     /// scheme broadcast:
@@ -250,7 +267,11 @@ pub struct MissileEntity {
     /// - `1` — invoke vtable[14] terminator. Flag is `2` when
     ///   `weapon_data[0x2D] == 3`, otherwise `1`.
     /// - `2` — randomise the fuse: `fuse_timer = (rng & 0xFFFF) % 500`
-    ///   and zero this slot together with [`_render_data_0e_15`]`[2]`.
+    ///   and zero this slot together with [`textbox_visible_threshold`]
+    ///   (so the new countdown textbox stays hidden until something else
+    ///   re-arms it).
+    ///
+    /// [`textbox_visible_threshold`]: MissileEntity::textbox_visible_threshold
     pub detonate_response_mode: u32,
     /// 0x330 — render_data[0x17]. Missile type discriminator
     /// (see [`MissileType`]). 2=Standard, 3=Homing, 4=Sheep, 5=Cluster.
@@ -301,18 +322,38 @@ pub struct MissileEntity {
     /// ricochet-eligible contact; when it reaches 0, the missile invokes the
     /// slot-14 terminator (`WorldEntity::SetTerminateFlag`) instead of bouncing.
     pub ricochet_counter: u32,
-    /// 0x360..0x36B — render_data[0x23..0x25] (untouched by known code paths).
-    pub _render_data_23_25: [u32; 3],
-    /// 0x36C — render_data[0x26]. Super-animal eligibility flag — gates
-    /// homing missiles' transition to / from sheep-style steering mode.
-    /// HandleMessage case 0x2C (DetonateWeapon) and the FrameFinish tick's
-    /// homing branch only call `Task_Missile::start_super_animal` /
-    /// `finish_super_animal` when `missile_type == Homing && this != 0`.
-    pub super_animal_eligible: u32,
-    /// 0x370..0x37B — render_data[0x27..0x29] (untouched by known code paths).
+    /// 0x360..0x367 — render_data[0x23..0x24] (untouched by known code paths).
+    pub _render_data_23_24: [u32; 2],
+    /// 0x368 — render_data[0x25]. Override sprite ID used by `render`
+    /// when [`_unknown_3a4`] is non-zero (sub-state where the missile
+    /// renders a context-specific sprite instead of its primary).
+    /// Replaces the per-pellet primary sprite (`render_data[0x06]`
+    /// single-shot / `render_data[0x19]` cluster) just before the inner
+    /// animation-rate switch.
+    ///
+    /// [`_unknown_3a4`]: MissileEntity::_unknown_3a4
+    pub alt_sprite_id: u32,
+    /// 0x36C — render_data[0x26]. Super-animal walking sprite ID, also
+    /// used as the eligibility flag — non-zero gates homing missiles'
+    /// transition to / from sheep-style steering mode (HandleMessage
+    /// case 0x2C (DetonateWeapon) and the FrameFinish tick's homing
+    /// branch only call `Task_Missile::start_super_animal` /
+    /// `finish_super_animal` when `missile_type == Homing && this != 0`).
+    /// In `render`, the value itself is used as one of two sprite IDs
+    /// drawn in alternation with [`super_animal_walk_sprite_alt`] every
+    /// 5 frames (toggled by `world.frame_counter / 5 & 1`).
+    pub super_animal_walk_sprite: u32,
+    /// 0x370 — render_data[0x27]. Companion to
+    /// [`super_animal_walk_sprite`](MissileEntity::super_animal_walk_sprite):
+    /// the alternate frame in the 5-frame walk-cycle toggle that
+    /// `render` performs when the missile is in super-animal control
+    /// mode (`missile_type == Homing && contact_phase == 1` and not
+    /// underwater).
+    pub super_animal_walk_sprite_alt: u32,
+    /// 0x374..0x37B — render_data[0x28..0x29] (untouched by known code paths).
     /// `[0x29]` (= 0x37C offset equivalent inside post_render) is referenced
     /// in constructor comments as "updates during flight".
-    pub _render_data_27_29: [u32; 3],
+    pub _render_data_28_29: [u32; 2],
 
     // ---- 0x37C–0x41B: post-render physics and state ----
     /// 0x37C — remaining fuse timer (in frames) until detonation / sheep expiry.
@@ -465,7 +506,11 @@ const _: () = {
     assert!(offset_of!(MissileEntity, explosion_damage_pct) == 0x358);
     assert!(offset_of!(MissileEntity, ricochet_counter) == 0x35C);
     assert!(offset_of!(MissileEntity, detonate_response_mode) == 0x32C);
-    assert!(offset_of!(MissileEntity, super_animal_eligible) == 0x36C);
+    assert!(offset_of!(MissileEntity, textbox_visible_threshold) == 0x314);
+    assert!(offset_of!(MissileEntity, fuse_timer_initial) == 0x318);
+    assert!(offset_of!(MissileEntity, alt_sprite_id) == 0x368);
+    assert!(offset_of!(MissileEntity, super_animal_walk_sprite) == 0x36C);
+    assert!(offset_of!(MissileEntity, super_animal_walk_sprite_alt) == 0x370);
     assert!(offset_of!(MissileEntity, fuse_timer) == 0x37C);
     assert!(offset_of!(MissileEntity, post_fuse_terminate_timer) == 0x380);
     assert!(offset_of!(MissileEntity, post_fuse_sound_latched) == 0x384);

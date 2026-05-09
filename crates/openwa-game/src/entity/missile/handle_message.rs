@@ -48,6 +48,19 @@ static mut START_SUPER_ANIMAL_ADDR: u32 = 0;
 // plain RET. Closes out super-animal mode (drains residual velocity into
 // 1/3 carry-over and sets contact_phase = 2).
 static mut FINISH_SUPER_ANIMAL_ADDR: u32 = 0;
+// `WormEntity::StepRopePhysics_Maybe` (0x005003D0) — stdcall(this), RET 4.
+// Generic per-frame collision/rope physics tick used by case 3 (RenderScene)
+// when this missile is the kamikaze-owned worm proxy or in super-animal mode.
+static mut STEP_ROPE_PHYSICS_ADDR: u32 = 0;
+// `WormEntity::RestoreKamikazeState_Maybe` (0x00500630) — `__usercall(EAX = this)`,
+// plain RET. Inverse of the rope-physics setup: restores the kamikaze-owner
+// worm's pre-render state after the missile has been drawn.
+static mut RESTORE_KAMIKAZE_ADDR: u32 = 0;
+// `Task_Missile::render_indicator` (0x00508F90) — stdcall(this), RET 4.
+// Draws the optional homing-target / fuse-direction overlay (sprite + textbox).
+// Skipped when [`underwater_entry_latched`] is set (= the missile has already
+// crossed under water).
+static mut RENDER_INDICATOR_ADDR: u32 = 0;
 
 pub unsafe fn init_addrs() {
     unsafe {
@@ -55,6 +68,9 @@ pub unsafe fn init_addrs() {
         START_DIG_SOUND_ADDR = rb(0x00508930);
         START_SUPER_ANIMAL_ADDR = rb(0x0050AF40);
         FINISH_SUPER_ANIMAL_ADDR = rb(0x0050B020);
+        STEP_ROPE_PHYSICS_ADDR = rb(0x005003D0);
+        RESTORE_KAMIKAZE_ADDR = rb(0x00500630);
+        RENDER_INDICATOR_ADDR = rb(0x00508F90);
     }
 }
 
@@ -115,6 +131,37 @@ pub(super) unsafe extern "stdcall" fn bridge_finish_super_animal(_this: *mut Mis
         "ret 4",
         addr = sym FINISH_SUPER_ANIMAL_ADDR,
     );
+}
+
+/// `WormEntity::StepRopePhysics_Maybe` (0x005003D0) — stdcall(this), RET 4.
+unsafe fn bridge_step_rope_physics(this: *mut MissileEntity) {
+    unsafe {
+        let f: unsafe extern "stdcall" fn(*mut MissileEntity) =
+            core::mem::transmute(STEP_ROPE_PHYSICS_ADDR as usize);
+        f(this);
+    }
+}
+
+/// `WormEntity::RestoreKamikazeState_Maybe` (0x00500630) — `__usercall(EAX = this)`,
+/// plain RET (no stack args, no cleanup).
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_restore_kamikaze_state(_this: *mut MissileEntity) {
+    core::arch::naked_asm!(
+        "mov eax, dword ptr [esp+4]",
+        "mov ecx, dword ptr [{addr}]",
+        "call ecx",
+        "ret 4",
+        addr = sym RESTORE_KAMIKAZE_ADDR,
+    );
+}
+
+/// `Task_Missile::render_indicator` (0x00508F90) — stdcall(this), RET 4.
+unsafe fn bridge_render_indicator(this: *mut MissileEntity) {
+    unsafe {
+        let f: unsafe extern "stdcall" fn(*mut MissileEntity) =
+            core::mem::transmute(RENDER_INDICATOR_ADDR as usize);
+        f(this);
+    }
 }
 
 /// HandleMessage selects between two "discriminator" slots inside
@@ -280,7 +327,7 @@ unsafe fn msg_explosion(
 ///
 /// When the gate passes:
 /// 1. **Super-animal transition** — for homing missiles whose render data
-///    enables super-animal control ([`super_animal_eligible`] != 0):
+///    enables super-animal control ([`super_animal_walk_sprite`] != 0):
 ///     - `contact_phase == 0` → call `Task_Missile::start_super_animal`,
 ///       and return.
 ///     - `contact_phase == 1 && pos_y_int < world.water_kill_y` →
@@ -291,13 +338,13 @@ unsafe fn msg_explosion(
 ///       additionally sets [`_field_3d4`] = 1 when
 ///       `weapon_data[0x2D] == 1 && game_version < 0x1F0 &&
 ///       weapon_data[9] == 0x41`.
-///     - `2`: zero `_render_data_0e_15[2]` (some companion flag) and
+///     - `2`: zero `textbox_visible_threshold` and
 ///       `detonate_response_mode`, then `fuse_timer = (rng & 0xFFFF) %
 ///       500`.
 ///
 /// Always handled — the gate-failed paths are no-ops in WA.
 ///
-/// [`super_animal_eligible`]: MissileEntity::super_animal_eligible
+/// [`super_animal_walk_sprite`]: MissileEntity::super_animal_walk_sprite
 /// [`detonate_response_mode`]: MissileEntity::detonate_response_mode
 /// [`_field_3d4`]: MissileEntity::_field_3d4
 unsafe fn msg_detonate_weapon(this: *mut MissileEntity, msg: &DetonateWeaponMessage) {
@@ -314,7 +361,7 @@ unsafe fn msg_detonate_weapon(this: *mut MissileEntity, msg: &DetonateWeaponMess
 
         // Super-animal transition for eligible homing missiles.
         if matches!((*this).missile_type, super::MissileType::Homing)
-            && (*this).super_animal_eligible != 0
+            && (*this).super_animal_walk_sprite != 0
         {
             match (*this).contact_phase {
                 0 => {
@@ -348,7 +395,7 @@ unsafe fn msg_detonate_weapon(this: *mut MissileEntity, msg: &DetonateWeaponMess
                 }
             }
             2 => {
-                (*this)._render_data_0e_15[2] = 0;
+                (*this).textbox_visible_threshold = 0;
                 (*this).detonate_response_mode = 0;
                 let rng = (*world).advance_rng();
                 (*this).fuse_timer = ((rng & 0xFFFF) % 500) as i32;
@@ -390,6 +437,75 @@ unsafe fn msg_sound_restore(this: *mut MissileEntity) {
 fn is_deferred_sound_retry(slot: i32) -> bool {
     let neg = slot.wrapping_neg() as u32;
     (neg as i32) >= 0 && (neg & 0x10000) != 0 && (neg & 0xFFFE_FFFF) < 0x7F
+}
+
+/// `0x03` RenderScene — per-frame draw dispatch.
+///
+/// Sequence (matching WA's case 3 body):
+/// 1. **Pre-physics gate** — when the missile is acting as a kamikaze
+///    rope-attached worm proxy (`subclass.action_flag != 0 &&
+///    subclass.sheep_state_flag == 0`) OR is mid-super-animal
+///    (`contact_phase == 1`), invoke
+///    `WormEntity::StepRopePhysics_Maybe`.
+/// 2. **Camera nudge** — when `contact_phase != 0` (super-animal active
+///    or closing), accumulate `world.field_7ea0 += viewport_coords[3].center_x - pos_x`.
+///    The accumulator is consumed elsewhere as the screen-track delta
+///    so the camera follows the missile during sheep-control.
+/// 3. **Render** — `super::render::missile_render`.
+/// 4. **Indicator overlay** — when [`underwater_entry_latched`] is `0`,
+///    invoke `Task_Missile::render_indicator` (homing-target /
+///    fuse-direction HUD).
+/// 5. **Post-physics gate** — same predicate as step 1, invoking
+///    `WormEntity::RestoreKamikazeState_Maybe`.
+/// 6. **Parent dispatch** — forward to `WorldEntity::HandleMessage` so
+///    children (sub-pellets, etc.) get the broadcast.
+///
+/// Always handled.
+///
+/// [`underwater_entry_latched`]: MissileEntity::underwater_entry_latched
+unsafe fn msg_render_scene(
+    this: *mut MissileEntity,
+    sender: *mut BaseEntity,
+    size: u32,
+    data: *const u8,
+) {
+    unsafe {
+        let action_flag = (*this).base.subclass_data.action_flag;
+        let sheep_state_flag = (*this).base.subclass_data.sheep_state_flag;
+        let contact_phase = (*this).contact_phase;
+        let kamikaze_proxy = (action_flag != 0 && sheep_state_flag == 0) || contact_phase == 1;
+
+        if kamikaze_proxy {
+            bridge_step_rope_physics(this);
+        }
+
+        if contact_phase != 0 {
+            // Camera follow accumulator: (viewport_coords[3].center_x - pos_x).
+            let world = (*(this as *const BaseEntity)).world;
+            let viewport_x = (*world).viewport_coords[3].center_x.to_raw();
+            let pos_x = (*this).base.pos_x.to_raw();
+            (*world).field_7ea0 =
+                ((*world).field_7ea0 as i32).wrapping_add(viewport_x.wrapping_sub(pos_x)) as u32;
+        }
+
+        super::render::missile_render(this);
+
+        if (*this).underwater_entry_latched == 0 {
+            bridge_render_indicator(this);
+        }
+
+        if kamikaze_proxy {
+            bridge_restore_kamikaze_state(this);
+        }
+
+        world_entity_handle_message(
+            this as *mut WorldEntity,
+            sender,
+            EntityMessage::RenderScene,
+            size,
+            data,
+        );
+    }
 }
 
 /// `0x7E` (126) — homing fuse-timer modifier sent by the homing-control UI.
@@ -452,6 +568,10 @@ pub unsafe extern "thiscall" fn handle_message(
         let handled = match msg {
             EntityMessage::FrameFinish => {
                 frame_finish::tick(this, sender, msg_type, size, data);
+                true
+            }
+            EntityMessage::RenderScene => {
+                msg_render_scene(this, sender, size, data);
                 true
             }
             EntityMessage::UpdateNonCritical => {
