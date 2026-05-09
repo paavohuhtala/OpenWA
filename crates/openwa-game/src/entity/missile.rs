@@ -10,6 +10,7 @@ pub mod free;
 pub mod handle_message;
 pub mod render;
 pub mod sound;
+pub mod super_animal;
 
 /// MissileEntity's typed view of [`WorldEntity::subclass_data`]
 /// (entity offsets +0x38..+0x84, 0x4C bytes total).
@@ -299,8 +300,17 @@ pub struct MissileEntity {
     /// 0x370 — render_data[0x27]. Companion to
     /// [`super_animal_walk_sprite`](MissileEntity::super_animal_walk_sprite).
     pub super_animal_walk_sprite_alt: u32,
-    /// 0x374..0x37B — render_data[0x28..0x29] (untouched by known code paths).
-    pub _render_data_28_29: [u32; 2],
+    /// 0x374 — render_data[0x28]. Super-animal start sound — played
+    /// one-shot on channel 5 by `start_super_animal` when non-zero.
+    pub super_animal_start_sound_id: u32,
+    /// 0x378 — render_data[0x29]. Super-animal loop sound — replaces the
+    /// fuse sound while jetpack steering is active. `start_super_animal`
+    /// stops the fuse sound and starts a fresh streaming sound (storing
+    /// the handle in [`fuse_sound_handle`]); `finish_super_animal` stops
+    /// it again on exit.
+    ///
+    /// [`fuse_sound_handle`]: MissileEntity::fuse_sound_handle
+    pub super_animal_loop_sound_id: u32,
 
     // ---- 0x37C–0x41B: post-render physics and state ----
     /// 0x37C — remaining fuse timer in frames. Counted down by FrameFinish;

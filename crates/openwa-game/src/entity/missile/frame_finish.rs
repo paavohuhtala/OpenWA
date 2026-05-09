@@ -343,7 +343,7 @@ pub unsafe extern "thiscall" fn tick(
                     && (*this).super_animal_walk_sprite != 0
                     && (*this).contact_phase == 1
                 {
-                    super::handle_message::bridge_finish_super_animal(this);
+                    super::super_animal::finish_super_animal(this);
                 } else {
                     MissileEntity::set_terminate_flag_raw(this, 1);
                 }
@@ -396,7 +396,7 @@ pub unsafe extern "thiscall" fn tick(
         }
 
         if (*this).base._field_b0 != 0 && (*this).contact_phase == 1 {
-            super::handle_message::bridge_finish_super_animal(this);
+            super::super_animal::finish_super_animal(this);
         }
 
         let mtype_now = (*this).missile_type;

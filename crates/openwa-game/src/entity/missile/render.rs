@@ -4,7 +4,6 @@
 
 use core::ffi::c_char;
 use core::fmt::Write as _;
-use core::sync::atomic::{AtomicU32, Ordering};
 
 use heapless::String as HString;
 
@@ -21,12 +20,10 @@ use openwa_core::vec2::Vec2;
 
 // ─── Bridges ───────────────────────────────────────────────────────────────
 
-static DROWN_ADDR: AtomicU32 = AtomicU32::new(0);
 static mut FIXA2TAN16_ADDR: u32 = 0;
 
 pub unsafe fn init_addrs() {
     unsafe {
-        DROWN_ADDR.store(rb(0x00565D60), Ordering::Relaxed);
         FIXA2TAN16_ADDR = rb(0x00575730);
     }
 }
@@ -35,14 +32,72 @@ const INDICATOR_INSET: Fixed = Fixed::from_raw(0x00300000);
 const TEXTBOX_VELOCITY_SCALE: i32 = 32;
 const TEXTBOX_OFFSET: Fixed = Fixed::from_raw(0x00120000);
 
-/// `drown` (0x00565D60) — fastcall(ECX = sprite). Maps in-air sprite ID to
-/// underwater counterpart (low 16 bits via LUT, high 16 bits preserved).
-unsafe fn drown(sprite: u32) -> u32 {
-    unsafe {
-        let f: unsafe extern "fastcall" fn(u32) -> u32 =
-            core::mem::transmute(DROWN_ADDR.load(Ordering::Relaxed) as usize);
-        f(sprite)
-    }
+/// Pure-Rust port of `drown` (0x00565D60). Maps an in-air sprite ID to its
+/// underwater counterpart via a sparse LUT. The sprite encoding stores
+/// flag bits in the high 16 bits — only the low 16 bits select a slot;
+/// the high bits are preserved.
+fn drown(sprite: u32) -> u32 {
+    let high = sprite & 0xFFFF_0000;
+    let low = (sprite & 0xFFFF) as u16;
+    let mapped = match low {
+        0x0E => 0x274,
+        0x0F => 0x275,
+        0x10 => 0x276,
+        0x11 => 0x277,
+        0x12 => 0x278,
+        0x13 => 0x279,
+        0x2D => 0x283,
+        0x2E => 0x28C,
+        0x2F => 0x284,
+        0x30 => 0x285,
+        0x31 => 0x28B,
+        0x32 => 0x287,
+        0x33 => 0x29D,
+        0x34 => 0x288,
+        0x35 => 0x289,
+        0x36 => 0x28A,
+        0x37 => 0x29E,
+        0x38 => 0x2A0,
+        0x39 => 0x29F,
+        0x3A => 0x2A1,
+        0x3B => 0x2A2,
+        0x3C => 0x286,
+        0x3D | 0x40 => 0x290,
+        0x3E => 0x28E,
+        0x3F => 0x28F,
+        0x41 | 0x98 | 0x99 => 0x28D,
+        0x42 => 0x282,
+        0x47 => 0x292,
+        0x48 => 0x2AA,
+        0x49 => 0x2AB,
+        0x4A => 0x2A5,
+        0x4B => 0x2A6,
+        0x4C => 0x2A7,
+        0x4D => 0x2A8,
+        0x4E => 0x2A9,
+        0x52 => 0x2AC,
+        0x5C | 0x5D => 0x27A,
+        0x60 | 0x67 => 0x27C,
+        0x61 | 0x68 => 0x27D,
+        0x62 | 0x69 => 0x27E,
+        0x66 => 0x27F,
+        0x6E..=0x71 => 0x281,
+        0x9C => 0x2A3,
+        0x9D => 0x2A4,
+        0x9E => 0x297,
+        0xA2 => 0x294,
+        0xA3 => 0x295,
+        0xA4 | 0xA5 => 0x298,
+        0xAD | 0xAE => 0x296,
+        // WA's source has these four cases set `param_1 += 0x1EA` then
+        // fall through to `return uVar1 | param_1` — i.e. `low + 0x1EA`.
+        // (low is at most 0xB2, so the add never overflows into the high
+        // half.)
+        0xAF..=0xB2 => (low as u32).wrapping_add(0x1EA),
+        // Default: pass through unchanged.
+        _ => low as u32,
+    };
+    high | mapped
 }
 
 /// `Math::fixa2tan16` (0x00575730) — `__usercall(ESI = y, EDI = x)`. Both

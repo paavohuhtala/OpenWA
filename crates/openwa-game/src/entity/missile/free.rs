@@ -3,10 +3,10 @@
 
 use core::sync::atomic::AtomicU32;
 
-use super::handle_message::bridge_finish_super_animal;
+use super::super_animal::finish_super_animal;
 use super::{MissileEntity, MissileEntityVtable};
 use crate::engine::EntityActivityQueue;
-use crate::entity::base::{BaseEntity, SharedDataTable};
+use crate::entity::base::BaseEntity;
 use crate::rebase::rb;
 use crate::wa_alloc::wa_free;
 
@@ -44,36 +44,6 @@ unsafe fn bridge_cgametask_destructor(this: *mut MissileEntity) {
     unsafe { f(this) }
 }
 
-/// Send `msg_id` to the WorldRoot dispatcher (SharedData key `(0, 0x14)`).
-/// WA passes uninitialised stack here, but the receivers only read the first
-/// dword for these msg ids, so zeroing the tail is equivalent.
-unsafe fn broadcast_via_world_root(this: *mut MissileEntity, msg_id: u32, owner_id: u32) {
-    unsafe {
-        let table = SharedDataTable::from_task(this as *const BaseEntity);
-        let target = table.lookup(0, 0x14);
-        if target.is_null() {
-            return;
-        }
-        let mut buf = [0u32; 0x408 / 4];
-        buf[0] = owner_id;
-        let vt = *(target as *const *const usize);
-        let handle_message_slot: unsafe extern "thiscall" fn(
-            *mut u8,
-            *mut BaseEntity,
-            u32,
-            u32,
-            *const u8,
-        ) = core::mem::transmute(*vt.add(2));
-        handle_message_slot(
-            target,
-            this as *mut BaseEntity,
-            msg_id,
-            0x408,
-            buf.as_ptr() as *const u8,
-        );
-    }
-}
-
 /// Free a render-handle wrapper (the `+0xC` / `+0x10` two-child layout
 /// allocated by `Task_Missile::ConstructPointers`). Each child is released
 /// through its own vtable slot 3 (C++ scalar-deleting destructor) before the
@@ -106,7 +76,7 @@ unsafe fn destructor_1(this: *mut MissileEntity) {
 
         let owner_id = (*this).spawn_params.owner_id;
         if owner_id != 0 {
-            broadcast_via_world_root(this, 0x4E, owner_id);
+            super::super_animal::broadcast_via_world_root(this, 0x4E, owner_id);
         }
 
         let queue = core::ptr::addr_of_mut!((*world).entity_activity_queue);
@@ -116,12 +86,12 @@ unsafe fn destructor_1(this: *mut MissileEntity) {
         super::sound::stop_dig_sound(this);
 
         if (*this).super_animal_target_locked != 0 {
-            broadcast_via_world_root(this, 0x53, owner_id);
+            super::super_animal::broadcast_via_world_root(this, 0x53, owner_id);
         }
 
         match (*this).contact_phase {
-            1 => bridge_finish_super_animal(this),
-            2 => broadcast_via_world_root(this, 0x7C, owner_id),
+            1 => finish_super_animal(this),
+            2 => super::super_animal::broadcast_via_world_root(this, 0x7C, owner_id),
             _ => {}
         }
 

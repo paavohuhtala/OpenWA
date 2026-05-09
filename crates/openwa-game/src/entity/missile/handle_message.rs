@@ -4,6 +4,7 @@
 
 use core::sync::atomic::{AtomicU32, Ordering};
 
+use super::super_animal::{finish_super_animal, start_super_animal};
 use super::{MissileEntity, frame_finish, sound};
 use crate::entity::base::BaseEntity;
 use crate::entity::game_entity::WorldEntity;
@@ -23,45 +24,17 @@ type HandleMessageFn = unsafe extern "thiscall" fn(
 
 pub static ORIGINAL_HANDLE_MESSAGE: AtomicU32 = AtomicU32::new(0);
 
-static mut START_SUPER_ANIMAL_ADDR: u32 = 0;
-static mut FINISH_SUPER_ANIMAL_ADDR: u32 = 0;
 static mut STEP_ROPE_PHYSICS_ADDR: u32 = 0;
 static mut RESTORE_KAMIKAZE_ADDR: u32 = 0;
 
 pub unsafe fn init_addrs() {
     unsafe {
-        START_SUPER_ANIMAL_ADDR = rb(0x0050AF40);
-        FINISH_SUPER_ANIMAL_ADDR = rb(0x0050B020);
         STEP_ROPE_PHYSICS_ADDR = rb(0x005003D0);
         RESTORE_KAMIKAZE_ADDR = rb(0x00500630);
     }
 }
 
 // ─── WA bridges ────────────────────────────────────────────────────────────
-
-/// `Task_Missile::start_super_animal` (0x0050AF40) — `__usercall(EAX = this)`.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_start_super_animal(_this: *mut MissileEntity) {
-    core::arch::naked_asm!(
-        "mov eax, dword ptr [esp+4]",
-        "mov ecx, dword ptr [{addr}]",
-        "call ecx",
-        "ret 4",
-        addr = sym START_SUPER_ANIMAL_ADDR,
-    );
-}
-
-/// `Task_Missile::finish_super_animal` (0x0050B020) — `__usercall(EAX = this)`.
-#[unsafe(naked)]
-pub(super) unsafe extern "stdcall" fn bridge_finish_super_animal(_this: *mut MissileEntity) {
-    core::arch::naked_asm!(
-        "mov eax, dword ptr [esp+4]",
-        "mov ecx, dword ptr [{addr}]",
-        "call ecx",
-        "ret 4",
-        addr = sym FINISH_SUPER_ANIMAL_ADDR,
-    );
-}
 
 /// `WormEntity::StepRopePhysics_Maybe` (0x005003D0) — stdcall(this), RET 4.
 unsafe fn bridge_step_rope_physics(this: *mut MissileEntity) {
@@ -203,13 +176,13 @@ unsafe fn msg_detonate_weapon(this: *mut MissileEntity, msg: &DetonateWeaponMess
         {
             match (*this).contact_phase {
                 0 => {
-                    bridge_start_super_animal(this);
+                    start_super_animal(this);
                     return;
                 }
                 1 => {
                     let pos_y_int = (*this).base.pos_y.to_int();
                     if pos_y_int < (*world).water_kill_y {
-                        bridge_finish_super_animal(this);
+                        finish_super_animal(this);
                         return;
                     }
                 }
