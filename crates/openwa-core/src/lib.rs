@@ -19,4 +19,5 @@ pub mod rng;
 pub mod scheme;
 pub mod sprite;
 pub mod trig;
+pub mod vec2;
 pub mod weapon;

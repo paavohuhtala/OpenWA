@@ -11,6 +11,7 @@
 use core::ffi::c_char;
 use core::sync::atomic::{AtomicU32, Ordering};
 use openwa_core::fixed::Fixed;
+use openwa_core::vec2::Vec2;
 use openwa_core::weapon::{FireType, KnownWeaponId};
 
 use super::base::BaseEntity;
@@ -111,11 +112,6 @@ static mut WORM_SCROLL_AIM_X_ADDR: u32 = 0;
 // ScrollAimSmooth (0x00514050) — thiscall(ECX = this), no stack args,
 // plain RET. Per-frame smoothed aim scroll for RopeSwinging (state 0x7C).
 static mut WORM_SCROLL_AIM_SMOOTH_ADDR: u32 = 0;
-// Vec2_SignClampAndScale (0x00518B80) — usercall(ESI = &x, EDI = &y),
-// no stack args, plain RET. In-place: clamps each component to ±1.0 (16.16)
-// or 0; if both non-zero, scales by 3/5. Misnamed in Ghidra as
-// "NormalizeAndScale3Over5" — it's not a true normalize.
-static mut VEC2_SIGN_CLAMP_AND_SCALE_ADDR: u32 = 0;
 // Worm draw helpers (case 0x3 RenderScene).
 static mut WORM_DRAW_AIMING_ARROW_ADDR: u32 = 0;
 static mut WORM_DRAW_WORM_NAME_ADDR: u32 = 0;
@@ -218,7 +214,6 @@ pub unsafe fn init_addrs() {
         WORM_DRAIN_INPUT_BUFFER_ADDR = rb(0x005148E0);
         WORM_SCROLL_AIM_X_ADDR = rb(0x00513F90);
         WORM_SCROLL_AIM_SMOOTH_ADDR = rb(0x00514050);
-        VEC2_SIGN_CLAMP_AND_SCALE_ADDR = rb(0x00518B80);
         WORM_DRAW_AIMING_ARROW_ADDR = rb(0x00513A90);
         WORM_DRAW_WORM_NAME_ADDR = rb(0x0050FB50);
         WORM_DRAW_SPRITE_ADDR = rb(0x0050FCD0);
@@ -852,27 +847,6 @@ unsafe extern "stdcall" fn bridge_scroll_aim_smooth(_this: *mut WormEntity) {
         "call eax",
         "ret 4",
         addr = sym WORM_SCROLL_AIM_SMOOTH_ADDR,
-    );
-}
-
-/// `__usercall(ESI = &x, EDI = &y)`, no stack args, plain RET. In-place
-/// clamp-to-unit-step then optional 3/5 scale.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_vec2_sign_clamp_and_scale(
-    _x_ptr: *mut Fixed,
-    _y_ptr: *mut Fixed,
-) {
-    core::arch::naked_asm!(
-        "push esi",
-        "push edi",
-        "mov esi, dword ptr [esp+12]",
-        "mov edi, dword ptr [esp+16]",
-        "mov eax, dword ptr [{addr}]",
-        "call eax",
-        "pop edi",
-        "pop esi",
-        "ret 8",
-        addr = sym VEC2_SIGN_CLAMP_AND_SCALE_ADDR,
     );
 }
 
@@ -3098,31 +3072,19 @@ unsafe fn msg_render_scene(
         let kamikaze_cliff_fall_save = rb(KAMIKAZE_CLIFF_FALL_SAVE_VA) as *mut u32;
 
         // Block A — kamikaze active path: action_field != 0 && state == 0x6D.
-        // Saves the worm's current pos into the global swap slots, then sign-
-        // clamps (speed_x, speed_y) and forwards to TryMovePosition with each
-        // axis biased by `speed_axis * (render_interp_a << 4)` (Q16 multiply).
-        // WA's call passes the X result on the stack and the Y result in EDI
-        // (the implicit usercall arg Ghidra's decomp hides).
+        // Saves the worm's current pos into the global swap slots, then 8-way
+        // snaps the speed vector and forwards to TryMovePosition biased by
+        // `snapped * render_interp_a * 16`.
         let kamikaze_active = action_field != 0 && state.is(KnownWormState::SuicideBomber);
         if kamikaze_active {
             *kamikaze_pos_save_x = (*this).base.pos_x;
             *kamikaze_pos_save_y = (*this).base.pos_y;
 
-            let mut clamped_x = (*this).base.speed_x;
-            let mut clamped_y = (*this).base.speed_y;
-            bridge_vec2_sign_clamp_and_scale(&raw mut clamped_x, &raw mut clamped_y);
-
-            let interp = world_field_i32(world, 0x8150);
-            let interp_q4 = (interp as i64) << 4;
-            let dx = ((clamped_x.0 as i64).wrapping_mul(interp_q4) >> 16) as i32;
-            let dy = ((clamped_y.0 as i64).wrapping_mul(interp_q4) >> 16) as i32;
-            let new_x = dx.wrapping_add((*this).base.pos_x.0);
-            let new_y = dy.wrapping_add((*this).base.pos_y.0);
-            WorldEntity::try_move_position_raw(
-                this as *mut WorldEntity,
-                Fixed(new_x),
-                Fixed(new_y),
-            );
+            let snapped = Vec2::new((*this).base.speed_x, (*this).base.speed_y).snap_to_8way();
+            let interp_q4 = (*world).render_interp_a * 16;
+            let pos = Vec2::new((*this).base.pos_x, (*this).base.pos_y);
+            let new_pos = pos.wrapping_add(snapped.mul_raw(interp_q4));
+            WorldEntity::try_move_position_raw(this as *mut WorldEntity, new_pos.x, new_pos.y);
         } else if fire_complete != 0 && action_field == 0 {
             // Block B — non-kamikaze path that gates on the worm having
             // just-completed firing. Save the kamikaze fields to the side
