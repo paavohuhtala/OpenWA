@@ -243,6 +243,26 @@ pub unsafe fn blit_8bpp(
     flags: u32,
 ) -> u32 {
     unsafe {
+        // 2D-LUT path. WA's BitGrid__BlitSpriteRect dispatches blend_mode 1
+        // to BlitColorTableLUT_Forward/Reverse whenever color_table != null,
+        // and to BlitColorTable_Forward/Reverse otherwise — i.e. there is no
+        // 1D-LUT mode in WA; a non-null color_table is always a 256×256 LUT
+        // (color_add_table or color_blend_table).
+        if (flags & 0xFFFF) == 1 && !color_table.is_null() {
+            return blit_8bpp_2d_lut(
+                dst,
+                dst_x,
+                dst_y,
+                width,
+                height,
+                src,
+                src_x,
+                src_y,
+                color_table,
+                flags,
+            );
+        }
+
         let color_table_ref: Option<&[u8; 256]> = if !color_table.is_null() {
             Some(&*(color_table as *const [u8; 256]))
         } else {
@@ -286,6 +306,159 @@ pub unsafe fn blit_8bpp(
             orientation,
             blend,
         ) as u32
+    }
+}
+
+/// 2D-LUT blit — port of WA's `BlitColorTableLUT_Forward` / `_Reverse`
+/// (0x5b2c32 / 0x5b32c3).
+///
+/// `color_table` points at one of `DisplayGfx::color_add_table` or
+/// `color_blend_table` — a 256×256 LUT indexed `lut[dst*256 + src]`,
+/// matching WA's `MOV AH, dst_byte; MOV AL, src_byte; MOV CL, [EAX + EBP]`.
+/// WA's Reverse path skips src==0 per pixel; Forward fast-skips runs of 4
+/// transparent src bytes. We do the per-pixel skip everywhere — for
+/// additive/color_blend tables `lut[d*256 + 0] ≈ d`, so the visual is
+/// indistinguishable from running the lookup unconditionally.
+///
+/// WA itself only dispatches Normal (0/0xb) and MirrorX (1/0xa) to the
+/// LUT path; other orientations fall through to the generic per-pixel
+/// fallback `BitmapImage__sub_4F80C0`. We handle all 8 orientations here
+/// — gas-cloud sprites only use Normal in practice, but the extra
+/// coverage is cheap and consistent with the rest of `blit_sprite_rect`.
+///
+/// Mirrors the clipping + orientation logic of the 1D `ColorTable` path
+/// in `openwa_core::sprite::blit_sprite_rect` but with a 2D-indexed
+/// inner loop.
+unsafe fn blit_8bpp_2d_lut(
+    dst: *mut DisplayBitGrid,
+    dst_x: i32,
+    dst_y: i32,
+    width: i32,
+    height: i32,
+    src: *mut DisplayBitGrid,
+    src_x: i32,
+    src_y: i32,
+    color_table: *const u8,
+    flags: u32,
+) -> u32 {
+    unsafe {
+        if width <= 0 || height <= 0 {
+            return 0;
+        }
+
+        let dst_right = dst_x + width;
+        let dst_bottom = dst_y + height;
+
+        let clip_left = (*dst).clip_left as i32;
+        let clip_top = (*dst).clip_top as i32;
+        let clip_right = (*dst).clip_right as i32;
+        let clip_bottom = (*dst).clip_bottom as i32;
+
+        if dst_x >= clip_right
+            || dst_right <= clip_left
+            || dst_y >= clip_bottom
+            || dst_bottom <= clip_top
+        {
+            return 0;
+        }
+
+        let vis_left = dst_x.max(clip_left);
+        let vis_right = dst_right.min(clip_right);
+        let vis_top = dst_y.max(clip_top);
+        let vis_bottom = dst_bottom.min(clip_bottom);
+
+        if vis_left >= vis_right || vis_top >= vis_bottom {
+            return 0;
+        }
+
+        let clip_l = vis_left - dst_x;
+        let clip_t = vis_top - dst_y;
+
+        let orientation = BlitOrientation::from_flags(flags);
+        let (sx_step, sy_step, swap_axes): (i32, i32, bool) = match orientation {
+            BlitOrientation::Normal => (1, 1, false),
+            BlitOrientation::MirrorX => (-1, 1, false),
+            BlitOrientation::MirrorY => (1, -1, false),
+            BlitOrientation::MirrorXY => (-1, -1, false),
+            BlitOrientation::Rotate90 => (1, 1, true),
+            BlitOrientation::Rotate90MirrorX => (1, -1, true),
+            BlitOrientation::Rotate90MirrorY => (-1, 1, true),
+            BlitOrientation::Rotate90MirrorXY => (-1, -1, true),
+        };
+
+        // Match openwa_core::sprite::adjust_source_for_clip
+        let (sx_start, sy_start) = if swap_axes {
+            let sx0 = if sx_step > 0 {
+                src_x + clip_t
+            } else {
+                src_x + height - 1 - clip_t
+            };
+            let sy0 = if sy_step > 0 {
+                src_y + clip_l
+            } else {
+                src_y + width - 1 - clip_l
+            };
+            (sx0, sy0)
+        } else {
+            let sx0 = if sx_step > 0 {
+                src_x + clip_l
+            } else {
+                src_x + width - 1 - clip_l
+            };
+            let sy0 = if sy_step > 0 {
+                src_y + clip_t
+            } else {
+                src_y + height - 1 - clip_t
+            };
+            (sx0, sy0)
+        };
+
+        let dst_stride = (*dst).row_stride as usize;
+        let src_stride = (*src).row_stride as usize;
+        let dst_data = (*dst).data;
+        let src_data = (*src).data;
+        let lut = color_table;
+
+        let vis_w = vis_right - vis_left;
+        let vis_h = vis_bottom - vis_top;
+
+        if swap_axes {
+            // Rotated 90°: outer loop dst Y advances src X; inner dst X advances src Y.
+            let mut sx_outer = sx_start;
+            for dy in 0..vis_h {
+                let dst_row = (vis_top + dy) as usize * dst_stride + vis_left as usize;
+                let mut sy_inner = sy_start;
+                for dx in 0..vis_w {
+                    let s = *src_data.add(sy_inner as usize * src_stride + sx_outer as usize);
+                    if s != 0 {
+                        let dst_ptr = dst_data.add(dst_row + dx as usize);
+                        let d = *dst_ptr;
+                        *dst_ptr = *lut.add((d as usize) * 256 + s as usize);
+                    }
+                    sy_inner += sy_step;
+                }
+                sx_outer += sx_step;
+            }
+        } else {
+            let mut sy = sy_start;
+            for dy in 0..vis_h {
+                let dst_row = (vis_top + dy) as usize * dst_stride + vis_left as usize;
+                let src_row = sy as usize * src_stride;
+                let mut sx = sx_start;
+                for dx in 0..vis_w {
+                    let s = *src_data.add(src_row + sx as usize);
+                    if s != 0 {
+                        let dst_ptr = dst_data.add(dst_row + dx as usize);
+                        let d = *dst_ptr;
+                        *dst_ptr = *lut.add((d as usize) * 256 + s as usize);
+                    }
+                    sx += sx_step;
+                }
+                sy += sy_step;
+            }
+        }
+
+        1
     }
 }
 

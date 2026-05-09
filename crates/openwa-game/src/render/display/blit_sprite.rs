@@ -345,7 +345,9 @@ pub unsafe fn blit_sprite(
             return;
         }
 
-        // Determine color table pointer
+        // Determine color table pointer. The 2D-LUT blend path is keyed on
+        // color_table != null inside blit_impl, matching WA's
+        // BitGrid__BlitSpriteRect dispatch.
         let color_table: *const u8 = if flags.contains(SpriteFlags::ADDITIVE) {
             (*gfx).color_add_table.as_ptr()
         } else if flags.contains(SpriteFlags::COLOR_BLEND) {

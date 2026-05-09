@@ -1344,6 +1344,8 @@ pub unsafe fn draw_scaled_sprite(
         let layer = (*this).layer_0;
 
         // Core blit flags: low 16 bits = blend mode (0 = Copy, 1 = ColorTable).
+        // The 2D-LUT path is keyed on color_table != null inside blit_impl,
+        // matching WA's BitGrid__BlitSpriteRect dispatch.
         let blit_flags = blend_mode;
 
         DrawScaledSpriteResult::Blit {
