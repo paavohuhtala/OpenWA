@@ -16,7 +16,9 @@ use super::MissileEntity;
 use crate::entity::base::BaseEntity;
 use crate::entity::game_entity::WorldEntity;
 use crate::game::game_entity_message::world_entity_handle_message;
-use crate::game::message::{EntityMessage, ExplosionMessage};
+use crate::game::message::{
+    DetonateWeaponMessage, EntityMessage, ExplosionMessage, MoveWeaponMessage, Unknown126Message,
+};
 use crate::rebase::rb;
 
 type HandleMessageFn = unsafe extern "thiscall" fn(
@@ -180,10 +182,9 @@ unsafe fn msg_update_non_critical(this: *mut MissileEntity) {
 ///
 /// [`super_animal_torque_accum`]: MissileEntity::super_animal_torque_accum
 /// [`super_animal_torque_input`]: MissileEntity::super_animal_torque_input
-unsafe fn msg_move_weapon_dir(this: *mut MissileEntity, data: *const u8, delta: i32) {
+unsafe fn msg_move_weapon_dir(this: *mut MissileEntity, msg: &MoveWeaponMessage, delta: i32) {
     unsafe {
-        let sender_id = *(data as *const u32);
-        if sender_id != (*this).spawn_params.owner_id {
+        if msg.sender_id != (*this).spawn_params.owner_id {
             return;
         }
         if (*this).contact_phase != 1 {
@@ -229,7 +230,7 @@ unsafe fn msg_explosion(
     this: *mut MissileEntity,
     sender: *mut BaseEntity,
     size: u32,
-    data: *const u8,
+    msg: &ExplosionMessage,
 ) {
     unsafe {
         let world = (*(this as *const BaseEntity)).world;
@@ -245,7 +246,7 @@ unsafe fn msg_explosion(
                     sender,
                     EntityMessage::Explosion,
                     size,
-                    data,
+                    msg as *const ExplosionMessage as *const u8,
                 );
             }
         } else if responds || scheme_d99f != 0 {
@@ -254,7 +255,7 @@ unsafe fn msg_explosion(
             // tail-junk over-read inherited from a larger stack buffer);
             // the parent never reads past `ExplosionMessage`, so copying
             // just the typed struct is equivalent.
-            let mut local = *(data as *const ExplosionMessage);
+            let mut local = *msg;
             local.caller_flag = 0;
             world_entity_handle_message(
                 this as *mut WorldEntity,
@@ -297,10 +298,9 @@ unsafe fn msg_explosion(
 /// [`super_animal_eligible`]: MissileEntity::super_animal_eligible
 /// [`detonate_response_mode`]: MissileEntity::detonate_response_mode
 /// [`_field_3d4`]: MissileEntity::_field_3d4
-unsafe fn msg_detonate_weapon(this: *mut MissileEntity, data: *const u8) {
+unsafe fn msg_detonate_weapon(this: *mut MissileEntity, msg: &DetonateWeaponMessage) {
     unsafe {
-        let sender_id = *(data as *const u32);
-        if sender_id != (*this).spawn_params.owner_id {
+        if msg.team_index != (*this).spawn_params.owner_id {
             return;
         }
         if (*this).base._field_b0 != 0 {
@@ -403,23 +403,20 @@ fn is_deferred_sound_retry(slot: i32) -> bool {
 /// on overflow the truncated u32 is reinterpreted as i32 before division.
 /// If a desync surfaces here, WA's actual machine code may be doing 64-bit
 /// IMUL/IDIV — revisit and switch to `i64` math.
-unsafe fn msg_homing_fuse_modifier(this: *mut MissileEntity, data: *const u8) {
+unsafe fn msg_homing_fuse_modifier(this: *mut MissileEntity, msg: &Unknown126Message) {
     unsafe {
-        let sender_id = *(data as *const u32);
-        if sender_id != (*this).spawn_params.owner_id {
+        if msg.sender_id != (*this).spawn_params.owner_id {
             return;
         }
         if !matches!((*this).missile_type, super::MissileType::Homing) {
             return;
         }
 
-        let mul = *(data.add(4) as *const i32);
-        let div = *(data.add(8) as *const i32);
         let fuse = (*this).fuse_timer;
 
-        if mul >= 0 {
-            let product = (fuse as u32).wrapping_mul(mul as u32) as i32;
-            let quotient = if div != 0 { product / div } else { 0 };
+        if msg.mul >= 0 {
+            let product = (fuse as u32).wrapping_mul(msg.mul as u32) as i32;
+            let quotient = if msg.div != 0 { product / msg.div } else { 0 };
             (*this).fuse_timer = quotient.wrapping_add(fuse);
         } else {
             (*this).fuse_timer = i32::MAX;
@@ -429,6 +426,15 @@ unsafe fn msg_homing_fuse_modifier(this: *mut MissileEntity, data: *const u8) {
 
 // ─── Dispatcher ────────────────────────────────────────────────────────────
 
+/// Reinterpret the `*const u8` payload as a typed message ref. The caller
+/// must ensure the payload was sent with this message-type's expected
+/// shape (always true for messages the project broadcasts itself; WA's
+/// senders are observed to honour the same shapes).
+#[inline]
+unsafe fn payload<T>(data: *const u8) -> &'static T {
+    unsafe { &*(data as *const T) }
+}
+
 pub unsafe extern "thiscall" fn handle_message(
     this: *mut MissileEntity,
     sender: *mut BaseEntity,
@@ -437,33 +443,37 @@ pub unsafe extern "thiscall" fn handle_message(
     data: *const u8,
 ) {
     unsafe {
-        let handled = match msg_type {
-            5 => {
+        let Ok(msg) = EntityMessage::try_from(msg_type) else {
+            return fall_through(this, sender, msg_type, size, data);
+        };
+
+        let handled = match msg {
+            EntityMessage::UpdateNonCritical => {
                 msg_update_non_critical(this);
                 true
             }
-            0x1C => {
-                msg_explosion(this, sender, size, data);
+            EntityMessage::Explosion => {
+                msg_explosion(this, sender, size, payload::<ExplosionMessage>(data));
                 true
             }
-            0x2C => {
-                msg_detonate_weapon(this, data);
+            EntityMessage::DetonateWeapon => {
+                msg_detonate_weapon(this, payload::<DetonateWeaponMessage>(data));
                 true
             }
-            0x2D => {
-                msg_move_weapon_dir(this, data, -0x5B0);
+            EntityMessage::MoveWeaponLeft => {
+                msg_move_weapon_dir(this, payload::<MoveWeaponMessage>(data), -0x5B0);
                 true
             }
-            0x2E => {
-                msg_move_weapon_dir(this, data, 0x5B0);
+            EntityMessage::MoveWeaponRight => {
+                msg_move_weapon_dir(this, payload::<MoveWeaponMessage>(data), 0x5B0);
                 true
             }
-            0x7A => {
+            EntityMessage::Unknown122 => {
                 msg_sound_restore(this);
                 true
             }
-            0x7E => {
-                msg_homing_fuse_modifier(this, data);
+            EntityMessage::Unknown126 => {
+                msg_homing_fuse_modifier(this, payload::<Unknown126Message>(data));
                 true
             }
             _ => false,

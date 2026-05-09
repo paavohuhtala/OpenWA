@@ -139,6 +139,12 @@ pub enum EntityMessage {
     /// [`Explosion`].
     ProjectileImpact = 118,
     Unknown122 = 122,
+    /// 0x7E (126) — homing-control "set fuse" command. Sent by the homing
+    /// missile UI to adjust the fuse on a currently-flying homing missile
+    /// owned by the sending team. Payload is [`Unknown126Message`]
+    /// (`sender_id, mul, div`); the canonical reader is
+    /// `MissileEntity::HandleMessage` case 0x7E.
+    Unknown126 = 126,
     /// 0x81 — sender unknown. Receivers query their own GetEntityData (vt[3])
     /// with query 0x7D1 / sub-id 0x394, passing a packed (i16, i16) pair as
     /// the out-buffer. WormEntity gates on its own slot match plus
@@ -179,6 +185,7 @@ impl TryFrom<u32> for EntityMessage {
             | 96..=114
             | 117..=118
             | 122
+            | 126
             | 129..=132 => {
                 // SAFETY: all matched values correspond to valid variants
                 Ok(unsafe { core::mem::transmute(value) })
@@ -370,6 +377,34 @@ pub struct DetonateWeaponMessage {
 
 impl EntityMessageData for DetonateWeaponMessage {
     const MESSAGE_TYPE: EntityMessage = EntityMessage::DetonateWeapon;
+}
+
+/// Payload for [`EntityMessage::MoveWeaponLeft`] / [`EntityMessage::MoveWeaponRight`]
+/// — broadcast by the steering-control UI to adjust a super-animal-mode
+/// homing missile's torque accumulator. Receivers gate on
+/// `sender_id == this.spawn_params.owner_id`. Both messages carry the
+/// same payload shape.
+#[repr(C)]
+#[derive(Clone, Copy, Zeroable, Pod, Debug)]
+pub struct MoveWeaponMessage {
+    pub sender_id: u32,
+}
+
+/// Payload for [`EntityMessage::Unknown126`] — homing-control "set fuse"
+/// command. `MissileEntity::HandleMessage` case 0x7E gates on `sender_id ==
+/// this.spawn_params.owner_id && missile_type == Homing`, then either
+/// scales the fuse by `mul / div` (when `mul >= 0`) or sets it to
+/// `i32::MAX` (when `mul < 0`).
+#[repr(C)]
+#[derive(Clone, Copy, Zeroable, Pod, Debug)]
+pub struct Unknown126Message {
+    pub sender_id: u32,
+    pub mul: i32,
+    pub div: i32,
+}
+
+impl EntityMessageData for Unknown126Message {
+    const MESSAGE_TYPE: EntityMessage = EntityMessage::Unknown126;
 }
 
 /// Payload for [`EntityMessage::Surrender`] (sent by the Surrender weapon
