@@ -14,6 +14,9 @@ use core::sync::atomic::{AtomicU32, Ordering};
 
 use super::MissileEntity;
 use crate::entity::base::BaseEntity;
+use crate::entity::game_entity::WorldEntity;
+use crate::game::game_entity_message::world_entity_handle_message;
+use crate::game::message::{EntityMessage, ExplosionMessage};
 
 type HandleMessageFn = unsafe extern "thiscall" fn(
     this: *mut MissileEntity,
@@ -122,6 +125,70 @@ unsafe fn msg_move_weapon_dir(this: *mut MissileEntity, data: *const u8, delta: 
     }
 }
 
+/// `0x1C` Explosion — forward inbound explosion broadcasts to the parent
+/// `WorldEntity::HandleMessage` (which applies physics impulse / damage),
+/// gated on:
+///
+/// - **Old/unforced path** (`game_version < 0x4E && _scheme_d99f == 0`):
+///   forward only when [`explosion_response_flag`] is non-zero, payload
+///   unchanged.
+/// - **Modern/forced path** (otherwise): forward when either
+///   [`explosion_response_flag`] is non-zero OR `_scheme_d99f != 0`,
+///   first making a local copy of the [`ExplosionMessage`] with
+///   [`caller_flag`] zeroed.
+///
+/// Always handled — the gate-failed paths drop the message silently in WA
+/// (case body falls through to `break` → bottom canned-value return; no
+/// parent dispatch).
+///
+/// Mirrors `MineEntity::HandleMessage`'s case 0x1C in shape but without
+/// the alliance gate and settling-anim-flag side effects (those are
+/// mine-specific).
+///
+/// [`explosion_response_flag`]: MissileEntity::explosion_response_flag
+/// [`caller_flag`]: ExplosionMessage::caller_flag
+unsafe fn msg_explosion(
+    this: *mut MissileEntity,
+    sender: *mut BaseEntity,
+    size: u32,
+    data: *const u8,
+) {
+    unsafe {
+        let world = (*(this as *const BaseEntity)).world;
+        let game_info = (*world).game_info;
+        let game_version = (*game_info).game_version;
+        let scheme_d99f = (*game_info)._scheme_d99f;
+        let responds = (*this).explosion_response_flag != 0;
+
+        if game_version < 0x4E && scheme_d99f == 0 {
+            if responds {
+                world_entity_handle_message(
+                    this as *mut WorldEntity,
+                    sender,
+                    EntityMessage::Explosion,
+                    size,
+                    data,
+                );
+            }
+        } else if responds || scheme_d99f != 0 {
+            // Modern path: copy the message and zero `caller_flag` before
+            // forwarding. WA's actual copy is 0x408 bytes (presumed
+            // tail-junk over-read inherited from a larger stack buffer);
+            // the parent never reads past `ExplosionMessage`, so copying
+            // just the typed struct is equivalent.
+            let mut local = *(data as *const ExplosionMessage);
+            local.caller_flag = 0;
+            world_entity_handle_message(
+                this as *mut WorldEntity,
+                sender,
+                EntityMessage::Explosion,
+                size,
+                &local as *const ExplosionMessage as *const u8,
+            );
+        }
+    }
+}
+
 /// `0x7E` (126) — homing fuse-timer modifier sent by the homing-control UI.
 ///
 /// `data` layout: `(sender_id: u32, mul: i32, div: i32)`. When the sender
@@ -172,6 +239,10 @@ pub unsafe extern "thiscall" fn handle_message(
         let handled = match msg_type {
             5 => {
                 msg_update_non_critical(this);
+                true
+            }
+            0x1C => {
+                msg_explosion(this, sender, size, data);
                 true
             }
             0x2D => {

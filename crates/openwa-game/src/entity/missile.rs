@@ -194,14 +194,24 @@ pub struct MissileEntity {
     /// (case 5). For cluster pellets the equivalent slot is
     /// [`_render_data_1a`](MissileEntity::_render_data_1a) at 0x33C.
     pub _render_data_07: u32,
-    /// 0x2F4..0x32F — render_data[0x08..0x16] (untouched by known code paths).
+    /// 0x2F4..0x307 — render_data[0x08..0x0D] (untouched by known code paths).
     ///
     /// Constructor-known uses in this range:
     ///   [0x0C] gravity_pct  → (value << 16) / 100 → WorldEntity+0x58 (gravity_factor)
+    pub _render_data_08_0c: [u32; 5],
+    /// 0x308 — render_data[0x0D]. Inbound-explosion gate read by
+    /// HandleMessage case 0x1C (Explosion). When non-zero, the explosion
+    /// message is forwarded to the parent `WorldEntity::HandleMessage` so
+    /// it can apply physics impulse / damage to this missile; when zero,
+    /// the explosion is silently dropped.
+    pub explosion_response_flag: u32,
+    /// 0x30C..0x32F — render_data[0x0E..0x16] (untouched by known code paths).
+    ///
+    /// Constructor-known uses in this range:
     ///   [0x0D] bounce_pct   → (value << 16) / 100 → WorldEntity+0x5C (bounce_factor)
     ///   [0x0F] friction_pct → (value << 16) / 100 → WorldEntity+0x60 (friction_factor)
     ///   [0x11] = 9000 for bazooka (→ also copied to post-render field at 0x37C)
-    pub _render_data_08_16: [u32; 15],
+    pub _render_data_0e_16: [u32; 9],
     /// 0x330 — render_data[0x17]. Missile type discriminator
     /// (see [`MissileType`]). 2=Standard, 3=Homing, 4=Sheep, 5=Cluster.
     ///
@@ -342,6 +352,7 @@ const _: () = {
     use core::mem::offset_of;
     assert!(offset_of!(MissileEntity, is_cluster_pellet) == 0x100);
     assert!(offset_of!(MissileEntity, _render_data_07) == 0x2F0);
+    assert!(offset_of!(MissileEntity, explosion_response_flag) == 0x308);
     assert!(offset_of!(MissileEntity, contact_face_mask) == 0x2D4);
     assert!(offset_of!(MissileEntity, fire_particle_trigger) == 0x2EC);
     assert!(offset_of!(MissileEntity, missile_type) == 0x330);

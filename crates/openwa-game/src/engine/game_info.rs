@@ -299,8 +299,17 @@ pub struct GameInfo {
     /// 0xD994: Object slot allocation count (u32). Used to size GameWorld+0x518 array
     /// and buffer object allocation.
     pub object_slot_count: u32,
-    /// 0xD998-0xD9A1: Unknown
-    pub _unknown_d998: [u8; 0xD9A2 - 0xD998],
+    /// 0xD998-0xD99E: Unknown
+    pub _unknown_d998: [u8; 0xD99F - 0xD998],
+    /// 0xD99F: Force-modern Explosion forwarding scheme flag (u8).
+    /// Read by `MissileEntity::HandleMessage` case 0x1C (Explosion):
+    /// when non-zero, the missile always forwards an inbound explosion
+    /// to the parent `WorldEntity::HandleMessage` (with `caller_flag`
+    /// zeroed), regardless of `game_version` and the missile's own
+    /// [`explosion_response_flag`](crate::entity::MissileEntity::explosion_response_flag).
+    pub _scheme_d99f: u8,
+    /// 0xD9A0-0xD9A1: Unknown
+    pub _unknown_d9a0: [u8; 0xD9A2 - 0xD9A0],
     /// 0xD9A2: Network weapon exception flag. When net_config_2 != 0,
     /// weapons 10/0x37/0x38 are only disabled if this is also 0.
     pub net_weapon_exception: u8,
