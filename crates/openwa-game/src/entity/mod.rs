@@ -23,20 +23,20 @@ pub use base::{
 pub use cloud::{CloudEntity, CloudEntityVtable, CloudType};
 pub use filter::{FilterEntity, FilterEntityVtable};
 pub use fire::{FireEntity, FireEntityVtable};
-pub use game_entity::{SoundEmitter, SoundEmitterVtable, WorldEntity};
+pub use game_entity::{SoundEmitter, SoundEmitterVtable, SubclassData, WorldEntity};
 pub use mine::{MineEntity, MineEntityVtable};
-pub use missile::{MissileEntity, MissileEntityVtable, MissileType};
+pub use missile::{MissileEntity, MissileEntityVtable, MissileSubclassData, MissileType};
 pub use oil_drum::{OilDrumEntity, OilDrumEntityVtable};
 pub use overlays::WeaponAimEntity;
 pub use supply_crate::{CrateEntity, CrateEntityVtable};
 pub use team::{TeamEntity, TeamEntityVtable};
 pub use team_message::TeamMessage;
 pub use world_root::{MatchCtx, WorldRootEntity, WorldRootEntityVtable};
-pub use worm::{KnownWormState, WormEntity, WormEntityVtable};
+pub use worm::{KnownWormState, WormEntity, WormEntityVtable, WormSubclassData};
 
 // Entity trait impls — safe access to BaseEntity base regardless of inheritance depth.
 // BaseEntity<V> impl is in base.rs (blanket impl).
-unsafe impl<V: Vtable> Entity for WorldEntity<V> {}
+unsafe impl<V: Vtable, S: SubclassData> Entity for WorldEntity<V, S> {}
 unsafe impl Entity for TeamEntity {}
 unsafe impl Entity for WorldRootEntity {}
 unsafe impl Entity for FilterEntity {}

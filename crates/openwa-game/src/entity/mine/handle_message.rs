@@ -20,16 +20,16 @@ use crate::wa_alloc::wa_free;
 use openwa_core::fixed::Fixed;
 
 /// Subclass-data offset of MineEntity's "anim flag" slot (mine offset 0x74,
-/// inside `WorldEntity::subclass_data` which starts at 0x30 → index 0x44).
+/// inside `WorldEntity::subclass_data` which starts at 0x38 → index 0x3C).
 /// Written by `Arm`, by case 0x1C, and by case 0x4B when the mine is still
 /// settling and the scheme is new enough; meaning is otherwise opaque.
-const SUBCLASS_OFFSET_ANIM_FLAG: usize = 0x44;
+const SUBCLASS_OFFSET_ANIM_FLAG: usize = 0x3C;
 
 /// Subclass-data offset of a u32 flag at mine offset 0x40 (subclass_data
-/// index 0x10) that `MineEntity::Arm` sets to 1. This is **not** the
-/// end-of-tick detonation gate (which lives at mine + 0x44 / index 0x14);
+/// index 0x8) that `MineEntity::Arm` sets to 1. This is **not** the
+/// end-of-tick detonation gate (which lives at mine + 0x44 / index 0xC);
 /// purpose is otherwise unknown — pending follow-up RE.
-const SUBCLASS_OFFSET_ARMED_MARKER: usize = 0x10;
+const SUBCLASS_OFFSET_ARMED_MARKER: usize = 0x8;
 
 type HandleMessageFn = unsafe extern "thiscall" fn(
     this: *mut MineEntity,
@@ -297,7 +297,7 @@ pub unsafe extern "thiscall" fn free(this: *mut MineEntity, flags: u8) -> *mut M
 /// world's triggerable-entity list at `world.game_state_stream + 0x20/+0x24`
 /// and returns the first non-null entry that:
 ///
-/// - has its `subclass_data[0]` low 5 bits set in the mine's
+/// - has its `contact_face` low 5 bits set in the mine's
 ///   `trigger_class_mask` (the "trigger-class index" — populated by some
 ///   subclasses to opt into proximity triggers; **not** the BaseEntity
 ///   `class_type` enum at +0x20), and
@@ -331,7 +331,7 @@ unsafe fn scan_for_trigger(this: *mut MineEntity, range: i32) -> *mut BaseEntity
                 }
             };
 
-            let class_byte = *((entry as *const u8).add(0x30) as *const u32);
+            let class_byte = (*(entry as *const crate::entity::WorldEntity)).contact_face;
             if (trigger_mask & (1u32 << (class_byte & 0x1F))) == 0 {
                 continue;
             }
@@ -352,7 +352,7 @@ unsafe fn scan_for_trigger(this: *mut MineEntity, range: i32) -> *mut BaseEntity
 
 /// Pure-Rust port of `MineEntity::Arm` (0x00506CA0). Latches the settling
 /// anim flag from `game_info._field_d780`, sets the unidentified armed
-/// marker at subclass_data[0x10] = 1, and clears the arm-delay timer.
+/// marker at subclass_data[0x8] = 1, and clears the arm-delay timer.
 unsafe fn arm(this: *mut MineEntity) {
     unsafe {
         let world = (*(this as *const BaseEntity)).world;
@@ -921,8 +921,10 @@ unsafe fn msg_frame_finish_tick(
 
         // Underwater bubble emission. Each frame adds 0.25 to the
         // accumulator; on every full unit, a bubble is emitted and 1.0
-        // is subtracted. The first transition into water also seeds
-        // `subclass_data[4] = 64.0` as a one-time init.
+        // is subtracted. The first transition into water also rewrites
+        // `bucket_mask = 1 << 22` as a one-time init — plausibly
+        // switching the mine to a water-specific collision bucket so it
+        // continues to sink and interact with water-side collidables.
         if (*this).base._field_b0 != 0 {
             (*this).bubble_phase = Fixed((*this).bubble_phase.to_raw().wrapping_add(0x4000));
             while (*this).bubble_phase.to_raw() >= 0x10000 {
@@ -932,8 +934,7 @@ unsafe fn msg_frame_finish_tick(
                 bridge_create_bubble(this, pos_x, pos_y, kind);
             }
             if (*this)._field_10c == 0 {
-                let dst = (*this).base.subclass_data.as_mut_ptr().add(4) as *mut i32;
-                *dst = 0x400000;
+                (*this).base.bucket_mask = 0x400000;
                 (*this)._field_10c = 1;
             }
         }
@@ -960,10 +961,10 @@ unsafe fn msg_frame_finish_tick(
             (*this)._field_108 = 0;
         }
 
-        // Final outcome: `subclass_data[0x14]` (mine offset 0x44) gates
+        // Final outcome: `subclass_data[0xC]` (mine offset 0x44) gates
         // detonation. When zero, the tick simply returns; when non-zero,
         // the mine detonates (and then frees).
-        let init_done_flag = *((*this).base.subclass_data.as_ptr().add(0x14) as *const u32);
+        let init_done_flag = *((*this).base.subclass_data.as_ptr().add(0xC) as *const u32);
         if init_done_flag == 0 {
             return;
         }

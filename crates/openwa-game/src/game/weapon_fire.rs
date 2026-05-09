@@ -590,17 +590,17 @@ unsafe fn fire_teleport(worm: *mut WormEntity) {
             WorldRootEntity::handle_typed_message_raw(team, worm, msg);
         }
 
-        // Temporarily swap fire_subtype_1 (+0x34) with _unknown_190, call
-        // try_move_position (which forwards +0x34 to the collision helper),
-        // restore.
-        let saved_subtype1 = WormEntity::fire_subtype_1(worm);
-        WormEntity::set_fire_subtype_1_raw(worm, (*worm)._unknown_190);
+        // Temporarily swap the worm's bucket_mask (+0x34) with the airstrike-
+        // override stored in `_unknown_190`, run try_move_position (which feeds
+        // bucket_mask to the collision helper), restore.
+        let saved_bucket_mask = (*worm).base.bucket_mask;
+        (*worm).base.bucket_mask = (*worm)._unknown_190 as u32;
         crate::entity::WorldEntity::try_move_position_raw(
             worm as *mut crate::entity::WorldEntity,
             fire_x,
             fire_y,
         );
-        WormEntity::set_fire_subtype_1_raw(worm, saved_subtype1);
+        (*worm).base.bucket_mask = saved_bucket_mask;
 
         // Compute new state: version < 455 → Idle (0x65), else → 0x8B
         let world = {

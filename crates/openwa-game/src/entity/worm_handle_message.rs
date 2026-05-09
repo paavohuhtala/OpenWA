@@ -163,8 +163,9 @@ static mut WORM_DISPATCH_BLOCKED_SOUND_ADDR: u32 = 0;
 static mut WA_LOAD_STRING_RESOURCE_ADDR: u32 = 0;
 // WormEntity::ApplyDragMods (0x004FF9F0) — usercall(EAX=this), no
 // stack args, plain RET. Bails when `class_type ∈ {0xF, 0x15, 0x1E}`;
-// otherwise rewrites `subclass_data[0x28]` and/or `subclass_data[0x2C]`
-// from the scheme's `_scheme_d9b8` / `_scheme_d9c0` dwords.
+// otherwise rewrites `subclass_data[0x20]` and/or `subclass_data[0x24]`
+// (worm entity offsets +0x58/+0x5C) from the scheme's
+// `_scheme_d9b8` / `_scheme_d9c0` dwords.
 static mut WORM_APPLY_DRAG_MODS_ADDR: u32 = 0;
 // WormEntity::ApplyWind (0x004FFAF0) — usercall(ESI=this), 4 stack
 // args (out_x_p, out_y_p, 0, 0), RET 0x10. Computes per-axis wind impulse
@@ -173,9 +174,8 @@ static mut WORM_APPLY_DRAG_MODS_ADDR: u32 = 0;
 static mut WORM_APPLY_WIND_ADDR: u32 = 0;
 // WormEntity::AccumulateImpulse (0x004FFA60) — usercall(EAX=delta_x,
 // ECX=delta_y, ESI=this), no stack args, plain RET. Adds EAX into
-// `subclass_data[0x60-0x30 ..]` (i.e. WorldEntity speed_x at +0x90) and
-// ECX into +0x94 (speed_y), with a scaling step gated on scheme byte
-// `_scheme_d9b3`.
+// WorldEntity speed_x (+0x90) and ECX into speed_y (+0x94), with a
+// scaling step gated on scheme byte `_scheme_d9b3`.
 static mut WORM_ACCUMULATE_IMPULSE_ADDR: u32 = 0;
 
 pub unsafe fn init_addrs() {
@@ -709,8 +709,9 @@ unsafe extern "stdcall" fn bridge_spawn_damage_particles(
 }
 
 /// `__usercall(EAX = this)`, no stack args, plain RET. Rewrites
-/// `subclass_data[0x28]` / `subclass_data[0x2C]` from the scheme drag
-/// dwords; bails when `class_type ∈ {0xF, 0x15, 0x1E}`.
+/// `subclass_data[0x20]` / `subclass_data[0x24]` (worm entity offsets
+/// +0x58/+0x5C) from the scheme drag dwords; bails when
+/// `class_type ∈ {0xF, 0x15, 0x1E}`.
 #[unsafe(naked)]
 unsafe extern "stdcall" fn bridge_apply_drag_mods(_this: *mut WormEntity) {
     core::arch::naked_asm!(
@@ -3012,17 +3013,14 @@ unsafe fn msg_frame_start(
 
         // Block 2 (LAB_00511e45) — drag/wind/impulse fold. Gated on the
         // three scheme drag/wind values, plus state != RopeSwinging. The
-        // `subclass_data[0x30] = ONE` write happens whenever the scheme/state
-        // gate passes, regardless of `_field_bc`; the helper trio only
-        // runs when `_field_bc != 0`.
+        // `_field_60 = ONE` (WormEntity+0x60) write happens whenever the
+        // scheme/state gate passes, regardless of `_field_bc`; the
+        // helper trio only runs when `_field_bc != 0`.
         let scheme_gate = (*game_info)._scheme_d9c5 != 0
             || (*game_info)._scheme_d9c0 != 0
             || (*game_info)._scheme_d9b8 != 0;
         if scheme_gate && !(*this).state().is(KnownWormState::RopeSwinging) {
-            // `param_1[0x18] = 0x10000` — write Fixed::ONE into
-            // `subclass_data[0x30]` (i.e. WormEntity+0x60).
-            let one_slot = (this as *mut u8).add(0x60) as *mut Fixed;
-            *one_slot = Fixed::ONE;
+            (*this).base.subclass_data._field_60 = Fixed::ONE;
 
             if (*this).base._field_bc != 0 {
                 bridge_apply_drag_mods(this);
@@ -3091,11 +3089,7 @@ unsafe fn msg_render_scene(
     unsafe {
         let world = (*(this as *const BaseEntity)).world;
         let state = (*this).state();
-        let action_field = i32::from_ne_bytes(
-            (&(*this).base.subclass_data)[0x18..0x1C]
-                .try_into()
-                .unwrap(),
-        );
+        let action_field = (*this).base.subclass_data.action_field;
         let fire_complete = (*this).fire_complete();
 
         let kamikaze_pos_save_x = rb(KAMIKAZE_POS_SAVE_X_VA) as *mut Fixed;
@@ -3211,11 +3205,7 @@ unsafe fn msg_render_scene(
         // (TryMovePosition collision callbacks in Block A,
         // DrainInputBuffer / ScrollAim* in Block B) can mutate state.
         let tail_state = (*this).state();
-        let tail_action_field = i32::from_ne_bytes(
-            (&(*this).base.subclass_data)[0x18..0x1C]
-                .try_into()
-                .unwrap(),
-        );
+        let tail_action_field = (*this).base.subclass_data.action_field;
         let tail_fire_complete = (*this).fire_complete();
 
         if tail_action_field != 0 && tail_state.is(KnownWormState::SuicideBomber) {

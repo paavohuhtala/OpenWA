@@ -37,9 +37,23 @@ crate::define_addresses! {
 pub const CGAMETASK_SOUND_EMITTER_VT: u32 = SOUND_EMITTER_VTABLE;
 pub const CGAMETASK_VTABLE: u32 = WORLD_ENTITY_VTABLE;
 
+/// Marker trait for the per-subclass storage block at WorldEntity+0x38..+0x84.
+///
+/// Implementors must be `#[repr(C)]` and exactly 0x4C bytes — each derivative
+/// declares its own struct (e.g. [`MissileSubclassData`](crate::entity::MissileSubclassData))
+/// and plugs it into [`WorldEntity<V, S>`]. The default impl on `[u8; 0x4C]`
+/// keeps untyped access working for subclasses that haven't been ported yet.
+///
+/// # Safety
+/// Implementors must be 0x4C bytes; verify with a const assertion at the impl
+/// site (the trait can't enforce this directly without `generic_const_exprs`).
+pub unsafe trait SubclassData: 'static {}
+
+unsafe impl SubclassData for [u8; 0x4C] {}
+
 /// Game entity - extends BaseEntity with physics and gameplay data.
 ///
-/// PARTIAL: Most fields between 0x30-0x83 and 0x98-0xE7 are unknown.
+/// PARTIAL: Most fields between 0x38-0x83 and 0x98-0xE7 are unknown.
 /// Only position and velocity fields have been verified.
 ///
 /// Source: wkJellyWorm WorldEntity.h
@@ -47,18 +61,36 @@ pub const CGAMETASK_VTABLE: u32 = WORLD_ENTITY_VTABLE;
 /// Additional vtable (12 methods at offsets 0x1C-0x48 in vtable)
 #[derive(FieldRegistry)]
 #[repr(C)]
-pub struct WorldEntity<V: super::base::Vtable = *const core::ffi::c_void> {
+pub struct WorldEntity<
+    V: super::base::Vtable = *const core::ffi::c_void,
+    S: SubclassData = [u8; 0x4C],
+> {
     /// 0x00-0x2F: Base BaseEntity fields
     pub base: BaseEntity<V>,
-    /// 0x30-0x83: Subclass-specific data (84 bytes). Each WorldEntity derivative
-    /// uses this region differently:
-    /// - WormEntity: weapon fire state (+0x30 type, +0x34/+0x38 subtypes, +0x3C flag)
-    /// - FilterEntity: boolean message subscription table (+0x30..+0x93)
-    /// - MissileEntity: spawn/physics parameters
-    /// - TeamEntity: secondary vtable pointer (+0x30)
-    /// - CloudEntity: parallax scroll depth (+0x30)
-    /// Access via subclass accessor methods, not directly.
-    pub subclass_data: [u8; 0x54],
+    /// 0x30: "Contact face / trigger class" byte. Read by
+    /// [`MissileEntity::OnContact`](crate::entity::missile) as the face index of
+    /// the contacted entity, and by [`MineEntity::ScanForTrigger`](crate::entity::mine)
+    /// as a low-5-bits trigger-class index gating mine proximity hits. Most
+    /// WorldEntity subclasses leave this zero-initialised (they're
+    /// effectively "face 0 / trigger class 0"); multi-face terrain entities
+    /// encode their actual face index here. Subclasses also see scratch
+    /// writes from the collision dispatcher just before slot 8 (`OnContact`)
+    /// is invoked on a contacting entity, but no subclass durably stores
+    /// anything else of its own at this offset.
+    pub contact_face: u32,
+    /// 0x34: Per-entity collision bucket bitmask. Read by
+    /// [`WorldEntity::check_move_collision_raw`] (bit `N` set ⇒ scan
+    /// bucket `N` for collisions). Subclasses may rewrite this mid-life
+    /// to switch their collision target set — e.g. `MineEntity` writes
+    /// `1 << 22` the first frame it enters water, plausibly switching
+    /// from a worm/dry-terrain bucket set to a water-specific one so it
+    /// continues to sink and interact with water-side collidables.
+    pub bucket_mask: u32,
+    /// 0x38-0x83: Per-subclass storage (0x4C bytes). Default `[u8; 0x4C]`
+    /// for subclasses that haven't been ported to typed views yet; ported
+    /// subclasses pass their own `#[repr(C)]` struct (e.g.
+    /// [`MissileSubclassData`](crate::entity::MissileSubclassData)).
+    pub subclass_data: S,
     /// 0x84: X position in fixed-point
     pub pos_x: Fixed,
     /// 0x88: Y position in fixed-point
@@ -217,8 +249,8 @@ impl WorldEntity {
     /// Returns the colliding entity if `this` cannot move to `(x, y)`, else
     /// null. WA's signature is `__stdcall(gss, this, x, y, helper, mask)`,
     /// RET 0x18, but every known caller passes `helper = this.collision_helper`
-    /// and `mask = this.subclass_data[+0x4..+0x8]`, so the Rust port reads
-    /// both directly from `this`.
+    /// and `mask = this.bucket_mask`, so the Rust port reads both directly
+    /// from `this`.
     ///
     /// Algorithm:
     ///   1. Read the per-team friendly/enemy fire thresholds from
@@ -246,8 +278,7 @@ impl WorldEntity {
             let gss = (*world).game_state_stream;
 
             let helper = (*this).collision_helper;
-            // +0x34 = subclass_data[+0x4..+0x8]: collision-bucket bitmask.
-            let bucket_mask = *((*this).subclass_data.as_ptr().add(4) as *const u32);
+            let bucket_mask = (*this).bucket_mask;
 
             // -- Alliance-gate setup (mirrors WA: only computed if either
             // threshold is non-zero, since the gate would otherwise never

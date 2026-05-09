@@ -330,10 +330,10 @@ pub unsafe fn mine_constructor(
         // typed yet; transmute via raw byte offset to avoid coining a new
         // field name in this slice.
         let world_5cc = *((world as *const u8).add(0x5CC) as *const u32);
-        // subclass_data[4..8] = 2 — read by `try_move_position_raw` and
-        // `gradient` below; the bitwise mask further down overwrites this
-        // with `0x421846 | …` after both calls have used the seed value.
-        write_subclass_dword(this, 0x4, 2);
+        // bucket_mask = 2 — read by `try_move_position_raw` and `gradient`
+        // below; the bitwise mask further down overwrites this with
+        // `0x421846 | …` after both calls have used the seed value.
+        (*this).base.bucket_mask = 2;
         (*this)._field_190 = (world_5cc % 10).wrapping_mul(0x199A);
 
         // Initial placement: probe `(spawn_x, spawn_y)`; commit on accept.
@@ -345,27 +345,27 @@ pub unsafe fn mine_constructor(
         (*this).base.speed_y = Fixed(*rc.add(5) as i32);
         (*this).base.speed_x = Fixed(*rc.add(4) as i32);
 
-        // game_info byte at +0x7e40 selects two flag bits in the
-        // collision-flag word at mine + 0x34. Replicate the SBB bitwise
-        // sequence verbatim.
+        // game_info byte at +0x7e40 selects two flag bits in the mine's
+        // bucket_mask. Replicate the SBB bitwise sequence verbatim.
         let scheme_byte: u8 = *((world as *const u8).add(0x7E40));
         let bit_20 = if scheme_byte >= 2 { 0x20u32 } else { 0 };
         let bit_10 = if scheme_byte >= 8 { 0x10u32 } else { 0 };
-        write_subclass_dword(this, 0x4, 0x00421846 | bit_20 | bit_10);
+        (*this).base.bucket_mask = 0x00421846 | bit_20 | bit_10;
 
-        // Derived seed at subclass_data[0x24..0x28]: signed-div-by-20 of
-        // `(spawn_x + spawn_y) >> 8` truncated to 16 bits, plus 0xCCCC.
+        // Derived seed at subclass_data[0x1C] (mine offset 0x54): signed-
+        // div-by-20 of `(spawn_x + spawn_y) >> 8` truncated to 16 bits,
+        // plus 0xCCCC.
         let sum: i32 = spawn_x.wrapping_add(spawn_y);
         let shifted = (sum >> 8) & 0xFFFF;
         let derived = shifted.wrapping_div(20).wrapping_add(0xCCCC) as u32;
-        write_subclass_dword(this, 0x24, derived);
+        write_subclass_dword(this, 0x1C, derived);
 
-        write_subclass_dword(this, 0x3C, 0x9999);
-        write_subclass_dword(this, 0x40, 0x9999);
-        write_subclass_dword(this, 0x44, 0); // anim flag
-        write_subclass_dword(this, 0x1C, 0x10000);
-        write_subclass_dword(this, 0x10, 0); // armed marker
-        write_subclass_dword(this, 0xC, 1);
+        write_subclass_dword(this, 0x34, 0x9999); // mine + 0x6C
+        write_subclass_dword(this, 0x38, 0x9999); // mine + 0x70
+        write_subclass_dword(this, 0x3C, 0); // anim flag (mine + 0x74)
+        write_subclass_dword(this, 0x14, 0x10000); // mine + 0x4C
+        write_subclass_dword(this, 0x8, 0); // armed marker (mine + 0x40)
+        write_subclass_dword(this, 0x4, 1); // mine + 0x3C
 
         // Arm the mine if it spawned already settled (`arm_delay <= 0`).
         // For airborne mines (`arm_delay < 0`) WA leaves the negative
@@ -375,8 +375,8 @@ pub unsafe fn mine_constructor(
             if (*this).arm_delay == 0 {
                 (*this).arm_delay = 0;
             }
-            write_subclass_dword(this, 0x10, 1); // armed marker
-            write_subclass_dword(this, 0x44, game_d780); // anim flag
+            write_subclass_dword(this, 0x8, 1); // armed marker
+            write_subclass_dword(this, 0x3C, game_d780); // anim flag
         }
 
         // Pre-placed level-gen mines: drop one pixel at a time until
@@ -398,8 +398,8 @@ pub unsafe fn mine_constructor(
                 (*this).base.pos_y = Fixed(y);
                 y = y.wrapping_add(0x10000);
             }
-            // `gradient` overwrites subclass_data[0x4..0x8] internally;
-            // it restores the pre-call value before returning.
+            // `gradient` overwrites bucket_mask internally; it restores
+            // the pre-call value before returning.
             let mut out_grad: i32 = 0;
             let r = bridge_gradient(this, x, y, 4, &raw mut out_grad);
             if r != 0 {

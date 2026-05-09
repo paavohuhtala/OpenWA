@@ -1,8 +1,39 @@
 use super::base::BaseEntity;
-use super::game_entity::WorldEntity;
+use super::game_entity::{SubclassData, WorldEntity};
 use crate::FieldRegistry;
 use crate::game::weapon::WeaponSpawnData;
 use openwa_core::fixed::Fixed;
+
+/// MissileEntity's typed view of [`WorldEntity::subclass_data`]
+/// (entity offsets +0x38..+0x84, 0x4C bytes total).
+///
+/// Touched by [`missile_on_contact`](crate::game::missile_contact::missile_on_contact)
+/// and the generic terminator dispatch (slot 14, which writes `terminate_flag`).
+#[repr(C)]
+pub struct MissileSubclassData {
+    /// Entity +0x38: Unknown.
+    pub _unknown_38: u32,
+    /// Entity +0x3C: Action flag — cleared by the ricochet-exhausted /
+    /// terminator-bailout paths in `MissileEntity::OnContact`. Purpose
+    /// otherwise opaque.
+    pub action_flag: u32,
+    /// Entity +0x40: Unknown.
+    pub _unknown_40: u32,
+    /// Entity +0x44: Terminate flag. Written only by vtable slot 14
+    /// (`SetTerminateFlag` at 0x004FE060) — `OnContact` dispatches there
+    /// rather than touching the slot directly.
+    pub terminate_flag: u32,
+    /// Entity +0x48: Sheep state flag. Set to 1 by the sheep pre-bailout
+    /// stash branch in `OnContact` (alongside saving stash position /
+    /// speed and arming the bailout counter).
+    pub sheep_state_flag: u32,
+    /// Entity +0x4C..+0x84: Unknown.
+    pub _unknown_4c: [u8; 0x38],
+}
+
+const _: () = assert!(core::mem::size_of::<MissileSubclassData>() == 0x4C);
+
+unsafe impl SubclassData for MissileSubclassData {}
 
 crate::define_addresses! {
     class "MissileEntity" {
@@ -73,7 +104,8 @@ pub struct MissileEntityVtable {
 #[repr(C)]
 pub struct MissileEntity {
     /// 0x00–0xFB: WorldEntity base (pos at 0x84/0x88, speed at 0x90/0x94).
-    pub base: WorldEntity<*const MissileEntityVtable>,
+    /// Subclass-data overlay typed as [`MissileSubclassData`].
+    pub base: WorldEntity<*const MissileEntityVtable, MissileSubclassData>,
 
     // ---- 0xFC–0x12F: missile init fields ----
     /// 0xFC–0x10F: Unknown missile flags and state
@@ -131,9 +163,10 @@ pub struct MissileEntity {
     // physics values update some entries during flight. Each entry listed below is
     // named by its semantic role (deduced from MissileEntity::OnContact + constructor
     // analysis). Untouched entries remain in padding arrays.
-    /// 0x2D4 — render_data[0]. Contact-face mask tested against `other->+0x30`
-    /// (the face of the contacted entity). If `(1 << other_face) & mask != 0`,
-    /// the sheep bailout path fires / the contact is rejected.
+    /// 0x2D4 — render_data[0]. Contact-face mask tested against
+    /// `other.contact_face` (the face index of the contacted entity). If
+    /// `(1 << other_face) & mask != 0`, the sheep bailout path fires /
+    /// the contact is rejected.
     pub contact_face_mask: u32,
     /// 0x2D8..0x2EB — render_data[1..6] (untouched by known code paths).
     pub _render_data_01_05: [u32; 5],

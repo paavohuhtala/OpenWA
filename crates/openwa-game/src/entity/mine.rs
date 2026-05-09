@@ -93,20 +93,23 @@ pub struct MineEntity {
     pub _field_108: u32,
     /// 0x10C: Underwater init-once flag. The tick's bubble-emission tail
     /// sets this to 1 the first frame the mine enters water and writes
-    /// `subclass_data[4] = 64.0` (its bobbing target depth or buoyancy
-    /// scalar). Subsequent underwater frames see the flag set and skip
-    /// the one-time write.
+    /// `bucket_mask = 1 << 22`, plausibly switching the mine's collision
+    /// target set from the dry-terrain buckets it was constructed with
+    /// to a water-specific bucket so it continues to sink and interact
+    /// with water-side collidables. Subsequent underwater frames see the
+    /// flag set and skip the one-time write. Confirming "bucket 22 ==
+    /// water" is pending follow-up RE.
     pub _field_10c: u32,
     /// 0x110: This mine's slot ID in `GameWorld.entity_activity_queue`.
     pub activity_rank_slot: u32,
     /// 0x114: Trigger class bitmask. `MineEntity::ScanForTrigger` reads
-    /// the candidate entity's `subclass_data[0]` u32 (entity offset
+    /// the candidate entity's `WorldEntity::contact_face` (entity offset
     /// `+0x30`), takes its low 5 bits as a "trigger-class index", and
     /// gates the proximity hit on
     /// `(trigger_class_mask >> trigger_class_index) & 1`. The index is
     /// **not** the BaseEntity `class_type` enum (which lives at +0x20);
     /// it's a separate per-subclass byte that triggerable entities write
-    /// into their `subclass_data[0]`. Sourced from `WeaponFireParams[2]`
+    /// into their `contact_face`. Sourced from `WeaponFireParams[2]`
     /// for `FireType::Placed`.
     pub trigger_class_mask: u32,
     /// 0x118: Fuse timer (signed). Decrements 20/frame after the mine

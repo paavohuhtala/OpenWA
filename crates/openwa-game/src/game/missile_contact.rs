@@ -33,14 +33,6 @@ const VA_CGAME_TASK_VT8: u32 = 0x004FFED0;
 const VA_IMPACT_SPECIAL_FX: u32 = 0x00509BA0;
 const VA_EXPLOSION_DAMAGE_JITTER: u32 = 0x00547CB0;
 
-/// WorldEntity subclass-data offsets (inside `WorldEntity::subclass_data[0..0x54]`)
-/// that MissileEntity::OnContact touches directly. These live in the base class's
-/// opaque region rather than in `MissileEntity`'s own fields. The terminate-flag
-/// field (+0x44) is written only by slot-14 dispatch, so we do not touch it
-/// directly here.
-const OFFSET_ACTION_FLAG: usize = 0x3C;
-const OFFSET_SHEEP_STATE_FLAG: usize = 0x48;
-
 /// Read/write a u32 field in the MissileEntity struct by absolute byte offset.
 #[inline]
 unsafe fn field_u32_mut(this: *mut MissileEntity, byte_offset: usize) -> *mut u32 {
@@ -53,8 +45,8 @@ unsafe fn field_u32_mut(this: *mut MissileEntity, byte_offset: usize) -> *mut u3
 /// - `this` — missile.
 /// - `other` — the entity we contacted (any BaseEntity subclass).
 /// - `self_side_flags` — index (0..31) of the missile-local side/face that hit.
-///   The caller (physics/collision) supplies this; `other->+0x30` supplies the
-///   mirror-image face index on `other`'s side.
+///   The caller (physics/collision) supplies this; `other.contact_face` supplies
+///   the mirror-image face index on `other`'s side.
 pub unsafe extern "thiscall" fn missile_on_contact(
     this: *mut MissileEntity,
     other: *mut BaseEntity,
@@ -73,8 +65,10 @@ pub unsafe extern "thiscall" fn missile_on_contact(
             (*field_u32_mut(this, 0x124)).wrapping_add((abs_speed_sum >> 1) as u32);
 
         // Read other's contact face (low 5 bits used as a shift count via
-        // `SHL reg, CL` which implicitly masks CL with 0x1F).
-        let other_face_idx = BaseEntity::contact_face_slot_raw(other) & 0x1F;
+        // `SHL reg, CL` which implicitly masks CL with 0x1F). `other` is
+        // always a WorldEntity subclass at the contact-dispatch boundary,
+        // even though the dispatcher passes it as a BaseEntity.
+        let other_face_idx = (*(other as *const crate::entity::WorldEntity)).contact_face & 0x1F;
         let other_face_bit = 1u32 << other_face_idx;
 
         let missile_type = (*this).missile_type;
@@ -95,7 +89,7 @@ pub unsafe extern "thiscall" fn missile_on_contact(
                 (*this).sheep_stash_pos_y = (*this).base.pos_y;
                 (*this).sheep_stash_speed_x = (*this).base.speed_x;
                 (*this).sheep_stash_speed_y = (*this).base.speed_y;
-                *field_u32_mut(this, OFFSET_SHEEP_STATE_FLAG) = 1;
+                (*this).base.subclass_data.sheep_state_flag = 1;
                 (*this).sheep_action_flag = 0;
                 (*this).sheep_bailout_counter = 10;
                 return 1;
@@ -148,7 +142,7 @@ pub unsafe extern "thiscall" fn missile_on_contact(
                 let new_counter = counter.wrapping_sub(1);
                 (*this).ricochet_counter = new_counter;
                 if (new_counter as i32) < 1 {
-                    *field_u32_mut(this, OFFSET_ACTION_FLAG) = 0;
+                    (*this).base.subclass_data.action_flag = 0;
                     MissileEntity::set_terminate_flag_raw(this, 1);
                     return 1;
                 }
@@ -244,7 +238,7 @@ pub unsafe extern "thiscall" fn missile_on_contact(
 #[inline]
 unsafe fn terminator_bailout_stash(this: *mut MissileEntity, speed_x: Fixed, speed_y: Fixed) {
     unsafe {
-        *field_u32_mut(this, OFFSET_ACTION_FLAG) = 0;
+        (*this).base.subclass_data.action_flag = 0;
         MissileEntity::set_terminate_flag_raw(this, 1);
         (*this).terminate_stash_speed_x = speed_x;
         (*this).terminate_stash_speed_y = speed_y;

@@ -127,8 +127,9 @@ pub struct GameInfo {
     pub _unknown_d77c: [u8; 0xD780 - 0xD77C],
     /// 0xD780: Unknown — read by `MineEntity::HandleMessage` case 0x1C
     /// (Explosion) when `game_version > 0x3C` and the mine's settle timer
-    /// is still positive; copied into the mine's `subclass_data[0x44]`
-    /// "anim flag" slot. Likely a per-scheme animation/lock parameter.
+    /// is still positive; copied into the mine's `subclass_data[0x3C]`
+    /// "anim flag" slot (mine entity offset +0x74). Likely a per-scheme
+    /// animation/lock parameter.
     pub _field_d780: u32,
     /// 0xD784-0xD787: Unknown
     pub _unknown_d784: [u8; 0xD788 - 0xD784],
@@ -333,17 +334,17 @@ pub struct GameInfo {
     pub _unknown_d9b4: [u8; 4],
     /// 0xD9B8: First scheme drag/wind dword consulted by `FrameStart`
     /// (msg 0x1) and `ApplyDragMods` (0x004FF9F0). Non-zero is used
-    /// to compute `subclass_data[0x28] = 0x10000 - dword` (a drag scaling
-    /// factor); also gates the impulse-block entry alongside `_scheme_d9c0`
-    /// and [`_scheme_d9c5`].
+    /// to compute `subclass_data[0x20] = 0x10000 - dword` (worm entity
+    /// offset +0x58, a drag scaling factor); also gates the impulse-block
+    /// entry alongside `_scheme_d9c0` and [`_scheme_d9c5`].
     pub _scheme_d9b8: i32,
     /// 0xD9BC–0xD9BF: Unknown (companion gate byte at 0xD9BC consulted
     /// alongside [`_scheme_d9b8`] in `ApplyDragMods`).
     pub _unknown_d9bc: [u8; 4],
     /// 0xD9C0: Second scheme drag/wind dword consulted by `FrameStart`
     /// (msg 0x1) and `ApplyDragMods`. Stored verbatim into
-    /// `subclass_data[0x2C]` when that slot is zero; also gates the
-    /// impulse-block entry.
+    /// `subclass_data[0x24]` (worm entity offset +0x5C) when that slot is
+    /// zero; also gates the impulse-block entry.
     pub _scheme_d9c0: i32,
     /// 0xD9C4: Unknown (companion gate byte at 0xD9C4 in `ApplyDragMods`).
     pub _unknown_d9c4: u8,
