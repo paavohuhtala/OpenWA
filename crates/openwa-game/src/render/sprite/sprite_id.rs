@@ -7,7 +7,7 @@
 /// Not exhaustive — unknown IDs can still be represented via [`SpriteOp`].
 ///
 /// Source: wkJellyWorm Constants.h
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[repr(u32)]
 pub enum KnownSpriteId {
     Cdrom = 1,

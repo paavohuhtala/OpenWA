@@ -13,7 +13,8 @@ use crate::engine::world::{GameWorld, Vec2WorldExt};
 use crate::entity::base::BaseEntity;
 use crate::rebase::rb;
 use crate::render::message::RenderMessage;
-use crate::render::sprite::sprite_op::SpriteOp;
+use crate::render::sprite::sprite_id::KnownSpriteId;
+use crate::render::sprite::sprite_op::{SpriteFlags, SpriteOp};
 use crate::render::textbox::{Textbox, set_text as set_textbox_text};
 use openwa_core::fixed::Fixed;
 use openwa_core::vec2::Vec2;
@@ -32,72 +33,74 @@ const INDICATOR_INSET: Fixed = Fixed::from_raw(0x00300000);
 const TEXTBOX_VELOCITY_SCALE: i32 = 32;
 const TEXTBOX_OFFSET: Fixed = Fixed::from_raw(0x00120000);
 
-/// Pure-Rust port of `drown` (0x00565D60). Maps an in-air sprite ID to its
-/// underwater counterpart via a sparse LUT. The sprite encoding stores
-/// flag bits in the high 16 bits — only the low 16 bits select a slot;
-/// the high bits are preserved.
-fn drown(sprite: u32) -> u32 {
-    let high = sprite & 0xFFFF_0000;
-    let low = (sprite & 0xFFFF) as u16;
-    let mapped = match low {
-        0x0E => 0x274,
-        0x0F => 0x275,
-        0x10 => 0x276,
-        0x11 => 0x277,
-        0x12 => 0x278,
-        0x13 => 0x279,
-        0x2D => 0x283,
-        0x2E => 0x28C,
-        0x2F => 0x284,
-        0x30 => 0x285,
-        0x31 => 0x28B,
-        0x32 => 0x287,
-        0x33 => 0x29D,
-        0x34 => 0x288,
-        0x35 => 0x289,
-        0x36 => 0x28A,
-        0x37 => 0x29E,
-        0x38 => 0x2A0,
-        0x39 => 0x29F,
-        0x3A => 0x2A1,
-        0x3B => 0x2A2,
-        0x3C => 0x286,
-        0x3D | 0x40 => 0x290,
-        0x3E => 0x28E,
-        0x3F => 0x28F,
-        0x41 | 0x98 | 0x99 => 0x28D,
-        0x42 => 0x282,
-        0x47 => 0x292,
-        0x48 => 0x2AA,
-        0x49 => 0x2AB,
-        0x4A => 0x2A5,
-        0x4B => 0x2A6,
-        0x4C => 0x2A7,
-        0x4D => 0x2A8,
-        0x4E => 0x2A9,
-        0x52 => 0x2AC,
-        0x5C | 0x5D => 0x27A,
-        0x60 | 0x67 => 0x27C,
-        0x61 | 0x68 => 0x27D,
-        0x62 | 0x69 => 0x27E,
-        0x66 => 0x27F,
-        0x6E..=0x71 => 0x281,
-        0x9C => 0x2A3,
-        0x9D => 0x2A4,
-        0x9E => 0x297,
-        0xA2 => 0x294,
-        0xA3 => 0x295,
-        0xA4 | 0xA5 => 0x298,
-        0xAD | 0xAE => 0x296,
-        // WA's source has these four cases set `param_1 += 0x1EA` then
-        // fall through to `return uVar1 | param_1` — i.e. `low + 0x1EA`.
-        // (low is at most 0xB2, so the add never overflows into the high
-        // half.)
-        0xAF..=0xB2 => (low as u32).wrapping_add(0x1EA),
-        // Default: pass through unchanged.
-        _ => low as u32,
+/// Pure-Rust port of `drown` (0x00565D60). Maps an in-air [`SpriteOp`] to its
+/// underwater counterpart via a sparse LUT keyed by [`KnownSpriteId`]. The
+/// caller's transform flags are preserved; only the sprite index is rewritten
+/// when a mapping exists.
+fn drown(sprite: SpriteOp) -> SpriteOp {
+    use KnownSpriteId::*;
+    let flags = sprite.flags();
+    let mapped = match KnownSpriteId::try_from(sprite.index() as u32) {
+        Ok(known) => match known {
+            Grave1 => SpriteOp::from(Grave1V2),
+            Grave2 => SpriteOp::from(Grave2V2),
+            Grave3 => SpriteOp::from(Grave3V2),
+            Grave4 => SpriteOp::from(Grave4V2),
+            Grave5 => SpriteOp::from(Grave5V2),
+            Grave6 => SpriteOp::from(Grave6V2),
+            MineOn => SpriteOp::from(MineOnV2),
+            Arrow => SpriteOp::from(ArrowV2),
+            MineOff => SpriteOp::from(MineOffV2),
+            Missile => SpriteOp::from(MissileV2),
+            Bullet => SpriteOp::from(BulletV2),
+            Grenade => SpriteOp::from(GrenadeV2),
+            Banana => SpriteOp::from(BananaV2),
+            Mortar => SpriteOp::from(MortarV2),
+            Cluster => SpriteOp::from(ClusterV2),
+            Clustlet => SpriteOp::from(ClustletV2),
+            PetrolBm => SpriteOp::from(PetrolBmV2),
+            HGrenade => SpriteOp::from(HGrenadeV2),
+            Tamborin => SpriteOp::from(TamborinV2),
+            HMissil1 => SpriteOp::from(HMissil1V2),
+            HMissil2 => SpriteOp::from(HMissil2V2),
+            AirMisl => SpriteOp::from(AirMislV2),
+            SheepFal | SheepBrn => SpriteOp::from(SheepFalV2),
+            Carpet1 => SpriteOp::from(Carpet1V2),
+            Carpet2 => SpriteOp::from(Carpet2V2),
+            SheepLau | LShpWlk | SheepWlk => SpriteOp::from(Sheep),
+            Meteor => SpriteOp::from(MeteorV2),
+            MbBomb => SpriteOp::from(MbBombV2),
+            Letter1 => SpriteOp::from(Letter1V2),
+            Letter2 => SpriteOp::from(Letter2V2),
+            Vase => SpriteOp::from(VaseV2),
+            VaseBit1 => SpriteOp::from(VaseBit1V2),
+            VaseBit2 => SpriteOp::from(VaseBit2V2),
+            VaseBit3 => SpriteOp::from(VaseBit3V2),
+            Dynamite => SpriteOp::from(DynamiteV2),
+            Donkey => SpriteOp::from(DonkeyV2),
+            Targets | TargetsV => SpriteOp::from(TargetsV2),
+            WCrate1 | WCrateV => SpriteOp::from(WCrate1V2),
+            MCrate1 | MCrateV => SpriteOp::from(MCrate1V2),
+            UCrate1 | UCrateV => SpriteOp::from(UCrate1V2),
+            Donor => SpriteOp::from(DonorV2),
+            OilDrum1 | OilDrum2 | OilDrum3 | OilDrum4 => SpriteOp::from(OilDrum),
+            AquaShp1 => SpriteOp::from(AquaShp1V2),
+            AquaShp2 => SpriteOp::from(AquaShp2V2),
+            MoleDive => SpriteOp::from(Mole),
+            Woman => SpriteOp::from(WomanV2),
+            Sally => SpriteOp::from(SallyV2),
+            CowWalk | CowJump => SpriteOp::from(CowWalkV2),
+            Skunk1 | Skunk2 => SpriteOp::from(SkunkV2),
+            PigeonR0 => SpriteOp::from(PigeonR0V2),
+            PigeonR1 => SpriteOp::from(PigeonR1V2),
+            PigeonR2 => SpriteOp::from(PigeonR2V2),
+            PigeonR3 => SpriteOp::from(PigeonR3V2),
+            // Unmapped: pass the index through unchanged.
+            other => SpriteOp::from(other),
+        },
+        Err(raw) => SpriteOp::from_index(raw as u16),
     };
-    high | mapped
+    SpriteOp(mapped.0 | flags.bits())
 }
 
 /// `Math::fixa2tan16` (0x00575730) — `__usercall(ESI = y, EDI = x)`. Both
@@ -240,7 +243,7 @@ unsafe fn emit_sprite(
     layer: u32,
     pos_x: Fixed,
     pos_y_or_subframe: Fixed,
-    sprite_id: u32,
+    sprite: SpriteOp,
     palette: u32,
 ) {
     unsafe {
@@ -250,7 +253,7 @@ unsafe fn emit_sprite(
                 local: true,
                 x: pos_x.floor(),
                 y: pos_y_or_subframe.floor(),
-                sprite: SpriteOp(sprite_id),
+                sprite,
                 palette,
             },
         );
@@ -300,10 +303,14 @@ pub unsafe fn missile_render(this: *mut MissileEntity) {
         let sprite_layer = layer_base.wrapping_add(1);
         if matches!((*this).missile_type, MissileType::Animal) {
             if underwater {
-                let (_, anim_kind) = render_view(this);
-                let mut sprite = drown(anim_kind);
+                // WA reads [ESI+4] (= the `default_sprite` slot, NOT
+                // [ESI+8] anim_kind). Sheep's anim_kind is a small int
+                // (e.g. 6) which fell through drown's passthrough as
+                // KnownSpriteId::CrshairP — visible as a crosshair.
+                let (default_sprite, _) = render_view(this);
+                let mut sprite = drown(SpriteOp(default_sprite));
                 if direction_initial < 0 {
-                    sprite |= 0x40000;
+                    sprite.0 |= SpriteFlags::MIRROR_X.bits();
                 }
                 let frame_counter = (*world).frame_counter as i64;
                 let palette = ((frame_counter << 16) / 50) as u32;
@@ -314,11 +321,11 @@ pub unsafe fn missile_render(this: *mut MissileEntity) {
                 let torque = (*this).super_animal_torque_accum;
                 (*this).animation_phase = torque;
                 let parity = (((*world).frame_counter as i32) / 5) & 1;
-                let mut sprite = if parity == 0 {
+                let mut sprite = SpriteOp(if parity == 0 {
                     (*this).super_animal_walk_sprite_alt
                 } else {
                     (*this).super_animal_walk_sprite
-                };
+                });
                 if (pos_y.to_raw() >> 16) >= (*world).water_kill_y {
                     sprite = drown(sprite);
                 }
@@ -336,11 +343,11 @@ pub unsafe fn missile_render(this: *mut MissileEntity) {
         };
 
         let (default_sprite, anim_kind) = render_view(this);
-        let mut sprite_id = if (*this)._unknown_3a4 != 0 {
+        let mut sprite = SpriteOp(if (*this)._unknown_3a4 != 0 {
             (*this).alt_sprite_id
         } else {
             default_sprite
-        };
+        });
         let mut direction_flag = direction_initial;
 
         match anim_kind {
@@ -374,7 +381,7 @@ pub unsafe fn missile_render(this: *mut MissileEntity) {
                     delta = 3;
                 }
                 direction_flag = if speed_x.to_raw() >= 0 { 1 } else { -1 };
-                sprite_id = sprite_id.wrapping_add(delta as u32);
+                sprite.0 = sprite.0.wrapping_add(delta as u32);
             }
             _ => {}
         }
@@ -385,16 +392,16 @@ pub unsafe fn missile_render(this: *mut MissileEntity) {
             if (*this).digger_bailout_counter == 0 {
                 // Pre-burrow sprite ID is co-located with `impact_sound_id`
                 // (slot 0x340) — diggers don't take an impact sound.
-                sprite_id = (*this).impact_sound_id;
+                sprite = SpriteOp((*this).impact_sound_id);
             } else {
                 // Bailout walk-cycle: 3 sprite slots (0x344/0x348/0x34C),
                 // one per 3 frames.
                 let idx = ((*world).frame_counter as i32 / 3) % 3;
-                sprite_id = match idx {
+                sprite = SpriteOp(match idx {
                     0 => (*this).ricochet_side_mask,
                     1 => (*this).ricochet_chance_pct,
                     _ => (*this)._render_data_1e,
-                };
+                });
             }
             let angle = bridge_fixa2tan16(speed_x.to_raw(), -speed_y.to_raw());
             let doubled = angle.wrapping_mul(2) as i32;
@@ -404,11 +411,11 @@ pub unsafe fn missile_render(this: *mut MissileEntity) {
 
         if (*this).base._field_b0 != 0 || (*this).base._field_a4 != 0 {
             palette = 0;
-            sprite_id = drown(sprite_id);
+            sprite = drown(sprite);
         }
 
         if direction_flag < 0 {
-            sprite_id |= 0x40000;
+            sprite.0 |= SpriteFlags::MIRROR_X.bits();
         }
 
         emit_sprite(
@@ -416,7 +423,7 @@ pub unsafe fn missile_render(this: *mut MissileEntity) {
             sprite_layer,
             pos_x,
             pos_y_for_sprite,
-            sprite_id,
+            sprite,
             palette as u32,
         );
     }
@@ -472,7 +479,7 @@ pub unsafe fn render_indicator(this: *mut MissileEntity) {
         if owner_id != 0 {
             let game_info = (*world).game_info;
             let team_record = GameInfo::team_record_1based(game_info, owner_id as i32);
-            let sprite_id = ((*team_record).font_palette_idx as u32).wrapping_add(0x20);
+            let sprite = SpriteOp(((*team_record).font_palette_idx as u32).wrapping_add(0x20));
             let sprite_layer = (render_rank as u32).wrapping_mul(4).wrapping_add(0x50001);
             let _ = (*rq).push_typed(
                 sprite_layer,
@@ -480,7 +487,7 @@ pub unsafe fn render_indicator(this: *mut MissileEntity) {
                     local: true,
                     x: indicator_x.floor(),
                     y: indicator_y.floor(),
-                    sprite: SpriteOp(sprite_id),
+                    sprite,
                     palette: angle,
                 },
             );
