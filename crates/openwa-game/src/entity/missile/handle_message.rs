@@ -103,9 +103,11 @@ unsafe extern "stdcall" fn bridge_start_super_animal(_this: *mut MissileEntity) 
     );
 }
 
-/// Same shape as [`bridge_start_super_animal`].
+/// Same shape as [`bridge_start_super_animal`]. Re-exposed to the sibling
+/// [`free`](super::free) module — the destructor invokes this when the
+/// missile is mid-super-animal (`contact_phase == 1`).
 #[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_finish_super_animal(_this: *mut MissileEntity) {
+pub(super) unsafe extern "stdcall" fn bridge_finish_super_animal(_this: *mut MissileEntity) {
     core::arch::naked_asm!(
         "mov eax, dword ptr [esp+4]",
         "mov ecx, dword ptr [{addr}]",

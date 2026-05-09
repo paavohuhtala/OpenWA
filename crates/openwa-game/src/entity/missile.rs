@@ -5,6 +5,7 @@ use crate::game::weapon::WeaponSpawnData;
 use openwa_core::fixed::Fixed;
 use openwa_core::vec2::Vec2;
 
+pub mod free;
 pub mod handle_message;
 
 /// MissileEntity's typed view of [`WorldEntity::subclass_data`]
@@ -59,6 +60,12 @@ crate::define_addresses! {
 /// - Slot 8 is MissileEntity-specific: [`on_contact`](MissileEntityVtable::on_contact).
 #[openwa_game::vtable(size = 20, va = 0x00664438, class = "MissileEntity")]
 pub struct MissileEntityVtable {
+    /// `MissileEntity::Free` (0x00508330) — scalar deleting destructor.
+    /// Calls the inlined `dtor1` (0x005086F0) and, when bit 0 of `flags`
+    /// is set, frees the heap allocation. Thiscall(this, flags), RET 0x4.
+    /// Returns `this` in EAX.
+    #[slot(1)]
+    pub free: fn(this: *mut MissileEntity, flags: u8) -> *mut MissileEntity,
     /// HandleMessage — processes missile messages.
     /// thiscall + 4 stack params, RET 0x10.
     #[slot(2)]
@@ -354,8 +361,21 @@ pub struct MissileEntity {
     /// `weapon_data[0x2D] == 1 && game_version < 0x1F0 && weapon_data[9]
     /// == 0x41`. Readers / exact role unidentified.
     pub _field_3d4: u8,
-    /// 0x3D5..0x3DF: Unknown.
-    pub _unknown_3d5: [u8; 0xB],
+    /// 0x3D5..0x3D7: Unknown.
+    pub _unknown_3d5: [u8; 3],
+    /// 0x3D8: Headful-only render sub-object handle, allocated by
+    /// `Task_Missile::ConstructPointers` (called from the missile
+    /// constructor) only when `world.is_headful != 0`. Mirrors the
+    /// "two-child wrapper" shape used by `MineEntity::textbox_handle`:
+    /// the wrapper holds two refcounted child pointers at +0xC and +0x10,
+    /// each released via vtable slot 3 (`thiscall(this, flag=1)`) by the
+    /// destructor before `wa_free`-ing the wrapper itself. The first of
+    /// two such handles MissileEntity owns; the second is at
+    /// [`render_handle_b`](MissileEntity::render_handle_b).
+    pub render_handle_a: *mut u8,
+    /// 0x3DC: Companion to [`render_handle_a`](MissileEntity::render_handle_a)
+    /// with the same wrapper layout. Allocated and freed in lock-step.
+    pub render_handle_b: *mut u8,
     /// 0x3E0 — Dig-sound active handle. Holds the value returned by
     /// `GameTask::sound_start_0` for the missile's dig sound on success;
     /// when that call returns -1 (sound system busy), the slot instead
@@ -417,6 +437,8 @@ const _: () = {
     assert!(offset_of!(MissileEntity, direction) == 0x3C8);
     assert!(offset_of!(MissileEntity, super_animal_torque_input) == 0x3CC);
     assert!(offset_of!(MissileEntity, _field_3d4) == 0x3D4);
+    assert!(offset_of!(MissileEntity, render_handle_a) == 0x3D8);
+    assert!(offset_of!(MissileEntity, render_handle_b) == 0x3DC);
     assert!(offset_of!(MissileEntity, dig_sound_handle) == 0x3E0);
     assert!(offset_of!(MissileEntity, fuse_sound_handle) == 0x3E4);
     assert!(offset_of!(MissileEntity, animation_phase) == 0x3E8);
@@ -614,6 +636,12 @@ impl crate::snapshot::Snapshot for MissileEntity {
                 self._unknown_3d5.as_ptr(),
                 self._unknown_3d5.len(),
                 i + 1,
+            )?;
+            write_indent(w, i)?;
+            writeln!(
+                w,
+                "render_handle_a = {:p} render_handle_b = {:p}",
+                self.render_handle_a, self.render_handle_b,
             )?;
             write_indent(w, i)?;
             writeln!(w, "_unknown_3ec ({} bytes):", self._unknown_3ec.len())?;
