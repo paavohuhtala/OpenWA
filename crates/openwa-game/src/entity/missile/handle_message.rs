@@ -17,6 +17,7 @@ use crate::entity::base::BaseEntity;
 use crate::entity::game_entity::WorldEntity;
 use crate::game::game_entity_message::world_entity_handle_message;
 use crate::game::message::{EntityMessage, ExplosionMessage};
+use crate::rebase::rb;
 
 type HandleMessageFn = unsafe extern "thiscall" fn(
     this: *mut MissileEntity,
@@ -30,10 +31,87 @@ type HandleMessageFn = unsafe extern "thiscall" fn(
 /// by `vtable_replace!` at install time.
 pub static ORIGINAL_HANDLE_MESSAGE: AtomicU32 = AtomicU32::new(0);
 
-/// Reserved for future bridge-address registration. The current slice has
-/// no WA bridges, but the shim exposes the hook so the install site
-/// matches mine/oil_drum's pattern.
-pub unsafe fn init_addrs() {}
+// Rebased bridge addresses, initialized by [`init_addrs`].
+//
+// `Task_Missile::start_fuse_sound` (0x00508B50) — `__usercall(EDI = this,
+// [stack] = sound_id)`, RET 4. Tries to start the fuse sound; if that
+// fails, stashes -sound_id as a deferred-retry sentinel.
+static mut START_FUSE_SOUND_ADDR: u32 = 0;
+// `Task_Missile::start_dig_sound` (0x00508930) — same shape, slot 0x3E0.
+static mut START_DIG_SOUND_ADDR: u32 = 0;
+// `Task_Missile::start_super_animal` (0x0050AF40) — `__usercall(EAX = this)`,
+// plain RET. Transitions a homing missile into super-animal control mode.
+static mut START_SUPER_ANIMAL_ADDR: u32 = 0;
+// `Task_Missile::finish_super_animal` (0x0050B020) — `__usercall(EAX = this)`,
+// plain RET. Closes out super-animal mode (drains residual velocity into
+// 1/3 carry-over and sets contact_phase = 2).
+static mut FINISH_SUPER_ANIMAL_ADDR: u32 = 0;
+
+pub unsafe fn init_addrs() {
+    unsafe {
+        START_FUSE_SOUND_ADDR = rb(0x00508B50);
+        START_DIG_SOUND_ADDR = rb(0x00508930);
+        START_SUPER_ANIMAL_ADDR = rb(0x0050AF40);
+        FINISH_SUPER_ANIMAL_ADDR = rb(0x0050B020);
+    }
+}
+
+// ─── WA bridges ────────────────────────────────────────────────────────────
+
+/// `__usercall(EDI = this, [stack] = sound_id)`, RET 4. EDI is callee-saved
+/// per the x86 ABI, so the trampoline preserves it across the call.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_start_fuse_sound(_this: *mut MissileEntity, _sound_id: i32) {
+    core::arch::naked_asm!(
+        "push edi",
+        "mov edi, dword ptr [esp+8]",   // this  (ret(4) + edi(4) = 8)
+        "push dword ptr [esp+12]",      // sound_id (caller's stack arg)
+        "mov ecx, dword ptr [{addr}]",
+        "call ecx",
+        "pop edi",
+        "ret 8",
+        addr = sym START_FUSE_SOUND_ADDR,
+    );
+}
+
+/// Same shape as [`bridge_start_fuse_sound`].
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_start_dig_sound(_this: *mut MissileEntity, _sound_id: i32) {
+    core::arch::naked_asm!(
+        "push edi",
+        "mov edi, dword ptr [esp+8]",
+        "push dword ptr [esp+12]",
+        "mov ecx, dword ptr [{addr}]",
+        "call ecx",
+        "pop edi",
+        "ret 8",
+        addr = sym START_DIG_SOUND_ADDR,
+    );
+}
+
+/// `__usercall(EAX = this)`, plain RET. EAX is caller-saved.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_start_super_animal(_this: *mut MissileEntity) {
+    core::arch::naked_asm!(
+        "mov eax, dword ptr [esp+4]",
+        "mov ecx, dword ptr [{addr}]",
+        "call ecx",
+        "ret 4",
+        addr = sym START_SUPER_ANIMAL_ADDR,
+    );
+}
+
+/// Same shape as [`bridge_start_super_animal`].
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_finish_super_animal(_this: *mut MissileEntity) {
+    core::arch::naked_asm!(
+        "mov eax, dword ptr [esp+4]",
+        "mov ecx, dword ptr [{addr}]",
+        "call ecx",
+        "ret 4",
+        addr = sym FINISH_SUPER_ANIMAL_ADDR,
+    );
+}
 
 /// HandleMessage selects between two "discriminator" slots inside
 /// [`MissileEntity`]'s render-data block based on
@@ -189,6 +267,129 @@ unsafe fn msg_explosion(
     }
 }
 
+/// `0x2C` DetonateWeapon — manual detonate / state-cycle request from
+/// the firing worm.
+///
+/// Gated on:
+/// - the message originating from this missile's own owner
+///   (`*data == spawn_params.owner_id`), AND
+/// - the missile being above water (`_field_b0 == 0`).
+///
+/// When the gate passes:
+/// 1. **Super-animal transition** — for homing missiles whose render data
+///    enables super-animal control ([`super_animal_eligible`] != 0):
+///     - `contact_phase == 0` → call `Task_Missile::start_super_animal`,
+///       and return.
+///     - `contact_phase == 1 && pos_y_int < world.water_kill_y` →
+///       call `Task_Missile::finish_super_animal`, and return.
+/// 2. **Detonate dispatch** — by [`detonate_response_mode`]:
+///     - `1`: invoke vtable[14] (`set_terminate_flag`) with flag `2` if
+///       `weapon_data[0x2D] == 3`, else flag `1`. The flag-`1` sub-branch
+///       additionally sets [`_field_3d4`] = 1 when
+///       `weapon_data[0x2D] == 1 && game_version < 0x1F0 &&
+///       weapon_data[9] == 0x41`.
+///     - `2`: zero `_render_data_0e_15[2]` (some companion flag) and
+///       `detonate_response_mode`, then `fuse_timer = (rng & 0xFFFF) %
+///       500`.
+///
+/// Always handled — the gate-failed paths are no-ops in WA.
+///
+/// [`super_animal_eligible`]: MissileEntity::super_animal_eligible
+/// [`detonate_response_mode`]: MissileEntity::detonate_response_mode
+/// [`_field_3d4`]: MissileEntity::_field_3d4
+unsafe fn msg_detonate_weapon(this: *mut MissileEntity, data: *const u8) {
+    unsafe {
+        let sender_id = *(data as *const u32);
+        if sender_id != (*this).spawn_params.owner_id {
+            return;
+        }
+        if (*this).base._field_b0 != 0 {
+            // Underwater — silently drop.
+            return;
+        }
+
+        let world = (*(this as *const BaseEntity)).world;
+
+        // Super-animal transition for eligible homing missiles.
+        if matches!((*this).missile_type, super::MissileType::Homing)
+            && (*this).super_animal_eligible != 0
+        {
+            match (*this).contact_phase {
+                0 => {
+                    bridge_start_super_animal(this);
+                    return;
+                }
+                1 => {
+                    let pos_y_int = (*this).base.pos_y.to_int();
+                    if pos_y_int < (*world).water_kill_y {
+                        bridge_finish_super_animal(this);
+                        return;
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        // Detonate response.
+        match (*this).detonate_response_mode {
+            1 => {
+                let flag = if (*this).weapon_data[0x2D] == 3 { 2 } else { 1 };
+                MissileEntity::set_terminate_flag_raw(this, flag);
+                if flag == 1 {
+                    let game_version = (*(*world).game_info).game_version;
+                    if (*this).weapon_data[0x2D] == 1
+                        && game_version < 0x1F0
+                        && (*this).weapon_data[9] == 0x41
+                    {
+                        (*this)._field_3d4 = 1;
+                    }
+                }
+            }
+            2 => {
+                (*this)._render_data_0e_15[2] = 0;
+                (*this).detonate_response_mode = 0;
+                let rng = (*world).advance_rng();
+                (*this).fuse_timer = ((rng & 0xFFFF) % 500) as i32;
+            }
+            _ => {}
+        }
+    }
+}
+
+/// `0x7A` (122) — sound-handle restore. Sent on save/restore (and similar
+/// sound-system reset events). Re-arms the missile's two sound slots when
+/// they were previously stashed as `-sound_id` retry sentinels by a
+/// failed `Task_Missile::start_*_sound` call.
+///
+/// Predicate (the inlined `Task_Missile::sub_508B90` / `sub_5088A0`): the
+/// slot is a deferred retry iff `-slot` is non-negative, has bit `0x10000`
+/// set, and the low 16 bits are `< 0x7F` (i.e. the original sound id was
+/// `0x10000 ..= 0x1007E`, the music-style category).
+///
+/// Always handled — both sub-branches are conditional, and a no-op when
+/// neither slot is in the retry state.
+unsafe fn msg_sound_restore(this: *mut MissileEntity) {
+    unsafe {
+        let fuse_slot = (*this).fuse_sound_handle;
+        if is_deferred_sound_retry(fuse_slot) {
+            bridge_start_fuse_sound(this, fuse_slot.wrapping_neg());
+        }
+        let dig_slot = (*this).dig_sound_handle;
+        if is_deferred_sound_retry(dig_slot) {
+            bridge_start_dig_sound(this, dig_slot.wrapping_neg());
+        }
+    }
+}
+
+/// Inline port of `Task_Missile::sub_508B90` / `sub_5088A0` (12-instruction
+/// predicates). Returns `true` when `slot` is a `-sound_id` retry sentinel
+/// stashed by a previously-failed `start_*_sound` call.
+#[inline]
+fn is_deferred_sound_retry(slot: i32) -> bool {
+    let neg = slot.wrapping_neg() as u32;
+    (neg as i32) >= 0 && (neg & 0x10000) != 0 && (neg & 0xFFFE_FFFF) < 0x7F
+}
+
 /// `0x7E` (126) — homing fuse-timer modifier sent by the homing-control UI.
 ///
 /// `data` layout: `(sender_id: u32, mul: i32, div: i32)`. When the sender
@@ -245,12 +446,20 @@ pub unsafe extern "thiscall" fn handle_message(
                 msg_explosion(this, sender, size, data);
                 true
             }
+            0x2C => {
+                msg_detonate_weapon(this, data);
+                true
+            }
             0x2D => {
                 msg_move_weapon_dir(this, data, -0x5B0);
                 true
             }
             0x2E => {
                 msg_move_weapon_dir(this, data, 0x5B0);
+                true
+            }
+            0x7A => {
+                msg_sound_restore(this);
                 true
             }
             0x7E => {

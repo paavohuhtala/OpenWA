@@ -205,13 +205,24 @@ pub struct MissileEntity {
     /// it can apply physics impulse / damage to this missile; when zero,
     /// the explosion is silently dropped.
     pub explosion_response_flag: u32,
-    /// 0x30C..0x32F — render_data[0x0E..0x16] (untouched by known code paths).
+    /// 0x30C..0x32B — render_data[0x0E..0x15] (mostly untouched by known
+    /// code paths).
     ///
     /// Constructor-known uses in this range:
     ///   [0x0D] bounce_pct   → (value << 16) / 100 → WorldEntity+0x5C (bounce_factor)
     ///   [0x0F] friction_pct → (value << 16) / 100 → WorldEntity+0x60 (friction_factor)
     ///   [0x11] = 9000 for bazooka (→ also copied to post-render field at 0x37C)
-    pub _render_data_0e_16: [u32; 9],
+    pub _render_data_0e_15: [u32; 8],
+    /// 0x32C — render_data[0x16]. DetonateWeapon (msg 0x2C) response
+    /// mode — controls how this missile reacts to the detonate-key /
+    /// scheme broadcast:
+    ///
+    /// - `0` — ignore (default).
+    /// - `1` — invoke vtable[14] terminator. Flag is `2` when
+    ///   `weapon_data[0x2D] == 3`, otherwise `1`.
+    /// - `2` — randomise the fuse: `fuse_timer = (rng & 0xFFFF) % 500`
+    ///   and zero this slot together with [`_render_data_0e_15`]`[2]`.
+    pub detonate_response_mode: u32,
     /// 0x330 — render_data[0x17]. Missile type discriminator
     /// (see [`MissileType`]). 2=Standard, 3=Homing, 4=Sheep, 5=Cluster.
     ///
@@ -261,10 +272,18 @@ pub struct MissileEntity {
     /// ricochet-eligible contact; when it reaches 0, the missile invokes the
     /// slot-14 terminator (`WorldEntity::SetTerminateFlag`) instead of bouncing.
     pub ricochet_counter: u32,
-    /// 0x360..0x37B — render_data[0x23..0x29] (untouched by known code paths).
-    /// `[0x29]` (= 0x37C offset equivalent inside post_render) is referenced in
-    /// constructor comments as "updates during flight".
-    pub _render_data_23_29: [u32; 7],
+    /// 0x360..0x36B — render_data[0x23..0x25] (untouched by known code paths).
+    pub _render_data_23_25: [u32; 3],
+    /// 0x36C — render_data[0x26]. Super-animal eligibility flag — gates
+    /// homing missiles' transition to / from sheep-style steering mode.
+    /// HandleMessage case 0x2C (DetonateWeapon) and the FrameFinish tick's
+    /// homing branch only call `Task_Missile::start_super_animal` /
+    /// `finish_super_animal` when `missile_type == Homing && this != 0`.
+    pub super_animal_eligible: u32,
+    /// 0x370..0x37B — render_data[0x27..0x29] (untouched by known code paths).
+    /// `[0x29]` (= 0x37C offset equivalent inside post_render) is referenced
+    /// in constructor comments as "updates during flight".
+    pub _render_data_27_29: [u32; 3],
 
     // ---- 0x37C–0x41B: post-render physics and state ----
     /// 0x37C — remaining fuse timer (in frames) until detonation / sheep expiry.
@@ -328,8 +347,25 @@ pub struct MissileEntity {
     /// [`super_animal_torque_accum`](MissileEntity::super_animal_torque_accum)
     /// and zeros this slot.
     pub super_animal_torque_input: i32,
-    /// 0x3D0..0x3E7: Unknown.
-    pub _unknown_3d0: [u8; 0x18],
+    /// 0x3D0..0x3D3: Unknown.
+    pub _unknown_3d0: [u8; 0x4],
+    /// 0x3D4 — Single-byte flag set to 1 by HandleMessage case 0x2C
+    /// (DetonateWeapon) on the post-vtable[14]-with-flag-1 sub-branch when
+    /// `weapon_data[0x2D] == 1 && game_version < 0x1F0 && weapon_data[9]
+    /// == 0x41`. Readers / exact role unidentified.
+    pub _field_3d4: u8,
+    /// 0x3D5..0x3DF: Unknown.
+    pub _unknown_3d5: [u8; 0xB],
+    /// 0x3E0 — Dig-sound active handle. Holds the value returned by
+    /// `GameTask::sound_start_0` for the missile's dig sound on success;
+    /// when that call returns -1 (sound system busy), the slot instead
+    /// caches `-sound_id` as a "retry me on the next sound-restore"
+    /// sentinel — that's what HandleMessage case 0x7A re-arms via
+    /// `Task_Missile::start_dig_sound`.
+    pub dig_sound_handle: i32,
+    /// 0x3E4 — Fuse-sound active handle. Same shape and re-arm protocol
+    /// as [`dig_sound_handle`](MissileEntity::dig_sound_handle).
+    pub fuse_sound_handle: i32,
     /// 0x3E8 — Animation-phase accumulator. Updated each frame by the
     /// FrameFinish tick body (case 2) and the lighter UpdateNonCritical
     /// path (case 5) at rates that depend on the missile's discriminator
@@ -366,6 +402,8 @@ const _: () = {
     assert!(offset_of!(MissileEntity, explosion_damage) == 0x354);
     assert!(offset_of!(MissileEntity, explosion_damage_pct) == 0x358);
     assert!(offset_of!(MissileEntity, ricochet_counter) == 0x35C);
+    assert!(offset_of!(MissileEntity, detonate_response_mode) == 0x32C);
+    assert!(offset_of!(MissileEntity, super_animal_eligible) == 0x36C);
     assert!(offset_of!(MissileEntity, fuse_timer) == 0x37C);
     assert!(offset_of!(MissileEntity, contact_phase) == 0x394);
     assert!(offset_of!(MissileEntity, super_animal_torque_accum) == 0x398);
@@ -378,6 +416,9 @@ const _: () = {
     assert!(offset_of!(MissileEntity, sheep_stash_speed) == 0x3C0);
     assert!(offset_of!(MissileEntity, direction) == 0x3C8);
     assert!(offset_of!(MissileEntity, super_animal_torque_input) == 0x3CC);
+    assert!(offset_of!(MissileEntity, _field_3d4) == 0x3D4);
+    assert!(offset_of!(MissileEntity, dig_sound_handle) == 0x3E0);
+    assert!(offset_of!(MissileEntity, fuse_sound_handle) == 0x3E4);
     assert!(offset_of!(MissileEntity, animation_phase) == 0x3E8);
 };
 
@@ -558,6 +599,20 @@ impl crate::snapshot::Snapshot for MissileEntity {
                 w,
                 self._unknown_3d0.as_ptr(),
                 self._unknown_3d0.len(),
+                i + 1,
+            )?;
+            write_indent(w, i)?;
+            writeln!(
+                w,
+                "_field_3d4 = {} dig_sound_handle = 0x{:08X} fuse_sound_handle = 0x{:08X}",
+                self._field_3d4, self.dig_sound_handle, self.fuse_sound_handle
+            )?;
+            write_indent(w, i)?;
+            writeln!(w, "_unknown_3d5 ({} bytes):", self._unknown_3d5.len())?;
+            write_raw_region(
+                w,
+                self._unknown_3d5.as_ptr(),
+                self._unknown_3d5.len(),
                 i + 1,
             )?;
             write_indent(w, i)?;
