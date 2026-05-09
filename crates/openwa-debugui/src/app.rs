@@ -960,8 +960,11 @@ impl DebugApp {
                         use openwa_game::entity::MissileEntity;
                         let m = &*(addr as *const MissileEntity);
                         ui.label(format!(
-                            "Missile: type={:?}  slot={}  homing={}  dir={}",
-                            m.missile_type, m.activity_rank_slot, m.homing_enabled, m.direction
+                            "Missile: type={:?}  slot={}  super_animal_target_locked={}  dir={}",
+                            m.missile_type,
+                            m.activity_rank_slot,
+                            m.super_animal_target_locked,
+                            m.direction
                         ));
                         ui.separator();
 

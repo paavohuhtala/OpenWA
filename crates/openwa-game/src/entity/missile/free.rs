@@ -1,18 +1,5 @@
 //! Pure-Rust port of `MissileEntity::Free` (0x00508330, vtable slot 1) and
 //! its inlined destructor `Task_Missile::dtor1` (0x005086F0).
-//!
-//! The destructor is a fixed deregistration sequence: vtable restore,
-//! object-pool counter decrement, three SharedData-routed broadcasts (msg
-//! 0x4E `WeaponDestroyed`, 0x53, 0x7C — each gated on a missile-state
-//! field), activity-queue slot release, sound-handle teardown, super-animal
-//! cleanup, and (in headful mode) the two render-handle wrapper objects.
-//! Finally chains into the parent `WorldEntity::Destructor` (0x004FEF30),
-//! which is kept bridged.
-//!
-//! The two SharedData broadcasts in this file mirror the same pattern
-//! `WormEntity::HandleMessage` uses (lookup `(esi=0, edi=0x14)` → call
-//! `HandleMessage` slot on the result), but cut out the `Task__deliver`
-//! wrapper since this code path doesn't need its 5-arg trampoline.
 
 use core::sync::atomic::AtomicU32;
 
@@ -23,15 +10,9 @@ use crate::entity::base::{BaseEntity, SharedDataTable};
 use crate::rebase::rb;
 use crate::wa_alloc::wa_free;
 
-// `EntityActivityQueue::FreeSlotById` (0x00541860) —
-// `__usercall(EAX = queue, [stack] = slot)`, RET 0x4.
 static mut FREE_ACTIVITY_SLOT_ADDR: u32 = 0;
-// `WorldEntity::Destructor` (0x004FEF30) — `__thiscall(this)`, plain RET.
-// SEH-protected children-list walk; kept bridged.
 static mut CGAMETASK_DESTRUCTOR_ADDR: u32 = 0;
 
-/// Saved original `MissileEntity::Free` (0x00508330), populated by
-/// `vtable_replace!` at install time.
 pub static ORIGINAL_FREE: AtomicU32 = AtomicU32::new(0);
 
 pub unsafe fn init_addrs() {
@@ -41,6 +22,8 @@ pub unsafe fn init_addrs() {
     }
 }
 
+/// `EntityActivityQueue::FreeSlotById` (0x00541860) — `__usercall(EAX = queue,
+/// [stack] = slot)`, RET 0x4.
 #[unsafe(naked)]
 unsafe extern "stdcall" fn bridge_free_activity_slot(_queue: *mut EntityActivityQueue, _slot: i32) {
     core::arch::naked_asm!(
@@ -53,6 +36,7 @@ unsafe extern "stdcall" fn bridge_free_activity_slot(_queue: *mut EntityActivity
     );
 }
 
+/// `WorldEntity::Destructor` (0x004FEF30) — SEH-protected children-list walk.
 #[inline]
 unsafe fn bridge_cgametask_destructor(this: *mut MissileEntity) {
     type Fn = unsafe extern "thiscall" fn(*mut MissileEntity);
@@ -60,12 +44,9 @@ unsafe fn bridge_cgametask_destructor(this: *mut MissileEntity) {
     unsafe { f(this) }
 }
 
-/// Send `msg_id` (one of 0x4E/0x53/0x7C in this file) to the entity that
-/// SharedData maps to key `(esi=0, edi=0x14)` — the WorldRoot dispatcher.
-/// Payload is a 0x408-byte buffer with `owner_id` at offset 0; the rest is
-/// zeroed. WA's original passes uninitialised stack here, but the receivers
-/// only read the first dword for these message ids, so zeroing the tail is
-/// equivalent (and headless tests cover the equivalence).
+/// Send `msg_id` to the WorldRoot dispatcher (SharedData key `(0, 0x14)`).
+/// WA passes uninitialised stack here, but the receivers only read the first
+/// dword for these msg ids, so zeroing the tail is equivalent.
 unsafe fn broadcast_via_world_root(this: *mut MissileEntity, msg_id: u32, owner_id: u32) {
     unsafe {
         let table = SharedDataTable::from_task(this as *const BaseEntity);
@@ -94,10 +75,9 @@ unsafe fn broadcast_via_world_root(this: *mut MissileEntity, msg_id: u32, owner_
 }
 
 /// Free a render-handle wrapper (the `+0xC` / `+0x10` two-child layout
-/// allocated by `Task_Missile::ConstructPointers`). Each non-null child
-/// is released through its own vtable slot 3 (`thiscall(this, flag=1)` —
-/// the C++ scalar-deleting destructor convention), then the wrapper itself
-/// is `wa_free`-d.
+/// allocated by `Task_Missile::ConstructPointers`). Each child is released
+/// through its own vtable slot 3 (C++ scalar-deleting destructor) before the
+/// wrapper itself is freed.
 unsafe fn free_render_handle(handle: *mut u8) {
     unsafe {
         if handle.is_null() {
@@ -116,23 +96,7 @@ unsafe fn free_render_handle(handle: *mut u8) {
     }
 }
 
-/// Pure-Rust port of `Task_Missile::dtor1` (0x005086F0). Mirrors the
-/// in-order WA sequence:
-///
-/// 1. Restore own vtable so the parent destructor's virtual dispatch
-///    resolves against `MissileEntity` slots.
-/// 2. `world.object_pool_count -= 7` — release this missile's slice of
-///    the spawn budget (counterpart to the `+= 7` in the constructor).
-/// 3. Broadcast `WeaponDestroyed` (0x4E) when this missile has a
-///    non-zero owner.
-/// 4. Free the activity-queue rank slot.
-/// 5. Stop both sound channels.
-/// 6. Broadcast 0x53 when [`homing_enabled`](MissileEntity::homing_enabled).
-/// 7. If `contact_phase == 1` (active super-animal control), call
-///    `finish_super_animal` to drain residual velocity.
-/// 8. If `contact_phase == 2`, broadcast 0x7C.
-/// 9. Headful only: free both render-handle wrappers.
-/// 10. Chain into the parent `WorldEntity::Destructor`.
+/// `Task_Missile::dtor1` (0x005086F0).
 unsafe fn destructor_1(this: *mut MissileEntity) {
     unsafe {
         (*this).base.base.vtable = rb(super::MISSILE_ENTITY_VTABLE) as *const MissileEntityVtable;
@@ -151,7 +115,7 @@ unsafe fn destructor_1(this: *mut MissileEntity) {
         super::sound::stop_fuse_sound(this);
         super::sound::stop_dig_sound(this);
 
-        if (*this).homing_enabled != 0 {
+        if (*this).super_animal_target_locked != 0 {
             broadcast_via_world_root(this, 0x53, owner_id);
         }
 
@@ -170,10 +134,8 @@ unsafe fn destructor_1(this: *mut MissileEntity) {
     }
 }
 
-/// Pure-Rust port of `MissileEntity::Free` (0x00508330, vtable slot 1).
-/// Runs the destructor and, when bit 0 of `flags` is set, frees the heap
-/// allocation. Returns the `this` pointer in EAX (the `extern "thiscall"`
-/// signature handles ECX = this and the `i8` stack arg + return-in-EAX).
+/// `MissileEntity::Free` (0x00508330, vtable slot 1). Runs the destructor
+/// and frees the heap allocation when bit 0 of `flags` is set.
 pub unsafe extern "thiscall" fn free(this: *mut MissileEntity, flags: u8) -> *mut MissileEntity {
     unsafe {
         destructor_1(this);

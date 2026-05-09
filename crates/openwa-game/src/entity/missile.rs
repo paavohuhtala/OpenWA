@@ -30,10 +30,11 @@ pub struct MissileSubclassData {
     /// (`SetTerminateFlag` at 0x004FE060) — `OnContact` dispatches there
     /// rather than touching the slot directly.
     pub terminate_flag: u32,
-    /// Entity +0x48: Sheep state flag. Set to 1 by the sheep pre-bailout
-    /// stash branch in `OnContact` (alongside saving stash position /
-    /// speed and arming the bailout counter).
-    pub sheep_state_flag: u32,
+    /// Entity +0x48: Digger state flag (mole bomb / drill burrow,
+    /// `MissileType::Digger`). Set to 1 by the digger pre-bailout stash
+    /// branch in `OnContact` (alongside saving stash position / speed and
+    /// arming the bailout re-arm counter).
+    pub digger_state_flag: u32,
     /// Entity +0x4C..+0x84: Unknown.
     pub _unknown_4c: [u8; 0x38],
 }
@@ -50,27 +51,15 @@ crate::define_addresses! {
     }
 }
 
-/// MissileEntity vtable — 20 slots. Extends WorldEntity vtable with missile behavior.
-///
-/// Vtable at Ghidra 0x664438.
-///
-/// Slot layout notes:
-/// - Slots 0–6 inherit from BaseEntity/WorldEntity (slot 6 `process_frame` is the generic
-///   children dispatcher `BaseEntity::vt6_ProcessFrame` at 0x00563000; MissileEntity does
-///   not override it).
-/// - Slot 7 thunks to `WorldEntity::vt7` (0x004FF720) — 2-body elastic collision
-///   resolver. Inherited.
-/// - Slot 8 is MissileEntity-specific: [`on_contact`](MissileEntityVtable::on_contact).
+/// MissileEntity vtable (0x00664438) — 20 slots. Slots 0–7 inherited from
+/// BaseEntity / WorldEntity.
 #[openwa_game::vtable(size = 20, va = 0x00664438, class = "MissileEntity")]
 pub struct MissileEntityVtable {
-    /// `MissileEntity::Free` (0x00508330) — scalar deleting destructor.
-    /// Calls the inlined `dtor1` (0x005086F0) and, when bit 0 of `flags`
-    /// is set, frees the heap allocation. Thiscall(this, flags), RET 0x4.
-    /// Returns `this` in EAX.
+    /// `MissileEntity::Free` (0x00508330). Calls inlined `dtor1` (0x005086F0)
+    /// and frees the heap allocation when bit 0 of `flags` is set.
     #[slot(1)]
     pub free: fn(this: *mut MissileEntity, flags: u8) -> *mut MissileEntity,
-    /// HandleMessage — processes missile messages.
-    /// thiscall + 4 stack params, RET 0x10.
+    /// `MissileEntity::HandleMessage` (0x0050B400).
     #[slot(2)]
     pub handle_message: fn(
         this: *mut MissileEntity,
@@ -79,49 +68,28 @@ pub struct MissileEntityVtable {
         size: u32,
         data: *const u8,
     ),
-    /// OnContact — invoked when this missile contacts another entity (terrain,
-    /// worm, object). Dispatches by [`missile_type`](MissileEntity::missile_type)
-    /// (Standard/Homing/Sheep/Cluster). Calls
-    /// `PlayImpactSound` + `WorldEntity::vt8` (base OnContact) + conditionally
-    /// `CreateExplosion`, `ImpactSpecialFx_Maybe`, and self.slot14 terminator.
-    /// thiscall + 2 stack params (other, self_side_flags), RET 0x8. Returns 1 in EAX.
+    /// `MissileEntity::OnContact` (0x00508C90). Dispatches by
+    /// [`missile_type`](MissileEntity::missile_type).
     #[slot(8)]
     pub on_contact:
         fn(this: *mut MissileEntity, other: *mut BaseEntity, self_side_flags: u32) -> u32,
-    /// SetTerminateFlag — writes `flag` to `WorldEntity+0x44`. Generic WorldEntity
-    /// subclass terminator shared across entity types (inherited slot, not a
-    /// MissileEntity override). Thiscall(this, flag), RET 0x4.
-    /// Target: `WorldEntity::SetTerminateFlag_Maybe` at 0x004FE060.
+    /// `WorldEntity::SetTerminateFlag_Maybe` (0x004FE060) — inherited;
+    /// writes `flag` to subclass terminate slot.
     #[slot(14)]
     pub set_terminate_flag: fn(this: *mut MissileEntity, flag: u32),
-    /// `WorldEntity::vt17` (0x00500090) — generic mass-scaled impulse adder.
-    /// Bails when `terminate_flag` (`+0x48`) is non-zero. Otherwise applies
-    /// `(dx, dy) / mass` (Fixed16.16) to `speed_x`/`speed_y`, and adds
-    /// `mode` to the third axis at `+0x98`. Returns `1` on success / `0` if
-    /// the bail fired. Inherited slot; the FrameFinish tick uses it to fold
-    /// per-axis wind/sway into the running velocity.
-    /// Thiscall(this, dx, dy, mode), RET 0xC.
+    /// `WorldEntity::vt17` (0x00500090) — inherited mass-scaled impulse
+    /// adder; FrameFinish folds wind/sway through this. Bails when
+    /// `terminate_flag` is set.
     #[slot(17)]
     pub apply_impulse: fn(this: *mut MissileEntity, dx: i32, dy: i32, mode: i32) -> u32,
 }
 
-/// Projectile / missile entity entity.
+/// Airborne projectile (rockets, grenades, mortar shells, homing missiles,
+/// sheep, mole bombs, etc.). class_type = 0x0B.
 ///
-/// Extends WorldEntity (0xFC bytes). One instance per airborne projectile
-/// (rockets, grenades, mortar shells, homing missiles, sheep, etc.).
-///
-/// Inheritance: BaseEntity → WorldEntity → MissileEntity. class_type = 0x0B (11).
-/// Constructor: `MissileEntity__Constructor` (0x507D10, stdcall, 4 params).
-/// Vtable: `MissileEntity__vtable` (0x00664438).
-///
-/// Constructor params:
-///   param_1 = this
-///   param_2 = parent entity pointer (passed to WorldEntity ctor)
-///   param_3 = scheme weapon data (94 DWORDs from WGT blob)
-///   param_4 = spawn data (11 DWORDs: position, velocity, owner, pellet index)
-///
-/// Source: Ghidra decompilation of 0x507D10 (constructor) and
-///         wkJellyWorm MissileEntity.h (field layout reference).
+/// Inheritance: BaseEntity → WorldEntity → MissileEntity. Constructor
+/// `MissileEntity::Constructor` (0x00507D10, stdcall, 4 params: this, parent,
+/// scheme weapon data, spawn data). Vtable at 0x00664438.
 #[derive(FieldRegistry)]
 #[repr(C)]
 pub struct MissileEntity {
@@ -132,14 +100,18 @@ pub struct MissileEntity {
     // ---- 0xFC–0x12F: missile init fields ----
     /// 0xFC–0xFF: Unknown.
     pub _unknown_fc: [u8; 0x4],
-    /// 0x100: Cluster-pellet flag — non-zero when this missile was spawned
-    /// as the Nth sub-pellet of a cluster volley (`spawn_params.pellet_index
-    /// > 0`), zero for single-shot projectiles. The HandleMessage discriminator
-    /// view at the top of the function (`piVar8`) selects between
-    /// [`_render_data_07`] (single-shot) and [`_render_data_1a`] (cluster) on
-    /// the value of this flag.
-    pub is_cluster_pellet: u32,
-    /// 0x104–0x10B: Unknown.
+    /// 0x100 — Homing-engaged latch. Set by `Task_Missile::apply_direct_homing`
+    /// (0x00509EB0) on the first homing pulse (which also snapshots the
+    /// pre-homing velocity into `+0x104/+0x108`); cleared by
+    /// `Task_Missile::handle_homing` (0x0050ABA0) when the homing burn
+    /// timer at `+0x358` drains. HandleMessage and Render use this to
+    /// switch between the normal-flight and homing-burn render-data views
+    /// (`_render_data_07` vs `_render_data_1a`) and to bias the
+    /// spawn-effect Y threshold by `0x80` during the burn.
+    pub homing_engaged_latch: u32,
+    /// 0x104–0x10B — Pre-homing velocity snapshot (Fixed16.16 vx, vy)
+    /// captured by `apply_direct_homing`. `apply_pigeon_homing` iterates
+    /// here each frame and mirrors back into `+0x90/+0x94`.
     pub _unknown_104: [u8; 8],
     /// 0x10C: Splash-sound one-shot latch read by the FrameFinish tick. Set
     /// to `1` after firing the underwater-stash impact sound (sound id `0x39`
@@ -178,38 +150,18 @@ pub struct MissileEntity {
     pub spawn_params: WeaponSpawnData,
 
     // ---- 0x15C–0x2D3: weapon/scheme data (94 DWORDs, from param_3) ----
-    /// 0x15C–0x2D3: Weapon/scheme properties (94 DWORDs copied verbatim from param_3).
-    ///
-    /// The WGT scheme blob is split into two logical halves:
-    ///   [0x00..0x34] primary projectile params (→ also mirrored in render_data)
-    ///   [0x34..0x5E] cluster sub-pellet params (→ render_data when pellet_index > 0)
-    ///
-    /// Runtime-observed for bazooka:
-    ///   [0x03] = 137342 → Fixed16.16 ≈ 2.10 (some radius/size)
-    ///   [0x05] = 100, [0x06] = 50, [0x09] = 48
-    ///   [0x0F] gravity_pct  — 100 → gravity_factor = 1.0  (→ WorldEntity+0x58 via render_data)
-    ///   [0x10] bounce_pct   — 100 → bounce_factor  = 1.0  (→ WorldEntity+0x5C via render_data)
-    ///   [0x12] friction_pct — 100 → friction_factor = 1.0 (→ WorldEntity+0x60 via render_data)
-    ///   [0x14] = 9000
-    ///   [0x1A] missile_type — discriminator (2=Standard, 3=Homing, 4=Sheep, 5=Cluster)
-    ///   [0x1B] = 4194304 → Fixed16.16 = 64.0
-    ///   [0x1C] render_timer — 1 for bazooka, 30 for grenade (3s fuse @ 10fps)
+    /// 0x15C–0x2D3: Weapon/scheme properties copied verbatim from param_3.
+    /// The WGT blob is split: `[0x00..0x34]` primary projectile params,
+    /// `[0x34..0x5E]` cluster sub-pellet params. The constructor copies 42
+    /// DWORDs of one half into the `_render_data_*` block below
+    /// (`spawn_params.pellet_index == 0` → primary; else → sub-pellet).
     pub weapon_data: [u32; 0x5E],
 
-    // ---- 0x2D4–0x37B: render/physics parameters (42 DWORDs) ----
-    //
-    // This region is a shifted copy of weapon_data:
-    //   if spawn_params[8] == 0 (single shot):   [N] = weapon_data[N+3]
-    //   if spawn_params[8]  > 0 (cluster pellet): [N] = weapon_data[N+52]
-    //
-    // The constructor copies 42 DWORDs from the appropriate source range; dynamic
-    // physics values update some entries during flight. Each entry listed below is
-    // named by its semantic role (deduced from MissileEntity::OnContact + constructor
-    // analysis). Untouched entries remain in padding arrays.
+    // ---- 0x2D4–0x37B: render/physics parameters (42 DWORDs copied from
+    //      one half of weapon_data; some entries mutated during flight) ----
     /// 0x2D4 — render_data[0]. Contact-face mask tested against
-    /// `other.contact_face` (the face index of the contacted entity). If
-    /// `(1 << other_face) & mask != 0`, the sheep bailout path fires /
-    /// the contact is rejected.
+    /// `other.contact_face`. When `(1 << other_face) & mask != 0`, the
+    /// digger bailout / contact-rejection path fires.
     pub contact_face_mask: u32,
     /// 0x2D8..0x2EB — render_data[1..6] (untouched by known code paths).
     pub _render_data_01_05: [u32; 5],
@@ -218,11 +170,12 @@ pub struct MissileEntity {
     /// or a cluster-origin marker.
     pub fire_particle_trigger: u32,
     /// 0x2F0 — render_data[0x07]. Animation-rate kind discriminator
-    /// for single-shot missiles; HandleMessage's `piVar8[2]` view reads
-    /// this slot when [`is_cluster_pellet`](MissileEntity::is_cluster_pellet)
+    /// for normal-flight (non-homing) missiles; HandleMessage's
+    /// `piVar8[2]` view reads this slot when
+    /// [`homing_engaged_latch`](MissileEntity::homing_engaged_latch)
     /// is zero. Observed values 3..=6 select different animation-phase
     /// step formulas (case 2) and gate the speed-driven anim-phase update
-    /// (case 5). For cluster pellets the equivalent slot is
+    /// (case 5). When the homing burn engages, the equivalent slot is
     /// [`_render_data_1a`](MissileEntity::_render_data_1a) at 0x33C.
     pub _render_data_07: u32,
     /// 0x2F4..0x307 — render_data[0x08..0x0D] (untouched by known code paths).
@@ -275,7 +228,8 @@ pub struct MissileEntity {
     /// [`textbox_visible_threshold`]: MissileEntity::textbox_visible_threshold
     pub detonate_response_mode: u32,
     /// 0x330 — render_data[0x17]. Missile type discriminator
-    /// (see [`MissileType`]). 2=Standard, 3=Homing, 4=Sheep, 5=Cluster.
+    /// (see [`MissileType`]). 1=Homing, 2=Standard, 3=Animal, 4=Digger,
+    /// 5=Cluster (sub-pellet).
     ///
     /// SAFETY: stored as the typed `#[repr(u32)]` enum. The constructor and
     /// scheme-data loaders are only ever observed to write 1..=5; if WA's
@@ -290,11 +244,11 @@ pub struct MissileEntity {
     /// (1 for bazooka, 30 for grenade @ 10fps = 3s).
     pub render_timer: i32,
     /// 0x33C — render_data[0x1A]. Animation-rate kind discriminator for
-    /// cluster-pellet missiles; HandleMessage's `piVar8[2]` view reads
-    /// this slot when [`is_cluster_pellet`](MissileEntity::is_cluster_pellet)
+    /// homing-burn flight; HandleMessage's `piVar8[2]` view reads
+    /// this slot when [`homing_engaged_latch`](MissileEntity::homing_engaged_latch)
     /// is non-zero. Same value-set semantics as
-    /// [`_render_data_07`](MissileEntity::_render_data_07) (the single-shot
-    /// counterpart at 0x2F0).
+    /// [`_render_data_07`](MissileEntity::_render_data_07) (the
+    /// normal-flight counterpart at 0x2F0).
     pub _render_data_1a: u32,
     /// 0x340 — render_data[0x1B]. Sound ID played on impact (via
     /// `PlayImpactSound` at 0x004FF020). Passed as first arg alongside the
@@ -334,144 +288,113 @@ pub struct MissileEntity {
     ///
     /// [`_unknown_3a4`]: MissileEntity::_unknown_3a4
     pub alt_sprite_id: u32,
-    /// 0x36C — render_data[0x26]. Super-animal walking sprite ID, also
-    /// used as the eligibility flag — non-zero gates homing missiles'
-    /// transition to / from sheep-style steering mode (HandleMessage
-    /// case 0x2C (DetonateWeapon) and the FrameFinish tick's homing
-    /// branch only call `Task_Missile::start_super_animal` /
-    /// `finish_super_animal` when `missile_type == Homing && this != 0`).
-    /// In `render`, the value itself is used as one of two sprite IDs
-    /// drawn in alternation with [`super_animal_walk_sprite_alt`] every
-    /// 5 frames (toggled by `world.frame_counter / 5 & 1`).
+    /// 0x36C — render_data[0x26]. Super-animal walking sprite ID; also the
+    /// eligibility flag — non-zero gates the `MissileType::Animal` transition
+    /// to/from super-animal steering (HandleMessage case 0x2C and FrameFinish
+    /// only call `start_super_animal` / `finish_super_animal` when this is
+    /// non-zero). `render` alternates this and
+    /// [`super_animal_walk_sprite_alt`] every 5 frames during super-animal
+    /// control.
     pub super_animal_walk_sprite: u32,
     /// 0x370 — render_data[0x27]. Companion to
-    /// [`super_animal_walk_sprite`](MissileEntity::super_animal_walk_sprite):
-    /// the alternate frame in the 5-frame walk-cycle toggle that
-    /// `render` performs when the missile is in super-animal control
-    /// mode (`missile_type == Homing && contact_phase == 1` and not
-    /// underwater).
+    /// [`super_animal_walk_sprite`](MissileEntity::super_animal_walk_sprite).
     pub super_animal_walk_sprite_alt: u32,
     /// 0x374..0x37B — render_data[0x28..0x29] (untouched by known code paths).
-    /// `[0x29]` (= 0x37C offset equivalent inside post_render) is referenced
-    /// in constructor comments as "updates during flight".
     pub _render_data_28_29: [u32; 2],
 
     // ---- 0x37C–0x41B: post-render physics and state ----
-    /// 0x37C — remaining fuse timer (in frames) until detonation / sheep expiry.
-    /// Initialised by the constructor from `render_data[0x11]` (= 9000 for bazooka,
-    /// 30 for grenade @ 10fps = 3s). Counted down each frame by the physics update;
-    /// when it reaches 0 the missile detonates / the sheep self-destructs.
+    /// 0x37C — remaining fuse timer in frames. Counted down by FrameFinish;
+    /// reaching 0 triggers detonate / fuse-expiry. Initialised from
+    /// `render_data[0x11]`.
     pub fuse_timer: i32,
-    /// 0x380 — post-fuse termination countdown. The frame `fuse_timer` reaches
-    /// `0` and this slot is also `0`, the missile invokes the slot-14
-    /// terminator (or `finish_super_animal` for active homing). When `> 0`,
-    /// the FrameFinish tick decrements it by `0x14` per frame (clamped at 0)
-    /// and emits a one-shot `impact_sound_id` via `PlaySoundLocal` channel
-    /// `4` the first frame the countdown is active. Set elsewhere; the tick
-    /// only consumes it.
+    /// 0x380 — post-fuse termination countdown. While `> 0`, FrameFinish
+    /// decrements by `0x14` per frame and emits a one-shot
+    /// `impact_sound_id`. When `fuse_timer` and this both hit 0, the missile
+    /// invokes slot-14 (or `finish_super_animal` for active super-animal).
     pub post_fuse_terminate_timer: i32,
-    /// 0x384 — post-fuse sound one-shot latch. Cleared elsewhere; the tick
-    /// sets it to `1` after firing the post-fuse `impact_sound_id` so the
-    /// sound only plays once per countdown.
+    /// 0x384 — one-shot latch for the post-fuse `impact_sound_id` emit.
     pub post_fuse_sound_latched: u32,
-    /// 0x388 — `RecordLandingEvent` gate. Reset to `0` after each
-    /// `record_landing_event_raw` call in the FrameFinish tail.
+    /// 0x388 — `RecordLandingEvent` gate; reset to 0 after each call.
     pub _field_388: u32,
     /// 0x38C — Unknown.
     pub _field_38c: u32,
     /// 0x390 — Unknown.
     pub _field_390: u32,
-    /// 0x394 — `param_1[0xE5]` in OnContact. Contact-phase flag. Value `1`
-    /// indicates the missile is in super-animal control mode (sheep-style
-    /// steering active); value `2` disables the normal contact path (routes
-    /// to the terminator / sheep bailout block).
+    /// 0x394 — Contact-phase flag. `1` = super-animal control active;
+    /// `2` = disable normal contact path (route to terminator / digger
+    /// bailout block).
     pub contact_phase: u32,
-    /// 0x398 — Super-animal torque accumulator (running, unclamped).
-    /// On modern schemes (`game_version >= 0x1D`) the per-frame clamped
-    /// input from steering messages 0x2D / 0x2E lands in
+    /// 0x398 — Super-animal torque accumulator (running, unclamped). Modern
+    /// schemes (`game_version >= 0x1D`) feed this from
     /// [`super_animal_torque_input`](MissileEntity::super_animal_torque_input)
-    /// at 0x3CC and is added into this slot at the top of the FrameFinish
-    /// tick. On old schemes the steering messages write here directly
-    /// without clamping.
+    /// at the top of FrameFinish; old schemes have steering messages
+    /// (0x2D/0x2E) write here directly without clamping.
     pub super_animal_torque_accum: u32,
-    /// 0x39C..0x3A4 — terminal-velocity stash. Written on the terminator /
-    /// sheep-bailout exit path (`stash = self.speed`). Consumers (cluster
-    /// spawn, splatter effects) read this to access the missile's terminal
-    /// velocity after it has been marked for destruction.
-    ///
-    /// Earlier analysis guessed Y was a launch-speed magnitude; that turned
-    /// out to be a constructor-only initialisation OnContact subsequently
-    /// overwrites with current velocity.
+    /// 0x39C..0x3A4 — Terminal-velocity stash. Written on the
+    /// terminator/digger-bailout exit (`stash = self.speed`); read by
+    /// downstream consumers (cluster spawn, splatter) after the missile is
+    /// marked for destruction.
     pub terminate_stash_speed: Vec2,
     /// 0x3A4: Unknown
     pub _unknown_3a4: u32,
-    /// 0x3A8: Homing mode enabled flag (nonzero = active homing).
-    /// param_1[0xEA] in constructor. Set to 1 when missile_type == 3 and conditions
-    /// are met (target acquired).
-    pub homing_enabled: u32,
-    /// 0x3AC — sheep bailout re-arm countdown. Set to `0xA` on first sheep
-    /// contact; bail setup skipped until it counts back down to 0 (decrement
-    /// performed elsewhere — not in OnContact).
-    pub sheep_bailout_counter: u32,
-    /// 0x3B0 — sheep bailout lock. If nonzero on sheep contact, the bailout is
-    /// rejected and the terminator runs immediately. Probably a one-shot latch.
-    pub sheep_bailout_locked: u32,
-    /// 0x3B4 — sheep action flag. Zeroed on first sheep bailout arm. Used by
-    /// sheep-state logic elsewhere to know the bailout stash is live.
-    pub sheep_action_flag: u32,
-    /// 0x3B8..0x3C0 — sheep bailout position stash (pre-contact pos).
-    pub sheep_stash_pos: Vec2,
-    /// 0x3C0..0x3C8 — sheep bailout velocity stash (pre-contact speed).
-    pub sheep_stash_speed: Vec2,
-    /// 0x3C8: Horizontal direction sign (+1 or -1, determines facing/travel dir).
-    /// param_1[0xF2] in constructor; also rewritten in the homing contact branch
-    /// based on `sign(speed_x)` after a RNG roll passes.
+    /// 0x3A8 — Super-animal target-lock flag. Set by the constructor when
+    /// `+0x32C != 0 && spawn_data[0] != 0` (broadcasts msg 0x52 to find/lock
+    /// a target). Despite its previous `homing_enabled` name, this is **not**
+    /// the classic homing-missile flag — homing-missile steering is governed
+    /// by `+0x350/+0x354/+0x358` in `Task_Missile::handle_homing` and is
+    /// independent of this field. Observed at runtime: SHEEP
+    /// (`MissileType::Animal`) reports 1 here; HOMING MISSILE reports 0.
+    pub super_animal_target_locked: u32,
+    /// 0x3AC — Digger bailout re-arm countdown (mole bomb / drill burrow).
+    /// Armed to `0xA` on first digger contact; decrement is performed
+    /// elsewhere, not in OnContact.
+    pub digger_bailout_counter: u32,
+    /// 0x3B0 — Digger bailout lock. If non-zero on digger contact, the
+    /// bailout is rejected and the terminator runs immediately.
+    pub digger_bailout_locked: u32,
+    /// 0x3B4 — Digger action flag. Zeroed on first digger bailout arm.
+    pub digger_action_flag: u32,
+    /// 0x3B8..0x3C0 — Digger pre-contact position stash.
+    pub digger_stash_pos: Vec2,
+    /// 0x3C0..0x3C8 — Digger pre-contact velocity stash.
+    pub digger_stash_speed: Vec2,
+    /// 0x3C8 — Horizontal direction sign (`+1` or `-1`). Constructor-init
+    /// then rewritten in OnContact's animal branch from `sign(speed_x)`
+    /// after a passing RNG roll.
     pub direction: i32,
-    /// 0x3CC — Super-animal torque per-frame input (clamped to
-    /// `[-0x5B0, +0x5B0]`). Steering messages 0x2D (MoveWeaponLeft) and
-    /// 0x2E (MoveWeaponRight) add `±0x5B0` here on modern schemes
-    /// (`game_version >= 0x1D`), with re-clamping; the FrameFinish tick
-    /// then folds this into
+    /// 0x3CC — Per-frame super-animal torque input, clamped to
+    /// `[-0x5B0, +0x5B0]` by steering messages 0x2D / 0x2E on modern
+    /// schemes (`game_version >= 0x1D`). Folded into
     /// [`super_animal_torque_accum`](MissileEntity::super_animal_torque_accum)
-    /// and zeros this slot.
+    /// and zeroed at the top of FrameFinish.
     pub super_animal_torque_input: i32,
     /// 0x3D0..0x3D3: Unknown.
     pub _unknown_3d0: [u8; 0x4],
-    /// 0x3D4 — Single-byte flag set to 1 by HandleMessage case 0x2C
-    /// (DetonateWeapon) on the post-vtable[14]-with-flag-1 sub-branch when
-    /// `weapon_data[0x2D] == 1 && game_version < 0x1F0 && weapon_data[9]
-    /// == 0x41`. Readers / exact role unidentified.
+    /// 0x3D4 — Set to 1 by HandleMessage case 0x2C on a specific sub-branch
+    /// (`weapon_data[0x2D] == 1 && game_version < 0x1F0 &&
+    /// weapon_data[9] == 0x41`). Readers / exact role unidentified.
     pub _field_3d4: u8,
     /// 0x3D5..0x3D7: Unknown.
     pub _unknown_3d5: [u8; 3],
-    /// 0x3D8: Headful-only render sub-object handle, allocated by
-    /// `Task_Missile::ConstructPointers` (called from the missile
-    /// constructor) only when `world.is_headful != 0`. Mirrors the
-    /// "two-child wrapper" shape used by `MineEntity::textbox_handle`:
-    /// the wrapper holds two refcounted child pointers at +0xC and +0x10,
-    /// each released via vtable slot 3 (`thiscall(this, flag=1)`) by the
-    /// destructor before `wa_free`-ing the wrapper itself. The first of
-    /// two such handles MissileEntity owns; the second is at
-    /// [`render_handle_b`](MissileEntity::render_handle_b).
+    /// 0x3D8 — Headful-only render sub-object handle (two-child wrapper:
+    /// children at +0xC / +0x10 each released via vtable slot 3 before the
+    /// wrapper itself is `wa_free`-d). Allocated by
+    /// `Task_Missile::ConstructPointers` when `world.is_headful != 0`.
     pub render_handle_a: *mut u8,
-    /// 0x3DC: Companion to [`render_handle_a`](MissileEntity::render_handle_a)
-    /// with the same wrapper layout. Allocated and freed in lock-step.
+    /// 0x3DC — Companion to [`render_handle_a`](MissileEntity::render_handle_a),
+    /// allocated and freed in lock-step.
     pub render_handle_b: *mut u8,
-    /// 0x3E0 — Dig-sound active handle. Holds the value returned by
-    /// `GameTask::sound_start_0` for the missile's dig sound on success;
-    /// when that call returns -1 (sound system busy), the slot instead
-    /// caches `-sound_id` as a "retry me on the next sound-restore"
-    /// sentinel — that's what HandleMessage case 0x7A re-arms via
+    /// 0x3E0 — Dig-sound active handle. Live id on success;
+    /// `-sound_id` retry sentinel when `GameTask::sound_start_0` returned
+    /// `-1`. HandleMessage case 0x7A re-arms via
     /// `Task_Missile::start_dig_sound`.
     pub dig_sound_handle: i32,
-    /// 0x3E4 — Fuse-sound active handle. Same shape and re-arm protocol
-    /// as [`dig_sound_handle`](MissileEntity::dig_sound_handle).
+    /// 0x3E4 — Fuse-sound active handle (same protocol as
+    /// [`dig_sound_handle`](MissileEntity::dig_sound_handle)).
     pub fuse_sound_handle: i32,
-    /// 0x3E8 — Animation-phase accumulator. Updated each frame by the
-    /// FrameFinish tick body (case 2) and the lighter UpdateNonCritical
-    /// path (case 5) at rates that depend on the missile's discriminator
-    /// view ([`_render_data_07`] or [`_render_data_1a`]) and on the
-    /// missile's speed. Wraps mod 0x10000.
+    /// 0x3E8 — Animation-phase accumulator. Wraps mod 0x10000. Advanced by
+    /// FrameFinish (case 2) and UpdateNonCritical (case 5) at rates that
+    /// depend on [`_render_data_07`] / [`_render_data_1a`] and speed.
     ///
     /// [`_render_data_07`]: MissileEntity::_render_data_07
     /// [`_render_data_1a`]: MissileEntity::_render_data_1a
@@ -487,7 +410,7 @@ const _: () = assert!(core::mem::size_of::<MissileEntity>() == 0x40C);
 // and MissileEntity::HandleMessage.
 const _: () = {
     use core::mem::offset_of;
-    assert!(offset_of!(MissileEntity, is_cluster_pellet) == 0x100);
+    assert!(offset_of!(MissileEntity, homing_engaged_latch) == 0x100);
     assert!(offset_of!(MissileEntity, splash_sound_latched) == 0x10C);
     assert!(offset_of!(MissileEntity, underwater_entry_latched) == 0x110);
     assert!(offset_of!(MissileEntity, effect_emit_phase) == 0x114);
@@ -521,12 +444,12 @@ const _: () = {
     assert!(offset_of!(MissileEntity, contact_phase) == 0x394);
     assert!(offset_of!(MissileEntity, super_animal_torque_accum) == 0x398);
     assert!(offset_of!(MissileEntity, terminate_stash_speed) == 0x39C);
-    assert!(offset_of!(MissileEntity, homing_enabled) == 0x3A8);
-    assert!(offset_of!(MissileEntity, sheep_bailout_counter) == 0x3AC);
-    assert!(offset_of!(MissileEntity, sheep_bailout_locked) == 0x3B0);
-    assert!(offset_of!(MissileEntity, sheep_action_flag) == 0x3B4);
-    assert!(offset_of!(MissileEntity, sheep_stash_pos) == 0x3B8);
-    assert!(offset_of!(MissileEntity, sheep_stash_speed) == 0x3C0);
+    assert!(offset_of!(MissileEntity, super_animal_target_locked) == 0x3A8);
+    assert!(offset_of!(MissileEntity, digger_bailout_counter) == 0x3AC);
+    assert!(offset_of!(MissileEntity, digger_bailout_locked) == 0x3B0);
+    assert!(offset_of!(MissileEntity, digger_action_flag) == 0x3B4);
+    assert!(offset_of!(MissileEntity, digger_stash_pos) == 0x3B8);
+    assert!(offset_of!(MissileEntity, digger_stash_speed) == 0x3C0);
     assert!(offset_of!(MissileEntity, direction) == 0x3C8);
     assert!(offset_of!(MissileEntity, super_animal_torque_input) == 0x3CC);
     assert!(offset_of!(MissileEntity, _field_3d4) == 0x3D4);
@@ -562,44 +485,60 @@ impl MissileEntity {
     }
 }
 
-/// Missile movement/behaviour type, encoded in `render_data[0x17]`.
-///
-/// The constructor switches on this value to set up physics, homing,
-/// direction, and clustering behaviour. Corresponds to weapon_data[0x1A]
-/// for single-shot projectiles.
+/// Missile movement/behaviour type, encoded at `render_data[0x17]`
+/// (= `weapon_data[0x1A]` for single-shot projectiles). Discriminator for
+/// the constructor's setup switch and the FrameFinish per-tick dispatch.
 #[repr(u32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MissileType {
     /// Inert / cleared. Written by `HandleMessage` case 0x2's inner
-    /// `Unknown1` sub-branch when the missile is underwater AND its
+    /// `Homing` sub-branch when the missile is underwater AND its
     /// contact-face mask has bit 0x400000 set — those preconditions
     /// disable any further `handle_homing` step. Subsequent frames
     /// observe `Zero` and run the no-op default arm of the inner switch.
     Zero = 0,
-    /// Never observed in the wild; included as a slot in case the scheme data
-    /// ever emits it. No known constructor branch handles value 1.
-    Unknown1 = 1,
-    /// Standard trajectory projectile (bazooka, mortar, grenade, etc.).
+    /// Homing missile / homing pigeon. Per-tick handler at 0x0050ABA0
+    /// (`Task_Missile::handle_homing`) advances the homing burn — the
+    /// `homing_engaged_latch` (+0x100) and the burn timer (+0x358) gate
+    /// when `apply_direct_homing` / `apply_pigeon_homing` actually steers.
+    Homing = 1,
+    /// Standard trajectory projectile (bazooka, mortar, grenade, cluster
+    /// grenade, air-strike, etc.). Pure ballistic; no per-tick handler.
     Standard = 2,
-    /// Homing missile — tracks nearest worm.
-    Homing = 3,
-    /// Sheep / animal projectile — walks on terrain.
-    Sheep = 4,
-    /// Cluster projectile — spawns sub-pellets on detonation.
+    /// Animal / walking-creature projectile — sheep, super-sheep, old
+    /// woman, etc. Per-tick handler at 0x0050A7E0
+    /// (`Task_Missile::handle_animal`) switches on `contact_phase`:
+    /// =1 → super-sheep jetpack, else → walking on terrain. Constructor
+    /// case 3 zeros velocity at spawn (animal starts stationary);
+    /// `OnContact` calls the super-sheep target reaffirmation
+    /// (`HomingTargetCheck`) and zeros velocity if no target remains.
+    Animal = 3,
+    /// Digger / burrow projectile — mole bomb, pneumatic drill. Per-tick
+    /// handler at 0x0050A430 (`Task_Missile::handle_digger`, stdcall) does
+    /// the dig-into-terrain motion gated by the
+    /// `digger_bailout_counter` re-arm cooldown.
+    Digger = 4,
+    /// Cluster sub-pellet — used by missiles spawned via
+    /// `Task_Missile::create_clusters` (0x005096A0) when the parent
+    /// detonates. Constructor and `OnContact` share the value-2 (`Standard`)
+    /// arms; the only differences are the per-tick handler at 0x0050A720
+    /// (a crate-collection sweep) and a faster cumulative-damage decay
+    /// (`/0x32` instead of `/0x64`). Short-lived: only present between
+    /// cluster-burst and pellet impact.
     Cluster = 5,
 }
 
 impl MissileType {
     /// Map a raw `render_data[0x17]` value to a typed [`MissileType`].
-    /// Returns `None` for out-of-range values (0, 6+); callers should treat
+    /// Returns `None` for out-of-range values (6+); callers should treat
     /// such cases as "no typed branch applies".
     pub const fn from_raw(raw: u32) -> Option<Self> {
         Some(match raw {
             0 => Self::Zero,
-            1 => Self::Unknown1,
+            1 => Self::Homing,
             2 => Self::Standard,
-            3 => Self::Homing,
-            4 => Self::Sheep,
+            3 => Self::Animal,
+            4 => Self::Digger,
             5 => Self::Cluster,
             _ => return None,
         })
@@ -679,34 +618,34 @@ impl crate::snapshot::Snapshot for MissileEntity {
             write_indent(w, i)?;
             writeln!(
                 w,
-                "contact_phase = {} terminate_stash_speed = ({}, {}) direction = {} homing = {}",
+                "contact_phase = {} terminate_stash_speed = ({}, {}) direction = {} super_animal_target_locked = {}",
                 self.contact_phase,
                 self.terminate_stash_speed.x,
                 self.terminate_stash_speed.y,
                 self.direction,
-                self.homing_enabled,
+                self.super_animal_target_locked,
             )?;
             write_indent(w, i)?;
             writeln!(
                 w,
-                "super_animal: torque_accum=0x{:08X} torque_input={} cluster_pellet={}",
+                "super_animal: torque_accum=0x{:08X} torque_input={} homing_engaged={}",
                 self.super_animal_torque_accum,
                 self.super_animal_torque_input,
-                self.is_cluster_pellet,
+                self.homing_engaged_latch,
             )?;
             write_indent(w, i)?;
             writeln!(w, "animation_phase = 0x{:04X}", self.animation_phase)?;
             write_indent(w, i)?;
             writeln!(
                 w,
-                "sheep(counter={} locked={} action={} stash_pos=({}, {}) stash_speed=({}, {}))",
-                self.sheep_bailout_counter,
-                self.sheep_bailout_locked,
-                self.sheep_action_flag,
-                self.sheep_stash_pos.x,
-                self.sheep_stash_pos.y,
-                self.sheep_stash_speed.x,
-                self.sheep_stash_speed.y,
+                "digger(counter={} locked={} action={} stash_pos=({}, {}) stash_speed=({}, {}))",
+                self.digger_bailout_counter,
+                self.digger_bailout_locked,
+                self.digger_action_flag,
+                self.digger_stash_pos.x,
+                self.digger_stash_pos.y,
+                self.digger_stash_speed.x,
+                self.digger_stash_speed.y,
             )?;
 
             // Unknown regions

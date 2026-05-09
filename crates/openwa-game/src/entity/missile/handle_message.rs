@@ -1,14 +1,6 @@
 //! Incremental port of `MissileEntity::HandleMessage` (0x0050B400, vtable
-//! slot 2). The dispatcher handles a small set of bounded message cases
-//! pure-Rust and falls through to WA's original for everything else.
-//!
-//! WA's HandleMessage contains a top-level early-bail
-//! (`if (msg - 2 > 0x7C) return msg - 2`) and a per-case canned return
-//! value indexed off `msg + 2`. The cases we port here all run to either
-//! an early `return` or `break` in the original — neither path forwards
-//! to the parent `WorldEntity::HandleMessage`. So a "handled" branch
-//! simply suppresses fall-through; an "unhandled" branch defers to WA's
-//! original via [`ORIGINAL_HANDLE_MESSAGE`].
+//! slot 2). Ported cases run pure-Rust; the rest fall through to WA via
+//! [`ORIGINAL_HANDLE_MESSAGE`].
 
 use core::sync::atomic::{AtomicU32, Ordering};
 
@@ -29,26 +21,11 @@ type HandleMessageFn = unsafe extern "thiscall" fn(
     data: *const u8,
 );
 
-/// Saved original `MissileEntity::HandleMessage` (0x0050B400), populated
-/// by `vtable_replace!` at install time.
 pub static ORIGINAL_HANDLE_MESSAGE: AtomicU32 = AtomicU32::new(0);
 
-// Rebased bridge addresses, initialized by [`init_addrs`].
-//
-// `Task_Missile::start_super_animal` (0x0050AF40) — `__usercall(EAX = this)`,
-// plain RET. Transitions a homing missile into super-animal control mode.
 static mut START_SUPER_ANIMAL_ADDR: u32 = 0;
-// `Task_Missile::finish_super_animal` (0x0050B020) — `__usercall(EAX = this)`,
-// plain RET. Closes out super-animal mode (drains residual velocity into
-// 1/3 carry-over and sets contact_phase = 2).
 static mut FINISH_SUPER_ANIMAL_ADDR: u32 = 0;
-// `WormEntity::StepRopePhysics_Maybe` (0x005003D0) — stdcall(this), RET 4.
-// Generic per-frame collision/rope physics tick used by case 3 (RenderScene)
-// when this missile is the kamikaze-owned worm proxy or in super-animal mode.
 static mut STEP_ROPE_PHYSICS_ADDR: u32 = 0;
-// `WormEntity::RestoreKamikazeState_Maybe` (0x00500630) — `__usercall(EAX = this)`,
-// plain RET. Inverse of the rope-physics setup: restores the kamikaze-owner
-// worm's pre-render state after the missile has been drawn.
 static mut RESTORE_KAMIKAZE_ADDR: u32 = 0;
 
 pub unsafe fn init_addrs() {
@@ -62,7 +39,7 @@ pub unsafe fn init_addrs() {
 
 // ─── WA bridges ────────────────────────────────────────────────────────────
 
-/// `__usercall(EAX = this)`, plain RET. EAX is caller-saved.
+/// `Task_Missile::start_super_animal` (0x0050AF40) — `__usercall(EAX = this)`.
 #[unsafe(naked)]
 unsafe extern "stdcall" fn bridge_start_super_animal(_this: *mut MissileEntity) {
     core::arch::naked_asm!(
@@ -74,9 +51,7 @@ unsafe extern "stdcall" fn bridge_start_super_animal(_this: *mut MissileEntity) 
     );
 }
 
-/// Same shape as [`bridge_start_super_animal`]. Re-exposed to the sibling
-/// [`free`](super::free) module — the destructor invokes this when the
-/// missile is mid-super-animal (`contact_phase == 1`).
+/// `Task_Missile::finish_super_animal` (0x0050B020) — `__usercall(EAX = this)`.
 #[unsafe(naked)]
 pub(super) unsafe extern "stdcall" fn bridge_finish_super_animal(_this: *mut MissileEntity) {
     core::arch::naked_asm!(
@@ -97,8 +72,7 @@ unsafe fn bridge_step_rope_physics(this: *mut MissileEntity) {
     }
 }
 
-/// `WormEntity::RestoreKamikazeState_Maybe` (0x00500630) — `__usercall(EAX = this)`,
-/// plain RET (no stack args, no cleanup).
+/// `WormEntity::RestoreKamikazeState_Maybe` (0x00500630) — `__usercall(EAX = this)`.
 #[unsafe(naked)]
 unsafe extern "stdcall" fn bridge_restore_kamikaze_state(_this: *mut MissileEntity) {
     core::arch::naked_asm!(
@@ -110,17 +84,11 @@ unsafe extern "stdcall" fn bridge_restore_kamikaze_state(_this: *mut MissileEnti
     );
 }
 
-/// HandleMessage selects between two "discriminator" slots inside
-/// [`MissileEntity`]'s render-data block based on
-/// [`is_cluster_pellet`](MissileEntity::is_cluster_pellet) — single-shot
-/// missiles read [`_render_data_07`](MissileEntity::_render_data_07);
-/// cluster pellets read [`_render_data_1a`](MissileEntity::_render_data_1a).
-/// This corresponds to the `piVar8` view set up at the top of WA's
-/// HandleMessage, and `animation_rate_kind() == piVar8[2]`.
+/// `piVar8[2]` view at the top of WA's HandleMessage prologue.
 #[inline]
 unsafe fn animation_rate_kind(this: *const MissileEntity) -> u32 {
     unsafe {
-        if (*this).is_cluster_pellet != 0 {
+        if (*this).homing_engaged_latch != 0 {
             (*this)._render_data_1a
         } else {
             (*this)._render_data_07
@@ -130,23 +98,16 @@ unsafe fn animation_rate_kind(this: *const MissileEntity) -> u32 {
 
 // ─── Per-case handlers ─────────────────────────────────────────────────────
 
-/// `5` UpdateNonCritical — animation-phase update.
-///
-/// When the animation-rate kind discriminator is `3` and the missile is
-/// either non-homing OR homing-but-flying-straight (not underwater /
-/// not in super-animal control), the animation phase gets bumped by
-/// `|speed_x| / 100 + 0xCCC` (mod 0x10000).
-///
-/// Always handled — the gate-failed path is a no-op in WA.
+/// Case `5` UpdateNonCritical.
 unsafe fn msg_update_non_critical(this: *mut MissileEntity) {
     unsafe {
         if animation_rate_kind(this) != 3 {
             return;
         }
-        let homing = matches!((*this).missile_type, super::MissileType::Homing);
+        let is_animal = matches!((*this).missile_type, super::MissileType::Animal);
         let underwater = (*this).base._field_b0 != 0;
         let super_animal_active = (*this).contact_phase == 1;
-        if homing && (underwater || super_animal_active) {
+        if is_animal && (underwater || super_animal_active) {
             return;
         }
 
@@ -160,23 +121,7 @@ unsafe fn msg_update_non_critical(this: *mut MissileEntity) {
     }
 }
 
-/// `0x2D` MoveWeaponLeft / `0x2E` MoveWeaponRight — super-animal steering.
-///
-/// Only acts when the message sender's id matches `spawn_params.owner_id`
-/// AND the missile is in super-animal control mode (contact_phase == 1).
-/// The torque delta is `-0x5B0` for Left, `+0x5B0` for Right.
-///
-/// Old schemes (`game_version < 0x1D`): unconditionally adds delta to the
-/// running [`super_animal_torque_accum`] accumulator.
-///
-/// New schemes: clamps the per-frame [`super_animal_torque_input`] to
-/// `[-0x5B0, +0x5B0]`. The FrameFinish tick later folds the input into the
-/// accumulator.
-///
-/// Always handled — the gate-failed path is a no-op in WA.
-///
-/// [`super_animal_torque_accum`]: MissileEntity::super_animal_torque_accum
-/// [`super_animal_torque_input`]: MissileEntity::super_animal_torque_input
+/// Case `0x2D` MoveWeaponLeft / `0x2E` MoveWeaponRight (`delta = ±0x5B0`).
 unsafe fn msg_move_weapon_dir(this: *mut MissileEntity, msg: &MoveWeaponMessage, delta: i32) {
     unsafe {
         if msg.sender_id != (*this).spawn_params.owner_id {
@@ -199,28 +144,8 @@ unsafe fn msg_move_weapon_dir(this: *mut MissileEntity, msg: &MoveWeaponMessage,
     }
 }
 
-/// `0x1C` Explosion — forward inbound explosion broadcasts to the parent
-/// `WorldEntity::HandleMessage` (which applies physics impulse / damage),
-/// gated on:
-///
-/// - **Old/unforced path** (`game_version < 0x4E && _scheme_d99f == 0`):
-///   forward only when [`explosion_response_flag`] is non-zero, payload
-///   unchanged.
-/// - **Modern/forced path** (otherwise): forward when either
-///   [`explosion_response_flag`] is non-zero OR `_scheme_d99f != 0`,
-///   first making a local copy of the [`ExplosionMessage`] with
-///   [`caller_flag`] zeroed.
-///
-/// Always handled — the gate-failed paths drop the message silently in WA
-/// (case body falls through to `break` → bottom canned-value return; no
-/// parent dispatch).
-///
-/// Mirrors `MineEntity::HandleMessage`'s case 0x1C in shape but without
-/// the alliance gate and settling-anim-flag side effects (those are
-/// mine-specific).
-///
-/// [`explosion_response_flag`]: MissileEntity::explosion_response_flag
-/// [`caller_flag`]: ExplosionMessage::caller_flag
+/// Case `0x1C` Explosion — forward to `WorldEntity::HandleMessage` when the
+/// missile is configured to react.
 unsafe fn msg_explosion(
     this: *mut MissileEntity,
     sender: *mut BaseEntity,
@@ -245,11 +170,9 @@ unsafe fn msg_explosion(
                 );
             }
         } else if responds || scheme_d99f != 0 {
-            // Modern path: copy the message and zero `caller_flag` before
-            // forwarding. WA's actual copy is 0x408 bytes (presumed
-            // tail-junk over-read inherited from a larger stack buffer);
-            // the parent never reads past `ExplosionMessage`, so copying
-            // just the typed struct is equivalent.
+            // WA's stack copy is 0x408 bytes (over-reads tail junk from a
+            // larger buffer); copying the typed struct is equivalent since
+            // the parent never reads past `ExplosionMessage`.
             let mut local = *msg;
             local.caller_flag = 0;
             world_entity_handle_message(
@@ -263,50 +186,19 @@ unsafe fn msg_explosion(
     }
 }
 
-/// `0x2C` DetonateWeapon — manual detonate / state-cycle request from
-/// the firing worm.
-///
-/// Gated on:
-/// - the message originating from this missile's own owner
-///   (`*data == spawn_params.owner_id`), AND
-/// - the missile being above water (`_field_b0 == 0`).
-///
-/// When the gate passes:
-/// 1. **Super-animal transition** — for homing missiles whose render data
-///    enables super-animal control ([`super_animal_walk_sprite`] != 0):
-///     - `contact_phase == 0` → call `Task_Missile::start_super_animal`,
-///       and return.
-///     - `contact_phase == 1 && pos_y_int < world.water_kill_y` →
-///       call `Task_Missile::finish_super_animal`, and return.
-/// 2. **Detonate dispatch** — by [`detonate_response_mode`]:
-///     - `1`: invoke vtable[14] (`set_terminate_flag`) with flag `2` if
-///       `weapon_data[0x2D] == 3`, else flag `1`. The flag-`1` sub-branch
-///       additionally sets [`_field_3d4`] = 1 when
-///       `weapon_data[0x2D] == 1 && game_version < 0x1F0 &&
-///       weapon_data[9] == 0x41`.
-///     - `2`: zero `textbox_visible_threshold` and
-///       `detonate_response_mode`, then `fuse_timer = (rng & 0xFFFF) %
-///       500`.
-///
-/// Always handled — the gate-failed paths are no-ops in WA.
-///
-/// [`super_animal_walk_sprite`]: MissileEntity::super_animal_walk_sprite
-/// [`detonate_response_mode`]: MissileEntity::detonate_response_mode
-/// [`_field_3d4`]: MissileEntity::_field_3d4
+/// Case `0x2C` DetonateWeapon.
 unsafe fn msg_detonate_weapon(this: *mut MissileEntity, msg: &DetonateWeaponMessage) {
     unsafe {
         if msg.team_index != (*this).spawn_params.owner_id {
             return;
         }
         if (*this).base._field_b0 != 0 {
-            // Underwater — silently drop.
             return;
         }
 
         let world = (*(this as *const BaseEntity)).world;
 
-        // Super-animal transition for eligible homing missiles.
-        if matches!((*this).missile_type, super::MissileType::Homing)
+        if matches!((*this).missile_type, super::MissileType::Animal)
             && (*this).super_animal_walk_sprite != 0
         {
             match (*this).contact_phase {
@@ -325,7 +217,6 @@ unsafe fn msg_detonate_weapon(this: *mut MissileEntity, msg: &DetonateWeaponMess
             }
         }
 
-        // Detonate response.
         match (*this).detonate_response_mode {
             1 => {
                 let flag = if (*this).weapon_data[0x2D] == 3 { 2 } else { 1 };
@@ -351,18 +242,9 @@ unsafe fn msg_detonate_weapon(this: *mut MissileEntity, msg: &DetonateWeaponMess
     }
 }
 
-/// `0x7A` (122) — sound-handle restore. Sent on save/restore (and similar
-/// sound-system reset events). Re-arms the missile's two sound slots when
-/// they were previously stashed as `-sound_id` retry sentinels by a
-/// failed `Task_Missile::start_*_sound` call.
-///
-/// Predicate (the inlined `Task_Missile::sub_508B90` / `sub_5088A0`): the
-/// slot is a deferred retry iff `-slot` is non-negative, has bit `0x10000`
-/// set, and the low 16 bits are `< 0x7F` (i.e. the original sound id was
-/// `0x10000 ..= 0x1007E`, the music-style category).
-///
-/// Always handled — both sub-branches are conditional, and a no-op when
-/// neither slot is in the retry state.
+/// Case `0x7A` (122) — sound-handle restore. A negative slot value with bit
+/// `0x10000` set and low 16 bits `< 0x7F` is a deferred-retry sentinel
+/// stashed by a previous failed `Task_Missile::start_*_sound`.
 unsafe fn msg_sound_restore(this: *mut MissileEntity) {
     unsafe {
         let fuse_slot = (*this).fuse_sound_handle;
@@ -376,30 +258,7 @@ unsafe fn msg_sound_restore(this: *mut MissileEntity) {
     }
 }
 
-/// `0x03` RenderScene — per-frame draw dispatch.
-///
-/// Sequence (matching WA's case 3 body):
-/// 1. **Pre-physics gate** — when the missile is acting as a kamikaze
-///    rope-attached worm proxy (`subclass.action_flag != 0 &&
-///    subclass.sheep_state_flag == 0`) OR is mid-super-animal
-///    (`contact_phase == 1`), invoke
-///    `WormEntity::StepRopePhysics_Maybe`.
-/// 2. **Camera nudge** — when `contact_phase != 0` (super-animal active
-///    or closing), accumulate `world.field_7ea0 += viewport_coords[3].center_x - pos_x`.
-///    The accumulator is consumed elsewhere as the screen-track delta
-///    so the camera follows the missile during sheep-control.
-/// 3. **Render** — `super::render::missile_render`.
-/// 4. **Indicator overlay** — when [`underwater_entry_latched`] is `0`,
-///    invoke `Task_Missile::render_indicator` (homing-target /
-///    fuse-direction HUD).
-/// 5. **Post-physics gate** — same predicate as step 1, invoking
-///    `WormEntity::RestoreKamikazeState_Maybe`.
-/// 6. **Parent dispatch** — forward to `WorldEntity::HandleMessage` so
-///    children (sub-pellets, etc.) get the broadcast.
-///
-/// Always handled.
-///
-/// [`underwater_entry_latched`]: MissileEntity::underwater_entry_latched
+/// Case `0x03` RenderScene.
 unsafe fn msg_render_scene(
     this: *mut MissileEntity,
     sender: *mut BaseEntity,
@@ -408,16 +267,15 @@ unsafe fn msg_render_scene(
 ) {
     unsafe {
         let action_flag = (*this).base.subclass_data.action_flag;
-        let sheep_state_flag = (*this).base.subclass_data.sheep_state_flag;
+        let digger_state_flag = (*this).base.subclass_data.digger_state_flag;
         let contact_phase = (*this).contact_phase;
-        let kamikaze_proxy = (action_flag != 0 && sheep_state_flag == 0) || contact_phase == 1;
+        let kamikaze_proxy = (action_flag != 0 && digger_state_flag == 0) || contact_phase == 1;
 
         if kamikaze_proxy {
             bridge_step_rope_physics(this);
         }
 
         if contact_phase != 0 {
-            // Camera follow accumulator: (viewport_coords[3].center_x - pos_x).
             let world = (*(this as *const BaseEntity)).world;
             let delta = (*world).viewport_coords[3]
                 .center_x
@@ -445,25 +303,16 @@ unsafe fn msg_render_scene(
     }
 }
 
-/// `0x7E` (126) — homing fuse-timer modifier sent by the homing-control UI.
+/// Case `0x7E` (126) — fuse-timer modifier for `MissileType::Animal`.
 ///
-/// `data` layout: `(sender_id: u32, mul: i32, div: i32)`. When the sender
-/// owns this missile AND it's a homing missile (`missile_type == 3`):
-/// - `mul >= 0` → `fuse_timer = fuse_timer + (fuse_timer * mul) / div`
-/// - `mul < 0`  → `fuse_timer = i32::MAX` (effectively disable expiry)
-///
-/// Always handled — the gate-failed path is a no-op in WA.
-///
-/// NOTE: the multiplication is done as 32-bit (Ghidra-decomp interpretation);
-/// on overflow the truncated u32 is reinterpreted as i32 before division.
-/// If a desync surfaces here, WA's actual machine code may be doing 64-bit
-/// IMUL/IDIV — revisit and switch to `i64` math.
+/// NOTE: 32-bit IMUL/IDIV per Ghidra; if a desync surfaces here, WA's
+/// machine code may be doing 64-bit math — switch to `i64`.
 unsafe fn msg_homing_fuse_modifier(this: *mut MissileEntity, msg: &Unknown126Message) {
     unsafe {
         if msg.sender_id != (*this).spawn_params.owner_id {
             return;
         }
-        if !matches!((*this).missile_type, super::MissileType::Homing) {
+        if !matches!((*this).missile_type, super::MissileType::Animal) {
             return;
         }
 
@@ -481,10 +330,6 @@ unsafe fn msg_homing_fuse_modifier(this: *mut MissileEntity, msg: &Unknown126Mes
 
 // ─── Dispatcher ────────────────────────────────────────────────────────────
 
-/// Reinterpret the `*const u8` payload as a typed message ref. The caller
-/// must ensure the payload was sent with this message-type's expected
-/// shape (always true for messages the project broadcasts itself; WA's
-/// senders are observed to honour the same shapes).
 #[inline]
 unsafe fn payload<T>(data: *const u8) -> &'static T {
     unsafe { &*(data as *const T) }
