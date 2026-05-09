@@ -150,12 +150,12 @@ pub struct MissileEntity {
     /// to gate the once-per-life "stop fuse sound + clear detonate response
     /// + arm the underwater bucket mask" cleanup.
     pub underwater_entry_latched: u32,
-    /// 0x114: Particle-emit phase accumulator. Each FrameFinish tick adds
-    /// `(piVar8[1] << 16) / 0x19` (above-water in render band) or
+    /// 0x114: Particle-emit phase accumulator (Fixed 16.16). Each FrameFinish
+    /// tick adds `(piVar8[1] << 16) / 0x19` (above-water in render band) or
     /// `(piVar8[3] << 16) / 200` (otherwise) to this slot, and consumes
-    /// units of `0x10000` to spawn `SpawnEffect` particles or
-    /// `GameTask::create_bubble_1` bubbles.
-    pub effect_emit_phase: u32,
+    /// `Fixed::ONE` per spawned `SpawnEffect` particle or
+    /// `GameTask::create_bubble_1` bubble.
+    pub effect_emit_phase: Fixed,
     /// 0x118: Unknown — observed being set from scheme data at construction
     pub _unknown_118: u32,
     /// 0x11C: Unknown
@@ -724,7 +724,9 @@ impl crate::snapshot::Snapshot for MissileEntity {
             writeln!(
                 w,
                 "splash_sound_latched = {} underwater_entry_latched = {} effect_emit_phase = 0x{:08X}",
-                self.splash_sound_latched, self.underwater_entry_latched, self.effect_emit_phase,
+                self.splash_sound_latched,
+                self.underwater_entry_latched,
+                self.effect_emit_phase.to_raw(),
             )?;
             write_indent(w, i)?;
             writeln!(w, "_unknown_3d0 ({} bytes):", self._unknown_3d0.len())?;

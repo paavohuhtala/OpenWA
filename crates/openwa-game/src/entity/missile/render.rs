@@ -195,7 +195,7 @@ unsafe fn emit_textbox(
         let text_ptr = buf.as_ptr() as *const c_char;
 
         let (font_index, fill_color, border_color) = if fuse_timer < 3000 {
-            let parity = ((*world).frame as i32) / 25 & 1;
+            let parity = (((*world).frame as i32) / 25) & 1;
             let border = if parity == 0 {
                 (*world).gfx_color_table[6]
             } else {
@@ -333,7 +333,7 @@ pub unsafe fn missile_render(this: *mut MissileEntity) {
             if (*this).contact_phase == 1 {
                 let torque = (*this).super_animal_torque_accum;
                 (*this).animation_phase = torque;
-                let parity = ((*world).frame_counter as i32) / 5 & 1;
+                let parity = (((*world).frame_counter as i32) / 5) & 1;
                 let mut sprite = if parity == 0 {
                     (*this).super_animal_walk_sprite_alt
                 } else {
@@ -355,11 +355,7 @@ pub unsafe fn missile_render(this: *mut MissileEntity) {
         // `ricochet_counter << 16` so the sprite renders one ricochet-tile
         // higher per remaining bounce (used as a HUD breadcrumb).
         let pos_y_for_sprite = if matches!((*this).missile_type, MissileType::Homing) {
-            Fixed::from_raw(
-                pos_y
-                    .to_raw()
-                    .wrapping_add(((*this).ricochet_counter as i32) << 16),
-            )
+            pos_y.wrapping_add(Fixed::from_int((*this).ricochet_counter as i32))
         } else {
             pos_y
         };
@@ -377,15 +373,8 @@ pub unsafe fn missile_render(this: *mut MissileEntity) {
             0 => {
                 // animation_phase = clamp(0x10000 - (fuse << 16) / fuse_timer_initial, 0..=0xFFFF)
                 let raw = ((fuse_timer as i64) << 16) / (*this).fuse_timer_initial as i64;
-                let candidate = 0x10000i64 - raw;
-                let clamped = if candidate < 0 {
-                    0
-                } else if candidate > 0xFFFF {
-                    0xFFFF
-                } else {
-                    candidate as i32
-                };
-                (*this).animation_phase = clamped as u32;
+                let clamped = (0x10000i64 - raw).clamp(0, 0xFFFF) as u32;
+                (*this).animation_phase = clamped;
             }
             1 => {
                 // animation_phase = angle, optionally folded with
@@ -404,13 +393,11 @@ pub unsafe fn missile_render(this: *mut MissileEntity) {
                 }
                 (*this).animation_phase = new_phase as u32;
             }
-            2 => {
+            2 if speed_x.to_raw() != 0 || speed_y.to_raw() != 0 => {
                 // animation_phase = atan2(speed_x, -speed_y), only when
                 // either velocity component is non-zero.
-                if speed_x.to_raw() != 0 || speed_y.to_raw() != 0 {
-                    let angle = bridge_fixa2tan16(speed_x.to_raw(), -speed_y.to_raw());
-                    (*this).animation_phase = angle;
-                }
+                let angle = bridge_fixa2tan16(speed_x.to_raw(), -speed_y.to_raw());
+                (*this).animation_phase = angle;
             }
             3 => {
                 // sprite_id += min(abs(speed_x) / 2 >> 16, 3),
@@ -449,15 +436,9 @@ pub unsafe fn missile_render(this: *mut MissileEntity) {
             }
             // animation_phase = clamp(atan2(speed_x, -speed_y) * 2, 0..=0xFFFF)
             let angle = bridge_fixa2tan16(speed_x.to_raw(), -speed_y.to_raw());
-            let doubled = (angle.wrapping_mul(2)) as i32;
+            let doubled = angle.wrapping_mul(2) as i32;
             (*this).animation_phase = doubled as u32;
-            palette = if doubled < 0 {
-                0
-            } else if doubled > 0xFFFF {
-                0xFFFF
-            } else {
-                doubled
-            };
+            palette = doubled.clamp(0, 0xFFFF);
         }
 
         // ── Underwater / wet swap ──────────────────────────────────────────

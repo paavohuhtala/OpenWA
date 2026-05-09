@@ -482,10 +482,10 @@ unsafe fn msg_render_scene(
         if contact_phase != 0 {
             // Camera follow accumulator: (viewport_coords[3].center_x - pos_x).
             let world = (*(this as *const BaseEntity)).world;
-            let viewport_x = (*world).viewport_coords[3].center_x.to_raw();
-            let pos_x = (*this).base.pos_x.to_raw();
-            (*world).field_7ea0 =
-                ((*world).field_7ea0 as i32).wrapping_add(viewport_x.wrapping_sub(pos_x)) as u32;
+            let delta = (*world).viewport_coords[3]
+                .center_x
+                .wrapping_sub((*this).base.pos_x);
+            (*world).field_7ea0 = (*world).field_7ea0.wrapping_add(delta.to_raw() as u32);
         }
 
         super::render::missile_render(this);

@@ -16,8 +16,8 @@
 use openwa_core::fixed::Fixed;
 
 use super::{MissileEntity, MissileType};
-use crate::audio::SoundId;
 use crate::audio::sound_ops::play_sound_local;
+use crate::audio::{KnownSoundId, SoundId};
 use crate::engine::world::GameWorld;
 use crate::entity::base::BaseEntity;
 use crate::entity::game_entity::WorldEntity;
@@ -172,7 +172,11 @@ unsafe extern "stdcall" fn bridge_inner_cluster_tick(_this: *mut MissileEntity) 
 
 /// `__usercall(EAX = this, [stack] = pos_x, [stack] = pos_y)`, RET 0x8.
 #[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_detonate(_this: *mut MissileEntity, _pos_x: i32, _pos_y: i32) {
+unsafe extern "stdcall" fn bridge_detonate(
+    _this: *mut MissileEntity,
+    _pos_x: Fixed,
+    _pos_y: Fixed,
+) {
     core::arch::naked_asm!(
         "mov eax, dword ptr [esp+4]",   // this
         "push dword ptr [esp+12]",      // pos_y
@@ -189,8 +193,8 @@ unsafe extern "stdcall" fn bridge_detonate(_this: *mut MissileEntity, _pos_x: i3
 #[unsafe(naked)]
 unsafe extern "stdcall" fn bridge_create_bubble(
     _this: *mut MissileEntity,
-    _pos_x: i32,
-    _pos_y: i32,
+    _pos_x: Fixed,
+    _pos_y: Fixed,
     _kind: u32,
 ) {
     core::arch::naked_asm!(
@@ -221,8 +225,8 @@ unsafe extern "stdcall" fn bridge_create_bubble(
 #[unsafe(naked)]
 unsafe extern "stdcall" fn bridge_spawn_effect(
     _this: *mut MissileEntity, // ESP+4
-    _pos_x: i32,               // ESP+8
-    _pos_y: i32,               // ESP+12
+    _pos_x: Fixed,             // ESP+8
+    _pos_y: Fixed,             // ESP+12
     _rng_dx: i32,              // ESP+16
     _rng_dy: i32,              // ESP+20
     _pi_view_0: u32,           // ESP+24
@@ -384,13 +388,18 @@ pub unsafe extern "thiscall" fn tick(
             let rng_b = (*world).advance_rng();
             let dy_random = (((rng_b >> 8) & 0xFFFF) as i32).wrapping_sub(0x8000);
             let dy = div_round_to_zero(mass.wrapping_mul(dy_random), 100);
-            WorldEntity::add_impulse_raw(this as *mut WorldEntity, Fixed(dx), Fixed(dy), 0);
+            WorldEntity::add_impulse_raw(
+                this as *mut WorldEntity,
+                Fixed::from_raw(dx),
+                Fixed::from_raw(dy),
+                0,
+            );
         }
 
         // ── BLOCK A5: speed_y_pre snapshot (POST-sway) ──────────────────
         // Used by the splash-sound gate near the end. MUST happen after the
         // apply_impulse call (otherwise we miss any sway-induced velocity).
-        let speed_y_pre = (*this).base.speed_y.to_raw();
+        let speed_y_pre = (*this).base.speed_y;
 
         // ── BLOCK A6: above-water fuse handling ─────────────────────────
         if (*this).base._field_b0 == 0 {
@@ -423,8 +432,8 @@ pub unsafe extern "thiscall" fn tick(
                                 this as *mut WorldEntity,
                                 SoundId(sound_id),
                                 4,
-                                Fixed(0x10000),
-                                Fixed(0x10000),
+                                Fixed::ONE,
+                                Fixed::ONE,
                             );
                         }
                         (*this).post_fuse_sound_latched = 1;
@@ -578,7 +587,7 @@ pub unsafe extern "thiscall" fn tick(
 
             // terminate_flag set: detonate first, then fall through to
             // set_active + Free at the bottom.
-            bridge_detonate(this, pos_x_init.to_raw(), pos_y_init.to_raw());
+            bridge_detonate(this, pos_x_init, pos_y_init);
         }
 
         // ── BLOCK A21: detonate-and-free tail ──────────────────────────
@@ -600,7 +609,7 @@ unsafe fn in_flight_body(
     world: *mut GameWorld,
     pos_x_init: Fixed,
     pos_y_init: Fixed,
-    speed_y_pre: i32,
+    speed_y_pre: Fixed,
 ) {
     unsafe {
         let pos_y_int = pos_y_init.to_int();
@@ -617,20 +626,22 @@ unsafe fn in_flight_body(
         if bubble_path {
             // Bubble path: phase advance = (pi_view[3] << 16) / 200, round-zero.
             let inc = div_round_to_zero((pi_view[3] as i32).wrapping_shl(16), 200);
-            (*this).effect_emit_phase = (*this).effect_emit_phase.wrapping_add(inc as u32);
+            (*this).effect_emit_phase =
+                (*this).effect_emit_phase.wrapping_add(Fixed::from_raw(inc));
 
-            while ((*this).effect_emit_phase as i32) >= 0x10000 {
+            while (*this).effect_emit_phase >= Fixed::ONE {
                 let rng = (*world).advance_effect_rng();
                 let kind = ((rng >> 16) % 3) + 1;
-                bridge_create_bubble(this, pos_x_init.to_raw(), pos_y_init.to_raw(), kind);
-                (*this).effect_emit_phase = (*this).effect_emit_phase.wrapping_sub(0x10000);
+                bridge_create_bubble(this, pos_x_init, pos_y_init, kind);
+                (*this).effect_emit_phase = (*this).effect_emit_phase.wrapping_sub(Fixed::ONE);
             }
         } else {
             // Spark / SpawnEffect path: phase advance = (pi_view[1] << 16) / 25.
             let inc = div_round_to_zero((pi_view[1] as i32).wrapping_shl(16), 25);
-            (*this).effect_emit_phase = (*this).effect_emit_phase.wrapping_add(inc as u32);
+            (*this).effect_emit_phase =
+                (*this).effect_emit_phase.wrapping_add(Fixed::from_raw(inc));
 
-            while ((*this).effect_emit_phase as i32) >= 0x10000 {
+            while (*this).effect_emit_phase >= Fixed::ONE {
                 // Two effect-RNG advances (the secondary RNG at world+0x45F0).
                 let rng_a = (*world).advance_effect_rng();
                 let rng_b = (*world).advance_effect_rng();
@@ -644,16 +655,10 @@ unsafe fn in_flight_body(
                 let state_flag = div_round_to_zero((pi_view[2] as i32).wrapping_mul(0x147A), 200);
 
                 bridge_spawn_effect(
-                    this,
-                    pos_x_init.to_raw(),
-                    pos_y_init.to_raw(),
-                    rng_dx,
-                    rng_dy,
-                    pi_view[0],
-                    state_flag,
+                    this, pos_x_init, pos_y_init, rng_dx, rng_dy, pi_view[0], state_flag,
                 );
 
-                (*this).effect_emit_phase = (*this).effect_emit_phase.wrapping_sub(0x10000);
+                (*this).effect_emit_phase = (*this).effect_emit_phase.wrapping_sub(Fixed::ONE);
             }
         }
 
@@ -664,13 +669,13 @@ unsafe fn in_flight_body(
         if (*this).base._field_a4 == 0 {
             (*this).splash_sound_latched = 0;
         } else {
-            if (*this).splash_sound_latched == 0 && speed_y_pre.abs() > 0x10000 {
+            if (*this).splash_sound_latched == 0 && speed_y_pre.abs() > Fixed::ONE {
                 play_sound_local(
                     this as *mut WorldEntity,
-                    SoundId(0x39),
+                    KnownSoundId::Splash,
                     5,
-                    Fixed(0x10000),
-                    Fixed(0x10000),
+                    Fixed::ONE,
+                    Fixed::ONE,
                 );
             }
             (*this).splash_sound_latched = 1;
@@ -710,15 +715,14 @@ unsafe fn in_flight_body(
         let pos_x_raw = pos_x_init.to_raw();
         let pos_y_raw = pos_y_init.to_raw();
 
-        let kind: u32 = if pos_x_raw < level_min_x || pos_x_raw > level_max_x {
-            if (*this).base._field_b0 == 0 { 8 } else { 0xA }
-        } else if pos_y_raw < level_min_y {
-            if (*this).base._field_b0 == 0 { 8 } else { 0xA }
-        } else if (*this).base._field_b0 == 0 {
-            5
-        } else {
-            0xA
-        };
+        let kind: u32 =
+            if pos_x_raw < level_min_x || pos_x_raw > level_max_x || pos_y_raw < level_min_y {
+                if (*this).base._field_b0 == 0 { 8 } else { 0xA }
+            } else if (*this).base._field_b0 == 0 {
+                5
+            } else {
+                0xA
+            };
 
         GameWorld::record_landing_event_raw(world, kind, pos_x_raw, pos_y_raw);
         (*this)._field_388 = 0;
