@@ -204,16 +204,16 @@ pub struct DisplayGfxVtable {
     pub fill_rect: fn(this: *mut DisplayGfx, x1: i32, y1: i32, x2: i32, y2: i32, color: u32),
     /// blit sprite to display (0x56B080, RET 0x10)
     ///
-    /// Complex sprite blitting with orientation, palette, and blend flags.
-    /// x/y are fixed-point world coordinates (`>> 0x10` internally).
-    /// param_4 low 16 bits = sprite ID, high bits = orientation/blend flags.
-    /// param_5 = palette/opacity value.
+    /// `sprite` low 16 bits = sprite ID, high bits = orientation/blend flags.
+    /// `SpriteFlags` palette bits drive arithmetic on `anim_value` before
+    /// sprite-frame lookup.
     ///
     /// Note: the original code also reads EBX, ESI, EDI set by the caller
     /// (sprite width, sprite height, extra flags) via callee-saved registers.
     /// These are not part of the thiscall ABI and cannot be expressed here.
     #[slot(19)]
-    pub blit_sprite: fn(this: *mut DisplayGfx, x: Fixed, y: Fixed, sprite: SpriteOp, palette: u32),
+    pub blit_sprite:
+        fn(this: *mut DisplayGfx, x: Fixed, y: Fixed, sprite: SpriteOp, anim_value: Fixed),
     /// draw scaled/rotated sprite (0x56B660, RET 0x20)
     ///
     /// x/y are fixed-point world coordinates.

@@ -409,7 +409,7 @@ fn decode_typed(msg: &RenderMessage) -> Vec<DecodedField> {
             x,
             y,
             sprite,
-            palette,
+            anim_value,
         } => vec![
             row(None, "local", None, format!("{}", local)),
             row(
@@ -437,9 +437,9 @@ fn decode_typed(msg: &RenderMessage) -> Vec<DecodedField> {
             ),
             row(
                 None,
-                "palette",
-                Some(*palette),
-                format!("{:#010X}", palette),
+                "anim_value",
+                Some(anim_value.to_raw() as u32),
+                format!("{:#010X}", anim_value.to_raw() as u32),
             ),
         ],
         RenderMessage::FillRect {
@@ -565,7 +565,7 @@ fn decode_typed(msg: &RenderMessage) -> Vec<DecodedField> {
             y,
             ref_z_2,
             sprite,
-            palette,
+            anim_value,
         } => vec![
             row(None, "flags", Some(*flags), format!("{:#X}", flags)),
             row(
@@ -594,9 +594,9 @@ fn decode_typed(msg: &RenderMessage) -> Vec<DecodedField> {
             ),
             row(
                 None,
-                "palette",
-                Some(*palette),
-                format!("{:#010X}", palette),
+                "anim_value",
+                Some(anim_value.to_raw() as u32),
+                format!("{:#010X}", anim_value.to_raw() as u32),
             ),
         ],
         RenderMessage::BitmapGlobal {
@@ -710,10 +710,18 @@ fn legacy_field_names(cmd_type: u32) -> &'static [&'static str] {
             "src_w", "src_h", "flags",
         ],
         3 => &["type", "layer", "x", "y", "ref_z", "", "obj", "p5", "p6"],
-        4 => &["type", "layer", "x", "y", "sprite", "palette"],
-        5 => &["type", "layer", "x", "y", "sprite", "palette"],
+        4 => &["type", "layer", "x", "y", "sprite", "anim_value"],
+        5 => &["type", "layer", "x", "y", "sprite", "anim_value"],
         6 => &[
-            "type", "layer", "flags", "x", "y", "ref_z", "ref_z_2", "sprite", "palette",
+            "type",
+            "layer",
+            "flags",
+            "x",
+            "y",
+            "ref_z",
+            "ref_z_2",
+            "sprite",
+            "anim_value",
         ],
         7 => &["type", "layer", "count", "color"],
         8 => &["type", "layer", "count", "color", "v0_x", "v0_y", "v0_z"],
@@ -780,14 +788,14 @@ fn format_typed(msg: &RenderMessage) -> String {
             x,
             y,
             sprite,
-            palette,
+            anim_value,
         } => format!(
-            "{} pos=({:.1},{:.1}) op={:#010X} pal={:#010X}",
+            "{} pos=({:.1},{:.1}) op={:#010X} anim={:#010X}",
             if *local { "local " } else { "global" },
             x.to_f32(),
             y.to_f32(),
             sprite.0,
-            palette,
+            anim_value.to_raw() as u32,
         ),
         RenderMessage::FillRect {
             color,
@@ -838,15 +846,15 @@ fn format_typed(msg: &RenderMessage) -> String {
             y,
             ref_z_2,
             sprite,
-            palette,
+            anim_value,
         } => format!(
-            "flags={:#X} pos=({:.1},{:.1}) z2={:#X} op={:#010X} pal={:#010X}",
+            "flags={:#X} pos=({:.1},{:.1}) z2={:#X} op={:#010X} anim={:#010X}",
             flags,
             x.to_f32(),
             y.to_f32(),
             ref_z_2,
             sprite.0,
-            palette,
+            anim_value.to_raw() as u32,
         ),
         RenderMessage::BitmapGlobal {
             x,

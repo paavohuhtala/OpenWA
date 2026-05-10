@@ -62,7 +62,7 @@ pub unsafe fn draw_attached_rope(this: *const WormEntity, style: u32, fill: u32)
                 x: Fixed(x).floor(),
                 y: Fixed(y).floor(),
                 sprite: SpriteOp(0x45),
-                palette: (first_angle + 0x8100) as u32,
+                anim_value: Fixed::from_raw(first_angle.wrapping_add(0x8100)),
             },
         );
 

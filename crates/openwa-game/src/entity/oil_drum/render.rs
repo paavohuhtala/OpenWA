@@ -16,6 +16,7 @@ use crate::entity::base::BaseEntity;
 use crate::rebase::rb;
 use crate::render::message::RenderMessage;
 use crate::render::sprite::sprite_op::SpriteOp;
+use openwa_core::fixed::Fixed;
 
 // ─── Bridges ───────────────────────────────────────────────────────────────
 
@@ -63,11 +64,11 @@ pub unsafe fn oil_drum_render(this: *mut OilDrumEntity) {
         }
 
         // Animation phase from world frame counter:
-        //   palette = (world.frame << 16) / 50  (signed div).
+        //   anim_value = (world.frame << 16) / 50  (signed div).
         // WA materialises the result via the 0x51EB851F magic constant —
         // an ordinary signed divide is byte-identical.
         let frame = (*world).frame as i32;
-        let palette = ((frame as i64).wrapping_shl(16) / 50) as u32;
+        let anim_value = Fixed::from_raw(((frame as i64).wrapping_shl(16) / 50) as i32);
 
         let layer = (render_rank as u32).wrapping_add(0x100001);
         let rq = (*world).render_queue;
@@ -78,7 +79,7 @@ pub unsafe fn oil_drum_render(this: *mut OilDrumEntity) {
                 x: pos_x.floor(),
                 y: pos_y.floor(),
                 sprite: SpriteOp(sprite_id),
-                palette,
+                anim_value,
             },
         );
     }

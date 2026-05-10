@@ -59,10 +59,10 @@ unsafe extern "thiscall" fn blit_sprite(
     x: Fixed,
     y: Fixed,
     sprite: SpriteOp,
-    palette: u32,
+    anim_value: Fixed,
 ) {
     unsafe {
-        openwa_game::render::display::blit_sprite::blit_sprite(this, x, y, sprite, palette);
+        openwa_game::render::display::blit_sprite::blit_sprite(this, x, y, sprite, anim_value);
     }
 }
 

@@ -187,7 +187,7 @@ unsafe extern "cdecl" fn draw_sprite_global_impl(
     layer: u32,
     x_pos: Fixed,
     sprite: SpriteOp,
-    frame: u32,
+    anim_value: Fixed,
 ) {
     unsafe {
         let _ = (*queue).push_typed(
@@ -197,7 +197,7 @@ unsafe extern "cdecl" fn draw_sprite_global_impl(
                 x: x_pos.floor(),
                 y: y_pos.floor(),
                 sprite,
-                palette: frame,
+                anim_value,
             },
         );
     }
@@ -214,7 +214,7 @@ unsafe extern "cdecl" fn draw_sprite_local_impl(
     layer: u32,
     x_pos: Fixed,
     sprite: SpriteOp,
-    frame: u32,
+    anim_value: Fixed,
 ) {
     unsafe {
         let _ = (*queue).push_typed(
@@ -224,7 +224,7 @@ unsafe extern "cdecl" fn draw_sprite_local_impl(
                 x: x_pos.floor(),
                 y: y_pos.floor(),
                 sprite,
-                palette: frame,
+                anim_value,
             },
         );
     }
@@ -243,7 +243,7 @@ unsafe extern "cdecl" fn draw_sprite_offset_impl(
     y_pos: Fixed,
     flags: u32,
     sprite: SpriteOp,
-    palette: u32,
+    anim_value: Fixed,
 ) {
     unsafe {
         let _ = (*queue).push_typed(
@@ -254,7 +254,7 @@ unsafe extern "cdecl" fn draw_sprite_offset_impl(
                 y: y_pos.floor(),
                 ref_z_2: y_clip.floor().0,
                 sprite,
-                palette,
+                anim_value,
             },
         );
     }

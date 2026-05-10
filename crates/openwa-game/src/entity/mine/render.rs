@@ -52,10 +52,9 @@ const QUESTION_TEXT_VA: u32 = 0x00661654;
 // ─── CalcSprite ────────────────────────────────────────────────────────────
 
 /// Rust port of `MineEntity::CalcSprite` (0x00506E60). Returns
-/// `(sprite_id, sub_frame_angle)`. The second slot fills the `palette`
-/// field of the legacy `DrawSpriteLocal` command — a Fixed-shaped
-/// sub-frame angle, interpolated from the mine's stored angle plus its
-/// per-frame angular accumulator scaled by [`GameWorld::render_interp_a`].
+/// `(sprite_id, sub_frame_angle)`. The angle is interpolated from the
+/// mine's stored angle plus its per-frame angular accumulator scaled by
+/// [`GameWorld::render_interp_a`].
 unsafe fn calc_sprite(this: *mut MineEntity) -> (u32, Fixed) {
     unsafe {
         let world = (*(this as *const BaseEntity)).world;
@@ -125,7 +124,7 @@ pub unsafe fn mine_render(this: *mut MineEntity) {
                 x: pos_x.floor(),
                 y: pos_y.floor(),
                 sprite: SpriteOp(sprite_id),
-                palette: sub_frame_angle.to_raw() as u32,
+                anim_value: sub_frame_angle,
             },
         );
 

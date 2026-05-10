@@ -48,7 +48,7 @@ pub(super) unsafe fn start_super_animal(this: *mut MissileEntity) {
         (*this).base.subclass_data.digger_state_flag = 1;
         (*this).base.speed_x = Fixed::ZERO;
         (*this).base.speed_y = Fixed::ZERO;
-        (*this).super_animal_torque_accum = 0;
+        (*this).super_animal_torque_accum = Fixed::ZERO;
         (*this).animation_phase = 0;
 
         let owner_id = (*this).spawn_params.owner_id;
@@ -105,7 +105,7 @@ pub(super) unsafe fn finish_super_animal(this: *mut MissileEntity) {
         (*this).base.subclass_data.digger_state_flag = 0;
 
         // Direction sign from low 16 bits of torque accumulator.
-        let torque_low = (*this).super_animal_torque_accum & 0xFFFF;
+        let torque_low = (*this).super_animal_torque_accum.to_raw() as u32 & 0xFFFF;
         (*this).direction = if torque_low < 0x8000 { 1 } else { -1 };
 
         let owner_id = (*this).spawn_params.owner_id;

@@ -334,12 +334,15 @@ pub struct MissileEntity {
     /// `2` = disable normal contact path (route to terminator / digger
     /// bailout block).
     pub contact_phase: u32,
-    /// 0x398 — Super-animal torque accumulator (running, unclamped). Modern
-    /// schemes (`game_version >= 0x1D`) feed this from
+    /// 0x398 — Super-animal torque accumulator (running, unclamped). 16.16
+    /// fixed-point angle: low 16 bits are the sub-pixel fraction consumed by
+    /// the sprite's frame table (slot 33 `anim_value`), high 16 bits the
+    /// integer rotation count. Modern schemes (`game_version >= 0x1D`) feed
+    /// this from
     /// [`super_animal_torque_input`](MissileEntity::super_animal_torque_input)
     /// at the top of FrameFinish; old schemes have steering messages
     /// (0x2D/0x2E) write here directly without clamping.
-    pub super_animal_torque_accum: u32,
+    pub super_animal_torque_accum: Fixed,
     /// 0x39C..0x3A4 — Terminal-velocity stash. Written on the
     /// terminator/digger-bailout exit (`stash = self.speed`); read by
     /// downstream consumers (cluster spawn, splatter) after the missile is
@@ -639,7 +642,7 @@ impl crate::snapshot::Snapshot for MissileEntity {
             writeln!(
                 w,
                 "super_animal: torque_accum=0x{:08X} torque_input={} homing_engaged={}",
-                self.super_animal_torque_accum,
+                self.super_animal_torque_accum.to_raw() as u32,
                 self.super_animal_torque_input,
                 self.homing_engaged_latch,
             )?;

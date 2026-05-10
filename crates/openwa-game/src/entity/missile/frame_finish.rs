@@ -250,7 +250,7 @@ pub unsafe extern "thiscall" fn tick(
         if game_version >= 0x1D {
             (*this).super_animal_torque_accum = (*this)
                 .super_animal_torque_accum
-                .wrapping_add((*this).super_animal_torque_input as u32);
+                .wrapping_add(Fixed::from_raw((*this).super_animal_torque_input));
             (*this).super_animal_torque_input = 0;
         }
 

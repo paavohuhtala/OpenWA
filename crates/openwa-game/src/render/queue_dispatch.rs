@@ -611,8 +611,8 @@ unsafe fn dispatch_case_4_sprite_global(display: *mut DisplayGfx, cmd: *const u3
         let x = read_fixed(cmd, 2);
         let y = read_fixed(cmd, 3);
         let sprite = SpriteOp(*(cmd.add(4)));
-        let palette = *(cmd.add(5));
-        blit_sprite(display, x, y, sprite, palette);
+        let anim_value = Fixed::from_raw(*(cmd.add(5)) as i32);
+        blit_sprite(display, x, y, sprite, anim_value);
     }
 }
 
@@ -630,8 +630,8 @@ unsafe fn dispatch_case_5_sprite_local(
         let mut y = Fixed::ZERO;
         rq_translate_coordinates(clip, read_fixed(cmd, 2), read_fixed(cmd, 3), &mut x, &mut y);
         let sprite = SpriteOp(*(cmd.add(4)));
-        let palette = *(cmd.add(5));
-        blit_sprite(display, x, y, sprite, palette);
+        let anim_value = Fixed::from_raw(*(cmd.add(5)) as i32);
+        blit_sprite(display, x, y, sprite, anim_value);
     }
 }
 
@@ -706,8 +706,8 @@ unsafe fn dispatch_case_6_sprite_offset(
         }
 
         let sprite = SpriteOp(*(cmd.add(7)));
-        let palette = *(cmd.add(8));
-        blit_sprite(display, x, y, sprite, palette);
+        let anim_value = Fixed::from_raw(*(cmd.add(8)) as i32);
+        blit_sprite(display, x, y, sprite, anim_value);
     }
 }
 
@@ -1030,15 +1030,15 @@ unsafe fn dispatch_typed(display: *mut DisplayGfx, clip: &ClipContext, msg: &Ren
                 x,
                 y,
                 sprite,
-                palette,
+                anim_value,
             } => {
                 if local {
                     let mut out_x = Fixed::ZERO;
                     let mut out_y = Fixed::ZERO;
                     rq_translate_coordinates(clip, x, y, &mut out_x, &mut out_y);
-                    blit_sprite(display, out_x, out_y, sprite, palette);
+                    blit_sprite(display, out_x, out_y, sprite, anim_value);
                 } else {
-                    blit_sprite(display, x, y, sprite, palette);
+                    blit_sprite(display, x, y, sprite, anim_value);
                 }
             }
 
@@ -1137,7 +1137,7 @@ unsafe fn dispatch_typed(display: *mut DisplayGfx, clip: &ClipContext, msg: &Ren
                 y,
                 ref_z_2,
                 sprite,
-                palette,
+                anim_value,
             } => {
                 let mut ox = Fixed::ZERO;
                 let mut oy = Fixed::ZERO;
@@ -1177,7 +1177,7 @@ unsafe fn dispatch_typed(display: *mut DisplayGfx, clip: &ClipContext, msg: &Ren
                     }
                 }
 
-                blit_sprite(display, ox, oy, sprite, palette);
+                blit_sprite(display, ox, oy, sprite, anim_value);
             }
 
             RenderMessage::BitmapGlobal {

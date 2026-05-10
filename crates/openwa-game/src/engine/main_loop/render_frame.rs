@@ -293,14 +293,14 @@ unsafe fn build_view_shake_clip(world: *mut GameWorld) -> ClipContext {
 /// ```text
 /// x = (((viewport_w/2 + 0x20) << 10) - runtime._field_27c) << 6
 /// y = (0x10 - viewport_h/2) << 16
-/// palette = world.scaled_frame_accum / 50  (low 16 bits)
+/// anim_value = world.scaled_frame_accum / 50  (low 16 bits)
 /// ```
 unsafe fn draw_post_rq_overlay(runtime: *mut GameRuntime, world: *mut GameWorld) {
     unsafe {
         let display = (*world).display;
         let viewport_w = (*world).viewport_pixel_width;
         let viewport_h = (*world).viewport_pixel_height;
-        let palette = ((*world).scaled_frame_accum.to_raw() / 50) as u32 & 0xFFFF;
+        let anim_value = Fixed::from_raw(((*world).scaled_frame_accum.to_raw() / 50) & 0xFFFF);
 
         let y = Fixed::from_int(0x10 - viewport_h / 2);
         // The X expression is unusual (mixes `<< 10` and `<< 6`); kept
@@ -315,7 +315,7 @@ unsafe fn draw_post_rq_overlay(runtime: *mut GameRuntime, world: *mut GameWorld)
             x,
             y,
             SpriteOp::from_index(SPRITE_OVERLAY_CENTER),
-            palette,
+            anim_value,
         );
     }
 }
@@ -345,7 +345,7 @@ unsafe fn update_turn_indicator(runtime: *mut GameRuntime, world: *mut GameWorld
         let display = (*world).display;
         let viewport_w = (*world).viewport_pixel_width;
         let viewport_h = (*world).viewport_pixel_height;
-        let palette = ((*world).scaled_frame_accum.to_raw() / 50) as u32;
+        let anim_value = Fixed::from_raw((*world).scaled_frame_accum.to_raw() / 50);
 
         // y = field_454 * 0x46 - ((vh/2 + 0x23) << 16)
         let y_raw = anim
@@ -361,7 +361,7 @@ unsafe fn update_turn_indicator(runtime: *mut GameRuntime, world: *mut GameWorld
             Fixed::from_raw(x_raw),
             Fixed::from_raw(y_raw),
             SpriteOp::from_index(SPRITE_TURN_INDICATOR),
-            palette,
+            anim_value,
         );
     }
 }

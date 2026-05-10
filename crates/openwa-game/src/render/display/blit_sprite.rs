@@ -16,15 +16,15 @@ use openwa_core::fixed::Fixed;
 
 /// Rust port of DisplayGfx::BlitSprite (slot 19, 0x56B080).
 ///
-/// Resolves sprite ID + animation, applies palette transforms, computes
-/// destination coordinates with orientation, and dispatches to the appropriate
-/// blit routine (normal, stippled, or tiled).
+/// Resolves sprite ID + animation, applies palette-flag transforms to
+/// `anim_value`, computes destination coordinates with orientation, and
+/// dispatches to the appropriate blit routine (normal, stippled, or tiled).
 pub unsafe fn blit_sprite(
     this: *mut DisplayGfx,
     x: Fixed,
     y: Fixed,
     sprite: SpriteOp,
-    palette: u32,
+    anim_value: Fixed,
 ) {
     unsafe {
         let gfx = this;
@@ -41,14 +41,15 @@ pub unsafe fn blit_sprite(
         }
 
         // ---------------------------------------------------------------
-        // Palette manipulation
+        // Palette-flag arithmetic on anim_value
         // ---------------------------------------------------------------
-        let mut pal: u32 = palette;
+        let raw_anim = anim_value.to_raw() as u32;
+        let mut pal: u32 = raw_anim;
         if flags.contains(SpriteFlags::INVERT_PALETTE) {
-            pal = 0x10000u32.wrapping_sub(palette);
+            pal = 0x10000u32.wrapping_sub(raw_anim);
             if sprite_id.wrapping_sub(0x1D5) < 3 {
                 // Special sprite IDs: scale by 8/18
-                pal = (0x10000u32.wrapping_sub(palette).wrapping_mul(8)) / 0x12;
+                pal = (0x10000u32.wrapping_sub(raw_anim).wrapping_mul(8)) / 0x12;
             }
         }
         if flags.contains(SpriteFlags::PALETTE_XFORM) {

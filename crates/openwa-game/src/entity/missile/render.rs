@@ -241,20 +241,19 @@ unsafe fn emit_textbox(
 unsafe fn emit_sprite(
     rq: *mut crate::render::queue::RenderQueue,
     layer: u32,
-    pos_x: Fixed,
-    pos_y_or_subframe: Fixed,
+    pos: Vec2,
     sprite: SpriteOp,
-    palette: u32,
+    anim_value: Fixed,
 ) {
     unsafe {
         let _ = (*rq).push_typed(
             layer,
             RenderMessage::Sprite {
                 local: true,
-                x: pos_x.floor(),
-                y: pos_y_or_subframe.floor(),
+                x: pos.x.floor(),
+                y: pos.y.floor(),
                 sprite,
-                palette,
+                anim_value,
             },
         );
     }
@@ -273,6 +272,7 @@ pub unsafe fn missile_render(this: *mut MissileEntity) {
         let world = (*(this as *const BaseEntity)).world;
         let pos_x = (*this).base.pos_x;
         let pos_y = (*this).base.pos_y;
+        let pos = Vec2::new(pos_x, pos_y);
         let speed_x = (*this).base.speed_x;
         let speed_y = (*this).base.speed_y;
         let direction_initial = (*this).direction;
@@ -313,13 +313,13 @@ pub unsafe fn missile_render(this: *mut MissileEntity) {
                     sprite.0 |= SpriteFlags::MIRROR_X.bits();
                 }
                 let frame_counter = (*world).frame_counter as i64;
-                let palette = ((frame_counter << 16) / 50) as u32;
-                emit_sprite(rq, sprite_layer, pos_x, pos_y, sprite, palette);
+                let anim_value = Fixed::from_raw(((frame_counter << 16) / 50) as i32);
+                emit_sprite(rq, sprite_layer, pos, sprite, anim_value);
                 return;
             }
             if (*this).contact_phase == 1 {
                 let torque = (*this).super_animal_torque_accum;
-                (*this).animation_phase = torque;
+                (*this).animation_phase = torque.to_raw() as u32;
                 let parity = (((*world).frame_counter as i32) / 5) & 1;
                 let mut sprite = SpriteOp(if parity == 0 {
                     (*this).super_animal_walk_sprite_alt
@@ -329,7 +329,7 @@ pub unsafe fn missile_render(this: *mut MissileEntity) {
                 if (pos_y.to_raw() >> 16) >= (*world).water_kill_y {
                     sprite = drown(sprite);
                 }
-                emit_sprite(rq, sprite_layer, pos_x, pos_y, sprite, torque);
+                emit_sprite(rq, sprite_layer, pos, sprite, torque);
                 return;
             }
         }
@@ -386,7 +386,7 @@ pub unsafe fn missile_render(this: *mut MissileEntity) {
             _ => {}
         }
 
-        let mut palette = (*this).animation_phase as i32;
+        let mut anim_value = (*this).animation_phase as i32;
 
         if matches!((*this).missile_type, MissileType::Digger) {
             if (*this).digger_bailout_counter == 0 {
@@ -406,11 +406,11 @@ pub unsafe fn missile_render(this: *mut MissileEntity) {
             let angle = bridge_fixa2tan16(speed_x.to_raw(), -speed_y.to_raw());
             let doubled = angle.wrapping_mul(2) as i32;
             (*this).animation_phase = doubled as u32;
-            palette = doubled.clamp(0, 0xFFFF);
+            anim_value = doubled.clamp(0, 0xFFFF);
         }
 
         if (*this).base._field_b0 != 0 || (*this).base._field_a4 != 0 {
-            palette = 0;
+            anim_value = 0;
             sprite = drown(sprite);
         }
 
@@ -421,10 +421,9 @@ pub unsafe fn missile_render(this: *mut MissileEntity) {
         emit_sprite(
             rq,
             sprite_layer,
-            pos_x,
-            pos_y_for_sprite,
+            Vec2::new(pos_x, pos_y_for_sprite),
             sprite,
-            palette as u32,
+            Fixed::from_raw(anim_value),
         );
     }
 }
@@ -452,10 +451,10 @@ pub unsafe fn render_indicator(this: *mut MissileEntity) {
         let speed_x = (*this).base.speed_x;
         let speed_y = (*this).base.speed_y;
         let angle = if speed_x.to_raw() == 0 && speed_y.to_raw() == 0 {
-            0u32
+            Fixed::ZERO
         } else {
             let tan = bridge_fixa2tan16(speed_x.to_raw(), -speed_y.to_raw());
-            (0x8000_i32).wrapping_sub(tan as i32) as u32
+            Fixed::from_raw((0x8000_i32).wrapping_sub(tan as i32))
         };
 
         let mut indicator_x = pos_x;
@@ -488,7 +487,7 @@ pub unsafe fn render_indicator(this: *mut MissileEntity) {
                     x: indicator_x.floor(),
                     y: indicator_y.floor(),
                     sprite,
-                    palette: angle,
+                    anim_value: angle,
                 },
             );
         }

@@ -1264,8 +1264,8 @@ pub unsafe fn tick_closed(runtime: *mut GameRuntime) {
 
 /// Cursor-highlight sprite ID used by both ESC-menu render branches.
 const CURSOR_HIGHLIGHT_SPRITE_ID: u16 = 0x20;
-/// Palette value passed alongside the cursor sprite.
-const CURSOR_HIGHLIGHT_PALETTE: u32 = 0xa000;
+/// Animation value passed alongside the cursor sprite.
+const CURSOR_HIGHLIGHT_ANIM: Fixed = Fixed::from_raw(0xa000);
 /// Flag bits passed to `draw_scaled_sprite` when blitting a panel canvas.
 /// Bit 20 selects the Copy/opaque blend mode.
 const PANEL_BLIT_FLAGS: u32 = 0x100000;
@@ -1360,7 +1360,7 @@ pub unsafe fn render_overlay(runtime: *mut GameRuntime) {
                     cursor_x,
                     cursor_y,
                     SpriteOp::from_index(CURSOR_HIGHLIGHT_SPRITE_ID),
-                    CURSOR_HIGHLIGHT_PALETTE,
+                    CURSOR_HIGHLIGHT_ANIM,
                 );
             }
         }
@@ -1400,7 +1400,7 @@ pub unsafe fn render_overlay(runtime: *mut GameRuntime) {
                     cursor_x,
                     cursor_y,
                     SpriteOp::from_index(CURSOR_HIGHLIGHT_SPRITE_ID),
-                    CURSOR_HIGHLIGHT_PALETTE,
+                    CURSOR_HIGHLIGHT_ANIM,
                 );
             }
         }

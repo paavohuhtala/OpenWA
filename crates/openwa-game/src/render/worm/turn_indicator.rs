@@ -61,9 +61,9 @@ pub unsafe fn draw_turn_indicator(this: *mut WormEntity) {
             .wrapping_add(0x14)
             .wrapping_add((*this)._unknown_10c);
 
-        // palette = (world.frame << 16) / 50 — frame counter scaled into a
+        // anim_value = world.frame / 50 — frame counter scaled into a
         // Fixed seconds-elapsed value.
-        let palette = (((*world).frame as i32) << 16).wrapping_div(50) as u32;
+        let anim_value = Fixed::from_raw((((*world).frame as i32) << 16).wrapping_div(50));
 
         let pos_x = (*this).base.pos_x;
         let rq = (*world).render_queue;
@@ -74,7 +74,7 @@ pub unsafe fn draw_turn_indicator(this: *mut WormEntity) {
                 x: pos_x.floor(),
                 y: y_pos.floor(),
                 sprite: SpriteOp(sprite_id),
-                palette,
+                anim_value,
             },
         );
     }

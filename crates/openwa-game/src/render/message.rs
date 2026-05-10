@@ -53,9 +53,9 @@ pub enum RenderMessage {
         x: Fixed,
         y: Fixed,
         sprite: SpriteOp,
-        /// Palette context — passed to `blit_sprite` as the last arg.
-        /// Semantics vary by producer (palette pointer, animation index, etc.).
-        palette: u32,
+        /// Producer-dependent: rotation angle, frame-table fraction, or
+        /// scale lerp t.
+        anim_value: Fixed,
     },
 
     /// Replaces legacy type 0 (`DRAW_RECT`).
@@ -107,7 +107,8 @@ pub enum RenderMessage {
         /// Second Z reference for perspective clip (`cmd[6]` in legacy format).
         ref_z_2: i32,
         sprite: SpriteOp,
-        palette: u32,
+        /// See [`Sprite::anim_value`](Self::Sprite).
+        anim_value: Fixed,
     },
 
     /// Replaces legacy type 1 (`DRAW_BITMAP_GLOBAL`).

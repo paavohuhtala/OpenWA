@@ -188,7 +188,7 @@ pub unsafe extern "thiscall" fn cloud_handle_message(
                     // Original (0x548527..0x54852f) loads `[ESI+0x44]` (render_y)
                     // into EAX as the usercall Y register, and pushes `anim_phase`
                     // (`[ESI+0x34]`) as the trailing stack arg that becomes
-                    // `blit_sprite`'s `palette` parameter.
+                    // `blit_sprite`'s `anim_value` parameter.
                     let _ = rq.push_typed(
                         (*this).layer_depth.0 as u32,
                         RenderMessage::Sprite {
@@ -196,7 +196,7 @@ pub unsafe extern "thiscall" fn cloud_handle_message(
                             x: Fixed(x).floor(),
                             y: (*this).render_y.floor(),
                             sprite: SpriteOp((*this).sprite_id),
-                            palette: (*this).anim_phase.0 as u32,
+                            anim_value: (*this).anim_phase,
                         },
                     );
                 }

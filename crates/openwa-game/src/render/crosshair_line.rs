@@ -107,7 +107,7 @@ pub unsafe fn draw_crosshair_line(entity: *const WeaponAimEntity) {
                     x: Fixed(endpoint_x).floor(),
                     y: Fixed(endpoint_y).floor(),
                     sprite: SpriteOp(0x44),
-                    palette: (0x8000u32).wrapping_sub(angle),
+                    anim_value: Fixed::from_raw(0x8000i32.wrapping_sub(angle as i32)),
                 },
             );
         }

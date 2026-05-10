@@ -4,6 +4,8 @@
 
 use core::sync::atomic::{AtomicU32, Ordering};
 
+use openwa_core::fixed::Fixed;
+
 use super::super_animal::{finish_super_animal, start_super_animal};
 use super::{MissileEntity, frame_finish, sound};
 use crate::entity::base::BaseEntity;
@@ -108,8 +110,9 @@ unsafe fn msg_move_weapon_dir(this: *mut MissileEntity, msg: &MoveWeaponMessage,
         let game_version = (*(*world).game_info).game_version;
 
         if game_version < 0x1D {
-            (*this).super_animal_torque_accum =
-                (*this).super_animal_torque_accum.wrapping_add(delta as u32);
+            (*this).super_animal_torque_accum = (*this)
+                .super_animal_torque_accum
+                .wrapping_add(Fixed::from_raw(delta));
         } else {
             let candidate = (*this).super_animal_torque_input.wrapping_add(delta);
             (*this).super_animal_torque_input = candidate.clamp(-0x5B0, 0x5B0);
