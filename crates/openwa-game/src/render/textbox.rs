@@ -18,7 +18,19 @@ use crate::bitgrid::{BIT_GRID_DISPLAY_VTABLE, BitGrid, BitGridDisplayVtable, Dis
 use crate::rebase::rb;
 use crate::render::display::DisplayGfx;
 use crate::render::display::vtable::{draw_text_on_bitmap, get_font_metric};
-use crate::wa_alloc::wa_malloc_struct_zeroed;
+use crate::wa_alloc::{wa_free, wa_malloc_struct_zeroed};
+
+crate::define_addresses! {
+    class "DisplayGfx" {
+        /// `DisplayGfx::ConstructTextbox` (0x004FAF00) — `__thiscall(this =
+        /// DisplayGfx, textbox_buf, anchor, kind)`, RET 0xC. Initialises a
+        /// caller-supplied 0x158-byte buffer as a [`Textbox`] (allocates
+        /// the primary `DisplayBitGrid`, picks the font, etc.) and returns
+        /// the same pointer. ECX must point at the `DisplayGfx` because the
+        /// ctor immediately dispatches `vtable[8]` on it (font metrics).
+        fn/Thiscall CONSTRUCT_TEXTBOX = 0x004FAF00;
+    }
+}
 
 crate::define_addresses! {
     /// `&DAT_006A9020` — flat `i32` table indexed by `font_index + style_index*10`.
@@ -71,6 +83,45 @@ pub struct Textbox {
 }
 
 const _: () = assert!(core::mem::size_of::<Textbox>() == 0x138);
+
+impl Textbox {
+    /// Bridge to WA's `DisplayGfx::ConstructTextbox` (0x004FAF00). Initialises
+    /// the caller-supplied 0x158-byte `buf` as a `Textbox` against the given
+    /// `DisplayGfx` (allocates the primary `DisplayBitGrid`, picks the font
+    /// from `kind`, etc.) and returns the same pointer cast to `*mut Textbox`.
+    /// Returns null if `buf` is null.
+    pub unsafe fn construct(
+        display: *mut DisplayGfx,
+        buf: *mut Textbox,
+        anchor: i32,
+        kind: i32,
+    ) -> *mut Textbox {
+        type Fn =
+            unsafe extern "thiscall" fn(*mut DisplayGfx, *mut Textbox, i32, i32) -> *mut Textbox;
+        unsafe {
+            let f: Fn = core::mem::transmute(rb(CONSTRUCT_TEXTBOX) as usize);
+            f(display, buf, anchor, kind)
+        }
+    }
+
+    /// Tear down a `Textbox` allocated by [`Textbox::construct`]: destroy the
+    /// two `DisplayBitGrid` children ([`primary_bitmap`](Self::primary_bitmap)
+    /// and [`bitgrid_copy`](Self::bitgrid_copy)) via their vtable slot 3
+    /// (`thiscall(this, flags=1)`) and free the textbox itself.
+    pub unsafe fn destroy(this: *mut Textbox) {
+        unsafe {
+            if this.is_null() {
+                return;
+            }
+            for child in [(*this).primary_bitmap, (*this).bitgrid_copy] {
+                if !child.is_null() {
+                    DisplayBitGrid::destructor_raw(child, 1);
+                }
+            }
+            wa_free(this as *mut u8);
+        }
+    }
+}
 
 // ─── set_text ─────────────────────────────────────────────────────────────
 

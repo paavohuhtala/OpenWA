@@ -1,6 +1,7 @@
 use super::base::BaseEntity;
 use super::game_entity::WorldEntity;
 use crate::FieldRegistry;
+use crate::render::textbox::Textbox;
 use openwa_core::fixed::Fixed;
 
 pub mod constructor;
@@ -201,15 +202,12 @@ pub struct MineEntity {
     /// 0x194: ProjectilePlay tracking index — sentinel `0xFFFFFFFF` until
     /// the mine registers itself with the active replay/projectile-play log.
     pub _field_194: u32,
-    /// 0x198: This mine's countdown / state textbox handle, allocated by
+    /// 0x198: This mine's countdown / state textbox, allocated by
     /// `MineEntity::ConstructPointers` via `DisplayGfx::ConstructTextbox`
-    /// only when `world.is_headful != 0`; null in headless mode. The
-    /// textbox object holds two refcounted child objects at +0xC and
-    /// +0x10, both released via vtable slot 3 (`thiscall(this, flag=1)`)
-    /// by the destructor before `wa_free`-ing the textbox itself.
-    /// `MineEntity::Render` reads this slot to paint the per-mine
-    /// countdown overlay.
-    pub textbox_handle: *mut u8,
+    /// only when `world.is_headful != 0`; null in headless mode. Released
+    /// at destruction time via [`Textbox::destroy`]. `MineEntity::Render`
+    /// reads this slot to paint the per-mine countdown overlay.
+    pub textbox_handle: *mut Textbox,
     /// 0x19C–0x1BB: Heap allocator only zeroes the first 0x19C bytes;
     /// nothing in the constructor or HandleMessage reads or writes this
     /// range.

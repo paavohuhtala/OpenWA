@@ -20,9 +20,9 @@
 //!  * `FramePostProcessHookVec::push_back_one` (0x00507C40) —
 //!    usercall(ESI=vec, [stack]=&value). Used to grow the projectile-play
 //!    log slot.
-//!  * `DisplayGfx::ConstructTextbox` (0x004FAF00, stdcall) — used by the
-//!    Rust port of `MineEntity::ConstructPointers` to allocate the
-//!    countdown textbox sub-object.
+//!  * `DisplayGfx::ConstructTextbox` (0x004FAF00, thiscall) — wrapped as
+//!    [`Textbox::construct`]; used by the Rust port of
+//!    `MineEntity::ConstructPointers` to allocate the countdown textbox.
 //!  * [`spawn_effect`](crate::game::weapon_release::spawn_effect) is the
 //!    Rust port of WA's `SpawnEffect` (0x00547C30); used by
 //!    `MineEntity::InsertIntoMineList` to spit out a smoke puff when the
@@ -41,6 +41,7 @@ use crate::game::class_type::ClassType;
 use crate::game::weapon::WeaponFireParams;
 use crate::game::weapon_fire::WeaponReleaseContext;
 use crate::rebase::rb;
+use crate::render::textbox::Textbox;
 use openwa_core::fixed::Fixed;
 
 crate::define_addresses! {
@@ -79,7 +80,6 @@ static WORLD_ENTITY_CTOR_ADDR: AtomicU32 = AtomicU32::new(0);
 static FRAME_POST_PROCESS_HOOK_VEC_PUSH_BACK_ONE_ADDR: AtomicU32 = AtomicU32::new(0);
 static MATH_FIXA1TAN16_ADDR: AtomicU32 = AtomicU32::new(0);
 static GAME_COLLISION_TASK_GRADIENT_ADDR: AtomicU32 = AtomicU32::new(0);
-static CONSTRUCT_TEXTBOX_ADDR: AtomicU32 = AtomicU32::new(0);
 
 pub unsafe fn init_addrs() {
     WORLD_ENTITY_CTOR_ADDR.store(rb(0x004FED50), Ordering::Relaxed);
@@ -89,7 +89,6 @@ pub unsafe fn init_addrs() {
     );
     MATH_FIXA1TAN16_ADDR.store(rb(MATH_FIXA1TAN16), Ordering::Relaxed);
     GAME_COLLISION_TASK_GRADIENT_ADDR.store(rb(GAME_COLLISION_TASK_GRADIENT), Ordering::Relaxed);
-    CONSTRUCT_TEXTBOX_ADDR.store(rb(crate::address::va::CONSTRUCT_TEXTBOX), Ordering::Relaxed);
 }
 
 /// `WorldEntity::Constructor` (0x004FED50) — `__stdcall(this, parent,
@@ -168,17 +167,6 @@ unsafe extern "stdcall" fn bridge_vec_push_back_one(_vec: *mut u8, _value_ptr: *
     );
 }
 
-/// `DisplayGfx::ConstructTextbox` (0x004FAF00) — `__stdcall(this, anchor,
-/// kind)`, RET 0xC. Returns the textbox handle in EAX.
-#[inline]
-unsafe fn construct_textbox(this: *mut u8, anchor: i32, kind: i32) -> *mut u8 {
-    type Fn = unsafe extern "stdcall" fn(*mut u8, i32, i32) -> *mut u8;
-    unsafe {
-        let f: Fn = core::mem::transmute(CONSTRUCT_TEXTBOX_ADDR.load(Ordering::Relaxed) as usize);
-        f(this, anchor, kind)
-    }
-}
-
 /// Pure-Rust port of `MineEntity::ConstructPointers` (0x00506D20). When
 /// running headful, allocates a 0x158-byte buffer for the per-mine
 /// countdown textbox and stores the resulting handle in
@@ -189,18 +177,15 @@ pub unsafe fn construct_pointers(this: *mut MineEntity) {
         if (*world).is_headful == 0 {
             return;
         }
-        let buf = crate::wa_alloc::wa_malloc(0x158);
+        let buf = crate::wa_alloc::wa_malloc_zeroed(0x158);
         if buf.is_null() {
             (*this).textbox_handle = core::ptr::null_mut();
             return;
         }
-        // WA only zeroes the first 0x138 bytes; the trailing 0x20 bytes
-        // are scratch the textbox impl initialises lazily.
-        core::ptr::write_bytes(buf, 0, 0x138);
         let game_info = (*world).game_info;
         let f380 = *((game_info as *const u8).add(0xF380) as *const u32);
         let kind = if f380 != 0 { 2 } else { 1 };
-        (*this).textbox_handle = construct_textbox(buf, 4, kind);
+        (*this).textbox_handle = Textbox::construct((*world).display, buf as *mut Textbox, 4, kind);
     }
 }
 

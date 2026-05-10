@@ -880,8 +880,6 @@ pub mod va {
         fn/Stdcall TEAM_MANAGER_CONSTRUCTOR = 0x00563D40;
         /// GameStateEntity constructor
         fn/Stdcall GAME_STATE_CONSTRUCTOR = 0x00532330;
-        /// DisplayGfx::ConstructTextbox
-        fn/Stdcall CONSTRUCT_TEXTBOX = 0x004FAF00;
         /// WeaponPanelIcons__Constructor
         fn/Stdcall INIT_WEAPON_PANEL = 0x00567770;
         /// Buffer object constructor
@@ -1226,7 +1224,6 @@ pub mod va {
         fn FONT_RENDER_GLYPHS = 0x004143D0;
         fn FONT_DRAW_TEXT = 0x00427830;
         fn/Thiscall DISPLAY_GFX_DRAW_TEXT_ON_BITMAP = 0x005236B0;
-        fn/Thiscall DISPLAY_GFX_CONSTRUCT_TEXTBOX = 0x004FAF00;
         fn/Stdcall SET_TEXTBOX_TEXT = 0x004FB070;
     }
 

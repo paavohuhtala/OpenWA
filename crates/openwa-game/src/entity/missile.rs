@@ -2,6 +2,7 @@ use super::base::BaseEntity;
 use super::game_entity::{SubclassData, WorldEntity};
 use crate::FieldRegistry;
 use crate::game::weapon::WeaponSpawnData;
+use crate::render::textbox::Textbox;
 use openwa_core::fixed::Fixed;
 use openwa_core::vec2::Vec2;
 
@@ -389,14 +390,14 @@ pub struct MissileEntity {
     pub _field_3d4: u8,
     /// 0x3D5..0x3D7: Unknown.
     pub _unknown_3d5: [u8; 3],
-    /// 0x3D8 — Headful-only render sub-object handle (two-child wrapper:
-    /// children at +0xC / +0x10 each released via vtable slot 3 before the
-    /// wrapper itself is `wa_free`-d). Allocated by
-    /// `Task_Missile::ConstructPointers` when `world.is_headful != 0`.
-    pub render_handle_a: *mut u8,
+    /// 0x3D8 — Headful-only [`Textbox`] handle, allocated by
+    /// `Task_Missile::ConstructPointers` via `DisplayGfx::ConstructTextbox`
+    /// when `world.is_headful != 0`. Used by missile renderers (e.g.
+    /// homing-pigeon target labels) to draw text overlays.
+    pub render_handle_a: *mut Textbox,
     /// 0x3DC — Companion to [`render_handle_a`](MissileEntity::render_handle_a),
     /// allocated and freed in lock-step.
-    pub render_handle_b: *mut u8,
+    pub render_handle_b: *mut Textbox,
     /// 0x3E0 — Dig-sound active handle. Live id on success;
     /// `-sound_id` retry sentinel when `GameTask::sound_start_0` returned
     /// `-1`. HandleMessage case 0x7A re-arms via

@@ -19,7 +19,7 @@ use crate::entity::base::BaseEntity;
 use crate::rebase::rb;
 use crate::render::message::RenderMessage;
 use crate::render::sprite::sprite_op::SpriteOp;
-use crate::render::textbox::{Textbox, set_text as set_textbox_text};
+use crate::render::textbox::set_text as set_textbox_text;
 use openwa_core::fixed::Fixed;
 
 // ─── Bridges ───────────────────────────────────────────────────────────────
@@ -156,7 +156,7 @@ pub unsafe fn mine_render(this: *mut MineEntity) {
         // `gfx_color_table[7]` and bordered with `gfx_color_table[6]`.
         let mut text_w: i32 = 0;
         let mut text_h: i32 = 0;
-        let textbox = (*this).textbox_handle as *mut Textbox;
+        let textbox = (*this).textbox_handle;
         let fill_color = (*world).gfx_color_table[7];
         let border_color = (*world).gfx_color_table[6];
         let bitmap = set_textbox_text(

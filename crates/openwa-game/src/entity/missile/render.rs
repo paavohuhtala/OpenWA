@@ -15,7 +15,7 @@ use crate::rebase::rb;
 use crate::render::message::RenderMessage;
 use crate::render::sprite::sprite_id::KnownSpriteId;
 use crate::render::sprite::sprite_op::{SpriteFlags, SpriteOp};
-use crate::render::textbox::{Textbox, set_text as set_textbox_text};
+use crate::render::textbox::set_text as set_textbox_text;
 use openwa_core::fixed::Fixed;
 use openwa_core::vec2::Vec2;
 
@@ -208,7 +208,7 @@ unsafe fn emit_textbox(
 
         let mut text_w: i32 = 0;
         let mut text_h: i32 = 0;
-        let textbox = (*this).render_handle_a as *mut Textbox;
+        let textbox = (*this).render_handle_a;
         let bitmap = set_textbox_text(
             textbox,
             text_ptr,
@@ -505,7 +505,7 @@ pub unsafe fn render_indicator(this: *mut MissileEntity) {
 
         let mut text_w: i32 = 0;
         let mut text_h: i32 = 0;
-        let textbox = (*this).render_handle_b as *mut Textbox;
+        let textbox = (*this).render_handle_b;
         let bitmap = set_textbox_text(
             textbox,
             text.as_ptr() as *const c_char,

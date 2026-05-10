@@ -15,6 +15,7 @@ use crate::render::RenderEntry;
 use crate::render::display::gfx::DisplayGfx;
 use crate::render::landscape::Landscape;
 use crate::render::queue::RenderQueue;
+use crate::render::textbox::Textbox;
 use crate::render::turn_order::TurnOrderWidget;
 use crate::wa::localized_string_cache::LocalizedStringCache;
 use openwa_core::fixed::{Fixed, Fixed64};
@@ -148,8 +149,9 @@ pub struct GameWorld {
     pub fire_palette_low: *mut DisplayBitGrid,
     /// 0x540: Unknown pointer
     pub _unknown_540: *mut u8,
-    /// 0x544: Textbox object pointer, details unknown
-    pub textbox: *mut u8,
+    /// 0x544: HUD-text [`Textbox`], allocated by `init_game_state_display`
+    /// during world setup via [`Textbox::construct`].
+    pub textbox: *mut Textbox,
     /// 0x548: Weapon panel pointer
     pub weapon_panel: *mut u8,
     /// 0x54C: LandEntity pointer (set by LandEntity__InitLandscape at 0x5056F0).

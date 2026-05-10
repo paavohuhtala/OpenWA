@@ -16,6 +16,7 @@ use crate::game::create_explosion::create_explosion;
 use crate::game::game_entity_message::{alliance_blocks_damage, world_entity_handle_message};
 use crate::game::message::{EntityMessage, ExplosionMessage, SpecialImpactMessage};
 use crate::rebase::rb;
+use crate::render::textbox::Textbox;
 use crate::wa_alloc::wa_free;
 use openwa_core::fixed::Fixed;
 
@@ -238,9 +239,8 @@ pub(super) unsafe extern "stdcall" fn bridge_reset_rank(
 /// WA helper's deregistration order: re-establish the vtable slot,
 /// release this mine's two world-level slots (`world._unknown_514[mine_list_slot]`
 /// + the `EntityActivityQueue` rank), then in headful mode tear down the
-/// per-mine textbox at `mine.textbox_handle` (two refcounted children via
-/// vtable slot 3, then `wa_free` of the sub-object itself), and finally
-/// chain into the parent `WorldEntity` destructor.
+/// per-mine textbox via [`Textbox::destroy`], and finally chain into the
+/// parent `WorldEntity` destructor.
 unsafe fn destructor_1(this: *mut MineEntity) {
     unsafe {
         // Re-establish own vtable so the parent destructor's virtual
@@ -256,21 +256,8 @@ unsafe fn destructor_1(this: *mut MineEntity) {
         let queue = core::ptr::addr_of_mut!((*world).entity_activity_queue);
         bridge_free_activity_slot(queue, (*this).activity_rank_slot as i32);
 
-        // Headful-only sub-object teardown.
         if (*world).is_headful != 0 {
-            let sub = (*this).textbox_handle;
-            if !sub.is_null() {
-                type Vt3Free = unsafe extern "thiscall" fn(*mut u8, u32);
-                for child_offset in [0xCusize, 0x10] {
-                    let child = *(sub.add(child_offset) as *const *mut u8);
-                    if !child.is_null() {
-                        let vt = *(child as *const *const u32);
-                        let f: Vt3Free = core::mem::transmute(*vt.add(3));
-                        f(child, 1);
-                    }
-                }
-                wa_free(sub);
-            }
+            Textbox::destroy((*this).textbox_handle);
         }
 
         // Parent destructor chain.

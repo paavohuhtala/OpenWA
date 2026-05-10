@@ -638,7 +638,7 @@ unsafe fn draw_textbox_overlay(
 
         let tick = (*world).frame as i32;
         let font_index = blink_color(tick) as i32;
-        let textbox = (*world).textbox as *mut crate::render::textbox::Textbox;
+        let textbox = (*world).textbox;
         let fill_color = (*world).gfx_color_table[7];
         let border_color = (*world).gfx_color_table[6];
         let mut text_w: i32 = 0;

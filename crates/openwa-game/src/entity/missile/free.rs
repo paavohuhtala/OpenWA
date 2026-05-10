@@ -10,6 +10,7 @@ use crate::entity::Entity;
 use crate::entity::base::BaseEntity;
 use crate::game::message::{Unknown83Message, Unknown124Message, WeaponDestroyedMessage};
 use crate::rebase::rb;
+use crate::render::textbox::Textbox;
 use crate::wa_alloc::wa_free;
 
 static mut FREE_ACTIVITY_SLOT_ADDR: u32 = 0;
@@ -44,28 +45,6 @@ unsafe fn bridge_cgametask_destructor(this: *mut MissileEntity) {
     type Fn = unsafe extern "thiscall" fn(*mut MissileEntity);
     let f: Fn = unsafe { core::mem::transmute(CGAMETASK_DESTRUCTOR_ADDR as usize) };
     unsafe { f(this) }
-}
-
-/// Free a render-handle wrapper (the `+0xC` / `+0x10` two-child layout
-/// allocated by `Task_Missile::ConstructPointers`). Each child is released
-/// through its own vtable slot 3 (C++ scalar-deleting destructor) before the
-/// wrapper itself is freed.
-unsafe fn free_render_handle(handle: *mut u8) {
-    unsafe {
-        if handle.is_null() {
-            return;
-        }
-        type Vt3Free = unsafe extern "thiscall" fn(*mut u8, u32);
-        for child_offset in [0xCusize, 0x10] {
-            let child = *(handle.add(child_offset) as *const *mut u8);
-            if !child.is_null() {
-                let vt = *(child as *const *const u32);
-                let f: Vt3Free = core::mem::transmute(*vt.add(3));
-                f(child, 1);
-            }
-        }
-        wa_free(handle);
-    }
 }
 
 /// `Task_Missile::dtor1` (0x005086F0).
@@ -104,8 +83,8 @@ unsafe fn destructor_1(this: *mut MissileEntity) {
         }
 
         if (*world).is_headful != 0 {
-            free_render_handle((*this).render_handle_a);
-            free_render_handle((*this).render_handle_b);
+            Textbox::destroy((*this).render_handle_a);
+            Textbox::destroy((*this).render_handle_b);
         }
 
         bridge_cgametask_destructor(this);

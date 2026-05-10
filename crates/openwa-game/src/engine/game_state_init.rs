@@ -22,6 +22,7 @@ use crate::game::weapon::check_weapon_avail;
 use crate::render::display::gfx::DisplayGfx;
 use crate::render::landscape::{Landscape, init_landscape_borders};
 use crate::render::palette::allocate_palette_context;
+use crate::render::textbox::Textbox;
 use crate::wa_call::{call_ctor_with_ecx, call_usercall_esi_stack1};
 use openwa_core::fixed::Fixed;
 use openwa_core::weapon::WeaponId;
@@ -945,22 +946,14 @@ unsafe fn init_game_state_hud_objects(world: *mut GameWorld, _game_info: *const 
             (*world)._unknown_540 = result;
         }
 
-        // DisplayGfx textbox for HUD text
-        // thiscall: ECX=GameWorld.display, stack=(this, 0x13, 2)
+        // DisplayGfx textbox for HUD text.
         {
-            let mem = wa_malloc_zeroed(0x158) as *mut u32;
-            let result = if mem.is_null() {
+            let mem = wa_malloc_zeroed(0x158) as *mut Textbox;
+            (*world).textbox = if mem.is_null() {
                 core::ptr::null_mut()
             } else {
-                let ctor: unsafe extern "thiscall" fn(
-                    *mut DisplayGfx,
-                    *mut u32,
-                    u32,
-                    u32,
-                ) -> *mut u8 = core::mem::transmute(rb(va::CONSTRUCT_TEXTBOX) as usize);
-                ctor((*world).display, mem, 0x13, 2)
+                Textbox::construct((*world).display, mem, 0x13, 2)
             };
-            (*world).textbox = result;
         }
     }
 }
