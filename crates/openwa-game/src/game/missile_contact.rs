@@ -13,7 +13,7 @@ const VA_PLAY_IMPACT_SOUND: u32 = 0x004FF020;
 const VA_HOMING_TARGET_CHECK: u32 = 0x005018F0;
 const VA_CGAME_TASK_VT8: u32 = 0x004FFED0;
 const VA_IMPACT_SPECIAL_FX: u32 = 0x00509BA0;
-const VA_EXPLOSION_DAMAGE_JITTER: u32 = 0x00547CB0;
+pub(crate) const VA_EXPLOSION_DAMAGE_JITTER: u32 = 0x00547CB0;
 
 #[inline]
 unsafe fn field_u32_mut(this: *mut MissileEntity, byte_offset: usize) -> *mut u32 {
@@ -263,7 +263,7 @@ unsafe extern "C" fn impact_special_fx(
 /// `GameTask::calc_damage` (0x00547CB0) — `__usercall(ESI = base_damage,
 /// [stack] = this, [stack] = pct)`, RET 0x8.
 #[unsafe(naked)]
-unsafe extern "C" fn explosion_damage_jitter(
+pub(crate) unsafe extern "C" fn explosion_damage_jitter(
     _base_damage: u32,
     _this: *mut c_void,
     _pct: u32,

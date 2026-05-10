@@ -25,7 +25,8 @@ static mut HANDLE_WALKING_ANIMAL_ADDR: u32 = 0;
 static mut UPDATE_ANIMAL_POISON_ADDR: u32 = 0;
 static mut APPLY_DIRECT_HOMING_ADDR: u32 = 0;
 static mut APPLY_PIGEON_HOMING_ADDR: u32 = 0;
-static mut DETONATE_ADDR: u32 = 0;
+static mut CREATE_CLUSTERS_ADDR: u32 = 0;
+static mut CREATE_FIRE_1_ADDR: u32 = 0;
 static mut CREATE_BUBBLE_ADDR: u32 = 0;
 static mut ALARM_TABLE_ADDR: u32 = 0;
 
@@ -39,7 +40,8 @@ pub unsafe fn init_addrs() {
         UPDATE_ANIMAL_POISON_ADDR = rb(0x0050A820);
         APPLY_DIRECT_HOMING_ADDR = rb(0x00509EB0);
         APPLY_PIGEON_HOMING_ADDR = rb(0x0050A020);
-        DETONATE_ADDR = rb(0x00509AC0);
+        CREATE_CLUSTERS_ADDR = rb(0x005096A0);
+        CREATE_FIRE_1_ADDR = rb(0x00509D70);
         CREATE_BUBBLE_ADDR = rb(0x005472C0);
         ALARM_TABLE_ADDR = rb(0x006AD288);
     }
@@ -156,22 +158,47 @@ unsafe extern "stdcall" fn bridge_inner_cluster_tick(_this: *mut MissileEntity) 
     );
 }
 
-/// `Task_Missile::detonate` (0x00509AC0) — `__usercall(EAX = this,
-/// [stack] = pos_x, [stack] = pos_y)`, RET 0x8.
+/// `Task_Missile::create_clusters` (0x005096A0) — `__usercall(ESI = this,
+/// [stack] = pos_x, [stack] = pos_y)`, RET 0x8. Spawns the cluster
+/// sub-pellets when a cluster grenade detonates (`weapon_data[0x2D] == 1|3`).
 #[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_detonate(
+unsafe extern "stdcall" fn bridge_create_clusters(
     _this: *mut MissileEntity,
     _pos_x: Fixed,
     _pos_y: Fixed,
 ) {
     core::arch::naked_asm!(
-        "mov eax, dword ptr [esp+4]",
-        "push dword ptr [esp+12]",
-        "push dword ptr [esp+12]",
+        "push esi",
+        "mov esi, dword ptr [esp+8]",
+        "push dword ptr [esp+16]",
+        "push dword ptr [esp+16]",
         "mov ecx, dword ptr [{addr}]",
         "call ecx",
+        "pop esi",
         "ret 12",
-        addr = sym DETONATE_ADDR,
+        addr = sym CREATE_CLUSTERS_ADDR,
+    );
+}
+
+/// `Task_Missile::create_fire_1` (0x00509D70) — `__usercall(ESI = this,
+/// [stack] = pos_x, [stack] = pos_y)`, RET 0x8. Spawns an incendiary
+/// FireEntity when an incendiary missile detonates (`weapon_data[0x2D] == 2`).
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_create_fire_1(
+    _this: *mut MissileEntity,
+    _pos_x: Fixed,
+    _pos_y: Fixed,
+) {
+    core::arch::naked_asm!(
+        "push esi",
+        "mov esi, dword ptr [esp+8]",
+        "push dword ptr [esp+16]",
+        "push dword ptr [esp+16]",
+        "mov ecx, dword ptr [{addr}]",
+        "call ecx",
+        "pop esi",
+        "ret 12",
+        addr = sym CREATE_FIRE_1_ADDR,
     );
 }
 
@@ -200,6 +227,75 @@ unsafe extern "stdcall" fn bridge_create_bubble(
 }
 
 // ─── Pure-Rust ports ───────────────────────────────────────────────────────
+
+/// Pure-Rust port of `Task_Missile::detonate` (0x00509AC0). Plays the
+/// special-weapon explosion grunt for `fire_particle_trigger == 0x4A`,
+/// computes the jittered explosion damage from the fuse-detonate render-data
+/// slots (different slots than `OnContact` uses — see field doc), creates
+/// the explosion via [`create_explosion`], then dispatches the
+/// `weapon_data[0x2D]` follow-up:
+/// 1, 3 → `create_clusters` (when not a sub-pellet);
+/// 2    → `create_fire_1` (incendiary);
+/// else → no follow-up.
+///
+/// [`create_explosion`]: crate::game::create_explosion::create_explosion
+unsafe fn detonate(this: *mut MissileEntity, pos_x: Fixed, pos_y: Fixed) {
+    unsafe {
+        if (*this).fire_particle_trigger == 0x4A {
+            play_sound_local(
+                this as *mut WorldEntity,
+                SoundId(0x40),
+                5,
+                Fixed::ONE,
+                Fixed::ONE,
+            );
+        }
+
+        // Damage sources differ from OnContact:
+        //   OnContact uses explosion_damage / explosion_damage_pct (+0x354/+0x358)
+        //   detonate  uses _render_data_01_05[2] / [3] (+0x2E0/+0x2E4)
+        // (the fuse-expiry explosion uses different render_data slots than
+        //  the contact explosion — same field-polymorphism pattern as the
+        //  Homing missile subtype).
+        let base_damage = (*this)._render_data_01_05[2];
+        let damage_pct = (*this)._render_data_01_05[3];
+        let damage = crate::game::missile_contact::explosion_damage_jitter(
+            base_damage,
+            this as *mut core::ffi::c_void,
+            damage_pct,
+            rb(crate::game::missile_contact::VA_EXPLOSION_DAMAGE_JITTER),
+        );
+
+        if damage != 0 {
+            // Pos-Y offset = signed `(rd0 * rd2) / 200` promoted to Fixed.
+            // Used to lift the explosion epicentre above the missile's
+            // ground-contact point (visual / damage-radius tweak).
+            let offset = ((*this)._render_data_01_05[0] as i32)
+                .wrapping_mul((*this)._render_data_01_05[2] as i32);
+            let pos_y_adj = pos_y.wrapping_add(Fixed::from_int(offset / 200));
+
+            crate::game::create_explosion::create_explosion(
+                pos_x,
+                pos_y_adj,
+                this as *mut BaseEntity,
+                (*this)._render_data_01_05[1],
+                damage,
+                1,
+                (*this).spawn_params.owner_id,
+            );
+        }
+
+        match (*this).weapon_data[0x2D] {
+            1 | 3 if (*this).spawn_params.pellet_index == 0 => {
+                bridge_create_clusters(this, pos_x, pos_y);
+            }
+            2 => {
+                bridge_create_fire_1(this, pos_x, pos_y);
+            }
+            _ => {}
+        }
+    }
+}
 
 /// Pure-Rust port of `Task_Missile::update_effect` (0x0050B240). Drives the
 /// secondary "trail" particle stream gated by `sprite_size & 0x40000000`:
@@ -572,7 +668,7 @@ pub unsafe extern "thiscall" fn tick(
                 return;
             }
 
-            bridge_detonate(this, pos_x_init, pos_y_init);
+            detonate(this, pos_x_init, pos_y_init);
         }
 
         set_world_activity_timer(world, 0xC);
