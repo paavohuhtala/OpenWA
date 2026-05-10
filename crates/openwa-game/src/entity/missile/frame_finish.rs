@@ -12,17 +12,20 @@ use crate::engine::world::GameWorld;
 use crate::entity::Entity;
 use crate::entity::base::BaseEntity;
 use crate::entity::game_entity::WorldEntity;
-use crate::game::message::EntityMessage;
+use crate::game::message::{EntityMessage, WeaponHomingMessage};
 use crate::rebase::rb;
 
 // ─── Bridge addresses ──────────────────────────────────────────────────────
 
 static mut UPDATE_EFFECT_ADDR: u32 = 0;
 static mut CHECK_FOR_ALARMED_WORM_ADDR: u32 = 0;
-static mut INNER_TICK_HOMING_ADDR: u32 = 0;
-static mut INNER_TICK_ANIMAL_ADDR: u32 = 0;
 static mut INNER_TICK_DIGGER_ADDR: u32 = 0;
 static mut INNER_TICK_CLUSTER_ADDR: u32 = 0;
+static mut HANDLE_FLYING_ANIMAL_ADDR: u32 = 0;
+static mut HANDLE_WALKING_ANIMAL_ADDR: u32 = 0;
+static mut UPDATE_ANIMAL_POISON_ADDR: u32 = 0;
+static mut APPLY_DIRECT_HOMING_ADDR: u32 = 0;
+static mut APPLY_PIGEON_HOMING_ADDR: u32 = 0;
 static mut DETONATE_ADDR: u32 = 0;
 static mut CREATE_BUBBLE_ADDR: u32 = 0;
 static mut SPAWN_EFFECT_ADDR: u32 = 0;
@@ -32,10 +35,13 @@ pub unsafe fn init_addrs() {
     unsafe {
         UPDATE_EFFECT_ADDR = rb(0x0050B240);
         CHECK_FOR_ALARMED_WORM_ADDR = rb(0x0050B110);
-        INNER_TICK_HOMING_ADDR = rb(0x0050ABA0);
-        INNER_TICK_ANIMAL_ADDR = rb(0x0050A7E0);
         INNER_TICK_DIGGER_ADDR = rb(0x0050A430);
         INNER_TICK_CLUSTER_ADDR = rb(0x0050A720);
+        HANDLE_FLYING_ANIMAL_ADDR = rb(0x0050AC60);
+        HANDLE_WALKING_ANIMAL_ADDR = rb(0x0050A900);
+        UPDATE_ANIMAL_POISON_ADDR = rb(0x0050A820);
+        APPLY_DIRECT_HOMING_ADDR = rb(0x00509EB0);
+        APPLY_PIGEON_HOMING_ADDR = rb(0x0050A020);
         DETONATE_ADDR = rb(0x00509AC0);
         CREATE_BUBBLE_ADDR = rb(0x005472C0);
         SPAWN_EFFECT_ADDR = rb(0x00547C30);
@@ -78,27 +84,67 @@ unsafe extern "stdcall" fn bridge_check_for_alarmed_worm(
     );
 }
 
-/// `Task_Missile::handle_homing` (0x0050ABA0) — `__usercall(EAX = this)`.
+/// `Task_Missile::handle_flying_animal` (0x0050AC60) — `__usercall(EAX = this)`.
 #[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_inner_homing_tick(_this: *mut MissileEntity) {
+unsafe extern "stdcall" fn bridge_handle_flying_animal(_this: *mut MissileEntity) {
     core::arch::naked_asm!(
         "mov eax, dword ptr [esp+4]",
         "mov ecx, dword ptr [{addr}]",
         "call ecx",
         "ret 4",
-        addr = sym INNER_TICK_HOMING_ADDR,
+        addr = sym HANDLE_FLYING_ANIMAL_ADDR,
     );
 }
 
-/// `Task_Missile::handle_animal` (0x0050A7E0) — `__usercall(EAX = this)`.
+/// `Task_Missile::handle_walking_animal` (0x0050A900) — `__usercall(EAX = this)`.
 #[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_inner_animal_tick(_this: *mut MissileEntity) {
+unsafe extern "stdcall" fn bridge_handle_walking_animal(_this: *mut MissileEntity) {
     core::arch::naked_asm!(
         "mov eax, dword ptr [esp+4]",
         "mov ecx, dword ptr [{addr}]",
         "call ecx",
         "ret 4",
-        addr = sym INNER_TICK_ANIMAL_ADDR,
+        addr = sym HANDLE_WALKING_ANIMAL_ADDR,
+    );
+}
+
+/// `Task_Missile::update_animal_poison` (0x0050A820) — `__usercall(EDI = this)`.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_update_animal_poison(_this: *mut MissileEntity) {
+    core::arch::naked_asm!(
+        "push edi",
+        "mov edi, dword ptr [esp+8]",
+        "mov ecx, dword ptr [{addr}]",
+        "call ecx",
+        "pop edi",
+        "ret 4",
+        addr = sym UPDATE_ANIMAL_POISON_ADDR,
+    );
+}
+
+/// `Task_Missile::apply_direct_homing` (0x00509EB0) — `__usercall(ESI = this)`.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_apply_direct_homing(_this: *mut MissileEntity) {
+    core::arch::naked_asm!(
+        "push esi",
+        "mov esi, dword ptr [esp+8]",
+        "mov ecx, dword ptr [{addr}]",
+        "call ecx",
+        "pop esi",
+        "ret 4",
+        addr = sym APPLY_DIRECT_HOMING_ADDR,
+    );
+}
+
+/// `Task_Missile::apply_pigeon_homing` (0x0050A020) — stdcall(this), RET 0x4.
+#[unsafe(naked)]
+unsafe extern "stdcall" fn bridge_apply_pigeon_homing(_this: *mut MissileEntity) {
+    core::arch::naked_asm!(
+        "push dword ptr [esp+4]",
+        "mov ecx, dword ptr [{addr}]",
+        "call ecx",
+        "ret 4",
+        addr = sym APPLY_PIGEON_HOMING_ADDR,
     );
 }
 
@@ -204,6 +250,71 @@ unsafe extern "stdcall" fn bridge_spawn_effect(
         "ret 0x1C",
         addr = sym SPAWN_EFFECT_ADDR,
     );
+}
+
+// ─── Per-missile-type inner-tick dispatchers ───────────────────────────────
+
+/// Pure-Rust port of `Task_Missile::handle_homing` (0x0050ABA0). Drives the
+/// homing-missile state machine: lock-on countdown (`+0x354`) gates target
+/// acquisition; once acquired, the burn timer (`+0x358`) gates active
+/// `apply_direct_homing` / `apply_pigeon_homing` steering. When the lock-on
+/// timer expires the missile broadcasts [`WeaponHomingMessage`] via the
+/// world root.
+unsafe fn inner_homing_tick(this: *mut MissileEntity) {
+    unsafe {
+        // For `MissileType::Homing`, `explosion_id` / `explosion_damage` /
+        // `explosion_damage_pct` are repurposed (see field docs).
+        let lock_timer = (*this).explosion_damage as i32;
+        if lock_timer != 0 {
+            let new_lock = lock_timer.wrapping_sub(0x14);
+            (*this).explosion_damage = new_lock as u32;
+            if new_lock < 1 {
+                let owner_id = (*this).spawn_params.owner_id;
+                if owner_id != 0 {
+                    (*this).broadcast_via_world_root(WeaponHomingMessage {
+                        team_index: owner_id,
+                    });
+                }
+                (*this).explosion_damage = 0;
+            }
+            return;
+        }
+
+        if (*this).explosion_damage_pct == 0 {
+            return;
+        }
+
+        match (*this).explosion_id {
+            1 => bridge_apply_direct_homing(this),
+            2 => {
+                bridge_apply_direct_homing(this);
+                bridge_apply_pigeon_homing(this);
+            }
+            _ => {}
+        }
+
+        let new_burn = ((*this).explosion_damage_pct as i32).wrapping_sub(0x14);
+        (*this).explosion_damage_pct = new_burn as u32;
+        if new_burn < 1 {
+            (*this).explosion_damage_pct = 0;
+            (*this).homing_engaged_latch = 0;
+        }
+    }
+}
+
+/// Pure-Rust port of `Task_Missile::handle_animal` (0x0050A7E0). Sweeps for
+/// nearby crates, dispatches the per-`contact_phase` body (jetpack vs.
+/// walking), then trails poison gas if the animal is in alt-sprite mode.
+unsafe fn inner_animal_tick(this: *mut MissileEntity) {
+    unsafe {
+        bridge_inner_cluster_tick(this);
+        if (*this).contact_phase == 1 {
+            bridge_handle_flying_animal(this);
+        } else {
+            bridge_handle_walking_animal(this);
+        }
+        bridge_update_animal_poison(this);
+    }
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -421,10 +532,10 @@ pub unsafe extern "thiscall" fn tick(
                     if (*this).base._field_b0 != 0 && ((*this).contact_face_mask & 0x400000) != 0 {
                         (*this).missile_type = MissileType::Zero;
                     } else {
-                        bridge_inner_homing_tick(this);
+                        inner_homing_tick(this);
                     }
                 }
-                MissileType::Animal => bridge_inner_animal_tick(this),
+                MissileType::Animal => inner_animal_tick(this),
                 MissileType::Digger => bridge_inner_digger_tick(this),
                 MissileType::Cluster => bridge_inner_cluster_tick(this),
                 MissileType::Zero | MissileType::Standard => {}

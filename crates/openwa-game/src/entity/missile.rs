@@ -270,14 +270,31 @@ pub struct MissileEntity {
     pub ricochet_chance_pct: u32,
     /// 0x34C — render_data[0x1E] (untouched by known code paths).
     pub _render_data_1e: u32,
-    /// 0x350 — render_data[0x1F]. Explosion ID (passed as 2nd stack arg to
-    /// `CreateExplosion` on Standard/Cluster contact).
+    /// 0x350 — render_data[0x1F]. **Polymorphic.**
+    /// - `MissileType::Standard` / `Cluster`: Explosion ID (passed as 2nd
+    ///   stack arg to `CreateExplosion` on contact).
+    /// - `MissileType::Homing`: homing-kind discriminator read by
+    ///   `inner_homing_tick` (1 = direct, 2 = direct + pigeon).
     pub explosion_id: u32,
-    /// 0x354 — render_data[0x20]. Explosion damage base value (implicit ESI arg
-    /// to `GameTask__calc_damage` damage-jitter helper). Nonzero gate for `CreateExplosion`.
+    /// 0x354 — render_data[0x20]. **Polymorphic.**
+    /// - `MissileType::Standard` / `Cluster`: Explosion damage base value
+    ///   (implicit ESI arg to `GameTask__calc_damage` damage-jitter helper);
+    ///   nonzero gate for `CreateExplosion`.
+    /// - `MissileType::Homing`: lock-on countdown — counted down by
+    ///   `inner_homing_tick` until target acquisition broadcasts
+    ///   [`WeaponHomingMessage`].
+    ///
+    /// [`WeaponHomingMessage`]: crate::game::message::WeaponHomingMessage
     pub explosion_damage: u32,
-    /// 0x358 — render_data[0x21]. Explosion damage scaling percentage (2nd stack
-    /// arg to `GameTask__calc_damage`, used as `(ESI * param) / 100` before RNG jitter).
+    /// 0x358 — render_data[0x21]. **Polymorphic.**
+    /// - `MissileType::Standard` / `Cluster`: Explosion damage scaling
+    ///   percentage (2nd stack arg to `GameTask__calc_damage`, used as
+    ///   `(ESI * param) / 100` before RNG jitter).
+    /// - `MissileType::Homing`: burn-engagement countdown — frames remaining
+    ///   of active `apply_direct_homing` / `apply_pigeon_homing` steering;
+    ///   reaching 0 also clears [`homing_engaged_latch`].
+    ///
+    /// [`homing_engaged_latch`]: MissileEntity::homing_engaged_latch
     pub explosion_damage_pct: u32,
     /// 0x35C — render_data[0x22]. Ricochet-remaining counter. Decremented on each
     /// ricochet-eligible contact; when it reaches 0, the missile invokes the

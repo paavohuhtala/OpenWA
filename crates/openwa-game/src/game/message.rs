@@ -750,6 +750,20 @@ impl EntityMessageData for WeaponClaimControlMessage {
     const MESSAGE_TYPE: EntityMessage = EntityMessage::WeaponClaimControl;
 }
 
+/// Payload for [`EntityMessage::WeaponHoming`] (msg 0x4D). Broadcast by
+/// `Task_Missile::handle_homing` (0x0050ABA0) when the homing-missile lock-on
+/// delay (`+0x354`) drains to zero — signals that the missile has acquired
+/// its target and steering can begin.
+#[repr(C)]
+#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct WeaponHomingMessage {
+    pub team_index: u32,
+}
+
+impl EntityMessageData for WeaponHomingMessage {
+    const MESSAGE_TYPE: EntityMessage = EntityMessage::WeaponHoming;
+}
+
 #[repr(C)]
 #[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct WeaponReleaseControlMessage {
