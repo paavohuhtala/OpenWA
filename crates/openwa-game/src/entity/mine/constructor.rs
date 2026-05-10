@@ -31,7 +31,7 @@
 use core::sync::atomic::{AtomicU32, Ordering};
 
 use super::handle_message::bridge_reset_rank;
-use super::{MineEntity, MineEntityVtable};
+use super::{MineEntity, MineEntityVtable, MineSubclassData};
 use crate::engine::EntityActivityQueue;
 use crate::engine::game_info::GameInfo;
 use crate::engine::world::GameWorld;
@@ -95,13 +95,13 @@ pub unsafe fn init_addrs() {
 /// class_type, flag)`, RET 0x10.
 #[inline]
 unsafe fn world_entity_ctor(
-    this: *mut WorldEntity<*const MineEntityVtable>,
+    this: *mut WorldEntity<*const MineEntityVtable, MineSubclassData>,
     parent: *mut BaseEntity,
     class_type: u32,
     flag: u32,
 ) {
     type Fn = unsafe extern "stdcall" fn(
-        *mut WorldEntity<*const MineEntityVtable>,
+        *mut WorldEntity<*const MineEntityVtable, MineSubclassData>,
         *mut BaseEntity,
         u32,
         u32,
@@ -337,31 +337,29 @@ pub unsafe fn mine_constructor(
         let bit_10 = if scheme_byte >= 8 { 0x10u32 } else { 0 };
         (*this).base.bucket_mask = 0x00421846 | bit_20 | bit_10;
 
-        // Derived seed at subclass_data[0x1C] (mine offset 0x54): signed-
-        // div-by-20 of `(spawn_x + spawn_y) >> 8` truncated to 16 bits,
-        // plus 0xCCCC.
+        // Subclass-data initial values. `WorldEntity::Constructor` (run
+        // above) primed several slots in this range with non-zero
+        // defaults — most importantly `anim_flag = game_info[+0xd780]` —
+        // so we must explicitly clear the slots we want zero before the
+        // `arm_delay <= 0` branch optionally re-applies the WA value.
         let sum: i32 = spawn_x.to_raw().wrapping_add(spawn_y.to_raw());
         let shifted = (sum >> 8) & 0xFFFF;
-        let derived = shifted.wrapping_div(20).wrapping_add(0xCCCC) as u32;
-        write_subclass_dword(this, 0x1C, derived);
-
-        write_subclass_dword(this, 0x34, 0x9999); // mine + 0x6C
-        write_subclass_dword(this, 0x38, 0x9999); // mine + 0x70
-        write_subclass_dword(this, 0x3C, 0); // anim flag (mine + 0x74)
-        write_subclass_dword(this, 0x14, 0x10000); // mine + 0x4C
-        write_subclass_dword(this, 0x8, 0); // armed marker (mine + 0x40)
-        write_subclass_dword(this, 0x4, 1); // mine + 0x3C
+        let position_seed = shifted.wrapping_div(20).wrapping_add(0xCCCC) as u32;
+        let sub = &raw mut (*this).base.subclass_data;
+        (*sub).position_seed = position_seed;
+        (*sub)._field_6c = 0x9999;
+        (*sub)._field_70 = 0x9999;
+        (*sub).anim_flag = 0;
+        (*sub).mass = Fixed::ONE;
+        (*sub).armed_marker = 0;
+        (*sub)._field_3c = 1;
 
         // Arm the mine if it spawned already settled (`arm_delay <= 0`).
         // For airborne mines (`arm_delay < 0`) WA leaves the negative
         // value alone; for `arm_delay == 0` it explicitly clears (no-op).
         if (*this).arm_delay <= 0 {
-            let game_d780 = *((*world).game_info.cast::<u8>().add(0xD780) as *const u32);
-            if (*this).arm_delay == 0 {
-                (*this).arm_delay = 0;
-            }
-            write_subclass_dword(this, 0x8, 1); // armed marker
-            write_subclass_dword(this, 0x3C, game_d780); // anim flag
+            (*sub).armed_marker = 1;
+            (*sub).anim_flag = (*(*world).game_info)._field_d780;
         }
 
         // Pre-placed level-gen mines: drop one pixel at a time until
@@ -425,13 +423,5 @@ pub unsafe fn mine_constructor(
         insert_into_mine_list(this);
 
         this
-    }
-}
-
-#[inline]
-unsafe fn write_subclass_dword(this: *mut MineEntity, sub_offset: usize, value: u32) {
-    unsafe {
-        let p = (*this).base.subclass_data.as_mut_ptr().add(sub_offset) as *mut u32;
-        *p = value;
     }
 }

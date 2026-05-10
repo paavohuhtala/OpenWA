@@ -20,18 +20,6 @@ use crate::render::textbox::Textbox;
 use crate::wa_alloc::wa_free;
 use openwa_core::fixed::Fixed;
 
-/// Subclass-data offset of MineEntity's "anim flag" slot (mine offset 0x74,
-/// inside `WorldEntity::subclass_data` which starts at 0x38 → index 0x3C).
-/// Written by `Arm`, by case 0x1C, and by case 0x4B when the mine is still
-/// settling and the scheme is new enough; meaning is otherwise opaque.
-const SUBCLASS_OFFSET_ANIM_FLAG: usize = 0x3C;
-
-/// Subclass-data offset of a u32 flag at mine offset 0x40 (subclass_data
-/// index 0x8) that `MineEntity::Arm` sets to 1. This is **not** the
-/// end-of-tick detonation gate (which lives at mine + 0x44 / index 0xC);
-/// purpose is otherwise unknown — pending follow-up RE.
-const SUBCLASS_OFFSET_ARMED_MARKER: usize = 0x8;
-
 type HandleMessageFn = unsafe extern "thiscall" fn(
     this: *mut MineEntity,
     sender: *mut BaseEntity,
@@ -339,16 +327,13 @@ unsafe fn scan_for_trigger(this: *mut MineEntity, range: i32) -> *mut BaseEntity
 
 /// Pure-Rust port of `MineEntity::Arm` (0x00506CA0). Latches the settling
 /// anim flag from `game_info._field_d780`, sets the unidentified armed
-/// marker at subclass_data[0x8] = 1, and clears the arm-delay timer.
+/// marker, and clears the arm-delay timer.
 unsafe fn arm(this: *mut MineEntity) {
     unsafe {
         let world = (*(this as *const BaseEntity)).world;
-        let game_info = (*world).game_info;
-        let anim_flag = (*game_info)._field_d780;
-
-        let subclass = (*this).base.subclass_data.as_mut_ptr();
-        *(subclass.add(SUBCLASS_OFFSET_ANIM_FLAG) as *mut u32) = anim_flag;
-        *(subclass.add(SUBCLASS_OFFSET_ARMED_MARKER) as *mut u32) = 1;
+        let sub = &raw mut (*this).base.subclass_data;
+        (*sub).anim_flag = (*(*world).game_info)._field_d780;
+        (*sub).armed_marker = 1;
         (*this).arm_delay = 0;
     }
 }
@@ -444,9 +429,7 @@ unsafe fn maybe_set_settling_anim_flag(this: *mut MineEntity) {
         let world = (*(this as *const BaseEntity)).world;
         let game_info = (*world).game_info;
         if (*game_info).game_version > 0x3C && (*this).arm_delay > 0 {
-            let dst = core::ptr::addr_of_mut!((*this).base.subclass_data[SUBCLASS_OFFSET_ANIM_FLAG])
-                as *mut u32;
-            *dst = (*game_info)._field_d780;
+            (*this).base.subclass_data.anim_flag = (*game_info)._field_d780;
         }
     }
 }
@@ -948,11 +931,10 @@ unsafe fn msg_frame_finish_tick(
             (*this)._field_108 = 0;
         }
 
-        // Final outcome: `subclass_data[0xC]` (mine offset 0x44) gates
+        // Final outcome: `terminate_flag` (mine offset 0x44) gates
         // detonation. When zero, the tick simply returns; when non-zero,
         // the mine detonates (and then frees).
-        let init_done_flag = *((*this).base.subclass_data.as_ptr().add(0xC) as *const u32);
-        if init_done_flag == 0 {
+        if (*this).base.subclass_data.terminate_flag == 0 {
             return;
         }
         detonate(this);
