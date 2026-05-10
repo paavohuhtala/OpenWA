@@ -27,7 +27,6 @@ static mut APPLY_DIRECT_HOMING_ADDR: u32 = 0;
 static mut APPLY_PIGEON_HOMING_ADDR: u32 = 0;
 static mut DETONATE_ADDR: u32 = 0;
 static mut CREATE_BUBBLE_ADDR: u32 = 0;
-static mut SPAWN_EFFECT_ADDR: u32 = 0;
 static mut ALARM_TABLE_ADDR: u32 = 0;
 
 pub unsafe fn init_addrs() {
@@ -42,7 +41,6 @@ pub unsafe fn init_addrs() {
         APPLY_PIGEON_HOMING_ADDR = rb(0x0050A020);
         DETONATE_ADDR = rb(0x00509AC0);
         CREATE_BUBBLE_ADDR = rb(0x005472C0);
-        SPAWN_EFFECT_ADDR = rb(0x00547C30);
         ALARM_TABLE_ADDR = rb(0x006AD288);
     }
 }
@@ -198,41 +196,6 @@ unsafe extern "stdcall" fn bridge_create_bubble(
         "pop esi",
         "ret 16",
         addr = sym CREATE_BUBBLE_ADDR,
-    );
-}
-
-/// `SpawnEffect` (0x00547C30) bridged with case-2's anim_kind = 0x80000
-/// layout. `__usercall(EAX = anim_kind, ECX = pos_x, ESI = this)` + 7 stack
-/// args (reverse-pushed): `pos_y, rng_dx, rng_dy, 0, pi_view_0, 0x10000,
-/// state_flag`. RET 0x1C. Direct bridge — `weapon_release::spawn_effect`
-/// writes a different anim_kind's permuted slot layout.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_spawn_effect(
-    _this: *mut MissileEntity,
-    _pos_x: Fixed,
-    _pos_y: Fixed,
-    _rng_dx: i32,
-    _rng_dy: i32,
-    _pi_view_0: u32,
-    _state_flag: i32,
-) {
-    core::arch::naked_asm!(
-        "push esi",
-        "mov esi, dword ptr [esp+8]",
-        "mov ecx, dword ptr [esp+12]",
-        "mov eax, 0x80000",
-        "push dword ptr [esp+0x20]",
-        "push 0x10000",
-        "push dword ptr [esp+0x24]",
-        "push 0",
-        "push dword ptr [esp+0x28]",
-        "push dword ptr [esp+0x28]",
-        "push dword ptr [esp+0x28]",
-        "mov edx, dword ptr [{addr}]",
-        "call edx",
-        "pop esi",
-        "ret 0x1C",
-        addr = sym SPAWN_EFFECT_ADDR,
     );
 }
 
@@ -660,7 +623,27 @@ unsafe fn in_flight_body(
                 // Ghidra mis-renders this as `/100`; BN agrees with disasm.
                 let state_flag = (pi_view[2] as i32).wrapping_mul(0x147A) / 200;
 
-                bridge_spawn_effect(this, pos_x, pos_y, rng_dx, rng_dy, pi_view[0], state_flag);
+                // Anim_kind 0x80000 spark emit. SpawnEffect's slot layout is
+                // shared across anim_kinds (offsets fixed by 0x547C30); the
+                // weapon_release::spawn_effect param names reflect the
+                // weapon-release caller's interpretation, so the case-2 args
+                // map by slot:
+                //   palette/slot_18      = 0
+                //   state_flag/slot_1C   = pi_view[0]
+                //   size/slot_24         = Fixed::ONE
+                //   scale/slot_28        = state_flag (case-2 derived val)
+                crate::game::weapon_release::spawn_effect(
+                    this as *mut BaseEntity,
+                    0x80000,
+                    pos_x,
+                    pos_y,
+                    rng_dx,
+                    rng_dy,
+                    0,
+                    pi_view[0],
+                    Fixed::ONE,
+                    Fixed::from_raw(state_flag),
+                );
 
                 (*this).effect_emit_phase = (*this).effect_emit_phase.wrapping_sub(Fixed::ONE);
             }
