@@ -6,7 +6,7 @@ use openwa_core::weapon::WeaponId;
 /// Inter-entity message types for the game's event/message passing system.
 ///
 /// Entities communicate by sending these messages through the hierarchy.
-/// Note: there are gaps in the numbering (10, 24-25, 65-66, 82-83, 87, 95).
+/// Note: there are gaps in the numbering (10, 24-25, 65-66, 82, 87, 95).
 ///
 /// Source: wkJellyWorm Constants.h
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -96,7 +96,11 @@ pub enum EntityMessage {
     WeaponClaimControl = 79,
     WeaponReleaseControl = 80,
     PoisonWorm = 81,
-    // gap: 82-83 unused
+    // gap: 82 unused
+    /// 0x53 (83) — broadcast by `Task_Missile::dtor1` (0x005086F0) when
+    /// `super_animal_target_locked != 0`. Payload is a single `team_index`
+    /// (sender's `spawn_params.owner_id`); receiver unidentified.
+    Unknown83 = 83,
     SetWind = 84,
     GameText = 85,
     CreateAnimation = 86,
@@ -140,6 +144,12 @@ pub enum EntityMessage {
     /// [`Explosion`].
     ProjectileImpact = 118,
     Unknown122 = 122,
+    Unknown123 = 123,
+    /// 0x7C (124) — broadcast by `Task_Missile::dtor1` (0x005086F0) when the
+    /// destructor runs while `contact_phase == 2` (super-animal mode already
+    /// finished). Payload is a single `team_index` (sender's
+    /// `spawn_params.owner_id`); receiver unidentified.
+    Unknown124 = 124,
     /// 0x7E (126) — homing-control "set fuse" command. Sent by the homing
     /// missile UI to adjust the fuse on a currently-flying homing missile
     /// owned by the sending team. Payload is [`Unknown126Message`]
@@ -181,11 +191,11 @@ impl TryFrom<u32> for EntityMessage {
             | 26..=41
             | 43..=64
             | 67..=81
-            | 84..=86
+            | 83..=86
             | 88..=94
             | 96..=114
             | 117..=118
-            | 122
+            | 122..=124
             | 126
             | 129..=132 => {
                 // SAFETY: all matched values correspond to valid variants
@@ -728,4 +738,64 @@ pub struct CrateCollectedMessage {
 
 impl EntityMessageData for CrateCollectedMessage {
     const MESSAGE_TYPE: EntityMessage = EntityMessage::CrateCollected;
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct WeaponClaimControlMessage {
+    pub team_index: u32,
+}
+
+impl EntityMessageData for WeaponClaimControlMessage {
+    const MESSAGE_TYPE: EntityMessage = EntityMessage::WeaponClaimControl;
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct WeaponReleaseControlMessage {
+    pub team_index: u32,
+}
+
+impl EntityMessageData for WeaponReleaseControlMessage {
+    const MESSAGE_TYPE: EntityMessage = EntityMessage::WeaponReleaseControl;
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct Unknown123Message {
+    pub team_index: u32,
+}
+
+impl EntityMessageData for Unknown123Message {
+    const MESSAGE_TYPE: EntityMessage = EntityMessage::Unknown123;
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct WeaponDestroyedMessage {
+    pub team_index: u32,
+}
+
+impl EntityMessageData for WeaponDestroyedMessage {
+    const MESSAGE_TYPE: EntityMessage = EntityMessage::WeaponDestroyed;
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct Unknown83Message {
+    pub team_index: u32,
+}
+
+impl EntityMessageData for Unknown83Message {
+    const MESSAGE_TYPE: EntityMessage = EntityMessage::Unknown83;
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct Unknown124Message {
+    pub team_index: u32,
+}
+
+impl EntityMessageData for Unknown124Message {
+    const MESSAGE_TYPE: EntityMessage = EntityMessage::Unknown124;
 }

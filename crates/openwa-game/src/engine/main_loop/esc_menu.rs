@@ -133,7 +133,7 @@ unsafe fn begin_round_end(runtime: *mut GameRuntime, skip_frame_delay: bool) {
         let game_version = (*(*(*runtime).world).game_info).game_version;
         if game_version > 0x4c {
             let entity = (*runtime).world_root;
-            WorldRootEntity::handle_typed_message_raw(entity, entity, TurnEndMaybeMessage);
+            WorldRootEntity::broadcast_raw(entity, entity, TurnEndMaybeMessage);
         }
     }
 }

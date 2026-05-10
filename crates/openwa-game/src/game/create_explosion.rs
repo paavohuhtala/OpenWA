@@ -29,7 +29,7 @@ pub unsafe fn create_explosion(
         if world_root.is_null() {
             return;
         }
-        WorldRootEntity::handle_typed_message_raw(
+        WorldRootEntity::broadcast_raw(
             world_root,
             sender,
             ExplosionMessage {

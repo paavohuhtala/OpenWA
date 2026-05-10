@@ -159,7 +159,7 @@ pub unsafe fn weapon_release(
         // ── 7. SharedData HandleMessage (msg 0x49) ──────────────
         let team = weapon_fire::lookup_world_root(worm);
         if !team.is_null() {
-            WorldRootEntity::handle_typed_message_raw(
+            WorldRootEntity::broadcast_raw(
                 team,
                 worm,
                 WeaponReleasedMessage {

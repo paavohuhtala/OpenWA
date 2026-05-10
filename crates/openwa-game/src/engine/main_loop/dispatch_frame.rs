@@ -697,7 +697,7 @@ fn is_paused_phase(v: i32) -> bool {
 pub unsafe fn reset_frame_state(runtime: *mut GameRuntime) {
     unsafe {
         let entity = (*runtime).world_root;
-        WorldRootEntity::handle_typed_message_raw(entity, entity, UpdateNonCriticalMessage);
+        WorldRootEntity::broadcast_raw(entity, entity, UpdateNonCriticalMessage);
 
         let world = (*runtime).world;
 
@@ -860,17 +860,13 @@ unsafe fn broadcast_frame_timing(
         let world = (*runtime).world;
 
         // ── Msg 0x84.
-        WorldRootEntity::handle_typed_message_raw(
-            world_root,
-            world_root,
-            Unknown132Message { fps_scaled },
-        );
+        WorldRootEntity::broadcast_raw(world_root, world_root, Unknown132Message { fps_scaled });
 
         // ── Msg 0x83: conditional on world.fast_forward_request == 0
         // && replay_flag_a == 0.
         let frame_delay = (*runtime).frame_delay_counter;
         if (*world).fast_forward_request == 0 && (*runtime).replay_flag_a == 0 {
-            WorldRootEntity::handle_typed_message_raw(
+            WorldRootEntity::broadcast_raw(
                 world_root,
                 world_root,
                 Unknown131Message {
@@ -891,7 +887,7 @@ unsafe fn broadcast_frame_timing(
         } else {
             0
         };
-        WorldRootEntity::handle_typed_message_raw(
+        WorldRootEntity::broadcast_raw(
             world_root,
             world_root,
             Unknown130Message {
@@ -1526,7 +1522,7 @@ pub unsafe fn dispatch_frame(runtime: *mut GameRuntime, time: u64, freq: u64) {
                     // Broadcast game-end message via WorldRootEntity::HandleMessage (vtable[2]).
                     // Original (0x529F00): ECX=entity, stack = [sender=entity, msg=0x75, size=0, data=0].
                     let entity = (*runtime).world_root;
-                    crate::entity::WorldRootEntity::handle_typed_message_raw(
+                    crate::entity::WorldRootEntity::broadcast_raw(
                         entity,
                         entity,
                         TurnEndMaybeMessage,

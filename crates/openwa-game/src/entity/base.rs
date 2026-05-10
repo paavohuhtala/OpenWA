@@ -1,7 +1,9 @@
 use crate::FieldRegistry;
 use crate::engine::world::GameWorld;
+use crate::entity::WorldRootEntity;
 use crate::game::EntityMessage;
 use crate::game::class_type::ClassType;
+use crate::game::message::EntityMessageData;
 
 crate::define_addresses! {
     class "BaseEntity" {
@@ -224,6 +226,13 @@ pub unsafe trait Entity {
         self.entity().world
     }
 
+    fn world_root(&self) -> *mut WorldRootEntity {
+        unsafe {
+            let base = self.entity();
+            WorldRootEntity::from_shared_data(base)
+        }
+    }
+
     /// Broadcast a message to all children — pure Rust port of BaseEntity::HandleMessage (0x562F30).
     ///
     /// Iterates the sparse children array (`children_data[0..children_watermark]`),
@@ -271,6 +280,16 @@ pub unsafe trait Entity {
 
                 BaseEntity::handle_message_raw(child, sender, msg_type, size, data);
             }
+        }
+    }
+
+    unsafe fn broadcast_via_world_root<TMessage: EntityMessageData>(&mut self, message: TMessage) {
+        unsafe {
+            let world_root = self.world_root();
+            if world_root.is_null() {
+                return;
+            }
+            WorldRootEntity::broadcast_raw(world_root, self.as_entity_ptr_mut(), message);
         }
     }
 }

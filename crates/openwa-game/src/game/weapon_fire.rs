@@ -412,7 +412,7 @@ unsafe fn send_to_world_root<M: EntityMessageData>(worm: *mut WormEntity, msg: M
         if team.is_null() {
             return;
         }
-        WorldRootEntity::handle_typed_message_raw(team, worm, msg);
+        WorldRootEntity::broadcast_raw(team, worm, msg);
     }
 }
 
@@ -587,7 +587,7 @@ unsafe fn fire_teleport(worm: *mut WormEntity) {
                 _field_28: 0x1999,
                 _trailing: [0; 0x408 - 0x2C],
             };
-            WorldRootEntity::handle_typed_message_raw(team, worm, msg);
+            WorldRootEntity::broadcast_raw(team, worm, msg);
         }
 
         // Temporarily swap the worm's bucket_mask (+0x34) with the airstrike-
@@ -652,7 +652,7 @@ unsafe fn fire_nuclear_test(worm: *mut WormEntity) {
             return;
         }
 
-        WorldRootEntity::handle_typed_message_raw(
+        WorldRootEntity::broadcast_raw(
             game,
             worm,
             RaiseWaterMessage {
@@ -661,7 +661,7 @@ unsafe fn fire_nuclear_test(worm: *mut WormEntity) {
             },
         );
 
-        WorldRootEntity::handle_typed_message_raw(game, worm, NukeBlastMessage { unknown1: 8 });
+        WorldRootEntity::broadcast_raw(game, worm, NukeBlastMessage { unknown1: 8 });
 
         sound::queue_sound(
             world,
@@ -671,7 +671,7 @@ unsafe fn fire_nuclear_test(worm: *mut WormEntity) {
             Fixed::ONE,
         );
 
-        WorldRootEntity::handle_typed_message_raw(
+        WorldRootEntity::broadcast_raw(
             game,
             worm,
             PoisonWormMessage {
@@ -703,7 +703,7 @@ unsafe fn fire_scales_of_justice(worm: *mut WormEntity) {
         // Send message 0x5E to WorldRootEntity
         let game = lookup_world_root(worm);
         if !game.is_null() {
-            WorldRootEntity::handle_typed_message_raw(game, worm, ScalesOfJusticeMessage);
+            WorldRootEntity::broadcast_raw(game, worm, ScalesOfJusticeMessage);
         }
 
         // Play jet pack sound:
@@ -771,7 +771,7 @@ unsafe fn fire_armageddon(worm: *mut WormEntity) {
         //   data[0x08] = weapon_id,  data[0x0C] = team_index
         let team = lookup_world_root(worm);
         if !team.is_null() {
-            WorldRootEntity::handle_typed_message_raw(
+            WorldRootEntity::broadcast_raw(
                 team,
                 worm,
                 ArmageddonMessage {

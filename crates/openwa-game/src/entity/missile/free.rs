@@ -6,7 +6,9 @@ use core::sync::atomic::AtomicU32;
 use super::super_animal::finish_super_animal;
 use super::{MissileEntity, MissileEntityVtable};
 use crate::engine::EntityActivityQueue;
+use crate::entity::Entity;
 use crate::entity::base::BaseEntity;
+use crate::game::message::{Unknown83Message, Unknown124Message, WeaponDestroyedMessage};
 use crate::rebase::rb;
 use crate::wa_alloc::wa_free;
 
@@ -76,7 +78,9 @@ unsafe fn destructor_1(this: *mut MissileEntity) {
 
         let owner_id = (*this).spawn_params.owner_id;
         if owner_id != 0 {
-            super::super_animal::broadcast_via_world_root(this, 0x4E, owner_id);
+            (*this).broadcast_via_world_root(WeaponDestroyedMessage {
+                team_index: owner_id,
+            });
         }
 
         let queue = core::ptr::addr_of_mut!((*world).entity_activity_queue);
@@ -86,12 +90,16 @@ unsafe fn destructor_1(this: *mut MissileEntity) {
         super::sound::stop_dig_sound(this);
 
         if (*this).super_animal_target_locked != 0 {
-            super::super_animal::broadcast_via_world_root(this, 0x53, owner_id);
+            (*this).broadcast_via_world_root(Unknown83Message {
+                team_index: owner_id,
+            });
         }
 
         match (*this).contact_phase {
             1 => finish_super_animal(this),
-            2 => super::super_animal::broadcast_via_world_root(this, 0x7C, owner_id),
+            2 => (*this).broadcast_via_world_root(Unknown124Message {
+                team_index: owner_id,
+            }),
             _ => {}
         }
 

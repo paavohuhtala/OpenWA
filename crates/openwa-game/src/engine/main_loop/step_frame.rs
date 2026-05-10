@@ -161,7 +161,7 @@ unsafe fn enter_round_ending(runtime: *mut GameRuntime) {
         let gi = &*(*world).game_info;
         if gi.game_version > 0x4c {
             let entity = (*runtime).world_root;
-            WorldRootEntity::handle_typed_message_raw(entity, entity, TurnEndMaybeMessage);
+            WorldRootEntity::broadcast_raw(entity, entity, TurnEndMaybeMessage);
         }
     }
 }
@@ -328,7 +328,7 @@ pub unsafe fn step_frame(
                 (*runtime).game_end_speed = Fixed::ZERO;
                 if game_info.game_version >= 0x4d {
                     let entity = (*runtime).world_root;
-                    WorldRootEntity::handle_typed_message_raw(entity, entity, TurnEndMaybeMessage);
+                    WorldRootEntity::broadcast_raw(entity, entity, TurnEndMaybeMessage);
                 }
             } else {
                 begin_network_game_end(runtime);
@@ -378,7 +378,7 @@ pub unsafe fn step_frame(
             (*runtime)._field_404 = 1;
             if (*world).fast_forward_active == 0 {
                 let entity = (*runtime).world_root;
-                WorldRootEntity::handle_typed_message_raw(entity, entity, Unknown122Message);
+                WorldRootEntity::broadcast_raw(entity, entity, Unknown122Message);
             }
         }
 

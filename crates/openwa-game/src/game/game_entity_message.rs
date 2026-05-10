@@ -178,11 +178,7 @@ unsafe fn apply_explosion_damage(this: *mut WorldEntity, msg: *const ExplosionMe
         if world_root.is_null() {
             return;
         }
-        WorldRootEntity::handle_typed_message_raw(
-            world_root,
-            this,
-            ExplosionReportMessage { damage_percent },
-        );
+        WorldRootEntity::broadcast_raw(world_root, this, ExplosionReportMessage { damage_percent });
     }
 }
 

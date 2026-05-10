@@ -7,38 +7,11 @@ use openwa_core::fixed::Fixed;
 use super::{MissileEntity, sound};
 use crate::audio::SoundId;
 use crate::audio::sound_ops::{load_and_play_streaming, play_sound_local};
-use crate::entity::base::{BaseEntity, SharedDataTable};
-
-/// Send `msg_id` to the WorldRoot dispatcher (SharedData key `(0, 0x14)`).
-/// `buf[0]` is set to `arg0`; the remaining 0x404 bytes are zero. WA's
-/// version leaves the tail uninitialised, but the receivers for the
-/// missile-broadcast msg ids only read the first dword.
-pub(super) unsafe fn broadcast_via_world_root(this: *mut MissileEntity, msg_id: u32, arg0: u32) {
-    unsafe {
-        let table = SharedDataTable::from_task(this as *const BaseEntity);
-        let target = table.lookup(0, 0x14);
-        if target.is_null() {
-            return;
-        }
-        let mut buf = [0u32; 0x408 / 4];
-        buf[0] = arg0;
-        let vt = *(target as *const *const usize);
-        let handle_message_slot: unsafe extern "thiscall" fn(
-            *mut u8,
-            *mut BaseEntity,
-            u32,
-            u32,
-            *const u8,
-        ) = core::mem::transmute(*vt.add(2));
-        handle_message_slot(
-            target,
-            this as *mut BaseEntity,
-            msg_id,
-            0x408,
-            buf.as_ptr() as *const u8,
-        );
-    }
-}
+use crate::entity::Entity;
+use crate::entity::game_entity::WorldEntity;
+use crate::game::message::{
+    Unknown123Message, WeaponClaimControlMessage, WeaponReleaseControlMessage,
+};
 
 /// `Task_Missile::start_super_animal` (0x0050AF40) — transitions an
 /// `MissileType::Animal` projectile into super-animal (jetpack-steered) mode.
@@ -53,13 +26,15 @@ pub(super) unsafe fn start_super_animal(this: *mut MissileEntity) {
 
         let owner_id = (*this).spawn_params.owner_id;
         if owner_id != 0 {
-            broadcast_via_world_root(this, 0x4F, owner_id);
+            (*this).broadcast_via_world_root(WeaponClaimControlMessage {
+                team_index: owner_id,
+            });
         }
 
         let start_sound = (*this).super_animal_start_sound_id;
         if start_sound != 0 {
             play_sound_local(
-                this as *mut crate::entity::game_entity::WorldEntity,
+                this as *mut WorldEntity,
                 SoundId(start_sound),
                 5,
                 Fixed::ONE,
@@ -71,7 +46,7 @@ pub(super) unsafe fn start_super_animal(this: *mut MissileEntity) {
         if loop_sound != 0 {
             sound::stop_fuse_sound(this);
             let handle = load_and_play_streaming(
-                this as *mut crate::entity::game_entity::WorldEntity,
+                this as *mut WorldEntity,
                 SoundId(loop_sound as u32),
                 4,
                 Fixed::ONE,
@@ -110,8 +85,12 @@ pub(super) unsafe fn finish_super_animal(this: *mut MissileEntity) {
 
         let owner_id = (*this).spawn_params.owner_id;
         if owner_id != 0 {
-            broadcast_via_world_root(this, 0x50, owner_id);
-            broadcast_via_world_root(this, 0x7B, owner_id);
+            (*this).broadcast_via_world_root(WeaponReleaseControlMessage {
+                team_index: owner_id,
+            });
+            (*this).broadcast_via_world_root(Unknown123Message {
+                team_index: owner_id,
+            });
         }
 
         if (*this).super_animal_loop_sound_id != 0 {

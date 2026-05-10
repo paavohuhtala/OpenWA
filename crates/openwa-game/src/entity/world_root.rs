@@ -242,7 +242,7 @@ impl WorldRootEntity {
         }
     }
 
-    pub unsafe fn handle_typed_message_raw<TSender: Entity, TMessage: EntityMessageData>(
+    pub unsafe fn broadcast_raw<TSender: Entity, TMessage: EntityMessageData>(
         this: *mut Self,
         sender: *mut TSender,
         message: TMessage,
