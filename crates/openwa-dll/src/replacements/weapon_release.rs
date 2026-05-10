@@ -5,6 +5,7 @@
 
 use openwa_core::fixed::Fixed;
 use openwa_game::address::va;
+use openwa_game::entity::BaseEntity;
 use openwa_game::entity::worm::WormEntity;
 use openwa_game::game::weapon_release as wr;
 
@@ -58,7 +59,7 @@ unsafe extern "C" fn trampoline_spawn_effect() {
 }
 
 unsafe extern "cdecl" fn spawn_effect_cdecl(
-    worm: *mut WormEntity,
+    sender: *mut BaseEntity,
     constant: u32,
     speed_x: Fixed,
     speed_y: Fixed,
@@ -71,7 +72,7 @@ unsafe extern "cdecl" fn spawn_effect_cdecl(
 ) {
     unsafe {
         wr::spawn_effect(
-            worm, constant, speed_x, speed_y, rng_scaled, rng_offset, palette, state_flag, size,
+            sender, constant, speed_x, speed_y, rng_scaled, rng_offset, palette, state_flag, size,
             scale,
         );
     }

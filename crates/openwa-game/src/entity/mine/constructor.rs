@@ -207,7 +207,7 @@ pub unsafe fn insert_into_mine_list(this: *mut MineEntity) {
         let team_record = GameInfo::team_record_1based(game_info, (*victim).placer_team_index);
         let state_flag = ((*team_record).font_palette_idx as u32).wrapping_add(8);
         crate::game::weapon_release::spawn_effect(
-            victim as *mut crate::entity::WormEntity,
+            victim as *mut crate::entity::BaseEntity,
             0,
             (*victim).base.pos_x,
             (*victim).base.pos_y,

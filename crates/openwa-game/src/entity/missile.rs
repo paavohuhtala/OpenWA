@@ -135,14 +135,31 @@ pub struct MissileEntity {
     /// `Fixed::ONE` per spawned `SpawnEffect` particle or
     /// `GameTask::create_bubble_1` bubble.
     pub effect_emit_phase: Fixed,
-    /// 0x118: Unknown — observed being set from scheme data at construction
-    pub _unknown_118: u32,
+    /// 0x118: Crate-pickup counter for `Task_Missile::cluster_crate_sweep`
+    /// (0x0050A720). Incremented each time an in-flight missile collects a
+    /// crate (Animal / Cluster sub-pellet types only); the fuse timer is
+    /// extended by `fuse_timer / count` so each pickup grants a diminishing
+    /// "extra time" bonus. Bounded by `game_info[+0xD9AF]` (per-scheme limit
+    /// byte; 0 = unlimited). Initialized from scheme data at construction.
+    pub crate_pickup_count: u32,
     /// 0x11C: Unknown
     pub _unknown_11c: u32,
-    /// 0x120: Unknown
-    pub _unknown_120: u32,
-    /// 0x124: Unknown
-    pub _unknown_124: u32,
+    /// 0x120: Trail-effect emit-phase accumulator (Fixed 16.16). Mirrors
+    /// [`effect_emit_phase`] but for the secondary "trail" particle stream
+    /// gated by `sprite_size & 0x40000000`. Each FrameFinish-driven
+    /// `Task_Missile::update_effect` (0x0050B240) tick adds
+    /// [`trail_emit_step`] here and consumes `Fixed::ONE` per emitted
+    /// particle (anim_kind 0xE0000 via SharedData lookup of SpriteAnimEntity).
+    ///
+    /// [`effect_emit_phase`]: MissileEntity::effect_emit_phase
+    /// [`trail_emit_step`]: MissileEntity::trail_emit_step
+    pub trail_emit_phase: Fixed,
+    /// 0x124: Trail-effect emit-step (Fixed 16.16). Decays by `0xCCC` per
+    /// frame and is clamped to `[0, Fixed::ONE]`; reaching 0 stops trail
+    /// emission. Companion to [`trail_emit_phase`].
+    ///
+    /// [`trail_emit_phase`]: MissileEntity::trail_emit_phase
+    pub trail_emit_step: Fixed,
     /// 0x128: Position-derived launch seed. Computed by constructor as:
     /// `((spawn_x + spawn_y) / 256 / 20) + 0x10000`. param_1[0x4A].
     pub launch_seed: Fixed,

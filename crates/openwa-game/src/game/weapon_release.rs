@@ -353,7 +353,7 @@ pub unsafe fn weapon_release(
             let state_flag = facing_flag + effect_state;
 
             spawn_effect(
-                worm,
+                worm as *mut BaseEntity,
                 0x80000,
                 speed_x,
                 speed_y,
@@ -384,12 +384,15 @@ fn write_u32(buf: &mut [u8], offset: usize, value: u32) {
 /// Spawn a visual effect on the sprite anim entity. Pure Rust port of SpawnEffect.
 ///
 /// Builds a 0x408-byte message buffer from the params, looks up SpriteAnimEntity
-/// via SharedData (entity type 0x1A), and sends HandleMessage(0x56).
+/// via SharedData (entity type 0x1A), and sends HandleMessage(0x56). The
+/// `sender` may be any BaseEntity-rooted entity — it is used only for the
+/// SharedData lookup context (table is shared across the entity tree) and as
+/// the `sender` arg of HandleMessage.
 ///
 /// Called directly from `weapon_release` and via the hook trampoline
 /// for all other WA callers (17 call sites).
 pub unsafe fn spawn_effect(
-    worm: *mut WormEntity,
+    sender: *mut BaseEntity,
     constant: u32,
     speed_x: Fixed,
     speed_y: Fixed,
@@ -401,8 +404,8 @@ pub unsafe fn spawn_effect(
     scale: Fixed,
 ) {
     unsafe {
-        // Build the 0x408-byte message buffer. ESI (worm/entity) is NOT stored
-        // in the buffer — it's passed to SharedData__Lookup as the entity
+        // Build the 0x408-byte message buffer. ESI (sender) is NOT stored in
+        // the buffer — it's passed to SharedData__Lookup as the entity
         // context and used as the sender for HandleMessage(0x56). The first
         // data slot at [0x00] holds EAX (`constant`), not the entity ptr.
         let mut buf = [0u8; 0x408];
@@ -419,7 +422,7 @@ pub unsafe fn spawn_effect(
         write_u32(&mut buf, 0x28, scale.0 as u32);
 
         // SharedData lookup for entity type 0x1A (SpriteAnimEntity)
-        let table = SharedDataTable::from_task(worm as *const BaseEntity);
+        let table = SharedDataTable::from_task(sender as *const BaseEntity);
         let entity = table.lookup(0, 0x1A);
         if !entity.is_null() {
             let vtable = *(entity as *const *const usize);
@@ -427,7 +430,7 @@ pub unsafe fn spawn_effect(
                 core::mem::transmute(*vtable.add(2));
             handle_msg(
                 entity as *mut u8,
-                worm as *mut u8,
+                sender as *mut u8,
                 0x56,
                 0x408,
                 buf.as_ptr(),

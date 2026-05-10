@@ -17,7 +17,6 @@ use crate::rebase::rb;
 
 // ─── Bridge addresses ──────────────────────────────────────────────────────
 
-static mut UPDATE_EFFECT_ADDR: u32 = 0;
 static mut CHECK_FOR_ALARMED_WORM_ADDR: u32 = 0;
 static mut INNER_TICK_DIGGER_ADDR: u32 = 0;
 static mut INNER_TICK_CLUSTER_ADDR: u32 = 0;
@@ -33,7 +32,6 @@ static mut ALARM_TABLE_ADDR: u32 = 0;
 
 pub unsafe fn init_addrs() {
     unsafe {
-        UPDATE_EFFECT_ADDR = rb(0x0050B240);
         CHECK_FOR_ALARMED_WORM_ADDR = rb(0x0050B110);
         INNER_TICK_DIGGER_ADDR = rb(0x0050A430);
         INNER_TICK_CLUSTER_ADDR = rb(0x0050A720);
@@ -50,20 +48,6 @@ pub unsafe fn init_addrs() {
 }
 
 // ─── WA bridges ────────────────────────────────────────────────────────────
-
-/// `Task_Missile::update_effect` (0x0050B240) — `__usercall(ESI = this)`.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_update_effect(_this: *mut MissileEntity) {
-    core::arch::naked_asm!(
-        "push esi",
-        "mov esi, dword ptr [esp+8]",
-        "mov ecx, dword ptr [{addr}]",
-        "call ecx",
-        "pop esi",
-        "ret 4",
-        addr = sym UPDATE_EFFECT_ADDR,
-    );
-}
 
 /// `Task_Missile::check_for_alarmed_worm` (0x0050B110) — `__usercall(EAX = this,
 /// [stack] = sound_id, [stack] = threshold)`, RET 0x8.
@@ -252,6 +236,73 @@ unsafe extern "stdcall" fn bridge_spawn_effect(
     );
 }
 
+// ─── Pure-Rust ports ───────────────────────────────────────────────────────
+
+/// Pure-Rust port of `Task_Missile::update_effect` (0x0050B240). Drives the
+/// secondary "trail" particle stream gated by `sprite_size & 0x40000000`:
+/// each tick adds [`trail_emit_step`] to [`trail_emit_phase`] and emits one
+/// `SpawnEffect` particle (anim_kind = `0xE0000`) per `Fixed::ONE` consumed.
+/// The step then decays by `0xCCC` per frame, clamped to `[0, Fixed::ONE]`.
+///
+/// [`trail_emit_step`]: MissileEntity::trail_emit_step
+/// [`trail_emit_phase`]: MissileEntity::trail_emit_phase
+unsafe fn update_effect(this: *mut MissileEntity) {
+    unsafe {
+        if ((*this).sprite_size.to_raw() as u32 & 0x40000000) == 0 {
+            return;
+        }
+
+        let step = (*this).trail_emit_step;
+        (*this).trail_emit_phase = (*this).trail_emit_phase.wrapping_add(step);
+
+        let world = (*(this as *const BaseEntity)).world;
+        let pos_x = (*this).base.pos_x;
+        let pos_y = (*this).base.pos_y;
+
+        // High 16 bits non-zero ⇔ phase ≥ Fixed::ONE (phase is non-negative
+        // here — step is clamped to [0, ONE] and phase only grows by adding
+        // step, then decreases by ONE per emit).
+        while ((*this).trail_emit_phase.to_raw() as u32 & 0xFFFF_0000) != 0 {
+            // Four effect-RNG advances per emit. Their dst registers in WA:
+            //   R1 (1st) → buf[0x10] offset; R2 → buf[0x0C]; R3 → buf[0x08] Y;
+            //   R4 (4th) → buf[0x04] X.
+            let r1 = (*world).advance_effect_rng();
+            let r2 = (*world).advance_effect_rng();
+            let r3 = (*world).advance_effect_rng();
+            let r4 = (*world).advance_effect_rng();
+
+            let dx = (r4 & 0xFFFF) as i32 * 4 - 0x20000;
+            let dy = (r3 & 0xFFFF) as i32 * 4 - 0x20000;
+            let rng_scaled = (r2 & 0xFFFF) as i32 - 0x8000;
+            let rng_offset = (r1 & 0xFFFF) as i32 - 0x8000;
+
+            crate::game::weapon_release::spawn_effect(
+                this as *mut BaseEntity,
+                0xE0000,
+                Fixed::from_raw(pos_x.to_raw().wrapping_add(dx)),
+                Fixed::from_raw(pos_y.to_raw().wrapping_add(dy)),
+                rng_scaled,
+                rng_offset,
+                0,
+                0x50,
+                Fixed::ONE,
+                Fixed::from_raw(0x51E),
+            );
+
+            (*this).trail_emit_phase = (*this).trail_emit_phase.wrapping_sub(Fixed::ONE);
+        }
+
+        let new_step = step.to_raw().wrapping_sub(0xCCC);
+        (*this).trail_emit_step = if new_step < 0 {
+            Fixed::ZERO
+        } else if new_step > 0x10000 {
+            Fixed::ONE
+        } else {
+            Fixed::from_raw(new_step)
+        };
+    }
+}
+
 // ─── Per-missile-type inner-tick dispatchers ───────────────────────────────
 
 /// Pure-Rust port of `Task_Missile::handle_homing` (0x0050ABA0). Drives the
@@ -376,7 +427,7 @@ pub unsafe extern "thiscall" fn tick(
         // RegisterEventPoint / detonate downstream.
         let pos_x_init = (*this).base.pos_x;
         let pos_y_init = (*this).base.pos_y;
-        bridge_update_effect(this);
+        update_effect(this);
 
         let anim_kind = animation_rate_kind(this);
         let launch_seed = (*this).launch_seed;
