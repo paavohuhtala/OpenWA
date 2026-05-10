@@ -319,14 +319,14 @@ pub unsafe fn missile_render(this: *mut MissileEntity) {
             }
             if (*this).contact_phase == 1 {
                 let torque = (*this).super_animal_torque_accum;
-                (*this).animation_phase = torque.to_raw() as u32;
+                (*this).animation_phase = torque;
                 let parity = (((*world).frame_counter as i32) / 5) & 1;
                 let mut sprite = SpriteOp(if parity == 0 {
                     (*this).super_animal_walk_sprite_alt
                 } else {
                     (*this).super_animal_walk_sprite
                 });
-                if (pos_y.to_raw() >> 16) >= (*world).water_kill_y {
+                if pos_y.to_int() >= (*world).water_kill_y {
                     sprite = drown(sprite);
                 }
                 emit_sprite(rq, sprite_layer, pos, sprite, torque);
@@ -353,8 +353,8 @@ pub unsafe fn missile_render(this: *mut MissileEntity) {
         match anim_kind {
             0 => {
                 let raw = ((fuse_timer as i64) << 16) / (*this).fuse_timer_initial as i64;
-                let clamped = (0x10000i64 - raw).clamp(0, 0xFFFF) as u32;
-                (*this).animation_phase = clamped;
+                let clamped = (0x10000i64 - raw).clamp(0, 0xFFFF) as i32;
+                (*this).animation_phase = Fixed::from_raw(clamped);
             }
             1 => {
                 let mut new_phase = (*this).base.angle.to_raw();
@@ -368,11 +368,11 @@ pub unsafe fn missile_render(this: *mut MissileEntity) {
                         .to_raw();
                     new_phase = interp_term.wrapping_add((*this).base.angle.to_raw());
                 }
-                (*this).animation_phase = new_phase as u32;
+                (*this).animation_phase = Fixed(new_phase);
             }
             2 if speed_x.to_raw() != 0 || speed_y.to_raw() != 0 => {
                 let angle = bridge_fixa2tan16(speed_x.to_raw(), -speed_y.to_raw());
-                (*this).animation_phase = angle;
+                (*this).animation_phase = Fixed(angle as i32);
             }
             3 => {
                 let abs_sx = speed_x.to_raw().wrapping_abs() as u32;
@@ -386,7 +386,7 @@ pub unsafe fn missile_render(this: *mut MissileEntity) {
             _ => {}
         }
 
-        let mut anim_value = (*this).animation_phase as i32;
+        let mut anim_value = (*this).animation_phase;
 
         if matches!((*this).missile_type, MissileType::Digger) {
             if (*this).digger_bailout_counter == 0 {
@@ -404,13 +404,13 @@ pub unsafe fn missile_render(this: *mut MissileEntity) {
                 });
             }
             let angle = bridge_fixa2tan16(speed_x.to_raw(), -speed_y.to_raw());
-            let doubled = angle.wrapping_mul(2) as i32;
-            (*this).animation_phase = doubled as u32;
-            anim_value = doubled.clamp(0, 0xFFFF);
+            let doubled = Fixed(angle.wrapping_mul(2) as i32);
+            (*this).animation_phase = doubled;
+            anim_value = doubled.clamp(Fixed::ZERO, Fixed::from_raw(0xFFFF));
         }
 
         if (*this).base._field_b0 != 0 || (*this).base._field_a4 != 0 {
-            anim_value = 0;
+            anim_value = Fixed::ZERO;
             sprite = drown(sprite);
         }
 
@@ -423,7 +423,7 @@ pub unsafe fn missile_render(this: *mut MissileEntity) {
             sprite_layer,
             Vec2::new(pos_x, pos_y_for_sprite),
             sprite,
-            Fixed::from_raw(anim_value),
+            anim_value,
         );
     }
 }

@@ -23,6 +23,7 @@ pub use display::{
 pub use landscape::{DirtyRect, Landscape};
 pub use message::{COMMAND_TYPE_TYPED, RenderMessage, TypedRenderCmd};
 pub use opengl::OpenGLState;
+use openwa_core::fixed::Fixed;
 pub use queue::RenderQueue;
 pub use sprite::{
     KnownSpriteId, ParsedSprite, Sprite, SpriteBank, SpriteFlags, SpriteFrame, SpriteOp,
@@ -49,13 +50,13 @@ pub use turn_order::{
 pub struct RenderEntry {
     /// 0x00: 0 = uninitialized; 1 = bbox below is valid.
     pub active: u32,
-    /// 0x04: Bbox min X (Fixed16.16).
-    pub min_x: i32,
-    /// 0x08: Bbox min Y (Fixed16.16).
-    pub min_y: i32,
-    /// 0x0C: Bbox max X (Fixed16.16).
-    pub max_x: i32,
-    /// 0x10: Bbox max Y (Fixed16.16).
-    pub max_y: i32,
+    /// 0x04: Bbox min X
+    pub min_x: Fixed,
+    /// 0x08: Bbox min Y
+    pub min_y: Fixed,
+    /// 0x0C: Bbox max X
+    pub max_x: Fixed,
+    /// 0x10: Bbox max Y
+    pub max_y: Fixed,
 }
 const _: () = assert!(core::mem::size_of::<RenderEntry>() == 0x14);

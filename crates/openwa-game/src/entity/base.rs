@@ -233,6 +233,16 @@ pub unsafe trait Entity {
         }
     }
 
+    fn game_version(&self) -> i32 {
+        unsafe {
+            let world = self.world();
+            if world.is_null() {
+                return 0;
+            }
+            (*(*world).game_info).game_version
+        }
+    }
+
     /// Broadcast a message to all children — pure Rust port of BaseEntity::HandleMessage (0x562F30).
     ///
     /// Iterates the sparse children array (`children_data[0..children_watermark]`),
@@ -241,15 +251,15 @@ pub unsafe trait Entity {
     ///
     /// # Safety
     /// All non-null children must be valid BaseEntity pointers with valid vtables.
-    unsafe fn broadcast_message(
-        &mut self,
+    unsafe fn handle_message_raw(
+        this: *mut Self,
         sender: *mut BaseEntity,
         msg_type: EntityMessage,
         size: u32,
         data: *const u8,
     ) {
         unsafe {
-            let entity_ptr = self.as_entity_ptr_mut();
+            let entity_ptr = this as *mut BaseEntity;
 
             // Scan for non-null children and dispatch HandleMessage.
             // Mirrors WA's BaseEntity::HandleMessage at 0x562F30 exactly:

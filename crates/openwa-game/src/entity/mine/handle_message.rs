@@ -7,6 +7,7 @@
 use core::sync::atomic::{AtomicU32, Ordering};
 
 use super::{MineEntity, MineEntityVtable};
+use crate::audio::KnownSoundId;
 use crate::audio::{SoundId, sound_ops::play_sound_local};
 use crate::engine::EntityActivityQueue;
 use crate::engine::world::GameWorld;
@@ -170,8 +171,8 @@ unsafe extern "stdcall" fn bridge_ensure_recording(_this: *mut MineEntity) -> u3
 #[unsafe(naked)]
 unsafe extern "stdcall" fn bridge_create_bubble(
     _this: *mut MineEntity,
-    _pos_x: i32,
-    _pos_y: i32,
+    _pos_x: Fixed,
+    _pos_y: Fixed,
     _kind: u32,
 ) {
     core::arch::naked_asm!(
@@ -364,10 +365,18 @@ unsafe fn detonate(this: *mut MineEntity) {
 /// `GameTask::create_smoke_0`. Each particle gets its own random sub-pixel
 /// jitter and lifetime drawn from the secondary effect RNG; the spawn
 /// descriptor is shared across iterations and re-filled in place.
-unsafe fn emit_dud_smoke(this: *mut MineEntity, pos_x: i32, pos_y: i32) {
+unsafe fn emit_dud_smoke(this: *mut MineEntity, pos_x: Fixed, pos_y: Fixed) {
     unsafe {
         let world = (*(this as *const BaseEntity)).world;
-        let mut descriptor: [u32; 7] = [0x8FF00, pos_x as u32, pos_y as u32, 0, 0, 0x267, 0];
+        let mut descriptor: [u32; 7] = [
+            0x8FF00,
+            pos_x.to_raw() as u32,
+            pos_y.to_raw() as u32,
+            0,
+            0,
+            0x267,
+            0,
+        ];
         for _ in 0..10 {
             let r1 = (*world).advance_effect_rng();
             let r2 = (*world).advance_effect_rng();
@@ -680,10 +689,10 @@ unsafe fn msg_frame_finish_tick(
             data,
         );
 
-        let pos_x = (*this).base.pos_x.to_raw();
-        let pos_y = (*this).base.pos_y.to_raw();
-        let speed_x = (*this).base.speed_x.to_raw();
-        let speed_y = (*this).base.speed_y.to_raw();
+        let pos_x = (*this).base.pos_x;
+        let pos_y = (*this).base.pos_y;
+        let speed_x = (*this).base.speed_x;
+        let speed_y = (*this).base.speed_y;
 
         let world = (*(this as *const BaseEntity)).world;
         let game_info = (*world).game_info;
@@ -702,8 +711,8 @@ unsafe fn msg_frame_finish_tick(
         if arm_delay_v < 0 {
             // B1 — airborne. Arm once the body comes to rest.
             if !WorldEntity::is_moving_raw(this as *const WorldEntity)
-                && speed_x == 0
-                && speed_y == 0
+                && speed_x == Fixed::ZERO
+                && speed_y == Fixed::ZERO
             {
                 arm(this);
             }
@@ -865,9 +874,8 @@ unsafe fn msg_frame_finish_tick(
         // ---- Block D — tail bookkeeping ----
         // Off-bottom drop: when the mine has fallen past the kill plane,
         // free without detonating.
-        if (pos_y >> 16) >= (*world).water_kill_y {
-            let mvt = *(this as *const *const MineEntityVtable);
-            ((*mvt).free)(this, 1);
+        if pos_y.to_int() >= (*world).water_kill_y {
+            MineEntity::free_raw(this, 1);
             return;
         }
 
@@ -912,10 +920,10 @@ unsafe fn msg_frame_finish_tick(
         // Splash sound + wet-flag bookkeeping.
         if (*this).splash_played == 0 && (*this).base._field_a4 != 0 {
             (*this).splash_played = 1;
-            if speed_y > 0x10000 {
+            if speed_y > Fixed::ONE {
                 let _ = play_sound_local(
                     this as *mut WorldEntity,
-                    SoundId(0x39),
+                    KnownSoundId::Splash,
                     5,
                     Fixed::ONE,
                     Fixed::ONE,

@@ -22,7 +22,7 @@ pub(super) unsafe fn start_super_animal(this: *mut MissileEntity) {
         (*this).base.speed_x = Fixed::ZERO;
         (*this).base.speed_y = Fixed::ZERO;
         (*this).super_animal_torque_accum = Fixed::ZERO;
-        (*this).animation_phase = 0;
+        (*this).animation_phase = Fixed::ZERO;
 
         let owner_id = (*this).spawn_params.owner_id;
         if owner_id != 0 {

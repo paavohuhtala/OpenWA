@@ -308,8 +308,8 @@ unsafe fn msg_frame_finish_tick(
             data,
         );
 
-        let pos_x = (*this).base.pos_x.to_raw();
-        let pos_y = (*this).base.pos_y.to_raw();
+        let pos_x = (*this).base.pos_x;
+        let pos_y = (*this).base.pos_y;
 
         let world = (*(this as *const BaseEntity)).world;
 
@@ -341,7 +341,7 @@ unsafe fn msg_frame_finish_tick(
                 let kind = ((rng >> 16) & 3).wrapping_add(1);
 
                 let parent = SharedDataTable::from_task(this as *const BaseEntity).lookup(0, 0x18);
-                let descriptor: [u32; 7] = [0, pos_x as u32, pos_y as u32, 0, 0, 0, kind];
+                let descriptor: [u32; 7] = [0, pos_x.0 as u32, pos_y.0 as u32, 0, 0, 0, kind];
                 bridge_create_bubble(this, parent, descriptor.as_ptr());
             }
 
@@ -353,7 +353,7 @@ unsafe fn msg_frame_finish_tick(
 
         // Off-bottom drop: when the drum has fallen past the kill plane
         // (`world.water_kill_y`, world+0x5E4), free without detonating.
-        if (pos_y >> 16) >= (*world).water_kill_y {
+        if pos_y.to_int() >= (*world).water_kill_y {
             let mvt = *(this as *const *const OilDrumEntityVtable);
             ((*mvt).free)(this, 1);
             return;

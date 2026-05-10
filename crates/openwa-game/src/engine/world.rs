@@ -700,7 +700,7 @@ impl GameWorld {
     ///
     /// Slot index is the event kind (1, 2, 3, 4, 9, 11 — see
     /// [`WormEntity::landing_check_raw`](crate::entity::WormEntity::landing_check_raw)).
-    pub unsafe fn record_landing_event_raw(this: *mut GameWorld, idx: u32, x: i32, y: i32) {
+    pub unsafe fn record_landing_event_raw(this: *mut GameWorld, idx: u32, x: Fixed, y: Fixed) {
         unsafe {
             if (*this)._field_45e8 != 0 {
                 return;

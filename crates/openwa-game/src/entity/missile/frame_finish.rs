@@ -9,9 +9,9 @@ use super::{MissileEntity, MissileType};
 use crate::audio::sound_ops::play_sound_local;
 use crate::audio::{KnownSoundId, SoundId};
 use crate::engine::world::GameWorld;
+use crate::entity::Entity;
 use crate::entity::base::BaseEntity;
 use crate::entity::game_entity::WorldEntity;
-use crate::game::game_entity_message::world_entity_handle_message;
 use crate::game::message::EntityMessage;
 use crate::rebase::rb;
 
@@ -238,30 +238,27 @@ unsafe fn emit_pi_view(this: *const MissileEntity) -> [u32; 4] {
 pub unsafe extern "thiscall" fn tick(
     this: *mut MissileEntity,
     sender: *mut BaseEntity,
-    msg_type: u32,
     size: u32,
     data: *const u8,
 ) {
     unsafe {
         let world = (*(this as *const BaseEntity)).world;
-        let game_info = (*world).game_info;
-        let game_version = (*game_info).game_version;
+        let game_version = (*this).game_version();
 
         if game_version >= 0x1D {
             (*this).super_animal_torque_accum = (*this)
                 .super_animal_torque_accum
-                .wrapping_add(Fixed::from_raw((*this).super_animal_torque_input));
-            (*this).super_animal_torque_input = 0;
+                .wrapping_add((*this).super_animal_torque_input);
+            (*this).super_animal_torque_input = Fixed::ZERO;
         }
 
-        world_entity_handle_message(
+        WorldEntity::handle_message_raw(
             this as *mut WorldEntity,
             sender,
             EntityMessage::FrameFinish,
             size,
             data,
         );
-        let _ = msg_type;
 
         // Snapshot pos before update_effect mutates it; these are the values
         // WA caches at [ESP+0x10] / [ESP+0x14] for SpawnEffect /
@@ -271,19 +268,19 @@ pub unsafe extern "thiscall" fn tick(
         bridge_update_effect(this);
 
         let anim_kind = animation_rate_kind(this);
-        let launch_seed = (*this).launch_seed as i32;
+        let launch_seed = (*this).launch_seed;
         match anim_kind {
             4 => {
                 let delta = launch_seed / 100;
-                (*this).animation_phase = (*this).animation_phase.wrapping_add(delta as u32);
+                (*this).animation_phase = (*this).animation_phase.wrapping_add(delta);
             }
             5 => {
                 let delta = launch_seed / 50;
-                (*this).animation_phase = (*this).animation_phase.wrapping_add(delta as u32);
+                (*this).animation_phase = (*this).animation_phase.wrapping_add(delta);
             }
             6 => {
                 let delta = launch_seed / 25;
-                (*this).animation_phase = (*this).animation_phase.wrapping_add(delta as u32);
+                (*this).animation_phase = (*this).animation_phase.wrapping_add(delta);
             }
             _ => {}
         }
@@ -463,12 +460,12 @@ pub unsafe extern "thiscall" fn tick(
 unsafe fn in_flight_body(
     this: *mut MissileEntity,
     world: *mut GameWorld,
-    pos_x_init: Fixed,
-    pos_y_init: Fixed,
+    pos_x: Fixed,
+    pos_y: Fixed,
     speed_y_pre: Fixed,
 ) {
     unsafe {
-        let pos_y_int = pos_y_init.to_int();
+        let pos_y_int = pos_y.to_int();
         let pi_view = emit_pi_view(this);
 
         let underwater_or_blocked = (*this).base._field_b0 != 0 || (*this).base._field_a4 != 0;
@@ -482,7 +479,7 @@ unsafe fn in_flight_body(
             while (*this).effect_emit_phase >= Fixed::ONE {
                 let rng = (*world).advance_effect_rng();
                 let kind = ((rng >> 16) % 3) + 1;
-                bridge_create_bubble(this, pos_x_init, pos_y_init, kind);
+                bridge_create_bubble(this, pos_x, pos_y, kind);
                 (*this).effect_emit_phase = (*this).effect_emit_phase.wrapping_sub(Fixed::ONE);
             }
         } else {
@@ -501,9 +498,7 @@ unsafe fn in_flight_body(
                 // Ghidra mis-renders this as `/100`; BN agrees with disasm.
                 let state_flag = (pi_view[2] as i32).wrapping_mul(0x147A) / 200;
 
-                bridge_spawn_effect(
-                    this, pos_x_init, pos_y_init, rng_dx, rng_dy, pi_view[0], state_flag,
-                );
+                bridge_spawn_effect(this, pos_x, pos_y, rng_dx, rng_dy, pi_view[0], state_flag);
 
                 (*this).effect_emit_phase = (*this).effect_emit_phase.wrapping_sub(Fixed::ONE);
             }
@@ -536,22 +531,19 @@ unsafe fn in_flight_body(
 
         set_world_activity_timer(world, 0xC);
 
-        let level_min_x = (*world).level_bound_min_x.to_raw();
-        let level_max_x = (*world).level_bound_max_x.to_raw();
-        let level_min_y = (*world).level_bound_min_y.to_raw();
-        let pos_x_raw = pos_x_init.to_raw();
-        let pos_y_raw = pos_y_init.to_raw();
+        let level_min_x = (*world).level_bound_min_x;
+        let level_max_x = (*world).level_bound_max_x;
+        let level_min_y = (*world).level_bound_min_y;
 
-        let kind: u32 =
-            if pos_x_raw < level_min_x || pos_x_raw > level_max_x || pos_y_raw < level_min_y {
-                if (*this).base._field_b0 == 0 { 8 } else { 0xA }
-            } else if (*this).base._field_b0 == 0 {
-                5
-            } else {
-                0xA
-            };
+        let kind: u32 = if pos_x < level_min_x || pos_x > level_max_x || pos_y < level_min_y {
+            if (*this).base._field_b0 == 0 { 8 } else { 0xA }
+        } else if (*this).base._field_b0 == 0 {
+            5
+        } else {
+            0xA
+        };
 
-        GameWorld::record_landing_event_raw(world, kind, pos_x_raw, pos_y_raw);
+        GameWorld::record_landing_event_raw(world, kind, pos_x, pos_y);
         (*this)._field_388 = 0;
     }
 }

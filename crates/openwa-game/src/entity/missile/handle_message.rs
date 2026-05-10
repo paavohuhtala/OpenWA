@@ -8,8 +8,10 @@ use openwa_core::fixed::Fixed;
 
 use super::super_animal::{finish_super_animal, start_super_animal};
 use super::{MissileEntity, frame_finish, sound};
+use crate::entity::Entity;
 use crate::entity::base::BaseEntity;
 use crate::entity::game_entity::WorldEntity;
+use crate::entity::missile::MAX_STEERING_TORQUE;
 use crate::game::game_entity_message::world_entity_handle_message;
 use crate::game::message::{
     DetonateWeaponMessage, EntityMessage, ExplosionMessage, MoveWeaponMessage, Unknown126Message,
@@ -86,18 +88,18 @@ unsafe fn msg_update_non_critical(this: *mut MissileEntity) {
             return;
         }
 
-        let abs_sx = (*this).base.speed_x.to_raw().wrapping_abs() as u32;
+        let abs_sx = (*this).base.speed_x.wrapping_abs();
         let new = abs_sx
-            .wrapping_div(100)
-            .wrapping_add(0xCCC)
+            .wrapping_div(Fixed(100))
+            .wrapping_add(Fixed(0xCCC))
             .wrapping_add((*this).animation_phase)
-            & 0xFFFF;
+            .fract();
         (*this).animation_phase = new;
     }
 }
 
 /// Case `0x2D` MoveWeaponLeft / `0x2E` MoveWeaponRight (`delta = ±0x5B0`).
-unsafe fn msg_move_weapon_dir(this: *mut MissileEntity, msg: &MoveWeaponMessage, delta: i32) {
+unsafe fn msg_move_weapon_dir(this: *mut MissileEntity, msg: &MoveWeaponMessage, delta: Fixed) {
     unsafe {
         if msg.sender_id != (*this).spawn_params.owner_id {
             return;
@@ -106,16 +108,15 @@ unsafe fn msg_move_weapon_dir(this: *mut MissileEntity, msg: &MoveWeaponMessage,
             return;
         }
 
-        let world = (*(this as *const BaseEntity)).world;
-        let game_version = (*(*world).game_info).game_version;
+        let game_version = (*this).game_version();
 
         if game_version < 0x1D {
-            (*this).super_animal_torque_accum = (*this)
-                .super_animal_torque_accum
-                .wrapping_add(Fixed::from_raw(delta));
+            (*this).super_animal_torque_accum =
+                (*this).super_animal_torque_accum.wrapping_add(delta);
         } else {
             let candidate = (*this).super_animal_torque_input.wrapping_add(delta);
-            (*this).super_animal_torque_input = candidate.clamp(-0x5B0, 0x5B0);
+            (*this).super_animal_torque_input =
+                candidate.clamp(-MAX_STEERING_TORQUE, MAX_STEERING_TORQUE);
         }
     }
 }
@@ -325,7 +326,7 @@ pub unsafe extern "thiscall" fn handle_message(
 
         let handled = match msg {
             EntityMessage::FrameFinish => {
-                frame_finish::tick(this, sender, msg_type, size, data);
+                frame_finish::tick(this, sender, size, data);
                 true
             }
             EntityMessage::RenderScene => {
@@ -345,11 +346,19 @@ pub unsafe extern "thiscall" fn handle_message(
                 true
             }
             EntityMessage::MoveWeaponLeft => {
-                msg_move_weapon_dir(this, payload::<MoveWeaponMessage>(data), -0x5B0);
+                msg_move_weapon_dir(
+                    this,
+                    payload::<MoveWeaponMessage>(data),
+                    -MAX_STEERING_TORQUE,
+                );
                 true
             }
             EntityMessage::MoveWeaponRight => {
-                msg_move_weapon_dir(this, payload::<MoveWeaponMessage>(data), 0x5B0);
+                msg_move_weapon_dir(
+                    this,
+                    payload::<MoveWeaponMessage>(data),
+                    MAX_STEERING_TORQUE,
+                );
                 true
             }
             EntityMessage::Unknown122 => {

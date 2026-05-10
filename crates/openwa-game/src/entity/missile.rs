@@ -1,6 +1,7 @@
 use super::base::BaseEntity;
 use super::game_entity::{SubclassData, WorldEntity};
 use crate::FieldRegistry;
+use crate::game::EntityMessage;
 use crate::game::weapon::WeaponSpawnData;
 use crate::render::textbox::Textbox;
 use openwa_core::fixed::Fixed;
@@ -12,6 +13,9 @@ pub mod handle_message;
 pub mod render;
 pub mod sound;
 pub mod super_animal;
+
+/// Maximum steering torque applied to super sheep / aqua sheep per frame.
+pub const MAX_STEERING_TORQUE: Fixed = Fixed(0x5B0);
 
 /// MissileEntity's typed view of [`WorldEntity::subclass_data`]
 /// (entity offsets +0x38..+0x84, 0x4C bytes total).
@@ -66,7 +70,7 @@ pub struct MissileEntityVtable {
     pub handle_message: fn(
         this: *mut MissileEntity,
         sender: *mut BaseEntity,
-        msg_type: u32,
+        msg_type: EntityMessage,
         size: u32,
         data: *const u8,
     ),
@@ -141,7 +145,7 @@ pub struct MissileEntity {
     pub _unknown_124: u32,
     /// 0x128: Position-derived launch seed. Computed by constructor as:
     /// `((spawn_x + spawn_y) / 256 / 20) + 0x10000`. param_1[0x4A].
-    pub launch_seed: u32,
+    pub launch_seed: Fixed,
     /// 0x12C: This missile's slot ID in `GameWorld.entity_activity_queue`
     /// (param_1[0x4B]).
     pub activity_rank_slot: u32,
@@ -377,11 +381,11 @@ pub struct MissileEntity {
     /// after a passing RNG roll.
     pub direction: i32,
     /// 0x3CC — Per-frame super-animal torque input, clamped to
-    /// `[-0x5B0, +0x5B0]` by steering messages 0x2D / 0x2E on modern
+    /// `[-MAX_STEERING_TORQUE, +MAX_STEERING_TORQUE]` by steering messages 0x2D / 0x2E on modern
     /// schemes (`game_version >= 0x1D`). Folded into
     /// [`super_animal_torque_accum`](MissileEntity::super_animal_torque_accum)
     /// and zeroed at the top of FrameFinish.
-    pub super_animal_torque_input: i32,
+    pub super_animal_torque_input: Fixed,
     /// 0x3D0..0x3D3: Unknown.
     pub _unknown_3d0: [u8; 0x4],
     /// 0x3D4 — Set to 1 by HandleMessage case 0x2C on a specific sub-branch
@@ -412,7 +416,7 @@ pub struct MissileEntity {
     ///
     /// [`_render_data_07`]: MissileEntity::_render_data_07
     /// [`_render_data_1a`]: MissileEntity::_render_data_1a
-    pub animation_phase: u32,
+    pub animation_phase: Fixed,
     /// 0x3EC..0x40B: Unknown trailing state.
     /// Allocation size is 0x40C; constructor zeros bytes 0x00–0x3EB.
     pub _unknown_3ec: [u8; 0x20],
@@ -577,7 +581,11 @@ impl crate::snapshot::Snapshot for MissileEntity {
             write_indent(w, i)?;
             writeln!(w, "speed = ({}, {})", b.speed_x, b.speed_y)?;
             write_indent(w, i)?;
-            writeln!(w, "launch_seed = 0x{:08X}", self.launch_seed)?;
+            writeln!(
+                w,
+                "launch_seed = 0x{:08X}",
+                self.launch_seed.to_raw() as u32
+            )?;
             write_indent(w, i)?;
             writeln!(w, "activity_rank_slot = {}", self.activity_rank_slot)?;
 
@@ -648,7 +656,11 @@ impl crate::snapshot::Snapshot for MissileEntity {
                 self.homing_engaged_latch,
             )?;
             write_indent(w, i)?;
-            writeln!(w, "animation_phase = 0x{:04X}", self.animation_phase)?;
+            writeln!(
+                w,
+                "animation_phase = 0x{:04X}",
+                self.animation_phase.to_raw() as u32
+            )?;
             write_indent(w, i)?;
             writeln!(
                 w,

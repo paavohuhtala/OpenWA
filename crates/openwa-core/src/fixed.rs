@@ -75,6 +75,11 @@ impl Fixed {
         Self(self.0 & !0xFFFF)
     }
 
+    #[inline]
+    pub const fn fract(self) -> Self {
+        Self(self.0 & 0xFFFF)
+    }
+
     /// Pixel center: floor + 0.5. Used by line rasterizers to snap to pixel centers.
     #[inline]
     pub const fn pixel_center(self) -> Self {
@@ -117,6 +122,16 @@ impl Fixed {
     #[inline]
     pub const fn wrapping_sub(self, rhs: Self) -> Self {
         Self(self.0.wrapping_sub(rhs.0))
+    }
+
+    #[inline]
+    pub const fn wrapping_abs(self) -> Self {
+        Self(self.0.wrapping_abs())
+    }
+
+    #[inline]
+    pub const fn wrapping_div(self, rhs: Self) -> Self {
+        Self(self.0.wrapping_div(rhs.0))
     }
 
     /// Move `self` toward `target` by one step, without overshooting.

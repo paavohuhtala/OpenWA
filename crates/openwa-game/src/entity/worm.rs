@@ -927,17 +927,17 @@ impl WormEntity {
             use crate::entity::base::BaseEntity;
             use crate::entity::game_entity::WorldEntity;
 
-            let pos_x = (*this).base.pos_x.0;
-            let pos_y = (*this).base.pos_y.0;
+            let pos_x = (*this).base.pos_x;
+            let pos_y = (*this).base.pos_y;
 
             // Off-screen-above sanity gate.
-            if pos_y < -0x270F0000_i32 {
+            if pos_y < Fixed(-0x270F0000_i32) {
                 return;
             }
 
             let world = (*(this as *const BaseEntity)).world;
             // Underwater-kill gate.
-            if (pos_y >> 16) >= (*world).water_kill_y {
+            if pos_y.to_int() >= (*world).water_kill_y {
                 return;
             }
 
@@ -968,9 +968,9 @@ impl WormEntity {
                 9
             } else if WorldEntity::is_moving_raw(&raw const (*this).base as *const WorldEntity) {
                 2
-            } else if (*world).level_bound_min_x.0 <= pos_x
-                && pos_x <= (*world).level_bound_max_x.0
-                && (*world).level_bound_min_y.0 <= pos_y
+            } else if (*world).level_bound_min_x <= pos_x
+                && pos_x <= (*world).level_bound_max_x
+                && (*world).level_bound_min_y <= pos_y
             {
                 4
             } else {
