@@ -6,14 +6,16 @@
 use openwa_core::fixed::Fixed;
 
 use super::{MissileEntity, MissileType};
-use crate::audio::sound_ops::play_sound_local;
+use crate::audio::sound_ops::{play_sound_local, queue_sound};
 use crate::audio::{KnownSoundId, SoundId};
 use crate::engine::world::GameWorld;
 use crate::entity::Entity;
-use crate::entity::base::BaseEntity;
+use crate::entity::base::{BaseEntity, SharedDataTable};
+use crate::entity::fire::{FireEntity, FireEntityInit, fire_entity_construct};
 use crate::entity::game_entity::WorldEntity;
 use crate::game::message::{EntityMessage, WeaponHomingMessage};
 use crate::rebase::rb;
+use crate::wa_alloc::wa_malloc;
 
 // ─── Bridge addresses ──────────────────────────────────────────────────────
 
@@ -25,7 +27,6 @@ static mut UPDATE_ANIMAL_POISON_ADDR: u32 = 0;
 static mut APPLY_DIRECT_HOMING_ADDR: u32 = 0;
 static mut APPLY_PIGEON_HOMING_ADDR: u32 = 0;
 static mut CREATE_CLUSTERS_ADDR: u32 = 0;
-static mut CREATE_FIRE_1_ADDR: u32 = 0;
 static mut CREATE_BUBBLE_ADDR: u32 = 0;
 static mut COLLECT_CRATE_ADDR: u32 = 0;
 static mut ALARM_TABLE_ADDR: u32 = 0;
@@ -40,7 +41,6 @@ pub unsafe fn init_addrs() {
         APPLY_DIRECT_HOMING_ADDR = rb(0x00509EB0);
         APPLY_PIGEON_HOMING_ADDR = rb(0x0050A020);
         CREATE_CLUSTERS_ADDR = rb(0x005096A0);
-        CREATE_FIRE_1_ADDR = rb(0x00509D70);
         CREATE_BUBBLE_ADDR = rb(0x005472C0);
         COLLECT_CRATE_ADDR = rb(0x00501340);
         ALARM_TABLE_ADDR = rb(0x006AD288);
@@ -183,28 +183,6 @@ unsafe extern "stdcall" fn bridge_create_clusters(
     );
 }
 
-/// `Task_Missile::create_fire_1` (0x00509D70) — `__usercall(ESI = this,
-/// [stack] = pos_x, [stack] = pos_y)`, RET 0x8. Spawns an incendiary
-/// FireEntity when an incendiary missile detonates (`weapon_data[0x2D] == 2`).
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_create_fire_1(
-    _this: *mut MissileEntity,
-    _pos_x: Fixed,
-    _pos_y: Fixed,
-) {
-    core::arch::naked_asm!(
-        "push esi",
-        "mov esi, dword ptr [esp+8]",
-        "push dword ptr [esp+16]",
-        "push dword ptr [esp+16]",
-        "mov ecx, dword ptr [{addr}]",
-        "call ecx",
-        "pop esi",
-        "ret 12",
-        addr = sym CREATE_FIRE_1_ADDR,
-    );
-}
-
 /// `GameTask::create_bubble_1` (0x005472C0) — `__usercall(EAX = pos_x,
 /// ECX = pos_y, ESI = this, [stack] = zero, [stack] = kind)`, RET 0x8.
 #[unsafe(naked)]
@@ -230,6 +208,59 @@ unsafe extern "stdcall" fn bridge_create_bubble(
 }
 
 // ─── Pure-Rust ports ───────────────────────────────────────────────────────
+
+/// Pure-Rust port of `MissileEntity::create_fire_1` (0x00509D70). Spawns one
+/// incendiary [`FireEntity`] when an incendiary missile detonates
+/// (`weapon_data[0x2D] == 2`). Mirrors the spawn-buffer the original builds
+/// on the stack (kind=8, `_flag_18=1`, four `weapon_data[47..50]` slots,
+/// owner team) and plays the OilDrumImpact sound (0x3B) at the explicit
+/// detonation coordinates — queued globally then promoted in-place to a
+/// positional local entry (no entity tracking, mirroring WA's manual sound
+/// queue patch).
+unsafe fn create_fire_1(this: *mut MissileEntity, pos_x: Fixed, pos_y: Fixed) {
+    unsafe {
+        let base = this as *mut BaseEntity;
+        // Same SharedData key (0, 0x17) the OilDrum and weapon_fire ports use
+        // to find the FireEntity pool parent.
+        let fire_parent = SharedDataTable::from_task(base).lookup(0, 0x17);
+
+        let init = FireEntityInit {
+            spawn_x: pos_x,
+            spawn_y: pos_y,
+            spawn_offset_x: Fixed::ZERO,
+            spawn_offset_y: Fixed::from_raw(0x40000),
+            _flag_10: 0,
+            kind: 8,
+            _flag_18: 1,
+            fp_collision_radius: Fixed::from_raw((*this).weapon_data[49] as i32),
+            fp_02: (*this).weapon_data[48] as i32,
+            fp_spread: ((*this).weapon_data[47] as i32) / 2,
+            fp_04: (*this).weapon_data[50] as i32,
+            team_index: (*this).spawn_params.owner_id,
+        };
+
+        let buf = wa_malloc(0xD8);
+        if !buf.is_null() {
+            // WA only zeroes the first 0xB8 bytes; the trailing 0x20 bytes
+            // are left untouched (the FireEntity ctor doesn't read them
+            // before initialising).
+            core::ptr::write_bytes(buf, 0, 0xB8);
+            fire_entity_construct(buf as *mut FireEntity, fire_parent, &init, 0);
+        }
+
+        // Equivalent to `PlaySoundGlobal(this, 0x3B, 5, 1.0, 1.0)` followed by
+        // the manual sound-queue patch the original applies to promote the
+        // just-queued entry to a positional local sound at (pos_x, pos_y).
+        // `secondary_vtable = 0` ⇒ no entity ref tracking.
+        let world = (*this).base.base.world;
+        if let Some(entry) = queue_sound(world, SoundId(0x3B), 5, Fixed::ONE, Fixed::ONE) {
+            (*entry).is_local = 1;
+            (*entry).secondary_vtable = 0;
+            (*entry).pos_x = pos_x.to_raw() as u32;
+            (*entry).pos_y = pos_y.to_raw() as u32;
+        }
+    }
+}
 
 /// Pure-Rust port of `Task_Missile::detonate` (0x00509AC0). Plays the
 /// special-weapon explosion grunt for `fire_particle_trigger == 0x4A`,
@@ -293,7 +324,7 @@ unsafe fn detonate(this: *mut MissileEntity, pos_x: Fixed, pos_y: Fixed) {
                 bridge_create_clusters(this, pos_x, pos_y);
             }
             2 => {
-                bridge_create_fire_1(this, pos_x, pos_y);
+                create_fire_1(this, pos_x, pos_y);
             }
             _ => {}
         }
