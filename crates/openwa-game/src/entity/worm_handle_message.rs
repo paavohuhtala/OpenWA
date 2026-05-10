@@ -15,7 +15,8 @@ use openwa_core::vec2::Vec2;
 use openwa_core::weapon::{FireType, KnownWeaponId};
 
 use super::base::BaseEntity;
-use super::game_entity::{SoundEmitter, WorldEntity};
+use super::game_entity::WorldEntity;
+use super::sound_emitter::SoundEmitter;
 use super::worm::{KnownWormState, WormEntity, WormState};
 use crate::address::va;
 use crate::audio::SoundId;

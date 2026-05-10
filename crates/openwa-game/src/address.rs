@@ -91,7 +91,7 @@ pub mod va {
     };
     pub use crate::engine::fire_effect::{FIRE_EFFECT_VTABLE, FireEffectVtable};
     pub use crate::engine::game_session::{GAME_SESSION_VTABLE, GameSessionVtable};
-    pub use crate::entity::game_entity::SOUND_EMITTER_VTABLE;
+    pub use crate::entity::sound_emitter::SOUND_EMITTER_VTABLE;
     pub use crate::frontend::map_view::MAP_VIEW_VTABLE;
     pub use crate::input::controller::NET_INPUT_CTRL_VTABLE;
     pub use crate::input::mouse::MOUSE_INPUT_VTABLE;
