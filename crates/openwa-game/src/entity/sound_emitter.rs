@@ -2,7 +2,18 @@
 //! multiple inheritance. The `this` pointer for its vtable methods points
 //! to the start of the sub-object (entity +0xE8), not the WorldEntity.
 
+use openwa_core::vec2::Vec2;
+
 use super::game_entity::WorldEntity;
+
+crate::define_addresses! {
+    class "SoundEmitter" {
+        /// `WorldEntity::SecondaryVT::GetPosition` — vtable slot 0.
+        /// thiscall + 2 stack params, RET 0x8. Reads `owner.pos.x/y`
+        /// (entity +0x84 / +0x88) and writes them to `*out_x` / `*out_y`.
+        vmethod SOUND_EMITTER_GET_POSITION = 0x00546680;
+    }
+}
 
 /// Sound emitter sub-object embedded in WorldEntity via MSVC multiple inheritance.
 ///
@@ -32,9 +43,10 @@ const _: () = assert!(core::mem::size_of::<SoundEmitter>() == 0x14);
 #[openwa_game::vtable(size = 12, va = 0x00669CF8, class = "SoundEmitter")]
 pub struct SoundEmitterVtable {
     /// GetPosition(this, out_x, out_y) — reads pos_x/pos_y via owner
-    #[slot(0)]
-    pub get_position: fn(this: *const SoundEmitter, out_x: *mut u32, out_y: *mut u32),
+    /*#[slot(0)]
+    pub get_position: fn(this: *const SoundEmitter, out_x: *mut u32, out_y: *mut u32),*/
     /// GetPosition2 — reads WorldEntity+0x38/0x3C
+    /// This is potentially unused.
     #[slot(1)]
     pub get_position2: fn(this: *const SoundEmitter, out_x: *mut u32, out_y: *mut u32),
     /// Destructor
@@ -47,3 +59,19 @@ pub struct SoundEmitterVtable {
 }
 
 bind_SoundEmitterVtable!(SoundEmitter, vtable);
+
+impl SoundEmitter {
+    pub unsafe fn get_position(&self) -> Vec2 {
+        unsafe { Self::get_position_raw(self) }
+    }
+
+    /// A port of `WorldEntity::SecondaryVT::GetPosition` (0x00546680).
+    /// The position of the sound emitter is always the same as the position of its owning entity.
+    pub unsafe fn get_position_raw(this: *const SoundEmitter) -> Vec2 {
+        unsafe {
+            let owner = (*this).owner;
+            assert!(!owner.is_null());
+            (*owner).pos
+        }
+    }
+}

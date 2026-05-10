@@ -45,8 +45,8 @@ unsafe fn drown(sprite: u32) -> u32 {
 pub unsafe fn oil_drum_render(this: *mut OilDrumEntity) {
     unsafe {
         let world = (*(this as *const BaseEntity)).world;
-        let pos_x = (*this).base.pos_x;
-        let pos_y = (*this).base.pos_y;
+        let pos_x = (*this).base.pos.x;
+        let pos_y = (*this).base.pos.y;
 
         let render_rank = pick_render_rank(world, (*this).activity_rank_slot);
 

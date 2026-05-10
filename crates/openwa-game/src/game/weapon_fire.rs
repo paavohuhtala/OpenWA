@@ -26,6 +26,7 @@ use crate::game::weapon::{WeaponEntry, WeaponFireParams, WeaponSpawnData};
 use crate::wa::localized_string_cache;
 use core::ffi::c_char;
 use openwa_core::fixed::Fixed;
+use openwa_core::vec2::Vec2;
 
 // ── WeaponReleaseContext ────────────────────────────────────
 
@@ -664,13 +665,7 @@ unsafe fn fire_nuclear_test(worm: *mut WormEntity) {
 
         WorldRootEntity::broadcast_raw(game, worm, NukeBlastMessage { unknown1: 8 });
 
-        sound::queue_sound(
-            world,
-            KnownSoundId::IndianAnthem.into(),
-            8,
-            Fixed::ONE,
-            Fixed::ONE,
-        );
+        sound::queue_sound(world, KnownSoundId::IndianAnthem, 8, Fixed::ONE, Fixed::ONE);
 
         WorldRootEntity::broadcast_raw(
             game,
@@ -683,13 +678,7 @@ unsafe fn fire_nuclear_test(worm: *mut WormEntity) {
         );
 
         // PlaySoundGlobal(NukeFlash, 5, 0x10000, 0x10000)
-        sound::queue_sound(
-            world,
-            KnownSoundId::NukeFlash.into(),
-            5,
-            Fixed::ONE,
-            Fixed::ONE,
-        );
+        sound::queue_sound(world, KnownSoundId::NukeFlash, 5, Fixed::ONE, Fixed::ONE);
     }
 }
 
@@ -900,23 +889,21 @@ unsafe fn fire_girder(worm: *mut WormEntity) {
         let game_version = (*(*world).game_info).game_version;
 
         // Read girder position and sprite index from WormEntity fields
-        let girder_x = (*worm).weapon_param_1;
-        let girder_y = (*worm).weapon_param_2;
+        let girder_x = Fixed((*worm).weapon_param_1);
+        let girder_y = Fixed((*worm).weapon_param_2);
         let girder_sprite = (*worm).weapon_param_3;
 
         // Choose sound: 0x70 if girder has sprite or old version, else 0x73
-        let sound_id: u32 = if girder_sprite != 0 || game_version < 0x21 {
-            0x70
+        let sound_id = if girder_sprite != 0 || game_version < 0x21 {
+            KnownSoundId::GirderImpact
         } else {
-            0x73
+            KnownSoundId::CratePop
         };
 
         // Queue sound and set position to the girder location (local sound)
-        if let Some(entry) = sound::queue_sound(world, SoundId(sound_id), 3, Fixed::ONE, Fixed::ONE)
-        {
+        if let Some(entry) = sound::queue_sound(world, sound_id, 3, Fixed::ONE, Fixed::ONE) {
             (*entry).is_local = 1;
-            (*entry).pos_x = girder_x as u32;
-            (*entry).pos_y = girder_y as u32;
+            (*entry).pos = Vec2::new(girder_x, girder_y);
         }
 
         // If girder has a sprite, apply the visual overlay and update counters
@@ -928,7 +915,13 @@ unsafe fn fire_girder(worm: *mut WormEntity) {
                 core::mem::transmute(*landscape_vt.add(5));
             let sprite1 = (*world).sprite_cache_2[girder_sprite as usize];
             let sprite2 = (*world).sprite_cache_2[19 + girder_sprite as usize];
-            girder_visual(landscape, girder_x >> 16, girder_y >> 16, sprite1, sprite2);
+            girder_visual(
+                landscape,
+                girder_x.to_int(),
+                girder_y.to_int(),
+                sprite1,
+                sprite2,
+            );
 
             // Increment WormEntry counters
             let arena = &raw mut (*world).team_arena;

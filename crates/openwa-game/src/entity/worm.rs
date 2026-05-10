@@ -927,8 +927,8 @@ impl WormEntity {
             use crate::entity::base::BaseEntity;
             use crate::entity::game_entity::WorldEntity;
 
-            let pos_x = (*this).base.pos_x;
-            let pos_y = (*this).base.pos_y;
+            let pos_x = (*this).base.pos.x;
+            let pos_y = (*this).base.pos.y;
 
             // Off-screen-above sanity gate.
             if pos_y < Fixed(-0x270F0000_i32) {
@@ -996,7 +996,7 @@ impl crate::snapshot::Snapshot for WormEntity {
             let b = &self.base; // WorldEntity
 
             write_indent(w, i)?;
-            writeln!(w, "pos = ({}, {})", b.pos_x, b.pos_y)?;
+            writeln!(w, "pos = ({}, {})", b.pos.x, b.pos.y)?;
             write_indent(w, i)?;
             writeln!(w, "speed = ({}, {})", b.speed_x, b.speed_y)?;
             write_indent(w, i)?;

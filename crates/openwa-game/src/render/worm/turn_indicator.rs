@@ -49,7 +49,7 @@ pub unsafe fn draw_turn_indicator(this: *mut WormEntity) {
 
         // y_mul = pos_y + 384.0 (Fixed integer +0x180)
         // y_pos = (y_mul * interp_value) >> 16 - 464.0 (Fixed integer -0x1D0)
-        let pos_y_raw = (*this).base.pos_y.0;
+        let pos_y_raw = (*this).base.pos.y.0;
         let y_mul = pos_y_raw.wrapping_add(0x01800000);
         let y_pos_raw = (((y_mul as i64).wrapping_mul(interp_value as i64) >> 16) as i32)
             .wrapping_sub(0x01D00000);
@@ -65,7 +65,7 @@ pub unsafe fn draw_turn_indicator(this: *mut WormEntity) {
         // Fixed seconds-elapsed value.
         let anim_value = Fixed::from_raw((((*world).frame as i32) << 16).wrapping_div(50));
 
-        let pos_x = (*this).base.pos_x;
+        let pos_x = (*this).base.pos.x;
         let rq = (*world).render_queue;
         let _ = (*rq).push_typed(
             0x30000,

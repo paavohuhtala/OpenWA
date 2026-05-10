@@ -102,8 +102,8 @@ pub unsafe fn mine_render(this: *mut MineEntity) {
     unsafe {
         let (sprite_id, sub_frame_angle) = calc_sprite(this);
         let world = (*(this as *const BaseEntity)).world;
-        let pos_x = (*this).base.pos_x;
-        let pos_y = (*this).base.pos_y;
+        let pos_x = (*this).base.pos.x;
+        let pos_y = (*this).base.pos.y;
         let triggered = (*this).triggered_flag != 0;
         let activity_rank = (*this).activity_rank_slot as i32;
 

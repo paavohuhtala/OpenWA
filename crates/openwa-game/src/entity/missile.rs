@@ -611,7 +611,7 @@ impl crate::snapshot::Snapshot for MissileEntity {
             let b = &self.base; // WorldEntity
 
             write_indent(w, i)?;
-            writeln!(w, "pos = ({}, {})", b.pos_x, b.pos_y)?;
+            writeln!(w, "pos = ({}, {})", b.pos.x, b.pos.y)?;
             write_indent(w, i)?;
             writeln!(w, "speed = ({}, {})", b.speed_x, b.speed_y)?;
             write_indent(w, i)?;

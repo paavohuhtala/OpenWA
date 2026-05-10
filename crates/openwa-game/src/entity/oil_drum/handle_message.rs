@@ -225,8 +225,8 @@ pub unsafe fn detonate(this: *mut OilDrumEntity) {
         let fire_parent = SharedDataTable::from_entity(this)
             .filter_water()
             .unwrap_or(core::ptr::null_mut()) as *mut u8;
-        let pos_x = (*this).base.pos_x;
-        let pos_y = (*this).base.pos_y;
+        let pos_x = (*this).base.pos.x;
+        let pos_y = (*this).base.pos.y;
         let source_team = (*this).source_team_index;
 
         // CreateExplosion(EAX=pos_x, ECX=pos_y, [stack] = explosion_id=100,
@@ -310,8 +310,8 @@ unsafe fn msg_frame_finish_tick(
             data,
         );
 
-        let pos_x = (*this).base.pos_x;
-        let pos_y = (*this).base.pos_y;
+        let pos_x = (*this).base.pos.x;
+        let pos_y = (*this).base.pos.y;
 
         let world = (*(this as *const BaseEntity)).world;
 

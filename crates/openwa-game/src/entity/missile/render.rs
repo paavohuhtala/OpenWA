@@ -270,8 +270,8 @@ unsafe fn emit_sprite(
 pub unsafe fn missile_render(this: *mut MissileEntity) {
     unsafe {
         let world = (*(this as *const BaseEntity)).world;
-        let pos_x = (*this).base.pos_x;
-        let pos_y = (*this).base.pos_y;
+        let pos_x = (*this).base.pos.x;
+        let pos_y = (*this).base.pos.y;
         let pos = Vec2::new(pos_x, pos_y);
         let speed_x = (*this).base.speed_x;
         let speed_y = (*this).base.speed_y;
@@ -434,8 +434,8 @@ pub unsafe fn missile_render(this: *mut MissileEntity) {
 pub unsafe fn render_indicator(this: *mut MissileEntity) {
     unsafe {
         let world = (*(this as *const BaseEntity)).world;
-        let pos_x = (*this).base.pos_x;
-        let pos_y = (*this).base.pos_y;
+        let pos_x = (*this).base.pos.x;
+        let pos_y = (*this).base.pos.y;
 
         let bound_min_x = (*world).level_bound_min_x;
         let bound_max_x = (*world).level_bound_max_x;

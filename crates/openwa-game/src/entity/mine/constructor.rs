@@ -209,8 +209,8 @@ pub unsafe fn insert_into_mine_list(this: *mut MineEntity) {
         crate::game::weapon_release::spawn_effect(
             victim as *mut crate::entity::BaseEntity,
             0,
-            (*victim).base.pos_x,
-            (*victim).base.pos_y,
+            (*victim).base.pos.x,
+            (*victim).base.pos.y,
             0,
             0,
             0,
@@ -351,8 +351,8 @@ pub unsafe fn mine_constructor(
                 if (*this).base._field_ac > 0 {
                     (*this).base._field_ac = 0;
                 }
-                (*this).base.pos_x = x;
-                (*this).base.pos_y = y;
+                (*this).base.pos.x = x;
+                (*this).base.pos.y = y;
                 y = y.wrapping_add(Fixed::ONE);
             }
             // `gradient` overwrites bucket_mask internally; it restores

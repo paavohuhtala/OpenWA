@@ -31,8 +31,8 @@ pub unsafe fn draw_crosshair_line(entity: *const WeaponAimEntity) {
         let world = &*gt.base.world;
         let rq = &mut *world.render_queue;
 
-        let start_x = gt.pos_x.0;
-        let start_y = gt.pos_y.0;
+        let start_x = gt.pos.x.0;
+        let start_y = gt.pos.y.0;
 
         let angle = (*entity).aim_angle;
 

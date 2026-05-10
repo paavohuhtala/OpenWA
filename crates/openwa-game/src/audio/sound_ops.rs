@@ -13,12 +13,15 @@
 //! - DispatchGlobalSound (0x526270)
 //! - PlaySoundPooled_Direct (0x546B50)
 
+use std::ptr::null;
+
 use crate::audio::SoundQueueEntry;
 use crate::audio::{SoundId, play_sound, play_sound_pooled};
 use crate::engine::{GameRuntime, GameWorld};
 use crate::entity::worm::WormEntity;
 use crate::entity::{BaseEntity, SoundEmitter, WorldEntity};
 use openwa_core::fixed::Fixed;
+use openwa_core::vec2::Vec2;
 
 // ============================================================
 // Sound queue insertion
@@ -30,7 +33,7 @@ use openwa_core::fixed::Fixed;
 /// or sound is disabled.
 pub unsafe fn queue_sound(
     world: *mut GameWorld,
-    sound_id: SoundId,
+    sound_id: impl Into<SoundId>,
     flags: u32,
     volume: Fixed,
     pitch: Fixed,
@@ -42,16 +45,15 @@ pub unsafe fn queue_sound(
         }
         let entry = &mut g.sound_queue[g.sound_queue_count as usize];
         *entry = SoundQueueEntry {
-            sound_id: sound_id.0,
+            sound_id: sound_id.into().0,
             flags,
             volume: volume.0 as u32,
             pitch: pitch.0 as u32,
             reserved: 0,
             is_local: 0,
             _pad: [0; 3],
-            pos_x: 0,
-            pos_y: 0,
-            secondary_vtable: 0,
+            pos: Vec2::ZERO,
+            emitter: null(),
         };
         g.sound_queue_count += 1;
         Some(entry)
@@ -83,11 +85,11 @@ pub unsafe fn play_sound_local(
 
         (*entry).is_local = 1;
 
-        let emitter = &gt.sound_emitter;
-        (*entry).secondary_vtable = emitter as *const _ as u32;
-        ((*emitter.vtable).get_position)(emitter, &mut (*entry).pos_x, &mut (*entry).pos_y);
-
+        let emitter = &raw mut (*entity).sound_emitter;
+        let pos = SoundEmitter::get_position_raw(emitter);
+        (*entry).emitter = emitter as *const u32;
         (*entity).sound_emitter.local_sound_count += 1;
+        (*entry).pos = pos;
         true
     }
 }
@@ -191,8 +193,11 @@ pub unsafe fn play_worm_sound_2(
         }
 
         // 2. Start new sound
-        // Check if worm is extremely high (WorldEntity.pos_y, fixed-point).
-        let worm_y = (*worm).base.pos_y.0;
+        // Check if worm is extremely high (WorldEntity.pos.y, fixed-point).
+        let worm_y = (*worm).base.pos.y.0;
+
+        let pos = Vec2::new(Fixed((*worm).weapon_param_1), Fixed((*worm).weapon_param_2));
+
         let new_handle = if worm_y < -0x270FFFFF && sound_id.0 == 0x36 {
             // Special teleport case: play at weapon target position
             load_and_play_streaming_positional(
@@ -200,8 +205,7 @@ pub unsafe fn play_worm_sound_2(
                 sound_id,
                 flags,
                 volume,
-                Fixed((*worm).weapon_param_1 as i32),
-                Fixed((*worm).weapon_param_2 as i32),
+                pos,
             )
         } else {
             // Normal case: play streaming sound — fully ported
@@ -389,7 +393,7 @@ fn distance_3d_attenuation(
 /// If attenuation is disabled (factor == 0), returns full volume and center pan.
 ///
 /// Convention: fastcall(ECX=&out_pan, EDX=&out_volume, stack=[table, x, y]), RET 0xC.
-unsafe fn compute_distance_params(world: *const GameWorld, x: Fixed, y: Fixed) -> (Fixed, Fixed) {
+unsafe fn compute_distance_params(world: *const GameWorld, pos: Vec2) -> (Fixed, Fixed) {
     unsafe {
         let gi = &*(*world).game_info;
         let attenuation = gi.sound_attenuation;
@@ -402,7 +406,14 @@ unsafe fn compute_distance_params(world: *const GameWorld, x: Fixed, y: Fixed) -
         let level_width_fixed = Fixed((*world).level_width_sound << 16);
         let (lx, ly) = (*world).listener_pos();
 
-        distance_3d_attenuation(Fixed(lx), Fixed(ly), x, y, level_width_fixed, attenuation)
+        distance_3d_attenuation(
+            Fixed(lx),
+            Fixed(ly),
+            pos.x,
+            pos.y,
+            level_width_fixed,
+            attenuation,
+        )
     }
 }
 
@@ -416,9 +427,8 @@ unsafe fn compute_distance_params(world: *const GameWorld, x: Fixed, y: Fixed) -
 /// RET 0x10. Returns the counter value (used as handle with 0x40000000 bit).
 unsafe fn record_active_sound(
     table: *mut ActiveSoundTable,
-    emitter: *mut u8,
-    x: i32,
-    y: i32,
+    emitter: *mut SoundEmitter,
+    pos: Vec2,
     volume: i32,
     channel_handle: i32,
 ) -> i32 {
@@ -436,8 +446,7 @@ unsafe fn record_active_sound(
 
         let slot = (t.counter & 0x3F) as usize;
         let entry = &mut t.entries[slot];
-        entry.pos_x = Fixed(x);
-        entry.pos_y = Fixed(y);
+        entry.pos = pos;
         entry.emitter = emitter;
         entry.volume = Fixed(volume);
         entry.sequence = t.counter as i32;
@@ -462,30 +471,36 @@ unsafe fn record_active_sound(
 pub(crate) unsafe fn dispatch_local_sound(
     table: *mut ActiveSoundTable,
     volume: Fixed,
-    sound_slot: SoundId,
+    sound_slot: impl Into<SoundId>,
     flags: i32,
-    pos: (Fixed, Fixed),
-    emitter: *mut u8,
+    pos: Vec2,
+    emitter: *mut SoundEmitter,
 ) -> i32 {
     unsafe {
         let volume = volume.min(Fixed::ONE);
 
         let world = (*table).world;
-        let (volume_atten, pan) = compute_distance_params(world, pos.0, pos.1);
+        let (volume_atten, pan) = compute_distance_params(world, pos);
 
         let scaled_volume = volume * volume_atten;
 
         // Call DSSound::play_sound_pooled (vtable slot 4)
         let sound = (*world).sound;
         let sound_vt = &*(*sound).vtable;
-        let handle =
-            (sound_vt.play_sound_pooled)(sound, sound_slot, flags, Fixed::ONE, scaled_volume, pan);
+        let handle = (sound_vt.play_sound_pooled)(
+            sound,
+            sound_slot.into(),
+            flags,
+            Fixed::ONE,
+            scaled_volume,
+            pan,
+        );
 
         if handle == 0 {
             return 0;
         }
 
-        record_active_sound(table, emitter, pos.0.0, pos.1.0, volume.0, handle)
+        record_active_sound(table, emitter, pos, volume.0, handle)
     }
 }
 
@@ -524,10 +539,8 @@ pub unsafe fn load_and_play_streaming(
         }
 
         // Get emitter position via sound_emitter vtable[0] (GetPosition)
-        let emitter = &(*entity).sound_emitter;
-        let mut pos_x: u32 = 0;
-        let mut pos_y: u32 = 0;
-        ((*emitter.vtable).get_position)(emitter, &mut pos_x, &mut pos_y);
+        let emitter = &raw mut (*entity).sound_emitter;
+        let pos = SoundEmitter::get_position_raw(emitter);
 
         // Dispatch as local sound
         let table = (*world).active_sounds;
@@ -535,14 +548,7 @@ pub unsafe fn load_and_play_streaming(
             return 0;
         }
 
-        let handle = dispatch_local_sound(
-            table,
-            volume,
-            sound_id,
-            flags as i32,
-            (Fixed(pos_x as i32), Fixed(pos_y as i32)),
-            emitter as *const _ as *mut u8,
-        );
+        let handle = dispatch_local_sound(table, volume, sound_id, flags as i32, pos, emitter);
         if handle == 0 {
             return 0;
         }
@@ -561,8 +567,7 @@ pub unsafe fn load_and_play_streaming_positional(
     sound_id: SoundId,
     flags: u32,
     volume: Fixed,
-    x: Fixed,
-    y: Fixed,
+    pos: Vec2,
 ) -> i32 {
     unsafe {
         let world = {
@@ -595,7 +600,7 @@ pub unsafe fn load_and_play_streaming_positional(
             volume,
             sound_id,
             flags as i32,
-            (x, y),
+            pos,
             core::ptr::null_mut(),
         );
         if handle == 0 {

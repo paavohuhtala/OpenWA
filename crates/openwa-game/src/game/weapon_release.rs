@@ -52,8 +52,8 @@ pub unsafe fn weapon_release(
         }
 
         // ── 2. Populate context fields ──────────────────────────
-        let speed_x = w.base.pos_x;
-        let speed_y = w.base.pos_y;
+        let speed_x = w.base.pos.x;
+        let speed_y = w.base.pos.y;
         ctx.team_id = w.team_index;
         ctx.worm_id = w.worm_index;
         ctx.ammo_per_turn = w.weapon_param_1 as u32;

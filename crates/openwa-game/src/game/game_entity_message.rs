@@ -200,7 +200,7 @@ pub unsafe fn compute_explosion_damage(
             return 0;
         }
 
-        let mut delta = Vec2::new((*this).pos_x - pos.x, (*this).pos_y - pos.y);
+        let mut delta = Vec2::new((*this).pos.x - pos.x, (*this).pos.y - pos.y);
 
         // Version-gated normalize via `GameWorld::vector_normalize_fn` —
         // returns the magnitude and writes the unit vector back into `delta`.

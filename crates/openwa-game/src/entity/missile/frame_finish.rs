@@ -3,7 +3,10 @@
 //! validated against the jump table at 0x0050BF88 — Ghidra/BN labels for
 //! these per-type handlers were unreliable.
 
+use std::ptr::null;
+
 use openwa_core::fixed::Fixed;
+use openwa_core::vec2::Vec2;
 
 use super::{MissileEntity, MissileType};
 use crate::audio::sound_ops::{play_sound_local, queue_sound};
@@ -236,8 +239,8 @@ unsafe extern "stdcall" fn bridge_create_bubble(
 unsafe fn update_animal_poison(this: *mut MissileEntity) {
     unsafe {
         if (*this)._unknown_3a4 != 0 && (*this).underwater_entry_latched == 0 {
-            let pos_x = (*this).base.pos_x;
-            let pos_y = (*this).base.pos_y;
+            let pos_x = (*this).base.pos.x;
+            let pos_y = (*this).base.pos.y;
             let parent = SharedDataTable::from_entity(this)
                 .filter_physics()
                 .unwrap_or(core::ptr::null_mut()) as *mut u8;
@@ -309,13 +312,12 @@ unsafe fn create_fire_1(this: *mut MissileEntity, pos_x: Fixed, pos_y: Fixed) {
         // Equivalent to `PlaySoundGlobal(this, 0x3B, 5, 1.0, 1.0)` followed by
         // the manual sound-queue patch the original applies to promote the
         // just-queued entry to a positional local sound at (pos_x, pos_y).
-        // `secondary_vtable = 0` ⇒ no entity ref tracking.
+        // `emitter = null` ⇒ no entity ref tracking.
         let world = (*this).base.base.world;
-        if let Some(entry) = queue_sound(world, SoundId(0x3B), 5, Fixed::ONE, Fixed::ONE) {
+        if let Some(entry) = queue_sound(world, KnownSoundId::Petrol, 5, Fixed::ONE, Fixed::ONE) {
             (*entry).is_local = 1;
-            (*entry).secondary_vtable = 0;
-            (*entry).pos_x = pos_x.to_raw() as u32;
-            (*entry).pos_y = pos_y.to_raw() as u32;
+            (*entry).emitter = null();
+            (*entry).pos = Vec2::new(pos_x, pos_y);
         }
     }
 }
@@ -407,8 +409,8 @@ unsafe fn update_effect(this: *mut MissileEntity) {
         (*this).trail_emit_phase = (*this).trail_emit_phase.wrapping_add(step);
 
         let world = (*(this as *const BaseEntity)).world;
-        let pos_x = (*this).base.pos_x;
-        let pos_y = (*this).base.pos_y;
+        let pos_x = (*this).base.pos.x;
+        let pos_y = (*this).base.pos.y;
 
         // High 16 bits non-zero ⇔ phase ≥ Fixed::ONE (phase is non-negative
         // here — step is clamped to [0, ONE] and phase only grows by adding
@@ -619,8 +621,8 @@ pub unsafe extern "thiscall" fn tick(
         // Snapshot pos before update_effect mutates it; these are the values
         // WA caches at [ESP+0x10] / [ESP+0x14] for SpawnEffect /
         // RegisterEventPoint / detonate downstream.
-        let pos_x_init = (*this).base.pos_x;
-        let pos_y_init = (*this).base.pos_y;
+        let pos_x_init = (*this).base.pos.x;
+        let pos_y_init = (*this).base.pos.y;
         update_effect(this);
 
         let anim_kind = animation_rate_kind(this);

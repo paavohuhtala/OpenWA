@@ -173,7 +173,7 @@ unsafe fn msg_detonate_weapon(this: *mut MissileEntity, msg: &DetonateWeaponMess
             return;
         }
 
-        let world = (*(this as *const BaseEntity)).world;
+        let world = (*(this)).world();
 
         if matches!((*this).missile_type, super::MissileType::Animal)
             && (*this).super_animal_walk_sprite != 0
@@ -184,7 +184,7 @@ unsafe fn msg_detonate_weapon(this: *mut MissileEntity, msg: &DetonateWeaponMess
                     return;
                 }
                 1 => {
-                    let pos_y_int = (*this).base.pos_y.to_int();
+                    let pos_y_int = (*this).base.pos.y.to_int();
                     if pos_y_int < (*world).water_kill_y {
                         finish_super_animal(this);
                         return;
@@ -256,7 +256,7 @@ unsafe fn msg_render_scene(
             let world = (*(this as *const BaseEntity)).world;
             let delta = (*world).viewport_coords[3]
                 .center_x
-                .wrapping_sub((*this).base.pos_x);
+                .wrapping_sub((*this).base.pos.x);
             (*world).field_7ea0 = (*world).field_7ea0.wrapping_add(delta.to_raw() as u32);
         }
 

@@ -290,8 +290,8 @@ unsafe fn scan_for_trigger(this: *mut MineEntity, range: i32) -> *mut BaseEntity
         let array = *(stream.add(0x24) as *const *mut *mut BaseEntity);
 
         let trigger_mask = (*this).trigger_class_mask;
-        let this_x = (*this).base.pos_x.to_raw();
-        let this_y = (*this).base.pos_y.to_raw();
+        let this_x = (*this).base.pos.x.to_raw();
+        let this_y = (*this).base.pos.y.to_raw();
 
         let mut idx: i32 = 0;
         loop {
@@ -346,8 +346,8 @@ unsafe fn arm(this: *mut MineEntity) {
 /// pixel position.
 unsafe fn detonate(this: *mut MineEntity) {
     unsafe {
-        let pos_x = (*this).base.pos_x;
-        let pos_y = Fixed((*this).base.pos_y.to_raw().wrapping_add(0x100000));
+        let pos_x = (*this).base.pos.x;
+        let pos_y = Fixed((*this).base.pos.y.to_raw().wrapping_add(0x100000));
         create_explosion(
             pos_x,
             pos_y,
@@ -689,8 +689,8 @@ unsafe fn msg_frame_finish_tick(
             data,
         );
 
-        let pos_x = (*this).base.pos_x;
-        let pos_y = (*this).base.pos_y;
+        let pos_x = (*this).base.pos.x;
+        let pos_y = (*this).base.pos.y;
         let speed_x = (*this).base.speed_x;
         let speed_y = (*this).base.speed_y;
 

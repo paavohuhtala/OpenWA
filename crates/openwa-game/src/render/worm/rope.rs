@@ -89,8 +89,8 @@ pub unsafe fn draw_attached_rope(this: *const WormEntity, style: u32, fill: u32)
         }
 
         if vert_count < MAX_VERTICES {
-            let pos_x = (*this).base.pos_x.0;
-            let pos_y = (*this).base.pos_y.0;
+            let pos_x = (*this).base.pos.x.0;
+            let pos_y = (*this).base.pos.y.0;
             verts[vert_count] = [pos_x, pos_y, 0];
             vert_count += 1;
         }

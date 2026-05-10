@@ -19,8 +19,8 @@ use super::game_entity::WorldEntity;
 use super::sound_emitter::SoundEmitter;
 use super::worm::{KnownWormState, WormEntity, WormState};
 use crate::address::va;
-use crate::audio::SoundId;
 use crate::audio::sound_ops as sound;
+use crate::audio::{KnownSoundId, SoundId};
 use crate::engine::EntityActivityQueue;
 use crate::engine::team_arena::{TeamArena, WormEntry};
 use crate::engine::world::GameWorld;
@@ -1057,8 +1057,8 @@ unsafe fn begin_thinking_hide(this: *mut WormEntity) {
     unsafe {
         if (*this).thinking_state == 1 {
             (*this).thinking_state = 2;
-            (*this).thinking_anim_pos_x = (*this).base.pos_x;
-            (*this).thinking_anim_pos_y = (*this).base.pos_y;
+            (*this).thinking_anim_pos_x = (*this).base.pos.x;
+            (*this).thinking_anim_pos_y = (*this).base.pos.y;
         }
     }
 }
@@ -1442,8 +1442,8 @@ unsafe fn msg_team_victory(this: *mut WormEntity) -> bool {
         if !suppress {
             WormEntity::set_state_raw(this, KnownWormState::Idle);
         }
-        let pos_x = (*this).base.pos_x;
-        let pos_y = (*this).base.pos_y;
+        let pos_x = (*this).base.pos.x;
+        let pos_y = (*this).base.pos.y;
         GameWorld::register_event_point_raw(world, pos_x, pos_y);
         true
     }
@@ -1588,8 +1588,8 @@ unsafe fn msg_resume_turn(this: *mut WormEntity) {
     unsafe {
         let world = (*(this as *const BaseEntity)).world;
         if (*this).selected_weapon != KnownWeaponId::Teleport {
-            let pos_x = (*this).base.pos_x;
-            let pos_y = (*this).base.pos_y;
+            let pos_x = (*this).base.pos.x;
+            let pos_y = (*this).base.pos.y;
             GameWorld::register_event_point_raw(world, pos_x, pos_y);
         }
         let queue = &raw mut (*world).entity_activity_queue;
@@ -1612,8 +1612,8 @@ unsafe fn msg_start_turn(this: *mut WormEntity) -> bool {
             WormEntity::set_state_raw(this, KnownWormState::Idle);
         }
 
-        let pos_x = (*this).base.pos_x;
-        let pos_y = (*this).base.pos_y;
+        let pos_x = (*this).base.pos.x;
+        let pos_y = (*this).base.pos.y;
         GameWorld::register_event_point_raw(world, pos_x, pos_y);
 
         let queue = &raw mut (*world).entity_activity_queue;
@@ -2202,17 +2202,15 @@ unsafe fn firing_tick(this: *mut WormEntity) {
         }
 
         let emitter = &raw const (*(this as *const WorldEntity)).sound_emitter;
-        let mut pos_x: u32 = 0;
-        let mut pos_y: u32 = 0;
-        ((*(*emitter).vtable).get_position)(emitter, &mut pos_x, &mut pos_y);
+        let pos = SoundEmitter::get_position_raw(emitter);
 
         sound::dispatch_local_sound(
             table,
             Fixed::ONE,
-            SoundId(0x78),
+            KnownSoundId::WarningBeep,
             8,
-            (Fixed(pos_x as i32), Fixed(pos_y as i32)),
-            emitter as *mut SoundEmitter as *mut u8,
+            pos,
+            emitter as *mut SoundEmitter,
         );
     }
 }
@@ -2532,8 +2530,8 @@ unsafe fn msg_special_impact(
         bridge_spawn_damage_particles(
             this,
             damage_for_particles,
-            (*this).base.pos_x,
-            (*this).base.pos_y,
+            (*this).base.pos.x,
+            (*this).base.pos.y,
             (*message).pos_x,
             (*message).pos_y,
         );
@@ -2652,8 +2650,8 @@ unsafe fn msg_explosion(
             bridge_spawn_damage_particles(
                 this,
                 halved,
-                (*this).base.pos_x,
-                (*this).base.pos_y,
+                (*this).base.pos.x,
+                (*this).base.pos.y,
                 (*message).pos.x,
                 (*message).pos.y,
             );
@@ -2963,8 +2961,8 @@ unsafe fn msg_frame_start(
     unsafe {
         let world = (*(this as *const BaseEntity)).world;
         let game_info = (*world).game_info;
-        let pos_x_snap = (*this).base.pos_x;
-        let pos_y_snap = (*this).base.pos_y;
+        let pos_x_snap = (*this).base.pos.x;
+        let pos_y_snap = (*this).base.pos.y;
 
         // Block 1 — gated on `_scheme_d9ce`. Idle/Unknown_0x8B states get
         // their pos snapshotted into `_field_344/348` (subject to a
@@ -3078,12 +3076,12 @@ unsafe fn msg_render_scene(
         // `snapped * render_interp_a * 16`.
         let kamikaze_active = action_field != 0 && state.is(KnownWormState::SuicideBomber);
         if kamikaze_active {
-            *kamikaze_pos_save_x = (*this).base.pos_x;
-            *kamikaze_pos_save_y = (*this).base.pos_y;
+            *kamikaze_pos_save_x = (*this).base.pos.x;
+            *kamikaze_pos_save_y = (*this).base.pos.y;
 
             let snapped = Vec2::new((*this).base.speed_x, (*this).base.speed_y).snap_to_8way();
             let interp_q4 = (*world).render_interp_a * 16;
-            let pos = Vec2::new((*this).base.pos_x, (*this).base.pos_y);
+            let pos = Vec2::new((*this).base.pos.x, (*this).base.pos.y);
             let new_pos = pos.wrapping_add(snapped.mul_raw(interp_q4));
             WorldEntity::try_move_position_raw(this as *mut WorldEntity, new_pos.x, new_pos.y);
         } else if fire_complete != 0 && action_field == 0 {
@@ -3131,7 +3129,7 @@ unsafe fn msg_render_scene(
                 let step: i32 = if (*this).turn_active != 0 { 100 } else { 1 };
                 let midpoint_x = world_field_i32(world, 0x8CEC);
                 let nudge_slot = (world as *mut u8).add(0x7EA0) as *mut i32;
-                if (*this).base.pos_x.0 < midpoint_x {
+                if (*this).base.pos.x.0 < midpoint_x {
                     *nudge_slot = (*nudge_slot).wrapping_add(step);
                 } else {
                     *nudge_slot = (*nudge_slot).wrapping_sub(step);

@@ -50,7 +50,7 @@ pub unsafe extern "thiscall" fn missile_on_contact(
                 return 1;
             }
             if (*this).digger_bailout_counter == 0 {
-                (*this).digger_stash_pos = Vec2::new((*this).base.pos_x, (*this).base.pos_y);
+                (*this).digger_stash_pos = Vec2::new((*this).base.pos.x, (*this).base.pos.y);
                 (*this).digger_stash_speed = Vec2::new((*this).base.speed_x, (*this).base.speed_y);
                 (*this).base.subclass_data.digger_state_flag = 1;
                 (*this).digger_action_flag = 0;
@@ -65,8 +65,8 @@ pub unsafe extern "thiscall" fn missile_on_contact(
         }
 
         if missile_type == MissileType::Animal {
-            let pos_x = (*this).base.pos_x;
-            let pos_y_plus_one = (*this).base.pos_y.wrapping_add(Fixed::ONE);
+            let pos_x = (*this).base.pos.x;
+            let pos_y_plus_one = (*this).base.pos.y.wrapping_add(Fixed::ONE);
             let target_hit = homing_target_check(
                 this as *mut c_void,
                 pos_x,
@@ -133,8 +133,8 @@ pub unsafe extern "thiscall" fn missile_on_contact(
             && (ricochet_side_mask & self_side_bit) != 0
             && (*this).explosion_damage != 0
         {
-            let pos_x = (*this).base.pos_x;
-            let pos_y = (*this).base.pos_y;
+            let pos_x = (*this).base.pos.x;
+            let pos_y = (*this).base.pos.y;
             if (*this).fire_particle_trigger == 0x40 {
                 impact_special_fx(this as *mut c_void, pos_x, pos_y, rb(VA_IMPACT_SPECIAL_FX));
             }

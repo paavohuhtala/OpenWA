@@ -96,8 +96,8 @@ pub unsafe fn oil_drum_constructor(
                 if (*this).base._field_ac > 0 {
                     (*this).base._field_ac = 0;
                 }
-                (*this).base.pos_x = x;
-                (*this).base.pos_y = y_step;
+                (*this).base.pos.x = x;
+                (*this).base.pos.y = y_step;
                 y_step = y_step.wrapping_add(Fixed::ONE);
             }
         }
