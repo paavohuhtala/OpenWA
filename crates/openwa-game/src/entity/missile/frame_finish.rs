@@ -19,7 +19,6 @@ use crate::rebase::rb;
 
 static mut CHECK_FOR_ALARMED_WORM_ADDR: u32 = 0;
 static mut INNER_TICK_DIGGER_ADDR: u32 = 0;
-static mut INNER_TICK_CLUSTER_ADDR: u32 = 0;
 static mut HANDLE_FLYING_ANIMAL_ADDR: u32 = 0;
 static mut HANDLE_WALKING_ANIMAL_ADDR: u32 = 0;
 static mut UPDATE_ANIMAL_POISON_ADDR: u32 = 0;
@@ -28,13 +27,13 @@ static mut APPLY_PIGEON_HOMING_ADDR: u32 = 0;
 static mut CREATE_CLUSTERS_ADDR: u32 = 0;
 static mut CREATE_FIRE_1_ADDR: u32 = 0;
 static mut CREATE_BUBBLE_ADDR: u32 = 0;
+static mut COLLECT_CRATE_ADDR: u32 = 0;
 static mut ALARM_TABLE_ADDR: u32 = 0;
 
 pub unsafe fn init_addrs() {
     unsafe {
         CHECK_FOR_ALARMED_WORM_ADDR = rb(0x0050B110);
         INNER_TICK_DIGGER_ADDR = rb(0x0050A430);
-        INNER_TICK_CLUSTER_ADDR = rb(0x0050A720);
         HANDLE_FLYING_ANIMAL_ADDR = rb(0x0050AC60);
         HANDLE_WALKING_ANIMAL_ADDR = rb(0x0050A900);
         UPDATE_ANIMAL_POISON_ADDR = rb(0x0050A820);
@@ -43,6 +42,7 @@ pub unsafe fn init_addrs() {
         CREATE_CLUSTERS_ADDR = rb(0x005096A0);
         CREATE_FIRE_1_ADDR = rb(0x00509D70);
         CREATE_BUBBLE_ADDR = rb(0x005472C0);
+        COLLECT_CRATE_ADDR = rb(0x00501340);
         ALARM_TABLE_ADDR = rb(0x006AD288);
     }
 }
@@ -144,18 +144,21 @@ unsafe extern "stdcall" fn bridge_inner_digger_tick(_this: *mut MissileEntity) {
     );
 }
 
-/// `Task_Missile::cluster_crate_sweep` (0x0050A720) — `__usercall(ESI = this)`.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_inner_cluster_tick(_this: *mut MissileEntity) {
-    core::arch::naked_asm!(
-        "push esi",
-        "mov esi, dword ptr [esp+8]",
-        "mov ecx, dword ptr [{addr}]",
-        "call ecx",
-        "pop esi",
-        "ret 4",
-        addr = sym INNER_TICK_CLUSTER_ADDR,
-    );
+/// `GameCollisionTask::collect_crate` (0x00501340) — stdcall(this, owner_id,
+/// pickup_class, &flag), RET 0x10. Returns the picked-up crate kind (1/2/4/5)
+/// in EAX, or 0 if no crate was collected. Sets `*flag = 1` when the
+/// collected crate's contents include weapon id 0x45 (Cluster Bomb).
+unsafe extern "stdcall" fn bridge_collect_crate(
+    this: *mut MissileEntity,
+    owner_id: u32,
+    pickup_class: u32,
+    flag: *mut u8,
+) -> i32 {
+    unsafe {
+        let f: unsafe extern "stdcall" fn(*mut MissileEntity, u32, u32, *mut u8) -> i32 =
+            core::mem::transmute(COLLECT_CRATE_ADDR);
+        f(this, owner_id, pickup_class, flag)
+    }
 }
 
 /// `Task_Missile::create_clusters` (0x005096A0) — `__usercall(ESI = this,
@@ -362,6 +365,49 @@ unsafe fn update_effect(this: *mut MissileEntity) {
     }
 }
 
+/// Pure-Rust port of `MissileEntity::cluster_crate_sweep` (0x0050A720). Per-tick
+/// in-flight crate-pickup sweep used by `MissileType::Cluster` and as the
+/// first step of [`inner_animal_tick`]. Repeatedly invokes
+/// `GameCollisionTask::collect_crate`; each successful pickup that reports the
+/// "cluster-bomb contents" flag (weapon 0x45) extends the fuse by
+/// `fuse_timer / pickup_count` (a diminishing time bonus). The pickup count is
+/// bounded by [`GameInfo::crate_pickup_limit`]
+/// (`game_info[+0xD9AF]`; 0 = unlimited). The loop continues while
+/// `collect_crate` returned a non-zero kind AND the scheme is recent enough
+/// (`game_version > 0x1B1`).
+unsafe fn cluster_crate_sweep(this: *mut MissileEntity) {
+    unsafe {
+        let owner_id = (*this).spawn_params.owner_id;
+        let pickup_class = (*this).spawn_params._unknown_04;
+        if owner_id == 0 {
+            return;
+        }
+        let world = (*this).base.base.world;
+
+        loop {
+            let mut flag: u8 = 0;
+            let crate_kind = bridge_collect_crate(this, owner_id, pickup_class, &mut flag);
+
+            let game_info = (*world).game_info;
+            // game_version in [0xD2, 0x1E3] — historical pickup-extend window.
+            let in_pickup_window = ((*game_info).game_version as u32).wrapping_sub(0xD2) < 0x112;
+            if in_pickup_window && flag != 0 {
+                let limit = (*game_info).crate_pickup_limit;
+                if limit == 0 || (*this).crate_pickup_count < limit as u32 {
+                    let old_fuse = (*this).fuse_timer;
+                    (*this).crate_pickup_count = (*this).crate_pickup_count.wrapping_add(1);
+                    let count = (*this).crate_pickup_count as i32;
+                    (*this).fuse_timer = old_fuse.wrapping_add(old_fuse / count);
+                }
+            }
+
+            if crate_kind == 0 || (*game_info).game_version <= 0x1B1 {
+                return;
+            }
+        }
+    }
+}
+
 // ─── Per-missile-type inner-tick dispatchers ───────────────────────────────
 
 /// Pure-Rust port of `Task_Missile::handle_homing` (0x0050ABA0). Drives the
@@ -417,7 +463,7 @@ unsafe fn inner_homing_tick(this: *mut MissileEntity) {
 /// walking), then trails poison gas if the animal is in alt-sprite mode.
 unsafe fn inner_animal_tick(this: *mut MissileEntity) {
     unsafe {
-        bridge_inner_cluster_tick(this);
+        cluster_crate_sweep(this);
         if (*this).contact_phase == 1 {
             bridge_handle_flying_animal(this);
         } else {
@@ -647,7 +693,7 @@ pub unsafe extern "thiscall" fn tick(
                 }
                 MissileType::Animal => inner_animal_tick(this),
                 MissileType::Digger => bridge_inner_digger_tick(this),
-                MissileType::Cluster => bridge_inner_cluster_tick(this),
+                MissileType::Cluster => cluster_crate_sweep(this),
                 MissileType::Zero | MissileType::Standard => {}
             }
 

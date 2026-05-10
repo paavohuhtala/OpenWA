@@ -326,8 +326,17 @@ pub struct GameInfo {
     /// | 2     | the collecting worm's alliance (compare bytes at `+team*0xBB8 - 0x765`) |
     /// | else  | nothing (case is not in the switch — silently no-op)              |
     pub _scheme_d9a4: u8,
-    /// 0xD9A5-0xD9B0: Unknown
-    pub _unknown_d9a5: [u8; 0xD9B1 - 0xD9A5],
+    /// 0xD9A5-0xD9AE: Unknown
+    pub _unknown_d9a5: [u8; 0xD9AF - 0xD9A5],
+    /// 0xD9AF: Per-scheme cap on in-flight crate pickups for a single
+    /// projectile. Consulted by `Task_Missile::cluster_crate_sweep`
+    /// (0x0050A720) — `0` = unlimited; otherwise the missile stops
+    /// extending its fuse once
+    /// [`crate_pickup_count`](crate::entity::MissileEntity::crate_pickup_count)
+    /// reaches this many pickups.
+    pub crate_pickup_limit: u8,
+    /// 0xD9B0: Unknown
+    pub _unknown_d9b0: u8,
     /// 0xD9B1: Scheme sub-version byte (signed). Read by SelectFuse /
     /// SelectHerd handlers as a "scheme allows extended fuse/herd range"
     /// gate (compared against `0x1A`/`0x1F` thresholds).
@@ -658,6 +667,7 @@ const _: () = assert!(core::mem::offset_of!(GameInfo, scheme_no_draw) == 0xD947)
 const _: () = assert!(core::mem::offset_of!(GameInfo, scheme_sd_secondary_lockout) == 0xD948);
 const _: () = assert!(core::mem::offset_of!(GameInfo, scheme_no_leaderboard) == 0xD949);
 const _: () = assert!(core::mem::offset_of!(GameInfo, scheme_first_to_n_wins) == 0xD94F);
+const _: () = assert!(core::mem::offset_of!(GameInfo, crate_pickup_limit) == 0xD9AF);
 
 impl GameInfo {
     /// 1-based team-record lookup. WA addresses these records as
