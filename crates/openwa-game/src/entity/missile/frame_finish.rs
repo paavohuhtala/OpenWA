@@ -23,7 +23,7 @@ static mut CHECK_FOR_ALARMED_WORM_ADDR: u32 = 0;
 static mut INNER_TICK_DIGGER_ADDR: u32 = 0;
 static mut HANDLE_FLYING_ANIMAL_ADDR: u32 = 0;
 static mut HANDLE_WALKING_ANIMAL_ADDR: u32 = 0;
-static mut UPDATE_ANIMAL_POISON_ADDR: u32 = 0;
+static mut GAS_ENTITY_CTOR_ADDR: u32 = 0;
 static mut APPLY_DIRECT_HOMING_ADDR: u32 = 0;
 static mut APPLY_PIGEON_HOMING_ADDR: u32 = 0;
 static mut CREATE_CLUSTERS_ADDR: u32 = 0;
@@ -37,7 +37,7 @@ pub unsafe fn init_addrs() {
         INNER_TICK_DIGGER_ADDR = rb(0x0050A430);
         HANDLE_FLYING_ANIMAL_ADDR = rb(0x0050AC60);
         HANDLE_WALKING_ANIMAL_ADDR = rb(0x0050A900);
-        UPDATE_ANIMAL_POISON_ADDR = rb(0x0050A820);
+        GAS_ENTITY_CTOR_ADDR = rb(crate::address::va::GAS_ENTITY_CTOR);
         APPLY_DIRECT_HOMING_ADDR = rb(0x00509EB0);
         APPLY_PIGEON_HOMING_ADDR = rb(0x0050A020);
         CREATE_CLUSTERS_ADDR = rb(0x005096A0);
@@ -92,17 +92,30 @@ unsafe extern "stdcall" fn bridge_handle_walking_animal(_this: *mut MissileEntit
     );
 }
 
-/// `Task_Missile::update_animal_poison` (0x0050A820) — `__usercall(EDI = this)`.
+/// `GasEntity::Constructor` (0x00554750) — `__usercall(EAX = parent,
+/// ESI = this) + stdcall(spawn_x, spawn_y, sprite, owner)`, RET 0x10.
 #[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_update_animal_poison(_this: *mut MissileEntity) {
+unsafe extern "stdcall" fn bridge_gas_construct(
+    _this: *mut u8,
+    _parent: *mut u8,
+    _spawn_x: Fixed,
+    _spawn_y: Fixed,
+    _sprite: u32,
+    _owner: u32,
+) {
     core::arch::naked_asm!(
-        "push edi",
-        "mov edi, dword ptr [esp+8]",
+        "push esi",
+        "mov esi, dword ptr [esp+8]",
+        "mov eax, dword ptr [esp+12]",
+        "push dword ptr [esp+28]",
+        "push dword ptr [esp+28]",
+        "push dword ptr [esp+28]",
+        "push dword ptr [esp+28]",
         "mov ecx, dword ptr [{addr}]",
         "call ecx",
-        "pop edi",
-        "ret 4",
-        addr = sym UPDATE_ANIMAL_POISON_ADDR,
+        "pop esi",
+        "ret 24",
+        addr = sym GAS_ENTITY_CTOR_ADDR,
     );
 }
 
@@ -208,6 +221,48 @@ unsafe extern "stdcall" fn bridge_create_bubble(
 }
 
 // ─── Pure-Rust ports ───────────────────────────────────────────────────────
+
+/// Pure-Rust port of `MissileEntity::update_animal_poison` (0x0050A820).
+/// Drives the post-fuse poison-emission cycle for the (super-)animal weapon
+/// family. Once the per-frame countdown stored in `_render_data_23_24[0]`
+/// (+0x360) decrements to ≤ 0, sets the alt-render / poison-mode latch
+/// `_unknown_3a4` (+0x3A4); thereafter, while latched and above water
+/// (`underwater_entry_latched == 0`), spawns one [`GasEntity`] per frame
+/// trailing behind the missile (Y+4.0 / X-4.0·direction) using the gas
+/// sprite stored in `_render_data_23_24[1]` (+0x364) and the owning team.
+///
+/// [`GasEntity`]: WA's gas-cloud entity (vtable 0x00669E50, ctor 0x00554750)
+unsafe fn update_animal_poison(this: *mut MissileEntity) {
+    unsafe {
+        if (*this)._unknown_3a4 != 0 && (*this).underwater_entry_latched == 0 {
+            let pos_x = (*this).base.pos_x;
+            let pos_y = (*this).base.pos_y;
+            let parent = SharedDataTable::from_task(this as *const BaseEntity).lookup(0, 0x19);
+
+            let buf = wa_malloc(0x88);
+            if !buf.is_null() {
+                core::ptr::write_bytes(buf, 0, 0x68);
+                // 4.0 fixed offset behind the animal (`direction << 18`),
+                // 4.0 fixed offset below.
+                let dx = Fixed::from_raw((*this).direction.wrapping_shl(18));
+                let dy = Fixed::from_raw(0x40000);
+                let sprite = (*this)._render_data_23_24[1];
+                let owner = (*this).spawn_params.owner_id;
+                bridge_gas_construct(buf, parent, pos_x - dx, pos_y + dy, sprite, owner);
+            }
+        }
+
+        let timer = (*this)._render_data_23_24[0] as i32;
+        if timer != 0 {
+            let new_timer = timer.wrapping_sub(0x14);
+            (*this)._render_data_23_24[0] = new_timer as u32;
+            if new_timer <= 0 {
+                (*this)._render_data_23_24[0] = 0;
+                (*this)._unknown_3a4 = 1;
+            }
+        }
+    }
+}
 
 /// Pure-Rust port of `MissileEntity::create_fire_1` (0x00509D70). Spawns one
 /// incendiary [`FireEntity`] when an incendiary missile detonates
@@ -500,7 +555,7 @@ unsafe fn inner_animal_tick(this: *mut MissileEntity) {
         } else {
             bridge_handle_walking_animal(this);
         }
-        bridge_update_animal_poison(this);
+        update_animal_poison(this);
     }
 }
 
