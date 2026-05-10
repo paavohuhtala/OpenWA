@@ -12,7 +12,8 @@ use crate::game::{KnownWeaponId, is_animal, is_fire, is_super_weapon, is_utility
 use openwa_core::fixed::Fixed;
 
 use crate::audio::sound_ops as sound;
-use crate::game::weapon_fire::{self, WeaponReleaseContext};
+use crate::game::weapon::WeaponReleaseContext;
+use crate::game::weapon_fire;
 
 // ── Main implementation ─────────────────────────────────────
 
@@ -28,15 +29,15 @@ pub unsafe fn weapon_release(
 
         // Initialize context struct to zero
         let mut ctx = WeaponReleaseContext {
-            team_id: 0,
-            worm_id: 0,
-            spawn_x: 0,
-            spawn_y: 0,
-            spawn_offset_x: 0,
-            spawn_offset_y: 0,
-            ammo_per_turn: 0,
-            ammo_per_slot: 0,
-            _zero: 0,
+            owner_id: 0,
+            owner_worm_id: 0,
+            spawn_x: Fixed::ZERO,
+            spawn_y: Fixed::ZERO,
+            spawn_offset_x: Fixed::ZERO,
+            spawn_offset_y: Fixed::ZERO,
+            cursor_x: Fixed::ZERO,
+            cursor_y: Fixed::ZERO,
+            pellet_index: 0,
             delay: 0,
             network_delay: 0,
         };
@@ -54,12 +55,12 @@ pub unsafe fn weapon_release(
         // ── 2. Populate context fields ──────────────────────────
         let speed_x = w.base.pos.x;
         let speed_y = w.base.pos.y;
-        ctx.team_id = w.team_index;
-        ctx.worm_id = w.worm_index;
-        ctx.ammo_per_turn = w.weapon_param_1 as u32;
-        ctx.spawn_x = spawn_x;
-        ctx.spawn_y = spawn_y;
-        ctx.ammo_per_slot = w.weapon_param_2 as u32;
+        ctx.owner_id = w.team_index;
+        ctx.owner_worm_id = w.worm_index;
+        ctx.cursor_x = Fixed::from_raw(w.weapon_param_1);
+        ctx.spawn_x = Fixed::from_raw(spawn_x as i32);
+        ctx.spawn_y = Fixed::from_raw(spawn_y as i32);
+        ctx.cursor_y = Fixed::from_raw(w.weapon_param_2);
 
         let entry = w.active_weapon_entry;
         let fire_type = (*entry).fire_type;
@@ -111,8 +112,8 @@ pub unsafe fn weapon_release(
             }
             _ => {}
         }
-        ctx.spawn_offset_x = offset_x.0;
-        ctx.spawn_offset_y = offset_y.0;
+        ctx.spawn_offset_x = offset_x;
+        ctx.spawn_offset_y = offset_y;
 
         // ── 4. Bounce-settle delay ──────────────────────────────
         // Worm's selected bounce flag (msg 0x31 SelectBounce) drives the

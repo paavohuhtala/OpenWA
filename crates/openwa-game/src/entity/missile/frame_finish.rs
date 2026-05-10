@@ -469,7 +469,7 @@ unsafe fn update_effect(this: *mut MissileEntity) {
 unsafe fn cluster_crate_sweep(this: *mut MissileEntity) {
     unsafe {
         let owner_id = (*this).spawn_params.owner_id;
-        let pickup_class = (*this).spawn_params._unknown_04;
+        let pickup_class = (*this).spawn_params.owner_worm_id;
         if owner_id == 0 {
             return;
         }

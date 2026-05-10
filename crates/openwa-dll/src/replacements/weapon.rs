@@ -87,7 +87,7 @@ unsafe extern "thiscall" fn hook_create_weapon_projectile(
 unsafe extern "stdcall" fn hook_projectile_fire(
     worm: *mut WormEntity,
     fire_params: *const WeaponFireParams,
-    local_struct: *const openwa_game::game::weapon::WeaponSpawnData,
+    local_struct: *const openwa_game::game::weapon::WeaponReleaseContext,
 ) {
     unsafe {
         weapon_fire::projectile_fire(worm, fire_params, local_struct);

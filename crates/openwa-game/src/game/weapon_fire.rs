@@ -22,40 +22,13 @@ use crate::game::message::{
     RaiseWaterMessage, ScalesOfJusticeMessage, SelectWormMessage, SkipGoOrMailMineMoleMessage,
     SurrenderMessage,
 };
-use crate::game::weapon::{WeaponEntry, WeaponFireParams, WeaponSpawnData};
+use crate::game::weapon::{WeaponEntry, WeaponFireParams, WeaponReleaseContext};
 use crate::wa::localized_string_cache;
+use crate::wa_alloc::wa_malloc_zeroed;
 use core::ffi::c_char;
+use core::ptr::null_mut;
 use openwa_core::fixed::Fixed;
 use openwa_core::vec2::Vec2;
-
-// ── WeaponReleaseContext ────────────────────────────────────
-
-/// The 0x2C-byte stack-local struct populated by WeaponRelease and passed to
-/// FireWeapon as the `local_struct` (ECX) parameter.
-#[repr(C)]
-#[derive(Clone, Copy)]
-pub struct WeaponReleaseContext {
-    pub team_id: u32,
-    pub worm_id: u32,
-    pub spawn_x: u32,
-    pub spawn_y: u32,
-    pub spawn_offset_x: i32,
-    pub spawn_offset_y: i32,
-    pub ammo_per_turn: u32,
-    pub ammo_per_slot: u32,
-    pub _zero: u32,
-    /// Bounce-settle delay in frames, sourced from
-    /// `WormEntity::selected_bounce_flag`: 30 if 0, 60 if 1, else 0.
-    /// Consumed by native FireWeapon — exact post-spawn semantics TBD.
-    pub delay: u32,
-    /// Fuse timer in milliseconds, sourced from
-    /// `WormEntity::selected_fuse_value`: `(value + 1) * 1000` when within
-    /// the scheme-bounded range. Consumed by native FireWeapon — receivers
-    /// known to be grenade-family weapons.
-    pub network_delay: i32,
-}
-
-const _: () = assert!(core::mem::size_of::<WeaponReleaseContext>() == 0x2C);
 
 // ============================================================
 // AddAmmo replacement (0x522640)
@@ -179,9 +152,7 @@ pub unsafe fn fire_weapon(
         match FireType::try_from(fire_type) {
             Ok(FireType::Projectile) => match FireMethod::try_from(fire_method) {
                 Ok(FireMethod::PlacedExplosive) => fire_placed_explosive(worm, fire_params, ctx),
-                Ok(FireMethod::ProjectileFire) => {
-                    projectile_fire(worm, fire_params, ctx as *const WeaponSpawnData)
-                }
+                Ok(FireMethod::ProjectileFire) => projectile_fire(worm, fire_params, ctx),
                 Ok(FireMethod::CreateWeaponProjectile) => {
                     create_weapon_projectile(worm, fire_params, ctx as *const u8)
                 }
@@ -249,15 +220,15 @@ unsafe fn fire_placed_explosive(
 
         let parent = SharedDataTable::from_entity(worm)
             .filter_water()
-            .unwrap_or(core::ptr::null_mut()) as *mut u8;
+            .unwrap_or(null_mut()) as *mut u8;
 
         let fp = &*fire_params;
         let c = &*ctx;
         let init = FireEntityInit {
-            spawn_x: Fixed(c.spawn_x as i32),
-            spawn_y: Fixed(c.spawn_y as i32),
-            spawn_offset_x: Fixed(c.spawn_offset_x),
-            spawn_offset_y: Fixed(c.spawn_offset_y),
+            spawn_x: c.spawn_x,
+            spawn_y: c.spawn_y,
+            spawn_offset_x: c.spawn_offset_x,
+            spawn_offset_y: c.spawn_offset_y,
             _flag_10: 0,
             kind: 4,
             _flag_18: 1,
@@ -356,7 +327,7 @@ pub unsafe fn fire_weapon_special(
 
         match S::try_from(subtype) {
             Ok(S::FirePunch) => WormEntity::set_state_raw(worm, KnownWormState::FirePunch),
-            Ok(S::BaseballBat) => fire_drill(worm, ctx as *const u8),
+            Ok(S::BaseballBat) => fire_drill(worm, ctx),
             Ok(S::DragonBall) => fire_dragon_ball(worm, params_38_ptr, ctx as *const u8),
             Ok(S::Kamikaze) => WormEntity::set_state_raw(worm, KnownWormState::Kamikaze),
             Ok(S::SuicideBomber) => WormEntity::set_state_raw(worm, KnownWormState::SuicideBomber),
@@ -364,7 +335,7 @@ pub unsafe fn fire_weapon_special(
             Ok(S::PneumaticDrill) => {
                 WormEntity::set_state_raw(worm, KnownWormState::PneumaticDrill)
             }
-            Ok(S::Prod) => fire_prod(worm, ctx as *const u8),
+            Ok(S::Prod) => fire_prod(worm, ctx),
             Ok(S::Teleport) => fire_teleport(worm),
             Ok(S::Blowtorch) => WormEntity::set_state_raw(worm, KnownWormState::Blowtorch),
             Ok(S::Parachute) => {} // TODO: parachute handler
@@ -815,7 +786,7 @@ unsafe fn fire_dragon_ball(
 
         let parent = SharedDataTable::from_entity(worm)
             .filter_physics()
-            .unwrap_or(core::ptr::null_mut()) as *mut u8;
+            .unwrap_or(null_mut()) as *mut u8;
 
         // Allocate GirderEntity (0xA4 bytes), zero first 0x84
         let buffer = wa_malloc(0xA4);
@@ -1014,7 +985,12 @@ fn special_impact_version_flags(base: u32, version: u8) -> u32 {
 /// Calls SpecialImpact with facing-offset position and scaled direction.
 /// The original is usercall(ECX=local_struct, ESI=worm) — the old bridge
 /// did not set ECX, so this port also fixes a latent bug.
-unsafe fn fire_drill(worm: *mut WormEntity, local_struct: *const u8) {
+///
+/// Note: ctx +0x10/+0x14 (`spawn_offset_x/y`) are read here as launch
+/// velocity. WeaponRelease wrote them as `aim_dir × scale × 24`-ish, and
+/// downstream paths like the projectile pipeline reinterpret the same
+/// bytes as `initial_speed_x/y`.
+unsafe fn fire_drill(worm: *mut WormEntity, ctx: *const WeaponReleaseContext) {
     unsafe {
         let world = {
             let this = worm as *const BaseEntity;
@@ -1026,13 +1002,12 @@ unsafe fn fire_drill(worm: *mut WormEntity, local_struct: *const u8) {
         let weapon_type = entry.fire_method;
         let facing = (*worm).facing_direction_2;
 
-        // Cast local_struct to WeaponSpawnData for field access (offsets match)
-        let spawn = &*(local_struct as *const WeaponSpawnData);
+        let c = &*ctx;
 
-        let x = facing * 0x1A_0000 + spawn.spawn_x.0;
-        let y = spawn.spawn_y.0;
-        let dx = (spawn.initial_speed_x.0 * shot_count) / 10;
-        let dy = (spawn.initial_speed_y.0 * shot_count) / 10;
+        let x = facing * 0x1A_0000 + c.spawn_x.0;
+        let y = c.spawn_y.0;
+        let dx = (c.spawn_offset_x.0 * shot_count) / 10;
+        let dy = (c.spawn_offset_y.0 * shot_count) / 10;
         let flags = special_impact_version_flags(0x21C4C, version);
 
         call_special_impact(
@@ -1057,10 +1032,8 @@ unsafe fn fire_drill(worm: *mut WormEntity, local_struct: *const u8) {
 ///
 /// Like Drill but with trig interpolation on the spread angle.
 /// Convention: usercall(EDI=worm) + 1 stack param (local_struct), RET 0x4.
-unsafe fn fire_prod(worm: *mut WormEntity, local_struct: *const u8) {
+unsafe fn fire_prod(worm: *mut WormEntity, ctx: *const WeaponReleaseContext) {
     unsafe {
-        use crate::rebase::rb;
-
         let world = {
             let this = worm as *const BaseEntity;
             (*this).world
@@ -1072,25 +1045,13 @@ unsafe fn fire_prod(worm: *mut WormEntity, local_struct: *const u8) {
         let weapon_type = entry.fire_method;
         let facing = (*worm).facing_direction_2;
 
-        let spawn = &*(local_struct as *const WeaponSpawnData);
+        let c = &*ctx;
 
         // Convert spread (degrees) to engine angle units: (spread << 16) / 360
         let angle = ((spread as u32) << 16) / 0x168;
 
-        // Interpolated sin/cos lookup (same pattern as projectile_fire)
-        let sin_table = rb(va::SIN_TABLE) as *const i32;
-        let cos_table = sin_table.add(256);
-
-        let table_index = ((angle >> 6) & 0x3FF) as usize;
-        let frac = ((angle & 0x3F) << 10) as i32;
-
-        let cos_base = *cos_table.add(table_index);
-        let cos_next = *cos_table.add(table_index + 1);
-        let cos_val = cos_base + fixed_mul(cos_next - cos_base, frac);
-
-        let sin_base = *sin_table.add(table_index);
-        let sin_next = *sin_table.add(table_index + 1);
-        let sin_val = sin_base + fixed_mul(sin_next - sin_base, frac);
+        let cos_val = openwa_core::trig::cos(angle).0;
+        let sin_val = openwa_core::trig::sin(angle).0;
 
         // Scale trig results by shot_count and divide by 10.
         // In WA's coordinate system (Y increases downward), the vertical component is negated.
@@ -1100,8 +1061,8 @@ unsafe fn fire_prod(worm: *mut WormEntity, local_struct: *const u8) {
         let dx = ((sin_val * shot_count) / 10) * facing;
         let dy = -((cos_val * shot_count) / 10);
 
-        let x = facing * 0x6_0000 + spawn.spawn_x.0;
-        let y = spawn.spawn_y.0;
+        let x = facing * 0x6_0000 + c.spawn_x.0;
+        let y = c.spawn_y.0;
         let flags = special_impact_version_flags(0xC4C, version);
 
         call_special_impact(
@@ -1128,7 +1089,7 @@ unsafe fn fire_prod(worm: *mut WormEntity, local_struct: *const u8) {
 /// Args: (spawn_data, worm, fire_params, addr).
 #[unsafe(naked)]
 unsafe extern "C" fn call_projectile_fire_single(
-    _spawn_data: *const WeaponSpawnData,
+    _spawn_data: *const WeaponReleaseContext,
     _worm: *mut WormEntity,
     _fire_params: *const WeaponFireParams,
     _addr: u32,
@@ -1206,7 +1167,7 @@ unsafe fn fire_mine(
 
         let parent = SharedDataTable::from_entity(worm)
             .filter_physics()
-            .unwrap_or(core::ptr::null_mut());
+            .unwrap_or(null_mut());
 
         let buffer = wa_malloc(0x1BC);
         if buffer.is_null() {
@@ -1247,7 +1208,7 @@ unsafe fn fire_canister(
 
         let parent = SharedDataTable::from_entity(worm)
             .filter_physics()
-            .unwrap_or(core::ptr::null_mut()) as *mut u8;
+            .unwrap_or(null_mut()) as *mut u8;
 
         let buffer = wa_malloc(0x17C);
         if buffer.is_null() {
@@ -1293,7 +1254,7 @@ pub unsafe fn create_weapon_projectile(
 
         let parent = SharedDataTable::from_entity(worm)
             .filter_physics()
-            .unwrap_or(core::ptr::null_mut()) as *mut u8;
+            .unwrap_or(null_mut()) as *mut u8;
 
         // Allocate MissileEntity (0x40C bytes)
         let buffer = wa_malloc(0x40C);
@@ -1330,7 +1291,7 @@ pub unsafe fn create_weapon_projectile(
 pub unsafe fn projectile_fire(
     worm: *mut WormEntity,
     fire_params: *const WeaponFireParams,
-    local_struct: *const WeaponSpawnData,
+    ctx: *const WeaponReleaseContext,
 ) {
     unsafe {
         use crate::rebase::rb;
@@ -1342,16 +1303,13 @@ pub unsafe fn projectile_fire(
             return;
         }
 
-        // Copy spawn template from caller's stack buffer
-        let mut spawn_data = *local_struct;
+        // Copy spawn template from caller's stack buffer.
+        // ctx +0x10/+0x14 (`spawn_offset_x/y`) are reinterpreted here as
+        // the projectile's launch velocity and rotated per-shot.
+        let mut spawn_data = *ctx;
 
-        // Read template velocity (will be rotated per-shot)
-        let template_speed_x = spawn_data.initial_speed_x.0;
-        let template_speed_y = spawn_data.initial_speed_y.0;
-
-        // Trig table: sin at SIN_TABLE, cos at SIN_TABLE + 256*4
-        let sin_table = rb(va::SIN_TABLE) as *const i32;
-        let cos_table = sin_table.add(256); // cos = sin offset by 256 entries (quarter turn)
+        let template_speed_x = spawn_data.spawn_offset_x.0;
+        let template_speed_y = spawn_data.spawn_offset_y.0;
 
         let world = &mut *{
             let this = worm as *const BaseEntity;
@@ -1368,19 +1326,8 @@ pub unsafe fn projectile_fire(
             let spread_param = params.unknown_0x4c;
             let angle = (rng_centered * spread_param) / 360;
 
-            // Cos/sin table lookup with linear interpolation
-            // Table index = (angle >> 6) & 0x3FF (1024 entries)
-            // Fractional = (angle & 0x3F) << 10
-            let table_index = ((angle >> 6) & 0x3FF) as usize;
-            let frac = ((angle & 0x3F) << 10) as i32;
-
-            let cos_base = *cos_table.add(table_index);
-            let cos_next = *cos_table.add(table_index + 1);
-            let cos_val = cos_base + fixed_mul(cos_next - cos_base, frac);
-
-            let sin_base = *sin_table.add(table_index);
-            let sin_next = *sin_table.add(table_index + 1);
-            let sin_val = sin_base + fixed_mul(sin_next - sin_base, frac);
+            let cos_val = openwa_core::trig::cos(angle as u32).0;
+            let sin_val = openwa_core::trig::sin(angle as u32).0;
 
             // 2D rotation matrix:
             // speed_x = cos * template_x + sin * template_y
@@ -1390,9 +1337,8 @@ pub unsafe fn projectile_fire(
             let speed_y =
                 fixed_mul(-sin_val, template_speed_x) + fixed_mul(cos_val, template_speed_y);
 
-            // Write rotated velocity into spawn data
-            spawn_data.initial_speed_x = Fixed(speed_x);
-            spawn_data.initial_speed_y = Fixed(speed_y);
+            spawn_data.spawn_offset_x = Fixed(speed_x);
+            spawn_data.spawn_offset_y = Fixed(speed_y);
 
             // Call ProjectileFire_Single(worm, fire_params) with EDI=&spawn_data
             call_projectile_fire_single(
@@ -1425,7 +1371,6 @@ pub unsafe fn create_arrow(
     unsafe {
         use crate::entity::SharedDataTable;
         use crate::rebase::rb;
-        use crate::wa_alloc::wa_malloc;
 
         let world = (*worm).world();
 
@@ -1437,14 +1382,13 @@ pub unsafe fn create_arrow(
 
         let parent = SharedDataTable::from_entity(worm)
             .filter_physics()
-            .unwrap_or(core::ptr::null_mut()) as *mut u8;
+            .unwrap_or(null_mut()) as *mut u8;
 
         // Allocate ArrowEntity (0x168 bytes)
-        let buffer = wa_malloc(0x168);
+        let buffer = wa_malloc_zeroed(0x168);
         if buffer.is_null() {
             return;
         }
-        core::ptr::write_bytes(buffer, 0, 0x148);
 
         // ArrowEntity::Constructor — stdcall(this, parent, fire_params, local_struct), RET 0x10
         let ctor: unsafe extern "stdcall" fn(*mut u8, *mut u8, *const WeaponFireParams, *const u8) =

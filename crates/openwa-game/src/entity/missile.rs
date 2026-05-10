@@ -2,7 +2,7 @@ use super::base::BaseEntity;
 use super::game_entity::{SubclassData, WorldEntity};
 use crate::FieldRegistry;
 use crate::game::EntityMessage;
-use crate::game::weapon::WeaponSpawnData;
+use crate::game::weapon::WeaponReleaseContext;
 use crate::render::textbox::Textbox;
 use openwa_core::fixed::Fixed;
 use openwa_core::vec2::Vec2;
@@ -168,9 +168,9 @@ pub struct MissileEntity {
     pub activity_rank_slot: u32,
 
     // ---- 0x130–0x15B: spawn data (11 DWORDs, from param_4) ----
-    /// 0x130–0x15B: Spawn parameters copied from constructor param_4.
-    /// See `WeaponSpawnData` for field documentation.
-    pub spawn_params: WeaponSpawnData,
+    /// 0x130–0x15B: Spawn parameters copied verbatim from constructor
+    /// param_4 (a `WeaponReleaseContext`).
+    pub spawn_params: WeaponReleaseContext,
 
     // ---- 0x15C–0x2D3: weapon/scheme data (94 DWORDs, from param_3) ----
     /// 0x15C–0x2D3: Weapon/scheme properties copied verbatim from param_3.
@@ -629,14 +629,19 @@ impl crate::snapshot::Snapshot for MissileEntity {
             write_indent(w, i + 1)?;
             writeln!(
                 w,
-                "owner={} spawn=({}, {}) speed=({}, {})",
-                sp.owner_id, sp.spawn_x, sp.spawn_y, sp.initial_speed_x, sp.initial_speed_y
+                "owner=({}, {}) spawn=({}, {}) offset=({}, {})",
+                sp.owner_id,
+                sp.owner_worm_id,
+                sp.spawn_x,
+                sp.spawn_y,
+                sp.spawn_offset_x,
+                sp.spawn_offset_y
             )?;
             write_indent(w, i + 1)?;
             writeln!(
                 w,
-                "cursor=({}, {}) pellet={} fallback=({}, {})",
-                sp.cursor_x, sp.cursor_y, sp.pellet_index, sp.fallback_timer, sp.fallback_param
+                "cursor=({}, {}) pellet={} delay={} network_delay={}",
+                sp.cursor_x, sp.cursor_y, sp.pellet_index, sp.delay, sp.network_delay
             )?;
 
             write_indent(w, i)?;

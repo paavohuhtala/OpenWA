@@ -588,8 +588,6 @@ pub mod va {
         /// Called by ProjectileFire per shot.
         /// usercall(EDI=spawn_data, stack=[worm, fire_params]), RET 0x8.
         fn PROJECTILE_FIRE_SINGLE = 0x0051DCF0;
-        /// Sin lookup table (1024 entries of Fixed16.16). cos = sin + 256 entries.
-        global SIN_TABLE = 0x006A1860;
         /// VectorNormalize (simple version, used for game_version < 0x99)
         fn VECTOR_NORMALIZE_SIMPLE = 0x00575590;
         /// VectorNormalize (overflow-safe version, used for game_version >= 0x99)

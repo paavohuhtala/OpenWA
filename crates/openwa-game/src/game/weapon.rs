@@ -10,44 +10,75 @@ pub use openwa_core::weapon::{
 use crate::engine::world::GameWorld;
 
 // ============================================================
-// WeaponSpawnData — launch parameters passed to MissileEntity ctor
+// WeaponReleaseContext — 0x2C-byte spawn buffer
 // ============================================================
 
-/// Spawn parameters for a weapon projectile (0x2C = 44 bytes, 11 DWORDs).
+/// 0x2C / 11-DWORD spawn buffer built on the stack by `WeaponRelease`
+/// (0x51C3D0) and consumed by everything downstream of `FireWeapon`:
 ///
-/// Built on the stack by fire sub-functions (ProjectileFire, GrenadeFire, etc.)
-/// and passed as param_4 to MissileEntity::Constructor. Copied verbatim into
-/// MissileEntity at offset 0x130 (spawn_params field).
+/// - Special-subtype handlers (Drill, Prod, …) read it directly.
+/// - `ProjectileFire` rotates [`spawn_offset_x`]/[`spawn_offset_y`]
+///   per-shot and forwards the buffer to `ProjectileFire_Single`.
+/// - `MissileEntity::Constructor` copies the buffer verbatim into
+///   `MissileEntity` at offset 0x130 (the `spawn_params` field).
 ///
-/// Source: runtime inspection via debug CLI + MissileEntity constructor decompilation.
+/// Several slots are deliberately repurposed across the boundary —
+/// most prominently +0x10/+0x14, which `WeaponRelease` writes as a
+/// position offset (`aim_dir × scale × 24`-ish) and the projectile
+/// pipeline reads as launch velocity. Field names below favour the
+/// writer-side meaning where the two interpretations disagree.
+///
+/// Source: runtime inspection via debug CLI + WeaponRelease /
+/// MissileEntity constructor decompilation.
 #[derive(Clone, Copy)]
 #[repr(C)]
-pub struct WeaponSpawnData {
-    /// [0] Team index of the worm that fired this projectile.
+pub struct WeaponReleaseContext {
+    /// +0x00: Team index of the worm that fired this projectile.
     pub owner_id: u32,
-    /// [1] Unknown — observed as 1.
-    pub _unknown_04: u32,
-    /// [2] Fixed16.16 X position at launch.
+    /// +0x04: Worm index of the firing worm. Read by `MissileEntity`
+    /// drown/super-animal handlers as `pickup_class` for some
+    /// missile types.
+    pub owner_worm_id: u32,
+    /// +0x08: World X position at launch.
     pub spawn_x: Fixed,
-    /// [3] Fixed16.16 Y position at launch.
+    /// +0x0C: World Y position at launch.
     pub spawn_y: Fixed,
-    /// [4] Fixed16.16 horizontal velocity. Copied to WorldEntity.speed_x.
-    pub initial_speed_x: Fixed,
-    /// [5] Fixed16.16 vertical velocity. Copied to WorldEntity.speed_y.
-    pub initial_speed_y: Fixed,
-    /// [6] Fixed16.16 aim cursor X at time of fire.
+    /// +0x10: Spawn offset / launch direction. WeaponRelease writes
+    /// `aim_dir × scale × N` here; `ProjectileFire` re-reads these
+    /// bytes as the projectile's initial velocity (X) and rotates
+    /// them per-shot into `WorldEntity.speed_x`. Drill/Prod read
+    /// them directly as a velocity scalar.
+    pub spawn_offset_x: Fixed,
+    /// +0x14: Spawn offset / launch direction (Y). See
+    /// [`spawn_offset_x`](Self::spawn_offset_x).
+    pub spawn_offset_y: Fixed,
+    /// +0x18: Aim cursor X at time of fire. Written from
+    /// `WormEntity::weapon_param_1` (polymorphic; for projectile
+    /// weapons it holds the aim cursor coord).
     pub cursor_x: Fixed,
-    /// [7] Fixed16.16 aim cursor Y at time of fire.
+    /// +0x1C: Aim cursor Y at time of fire.
     pub cursor_y: Fixed,
-    /// [8] Index within a cluster volley (0 for single shot, N for Nth sub-pellet).
-    /// Determines which half of weapon_data is copied to render_data.
+    /// +0x20: Index within a cluster volley (0 for primary shot,
+    /// N for Nth sub-pellet). WeaponRelease writes 0; cluster /
+    /// projectile-fire code overwrites per-pellet. Determines
+    /// which half of weapon_data is copied to render_data.
     pub pellet_index: u32,
-    /// [9] Fallback timer — copied to render_data[0x19] if that field was zero.
-    pub fallback_timer: u32,
-    /// [10] Fallback param — copied to render_data[0x11] if that field was zero.
-    pub fallback_param: u32,
+    /// +0x24: Bounce-settle delay in frames, sourced from
+    /// `WormEntity::selected_bounce_flag`: 30 if 0, 60 if 1, else
+    /// 0. Used by `MissileEntity::Constructor` as a fallback for
+    /// `render_data[0x19]`: copied in iff that slot is still zero
+    /// after the weapon_data → render_data block-copy AND the
+    /// missile is type 2 (Standard) or 5 (Cluster).
+    pub delay: u32,
+    /// +0x28: Fuse timer in milliseconds, sourced from
+    /// `WormEntity::selected_fuse_value`: `(value + 1) * 1000`
+    /// when within the scheme-bounded range. Used by
+    /// `MissileEntity::Constructor` as a fallback for
+    /// `render_data[0x11]`: copied in iff that slot is still zero
+    /// after the weapon_data → render_data block-copy.
+    pub network_delay: i32,
 }
-const _: () = assert!(core::mem::size_of::<WeaponSpawnData>() == 0x2C);
+const _: () = assert!(core::mem::size_of::<WeaponReleaseContext>() == 0x2C);
 
 // ============================================================
 // WeaponEntry — per-weapon data in the weapon table (0x1D0 bytes)
