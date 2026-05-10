@@ -11,7 +11,8 @@
 //!
 //! Subsystem callees still bridged to WA:
 //!  * `WorldEntity::Constructor` (0x004FED50) — large MFC-decorated init
-//!    that this slice doesn't touch.
+//!    that this slice doesn't touch. Bridged via
+//!    [`WorldEntity::construct_raw`].
 //!  * `EntityActivityQueue::ResetRank` (0x00541790) — usercall(EAX=queue,
 //!    [stack]=slot). Reused via `super::handle_message::bridge_reset_rank`.
 //!  * `GameCollisionTask::gradient` (0x00500230) — usercall(EAX=this,
@@ -31,7 +32,7 @@
 use core::sync::atomic::{AtomicU32, Ordering};
 
 use super::handle_message::bridge_reset_rank;
-use super::{MineEntity, MineEntityVtable, MineSubclassData};
+use super::{MineEntity, MineEntityVtable};
 use crate::engine::EntityActivityQueue;
 use crate::engine::game_info::GameInfo;
 use crate::engine::world::GameWorld;
@@ -72,44 +73,17 @@ crate::define_addresses! {
 }
 
 // Saved bridge addresses, populated by [`init_addrs`].
-//
-// `WorldEntity::Constructor` (0x004FED50) — `__stdcall(this, parent,
-// class_type, flag)`, RET 0x10. Large MFC-style initializer that this
-// slice doesn't touch.
-static WORLD_ENTITY_CTOR_ADDR: AtomicU32 = AtomicU32::new(0);
 static FRAME_POST_PROCESS_HOOK_VEC_PUSH_BACK_ONE_ADDR: AtomicU32 = AtomicU32::new(0);
 static MATH_FIXA1TAN16_ADDR: AtomicU32 = AtomicU32::new(0);
 static GAME_COLLISION_TASK_GRADIENT_ADDR: AtomicU32 = AtomicU32::new(0);
 
 pub unsafe fn init_addrs() {
-    WORLD_ENTITY_CTOR_ADDR.store(rb(0x004FED50), Ordering::Relaxed);
     FRAME_POST_PROCESS_HOOK_VEC_PUSH_BACK_ONE_ADDR.store(
         rb(FRAME_POST_PROCESS_HOOK_VEC_PUSH_BACK_ONE),
         Ordering::Relaxed,
     );
     MATH_FIXA1TAN16_ADDR.store(rb(MATH_FIXA1TAN16), Ordering::Relaxed);
     GAME_COLLISION_TASK_GRADIENT_ADDR.store(rb(GAME_COLLISION_TASK_GRADIENT), Ordering::Relaxed);
-}
-
-/// `WorldEntity::Constructor` (0x004FED50) — `__stdcall(this, parent,
-/// class_type, flag)`, RET 0x10.
-#[inline]
-unsafe fn world_entity_ctor(
-    this: *mut WorldEntity<*const MineEntityVtable, MineSubclassData>,
-    parent: *mut BaseEntity,
-    class_type: u32,
-    flag: u32,
-) {
-    type Fn = unsafe extern "stdcall" fn(
-        *mut WorldEntity<*const MineEntityVtable, MineSubclassData>,
-        *mut BaseEntity,
-        u32,
-        u32,
-    );
-    unsafe {
-        let f: Fn = core::mem::transmute(WORLD_ENTITY_CTOR_ADDR.load(Ordering::Relaxed) as usize);
-        f(this, parent, class_type, flag);
-    }
 }
 
 /// `GameCollisionTask::gradient` (0x00500230) — `__usercall(EAX = this,
@@ -266,7 +240,7 @@ pub unsafe fn mine_constructor(
 ) -> *mut MineEntity {
     unsafe {
         // Parent ctor + class_type + vtable.
-        world_entity_ctor(&raw mut (*this).base, parent, 10, 2);
+        WorldEntity::construct_raw(&raw mut (*this).base, parent, 10, 2);
         let world: *mut GameWorld = (*(this as *const BaseEntity)).world;
         (*(this as *mut BaseEntity)).class_type = ClassType::Mine;
         (*this).base.base.vtable = rb(super::MINE_ENTITY_VTABLE) as *const MineEntityVtable;

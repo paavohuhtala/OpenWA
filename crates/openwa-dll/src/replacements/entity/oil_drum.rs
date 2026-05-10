@@ -13,7 +13,6 @@ pub fn install() -> Result<(), String> {
 
     unsafe { oil_drum::handle_message::init_addrs() };
     unsafe { oil_drum::render::init_addrs() };
-    unsafe { oil_drum::constructor::init_addrs() };
 
     vtable_replace!(OilDrumEntityVtable, va::OILDRUM_ENTITY_VTABLE, {
         handle_message [oil_drum::handle_message::ORIGINAL_HANDLE_MESSAGE]

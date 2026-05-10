@@ -12,11 +12,10 @@
 //!
 //! Subsystem callees still bridged to WA:
 //!  * `WorldEntity::Constructor` (0x004FED50) — large MFC-decorated init;
-//!    not in scope for this slice.
+//!    not in scope for this slice. Bridged via
+//!    [`WorldEntity::construct_raw`].
 //!  * `EntityActivityQueue::ResetRank` (0x00541790) — usercall(EAX=queue,
 //!    [stack]=slot). Reused via `super::handle_message::bridge_reset_rank`.
-
-use core::sync::atomic::{AtomicU32, Ordering};
 
 use super::OilDrumEntity;
 use super::handle_message::bridge_reset_rank;
@@ -27,34 +26,6 @@ use crate::entity::game_entity::WorldEntity;
 use crate::game::class_type::ClassType;
 use crate::rebase::rb;
 use openwa_core::fixed::Fixed;
-
-// `WorldEntity::Constructor` (0x004FED50) — `__stdcall(this, parent,
-// class_type, flag)`, RET 0x10. Large MFC-style initializer; reused as a
-// bridge until WorldEntity itself is ported.
-static WORLD_ENTITY_CTOR_ADDR: AtomicU32 = AtomicU32::new(0);
-
-pub unsafe fn init_addrs() {
-    WORLD_ENTITY_CTOR_ADDR.store(rb(0x004FED50), Ordering::Relaxed);
-}
-
-#[inline]
-unsafe fn world_entity_ctor(
-    this: *mut WorldEntity<*const super::OilDrumEntityVtable, super::OilDrumSubclassData>,
-    parent: *mut BaseEntity,
-    class_type: u32,
-    flag: u32,
-) {
-    type Fn = unsafe extern "stdcall" fn(
-        *mut WorldEntity<*const super::OilDrumEntityVtable, super::OilDrumSubclassData>,
-        *mut BaseEntity,
-        u32,
-        u32,
-    );
-    unsafe {
-        let f: Fn = core::mem::transmute(WORLD_ENTITY_CTOR_ADDR.load(Ordering::Relaxed) as usize);
-        f(this, parent, class_type, flag);
-    }
-}
 
 /// Pure-Rust port of `OilDrumEntity::Constructor` (0x00504AF0). Caller
 /// (`GameRuntime::CreateMines` / `SpawnObject`) has already allocated
@@ -69,7 +40,7 @@ pub unsafe fn oil_drum_constructor(
 ) -> *mut OilDrumEntity {
     unsafe {
         // Parent ctor + class_type + vtable.
-        world_entity_ctor(&raw mut (*this).base, parent, 0x11, 9);
+        WorldEntity::construct_raw(&raw mut (*this).base, parent, 0x11, 9);
         let world: *mut GameWorld = (*(this as *const BaseEntity)).world;
         (*(this as *mut BaseEntity)).class_type = ClassType::OilDrum;
         (*this).base.base.vtable =

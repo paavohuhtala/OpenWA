@@ -24,6 +24,8 @@ pub fn install() -> Result<(), String> {
         // `try_move_position_raw` (and its only caller of substance,
         // `check_move_collision_raw`) need the
         // `CollisionManager::update_intersections` bridge address.
+        // Same call also primes the `WorldEntity::Constructor` bridge
+        // used by every typed subclass ctor (mine, oil drum, …).
         game_entity::init_addrs();
 
         let _ = hook::install(

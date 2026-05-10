@@ -194,6 +194,38 @@ pub struct WorldEntityVtable {
     pub add_impulse: fn(this: *mut WorldEntity, impulse_x: Fixed, impulse_y: Fixed, dz: i32) -> u32,
 }
 
+impl<V: super::base::Vtable, S: SubclassData> WorldEntity<V, S> {
+    /// Bridge to `WorldEntity::Constructor` (0x004FED50) —
+    /// `__stdcall(this, parent, class_type, flag)`, RET 0x10. Subclass
+    /// constructors call this once after the caller's heap zero-fill
+    /// (e.g. `MineEntity::Constructor` calls
+    /// `WorldEntity::construct_raw(&raw mut (*this).base, parent, 10, 2)`).
+    /// The WA initializer chains into `BaseEntity::Constructor`, installs
+    /// the WorldEntity vtables (the subclass overwrites slot 0 immediately
+    /// after), and primes a number of slots in the subclass-data range
+    /// with non-zero defaults — most notably entity +0x74 with
+    /// `game_info[+0xd780]`. Subclass ctors must therefore explicitly clear
+    /// any subclass-data slot they want zeroed.
+    ///
+    /// Generic over `V` / `S` so subclass-typed pointers can be passed
+    /// without an explicit cast; on i686 every `*mut T` is 4 bytes so the
+    /// transmute through the default `*mut WorldEntity` is zero-cost.
+    #[inline]
+    pub unsafe fn construct_raw(
+        this: *mut Self,
+        parent: *mut BaseEntity,
+        class_type: u32,
+        flag: u32,
+    ) {
+        type Fn = unsafe extern "stdcall" fn(*mut WorldEntity, *mut BaseEntity, u32, u32);
+        unsafe {
+            let f: Fn =
+                core::mem::transmute(WORLD_ENTITY_CTOR_ADDR.load(Ordering::Relaxed) as usize);
+            f(this as *mut WorldEntity, parent, class_type, flag);
+        }
+    }
+}
+
 impl WorldEntity {
     /// Dispatch slot 17 through the typed vtable shape. The cast is
     /// byte-identical for every subclass since they all extend the same
@@ -490,11 +522,17 @@ unsafe fn vt_get_team_index(entity: *const WorldEntity) -> u32 {
 /// [`init_addrs`] at hook-install time.
 static UPDATE_INTERSECTIONS_ADDR: AtomicU32 = AtomicU32::new(0);
 
+/// Stored target address for [`WorldEntity::construct_raw`]. Set by
+/// [`init_addrs`] at hook-install time.
+static WORLD_ENTITY_CTOR_ADDR: AtomicU32 = AtomicU32::new(0);
+
 /// Initialise the bridge addresses needed by
-/// [`WorldEntity::check_move_collision_raw`]. Must be called once at DLL
-/// startup before any entity moves.
+/// [`WorldEntity::check_move_collision_raw`] and
+/// [`WorldEntity::construct_raw`]. Must be called once at DLL startup
+/// before any entity moves or is constructed.
 pub unsafe fn init_addrs() {
     UPDATE_INTERSECTIONS_ADDR.store(rb(COLLISION_UPDATE_INTERSECTIONS), Ordering::Relaxed);
+    WORLD_ENTITY_CTOR_ADDR.store(rb(CGAMETASK_CONSTRUCTOR), Ordering::Relaxed);
 }
 
 /// `CollisionManager::update_intersections` (0x004FBC30) —
