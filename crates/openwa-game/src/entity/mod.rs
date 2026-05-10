@@ -8,6 +8,7 @@ pub mod mine;
 pub mod missile;
 pub mod oil_drum;
 mod overlays;
+pub mod shared_data;
 pub mod sound_emitter;
 pub mod supply_crate;
 pub mod team;
@@ -17,10 +18,7 @@ pub mod worm;
 pub mod worm_handle_message;
 
 pub use arrow::{ArrowEntity, ArrowEntityVtable};
-pub use base::{
-    BaseEntity, BaseEntityBfsIter, BaseEntityVtable, Entity, SharedDataIter, SharedDataNode,
-    SharedDataTable, Vtable,
-};
+pub use base::{BaseEntity, BaseEntityBfsIter, BaseEntityVtable, Entity, Vtable};
 pub use cloud::{CloudEntity, CloudEntityVtable, CloudType};
 pub use filter::{FilterEntity, FilterEntityVtable};
 pub use fire::{FireEntity, FireEntityVtable};
@@ -29,6 +27,7 @@ pub use mine::{MineEntity, MineEntityVtable};
 pub use missile::{MissileEntity, MissileEntityVtable, MissileSubclassData, MissileType};
 pub use oil_drum::{OilDrumEntity, OilDrumEntityVtable};
 pub use overlays::WeaponAimEntity;
+pub use shared_data::{SharedDataIter, SharedDataNode, SharedDataTable};
 pub use sound_emitter::{SoundEmitter, SoundEmitterVtable};
 pub use supply_crate::{CrateEntity, CrateEntityVtable};
 pub use team::{TeamEntity, TeamEntityVtable};

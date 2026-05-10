@@ -1,4 +1,5 @@
-use super::base::{BaseEntity, SharedDataTable};
+use super::base::BaseEntity;
+use super::shared_data::SharedDataTable;
 use crate::{
     FieldRegistry,
     entity::Entity,
@@ -222,23 +223,18 @@ pub struct WorldRootEntity {
 const _: () = assert!(core::mem::size_of::<WorldRootEntity>() == 0x2E0);
 
 impl WorldRootEntity {
-    /// SharedData key under which `WorldRootEntity` registers itself.
-    ///
-    /// As the root of the in-game world, every other entity in the same game
-    /// tree can locate it via `(0, 0x14)`. Use [`Self::from_shared_data`]
-    /// instead of looking up the raw key.
-    pub const SHARED_DATA_KEY: (u32, u32) = (0, 0x14);
-
     /// Resolve the per-game `WorldRootEntity` instance from any entity in the
     /// same game tree. Returns null if the table has no entry (during
-    /// startup/shutdown windows).
+    /// startup/shutdown windows). Convenience wrapper over
+    /// [`SharedDataTable::world_root`].
     ///
     /// # Safety
     /// `entity` must be a valid entity pointer with an initialised `shared_data`.
-    pub unsafe fn from_shared_data(entity: *const BaseEntity) -> *mut WorldRootEntity {
+    pub unsafe fn from_entity(entity: *const BaseEntity) -> *mut WorldRootEntity {
         unsafe {
-            let (esi, edi) = Self::SHARED_DATA_KEY;
-            SharedDataTable::from_task(entity).lookup(esi, edi) as *mut WorldRootEntity
+            SharedDataTable::from_entity(entity)
+                .world_root()
+                .unwrap_or(core::ptr::null_mut())
         }
     }
 

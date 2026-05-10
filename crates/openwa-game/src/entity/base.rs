@@ -229,7 +229,7 @@ pub unsafe trait Entity {
     fn world_root(&self) -> *mut WorldRootEntity {
         unsafe {
             let base = self.entity();
-            WorldRootEntity::from_shared_data(base)
+            WorldRootEntity::from_entity(base)
         }
     }
 
@@ -374,123 +374,8 @@ impl BaseEntity {
 }
 
 // ---------------------------------------------------------------------------
-// Shared-data entity registry
+// Tree iteration
 // ---------------------------------------------------------------------------
-
-/// A 0x30-byte node in BaseEntity's shared-data entity hash table.
-///
-/// Inserted by `SharedData__Insert` (0x5406A0, called from entity constructors).
-/// All game entity types (WormEntity, LandEntity, projectiles, …) share the same
-/// 256-bucket table at `BaseEntity.shared_data`. Use the vtable pointer at
-/// `entity[0]` to identify the object type.
-///
-/// Hash function (from Ghidra decompilation of `SharedData__Insert`):
-/// ```text
-/// bucket = (key_esi * 0x11 + key_edi) & 0x800000ff;
-/// if (int)bucket < 0 { bucket = bucket.wrapping_sub(1) | 0xffffff00; bucket += 1; }
-/// ```
-/// In practice (small positive key values), this reduces to:
-/// `bucket = (key_esi * 0x11 + key_edi) & 0xff`
-///
-/// Runtime observation: for `WormEntity`, `key_esi` encodes a compound worm
-/// identity (e.g. `0x11` = team 1, worm 1) and `key_edi` is a small integer.
-/// Companion remove function: `SharedData__Remove` (0x540700).
-#[repr(C)]
-pub struct SharedDataNode {
-    /// +0x00: Next node in this bucket's linked list (null = end).
-    pub next: *mut SharedDataNode,
-    /// +0x04: EDI register value at registration time.
-    pub key_edi: u32,
-    /// +0x08: ESI register value at registration time.
-    pub key_esi: u32,
-    /// +0x0C: Registered entity pointer (first DWORD = vtable).
-    pub entity: *mut u8,
-    /// +0x10..0x2F: Unused allocation padding.
-    pub _padding: [u8; 0x20],
-}
-
-const _: () = assert!(core::mem::size_of::<SharedDataNode>() == 0x30);
-
-/// View of the 256-bucket entity hash table at `BaseEntity.shared_data`.
-///
-/// Root entities own 0x420 bytes of shared data:
-/// - `0x000..0x3FF`: 256 × `*mut SharedDataNode` bucket heads
-/// - `0x400..0x41F`: Other root-entity data (layout unknown)
-///
-/// All entities in the same game tree inherit the same `shared_data` pointer, so
-/// any entity can be used to access the full table. Use [`SharedDataTable::iter`]
-/// to walk all registered entities and filter by vtable address.
-///
-/// Registered by `SharedData__Insert` (0x5406A0); removed by
-/// `SharedData__Remove` (0x540700).
-pub struct SharedDataTable {
-    buckets: *const *mut SharedDataNode,
-}
-
-impl SharedDataTable {
-    /// Construct from a raw `BaseEntity.shared_data` pointer.
-    ///
-    /// # Safety
-    /// `ptr` must point to a valid shared-data region of at least 256 × 4 = 1024 bytes.
-    pub unsafe fn from_ptr(ptr: *mut u8) -> Self {
-        Self {
-            buckets: ptr as *const *mut SharedDataNode,
-        }
-    }
-
-    /// Construct from a `BaseEntity` pointer (reads `entity.shared_data`).
-    ///
-    /// # Safety
-    /// `entity` must be a valid, aligned `BaseEntity` pointer.
-    pub unsafe fn from_task(entity: *const BaseEntity) -> Self {
-        unsafe { Self::from_ptr((*entity).shared_data) }
-    }
-
-    /// Compute the bucket index for a (key_esi, key_edi) pair.
-    ///
-    /// Exact transcription of the hash in `SharedData__Insert`.
-    pub fn bucket_for(key_esi: u32, key_edi: u32) -> u32 {
-        let mut h = key_esi.wrapping_mul(0x11).wrapping_add(key_edi) & 0x800000ff;
-        if (h as i32) < 0 {
-            h = h.wrapping_sub(1) | 0xffffff00;
-            h = h.wrapping_add(1);
-        }
-        h
-    }
-
-    /// Look up an entity by key pair. Returns the entity pointer, or null.
-    ///
-    /// Pure Rust equivalent of `SharedData__Lookup` (SharedData__Lookup).
-    /// fastcall(ECX=key_esi, EDX=key_edi, stack=entity) in the original.
-    ///
-    /// # Safety
-    /// The table and all linked nodes must be valid.
-    pub unsafe fn lookup(&self, key_esi: u32, key_edi: u32) -> *mut u8 {
-        unsafe {
-            let bucket = Self::bucket_for(key_esi, key_edi) as usize;
-            let mut node = *self.buckets.add(bucket);
-            while !node.is_null() {
-                if (*node).key_edi == key_edi && (*node).key_esi == key_esi {
-                    return (*node).entity;
-                }
-                node = (*node).next;
-            }
-            core::ptr::null_mut()
-        }
-    }
-
-    /// Iterate all nodes across all 256 buckets.
-    ///
-    /// # Safety
-    /// The table and all linked nodes must be valid and not concurrently modified.
-    pub unsafe fn iter(&self) -> SharedDataIter {
-        SharedDataIter {
-            buckets: self.buckets,
-            bucket: 0,
-            node: core::ptr::null_mut(),
-        }
-    }
-}
 
 /// Breadth-first iterator over the BaseEntity tree.
 ///
@@ -545,38 +430,6 @@ impl Iterator for BaseEntityBfsIter {
                 }
             }
             Some(node)
-        }
-    }
-}
-
-/// Iterator over all [`SharedDataNode`]s in a [`SharedDataTable`].
-///
-/// Created by [`SharedDataTable::iter`]. Walks all 256 buckets in order,
-/// following `next` pointers within each bucket.
-pub struct SharedDataIter {
-    buckets: *const *mut SharedDataNode,
-    bucket: usize,
-    node: *mut SharedDataNode,
-}
-
-impl Iterator for SharedDataIter {
-    type Item = *mut SharedDataNode;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        // SAFETY: caller of SharedDataTable::iter() guarantees table validity.
-        unsafe {
-            loop {
-                if !self.node.is_null() {
-                    let current = self.node;
-                    self.node = (*self.node).next;
-                    return Some(current);
-                }
-                if self.bucket >= 256 {
-                    return None;
-                }
-                self.node = *self.buckets.add(self.bucket);
-                self.bucket += 1;
-            }
         }
     }
 }

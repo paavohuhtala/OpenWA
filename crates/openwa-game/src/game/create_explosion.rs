@@ -25,7 +25,7 @@ pub unsafe fn create_explosion(
     owner_id: u32,
 ) {
     unsafe {
-        let world_root = WorldRootEntity::from_shared_data(sender);
+        let world_root = WorldRootEntity::from_entity(sender);
         if world_root.is_null() {
             return;
         }

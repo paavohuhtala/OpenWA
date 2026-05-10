@@ -10,9 +10,10 @@ use crate::audio::sound_ops::{play_sound_local, queue_sound};
 use crate::audio::{KnownSoundId, SoundId};
 use crate::engine::world::GameWorld;
 use crate::entity::Entity;
-use crate::entity::base::{BaseEntity, SharedDataTable};
+use crate::entity::base::BaseEntity;
 use crate::entity::fire::{FireEntity, FireEntityInit, fire_entity_construct};
 use crate::entity::game_entity::WorldEntity;
+use crate::entity::shared_data::SharedDataTable;
 use crate::game::message::{EntityMessage, WeaponHomingMessage};
 use crate::rebase::rb;
 use crate::wa_alloc::wa_malloc;
@@ -237,7 +238,9 @@ unsafe fn update_animal_poison(this: *mut MissileEntity) {
         if (*this)._unknown_3a4 != 0 && (*this).underwater_entry_latched == 0 {
             let pos_x = (*this).base.pos_x;
             let pos_y = (*this).base.pos_y;
-            let parent = SharedDataTable::from_task(this as *const BaseEntity).lookup(0, 0x19);
+            let parent = SharedDataTable::from_entity(this)
+                .filter_physics()
+                .unwrap_or(core::ptr::null_mut()) as *mut u8;
 
             let buf = wa_malloc(0x88);
             if !buf.is_null() {
@@ -275,9 +278,9 @@ unsafe fn update_animal_poison(this: *mut MissileEntity) {
 unsafe fn create_fire_1(this: *mut MissileEntity, pos_x: Fixed, pos_y: Fixed) {
     unsafe {
         let base = this as *mut BaseEntity;
-        // Same SharedData key (0, 0x17) the OilDrum and weapon_fire ports use
-        // to find the FireEntity pool parent.
-        let fire_parent = SharedDataTable::from_task(base).lookup(0, 0x17);
+        let fire_parent = SharedDataTable::from_entity(base)
+            .filter_water()
+            .unwrap_or(core::ptr::null_mut()) as *mut u8;
 
         let init = FireEntityInit {
             spawn_x: pos_x,

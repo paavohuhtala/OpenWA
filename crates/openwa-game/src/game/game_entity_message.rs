@@ -174,7 +174,7 @@ unsafe fn apply_explosion_damage(this: *mut WorldEntity, msg: *const ExplosionMe
         }
 
         let damage_percent = dmg.wrapping_mul(100) / (*msg).damage as i32;
-        let world_root = WorldRootEntity::from_shared_data(this as *const BaseEntity);
+        let world_root = WorldRootEntity::from_entity(this as *const BaseEntity);
         if world_root.is_null() {
             return;
         }

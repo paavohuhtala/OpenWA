@@ -13,9 +13,9 @@ use crate::address::va;
 use crate::audio::{KnownSoundId, SoundId};
 use crate::engine::world::GameWorld;
 use crate::engine::{GAME_PHASE_NORMAL_MIN, GAME_PHASE_SUDDEN_DEATH, TeamArena};
-use crate::entity::BaseEntity;
 use crate::entity::world_root::WorldRootEntity;
 use crate::entity::worm::{KnownWormState, WormEntity, WormState};
+use crate::entity::{BaseEntity, Entity};
 use crate::game::KnownWeaponId;
 use crate::game::message::{
     ArmageddonMessage, EntityMessageData, FreezeMessage, NukeBlastMessage, PoisonWormMessage,
@@ -246,8 +246,9 @@ unsafe fn fire_placed_explosive(
             sound_ops::play_worm_sound(worm, SoundId(0x10017), Fixed::ONE);
         }
 
-        let table = SharedDataTable::from_task(worm as *const BaseEntity);
-        let parent = table.lookup(0, 0x17);
+        let parent = SharedDataTable::from_entity(worm)
+            .filter_water()
+            .unwrap_or(core::ptr::null_mut()) as *mut u8;
 
         let fp = &*fire_params;
         let c = &*ctx;
@@ -401,7 +402,7 @@ pub fn can_fire_subtype16(state: WormState) -> bool {
 /// for the common worm call sites.
 #[inline]
 pub unsafe fn lookup_world_root(worm: *const WormEntity) -> *mut crate::entity::WorldRootEntity {
-    unsafe { crate::entity::WorldRootEntity::from_shared_data(worm as *const BaseEntity) }
+    unsafe { crate::entity::WorldRootEntity::from_entity(worm as *const BaseEntity) }
 }
 
 /// Send a typed message to `WorldRootEntity` for the worm's game tree, if the
@@ -823,9 +824,9 @@ unsafe fn fire_dragon_ball(
         use crate::rebase::rb;
         use crate::wa_alloc::wa_malloc;
 
-        // Look up parent entity via SharedData (same key as CreateWeaponProjectile)
-        let table = SharedDataTable::from_task(worm as *const BaseEntity);
-        let parent = table.lookup(0, 0x19);
+        let parent = SharedDataTable::from_entity(worm)
+            .filter_physics()
+            .unwrap_or(core::ptr::null_mut()) as *mut u8;
 
         // Allocate GirderEntity (0xA4 bytes), zero first 0x84
         let buffer = wa_malloc(0xA4);
@@ -837,13 +838,7 @@ unsafe fn fire_dragon_ball(
         // GirderEntity::Constructor — usercall(EAX=parent) +
         // stdcall(this, 7×fire_param DWORDs, local_struct), RET 0x24.
         // Copy 7 DWORDs from fire_params onto the stack via the naked bridge.
-        call_girder_ctor(
-            buffer,
-            parent as *mut u8,
-            fire_params,
-            local_struct,
-            rb(0x550890),
-        );
+        call_girder_ctor(buffer, parent, fire_params, local_struct, rb(0x550890));
     }
 }
 
@@ -1216,8 +1211,9 @@ unsafe fn fire_mine(
         use crate::entity::mine::constructor::mine_constructor;
         use crate::wa_alloc::wa_malloc;
 
-        let table = SharedDataTable::from_task(worm as *const BaseEntity);
-        let parent = table.lookup(0, 0x19);
+        let parent = SharedDataTable::from_entity(worm)
+            .filter_physics()
+            .unwrap_or(core::ptr::null_mut());
 
         let buffer = wa_malloc(0x1BC);
         if buffer.is_null() {
@@ -1227,7 +1223,7 @@ unsafe fn fire_mine(
 
         mine_constructor(
             buffer as *mut MineEntity,
-            parent as *mut BaseEntity,
+            parent.cast(),
             fire_params,
             local_struct,
             0,
@@ -1256,8 +1252,9 @@ unsafe fn fire_canister(
         use crate::rebase::rb;
         use crate::wa_alloc::wa_malloc;
 
-        let table = SharedDataTable::from_task(worm as *const BaseEntity);
-        let parent = table.lookup(0, 0x19);
+        let parent = SharedDataTable::from_entity(worm)
+            .filter_physics()
+            .unwrap_or(core::ptr::null_mut()) as *mut u8;
 
         let buffer = wa_malloc(0x17C);
         if buffer.is_null() {
@@ -1301,9 +1298,9 @@ pub unsafe fn create_weapon_projectile(
             return;
         }
 
-        // Look up parent WorldRootEntity via SharedData (key_esi=0, key_edi=0x19)
-        let table = SharedDataTable::from_task(worm as *const BaseEntity);
-        let parent = table.lookup(0, 0x19);
+        let parent = SharedDataTable::from_entity(worm)
+            .filter_physics()
+            .unwrap_or(core::ptr::null_mut()) as *mut u8;
 
         // Allocate MissileEntity (0x40C bytes)
         let buffer = wa_malloc(0x40C);
@@ -1437,20 +1434,17 @@ pub unsafe fn create_arrow(
         use crate::rebase::rb;
         use crate::wa_alloc::wa_malloc;
 
-        let world = &mut *{
-            let this = worm as *const BaseEntity;
-            (*this).world
-        };
+        let world = (*worm).world();
 
         // Pool capacity check: pool_count + 2 must be <= 700
-        if world.object_pool_count + 2 > 700 {
-            world.show_pool_overflow_warning();
+        if (*world).object_pool_count + 2 > 700 {
+            (*world).show_pool_overflow_warning();
             return;
         }
 
-        // Look up parent WorldRootEntity via SharedData (key 0, 0x19)
-        let table = SharedDataTable::from_task(worm as *const BaseEntity);
-        let parent = table.lookup(0, 0x19);
+        let parent = SharedDataTable::from_entity(worm)
+            .filter_physics()
+            .unwrap_or(core::ptr::null_mut()) as *mut u8;
 
         // Allocate ArrowEntity (0x168 bytes)
         let buffer = wa_malloc(0x168);
@@ -1462,6 +1456,6 @@ pub unsafe fn create_arrow(
         // ArrowEntity::Constructor — stdcall(this, parent, fire_params, local_struct), RET 0x10
         let ctor: unsafe extern "stdcall" fn(*mut u8, *mut u8, *const WeaponFireParams, *const u8) =
             core::mem::transmute(rb(va::ARROW_ENTITY_CTOR));
-        ctor(buffer, parent as *mut u8, fire_params, local_struct);
+        ctor(buffer, parent, fire_params, local_struct);
     }
 }

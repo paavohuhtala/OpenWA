@@ -421,10 +421,8 @@ pub unsafe fn spawn_effect(
         write_u32(&mut buf, 0x24, size.0 as u32);
         write_u32(&mut buf, 0x28, scale.0 as u32);
 
-        // SharedData lookup for entity type 0x1A (SpriteAnimEntity)
-        let table = SharedDataTable::from_task(sender as *const BaseEntity);
-        let entity = table.lookup(0, 0x1A);
-        if !entity.is_null() {
+        let table = SharedDataTable::from_entity(sender);
+        if let Some(entity) = table.sprite_anim_entity() {
             let vtable = *(entity as *const *const usize);
             let handle_msg: unsafe extern "thiscall" fn(*mut u8, *mut u8, u32, u32, *const u8) =
                 core::mem::transmute(*vtable.add(2));

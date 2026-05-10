@@ -22,9 +22,10 @@ use super::{OilDrumEntity, OilDrumEntityVtable};
 use crate::audio::{SoundId, sound_ops::play_sound_local};
 use crate::engine::EntityActivityQueue;
 use crate::engine::world::GameWorld;
-use crate::entity::base::{BaseEntity, SharedDataTable};
+use crate::entity::base::BaseEntity;
 use crate::entity::fire::{FireEntity, FireEntityInit, fire_entity_construct};
 use crate::entity::game_entity::WorldEntity;
+use crate::entity::shared_data::SharedDataTable;
 use crate::game::create_explosion::create_explosion;
 use crate::game::game_entity_message::world_entity_handle_message;
 use crate::game::message::{EntityMessage, ExplosionMessage, SpecialImpactMessage};
@@ -218,11 +219,12 @@ unsafe fn set_world_activity_timer(world: *mut GameWorld, mode: i32) {
 /// plays the OilDrumImpact sound (0x3B).
 pub unsafe fn detonate(this: *mut OilDrumEntity) {
     unsafe {
-        // FireEntity parent: SharedData::Lookup(0, 0x17, this). Distinct
-        // from `WorldRootEntity::SHARED_DATA_KEY = (0, 0x14)` — the fire
-        // pool registers itself under (0, 0x17). The blast still uses the
-        // world root via [`create_explosion`]'s own internal lookup.
-        let fire_parent = SharedDataTable::from_task(this as *const BaseEntity).lookup(0, 0x17);
+        // FireEntity parent: water FilterEntity (0, 0x17), where the fire
+        // pool registers itself. The blast uses the world root via
+        // [`create_explosion`]'s own internal lookup.
+        let fire_parent = SharedDataTable::from_entity(this)
+            .filter_water()
+            .unwrap_or(core::ptr::null_mut()) as *mut u8;
         let pos_x = (*this).base.pos_x;
         let pos_y = (*this).base.pos_y;
         let source_team = (*this).source_team_index;
@@ -340,7 +342,9 @@ unsafe fn msg_frame_finish_tick(
                 let rng = (*world).advance_effect_rng();
                 let kind = ((rng >> 16) & 3).wrapping_add(1);
 
-                let parent = SharedDataTable::from_task(this as *const BaseEntity).lookup(0, 0x18);
+                let parent = SharedDataTable::from_entity(this)
+                    .filter_clouds()
+                    .unwrap_or(core::ptr::null_mut()) as *mut u8;
                 let descriptor: [u32; 7] = [0, pos_x.0 as u32, pos_y.0 as u32, 0, 0, 0, kind];
                 bridge_create_bubble(this, parent, descriptor.as_ptr());
             }
