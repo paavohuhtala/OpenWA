@@ -78,3 +78,66 @@ pub fn restore() -> Result<(), &'static str> {
     }
     Ok(())
 }
+
+/// Dump the captured snapshot (if any) to disk under `gameinfo_dumps/`.
+/// Returns `Err` if no snapshot has been captured yet.
+pub fn dump_snapshot_to_disk(label: &str) -> std::io::Result<std::path::PathBuf> {
+    let guard = SNAPSHOT
+        .lock()
+        .map_err(|_| std::io::Error::other("snapshot mutex poisoned"))?;
+    let bytes = guard
+        .as_ref()
+        .ok_or_else(|| std::io::Error::other("no snapshot captured yet"))?;
+    write_bytes_to_dump(label, bytes)
+}
+
+/// Dump the live `GameInfo` to disk as a binary + diffable hex sidecar.
+///
+/// Two files are written under `gameinfo_dumps/` (relative to the
+/// process CWD — typically the game directory):
+///
+/// - `<label>.bin` — raw 0xF91C bytes
+/// - `<label>.hex` — one line per 16 bytes formatted
+///   `0xOFFSET: XX XX ... XX`, suitable for `diff` between dumps
+///
+/// `label` should be unique per dump (e.g. include a timestamp + a tag
+/// describing what action you just took). Returns the binary path on
+/// success.
+pub fn dump_to_disk(label: &str) -> std::io::Result<std::path::PathBuf> {
+    let mut buf = vec![0u8; GAME_INFO_SIZE];
+    unsafe {
+        let src = rb(va::G_GAME_INFO) as *const u8;
+        core::ptr::copy_nonoverlapping(src, buf.as_mut_ptr(), GAME_INFO_SIZE);
+    }
+    write_bytes_to_dump(label, &buf)
+}
+
+fn write_bytes_to_dump(label: &str, bytes: &[u8]) -> std::io::Result<std::path::PathBuf> {
+    use std::fs;
+    use std::io::Write;
+
+    let dir = std::path::Path::new("gameinfo_dumps");
+    fs::create_dir_all(dir)?;
+
+    let bin_path = dir.join(format!("{label}.bin"));
+    let hex_path = dir.join(format!("{label}.hex"));
+
+    fs::write(&bin_path, bytes)?;
+
+    let mut hex = fs::File::create(&hex_path)?;
+    for (i, chunk) in bytes.chunks(16).enumerate() {
+        write!(hex, "0x{:05X}:", i * 16)?;
+        for b in chunk {
+            write!(hex, " {b:02X}")?;
+        }
+        writeln!(hex)?;
+    }
+
+    let _ = openwa_core::log::log_line(&format!(
+        "[gameinfo-snapshot] dumped to {} ({} bytes)",
+        bin_path.display(),
+        bytes.len()
+    ));
+
+    Ok(bin_path)
+}

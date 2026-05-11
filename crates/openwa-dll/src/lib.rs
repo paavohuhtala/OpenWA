@@ -160,6 +160,10 @@ fn run() -> Result<(), String> {
     // Custom match-launcher window (requires "match-launcher" feature + OPENWA_FRONTEND=1)
     match_launcher::maybe_spawn();
 
+    // Register the watchpoint-arming callback so the egui frontend can
+    // trigger it on-demand for the GameInfo-writer RE workflow.
+    match_launcher::register_arm_gameinfo_watchpoints();
+
     // Debug frame sync (breakpoints, suspend/resume)
     debug_sync::init();
 

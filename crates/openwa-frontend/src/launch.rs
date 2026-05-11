@@ -49,6 +49,11 @@ pub struct LaunchRequest {
     pub team_a_name: String,
     /// Team B display name (overlaid on snapshot, up to 15 ASCII bytes).
     pub team_b_name: String,
+    /// Whether to call `GameInfo__InitSession` after restoring the
+    /// snapshot. Lets the existing globals (scheme/teams/terrain) drive
+    /// the populate path that WA's normal Start handler runs; useful to
+    /// test whether those globals stay valid across launches.
+    pub call_init_session: bool,
 }
 
 impl Default for LaunchRequest {
@@ -56,6 +61,7 @@ impl Default for LaunchRequest {
         Self {
             team_a_name: "Red".to_owned(),
             team_b_name: "Blue".to_owned(),
+            call_init_session: false,
         }
     }
 }
@@ -129,6 +135,27 @@ extern "C" fn run_pending_launch() {
         }
 
         overlay_team_names(&req);
+
+        if req.call_init_session {
+            // Re-run the same populate-GameInfo function the real Start
+            // handler uses. Snapshot already gave us a valid baseline;
+            // this freshens rng_seed and the scheme/team writes.
+            //
+            // Pass `null` for the type_label so InitSession skips the
+            // replay-file creation step (CGameInfo__CreateWAGameReplay),
+            // which crashes when called a second time in the same process
+            // (replay file from the first match is still open / in a
+            // post-write state).
+            log("calling GameInfo__InitSession(prefix, null) — replay creation skipped");
+            // game_version=500 is hardcoded by the real Start handler
+            // (FrontendLocalMP__OnStartMatch at 0x4A1260) immediately
+            // before InitSession; replicate that so any version-gated
+            // logic inside InitSession sees the same value.
+            let gi = rb(va::G_GAME_INFO) as *mut GameInfo;
+            (*gi).game_version = 500;
+            openwa_game::engine::config_load::init_session(None);
+            log("GameInfo__InitSession returned");
+        }
 
         // Skip the `subobj_a4` vtable slot 13 pre-game hook and its paired
         // post-game render-children walk — both depend on MFC

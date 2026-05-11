@@ -111,6 +111,38 @@ pub unsafe fn registry_clean_all(struct_ptr: *mut u8) {
     }
 }
 
+/// Bridge to `GameInfo__InitSession` (0x4608E0) — the "populate GameInfo
+/// from current globals" function called by every Start-button dialog
+/// handler (e.g. `FrontendLocalMP__OnStartMatch` at 0x4A1260) right before
+/// `Frontend__LaunchGameSession`.
+///
+/// `__stdcall(int prefix_ptr, const char* type_label)`, `RET 0x8`
+/// (verified by disassembly of the call site at 0x4A154B — two PUSHes,
+/// CALL, no caller-cleanup `ADD ESP` after; Ghidra's auto-inferred
+/// `__fastcall` is wrong).
+///
+/// - `prefix_ptr` is `G_GAME_INFO - 0x40` (the function uses
+///   prefix-relative offsets; e.g. `prefix_ptr + 0xD7B4` is GameInfo's
+///   `rng_seed` at +0xD774).
+/// - `type_label` is a literal like `"Offline"` / `"Online"` / etc., passed
+///   through to `CGameInfo__CreateWAGameReplay`. Pass `null` to skip
+///   the replay-file creation step.
+///
+/// Internally calls `Replay__ProcessTeamColors`,
+/// `CGameInfo__CreateWAGameReplay`, `Replay__ProcessSchemeDefaults`,
+/// `CGameInfo__ConvertScheme`, `Replay__ValidateTeamSetup`,
+/// `Replay__ProcessReplayFlags`, srand/rand seeding, and
+/// `GameInfo__LoadOptions`.
+pub unsafe fn init_session(type_label: Option<&core::ffi::CStr>) {
+    unsafe {
+        type Fn = unsafe extern "stdcall" fn(prefix_ptr: u32, type_label: *const core::ffi::c_char);
+        let f: Fn = core::mem::transmute(rb(va::GAMEINFO_INIT_SESSION));
+        let prefix_ptr = (rb(va::G_GAME_INFO) as u32).wrapping_sub(0x40);
+        let label_ptr = type_label.map_or(core::ptr::null(), |s| s.as_ptr());
+        f(prefix_ptr, label_ptr);
+    }
+}
+
 // ─── GameInfo__LoadOptions (0x460AC0) ───────────────────────────────────────
 
 /// Reads game options from the Windows registry and copies various globals

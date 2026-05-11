@@ -1159,6 +1159,13 @@ pub mod va {
         fn/Stdcall REGISTRY_CLEAN_ALL = 0x004C90D0;
         /// Loads game options from registry
         fn/Stdcall GAMEINFO_LOAD_OPTIONS = 0x00460AC0;
+        /// Initializes a fresh game session: scheme defaults, team colors,
+        /// rng seed, replay header (when label != null), LoadOptions.
+        /// `__stdcall(int prefix_ptr, const char* type_label)`, `RET 0x8`
+        /// (verified by call-site disasm; Ghidra's auto-inferred
+        /// `__fastcall` is wrong). `prefix_ptr = &G_GAME_INFO - 0x40`.
+        /// Real callers pass a literal like "Offline" or null.
+        fn/Stdcall GAMEINFO_INIT_SESSION = 0x004608E0;
         /// Reads CrashReportURL from Options
         fn/Cdecl OPTIONS_GET_CRASH_REPORT_URL = 0x005A63F0;
     }

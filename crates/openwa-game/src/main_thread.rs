@@ -31,6 +31,33 @@ use crate::rebase::rb;
 static PENDING: AtomicPtr<()> = AtomicPtr::new(ptr::null_mut());
 static DRAIN_HOOK: AtomicPtr<core::ffi::c_void> = AtomicPtr::new(ptr::null_mut());
 
+/// Function-pointer slot for the "arm GameInfo watchpoints" action.
+/// Set by openwa-dll at startup; invoked by openwa-frontend's UI when the
+/// user wants to start a watchpoint-based RE session. The bridge exists
+/// because openwa-frontend doesn't depend on openwa-dll directly.
+static ARM_GAMEINFO_WATCHPOINTS: AtomicPtr<()> = AtomicPtr::new(ptr::null_mut());
+
+/// Register the callback that arms GameInfo watchpoints. Called by
+/// openwa-dll at startup. The callback runs on WA's main thread when
+/// [`request_arm_gameinfo_watchpoints`] is invoked.
+pub fn register_arm_gameinfo_watchpoints(cb: extern "C" fn()) {
+    ARM_GAMEINFO_WATCHPOINTS.store(cb as *mut (), Ordering::Release);
+}
+
+/// Schedule the registered watchpoint-arm callback onto WA's main thread.
+/// Returns `false` if no callback was registered.
+pub fn request_arm_gameinfo_watchpoints() -> bool {
+    let p = ARM_GAMEINFO_WATCHPOINTS.load(Ordering::Acquire);
+    if p.is_null() {
+        return false;
+    }
+    unsafe {
+        let cb: extern "C" fn() = core::mem::transmute(p);
+        schedule(cb);
+    }
+    true
+}
+
 /// Schedule `cb` to run once on the next main-thread message pump.
 ///
 /// Returns `true` if a previous pending callback was overwritten.

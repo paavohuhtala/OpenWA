@@ -53,7 +53,14 @@ use windows_sys::Win32::System::Diagnostics::Debug::{
 ///     (0x88, "session+0x88 mouse_button_state"),
 /// ];
 /// ```
-const WATCH_OFFSETS: [(u32, &str); 0] = [];
+/// Current investigation: who writes match-config fields into `GameInfo`
+/// when the WA frontend's "Start" dialog handler fires. Base = `G_GAME_INFO`.
+const WATCH_OFFSETS: [(u32, &str); 4] = [
+    (0x044C, "GameInfo.team_record_count"),
+    (0x0D774, "GameInfo.rng_seed"),
+    (0x0D778, "GameInfo.game_version"),
+    (0x0D9DD, "GameInfo.game_mode_flag"),
+];
 
 /// Watched-object base address (set when allocation is reported).
 static WATCH_BASE: AtomicU32 = AtomicU32::new(0);
