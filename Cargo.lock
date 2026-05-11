@@ -2531,9 +2531,20 @@ dependencies = [
  "openwa-core",
  "openwa-debug-proto",
  "openwa-debugui",
+ "openwa-frontend",
  "openwa-game",
  "windows",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "openwa-frontend"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+ "openwa-core",
+ "openwa-game",
+ "winit",
 ]
 
 [[package]]

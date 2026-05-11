@@ -1,14 +1,32 @@
 //! WA-internal frontend function wrappers.
 
 use core::mem::transmute;
+use core::sync::atomic::{AtomicBool, Ordering};
 
 use crate::address::va;
 use crate::engine::game_info::GameInfo;
+use crate::engine::game_info_snapshot;
 use crate::engine::game_session_run::run_game_session;
 use crate::rebase::rb;
 use crate::render::display::context::{FastcallResult, RenderContext};
 use crate::wa::mfc::{AppSubObjA4, CWinApp, CWnd, cwnd_hwnd};
 use crate::wa_call;
+
+/// When set, [`launch_game_session`] skips the `subobj_a4` vtable slot 13
+/// pre-game UI hook AND the paired `DXCtl::sub_40CAA0` post-game
+/// render-children walk.
+///
+/// Slot 13 expects to be called from within an MFC dialog-handler stack
+/// frame (where MFC has set up some thread-local context); our custom
+/// frontend invokes `launch_game_session` from a Win32 message hook
+/// instead, where slot 13 crashes. The post-game walk is paired with it —
+/// it iterates render-tree children that slot 13 attaches pre-game, so
+/// skipping one without the other leaves the walk traversing stale
+/// nodes. Normal WA-frontend dialog handlers leave this flag false so
+/// both hooks fire as designed.
+///
+/// Set this *before* calling `launch_game_session` and clear it after.
+pub static SUPPRESS_PRE_LAUNCH_VT13: AtomicBool = AtomicBool::new(false);
 
 /// Frontend__PaletteAnimation (0x422180)
 ///
@@ -134,6 +152,11 @@ pub unsafe extern "stdcall" fn launch_game_session(
         // bridges that take an out-pointer in ESI/EDI.
         let mut audio_state_local: u32 = 0;
 
+        // Capture GameInfo for replay by custom frontends. Idempotent —
+        // first launch wins. Only useful when a real frontend dialog has
+        // populated GameInfo; cheap when not.
+        game_info_snapshot::capture();
+
         let console_mode = *(rb(va::G_CONSOLE_MODE) as *const u32);
 
         if console_mode == 0 {
@@ -177,11 +200,14 @@ pub unsafe extern "stdcall" fn launch_game_session(
                 cwnd_show_window(dialog, 0); // SW_HIDE
 
                 // Vtable call on the embedded sub-object at +0xa4, slot 13.
-                let subobj: *mut AppSubObjA4 = &raw mut (*app).subobj_a4;
-                let vt = (*subobj).vtable as *const usize;
-                let slot13: usize = *vt.add(0xd); // offset 0x34 / 4
-                let f: unsafe extern "fastcall" fn(*mut AppSubObjA4, u32) = transmute(slot13);
-                f(subobj, 0);
+                // Skipped when called from a custom frontend (see flag docs).
+                if !SUPPRESS_PRE_LAUNCH_VT13.load(Ordering::Acquire) {
+                    let subobj: *mut AppSubObjA4 = &raw mut (*app).subobj_a4;
+                    let vt = (*subobj).vtable as *const usize;
+                    let slot13: usize = *vt.add(0xd); // offset 0x34 / 4
+                    let f: unsafe extern "fastcall" fn(*mut AppSubObjA4, u32) = transmute(slot13);
+                    f(subobj, 0);
+                }
 
                 // RenderContext::release_frame_buffer(this, !headless)
                 let ctx = read_global_ptr::<RenderContext>(va::G_RENDER_CONTEXT);
@@ -317,9 +343,13 @@ pub unsafe extern "stdcall" fn launch_game_session(
             }
 
             // DXCtl__sub_40CAA0 — thiscall(this=&app->subobj_a4) + 1 stack arg
-            // (same value). Walks the render tree's children.
-            let subobj = &raw mut (*app).subobj_a4 as u32;
-            wa_call::thiscall_1(va::GAME_WORLD_RENDER_CHILDREN_MAYBE, subobj, subobj);
+            // (same value). Walks the render tree's children. Paired with
+            // the pre-game slot 13 hook; if we skipped that, the children
+            // were never attached and walking them crashes — skip too.
+            if !SUPPRESS_PRE_LAUNCH_VT13.load(Ordering::Acquire) {
+                let subobj = &raw mut (*app).subobj_a4 as u32;
+                wa_call::thiscall_1(va::GAME_WORLD_RENDER_CHILDREN_MAYBE, subobj, subobj);
+            }
         } else {
             headful_fullscreen_exit = true;
         }

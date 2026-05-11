@@ -217,6 +217,13 @@ pub unsafe extern "system" fn foreground_idle_proc(
     lparam: LPARAM,
 ) -> LRESULT {
     unsafe {
+        // Drain any cross-thread main-thread callback (custom frontend
+        // match-launch, etc.). Runs synchronously on this thread; may
+        // block for the lifetime of a game session. Polled here because
+        // WH_FOREGROUNDIDLE fires reliably while the MFC frontend pump
+        // is idle.
+        crate::main_thread::try_run_pending();
+
         let frame = *(rb(va::G_FRONTEND_FRAME) as *const *const u8);
         let suppress = *(rb(va::G_INPUT_HOOK_FLAG_2DD7_MAYBE) as *const u8);
         if !frame.is_null() && InputHookMode::get() == InputHookMode::Animated && suppress == 0 {
@@ -467,6 +474,15 @@ pub unsafe extern "system" fn get_message_proc(
     lparam: LPARAM,
 ) -> LRESULT {
     unsafe {
+        // Drain cross-thread main-thread callbacks. Fires per-thread on
+        // every message WA's main thread retrieves — independent of
+        // foreground state, so this works even when a background egui
+        // window has user focus. The atomic-swap inside `try_run_pending`
+        // makes nested entry safe (drained slot is null on re-entry).
+        crate::main_thread::try_run_pending();
+
+        println!("get_message_proc: code={code} wparam={wparam} lparam={lparam}");
+
         let recursing = *(rb(G_GETMSG_RECURSING) as *const u8) != 0;
         if !recursing && code == 0 && wparam == PM_REMOVE as WPARAM {
             *(rb(G_GETMSG_RECURSING) as *mut u8) = 1;

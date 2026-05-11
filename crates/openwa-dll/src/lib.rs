@@ -11,6 +11,7 @@ mod debug_ui;
 #[allow(dead_code)]
 mod debug_watchpoint;
 pub mod hook;
+mod match_launcher;
 mod replacements;
 mod snapshot;
 mod startup_checks;
@@ -118,9 +119,14 @@ fn install_log_pipe_sink() {
 fn run() -> Result<(), String> {
     let _ = clear_log();
     install_log_pipe_sink();
-    // Install panic hook that writes to our log file
+    // Install panic hook that writes to our log file. We force-capture a
+    // backtrace because most panics here happen inside `extern "C"` hooks,
+    // where the runtime then double-panics with "panic in a function that
+    // cannot unwind" — without a captured backtrace the original site is
+    // lost.
     std::panic::set_hook(Box::new(|info| {
-        let _ = log_line(&format!("[PANIC] {info}"));
+        let bt = std::backtrace::Backtrace::force_capture();
+        let _ = log_line(&format!("[PANIC] {info}\n[PANIC] backtrace:\n{bt}"));
     }));
 
     let delta = openwa_game::rebase::init();
@@ -150,6 +156,9 @@ fn run() -> Result<(), String> {
 
     // Debug UI window (requires "debug-ui" feature + OPENWA_DEBUG_UI=1)
     debug_ui::maybe_spawn();
+
+    // Custom match-launcher window (requires "match-launcher" feature + OPENWA_FRONTEND=1)
+    match_launcher::maybe_spawn();
 
     // Debug frame sync (breakpoints, suspend/resume)
     debug_sync::init();

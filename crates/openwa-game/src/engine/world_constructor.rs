@@ -627,7 +627,6 @@ unsafe fn init_graphics_and_resources(
         }
         (*runtime).loading_last_pct = 0xFFFFFF9C; // -100: forces first progress bar update
         (*runtime).speech_name_count = 0;
-
         // ── Audio init (non-headless + sound available) ──
         if !is_headless {
             crate::engine::world_load_fonts::load_fonts(runtime);

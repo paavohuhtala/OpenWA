@@ -6,6 +6,7 @@ pub mod dual_buffer_object;
 pub mod entity_activity_queue;
 pub mod fire_effect;
 pub mod game_info;
+pub mod game_info_snapshot;
 pub mod game_session;
 pub mod game_session_run;
 pub mod game_state;
