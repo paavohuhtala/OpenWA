@@ -34,47 +34,48 @@ const GAME_INFO_SIZE: usize = core::mem::size_of::<GameInfo>();
 static SNAPSHOT: Mutex<Option<Vec<u8>>> = Mutex::new(None);
 
 /// Capture the current `GameInfo` bytes. Called from
-/// [`crate::wa::frontend::launch_game_session`]'s entry. Idempotent — first
-/// successful capture wins; later launches are skipped.
+/// [`crate::wa::frontend::launch_game_session`]'s entry.
 ///
-/// Also writes a labelled `.bin`/`.hex` pair to `gameinfo_dumps/`, tagged
-/// `_rust` or `_wa` depending on whether this run's `InitSession` was the
-/// Rust port or the WA original. Used for byte-diffing the two paths while
-/// the Rust port is still under investigation.
+/// The in-memory snapshot (used by Snapshot-replay launches via [`restore`])
+/// is first-wins: only the first capture per process populates the slot, so
+/// re-launches don't overwrite a clean baseline the user wants to replay.
+///
+/// The disk dump always runs and overwrites, tagged `_rust` or `_wa`
+/// depending on whether the current run's `InitSession` was the Rust port
+/// or the WA original. That lets `gameinfo_dumps/launch_entry_{rust,wa}.bin`
+/// stay current across multiple launches in the same process.
 pub fn capture() {
     if let Ok(mut guard) = SNAPSHOT.lock() {
-        if guard.is_some() {
-            return;
+        if guard.is_none() {
+            unsafe {
+                let src = rb(va::G_GAME_INFO) as *const u8;
+                let mut buf = vec![0u8; GAME_INFO_SIZE];
+                core::ptr::copy_nonoverlapping(src, buf.as_mut_ptr(), GAME_INFO_SIZE);
+                *guard = Some(buf);
+            }
+            let _ = openwa_core::log::log_line(&format!(
+                "[gameinfo-snapshot] captured {GAME_INFO_SIZE} bytes"
+            ));
         }
-        unsafe {
-            let src = rb(va::G_GAME_INFO) as *const u8;
-            let mut buf = vec![0u8; GAME_INFO_SIZE];
-            core::ptr::copy_nonoverlapping(src, buf.as_mut_ptr(), GAME_INFO_SIZE);
-            *guard = Some(buf);
-        }
-        let _ = openwa_core::log::log_line(&format!(
-            "[gameinfo-snapshot] captured {GAME_INFO_SIZE} bytes"
-        ));
+    }
 
-        let tag = if crate::engine::init_session::RUST_INIT_SESSION_RAN
-            .load(core::sync::atomic::Ordering::Relaxed)
-        {
-            "launch_entry_rust"
-        } else {
-            "launch_entry_wa"
-        };
-        match dump_to_disk(tag) {
-            Ok(path) => {
-                let _ = openwa_core::log::log_line(&format!(
-                    "[gameinfo-snapshot] auto-dumped to {}",
-                    path.display()
-                ));
-            }
-            Err(e) => {
-                let _ = openwa_core::log::log_line(&format!(
-                    "[gameinfo-snapshot] auto-dump failed: {e}"
-                ));
-            }
+    let tag = if crate::engine::init_session::RUST_INIT_SESSION_RAN
+        .load(core::sync::atomic::Ordering::Relaxed)
+    {
+        "launch_entry_rust"
+    } else {
+        "launch_entry_wa"
+    };
+    match dump_to_disk(tag) {
+        Ok(path) => {
+            let _ = openwa_core::log::log_line(&format!(
+                "[gameinfo-snapshot] auto-dumped to {}",
+                path.display()
+            ));
+        }
+        Err(e) => {
+            let _ =
+                openwa_core::log::log_line(&format!("[gameinfo-snapshot] auto-dump failed: {e}"));
         }
     }
 }
