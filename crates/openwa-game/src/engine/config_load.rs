@@ -130,26 +130,20 @@ pub unsafe fn init_session(type_label: Option<&core::ffi::CStr>) {
 /// into `GameInfo` at known offsets. `game_info` is the *inner* `G_GAME_INFO`
 /// pointer; the LoadOptions MinHook shim ([`crate::engine::init_session`])
 /// adjusts WA's `prefix_ptr` arg by `+0x40` before calling.
-///
-/// (Historical note: pre-2026-05-13 this function had `gi`/`inner_gi`
-/// duality because the Rust `GameInfo` struct had prefix-coord field
-/// offsets in the upper region. The 2026-05-13 cluster refactor migrated
-/// every upper-region field to its inner-coord position, eliminating the
-/// duality. See git history for the four-cluster transition.)
 pub unsafe fn load_options(game_info: *mut GameInfo) {
     unsafe {
-        let inner_gi = &mut *game_info;
+        let gi = &mut *game_info;
 
         // Format speech path: "%s\\user\\speech" — inner offset 0xF3C4.
         let base_dir = rb(va::G_BASE_DIR) as *const u8;
         let base_str = CStr::from_ptr(base_dir as *const i8);
         let speech_path = format!("{}\\user\\speech\0", base_str.to_string_lossy());
-        inner_gi.speech_path[..speech_path.len()].copy_from_slice(speech_path.as_bytes());
+        gi.speech_path[..speech_path.len()].copy_from_slice(speech_path.as_bytes());
 
         // Copy 64 bytes from global 0x0088DFF3 — inner offset 0xF445.
         core::ptr::copy_nonoverlapping(
             rb(va::G_GAMEINFO_BLOCK_F485) as *const u8,
-            inner_gi._config_block_f445.as_mut_ptr(),
+            gi._config_block_f445.as_mut_ptr(),
             64,
         );
 
@@ -177,29 +171,27 @@ pub unsafe fn load_options(game_info: *mut GameInfo) {
         *(rb(va::G_STREAM_VOLUME) as *mut u8) = 0x4B;
 
         // Copy "data\land.dat" string (14 bytes) into the first 14 bytes
-        // of `landscape_data_path` (inner offset 0xDAAC). Cluster-1 field —
-        // accessed via `inner_gi`.
+        // of `landscape_data_path` (inner offset 0xDAAC).
         core::ptr::copy_nonoverlapping(
             rb(va::G_LAND_DAT_STRING) as *const u8,
-            inner_gi.landscape_data_path.as_mut_ptr(),
+            gi.landscape_data_path.as_mut_ptr(),
             14,
         );
 
-        // Cluster-2 fields (inner offsets 0xF360..0xF370) — accessed via inner_gi.
-        inner_gi._config_byte_f360 = *(rb(va::G_CONFIG_BYTE_F3A0) as *const u8);
+        gi._config_byte_f360 = *(rb(va::G_CONFIG_BYTE_F3A0) as *const u8);
 
         // Registry values from "Options" section
-        inner_gi.detail_level = read_profile_int("Options", "DetailLevel", 5) as u8;
-        inner_gi._zeroed_f3b0 = 0;
+        gi.detail_level = read_profile_int("Options", "DetailLevel", 5) as u8;
+        gi._zeroed_f3b0 = 0;
 
         // General cfg block: 5 dwords from G_CONFIG_DWORDS_F3B4. Written
-        // sparsely — indices 0..4 at inner 0xF374..0xF383, then index 4
-        // jumps to inner 0xF390. Cluster-3 fields, via inner_gi.
+        // sparsely — indices 0..3 at inner 0xF374..0xF383, then index 4
+        // jumps to inner 0xF390.
         let src = rb(va::G_CONFIG_DWORDS_F3B4) as *const u32;
-        inner_gi.display_flags = *src;
-        inner_gi._cfg_dword_f378 = *src.add(1);
-        inner_gi._cfg_dword_f37c = *src.add(2);
-        inner_gi._cfg_dword_f380 = *src.add(3);
+        gi.display_flags = *src;
+        gi._cfg_dword_f378 = *src.add(1);
+        gi._cfg_dword_f37c = *src.add(2);
+        gi._cfg_dword_f380 = *src.add(3);
         // (index 4 written further down at inner+0xF390)
 
         if *(rb(va::G_CONFIG_GUARD) as *const u32) == 0 {
@@ -207,45 +199,45 @@ pub unsafe fn load_options(game_info: *mut GameInfo) {
             // and display_height (inner offsets 0xF3B4, 0xF3B8) per
             // `GameEngine::InitHardware`. Last two are unnamed-but-real fields.
             let src = rb(va::G_CONFIG_DWORDS_F3F4) as *const u32;
-            inner_gi.display_width = *src;
-            inner_gi.display_height = *src.add(1);
-            inner_gi._conditional_config_f3bc = *src.add(2);
-            inner_gi._conditional_config_f3c0 = *src.add(3);
+            gi.display_width = *src;
+            gi.display_height = *src.add(1);
+            gi._conditional_config_f3bc = *src.add(2);
+            gi._conditional_config_f3c0 = *src.add(3);
         }
 
-        // `sound_volume_percent` lives at inner offset 0xDAA8 — Cluster-1
-        // field accessed via `inner_gi`. The DAT_88E390 global is just the
-        // option-screen / registry-sourced volume value.
-        inner_gi.sound_volume_percent = *(rb(va::G_CONFIG_DWORD_DAE8) as *const i32);
+        // `sound_volume_percent` lives at inner offset 0xDAA8. The
+        // DAT_88E390 global is just the option-screen / registry-sourced
+        // volume value.
+        gi.sound_volume_percent = *(rb(va::G_CONFIG_DWORD_DAE8) as *const i32);
 
         // Sparse cfg block index 4 lands at inner+0xF390, then F3D4/F3D8 follow.
         let cfg_block_4 = *(rb(va::G_CONFIG_DWORDS_F3B4) as *const u32).add(4);
-        inner_gi._cfg_dword_f390 = cfg_block_4;
+        gi._cfg_dword_f390 = cfg_block_4;
         let src_d4 = rb(va::G_CONFIG_DWORDS_F3D4) as *const u32;
-        inner_gi._cfg_dword_f394 = *src_d4;
-        inner_gi._field_f398 = *src_d4.add(1) as i32;
+        gi._cfg_dword_f394 = *src_d4;
+        gi._field_f398 = *src_d4.add(1) as i32;
 
-        inner_gi.energy_bar = read_profile_int("Options", "EnergyBar", 1) as u8;
+        gi.energy_bar = read_profile_int("Options", "EnergyBar", 1) as u8;
 
         // Second cfg block (G_CONFIG_DWORDS_F3C4, 3 dwords) writes to the
         // gap between indices 3 and 4 of the sparse general block at
         // inner+0xF384, 0xF388, 0xF38C — i.e. `_field_f384`, `_cfg_dword_f388`,
         // `sound_attenuation`.
         let src_c4 = rb(va::G_CONFIG_DWORDS_F3C4) as *const u32;
-        inner_gi._field_f384 = *src_c4;
-        inner_gi._cfg_dword_f388 = *src_c4.add(1);
-        inner_gi.sound_attenuation = *src_c4.add(2) as i32;
+        gi._field_f384 = *src_c4;
+        gi._cfg_dword_f388 = *src_c4.add(1);
+        gi.sound_attenuation = *src_c4.add(2) as i32;
 
-        inner_gi.info_transparency = read_profile_int("Options", "InfoTransparency", 0) as u8;
-        inner_gi.info_spy = if read_profile_int("Options", "InfoSpy", 1) != 0 {
+        gi.info_transparency = read_profile_int("Options", "InfoTransparency", 0) as u8;
+        gi.info_spy = if read_profile_int("Options", "InfoSpy", 1) != 0 {
             1
         } else {
             0
         };
-        inner_gi.option_byte_f365 = read_profile_int("Options", "ChatPinned", 0) as u8;
-        inner_gi.option_dword_f368 = read_profile_int("Options", "ChatLines", 0);
-        inner_gi.option_dword_f36c = read_profile_int("Options", "PinnedChatLines", 0xFFFFFFFF);
-        inner_gi.home_lock = read_profile_int("Options", "HomeLock", 0) as u8;
+        gi.option_byte_f365 = read_profile_int("Options", "ChatPinned", 0) as u8;
+        gi.option_dword_f368 = read_profile_int("Options", "ChatLines", 0);
+        gi.option_dword_f36c = read_profile_int("Options", "PinnedChatLines", 0xFFFFFFFF);
+        gi.home_lock = read_profile_int("Options", "HomeLock", 0) as u8;
 
         // BackgroundDebrisParallax: clamp to i16 range, then << 16
         let mut parallax = read_profile_int("Options", "BackgroundDebrisParallax", 0x50);
@@ -257,13 +249,12 @@ pub unsafe fn load_options(game_info: *mut GameInfo) {
                 parallax = 0x7FFF;
             }
         }
-        inner_gi.background_debris_parallax = parallax << 16;
+        gi.background_debris_parallax = parallax << 16;
 
-        inner_gi.topmost_explosion_onomatopoeia =
+        gi.topmost_explosion_onomatopoeia =
             read_profile_int("Options", "TopmostExplosionOnomatopoeia", 0);
         // capture_transparent_pngs lives at inner offset 0xF39C (cluster 2).
-        inner_gi.capture_transparent_pngs =
-            read_profile_int("Options", "CaptureTransparentPNGs", 0);
+        gi.capture_transparent_pngs = read_profile_int("Options", "CaptureTransparentPNGs", 0);
 
         // CameraUnlockMouseSpeed: clamp to max 0xB504, then square
         let mut mouse_speed = read_profile_int("Options", "CameraUnlockMouseSpeed", 0x10);
@@ -274,9 +265,9 @@ pub unsafe fn load_options(game_info: *mut GameInfo) {
                 mouse_speed = CAMERA_UNLOCK_SPEED_MAX;
             }
         }
-        inner_gi.camera_unlock_mouse_speed = mouse_speed * mouse_speed;
+        gi.camera_unlock_mouse_speed = mouse_speed * mouse_speed;
 
-        inner_gi._config_dword_f3a4 = *(rb(va::G_CONFIG_DWORD_F3E4) as *const u32);
+        gi._config_dword_f3a4 = *(rb(va::G_CONFIG_DWORD_F3E4) as *const u32);
     }
 }
 

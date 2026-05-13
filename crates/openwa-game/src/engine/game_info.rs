@@ -424,13 +424,25 @@ pub struct GameInfo {
     /// 0xDAAC: Landscape data path (passed to Landscape constructor).
     /// `LoadOptions` writes `"data\\land.dat\0"` into the first 14 bytes here
     /// (via the prefix-pointer convention — see [`crate::engine::init_session`]).
+    ///
+    /// **Overlay alert:** the wider 0xDAAC..0xDB08 region (60 + 32 = 92 bytes,
+    /// covering this field and [`Self::_unknown_dae8`]) is treated as a single
+    /// "scratch block" by `FrontendLobbyHost__Constructor` (0x004b0500) and
+    /// `FrontendLobbyGameStart__Constructor` (0x004bdf00) — both stash the
+    /// whole 92-byte block on the stack, call `FUN_00466ac0`, then copy back.
+    /// The `Unknown__OnCommand_1000` (LocalMP Start, 0x4A1260) handler also
+    /// writes saved-player state into this region at +0xDADC..+0xDB05:
+    /// flag at 0xDADC (-2 marker), saved color at 0xDAE0, saved player name
+    /// (CString[33]) at 0xDAE4..0xDB05, saved join-code byte at 0xDB05.
+    /// Splitting these out as named fields needs a coordinated audit — see
+    /// `project_local_mp_start_handler` memory note.
     pub landscape_data_path: [u8; 0xDAE8 - 0xDAAC],
 
-    // 0xDAE8..0xDB07: Unknown. Note: this region used to contain duplicate
-    // `_config_dword_dae8` (alias of `sound_volume_percent`) and `land_dat_path`
-    // (alias of first 14 bytes of `landscape_data_path`) fields — those were
-    // an artefact of the dual prefix/inner coordinate confusion. Removed in
-    // the 2026-05-13 LoadOptions-cluster refactor.
+    /// 0xDAE8..0xDB08: Tail of the FrontendLocalMP "saved-state scratch
+    /// block" that begins at [`Self::landscape_data_path`]. Includes the
+    /// tail bytes of the saved player-name CString (which spans 0xDAE4
+    /// + 0x21 = 0xDB05) and the saved join-code byte at 0xDB05; the
+    /// remaining 0xDB06..0xDB08 bytes are not yet identified.
     pub _unknown_dae8: [u8; 0xDB08 - 0xDAE8],
     /// 0xDB08: Packed pair of replay-mode flags (u32). InitGameState
     /// unpacks these into `GameRuntime::replay_flag_a` (low byte) and
