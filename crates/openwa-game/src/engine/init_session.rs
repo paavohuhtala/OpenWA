@@ -172,7 +172,10 @@ unsafe fn advance_rng(prefix: *mut u8, current_off: usize, prev_off: Option<usiz
 /// `openwa-frontend`) where the prior replay file is still open and a
 /// second `CreateWAGameReplay` call would crash.
 pub unsafe fn init_session(gi: *mut GameInfo, type_label: Option<&CStr>) {
+    use crate::engine::launch_source::{LaunchSource, current as launch_source_current};
     RUST_INIT_SESSION_RAN.store(true, Ordering::Relaxed);
+    let source = launch_source_current();
+    let _ = openwa_core::log::log_line(&format!("[init_session] source={source:?}"));
     unsafe {
         let prefix = prefix_ptr(gi);
 
@@ -207,16 +210,37 @@ pub unsafe fn init_session(gi: *mut GameInfo, type_label: Option<&CStr>) {
         core::ptr::write_bytes(prefix.add(0xF95C), 0, 0x360);
 
         // ── Helper chain ─────────────────────────────────────────────────────
-        wa_process_team_colors(prefix);
+        // The four WA-bridged helpers below all read from globals the MFC
+        // LobbyDialog populates (`&DAT_008779e4` per-player config table,
+        // `G_SCHEME_DATA` selected-scheme buffer, etc.). On the Frontend
+        // path those globals are fresh from the user's just-completed
+        // lobby flow. On the CustomLauncher path they're stale from a
+        // prior launch (or have never been populated) — running the
+        // helpers would clobber the snapshot-restored team/scheme state
+        // the launcher set up. Until the helpers are ported (or the
+        // launcher learns to repopulate the globals), skip them.
+        //
+        // The two Rust-native helpers (`process_scheme_defaults`,
+        // `process_replay_flags`) read from GameInfo, which is valid in
+        // both modes, so they always run.
+        let is_frontend = source == LaunchSource::Frontend;
 
-        if let Some(label) = type_label {
-            let t = wa_time64();
-            wa_create_wa_game_replay(prefix, label.as_ptr(), t);
+        if is_frontend {
+            wa_process_team_colors(prefix);
+
+            if let Some(label) = type_label {
+                let t = wa_time64();
+                wa_create_wa_game_replay(prefix, label.as_ptr(), t);
+            }
         }
 
         process_scheme_defaults(gi);
-        wa_convert_scheme(prefix);
-        wa_validate_team_setup(prefix);
+
+        if is_frontend {
+            wa_convert_scheme(prefix);
+            wa_validate_team_setup(prefix);
+        }
+
         process_replay_flags(gi);
 
         // ── Re-roll session RNG ──────────────────────────────────────────────

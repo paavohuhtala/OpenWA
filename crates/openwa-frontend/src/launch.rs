@@ -137,24 +137,31 @@ extern "C" fn run_pending_launch() {
         overlay_team_names(&req);
 
         if req.call_init_session {
-            // Re-run the same populate-GameInfo function the real Start
-            // handler uses. Snapshot already gave us a valid baseline;
-            // this freshens rng_seed and the scheme/team writes.
+            // Re-run the populate-GameInfo orchestrator that WA's real
+            // Start handler uses, in `LaunchSource::CustomLauncher` mode.
+            // The Rust-native helpers (ProcessSchemeDefaults,
+            // ProcessReplayFlags) run; the four WA-bridged helpers
+            // (ProcessTeamColors, CreateWAGameReplay, ConvertScheme,
+            // ValidateTeamSetup) are skipped to preserve the
+            // snapshot-restored team/scheme state — they'd otherwise
+            // overwrite it from stale LobbyDialog globals (and would
+            // also clobber the team-name overlay applied just above).
             //
-            // Pass `null` for the type_label so InitSession skips the
-            // replay-file creation step (CGameInfo__CreateWAGameReplay),
-            // which crashes when called a second time in the same process
-            // (replay file from the first match is still open / in a
-            // post-write state).
-            log("calling GameInfo__InitSession(prefix, null) — replay creation skipped");
+            // type_label is irrelevant in CustomLauncher mode (only
+            // CreateWAGameReplay reads it, and that's one of the
+            // skipped bridges).
+            log("calling InitSession in CustomLauncher mode (bridged helpers skipped)");
             // game_version=500 is hardcoded by the real Start handler
             // (FrontendLocalMP__OnStartMatch at 0x4A1260) immediately
             // before InitSession; replicate that so any version-gated
             // logic inside InitSession sees the same value.
             let gi = rb(va::G_GAME_INFO) as *mut GameInfo;
             (*gi).game_version = 500;
+            let _src_guard = openwa_game::engine::launch_source::LaunchSourceGuard::new(
+                openwa_game::engine::launch_source::LaunchSource::CustomLauncher,
+            );
             openwa_game::engine::config_load::init_session(None);
-            log("GameInfo__InitSession returned");
+            log("InitSession returned");
         }
 
         // Skip the `subobj_a4` vtable slot 13 pre-game hook and its paired
