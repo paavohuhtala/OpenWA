@@ -137,6 +137,15 @@ use crate::engine::GameInfo;
 use crate::engine::game_info::MAX_TEAM_RECORDS;
 use crate::rebase::rb;
 
+/// Per-lobby-player record stride (`G_PLAYER_ARRAY`, 13 entries).
+const LOBBY_PLAYER_STRIDE: usize = 0x78;
+/// Maximum number of lobby-player slots between `G_PLAYER_ARRAY` and
+/// `G_TEAM_DATA` ((0x877FFC - 0x8779E4) / 0x78 = 13).
+const MAX_LOBBY_PLAYERS: usize = 13;
+/// Per-lobby-team record stride (`G_TEAM_DATA`, 6 entries).
+/// Matches `core::mem::size_of::<crate::engine::replay::ReplayTeamEntry>()`.
+const LOBBY_TEAM_STRIDE: usize = 0xD7B;
+
 /// V3 scheme payload size (matches `openwa_core::scheme::SCHEME_PAYLOAD_V3`).
 /// `G_SCHEME_DATA` is a 402-byte buffer.
 const SCHEME_BUFFER_SIZE: usize = openwa_core::scheme::SCHEME_PAYLOAD_V3;
@@ -255,5 +264,109 @@ pub unsafe fn apply(gi: *mut GameInfo, pending: &PendingCustomMatch) {
         let src = &pending.scheme.payload;
         let copy_len = src.len().min(SCHEME_BUFFER_SIZE);
         core::ptr::copy_nonoverlapping(src.as_ptr(), dst, copy_len);
+    }
+}
+
+/// Populate the MFC-lobby globals `Replay__ProcessTeamColors` consumes,
+/// so the helper can run unchanged on the CustomLauncher path.
+///
+/// Layout:
+/// - **`G_HOST_PLAYER`** (4 bytes at `0x008779E0`): host index, set to 0.
+/// - **`G_PLAYER_ARRAY`** (13 × `0x78` records at `0x008779E4`): the lobby
+///   player roster. PTC iterates by checking byte `+0x74` (active flag);
+///   reads bytes `+0x11..+0x44` as the per-team config block copied
+///   into `GameInfoTeamRecord` (offset +0x55 of the team_input_config
+///   entry). We synthesise a single active local player at index 0.
+/// - **`G_PLAYER_COUNT`** (byte at `0x0087D0DE`): set to 1.
+/// - **`G_TEAM_DATA`** (6 × `0xD7B` records at `0x00877FFC`): the lobby
+///   team roster. Uses the existing
+///   [`crate::engine::replay::ReplayTeamEntry`] layout (same buffer
+///   replay-loading writes; its `flag` at +0x124 is the active gate).
+///   Per-team identity (alliance, name, worm names, worm count, color)
+///   gets populated; the 340-byte weapon-kit at `+0x527` stays zero for
+///   now (TODO once the encoding is reverse-engineered or pulled from a
+///   real saved-team blob).
+/// - **`G_TEAM_COUNT`** (byte at `0x0087D0E0`): set to `pending.teams.len()`.
+///
+/// # Safety
+///
+/// Mutates fixed globals. Caller must guarantee the WA process is
+/// suspended/single-threaded for the duration (init_session does).
+pub unsafe fn populate_lobby_globals(pending: &PendingCustomMatch) {
+    use crate::engine::replay::ReplayTeamEntry;
+
+    unsafe {
+        let team_count = pending.teams.len().min(MAX_TEAM_RECORDS) as u8;
+        let _ = openwa_core::log::log_line(&format!(
+            "[pending_match] populating lobby globals: 1 player, {team_count} teams",
+        ));
+
+        // ── Player array ────────────────────────────────────────────────────
+        let players = rb(va::G_PLAYER_ARRAY) as *mut u8;
+        core::ptr::write_bytes(players, 0, LOBBY_PLAYER_STRIDE * MAX_LOBBY_PLAYERS);
+
+        // Player 0: active, short name "P1", display name "Player".
+        let p0 = players;
+        let short_name = b"P1";
+        core::ptr::copy_nonoverlapping(short_name.as_ptr(), p0, short_name.len());
+        let display = b"Player";
+        core::ptr::copy_nonoverlapping(display.as_ptr(), p0.add(0x11), display.len());
+        // +0x74 = active flag (per PTC: `local_a0[0x1d] != '\\0'` gate).
+        *p0.add(0x74) = 1;
+
+        *(rb(va::G_HOST_PLAYER) as *mut u32) = 0;
+        *(rb(va::G_PLAYER_COUNT) as *mut u8) = 1;
+
+        // ── Team array ──────────────────────────────────────────────────────
+        let teams = rb(va::G_TEAM_DATA) as *mut ReplayTeamEntry;
+        core::ptr::write_bytes(teams as *mut u8, 0, LOBBY_TEAM_STRIDE * MAX_TEAM_RECORDS);
+
+        for (i, team) in pending.teams.iter().take(MAX_TEAM_RECORDS).enumerate() {
+            let entry = teams.add(i);
+
+            // PTC reads `*pcVar6` (= +0x000, signed) as the owning player
+            // index; -1 = anonymous CPU team. ReplayTeamEntry calls this
+            // `team_type` but for our local-player offline match it's the
+            // owner player slot.
+            (*entry).team_type = 0;
+            (*entry).alliance = team.color_idx;
+            // +0x002 → game team_record.wins_count (PTC copies as-is).
+            (*entry).unknown_02 = 0;
+
+            // `config_abbrev` (+0x003..+0x013, 17 bytes) is what PTC copies
+            // into `GameInfoTeamRecord.name` (16 bytes + tail). Use the
+            // team's display name here.
+            let name_bytes = team.name.as_bytes();
+            let entry_u8 = entry as *mut u8;
+            let copy_len = name_bytes.len().min(16);
+            core::ptr::copy_nonoverlapping(name_bytes.as_ptr(), entry_u8.add(0x03), copy_len);
+
+            // `team_name` (+0x014..+0x055) — full name, also written by
+            // OnNOTIFY for the leaderboard / ESC menu. Mirror it.
+            let tn_len = name_bytes.len().min(0x40);
+            core::ptr::copy_nonoverlapping(name_bytes.as_ptr(), entry_u8.add(0x14), tn_len);
+
+            // Worm count + per-worm names. PTC's inner loop hardcodes 8
+            // iterations starting at `pcVar6 + 0x9b` with stride 0x11.
+            // `worm_count` at +0x098 is the validated 1..=8 count.
+            let worm_count = team.worm_names.len().min(MAX_WORMS_PER_TEAM);
+            (*entry).worm_count = worm_count as u8;
+            (*entry).worm_count_raw = worm_count as u8;
+            (*entry).color = team.color_idx;
+
+            let worm_names_base = (entry as *mut u8).add(0x9B);
+            for (worm_idx, worm_name) in team.worm_names.iter().take(MAX_WORMS_PER_TEAM).enumerate()
+            {
+                let slot = worm_names_base.add(worm_idx * 0x11);
+                let nb = worm_name.as_bytes();
+                let nlen = nb.len().min(0x10);
+                core::ptr::copy_nonoverlapping(nb.as_ptr(), slot, nlen);
+            }
+
+            // Active flag last (PTC's gate).
+            (*entry).flag = 1;
+        }
+
+        *(rb(va::G_TEAM_COUNT) as *mut u8) = team_count;
     }
 }

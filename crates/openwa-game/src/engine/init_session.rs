@@ -225,19 +225,26 @@ pub unsafe fn init_session(gi: *mut GameInfo, type_label: Option<&CStr>) {
         // both modes, so they always run.
         let is_frontend = source == LaunchSource::Frontend;
 
-        if is_frontend {
-            wa_process_team_colors(prefix);
-
-            if let Some(label) = type_label {
-                let t = wa_time64();
-                wa_create_wa_game_replay(prefix, label.as_ptr(), t);
+        // On the CustomLauncher path, synthesise the MFC-lobby globals
+        // (`G_PLAYER_ARRAY`, `G_TEAM_DATA`) from the pending match before
+        // running `ProcessTeamColors` — that helper's outputs (team-record
+        // identity, alliance bookkeeping at +0xD0BC, etc.) are what the
+        // game team_records need to be valid downstream. `apply()` still
+        // runs first as a defensive baseline (it also copies the scheme
+        // into G_SCHEME_DATA which PTC doesn't touch); PTC's writes
+        // overwrite the team-record bytes that apply() seeded.
+        if !is_frontend {
+            if let Some(pending) = crate::engine::pending_match::take() {
+                crate::engine::pending_match::apply(gi, &pending);
+                crate::engine::pending_match::populate_lobby_globals(&pending);
             }
-        } else if let Some(pending) = crate::engine::pending_match::take() {
-            // CustomLauncher path: write the team identity + scheme bytes
-            // that ProcessTeamColors / ConvertScheme would have populated
-            // from the lobby globals. Run before ProcessSchemeDefaults so
-            // the team-count it iterates reflects the pending match.
-            crate::engine::pending_match::apply(gi, &pending);
+        }
+
+        wa_process_team_colors(prefix);
+
+        if is_frontend && let Some(label) = type_label {
+            let t = wa_time64();
+            wa_create_wa_game_replay(prefix, label.as_ptr(), t);
         }
 
         process_scheme_defaults(gi);
@@ -254,13 +261,7 @@ pub unsafe fn init_session(gi: *mut GameInfo, type_label: Option<&CStr>) {
         // divides by `game_speed_target = 0`.
         wa_convert_scheme(prefix);
 
-        if is_frontend {
-            // ProcessTeamColors / ValidateTeamSetup stay skipped on the
-            // CustomLauncher path because they read globals (player
-            // records at DAT_008779e4, preset-scheme index at
-            // DAT_0088dad4) that are uninitialized when MFC never ran.
-            wa_validate_team_setup(prefix);
-        }
+        wa_validate_team_setup(prefix);
 
         process_replay_flags(gi);
 
