@@ -33,6 +33,7 @@ use openwa_core::log::log_line;
 use openwa_game::address::va;
 use openwa_game::engine::game_info::GameInfo;
 use openwa_game::engine::game_info_snapshot;
+use openwa_game::engine::pending_match::{self, PendingCustomMatch};
 use openwa_game::main_thread;
 use openwa_game::rebase::rb;
 use openwa_game::wa::frontend::SUPPRESS_PRE_LAUNCH_VT13;
@@ -42,6 +43,25 @@ fn log(msg: &str) {
     let _ = log_line(&format!("[frontend] {msg}"));
 }
 
+/// Selects how `GameInfo` gets populated before `launch_game_session`.
+#[derive(Clone, Debug)]
+pub enum LaunchMode {
+    /// Restore a previously-captured snapshot of a real WA-frontend
+    /// match's `GameInfo`, overlay team names, then (optionally) re-run
+    /// InitSession. Requires the user to have started one match through
+    /// WA's normal frontend in this process.
+    Snapshot {
+        /// Whether to re-run `GameInfo__InitSession` after restoring.
+        call_init_session: bool,
+    },
+    /// Park a [`PendingCustomMatch`] and drive InitSession in
+    /// `CustomLauncher` mode — no snapshot required. The Rust-side
+    /// populate logic in `pending_match::apply` writes team identity +
+    /// scheme bytes; the rest of InitSession (Rust-native helpers,
+    /// LoadOptions) fills in the runtime config.
+    Fresh(PendingCustomMatch),
+}
+
 /// User-tunable match settings collected by the launcher UI.
 #[derive(Clone, Debug)]
 pub struct LaunchRequest {
@@ -49,11 +69,8 @@ pub struct LaunchRequest {
     pub team_a_name: String,
     /// Team B display name (overlaid on snapshot, up to 15 ASCII bytes).
     pub team_b_name: String,
-    /// Whether to call `GameInfo__InitSession` after restoring the
-    /// snapshot. Lets the existing globals (scheme/teams/terrain) drive
-    /// the populate path that WA's normal Start handler runs; useful to
-    /// test whether those globals stay valid across launches.
-    pub call_init_session: bool,
+    /// Population strategy. See [`LaunchMode`].
+    pub mode: LaunchMode,
 }
 
 impl Default for LaunchRequest {
@@ -61,7 +78,9 @@ impl Default for LaunchRequest {
         Self {
             team_a_name: "Red".to_owned(),
             team_b_name: "Blue".to_owned(),
-            call_init_session: false,
+            mode: LaunchMode::Snapshot {
+                call_init_session: false,
+            },
         }
     }
 }
@@ -108,9 +127,14 @@ extern "C" fn run_pending_launch() {
         return;
     }
 
-    if let Err(e) = game_info_snapshot::restore() {
-        log(&format!("snapshot restore failed: {e}"));
-        return;
+    // Snapshot mode restores the captured bytes up-front; Fresh mode
+    // leaves GameInfo as-is and lets `pending_match::apply` (run from
+    // inside the InitSession call below) populate the team region.
+    if let LaunchMode::Snapshot { .. } = &req.mode {
+        if let Err(e) = game_info_snapshot::restore() {
+            log(&format!("snapshot restore failed: {e}"));
+            return;
+        }
     }
 
     unsafe {
@@ -134,9 +158,23 @@ extern "C" fn run_pending_launch() {
             return;
         }
 
+        let want_init_session = match &req.mode {
+            LaunchMode::Snapshot { call_init_session } => *call_init_session,
+            LaunchMode::Fresh(pending) => {
+                pending_match::set(pending.clone());
+                true
+            }
+        };
+
+        // Overlay team names from the UI on top of whatever's in
+        // GameInfo. In Snapshot mode this rewrites the snapshot-restored
+        // names with the user's UI input. In Fresh mode it's effectively
+        // a no-op rewrite (pending_match::apply has already written
+        // those exact names) but it's cheap and lets the UI override
+        // late, so leave it unconditional.
         overlay_team_names(&req);
 
-        if req.call_init_session {
+        if want_init_session {
             // Re-run the populate-GameInfo orchestrator that WA's real
             // Start handler uses, in `LaunchSource::CustomLauncher` mode.
             // The Rust-native helpers (ProcessSchemeDefaults,
@@ -226,7 +264,7 @@ pub fn launch(req: &LaunchRequest) -> LaunchOutcome {
     if !is_idle_at_frontend() {
         return LaunchOutcome::Refused("game session already active");
     }
-    if !has_snapshot() {
+    if matches!(req.mode, LaunchMode::Snapshot { .. }) && !has_snapshot() {
         return LaunchOutcome::Refused(
             "no GameInfo snapshot yet — start one match through the WA frontend first",
         );

@@ -129,6 +129,11 @@ fn run() -> Result<(), String> {
         let _ = log_line(&format!("[PANIC] {info}\n[PANIC] backtrace:\n{bt}"));
     }));
 
+    // Catch native SEH exceptions (access violations, etc.) that the Rust
+    // panic hook doesn't see. Logged once per first-chance exception so we
+    // know if a hidden C-side fault is killing the process.
+    install_native_exception_logger();
+
     let delta = openwa_game::rebase::init();
     let _ = log_line(&format!(
         "=== OpenWA DLL loaded ===\n  ASLR delta: 0x{delta:08X}"
@@ -171,6 +176,56 @@ fn run() -> Result<(), String> {
     debug_server::maybe_start();
 
     Ok(())
+}
+
+/// Install a vectored exception handler that logs first-chance native
+/// SEH exceptions (access violations, divide-by-zero in C code, etc.).
+/// These don't fire the Rust panic hook because they originate outside
+/// Rust's `extern "C-unwind"` boundary. We log and return EXCEPTION_CONTINUE_SEARCH
+/// so the OS still gets to handle the fault (terminate the process).
+fn install_native_exception_logger() {
+    use windows_sys::Win32::System::Diagnostics::Debug::{
+        AddVectoredExceptionHandler, EXCEPTION_POINTERS,
+    };
+
+    const EXCEPTION_CONTINUE_SEARCH: i32 = 0;
+    // Skip C++ exceptions (used by MFC + STL) — they're not crashes.
+    const CXX_EXCEPTION_CODE: u32 = 0xE06D7363;
+    // Skip our own watchpoint INT3 + single-step traps.
+    const STATUS_BREAKPOINT: u32 = 0x80000003;
+    const STATUS_SINGLE_STEP: u32 = 0x80000004;
+
+    unsafe extern "system" fn handler(info: *mut EXCEPTION_POINTERS) -> i32 {
+        unsafe {
+            let rec = (*info).ExceptionRecord;
+            let code = (*rec).ExceptionCode as u32;
+            if code == CXX_EXCEPTION_CODE || code == STATUS_BREAKPOINT || code == STATUS_SINGLE_STEP
+            {
+                return EXCEPTION_CONTINUE_SEARCH;
+            }
+            let addr = (*rec).ExceptionAddress as u32;
+            // Two read params for access violations: [0] = 0/1 read/write, [1] = addr
+            let info0 = if (*rec).NumberParameters > 0 {
+                (*rec).ExceptionInformation[0] as u32
+            } else {
+                0
+            };
+            let info1 = if (*rec).NumberParameters > 1 {
+                (*rec).ExceptionInformation[1] as u32
+            } else {
+                0
+            };
+            let bt = std::backtrace::Backtrace::force_capture();
+            let _ = log_line(&format!(
+                "[NATIVE-EXCEPTION] code=0x{code:08X} addr=0x{addr:08X} info0={info0} info1=0x{info1:08X}\n{bt}"
+            ));
+            EXCEPTION_CONTINUE_SEARCH
+        }
+    }
+
+    unsafe {
+        AddVectoredExceptionHandler(1, Some(handler));
+    }
 }
 
 /// Signal the `OpenWA_HooksReady_{pid}` named event so the launcher knows

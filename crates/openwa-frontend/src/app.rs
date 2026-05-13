@@ -1,21 +1,52 @@
 //! egui application: match-launcher prototype window.
 
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use eframe::egui;
+use openwa_core::scheme::{SchemeFile, SchemeVersion};
+use openwa_game::engine::pending_match::{PendingCustomMatch, PendingTeam};
 
-use crate::launch::{self, LaunchOutcome, LaunchRequest};
+use crate::launch::{self, LaunchMode, LaunchOutcome, LaunchRequest};
+
+/// Population strategy chosen via the UI radio.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum UiMode {
+    Snapshot,
+    Fresh,
+}
 
 pub struct MatchLauncherApp {
     req: LaunchRequest,
+    ui_mode: UiMode,
+    call_init_session: bool,
+    /// User-typed path to a .wsc file. Empty = use the empty-scheme fallback.
+    scheme_path: String,
+    /// Last load attempt result (cached so the UI shows status across frames).
+    scheme_status: SchemeStatus,
     dump_label: String,
     log: Arc<Mutex<Vec<String>>>,
+}
+
+#[derive(Clone, Debug, Default)]
+enum SchemeStatus {
+    #[default]
+    NotLoaded,
+    Loaded {
+        version: SchemeVersion,
+        path: PathBuf,
+    },
+    Error(String),
 }
 
 impl Default for MatchLauncherApp {
     fn default() -> Self {
         Self {
             req: LaunchRequest::default(),
+            ui_mode: UiMode::Snapshot,
+            call_init_session: false,
+            scheme_path: r"I:\games\SteamLibrary\steamapps\common\Worms Armageddon\User\Schemes\{{02}} Intermediate.wsc".to_owned(),
+            scheme_status: SchemeStatus::NotLoaded,
             dump_label: "before".to_owned(),
             log: Arc::default(),
         }
@@ -33,10 +64,29 @@ impl MatchLauncherApp {
         }
     }
 
-    fn do_launch(&self) {
+    fn do_launch(&mut self) {
+        // Snap the current UI mode into the LaunchRequest fired at WA.
+        self.req.mode = match self.ui_mode {
+            UiMode::Snapshot => LaunchMode::Snapshot {
+                call_init_session: self.call_init_session,
+            },
+            UiMode::Fresh => match self.build_pending_match() {
+                Ok(pending) => LaunchMode::Fresh(pending),
+                Err(e) => {
+                    self.push_log(format!("Launch refused: {e}"));
+                    return;
+                }
+            },
+        };
+
         self.push_log(format!(
-            "Launch requested: {} vs {}",
-            self.req.team_a_name, self.req.team_b_name
+            "Launch requested ({}): {} vs {}",
+            match self.ui_mode {
+                UiMode::Snapshot => "snapshot",
+                UiMode::Fresh => "fresh",
+            },
+            self.req.team_a_name,
+            self.req.team_b_name,
         ));
         let outcome = launch::launch(&self.req);
         match outcome {
@@ -46,6 +96,53 @@ impl MatchLauncherApp {
                 );
             }
             LaunchOutcome::Refused(why) => self.push_log(format!("Launch refused: {why}")),
+        }
+    }
+
+    /// Build a `PendingCustomMatch` from the current UI fields. Errors
+    /// out (rather than substituting silent defaults) when the scheme is
+    /// missing or unreadable, so the user sees the failure instead of a
+    /// surprise empty scheme inside the match.
+    fn build_pending_match(&mut self) -> Result<PendingCustomMatch, String> {
+        let scheme = self.load_scheme_for_launch()?;
+        let teams = vec![
+            PendingTeam::new(self.req.team_a_name.clone(), 0),
+            PendingTeam::new(self.req.team_b_name.clone(), 1),
+        ];
+        Ok(PendingCustomMatch {
+            game_version: 500,
+            type_label: None,
+            teams,
+            scheme,
+        })
+    }
+
+    fn load_scheme_for_launch(&mut self) -> Result<SchemeFile, String> {
+        let raw = self.scheme_path.trim();
+        if raw.is_empty() {
+            // Fallback: an all-zero V3 payload. Not playable as-is but
+            // gets the launch path off the ground; the user will load a
+            // real scheme once dump-diffing reveals what's missing.
+            let zeros = vec![0u8; openwa_core::scheme::SCHEME_PAYLOAD_V3];
+            return Ok(SchemeFile {
+                version: SchemeVersion::V3,
+                payload: zeros,
+            });
+        }
+        let path = PathBuf::from(raw);
+        match SchemeFile::from_file(&path) {
+            Ok(s) => {
+                self.scheme_status = SchemeStatus::Loaded {
+                    version: s.version,
+                    path,
+                };
+                Ok(s)
+            }
+            Err(e) => {
+                let msg = format!("scheme load failed ({path:?}): {e:?}");
+                self.scheme_status = SchemeStatus::Error(msg.clone());
+                Err(msg)
+            }
         }
     }
 
@@ -150,7 +247,18 @@ impl eframe::App for MatchLauncherApp {
         });
 
         ui.add_space(8.0);
-        ui.collapsing("Teams (overlaid on snapshot)", |ui| {
+        ui.label("Population mode:");
+        ui.horizontal(|ui| {
+            ui.radio_value(&mut self.ui_mode, UiMode::Snapshot, "Snapshot replay");
+            ui.radio_value(
+                &mut self.ui_mode,
+                UiMode::Fresh,
+                "Fresh (PendingCustomMatch)",
+            );
+        });
+
+        ui.add_space(4.0);
+        ui.collapsing("Teams", |ui| {
             ui.horizontal(|ui| {
                 ui.label("A:");
                 ui.text_edit_singleline(&mut self.req.team_a_name);
@@ -161,11 +269,39 @@ impl eframe::App for MatchLauncherApp {
             });
         });
 
-        ui.add_space(4.0);
-        ui.checkbox(
-            &mut self.req.call_init_session,
-            "Also call GameInfo__InitSession (refresh rng_seed + replay header)",
-        );
+        match self.ui_mode {
+            UiMode::Snapshot => {
+                ui.add_space(4.0);
+                ui.checkbox(
+                    &mut self.call_init_session,
+                    "Also call GameInfo__InitSession (refresh rng_seed + replay header)",
+                );
+            }
+            UiMode::Fresh => {
+                ui.add_space(4.0);
+                ui.collapsing("Scheme (.wsc path)", |ui| {
+                    ui.label(
+                        "Absolute path to a .wsc file. Leave empty for an all-zero stub \
+                         payload (not playable, but useful for the first dump-diff round).",
+                    );
+                    ui.text_edit_singleline(&mut self.scheme_path);
+                    match &self.scheme_status {
+                        SchemeStatus::NotLoaded => {
+                            ui.colored_label(egui::Color32::GRAY, "Scheme not yet loaded.");
+                        }
+                        SchemeStatus::Loaded { version, path } => {
+                            ui.colored_label(
+                                egui::Color32::LIGHT_GREEN,
+                                format!("Loaded {version:?} from {}", path.display()),
+                            );
+                        }
+                        SchemeStatus::Error(msg) => {
+                            ui.colored_label(egui::Color32::LIGHT_RED, msg);
+                        }
+                    }
+                });
+            }
+        }
 
         ui.add_space(8.0);
         ui.collapsing("GameInfo dump (RE workflow)", |ui| {
@@ -203,7 +339,11 @@ impl eframe::App for MatchLauncherApp {
         });
 
         ui.add_space(12.0);
-        let can_launch = idle && snap;
+        let can_launch = idle
+            && match self.ui_mode {
+                UiMode::Snapshot => snap,
+                UiMode::Fresh => true,
+            };
         let launch_button =
             egui::Button::new(egui::RichText::new("Launch match").strong().size(16.0));
         if ui.add_enabled(can_launch, launch_button).clicked() {

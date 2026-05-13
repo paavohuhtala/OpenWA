@@ -950,10 +950,12 @@ impl WormEntity {
                 } else {
                     // Compare WA's per-team byte against `starting_team_index`:
                     //   byte at GameInfo + team_index * 0xBB8 - 0x768
-                    // For team_index == 1 this hits `team_records[0].speech_bank_id`
-                    // (the alliance group); higher indices step through the per-team
-                    // records. The team_index == 0 case would read before the struct.
-                    // Faithful to WA's address arithmetic; semantics deserve more RE.
+                    // For team_index == 1 this hits `team_records[0].owner_player_slot`
+                    // (formerly mislabeled "alliance group"); higher indices step through
+                    // the per-team records. The team_index == 0 case would read before
+                    // the struct. Faithful to WA's address arithmetic; semantics deserve
+                    // more RE — comparing an owner-slot to a team-index works out for
+                    // single-local-player matches where both default to 0.
                     let game_info = (*world).game_info as *const u8;
                     let team_index = (*this).team_index as i32;
                     let alliance_byte = *game_info.offset((team_index * 0xBB8 - 0x768) as isize);

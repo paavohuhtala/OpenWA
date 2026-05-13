@@ -232,12 +232,33 @@ pub unsafe fn init_session(gi: *mut GameInfo, type_label: Option<&CStr>) {
                 let t = wa_time64();
                 wa_create_wa_game_replay(prefix, label.as_ptr(), t);
             }
+        } else if let Some(pending) = crate::engine::pending_match::take() {
+            // CustomLauncher path: write the team identity + scheme bytes
+            // that ProcessTeamColors / ConvertScheme would have populated
+            // from the lobby globals. Run before ProcessSchemeDefaults so
+            // the team-count it iterates reflects the pending match.
+            crate::engine::pending_match::apply(gi, &pending);
         }
 
         process_scheme_defaults(gi);
 
+        // ConvertScheme runs on both paths. On the Frontend path its
+        // input (G_SCHEME_DATA) is whatever the lobby populated; on the
+        // CustomLauncher path `pending_match::apply` just wrote the
+        // user-supplied scheme into G_SCHEME_DATA above. Its only other
+        // inputs are GameInfo fields we control (num_teams, game_version,
+        // replay_active, replay_field_db58). Without it the
+        // scheme-derived bytes (game_speed_config at +0xD988,
+        // mine_list_capacity, object_slot_count, the 0xD78C..0xD924
+        // per-weapon overlay, etc.) stay at zero and the dispatch loop
+        // divides by `game_speed_target = 0`.
+        wa_convert_scheme(prefix);
+
         if is_frontend {
-            wa_convert_scheme(prefix);
+            // ProcessTeamColors / ValidateTeamSetup stay skipped on the
+            // CustomLauncher path because they read globals (player
+            // records at DAT_008779e4, preset-scheme index at
+            // DAT_0088dad4) that are uninitialized when MFC never ran.
             wa_validate_team_setup(prefix);
         }
 
@@ -257,6 +278,22 @@ pub unsafe fn init_session(gi: *mut GameInfo, type_label: Option<&CStr>) {
         // had prefix-coord field offsets in the upper region — that's all
         // unwound now.
         load_options(gi);
+
+        // ── Late CustomLauncher fixup ─────────────────────────────────────────
+        // `ConvertScheme` (0x0045D640) at +0x2A75 writes
+        // `*[0x0088DC44]` (G_SCHEME_DATA + 0x164, a V3-extended-options
+        // byte) into `GameInfo+0xD988` (`game_speed_config`). For V2
+        // schemes that source byte is zero-padded, so `game_speed_config`
+        // ends up 0 — and `init_game_state_tracking_arrays` reads it raw
+        // into `world.game_speed_target`, then `dispatch_frame` divides
+        // by it. Identified via the +0xD988 hardware watchpoint.
+        //
+        // Restore the Frontend-baseline default (Fixed 1.0). Gated on
+        // CustomLauncher mode + currently-zero so the WA Frontend path is
+        // untouched.
+        if source == LaunchSource::CustomLauncher && (*gi).game_speed_config == 0 {
+            (*gi).game_speed_config = 0x00010000;
+        }
     }
 }
 

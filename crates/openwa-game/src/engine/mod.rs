@@ -21,6 +21,7 @@ pub mod menu_panel;
 pub mod net_bridge;
 pub mod net_session;
 pub mod net_wrapper;
+pub mod pending_match;
 pub mod pump_messages;
 pub mod replay;
 pub mod replay_loader;

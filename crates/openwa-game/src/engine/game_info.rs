@@ -14,11 +14,35 @@
 /// data.
 #[repr(C)]
 pub struct GameInfoTeamRecord {
-    /// 0x000: Speech bank index (`-1` = no bank). Read by
-    /// `GameRuntime__WriteLogTeamLabel` as an index into the speech-bank
-    /// table at `gameinfo + bank_id * 0x50 + 4`. Also re-read by
-    /// `WorldEntity__InitAllianceData` as the team's alliance group.
-    pub speech_bank_id: i8,
+    /// 0x000: Owner player slot index. Indexes the
+    /// [`GameInfo::team_input_configs`] table (each entry is a 0x50-byte
+    /// per-player config record; the player's display name lives at byte
+    /// `+0x00` of the entry). `ProcessTeamColors` sources this from
+    /// `local_4c[color_index]`, a "first player using this color" lookup,
+    /// so in a single-local-player offline match every team's owner is
+    /// player slot `0`. `-1` = no owner (anonymous CPU team in some
+    /// scheme paths).
+    ///
+    /// Consumers:
+    /// - `InitTeamsFromSetup` (0x005220B0): copies to
+    ///   `team_arena_team+0x508` and uses to increment the
+    ///   `team_arena+0xB12 + owner_player_slot` counter when `< 13` —
+    ///   "number of teams controlled by player N". This is what gates
+    ///   input dispatch: a team whose owner slot points at a phantom
+    ///   remote player will render but accept no input.
+    /// - `GameRuntime__WriteLogTeamLabel` (0x0053F190, headless logs):
+    ///   uses it as `team_input_configs[N]` index to append
+    ///   ` (<player_name>)` after the team name.
+    /// - `WorldEntity__InitAllianceData` (0x005262D0): reads it again as
+    ///   the team's alliance group ID for the `_alliance_bitmasks`
+    ///   table — a secondary overload that worked out because both
+    ///   "owner" and "alliance" historically defaulted to 0 for
+    ///   single-player matches.
+    ///
+    /// Previously misnamed `speech_bank_id` (which was a guess from a
+    /// single use site that happened to load a string near the byte's
+    /// computed offset).
+    pub owner_player_slot: i8,
     /// 0x001: Font palette index — selects the team's scoreboard text
     /// color (slot 9..16 in WA's font table). Equivalently, the alliance
     /// id used by `WorldEntity__InitAllianceData`.
@@ -670,6 +694,7 @@ const _: () = assert!(core::mem::offset_of!(GameInfo, scheme_sd_secondary_lockou
 const _: () = assert!(core::mem::offset_of!(GameInfo, scheme_no_leaderboard) == 0xD949);
 const _: () = assert!(core::mem::offset_of!(GameInfo, scheme_first_to_n_wins) == 0xD94F);
 const _: () = assert!(core::mem::offset_of!(GameInfo, crate_pickup_limit) == 0xD9AF);
+const _: () = assert!(core::mem::offset_of!(GameInfo, game_speed_config) == 0xD988);
 
 impl GameInfo {
     /// 1-based team-record lookup. WA addresses these records as

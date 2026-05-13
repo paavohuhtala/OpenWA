@@ -471,13 +471,14 @@ unsafe fn write_timestamp_prefix(out: &mut LogOutput, world: *mut GameWorld) {
     }
 }
 
-/// Emit the team name + optional ` (bank_name)` suffix.
+/// Emit the team name + optional ` (<player_name>)` suffix.
 /// Rust port of `GameRuntime__WriteLogTeamLabel` (0x0053F190).
 ///
 /// Team record layout at `game_info + 0x450 + team_idx * 3000`:
-///   +0  (i8)    speech_bank_id (-1 = no bank)
+///   +0  (i8)    owner_player_slot (-1 = no owner, suffix suppressed)
 ///   +6  (cstr)  team name
-/// Bank name lives at `game_info + bank_id * 0x50 + 4`.
+/// Player name lives at `game_info + owner_player_slot * 0x50 + 4`
+/// (= `team_input_configs[owner].name`).
 unsafe fn write_team_label(
     out: &mut LogOutput,
     game_info_ptr: *const GameInfo,
@@ -489,13 +490,14 @@ unsafe fn write_team_label(
         out.write_cstr(record.add(6) as *const c_char);
 
         // Suffix is gated on `game_info[0] != 0` — same test used for the
-        // label-width bank lookup (see the width calc below).
+        // label-width player-name lookup (see the width calc below).
         if *gi_base != 0 {
-            let bank_id = *(record as *const i8);
-            if bank_id >= 0 {
-                let bank_name = gi_base.add((bank_id as usize) * 0x50 + 4) as *const c_char;
+            let owner_player_slot = *(record as *const i8);
+            if owner_player_slot >= 0 {
+                let player_name =
+                    gi_base.add((owner_player_slot as usize) * 0x50 + 4) as *const c_char;
                 out.write_bytes(b" (");
-                out.write_cstr(bank_name);
+                out.write_cstr(player_name);
                 out.write_byte(b')');
             }
         }
@@ -577,14 +579,14 @@ unsafe fn log_end_of_round(
                     p = p.add(1);
                 }
                 let mut width = (p as isize - record.add(7) as isize) as i32;
-                let speech_bank_id = *(record as *const i8);
-                if num_teams != 0 && speech_bank_id >= 0 {
-                    let bank = gi_base.add((speech_bank_id as usize) * 0x50 + 4);
-                    let mut bp = bank;
+                let owner_player_slot = *(record as *const i8);
+                if num_teams != 0 && owner_player_slot >= 0 {
+                    let player_name = gi_base.add((owner_player_slot as usize) * 0x50 + 4);
+                    let mut bp = player_name;
                     while *bp != 0 {
                         bp = bp.add(1);
                     }
-                    width = bp as i32 + width + (3 - (bank.add(1) as i32));
+                    width = bp as i32 + width + (3 - (player_name.add(1) as i32));
                 }
                 *item = width;
                 if max_width < width {
