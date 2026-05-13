@@ -166,17 +166,13 @@ pub unsafe fn run_game_session(
 
         (*session).hwnd = hwnd;
         (*session).run_param_1 = arg1_module_state;
-        (*session).display_param_1 = (*game_info)._field_f39c;
+        (*session).display_param_1 = (*game_info).capture_transparent_pngs;
         *(rb(va::G_GAME_SESSION) as *mut *mut GameSession) = session;
-        // WA reads `GameInfo + 0xF3A0` as a u32 — that's a bulk copy of four
-        // adjacent typed byte fields (`_config_byte_f3a0`, `detail_level`,
-        // `energy_bar`, `info_transparency`) packed in declaration order.
-        (*session).display_param_2 = u32::from_ne_bytes([
-            (*game_info)._config_byte_f3a0,
-            (*game_info).detail_level,
-            (*game_info).energy_bar,
-            (*game_info).info_transparency,
-        ]);
+        // WA reads `GameInfo + 0xF3A0` as a u32 → GameSession.display_param_2.
+        // That 4-byte field is `camera_unlock_mouse_speed` (LoadOptions writes
+        // the squared mouse-speed there). WA happens to also consume this
+        // value as a display init parameter via GameSession.display_param_2.
+        (*session).display_param_2 = (*game_info).camera_unlock_mouse_speed;
         GetCursorPos(&mut (*session).cursor_initial);
         (*session).mouse_acquired = 1;
 

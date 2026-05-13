@@ -563,6 +563,17 @@ unsafe fn parse_and_write_v2plus(
 
         wb(va::G_TEAM_COUNT, team_count);
 
+        // ⚠️ PRE-EXISTING BUG (do not "fix" without a full audit):
+        // ProcessTeamColors / ConvertScheme / ProcessSchemeDefaults /
+        // ValidateTeamSetup are __stdcall(prefix_ptr) / __usercall(ESI=prefix)
+        // where `prefix_ptr = G_GAME_INFO - 0x40`. The calls below pass `gi`
+        // (= G_GAME_INFO), which shifts every prefix-relative write by 0x40
+        // bytes. This file has always been wrong, but it became *load-bearing*:
+        // downstream Rust code (team_init.rs, replay scheme application, etc.)
+        // also reads from the shifted offsets, so the bug is internally
+        // consistent. Switching to the correct `gi - 0x40` here crashes the
+        // smoke tests (15/16 access-violation) because the consumers stop
+        // finding their data. Fixing this needs to be a coordinated pass.
         let process_colors: unsafe extern "stdcall" fn(*mut GameInfo) =
             core::mem::transmute(rb(va::REPLAY_PROCESS_TEAM_COLORS));
         process_colors(gi);
@@ -570,12 +581,12 @@ unsafe fn parse_and_write_v2plus(
         let map_seed = s.read_u16()?;
         wd(va::G_MAP_SEED, map_seed as u32);
 
-        let fun_45d640: unsafe extern "stdcall" fn(*mut GameInfo) =
-            core::mem::transmute(rb(va::REPLAY_PROCESS_STATE));
-        fun_45d640(gi);
+        let convert_scheme: unsafe extern "stdcall" fn(*mut GameInfo) =
+            core::mem::transmute(rb(va::CGAMEINFO_CONVERT_SCHEME));
+        convert_scheme(gi);
 
         if map_seed == 0 || map_seed == 0xFFFF {
-            call_process_scheme_defaults(gi, rb(va::REPLAY_PROCESS_SCHEME_DEFAULTS));
+            call_usercall_esi(gi as u32, rb(va::REPLAY_PROCESS_SCHEME_DEFAULTS));
         }
         if map_seed != 0 {
             // Per-team weapon config reads from stream — not yet implemented.
@@ -869,11 +880,4 @@ unsafe extern "cdecl" fn call_register_observer(_esi_val: u32, _data_ptr: u32, _
         "pop esi",
         "ret",
     );
-}
-
-#[inline]
-unsafe fn call_process_scheme_defaults(gi: *mut GameInfo, func: u32) {
-    unsafe {
-        call_usercall_esi(gi as u32, func);
-    }
 }

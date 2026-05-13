@@ -36,6 +36,11 @@ static SNAPSHOT: Mutex<Option<Vec<u8>>> = Mutex::new(None);
 /// Capture the current `GameInfo` bytes. Called from
 /// [`crate::wa::frontend::launch_game_session`]'s entry. Idempotent — first
 /// successful capture wins; later launches are skipped.
+///
+/// Also writes a labelled `.bin`/`.hex` pair to `gameinfo_dumps/`, tagged
+/// `_rust` or `_wa` depending on whether this run's `InitSession` was the
+/// Rust port or the WA original. Used for byte-diffing the two paths while
+/// the Rust port is still under investigation.
 pub fn capture() {
     if let Ok(mut guard) = SNAPSHOT.lock() {
         if guard.is_some() {
@@ -50,6 +55,27 @@ pub fn capture() {
         let _ = openwa_core::log::log_line(&format!(
             "[gameinfo-snapshot] captured {GAME_INFO_SIZE} bytes"
         ));
+
+        let tag = if crate::engine::init_session::RUST_INIT_SESSION_RAN
+            .load(core::sync::atomic::Ordering::Relaxed)
+        {
+            "launch_entry_rust"
+        } else {
+            "launch_entry_wa"
+        };
+        match dump_to_disk(tag) {
+            Ok(path) => {
+                let _ = openwa_core::log::log_line(&format!(
+                    "[gameinfo-snapshot] auto-dumped to {}",
+                    path.display()
+                ));
+            }
+            Err(e) => {
+                let _ = openwa_core::log::log_line(&format!(
+                    "[gameinfo-snapshot] auto-dump failed: {e}"
+                ));
+            }
+        }
     }
 }
 

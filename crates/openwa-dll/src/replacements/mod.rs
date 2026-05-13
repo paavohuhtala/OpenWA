@@ -12,6 +12,7 @@ mod game_session;
 mod gfx_dir;
 mod hardware_init;
 mod headless;
+mod init_session;
 mod keyboard;
 mod main_loop;
 mod music;
@@ -62,6 +63,15 @@ pub fn install_all() -> Result<(), String> {
     config::install()?;
     weapon::install()?;
     team::install()?;
+    // Rust orchestrator port currently crashes WA's Landscape__Constructor on a
+    // real match start (NULL deref at offset 0x244 — landscape file load fails).
+    // Gate on env var so we can do a byte-diff of GameInfo at launch_game_session
+    // entry. Disabled by default; set OPENWA_RUST_INIT_SESSION=1 to enable. The
+    // Rust port stays available via `engine::config_load::init_session` for the
+    // openwa-frontend re-launch path regardless.
+    if std::env::var_os("OPENWA_RUST_INIT_SESSION").is_some() {
+        init_session::install()?;
+    }
     render::install()?;
     sprite::install()?;
     sound::install()?;

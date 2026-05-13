@@ -422,18 +422,16 @@ pub struct GameInfo {
     pub sound_volume_percent: i32,
 
     /// 0xDAAC: Landscape data path (passed to Landscape constructor).
-    /// Points to a path string used for loading level terrain data.
+    /// `LoadOptions` writes `"data\\land.dat\0"` into the first 14 bytes here
+    /// (via the prefix-pointer convention — see [`crate::engine::init_session`]).
     pub landscape_data_path: [u8; 0xDAE8 - 0xDAAC],
 
-    // --- Cluster 1: data paths ---
-    /// 0xDAE8: Config DWORD (copied from global 0x88E390)
-    pub _config_dword_dae8: u32,
-    /// 0xDAEC: Land data path ("data\land.dat", 14 bytes incl. null)
-    pub land_dat_path: [u8; 14],
-
-    // --- Replay configuration (populated by ReplayLoader) ---
-    /// 0xDAFA-0xDB07: Unknown
-    pub _unknown_dafa: [u8; 0xDB08 - 0xDAFA],
+    // 0xDAE8..0xDB07: Unknown. Note: this region used to contain duplicate
+    // `_config_dword_dae8` (alias of `sound_volume_percent`) and `land_dat_path`
+    // (alias of first 14 bytes of `landscape_data_path`) fields — those were
+    // an artefact of the dual prefix/inner coordinate confusion. Removed in
+    // the 2026-05-13 LoadOptions-cluster refactor.
+    pub _unknown_dae8: [u8; 0xDB08 - 0xDAE8],
     /// 0xDB08: Packed pair of replay-mode flags (u32). InitGameState
     /// unpacks these into `GameRuntime::replay_flag_a` (low byte) and
     /// `GameRuntime::replay_flag_b` (second byte); both are zero in
@@ -508,51 +506,84 @@ pub struct GameInfo {
     /// 0xF350: Replay end frame (i32). In replay mode, DispatchFrame triggers
     /// game-over once `GameWorld.frame_counter` passes this value.
     pub replay_end_frame: i32,
-    /// 0xF354-0xF360: Unknown
-    pub _unknown_f354: [u8; 0xF361 - 0xF354],
-    /// 0xF361: Render phase config byte. Copied to GameWorld.render_phase at init.
-    pub render_phase_cfg: u8,
-    /// 0xF362: Unknown byte copied to GameWorld+0x7788 during turn state init.
-    pub _field_f362: u8,
-    /// 0xF363: Config byte. Copied to GameWorld._field_7644 at init.
-    pub _field_f363: u8,
-    /// 0xF364: Config byte. Copied to GameWorld._field_7648 at init.
-    pub _field_f364: u8,
-    /// 0xF365: HUD team-bar extended-mode config (u8 bool). Source for
-    /// [`crate::engine::runtime::GameRuntime::hud_team_bar_extended`] —
-    /// bool-ified into the runtime field at game-state init. When set,
-    /// the in-game HUD uses the tall team-bar layout and suppresses
-    /// the "unseen chat messages" indicator.
-    pub _field_f365: u8,
+    /// 0xF354-0xF35F: Unknown
+    pub _unknown_f354: [u8; 0xF360 - 0xF354],
+    /// 0xF360: Unknown config byte (LoadOptions writes from global 0x7C0D38).
+    /// Was previously misnamed `_config_byte_f3a0` (a prefix-coord alias).
+    pub _config_byte_f360: u8,
+    /// 0xF361: DetailLevel (registry, default 5). Also copied to
+    /// `GameWorld.render_phase` at game-state init (was named `render_phase_cfg`).
+    pub detail_level: u8,
+    /// 0xF362: EnergyBar (registry, default 1). Copied to `GameWorld+0x7788`
+    /// during turn state init.
+    pub energy_bar: u8,
+    /// 0xF363: InfoTransparency (registry, default 0). Copied to
+    /// `GameWorld._field_7644` at game-state init.
+    pub info_transparency: u8,
+    /// 0xF364: InfoSpy (registry, default 1, bool coerced). Copied to
+    /// `GameWorld._field_7648` at game-state init.
+    pub info_spy: u8,
+    /// 0xF365: `LoadOptions` writes the **ChatPinned** registry value
+    /// (default 0) here. `InitGameState` reads the same byte as a bool
+    /// source for [`crate::engine::runtime::GameRuntime::hud_team_bar_extended`]
+    /// (tall team-bar HUD + suppressed "unseen chat messages" indicator).
+    /// The registry key name and the runtime-consumer name don't agree;
+    /// keeping a neutral field name + documenting both consumers.
+    pub option_byte_f365: u8,
     /// 0xF366-0xF367: Unknown
     pub _unknown_f366: [u8; 0xF368 - 0xF366],
-    /// 0xF368: Worm selection count config (i32). 0 = use default.
-    pub worm_select_cfg_a: i32,
-    /// 0xF36C: Worm selection count alt config (i32). -1 = use default (7).
-    pub worm_select_cfg_b: i32,
-    /// 0xF370: Display palette flag (u8). Bool-ified to palette+0x10 if headful.
-    pub _field_f370: u8,
+    /// 0xF368: `LoadOptions` writes the **ChatLines** registry value
+    /// (default 0) here. `InitGameState` reads the same dword and
+    /// clamps it into [`crate::engine::runtime::GameRuntime::worm_select_count`]:
+    /// `0 → team_count_config`; `1..=min_active_teams → min_active_teams`;
+    /// `> 0x20 → 0x20`; otherwise verbatim. Either WA's registry key naming
+    /// is historical/misleading or another reader uses this byte for actual
+    /// chat-line behavior — undetermined.
+    pub option_dword_f368: u32,
+    /// 0xF36C: `LoadOptions` writes the **PinnedChatLines** registry value
+    /// (default 0xFFFFFFFF / -1) here. `InitGameState` reads it as
+    /// `worm_select_count_alt` (`-1 → 7`, otherwise clamped to
+    /// `[min_active_teams, 0x20]`). See [`Self::option_dword_f368`].
+    pub option_dword_f36c: u32,
+    /// 0xF370: HomeLock (registry, default 0). Authoritatively a `u8` —
+    /// `LoadOptions` is the only writer and writes the low byte only.
+    /// Bool-ified to `Keyboard+0x10` at game-state init; sets
+    /// `GameSession.home_lock_active` during InitHardware; DispatchFrame
+    /// uses it for headless-exit timing.
+    pub home_lock: u8,
     /// 0xF371-0xF373: Unknown
     pub _unknown_f371: [u8; 0xF374 - 0xF371],
 
-    /// 0xF374: Display flags passed to DisplayGfx::Init.
+    /// 0xF374: cfg_dword[0] of the LoadOptions general config block
+    /// (DAT_0088E39C). Passed to `DisplayGfx::Init` as the "flags" arg.
     pub display_flags: u32,
 
-    /// 0xF378-0xF383: Unknown
-    pub _unknown_f378: [u8; 0xF384 - 0xF378],
-    /// 0xF384: Input-detection flags consumed by `Keyboard::CheckAction` case
-    /// 0x42 (tilde / backtick equivalence). Bit 0 CLEAR enables the
-    /// scancode-based probe (`MapVirtualKeyA(0x29, MAPVK_VSC_TO_VK)`); bit 1
-    /// CLEAR enables the layout-based probe (`VkKeyScanA('`')`). Polarity is
+    /// 0xF378: cfg_dword[1] (DAT_0088E3A0). Read by `GameEngine::InitHardware`
+    /// as a "skip QPC" flag — nonzero forces the synthetic-clock path.
+    pub _cfg_dword_f378: u32,
+    /// 0xF37C: cfg_dword[2] (DAT_0088E3A4)
+    pub _cfg_dword_f37c: u32,
+    /// 0xF380: cfg_dword[3] (DAT_0088E3A8)
+    pub _cfg_dword_f380: u32,
+    /// 0xF384: cfg_dword[5] (DAT_0088E400). Input-detection flags consumed
+    /// by `Keyboard::CheckAction` case 0x42 (tilde / backtick equivalence).
+    /// Bit 0 CLEAR enables the scancode-based probe
+    /// (`MapVirtualKeyA(0x29, MAPVK_VSC_TO_VK)`); bit 1 CLEAR enables the
+    /// layout-based probe (`VkKeyScanA('`')`). Polarity is
     /// "feature disabled when bit set" — WA's only consumer.
     pub _field_f384: u32,
-    /// 0xF388-0xF38B: Unknown
-    pub _unknown_f388: [u8; 0xF38C - 0xF388],
-    /// 0xF38C: Sound distance attenuation factor (i32). When nonzero, enables 3D
-    /// positional audio via Distance3D_Attenuation. Zero = all sounds at full volume.
+    /// 0xF388: cfg_dword[6] (DAT_0088E404)
+    pub _cfg_dword_f388: u32,
+    /// 0xF38C: cfg_dword[7] (DAT_0088E408). Sound distance attenuation factor
+    /// (i32). When nonzero, enables 3D positional audio via
+    /// `Distance3D_Attenuation`. Zero = all sounds at full volume.
     pub sound_attenuation: i32,
-    /// 0xF390-0xF397: Unknown
-    pub _unknown_f390: [u8; 0xF398 - 0xF390],
+    /// 0xF390: cfg_dword[4] (DAT_0088E3AC). The cfg-block writer in WA jumps
+    /// here after cfg[3] at 0xF380 — sparse layout, dword indices 0,1,2,3,5,6,7
+    /// at 0xF374..0xF38F then index 4 here at 0xF390.
+    pub _cfg_dword_f390: u32,
+    /// 0xF394: DAT_0088E3B0 (from a separate cfg block at `G_CONFIG_DWORDS_F3D4`).
+    pub _cfg_dword_f394: u32,
     /// 0xF398: "Snap animations" / non-advancing-frame latch (i32). When
     /// non-zero, three different easers in `DispatchFrame` collapse to
     /// their target values instead of stepping one tick:
@@ -569,83 +600,42 @@ pub struct GameInfo {
     /// "sound suppression" interpretation describes one downstream effect
     /// (sound is gated by the same flag) but not the field's purpose.
     pub _field_f398: i32,
-    /// 0xF39C: Read as a `u32` and copied verbatim into
-    /// `GameSession.display_param_1` by `GameSession::Run`. Purpose unknown.
-    pub _field_f39c: u32,
-
-    // --- Cluster 2: game options (populated by LoadOptions) ---
-    /// 0xF3A0: Unknown config byte (from global 0x7C0D38)
-    pub _config_byte_f3a0: u8,
-    /// 0xF3A1: Detail level (registry: DetailLevel, default 5)
-    pub detail_level: u8,
-    /// 0xF3A2: Energy bar display (registry: EnergyBar, default 1)
-    pub energy_bar: u8,
-    /// 0xF3A3: Info transparency (registry: InfoTransparency, default 0)
-    pub info_transparency: u8,
-    /// 0xF3A4: Info spy enabled (registry: InfoSpy, default 1, bool coerced)
-    pub info_spy: u8,
-    /// 0xF3A5: Chat pinned (registry: ChatPinned, default 0)
-    pub chat_pinned: u8,
-    /// 0xF3A6: Unknown
-    pub _unknown_f3a6: [u8; 2],
-    /// 0xF3A8: Chat line count (registry: ChatLines, default 0)
-    pub chat_lines: u32,
-    /// 0xF3AC: Pinned chat lines (registry: PinnedChatLines, default 0xFFFFFFFF)
-    pub pinned_chat_lines: u32,
-    /// 0xF3B0: Home lock (registry: HomeLock, default 0).
-    ///
-    /// Authoritatively a `u8` — `LoadOptions` is the only writer and writes
-    /// the low byte only. `InitHardware` and `DispatchFrame` happen to read
-    /// this as a `word` in the disassembly, but the high byte (0xF3B1) is
-    /// zero-initialised and never modified, so the wider read is bit-for-bit
-    /// equivalent to a byte read. Consumers should use this `u8` field.
-    ///
-    /// Roles: `(home_lock != 0)` sets `GameSession.home_lock_active` during
-    /// `InitHardware`, and `DispatchFrame` compares it against
-    /// `GameWorld._field_77d4 / 50` to trigger `game_state = 4` (headless exit)
-    /// after the matching number of turn seconds.
-    pub home_lock: u8,
-    /// 0xF3B1: Unknown
-    pub _unknown_f3b1: [u8; 3],
-    /// 0xF3B4: Display width — first DWORD of the config block.
-    /// Written from G_CONFIG_DWORDS_F3B4, updated by DisplayGfx::Init retry loop.
-    pub display_width: u32,
-    /// 0xF3B8: Display height — second DWORD of the config block.
-    /// Written from G_CONFIG_DWORDS_F3B4, updated by DisplayGfx::Init retry loop.
-    pub display_height: u32,
-    /// 0xF3BC: Remaining config DWORDs (indices 2..7 of the original block).
-    /// LoadOptions writes indices 0..5 from G_CONFIG_DWORDS_F3B4,
-    /// then indices 4..7 from G_CONFIG_DWORDS_F3C4 (overlapping at [2]).
-    pub _config_dwords_f3bc: [u32; 5],
-    /// 0xF3D0: Unknown (not written by LoadOptions)
-    pub _unknown_f3d0: [u8; 4],
-    /// 0xF3D4: Config DWORD (from global 0x88E3B0[0])
-    pub _config_dword_f3d4: u32,
-    /// 0xF3D8: Config DWORD (from global 0x88E3B0[1])
-    pub _config_dword_f3d8: u32,
-    /// 0xF3DC: Capture transparent PNGs flag (registry, default 0)
+    /// 0xF39C: CaptureTransparentPNGs (registry, default 0). Also read by
+    /// `GameSession::Run` and copied verbatim into `GameSession.display_param_1`.
     pub capture_transparent_pngs: u32,
-    /// 0xF3E0: Camera unlock mouse speed (registry, clamped to 0xB504 then squared)
-    pub camera_unlock_mouse_speed: u32,
-    /// 0xF3E4: Config DWORD (from global 0x88E44C)
-    pub _config_dword_f3e4: u32,
-    /// 0xF3E8: Background debris parallax (registry, fixed-point 16.16)
-    pub background_debris_parallax: u32,
-    /// 0xF3EC: Topmost explosion onomatopoeia flag (registry, default 0)
-    pub topmost_explosion_onomatopoeia: u32,
-    /// 0xF3F0: Zeroed at init
-    pub _zeroed_f3f0: u16,
-    /// 0xF3F2: Unknown
-    pub _unknown_f3f2: [u8; 2],
-    /// 0xF3F4: Conditional config block (4 DWORDs from global 0x88E3B8, only if guard==0)
-    pub _conditional_config_f3f4: [u32; 4],
-    /// 0xF404: Speech directory path (null-terminated, up to 129 bytes)
-    pub speech_path: [u8; 0x81],
-    /// 0xF485: Config data block (64 bytes copied from global 0x88DFF3)
-    pub _config_block_f485: [u8; 64],
 
-    /// 0xF4C5-0xF4FF: Unknown
-    pub _unknown_f4c5: [u8; 0xF500 - 0xF4C5],
+    /// 0xF3A0: CameraUnlockMouseSpeed^2 (registry, clamped to 0xB504 then squared).
+    pub camera_unlock_mouse_speed: u32,
+    /// 0xF3A4: Config DWORD (from global 0x0088E44C).
+    pub _config_dword_f3a4: u32,
+    /// 0xF3A8: BackgroundDebrisParallax (registry, fixed-point 16.16).
+    pub background_debris_parallax: u32,
+    /// 0xF3AC: TopmostExplosionOnomatopoeia flag (registry, default 0).
+    pub topmost_explosion_onomatopoeia: u32,
+    /// 0xF3B0: Zeroed at init by LoadOptions.
+    pub _zeroed_f3b0: u16,
+    /// 0xF3B2-0xF3B3: Unknown.
+    pub _unknown_f3b2: [u8; 2],
+
+    /// 0xF3B4: Display width — first DWORD of the conditional config block
+    /// (`G_CONFIG_DWORDS_F3F4`, written only if guard==0). Updated by
+    /// `DisplayGfx::Init` retry loop.
+    pub display_width: u32,
+    /// 0xF3B8: Display height — second DWORD of the conditional config block.
+    pub display_height: u32,
+    /// 0xF3BC: Conditional config block dword [2] (DAT_0088E3C0).
+    pub _conditional_config_f3bc: u32,
+    /// 0xF3C0: Conditional config block dword [3] (DAT_0088E3C4).
+    pub _conditional_config_f3c0: u32,
+
+    /// 0xF3C4: Speech directory path (null-terminated, up to 129 bytes).
+    /// `LoadOptions` writes this as a sprintf of `"%s\\user\\speech"`.
+    pub speech_path: [u8; 0x81],
+    /// 0xF445: Config data block (64 bytes copied from global 0x0088DFF3).
+    pub _config_block_f445: [u8; 64],
+
+    /// 0xF485-0xF4FF: Unknown.
+    pub _unknown_f485: [u8; 0xF500 - 0xF485],
 
     // --- Extended region (beyond original 0xF500 conservative estimate) ---
     /// 0xF500-0xF913: Unknown
@@ -696,30 +686,18 @@ impl GameInfo {
     }
 }
 
-struct HexU32s<'a>(&'a [u32]);
-
-impl core::fmt::Debug for HexU32s<'_> {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "[")?;
-        for (i, v) in self.0.iter().enumerate() {
-            if i > 0 {
-                write!(f, ", ")?;
-            }
-            write!(f, "0x{v:08X}")?;
-        }
-        write!(f, "]")
-    }
-}
-
 impl core::fmt::Debug for GameInfo {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        // Extract land_dat_path as a string (null-terminated)
+        // Extract landscape_data_path as a string (LoadOptions writes
+        // "data\\land.dat\0" into the first 14 bytes).
         let land_str = self
-            .land_dat_path
+            .landscape_data_path
             .iter()
             .position(|&b| b == 0)
-            .map(|end| core::str::from_utf8(&self.land_dat_path[..end]).unwrap_or("<invalid utf8>"))
-            .unwrap_or(core::str::from_utf8(&self.land_dat_path).unwrap_or("<invalid utf8>"));
+            .map(|end| {
+                core::str::from_utf8(&self.landscape_data_path[..end]).unwrap_or("<invalid utf8>")
+            })
+            .unwrap_or(core::str::from_utf8(&self.landscape_data_path).unwrap_or("<invalid utf8>"));
 
         // Extract speech_path as a string (null-terminated)
         let speech_str = self
@@ -731,22 +709,19 @@ impl core::fmt::Debug for GameInfo {
 
         f.debug_struct("GameInfo")
             // Cluster 1: data paths
-            .field(
-                "_config_dword_dae8",
-                &format_args!("0x{:08X}", self._config_dword_dae8),
-            )
-            .field("land_dat_path", &land_str)
-            // Cluster 2: game options
-            .field("_config_byte_f3a0", &self._config_byte_f3a0)
+            .field("sound_volume_percent", &self.sound_volume_percent)
+            .field("landscape_data_path", &land_str)
+            // Cluster 2: game options (inner-coord at 0xF360..0xF370)
+            .field("_config_byte_f360", &self._config_byte_f360)
             .field("detail_level", &self.detail_level)
             .field("energy_bar", &self.energy_bar)
             .field("info_transparency", &self.info_transparency)
             .field("info_spy", &self.info_spy)
-            .field("chat_pinned", &self.chat_pinned)
-            .field("chat_lines", &self.chat_lines)
+            .field("option_byte_f365", &self.option_byte_f365)
+            .field("option_dword_f368", &self.option_dword_f368)
             .field(
-                "pinned_chat_lines",
-                &format_args!("0x{:08X}", self.pinned_chat_lines),
+                "option_dword_f36c",
+                &format_args!("0x{:08X}", self.option_dword_f36c),
             )
             .field("home_lock", &self.home_lock)
             .field(
@@ -755,20 +730,11 @@ impl core::fmt::Debug for GameInfo {
             )
             .field("display_width", &self.display_width)
             .field("display_height", &self.display_height)
-            .field("_config_dwords_f3bc", &HexU32s(&self._config_dwords_f3bc))
-            .field(
-                "_config_dword_f3d4",
-                &format_args!("0x{:08X}", self._config_dword_f3d4),
-            )
-            .field(
-                "_config_dword_f3d8",
-                &format_args!("0x{:08X}", self._config_dword_f3d8),
-            )
             .field("capture_transparent_pngs", &self.capture_transparent_pngs)
             .field("camera_unlock_mouse_speed", &self.camera_unlock_mouse_speed)
             .field(
-                "_config_dword_f3e4",
-                &format_args!("0x{:08X}", self._config_dword_f3e4),
+                "_config_dword_f3a4",
+                &format_args!("0x{:08X}", self._config_dword_f3a4),
             )
             .field(
                 "background_debris_parallax",
@@ -778,11 +744,7 @@ impl core::fmt::Debug for GameInfo {
                 "topmost_explosion_onomatopoeia",
                 &self.topmost_explosion_onomatopoeia,
             )
-            .field("_zeroed_f3f0", &self._zeroed_f3f0)
-            .field(
-                "_conditional_config_f3f4",
-                &HexU32s(&self._conditional_config_f3f4),
-            )
+            .field("_zeroed_f3b0", &self._zeroed_f3b0)
             .field("speech_path", &speech_str)
             .field("speech_enabled", &self.speech_enabled)
             .field("headless_mode", &self.headless_mode)

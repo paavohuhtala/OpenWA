@@ -95,8 +95,9 @@ pub unsafe fn init_turn_state(runtime: *mut GameRuntime) {
         (*world)._field_77e0 = 0;
         (*world)._field_7784 = 0;
 
-        // GameWorld._field_7788 = game_info._field_f362 (byte → u32)
-        (*world)._field_7788 = (*game_info)._field_f362 as u32;
+        // GameWorld._field_7788 = game_info.energy_bar (byte → u32). WA's
+        // EnergyBar registry value also drives this turn-state field.
+        (*world)._field_7788 = (*game_info).energy_bar as u32;
         (*world)._field_778c = Fixed::ONE;
         (*world)._field_7790 = 0;
 
@@ -408,7 +409,11 @@ pub unsafe fn init_game_state(runtime: *mut GameRuntime) {
 
         // ===== Worm selection count and terrain config =====
         {
-            let mut val = (*game_info).worm_select_cfg_a;
+            // `option_dword_f368` (LoadOptions writes the "ChatLines" registry
+            // value here) — when 0 → team_count_cfg, else clamped to
+            // [min_teams, 0x20]. WA's registry-key naming vs runtime-consumer
+            // semantic disagree; see field doc.
+            let mut val = (*game_info).option_dword_f368 as i32;
             let min_teams = (*runtime).min_active_teams;
             let team_count_cfg = (*runtime).team_count_config;
 
@@ -421,7 +426,10 @@ pub unsafe fn init_game_state(runtime: *mut GameRuntime) {
             }
             (*runtime).worm_select_count = val;
 
-            val = (*game_info).worm_select_cfg_b;
+            // `option_dword_f36c` — LoadOptions writes "PinnedChatLines"
+            // (default -1 as i32) here. -1 → 7, else clamped to
+            // [min_teams, 0x20]. See `option_dword_f368` for the naming caveat.
+            val = (*game_info).option_dword_f36c as i32;
             if val == -1 {
                 val = 7;
             } else if val < min_teams {
@@ -431,12 +439,14 @@ pub unsafe fn init_game_state(runtime: *mut GameRuntime) {
             }
             (*runtime).worm_select_count_alt = val;
 
-            (*runtime).hud_team_bar_extended = ((*game_info)._field_f365 != 0) as u32;
+            // `option_byte_f365` — LoadOptions writes "ChatPinned" registry
+            // value here; bool-ified into hud_team_bar_extended. See field doc.
+            (*runtime).hud_team_bar_extended = ((*game_info).option_byte_f365 != 0) as u32;
 
             if is_headful {
                 // GameWorld+0x000 = keyboard ptr; keyboard+0x10 = config field
                 let keyboard = (*world).keyboard as *mut u8;
-                *(keyboard.add(0x10) as *mut u32) = ((*game_info)._field_f370 != 0) as u32;
+                *(keyboard.add(0x10) as *mut u32) = ((*game_info).home_lock != 0) as u32;
             }
         }
 
@@ -1235,10 +1245,12 @@ unsafe fn init_game_state_tracking_arrays(world: *mut GameWorld, game_info: *con
 
         // Misc fields
         (*world).sound_queue_count = 0;
-        (*world).render_phase = (*game_info).render_phase_cfg as i32;
+        // WA's DetailLevel / InfoTransparency / InfoSpy registry values
+        // drive GameWorld.render_phase / _field_7644 / _field_7648.
+        (*world).render_phase = (*game_info).detail_level as i32;
         (*world)._field_7640 = 0;
-        (*world)._field_7644 = (*game_info)._field_f363 as u32;
-        (*world)._field_7648 = (*game_info)._field_f364 as u32;
+        (*world)._field_7644 = (*game_info).info_transparency as u32;
+        (*world)._field_7648 = (*game_info).info_spy as u32;
 
         // Render state
         (*world)._field_7390 = 0;

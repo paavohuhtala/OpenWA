@@ -37,8 +37,14 @@ unsafe extern "stdcall" fn hook_registry_clean_all(struct_ptr: *mut u8) {
     unsafe { config_load::registry_clean_all(struct_ptr) }
 }
 
-unsafe extern "stdcall" fn hook_load_options(game_info: *mut GameInfo) {
-    unsafe { config_load::load_options(game_info) }
+/// WA calls `LoadOptions(prefix_ptr)` where `prefix_ptr = G_GAME_INFO - 0x40`.
+/// Our `config_load::load_options` takes the *inner* `G_GAME_INFO` pointer
+/// (post-2026-05-13 cluster refactor) — adjust before forwarding.
+unsafe extern "stdcall" fn hook_load_options(prefix_ptr: *mut u8) {
+    unsafe {
+        let game_info = prefix_ptr.add(0x40) as *mut GameInfo;
+        config_load::load_options(game_info);
+    }
 }
 
 unsafe extern "cdecl" fn hook_get_crash_report_url() -> *mut u8 {

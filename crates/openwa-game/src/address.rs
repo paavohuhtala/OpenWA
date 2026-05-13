@@ -516,6 +516,11 @@ pub mod va {
         fn/Usercall REPLAY_READ_WORM_NAME = 0x00461620;
         /// Validate team type byte range
         fn/Fastcall REPLAY_VALIDATE_TEAM_TYPE = 0x00461690;
+        /// Create the `.WAgame` replay file for recording the upcoming match.
+        /// Stdcall(prefix_ptr, type_label, time_lo, time_hi) — the 64-bit time
+        /// is split across two stack args. Called only from
+        /// `GameInfo__InitSession` when its `type_label` is non-null.
+        fn/Stdcall CGAMEINFO_CREATE_WA_GAME_REPLAY = 0x004616B0;
         /// Post-process team color assignments
         fn/Stdcall REPLAY_PROCESS_TEAM_COLORS = 0x00466460;
         /// Apply scheme default values
@@ -548,8 +553,10 @@ pub mod va {
         fn GAME_FRAME_DISPATCHER = 0x00531D00;
         /// Sends game packet if network buffer allows
         fn SEND_GAME_PACKET_CONDITIONAL = 0x00531880;
-        /// Process replay state — large function (1032 lines)
-        fn/Stdcall REPLAY_PROCESS_STATE = 0x0045D640;
+        /// Apply selected scheme onto GameInfo (2410 inst, complexity 182). Called by
+        /// `GameInfo__InitSession` and by the replay-loader's scheme-default path.
+        /// Takes `prefix_ptr = G_GAME_INFO - 0x40`, NOT GameInfo directly.
+        fn/Stdcall CGAMEINFO_CONVERT_SCHEME = 0x0045D640;
         /// Cleanup observer array
         fn/Usercall REPLAY_CLEANUP_OBSERVERS = 0x0053EE00;
     }
@@ -1216,6 +1223,9 @@ pub mod va {
         fn/Cdecl WA_RAND = 0x005D294B;
         /// WA's CRT _gmtime64
         fn/Cdecl WA_GMTIME64 = 0x005D34C0;
+        /// WA's CRT _time64 — returns 64-bit time in EDX:EAX. Cdecl, takes
+        /// an optional `__time64_t *destptr` (pass NULL).
+        fn/Cdecl WA_TIME64 = 0x005D2902;
         /// WA's CRT malloc (raw)
         fn/Cdecl WA_CRT_MALLOC = 0x005C0AB8;
     }
