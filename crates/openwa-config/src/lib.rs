@@ -1,6 +1,6 @@
 //! Configuration and installation discovery for OpenWA tools.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use windows_sys::Win32::System::Registry::*;
 
@@ -47,6 +47,69 @@ fn from_registry() -> Option<PathBuf> {
         return None;
     }
     Some(PathBuf::from(s))
+}
+
+/// `User/Schemes` directory under the installation, if it exists.
+pub fn find_schemes_dir() -> Option<PathBuf> {
+    let dir = find_wa_dir()?.join("User").join("Schemes");
+    dir.is_dir().then_some(dir)
+}
+
+/// `User/Teams` directory under the installation, if it exists.
+pub fn find_teams_dir() -> Option<PathBuf> {
+    let dir = find_wa_dir()?.join("User").join("Teams");
+    dir.is_dir().then_some(dir)
+}
+
+/// Discovered file entry: `(display_name, absolute_path)`. Display names
+/// are the file's stem (no extension), suitable for dropdown UIs.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct DiscoveredFile {
+    pub name: String,
+    pub path: PathBuf,
+}
+
+/// Enumerate files in `dir` whose extension matches `ext`
+/// (case-insensitive). Sorted alphabetically by display name.
+///
+/// Returns an empty `Vec` when the directory is missing or unreadable;
+/// individual unreadable entries are skipped silently.
+pub fn list_files_by_ext(dir: &Path, ext: &str) -> Vec<DiscoveredFile> {
+    let mut out = Vec::new();
+    let Ok(read_dir) = std::fs::read_dir(dir) else {
+        return out;
+    };
+    for entry in read_dir.flatten() {
+        let path = entry.path();
+        let matches_ext = path
+            .extension()
+            .map(|e| e.eq_ignore_ascii_case(ext))
+            .unwrap_or(false);
+        if !matches_ext {
+            continue;
+        }
+        let name = match path.file_stem().and_then(|s| s.to_str()) {
+            Some(s) => s.to_owned(),
+            None => continue,
+        };
+        out.push(DiscoveredFile { name, path });
+    }
+    out.sort();
+    out
+}
+
+/// Convenience: list every `.wsc` under `User/Schemes`.
+pub fn list_schemes() -> Vec<DiscoveredFile> {
+    find_schemes_dir()
+        .map(|d| list_files_by_ext(&d, "wsc"))
+        .unwrap_or_default()
+}
+
+/// Convenience: list every `.wgt` under `User/Teams`.
+pub fn list_team_files() -> Vec<DiscoveredFile> {
+    find_teams_dir()
+        .map(|d| list_files_by_ext(&d, "wgt"))
+        .unwrap_or_default()
 }
 
 /// Read a REG_SZ value from `HKCU\<key>`. Returns the number of bytes written
