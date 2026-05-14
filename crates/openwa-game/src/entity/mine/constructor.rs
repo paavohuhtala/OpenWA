@@ -200,11 +200,11 @@ pub unsafe fn insert_into_mine_list(this: *mut MineEntity) {
         let victim = *table.add(best_idx as usize);
 
         // Spit out a smoke puff at the victim's position, tinted by the
-        // placer team's font palette. Team ids are 1-based here; level-gen
-        // mines (team 0) can't reach this branch in practice because the
+        // placer team's color. Team ids are 1-based here; level-gen mines
+        // (team 0) can't reach this branch in practice because the
         // registry hands out empty slots first.
         let team_record = GameInfo::team_record_1based(game_info, (*victim).placer_team_index);
-        let state_flag = ((*team_record).font_palette_idx as u32).wrapping_add(8);
+        let state_flag = ((*team_record).team_color_idx as u32).wrapping_add(8);
         crate::game::weapon_release::spawn_effect(
             victim as *mut crate::entity::BaseEntity,
             0,

@@ -478,7 +478,7 @@ pub unsafe fn render_indicator(this: *mut MissileEntity) {
         if owner_id != 0 {
             let game_info = (*world).game_info;
             let team_record = GameInfo::team_record_1based(game_info, owner_id as i32);
-            let sprite = SpriteOp(((*team_record).font_palette_idx as u32).wrapping_add(0x20));
+            let sprite = SpriteOp(((*team_record).team_color_idx as u32).wrapping_add(0x20));
             let sprite_layer = (render_rank as u32).wrapping_mul(4).wrapping_add(0x50001);
             let _ = (*rq).push_typed(
                 sprite_layer,

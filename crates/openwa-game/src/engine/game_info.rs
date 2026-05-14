@@ -43,10 +43,16 @@ pub struct GameInfoTeamRecord {
     /// single use site that happened to load a string near the byte's
     /// computed offset).
     pub owner_player_slot: i8,
-    /// 0x001: Font palette index — selects the team's scoreboard text
-    /// color (slot 9..16 in WA's font table). Equivalently, the alliance
-    /// id used by `WorldEntity__InitAllianceData`.
-    pub font_palette_idx: u8,
+    /// 0x001: Team color index. Selects the team's visible color across
+    /// every per-team sprite/font table (scoreboard font slot 9..16, worm
+    /// flag sprites, mine/missile team-tinted variants, …) and doubles as
+    /// the team's **alliance id**: `WorldEntity__InitAllianceData`
+    /// (0x005262D0) reads this byte and ORs `1 << team_color_idx` into
+    /// `_alliance_bitmasks`, so two teams sharing this value share an
+    /// alliance (shared damage/score pool, allied AI). `GameInfo`'s
+    /// `alliance_group_count` (+0xD0BC) is the count of distinct values
+    /// in this field across active teams.
+    pub team_color_idx: u8,
     /// 0x002: Eliminated flag. `0` = include in leaderboard / scoring;
     /// non-zero = team eliminated for scoring purposes.
     pub eliminated_flag: u8,

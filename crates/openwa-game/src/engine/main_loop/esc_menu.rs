@@ -815,7 +815,7 @@ pub unsafe fn open_esc_menu(runtime: *mut GameRuntime) {
             let (entries, num_entries) = sort_teams(world);
             for entry in entries.iter().take(num_entries) {
                 let record = &(*game_info).team_records[entry.team_idx as usize];
-                let team_color = record.font_palette_idx as i32;
+                let team_color = record.team_color_idx as i32;
                 let wins = record.wins_count as u32;
                 let name_ptr = record.name.as_ptr() as *const c_char;
 

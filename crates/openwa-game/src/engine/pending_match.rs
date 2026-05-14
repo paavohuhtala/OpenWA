@@ -53,7 +53,7 @@ pub struct PendingTeam {
     /// when written to `GameInfo`.
     pub name: String,
     /// Color / alliance group index. Written to `team_records[i]
-    /// .font_palette_idx`. Should be unique per team unless you want
+    /// .team_color_idx`. Should be unique per team unless you want
     /// allied teams (which share an alliance group).
     pub color_idx: u8,
     /// Turn-order group. Written to `team_records[i].turn_order_idx`.
@@ -211,7 +211,7 @@ pub unsafe fn apply(gi: *mut GameInfo, pending: &PendingCustomMatch) {
             // `GameInfoTeamRecord::owner_player_slot` for why non-zero
             // values here disable input dispatch.
             rec.owner_player_slot = 0;
-            rec.font_palette_idx = team.color_idx;
+            rec.team_color_idx = team.color_idx;
             rec.eliminated_flag = 0;
             rec.turn_order_idx = team.turn_order;
             rec.wins_count = 0;
@@ -245,7 +245,7 @@ pub unsafe fn apply(gi: *mut GameInfo, pending: &PendingCustomMatch) {
         for i in (team_count as usize)..MAX_TEAM_RECORDS {
             let rec = &mut (*gi).team_records[i];
             rec.owner_player_slot = 0;
-            rec.font_palette_idx = 0;
+            rec.team_color_idx = 0;
             rec.eliminated_flag = 0;
             rec.turn_order_idx = 0;
             rec.wins_count = 0;
