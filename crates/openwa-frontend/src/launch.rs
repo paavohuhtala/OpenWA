@@ -106,13 +106,8 @@ pub fn has_snapshot() -> bool {
     game_info_snapshot::is_captured()
 }
 
-// ─── Cross-thread launch request slot ──────────────────────────────────────
-
 static PENDING_REQUEST: Mutex<Option<LaunchRequest>> = Mutex::new(None);
 
-/// Main-thread shim. Pops the pending request, restores the snapshot,
-/// overlays team names, calls `launch_game_session`. Blocks for the
-/// lifetime of the match.
 extern "C" fn run_pending_launch() {
     let req = match PENDING_REQUEST.lock().ok().and_then(|mut g| g.take()) {
         Some(r) => r,
@@ -127,9 +122,6 @@ extern "C" fn run_pending_launch() {
         return;
     }
 
-    // Snapshot mode restores the captured bytes up-front; Fresh mode
-    // leaves GameInfo as-is and lets `pending_match::apply` (run from
-    // inside the InitSession call below) populate the team region.
     if let LaunchMode::Snapshot { .. } = &req.mode {
         if let Err(e) = game_info_snapshot::restore() {
             log(&format!("snapshot restore failed: {e}"));
@@ -144,13 +136,9 @@ extern "C" fn run_pending_launch() {
             return;
         }
 
-        // `g_TopModalDialog` — pointer to the currently-modal MFC CDialog
-        // (the main-menu / setup dialog the user is in). Passing it lets
-        // `launch_game_session` run its full pre/post-game frontend dance:
-        // hide the dialog, run the game, then rebuild the framebuffer,
-        // restore audio, and re-show + re-focus the dialog. With a null
-        // dialog, all that post-game work is skipped and the frontend is
-        // left in a half-game state that crashes on the next interaction.
+        // `g_TopModalDialog` — currently-modal MFC CDialog. Passing it lets
+        // `launch_game_session` do the full pre/post-game dance (hide → run →
+        // rebuild framebuffer → restore audio → re-show + focus).
         const G_TOP_MODAL_DIALOG: u32 = 0x007A03DC;
         let dialog = *(rb(G_TOP_MODAL_DIALOG) as *const *mut openwa_game::wa::mfc::CWnd);
         if dialog.is_null() {
@@ -166,33 +154,12 @@ extern "C" fn run_pending_launch() {
             }
         };
 
-        // Overlay team names from the UI on top of whatever's in
-        // GameInfo. In Snapshot mode this rewrites the snapshot-restored
-        // names with the user's UI input. In Fresh mode it's effectively
-        // a no-op rewrite (pending_match::apply has already written
-        // those exact names) but it's cheap and lets the UI override
-        // late, so leave it unconditional.
         overlay_team_names(&req);
 
         if want_init_session {
-            // Re-run the populate-GameInfo orchestrator that WA's real
-            // Start handler uses, in `LaunchSource::CustomLauncher` mode.
-            // The Rust-native helpers (ProcessSchemeDefaults,
-            // ProcessReplayFlags) run; the four WA-bridged helpers
-            // (ProcessTeamColors, CreateWAGameReplay, ConvertScheme,
-            // ValidateTeamSetup) are skipped to preserve the
-            // snapshot-restored team/scheme state — they'd otherwise
-            // overwrite it from stale LobbyDialog globals (and would
-            // also clobber the team-name overlay applied just above).
-            //
-            // type_label is irrelevant in CustomLauncher mode (only
-            // CreateWAGameReplay reads it, and that's one of the
-            // skipped bridges).
             log("calling InitSession in CustomLauncher mode (bridged helpers skipped)");
-            // game_version=500 is hardcoded by the real Start handler
-            // (FrontendLocalMP__OnStartMatch at 0x4A1260) immediately
-            // before InitSession; replicate that so any version-gated
-            // logic inside InitSession sees the same value.
+            // game_version=500: hardcoded by FrontendLocalMP::OnStartMatch
+            // (0x4A1260) right before InitSession.
             let gi = rb(va::G_GAME_INFO) as *mut GameInfo;
             (*gi).game_version = 500;
             let _src_guard = openwa_game::engine::launch_source::LaunchSourceGuard::new(
@@ -202,19 +169,16 @@ extern "C" fn run_pending_launch() {
             log("InitSession returned");
         }
 
-        // Skip the `subobj_a4` vtable slot 13 pre-game hook and its paired
-        // post-game render-children walk — both depend on MFC
-        // dialog-handler context our shim doesn't have. Cleared after the
-        // call so future WA-frontend launches behave normally.
+        // Slot 13 expects MFC dialog-handler context our shim doesn't have;
+        // its paired post-game render-children walk depends on the nodes
+        // slot 13 attaches, so they must skip together.
         SUPPRESS_PRE_LAUNCH_VT13.store(true, Ordering::Release);
         openwa_game::wa::frontend::launch_game_session(app, dialog, ptr::null(), 0);
         SUPPRESS_PRE_LAUNCH_VT13.store(false, Ordering::Release);
 
-        // The skipped slot-13 / render-children walk leaves the frontend
-        // palette parked at the pre-game "fade-to-black" state. Drive it
-        // back up by replicating the redraw portion of FrontendChangeScreen
-        // (palette_animation + per-tick vtable[0x15C] transition method),
-        // *without* the `EndDialog` call that would navigate away.
+        // Replicate the redraw portion of FrontendChangeScreen (palette anim +
+        // vtable[0x15C] x2) *without* EndDialog — the suppressed slot-13 +
+        // post-game walk leaves the frontend palette at fade-to-black.
         const DIALOG_PALETTE_OBJ: usize = 0x12C;
         const DIALOG_PALETTE_PARAM: usize = 0x134;
         const VTABLE_TRANSITION_METHOD: u32 = 0x15C;

@@ -9,7 +9,7 @@ use crate::engine::game_info_snapshot;
 use crate::engine::game_session_run::run_game_session;
 use crate::rebase::rb;
 use crate::render::display::context::{FastcallResult, RenderContext};
-use crate::wa::mfc::{AppSubObjA4, CWinApp, CWnd, cwnd_hwnd};
+use crate::wa::mfc::{AppSubObjA4, CDialogHandle, CWinApp, CWnd, CWndHandle, cwnd_hwnd};
 use crate::wa_call;
 
 /// When set, [`launch_game_session`] skips the `subobj_a4` vtable slot 13
@@ -46,6 +46,58 @@ pub unsafe fn palette_animation(eax_value: u32, palette_param: u32) {
             in("eax") eax_value,
             clobber_abi("C"),
         );
+    }
+}
+
+const FCS_DIALOG_FLAGS: usize = 0x3C;
+const FCS_DIALOG_SCREEN_ID: usize = 0x44;
+const FCS_DIALOG_PALETTE_OBJ: usize = 0x12C;
+const FCS_DIALOG_PALETTE_PARAM: usize = 0x134;
+const FCS_VTABLE_TRANSITION_METHOD: u32 = 0x15C;
+const FCS_FLAG_INIT_BITS: u32 = 0x18;
+const FCS_FLAG_CLEAR_BIT: u32 = 0x10;
+
+/// Rust port of `FrontendChangeScreen` (0x00447A20). Original is usercall
+/// (ESI = dialog, screen_id on stack); this takes `dialog` explicitly.
+///
+/// Drops `screen_id == 25` (IntroMovie). Only WA-side caller is
+/// `CMainMenu::OnTimer` (0x00486D20), an idle screensaver triggered 60s after
+/// each fresh MainMenu — undesirable in OpenWA, and the custom launcher
+/// re-arms it on every post-match return.
+pub unsafe fn frontend_change_screen(dialog: *mut CWnd, screen_id: u32) {
+    unsafe {
+        if screen_id == 25 {
+            return;
+        }
+
+        let g_frontend_frame = wa_call::read_global(va::G_FRONTEND_FRAME);
+        let dialog_addr = dialog as usize;
+
+        if g_frontend_frame == 0 {
+            let flags = *((dialog_addr + FCS_DIALOG_FLAGS) as *const u32);
+            if (flags & FCS_FLAG_INIT_BITS) != 0 {
+                *((dialog_addr + FCS_DIALOG_SCREEN_ID) as *mut u32) = screen_id;
+                *((dialog_addr + FCS_DIALOG_FLAGS) as *mut u32) = flags & !FCS_FLAG_CLEAR_BIT;
+            }
+            return;
+        }
+
+        let wnd = CWndHandle(dialog as u32);
+        let dlg = CDialogHandle(dialog as u32);
+
+        wnd.enable_window(false);
+
+        let palette_param = *((dialog_addr + FCS_DIALOG_PALETTE_PARAM) as *const u32);
+        let eax_value = *((dialog_addr + FCS_DIALOG_PALETTE_OBJ) as *const u32);
+        palette_animation(eax_value, palette_param);
+
+        let vtable = *(dialog as *const u32);
+        for i in 1u32..=2 {
+            wa_call::thiscall_indirect_1(vtable + FCS_VTABLE_TRANSITION_METHOD, dialog as u32, i);
+        }
+
+        wnd.enable_window(true);
+        dlg.end_dialog(screen_id);
     }
 }
 

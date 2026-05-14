@@ -9,17 +9,8 @@ use crate::hook;
 use crate::log_line;
 use openwa_game::address::va;
 use openwa_game::game::ScreenId;
-use openwa_game::wa::mfc::{CDialogHandle, CWndHandle};
-use openwa_game::wa_call;
-
-// Frontend dialog struct offsets (MFC CDialog-derived)
-const DIALOG_FLAGS: usize = 0x3C;
-const DIALOG_SCREEN_ID: usize = 0x44;
-const DIALOG_PALETTE_OBJ: usize = 0x12C;
-const DIALOG_PALETTE_PARAM: usize = 0x134;
-const VTABLE_TRANSITION_METHOD: usize = 0x15C;
-const FLAG_INIT_BITS: u32 = 0x18;
-const FLAG_CLEAR_BIT: u32 = 0x10;
+use openwa_game::wa::frontend::frontend_change_screen;
+use openwa_game::wa::mfc::CWnd;
 
 /// Trampoline to the original FrontendChangeScreen (for fallback if needed).
 static ORIG_FRONTEND_CHANGE_SCREEN: AtomicU32 = AtomicU32::new(0);
@@ -29,49 +20,19 @@ crate::hook::usercall_trampoline!(fn trampoline;
     impl_fn = frontend_change_screen_impl; reg = esi;
     stack_params = 1; ret_bytes = "0x4");
 
-/// Rust reimplementation of FrontendChangeScreen.
-///
-/// Two code paths based on g_FrontendFrame:
-/// - If 0 (initializing): store screen_id in dialog fields
-/// - If nonzero (normal): disable window → palette anim → vtable calls → EndDialog
+/// Hook shim for WA-side callers of `FrontendChangeScreen`. Logs the
+/// transition then delegates to the Rust port in openwa-game (which is the
+/// single source of truth for the navigation logic).
 unsafe extern "cdecl" fn frontend_change_screen_impl(dialog: u32, screen_id: u32) {
     unsafe {
-        let g_frontend_frame = wa_call::read_global(va::G_FRONTEND_FRAME);
-
-        if g_frontend_frame == 0 {
-            // Init path: store screen_id, clear flag bit
-            let flags = *((dialog as usize + DIALOG_FLAGS) as *const u32);
-            if (flags & FLAG_INIT_BITS) != 0 {
-                *((dialog as usize + DIALOG_SCREEN_ID) as *mut u32) = screen_id;
-                *((dialog as usize + DIALOG_FLAGS) as *mut u32) = flags & !FLAG_CLEAR_BIT;
-            }
-        } else {
-            // Normal path: full screen transition
-            let wnd = CWndHandle(dialog);
-            let dlg = CDialogHandle(dialog);
-
-            wnd.enable_window(false);
-
-            let palette_param = *((dialog as usize + DIALOG_PALETTE_PARAM) as *const u32);
-            let eax_value = *((dialog as usize + DIALOG_PALETTE_OBJ) as *const u32);
-            openwa_game::wa::frontend::palette_animation(eax_value, palette_param);
-
-            for i in 1u32..=2 {
-                let vtable = *(dialog as *const u32);
-                wa_call::thiscall_indirect_1(vtable + VTABLE_TRANSITION_METHOD as u32, dialog, i);
-            }
-
-            wnd.enable_window(true);
-            dlg.end_dialog(screen_id);
-        }
-
-        // Log the transition
         let name = ScreenId::try_from(screen_id as i32)
             .map(|s| format!("{s:?}"))
             .unwrap_or_else(|v| format!("Unknown({v})"));
         let _ = log_line(&format!(
             "[FrontendChangeScreen] screen_id={screen_id} ({name})"
         ));
+
+        frontend_change_screen(dialog as *mut CWnd, screen_id);
     }
 }
 
