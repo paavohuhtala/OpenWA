@@ -1,14 +1,30 @@
 use bytemuck::{Pod, Zeroable};
 use core::ops::{Add, Div, Mul, Neg, Sub};
+use deku::prelude::{DekuRead, DekuSize, DekuWrite};
 use std::ops::{AddAssign, SubAssign};
 
 /// 16.16 fixed-point number used throughout WA for coordinates and velocities.
 ///
 /// The game uses `0x10000` (65536) to represent `1.0`.
 /// For example, a position of `0x30000` means 3.0 world units.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default, Zeroable, Pod)]
+#[derive(
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Default,
+    Zeroable,
+    Pod,
+    DekuRead,
+    DekuWrite,
+    DekuSize,
+)]
+#[deku(endian = "endian", ctx = "endian: deku::ctx::Endian")]
 #[repr(transparent)]
-pub struct Fixed(pub i32);
+pub struct Fixed(#[deku(endian = "endian")] pub i32);
 
 impl Fixed {
     pub const FRACTIONAL_BITS: u32 = 16;

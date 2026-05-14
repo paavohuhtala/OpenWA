@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 
 use eframe::egui;
 use openwa_config::DiscoveredFile;
-use openwa_core::scheme::{SchemeFile, SchemeVersion};
+use openwa_core::scheme::Scheme;
 use openwa_core::wgt::{WgtFile, WgtTeam};
 use openwa_game::engine::pending_match::{PendingCustomMatch, PendingTeam};
 
@@ -19,7 +19,7 @@ pub struct MatchLauncherApp {
     /// install can't be located.
     schemes: Vec<DiscoveredFile>,
     /// Index into `schemes` selected by the dropdown, or `None` for the
-    /// fallback all-zero stub scheme.
+    /// fallback default stub scheme.
     scheme_choice: Option<usize>,
     /// Last scheme-load attempt result (cached so the UI keeps status
     /// across frames).
@@ -52,7 +52,6 @@ enum SchemeStatus {
     #[default]
     NotLoaded,
     Loaded {
-        version: SchemeVersion,
         path: PathBuf,
     },
     Error(String),
@@ -204,27 +203,20 @@ impl MatchLauncherApp {
         Ok(vec![pick(self.team_a_idx, 0)?, pick(self.team_b_idx, 1)?])
     }
 
-    fn load_scheme_for_launch(&mut self) -> Result<SchemeFile, String> {
+    fn load_scheme_for_launch(&mut self) -> Result<Scheme, String> {
         let Some(idx) = self.scheme_choice else {
-            // Fallback: an all-zero V3 payload. Not playable as-is but
+            // Fallback: a default V3 payload. Not playable as-is but
             // keeps the launch path functional when no scheme is picked.
-            let zeros = vec![0u8; openwa_core::scheme::SCHEME_PAYLOAD_V3];
-            return Ok(SchemeFile {
-                version: SchemeVersion::V3,
-                payload: zeros,
-            });
+            return Ok(Scheme::default());
         };
         let entry = self
             .schemes
             .get(idx)
             .ok_or("scheme selection points past discovered list")?
             .clone();
-        match SchemeFile::from_file(&entry.path) {
+        match Scheme::from_file(&entry.path) {
             Ok(s) => {
-                self.scheme_status = SchemeStatus::Loaded {
-                    version: s.version,
-                    path: entry.path,
-                };
+                self.scheme_status = SchemeStatus::Loaded { path: entry.path };
                 Ok(s)
             }
             Err(e) => {
@@ -378,10 +370,10 @@ impl MatchLauncherApp {
                 SchemeStatus::NotLoaded => {
                     ui.colored_label(egui::Color32::GRAY, "Scheme not yet loaded.");
                 }
-                SchemeStatus::Loaded { version, path } => {
+                SchemeStatus::Loaded { path } => {
                     ui.colored_label(
                         egui::Color32::LIGHT_GREEN,
-                        format!("Loaded {version:?} from {}", path.display()),
+                        format!("Loaded scheme from {}", path.display()),
                     );
                 }
                 SchemeStatus::Error(msg) => {

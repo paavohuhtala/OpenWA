@@ -37,7 +37,7 @@
 use std::ffi::CString;
 use std::sync::Mutex;
 
-use openwa_core::scheme::SchemeFile;
+use openwa_core::scheme::Scheme;
 use openwa_core::wgt::WgtTeam;
 
 /// Maximum number of teams that fit in [`crate::engine::GameInfo::team_records`].
@@ -180,7 +180,7 @@ pub struct PendingCustomMatch {
     pub teams: Vec<PendingTeam>,
     /// Parsed scheme. The 402-byte V3 payload is copied verbatim into
     /// `G_SCHEME_DATA`. Shorter-version schemes are zero-padded.
-    pub scheme: SchemeFile,
+    pub scheme: Scheme,
     /// Seed for `CMapEditor::GenerateRandomLevel`. Written to
     /// [`crate::address::va::G_GEN_MAP_SEED`] before invoking the
     /// generator. The generator mutates this global as a side-effect, so
@@ -234,10 +234,6 @@ const MAX_LOBBY_PLAYERS: usize = 13;
 /// Matches `core::mem::size_of::<crate::engine::replay::ReplayTeamEntry>()`.
 const LOBBY_TEAM_STRIDE: usize = 0xD7B;
 
-/// V3 scheme payload size (matches `openwa_core::scheme::SCHEME_PAYLOAD_V3`).
-/// `G_SCHEME_DATA` is a 402-byte buffer.
-const SCHEME_BUFFER_SIZE: usize = openwa_core::scheme::SCHEME_PAYLOAD_V3;
-
 /// Write the [`PendingCustomMatch`] state into `GameInfo` (via `gi`) and
 /// `G_SCHEME_DATA`. Mirrors the *outputs* of WA's bridged InitSession
 /// helpers (`GameInfo__InitTeamsFromLobby`, `ConvertScheme`) so the CustomLauncher
@@ -255,10 +251,9 @@ const SCHEME_BUFFER_SIZE: usize = openwa_core::scheme::SCHEME_PAYLOAD_V3;
 pub unsafe fn apply(gi: *mut GameInfo, pending: &PendingCustomMatch) {
     unsafe {
         let _ = openwa_core::log::log_line(&format!(
-            "[pending_match] applying: game_version={} teams={} scheme_version={:?}",
+            "[pending_match] applying: game_version={} teams={} scheme=canonical V3",
             pending.game_version,
             pending.teams.len(),
-            pending.scheme.version,
         ));
 
         let team_count = pending.teams.len().min(MAX_TEAM_RECORDS) as u8;
@@ -341,38 +336,13 @@ pub unsafe fn apply(gi: *mut GameInfo, pending: &PendingCustomMatch) {
             rec.name.fill(0);
         }
 
-        // Copy scheme payload into G_SCHEME_DATA (402 bytes, V3 layout)
-        // and fill the V3 extended-options tail with
-        // [`openwa_core::scheme::EXTENDED_OPTIONS_DEFAULTS`] for any
-        // bytes the file didn't supply. Without the defaults,
-        // `CGameInfo__SetAmmo`'s read of `G_SCHEME_DATA + 0x12C` (the
-        // Y-gravity dword) lands on a zero byte, propagates to
-        // `GameInfo + 0xD9A8`, propagates again to
-        // `game_state_stream + 0x22C`, and worms float on the
-        // CustomLauncher path. (The Frontend lobby pre-fills the same
-        // defaults during scheme load; openwa-core's parse only pads V3
-        // schemes with a short payload, not V1/V2.)
-        let dst = rb(va::G_SCHEME_DATA) as *mut u8;
-        core::ptr::write_bytes(dst, 0, SCHEME_BUFFER_SIZE);
-        let src = &pending.scheme.payload;
-        let copy_len = src.len().min(SCHEME_BUFFER_SIZE);
-        core::ptr::copy_nonoverlapping(src.as_ptr(), dst, copy_len);
-
-        if copy_len < SCHEME_BUFFER_SIZE {
-            let defaults = &openwa_core::scheme::EXTENDED_OPTIONS_DEFAULTS;
-            let tail_off = openwa_core::scheme::EXTENDED_OPTIONS_OFFSET;
-            // For schemes that supplied some extended bytes (truncated
-            // V3), keep what they wrote and only fill the gap; for
-            // V1/V2 with no extended region, fill the whole tail.
-            let pad_start = copy_len.max(tail_off);
-            let pad_end = SCHEME_BUFFER_SIZE;
-            let defaults_off = pad_start - tail_off;
-            core::ptr::copy_nonoverlapping(
-                defaults.as_ptr().add(defaults_off),
-                dst.add(pad_start),
-                pad_end - pad_start,
-            );
-        }
+        // Populate G_SCHEME_DATA as a full canonical V3 layout.
+        let scheme_payload = pending.scheme.payload_bytes();
+        core::ptr::copy_nonoverlapping(
+            scheme_payload.as_ptr(),
+            rb(va::G_SCHEME_DATA) as *mut u8,
+            scheme_payload.len(),
+        );
     }
 }
 
