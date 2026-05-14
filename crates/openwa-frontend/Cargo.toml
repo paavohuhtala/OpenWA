@@ -6,6 +6,7 @@ description = "Custom egui-based match launcher for OpenWA (prototype frontend)"
 
 [dependencies]
 openwa-core = { path = "../openwa-core" }
+openwa-config = { path = "../openwa-config" }
 openwa-game = { path = "../openwa-game" }
 eframe = { version = "0.34.1", default-features = false, features = [
     "glow",

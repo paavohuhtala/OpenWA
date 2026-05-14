@@ -38,6 +38,7 @@ use std::ffi::CString;
 use std::sync::Mutex;
 
 use openwa_core::scheme::SchemeFile;
+use openwa_core::wgt::WgtTeam;
 
 /// Maximum number of teams that fit in [`crate::engine::GameInfo::team_records`].
 pub const MAX_TEAMS: usize = crate::engine::game_info::MAX_TEAM_RECORDS;
@@ -65,6 +66,29 @@ pub struct PendingTeam {
     /// from `team_record + 0xBB4` by `GameWorld__InitTeamsFromSetup` at
     /// `0x005220B0`). Capped at [`MAX_WORMS_PER_TEAM`].
     pub worm_names: Vec<String>,
+    /// Grave-sprite index, written to lobby `G_TEAM_DATA[i] + 0x123` so
+    /// `Replay__ProcessTeamColors` propagates it into the active team
+    /// state. `0x00..=0x05` selects one of the six animated graves;
+    /// `0x06..=0x7F` reaches WA's "non-grave sprite as a grave" extension
+    /// list; `0x80..=0xFE` is reserved for custom-bitmap entries (the
+    /// bitmap data itself is NOT yet wired up — see `custom_grave`).
+    pub grave_id: u8,
+    /// Custom-grave bitmap (24×32 8bpp + 256-colour palette), present
+    /// only when [`grave_id`] >= [`openwa_core::wgt::CUSTOM_GRAVE_THRESHOLD`].
+    ///
+    /// **Currently not propagated to WA** — the field exists so a
+    /// [`PendingTeam::from_wgt`] consumer can round-trip a parsed WGT
+    /// entry without losing data. Wiring this through the per-team
+    /// custom-grave slot needs another RE pass.
+    pub custom_grave: Option<openwa_core::wgt::CustomGrave>,
+    /// Soundbank name (e.g. `"English"`, `"Finnish"`, `"Thespian"`).
+    /// Currently **not written** to game memory — the per-team speech-
+    /// config layout still needs RE before we can place the name string.
+    /// Stored so [`from_wgt`] is lossless; the UI can also surface it.
+    pub soundbank_name: String,
+    /// Fanfare name (e.g. `"Finland"`). Not written to game memory yet;
+    /// stored for the same reason as [`soundbank_name`].
+    pub fanfare_name: String,
 }
 
 impl PendingTeam {
@@ -79,6 +103,44 @@ impl PendingTeam {
             turn_order: color_idx,
             worm_hp: 100,
             worm_names,
+            grave_id: 0,
+            custom_grave: None,
+            soundbank_name: String::new(),
+            fanfare_name: String::new(),
+        }
+    }
+
+    /// Build a [`PendingTeam`] from a parsed `.WGT` team entry. The
+    /// `color_idx` controls the team's visible colour + alliance group
+    /// independent of any colour preference baked into the WGT record
+    /// (which the format does not actually store at top level).
+    ///
+    /// All 8 worm-name slots are preserved positionally — empty slots
+    /// are substituted with `WormN` rather than dropped, because WA's
+    /// `team_record + 0xBB4` worm-count + per-worm name array indexes by
+    /// slot position, not by "Nth non-empty entry".
+    pub fn from_wgt(team: &WgtTeam, color_idx: u8) -> Self {
+        let worm_names: Vec<String> = team
+            .worm_names_iter()
+            .enumerate()
+            .map(|(i, n)| {
+                if n.is_empty() {
+                    format!("Worm{}", i + 1)
+                } else {
+                    n
+                }
+            })
+            .collect();
+        Self {
+            name: team.name_str(),
+            color_idx,
+            turn_order: color_idx,
+            worm_hp: 100,
+            worm_names,
+            grave_id: team.grave_id,
+            custom_grave: team.custom_grave.clone(),
+            soundbank_name: team.soundbank_str(),
+            fanfare_name: team.fanfare_str(),
         }
     }
 }
@@ -216,16 +278,16 @@ pub unsafe fn apply(gi: *mut GameInfo, pending: &PendingCustomMatch) {
             rec.turn_order_idx = team.turn_order;
             rec.wins_count = 0;
 
-            let name_bytes = team.name.as_bytes();
-            let copy_len = name_bytes.len().min(rec.name.len() - 1);
-            rec.name[..copy_len].copy_from_slice(&name_bytes[..copy_len]);
-            rec.name[copy_len..].fill(0);
+            // WA stores name fields as Windows-1252. The UI hands us
+            // UTF-8 strings (egui text widgets) and the WGT parser
+            // round-trips through UTF-8 too, so we re-encode here.
+            openwa_core::cp1252::encode_into_fixed(&mut rec.name, &team.name);
 
             // Worm setup: per-worm records at team_record + 0xA74 (stride
             // 0x28) and worm count byte at team_record + 0xBB4. Layout per
             // `GameWorld__InitTeamsFromSetup` (0x005220B0): first u16 of
             // each worm slot = starting HP; offsets +3..+0x13 = worm name
-            // (16-byte ASCII).
+            // (16-byte CP1252).
             let team_rec_base = rec as *mut _ as *mut u8;
             let worm_count = team.worm_names.len().min(MAX_WORMS_PER_TEAM);
             *team_rec_base.add(0xBB4) = worm_count as u8;
@@ -234,9 +296,10 @@ pub unsafe fn apply(gi: *mut GameInfo, pending: &PendingCustomMatch) {
                 let worm_ptr = team_rec_base.add(0xA74 + worm_idx * 0x28);
                 core::ptr::write_bytes(worm_ptr, 0, 0x28);
                 *(worm_ptr as *mut u16) = team.worm_hp;
-                let nb = worm_name.as_bytes();
-                let nlen = nb.len().min(15);
-                core::ptr::copy_nonoverlapping(nb.as_ptr(), worm_ptr.add(3), nlen);
+                // 16-byte name field at +3 with the 16th byte reserved
+                // for the NUL terminator (15 bytes of body).
+                let dst = core::slice::from_raw_parts_mut(worm_ptr.add(3), 16);
+                openwa_core::cp1252::encode_into_fixed(dst, worm_name);
             }
         }
 
@@ -355,16 +418,15 @@ pub unsafe fn populate_lobby_globals(pending: &PendingCustomMatch) {
 
             // `config_abbrev` (+0x003..+0x013, 17 bytes) is what PTC copies
             // into `GameInfoTeamRecord.name` (16 bytes + tail). Use the
-            // team's display name here.
-            let name_bytes = team.name.as_bytes();
+            // team's display name here, encoded as CP1252.
             let entry_u8 = entry as *mut u8;
-            let copy_len = name_bytes.len().min(16);
-            core::ptr::copy_nonoverlapping(name_bytes.as_ptr(), entry_u8.add(0x03), copy_len);
+            let abbrev_dst = core::slice::from_raw_parts_mut(entry_u8.add(0x03), 0x11);
+            openwa_core::cp1252::encode_into_fixed(abbrev_dst, &team.name);
 
             // `team_name` (+0x014..+0x055) — full name, also written by
             // OnNOTIFY for the leaderboard / ESC menu. Mirror it.
-            let tn_len = name_bytes.len().min(0x40);
-            core::ptr::copy_nonoverlapping(name_bytes.as_ptr(), entry_u8.add(0x14), tn_len);
+            let tn_dst = core::slice::from_raw_parts_mut(entry_u8.add(0x14), 0x41);
+            openwa_core::cp1252::encode_into_fixed(tn_dst, &team.name);
 
             // Worm count + per-worm names. PTC's inner loop hardcodes 8
             // iterations starting at `pcVar6 + 0x9b` with stride 0x11.
@@ -377,11 +439,19 @@ pub unsafe fn populate_lobby_globals(pending: &PendingCustomMatch) {
             let worm_names_base = (entry as *mut u8).add(0x9B);
             for (worm_idx, worm_name) in team.worm_names.iter().take(MAX_WORMS_PER_TEAM).enumerate()
             {
-                let slot = worm_names_base.add(worm_idx * 0x11);
-                let nb = worm_name.as_bytes();
-                let nlen = nb.len().min(0x10);
-                core::ptr::copy_nonoverlapping(nb.as_ptr(), slot, nlen);
+                // Each worm-name slot is 0x11 bytes (16 body + NUL).
+                let slot =
+                    core::slice::from_raw_parts_mut(worm_names_base.add(worm_idx * 0x11), 0x11);
+                openwa_core::cp1252::encode_into_fixed(slot, worm_name);
             }
+
+            // Grave-sprite id. PTC propagates this into the active team
+            // state. We can write the byte even for grave_id >= 0x80
+            // (custom-bitmap range) — the actual bitmap upload is a
+            // separate, currently-unported pipeline; until that's wired
+            // up, custom-grave teams will render with the configured
+            // index but reuse the default sprite for that slot.
+            (*entry).grave = team.grave_id;
 
             // Active flag last (PTC's gate).
             (*entry).flag = 1;

@@ -4,7 +4,9 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use eframe::egui;
+use openwa_config::DiscoveredFile;
 use openwa_core::scheme::{SchemeFile, SchemeVersion};
+use openwa_core::wgt::{WgtFile, WgtTeam};
 use openwa_game::engine::pending_match::{PendingCustomMatch, PendingTeam};
 
 use crate::launch::{self, LaunchMode, LaunchOutcome, LaunchRequest};
@@ -20,12 +22,31 @@ pub struct MatchLauncherApp {
     req: LaunchRequest,
     ui_mode: UiMode,
     call_init_session: bool,
-    /// User-typed path to a .wsc file. Empty = use the empty-scheme fallback.
-    scheme_path: String,
-    /// Last load attempt result (cached so the UI shows status across frames).
+    /// Schemes discovered under `User/Schemes` at startup. Empty if the
+    /// install can't be located.
+    schemes: Vec<DiscoveredFile>,
+    /// Index into `schemes` selected by the dropdown, or `None` for the
+    /// fallback all-zero stub scheme.
+    scheme_choice: Option<usize>,
+    /// Last scheme-load attempt result (cached so the UI keeps status
+    /// across frames).
     scheme_status: SchemeStatus,
+    /// `.WGT` files discovered under `User/Teams` at startup.
+    wgt_files: Vec<DiscoveredFile>,
+    /// Index into `wgt_files` of the currently-active roster.
+    wgt_choice: Option<usize>,
+    /// Parsed roster matching `wgt_choice` (`None` until first load).
+    loaded_wgt: Option<LoadedWgt>,
+    /// Selected team slot from `loaded_wgt` for the two match seats.
+    team_a_idx: usize,
+    team_b_idx: usize,
     dump_label: String,
     log: Arc<Mutex<Vec<String>>>,
+}
+
+struct LoadedWgt {
+    path: PathBuf,
+    file: WgtFile,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -41,15 +62,37 @@ enum SchemeStatus {
 
 impl Default for MatchLauncherApp {
     fn default() -> Self {
-        Self {
+        let schemes = openwa_config::list_schemes();
+        let wgt_files = openwa_config::list_team_files();
+        // Prefer "{{02}} Intermediate" as a familiar starting point; fall
+        // back to whatever's alphabetically first.
+        let scheme_choice = schemes
+            .iter()
+            .position(|s| s.name.contains("Intermediate"))
+            .or_else(|| (!schemes.is_empty()).then_some(0));
+        let wgt_choice = wgt_files
+            .iter()
+            .position(|w| w.name.eq_ignore_ascii_case("WG"))
+            .or_else(|| (!wgt_files.is_empty()).then_some(0));
+        let mut app = Self {
             req: LaunchRequest::default(),
             ui_mode: UiMode::Snapshot,
             call_init_session: false,
-            scheme_path: r"I:\games\SteamLibrary\steamapps\common\Worms Armageddon\User\Schemes\{{02}} Intermediate.wsc".to_owned(),
+            schemes,
+            scheme_choice,
             scheme_status: SchemeStatus::NotLoaded,
+            wgt_files,
+            wgt_choice,
+            loaded_wgt: None,
+            team_a_idx: 0,
+            team_b_idx: 1,
             dump_label: "before".to_owned(),
             log: Arc::default(),
-        }
+        };
+        // Best-effort roster load so the Fresh-mode dropdowns are
+        // populated on first frame.
+        app.reload_wgt();
+        app
     }
 }
 
@@ -60,6 +103,33 @@ impl MatchLauncherApp {
             if g.len() > 64 {
                 let drop = g.len() - 64;
                 g.drain(..drop);
+            }
+        }
+    }
+
+    /// (Re)load the WGT file currently selected by `wgt_choice`.
+    fn reload_wgt(&mut self) {
+        let Some(idx) = self.wgt_choice else {
+            self.loaded_wgt = None;
+            return;
+        };
+        let Some(entry) = self.wgt_files.get(idx).cloned() else {
+            self.loaded_wgt = None;
+            return;
+        };
+        match WgtFile::from_file(&entry.path) {
+            Ok(file) => {
+                let n = file.teams.len();
+                self.team_a_idx = self.team_a_idx.min(n.saturating_sub(1));
+                self.team_b_idx = self.team_b_idx.min(n.saturating_sub(1));
+                self.loaded_wgt = Some(LoadedWgt {
+                    path: entry.path,
+                    file,
+                });
+            }
+            Err(e) => {
+                self.push_log(format!("WGT load failed ({}): {e}", entry.path.display()));
+                self.loaded_wgt = None;
             }
         }
     }
@@ -105,10 +175,16 @@ impl MatchLauncherApp {
     /// surprise empty scheme inside the match.
     fn build_pending_match(&mut self) -> Result<PendingCustomMatch, String> {
         let scheme = self.load_scheme_for_launch()?;
-        let teams = vec![
-            PendingTeam::new(self.req.team_a_name.clone(), 0),
-            PendingTeam::new(self.req.team_b_name.clone(), 1),
-        ];
+        let teams = self.build_teams_from_wgt()?;
+        // Mirror the WGT-derived team names back into the LaunchRequest
+        // so the post-launch GameInfo team-name overlay in
+        // `launch::overlay_team_names` writes the right strings.
+        if let Some(t) = teams.first() {
+            self.req.team_a_name = t.name.clone();
+        }
+        if let Some(t) = teams.get(1) {
+            self.req.team_b_name = t.name.clone();
+        }
         Ok(PendingCustomMatch {
             game_version: 500,
             type_label: None,
@@ -117,29 +193,54 @@ impl MatchLauncherApp {
         })
     }
 
+    fn build_teams_from_wgt(&self) -> Result<Vec<PendingTeam>, String> {
+        let wgt = self
+            .loaded_wgt
+            .as_ref()
+            .ok_or("no .WGT roster loaded — pick one from the Teams dropdown")?;
+        if wgt.file.teams.is_empty() {
+            return Err(format!("{}: contains zero teams", wgt.path.display()));
+        }
+        if self.team_a_idx == self.team_b_idx {
+            return Err("Team A and Team B refer to the same WGT entry".to_string());
+        }
+        let pick = |idx: usize, color: u8| -> Result<PendingTeam, String> {
+            let entry: &WgtTeam = wgt.file.teams.get(idx).ok_or_else(|| {
+                format!(
+                    "team index {idx} out of range ({} teams)",
+                    wgt.file.teams.len()
+                )
+            })?;
+            Ok(PendingTeam::from_wgt(entry, color))
+        };
+        Ok(vec![pick(self.team_a_idx, 0)?, pick(self.team_b_idx, 1)?])
+    }
+
     fn load_scheme_for_launch(&mut self) -> Result<SchemeFile, String> {
-        let raw = self.scheme_path.trim();
-        if raw.is_empty() {
+        let Some(idx) = self.scheme_choice else {
             // Fallback: an all-zero V3 payload. Not playable as-is but
-            // gets the launch path off the ground; the user will load a
-            // real scheme once dump-diffing reveals what's missing.
+            // keeps the launch path functional when no scheme is picked.
             let zeros = vec![0u8; openwa_core::scheme::SCHEME_PAYLOAD_V3];
             return Ok(SchemeFile {
                 version: SchemeVersion::V3,
                 payload: zeros,
             });
-        }
-        let path = PathBuf::from(raw);
-        match SchemeFile::from_file(&path) {
+        };
+        let entry = self
+            .schemes
+            .get(idx)
+            .ok_or("scheme selection points past discovered list")?
+            .clone();
+        match SchemeFile::from_file(&entry.path) {
             Ok(s) => {
                 self.scheme_status = SchemeStatus::Loaded {
                     version: s.version,
-                    path,
+                    path: entry.path,
                 };
                 Ok(s)
             }
             Err(e) => {
-                let msg = format!("scheme load failed ({path:?}): {e:?}");
+                let msg = format!("scheme load failed ({}): {e:?}", entry.path.display());
                 self.scheme_status = SchemeStatus::Error(msg.clone());
                 Err(msg)
             }
@@ -257,20 +358,23 @@ impl eframe::App for MatchLauncherApp {
             );
         });
 
-        ui.add_space(4.0);
-        ui.collapsing("Teams", |ui| {
-            ui.horizontal(|ui| {
-                ui.label("A:");
-                ui.text_edit_singleline(&mut self.req.team_a_name);
-            });
-            ui.horizontal(|ui| {
-                ui.label("B:");
-                ui.text_edit_singleline(&mut self.req.team_b_name);
-            });
-        });
-
         match self.ui_mode {
             UiMode::Snapshot => {
+                ui.collapsing("Teams (snapshot overlay)", |ui| {
+                    ui.label(
+                        "These names are overlaid on the captured snapshot's \
+                         team_records[0..2].name fields after restore.",
+                    );
+                    ui.horizontal(|ui| {
+                        ui.label("A:");
+                        ui.text_edit_singleline(&mut self.req.team_a_name);
+                    });
+                    ui.horizontal(|ui| {
+                        ui.label("B:");
+                        ui.text_edit_singleline(&mut self.req.team_b_name);
+                    });
+                });
+
                 ui.add_space(4.0);
                 ui.checkbox(
                     &mut self.call_init_session,
@@ -278,28 +382,7 @@ impl eframe::App for MatchLauncherApp {
                 );
             }
             UiMode::Fresh => {
-                ui.add_space(4.0);
-                ui.collapsing("Scheme (.wsc path)", |ui| {
-                    ui.label(
-                        "Absolute path to a .wsc file. Leave empty for an all-zero stub \
-                         payload (not playable, but useful for the first dump-diff round).",
-                    );
-                    ui.text_edit_singleline(&mut self.scheme_path);
-                    match &self.scheme_status {
-                        SchemeStatus::NotLoaded => {
-                            ui.colored_label(egui::Color32::GRAY, "Scheme not yet loaded.");
-                        }
-                        SchemeStatus::Loaded { version, path } => {
-                            ui.colored_label(
-                                egui::Color32::LIGHT_GREEN,
-                                format!("Loaded {version:?} from {}", path.display()),
-                            );
-                        }
-                        SchemeStatus::Error(msg) => {
-                            ui.colored_label(egui::Color32::LIGHT_RED, msg);
-                        }
-                    }
-                });
+                self.draw_fresh_mode_controls(ui);
             }
         }
 
@@ -342,7 +425,7 @@ impl eframe::App for MatchLauncherApp {
         let can_launch = idle
             && match self.ui_mode {
                 UiMode::Snapshot => snap,
-                UiMode::Fresh => true,
+                UiMode::Fresh => self.loaded_wgt.is_some(),
             };
         let launch_button =
             egui::Button::new(egui::RichText::new("Launch match").strong().size(16.0));
@@ -364,4 +447,153 @@ impl eframe::App for MatchLauncherApp {
                 }
             });
     }
+}
+
+impl MatchLauncherApp {
+    /// Draw the Fresh-mode panel (scheme dropdown + roster picker).
+    fn draw_fresh_mode_controls(&mut self, ui: &mut egui::Ui) {
+        ui.add_space(4.0);
+        ui.collapsing("Scheme", |ui| {
+            if self.schemes.is_empty() {
+                ui.colored_label(
+                    egui::Color32::LIGHT_RED,
+                    "No schemes discovered. Check User/Schemes under your WA install.",
+                );
+                return;
+            }
+            let selected_label = self
+                .scheme_choice
+                .and_then(|i| self.schemes.get(i))
+                .map(|s| s.name.as_str())
+                .unwrap_or("<empty stub>");
+            egui::ComboBox::from_label("Scheme (.wsc)")
+                .selected_text(selected_label)
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(&mut self.scheme_choice, None, "<empty stub>");
+                    for (i, s) in self.schemes.iter().enumerate() {
+                        ui.selectable_value(&mut self.scheme_choice, Some(i), s.name.as_str());
+                    }
+                });
+            match &self.scheme_status {
+                SchemeStatus::NotLoaded => {
+                    ui.colored_label(egui::Color32::GRAY, "Scheme not yet loaded.");
+                }
+                SchemeStatus::Loaded { version, path } => {
+                    ui.colored_label(
+                        egui::Color32::LIGHT_GREEN,
+                        format!("Loaded {version:?} from {}", path.display()),
+                    );
+                }
+                SchemeStatus::Error(msg) => {
+                    ui.colored_label(egui::Color32::LIGHT_RED, msg);
+                }
+            }
+        });
+
+        ui.add_space(4.0);
+        ui.collapsing("Teams", |ui| {
+            if self.wgt_files.is_empty() {
+                ui.colored_label(
+                    egui::Color32::LIGHT_RED,
+                    "No .WGT rosters discovered. Check User/Teams under your WA install.",
+                );
+                return;
+            }
+            let selected_label = self
+                .wgt_choice
+                .and_then(|i| self.wgt_files.get(i))
+                .map(|w| w.name.as_str())
+                .unwrap_or("<none>");
+            let mut reload = false;
+            egui::ComboBox::from_label("Roster (.WGT)")
+                .selected_text(selected_label)
+                .show_ui(ui, |ui| {
+                    for (i, w) in self.wgt_files.iter().enumerate() {
+                        if ui
+                            .selectable_value(&mut self.wgt_choice, Some(i), w.name.as_str())
+                            .changed()
+                        {
+                            reload = true;
+                        }
+                    }
+                });
+            if reload {
+                self.reload_wgt();
+            }
+            let Some(wgt) = self.loaded_wgt.as_ref() else {
+                ui.colored_label(
+                    egui::Color32::LIGHT_RED,
+                    "Pick a roster to populate the team dropdowns.",
+                );
+                return;
+            };
+
+            // Two side-by-side seat pickers. We clamp the indices to the
+            // current roster's bounds in `reload_wgt` so unwrap is safe.
+            let teams = &wgt.file.teams;
+            ui.label(format!(
+                "{} team(s) in {}",
+                teams.len(),
+                wgt.path.file_name().map_or_else(
+                    || wgt.path.display().to_string(),
+                    |f| f.to_string_lossy().into_owned(),
+                ),
+            ));
+
+            team_dropdown(ui, "Team A", teams, &mut self.team_a_idx);
+            team_dropdown(ui, "Team B", teams, &mut self.team_b_idx);
+
+            if self.team_a_idx == self.team_b_idx {
+                ui.colored_label(
+                    egui::Color32::YELLOW,
+                    "Pick two different teams (same-team matches aren't supported).",
+                );
+            }
+
+            // Preview the chosen teams' soundbank + grave so the user can
+            // see what's about to be applied.
+            if let (Some(a), Some(b)) = (teams.get(self.team_a_idx), teams.get(self.team_b_idx)) {
+                preview_team_row(ui, "A", a);
+                preview_team_row(ui, "B", b);
+            }
+        });
+    }
+}
+
+fn team_dropdown(ui: &mut egui::Ui, label: &str, teams: &[WgtTeam], idx: &mut usize) {
+    let selected_label = teams
+        .get(*idx)
+        .map(|t| display_team_label(t))
+        .unwrap_or_else(|| "<none>".to_string());
+    egui::ComboBox::from_label(label)
+        .selected_text(selected_label)
+        .show_ui(ui, |ui| {
+            for (i, t) in teams.iter().enumerate() {
+                ui.selectable_value(idx, i, display_team_label(t));
+            }
+        });
+}
+
+fn display_team_label(team: &WgtTeam) -> String {
+    let name = team.name_str();
+    let ctrl = match team.control {
+        0 => "Player",
+        1 => "CPU1",
+        2 => "CPU2",
+        3 => "CPU3",
+        4 => "CPU4",
+        5 => "CPU5",
+        _ => "?",
+    };
+    format!("{name} ({ctrl})")
+}
+
+fn preview_team_row(ui: &mut egui::Ui, label: &str, team: &WgtTeam) {
+    ui.monospace(format!(
+        "  {label}: voice={}, fanfare={}, grave={}, flag={}",
+        team.soundbank_str(),
+        team.fanfare_str(),
+        team.grave_id,
+        team.flag_filename_str(),
+    ));
 }

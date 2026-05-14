@@ -2542,6 +2542,7 @@ name = "openwa-frontend"
 version = "0.1.0"
 dependencies = [
  "eframe",
+ "openwa-config",
  "openwa-core",
  "openwa-game",
  "winit",

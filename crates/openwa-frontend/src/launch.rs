@@ -246,10 +246,8 @@ unsafe fn overlay_team_names(req: &LaunchRequest) {
 unsafe fn write_team_name(info: *mut GameInfo, slot: usize, name: &str) {
     unsafe {
         let rec = &mut (*info).team_records[slot];
-        let name_bytes = name.as_bytes();
-        let copy_len = name_bytes.len().min(rec.name.len() - 1);
-        rec.name[..copy_len].copy_from_slice(&name_bytes[..copy_len]);
-        rec.name[copy_len..].fill(0);
+        // WA's team_record.name is CP1252; the UI hands us UTF-8.
+        openwa_core::cp1252::encode_into_fixed(&mut rec.name, name);
     }
 }
 
