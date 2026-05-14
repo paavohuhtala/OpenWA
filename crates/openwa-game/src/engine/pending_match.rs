@@ -256,14 +256,38 @@ pub unsafe fn apply(gi: *mut GameInfo, pending: &PendingCustomMatch) {
             rec.name.fill(0);
         }
 
-        // Copy scheme payload into G_SCHEME_DATA (402 bytes, V3 layout).
-        // V1/V2 payloads are shorter — zero the tail so leftover bytes
-        // from a previous launch don't bleed through.
+        // Copy scheme payload into G_SCHEME_DATA (402 bytes, V3 layout)
+        // and fill the V3 extended-options tail with
+        // [`openwa_core::scheme::EXTENDED_OPTIONS_DEFAULTS`] for any
+        // bytes the file didn't supply. Without the defaults,
+        // `CGameInfo__SetAmmo`'s read of `G_SCHEME_DATA + 0x12C` (the
+        // Y-gravity dword) lands on a zero byte, propagates to
+        // `GameInfo + 0xD9A8`, propagates again to
+        // `game_state_stream + 0x22C`, and worms float on the
+        // CustomLauncher path. (The Frontend lobby pre-fills the same
+        // defaults during scheme load; openwa-core's parse only pads V3
+        // schemes with a short payload, not V1/V2.)
         let dst = rb(va::G_SCHEME_DATA) as *mut u8;
         core::ptr::write_bytes(dst, 0, SCHEME_BUFFER_SIZE);
         let src = &pending.scheme.payload;
         let copy_len = src.len().min(SCHEME_BUFFER_SIZE);
         core::ptr::copy_nonoverlapping(src.as_ptr(), dst, copy_len);
+
+        if copy_len < SCHEME_BUFFER_SIZE {
+            let defaults = &openwa_core::scheme::EXTENDED_OPTIONS_DEFAULTS;
+            let tail_off = openwa_core::scheme::EXTENDED_OPTIONS_OFFSET;
+            // For schemes that supplied some extended bytes (truncated
+            // V3), keep what they wrote and only fill the gap; for
+            // V1/V2 with no extended region, fill the whole tail.
+            let pad_start = copy_len.max(tail_off);
+            let pad_end = SCHEME_BUFFER_SIZE;
+            let defaults_off = pad_start - tail_off;
+            core::ptr::copy_nonoverlapping(
+                defaults.as_ptr().add(defaults_off),
+                dst.add(pad_start),
+                pad_end - pad_start,
+            );
+        }
     }
 }
 
