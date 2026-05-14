@@ -8,6 +8,7 @@
 //! Modules migrate here from `openwa-game` one at a time. See the root
 //! `CLAUDE.md` for the current charter.
 
+pub mod cp1252;
 pub mod dir;
 pub mod fixed;
 pub mod img;
@@ -21,3 +22,4 @@ pub mod sprite;
 pub mod trig;
 pub mod vec2;
 pub mod weapon;
+pub mod wgt;
