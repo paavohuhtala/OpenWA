@@ -179,14 +179,12 @@ pub unsafe fn apply(gi: *mut GameInfo, pending: &PendingCustomMatch) {
         (*gi).num_teams = team_count;
         (*gi).team_record_count = team_count;
 
-        // `+0xD0BC` is the alliance-group count = number of distinct
-        // turn-order/color groups. `Task_TurnGame__advance_ally_0`
-        // (0x0055CAB0) uses it as the modulus when cycling the active
-        // alliance pointer; a zero value triggers
-        // STATUS_INTEGER_DIVIDE_BY_ZERO. `ProcessTeamColors` writes
-        // this via a `CPlayers__GetTotalTeamsWithColour` count; on the
+        // `ProcessTeamColors` writes `alliance_group_count` via a
+        // `CPlayers__GetTotalTeamsWithColour` count; on the
         // CustomLauncher path we count distinct `color_idx` values
-        // across pending teams.
+        // across pending teams. A zero value crashes
+        // `Task_TurnGame__advance_ally_0` (divide-by-zero on the
+        // modulus), so default to 1 if no teams supplied a colour.
         let mut distinct_colors: u8 = 0;
         let mut seen: u64 = 0;
         for team in pending.teams.iter().take(MAX_TEAM_RECORDS) {
@@ -196,12 +194,10 @@ pub unsafe fn apply(gi: *mut GameInfo, pending: &PendingCustomMatch) {
                 distinct_colors += 1;
             }
         }
-        // Defensive: never write zero (would just re-crash). With at
-        // least one pending team this branch never trips.
         if distinct_colors == 0 {
             distinct_colors = 1;
         }
-        *((gi as *mut u8).add(0xD0BC)) = distinct_colors;
+        (*gi).alliance_group_count = distinct_colors;
 
         // Note: `game_speed_config` (+0xD988) gets clobbered by
         // `ConvertScheme` (writes V3-extended-options byte at

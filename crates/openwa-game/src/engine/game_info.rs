@@ -137,8 +137,18 @@ pub struct GameInfo {
     pub _unknown_044d: [u8; 3],
     /// 0x0450-0x4A9F: Per-team scalar configuration records (stride 0xBB8).
     pub team_records: [GameInfoTeamRecord; MAX_TEAM_RECORDS],
-    /// 0x4AA0-0xD773: Unknown
-    pub _unknown_4aa0: [u8; 0xD774 - 0x4AA0],
+    /// 0x4AA0-0xD0BB: Unknown
+    pub _unknown_4aa0: [u8; 0xD0BC - 0x4AA0],
+    /// 0xD0BC: Alliance group count (u8) — number of distinct
+    /// turn-order / color groups across active teams. Used as the modulus
+    /// by `Task_TurnGame__advance_ally_0` (0x0055CAB0) when cycling the
+    /// active alliance pointer; a zero value triggers
+    /// `STATUS_INTEGER_DIVIDE_BY_ZERO`. WA populates this via
+    /// `CPlayers__GetTotalTeamsWithColour` from inside
+    /// `Replay__ProcessTeamColors`.
+    pub alliance_group_count: u8,
+    /// 0xD0BD-0xD773: Unknown
+    pub _unknown_d0bd: [u8; 0xD774 - 0xD0BD],
     /// 0xD774: Initial RNG seed from scheme options.
     pub rng_seed: u32,
 
@@ -688,6 +698,7 @@ pub struct GameInfo {
 
 const _: () = assert!(core::mem::size_of::<GameInfo>() == 0xF91C);
 const _: () = assert!(core::mem::offset_of!(GameInfo, team_records) == 0x450);
+const _: () = assert!(core::mem::offset_of!(GameInfo, alliance_group_count) == 0xD0BC);
 const _: () = assert!(core::mem::offset_of!(GameInfo, scheme_no_sd) == 0xD941);
 const _: () = assert!(core::mem::offset_of!(GameInfo, scheme_no_draw) == 0xD947);
 const _: () = assert!(core::mem::offset_of!(GameInfo, scheme_sd_secondary_lockout) == 0xD948);
