@@ -171,6 +171,9 @@ pub struct Label {
 #[serde(deny_unknown_fields, rename_all = "snake_case")]
 pub struct Struct {
     pub name: String,
+    /// Ghidra DTM namespace; default `/` when omitted.
+    #[serde(default, skip_serializing_if = "is_root_namespace")]
+    pub namespace: Option<String>,
     pub size: u32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub plate_comment: Option<String>,
@@ -182,6 +185,8 @@ pub struct Struct {
 #[serde(deny_unknown_fields, rename_all = "snake_case")]
 pub struct Union {
     pub name: String,
+    #[serde(default, skip_serializing_if = "is_root_namespace")]
+    pub namespace: Option<String>,
     pub size: u32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub plate_comment: Option<String>,
@@ -204,6 +209,8 @@ pub struct Field {
 #[serde(deny_unknown_fields, rename_all = "snake_case")]
 pub struct Enum {
     pub name: String,
+    #[serde(default, skip_serializing_if = "is_root_namespace")]
+    pub namespace: Option<String>,
     /// Underlying width in bytes (1/2/4/8).
     pub size: u32,
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
@@ -214,6 +221,8 @@ pub struct Enum {
 #[serde(deny_unknown_fields, rename_all = "snake_case")]
 pub struct Typedef {
     pub name: String,
+    #[serde(default, skip_serializing_if = "is_root_namespace")]
+    pub namespace: Option<String>,
     pub target: TypeRef,
 }
 
@@ -221,6 +230,8 @@ pub struct Typedef {
 #[serde(deny_unknown_fields, rename_all = "snake_case")]
 pub struct FunctionDef {
     pub name: String,
+    #[serde(default, skip_serializing_if = "is_root_namespace")]
+    pub namespace: Option<String>,
     pub returns: TypeRef,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub param: Vec<FunctionDefParam>,
@@ -259,6 +270,14 @@ pub type Storage = String;
 
 fn is_false(b: &bool) -> bool {
     !*b
+}
+
+/// Serde skip-helper: omit `namespace` from TOML when absent or `/`.
+fn is_root_namespace(ns: &Option<String>) -> bool {
+    match ns {
+        None => true,
+        Some(s) => s.is_empty() || s == "/",
+    }
 }
 
 #[cfg(test)]

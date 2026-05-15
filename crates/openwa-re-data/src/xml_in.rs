@@ -261,12 +261,22 @@ fn parse_structure<R: std::io::BufRead>(
 
     prog.structs.push(Struct {
         name,
+        namespace: normalise_namespace(namespace),
         size,
         plate_comment: plate,
         field: fields,
     });
     prog.stats.types_kept += 1;
     Ok(())
+}
+
+/// Map `/` (root) and empty to `None`; everything else passes through as `Some`.
+fn normalise_namespace(ns: String) -> Option<String> {
+    if ns.is_empty() || ns == "/" {
+        None
+    } else {
+        Some(ns)
+    }
 }
 
 fn parse_union<R: std::io::BufRead>(
@@ -326,6 +336,7 @@ fn parse_union<R: std::io::BufRead>(
 
     prog.unions.push(Union {
         name,
+        namespace: normalise_namespace(namespace),
         size,
         plate_comment: plate,
         field: fields,
@@ -376,6 +387,7 @@ fn parse_enum<R: std::io::BufRead>(
 
     prog.enums.push(Enum {
         name,
+        namespace: normalise_namespace(namespace),
         size,
         variant: variants,
     });
@@ -398,6 +410,7 @@ fn handle_empty_enum(e: &BytesStart<'_>, prog: &mut XmlProgram) {
     let size = hex_attr(e, b"SIZE").unwrap_or(4);
     prog.enums.push(Enum {
         name,
+        namespace: normalise_namespace(namespace),
         size,
         variant: Default::default(),
     });
@@ -448,6 +461,7 @@ fn parse_function_def<R: std::io::BufRead>(
 
     prog.function_defs.push(FunctionDef {
         name,
+        namespace: normalise_namespace(namespace),
         returns,
         param: params,
     });
@@ -468,7 +482,11 @@ fn handle_typedef(e: &BytesStart<'_>, prog: &mut XmlProgram) {
         prog.external_types.push(name);
         return;
     }
-    prog.typedefs.push(Typedef { name, target });
+    prog.typedefs.push(Typedef {
+        name,
+        namespace: normalise_namespace(namespace),
+        target,
+    });
     prog.stats.types_kept += 1;
 }
 

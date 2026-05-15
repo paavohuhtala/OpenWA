@@ -345,6 +345,7 @@ fn write_label(out: &mut String, l: &Label) {
 fn write_struct(out: &mut String, s: &Struct) {
     writeln!(out, "[[struct]]").unwrap();
     write_string_kv(out, "name", &s.name);
+    write_namespace_kv(out, &s.namespace);
     writeln!(out, "size = 0x{:X}", s.size).unwrap();
     if let Some(p) = &s.plate_comment {
         write_string_kv(out, "plate_comment", p);
@@ -363,6 +364,7 @@ fn write_struct(out: &mut String, s: &Struct) {
 fn write_union(out: &mut String, u: &Union) {
     writeln!(out, "[[union]]").unwrap();
     write_string_kv(out, "name", &u.name);
+    write_namespace_kv(out, &u.namespace);
     writeln!(out, "size = 0x{:X}", u.size).unwrap();
     if let Some(p) = &u.plate_comment {
         write_string_kv(out, "plate_comment", p);
@@ -381,6 +383,7 @@ fn write_union(out: &mut String, u: &Union) {
 fn write_enum(out: &mut String, e: &Enum) {
     writeln!(out, "[[enum]]").unwrap();
     write_string_kv(out, "name", &e.name);
+    write_namespace_kv(out, &e.namespace);
     writeln!(out, "size = {}", e.size).unwrap();
     if !e.variant.is_empty() {
         writeln!(out, "\n  [enum.variant]").unwrap();
@@ -393,17 +396,25 @@ fn write_enum(out: &mut String, e: &Enum) {
 fn write_typedef(out: &mut String, t: &Typedef) {
     writeln!(out, "[[typedef]]").unwrap();
     write_string_kv(out, "name", &t.name);
+    write_namespace_kv(out, &t.namespace);
     write_string_kv(out, "target", &t.target);
 }
 
 fn write_function_def(out: &mut String, fd: &FunctionDef) {
     writeln!(out, "[[function_def]]").unwrap();
     write_string_kv(out, "name", &fd.name);
+    write_namespace_kv(out, &fd.namespace);
     write_string_kv(out, "returns", &fd.returns);
     for p in &fd.param {
         writeln!(out, "\n  [[function_def.param]]").unwrap();
         write_string_kv_indented(out, "  ", "name", &p.name);
         write_string_kv_indented(out, "  ", "type", &p.ty);
+    }
+}
+
+fn write_namespace_kv(out: &mut String, ns: &Option<String>) {
+    if let Some(s) = ns.as_deref().filter(|s| !s.is_empty() && *s != "/") {
+        write_string_kv(out, "namespace", s);
     }
 }
 
@@ -612,6 +623,7 @@ mod tests {
     fn round_trips_struct_and_enum() {
         let s = Struct {
             name: "BaseEntity".into(),
+            namespace: None,
             size: 0xA8,
             plate_comment: None,
             field: vec![
@@ -634,6 +646,7 @@ mod tests {
         variants.insert("MissileTickAfterFire".into(), 0x77);
         let e = Enum {
             name: "EntityMessage".into(),
+            namespace: None,
             size: 4,
             variant: variants,
         };

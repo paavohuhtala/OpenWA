@@ -16,71 +16,30 @@ pub fn is_builtin_dtm_namespace(ns: &str) -> bool {
     if ns.starts_with("switchD_") {
         return true;
     }
-    // Synthetic namespace `openwa-re` emits its own external-type stubs into;
-    // see `xml_out::render_external_types`.
+    // Holdover from an earlier version that wrote stub typedefs here. Filter
+    // defensively in case any persist.
     if ns == "/openwa-re" || ns.starts_with("/openwa-re/") {
         return true;
     }
-    // System headers and well-known Demangler/PE-loader categories.
-    matches!(
-        ns,
-        "/winnt.h"
-            | "/winbase.h"
-            | "/WinDef.h"
-            | "/WinBase.h"
-            | "/winnls.h"
-            | "/winreg.h"
-            | "/winsock.h"
-            | "/winsock2.h"
-            | "/wincon.h"
-            | "/wingdi.h"
-            | "/winuser.h"
-            | "/wtypes.h"
-            | "/oaidl.h"
-            | "/objidl.h"
-            | "/inaddr.h"
-            | "/in6addr.h"
-            | "/excpt.h"
-            | "/crtdefs.h"
-            | "/stdio.h"
-            | "/stdlib.h"
-            | "/string.h"
-            | "/wchar.h"
-            | "/time.h"
-            | "/io.h"
-            | "/fcntl.h"
-            | "/locale.h"
-            | "/setjmp.h"
-            | "/signal.h"
-            | "/math.h"
-            | "/limits.h"
-            | "/process.h"
-            | "/malloc.h"
-            | "/direct.h"
-            | "/ehdata.h"
-            | "/eh.h"
-            | "/mtdll.h"
-            | "/fltintrn.h"
-            | "/basetsd.h"
-            | "/sys.h"
-            | "/sys/types.h"
-            | "/sys/stat.h"
-            | "/sys/timeb.h"
-            | "/typeinfo.h"
-            | "/exception.h"
-            | "/Demangler"
-            | "/PE"
-            | "/DOS"
-            | "/PDB"
-            | "/MSDataTypes"
-            | "/MSDataTypes.h"
-    ) || ns.starts_with("/Demangler/")
-        || ns.starts_with("/winnt.h/")
-        || ns.starts_with("/winbase.h/")
-        || ns.starts_with("/WinDef.h/")
-        || ns.starts_with("/oaidl.h/")
-        || ns.starts_with("/objidl.h/")
-        || ns.starts_with("/crtdefs.h/")
+    // PE-loader / debugger / demangler categories.
+    if ns == "/PE"
+        || ns == "/DOS"
+        || ns == "/PDB"
+        || ns == "/Demangler"
+        || ns.starts_with("/Demangler/")
+        || ns.starts_with("/MSDataTypes")
+    {
+        return true;
+    }
+    // Header-style namespaces: any segment ends in `.h`. Catches:
+    //   `/winnt.h`, `/winnt.h/functions`, `/sys/stat.h`, `/sys/timeb.h`, …
+    // User namespaces (`/OpenWA`, `/auto_structs`) have no `.h` segment.
+    for seg in ns.split('/') {
+        if seg.ends_with(".h") {
+            return true;
+        }
+    }
+    false
 }
 
 /// True if a function name is one Ghidra auto-generated (a `FUN_xxxxxxxx`
@@ -111,7 +70,7 @@ pub fn is_auto_symbol_name(name: &str) -> bool {
 /// union / enum (`_struct_19`, `_union_2685`, `enum_3272`, etc.).
 pub fn is_anonymous_type_name(name: &str) -> bool {
     let trimmed = name.trim_start_matches('_');
-    for prefix in ["struct_", "union_", "enum_"] {
+    for prefix in ["struct_", "union_", "enum_", "func_"] {
         if let Some(suffix) = trimmed.strip_prefix(prefix)
             && !suffix.is_empty()
             && suffix.chars().all(|c| c.is_ascii_digit())
@@ -186,12 +145,23 @@ mod tests {
 
     #[test]
     fn dtm_namespace_filtering() {
+        // Root and user namespaces are kept.
         assert!(!is_builtin_dtm_namespace(""));
         assert!(!is_builtin_dtm_namespace("/"));
+        assert!(!is_builtin_dtm_namespace("/OpenWA"));
+        assert!(!is_builtin_dtm_namespace("/auto_structs"));
+        // Header-style namespaces are dropped.
         assert!(is_builtin_dtm_namespace("/winnt.h"));
-        assert!(is_builtin_dtm_namespace("/Demangler/std"));
-        assert!(is_builtin_dtm_namespace("switchD_005faf84::"));
         assert!(is_builtin_dtm_namespace("/winbase.h/functions"));
+        assert!(is_builtin_dtm_namespace("/vadefs.h"));
+        assert!(is_builtin_dtm_namespace("/mbstring.h"));
+        assert!(is_builtin_dtm_namespace("/sys/stat.h"));
+        // Well-known system categories.
+        assert!(is_builtin_dtm_namespace("/Demangler"));
+        assert!(is_builtin_dtm_namespace("/Demangler/std"));
+        assert!(is_builtin_dtm_namespace("/PE"));
+        // Anonymous switch enums.
+        assert!(is_builtin_dtm_namespace("switchD_005faf84::"));
     }
 
     #[test]

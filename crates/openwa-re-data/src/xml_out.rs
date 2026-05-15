@@ -131,8 +131,9 @@ fn render_datatypes(w: &mut String, cat: &Catalog) -> Result<()> {
 fn render_struct(w: &mut String, s: &Struct) -> Result<()> {
     writeln!(
         w,
-        "        <STRUCTURE NAME=\"{}\" NAMESPACE=\"/\" SIZE=\"0x{:x}\">",
+        "        <STRUCTURE NAME=\"{}\" NAMESPACE=\"{}\" SIZE=\"0x{:x}\">",
         xml_escape(&s.name),
+        xml_escape(ns_or_root(&s.namespace)),
         s.size,
     )?;
     if let Some(plate) = &s.plate_comment {
@@ -174,8 +175,9 @@ fn render_struct(w: &mut String, s: &Struct) -> Result<()> {
 fn render_union(w: &mut String, u: &Union) -> Result<()> {
     writeln!(
         w,
-        "        <UNION NAME=\"{}\" NAMESPACE=\"/\" SIZE=\"0x{:x}\">",
+        "        <UNION NAME=\"{}\" NAMESPACE=\"{}\" SIZE=\"0x{:x}\">",
         xml_escape(&u.name),
+        xml_escape(ns_or_root(&u.namespace)),
         u.size,
     )?;
     if let Some(plate) = &u.plate_comment {
@@ -200,8 +202,9 @@ fn render_union(w: &mut String, u: &Union) -> Result<()> {
 fn render_enum(w: &mut String, e: &Enum) -> Result<()> {
     writeln!(
         w,
-        "        <ENUM NAME=\"{}\" NAMESPACE=\"/\" SIZE=\"0x{:x}\">",
+        "        <ENUM NAME=\"{}\" NAMESPACE=\"{}\" SIZE=\"0x{:x}\">",
         xml_escape(&e.name),
+        xml_escape(ns_or_root(&e.namespace)),
         e.size,
     )?;
     for (vname, value) in &e.variant {
@@ -219,8 +222,9 @@ fn render_enum(w: &mut String, e: &Enum) -> Result<()> {
 fn render_typedef(w: &mut String, t: &Typedef) -> Result<()> {
     writeln!(
         w,
-        "        <TYPE_DEF NAME=\"{}\" NAMESPACE=\"/\" DATATYPE=\"{}\" />",
+        "        <TYPE_DEF NAME=\"{}\" NAMESPACE=\"{}\" DATATYPE=\"{}\" />",
         xml_escape(&t.name),
+        xml_escape(ns_or_root(&t.namespace)),
         xml_escape(&t.target),
     )?;
     Ok(())
@@ -229,8 +233,9 @@ fn render_typedef(w: &mut String, t: &Typedef) -> Result<()> {
 fn render_function_def(w: &mut String, fd: &FunctionDef) -> Result<()> {
     writeln!(
         w,
-        "        <FUNCTION_DEF NAME=\"{}\" NAMESPACE=\"/\">",
+        "        <FUNCTION_DEF NAME=\"{}\" NAMESPACE=\"{}\">",
         xml_escape(&fd.name),
+        xml_escape(ns_or_root(&fd.namespace)),
     )?;
     writeln!(
         w,
@@ -516,6 +521,10 @@ fn parse_signed_hex_or_dec(s: &str) -> Option<i32> {
 }
 
 // ─── Escaping ────────────────────────────────────────────────────────────────
+
+fn ns_or_root(ns: &Option<String>) -> &str {
+    ns.as_deref().filter(|s| !s.is_empty()).unwrap_or("/")
+}
 
 fn xml_escape(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
