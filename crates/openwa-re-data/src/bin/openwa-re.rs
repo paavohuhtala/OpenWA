@@ -10,7 +10,7 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use openwa_re_data::repo::{find_repo_root, re_dir};
 use openwa_re_data::toml_io::Catalog;
-use openwa_re_data::{resolve, validate, xml_in};
+use openwa_re_data::{emit, resolve, validate, xml_in};
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -25,13 +25,21 @@ enum Cmd {
     /// Parse all re/**/*.toml and check schema + cross-references.
     Validate,
 
-    /// Read a Ghidra XML dump and write re/*.toml shards. (TODO)
+    /// Read a Ghidra XML dump and write re/*.toml shards.
     Export {
         /// Path to a Ghidra `XmlExporter` dump (e.g. C:/tmp/wa_export.xml).
         xml: PathBuf,
-        /// Initial bootstrap mode: shard functions by VA range.
+        /// Initial bootstrap mode: shard functions by VA range and OVERWRITE
+        /// any existing files in `re/`. Required for the first dump; refuses
+        /// to run later unless `--force` is passed.
         #[arg(long)]
         bootstrap: bool,
+        /// Allow `--bootstrap` to overwrite a non-empty `re/` directory.
+        #[arg(long)]
+        force: bool,
+        /// Don't write files; print the layout that would be created.
+        #[arg(long)]
+        dry_run: bool,
     },
 
     /// Read re/*.toml and emit Ghidra-importable XML + extras sidecar. (TODO)
@@ -54,7 +62,12 @@ fn main() -> Result<()> {
 
     match cli.cmd {
         Cmd::Validate => cmd_validate(&re),
-        Cmd::Export { xml, bootstrap } => cmd_export(&re, &xml, bootstrap),
+        Cmd::Export {
+            xml,
+            bootstrap,
+            force,
+            dry_run,
+        } => cmd_export(&re, &xml, bootstrap, force, dry_run),
         Cmd::Import { out } => cmd_import(&re, &out),
         Cmd::Diff { xml } => cmd_diff(&re, &xml),
     }
@@ -71,6 +84,16 @@ fn cmd_validate(re: &std::path::Path) -> Result<()> {
         cat.total_entries(),
     );
 
+    if !report.warnings.is_empty() {
+        eprintln!("{} warning(s):", report.warnings.len());
+        let preview = report.warnings.len().min(10);
+        for w in report.warnings.iter().take(preview) {
+            eprintln!("  - {w}");
+        }
+        if report.warnings.len() > preview {
+            eprintln!("  ... and {} more", report.warnings.len() - preview);
+        }
+    }
     if report.ok() {
         eprintln!("OK.");
         Ok(())
@@ -83,7 +106,20 @@ fn cmd_validate(re: &std::path::Path) -> Result<()> {
     }
 }
 
-fn cmd_export(_re: &std::path::Path, xml: &std::path::Path, _bootstrap: bool) -> Result<()> {
+fn cmd_export(
+    re: &std::path::Path,
+    xml: &std::path::Path,
+    bootstrap: bool,
+    force: bool,
+    dry_run: bool,
+) -> Result<()> {
+    if !bootstrap {
+        anyhow::bail!(
+            "export: only `--bootstrap` mode is implemented for now. \
+             Pass --bootstrap to do the initial dump."
+        );
+    }
+
     let t0 = std::time::Instant::now();
     let mut prog = xml_in::parse_file(xml)?;
     let parse_dt = t0.elapsed();
@@ -141,18 +177,46 @@ fn cmd_export(_re: &std::path::Path, xml: &std::path::Path, _bootstrap: bool) ->
         prog.comments.len(),
     );
 
-    if !prog.comments.is_empty() {
-        eprintln!("first 10 orphan comments:");
-        for c in prog.comments.iter().take(10) {
-            let preview: String = c.text.chars().take(60).collect();
-            eprintln!("  0x{:08X} {:?} {preview:?}", c.va, c.kind);
-        }
-        let fn_lo = prog.functions.first().map(|f| f.va).unwrap_or(0);
-        let fn_hi = prog.functions.last().map(|f| f.va).unwrap_or(0);
-        eprintln!("function VA range: 0x{:08X}..=0x{:08X}", fn_lo, fn_hi);
+    // Build the file plan in memory.
+    let t2 = std::time::Instant::now();
+    let pending = emit::bootstrap_files(&prog, re);
+    let emit_dt = t2.elapsed();
+    let total_bytes: usize = pending.iter().map(|p| p.contents.len()).sum();
+    eprintln!(
+        "Generated {} file(s), {:.1} MiB total, in {:.2}s",
+        pending.len(),
+        total_bytes as f64 / 1024.0 / 1024.0,
+        emit_dt.as_secs_f64(),
+    );
+    for pf in &pending {
+        let rel = pf.path.strip_prefix(re).unwrap_or(&pf.path);
+        eprintln!(
+            "  {:<32} {:>5} entries  {:>8.1} KiB",
+            rel.display(),
+            pf.entries,
+            pf.contents.len() as f64 / 1024.0,
+        );
     }
 
-    anyhow::bail!("export: stats-only prototype; TOML emission not yet implemented")
+    if dry_run {
+        eprintln!("(dry-run: no files written)");
+        return Ok(());
+    }
+
+    // Safety: refuse to overwrite an already-populated `re/` unless forced.
+    let existing = openwa_re_data::repo::enumerate_toml(re)?;
+    if !existing.is_empty() && !force {
+        anyhow::bail!(
+            "re/ already contains {} TOML file(s). Pass --force to overwrite, \
+             or delete re/*.toml first.",
+            existing.len()
+        );
+    }
+
+    emit::flush_to_disk(&pending)?;
+    eprintln!("Wrote {} file(s) under {}.", pending.len(), re.display());
+
+    Ok(())
 }
 
 fn cmd_import(_re: &std::path::Path, _out: &std::path::Path) -> Result<()> {

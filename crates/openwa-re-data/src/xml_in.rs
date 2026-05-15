@@ -171,16 +171,54 @@ fn parse_structure<R: std::io::BufRead>(
                 if !keep {
                     continue;
                 }
-                let offset = hex_attr(&e, b"OFFSET")?;
-                let mname =
-                    optional_attr(&e, b"NAME").unwrap_or_else(|| format!("field_{offset:x}"));
                 let ty = required_attr(&e, b"DATATYPE")?;
+                let mname_opt = optional_attr(&e, b"NAME");
+                // Skip Ghidra's auto-fill: `undefined` size=1, no NAME. These
+                // get regenerated on import from the parent SIZE attribute.
+                if ty == "undefined" && mname_opt.is_none() {
+                    continue;
+                }
+                let offset = hex_attr(&e, b"OFFSET")?;
+                let mname = mname_opt.unwrap_or_else(|| format!("field_{offset:x}"));
                 fields.push(Field {
                     offset,
                     name: mname,
                     ty,
                     comment: None,
                 });
+            }
+            Event::Start(e) if e.name().as_ref() == b"MEMBER" => {
+                // MEMBER with children (typically a REGULAR_CMT). Parse attrs
+                // and any nested comment.
+                let ty = required_attr(&e, b"DATATYPE")?;
+                let offset = hex_attr(&e, b"OFFSET")?;
+                let mname =
+                    optional_attr(&e, b"NAME").unwrap_or_else(|| format!("field_{offset:x}"));
+                let mut field_comment: Option<String> = None;
+                let n = e.name().as_ref().to_vec();
+                let mut inner = Vec::with_capacity(256);
+                loop {
+                    match reader.read_event_into(&mut inner)? {
+                        Event::Start(ee) if ee.name().as_ref() == b"REGULAR_CMT" => {
+                            let t = read_text(reader, b"REGULAR_CMT")?;
+                            if !t.is_empty() {
+                                field_comment = Some(t);
+                            }
+                        }
+                        Event::End(ee) if ee.name().as_ref() == n.as_slice() => break,
+                        Event::Eof => bail!("unexpected EOF inside <MEMBER>"),
+                        _ => {}
+                    }
+                    inner.clear();
+                }
+                if keep && !(ty == "undefined" && field_comment.is_none()) {
+                    fields.push(Field {
+                        offset,
+                        name: mname,
+                        ty,
+                        comment: field_comment,
+                    });
+                }
             }
             Event::Start(e) if e.name().as_ref() == b"REGULAR_CMT" => {
                 let text = read_text(reader, b"REGULAR_CMT")?;
@@ -513,14 +551,13 @@ fn parse_function<R: std::io::BufRead>(
     let mut buf = Vec::with_capacity(8192);
     loop {
         match reader.read_event_into(&mut buf)? {
-            Event::Empty(e) if e.name().as_ref() == b"RETURN_TYPE"
-                && keep => {
-                    let returns = required_attr(&e, b"DATATYPE")?;
-                    signature = Some(Signature {
-                        returns,
-                        return_storage: None,
-                    });
-                }
+            Event::Empty(e) if e.name().as_ref() == b"RETURN_TYPE" && keep => {
+                let returns = required_attr(&e, b"DATATYPE")?;
+                signature = Some(Signature {
+                    returns,
+                    return_storage: None,
+                });
+            }
             Event::Empty(e) if e.name().as_ref() == b"ADDRESS_RANGE" => {
                 // Implicit from function body; nothing to retain.
             }
@@ -580,20 +617,9 @@ fn parse_function<R: std::io::BufRead>(
         return Ok(());
     }
 
-    // If we saw any REGISTER_VAR, params from STACK_FRAME need their storage
-    // tagged so the validation pass passes "all-or-none". Tag stack params.
-    if custom_storage {
-        for p in params.iter_mut() {
-            if p.storage.is_none() {
-                // Stack params left by parse_stack_frame have their offset in
-                // a placeholder local-shape; for now flag as "stack:0x?" with
-                // unknown offset — refined when the export-from-rich-model
-                // step runs. We'll improve this when we wire up the import
-                // path proper.
-                p.storage = Some("stack:0x0".to_string());
-            }
-        }
-    }
+    // Suppress the unused-variable lint; `custom_storage` is intentionally
+    // observed but not acted on — we emit storage only where the XML had it.
+    let _ = custom_storage;
 
     prog.functions.push(Function {
         va,
@@ -624,14 +650,18 @@ fn parse_stack_frame<R: std::io::BufRead>(
                     continue;
                 }
                 let offset = hex_attr_signed(&e, b"STACK_PTR_OFFSET")?;
-                let pname = optional_attr(&e, b"NAME").unwrap_or_else(|| {
-                    if offset > 0 {
-                        format!("param_{offset:x}")
-                    } else {
-                        format!("local_{:x}", -offset)
-                    }
-                });
+                let pname_opt = optional_attr(&e, b"NAME");
                 let ty = required_attr(&e, b"DATATYPE")?;
+                let pname = pname_opt
+                    .clone()
+                    .unwrap_or_else(|| default_stack_name(offset));
+
+                // Skip Ghidra defaults: auto-named (`local_NN`/`param_NN`)
+                // with an `undefined*` type carry no information.
+                if is_ghidra_default_stack_name(&pname) && is_undefined_type(&ty) {
+                    continue;
+                }
+
                 if offset > 0 {
                     // Positive == above return address == param.
                     params.push(Param {
@@ -741,6 +771,38 @@ fn parse_data<R: std::io::BufRead>(reader: &mut Reader<R>, prog: &mut XmlProgram
 fn base_name(ty: &str) -> &str {
     let cut = ty.find(['*', '[']).unwrap_or(ty.len());
     ty[..cut].trim()
+}
+
+fn default_stack_name(offset: i64) -> String {
+    if offset > 0 {
+        format!("param_{offset:x}")
+    } else {
+        format!("local_{:x}", -offset)
+    }
+}
+
+fn is_ghidra_default_stack_name(name: &str) -> bool {
+    for prefix in ["local_", "param_", "Stack[", "local_res", "stack_"] {
+        if let Some(rest) = name.strip_prefix(prefix) {
+            // Tolerate trailing `]` for Stack[0x4].
+            let rest = rest.trim_end_matches(']');
+            if !rest.is_empty()
+                && rest
+                    .chars()
+                    .all(|c| c.is_ascii_hexdigit() || c == 'x' || c == '_' || c == '-')
+            {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+fn is_undefined_type(ty: &str) -> bool {
+    matches!(
+        ty.trim(),
+        "undefined" | "undefined1" | "undefined2" | "undefined4" | "undefined8"
+    )
 }
 
 /// True if a `<COMMENT>` element body looks Ghidra-generated rather than

@@ -5,6 +5,7 @@
 //! at `C:\Users\Paavo\.claude\plans\this-project-has-a-cheerful-russell.md`
 //! for the design.
 
+pub mod emit;
 pub mod filter;
 pub mod model;
 pub mod repo;

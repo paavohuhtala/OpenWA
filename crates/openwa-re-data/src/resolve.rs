@@ -136,6 +136,17 @@ pub fn resolve(prog: &mut XmlProgram) -> ResolveStats {
         }
         match owning_function(&function_starts, c.va) {
             Some(idx) => {
+                // Dedup: Ghidra emits plate comments both inside <FUNCTION>
+                // (`REGULAR_CMT` → `plate_comment`) AND in <COMMENTS> as a
+                // standalone `<COMMENT TYPE="plate" ADDRESS="va">`. Drop the
+                // standalone duplicate when it matches the function's plate.
+                if matches!(c.kind, CommentKind::Plate)
+                    && prog.functions[idx].va == c.va
+                    && prog.functions[idx].plate_comment.as_deref() == Some(c.text.as_str())
+                {
+                    stats.comments_routed += 1;
+                    continue;
+                }
                 prog.functions[idx].comment.push(InlineComment {
                     va: c.va,
                     kind: c.kind,

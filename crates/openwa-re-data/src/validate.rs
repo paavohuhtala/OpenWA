@@ -5,10 +5,18 @@ use crate::toml_io::Catalog;
 use anyhow::{Result, bail};
 use std::collections::HashSet;
 
-/// Result of a validation run. `errors` empty == valid.
+/// Result of a validation run.
+///
+/// Errors are structural problems that block round-trip (bad storage syntax,
+/// duplicate field offsets, field offset past struct end, unknown calling
+/// convention, etc.). Warnings flag suspect data that may still round-trip
+/// fine — currently just type references that aren't defined in `re/`,
+/// which is expected for Win32/MFC system types Ghidra resolves from its
+/// built-in archives.
 #[derive(Debug, Default)]
 pub struct ValidationReport {
     pub errors: Vec<String>,
+    pub warnings: Vec<String>,
 }
 
 impl ValidationReport {
@@ -61,23 +69,16 @@ fn validate_function(f: &Function, known: &HashSet<String>, report: &mut Validat
             .push(format!("{}: unknown calling_convention `{cc}`", label()));
     }
 
-    // Custom-storage discipline: either all params have storage, or none.
+    // Custom-storage discipline: __usercall must declare every param's
+    // storage. For other conventions, partial storage is allowed (e.g.
+    // a __thiscall constructor declares `this=ECX` and leaves the rest
+    // to default ABI rules).
     let total = f.param.len();
     let with_storage = f.param.iter().filter(|p| p.storage.is_some()).count();
     let is_custom = f.calling_convention.as_deref() == Some("__usercall");
-    if is_custom {
-        if total > 0 && with_storage != total {
-            report.errors.push(format!(
-                "{}: __usercall requires explicit storage on every param ({}/{} declared)",
-                label(),
-                with_storage,
-                total
-            ));
-        }
-    } else if with_storage != 0 {
+    if is_custom && total > 0 && with_storage != total {
         report.errors.push(format!(
-            "{}: non-__usercall function has storage on {}/{} params \
-             (default conventions should omit `storage`)",
+            "{}: __usercall requires explicit storage on every param ({}/{} declared)",
             label(),
             with_storage,
             total
@@ -128,9 +129,12 @@ fn validate_function(f: &Function, known: &HashSet<String>, report: &mut Validat
 fn validate_struct(s: &Struct, known: &HashSet<String>, report: &mut ValidationReport) {
     let mut seen_offsets = HashSet::new();
     for fld in &s.field {
-        if fld.offset >= s.size {
+        if fld.offset > s.size {
+            // A field starting past `size` is broken; a field starting AT
+            // `size` is a flex-array tail (RTTI `TypeDescriptor.name`, etc.)
+            // and tolerated.
             report.errors.push(format!(
-                "struct `{}`: field `{}` offset 0x{:X} >= size 0x{:X}",
+                "struct `{}`: field `{}` offset 0x{:X} > size 0x{:X}",
                 s.name, fld.name, fld.offset, s.size
             ));
         }
@@ -193,7 +197,7 @@ fn validate_type_ref(
     }
     if !is_builtin_type(&base) && !known.contains(&base) {
         report
-            .errors
+            .warnings
             .push(format!("{}: unknown type `{tref}` (base `{base}`)", ctx()));
     }
 }

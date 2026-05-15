@@ -93,9 +93,11 @@ pub fn is_auto_function_name(name: &str) -> bool {
 pub fn is_auto_symbol_name(name: &str) -> bool {
     for prefix in ["LAB_", "DAT_", "SUB_", "UNK_", "PTR_"] {
         if let Some(suffix) = name.strip_prefix(prefix)
-            && suffix.len() >= 8 && suffix[..8].chars().all(|c| c.is_ascii_hexdigit()) {
-                return true;
-            }
+            && suffix.len() >= 8
+            && suffix[..8].chars().all(|c| c.is_ascii_hexdigit())
+        {
+            return true;
+        }
     }
     false
 }
@@ -106,9 +108,11 @@ pub fn is_anonymous_type_name(name: &str) -> bool {
     let trimmed = name.trim_start_matches('_');
     for prefix in ["struct_", "union_", "enum_"] {
         if let Some(suffix) = trimmed.strip_prefix(prefix)
-            && !suffix.is_empty() && suffix.chars().all(|c| c.is_ascii_digit()) {
-                return true;
-            }
+            && !suffix.is_empty()
+            && suffix.chars().all(|c| c.is_ascii_digit())
+        {
+            return true;
+        }
     }
     false
 }
