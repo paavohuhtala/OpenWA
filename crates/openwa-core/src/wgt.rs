@@ -186,8 +186,13 @@ pub struct WgtTeam {
     pub grave_id: u8,
     /// Inline custom-grave bitmap, present iff `grave_id >= 0x80`.
     pub custom_grave: Option<CustomGrave>,
-    /// Default team weapon byte. Indexes into `SCHEME_WEAPON_ORDER`.
-    pub team_weapon: u8,
+    /// Per-team Special Weapon, stored as an index into
+    /// [`crate::weapon::SPECIAL_WEAPONS`] (0..=7, wrapping in WA's
+    /// team-edit UI). Resolves to one of eight game-defined specials
+    /// (FlameThrower, MoleBomb, OldWoman, HomingPigeon, SheepLauncher,
+    /// MadCow, HolyGrenade, SuperSheep). When the scheme has
+    /// `team_weapons` enabled each team starts with 1–2 shots of this.
+    pub special_weapon: u8,
     /// Cumulative team stats (10 dwords + 33×2 mission dwords). Stored
     /// opaque — we do not currently surface fields. `STATS_LEN` bytes.
     pub stats: Vec<u8>,
@@ -288,7 +293,7 @@ impl WgtTeam {
             None
         };
 
-        let team_weapon = c.read_u8(idx)?;
+        let special_weapon = c.read_u8(idx)?;
         let stats = c.read_vec(STATS_LEN, idx)?;
 
         let flag_filename = c.read_array::<FILENAME_LEN>(idx)?;
@@ -324,7 +329,7 @@ impl WgtTeam {
             use_custom_fanfare,
             grave_id,
             custom_grave,
-            team_weapon,
+            special_weapon,
             stats,
             flag,
             dm_rank,
@@ -356,6 +361,16 @@ impl WgtTeam {
     /// Flag filename (CP1252 → UTF-8, NUL-truncated).
     pub fn flag_filename_str(&self) -> String {
         crate::cp1252::decode_cstr(&self.flag.filename)
+    }
+
+    /// Human-readable name of the team's Special Weapon, resolved
+    /// through [`crate::weapon::SPECIAL_WEAPONS`]. Returns the raw
+    /// byte in hex if the index is out of range.
+    pub fn special_weapon_str(&self) -> String {
+        crate::weapon::SPECIAL_WEAPONS
+            .get(self.special_weapon as usize)
+            .map(|w| format!("{w:?}"))
+            .unwrap_or_else(|| format!("0x{:02X}", self.special_weapon))
     }
 
     /// Iterator over all 8 worm-name slots, each decoded CP1252 → UTF-8

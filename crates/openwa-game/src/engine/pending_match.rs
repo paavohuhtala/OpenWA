@@ -91,6 +91,14 @@ pub struct PendingTeam {
     /// Fanfare name (e.g. `"Finland"`). Not written to game memory yet;
     /// stored for the same reason as [`soundbank_name`].
     pub fanfare_name: String,
+    /// Team's Special Weapon, indexing
+    /// [`openwa_core::weapon::SPECIAL_WEAPONS`] (the 8-entry cycle list
+    /// FlameThrower, MoleBomb, OldWoman, HomingPigeon, SheepLauncher,
+    /// MadCow, HolyGrenade, SuperSheep). When the scheme has
+    /// `team_weapons` enabled, each team starts with 1–2 shots of this.
+    /// Not written to the lobby record yet (destination offset in the
+    /// 0xD7B-stride record still TBD).
+    pub special_weapon: u8,
 }
 
 impl PendingTeam {
@@ -109,6 +117,7 @@ impl PendingTeam {
             custom_grave: None,
             soundbank_name: String::new(),
             fanfare_name: String::new(),
+            special_weapon: 0,
         }
     }
 
@@ -143,6 +152,7 @@ impl PendingTeam {
             custom_grave: team.custom_grave.clone(),
             soundbank_name: team.soundbank_str(),
             fanfare_name: team.fanfare_str(),
+            special_weapon: team.special_weapon,
         }
     }
 }

@@ -114,6 +114,26 @@ impl KnownWeaponId {
     pub const COUNT: u32 = 71;
 }
 
+/// Per-team Special Weapon cycle list. The WGT team-edit dialog
+/// exposes this as a single button that cycles through the eight
+/// entries below, wrapping at the end. The stored byte (`WgtTeam.
+/// special_weapon`) is the index into this list, **not** a
+/// [`KnownWeaponId`] or a [`crate::scheme::SCHEME_WEAPON_ORDER`]
+/// position.
+///
+/// When the scheme has `team_weapons` enabled, each team starts the
+/// match with one or two shots of their indexed special weapon.
+pub const SPECIAL_WEAPONS: [KnownWeaponId; 8] = [
+    KnownWeaponId::FlameThrower,  // 0
+    KnownWeaponId::MoleBomb,      // 1
+    KnownWeaponId::OldWoman,      // 2
+    KnownWeaponId::HomingPigeon,  // 3
+    KnownWeaponId::SheepLauncher, // 4
+    KnownWeaponId::MadCow,        // 5
+    KnownWeaponId::HolyGrenade,   // 6
+    KnownWeaponId::SuperSheep,    // 7 — Aqua Sheep when scheme.aqua_sheep is set
+];
+
 impl TryFrom<u32> for KnownWeaponId {
     type Error = u32;
 

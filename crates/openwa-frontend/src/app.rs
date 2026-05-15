@@ -590,9 +590,10 @@ fn display_team_label(team: &WgtTeam) -> String {
 
 fn preview_team_row(ui: &mut egui::Ui, label: &str, team: &WgtTeam) {
     ui.monospace(format!(
-        "  {label}: voice={}, fanfare={}, grave={}, flag={}",
+        "  {label}: voice={}, fanfare={}, special={}, grave={}, flag={}",
         team.soundbank_str(),
         team.fanfare_str(),
+        team.special_weapon_str(),
         team.grave_id,
         team.flag_filename_str(),
     ));
