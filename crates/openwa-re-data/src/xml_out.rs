@@ -265,8 +265,18 @@ fn render_function_def(w: &mut String, fd: &FunctionDef) -> Result<()> {
 fn render_symbol_table(w: &mut String, cat: &Catalog) -> Result<()> {
     writeln!(w, "    <SYMBOL_TABLE>")?;
 
-    // Function names.
-    let mut funcs: Vec<&Function> = cat.functions.values().map(|e| &e.value).collect();
+    // Function names: emitted here only for functions WITHOUT overrides
+    // (which have no `<FUNCTION>` element, so SYMBOL_TABLE is their only
+    // naming hook). Functions with overrides get their name from
+    // `<FUNCTION NAME="...">` instead; emitting a duplicate SYMBOL entry for
+    // them confuses FunctionsXmlMgr's later lookup and triggers NPEs when
+    // names collide.
+    let mut funcs: Vec<&Function> = cat
+        .functions
+        .values()
+        .map(|e| &e.value)
+        .filter(|f| !function_has_overrides(f))
+        .collect();
     funcs.sort_by_key(|f| f.va);
     for f in funcs {
         writeln!(

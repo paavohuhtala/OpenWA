@@ -43,13 +43,20 @@ pub fn is_builtin_dtm_namespace(ns: &str) -> bool {
 }
 
 /// True if a function name is one Ghidra auto-generated (a `FUN_xxxxxxxx`
-/// placeholder) and contains nothing worth round-tripping.
+/// or `thunk_FUN_xxxxxxxx` placeholder) and contains nothing worth
+/// round-tripping. Marking either as `SOURCE_TYPE="USER_DEFINED"` on import
+/// makes Ghidra throw `IllegalArgumentException: Can't change between DEFAULT
+/// and non-default symbol`.
 pub fn is_auto_function_name(name: &str) -> bool {
-    if let Some(suffix) = name.strip_prefix("FUN_") {
-        suffix.len() == 8 && suffix.chars().all(|c| c.is_ascii_hexdigit())
-    } else {
-        false
+    for prefix in ["FUN_", "thunk_FUN_"] {
+        if let Some(suffix) = name.strip_prefix(prefix)
+            && suffix.len() == 8
+            && suffix.chars().all(|c| c.is_ascii_hexdigit())
+        {
+            return true;
+        }
     }
+    false
 }
 
 /// True if a symbol name is a Ghidra-default `LAB_xxxxxxxx` / `DAT_xxxxxxxx` /
@@ -167,8 +174,10 @@ mod tests {
     #[test]
     fn auto_names() {
         assert!(is_auto_function_name("FUN_00401000"));
+        assert!(is_auto_function_name("thunk_FUN_005bacf0"));
         assert!(!is_auto_function_name("FUN_0040"));
         assert!(!is_auto_function_name("FUN_xxxxxxxx"));
+        assert!(!is_auto_function_name("thunk_user_named_fn"));
         assert!(!is_auto_function_name("WormEntity__OnContact"));
 
         assert!(is_auto_symbol_name("LAB_00501234"));
