@@ -219,14 +219,16 @@ fn build_known_type_set(cat: &Catalog) -> HashSet<String> {
     for k in cat.function_defs.keys() {
         s.insert(k.clone());
     }
+    s.extend(cat.external_types.iter().cloned());
     s
 }
 
-/// Strip trailing pointer/array suffixes to expose the base type name.
-/// `"char *[7]"` → `"char"`, `"BaseEntity *"` → `"BaseEntity"`.
+/// Strip trailing pointer/array/bit-field suffixes to expose the base type
+/// name. `"char *[7]"` → `"char"`, `"BaseEntity *"` → `"BaseEntity"`,
+/// `"dword:31"` → `"dword"` (Ghidra bit-field syntax).
 fn base_type_name(tref: &str) -> String {
-    // Drop everything from the first `*` or `[` onwards; trim.
-    let cutoff = tref.find(['*', '[']).unwrap_or(tref.len());
+    // Drop everything from the first `*`, `[`, or `:` onwards; trim.
+    let cutoff = tref.find(['*', '[', ':']).unwrap_or(tref.len());
     tref[..cutoff].trim().to_string()
 }
 
@@ -271,9 +273,15 @@ fn is_builtin_type(name: &str) -> bool {
             | "int64"
             | "uint64"
             | "pointer"
+            | "pointer8"
+            | "pointer16"
+            | "pointer32"
+            | "pointer64"
             | "string"
             | "unicode"
             | "Alignment"
+            | "TerminatedCString"
+            | "TerminatedUnicode"
             | "undefined"
             | "undefined1"
             | "undefined2"

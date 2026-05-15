@@ -3,7 +3,7 @@
 use crate::model::*;
 use crate::repo::enumerate_toml;
 use anyhow::{Context, Result, bail};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 /// Merged view of every TOML file under `re/`. Keyed for fast lookup and
@@ -18,6 +18,9 @@ pub struct Catalog {
     pub enums: HashMap<String, OwnedEntry<Enum>>,
     pub typedefs: HashMap<String, OwnedEntry<Typedef>>,
     pub function_defs: HashMap<String, OwnedEntry<FunctionDef>>,
+    /// Externally-defined type names (built-in DTM archives). Used by the
+    /// validator to recognise legitimate type references.
+    pub external_types: HashSet<String>,
 }
 
 /// An entry tagged with the file path it came from. Used for duplicate-error
@@ -74,6 +77,7 @@ impl Catalog {
                 "function_def",
             )?;
         }
+        self.external_types.extend(file.external_types);
         Ok(())
     }
 

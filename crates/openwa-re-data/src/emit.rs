@@ -29,6 +29,13 @@ pub fn write_re_file(file: &ReFile) -> String {
         };
     }
 
+    // Top-level keys (anything not in a `[[...]]` table) MUST come before any
+    // array-of-tables in TOML — emit `external_types` first.
+    if !file.external_types.is_empty() {
+        section_gap!();
+        write_external_types(&mut out, &file.external_types);
+    }
+
     for f in &file.function {
         section_gap!();
         write_function(&mut out, f);
@@ -63,6 +70,20 @@ pub fn write_re_file(file: &ReFile) -> String {
     }
 
     out
+}
+
+/// Render the bulk `external_types = [...]` array. One name per line for
+/// diff hygiene; alphabetical order is set by the caller.
+fn write_external_types(out: &mut String, names: &[String]) {
+    out.push_str("# Types defined in Ghidra's built-in archives (Win32, MFC, CRT,\n");
+    out.push_str("# PE/DOS loader, etc.). Listed so the validator recognises them\n");
+    out.push_str("# as legitimate type names; their full definitions live in Ghidra,\n");
+    out.push_str("# not in `re/`, and they are not round-tripped on import.\n");
+    out.push_str("external_types = [\n");
+    for n in names {
+        writeln!(out, "  {},", toml_quote(n)).unwrap();
+    }
+    out.push_str("]\n");
 }
 
 // ─── Bootstrap export (XmlProgram → sharded re/) ─────────────────────────────
@@ -153,23 +174,45 @@ pub fn bootstrap_files(prog: &XmlProgram, re_dir: &Path) -> Vec<PendingFile> {
         });
     }
 
-    if !prog.structs.is_empty()
+    // Normalise external types: dedupe + sort. Drop names that we kept as
+    // user types in this dump (no point listing them twice).
+    let user_names: std::collections::HashSet<&str> = prog
+        .structs
+        .iter()
+        .map(|s| s.name.as_str())
+        .chain(prog.unions.iter().map(|u| u.name.as_str()))
+        .chain(prog.enums.iter().map(|e| e.name.as_str()))
+        .chain(prog.typedefs.iter().map(|t| t.name.as_str()))
+        .chain(prog.function_defs.iter().map(|fd| fd.name.as_str()))
+        .collect();
+    let mut external_types: Vec<String> = prog
+        .external_types
+        .iter()
+        .filter(|n| !user_names.contains(n.as_str()))
+        .cloned()
+        .collect();
+    external_types.sort();
+    external_types.dedup();
+
+    let has_user_types = !prog.structs.is_empty()
         || !prog.unions.is_empty()
         || !prog.enums.is_empty()
         || !prog.typedefs.is_empty()
-        || !prog.function_defs.is_empty()
-    {
+        || !prog.function_defs.is_empty();
+    if has_user_types || !external_types.is_empty() {
         let entries = prog.structs.len()
             + prog.unions.len()
             + prog.enums.len()
             + prog.typedefs.len()
-            + prog.function_defs.len();
+            + prog.function_defs.len()
+            + external_types.len();
         let rf = ReFile {
             r#struct: prog.structs.clone(),
             union: prog.unions.clone(),
             r#enum: prog.enums.clone(),
             typedef: prog.typedefs.clone(),
             function_def: prog.function_defs.clone(),
+            external_types,
             ..Default::default()
         };
         out.push(PendingFile {

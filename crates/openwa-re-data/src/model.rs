@@ -45,6 +45,13 @@ pub struct ReFile {
 
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub function_def: Vec<FunctionDef>,
+
+    /// Type names defined in Ghidra's built-in archives (Win32 / MFC / CRT
+    /// headers, the PE/DOS loader, etc.) that user TOML may legitimately
+    /// reference. Treated as known type names by [`crate::validate`] but
+    /// never round-tripped through the import path — Ghidra re-supplies them.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub external_types: Vec<String>,
 }
 
 // ─── Functions ───────────────────────────────────────────────────────────────

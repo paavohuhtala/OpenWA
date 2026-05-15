@@ -32,6 +32,10 @@ pub struct XmlProgram {
     /// One entry per (address, comment_kind). Routed into the owning function
     /// (if any) at a later pass; orphan comments stay attached to globals/labels.
     pub comments: Vec<RawComment>,
+    /// Type names declared in DTM namespaces we filter out (Win32, MFC, CRT,
+    /// `/PE`, `/Demangler`, anonymous `_struct_NN`, etc.). User TOML may
+    /// reference these legitimately even though they're not defined in `re/`.
+    pub external_types: Vec<String>,
     pub stats: ParseStats,
 }
 
@@ -239,14 +243,19 @@ fn parse_structure<R: std::io::BufRead>(
     if !keep {
         if is_placeholder {
             prog.stats.types_dropped_placeholder += 1;
+            // Placeholder structs are referenced by name from other types;
+            // keep the name so user references resolve.
+            prog.external_types.push(name);
         } else {
             prog.stats.types_dropped_builtin += 1;
+            prog.external_types.push(name);
         }
         return Ok(());
     }
 
     if filter::is_anonymous_type_name(&name) {
         prog.stats.types_dropped_anonymous += 1;
+        prog.external_types.push(name);
         return Ok(());
     }
 
@@ -311,6 +320,7 @@ fn parse_union<R: std::io::BufRead>(
         } else {
             prog.stats.types_dropped_builtin += 1;
         }
+        prog.external_types.push(name);
         return Ok(());
     }
 
@@ -360,6 +370,7 @@ fn parse_enum<R: std::io::BufRead>(
         } else {
             prog.stats.types_dropped_builtin += 1;
         }
+        prog.external_types.push(name);
         return Ok(());
     }
 
@@ -381,6 +392,7 @@ fn handle_empty_enum(e: &BytesStart<'_>, prog: &mut XmlProgram) {
     let namespace = optional_attr(e, b"NAMESPACE").unwrap_or_else(|| "/".to_string());
     if filter::is_builtin_dtm_namespace(&namespace) || filter::is_anonymous_type_name(&name) {
         prog.stats.types_dropped_builtin += 1;
+        prog.external_types.push(name);
         return;
     }
     let size = hex_attr(e, b"SIZE").unwrap_or(4);
@@ -430,6 +442,7 @@ fn parse_function_def<R: std::io::BufRead>(
 
     if !keep {
         prog.stats.types_dropped_builtin += 1;
+        prog.external_types.push(name);
         return Ok(());
     }
 
@@ -452,6 +465,7 @@ fn handle_typedef(e: &BytesStart<'_>, prog: &mut XmlProgram) {
     };
     if filter::is_builtin_dtm_namespace(&namespace) {
         prog.stats.types_dropped_builtin += 1;
+        prog.external_types.push(name);
         return;
     }
     prog.typedefs.push(Typedef { name, target });
