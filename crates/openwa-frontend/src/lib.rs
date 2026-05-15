@@ -39,7 +39,7 @@ fn run_window() -> Result<(), eframe::Error> {
     let mut options = eframe::NativeOptions {
         viewport: eframe::egui::ViewportBuilder::default()
             .with_title("OpenWA Match Launcher")
-            .with_inner_size([520.0, 480.0]),
+            .with_inner_size([1024.0, 768.0]),
         ..Default::default()
     };
 

@@ -1,4 +1,4 @@
-//! egui application: match-launcher prototype window.
+//! egui application: match-launcher window.
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -9,19 +9,12 @@ use openwa_core::scheme::{SchemeFile, SchemeVersion};
 use openwa_core::wgt::{WgtFile, WgtTeam};
 use openwa_game::engine::pending_match::{PendingCustomMatch, PendingTeam};
 
-use crate::launch::{self, LaunchMode, LaunchOutcome, LaunchRequest};
+use crate::launch::{self, LaunchOutcome};
 
-/// Population strategy chosen via the UI radio.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum UiMode {
-    Snapshot,
-    Fresh,
-}
+/// Env var that enables the debug section (GameInfo dump + watchpoints).
+const DEBUG_FEATURES_ENV: &str = "OPENWA_LAUNCHER_DEBUG";
 
 pub struct MatchLauncherApp {
-    req: LaunchRequest,
-    ui_mode: UiMode,
-    call_init_session: bool,
     /// Schemes discovered under `User/Schemes` at startup. Empty if the
     /// install can't be located.
     schemes: Vec<DiscoveredFile>,
@@ -43,6 +36,8 @@ pub struct MatchLauncherApp {
     /// Landscape-generator seed (`G_GEN_MAP_SEED`). Distinct from any
     /// scheme RNG state — this single u32 determines the entire map.
     map_seed: u32,
+    /// Whether the debug-features section is rendered at all (env-gated).
+    debug_features_enabled: bool,
     dump_label: String,
     log: Arc<Mutex<Vec<String>>>,
 }
@@ -78,9 +73,6 @@ impl Default for MatchLauncherApp {
             .position(|w| w.name.eq_ignore_ascii_case("WG"))
             .or_else(|| (!wgt_files.is_empty()).then_some(0));
         let mut app = Self {
-            req: LaunchRequest::default(),
-            ui_mode: UiMode::Snapshot,
-            call_init_session: false,
             schemes,
             scheme_choice,
             scheme_status: SchemeStatus::NotLoaded,
@@ -92,11 +84,12 @@ impl Default for MatchLauncherApp {
             // Use the system RNG once so the first launch isn't always
             // the same seed across processes; the Regenerate button bumps it.
             map_seed: rand::random::<u32>(),
+            debug_features_enabled: std::env::var(DEBUG_FEATURES_ENV).is_ok(),
             dump_label: "before".to_owned(),
             log: Arc::default(),
         };
-        // Best-effort roster load so the Fresh-mode dropdowns are
-        // populated on first frame.
+        // Best-effort roster load so the team dropdowns are populated on
+        // first frame.
         app.reload_wgt();
         app
     }
@@ -141,31 +134,21 @@ impl MatchLauncherApp {
     }
 
     fn do_launch(&mut self) {
-        // Snap the current UI mode into the LaunchRequest fired at WA.
-        self.req.mode = match self.ui_mode {
-            UiMode::Snapshot => LaunchMode::Snapshot {
-                call_init_session: self.call_init_session,
-            },
-            UiMode::Fresh => match self.build_pending_match() {
-                Ok(pending) => LaunchMode::Fresh(pending),
-                Err(e) => {
-                    self.push_log(format!("Launch refused: {e}"));
-                    return;
-                }
-            },
+        let pending = match self.build_pending_match() {
+            Ok(p) => p,
+            Err(e) => {
+                self.push_log(format!("Launch refused: {e}"));
+                return;
+            }
         };
 
-        self.push_log(format!(
-            "Launch requested ({}): {} vs {}",
-            match self.ui_mode {
-                UiMode::Snapshot => "snapshot",
-                UiMode::Fresh => "fresh",
-            },
-            self.req.team_a_name,
-            self.req.team_b_name,
-        ));
-        let outcome = launch::launch(&self.req);
-        match outcome {
+        let (a, b) = match (pending.teams.first(), pending.teams.get(1)) {
+            (Some(a), Some(b)) => (a.name.clone(), b.name.clone()),
+            _ => ("?".into(), "?".into()),
+        };
+        self.push_log(format!("Launch requested: {a} vs {b}"));
+
+        match launch::launch(pending) {
             LaunchOutcome::Scheduled => {
                 self.push_log(
                     "Scheduled onto main thread — match will start on next MFC idle tick",
@@ -182,15 +165,6 @@ impl MatchLauncherApp {
     fn build_pending_match(&mut self) -> Result<PendingCustomMatch, String> {
         let scheme = self.load_scheme_for_launch()?;
         let teams = self.build_teams_from_wgt()?;
-        // Mirror the WGT-derived team names back into the LaunchRequest
-        // so the post-launch GameInfo team-name overlay in
-        // `launch::overlay_team_names` writes the right strings.
-        if let Some(t) = teams.first() {
-            self.req.team_a_name = t.name.clone();
-        }
-        if let Some(t) = teams.get(1) {
-            self.req.team_b_name = t.name.clone();
-        }
         Ok(PendingCustomMatch {
             game_version: 500,
             type_label: None,
@@ -262,7 +236,7 @@ impl MatchLauncherApp {
     }
 
     fn make_label(&self, suffix: &str) -> String {
-        let stamp = chrono_like_stamp();
+        let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
         let raw_tag = self.dump_label.trim();
         let tag = if raw_tag.is_empty() { "dump" } else { raw_tag };
         let safe_tag: String = tag
@@ -299,48 +273,15 @@ impl MatchLauncherApp {
     }
 }
 
-/// Filename-safe `YYYYMMDD-HHMMSS` from `SystemTime::now()` without a chrono dep.
-fn chrono_like_stamp() -> String {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    let secs = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
-    // Cheap UTC breakdown — good enough for filenames; absolute correctness
-    // doesn't matter, just monotonic + readable.
-    let days_since_epoch = secs / 86_400;
-    let rem_today = secs % 86_400;
-    let h = rem_today / 3_600;
-    let m = (rem_today % 3_600) / 60;
-    let s = rem_today % 60;
-    // Days-since-epoch -> Y/M/D via the standard "civil from days" formula.
-    let z = days_since_epoch as i64 + 719_468;
-    let era = z.div_euclid(146_097);
-    let doe = (z - era * 146_097) as u64;
-    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
-    let y = (yoe as i64) + era * 400;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let d = doy - (153 * mp + 2) / 5 + 1;
-    let mon = if mp < 10 { mp + 3 } else { mp - 9 };
-    let year = if mon <= 2 { y + 1 } else { y };
-    format!("{year:04}{mon:02}{d:02}-{h:02}{m:02}{s:02}")
-}
-
 impl eframe::App for MatchLauncherApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         ui.ctx()
             .request_repaint_after(std::time::Duration::from_millis(250));
 
         ui.heading("OpenWA Match Launcher");
-        ui.label(
-            "Prototype v0: replays a GameInfo snapshot captured from a real WA frontend launch.",
-        );
         ui.separator();
 
         let idle = launch::is_idle_at_frontend();
-        let snap = launch::has_snapshot();
-
         ui.horizontal(|ui| {
             ui.label("WA state:");
             if idle {
@@ -349,108 +290,38 @@ impl eframe::App for MatchLauncherApp {
                 ui.colored_label(egui::Color32::YELLOW, "in game session");
             }
         });
-        ui.horizontal(|ui| {
-            ui.label("GameInfo snapshot:");
-            if snap {
-                ui.colored_label(egui::Color32::LIGHT_GREEN, "captured");
-            } else {
-                ui.colored_label(
-                    egui::Color32::YELLOW,
-                    "not captured — start one match through WA's frontend first",
-                );
-            }
-        });
 
         ui.add_space(8.0);
-        ui.label("Population mode:");
-        ui.horizontal(|ui| {
-            ui.radio_value(&mut self.ui_mode, UiMode::Snapshot, "Snapshot replay");
-            ui.radio_value(
-                &mut self.ui_mode,
-                UiMode::Fresh,
-                "Fresh (PendingCustomMatch)",
-            );
-        });
 
-        match self.ui_mode {
-            UiMode::Snapshot => {
-                ui.collapsing("Teams (snapshot overlay)", |ui| {
-                    ui.label(
-                        "These names are overlaid on the captured snapshot's \
-                         team_records[0..2].name fields after restore.",
-                    );
-                    ui.horizontal(|ui| {
-                        ui.label("A:");
-                        ui.text_edit_singleline(&mut self.req.team_a_name);
-                    });
-                    ui.horizontal(|ui| {
-                        ui.label("B:");
-                        ui.text_edit_singleline(&mut self.req.team_b_name);
-                    });
-                });
+        egui::ScrollArea::vertical()
+            .auto_shrink([false, false])
+            .max_height(ui.available_height() - 220.0)
+            .show(ui, |ui| {
+                self.draw_map_panel(ui);
+                ui.add_space(6.0);
+                self.draw_scheme_panel(ui);
+                ui.add_space(6.0);
+                self.draw_teams_panel(ui);
 
-                ui.add_space(4.0);
-                ui.checkbox(
-                    &mut self.call_init_session,
-                    "Also call GameInfo__InitSession (refresh rng_seed + replay header)",
-                );
-            }
-            UiMode::Fresh => {
-                self.draw_fresh_mode_controls(ui);
-            }
-        }
+                if self.debug_features_enabled {
+                    ui.add_space(8.0);
+                    self.draw_debug_features(ui);
+                }
+            });
 
         ui.add_space(8.0);
-        ui.collapsing("GameInfo dump (RE workflow)", |ui| {
-            ui.label(
-                "Dump under gameinfo_dumps/<stamp>_<tag>.bin + .hex (next to WA.exe). \
-                 Diff two .hex files (e.g. before/after a menu action) to find which \
-                 offsets that action writes.",
-            );
-            ui.horizontal(|ui| {
-                ui.label("Tag:");
-                ui.text_edit_singleline(&mut self.dump_label);
-            });
-            ui.horizontal(|ui| {
-                if ui.button("Dump live GameInfo").clicked() {
-                    self.do_dump_live();
-                }
-                let snap_btn = egui::Button::new("Dump captured snapshot");
-                if ui.add_enabled(snap, snap_btn).clicked() {
-                    self.do_dump_snapshot();
-                }
-            });
-            ui.add_space(4.0);
-            ui.label(
-                "Hardware watchpoints (DR0-DR3) on the 4 GameInfo offsets listed in \
-                 debug_watchpoint.rs's WATCH_OFFSETS. Click then go to WA's frontend and \
-                 click Start — OpenWA.log gets a stack trace per write.",
-            );
-            if ui.button("Arm GameInfo watchpoints").clicked() {
-                if openwa_game::main_thread::request_arm_gameinfo_watchpoints() {
-                    self.push_log("Watchpoint arm scheduled onto main thread");
-                } else {
-                    self.push_log("Watchpoint arm not registered (DLL feature?)");
-                }
-            }
-        });
-
-        ui.add_space(12.0);
-        let can_launch = idle
-            && match self.ui_mode {
-                UiMode::Snapshot => snap,
-                UiMode::Fresh => self.loaded_wgt.is_some(),
-            };
+        let can_launch = idle && self.loaded_wgt.is_some();
         let launch_button =
             egui::Button::new(egui::RichText::new("Launch match").strong().size(16.0));
         if ui.add_enabled(can_launch, launch_button).clicked() {
             self.do_launch();
         }
 
-        ui.add_space(12.0);
+        ui.add_space(8.0);
         ui.separator();
         ui.label("Log:");
         egui::ScrollArea::vertical()
+            .id_salt("launcher-log")
             .max_height(160.0)
             .stick_to_bottom(true)
             .show(ui, |ui| {
@@ -464,10 +335,8 @@ impl eframe::App for MatchLauncherApp {
 }
 
 impl MatchLauncherApp {
-    /// Draw the Fresh-mode panel (scheme dropdown + roster picker).
-    fn draw_fresh_mode_controls(&mut self, ui: &mut egui::Ui) {
-        ui.add_space(4.0);
-        ui.collapsing("Map", |ui| {
+    fn draw_map_panel(&mut self, ui: &mut egui::Ui) {
+        labeled_group(ui, "Map", |ui| {
             ui.horizontal(|ui| {
                 ui.label("Seed:");
                 let mut buf = format!("{:08X}", self.map_seed);
@@ -481,9 +350,10 @@ impl MatchLauncherApp {
                 }
             });
         });
+    }
 
-        ui.add_space(4.0);
-        ui.collapsing("Scheme", |ui| {
+    fn draw_scheme_panel(&mut self, ui: &mut egui::Ui) {
+        labeled_group(ui, "Scheme", |ui| {
             if self.schemes.is_empty() {
                 ui.colored_label(
                     egui::Color32::LIGHT_RED,
@@ -519,9 +389,10 @@ impl MatchLauncherApp {
                 }
             }
         });
+    }
 
-        ui.add_space(4.0);
-        ui.collapsing("Teams", |ui| {
+    fn draw_teams_panel(&mut self, ui: &mut egui::Ui) {
+        labeled_group(ui, "Teams", |ui| {
             if self.wgt_files.is_empty() {
                 ui.colored_label(
                     egui::Color32::LIGHT_RED,
@@ -588,6 +459,61 @@ impl MatchLauncherApp {
             }
         });
     }
+
+    fn draw_debug_features(&mut self, ui: &mut egui::Ui) {
+        egui::CollapsingHeader::new("Debug features")
+            .default_open(false)
+            .show(ui, |ui| {
+                ui.label(
+                    "Dump under gameinfo_dumps/<stamp>_<tag>.bin + .hex (next to WA.exe). \
+                     Diff two .hex files (e.g. before/after a menu action) to find which \
+                     offsets that action writes.",
+                );
+                ui.horizontal(|ui| {
+                    ui.label("Tag:");
+                    ui.text_edit_singleline(&mut self.dump_label);
+                });
+                ui.horizontal(|ui| {
+                    if ui.button("Dump live GameInfo").clicked() {
+                        self.do_dump_live();
+                    }
+                    let snap_captured = openwa_game::engine::game_info_snapshot::is_captured();
+                    let snap_btn = egui::Button::new("Dump captured snapshot");
+                    if ui.add_enabled(snap_captured, snap_btn).clicked() {
+                        self.do_dump_snapshot();
+                    }
+                });
+                ui.add_space(4.0);
+                ui.label(
+                    "Hardware watchpoints (DR0-DR3) on the 4 GameInfo offsets listed in \
+                     debug_watchpoint.rs's WATCH_OFFSETS. Click then go to WA's frontend and \
+                     click Start — OpenWA.log gets a stack trace per write.",
+                );
+                if ui.button("Arm GameInfo watchpoints").clicked() {
+                    if openwa_game::main_thread::request_arm_gameinfo_watchpoints() {
+                        self.push_log("Watchpoint arm scheduled onto main thread");
+                    } else {
+                        self.push_log("Watchpoint arm not registered (DLL feature?)");
+                    }
+                }
+            });
+    }
+}
+
+/// Render `add_contents` inside a bordered group with a bold heading label
+/// at the top. egui doesn't have a built-in "titled frame" so we compose
+/// `ui.group` + a strong label.
+fn labeled_group<R>(
+    ui: &mut egui::Ui,
+    title: &str,
+    add_contents: impl FnOnce(&mut egui::Ui) -> R,
+) -> R {
+    ui.group(|ui| {
+        ui.label(egui::RichText::new(title).strong());
+        ui.separator();
+        add_contents(ui)
+    })
+    .inner
 }
 
 fn team_dropdown(ui: &mut egui::Ui, label: &str, teams: &[WgtTeam], idx: &mut usize) {

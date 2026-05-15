@@ -2541,6 +2541,7 @@ dependencies = [
 name = "openwa-frontend"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "eframe",
  "openwa-config",
  "openwa-core",
