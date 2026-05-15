@@ -391,6 +391,18 @@ fn render_function(w: &mut String, f: &Function) -> Result<()> {
         xml_escape(&f.name),
     )?;
 
+    // Ghidra's FunctionsXmlMgr requires at least one ADDRESS_RANGE to locate
+    // the function on overlay-import — without it `getFunctionAt(entry)`
+    // returns null even for valid entries and the import NPEs at
+    // `func.getSymbol().setName(...)`. We don't track the body end address
+    // in the model, so emit a 1-byte placeholder: Ghidra honors the existing
+    // function body when the entry point matches an existing function.
+    writeln!(
+        w,
+        "            <ADDRESS_RANGE START=\"{:08x}\" END=\"{:08x}\" />",
+        f.va, f.va,
+    )?;
+
     if let Some(sig) = &f.signature {
         writeln!(
             w,
