@@ -15,9 +15,15 @@
 //! re-emit them verbatim.
 
 /// Magic header bytes for .WGT files.
-pub const WGT_MAGIC: [u8; 4] = *b"WGT\0";
+///
+/// Retail `CTeam__SaveTeams` (0x004D9B10) writes only these three bytes from
+/// its `"WGT\0"` source string; `CTeam__LoadTeams` (0x004D92B0) validates
+/// only the first three bytes. The fourth header byte is a data field — see
+/// [`WgtHeader::unknown_03`] — not part of the magic, even though retail
+/// files conventionally happen to have a NUL there.
+pub const WGT_MAGIC: [u8; 3] = *b"WGT";
 
-/// Size of the file header (magic + version + team count + cheat flags + 1 unknown).
+/// Size of the file header (magic + 1 unknown + version + team count + cheat flags + 1 unknown).
 pub const WGT_HEADER_SIZE: usize = 11;
 
 /// Length of fixed team-name field, in bytes (null-terminated ASCII).
@@ -66,8 +72,8 @@ pub const CUSTOM_GRAVE_THRESHOLD: u8 = 0x80;
 pub enum WgtError {
     /// File is too short to contain the header.
     TooShortHeader { len: usize },
-    /// Magic bytes don't match "WGT\0".
-    BadMagic([u8; 4]),
+    /// First three bytes don't spell "WGT".
+    BadMagic([u8; 3]),
     /// Ran out of bytes partway through team `index`.
     Truncated {
         team_index: usize,
@@ -85,8 +91,8 @@ impl core::fmt::Display for WgtError {
             ),
             WgtError::BadMagic(m) => write!(
                 f,
-                "bad magic: {:02X} {:02X} {:02X} {:02X} (expected WGT\\0)",
-                m[0], m[1], m[2], m[3]
+                "bad magic: {:02X} {:02X} {:02X} (expected WGT)",
+                m[0], m[1], m[2]
             ),
             WgtError::Truncated {
                 team_index,
@@ -100,9 +106,15 @@ impl core::fmt::Display for WgtError {
     }
 }
 
-/// Header-level cheat flags + roster metadata (offset 0x04..0x0A).
+/// Header-level cheat flags + roster metadata (offset 0x03..0x0A).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct WgtHeader {
+    /// Header byte at offset 0x03 — round-tripped to/from `CTeamCollection+0x08`
+    /// by retail (`CTeam__SaveTeams` / `CTeam__LoadTeams`). Almost always `0x00`
+    /// in stock files (which is why this byte is often mistaken for a NUL
+    /// magic terminator), but retail's loader doesn't validate it, so non-NUL
+    /// values produced by other/beta builds parse fine.
+    pub unknown_03: u8,
     /// Unknown header byte at offset 0x04 — possibly a version field. The
     /// retail WG.WGT writes `0x04` here.
     pub unknown_04: u8,
@@ -210,10 +222,11 @@ impl WgtFile {
             return Err(WgtError::TooShortHeader { len: data.len() });
         }
         let mut c = Cursor::new(data);
-        let magic = c.read_array::<4>(0)?;
+        let magic = c.read_array::<3>(0)?;
         if magic != WGT_MAGIC {
             return Err(WgtError::BadMagic(magic));
         }
+        let unknown_03 = c.read_u8(0)?;
         let unknown_04 = c.read_u8(0)?;
         let team_count = c.read_u8(0)? as usize;
         let utility_cheats = c.read_u8(0)?;
@@ -223,6 +236,7 @@ impl WgtFile {
         let unknown_0a = c.read_u8(0)?;
 
         let header = WgtHeader {
+            unknown_03,
             unknown_04,
             utility_cheats,
             weapon_cheats,
@@ -444,7 +458,8 @@ mod tests {
 
     fn synth_header(team_count: u8) -> [u8; WGT_HEADER_SIZE] {
         let mut h = [0u8; WGT_HEADER_SIZE];
-        h[0..4].copy_from_slice(&WGT_MAGIC);
+        h[0..3].copy_from_slice(&WGT_MAGIC);
+        // h[3] = unknown_03 (left 0 — retail default).
         h[4] = 0x04;
         h[5] = team_count;
         h
