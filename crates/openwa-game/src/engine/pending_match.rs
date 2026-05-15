@@ -66,20 +66,18 @@ pub struct PendingTeam {
     /// from `team_record + 0xBB4` by `GameWorld__InitTeamsFromSetup` at
     /// `0x005220B0`). Capped at [`MAX_WORMS_PER_TEAM`].
     pub worm_names: Vec<String>,
-    /// Grave-sprite index, written to lobby `G_TEAM_DATA[i] + 0x123` so
-    /// `GameInfo__InitTeamsFromLobby` propagates it into the active team
-    /// state. `0x00..=0x05` selects one of the six animated graves;
-    /// `0x06..=0x7F` reaches WA's "non-grave sprite as a grave" extension
-    /// list; `0x80..=0xFE` is reserved for custom-bitmap entries (the
-    /// bitmap data itself is NOT yet wired up — see `custom_grave`).
+    /// Grave-sprite index, written to lobby `G_TEAM_DATA[i] + 0x126`
+    /// (signed) so `GameInfo__InitTeamsFromLobby` propagates it into
+    /// `team_records[i] + 0x58`. `0x00..=0x05` selects one of the six
+    /// animated graves; `0x06..=0x7F` reaches WA's "non-grave sprite as
+    /// a grave" extension list; `0x80..=0xFE` (signed-negative) routes
+    /// the renderer to the custom-bitmap path, with the bitmap+palette
+    /// supplied via [`custom_grave`].
     pub grave_id: u8,
     /// Custom-grave bitmap (24×32 8bpp + 256-colour palette), present
     /// only when [`grave_id`] >= [`openwa_core::wgt::CUSTOM_GRAVE_THRESHOLD`].
-    ///
-    /// **Currently not propagated to WA** — the field exists so a
-    /// [`PendingTeam::from_wgt`] consumer can round-trip a parsed WGT
-    /// entry without losing data. Wiring this through the per-team
-    /// custom-grave slot needs another RE pass.
+    /// [`populate_lobby_globals`] copies palette and bitmap into the
+    /// lobby team record's grave slots (lobby `+0x67B` / `+0xA7B`).
     pub custom_grave: Option<openwa_core::wgt::CustomGrave>,
     /// Soundbank directory name (e.g. `"English"`, `"Finnish"`,
     /// `"Thespian"`). Written into the lobby team record at +0x14, which
@@ -474,14 +472,34 @@ pub unsafe fn populate_lobby_globals(pending: &PendingCustomMatch) {
             }
 
             // Grave id at lobby +0x126 (signed byte). PTC sign-extends
-            // and `+1`s it into `team_records[i]+0x58`, which the
-            // renderer reads to pick a stock-grave sprite (stock id
-            // 0..=0x7F → positive byte) or switch to the custom-bitmap
-            // path (id 0x80..=0xFE → negative byte). For custom graves
-            // we'd ALSO need to write the palette+bitmap to lobby
-            // +0x67B/+0xA7B; that pipeline is still TBD, so custom-id
-            // teams currently fall back to the rendering default.
+            // and `+1`s it into `team_records[i]+0x58`; the renderer
+            // reads it to pick a stock-grave sprite (stock id 0..=0x7F
+            // → positive byte) or switch to the custom-bitmap path
+            // (id 0x80..=0xFE → negative byte). The custom-grave
+            // palette+bitmap regions below (+0x67B/+0xA7B) feed the
+            // negative-id rendering path.
             (*entry).grave_id = team.grave_id as i8;
+
+            // Custom-grave palette + bitmap. PTC at +0x67B/+0xA7B
+            // unconditionally BGR→RGB-converts the palette and copies
+            // the bitmap into the active team_record; for stock graves
+            // we leave both blocks zeroed so the renderer routes via
+            // `grave_id+1` to a stock sprite. Source is CTeam+0x125 /
+            // +0x525, populated in WA only when WGT grave_id ≥ 0x80.
+            if let Some(custom_grave) = team.custom_grave.as_ref() {
+                let pal_len = custom_grave.palette.len().min(0x400);
+                core::ptr::copy_nonoverlapping(
+                    custom_grave.palette.as_ptr(),
+                    (*entry).grave_palette.as_mut_ptr(),
+                    pal_len,
+                );
+                let bmp_len = custom_grave.bitmap.len().min(0x300);
+                core::ptr::copy_nonoverlapping(
+                    custom_grave.bitmap.as_ptr(),
+                    (*entry).grave_bitmap.as_mut_ptr(),
+                    bmp_len,
+                );
+            }
 
             // Special Weapon index (+0x125). Verified by headful gameplay
             // test 2026-05-15: the turn manager grants the indexed
