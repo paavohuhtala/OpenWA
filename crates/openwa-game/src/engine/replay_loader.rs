@@ -541,7 +541,7 @@ unsafe fn parse_and_write_v2plus(
                 return Err(ReplayError::InvalidFormat);
             }
             team.worm_count = worm_count;
-            team.color = s.read_u8()?;
+            team.handicap = s.read_u8()? as i8;
             team.flag2 = s.read_u8()?;
             team.grave = s.read_u8()?;
             team.special_weapon = s.read_u8()?;
@@ -564,7 +564,7 @@ unsafe fn parse_and_write_v2plus(
         wb(va::G_TEAM_COUNT, team_count);
 
         // ⚠️ PRE-EXISTING BUG (do not "fix" without a full audit):
-        // ProcessTeamColors / ConvertScheme / ProcessSchemeDefaults /
+        // InitTeamsFromLobby / ConvertScheme / ProcessSchemeDefaults /
         // ValidateTeamSetup are __stdcall(prefix_ptr) / __usercall(ESI=prefix)
         // where `prefix_ptr = G_GAME_INFO - 0x40`. The calls below pass `gi`
         // (= G_GAME_INFO), which shifts every prefix-relative write by 0x40
@@ -574,9 +574,9 @@ unsafe fn parse_and_write_v2plus(
         // consistent. Switching to the correct `gi - 0x40` here crashes the
         // smoke tests (15/16 access-violation) because the consumers stop
         // finding their data. Fixing this needs to be a coordinated pass.
-        let process_colors: unsafe extern "stdcall" fn(*mut GameInfo) =
-            core::mem::transmute(rb(va::REPLAY_PROCESS_TEAM_COLORS));
-        process_colors(gi);
+        let init_teams_from_lobby: unsafe extern "stdcall" fn(*mut GameInfo) =
+            core::mem::transmute(rb(va::GAME_INFO_INIT_TEAMS_FROM_LOBBY));
+        init_teams_from_lobby(gi);
 
         let map_seed = s.read_u16()?;
         wd(va::G_MAP_SEED, map_seed as u32);

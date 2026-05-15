@@ -521,8 +521,15 @@ pub mod va {
         /// is split across two stack args. Called only from
         /// `GameInfo__InitSession` when its `type_label` is non-null.
         fn/Stdcall CGAMEINFO_CREATE_WA_GAME_REPLAY = 0x004616B0;
-        /// Post-process team color assignments
-        fn/Stdcall REPLAY_PROCESS_TEAM_COLORS = 0x00466460;
+        /// Commit the lobby `G_TEAM_DATA` records into
+        /// `GameInfo.team_records[]`: per-worm HP from the handicap
+        /// byte, speech-bank dir into the per-team speech config,
+        /// flag palette + bitmap into the HUD flag slots, grave id,
+        /// special weapon, worm names, alliance/color. Not
+        /// replay-specific — runs after the Frontend lobby dialog and
+        /// after replay loading alike. Was misnamed
+        /// `Replay__ProcessTeamColors`.
+        fn/Stdcall GAME_INFO_INIT_TEAMS_FROM_LOBBY = 0x00466460;
         /// Apply scheme default values
         fn REPLAY_PROCESS_SCHEME_DEFAULTS = 0x004670F0;
         /// Process replay feature flags

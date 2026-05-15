@@ -42,7 +42,7 @@ pub struct ReplayTeamEntry {
     /// 0x003: Config abbreviation / pre-loop worm name (null-terminated, 0x11 bytes).
     pub config_abbrev: [u8; 0x11],
     /// 0x014: Speech bank directory name (null-terminated, 0x41 bytes).
-    /// `Replay__ProcessTeamColors` (0x466460) copies this verbatim into
+    /// `GameInfo__InitTeamsFromLobby` (0x466460) copies this verbatim into
     /// `GameInfo + 0xF4C6 + N*0xC2 + 0x81`, which
     /// `DSSound_LoadAllSpeechBanks` reads to resolve
     /// `<install>\user\speech\<name>\*.wav` per team.
@@ -55,8 +55,19 @@ pub struct ReplayTeamEntry {
     pub extra_byte: u8,
     /// 0x098: Worm count (validated 1-8).
     pub worm_count: u8,
-    /// 0x099: Team color index.
-    pub color: u8,
+    /// 0x099: Per-team handicap byte (signed i8: `-1` = -25% HP, `0` =
+    /// normal, `+1` = +25% HP). `GameInfo__InitTeamsFromLobby` reads this
+    /// in its per-worm HP loop as
+    /// `worm_hp = base_hp + (handicap * base_hp * 25) / 100`, so a
+    /// stray non-zero value here multiplies the entire team's starting
+    /// HP without touching the UI. Confirmed by
+    /// `CNetworkHost__DisplayHandicap` (0x004B3FA0) which iterates
+    /// `lobby_team[i] + 0x99` with stride 0xD7B and switches on
+    /// -1/0/+1 to load `minus_btn.bmp` / `normal_btn.bmp` /
+    /// `plus_btn.bmp`. Was previously misnamed `color` based on the
+    /// replay-format docs; the real team color is at `+0x01`
+    /// (`alliance`).
+    pub handicap: i8,
     /// 0x09A: Secondary flag.
     pub flag2: u8,
     /// 0x09B-0x122: Unknown gap.
@@ -73,7 +84,7 @@ pub struct ReplayTeamEntry {
     /// format docs; sound bank loading is independent and keyed off
     /// `speech_bank_dir` at +0x14.
     pub special_weapon: u8,
-    /// 0x126: Unknown. WA's `Replay__ProcessTeamColors` (0x466460,
+    /// 0x126: Unknown. WA's `GameInfo__InitTeamsFromLobby` (0x466460,
     /// second team loop) reads this byte, adds 1, and stores the
     /// result at active team_record `+0x18`. Writing `team.special_weapon`
     /// here alone does **not** make the signature-weapon unlock work,

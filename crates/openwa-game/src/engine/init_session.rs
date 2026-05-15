@@ -20,10 +20,11 @@
 //!
 //! ## What is *not* ported yet
 //!
-//! `ProcessTeamColors`, `CreateWAGameReplay`, `ConvertScheme`,
-//! `ValidateTeamSetup` are still bridged to the WA originals. The
-//! orchestrator stays byte-identical end-to-end as long as those bridges
-//! observe / write the same globals the WA function would.
+//! `InitTeamsFromLobby` (ex-`ProcessTeamColors`), `CreateWAGameReplay`,
+//! `ConvertScheme`, `ValidateTeamSetup` are still bridged to the WA
+//! originals. The orchestrator stays byte-identical end-to-end as long
+//! as those bridges observe / write the same globals the WA function
+//! would.
 
 use core::ffi::{CStr, c_char};
 use core::sync::atomic::{AtomicBool, Ordering};
@@ -78,10 +79,10 @@ unsafe fn wa_time64() -> i64 {
 
 // ─── Bridges to unported WA helpers ────────────────────────────────────────
 
-unsafe fn wa_process_team_colors(prefix: *mut u8) {
+unsafe fn wa_init_teams_from_lobby(prefix: *mut u8) {
     unsafe {
         let f: unsafe extern "stdcall" fn(*mut u8) =
-            core::mem::transmute(rb(va::REPLAY_PROCESS_TEAM_COLORS));
+            core::mem::transmute(rb(va::GAME_INFO_INIT_TEAMS_FROM_LOBBY));
         f(prefix);
     }
 }
@@ -227,18 +228,19 @@ pub unsafe fn init_session(gi: *mut GameInfo, type_label: Option<&CStr>) {
 
         // On the CustomLauncher path, synthesise the MFC-lobby globals
         // (`G_PLAYER_ARRAY`, `G_TEAM_DATA`) from the pending match before
-        // running `ProcessTeamColors` — that helper's outputs (team-record
-        // identity, alliance bookkeeping at +0xD0BC, etc.) are what the
-        // game team_records need to be valid downstream. `apply()` still
-        // runs first as a defensive baseline (it also copies the scheme
-        // into G_SCHEME_DATA which PTC doesn't touch); PTC's writes
-        // overwrite the team-record bytes that apply() seeded.
+        // running `InitTeamsFromLobby` — that helper's outputs
+        // (team-record identity, alliance bookkeeping at +0xD0BC, etc.)
+        // are what the game team_records need to be valid downstream.
+        // `apply()` still runs first as a defensive baseline (it also
+        // copies the scheme into G_SCHEME_DATA which the lobby commit
+        // doesn't touch); the commit's writes overwrite the team-record
+        // bytes that apply() seeded.
         if !is_frontend && let Some(pending) = crate::engine::pending_match::take() {
             crate::engine::pending_match::apply(gi, &pending);
             crate::engine::pending_match::populate_lobby_globals(&pending);
         }
 
-        wa_process_team_colors(prefix);
+        wa_init_teams_from_lobby(prefix);
 
         if is_frontend && let Some(label) = type_label {
             let t = wa_time64();

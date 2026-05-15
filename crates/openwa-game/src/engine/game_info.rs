@@ -17,7 +17,7 @@ pub struct GameInfoTeamRecord {
     /// 0x000: Owner player slot index. Indexes the
     /// [`GameInfo::team_input_configs`] table (each entry is a 0x50-byte
     /// per-player config record; the player's display name lives at byte
-    /// `+0x00` of the entry). `ProcessTeamColors` sources this from
+    /// `+0x00` of the entry). `GameInfo__InitTeamsFromLobby` sources this from
     /// `local_4c[color_index]`, a "first player using this color" lookup,
     /// so in a single-local-player offline match every team's owner is
     /// player slot `0`. `-1` = no owner (anonymous CPU team in some
@@ -151,7 +151,7 @@ pub struct GameInfo {
     /// active alliance pointer; a zero value triggers
     /// `STATUS_INTEGER_DIVIDE_BY_ZERO`. WA populates this via
     /// `CPlayers__GetTotalTeamsWithColour` from inside
-    /// `Replay__ProcessTeamColors`.
+    /// `GameInfo__InitTeamsFromLobby`.
     pub alliance_group_count: u8,
     /// 0xD0BD-0xD773: Unknown
     pub _unknown_d0bd: [u8; 0xD774 - 0xD0BD],

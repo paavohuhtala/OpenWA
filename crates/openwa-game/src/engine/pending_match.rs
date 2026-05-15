@@ -8,7 +8,7 @@
 //! `0x004A1260`) leaves a pile of MFC + BSS globals (player records at
 //! `DAT_008779e4`, team records at `DAT_00877ffc`, `G_SCHEME_DATA`,
 //! etc.) in a populated state by the time InitSession runs. The four
-//! bridged InitSession helpers — `Replay__ProcessTeamColors`,
+//! bridged InitSession helpers — `GameInfo__InitTeamsFromLobby`,
 //! `CGameInfo__CreateWAGameReplay`, `CGameInfo__ConvertScheme`, and
 //! `Replay__ValidateTeamSetup` — read from those globals.
 //!
@@ -67,7 +67,7 @@ pub struct PendingTeam {
     /// `0x005220B0`). Capped at [`MAX_WORMS_PER_TEAM`].
     pub worm_names: Vec<String>,
     /// Grave-sprite index, written to lobby `G_TEAM_DATA[i] + 0x123` so
-    /// `Replay__ProcessTeamColors` propagates it into the active team
+    /// `GameInfo__InitTeamsFromLobby` propagates it into the active team
     /// state. `0x00..=0x05` selects one of the six animated graves;
     /// `0x06..=0x7F` reaches WA's "non-grave sprite as a grave" extension
     /// list; `0x80..=0xFE` is reserved for custom-bitmap entries (the
@@ -83,7 +83,7 @@ pub struct PendingTeam {
     pub custom_grave: Option<openwa_core::wgt::CustomGrave>,
     /// Soundbank directory name (e.g. `"English"`, `"Finnish"`,
     /// `"Thespian"`). Written into the lobby team record at +0x14, which
-    /// [`Replay__ProcessTeamColors`] copies into the per-team speech
+    /// [`GameInfo__InitTeamsFromLobby`] copies into the per-team speech
     /// config block at `GameInfo + 0xF4C6 + N*0xC2 + 0x81`. WA then
     /// loads each speech line from `<install>\user\speech\<name>\*.wav`.
     /// Empty string defaults to `"English"` in [`populate_lobby_globals`].
@@ -232,7 +232,7 @@ const SCHEME_BUFFER_SIZE: usize = openwa_core::scheme::SCHEME_PAYLOAD_V3;
 
 /// Write the [`PendingCustomMatch`] state into `GameInfo` (via `gi`) and
 /// `G_SCHEME_DATA`. Mirrors the *outputs* of WA's bridged InitSession
-/// helpers (`ProcessTeamColors`, `ConvertScheme`) so the CustomLauncher
+/// helpers (`GameInfo__InitTeamsFromLobby`, `ConvertScheme`) so the CustomLauncher
 /// path can launch without those bridges running.
 ///
 /// First-iteration scope: team identity + scheme bytes only. The
@@ -259,7 +259,7 @@ pub unsafe fn apply(gi: *mut GameInfo, pending: &PendingCustomMatch) {
         (*gi).num_teams = team_count;
         (*gi).team_record_count = team_count;
 
-        // `ProcessTeamColors` writes `alliance_group_count` via a
+        // `GameInfo__InitTeamsFromLobby` writes `alliance_group_count` via a
         // `CPlayers__GetTotalTeamsWithColour` count; on the
         // CustomLauncher path we count distinct `color_idx` values
         // across pending teams. A zero value crashes
@@ -368,7 +368,7 @@ pub unsafe fn apply(gi: *mut GameInfo, pending: &PendingCustomMatch) {
     }
 }
 
-/// Populate the MFC-lobby globals `Replay__ProcessTeamColors` consumes,
+/// Populate the MFC-lobby globals `GameInfo__InitTeamsFromLobby` consumes,
 /// so the helper can run unchanged on the CustomLauncher path.
 ///
 /// Layout:
@@ -443,7 +443,7 @@ pub unsafe fn populate_lobby_globals(pending: &PendingCustomMatch) {
 
             // Empty soundbank_name defaults to "English" so the stock
             // bank loads. See `ReplayTeamEntry::speech_bank_dir` for the
-            // propagation path through ProcessTeamColors into the GameInfo
+            // propagation path through InitTeamsFromLobby into the GameInfo
             // per-team speech config slot.
             let bank = if team.soundbank_name.is_empty() {
                 "English"
@@ -458,7 +458,11 @@ pub unsafe fn populate_lobby_globals(pending: &PendingCustomMatch) {
             let worm_count = team.worm_names.len().min(MAX_WORMS_PER_TEAM);
             (*entry).worm_count = worm_count as u8;
             (*entry).worm_count_raw = worm_count as u8;
-            (*entry).color = team.color_idx;
+            // +0x99 (`handicap`) is left at 0 by the initial zero-fill.
+            // Writing the color index here was a pre-2026-05-15 bug: PTC
+            // multiplies the byte into per-worm HP, so team N would start
+            // with `100 * (1 + N*0.25)` HP. The real team color is at
+            // `alliance` (+0x01), already set above.
 
             let worm_names_base = (entry as *mut u8).add(0x9B);
             for (worm_idx, worm_name) in team.worm_names.iter().take(MAX_WORMS_PER_TEAM).enumerate()
