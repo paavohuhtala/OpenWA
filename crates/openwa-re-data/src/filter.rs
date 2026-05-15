@@ -16,6 +16,11 @@ pub fn is_builtin_dtm_namespace(ns: &str) -> bool {
     if ns.starts_with("switchD_") {
         return true;
     }
+    // Synthetic namespace `openwa-re` emits its own external-type stubs into;
+    // see `xml_out::render_external_types`.
+    if ns == "/openwa-re" || ns.starts_with("/openwa-re/") {
+        return true;
+    }
     // System headers and well-known Demangler/PE-loader categories.
     matches!(
         ns,

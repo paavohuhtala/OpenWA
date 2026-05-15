@@ -6,6 +6,7 @@
 //! for the design.
 
 pub mod emit;
+pub mod extras;
 pub mod filter;
 pub mod model;
 pub mod repo;
@@ -13,5 +14,6 @@ pub mod resolve;
 pub mod toml_io;
 pub mod validate;
 pub mod xml_in;
+pub mod xml_out;
 
 pub use model::*;

@@ -10,7 +10,7 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use openwa_re_data::repo::{find_repo_root, re_dir};
 use openwa_re_data::toml_io::Catalog;
-use openwa_re_data::{emit, resolve, validate, xml_in};
+use openwa_re_data::{emit, resolve, validate, xml_in, xml_out};
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -219,8 +219,61 @@ fn cmd_export(
     Ok(())
 }
 
-fn cmd_import(_re: &std::path::Path, _out: &std::path::Path) -> Result<()> {
-    anyhow::bail!("import: not yet implemented")
+fn cmd_import(re: &std::path::Path, out: &std::path::Path) -> Result<()> {
+    let t0 = std::time::Instant::now();
+    let cat = Catalog::load_from(re)?;
+    let load_dt = t0.elapsed();
+
+    let report = validate::validate(&cat)?;
+    if !report.ok() {
+        anyhow::bail!(
+            "refusing to emit XML: {} validation error(s). Run `openwa-re validate` for details.",
+            report.errors.len(),
+        );
+    }
+
+    let t1 = std::time::Instant::now();
+    xml_out::write_to(out, &cat)?;
+    let render_dt = t1.elapsed();
+
+    let xml_path = {
+        let mut p = out.to_path_buf();
+        p.set_extension("xml");
+        p
+    };
+    let extras_path = {
+        let mut s = out.file_name().map(|n| n.to_owned()).unwrap_or_default();
+        s.push("_extras.json");
+        out.with_file_name(s)
+    };
+    let xml_bytes = std::fs::metadata(&xml_path)?.len();
+    let extras_bytes = std::fs::metadata(&extras_path)?.len();
+
+    eprintln!(
+        "Loaded {} TOML file(s), {} entries in {:.2}s. Rendered XML in {:.2}s.",
+        openwa_re_data::repo::enumerate_toml(re)?.len(),
+        cat.total_entries(),
+        load_dt.as_secs_f64(),
+        render_dt.as_secs_f64(),
+    );
+    eprintln!(
+        "  XML:     {} ({:.1} MiB)",
+        xml_path.display(),
+        xml_bytes as f64 / 1024.0 / 1024.0
+    );
+    eprintln!(
+        "  Extras:  {} ({:.1} KiB)",
+        extras_path.display(),
+        extras_bytes as f64 / 1024.0
+    );
+    if !report.warnings.is_empty() {
+        eprintln!(
+            "  ({} validation warning(s) — non-fatal)",
+            report.warnings.len()
+        );
+    }
+
+    Ok(())
 }
 
 fn cmd_diff(_re: &std::path::Path, _xml: &std::path::Path) -> Result<()> {
