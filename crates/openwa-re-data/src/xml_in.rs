@@ -184,10 +184,15 @@ fn parse_structure<R: std::io::BufRead>(
                 }
                 let offset = hex_attr(&e, b"OFFSET")?;
                 let mname = mname_opt.unwrap_or_else(|| format!("field_{offset:x}"));
+                let type_namespace =
+                    optional_attr(&e, b"DATATYPE_NAMESPACE").and_then(normalise_namespace);
+                let size = optional_attr(&e, b"SIZE").and_then(|s| parse_hex_u32(&s).ok());
                 fields.push(Field {
                     offset,
                     name: mname,
                     ty,
+                    type_namespace,
+                    size,
                     comment: None,
                 });
             }
@@ -198,6 +203,9 @@ fn parse_structure<R: std::io::BufRead>(
                 let offset = hex_attr(&e, b"OFFSET")?;
                 let mname =
                     optional_attr(&e, b"NAME").unwrap_or_else(|| format!("field_{offset:x}"));
+                let type_namespace =
+                    optional_attr(&e, b"DATATYPE_NAMESPACE").and_then(normalise_namespace);
+                let size = optional_attr(&e, b"SIZE").and_then(|s| parse_hex_u32(&s).ok());
                 let mut field_comment: Option<String> = None;
                 let n = e.name().as_ref().to_vec();
                 let mut inner = Vec::with_capacity(256);
@@ -220,6 +228,8 @@ fn parse_structure<R: std::io::BufRead>(
                         offset,
                         name: mname,
                         ty,
+                        type_namespace,
+                        size,
                         comment: field_comment,
                     });
                 }
@@ -304,10 +314,15 @@ fn parse_union<R: std::io::BufRead>(
                 let mname =
                     optional_attr(&e, b"NAME").unwrap_or_else(|| format!("field_{offset:x}"));
                 let ty = required_attr(&e, b"DATATYPE")?;
+                let type_namespace =
+                    optional_attr(&e, b"DATATYPE_NAMESPACE").and_then(normalise_namespace);
+                let size = optional_attr(&e, b"SIZE").and_then(|s| parse_hex_u32(&s).ok());
                 fields.push(Field {
                     offset,
                     name: mname,
                     ty,
+                    type_namespace,
+                    size,
                     comment: None,
                 });
             }

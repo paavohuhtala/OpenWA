@@ -201,6 +201,14 @@ pub struct Field {
     pub name: String,
     #[serde(rename = "type")]
     pub ty: TypeRef,
+    /// Ghidra namespace of the referenced type. Default `/` when omitted —
+    /// matches Ghidra's expectation for primitive and user-namespaced types.
+    #[serde(default, skip_serializing_if = "is_root_namespace")]
+    pub type_namespace: Option<String>,
+    /// Type size in bytes. Optional; Ghidra recomputes from the type if absent,
+    /// but explicit values round-trip exactly with the original DTM export.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub size: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub comment: Option<String>,
 }

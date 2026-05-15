@@ -144,31 +144,40 @@ fn render_struct(w: &mut String, s: &Struct) -> Result<()> {
         )?;
     }
     for fld in &s.field {
-        if let Some(comment) = &fld.comment {
-            writeln!(
-                w,
-                "            <MEMBER OFFSET=\"0x{:x}\" DATATYPE=\"{}\" NAME=\"{}\">",
-                fld.offset,
-                xml_escape(&fld.ty),
-                xml_escape(&fld.name),
-            )?;
-            writeln!(
-                w,
-                "                <REGULAR_CMT>{}</REGULAR_CMT>",
-                xml_escape(comment)
-            )?;
-            writeln!(w, "            </MEMBER>")?;
-        } else {
-            writeln!(
-                w,
-                "            <MEMBER OFFSET=\"0x{:x}\" DATATYPE=\"{}\" NAME=\"{}\" />",
-                fld.offset,
-                xml_escape(&fld.ty),
-                xml_escape(&fld.name),
-            )?;
-        }
+        render_member(w, fld, fld.offset)?;
     }
     writeln!(w, "        </STRUCTURE>")?;
+    Ok(())
+}
+
+/// Emit a `<MEMBER>` element with all attributes Ghidra's DTM-equality check
+/// cares about: OFFSET, DATATYPE, DATATYPE_NAMESPACE (always `/` if unset),
+/// NAME, SIZE (if known), optional inline REGULAR_CMT.
+fn render_member(w: &mut String, fld: &Field, override_offset: u32) -> Result<()> {
+    let mut attrs = String::new();
+    use std::fmt::Write as _;
+    write!(attrs, "OFFSET=\"0x{:x}\"", override_offset)?;
+    write!(attrs, " DATATYPE=\"{}\"", xml_escape(&fld.ty))?;
+    write!(
+        attrs,
+        " DATATYPE_NAMESPACE=\"{}\"",
+        xml_escape(ns_or_root(&fld.type_namespace))
+    )?;
+    write!(attrs, " NAME=\"{}\"", xml_escape(&fld.name))?;
+    if let Some(sz) = fld.size {
+        write!(attrs, " SIZE=\"0x{sz:x}\"")?;
+    }
+    if let Some(comment) = &fld.comment {
+        writeln!(w, "            <MEMBER {attrs}>")?;
+        writeln!(
+            w,
+            "                <REGULAR_CMT>{}</REGULAR_CMT>",
+            xml_escape(comment)
+        )?;
+        writeln!(w, "            </MEMBER>")?;
+    } else {
+        writeln!(w, "            <MEMBER {attrs} />")?;
+    }
     Ok(())
 }
 
@@ -188,12 +197,9 @@ fn render_union(w: &mut String, u: &Union) -> Result<()> {
         )?;
     }
     for fld in &u.field {
-        writeln!(
-            w,
-            "            <MEMBER OFFSET=\"0x0\" DATATYPE=\"{}\" NAME=\"{}\" />",
-            xml_escape(&fld.ty),
-            xml_escape(&fld.name),
-        )?;
+        // Union members always live at offset 0 regardless of what the field
+        // records (which may differ if it round-trips through the struct path).
+        render_member(w, fld, 0)?;
     }
     writeln!(w, "        </UNION>")?;
     Ok(())
@@ -334,17 +340,37 @@ fn render_data(w: &mut String, cat: &Catalog) -> Result<()> {
 // ─── FUNCTIONS section ───────────────────────────────────────────────────────
 
 fn render_functions(w: &mut String, cat: &Catalog) -> Result<()> {
-    if cat.functions.is_empty() {
+    // Only emit a FUNCTION element for functions with something XML can carry
+    // beyond the name (signature, plate comment, params, locals, comments).
+    // Name-only functions get their identity from the SYMBOL_TABLE entry —
+    // emitting a bare `<FUNCTION>` triggers FunctionsXmlMgr's full lookup
+    // path and reliably NPEs on duplicate names.
+    let funcs: Vec<&Function> = cat
+        .functions
+        .values()
+        .map(|e| &e.value)
+        .filter(|f| function_has_overrides(f))
+        .collect();
+    if funcs.is_empty() {
         return Ok(());
     }
-    writeln!(w, "    <FUNCTIONS>")?;
-    let mut funcs: Vec<&Function> = cat.functions.values().map(|e| &e.value).collect();
+    let mut funcs = funcs;
     funcs.sort_by_key(|f| f.va);
+    writeln!(w, "    <FUNCTIONS>")?;
     for f in funcs {
         render_function(w, f)?;
     }
     writeln!(w, "    </FUNCTIONS>")?;
     Ok(())
+}
+
+fn function_has_overrides(f: &Function) -> bool {
+    f.signature.is_some()
+        || f.plate_comment.is_some()
+        || !f.param.is_empty()
+        || !f.local.is_empty()
+        || !f.comment.is_empty()
+        || f.no_return
 }
 
 fn render_function(w: &mut String, f: &Function) -> Result<()> {
