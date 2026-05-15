@@ -117,30 +117,14 @@ fn render_datatypes(w: &mut String, cat: &Catalog) -> Result<()> {
         render_function_def(w, fd)?;
     }
 
-    render_external_types(w, cat)?;
+    // external_types is intentionally NOT emitted. Earlier versions wrote
+    // stub `<TYPE_DEF NAMESPACE="/openwa-re/external">` entries to make the
+    // self round-trip lossless, but Ghidra's DataTypesXmlMgr actually creates
+    // them as real types in the project, polluting the user's DB with 779
+    // phantom typedefs. External-type names exist purely in `re/types.toml`
+    // as validator hints; Ghidra resolves them via its built-in archives.
 
     writeln!(w, "    </DATATYPES>")?;
-    Ok(())
-}
-
-/// Emit each `external_types` entry as a stub `<TYPE_DEF>` in the synthetic
-/// `/openwa-re/external` namespace. Ghidra's importer ignores these (they're
-/// already in its built-in archives by the real name), and our own re-export
-/// pass filters that namespace out — re-collecting the names into
-/// `external_types` so the round-trip is lossless.
-fn render_external_types(w: &mut String, cat: &Catalog) -> Result<()> {
-    if cat.external_types.is_empty() {
-        return Ok(());
-    }
-    let mut names: Vec<&String> = cat.external_types.iter().collect();
-    names.sort();
-    for n in names {
-        writeln!(
-            w,
-            "        <TYPE_DEF NAME=\"{}\" NAMESPACE=\"/openwa-re/external\" DATATYPE=\"undefined\" />",
-            xml_escape(n),
-        )?;
-    }
     Ok(())
 }
 
