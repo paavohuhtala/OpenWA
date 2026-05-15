@@ -41,8 +41,12 @@ pub struct ReplayTeamEntry {
     pub unknown_02: u8,
     /// 0x003: Config abbreviation / pre-loop worm name (null-terminated, 0x11 bytes).
     pub config_abbrev: [u8; 0x11],
-    /// 0x014: Team name (null-terminated, 0x41 bytes).
-    pub team_name: [u8; 0x41],
+    /// 0x014: Speech bank directory name (null-terminated, 0x41 bytes).
+    /// `Replay__ProcessTeamColors` (0x466460) copies this verbatim into
+    /// `GameInfo + 0xF4C6 + N*0xC2 + 0x81`, which
+    /// `DSSound_LoadAllSpeechBanks` reads to resolve
+    /// `<install>\user\speech\<name>\*.wav` per team.
+    pub speech_bank_dir: [u8; 0x41],
     /// 0x055: Config name (null-terminated, 0x41 bytes).
     pub config_name: [u8; 0x41],
     /// 0x096: Worm count (unvalidated, stored as-is from stream).

@@ -81,10 +81,12 @@ pub struct PendingTeam {
     /// entry without losing data. Wiring this through the per-team
     /// custom-grave slot needs another RE pass.
     pub custom_grave: Option<openwa_core::wgt::CustomGrave>,
-    /// Soundbank name (e.g. `"English"`, `"Finnish"`, `"Thespian"`).
-    /// Currently **not written** to game memory — the per-team speech-
-    /// config layout still needs RE before we can place the name string.
-    /// Stored so [`from_wgt`] is lossless; the UI can also surface it.
+    /// Soundbank directory name (e.g. `"English"`, `"Finnish"`,
+    /// `"Thespian"`). Written into the lobby team record at +0x14, which
+    /// [`Replay__ProcessTeamColors`] copies into the per-team speech
+    /// config block at `GameInfo + 0xF4C6 + N*0xC2 + 0x81`. WA then
+    /// loads each speech line from `<install>\user\speech\<name>\*.wav`.
+    /// Empty string defaults to `"English"` in [`populate_lobby_globals`].
     pub soundbank_name: String,
     /// Fanfare name (e.g. `"Finland"`). Not written to game memory yet;
     /// stored for the same reason as [`soundbank_name`].
@@ -423,10 +425,16 @@ pub unsafe fn populate_lobby_globals(pending: &PendingCustomMatch) {
             let abbrev_dst = core::slice::from_raw_parts_mut(entry_u8.add(0x03), 0x11);
             openwa_core::cp1252::encode_into_fixed(abbrev_dst, &team.name);
 
-            // `team_name` (+0x014..+0x055) — full name, also written by
-            // OnNOTIFY for the leaderboard / ESC menu. Mirror it.
-            let tn_dst = core::slice::from_raw_parts_mut(entry_u8.add(0x14), 0x41);
-            openwa_core::cp1252::encode_into_fixed(tn_dst, &team.name);
+            // Empty soundbank_name defaults to "English" so the stock
+            // bank loads. See `ReplayTeamEntry::speech_bank_dir` for the
+            // propagation path through ProcessTeamColors into the GameInfo
+            // per-team speech config slot.
+            let bank = if team.soundbank_name.is_empty() {
+                "English"
+            } else {
+                team.soundbank_name.as_str()
+            };
+            openwa_core::cp1252::encode_into_fixed(&mut (*entry).speech_bank_dir, bank);
 
             // Worm count + per-worm names. PTC's inner loop hardcodes 8
             // iterations starting at `pcVar6 + 0x9b` with stride 0x11.

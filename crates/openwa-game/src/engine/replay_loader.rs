@@ -528,7 +528,7 @@ unsafe fn parse_and_write_v2plus(
             }
 
             team.worm_count_raw = s.read_u8()?;
-            s.read_prefixed_string(&mut team.team_name)?;
+            s.read_prefixed_string(&mut team.speech_bank_dir)?;
 
             if obs_count > 13 {
                 team.extra_byte = s.read_u8()?;
