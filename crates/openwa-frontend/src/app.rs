@@ -40,6 +40,9 @@ pub struct MatchLauncherApp {
     /// Selected team slot from `loaded_wgt` for the two match seats.
     team_a_idx: usize,
     team_b_idx: usize,
+    /// Landscape-generator seed (`G_GEN_MAP_SEED`). Distinct from any
+    /// scheme RNG state — this single u32 determines the entire map.
+    map_seed: u32,
     dump_label: String,
     log: Arc<Mutex<Vec<String>>>,
 }
@@ -86,6 +89,9 @@ impl Default for MatchLauncherApp {
             loaded_wgt: None,
             team_a_idx: 0,
             team_b_idx: 1,
+            // Use the system RNG once so the first launch isn't always
+            // the same seed across processes; the Regenerate button bumps it.
+            map_seed: rand::random::<u32>(),
             dump_label: "before".to_owned(),
             log: Arc::default(),
         };
@@ -190,6 +196,14 @@ impl MatchLauncherApp {
             type_label: None,
             teams,
             scheme,
+            map_seed: self.map_seed,
+            // Pinned to WA's frontend mid-slider default (0x80 / 20 = bin 6).
+            // The slider was removed from the UI after we confirmed it
+            // doesn't affect visible terrain — see memory note
+            // `project_terrain_pct_slider_is_not_visual`. The gameplay
+            // byte it feeds (GameInfo + 0xD952) stays at a sensible
+            // baseline so we don't silently change drop-density behaviour.
+            terrain_pct_raw: 0x80,
         })
     }
 
@@ -452,6 +466,22 @@ impl eframe::App for MatchLauncherApp {
 impl MatchLauncherApp {
     /// Draw the Fresh-mode panel (scheme dropdown + roster picker).
     fn draw_fresh_mode_controls(&mut self, ui: &mut egui::Ui) {
+        ui.add_space(4.0);
+        ui.collapsing("Map", |ui| {
+            ui.horizontal(|ui| {
+                ui.label("Seed:");
+                let mut buf = format!("{:08X}", self.map_seed);
+                if ui.text_edit_singleline(&mut buf).changed()
+                    && let Ok(v) = u32::from_str_radix(buf.trim_start_matches("0x"), 16)
+                {
+                    self.map_seed = v;
+                }
+                if ui.button("Regenerate").clicked() {
+                    self.map_seed = rand::random::<u32>();
+                }
+            });
+        });
+
         ui.add_space(4.0);
         ui.collapsing("Scheme", |ui| {
             if self.schemes.is_empty() {

@@ -181,6 +181,16 @@ pub struct PendingCustomMatch {
     /// Parsed scheme. The 402-byte V3 payload is copied verbatim into
     /// `G_SCHEME_DATA`. Shorter-version schemes are zero-padded.
     pub scheme: SchemeFile,
+    /// Seed for `CMapEditor::GenerateRandomLevel`. Written to
+    /// [`crate::address::va::G_GEN_MAP_SEED`] before invoking the
+    /// generator. The generator mutates this global as a side-effect, so
+    /// re-launching with the same seed reproduces the same map.
+    pub map_seed: u32,
+    /// Terrain coverage knob (raw 0..255 — same units as WA's
+    /// `g_terrain_pct_slider`). `OnStartMatch` quantises this as
+    /// `G_MAP_BYTE_2 = value / 20`, giving 13 effective bins. Default
+    /// 0x80 matches the frontend's mid-slider position.
+    pub terrain_pct_raw: u8,
 }
 
 static SLOT: Mutex<Option<PendingCustomMatch>> = Mutex::new(None);
@@ -531,5 +541,60 @@ pub unsafe fn populate_lobby_globals(pending: &PendingCustomMatch) {
         }
 
         *(rb(va::G_TEAM_COUNT) as *mut u8) = team_count;
+    }
+}
+
+/// Stage the lobby-side map globals and regenerate `data\land.dat` from
+/// [`PendingCustomMatch::map_seed`].
+///
+/// Mirrors what WA's `FrontendLocalMP::OnSelectSavedMap` + `OnStartMatch` +
+/// `CPleaseWait::OnTimer` chain does on the WA-frontend path:
+///
+/// - `G_GEN_MAP_SEED` ← `map_seed` (generator input)
+/// - `G_LOBBY_MAP_SOURCE_MODE` ← 0 (mode: freshly generated random terrain)
+/// - `G_LOBBY_MAP_NAME` ← zeroed (no named map)
+/// - `G_LOBBY_MAP_SEED_CACHE` ← `map_seed` (parity with WA's cache)
+/// - `G_TERRAIN_PCT_SLIDER` ← `terrain_pct_raw`
+/// - `G_MAP_BYTE_2` ← `terrain_pct_raw / 20` (matches OnStartMatch's quantization)
+///
+/// Then bridge-calls `CMapEditor::GenerateRandomLevel(NULL)` which seeds
+/// the WA-CRT RNG from `G_GEN_MAP_SEED`, derives five sub-values from it,
+/// and writes the resulting landscape bitmap to `data\land.dat`. The
+/// generator advances `G_GEN_MAP_SEED` as a side-effect — call sites that
+/// want determinism must restore the seed after, but a CustomLauncher
+/// launch only generates once per match so the post-call value is unused.
+///
+/// # Safety
+///
+/// Mutates fixed globals + writes to disk via `data\land.dat`. The caller
+/// must guarantee WA is suspended/single-threaded (init_session is).
+pub unsafe fn apply_map_globals(pending: &PendingCustomMatch) {
+    unsafe {
+        let _ = openwa_core::log::log_line(&format!(
+            "[pending_match] applying map: seed=0x{:08X} terrain_pct_raw={}",
+            pending.map_seed, pending.terrain_pct_raw,
+        ));
+
+        *(rb(va::G_GEN_MAP_SEED) as *mut u32) = pending.map_seed;
+        *(rb(va::G_LOBBY_MAP_SOURCE_MODE) as *mut u32) = 0;
+        *(rb(va::G_LOBBY_MAP_SEED_CACHE) as *mut u32) = pending.map_seed;
+        core::ptr::write_bytes(rb(va::G_LOBBY_MAP_NAME) as *mut u8, 0, 0x21);
+
+        *(rb(va::G_TERRAIN_PCT_SLIDER) as *mut u32) = pending.terrain_pct_raw as u32;
+        *(rb(va::G_MAP_BYTE_2) as *mut u8) = pending.terrain_pct_raw / 0x14;
+
+        // Single optional `char*` arg; NULL → generator uses its built-in
+        // "data\\land.dat" default. (See `CMapEditor::GenerateRandomLevel`
+        // at 0x004906A0: `if (param_1 == NULL) param_1 = "data\\land.dat";`)
+        // Function is __stdcall (`RET 0x4`) — calling cdecl would leak
+        // 4 bytes off the stack and crash on return.
+        let generate: unsafe extern "stdcall" fn(*const core::ffi::c_char) =
+            core::mem::transmute(rb(va::CMAP_EDITOR_GENERATE_RANDOM_LEVEL));
+        generate(core::ptr::null());
+
+        let post_seed = *(rb(va::G_GEN_MAP_SEED) as *const u32);
+        let _ = openwa_core::log::log_line(&format!(
+            "[pending_match] land.dat regenerated; G_GEN_MAP_SEED post-call=0x{post_seed:08X}",
+        ));
     }
 }

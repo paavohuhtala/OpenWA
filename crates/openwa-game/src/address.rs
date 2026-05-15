@@ -1260,6 +1260,13 @@ pub mod va {
         fn/Stdcall MAP_VIEW_LOAD = 0x0044A9A0;
         /// MapView copy info to game state
         fn/Usercall MAP_VIEW_COPY_INFO = 0x00449B60;
+        /// CMapEditor::GenerateRandomLevel — derives 5 sub-values from
+        /// `G_GEN_MAP_SEED`, picks a theme, invokes
+        /// `LandscapeGenerator::GenerateAndSaveWrapper` which writes
+        /// `data\land.dat`. Stdcall (`RET 0x4`) with one optional path
+        /// arg — `NULL` defaults to `"data\land.dat"`. Ghidra labels the
+        /// param `char *param_1` but the function is callee-cleanup.
+        fn/Stdcall CMAP_EDITOR_GENERATE_RANDOM_LEVEL = 0x004906A0;
         /// Load string resource by ID
         fn/Stdcall WA_LOAD_STRING = 0x00593180;
     }
@@ -1537,8 +1544,31 @@ pub mod va {
         global G_REPLAY_NAME = 0x0087D0E1;
         global G_MAP_BYTE_1 = 0x0087250C;
         global G_MAP_BYTE_2 = 0x00872508;
+        /// Replay-format map seed (u16 from the .WAgame stream). Distinct
+        /// from `G_GEN_MAP_SEED` (the landscape-generator seed).
         global G_MAP_SEED = 0x0087D430;
         global G_WORM_NAMES = 0x00878097;
+
+        // ── Landscape generator (offline LocalMP map source) ──────────────
+        /// Global seed consumed by `CMapEditor::GenerateRandomLevel`. This
+        /// (NOT `G_MAP_SEED`) is the input that determines what the live
+        /// `data\land.dat` looks like. The generator advances it as a
+        /// side-effect — read the post-call value to learn the next seed.
+        global G_GEN_MAP_SEED = 0x0088D0B4;
+        /// Lobby "map source mode" byte. `0` = freshly generated random
+        /// terrain (use `G_GEN_MAP_SEED`); `-2` (i.e. `0xFE`) = named
+        /// saved map, with the filename in `G_LOBBY_MAP_NAME`.
+        global G_LOBBY_MAP_SOURCE_MODE = 0x0088AF14;
+        /// Cached copy of `G_GEN_MAP_SEED` taken when a saved map was
+        /// loaded; lets the lobby restore the exact seed that produced
+        /// the named map.
+        global G_LOBBY_MAP_SEED_CACHE = 0x0088AF18;
+        /// 33-byte CP1252 filename for the named saved map (used when
+        /// `G_LOBBY_MAP_SOURCE_MODE == -2`).
+        global G_LOBBY_MAP_NAME = 0x0088AF1C;
+        /// Terrain-coverage slider value (0..255). `OnStartMatch`
+        /// quantises this as `G_MAP_BYTE_2 = value / 20`.
+        global G_TERRAIN_PCT_SLIDER = 0x0088E3FC;
     }
 
     // =========================================================================

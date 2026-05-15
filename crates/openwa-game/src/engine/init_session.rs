@@ -238,6 +238,14 @@ pub unsafe fn init_session(gi: *mut GameInfo, type_label: Option<&CStr>) {
         if !is_frontend && let Some(pending) = crate::engine::pending_match::take() {
             crate::engine::pending_match::apply(gi, &pending);
             crate::engine::pending_match::populate_lobby_globals(&pending);
+            // Stage map seed + terrain coverage and run
+            // `CMapEditor::GenerateRandomLevel`, which writes
+            // `data\land.dat`. WA's frontend path defers this materializer
+            // to `CPleaseWait::OnTimer` (via `MapView::CopyInfo`), which
+            // our CustomLauncher path doesn't run — without this call,
+            // the engine reads whatever `land.dat` was left over from a
+            // prior session and the user's seed selection has no effect.
+            crate::engine::pending_match::apply_map_globals(&pending);
         }
 
         wa_init_teams_from_lobby(prefix);
