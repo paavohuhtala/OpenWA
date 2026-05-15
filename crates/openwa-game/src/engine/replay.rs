@@ -79,8 +79,22 @@ pub struct ReplayTeamEntry {
     /// here alone does **not** make the signature-weapon unlock work,
     /// so it's not the index byte; downstream role still TBD.
     pub _unknown_126: u8,
-    /// 0x127: Weapon data (4 blocks: 0x400 + 0x154 + 0x400 + 0x300 = 0xC54 bytes).
-    pub weapons: [u8; 0xC54],
+    /// 0x127: Team flag palette (256 entries × BGR0 = 1024 bytes).
+    /// PTC converts BGR0 → RGB and writes 768 bytes into active
+    /// `team_records[N] + 0x18 + 6` (HUD flag-sprite palette).
+    pub flag_palette: [u8; 0x400],
+    /// 0x527: Team flag bitmap (20 × 17 = 340 8bpp pixels, palette
+    /// indices into [`flag_palette`]). PTC copies this verbatim to
+    /// active `team_records[N] + 0x91C` for the HUD flag display.
+    /// Was previously misidentified as a "per-team weapon kit".
+    pub flag_bitmap: [u8; 0x154],
+    /// 0x67B: Custom-grave palette (256 entries × BGR0 = 1024 bytes).
+    /// Populated when WGT has a custom grave (`grave_id >= 0x80`).
+    pub grave_palette: [u8; 0x400],
+    /// 0xA7B: Custom-grave bitmap (24 × 32 = 768 8bpp pixels,
+    /// palette indices into [`grave_palette`]). Populated when WGT
+    /// has a custom grave (`grave_id >= 0x80`).
+    pub grave_bitmap: [u8; 0x300],
 }
 
 const _: () = assert!(core::mem::size_of::<ReplayTeamEntry>() == 0xD7B);

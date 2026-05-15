@@ -96,9 +96,13 @@ pub struct PendingTeam {
     /// FlameThrower, MoleBomb, OldWoman, HomingPigeon, SheepLauncher,
     /// MadCow, HolyGrenade, SuperSheep). When the scheme has
     /// `team_weapons` enabled, each team starts with 1–2 shots of this.
-    /// Not written to the lobby record yet (destination offset in the
-    /// 0xD7B-stride record still TBD).
     pub special_weapon: u8,
+    /// Team flag bitmap (20×17 8bpp + 256-colour palette). When
+    /// present, [`populate_lobby_globals`] copies palette and bitmap
+    /// into the lobby team record's flag slots
+    /// (lobby `+0x127` / `+0x527`). `None` leaves both blocks zero
+    /// (engine's blank-flag fallback).
+    pub flag: Option<openwa_core::wgt::TeamFlag>,
 }
 
 impl PendingTeam {
@@ -118,6 +122,7 @@ impl PendingTeam {
             soundbank_name: String::new(),
             fanfare_name: String::new(),
             special_weapon: 0,
+            flag: None,
         }
     }
 
@@ -153,6 +158,7 @@ impl PendingTeam {
             soundbank_name: team.soundbank_str(),
             fanfare_name: team.fanfare_str(),
             special_weapon: team.special_weapon,
+            flag: Some(team.flag.clone()),
         }
     }
 }
@@ -476,6 +482,25 @@ pub unsafe fn populate_lobby_globals(pending: &PendingCustomMatch) {
             // SPECIAL_WEAPONS entry once Team Weapons mode unlocks
             // partway through the match.
             (*entry).special_weapon = team.special_weapon;
+
+            // Team flag (palette + 20×17 bitmap). PTC at +0x127/+0x527
+            // → active team_record's HUD flag slot. Empty WGT flag
+            // (parser default) leaves both blocks zeroed so the HUD
+            // shows the engine's blank-flag fallback.
+            if let Some(wgt_flag) = team.flag.as_ref() {
+                let pal_len = wgt_flag.palette.len().min(0x400);
+                core::ptr::copy_nonoverlapping(
+                    wgt_flag.palette.as_ptr(),
+                    (*entry).flag_palette.as_mut_ptr(),
+                    pal_len,
+                );
+                let bmp_len = wgt_flag.bitmap.len().min(0x154);
+                core::ptr::copy_nonoverlapping(
+                    wgt_flag.bitmap.as_ptr(),
+                    (*entry).flag_bitmap.as_mut_ptr(),
+                    bmp_len,
+                );
+            }
 
             // Active flag last (PTC's gate).
             (*entry).flag = 1;

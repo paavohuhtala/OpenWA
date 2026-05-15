@@ -153,6 +153,13 @@ pub struct CustomGrave {
 pub struct TeamFlag {
     /// Filename the flag was imported from (32-byte null-terminated ASCII).
     pub filename: [u8; FILENAME_LEN],
+    /// Flag-kind indicator byte (1 = stock country flag from WA's
+    /// built-in set, identified by [`filename`]; 0 = custom imported
+    /// flag where [`palette`]/[`bitmap`] are the authoritative data).
+    /// Without this 1-byte read between filename and palette, the rest
+    /// of the flag block shifts by 1 byte and palette colours come out
+    /// wrong (verified 2026-05-15: Swedish blue → cyan).
+    pub kind: u8,
     /// 256-colour palette, BGR0 byte order (1024 bytes).
     pub palette: Vec<u8>,
     /// 20×17 8bpp bitmap data (row-major, top-to-bottom).
@@ -210,8 +217,6 @@ pub struct WgtTeam {
     pub unknown_10: Vec<u8>,
     /// Unknown trailing region #3 (7 dwords, seemingly random).
     pub unknown_7dwords: [u32; 7],
-    /// Final unknown byte.
-    pub unknown_tail: u8,
 }
 
 /// Parsed `.WGT` file: header + team roster.
@@ -297,10 +302,15 @@ impl WgtTeam {
         let stats = c.read_vec(STATS_LEN, idx)?;
 
         let flag_filename = c.read_array::<FILENAME_LEN>(idx)?;
+        // WA's `CTeam__LoadTeams` (0x004D92B0) reads a 1-byte field
+        // between flag filename and palette. Without it, all 1024
+        // palette bytes shift by 1 and colours come out wrong.
+        let flag_kind = c.read_u8(idx)?;
         let flag_palette = c.read_vec(PALETTE_LEN, idx)?;
         let flag_bitmap = c.read_vec(FLAG_BMP_LEN, idx)?;
         let flag = TeamFlag {
             filename: flag_filename,
+            kind: flag_kind,
             palette: flag_palette,
             bitmap: flag_bitmap,
         };
@@ -317,7 +327,6 @@ impl WgtTeam {
         for slot in unknown_7dwords.iter_mut() {
             *slot = c.read_u32_le(idx)?;
         }
-        let unknown_tail = c.read_u8(idx)?;
 
         Ok(WgtTeam {
             name,
@@ -338,7 +347,6 @@ impl WgtTeam {
             training_medals,
             unknown_10,
             unknown_7dwords,
-            unknown_tail,
         })
     }
 

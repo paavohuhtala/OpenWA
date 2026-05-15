@@ -547,14 +547,14 @@ unsafe fn parse_and_write_v2plus(
             team.special_weapon = s.read_u8()?;
             team._unknown_126 = s.read_u8()?;
 
-            let w1 = s.advance_raw(0x400)?;
-            ptr::copy_nonoverlapping(w1.as_ptr(), team.weapons.as_mut_ptr(), 0x400);
-            let w2 = s.advance_raw(0x154)?;
-            ptr::copy_nonoverlapping(w2.as_ptr(), team.weapons.as_mut_ptr().add(0x400), 0x154);
-            let w3 = s.advance_raw(0x400)?;
-            ptr::copy_nonoverlapping(w3.as_ptr(), team.weapons.as_mut_ptr().add(0x554), 0x400);
-            let w4 = s.advance_raw(0x300)?;
-            ptr::copy_nonoverlapping(w4.as_ptr(), team.weapons.as_mut_ptr().add(0x954), 0x300);
+            let flag_pal = s.advance_raw(0x400)?;
+            ptr::copy_nonoverlapping(flag_pal.as_ptr(), team.flag_palette.as_mut_ptr(), 0x400);
+            let flag_bmp = s.advance_raw(0x154)?;
+            ptr::copy_nonoverlapping(flag_bmp.as_ptr(), team.flag_bitmap.as_mut_ptr(), 0x154);
+            let grave_pal = s.advance_raw(0x400)?;
+            ptr::copy_nonoverlapping(grave_pal.as_ptr(), team.grave_palette.as_mut_ptr(), 0x400);
+            let grave_bmp = s.advance_raw(0x300)?;
+            ptr::copy_nonoverlapping(grave_bmp.as_ptr(), team.grave_bitmap.as_mut_ptr(), 0x300);
         }
 
         if team_count == 0 {
