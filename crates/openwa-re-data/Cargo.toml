@@ -1,0 +1,23 @@
+[package]
+name = "openwa-re-data"
+version = "0.1.0"
+edition = "2024"
+description = "Source-of-truth schema and tooling for OpenWA Ghidra reverse-engineering metadata. Round-trips Ghidra's native XML PROGRAM format through sharded TOML files under re/."
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "openwa-re"
+path = "src/bin/openwa-re.rs"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+indexmap = { version = "2", features = ["serde"] }
+quick-xml = { version = "0.36", features = ["serialize"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+
+[dev-dependencies]
