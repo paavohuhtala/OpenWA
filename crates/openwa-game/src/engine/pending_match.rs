@@ -471,6 +471,12 @@ pub unsafe fn populate_lobby_globals(pending: &PendingCustomMatch) {
             // index but reuse the default sprite for that slot.
             (*entry).grave = team.grave_id;
 
+            // Special Weapon index (+0x125). Verified by headful gameplay
+            // test 2026-05-15: the turn manager grants the indexed
+            // SPECIAL_WEAPONS entry once Team Weapons mode unlocks
+            // partway through the match.
+            (*entry).special_weapon = team.special_weapon;
+
             // Active flag last (PTC's gate).
             (*entry).flag = 1;
         }

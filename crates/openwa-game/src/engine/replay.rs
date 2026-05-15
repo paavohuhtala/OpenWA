@@ -65,10 +65,20 @@ pub struct ReplayTeamEntry {
     pub grave: u8,
     /// 0x124: Team present flag (nonzero = active).
     pub flag: u8,
-    /// 0x125: Speech soundbank index.
-    pub soundbank: u8,
-    /// 0x126: Speech soundbank extra.
-    pub soundbank_extra: u8,
+    /// 0x125: Special Weapon index (0..=7, indexes
+    /// [`openwa_core::weapon::SPECIAL_WEAPONS`]). Confirmed by gameplay
+    /// test 2026-05-15: writing the WGT byte here lets the turn
+    /// manager grant the indexed signature weapon partway through the
+    /// match. Was previously labelled `soundbank` based on replay-
+    /// format docs; sound bank loading is independent and keyed off
+    /// `speech_bank_dir` at +0x14.
+    pub special_weapon: u8,
+    /// 0x126: Unknown. WA's `Replay__ProcessTeamColors` (0x466460,
+    /// second team loop) reads this byte, adds 1, and stores the
+    /// result at active team_record `+0x18`. Writing `team.special_weapon`
+    /// here alone does **not** make the signature-weapon unlock work,
+    /// so it's not the index byte; downstream role still TBD.
+    pub _unknown_126: u8,
     /// 0x127: Weapon data (4 blocks: 0x400 + 0x154 + 0x400 + 0x300 = 0xC54 bytes).
     pub weapons: [u8; 0xC54],
 }

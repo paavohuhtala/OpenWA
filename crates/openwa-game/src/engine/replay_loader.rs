@@ -544,8 +544,8 @@ unsafe fn parse_and_write_v2plus(
             team.color = s.read_u8()?;
             team.flag2 = s.read_u8()?;
             team.grave = s.read_u8()?;
-            team.soundbank = s.read_u8()?;
-            team.soundbank_extra = s.read_u8()?;
+            team.special_weapon = s.read_u8()?;
+            team._unknown_126 = s.read_u8()?;
 
             let w1 = s.advance_raw(0x400)?;
             ptr::copy_nonoverlapping(w1.as_ptr(), team.weapons.as_mut_ptr(), 0x400);
