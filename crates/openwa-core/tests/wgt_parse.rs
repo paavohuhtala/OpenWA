@@ -25,7 +25,7 @@ fn parse_fixture_wgt() {
         .unwrap_or_else(|e| panic!("failed to parse {}: {e}", path.display()));
     assert_eq!(wgt.teams.len() as u8, data[5], "team count matches header");
     assert!(
-        wgt.teams.len() > 0,
+        !wgt.teams.is_empty(),
         "fixture should contain at least one team"
     );
     for (i, t) in wgt.teams.iter().enumerate() {

@@ -563,7 +563,7 @@ impl MatchLauncherApp {
 fn team_dropdown(ui: &mut egui::Ui, label: &str, teams: &[WgtTeam], idx: &mut usize) {
     let selected_label = teams
         .get(*idx)
-        .map(|t| display_team_label(t))
+        .map(display_team_label)
         .unwrap_or_else(|| "<none>".to_string());
     egui::ComboBox::from_label(label)
         .selected_text(selected_label)

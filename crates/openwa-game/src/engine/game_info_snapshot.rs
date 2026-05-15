@@ -45,18 +45,18 @@ static SNAPSHOT: Mutex<Option<Vec<u8>>> = Mutex::new(None);
 /// or the WA original. That lets `gameinfo_dumps/launch_entry_{rust,wa}.bin`
 /// stay current across multiple launches in the same process.
 pub fn capture() {
-    if let Ok(mut guard) = SNAPSHOT.lock() {
-        if guard.is_none() {
-            unsafe {
-                let src = rb(va::G_GAME_INFO) as *const u8;
-                let mut buf = vec![0u8; GAME_INFO_SIZE];
-                core::ptr::copy_nonoverlapping(src, buf.as_mut_ptr(), GAME_INFO_SIZE);
-                *guard = Some(buf);
-            }
-            let _ = openwa_core::log::log_line(&format!(
-                "[gameinfo-snapshot] captured {GAME_INFO_SIZE} bytes"
-            ));
+    if let Ok(mut guard) = SNAPSHOT.lock()
+        && guard.is_none()
+    {
+        unsafe {
+            let src = rb(va::G_GAME_INFO) as *const u8;
+            let mut buf = vec![0u8; GAME_INFO_SIZE];
+            core::ptr::copy_nonoverlapping(src, buf.as_mut_ptr(), GAME_INFO_SIZE);
+            *guard = Some(buf);
         }
+        let _ = openwa_core::log::log_line(&format!(
+            "[gameinfo-snapshot] captured {GAME_INFO_SIZE} bytes"
+        ));
     }
 
     let tag = if crate::engine::init_session::RUST_INIT_SESSION_RAN

@@ -122,11 +122,11 @@ extern "C" fn run_pending_launch() {
         return;
     }
 
-    if let LaunchMode::Snapshot { .. } = &req.mode {
-        if let Err(e) = game_info_snapshot::restore() {
-            log(&format!("snapshot restore failed: {e}"));
-            return;
-        }
+    if let LaunchMode::Snapshot { .. } = &req.mode
+        && let Err(e) = game_info_snapshot::restore()
+    {
+        log(&format!("snapshot restore failed: {e}"));
+        return;
     }
 
     unsafe {

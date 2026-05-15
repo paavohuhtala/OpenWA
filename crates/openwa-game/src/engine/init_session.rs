@@ -233,11 +233,9 @@ pub unsafe fn init_session(gi: *mut GameInfo, type_label: Option<&CStr>) {
         // runs first as a defensive baseline (it also copies the scheme
         // into G_SCHEME_DATA which PTC doesn't touch); PTC's writes
         // overwrite the team-record bytes that apply() seeded.
-        if !is_frontend {
-            if let Some(pending) = crate::engine::pending_match::take() {
-                crate::engine::pending_match::apply(gi, &pending);
-                crate::engine::pending_match::populate_lobby_globals(&pending);
-            }
+        if !is_frontend && let Some(pending) = crate::engine::pending_match::take() {
+            crate::engine::pending_match::apply(gi, &pending);
+            crate::engine::pending_match::populate_lobby_globals(&pending);
         }
 
         wa_process_team_colors(prefix);
@@ -444,14 +442,9 @@ pub unsafe fn process_replay_flags(gi: *mut GameInfo) {
                 }
             } else {
                 // Tally
-                let majority_above: bool;
                 let cfg0_p4c = read_i32(prefix, 0x8C);
-                if cfg0_p4c < 0x3EB {
-                    if cfg0_p4c < 0 && read_i32(prefix, 0x88) < -2 {
-                        majority_above = false;
-                    } else {
-                        majority_above = true;
-                    }
+                let majority_above: bool = if cfg0_p4c < 0x3EB {
+                    !(cfg0_p4c < 0 && read_i32(prefix, 0x88) < -2)
                 } else {
                     let mut below: u32 = 0;
                     let mut above: u32 = 0;
@@ -466,8 +459,8 @@ pub unsafe fn process_replay_flags(gi: *mut GameInfo) {
                             }
                         }
                     }
-                    majority_above = below < above;
-                }
+                    below < above
+                };
 
                 // Per-team override gate: if flag_db48 != 0 and signed_da1d >= 0,
                 // re-check the specific team's record. If it lands in the
@@ -567,9 +560,8 @@ pub unsafe fn process_replay_flags(gi: *mut GameInfo) {
                 return;
             }
             let cfg0_p4c = read_i32(prefix, 0x8C);
-            let majority_match: bool;
-            if cfg0_p4c < 0x402 {
-                majority_match = cfg0_p4c == 0x1C2 && ((read_i32(prefix, 0x88) - 0x12D) as u32) < 7;
+            let majority_match: bool = if cfg0_p4c < 0x402 {
+                cfg0_p4c == 0x1C2 && ((read_i32(prefix, 0x88) - 0x12D) as u32) < 7
             } else {
                 let mut other: u32 = 0;
                 let mut matches: u32 = 0;
@@ -584,8 +576,8 @@ pub unsafe fn process_replay_flags(gi: *mut GameInfo) {
                         }
                     }
                 }
-                majority_match = other < matches;
-            }
+                other < matches
+            };
             write_u8(prefix, 0x48B, majority_match as u8);
 
             if flag_db48 != 0 && signed_da1d >= 0 {
