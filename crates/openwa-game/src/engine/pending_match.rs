@@ -473,13 +473,15 @@ pub unsafe fn populate_lobby_globals(pending: &PendingCustomMatch) {
                 openwa_core::cp1252::encode_into_fixed(slot, worm_name);
             }
 
-            // Grave-sprite id. PTC propagates this into the active team
-            // state. We can write the byte even for grave_id >= 0x80
-            // (custom-bitmap range) — the actual bitmap upload is a
-            // separate, currently-unported pipeline; until that's wired
-            // up, custom-grave teams will render with the configured
-            // index but reuse the default sprite for that slot.
-            (*entry).grave = team.grave_id;
+            // Grave id at lobby +0x126 (signed byte). PTC sign-extends
+            // and `+1`s it into `team_records[i]+0x58`, which the
+            // renderer reads to pick a stock-grave sprite (stock id
+            // 0..=0x7F → positive byte) or switch to the custom-bitmap
+            // path (id 0x80..=0xFE → negative byte). For custom graves
+            // we'd ALSO need to write the palette+bitmap to lobby
+            // +0x67B/+0xA7B; that pipeline is still TBD, so custom-id
+            // teams currently fall back to the rendering default.
+            (*entry).grave_id = team.grave_id as i8;
 
             // Special Weapon index (+0x125). Verified by headful gameplay
             // test 2026-05-15: the turn manager grants the indexed

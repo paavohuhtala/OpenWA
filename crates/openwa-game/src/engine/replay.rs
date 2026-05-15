@@ -72,8 +72,14 @@ pub struct ReplayTeamEntry {
     pub flag2: u8,
     /// 0x09B-0x122: Unknown gap.
     pub _unknown_09b: [u8; 0x123 - 0x09B],
-    /// 0x123: Grave type.
-    pub grave: u8,
+    /// 0x123: WGT team-list slot index — the index of this lobby slot's
+    /// chosen team within `CTeamCollection`. Written by the two
+    /// `Unknown__OnNOTIFY` team-select handlers (0x00499880 and
+    /// 0x004E1090) as `(uint8_t)slot_index`. Not consumed by
+    /// `GameInfo__InitTeamsFromLobby`; appears to be informational /
+    /// for the lobby UI's own bookkeeping. Was previously misnamed
+    /// `grave` based on replay-format docs.
+    pub wgt_team_slot_idx: u8,
     /// 0x124: Team present flag (nonzero = active).
     pub flag: u8,
     /// 0x125: Special Weapon index (0..=7, indexes
@@ -84,12 +90,16 @@ pub struct ReplayTeamEntry {
     /// format docs; sound bank loading is independent and keyed off
     /// `speech_bank_dir` at +0x14.
     pub special_weapon: u8,
-    /// 0x126: Unknown. WA's `GameInfo__InitTeamsFromLobby` (0x466460,
-    /// second team loop) reads this byte, adds 1, and stores the
-    /// result at active team_record `+0x18`. Writing `team.special_weapon`
-    /// here alone does **not** make the signature-weapon unlock work,
-    /// so it's not the index byte; downstream role still TBD.
-    pub _unknown_126: u8,
+    /// 0x126: Grave id (signed i8). The two team-select OnNOTIFY
+    /// handlers (0x00499880, 0x004E1090) write CTeam record's signed
+    /// `grave_id` byte (CTeam+0x103) here. `GameInfo__InitTeamsFromLobby`
+    /// sign-extends and `+1`s it into `team_records[i]+0x58`, where the
+    /// renderer reads it to pick a stock-grave sprite (positive) or
+    /// switch to the custom-bitmap path (negative, baked into the
+    /// grave_palette/grave_bitmap regions below). Was previously
+    /// misnamed `_unknown_126`; the byte we labelled `grave` at +0x123
+    /// is actually the WGT-list slot index.
+    pub grave_id: i8,
     /// 0x127: Team flag palette (256 entries × BGR0 = 1024 bytes).
     /// PTC converts BGR0 → RGB and writes 768 bytes into active
     /// `team_records[N] + 0x18 + 6` (HUD flag-sprite palette).
@@ -99,12 +109,18 @@ pub struct ReplayTeamEntry {
     /// active `team_records[N] + 0x91C` for the HUD flag display.
     /// Was previously misidentified as a "per-team weapon kit".
     pub flag_bitmap: [u8; 0x154],
-    /// 0x67B: Custom-grave palette (256 entries × BGR0 = 1024 bytes).
-    /// Populated when WGT has a custom grave (`grave_id >= 0x80`).
+    /// 0x67B: Grave palette (256 entries × BGR0 = 1024 bytes).
+    /// `GameInfo__InitTeamsFromLobby` unconditionally BGR→RGB-converts
+    /// this region into the active team_record. For stock graves
+    /// (`grave_id >= 0`) the lobby-population handlers leave this
+    /// zero (renderer uses `grave_id+1` at `team_records[i]+0x58` to
+    /// pick a stock sprite). For custom graves (`grave_id < 0`,
+    /// i.e. WGT id `>= 0x80`) the OnNOTIFY handlers copy CTeam+0x125
+    /// here.
     pub grave_palette: [u8; 0x400],
-    /// 0xA7B: Custom-grave bitmap (24 × 32 = 768 8bpp pixels,
-    /// palette indices into [`grave_palette`]). Populated when WGT
-    /// has a custom grave (`grave_id >= 0x80`).
+    /// 0xA7B: Grave bitmap (24 × 32 = 768 8bpp pixels, palette
+    /// indices into [`grave_palette`]). Same stock-vs-custom rules
+    /// as [`grave_palette`]; custom-grave source is CTeam+0x525.
     pub grave_bitmap: [u8; 0x300],
 }
 
