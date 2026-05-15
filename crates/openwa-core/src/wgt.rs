@@ -19,8 +19,8 @@
 /// Retail `CTeam__SaveTeams` (0x004D9B10) writes only these three bytes from
 /// its `"WGT\0"` source string; `CTeam__LoadTeams` (0x004D92B0) validates
 /// only the first three bytes. The fourth header byte is a data field — see
-/// [`WgtHeader::unknown_03`] — not part of the magic, even though retail
-/// files conventionally happen to have a NUL there.
+/// [`WgtHeader::mission_progress`] — not part of the magic, even though
+/// fresh retail rosters happen to have a NUL there.
 pub const WGT_MAGIC: [u8; 3] = *b"WGT";
 
 /// Size of the file header (magic + 1 unknown + version + team count + cheat flags + 1 unknown).
@@ -109,12 +109,13 @@ impl core::fmt::Display for WgtError {
 /// Header-level cheat flags + roster metadata (offset 0x03..0x0A).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct WgtHeader {
-    /// Header byte at offset 0x03 — round-tripped to/from `CTeamCollection+0x08`
-    /// by retail (`CTeam__SaveTeams` / `CTeam__LoadTeams`). Almost always `0x00`
-    /// in stock files (which is why this byte is often mistaken for a NUL
-    /// magic terminator), but retail's loader doesn't validate it, so non-NUL
-    /// values produced by other/beta builds parse fine.
-    pub unknown_03: u8,
+    /// Highest "Mission Mode" mission index reached, persisted in
+    /// `CTeamCollection+0x08`. Bumped monotonically by the mission-completed
+    /// dialog handler at WA `0x00499E90` after each cleared mission; never
+    /// reset. `0x00` = no missions cleared, `0x21` = full 33-mission
+    /// campaign finished (this is why the occasional roster's header looks
+    /// like the ASCII string `"WGT!"`).
+    pub mission_progress: u8,
     /// Unknown header byte at offset 0x04 — possibly a version field. The
     /// retail WG.WGT writes `0x04` here.
     pub unknown_04: u8,
@@ -226,7 +227,7 @@ impl WgtFile {
         if magic != WGT_MAGIC {
             return Err(WgtError::BadMagic(magic));
         }
-        let unknown_03 = c.read_u8(0)?;
+        let mission_progress = c.read_u8(0)?;
         let unknown_04 = c.read_u8(0)?;
         let team_count = c.read_u8(0)? as usize;
         let utility_cheats = c.read_u8(0)?;
@@ -236,7 +237,7 @@ impl WgtFile {
         let unknown_0a = c.read_u8(0)?;
 
         let header = WgtHeader {
-            unknown_03,
+            mission_progress,
             unknown_04,
             utility_cheats,
             weapon_cheats,
