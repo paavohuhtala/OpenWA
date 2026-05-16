@@ -1,4 +1,8 @@
 {
     "editor.formatOnSave": true,
-    "rust-analyzer.check.command": "clippy"
+    "rust-analyzer.check.command": "clippy",
+    "[toml]": {
+        // Disable format-on-save for TOML files, to avoid unwanted modification of generated RE database.
+        "editor.formatOnSave": false
+    }
 }
