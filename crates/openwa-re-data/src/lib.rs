@@ -2,7 +2,7 @@
 //!
 //! Files under `re/**/*.toml` are the canonical store. This crate parses,
 //! validates, and renders that store to a single JSON `manifest` consumed
-//! by `ghidra_scripts/ReImport.java`, which applies every entry via
+//! by `ghidra_scripts/OpenWAImport.java`, which applies every entry via
 //! Ghidra's Java API. See the plan at
 //! `C:\Users\Paavo\.claude\plans\this-project-has-a-cheerful-russell.md`.
 

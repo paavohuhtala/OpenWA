@@ -1,6 +1,6 @@
 //! Single JSON document that fully describes the desired Ghidra state.
 //!
-//! `ReImport.java` consumes only this file — no XML — and applies every
+//! `OpenWAImport.java` consumes only this file — no XML — and applies every
 //! piece via Ghidra's Java API. We tried Ghidra's XML importers first;
 //! each major manager NPEs / IAEs / `.conflict`-spams on common edge
 //! cases that the surface logging hides:
@@ -204,7 +204,7 @@ pub enum SymbolKind {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Function {
-    /// Absolute VA encoded as `0x004FE070`. ReImport decodes hex.
+    /// Absolute VA encoded as `0x004FE070`. OpenWAImport decodes hex.
     pub va: String,
     /// `__stdcall` / `__cdecl` / `__thiscall` / `__fastcall` (or
     /// architecture-specific). Custom storage is signalled by per-param
@@ -214,7 +214,7 @@ pub struct Function {
     #[serde(default, skip_serializing_if = "is_false")]
     pub no_return: bool,
     /// Mirror of Ghidra's `Function.hasCustomVariableStorage()`. When set,
-    /// ReImport switches to `CUSTOM_STORAGE` mode so `param.storage` strings
+    /// OpenWAImport switches to `CUSTOM_STORAGE` mode so `param.storage` strings
     /// land verbatim instead of being recomputed by the calling convention.
     #[serde(default, skip_serializing_if = "is_false")]
     pub custom_storage: bool,

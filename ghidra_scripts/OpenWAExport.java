@@ -1,16 +1,17 @@
-// openwa-re export-side bridge.
+// Export the current program's RE catalog to Ghidra XML + sidecar.
 //
 // Runs Ghidra's native XmlExporter to produce a `desired.xml` snapshot, then
 // walks every USER_DEFINED function and emits a sidecar JSON listing each
-// function's calling_convention and no_return — fields Ghidra's XML DTD
-// cannot carry. The Rust `openwa-re` tool consumes both files.
+// function's calling_convention / no_return / custom_storage — fields
+// Ghidra's XML DTD cannot carry. The Rust `openwa-re import` command
+// consumes both files.
 //
 // Output paths default to C:/tmp/wa_export.xml + C:/tmp/wa_export_extras.json.
 // Pass an alternative prefix via args (no extension): `wa_export` becomes
 // `<prefix>.xml` + `<prefix>_extras.json`.
 //
 // @category OpenWA
-// @menupath Tools.OpenWA.Re-export catalog
+// @menupath Tools.OpenWA.Export catalog
 // @toolbar
 
 import ghidra.app.script.GhidraScript;
@@ -26,7 +27,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public class ReExport extends GhidraScript {
+public class OpenWAExport extends GhidraScript {
     @Override
     public void run() throws Exception {
         String prefix;

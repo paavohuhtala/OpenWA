@@ -1,6 +1,6 @@
-// openwa-re import-side bridge.
+// Import an RE catalog manifest into the current Ghidra program.
 //
-// Consumes a single JSON manifest produced by `openwa-re import --out <path>`
+// Consumes a single JSON manifest produced by `openwa-re export --out <path>`
 // and applies every entry via Ghidra's Java API. We deliberately avoid
 // Ghidra's XML import managers: each of FunctionsXmlMgr, SymbolTableXmlMgr,
 // and DataTypesXmlMgr NPEs / IAEs / `.conflict`-spams on common edge
@@ -23,11 +23,11 @@
 //      storage, calling convention, no-return.
 //
 // Usage:
-//   ReImport.java C:/tmp/wa_import.json
+//   OpenWAImport.java C:/tmp/wa_import.json
 // (defaults to C:/tmp/wa_import.json if no arg)
 //
 // @category OpenWA
-// @menupath Tools.OpenWA.Re-import catalog
+// @menupath Tools.OpenWA.Import catalog
 // @toolbar
 
 import com.google.gson.Gson;
@@ -72,7 +72,7 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 
-public class ReImport extends GhidraScript {
+public class OpenWAImport extends GhidraScript {
     private DataTypeManager dtm;
     private DataTypeParser dtParser;
 
@@ -700,7 +700,7 @@ public class ReImport extends GhidraScript {
         boolean hasParams = fe.params != null && !fe.params.isEmpty();
         boolean hasReturn = fe.returnType != null;
         // Mirror Ghidra's `Function.hasCustomVariableStorage()` flag (carried
-        // through from the ReExport sidecar). When set, we keep every
+        // through from the OpenWAExport sidecar). When set, we keep every
         // `storage` string verbatim under CUSTOM_STORAGE. When not set, we
         // ignore `storage` strings entirely and let Ghidra recompute storage
         // from the calling convention — necessary because the export step

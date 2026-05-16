@@ -1,9 +1,15 @@
 //! `openwa-re` — repo-scoped Ghidra metadata tool.
 //!
+//! Verbs are named from openwa-re's perspective: `import` brings data INTO
+//! the catalog, `export` ships it OUT toward Ghidra. The Ghidra-side scripts
+//! use the opposite verbs from Ghidra's perspective — they pair across the
+//! boundary: `OpenWAExport.java` produces what `openwa-re import` consumes;
+//! `openwa-re export` produces what `OpenWAImport.java` consumes.
+//!
 //! Subcommands:
 //!   - `validate` — parse all `re/**/*.toml` and report schema/cross-ref errors
-//!   - `export`   — read a Ghidra XML dump, write `re/*.toml`
-//!   - `import`   — read `re/*.toml`, write a Ghidra import manifest (JSON)
+//!   - `import`   — read a Ghidra XML dump, write `re/*.toml`
+//!   - `export`   — read `re/*.toml`, write a Ghidra-bound manifest (JSON)
 //!   - `diff`     — TODO: human-readable diff between `re/` and a given Ghidra XML
 
 use anyhow::Result;
@@ -27,7 +33,7 @@ enum Cmd {
     Validate,
 
     /// Read a Ghidra XML dump and write re/*.toml shards.
-    Export {
+    Import {
         /// Path to a Ghidra `XmlExporter` dump (e.g. C:/tmp/wa_export.xml).
         xml: PathBuf,
         /// Initial bootstrap mode: shard functions by VA range and OVERWRITE
@@ -43,16 +49,16 @@ enum Cmd {
         dry_run: bool,
     },
 
-    /// Read re/*.toml and emit a Ghidra import manifest (JSON).
-    Import {
-        /// Output JSON path. ReImport.java consumes this directly.
+    /// Read re/*.toml and emit a Ghidra-bound manifest (JSON).
+    Export {
+        /// Output JSON path. `OpenWAImport.java` consumes this directly.
         #[arg(long)]
         out: PathBuf,
-        /// Optional `_extras.json` produced by `ReExport.java`. When given,
-        /// its calling_convention / no_return entries are overlaid onto the
-        /// loaded TOML catalog before manifest emission. Lets us inject
-        /// these attributes without rewriting TOML (which is what a fresh
-        /// `--bootstrap` would do).
+        /// Optional `_extras.json` produced by `OpenWAExport.java`. When
+        /// given, its calling_convention / no_return / custom_storage
+        /// entries are overlaid onto the loaded TOML catalog before
+        /// manifest emission. Lets us inject these attributes without
+        /// rewriting TOML (which is what a fresh `--bootstrap` would do).
         #[arg(long)]
         extras: Option<PathBuf>,
     },
@@ -70,13 +76,13 @@ fn main() -> Result<()> {
 
     match cli.cmd {
         Cmd::Validate => cmd_validate(&re),
-        Cmd::Export {
+        Cmd::Import {
             xml,
             bootstrap,
             force,
             dry_run,
-        } => cmd_export(&re, &xml, bootstrap, force, dry_run),
-        Cmd::Import { out, extras } => cmd_import(&re, &out, extras.as_deref()),
+        } => cmd_import(&re, &xml, bootstrap, force, dry_run),
+        Cmd::Export { out, extras } => cmd_export(&re, &out, extras.as_deref()),
         Cmd::Diff { xml } => cmd_diff(&re, &xml),
     }
 }
@@ -114,7 +120,7 @@ fn cmd_validate(re: &std::path::Path) -> Result<()> {
     }
 }
 
-fn cmd_export(
+fn cmd_import(
     re: &std::path::Path,
     xml: &std::path::Path,
     bootstrap: bool,
@@ -123,7 +129,7 @@ fn cmd_export(
 ) -> Result<()> {
     if !bootstrap {
         anyhow::bail!(
-            "export: only `--bootstrap` mode is implemented for now. \
+            "import: only `--bootstrap` mode is implemented for now. \
              Pass --bootstrap to do the initial dump."
         );
     }
@@ -241,7 +247,7 @@ fn cmd_export(
     Ok(())
 }
 
-fn cmd_import(
+fn cmd_export(
     re: &std::path::Path,
     out: &std::path::Path,
     extras: Option<&std::path::Path>,
@@ -350,7 +356,7 @@ fn apply_extras_to_catalog(
     Ok(applied)
 }
 
-/// `ReExport.java` writes the sidecar at `<xml_prefix>_extras.json` — where
+/// `OpenWAExport.java` writes the sidecar at `<xml_prefix>_extras.json` — where
 /// `xml_prefix` is whatever the user passed as the prefix (the `.xml` then
 /// gets appended). So for `C:/tmp/wa_export.xml`, the sidecar is at
 /// `C:/tmp/wa_export_extras.json` (strip `.xml`, append `_extras.json`).
