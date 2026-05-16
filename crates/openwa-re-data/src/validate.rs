@@ -135,7 +135,10 @@ fn validate_struct(s: &Struct, known: &HashSet<String>, report: &mut ValidationR
             // and tolerated.
             report.errors.push(format!(
                 "struct `{}`: field `{}` offset 0x{:X} > size 0x{:X}",
-                s.name, fld.name, fld.offset, s.size
+                s.name,
+                fld.name.as_deref().unwrap_or("<unnamed>"),
+                fld.offset,
+                s.size
             ));
         }
         if !seen_offsets.insert(fld.offset) {
@@ -145,7 +148,11 @@ fn validate_struct(s: &Struct, known: &HashSet<String>, report: &mut ValidationR
             ));
         }
         validate_type_ref(&fld.ty, known, report, || {
-            format!("struct `{}` field `{}`", s.name, fld.name)
+            format!(
+                "struct `{}` field `{}`",
+                s.name,
+                fld.name.as_deref().unwrap_or("<unnamed>")
+            )
         });
     }
 }
@@ -155,11 +162,17 @@ fn validate_union(u: &Union, known: &HashSet<String>, report: &mut ValidationRep
         if fld.offset != 0 {
             report.errors.push(format!(
                 "union `{}`: field `{}` offset must be 0 (got 0x{:X})",
-                u.name, fld.name, fld.offset
+                u.name,
+                fld.name.as_deref().unwrap_or("<unnamed>"),
+                fld.offset
             ));
         }
         validate_type_ref(&fld.ty, known, report, || {
-            format!("union `{}` field `{}`", u.name, fld.name)
+            format!(
+                "union `{}` field `{}`",
+                u.name,
+                fld.name.as_deref().unwrap_or("<unnamed>")
+            )
         });
     }
 }

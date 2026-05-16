@@ -184,13 +184,12 @@ fn parse_structure<R: std::io::BufRead>(
                     continue;
                 }
                 let offset = hex_attr(&e, b"OFFSET")?;
-                let mname = mname_opt.unwrap_or_else(|| format!("field_{offset:x}"));
                 let type_namespace =
                     optional_attr(&e, b"DATATYPE_NAMESPACE").and_then(normalise_namespace);
                 let size = optional_attr(&e, b"SIZE").and_then(|s| parse_hex_u32(&s).ok());
                 fields.push(Field {
                     offset,
-                    name: mname,
+                    name: mname_opt,
                     ty,
                     type_namespace,
                     size,
@@ -202,8 +201,7 @@ fn parse_structure<R: std::io::BufRead>(
                 // and any nested comment.
                 let ty = required_attr(&e, b"DATATYPE")?;
                 let offset = hex_attr(&e, b"OFFSET")?;
-                let mname =
-                    optional_attr(&e, b"NAME").unwrap_or_else(|| format!("field_{offset:x}"));
+                let mname = optional_attr(&e, b"NAME");
                 let type_namespace =
                     optional_attr(&e, b"DATATYPE_NAMESPACE").and_then(normalise_namespace);
                 let size = optional_attr(&e, b"SIZE").and_then(|s| parse_hex_u32(&s).ok());
@@ -353,8 +351,7 @@ fn parse_union<R: std::io::BufRead>(
                     continue;
                 }
                 let offset = hex_attr(&e, b"OFFSET")?;
-                let mname =
-                    optional_attr(&e, b"NAME").unwrap_or_else(|| format!("field_{offset:x}"));
+                let mname = optional_attr(&e, b"NAME");
                 let ty = required_attr(&e, b"DATATYPE")?;
                 let type_namespace =
                     optional_attr(&e, b"DATATYPE_NAMESPACE").and_then(normalise_namespace);

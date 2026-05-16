@@ -207,7 +207,12 @@ pub struct Union {
 #[serde(deny_unknown_fields, rename_all = "snake_case")]
 pub struct Field {
     pub offset: u32,
-    pub name: String,
+    /// Member name. `None` for unnamed padding bytes — Ghidra's XML omits
+    /// the `NAME` attribute on those, and re-emitting `field_NN` would
+    /// pollute the diff with synthesised names that didn't exist in the
+    /// source DB.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
     #[serde(rename = "type")]
     pub ty: TypeRef,
     /// Ghidra namespace of the referenced type. Default `/` when omitted —

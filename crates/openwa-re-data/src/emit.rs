@@ -384,7 +384,9 @@ fn write_union_field(out: &mut String, fld: &Field) {
 fn write_field(out: &mut String, fld: &Field, parent: &str) {
     writeln!(out, "\n  [[{parent}.field]]").unwrap();
     writeln!(out, "  offset = 0x{:X}", fld.offset).unwrap();
-    write_string_kv_indented(out, "  ", "name", &fld.name);
+    if let Some(name) = &fld.name {
+        write_string_kv_indented(out, "  ", "name", name);
+    }
     write_string_kv_indented(out, "  ", "type", &fld.ty);
     if let Some(ns) = fld
         .type_namespace

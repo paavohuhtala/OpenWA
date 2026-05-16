@@ -86,7 +86,11 @@ pub struct Struct {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Field {
     pub offset: u32,
-    pub name: String,
+    /// Member name. `None` for unnamed padding bytes — Ghidra's
+    /// `Structure.replaceAtOffset` accepts `null` for the name and
+    /// re-emits the member without a NAME attribute on export.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
     #[serde(rename = "type")]
     pub ty: String,
     /// Namespace of the referenced datatype (omitted when root `/`).
