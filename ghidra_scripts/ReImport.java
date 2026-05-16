@@ -654,7 +654,20 @@ public class ReImport extends GhidraScript {
             Variable returnVar = null;
             if (hasReturn) {
                 DataType rt = dtParser.parse(fe.returnType);
-                returnVar = new ReturnParameterImpl(rt, currentProgram);
+                if (anyCustomStorage) {
+                    // CUSTOM_STORAGE mode requires explicit storage on every
+                    // slot. For void: VOID_STORAGE. For non-void returns under
+                    // custom storage, we currently leave it UNASSIGNED — the
+                    // TOML schema doesn't yet have a `return_storage` field;
+                    // add one if a real __usercall with non-void return shows
+                    // up (rare on x86 — return reg is always EAX/EDX:EAX).
+                    VariableStorage retStorage = "void".equals(rt.getName())
+                            ? VariableStorage.VOID_STORAGE
+                            : VariableStorage.UNASSIGNED_STORAGE;
+                    returnVar = new ReturnParameterImpl(rt, retStorage, currentProgram);
+                } else {
+                    returnVar = new ReturnParameterImpl(rt, currentProgram);
+                }
             }
             List<Variable> newParams = new ArrayList<>();
             if (hasParams) {
