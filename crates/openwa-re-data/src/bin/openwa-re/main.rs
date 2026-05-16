@@ -89,11 +89,22 @@ enum Cmd {
     },
 
     /// Interactive per-machine setup wizard. Writes `.openwa/setup.toml` and
-    /// copies the Ghidra-side scripts into `~/ghidra_scripts/`.
+    /// copies the Ghidra-side scripts into `~/ghidra_scripts/`. When the
+    /// configured Ghidra project doesn't exist yet, offers to bootstrap it
+    /// from WA.exe via analyzeHeadless + an initial export/import round-trip.
     Setup {
         /// Re-run the wizard even if `.openwa/setup.toml` already exists.
         #[arg(long)]
         force: bool,
+        /// Skip the bootstrap confirmation prompt; just run it. Useful for
+        /// automation. Implies bootstrap will be attempted if the project is
+        /// missing.
+        #[arg(long)]
+        bootstrap: bool,
+        /// Inverse of `--bootstrap`: skip the bootstrap prompt entirely
+        /// (config + script copy only).
+        #[arg(long, conflicts_with = "bootstrap")]
+        no_bootstrap: bool,
     },
 }
 
@@ -123,7 +134,20 @@ fn main() -> Result<()> {
             let dir = resolve_scratch_dir(&root, dir.as_deref())?;
             cmd_diff(&re, &dir)
         }
-        Cmd::Setup { force } => wizard::run(&root, force),
+        Cmd::Setup {
+            force,
+            bootstrap,
+            no_bootstrap,
+        } => {
+            let mode = if bootstrap {
+                wizard::BootstrapMode::Yes
+            } else if no_bootstrap {
+                wizard::BootstrapMode::No
+            } else {
+                wizard::BootstrapMode::Prompt
+            };
+            wizard::run(&root, &re, force, mode)
+        }
     }
 }
 
