@@ -7,14 +7,6 @@ va = 0x0053F630
 name = "Task_TurnGame__pick_random_drop"
 
 [[function]]
-va = 0x0055B540
-name = "Task_TurnGame__dtor0_Task_TurnGame"
-
-[[function]]
-va = 0x0055B5E0
-name = "Task_TurnGame__save"
-
-[[function]]
 va = 0x0055BC20
 name = "Task_TurnGame__get_current_worm"
 

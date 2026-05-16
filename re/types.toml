@@ -347,6 +347,7 @@ external_types = [
   "MSG",
   "Misc",
   "OLECHAR",
+  "OLE_DATA",
   "PAINTSTRUCT",
   "PALETTEENTRY",
   "PARAMDESC",
@@ -1004,6 +1005,11 @@ size = 0xBB8
   size = 0x144
 
 [[struct]]
+name = "type_info"
+size = 0x0
+plate_comment = "PlaceHolder Class Structure"
+
+[[struct]]
 name = "WeaponReleaseContext"
 namespace = "/OpenWA"
 size = 0x2C
@@ -1085,11 +1091,6 @@ plate_comment = "0x2C / 11-DWORD spawn buffer built on the stack by WeaponReleas
   type = "int"
   size = 0x4
   comment = "Fuse timer in ms, from WormEntity::selected_fuse_value: (value+1)*1000 when within scheme bounds. Used by MissileEntity::Constructor as fallback for render_data[0x11]."
-
-[[struct]]
-name = "type_info"
-size = 0x0
-plate_comment = "PlaceHolder Class Structure"
 
 [[union]]
 name = "IMAGE_RESOURCE_DIRECTORY_ENTRY_DirectoryUnion"

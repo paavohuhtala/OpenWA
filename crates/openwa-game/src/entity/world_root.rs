@@ -125,7 +125,7 @@ pub struct WorldRootEntityVtable {
 ///
 /// Every worm, team, projectile, and environment entity is a child (direct or indirect)
 /// of this node.  `WorldRootEntity` drives the turn loop: it processes 50 game frames
-/// per second via `WorldRootEntity__TurnManager_ProcessFrame` (0x55FDA0), which is
+/// per second via `TurnManager__ProcessFrame` (0x55FDA0), which is
 /// called from HandleMessage case 2 (FrameFinish).
 ///
 /// Inheritance: BaseEntity → TeamEntity → WorldRootEntity.  Class type 6.

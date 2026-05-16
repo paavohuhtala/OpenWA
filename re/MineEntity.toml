@@ -69,3 +69,7 @@ name = "MineEntity__Query"
 [[function]]
 va = 0x00507B10
 name = "MineEntity__RollFuseFromReplay"
+
+[[global]]
+va = 0x006643E8
+name = "MineEntity__vtable"

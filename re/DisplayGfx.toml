@@ -3,10 +3,6 @@ va = 0x004FAF00
 name = "DisplayGfx__ConstructTextbox"
 
 [[function]]
-va = 0x00505430
-name = "DisplayGfx__DefaultStub_RetZero_Ret8"
-
-[[function]]
 va = 0x00523310
 name = "DisplayGfx__LoadSpriteEx"
 calling_convention = "__thiscall"

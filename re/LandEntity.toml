@@ -1,16 +1,4 @@
 [[function]]
-va = 0x00500070
-name = "LandEntity__vt9"
-
-[[function]]
-va = 0x00500080
-name = "LandEntity__vt10"
-
-[[function]]
-va = 0x005000E0
-name = "LandEntity__vt11"
-
-[[function]]
 va = 0x00505440
 name = "LandEntity__Constructor"
 

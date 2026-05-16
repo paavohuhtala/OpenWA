@@ -36,7 +36,6 @@ name = "Replay__ValidateTeamSetup"
 [[function]]
 va = 0x004670F0
 name = "Replay__ProcessSchemeDefaults"
-calling_convention = "__cdecl"
 
   [function.signature]
   returns = "void"
@@ -48,7 +47,6 @@ calling_convention = "__cdecl"
 [[function]]
 va = 0x00467280
 name = "Replay__ProcessReplayFlags"
-calling_convention = "__cdecl"
 
   [function.signature]
   returns = "void"

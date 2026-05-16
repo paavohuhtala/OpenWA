@@ -8,7 +8,7 @@ name = "wa_malloc"
 
 [[function]]
 va = 0x005C0AE8
-name = "_free"
+name = "WA_Free"
 
   [function.signature]
   returns = "void"

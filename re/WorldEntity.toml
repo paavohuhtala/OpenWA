@@ -47,22 +47,6 @@ va = 0x004FFED0
 name = "WorldEntity__vt8"
 
 [[function]]
-va = 0x00500090
-name = "WorldEntity__vt17"
-
-[[function]]
-va = 0x00500360
-name = "WorldEntity__vt13"
-
-[[function]]
-va = 0x00500380
-name = "WorldEntity__vt12"
-
-[[function]]
-va = 0x00500CC0
-name = "WorldEntity__vt15"
-
-[[function]]
 va = 0x00501E20
 name = "WorldEntity__vt7"
 

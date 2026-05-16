@@ -1,6 +1,66 @@
 [[function]]
+va = 0x00500070
+name = "CrateEntity__OnLandBounce"
+
+[[function]]
+va = 0x00500080
+name = "CrateEntity__OnLandSlide"
+
+[[function]]
+va = 0x00500090
+name = "CrateEntity__vmethod_17"
+
+[[function]]
+va = 0x005000E0
+name = "CrateEntity__OnSink"
+
+[[function]]
+va = 0x00500360
+name = "CrateEntity__OnKilled"
+
+[[function]]
+va = 0x00500380
+name = "CrateEntity__vmethod_12"
+
+[[function]]
+va = 0x00500CC0
+name = "CrateEntity__vmethod_15"
+
+[[function]]
 va = 0x00502490
 name = "CrateEntity__Constructor"
+
+[[function]]
+va = 0x00502860
+name = "CrateEntity__Free"
+
+[[function]]
+va = 0x00502B50
+name = "CrateEntity__WriteReplayState"
+
+[[function]]
+va = 0x00502D20
+name = "CrateEntity__OnWormPush"
+
+[[function]]
+va = 0x005032F0
+name = "CrateEntity__SetState"
+
+[[function]]
+va = 0x00503AD0
+name = "CrateEntity__HandleMessage"
+
+[[function]]
+va = 0x00503F70
+name = "CrateEntity__GetEntityData"
+
+[[function]]
+va = 0x00503FA0
+name = "CrateEntity__vmethod_18"
+
+[[function]]
+va = 0x00503FB0
+name = "CrateEntity__vmethod_19"
 
 [[global]]
 va = 0x00664298

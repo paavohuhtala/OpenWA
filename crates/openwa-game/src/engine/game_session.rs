@@ -170,7 +170,7 @@ pub struct GameSession {
     pub game_runtime: *mut GameRuntime,
     /// 0x0A4: `Keyboard*` — 0x33C bytes, vtable `Keyboard_vtable` (0x66AEC8)
     pub keyboard: *mut Keyboard,
-    /// 0x0A8: `DSSound*` — 0xBE0 bytes, vtable `DSSound_vtable` (0x66AF20)
+    /// 0x0A8: `DSSound*` — 0xBE0 bytes, vtable `DSSound__vtable` (0x66AF20)
     pub sound: *mut DSSound,
     /// 0x0AC: Polymorphic display — `DisplayGfx*` (normal) or `DisplayBase*` (headless).
     /// Stays `*mut u8` because the concrete type depends on mode.

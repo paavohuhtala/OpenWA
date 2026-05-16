@@ -58,10 +58,13 @@ name = "GameWorld__InitDisplayFinal"
 [[function]]
 va = 0x0056E220
 name = "GameWorld__Constructor"
-calling_convention = "__thiscall"
 
   [function.signature]
   returns = "void *"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
 
   [[function.param]]
   name = "display"
@@ -94,11 +97,6 @@ calling_convention = "__thiscall"
   [[function.param]]
   name = "game_info"
   type = "void *"
-
-  [[function.param]]
-  name = "this"
-  type = "void *"
-  storage = "ECX"
 
 [[function]]
 va = 0x005706D0

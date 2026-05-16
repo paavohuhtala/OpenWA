@@ -1,8 +1,4 @@
 [[function]]
-va = 0x00502860
-name = "Task_Crate__dtor0_Task_Crate"
-
-[[function]]
 va = 0x00502880
 name = "Task_Crate__construct_pointers"
 
@@ -11,16 +7,8 @@ va = 0x00502A10
 name = "Task_Crate__ctor1_Task_Crate"
 
 [[function]]
-va = 0x00502B50
-name = "Task_Crate__save"
-
-[[function]]
 va = 0x00502BE0
 name = "Task_Crate__dtor1_Task_Crate"
-
-[[function]]
-va = 0x00502D20
-name = "Task_Crate__collide"
 
 [[function]]
 va = 0x00502D80
@@ -29,10 +17,6 @@ name = "Task_Crate__detonate_0"
 [[function]]
 va = 0x00502FD0
 name = "Task_Crate__detonate_1"
-
-[[function]]
-va = 0x005032F0
-name = "Task_Crate__set_state"
 
 [[function]]
 va = 0x00503390
@@ -49,22 +33,6 @@ name = "Task_Crate__render_indicator"
 [[function]]
 va = 0x005037C0
 name = "Task_Crate__render"
-
-[[function]]
-va = 0x00503AD0
-name = "Task_Crate__message"
-
-[[function]]
-va = 0x00503F70
-name = "Task_Crate__enquire"
-
-[[function]]
-va = 0x00503FA0
-name = "Task_Crate__sub_503FA0"
-
-[[function]]
-va = 0x00503FB0
-name = "Task_Crate__sub_503FB0"
 
 [[function]]
 va = 0x005041D0

@@ -202,6 +202,11 @@ name = "__CIpow"
 va = 0x0060653D
 name = "start_4"
 
+  [[function.local]]
+  name = "local_70"
+  type = "undefined1[10]"
+  stack_offset = -112
+
 [[function]]
 va = 0x00606702
 name = "_test_whether_TOS_is_int"

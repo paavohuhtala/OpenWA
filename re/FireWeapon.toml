@@ -4,7 +4,7 @@ name = "FireWeapon__ProjectileFire_Single"
 
 [[function]]
 va = 0x0051DFB0
-name = "FireWeapon__Projectile"
+name = "FireWeapon__ProjectileFire"
 
   [function.signature]
   returns = "void"
@@ -53,7 +53,7 @@ name = "FireWeapon__RopeType3"
 
 [[function]]
 va = 0x0051E2C0
-name = "FireWeapon__Grenade"
+name = "FireWeapon__StrikeFire"
 
   [function.signature]
   returns = "void"
@@ -120,4 +120,4 @@ name = "FireWeapon__PlacedExplosive"
 
 [[function]]
 va = 0x0051ED90
-name = "FireWeapon__Shotgun"
+name = "FireWeapon__CreateArrow"
