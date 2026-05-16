@@ -27,6 +27,8 @@
 // (defaults to C:/tmp/wa_import.json if no arg)
 //
 // @category OpenWA
+// @menupath Tools.OpenWA.Re-import catalog
+// @toolbar
 
 import com.google.gson.Gson;
 import com.google.gson.annotations.SerializedName;

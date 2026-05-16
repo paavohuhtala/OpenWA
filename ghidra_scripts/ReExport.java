@@ -10,6 +10,8 @@
 // `<prefix>.xml` + `<prefix>_extras.json`.
 //
 // @category OpenWA
+// @menupath Tools.OpenWA.Re-export catalog
+// @toolbar
 
 import ghidra.app.script.GhidraScript;
 import ghidra.app.util.exporter.XmlExporter;
