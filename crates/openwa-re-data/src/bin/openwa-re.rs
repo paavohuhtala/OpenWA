@@ -2,15 +2,16 @@
 //!
 //! Subcommands:
 //!   - `validate` — parse all `re/**/*.toml` and report schema/cross-ref errors
-//!   - `export`   — TODO: read a Ghidra XML dump, write `re/*.toml`
-//!   - `import`   — TODO: read `re/*.toml`, write Ghidra-compatible XML + extras sidecar
+//!   - `export`   — read a Ghidra XML dump, write `re/*.toml`
+//!   - `import`   — read `re/*.toml`, write a Ghidra import manifest (JSON)
 //!   - `diff`     — TODO: human-readable diff between `re/` and a given Ghidra XML
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use openwa_re_data::manifest;
 use openwa_re_data::repo::{find_repo_root, re_dir};
 use openwa_re_data::toml_io::Catalog;
-use openwa_re_data::{emit, resolve, validate, xml_in, xml_out};
+use openwa_re_data::{emit, resolve, validate, xml_in};
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -42,9 +43,9 @@ enum Cmd {
         dry_run: bool,
     },
 
-    /// Read re/*.toml and emit Ghidra-importable XML + extras sidecar. (TODO)
+    /// Read re/*.toml and emit a Ghidra import manifest (JSON).
     Import {
-        /// Output path prefix: writes `<prefix>.xml` and `<prefix>_extras.json`.
+        /// Output JSON path. ReImport.java consumes this directly.
         #[arg(long)]
         out: PathBuf,
     },
@@ -227,44 +228,34 @@ fn cmd_import(re: &std::path::Path, out: &std::path::Path) -> Result<()> {
     let report = validate::validate(&cat)?;
     if !report.ok() {
         anyhow::bail!(
-            "refusing to emit XML: {} validation error(s). Run `openwa-re validate` for details.",
+            "refusing to emit manifest: {} validation error(s). Run `openwa-re validate` for details.",
             report.errors.len(),
         );
     }
 
     let t1 = std::time::Instant::now();
-    xml_out::write_to(out, &cat)?;
+    let manifest = manifest::build_from_catalog(&cat);
+    let json = manifest::to_json(&manifest)?;
+    let out_path = if out.extension().is_some() {
+        out.to_path_buf()
+    } else {
+        out.with_extension("json")
+    };
+    std::fs::write(&out_path, &json)?;
     let render_dt = t1.elapsed();
-
-    let xml_path = {
-        let mut p = out.to_path_buf();
-        p.set_extension("xml");
-        p
-    };
-    let extras_path = {
-        let mut s = out.file_name().map(|n| n.to_owned()).unwrap_or_default();
-        s.push("_extras.json");
-        out.with_file_name(s)
-    };
-    let xml_bytes = std::fs::metadata(&xml_path)?.len();
-    let extras_bytes = std::fs::metadata(&extras_path)?.len();
+    let bytes = std::fs::metadata(&out_path)?.len();
 
     eprintln!(
-        "Loaded {} TOML file(s), {} entries in {:.2}s. Rendered XML in {:.2}s.",
+        "Loaded {} TOML file(s), {} entries in {:.2}s. Rendered manifest in {:.2}s.",
         openwa_re_data::repo::enumerate_toml(re)?.len(),
         cat.total_entries(),
         load_dt.as_secs_f64(),
         render_dt.as_secs_f64(),
     );
     eprintln!(
-        "  XML:     {} ({:.1} MiB)",
-        xml_path.display(),
-        xml_bytes as f64 / 1024.0 / 1024.0
-    );
-    eprintln!(
-        "  Extras:  {} ({:.1} KiB)",
-        extras_path.display(),
-        extras_bytes as f64 / 1024.0
+        "  Manifest: {} ({:.1} KiB)",
+        out_path.display(),
+        bytes as f64 / 1024.0,
     );
     if !report.warnings.is_empty() {
         eprintln!(
