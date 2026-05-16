@@ -1,0 +1,71 @@
+[[function]]
+va = 0x00506660
+name = "MineEntity__Constructor"
+
+[[function]]
+va = 0x005069D0
+name = "MineEntity__Free"
+
+[[function]]
+va = 0x005069F0
+name = "MineEntity__Constructor_1"
+
+[[function]]
+va = 0x00506AB0
+name = "MineEntity__Destructor_1"
+
+[[function]]
+va = 0x00506B70
+name = "MineEntity__InsertIntoMineList"
+
+[[function]]
+va = 0x00506CA0
+name = "MineEntity__Arm"
+
+[[function]]
+va = 0x00506CD0
+name = "MineEntity__Init"
+
+[[function]]
+va = 0x00506D20
+name = "MineEntity__ConstructPointers"
+
+[[function]]
+va = 0x00506DB0
+name = "MineEntity__ProcessFrame"
+
+[[function]]
+va = 0x00506DE0
+name = "MineEntity__vt8"
+
+[[function]]
+va = 0x00506E60
+name = "MineEntity__CalcSprite"
+
+[[function]]
+va = 0x00506EF0
+name = "MineEntity__Render"
+
+[[function]]
+va = 0x00507110
+name = "MineEntity__Detonate"
+
+[[function]]
+va = 0x00507140
+name = "MineEntity__ScanForTrigger"
+
+[[function]]
+va = 0x00507210
+name = "MineEntity__EmitDudSmoke"
+
+[[function]]
+va = 0x005072E0
+name = "MineEntity__HandleMessage"
+
+[[function]]
+va = 0x00507A80
+name = "MineEntity__Query"
+
+[[function]]
+va = 0x00507B10
+name = "MineEntity__RollFuseFromReplay"

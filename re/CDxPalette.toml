@@ -1,0 +1,51 @@
+[[function]]
+va = 0x00414C20
+name = "CDxPalette__sub_414C20"
+
+[[function]]
+va = 0x00421990
+name = "CDxPalette__ctor_CDxPalette"
+
+[[function]]
+va = 0x004219A0
+name = "CDxPalette__dtor0_CDxPalette"
+
+[[function]]
+va = 0x004219D0
+name = "CDxPalette__dtor1_CDxPalette"
+
+[[function]]
+va = 0x004219E0
+name = "CDxPalette__Create_0"
+
+[[function]]
+va = 0x00421AB0
+name = "CDxPalette__Create"
+
+[[function]]
+va = 0x00421AF0
+name = "CDxPalette__sub_421AF0"
+
+[[function]]
+va = 0x00421B50
+name = "CDxPalette__sub_421B50"
+
+[[function]]
+va = 0x00421B90
+name = "CDxPalette__sub_421B90"
+
+[[function]]
+va = 0x00421DE0
+name = "CDxPalette__sub_421DE0"
+
+[[function]]
+va = 0x00421E20
+name = "CDxPalette__sub_421E20"
+
+[[function]]
+va = 0x00422700
+name = "CDxPalette__sub_422700"
+
+[[function]]
+va = 0x004E4BD0
+name = "CDxPalette__sub_4E4BD0"

@@ -1,0 +1,55 @@
+[[function]]
+va = 0x00441130
+name = "CQuickCPU__dtor0_CQuickCPU"
+
+[[function]]
+va = 0x00441150
+name = "CQuickCPU__dtor1_CQuickCPU"
+
+[[function]]
+va = 0x004413C0
+name = "CQuickCPU__DoDataExchange"
+
+[[function]]
+va = 0x00441500
+name = "CQuickCPU__getMessageMap"
+
+[[function]]
+va = 0x00442200
+name = "CQuickCPU__sub_442200"
+
+[[function]]
+va = 0x004429A0
+name = "CQuickCPU__OnInitDialog"
+
+[[function]]
+va = 0x00442DB0
+name = "CQuickCPU__DisplayAdjusters"
+
+[[function]]
+va = 0x00442EA0
+name = "CQuickCPU__AddHumanTeam"
+
+[[function]]
+va = 0x004431E0
+name = "CQuickCPU__AddComputerTeam"
+
+[[function]]
+va = 0x00443410
+name = "CQuickCPU__SetUpGame"
+
+[[function]]
+va = 0x004434B0
+name = "CQuickCPU__DisplayDetails"
+
+[[function]]
+va = 0x004436B0
+name = "CQuickCPU__sub_4436B0"
+
+[[function]]
+va = 0x004436C0
+name = "CQuickCPU__sub_4436C0"
+
+[[function]]
+va = 0x004436D0
+name = "CQuickCPU__sub_4436D0"

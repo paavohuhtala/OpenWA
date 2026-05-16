@@ -1,0 +1,23 @@
+[[function]]
+va = 0x004D0C70
+name = "CStaticRoundOver__ShowStats"
+
+[[function]]
+va = 0x004D7D70
+name = "CStaticRoundOver__ctor_CStaticRoundOver"
+
+[[function]]
+va = 0x004D7DD0
+name = "CStaticRoundOver__dtor0_CStaticRoundOver"
+
+[[function]]
+va = 0x004D7DF0
+name = "CStaticRoundOver__dtor1_CStaticRoundOver"
+
+[[function]]
+va = 0x004D7E50
+name = "CStaticRoundOver__getMessageMap"
+
+[[function]]
+va = 0x004D7F00
+name = "CStaticRoundOver__sub_4D7F00"

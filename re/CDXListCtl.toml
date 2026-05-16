@@ -1,0 +1,275 @@
+[[function]]
+va = 0x0041D5D0
+name = "CDXListCtl__sub_41D5D0"
+
+[[function]]
+va = 0x0041D5F0
+name = "CDXListCtl__sub_41D5F0"
+
+[[function]]
+va = 0x0041D620
+name = "CDXListCtl__ctor0_CDXListCtl"
+
+[[function]]
+va = 0x0041D780
+name = "CDXListCtl__dtor0_CDXListCtl"
+
+[[function]]
+va = 0x0041D7B0
+name = "CDXListCtl__dtor1_CDXListCtl"
+
+[[function]]
+va = 0x0041D7D0
+name = "CDXListCtl__ctor1_CDXListCtl"
+
+[[function]]
+va = 0x0041D860
+name = "CDXListCtl__sub_41D860"
+
+[[function]]
+va = 0x0041D9B0
+name = "CDXListCtl__sub_41D9B0"
+
+[[function]]
+va = 0x0041DD80
+name = "CDXListCtl__sub_41DD80"
+
+[[function]]
+va = 0x0041DDF0
+name = "CDXListCtl__sub_41DDF0"
+
+[[function]]
+va = 0x0041DFE0
+name = "CDXListCtl__InsertColumn"
+
+[[function]]
+va = 0x0041E110
+name = "CDXListCtl__sub_41E110"
+
+[[function]]
+va = 0x0041E1E0
+name = "CDXListCtl__sub_41E1E0"
+
+[[function]]
+va = 0x0041E230
+name = "CDXListCtl__sub_41E230"
+
+[[function]]
+va = 0x0041E310
+name = "CDXListCtl__SetColumnWidth"
+
+[[function]]
+va = 0x0041E410
+name = "CDXListCtl__sub_41E410"
+
+[[function]]
+va = 0x0041E550
+name = "CDXListCtl__SetColumn"
+
+[[function]]
+va = 0x0041E680
+name = "CDXListCtl__sub_41E680"
+
+[[function]]
+va = 0x0041F1C0
+name = "CDXListCtl__sub_41F1C0"
+
+[[function]]
+va = 0x0041F290
+name = "CDXListCtl__sub_41F290"
+
+[[function]]
+va = 0x0041F3B0
+name = "CDXListCtl__SetItemText"
+
+[[function]]
+va = 0x0041F4F0
+name = "CDXListCtl__GetItemText"
+
+[[function]]
+va = 0x0041F590
+name = "CDXListCtl__sub_41F590"
+
+[[function]]
+va = 0x0041F760
+name = "CDXListCtl__sub_41F760"
+
+[[function]]
+va = 0x0041F870
+name = "CDXListCtl__InsertItem_0"
+
+[[function]]
+va = 0x0041F970
+name = "CDXListCtl__InsertItem"
+
+[[function]]
+va = 0x0041FA70
+name = "CDXListCtl__DeleteItem"
+
+[[function]]
+va = 0x0041FB90
+name = "CDXListCtl__DeleteAllItems"
+
+[[function]]
+va = 0x0041FC20
+name = "CDXListCtl__sub_41FC20"
+
+[[function]]
+va = 0x0041FC90
+name = "CDXListCtl__sub_41FC90"
+
+[[function]]
+va = 0x0041FCC0
+name = "CDXListCtl__sub_41FCC0"
+
+[[function]]
+va = 0x0041FD40
+name = "CDXListCtl__sub_41FD40"
+
+[[function]]
+va = 0x0041FDA0
+name = "CDXListCtl__sub_41FDA0"
+
+[[function]]
+va = 0x00420400
+name = "CDXListCtl__GetItemData"
+
+[[function]]
+va = 0x00420430
+name = "CDXListCtl__SetItemData"
+
+[[function]]
+va = 0x00420480
+name = "CDXListCtl__sub_420480"
+
+[[function]]
+va = 0x004204F0
+name = "CDXListCtl__sub_4204F0"
+
+[[function]]
+va = 0x00420580
+name = "CDXListCtl__EnsureVisible"
+
+[[function]]
+va = 0x00420610
+name = "CDXListCtl__sub_420610"
+
+[[function]]
+va = 0x00420660
+name = "CDXListCtl__sub_420660"
+
+[[function]]
+va = 0x00420690
+name = "CDXListCtl__sub_420690"
+
+[[function]]
+va = 0x004206C0
+name = "CDXListCtl__sub_4206C0"
+
+[[function]]
+va = 0x00420760
+name = "CDXListCtl__GetCurSel"
+
+[[function]]
+va = 0x004207A0
+name = "CDXListCtl__FindItem"
+
+[[function]]
+va = 0x00420830
+name = "CDXListCtl__sub_420830"
+
+[[function]]
+va = 0x004208B0
+name = "CDXListCtl__SetItem"
+
+[[function]]
+va = 0x00420AA0
+name = "CDXListCtl__SetItemImage"
+
+[[function]]
+va = 0x00420B70
+name = "CDXListCtl__SortItems"
+
+[[function]]
+va = 0x00420D50
+name = "CDXListCtl__sub_420D50"
+
+[[function]]
+va = 0x00420F80
+name = "CDXListCtl__SetItemTextColour"
+
+[[function]]
+va = 0x00420FD0
+name = "CDXListCtl__sub_420FD0"
+
+[[function]]
+va = 0x00421010
+name = "CDXListCtl__sub_421010"
+
+[[function]]
+va = 0x00421070
+name = "CDXListCtl__sub_421070"
+
+[[function]]
+va = 0x00421120
+name = "CDXListCtl__sub_421120"
+
+[[function]]
+va = 0x004211F0
+name = "CDXListCtl__sub_4211F0"
+
+[[function]]
+va = 0x00421330
+name = "CDXListCtl__sub_421330"
+
+[[function]]
+va = 0x00421360
+name = "CDXListCtl__sub_421360"
+
+[[function]]
+va = 0x004213E0
+name = "CDXListCtl__sub_4213E0"
+
+[[function]]
+va = 0x00421460
+name = "CDXListCtl__sub_421460"
+
+[[function]]
+va = 0x00421520
+name = "CDXListCtl__sub_421520"
+
+[[function]]
+va = 0x004215A0
+name = "CDXListCtl__sub_4215A0"
+
+[[function]]
+va = 0x00421600
+name = "CDXListCtl__sub_421600"
+
+[[function]]
+va = 0x00421690
+name = "CDXListCtl__sub_421690"
+
+[[function]]
+va = 0x00421720
+name = "CDXListCtl__sub_421720"
+
+[[function]]
+va = 0x00421780
+name = "CDXListCtl__sub_421780"
+
+[[function]]
+va = 0x00421820
+name = "CDXListCtl__sub_421820"
+
+[[function]]
+va = 0x00421880
+name = "CDXListCtl__sub_421880"
+
+[[function]]
+va = 0x00421920
+name = "CDXListCtl__sub_421920"
+
+[[function]]
+va = 0x00427380
+name = "CDXListCtl__SetImageList"

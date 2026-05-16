@@ -1,0 +1,35 @@
+[[function]]
+va = 0x0054F6D0
+name = "Task_Fire__ctor1_Task_Fire"
+
+[[function]]
+va = 0x0054F7D0
+name = "Task_Fire__insert_into_firelist"
+
+[[function]]
+va = 0x0054F940
+name = "Task_Fire__create_fire"
+
+[[function]]
+va = 0x0054FAD0
+name = "Task_Fire__check_for_impact"
+
+[[function]]
+va = 0x0054FD40
+name = "Task_Fire__emit_smoke"
+
+[[function]]
+va = 0x0054FE20
+name = "Task_Fire__update_falling"
+
+[[function]]
+va = 0x00550100
+name = "Task_Fire__update_burning"
+
+[[function]]
+va = 0x00550140
+name = "Task_Fire__perform_burning"
+
+[[function]]
+va = 0x005506F0
+name = "Task_Fire__blast"

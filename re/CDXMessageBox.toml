@@ -1,0 +1,55 @@
+[[function]]
+va = 0x00446E10
+name = "CDXMessageBox__dtor0_CDXMessageBox"
+
+[[function]]
+va = 0x00446E30
+name = "CDXMessageBox__DoDataExchange"
+
+[[function]]
+va = 0x00446F70
+name = "CDXMessageBox__getMessageMap"
+
+[[function]]
+va = 0x00446F80
+name = "CDXMessageBox__sub_446F80"
+
+[[function]]
+va = 0x004471D0
+name = "CDXMessageBox__OnInitDialog"
+
+[[function]]
+va = 0x00447780
+name = "CDXMessageBox__sub_447780"
+
+[[function]]
+va = 0x004477B0
+name = "CDXMessageBox__sub_4477B0"
+
+[[function]]
+va = 0x004477F0
+name = "CDXMessageBox__sub_4477F0"
+
+[[function]]
+va = 0x00447820
+name = "CDXMessageBox__sub_447820"
+
+[[function]]
+va = 0x00447850
+name = "CDXMessageBox__sub_447850"
+
+[[function]]
+va = 0x004478A0
+name = "CDXMessageBox__sub_4478A0"
+
+[[function]]
+va = 0x004478D0
+name = "CDXMessageBox__sub_4478D0"
+
+[[function]]
+va = 0x00447900
+name = "CDXMessageBox__sub_447900"
+
+[[function]]
+va = 0x00447910
+name = "CDXMessageBox__sub_447910"

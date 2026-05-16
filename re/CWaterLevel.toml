@@ -1,0 +1,35 @@
+[[function]]
+va = 0x004EEB30
+name = "CWaterLevel__Constructor"
+
+[[function]]
+va = 0x004EEBB0
+name = "CWaterLevel__dtor0_CWaterLevel"
+
+[[function]]
+va = 0x004EEBD0
+name = "CWaterLevel__Destructor_1"
+
+[[function]]
+va = 0x004EEC60
+name = "CWaterLevel__getMessageMap"
+
+[[function]]
+va = 0x004EEC70
+name = "CWaterLevel__OnDXInit"
+
+[[function]]
+va = 0x004EED50
+name = "CWaterLevel__DrawContents"
+
+[[function]]
+va = 0x004EEF10
+name = "CWaterLevel__DrawControl"
+
+[[function]]
+va = 0x004EF200
+name = "CWaterLevel__sub_4EF200"
+
+[[function]]
+va = 0x004EF310
+name = "CWaterLevel__sub_4EF310"

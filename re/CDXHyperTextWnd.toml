@@ -1,0 +1,171 @@
+[[function]]
+va = 0x00416260
+name = "CDXHyperTextWnd__ctor_CDXHyperTextWnd"
+
+[[function]]
+va = 0x00416400
+name = "CDXHyperTextWnd__dtor0_CDXHyperTextWnd"
+
+[[function]]
+va = 0x00416420
+name = "CDXHyperTextWnd__dtor2_CDXHyperTextWnd"
+
+[[function]]
+va = 0x00416440
+name = "CDXHyperTextWnd__dtor1_CDXHyperTextWnd"
+
+[[function]]
+va = 0x004164E0
+name = "CDXHyperTextWnd__getMessageMap"
+
+[[function]]
+va = 0x004164F0
+name = "CDXHyperTextWnd__DrawContents"
+
+[[function]]
+va = 0x00416740
+name = "CDXHyperTextWnd__UpdateClipRect"
+
+[[function]]
+va = 0x00416780
+name = "CDXHyperTextWnd__AddString"
+
+[[function]]
+va = 0x00416A30
+name = "CDXHyperTextWnd__sub_416A30"
+
+[[function]]
+va = 0x00416A50
+name = "CDXHyperTextWnd__sub_416A50"
+
+[[function]]
+va = 0x00416AA0
+name = "CDXHyperTextWnd__sub_416AA0"
+
+[[function]]
+va = 0x00416AD0
+name = "CDXHyperTextWnd___NewLine"
+
+[[function]]
+va = 0x00416BF0
+name = "CDXHyperTextWnd__sub_416BF0"
+
+[[function]]
+va = 0x00417660
+name = "CDXHyperTextWnd__sub_417660"
+
+[[function]]
+va = 0x004178B0
+name = "CDXHyperTextWnd__sub_4178B0"
+
+[[function]]
+va = 0x00417900
+name = "CDXHyperTextWnd__sub_417900"
+
+[[function]]
+va = 0x00417A60
+name = "CDXHyperTextWnd__CalcTotalHeight"
+
+[[function]]
+va = 0x00417AC0
+name = "CDXHyperTextWnd__ToggleScrollBar_0"
+
+[[function]]
+va = 0x00417C10
+name = "CDXHyperTextWnd__ToggleScrollBar"
+
+[[function]]
+va = 0x00417D30
+name = "CDXHyperTextWnd__OnVScroll"
+
+[[function]]
+va = 0x00417E00
+name = "CDXHyperTextWnd__UpdateScrollBar"
+
+[[function]]
+va = 0x00417EA0
+name = "CDXHyperTextWnd__PixelRowToIndex"
+
+[[function]]
+va = 0x00417F30
+name = "CDXHyperTextWnd__sub_417F30"
+
+[[function]]
+va = 0x00417FA0
+name = "CDXHyperTextWnd__sub_417FA0"
+
+[[function]]
+va = 0x004189C0
+name = "CDXHyperTextWnd__InsertText"
+
+[[function]]
+va = 0x004195D0
+name = "CDXHyperTextWnd__sub_4195D0"
+
+[[function]]
+va = 0x00419630
+name = "CDXHyperTextWnd__sub_419630"
+
+[[function]]
+va = 0x00419740
+name = "CDXHyperTextWnd__sub_419740"
+
+[[function]]
+va = 0x004197E0
+name = "CDXHyperTextWnd__sub_4197E0"
+
+[[function]]
+va = 0x004199E0
+name = "CDXHyperTextWnd__sub_4199E0"
+
+[[function]]
+va = 0x00419A70
+name = "CDXHyperTextWnd__sub_419A70"
+
+[[function]]
+va = 0x00419B80
+name = "CDXHyperTextWnd__sub_419B80"
+
+[[function]]
+va = 0x00419C00
+name = "CDXHyperTextWnd__sub_419C00"
+
+[[function]]
+va = 0x00419C70
+name = "CDXHyperTextWnd__sub_419C70"
+
+[[function]]
+va = 0x00419D00
+name = "CDXHyperTextWnd__sub_419D00"
+
+[[function]]
+va = 0x0041A040
+name = "CDXHyperTextWnd__sub_41A040"
+
+[[function]]
+va = 0x0041A250
+name = "CDXHyperTextWnd__sub_41A250"
+
+[[function]]
+va = 0x0041A2E0
+name = "CDXHyperTextWnd__sub_41A2E0"
+
+[[function]]
+va = 0x0041A370
+name = "CDXHyperTextWnd__sub_41A370"
+
+[[function]]
+va = 0x0041A5F0
+name = "CDXHyperTextWnd__sub_41A5F0"
+
+[[function]]
+va = 0x0041A680
+name = "CDXHyperTextWnd__sub_41A680"
+
+[[function]]
+va = 0x0041A6F0
+name = "CDXHyperTextWnd__sub_41A6F0"
+
+[[function]]
+va = 0x0041A730
+name = "CDXHyperTextWnd__SetVpos"

@@ -1,0 +1,60 @@
+[[function]]
+va = 0x00401090
+name = "CString__exception"
+no_return = true
+
+[[function]]
+va = 0x00401510
+name = "CString__dtor_CString"
+
+[[function]]
+va = 0x00401530
+name = "CString__sub_401530"
+
+[[function]]
+va = 0x00401560
+name = "CString__sub_401560"
+
+[[function]]
+va = 0x004015A0
+name = "CString__sub_4015A0"
+
+[[function]]
+va = 0x004015F0
+name = "CString__sub_4015F0"
+
+[[function]]
+va = 0x00401600
+name = "CString__sub_401600"
+
+[[function]]
+va = 0x004019F0
+name = "CString__ctor_CString"
+
+[[function]]
+va = 0x00401F30
+name = "CString__exception_1"
+
+[[function]]
+va = 0x0041A900
+name = "CString____apl_1"
+
+[[function]]
+va = 0x0041AA70
+name = "CString__GetLength"
+
+[[function]]
+va = 0x0041AE40
+name = "CString____apl_0"
+
+[[function]]
+va = 0x00444D30
+name = "CString____apl_2"
+
+[[function]]
+va = 0x004A39F0
+name = "CString__AssignResource"
+
+[[function]]
+va = 0x005C73D1
+name = "CString__CString"

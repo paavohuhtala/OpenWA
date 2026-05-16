@@ -1,0 +1,365 @@
+[[function]]
+va = 0x00604B36
+name = "DelayLoad_glTexSubImage1D"
+
+[[function]]
+va = 0x00604B51
+name = "DelayLoad_glFlush"
+
+[[function]]
+va = 0x00604B5B
+name = "DelayLoad_glPixelStorei"
+
+[[function]]
+va = 0x00604B65
+name = "DelayLoad_glGenTextures"
+
+[[function]]
+va = 0x00604B6F
+name = "DelayLoad_glEnd"
+
+[[function]]
+va = 0x00604B79
+name = "DelayLoad_glHint"
+
+[[function]]
+va = 0x00604B83
+name = "DelayLoad_wglDeleteContext"
+
+[[function]]
+va = 0x00604B8D
+name = "DelayLoad_glLoadIdentity"
+
+[[function]]
+va = 0x00604B97
+name = "DelayLoad_glBindTexture"
+
+[[function]]
+va = 0x00604BA1
+name = "DelayLoad_glVertex2i"
+
+[[function]]
+va = 0x00604BAB
+name = "DelayLoad_glTexImage2D"
+
+[[function]]
+va = 0x00604BB5
+name = "DelayLoad_glGetError"
+
+[[function]]
+va = 0x00604BBF
+name = "DelayLoad_glDisable"
+
+[[function]]
+va = 0x00604BC9
+name = "DelayLoad_glGetString"
+
+[[function]]
+va = 0x00604BD3
+name = "DelayLoad_glBegin"
+
+[[function]]
+va = 0x00604BDD
+name = "DelayLoad_wglGetCurrentDC"
+
+[[function]]
+va = 0x00604BE7
+name = "DelayLoad_wglMakeCurrent"
+
+[[function]]
+va = 0x00604BF1
+name = "DelayLoad_wglCreateContext"
+
+[[function]]
+va = 0x00604BFB
+name = "DelayLoad_glEnableClientState"
+
+[[function]]
+va = 0x00604C05
+name = "DelayLoad_glTexParameteri"
+
+[[function]]
+va = 0x00604C0F
+name = "DelayLoad_glTexSubImage2D"
+
+[[function]]
+va = 0x00604C19
+name = "DelayLoad_glMatrixMode"
+
+[[function]]
+va = 0x00604C23
+name = "DelayLoad_glViewport"
+
+[[function]]
+va = 0x00604C2D
+name = "DelayLoad_glTexImage1D"
+
+[[function]]
+va = 0x00604C37
+name = "DelayLoad_glEnable"
+
+[[function]]
+va = 0x00604C41
+name = "DelayLoad_glOrtho"
+
+[[function]]
+va = 0x00604C4B
+name = "DelayLoad_wglGetProcAddress"
+
+[[function]]
+va = 0x00604C55
+name = "DelayLoad_glTexCoord2f"
+
+[[function]]
+va = 0x00604C5F
+name = "DelayLoad_VerQueryValueA"
+
+[[function]]
+va = 0x00604C80
+name = "DelayLoad_GetFileVersionInfoSizeA"
+
+[[function]]
+va = 0x00604C90
+name = "DelayLoad_GetFileVersionInfoA"
+
+[[function]]
+va = 0x00604CA0
+name = "DelayLoad_HttpQueryInfoA"
+
+[[function]]
+va = 0x00604CBB
+name = "DelayLoad_InternetConnectA"
+
+[[function]]
+va = 0x00604CC5
+name = "DelayLoad_InternetReadFile"
+
+[[function]]
+va = 0x00604CCF
+name = "DelayLoad_HttpOpenRequestA"
+
+[[function]]
+va = 0x00604CD9
+name = "DelayLoad_HttpSendRequestA"
+
+[[function]]
+va = 0x00604CE3
+name = "DelayLoad_InternetOpenA"
+
+[[function]]
+va = 0x00604CED
+name = "DelayLoad_InternetCloseHandle"
+
+[[function]]
+va = 0x00605021
+name = "DelayLoad_CreateStdAccessibleObject"
+
+[[function]]
+va = 0x00605042
+name = "DelayLoad_LresultFromObject"
+
+[[function]]
+va = 0x00605052
+name = "_WinMain_16_0"
+
+[[function]]
+va = 0x006060F4
+name = "__except_handler3"
+
+[[function]]
+va = 0x00606210
+name = "__CIsqrt"
+
+[[function]]
+va = 0x00606224
+name = "_sqrt"
+
+[[function]]
+va = 0x0060622D
+name = "start_2"
+
+[[function]]
+va = 0x00606350
+name = "_log"
+
+[[function]]
+va = 0x00606390
+name = "__CIlog"
+
+[[function]]
+va = 0x006063E8
+name = "start_3"
+
+[[function]]
+va = 0x006064A0
+name = "_pow"
+
+[[function]]
+va = 0x006064E0
+name = "__CIpow"
+
+[[function]]
+va = 0x0060653D
+name = "start_4"
+
+  [[function.local]]
+  name = "local_70"
+  type = "undefined1[10]"
+  stack_offset = -112
+
+[[function]]
+va = 0x00606702
+name = "_test_whether_TOS_is_int"
+
+[[function]]
+va = 0x006067E0
+name = "_exp"
+
+[[function]]
+va = 0x0060681C
+name = "__CIexp"
+
+[[function]]
+va = 0x00606D10
+name = "__CIlog_pentium4"
+
+[[function]]
+va = 0x00606D2E
+name = "start_5"
+
+[[function]]
+va = 0x00606F90
+name = "fFYTOX"
+
+[[function]]
+va = 0x00607077
+name = "zerotoxdone"
+
+[[function]]
+va = 0x006070C2
+name = "_expbigret"
+
+[[function]]
+va = 0x006070E1
+name = "_rtforexpinf"
+
+[[function]]
+va = 0x006070EE
+name = "__ffexpm1"
+
+[[function]]
+va = 0x00607131
+name = "_isintTOS"
+
+[[function]]
+va = 0x00607196
+name = "noerror"
+
+[[function]]
+va = 0x006071A0
+name = "__CIpow_pentium4"
+
+[[function]]
+va = 0x006071B9
+name = "__pow_pentium4"
+
+[[function]]
+va = 0x00607D64
+name = "__powhlp"
+
+[[function]]
+va = 0x00607EB0
+name = "__CIexp_pentium4"
+
+[[function]]
+va = 0x00607ECE
+name = "start_6"
+
+  [[function.local]]
+  name = "local_14"
+  type = "undefined1[18]"
+  stack_offset = -20
+
+[[function]]
+va = 0x00608170
+name = "__cintrindisp2"
+
+[[function]]
+va = 0x00608233
+name = "ctranexit"
+
+[[function]]
+va = 0x0060823A
+name = "cintrinexit"
+
+[[function]]
+va = 0x00609198
+name = "Unwind@00609198"
+
+[[function]]
+va = 0x006091AC
+name = "Unwind@006091ac"
+
+[[function]]
+va = 0x006091B6
+name = "Unwind@006091b6"
+
+[[function]]
+va = 0x006091C0
+name = "Unwind@006091c0"
+
+[[function]]
+va = 0x006091CA
+name = "Unwind@006091ca"
+
+[[function]]
+va = 0x006091EC
+name = "Unwind@006091ec"
+
+[[function]]
+va = 0x00609204
+name = "Unwind@00609204"
+
+[[function]]
+va = 0x00609260
+name = "Unwind@00609260"
+
+[[function]]
+va = 0x0060926A
+name = "Unwind@0060926a"
+
+[[function]]
+va = 0x00609274
+name = "Unwind@00609274"
+
+[[function]]
+va = 0x00609288
+name = "Unwind@00609288"
+
+[[function]]
+va = 0x006092A0
+name = "Unwind@006092a0"
+
+[[function]]
+va = 0x006092B8
+name = "Unwind@006092b8"
+
+[[function]]
+va = 0x006092CC
+name = "Unwind@006092cc"
+
+[[function]]
+va = 0x006092EC
+name = "Unwind@006092ec"
+
+[[function]]
+va = 0x006092F7
+name = "Unwind@006092f7"
+
+[[function]]
+va = 0x00609302
+name = "Unwind@00609302"
+
+[[function]]
+va = 0x00609324
+name = "Unwind@00609324"

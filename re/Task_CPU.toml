@@ -1,0 +1,299 @@
+[[function]]
+va = 0x00548790
+name = "Task_CPU__ctor1_Task_CPU"
+
+[[function]]
+va = 0x00548830
+name = "Task_CPU__construct_pointers"
+
+[[function]]
+va = 0x00548990
+name = "Task_CPU__dtor1_Task_CPU"
+
+[[function]]
+va = 0x00548A00
+name = "Task_CPU__sub_548A00"
+
+[[function]]
+va = 0x00548AB0
+name = "Task_CPU__sub_548AB0"
+
+[[function]]
+va = 0x00548E70
+name = "Task_CPU__sub_548E70"
+
+[[function]]
+va = 0x00549050
+name = "Task_CPU__sub_549050"
+
+[[function]]
+va = 0x005490D0
+name = "Task_CPU__sub_5490D0"
+
+[[function]]
+va = 0x00549110
+name = "Task_CPU__sub_549110"
+
+[[function]]
+va = 0x00549160
+name = "Task_CPU__sub_549160"
+
+[[function]]
+va = 0x00549200
+name = "Task_CPU__sub_549200"
+
+[[function]]
+va = 0x00549470
+name = "Task_CPU__sub_549470"
+
+[[function]]
+va = 0x00549650
+name = "Task_CPU__sub_549650"
+
+[[function]]
+va = 0x005496D0
+name = "Task_CPU__sub_5496D0"
+
+[[function]]
+va = 0x00549750
+name = "Task_CPU__sub_549750"
+
+[[function]]
+va = 0x00549870
+name = "Task_CPU__sub_549870"
+
+[[function]]
+va = 0x00549980
+name = "Task_CPU__sub_549980"
+
+[[function]]
+va = 0x00549C40
+name = "Task_CPU__sub_549C40"
+
+[[function]]
+va = 0x00549D30
+name = "Task_CPU__sub_549D30"
+
+[[function]]
+va = 0x00549E90
+name = "Task_CPU__sub_549E90"
+
+[[function]]
+va = 0x00549FD0
+name = "Task_CPU__sub_549FD0"
+
+[[function]]
+va = 0x0054A0C0
+name = "Task_CPU__sub_54A0C0"
+
+[[function]]
+va = 0x0054A100
+name = "Task_CPU__sub_54A100"
+
+[[function]]
+va = 0x0054A130
+name = "Task_CPU__sub_54A130"
+
+[[function]]
+va = 0x0054A460
+name = "Task_CPU__sub_54A460"
+
+[[function]]
+va = 0x0054A740
+name = "Task_CPU__sub_54A740"
+
+[[function]]
+va = 0x0054A780
+name = "Task_CPU__sub_54A780"
+
+[[function]]
+va = 0x0054A8F0
+name = "Task_CPU__sub_54A8F0"
+
+[[function]]
+va = 0x0054AB00
+name = "Task_CPU__sub_54AB00"
+
+[[function]]
+va = 0x0054AC90
+name = "Task_CPU__sub_54AC90"
+
+[[function]]
+va = 0x0054AE50
+name = "Task_CPU__sub_54AE50"
+
+[[function]]
+va = 0x0054AEC0
+name = "Task_CPU__sub_54AEC0"
+
+[[function]]
+va = 0x0054AF50
+name = "Task_CPU__sub_54AF50"
+
+[[function]]
+va = 0x0054B7F0
+name = "Task_CPU__sub_54B7F0"
+
+[[function]]
+va = 0x0054B870
+name = "Task_CPU__sub_54B870"
+
+[[function]]
+va = 0x0054B890
+name = "Task_CPU__sub_54B890"
+
+[[function]]
+va = 0x0054BAA0
+name = "Task_CPU__sub_54BAA0"
+
+[[function]]
+va = 0x0054BB90
+name = "Task_CPU__sub_54BB90"
+
+[[function]]
+va = 0x0054BC30
+name = "Task_CPU__sub_54BC30"
+
+[[function]]
+va = 0x0054BE20
+name = "Task_CPU__sub_54BE20"
+
+[[function]]
+va = 0x0054BFD0
+name = "Task_CPU__sub_54BFD0"
+
+[[function]]
+va = 0x0054C280
+name = "Task_CPU__sub_54C280"
+
+[[function]]
+va = 0x0054C3B0
+name = "Task_CPU__sub_54C3B0"
+
+[[function]]
+va = 0x0054C880
+name = "Task_CPU__sub_54C880"
+
+[[function]]
+va = 0x0054C950
+name = "Task_CPU__sub_54C950"
+
+[[function]]
+va = 0x0054CA20
+name = "Task_CPU__sub_54CA20"
+
+[[function]]
+va = 0x0054CB00
+name = "Task_CPU__sub_54CB00"
+
+[[function]]
+va = 0x0054CBF0
+name = "Task_CPU__sub_54CBF0"
+
+[[function]]
+va = 0x0054CCD0
+name = "Task_CPU__sub_54CCD0"
+
+[[function]]
+va = 0x0054CE00
+name = "Task_CPU__sub_54CE00"
+
+[[function]]
+va = 0x0054D0B0
+name = "Task_CPU__sub_54D0B0"
+
+[[function]]
+va = 0x0054D150
+name = "Task_CPU__sub_54D150"
+
+[[function]]
+va = 0x0054D3B0
+name = "Task_CPU__sub_54D3B0"
+
+[[function]]
+va = 0x0054D410
+name = "Task_CPU__sub_54D410"
+
+[[function]]
+va = 0x0054D4E0
+name = "Task_CPU__sub_54D4E0"
+
+[[function]]
+va = 0x0054D550
+name = "Task_CPU__sub_54D550"
+
+[[function]]
+va = 0x0054D620
+name = "Task_CPU__sub_54D620"
+
+[[function]]
+va = 0x0054D870
+name = "Task_CPU__sub_54D870"
+
+[[function]]
+va = 0x0054DA40
+name = "Task_CPU__sub_54DA40"
+
+[[function]]
+va = 0x0054DAD0
+name = "Task_CPU__sub_54DAD0"
+
+[[function]]
+va = 0x0054DB70
+name = "Task_CPU__sub_54DB70"
+
+[[function]]
+va = 0x0054DC40
+name = "Task_CPU__sub_54DC40"
+
+[[function]]
+va = 0x0054DF80
+name = "Task_CPU__sub_54DF80"
+
+[[function]]
+va = 0x0054E030
+name = "Task_CPU__sub_54E030"
+
+[[function]]
+va = 0x0054E360
+name = "Task_CPU__sub_54E360"
+
+[[function]]
+va = 0x0054E3D0
+name = "Task_CPU__sub_54E3D0"
+
+[[function]]
+va = 0x0054E440
+name = "Task_CPU__sub_54E440"
+
+[[function]]
+va = 0x0054E4E0
+name = "Task_CPU__sub_54E4E0"
+
+[[function]]
+va = 0x0054E580
+name = "Task_CPU__sub_54E580"
+
+[[function]]
+va = 0x0054E6C0
+name = "Task_CPU__sub_54E6C0"
+
+[[function]]
+va = 0x0054E880
+name = "Task_CPU__sub_54E880"
+
+[[function]]
+va = 0x0054E8E0
+name = "Task_CPU__sub_54E8E0"
+
+[[function]]
+va = 0x0054E9B0
+name = "Task_CPU__sub_54E9B0"
+
+[[function]]
+va = 0x0054EA80
+name = "Task_CPU__sub_54EA80"
+
+[[function]]
+va = 0x0054EB20
+name = "Task_CPU__sub_54EB20"

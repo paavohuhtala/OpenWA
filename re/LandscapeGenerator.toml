@@ -1,0 +1,159 @@
+[[function]]
+va = 0x00575BC0
+name = "LandscapeGenerator__sub_575BC0"
+
+[[function]]
+va = 0x00575E60
+name = "LandscapeGenerator__save_land_dat"
+
+[[function]]
+va = 0x00576090
+name = "LandscapeGenerator__spline"
+
+[[function]]
+va = 0x00576160
+name = "LandscapeGenerator__linetest_lbh"
+
+[[function]]
+va = 0x005762A0
+name = "LandscapeGenerator__linetest_hbl"
+
+[[function]]
+va = 0x005763E0
+name = "LandscapeGenerator__linetest"
+
+[[function]]
+va = 0x00576460
+name = "LandscapeGenerator__landplot"
+
+[[function]]
+va = 0x00576550
+name = "LandscapeGenerator__flood_outline"
+
+[[function]]
+va = 0x005765B0
+name = "LandscapeGenerator__spline_body"
+
+[[function]]
+va = 0x00576A30
+name = "LandscapeGenerator__apply_grass"
+
+[[function]]
+va = 0x00576DF0
+name = "LandscapeGenerator__apply_texture"
+
+[[function]]
+va = 0x00576E90
+name = "LandscapeGenerator__linesub_0"
+
+[[function]]
+va = 0x005770F0
+name = "LandscapeGenerator__linesub_1"
+
+[[function]]
+va = 0x00577480
+name = "LandscapeGenerator__make_mask"
+
+[[function]]
+va = 0x005774E0
+name = "LandscapeGenerator__generate_outline"
+
+[[function]]
+va = 0x005775B0
+name = "LandscapeGenerator__generate"
+
+[[function]]
+va = 0x00577A00
+name = "LandscapeGenerator__update_landmap"
+
+[[function]]
+va = 0x00577B00
+name = "LandscapeGenerator__object_test"
+
+[[function]]
+va = 0x00577B90
+name = "LandscapeGenerator__object_plot"
+
+[[function]]
+va = 0x00577D40
+name = "LandscapeGenerator__place_object"
+
+[[function]]
+va = 0x00577E00
+name = "LandscapeGenerator__calculate_ranges"
+
+[[function]]
+va = 0x00577E70
+name = "LandscapeGenerator__place_objects"
+
+[[function]]
+va = 0x00577FA0
+name = "LandscapeGenerator__test_object"
+
+[[function]]
+va = 0x00578030
+name = "LandscapeGenerator__mark_object"
+
+[[function]]
+va = 0x005780B0
+name = "LandscapeGenerator__find_place"
+
+[[function]]
+va = 0x00578220
+name = "LandscapeGenerator__mask_and_replace"
+
+[[function]]
+va = 0x00578370
+name = "LandscapeGenerator__force_place"
+
+[[function]]
+va = 0x00578520
+name = "LandscapeGenerator__xsort_places"
+
+[[function]]
+va = 0x005787C0
+name = "LandscapeGenerator__bridge_plot_0"
+
+[[function]]
+va = 0x00578810
+name = "LandscapeGenerator__bridge_plot_1"
+
+[[function]]
+va = 0x00578980
+name = "LandscapeGenerator__mark_block"
+
+[[function]]
+va = 0x005789E0
+name = "LandscapeGenerator__bridge_clear"
+
+[[function]]
+va = 0x00578A80
+name = "LandscapeGenerator__bridge_test"
+
+[[function]]
+va = 0x00578B90
+name = "LandscapeGenerator__place_bridge"
+
+[[function]]
+va = 0x00578C00
+name = "LandscapeGenerator__place_bridges"
+
+[[function]]
+va = 0x00578CE0
+name = "LandscapeGenerator__GenerateLandscape"
+
+[[function]]
+va = 0x00579580
+name = "LandscapeGenerator__GenerateAndSaveWrapper"
+
+[[function]]
+va = 0x0057A520
+name = "LandscapeGenerator__sub_57A520"
+
+[[function]]
+va = 0x0057A900
+name = "LandscapeGenerator__LoadBitmap_0"
+
+[[function]]
+va = 0x0057A980
+name = "LandscapeGenerator__LoadBitmap_1"

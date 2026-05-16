@@ -1,0 +1,7 @@
+[[function]]
+va = 0x005A0850
+name = "OpenGLCPU__Constructor"
+
+[[global]]
+va = 0x006774C0
+name = "OpenGLCPU__vtable"

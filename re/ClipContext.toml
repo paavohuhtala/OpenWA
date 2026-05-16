@@ -1,0 +1,18 @@
+[[function]]
+va = 0x00542F10
+name = "ClipContext__ClampCameraToBounds"
+plate_comment = """
+Clamps a [ClipContext]'s camera anchor (cam_x at +0, cam_y at +4) to the level bounds shrunk by half the viewport on each side — the standard "keep camera within scrollable bounds" math.
+
+usercall: EAX = viewport_w_px, ECX = max_y_fixed, stack: (ctx_ptr, viewport_h_px, min_x_fixed, min_y_fixed, max_x_fixed). RET 0x14.
+
+Effective bounds:
+  min_x_eff = min_x + (viewport_w << 16) / 2
+  max_x_eff = max_x - (viewport_w << 16) / 2
+  min_y_eff = min_y + (viewport_h << 16) / 2
+  max_y_eff = max_y - (viewport_h << 16) / 2
+
+Then `ctx.cam_x` is clamped into [min_x_eff, max_x_eff] and `ctx.cam_y` into [min_y_eff, max_y_eff]. Was misnamed `RQ_UpdateClipBounds_Maybe` — the "RQ" prefix was a guess from proximity to the render-queue dispatcher; the function is unrelated to the queue itself.
+
+Called 3× per frame from `GameRender_Maybe` against viewport_coords[0/1/3] in `GameWorld+0x8CBC..0x8CFC`.
+"""

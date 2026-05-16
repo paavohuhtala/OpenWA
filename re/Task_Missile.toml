@@ -1,0 +1,115 @@
+[[function]]
+va = 0x00508350
+name = "Task_Missile__ctor1_Task_Missile"
+
+[[function]]
+va = 0x00508410
+name = "Task_Missile__save_0"
+
+[[function]]
+va = 0x005085C0
+name = "Task_Missile__save_1"
+
+[[function]]
+va = 0x005086F0
+name = "Task_Missile__dtor1_Task_missile"
+
+[[function]]
+va = 0x005088A0
+name = "Task_Missile__sub_5088A0"
+
+[[function]]
+va = 0x005088D0
+name = "Task_Missile__check_dig_sound"
+
+[[function]]
+va = 0x00508930
+name = "Task_Missile__start_dig_sound"
+
+[[function]]
+va = 0x00508970
+name = "Task_Missile__stop_dig_sound"
+
+[[function]]
+va = 0x005089D0
+name = "Task_Missile__construct_pointers"
+
+[[function]]
+va = 0x00508B50
+name = "Task_Missile__start_fuse_sound"
+
+[[function]]
+va = 0x00508B90
+name = "Task_Missile__sub_508B90"
+
+[[function]]
+va = 0x00508BC0
+name = "Task_Missile__check_fuse_sound"
+
+[[function]]
+va = 0x00508C10
+name = "Task_Missile__stop_fuse_sound"
+
+[[function]]
+va = 0x00508F90
+name = "Task_Missile__render_indicator"
+
+[[function]]
+va = 0x005091A0
+name = "Task_Missile__render"
+
+[[function]]
+va = 0x005096A0
+name = "Task_Missile__create_clusters"
+
+[[function]]
+va = 0x00509AC0
+name = "Task_Missile__detonate"
+
+[[function]]
+va = 0x00509EB0
+name = "Task_Missile__apply_direct_homing"
+
+[[function]]
+va = 0x0050A020
+name = "Task_Missile__apply_pigeon_homing"
+
+[[function]]
+va = 0x0050A330
+name = "Task_Missile__do_jump"
+
+[[function]]
+va = 0x0050A430
+name = "Task_Missile__handle_digger"
+
+[[function]]
+va = 0x0050A7E0
+name = "Task_Missile__handle_animal"
+
+[[function]]
+va = 0x0050A900
+name = "Task_Missile__handle_walking_animal"
+
+[[function]]
+va = 0x0050ABA0
+name = "Task_Missile__handle_homing"
+
+[[function]]
+va = 0x0050AC60
+name = "Task_Missile__handle_flying_animal"
+
+[[function]]
+va = 0x0050AF40
+name = "Task_Missile__start_super_animal"
+
+[[function]]
+va = 0x0050B020
+name = "Task_Missile__finish_super_animal"
+
+[[function]]
+va = 0x0050B110
+name = "Task_Missile__check_for_alarmed_worm"
+
+[[function]]
+va = 0x0050B240
+name = "Task_Missile__update_effect"

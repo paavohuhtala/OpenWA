@@ -1,0 +1,109 @@
+[[function]]
+va = 0x00523070
+name = "Display__sub_523070"
+
+[[function]]
+va = 0x005230C0
+name = "Display__sub_5230C0"
+
+[[function]]
+va = 0x005230F0
+name = "Display__sub_5230F0"
+
+[[function]]
+va = 0x00523160
+name = "Display__sub_523160"
+
+[[function]]
+va = 0x005231E0
+name = "Display__palette_create"
+calling_convention = "__thiscall"
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "layer"
+  type = "int"
+
+  [[function.param]]
+  name = "color"
+  type = "int"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
+
+[[function]]
+va = 0x00523270
+name = "Display__palette_pointer"
+calling_convention = "__thiscall"
+
+  [function.signature]
+  returns = "void *"
+
+  [[function.param]]
+  name = "layer"
+  type = "int"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
+
+[[function]]
+va = 0x00523290
+name = "Display__sub_523290"
+
+[[function]]
+va = 0x00523850
+name = "Display__sub_523850"
+
+[[function]]
+va = 0x005238E0
+name = "Display__sub_5238E0"
+
+[[function]]
+va = 0x00523930
+name = "Display__sub_523930"
+
+[[function]]
+va = 0x00523960
+name = "Display__sub_523960"
+
+[[function]]
+va = 0x00523AC0
+name = "Display__sub_523AC0"
+
+[[function]]
+va = 0x00523BB0
+name = "Display__sub_523BB0"
+
+[[function]]
+va = 0x00524480
+name = "Display__sub_524480"
+
+[[function]]
+va = 0x005245A0
+name = "Display__sub_5245A0"
+
+[[function]]
+va = 0x005660A0
+name = "Display__sub_5660A0"
+
+[[function]]
+va = 0x005660F0
+name = "Display__sub_5660F0"
+
+[[function]]
+va = 0x00566120
+name = "Display__sub_566120"
+
+[[function]]
+va = 0x005661A0
+name = "Display__sub_5661A0"
+
+[[function]]
+va = 0x0056CA80
+name = "Display__RestoreSurfaces_Maybe"

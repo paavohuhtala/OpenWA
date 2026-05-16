@@ -1,0 +1,43 @@
+[[function]]
+va = 0x004CEB00
+name = "CDXREW2PushBitmap__ctor_CDXREW2PushBitmap"
+
+[[function]]
+va = 0x004CEBA0
+name = "CDXREW2PushBitmap__dtor0_CDXREW2PushBitmap"
+
+[[function]]
+va = 0x004CEBC0
+name = "CDXREW2PushBitmap__dtor1_CDXREW2PushBitmap"
+
+[[function]]
+va = 0x004CEC40
+name = "CDXREW2PushBitmap__getMessageMap"
+
+[[function]]
+va = 0x004CEC50
+name = "CDXREW2PushBitmap__sub_4CEC50"
+
+[[function]]
+va = 0x004CED00
+name = "CDXREW2PushBitmap__Destroy"
+
+[[function]]
+va = 0x004CEDF0
+name = "CDXREW2PushBitmap__sub_4CEDF0"
+
+[[function]]
+va = 0x004CEE70
+name = "CDXREW2PushBitmap__LoadBitmaps"
+
+[[function]]
+va = 0x004CF3E0
+name = "CDXREW2PushBitmap__LoadBitmap"
+
+[[function]]
+va = 0x004CF7E0
+name = "CDXREW2PushBitmap__sub_4CF7E0"
+
+[[function]]
+va = 0x004CF9E0
+name = "CDXREW2PushBitmap__sub_4CF9E0"

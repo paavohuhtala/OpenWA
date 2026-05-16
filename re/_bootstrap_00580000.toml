@@ -1,0 +1,8 @@
+[[function]]
+va = 0x0058E380
+name = "SetHostingProxyAddressAndPort"
+
+  [[function.comment]]
+  va = 0x0058E380
+  kind = "pre"
+  text = "0x18e380  1  SetHostingProxyAddressAndPort"

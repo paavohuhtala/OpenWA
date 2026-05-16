@@ -1,0 +1,7 @@
+[[function]]
+va = 0x0056D350
+name = "GameEngine__InitHardware"
+
+[[function]]
+va = 0x0056DCD0
+name = "GameEngine__Shutdown"

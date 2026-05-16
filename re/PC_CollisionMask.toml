@@ -1,0 +1,31 @@
+[[function]]
+va = 0x0057DAF0
+name = "PC_CollisionMask__info"
+
+[[function]]
+va = 0x0057DC70
+name = "PC_CollisionMask__dtor0_PC_CollisionMask"
+
+[[function]]
+va = 0x0057DC90
+name = "PC_CollisionMask__Destructor_1"
+
+[[function]]
+va = 0x0057DD10
+name = "PC_CollisionMask__dump"
+
+[[function]]
+va = 0x0057DD60
+name = "PC_CollisionMask__long_compare"
+
+[[function]]
+va = 0x0057DEB0
+name = "PC_CollisionMask__render"
+
+[[function]]
+va = 0x0057DEF0
+name = "PC_CollisionMask__sub_57DEF0"
+
+[[function]]
+va = 0x0057DF70
+name = "PC_CollisionMask__collision"

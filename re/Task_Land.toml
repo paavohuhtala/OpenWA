@@ -1,0 +1,31 @@
+[[function]]
+va = 0x00505540
+name = "Task_Land__init_windbar"
+
+[[function]]
+va = 0x00505BC0
+name = "Task_Land__create_bubbles"
+
+[[function]]
+va = 0x00505C70
+name = "Task_Land__init_stars"
+
+[[function]]
+va = 0x00505DB0
+name = "Task_Land__blast_star"
+
+[[function]]
+va = 0x00505E80
+name = "Task_Land__blast_stars"
+
+[[function]]
+va = 0x00505EF0
+name = "Task_Land__update_stars"
+
+[[function]]
+va = 0x00506020
+name = "Task_Land__render_stars"
+
+[[function]]
+va = 0x00506480
+name = "Task_Land__render_wind_indicator"

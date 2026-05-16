@@ -1,0 +1,35 @@
+[[function]]
+va = 0x0056DF90
+name = "DD_Game__dtor0_DD_Game"
+
+[[function]]
+va = 0x0056E090
+name = "DD_Game__unload_all_data"
+
+[[function]]
+va = 0x0056FA20
+name = "DD_Game__msg_load"
+
+[[function]]
+va = 0x00570380
+name = "DD_Game__sub_570380"
+
+[[function]]
+va = 0x005709A0
+name = "DD_Game__unload_graves"
+
+[[function]]
+va = 0x00570A20
+name = "DD_Game__unload_icons"
+
+[[function]]
+va = 0x00570A90
+name = "DD_Game__clear_screens"
+
+[[function]]
+va = 0x00571390
+name = "DD_Game__sub_571390"
+
+[[function]]
+va = 0x005719C0
+name = "DD_Game__display_progress"

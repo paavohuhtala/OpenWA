@@ -1,0 +1,7 @@
+[[function]]
+va = 0x00460FA0
+name = "Map__ApplyImgHolesSeedForName"
+
+[[function]]
+va = 0x00536810
+name = "Map__SavePngCapture"

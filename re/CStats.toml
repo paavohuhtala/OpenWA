@@ -1,0 +1,75 @@
+[[function]]
+va = 0x004D7F10
+name = "CStats__sub_4D7F10"
+
+[[function]]
+va = 0x004D7F70
+name = "CStats__LoadStats"
+
+[[function]]
+va = 0x004D8160
+name = "CStats__PrepStats"
+
+[[function]]
+va = 0x004D8250
+name = "CStats__FindTeamSlot"
+
+[[function]]
+va = 0x004D82A0
+name = "CStats__CombineStats"
+
+[[function]]
+va = 0x004D8450
+name = "CStats__RePrepStats"
+
+[[function]]
+va = 0x004D8490
+name = "CStats__WhoWon"
+
+[[function]]
+va = 0x004D8520
+name = "CStats__UpdateWinners"
+
+[[function]]
+va = 0x004D8620
+name = "CStats__DidTheyQuit"
+
+[[function]]
+va = 0x004D8650
+name = "CStats__FillAward"
+
+[[function]]
+va = 0x004D86D0
+name = "CStats__GetWormAward"
+
+[[function]]
+va = 0x004D8B70
+name = "CStats__sub_4D8B70"
+
+[[function]]
+va = 0x004D8BC0
+name = "CStats__sub_4D8BC0"
+
+[[function]]
+va = 0x004D8C10
+name = "CStats__GetTeamAward"
+
+[[function]]
+va = 0x004D8E10
+name = "CStats__DidTeamSurvive"
+
+[[function]]
+va = 0x004D8E70
+name = "CStats__UpdateTeams"
+
+[[function]]
+va = 0x004D8F60
+name = "CStats__sub_4D8F60"
+
+[[function]]
+va = 0x004D9010
+name = "CStats__sub_4D9010"
+
+[[function]]
+va = 0x004D9050
+name = "CStats__GetHighestTeam"

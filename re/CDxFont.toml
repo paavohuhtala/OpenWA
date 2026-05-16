@@ -1,0 +1,35 @@
+[[function]]
+va = 0x00413E50
+name = "CDxFont__ctor_CDxFont"
+
+[[function]]
+va = 0x00413EF0
+name = "CDxFont__dtor0_CDxFon"
+
+[[function]]
+va = 0x00413F10
+name = "CDxFont__sub_413F10"
+
+[[function]]
+va = 0x00413F20
+name = "CDxFont__dtor1_CDxFont"
+
+[[function]]
+va = 0x00413FA0
+name = "CDxFont__sub_413FA0"
+
+[[function]]
+va = 0x00414350
+name = "CDxFont__sub_414350"
+
+[[function]]
+va = 0x00414380
+name = "CDxFont__sub_414380"
+
+[[function]]
+va = 0x004143D0
+name = "CDxFont__sub_4143D0"
+
+[[function]]
+va = 0x00414680
+name = "CDxFont__InitFonts"

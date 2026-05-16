@@ -1,0 +1,71 @@
+[[function]]
+va = 0x005B2A4A
+name = "ASM__dword_fill"
+
+[[function]]
+va = 0x005B2A5E
+name = "ASM__asm_gradient_copy8x64"
+
+[[function]]
+va = 0x005B3392
+name = "ASM__asm_block_shift"
+
+[[function]]
+va = 0x005B33E4
+name = "ASM__asm_edgemask"
+
+[[function]]
+va = 0x005B3400
+name = "ASM__asm_mask_and_replace"
+
+[[function]]
+va = 0x005B3466
+name = "ASM__sub_5B3466"
+
+[[function]]
+va = 0x005B3516
+name = "ASM__sub_5B3516"
+
+[[function]]
+va = 0x005B3581
+name = "ASM__sqrt64i"
+
+[[function]]
+va = 0x005B35EA
+name = "ASM__length16"
+
+[[function]]
+va = 0x005B3670
+name = "ASM__sub_5B3670"
+
+[[function]]
+va = 0x005B36B8
+name = "ASM__sub_5B36B8"
+
+[[function]]
+va = 0x005B36DA
+name = "ASM__sub_5B36DA"
+
+[[function]]
+va = 0x005B3710
+name = "ASM__asm_plot_outline"
+
+[[function]]
+va = 0x005B3AC0
+name = "ASM__asm_mask_subtract"
+
+[[function]]
+va = 0x005B3C3A
+name = "ASM__sub_5B3C3A"
+
+[[function]]
+va = 0x005B3DE0
+name = "ASM__sub_5B3DE0"
+
+[[function]]
+va = 0x005B452F
+name = "ASM__sub_5B452F"
+
+[[function]]
+va = 0x005B4713
+name = "ASM__sub_5B4713"

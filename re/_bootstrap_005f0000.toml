@@ -1,0 +1,135 @@
+[[function]]
+va = 0x005F000A
+name = "DelayLoad_DocumentPropertiesA"
+
+[[function]]
+va = 0x005F001A
+name = "DelayLoad_OpenPrinterA"
+
+[[function]]
+va = 0x005F002A
+name = "DelayLoad_ShellExecuteA"
+
+[[function]]
+va = 0x005F0045
+name = "DelayLoad_PathFileExistsA"
+
+[[function]]
+va = 0x005F0060
+name = "DelayLoad_ColorRGBToHLS"
+
+[[function]]
+va = 0x005F006A
+name = "DelayLoad_ColorHLSToRGB"
+
+[[function]]
+va = 0x005F0074
+name = "DelayLoad_PathMatchSpecA"
+
+[[function]]
+va = 0x005F007E
+name = "DelayLoad_PathFindExtensionA"
+
+[[function]]
+va = 0x005F0088
+name = "DelayLoad_PathFindFileNameA"
+
+[[function]]
+va = 0x005F0092
+name = "DelayLoad_PathStripToRootA"
+
+[[function]]
+va = 0x005F009C
+name = "DelayLoad_PathIsUNCA"
+
+[[function]]
+va = 0x005F00A6
+name = "DelayLoad_Ordinal_8"
+
+[[function]]
+va = 0x005F00C7
+name = "DelayLoad_CoCreateInstance"
+
+[[function]]
+va = 0x005F00E2
+name = "DelayLoad_CoUninitialize"
+
+[[function]]
+va = 0x005F00EC
+name = "DelayLoad_CoInitialize"
+
+[[function]]
+va = 0x005F00F6
+name = "DelayLoad_OleUninitialize"
+
+[[function]]
+va = 0x005F0100
+name = "DelayLoad_CoFreeUnusedLibraries"
+
+[[function]]
+va = 0x005F010A
+name = "DelayLoad_OleInitialize"
+
+[[function]]
+va = 0x005F0114
+name = "DelayLoad_CoRevokeClassObject"
+
+[[function]]
+va = 0x005F011E
+name = "DelayLoad_OleIsCurrentClipboard"
+
+[[function]]
+va = 0x005F0128
+name = "DelayLoad_OleFlushClipboard"
+
+[[function]]
+va = 0x005F0132
+name = "DelayLoad_CoRegisterMessageFilter"
+
+[[function]]
+va = 0x005F013C
+name = "DelayLoad_Ordinal_9"
+
+[[function]]
+va = 0x005F0157
+name = "DelayLoad_Ordinal_12"
+
+[[function]]
+va = 0x005F0161
+name = "DelayLoad_Ordinal_8"
+
+[[function]]
+va = 0x005F04F4
+name = "__Stodx"
+
+[[function]]
+va = 0x005F0750
+name = "__Stodx"
+
+[[function]]
+va = 0x005F0E3A
+name = "__ReleaseCPLocHash"
+
+[[function]]
+va = 0x005F0E78
+name = "__InitCPLocHash"
+
+[[function]]
+va = 0x005F0EC8
+name = "DelayLoad_SteamUtils"
+
+[[function]]
+va = 0x005F0EE3
+name = "DelayLoad_SteamAPI_Init"
+
+[[function]]
+va = 0x005F0EED
+name = "DelayLoad_SteamFriends"
+
+[[function]]
+va = 0x005F0EF7
+name = "DelayLoad_SteamApps"
+
+[[function]]
+va = 0x005F0F01
+name = "DelayLoad_SteamAPI_RestartAppIfNecessary"

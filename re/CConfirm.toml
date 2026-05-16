@@ -1,0 +1,47 @@
+[[function]]
+va = 0x00438B60
+name = "CConfirm__Constructor"
+
+[[function]]
+va = 0x00438CB0
+name = "CConfirm__dtor0_CConfirm"
+
+[[function]]
+va = 0x00438CD0
+name = "CConfirm__dtor1_CConfirm"
+
+[[function]]
+va = 0x00438EA0
+name = "CConfirm__DoDataExchange"
+
+[[function]]
+va = 0x00438F20
+name = "CConfirm__getMessageMap"
+
+[[function]]
+va = 0x00438F30
+name = "CConfirm__sub_438F30"
+
+[[function]]
+va = 0x00438F50
+name = "CConfirm__sub_438F50"
+
+[[function]]
+va = 0x00438F60
+name = "CConfirm__sub_438F60"
+
+[[function]]
+va = 0x00438F70
+name = "CConfirm__sub_438F70"
+
+[[function]]
+va = 0x00438FD0
+name = "CConfirm__sub_438FD0"
+
+[[function]]
+va = 0x004390F0
+name = "CConfirm__OnInitDialog"
+
+[[function]]
+va = 0x004393F0
+name = "CConfirm__sub_4393F0"

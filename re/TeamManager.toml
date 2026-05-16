@@ -1,0 +1,15 @@
+[[function]]
+va = 0x00563D40
+name = "TeamManager__Constructor"
+
+[[function]]
+va = 0x00563E90
+name = "TeamManager__Destructor"
+
+[[function]]
+va = 0x00563EB0
+name = "TeamManager__ResetVtable"
+
+[[global]]
+va = 0x0066A088
+name = "TeamManager__vtable"

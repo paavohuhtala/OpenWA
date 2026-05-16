@@ -1,0 +1,29 @@
+[[function]]
+va = 0x004FA950
+name = "FrameCache__Allocate"
+plate_comment = """
+FrameCache::Allocate — LRU ring-buffer allocator for sprite subframe surface decompression.
+
+Usercall: EAX = entry_size (bytes), stack args = (context_ptr, owner_ptr, frame_idx).
+RET 0xc. Returns pointer to entry payload (entry+0x10) in EAX, or evicts oldest entry and retries on full.
+
+The FrameCache lives at *(context_ptr + 4). Layout:
+  +0x00: buffer base
+  +0x04: total capacity bytes
+  +0x08: write head offset
+  +0x0c: read head offset / wrap point
+  +0x10: tail entry ptr (most recent)
+  +0x14: head entry ptr (oldest, evicted first)
+  +0x18: entry count
+
+Each allocated entry has header:
+  +0x00: padded entry size (= ((req_size + 8 + 0xb) & ~3))
+  +0x04: LRU next pointer
+  +0x08: owner ptr (caller's stack arg 2 = sprite or bank)
+  +0x0c: frame_idx (caller's stack arg 3)
+  +0x10..: payload (req_size bytes)
+
+Eviction: when full, calls (owner.vtable[1])(owner, owner+0x10) on the oldest entry's owner — this is the "your subframe is being evicted, drop your decoded ptr" notification. Then unlinks the head entry from the LRU list and retries.
+
+Callers: Sprite__GetFrameForBlit (0x4FAD30), SpriteBank__GetFrameForBlit (0x4F9710).
+"""

@@ -1,0 +1,27 @@
+[[function]]
+va = 0x00446030
+name = "CDXIcon__ctor_CDXIcon"
+
+[[function]]
+va = 0x00446100
+name = "CDXIcon__dtor_CDXIcon"
+
+[[function]]
+va = 0x004461D0
+name = "CDXIcon__getMessageMap"
+
+[[function]]
+va = 0x004461E0
+name = "CDXIcon__sub_4461E0"
+
+[[function]]
+va = 0x00446210
+name = "CDXIcon__SetBitmap_0"
+
+[[function]]
+va = 0x004463A0
+name = "CDXIcon__SetBitmap"
+
+[[function]]
+va = 0x00446570
+name = "CDXIcon__sub_446570"

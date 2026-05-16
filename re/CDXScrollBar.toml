@@ -1,0 +1,59 @@
+[[function]]
+va = 0x00422830
+name = "CDXScrollBar__ctor_CDXScrollBar"
+
+[[function]]
+va = 0x00422900
+name = "CDXScrollBar__dtor0_CDXScrollBar"
+
+[[function]]
+va = 0x00422920
+name = "CDXScrollBar__dtor1_CDXScrollBar"
+
+[[function]]
+va = 0x004229A0
+name = "CDXScrollBar__getMessageMap"
+
+[[function]]
+va = 0x00422B90
+name = "CDXScrollBar__sub_422B90"
+
+[[function]]
+va = 0x00422BC0
+name = "CDXScrollBar__sub_422BC0"
+
+[[function]]
+va = 0x00423010
+name = "CDXScrollBar__sub_423010"
+
+[[function]]
+va = 0x00423260
+name = "CDXScrollBar__sub_423260"
+
+[[function]]
+va = 0x00423630
+name = "CDXScrollBar__sub_423630"
+
+[[function]]
+va = 0x00423C60
+name = "CDXScrollBar__sub_423C60"
+
+[[function]]
+va = 0x00423D60
+name = "CDXScrollBar__sub_423D60"
+
+[[function]]
+va = 0x00423E80
+name = "CDXScrollBar__sub_423E80"
+
+[[function]]
+va = 0x00423EE0
+name = "CDXScrollBar__sub_423EE0"
+
+[[function]]
+va = 0x00423F30
+name = "CDXScrollBar__sub_423F30"
+
+[[function]]
+va = 0x004240C0
+name = "CDXScrollBar__sub_4240C0"

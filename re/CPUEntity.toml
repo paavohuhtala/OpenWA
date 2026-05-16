@@ -1,0 +1,7 @@
+[[function]]
+va = 0x005485D0
+name = "CPUEntity__Constructor"
+
+[[global]]
+va = 0x00669D54
+name = "CPUEntity__vtable"

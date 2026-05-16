@@ -1,0 +1,27 @@
+[[function]]
+va = 0x004A2600
+name = "CMultiPlayFinished__dtor0_CMultiPlayFinished"
+
+[[function]]
+va = 0x004A2620
+name = "CMultiPlayFinished__dtor1_CMultiPlayFinished"
+
+[[function]]
+va = 0x004A27E0
+name = "CMultiPlayFinished__DoDataExchange"
+
+[[function]]
+va = 0x004A2890
+name = "CMultiPlayFinished__getMessageMap"
+
+[[function]]
+va = 0x004A28A0
+name = "CMultiPlayFinished__OnInitDialog"
+
+[[function]]
+va = 0x004A2B50
+name = "CMultiPlayFinished__sub_4A2B50"
+
+[[function]]
+va = 0x004A2B60
+name = "CMultiPlayFinished__sub_4A2B60"

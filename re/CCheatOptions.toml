@@ -1,0 +1,59 @@
+[[function]]
+va = 0x0042B990
+name = "CCheatOptions__sub_42B990"
+
+[[function]]
+va = 0x00437500
+name = "CCheatOptions__sub_437500"
+
+[[function]]
+va = 0x004377F0
+name = "CCheatOptions__sub_4377F0"
+
+[[function]]
+va = 0x00437850
+name = "CCheatOptions__ctor_CCheatOptions"
+
+[[function]]
+va = 0x00437950
+name = "CCheatOptions__dtor0_CCheatOptions"
+
+[[function]]
+va = 0x00437970
+name = "CCheatOptions__Destructor_1"
+
+[[function]]
+va = 0x00437BD0
+name = "CCheatOptions__DoDataExchange"
+
+[[function]]
+va = 0x00437C70
+name = "CCheatOptions__getMessageMap"
+
+[[function]]
+va = 0x00437C80
+name = "CCheatOptions__OnInitDialog"
+
+[[function]]
+va = 0x004381C0
+name = "CCheatOptions__OnRedblood"
+
+[[function]]
+va = 0x00438240
+name = "CCheatOptions__OnIndestructableLand"
+
+[[function]]
+va = 0x004382C0
+name = "CCheatOptions__OnSheepheaven"
+
+[[function]]
+va = 0x00438340
+name = "CCheatOptions__OnGodmode"
+
+[[function]]
+va = 0x004383C0
+name = "CCheatOptions__OnCancel"
+
+[[function]]
+va = 0x00438400
+name = "CCheatOptions__sub_438400"

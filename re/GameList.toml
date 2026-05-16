@@ -1,0 +1,23 @@
+[[function]]
+va = 0x00469F50
+name = "GameList__dtor_GameList"
+
+[[function]]
+va = 0x00469F80
+name = "GameList__getMessageMap"
+
+[[function]]
+va = 0x00469F90
+name = "GameList__sub_469F90"
+
+[[function]]
+va = 0x0046A160
+name = "GameList__GetSelectedItemSessionInfo"
+
+[[function]]
+va = 0x0046A1B0
+name = "GameList__AddGameSession"
+
+[[function]]
+va = 0x0046A3C0
+name = "GameList__sub_46A3C0"

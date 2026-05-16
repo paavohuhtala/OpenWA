@@ -1,0 +1,19 @@
+[[function]]
+va = 0x0054F370
+name = "FilterEntity__Subscribe"
+
+[[function]]
+va = 0x0054F390
+name = "FilterEntity__SubscribeAll"
+
+[[function]]
+va = 0x0054F3D0
+name = "FilterEntity__Constructor"
+
+[[function]]
+va = 0x0054F4A0
+name = "FilterEntity__HandleMessage"
+
+[[global]]
+va = 0x00669DAC
+name = "FilterEntity__vtable"

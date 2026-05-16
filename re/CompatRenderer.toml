@@ -1,0 +1,143 @@
+[[function]]
+va = 0x0059D370
+name = "CompatRenderer__LockPrimaryRead"
+
+[[function]]
+va = 0x0059D390
+name = "CompatRenderer__LockPrimaryWrite"
+
+[[function]]
+va = 0x0059D3B0
+name = "CompatRenderer__UnlockPrimary"
+
+[[function]]
+va = 0x0059D3C0
+name = "CompatRenderer__Constructor_Maybe"
+
+[[function]]
+va = 0x0059D430
+name = "CompatRenderer__Init"
+
+[[function]]
+va = 0x0059D480
+name = "CompatRenderer__ResetState"
+
+[[function]]
+va = 0x0059D4B0
+name = "CompatRenderer__RestoreSurface"
+
+[[function]]
+va = 0x0059D510
+name = "CompatRenderer__GetDisplaySize"
+
+[[function]]
+va = 0x0059D560
+name = "CompatRenderer__EnumDisplayModes"
+
+[[function]]
+va = 0x0059D5F0
+name = "CompatRenderer__SetCooperativeLevel"
+
+[[function]]
+va = 0x0059D6D0
+name = "CompatRenderer__SetDisplayMode"
+
+[[function]]
+va = 0x0059DAD0
+name = "CompatRenderer__Teardown"
+
+[[function]]
+va = 0x0059DB70
+name = "CompatRenderer__Flip"
+
+[[function]]
+va = 0x0059DC80
+name = "CompatRenderer__GetCaps"
+
+[[function]]
+va = 0x0059DCB0
+name = "CompatRenderer__VsyncStub"
+
+[[function]]
+va = 0x0059DCC0
+name = "CompatRenderer__RestoreDisplayDims"
+
+[[function]]
+va = 0x0059DCE0
+name = "CompatRenderer__SetDisplayDims"
+
+[[function]]
+va = 0x0059DD00
+name = "CompatRenderer__BltClearBoth"
+
+[[function]]
+va = 0x0059DD70
+name = "CompatRenderer__BltClearCurrent"
+
+[[function]]
+va = 0x0059DDD0
+name = "CompatRenderer__BltFillRect"
+
+[[function]]
+va = 0x0059DF10
+name = "CompatRenderer__LockOffscreen"
+
+[[function]]
+va = 0x0059E020
+name = "CompatRenderer__UnlockOffscreen"
+
+[[function]]
+va = 0x0059E090
+name = "CompatRenderer__LockOffscreenAlt"
+
+[[function]]
+va = 0x0059E1D0
+name = "CompatRenderer__CreateOffscreenSurface"
+
+[[function]]
+va = 0x0059E3B0
+name = "CompatRenderer__ReleaseOffscreenSurface"
+
+[[function]]
+va = 0x0059E3F0
+name = "CompatRenderer__SetColorKey"
+
+[[function]]
+va = 0x0059E480
+name = "CompatRenderer__GetColorKey"
+
+[[function]]
+va = 0x0059E4D0
+name = "CompatRenderer__BltOffscreen"
+
+[[function]]
+va = 0x0059E5F0
+name = "CompatRenderer__BltFastOffscreen"
+
+[[function]]
+va = 0x0059E780
+name = "CompatRenderer__IsLost"
+
+[[function]]
+va = 0x0059E7B0
+name = "CompatRenderer__OffscreenDestructor"
+
+[[function]]
+va = 0x0059EA00
+name = "CompatRenderer__Present_Windowed"
+
+[[function]]
+va = 0x0059EB20
+name = "CompatRenderer__FlipWithPalette"
+
+[[function]]
+va = 0x0059ED90
+name = "CompatRenderer__Present_Windowed_B"
+
+[[function]]
+va = 0x005A2080
+name = "CompatRenderer__BltStriped"
+
+[[global]]
+va = 0x00676A90
+name = "CompatRenderer__vtable_Maybe"

@@ -1,0 +1,35 @@
+[[function]]
+va = 0x00541170
+name = "PaletteContext__InitRange"
+
+[[function]]
+va = 0x005411A0
+name = "PaletteContext__Init"
+
+[[function]]
+va = 0x00541200
+name = "PaletteContext__LookupEntry"
+
+[[function]]
+va = 0x00541230
+name = "PaletteContext__ReadColor"
+
+[[function]]
+va = 0x005412B0
+name = "PaletteContext__MapColor"
+
+[[function]]
+va = 0x00541340
+name = "PaletteContext__FindNearestCached"
+
+[[function]]
+va = 0x00541420
+name = "PaletteContext__FindClosest"
+
+[[function]]
+va = 0x005414F0
+name = "PaletteContext__BlendTowardColor"
+
+[[function]]
+va = 0x005415A0
+name = "PaletteContext__RotateHues"

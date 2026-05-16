@@ -1,0 +1,43 @@
+[[function]]
+va = 0x00483960
+name = "CListTeamsQuickCPU__ctor_CListTeamsQuickCPU"
+
+[[function]]
+va = 0x00483AB0
+name = "CListTeamsQuickCPU__dtor0_CListTeamsQuickCPU"
+
+[[function]]
+va = 0x00483AD0
+name = "CListTeamsQuickCPU__dtor1_CListTeamsQuickCPU"
+
+[[function]]
+va = 0x00483B30
+name = "CListTeamsQuickCPU__getMessageMap"
+
+[[function]]
+va = 0x00483B40
+name = "CListTeamsQuickCPU__sub_483B40"
+
+[[function]]
+va = 0x00483C50
+name = "CListTeamsQuickCPU__sub_483C50"
+
+[[function]]
+va = 0x00483D80
+name = "CListTeamsQuickCPU__AddTeams"
+
+[[function]]
+va = 0x00483ED0
+name = "CListTeamsQuickCPU__sub_483ED0"
+
+[[function]]
+va = 0x00483F40
+name = "CListTeamsQuickCPU__sub_483F40"
+
+[[function]]
+va = 0x00484030
+name = "CListTeamsQuickCPU__SetUpList"
+
+[[function]]
+va = 0x00484210
+name = "CListTeamsQuickCPU__sub_484210"

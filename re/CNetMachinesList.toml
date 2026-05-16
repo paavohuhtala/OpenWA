@@ -1,0 +1,27 @@
+[[function]]
+va = 0x00485E80
+name = "CNetMachinesList__ctor0_CNetMachinesList"
+
+[[function]]
+va = 0x004C1B50
+name = "CNetMachinesList__ctor_CNetMachinesList"
+
+[[function]]
+va = 0x004C1BA0
+name = "CNetMachinesList__sub_4C1BA0"
+
+[[function]]
+va = 0x004C1BB0
+name = "CNetMachinesList__SetUpList"
+
+[[function]]
+va = 0x004C1D40
+name = "CNetMachinesList__ShowMachines"
+
+[[function]]
+va = 0x004C1E90
+name = "CNetMachinesList__UpdateReady"
+
+[[function]]
+va = 0x004C1F80
+name = "CNetMachinesList__sub_4C1F80"

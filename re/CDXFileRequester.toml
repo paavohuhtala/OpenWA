@@ -1,0 +1,35 @@
+[[function]]
+va = 0x00444F90
+name = "CDXFileRequester__Constructor"
+
+[[function]]
+va = 0x00445070
+name = "CDXFileRequester__dtor0_CDXFileRequester"
+
+[[function]]
+va = 0x00445090
+name = "CDXFileRequester__dtor1_CDXFileRequester"
+
+[[function]]
+va = 0x00445130
+name = "CDXFileRequester__DoDataExchange"
+
+[[function]]
+va = 0x004451A0
+name = "CDXFileRequester__getMessageMap"
+
+[[function]]
+va = 0x004451B0
+name = "CDXFileRequester__OnInitDialog"
+
+[[function]]
+va = 0x004452B0
+name = "CDXFileRequester__sub_4452B0"
+
+[[function]]
+va = 0x00445370
+name = "CDXFileRequester__sub_445370"
+
+[[function]]
+va = 0x004453C0
+name = "CDXFileRequester__sub_4453C0"

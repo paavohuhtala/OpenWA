@@ -1,0 +1,44 @@
+[[function]]
+va = 0x005C0AB8
+name = "wa_malloc"
+
+[[function]]
+va = 0x005C0AE3
+name = "wa_malloc"
+
+[[function]]
+va = 0x005C0AE8
+name = "_free"
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "_Memory"
+  type = "void *"
+
+[[function]]
+va = 0x005C8658
+name = "AfxInternalProcessWndProcException"
+
+  [function.signature]
+  returns = "long"
+
+  [[function.param]]
+  name = "param_1"
+  type = "CException *"
+
+  [[function.param]]
+  name = "param_2"
+  type = "tagMSG *"
+
+[[function]]
+va = 0x005C89FB
+name = "AfxInternalPumpMessage"
+
+  [function.signature]
+  returns = "int"
+
+[[function]]
+va = 0x005C8B29
+name = "EnumFunc"

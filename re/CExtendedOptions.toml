@@ -1,0 +1,67 @@
+[[function]]
+va = 0x0044DDC0
+name = "CExtendedOptions__Constructor_0"
+
+[[function]]
+va = 0x0044DEB0
+name = "CExtendedOptions__dtor0_CExtendedOptions"
+
+[[function]]
+va = 0x0044DED0
+name = "CExtendedOptions__Destructor_1"
+
+[[function]]
+va = 0x0044E0E0
+name = "CExtendedOptions__DoDataExchange"
+
+[[function]]
+va = 0x0044E1B0
+name = "CExtendedOptions__getMessageMap"
+
+[[function]]
+va = 0x0044E250
+name = "CExtendedOptions__sub_44E250"
+
+[[function]]
+va = 0x0044E2A0
+name = "CExtendedOptions__sub_44E2A0"
+
+[[function]]
+va = 0x0044E2F0
+name = "CExtendedOptions__sub_44E2F0"
+
+[[function]]
+va = 0x0044E340
+name = "CExtendedOptions__sub_44E340"
+
+[[function]]
+va = 0x0044E390
+name = "CExtendedOptions__sub_44E390"
+
+[[function]]
+va = 0x0044E3A0
+name = "CExtendedOptions__sub_44E3A0"
+
+[[function]]
+va = 0x0044E3D0
+name = "CExtendedOptions__OnInitDialog"
+
+[[function]]
+va = 0x0044E770
+name = "CExtendedOptions__sub_44E770"
+
+[[function]]
+va = 0x0044EA60
+name = "CExtendedOptions__sub_44EA60"
+
+[[function]]
+va = 0x0044EC00
+name = "CExtendedOptions__sub_44EC00"
+
+[[function]]
+va = 0x0044EC50
+name = "CExtendedOptions__sub_44EC50"
+
+[[function]]
+va = 0x0044EE60
+name = "CExtendedOptions__sub_44EE60"

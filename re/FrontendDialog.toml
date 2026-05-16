@@ -1,0 +1,11 @@
+[[function]]
+va = 0x00404250
+name = "FrontendDialog__RenderBackground"
+
+[[function]]
+va = 0x00446BA0
+name = "FrontendDialog__Constructor"
+
+[[global]]
+va = 0x0064F7D0
+name = "FrontendDialog__vtable"

@@ -1,0 +1,96 @@
+[[function]]
+va = 0x00571B10
+name = "Keyboard__Destructor"
+
+[[function]]
+va = 0x00571B30
+name = "Keyboard__ReadInputRingBuffer"
+
+[[function]]
+va = 0x00571B50
+name = "Keyboard__CheckKeyState"
+
+[[function]]
+va = 0x00571BA0
+name = "Keyboard__CheckAction"
+
+[[function]]
+va = 0x00572210
+name = "Keyboard__IsActionPressed"
+
+[[function]]
+va = 0x00572230
+name = "Keyboard__IsActionActive"
+
+[[function]]
+va = 0x00572250
+name = "Keyboard__IsActionActive2"
+
+[[function]]
+va = 0x00572270
+name = "Keyboard__IsActionHeld"
+
+[[function]]
+va = 0x00572290
+name = "Keyboard__PollState"
+
+[[function]]
+va = 0x005722F0
+name = "Keyboard__ClearKeyStates"
+
+[[function]]
+va = 0x00572320
+name = "Keyboard__AlertUser"
+plate_comment = """
+Keyboard::AlertUser(flash, beep_kind)
+
+  __thiscall(this=ECX, flash=stack[char], beep_kind=stack[int]) -> void, RET 0x8.
+
+  Notifies the user when the WA window is not foreground:
+    1. Skip if foreground == GameSession.hwnd or g_FrontendHwnd
+    2. Beep: beep_kind 1 -> MessageBeep(MB_ICONINFORMATION 0x40)
+             beep_kind 2 -> MessageBeep(MB_ICONWARNING     0x30)
+             other       -> no beep
+    3. Flash window if `flash != 0`:
+         If g_FlashWindowExFn != NULL:
+           FlashWindowEx(FLASHWINFO { dwFlags=FLASHW_TRAY|FLASHW_TIMERNOFG (0x0E), uCount=15 })
+         Else (Win9x fallback):
+           FlashWindow(g_FrontendHwnd, TRUE)
+           g_WindowFlashing = 1
+"""
+
+[[function]]
+va = 0x005723D0
+name = "Keyboard__VFunc7"
+
+[[function]]
+va = 0x00572500
+name = "Keyboard__AcquireInput"
+plate_comment = """
+Keyboard::AcquireInput(esi_flag, param_1)
+
+  __usercall(ESI=esi_flag[bool], [ESP+4]=param_1[u32]) -> void, RET 0x4.
+  Operates on the global g_GameSession (does NOT take `this` despite living
+  on the Keyboard class — name is historical).
+
+  Called from OnSYSCOMMAND on focus restore (twice — once for ACTIVATE-related
+  path, once for SETFOCUS-style path). Re-acquires input ownership after the
+  game window regains foreground:
+    1. early-return if GameSession.flag_5c == 0 (not waiting for re-acquire)
+    2. if esi_flag != 0: GetCursorPos → GameSession.cursor_initial (+0x70)
+    3. GameSession.flag_2c = esi_flag
+    4. FrontendDialog::UpdateCursor(g_InGameFrontendDialog 0x7C0534) — cursor visibility/position
+    5. if esi_flag != 0: Cursor__ClipAndRecenter_Maybe (FUN_00573180)
+    6. GameSession.flag_60 = 1; GameSession._unknown_06c = esi_flag
+    7. if param_1 == 0: g_RenderContext->vtable[10] (renderer_restore_dims)
+    8. Keyboard::PollState(GameSession.keyboard) — flush WM_KEY messages + snapshot
+    9. if GameSession.display != 0:
+         Display__RestoreSurfaces_Maybe(display)
+         if returned nonzero:
+           if esi_flag != 0: SetFocus(g_FrontendHwnd)
+           GameSession.flag_5c = 0  // mark re-acquire done
+"""
+
+[[global]]
+va = 0x0066AEC8
+name = "Keyboard__vtable"

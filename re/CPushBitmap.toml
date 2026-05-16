@@ -1,0 +1,23 @@
+[[function]]
+va = 0x004CE600
+name = "CPushBitmap__ctor_CPushBitmap"
+
+[[function]]
+va = 0x004CE670
+name = "CPushBitmap__dtor0_CPushBitmap"
+
+[[function]]
+va = 0x004CE690
+name = "CPushBitmap__dtor1_CPushBitmap"
+
+[[function]]
+va = 0x004CE6F0
+name = "CPushBitmap__getMessageMap"
+
+[[function]]
+va = 0x004CE990
+name = "CPushBitmap__sub_4CE990"
+
+[[function]]
+va = 0x004CEA80
+name = "CPushBitmap__SetHelp"

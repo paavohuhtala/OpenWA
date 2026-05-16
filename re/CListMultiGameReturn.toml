@@ -1,0 +1,31 @@
+[[function]]
+va = 0x00483370
+name = "CListMultiGameReturn__ctor_CListMultiGameReturn"
+
+[[function]]
+va = 0x00483430
+name = "CListMultiGameReturn__dtor0_CListMultiGameReturn"
+
+[[function]]
+va = 0x00483450
+name = "CListMultiGameReturn__dtor1_CListMultiGameReturn"
+
+[[function]]
+va = 0x004834C0
+name = "CListMultiGameReturn__getMessageMap"
+
+[[function]]
+va = 0x00483530
+name = "CListMultiGameReturn__sub_483530"
+
+[[function]]
+va = 0x004836A0
+name = "CListMultiGameReturn__sub_4836A0"
+
+[[function]]
+va = 0x00483740
+name = "CListMultiGameReturn__sub_483740"
+
+[[function]]
+va = 0x00483950
+name = "CListMultiGameReturn__sub_483950"

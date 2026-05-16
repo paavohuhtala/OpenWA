@@ -1,0 +1,59 @@
+[[function]]
+va = 0x00480C00
+name = "LanLobbyDlg__dtor0_LanLobbyDlg"
+
+[[function]]
+va = 0x00480C20
+name = "LanLobbyDlg__sub_480C20"
+
+[[function]]
+va = 0x00480CF0
+name = "LanLobbyDlg__dtor1_LanLobbyDlg"
+
+[[function]]
+va = 0x00480EE0
+name = "LanLobbyDlg__DoDataExchange"
+
+[[function]]
+va = 0x00480FD0
+name = "LanLobbyDlg__getMessageMap"
+
+[[function]]
+va = 0x00480FE0
+name = "LanLobbyDlg__Localize"
+
+[[function]]
+va = 0x00481120
+name = "LanLobbyDlg__OnToolTip"
+
+[[function]]
+va = 0x004815B0
+name = "LanLobbyDlg__OnInitDialog"
+
+[[function]]
+va = 0x00481830
+name = "LanLobbyDlg__TextCallBack"
+
+[[function]]
+va = 0x00481850
+name = "LanLobbyDlg__EnumSessionsCallBack"
+
+[[function]]
+va = 0x00481890
+name = "LanLobbyDlg__EnumPlayersCallBack"
+
+[[function]]
+va = 0x00481D90
+name = "LanLobbyDlg__OnDestroy"
+
+[[function]]
+va = 0x00481DE0
+name = "LanLobbyDlg__OnCancel"
+
+[[function]]
+va = 0x00481E00
+name = "LanLobbyDlg__sub_481E00"
+
+[[function]]
+va = 0x00481E20
+name = "LanLobbyDlg__sub_481E20"

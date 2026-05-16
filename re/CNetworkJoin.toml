@@ -1,0 +1,87 @@
+[[function]]
+va = 0x004BDFE0
+name = "CNetworkJoin__dtor0_CNetworkJoin"
+
+[[function]]
+va = 0x004BE000
+name = "CNetworkJoin__Destructor_1"
+
+[[function]]
+va = 0x004BE460
+name = "CNetworkJoin__DoDataExchange"
+
+[[function]]
+va = 0x004BE720
+name = "CNetworkJoin__getMessageMap"
+
+[[function]]
+va = 0x004BE730
+name = "CNetworkJoin__sub_4BE730"
+
+[[function]]
+va = 0x004BEAD0
+name = "CNetworkJoin__sub_4BEAD0"
+
+[[function]]
+va = 0x004BEAE0
+name = "CNetworkJoin__sub_4BEAE0"
+
+[[function]]
+va = 0x004BEC60
+name = "CNetworkJoin__sub_4BEC60"
+
+[[function]]
+va = 0x004BF670
+name = "CNetworkJoin__OnInitDialog"
+
+[[function]]
+va = 0x004BFCC0
+name = "CNetworkJoin__sub_4BFCC0"
+
+[[function]]
+va = 0x004BFF30
+name = "CNetworkJoin__sub_4BFF30"
+
+[[function]]
+va = 0x004C0050
+name = "CNetworkJoin__sub_4C0050"
+
+[[function]]
+va = 0x004C0080
+name = "CNetworkJoin__DisplayAllies"
+
+[[function]]
+va = 0x004C0340
+name = "CNetworkJoin__DisplayHandicap"
+
+[[function]]
+va = 0x004C0560
+name = "CNetworkJoin__DisplayWorms"
+
+[[function]]
+va = 0x004C06F0
+name = "CNetworkJoin__DisplayTeams"
+
+[[function]]
+va = 0x004C0710
+name = "CNetworkJoin__sub_4C0710"
+
+[[function]]
+va = 0x004C0790
+name = "CNetworkJoin__ServiceMessages"
+
+[[function]]
+va = 0x004C1720
+name = "CNetworkJoin__Go"
+
+[[function]]
+va = 0x004C1A80
+name = "CNetworkJoin__sub_4C1A80"
+
+[[function]]
+va = 0x004C1AE0
+name = "CNetworkJoin__sub_4C1AE0"
+
+[[function]]
+va = 0x004C1B40
+name = "CNetworkJoin__sub_4C1B40"

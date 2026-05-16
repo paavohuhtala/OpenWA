@@ -1,0 +1,67 @@
+[[function]]
+va = 0x004A7BA0
+name = "NetChoiceDlg__dtor0_NetChoiceDlg"
+
+[[function]]
+va = 0x004A7BC0
+name = "NetChoiceDlg__dtor1_NetChoiceDlg"
+
+[[function]]
+va = 0x004A7E70
+name = "NetChoiceDlg__DoDataExchange"
+
+[[function]]
+va = 0x004A7F70
+name = "NetChoiceDlg__getMessageMap"
+
+[[function]]
+va = 0x004A7F80
+name = "NetChoiceDlg__OnIdcServernet"
+
+[[function]]
+va = 0x004A8040
+name = "NetChoiceDlg__OnIdcNetoptions"
+
+[[function]]
+va = 0x004A8050
+name = "NetChoiceDlg__OnInitDialog"
+
+[[function]]
+va = 0x004A8290
+name = "NetChoiceDlg__OnIdcLocalnetwork"
+
+[[function]]
+va = 0x004A8370
+name = "NetChoiceDlg__OnIdcNettype"
+
+[[function]]
+va = 0x004A8390
+name = "NetChoiceDlg__sub_4A8390"
+
+[[function]]
+va = 0x004A8A40
+name = "NetChoiceDlg__sub_4A8A40"
+
+[[function]]
+va = 0x004A8A90
+name = "NetChoiceDlg__LoadSettings"
+
+[[function]]
+va = 0x004A8D00
+name = "NetChoiceDlg__SaveSettings"
+
+[[function]]
+va = 0x004A8D70
+name = "NetChoiceDlg__sub_4A8D70"
+
+[[function]]
+va = 0x004A8F30
+name = "NetChoiceDlg__sub_4A8F30"
+
+[[function]]
+va = 0x004A9080
+name = "NetChoiceDlg__sub_4A9080"
+
+[[function]]
+va = 0x004A9100
+name = "NetChoiceDlg__sub_4A9100"

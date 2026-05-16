@@ -1,0 +1,215 @@
+[[function]]
+va = 0x0049C850
+name = "CMultiPlay__dtor0_CMultiPlay"
+
+[[function]]
+va = 0x0049C870
+name = "CMultiPlay__Destructor_1"
+
+[[function]]
+va = 0x0049CDB0
+name = "CMultiPlay__DoDataExchange"
+
+[[function]]
+va = 0x0049D0C0
+name = "CMultiPlay__getMessageMap"
+
+[[function]]
+va = 0x0049D0D0
+name = "CMultiPlay__OnInitDialog"
+
+[[function]]
+va = 0x0049D8E0
+name = "CMultiPlay__sub_49D8E0"
+
+[[function]]
+va = 0x0049D8F0
+name = "CMultiPlay__OnClick6TeamList"
+
+[[function]]
+va = 0x0049DF60
+name = "CMultiPlay__OnClick6PlayerList"
+
+[[function]]
+va = 0x0049E050
+name = "CMultiPlay__DisplayAdjusters"
+
+[[function]]
+va = 0x0049E220
+name = "CMultiPlay__DisplayTeam1"
+
+[[function]]
+va = 0x0049E370
+name = "CMultiPlay__DisplayTeam2"
+
+[[function]]
+va = 0x0049E4C0
+name = "CMultiPlay__DisplayTeam3"
+
+[[function]]
+va = 0x0049E620
+name = "CMultiPlay__DisplayTeam4"
+
+[[function]]
+va = 0x0049E780
+name = "CMultiPlay__DisplayTeam5"
+
+[[function]]
+va = 0x0049E8E0
+name = "CMultiPlay__DisplayTeam6"
+
+[[function]]
+va = 0x0049EA40
+name = "CMultiPlay__GetBitmapWorms"
+
+[[function]]
+va = 0x0049EAD0
+name = "CMultiPlay__sub_49EAD0"
+
+[[function]]
+va = 0x0049EB40
+name = "CMultiPlay__On6T1Ally"
+
+[[function]]
+va = 0x0049EBB0
+name = "CMultiPlay__On6T1Hand"
+
+[[function]]
+va = 0x0049ECA0
+name = "CMultiPlay__OnR6T2Ally"
+
+[[function]]
+va = 0x0049ED20
+name = "CMultiPlay__OnR6T2Hand"
+
+[[function]]
+va = 0x0049EE10
+name = "CMultiPlay__OnR6T3Ally"
+
+[[function]]
+va = 0x0049EE90
+name = "CMultiPlay__OnR6T3Hand"
+
+[[function]]
+va = 0x0049EF90
+name = "CMultiPlay__OnR6T4Ally"
+
+[[function]]
+va = 0x0049F010
+name = "CMultiPlay__OnR6T4Hand"
+
+[[function]]
+va = 0x0049F110
+name = "CMultiPlay__OnR6T5Ally"
+
+[[function]]
+va = 0x0049F190
+name = "CMultiPlay__OnR6T5Hand"
+
+[[function]]
+va = 0x0049F290
+name = "CMultiPlay__OnR6T6Ally"
+
+[[function]]
+va = 0x0049F320
+name = "CMultiPlay__OnR6T6Hand"
+
+[[function]]
+va = 0x0049F420
+name = "CMultiPlay__sub_49F420"
+
+[[function]]
+va = 0x0049F490
+name = "CMultiPlay__sub_49F490"
+
+[[function]]
+va = 0x0049F580
+name = "CMultiPlay__sub_49F580"
+
+[[function]]
+va = 0x0049F600
+name = "CMultiPlay__sub_49F600"
+
+[[function]]
+va = 0x0049F6F0
+name = "CMultiPlay__sub_49F6F0"
+
+[[function]]
+va = 0x0049F770
+name = "CMultiPlay__sub_49F770"
+
+[[function]]
+va = 0x0049F870
+name = "CMultiPlay__sub_49F870"
+
+[[function]]
+va = 0x0049F8F0
+name = "CMultiPlay__sub_49F8F0"
+
+[[function]]
+va = 0x0049F9F0
+name = "CMultiPlay__sub_49F9F0"
+
+[[function]]
+va = 0x0049FA70
+name = "CMultiPlay__sub_49FA70"
+
+[[function]]
+va = 0x0049FB70
+name = "CMultiPlay__sub_49FB70"
+
+[[function]]
+va = 0x0049FC00
+name = "CMultiPlay__sub_49FC00"
+
+[[function]]
+va = 0x0049FD00
+name = "CMultiPlay__sub_49FD00"
+
+[[function]]
+va = 0x004A01B0
+name = "CMultiPlay__sub_4A01B0"
+
+[[function]]
+va = 0x004A1120
+name = "CMultiPlay__On6Save"
+
+[[function]]
+va = 0x004A1910
+name = "CMultiPlay__sub_4A1910"
+
+[[function]]
+va = 0x004A1930
+name = "CMultiPlay__sub_4A1930"
+
+[[function]]
+va = 0x004A1950
+name = "CMultiPlay__sub_4A1950"
+
+[[function]]
+va = 0x004A1A60
+name = "CMultiPlay__sub_4A1A60"
+
+[[function]]
+va = 0x004A1A90
+name = "CMultiPlay__sub_4A1A90"
+
+[[function]]
+va = 0x004A1EB0
+name = "CMultiPlay__sub_4A1EB0"
+
+[[function]]
+va = 0x004A20B0
+name = "CMultiPlay__sub_4A20B0"
+
+[[function]]
+va = 0x004A22D0
+name = "CMultiPlay__sub_4A22D0"
+
+[[function]]
+va = 0x004A2450
+name = "CMultiPlay__sub_4A2450"
+
+[[function]]
+va = 0x004A24C0
+name = "CMultiPlay__sub_4A24C0"

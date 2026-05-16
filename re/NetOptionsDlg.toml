@@ -1,0 +1,55 @@
+[[function]]
+va = 0x004C26B0
+name = "NetOptionsDlg__dtor0_NetOptionsDlg"
+
+[[function]]
+va = 0x004C26D0
+name = "NetOptionsDlg__dtor1_NetOptionsDlg"
+
+[[function]]
+va = 0x004C2B80
+name = "NetOptionsDlg__DoDataExchangne"
+
+[[function]]
+va = 0x004C2D70
+name = "NetOptionsDlg__getMessageMap"
+
+[[function]]
+va = 0x004C2D80
+name = "NetOptionsDlg__sub_4C2D80"
+
+[[function]]
+va = 0x004C2EE0
+name = "NetOptionsDlg__sub_4C2EE0"
+
+[[function]]
+va = 0x004C3160
+name = "NetOptionsDlg__sub_4C3160"
+
+[[function]]
+va = 0x004C31F0
+name = "NetOptionsDlg__sub_4C31F0"
+
+[[function]]
+va = 0x004C32C0
+name = "NetOptionsDlg__SaveSettings"
+
+[[function]]
+va = 0x004C3450
+name = "NetOptionsDlg__OnInitDialog"
+
+[[function]]
+va = 0x004C3750
+name = "NetOptionsDlg__OnDestroy"
+
+[[function]]
+va = 0x004C37C0
+name = "NetOptionsDlg__OnCancel"
+
+[[function]]
+va = 0x004C5330
+name = "NetOptionsDlg__OnUseProxy"
+
+[[function]]
+va = 0x004C5380
+name = "NetOptionsDlg__sub_4C5380"

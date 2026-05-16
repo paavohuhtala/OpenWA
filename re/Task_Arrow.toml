@@ -1,0 +1,51 @@
+[[function]]
+va = 0x004FE2F0
+name = "Task_Arrow__dtor0_Task_Arrow"
+
+[[function]]
+va = 0x004FE310
+name = "Task_Arrow__init_mask"
+
+[[function]]
+va = 0x004FE410
+name = "Task_Arrow__update_mask"
+
+[[function]]
+va = 0x004FE500
+name = "Task_Arrow__ctor1_Task_Arrow"
+
+[[function]]
+va = 0x004FE550
+name = "Task_Arrow__save"
+
+[[function]]
+va = 0x004FE590
+name = "Task_Arrow__dtor1_Task_Arrow"
+
+[[function]]
+va = 0x004FE650
+name = "Task_Arrow__plot_arrow"
+
+[[function]]
+va = 0x004FE8A0
+name = "Task_Arrow__water_splash"
+
+[[function]]
+va = 0x004FE900
+name = "Task_Arrow__collide"
+
+[[function]]
+va = 0x004FE930
+name = "Task_Arrow__render"
+
+[[function]]
+va = 0x004FE9C0
+name = "Task_Arrow__message"
+
+[[function]]
+va = 0x004FED10
+name = "Task_Arrow__sub_4FED10"
+
+[[function]]
+va = 0x004FED20
+name = "Task_Arrow__sub_4FED20"

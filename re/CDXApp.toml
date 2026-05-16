@@ -1,0 +1,39 @@
+[[function]]
+va = 0x004038F0
+name = "CDXApp__Constructor"
+
+[[function]]
+va = 0x00403980
+name = "CDXApp__dtor0_CDXApp"
+
+[[function]]
+va = 0x004039A0
+name = "CDXApp__Destructor_1"
+
+[[function]]
+va = 0x00403A20
+name = "CDXApp__getMessageMap"
+
+[[function]]
+va = 0x00403A30
+name = "CDXApp__sub_403A30"
+
+[[function]]
+va = 0x00403A60
+name = "CDXApp__sub_403A60"
+
+[[function]]
+va = 0x00403AC0
+name = "CDXApp__sub_403AC0"
+
+[[function]]
+va = 0x00403B20
+name = "CDXApp__sub_403B20"
+
+[[function]]
+va = 0x00403B70
+name = "CDXApp__sub_403B70"
+
+[[function]]
+va = 0x00403BE0
+name = "CDXApp__sub_403BE0"

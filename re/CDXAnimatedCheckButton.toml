@@ -1,0 +1,15 @@
+[[function]]
+va = 0x004036E0
+name = "CDXAnimatedCheckButton__Constructor"
+
+[[function]]
+va = 0x00403740
+name = "CDXAnimatedCheckButton__getMessageMap"
+
+[[function]]
+va = 0x00403860
+name = "CDXAnimatedCheckButton__sub_403860"
+
+[[function]]
+va = 0x004038B0
+name = "CDXAnimatedCheckButton__sub_4038B0"

@@ -1,0 +1,11 @@
+[[function]]
+va = 0x00563F40
+name = "RootSortHandler__sub_563F40"
+
+[[function]]
+va = 0x00563F70
+name = "RootSortHandler__sub_563F70"
+
+[[function]]
+va = 0x00563FA0
+name = "RootSortHandler__sub_563FA0"

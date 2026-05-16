@@ -1,0 +1,7 @@
+[[function]]
+va = 0x004B0160
+name = "FrontendLobbyHost__Constructor"
+
+[[global]]
+va = 0x0065BBB8
+name = "FrontendLobbyHost__vtable"

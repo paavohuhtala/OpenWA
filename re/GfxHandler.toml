@@ -1,0 +1,23 @@
+[[function]]
+va = 0x00570B50
+name = "GfxHandler__LoadSprites"
+
+[[function]]
+va = 0x00571AF0
+name = "GfxHandler__LoadCached"
+
+[[function]]
+va = 0x0058BB70
+name = "GfxHandler__Release"
+
+[[function]]
+va = 0x0058BBB0
+name = "GfxHandler__Seek"
+
+[[function]]
+va = 0x0058BBD0
+name = "GfxHandler__Read"
+
+[[global]]
+va = 0x0066B280
+name = "GfxHandler__vtable"

@@ -1,0 +1,148 @@
+[[function]]
+va = 0x00521D20
+name = "SerializeTeamArenaState"
+
+[[function]]
+va = 0x00522030
+name = "CountTeamsByAlliance"
+
+[[function]]
+va = 0x005223F0
+name = "UpdateDamageStats"
+
+[[function]]
+va = 0x005224D0
+name = "GetTeamTotalHealth"
+
+[[function]]
+va = 0x00522500
+name = "SetActiveWorm"
+
+[[function]]
+va = 0x005225A0
+name = "CountAliveWorms"
+plate_comment = "CountAliveWorms — __usercall(EAX=team_index, ECX=base), plain RET. Returns 1 if >1 worm alive on team. Iterates worm data at team_entry - 0x4A0, stride 0x9C."
+
+[[function]]
+va = 0x005225E0
+name = "GetAmmo"
+plate_comment = "GetAmmo — __usercall(EAX=team_index, ESI=base, EDX=weapon_id), plain RET. Returns ammo count or 0 if delayed/unavailable. base = DDGame + 0x4628. Calls CountAliveWorms for SelectWorm."
+
+[[function]]
+va = 0x00522640
+name = "AddAmmo"
+plate_comment = "AddAmmo — __usercall(EAX=team_index, EDX=amount, [ESP+4]=base, [ESP+8]=weapon_id), RET 0x8. If ammo >= 0: negative amount sets unlimited, else adds. base = DDGame + 0x4628."
+
+[[function]]
+va = 0x00522680
+name = "SubtractAmmo"
+plate_comment = "SubtractAmmo — __usercall(EAX=team_index, ECX=team_info_base, [ESP+4]=weapon_id), RET 0x4. Decrements ammo if > 0. team_info_base = DDGame + 0x4628."
+
+[[function]]
+va = 0x005226B0
+name = "IsWormInSpecialState"
+
+[[function]]
+va = 0x00522700
+name = "GetWormPosition"
+
+[[function]]
+va = 0x00522730
+name = "CopyTeamWormData_Maybe"
+
+[[function]]
+va = 0x005228D0
+name = "CheckWormState0x64"
+
+[[function]]
+va = 0x00522930
+name = "CheckTeamWormState0x64"
+
+[[function]]
+va = 0x00522970
+name = "CheckAnyWormState0x8b"
+
+[[function]]
+va = 0x005229E0
+name = "FlushBitBuffer_Maybe"
+
+[[function]]
+va = 0x00522A60
+name = "LZ77Compress_Maybe"
+
+[[function]]
+va = 0x00522C40
+name = "LZ77Decompress_Maybe"
+
+[[function]]
+va = 0x00522FF0
+name = "GameStats_FreeBuffers_Maybe"
+
+[[function]]
+va = 0x00523400
+name = "LoadSprite"
+calling_convention = "__thiscall"
+
+  [function.signature]
+  returns = "int"
+
+  [[function.param]]
+  name = "layer"
+  type = "uint"
+
+  [[function.param]]
+  name = "id"
+  type = "uint"
+
+  [[function.param]]
+  name = "flag"
+  type = "uint"
+
+  [[function.param]]
+  name = "gfx"
+  type = "void *"
+
+  [[function.param]]
+  name = "name"
+  type = "char *"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
+
+[[function]]
+va = 0x005261E0
+name = "IsSoundSuppressed"
+
+[[function]]
+va = 0x00526270
+name = "DispatchGlobalSound"
+
+[[function]]
+va = 0x00528480
+name = "InitLandscapeBorders"
+plate_comment = """
+Apply scheme's "indestructible borders" / cavern flag to the landscape.
+
+Convention: usercall(EAX = this), plain RET. `this` is a CTaskTurnGame
+(internally `DDGameWrapper`); +0x488 is the DDGame pointer. Method does
+not access any CGameTask-specific state.
+
+If GameInfo+0xD94B (cavern / indestructible-borders scheme byte) is set,
+calls Landscape::init_borders(1,1,1,1, colors) and sets DDGame.is_cavern (+0x777C) to 1.
+Otherwise, if is_cavern was previously set, calls init_borders(0,0,1,0, colors)
+to tear down borders.
+"""
+
+[[function]]
+va = 0x0052ACB0
+name = "ShowChatMessage"
+
+[[function]]
+va = 0x0052AF70
+name = "WorldEntity_FormatChatMessage_Maybe"
+
+[[function]]
+va = 0x0052B730
+name = "OnChatInput"

@@ -1,0 +1,39 @@
+[[function]]
+va = 0x0042B0A0
+name = "CBaseList__ctor_CBaseList"
+
+[[function]]
+va = 0x0042B160
+name = "CBaseList__dtor0_CBaseList"
+
+[[function]]
+va = 0x0042B180
+name = "CBaseList__dtor1_CBaseList"
+
+[[function]]
+va = 0x0042B1F0
+name = "CBaseList__OnLButtonDblClk"
+
+[[function]]
+va = 0x0042B270
+name = "CBaseList__sub_42B270"
+
+[[function]]
+va = 0x0042B340
+name = "CBaseList__OnDestroy"
+
+[[function]]
+va = 0x0042B380
+name = "CBaseList__sub_42B380"
+
+[[function]]
+va = 0x0042B3C0
+name = "CBaseList__ResetItems"
+
+[[function]]
+va = 0x0042B430
+name = "CBaseList__DeleteUnrefreshedItems"
+
+[[function]]
+va = 0x0042B4B0
+name = "CBaseList__sub_42B4B0"

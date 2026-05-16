@@ -1,0 +1,59 @@
+[[function]]
+va = 0x0040FA40
+name = "CDXDialog__ctor0_CDXDialog"
+
+[[function]]
+va = 0x0040FAB0
+name = "CDXDialog__dtor0_CDXDialog"
+
+[[function]]
+va = 0x0040FAD0
+name = "CDXDialog__sub_40FAD0"
+
+[[function]]
+va = 0x0040FB70
+name = "CDXDialog__dtor1_CDXDialog"
+
+[[function]]
+va = 0x0040FBD0
+name = "CDXDialog__getMessageMap"
+
+[[function]]
+va = 0x0040FBE0
+name = "CDXDialog__sub_40FBE0"
+
+[[function]]
+va = 0x0040FD60
+name = "CDXDialog__DoModal"
+
+[[function]]
+va = 0x0040FF90
+name = "CDXDialog__sub_40FF90"
+
+[[function]]
+va = 0x0040FFE0
+name = "CDXDialog__sub_40FFE0"
+
+[[function]]
+va = 0x00410000
+name = "CDXDialog__sub_410000"
+
+[[function]]
+va = 0x00410040
+name = "CDXDialog__sub_410040"
+
+[[function]]
+va = 0x004101F0
+name = "CDXDialog__sub_4101F0"
+
+[[function]]
+va = 0x004102C0
+name = "CDXDialog__sub_4102C0"
+
+[[function]]
+va = 0x004102E0
+name = "CDXDialog__sub_4102E0"
+
+[[function]]
+va = 0x00410350
+name = "CDXDialog__sub_410350"

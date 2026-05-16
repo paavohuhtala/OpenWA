@@ -1,0 +1,63 @@
+[[function]]
+va = 0x004544E0
+name = "CStreamFile__Destructor_Maybe"
+
+[[function]]
+va = 0x00454970
+name = "CStreamFile__Destructor_Maybe"
+
+[[function]]
+va = 0x00454ED0
+name = "CStreamFile__Destructor_Maybe"
+
+[[function]]
+va = 0x00455410
+name = "CStreamFile__Destructor_Maybe"
+
+[[function]]
+va = 0x004559B0
+name = "CStreamFile__Destructor_Maybe"
+
+[[function]]
+va = 0x00455ED0
+name = "CStreamFile__Destructor_Maybe"
+
+[[function]]
+va = 0x00456710
+name = "CStreamFile__Constructor_Maybe"
+
+[[function]]
+va = 0x00458A80
+name = "CStreamFile__Constructor_Maybe"
+
+[[function]]
+va = 0x00458BC0
+name = "CStreamFile__Constructor_Maybe"
+
+[[function]]
+va = 0x00458C90
+name = "CStreamFile__Constructor_Maybe"
+
+[[function]]
+va = 0x00458DD0
+name = "CStreamFile__Constructor_Maybe"
+
+[[function]]
+va = 0x004597E0
+name = "CStreamFile__Constructor_Maybe"
+
+[[function]]
+va = 0x00592F00
+name = "CStreamFile__Constructor_Maybe"
+
+[[function]]
+va = 0x00594650
+name = "CStreamFile__Destructor_Maybe"
+
+[[function]]
+va = 0x005981E0
+name = "CStreamFile__Destructor_Maybe"
+
+[[global]]
+va = 0x00650264
+name = "CStreamFile__vtable_Maybe"

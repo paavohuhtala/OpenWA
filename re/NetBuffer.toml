@@ -1,0 +1,15 @@
+[[function]]
+va = 0x00590330
+name = "NetBuffer__dtor0_NetBuffer"
+
+[[function]]
+va = 0x00590350
+name = "NetBuffer__dtor1_NetBuffer"
+
+[[function]]
+va = 0x00590390
+name = "NetBuffer__sub_590390"
+
+[[function]]
+va = 0x00590400
+name = "NetBuffer__sub_590400"

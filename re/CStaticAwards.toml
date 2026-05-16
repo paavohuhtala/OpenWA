@@ -1,0 +1,19 @@
+[[function]]
+va = 0x004D11A0
+name = "CStaticAwards__ShowStats"
+
+[[function]]
+va = 0x004D7A50
+name = "CStaticAwards__ctor_CStaticAwards"
+
+[[function]]
+va = 0x004D7AB0
+name = "CStaticAwards__dtor0_CStaticAwards"
+
+[[function]]
+va = 0x004D7B00
+name = "CStaticAwards__getMessageMap"
+
+[[function]]
+va = 0x004D7B10
+name = "CStaticAwards__sub_4D7B10"

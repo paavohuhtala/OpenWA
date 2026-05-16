@@ -1,0 +1,27 @@
+[[function]]
+va = 0x00474F80
+name = "LoginDlg__dtor1_LoginDlg"
+
+[[function]]
+va = 0x00485930
+name = "LoginDlg__ctor_LoginDlg"
+
+[[function]]
+va = 0x00485A90
+name = "LoginDlg__dtor0_LoginDlg"
+
+[[function]]
+va = 0x00485AB0
+name = "LoginDlg__DoDataExchange"
+
+[[function]]
+va = 0x00485B50
+name = "LoginDlg__OnInitDialog"
+
+[[function]]
+va = 0x00485E00
+name = "LoginDlg__OnOK"
+
+[[function]]
+va = 0x00485E70
+name = "LoginDlg__sub_485E70"

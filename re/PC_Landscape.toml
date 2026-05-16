@@ -1,0 +1,99 @@
+[[function]]
+va = 0x0057AA70
+name = "PC_Landscape__sub_57AA70"
+
+[[function]]
+va = 0x0057AA80
+name = "PC_Landscape__sub_57AA80"
+
+[[function]]
+va = 0x0057AA90
+name = "PC_Landscape__sub_57AA90"
+
+[[function]]
+va = 0x0057B540
+name = "PC_Landscape__dtor0_PC_Landscape"
+
+[[function]]
+va = 0x0057B950
+name = "PC_Landscape__sub_57B950"
+
+[[function]]
+va = 0x0057BD00
+name = "PC_Landscape__get_collision"
+
+[[function]]
+va = 0x0057BD10
+name = "PC_Landscape__set_indestructable"
+
+[[function]]
+va = 0x0057BD20
+name = "PC_Landscape__load_masks"
+
+[[function]]
+va = 0x0057C2B0
+name = "PC_Landscape__unload_masks"
+
+[[function]]
+va = 0x0057C7E0
+name = "PC_Landscape__mask_and_replace"
+
+[[function]]
+va = 0x0057CBA0
+name = "PC_Landscape__flush_changes"
+
+[[function]]
+va = 0x0057CC90
+name = "PC_Landscape__colour"
+
+[[function]]
+va = 0x0057CCF0
+name = "PC_Landscape__mask"
+
+[[function]]
+va = 0x0057CD90
+name = "PC_Landscape__test"
+
+[[function]]
+va = 0x0057CE30
+name = "PC_Landscape__plot"
+
+[[function]]
+va = 0x0057CFE0
+name = "PC_Landscape__unload_explosions"
+
+[[function]]
+va = 0x0057D230
+name = "PC_Landscape__land_collision_0"
+
+[[function]]
+va = 0x0057D240
+name = "PC_Landscape__land_collision_1"
+
+[[function]]
+va = 0x0057D520
+name = "PC_Landscape__start_recording"
+
+[[function]]
+va = 0x0057D540
+name = "PC_Landscape__checksum"
+
+[[function]]
+va = 0x0057D590
+name = "PC_Landscape__stop_recording"
+
+[[function]]
+va = 0x0057D5A0
+name = "PC_Landscape__flush_undo"
+
+[[function]]
+va = 0x0057D5C0
+name = "PC_Landscape__apply_undo"
+
+[[function]]
+va = 0x0057D7C0
+name = "PC_Landscape__undo_overflow"
+
+[[function]]
+va = 0x0057D7D0
+name = "PC_Landscape__is_recording"

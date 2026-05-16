@@ -1,0 +1,7 @@
+[[global]]
+va = 0x00644428
+name = "CWAChildWnd__vtable_Maybe"
+
+[[label]]
+va = 0x0061D5B8
+name = "CWAChildWnd__MessageMap"

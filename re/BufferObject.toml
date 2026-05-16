@@ -1,0 +1,7 @@
+[[function]]
+va = 0x004F9330
+name = "BufferObject__AllocSlot"
+
+[[function]]
+va = 0x00541100
+name = "BufferObject__ClassifyInputMsg"

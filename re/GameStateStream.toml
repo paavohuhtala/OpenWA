@@ -1,0 +1,15 @@
+[[function]]
+va = 0x004FB490
+name = "GameStateStream__Init"
+
+[[function]]
+va = 0x004FB5C0
+name = "GameStateStream__Destructor"
+
+[[function]]
+va = 0x004FB5F0
+name = "GameStateStream__Constructor"
+
+[[global]]
+va = 0x00664194
+name = "GameStateStream__vtable"

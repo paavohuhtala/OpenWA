@@ -1,0 +1,121 @@
+[[function]]
+va = 0x004F5DE0
+name = "BitGrid__Destructor"
+
+[[function]]
+va = 0x004F5E20
+name = "BitGrid__GetPixel"
+
+[[function]]
+va = 0x004F5E40
+name = "BitGrid__PutPixel"
+
+[[function]]
+va = 0x004F6370
+name = "BitGrid__Init"
+calling_convention = "__fastcall"
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "width"
+  type = "int"
+  storage = "ECX"
+
+[[function]]
+va = 0x004F6590
+name = "BitGrid__RemapPixelsThroughLut"
+
+[[function]]
+va = 0x004F67B0
+name = "BitGrid__FillHLine_Shared"
+
+[[function]]
+va = 0x004F6860
+name = "BitGrid__FillVLine_Shared"
+
+[[function]]
+va = 0x004F6910
+name = "BitGrid__BlitSpriteRect"
+
+[[function]]
+va = 0x004F9090
+name = "BitGrid__FillRect"
+
+[[function]]
+va = 0x004F90E0
+name = "BitGrid__FillHLine"
+
+[[function]]
+va = 0x004F9110
+name = "BitGrid__FillVLine"
+
+[[function]]
+va = 0x004F9140
+name = "BitGrid__GetPixelClipped"
+
+[[function]]
+va = 0x004F9180
+name = "BitGrid__PutPixelClipped"
+calling_convention = "__thiscall"
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "x"
+  type = "int"
+
+  [[function.param]]
+  name = "y"
+  type = "int"
+
+  [[function.param]]
+  name = "color"
+  type = "uchar"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
+
+[[function]]
+va = 0x0053F8A0
+name = "BitGrid__Constructor_SpriteRegion"
+
+[[function]]
+va = 0x00578570
+name = "BitGrid__Constructor_Display"
+
+[[function]]
+va = 0x005791F0
+name = "BitGrid__Destructor_1"
+
+[[function]]
+va = 0x00579880
+name = "BitGrid__Destructor_3"
+
+[[function]]
+va = 0x00579A40
+name = "BitGrid__Destructor_4"
+
+[[function]]
+va = 0x00579CC0
+name = "BitGrid__Destructor_5"
+
+[[function]]
+va = 0x0057AAC0
+name = "BitGrid__Constructor_Landscape"
+
+[[function]]
+va = 0x0057B560
+name = "BitGrid__Destructor_Landscape"
+
+[[function]]
+va = 0x0057D040
+name = "BitGrid__Constructor_LandscapeExt"
+
+[[global]]
+va = 0x006640EC
+name = "BitGrid__vtable"

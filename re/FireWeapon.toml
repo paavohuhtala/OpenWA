@@ -1,0 +1,122 @@
+[[function]]
+va = 0x0051DCF0
+name = "FireWeapon__ProjectileFire_Single"
+
+[[function]]
+va = 0x0051DFB0
+name = "FireWeapon__Projectile"
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "worm"
+  type = "void *"
+
+  [[function.param]]
+  name = "fire_params"
+  type = "void *"
+
+  [[function.param]]
+  name = "param_3"
+  type = "void *"
+
+[[function]]
+va = 0x0051E0F0
+name = "FireWeapon__CreateWeaponProjectile"
+calling_convention = "__thiscall"
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "fire_params"
+  type = "void *"
+
+  [[function.param]]
+  name = "spawn_data"
+  type = "void *"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
+
+[[function]]
+va = 0x0051E1C0
+name = "FireWeapon__RopeType1"
+
+[[function]]
+va = 0x0051E240
+name = "FireWeapon__RopeType3"
+
+[[function]]
+va = 0x0051E2C0
+name = "FireWeapon__Grenade"
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "worm"
+  type = "void *"
+
+  [[function.param]]
+  name = "subtype_34_ptr"
+  type = "void *"
+
+  [[function.param]]
+  name = "local_struct"
+  type = "void *"
+
+[[function]]
+va = 0x0051E350
+name = "FireWeapon__Girder"
+
+[[function]]
+va = 0x0051E3E0
+name = "FireWeapon__Drill"
+
+[[function]]
+va = 0x0051E480
+name = "FireWeapon__Prod"
+
+[[function]]
+va = 0x0051E5C0
+name = "FireWeapon__Special_Type13"
+
+[[function]]
+va = 0x0051E600
+name = "FireWeapon__Surrender"
+
+[[function]]
+va = 0x0051E670
+name = "FireWeapon__MailMineMole"
+
+[[function]]
+va = 0x0051E710
+name = "FireWeapon__AirStrike"
+
+[[function]]
+va = 0x0051E920
+name = "FireWeapon__Freeze"
+
+[[function]]
+va = 0x0051EA60
+name = "FireWeapon__LowGravity"
+
+[[function]]
+va = 0x0051EB00
+name = "FireWeapon__IndianNuclearTest"
+
+[[function]]
+va = 0x0051EC30
+name = "FireWeapon__JetPack"
+
+[[function]]
+va = 0x0051EC80
+name = "FireWeapon__PlacedExplosive"
+
+[[function]]
+va = 0x0051ED90
+name = "FireWeapon__Shotgun"

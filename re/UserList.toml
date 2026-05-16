@@ -1,0 +1,35 @@
+[[function]]
+va = 0x004E2700
+name = "UserList__dtor_UserList"
+
+[[function]]
+va = 0x004E2750
+name = "UserList__getMessageMap"
+
+[[function]]
+va = 0x004E2760
+name = "UserList__HandleUserRequest"
+
+[[function]]
+va = 0x004E2880
+name = "UserList__Init"
+
+[[function]]
+va = 0x004E2A80
+name = "UserList__AddUser"
+
+[[function]]
+va = 0x004E2C20
+name = "UserList__UpdateUser"
+
+[[function]]
+va = 0x004E2E30
+name = "UserList__ParseRealName"
+
+[[function]]
+va = 0x004E2ED0
+name = "UserList__GetSelectedItem"
+
+[[function]]
+va = 0x004E3140
+name = "UserList__sub_4E3140"

@@ -1,0 +1,7 @@
+[[function]]
+va = 0x00565A80
+name = "WeaponSpawn__IsIndirect"
+
+[[function]]
+va = 0x00565C10
+name = "WeaponSpawn__DecodeDescriptor"

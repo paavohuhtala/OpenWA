@@ -1,0 +1,39 @@
+[[function]]
+va = 0x00482B00
+name = "CListMissionTeams__ctor_CListMissionTeams"
+
+[[function]]
+va = 0x00482B80
+name = "CListMissionTeams__dtor0_CListMissionTeams"
+
+[[function]]
+va = 0x00482BA0
+name = "CListMissionTeams__dtor1_CListMissionTeams"
+
+[[function]]
+va = 0x00482C00
+name = "CListMissionTeams__getMessageMap"
+
+[[function]]
+va = 0x00482C10
+name = "CListMissionTeams__sub_482C10"
+
+[[function]]
+va = 0x00482C40
+name = "CListMissionTeams__AddTeams"
+
+[[function]]
+va = 0x00482FA0
+name = "CListMissionTeams__Sortcheck"
+
+[[function]]
+va = 0x004830E0
+name = "CListMissionTeams__sub_4830E0"
+
+[[function]]
+va = 0x00483150
+name = "CListMissionTeams__sub_483150"
+
+[[function]]
+va = 0x00483360
+name = "CListMissionTeams__sub_483360"

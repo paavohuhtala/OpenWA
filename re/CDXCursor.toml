@@ -1,0 +1,23 @@
+[[function]]
+va = 0x0040CD00
+name = "CDXCursor__ctor_CDXCursor"
+
+[[function]]
+va = 0x0040CD80
+name = "CDXCursor__dtor0_CDXCursor"
+
+[[function]]
+va = 0x0040CDA0
+name = "CDXCursor__dtor1_CDXCursor"
+
+[[function]]
+va = 0x0040CE20
+name = "CDXCursor__set_cursor"
+
+[[function]]
+va = 0x0040D0A0
+name = "CDXCursor__Create"
+
+[[function]]
+va = 0x0040D250
+name = "CDXCursor__sub_40D250"

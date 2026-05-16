@@ -1,0 +1,208 @@
+[[function]]
+va = 0x005E068B
+name = "__XcptFilter"
+
+[[function]]
+va = 0x005E0C40
+name = "__tzset_nolock"
+
+[[function]]
+va = 0x005E1598
+name = "__input_l"
+
+[[function]]
+va = 0x005E21E5
+name = "___check_float_string"
+
+[[function]]
+va = 0x005E2239
+name = "__inc"
+
+[[function]]
+va = 0x005E224F
+name = "__whiteout"
+
+[[function]]
+va = 0x005E2274
+name = "__input_s_l"
+
+[[function]]
+va = 0x005E3051
+name = "___loctotime64_t"
+
+[[function]]
+va = 0x005E32BA
+name = "__openfile"
+
+[[function]]
+va = 0x005E355A
+name = "__getstream"
+
+[[function]]
+va = 0x005E44ED
+name = "__sse2_mathfcns_init"
+
+[[function]]
+va = 0x005E4812
+name = "_fastcopy_I"
+
+[[function]]
+va = 0x005E4A9C
+name = "__read_nolock"
+
+[[function]]
+va = 0x005E505D
+name = "__read"
+
+[[function]]
+va = 0x005E5315
+name = "__fcloseall"
+
+[[function]]
+va = 0x005E5725
+name = "__tsopen_nolock"
+
+[[function]]
+va = 0x005E5F68
+name = "__tsopen_nolock_0"
+
+[[function]]
+va = 0x005E69DF
+name = "__decomp"
+
+[[function]]
+va = 0x005E72D3
+name = "__set_statfp"
+
+[[function]]
+va = 0x005E767C
+name = "__ftelli64_nolock"
+
+[[function]]
+va = 0x005E7FC8
+name = "___FrameUnwindFilter"
+
+[[function]]
+va = 0x005E8D1D
+name = "__positive"
+
+[[function]]
+va = 0x005E8D73
+name = "__fassign"
+
+[[function]]
+va = 0x005E8DA7
+name = "__forcdecpt"
+
+[[function]]
+va = 0x005E9770
+name = "__CIacos_pentium4"
+
+[[function]]
+va = 0x005E978E
+name = "start_1"
+
+[[function]]
+va = 0x005E9DCC
+name = "__rttosnpop"
+
+[[function]]
+va = 0x005E9DDD
+name = "__rtonenpop"
+
+[[function]]
+va = 0x005E9DE2
+name = "__tosnan1"
+
+[[function]]
+va = 0x005E9E89
+name = "__rttosnpopde"
+
+[[function]]
+va = 0x005E9E99
+name = "chsifnegret"
+
+[[function]]
+va = 0x005E9EA0
+name = "__startTwoArgErrorHandling"
+
+[[function]]
+va = 0x005E9F00
+name = "__twoToTOS"
+
+[[function]]
+va = 0x005E9F15
+name = "__load_CW"
+
+[[function]]
+va = 0x005E9F2C
+name = "__convertTOStoQNaN"
+
+[[function]]
+va = 0x005E9F88
+name = "__checkTOS_withFB"
+
+[[function]]
+va = 0x005E9FD5
+name = "__check_overflow_exit"
+
+[[function]]
+va = 0x005E9FE9
+name = "__check_range_exit"
+
+[[function]]
+va = 0x005EA807
+name = "__get_printf_count_output"
+
+[[function]]
+va = 0x005EC269
+name = "__fptrap"
+
+[[function]]
+va = 0x005EC7CD
+name = "_has_osfxsr_set"
+
+[[function]]
+va = 0x005ED31F
+name = "___strgtold12_l"
+
+[[function]]
+va = 0x005EE64F
+name = "___termcon"
+
+[[function]]
+va = 0x005EEAAA
+name = "__I10_OUTPUT"
+
+  [[function.local]]
+  name = "local_2c"
+  type = "undefined6"
+  stack_offset = -44
+
+[[function]]
+va = 0x005EFD0C
+name = "___crtsetenv"
+
+[[function]]
+va = 0x005EFF58
+name = "DelayLoad_SetAppCompatData"
+
+[[function]]
+va = 0x005EFF79
+name = "DelayLoad_DirectDrawCreate"
+
+[[function]]
+va = 0x005EFF89
+name = "DelayLoad_DirectDrawCreateEx"
+
+[[function]]
+va = 0x005EFF99
+name = "DelayLoad_DirectDrawEnumerateExA"
+
+[[function]]
+va = 0x005EFFCE
+name = "DelayLoad_GetFileTitleA"
+
+[[function]]
+va = 0x005EFFE9
+name = "DelayLoad_ClosePrinter"

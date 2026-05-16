@@ -1,0 +1,7 @@
+[[function]]
+va = 0x004BDBE0
+name = "FrontendLobbyGameStart__Constructor"
+
+[[global]]
+va = 0x0065C810
+name = "FrontendLobbyGameStart__vtable"

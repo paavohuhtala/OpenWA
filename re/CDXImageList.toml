@@ -1,0 +1,11 @@
+[[function]]
+va = 0x0041B090
+name = "CDXImageList__ctor_CDXImageList"
+
+[[function]]
+va = 0x0041B100
+name = "CDXImageList__Append"
+
+[[function]]
+va = 0x0041B1D0
+name = "CDXImageList__BackupList"

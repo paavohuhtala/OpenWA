@@ -1,0 +1,2307 @@
+[[function]]
+va = 0x00619290
+name = "CRTException__Destructor_Maybe"
+
+  [[function.comment]]
+  va = 0x0061A000
+  kind = "pre"
+  text = "515  RegSetValueA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A004
+  kind = "pre"
+  text = "160  CryptReleaseContext  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A008
+  kind = "pre"
+  text = "503  RegQueryValueExA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A00C
+  kind = "pre"
+  text = "472  RegDeleteValueA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A010
+  kind = "pre"
+  text = "459  RegCloseKey  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A014
+  kind = "pre"
+  text = "464  RegCreateKeyA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A018
+  kind = "pre"
+  text = "491  RegOpenKeyA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A01C
+  kind = "pre"
+  text = "516  RegSetValueExA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A020
+  kind = "pre"
+  text = "492  RegOpenKeyExA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A024
+  kind = "pre"
+  text = "292  GetUserNameA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A028
+  kind = "pre"
+  text = "468  RegDeleteKeyA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A02C
+  kind = "pre"
+  text = "478  RegEnumKeyExA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A030
+  kind = "pre"
+  text = "465  RegCreateKeyExA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A034
+  kind = "pre"
+  text = "502  RegQueryValueA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A038
+  kind = "pre"
+  text = "477  RegEnumKeyA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A03C
+  kind = "pre"
+  text = "133  CryptAcquireContextA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A040
+  kind = "pre"
+  text = "150  CryptGenRandom  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A048
+  kind = "pre"
+  text = "1  Ordinal_1  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A050
+  kind = "pre"
+  text = "71  CreatePen  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A054
+  kind = "pre"
+  text = "526  SelectObject  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A058
+  kind = "pre"
+  text = "533  SetBkColor  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A05C
+  kind = "pre"
+  text = "18  BitBlt  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A060
+  kind = "pre"
+  text = "50  CreateDIBSection  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A064
+  kind = "pre"
+  text = "45  CreateCompatibleDC  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A068
+  kind = "pre"
+  text = "143  DeleteObject  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A06C
+  kind = "pre"
+  text = "140  DeleteDC  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A070
+  kind = "pre"
+  text = "405  GetObjectA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A074
+  kind = "pre"
+  text = "39  CreateBitmap  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A078
+  kind = "pre"
+  text = "542  SetDIBColorTable  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A07C
+  kind = "pre"
+  text = "412  GetPixel  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A080
+  kind = "pre"
+  text = "80  CreateSolidBrush  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A084
+  kind = "pre"
+  text = "585  StretchBlt  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A088
+  kind = "pre"
+  text = "219  ExtFloodFill  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A08C
+  kind = "pre"
+  text = "148  Ellipse  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A090
+  kind = "pre"
+  text = "499  RealizePalette  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A094
+  kind = "pre"
+  text = "421  GetStockObject  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A098
+  kind = "pre"
+  text = "69  CreatePalette  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A09C
+  kind = "pre"
+  text = "527  SelectPalette  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A0A0
+  kind = "pre"
+  text = "444  GetTextMetricsA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A0A4
+  kind = "pre"
+  text = "534  SetBkMode  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A0A8
+  kind = "pre"
+  text = "572  SetTextColor  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A0AC
+  kind = "pre"
+  text = "590  TextOutA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A0B0
+  kind = "pre"
+  text = "569  SetSystemPaletteUse  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A0B4
+  kind = "pre"
+  text = "560  SetPaletteEntries  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A0B8
+  kind = "pre"
+  text = "589  SwapBuffers  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A0BC
+  kind = "pre"
+  text = "562  SetPixelFormat  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A0C0
+  kind = "pre"
+  text = "24  ChoosePixelFormat  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A0C4
+  kind = "pre"
+  text = "410  GetPaletteEntries  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A0C8
+  kind = "pre"
+  text = "363  GetDeviceCaps  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A0CC
+  kind = "pre"
+  text = "352  GetClipBox  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A0D0
+  kind = "pre"
+  text = "519  SaveDC  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A0D4
+  kind = "pre"
+  text = "512  RestoreDC  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A0D8
+  kind = "pre"
+  text = "568  SetStretchBltMode  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A0DC
+  kind = "pre"
+  text = "555  SetMapMode  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A0E0
+  kind = "pre"
+  text = "461  LineTo  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A0E4
+  kind = "pre"
+  text = "465  MoveToEx  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A0E8
+  kind = "pre"
+  text = "497  PtVisible  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A0EC
+  kind = "pre"
+  text = "501  RectVisible  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A0F0
+  kind = "pre"
+  text = "221  ExtTextOutA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A0F4
+  kind = "pre"
+  text = "212  Escape  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A0F8
+  kind = "pre"
+  text = "575  SetViewportOrgEx  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A0FC
+  kind = "pre"
+  text = "469  OffsetViewportOrgEx  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A100
+  kind = "pre"
+  text = "574  SetViewportExtEx  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A104
+  kind = "pre"
+  text = "520  ScaleViewportExtEx  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A108
+  kind = "pre"
+  text = "578  SetWindowExtEx  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A10C
+  kind = "pre"
+  text = "521  ScaleWindowExtEx  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A110
+  kind = "pre"
+  text = "361  GetDIBColorTable  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A118
+  kind = "pre"
+  text = "114  CreateToolhelp32Snapshot  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A11C
+  kind = "pre"
+  text = "458  GetSystemTimeAsFileTime  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A120
+  kind = "pre"
+  text = "784  SetEndOfFile  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A124
+  kind = "pre"
+  text = "944  WriteProfileStringA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A128
+  kind = "pre"
+  text = "430  GetProfileIntA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A12C
+  kind = "pre"
+  text = "434  GetProfileStringA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A130
+  kind = "pre"
+  text = "84  CreateFileMappingA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A134
+  kind = "pre"
+  text = "616  MapViewOfFile  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A138
+  kind = "pre"
+  text = "881  UnmapViewOfFile  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A13C
+  kind = "pre"
+  text = "372  GetLocaleInfoA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A140
+  kind = "pre"
+  text = "662  Process32First  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A144
+  kind = "pre"
+  text = "664  Process32Next  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A148
+  kind = "pre"
+  text = "604  LocalFree  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A14C
+  kind = "pre"
+  text = "243  FormatMessageA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A150
+  kind = "pre"
+  text = "957  lstrcatA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A154
+  kind = "pre"
+  text = "679  RaiseException  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A158
+  kind = "pre"
+  text = "195  FileTimeToDosDateTime  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A15C
+  kind = "pre"
+  text = "453  GetSystemInfo  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A160
+  kind = "pre"
+  text = "196  FileTimeToLocalFileTime  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A164
+  kind = "pre"
+  text = "966  lstrcpyA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A168
+  kind = "pre"
+  text = "904  VirtualQuery  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A16C
+  kind = "pre"
+  text = "969  lstrcpynA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A170
+  kind = "pre"
+  text = "131  DeleteFileA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A174
+  kind = "pre"
+  text = "499  GetWindowsDirectoryA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A178
+  kind = "pre"
+  text = "628  MulDiv  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A17C
+  kind = "pre"
+  text = "961  lstrcmpW  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A180
+  kind = "pre"
+  text = "506  GlobalDeleteAtom  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A184
+  kind = "pre"
+  text = "507  GlobalFindAtomA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A188
+  kind = "pre"
+  text = "502  GlobalAddAtomA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A18C
+  kind = "pre"
+  text = "512  GlobalGetAtomNameA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A190
+  kind = "pre"
+  text = "960  lstrcmpA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A194
+  kind = "pre"
+  text = "382  GetModuleFileNameW  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A198
+  kind = "pre"
+  text = "552  InterlockedDecrement  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A19C
+  kind = "pre"
+  text = "618  Module32First  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A1A0
+  kind = "pre"
+  text = "163  EnumResourceLanguagesA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A1A4
+  kind = "pre"
+  text = "63  ConvertDefaultLocale  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A1A8
+  kind = "pre"
+  text = "325  GetCurrentThread  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A1AC
+  kind = "pre"
+  text = "474  GetThreadLocale  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A1B0
+  kind = "pre"
+  text = "238  FlushFileBuffers  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A1B4
+  kind = "pre"
+  text = "611  LockFile  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A1B8
+  kind = "pre"
+  text = "879  UnlockFile  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A1BC
+  kind = "pre"
+  text = "147  DuplicateHandle  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A1C0
+  kind = "pre"
+  text = "937  WritePrivateProfileStringA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A1C4
+  kind = "pre"
+  text = "789  SetErrorMode  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A1C8
+  kind = "pre"
+  text = "600  LocalAlloc  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A1CC
+  kind = "pre"
+  text = "593  LeaveCriticalSection  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A1D0
+  kind = "pre"
+  text = "869  TlsGetValue  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A1D4
+  kind = "pre"
+  text = "152  EnterCriticalSection  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A1D8
+  kind = "pre"
+  text = "518  GlobalReAlloc  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A1DC
+  kind = "pre"
+  text = "514  GlobalHandle  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A1E0
+  kind = "pre"
+  text = "547  InitializeCriticalSection  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A1E4
+  kind = "pre"
+  text = "867  TlsAlloc  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A1E8
+  kind = "pre"
+  text = "870  TlsSetValue  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A1EC
+  kind = "pre"
+  text = "607  LocalReAlloc  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A1F0
+  kind = "pre"
+  text = "129  DeleteCriticalSection  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A1F4
+  kind = "pre"
+  text = "868  TlsFree  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A1F8
+  kind = "pre"
+  text = "556  InterlockedIncrement  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A1FC
+  kind = "pre"
+  text = "510  GlobalFlags  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A200
+  kind = "pre"
+  text = "260  GetCPInfo  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A204
+  kind = "pre"
+  text = "403  GetOEMCP  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A208
+  kind = "pre"
+  text = "197  FileTimeToSystemTime  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A20C
+  kind = "pre"
+  text = "793  SetFileAttributesA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A210
+  kind = "pre"
+  text = "350  GetFileAttributesA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A214
+  kind = "pre"
+  text = "538  HeapReAlloc  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A218
+  kind = "pre"
+  text = "528  HeapAlloc  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A21C
+  kind = "pre"
+  text = "534  HeapFree  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A220
+  kind = "pre"
+  text = "897  VirtualAlloc  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A224
+  kind = "pre"
+  text = "862  TerminateProcess  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A228
+  kind = "pre"
+  text = "878  UnhandledExceptionFilter  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A22C
+  kind = "pre"
+  text = "842  SetUnhandledExceptionFilter  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A230
+  kind = "pre"
+  text = "787  SetEnvironmentVariableA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A234
+  kind = "pre"
+  text = "480  GetTimeFormatA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A238
+  kind = "pre"
+  text = "327  GetDateFormatA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A23C
+  kind = "pre"
+  text = "727  RtlUnwind  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A240
+  kind = "pre"
+  text = "823  SetStdHandle  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A244
+  kind = "pre"
+  text = "272  GetCommandLineA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A248
+  kind = "pre"
+  text = "419  GetProcessHeap  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A24C
+  kind = "pre"
+  text = "439  GetStartupInfoA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A250
+  kind = "pre"
+  text = "540  HeapSize  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A254
+  kind = "pre"
+  text = "532  HeapDestroy  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A258
+  kind = "pre"
+  text = "530  HeapCreate  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A25C
+  kind = "pre"
+  text = "899  VirtualFree  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A260
+  kind = "pre"
+  text = "575  IsValidCodePage  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A264
+  kind = "pre"
+  text = "580  LCMapStringA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A268
+  kind = "pre"
+  text = "581  LCMapStringW  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A26C
+  kind = "pre"
+  text = "442  GetStringTypeA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A270
+  kind = "pre"
+  text = "445  GetStringTypeW  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A274
+  kind = "pre"
+  text = "482  GetTimeZoneInformation  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A278
+  kind = "pre"
+  text = "290  GetConsoleCP  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A27C
+  kind = "pre"
+  text = "307  GetConsoleMode  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A280
+  kind = "pre"
+  text = "804  SetHandleCount  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A284
+  kind = "pre"
+  text = "86  CreateFileW  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A288
+  kind = "pre"
+  text = "246  FreeEnvironmentStringsA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A28C
+  kind = "pre"
+  text = "341  GetEnvironmentStrings  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A290
+  kind = "pre"
+  text = "247  FreeEnvironmentStringsW  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A294
+  kind = "pre"
+  text = "343  GetEnvironmentStringsW  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A298
+  kind = "pre"
+  text = "483  GetUserDefaultLCID  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A29C
+  kind = "pre"
+  text = "175  EnumSystemLocalesA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A2A0
+  kind = "pre"
+  text = "577  IsValidLocale  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A2A4
+  kind = "pre"
+  text = "373  GetLocaleInfoW  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A2A8
+  kind = "pre"
+  text = "921  WriteConsoleA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A2AC
+  kind = "pre"
+  text = "309  GetConsoleOutputCP  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A2B0
+  kind = "pre"
+  text = "931  WriteConsoleW  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A2B4
+  kind = "pre"
+  text = "620  Module32Next  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A2B8
+  kind = "pre"
+  text = "799  SetFileTime  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A2BC
+  kind = "pre"
+  text = "10  AllocConsole  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A2C0
+  kind = "pre"
+  text = "323  GetCurrentProcessId  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A2C4
+  kind = "pre"
+  text = "322  GetCurrentProcess  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A2C8
+  kind = "pre"
+  text = "639  OpenFile  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A2CC
+  kind = "pre"
+  text = "107  CreateSemaphoreA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A2D0
+  kind = "pre"
+  text = "358  GetFileType  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A2D4
+  kind = "pre"
+  text = "594  LoadLibraryA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A2D8
+  kind = "pre"
+  text = "326  GetCurrentThreadId  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A2DC
+  kind = "pre"
+  text = "361  GetFullPathNameA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A2E0
+  kind = "pre"
+  text = "383  GetModuleHandleA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A2E4
+  kind = "pre"
+  text = "416  GetProcAddress  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A2E8
+  kind = "pre"
+  text = "248  FreeLibrary  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A2EC
+  kind = "pre"
+  text = "253  GetACP  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A2F0
+  kind = "pre"
+  text = "245  FreeConsole  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A2F4
+  kind = "pre"
+  text = "808  SetLastError  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A2F8
+  kind = "pre"
+  text = "489  GetVersionExA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A2FC
+  kind = "pre"
+  text = "347  GetExitCodeThread  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A300
+  kind = "pre"
+  text = "220  FindNextFileA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A304
+  kind = "pre"
+  text = "770  SetConsoleOutputCP  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A308
+  kind = "pre"
+  text = "748  SetConsoleCP  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A30C
+  kind = "pre"
+  text = "111  CreateThread  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A310
+  kind = "pre"
+  text = "441  GetStdHandle  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A314
+  kind = "pre"
+  text = "778  SetCurrentDirectoryA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A318
+  kind = "pre"
+  text = "320  GetCurrentDirectoryA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A31C
+  kind = "pre"
+  text = "206  FindClose  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A320
+  kind = "pre"
+  text = "102  CreateProcessA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A324
+  kind = "pre"
+  text = "912  WaitForSingleObject  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A328
+  kind = "pre"
+  text = "210  FindFirstFileA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A32C
+  kind = "pre"
+  text = "67  CopyFileA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A330
+  kind = "pre"
+  text = "942  WriteProfileSectionA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A334
+  kind = "pre"
+  text = "516  GlobalMemoryStatus  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A338
+  kind = "pre"
+  text = "622  MoveFileA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A33C
+  kind = "pre"
+  text = "446  GetSystemDefaultLCID  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A340
+  kind = "pre"
+  text = "406  GetPrivateProfileIntA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A344
+  kind = "pre"
+  text = "412  GetPrivateProfileStringA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A348
+  kind = "pre"
+  text = "371  GetLocalTime  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A34C
+  kind = "pre"
+  text = "276  GetComputerNameA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A350
+  kind = "pre"
+  text = "185  ExitProcess  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A354
+  kind = "pre"
+  text = "623  MoveFileExA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A358
+  kind = "pre"
+  text = "339  GetDriveTypeA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A35C
+  kind = "pre"
+  text = "376  GetLogicalDrives  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A360
+  kind = "pre"
+  text = "795  SetFilePointer  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A364
+  kind = "pre"
+  text = "357  GetFileTime  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A368
+  kind = "pre"
+  text = "355  GetFileSize  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A36C
+  kind = "pre"
+  text = "491  GetVolumeInformationA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A370
+  kind = "pre"
+  text = "333  GetDiskFreeSpaceA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A374
+  kind = "pre"
+  text = "932  WriteFile  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A378
+  kind = "pre"
+  text = "52  CloseHandle  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A37C
+  kind = "pre"
+  text = "693  ReadFile  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A380
+  kind = "pre"
+  text = "511  GlobalFree  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A384
+  kind = "pre"
+  text = "479  GetTickCount  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A388
+  kind = "pre"
+  text = "83  CreateFileA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A38C
+  kind = "pre"
+  text = "75  CreateDirectoryA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A390
+  kind = "pre"
+  text = "381  GetModuleFileNameA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A394
+  kind = "pre"
+  text = "653  OutputDebugStringA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A398
+  kind = "pre"
+  text = "515  GlobalLock  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A39C
+  kind = "pre"
+  text = "675  QueryPerformanceCounter  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A3A0
+  kind = "pre"
+  text = "522  GlobalUnlock  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A3A4
+  kind = "pre"
+  text = "504  GlobalAlloc  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A3A8
+  kind = "pre"
+  text = "676  QueryPerformanceFrequency  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A3AC
+  kind = "pre"
+  text = "250  FreeResource  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A3B0
+  kind = "pre"
+  text = "854  Sleep  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A3B4
+  kind = "pre"
+  text = "227  FindResourceA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A3B8
+  kind = "pre"
+  text = "599  LoadResource  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A3BC
+  kind = "pre"
+  text = "853  SizeofResource  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A3C0
+  kind = "pre"
+  text = "613  LockResource  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A3C4
+  kind = "pre"
+  text = "553  InterlockedExchange  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A3C8
+  kind = "pre"
+  text = "972  lstrlenA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A3CC
+  kind = "pre"
+  text = "629  MultiByteToWideChar  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A3D0
+  kind = "pre"
+  text = "59  CompareStringW  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A3D4
+  kind = "pre"
+  text = "58  CompareStringA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A3D8
+  kind = "pre"
+  text = "916  WideCharToMultiByte  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A3DC
+  kind = "pre"
+  text = "369  GetLastError  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A3E0
+  kind = "pre"
+  text = "488  GetVersion  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A3E8
+  kind = "pre"
+  text = "102  Ordinal_102  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A3EC
+  kind = "pre"
+  text = "100  Ordinal_100  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A3F0
+  kind = "pre"
+  text = "113  Ordinal_113  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A3F4
+  kind = "pre"
+  text = "112  Ordinal_112  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A3FC
+  kind = "pre"
+  text = "134  Ordinal_134  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A400
+  kind = "pre"
+  text = "110  Ordinal_110  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A404
+  kind = "pre"
+  text = "125  Ordinal_125  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A408
+  kind = "pre"
+  text = "111  Ordinal_111  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A40C
+  kind = "pre"
+  text = "108  Ordinal_108  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A410
+  kind = "pre"
+  text = "198  Ordinal_198  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A418
+  kind = "pre"
+  text = "26  CallNextHookEx  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A41C
+  kind = "pre"
+  text = "419  IsDlgButtonChecked  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A420
+  kind = "pre"
+  text = "686  UnhookWindowsHookEx  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A424
+  kind = "pre"
+  text = "379  GetWindowThreadProcessId  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A428
+  kind = "pre"
+  text = "85  CreateDialogParamA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A42C
+  kind = "pre"
+  text = "710  VkKeyScanA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A430
+  kind = "pre"
+  text = "601  SetKeyboardState  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A434
+  kind = "pre"
+  text = "470  MapVirtualKeyA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A438
+  kind = "pre"
+  text = "142  DefWindowProcA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A43C
+  kind = "pre"
+  text = "67  CloseDesktop  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A440
+  kind = "pre"
+  text = "506  OpenInputDesktop  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A444
+  kind = "pre"
+  text = "96  CreateWindowExA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A448
+  kind = "pre"
+  text = "534  RegisterClassA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A44C
+  kind = "pre"
+  text = "290  GetKeyboardLayout  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A450
+  kind = "pre"
+  text = "252  GetClassNameA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A454
+  kind = "pre"
+  text = "729  wvsprintfA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A458
+  kind = "pre"
+  text = "32  ChangeDisplaySettingsA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A45C
+  kind = "pre"
+  text = "211  EnumDisplaySettingsA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A460
+  kind = "pre"
+  text = "188  DrawTextA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A464
+  kind = "pre"
+  text = "642  SetWindowPlacement  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A468
+  kind = "pre"
+  text = "2  AdjustWindowRectEx  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A46C
+  kind = "pre"
+  text = "300  GetMenu  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A470
+  kind = "pre"
+  text = "371  GetWindowPlacement  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A474
+  kind = "pre"
+  text = "246  GetClassInfoA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A478
+  kind = "pre"
+  text = "691  UnregisterClassA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A47C
+  kind = "pre"
+  text = "345  GetSubMenu  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A480
+  kind = "pre"
+  text = "306  GetMenuItemCount  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A484
+  kind = "pre"
+  text = "307  GetMenuItemID  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A488
+  kind = "pre"
+  text = "311  GetMenuState  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A48C
+  kind = "pre"
+  text = "362  GetWindow  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A490
+  kind = "pre"
+  text = "27  CallWindowProcA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A494
+  kind = "pre"
+  text = "272  GetDlgCtrlID  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A498
+  kind = "pre"
+  text = "346  GetSysColor  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A49C
+  kind = "pre"
+  text = "247  GetClassInfoExA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A4A0
+  kind = "pre"
+  text = "316  GetMessagePos  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A4A4
+  kind = "pre"
+  text = "317  GetMessageTime  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A4A8
+  kind = "pre"
+  text = "355  GetTopWindow  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A4AC
+  kind = "pre"
+  text = "376  GetWindowTextLengthA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A4B0
+  kind = "pre"
+  text = "556  RemovePropA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A4B4
+  kind = "pre"
+  text = "330  GetPropA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A4B8
+  kind = "pre"
+  text = "618  SetPropA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A4BC
+  kind = "pre"
+  text = "250  GetClassLongA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A4C0
+  kind = "pre"
+  text = "721  WinHelpA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A4C4
+  kind = "pre"
+  text = "566  SendDlgItemMessageA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A4C8
+  kind = "pre"
+  text = "417  IsDialogMessageA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A4CC
+  kind = "pre"
+  text = "57  CheckMenuItem  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A4D0
+  kind = "pre"
+  text = "194  EnableMenuItem  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A4D4
+  kind = "pre"
+  text = "487  ModifyMenuA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A4D8
+  kind = "pre"
+  text = "440  LoadBitmapA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A4DC
+  kind = "pre"
+  text = "302  GetMenuCheckMarkDimensions  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A4E0
+  kind = "pre"
+  text = "609  SetMenuItemBitmaps  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A4E4
+  kind = "pre"
+  text = "314  GetMessageA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A4E8
+  kind = "pre"
+  text = "516  PostQuitMessage  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A4EC
+  kind = "pre"
+  text = "667  TabbedTextOutA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A4F0
+  kind = "pre"
+  text = "189  DrawTextExA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A4F4
+  kind = "pre"
+  text = "381  GrayStringA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A4F8
+  kind = "pre"
+  text = "13  BeginPaint  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A4FC
+  kind = "pre"
+  text = "200  EndPaint  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A500
+  kind = "pre"
+  text = "323  GetNextDlgTabItem  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A504
+  kind = "pre"
+  text = "82  CreateDialogIndirectParamA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A508
+  kind = "pre"
+  text = "538  RegisterClipboardFormatA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A50C
+  kind = "pre"
+  text = "347  GetSysColorBrush  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A510
+  kind = "pre"
+  text = "151  DestroyMenu  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A514
+  kind = "pre"
+  text = "517  PostThreadMessageA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A518
+  kind = "pre"
+  text = "661  SubtractRect  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A51C
+  kind = "pre"
+  text = "274  GetDlgItemInt  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A520
+  kind = "pre"
+  text = "158  DialogBoxParamA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A524
+  kind = "pre"
+  text = "595  SetDlgItemTextA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A528
+  kind = "pre"
+  text = "621  SetRectEmpty  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A52C
+  kind = "pre"
+  text = "658  ShowWindow  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A530
+  kind = "pre"
+  text = "726  mouse_event  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A534
+  kind = "pre"
+  text = "153  DestroyWindow  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A538
+  kind = "pre"
+  text = "446  LoadIconA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A53C
+  kind = "pre"
+  text = "551  RegisterWindowMessageA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A540
+  kind = "pre"
+  text = "279  GetForegroundWindow  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A544
+  kind = "pre"
+  text = "270  GetDesktopWindow  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A548
+  kind = "pre"
+  text = "223  EqualRect  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A54C
+  kind = "pre"
+  text = "296  GetLastActivePopup  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A550
+  kind = "pre"
+  text = "643  SetWindowPos  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A554
+  kind = "pre"
+  text = "1  AdjustWindowRect  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A558
+  kind = "pre"
+  text = "375  GetWindowTextA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A55C
+  kind = "pre"
+  text = "161  DispatchMessageA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A560
+  kind = "pre"
+  text = "479  MessageBoxA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A564
+  kind = "pre"
+  text = "682  TranslateMessage  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A568
+  kind = "pre"
+  text = "422  IsIconic  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A56C
+  kind = "pre"
+  text = "727  wsprintfA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A570
+  kind = "pre"
+  text = "61  ChildWindowFromPointEx  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A574
+  kind = "pre"
+  text = "294  GetKeyboardState  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A578
+  kind = "pre"
+  text = "429  IsWindow  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A57C
+  kind = "pre"
+  text = "228  FindWindowExA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A580
+  kind = "pre"
+  text = "591  SetCursorPos  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A584
+  kind = "pre"
+  text = "492  MoveWindow  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A588
+  kind = "pre"
+  text = "474  MapWindowPoints  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A58C
+  kind = "pre"
+  text = "437  KillTimer  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A590
+  kind = "pre"
+  text = "634  SetTimer  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A594
+  kind = "pre"
+  text = "448  LoadImageA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A598
+  kind = "pre"
+  text = "478  MessageBeep  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A59C
+  kind = "pre"
+  text = "394  InflateRect  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A5A0
+  kind = "pre"
+  text = "257  GetClipboardData  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A5A4
+  kind = "pre"
+  text = "586  SetClipboardData  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A5A8
+  kind = "pre"
+  text = "415  IsClipboardFormatAvailable  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A5AC
+  kind = "pre"
+  text = "502  OpenClipboard  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A5B0
+  kind = "pre"
+  text = "193  EmptyClipboard  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A5B4
+  kind = "pre"
+  text = "66  CloseClipboard  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A5B8
+  kind = "pre"
+  text = "614  SetParent  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A5BC
+  kind = "pre"
+  text = "235  GetActiveWindow  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A5C0
+  kind = "pre"
+  text = "598  SetFocus  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A5C4
+  kind = "pre"
+  text = "430  IsWindowEnabled  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A5C8
+  kind = "pre"
+  text = "579  SetActiveWindow  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A5CC
+  kind = "pre"
+  text = "700  UpdateWindow  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A5D0
+  kind = "pre"
+  text = "463  LockWindowUpdate  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A5D4
+  kind = "pre"
+  text = "469  MapDialogRect  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A5D8
+  kind = "pre"
+  text = "512  PeekMessageA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A5DC
+  kind = "pre"
+  text = "150  DestroyIcon  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A5E0
+  kind = "pre"
+  text = "589  SetCursor  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A5E4
+  kind = "pre"
+  text = "554  ReleaseDC  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A5E8
+  kind = "pre"
+  text = "654  ShowCursor  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A5EC
+  kind = "pre"
+  text = "267  GetCursorPos  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A5F0
+  kind = "pre"
+  text = "442  LoadCursorA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A5F4
+  kind = "pre"
+  text = "90  CreateIconIndirect  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A5F8
+  kind = "pre"
+  text = "349  GetSystemMetrics  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A5FC
+  kind = "pre"
+  text = "268  GetDC  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A600
+  kind = "pre"
+  text = "414  IsChild  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A604
+  kind = "pre"
+  text = "724  WindowFromPoint  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A608
+  kind = "pre"
+  text = "255  GetClientRect  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A60C
+  kind = "pre"
+  text = "64  ClientToScreen  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A610
+  kind = "pre"
+  text = "524  PtInRect  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A614
+  kind = "pre"
+  text = "243  GetCapture  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A618
+  kind = "pre"
+  text = "278  GetFocus  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A61C
+  kind = "pre"
+  text = "74  CopyRect  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A620
+  kind = "pre"
+  text = "372  GetWindowRect  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A624
+  kind = "pre"
+  text = "708  ValidateRect  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A628
+  kind = "pre"
+  text = "501  OffsetRect  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A62C
+  kind = "pre"
+  text = "402  IntersectRect  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A630
+  kind = "pre"
+  text = "289  GetKeyState  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A634
+  kind = "pre"
+  text = "325  GetParent  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A638
+  kind = "pre"
+  text = "514  PostMessageA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A63C
+  kind = "pre"
+  text = "580  SetCapture  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A640
+  kind = "pre"
+  text = "553  ReleaseCapture  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A644
+  kind = "pre"
+  text = "15  BringWindowToTop  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A648
+  kind = "pre"
+  text = "620  SetRect  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A64C
+  kind = "pre"
+  text = "665  SystemParametersInfoA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A650
+  kind = "pre"
+  text = "366  GetWindowLongA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A654
+  kind = "pre"
+  text = "640  SetWindowLongA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A658
+  kind = "pre"
+  text = "433  IsWindowVisible  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A65C
+  kind = "pre"
+  text = "571  SendMessageA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A660
+  kind = "pre"
+  text = "196  EnableWindow  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A664
+  kind = "pre"
+  text = "52  CharUpperA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A668
+  kind = "pre"
+  text = "65  ClipCursor  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A66C
+  kind = "pre"
+  text = "273  GetDlgItem  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A670
+  kind = "pre"
+  text = "332  GetQueueStatus  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A674
+  kind = "pre"
+  text = "231  FlashWindow  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A678
+  kind = "pre"
+  text = "227  FindWindowA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A67C
+  kind = "pre"
+  text = "198  EndDialog  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A680
+  kind = "pre"
+  text = "646  SetWindowTextA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A684
+  kind = "pre"
+  text = "650  SetWindowsHookExA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A688
+  kind = "pre"
+  text = "599  SetForegroundWindow  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A68C
+  kind = "pre"
+  text = "403  InvalidateRect  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A690
+  kind = "pre"
+  text = "275  GetDlgItemTextA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A694
+  kind = "pre"
+  text = "561  ScreenToClient  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A69C
+  kind = "pre"
+  text = "146  mmioSeek  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A6A0
+  kind = "pre"
+  text = "161  timeGetDevCaps  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A6A4
+  kind = "pre"
+  text = "136  mmioDescend  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A6A8
+  kind = "pre"
+  text = "141  mmioOpenA  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A6AC
+  kind = "pre"
+  text = "143  mmioRead  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A6B0
+  kind = "pre"
+  text = "133  mmioAscend  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A6B4
+  kind = "pre"
+  text = "134  mmioClose  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A6B8
+  kind = "pre"
+  text = "159  timeBeginPeriod  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A6BC
+  kind = "pre"
+  text = "160  timeEndPeriod  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A6C0
+  kind = "pre"
+  text = "165  timeSetEvent  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A6C4
+  kind = "pre"
+  text = "164  timeKillEvent  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A6C8
+  kind = "pre"
+  text = "163  timeGetTime  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A6D0
+  kind = "pre"
+  text = "5  WSAAccept  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A6D8
+  kind = "pre"
+  text = "14  Ordinal_14  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A6DC
+  kind = "pre"
+  text = "116  Ordinal_116  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A6E0
+  kind = "pre"
+  text = "57  Ordinal_57  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A6E4
+  kind = "pre"
+  text = "19  Ordinal_19  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A6E8
+  kind = "pre"
+  text = "11  Ordinal_11  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A6EC
+  kind = "pre"
+  text = "115  Ordinal_115  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A6F0
+  kind = "pre"
+  text = "10  Ordinal_10  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A6F4
+  kind = "pre"
+  text = "8  Ordinal_8  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A6F8
+  kind = "pre"
+  text = "6  Ordinal_6  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A6FC
+  kind = "pre"
+  text = "15  Ordinal_15  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A700
+  kind = "pre"
+  text = "23  Ordinal_23  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A704
+  kind = "pre"
+  text = "112  Ordinal_112  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A708
+  kind = "pre"
+  text = "3  Ordinal_3  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A70C
+  kind = "pre"
+  text = "52  Ordinal_52  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A710
+  kind = "pre"
+  text = "12  Ordinal_12  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A714
+  kind = "pre"
+  text = "4  Ordinal_4  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A718
+  kind = "pre"
+  text = "21  Ordinal_21  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A71C
+  kind = "pre"
+  text = "9  Ordinal_9  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A720
+  kind = "pre"
+  text = "20  Ordinal_20  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A724
+  kind = "pre"
+  text = "16  Ordinal_16  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A728
+  kind = "pre"
+  text = "101  Ordinal_101  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A72C
+  kind = "pre"
+  text = "2  Ordinal_2  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A730
+  kind = "pre"
+  text = "17  Ordinal_17  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A734
+  kind = "pre"
+  text = "13  Ordinal_13  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A738
+  kind = "pre"
+  text = "111  Ordinal_111  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061A73C
+  kind = "pre"
+  text = "5  Ordinal_5  <<not bound>>"
+
+  [[function.comment]]
+  va = 0x0061C874
+  kind = "eol"
+  text = "terminator for vftable"
+
+  [[function.comment]]
+  va = 0x0061DAF4
+  kind = "eol"
+  text = "terminator for vftable"
+
+  [[function.comment]]
+  va = 0x0061DB74
+  kind = "eol"
+  text = "terminator for vftable"
+
+  [[function.comment]]
+  va = 0x0061DBF4
+  kind = "eol"
+  text = "terminator for vftable"
+
+  [[function.comment]]
+  va = 0x00622C28
+  kind = "eol"
+  text = "terminator for vftable"
+
+[[global]]
+va = 0x0066B788
+name = "CRTException__vtable_Maybe"

@@ -1,0 +1,139 @@
+[[function]]
+va = 0x0053F2E0
+name = "GameTask__fxrandom"
+
+[[function]]
+va = 0x0053F300
+name = "GameTask__netrandom"
+
+[[function]]
+va = 0x0053F340
+name = "GameTask__closest_object"
+
+[[function]]
+va = 0x0053F3F0
+name = "GameTask__find_closest_team"
+
+[[function]]
+va = 0x00546490
+name = "GameTask__sound_stop"
+
+[[function]]
+va = 0x005469C0
+name = "GameTask__ctor0_GameTask"
+
+[[function]]
+va = 0x005469F0
+name = "GameTask__save_0"
+
+[[function]]
+va = 0x00546A30
+name = "GameTask__machine_playing"
+
+[[function]]
+va = 0x00546A90
+name = "GameTask__moveto"
+
+[[function]]
+va = 0x00546AF0
+name = "GameTask__start_recording"
+
+[[function]]
+va = 0x00546B20
+name = "GameTask__ensure_recording"
+
+[[function]]
+va = 0x00546BB0
+name = "GameTask__sub_546BB0"
+
+[[function]]
+va = 0x00546C20
+name = "GameTask__sound_start_0"
+
+[[function]]
+va = 0x00546C80
+name = "GameTask__sound_volume"
+
+[[function]]
+va = 0x00546D60
+name = "GameTask__sound_play"
+
+[[function]]
+va = 0x00546DB0
+name = "GameTask__sub_546DB0"
+
+[[function]]
+va = 0x00546EB0
+name = "GameTask__sub_546EB0"
+
+[[function]]
+va = 0x00546F10
+name = "GameTask__sub_546F10"
+
+[[function]]
+va = 0x005471B0
+name = "GameTask__create_bubble_0"
+
+[[function]]
+va = 0x00547230
+name = "GameTask__create_score_bubble"
+
+[[function]]
+va = 0x005472C0
+name = "GameTask__create_bubble_1"
+
+[[function]]
+va = 0x00547310
+name = "GameTask__create_flames"
+
+[[function]]
+va = 0x00547490
+name = "GameTask__create_smoke_0"
+
+[[function]]
+va = 0x00547510
+name = "GameTask__create_smoke"
+
+[[function]]
+va = 0x00547CB0
+name = "GameTask__calc_damage"
+
+[[function]]
+va = 0x00547D80
+name = "GameTask__set_track"
+
+[[function]]
+va = 0x00547DB0
+name = "GameTask__get_track"
+
+[[function]]
+va = 0x00547ED0
+name = "GameTask__set_active"
+
+[[function]]
+va = 0x00547F00
+name = "GameTask__bitmap3d_0"
+
+[[function]]
+va = 0x00547F30
+name = "GameTask__sub_547F30"
+
+[[function]]
+va = 0x00547F60
+name = "GameTask__comment_public_0"
+
+[[function]]
+va = 0x00547FC0
+name = "GameTask__game_text_public"
+
+[[function]]
+va = 0x00548020
+name = "GameTask__game_text_secret"
+
+[[function]]
+va = 0x005480F0
+name = "GameTask__comment_public"
+
+[[function]]
+va = 0x005481E0
+name = "GameTask__sub_5481E0"

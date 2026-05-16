@@ -1,0 +1,115 @@
+[[function]]
+va = 0x005220B0
+name = "GameWorld__InitTeamsFromSetup"
+
+[[function]]
+va = 0x00524700
+name = "GameWorld__InitFeatureFlags"
+
+[[function]]
+va = 0x00525BE0
+name = "GameWorld__InitVersionFlags"
+
+[[function]]
+va = 0x00526080
+name = "GameWorld__InitRenderIndices"
+
+[[function]]
+va = 0x00526120
+name = "GameWorld__InitFields"
+
+[[function]]
+va = 0x00526500
+name = "GameWorld__InitGameState"
+
+[[function]]
+va = 0x00528A30
+name = "GameWorld__SaveReplayState"
+
+[[function]]
+va = 0x0053D0E0
+name = "GameWorld__LoadHudAndWeaponSprites"
+
+[[function]]
+va = 0x0053FFC0
+name = "GameWorld__CheckWeaponAvail"
+
+[[function]]
+va = 0x00547D10
+name = "GameWorld__RecordLandingEvent"
+
+[[function]]
+va = 0x00547E70
+name = "GameWorld__RegisterEventPoint"
+plate_comment = """
+Reset effect-event point at world+0x73A0..+0x73AC to (ECX, EDX) and arm the gate at +0x739C.
+
+The disassembly shape suggests a "reset bbox / expand bbox" pattern, but the entry path unconditionally zeros the gate at 0x547E78 BEFORE checking it at 0x547E8A, so the JNZ at 0x547E8E is never taken — the "expand" branch (0x547EA5..) is dead code. Effective behavior: always reset to single point + arm gate.
+
+Calling convention: __usercall(ECX=x, EDX=y) + stdcall(task), RET 0x4. The task argument is read at +0x2C to get the GameWorld pointer.
+
+Ported in Rust as openwa-game::engine::world::GameWorld::register_event_point_raw. Was bridged earlier as bridge_set_gravity_center / call_set_gravity_center; the "gravity center" interpretation was incorrect.
+"""
+
+[[function]]
+va = 0x0056A830
+name = "GameWorld__InitDisplayFinal"
+
+[[function]]
+va = 0x0056E220
+name = "GameWorld__Constructor"
+
+  [function.signature]
+  returns = "void *"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+
+  [[function.param]]
+  name = "display"
+  type = "void *"
+
+  [[function.param]]
+  name = "sound"
+  type = "void *"
+
+  [[function.param]]
+  name = "keyboard"
+  type = "void *"
+
+  [[function.param]]
+  name = "palette"
+  type = "void *"
+
+  [[function.param]]
+  name = "music"
+  type = "void *"
+
+  [[function.param]]
+  name = "param7"
+  type = "void *"
+
+  [[function.param]]
+  name = "param8"
+  type = "void *"
+
+  [[function.param]]
+  name = "game_info"
+  type = "void *"
+
+[[function]]
+va = 0x005706D0
+name = "GameWorld__InitPaletteGradientSprites"
+
+[[function]]
+va = 0x00570E20
+name = "GameWorld__InitDisplayLayerColors"
+
+[[function]]
+va = 0x00570F30
+name = "GameWorld__LoadFonts"
+
+[[global]]
+va = 0x00669C28
+name = "GameWorld__vtable_Maybe"

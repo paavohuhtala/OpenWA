@@ -1,0 +1,7 @@
+[[function]]
+va = 0x00555050
+name = "Task_SeaBubble__dtor0_Task_SeaBubble"
+
+[[function]]
+va = 0x00555090
+name = "Task_SeaBubble__message"

@@ -1,0 +1,35 @@
+[[function]]
+va = 0x0048D450
+name = "CStretchOrCenterDlg__ctor_CStretchOrCenterDlg"
+
+[[function]]
+va = 0x0048D4F0
+name = "CStretchOrCenterDlg__dtor0_CStretchOrCenterDlg"
+
+[[function]]
+va = 0x0048D510
+name = "CStretchOrCenterDlg__DoDataExchange"
+
+[[function]]
+va = 0x0048D560
+name = "CStretchOrCenterDlg__getMessageMap"
+
+[[function]]
+va = 0x0048D570
+name = "CStretchOrCenterDlg__OnInitDialog"
+
+[[function]]
+va = 0x0048D640
+name = "CStretchOrCenterDlg__sub_48D640"
+
+[[function]]
+va = 0x0048D6C0
+name = "CStretchOrCenterDlg__sub_48D6C0"
+
+[[function]]
+va = 0x0048D740
+name = "CStretchOrCenterDlg__sub_48D740"
+
+[[function]]
+va = 0x0048D770
+name = "CStretchOrCenterDlg__sub_48D770"

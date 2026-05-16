@@ -1,0 +1,90 @@
+[[function]]
+va = 0x00422180
+name = "Frontend__PaletteAnimation"
+
+[[function]]
+va = 0x00429830
+name = "Frontend__OnInitialLoad"
+
+[[function]]
+va = 0x00440940
+name = "Frontend__ApplyOptions"
+
+[[function]]
+va = 0x00441D80
+name = "Frontend__LaunchSinglePlayer"
+
+[[function]]
+va = 0x00447960
+name = "Frontend__DoModalWrapper"
+
+[[function]]
+va = 0x00447AA0
+name = "Frontend__LoadTransitionPalette"
+
+[[function]]
+va = 0x0044E850
+name = "Frontend__OnMultiplayerButton"
+
+[[function]]
+va = 0x0044EC10
+name = "Frontend__OnNetworkButton"
+
+[[function]]
+va = 0x00486A10
+name = "Frontend__OnMinimize"
+
+[[function]]
+va = 0x0048DAB0
+name = "Frontend__OnOptionsAccept"
+
+[[function]]
+va = 0x00490E60
+name = "Frontend__SaveTheme"
+
+[[function]]
+va = 0x004E47D0
+name = "Frontend__OnGraphicsInitError_Maybe"
+
+[[function]]
+va = 0x004E4AE0
+name = "Frontend__PreTransitionCleanup"
+
+[[function]]
+va = 0x004E6440
+name = "Frontend__MainNavigationLoop"
+
+[[function]]
+va = 0x004EB450
+name = "Frontend__PostScreenCleanup"
+
+[[function]]
+va = 0x004EC540
+name = "Frontend__LaunchGameSession"
+plate_comment = "Frontend__LaunchGameSession: Called from frontend dialogs to start a game. Hides frontend UI, stops audio, calls GameSession__Run, then restores frontend state. param_1=frontend/DDGame, param_2=dialog window, param_3/4=display params passed to GameEngine__InitHardware."
+
+[[function]]
+va = 0x004ED050
+name = "Frontend__PumpModalOrSessionFrame"
+plate_comment = "Pumps frame work for the GetMessageProc synthesized-input path.\\n\\nIf a `GameSession` exists with `init_flag != 0`, calls `GameSession::ProcessFrame` (single per-frame tick).\\nOtherwise, if a top-level modal dialog (`g_TopModalDialog`) is active, drains its WM_TIMER (0x113) message queue with `DispatchMessageA`, then invokes the dialog's vtable+0x15C transition method with arg `0`.\\n\\nCalled exactly once, from `Frontend::GetMessageProc` (0x004ED160), after the synthesized mouse_event that initiated this hook callback's drain pass.\\n\\nNow ported in Rust (inlined into the Rust GetMessageProc port). No remaining xrefs."
+
+[[function]]
+va = 0x004ED0D0
+name = "Frontend__ForegroundIdleProc"
+
+[[function]]
+va = 0x004ED160
+name = "Frontend__GetMessageProc"
+plate_comment = "Frontend WH_GETMESSAGE hook proc — synthesizes mouse_event() calls so the engine can drain WM_MOUSEWHEEL or WM_MBUTTON* bursts while a modal-dialog input grab (`g_InputHookMode != Off`) is active.\\n\\nProcessing only runs on the (code==0, wparam==PM_REMOVE) entry; the byte at `g_GetMsgProc_Recursing` (0x008ACE32) is the recursion guard.\\n\\nState machine:\\n  - In `InputHookMode::Animated`:\\n     * If a synthesized pump is already pending (`g_input_hook_flag_2dd7 != 0`): clear that flag iff `GetCapture() == NULL` or a popup-menu window (`#32768`) is up, then fall through to the off/blocking-pending branch.\\n     * Else, on WM_NCLBUTTONDOWN (0xA1) or WM_NCRBUTTONDOWN (0xA4): set `g_GetMsgProc_NCRight` to 0/1, mark `g_input_hook_flag_2dd7 = 1`, and synthesize either a wheel event (`MOUSEEVENTF_WHEEL`, filter_select==0) or a middle-button up/down event (filter_select!=0, state seeded from `GetKeyState(VK_MBUTTON)`).\\n  - In `InputHookMode::Blocking` OR with a pending pump: if the message matches the filter (WM_MOUSEWHEEL when filter_select==0; WM_MBUTTONDOWN..WM_MBUTTONDBLCLK when !=0), call `Frontend::PumpModalOrSessionFrame`, toggle `g_GetMsgProc_StateAck` based on whether the button-pressed state changed. Then drain queued same-class messages and synthesize a final mouse_event.\\n\\nAlways chains via `CallNextHookEx(g_FrontendMsgHook, ...)`.\\n\\nNow ported to Rust (`openwa_game::frontend::input_hooks::get_message_proc`). The DLL registers the Rust function directly with `SetWindowsHookExA`; the WA address is install_trapped as a safety net."
+
+[[function]]
+va = 0x004ED3C0
+name = "Frontend__InstallInputHooks"
+
+[[function]]
+va = 0x004ED590
+name = "Frontend__UnhookInputHooks"
+
+[[function]]
+va = 0x004F14A0
+name = "Frontend__OnStartGameButton"

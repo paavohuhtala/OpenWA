@@ -1,0 +1,64 @@
+[[function]]
+va = 0x00461340
+name = "Replay__ReadPrefixedString"
+
+[[function]]
+va = 0x004614D0
+name = "Replay__ReadByteValidated"
+
+[[function]]
+va = 0x00461540
+name = "Replay__ReadByteRange"
+
+[[function]]
+va = 0x004615B0
+name = "Replay__ReadU16Validated"
+
+[[function]]
+va = 0x00461620
+name = "Replay__ReadWormName"
+
+[[function]]
+va = 0x00461690
+name = "Replay__ValidateTeamType"
+
+[[function]]
+va = 0x00465E10
+name = "Replay__ValidateTeamSetup"
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "prefix_ptr"
+  type = "int"
+
+[[function]]
+va = 0x004670F0
+name = "Replay__ProcessSchemeDefaults"
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "prefix_ptr@&lt;ESI&gt;"
+  type = "int"
+
+[[function]]
+va = 0x00467280
+name = "Replay__ProcessReplayFlags"
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "prefix_ptr@&lt;EAX&gt;"
+  type = "int"
+
+[[function]]
+va = 0x00467BC0
+name = "Replay__RegisterObserver"
+
+[[function]]
+va = 0x00468890
+name = "Replay__ProcessAllianceData"

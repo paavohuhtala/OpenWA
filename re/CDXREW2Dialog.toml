@@ -1,0 +1,23 @@
+[[function]]
+va = 0x00410060
+name = "CDXREW2Dialog__OnInitDialog"
+
+[[function]]
+va = 0x00447930
+name = "CDXREW2Dialog__InitialiseFade"
+
+[[function]]
+va = 0x00447B20
+name = "CDXREW2Dialog__sub_447B20"
+
+[[function]]
+va = 0x00447B90
+name = "CDXREW2Dialog__sub_447B90"
+
+[[function]]
+va = 0x00447BB0
+name = "CDXREW2Dialog__sub_447BB0"
+
+[[function]]
+va = 0x00447BF0
+name = "CDXREW2Dialog__sub_447BF0"

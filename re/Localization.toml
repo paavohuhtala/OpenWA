@@ -1,0 +1,7 @@
+[[function]]
+va = 0x00594340
+name = "Localization__GetString"
+
+[[function]]
+va = 0x0059B3C0
+name = "Localization__FormatGLibError"

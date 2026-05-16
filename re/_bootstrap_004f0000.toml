@@ -1,0 +1,31 @@
+[[function]]
+va = 0x004F5F80
+name = "IMG_Decode"
+
+[[function]]
+va = 0x004FAA30
+name = "ConstructSprite"
+
+[[function]]
+va = 0x004FAAF0
+name = "LoadSpriteFromVfs"
+
+[[function]]
+va = 0x004FAB80
+name = "ProcessSprite"
+
+[[function]]
+va = 0x004FB070
+name = "SetTextboxText"
+
+[[function]]
+va = 0x004FDFE0
+name = "PlaySoundLocal"
+
+[[function]]
+va = 0x004FE750
+name = "OnTerrainCollision"
+
+[[function]]
+va = 0x004FF020
+name = "PlayImpactSound"

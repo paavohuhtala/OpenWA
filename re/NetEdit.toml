@@ -1,0 +1,55 @@
+[[function]]
+va = 0x004A9110
+name = "NetEdit__ctor_NetEdit"
+
+[[function]]
+va = 0x004A91F0
+name = "NetEdit__dtor0_NetEdit"
+
+[[function]]
+va = 0x004A9210
+name = "NetEdit__dtor1_NetEdit"
+
+[[function]]
+va = 0x004A92D0
+name = "NetEdit__sub_4A92D0"
+
+[[function]]
+va = 0x004A93B0
+name = "NetEdit__sub_4A93B0"
+
+[[function]]
+va = 0x004A95A0
+name = "NetEdit__sub_4A95A0"
+
+[[function]]
+va = 0x004A95F0
+name = "NetEdit__sub_4A95F0"
+
+[[function]]
+va = 0x004A9640
+name = "NetEdit__sub_4A9640"
+
+[[function]]
+va = 0x004A96A0
+name = "NetEdit__sub_4A96A0"
+
+[[function]]
+va = 0x004A96E0
+name = "NetEdit__getMessageMap"
+
+[[function]]
+va = 0x004A9A40
+name = "NetEdit__sub_4A9A40"
+
+[[function]]
+va = 0x004A9AE0
+name = "NetEdit__sub_4A9AE0"
+
+[[function]]
+va = 0x004A9C90
+name = "NetEdit__sub_4A9C90"
+
+[[function]]
+va = 0x004A9CE0
+name = "NetEdit__sub_4A9CE0"

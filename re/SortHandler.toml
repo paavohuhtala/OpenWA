@@ -1,0 +1,75 @@
+[[function]]
+va = 0x00545840
+name = "SortHandler__dtor_SortHandler"
+
+[[function]]
+va = 0x00545880
+name = "SortHandler__reset"
+
+[[function]]
+va = 0x005458F0
+name = "SortHandler__update"
+
+[[function]]
+va = 0x00545A20
+name = "SortHandler__set_death"
+
+[[function]]
+va = 0x00545C20
+name = "SortHandler__remove"
+
+[[function]]
+va = 0x00545CA0
+name = "SortHandler__height"
+
+[[function]]
+va = 0x00545CD0
+name = "SortHandler__offset"
+
+[[function]]
+va = 0x00545D00
+name = "SortHandler__this_reorder_pending"
+
+[[function]]
+va = 0x00545D60
+name = "SortHandler__this_permit_reorder"
+
+[[function]]
+va = 0x00545DE0
+name = "SortHandler__this_death_pending"
+
+[[function]]
+va = 0x00545E10
+name = "SortHandler__this_permit_death"
+
+[[function]]
+va = 0x00545E70
+name = "SortHandler__child_reorder_pending"
+
+[[function]]
+va = 0x00545EB0
+name = "SortHandler__child_permit_reorder"
+
+[[function]]
+va = 0x00545EF0
+name = "SortHandler__child_death_pending"
+
+[[function]]
+va = 0x00545F30
+name = "SortHandler__child_permit_death"
+
+[[function]]
+va = 0x00545F70
+name = "SortHandler__reorder_pending"
+
+[[function]]
+va = 0x00545F90
+name = "SortHandler__permit_reorder"
+
+[[function]]
+va = 0x00545FB0
+name = "SortHandler__death_pending"
+
+[[function]]
+va = 0x00563F30
+name = "SortHandler__update"

@@ -1,0 +1,11 @@
+[[function]]
+va = 0x004C91B0
+name = "FrontendPostInit__Constructor"
+
+[[global]]
+va = 0x0065EB08
+name = "FrontendPostInit__base_vtable"
+
+[[global]]
+va = 0x0065EC50
+name = "FrontendPostInit__vtable"

@@ -1,0 +1,16 @@
+[[function]]
+va = 0x004FAA80
+name = "Sprite__Destructor"
+
+[[function]]
+va = 0x004FAD30
+name = "Sprite__GetFrameForBlit"
+plate_comment = "Sprite__GetFrameForBlit — usercall ESI=this(Sprite*). Looks up an animation frame in a Sprite, computes/clamps the frame index from the animation value, fetches its bounding box from the frame table at this+0x28, and lazily decompresses the surface via FUN_004FA950 if not yet cached. Called from DisplayGfx::GetSpriteFrameForBlit (slot 33, 0x5237C0) for the sprite_ptrs path."
+
+[[function]]
+va = 0x004FAEC0
+name = "Sprite__GetInfo"
+
+[[global]]
+va = 0x0066418C
+name = "Sprite__vtable"

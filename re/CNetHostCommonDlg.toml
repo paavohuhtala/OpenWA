@@ -1,0 +1,79 @@
+[[function]]
+va = 0x004AB890
+name = "CNetHostCommonDlg__Constructor"
+
+[[function]]
+va = 0x004AB950
+name = "CNetHostCommonDlg__dtor0_CNetHostCommonDlg"
+
+[[function]]
+va = 0x004AB970
+name = "CNetHostCommonDlg__Destructor_1"
+
+[[function]]
+va = 0x004ABA10
+name = "CNetHostCommonDlg__DoDataExchange"
+
+[[function]]
+va = 0x004ABA60
+name = "CNetHostCommonDlg__getMessageMap"
+
+[[function]]
+va = 0x004ABA70
+name = "CNetHostCommonDlg__OnInitDialog"
+
+[[function]]
+va = 0x004ABC00
+name = "CNetHostCommonDlg__sub_4ABC00"
+
+[[function]]
+va = 0x004ABCC0
+name = "CNetHostCommonDlg__sub_4ABCC0"
+
+[[function]]
+va = 0x004ABDC0
+name = "CNetHostCommonDlg__sub_4ABDC0"
+
+[[function]]
+va = 0x004AC090
+name = "CNetHostCommonDlg__sub_4AC090"
+
+[[function]]
+va = 0x004AC0D0
+name = "CNetHostCommonDlg__sub_4AC0D0"
+
+[[function]]
+va = 0x004AC570
+name = "CNetHostCommonDlg__sub_4AC570"
+
+[[function]]
+va = 0x004AC660
+name = "CNetHostCommonDlg__sub_4AC660"
+
+[[function]]
+va = 0x004AC7A0
+name = "CNetHostCommonDlg__sub_4AC7A0"
+
+[[function]]
+va = 0x004AC7B0
+name = "CNetHostCommonDlg__sub_4AC7B0"
+
+[[function]]
+va = 0x004AC860
+name = "CNetHostCommonDlg__sub_4AC860"
+
+[[function]]
+va = 0x004AC8B0
+name = "CNetHostCommonDlg__sub_4AC8B0"
+
+[[function]]
+va = 0x004AC900
+name = "CNetHostCommonDlg__sub_4AC900"
+
+[[function]]
+va = 0x004AC9B0
+name = "CNetHostCommonDlg__sub_4AC9B0"
+
+[[function]]
+va = 0x004ACBB0
+name = "CNetHostCommonDlg__sub_4ACBB0"

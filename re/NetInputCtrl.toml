@@ -1,0 +1,7 @@
+[[function]]
+va = 0x0053DD50
+name = "NetInputCtrl__InitTeamInputs"
+
+[[function]]
+va = 0x0058C0D0
+name = "NetInputCtrl__Init"

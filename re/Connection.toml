@@ -1,0 +1,123 @@
+[[function]]
+va = 0x0058CC90
+name = "Connection__Constructor"
+
+[[function]]
+va = 0x0058CD00
+name = "Connection__sub_58CD00"
+
+[[function]]
+va = 0x0058CD20
+name = "Connection__sub_58CD20"
+
+[[function]]
+va = 0x0058CD80
+name = "Connection__sub_58CD80"
+
+[[function]]
+va = 0x0058D060
+name = "Connection__ioctlsocket_DataToRead"
+
+[[function]]
+va = 0x0058D080
+name = "Connection__sub_58D080"
+
+[[function]]
+va = 0x0058D160
+name = "Connection__sub_58D160"
+
+[[function]]
+va = 0x0058D170
+name = "Connection__sub_58D170"
+
+[[function]]
+va = 0x0058D1C0
+name = "Connection__sub_58D1C0"
+
+[[function]]
+va = 0x0058D220
+name = "Connection__sub_58D220"
+
+[[function]]
+va = 0x0058D280
+name = "Connection__Close"
+
+[[function]]
+va = 0x0058D3D0
+name = "Connection__sub_58D3D0"
+
+[[function]]
+va = 0x0058D4B0
+name = "Connection__sub_58D4B0"
+
+[[function]]
+va = 0x0058D560
+name = "Connection__sub_58D560"
+
+[[function]]
+va = 0x0058D580
+name = "Connection__sub_58D580"
+
+[[function]]
+va = 0x0058D610
+name = "Connection__sub_58D610"
+
+[[function]]
+va = 0x0058D830
+name = "Connection__Send"
+
+[[function]]
+va = 0x0058D8D0
+name = "Connection__sub_58D8D0"
+
+[[function]]
+va = 0x0058D920
+name = "Connection__sub_58D920"
+
+[[function]]
+va = 0x0058D9C0
+name = "Connection__sub_58D9C0"
+
+[[function]]
+va = 0x0058DA30
+name = "Connection__sub_58DA30"
+
+[[function]]
+va = 0x0058DAF0
+name = "Connection__sub_58DAF0"
+
+[[function]]
+va = 0x0058DB80
+name = "Connection__sub_58DB80"
+
+[[function]]
+va = 0x0058DBA0
+name = "Connection__sub_58DBA0"
+
+[[function]]
+va = 0x0058DBE0
+name = "Connection__sub_58DBE0"
+
+[[function]]
+va = 0x0058DCE0
+name = "Connection__sub_58DCE0"
+
+[[function]]
+va = 0x0058DD20
+name = "Connection__sub_58DD20"
+
+[[function]]
+va = 0x0058DD60
+name = "Connection__BtoH"
+
+[[function]]
+va = 0x0058DDF0
+name = "Connection__sub_58DDF0"
+
+[[function]]
+va = 0x0058DE60
+name = "Connection__Broadcast"
+
+[[function]]
+va = 0x0058DF50
+name = "Connection__sub_58DF50"

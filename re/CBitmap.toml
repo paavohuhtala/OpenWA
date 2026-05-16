@@ -1,0 +1,63 @@
+[[function]]
+va = 0x00401550
+name = "CBitmap__Constructor_Maybe"
+
+[[function]]
+va = 0x004025F0
+name = "CBitmap__Constructor_Maybe"
+
+[[function]]
+va = 0x004027D0
+name = "CBitmap__Constructor_Maybe"
+
+[[function]]
+va = 0x00403F30
+name = "CBitmap__Constructor_Maybe"
+
+[[function]]
+va = 0x00425AF0
+name = "CBitmap__Constructor_Maybe"
+
+[[function]]
+va = 0x00426A10
+name = "CBitmap__Constructor_Maybe"
+
+[[function]]
+va = 0x004454B0
+name = "CBitmap__Destructor_Maybe"
+
+[[function]]
+va = 0x00445D70
+name = "CBitmap__Destructor_Maybe"
+
+[[function]]
+va = 0x004467C0
+name = "CBitmap__Constructor_Maybe"
+
+[[function]]
+va = 0x00486F50
+name = "CBitmap__Destructor_Maybe"
+
+[[function]]
+va = 0x00487950
+name = "CBitmap__Destructor_Maybe"
+
+[[function]]
+va = 0x0048BAE0
+name = "CBitmap__Constructor_Maybe"
+
+[[function]]
+va = 0x004CF680
+name = "CBitmap__Constructor_Maybe"
+
+[[function]]
+va = 0x004CF820
+name = "CBitmap__Constructor_Maybe"
+
+[[function]]
+va = 0x0056C060
+name = "CBitmap__Constructor_Maybe"
+
+[[global]]
+va = 0x00643F64
+name = "CBitmap__vtable_Maybe"

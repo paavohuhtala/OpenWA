@@ -1,0 +1,47 @@
+[[function]]
+va = 0x00484D20
+name = "CListTrainingTeams__ctor_CListTraininngTeams"
+
+[[function]]
+va = 0x00484DB0
+name = "CListTrainingTeams__dtor0_CListTrainingTeams"
+
+[[function]]
+va = 0x00484DD0
+name = "CListTrainingTeams__dtor1_CListTrainingTeams"
+
+[[function]]
+va = 0x00484E30
+name = "CListTrainingTeams__getMessageMap"
+
+[[function]]
+va = 0x00484EA0
+name = "CListTrainingTeams__sub_484EA0"
+
+[[function]]
+va = 0x00484EE0
+name = "CListTrainingTeams__SortCheck"
+
+[[function]]
+va = 0x00485020
+name = "CListTrainingTeams__AddTeam"
+
+[[function]]
+va = 0x00485280
+name = "CListTrainingTeams__RenameItem"
+
+[[function]]
+va = 0x004852F0
+name = "CListTrainingTeams__AddTeams"
+
+[[function]]
+va = 0x00485590
+name = "CListTrainingTeams__ChangeType"
+
+[[function]]
+va = 0x00485740
+name = "CListTrainingTeams__SetUpList"
+
+[[function]]
+va = 0x00485920
+name = "CListTrainingTeams__sub_485920"

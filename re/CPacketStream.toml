@@ -1,0 +1,19 @@
+[[function]]
+va = 0x0044C180
+name = "CPacketStream__Constructor_Maybe"
+
+[[function]]
+va = 0x0044C1E0
+name = "CPacketStream__Destructor_Maybe"
+
+[[function]]
+va = 0x0044C3D0
+name = "CPacketStream__Constructor_Maybe"
+
+[[function]]
+va = 0x0044C7F0
+name = "CPacketStream__Constructor_Maybe"
+
+[[global]]
+va = 0x006502F8
+name = "CPacketStream__vtable_Maybe"

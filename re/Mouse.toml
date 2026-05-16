@@ -1,0 +1,52 @@
+[[function]]
+va = 0x0056D2E0
+name = "Mouse__ConsumeDeltaAndButtons"
+plate_comment = """
+Mouse delta+button consumer.
+
+__thiscall(this, *out_dx, *out_dy):
+  *out_dx = g_GameSession.mouse_delta_x  (+0x78)
+  *out_dy = g_GameSession.mouse_delta_y  (+0x7C)
+  let buttons = g_GameSession.mouse_button_state  (+0x88)
+  [this+4] = ([this+4] & buttons) | (~buttons)  // ack: latch any newly-released bits
+
+Reads — does NOT clear the deltas. Pair with Mouse__ClearDeltas (0x56D340)
+if the caller needs to consume-and-zero. Pair with Mouse__AckButtonMask
+(0x56D320) for an alternate AND-only path on the same [this+4] flags.
+"""
+
+[[function]]
+va = 0x0056D320
+name = "Mouse__AckButtonMask"
+plate_comment = """
+Button-mask ACK helper.
+
+__stdcall(mask):
+  [ECX+4] &= ~(g_GameSession.mouse_button_state & mask)
+
+Clears specific bits in the caller's [ECX+4] flag word based on which
+buttons in `mask` are currently held in g_GameSession.mouse_button_state
+(+0x88). ECX is set by the caller (thiscall-style implicit `this`).
+"""
+
+[[function]]
+va = 0x0056D340
+name = "Mouse__ClearDeltas"
+plate_comment = """
+Clear mouse delta accumulators.
+
+void():
+  g_GameSession.mouse_delta_x = 0  (+0x78)
+  g_GameSession.mouse_delta_y = 0  (+0x7C)
+
+Standalone reset path. Pair with Mouse__ConsumeDeltaAndButtons (0x56D2E0)
+when a caller needs read-then-clear semantics.
+"""
+
+[[function]]
+va = 0x005725B0
+name = "Mouse__ReleaseAndCenter"
+
+[[function]]
+va = 0x00572620
+name = "Mouse__PollAndAcquire"

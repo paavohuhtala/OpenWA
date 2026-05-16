@@ -1,0 +1,23 @@
+[[function]]
+va = 0x004822F0
+name = "CListMachines__sub_4822F0"
+
+[[function]]
+va = 0x00482340
+name = "CListMachines__sub_482340"
+
+[[function]]
+va = 0x00482390
+name = "CListMachines__ShowMachines"
+
+[[function]]
+va = 0x004824B0
+name = "CListMachines__SetUpList"
+
+[[function]]
+va = 0x00482700
+name = "CListMachines__UpdateReady"
+
+[[function]]
+va = 0x004827D0
+name = "CListMachines__sub_4827D0"

@@ -1,0 +1,11 @@
+[[function]]
+va = 0x004A3940
+name = "AfxMessageBox"
+
+[[function]]
+va = 0x004A6D00
+name = "TeamConfig_InitDefaults"
+
+[[function]]
+va = 0x004AABB0
+name = "LobbyClientCommands"

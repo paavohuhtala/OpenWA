@@ -1,0 +1,191 @@
+[[function]]
+va = 0x00526210
+name = "Game__sub_526210"
+
+[[function]]
+va = 0x00526250
+name = "Game__dtor_Game"
+
+[[function]]
+va = 0x00528CD0
+name = "Game__deinitialise"
+
+[[function]]
+va = 0x0052B450
+name = "Game__receive_chat_fifo"
+
+[[function]]
+va = 0x0052B5F0
+name = "Game__next_arg"
+
+[[function]]
+va = 0x0052B670
+name = "Game__name2machine"
+
+[[function]]
+va = 0x0052C140
+name = "Game__process_chat"
+
+[[function]]
+va = 0x0052C9B0
+name = "Game__sub_52C9B0"
+
+[[function]]
+va = 0x0052D190
+name = "Game__sub_52D190"
+
+[[function]]
+va = 0x0052D890
+name = "Game__monitor_outgoing_levels"
+
+[[function]]
+va = 0x0052D980
+name = "Game__machines_have_joined_0"
+
+[[function]]
+va = 0x0052D9F0
+name = "Game__check_for_ready_messages"
+
+[[function]]
+va = 0x0052DAC0
+name = "Game__update_ready_timer"
+
+[[function]]
+va = 0x0052DCC0
+name = "Game__update_network_game"
+
+[[function]]
+va = 0x0052DF40
+name = "Game__sub_52DF40"
+
+[[function]]
+va = 0x0052E000
+name = "Game__sub_52E000"
+
+[[function]]
+va = 0x0052E180
+name = "Game__sub_52E180"
+
+[[function]]
+va = 0x0052E410
+name = "Game__sub_52E410"
+
+[[function]]
+va = 0x0052E4B0
+name = "Game__sub_52E4B0"
+
+[[function]]
+va = 0x0052E5A0
+name = "Game__sub_52E5A0"
+
+[[function]]
+va = 0x0052E9B0
+name = "Game__receive_messages"
+
+[[function]]
+va = 0x0052ED50
+name = "Game__sub_52ED50"
+
+[[function]]
+va = 0x0052EDF0
+name = "Game__sub_52EDF0"
+
+[[function]]
+va = 0x0052F0E0
+name = "Game__sub_52F0E0"
+
+[[function]]
+va = 0x0052F280
+name = "Game__sub_52F280"
+
+[[function]]
+va = 0x0052F3A0
+name = "Game__sub_52F3A0"
+
+[[function]]
+va = 0x0052F800
+name = "Game__update_local_game"
+
+[[function]]
+va = 0x0052FC90
+name = "Game__sub_52FC90"
+
+[[function]]
+va = 0x005305E0
+name = "Game__process_input"
+
+[[function]]
+va = 0x005307A0
+name = "Game__process_logic"
+
+[[function]]
+va = 0x005307F0
+name = "Game__sub_5307F0"
+
+[[function]]
+va = 0x00530890
+name = "Game__sub_530890"
+
+[[function]]
+va = 0x005309E0
+name = "Game__sub_5309E0"
+
+[[function]]
+va = 0x00530A50
+name = "Game__sub_530A50"
+
+[[function]]
+va = 0x005325A0
+name = "Game__ReplayRestore"
+
+[[function]]
+va = 0x00532CA0
+name = "Game__sub_532CA0"
+
+[[function]]
+va = 0x00532F50
+name = "Game__sub_532F50"
+
+[[function]]
+va = 0x00533120
+name = "Game__sub_533120"
+
+[[function]]
+va = 0x00533240
+name = "Game__sub_533240"
+
+[[function]]
+va = 0x00534540
+name = "Game__sub_534540"
+
+[[function]]
+va = 0x005361D0
+name = "Game__check_for_gameover"
+
+[[function]]
+va = 0x005363A0
+name = "Game__setup_netclose"
+
+[[function]]
+va = 0x00536620
+name = "Game__sub_536620"
+
+[[function]]
+va = 0x00536760
+name = "Game__sub_536760"
+
+[[function]]
+va = 0x00537130
+name = "Game__sub_537130"
+
+[[function]]
+va = 0x00537320
+name = "Game__sub_537320"
+
+[[function]]
+va = 0x00539100
+name = "Game__sub_539100"
+
+[[function]]
+va = 0x0053CFF0
+name = "Game__unload_weapon_graphics"

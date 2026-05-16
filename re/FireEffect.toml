@@ -1,0 +1,23 @@
+[[function]]
+va = 0x00524070
+name = "FireEffect__Constructor"
+
+[[function]]
+va = 0x005241F0
+name = "FireEffect__Destructor"
+
+[[function]]
+va = 0x00524240
+name = "FireEffect__StepFire"
+
+[[function]]
+va = 0x005243C0
+name = "FireEffect__Tick"
+
+[[function]]
+va = 0x00524410
+name = "FireEffect__ApplyPalette"
+
+[[global]]
+va = 0x00664698
+name = "FireEffect__vtable"

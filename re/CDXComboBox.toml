@@ -1,0 +1,131 @@
+[[function]]
+va = 0x00409D30
+name = "CDXComboBox__ctor_CDXComboBox"
+
+[[function]]
+va = 0x00409E10
+name = "CDXComboBox__dtor0_CDXComboBox"
+
+[[function]]
+va = 0x00409E30
+name = "CDXComboBox__dtor1_CDXComboBox"
+
+[[function]]
+va = 0x00409EA0
+name = "CDXComboBox__getMessageMap"
+
+[[function]]
+va = 0x00409EB0
+name = "CDXComboBox__sub_409EB0"
+
+[[function]]
+va = 0x00409FC0
+name = "CDXComboBox__sub_409FC0"
+
+[[function]]
+va = 0x0040A140
+name = "CDXComboBox__sub_40A140"
+
+[[function]]
+va = 0x0040A390
+name = "CDXComboBox__sub_40A390"
+
+[[function]]
+va = 0x0040A3B0
+name = "CDXComboBox__sub_40A3B0"
+
+[[function]]
+va = 0x0040A5F0
+name = "CDXComboBox__sub_40A5F0"
+
+[[function]]
+va = 0x0040A850
+name = "CDXComboBox__sub_40A850"
+
+[[function]]
+va = 0x0040A890
+name = "CDXComboBox__CloseList"
+
+[[function]]
+va = 0x0040A8E0
+name = "CDXComboBox__sub_40A8E0"
+
+[[function]]
+va = 0x0040A8F0
+name = "CDXComboBox__ShowDropDown"
+
+[[function]]
+va = 0x0040AB10
+name = "CDXComboBox__sub_40AB10"
+
+[[function]]
+va = 0x0040AB60
+name = "CDXComboBox__sub_40AB60"
+
+[[function]]
+va = 0x0040ACE0
+name = "CDXComboBox__sub_40ACE0"
+
+[[function]]
+va = 0x0040AE00
+name = "CDXComboBox__sub_40AE00"
+
+[[function]]
+va = 0x0040AF00
+name = "CDXComboBox__sub_40AF00"
+
+[[function]]
+va = 0x0040AFA0
+name = "CDXComboBox__sub_40AFA0"
+
+[[function]]
+va = 0x0040B000
+name = "CDXComboBox__sub_40B000"
+
+[[function]]
+va = 0x0040B050
+name = "CDXComboBox__sub_40B050"
+
+[[function]]
+va = 0x0040B090
+name = "CDXComboBox__sub_40B090"
+
+[[function]]
+va = 0x0040B0E0
+name = "CDXComboBox__sub_40B0E0"
+
+[[function]]
+va = 0x0040B120
+name = "CDXComboBox__sub_40B120"
+
+[[function]]
+va = 0x0040B1D0
+name = "CDXComboBox__sub_40B1D0"
+
+[[function]]
+va = 0x0040B220
+name = "CDXComboBox__sub_40B220"
+
+[[function]]
+va = 0x0040B450
+name = "CDXComboBox__sub_40B450"
+
+[[function]]
+va = 0x0040B480
+name = "CDXComboBox__sub_40B480"
+
+[[function]]
+va = 0x0040B4B0
+name = "CDXComboBox__sub_40B4B0"
+
+[[function]]
+va = 0x0040B4E0
+name = "CDXComboBox__sub_40B4E0"
+
+[[function]]
+va = 0x0040B540
+name = "CDXComboBox__sub_40B540"
+
+[[function]]
+va = 0x0040B560
+name = "CDXComboBox__sub_40B560"

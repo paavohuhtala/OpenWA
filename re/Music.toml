@@ -1,0 +1,35 @@
+[[function]]
+va = 0x0058BC10
+name = "Music__Constructor"
+
+[[function]]
+va = 0x0058BC60
+name = "Music__ScalarDeletingDtor"
+
+[[function]]
+va = 0x0058BC80
+name = "Music__Destructor"
+
+[[function]]
+va = 0x0058BCE0
+name = "Music__StopAndCleanup"
+
+[[function]]
+va = 0x0058BD20
+name = "Music__PlayTrack"
+
+[[function]]
+va = 0x0058BE70
+name = "Music__StartMusic"
+
+[[function]]
+va = 0x0058BE90
+name = "Music__SetPlaylist"
+
+[[function]]
+va = 0x0058BEE0
+name = "Music__AdvanceTrack"
+
+[[function]]
+va = 0x0058BF40
+name = "Music__SetVolume"

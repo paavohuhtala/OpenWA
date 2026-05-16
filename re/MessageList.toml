@@ -1,0 +1,59 @@
+[[function]]
+va = 0x004923C0
+name = "MessageList__ctor_MessageList"
+
+[[function]]
+va = 0x004924D0
+name = "MessageList__dtor0_MessageList"
+
+[[function]]
+va = 0x004924F0
+name = "MessageList__dtor1_MessageList"
+
+[[function]]
+va = 0x004925D0
+name = "MessageList__getMessageMap"
+
+[[function]]
+va = 0x004925E0
+name = "MessageList__AddString"
+
+[[function]]
+va = 0x004927C0
+name = "MessageList__AddSystemMessage"
+
+[[function]]
+va = 0x00492830
+name = "MessageList__sub_492830"
+
+[[function]]
+va = 0x00492860
+name = "MessageList__AddFormattedMessage"
+
+[[function]]
+va = 0x004932B0
+name = "MessageList__sub_4932B0"
+
+[[function]]
+va = 0x004932E0
+name = "MessageList__sub_4932E0"
+
+[[function]]
+va = 0x004933D0
+name = "MessageList__sub_4933D0"
+
+[[function]]
+va = 0x004935F0
+name = "MessageList__sub_4935F0"
+
+[[function]]
+va = 0x00493810
+name = "MessageList__sub_493810"
+
+[[function]]
+va = 0x00493840
+name = "MessageList__sub_493840"
+
+[[function]]
+va = 0x00494310
+name = "MessageList__AddSystemMessage_1"

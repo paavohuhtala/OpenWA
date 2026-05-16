@@ -1,0 +1,75 @@
+[[function]]
+va = 0x00447D60
+name = "CDXThumbnail__sub_447D60"
+
+[[function]]
+va = 0x00447DD0
+name = "CDXThumbnail__sub_447DD0"
+
+[[function]]
+va = 0x00447FB0
+name = "CDXThumbnail__dtor0_CDXThumbnail"
+
+[[function]]
+va = 0x00447FD0
+name = "CDXThumbnail__dtor1_CDXThumbnail"
+
+[[function]]
+va = 0x00448070
+name = "CDXThumbnail__getMessageMap"
+
+[[function]]
+va = 0x00448080
+name = "CDXThumbnail__OnDXInit"
+
+[[function]]
+va = 0x00448340
+name = "CDXThumbnail__OnRButtonDown"
+
+[[function]]
+va = 0x00448360
+name = "CDXThumbnail__GenerateRandomLevel"
+
+[[function]]
+va = 0x004485B0
+name = "CDXThumbnail__GenerateThumbnail"
+
+[[function]]
+va = 0x00448D00
+name = "CDXThumbnail__sub_448D00"
+
+[[function]]
+va = 0x00449770
+name = "CDXThumbnail__sub_449770"
+
+[[function]]
+va = 0x0044A810
+name = "CDXThumbnail__sub_44A810"
+
+[[function]]
+va = 0x0044B680
+name = "CDXThumbnail__sub_44B680"
+
+[[function]]
+va = 0x0044B6D0
+name = "CDXThumbnail__LoadCurrentClean"
+
+[[function]]
+va = 0x0044BC50
+name = "CDXThumbnail__DisplayCustom"
+
+[[function]]
+va = 0x0044BD00
+name = "CDXThumbnail__sub_44BD00"
+
+[[function]]
+va = 0x0044BD70
+name = "CDXThumbnail__sub_44BD70"
+
+[[function]]
+va = 0x0044BDB0
+name = "CDXThumbnail__sub_44BDB0"
+
+[[function]]
+va = 0x0044BDE0
+name = "CDXThumbnail__sub_44BDE0"

@@ -1,0 +1,55 @@
+[[function]]
+va = 0x004D90C0
+name = "CTeam__ctor_CTeam"
+
+[[function]]
+va = 0x004D9130
+name = "CTeam__dtor0_CTeam"
+
+[[function]]
+va = 0x004D9180
+name = "CTeam__FindFreeTeamSlot"
+
+[[function]]
+va = 0x004D91F0
+name = "CTeam__sub_4D91F0"
+
+[[function]]
+va = 0x004D9270
+name = "CTeam__sub_4D9270"
+
+[[function]]
+va = 0x004D92B0
+name = "CTeam__LoadTeams"
+
+[[function]]
+va = 0x004D9B10
+name = "CTeam__SaveTeams"
+
+[[function]]
+va = 0x004DA000
+name = "CTeam__GetFirstTeam"
+
+[[function]]
+va = 0x004DA080
+name = "CTeam__GetNextTeam"
+
+[[function]]
+va = 0x004DA100
+name = "CTeam__FindTeam"
+
+[[function]]
+va = 0x004DA160
+name = "CTeam__SetCheat"
+
+[[function]]
+va = 0x004DA280
+name = "CTeam__GetHighestMission"
+
+[[function]]
+va = 0x004DA2E0
+name = "CTeam__sub_4DA2E0"
+
+[[function]]
+va = 0x004DA530
+name = "CTeam__sub_4DA530"

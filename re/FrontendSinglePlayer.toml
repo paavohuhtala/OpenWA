@@ -1,0 +1,7 @@
+[[function]]
+va = 0x004D69F0
+name = "FrontendSinglePlayer__Constructor"
+
+[[global]]
+va = 0x006603B0
+name = "FrontendSinglePlayer__vtable"

@@ -1,0 +1,11 @@
+[[function]]
+va = 0x00553BD0
+name = "GameMessageRouter"
+
+[[function]]
+va = 0x0055DC00
+name = "TurnGame_HandleMessage_Maybe"
+
+[[function]]
+va = 0x0055E5F0
+name = "TurnGame_HurryHandler"

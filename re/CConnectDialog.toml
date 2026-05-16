@@ -1,0 +1,51 @@
+[[function]]
+va = 0x00439430
+name = "CConnectDialog__Constructor"
+
+[[function]]
+va = 0x00439640
+name = "CConnectDialog__dtor0_CConnectDialog"
+
+[[function]]
+va = 0x00439660
+name = "CConnectDialog__dtor1_CConnectDialog"
+
+[[function]]
+va = 0x00439860
+name = "CConnectDialog__DoDataExchnge"
+
+[[function]]
+va = 0x004398E0
+name = "CConnectDialog__getMessageMap"
+
+[[function]]
+va = 0x004398F0
+name = "CConnectDialog__sub_4398F0"
+
+[[function]]
+va = 0x00439900
+name = "CConnectDialog__sub_439900"
+
+[[function]]
+va = 0x00439B50
+name = "CConnectDialog__OnInitDialog"
+
+[[function]]
+va = 0x0043A330
+name = "CConnectDialog__OpenConnect"
+
+[[function]]
+va = 0x0043A390
+name = "CConnectDialog__ServiceMessages"
+
+[[function]]
+va = 0x0043B0D0
+name = "CConnectDialog__sub_43B0D0"
+
+[[function]]
+va = 0x0043B110
+name = "CConnectDialog__sub_43B110"
+
+[[function]]
+va = 0x0043B1A0
+name = "CConnectDialog__sub_43B1A0"

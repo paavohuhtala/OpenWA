@@ -1,0 +1,31 @@
+[[function]]
+va = 0x00493CB0
+name = "Lobby__DisplayMessage"
+
+[[function]]
+va = 0x004AA990
+name = "Lobby__SendGreentext"
+
+[[function]]
+va = 0x004AB310
+name = "Lobby__Constructor_Maybe"
+
+[[function]]
+va = 0x004B7E20
+name = "Lobby__PrintUsedVersion"
+
+[[function]]
+va = 0x004BAE40
+name = "Lobby__OnDisconnect"
+
+[[function]]
+va = 0x004BAEC0
+name = "Lobby__OnGameEnd"
+
+[[function]]
+va = 0x004BD400
+name = "Lobby__OnMessage"
+
+[[global]]
+va = 0x00656830
+name = "Lobby__vtable_Maybe"

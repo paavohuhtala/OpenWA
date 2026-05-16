@@ -1,0 +1,27 @@
+[[function]]
+va = 0x004DD4F0
+name = "TeamInfoDlg__Constructor"
+
+[[function]]
+va = 0x004DDB50
+name = "TeamInfoDlg__dtor_TeamInfoDlg"
+
+[[function]]
+va = 0x004DDB70
+name = "TeamInfoDlg__DoDataExchange"
+
+[[function]]
+va = 0x004DE1A0
+name = "TeamInfoDlg__getMessageMap"
+
+[[function]]
+va = 0x004DE480
+name = "TeamInfoDlg__OnInitDialog"
+
+[[function]]
+va = 0x004DEEF0
+name = "TeamInfoDlg__sub_4DEEF0"
+
+[[function]]
+va = 0x004DEF70
+name = "TeamInfoDlg__sub_4DEF70"

@@ -1,0 +1,71 @@
+[[function]]
+va = 0x0046A3D0
+name = "CPlayers__ClearMachine"
+
+[[function]]
+va = 0x0046A570
+name = "CPlayers__GetFirstTeamByMachine"
+
+[[function]]
+va = 0x0046A5B0
+name = "CPlayers__ClearTeam"
+
+[[function]]
+va = 0x0046A640
+name = "CPlayers__GetFreeTeam"
+
+[[function]]
+va = 0x0046A660
+name = "CPlayers__GetTotalWorms"
+
+[[function]]
+va = 0x0046A6D0
+name = "CPlayers__GetFreeAlly"
+
+[[function]]
+va = 0x0046A720
+name = "CPlayers__AdjustAlly"
+
+[[function]]
+va = 0x0046A790
+name = "CPlayers__AdjustWorm"
+
+[[function]]
+va = 0x0046A830
+name = "CPlayers__IncWins"
+
+[[function]]
+va = 0x0046A8E0
+name = "CPlayers__GetTotalTeamsWithColour"
+
+[[function]]
+va = 0x0046A970
+name = "CPlayers__FindMachineConnection"
+
+[[function]]
+va = 0x0046A9C0
+name = "CPlayers__AddMachine"
+
+[[function]]
+va = 0x0046AC00
+name = "CPlayers__FindMachineByName"
+
+[[function]]
+va = 0x0046AC60
+name = "CPlayers__ClearTeamByName"
+
+[[function]]
+va = 0x0046AD10
+name = "CPlayers__IsOkToStartNetGame"
+
+[[function]]
+va = 0x0046AE40
+name = "CPlayers__ClearReady"
+
+[[function]]
+va = 0x0046AE60
+name = "CPlayers__LoadFlag"
+
+[[function]]
+va = 0x0046AF90
+name = "CPlayers__HaveAllReturned"

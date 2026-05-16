@@ -1,0 +1,139 @@
+[[function]]
+va = 0x0046BAE0
+name = "HttpConnection__Constructor"
+
+[[function]]
+va = 0x0046BE40
+name = "HttpConnection__dtor0_HttpConnection"
+
+[[function]]
+va = 0x0046BE60
+name = "HttpConnection__Destructor_1"
+
+[[function]]
+va = 0x0046C090
+name = "HttpConnection__sub_46C090"
+
+[[function]]
+va = 0x0046C230
+name = "HttpConnection__sub_46C230"
+
+[[function]]
+va = 0x0046C300
+name = "HttpConnection__ConnectURL"
+
+[[function]]
+va = 0x0046C450
+name = "HttpConnection__ParseUrl"
+
+[[function]]
+va = 0x0046C710
+name = "HttpConnection__sub_46C710"
+
+[[function]]
+va = 0x0046CBF0
+name = "HttpConnection__MakeRequest"
+
+[[function]]
+va = 0x0046CF10
+name = "HttpConnection__MakeConnection"
+
+[[function]]
+va = 0x0046CF90
+name = "HttpConnection__Setup"
+
+[[function]]
+va = 0x0046D030
+name = "HttpConnection__OnClose"
+
+[[function]]
+va = 0x0046D0E0
+name = "HttpConnection__SetProxy"
+
+[[function]]
+va = 0x0046D170
+name = "HttpConnection__sub_46D170"
+
+[[function]]
+va = 0x0046D1F0
+name = "HttpConnection__sub_46D1F0"
+
+[[function]]
+va = 0x0046DBD0
+name = "HttpConnection__ShowGames"
+
+[[function]]
+va = 0x0046DE20
+name = "HttpConnection__CreateGame"
+
+[[function]]
+va = 0x0046E1C0
+name = "HttpConnection__SendGameResult"
+
+[[function]]
+va = 0x0046E3B0
+name = "HttpConnection__ShowRankingsPage"
+
+[[function]]
+va = 0x0046E5F0
+name = "HttpConnection__ShowGamesListPage"
+
+[[function]]
+va = 0x0046E750
+name = "HttpConnection__ShowLoginPage"
+
+[[function]]
+va = 0x0046E870
+name = "HttpConnection__Login"
+
+[[function]]
+va = 0x0046EBA0
+name = "HttpConnection__CreateUserAccount"
+
+[[function]]
+va = 0x0046F0A0
+name = "HttpConnection__sub_46F0A0"
+
+[[function]]
+va = 0x0046F300
+name = "HttpConnection__UpdatePlayerInfo"
+
+[[function]]
+va = 0x0046F510
+name = "HttpConnection__sub_46F510"
+
+[[function]]
+va = 0x0046F670
+name = "HttpConnection__InRequest"
+
+[[function]]
+va = 0x0046F690
+name = "HttpConnection__GameFailure"
+
+[[function]]
+va = 0x0046F8F0
+name = "HttpConnection__sub_46F8F0"
+
+[[function]]
+va = 0x0046F910
+name = "HttpConnection__sub_46F910"
+
+[[function]]
+va = 0x0046F970
+name = "HttpConnection__sub_46F970"
+
+[[function]]
+va = 0x0046FD50
+name = "HttpConnection__sub_46FD50"
+
+[[function]]
+va = 0x0046FD70
+name = "HttpConnection__sub_46FD70"
+
+[[function]]
+va = 0x0046FEF0
+name = "HttpConnection__sub_46FEF0"
+
+[[function]]
+va = 0x00470370
+name = "HttpConnection__sub_470370"

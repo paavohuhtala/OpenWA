@@ -1,0 +1,7 @@
+[[function]]
+va = 0x00440F40
+name = "FrontendDeathmatch__Constructor"
+
+[[global]]
+va = 0x0064DD28
+name = "FrontendDeathmatch__vtable"

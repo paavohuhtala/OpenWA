@@ -1,0 +1,283 @@
+[[function]]
+va = 0x00409CE0
+name = "CREW2App__alloc"
+
+[[function]]
+va = 0x004E3EB0
+name = "CREW2App__sub_4E3EB0"
+
+[[function]]
+va = 0x004E4010
+name = "CREW2App__sub_4E4010"
+
+[[function]]
+va = 0x004E4150
+name = "CREW2App__sub_4E4150"
+
+[[function]]
+va = 0x004E41C0
+name = "CREW2App__sub_4E41C0"
+
+[[function]]
+va = 0x004E4220
+name = "CREW2App__sub_4E4220"
+
+[[function]]
+va = 0x004E4260
+name = "CREW2App__sub_4E4260"
+
+[[function]]
+va = 0x004E4300
+name = "CREW2App__sub_4E4300"
+
+[[function]]
+va = 0x004E4350
+name = "CREW2App__sub_4E4350"
+
+[[function]]
+va = 0x004E4380
+name = "CREW2App__sub_4E4380"
+
+[[function]]
+va = 0x004E43A0
+name = "CREW2App__sub_4E43A0"
+
+[[function]]
+va = 0x004E46C0
+name = "CREW2App__sub_4E46C0"
+
+[[function]]
+va = 0x004E4720
+name = "CREW2App__sub_4E4720"
+
+[[function]]
+va = 0x004E48F0
+name = "CREW2App__sub_4E48F0"
+
+[[function]]
+va = 0x004E49C0
+name = "CREW2App__GameSync_RunTests"
+
+[[function]]
+va = 0x004E4E30
+name = "CREW2App__reg_1"
+
+[[function]]
+va = 0x004E4E90
+name = "CREW2App__setup_console"
+
+[[function]]
+va = 0x004E5000
+name = "CREW2App__wine_get_version"
+
+[[function]]
+va = 0x004E5050
+name = "CREW2App__sub_4E5050"
+
+[[function]]
+va = 0x004E5660
+name = "CREW2App__sub_4E5660"
+
+[[function]]
+va = 0x004E57B0
+name = "CREW2App__register_file_associations"
+
+[[function]]
+va = 0x004E6410
+name = "CREW2App__sub_4E6410"
+
+[[function]]
+va = 0x004EB2B0
+name = "CREW2App__SetButtonText"
+
+[[function]]
+va = 0x004EB380
+name = "CREW2App__GetConfirm"
+
+[[function]]
+va = 0x004EB4A0
+name = "CREW2App__ShowBusyIcon"
+
+[[function]]
+va = 0x004EB5D0
+name = "CREW2App__DrawControl"
+
+[[function]]
+va = 0x004EB8B0
+name = "CREW2App__DrawBackground"
+
+[[function]]
+va = 0x004EB900
+name = "CREW2App__sub_4EB900"
+
+[[function]]
+va = 0x004EBB30
+name = "CREW2App__SwitchToGDIMode"
+
+[[function]]
+va = 0x004EBB70
+name = "CREW2App__SwitchToDXMode"
+
+[[function]]
+va = 0x004EBCC0
+name = "CREW2App__RestoreDesktop"
+
+[[function]]
+va = 0x004EBD00
+name = "CREW2App__RestoreSurfaces"
+
+[[function]]
+va = 0x004EBD50
+name = "CREW2App__sub_4EBD50"
+
+[[function]]
+va = 0x004EBF30
+name = "CREW2App__sub_4EBF30"
+
+[[function]]
+va = 0x004EBF90
+name = "CREW2App__sub_4EBF90"
+
+[[function]]
+va = 0x004ECC90
+name = "CREW2App__sub_4ECC90"
+
+[[function]]
+va = 0x004ECD00
+name = "CREW2App__sub_4ECD00"
+
+[[function]]
+va = 0x004ECD40
+name = "CREW2App__sub_4ECD40"
+
+[[function]]
+va = 0x004ECF20
+name = "CREW2App__sub_4ECF20"
+
+[[function]]
+va = 0x004ECF90
+name = "CREW2App__sub_4ECF90"
+
+[[function]]
+va = 0x004ECFF0
+name = "CREW2App__sub_4ECFF0"
+
+[[function]]
+va = 0x004ED120
+name = "CREW2App__sub_4ED120"
+
+[[function]]
+va = 0x004ED420
+name = "CREW2App__sub_4ED420"
+
+[[function]]
+va = 0x004ED4F0
+name = "CREW2App__sub_4ED4F0"
+
+[[function]]
+va = 0x004ED650
+name = "CREW2App__sub_4ED650"
+
+[[function]]
+va = 0x004ED670
+name = "CREW2App__sub_4ED670"
+
+[[function]]
+va = 0x004EDD40
+name = "CREW2App__sub_4EDD40"
+
+[[function]]
+va = 0x004EDD70
+name = "CREW2App__sub_4EDD70"
+
+[[function]]
+va = 0x004EDE90
+name = "CREW2App__sub_4EDE90"
+
+[[function]]
+va = 0x004EE010
+name = "CREW2App__sub_4EE010"
+
+[[function]]
+va = 0x004EE110
+name = "CREW2App__sub_4EE110"
+
+[[function]]
+va = 0x004EE160
+name = "CREW2App__sub_4EE160"
+
+[[function]]
+va = 0x004EE180
+name = "CREW2App__sub_4EE180"
+
+[[function]]
+va = 0x004EE2F0
+name = "CREW2App__sub_4EE2F0"
+
+[[function]]
+va = 0x004EE320
+name = "CREW2App__sub_4EE320"
+
+[[function]]
+va = 0x004EE340
+name = "CREW2App__sub_4EE340"
+
+[[function]]
+va = 0x004EE360
+name = "CREW2App__sub_4EE360"
+
+[[function]]
+va = 0x004EE3A0
+name = "CREW2App__sub_4EE3A0"
+
+[[function]]
+va = 0x004EE3C0
+name = "CREW2App__sub_4EE3C0"
+
+[[function]]
+va = 0x004EE3E0
+name = "CREW2App__sub_4EE3E0"
+
+[[function]]
+va = 0x004EE420
+name = "CREW2App__sub_4EE420"
+
+[[function]]
+va = 0x004EE460
+name = "CREW2App__sub_4EE460"
+
+[[function]]
+va = 0x004EE4F0
+name = "CREW2App__sub_4EE4F0"
+
+[[function]]
+va = 0x004EE530
+name = "CREW2App__sub_4EE530"
+
+[[function]]
+va = 0x004EE5C0
+name = "CREW2App__sub_4EE5C0"
+
+[[function]]
+va = 0x004EE670
+name = "CREW2App__sub_4EE670"
+
+[[function]]
+va = 0x004EE8E0
+name = "CREW2App__sub_4EE8E0"
+
+[[function]]
+va = 0x004EE930
+name = "CREW2App__sub_4EE930"
+
+[[function]]
+va = 0x004EE980
+name = "CREW2App__sub_4EE980"
+
+[[function]]
+va = 0x004EE9D0
+name = "CREW2App__sub_4EE9D0"
+
+[[function]]
+va = 0x004EEB20
+name = "CREW2App__sub_4EEB20"

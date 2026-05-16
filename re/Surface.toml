@@ -1,0 +1,27 @@
+[[function]]
+va = 0x00403BF0
+name = "Surface__Blit"
+
+[[function]]
+va = 0x005A23B0
+name = "Surface__Destructor"
+
+[[function]]
+va = 0x005A2C10
+name = "Surface__Unlock"
+
+[[function]]
+va = 0x005A2C20
+name = "Surface__Lock"
+
+[[function]]
+va = 0x005A2C90
+name = "Surface__SetColorKey"
+
+[[function]]
+va = 0x005A2CD0
+name = "Surface__Init"
+
+[[function]]
+va = 0x005A2D20
+name = "Surface__Free"

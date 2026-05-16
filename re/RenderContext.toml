@@ -1,0 +1,31 @@
+[[function]]
+va = 0x004E3420
+name = "RenderContext__RendererInit_Thunk"
+
+[[function]]
+va = 0x004E3440
+name = "RenderContext__RendererReset_Thunk"
+
+[[function]]
+va = 0x004E3460
+name = "RenderContext__RendererEnumModes_Thunk"
+
+[[function]]
+va = 0x004E3480
+name = "RenderContext__RendererSlot5_Thunk"
+
+[[function]]
+va = 0x005A24F0
+name = "RenderContext__RendererSlot8_Thunk"
+
+[[function]]
+va = 0x005A2510
+name = "RenderContext__RendererRestoreDims_Thunk"
+
+[[function]]
+va = 0x005A25A0
+name = "RenderContext__RendererRestoreSurface_Thunk"
+
+[[function]]
+va = 0x005A2760
+name = "RenderContext__AllocSurface"

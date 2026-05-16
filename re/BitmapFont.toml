@@ -1,0 +1,41 @@
+[[function]]
+va = 0x004FA1E0
+name = "BitmapFont__blit1"
+
+[[function]]
+va = 0x004FA220
+name = "BitmapFont__blit2"
+
+[[function]]
+va = 0x004FA260
+name = "BitmapFont__blit3"
+
+[[function]]
+va = 0x004FA2B0
+name = "BitmapFont__blit4"
+
+[[function]]
+va = 0x004FA300
+name = "BitmapFont__blit5"
+
+[[function]]
+va = 0x004FA360
+name = "BitmapFont__blit6"
+
+[[function]]
+va = 0x004FA3C0
+name = "BitmapFont__blit7"
+
+[[function]]
+va = 0x004FA420
+name = "BitmapFont__blit8"
+
+[[function]]
+va = 0x004FA490
+name = "BitmapFont__blit"
+plate_comment = "BitmapFont__BlitGlyphRow — chunked dispatch helper for BitmapFont__DrawText. Splits the requested glyph blit width into chunks of min(remaining, 8) bytes, dispatching each chunk to one of 9 unrolled blit helpers via the table at 0x6A9594. Each helper does a flat byte-copy with row stride (no transparency). Ported into openwa-core display::vtable::font_blit_glyph as a single nested loop."
+
+[[function]]
+va = 0x004FA4E0
+name = "BitmapFont__DrawText"
+plate_comment = "BitmapFont__DrawText (was Font__DrawText) — usercall ESI=this(FontObject*, the .fnt-based bitmap font), EAX=BitGrid* dst, EDX=out_width, stack(pen_x, pen_y, msg, out_pen_x, font_id_high). Glyph rasterizer for the in-game .fnt bitmap fonts. Walks msg, looks up each char in char_to_glyph_idx, copies glyph pixels straight into the destination BitGrid (no transparency, no blending — every byte is overwritten). Two modes selected by font_id_high bit 1: forward (left-to-right) and right-aligned (right-to-left). Returns char count drawn / -1 / truncation index. Always writes out_width = font.width even on validation failure. Glyphs with index >= font._height2 are extension glyphs with row stride = font.width; base glyphs use row stride = glyph.width. Used ONLY by DisplayGfx::DrawTextOnBitmap (slot 7), which is itself reached only by SetTextboxText (0x4FB070) — i.e. in-game text bitmaps for worm name banners, health numbers, weapon-flash popups, sudden-death banners, etc. Does NOT touch the frontend MFC font system at 0x427830 (which is a separate Font class with its own char-width table at 0x6B2DD9 and font array at 0x7A0F58). Helper FUN_004FA490 + dispatch table at 0x6A9594 (9 unrolled byte-copy helpers) is folded into the port as font_blit_glyph. Ported as openwa-core display::vtable::font_draw_text_impl."

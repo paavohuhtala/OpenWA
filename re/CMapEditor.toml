@@ -1,0 +1,267 @@
+[[function]]
+va = 0x00488130
+name = "CMapEditor__Constructor"
+
+[[function]]
+va = 0x00488610
+name = "CMapEditor__dtor0_CMapEditor"
+
+[[function]]
+va = 0x00488630
+name = "CMapEditor__DrawContents"
+
+[[function]]
+va = 0x00488680
+name = "CMapEditor__DrawControl"
+
+[[function]]
+va = 0x004886A0
+name = "CMapEditor__DoDataExchange"
+
+[[function]]
+va = 0x00488990
+name = "CMapEditor__getMessageMap"
+
+[[function]]
+va = 0x004889A0
+name = "CMapEditor__OnToolTip"
+
+[[function]]
+va = 0x00488CC0
+name = "CMapEditor__OnInitDialog"
+
+[[function]]
+va = 0x00489F30
+name = "CMapEditor__sub_489F30"
+
+[[function]]
+va = 0x00489FC0
+name = "CMapEditor__sub_489FC0"
+
+[[function]]
+va = 0x00489FD0
+name = "CMapEditor__sub_489FD0"
+
+[[function]]
+va = 0x0048A060
+name = "CMapEditor__sub_48A060"
+
+[[function]]
+va = 0x0048A0A0
+name = "CMapEditor__sub_48A0A0"
+
+[[function]]
+va = 0x0048A130
+name = "CMapEditor__sub_48A130"
+
+[[function]]
+va = 0x0048A180
+name = "CMapEditor__sub_48A180"
+
+[[function]]
+va = 0x0048A5A0
+name = "CMapEditor__sub_48A5A0"
+
+[[function]]
+va = 0x0048A830
+name = "CMapEditor__sub_48A830"
+
+[[function]]
+va = 0x0048A870
+name = "CMapEditor__OnUndo"
+
+[[function]]
+va = 0x0048B650
+name = "CMapEditor__sub_48B650"
+
+[[function]]
+va = 0x0048B6D0
+name = "CMapEditor__sub_48B6D0"
+
+[[function]]
+va = 0x0048B840
+name = "CMapEditor__sub_48B840"
+
+[[function]]
+va = 0x0048B9B0
+name = "CMapEditor__sub_48B9B0"
+
+[[function]]
+va = 0x0048BA80
+name = "CMapEditor__sub_48BA80"
+
+[[function]]
+va = 0x0048BAB0
+name = "CMapEditor__sub_48BAB0"
+
+[[function]]
+va = 0x0048BAC0
+name = "CMapEditor__sub_48BAC0"
+
+[[function]]
+va = 0x0048BBC0
+name = "CMapEditor__sub_48BBC0"
+
+[[function]]
+va = 0x0048BC10
+name = "CMapEditor__sub_48BC10"
+
+[[function]]
+va = 0x0048BE70
+name = "CMapEditor__sub_48BE70"
+
+[[function]]
+va = 0x0048BF40
+name = "CMapEditor__sub_48BF40"
+
+[[function]]
+va = 0x0048C340
+name = "CMapEditor__sub_48C340"
+
+[[function]]
+va = 0x0048C350
+name = "CMapEditor__sub_48C350"
+
+[[function]]
+va = 0x0048C520
+name = "CMapEditor__sub_48C520"
+
+[[function]]
+va = 0x0048C660
+name = "CMapEditor__sub_48C660"
+
+[[function]]
+va = 0x0048C670
+name = "CMapEditor__sub_48C670"
+
+[[function]]
+va = 0x0048CBE0
+name = "CMapEditor__sub_48CBE0"
+
+[[function]]
+va = 0x0048CBF0
+name = "CMapEditor__sub_48CBF0"
+
+[[function]]
+va = 0x0048CC20
+name = "CMapEditor__OnGenerate"
+
+[[function]]
+va = 0x0048CE60
+name = "CMapEditor__sub_48CE60"
+
+[[function]]
+va = 0x0048D130
+name = "CMapEditor__sub_48D130"
+
+[[function]]
+va = 0x0048D190
+name = "CMapEditor__sub_48D190"
+
+[[function]]
+va = 0x0048D7C0
+name = "CMapEditor__sub_48D7C0"
+
+[[function]]
+va = 0x0048D820
+name = "CMapEditor__sub_48D820"
+
+[[function]]
+va = 0x0048DB10
+name = "CMapEditor__sub_48DB10"
+
+[[function]]
+va = 0x0048E1B0
+name = "CMapEditor__sub_48E1B0"
+
+[[function]]
+va = 0x0048E360
+name = "CMapEditor__sub_48E360"
+
+[[function]]
+va = 0x0048E530
+name = "CMapEditor__sub_48E530"
+
+[[function]]
+va = 0x0048E5C0
+name = "CMapEditor__sub_48E5C0"
+
+[[function]]
+va = 0x0048EDF0
+name = "CMapEditor__sub_48EDF0"
+
+[[function]]
+va = 0x0048F080
+name = "CMapEditor__sub_48F080"
+
+[[function]]
+va = 0x0048F2A0
+name = "CMapEditor__sub_48F2A0"
+
+[[function]]
+va = 0x004906A0
+name = "CMapEditor__GenerateRandomLevel"
+
+[[function]]
+va = 0x00490890
+name = "CMapEditor__GenerateFromFile"
+
+[[function]]
+va = 0x00490CF0
+name = "CMapEditor__sub_490CF0"
+
+[[function]]
+va = 0x00491320
+name = "CMapEditor__sub_491320"
+
+[[function]]
+va = 0x00491360
+name = "CMapEditor__sub_491360"
+
+[[function]]
+va = 0x004913A0
+name = "CMapEditor__sub_4913A0"
+
+[[function]]
+va = 0x00491530
+name = "CMapEditor__sub_491530"
+
+[[function]]
+va = 0x00491560
+name = "CMapEditor__sub_491560"
+
+[[function]]
+va = 0x004915E0
+name = "CMapEditor__sub_4915E0"
+
+[[function]]
+va = 0x00491650
+name = "CMapEditor__AdvanceSeed_DispatchGen_Maybe"
+
+[[function]]
+va = 0x00491700
+name = "CMapEditor__sub_491700"
+
+[[function]]
+va = 0x00491740
+name = "CMapEditor__sub_491740"
+
+[[function]]
+va = 0x00491750
+name = "CMapEditor__sub_491750"
+
+[[function]]
+va = 0x004917D0
+name = "CMapEditor__sub_4917D0"
+
+[[function]]
+va = 0x004917E0
+name = "CMapEditor__sub_4917E0"
+
+[[function]]
+va = 0x004917F0
+name = "CMapEditor__sub_4917F0"
+
+[[function]]
+va = 0x00491800
+name = "CMapEditor__sub_491800"

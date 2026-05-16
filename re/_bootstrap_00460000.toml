@@ -1,0 +1,15 @@
+[[function]]
+va = 0x00462DF0
+name = "ReplayLoader"
+
+  [[function.param]]
+  name = "game_info"
+  type = "GameInfo *"
+
+  [[function.param]]
+  name = "mode"
+  type = "int"
+
+[[function]]
+va = 0x0046A7D0
+name = "FindCurrentTeamIndex"

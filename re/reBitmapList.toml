@@ -1,0 +1,7 @@
+[[function]]
+va = 0x005A0890
+name = "reBitmapList__ctor_reBitmapList"
+
+[[function]]
+va = 0x005A08F0
+name = "reBitmapList__dtor_reBitmapList"

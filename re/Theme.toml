@@ -1,0 +1,15 @@
+[[function]]
+va = 0x0044BA80
+name = "Theme__GetFileSize"
+
+[[function]]
+va = 0x0044BB20
+name = "Theme__Load"
+
+[[function]]
+va = 0x0044BBC0
+name = "Theme__Save"
+
+[[function]]
+va = 0x00487570
+name = "Theme__ResolveNameFromIndex"

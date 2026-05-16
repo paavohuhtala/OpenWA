@@ -1,0 +1,31 @@
+[[function]]
+va = 0x0044BDF0
+name = "CEditCtrl__ctor_CEditCtrl"
+
+[[function]]
+va = 0x0044BE90
+name = "CEditCtrl__dtor0_CEditCtrl"
+
+[[function]]
+va = 0x0044BEE0
+name = "CEditCtrl__getMessageMap"
+
+[[function]]
+va = 0x0044BF60
+name = "CEditCtrl__sub_44BF60"
+
+[[function]]
+va = 0x0044BF90
+name = "CEditCtrl__sub_44BF90"
+
+[[function]]
+va = 0x0044BFD0
+name = "CEditCtrl__sub_44BFD0"
+
+[[function]]
+va = 0x0044C0E0
+name = "CEditCtrl__sub_44C0E0"
+
+[[function]]
+va = 0x0044C170
+name = "CEditCtrl__sub_44C170"

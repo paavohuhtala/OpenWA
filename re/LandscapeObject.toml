@@ -1,0 +1,15 @@
+[[function]]
+va = 0x0057A000
+name = "LandscapeObject__Constructor"
+
+[[function]]
+va = 0x0057A1D0
+name = "LandscapeObject__init_map"
+
+[[function]]
+va = 0x0057A300
+name = "LandscapeObject__init_block"
+
+[[function]]
+va = 0x0057A830
+name = "LandscapeObject__sub_57A830"

@@ -1,0 +1,23 @@
+[[function]]
+va = 0x00485F90
+name = "UnkList__dtor0_UnkList"
+
+[[function]]
+va = 0x00485FB0
+name = "UnkList__dtor1_UnkList"
+
+[[function]]
+va = 0x00486020
+name = "UnkList__getMessageMap"
+
+[[function]]
+va = 0x00486390
+name = "UnkList__sub_486390"
+
+[[function]]
+va = 0x00486480
+name = "UnkList__sub_486480"
+
+[[function]]
+va = 0x004866B0
+name = "UnkList__sub_4866B0"

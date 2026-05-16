@@ -1,0 +1,71 @@
+[[function]]
+va = 0x00567770
+name = "WeaponPanelIcons__Constructor"
+
+[[function]]
+va = 0x005679C0
+name = "WeaponPanelIcons__weapon_disabled"
+
+[[function]]
+va = 0x00567AA0
+name = "WeaponPanelIcons__draw_cursor"
+
+[[function]]
+va = 0x00567F80
+name = "WeaponPanelIcons__draw_text"
+
+[[function]]
+va = 0x00568220
+name = "WeaponPanelIcons__redraw_panel"
+
+[[function]]
+va = 0x005690B0
+name = "WeaponPanelIcons__sub_5690B0"
+
+[[function]]
+va = 0x00569130
+name = "WeaponPanelIcons__cursor2pos"
+
+[[function]]
+va = 0x00569190
+name = "WeaponPanelIcons__pos2cursor"
+
+[[function]]
+va = 0x00569270
+name = "WeaponPanelIcons__move_cursor"
+
+[[function]]
+va = 0x005692D0
+name = "WeaponPanelIcons__set_cursor"
+
+[[function]]
+va = 0x00569380
+name = "WeaponPanelIcons__sub_569380"
+
+[[function]]
+va = 0x005694F0
+name = "WeaponPanelIcons__sub_5694F0"
+
+[[function]]
+va = 0x00569530
+name = "WeaponPanelIcons__sub_569530"
+
+[[function]]
+va = 0x00569580
+name = "WeaponPanelIcons__sub_569580"
+
+[[function]]
+va = 0x00569730
+name = "WeaponPanelIcons__sub_569730"
+
+[[function]]
+va = 0x00569770
+name = "WeaponPanelIcons__sub_569770"
+
+[[function]]
+va = 0x005697B0
+name = "WeaponPanelIcons__sub_5697B0"
+
+[[function]]
+va = 0x00569870
+name = "WeaponPanelIcons__sub_569870"

@@ -1,0 +1,7 @@
+[[function]]
+va = 0x004F5E80
+name = "IMG__DecodeCached"
+
+[[function]]
+va = 0x004F6300
+name = "IMG__LoadFromDir"

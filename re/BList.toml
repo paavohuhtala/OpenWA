@@ -1,0 +1,7 @@
+[[function]]
+va = 0x0041AAF0
+name = "BList__dtor_BList"
+
+[[function]]
+va = 0x005CC17B
+name = "BList__ctor_Blist"

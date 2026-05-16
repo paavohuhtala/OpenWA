@@ -1,0 +1,15 @@
+[[function]]
+va = 0x005611E0
+name = "TurnGame_AutoSelectTeams"
+
+[[function]]
+va = 0x00561CF0
+name = "SpawnObject"
+
+[[function]]
+va = 0x00565D60
+name = "drown"
+
+[[function]]
+va = 0x005660C0
+name = "_DllMain_12_3"

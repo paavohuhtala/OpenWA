@@ -1,0 +1,27 @@
+[[function]]
+va = 0x004D7500
+name = "PlayFanfare_Default"
+
+[[function]]
+va = 0x004D7630
+name = "PlayFanfare"
+
+[[function]]
+va = 0x004D7730
+name = "StopAllWavPlayers"
+
+[[function]]
+va = 0x004D78E0
+name = "PlayFanfare_CurrentTeam"
+
+[[function]]
+va = 0x004D7960
+name = "PlayFeSfx"
+
+[[function]]
+va = 0x004DD090
+name = "SpeechBankEditor_ScanWAVs"
+
+[[function]]
+va = 0x004DFA30
+name = "FileExistsCheck"

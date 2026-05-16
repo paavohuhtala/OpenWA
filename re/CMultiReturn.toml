@@ -1,0 +1,35 @@
+[[function]]
+va = 0x004A2CB0
+name = "CMultiReturn__dtor0_CMultiReturn"
+
+[[function]]
+va = 0x004A2CD0
+name = "CMultiReturn__dtor1_CMultiReturn"
+
+[[function]]
+va = 0x004A2F10
+name = "CMultiReturn__DoDataExchange"
+
+[[function]]
+va = 0x004A2FF0
+name = "CMultiReturn__getMessageMap"
+
+[[function]]
+va = 0x004A3000
+name = "CMultiReturn__OnContinueMatch_Maybe"
+
+[[function]]
+va = 0x004A3450
+name = "CMultiReturn__OnInitDialog"
+
+[[function]]
+va = 0x004A35D0
+name = "CMultiReturn__ShowWinner"
+
+[[function]]
+va = 0x004A3850
+name = "CMultiReturn__sub_4A3850"
+
+[[function]]
+va = 0x004A38C0
+name = "CMultiReturn__sub_4A38C0"

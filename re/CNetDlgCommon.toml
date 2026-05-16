@@ -1,0 +1,47 @@
+[[function]]
+va = 0x004A9D50
+name = "CNetDlgCommon__Constructor"
+
+[[function]]
+va = 0x004A9E80
+name = "CNetDlgCommon__sub_4A9E80"
+
+[[function]]
+va = 0x004A9EA0
+name = "CNetDlgCommon__DoDataExchange"
+
+[[function]]
+va = 0x004A9F00
+name = "CNetDlgCommon__getMessageMap"
+
+[[function]]
+va = 0x004A9F10
+name = "CNetDlgCommon__OnInitDialog"
+
+[[function]]
+va = 0x004AA8D0
+name = "CNetDlgCommon__sub_4AA8D0"
+
+[[function]]
+va = 0x004AA930
+name = "CNetDlgCommon__sub_4AA930"
+
+[[function]]
+va = 0x004AAA70
+name = "CNetDlgCommon__sub_4AAA70"
+
+[[function]]
+va = 0x004AAB20
+name = "CNetDlgCommon__sub_4AAB20"
+
+[[function]]
+va = 0x004AB740
+name = "CNetDlgCommon__sub_4AB740"
+
+[[function]]
+va = 0x004AB850
+name = "CNetDlgCommon__sub_4AB850"
+
+[[function]]
+va = 0x004AB860
+name = "CNetDlgCommon__sub_4AB860"

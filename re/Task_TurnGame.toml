@@ -1,0 +1,191 @@
+[[function]]
+va = 0x0053F500
+name = "Task_TurnGame__clear_for_crate"
+
+[[function]]
+va = 0x0053F630
+name = "Task_TurnGame__pick_random_drop"
+
+[[function]]
+va = 0x0055B540
+name = "Task_TurnGame__dtor0_Task_TurnGame"
+
+[[function]]
+va = 0x0055B5E0
+name = "Task_TurnGame__save"
+
+[[function]]
+va = 0x0055BC20
+name = "Task_TurnGame__get_current_worm"
+
+[[function]]
+va = 0x0055BC80
+name = "Task_TurnGame__randomise_wind"
+
+[[function]]
+va = 0x0055BDD0
+name = "Task_TurnGame__start_team"
+
+[[function]]
+va = 0x0055C920
+name = "Task_TurnGame__initialise_turn_sequence"
+
+[[function]]
+va = 0x0055CA20
+name = "Task_TurnGame__predict_advance_ally"
+
+[[function]]
+va = 0x0055CA70
+name = "Task_TurnGame__advance_ally_1"
+
+[[function]]
+va = 0x0055CAB0
+name = "Task_TurnGame__advance_ally_0"
+
+[[function]]
+va = 0x0055CC40
+name = "Task_TurnGame__game_is_over"
+
+[[function]]
+va = 0x0055CCF0
+name = "Task_TurnGame__number_of_human_allies"
+
+[[function]]
+va = 0x0055CDC0
+name = "Task_TurnGame__number_of_cpu_allies"
+
+[[function]]
+va = 0x0055CE90
+name = "Task_TurnGame__number_of_allies"
+
+[[function]]
+va = 0x0055CF50
+name = "Task_TurnGame__allied_to_dead_vital_worm"
+
+[[function]]
+va = 0x0055D020
+name = "Task_TurnGame__check_for_vital_deaths"
+
+[[function]]
+va = 0x0055D080
+name = "Task_TurnGame__check_for_survival_deaths"
+
+[[function]]
+va = 0x0055D100
+name = "Task_TurnGame__lone_survival_team"
+
+[[function]]
+va = 0x0055D1C0
+name = "Task_TurnGame__allied_to_dead_survival_team"
+
+[[function]]
+va = 0x0055D270
+name = "Task_TurnGame__issue_next_win_message"
+
+[[function]]
+va = 0x0055D490
+name = "Task_TurnGame__setup_retreat"
+
+[[function]]
+va = 0x0055D580
+name = "Task_TurnGame__update_speech"
+
+[[function]]
+va = 0x0055D670
+name = "Task_TurnGame__emit_speech"
+
+[[function]]
+va = 0x0055DBA0
+name = "Task_TurnGame__reset_speech"
+
+[[function]]
+va = 0x0055E650
+name = "Task_TurnGame__initialise_timer_border"
+
+[[function]]
+va = 0x0055E760
+name = "Task_TurnGame__update_timer_pos"
+
+[[function]]
+va = 0x0055E7B0
+name = "Task_TurnGame__sub_55E7B0"
+
+[[function]]
+va = 0x0055E8C0
+name = "Task_TurnGame__sub_55E8C0"
+
+[[function]]
+va = 0x0055E9C0
+name = "Task_TurnGame__sub_55E9C0"
+
+[[function]]
+va = 0x0055EAF0
+name = "Task_TurnGame__render_timers"
+
+[[function]]
+va = 0x0055F340
+name = "Task_TurnGame__emit_worm_kills_comment"
+
+[[function]]
+va = 0x0055F430
+name = "Task_TurnGame__turn_can_end"
+
+[[function]]
+va = 0x0055F480
+name = "Task_TurnGame__timers_active"
+
+[[function]]
+va = 0x0055F4F0
+name = "Task_TurnGame__play_tick"
+
+[[function]]
+va = 0x0055F530
+name = "Task_TurnGame__check_for_recording_start"
+
+[[function]]
+va = 0x0055F650
+name = "Task_TurnGame__check_for_replay_start"
+
+[[function]]
+va = 0x0055F730
+name = "Task_TurnGame__sub_55F730"
+
+[[function]]
+va = 0x0055F770
+name = "Task_TurnGame__sub_55F770"
+
+[[function]]
+va = 0x0055F8C0
+name = "Task_TurnGame__sub_55F8C0"
+
+[[function]]
+va = 0x00561040
+name = "Task_TurnGame__flush_surrendered_teams"
+
+[[function]]
+va = 0x005613E0
+name = "Task_TurnGame__check_for_crate_drop_0"
+
+[[function]]
+va = 0x00561480
+name = "Task_TurnGame__check_for_crate_drop_1"
+
+[[function]]
+va = 0x00561B20
+name = "Task_TurnGame__create_supershopper_crates"
+
+[[function]]
+va = 0x00562160
+name = "Task_TurnGame__process_turn_event"
+
+[[function]]
+va = 0x00562370
+name = "Task_TurnGame__process_turn_events"
+
+[[function]]
+va = 0x00562420
+name = "Task_TurnGame__process_sequence_event"
+
+[[function]]
+va = 0x005624A0
+name = "Task_TurnGame__process_sequence_events"

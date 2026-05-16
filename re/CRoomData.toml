@@ -1,0 +1,35 @@
+[[function]]
+va = 0x004D2AB0
+name = "CRoomData__ctor_CRoomData"
+
+[[function]]
+va = 0x004D2B30
+name = "CRoomData__SetDefault"
+
+[[function]]
+va = 0x004D2C90
+name = "CRoomData__Translate"
+
+[[function]]
+va = 0x004D33F0
+name = "CRoomData__SetRoom"
+
+[[function]]
+va = 0x004D3670
+name = "CRoomData__CanWeHost"
+
+[[function]]
+va = 0x004D36C0
+name = "CRoomData__GetSchemeName"
+
+[[function]]
+va = 0x004D3780
+name = "CRoomData__sub_4D3780"
+
+[[function]]
+va = 0x004D37A0
+name = "CRoomData__WhyCantWeHost"
+
+[[function]]
+va = 0x004D37E0
+name = "CRoomData__IsTheLandACavern"

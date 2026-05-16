@@ -1,0 +1,67 @@
+[[function]]
+va = 0x00470BF0
+name = "CIntroDlg__dtor0_CIntroDlg"
+
+[[function]]
+va = 0x00470C10
+name = "CIntroDlg__dtor1_CIntroDlg"
+
+[[function]]
+va = 0x00470F00
+name = "CIntroDlg__getMessageMap"
+
+[[function]]
+va = 0x00470F10
+name = "CIntroDlg__OnInitDialog"
+
+[[function]]
+va = 0x00471880
+name = "CIntroDlg__sub_471880"
+
+[[function]]
+va = 0x00471890
+name = "CIntroDlg__DoModal"
+
+[[function]]
+va = 0x004718A0
+name = "CIntroDlg__OnIdle"
+
+[[function]]
+va = 0x00471FB0
+name = "CIntroDlg__DrawContents"
+
+[[function]]
+va = 0x00471FE0
+name = "CIntroDlg__OnDestroy"
+
+[[function]]
+va = 0x00472050
+name = "CIntroDlg__DoSleep"
+
+[[function]]
+va = 0x00472080
+name = "CIntroDlg__OnTimer"
+
+[[function]]
+va = 0x00472090
+name = "CIntroDlg__OnOK"
+
+[[function]]
+va = 0x004721C0
+name = "CIntroDlg__sub_4721C0"
+
+[[function]]
+va = 0x004721F0
+name = "CIntroDlg__sub_4721F0"
+
+[[function]]
+va = 0x004722B0
+name = "CIntroDlg__sub_4722B0"
+
+[[function]]
+va = 0x00472320
+name = "CIntroDlg__sub_472320"
+
+[[function]]
+va = 0x004723F0
+name = "CIntroDlg__sub_4723F0"

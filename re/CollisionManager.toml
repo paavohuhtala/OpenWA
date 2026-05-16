@@ -1,0 +1,119 @@
+[[function]]
+va = 0x004FB520
+name = "CollisionManager__dtor1_CollisionManager"
+
+[[function]]
+va = 0x004FB680
+name = "CollisionManager__sub_4FB680"
+
+[[function]]
+va = 0x004FB730
+name = "CollisionManager__sub_4FB730"
+
+[[function]]
+va = 0x004FB7B0
+name = "CollisionManager__sub_4FB7B0"
+
+[[function]]
+va = 0x004FB890
+name = "CollisionManager__sub_4FB890"
+
+[[function]]
+va = 0x004FB9A0
+name = "CollisionManager__try_mask"
+
+[[function]]
+va = 0x004FBC30
+name = "CollisionManager__update_intersections"
+
+[[function]]
+va = 0x004FBCA0
+name = "CollisionManager__find_intersections"
+
+[[function]]
+va = 0x004FBDC0
+name = "CollisionManager__rope"
+
+[[function]]
+va = 0x004FC280
+name = "CollisionManager__apply_gravity"
+
+[[function]]
+va = 0x004FC2F0
+name = "CollisionManager__apply_rope_gravity"
+
+[[function]]
+va = 0x004FC340
+name = "CollisionManager__sub_4FC340"
+
+[[function]]
+va = 0x004FC380
+name = "CollisionManager__sub_4FC380"
+
+[[function]]
+va = 0x004FC6D0
+name = "CollisionManager__apply_callback"
+
+[[function]]
+va = 0x004FCB30
+name = "CollisionManager__apply_projectile_gravity"
+
+[[function]]
+va = 0x004FCC50
+name = "CollisionManager__apply_quake"
+
+[[function]]
+va = 0x004FCD60
+name = "CollisionManager__sub_4FCD60"
+
+[[function]]
+va = 0x004FCDF0
+name = "CollisionManager__update_0"
+
+[[function]]
+va = 0x004FD230
+name = "CollisionManager__update_1"
+
+[[function]]
+va = 0x004FD300
+name = "CollisionManager__sub_4FD300"
+
+[[function]]
+va = 0x004FD360
+name = "CollisionManager__sub_4FD360"
+
+[[function]]
+va = 0x004FD4C0
+name = "CollisionManager__sub_4FD4C0"
+
+[[function]]
+va = 0x004FD640
+name = "CollisionManager__projectile"
+
+[[function]]
+va = 0x004FDC20
+name = "CollisionManager__sub_4FDC20"
+
+[[function]]
+va = 0x004FDC60
+name = "CollisionManager__sub_4FDC60"
+
+[[function]]
+va = 0x004FDD20
+name = "CollisionManager__sub_4FDD20"
+
+[[function]]
+va = 0x004FDD80
+name = "CollisionManager__sub_4FDD80"
+
+[[function]]
+va = 0x004FDE20
+name = "CollisionManager__apply_sea"
+
+[[function]]
+va = 0x004FDF40
+name = "CollisionManager__sub_4FDF40"
+
+[[function]]
+va = 0x004FE0D0
+name = "CollisionManager__sub_4FE0D0"

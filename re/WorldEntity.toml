@@ -1,0 +1,115 @@
+[[function]]
+va = 0x004AA060
+name = "WorldEntity__vt19"
+
+[[function]]
+va = 0x004FB580
+name = "WorldEntity__IsMoving"
+
+[[function]]
+va = 0x004FB9D0
+name = "WorldEntity__CheckMoveCollision"
+
+[[function]]
+va = 0x004FE060
+name = "WorldEntity__SetTerminateFlag_Maybe"
+
+[[function]]
+va = 0x004FE070
+name = "WorldEntity__TryMovePosition"
+
+[[function]]
+va = 0x004FED50
+name = "WorldEntity__Constructor"
+
+[[function]]
+va = 0x004FEF10
+name = "WorldEntity__vt1_Free"
+
+[[function]]
+va = 0x004FF1C0
+name = "WorldEntity__vt0_override"
+
+[[function]]
+va = 0x004FF280
+name = "WorldEntity__vt2_HandleMessage"
+
+[[function]]
+va = 0x004FF390
+name = "WorldEntity__ComputeExplosionDamage"
+
+[[function]]
+va = 0x004FF720
+name = "WorldEntity__vt7"
+
+[[function]]
+va = 0x004FFED0
+name = "WorldEntity__vt8"
+
+[[function]]
+va = 0x00500090
+name = "WorldEntity__vt17"
+
+[[function]]
+va = 0x00500360
+name = "WorldEntity__vt13"
+
+[[function]]
+va = 0x00500380
+name = "WorldEntity__vt12"
+
+[[function]]
+va = 0x00500CC0
+name = "WorldEntity__vt15"
+
+[[function]]
+va = 0x00501E20
+name = "WorldEntity__vt7"
+
+[[function]]
+va = 0x005262D0
+name = "WorldEntity__InitAllianceData"
+
+[[function]]
+va = 0x00528510
+name = "WorldEntity__InitTeamScoring"
+
+[[function]]
+va = 0x00528690
+name = "WorldEntity__InitTurnState"
+
+[[function]]
+va = 0x00545780
+name = "WorldEntity__vt18"
+
+[[function]]
+va = 0x00546680
+name = "WorldEntity__SecondaryVT__GetPosition_Maybe"
+
+[[function]]
+va = 0x005466A0
+name = "WorldEntity__SecondaryVT__Slot1"
+
+[[function]]
+va = 0x00546CD0
+name = "WorldEntity__IsSoundHandleExpired"
+
+[[function]]
+va = 0x00546D20
+name = "WorldEntity__ReleaseSoundHandle"
+
+[[function]]
+va = 0x0054B7A0
+name = "WorldEntity__SecondaryVtable_ProcessFrame_Maybe"
+
+[[function]]
+va = 0x00592A50
+name = "WorldEntity__vt16"
+
+[[global]]
+va = 0x006641F8
+name = "WorldEntity__vtable"
+
+[[global]]
+va = 0x00669CF8
+name = "WorldEntity__vtable2"

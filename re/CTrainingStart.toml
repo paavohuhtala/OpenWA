@@ -1,0 +1,51 @@
+[[function]]
+va = 0x004E0A60
+name = "CTrainingStart__dtor0_CTrainingStart"
+
+[[function]]
+va = 0x004E0A80
+name = "CTrainingStart__dtor1_CTrainingStart"
+
+[[function]]
+va = 0x004E0D80
+name = "CTrainingStart__DoDataExchange"
+
+[[function]]
+va = 0x004E0EA0
+name = "CTrainingStart__getMessageMap"
+
+[[function]]
+va = 0x004E0EB0
+name = "CTrainingStart__OnInitDialog"
+
+[[function]]
+va = 0x004E1030
+name = "CTrainingStart__sub_4E1030"
+
+[[function]]
+va = 0x004E1090
+name = "CTrainingStart__OnTeamSelected"
+
+[[function]]
+va = 0x004E1F80
+name = "CTrainingStart__DisplaySelected"
+
+[[function]]
+va = 0x004E23E0
+name = "CTrainingStart__On2TeamSelected"
+
+[[function]]
+va = 0x004E2420
+name = "CTrainingStart__sub_4E2420"
+
+[[function]]
+va = 0x004E2430
+name = "CTrainingStart__sub_4E2430"
+
+[[function]]
+va = 0x004E2440
+name = "CTrainingStart__sub_4E2440"
+
+[[function]]
+va = 0x004E24B0
+name = "CTrainingStart__sub_4E24B0"

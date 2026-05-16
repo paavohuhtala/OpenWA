@@ -1,0 +1,51 @@
+[[function]]
+va = 0x00531880
+name = "SendGamePacketConditional"
+
+[[function]]
+va = 0x00531960
+name = "GameFrameMessageProcessor"
+
+[[function]]
+va = 0x00531D00
+name = "GameFrameDispatcher"
+
+[[function]]
+va = 0x00532330
+name = "SerializeGameState"
+
+[[function]]
+va = 0x005329C0
+name = "GameFrameChecksumProcessor"
+
+[[function]]
+va = 0x00533A80
+name = "PaletteAnimate"
+
+[[function]]
+va = 0x00533C80
+name = "PaletteManage"
+
+[[function]]
+va = 0x00533DC0
+name = "GameRender"
+
+[[function]]
+va = 0x0053AD80
+name = "overlay_scheme_weapon_settings"
+
+[[function]]
+va = 0x0053C130
+name = "InitWeaponNameStrings"
+
+[[function]]
+va = 0x0053CAB0
+name = "InitWeaponTable"
+
+[[function]]
+va = 0x0053E910
+name = "WA_MallocMemset"
+
+[[function]]
+va = 0x0053F320
+name = "AdvanceGameRNG"

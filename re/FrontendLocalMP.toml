@@ -1,0 +1,19 @@
+[[function]]
+va = 0x0049C420
+name = "FrontendLocalMP__Constructor"
+
+[[function]]
+va = 0x004A1260
+name = "FrontendLocalMP__OnStartMatch"
+
+[[function]]
+va = 0x004A2350
+name = "FrontendLocalMP__OnSelectSavedMap"
+
+[[function]]
+va = 0x004A2480
+name = "FrontendLocalMP__OnMapViewClicked_OpenEditor"
+
+[[global]]
+va = 0x00658F80
+name = "FrontendLocalMP__vtable"

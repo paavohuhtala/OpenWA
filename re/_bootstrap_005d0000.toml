@@ -1,0 +1,289 @@
+[[function]]
+va = 0x005D0CB2
+name = "__recalloc"
+
+[[function]]
+va = 0x005D1150
+name = "__invalid_parameter"
+
+[[function]]
+va = 0x005D1174
+name = "__invalid_parameter_noinfo"
+
+[[function]]
+va = 0x005D1CF2
+name = "__onexit_nolock"
+
+[[function]]
+va = 0x005D1DAB
+name = "___onexitinit"
+
+[[function]]
+va = 0x005D2321
+name = "___crtCorExitProcess"
+
+[[function]]
+va = 0x005D235C
+name = "__lockexit"
+
+[[function]]
+va = 0x005D2365
+name = "__unlockexit"
+
+[[function]]
+va = 0x005D236E
+name = "__initterm"
+
+[[function]]
+va = 0x005D24AB
+name = "_doexit"
+
+[[function]]
+va = 0x005D25BE
+name = "__c_exit"
+
+[[function]]
+va = 0x005D2619
+name = "__localtime64_s"
+
+[[function]]
+va = 0x005D293E
+name = "_srand"
+
+[[function]]
+va = 0x005D2A13
+name = "__findclose"
+
+[[function]]
+va = 0x005D2F73
+name = "__splitpath_helper"
+
+[[function]]
+va = 0x005D37EE
+name = "_remove"
+
+[[function]]
+va = 0x005D3818
+name = "_remove"
+
+[[function]]
+va = 0x005D3929
+name = "__fclose_nolock"
+
+[[function]]
+va = 0x005D3A17
+name = "__fwrite_nolock"
+
+[[function]]
+va = 0x005D3C00
+name = "_ceil"
+
+[[function]]
+va = 0x005D4295
+name = "__fread_nolock_s"
+
+[[function]]
+va = 0x005D4531
+name = "_fread"
+
+[[function]]
+va = 0x005D48DF
+name = "__strtod_l"
+
+[[function]]
+va = 0x005D49FA
+name = "_strtod"
+
+[[function]]
+va = 0x005D4E16
+name = "__purecall"
+
+[[function]]
+va = 0x005D4E46
+name = "___initstdio"
+
+[[function]]
+va = 0x005D4EF7
+name = "___endstdio"
+
+[[function]]
+va = 0x005D4F17
+name = "__lock_file"
+
+[[function]]
+va = 0x005D4F53
+name = "__lock_file2"
+
+[[function]]
+va = 0x005D4F81
+name = "__unlock_file"
+
+[[function]]
+va = 0x005D4FB7
+name = "__unlock_file2"
+
+[[function]]
+va = 0x005D4FE1
+name = "__filelengthi64"
+
+[[function]]
+va = 0x005D5193
+name = "_atol"
+
+  [function.signature]
+  returns = "long"
+
+  [[function.param]]
+  name = "_Str"
+  type = "char *"
+
+[[function]]
+va = 0x005D5852
+name = "_isxdigit"
+
+[[function]]
+va = 0x005D5AA5
+name = "__store_str"
+
+[[function]]
+va = 0x005D6AE4
+name = "__get_errno_from_oserr"
+
+[[function]]
+va = 0x005D6B1F
+name = "__errno"
+
+[[function]]
+va = 0x005D6B32
+name = "___doserrno"
+
+[[function]]
+va = 0x005D6B45
+name = "__dosmaperr"
+
+[[function]]
+va = 0x005D6C5A
+name = "__mkdir"
+
+[[function]]
+va = 0x005D6C86
+name = "_rename"
+
+[[function]]
+va = 0x005D7170
+name = "__fputchar"
+
+  [function.signature]
+  returns = "int"
+
+  [[function.param]]
+  name = "_Ch"
+  type = "int"
+
+[[function]]
+va = 0x005D8786
+name = "_ldiv"
+
+[[function]]
+va = 0x005D8B6C
+name = "entry"
+
+[[function]]
+va = 0x005D8C69
+name = "__set_abort_behavior"
+
+[[function]]
+va = 0x005D8D90
+name = "___CxxLongjmpUnwind_4"
+
+[[function]]
+va = 0x005D90D4
+name = "__unwind_handler"
+
+[[function]]
+va = 0x005D919D
+name = "__abnormal_termination"
+
+[[function]]
+va = 0x005D91E8
+name = "__NLG_Call"
+
+[[function]]
+va = 0x005D91EC
+name = "__EH_prolog"
+
+[[function]]
+va = 0x005D9290
+name = "_acos"
+
+[[function]]
+va = 0x005D9410
+name = "_floor"
+
+[[function]]
+va = 0x005D9657
+name = "_wcslen"
+
+[[function]]
+va = 0x005DB560
+name = "__ftol2_sse"
+
+[[function]]
+va = 0x005DB596
+name = "__ftol2"
+
+[[function]]
+va = 0x005DB86E
+name = "__unlock"
+
+[[function]]
+va = 0x005DC895
+name = "__NMSG_WRITE"
+
+[[function]]
+va = 0x005DCA76
+name = "__use_encode_pointer"
+
+[[function]]
+va = 0x005DCAE2
+name = "__encode_pointer"
+
+[[function]]
+va = 0x005DCB59
+name = "__decode_pointer"
+
+[[function]]
+va = 0x005DCBC7
+name = "___crtTlsAlloc_4"
+
+[[function]]
+va = 0x005DCBD0
+name = "___set_flsgetvalue"
+
+[[function]]
+va = 0x005DCC3F
+name = "__initptd"
+
+[[function]]
+va = 0x005DCCFE
+name = "__getptd_noexit"
+
+[[function]]
+va = 0x005DCD8D
+name = "__freefls_4"
+
+[[function]]
+va = 0x005DD1DF
+name = "__output_l"
+
+[[function]]
+va = 0x005DDCCF
+name = "__output_s_l"
+
+[[function]]
+va = 0x005DE67F
+name = "_CPtoLCID"
+
+[[function]]
+va = 0x005DE9AB
+name = "__setmbcp_nolock"

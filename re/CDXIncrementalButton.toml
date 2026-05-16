@@ -1,0 +1,31 @@
+[[function]]
+va = 0x0041A790
+name = "CDXIncrementalButton__ctor_CDXIncrementalButton"
+
+[[function]]
+va = 0x0041A7A0
+name = "CDXIncrementalButton__OnDXInit"
+
+[[function]]
+va = 0x0041B710
+name = "CDXIncrementalButton__getMessageMap"
+
+[[function]]
+va = 0x0041B720
+name = "CDXIncrementalButton__sub_41B720"
+
+[[function]]
+va = 0x0041B750
+name = "CDXIncrementalButton__sub_41B750"
+
+[[function]]
+va = 0x0041B790
+name = "CDXIncrementalButton__sub_41B790"
+
+[[function]]
+va = 0x0041B860
+name = "CDXIncrementalButton__IncrementFrame"
+
+[[function]]
+va = 0x0041B8E0
+name = "CDXIncrementalButton__DecrementFrame"

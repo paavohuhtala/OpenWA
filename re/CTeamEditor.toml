@@ -1,0 +1,75 @@
+[[function]]
+va = 0x004DA560
+name = "CTeamEditor__Constructor"
+
+[[function]]
+va = 0x004DAA30
+name = "CTeamEditor__dotr0_CTeamEditor"
+
+[[function]]
+va = 0x004DAA50
+name = "CTeamEditor__DoDataExchange"
+
+[[function]]
+va = 0x004DAD20
+name = "CTeamEditor__getMessageMap"
+
+[[function]]
+va = 0x004DAD30
+name = "CTeamEditor__sub_4DAD30"
+
+[[function]]
+va = 0x004DADF0
+name = "CTeamEditor__sub_4DADF0"
+
+[[function]]
+va = 0x004DAE00
+name = "CTeamEditor__sub_4DAE00"
+
+[[function]]
+va = 0x004DAE50
+name = "CTeamEditor__sub_4DAE50"
+
+[[function]]
+va = 0x004DBBE0
+name = "CTeamEditor__sub_4DBBE0"
+
+[[function]]
+va = 0x004DBD50
+name = "CTeamEditor__sub_4DBD50"
+
+[[function]]
+va = 0x004DBED0
+name = "CTeamEditor__OnInitDialog"
+
+[[function]]
+va = 0x004DC550
+name = "CTeamEditor__sub_4DC550"
+
+[[function]]
+va = 0x004DC570
+name = "CTeamEditor__sub_4DC570"
+
+[[function]]
+va = 0x004DCC80
+name = "CTeamEditor__sub_4DCC80"
+
+[[function]]
+va = 0x004DD010
+name = "CTeamEditor__sub_4DD010"
+
+[[function]]
+va = 0x004DD2D0
+name = "CTeamEditor__sub_4DD2D0"
+
+[[function]]
+va = 0x004DD3E0
+name = "CTeamEditor__sub_4DD3E0"
+
+[[function]]
+va = 0x004DD460
+name = "CTeamEditor__sub_4DD460"
+
+[[function]]
+va = 0x004DD4E0
+name = "CTeamEditor__sub_4DD4E0"

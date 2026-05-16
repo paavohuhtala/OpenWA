@@ -1,0 +1,83 @@
+[[function]]
+va = 0x00520150
+name = "Task_OldWorm__dtor0_Task_OldWorm"
+
+[[function]]
+va = 0x00520170
+name = "Task_OldWorm__save"
+
+[[function]]
+va = 0x00520230
+name = "Task_OldWorm__water_splish"
+
+[[function]]
+va = 0x00520280
+name = "Task_OldWorm__track"
+
+[[function]]
+va = 0x005202C0
+name = "Task_OldWorm__transfer"
+
+[[function]]
+va = 0x005203D0
+name = "Task_OldWorm__collide"
+
+[[function]]
+va = 0x00520740
+name = "Task_OldWorm__set_state"
+
+[[function]]
+va = 0x00520A90
+name = "Task_OldWorm__setup_Standing"
+
+[[function]]
+va = 0x00520AD0
+name = "Task_OldWorm__render_worm"
+
+[[function]]
+va = 0x00520B50
+name = "Task_OldWorm__create_blood"
+
+[[function]]
+va = 0x00520CF0
+name = "Task_OldWorm__message"
+
+[[function]]
+va = 0x00520F10
+name = "Task_OldWorm__calc_sprite"
+
+[[function]]
+va = 0x005212B0
+name = "Task_OldWorm__detonate"
+
+[[function]]
+va = 0x00521310
+name = "Task_OldWorm__update_smoke"
+
+[[function]]
+va = 0x00521410
+name = "Task_OldWorm__update_skid"
+
+[[function]]
+va = 0x00521530
+name = "Task_OldWorm__update_bubbles"
+
+[[function]]
+va = 0x00521610
+name = "Task_OldWorm__flush_sounds"
+
+[[function]]
+va = 0x005216D0
+name = "Task_OldWorm__worm_sound"
+
+[[function]]
+va = 0x00521740
+name = "Task_OldWorm__fire_sound"
+
+[[function]]
+va = 0x00521790
+name = "Task_OldWorm__stop_worm_sound"
+
+[[function]]
+va = 0x005217E0
+name = "Task_OldWorm__update_logic"

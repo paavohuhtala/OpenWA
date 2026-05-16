@@ -1,0 +1,7 @@
+[[function]]
+va = 0x004CFAA0
+name = "CDXFramedIncremental__LoadBorderBitmap"
+
+[[function]]
+va = 0x004CFC40
+name = "CDXFramedIncremental__LoadFromFolder"

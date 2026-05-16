@@ -1,0 +1,39 @@
+[[function]]
+va = 0x0047FBF0
+name = "CLandThumbnail__ctor_CLandThumbnail"
+
+[[function]]
+va = 0x0047FC90
+name = "CLandThumbnail__dtor_CLandThumbnail"
+
+[[function]]
+va = 0x0047FD20
+name = "CLandThumbnail__getMessageMap"
+
+[[function]]
+va = 0x0047FD30
+name = "CLandThumbnail__Generate"
+
+[[function]]
+va = 0x00480040
+name = "CLandThumbnail__DrawContents"
+
+[[function]]
+va = 0x00480470
+name = "CLandThumbnail__sub_480470"
+
+[[function]]
+va = 0x00480490
+name = "CLandThumbnail__SaveThumb"
+
+[[function]]
+va = 0x004805A0
+name = "CLandThumbnail__LoadThumb"
+
+[[function]]
+va = 0x004807A0
+name = "CLandThumbnail__ThumbExists"
+
+[[function]]
+va = 0x004809D0
+name = "CLandThumbnail__sub_4809D0"

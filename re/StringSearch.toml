@@ -1,0 +1,19 @@
+[[function]]
+va = 0x00598E30
+name = "StringSearch__Filter_1"
+
+[[function]]
+va = 0x00598EA0
+name = "StringSearch__Filter_0"
+
+[[function]]
+va = 0x00598F80
+name = "StringSearch__LoadBadNameList"
+
+[[function]]
+va = 0x005990F0
+name = "StringSearch__FilterString"
+
+[[function]]
+va = 0x00599160
+name = "StringSearch__ClearOddStuff"

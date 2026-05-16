@@ -1,0 +1,7 @@
+[[function]]
+va = 0x005008D0
+name = "InitBungeeTrail"
+
+[[function]]
+va = 0x00507CE0
+name = "AdvanceGameRNG_Low16"

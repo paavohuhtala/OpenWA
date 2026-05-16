@@ -1,0 +1,7 @@
+[[function]]
+va = 0x00472400
+name = "FrontendWormNet__Constructor"
+
+[[global]]
+va = 0x00652248
+name = "FrontendWormNet__vtable"

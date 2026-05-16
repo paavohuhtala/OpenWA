@@ -1,0 +1,19 @@
+[[function]]
+va = 0x0042AC30
+name = "CBackgroundThing__dtor_CBackgroundThing"
+
+[[function]]
+va = 0x0042AC60
+name = "CBackgroundThing__sub_42AC60"
+
+[[function]]
+va = 0x0042AD00
+name = "CBackgroundThing__sub_42AD00"
+
+[[function]]
+va = 0x0042ADC0
+name = "CBackgroundThing__sub_42ADC0"
+
+[[function]]
+va = 0x0042AFB0
+name = "CBackgroundThing__InitPosition"

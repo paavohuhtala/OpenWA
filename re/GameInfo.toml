@@ -1,0 +1,29 @@
+[[function]]
+va = 0x004608E0
+name = "GameInfo__InitSession"
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "prefix_ptr"
+  type = "int"
+
+  [[function.param]]
+  name = "type_label"
+  type = "char *"
+
+[[function]]
+va = 0x00460AC0
+name = "GameInfo__LoadOptions"
+
+[[function]]
+va = 0x00466460
+name = "GameInfo__InitTeamsFromLobby"
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "prefix_ptr"
+  type = "int"

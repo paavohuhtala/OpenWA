@@ -1,0 +1,7 @@
+[[function]]
+va = 0x0056D2C0
+name = "MouseInput__Destructor"
+
+[[global]]
+va = 0x0066A2E4
+name = "MouseInput__vtable"

@@ -1,0 +1,35 @@
+[[function]]
+va = 0x004465B0
+name = "CDXAnimatedIcon__ctor_CDXAnimatedIcon"
+
+[[function]]
+va = 0x00446630
+name = "CDXAnimatedIcon__dtor0_CDXAnimatedIcon"
+
+[[function]]
+va = 0x00446650
+name = "CDXAnimatedIcon__sub_446650"
+
+[[function]]
+va = 0x00446680
+name = "CDXAnimatedIcon__sub_446680"
+
+[[function]]
+va = 0x004466A0
+name = "CDXAnimatedIcon__dtor1_CDXAnimatedIcon"
+
+[[function]]
+va = 0x00446740
+name = "CDXAnimatedIcon__sub_446740"
+
+[[function]]
+va = 0x00446750
+name = "CDXAnimatedIcon__sub_446750"
+
+[[function]]
+va = 0x00446A50
+name = "CDXAnimatedIcon__sub_446A50"
+
+[[function]]
+va = 0x00446B80
+name = "CDXAnimatedIcon__sub_446B80"

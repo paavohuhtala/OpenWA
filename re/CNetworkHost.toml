@@ -1,0 +1,303 @@
+[[function]]
+va = 0x004B06F0
+name = "CNetworkHost__dtor0_CNetworkHost"
+
+[[function]]
+va = 0x004B0710
+name = "CNetworkHost__Destructor_1"
+
+[[function]]
+va = 0x004B0BA0
+name = "CNetworkHost__DoDataExchange"
+
+[[function]]
+va = 0x004B0E60
+name = "CNetworkHost__getMessageMap"
+
+[[function]]
+va = 0x004B0E70
+name = "CNetworkHost__OnInitDialog"
+
+[[function]]
+va = 0x004B15D0
+name = "CNetworkHost__OnMouseMove"
+
+[[function]]
+va = 0x004B1770
+name = "CNetworkHost__OnClick15Machines"
+
+[[function]]
+va = 0x004B1AC0
+name = "CNetworkHost__sub_4B1AC0"
+
+[[function]]
+va = 0x004B1B10
+name = "CNetworkHost__sub_4B1B10"
+
+[[function]]
+va = 0x004B1BB0
+name = "CNetworkHost__sub_4B1BB0"
+
+[[function]]
+va = 0x004B1D10
+name = "CNetworkHost__sub_4B1D10"
+
+[[function]]
+va = 0x004B1D20
+name = "CNetworkHost__On15Options"
+
+[[function]]
+va = 0x004B2290
+name = "CNetworkHost__sub_4B2290"
+
+[[function]]
+va = 0x004B22A0
+name = "CNetworkHost__On15T1Ally"
+
+[[function]]
+va = 0x004B22F0
+name = "CNetworkHost__On15T2Ally"
+
+[[function]]
+va = 0x004B2340
+name = "CNetworkHost__On15T3Ally"
+
+[[function]]
+va = 0x004B23A0
+name = "CNetworkHost__On15T4Ally"
+
+[[function]]
+va = 0x004B2400
+name = "CNetworkHost__On15T5Ally"
+
+[[function]]
+va = 0x004B2460
+name = "CNetworkHost__On15T6Ally"
+
+[[function]]
+va = 0x004B24C0
+name = "CNetworkHost__On15T1Hand"
+
+[[function]]
+va = 0x004B2500
+name = "CNetworkHost__On15T2Hand"
+
+[[function]]
+va = 0x004B2560
+name = "CNetworkHost__On15T3Hand"
+
+[[function]]
+va = 0x004B25B0
+name = "CNetworkHost__On15T4Hand"
+
+[[function]]
+va = 0x004B2600
+name = "CNetworkHost__On15T5Hand"
+
+[[function]]
+va = 0x004B2650
+name = "CNetworkHost__On15T6Hand"
+
+[[function]]
+va = 0x004B26A0
+name = "CNetworkHost__On15T1Worm"
+
+[[function]]
+va = 0x004B2700
+name = "CNetworkHost__On15T2Worm"
+
+[[function]]
+va = 0x004B2750
+name = "CNetworkHost__On15T3Worm"
+
+[[function]]
+va = 0x004B27B0
+name = "CNetworkHost__On15T4Worm"
+
+[[function]]
+va = 0x004B2810
+name = "CNetworkHost__On15T5Worm"
+
+[[function]]
+va = 0x004B2870
+name = "CNetworkHost__On15T6Worm"
+
+[[function]]
+va = 0x004B3980
+name = "CNetworkHost__sub_4B3980"
+
+[[function]]
+va = 0x004B3AF0
+name = "CNetworkHost__DisplayOptions"
+
+[[function]]
+va = 0x004B3BF0
+name = "CNetworkHost__DisplayAllies"
+
+[[function]]
+va = 0x004B3ED0
+name = "CNetworkHost__DisplayHandicap"
+
+[[function]]
+va = 0x004B40F0
+name = "CNetworkHost__DisplayWorms"
+
+[[function]]
+va = 0x004B4230
+name = "CNetworkHost__sub_4B4230"
+
+[[function]]
+va = 0x004B44F0
+name = "CNetworkHost__sub_4B44F0"
+
+[[function]]
+va = 0x004B4540
+name = "CNetworkHost__sub_4B4540"
+
+[[function]]
+va = 0x004B45C0
+name = "CNetworkHost__ChangeAlly"
+
+[[function]]
+va = 0x004B4840
+name = "CNetworkHost__sub_4B4840"
+
+[[function]]
+va = 0x004B4870
+name = "CNetworkHost__sub_4B4870"
+
+[[function]]
+va = 0x004B4D50
+name = "CNetworkHost__sub_4B4D50"
+
+[[function]]
+va = 0x004B4DE0
+name = "CNetworkHost__sub_4B4DE0"
+
+[[function]]
+va = 0x004B5430
+name = "CNetworkHost__sub_4B5430"
+
+[[function]]
+va = 0x004B5570
+name = "CNetworkHost__sub_4B5570"
+
+[[function]]
+va = 0x004B55A0
+name = "CNetworkHost__sub_4B55A0"
+
+[[function]]
+va = 0x004B5640
+name = "CNetworkHost__sub_4B5640"
+
+[[function]]
+va = 0x004B56C0
+name = "CNetworkHost__sub_4B56C0"
+
+[[function]]
+va = 0x004B5820
+name = "CNetworkHost__sub_4B5820"
+
+[[function]]
+va = 0x004B58F0
+name = "CNetworkHost__sub_4B58F0"
+
+[[function]]
+va = 0x004B5940
+name = "CNetworkHost__sub_4B5940"
+
+[[function]]
+va = 0x004B5990
+name = "CNetworkHost__sub_4B5990"
+
+[[function]]
+va = 0x004B59F0
+name = "CNetworkHost__sub_4B59F0"
+
+[[function]]
+va = 0x004B5A50
+name = "CNetworkHost__sub_4B5A50"
+
+[[function]]
+va = 0x004B5AB0
+name = "CNetworkHost__sub_4B5AB0"
+
+[[function]]
+va = 0x004B5B10
+name = "CNetworkHost__sub_4B5B10"
+
+[[function]]
+va = 0x004B5B50
+name = "CNetworkHost__sub_4B5B50"
+
+[[function]]
+va = 0x004B5BA0
+name = "CNetworkHost__sub_4B5BA0"
+
+[[function]]
+va = 0x004B5BF0
+name = "CNetworkHost__sub_4B5BF0"
+
+[[function]]
+va = 0x004B5C40
+name = "CNetworkHost__sub_4B5C40"
+
+[[function]]
+va = 0x004B5C90
+name = "CNetworkHost__sub_4B5C90"
+
+[[function]]
+va = 0x004B5CE0
+name = "CNetworkHost__sub_4B5CE0"
+
+[[function]]
+va = 0x004B5D30
+name = "CNetworkHost__sub_4B5D30"
+
+[[function]]
+va = 0x004B5D90
+name = "CNetworkHost__sub_4B5D90"
+
+[[function]]
+va = 0x004B5DF0
+name = "CNetworkHost__sub_4B5DF0"
+
+[[function]]
+va = 0x004B5E50
+name = "CNetworkHost__sub_4B5E50"
+
+[[function]]
+va = 0x004B5EB0
+name = "CNetworkHost__sub_4B5EB0"
+
+[[function]]
+va = 0x004B5F10
+name = "CNetworkHost__DisplayTeams"
+
+[[function]]
+va = 0x004B6180
+name = "CNetworkHost__OnTimer"
+
+[[function]]
+va = 0x004B6290
+name = "CNetworkHost__ValidConnections"
+
+[[function]]
+va = 0x004B77B0
+name = "CNetworkHost__Go_0"
+
+[[function]]
+va = 0x004B9910
+name = "CNetworkHost__sub_4B9910"
+
+[[function]]
+va = 0x004BA370
+name = "CNetworkHost__PreGo"
+
+[[function]]
+va = 0x004BA6C0
+name = "CNetworkHost__ExitGame"
+
+[[function]]
+va = 0x004BA9C0
+name = "CNetworkHost__sub_4BA9C0"

@@ -1,0 +1,7 @@
+[[function]]
+va = 0x00598B50
+name = "Palette__LogChange"
+
+[[function]]
+va = 0x005A1110
+name = "Palette__RealizeFromSystem"

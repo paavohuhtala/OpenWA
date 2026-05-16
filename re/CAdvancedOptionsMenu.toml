@@ -1,0 +1,87 @@
+[[function]]
+va = 0x00427D10
+name = "CAdvancedOptionsMenu__dtor0_CAdvancedOptionsMenu"
+
+[[function]]
+va = 0x00427D30
+name = "CAdvancedOptionsMenu__dtor1_CAdvancedOptionsMenu"
+
+[[function]]
+va = 0x00428630
+name = "CAdvancedOptionsMenu__DoDataExchange"
+
+[[function]]
+va = 0x00428900
+name = "CAdvancedOptionsMenu__getMessageMap"
+
+[[function]]
+va = 0x00428910
+name = "CAdvancedOptionsMenu__sub_428910"
+
+[[function]]
+va = 0x00428940
+name = "CAdvancedOptionsMenu__sub_428940"
+
+[[function]]
+va = 0x00428A00
+name = "CAdvancedOptionsMenu__sub_428A00"
+
+[[function]]
+va = 0x00428AD0
+name = "CAdvancedOptionsMenu__sub_428AD0"
+
+[[function]]
+va = 0x00428B10
+name = "CAdvancedOptionsMenu__sub_428B10"
+
+[[function]]
+va = 0x00428BB0
+name = "CAdvancedOptionsMenu__OnInitDialog"
+
+[[function]]
+va = 0x00429400
+name = "CAdvancedOptionsMenu__sub_429400"
+
+[[function]]
+va = 0x00429610
+name = "CAdvancedOptionsMenu__sub_429610"
+
+[[function]]
+va = 0x00429820
+name = "CAdvancedOptionsMenu__sub_429820"
+
+[[function]]
+va = 0x004299B0
+name = "CAdvancedOptionsMenu__sub_4299B0"
+
+[[function]]
+va = 0x00429E70
+name = "CAdvancedOptionsMenu__sub_429E70"
+
+[[function]]
+va = 0x00429EE0
+name = "CAdvancedOptionsMenu__sub_429EE0"
+
+[[function]]
+va = 0x00429F50
+name = "CAdvancedOptionsMenu__sub_429F50"
+
+[[function]]
+va = 0x0042A020
+name = "CAdvancedOptionsMenu__sub_42A020"
+
+[[function]]
+va = 0x0042A1B0
+name = "CAdvancedOptionsMenu__sub_42A1B0"
+
+[[function]]
+va = 0x0042A290
+name = "CAdvancedOptionsMenu__sub_42A290"
+
+[[function]]
+va = 0x0042A3F0
+name = "CAdvancedOptionsMenu__sub_42A3F0"
+
+[[function]]
+va = 0x0042A420
+name = "CAdvancedOptionsMenu__sub_42A420"

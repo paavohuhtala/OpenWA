@@ -1,0 +1,43 @@
+[[function]]
+va = 0x004D6130
+name = "ServerGameList__ctor_ServerGameList"
+
+[[function]]
+va = 0x004D6180
+name = "ServerGameList__getMessageMap"
+
+[[function]]
+va = 0x004D6190
+name = "ServerGameList__Init"
+
+[[function]]
+va = 0x004D63B0
+name = "ServerGameList__AddGame"
+
+[[function]]
+va = 0x004D6740
+name = "ServerGameList__GetSelectedHostAddress"
+
+[[function]]
+va = 0x004D6790
+name = "ServerGameList__sub_4D6790"
+
+[[function]]
+va = 0x004D67D0
+name = "ServerGameList__GetSelectedOpenStatus"
+
+[[function]]
+va = 0x004D68A0
+name = "ServerGameList__sub_4D68A0"
+
+[[function]]
+va = 0x004D68F0
+name = "ServerGameList__DeleteUnrefreshedItems"
+
+[[function]]
+va = 0x004D6970
+name = "ServerGameList__AgeItems"
+
+[[function]]
+va = 0x004D69E0
+name = "ServerGameList__sub_4D69E0"

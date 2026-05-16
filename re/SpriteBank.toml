@@ -1,0 +1,20 @@
+[[function]]
+va = 0x004F9450
+name = "SpriteBank__Constructor"
+
+[[function]]
+va = 0x004F95A0
+name = "SpriteBank__InitFromGfxDir"
+
+[[function]]
+va = 0x004F9640
+name = "SpriteBank__ParseData"
+
+[[function]]
+va = 0x004F9710
+name = "SpriteBank__GetFrameForBlit"
+plate_comment = "SpriteBank__GetFrameForBlit — usercall ESI=this(SpriteBank*). Same role as Sprite__GetFrameForBlit but for SpriteBank-backed sprite IDs: walks the bank's index_table to map sprite_id to a frame index, then looks up the frame entry and decompresses its surface via FUN_004FA950. Called from DisplayGfx::GetSpriteFrameForBlit (slot 33, 0x5237C0) for the sprite_banks path."
+
+[[function]]
+va = 0x004F98C0
+name = "SpriteBank__GetInfo"

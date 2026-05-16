@@ -1,0 +1,131 @@
+[[function]]
+va = 0x0043B7F0
+name = "CCustomLevel__Constructor"
+
+[[function]]
+va = 0x0043B9B0
+name = "CCustomLevel__dtor0_CCustomLevel"
+
+[[function]]
+va = 0x0043B9D0
+name = "CCustomLevel__Destructor_1"
+
+[[function]]
+va = 0x0043BAC0
+name = "CCustomLevel__getMessageMap"
+
+[[function]]
+va = 0x0043BD60
+name = "CCustomLevel__CreateBrushSizes"
+
+[[function]]
+va = 0x0043C020
+name = "CCustomLevel__DrawControl"
+
+[[function]]
+va = 0x0043CC70
+name = "CCustomLevel__DrawContents"
+
+[[function]]
+va = 0x0043D640
+name = "CCustomLevel__sub_43D640"
+
+[[function]]
+va = 0x0043DA70
+name = "CCustomLevel__sub_43DA70"
+
+[[function]]
+va = 0x0043DAB0
+name = "CCustomLevel__GenerateFullColourPreview"
+
+[[function]]
+va = 0x0043DD30
+name = "CCustomLevel__sub_43DD30"
+
+[[function]]
+va = 0x0043E190
+name = "CCustomLevel__GenerateMonoPreview"
+
+[[function]]
+va = 0x0043E370
+name = "CCustomLevel__GenerateFromLastMonoPreview"
+
+[[function]]
+va = 0x0043E3C0
+name = "CCustomLevel__sub_43E3C0"
+
+[[function]]
+va = 0x0043EC30
+name = "CCustomLevel__AddUndoLevel"
+
+[[function]]
+va = 0x0043EDA0
+name = "CCustomLevel__UndoLevel"
+
+[[function]]
+va = 0x0043EE50
+name = "CCustomLevel__CopyBitmap"
+
+[[function]]
+va = 0x0043EFF0
+name = "CCustomLevel__sub_43EFF0"
+
+[[function]]
+va = 0x0043F040
+name = "CCustomLevel__sub_43F040"
+
+[[function]]
+va = 0x0043F560
+name = "CCustomLevel__sub_43F560"
+
+[[function]]
+va = 0x0043F610
+name = "CCustomLevel__GenerateGrafittiPreview"
+
+[[function]]
+va = 0x0043F9A0
+name = "CCustomLevel__sub_43F9A0"
+
+[[function]]
+va = 0x0043FA70
+name = "CCustomLevel__sub_43FA70"
+
+[[function]]
+va = 0x0043FD80
+name = "CCustomLevel__Invert"
+
+[[function]]
+va = 0x0043FEC0
+name = "CCustomLevel__Clear"
+
+[[function]]
+va = 0x00440010
+name = "CCustomLevel__MakeHoles"
+
+[[function]]
+va = 0x00440200
+name = "CCustomLevel__MakeTunnels"
+
+[[function]]
+va = 0x004405C0
+name = "CCustomLevel__sub_4405C0"
+
+[[function]]
+va = 0x00440640
+name = "CCustomLevel__sub_440640"
+
+[[function]]
+va = 0x004406E0
+name = "CCustomLevel__sub_4406E0"
+
+[[function]]
+va = 0x00440A70
+name = "CCustomLevel__LoadLevel"
+
+[[function]]
+va = 0x00440BB0
+name = "CCustomLevel__sub_440BB0"
+
+[[function]]
+va = 0x00440D70
+name = "CCustomLevel__sub_440D70"

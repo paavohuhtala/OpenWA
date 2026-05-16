@@ -1,0 +1,23 @@
+[[function]]
+va = 0x00440DB0
+name = "CWAFrameWnd__Constructor_Maybe"
+
+[[function]]
+va = 0x00441680
+name = "CWAFrameWnd__Constructor_Maybe"
+
+[[function]]
+va = 0x00442300
+name = "CWAFrameWnd__Constructor_Maybe"
+
+[[function]]
+va = 0x004A04B0
+name = "CWAFrameWnd__Constructor_Maybe"
+
+[[function]]
+va = 0x004D0500
+name = "CWAFrameWnd__Constructor_Maybe"
+
+[[global]]
+va = 0x00644210
+name = "CWAFrameWnd__vtable_Maybe"

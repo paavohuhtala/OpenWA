@@ -1,0 +1,7 @@
+[[function]]
+va = 0x004CD9A0
+name = "LobbyDialog__Constructor"
+
+[[global]]
+va = 0x0065F040
+name = "LobbyDialog__vtable"

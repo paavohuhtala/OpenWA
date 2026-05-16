@@ -1,0 +1,59 @@
+[[function]]
+va = 0x005640B0
+name = "EditorBitmap__reset_1"
+
+[[function]]
+va = 0x005640F0
+name = "EditorBitmap__edit_type"
+
+[[function]]
+va = 0x005641E0
+name = "EditorBitmap__adjust_xpos"
+
+[[function]]
+va = 0x00564250
+name = "EditorBitmap__edit_backspace"
+
+[[function]]
+va = 0x005642A0
+name = "EditorBitmap__edit_delete"
+
+[[function]]
+va = 0x005642E0
+name = "EditorBitmap__edit_left"
+
+[[function]]
+va = 0x00564320
+name = "EditorBitmap__edit_right"
+
+[[function]]
+va = 0x00564360
+name = "EditorBitmap__edit_home"
+
+[[function]]
+va = 0x005643B0
+name = "EditorBitmap__edit_end"
+
+[[function]]
+va = 0x00564420
+name = "EditorBitmap__reset_0"
+
+[[function]]
+va = 0x00564480
+name = "EditorBitmap__sub_564480"
+
+[[function]]
+va = 0x00564650
+name = "EditorBitmap__sub_564650"
+
+[[function]]
+va = 0x005646D0
+name = "EditorBitmap__sub_5646D0"
+
+[[function]]
+va = 0x00564730
+name = "EditorBitmap__sub_564730"
+
+[[function]]
+va = 0x00564760
+name = "EditorBitmap__sub_564760"

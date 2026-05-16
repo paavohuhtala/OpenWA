@@ -1,0 +1,55 @@
+[[function]]
+va = 0x00494840
+name = "CMission__GetMissionName"
+
+[[function]]
+va = 0x00494940
+name = "CMission__SetMission"
+
+[[function]]
+va = 0x00494A30
+name = "CMission__GetMissionDesc"
+
+[[function]]
+va = 0x00495590
+name = "CMission__SetAmmo"
+
+[[function]]
+va = 0x00496F30
+name = "CMission__SetWeapon"
+
+[[function]]
+va = 0x00496FB0
+name = "CMission__SetDelay"
+
+[[function]]
+va = 0x00497000
+name = "CMission__SetTraining"
+
+[[function]]
+va = 0x004970D0
+name = "CMission__SetBeforeData"
+
+[[function]]
+va = 0x00497290
+name = "CMission__SetAfterData"
+
+[[function]]
+va = 0x00497570
+name = "CMission__GetEvents"
+
+[[function]]
+va = 0x004983E0
+name = "CMission__GetMissionThumb"
+
+[[function]]
+va = 0x004984D0
+name = "CMission__GetMissionImage"
+
+[[function]]
+va = 0x00498600
+name = "CMission__sub_498600"
+
+[[function]]
+va = 0x00498640
+name = "CMission__sub_498640"

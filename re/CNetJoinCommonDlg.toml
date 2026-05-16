@@ -1,0 +1,83 @@
+[[function]]
+va = 0x004BA9D0
+name = "CNetJoinCommonDlg__Constructor"
+
+[[function]]
+va = 0x004BAAA0
+name = "CNetJoinCommonDlg__dtor0_CNetJoinCommonDlg"
+
+[[function]]
+va = 0x004BAAC0
+name = "CNetJoinCommonDlg__dtor1_CNetJoinCommonDlg"
+
+[[function]]
+va = 0x004BAB30
+name = "CNetJoinCommonDlg__DoDataExchange"
+
+[[function]]
+va = 0x004BAB70
+name = "CNetJoinCommonDlg__getMessageMap"
+
+[[function]]
+va = 0x004BAB80
+name = "CNetJoinCommonDlg__OnInitDialog"
+
+[[function]]
+va = 0x004BAC60
+name = "CNetJoinCommonDlg__sub_4BAC60"
+
+[[function]]
+va = 0x004BACB0
+name = "CNetJoinCommonDlg__sub_4BACB0"
+
+[[function]]
+va = 0x004BAFF0
+name = "CNetJoinCommonDlg__sub_4BAFF0"
+
+[[function]]
+va = 0x004BB000
+name = "CNetJoinCommonDlg__sub_4BB000"
+
+[[function]]
+va = 0x004BB040
+name = "CNetJoinCommonDlg__sub_4BB040"
+
+[[function]]
+va = 0x004BB180
+name = "CNetJoinCommonDlg__sub_4BB180"
+
+[[function]]
+va = 0x004BB1F0
+name = "CNetJoinCommonDlg__ServiceMessages"
+
+[[function]]
+va = 0x004BB870
+name = "CNetJoinCommonDlg__sub_4BB870"
+
+[[function]]
+va = 0x004BB8F0
+name = "CNetJoinCommonDlg__SendReady"
+
+[[function]]
+va = 0x004BB970
+name = "CNetJoinCommonDlg__sub_4BB970"
+
+[[function]]
+va = 0x004BBA30
+name = "CNetJoinCommonDlg__sub_4BBA30"
+
+[[function]]
+va = 0x004BBA90
+name = "CNetJoinCommonDlg__sub_4BBA90"
+
+[[function]]
+va = 0x004BBAC0
+name = "CNetJoinCommonDlg__sub_4BBAC0"
+
+[[function]]
+va = 0x004BBB50
+name = "CNetJoinCommonDlg__sub_4BBB50"
+
+[[function]]
+va = 0x004BBBF0
+name = "CNetJoinCommonDlg__sub_4BBBF0"

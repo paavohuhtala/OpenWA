@@ -1,0 +1,23 @@
+[[function]]
+va = 0x005555E0
+name = "Task_AirStrike__dtor0_Task_AirStrike"
+
+[[function]]
+va = 0x00555620
+name = "Task_AirStrike__sub_555620"
+
+[[function]]
+va = 0x00555630
+name = "Task_AirStrike__ctor1_Task_AirStrike"
+
+[[function]]
+va = 0x00555720
+name = "Task_AirStrike__save"
+
+[[function]]
+va = 0x00555800
+name = "Task_AirStrike__release_missile"
+
+[[function]]
+va = 0x00555A20
+name = "Task_AirStrike__message"

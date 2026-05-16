@@ -1,0 +1,31 @@
+[[function]]
+va = 0x0049B170
+name = "CMissionSuccess__Constructor"
+
+[[function]]
+va = 0x0049B2F0
+name = "CMissionSuccess__dtor0_CMissionSuccess"
+
+[[function]]
+va = 0x0049B310
+name = "CMissionSuccess__DoDataExchange"
+
+[[function]]
+va = 0x0049B390
+name = "CMissionSuccess__OnInitDialog"
+
+[[function]]
+va = 0x0049BC50
+name = "CMissionSuccess__sub_49BC50"
+
+[[function]]
+va = 0x0049BE30
+name = "CMissionSuccess__sub_49BE30"
+
+[[function]]
+va = 0x0049C390
+name = "CMissionSuccess__sub_49C390"
+
+[[function]]
+va = 0x0049C410
+name = "CMissionSuccess__sub_49C410"

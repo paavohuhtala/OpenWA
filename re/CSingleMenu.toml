@@ -1,0 +1,35 @@
+[[function]]
+va = 0x004D6AB0
+name = "CSingleMenu__dtor0_CSingleMenu"
+
+[[function]]
+va = 0x004D6AD0
+name = "CSingleMenu__dtor1_CSingleMenu"
+
+[[function]]
+va = 0x004D6BF0
+name = "CSingleMenu__DoDataExchange"
+
+[[function]]
+va = 0x004D6C70
+name = "CSingleMenu__getMessageMap"
+
+[[function]]
+va = 0x004D6C80
+name = "CSingleMenu__OnInitDialog"
+
+[[function]]
+va = 0x004D6DD0
+name = "CSingleMenu__On20Back"
+
+[[function]]
+va = 0x004D7430
+name = "CSingleMenu__sub_4D7430"
+
+[[function]]
+va = 0x004D7440
+name = "CSingleMenu__sub_4D7440"
+
+[[function]]
+va = 0x004D7450
+name = "CSingleMenu__sub_4D7450"

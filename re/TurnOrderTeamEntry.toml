@@ -1,0 +1,11 @@
+[[function]]
+va = 0x00563230
+name = "TurnOrderTeamEntry__Destructor_Maybe"
+
+[[function]]
+va = 0x005634B0
+name = "TurnOrderTeamEntry__RedrawBar"
+
+[[function]]
+va = 0x00563620
+name = "TurnOrderTeamEntry__Render"

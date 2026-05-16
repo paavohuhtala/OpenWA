@@ -1,0 +1,19 @@
+[[function]]
+va = 0x00447E80
+name = "MapView__Constructor"
+
+[[function]]
+va = 0x00449B60
+name = "MapView__CopyInfo"
+
+[[function]]
+va = 0x0044A9A0
+name = "MapView__Load"
+
+[[function]]
+va = 0x0044B250
+name = "MapView__OpenEditorAndReload"
+
+[[function]]
+va = 0x0044B540
+name = "MapView__ValidateForGenerate_Maybe"

@@ -1,0 +1,27 @@
+[[function]]
+va = 0x005193D0
+name = "SpecialImpact"
+
+[[function]]
+va = 0x005197D0
+name = "DrawCrosshairLine"
+
+[[function]]
+va = 0x00519F60
+name = "CheckBungeeTrailTrigger"
+
+[[function]]
+va = 0x0051A1A0
+name = "StartBungeeTrail"
+
+[[function]]
+va = 0x0051B7F0
+name = "WormStartFiring"
+
+[[function]]
+va = 0x0051C3D0
+name = "WeaponRelease"
+
+[[function]]
+va = 0x0051EE60
+name = "FireWeapon"

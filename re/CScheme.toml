@@ -1,0 +1,23 @@
+[[function]]
+va = 0x004D3830
+name = "CScheme__ctor_CScheme"
+
+[[function]]
+va = 0x004D4200
+name = "CScheme__sub_4D4200"
+
+[[function]]
+va = 0x004D4690
+name = "CScheme__LoadScheme_x"
+
+[[function]]
+va = 0x004D4840
+name = "CScheme__LoadScheme_y"
+
+[[function]]
+va = 0x004D4C00
+name = "CScheme__IsSchemeChanged_0"
+
+[[function]]
+va = 0x004D4F30
+name = "CScheme__AreCheatsOn"

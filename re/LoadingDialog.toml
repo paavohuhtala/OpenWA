@@ -1,0 +1,7 @@
+[[function]]
+va = 0x004E3B40
+name = "LoadingDialog__ThreadProc"
+
+[[function]]
+va = 0x004E3B70
+name = "LoadingDialog__DlgProc"

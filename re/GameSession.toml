@@ -1,0 +1,58 @@
+[[function]]
+va = 0x0056DDC0
+name = "GameSession__AdvanceFrame"
+plate_comment = "GameSession__AdvanceFrame: Frame timing and engine tick. Uses GetTickCount or QueryPerformanceCounter depending on timer availability. Calls engine vtable slot 9 (offset 0x24) for the actual game simulation tick."
+
+[[function]]
+va = 0x00572430
+name = "GameSession__OnHeadlessPreLoop"
+
+[[function]]
+va = 0x00572660
+name = "GameSession__WindowProc"
+
+[[function]]
+va = 0x00572C80
+name = "GameSession__ProcessFrame"
+
+[[function]]
+va = 0x00572E30
+name = "GameSession__PumpMessages"
+
+[[function]]
+va = 0x00572F50
+name = "GameSession__Run"
+plate_comment = """
+GameSession__Run: Main game loop. Allocates a GameSession (0x120 bytes), inits hardware, then loops PumpMessages + ProcessFrame until exit_flag (offset 0x3c) is set.
+
+GameSession struct layout (partial):
+  +0x00: vtable (destructor)
+  +0x08: hWnd
+  +0x0C: param_1 (game mode?)
+  +0x2C: active flag (set to 1)
+  +0x30: desktop_lost flag
+  +0x34: some state flag
+  +0x38: DDGame/frontend pointer (ESI param)
+  +0x3C: exit_flag (non-zero = exit loop)
+  +0x40: quit_flag
+  +0x4C: from frontend+0xf39c
+  +0x50: from frontend+0xf3a0
+  +0x5C: game state flag
+  +0x60: game state flag
+  +0x64: frame state (-1 or 1)
+  +0x68: minimize_request flag
+  +0x70: cursor position (POINT)
+  +0x80: last cursor X
+  +0x84: last cursor Y
+  +0x88: keyboard clear flag
+  +0x90: perf counter freq low
+  +0x94: perf counter freq high
+  +0x98: timing accumulator (8 bytes)
+  +0xA0: engine/DDGame object ptr (vtable dispatch for frame advance)
+  +0xA4: keyboard object ptr
+  +0xAC: another object ptr (vtable+0x68 for non-engine frame)
+"""
+
+[[function]]
+va = 0x0058BFA0
+name = "GameSession__Constructor"

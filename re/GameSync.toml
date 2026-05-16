@@ -1,0 +1,103 @@
+[[function]]
+va = 0x0058E3E0
+name = "GameSync__Constructor_0"
+
+[[function]]
+va = 0x0058E4D0
+name = "GameSync__dtor0_GameSync"
+
+[[function]]
+va = 0x0058E4F0
+name = "GameSync__Constructor_1"
+
+[[function]]
+va = 0x0058E5F0
+name = "GameSync__EnumSessions"
+
+[[function]]
+va = 0x0058E650
+name = "GameSync__EnumPlayers"
+
+[[function]]
+va = 0x0058E6E0
+name = "GameSync__HostSession"
+
+[[function]]
+va = 0x0058E9E0
+name = "GameSync__sub_58E9E0"
+
+[[function]]
+va = 0x0058EFD0
+name = "GameSync__sub_58EFD0"
+
+[[function]]
+va = 0x0058F030
+name = "GameSync__sub_58F030"
+
+[[function]]
+va = 0x0058F090
+name = "GameSync__sub_58F090"
+
+[[function]]
+va = 0x0058F0B0
+name = "GameSync__sub_58F0B0"
+
+[[function]]
+va = 0x0058F0E0
+name = "GameSync__CancelHosting"
+
+[[function]]
+va = 0x0058F150
+name = "GameSync__DetectTCP"
+
+[[function]]
+va = 0x0058F270
+name = "GameSync__DetectIPX"
+
+[[function]]
+va = 0x0058F370
+name = "GameSync__sub_58F370"
+
+[[function]]
+va = 0x0058F460
+name = "GameSync__sub_58F460"
+
+[[function]]
+va = 0x0058F4C0
+name = "GameSync__sub_58F4C0"
+
+[[function]]
+va = 0x0058F610
+name = "GameSync__sub_58F610"
+
+[[function]]
+va = 0x0058F7F0
+name = "GameSync__Reset"
+
+[[function]]
+va = 0x0058F8E0
+name = "GameSync__SendToValid"
+
+[[function]]
+va = 0x0058F960
+name = "GameSync__sub_58F960"
+
+[[function]]
+va = 0x0058F9F0
+name = "GameSync__sub_58F9F0"
+
+[[function]]
+va = 0x0058FA40
+name = "GameSync__JoinSession"
+
+[[function]]
+va = 0x0058FAB0
+name = "GameSync__ClearCallBacks"
+
+[[function]]
+va = 0x0058FB00
+name = "GameSync__sub_58FB00"
+
+[[function]]
+va = 0x0058FB80
+name = "GameSync__ResetClientConnection"

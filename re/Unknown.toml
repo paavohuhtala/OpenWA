@@ -1,0 +1,1475 @@
+[[function]]
+va = 0x00402C30
+name = "Unknown__OnLBUTTONDOWN"
+
+[[function]]
+va = 0x00402C70
+name = "Unknown__OnLBUTTONUP"
+
+[[function]]
+va = 0x00402DA0
+name = "Unknown__OnRBUTTONDOWN"
+
+[[function]]
+va = 0x00402DF0
+name = "Unknown__OnRBUTTONUP"
+
+[[function]]
+va = 0x00403750
+name = "Unknown__OnMsg_BFFF"
+
+[[function]]
+va = 0x004037A0
+name = "Unknown__OnMsg_00F1"
+
+[[function]]
+va = 0x00403870
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x00404200
+name = "Unknown__OnMsg_BFFF"
+
+[[function]]
+va = 0x00404640
+name = "Unknown__OnSIZE"
+
+[[function]]
+va = 0x00404CD0
+name = "Unknown__OnMsg_BFFF"
+
+[[function]]
+va = 0x004054D0
+name = "Unknown__OnSIZE"
+
+[[function]]
+va = 0x00405520
+name = "Unknown__OnLBUTTONDBLCLK"
+
+[[function]]
+va = 0x00405540
+name = "Unknown__OnLBUTTONDOWN"
+
+[[function]]
+va = 0x00405680
+name = "Unknown__OnMsg_BFFB"
+
+[[function]]
+va = 0x00408C90
+name = "Unknown__OnLBUTTONUP"
+
+[[function]]
+va = 0x00408EC0
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x004090A0
+name = "Unknown__OnMsg_BFF9"
+
+[[function]]
+va = 0x00409980
+name = "Unknown__OnMsg_0206"
+
+[[function]]
+va = 0x004099B0
+name = "Unknown__OnRBUTTONUP"
+
+[[function]]
+va = 0x004099E0
+name = "Unknown__OnMsg_000A"
+
+[[function]]
+va = 0x00409F00
+name = "Unknown__OnMsg_BFFF"
+
+[[function]]
+va = 0x0040A7C0
+name = "Unknown__OnCommand_2006"
+
+[[function]]
+va = 0x0040AC20
+name = "Unknown__OnKEYDOWN"
+
+[[function]]
+va = 0x0040B150
+name = "Unknown__OnLBUTTONDOWN"
+
+[[function]]
+va = 0x0040B190
+name = "Unknown__OnLBUTTONDBLCLK"
+
+[[function]]
+va = 0x0040B400
+name = "Unknown__OnMsg_000A"
+
+[[function]]
+va = 0x0040B6E0
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x0040B8F0
+name = "Unknown__OnLBUTTONDOWN"
+
+[[function]]
+va = 0x0040B9B0
+name = "Unknown__OnLBUTTONDBLCLK"
+
+[[function]]
+va = 0x0040B9D0
+name = "Unknown__OnMsg_BFFD"
+
+[[function]]
+va = 0x0041B9C0
+name = "Unknown__OnLBUTTONDOWN"
+
+[[function]]
+va = 0x0041BA00
+name = "Unknown__OnLBUTTONUP"
+
+[[function]]
+va = 0x0041BA40
+name = "Unknown__OnLBUTTONDBLCLK"
+
+[[function]]
+va = 0x0041BA80
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x0041BB90
+name = "Unknown__OnMsg_BFF9"
+
+[[function]]
+va = 0x0041C960
+name = "Unknown__OnCHAR"
+
+[[function]]
+va = 0x0041CB50
+name = "Unknown__OnMOUSEWHEEL"
+
+[[function]]
+va = 0x0041D020
+name = "Unknown__OnLBUTTONDBLCLK"
+
+[[function]]
+va = 0x0041D870
+name = "Unknown__OnMsg_BFFF"
+
+[[function]]
+va = 0x0041D940
+name = "Unknown__OnLBUTTONDOWN"
+
+[[function]]
+va = 0x0041E120
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x0041E150
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x0041F260
+name = "Unknown__OnHSCROLL"
+
+[[function]]
+va = 0x0041F360
+name = "Unknown__OnDESTROY"
+
+[[function]]
+va = 0x00420380
+name = "Unknown__OnVSCROLL"
+
+[[function]]
+va = 0x004209C0
+name = "Unknown__OnSIZE"
+
+[[function]]
+va = 0x00421230
+name = "Unknown__OnMOUSEWHEEL"
+
+[[function]]
+va = 0x004229B0
+name = "Unknown__OnMsg_BFFF"
+
+[[function]]
+va = 0x00422BE0
+name = "Unknown__OnLBUTTONDOWN"
+
+[[function]]
+va = 0x00422EB0
+name = "Unknown__OnTIMER"
+
+[[function]]
+va = 0x00423040
+name = "Unknown__OnLBUTTONDBLCLK"
+
+[[function]]
+va = 0x00423080
+name = "Unknown__OnLBUTTONUP"
+
+[[function]]
+va = 0x00423400
+name = "Unknown__OnCommand_2001"
+
+[[function]]
+va = 0x00423470
+name = "Unknown__OnCommand_2002"
+
+[[function]]
+va = 0x004234F0
+name = "Unknown__OnMOUSEWHEEL"
+
+[[function]]
+va = 0x00423900
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x00424170
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x00424260
+name = "Unknown__OnLBUTTONDOWN"
+
+[[function]]
+va = 0x00424330
+name = "Unknown__OnLBUTTONUP"
+
+[[function]]
+va = 0x00424430
+name = "Unknown__OnTIMER"
+
+[[function]]
+va = 0x00424620
+name = "Unknown__OnMsg_BFFF"
+
+[[function]]
+va = 0x00424880
+name = "Unknown__OnMOVE"
+
+[[function]]
+va = 0x004248A0
+name = "Unknown__OnLBUTTONDOWN"
+
+[[function]]
+va = 0x00425190
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x004257A0
+name = "Unknown__OnLBUTTONDOWN"
+
+[[function]]
+va = 0x004257C0
+name = "Unknown__OnLBUTTONDBLCLK"
+
+[[function]]
+va = 0x004257E0
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x00425840
+name = "Unknown__OnMOVE"
+
+[[function]]
+va = 0x00425EB0
+name = "Unknown__OnSIZE"
+
+[[function]]
+va = 0x00426120
+name = "Unknown__OnMOUSEWHEEL"
+
+[[function]]
+va = 0x00429430
+name = "Unknown__OnCommand_1571"
+
+[[function]]
+va = 0x00429A10
+name = "Unknown__OnHSCROLL"
+
+[[function]]
+va = 0x00429C40
+name = "Unknown__OnCommand_1810"
+
+[[function]]
+va = 0x00429CA0
+name = "Unknown__OnCommand_1789"
+
+[[function]]
+va = 0x00429D10
+name = "Unknown__OnCommand_1456"
+
+[[function]]
+va = 0x00429DB0
+name = "Unknown__OnCommand_1790"
+
+[[function]]
+va = 0x00429F90
+name = "Unknown__OnCommand_1791"
+
+[[function]]
+va = 0x0042A2A0
+name = "Unknown__OnCommand_1792"
+
+[[function]]
+va = 0x004383D0
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x004384B0
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x00438930
+name = "Unknown__OnCHAR"
+
+[[function]]
+va = 0x00438A60
+name = "Unknown__OnKEYDOWN"
+
+[[function]]
+va = 0x00439F10
+name = "Unknown__OnTIMER"
+
+[[function]]
+va = 0x0043BAD0
+name = "Unknown__OnMsg_BFFF"
+
+[[function]]
+va = 0x0043E400
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x0043E840
+name = "Unknown__OnLBUTTONDOWN"
+
+[[function]]
+va = 0x0043F0B0
+name = "Unknown__OnLBUTTONUP"
+
+[[function]]
+va = 0x0043F120
+name = "Unknown__OnRBUTTONUP"
+
+[[function]]
+va = 0x0043F190
+name = "Unknown__OnRBUTTONDOWN"
+
+[[function]]
+va = 0x00441510
+name = "Unknown__OnCommand_1391"
+
+[[function]]
+va = 0x00441C80
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x00442790
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x00442C90
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x00442CD0
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x00444C80
+name = "Unknown__OnCommand_2005"
+
+[[function]]
+va = 0x00444CC0
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x00445CE0
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x00447C60
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x004481B0
+name = "Unknown__OnLBUTTONDOWN"
+
+[[function]]
+va = 0x004482A0
+name = "Unknown__OnLBUTTONDBLCLK"
+
+[[function]]
+va = 0x004482C0
+name = "Unknown__OnRBUTTONDOWN"
+
+[[function]]
+va = 0x0044B4E0
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x0044BEF0
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x0044C0A0
+name = "Unknown__OnKEYDOWN"
+
+[[function]]
+va = 0x0044E1C0
+name = "Unknown__OnCommand_101"
+
+[[function]]
+va = 0x0044E730
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x0046A340
+name = "Unknown__OnSIZE"
+
+[[function]]
+va = 0x004767A0
+name = "Unknown__OnTIMER"
+
+[[function]]
+va = 0x00477D50
+name = "Unknown__OnCommand_1090"
+
+[[function]]
+va = 0x004780A0
+name = "Unknown__OnCommand_1119"
+
+[[function]]
+va = 0x004781C0
+name = "Unknown__OnCommand_1116"
+
+[[function]]
+va = 0x00478A30
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004801A0
+name = "Unknown__OnLBUTTONDOWN"
+
+[[function]]
+va = 0x00480300
+name = "Unknown__OnLBUTTONDBLCLK"
+
+[[function]]
+va = 0x00480320
+name = "Unknown__OnRBUTTONDOWN"
+
+[[function]]
+va = 0x00480800
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x004808A0
+name = "Unknown__OnMsg_BFF9"
+
+[[function]]
+va = 0x004808F0
+name = "Unknown__OnMOUSEWHEEL"
+
+[[function]]
+va = 0x00481280
+name = "Unknown__OnCommand_1090"
+
+[[function]]
+va = 0x00481A20
+name = "Unknown__OnCommand_1114"
+
+[[function]]
+va = 0x00481AA0
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x00481D00
+name = "Unknown__OnTIMER"
+
+[[function]]
+va = 0x00481F60
+name = "Unknown__OnLBUTTONDOWN"
+
+[[function]]
+va = 0x00482350
+name = "Unknown__OnLBUTTONUP"
+
+[[function]]
+va = 0x00482370
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x00482840
+name = "Unknown__OnLBUTTONDOWN"
+
+[[function]]
+va = 0x004834D0
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x00483B70
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x00483BD0
+name = "Unknown__OnRBUTTONDOWN"
+
+[[function]]
+va = 0x004845D0
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x00484AB0
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x00484E40
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x00486030
+name = "Unknown__OnLBUTTONDOWN"
+
+[[function]]
+va = 0x00486100
+name = "Unknown__OnLBUTTONUP"
+
+[[function]]
+va = 0x00486180
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x00486310
+name = "Unknown__OnRBUTTONDOWN"
+
+[[function]]
+va = 0x00486AA0
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x004872B0
+name = "Unknown__OnMsg_BFFF"
+
+[[function]]
+va = 0x0048A8B0
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x0048A950
+name = "Unknown__OnCommand_1290"
+
+[[function]]
+va = 0x0048B6E0
+name = "Unknown__OnLBUTTONDOWN"
+
+[[function]]
+va = 0x0048B770
+name = "Unknown__OnLBUTTONDBLCLK"
+
+[[function]]
+va = 0x0048B790
+name = "Unknown__OnRBUTTONDOWN"
+
+[[function]]
+va = 0x0048B820
+name = "Unknown__OnMsg_0206"
+
+[[function]]
+va = 0x0048B850
+name = "Unknown__OnLBUTTONDOWN"
+
+[[function]]
+va = 0x0048B8E0
+name = "Unknown__OnLBUTTONDBLCLK"
+
+[[function]]
+va = 0x0048B900
+name = "Unknown__OnRBUTTONDOWN"
+
+[[function]]
+va = 0x0048B990
+name = "Unknown__OnMsg_0206"
+
+[[function]]
+va = 0x0048B9C0
+name = "Unknown__OnLBUTTONDOWN"
+
+[[function]]
+va = 0x0048BA20
+name = "Unknown__OnRBUTTONDOWN"
+
+[[function]]
+va = 0x0048BFD0
+name = "Unknown__OnLBUTTONDBLCLK"
+
+[[function]]
+va = 0x0048BFF0
+name = "Unknown__OnMsg_0206"
+
+[[function]]
+va = 0x0048C010
+name = "Unknown__OnLBUTTONDOWN"
+
+[[function]]
+va = 0x0048C130
+name = "Unknown__OnRBUTTONDOWN"
+
+[[function]]
+va = 0x0048C220
+name = "Unknown__OnMOUSEWHEEL"
+
+[[function]]
+va = 0x0048C3E0
+name = "Unknown__OnLBUTTONDOWN"
+
+[[function]]
+va = 0x0048C430
+name = "Unknown__OnRBUTTONDOWN"
+
+[[function]]
+va = 0x0048C490
+name = "Unknown__OnMOUSEWHEEL"
+
+[[function]]
+va = 0x0048C530
+name = "Unknown__OnLBUTTONDOWN"
+
+[[function]]
+va = 0x0048C5C0
+name = "Unknown__OnRBUTTONDOWN"
+
+[[function]]
+va = 0x0048C680
+name = "Unknown__OnMsg_00F1"
+
+[[function]]
+va = 0x0048CB40
+name = "Unknown__OnLBUTTONUP"
+
+[[function]]
+va = 0x0048CB80
+name = "Unknown__OnRBUTTONDOWN"
+
+[[function]]
+va = 0x0048D140
+name = "Unknown__OnMsg_00F1"
+
+[[function]]
+va = 0x0048D1D0
+name = "Unknown__OnRBUTTONDOWN"
+
+[[function]]
+va = 0x0048D2C0
+name = "Unknown__OnMsg_0206"
+
+[[function]]
+va = 0x0048D2E0
+name = "Unknown__OnDESTROY"
+
+[[function]]
+va = 0x0048D370
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x0048DBB0
+name = "Unknown__OnCommand_1299"
+
+[[function]]
+va = 0x0048DE40
+name = "Unknown__OnCommand_1298"
+
+[[function]]
+va = 0x0048F2D0
+name = "Unknown__OnCommand_49089"
+
+[[function]]
+va = 0x00491770
+name = "Unknown__OnHSCROLL"
+
+[[function]]
+va = 0x00492310
+name = "Unknown__OnSIZE"
+
+[[function]]
+va = 0x004926D0
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x004926F0
+name = "Unknown__OnLBUTTONDBLCLK"
+
+[[function]]
+va = 0x00499C80
+name = "Unknown__OnCommand_1337"
+
+[[function]]
+va = 0x00499E00
+name = "Unknown__OnCommand_1330"
+
+[[function]]
+va = 0x00499E40
+name = "Unknown__OnCommand_1331"
+
+[[function]]
+va = 0x0049A710
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x0049A750
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x0049ACA0
+name = "Unknown__OnCommand_1364"
+
+[[function]]
+va = 0x0049B0C0
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x0049B110
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x0049D8A0
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x0049DD40
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x0049EC30
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x0049EDA0
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x0049EF10
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x0049F090
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x0049F210
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x0049F3A0
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x0049F510
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x0049F680
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x0049F7F0
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x0049F970
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x0049FAF0
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x0049FC80
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x0049FFB0
+name = "Unknown__OnCommand_1278"
+
+[[function]]
+va = 0x004A0110
+name = "Unknown__OnCommand_1005"
+
+[[function]]
+va = 0x004A0170
+name = "Unknown__OnCommand_1006"
+
+[[function]]
+va = 0x004A0D90
+name = "Unknown__OnCommand_1001"
+
+[[function]]
+va = 0x004A1650
+name = "Unknown__OnCommand_1004"
+
+[[function]]
+va = 0x004A1970
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004A19F0
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004A1A20
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004A1FE0
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004A3590
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x004A3780
+name = "Unknown__OnCommand_1556"
+
+[[function]]
+va = 0x004A3880
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004A9020
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x004A96F0
+name = "Unknown__OnCHAR"
+
+[[function]]
+va = 0x004A9770
+name = "Unknown__OnKEYDOWN"
+
+[[function]]
+va = 0x004A9C30
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x004AA020
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x004AA070
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004AC5F0
+name = "Unknown__OnCommand_1551"
+
+[[function]]
+va = 0x004AC6B0
+name = "Unknown__OnCommand_1556"
+
+[[function]]
+va = 0x004AD680
+name = "Unknown__OnCommand_7019"
+
+[[function]]
+va = 0x004AD910
+name = "Unknown__OnTIMER"
+
+[[function]]
+va = 0x004AE920
+name = "Unknown__OnCommand_7019"
+
+[[function]]
+va = 0x004AEAB0
+name = "Unknown__OnCommand_1781"
+
+[[function]]
+va = 0x004AF3A0
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004AF4F0
+name = "Unknown__OnTIMER"
+
+[[function]]
+va = 0x004AF9C0
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004AFA20
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004AFAA0
+name = "Unknown__OnCommand_1716"
+
+[[function]]
+va = 0x004B1600
+name = "Unknown__OnCommand_7019"
+
+[[function]]
+va = 0x004B1970
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004B1CB0
+name = "Unknown__OnCommand_1544"
+
+[[function]]
+va = 0x004B20D0
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004B28E0
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004B3210
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004B3410
+name = "Unknown__OnCommand_1547"
+
+[[function]]
+va = 0x004B3720
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004B37B0
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004B3840
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004B38D0
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004B3A30
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004B4420
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004B50A0
+name = "Unknown__OnCommand_1298"
+
+[[function]]
+va = 0x004BA290
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004BA2F0
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004BC460
+name = "Unknown__OnCommand_7019"
+
+[[function]]
+va = 0x004BCCF0
+name = "Unknown__OnCommand_7019"
+
+[[function]]
+va = 0x004BCEC0
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004BD020
+name = "Unknown__OnCommand_1551"
+
+[[function]]
+va = 0x004BE760
+name = "Unknown__OnCommand_7019"
+
+[[function]]
+va = 0x004BE900
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004BEA60
+name = "Unknown__OnCommand_1544"
+
+[[function]]
+va = 0x004BED20
+name = "Unknown__OnCommand_1551"
+
+[[function]]
+va = 0x004BEE10
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004BF280
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004BF520
+name = "Unknown__OnCommand_1547"
+
+[[function]]
+va = 0x004C37D0
+name = "Unknown__OnCommand_1075"
+
+[[function]]
+va = 0x004C52A0
+name = "Unknown__OnCommand_1078"
+
+[[function]]
+va = 0x004C5780
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x004C5860
+name = "Unknown__OnRBUTTONDOWN"
+
+[[function]]
+va = 0x004C58E0
+name = "Unknown__OnMOUSEWHEEL"
+
+[[function]]
+va = 0x004C7420
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x004C7640
+name = "Unknown__OnCommand_1216"
+
+[[function]]
+va = 0x004C77E0
+name = "Unknown__OnCommand_1215"
+
+[[function]]
+va = 0x004C7830
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004C78C0
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004C79A0
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004C7A50
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004C7AC0
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004C7D70
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004C7DB0
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004C7DF0
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004C7E30
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004C7E90
+name = "Unknown__OnCommand_1462"
+
+[[function]]
+va = 0x004C9F40
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x004CA050
+name = "Unknown__OnVSCROLL"
+
+[[function]]
+va = 0x004CA410
+name = "Unknown__OnCommand_1189"
+
+[[function]]
+va = 0x004CA4B0
+name = "Unknown__OnCommand_1778"
+
+[[function]]
+va = 0x004CA660
+name = "Unknown__OnCommand_1056"
+
+[[function]]
+va = 0x004CA6C0
+name = "Unknown__OnCommand_1068"
+
+[[function]]
+va = 0x004CAAA0
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004CAB10
+name = "Unknown__OnCommand_1055"
+
+[[function]]
+va = 0x004CADF0
+name = "Unknown__OnCommand_1063"
+
+[[function]]
+va = 0x004CB5D0
+name = "Unknown__OnCommand_1064"
+
+[[function]]
+va = 0x004CB760
+name = "Unknown__OnCommand_1060"
+
+[[function]]
+va = 0x004CBC90
+name = "Unknown__OnCommand_1067"
+
+[[function]]
+va = 0x004CCA40
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004CE2B0
+name = "Unknown__OnLBUTTONDOWN"
+
+[[function]]
+va = 0x004CE330
+name = "Unknown__OnRBUTTONDOWN"
+
+[[function]]
+va = 0x004CE390
+name = "Unknown__OnMsg_0206"
+
+[[function]]
+va = 0x004CE3D0
+name = "Unknown__OnKEYUP"
+
+[[function]]
+va = 0x004CE700
+name = "Unknown__OnMOUSEWHEEL"
+
+[[function]]
+va = 0x004CE820
+name = "Unknown__OnLBUTTONDBLCLK"
+
+[[function]]
+va = 0x004CE8D0
+name = "Unknown__OnLBUTTONDOWN"
+
+[[function]]
+va = 0x004CE9C0
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x004CE9E0
+name = "Unknown__OnMsg_0206"
+
+[[function]]
+va = 0x004D0230
+name = "Unknown__OnLBUTTONUP"
+
+[[function]]
+va = 0x004D0280
+name = "Unknown__OnRBUTTONUP"
+
+[[function]]
+va = 0x004D0560
+name = "Unknown__OnMOUSEWHEEL"
+
+[[function]]
+va = 0x004D06E0
+name = "Unknown__OnLBUTTONDBLCLK"
+
+[[function]]
+va = 0x004D0730
+name = "Unknown__OnLBUTTONDOWN"
+
+[[function]]
+va = 0x004D0820
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x004D0900
+name = "Unknown__OnMsg_0206"
+
+[[function]]
+va = 0x004D0960
+name = "Unknown__OnRBUTTONDOWN"
+
+[[function]]
+va = 0x004D0A80
+name = "Unknown__OnRBUTTONUP"
+
+[[function]]
+va = 0x004D6820
+name = "Unknown__OnSIZE"
+
+[[function]]
+va = 0x004D6D90
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x004D6DE0
+name = "Unknown__OnCommand_1347"
+
+[[function]]
+va = 0x004D7C40
+name = "Unknown__OnLBUTTONDBLCLK"
+
+[[function]]
+va = 0x004D7C60
+name = "Unknown__OnTIMER"
+
+[[function]]
+va = 0x004D7E60
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x004D7EC0
+name = "Unknown__OnLBUTTONDOWN"
+
+[[function]]
+va = 0x004D7EE0
+name = "Unknown__OnLBUTTONUP"
+
+[[function]]
+va = 0x004DBA50
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004DBA70
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004DBA90
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004DBAB0
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004DBAD0
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004DBAF0
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004DBB10
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004DBB30
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004DBB50
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004DBB70
+name = "Unknown__OnCommand_1000"
+
+[[function]]
+va = 0x004DC510
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x004DCD70
+name = "Unknown__OnCommand_1015"
+
+[[function]]
+va = 0x004DD2C0
+name = "Unknown__OnCommand_1024"
+
+[[function]]
+va = 0x004DE1B0
+name = "Unknown__OnCommand_1657"
+
+[[function]]
+va = 0x004DE300
+name = "Unknown__OnCommand_1462"
+
+[[function]]
+va = 0x004DEF20
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x004DF3B0
+name = "Unknown__OnLBUTTONDBLCLK"
+
+[[function]]
+va = 0x004DF400
+name = "Unknown__OnLBUTTONDOWN"
+
+[[function]]
+va = 0x004DF510
+name = "Unknown__OnMsg_0206"
+
+[[function]]
+va = 0x004DF560
+name = "Unknown__OnRBUTTONDOWN"
+
+[[function]]
+va = 0x004E1050
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x004E15E0
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004E1800
+name = "Unknown__OnCommand_1355"
+
+[[function]]
+va = 0x004E1980
+name = "Unknown__OnCommand_1359"
+
+[[function]]
+va = 0x004E2450
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004E2480
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004E30C0
+name = "Unknown__OnDESTROY"
+
+[[function]]
+va = 0x004E30D0
+name = "Unknown__OnSIZE"
+
+[[function]]
+va = 0x004ECEF0
+name = "Unknown__OnMsg_0082"
+
+[[function]]
+va = 0x004ED690
+name = "Unknown__OnMsg_0121"
+
+[[function]]
+va = 0x004ED6B0
+name = "Unknown__OnMsg_0211"
+
+[[function]]
+va = 0x004ED6D0
+name = "Unknown__OnINITMENUPOPUP"
+
+[[function]]
+va = 0x004ED6F0
+name = "Unknown__OnSIZE"
+
+[[function]]
+va = 0x004ED8C0
+name = "Unknown__OnSYSCOMMAND"
+
+[[function]]
+va = 0x004EDC00
+name = "Unknown__OnACTIVATE"
+
+[[function]]
+va = 0x004EDCA0
+name = "Unknown__OnACTIVATEAPP"
+
+[[function]]
+va = 0x004EDDB0
+name = "Unknown__OnMsg_0020"
+
+[[function]]
+va = 0x004EEF80
+name = "Unknown__OnLBUTTONDOWN"
+
+[[function]]
+va = 0x004EF030
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x004EF0C0
+name = "Unknown__OnLBUTTONUP"
+
+[[function]]
+va = 0x004EF110
+name = "Unknown__OnRBUTTONDOWN"
+
+[[function]]
+va = 0x004F12E0
+name = "Unknown__OnMOUSEMOVE"
+
+[[function]]
+va = 0x004F1320
+name = "Unknown__OnCommand_1216"
+
+[[function]]
+va = 0x004F1740
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004F2E90
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004F2F90
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004F3050
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004F32D0
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004F3390
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004F46E0
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004F47E0
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004F48A0
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004F4B20
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004F4BE0
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004F5090
+name = "Unknown__OnNOTIFY"
+
+[[function]]
+va = 0x004F50F0
+name = "Unknown__OnCommand_1143"
+
+[[function]]
+va = 0x005A30D0
+name = "Unknown__OnMsg_0087"
+
+[[label]]
+va = 0x0061DE30
+name = "Unknown__MessageMap"
+
+[[label]]
+va = 0x0061EA40
+name = "Unknown__MessageMap"

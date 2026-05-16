@@ -1,0 +1,95 @@
+[[function]]
+va = 0x00425630
+name = "CNewStatic__ctor_CNewStatic"
+
+[[function]]
+va = 0x004256D0
+name = "CNewStatic__dtor0_CNewStatic"
+
+[[function]]
+va = 0x004256F0
+name = "CNewStatic__dtor1_CNewStatic"
+
+[[function]]
+va = 0x00425770
+name = "CNewStatic__getMessageMap_0"
+
+[[function]]
+va = 0x00425780
+name = "CNewStatic__sub_425780"
+
+[[function]]
+va = 0x00425880
+name = "CNewStatic__SetWindowText"
+
+[[function]]
+va = 0x00425920
+name = "CNewStatic__sub_425920"
+
+[[function]]
+va = 0x00425C70
+name = "CNewStatic__sub_425C70"
+
+[[function]]
+va = 0x00425C80
+name = "CNewStatic__sub_425C80"
+
+[[function]]
+va = 0x00425D40
+name = "CNewStatic__sub_425D40"
+
+[[function]]
+va = 0x00425E00
+name = "CNewStatic__sub_425E00"
+
+[[function]]
+va = 0x00425E50
+name = "CNewStatic__sub_425E50"
+
+[[function]]
+va = 0x00425F00
+name = "CNewStatic__sub_425F00"
+
+[[function]]
+va = 0x00425FA0
+name = "CNewStatic__sub_425FA0"
+
+[[function]]
+va = 0x00425FB0
+name = "CNewStatic__sub_425FB0"
+
+[[function]]
+va = 0x00425FE0
+name = "CNewStatic__sub_425FE0"
+
+[[function]]
+va = 0x004C5680
+name = "CNewStatic__sub_4C5680"
+
+[[function]]
+va = 0x004C56D0
+name = "CNewStatic__getMessageMap"
+
+[[function]]
+va = 0x004C56E0
+name = "CNewStatic__SetString"
+
+[[function]]
+va = 0x004C57E0
+name = "CNewStatic__sub_4C57E0"
+
+[[function]]
+va = 0x004C5840
+name = "CNewStatic__sub_4C5840"
+
+[[function]]
+va = 0x004C58C0
+name = "CNewStatic__sub_4C58C0"
+
+[[function]]
+va = 0x004C5A00
+name = "CNewStatic__sub_4C5A00"
+
+[[function]]
+va = 0x004C5AA0
+name = "CNewStatic__sub_4C5AA0"

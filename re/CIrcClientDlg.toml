@@ -1,0 +1,223 @@
+[[function]]
+va = 0x004729B0
+name = "CIrcClientDlg__dtor0_CIrcClientDlg"
+
+[[function]]
+va = 0x004729D0
+name = "CIrcClientDlg__sub_4729D0"
+
+[[function]]
+va = 0x00472A70
+name = "CIrcClientDlg__dtor1_CIrcClientDlg"
+
+[[function]]
+va = 0x00472ED0
+name = "CIrcClientDlg__DoDataExchange"
+
+[[function]]
+va = 0x00473080
+name = "CIrcClientDlg__getMessageMap"
+
+[[function]]
+va = 0x00473090
+name = "CIrcClientDlg__OnToolTip"
+
+[[function]]
+va = 0x00473220
+name = "CIrcClientDlg__Localize"
+
+[[function]]
+va = 0x00473490
+name = "CIrcClientDlg__OnInitDialog"
+
+[[function]]
+va = 0x00473B10
+name = "CIrcClientDlg__OnConnect"
+
+[[function]]
+va = 0x00473F40
+name = "CIrcClientDlg__DisplayMessage"
+
+[[function]]
+va = 0x00473F80
+name = "CIrcClientDlg__DisplaySystemMessage"
+
+[[function]]
+va = 0x00473FE0
+name = "CIrcClientDlg__DisplayFormattedMessage"
+
+[[function]]
+va = 0x00474020
+name = "CIrcClientDlg__DisplayGameListMessage"
+
+[[function]]
+va = 0x00474040
+name = "CIrcClientDlg__OnSendmessage"
+
+[[function]]
+va = 0x004746C0
+name = "CIrcClientDlg__OnDestroy"
+
+[[function]]
+va = 0x004747C0
+name = "CIrcClientDlg__UpdateInterface"
+
+[[function]]
+va = 0x00474B70
+name = "CIrcClientDlg__Login"
+
+[[function]]
+va = 0x00475540
+name = "CIrcClientDlg__Error"
+
+[[function]]
+va = 0x004755A0
+name = "CIrcClientDlg__HandleIrcError"
+
+[[function]]
+va = 0x004755F0
+name = "CIrcClientDlg__sub_4755F0"
+
+[[function]]
+va = 0x00475610
+name = "CIrcClientDlg__sub_475610"
+
+[[function]]
+va = 0x00475690
+name = "CIrcClientDlg__sub_475690"
+
+[[function]]
+va = 0x00475A60
+name = "CIrcClientDlg__sub_475A60"
+
+[[function]]
+va = 0x00475AE0
+name = "CIrcClientDlg__HandleGameTag"
+
+[[function]]
+va = 0x00475D30
+name = "CIrcClientDlg__HandleTopTag"
+
+[[function]]
+va = 0x00475D50
+name = "CIrcClientDlg__HandleSchemeTag"
+
+[[function]]
+va = 0x00475E60
+name = "CIrcClientDlg__sub_475E60"
+
+[[function]]
+va = 0x00475EE0
+name = "CIrcClientDlg__sub_475EE0"
+
+[[function]]
+va = 0x00475F80
+name = "CIrcClientDlg__sub_475F80"
+
+[[function]]
+va = 0x00476020
+name = "CIrcClientDlg__sub_476020"
+
+[[function]]
+va = 0x00476060
+name = "CIrcClientDlg__sub_476060"
+
+[[function]]
+va = 0x00476100
+name = "CIrcClientDlg__OnIdcLeaveroombutton"
+
+[[function]]
+va = 0x004761E0
+name = "CIrcClientDlg__sub_4761E0"
+
+[[function]]
+va = 0x00476580
+name = "CIrcClientDlg__sub_476580"
+
+[[function]]
+va = 0x00476730
+name = "CIrcClientDlg__sub_476730"
+
+[[function]]
+va = 0x00476ED0
+name = "CIrcClientDlg__DisplayControls"
+
+[[function]]
+va = 0x00478260
+name = "CIrcClientDlg__sub_478260"
+
+[[function]]
+va = 0x004782A0
+name = "CIrcClientDlg__sub_4782A0"
+
+[[function]]
+va = 0x00478430
+name = "CIrcClientDlg__sub_478430"
+
+[[function]]
+va = 0x00478540
+name = "CIrcClientDlg__sub_478540"
+
+[[function]]
+va = 0x00478660
+name = "CIrcClientDlg__sub_478660"
+
+[[function]]
+va = 0x00478680
+name = "CIrcClientDlg__InitialiseIrc"
+
+[[function]]
+va = 0x004787F0
+name = "CIrcClientDlg__InitialiseWeb"
+
+[[function]]
+va = 0x004788E0
+name = "CIrcClientDlg__sub_4788E0"
+
+[[function]]
+va = 0x00478980
+name = "CIrcClientDlg__OnCancel"
+
+[[function]]
+va = 0x00478E50
+name = "CIrcClientDlg__sub_478E50"
+
+[[function]]
+va = 0x00478E60
+name = "CIrcClientDlg__DisplayHost"
+
+[[function]]
+va = 0x00478F10
+name = "CIrcClientDlg__sub_478F10"
+
+[[function]]
+va = 0x004790E0
+name = "CIrcClientDlg__sub_4790E0"
+
+[[function]]
+va = 0x00479100
+name = "CIrcClientDlg__sub_479100"
+
+[[function]]
+va = 0x004791D0
+name = "CIrcClientDlg__sub_4791D0"
+
+[[function]]
+va = 0x00479230
+name = "CIrcClientDlg__sub_479230"
+
+[[function]]
+va = 0x004793C0
+name = "CIrcClientDlg__sub_4793C0"
+
+[[function]]
+va = 0x004795B0
+name = "CIrcClientDlg__sub_4795B0"
+
+[[function]]
+va = 0x00479600
+name = "CIrcClientDlg__sub_479600"
+
+[[function]]
+va = 0x004796B0
+name = "CIrcClientDlg__sub_4796B0"

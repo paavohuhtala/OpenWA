@@ -1,0 +1,11 @@
+[[function]]
+va = 0x004F9290
+name = "BlockFifo__consume"
+
+[[function]]
+va = 0x004F9300
+name = "BlockFifo__get_usage"
+
+[[function]]
+va = 0x004F93A0
+name = "BlockFifo__copy_messages"

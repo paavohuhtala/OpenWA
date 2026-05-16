@@ -1,0 +1,63 @@
+[[function]]
+va = 0x004ADDB0
+name = "NetHostReturn__dtor0_NetHostReturn"
+
+[[function]]
+va = 0x004ADDD0
+name = "NetHostReturn__dtor1_NetHostReturn"
+
+[[function]]
+va = 0x004ADF40
+name = "NetHostReturn__DoDataExchange"
+
+[[function]]
+va = 0x004AE000
+name = "NetHostReturn__getMessageMap"
+
+[[function]]
+va = 0x004AE010
+name = "NetHostReturn__OnInitDialog"
+
+[[function]]
+va = 0x004AE310
+name = "NetHostReturn__CheckConnection"
+
+[[function]]
+va = 0x004AE5B0
+name = "NetHostReturn__sub_4AE5B0"
+
+[[function]]
+va = 0x004AE8A0
+name = "NetHostReturn__sub_4AE8A0"
+
+[[function]]
+va = 0x004AE8F0
+name = "NetHostReturn__sub_4AE8F0"
+
+[[function]]
+va = 0x004AEC50
+name = "NetHostReturn__OnContinue"
+
+[[function]]
+va = 0x004AF7E0
+name = "NetHostReturn__SetStartButton"
+
+[[function]]
+va = 0x004AFB40
+name = "NetHostReturn__sub_4AFB40"
+
+[[function]]
+va = 0x004AFC30
+name = "NetHostReturn__sub_4AFC30"
+
+[[function]]
+va = 0x004AFF10
+name = "NetHostReturn__sub_4AFF10"
+
+[[function]]
+va = 0x004B0060
+name = "NetHostReturn__sub_4B0060"
+
+[[function]]
+va = 0x004B0150
+name = "NetHostReturn__sub_4B0150"

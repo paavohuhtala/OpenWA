@@ -1,0 +1,7 @@
+[[function]]
+va = 0x00499190
+name = "FrontendMissions__Constructor"
+
+[[global]]
+va = 0x00658190
+name = "FrontendMissions__vtable"

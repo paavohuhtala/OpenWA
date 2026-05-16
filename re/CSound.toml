@@ -1,0 +1,7 @@
+[[function]]
+va = 0x004D7460
+name = "CSound__sub_4D7460"
+
+[[function]]
+va = 0x004D77A0
+name = "CSound__sub_4D77A0"

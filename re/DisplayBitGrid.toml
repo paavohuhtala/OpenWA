@@ -1,0 +1,22 @@
+[[function]]
+va = 0x004F6470
+name = "DisplayBitGrid__SetExternalBuffer_Maybe"
+plate_comment = """
+DisplayBitGrid::SetExternalBuffer (tentative name).
+
+Fastcall + 3 stack args: (ECX = height, EDX = width, stack: bitgrid*, data*, row_stride). RET 0xc.
+
+Sets the bitgrid's data pointer, dimensions, row stride, and clip rect (full-rect: clip = (0, 0, width, height)). Returns 1 on success, 0 if bitgrid->external_buffer (+0x4) is currently 0 (uninitialized / owned-buffer mode).
+
+Field writes:
+  +0x08: data
+  +0x10: row_stride
+  +0x14: width  (EDX, fastcall param 2)
+  +0x18: height (ECX, fastcall param 1)
+  +0x1c: clip_left = 0
+  +0x20: clip_top = 0
+  +0x24: clip_right  = width
+  +0x28: clip_bottom = height
+
+Caller: SpriteBank__GetFrameForBlit (0x4F98A3) — sets up the bitgrid embedded at SpriteBank+0x130 to point at the freshly decompressed subframe pixels.
+"""

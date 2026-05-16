@@ -1,0 +1,609 @@
+[[function]]
+va = 0x004F9500
+name = "GameRuntime__Destructor"
+
+[[function]]
+va = 0x00528A20
+name = "GameRuntime__GetGameState"
+
+[[function]]
+va = 0x00529160
+name = "GameRuntime__DispatchFrame"
+
+[[function]]
+va = 0x00529F30
+name = "GameRuntime__StepFrame"
+calling_convention = "__thiscall"
+plate_comment = "thiscall: ECX = DDGameWrapper* this. EAX = counter_ptr (extra register param). 5 stack params, RET 0x14."
+
+  [function.signature]
+  returns = "uint"
+
+  [[function.param]]
+  name = "remaining"
+  type = "void *"
+
+  [[function.param]]
+  name = "time_lo"
+  type = "uint"
+
+  [[function.param]]
+  name = "time_hi"
+  type = "uint"
+
+  [[function.param]]
+  name = "speed_target"
+  type = "int"
+
+  [[function.param]]
+  name = "speed"
+  type = "int"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
+
+[[function]]
+va = 0x0052A840
+name = "GameRuntime__ShouldContinueFrameLoop"
+
+  [function.signature]
+  returns = "uint"
+
+  [[function.param]]
+  name = "wrapper"
+  type = "void *"
+
+  [[function.param]]
+  name = "elapsed_lo"
+  type = "uint"
+
+  [[function.param]]
+  name = "elapsed_hi"
+  type = "uint"
+
+[[function]]
+va = 0x0052A910
+name = "GameRuntime__ResetFrameState"
+calling_convention = "__cdecl"
+plate_comment = "usercall: EAX = DDGameWrapper* this. No stack params, plain RET."
+
+  [function.signature]
+  returns = "void"
+
+[[function]]
+va = 0x0052A9C0
+name = "GameRuntime__BroadcastFrameTiming"
+plate_comment = "usercall: ESI = DDGameWrapper* this. 4 stdcall stack params, RET 0x10."
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "elapsed_lo"
+  type = "uint"
+
+  [[function.param]]
+  name = "elapsed_hi"
+  type = "uint"
+
+  [[function.param]]
+  name = "freq_lo"
+  type = "uint"
+
+  [[function.param]]
+  name = "freq_hi"
+  type = "uint"
+
+[[function]]
+va = 0x0052AAA0
+name = "GameRuntime__UpdateNetworkHudAnimations"
+plate_comment = """
+GameRuntime::UpdateNetworkHudAnimations
+
+CALLING CONVENTION: __usercall — `this` is passed in ESI (NOT ECX).
+Function reads `[ESI + 0x488]` (runtime.world) in its first instruction.
+Five Fixed stack params, callee-cleaned (RET 0x14). The Ghidra prototype
+is typed as __stdcall because the prototype tool can't express
+custom-register storage; consumers must remember this->ESI.
+
+Despite the previous "AdvanceFrameCounters" name, this function's primary
+job is to drive the slide/fade animations of the network-related HUD
+elements:
+  - chat box slide-in (runtime+0x3FC, chat_box_anim)
+  - "unseen messages" indicator (runtime+0x454, message_indicator_anim)
+    gated by the hold timer at runtime+0x450 (message_indicator_timer)
+    and suppressed by the extended team-bar HUD mode (runtime+0x414,
+    hud_team_bar_extended)
+  - connection-issue indicator (runtime+0x46C, connection_issue_anim)
+
+The only frame-counter work is a single wrapping_add of advance_ratio
+into world.scaled_frame_accum (world+0x77D8) — incidental to the
+surrounding animation logic.
+
+PARAMETERS:
+  ESI       — this (GameRuntime *)
+  [ESP+04]  — chat_box_min_step (Fixed)   per-frame floor for chat-box slew
+  [ESP+08]  — chat_box_rate     (Fixed)   chat-box slew rate
+  [ESP+0C]  — ui_anim_min_step  (Fixed)   per-frame floor for indicator slews
+  [ESP+10]  — ui_anim_rate      (Fixed)   indicator slew rate
+  [ESP+14]  — advance_ratio     (Fixed)   sub-frame time advance
+
+Ported to Rust as engine::main_loop::dispatch_frame::update_network_hud_animations.
+"""
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "chat_box_min_step"
+  type = "int"
+
+  [[function.param]]
+  name = "chat_box_rate"
+  type = "int"
+
+  [[function.param]]
+  name = "ui_anim_min_step"
+  type = "int"
+
+  [[function.param]]
+  name = "ui_anim_rate"
+  type = "int"
+
+  [[function.param]]
+  name = "advance_ratio"
+  type = "uint"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ESI"
+
+[[function]]
+va = 0x0052ABF0
+name = "GameRuntime__CalcTimingRatio"
+plate_comment = "usercall: ESI = DDGameWrapper* this. 1 stdcall stack param (ratio), RET 0x4. Ported to Rust in dispatch_frame.rs."
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "ratio"
+  type = "int"
+
+[[function]]
+va = 0x0052CAF0
+name = "GameRuntime__InitFrameDelay"
+calling_convention = "__cdecl"
+plate_comment = "usercall: EAX = DDGameWrapper* this. No stack params, plain RET. Full frame input processing dispatcher: keyboard polling, game speed changes, fast-forward, pause/unpause, replay controls. Formerly misnamed InitFrameDelay."
+
+  [function.signature]
+  returns = "void"
+
+[[function]]
+va = 0x0052D830
+name = "GameRuntime__PeerLagWithinThreshold"
+
+[[function]]
+va = 0x0052D920
+name = "GameRuntime__PeerInputsCaughtUp"
+
+[[function]]
+va = 0x0052DB60
+name = "GameRuntime__AllPeerTeamsHaveJoined"
+
+[[function]]
+va = 0x0052DB90
+name = "GameRuntime__FrameTailUpdate"
+calling_convention = "__cdecl"
+plate_comment = "usercall: ESI = DDGameWrapper* this. No stack params, plain RET."
+
+  [function.signature]
+  returns = "void"
+
+[[function]]
+va = 0x0052DC70
+name = "GameRuntime__ShouldInterpolate_OnlineCheck"
+plate_comment = """
+DDGameWrapper::IsFramePaused — online sub-check. Only caller is IsFramePaused (0x00534880), invoked when DDGame::net_session != NULL. Calling convention: usercall ESI=this (DDGameWrapper*), no stack params, plain RET. Returns bool in AL.
+
+Internal flow: calls three sub-predicates (FUN_0052d830 / FUN_0052d920 / FUN_0052db60, all usercall EAX=this) that must all return nonzero; then checks DDGame[0x7264] (==0 → paused, AL=1) else forwards DDGame[0x726C] to FUN_0052e880. Still bridged from Rust.
+"""
+
+[[function]]
+va = 0x0052E880
+name = "GameRuntime__PeerInputQueueScan"
+
+[[function]]
+va = 0x0052F770
+name = "GameRuntime__ShouldInterpolate_OfflineCheck"
+plate_comment = "DDGameWrapper::IsFramePaused — offline sub-check. Only caller is IsFramePaused (0x00534880). Calling convention: usercall EDI=this (DDGameWrapper*), no stack params, plain RET. Returns bool in AL. Still bridged from Rust."
+
+[[function]]
+va = 0x0052F9C0
+name = "GameRuntime__ShouldInterpolate_OfflineTail"
+
+[[function]]
+va = 0x00530F80
+name = "GameRuntime__DispatchInputMsg"
+
+[[function]]
+va = 0x005336E0
+name = "GameRuntime__DrawAwayOverlay"
+plate_comment = """
+Headful-only "GAME AWAY" / "GAME OVER" overlay drawer. Called by `GameRender_Maybe` (0x00533DC0) inside the post-RQ-dispatch viewport-frame block when the active gameplay state requires the modal overlay.
+
+Loads localization strings (GAME_AWAY at id 0x6D8, alternate at 0x6D9) via `WA__LoadStringResource` against the active LocalizationData_Primary/Secondary. Draws via `BitGrid::BlitSpriteRect` (5 calls) + `FUN_004F66E0/004F67F0/004F68A0` (clipped fill helpers) + `display.draw_scaled_sprite` (slot 20). Final `set_clip_rect` + `set_camera_offset` + `draw_line_clipped` (slot 14) call gated on `runtime._field_414 != 0 || _field_3fc == 0x10000` (HUD layout active OR turn-timer fully slewn).
+
+usercall: EDI = GameRuntime*, EAX = some animation parameter (the y-anchor passed in from `GameRender_Maybe`'s viewport-frame setup). Plain RET.
+
+To port: needs LocalizationData typing, sprite/font ID enums, and the BitGrid::BlitSpriteRect typed wrapper. Bigger than it looks — leave bridged for now.
+"""
+
+[[function]]
+va = 0x005344B0
+name = "GameRuntime__StepRenderScaleFade"
+plate_comment = """
+DDGameWrapper::StepRenderScaleFade — smooths DDGame::render_scale (offset 0x7394) one frame toward a target selected by the sign of DDGameWrapper::render_scale_fade_request (offset 0x464):
+  < 0  → fade in, target 0x10000 (Fixed::ONE)
+  >= 0 → fade out, target 0
+Step size 0x0F5C per frame (~0.06 in 16.16), clamped to [0, 0x10000]. When the fade reaches its target, the latch (field 0x464) is cleared to 0. Return value is the post-update latch; 0 means the fade has settled.
+
+Fully ported to Rust as `engine::dispatch_frame::step_render_scale_fade` in openwa-game.
+"""
+
+[[function]]
+va = 0x00534880
+name = "GameRuntime__ShouldInterpolate"
+calling_convention = "__cdecl"
+plate_comment = """
+DDGameWrapper__ShouldInterpolate (0x00534880). Usercall EAX=this, no stack params, plain RET. Returns nonzero in AL when render interpolation should be SUPPRESSED and the main-loop `frame_accum_a` branch should be taken; zero when normal interpolation proceeds. Caller: DispatchFrame only (0x00529A88). Inverted semantics are used in the Rust port (`engine::dispatch_frame::should_interpolate`).
+
+Previously guessed as "IsFramePaused" but that was a misleading name — this function does not track pause state directly; it gates the render interpolation path.
+
+IMPORTANT: WA leaves upper EAX bits dirty — raw bridge callers must treat this as a u8, not u32.
+"""
+
+  [function.signature]
+  returns = "uint"
+
+[[function]]
+va = 0x00534910
+name = "GameRuntime__PollInput"
+
+[[function]]
+va = 0x00534B40
+name = "GameRuntime__ApplyVolumeSettings"
+
+[[function]]
+va = 0x00534C30
+name = "GameRuntime__IsHudActive"
+plate_comment = "Returns 1 only when the HUD slew state should remain active. Calls WorldRootEntity vtable slot 3 (HudDataQuery) with msg 0x7D3 to fill a 916-byte (0x394) scratch buffer, then inspects two early DWORDs (buf[+0x4], buf[+0x8]) plus runtime/world flags. Returns 1 iff game_end_phase == 0 AND (replay_flag_a != 0 OR (_field_460 == 0 AND world.fast_forward_request == 0 AND buf[+0x4] == 0 AND buf[+0x8] == 0)). Ported to Rust at openwa_game::engine::main_loop::dispatch_frame::hud_gate; WA-side hooked via usercall_trampoline(reg=esi) so the remaining caller FUN_005351B0 (state_zero) routes through the Rust impl."
+
+[[function]]
+va = 0x00534CA0
+name = "GameRuntime__SetupFrameParams"
+plate_comment = "usercall: EAX = DDGameWrapper* this. 3 stdcall stack params."
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "fps_scaled"
+  type = "int"
+
+  [[function.param]]
+  name = "fps_product"
+  type = "int"
+
+  [[function.param]]
+  name = "fixed_render_scale"
+  type = "int"
+
+[[function]]
+va = 0x00534E00
+name = "GameRuntime__RenderNetworkEndWaitTextbox"
+plate_comment = """
+GameRuntime::RenderNetworkEndWaitTextbox
+
+Was named "RenderTurnStatus_Maybe" — misleading. This function does NOT
+render any kind of turn status; it draws exactly one localized textbox
+(GAME_PLAYER_WAIT, token 0x6D0, "PLEASE WAIT %d SEC") during the network
+end-of-round handshake.
+
+Fires when:
+  - game_state is NETWORK_END_AWAITING_PEERS (2) or NETWORK_END_STARTED (3),
+  - world.net_session != null, AND
+  - either runtime.net_end_countdown != 0 (still in the timeout window),
+    OR the countdown has reached zero AND
+    NetSession vtable slot 10 (end_handshake_busy_maybe) reports the
+    handshake is no longer busy.
+
+The countdown shown is `net_end_countdown / 50` (frames -> seconds),
+formatted via the rotating sprintf scratch buffer.
+
+Companion of GameRuntime__RenderWaitingForPeersTextbox (0x00534F20) — the
+*pre*-round wait textbox; this one handles the *post*-round wait.
+
+Ported to Rust as
+engine::main_loop::render_frame::render_network_end_wait_textbox.
+"""
+
+[[function]]
+va = 0x00534F20
+name = "GameRuntime__RenderWaitingForPeersTextbox"
+plate_comment = """
+GameRuntime::RenderWaitingForPeersTextbox
+
+Was named "RenderHUD_Maybe" — grossly misleading. This function does NOT
+render the in-game HUD; it draws exactly one localized textbox
+(GAME_PLEASE_WAIT, token 0x6B6) centered horizontally at the top of the
+viewport.
+
+Only fires during the very specific pre-round window when:
+  - game_state == 1 (running),
+  - world.net_session != null (network play), AND
+  - GameRuntime__AllPeerTeamsHaveJoined (0x0052DB60) returns false —
+    i.e. at least one peer's team_starting_marker is still 0.
+
+Once all peers have joined the round, this returns silently and the
+textbox disappears.
+
+Ported to Rust as
+engine::main_loop::render_frame::render_waiting_for_peers_textbox.
+"""
+
+[[function]]
+va = 0x00535000
+name = "GameRuntime__RenderEscMenuOverlay"
+plate_comment = """
+Per-frame ESC-menu overlay renderer. Called from GameRender_Maybe (0x533DC0) as one of the tail render funcs (was misnamed RenderTerrain_Maybe — but actual terrain is rendered via the world entity tree's message-3 handlers, not here).
+
+usercall: EAX = GameRuntime* this.
+
+Two independent gates, animated separately:
+
+  if (runtime.confirm_anim != 0):  // confirm dialog (panel_b) is visible
+      panel_canvas = MenuPanel__Render(runtime.menu_panel_b)  // returns BitGrid
+      world.display.draw_scaled_sprite(
+          x = anim-eased screen position,
+          y = anim-eased screen position,
+          sprite = panel_canvas,  // DisplayBitGrid*
+          src_x=0, src_y=0,
+          src_w = runtime.confirm_panel_width,
+          src_h = runtime.confirm_panel_height,
+          flags = 0x100000)        // bit 20 = Copy/opaque blend
+      if (runtime.esc_menu_state == 2):
+          world.display.blit_sprite(
+              x = panel_b.cursor_x,
+              y = panel_b.cursor_y,
+              sprite_id = 0x20,    // cursor-highlight sprite
+              palette = 0xa000)
+
+  if (runtime.esc_menu_anim != 0):  // main ESC menu (panel_a) is visible
+      // Same as above but with menu_panel_a / panel_width / panel_height,
+      // y anchored to top of screen, and cursor block runs when state == 1.
+
+Animation values (esc_menu_anim, confirm_anim) are slewed each frame in
+SetupFrameParams (0x534CA0) toward 0x10000 when state is open / 0 when
+state is closed. The tail render is gated on the anim being non-zero, so
+the menu fades smoothly in/out.
+
+The panel canvas (BitGrid at runtime+0x2C / +0x34) is built once per
+state-open via OpenEscMenu / OpenEscMenuConfirmDialog, then incrementally
+redrawn each frame inside MenuPanel__Render to reflect cursor hover
+state changes.
+"""
+
+[[function]]
+va = 0x005351B0
+name = "GameRuntime__EscMenu_TickClosed"
+plate_comment = "Per-frame tick of the ESC-menu state machine while the menu is closed (runtime.esc_menu_state == 0). Polls keyboard for just-pressed Escape (KeyboardAction::A23): if HUD is active, calls GameRuntime__OpenEscMenu (0x00535200) which builds the menu and transitions to state 1; otherwise plays KnownSoundId::WarningBeep at runtime.ui_volume. Ported to Rust as openwa_game::engine::main_loop::dispatch_frame::esc_menu_tick_closed; address kept for install_trap! only - no WA-side caller now that SetupFrameParams is Rust."
+
+[[function]]
+va = 0x00535200
+name = "GameRuntime__OpenEscMenu"
+plate_comment = """
+Builds the in-game ESC menu in runtime._field_30: paints leaderboard ('First Team to %d Wins' header from gameinfo.scheme_first_to_n_wins at +0xD94F), bubble-sorts teams by composite (wins*10000 + sum_of_alive_HPs) DESCENDING, appends action buttons (Minimize Game, Force Sudden Death conditional on gameinfo+0xD941==0 && +0xD948==0, Draw This Round conditional on +0xD947==0, Quit) plus volume slider, and sets esc_menu_state=1.
+
+Per-team data sources:
+  GameInfo.team_scalar[team_idx_0based] @ gameinfo + 0x450 + team_idx * 0xBB8 (3000 bytes per team):
+    +0x000 (=+0x450): speech_bank_idx (i8, -1 if none); also used as alliance/group key
+    +0x001 (=+0x451): font_palette_idx (u8 color)
+    +0x002 (=+0x452): scored flag (u8, 0 = include in leaderboard, !=0 = team eliminated/excluded)
+    +0x003 (=+0x453): turn-order index (u8) - used by WorldRootEntity__Constructor's helper FUN_0055C920
+    +0x005 (=+0x455): wins count (u8)
+    +0x006 (=+0x456): team name (null-terminated C string, ~14 bytes max)
+  WorldEntity.team_runtime[team_idx_1based] @ world + 0x4188 + team_idx * 0x51C (1308 bytes per team, slot 0 = sentinel):
+    +0x000 (=+0x4180-base): worm slot array, stride 0x9C, with HP at slot+8 (i32). Two HP-like fields at slot+0 and slot+8 (slot+0 only used scheme>=0xE0).
+    +0x498 (=+0x4618): elimination gate (i32, !=0 = team eliminated, skip from sums)
+    +0x4A4 (=+0x4624): live worm count (i32)
+Total team count: u8 at gameinfo+0x44C (matches int at world+0x64D8). Loop 0-based via gameinfo, 1-based via world.
+
+__stdcall(this), RET 0x4. 628 instructions, cyclo 69, 30 calls. Bridged from Rust via bridge_open_esc_menu in dispatch_frame.rs.
+"""
+
+[[function]]
+va = 0x00535B10
+name = "GameRuntime__EscMenu_TickState1"
+plate_comment = "Per-frame tick while the ESC menu is open (runtime.esc_menu_state == 1). Handles keyboard navigation + Enter to activate the highlighted menu item. __usercall(EDI=this), plain RET. ~159 instructions, cyclo 17. Calls DispatchGlobalSound, FUN_00534B40, FUN_00535CF0, FUN_005407D0, FUN_00540810."
+
+[[function]]
+va = 0x00535CF0
+name = "GameRuntime__OpenEscMenuConfirmDialog"
+
+[[function]]
+va = 0x00535FC0
+name = "GameRuntime__EscMenu_TickState2"
+plate_comment = "Per-frame tick while runtime.esc_menu_state == 2 (confirm / network-end-of-game flow). Calls GameRuntime__BeginNetworkGameEnd. __usercall(EDI=this), plain RET. ~176 instructions, cyclo 18. 80% similar to EscMenu_TickState1."
+
+[[function]]
+va = 0x00536270
+name = "GameRuntime__BeginNetworkGameEnd"
+
+[[function]]
+va = 0x00536320
+name = "GameRuntime__OnGameState3"
+
+[[function]]
+va = 0x00536470
+name = "GameRuntime__OnNetworkEndAwaitPeers"
+
+[[function]]
+va = 0x00536550
+name = "GameRuntime__BeginRoundEnd"
+plate_comment = "GameRuntime::BeginRoundEnd (0x00536550) — transitions runtime to game_state = 4 (ROUND_ENDING), zeroing the game-end fade fields (game_end_clear, game_end_speed). When param_1 != 0, also sets frame_delay_counter = -1 to halt frame-timing skips. Finally, if `world.game_info[+0xD778] > 0x4C`, broadcasts message 0x75 through world_root.handle_message (vtable slot 2). __usercall(EAX=this, [ESP+4]=skip_frame_delay), RET 0x4. Only caller is EscMenu_TickState2, on Draw and offline-Quit confirm."
+
+[[function]]
+va = 0x005365A0
+name = "GameRuntime__OnRoundEndingCountdown"
+
+[[function]]
+va = 0x00537060
+name = "GameRuntime__IsReplayMode"
+calling_convention = "__cdecl"
+plate_comment = "usercall: EAX = DDGameWrapper* this. No stack params, plain RET. Returns bool."
+
+  [function.signature]
+  returns = "uint"
+
+[[function]]
+va = 0x0053DF00
+name = "GameRuntime__ProcessNetworkFrame"
+plate_comment = "usercall: ESI = DDGameWrapper* this. 4 stdcall stack params, RET 0x10."
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "time_lo"
+  type = "uint"
+
+  [[function.param]]
+  name = "time_hi"
+  type = "uint"
+
+  [[function.param]]
+  name = "freq_lo"
+  type = "uint"
+
+  [[function.param]]
+  name = "freq_hi"
+  type = "uint"
+
+[[function]]
+va = 0x0053F0A0
+name = "GameRuntime__FormatTimestampFrames"
+plate_comment = "usercall: EAX = frame_counter (int). 2 stdcall stack params (sprintf_func, buffer), RET 0x8. Formats frame counter as \"HH:MM:SS.CC\" timestamp at 50fps into buffer using the provided sprintf function. Formerly misnamed WriteHeadlessLog."
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "sprintf_func"
+  type = "void *"
+
+  [[function.param]]
+  name = "buffer"
+  type = "void *"
+
+[[function]]
+va = 0x0053F100
+name = "GameRuntime__WriteLogTimestampPrefix"
+
+[[function]]
+va = 0x0053F190
+name = "GameRuntime__WriteLogTeamLabel"
+
+[[function]]
+va = 0x00550E70
+name = "GameRuntime__Constructor_0"
+
+[[function]]
+va = 0x005510B0
+name = "GameRuntime__Constructor_1"
+
+[[function]]
+va = 0x005523C0
+name = "GameRuntime__CreateMines"
+
+[[function]]
+va = 0x0055C300
+name = "GameRuntime__ClearWormBuffers"
+
+[[function]]
+va = 0x0055C590
+name = "GameRuntime__AdvanceWormFrame"
+
+[[function]]
+va = 0x0056DEF0
+name = "GameRuntime__Constructor"
+
+  [function.signature]
+  returns = "void *"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+
+  [[function.param]]
+  name = "display"
+  type = "void *"
+
+  [[function.param]]
+  name = "sound"
+  type = "void *"
+
+  [[function.param]]
+  name = "gfx"
+  type = "void *"
+
+  [[function.param]]
+  name = "palette"
+  type = "void *"
+
+  [[function.param]]
+  name = "music"
+  type = "void *"
+
+  [[function.param]]
+  name = "network"
+  type = "void *"
+
+[[function]]
+va = 0x0056DFB0
+name = "GameRuntime__EndGame"
+
+[[function]]
+va = 0x0056E040
+name = "GameRuntime__RenderFrame"
+
+[[function]]
+va = 0x0056F860
+name = "GameRuntime__InitReplay"
+
+[[function]]
+va = 0x00570E80
+name = "GameRuntime__LoadFontExtension"
+
+[[function]]
+va = 0x00571530
+name = "GameRuntime__LoadSpeechWAV"
+
+[[function]]
+va = 0x005717A0
+name = "GameRuntime__LoadingProgressTick"
+
+[[global]]
+va = 0x00664178
+name = "GameRuntime__dtor_vtable"
+
+[[global]]
+va = 0x00665560
+name = "GameRuntime__vtable2"
+
+[[global]]
+va = 0x0066A30C
+name = "GameRuntime__vtable"

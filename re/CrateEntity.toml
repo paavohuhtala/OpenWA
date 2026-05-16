@@ -1,0 +1,7 @@
+[[function]]
+va = 0x00502490
+name = "CrateEntity__Constructor"
+
+[[global]]
+va = 0x00664298
+name = "CrateEntity__vtable"

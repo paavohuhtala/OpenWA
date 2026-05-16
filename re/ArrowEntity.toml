@@ -1,0 +1,7 @@
+[[function]]
+va = 0x004FE130
+name = "ArrowEntity__Constructor"
+
+[[global]]
+va = 0x00664198
+name = "ArrowEntity__vtable"

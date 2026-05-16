@@ -1,0 +1,11 @@
+[[function]]
+va = 0x004436E0
+name = "CQuickCPULose__Constructor"
+
+[[function]]
+va = 0x004437F0
+name = "CQuickCPULose__DoDataExchange"
+
+[[function]]
+va = 0x00443860
+name = "CQuickCPULose__OnInitDialog"

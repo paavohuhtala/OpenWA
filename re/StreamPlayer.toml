@@ -1,0 +1,7 @@
+[[function]]
+va = 0x00594790
+name = "StreamPlayer__Destructor_Maybe"
+
+[[global]]
+va = 0x0066B93C
+name = "StreamPlayer__vtable_Maybe"

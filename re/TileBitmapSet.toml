@@ -1,0 +1,4 @@
+[[function]]
+va = 0x00569BC0
+name = "TileBitmapSet__Destructor"
+plate_comment = "TileBitmapSet::Destructor — usercall on EDI = TileBitmapSet*. Iterates bitmap_ptrs[0..count], calls vtable[0](1) on each non-null CBitmap entry, then frees the bitmap_ptrs array. Caller frees the TileBitmapSet itself separately. Only known caller: DisplayGfx__DestructorImpl (0x56A010) cleaning up tile_bitmap_sets[1] (slot 22's mode-1 tile set)."

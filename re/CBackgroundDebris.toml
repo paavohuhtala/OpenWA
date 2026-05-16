@@ -1,0 +1,35 @@
+[[function]]
+va = 0x0042A430
+name = "CBackgroundDebris__ctor_CBackgroundDebris"
+
+[[function]]
+va = 0x0042A4D0
+name = "CBackgroundDebris__dtor_CBackgroundDebris"
+
+[[function]]
+va = 0x0042A530
+name = "CBackgroundDebris__Create"
+
+[[function]]
+va = 0x0042A6D0
+name = "CBackgroundDebris__RestoreSurfaces"
+
+[[function]]
+va = 0x0042A830
+name = "CBackgroundDebris__Display"
+
+[[function]]
+va = 0x0042A990
+name = "CBackgroundDebris__Release"
+
+[[function]]
+va = 0x0042A9E0
+name = "CBackgroundDebris__sub_42A9E0"
+
+[[function]]
+va = 0x0042AA20
+name = "CBackgroundDebris__sub_42AA20"
+
+[[function]]
+va = 0x0042ABE0
+name = "CBackgroundDebris__sub_42ABE0"

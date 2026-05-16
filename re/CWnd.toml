@@ -1,0 +1,7 @@
+[[function]]
+va = 0x0041A810
+name = "CWnd__MoveWindow_1"
+
+[[function]]
+va = 0x005C45A3
+name = "CWnd__GetWindowText"

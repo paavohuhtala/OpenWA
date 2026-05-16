@@ -1,0 +1,27 @@
+[[function]]
+va = 0x0045CE10
+name = "GameEntryDlg__ctor_GameEntryDlg"
+
+[[function]]
+va = 0x0045CF50
+name = "GameEntryDlg__dtor0_GameEntryDlg"
+
+[[function]]
+va = 0x0045CF70
+name = "GameEntryDlg__dtor1_GameEntryDlg"
+
+[[function]]
+va = 0x0045D070
+name = "GameEntryDlg__DoDataExchange"
+
+[[function]]
+va = 0x0045D100
+name = "GameEntryDlg__sub_45D100"
+
+[[function]]
+va = 0x0045D1D0
+name = "GameEntryDlg__OnInitDialog"
+
+[[function]]
+va = 0x0045D450
+name = "GameEntryDlg__sub_45D450"

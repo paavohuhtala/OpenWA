@@ -1,0 +1,150 @@
+[[function]]
+va = 0x00541130
+name = "SendGamePacketWrapped"
+
+[[function]]
+va = 0x00541D60
+name = "RQ_EnqueueTiledBitmap"
+
+[[function]]
+va = 0x00541DD0
+name = "RQ_DrawLineStrip"
+
+[[function]]
+va = 0x00541E50
+name = "RQ_DrawPolygon"
+
+[[function]]
+va = 0x00541ED0
+name = "RQ_DrawCrosshair"
+
+[[function]]
+va = 0x00541F40
+name = "RQ_DrawRect"
+
+[[function]]
+va = 0x00541FE0
+name = "RQ_DrawSpriteGlobal"
+
+[[function]]
+va = 0x00542060
+name = "RQ_DrawSpriteLocal"
+
+[[function]]
+va = 0x005420E0
+name = "RQ_DrawSpriteOffset"
+
+[[function]]
+va = 0x00542170
+name = "RQ_DrawBitmapGlobal"
+
+[[function]]
+va = 0x00542200
+name = "RQ_DrawTextboxLocal"
+
+[[function]]
+va = 0x00542330
+name = "RQ_DrawCmdSortComparator"
+
+[[function]]
+va = 0x00542350
+name = "RenderDrawingQueue"
+
+[[function]]
+va = 0x00542B10
+name = "RQ_TranslateCoordinates"
+
+[[function]]
+va = 0x00542BA0
+name = "RQ_ClipCoordinates"
+
+[[function]]
+va = 0x00542C70
+name = "RQ_ClipCoordinatesWithRef"
+
+[[function]]
+va = 0x00542D50
+name = "RQ_TransformWithZoom_Maybe"
+
+[[function]]
+va = 0x00542E60
+name = "RQ_SmoothInterpolate_Maybe"
+
+[[function]]
+va = 0x00542F70
+name = "RQ_SaturateClipBounds_Maybe"
+
+[[function]]
+va = 0x005430F0
+name = "Distance3D_Attenuation"
+
+[[function]]
+va = 0x005451F0
+name = "ControlEntity_HandleMessage"
+
+[[function]]
+va = 0x00546140
+name = "ComputeStateChecksum"
+
+[[function]]
+va = 0x00546170
+name = "ComputeStateChecksum_Multi"
+
+[[function]]
+va = 0x00546260
+name = "RecordActiveSound"
+
+[[function]]
+va = 0x00546300
+name = "ComputeDistanceParams"
+
+[[function]]
+va = 0x00546360
+name = "DispatchLocalSound"
+
+[[function]]
+va = 0x005463F0
+name = "PlayLocalWithEmitter"
+
+[[function]]
+va = 0x00546430
+name = "PlayLocalNoEmitter"
+
+[[function]]
+va = 0x00546B50
+name = "PlaySoundPooled_Direct"
+
+[[function]]
+va = 0x00546E20
+name = "PlaySoundGlobal"
+
+[[function]]
+va = 0x00546F70
+name = "GenerateDebrisParticles"
+
+[[function]]
+va = 0x00547C30
+name = "SpawnEffect"
+plate_comment = """
+Spawns a CreateAnimation event (msg 0x56) on the WorldRoot for the calling task.
+
+Convention: __usercall(EAX=anim_kind, ECX=x) + stdcall(arg1..arg7), RET 0x1C, with ESI = task pointer at entry. SharedData__Lookup(ESI) returns the parent WorldRoot; if non-null, calls vtable[2] = HandleMessage(parent, ESI, 0x56, 0x408, &payload).
+
+The 0x408-byte payload is the function's stack scratch. Only 11 dwords are meaningfully written:
+  +0x00 = EAX (anim_kind, e.g. 0x80000)
+  +0x04 = ECX (x)
+  +0x08 = arg1 (y)
+  +0x0C = arg2
+  +0x10 = arg3
+  +0x18 = 0 (overwrites arg4)
+  +0x20 = arg5
+  +0x24 = 0 (overwrites arg6)
+  +0x28 = arg7
+The rest of the 0x408 buffer is uninit. arg4 and arg6 are dead — written then immediately zeroed (compiler artifact).
+
+Ported in Rust as a typed CreateAnimationMessage broadcast in `engine::main_loop::weapon_fire::fire_teleport`. See `crates/openwa-game/src/game/message.rs::CreateAnimationMessage`.
+"""
+
+[[function]]
+va = 0x00548080
+name = "CreateExplosion"

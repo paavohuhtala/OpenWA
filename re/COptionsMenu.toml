@@ -1,0 +1,91 @@
+[[function]]
+va = 0x004C9440
+name = "COptionsMenu__dtor0_COptionsMenu"
+
+[[function]]
+va = 0x004C9480
+name = "COptionsMenu__Destructor_1"
+
+[[function]]
+va = 0x004C9860
+name = "COptionsMenu__sub_4C9860"
+
+[[function]]
+va = 0x004C9890
+name = "COptionsMenu__DoDataExchange"
+
+[[function]]
+va = 0x004C9A60
+name = "COptionsMenu__getMessageMap"
+
+[[function]]
+va = 0x004C9A70
+name = "COptionsMenu__sub_4C9A70"
+
+[[function]]
+va = 0x004C9C20
+name = "COptionsMenu__OnInitDialog"
+
+[[function]]
+va = 0x004C9F80
+name = "COptionsMenu__sub_4C9F80"
+
+[[function]]
+va = 0x004C9FA0
+name = "COptionsMenu__sub_4C9FA0"
+
+[[function]]
+va = 0x004CA040
+name = "COptionsMenu__sub_4CA040"
+
+[[function]]
+va = 0x004CA0B0
+name = "COptionsMenu__sub_4CA0B0"
+
+[[function]]
+va = 0x004CA700
+name = "COptionsMenu__sub_4CA700"
+
+[[function]]
+va = 0x004CAA20
+name = "COptionsMenu__sub_4CAA20"
+
+[[function]]
+va = 0x004CAF50
+name = "COptionsMenu__sub_4CAF50"
+
+[[function]]
+va = 0x004CB8C0
+name = "COptionsMenu__sub_4CB8C0"
+
+[[function]]
+va = 0x004CB8F0
+name = "COptionsMenu__sub_4CB8F0"
+
+[[function]]
+va = 0x004CB9D0
+name = "COptionsMenu__sub_4CB9D0"
+
+[[function]]
+va = 0x004CC000
+name = "COptionsMenu__sub_4CC000"
+
+[[function]]
+va = 0x004CC140
+name = "COptionsMenu__sub_4CC140"
+
+[[function]]
+va = 0x004CC170
+name = "COptionsMenu__sub_4CC170"
+
+[[function]]
+va = 0x004CC5E0
+name = "COptionsMenu__sub_4CC5E0"
+
+[[function]]
+va = 0x004CCB10
+name = "COptionsMenu__sub_4CCB10"
+
+[[function]]
+va = 0x004CCB20
+name = "COptionsMenu__sub_4CCB20"

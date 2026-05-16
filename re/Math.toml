@@ -1,0 +1,39 @@
+[[function]]
+va = 0x00565AD0
+name = "Math__int2decimal"
+
+[[function]]
+va = 0x00575640
+name = "Math__fixsin16"
+
+[[function]]
+va = 0x00575670
+name = "Math__fixcos16"
+
+[[function]]
+va = 0x005756B0
+name = "Math__sub_5756B0"
+
+[[function]]
+va = 0x00575730
+name = "Math__fixa2tan16"
+
+[[function]]
+va = 0x005757E0
+name = "Math__sub_5757E0"
+
+[[function]]
+va = 0x00575840
+name = "Math__fixa1tan16"
+
+[[function]]
+va = 0x005758B0
+name = "Math__sub_5758B0"
+
+[[function]]
+va = 0x005758E0
+name = "Math__sub_5758E0"
+
+[[function]]
+va = 0x00575AD0
+name = "Math__sub_575AD0"

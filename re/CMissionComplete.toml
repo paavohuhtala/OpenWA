@@ -1,0 +1,27 @@
+[[function]]
+va = 0x00498720
+name = "CMissionComplete__ctor_CMissionComplete"
+
+[[function]]
+va = 0x004987F0
+name = "CMissionComplete__dtor0_CMissionComplete"
+
+[[function]]
+va = 0x00498810
+name = "CMissionComplete__dtor1_CMissionComplete"
+
+[[function]]
+va = 0x004988B0
+name = "CMissionComplete__DoDataExchange"
+
+[[function]]
+va = 0x00498930
+name = "CMissionComplete__OnInitDialog"
+
+[[function]]
+va = 0x00498D80
+name = "CMissionComplete__sub_498D80"
+
+[[function]]
+va = 0x00498E20
+name = "CMissionComplete__sub_498E20"

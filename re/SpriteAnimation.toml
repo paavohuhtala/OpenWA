@@ -1,0 +1,35 @@
+[[function]]
+va = 0x004F53F0
+name = "SpriteAnimation__sub_4F53F0"
+
+[[function]]
+va = 0x004F5400
+name = "SpriteAnimation__sub_4F5400"
+
+[[function]]
+va = 0x004F5420
+name = "SpriteAnimation__sub_4F5420"
+
+[[function]]
+va = 0x004F5440
+name = "SpriteAnimation__dtor_SpriteAnimation"
+
+[[function]]
+va = 0x004F5460
+name = "SpriteAnimation__ctor_SpriteAnimation"
+
+[[function]]
+va = 0x004F5700
+name = "SpriteAnimation__sub_4F5700"
+
+[[function]]
+va = 0x004F5AE0
+name = "SpriteAnimation__advance"
+
+[[function]]
+va = 0x004F5BB0
+name = "SpriteAnimation__play_0"
+
+[[function]]
+va = 0x004F5BD0
+name = "SpriteAnimation__play_1"

@@ -1,0 +1,44 @@
+[[function]]
+va = 0x00540780
+name = "MenuPanel__CenterCursorOnFirstKindZero"
+plate_comment = "MenuPanel::CenterCursorOnFirstKindZero (0x00540780) — usercall(ESI=panel), no stack args, plain RET. Walks the panel.items array and, for any item whose kind == 0, sets panel.cursor_x/_y to the center of that item's clip rect and panel.cursor_active = 1. Used by OpenEscMenuConfirmDialog to default-park the cursor on the \"Yes\" button (kind=0) when the confirm dialog opens. Multiple items with kind==0 → last one wins (overwrites)."
+
+[[function]]
+va = 0x005407D0
+name = "MenuPanel__SetCursorAt"
+
+[[function]]
+va = 0x00540810
+name = "MenuPanel__ActivateAtCursor"
+
+[[function]]
+va = 0x005408B0
+name = "MenuPanel__HitTestCursor"
+
+[[function]]
+va = 0x00540B00
+name = "MenuPanel__Render"
+plate_comment = """
+MenuPanel::Render — per-frame incremental redraw of the panel canvas.
+
+usercall: EDI = MenuPanel* this. Returns panel.display_a (DisplayBitGrid* — the canvas the panel was painted into) so the caller can pass it to display.draw_scaled_sprite.
+
+Phase 1: For each item, set items[i].is_highlighted_this_frame (+0x2C) = 0.
+
+Phase 2: If panel.cursor_active != 0:
+  - If panel.slider_lock != 0: that index's flag is set to 1 (sticky drag).
+  - Else: hit-test cursor against each item.clip_left/_top/_right/_bottom; if a hit, that item's flag is set to 1.
+
+Phases 3+4: Two passes over items checking
+  items[i].is_highlighted_persistent (+0x28) != is_highlighted_this_frame (+0x2C).
+For each item where the state changed:
+  - Pick color: color_a (0x20) if turning OFF, color_b (0x24) if turning ON.
+  - Redraw item label via display_b.draw_text_on_bitmap (slot 7) onto display_a.
+  - Redraw 4 highlight-border lines (display_a vtable slots 1/2 = fill_hline/fill_vline of BitGridDisplayVtable).
+  - Optionally call FUN_004F66E0 (?) for slider tick marks when item's render_aux is set.
+End of phase 4: items[i].is_highlighted_persistent = is_highlighted_this_frame (commit).
+
+This means the canvas is built once and then dirty-redrawn each frame to track hover state — no need to repaint the whole panel every frame.
+
+IMPORTANT: items[i] fields at +0x28 and +0x2C were previously named neighbor_prev/neighbor_next on the assumption they were navigation links. They are NOT — they are transient render state used only by this function. Rename to `is_highlighted_persistent` / `is_highlighted_this_frame`.
+"""

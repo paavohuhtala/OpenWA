@@ -1,0 +1,39 @@
+[[function]]
+va = 0x00438410
+name = "CCombo__ctor1_CCombo"
+
+[[function]]
+va = 0x004384A0
+name = "CCombo__getMessageMap"
+
+[[function]]
+va = 0x00438520
+name = "CCombo__sub_438520"
+
+[[function]]
+va = 0x00438690
+name = "CCombo__sub_438690"
+
+[[function]]
+va = 0x004387E0
+name = "CCombo__sub_4387E0"
+
+[[function]]
+va = 0x00438890
+name = "CCombo__sub_438890"
+
+[[function]]
+va = 0x004389A0
+name = "CCombo__sub_4389A0"
+
+[[function]]
+va = 0x004389F0
+name = "CCombo__sub_4389F0"
+
+[[function]]
+va = 0x00438AB0
+name = "CCombo__sub_438AB0"
+
+[[function]]
+va = 0x00487FA0
+name = "CCombo__ctor_CCombo"

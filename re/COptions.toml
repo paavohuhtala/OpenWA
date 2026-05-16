@@ -1,0 +1,19 @@
+[[function]]
+va = 0x004C8320
+name = "COptions__ctor_COptions"
+
+[[function]]
+va = 0x004C8380
+name = "COptions__dtor0_COptions"
+
+[[function]]
+va = 0x004C83A0
+name = "COptions__dtor1_COptions"
+
+[[function]]
+va = 0x004C8440
+name = "COptions__Init_Options"
+
+[[function]]
+va = 0x004C8C70
+name = "COptions__StoreOptions"

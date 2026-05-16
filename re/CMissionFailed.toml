@@ -1,0 +1,27 @@
+[[function]]
+va = 0x00498E30
+name = "CMissionFailed__ctor_CMissionFailed"
+
+[[function]]
+va = 0x00498ED0
+name = "CMissionFailed__dtor0_CMissionFailed"
+
+[[function]]
+va = 0x00498EF0
+name = "CMissionFailed__dtor1_CMissionFailed"
+
+[[function]]
+va = 0x00498F70
+name = "CMissionFailed__DoDataExchange"
+
+[[function]]
+va = 0x00498FD0
+name = "CMissionFailed__OnInitDialog"
+
+[[function]]
+va = 0x00499160
+name = "CMissionFailed__sub_499160"
+
+[[function]]
+va = 0x00499180
+name = "CMissionFailed__sub_499180"

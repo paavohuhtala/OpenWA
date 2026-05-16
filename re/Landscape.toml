@@ -1,0 +1,15 @@
+[[function]]
+va = 0x0057ACB0
+name = "Landscape__Constructor"
+
+[[function]]
+va = 0x0057C820
+name = "Landscape__ApplyExplosion"
+
+[[function]]
+va = 0x0057CF60
+name = "Landscape__RedrawRow"
+
+[[function]]
+va = 0x0057D2B0
+name = "Landscape__ClipAndMerge"

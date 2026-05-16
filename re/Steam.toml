@@ -1,0 +1,10 @@
+[[function]]
+va = 0x00598D40
+name = "Steam__Bootstrap"
+plate_comment = """
+Steamworks SDK bootstrap. Calls SteamAPI_Init, SteamAPI_RestartAppIfNecessary(217200),
+SteamApps()->BIsSubscribedApp(217200), and SteamUtils()->SetOverlayNotificationPosition(1).
+Returns 1 on success, 0 on failure (Steam not running, app not owned, or restart triggered).
+Sole caller: Frontend__MainNavigationLoop @ 0x004e855a — silent exit if this returns 0.
+Hooked in openwa.dll behind OPENWA_NO_STEAM=1 to bypass the check (used in CI).
+"""

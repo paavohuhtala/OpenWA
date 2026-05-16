@@ -1,0 +1,34 @@
+[[function]]
+va = 0x00427830
+name = "Font__DrawText"
+
+[[function]]
+va = 0x004F9940
+name = "Font__LoadFromGfxDir"
+
+[[function]]
+va = 0x004F99D0
+name = "Font__ParseData"
+
+[[function]]
+va = 0x004F9AD0
+name = "Font__Extend"
+
+[[function]]
+va = 0x004F9F20
+name = "Font__SetPalette"
+plate_comment = "Font__SetPalette — MISLEADING NAME. Despite \"SetPalette\", this function extends the font with two new derived glyphs for codepoints '.' (0x2E) and ';' (0x3B), built from the existing ':' (0x3A) glyph. The 'palette_value' param is used as a memset fill byte for the new '.' glyph's pixels (it fills the top half of the new glyph with that single palette index). Sources colors from '-' (0x2D) and '8' (0x38) glyphs to do an eight→minus per-pixel substitution on the new ';' glyph. Allocates a new buffer big enough for (old_height+2) glyph entries plus 2*colon-sized pixel regions, copies existing entries, writes the new entries, fills/blits the new pixel data, then bumps font.height by 2 and points font.glyph_table at the new buffer. Stores the alloc in font[+0x18] (aux_alloc) for cleanup. Called once at game startup, only for digiwht.fnt (the digital seven-segment font, slot 28), which doesn't ship with '.' or ';' glyphs. Ported as openwa-core display::vtable::font_set_palette_impl."
+
+[[function]]
+va = 0x004FA720
+name = "Font__MeasureText"
+
+[[function]]
+va = 0x004FA780
+name = "Font__GetMetric"
+plate_comment = "Font__GetMetric — ported to openwa-core display::vtable::font_get_metric_impl. Pure char→glyph lookup; returns (max_width, glyph_advance) or width_div_5 for spaces. Slot 9 wrapper at 0x523750."
+
+[[function]]
+va = 0x004FA7D0
+name = "Font__GetInfo"
+plate_comment = "Font__GetInfo — ported to openwa-core display::vtable::font_get_info_impl. Pure read of FontObject (returns max width and longest glyph advance). Slot 8 wrapper at 0x523790."

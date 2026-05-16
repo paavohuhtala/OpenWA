@@ -1,0 +1,194 @@
+[[function]]
+va = 0x004E3BD0
+name = "CWormsApp__Constructor"
+
+[[function]]
+va = 0x004E3E90
+name = "CWormsApp__ScalarDeletingDestructor"
+calling_convention = "__thiscall"
+
+  [function.signature]
+  returns = "void *"
+
+  [[function.param]]
+  name = "flags"
+  type = "byte"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
+
+[[function]]
+va = 0x004E43C0
+name = "CWormsApp__Destructor"
+
+[[function]]
+va = 0x004EB730
+name = "CWormsApp__DoMessageBox"
+calling_convention = "__thiscall"
+
+  [function.signature]
+  returns = "int"
+
+  [[function.param]]
+  name = "text"
+  type = "char *"
+
+  [[function.param]]
+  name = "type"
+  type = "uint"
+
+  [[function.param]]
+  name = "help_context"
+  type = "uint"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
+
+[[function]]
+va = 0x004EC810
+name = "CWormsApp__PreTranslateMessage"
+calling_convention = "__thiscall"
+
+  [function.signature]
+  returns = "int"
+
+  [[function.param]]
+  name = "pMsg"
+  type = "tagMSG *"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
+
+[[function]]
+va = 0x005A23F0
+name = "CWormsApp__ClearFrameBuffer"
+
+[[function]]
+va = 0x005A2420
+name = "CWormsApp__ClearFrameBuffer_Indirect"
+
+[[function]]
+va = 0x005A24A0
+name = "CWormsApp__ReleaseFrameBuffer"
+calling_convention = "__fastcall"
+
+  [function.signature]
+  returns = "void *"
+
+  [[function.param]]
+  name = "param"
+  type = "int"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
+
+  [[function.param]]
+  name = "result"
+  type = "void *"
+  storage = "EDX"
+
+[[function]]
+va = 0x005A2530
+name = "CWormsApp__LockFrameBuffer"
+
+[[function]]
+va = 0x005A25C0
+name = "CWormsApp__FillRect"
+calling_convention = "__fastcall"
+
+  [function.signature]
+  returns = "void *"
+
+  [[function.param]]
+  name = "width"
+  type = "int"
+
+  [[function.param]]
+  name = "height"
+  type = "int"
+
+  [[function.param]]
+  name = "fill_value"
+  type = "int"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
+
+  [[function.param]]
+  name = "result"
+  type = "void *"
+  storage = "EDX"
+
+[[function]]
+va = 0x005A2660
+name = "CWormsApp__GetFrameBufferDims"
+
+[[function]]
+va = 0x005A2690
+name = "CWormsApp__LockSurface"
+
+[[function]]
+va = 0x005A26C0
+name = "CWormsApp__GetRendererSurface"
+
+[[function]]
+va = 0x005A2700
+name = "CWormsApp__FlipSurface"
+calling_convention = "__fastcall"
+
+  [function.signature]
+  returns = "void *"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
+
+  [[function.param]]
+  name = "result"
+  type = "void *"
+  storage = "EDX"
+
+[[function]]
+va = 0x005A2720
+name = "CWormsApp__AllocErrorResult"
+
+[[function]]
+va = 0x005A2A40
+name = "CWormsApp__BlitToFrameBuffer"
+calling_convention = "__fastcall"
+
+  [function.signature]
+  returns = "void *"
+
+  [[function.param]]
+  name = "surface"
+  type = "void *"
+
+  [[function.param]]
+  name = "y_offset"
+  type = "int"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
+
+  [[function.param]]
+  name = "result"
+  type = "void *"
+  storage = "EDX"
+
+[[global]]
+va = 0x00662C90
+name = "CWormsApp__vtable"

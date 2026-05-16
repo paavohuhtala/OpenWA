@@ -1,0 +1,11 @@
+[[function]]
+va = 0x004240E0
+name = "CDXBitmapButton__ctor_CDXBitmapButton"
+
+[[function]]
+va = 0x00424310
+name = "CDXBitmapButton__sub_424310"
+
+[[function]]
+va = 0x004243B0
+name = "CDXBitmapButton__sub_4243B0"

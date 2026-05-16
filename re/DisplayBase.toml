@@ -1,0 +1,19 @@
+[[function]]
+va = 0x00522DB0
+name = "DisplayBase__Constructor"
+
+[[function]]
+va = 0x00522F60
+name = "DisplayBase__Destructor"
+
+[[function]]
+va = 0x00523190
+name = "DisplayBase__AllocPaletteSlots"
+
+[[global]]
+va = 0x006645F8
+name = "DisplayBase__vtable"
+
+[[global]]
+va = 0x0066A0F8
+name = "DisplayBase__HeadlessVtable"

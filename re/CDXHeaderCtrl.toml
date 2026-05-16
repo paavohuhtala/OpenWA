@@ -1,0 +1,91 @@
+[[function]]
+va = 0x00415140
+name = "CDXHeaderCtrl__ctor_CDXHeaderCtrl"
+
+[[function]]
+va = 0x004151A0
+name = "CDXHeaderCtrl__dtor0_CDXHeaderCtrl"
+
+[[function]]
+va = 0x004151C0
+name = "CDXHeaderCtrl__dtor2_CDXHeaderCtrl"
+
+[[function]]
+va = 0x004151E0
+name = "CDXHeaderCtrl__dtor1_CDXHeaderCtrl"
+
+[[function]]
+va = 0x00415240
+name = "CDXHeaderCtrl__OnDXInit"
+
+[[function]]
+va = 0x00415290
+name = "CDXHeaderCtrl__sub_415290"
+
+[[function]]
+va = 0x004154C0
+name = "CDXHeaderCtrl__sub_4154C0"
+
+[[function]]
+va = 0x00415680
+name = "CDXHeaderCtrl__sub_415680"
+
+[[function]]
+va = 0x004156E0
+name = "CDXHeaderCtrl__sub_4156E0"
+
+[[function]]
+va = 0x00415780
+name = "CDXHeaderCtrl__sub_415780"
+
+[[function]]
+va = 0x00415870
+name = "CDXHeaderCtrl__sub_415870"
+
+[[function]]
+va = 0x00415920
+name = "CDXHeaderCtrl__sub_415920"
+
+[[function]]
+va = 0x00415B40
+name = "CDXHeaderCtrl__sub_415B40"
+
+[[function]]
+va = 0x00415BB0
+name = "CDXHeaderCtrl__sub_415BB0"
+
+[[function]]
+va = 0x00415C10
+name = "CDXHeaderCtrl__sub_415C10"
+
+[[function]]
+va = 0x00415CB0
+name = "CDXHeaderCtrl__sub_415CB0"
+
+[[function]]
+va = 0x00415E70
+name = "CDXHeaderCtrl__sub_415E70"
+
+[[function]]
+va = 0x00415EE0
+name = "CDXHeaderCtrl__sub_415EE0"
+
+[[function]]
+va = 0x00415F40
+name = "CDXHeaderCtrl__sub_415F40"
+
+[[function]]
+va = 0x00415FB0
+name = "CDXHeaderCtrl__sub_415FB0"
+
+[[function]]
+va = 0x00415FF0
+name = "CDXHeaderCtrl__sub_415FF0"
+
+[[function]]
+va = 0x00416070
+name = "CDXHeaderCtrl__sub_416070"
+
+[[function]]
+va = 0x00416110
+name = "CDXHeaderCtrl__sub_416110"

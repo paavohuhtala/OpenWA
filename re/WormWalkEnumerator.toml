@@ -1,0 +1,51 @@
+[[function]]
+va = 0x005667D0
+name = "WormWalkEnumerator__sub_5667D0"
+
+[[function]]
+va = 0x00566810
+name = "WormWalkEnumerator__ground_is_flat"
+
+[[function]]
+va = 0x005668E0
+name = "WormWalkEnumerator__emit_result"
+
+[[function]]
+va = 0x00566AD0
+name = "WormWalkEnumerator__calc_highest_fall"
+
+[[function]]
+va = 0x00566B10
+name = "WormWalkEnumerator__search_intersect_slow"
+
+[[function]]
+va = 0x00566B50
+name = "WormWalkEnumerator__sub_566B50"
+
+[[function]]
+va = 0x00566B80
+name = "WormWalkEnumerator__sub_566B80"
+
+[[function]]
+va = 0x00566C20
+name = "WormWalkEnumerator__sub_566C20"
+
+[[function]]
+va = 0x00566C90
+name = "WormWalkEnumerator__sub_566C90"
+
+[[function]]
+va = 0x00566FB0
+name = "WormWalkEnumerator__search_jump_forward"
+
+[[function]]
+va = 0x00566FF0
+name = "WormWalkEnumerator__search_jump_backward"
+
+[[function]]
+va = 0x00567030
+name = "WormWalkEnumerator__sub_567030"
+
+[[function]]
+va = 0x005675A0
+name = "WormWalkEnumerator__enumerate"

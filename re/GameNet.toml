@@ -1,0 +1,47 @@
+[[function]]
+va = 0x0053DCC0
+name = "GameNet__sub_53DCC0"
+
+[[function]]
+va = 0x0053DFD0
+name = "GameNet__update_incoming_0"
+
+[[function]]
+va = 0x0053E020
+name = "GameNet__update_incoming_1"
+
+[[function]]
+va = 0x0053E170
+name = "GameNet__update_application"
+
+[[function]]
+va = 0x0053E380
+name = "GameNet__send_block"
+
+[[function]]
+va = 0x0053E490
+name = "GameNet__transmit"
+
+[[function]]
+va = 0x0053E4E0
+name = "GameNet__sub_53E4E0"
+
+[[function]]
+va = 0x0053E6C0
+name = "GameNet__sub_53E6C0"
+
+[[function]]
+va = 0x0053E6E0
+name = "GameNet__sub_53E6E0"
+
+[[function]]
+va = 0x0053E760
+name = "GameNet__highest_incoming_use"
+
+[[function]]
+va = 0x0053E7D0
+name = "GameNet__sub_53E7D0"
+
+[[function]]
+va = 0x0053E870
+name = "GameNet__sub_53E870"

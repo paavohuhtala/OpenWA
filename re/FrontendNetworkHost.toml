@@ -1,0 +1,7 @@
+[[function]]
+va = 0x004ADCA0
+name = "FrontendNetworkHost__Constructor"
+
+[[global]]
+va = 0x0065A9D0
+name = "FrontendNetworkHost__vtable"

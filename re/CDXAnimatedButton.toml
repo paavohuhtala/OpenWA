@@ -1,0 +1,51 @@
+[[function]]
+va = 0x004022B0
+name = "CDXAnimatedButton__Constructor"
+
+[[function]]
+va = 0x00402320
+name = "CDXAnimatedButton__getMessageMap"
+
+[[function]]
+va = 0x00402330
+name = "CDXAnimatedButton__LoadFromFolder"
+
+[[function]]
+va = 0x004029D0
+name = "CDXAnimatedButton__sub_4029D0"
+
+[[function]]
+va = 0x00402B90
+name = "CDXAnimatedButton__sub_402B90"
+
+[[function]]
+va = 0x00402CE0
+name = "CDXAnimatedButton__sub_402CE0"
+
+[[function]]
+va = 0x00402E60
+name = "CDXAnimatedButton__sub_402E60"
+
+[[function]]
+va = 0x00402E90
+name = "CDXAnimatedButton__sub_402E90"
+
+[[function]]
+va = 0x00402F00
+name = "CDXAnimatedButton__sub_402F00"
+
+[[function]]
+va = 0x00402FE0
+name = "CDXAnimatedButton__sub_402FE0"
+
+[[function]]
+va = 0x00403030
+name = "CDXAnimatedButton__sub_403030"
+
+[[function]]
+va = 0x004030C0
+name = "CDXAnimatedButton__sub_4030C0"
+
+[[function]]
+va = 0x00403150
+name = "CDXAnimatedButton__sub_403150"

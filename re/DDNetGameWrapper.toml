@@ -1,0 +1,23 @@
+[[function]]
+va = 0x0056D1F0
+name = "DDNetGameWrapper__Constructor"
+
+[[function]]
+va = 0x0056D240
+name = "DDNetGameWrapper__Destructor"
+
+[[function]]
+va = 0x0056D2A0
+name = "DDNetGameWrapper__ScalarDeletingDestructor"
+
+[[function]]
+va = 0x0056FAF0
+name = "DDNetGameWrapper__SendGameState"
+
+[[function]]
+va = 0x005713C0
+name = "DDNetGameWrapper__LoadResourceList"
+
+[[global]]
+va = 0x0066A2DC
+name = "DDNetGameWrapper__vtable_Maybe"

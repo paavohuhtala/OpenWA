@@ -1,0 +1,35 @@
+[[function]]
+va = 0x00401610
+name = "CDXAnim__ctor_CDXAnim"
+
+[[function]]
+va = 0x004016B0
+name = "CDXAnim__dtor0_CDXAnim"
+
+[[function]]
+va = 0x004016D0
+name = "CDXAnim__dtor1_CDXAnim"
+
+[[function]]
+va = 0x00401750
+name = "CDXAnim__OnDXInit"
+
+[[function]]
+va = 0x00401770
+name = "CDXAnim__sub_401770"
+
+[[function]]
+va = 0x00401830
+name = "CDXAnim__sub_401830"
+
+[[function]]
+va = 0x00401860
+name = "CDXAnim__sub_401860"
+
+[[function]]
+va = 0x004018A0
+name = "CDXAnim__sub_4018A0"
+
+[[function]]
+va = 0x00401AB0
+name = "CDXAnim__sub_401AB0"

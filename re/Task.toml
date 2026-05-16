@@ -1,0 +1,19 @@
+[[function]]
+va = 0x005627A0
+name = "Task__save_children"
+
+[[function]]
+va = 0x005628C0
+name = "Task__restore_children"
+
+[[function]]
+va = 0x00562E90
+name = "Task__sub_562E90"
+
+[[function]]
+va = 0x00562EF0
+name = "Task__deliver"
+
+[[function]]
+va = 0x00563070
+name = "Task__sub_563070"

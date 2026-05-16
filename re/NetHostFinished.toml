@@ -1,0 +1,47 @@
+[[function]]
+va = 0x004ACCE0
+name = "NetHostFinished__dtor0_NetHostFinished"
+
+[[function]]
+va = 0x004ACD00
+name = "NetHostFinished__dtor1_NetHostFinished"
+
+[[function]]
+va = 0x004ACE70
+name = "NetHostFinished__DoDataExchange"
+
+[[function]]
+va = 0x004ACF20
+name = "NetHostFinished__getMessageMap"
+
+[[function]]
+va = 0x004ACF30
+name = "NetHostFinished__OnInitDialog"
+
+[[function]]
+va = 0x004AD350
+name = "NetHostFinished__CheckConnection"
+
+[[function]]
+va = 0x004AD510
+name = "NetHostFinished__ValidConnection"
+
+[[function]]
+va = 0x004AD650
+name = "NetHostFinished__sub_4AD650"
+
+[[function]]
+va = 0x004AD8B0
+name = "NetHostFinished__OnPlayagain"
+
+[[function]]
+va = 0x004AD9D0
+name = "NetHostFinished__DisplayPlayAgain"
+
+[[function]]
+va = 0x004ADAF0
+name = "NetHostFinished__sub_4ADAF0"
+
+[[function]]
+va = 0x004ADC90
+name = "NetHostFinished__sub_4ADC90"

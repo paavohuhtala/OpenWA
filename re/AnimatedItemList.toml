@@ -1,0 +1,23 @@
+[[function]]
+va = 0x005457D0
+name = "AnimatedItemList__Constructor"
+
+[[function]]
+va = 0x005458D0
+name = "AnimatedItemList__Destructor_Maybe"
+
+[[function]]
+va = 0x00545A30
+name = "AnimatedItemList__Render"
+
+[[function]]
+va = 0x00545C70
+name = "AnimatedItemList__GetTotalSize"
+
+[[function]]
+va = 0x00563AD0
+name = "AnimatedItemList__sub_563AD0"
+
+[[global]]
+va = 0x00669C90
+name = "AnimatedItemList__vtable"

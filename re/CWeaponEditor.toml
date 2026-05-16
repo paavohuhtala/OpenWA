@@ -1,0 +1,535 @@
+[[function]]
+va = 0x004EF320
+name = "CWeaponEditor__Constructor"
+
+[[function]]
+va = 0x004EFDA0
+name = "CWeaponEditor__dtor0_CWeaponEditor"
+
+[[function]]
+va = 0x004EFDC0
+name = "CWeaponEditor__Destructor_1"
+
+[[function]]
+va = 0x004F0860
+name = "CWeaponEditor__DoDataExchange"
+
+[[function]]
+va = 0x004F1160
+name = "CWeaponEditor__getMessageMap"
+
+[[function]]
+va = 0x004F1170
+name = "CWeaponEditor__OpenWeapons"
+
+[[function]]
+va = 0x004F11D0
+name = "CWeaponEditor__OnTypeChange"
+
+[[function]]
+va = 0x004F14E0
+name = "CWeaponEditor__sub_4F14E0"
+
+[[function]]
+va = 0x004F1510
+name = "CWeaponEditor__sub_4F1510"
+
+[[function]]
+va = 0x004F1880
+name = "CWeaponEditor__On12Allowsuper"
+
+[[function]]
+va = 0x004F18B0
+name = "CWeaponEditor__sub_4F18B0"
+
+[[function]]
+va = 0x004F1B60
+name = "CWeaponEditor__OnInitDialog"
+
+[[function]]
+va = 0x004F2450
+name = "CWeaponEditor__DisplaySelected"
+
+[[function]]
+va = 0x004F2A60
+name = "CWeaponEditor__DisplayCancel"
+
+[[function]]
+va = 0x004F2B60
+name = "CWeaponEditor__sub_4F2B60"
+
+[[function]]
+va = 0x004F2B90
+name = "CWeaponEditor__sub_4F2B90"
+
+[[function]]
+va = 0x004F2BC0
+name = "CWeaponEditor__sub_4F2BC0"
+
+[[function]]
+va = 0x004F2BF0
+name = "CWeaponEditor__sub_4F2BF0"
+
+[[function]]
+va = 0x004F2C20
+name = "CWeaponEditor__sub_4F2C20"
+
+[[function]]
+va = 0x004F2C50
+name = "CWeaponEditor__sub_4F2C50"
+
+[[function]]
+va = 0x004F2C80
+name = "CWeaponEditor__sub_4F2C80"
+
+[[function]]
+va = 0x004F2CB0
+name = "CWeaponEditor__sub_4F2CB0"
+
+[[function]]
+va = 0x004F2CF0
+name = "CWeaponEditor__sub_4F2CF0"
+
+[[function]]
+va = 0x004F2D20
+name = "CWeaponEditor__sub_4F2D20"
+
+[[function]]
+va = 0x004F2D50
+name = "CWeaponEditor__sub_4F2D50"
+
+[[function]]
+va = 0x004F2D80
+name = "CWeaponEditor__sub_4F2D80"
+
+[[function]]
+va = 0x004F2DB0
+name = "CWeaponEditor__sub_4F2DB0"
+
+[[function]]
+va = 0x004F2DE0
+name = "CWeaponEditor__sub_4F2DE0"
+
+[[function]]
+va = 0x004F2E20
+name = "CWeaponEditor__sub_4F2E20"
+
+[[function]]
+va = 0x004F2E50
+name = "CWeaponEditor__sub_4F2E50"
+
+[[function]]
+va = 0x004F2EF0
+name = "CWeaponEditor__sub_4F2EF0"
+
+[[function]]
+va = 0x004F2F20
+name = "CWeaponEditor__sub_4F2F20"
+
+[[function]]
+va = 0x004F2F60
+name = "CWeaponEditor__sub_4F2F60"
+
+[[function]]
+va = 0x004F2FF0
+name = "CWeaponEditor__sub_4F2FF0"
+
+[[function]]
+va = 0x004F3020
+name = "CWeaponEditor__sub_4F3020"
+
+[[function]]
+va = 0x004F30B0
+name = "CWeaponEditor__sub_4F30B0"
+
+[[function]]
+va = 0x004F30E0
+name = "CWeaponEditor__sub_4F30E0"
+
+[[function]]
+va = 0x004F3120
+name = "CWeaponEditor__sub_4F3120"
+
+[[function]]
+va = 0x004F3150
+name = "CWeaponEditor__sub_4F3150"
+
+[[function]]
+va = 0x004F3180
+name = "CWeaponEditor__sub_4F3180"
+
+[[function]]
+va = 0x004F31B0
+name = "CWeaponEditor__sub_4F31B0"
+
+[[function]]
+va = 0x004F31E0
+name = "CWeaponEditor__sub_4F31E0"
+
+[[function]]
+va = 0x004F3210
+name = "CWeaponEditor__sub_4F3210"
+
+[[function]]
+va = 0x004F3240
+name = "CWeaponEditor__sub_4F3240"
+
+[[function]]
+va = 0x004F3270
+name = "CWeaponEditor__sub_4F3270"
+
+[[function]]
+va = 0x004F32A0
+name = "CWeaponEditor__sub_4F32A0"
+
+[[function]]
+va = 0x004F3330
+name = "CWeaponEditor__sub_4F3330"
+
+[[function]]
+va = 0x004F3360
+name = "CWeaponEditor__sub_4F3360"
+
+[[function]]
+va = 0x004F33F0
+name = "CWeaponEditor__sub_4F33F0"
+
+[[function]]
+va = 0x004F3420
+name = "CWeaponEditor__sub_4F3420"
+
+[[function]]
+va = 0x004F3450
+name = "CWeaponEditor__sub_4F3450"
+
+[[function]]
+va = 0x004F3480
+name = "CWeaponEditor__sub_4F3480"
+
+[[function]]
+va = 0x004F34B0
+name = "CWeaponEditor__sub_4F34B0"
+
+[[function]]
+va = 0x004F34E0
+name = "CWeaponEditor__sub_4F34E0"
+
+[[function]]
+va = 0x004F3510
+name = "CWeaponEditor__sub_4F3510"
+
+[[function]]
+va = 0x004F3540
+name = "CWeaponEditor__sub_4F3540"
+
+[[function]]
+va = 0x004F3570
+name = "CWeaponEditor__sub_4F3570"
+
+[[function]]
+va = 0x004F35A0
+name = "CWeaponEditor__sub_4F35A0"
+
+[[function]]
+va = 0x004F35D0
+name = "CWeaponEditor__sub_4F35D0"
+
+[[function]]
+va = 0x004F3600
+name = "CWeaponEditor__sub_4F3600"
+
+[[function]]
+va = 0x004F3630
+name = "CWeaponEditor__sub_4F3630"
+
+[[function]]
+va = 0x004F3660
+name = "CWeaponEditor__sub_4F3660"
+
+[[function]]
+va = 0x004F3690
+name = "CWeaponEditor__sub_4F3690"
+
+[[function]]
+va = 0x004F36C0
+name = "CWeaponEditor__sub_4F36C0"
+
+[[function]]
+va = 0x004F36F0
+name = "CWeaponEditor__sub_4F36F0"
+
+[[function]]
+va = 0x004F3720
+name = "CWeaponEditor__sub_4F3720"
+
+[[function]]
+va = 0x004F3750
+name = "CWeaponEditor__sub_4F3750"
+
+[[function]]
+va = 0x004F3780
+name = "CWeaponEditor__sub_4F3780"
+
+[[function]]
+va = 0x004F3850
+name = "CWeaponEditor__sub_4F3850"
+
+[[function]]
+va = 0x004F4270
+name = "CWeaponEditor__UpdateInfo"
+
+[[function]]
+va = 0x004F4340
+name = "CWeaponEditor__sub_4F4340"
+
+[[function]]
+va = 0x004F43B0
+name = "CWeaponEditor__sub_4F43B0"
+
+[[function]]
+va = 0x004F43E0
+name = "CWeaponEditor__sub_4F43E0"
+
+[[function]]
+va = 0x004F4410
+name = "CWeaponEditor__sub_4F4410"
+
+[[function]]
+va = 0x004F4440
+name = "CWeaponEditor__sub_4F4440"
+
+[[function]]
+va = 0x004F4470
+name = "CWeaponEditor__sub_4F4470"
+
+[[function]]
+va = 0x004F44A0
+name = "CWeaponEditor__sub_4F44A0"
+
+[[function]]
+va = 0x004F44D0
+name = "CWeaponEditor__sub_4F44D0"
+
+[[function]]
+va = 0x004F4500
+name = "CWeaponEditor__sub_4F4500"
+
+[[function]]
+va = 0x004F4540
+name = "CWeaponEditor__sub_4F4540"
+
+[[function]]
+va = 0x004F4570
+name = "CWeaponEditor__sub_4F4570"
+
+[[function]]
+va = 0x004F45A0
+name = "CWeaponEditor__sub_4F45A0"
+
+[[function]]
+va = 0x004F45D0
+name = "CWeaponEditor__sub_4F45D0"
+
+[[function]]
+va = 0x004F4600
+name = "CWeaponEditor__sub_4F4600"
+
+[[function]]
+va = 0x004F4630
+name = "CWeaponEditor__sub_4F4630"
+
+[[function]]
+va = 0x004F4670
+name = "CWeaponEditor__sub_4F4670"
+
+[[function]]
+va = 0x004F46A0
+name = "CWeaponEditor__sub_4F46A0"
+
+[[function]]
+va = 0x004F4740
+name = "CWeaponEditor__sub_4F4740"
+
+[[function]]
+va = 0x004F4770
+name = "CWeaponEditor__sub_4F4770"
+
+[[function]]
+va = 0x004F47B0
+name = "CWeaponEditor__sub_4F47B0"
+
+[[function]]
+va = 0x004F4840
+name = "CWeaponEditor__sub_4F4840"
+
+[[function]]
+va = 0x004F4870
+name = "CWeaponEditor__sub_4F4870"
+
+[[function]]
+va = 0x004F4900
+name = "CWeaponEditor__sub_4F4900"
+
+[[function]]
+va = 0x004F4930
+name = "CWeaponEditor__sub_4F4930"
+
+[[function]]
+va = 0x004F4970
+name = "CWeaponEditor__sub_4F4970"
+
+[[function]]
+va = 0x004F49A0
+name = "CWeaponEditor__sub_4F49A0"
+
+[[function]]
+va = 0x004F49D0
+name = "CWeaponEditor__sub_4F49D0"
+
+[[function]]
+va = 0x004F4A00
+name = "CWeaponEditor__sub_4F4A00"
+
+[[function]]
+va = 0x004F4A30
+name = "CWeaponEditor__sub_4F4A30"
+
+[[function]]
+va = 0x004F4A60
+name = "CWeaponEditor__sub_4F4A60"
+
+[[function]]
+va = 0x004F4A90
+name = "CWeaponEditor__sub_4F4A90"
+
+[[function]]
+va = 0x004F4AC0
+name = "CWeaponEditor__sub_4F4AC0"
+
+[[function]]
+va = 0x004F4AF0
+name = "CWeaponEditor__sub_4F4AF0"
+
+[[function]]
+va = 0x004F4B80
+name = "CWeaponEditor__sub_4F4B80"
+
+[[function]]
+va = 0x004F4BB0
+name = "CWeaponEditor__sub_4F4BB0"
+
+[[function]]
+va = 0x004F4C40
+name = "CWeaponEditor__sub_4F4C40"
+
+[[function]]
+va = 0x004F4D00
+name = "CWeaponEditor__sub_4F4D00"
+
+[[function]]
+va = 0x004F4D30
+name = "CWeaponEditor__sub_4F4D30"
+
+[[function]]
+va = 0x004F4D60
+name = "CWeaponEditor__sub_4F4D60"
+
+[[function]]
+va = 0x004F4D90
+name = "CWeaponEditor__sub_4F4D90"
+
+[[function]]
+va = 0x004F4DC0
+name = "CWeaponEditor__sub_4F4DC0"
+
+[[function]]
+va = 0x004F4DF0
+name = "CWeaponEditor__sub_4F4DF0"
+
+[[function]]
+va = 0x004F4E20
+name = "CWeaponEditor__sub_4F4E20"
+
+[[function]]
+va = 0x004F4E50
+name = "CWeaponEditor__sub_4F4E50"
+
+[[function]]
+va = 0x004F4E80
+name = "CWeaponEditor__sub_4F4E80"
+
+[[function]]
+va = 0x004F4EB0
+name = "CWeaponEditor__sub_4F4EB0"
+
+[[function]]
+va = 0x004F4EE0
+name = "CWeaponEditor__sub_4F4EE0"
+
+[[function]]
+va = 0x004F4F10
+name = "CWeaponEditor__sub_4F4F10"
+
+[[function]]
+va = 0x004F4F40
+name = "CWeaponEditor__sub_4F4F40"
+
+[[function]]
+va = 0x004F4F70
+name = "CWeaponEditor__sub_4F4F70"
+
+[[function]]
+va = 0x004F4FA0
+name = "CWeaponEditor__sub_4F4FA0"
+
+[[function]]
+va = 0x004F4FD0
+name = "CWeaponEditor__sub_4F4FD0"
+
+[[function]]
+va = 0x004F5000
+name = "CWeaponEditor__sub_4F5000"
+
+[[function]]
+va = 0x004F5030
+name = "CWeaponEditor__sub_4F5030"
+
+[[function]]
+va = 0x004F5060
+name = "CWeaponEditor__sub_4F5060"
+
+[[function]]
+va = 0x004F50C0
+name = "CWeaponEditor__sub_4F50C0"
+
+[[function]]
+va = 0x004F50D0
+name = "CWeaponEditor__sub_4F50D0"
+
+[[function]]
+va = 0x004F50E0
+name = "CWeaponEditor__sub_4F50E0"
+
+[[function]]
+va = 0x004F51A0
+name = "CWeaponEditor__sub_4F51A0"
+
+[[function]]
+va = 0x004F51D0
+name = "CWeaponEditor__sub_4F51D0"
+
+[[function]]
+va = 0x004F5240
+name = "CWeaponEditor__sub_4F5240"
+
+[[function]]
+va = 0x004F52E0
+name = "CWeaponEditor__sub_4F52E0"
+
+[[function]]
+va = 0x004F5330
+name = "CWeaponEditor__sub_4F5330"
+
+[[function]]
+va = 0x004F53E0
+name = "CWeaponEditor__sub_4F53E0"

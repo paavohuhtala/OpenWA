@@ -1,0 +1,11 @@
+[[function]]
+va = 0x0051FEB0
+name = "OldWormEntity__Constructor"
+
+[[function]]
+va = 0x005201C0
+name = "OldWormEntity__Constructor_Maybe"
+
+[[global]]
+va = 0x00664530
+name = "OldWormEntity__vtable"

@@ -1,0 +1,23 @@
+[[function]]
+va = 0x005661E0
+name = "File__ctor_File"
+
+[[function]]
+va = 0x00566210
+name = "File__sub_566210"
+
+[[function]]
+va = 0x00566240
+name = "File__sub_566240"
+
+[[function]]
+va = 0x00566270
+name = "File__sub_566270"
+
+[[function]]
+va = 0x005662F0
+name = "File__get_pos"
+
+[[function]]
+va = 0x00592730
+name = "File__read_int"

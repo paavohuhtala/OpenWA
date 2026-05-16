@@ -1,0 +1,39 @@
+[[function]]
+va = 0x004BBD30
+name = "NetJoinFinished__dtor0_NetJoinFinished"
+
+[[function]]
+va = 0x004BBD50
+name = "NetJoinFinished__dtor1_NetJoinFinished"
+
+[[function]]
+va = 0x004BBE80
+name = "NetJoinFinished__DoDataExchange"
+
+[[function]]
+va = 0x004BBF20
+name = "NetJoinFinished__getMessageMap"
+
+[[function]]
+va = 0x004BBF30
+name = "NetJoinFinished__OnInitDialog"
+
+[[function]]
+va = 0x004BC230
+name = "NetJoinFinished__ServiceMessages"
+
+[[function]]
+va = 0x004BC430
+name = "NetJoinFinished__sub_4BC430"
+
+[[function]]
+va = 0x004BC6A0
+name = "NetJoinFinished__OnTimer"
+
+[[function]]
+va = 0x004BC770
+name = "NetJoinFinished__sub_4BC770"
+
+[[function]]
+va = 0x004BC960
+name = "NetJoinFinished__sub_4BC960"

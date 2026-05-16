@@ -1,0 +1,7 @@
+[[function]]
+va = 0x00555240
+name = "Task_Smoke__dtor_Task_Smoke"
+
+[[function]]
+va = 0x00555280
+name = "Task_Smoke__message"

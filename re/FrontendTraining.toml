@@ -1,0 +1,7 @@
+[[function]]
+va = 0x004E0880
+name = "FrontendTraining__Constructor"
+
+[[global]]
+va = 0x00661AA8
+name = "FrontendTraining__vtable"

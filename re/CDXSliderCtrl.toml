@@ -1,0 +1,55 @@
+[[function]]
+va = 0x004244F0
+name = "CDXSliderCtrl__ctor_CDXSliderCtrl"
+
+[[function]]
+va = 0x00424590
+name = "CDXSliderCtrl__dtor0_CDXSliderCtrl"
+
+[[function]]
+va = 0x004245B0
+name = "CDXSliderCtrl__dtor1_CDXSliderCtrl"
+
+[[function]]
+va = 0x00424610
+name = "CDXSliderCtrl__getMessageMap"
+
+[[function]]
+va = 0x004246E0
+name = "CDXSliderCtrl__sub_4246E0"
+
+[[function]]
+va = 0x004247F0
+name = "CDXSliderCtrl__sub_4247F0"
+
+[[function]]
+va = 0x00424A10
+name = "CDXSliderCtrl__sub_424A10"
+
+[[function]]
+va = 0x00424D50
+name = "CDXSliderCtrl__sub_424D50"
+
+[[function]]
+va = 0x00424F60
+name = "CDXSliderCtrl__sub_424F60"
+
+[[function]]
+va = 0x00424FF0
+name = "CDXSliderCtrl__sub_424FF0"
+
+[[function]]
+va = 0x00425060
+name = "CDXSliderCtrl__sub_425060"
+
+[[function]]
+va = 0x00425320
+name = "CDXSliderCtrl__sub_425320"
+
+[[function]]
+va = 0x00425340
+name = "CDXSliderCtrl__sub_425340"
+
+[[function]]
+va = 0x00425600
+name = "CDXSliderCtrl__sub_425600"

@@ -1,0 +1,47 @@
+[[function]]
+va = 0x00445780
+name = "CDXFlagCombo__ctor_CDXFlagCombo"
+
+[[function]]
+va = 0x00445820
+name = "CDXFlagCombo__dtor0_CDXFlagCombo"
+
+[[function]]
+va = 0x00445840
+name = "CDXFlagCombo__dtor1_CDXFlagCombo"
+
+[[function]]
+va = 0x004458A0
+name = "CDXFlagCombo__getMessageMap"
+
+[[function]]
+va = 0x004458B0
+name = "CDXFlagCombo__sub_4458B0"
+
+[[function]]
+va = 0x004458D0
+name = "CDXFlagCombo__sub_4458D0"
+
+[[function]]
+va = 0x00445A10
+name = "CDXFlagCombo__sub_445A10"
+
+[[function]]
+va = 0x00445AB0
+name = "CDXFlagCombo__sub_445AB0"
+
+[[function]]
+va = 0x00445B10
+name = "CDXFlagCombo__sub_445B10"
+
+[[function]]
+va = 0x00445C30
+name = "CDXFlagCombo__sub_445C30"
+
+[[function]]
+va = 0x00445F30
+name = "CDXFlagCombo__sub_445F30"
+
+[[function]]
+va = 0x00446020
+name = "CDXFlagCombo__sub_446020"

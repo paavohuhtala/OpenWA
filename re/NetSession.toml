@@ -1,0 +1,7 @@
+[[function]]
+va = 0x0053E300
+name = "NetSession__PeerInputQueuePop"
+
+[[function]]
+va = 0x0053E720
+name = "NetSession__MaxActivePeerScore"

@@ -1,0 +1,71 @@
+[[function]]
+va = 0x005A4D70
+name = "ErrorLog__write_errorlog"
+
+[[function]]
+va = 0x005A4DD0
+name = "ErrorLog__minidump"
+
+[[function]]
+va = 0x005A4F40
+name = "ErrorLog__sub_5A4F40"
+
+[[function]]
+va = 0x005A4FC0
+name = "ErrorLog__sub_5A4FC0"
+
+[[function]]
+va = 0x005A52F0
+name = "ErrorLog__sub_5A52F0"
+
+[[function]]
+va = 0x005A53A0
+name = "ErrorLog__dump_info"
+
+[[function]]
+va = 0x005A55B0
+name = "ErrorLog__strerror"
+
+[[function]]
+va = 0x005A5790
+name = "ErrorLog__sub_5A5790"
+
+[[function]]
+va = 0x005A57C0
+name = "ErrorLog__dump_stack"
+
+[[function]]
+va = 0x005A5980
+name = "ErrorLog__dump_registers"
+
+[[function]]
+va = 0x005A5A20
+name = "ErrorLog__dump"
+
+[[function]]
+va = 0x005A5F00
+name = "ErrorLog__get_os_name"
+
+[[function]]
+va = 0x005A6080
+name = "ErrorLog__get_os_version"
+
+[[function]]
+va = 0x005A6140
+name = "ErrorLog__sub_5A6140"
+
+[[function]]
+va = 0x005A61F0
+name = "ErrorLog__sub_5A61F0"
+
+[[function]]
+va = 0x005A6300
+name = "ErrorLog__sub_5A6300"
+
+[[function]]
+va = 0x005A6350
+name = "ErrorLog__sub_5A6350"
+
+[[function]]
+va = 0x005A6470
+name = "ErrorLog__sub_5A6470"

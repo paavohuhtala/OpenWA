@@ -1,0 +1,27 @@
+[[function]]
+va = 0x004A38D0
+name = "CNational__ctor_CNational"
+
+[[function]]
+va = 0x004A3A70
+name = "CNational__GetNationality"
+
+[[function]]
+va = 0x004A6010
+name = "CNational__sub_4A6010"
+
+[[function]]
+va = 0x004A62A0
+name = "CNational__sub_4A62A0"
+
+[[function]]
+va = 0x004A6780
+name = "CNational__sub_4A6780"
+
+[[function]]
+va = 0x004A6F20
+name = "CNational__sub_4A6F20"
+
+[[function]]
+va = 0x004A7780
+name = "CNational__sub_4A7780"

@@ -1,0 +1,59 @@
+[[function]]
+va = 0x00487060
+name = "CDXLoseColourDlg__Constructor"
+
+[[function]]
+va = 0x00487100
+name = "CDXLoseColourDlg__dtor0_CDXLoseColourDlg"
+
+[[function]]
+va = 0x00487120
+name = "CDXLoseColourDlg__dtor1_CDXLoseColourDlg"
+
+[[function]]
+va = 0x004871A0
+name = "CDXLoseColourDlg__DoDataExchange"
+
+[[function]]
+va = 0x004871F0
+name = "CDXLoseColourDlg__OnInitDialog"
+
+[[function]]
+va = 0x004872A0
+name = "CDXLoseColourDlg__getMessageMap"
+
+[[function]]
+va = 0x00487370
+name = "CDXLoseColourDlg__sub_487370"
+
+[[function]]
+va = 0x00487430
+name = "CDXLoseColourDlg__sub_487430"
+
+[[function]]
+va = 0x004876C0
+name = "CDXLoseColourDlg__sub_4876C0"
+
+[[function]]
+va = 0x00487810
+name = "CDXLoseColourDlg__sub_487810"
+
+[[function]]
+va = 0x004878D0
+name = "CDXLoseColourDlg__sub_4878D0"
+
+[[function]]
+va = 0x00487BC0
+name = "CDXLoseColourDlg__sub_487BC0"
+
+[[function]]
+va = 0x00487C70
+name = "CDXLoseColourDlg__sub_487C70"
+
+[[function]]
+va = 0x00487D10
+name = "CDXLoseColourDlg__sub_487D10"
+
+[[function]]
+va = 0x00487E00
+name = "CDXLoseColourDlg__sub_487E00"

@@ -1,0 +1,12 @@
+[[function]]
+va = 0x00569BF0
+name = "FramePostProcessHook__Destructor"
+plate_comment = """
+FramePostProcessHook::Destructor — base destructor for the abstract class. Rebinds vtable to PTR_FUN_0066a2b8 (the abstract base vtable, where slots 1 and 2 are _purecall) and frees the object if `flags & 1`. Concrete subclasses (e.g. ScreenshotHook with vtable 0x66A2C4) inherit this destructor unchanged.
+
+The class itself is 4 bytes (just a vtable pointer). Instances live in DisplayGfx's std::vector at +0x24DF8 and are dispatched once per frame via DisplayGfx::DispatchFramePostProcessHooks (0x56CDB0).
+"""
+
+[[global]]
+va = 0x0066A2B8
+name = "FramePostProcessHook__vtable"

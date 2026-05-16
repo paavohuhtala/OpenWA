@@ -1,0 +1,15 @@
+[[function]]
+va = 0x00554810
+name = "Task_Gass__ctor1_Task_Gass"
+
+[[function]]
+va = 0x005548E0
+name = "Task_Gass__save"
+
+[[function]]
+va = 0x00554980
+name = "Task_Gass__check_for_target"
+
+[[function]]
+va = 0x00554A70
+name = "Task_Gass__message"

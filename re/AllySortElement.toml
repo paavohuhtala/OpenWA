@@ -1,0 +1,19 @@
+[[function]]
+va = 0x005632C0
+name = "AllySortElement__sub_5632C0"
+
+[[function]]
+va = 0x00563340
+name = "AllySortElement__get_team"
+
+[[function]]
+va = 0x00563350
+name = "AllySortElement__update"
+
+[[function]]
+va = 0x00563960
+name = "AllySortElement__element_dropping"
+
+[[function]]
+va = 0x00563980
+name = "AllySortElement__element_bouncing"

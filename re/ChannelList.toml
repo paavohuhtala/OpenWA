@@ -1,0 +1,27 @@
+[[function]]
+va = 0x0042B520
+name = "ChannelList__dtor_ChannelList"
+
+[[function]]
+va = 0x0042B570
+name = "ChannelList__getMessageMap"
+
+[[function]]
+va = 0x0042B580
+name = "ChannelList__HandleChannelRequest"
+
+[[function]]
+va = 0x0042B700
+name = "ChannelList__Init"
+
+[[function]]
+va = 0x0042B900
+name = "ChannelList__OnSize"
+
+[[function]]
+va = 0x0042B940
+name = "ChannelList__Sortcheck"
+
+[[function]]
+va = 0x0042B980
+name = "ChannelList__sub_42B980"

@@ -1,0 +1,39 @@
+[[function]]
+va = 0x0045D460
+name = "CGameInfo__ctor_CGameInfo"
+
+[[function]]
+va = 0x0045D4E0
+name = "CGameInfo__dtor0_CGameInfo"
+
+[[function]]
+va = 0x0045D540
+name = "CGameInfo__sub_45D540"
+
+[[function]]
+va = 0x0045D640
+name = "CGameInfo__ConvertScheme"
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "prefix_ptr"
+  type = "int"
+
+[[function]]
+va = 0x0045FE40
+name = "CGameInfo__SetAmmo"
+
+[[function]]
+va = 0x004609C0
+name = "CGameInfo__sub_4609C0"
+
+[[function]]
+va = 0x004616B0
+name = "CGameInfo__CreateWAGameReplay"
+
+  [[function.local]]
+  name = "local_4b4"
+  type = "undefined5"
+  stack_offset = -1204

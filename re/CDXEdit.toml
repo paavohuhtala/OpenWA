@@ -1,0 +1,167 @@
+[[function]]
+va = 0x00410380
+name = "CDXEdit__ctor_CDXEdit"
+
+[[function]]
+va = 0x00410520
+name = "CDXEdit__dtor0_CDXEdit"
+
+[[function]]
+va = 0x00410540
+name = "CDXEdit__dtor1_CDXEdit"
+
+[[function]]
+va = 0x00410670
+name = "CDXEdit__getMessageMap"
+
+[[function]]
+va = 0x00410680
+name = "CDXEdit__sub_410680"
+
+[[function]]
+va = 0x00410740
+name = "CDXEdit__sub_410740"
+
+[[function]]
+va = 0x004108D0
+name = "CDXEdit__sub_4108D0"
+
+[[function]]
+va = 0x004109F0
+name = "CDXEdit__sub_4109F0"
+
+[[function]]
+va = 0x00410AF0
+name = "CDXEdit__sub_410AF0"
+
+[[function]]
+va = 0x00410C70
+name = "CDXEdit__sub_410C70"
+
+[[function]]
+va = 0x00410EC0
+name = "CDXEdit__sub_410EC0"
+
+[[function]]
+va = 0x00411150
+name = "CDXEdit__sub_411150"
+
+[[function]]
+va = 0x00411190
+name = "CDXEdit__sub_411190"
+
+[[function]]
+va = 0x00411480
+name = "CDXEdit__sub_411480"
+
+[[function]]
+va = 0x004114E0
+name = "CDXEdit__sub_4114E0"
+
+[[function]]
+va = 0x004116C0
+name = "CDXEdit__OnChar"
+
+[[function]]
+va = 0x00411A60
+name = "CDXEdit__sub_411A60"
+
+[[function]]
+va = 0x00411BA0
+name = "CDXEdit__sub_411BA0"
+
+[[function]]
+va = 0x00411C00
+name = "CDXEdit__sub_411C00"
+
+[[function]]
+va = 0x00412BA0
+name = "CDXEdit__sub_412BA0"
+
+[[function]]
+va = 0x00412C40
+name = "CDXEdit__sub_412C40"
+
+[[function]]
+va = 0x00412CE0
+name = "CDXEdit__sub_412CE0"
+
+[[function]]
+va = 0x00412D40
+name = "CDXEdit__sub_412D40"
+
+[[function]]
+va = 0x00413150
+name = "CDXEdit__sub_413150"
+
+[[function]]
+va = 0x004131F0
+name = "CDXEdit__sub_4131F0"
+
+[[function]]
+va = 0x00413200
+name = "CDXEdit__sub_413200"
+
+[[function]]
+va = 0x00413230
+name = "CDXEdit__sub_413230"
+
+[[function]]
+va = 0x004133F0
+name = "CDXEdit__sub_4133F0"
+
+[[function]]
+va = 0x004134A0
+name = "CDXEdit__sub_4134A0"
+
+[[function]]
+va = 0x00413550
+name = "CDXEdit__sub_413550"
+
+[[function]]
+va = 0x00413600
+name = "CDXEdit__sub_413600"
+
+[[function]]
+va = 0x00413690
+name = "CDXEdit__sub_413690"
+
+[[function]]
+va = 0x004136E0
+name = "CDXEdit__sub_4136E0"
+
+[[function]]
+va = 0x00413730
+name = "CDXEdit__sub_413730"
+
+[[function]]
+va = 0x00413910
+name = "CDXEdit__sub_413910"
+
+[[function]]
+va = 0x00413A70
+name = "CDXEdit__sub_413A70"
+
+[[function]]
+va = 0x00413B50
+name = "CDXEdit__sub_413B50"
+
+[[function]]
+va = 0x00413B90
+name = "CDXEdit__sub_413B90"
+
+[[function]]
+va = 0x00413C60
+name = "CDXEdit__sub_413C60"
+
+[[function]]
+va = 0x00413D20
+name = "CDXEdit__sub_413D20"
+
+[[function]]
+va = 0x00413D60
+name = "CDXEdit__sub_413D60"
+
+[[function]]
+va = 0x00413DC0
+name = "CDXEdit__sub_413DC0"

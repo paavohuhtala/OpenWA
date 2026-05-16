@@ -1,0 +1,11 @@
+[[function]]
+va = 0x005663E0
+name = "GfxDir__LoadDir"
+
+[[function]]
+va = 0x00566520
+name = "GfxDir__FindEntry"
+
+[[function]]
+va = 0x005666D0
+name = "GfxDir__LoadImage"

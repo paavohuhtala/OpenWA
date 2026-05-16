@@ -1,0 +1,51 @@
+[[function]]
+va = 0x0058FBB0
+name = "MsgConnection__ctor0_MsgConnection"
+
+[[function]]
+va = 0x0058FC40
+name = "MsgConnection__dtor0_MsgConnection"
+
+[[function]]
+va = 0x0058FC80
+name = "MsgConnection__dtor_MsgConnection"
+
+[[function]]
+va = 0x0058FCA0
+name = "MsgConnection__Send"
+
+[[function]]
+va = 0x0058FD00
+name = "MsgConnection__GetIncomingBufferSize"
+
+[[function]]
+va = 0x0058FE40
+name = "MsgConnection__sub_58FE40"
+
+[[function]]
+va = 0x0058FEF0
+name = "MsgConnection__sub_58FEF0"
+
+[[function]]
+va = 0x0058FFD0
+name = "MsgConnection__sub_58FFD0"
+
+[[function]]
+va = 0x00590020
+name = "MsgConnection__sub_590020"
+
+[[function]]
+va = 0x00590070
+name = "MsgConnection__sub_590070"
+
+[[function]]
+va = 0x005900B0
+name = "MsgConnection__sub_5900B0"
+
+[[function]]
+va = 0x00590100
+name = "MsgConnection__sub_590100"
+
+[[function]]
+va = 0x00590170
+name = "MsgConnection__sub_590170"

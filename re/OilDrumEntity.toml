@@ -1,0 +1,19 @@
+[[function]]
+va = 0x00504AF0
+name = "OilDrumEntity__Constructor"
+
+[[function]]
+va = 0x00504C80
+name = "OilDrumEntity__Free"
+
+[[function]]
+va = 0x00504D40
+name = "OilDrumEntity__Init"
+
+[[function]]
+va = 0x005050B0
+name = "OilDrumEntity__HandleMessage"
+
+[[global]]
+va = 0x00664338
+name = "OilDrumEntity__vtable"

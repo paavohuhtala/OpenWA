@@ -1,0 +1,55 @@
+[[function]]
+va = 0x004FEF30
+name = "GameCollisionTask__Destructor_1"
+
+[[function]]
+va = 0x004FF080
+name = "GameCollisionTask__Constructor_1"
+
+[[function]]
+va = 0x004FF490
+name = "GameCollisionTask__simple_rebound"
+
+[[function]]
+va = 0x004FF690
+name = "GameCollisionTask__rebound"
+
+[[function]]
+va = 0x004FFE70
+name = "GameCollisionTask__sub_4FFE70"
+
+[[function]]
+va = 0x00500100
+name = "GameCollisionTask__walk"
+
+[[function]]
+va = 0x00500230
+name = "GameCollisionTask__gradient"
+
+[[function]]
+va = 0x005009C0
+name = "GameCollisionTask__detach_rope"
+
+[[function]]
+va = 0x00500D00
+name = "GameCollisionTask__set_rope_length"
+
+[[function]]
+va = 0x005010C0
+name = "GameCollisionTask__explosion2rope_0"
+
+[[function]]
+va = 0x00501240
+name = "GameCollisionTask__sub_501240"
+
+[[function]]
+va = 0x00501340
+name = "GameCollisionTask__collect_crate"
+
+[[function]]
+va = 0x00501980
+name = "GameCollisionTask__sub_501980"
+
+[[function]]
+va = 0x00501A20
+name = "GameCollisionTask__sub_501A20"

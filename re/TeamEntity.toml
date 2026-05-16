@@ -1,0 +1,47 @@
+[[function]]
+va = 0x00552030
+name = "TeamEntity__SpawnFilterEntity_Clouds"
+
+[[function]]
+va = 0x005520D0
+name = "TeamEntity__SpawnFilterEntity_Water"
+
+[[function]]
+va = 0x00552190
+name = "TeamEntity__SpawnFilterEntity_Physics"
+
+[[function]]
+va = 0x00552360
+name = "TeamEntity__SpawnLandEntity"
+
+[[function]]
+va = 0x005528C0
+name = "TeamEntity__SpawnTeamEntities"
+
+[[function]]
+va = 0x00552960
+name = "TeamEntity__CreateWeatherFilter"
+
+[[function]]
+va = 0x00555BB0
+name = "TeamEntity__Constructor"
+
+[[function]]
+va = 0x00555E40
+name = "TeamEntity__Constructor_Maybe"
+
+[[function]]
+va = 0x00556030
+name = "TeamEntity__Constructor_Maybe"
+
+[[function]]
+va = 0x00557310
+name = "TeamEntity__HandleMessage"
+
+[[global]]
+va = 0x00669E20
+name = "TeamEntity__vtable"
+
+[[global]]
+va = 0x00669EE4
+name = "TeamEntity__vtable2"

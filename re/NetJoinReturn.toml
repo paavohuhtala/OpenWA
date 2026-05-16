@@ -1,0 +1,63 @@
+[[function]]
+va = 0x004BCA70
+name = "NetJoinReturn__dtor0_NetJoinReturn"
+
+[[function]]
+va = 0x004BCA90
+name = "NetJoinReturn__dtor1_NetJoinReturn"
+
+[[function]]
+va = 0x004BCB80
+name = "NetJoinReturn__DoDataExchange"
+
+[[function]]
+va = 0x004BCC20
+name = "NetJoinReturn__getMessageMap"
+
+[[function]]
+va = 0x004BCC30
+name = "NetJoinReturn__OnInitDialog"
+
+[[function]]
+va = 0x004BCCC0
+name = "NetJoinReturn__sub_4BCCC0"
+
+[[function]]
+va = 0x004BCEA0
+name = "NetJoinReturn__sub_4BCEA0"
+
+[[function]]
+va = 0x004BD120
+name = "NetJoinReturn__OnTimer"
+
+[[function]]
+va = 0x004BD370
+name = "NetJoinReturn__sub_4BD370"
+
+[[function]]
+va = 0x004BD3E0
+name = "NetJoinReturn__sub_4BD3E0"
+
+[[function]]
+va = 0x004BD5D0
+name = "NetJoinReturn__Go"
+
+[[function]]
+va = 0x004BDA50
+name = "NetJoinReturn__EnableControls"
+
+[[function]]
+va = 0x004BDAA0
+name = "NetJoinReturn__OnIdle"
+
+[[function]]
+va = 0x004BDB60
+name = "NetJoinReturn__sub_4BDB60"
+
+[[function]]
+va = 0x004BDB70
+name = "NetJoinReturn__sub_4BDB70"
+
+[[function]]
+va = 0x004BDBD0
+name = "NetJoinReturn__sub_4BDBD0"

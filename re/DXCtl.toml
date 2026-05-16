@@ -1,0 +1,79 @@
+[[function]]
+va = 0x0040BD30
+name = "DXCtl__ctor0_DXCtl"
+
+[[function]]
+va = 0x0040BDC0
+name = "DXCtl__dtor0_DXCtl"
+
+[[function]]
+va = 0x0040BDE0
+name = "DXCtl__dtor1_DXCtl"
+
+[[function]]
+va = 0x0040BE60
+name = "DXCtl__sub_40BE60"
+
+[[function]]
+va = 0x0040BF60
+name = "DXCtl__sub_40BF60"
+
+[[function]]
+va = 0x0040BFC0
+name = "DXCtl__DrawControl"
+
+[[function]]
+va = 0x0040C1C0
+name = "DXCtl__sub_40C1C0"
+
+[[function]]
+va = 0x0040C240
+name = "DXCtl__sub_40C240"
+
+[[function]]
+va = 0x0040C390
+name = "DXCtl__sub_40C390"
+
+[[function]]
+va = 0x0040C430
+name = "DXCtl__sub_40C430"
+
+[[function]]
+va = 0x0040C460
+name = "DXCtl__sub_40C460"
+
+[[function]]
+va = 0x0040C5C0
+name = "DXCtl__sub_40C5C0"
+
+[[function]]
+va = 0x0040C610
+name = "DXCtl__sub_40C610"
+
+[[function]]
+va = 0x0040C750
+name = "DXCtl__UpdateClipRect"
+
+[[function]]
+va = 0x0040C980
+name = "DXCtl__sub_40C980"
+
+[[function]]
+va = 0x0040C9F0
+name = "DXCtl__OnDXInit"
+
+[[function]]
+va = 0x0040CAA0
+name = "DXCtl__sub_40CAA0"
+
+[[function]]
+va = 0x0040CC10
+name = "DXCtl__sub_40CC10"
+
+[[function]]
+va = 0x0040CCA0
+name = "DXCtl__sub_40CCA0"
+
+[[function]]
+va = 0x0040CCC0
+name = "DXCtl__sub_40CCC0"

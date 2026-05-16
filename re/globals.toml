@@ -1,0 +1,319 @@
+[[global]]
+va = 0x00643F2B
+name = "s_empty"
+
+[[global]]
+va = 0x00649AB8
+name = "SCHEME_V3_DEFAULTS"
+
+[[global]]
+va = 0x00664170
+name = "STR_SPRITE"
+
+[[global]]
+va = 0x0066A3A8
+name = "s_cdrom_spr"
+
+[[global]]
+va = 0x0066A3B4
+name = "s_colours_img"
+
+[[global]]
+va = 0x0066A3C0
+name = "s_masks_img"
+
+[[global]]
+va = 0x0066B3E0
+name = "Music_vtable_Maybe"
+
+[[global]]
+va = 0x0066B858
+name = "c_space"
+
+[[global]]
+va = 0x00697708
+name = "g_LocalizationKeyTable"
+
+[[global]]
+va = 0x006A1860
+name = "g_SinTable"
+
+[[global]]
+va = 0x006A1C60
+name = "g_CosTable"
+
+[[global]]
+va = 0x006A9644
+name = "g_FullscreenRestoreFlag_Maybe"
+
+[[global]]
+va = 0x006AC748
+name = "g_AudioHandleTablePtr"
+
+[[global]]
+va = 0x006AD130
+name = "SCHEME_WEAPON_AMMO_LIMITS"
+
+[[global]]
+va = 0x006AD2C0
+name = "SpriteResourceTable1"
+
+[[global]]
+va = 0x006AF048
+name = "SpriteResourceTable2"
+
+[[global]]
+va = 0x006AF050
+name = "g_SpriteVersionFlag"
+
+[[global]]
+va = 0x006AF060
+name = "WaterResourceTable"
+
+[[global]]
+va = 0x006B2DA8
+name = "g_CWinAppPtr"
+
+[[global]]
+va = 0x006B2DD7
+name = "g_input_hook_flag_2dd7_Maybe"
+
+[[global]]
+va = 0x006B2DD9
+name = "g_CharWidthTable"
+
+[[global]]
+va = 0x006B32AA
+name = "g_FrontendTickLatch_Maybe"
+
+[[global]]
+va = 0x006B32AB
+name = "g_GetMsgProc_MBtnPressed_Maybe"
+
+[[global]]
+va = 0x006B32AC
+name = "g_FrontendIdleHook"
+
+[[global]]
+va = 0x006B3504
+name = "g_CurrentScreen"
+
+[[global]]
+va = 0x006B3908
+name = "g_FrontendFrame"
+
+[[global]]
+va = 0x006B390C
+name = "g_FrontendHwnd"
+
+[[global]]
+va = 0x006B3914
+name = "g_OsVersionSub"
+
+[[global]]
+va = 0x006B3920
+name = "g_DesktopCheckLevel"
+
+[[global]]
+va = 0x006B39B8
+name = "g_FrontendMsgHook"
+
+[[global]]
+va = 0x006B39BC
+name = "g_InGameLoop"
+
+[[global]]
+va = 0x006B39C0
+name = "g_input_hook_filter_select_Maybe"
+
+[[global]]
+va = 0x006B39C1
+name = "g_GetMsgProc_NCRight_Maybe"
+
+[[global]]
+va = 0x007749A0
+name = "g_GameInfo"
+
+[[global]]
+va = 0x0079D6D4
+name = "g_DisplayGfx"
+
+[[global]]
+va = 0x007A03DC
+name = "g_TopModalDialog_Maybe"
+
+[[global]]
+va = 0x007A083C
+name = "g_LoadingDialogGateFlag"
+
+[[global]]
+va = 0x007A083D
+name = "g_SkipToMainMenu"
+
+[[global]]
+va = 0x007A083E
+name = "g_InGameSessionFlag"
+
+[[global]]
+va = 0x007A083F
+name = "g_AutoNetworkFlag"
+
+[[global]]
+va = 0x007A0840
+name = "g_FlashWindowExFn"
+
+[[global]]
+va = 0x007A0844
+name = "g_WindowFlashing"
+
+[[global]]
+va = 0x007A084C
+name = "g_FullscreenFlag"
+
+[[global]]
+va = 0x007A0850
+name = "g_PostGameRestoreFlag"
+
+[[global]]
+va = 0x007A0860
+name = "g_InputHookMode"
+
+[[global]]
+va = 0x007A0864
+name = "g_sprite_data_bytes"
+
+[[global]]
+va = 0x007A0868
+name = "g_sprite_frame_count"
+
+[[global]]
+va = 0x007A086C
+name = "g_sprite_pixel_area"
+
+[[global]]
+va = 0x007A0870
+name = "g_sprite_palette_bytes"
+
+[[global]]
+va = 0x007A087C
+name = "g_StippleParity"
+
+[[global]]
+va = 0x007A0884
+name = "g_GameSession"
+
+[[global]]
+va = 0x007A0EDC
+name = "g_LocalizationData_Primary"
+
+[[global]]
+va = 0x007A0EE0
+name = "g_LocalizationData_Secondary"
+
+[[global]]
+va = 0x007A0EEC
+name = "g_FrameBufferPtr"
+
+[[global]]
+va = 0x007A0EF0
+name = "g_FrameBufferWidth"
+
+[[global]]
+va = 0x007A0EF4
+name = "g_FrameBufferHeight"
+
+[[global]]
+va = 0x007A0F58
+name = "g_FontArray"
+
+[[global]]
+va = 0x007C028C
+name = "g_MainFrontend"
+
+[[global]]
+va = 0x007C03CC
+name = "g_GameWorldInstance"
+
+[[global]]
+va = 0x007C03D0
+name = "g_CWinApp"
+
+[[global]]
+va = 0x007C0A20
+name = "g_MainMenuActive"
+
+[[global]]
+va = 0x007C0D40
+name = "g_NetworkMode"
+
+[[global]]
+va = 0x007C0D68
+name = "g_NetworkSubtype"
+
+[[global]]
+va = 0x007C1078
+name = "g_PeerStates"
+
+[[global]]
+va = 0x008728D4
+name = "g_GameSessionStateBuffer"
+
+[[global]]
+va = 0x0087D3FC
+name = "g_PeerConnectionsArray"
+
+[[global]]
+va = 0x0088AF14
+name = "g_lobby_map_source_mode"
+
+[[global]]
+va = 0x0088AF18
+name = "g_lobby_map_seed_cache"
+
+[[global]]
+va = 0x0088AF1C
+name = "g_lobby_map_name"
+
+[[global]]
+va = 0x0088C77C
+name = "g_PendingInputFlag_Maybe"
+
+[[global]]
+va = 0x0088CD4C
+name = "g_ConsoleMode"
+
+[[global]]
+va = 0x0088D0B4
+name = "g_map_seed"
+
+[[global]]
+va = 0x0088DF98
+name = "g_WavPlayerRingBase_Maybe"
+
+[[global]]
+va = 0x0088E3FC
+name = "g_terrain_pct_slider"
+
+[[global]]
+va = 0x0088E485
+name = "g_DisplayModeFlag"
+
+[[global]]
+va = 0x0088E4A0
+name = "G_TEAM_COLLECTION"
+
+[[global]]
+va = 0x0088E4A8
+name = "G_MISSION_PROGRESS"
+
+[[global]]
+va = 0x008ACE32
+name = "g_GetMsgProc_Recursing"
+
+[[global]]
+va = 0x008ACE33
+name = "g_GetMsgProc_StateAck_Maybe"
+
+[[global]]
+va = 0x008B1470
+name = "g_VertexScratchBuffer"

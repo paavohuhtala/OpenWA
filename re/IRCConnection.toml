@@ -1,0 +1,147 @@
+[[function]]
+va = 0x004797C0
+name = "IRCConnection__Constructor"
+
+[[function]]
+va = 0x00479C00
+name = "IRCConnection__dtor0_IRCConnection"
+
+[[function]]
+va = 0x00479C20
+name = "IRCConnection__Destructor_1"
+
+[[function]]
+va = 0x00479EE0
+name = "IRCConnection__Connect"
+
+[[function]]
+va = 0x0047A3B0
+name = "IRCConnection__User"
+
+[[function]]
+va = 0x0047A540
+name = "IRCConnection__Quit"
+
+[[function]]
+va = 0x0047A5F0
+name = "IRCConnection__SendRaw"
+
+[[function]]
+va = 0x0047A670
+name = "IRCConnection__OnConnect"
+
+[[function]]
+va = 0x0047A790
+name = "IRCConnection__OnReceive"
+
+[[function]]
+va = 0x0047A850
+name = "IRCConnection__ParseIrcMessage"
+
+[[function]]
+va = 0x0047A8B0
+name = "IRCConnection__ParseReturn"
+
+[[function]]
+va = 0x0047AEF0
+name = "IRCConnection__ParsePrefix"
+
+[[function]]
+va = 0x0047B180
+name = "IRCConnection__ParseCommand"
+
+[[function]]
+va = 0x0047B340
+name = "IRCConnection__ParseArgs"
+
+[[function]]
+va = 0x0047B5A0
+name = "IRCConnection__HandleStringReply"
+
+[[function]]
+va = 0x0047B800
+name = "IRCConnection__sub_47B800"
+
+[[function]]
+va = 0x0047BA20
+name = "IRCConnection__SendMessage"
+
+[[function]]
+va = 0x0047C760
+name = "IRCConnection__HandleQuit"
+
+[[function]]
+va = 0x0047C9F0
+name = "IRCConnection__HandleJoin"
+
+[[function]]
+va = 0x0047CBB0
+name = "IRCConnection__HandlePrivMsg"
+
+[[function]]
+va = 0x0047E150
+name = "IRCConnection__HandleChannelList"
+
+[[function]]
+va = 0x0047E1D0
+name = "IRCConnection__HandleUserList"
+
+[[function]]
+va = 0x0047E580
+name = "IRCConnection__HandleMemberList"
+
+[[function]]
+va = 0x0047E8A0
+name = "IRCConnection__HandlePart"
+
+[[function]]
+va = 0x0047EBA0
+name = "IRCConnection__HandleKick"
+
+[[function]]
+va = 0x0047EDF0
+name = "IRCConnection__HandleKill"
+
+[[function]]
+va = 0x0047EF30
+name = "IRCConnection__sub_47EF30"
+
+[[function]]
+va = 0x0047F370
+name = "IRCConnection__HandleAway"
+
+[[function]]
+va = 0x0047F5E0
+name = "IRCConnection__HandleWhoIsList"
+
+[[function]]
+va = 0x0047F630
+name = "IRCConnection__sub_47F630"
+
+[[function]]
+va = 0x0047F770
+name = "IRCConnection__sub_47F770"
+
+[[function]]
+va = 0x0047F810
+name = "IRCConnection__ClearCallBacks"
+
+[[function]]
+va = 0x0047F870
+name = "IRCConnection__sub_47F870"
+
+[[function]]
+va = 0x0047F930
+name = "IRCConnection__sub_47F930"
+
+[[function]]
+va = 0x0047FB30
+name = "IRCConnection__sub_47FB30"
+
+[[function]]
+va = 0x0047FB90
+name = "IRCConnection__sub_47FB90"
+
+[[function]]
+va = 0x0047FBC0
+name = "IRCConnection__sub_47FBC0"

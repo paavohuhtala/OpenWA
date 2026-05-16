@@ -1,0 +1,19 @@
+[[function]]
+va = 0x00443960
+name = "CQuickCPUWin__Constructor"
+
+[[function]]
+va = 0x00443A70
+name = "CQuickCPUWin__dtor0_CQuickCPUWin"
+
+[[function]]
+va = 0x00443A90
+name = "CQuickCPUWin__DoDataExchange"
+
+[[function]]
+va = 0x00443B00
+name = "CQuickCPUWin__OnInitDialog"
+
+[[function]]
+va = 0x00443C10
+name = "CQuickCPUWin__sub_443C10"

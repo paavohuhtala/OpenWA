@@ -1,0 +1,31 @@
+[[function]]
+va = 0x00425FF0
+name = "CDXWnd__ctor_CDXWnd"
+
+[[function]]
+va = 0x00426050
+name = "CDXWnd__dtor0_CDXWnd"
+
+[[function]]
+va = 0x00426070
+name = "CDXWnd__dtor1_CDXWnd"
+
+[[function]]
+va = 0x004260D0
+name = "CDXWnd__getMessageMap"
+
+[[function]]
+va = 0x004260E0
+name = "CDXWnd__sub_4260E0"
+
+[[function]]
+va = 0x004260F0
+name = "CDXWnd__sub_4260F0"
+
+[[function]]
+va = 0x00426100
+name = "CDXWnd__sub_426100"
+
+[[function]]
+va = 0x00426240
+name = "CDXWnd__sub_426240"

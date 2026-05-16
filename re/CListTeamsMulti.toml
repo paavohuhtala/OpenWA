@@ -1,0 +1,43 @@
+[[function]]
+va = 0x00484220
+name = "CListTeamsMulti__ctor_CListTeamsMulti"
+
+[[function]]
+va = 0x004842A0
+name = "CListTeamsMulti__dtor0_CListTeamsMulti"
+
+[[function]]
+va = 0x004842C0
+name = "CListTeamsMulti__dtor1_CListTeamsMulti"
+
+[[function]]
+va = 0x00484320
+name = "CListTeamsMulti__getMessageMap"
+
+[[function]]
+va = 0x00484330
+name = "CListTeamsMulti__AddTeams"
+
+[[function]]
+va = 0x00484490
+name = "CListTeamsMulti__Sortcheck"
+
+[[function]]
+va = 0x004845A0
+name = "CListTeamsMulti__OnColumnclick"
+
+[[function]]
+va = 0x00484630
+name = "CListTeamsMulti__AddTeam"
+
+[[function]]
+va = 0x00484760
+name = "CListTeamsMulti__RenameItem"
+
+[[function]]
+va = 0x004847C0
+name = "CListTeamsMulti__SetUpList"
+
+[[function]]
+va = 0x00484990
+name = "CListTeamsMulti__sub_484990"

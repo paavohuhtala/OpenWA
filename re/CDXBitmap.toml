@@ -1,0 +1,31 @@
+[[function]]
+va = 0x00403C60
+name = "CDXBitmap__sub_403C60"
+
+[[function]]
+va = 0x00403CC0
+name = "CDXBitmap__sub_403CC0"
+
+[[function]]
+va = 0x00403CE0
+name = "CDXBitmap__sub_403CE0"
+
+[[function]]
+va = 0x00403D20
+name = "CDXBitmap__sub_403D20"
+
+[[function]]
+va = 0x00403DB0
+name = "CDXBitmap__sub_403DB0"
+
+[[function]]
+va = 0x00403DF0
+name = "CDXBitmap__sub_403DF0"
+
+[[function]]
+va = 0x00403EB0
+name = "CDXBitmap__sub_403EB0"
+
+[[function]]
+va = 0x00404090
+name = "CDXBitmap__sub_404090"

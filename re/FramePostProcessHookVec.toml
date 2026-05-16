@@ -1,0 +1,20 @@
+[[function]]
+va = 0x00507C40
+name = "FramePostProcessHookVec__push_back_one"
+
+[[function]]
+va = 0x0056CEC0
+name = "FramePostProcessHookVec__InsertOne_Maybe"
+plate_comment = """
+FramePostProcessHookVec::InsertOne — std::vector grow-and-insert helper for the FramePostProcessHook* vector at DisplayGfx+0x24DF8.
+
+The vector is a 16-byte MSVC 2005 std::vector with iterator-debug proxy:
+  +0x00 _Myproxy   (debug iter container proxy)
+  +0x04 _Myfirst   (start ptr — the data buffer)
+  +0x08 _Mylast    (end ptr — one past last live element)
+  +0x0C _Myend     (capacity end ptr)
+
+This function appears to be the inlined `vector::insert` slow path: when the vector is full and needs to grow before pushing a new element. Called from DisplayGfx__Init (0x569FA1) the first time a hook is registered.
+
+Tagged `_Maybe` because the exact std::vector method signature isn't fully verified — but the role (grow-and-insert) is clear from the body and the call site.
+"""

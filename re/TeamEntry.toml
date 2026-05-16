@@ -1,0 +1,7 @@
+[[function]]
+va = 0x005630B0
+name = "TeamEntry__Constructor"
+
+[[global]]
+va = 0x00669FA8
+name = "TeamEntry__vtable"

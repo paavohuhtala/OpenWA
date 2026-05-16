@@ -1,0 +1,11 @@
+[[function]]
+va = 0x00550920
+name = "Task_FireBall__ctor1_Task_FireBall"
+
+[[function]]
+va = 0x00550A70
+name = "Task_FireBall__check_for_target"
+
+[[function]]
+va = 0x00550D00
+name = "Task_FireBall__message"

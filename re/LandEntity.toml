@@ -1,0 +1,43 @@
+[[function]]
+va = 0x00500070
+name = "LandEntity__vt9"
+
+[[function]]
+va = 0x00500080
+name = "LandEntity__vt10"
+
+[[function]]
+va = 0x005000E0
+name = "LandEntity__vt11"
+
+[[function]]
+va = 0x00505440
+name = "LandEntity__Constructor"
+
+[[function]]
+va = 0x00505510
+name = "LandEntity__Destructor"
+
+[[function]]
+va = 0x00505660
+name = "LandEntity__DeserializeConstructor_Maybe"
+
+[[function]]
+va = 0x005056F0
+name = "LandEntity__InitLandscape"
+
+[[function]]
+va = 0x005057D0
+name = "LandEntity__vt0_Serialize_Maybe"
+
+[[function]]
+va = 0x00505810
+name = "LandEntity__RenderLandscape"
+
+[[function]]
+va = 0x00506120
+name = "LandEntity__HandleMessage"
+
+[[global]]
+va = 0x00664388
+name = "LandEntity__vtable"

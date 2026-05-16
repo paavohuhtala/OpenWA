@@ -1,0 +1,59 @@
+[[function]]
+va = 0x004866C0
+name = "CMainMenu__Constructor_0"
+
+[[function]]
+va = 0x004867D0
+name = "CMainMenu__dtor0_CMainMenu"
+
+[[function]]
+va = 0x004867F0
+name = "CMainMenu__Destructor_1"
+
+[[function]]
+va = 0x00486970
+name = "CMainMenu__DoDataEchange"
+
+[[function]]
+va = 0x00486A00
+name = "CMainMenu__getMessageMap"
+
+[[function]]
+va = 0x00486A40
+name = "CMainMenu__sub_486A40"
+
+[[function]]
+va = 0x00486A50
+name = "CMainMenu__sub_486A50"
+
+[[function]]
+va = 0x00486A60
+name = "CMainMenu__sub_486A60"
+
+[[function]]
+va = 0x00486AF0
+name = "CMainMenu__OnInitDialog"
+
+[[function]]
+va = 0x00486D20
+name = "CMainMenu__OnTimer"
+
+[[function]]
+va = 0x00486D80
+name = "CMainMenu__sub_486D80"
+
+[[function]]
+va = 0x00486DD0
+name = "CMainMenu__sub_486DD0"
+
+[[function]]
+va = 0x00486E00
+name = "CMainMenu__OnClose"
+
+[[function]]
+va = 0x00486E10
+name = "CMainMenu__sub_486E10"
+
+[[function]]
+va = 0x00486EC0
+name = "CMainMenu__sub_486EC0"

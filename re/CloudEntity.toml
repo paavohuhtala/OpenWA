@@ -1,0 +1,35 @@
+[[function]]
+va = 0x00546990
+name = "CloudEntity__Free"
+
+[[function]]
+va = 0x005482E0
+name = "CloudEntity__Constructor"
+
+[[function]]
+va = 0x00548370
+name = "CloudEntity__ReadReplayState"
+
+[[function]]
+va = 0x00548430
+name = "CloudEntity__WriteReplayState"
+
+[[function]]
+va = 0x005484C0
+name = "CloudEntity__HandleMessage"
+
+[[function]]
+va = 0x00548770
+name = "CloudEntity__vt8"
+
+[[function]]
+va = 0x00548940
+name = "CloudEntity__ProcessFrame"
+
+[[function]]
+va = 0x0054B770
+name = "CloudEntity__vt9"
+
+[[global]]
+va = 0x00669D38
+name = "CloudEntity__vtable"

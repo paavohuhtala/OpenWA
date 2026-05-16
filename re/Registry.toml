@@ -1,0 +1,7 @@
+[[function]]
+va = 0x004C90D0
+name = "Registry__CleanAll"
+
+[[function]]
+va = 0x004E4D10
+name = "Registry__DeleteKeyRecursive"

@@ -1,0 +1,107 @@
+[[function]]
+va = 0x004F5CE0
+name = "BitmapImage__sub_4F5CE0"
+
+[[function]]
+va = 0x004F5D10
+name = "BitmapImage__sub_4F5D10"
+
+[[function]]
+va = 0x004F5D50
+name = "BitmapImage__sub_4F5D50"
+
+[[function]]
+va = 0x004F6400
+name = "BitmapImage__checksum"
+
+[[function]]
+va = 0x004F64C0
+name = "BitmapImage__sub_4F64C0"
+
+[[function]]
+va = 0x004F65C0
+name = "BitmapImage__clear"
+
+[[function]]
+va = 0x004F65F0
+name = "BitmapImage__circle"
+
+[[function]]
+va = 0x004F66E0
+name = "BitmapImage__fill"
+
+[[function]]
+va = 0x004F6760
+name = "BitmapImage__fill_unclipped"
+
+[[function]]
+va = 0x004F67F0
+name = "BitmapImage__hline"
+
+[[function]]
+va = 0x004F68A0
+name = "BitmapImage__vline"
+
+[[function]]
+va = 0x004F7150
+name = "BitmapImage__lineclip"
+
+[[function]]
+va = 0x004F7400
+name = "BitmapImage__linedraw_lbh"
+
+[[function]]
+va = 0x004F7480
+name = "BitmapImage__linedraw_hbl"
+
+[[function]]
+va = 0x004F7500
+name = "BitmapImage__line_0"
+
+[[function]]
+va = 0x004F75F0
+name = "BitmapImage__linedraw_lbh1"
+
+[[function]]
+va = 0x004F76D0
+name = "BitmapImage__linedraw_hbl1"
+
+[[function]]
+va = 0x004F77C0
+name = "BitmapImage__linedraw_lbh2"
+
+[[function]]
+va = 0x004F7910
+name = "BitmapImage__linedraw_hbl2"
+
+[[function]]
+va = 0x004F7A60
+name = "BitmapImage__line_1"
+
+[[function]]
+va = 0x004F7BA0
+name = "BitmapImage__build_Xclipped_vlist"
+
+[[function]]
+va = 0x004F7D00
+name = "BitmapImage__build_Yclipped_vlist"
+
+[[function]]
+va = 0x004F7E90
+name = "BitmapImage__poly_unclipped"
+
+[[function]]
+va = 0x004F8030
+name = "BitmapImage__ctor1_BitmapImage"
+
+[[function]]
+va = 0x004F80C0
+name = "BitmapImage__sub_4F80C0"
+
+[[function]]
+va = 0x004F8430
+name = "BitmapImage__sub_4F8430"
+
+[[function]]
+va = 0x004F8A20
+name = "BitmapImage__sub_4F8A20"

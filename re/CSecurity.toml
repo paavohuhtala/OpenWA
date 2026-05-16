@@ -1,0 +1,11 @@
+[[function]]
+va = 0x004D5DC0
+name = "CSecurity__GetChecksumPositions"
+
+[[function]]
+va = 0x004D5FC0
+name = "CSecurity__GetChecksumsAtPositions"
+
+[[function]]
+va = 0x004D60E0
+name = "CSecurity__CheckResults"

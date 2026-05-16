@@ -1,0 +1,43 @@
+[[function]]
+va = 0x00491810
+name = "MemberList__dtor_MemberList"
+
+[[function]]
+va = 0x00491860
+name = "MemberList__sub_491860"
+
+[[function]]
+va = 0x00491870
+name = "MemberList__HandleMemberRequest"
+
+[[function]]
+va = 0x00491970
+name = "MemberList__Init"
+
+[[function]]
+va = 0x00491B30
+name = "MemberList__AddMember"
+
+[[function]]
+va = 0x00491E20
+name = "MemberList__DeleteItem"
+
+[[function]]
+va = 0x00491E90
+name = "MemberList__HandleWhoIsInfo"
+
+[[function]]
+va = 0x00492080
+name = "MemberList__FindNextInfoTarget"
+
+[[function]]
+va = 0x00492210
+name = "MemberList__SetAway"
+
+[[function]]
+va = 0x00492290
+name = "MemberList__SetUnAway"
+
+[[function]]
+va = 0x00492370
+name = "MemberList__sub_492370"

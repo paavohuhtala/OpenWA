@@ -1,0 +1,27 @@
+[[function]]
+va = 0x004C5390
+name = "CNewIcon__ctor_CNewIcon"
+
+[[function]]
+va = 0x004C5430
+name = "CNewIcon__dtor0_CNewIcon"
+
+[[function]]
+va = 0x004C5450
+name = "CNewIcon__dtor1_CNewIcon"
+
+[[function]]
+va = 0x004C5500
+name = "CNewIcon__getMessageMap"
+
+[[function]]
+va = 0x004C5510
+name = "CNewIcon__OnMouseMove"
+
+[[function]]
+va = 0x004C5600
+name = "CNewIcon__SetHelp"
+
+[[function]]
+va = 0x004C5670
+name = "CNewIcon__sub_4C5670"

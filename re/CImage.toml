@@ -1,0 +1,19 @@
+[[function]]
+va = 0x00426250
+name = "CImage__ctor_CImage"
+
+[[function]]
+va = 0x00426270
+name = "CImage__dtor_CImage"
+
+[[function]]
+va = 0x00426290
+name = "CImage__LoadBitmap"
+
+[[function]]
+va = 0x00426400
+name = "CImage__DrawPartial"
+
+[[function]]
+va = 0x004264D0
+name = "CImage__sub_4264D0"

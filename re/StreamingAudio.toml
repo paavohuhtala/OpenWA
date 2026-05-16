@@ -1,0 +1,35 @@
+[[function]]
+va = 0x004707B0
+name = "StreamingAudio__Init"
+
+[[function]]
+va = 0x00574B30
+name = "StreamingAudio__Open"
+
+[[function]]
+va = 0x00574CA0
+name = "StreamingAudio__Stop"
+
+[[function]]
+va = 0x00574D10
+name = "StreamingAudio__InitPlayback"
+
+[[function]]
+va = 0x00574F80
+name = "StreamingAudio__OpenWAV"
+
+[[function]]
+va = 0x005751B0
+name = "StreamingAudio__FillAndStart"
+
+[[function]]
+va = 0x005752D0
+name = "StreamingAudio__Reset"
+
+[[function]]
+va = 0x00575370
+name = "StreamingAudio__ReadChunk"
+
+[[function]]
+va = 0x005753A0
+name = "StreamingAudio__TimerCallback"

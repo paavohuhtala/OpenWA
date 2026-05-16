@@ -1,0 +1,19 @@
+[[function]]
+va = 0x004827E0
+name = "CListMachineTeams__dtor_CListMachineTeams"
+
+[[function]]
+va = 0x00482830
+name = "CListMachineTeams__getMessageMap"
+
+[[function]]
+va = 0x00482890
+name = "CListMachineTeams__SetUpList"
+
+[[function]]
+va = 0x00482A20
+name = "CListMachineTeams__ShowTeams"
+
+[[function]]
+va = 0x00482AF0
+name = "CListMachineTeams__sub_482AF0"

@@ -1,0 +1,51 @@
+[[function]]
+va = 0x00573E50
+name = "DD_Sound__sub_573E50"
+
+[[function]]
+va = 0x00573F50
+name = "DD_Sound__sub_573F50"
+
+[[function]]
+va = 0x00573FD0
+name = "DD_Sound__sub_573FD0"
+
+[[function]]
+va = 0x00573FF0
+name = "DD_Sound__sound_load"
+
+[[function]]
+va = 0x00574260
+name = "DD_Sound__reset_handles"
+
+[[function]]
+va = 0x005742A0
+name = "DD_Sound__reset_channels"
+
+[[function]]
+va = 0x00574380
+name = "DD_Sound__sub_574380"
+
+[[function]]
+va = 0x00574400
+name = "DD_Sound__sub_574400"
+
+[[function]]
+va = 0x00574500
+name = "DD_Sound__sub_574500"
+
+[[function]]
+va = 0x00574730
+name = "DD_Sound__sub_574730"
+
+[[function]]
+va = 0x00574770
+name = "DD_Sound__sub_574770"
+
+[[function]]
+va = 0x00574840
+name = "DD_Sound__sub_574840"
+
+[[function]]
+va = 0x00574AB0
+name = "DD_Sound__sub_574AB0"

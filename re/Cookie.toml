@@ -1,0 +1,19 @@
+[[function]]
+va = 0x0043B1B0
+name = "Cookie__ctor_Cookie"
+
+[[function]]
+va = 0x0043B2F0
+name = "Cookie__dtor0_Cookie"
+
+[[function]]
+va = 0x0043B310
+name = "Cookie__dtor1_Cookie"
+
+[[function]]
+va = 0x0043B360
+name = "Cookie__sub_43B360"
+
+[[function]]
+va = 0x0043B430
+name = "Cookie__sub_43B430"

@@ -1,0 +1,55 @@
+[[function]]
+va = 0x0040B580
+name = "CDXComboListBox__ctor_CDXComboListBox"
+
+[[function]]
+va = 0x0040B5C0
+name = "CDXComboListBox__dtor0_CDXComboListBox"
+
+[[function]]
+va = 0x0040B5F0
+name = "CDXComboListBox__AddListItem"
+
+[[function]]
+va = 0x0040B6A0
+name = "CDXComboListBox__sub_40B6A0"
+
+[[function]]
+va = 0x0040B6C0
+name = "CDXComboListBox__sub_40B6C0"
+
+[[function]]
+va = 0x0040B7A0
+name = "CDXComboListBox__sub_40B7A0"
+
+[[function]]
+va = 0x0040B7E0
+name = "CDXComboListBox__sub_40B7E0"
+
+[[function]]
+va = 0x0040B860
+name = "CDXComboListBox__sub_40B860"
+
+[[function]]
+va = 0x0040B870
+name = "CDXComboListBox__sub_40B870"
+
+[[function]]
+va = 0x0040B8D0
+name = "CDXComboListBox__sub_40B8D0"
+
+[[function]]
+va = 0x0040BA20
+name = "CDXComboListBox__sub_40BA20"
+
+[[function]]
+va = 0x0040BAB0
+name = "CDXComboListBox__sub_40BAB0"
+
+[[function]]
+va = 0x0040BAE0
+name = "CDXComboListBox__sub_40BAE0"
+
+[[function]]
+va = 0x0040BB00
+name = "CDXComboListBox__sub_40BB00"

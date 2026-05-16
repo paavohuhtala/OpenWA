@@ -1,0 +1,23 @@
+[[function]]
+va = 0x00566310
+name = "FileArchive__sub_566310"
+
+[[function]]
+va = 0x00566330
+name = "FileArchive__ctor0_FileArchive"
+
+[[function]]
+va = 0x00566390
+name = "FileArchive__hashcalc"
+
+[[function]]
+va = 0x005665F0
+name = "FileArchive__reset"
+
+[[function]]
+va = 0x00566640
+name = "FileArchive__sub_566640"
+
+[[function]]
+va = 0x00566760
+name = "FileArchive__get_pos"

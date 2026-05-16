@@ -1,0 +1,27 @@
+[[function]]
+va = 0x004849A0
+name = "CListTeamsMultiInGame__ctor_CListTeamsMultiInGame"
+
+[[function]]
+va = 0x00484A20
+name = "CListTeamsMultiInGame__dtor0_CListTeamsMultiInGame"
+
+[[function]]
+va = 0x00484A40
+name = "CListTeamsMultiInGame__dtor1_CListTeamsMultiInGame"
+
+[[function]]
+va = 0x00484AA0
+name = "CListTeamsMultiInGame__getMessageMap"
+
+[[function]]
+va = 0x00484B10
+name = "CListTeamsMultiInGame__ShowTeam"
+
+[[function]]
+va = 0x00484B80
+name = "CListTeamsMultiInGame__SetUpList"
+
+[[function]]
+va = 0x00484D10
+name = "CListTeamsMultiInGame__sub_484D10"

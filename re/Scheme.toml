@@ -1,0 +1,43 @@
+[[function]]
+va = 0x004D3890
+name = "Scheme__ReadFile"
+
+[[function]]
+va = 0x004D4480
+name = "Scheme__DetectVersion"
+
+[[function]]
+va = 0x004D44F0
+name = "Scheme__SaveFile"
+
+[[function]]
+va = 0x004D4CD0
+name = "Scheme__FileExists"
+
+[[function]]
+va = 0x004D4E00
+name = "Scheme__LoadNumbered"
+
+[[function]]
+va = 0x004D5020
+name = "Scheme__InitFromData"
+
+[[function]]
+va = 0x004D50E0
+name = "Scheme__CheckWeaponLimits"
+
+[[function]]
+va = 0x004D5110
+name = "Scheme__ValidateExtendedOptions"
+
+[[function]]
+va = 0x004D54E0
+name = "Scheme__ScanDirectory"
+
+[[function]]
+va = 0x004D5720
+name = "Scheme__ExtractBuiltins"
+
+[[function]]
+va = 0x004DA4C0
+name = "Scheme__Slot13Check"

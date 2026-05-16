@@ -1,0 +1,7 @@
+[[function]]
+va = 0x00525F50
+name = "TeamIndexMap__PopHandle"
+
+[[function]]
+va = 0x00526000
+name = "TeamIndexMap__RemoveHandle"

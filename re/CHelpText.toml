@@ -1,0 +1,31 @@
+[[function]]
+va = 0x0046B030
+name = "CHelpText__ctor0_CHelpText"
+
+[[function]]
+va = 0x0046B0B0
+name = "CHelpText__dtor_CHelpText"
+
+[[function]]
+va = 0x0046B180
+name = "CHelpText__getMessageMap"
+
+[[function]]
+va = 0x0046B190
+name = "CHelpText__sub_46B190"
+
+[[function]]
+va = 0x0046B330
+name = "CHelpText__DisplayHelp"
+
+[[function]]
+va = 0x0046B3F0
+name = "CHelpText__sub_46B3F0"
+
+[[function]]
+va = 0x0046B4C0
+name = "CHelpText__sub_46B4C0"
+
+[[function]]
+va = 0x0046B4D0
+name = "CHelpText__sub_46B4D0"

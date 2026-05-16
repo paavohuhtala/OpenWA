@@ -1,0 +1,19 @@
+[[function]]
+va = 0x004F5D70
+name = "BitGridCollision__Get"
+
+[[function]]
+va = 0x004F5DA0
+name = "BitGridCollision__Put"
+
+[[function]]
+va = 0x004F8F90
+name = "BitGridCollision__FillRect"
+
+[[function]]
+va = 0x004F9020
+name = "BitGridCollision__GetClipped"
+
+[[function]]
+va = 0x004F9050
+name = "BitGridCollision__PutClipped"

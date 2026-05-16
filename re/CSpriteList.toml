@@ -1,0 +1,15 @@
+[[function]]
+va = 0x004273E0
+name = "CSpriteList__Create"
+
+[[function]]
+va = 0x004275B0
+name = "CSpriteList__sub_4275B0"
+
+[[function]]
+va = 0x00427660
+name = "CSpriteList__SetTransparentColour"
+
+[[function]]
+va = 0x004276D0
+name = "CSpriteList__Release"

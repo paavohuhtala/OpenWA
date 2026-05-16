@@ -1,0 +1,7 @@
+[[function]]
+va = 0x00541CC0
+name = "RandomBag__draw"
+
+[[function]]
+va = 0x00541D20
+name = "RandomBag__refill_if_empty"

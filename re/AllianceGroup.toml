@@ -1,0 +1,15 @@
+[[function]]
+va = 0x005639A0
+name = "AllianceGroup__InitTeams"
+
+[[function]]
+va = 0x00563B50
+name = "AllianceGroup__Constructor"
+
+[[global]]
+va = 0x00669FE8
+name = "AllianceGroup__vtable_Maybe"
+
+[[global]]
+va = 0x0066A04C
+name = "AllianceGroup__vtable"

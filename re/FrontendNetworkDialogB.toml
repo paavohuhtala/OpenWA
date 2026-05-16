@@ -1,0 +1,7 @@
+[[function]]
+va = 0x004BBC00
+name = "FrontendNetworkDialogB__Constructor"
+
+[[global]]
+va = 0x0065BFF8
+name = "FrontendNetworkDialogB__vtable"

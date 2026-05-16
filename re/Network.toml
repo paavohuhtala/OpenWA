@@ -1,0 +1,83 @@
+[[function]]
+va = 0x00466F70
+name = "Network__BuildPeerConnectionsArray"
+
+[[function]]
+va = 0x004B5F30
+name = "Network__DispatchPeerMessages"
+
+[[function]]
+va = 0x004B6AF0
+name = "Network__ProcessPeerMessage"
+
+[[function]]
+va = 0x004D4920
+name = "Network__IsAvailable"
+
+[[function]]
+va = 0x00590440
+name = "Network__Constructor"
+
+[[function]]
+va = 0x005904D0
+name = "Network__dtor_Network"
+
+[[function]]
+va = 0x00590520
+name = "Network__SaveSettings"
+
+[[function]]
+va = 0x00590800
+name = "Network__LoadSettings"
+
+[[function]]
+va = 0x00590A30
+name = "Network__SetLocalAddress"
+
+[[function]]
+va = 0x00590AA0
+name = "Network__sub_590AA0"
+
+[[function]]
+va = 0x00590B00
+name = "Network__SetServerChannel"
+
+[[function]]
+va = 0x00590B40
+name = "Network__sub_590B40"
+
+[[function]]
+va = 0x00590BE0
+name = "Network__sub_590BE0"
+
+[[function]]
+va = 0x00590C40
+name = "Network__Initialise"
+
+[[function]]
+va = 0x00590CA0
+name = "Network__sub_590CA0"
+
+[[function]]
+va = 0x00590D80
+name = "Network__sub_590D80"
+
+[[function]]
+va = 0x00590D90
+name = "Network__sub_590D90"
+
+[[function]]
+va = 0x00590DC0
+name = "Network__sub_590DC0"
+
+[[function]]
+va = 0x00590DF0
+name = "Network__sub_590DF0"
+
+[[function]]
+va = 0x00590E20
+name = "Network__sub_590E20"
+
+[[function]]
+va = 0x00590FA0
+name = "Network__sub_590FA0"

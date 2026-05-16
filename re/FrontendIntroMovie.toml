@@ -1,0 +1,11 @@
+[[function]]
+va = 0x00470870
+name = "FrontendIntroMovie__Constructor"
+
+[[function]]
+va = 0x00472380
+name = "FrontendIntroMovie__LoadFESounds"
+
+[[global]]
+va = 0x00651CD0
+name = "FrontendIntroMovie__vtable"

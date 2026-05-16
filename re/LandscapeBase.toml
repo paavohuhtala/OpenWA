@@ -1,0 +1,7 @@
+[[function]]
+va = 0x0057B820
+name = "LandscapeBase__Destructor_Maybe"
+
+[[global]]
+va = 0x00667BA0
+name = "LandscapeBase__vtable_Maybe"

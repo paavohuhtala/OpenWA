@@ -1,0 +1,35 @@
+[[function]]
+va = 0x00481E30
+name = "CListBarracks__ctor_CListBarracks"
+
+[[function]]
+va = 0x00481EB0
+name = "CListBarracks__dtor0_CListBarracks"
+
+[[function]]
+va = 0x00481ED0
+name = "CListBarracks__dtor1_CListBarracks"
+
+[[function]]
+va = 0x00481F30
+name = "CListBarracks__getMessageMap"
+
+[[function]]
+va = 0x00481F40
+name = "CListBarracks__sub_481F40"
+
+[[function]]
+va = 0x00481FE0
+name = "CListBarracks__ShowBarracks"
+
+[[function]]
+va = 0x004820F0
+name = "CListBarracks__SetUpList"
+
+[[function]]
+va = 0x00482280
+name = "CListBarracks__RenameItem"
+
+[[function]]
+va = 0x004822E0
+name = "CListBarracks__sub_4822E0"

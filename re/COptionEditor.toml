@@ -1,0 +1,119 @@
+[[function]]
+va = 0x004C5AB0
+name = "COptionEditor__ctor_COptionEditor"
+
+[[function]]
+va = 0x004C5ED0
+name = "COptionEditor__sub_4C5ED0"
+
+[[function]]
+va = 0x004C5EF0
+name = "COptionEditor__DoDataExchange"
+
+[[function]]
+va = 0x004C61C0
+name = "COptionEditor__getMessageMap"
+
+[[function]]
+va = 0x004C61D0
+name = "COptionEditor__sub_4C61D0"
+
+[[function]]
+va = 0x004C6200
+name = "COptionEditor__OnInitDialog"
+
+[[function]]
+va = 0x004C67E0
+name = "COptionEditor__SetData"
+
+[[function]]
+va = 0x004C73C0
+name = "COptionEditor__sub_4C73C0"
+
+[[function]]
+va = 0x004C7460
+name = "COptionEditor__sub_4C7460"
+
+[[function]]
+va = 0x004C7860
+name = "COptionEditor__sub_4C7860"
+
+[[function]]
+va = 0x004C7880
+name = "COptionEditor__sub_4C7880"
+
+[[function]]
+va = 0x004C78A0
+name = "COptionEditor__sub_4C78A0"
+
+[[function]]
+va = 0x004C7900
+name = "COptionEditor__sub_4C7900"
+
+[[function]]
+va = 0x004C7980
+name = "COptionEditor__sub_4C7980"
+
+[[function]]
+va = 0x004C79D0
+name = "COptionEditor__sub_4C79D0"
+
+[[function]]
+va = 0x004C79F0
+name = "COptionEditor__sub_4C79F0"
+
+[[function]]
+va = 0x004C7A10
+name = "COptionEditor__sub_4C7A10"
+
+[[function]]
+va = 0x004C7A30
+name = "COptionEditor__sub_4C7A30"
+
+[[function]]
+va = 0x004C7CB0
+name = "COptionEditor__sub_4C7CB0"
+
+[[function]]
+va = 0x004C7CD0
+name = "COptionEditor__sub_4C7CD0"
+
+[[function]]
+va = 0x004C7CF0
+name = "COptionEditor__sub_4C7CF0"
+
+[[function]]
+va = 0x004C7D10
+name = "COptionEditor__sub_4C7D10"
+
+[[function]]
+va = 0x004C7D30
+name = "COptionEditor__sub_4C7D30"
+
+[[function]]
+va = 0x004C7D50
+name = "COptionEditor__sub_4C7D50"
+
+[[function]]
+va = 0x004C7E70
+name = "COptionEditor__sub_4C7E70"
+
+[[function]]
+va = 0x004C7F20
+name = "COptionEditor__sub_4C7F20"
+
+[[function]]
+va = 0x004C7F90
+name = "COptionEditor__DisplayCancel"
+
+[[function]]
+va = 0x004C8090
+name = "COptionEditor__sub_4C8090"
+
+[[function]]
+va = 0x004C80F0
+name = "COptionEditor__sub_4C80F0"
+
+[[function]]
+va = 0x004C8300
+name = "COptionEditor__sub_4C8300"

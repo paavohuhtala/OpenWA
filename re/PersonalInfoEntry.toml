@@ -1,0 +1,39 @@
+[[function]]
+va = 0x004750E0
+name = "PersonalInfoEntry__dtor1_PersonalInfoEntry"
+
+[[function]]
+va = 0x004CCB30
+name = "PersonalInfoEntry__Constructor"
+
+[[function]]
+va = 0x004CCFB0
+name = "PersonalInfoEntry__dtor0_PersonalInfoEntry"
+
+[[function]]
+va = 0x004CCFD0
+name = "PersonalInfoEntry__DoDataExchange"
+
+[[function]]
+va = 0x004CD1D0
+name = "PersonalInfoEntry__getMessageMap"
+
+[[function]]
+va = 0x004CD1E0
+name = "PersonalInfoEntry__OnInitDialog"
+
+[[function]]
+va = 0x004CD660
+name = "PersonalInfoEntry__sub_4CD660"
+
+[[function]]
+va = 0x004CD930
+name = "PersonalInfoEntry__sub_4CD930"
+
+[[function]]
+va = 0x004CD970
+name = "PersonalInfoEntry__sub_4CD970"
+
+[[function]]
+va = 0x004CD990
+name = "PersonalInfoEntry__sub_4CD990"

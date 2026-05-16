@@ -1,0 +1,31 @@
+[[function]]
+va = 0x005658C0
+name = "Weapon__is_animal"
+
+[[function]]
+va = 0x00565920
+name = "Weapon__is_fire"
+
+[[function]]
+va = 0x00565960
+name = "Weapon__is_super_weapon"
+
+[[function]]
+va = 0x005659D0
+name = "Weapon__is_utility"
+
+[[function]]
+va = 0x005659F0
+name = "Weapon__is_modifier"
+
+[[function]]
+va = 0x00565A10
+name = "Weapon__is_sheep"
+
+[[function]]
+va = 0x00565B40
+name = "Weapon__analyse_missile_part"
+
+[[function]]
+va = 0x00565BB0
+name = "Weapon__analyse_missile"

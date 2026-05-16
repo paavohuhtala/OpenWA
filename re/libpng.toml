@@ -1,0 +1,415 @@
+[[function]]
+va = 0x005A6880
+name = "libpng__sub_5A6880"
+
+[[function]]
+va = 0x005A6B90
+name = "libpng__sub_5A6B90"
+
+[[function]]
+va = 0x005A7230
+name = "libpng__sub_5A7230"
+
+[[function]]
+va = 0x005A7740
+name = "libpng__sub_5A7740"
+
+[[function]]
+va = 0x005A77B0
+name = "libpng__sub_5A77B0"
+
+[[function]]
+va = 0x005A7CE0
+name = "libpng__sub_5A7CE0"
+
+[[function]]
+va = 0x005A7D80
+name = "libpng__sub_5A7D80"
+
+[[function]]
+va = 0x005A7F50
+name = "libpng__sub_5A7F50"
+
+[[function]]
+va = 0x005A8050
+name = "libpng__sub_5A8050"
+
+[[function]]
+va = 0x005A80B0
+name = "libpng__sub_5A80B0"
+
+[[function]]
+va = 0x005A80E0
+name = "libpng__sub_5A80E0"
+
+[[function]]
+va = 0x005A8130
+name = "libpng__sub_5A8130"
+
+[[function]]
+va = 0x005A8170
+name = "libpng__sub_5A8170"
+
+[[function]]
+va = 0x005A8340
+name = "libpng__sub_5A8340"
+
+[[function]]
+va = 0x005A83B0
+name = "libpng__sub_5A83B0"
+
+[[function]]
+va = 0x005A84A0
+name = "libpng__sub_5A84A0"
+
+[[function]]
+va = 0x005A8640
+name = "libpng__sub_5A8640"
+
+[[function]]
+va = 0x005A86F0
+name = "libpng__sub_5A86F0"
+
+[[function]]
+va = 0x005A87A0
+name = "libpng__sub_5A87A0"
+
+[[function]]
+va = 0x005A88A0
+name = "libpng__sub_5A88A0"
+
+[[function]]
+va = 0x005A89D0
+name = "libpng__sub_5A89D0"
+
+[[function]]
+va = 0x005A8AB0
+name = "libpng__sub_5A8AB0"
+
+[[function]]
+va = 0x005A8B90
+name = "libpng__sub_5A8B90"
+
+[[function]]
+va = 0x005A8C80
+name = "libpng__sub_5A8C80"
+
+[[function]]
+va = 0x005A8EC0
+name = "libpng__sub_5A8EC0"
+
+[[function]]
+va = 0x005A8F00
+name = "libpng__sub_5A8F00"
+
+[[function]]
+va = 0x005A90C0
+name = "libpng__sub_5A90C0"
+
+[[function]]
+va = 0x005A91C0
+name = "libpng__sub_5A91C0"
+
+[[function]]
+va = 0x005A9340
+name = "libpng__sub_5A9340"
+
+[[function]]
+va = 0x005A93E0
+name = "libpng__sub_5A93E0"
+
+[[function]]
+va = 0x005A9440
+name = "libpng__sub_5A9440"
+
+[[function]]
+va = 0x005A9470
+name = "libpng__sub_5A9470"
+
+[[function]]
+va = 0x005A94B0
+name = "libpng__sub_5A94B0"
+
+[[function]]
+va = 0x005A9590
+name = "libpng__sub_5A9590"
+
+[[function]]
+va = 0x005A95D0
+name = "libpng__sub_5A95D0"
+
+[[function]]
+va = 0x005A9630
+name = "libpng__sub_5A9630"
+
+[[function]]
+va = 0x005A9710
+name = "libpng__sub_5A9710"
+
+[[function]]
+va = 0x005A97D0
+name = "libpng__sub_5A97D0"
+
+[[function]]
+va = 0x005A9870
+name = "libpng__sub_5A9870"
+
+[[function]]
+va = 0x005A9950
+name = "libpng__sub_5A9950"
+
+[[function]]
+va = 0x005A9A00
+name = "libpng__sub_5A9A00"
+
+[[function]]
+va = 0x005A9B70
+name = "libpng__sub_5A9B70"
+
+[[function]]
+va = 0x005A9D70
+name = "libpng__sub_5A9D70"
+
+[[function]]
+va = 0x005A9DC0
+name = "libpng__sub_5A9DC0"
+
+[[function]]
+va = 0x005A9FE0
+name = "libpng__sub_5A9FE0"
+
+[[function]]
+va = 0x005AA2B0
+name = "libpng__sub_5AA2B0"
+
+[[function]]
+va = 0x005AA3D0
+name = "libpng__sub_5AA3D0"
+
+[[function]]
+va = 0x005AA610
+name = "libpng__sub_5AA610"
+
+[[function]]
+va = 0x005AA990
+name = "libpng__sub_5AA990"
+
+[[function]]
+va = 0x005AAB60
+name = "libpng__sub_5AAB60"
+
+[[function]]
+va = 0x005AAEF0
+name = "libpng__sub_5AAEF0"
+
+[[function]]
+va = 0x005AB100
+name = "libpng__sub_5AB100"
+
+[[function]]
+va = 0x005AB170
+name = "libpng__sub_5AB170"
+
+[[function]]
+va = 0x005AB1B0
+name = "libpng__sub_5AB1B0"
+
+[[function]]
+va = 0x005AB210
+name = "libpng__sub_5AB210"
+
+[[function]]
+va = 0x005AB260
+name = "libpng__sub_5AB260"
+
+[[function]]
+va = 0x005AB280
+name = "libpng__sub_5AB280"
+
+[[function]]
+va = 0x005AB2D0
+name = "libpng__sub_5AB2D0"
+
+[[function]]
+va = 0x005AB320
+name = "libpng__sub_5AB320"
+
+[[function]]
+va = 0x005AB350
+name = "libpng__sub_5AB350"
+
+[[function]]
+va = 0x005AB3A0
+name = "libpng__sub_5AB3A0"
+
+[[function]]
+va = 0x005AB3C0
+name = "libpng__sub_5AB3C0"
+
+[[function]]
+va = 0x005AB400
+name = "libpng__sub_5AB400"
+
+[[function]]
+va = 0x005AB4A0
+name = "libpng__sub_5AB4A0"
+
+[[function]]
+va = 0x005AB500
+name = "libpng__sub_5AB500"
+
+[[function]]
+va = 0x005AB5E0
+name = "libpng__sub_5AB5E0"
+
+[[function]]
+va = 0x005AB660
+name = "libpng__sub_5AB660"
+
+[[function]]
+va = 0x005ABAA0
+name = "libpng__sub_5ABAA0"
+
+[[function]]
+va = 0x005ABBE0
+name = "libpng__sub_5ABBE0"
+
+[[function]]
+va = 0x005ABD50
+name = "libpng__sub_5ABD50"
+
+[[function]]
+va = 0x005ABEF0
+name = "libpng__sub_5ABEF0"
+
+[[function]]
+va = 0x005AC040
+name = "libpng__sub_5AC040"
+
+[[function]]
+va = 0x005AC140
+name = "libpng__sub_5AC140"
+
+[[function]]
+va = 0x005AC7D0
+name = "libpng__sub_5AC7D0"
+
+[[function]]
+va = 0x005AC8B0
+name = "libpng__sub_5AC8B0"
+
+[[function]]
+va = 0x005AC9A0
+name = "libpng__sub_5AC9A0"
+
+[[function]]
+va = 0x005ACA10
+name = "libpng__sub_5ACA10"
+
+[[function]]
+va = 0x005ACA90
+name = "libpng__sub_5ACA90"
+
+[[function]]
+va = 0x005ACB80
+name = "libpng__sub_5ACB80"
+
+[[function]]
+va = 0x005AE270
+name = "libpng__sub_5AE270"
+
+[[function]]
+va = 0x005AE2D0
+name = "libpng__sub_5AE2D0"
+
+[[function]]
+va = 0x005AE2F0
+name = "libpng__sub_5AE2F0"
+
+[[function]]
+va = 0x005AE590
+name = "libpng__sub_5AE590"
+
+[[function]]
+va = 0x005AE5E0
+name = "libpng__sub_5AE5E0"
+
+[[function]]
+va = 0x005AE7D0
+name = "libpng__sub_5AE7D0"
+
+[[function]]
+va = 0x005AE830
+name = "libpng__sub_5AE830"
+
+[[function]]
+va = 0x005AE8A0
+name = "libpng__sub_5AE8A0"
+
+[[function]]
+va = 0x005AE8C0
+name = "libpng__sub_5AE8C0"
+
+[[function]]
+va = 0x005AE8F0
+name = "libpng__sub_5AE8F0"
+
+[[function]]
+va = 0x005AE940
+name = "libpng__sub_5AE940"
+
+[[function]]
+va = 0x005AF120
+name = "libpng__sub_5AF120"
+
+[[function]]
+va = 0x005AF1B0
+name = "libpng__sub_5AF1B0"
+
+[[function]]
+va = 0x005AF240
+name = "libpng__sub_5AF240"
+
+[[function]]
+va = 0x005AF2D0
+name = "libpng__sub_5AF2D0"
+
+[[function]]
+va = 0x005AF450
+name = "libpng__sub_5AF450"
+
+[[function]]
+va = 0x005AF5E0
+name = "libpng__sub_5AF5E0"
+
+[[function]]
+va = 0x005AF9B0
+name = "libpng__sub_5AF9B0"
+
+[[function]]
+va = 0x005AFD20
+name = "libpng__sub_5AFD20"
+
+[[function]]
+va = 0x005B01B0
+name = "libpng__sub_5B01B0"
+
+[[function]]
+va = 0x005B04A0
+name = "libpng__sub_5B04A0"
+
+[[function]]
+va = 0x005B0640
+name = "libpng__sub_5B0640"
+
+[[function]]
+va = 0x005B08C0
+name = "libpng__sub_5B08C0"
+
+[[function]]
+va = 0x005B0D50
+name = "libpng__sub_5B0D50"
+
+[[function]]
+va = 0x005B0D70
+name = "libpng__sub_5B0D70"

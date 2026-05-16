@@ -1,0 +1,27 @@
+[[function]]
+va = 0x004CDA70
+name = "CPleaseWait__dtor0_CPleaseWait"
+
+[[function]]
+va = 0x004CDA90
+name = "CPleaseWait__DoDataExchange"
+
+[[function]]
+va = 0x004CDAD0
+name = "CPleaseWait__getMessageMap"
+
+[[function]]
+va = 0x004CDAE0
+name = "CPleaseWait__OnInitDialog"
+
+[[function]]
+va = 0x004CDC00
+name = "CPleaseWait__OnTimer"
+
+[[function]]
+va = 0x004CE080
+name = "CPleaseWait__sub_4CE080"
+
+[[function]]
+va = 0x004CE090
+name = "CPleaseWait__sub_4CE090"

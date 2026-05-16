@@ -1,0 +1,71 @@
+[[function]]
+va = 0x0058C060
+name = "WS_GameNet__ctor0_WS_GameNet"
+
+[[function]]
+va = 0x0058C080
+name = "WS_GameNet__ctor1_WS_GameNet"
+
+[[function]]
+va = 0x0058C2D0
+name = "WS_GameNet__data_pending"
+
+[[function]]
+va = 0x0058C3D0
+name = "WS_GameNet__update"
+
+[[function]]
+va = 0x0058C480
+name = "WS_GameNet__ispending"
+
+[[function]]
+va = 0x0058C4C0
+name = "WS_GameNet__isconnected"
+
+[[function]]
+va = 0x0058C4E0
+name = "WS_GameNet__sub_58C4E0"
+
+[[function]]
+va = 0x0058C500
+name = "WS_GameNet__sub_58C500"
+
+[[function]]
+va = 0x0058C520
+name = "WS_GameNet__disconnect"
+
+[[function]]
+va = 0x0058C5C0
+name = "WS_GameNet__sub_58C5C0"
+
+[[function]]
+va = 0x0058C6D0
+name = "WS_GameNet__get_outgoing_use"
+
+[[function]]
+va = 0x0058C730
+name = "WS_GameNet__process_command"
+
+[[function]]
+va = 0x0058C7B0
+name = "WS_GameNet____receive"
+
+[[function]]
+va = 0x0058CA20
+name = "WS_GameNet__update_mask"
+
+[[function]]
+va = 0x0058CAE0
+name = "WS_GameNet__transmit_0"
+
+[[function]]
+va = 0x0058CB30
+name = "WS_GameNet__send"
+
+[[function]]
+va = 0x0058CBF0
+name = "WS_GameNet__transmit_1"
+
+[[function]]
+va = 0x0058CC40
+name = "WS_GameNet__process_mask"

@@ -1,0 +1,67 @@
+[[function]]
+va = 0x004993B0
+name = "CMissionStart__dtor0_CMissionStart"
+
+[[function]]
+va = 0x004993D0
+name = "CMissionStart__dtor1_CMissionStart"
+
+[[function]]
+va = 0x00499730
+name = "CMissionStart__DoDataExchange"
+
+[[function]]
+va = 0x00499870
+name = "CMissionStart__getMessageMap"
+
+[[function]]
+va = 0x00499880
+name = "CMissionStart__OnTeamSelected"
+
+[[function]]
+va = 0x00499E90
+name = "CMissionStart__OnCommandStart"
+plate_comment = """
+Mission Mode "Begin Mission" button handler (CMissionStart::OnCommand for ID 1000).
+
+Loads the selected mission's .WAm file, runs the LobbyDialog (team picker for the mission), launches a CGameInfo "Mission" session, then -- on session end -- shows either CMissionFailed or CMissionSuccess / CMissionComplete depending on outcome.
+
+When the mission was cleared, monotonically bumps G_MISSION_PROGRESS (= byte at G_TEAM_COLLECTION+0x08, abs 0x0088E4A8):
+    if (current_mission + 1 > G_MISSION_PROGRESS)
+        G_MISSION_PROGRESS = (uint8_t)(current_mission + 1);
+Max value 0x21 (33 missions). The `current_mission + 1 >= 0x21` gate four lines later is what switches the closing dialog from per-mission Success to overall Complete.
+
+This byte is persisted by CTeam__SaveTeams as the 4th byte of WG.WGT's header (the byte commonly mistaken for a NUL magic terminator). A fully-cleared campaign roster's header therefore reads "WGT!" because 0x21 == ASCII '!'.
+"""
+
+[[function]]
+va = 0x0049A3C0
+name = "CMissionStart__sub_49A3C0"
+
+[[function]]
+va = 0x0049A4E0
+name = "CMissionStart__OnInitDialog"
+
+[[function]]
+va = 0x0049A970
+name = "CMissionStart__GetMissionReady"
+
+[[function]]
+va = 0x0049AC50
+name = "CMissionStart__sub_49AC50"
+
+[[function]]
+va = 0x0049AD20
+name = "CMissionStart__DisplayCurrentTeam"
+
+[[function]]
+va = 0x0049AED0
+name = "CMissionStart__sub_49AED0"
+
+[[function]]
+va = 0x0049AFD0
+name = "CMissionStart__sub_49AFD0"
+
+[[function]]
+va = 0x0049B160
+name = "CMissionStart__sub_49B160"

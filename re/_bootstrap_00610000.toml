@@ -1,0 +1,11 @@
+[[function]]
+va = 0x006191A0
+name = "WavPlayer_InitFESFX"
+
+[[function]]
+va = 0x006191C0
+name = "WavPlayer_InitFanfare"
+
+[[function]]
+va = 0x006191E0
+name = "WavPlayer_InitThird"

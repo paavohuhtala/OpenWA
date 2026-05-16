@@ -1,0 +1,43 @@
+[[function]]
+va = 0x00573D50
+name = "DSSound__Constructor"
+
+[[function]]
+va = 0x00573DB0
+name = "DSSound__Destructor"
+
+[[function]]
+va = 0x00573DD0
+name = "DSSound__Destructor_1"
+
+[[function]]
+va = 0x00574310
+name = "DSSound__ReleaseChannelBuffers"
+
+[[function]]
+va = 0x00574350
+name = "DSSound__ReleaseSlotBuffers"
+
+[[function]]
+va = 0x00574460
+name = "DSSound__SetFrequencyScale"
+
+[[function]]
+va = 0x005747F0
+name = "DSSound__IsChannelFinished"
+
+[[function]]
+va = 0x00574900
+name = "DSSound__SetPan"
+
+[[function]]
+va = 0x00574980
+name = "DSSound__SetChannelVolume"
+
+[[function]]
+va = 0x00574A10
+name = "DSSound__SetMasterVolume"
+
+[[global]]
+va = 0x0066AF20
+name = "DSSound__vtable"

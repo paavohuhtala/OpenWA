@@ -1,0 +1,127 @@
+[[function]]
+va = 0x00404AE0
+name = "CDXButton__ctor0_CDXButton"
+
+[[function]]
+va = 0x00404BE0
+name = "CDXButton__dtor0_CDXButton"
+
+[[function]]
+va = 0x00404C00
+name = "CDXButton__dtor1_CDXButton"
+
+[[function]]
+va = 0x00404CC0
+name = "CDXButton__getMessageMap"
+
+[[function]]
+va = 0x00404D70
+name = "CDXButton__CreateGroupBoxBitmaps"
+
+[[function]]
+va = 0x00405460
+name = "CDXButton__DrawItem"
+
+[[function]]
+va = 0x00405470
+name = "CDXButton__sub_405470"
+
+[[function]]
+va = 0x004055B0
+name = "CDXButton__sub_4055B0"
+
+[[function]]
+va = 0x00405610
+name = "CDXButton__sub_405610"
+
+[[function]]
+va = 0x00405650
+name = "CDXButton__sub_405650"
+
+[[function]]
+va = 0x004056E0
+name = "CDXButton__DrawContents"
+
+[[function]]
+va = 0x00405790
+name = "CDXButton__RestoreSurfaces"
+
+[[function]]
+va = 0x00405980
+name = "CDXButton__DrawPushButton"
+
+[[function]]
+va = 0x00406510
+name = "CDXButton__DrawCheckBox"
+
+[[function]]
+va = 0x004069B0
+name = "CDXButton__DrawRadioButton"
+
+[[function]]
+va = 0x00406E80
+name = "CDXButton__DrawGroupBox"
+
+[[function]]
+va = 0x00408E30
+name = "CDXButton__sub_408E30"
+
+[[function]]
+va = 0x00409070
+name = "CDXButton__sub_409070"
+
+[[function]]
+va = 0x004090F0
+name = "CDXButton__sub_4090F0"
+
+[[function]]
+va = 0x00409120
+name = "CDXButton__sub_409120"
+
+[[function]]
+va = 0x00409130
+name = "CDXButton__sub_409130"
+
+[[function]]
+va = 0x00409140
+name = "CDXButton__sub_409140"
+
+[[function]]
+va = 0x00409380
+name = "CDXButton__sub_409380"
+
+[[function]]
+va = 0x00409890
+name = "CDXButton__sub_409890"
+
+[[function]]
+va = 0x00409A40
+name = "CDXButton__sub_409A40"
+
+[[function]]
+va = 0x00409A90
+name = "CDXButton__SetFont"
+
+[[function]]
+va = 0x00409AC0
+name = "CDXButton__sub_409AC0"
+
+[[function]]
+va = 0x00409B80
+name = "CDXButton__sub_409B80"
+
+[[function]]
+va = 0x00409BC0
+name = "CDXButton__sub_409BC0"
+
+[[function]]
+va = 0x00409C30
+name = "CDXButton__Format"
+
+[[function]]
+va = 0x00409C50
+name = "CDXButton__sub_409C50"
+
+[[function]]
+va = 0x00409CD0
+name = "CDXButton__sub_409CD0"

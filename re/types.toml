@@ -1,0 +1,1066 @@
+# Types defined in Ghidra's built-in archives (Win32, MFC, CRT,
+# PE/DOS loader, etc.). Listed so the validator recognises them
+# as legitimate type names; their full definitions live in Ghidra,
+# not in `re/`, and they are not round-tripped on import.
+external_types = [
+  "ACCESS_MASK",
+  "AFX_CMDHANDLERINFO",
+  "AFX_EXCEPTION_CONTEXT",
+  "AFX_EXCEPTION_LINK",
+  "AFX_MAINTAIN_STATE2",
+  "AFX_MODULE_STATE",
+  "AFX_MODULE_THREAD_STATE",
+  "AFX_MSGMAP_ENTRY",
+  "ATLSTRINGRESOURCEIMAGE",
+  "ATOM",
+  "AUX_DATA",
+  "BINDPTR",
+  "BIND_OPTS",
+  "BITMAPINFO",
+  "BITMAPINFOHEADER",
+  "BOOL",
+  "BSTR",
+  "BYTE",
+  "CALLCONV",
+  "CAccessibleProxy",
+  "CActivationContext",
+  "CAfxStringMgr",
+  "CArchive",
+  "CArchiveException",
+  "CAssoc",
+  "CAtlBaseModule",
+  "CAtlWinModule",
+  "CBrush",
+  "CByteArray",
+  "CCmdTarget",
+  "CCmdUI",
+  "CComCriticalSection",
+  "CComCtlWrapper",
+  "CComboBox",
+  "CCommDlgWrapper",
+  "CCommonDialog",
+  "CDC",
+  "CDataExchange",
+  "CDialog",
+  "CDialogTemplate",
+  "CDllIsolationWrapperBase",
+  "CDocTemplate",
+  "CException",
+  "CFile",
+  "CFileException",
+  "CFileStatus",
+  "CFixedAllocNoSync",
+  "CFrameWnd",
+  "CGdiObject",
+  "CHAR",
+  "CHandleMap",
+  "CInternalGlobalLock",
+  "CLIPFORMAT",
+  "CLSID",
+  "CListBox",
+  "CMFCComObject<class_ATL::CAccessibleProxy>",
+  "CMapPtrToPtr",
+  "CMenu",
+  "CNoTrackObject",
+  "CNode",
+  "COLORREF",
+  "CONTEXT",
+  "CObArray",
+  "CObject",
+  "COleBusyDialog",
+  "COleControlSite",
+  "COleDataSource",
+  "COleDialog",
+  "COleException",
+  "COleMessageFilter",
+  "COleObjectFactory",
+  "CPaintDC",
+  "CPen",
+  "CPlex",
+  "CProcessLocalObject",
+  "CPtrList",
+  "CRecentFileList",
+  "CRuntimeClass",
+  "CSimpleArray<struct_HINSTANCE__*,class_ATL::CSimpleArrayEqualHelper<struct_HINSTANCE__*>_>",
+  "CSimpleArray<unsigned_short,class_ATL::CSimpleArrayEqualHelper<unsigned_short>_>",
+  "CSimpleException",
+  "CSimpleList",
+  "CSimpleStringT<char,0>",
+  "CStringData",
+  "CStringList",
+  "CStringT<char,class_StrTraitMFC<char,class_ATL::ChTraitsCRT<char>_>_>",
+  "CStringT<wchar_t,class_StrTraitMFC<wchar_t,class_ATL::ChTraitsOS<wchar_t>_>_>",
+  "CTempBuffer<char,128,class_ATL::CCRTAllocator>",
+  "CTempBuffer<wchar_t,128,class_ATL::CCRTAllocator>",
+  "CTestCmdUI",
+  "CThreadData",
+  "CThreadLocal<class_AFX_MODULE_THREAD_STATE>",
+  "CThreadLocalObject",
+  "CThreadSlotData",
+  "CTime",
+  "CTypeLibCache",
+  "CWaitCursor",
+  "CWinApp",
+  "CWinThread",
+  "CWnd",
+  "CY",
+  "DATE",
+  "DECIMAL",
+  "DESCKIND",
+  "DEVMODEA",
+  "DISPID",
+  "DISPPARAMS",
+  "DLGPROC",
+  "DLGTEMPLATE",
+  "DOUBLE",
+  "DVTARGETDEVICE",
+  "DWORD",
+  "DWORD_PTR",
+  "DotNetPdbInfo",
+  "EHExceptionRecord",
+  "EHRegistrationNode",
+  "ELEMDESC",
+  "ENUMRESLANGPROCA",
+  "EXCEPINFO",
+  "EXCEPTION_RECORD",
+  "FARPROC",
+  "FILE",
+  "FILETIME",
+  "FLOAT",
+  "FLOATING_SAVE_AREA",
+  "FLT",
+  "FORMATETC",
+  "FOURCC",
+  "FUNCDESC",
+  "FUNCKIND",
+  "GRAYSTRINGPROC",
+  "GUID",
+  "HANDLE",
+  "HBITMAP",
+  "HBITMAP__",
+  "HBRUSH",
+  "HBRUSH__",
+  "HCRYPTPROV",
+  "HCURSOR",
+  "HDC",
+  "HDC__",
+  "HDESK",
+  "HDESK__",
+  "HENHMETAFILE",
+  "HENHMETAFILE__",
+  "HFILE",
+  "HGDIOBJ",
+  "HGLOBAL",
+  "HGLRC",
+  "HGLRC__",
+  "HHOOK",
+  "HHOOK__",
+  "HICON",
+  "HICON__",
+  "HINSTANCE",
+  "HINSTANCE__",
+  "HKEY",
+  "HKEY__",
+  "HKL",
+  "HKL__",
+  "HLOCAL",
+  "HMENU",
+  "HMENU__",
+  "HMETAFILEPICT",
+  "HMMIO",
+  "HMMIO__",
+  "HMODULE",
+  "HOOKPROC",
+  "HPALETTE",
+  "HPALETTE__",
+  "HPEN",
+  "HPEN__",
+  "HPSTR",
+  "HREFTYPE",
+  "HRESULT",
+  "HRSRC",
+  "HRSRC__",
+  "HTASK",
+  "HTASK__",
+  "HWND",
+  "HWND__",
+  "IAccessible",
+  "IAccessibleProxy",
+  "IAdviseSink",
+  "IAdviseSinkVtbl",
+  "IAtlStringMgr",
+  "IBindCtx",
+  "IBindCtxVtbl",
+  "ICONINFO",
+  "IDLDESC",
+  "IDataObject",
+  "IDataObjectVtbl",
+  "IDispatch",
+  "IDispatchVtbl",
+  "IEnumFORMATETC",
+  "IEnumFORMATETCVtbl",
+  "IEnumMoniker",
+  "IEnumMonikerVtbl",
+  "IEnumSTATDATA",
+  "IEnumSTATDATAVtbl",
+  "IEnumSTATSTG",
+  "IEnumSTATSTGVtbl",
+  "IEnumString",
+  "IEnumStringVtbl",
+  "IID",
+  "IMAGE_DATA_DIRECTORY",
+  "IMAGE_DEBUG_DIRECTORY",
+  "IMAGE_DIRECTORY_ENTRY_EXPORT",
+  "IMAGE_DOS_HEADER",
+  "IMAGE_FILE_HEADER",
+  "IMAGE_IMPORT_BY_NAME_10",
+  "IMAGE_IMPORT_BY_NAME_11",
+  "IMAGE_IMPORT_BY_NAME_12",
+  "IMAGE_IMPORT_BY_NAME_13",
+  "IMAGE_IMPORT_BY_NAME_14",
+  "IMAGE_IMPORT_BY_NAME_15",
+  "IMAGE_IMPORT_BY_NAME_16",
+  "IMAGE_IMPORT_BY_NAME_17",
+  "IMAGE_IMPORT_BY_NAME_18",
+  "IMAGE_IMPORT_BY_NAME_19",
+  "IMAGE_IMPORT_BY_NAME_20",
+  "IMAGE_IMPORT_BY_NAME_22",
+  "IMAGE_IMPORT_BY_NAME_23",
+  "IMAGE_IMPORT_BY_NAME_24",
+  "IMAGE_IMPORT_BY_NAME_26",
+  "IMAGE_IMPORT_BY_NAME_31",
+  "IMAGE_IMPORT_BY_NAME_6",
+  "IMAGE_IMPORT_BY_NAME_7",
+  "IMAGE_IMPORT_BY_NAME_8",
+  "IMAGE_IMPORT_BY_NAME_9",
+  "IMAGE_NT_HEADERS32",
+  "IMAGE_OPTIONAL_HEADER32",
+  "IMAGE_RESOURCE_DATA_ENTRY",
+  "IMAGE_RESOURCE_DIRECTORY",
+  "IMAGE_RESOURCE_DIRECTORY_ENTRY",
+  "IMAGE_RESOURCE_DIRECTORY_ENTRY_DirectoryStruct",
+  "IMAGE_RESOURCE_DIRECTORY_ENTRY_NameStruct",
+  "IMAGE_RESOURCE_DIRECTORY_ENTRY_NameUnion",
+  "IMAGE_RESOURCE_DIR_STRING_U_10",
+  "IMAGE_RESOURCE_DIR_STRING_U_14",
+  "IMAGE_RESOURCE_DIR_STRING_U_6",
+  "IMAGE_SECTION_HEADER",
+  "IMessageFilter",
+  "IMessageFilterVtbl",
+  "IMoniker",
+  "IMonikerVtbl",
+  "INT",
+  "INTRNCVT_STATUS",
+  "INT_PTR",
+  "INVOKEKIND",
+  "IRecordInfo",
+  "IRecordInfoVtbl",
+  "IRunningObjectTable",
+  "IRunningObjectTableVtbl",
+  "IStorage",
+  "IStorageVtbl",
+  "IStream",
+  "IStreamVtbl",
+  "ITypeComp",
+  "ITypeCompVtbl",
+  "ITypeInfo",
+  "ITypeInfoVtbl",
+  "ITypeLib",
+  "ITypeLibVtbl",
+  "IUnknown",
+  "IUnknownVtbl",
+  "ImgDelayDescr",
+  "InitCommonControlsEx_Type",
+  "InitCommonControls_Type",
+  "LARGE_INTEGER",
+  "LCID",
+  "LCTYPE",
+  "LIST_ENTRY",
+  "LOCALE_ENUMPROCA",
+  "LOGPALETTE",
+  "LONG",
+  "LONGLONG",
+  "LONG_PTR",
+  "LPARAM",
+  "LPBOOL",
+  "LPBYTE",
+  "LPCDLGTEMPLATEA",
+  "LPCH",
+  "LPCOLESTR",
+  "LPCPINFO",
+  "LPCRITICAL_SECTION",
+  "LPCSTR",
+  "LPCVOID",
+  "LPCWSTR",
+  "LPDATAOBJECT",
+  "LPDEVMODEA",
+  "LPDRAWTEXTPARAMS",
+  "LPDWORD",
+  "LPFILETIME",
+  "LPHANDLE",
+  "LPINTERFACEINFO",
+  "LPLC_STRINGS",
+  "LPMEMORYSTATUS",
+  "LPMESSAGEFILTER",
+  "LPMMCKINFO",
+  "LPMMIOINFO",
+  "LPMMIOPROC",
+  "LPMSG",
+  "LPOFSTRUCT",
+  "LPOLESTR",
+  "LPOSVERSIONINFOA",
+  "LPOVERLAPPED",
+  "LPPAINTSTRUCT",
+  "LPPALETTEENTRY",
+  "LPPARAMDESCEX",
+  "LPPOINT",
+  "LPPRINTER_DEFAULTSA",
+  "LPPROCESS_INFORMATION",
+  "LPRECT",
+  "LPSECURITY_ATTRIBUTES",
+  "LPSIZE",
+  "LPSTARTUPINFOA",
+  "LPSTR",
+  "LPSYSTEMTIME",
+  "LPSYSTEM_INFO",
+  "LPTEXTMETRICA",
+  "LPTHREAD_START_ROUTINE",
+  "LPTIMECALLBACK",
+  "LPTIMECAPS",
+  "LPTIME_ZONE_INFORMATION",
+  "LPTOP_LEVEL_EXCEPTION_FILTER",
+  "LPUNKNOWN",
+  "LPVOID",
+  "LPWCH",
+  "LPWIN32_FIND_DATAA",
+  "LPWNDCLASSA",
+  "LPWNDCLASSEXA",
+  "LPWORD",
+  "LPWSADATA",
+  "LPWSTR",
+  "LRESULT",
+  "LSTATUS",
+  "MEMBERID",
+  "MMCKINFO",
+  "MMIOPROC",
+  "MMRESULT",
+  "MSG",
+  "Misc",
+  "OLECHAR",
+  "OLE_DATA",
+  "PAINTSTRUCT",
+  "PALETTEENTRY",
+  "PARAMDESC",
+  "PBYTE",
+  "PCNZCH",
+  "PCNZWCH",
+  "PCONTEXT",
+  "PDEVMODEA",
+  "PEXCEPTION_RECORD",
+  "PFILETIME",
+  "PHKEY",
+  "PICONINFO",
+  "PIMAGE_SECTION_HEADER",
+  "PIXELFORMATDESCRIPTOR",
+  "PLONG",
+  "PMD",
+  "PMEMORY_BASIC_INFORMATION",
+  "POINT",
+  "POINTL",
+  "PROC",
+  "PRTL_CRITICAL_SECTION",
+  "PRTL_CRITICAL_SECTION_DEBUG",
+  "PTHREAD_START_ROUTINE",
+  "PTOP_LEVEL_EXCEPTION_FILTER",
+  "PUINT",
+  "PVOID",
+  "RECT",
+  "REGSAM",
+  "RGBQUAD",
+  "SAFEARRAY",
+  "SAFEARRAYBOUND",
+  "SCODE",
+  "SHORT",
+  "SIZE_T",
+  "SNB",
+  "SOCKET",
+  "STATDATA",
+  "STATSTG",
+  "STGMEDIUM",
+  "STRFLT",
+  "SYSKIND",
+  "SYSTEMTIME",
+  "SectionFlags",
+  "StringFileInfo",
+  "StringInfo",
+  "StringTable",
+  "TIMECALLBACK",
+  "TIMERPROC",
+  "TLIBATTR",
+  "TYPEATTR",
+  "TYPEDESC",
+  "TYPEKIND",
+  "TranslatorGuardRN",
+  "TypeDescriptor",
+  "UCHAR",
+  "UINT",
+  "UINT_PTR",
+  "ULARGE_INTEGER",
+  "ULONG",
+  "ULONGLONG",
+  "ULONG_PTR",
+  "USHORT",
+  "VARDESC",
+  "VARIANT",
+  "VARIANTARG",
+  "VARIANT_BOOL",
+  "VARKIND",
+  "VARTYPE",
+  "VS_VERSION_INFO",
+  "Var",
+  "VarFileInfo",
+  "WCHAR",
+  "WINDOWPLACEMENT",
+  "WNDCLASSA",
+  "WNDPROC",
+  "WORD",
+  "WPARAM",
+  "WSADATA",
+  "WSAData",
+  "_AFX_BASE_MODULE_STATE",
+  "_AFX_EDIT_STATE",
+  "_AFX_OLE_STATE",
+  "_AFX_RICHEDIT_STATE",
+  "_AFX_THREAD_STATE",
+  "_ATL_BASE_MODULE70",
+  "_ATL_INTMAP_ENTRY",
+  "_ATL_WIN_MODULE70",
+  "_CONTEXT",
+  "_CRT_DOUBLE",
+  "_CRT_FLOAT",
+  "_Ctypevec",
+  "_Cvtvec",
+  "_EXCEPTION_DISPOSITION",
+  "_EXCEPTION_POINTERS",
+  "_EXCEPTION_RECORD",
+  "_FILETIME",
+  "_FLOATING_SAVE_AREA",
+  "_Fac_node",
+  "_GUID",
+  "_ICONINFO",
+  "_IMAGE_SECTION_HEADER",
+  "_Init_locks",
+  "_LARGE_INTEGER",
+  "_LDBL12",
+  "_LIST_ENTRY",
+  "_LocaleUpdate",
+  "_Locimp",
+  "_Locinfo",
+  "_Lockit",
+  "_MEMORYSTATUS",
+  "_MEMORY_BASIC_INFORMATION",
+  "_MMCKINFO",
+  "_MMIOINFO",
+  "_OFSTRUCT",
+  "_OSVERSIONINFOA",
+  "_OVERLAPPED",
+  "_PHNDLR",
+  "_POINTL",
+  "_PRINTER_DEFAULTSA",
+  "_PROCESS_INFORMATION",
+  "_PtFuncCompare",
+  "_RTL_CRITICAL_SECTION",
+  "_RTL_CRITICAL_SECTION_DEBUG",
+  "_SECURITY_ATTRIBUTES",
+  "_STARTUPINFOA",
+  "_SYSTEMTIME",
+  "_SYSTEM_INFO",
+  "_TIME_ZONE_INFORMATION",
+  "_ULARGE_INTEGER",
+  "_WIN32_FIND_DATAA",
+  "__POSITION",
+  "__ehstate_t",
+  "__lc_time_data",
+  "__tagBRECORD",
+  "__tagVARIANT",
+  "__time32_t",
+  "__time64_t",
+  "_cpinfo",
+  "_devicemodeA",
+  "_finddata64i32_t",
+  "_flt",
+  "_fsize_t",
+  "_func_4879",
+  "_func_5021",
+  "_func_5022",
+  "_func_5023",
+  "_func_5125",
+  "_func_5126",
+  "_func_5127",
+  "_func_5128",
+  "_func_5129",
+  "_func_5130",
+  "_func_5131",
+  "_func_5132",
+  "_func_5133",
+  "_func_5134",
+  "_func_5135",
+  "_func_5136",
+  "_func_5137",
+  "_func_5142",
+  "_func_5143",
+  "_func_5144",
+  "_func_5145",
+  "_func_5146",
+  "_func_5147",
+  "_func_5148",
+  "_func_5161",
+  "_func_5162",
+  "_func_5163",
+  "_func_5164",
+  "_func_5165",
+  "_func_5166",
+  "_func_5167",
+  "_func_5168",
+  "_func_5169",
+  "_func_5170",
+  "_func_5183",
+  "_func_5184",
+  "_func_5185",
+  "_func_5186",
+  "_func_5187",
+  "_func_5188",
+  "_func_5189",
+  "_func_5190",
+  "_func_5191",
+  "_func_5192",
+  "_func_5193",
+  "_func_5194",
+  "_func_5195",
+  "_func_5196",
+  "_func_5197",
+  "_func_5198",
+  "_func_5199",
+  "_func_5200",
+  "_func_5201",
+  "_func_5202",
+  "_func_5203",
+  "_func_5204",
+  "_func_5205",
+  "_func_5214",
+  "_func_5215",
+  "_func_5216",
+  "_func_5217",
+  "_func_5218",
+  "_func_5219",
+  "_func_5220",
+  "_func_5232",
+  "_func_5233",
+  "_func_5234",
+  "_func_5235",
+  "_func_5236",
+  "_func_5237",
+  "_func_5238",
+  "_func_5239",
+  "_func_5240",
+  "_func_5241",
+  "_func_5242",
+  "_func_5243",
+  "_func_5244",
+  "_func_5245",
+  "_func_5250",
+  "_func_5251",
+  "_func_5252",
+  "_func_5253",
+  "_func_5254",
+  "_func_5255",
+  "_func_5256",
+  "_func_5259",
+  "_func_5260",
+  "_func_5261",
+  "_func_5262",
+  "_func_5263",
+  "_func_5264",
+  "_func_5265",
+  "_func_5266",
+  "_func_5267",
+  "_func_5268",
+  "_func_5269",
+  "_func_5270",
+  "_func_5271",
+  "_func_5272",
+  "_func_5273",
+  "_func_5274",
+  "_func_5275",
+  "_func_5276",
+  "_func_5316",
+  "_func_5317",
+  "_func_5318",
+  "_func_5319",
+  "_func_5320",
+  "_func_5321",
+  "_func_5322",
+  "_func_5325",
+  "_func_5326",
+  "_func_5327",
+  "_func_5328",
+  "_func_5329",
+  "_func_5330",
+  "_func_5331",
+  "_func_5338",
+  "_func_5339",
+  "_func_5340",
+  "_func_5341",
+  "_func_5342",
+  "_func_5343",
+  "_func_5344",
+  "_func_5345",
+  "_func_5419",
+  "_func_5420",
+  "_func_5421",
+  "_func_5422",
+  "_func_5423",
+  "_func_5424",
+  "_func_5425",
+  "_func_5426",
+  "_func_5427",
+  "_func_5428",
+  "_func_5429",
+  "_func_5430",
+  "_func_5444",
+  "_func_5445",
+  "_func_5446",
+  "_func_5447",
+  "_func_5448",
+  "_func_5449",
+  "_func_6342",
+  "_func_6440",
+  "_func_6441",
+  "_func_6442",
+  "_func_6443",
+  "_func_6444",
+  "_func_6445",
+  "_func_6446",
+  "_func_6458",
+  "_func_6459",
+  "_func_6460",
+  "_func_6461",
+  "_func_6462",
+  "_func_6467",
+  "_func_6468",
+  "_func_6469",
+  "_func_6470",
+  "_func_6471",
+  "_func_6472",
+  "_func_6473",
+  "_func_6474",
+  "_func_6475",
+  "_func_6476",
+  "_func_6477",
+  "_func_6478",
+  "_func_6479",
+  "_func_6480",
+  "_func_6481",
+  "_func_6482",
+  "_func_6483",
+  "_func_6484",
+  "_func_6485",
+  "_func_6486",
+  "_func_6487",
+  "_func_6488",
+  "_func_6556",
+  "_func_6557",
+  "_func_6558",
+  "_func_6559",
+  "_func_6560",
+  "_func_6561",
+  "_func_6562",
+  "_func_6563",
+  "_func_6564",
+  "_func_6565",
+  "_func_6566",
+  "_func_6567",
+  "_func_6568",
+  "_func_6638",
+  "_func_6639",
+  "_func_6640",
+  "_func_6641",
+  "_func_6642",
+  "_func_6643",
+  "_func_6644",
+  "_func_6645",
+  "_func_6646",
+  "_func_6647",
+  "_func_6648",
+  "_func_6649",
+  "_func_6650",
+  "_func_6651",
+  "_func_6652",
+  "_func_6653",
+  "_func_6654",
+  "_func_6655",
+  "_func_6656",
+  "_func_CNoTrackObject_ptr",
+  "_func_int_uint",
+  "_func_void",
+  "_func_void_CObject_ptr",
+  "_func_void_void_ptr",
+  "_iobuf",
+  "_is_ctype_compatible",
+  "_locale_t",
+  "_onexit_t",
+  "_ptiddata",
+  "_s_CatchableType",
+  "_s_ESTypeList",
+  "_s_FuncInfo",
+  "_s_HandlerType",
+  "_s_TryBlockMapEntry",
+  "_s_UnwindMapEntry",
+  "_s__RTTIBaseClassDescriptor",
+  "_s__RTTIClassHierarchyDescriptor",
+  "_s__RTTICompleteObjectLocator",
+  "_setloc_struct",
+  "_strflt",
+  "_struct_1227",
+  "_struct_1228",
+  "_struct_1693",
+  "_struct_1696",
+  "_struct_1698",
+  "_struct_19",
+  "_struct_20",
+  "_struct_22",
+  "_struct_23",
+  "_struct_519",
+  "_struct_531",
+  "_struct_656",
+  "_struct_657",
+  "_tiddata",
+  "_union_1226",
+  "_union_1695",
+  "_union_1697",
+  "_union_226",
+  "_union_2260",
+  "_union_2683",
+  "_union_2685",
+  "_union_2691",
+  "_union_2702",
+  "_union_2711",
+  "_union_518",
+  "_union_530",
+  "_union_655",
+  "_union_658",
+  "action",
+  "eActCtxResult",
+  "enum_3272",
+  "errno_t",
+  "event",
+  "exception",
+  "facet",
+  "fpos_t",
+  "hostent",
+  "in_addr",
+  "intptr_t",
+  "ios_base",
+  "lconv",
+  "localeinfo_struct",
+  "localerefcount",
+  "locrefcount",
+  "pthreadlocinfo",
+  "pthreadmbcinfo",
+  "ptrdiff_t",
+  "rsize_t",
+  "setloc_struct",
+  "size_t",
+  "sockaddr",
+  "tagACTCTXW",
+  "tagARRAYDESC",
+  "tagBINDPTR",
+  "tagBIND_OPTS",
+  "tagBITMAPINFO",
+  "tagBITMAPINFOHEADER",
+  "tagCALLCONV",
+  "tagCOMPAREITEMSTRUCT",
+  "tagCY",
+  "tagDEC",
+  "tagDESCKIND",
+  "tagDISPPARAMS",
+  "tagDRAWTEXTPARAMS",
+  "tagDVTARGETDEVICE",
+  "tagELEMDESC",
+  "tagEXCEPINFO",
+  "tagFORMATETC",
+  "tagFUNCDESC",
+  "tagFUNCKIND",
+  "tagHELPINFO",
+  "tagIDLDESC",
+  "tagINITCOMMONCONTROLSEX",
+  "tagINTERFACEINFO",
+  "tagINVOKEKIND",
+  "tagLC_STRINGS",
+  "tagLOGPALETTE",
+  "tagMEASUREITEMSTRUCT",
+  "tagMSG",
+  "tagPAINTSTRUCT",
+  "tagPALETTEENTRY",
+  "tagPARAMDESC",
+  "tagPARAMDESCEX",
+  "tagPIXELFORMATDESCRIPTOR",
+  "tagPOINT",
+  "tagRECT",
+  "tagRGBQUAD",
+  "tagSAFEARRAY",
+  "tagSAFEARRAYBOUND",
+  "tagSIZE",
+  "tagSTATDATA",
+  "tagSTATSTG",
+  "tagSTGMEDIUM",
+  "tagSYSKIND",
+  "tagTEXTMETRICA",
+  "tagTLIBATTR",
+  "tagTYPEATTR",
+  "tagTYPEDESC",
+  "tagTYPEKIND",
+  "tagVARDESC",
+  "tagVARIANT",
+  "tagVARKIND",
+  "tagWINDOWPLACEMENT",
+  "tagWNDCLASSA",
+  "tagWNDCLASSEXA",
+  "threadlocaleinfostruct",
+  "threadlocinfo",
+  "threadmbcinfostruct",
+  "timecaps_tag",
+  "tm",
+  "uSTGMEDIUM",
+  "u_int",
+  "u_long",
+  "u_short",
+  "uintptr_t",
+  "va_list",
+  "wctype_t",
+  "wint_t",
+]
+
+[[struct]]
+name = "CLIENT_ID"
+size = 0x8
+
+  [[struct.field]]
+  offset = 0x0
+  name = "UniqueProcess"
+  type = "void *"
+  size = 0x4
+
+  [[struct.field]]
+  offset = 0x4
+  name = "UniqueThread"
+  type = "void *"
+  size = 0x4
+
+[[struct]]
+name = "CWormsApp"
+namespace = "/OpenWA"
+size = 0xA8
+
+  [[struct.field]]
+  offset = 0x0
+  name = "vtable"
+  type = "pointer"
+  size = 0x4
+  comment = "CWormsApp__vtable (0x662C90)"
+
+  [[struct.field]]
+  offset = 0x4
+  name = "_unknown_04"
+  type = "byte[160]"
+  size = 0xA0
+
+  [[struct.field]]
+  offset = 0xA4
+  name = "vtable2"
+  type = "pointer"
+  size = 0x4
+  comment = "Secondary vtable (PTR_LAB_00662d48)"
+
+[[struct]]
+name = "DDDisplay"
+namespace = "/OpenWA"
+size = 0x24E28
+
+  [[struct.field]]
+  offset = 0x0
+  name = "vtable"
+  type = "void *"
+  size = 0x4
+  comment = "DDDisplay vtable (0x66A218)"
+
+[[struct]]
+name = "GameInfo"
+namespace = "/OpenWA"
+size = 0x491
+
+  [[struct.field]]
+  offset = 0x40
+  type = "byte"
+  size = 0x1
+
+  [[struct.field]]
+  offset = 0x44
+  type = "undefined4"
+  size = 0x4
+
+  [[struct.field]]
+  offset = 0x48
+  type = "undefined4"
+  size = 0x4
+
+  [[struct.field]]
+  offset = 0x4C
+  type = "undefined4"
+  size = 0x4
+
+  [[struct.field]]
+  offset = 0x50
+  type = "undefined4"
+  size = 0x4
+
+  [[struct.field]]
+  offset = 0x54
+  type = "undefined1"
+  size = 0x1
+
+  [[struct.field]]
+  offset = 0x48B
+  type = "char"
+  size = 0x1
+
+  [[struct.field]]
+  offset = 0x48C
+  type = "byte"
+  size = 0x1
+
+[[struct]]
+name = "GameInfoTeamRecord"
+namespace = "/OpenWA"
+size = 0xBB8
+
+  [[struct.field]]
+  offset = 0x0
+  name = "owner_player_slot"
+  type = "char"
+  size = 0x1
+
+  [[struct.field]]
+  offset = 0x1
+  name = "team_color_idx"
+  type = "byte"
+  size = 0x1
+
+  [[struct.field]]
+  offset = 0x2
+  name = "eliminated_flag"
+  type = "byte"
+  size = 0x1
+
+  [[struct.field]]
+  offset = 0x3
+  name = "turn_order_idx"
+  type = "byte"
+  size = 0x1
+
+  [[struct.field]]
+  offset = 0x4
+  name = "_unknown_004"
+  type = "byte"
+  size = 0x1
+
+  [[struct.field]]
+  offset = 0x5
+  name = "wins_count"
+  type = "byte"
+  size = 0x1
+
+  [[struct.field]]
+  offset = 0x6
+  name = "name"
+  type = "char[16]"
+  size = 0x10
+
+  [[struct.field]]
+  offset = 0x16
+  name = "_rest_016"
+  type = "byte[2650]"
+  size = 0xA5A
+
+  [[struct.field]]
+  offset = 0xA70
+  name = "fire_effect_tier"
+  type = "dword"
+  size = 0x4
+
+  [[struct.field]]
+  offset = 0xA74
+  name = "_rest_a74"
+  type = "byte[324]"
+  size = 0x144
+
+[[struct]]
+name = "type_info"
+size = 0x0
+plate_comment = "PlaceHolder Class Structure"
+
+[[union]]
+name = "IMAGE_RESOURCE_DIRECTORY_ENTRY_DirectoryUnion"
+size = 0x4
+
+  [[union.field]]
+  offset = 0x0
+  name = "OffsetToData"
+  type = "dword"
+  size = 0x4
+
+  [[union.field]]
+  offset = 0x0
+  name = "IMAGE_RESOURCE_DIRECTORY_ENTRY_DirectoryStruct"
+  type = "IMAGE_RESOURCE_DIRECTORY_ENTRY_DirectoryStruct"
+  size = 0x4
+
+[[typedef]]
+name = "FuncInfo"
+target = "_s_FuncInfo"
+
+[[typedef]]
+name = "HandlerType"
+target = "_s_HandlerType"
+
+[[typedef]]
+name = "ImageBaseOffset32"
+target = "pointer32"
+
+[[typedef]]
+name = "RTTIBaseClassDescriptor"
+target = "_s__RTTIBaseClassDescriptor"
+
+[[typedef]]
+name = "RTTIClassHierarchyDescriptor"
+target = "_s__RTTIClassHierarchyDescriptor"
+
+[[typedef]]
+name = "RTTICompleteObjectLocator"
+target = "_s__RTTICompleteObjectLocator"
+
+[[typedef]]
+name = "TryBlockMapEntry"
+target = "_s_TryBlockMapEntry"
+
+[[typedef]]
+name = "UnwindMapEntry"
+target = "_s_UnwindMapEntry"
+
+[[typedef]]
+name = "__int64"
+target = "longlong"
+
+[[typedef]]
+name = "__uint64"
+target = "ulonglong"

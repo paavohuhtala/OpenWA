@@ -1,0 +1,7 @@
+[[function]]
+va = 0x005732E0
+name = "LayerSpriteFrame__Destructor"
+
+[[function]]
+va = 0x00573C30
+name = "LayerSpriteFrame__Constructor"

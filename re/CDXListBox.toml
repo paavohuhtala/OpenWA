@@ -1,0 +1,159 @@
+[[function]]
+va = 0x0041BD40
+name = "CDXListBox__ctor_CDXListBox"
+
+[[function]]
+va = 0x0041BE20
+name = "CDXListBox__dtor0_CDXListBox"
+
+[[function]]
+va = 0x0041BE40
+name = "CDXListBox__dtor1_CDXListBox"
+
+[[function]]
+va = 0x0041BEC0
+name = "CDXListBox__getMessageMap"
+
+[[function]]
+va = 0x0041BED0
+name = "CDXListBox__sub_41BED0"
+
+[[function]]
+va = 0x0041BF70
+name = "CDXListBox__sub_41BF70"
+
+[[function]]
+va = 0x0041C010
+name = "CDXListBox__sub_41C010"
+
+[[function]]
+va = 0x0041C030
+name = "CDXListBox__sub_41C030"
+
+[[function]]
+va = 0x0041C330
+name = "CDXListBox__sub_41C330"
+
+[[function]]
+va = 0x0041C3B0
+name = "CDXListBox__sub_41C3B0"
+
+[[function]]
+va = 0x0041C570
+name = "CDXListBox__sub_41C570"
+
+[[function]]
+va = 0x0041C750
+name = "CDXListBox__sub_41C750"
+
+[[function]]
+va = 0x0041C7A0
+name = "CDXListBox__sub_41C7A0"
+
+[[function]]
+va = 0x0041C7D0
+name = "CDXListBox__sub_41C7D0"
+
+[[function]]
+va = 0x0041CC70
+name = "CDXListBox__sub_41CC70"
+
+[[function]]
+va = 0x0041CCC0
+name = "CDXListBox__sub_41CCC0"
+
+[[function]]
+va = 0x0041CD10
+name = "CDXListBox__sub_41CD10"
+
+[[function]]
+va = 0x0041CD50
+name = "CDXListBox__sub_41CD50"
+
+[[function]]
+va = 0x0041CD90
+name = "CDXListBox__sub_41CD90"
+
+[[function]]
+va = 0x0041CDF0
+name = "CDXListBox__sub_41CDF0"
+
+[[function]]
+va = 0x0041CF50
+name = "CDXListBox__sub_41CF50"
+
+[[function]]
+va = 0x0041CF90
+name = "CDXListBox__sub_41CF90"
+
+[[function]]
+va = 0x0041CFE0
+name = "CDXListBox__sub_41CFE0"
+
+[[function]]
+va = 0x0041D080
+name = "CDXListBox__sub_41D080"
+
+[[function]]
+va = 0x0041D0D0
+name = "CDXListBox__sub_41D0D0"
+
+[[function]]
+va = 0x0041D150
+name = "CDXListBox__sub_41D150"
+
+[[function]]
+va = 0x0041D1A0
+name = "CDXListBox__sub_41D1A0"
+
+[[function]]
+va = 0x0041D1E0
+name = "CDXListBox__sub_41D1E0"
+
+[[function]]
+va = 0x0041D230
+name = "CDXListBox__sub_41D230"
+
+[[function]]
+va = 0x0041D3A0
+name = "CDXListBox__sub_41D3A0"
+
+[[function]]
+va = 0x0041D3B0
+name = "CDXListBox__sub_41D3B0"
+
+[[function]]
+va = 0x0041D400
+name = "CDXListBox__sub_41D400"
+
+[[function]]
+va = 0x0041D420
+name = "CDXListBox__sub_41D420"
+
+[[function]]
+va = 0x0041D440
+name = "CDXListBox__sub_41D440"
+
+[[function]]
+va = 0x0041D460
+name = "CDXListBox__sub_41D460"
+
+[[function]]
+va = 0x0041D4B0
+name = "CDXListBox__sub_41D4B0"
+
+[[function]]
+va = 0x0041D4C0
+name = "CDXListBox__sub_41D4C0"
+
+[[function]]
+va = 0x0041D4D0
+name = "CDXListBox__sub_41D4D0"
+
+[[function]]
+va = 0x0041D530
+name = "CDXListBox__sub_41D530"
+
+[[function]]
+va = 0x0041D5C0
+name = "CDXListBox__sub_41D5C0"

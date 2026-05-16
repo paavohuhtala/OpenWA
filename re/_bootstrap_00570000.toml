@@ -1,0 +1,31 @@
+[[function]]
+va = 0x005714B0
+name = "DSSound_LoadEffectWAVs"
+
+[[function]]
+va = 0x00571660
+name = "DSSound_LoadSpeechBank"
+
+[[function]]
+va = 0x00571A70
+name = "DSSound_LoadAllSpeechBanks"
+
+[[function]]
+va = 0x00575590
+name = "VectorNormalize_Simple"
+
+[[function]]
+va = 0x005755D0
+name = "VectorNormalize_Overflow"
+
+[[function]]
+va = 0x0057C300
+name = "WriteLandRaw"
+
+[[function]]
+va = 0x0057CC10
+name = "RedrawLandRegion"
+
+[[function]]
+va = 0x0057D7F0
+name = "Landscape_DrawBorders"

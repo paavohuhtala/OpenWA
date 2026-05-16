@@ -1,0 +1,40 @@
+[[function]]
+va = 0x004FDF90
+name = "SharedData__Lookup"
+
+[[function]]
+va = 0x005406A0
+name = "SharedData__Insert"
+plate_comment = """
+SharedData__Insert(shared_data: *mut u8, entity: *const u8) -> u32
+  __usercall: param_1=stack[0], param_2=stack[4], ESI=key_esi, EDI=key_edi
+
+Allocates a 0x30-byte node and inserts it into the 256-bucket hash table at shared_data:
+  node[0] = *bucket_head  (next pointer)
+  node[1] = EDI           (key_edi)
+  node[2] = ESI           (key_esi)
+  node[3] = param_2       (entity pointer)
+  *bucket_head = node
+
+Hash: bucket = (key_esi * 0x11 + key_edi) &amp; 0x800000ff, with sign-bit correction → effectively &amp; 0xff.
+
+All tasks in the same game tree share the same shared_data block (CTask+0x24).
+Root tasks own 0x420 bytes: 256×4 bucket heads (0x000..0x3FF) + 0x20 bytes other.
+Called from CTaskWorm constructor (and likely all CGameTask-derived constructors).
+
+See also: SharedData__Remove (0x540700)
+"""
+
+[[function]]
+va = 0x00540700
+name = "SharedData__Remove"
+plate_comment = """
+SharedData__Remove(shared_data: *mut u8) -> u32
+  __usercall: param_1=stack[0], ESI=key_esi, EDI=key_edi
+
+Removes and frees the node from the hash table at shared_data matching (key_edi, key_esi).
+Walks the linked list for bucket = (key_esi * 0x11 + key_edi) &amp; 0xff, unlinks and _free()s
+the matching node. Returns 1 on success, 0 if not found.
+
+See also: SharedData__Insert (0x5406a0)
+"""

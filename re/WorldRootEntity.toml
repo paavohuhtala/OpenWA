@@ -1,0 +1,40 @@
+[[function]]
+va = 0x0055B280
+name = "WorldRootEntity__Constructor"
+
+[[function]]
+va = 0x0055B560
+name = "WorldRootEntity__Constructor_1"
+
+[[function]]
+va = 0x0055B620
+name = "WorldRootEntity__Destructor_1"
+
+[[function]]
+va = 0x0055B850
+name = "WorldRootEntity__ConstructPointers"
+
+[[function]]
+va = 0x0055BB50
+name = "WorldRootEntity__SurrenderTeam"
+plate_comment = "Per-team HP delta detector: sums two HP fields across all worms in team (slot+0 and slot+8 at world.worm_record[team_idx_1based]) and broadcasts message 0x2B with team_idx if delta detected. Worm-record stride = 0x51C, worm-slot stride = 0x9C. Gate at +0x4618 (i32, !=0 = skip), worm count at +0x4624. Called from FUN_0055D020 / FUN_0055D080 with team_idx 1-based."
+
+[[function]]
+va = 0x005612E0
+name = "WorldRootEntity__HudDataQuery"
+
+[[global]]
+va = 0x00669F70
+name = "WorldRootEntity__vtable"
+
+[[label]]
+va = 0x0055B2B1
+name = "WorldRootEntity__Constructor"
+
+[[label]]
+va = 0x0055B58C
+name = "WorldRootEntity__Constructor_FromSave"
+
+[[label]]
+va = 0x0055B63E
+name = "WorldRootEntity__Destructor"
