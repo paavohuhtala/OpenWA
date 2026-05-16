@@ -18,8 +18,8 @@ name = "FireWeapon__Projectile"
   type = "void *"
 
   [[function.param]]
-  name = "param_3"
-  type = "void *"
+  name = "release_ctx"
+  type = "WeaponReleaseContext *"
 
 [[function]]
 va = 0x0051E0F0

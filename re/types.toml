@@ -1009,6 +1009,89 @@ name = "type_info"
 size = 0x0
 plate_comment = "PlaceHolder Class Structure"
 
+[[struct]]
+name = "WeaponReleaseContext"
+namespace = "/OpenWA"
+size = 0x2C
+plate_comment = "0x2C / 11-DWORD spawn buffer built on the stack by WeaponRelease (0x51C3D0). Consumed by special-subtype handlers, ProjectileFire (reinterprets spawn_offset_{x,y} as launch velocity), and MissileEntity::Constructor (copies the buffer verbatim into MissileEntity+0x130)."
+
+  [[struct.field]]
+  offset = 0x0
+  name = "owner_id"
+  type = "dword"
+  size = 0x4
+  comment = "Team index of the worm that fired this projectile."
+
+  [[struct.field]]
+  offset = 0x4
+  name = "owner_worm_id"
+  type = "dword"
+  size = 0x4
+  comment = "Worm index of the firing worm. Read by MissileEntity drown/super-animal handlers as pickup_class for some missile types."
+
+  [[struct.field]]
+  offset = 0x8
+  name = "spawn_x"
+  type = "int"
+  size = 0x4
+  comment = "World X position at launch. Fixed 16.16."
+
+  [[struct.field]]
+  offset = 0xC
+  name = "spawn_y"
+  type = "int"
+  size = 0x4
+  comment = "World Y position at launch. Fixed 16.16."
+
+  [[struct.field]]
+  offset = 0x10
+  name = "spawn_offset_x"
+  type = "int"
+  size = 0x4
+  comment = "Spawn offset / launch direction (X). WeaponRelease writes aim_dir x scale x N; ProjectileFire re-reads as initial velocity. Fixed 16.16."
+
+  [[struct.field]]
+  offset = 0x14
+  name = "spawn_offset_y"
+  type = "int"
+  size = 0x4
+  comment = "Spawn offset / launch direction (Y). See spawn_offset_x. Fixed 16.16."
+
+  [[struct.field]]
+  offset = 0x18
+  name = "cursor_x"
+  type = "int"
+  size = 0x4
+  comment = "Aim cursor X at time of fire. Sourced from WormEntity::weapon_param_1. Fixed 16.16."
+
+  [[struct.field]]
+  offset = 0x1C
+  name = "cursor_y"
+  type = "int"
+  size = 0x4
+  comment = "Aim cursor Y at time of fire. Fixed 16.16."
+
+  [[struct.field]]
+  offset = 0x20
+  name = "pellet_index"
+  type = "dword"
+  size = 0x4
+  comment = "Index within a cluster volley (0 for primary, N for Nth sub-pellet). Determines which half of weapon_data is copied to render_data."
+
+  [[struct.field]]
+  offset = 0x24
+  name = "bounce_delay"
+  type = "dword"
+  size = 0x4
+  comment = "Bounce-settle delay in frames. Sourced from WormEntity::selected_bounce_flag: 30 if 0, 60 if 1, else 0. Used by MissileEntity::Constructor as fallback for render_data[0x19] when missile_type is Standard (2) or Cluster (5)."
+
+  [[struct.field]]
+  offset = 0x28
+  name = "network_delay"
+  type = "int"
+  size = 0x4
+  comment = "Fuse timer in ms, from WormEntity::selected_fuse_value: (value+1)*1000 when within scheme bounds. Used by MissileEntity::Constructor as fallback for render_data[0x11]."
+
 [[union]]
 name = "IMAGE_RESOURCE_DIRECTORY_ENTRY_DirectoryUnion"
 size = 0x4
