@@ -75,6 +75,15 @@ pub struct Function {
     #[serde(default, skip_serializing_if = "is_false")]
     pub no_return: bool,
 
+    /// Mirror of Ghidra's `Function.hasCustomVariableStorage()`. When set,
+    /// `Function.updateFunction` is called with `CUSTOM_STORAGE` instead of
+    /// `DYNAMIC_STORAGE_FORMAL_PARAMS`, so the explicit `storage` strings
+    /// on each [`Param`] are honoured byte-for-byte. The calling convention
+    /// may still be `__stdcall` / `__thiscall` / etc. — Ghidra allows custom
+    /// storage on top of any base convention.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub custom_storage: bool,
+
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub signature: Option<Signature>,
 

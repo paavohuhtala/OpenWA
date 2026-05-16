@@ -65,8 +65,9 @@ public class ReExport extends GhidraScript {
 
             String cc = f.getCallingConventionName();
             boolean noReturn = f.hasNoReturn();
+            boolean customStorage = f.hasCustomVariableStorage();
             boolean ccCustom = cc != null && !cc.equals(defaultCC) && !cc.equals("unknown");
-            if (!ccCustom && !noReturn) continue;
+            if (!ccCustom && !noReturn && !customStorage) continue;
 
             StringBuilder e = new StringBuilder();
             e.append("    {");
@@ -76,6 +77,9 @@ public class ReExport extends GhidraScript {
             }
             if (noReturn) {
                 e.append(", \"no_return\": true");
+            }
+            if (customStorage) {
+                e.append(", \"custom_storage\": true");
             }
             e.append("}");
             entries.add(e.toString());

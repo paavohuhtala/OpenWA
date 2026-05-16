@@ -14,8 +14,12 @@
 //      references resolve cleanly).
 //   2. Typed globals — applies a DataType at a VA.
 //   3. Comments — Listing.setComment per (address, kind).
-//   4. Symbols — (VA, name) renames for functions, data, labels.
-//   5. Function metadata — plate comment, signature, params, custom
+//   4. Create missing functions — for any function-kind symbol at a VA
+//      where Ghidra hasn't auto-identified a Function, run
+//      CreateFunctionCmd so the subsequent symbol-rename and metadata
+//      passes have a target.
+//   5. Symbols — (VA, name) renames for functions, data, labels.
+//   6. Function metadata — plate comment, signature, params, custom
 //      storage, calling convention, no-return.
 //
 // Usage:
@@ -26,8 +30,11 @@
 
 import com.google.gson.Gson;
 import com.google.gson.annotations.SerializedName;
+import ghidra.app.cmd.disassemble.DisassembleCommand;
+import ghidra.app.cmd.function.CreateFunctionCmd;
 import ghidra.app.script.GhidraScript;
 import ghidra.program.model.address.Address;
+import ghidra.program.model.address.AddressSet;
 import ghidra.program.model.data.Category;
 import ghidra.program.model.data.CategoryPath;
 import ghidra.program.model.data.DataType;
@@ -95,8 +102,53 @@ public class ReImport extends GhidraScript {
         applyTypes(m);
         applyTypedGlobals(m);
         applyComments(m);
+        createMissingFunctions(m);
         applySymbols(m);
         applyFunctions(m);
+    }
+
+    /**
+     * On a blank Ghidra DB (fresh import + auto-analysis), many of our
+     * function VAs aren't recognised as functions yet — auto-analysis
+     * misses them, or they sit inside a region the analyser merged into
+     * a single oversized body. Create the function entries here so the
+     * subsequent symbol-rename and metadata-application passes have
+     * something to bind to. No-op on an already-curated DB.
+     */
+    private void createMissingFunctions(Manifest m) {
+        if (m.symbols == null || m.symbols.isEmpty()) return;
+        long t0 = System.currentTimeMillis();
+        int created = 0, skipped = 0, errors = 0;
+        for (SymbolSpec se : m.symbols) {
+            if (monitor.isCancelled()) break;
+            if (se.kind == null || !"function".equals(se.kind)) continue;
+            Address addr = parseAddr(se.va);
+            Function existing = currentProgram.getFunctionManager().getFunctionAt(addr);
+            if (existing != null) { skipped++; continue; }
+            try {
+                if (currentProgram.getListing().getInstructionAt(addr) == null) {
+                    DisassembleCommand dis = new DisassembleCommand(
+                        new AddressSet(addr), null, true);
+                    dis.applyTo(currentProgram, monitor);
+                }
+                CreateFunctionCmd cmd = new CreateFunctionCmd(
+                    null, addr, null, SourceType.USER_DEFINED);
+                if (cmd.applyTo(currentProgram, monitor)) {
+                    created++;
+                } else {
+                    errors++;
+                    printerr("Create function at " + addr + ": "
+                            + cmd.getStatusMsg());
+                }
+            } catch (Exception e) {
+                errors++;
+                printerr("Create function at " + addr + ": "
+                        + e.getClass().getSimpleName() + ": " + e.getMessage());
+            }
+        }
+        long dt = System.currentTimeMillis() - t0;
+        println("Function creation: " + created + " created, " + skipped
+                + " already-present, " + errors + " error(s) in " + dt + " ms.");
     }
 
     // ─── Manifest schema ─────────────────────────────────────────────────────
@@ -185,6 +237,7 @@ public class ReImport extends GhidraScript {
         String va;
         @SerializedName("calling_convention") String callingConvention;
         @SerializedName("no_return") boolean noReturn;
+        @SerializedName("custom_storage") boolean customStorage;
         @SerializedName("plate_comment") String plateComment;
         @SerializedName("return_type") String returnType;
         List<ParamSpec> params;
@@ -644,26 +697,28 @@ public class ReImport extends GhidraScript {
         }
         boolean hasParams = fe.params != null && !fe.params.isEmpty();
         boolean hasReturn = fe.returnType != null;
-        boolean anyCustomStorage = false;
-        if (hasParams) {
-            for (ParamSpec p : fe.params) {
-                if (p.storage != null) { anyCustomStorage = true; break; }
-            }
-        }
+        // Mirror Ghidra's `Function.hasCustomVariableStorage()` flag (carried
+        // through from the ReExport sidecar). When set, we keep every
+        // `storage` string verbatim under CUSTOM_STORAGE. When not set, we
+        // ignore `storage` strings entirely and let Ghidra recompute storage
+        // from the calling convention — necessary because the export step
+        // emits `this = ECX` even on plain `__thiscall` functions, which
+        // would otherwise flip the function to CUSTOM_STORAGE and leave the
+        // stack params UNASSIGNED.
+        boolean anyCustomStorage = fe.customStorage;
         if (hasParams || hasReturn) {
             Variable returnVar = null;
             if (hasReturn) {
                 DataType rt = dtParser.parse(fe.returnType);
                 if (anyCustomStorage) {
                     // CUSTOM_STORAGE mode requires explicit storage on every
-                    // slot. For void: VOID_STORAGE. For non-void returns under
-                    // custom storage, we currently leave it UNASSIGNED — the
-                    // TOML schema doesn't yet have a `return_storage` field;
-                    // add one if a real __usercall with non-void return shows
-                    // up (rare on x86 — return reg is always EAX/EDX:EAX).
-                    VariableStorage retStorage = "void".equals(rt.getName())
-                            ? VariableStorage.VOID_STORAGE
-                            : VariableStorage.UNASSIGNED_STORAGE;
+                    // slot. The TOML schema doesn't (yet) have a
+                    // `return_storage` field; synthesise from the type using
+                    // the x86 32-bit convention: void → VOID_STORAGE,
+                    // ≤4 bytes → EAX, 8 bytes → EDX:EAX. Anything else stays
+                    // UNASSIGNED (rare; add a real `return_storage` field
+                    // if it shows up).
+                    VariableStorage retStorage = synthesiseReturnStorage(rt, currentProgram);
                     returnVar = new ReturnParameterImpl(rt, retStorage, currentProgram);
                 } else {
                     returnVar = new ReturnParameterImpl(rt, currentProgram);
@@ -671,13 +726,34 @@ public class ReImport extends GhidraScript {
             }
             List<Variable> newParams = new ArrayList<>();
             if (hasParams) {
+                // Running stack offset for synthesised storage on params under
+                // CUSTOM_STORAGE that lack an explicit `storage` string. The
+                // TOML schema lets `this=ECX` be the only annotated slot on a
+                // __thiscall with custom storage; the stack params behind it
+                // would otherwise come back UNASSIGNED. Register-stored params
+                // don't advance the offset; explicit stack slots jump it past
+                // their reserved space.
+                int nextStackOffset = 0x4;
                 for (ParamSpec p : fe.params) {
                     DataType dt = dtParser.parse(p.type);
                     ParameterImpl param;
                     if (anyCustomStorage) {
-                        VariableStorage vs = (p.storage != null)
-                                ? parseStorage(p.storage, dt.getLength(), currentProgram)
-                                : VariableStorage.UNASSIGNED_STORAGE;
+                        VariableStorage vs;
+                        if (p.storage != null) {
+                            vs = parseStorage(p.storage, dt.getLength(), currentProgram);
+                            if (p.storage.startsWith("stack:")) {
+                                int paramSize = (dt.getLength() + 3) & ~3;
+                                nextStackOffset = Math.max(
+                                    nextStackOffset, vs.getStackOffset() + paramSize);
+                            }
+                            // Register-stored params (this=ECX/ESI etc) leave
+                            // nextStackOffset alone.
+                        } else {
+                            int size = dt.getLength() > 0 ? dt.getLength() : 4;
+                            int aligned = (size + 3) & ~3;
+                            vs = new VariableStorage(currentProgram, nextStackOffset, size);
+                            nextStackOffset += aligned;
+                        }
                         param = new ParameterImpl(p.name, dt, vs, currentProgram);
                     } else {
                         param = new ParameterImpl(p.name, dt, currentProgram);
@@ -699,6 +775,31 @@ public class ReImport extends GhidraScript {
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────────
+
+    private VariableStorage synthesiseReturnStorage(DataType rt, Program program)
+            throws Exception {
+        if ("void".equals(rt.getName())) {
+            return VariableStorage.VOID_STORAGE;
+        }
+        int size = rt.getLength();
+        if (size <= 0) {
+            return VariableStorage.UNASSIGNED_STORAGE;
+        }
+        if (size <= 4) {
+            Register eax = program.getRegister("EAX");
+            return eax != null
+                ? new VariableStorage(program, eax)
+                : VariableStorage.UNASSIGNED_STORAGE;
+        }
+        if (size == 8) {
+            Register edx = program.getRegister("EDX");
+            Register eax = program.getRegister("EAX");
+            return (edx != null && eax != null)
+                ? new VariableStorage(program, edx, eax)
+                : VariableStorage.UNASSIGNED_STORAGE;
+        }
+        return VariableStorage.UNASSIGNED_STORAGE;
+    }
 
     private Address parseAddr(String va) {
         long v = Long.parseLong(va.substring(2), 16);

@@ -209,6 +209,11 @@ pub struct Function {
     pub calling_convention: Option<String>,
     #[serde(default, skip_serializing_if = "is_false")]
     pub no_return: bool,
+    /// Mirror of Ghidra's `Function.hasCustomVariableStorage()`. When set,
+    /// ReImport switches to `CUSTOM_STORAGE` mode so `param.storage` strings
+    /// land verbatim instead of being recomputed by the calling convention.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub custom_storage: bool,
     /// Function-level plate / regular comment (shown in listing header).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub plate_comment: Option<String>,
@@ -452,6 +457,7 @@ fn collect_functions(cat: &Catalog) -> Vec<Function> {
 fn build_function(f: &model::Function) -> Option<Function> {
     let has_override = f.calling_convention.is_some()
         || f.no_return
+        || f.custom_storage
         || f.plate_comment.is_some()
         || f.signature.is_some()
         || !f.param.is_empty();
@@ -462,6 +468,7 @@ fn build_function(f: &model::Function) -> Option<Function> {
         va: format!("0x{:08X}", f.va),
         calling_convention: f.calling_convention.clone(),
         no_return: f.no_return,
+        custom_storage: f.custom_storage,
         plate_comment: f.plate_comment.clone(),
         return_type: f.signature.as_ref().map(|s| s.returns.clone()),
         params: f

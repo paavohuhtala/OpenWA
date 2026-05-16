@@ -718,8 +718,11 @@ fn parse_function<R: std::io::BufRead>(
         return Ok(());
     }
 
-    // Suppress the unused-variable lint; `custom_storage` is intentionally
-    // observed but not acted on — we emit storage only where the XML had it.
+    // `custom_storage` parsed here is a weak signal — XML emits REGISTER_VAR
+    // both for true __usercall functions AND for plain __thiscall (where
+    // `this=ECX` is the convention default, not a custom override). The
+    // authoritative `hasCustomVariableStorage()` flag comes through the
+    // sidecar overlay; keep the XML value as a fallback only.
     let _ = custom_storage;
 
     prog.functions.push(Function {
@@ -728,6 +731,7 @@ fn parse_function<R: std::io::BufRead>(
         calling_convention: None, // sidecar-supplied
         plate_comment: plate,
         no_return: false,
+        custom_storage: false, // sidecar-supplied
         signature,
         param: params,
         local: locals,

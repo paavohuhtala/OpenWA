@@ -48,6 +48,13 @@ enum Cmd {
         /// Output JSON path. ReImport.java consumes this directly.
         #[arg(long)]
         out: PathBuf,
+        /// Optional `_extras.json` produced by `ReExport.java`. When given,
+        /// its calling_convention / no_return entries are overlaid onto the
+        /// loaded TOML catalog before manifest emission. Lets us inject
+        /// these attributes without rewriting TOML (which is what a fresh
+        /// `--bootstrap` would do).
+        #[arg(long)]
+        extras: Option<PathBuf>,
     },
 
     /// Diff committed re/ against a Ghidra XML dump. (TODO)
@@ -69,7 +76,7 @@ fn main() -> Result<()> {
             force,
             dry_run,
         } => cmd_export(&re, &xml, bootstrap, force, dry_run),
-        Cmd::Import { out } => cmd_import(&re, &out),
+        Cmd::Import { out, extras } => cmd_import(&re, &out, extras.as_deref()),
         Cmd::Diff { xml } => cmd_diff(&re, &xml),
     }
 }
@@ -125,6 +132,9 @@ fn cmd_export(
     let mut prog = xml_in::parse_file(xml)?;
     let parse_dt = t0.elapsed();
 
+    let extras_path = extras_sidecar_path(xml);
+    let extras_applied = apply_extras_sidecar(&mut prog, &extras_path)?;
+
     let t1 = std::time::Instant::now();
     let rstats = resolve::resolve(&mut prog);
     let resolve_dt = t1.elapsed();
@@ -135,6 +145,17 @@ fn cmd_export(
         parse_dt.as_secs_f64(),
         resolve_dt.as_secs_f64(),
     );
+    match extras_applied {
+        Some(n) => eprintln!(
+            "  extras sidecar: {} applied {} attribute set(s)",
+            extras_path.display(),
+            n,
+        ),
+        None => eprintln!(
+            "  extras sidecar: {} not found — no calling-convention or no-return data",
+            extras_path.display(),
+        ),
+    }
     eprintln!(
         "  functions: {} kept, {} dropped (auto), {} dropped (library)",
         prog.stats.functions_kept,
@@ -220,10 +241,19 @@ fn cmd_export(
     Ok(())
 }
 
-fn cmd_import(re: &std::path::Path, out: &std::path::Path) -> Result<()> {
+fn cmd_import(
+    re: &std::path::Path,
+    out: &std::path::Path,
+    extras: Option<&std::path::Path>,
+) -> Result<()> {
     let t0 = std::time::Instant::now();
-    let cat = Catalog::load_from(re)?;
+    let mut cat = Catalog::load_from(re)?;
     let load_dt = t0.elapsed();
+
+    let extras_applied = match extras {
+        Some(p) => Some(apply_extras_to_catalog(&mut cat, p)?),
+        None => None,
+    };
 
     let report = validate::validate(&cat)?;
     if !report.ok() {
@@ -263,10 +293,131 @@ fn cmd_import(re: &std::path::Path, out: &std::path::Path) -> Result<()> {
             report.warnings.len()
         );
     }
+    if let Some(n) = extras_applied {
+        eprintln!("  Extras overlay: {n} function(s) updated from sidecar");
+    }
 
     Ok(())
 }
 
 fn cmd_diff(_re: &std::path::Path, _xml: &std::path::Path) -> Result<()> {
     anyhow::bail!("diff: not yet implemented")
+}
+
+/// Overlay calling_convention + no_return from a sidecar onto the catalog
+/// loaded from TOML. Functions in the sidecar that aren't in `re/` are
+/// silently skipped (they're typically MFC/CRT methods we filter out).
+fn apply_extras_to_catalog(
+    cat: &mut openwa_re_data::toml_io::Catalog,
+    path: &std::path::Path,
+) -> Result<usize> {
+    if !path.is_file() {
+        anyhow::bail!("extras sidecar not found: {}", path.display());
+    }
+    #[derive(serde::Deserialize)]
+    struct Sidecar {
+        functions: Vec<ExtrasEntry>,
+    }
+    #[derive(serde::Deserialize)]
+    struct ExtrasEntry {
+        va: String,
+        #[serde(default)]
+        calling_convention: Option<String>,
+        #[serde(default)]
+        no_return: bool,
+        #[serde(default)]
+        custom_storage: bool,
+    }
+    let raw = std::fs::read_to_string(path)?;
+    let sc: Sidecar = serde_json::from_str(&raw)?;
+    let mut applied = 0;
+    for e in sc.functions {
+        let va = parse_hex_va(&e.va)?;
+        let Some(entry) = cat.functions.get_mut(&va) else {
+            continue;
+        };
+        if e.calling_convention.is_some() {
+            entry.value.calling_convention = e.calling_convention;
+        }
+        if e.no_return {
+            entry.value.no_return = true;
+        }
+        if e.custom_storage {
+            entry.value.custom_storage = true;
+        }
+        applied += 1;
+    }
+    Ok(applied)
+}
+
+/// `ReExport.java` writes the sidecar at `<xml_prefix>_extras.json` — where
+/// `xml_prefix` is whatever the user passed as the prefix (the `.xml` then
+/// gets appended). So for `C:/tmp/wa_export.xml`, the sidecar is at
+/// `C:/tmp/wa_export_extras.json` (strip `.xml`, append `_extras.json`).
+fn extras_sidecar_path(xml: &std::path::Path) -> PathBuf {
+    let stem = xml.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+    let parent = xml.parent().unwrap_or_else(|| std::path::Path::new(""));
+    parent.join(format!("{stem}_extras.json"))
+}
+
+/// Overlay calling_convention and no_return from the sidecar onto matching
+/// functions in `prog`. Silent when the sidecar is missing (the original
+/// onboarding path produced XML only). Returns `Some(count)` when applied,
+/// `None` when the sidecar isn't present.
+fn apply_extras_sidecar(
+    prog: &mut openwa_re_data::xml_in::XmlProgram,
+    path: &std::path::Path,
+) -> Result<Option<usize>> {
+    if !path.is_file() {
+        return Ok(None);
+    }
+    #[derive(serde::Deserialize)]
+    struct Sidecar {
+        functions: Vec<ExtrasEntry>,
+    }
+    #[derive(serde::Deserialize)]
+    struct ExtrasEntry {
+        va: String,
+        #[serde(default)]
+        calling_convention: Option<String>,
+        #[serde(default)]
+        no_return: bool,
+        #[serde(default)]
+        custom_storage: bool,
+    }
+
+    let raw = std::fs::read_to_string(path)?;
+    let sc: Sidecar = serde_json::from_str(&raw)?;
+
+    // Build a VA → index map once; the function list is up to ~5K entries.
+    let mut by_va = std::collections::HashMap::with_capacity(prog.functions.len());
+    for (i, f) in prog.functions.iter().enumerate() {
+        by_va.insert(f.va, i);
+    }
+
+    let mut applied = 0;
+    for e in sc.functions {
+        let va = parse_hex_va(&e.va)?;
+        let Some(&i) = by_va.get(&va) else { continue };
+        let f = &mut prog.functions[i];
+        if e.calling_convention.is_some() {
+            f.calling_convention = e.calling_convention;
+        }
+        if e.no_return {
+            f.no_return = true;
+        }
+        if e.custom_storage {
+            f.custom_storage = true;
+        }
+        applied += 1;
+    }
+    Ok(Some(applied))
+}
+
+fn parse_hex_va(s: &str) -> Result<u32> {
+    let body = s
+        .strip_prefix("0x")
+        .or_else(|| s.strip_prefix("0X"))
+        .unwrap_or(s);
+    Ok(u32::from_str_radix(body, 16)?)
 }
